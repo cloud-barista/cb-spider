@@ -166,7 +166,7 @@ func handlePublicIP() {
 				if err != nil {
 					cblogger.Error(reqPublicIP, " PublicIP 정보 조회 실패 : ", err)
 				} else {
-					cblogger.Info("PublicIP[%s]  정보 조회 결과", reqPublicIP)
+					cblogger.Infof("PublicIP[%s]  정보 조회 결과", reqPublicIP)
 					spew.Dump(result)
 				}
 				fmt.Println("Finish GetPublicIP()")
@@ -202,7 +202,7 @@ func handlePublicIP() {
 					cblogger.Error(reqDelIP, " PublicIP 삭제 실패 : ", err)
 				} else {
 					if result {
-						cblogger.Info("PublicIP[%s] 삭제 완료", reqDelIP)
+						cblogger.Infof("PublicIP[%s] 삭제 완료", reqDelIP)
 					} else {
 						cblogger.Errorf("PublicIP[%s] 삭제 실패", reqDelIP)
 					}
