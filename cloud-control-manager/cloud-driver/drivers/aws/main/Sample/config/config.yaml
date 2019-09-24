@@ -1,0 +1,25 @@
+aws:
+
+  # AWS Credential Info
+  aws_access_key_id: None
+  aws_secret_access_key: None
+  region: ap-northeast-2
+  
+  # AMI
+  image_id: ami-047f7b46bd6dd5d84
+
+  # EC2
+  ec2_instance_id: i-0cdf0af13f19c9448
+  base_name: mcloud-barista
+  instance_type: t2.micro
+#  key_name: mcloud-barista-keypair
+  key_name: mcloud-barista
+  min_count: 1
+  max_count: 1
+
+  # Network
+  subnet_id: subnet-cf9ccf83
+  security_group_id: sg-0df1c209ea1915e4b
+
+  # PublicIP Test
+  public_ip: 13.209.241.236
