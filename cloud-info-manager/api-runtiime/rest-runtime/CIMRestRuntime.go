@@ -46,6 +46,7 @@ func apiServer() {
         e.POST("/driver", registerCloudDriver)
         e.GET("/driver", listCloudDriver)
         e.GET("/driver/:DriverName", getCloudDriver)
+        e.DELETE("/driver/:DriverName", unRegisterCloudDriver)
 
 	e.Logger.Fatal(e.Start(":1323"))
 
@@ -98,5 +99,16 @@ func getCloudDriver(c echo.Context) error {
         }
 
         return c.JSON(http.StatusOK, &cldinfo)
+}
+
+func unRegisterCloudDriver(c echo.Context) error {
+        cblog.Info("call unRegisterCloudDriver()")
+
+        result, err:= dim.UnRegisterCloudDriver(c.Param("DriverName"))
+        if err != nil {
+                return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+        }
+
+        return c.JSON(http.StatusOK, &result)
 }
 

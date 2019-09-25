@@ -10,6 +10,8 @@
 package connectionconfiginfomanager
 
 import (
+	"fmt"
+
 	"github.com/cloud-barista/cb-store/utils"
 	"github.com/cloud-barista/cb-store"
 	icbs "github.com/cloud-barista/cb-store/interfaces"
@@ -84,22 +86,29 @@ func getInfo(configName string) (*ConnectionConfigInfo, error) {
 	
 	key := "/cloud-info-spaces/connection-configs/" + configName
 
+	// key is not the key of cb-store, so we have to use GetList()
         keyValueList, err := store.GetList(key, true)
         if err != nil {
                 return nil, err
         }
 
         if len(keyValueList) < 1 {
-                return nil, nil
+                return nil, fmt.Errorf(configName + ": is not exist!")
         }
-	
-	kv := keyValueList[0]
 
-	cncInfo := &ConnectionConfigInfo{utils.GetNodeValue(kv.Key, 3), utils.GetNodeValue(kv.Key, 4),
-					utils.GetNodeValue(kv.Key, 5), utils.GetNodeValue(kv.Key, 6),
-					utils.GetNodeValue(kv.Key, 7),
-					}
-        return cncInfo, nil
+        for _, kv := range keyValueList {
+                // keyValueList should have ~/driverName/... or ~/driverName-01/...,
+                // so we have to check the sameness of driverName.
+                if utils.GetNodeValue(kv.Key, 3) == configName {
+			cncInfo := &ConnectionConfigInfo{utils.GetNodeValue(kv.Key, 3), utils.GetNodeValue(kv.Key, 4),
+				utils.GetNodeValue(kv.Key, 5), utils.GetNodeValue(kv.Key, 6),
+				utils.GetNodeValue(kv.Key, 7),
+				}
+			return cncInfo, nil
+		} // end of if
+	} // end of for
+
+        return nil, fmt.Errorf(configName + ": is not exist!")
 }
 
 // 1. get the original Key.
@@ -110,17 +119,24 @@ func deleteInfo(configName string) (bool, error) {
         key := "/cloud-info-spaces/connection-configs/" + configName
 
 // @todo lock-start
+	// key is not the key of cb-store, so we have to use GetList(
         keyValueList, err := store.GetList(key, true)
         if err != nil {
                 return false, err
         }
-
-	err = store.Delete(keyValueList[0].Key)
-	if err != nil {
-		return false, err
-	}
+        for _, kv := range keyValueList {
+		// keyValueList should have ~/driverName/... or ~/driverName-01/...,
+                // so we have to check the sameness of driverName.
+                if utils.GetNodeValue(kv.Key, 3) == configName {
+                        err = store.Delete(kv.Key)
+                        if err != nil {
+                                return false, err
+                        }
+                        return true, nil
+                }
+        }
 // @todo lock-end
 
-        return true, nil
+        return false, fmt.Errorf(configName + ": is not exist!")
 }
 

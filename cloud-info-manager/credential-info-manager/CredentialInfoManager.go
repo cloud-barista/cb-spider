@@ -34,6 +34,11 @@ type CredentialInfo struct {
 //====================================================================
 
 
+func RegisterCredentialInfo(crdInfo CredentialInfo) (*CredentialInfo, error) {
+        return RegisterCredential(crdInfo.CredentialName, crdInfo.ProviderName, crdInfo.KeyValueInfoList)
+}
+
+
 // 1. check params
 // 2. insert them into cb-store
 func RegisterCredential(credentialName string, providerName string, keyValueInfoList []icbs.KeyValue) (*CredentialInfo, error) {

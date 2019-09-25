@@ -31,6 +31,9 @@ type RegionInfo struct {
 }
 //====================================================================
 
+func RegisterRegionInfo(rgnInfo RegionInfo) (*RegionInfo, error) {
+        return RegisterRegion(rgnInfo.RegionName, rgnInfo.ProviderName, rgnInfo.KeyValueInfoList)
+}
 
 // 1. check params
 // 2. insert them into cb-store

@@ -10,6 +10,8 @@
 package driverinfomanager
 
 import (
+	"fmt"
+
 	"github.com/cloud-barista/cb-store/utils"
 	"github.com/cloud-barista/cb-store"
 	icbs "github.com/cloud-barista/cb-store/interfaces"
@@ -78,21 +80,28 @@ func getInfo(driverName string) (*CloudDriverInfo, error) {
 	
 	key := "/cloud-info-spaces/drivers/" + driverName
 
+	// key is not the key of cb-store, so we have to use GetList()
         keyValueList, err := store.GetList(key, true)
         if err != nil {
                 return nil, err
         }
 
 	if len(keyValueList) < 1 {
-		return nil, nil
+		return nil, fmt.Errorf(driverName + ": is not exist!")
 	}
 
-	providerName := utils.GetNodeValue(keyValueList[0].Key, 4)
-	driverLibFileName := keyValueList[0].Value
+        for _, kv := range keyValueList {
+		// keyValueList should have ~/driverName/... or ~/driverName-01/..., 
+		// so we have to check the sameness of driverName.
+                if utils.GetNodeValue(kv.Key, 3) == driverName {
+			providerName := utils.GetNodeValue(kv.Key, 4)
+			driverLibFileName := kv.Value
+			drvInfo := &CloudDriverInfo{driverName, providerName, driverLibFileName}
+			return drvInfo, nil
+                }
+        }
 
-	drvInfo := &CloudDriverInfo{driverName, providerName, driverLibFileName}
-
-        return drvInfo, nil
+        return nil, fmt.Errorf(driverName + ": is not exist!")
 }
 
 // 1. get the original Key.
@@ -104,17 +113,24 @@ func deleteInfo(driverName string) (bool, error) {
         key := "/cloud-info-spaces/drivers/" + driverName
 
 // @todo lock-start
+	// key is not the key of cb-store, so we have to use GetList()
         keyValueList, err := store.GetList(key, true)
         if err != nil {
                 return false, err
         }
-
-	err = store.Delete(keyValueList[0].Key)
-	if err != nil {
-		return false, err
+        for _, kv := range keyValueList {
+		// keyValueList should have ~/driverName/... or ~/driverName-01/..., 
+		// so we have to check the sameness of driverName.
+		if utils.GetNodeValue(kv.Key, 3) == driverName {
+			err = store.Delete(kv.Key)
+			if err != nil {
+				return false, err
+			}
+			return true, nil
+		}
 	}
 // @todo lock-end
 
-        return true, nil
+        return false, fmt.Errorf(driverName + ": is not exist!")
 }
 

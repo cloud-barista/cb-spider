@@ -132,24 +132,39 @@ func getInfo(credentialName string) (*CredentialInfo, error) {
 	
 	key := "/cloud-info-spaces/credentials/" + credentialName
 
+	// key is not the key of cb-store, so we have to use GetList()
         keyValueList, err := store.GetList(key, true)
         if err != nil {
                 return nil, err
         }
 
-	if len(keyValueList) > 0 {
-		var inKeyValueList []icbs.KeyValue
+        if len(keyValueList) < 1 {
+                return nil, fmt.Errorf(credentialName + ": is not exist!")
+        }
 
-		providerName := utils.GetNodeValue(keyValueList[0].Key, 4)
-		// get KeyValueList
-		for _, kv := range keyValueList {
-			keyValue := icbs.KeyValue{utils.GetNodeValue(kv.Key, 5), kv.Value}
-			inKeyValueList = append(inKeyValueList, keyValue)
+	// keyValueList should have ~/driverName/... or ~/driverName-01/...,
+	// so we have to check the sameness of driverName.
+	// and make a KeyValueList for only Target key
+	var oneKeyValueList []icbs.KeyValue
+	for _, kv := range keyValueList {
+		if utils.GetNodeValue(kv.Key, 3) == credentialName {
+			oneKeyValueList = append(oneKeyValueList, *kv)
 		}
-		return &CredentialInfo{credentialName, providerName, inKeyValueList}, nil 
 	}
 
-        return nil, fmt.Errorf("no Results!")
+        if len(oneKeyValueList) < 1 {
+                return nil, fmt.Errorf(credentialName + ": is not exist!")
+        }
+
+	var inKeyValueList []icbs.KeyValue
+	// get ProviderName
+	providerName := utils.GetNodeValue(oneKeyValueList[0].Key, 4)
+	// get KeyValueList
+	for _, kv := range oneKeyValueList {
+		keyValue := icbs.KeyValue{utils.GetNodeValue(kv.Key, 5), kv.Value}
+		inKeyValueList = append(inKeyValueList, keyValue)
+	}
+	return &CredentialInfo{credentialName, providerName, inKeyValueList}, nil 
 }
 
 // 1. get the original Key.
@@ -164,19 +179,25 @@ func deleteInfo(credentialName string) (bool, error) {
 	key := "/cloud-info-spaces/credentials/" + credentialName
 
 // @todo lock-start
+	// key is not the key of cb-store, so we have to use GetList()
         keyValueList, err := store.GetList(key, true)
         if err != nil {
                 return false, err
         }
 
-	for _, kv := range keyValueList {
-		err = store.Delete(kv.Key)
-		if err != nil {
-			return false, err
-		}
-	}
+        for _, kv := range keyValueList {
+		// keyValueList should have ~/driverName/... or ~/driverName-01/..., 
+		// so we have to check the sameness of driverName.
+                if utils.GetNodeValue(kv.Key, 3) == credentialName {
+                        err = store.Delete(kv.Key)
+                        if err != nil {
+                                return false, err
+                        }
+                        return true, nil
+                }
+        }
 // @todo lock-end
 
-        return true, nil
+        return false, fmt.Errorf(credentialName + ": is not exist!")
 }
 
