@@ -17,9 +17,19 @@ type PublicIPReqInfo struct {
 }
 
 type PublicIPInfo struct {
-	Name string
+	Name string // AWS
 	Id   string
 	// @todo
+
+	Domain                  string // AWS
+	PublicIp                string // AWS
+	PublicIpv4Pool          string // AWS
+	AllocationId            string // AWS:할당ID
+	AssociationId           string // AWS:연결ID
+	InstanceId              string // AWS:연결된 VM
+	NetworkInterfaceId      string // AWS:연결된 Nic
+	NetworkInterfaceOwnerId string // AWS
+	PrivateIpAddress        string // AWS
 }
 
 type PublicIPHandler interface {
