@@ -12,11 +12,11 @@ package connect
 
 import (
 	cblog "github.com/cloud-barista/cb-log"
-	idrv "github.com/cloud-barista/cb-spider/cloud-driver/interfaces"
-	irs "github.com/cloud-barista/cb-spider/cloud-driver/interfaces/resources"
+	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
+	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/sirupsen/logrus"
 
-	ars "github.com/cloud-barista/cb-spider/cloud-driver/drivers/aws/resources"
+	ars "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/aws/resources"
 
 	//ec2drv "github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/ec2"

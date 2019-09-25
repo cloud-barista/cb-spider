@@ -15,9 +15,9 @@ import (
 	"io/ioutil"
 	"os"
 
-	awsdrv "github.com/cloud-barista/cb-spider/cloud-driver/drivers/aws"
-	idrv "github.com/cloud-barista/cb-spider/cloud-driver/interfaces"
-	irs "github.com/cloud-barista/cb-spider/cloud-driver/interfaces/resources"
+	awsdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/aws"
+	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
+	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v3"
