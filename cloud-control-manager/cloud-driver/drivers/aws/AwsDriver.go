@@ -14,9 +14,9 @@ package aws
 import (
 	"C"
 
-	acon "github.com/cloud-barista/cb-spider/cloud-driver/drivers/aws/connect"
-	idrv "github.com/cloud-barista/cb-spider/cloud-driver/interfaces"
-	icon "github.com/cloud-barista/cb-spider/cloud-driver/interfaces/connect"
+	acon "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/aws/connect"
+	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
+	icon "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/connect"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"

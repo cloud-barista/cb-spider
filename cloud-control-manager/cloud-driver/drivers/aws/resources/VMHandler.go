@@ -19,8 +19,8 @@ import (
 	"github.com/sirupsen/logrus"
 
 	cblog "github.com/cloud-barista/cb-log"
-	idrv "github.com/cloud-barista/cb-spider/cloud-driver/interfaces"
-	irs "github.com/cloud-barista/cb-spider/cloud-driver/interfaces/resources"
+	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
+	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 )
 
 type AwsVMHandler struct {
