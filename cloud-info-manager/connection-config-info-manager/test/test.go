@@ -50,6 +50,7 @@ fmt.Println("\n============== ListConnectionConfig()")
 
 	for _, keyValue := range keyValueList {
                 fmt.Printf(" === %#v\n", keyValue)
+		cim.GetConnectionConfig(keyValue.ConfigName)
         }
 
 fmt.Println("\n============== DeleteConnectionConfig()")

@@ -46,6 +46,7 @@ fmt.Println("\n============== ListCloudDriver()")
 
 	for _, keyValue := range keyValueList {
                 fmt.Printf(" === %#v\n", keyValue)
+		dim.GetCloudDriver(keyValue.DriverName)
         }
 
 fmt.Println("\n============== UnRegisterCloudDriver()")

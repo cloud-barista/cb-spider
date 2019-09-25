@@ -61,6 +61,7 @@ fmt.Println("\n============== ListRegion()")
 
 	for _, keyValue := range regionInfoList {
                 fmt.Printf(" === %#v\n", keyValue)
+		cim.GetRegion(keyValue.RegionName)
         }
 
 fmt.Println("\n============== UnRegisterRegion()")

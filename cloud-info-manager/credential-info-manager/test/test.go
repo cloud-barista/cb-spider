@@ -81,6 +81,7 @@ fmt.Println("\n============== ListCredential()")
 
 	for _, keyValue := range credentialInfoList {
                 fmt.Printf(" === %#v\n", keyValue)
+		cim.GetCredential(keyValue.CredentialName)
         }
 
 fmt.Println("\n============== UnRegisterCredential()")

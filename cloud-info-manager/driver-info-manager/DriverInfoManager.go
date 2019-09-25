@@ -29,6 +29,10 @@ type CloudDriverInfo struct {
 }
 //====================================================================
 
+func RegisterCloudDriverInfo(cldInfo CloudDriverInfo) (*CloudDriverInfo, error) {
+	return RegisterCloudDriver(cldInfo.DriverName, cldInfo.ProviderName, cldInfo.DriverLibFileName)
+}
+
 
 // 1. check params
 // 2. check driver files

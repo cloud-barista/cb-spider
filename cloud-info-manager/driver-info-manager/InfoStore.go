@@ -78,13 +78,17 @@ func getInfo(driverName string) (*CloudDriverInfo, error) {
 	
 	key := "/cloud-info-spaces/drivers/" + driverName
 
-        keyValue, err := store.Get(key)
+        keyValueList, err := store.GetList(key, true)
         if err != nil {
                 return nil, err
         }
 
-	providerName := utils.GetNodeValue(keyValue.Key, 4)
-	driverLibFileName := keyValue.Value
+	if len(keyValueList) < 1 {
+		return nil, nil
+	}
+
+	providerName := utils.GetNodeValue(keyValueList[0].Key, 4)
+	driverLibFileName := keyValueList[0].Value
 
 	drvInfo := &CloudDriverInfo{driverName, providerName, driverLibFileName}
 

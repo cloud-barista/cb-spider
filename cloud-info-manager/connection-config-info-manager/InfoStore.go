@@ -84,10 +84,16 @@ func getInfo(configName string) (*ConnectionConfigInfo, error) {
 	
 	key := "/cloud-info-spaces/connection-configs/" + configName
 
-        kv, err := store.Get(key)
+        keyValueList, err := store.GetList(key, true)
         if err != nil {
                 return nil, err
         }
+
+        if len(keyValueList) < 1 {
+                return nil, nil
+        }
+	
+	kv := keyValueList[0]
 
 	cncInfo := &ConnectionConfigInfo{utils.GetNodeValue(kv.Key, 3), utils.GetNodeValue(kv.Key, 4),
 					utils.GetNodeValue(kv.Key, 5), utils.GetNodeValue(kv.Key, 6),

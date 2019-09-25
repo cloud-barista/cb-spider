@@ -29,14 +29,6 @@ func init() {
         cblog = config.Cblogger
 }
 
-//====================================================================
-type CloudDriverInfo struct {
-	DriverName	string	// ex) "AWS-Test-Driver-V0.5"
-	ProviderName	string	// ex) "AWS"
-	DriverLibFileName	string	// ex) "aws-test-driver-v0.5.so"  //Already, you need to insert "*.so" in $CB_SPIDER_ROOT/cloud-driver/libs.
-}
-//====================================================================
-
 
 func apiServer() {
 
@@ -51,7 +43,9 @@ func apiServer() {
         })
 
         // Route
+        e.POST("/driver", registerCloudDriver)
         e.GET("/driver", listCloudDriver)
+        e.GET("/driver/:DriverName", getCloudDriver)
 
 	e.Logger.Fatal(e.Start(":1323"))
 
@@ -67,20 +61,42 @@ func main() {
 
 }
 
-func listCloudDriver(c echo.Context) error {
-	cblog.Info("call ListCloudDriver()")
+//================ Handler
+func registerCloudDriver(c echo.Context) error {
+        cblog.Info("call registerCloudDriver()")
 
-        var content struct {
-		CdrInfo []*dim.CloudDriverInfo `json:"CloudDriver"`
+	req := &dim.CloudDriverInfo{}
+        if err := c.Bind(req); err != nil {
+		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
         }
 
-	var err error
-        content.CdrInfo, err = dim.ListCloudDriver()
+        cldinfoList, err:= dim.RegisterCloudDriverInfo(*req)
         if err != nil {
-                return err
+		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
         }
 
-	cblog.Debugf("content %+v\n", content)
-        return c.JSON(http.StatusOK, &content)
+        return c.JSON(http.StatusOK, &cldinfoList)
+}
+
+func listCloudDriver(c echo.Context) error {
+        cblog.Info("call listCloudDriver()")
+
+        cldinfoList, err:= dim.ListCloudDriver()
+        if err != nil {
+		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+        }
+
+        return c.JSON(http.StatusOK, &cldinfoList)
+}
+
+func getCloudDriver(c echo.Context) error {
+        cblog.Info("call getCloudDriver()")
+
+        cldinfo, err:= dim.GetCloudDriver(c.Param("DriverName"))
+        if err != nil {
+		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+        }
+
+        return c.JSON(http.StatusOK, &cldinfo)
 }
 
