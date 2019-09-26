@@ -4,7 +4,6 @@
 # NUTSDB: embedded Key-Value Store on Local Filesystem
 storetype: NUTSDB
 #storetype: ETCD
-#storetype: ETCD
 
 nutsdb:
   dbpath: "/root/go/src/github.com/cloud-barista/cb-spider/meta_db/dat"

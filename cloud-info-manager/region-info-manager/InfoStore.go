@@ -185,6 +185,8 @@ func deleteInfo(regionName string) (bool, error) {
         if err != nil {
                 return false, err
         }
+
+        var isDelete bool
         for _, kv := range keyValueList {
 		// keyValueList should have ~/driverName/... or ~/driverName-01/..., 
 		// so we have to check the sameness of driverName.
@@ -193,11 +195,14 @@ func deleteInfo(regionName string) (bool, error) {
                         if err != nil {
                                 return false, err
                         }
-                        return true, nil
+                        isDelete = true
                 }
         }
 // @todo lock-end
 
+        if isDelete {
+                return true, nil
+        }
         return false, fmt.Errorf(regionName + ": is not exist!")
 }
 

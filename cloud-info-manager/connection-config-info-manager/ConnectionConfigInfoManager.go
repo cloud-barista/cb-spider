@@ -32,6 +32,10 @@ type ConnectionConfigInfo struct {
 //====================================================================
 
 
+func CreateConnectionConfigInfo(configInfo ConnectionConfigInfo) (*ConnectionConfigInfo, error) {
+	return CreateConnectionConfig(configInfo.ConfigName, configInfo.ProviderName, configInfo.DriverName, configInfo.CredentialName, configInfo.RegionName)
+}
+
 // 1. check params
 // 2. check driver files
 // 3. insert them into cb-store
