@@ -1,7 +1,6 @@
 package resources
 
 import (
-	cblog "github.com/cloud-barista/cb-log"
 	//"fmt"
 	//cblog "github.com/cloud-barista/cb-log"
 	"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/cloudit/client"
@@ -9,18 +8,9 @@ import (
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/davecgh/go-spew/spew"
-	"github.com/sirupsen/logrus"
-
 	//"github.com/sirupsen/logrus"
 	"strconv"
 )
-
-var cblogger *logrus.Logger
-
-func init() {
-	// cblog is a global variable.
-	cblogger = cblog.GetLogger("CB-SPIDER")
-}
 
 type ClouditImageHandler struct {
 	CredentialInfo idrv.CredentialInfo

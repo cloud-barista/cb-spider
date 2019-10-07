@@ -8,13 +8,6 @@ import (
 	"github.com/rackspace/gophercloud/pagination"
 )
 
-/*var cblogger *logrus.Logger
-
-func init() {
-	// cblog is a global variable.
-	cblogger = cblog.GetLogger("CB-SPIDER")
-}*/
-
 type OpenStackRouterHandler struct {
 	Client *gophercloud.ServiceClient
 }

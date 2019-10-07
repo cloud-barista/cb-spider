@@ -13,13 +13,6 @@ import (
 	"strconv"
 )
 
-/*var cblogger *logrus.Logger
-
-func init() {
-	// cblog is a global variable.
-	cblogger = cblog.GetLogger("CB-SPIDER")
-}*/
-
 type ClouditVNetworkHandler struct {
 	CredentialInfo idrv.CredentialInfo
 	Client         *client.RestClient

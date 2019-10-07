@@ -12,13 +12,6 @@ import (
 	"strings"
 )
 
-/*var cblogger *logrus.Logger
-
-func init() {
-	// cblog is a global variable.
-	cblogger = cblog.GetLogger("CB-SPIDER")
-}*/
-
 type AzureImageHandler struct {
 	Region idrv.RegionInfo
 	Ctx    context.Context

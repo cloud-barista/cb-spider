@@ -11,18 +11,20 @@
 package resources
 
 import (
+	cblog "github.com/cloud-barista/cb-log"
 	"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/cloudit/client"
 	"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/cloudit/client/ace/server"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
+	"github.com/sirupsen/logrus"
 )
 
-/*var cblogger *logrus.Logger
+var cblogger *logrus.Logger
 
 func init() {
 	// cblog is a global variable.
 	cblogger = cblog.GetLogger("CB-SPIDER")
-}*/
+}
 
 type ClouditVMHandler struct {
 	CredentialInfo idrv.CredentialInfo
