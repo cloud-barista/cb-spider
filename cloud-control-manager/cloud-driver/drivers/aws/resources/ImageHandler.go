@@ -27,6 +27,20 @@ func (imageHandler *AwsImageHandler) CreateImage(imageReqInfo irs.ImageReqInfo) 
 }
 
 func (imageHandler *AwsImageHandler) ListImage() ([]*irs.ImageInfo, error) {
+	//DescribeImages
+	/*
+		input := ec2.DescribeImagesInput{
+			ImageIds: []*string{&ami},
+		}
+		output, err := service.DescribeImages(&input)
+		if len(output.Images) > 0 {
+			checkError(err)
+			image := output.Images[0]
+			log.Printf("Found image in account: %s, with name: %s\n", *image.OwnerId, *image.Name)
+			log.Printf("Tags: %v", image.Tags)
+			return image
+		}
+	*/
 	return nil, nil
 }
 
