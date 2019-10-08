@@ -302,9 +302,10 @@ func handleVNetwork() {
 	}
 
 	vNetworkReqInfo := irs.VNetworkReqInfo{
-		Id:        "vpc-0083ad27cff8bae1f",
-		Name:      "vpc-create-test-mcloud-barista",
-		CidrBlock: "10.0.0.0/16",
+		Id:   "subnet-044a2b57145e5afc5",
+		Name: "CB-VNet-Subnet2",
+		//CidrBlock: "10.0.0.0/16",
+		CidrBlock: "192.168.20.0/24",
 	}
 
 	for {
@@ -334,6 +335,11 @@ func handleVNetwork() {
 					cblogger.Info("VNetwork 목록 조회 결과")
 					//cblogger.Info(result)
 					spew.Dump(result)
+
+					//조회및 삭제 테스트를 위해 리스트의 첫번째 서브넷 ID를 요청ID로 자동 갱신함.
+					if result != nil {
+						vNetworkReqInfo.Id = result[0].SubnetId // 조회 및 삭제를 위해 생성된 ID로 변경
+					}
 				}
 
 			case 2:
@@ -344,7 +350,7 @@ func handleVNetwork() {
 					cblogger.Infof(vNetworkReqInfo.Id, " VNetwork 생성 실패 : ", err)
 				} else {
 					cblogger.Infof("VNetwork 생성 결과 : ", result)
-					vNetworkReqInfo.Id = result.Id // 조회 및 삭제를 위해 생성된 ID로 변경
+					vNetworkReqInfo.Id = result.SubnetId // 조회 및 삭제를 위해 생성된 ID로 변경
 					spew.Dump(result)
 				}
 
