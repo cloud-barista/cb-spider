@@ -48,6 +48,12 @@ func (vmHandler *AzureVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 
 	rootPath := os.Getenv("CBSPIDER_PATH")
 	sshPublicKeyPath := rootPath + "/key/mcb-test-key.pub"
+
+	// TODO: golang.org/x/crypto/ssh lib 기반 키 생성 기능 개발
+	// Create Key (Private Key, Public Key)
+	var sshPublicKey string
+	fmt.Println(sshPublicKey)
+
 	var sshKeyData string
 	if _, err := os.Stat(sshPublicKeyPath); err == nil {
 		sshBytes, err := ioutil.ReadFile(sshPublicKeyPath)
@@ -93,6 +99,8 @@ func (vmHandler *AzureVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 							{
 								Path:    to.StringPtr(fmt.Sprintf("/home/%s/.ssh/authorized_keys", vmReqInfo.LoginInfo.AdminUsername)),
 								KeyData: &sshKeyData,
+								// TODO: golang.org/x/crypto/ssh lib 기반 키 생성 기능 개발
+								// KeyData: &sshPublicKey
 							},
 						},
 					},
