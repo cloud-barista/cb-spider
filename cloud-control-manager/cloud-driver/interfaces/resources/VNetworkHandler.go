@@ -14,6 +14,7 @@ type VNetworkReqInfo struct {
 	Name string
 	Id   string
 	// @todo
+	CidrBlock string // AWS
 }
 
 type VNetworkInfo struct {
@@ -21,6 +22,9 @@ type VNetworkInfo struct {
 	Id       string
 	SubnetId string
 	// @todo
+	CidrBlock string // AWS
+	IsDefault bool   // AWS
+	State     string // AWS
 }
 
 type VNetworkHandler interface {
