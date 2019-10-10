@@ -292,16 +292,21 @@ func handleKeyPair() {
 	}
 }
 
-// Test KeyPair
+// Test handleVNetwork (VPC)
 func handleVNetwork() {
-	cblogger.Debug("Start KeyPair Resource Test")
+	cblogger.Debug("Start VPC Resource Test")
 
 	vNetworkHandler, err := setVNetworkHandler()
 	if err != nil {
 		panic(err)
 	}
 
-	keyId := "test123"
+	vNetworkReqInfo := irs.VNetworkReqInfo{
+		Id:   "subnet-044a2b57145e5afc5",
+		Name: "CB-VNet-Subnet2",
+		//CidrBlock: "10.0.0.0/16",
+		CidrBlock: "192.168.20.0/24",
+	}
 
 	for {
 		fmt.Println("VNetworkHandler Management")
@@ -330,32 +335,42 @@ func handleVNetwork() {
 					cblogger.Info("VNetwork 목록 조회 결과")
 					//cblogger.Info(result)
 					spew.Dump(result)
+
+					//조회및 삭제 테스트를 위해 리스트의 첫번째 서브넷 ID를 요청ID로 자동 갱신함.
+					if result != nil {
+						vNetworkReqInfo.Id = result[0].SubnetId // 조회 및 삭제를 위해 생성된 ID로 변경
+					}
 				}
 
 			case 2:
-				cblogger.Infof("[%s] VNetwork 생성 테스트", keyId)
-				vNetworkReqInfo := irs.VNetworkReqInfo{}
+				cblogger.Infof("[%s] VNetwork 생성 테스트", vNetworkReqInfo.Name)
+				//vNetworkReqInfo := irs.VNetworkReqInfo{}
 				result, err := vNetworkHandler.CreateVNetwork(vNetworkReqInfo)
 				if err != nil {
-					cblogger.Infof(keyId, " VNetwork 생성 실패 : ", err)
+					cblogger.Infof(vNetworkReqInfo.Id, " VNetwork 생성 실패 : ", err)
 				} else {
 					cblogger.Infof("VNetwork 생성 결과 : ", result)
+					vNetworkReqInfo.Id = result.SubnetId // 조회 및 삭제를 위해 생성된 ID로 변경
+					spew.Dump(result)
 				}
+
 			case 3:
-				cblogger.Infof("[%s] VNetwork 조회 테스트", keyId)
-				result, err := vNetworkHandler.GetVNetwork(keyId)
+				cblogger.Infof("[%s] VNetwork 조회 테스트", vNetworkReqInfo.Id)
+				result, err := vNetworkHandler.GetVNetwork(vNetworkReqInfo.Id)
 				if err != nil {
-					cblogger.Infof("[%s] VNetwork 조회 실패 : ", keyId, err)
+					cblogger.Infof("[%s] VNetwork 조회 실패 : ", vNetworkReqInfo.Id, err)
 				} else {
-					cblogger.Infof("[%s] VNetwork 조회 결과 : [%s]", keyId, result)
+					cblogger.Infof("[%s] VNetwork 조회 결과 : [%s]", vNetworkReqInfo.Id, result)
+					spew.Dump(result)
 				}
+
 			case 4:
-				cblogger.Infof("[%s] VNetwork 삭제 테스트", keyId)
-				result, err := vNetworkHandler.DeleteVNetwork(keyId)
+				cblogger.Infof("[%s] VNetwork 삭제 테스트", vNetworkReqInfo.Id)
+				result, err := vNetworkHandler.DeleteVNetwork(vNetworkReqInfo.Id)
 				if err != nil {
-					cblogger.Infof("[%s] VNetwork 삭제 실패 : ", keyId, err)
+					cblogger.Infof("[%s] VNetwork 삭제 실패 : ", vNetworkReqInfo.Id, err)
 				} else {
-					cblogger.Infof("[%s] VNetwork 삭제 결과 : [%s]", keyId, result)
+					cblogger.Infof("[%s] VNetwork 삭제 결과 : [%s]", vNetworkReqInfo.Id, result)
 				}
 			}
 		}
@@ -365,9 +380,9 @@ func handleVNetwork() {
 func main() {
 	cblogger.Info("AWS Resource Test")
 	//handleKeyPair()
-	handlePublicIP() // PublicIP 생성 후 conf
+	//handlePublicIP() // PublicIP 생성 후 conf
 
-	//handleVNetwork()	//VPC
+	handleVNetwork() //VPC
 	//handleSecurity()
 
 	/*
