@@ -21,7 +21,7 @@ type VMReqInfo struct {
         VirtualNetworkId string 
         NetworkInterfaceId string
         PublicIPId string
-        SecurityGroupId []string
+        SecurityGroupIds []string
 
         VMSpecId       string
 
@@ -63,9 +63,9 @@ type VMInfo struct {
 
         Region       RegionInfo // AWS, ex) {us-east1, us-east1-c} or {ap-northeast-2}
         ImageId string
-        VMSpecId string     // AWS, instance type or flavour, etc... ex) t2.micro or f1-micro
+        VMSpecId string     // AWS, instance type or flavour, etc... ex) t2.micro or f1.micro
         VirtualNetworkId string     // AWS, ex) subnet-8c4a53e4
-        SecurityGroupId   []string     // AWS, ex) sg-0b7452563e1121bb6
+        SecurityGroupIds   []string     // AWS, ex) sg-0b7452563e1121bb6
 
         NetworkInterfaceId string // ex) eth0
         PublicIP   string // ex) AWS, 13.125.43.21

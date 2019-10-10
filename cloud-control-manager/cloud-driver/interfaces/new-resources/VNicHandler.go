@@ -18,6 +18,7 @@ type VNicReqInfo struct {
 }
 
 type VNicInfo struct {
+     Id   string 
      Name   string 
      PublicIP     string 
      MacAdress    string 

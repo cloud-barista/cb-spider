@@ -23,6 +23,7 @@ type SecurityRuleInfo struct {
 }
 
 type SecurityInfo struct {
+     Id string
      Name string
      SecurityRules *[]SecurityRuleInfo
 
