@@ -120,7 +120,7 @@ func (vNetworkHandler *AwsVNetworkHandler) ListVNetwork() ([]*irs.VNetworkInfo, 
 
 	for _, curSubnet := range result.Subnets {
 		cblogger.Infof("[%s] Subnet 정보 조회", *curSubnet.SubnetId)
-		vNetworkInfo := ExtractDescribeInfo(curSubnet)
+		vNetworkInfo := ExtractSubnetDescribeInfo(curSubnet)
 		vNetworkInfoList = append(vNetworkInfoList, &vNetworkInfo)
 	}
 
@@ -320,7 +320,7 @@ func (vNetworkHandler *AwsVNetworkHandler) CreateVNetwork(vNetworkReqInfo irs.VN
 	spew.Dump(result)
 
 	//vNetworkInfo := irs.VNetworkInfo{}
-	vNetworkInfo := ExtractDescribeInfo(result.Subnet)
+	vNetworkInfo := ExtractSubnetDescribeInfo(result.Subnet)
 
 	//Subnet Name 태깅
 	tagInput := &ec2.CreateTagsInput{
@@ -384,7 +384,7 @@ func (vNetworkHandler *AwsVNetworkHandler) GetVNetwork(vNetworkID string) (irs.V
 	cblogger.Info(result)
 	//spew.Dump(result)
 	if !reflect.ValueOf(result.Subnets).IsNil() {
-		vNetworkInfo := ExtractDescribeInfo(result.Subnets[0])
+		vNetworkInfo := ExtractSubnetDescribeInfo(result.Subnets[0])
 		return vNetworkInfo, nil
 	} else {
 		return irs.VNetworkInfo{}, nil
@@ -414,7 +414,7 @@ func ExtractVpcDescribeInfo(vpcInfo *ec2.Vpc) AwsVpcInfo {
 }
 
 //Subnet 정보를 추출함
-func ExtractDescribeInfo(subnetInfo *ec2.Subnet) irs.VNetworkInfo {
+func ExtractSubnetDescribeInfo(subnetInfo *ec2.Subnet) irs.VNetworkInfo {
 	vNetworkInfo := irs.VNetworkInfo{
 		SubnetId:  *subnetInfo.SubnetId,
 		CidrBlock: *subnetInfo.CidrBlock,
