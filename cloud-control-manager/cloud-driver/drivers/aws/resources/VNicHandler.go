@@ -10,29 +10,255 @@
 
 package resources
 
+//@TODO : Default VPC & Default Subnet 처리해야 함.
 import (
+	"reflect"
+
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
+	"github.com/davecgh/go-spew/spew"
 )
 
+//https://amzn.to/2L0lfQS
 type AwsVNicHandler struct {
 	Region idrv.RegionInfo
 	Client *ec2.EC2
 }
 
+//@TODO : 퍼블릭IP(EIP)는 이 곳이 아닌 VM생성 시 처리함. 이곳에서 처리해야 하면 구현해야 함.
 func (vNicHandler *AwsVNicHandler) CreateVNic(vNicReqInfo irs.VNicReqInfo) (irs.VNicInfo, error) {
-	return irs.VNicInfo{}, nil
+	input := &ec2.CreateNetworkInterfaceInput{
+		Description: aws.String(vNicReqInfo.Name),
+		//PrivateIpAddress: aws.String("10.0.2.17"),
+		SubnetId: aws.String("subnet-0a25f65671fa64155"),
+		Groups:   aws.StringSlice(vNicReqInfo.SecurityGroupIds),
+	}
+
+	/*
+		//보안그룹 처리
+		securityGroupIds := []*string{}
+		for _, id := range vNicReqInfo.SecurityGroupIds {
+			securityGroupIds = append(securityGroupIds, aws.String(id))
+		}
+		input.Groups = securityGroupIds
+	*/
+
+	cblogger.Info(input)
+	//spew.Dump(input)
+	result, err := vNicHandler.Client.CreateNetworkInterface(input)
+	//spew.Dump(result)
+	cblogger.Info(result)
+	if err != nil {
+		if aerr, ok := err.(awserr.Error); ok {
+			switch aerr.Code() {
+			default:
+				cblogger.Error(aerr.Error())
+			}
+		} else {
+			// Print the error, cast err to awserr.Error to get the Code and
+			// Message from an error.
+			cblogger.Error(err.Error())
+		}
+		return irs.VNicInfo{}, err
+	}
+
+	//Name 태그 에러 대비 먼저 추출된 정보 저장
+	vNicInfo := ExtractVNicDescribeInfo(result.NetworkInterface)
+
+	//VNic Name 태깅
+	tagInput := &ec2.CreateTagsInput{
+		Resources: []*string{
+			aws.String(*result.NetworkInterface.NetworkInterfaceId),
+		},
+		Tags: []*ec2.Tag{
+			{
+				Key:   aws.String("Name"),
+				Value: aws.String(vNicReqInfo.Name),
+			},
+		},
+	}
+	//spew.Dump(tagInput)
+	cblogger.Info(tagInput)
+	_, errTag := vNicHandler.Client.CreateTags(tagInput)
+	if errTag != nil {
+		cblogger.Errorf("[%s]VNic 생성 성공 후 Name 태깅 실패", vNicInfo.Id)
+		//@TODO : Name 태깅 실패시 생성된 Nic을 삭제할지 Name 태깅을 하라고 전달할지 결정해야 함. - 일단, 바깥에서 처리 가능하도록 생성된 VPC 정보는 전달 함.
+		if aerr, ok := errTag.(awserr.Error); ok {
+			switch aerr.Code() {
+			default:
+				cblogger.Error(aerr.Error())
+			}
+		} else {
+			// Print the error, cast err to awserr.Error to get the Code and
+			// Message from an error.
+			cblogger.Error(errTag.Error())
+		}
+		return vNicInfo, errTag
+	}
+
+	//Name 설정 여부 등 가장 최신 정보로 리턴
+	vNicInfo, _ = vNicHandler.GetVNic(vNicInfo.Id)
+	return vNicInfo, nil
 }
 
 func (vNicHandler *AwsVNicHandler) ListVNic() ([]*irs.VNicInfo, error) {
-	return nil, nil
+	cblogger.Info("Start")
+
+	input := &ec2.DescribeNetworkInterfacesInput{
+		NetworkInterfaceIds: []*string{
+			nil,
+		},
+		Filters: []*ec2.Filter{
+			{
+				Name:   aws.String("vpc-id"),
+				Values: aws.StringSlice([]string{"vpc-027696b302162edeb"}),
+			},
+		},
+	}
+
+	result, err := vNicHandler.Client.DescribeNetworkInterfaces(input)
+	if err != nil {
+		if aerr, ok := err.(awserr.Error); ok {
+			switch aerr.Code() {
+			default:
+				cblogger.Error(aerr.Error())
+			}
+		} else {
+			// Print the error, cast err to awserr.Error to get the Code and
+			// Message from an error.
+			cblogger.Error(err.Error())
+		}
+		return nil, err
+	}
+
+	var vNicInfoList []*irs.VNicInfo
+	for _, cur := range result.NetworkInterfaces {
+		cblogger.Infof("[%s] vNic 정보 처리", *cur.NetworkInterfaceId)
+		vNicInfo := ExtractVNicDescribeInfo(cur)
+		vNicInfoList = append(vNicInfoList, &vNicInfo)
+	}
+
+	return vNicInfoList, nil
+}
+
+//VNic 정보를 추출함
+func ExtractVNicDescribeInfo(netIf *ec2.NetworkInterface) irs.VNicInfo {
+	spew.Dump(netIf)
+	vNicInfo := irs.VNicInfo{
+		Id:     *netIf.NetworkInterfaceId,
+		Status: *netIf.Status,
+	}
+
+	keyValueList := []irs.KeyValue{
+		{Key: "VpcId", Value: *netIf.VpcId},
+		{Key: "SubnetId", Value: *netIf.SubnetId},
+		{Key: "OwnerId", Value: *netIf.OwnerId},
+		{Key: "PrivateIpAddress", Value: *netIf.PrivateIpAddress},
+		{Key: "InterfaceType", Value: *netIf.InterfaceType},
+		{Key: "AvailabilityZone", Value: *netIf.AvailabilityZone},
+	}
+
+	if !reflect.ValueOf(netIf.MacAddress).IsNil() {
+		vNicInfo.MacAdress = *netIf.MacAddress
+	}
+
+	// 할당된 VM 정보 조회
+	if !reflect.ValueOf(netIf.Attachment).IsNil() {
+		//인스턴스에 할당된 경우
+		if !reflect.ValueOf(netIf.Attachment.InstanceId).IsNil() {
+			vNicInfo.OwnedVMID = *netIf.Attachment.InstanceId
+			keyValueList = append(keyValueList, irs.KeyValue{Key: "InstanceOwnerId", Value: *netIf.Attachment.InstanceOwnerId})
+
+			keyValueList = append(keyValueList, irs.KeyValue{Key: "AttachTime", Value: netIf.Attachment.AttachTime.String()})
+		}
+	}
+
+	//보안그룹
+	if !reflect.ValueOf(netIf.Groups).IsNil() {
+		for _, t := range netIf.Groups {
+			vNicInfo.SecurityGroupIds = append(vNicInfo.SecurityGroupIds, *t.GroupId)
+		}
+
+	}
+
+	//Name은 Tag의 "Name" 속성에만 저장됨
+	cblogger.Debug("Name Tag 찾기")
+	for _, t := range netIf.TagSet {
+		if *t.Key == "Name" {
+			vNicInfo.Name = *t.Value
+			cblogger.Debug("vNic 명칭 : ", vNicInfo.Name)
+			break
+		}
+	}
+
+	if !reflect.ValueOf(netIf.Association).IsNil() {
+		vNicInfo.PublicIP = *netIf.Association.PublicIp
+
+		//keyValueList = append(keyValueList, irs.KeyValue{Key: "AllocationId", Value: *netIf.Association.AllocationId})
+		//keyValueList = append(keyValueList, irs.KeyValue{Key: "AssociationId", Value: *netIf.Association.AssociationId})
+		keyValueList = append(keyValueList, irs.KeyValue{Key: "IpOwnerId", Value: *netIf.Association.IpOwnerId})
+	}
+
+	// 일부 이미지들은 아래 정보가 없어서 예외 처리 함.
+	if !reflect.ValueOf(netIf.Description).IsNil() {
+		keyValueList = append(keyValueList, irs.KeyValue{Key: "Description", Value: *netIf.Description})
+	}
+
+	vNicInfo.KeyValueList = keyValueList
+
+	return vNicInfo
 }
 
 func (vNicHandler *AwsVNicHandler) GetVNic(vNicID string) (irs.VNicInfo, error) {
-	return irs.VNicInfo{}, nil
+	cblogger.Info("vNicID : ", vNicID)
+	input := &ec2.DescribeNetworkInterfacesInput{
+		NetworkInterfaceIds: []*string{
+			aws.String(vNicID),
+		},
+	}
+
+	result, err := vNicHandler.Client.DescribeNetworkInterfaces(input)
+	if err != nil {
+		if aerr, ok := err.(awserr.Error); ok {
+			switch aerr.Code() {
+			default:
+				cblogger.Error(aerr.Error())
+			}
+		} else {
+			// Print the error, cast err to awserr.Error to get the Code and
+			// Message from an error.
+			cblogger.Error(err.Error())
+		}
+		return irs.VNicInfo{}, err
+	}
+
+	vNicInfo := ExtractVNicDescribeInfo(result.NetworkInterfaces[0])
+	return vNicInfo, nil
 }
 
 func (vNicHandler *AwsVNicHandler) DeleteVNic(vNicID string) (bool, error) {
+	cblogger.Info("vNicID : ", vNicID)
+	input := &ec2.DeleteNetworkInterfaceInput{
+		NetworkInterfaceId: aws.String(vNicID),
+	}
+
+	_, err := vNicHandler.Client.DeleteNetworkInterface(input)
+	if err != nil {
+		if aerr, ok := err.(awserr.Error); ok {
+			switch aerr.Code() {
+			default:
+				cblogger.Error(aerr.Error())
+			}
+		} else {
+			// Print the error, cast err to awserr.Error to get the Code and
+			// Message from an error.
+			cblogger.Error(err.Error())
+		}
+		return false, err
+	}
+
 	return true, nil
 }
