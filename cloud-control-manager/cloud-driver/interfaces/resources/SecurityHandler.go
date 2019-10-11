@@ -11,37 +11,46 @@
 package resources
 
 type SecurityReqInfo struct {
-	Name string
-	Id   string
+	//2차 인터페이스
+	Name          string
+	SecurityRules *[]SecurityRuleInfo
 
-	// @todo
-	GroupName   string //AWS
-	Description string //AWS
-	VpcId       string //AWS
-
+	// @todo - 삭제예정(1차 인터페이스 잔여 필드)
+	Id                  string
+	GroupName           string              //AWS
+	Description         string              //AWS
+	VpcId               string              //AWS
 	IPPermissions       []*SecurityRuleInfo //AWS:InBounds
 	IPPermissionsEgress []*SecurityRuleInfo //AWS:OutBounds
 }
 
+type SecurityRuleInfo struct {
+	//2차 인터페이스
+	FromPort   int64
+	ToPort     int64
+	IPProtocol string
+	Direction  string
+
+	// @todo - 삭제예정(1차 인터페이스 잔여 필드)
+	Cidr string
+}
+
 type SecurityInfo struct {
-	Name string
-	Id   string
-	// @todo
+	//2차 인터페이스
+	Id            string
+	Name          string
+	SecurityRules *[]SecurityRuleInfo
+
+	KeyValueList []KeyValue
+
+	// @todo - 삭제예정(1차 인터페이스 잔여 필드)
 	GroupName           string              //AWS
 	GroupID             string              //AWS
 	IPPermissions       []*SecurityRuleInfo //AWS:InBounds
 	IPPermissionsEgress []*SecurityRuleInfo //AWS:OutBounds
-
-	Description string //AWS
-	VpcID       string //AWS
-	OwnerID     string //AWS, Azure & OpenStack은 TenantId
-}
-
-type SecurityRuleInfo struct {
-	FromPort   int64
-	ToPort     int64
-	IPProtocol string
-	Cidr       string
+	Description         string              //AWS
+	VpcID               string              //AWS
+	OwnerID             string              //AWS, Azure & OpenStack은 TenantId
 }
 
 type SecurityHandler interface {

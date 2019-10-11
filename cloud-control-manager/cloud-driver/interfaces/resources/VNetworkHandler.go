@@ -11,18 +11,25 @@
 package resources
 
 type VNetworkReqInfo struct {
+	//2차 인터페이스
 	Name string // AWS
-	Id   string
-	// @todo
+
+	// @todo - 삭제예정(1차 인터페이스 잔여 구조체)
+	Id        string
 	CidrBlock string // AWS
 }
 
 type VNetworkInfo struct {
-	Name     string // AWS
-	Id       string // AWS에서는 Vpc ID로 임의 대체
-	SubnetId string // AWS에서는 이 필드에 Subnet ID할당
+	//2차 인터페이스
+	Id            string // AWS에서는 Vpc ID로 임의 대체
+	Name          string // AWS
+	AddressPrefix string
+	Status        string
 
-	// @todo
+	KeyValueList []KeyValue
+
+	// @todo - 삭제예정(1차 인터페이스 잔여 구조체)
+	SubnetId  string // AWS에서는 이 필드에 Subnet ID할당
 	CidrBlock string // AWS
 	State     string // AWS
 

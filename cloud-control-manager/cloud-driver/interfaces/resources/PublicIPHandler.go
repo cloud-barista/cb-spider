@@ -11,16 +11,24 @@
 package resources
 
 type PublicIPReqInfo struct {
+	//2차 인터페이스
 	Name string
-	Id   string
-	// @todo
+
+	// @todo - 삭제예정(1차 인터페이스 잔여 필드)
+	Id string
 }
 
 type PublicIPInfo struct {
-	Name string // AWS
-	Id   string
-	// @todo
+	//2차 인터페이스
+	Name      string
+	PublicIP  string
+	OwnedVMID string
+	Status    string
 
+	KeyValueList []KeyValue
+
+	// @todo - 삭제예정(1차 인터페이스 잔여 필드)
+	Id                      string
 	Domain                  string // AWS
 	PublicIp                string // AWS
 	PublicIpv4Pool          string // AWS
