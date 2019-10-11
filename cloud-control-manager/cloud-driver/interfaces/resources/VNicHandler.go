@@ -31,7 +31,7 @@ type VNicInfo struct {
 	SecurityGroupIds []string
 	Status           string
 
-	keyValueList []KeyValue
+	KeyValueList []KeyValue
 }
 
 type VNicHandler interface {

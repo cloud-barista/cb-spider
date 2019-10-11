@@ -26,7 +26,7 @@ type KeyPairInfo struct {
 	PrivateKey  string
 	VMUserID    string
 
-	keyValueList []KeyValue
+	KeyValueList []KeyValue
 
 	// @todo - 삭제예정(1차 인터페이스 잔여 필드)
 	Id          string

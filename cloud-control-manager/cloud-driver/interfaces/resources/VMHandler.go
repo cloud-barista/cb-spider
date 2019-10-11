@@ -96,7 +96,7 @@ type VMInfo struct {
 	VMBootDisk  string // ex) /dev/sda1
 	VMBlockDisk string // ex)
 
-	keyValueList []KeyValue
+	KeyValueList []KeyValue
 
 	// @todo - 삭제예정(1차 인터페이스 잔여 필드)
 	ImageID      string // AWS, ex) ami-047f7b46bd6dd5d84 or projects/gce-uefi-images/global/images/centos-7-v20190326

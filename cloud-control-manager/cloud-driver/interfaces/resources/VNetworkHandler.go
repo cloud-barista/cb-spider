@@ -26,7 +26,7 @@ type VNetworkInfo struct {
 	AddressPrefix string
 	Status        string
 
-	keyValueList []KeyValue
+	KeyValueList []KeyValue
 
 	// @todo - 삭제예정(1차 인터페이스 잔여 구조체)
 	SubnetId  string // AWS에서는 이 필드에 Subnet ID할당
