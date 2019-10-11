@@ -227,11 +227,11 @@ func handleKeyPair() {
 	if err != nil {
 		panic(err)
 	}
-	config := readConfigFile()
+	//config := readConfigFile()
 	//VmID := config.Aws.VmID
 
-	//keyPairName := "test123"
-	keyPairName := config.Aws.KeyName
+	keyPairName := "CB-KeyPairTest"
+	//keyPairName := config.Aws.KeyName
 
 	for {
 		fmt.Println("KeyPair Management")
@@ -272,6 +272,7 @@ func handleKeyPair() {
 					cblogger.Infof(keyPairName, " 키 페어 생성 실패 : ", err)
 				} else {
 					cblogger.Infof("[%s] 키 페어 생성 결과 : [%s]", keyPairName, result)
+					spew.Dump(result)
 				}
 			case 3:
 				cblogger.Infof("[%s] 키 페어 조회 테스트", keyPairName)
@@ -304,11 +305,12 @@ func handleVNetwork() {
 	}
 
 	vNetworkReqInfo := irs.VNetworkReqInfo{
-		Id:   "subnet-044a2b57145e5afc5",
-		Name: "CB-VNet-Subnet2",
+		//Id:   "subnet-044a2b57145e5afc5",
+		//Name: "CB-VNet-Subnet2",	// 웹 도구 등 외부에서 전달 받지 않고 드라이버 내부적으로 자동 구현때문에 사용하지 않음.
 		//CidrBlock: "10.0.0.0/16",
-		CidrBlock: "192.168.20.0/24",
+		//CidrBlock: "192.168.0.0/16",
 	}
+	reqSubnetId := ""
 
 	for {
 		fmt.Println("VNetworkHandler Management")
@@ -338,9 +340,10 @@ func handleVNetwork() {
 					//cblogger.Info(result)
 					spew.Dump(result)
 
+					// 내부적으로 1개만 존재함.
 					//조회및 삭제 테스트를 위해 리스트의 첫번째 서브넷 ID를 요청ID로 자동 갱신함.
 					if result != nil {
-						vNetworkReqInfo.Id = result[0].SubnetId // 조회 및 삭제를 위해 생성된 ID로 변경
+						reqSubnetId = result[0].Id // 조회 및 삭제를 위해 생성된 ID로 변경
 					}
 				}
 
@@ -349,30 +352,30 @@ func handleVNetwork() {
 				//vNetworkReqInfo := irs.VNetworkReqInfo{}
 				result, err := vNetworkHandler.CreateVNetwork(vNetworkReqInfo)
 				if err != nil {
-					cblogger.Infof(vNetworkReqInfo.Id, " VNetwork 생성 실패 : ", err)
+					cblogger.Infof(reqSubnetId, " VNetwork 생성 실패 : ", err)
 				} else {
 					cblogger.Infof("VNetwork 생성 결과 : ", result)
-					vNetworkReqInfo.Id = result.SubnetId // 조회 및 삭제를 위해 생성된 ID로 변경
+					reqSubnetId = result.Id // 조회 및 삭제를 위해 생성된 ID로 변경
 					spew.Dump(result)
 				}
 
 			case 3:
-				cblogger.Infof("[%s] VNetwork 조회 테스트", vNetworkReqInfo.Id)
-				result, err := vNetworkHandler.GetVNetwork(vNetworkReqInfo.Id)
+				cblogger.Infof("[%s] VNetwork 조회 테스트", reqSubnetId)
+				result, err := vNetworkHandler.GetVNetwork(reqSubnetId)
 				if err != nil {
-					cblogger.Infof("[%s] VNetwork 조회 실패 : ", vNetworkReqInfo.Id, err)
+					cblogger.Infof("[%s] VNetwork 조회 실패 : ", reqSubnetId, err)
 				} else {
-					cblogger.Infof("[%s] VNetwork 조회 결과 : [%s]", vNetworkReqInfo.Id, result)
+					cblogger.Infof("[%s] VNetwork 조회 결과 : [%s]", reqSubnetId, result)
 					spew.Dump(result)
 				}
 
 			case 4:
-				cblogger.Infof("[%s] VNetwork 삭제 테스트", vNetworkReqInfo.Id)
-				result, err := vNetworkHandler.DeleteVNetwork(vNetworkReqInfo.Id)
+				cblogger.Infof("[%s] VNetwork 삭제 테스트", reqSubnetId)
+				result, err := vNetworkHandler.DeleteVNetwork(reqSubnetId)
 				if err != nil {
-					cblogger.Infof("[%s] VNetwork 삭제 실패 : ", vNetworkReqInfo.Id, err)
+					cblogger.Infof("[%s] VNetwork 삭제 실패 : ", reqSubnetId, err)
 				} else {
-					cblogger.Infof("[%s] VNetwork 삭제 결과 : [%s]", vNetworkReqInfo.Id, result)
+					cblogger.Infof("[%s] VNetwork 삭제 결과 : [%s]", reqSubnetId, result)
 				}
 			}
 		}
@@ -466,13 +469,96 @@ func handleImage() {
 	}
 }
 
+// Test VNic
+func handleVNic() {
+	cblogger.Debug("Start VNicHandler Resource Test")
+
+	ResourceHandler, err := getResourceHandler("VNic")
+	if err != nil {
+		panic(err)
+	}
+	handler := ResourceHandler.(irs.VNicHandler)
+	reqVnicID := "eni-093deb03ca6eb70eb"
+	vNicReqInfo := irs.VNicReqInfo{
+		Name: "TestCB-VNic",
+		SecurityGroupIds: []string{
+			"sg-0d4d11c090c4814e8", "sg-0dc15d050f8272e24",
+		},
+	}
+
+	for {
+		fmt.Println("VNicHandler Management")
+		fmt.Println("0. Quit")
+		fmt.Println("1. VNic List")
+		fmt.Println("2. VNic Create")
+		fmt.Println("3. VNic Get")
+		fmt.Println("4. VNic Delete")
+
+		var commandNum int
+		inputCnt, err := fmt.Scan(&commandNum)
+		if err != nil {
+			panic(err)
+		}
+
+		if inputCnt == 1 {
+			switch commandNum {
+			case 0:
+				return
+
+			case 1:
+				result, err := handler.ListVNic()
+				if err != nil {
+					cblogger.Infof(" VNic 목록 조회 실패 : ", err)
+				} else {
+					cblogger.Info("VNic 목록 조회 결과")
+					spew.Dump(result)
+					if len(result) > 0 {
+						reqVnicID = result[0].Id // 조회 및 삭제 편의를 위해 목록의 첫번째 ID로 변경
+					}
+				}
+
+			case 2:
+				cblogger.Infof("[%s] VNic 생성 테스트", vNicReqInfo.Name)
+				result, err := handler.CreateVNic(vNicReqInfo)
+				if err != nil {
+					cblogger.Infof(reqVnicID, " VNic 생성 실패 : ", err)
+				} else {
+					cblogger.Infof("VNic 생성 결과 : ", result)
+					reqVnicID = result.Id // 조회 및 삭제를 위해 생성된 ID로 변경
+					spew.Dump(result)
+				}
+
+			case 3:
+				cblogger.Infof("[%s] VNic 조회 테스트", reqVnicID)
+				result, err := handler.GetVNic(reqVnicID)
+				if err != nil {
+					cblogger.Infof("[%s] VNic 조회 실패 : ", reqVnicID, err)
+				} else {
+					cblogger.Infof("[%s] VNic 조회 결과 : [%s]", reqVnicID, result)
+					spew.Dump(result)
+				}
+
+			case 4:
+				cblogger.Infof("[%s] VNic 삭제 테스트", reqVnicID)
+				result, err := handler.DeleteVNic(reqVnicID)
+				if err != nil {
+					cblogger.Infof("[%s] VNic 삭제 실패 : ", reqVnicID, err)
+				} else {
+					cblogger.Infof("[%s] VNic 삭제 결과 : [%s]", reqVnicID, result)
+				}
+			}
+		}
+	}
+}
+
 func main() {
 	cblogger.Info("AWS Resource Test")
-	//handleKeyPair()
+	handleKeyPair()
 	//handlePublicIP() // PublicIP 생성 후 conf
 
 	//handleVNetwork() //VPC
-	handleImage() //AMI
+	//handleImage() //AMI
+	//handleVNic() //Lancard
 	//handleSecurity()
 
 	/*

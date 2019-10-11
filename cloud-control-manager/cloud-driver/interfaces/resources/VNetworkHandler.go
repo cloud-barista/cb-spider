@@ -21,8 +21,8 @@ type VNetworkReqInfo struct {
 
 type VNetworkInfo struct {
 	//2차 인터페이스
-	Id            string // AWS에서는 Vpc ID로 임의 대체
-	Name          string // AWS
+	Id            string
+	Name          string
 	AddressPrefix string
 	Status        string
 
@@ -36,11 +36,6 @@ type VNetworkInfo struct {
 	MapPublicIpOnLaunch     bool   // AWS(향후 Map으로 변환?)
 	AvailableIpAddressCount int64  // AWS(향후 Map으로 변환?)
 	AvailabilityZone        string // AWS(향후 Map으로 변환?)
-}
-
-const CBDefaultVNetName string = "CB-VNet" // CB Default Virtual Network Name
-func GetCBDefaultVNetName() string { // AWS
-	return CBDefaultVNetName
 }
 
 type VNetworkHandler interface {

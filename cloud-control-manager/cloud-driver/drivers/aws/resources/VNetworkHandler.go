@@ -16,7 +16,7 @@ package resources
 
 import (
 	"reflect"
-	"strings"
+	"strconv"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
@@ -25,6 +25,10 @@ import (
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/davecgh/go-spew/spew"
 )
+
+const CBDefaultVNetName string = "CB-VNet"          // CB Default Virtual Network Name
+const CBDefaultSubnetName string = "CB-VNet-Subnet" // CB Default Subnet Name
+const CBDefaultCidrBlock string = "192.168.0.0/16"  // CB Default CidrBlock
 
 type AwsVNetworkHandler struct {
 	Region idrv.RegionInfo
@@ -42,6 +46,18 @@ type AwsVpcInfo struct {
 	CidrBlock string // AWS
 	IsDefault bool   // AWS
 	State     string // AWS
+}
+
+func GetCBDefaultVNetName() string {
+	return CBDefaultVNetName
+}
+
+func GetCBDefaultSubnetName() string {
+	return CBDefaultSubnetName
+}
+
+func GetCBDefaultCidrBlock() string {
+	return CBDefaultCidrBlock
 }
 
 func (vNetworkHandler *AwsVNetworkHandler) ListVpc() ([]*AwsVpcInfo, error) {
@@ -77,7 +93,7 @@ func (vNetworkHandler *AwsVNetworkHandler) ListVNetwork() ([]*irs.VNetworkInfo, 
 	cblogger.Debug("Start")
 	var vNetworkInfoList []*irs.VNetworkInfo
 
-	cblogger.Infof("조회 범위를 CBDefaultVPC[%s]로 제한합니다.", irs.GetCBDefaultVNetName())
+	cblogger.Infof("조회 범위를 CBDefaultVPC[%s]로 제한합니다.", GetCBDefaultVNetName())
 	//defaultVpcInfo := irs.VNetworkReqInfo{}
 	VpcId, errVpc := vNetworkHandler.FindOrCreateMcloudBaristaDefaultVPC(irs.VNetworkReqInfo{})
 	cblogger.Info("CBDefaultVPC 조회 결과 : ", VpcId)
@@ -133,7 +149,7 @@ func (vNetworkHandler *AwsVNetworkHandler) ListVNetwork() ([]*irs.VNetworkInfo, 
 func (vNetworkHandler *AwsVNetworkHandler) FindOrCreateMcloudBaristaDefaultVPC(vNetworkReqInfo irs.VNetworkReqInfo) (string, error) {
 	cblogger.Info(vNetworkReqInfo)
 
-	awsVpcInfo, err := vNetworkHandler.GetVpc(irs.GetCBDefaultVNetName())
+	awsVpcInfo, err := vNetworkHandler.GetVpc(GetCBDefaultVNetName())
 	if err != nil {
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
@@ -148,25 +164,31 @@ func (vNetworkHandler *AwsVNetworkHandler) FindOrCreateMcloudBaristaDefaultVPC(v
 		return "", err
 	}
 
+	//기존 정보가 존재하면...
 	if awsVpcInfo.Id != "" {
 		return awsVpcInfo.Id, nil
 	} else {
-		cblogger.Infof("기본 VPC[%s]가 없어서 Subnet 요청 정보를 기반으로 /16 범위의 VPC를 생성합니다.", irs.GetCBDefaultVNetName())
-		cblogger.Info("Subnet CIDR 요청 정보 : ", vNetworkReqInfo.CidrBlock)
-		if vNetworkReqInfo.CidrBlock == "" {
-			//VPC가 없는 최초 상태에서 List()에서 호출되었을 수 있기 때문에 에러 처리는 하지 않고 nil을 전달함.
-			cblogger.Infof("요청 정보에 CIDR 정보가 없어서 Default VPC[%s]를 생성하지 않음", irs.GetCBDefaultVNetName())
-			return "", nil
-		}
+		//@TODO : Subnet과 VPC모두 CSP별 고정된 값으로 드라이버가 내부적으로 자동으로 생성하도록 CB규약이 바뀌어서 서브넷 정보 기반의 로직은 모두 잠시 죽여 놓음 - 리스트 요청시에도 내부적으로 자동 생성하도록 변경 중
+		/*
+			cblogger.Infof("기본 VPC[%s]가 없어서 Subnet 요청 정보를 기반으로 /16 범위의 VPC를 생성합니다.", GetCBDefaultVNetName())
+			cblogger.Info("Subnet CIDR 요청 정보 : ", vNetworkReqInfo.CidrBlock)
+			if vNetworkReqInfo.CidrBlock == "" {
+				//VPC가 없는 최초 상태에서 List()에서 호출되었을 수 있기 때문에 에러 처리는 하지 않고 nil을 전달함.
+				cblogger.Infof("요청 정보에 CIDR 정보가 없어서 Default VPC[%s]를 생성하지 않음", GetCBDefaultVNetName())
+				return "", nil
+			}
 
-		reqCidr := strings.Split(vNetworkReqInfo.CidrBlock, ".")
-		//cblogger.Info("CIDR 추출 정보 : ", reqCidr[0])
-		VpcCidrBlock := reqCidr[0] + "." + reqCidr[1] + ".0.0/16"
-		cblogger.Info("신규 VPC에 사용할 CIDR 정보 : ", VpcCidrBlock)
+			reqCidr := strings.Split(vNetworkReqInfo.CidrBlock, ".")
+			//cblogger.Info("CIDR 추출 정보 : ", reqCidr[0])
+			VpcCidrBlock := reqCidr[0] + "." + reqCidr[1] + ".0.0/16"
+			cblogger.Info("신규 VPC에 사용할 CIDR 정보 : ", VpcCidrBlock)
+		*/
 
+		cblogger.Infof("기본 VPC[%s]가 없어서 CIDR[%s] 범위의 VPC를 자동으로 생성합니다.", GetCBDefaultVNetName(), GetCBDefaultCidrBlock())
 		awsVpcReqInfo := AwsVpcReqInfo{
-			Name:      irs.GetCBDefaultVNetName(),
-			CidrBlock: VpcCidrBlock,
+			Name: GetCBDefaultVNetName(),
+			//CidrBlock: VpcCidrBlock,
+			CidrBlock: GetCBDefaultCidrBlock(),
 		}
 
 		result, errVpc := vNetworkHandler.CreateVpc(awsVpcReqInfo)
@@ -174,7 +196,7 @@ func (vNetworkHandler *AwsVNetworkHandler) FindOrCreateMcloudBaristaDefaultVPC(v
 			cblogger.Error(errVpc)
 			return "", errVpc
 		}
-		cblogger.Infof("CB Default VPC[%s] 생성 완료 - CIDR : [%s]", irs.GetCBDefaultVNetName(), result.CidrBlock)
+		cblogger.Infof("CB Default VPC[%s] 생성 완료 - CIDR : [%s]", GetCBDefaultVNetName(), result.CidrBlock)
 		cblogger.Info(result)
 		spew.Dump(result)
 
@@ -223,6 +245,8 @@ func (vNetworkHandler *AwsVNetworkHandler) GetVpc(vpcName string) (AwsVpcInfo, e
 
 }
 
+// FindOrCreateMcloudBaristaDefaultVPC()에서 호출됨. - 이 곳은 나중을 위해 전달 받은 정보는 이용함
+// 기본 VPC 생성이 필요하면 FindOrCreateMcloudBaristaDefaultVPC()를 호출할 것
 func (vNetworkHandler *AwsVNetworkHandler) CreateVpc(awsVpcReqInfo AwsVpcReqInfo) (AwsVpcInfo, error) {
 	cblogger.Info(awsVpcReqInfo)
 
@@ -296,8 +320,10 @@ func (vNetworkHandler *AwsVNetworkHandler) CreateVNetwork(vNetworkReqInfo irs.VN
 	}
 
 	//서브넷 생성
+	//@TODO : Subnet과 VPC모두 CSP별 고정된 값으로 드라이버가 내부적으로 자동으로 생성하도록 CB규약이 바뀌어서 서브넷 정보 기반의 로직은 모두 잠시 죽여 놓음 - 리스트 요청시에도 내부적으로 자동 생성하도록 변경 중
 	input := &ec2.CreateSubnetInput{
-		CidrBlock: aws.String(vNetworkReqInfo.CidrBlock),
+		//CidrBlock: aws.String(vNetworkReqInfo.CidrBlock),
+		CidrBlock: aws.String(GetCBDefaultCidrBlock()), // VPC와 동일한 대역의 CB-Default Subnet을 생성 함.
 		VpcId:     aws.String(VpcId),
 	}
 
@@ -322,15 +348,18 @@ func (vNetworkHandler *AwsVNetworkHandler) CreateVNetwork(vNetworkReqInfo irs.VN
 	//vNetworkInfo := irs.VNetworkInfo{}
 	vNetworkInfo := ExtractSubnetDescribeInfo(result.Subnet)
 
+	//@TODO : Subnet과 VPC모두 CSP별 고정된 값으로 드라이버가 내부적으로 자동으로 생성하도록 CB규약이 바뀌어서 서브넷 정보 기반의 로직은 모두 잠시 죽여 놓음 - 리스트 요청시에도 내부적으로 자동 생성하도록 변경 중
 	//Subnet Name 태깅
+	cblogger.Info("**필수 정보 없이 CB Subnet 자동 구현을 위해 사용자의 정보는 무시하고 기본 서브넷을 구성함.**")
 	tagInput := &ec2.CreateTagsInput{
 		Resources: []*string{
 			aws.String(*result.Subnet.SubnetId),
 		},
 		Tags: []*ec2.Tag{
 			{
-				Key:   aws.String("Name"),
-				Value: aws.String(vNetworkReqInfo.Name),
+				Key: aws.String("Name"),
+				//Value: aws.String(vNetworkReqInfo.Name),
+				Value: aws.String(GetCBDefaultSubnetName()), //서브넷도 히든 컨셉이라 CB-Default SUbnet 이름으로 생성 함.
 			},
 		},
 	}
@@ -358,7 +387,7 @@ func (vNetworkHandler *AwsVNetworkHandler) CreateVNetwork(vNetworkReqInfo irs.VN
 }
 
 func (vNetworkHandler *AwsVNetworkHandler) GetVNetwork(vNetworkID string) (irs.VNetworkInfo, error) {
-	cblogger.Info("vNetworkID : [%s]", vNetworkID)
+	cblogger.Infof("vNetworkID : [%s]", vNetworkID)
 
 	input := &ec2.DescribeSubnetsInput{
 		SubnetIds: []*string{
@@ -416,14 +445,9 @@ func ExtractVpcDescribeInfo(vpcInfo *ec2.Vpc) AwsVpcInfo {
 //Subnet 정보를 추출함
 func ExtractSubnetDescribeInfo(subnetInfo *ec2.Subnet) irs.VNetworkInfo {
 	vNetworkInfo := irs.VNetworkInfo{
-		SubnetId:  *subnetInfo.SubnetId,
-		CidrBlock: *subnetInfo.CidrBlock,
-		State:     *subnetInfo.State,
-
-		Id:                      *subnetInfo.VpcId,
-		MapPublicIpOnLaunch:     *subnetInfo.MapPublicIpOnLaunch,
-		AvailableIpAddressCount: *subnetInfo.AvailableIpAddressCount,
-		AvailabilityZone:        *subnetInfo.AvailabilityZone,
+		Id:            *subnetInfo.SubnetId,
+		AddressPrefix: *subnetInfo.CidrBlock,
+		Status:        *subnetInfo.State,
 	}
 
 	//Name은 Tag의 "Name" 속성에만 저장됨
@@ -435,6 +459,14 @@ func ExtractSubnetDescribeInfo(subnetInfo *ec2.Subnet) irs.VNetworkInfo {
 			break
 		}
 	}
+
+	keyValueList := []irs.KeyValue{
+		{Key: "VpcId", Value: *subnetInfo.VpcId},
+		{Key: "MapPublicIpOnLaunch", Value: strconv.FormatBool(*subnetInfo.MapPublicIpOnLaunch)},
+		{Key: "AvailableIpAddressCount", Value: strconv.FormatInt(*subnetInfo.AvailableIpAddressCount, 10)},
+		{Key: "AvailabilityZone", Value: *subnetInfo.AvailabilityZone},
+	}
+	vNetworkInfo.KeyValueList = keyValueList
 
 	return vNetworkInfo
 }

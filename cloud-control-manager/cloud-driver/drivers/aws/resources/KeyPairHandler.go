@@ -43,14 +43,16 @@ func (keyPairHandler *AwsKeyPairHandler) ListKey() ([]*irs.KeyPairInfo, error) {
 		return keyPairList, err
 	}
 
-	cblogger.Debugf("Key Pairs:")
+	//cblogger.Debugf("Key Pairs:")
 	for _, pair := range result.KeyPairs {
-		cblogger.Debugf("%s: %s\n", *pair.KeyName, *pair.KeyFingerprint)
-		keyPairInfo := new(irs.KeyPairInfo)
-		keyPairInfo.Name = *pair.KeyName
-		keyPairInfo.Fingerprint = *pair.KeyFingerprint
-
-		keyPairList = append(keyPairList, keyPairInfo)
+		/*
+			cblogger.Debugf("%s: %s\n", *pair.KeyName, *pair.KeyFingerprint)
+			keyPairInfo := new(irs.KeyPairInfo)
+			keyPairInfo.Name = *pair.KeyName
+			keyPairInfo.Fingerprint = *pair.KeyFingerprint
+		*/
+		keyPairInfo := ExtractKeyPairDescribeInfo(pair)
+		keyPairList = append(keyPairList, &keyPairInfo)
 	}
 
 	cblogger.Info(keyPairList)
@@ -59,7 +61,7 @@ func (keyPairHandler *AwsKeyPairHandler) ListKey() ([]*irs.KeyPairInfo, error) {
 }
 
 func (keyPairHandler *AwsKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPairReqInfo) (irs.KeyPairInfo, error) {
-	cblogger.Infof("Start CreateKey(%s)", keyPairReqInfo)
+	cblogger.Info(keyPairReqInfo)
 
 	// Creates a new  key pair with the given name
 	result, err := keyPairHandler.Client.CreateKeyPair(&ec2.CreateKeyPairInput{
@@ -79,8 +81,19 @@ func (keyPairHandler *AwsKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPairReq
 	keyPairInfo := irs.KeyPairInfo{
 		Name:        *result.KeyName,
 		Fingerprint: *result.KeyFingerprint,
-		KeyMaterial: *result.KeyMaterial,
+		//KeyMaterial: *result.KeyMaterial,
+		KeyValueList: []irs.KeyValue{
+			{Key: "KeyMaterial", Value: *result.KeyMaterial},
+		},
 	}
+
+	/*
+		keyValueList := []irs.KeyValue{
+			{Key: "KeyMaterial", Value: *keyPair.KeyMaterial},
+		}
+
+		keyPairInfo.KeyValueList = keyValueList
+	*/
 
 	return keyPairInfo, nil
 }
@@ -88,7 +101,7 @@ func (keyPairHandler *AwsKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPairReq
 //혼선을 피하기 위해 keyPairID 대신 keyPairName으로 변경 함.
 func (keyPairHandler *AwsKeyPairHandler) GetKey(keyPairName string) (irs.KeyPairInfo, error) {
 	//keyPairID := keyPairName
-	cblogger.Infof("GetKey : [%s]", keyPairName)
+	cblogger.Infof("keyPairName : [%s]", keyPairName)
 	input := &ec2.DescribeKeyPairsInput{
 		KeyNames: []*string{
 			aws.String(keyPairName),
@@ -118,15 +131,34 @@ func (keyPairHandler *AwsKeyPairHandler) GetKey(keyPairName string) (irs.KeyPair
 		return irs.KeyPairInfo{}, nil
 	}
 
-	cblogger.Info("KeyName : ", *result.KeyPairs[0].KeyName)
-	cblogger.Info("Fingerprint : ", *result.KeyPairs[0].KeyFingerprint)
-
-	keyPairInfo := irs.KeyPairInfo{
-		Name:        *result.KeyPairs[0].KeyName,
-		Fingerprint: *result.KeyPairs[0].KeyFingerprint,
-	}
+	/*
+		cblogger.Info("KeyName : ", *result.KeyPairs[0].KeyName)
+		cblogger.Info("Fingerprint : ", *result.KeyPairs[0].KeyFingerprint)
+		keyPairInfo := irs.KeyPairInfo{
+			Name:        *result.KeyPairs[0].KeyName,
+			Fingerprint: *result.KeyPairs[0].KeyFingerprint,
+		}
+	*/
+	keyPairInfo := ExtractKeyPairDescribeInfo(result.KeyPairs[0])
 
 	return keyPairInfo, nil
+}
+
+//KeyPair 정보를 추출함
+func ExtractKeyPairDescribeInfo(keyPair *ec2.KeyPairInfo) irs.KeyPairInfo {
+	spew.Dump(keyPair)
+	keyPairInfo := irs.KeyPairInfo{
+		Name:        *keyPair.KeyName,
+		Fingerprint: *keyPair.KeyFingerprint,
+	}
+
+	keyValueList := []irs.KeyValue{
+		//{Key: "KeyMaterial", Value: *keyPair.KeyMaterial},
+	}
+
+	keyPairInfo.KeyValueList = keyValueList
+
+	return keyPairInfo
 }
 
 func (keyPairHandler *AwsKeyPairHandler) DeleteKey(keyPairName string) (bool, error) {
