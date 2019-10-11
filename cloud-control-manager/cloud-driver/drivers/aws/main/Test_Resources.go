@@ -227,11 +227,11 @@ func handleKeyPair() {
 	if err != nil {
 		panic(err)
 	}
-	config := readConfigFile()
+	//config := readConfigFile()
 	//VmID := config.Aws.VmID
 
-	//keyPairName := "test123"
-	keyPairName := config.Aws.KeyName
+	keyPairName := "CB-KeyPairTest"
+	//keyPairName := config.Aws.KeyName
 
 	for {
 		fmt.Println("KeyPair Management")
@@ -272,6 +272,7 @@ func handleKeyPair() {
 					cblogger.Infof(keyPairName, " 키 페어 생성 실패 : ", err)
 				} else {
 					cblogger.Infof("[%s] 키 페어 생성 결과 : [%s]", keyPairName, result)
+					spew.Dump(result)
 				}
 			case 3:
 				cblogger.Infof("[%s] 키 페어 조회 테스트", keyPairName)
@@ -552,12 +553,12 @@ func handleVNic() {
 
 func main() {
 	cblogger.Info("AWS Resource Test")
-	//handleKeyPair()
+	handleKeyPair()
 	//handlePublicIP() // PublicIP 생성 후 conf
 
 	//handleVNetwork() //VPC
 	//handleImage() //AMI
-	handleVNic() //Lancard
+	//handleVNic() //Lancard
 	//handleSecurity()
 
 	/*
