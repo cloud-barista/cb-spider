@@ -19,9 +19,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/ec2"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
-
 	//irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/new-resources"
-	"github.com/davecgh/go-spew/spew"
 )
 
 type AwsImageHandler struct {
@@ -92,7 +90,7 @@ func (imageHandler *AwsImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 
 //Image 정보를 추출함
 func ExtractImageDescribeInfo(image *ec2.Image) irs.ImageInfo {
-	spew.Dump(image)
+	//spew.Dump(image)
 	imageInfo := irs.ImageInfo{
 		Id:     *image.ImageId,
 		Name:   *image.Name,
@@ -139,7 +137,8 @@ func (imageHandler *AwsImageHandler) GetImage(imageID string) (irs.ImageInfo, er
 	}
 
 	result, err := imageHandler.Client.DescribeImages(input)
-	spew.Dump(result)
+	//spew.Dump(result)
+	cblogger.Info(result)
 
 	if err != nil {
 		if aerr, ok := err.(awserr.Error); ok {
