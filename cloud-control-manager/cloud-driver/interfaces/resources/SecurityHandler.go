@@ -28,8 +28,8 @@ type SecurityRuleInfo struct {
 	//2차 인터페이스
 	FromPort   int64
 	ToPort     int64
-	IPProtocol string
-	Direction  string
+	IPProtocol string // tcp | udp | icmp | ...
+	Direction  string // inbound | outbound
 
 	// @todo - 삭제예정(1차 인터페이스 잔여 필드)
 	Cidr string
