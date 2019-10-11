@@ -17,7 +17,8 @@ import (
 
 	awsdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/aws"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
-	irs2 "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/new-resources"
+
+	//irs2 "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/new-resources"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/sirupsen/logrus"
@@ -386,9 +387,11 @@ func handleImage() {
 	if err != nil {
 		panic(err)
 	}
-	handler := ResourceHandler.(irs2.ImageHandler)
+	//handler := ResourceHandler.(irs2.ImageHandler)
+	handler := ResourceHandler.(irs.ImageHandler)
 
-	imageReqInfo := irs2.ImageReqInfo{
+	//imageReqInfo := irs2.ImageReqInfo{
+	imageReqInfo := irs.ImageReqInfo{
 		Id:   "ami-0d097db2fb6e0f05e",
 		Name: "Test OS Image",
 	}
@@ -418,8 +421,9 @@ func handleImage() {
 					cblogger.Infof(" Image 목록 조회 실패 : ", err)
 				} else {
 					cblogger.Info("Image 목록 조회 결과")
+					cblogger.Info("출력 결과 : ", len(result))
 					//cblogger.Info(result)
-					spew.Dump(result)
+					//spew.Dump(result)
 
 					//조회및 삭제 테스트를 위해 리스트의 첫번째 정보의 ID를 요청ID로 자동 갱신함.
 					if result != nil {

@@ -11,15 +11,27 @@
 package resources
 
 type VNicReqInfo struct {
-	Name string
-	Id   string
-	// @todo
+	//2차 인터페이스
+	Name             string
+	VNetName         string
+	SecurityGroupIds []string
+	PublicIPid       string
+
+	// @todo - 삭제예정(1차 인터페이스 잔여 구조체)
+	Id string
 }
 
+//2차 인터페이스 필드 반영
 type VNicInfo struct {
-	Name string
-	Id   string
-	// @todo
+	Id               string
+	Name             string
+	PublicIP         string
+	MacAdress        string
+	OwnedVMID        string
+	SecurityGroupIds []string
+	Status           string
+
+	keyValueList []KeyValue
 }
 
 type VNicHandler interface {

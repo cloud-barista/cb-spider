@@ -13,7 +13,8 @@ package connect
 import (
 	cblog "github.com/cloud-barista/cb-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
-	irs2 "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/new-resources"
+
+	//irs2 "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/new-resources"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/sirupsen/logrus"
 
@@ -72,7 +73,8 @@ func (cloudConn *AwsCloudConnection) CreateVNetworkHandler() (irs.VNetworkHandle
 	return &handler, nil
 }
 
-func (cloudConn *AwsCloudConnection) CreateImageHandler() (irs2.ImageHandler, error) {
+//func (cloudConn *AwsCloudConnection) CreateImageHandler() (irs2.ImageHandler, error) {
+func (cloudConn *AwsCloudConnection) CreateImageHandler() (irs.ImageHandler, error) {
 	cblogger.Info("Start")
 	handler := ars.AwsImageHandler{cloudConn.Region, cloudConn.ImageClient}
 

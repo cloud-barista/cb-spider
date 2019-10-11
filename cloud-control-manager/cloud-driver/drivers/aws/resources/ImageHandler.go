@@ -11,14 +11,16 @@
 package resources
 
 import (
-	"fmt"
 	"reflect"
+	"strconv"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
-	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/new-resources"
+	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
+
+	//irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/new-resources"
 	"github.com/davecgh/go-spew/spew"
 )
 
@@ -27,25 +29,34 @@ type AwsImageHandler struct {
 	Client *ec2.EC2
 }
 
+//@TODO : 작업해야 함.
 func (imageHandler *AwsImageHandler) CreateImage(imageReqInfo irs.ImageReqInfo) (irs.ImageInfo, error) {
 
 	return irs.ImageInfo{}, nil
 }
 
+//@TODO : 목록이 너무 많기 때문에 amazon 계정으로 공유된 퍼블릭 이미지중 AMI만 조회 함.
 func (imageHandler *AwsImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 	cblogger.Debug("Start")
 	var imageInfoList []*irs.ImageInfo
-
-	/*
-		input := &ec2.DescribeImagesInput{
-			ImageIds: []*string{
-				aws.String("ami-5731123e"),
+	input := &ec2.DescribeImagesInput{
+		//ImageIds: []*string{aws.String("ami-0d097db2fb6e0f05e")},
+		Owners: []*string{
+			aws.String("amazon"), //사용자 계정 번호를 넣으면 사용자의 이미지를 대상으로 조회 함.
+		},
+		Filters: []*ec2.Filter{
+			{
+				Name:   aws.String("image-type"),
+				Values: aws.StringSlice([]string{"machine"}),
 			},
-		}
-	*/
-
-	result, err := imageHandler.Client.DescribeImages(&ec2.DescribeImagesInput{})
-	spew.Dump(result)
+			{
+				Name:   aws.String("is-public"),
+				Values: aws.StringSlice([]string{"true"}),
+			},
+		},
+	}
+	result, err := imageHandler.Client.DescribeImages(input)
+	//spew.Dump(result)	//출력 정보가 너무 많아서 생략
 
 	if err != nil {
 		if aerr, ok := err.(awserr.Error); ok {
@@ -61,91 +72,61 @@ func (imageHandler *AwsImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 		return nil, err
 	}
 
-	cnt := 0
+	//cnt := 0
 	for _, cur := range result.Images {
-		cblogger.Infof("[%s] AMI 정보 조회", *cur.ImageId)
-		//imageInfo := ExtractImageDescribeInfo(cur)
-		//imageInfoList = append(imageInfoList, &imageInfo)
-
-		cnt++
-		if cnt > 20 {
-			break
-		}
+		cblogger.Infof("[%s] AMI 정보 처리", *cur.ImageId)
+		imageInfo := ExtractImageDescribeInfo(cur)
+		imageInfoList = append(imageInfoList, &imageInfo)
+		/*
+			cnt++
+			if cnt > 20 {
+				break
+			}
+		*/
 	}
 
-	spew.Dump(imageInfoList)
-
-	/*
-		type ImageInfo struct {
-		     Id   string
-		     Name string
-		     GuestOS string // Windows7, Ubuntu etc.
-		     Status string  // available, unavailable
-
-		     keyValueList []KeyValue
-		}
-	*/
+	//spew.Dump(imageInfoList)
 
 	return imageInfoList, nil
 }
 
 //Image 정보를 추출함
 func ExtractImageDescribeInfo(image *ec2.Image) irs.ImageInfo {
+	spew.Dump(image)
 	imageInfo := irs.ImageInfo{
 		Id:     *image.ImageId,
 		Name:   *image.Name,
 		Status: *image.State,
 	}
 
-	//spew.Dump(reflect.ValueOf(image).Elem().NumField)
-	target := reflect.ValueOf(image)
-	elements := target.Elem()
-	fmt.Printf("Type: %s\n", target.Type()) // 구조체 타입명
-
-	for i := 0; i < elements.NumField(); i++ {
-
-		mValue := elements.Field(i)
-		mType := elements.Type().Field(i)
-		spew.Dump(mValue)
-		spew.Dump(mType)
-
-		//spew.Dump(elements.Field(i).Kind())
-		//fmt.Printf(elements.Field(i))
-		//spew.Dump(elements.Field(i).Kind() == reflect.String)
-		//fmt.Printf("")
-
-		//v.Kind() == reflect.Int64
-
-		//spew.Dump(reflect.TypeOf(elements.Field(i)).Kind())
-
-		//spew.Dump(elements.Type().Field(i))
-		//spew.Dump(elements.Field(i).Interface())
-
-		/*
-			mValue := elements.Field(i)
-			mType := elements.Type().Field(i)
-			tag := mType.Tag
-
-				fmt.Printf("%10s %10s ==> %10v, json: %10s\n",
-					mType.Name,         // 이름
-					mType.Type,         // 타입
-					mValue.Interface(), // 값
-					tag.Get("json"))    // json 태그
-		*/
+	keyValueList := []irs.KeyValue{
+		{Key: "CreationDate", Value: *image.CreationDate},
+		{Key: "Architecture", Value: *image.Architecture},
+		{Key: "OwnerId", Value: *image.OwnerId},
+		{Key: "ImageType", Value: *image.ImageType},
+		{Key: "ImageLocation", Value: *image.ImageLocation},
+		{Key: "VirtualizationType", Value: *image.VirtualizationType},
+		{Key: "Public", Value: strconv.FormatBool(*image.Public)},
 	}
-	//LoopObjectField(image)
+
+	// 일부 이미지들은 아래 정보가 없어서 예외 처리 함.
+	if !reflect.ValueOf(image.Description).IsNil() {
+		keyValueList = append(keyValueList, irs.KeyValue{Key: "Description", Value: *image.Description})
+	}
+	if !reflect.ValueOf(image.ImageOwnerAlias).IsNil() {
+		keyValueList = append(keyValueList, irs.KeyValue{Key: "ImageOwnerAlias", Value: *image.ImageOwnerAlias})
+	}
+	if !reflect.ValueOf(image.RootDeviceName).IsNil() {
+		keyValueList = append(keyValueList, irs.KeyValue{Key: "RootDeviceName", Value: *image.RootDeviceName})
+		keyValueList = append(keyValueList, irs.KeyValue{Key: "RootDeviceType", Value: *image.RootDeviceType})
+	}
+	if !reflect.ValueOf(image.EnaSupport).IsNil() {
+		keyValueList = append(keyValueList, irs.KeyValue{Key: "EnaSupport", Value: strconv.FormatBool(*image.EnaSupport)})
+	}
+
+	imageInfo.KeyValueList = keyValueList
+
 	return imageInfo
-}
-
-func LoopObjectField(object interface{}) {
-	e := reflect.ValueOf(object).Elem()
-	fieldNum := e.NumField()
-	for i := 0; i < fieldNum; i++ {
-		v := e.Field(i)
-		t := e.Type().Field(i)
-		fmt.Printf("Name: %s / Type: %s / Value: %v / Tag: %s \n",
-			t.Name, t.Type, v.Interface(), t.Tag.Get("custom"))
-	}
 }
 
 func (imageHandler *AwsImageHandler) GetImage(imageID string) (irs.ImageInfo, error) {
@@ -179,6 +160,7 @@ func (imageHandler *AwsImageHandler) GetImage(imageID string) (irs.ImageInfo, er
 	return imageInfo, nil
 }
 
+//@TODO : 삭제 API 찾아야 함.
 func (imageHandler *AwsImageHandler) DeleteImage(imageID string) (bool, error) {
-	return true, nil
+	return false, nil
 }
