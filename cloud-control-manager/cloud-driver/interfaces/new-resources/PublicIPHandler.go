@@ -20,7 +20,7 @@ type PublicIPInfo  struct {
      OwnedVMID   string 
      Status string
      
-     keyValueList []KeyValue
+     KeyValueList []KeyValue
 }
 
 type PublicIPHandler interface {

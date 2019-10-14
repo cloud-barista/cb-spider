@@ -115,18 +115,10 @@ func handlePublicIP() {
 	handler := ResourceHandler.(irs.PublicIPHandler)
 
 	config := readConfigFile()
-	/*
-		publicIPReqInfo := irs.PublicIPReqInfo{
-			Id: config.Aws.VmID,
-		}
-	*/
-
 	//reqGetPublicIP := "13.124.140.207"
 	reqPublicIP := config.Aws.PublicIP
-	reqVmID := config.Aws.VmID
-
+	//reqPublicIP = "eipalloc-0231a3e16ec42e869"
 	cblogger.Info("reqPublicIP : ", reqPublicIP)
-	cblogger.Info("reqVmID : ", reqVmID)
 	//handler.CreatePublicIP(publicIPReqInfo)
 	//handler.ListPublicIP()
 	//handler.GetPublicIP("13.124.140.207")
@@ -175,12 +167,12 @@ func handlePublicIP() {
 
 			case 3:
 				fmt.Println("Start CreatePublicIP() ...")
-				reqInfo := irs.PublicIPReqInfo{Id: reqVmID}
+				reqInfo := irs.PublicIPReqInfo{Name: "mcloud-barista-eip-test"}
 				result, err := handler.CreatePublicIP(reqInfo)
 				if err != nil {
 					cblogger.Error("PublicIP 생성 실패 : ", err)
 				} else {
-					cblogger.Info("키 페어 생성 성공 ", result)
+					cblogger.Info("PublicIP 생성 성공 ", result)
 					spew.Dump(result)
 				}
 				fmt.Println("Finish CreatePublicIP()")
@@ -553,8 +545,8 @@ func handleVNic() {
 
 func main() {
 	cblogger.Info("AWS Resource Test")
-	handleKeyPair()
-	//handlePublicIP() // PublicIP 생성 후 conf
+	//handleKeyPair()
+	handlePublicIP() // PublicIP 생성 후 conf
 
 	//handleVNetwork() //VPC
 	//handleImage() //AMI
