@@ -57,7 +57,7 @@ func Connect(region string) *ec2.EC2 {
 //키페어 이름(예:mcloud-barista)은 아래 URL에 나오는 목록 중 "키페어 이름"의 값을 적으면 됨.
 //https://ap-northeast-2.console.aws.amazon.com/ec2/v2/home?region=ap-northeast-2#KeyPairs:sort=keyName
 func (vmHandler *AwsVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, error) {
-	cblogger.Info("Start VMHandler()::StartVM()")
+	cblogger.Info(vmReqInfo)
 	spew.Dump(vmReqInfo)
 
 	imageID := vmReqInfo.ImageInfo.Id
@@ -90,7 +90,8 @@ func (vmHandler *AwsVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 		return irs.VMInfo{}, err
 	}
 
-	cblogger.Info("Created instance", *runResult.Instances[0].InstanceId)
+	newVmId := *runResult.Instances[0].InstanceId
+	cblogger.Info("Created instance ", newVmId)
 	// Tag에 VM Name 설정
 	_, errtag := vmHandler.Client.CreateTags(&ec2.CreateTagsInput{
 		Resources: []*string{runResult.Instances[0].InstanceId},
@@ -102,24 +103,43 @@ func (vmHandler *AwsVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 		},
 	})
 	if errtag != nil {
-		cblogger.Error("Could not create tags for instance", runResult.Instances[0].InstanceId, errtag)
+		cblogger.Error("Could not create tags for instance ", newVmId, errtag)
 		return irs.VMInfo{}, errtag
 	}
 
-	//빠른 생성을 위해 Running 상태를 대기하지 않고 최소한의 정보만 리턴 함.
-	//Running 상태를 대기 후 Public Ip 등의 정보를 추출하려면 GetVM()을 호출해서 최신 정보를 다시 받아와야 함.
-	//vmInfo :=GetVM(runResult.Instances[0].InstanceId)
-
-	//cblogger.Info("EC2 Running 상태 대기")
-	//WaitForRun(vmHandler.Client, *runResult.Instances[0].InstanceId)
-	//cblogger.Info("EC2 Running 상태 완료 : ", runResult.Instances[0].State.Name)
-
-	vmInfo := ExtractDescribeInstances(runResult)
-	//속도상 VM 정보를 다시 조회하지 않았기 때문에 Tag 정보가 누락되어서 Name 정보가 설정되어 있지 않음.
-	if vmInfo.Name == "" {
-		vmInfo.Name = baseName
+	//EC2에 EIP 할당
+	cblogger.Infof("[%s] EC2에 [%s] IP 할당 시작", newVmId, vmReqInfo.PublicIPId)
+	assocRes, errIp := vmHandler.AssociatePublicIP(vmReqInfo.PublicIPId, newVmId)
+	if errIp != nil {
+		cblogger.Errorf("Unable to associate IP address with %s, %v", newVmId, err)
+		return irs.VMInfo{}, nil
 	}
 
+	cblogger.Infof("[%s] EC2에 Public IP 할당 결과 : ", newVmId, assocRes)
+
+	//Public IP및 초신 정보 전달을 위해 부팅이 완료될 때까지 대기했다가 전달하는 것으로 변경 함.
+	cblogger.Info("EC2 Running 상태 대기")
+	WaitForRun(vmHandler.Client, newVmId)
+	cblogger.Info("EC2 Running 상태 완료 : ", runResult.Instances[0].State.Name)
+
+	//최신 정보 조회
+	vmInfo := vmHandler.GetVM(newVmId)
+
+	/*
+		//빠른 생성을 위해 Running 상태를 대기하지 않고 최소한의 정보만 리턴 함.
+		//Running 상태를 대기 후 Public Ip 등의 정보를 추출하려면 GetVM()을 호출해서 최신 정보를 다시 받아와야 함.
+		//vmInfo :=GetVM(runResult.Instances[0].InstanceId)
+
+		//cblogger.Info("EC2 Running 상태 대기")
+		//WaitForRun(vmHandler.Client, *runResult.Instances[0].InstanceId)
+		//cblogger.Info("EC2 Running 상태 완료 : ", runResult.Instances[0].State.Name)
+
+		vmInfo := ExtractDescribeInstances(runResult)
+		//속도상 VM 정보를 다시 조회하지 않았기 때문에 Tag 정보가 누락되어서 Name 정보가 설정되어 있지 않음.
+		if vmInfo.Name == "" {
+			vmInfo.Name = baseName
+		}
+	*/
 	return vmInfo, nil
 }
 
@@ -282,7 +302,6 @@ func (vmHandler *AwsVMHandler) GetVM(vmID string) irs.VMInfo {
 	}
 
 	cblogger.Info("vmInfo", vmInfo)
-
 	return vmInfo
 }
 
@@ -507,4 +526,37 @@ func (vmHandler *AwsVMHandler) ListVMStatus() []*irs.VMStatusInfo {
 	}
 
 	return vmStatusList
+}
+
+// AssociationId 대신 PublicIP로도 가능 함.
+func (vmHandler *AwsVMHandler) AssociatePublicIP(allocationId string, instanceId string) (bool, error) {
+	cblogger.Infof("EC2에 퍼블릭 IP할당 - AllocationId : [%s], InstanceId : [%s]", allocationId, instanceId)
+
+	// EC2에 할당.
+	// Associate the new Elastic IP address with an existing EC2 instance.
+	assocRes, err := vmHandler.Client.AssociateAddress(&ec2.AssociateAddressInput{
+		AllocationId: aws.String(allocationId),
+		InstanceId:   aws.String(instanceId),
+	})
+
+	spew.Dump(assocRes)
+	cblogger.Infof("[%s] EC2에 EIP(AllocationId : [%s]) 할당 완료 - AssociationId Id : [%s]", instanceId, allocationId, *assocRes.AssociationId)
+
+	if err != nil {
+		cblogger.Errorf("Unable to associate IP address with %s, %v", instanceId, err)
+		if aerr, ok := err.(awserr.Error); ok {
+			switch aerr.Code() {
+			default:
+				cblogger.Errorf(aerr.Error())
+			}
+		} else {
+			// Print the error, cast err to awserr.Error to get the Code and
+			// Message from an error.
+			cblogger.Errorf(err.Error())
+		}
+		return false, err
+	}
+
+	cblogger.Info(assocRes)
+	return true, nil
 }
