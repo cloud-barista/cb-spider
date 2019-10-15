@@ -36,7 +36,8 @@ type CredentialInfo struct {
 	Password         string // OpenStack Credential
 	DomainName       string // OpenStack Credential
 	ProjectID        string // OpenStack Credential
-	AuthToken        string //Cloudit Credential
+	AuthToken        string // Cloudit Credential
+	ClientEmail      string // GCP
 }
 
 type RegionInfo struct {
