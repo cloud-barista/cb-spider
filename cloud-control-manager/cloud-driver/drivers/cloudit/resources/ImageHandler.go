@@ -6,15 +6,25 @@ import (
 	"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/cloudit/client"
 	"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/cloudit/client/ace/image"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
-	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
+	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/new-resources"
 	"github.com/davecgh/go-spew/spew"
 	//"github.com/sirupsen/logrus"
-	"strconv"
 )
 
 type ClouditImageHandler struct {
 	CredentialInfo idrv.CredentialInfo
 	Client         *client.RestClient
+}
+
+// TODO: 모든 cloudit resourceHandler에 setter 함수 추가
+func setterImage(image image.ImageInfo) *irs.ImageInfo {
+	imageInfo := &irs.ImageInfo{
+		Id:      image.ID,
+		Name:    image.Name,
+		GuestOS: image.OS,
+		Status:  image.State,
+	}
+	return imageInfo
 }
 
 func (imageHandler *ClouditImageHandler) CreateImage(imageReqInfo irs.ImageReqInfo) (irs.ImageInfo, error) {
@@ -69,11 +79,13 @@ func (imageHandler *ClouditImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 	if imageList, err := image.List(imageHandler.Client, &requestOpts); err != nil {
 		return nil, err
 	} else {
-		for i, image := range *imageList {
-			cblogger.Info("[" + strconv.Itoa(i) + "]")
-			spew.Dump(image)
+		var resultList []*irs.ImageInfo
+		// TODO: setter 함수 사용해서 리소스 반환
+		for _, image := range *imageList {
+			imageInfo := setterImage(image)
+			resultList = append(resultList, imageInfo)
 		}
-		return nil, nil
+		return resultList, nil
 	}
 }
 
