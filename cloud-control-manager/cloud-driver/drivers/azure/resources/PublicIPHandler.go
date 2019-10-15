@@ -31,10 +31,6 @@ func setterIP(address network.PublicIPAddress) *irs.PublicIPInfo {
 
 func (publicIpHandler *AzurePublicIPHandler) CreatePublicIP(publicIPReqInfo irs.PublicIPReqInfo) (irs.PublicIPInfo, error) {
 
-	/*reqInfo := irs.PublicIPReqInfo{
-		Name: "basic",
-	}*/
-
 	publicIPArr := strings.Split(publicIPReqInfo.Name, ":")
 
 	// Check PublicIP Exists

@@ -4,7 +4,7 @@ import (
 	cblog "github.com/cloud-barista/cb-log"
 	azdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/azure"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
-	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
+	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/new-resources"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v3"
@@ -55,7 +55,7 @@ func testCreateVM() {
 	// 1. Virtual Network 생성
 	vNetworkId := config.Azure.VNetwork.GroupName + ":" + config.Azure.VNetwork.Name
 	cblogger.Info("Start CreateVNetwork() ...")
-	vNetReqInfo := irs.VNetworkReqInfo{Id: vNetworkId}
+	vNetReqInfo := irs.VNetworkReqInfo{Name: vNetworkId}
 	_, err := vNetworkHandler.CreateVNetwork(vNetReqInfo)
 	if err != nil {
 		cblogger.Error(err)
@@ -65,7 +65,7 @@ func testCreateVM() {
 	// 2. Security Group 생성
 	securityGroupId := config.Azure.Security.GroupName + ":" + config.Azure.Security.Name
 	cblogger.Info("Start CreateSecurity() ...")
-	secReqInfo := irs.SecurityReqInfo{Id: securityGroupId}
+	secReqInfo := irs.SecurityReqInfo{Name: securityGroupId}
 	_, err = securityHandler.CreateSecurity(secReqInfo)
 	if err != nil {
 		cblogger.Error(err)
@@ -75,7 +75,7 @@ func testCreateVM() {
 	// 3. Public IP 생성
 	publicIPId := config.Azure.PublicIP.GroupName + ":" + config.Azure.PublicIP.Name
 	cblogger.Info("Start CreatePublicIP() ...")
-	publicIPReqInfo := irs.PublicIPReqInfo{Id: publicIPId}
+	publicIPReqInfo := irs.PublicIPReqInfo{Name: publicIPId}
 	_, err = publicIPHandler.CreatePublicIP(publicIPReqInfo)
 	if err != nil {
 		cblogger.Error(err)
@@ -85,7 +85,7 @@ func testCreateVM() {
 	// 4. Virtual Network Interface 생성
 	vNicId := config.Azure.VNic.GroupName + ":" + config.Azure.VNic.Name
 	cblogger.Info("Start CreateVNic() ...")
-	vNicReqInfo := irs.VNicReqInfo{Id: vNicId}
+	vNicReqInfo := irs.VNicReqInfo{Name: vNicId}
 	_, err = vNicHandler.CreateVNic(vNicReqInfo)
 	if err != nil {
 		cblogger.Error(err)
@@ -97,18 +97,12 @@ func testCreateVM() {
 	vmName := config.Azure.GroupName + ":" + config.Azure.VMName
 	imageId := config.Azure.Image.Publisher + ":" + config.Azure.Image.Offer + ":" + config.Azure.Image.Sku + ":" + config.Azure.Image.Version
 	vmReqInfo := irs.VMReqInfo{
-		Name: vmName,
-		ImageInfo: irs.ImageInfo{
-			Id: imageId,
-		},
-		SpecID: config.Azure.VMSize,
-		VNetworkInfo: irs.VNetworkInfo{
-			Id: config.Azure.Nic.ID,
-		},
-		LoginInfo: irs.LoginInfo{
-			AdminUsername: config.Azure.Os.AdminUsername,
-			//AdminPassword: config.Azure.Os.AdminPassword,
-		},
+		VMName:           vmName,
+		ImageId:          imageId,
+		VMSpecId:         config.Azure.VMSize,
+		VirtualNetworkId: config.Azure.Nic.ID,
+		VMUserId:         config.Azure.AdminUsername,
+		VMUserPasswd:     config.Azure.AdminPassword,
 	}
 
 	vm, err := vmHandler.StartVM(vmReqInfo)
@@ -131,6 +125,9 @@ type Config struct {
 		TenantId       string `yaml:"tenant_id"`
 		SubscriptionID string `yaml:"subscription_id"`
 
+		AdminUsername string `yaml:"admin_username"`
+		AdminPassword string `yaml:"admin_password"`
+
 		GroupName string `yaml:"group_name"`
 		VMName    string `yaml:"vm_name"`
 
@@ -143,9 +140,7 @@ type Config struct {
 			Version   string `yaml:"version"`
 		} `yaml:"image"`
 		Os struct {
-			ComputeName   string `yaml:"compute_name"`
-			AdminUsername string `yaml:"admin_username"`
-			AdminPassword string `yaml:"admin_password"`
+			ComputeName string `yaml:"compute_name"`
 		} `yaml:"os"`
 		Nic struct {
 			ID string `yaml:"id"`

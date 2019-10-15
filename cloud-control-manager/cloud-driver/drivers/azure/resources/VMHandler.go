@@ -40,7 +40,6 @@ func (vmHandler *AzureVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 	// Set VM Create Information
 	imageId := vmReqInfo.ImageId
 	imageIdArr := strings.Split(imageId, ":")
-
 	//sshKeyPath := "test"
 	//sshKeyData := ""
 

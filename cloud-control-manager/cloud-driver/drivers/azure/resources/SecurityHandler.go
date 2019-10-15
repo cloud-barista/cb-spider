@@ -45,19 +45,6 @@ func setterSec(securityGroup network.SecurityGroup) *irs.SecurityInfo {
 
 func (securityHandler *AzureSecurityHandler) CreateSecurity(securityReqInfo irs.SecurityReqInfo) (irs.SecurityInfo, error) {
 
-	/*reqInfo := irs.SecurityReqInfo{
-		Name : "HTTP", //main에서 다른값으로 들어온다?? Setter 선언 잘못??
-		SecurityRules: &[]irs.SecurityRuleInfo{
-			{
-				FromPort:                 "*",
-				ToPort:                   "80",
-				IPProtocol:               "TCP",
-				Direction:                "Inbound",
-			},
-			// Todo : 현재 인터페이스로 2가지 정보를 가져오지 못함
-		},
-	}*/
-
 	var sgRuleList []network.SecurityRule
 	for _, rule := range *securityReqInfo.SecurityRules {
 		sgRuleInfo := network.SecurityRule{

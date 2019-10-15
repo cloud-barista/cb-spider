@@ -64,7 +64,6 @@ func (vNicHandler *AzureVNicHandler) CreateVNic(vNicReqInfo irs.VNicReqInfo) (ir
 	vNicReqInfo.SecurityGroupIds = []string{securityGroupId}
 
 	vNicIdArr := strings.Split(vNicReqInfo.Name, ":")
-
 	// Check vNic Exists
 	//vNic, err := vNicHandler.NicClient.Get(vNicHandler.Ctx, vNicIdArr[0], vNicIdArr[1], "")
 	vNic, _ := vNicHandler.NicClient.Get(vNicHandler.Ctx, vNicIdArr[0], vNicIdArr[1], "")

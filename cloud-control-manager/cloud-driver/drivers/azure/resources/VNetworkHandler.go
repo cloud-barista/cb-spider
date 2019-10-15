@@ -46,22 +46,6 @@ func setterVNet(network network.VirtualNetwork) *irs.VNetworkInfo {
 
 func (vNetworkHandler *AzureVNetworkHandler) CreateVNetwork(vNetworkReqInfo irs.VNetworkReqInfo) (irs.VNetworkInfo, error) {
 
-	//reqInfo := irs.VNetworkReqInfo{
-	//	Name:            vNicIdArr[1],
-	//	AddressPrefixes: []string{"130.0.0.0/8"},
-	//	Subnets: &[]SubnetInfo{
-	//		{
-	//			Name:          "default",
-	//			AddressPrefix: "130.1.0.0/16",
-	//		},
-	//	},
-	//}
-
-	//var subnetArr []network.Subnet
-	//	subnetInfo := network.Subnet{
-	//		Name: &vNetworkReqInfo.Name,
-	//	}
-	//	subnetArr = append(subnetArr, subnetInfo)
 	vNetworkReqInfo.Name = "inno-platform1-rsrc-grup:Test-mcb-test-vnet"
 	vNetworkIdArr := strings.Split(vNetworkReqInfo.Name, ":")
 

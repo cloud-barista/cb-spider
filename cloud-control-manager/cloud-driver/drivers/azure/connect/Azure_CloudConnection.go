@@ -45,7 +45,6 @@ func (cloudConn *AzureCloudConnection) CreateVNetworkHandler() (irs.VNetworkHand
 	vNetHandler := azrs.AzureVNetworkHandler{cloudConn.Region, cloudConn.Ctx, cloudConn.VNetClient}
 	return &vNetHandler, nil
 }
-
 func (cloudConn *AzureCloudConnection) CreateImageHandler() (irs.ImageHandler, error) {
 	cblogger.Info("Azure Cloud Driver: called CreateImageHandler()!")
 	imageHandler := azrs.AzureImageHandler{cloudConn.Region, cloudConn.Ctx, cloudConn.ImageClient}

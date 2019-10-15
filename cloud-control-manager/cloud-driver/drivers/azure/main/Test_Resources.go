@@ -81,7 +81,6 @@ func testPublicIPHanlder(config Config) {
 	if err != nil {
 		cblogger.Error(err)
 	}
-
 	publicIPHandler := resourceHandler.(irs.PublicIPHandler)
 
 	cblogger.Info("Test PublicIPHandler")
