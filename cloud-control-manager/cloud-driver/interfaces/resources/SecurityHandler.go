@@ -26,8 +26,8 @@ type SecurityReqInfo struct {
 
 type SecurityRuleInfo struct {
 	//2차 인터페이스
-	FromPort   int64
-	ToPort     int64
+	FromPort   string
+	ToPort     string
 	IPProtocol string // tcp | udp | icmp | ...
 	Direction  string // inbound | outbound
 
