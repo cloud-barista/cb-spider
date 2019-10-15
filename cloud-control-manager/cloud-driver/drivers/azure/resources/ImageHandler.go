@@ -8,7 +8,6 @@ import (
 	"github.com/Azure/go-autorest/autorest/to"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/new-resources"
-	"github.com/davecgh/go-spew/spew"
 	"strings"
 )
 
@@ -20,12 +19,11 @@ type AzureImageHandler struct {
 
 func setterImage(image compute.Image) *irs.ImageInfo {
 	imageInfo := &irs.ImageInfo{
-		Id:   *image.ID,
-		Name: *image.Name,
-		//todo: Status(available, unavailable 등) 올바르게 뜬거 맞나 확인, KeyValue도 넣어야하나?
-		GuestOS: fmt.Sprint(image.ImageProperties.StorageProfile.OsDisk.OsType),
-		//Status: fmt.Sprint(image.StorageProfile.OsDisk.OsState),
-		Status: *image.ProvisioningState,
+		Id:           *image.ID,
+		Name:         *image.Name,
+		GuestOS:      fmt.Sprint(image.ImageProperties.StorageProfile.OsDisk.OsType),
+		Status:       *image.ProvisioningState,
+		KeyValueList: []irs.KeyValue{{Key: "ResourceGroup", Value: CB_GROUP}},
 	}
 
 	return imageInfo
@@ -80,46 +78,43 @@ func (imageHandler *AzureImageHandler) CreateImage(imageReqInfo irs.ImageReqInfo
 		return irs.ImageInfo{}, err
 	}
 
-	return irs.ImageInfo{}, nil
+	// 생성된 Image 정보 리턴
+	imageInfo, err := imageHandler.GetImage(imageReqInfo.Name)
+	if err != nil {
+		return irs.ImageInfo{}, err
+	}
+	return imageInfo, nil
 }
 
 func (imageHandler *AzureImageHandler) ListImage() ([]*irs.ImageInfo, error) {
-	//resultList, err := imageHandler.Client.List(imageHandler.Ctx)
-	resultList, err := imageHandler.Client.ListByResourceGroup(imageHandler.Ctx, imageHandler.Region.ResourceGroup)
+	resultList, err := imageHandler.Client.ListByResourceGroup(imageHandler.Ctx, CB_GROUP)
 	if err != nil {
 		cblogger.Error(err)
 	}
 
 	var imageList []*irs.ImageInfo
 	for _, image := range resultList.Values() {
-
 		imageInfo := setterImage(image)
 		imageList = append(imageList, imageInfo)
 	}
-
-	spew.Dump(imageList)
-	return nil, nil
+	//spew.Dump(imageList)
+	return imageList, nil
 }
 
 func (imageHandler *AzureImageHandler) GetImage(imageID string) (irs.ImageInfo, error) {
-	imageIdArr := strings.Split(imageID, ":")
-
-	image, err := imageHandler.Client.Get(imageHandler.Ctx, imageIdArr[0], imageIdArr[1], "")
+	image, err := imageHandler.Client.Get(imageHandler.Ctx, CB_GROUP, imageID, "")
 	if err != nil {
-		//cblogger.Error(err)
-		return irs.ImageInfo{}, nil
+		cblogger.Error(err)
+		return irs.ImageInfo{}, err
 	}
 
 	imageInfo := setterImage(image)
-
-	spew.Dump(imageInfo)
-	return irs.ImageInfo{}, nil
+	//spew.Dump(imageInfo)
+	return *imageInfo, nil
 }
 
 func (imageHandler *AzureImageHandler) DeleteImage(imageID string) (bool, error) {
-	imageIdArr := strings.Split(imageID, ":")
-
-	future, err := imageHandler.Client.Delete(imageHandler.Ctx, imageIdArr[0], imageIdArr[1])
+	future, err := imageHandler.Client.Delete(imageHandler.Ctx, CB_GROUP, imageID)
 	if err != nil {
 		return false, err
 	}
