@@ -5,7 +5,7 @@ import (
 	cblog "github.com/cloud-barista/cb-log"
 	azdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/azure"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
-	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
+	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/new-resources"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v3"
@@ -26,18 +26,12 @@ func createVM(config Config, vmHandler irs.VMHandler) {
 	vmName := config.Azure.GroupName + ":" + config.Azure.VMName
 	imageId := config.Azure.Image.Publisher + ":" + config.Azure.Image.Offer + ":" + config.Azure.Image.Sku + ":" + config.Azure.Image.Version
 	vmReqInfo := irs.VMReqInfo{
-		Name: vmName,
-		ImageInfo: irs.ImageInfo{
-			Id: imageId,
-		},
-		SpecID: config.Azure.VMSize,
-		VNetworkInfo: irs.VNetworkInfo{
-			Id: config.Azure.Nic.ID,
-		},
-		LoginInfo: irs.LoginInfo{
-			AdminUsername: config.Azure.Os.AdminUsername,
-			//AdminPassword: config.Azure.Os.AdminPassword,
-		},
+		VMName:           vmName,
+		ImageId:          imageId,
+		VMSpecId:         config.Azure.VMSize,
+		VirtualNetworkId: config.Azure.Nic.ID,
+		VMUserId:         config.Azure.AdminUsername,
+		VMUserPasswd:     config.Azure.AdminPassword,
 	}
 
 	vm, err := vmHandler.StartVM(vmReqInfo)
@@ -169,6 +163,9 @@ type Config struct {
 		GroupName string `yaml:"group_name"`
 		VMName    string `yaml:"vm_name"`
 
+		AdminUsername string `yaml:"admin_username"`
+		AdminPassword string `yaml:"admin_password"`
+
 		Location string `yaml:"location"`
 		VMSize   string `yaml:"vm_size"`
 		Image    struct {
@@ -178,9 +175,7 @@ type Config struct {
 			Version   string `yaml:"version"`
 		} `yaml:"image"`
 		Os struct {
-			ComputeName   string `yaml:"compute_name"`
-			AdminUsername string `yaml:"admin_username"`
-			AdminPassword string `yaml:"admin_password"`
+			ComputeName string `yaml:"compute_name"`
 		} `yaml:"os"`
 		Nic struct {
 			ID string `yaml:"id"`
@@ -217,7 +212,7 @@ type Config struct {
 func readConfigFile() Config {
 	// Set Environment Value of Project Root Path
 	rootPath := os.Getenv("CBSPIDER_PATH")
-	data, err := ioutil.ReadFile(rootPath + "/config/config.yaml")
+	data, err := ioutil.ReadFile(rootPath + "/conf/config.yaml")
 	if err != nil {
 		cblogger.Error(err)
 	}

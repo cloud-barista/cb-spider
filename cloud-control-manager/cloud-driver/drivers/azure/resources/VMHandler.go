@@ -18,10 +18,8 @@ import (
 	"github.com/Azure/go-autorest/autorest/to"
 	cblog "github.com/cloud-barista/cb-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
-	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
+	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/new-resources"
 	"github.com/sirupsen/logrus"
-	"io/ioutil"
-	"os"
 	"strings"
 )
 
@@ -40,18 +38,18 @@ type AzureVMHandler struct {
 
 func (vmHandler *AzureVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, error) {
 	// Set VM Create Information
-	imageId := vmReqInfo.ImageInfo.Id
+	imageId := vmReqInfo.ImageId
 	imageIdArr := strings.Split(imageId, ":")
 
 	//sshKeyPath := "test"
 	//sshKeyData := ""
 
-	rootPath := os.Getenv("CBSPIDER_PATH")
-	sshPublicKeyPath := rootPath + "/key/mcb-test-key.pub"
+	//rootPath := os.Getenv("CBSPIDER_PATH")
+	//sshPublicKeyPath := rootPath + "/key/mcb-test-key.pub"
 
 	// TODO: golang.org/x/crypto/ssh lib 기반 키 생성 기능 개발
 	// Create Key (Private Key, Public Key)
-	var sshPublicKey string
+	/*var sshPublicKey string
 	fmt.Println(sshPublicKey)
 
 	var sshKeyData string
@@ -62,9 +60,9 @@ func (vmHandler *AzureVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 			return irs.VMInfo{}, err
 		}
 		sshKeyData = string(sshBytes)
-	}
+	}*/
 
-	vmName := vmReqInfo.Name
+	vmName := vmReqInfo.VMName
 	vmNameArr := strings.Split(vmName, ":")
 
 	// Check VM Exists
@@ -79,7 +77,7 @@ func (vmHandler *AzureVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 		Location: &vmHandler.Region.Region,
 		VirtualMachineProperties: &compute.VirtualMachineProperties{
 			HardwareProfile: &compute.HardwareProfile{
-				VMSize: compute.VirtualMachineSizeTypes(vmReqInfo.SpecID),
+				VMSize: compute.VirtualMachineSizeTypes(vmReqInfo.VMSpecId),
 			},
 			StorageProfile: &compute.StorageProfile{
 				ImageReference: &compute.ImageReference{
@@ -91,25 +89,25 @@ func (vmHandler *AzureVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 			},
 			OsProfile: &compute.OSProfile{
 				ComputerName:  &vmNameArr[1],
-				AdminUsername: &vmReqInfo.LoginInfo.AdminUsername,
-				//AdminPassword: &vmReqInfo.LoginInfo.AdminPassword,
-				LinuxConfiguration: &compute.LinuxConfiguration{
+				AdminUsername: &vmReqInfo.VMUserId,
+				AdminPassword: &vmReqInfo.VMUserPasswd,
+				/*LinuxConfiguration: &compute.LinuxConfiguration{
 					SSH: &compute.SSHConfiguration{
 						PublicKeys: &[]compute.SSHPublicKey{
 							{
-								Path:    to.StringPtr(fmt.Sprintf("/home/%s/.ssh/authorized_keys", vmReqInfo.LoginInfo.AdminUsername)),
+								Path:    to.StringPtr(fmt.Sprintf("/home/%s/.ssh/authorized_keys", vmReqInfo.VMUserId)),
 								KeyData: &sshKeyData,
 								// TODO: golang.org/x/crypto/ssh lib 기반 키 생성 기능 개발
 								// KeyData: &sshPublicKey
 							},
 						},
 					},
-				},
+				},*/
 			},
 			NetworkProfile: &compute.NetworkProfile{
 				NetworkInterfaces: &[]compute.NetworkInterfaceReference{
 					{
-						ID: &vmReqInfo.VNetworkInfo.Id,
+						ID: &vmReqInfo.VirtualNetworkId,
 						NetworkInterfaceReferenceProperties: &compute.NetworkInterfaceReferenceProperties{
 							Primary: to.BoolPtr(true),
 						},
@@ -299,7 +297,7 @@ func mappingServerInfo(server compute.VirtualMachine) irs.VMInfo {
 		Region: irs.RegionInfo{
 			Region: *server.Location,
 		},
-		SpecID: string(server.VirtualMachineProperties.HardwareProfile.VMSize),
+		VMSpecId: string(server.VirtualMachineProperties.HardwareProfile.VMSize),
 	}
 
 	// Set VM Zone
@@ -310,27 +308,27 @@ func mappingServerInfo(server compute.VirtualMachine) irs.VMInfo {
 	// Set VM Image Info
 	imageRef := server.VirtualMachineProperties.StorageProfile.ImageReference
 	imageId := *imageRef.Publisher + ":" + *imageRef.Offer + ":" + *imageRef.Sku + ":" + *imageRef.Version
-	vmInfo.ImageID = imageId
+	vmInfo.ImageId = imageId
 
 	// Set VNic Info
 	niList := *server.NetworkProfile.NetworkInterfaces
 	for _, ni := range niList {
 		if ni.NetworkInterfaceReferenceProperties != nil {
-			vmInfo.VNIC = *ni.ID
+			vmInfo.VirtualNetworkId = *ni.ID
 		}
 	}
 
 	// Set GuestUser Id/Pwd
 	if server.VirtualMachineProperties.OsProfile.AdminUsername != nil {
-		vmInfo.GuestUserID = *server.VirtualMachineProperties.OsProfile.AdminUsername
+		vmInfo.VMUserId = *server.VirtualMachineProperties.OsProfile.AdminUsername
 	}
 	if server.VirtualMachineProperties.OsProfile.AdminPassword != nil {
-		vmInfo.GuestUserID = *server.VirtualMachineProperties.OsProfile.AdminPassword
+		vmInfo.VMUserPasswd = *server.VirtualMachineProperties.OsProfile.AdminPassword
 	}
 
 	// Set BootDisk
 	if server.VirtualMachineProperties.StorageProfile.OsDisk.Name != nil {
-		vmInfo.GuestBootDisk = *server.VirtualMachineProperties.StorageProfile.OsDisk.Name
+		vmInfo.VMBootDisk = *server.VirtualMachineProperties.StorageProfile.OsDisk.Name
 	}
 
 	return vmInfo

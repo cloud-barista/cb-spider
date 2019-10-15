@@ -5,8 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2018-04-01/network"
+	"github.com/Azure/go-autorest/autorest/to"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
-	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
+	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/new-resources"
 	"github.com/davecgh/go-spew/spew"
 	"strings"
 )
@@ -39,103 +40,63 @@ type VNicIPConfig struct {
 	PublicIPAllocationMethod  string
 }
 
-func (nic *VNicInfo) setter(ni network.Interface) *VNicInfo {
-	nic.Id = *ni.ID
-	nic.Name = *ni.Name
-	nic.Location = *ni.Location
-
-	if ni.NetworkSecurityGroup != nil {
-		nic.SecurityGroup = *ni.NetworkSecurityGroup.ID
+func setterVNic(ni network.Interface) *irs.VNicInfo {
+	nic := &irs.VNicInfo{
+		Name:     *ni.Name,
+		PublicIP: "",
+		//MacAdress:        *ni.MacAddress,
+		OwnedVMID:        *ni.ID,
+		SecurityGroupIds: nil,
+		Status:           *ni.ProvisioningState,
 	}
-
-	var IPArr []VNicIPConfig
-	for _, ip := range *ni.IPConfigurations {
-		ipConfigInfo := VNicIPConfig{
-			Primary:                   *ip.Primary,
-			PrivateIPAddress:          *ip.PrivateIPAddress,
-			PrivateIPAddressVersion:   fmt.Sprint(ip.PrivateIPAddressVersion),
-			PrivateIPAllocationMethod: fmt.Sprint(ip.PrivateIPAllocationMethod),
-		}
-
-		if ip.PublicIPAddress != nil {
-			ipConfigInfo.PublicIP = *ip.PublicIPAddress.ID
-		}
-
-		IPArr = append(IPArr, ipConfigInfo)
-	}
-	nic.IP = IPArr
-
 	return nic
 }
 
 func (vNicHandler *AzureVNicHandler) CreateVNic(vNicReqInfo irs.VNicReqInfo) (irs.VNicInfo, error) {
 
-	// @TODO: VNicInfo 생성 요청 파라미터 정의 필요
-	type VNicIPReqInfo struct {
-		Name                      string
-		PrivateIPAllocationMethod string
-		PublicIPId                string
-	}
-	type VNicReqInfo struct {
-		Id              string
-		VNetworkName    string
-		SubnetName      string
-		SecurityGroupId string
-		IP              []VNicIPReqInfo
-	}
+	securityGroupId := "/subscriptions/cb592624-b77b-4a8f-bb13-0e5a48cae40f/resourceGroups/inno-platform1-rsrc-grup/providers/Microsoft.Network/networkSecurityGroups/inno-test-vm-nsg"
+	publicIpId := "/subscriptions/cb592624-b77b-4a8f-bb13-0e5a48cae40f/resourceGroups/inno-platform1-rsrc-grup/providers/Microsoft.Network/publicIPAddresses/mcb-test-publicip"
 
-	reqInfo := VNicReqInfo{
-		//VNetworkName: "mcb-test-vnet",
-		// edited by powerkim for test, 2019.08.13
-		VNetworkName: "cb-vnet",
-		SubnetName:   "default",
-		IP: []VNicIPReqInfo{
-			{
-				Name:                      "ipConfig1",
-				PrivateIPAllocationMethod: "Dynamic",
-				//PublicIPId:                "/subscriptions/cb592624-b77b-4a8f-bb13-0e5a48cae40f/resourceGroups/inno-platform1-rsrc-grup/providers/Microsoft.Network/publicIPAddresses/mcb-test-publicip", // @todo
-				//changed by powerkim for test, 2019.09.02
-				PublicIPId: "/subscriptions/f1548292-2be3-4acd-84a4-6df079160846/resourceGroups/cb-resource-group/providers/Microsoft.Network/publicIPAddresses/powerkim-test1-ip",
-			},
-		},
-		//SecurityGroupId: "/subscriptions/cb592624-b77b-4a8f-bb13-0e5a48cae40f/resourceGroups/inno-platform1-rsrc-grup/providers/Microsoft.Network/networkSecurityGroups/mcb-test-sg", // @todo
-		//edited by powerkim for test, 2019.08.13
-		//SecurityGroupId: "cb-security-group", // changed by powerkim, 2019.09.02
-		SecurityGroupId: "/subscriptions/f1548292-2be3-4acd-84a4-6df079160846/resourceGroups/cb-resource-group/providers/Microsoft.Network/networkSecurityGroups/cb-security-group",
-	}
+	// TODO: Test_Resource에서 파라미터로 넘어옴
+	vNicReqInfo.VNetName = "inno-platform1-rsrc-grup-vnet"
+	vNicReqInfo.Name = "inno-platform1-rsrc-grup:Test-mcb-test-vnic"
+	vNicReqInfo.PublicIPid = publicIpId
+	vNicReqInfo.SecurityGroupIds = []string{securityGroupId}
 
-	vNicIdArr := strings.Split(vNicReqInfo.Id, ":")
+	vNicIdArr := strings.Split(vNicReqInfo.Name, ":")
 
 	// Check vNic Exists
-	vNic, err := vNicHandler.NicClient.Get(vNicHandler.Ctx, vNicIdArr[0], vNicIdArr[1], "")
+	//vNic, err := vNicHandler.NicClient.Get(vNicHandler.Ctx, vNicIdArr[0], vNicIdArr[1], "")
+	vNic, _ := vNicHandler.NicClient.Get(vNicHandler.Ctx, vNicIdArr[0], vNicIdArr[1], "")
 	if vNic.ID != nil {
 		errMsg := fmt.Sprintf("Virtual Network Interface with name %s already exist", vNicIdArr[1])
 		createErr := errors.New(errMsg)
 		return irs.VNicInfo{}, createErr
 	}
 
-	subnet, err := vNicHandler.getSubnet(vNicIdArr[0], reqInfo.VNetworkName, reqInfo.SubnetName)
+	subnet, err := vNicHandler.getSubnet(vNicIdArr[0], vNicReqInfo.VNetName, "default")
+	// TODO: 추후 VNet 생성 API 기준 테스트
+	//subnet, err := vNicHandler.getSubnet(vNicIdArr[0], "CB-VNet", vNicReqInfo.VNetName)
 
+	// TODO: PublicIP Id 값 등록 후 테스트
 	var ipConfigArr []network.InterfaceIPConfiguration
-	for _, ipReqInfo := range reqInfo.IP {
-		ipConfig := network.InterfaceIPConfiguration{
-			Name: &ipReqInfo.Name,
-			InterfaceIPConfigurationPropertiesFormat: &network.InterfaceIPConfigurationPropertiesFormat{
-				Subnet:                    &subnet,
-				PrivateIPAllocationMethod: network.IPAllocationMethod(ipReqInfo.PrivateIPAllocationMethod),
-				PublicIPAddress: &network.PublicIPAddress{
-					ID: &ipReqInfo.PublicIPId,
-				},
+	ipConfig := network.InterfaceIPConfiguration{
+		Name: to.StringPtr("ipConfig1"),
+		InterfaceIPConfigurationPropertiesFormat: &network.InterfaceIPConfigurationPropertiesFormat{
+			Subnet:                    &subnet,
+			PrivateIPAllocationMethod: "Dynamic",
+			PublicIPAddress: &network.PublicIPAddress{
+				ID: &vNicReqInfo.PublicIPid,
 			},
-		}
-		ipConfigArr = append(ipConfigArr, ipConfig)
+		},
 	}
+	ipConfigArr = append(ipConfigArr, ipConfig)
 
 	createOpts := network.Interface{
 		InterfacePropertiesFormat: &network.InterfacePropertiesFormat{
 			IPConfigurations: &ipConfigArr,
 			NetworkSecurityGroup: &network.SecurityGroup{
-				ID: &reqInfo.SecurityGroupId,
+				ID: &vNicReqInfo.SecurityGroupIds[0],
 			},
 		},
 		Location: &vNicHandler.Region.Region,
@@ -161,9 +122,9 @@ func (vNicHandler *AzureVNicHandler) ListVNic() ([]*irs.VNicInfo, error) {
 		return nil, err
 	}
 
-	var vNicList []*VNicInfo
+	var vNicList []*irs.VNicInfo
 	for _, vNic := range result.Values() {
-		vNicInfo := new(VNicInfo).setter(vNic)
+		vNicInfo := setterVNic(vNic)
 		vNicList = append(vNicList, vNicInfo)
 	}
 
@@ -178,7 +139,7 @@ func (vNicHandler *AzureVNicHandler) GetVNic(vNicID string) (irs.VNicInfo, error
 		return irs.VNicInfo{}, err
 	}
 
-	vNicInfo := new(VNicInfo).setter(vNic)
+	vNicInfo := setterVNic(vNic)
 
 	spew.Dump(vNicInfo)
 	return irs.VNicInfo{}, nil

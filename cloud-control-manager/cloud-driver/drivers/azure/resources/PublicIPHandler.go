@@ -5,8 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2018-04-01/network"
+	"github.com/Azure/go-autorest/autorest/to"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
-	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
+	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/new-resources"
 	"github.com/davecgh/go-spew/spew"
 	"strings"
 )
@@ -17,52 +18,24 @@ type AzurePublicIPHandler struct {
 	Client *network.PublicIPAddressesClient
 }
 
-// @TODO: PublicIP 리소스 프로퍼티 정의 필요
-type PublicIPInfo struct {
-	Id                       string
-	Name                     string
-	Location                 string
-	PublicIPAddressSku       string
-	PublicIPAddressVersion   string
-	PublicIPAllocationMethod string
-	IPAddress                string
-	IdleTimeoutInMinutes     int32
-}
-
-func (publicIP *PublicIPInfo) setter(address network.PublicIPAddress) *PublicIPInfo {
-	publicIP.Id = *address.ID
-	publicIP.Name = *address.Name
-	publicIP.Location = *address.Location
-	publicIP.PublicIPAddressSku = fmt.Sprint(address.Sku.Name)
-	publicIP.PublicIPAddressVersion = fmt.Sprint(address.PublicIPAddressVersion)
-	publicIP.PublicIPAllocationMethod = fmt.Sprint(address.PublicIPAllocationMethod)
-	if address.IPAddress != nil {
-		publicIP.IPAddress = *address.IPAddress
+func setterIP(address network.PublicIPAddress) *irs.PublicIPInfo {
+	publicIP := &irs.PublicIPInfo{
+		Name:      *address.Name,
+		PublicIP:  *address.IPAddress,
+		OwnedVMID: *address.ID,
+		//todo: Status(available, unavailable 등) 올바르게 뜬거 맞나 확인, KeyValue도 넣어야하나?
+		Status: *address.ProvisioningState,
 	}
-	if address.IdleTimeoutInMinutes != nil {
-		publicIP.IdleTimeoutInMinutes = *address.IdleTimeoutInMinutes
-	}
-
 	return publicIP
 }
 
 func (publicIpHandler *AzurePublicIPHandler) CreatePublicIP(publicIPReqInfo irs.PublicIPReqInfo) (irs.PublicIPInfo, error) {
 
-	// @TODO: PublicIP 생성 요청 파라미터 정의 필요
-	type PublicIPReqInfo struct {
-		PublicIPAddressSkuName       string
-		PublicIPAddressVersion       string
-		PublicIPAllocationMethod     string
-		PublicIPIdleTimeoutInMinutes int32
-	}
-	reqInfo := PublicIPReqInfo{
-		PublicIPAddressSkuName:       "Basic",
-		PublicIPAddressVersion:       "IPv4",
-		PublicIPAllocationMethod:     "Static",
-		PublicIPIdleTimeoutInMinutes: 4,
-	}
+	/*reqInfo := irs.PublicIPReqInfo{
+		Name: "basic",
+	}*/
 
-	publicIPArr := strings.Split(publicIPReqInfo.Id, ":")
+	publicIPArr := strings.Split(publicIPReqInfo.Name, ":")
 
 	// Check PublicIP Exists
 	publicIP, err := publicIpHandler.Client.Get(publicIpHandler.Ctx, publicIPArr[0], publicIPArr[1], "")
@@ -73,13 +46,14 @@ func (publicIpHandler *AzurePublicIPHandler) CreatePublicIP(publicIPReqInfo irs.
 	}
 
 	createOpts := network.PublicIPAddress{
+		Name: to.StringPtr(publicIPReqInfo.Name),
 		Sku: &network.PublicIPAddressSku{
-			Name: network.PublicIPAddressSkuName(reqInfo.PublicIPAddressSkuName),
+			Name: network.PublicIPAddressSkuName("Basic"),
 		},
 		PublicIPAddressPropertiesFormat: &network.PublicIPAddressPropertiesFormat{
-			PublicIPAddressVersion:   network.IPVersion(reqInfo.PublicIPAddressVersion),
-			PublicIPAllocationMethod: network.IPAllocationMethod(reqInfo.PublicIPAllocationMethod),
-			IdleTimeoutInMinutes:     &reqInfo.PublicIPIdleTimeoutInMinutes,
+			PublicIPAddressVersion:   network.IPVersion("IPv4"),
+			PublicIPAllocationMethod: network.IPAllocationMethod("Static"),
+			IdleTimeoutInMinutes:     to.Int32Ptr(4),
 		},
 		Location: &publicIpHandler.Region.Region,
 	}
@@ -94,7 +68,7 @@ func (publicIpHandler *AzurePublicIPHandler) CreatePublicIP(publicIPReqInfo irs.
 	}
 
 	// @TODO: 생성된 PublicIP 정보 리턴
-	publicIPInfo, err := publicIpHandler.GetPublicIP(publicIPReqInfo.Id)
+	publicIPInfo, err := publicIpHandler.GetPublicIP(publicIPReqInfo.Name)
 	if err != nil {
 		return irs.PublicIPInfo{}, err
 	}
@@ -108,9 +82,9 @@ func (publicIpHandler *AzurePublicIPHandler) ListPublicIP() ([]*irs.PublicIPInfo
 		return nil, err
 	}
 
-	var publicIPList []*PublicIPInfo
+	var publicIPList []*irs.PublicIPInfo
 	for _, publicIP := range result.Values() {
-		publicIPInfo := new(PublicIPInfo).setter(publicIP)
+		publicIPInfo := setterIP(publicIP)
 		publicIPList = append(publicIPList, publicIPInfo)
 	}
 
@@ -125,7 +99,7 @@ func (publicIpHandler *AzurePublicIPHandler) GetPublicIP(publicIPID string) (irs
 		return irs.PublicIPInfo{}, err
 	}
 
-	publicIPInfo := new(PublicIPInfo).setter(publicIP)
+	publicIPInfo := setterIP(publicIP)
 
 	spew.Dump(publicIPInfo)
 	return irs.PublicIPInfo{}, nil

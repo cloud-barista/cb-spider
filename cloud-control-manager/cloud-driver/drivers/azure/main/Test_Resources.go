@@ -5,7 +5,7 @@ import (
 	cblog "github.com/cloud-barista/cb-log"
 	azdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/azure"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
-	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
+	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/new-resources"
 	"github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v3"
 	"io/ioutil"
@@ -34,7 +34,8 @@ func testImageHandler(config Config) {
 	cblogger.Info("4. DeleteImage()")
 	cblogger.Info("5. Exit")
 
-	imageId := config.Azure.ImageInfo.GroupName + ":" + config.Azure.ImageInfo.Name
+	//imageId := config.Azure.ImageInfo.GroupName + ":" + config.Azure.ImageInfo.Name
+	imageId := config.Azure.ImageInfo.GroupName + ":" + "Test-mcb-test-image"
 
 Loop:
 	for {
@@ -52,6 +53,7 @@ Loop:
 				cblogger.Info("Finish ListImage()")
 			case 2:
 				cblogger.Info("Start GetImage() ...")
+				//imageHandler.GetImage(imageId)
 				imageHandler.GetImage(imageId)
 				cblogger.Info("Finish GetImage()")
 			case 3:
@@ -89,7 +91,8 @@ func testPublicIPHanlder(config Config) {
 	cblogger.Info("4. DeletePublicIP()")
 	cblogger.Info("5. Exit")
 
-	publicIPId := config.Azure.PublicIP.GroupName + ":" + config.Azure.PublicIP.Name
+	//publicIPId := config.Azure.PublicIP.GroupName + ":" + config.Azure.PublicIP.Name
+	publicIPId := config.Azure.PublicIP.GroupName + ":" + "Test-mcb-test-publicIp"
 
 Loop:
 	for {
@@ -111,7 +114,7 @@ Loop:
 				cblogger.Info("Finish GetPublicIP()")
 			case 3:
 				cblogger.Info("Start CreatePublicIP() ...")
-				reqInfo := irs.PublicIPReqInfo{Id: publicIPId}
+				reqInfo := irs.PublicIPReqInfo{Name: publicIPId}
 				_, err := publicIPHandler.CreatePublicIP(reqInfo)
 				if err != nil {
 					cblogger.Error(err)
@@ -144,8 +147,8 @@ func testSecurityHandler(config Config) {
 	cblogger.Info("4. DeleteSecurity()")
 	cblogger.Info("5. Exit")
 
-	securityGroupId := config.Azure.Security.GroupName + ":" + config.Azure.Security.Name
-
+	//securityGroupId := config.Azure.Security.GroupName + ":" + config.Azure.Security.Name
+	securityGroupId := config.Azure.Security.GroupName + ":" + "Test-mcb-test-sg"
 Loop:
 
 	for {
@@ -167,7 +170,7 @@ Loop:
 				cblogger.Info("Finish GetSecurity()")
 			case 3:
 				cblogger.Info("Start CreateSecurity() ...")
-				reqInfo := irs.SecurityReqInfo{Id: securityGroupId}
+				reqInfo := irs.SecurityReqInfo{Name: securityGroupId}
 				_, err := securityHandler.CreateSecurity(reqInfo)
 				if err != nil {
 					cblogger.Error(err)
@@ -200,7 +203,8 @@ func testVNetworkHandler(config Config) {
 	cblogger.Info("4. DeleteVNetwork()")
 	cblogger.Info("5. Exit")
 
-	vNetworkId := config.Azure.VNetwork.GroupName + ":" + config.Azure.VNetwork.Name
+	//vNetworkId := config.Azure.VNetwork.GroupName + ":" + config.Azure.VNetwork.Name
+	vNetworkId := config.Azure.VNetwork.GroupName + ":" + "Test-mcb-test-vnet"
 
 Loop:
 
@@ -223,7 +227,7 @@ Loop:
 				cblogger.Info("Finish GetVNetwork()")
 			case 3:
 				cblogger.Info("Start CreateVNetwork() ...")
-				reqInfo := irs.VNetworkReqInfo{Id: vNetworkId}
+				reqInfo := irs.VNetworkReqInfo{Name: vNetworkId}
 				_, err := vNetworkHandler.CreateVNetwork(reqInfo)
 				if err != nil {
 					cblogger.Error(err)
@@ -256,7 +260,8 @@ func testVNicHandler(config Config) {
 	cblogger.Info("4. DeleteVNic()")
 	cblogger.Info("5. Exit Program")
 
-	vNicId := config.Azure.VNic.GroupName + ":" + config.Azure.VNic.Name
+	//vNicId := config.Azure.VNic.GroupName + ":" + config.Azure.VNic.Name
+	vNicId := config.Azure.VNic.GroupName + ":" + "Test-mcb-test-vnic"
 
 Loop:
 	for {
@@ -278,7 +283,8 @@ Loop:
 				cblogger.Info("Finish GetVNic()")
 			case 3:
 				cblogger.Info("Start CreateVNic() ...")
-				reqInfo := irs.VNicReqInfo{Id: vNicId}
+				// TODO: vNicReqInfo 파라미터 정의
+				reqInfo := irs.VNicReqInfo{Name: vNicId}
 				_, err := vNicHandler.CreateVNic(reqInfo)
 				if err != nil {
 					cblogger.Error(err)
@@ -448,7 +454,7 @@ type Config struct {
 func readConfigFile() Config {
 	// Set Environment Value of Project Root Path
 	rootPath := os.Getenv("CBSPIDER_PATH")
-	data, err := ioutil.ReadFile(rootPath + "/config/config.yaml")
+	data, err := ioutil.ReadFile(rootPath + "/conf/config.yaml")
 	if err != nil {
 		cblogger.Error(err)
 	}

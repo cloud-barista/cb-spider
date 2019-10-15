@@ -7,7 +7,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2018-04-01/network"
 	"github.com/Azure/go-autorest/autorest/to"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
-	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
+	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/new-resources"
 	"github.com/davecgh/go-spew/spew"
 	"strings"
 )
@@ -18,117 +18,58 @@ type AzureSecurityHandler struct {
 	Client *network.SecurityGroupsClient
 }
 
-// @TODO: SecurityInfo 리소스 프로퍼티 정의 필요
-type SecurityInfo struct {
-	Id                   string
-	Name                 string
-	Location             string
-	SecurityRules        []SecurityRuleInfo
-	DefaultSecurityRules []SecurityRuleInfo
-}
+func setterSec(securityGroup network.SecurityGroup) *irs.SecurityInfo {
+	security := &irs.SecurityInfo{
+		Id:            *securityGroup.ID,
+		Name:          *securityGroup.Name,
+		SecurityRules: nil,
+	}
 
-type SecurityRuleInfo struct {
-	Name                     string
-	SourceAddressPrefix      string
-	SourcePortRange          string
-	DestinationAddressPrefix string
-	DestinationPortRange     string
-	Protocol                 string
-	Access                   string
-	Priority                 int32
-	Direction                string
-}
-
-func (security *SecurityInfo) setter(securityGroup network.SecurityGroup) *SecurityInfo {
-	security.Id = *securityGroup.ID
-	security.Name = *securityGroup.Name
-	security.Location = *securityGroup.Location
-
-	var securityRuleArr []SecurityRuleInfo
-	var defaultSecurityRuleArr []SecurityRuleInfo
+	var securityRuleArr []irs.SecurityRuleInfo
 
 	for _, sgRule := range *securityGroup.SecurityRules {
-		ruleInfo := SecurityRuleInfo{
-			Name:                     *sgRule.Name,
-			SourceAddressPrefix:      *sgRule.SourceAddressPrefix,
-			SourcePortRange:          *sgRule.SourcePortRange,
-			DestinationAddressPrefix: *sgRule.DestinationAddressPrefix,
-			DestinationPortRange:     *sgRule.DestinationPortRange,
-			Protocol:                 fmt.Sprint(sgRule.Protocol),
-			Access:                   fmt.Sprint(sgRule.Access),
-			Priority:                 *sgRule.Priority,
-			Direction:                fmt.Sprint(sgRule.Direction),
+		ruleInfo := irs.SecurityRuleInfo{
+			FromPort:   *sgRule.SourcePortRange,
+			ToPort:     *sgRule.DestinationPortRange,
+			IPProtocol: fmt.Sprint(sgRule.Protocol),
+			Direction:  fmt.Sprint(sgRule.Direction),
 		}
+
 		securityRuleArr = append(securityRuleArr, ruleInfo)
 	}
 
-	for _, sgRule := range *securityGroup.DefaultSecurityRules {
-		ruleInfo := SecurityRuleInfo{
-			Name:                     *sgRule.Name,
-			SourceAddressPrefix:      *sgRule.SourceAddressPrefix,
-			SourcePortRange:          *sgRule.SourcePortRange,
-			DestinationAddressPrefix: *sgRule.DestinationAddressPrefix,
-			DestinationPortRange:     *sgRule.DestinationPortRange,
-			Protocol:                 fmt.Sprint(sgRule.Protocol),
-			Access:                   fmt.Sprint(sgRule.Access),
-			Priority:                 *sgRule.Priority,
-			Direction:                fmt.Sprint(sgRule.Direction),
-		}
-		defaultSecurityRuleArr = append(defaultSecurityRuleArr, ruleInfo)
-	}
-
-	security.SecurityRules = securityRuleArr
-	security.DefaultSecurityRules = defaultSecurityRuleArr
+	security.SecurityRules = &securityRuleArr
 
 	return security
 }
 
 func (securityHandler *AzureSecurityHandler) CreateSecurity(securityReqInfo irs.SecurityReqInfo) (irs.SecurityInfo, error) {
 
-	// @TODO: SecurityGroup 생성 요청 파라미터 정의 필요
-	type SecurityReqInfo struct {
-		SecurityRules *[]SecurityRuleInfo
-	}
-
-	reqInfo := SecurityReqInfo{
-		SecurityRules: &[]SecurityRuleInfo{
+	/*reqInfo := irs.SecurityReqInfo{
+		Name : "HTTP", //main에서 다른값으로 들어온다?? Setter 선언 잘못??
+		SecurityRules: &[]irs.SecurityRuleInfo{
 			{
-				Name:                     "HTTP",
-				SourceAddressPrefix:      "*",
-				SourcePortRange:          "*",
-				DestinationAddressPrefix: "*",
-				DestinationPortRange:     "80",
-				Protocol:                 "TCP",
-				Access:                   "Allow",
-				Priority:                 300,
+				FromPort:                 "*",
+				ToPort:                   "80",
+				IPProtocol:               "TCP",
 				Direction:                "Inbound",
 			},
-			{
-				Name:                     "SSH",
-				SourceAddressPrefix:      "*",
-				SourcePortRange:          "*",
-				DestinationAddressPrefix: "*",
-				DestinationPortRange:     "22",
-				Protocol:                 "TCP",
-				Access:                   "Allow",
-				Priority:                 320,
-				Direction:                "Inbound",
-			},
+			// Todo : 현재 인터페이스로 2가지 정보를 가져오지 못함
 		},
-	}
+	}*/
 
 	var sgRuleList []network.SecurityRule
-	for _, rule := range *reqInfo.SecurityRules {
+	for _, rule := range *securityReqInfo.SecurityRules {
 		sgRuleInfo := network.SecurityRule{
-			Name: to.StringPtr(rule.Name),
+			Name: to.StringPtr(securityReqInfo.Name),
 			SecurityRulePropertiesFormat: &network.SecurityRulePropertiesFormat{
-				SourceAddressPrefix:      to.StringPtr(rule.SourceAddressPrefix),
-				SourcePortRange:          to.StringPtr(rule.SourcePortRange),
-				DestinationAddressPrefix: to.StringPtr(rule.DestinationAddressPrefix),
-				DestinationPortRange:     to.StringPtr(rule.DestinationPortRange),
-				Protocol:                 network.SecurityRuleProtocol(rule.Protocol),
-				Access:                   network.SecurityRuleAccess(rule.Access),
-				Priority:                 to.Int32Ptr(rule.Priority),
+				SourceAddressPrefix:      to.StringPtr("*"),
+				SourcePortRange:          to.StringPtr(rule.FromPort),
+				DestinationAddressPrefix: to.StringPtr("*"),
+				DestinationPortRange:     to.StringPtr(rule.ToPort),
+				Protocol:                 network.SecurityRuleProtocol(rule.IPProtocol),
+				Access:                   network.SecurityRuleAccess("Allow"),
+				Priority:                 to.Int32Ptr(300),
 				Direction:                network.SecurityRuleDirection(rule.Direction),
 			},
 		}
@@ -142,7 +83,7 @@ func (securityHandler *AzureSecurityHandler) CreateSecurity(securityReqInfo irs.
 		Location: &securityHandler.Region.Region,
 	}
 
-	securityIdArr := strings.Split(securityReqInfo.Id, ":")
+	securityIdArr := strings.Split(securityReqInfo.Name, ":")
 
 	// Check SecurityGroup Exists
 	security, err := securityHandler.Client.Get(securityHandler.Ctx, securityIdArr[0], securityIdArr[1], "")
@@ -162,11 +103,11 @@ func (securityHandler *AzureSecurityHandler) CreateSecurity(securityReqInfo irs.
 	}
 
 	// @TODO: 생성된 SecurityGroup 정보 리턴
-	publicIPInfo, err := securityHandler.GetSecurity(securityReqInfo.Id)
+	securityInfo, err := securityHandler.GetSecurity(securityReqInfo.Name)
 	if err != nil {
 		return irs.SecurityInfo{}, err
 	}
-	return publicIPInfo, nil
+	return securityInfo, nil
 }
 
 func (securityHandler *AzureSecurityHandler) ListSecurity() ([]*irs.SecurityInfo, error) {
@@ -176,9 +117,9 @@ func (securityHandler *AzureSecurityHandler) ListSecurity() ([]*irs.SecurityInfo
 		return nil, err
 	}
 
-	var securityList []*SecurityInfo
+	var securityList []*irs.SecurityInfo
 	for _, security := range result.Values() {
-		securityInfo := new(SecurityInfo).setter(security)
+		securityInfo := setterSec(security)
 		securityList = append(securityList, securityInfo)
 	}
 
@@ -193,7 +134,7 @@ func (securityHandler *AzureSecurityHandler) GetSecurity(securityID string) (irs
 		return irs.SecurityInfo{}, err
 	}
 
-	securityInfo := new(SecurityInfo).setter(security)
+	securityInfo := setterSec(security)
 
 	spew.Dump(securityInfo)
 	return irs.SecurityInfo{}, nil
