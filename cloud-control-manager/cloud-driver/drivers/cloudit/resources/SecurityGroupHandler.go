@@ -7,6 +7,7 @@ import (
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/new-resources"
 	"github.com/davecgh/go-spew/spew"
+	"strings"
 )
 
 type ClouditSecurityHandler struct {
@@ -42,18 +43,19 @@ func (securityHandler *ClouditSecurityHandler) CreateSecurity(securityReqInfo ir
 	authHeader := securityHandler.Client.AuthenticatedHeaders()
 
 	reqInfo := securitygroup.SecurityReqInfo{
-		Name: securityReqInfo.Name,
+		Name:  securityReqInfo.Name,
+		Rules: nil,
 	}
 
 	// SecurityGroup Rule 설정
-	ruleList := make([]securitygroup.SecurityGroupRules, len(*securityReqInfo.SecurityRules))
+	ruleList := []securitygroup.SecurityGroupRules{}
 	for idx, rule := range *securityReqInfo.SecurityRules {
 		secRuleInfo := securitygroup.SecurityGroupRules{
 			Name:     fmt.Sprintf("%s-rules-%d", securityReqInfo.Name, idx+1),
 			Type:     rule.Direction,
 			Port:     rule.ToPort,
 			Target:   "0.0.0.0/0",
-			Protocol: rule.IPProtocol,
+			Protocol: strings.ToLower(rule.IPProtocol),
 		}
 		ruleList = append(ruleList, secRuleInfo)
 	}
