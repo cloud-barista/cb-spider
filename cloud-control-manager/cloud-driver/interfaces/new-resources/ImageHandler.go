@@ -19,12 +19,12 @@ type ImageReqInfo struct {
 }
 
 type ImageInfo struct {
-     Id   string
-     Name string
-     GuestOS string // Windows7, Ubuntu etc.
-     Status string  // available, unavailable
+	Id      string
+	Name    string
+	GuestOS string // Windows7, Ubuntu etc.
+	Status  string // available, unavailable
 
-     keyValueList []KeyValue 
+	KeyValueList []KeyValue
 }
 
 type ImageHandler interface {
