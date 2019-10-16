@@ -1,11 +1,12 @@
 package resources
 
 import (
-	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
-	"github.com/davecgh/go-spew/spew"
+	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/new-resources"
+	_ "github.com/davecgh/go-spew/spew"
 	"github.com/rackspace/gophercloud"
 	"github.com/rackspace/gophercloud/openstack/compute/v2/extensions/secgroups"
 	"github.com/rackspace/gophercloud/pagination"
+	"strconv"
 )
 
 type OpenStackSecurityHandler struct {
@@ -13,7 +14,7 @@ type OpenStackSecurityHandler struct {
 }
 
 // @TODO: SecurityInfo 리소스 프로퍼티 정의 필요
-type SecurityInfo struct {
+/*type SecurityInfo struct {
 	ID          string
 	Name        string
 	Description string
@@ -34,9 +35,9 @@ type SecurityRuleInfo struct {
 type Group struct {
 	TenantId string
 	Name     string
-}
+}*/
 
-func (securityInfo *SecurityInfo) setter(results secgroups.SecurityGroup) *SecurityInfo {
+/*func (securityInfo *SecurityInfo) setter(results secgroups.SecurityGroup) *SecurityInfo {
 	securityInfo.ID = results.ID
 	securityInfo.Name = results.Name
 	securityInfo.Description = results.Description
@@ -65,11 +66,33 @@ func (securityInfo *SecurityInfo) setter(results secgroups.SecurityGroup) *Secur
 
 	return securityInfo
 }
+*/
+
+func setterSeg(secGroup secgroups.SecurityGroup) *irs.SecurityInfo {
+	secInfo := &irs.SecurityInfo{
+		Id:   secGroup.ID,
+		Name: secGroup.Name,
+	}
+
+	// 보안그룹 룰 정보 등록
+	secRuleList := make([]irs.SecurityRuleInfo, len(secGroup.Rules))
+	for _, rule := range secGroup.Rules {
+		ruleInfo := irs.SecurityRuleInfo{
+			FromPort:   strconv.Itoa(rule.FromPort),
+			ToPort:     strconv.Itoa(rule.ToPort),
+			IPProtocol: rule.IPProtocol,
+		}
+		secRuleList = append(secRuleList, ruleInfo)
+	}
+	secInfo.SecurityRules = &secRuleList
+
+	return secInfo
+}
 
 func (securityHandler *OpenStackSecurityHandler) CreateSecurity(securityReqInfo irs.SecurityReqInfo) (irs.SecurityInfo, error) {
 
 	// @TODO: SecurityGroup 생성 요청 파라미터 정의 필요
-	type SecurityRuleReqInfo struct {
+	/*type SecurityRuleReqInfo struct {
 		ParentGroupID string
 		FromPort      int
 		ToPort        int
@@ -81,24 +104,18 @@ func (securityHandler *OpenStackSecurityHandler) CreateSecurity(securityReqInfo 
 		Name          string
 		Description   string
 		SecurityRules *[]SecurityRuleReqInfo
-	}
-
-	reqInfo := SecurityReqInfo{
-		Name:        securityReqInfo.Name,
-		Description: "Temp securityGroup for test",
-	}
+	}*/
 
 	// Create SecurityGroup
 	createOpts := secgroups.CreateOpts{
-		Name:        reqInfo.Name,
-		Description: reqInfo.Description,
+		Name: securityReqInfo.Name,
 	}
 	group, err := secgroups.Create(securityHandler.Client, createOpts).Extract()
 	if err != nil {
 		return irs.SecurityInfo{}, err
 	}
 
-	reqInfo.SecurityRules = &[]SecurityRuleReqInfo{
+	/*reqInfo.SecurityRules = &[]SecurityRuleReqInfo{
 		{
 			//ParentGroupID: group.ID,
 			FromPort:   22,
@@ -120,21 +137,18 @@ func (securityHandler *OpenStackSecurityHandler) CreateSecurity(securityReqInfo 
 			IPProtocol: "ICMP",
 			CIDR:       "0.0.0.0/0",
 		},
-	}
+	}*/
 
 	// Create SecurityGroup Rules
-	for _, rule := range *reqInfo.SecurityRules {
-		createRuleOpts := secgroups.CreateRuleOpts{
-			ParentGroupID: group.ID,
-			FromPort:      rule.FromPort,
-			ToPort:        rule.ToPort,
-			IPProtocol:    rule.IPProtocol,
-		}
+	for _, rule := range *securityReqInfo.SecurityRules {
+		fromPort, _ := strconv.Atoi(rule.FromPort)
+		toPort, _ := strconv.Atoi(rule.ToPort)
 
-		if rule.CIDR != "" {
-			createRuleOpts.CIDR = rule.CIDR
-		} else {
-			createRuleOpts.FromGroupID = group.ID
+		createRuleOpts := secgroups.CreateRuleOpts{
+			FromPort:   fromPort,
+			ToPort:     toPort,
+			IPProtocol: rule.IPProtocol,
+			CIDR:       "0.0.0.0/0",
 		}
 
 		_, err := secgroups.CreateRule(securityHandler.Client, createRuleOpts).Extract()
@@ -143,17 +157,16 @@ func (securityHandler *OpenStackSecurityHandler) CreateSecurity(securityReqInfo 
 		}
 	}
 
+	// 생성된 SecurityGroup
 	securityInfo, err := securityHandler.GetSecurity(group.ID)
 	if err != nil {
-		return irs.SecurityInfo{}, nil
+		return irs.SecurityInfo{}, err
 	}
-
-	spew.Dump(securityInfo)
-	return irs.SecurityInfo{Id: group.ID, Name: group.Name}, nil
+	return securityInfo, nil
 }
 
 func (securityHandler *OpenStackSecurityHandler) ListSecurity() ([]*irs.SecurityInfo, error) {
-	var securityList []*SecurityInfo
+	var securityList []*irs.SecurityInfo
 
 	pager := secgroups.List(securityHandler.Client)
 	err := pager.EachPage(func(page pagination.Page) (bool, error) {
@@ -164,7 +177,7 @@ func (securityHandler *OpenStackSecurityHandler) ListSecurity() ([]*irs.Security
 		}
 		// Add to List
 		for _, s := range list {
-			securityInfo := new(SecurityInfo).setter(s)
+			securityInfo := setterSeg(s)
 			securityList = append(securityList, securityInfo)
 		}
 		return true, nil
@@ -172,9 +185,8 @@ func (securityHandler *OpenStackSecurityHandler) ListSecurity() ([]*irs.Security
 	if err != nil {
 		return nil, err
 	}
-
-	spew.Dump(securityList)
-	return nil, nil
+	//spew.Dump(securityList)
+	return securityList, nil
 }
 
 func (securityHandler *OpenStackSecurityHandler) GetSecurity(securityID string) (irs.SecurityInfo, error) {
@@ -183,10 +195,9 @@ func (securityHandler *OpenStackSecurityHandler) GetSecurity(securityID string) 
 		return irs.SecurityInfo{}, err
 	}
 
-	securityInfo := new(SecurityInfo).setter(*securityGroup)
-
-	spew.Dump(securityInfo)
-	return irs.SecurityInfo{}, nil
+	securityInfo := setterSeg(*securityGroup)
+	//spew.Dump(securityInfo)
+	return *securityInfo, nil
 }
 
 func (securityHandler *OpenStackSecurityHandler) DeleteSecurity(securityID string) (bool, error) {
