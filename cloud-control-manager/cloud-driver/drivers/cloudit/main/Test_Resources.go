@@ -195,7 +195,23 @@ Loop:
 				cblogger.Info("Finish GetSecurity()")
 			case 3:
 				cblogger.Info("Start CreateSecurity() ...")
-				reqInfo := irs.SecurityReqInfo{Name: config.Cloudit.Resource.Security.Name}
+				reqInfo := irs.SecurityReqInfo{
+					Name: config.Cloudit.Resource.Security.Name,
+					SecurityRules: &[]irs.SecurityRuleInfo{
+						{
+							FromPort:   "22",
+							ToPort:     "22",
+							IPProtocol: "TCP",
+							Direction:  "inbound",
+						},
+						{
+							FromPort:   "0",
+							ToPort:     "0",
+							IPProtocol: "TCP",
+							Direction:  "outbound",
+						},
+					},
+				}
 				if security, err := securityHandler.CreateSecurity(reqInfo); err != nil {
 					cblogger.Error(err)
 				} else {
