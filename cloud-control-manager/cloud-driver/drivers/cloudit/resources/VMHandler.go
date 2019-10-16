@@ -42,10 +42,16 @@ func (vmHandler *ClouditVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 		HostName:     vmReqInfo.VMUserId,
 		RootPassword: vmReqInfo.VMUserPasswd,
 		SubnetAddr:   vmReqInfo.VirtualNetworkId,
-		Secgroups:    []server.SecGroupInfo{
-			//{Id: vmReqInfo.SecurityGroupIds},
-		},
 	}
+
+	secGroupList := make([]server.SecGroupInfo, len(vmReqInfo.SecurityGroupIds))
+	for _, sec := range vmReqInfo.SecurityGroupIds {
+		secGroupInfo := server.SecGroupInfo{
+			Id: sec,
+		}
+		secGroupList = append(secGroupList, secGroupInfo)
+	}
+	reqInfo.Secgroups = secGroupList
 
 	requestOpts := client.RequestOpts{
 		MoreHeaders: authHeader,

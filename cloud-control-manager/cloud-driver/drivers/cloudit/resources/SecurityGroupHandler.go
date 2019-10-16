@@ -1,6 +1,7 @@
 package resources
 
 import (
+	"fmt"
 	"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/cloudit/client"
 	"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/cloudit/client/iam/securitygroup"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
@@ -42,23 +43,21 @@ func (securityHandler *ClouditSecurityHandler) CreateSecurity(securityReqInfo ir
 
 	reqInfo := securitygroup.SecurityReqInfo{
 		Name: securityReqInfo.Name,
-		Rules: []securitygroup.SecurityGroupRules{
-			{
-				Name:     "SSH Inbound",
-				Protocol: "tcp",
-				Port:     "22",
-				Target:   "0.0.0.0/0",
-				Type:     "inbound",
-			},
-			{
-				Name:     "Default Outbound",
-				Protocol: "all",
-				Port:     "0",
-				Target:   "0.0.0.0/0",
-				Type:     "outbound",
-			},
-		},
 	}
+
+	// SecurityGroup Rule 설정
+	ruleList := make([]securitygroup.SecurityGroupRules, len(*securityReqInfo.SecurityRules))
+	for idx, rule := range *securityReqInfo.SecurityRules {
+		secRuleInfo := securitygroup.SecurityGroupRules{
+			Name:     fmt.Sprintf("%s-rules-%d", securityReqInfo.Name, idx+1),
+			Type:     rule.Direction,
+			Port:     rule.ToPort,
+			Target:   "0.0.0.0/0",
+			Protocol: rule.IPProtocol,
+		}
+		ruleList = append(ruleList, secRuleInfo)
+	}
+	reqInfo.Rules = ruleList
 
 	createOpts := client.RequestOpts{
 		JSONBody:    reqInfo,
@@ -68,8 +67,9 @@ func (securityHandler *ClouditSecurityHandler) CreateSecurity(securityReqInfo ir
 	if securityGroup, err := securitygroup.Create(securityHandler.Client, &createOpts); err != nil {
 		return irs.SecurityInfo{}, err
 	} else {
-		spew.Dump(securityGroup)
-		return irs.SecurityInfo{Id: securityGroup.ID, Name: securityGroup.Name}, nil
+		//spew.Dump(securityGroup)
+		secGroupInfo := setterSecGroup(*securityGroup)
+		return *secGroupInfo, nil
 	}
 }
 

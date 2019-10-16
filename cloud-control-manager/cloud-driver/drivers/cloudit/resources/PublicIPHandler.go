@@ -15,16 +15,6 @@ type ClouditPublicIPHandler struct {
 	Client         *client.RestClient
 }
 
-//func setter(image image.ImageInfo) *irs.ImageInfo {
-//	imageInfo := &irs.ImageInfo{
-//		Id:      image.ID,
-//		Name:    image.Name,
-//		GuestOS: image.OS,
-//		Status:  image.State,
-//	}
-//	return imageInfo
-//}
-
 func setterIP(adaptiveip adaptiveip.AdaptiveIPInfo) *irs.PublicIPInfo {
 	publicIP := &irs.PublicIPInfo{
 		Name:      adaptiveip.Name,
@@ -59,8 +49,9 @@ func (publicIPHandler *ClouditPublicIPHandler) CreatePublicIP(publicIPReqInfo ir
 	// 2. PublicIP 생성 및 할당
 
 	reqInfo := adaptiveip.PublicIPReqInfo{
-		IP:   availableIP.IP,
-		Name: publicIPReqInfo.Name,
+		IP:        availableIP.IP,
+		Name:      publicIPReqInfo.Name,
+		PrivateIP: "", // TODO: 필수값 추가
 	}
 
 	createOpts := client.RequestOpts{
