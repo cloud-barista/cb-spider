@@ -3,19 +3,26 @@ package resources
 import (
 	"errors"
 	"fmt"
-	//cblog "github.com/cloud-barista/cb-log"
 	"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/cloudit/client"
 	"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/cloudit/client/dna/subnet"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
-	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
+	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/new-resources"
 	"github.com/davecgh/go-spew/spew"
-	//"github.com/sirupsen/logrus"
-	"strconv"
 )
 
 type ClouditVNetworkHandler struct {
 	CredentialInfo idrv.CredentialInfo
 	Client         *client.RestClient
+}
+
+func setterVNet(vNet subnet.SubnetInfo) *irs.VNetworkInfo {
+	vNetInfo := &irs.VNetworkInfo{
+		Id:            vNet.ID,
+		Name:          vNet.Name,
+		AddressPrefix: vNet.Prefix,
+		Status:        vNet.State,
+	}
+	return vNetInfo
 }
 
 func (vNetworkHandler *ClouditVNetworkHandler) CreateVNetwork(vNetReqInfo irs.VNetworkReqInfo) (irs.VNetworkInfo, error) {
@@ -40,15 +47,7 @@ func (vNetworkHandler *ClouditVNetworkHandler) CreateVNetwork(vNetReqInfo irs.VN
 	}
 
 	// 2. Subnet 생성
-	// @TODO: Subnet 생성 요청 파라미터 정의 필요
-	type VNetworkReqInfo struct {
-		Name       string `json:"name" required:"true"`
-		Addr       string `json:"addr" required:"true"`
-		Prefix     string `json:"prefix" required:"true"`
-		Gateway    string `json:"gateway" required:"false"`
-		Protection int    `json:"protection" required:"false"`
-	}
-	reqInfo := VNetworkReqInfo{
+	reqInfo := subnet.VNetworkReqInfo{
 		Name:   vNetReqInfo.Name,
 		Addr:   creatableSubnet.Addr,
 		Prefix: creatableSubnet.Prefix,
@@ -78,11 +77,13 @@ func (vNetworkHandler *ClouditVNetworkHandler) ListVNetwork() ([]*irs.VNetworkIn
 	if vNetList, err := subnet.List(vNetworkHandler.Client, &requestOpts); err != nil {
 		return nil, err
 	} else {
-		for i, vNet := range *vNetList {
-			cblogger.Info("[" + strconv.Itoa(i) + "]")
-			spew.Dump(vNet)
+		var resultList []*irs.VNetworkInfo
+
+		for _, vNet := range *vNetList {
+			vNetInfo := setterVNet(vNet)
+			resultList = append(resultList, vNetInfo)
 		}
-		return nil, nil
+		return resultList, nil
 	}
 }
 

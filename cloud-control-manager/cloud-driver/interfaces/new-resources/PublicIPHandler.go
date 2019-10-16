@@ -11,16 +11,17 @@
 package resources
 
 type PublicIPReqInfo struct {
-     Name string
+	Name         string
+	KeyValueList []KeyValue
 }
 
-type PublicIPInfo  struct {
-     Name   string 
-     PublicIP     string 
-     OwnedVMID   string 
-     Status string
-     
-     KeyValueList []KeyValue
+type PublicIPInfo struct {
+	Name      string
+	PublicIP  string
+	OwnedVMID string
+	Status    string
+
+	KeyValueList []KeyValue
 }
 
 type PublicIPHandler interface {

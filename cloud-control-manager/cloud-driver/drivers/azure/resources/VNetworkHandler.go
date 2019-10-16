@@ -5,106 +5,78 @@ import (
 	"errors"
 	"fmt"
 	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2018-04-01/network"
+	"github.com/Azure/go-autorest/autorest/to"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
-	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
-	"github.com/davecgh/go-spew/spew"
-	"strings"
+	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/new-resources"
 )
 
 type AzureVNetworkHandler struct {
-	Region idrv.RegionInfo
-	Ctx    context.Context
-	Client *network.VirtualNetworksClient
+	Region       idrv.RegionInfo
+	Ctx          context.Context
+	Client       *network.VirtualNetworksClient
+	SubnetClient *network.SubnetsClient
 }
 
-// @TODO: VNetworkInfo 리소스 프로퍼티 정의 필요
-type VNetworkInfo struct {
-	Id              string
-	Name            string
-	AddressPrefixes []string
-	Subnets         []SubnetInfo
-	Location        string
-}
-
-type SubnetInfo struct {
-	Id            string
-	Name          string
-	AddressPrefix string
-}
-
-func (vNetInfo *VNetworkInfo) setter(network network.VirtualNetwork) *VNetworkInfo {
-	vNetInfo.Id = *network.ID
-	vNetInfo.Name = *network.Name
-	vNetInfo.AddressPrefixes = *network.AddressSpace.AddressPrefixes
-	var subnetArr []SubnetInfo
-	for _, subnet := range *network.Subnets {
-		subnetInfo := SubnetInfo{
-			Id:            *subnet.ID,
-			Name:          *subnet.Name,
-			AddressPrefix: *subnet.AddressPrefix,
-		}
-		subnetArr = append(subnetArr, subnetInfo)
+func setterVNet(network network.Subnet) *irs.VNetworkInfo {
+	vNetInfo := &irs.VNetworkInfo{
+		Id:            *network.ID,
+		Name:          *network.Name,
+		AddressPrefix: *network.AddressPrefix,
+		Status:        *network.ProvisioningState,
+		KeyValueList:  []irs.KeyValue{{Key: "ResourceGroup", Value: CBResourceGroupName}},
 	}
-	vNetInfo.Subnets = subnetArr
-
-	vNetInfo.Location = *network.Location
 
 	return vNetInfo
 }
 
 func (vNetworkHandler *AzureVNetworkHandler) CreateVNetwork(vNetworkReqInfo irs.VNetworkReqInfo) (irs.VNetworkInfo, error) {
-
-	// @TODO: VNicInfo 생성 요청 파라미터 정의 필요
-	type VNetworkReqInfo struct {
-		Name            string
-		AddressPrefixes []string
-		Subnets         *[]SubnetInfo
-	}
-
-	vNicIdArr := strings.Split(vNetworkReqInfo.Id, ":")
-
-	reqInfo := VNetworkReqInfo{
-		Name:            vNicIdArr[1],
-		AddressPrefixes: []string{"130.0.0.0/8"},
-		Subnets: &[]SubnetInfo{
-			{
-				Name:          "default",
-				AddressPrefix: "130.1.0.0/16",
+	// 기본 가상 네트워크가 생성되지 않았을 경우 디폴트 네트워크 생성 (CB-VNet)
+	vNetwork, _ := vNetworkHandler.Client.Get(vNetworkHandler.Ctx, CBResourceGroupName, CBVirutalNetworkName, "")
+	if vNetwork.ID == nil {
+		createOpts := network.VirtualNetwork{
+			Name: to.StringPtr(CBVirutalNetworkName),
+			VirtualNetworkPropertiesFormat: &network.VirtualNetworkPropertiesFormat{
+				AddressSpace: &network.AddressSpace{
+					AddressPrefixes: &[]string{CBVnetDefaultCidr},
+				},
 			},
-		},
-	}
-
-	var subnetArr []network.Subnet
-	for _, subnet := range *reqInfo.Subnets {
-		subnetInfo := network.Subnet{
-			Name: &subnet.Name,
-			SubnetPropertiesFormat: &network.SubnetPropertiesFormat{
-				AddressPrefix: &subnet.AddressPrefix,
-			},
+			Location: &vNetworkHandler.Region.Region,
 		}
-		subnetArr = append(subnetArr, subnetInfo)
+
+		future, err := vNetworkHandler.Client.CreateOrUpdate(vNetworkHandler.Ctx, CBResourceGroupName, CBVirutalNetworkName, createOpts)
+		if err != nil {
+			return irs.VNetworkInfo{}, err
+		}
+		err = future.WaitForCompletionRef(vNetworkHandler.Ctx, vNetworkHandler.Client.Client)
+		if err != nil {
+			return irs.VNetworkInfo{}, err
+		}
 	}
 
-	// Check vNetwork Exists
-	vNetwork, err := vNetworkHandler.Client.Get(vNetworkHandler.Ctx, vNicIdArr[0], vNicIdArr[1], "")
-	if vNetwork.ID != nil {
-		errMsg := fmt.Sprintf("Virtual Network with name %s already exist", vNicIdArr[1])
+	// Check Subnet Exists
+	subnet, _ := vNetworkHandler.SubnetClient.Get(vNetworkHandler.Ctx, CBResourceGroupName, CBVirutalNetworkName, vNetworkReqInfo.Name, "")
+	if subnet.ID != nil {
+		errMsg := fmt.Sprintf("Virtual Network with name %s already exist", vNetworkReqInfo.Name)
 		createErr := errors.New(errMsg)
 		return irs.VNetworkInfo{}, createErr
 	}
 
-	createOpts := network.VirtualNetwork{
-		Name: &reqInfo.Name,
-		VirtualNetworkPropertiesFormat: &network.VirtualNetworkPropertiesFormat{
-			AddressSpace: &network.AddressSpace{
-				AddressPrefixes: &reqInfo.AddressPrefixes,
-			},
-			Subnets: &subnetArr,
+	// 서브넷 CIDR 할당
+	list, err := vNetworkHandler.ListVNetwork()
+	if err != nil {
+		return irs.VNetworkInfo{}, err
+	}
+	subnetCIDR, err := CreateSubnetCIDR(list)
+
+	// 서브넷 생성
+	createOpts := network.Subnet{
+		Name: to.StringPtr(vNetworkReqInfo.Name),
+		SubnetPropertiesFormat: &network.SubnetPropertiesFormat{
+			AddressPrefix: subnetCIDR,
 		},
-		Location: &vNetworkHandler.Region.Region,
 	}
 
-	future, err := vNetworkHandler.Client.CreateOrUpdate(vNetworkHandler.Ctx, vNicIdArr[0], vNicIdArr[1], createOpts)
+	future, err := vNetworkHandler.SubnetClient.CreateOrUpdate(vNetworkHandler.Ctx, CBResourceGroupName, CBVirutalNetworkName, vNetworkReqInfo.Name, createOpts)
 	if err != nil {
 		return irs.VNetworkInfo{}, err
 	}
@@ -113,42 +85,45 @@ func (vNetworkHandler *AzureVNetworkHandler) CreateVNetwork(vNetworkReqInfo irs.
 		return irs.VNetworkInfo{}, err
 	}
 
-	return irs.VNetworkInfo{}, nil
+	// 생성된 VNetwork 정보 리턴
+	vNetworkInfo, err := vNetworkHandler.GetVNetwork(vNetworkReqInfo.Name)
+	if err != nil {
+		return irs.VNetworkInfo{}, err
+	}
+	return vNetworkInfo, nil
 }
 
 func (vNetworkHandler *AzureVNetworkHandler) ListVNetwork() ([]*irs.VNetworkInfo, error) {
-	//vNetworkList, err := vNetworkHandler.Client.ListAll(vNetworkHandler.Ctx)
-	vNetworkList, err := vNetworkHandler.Client.List(vNetworkHandler.Ctx, vNetworkHandler.Region.ResourceGroup)
+	//vNetworkList, err := vNetworkHandler.Client.List(vNetworkHandler.Ctx, CBResourceGroupName)
+	vNetworkList, err := vNetworkHandler.SubnetClient.List(vNetworkHandler.Ctx, CBResourceGroupName, CBVirutalNetworkName)
 	if err != nil {
 		return nil, err
 	}
 
-	var vNetList []*VNetworkInfo
+	var vNetList []*irs.VNetworkInfo
 	for _, vNetwork := range vNetworkList.Values() {
-		vNetInfo := new(VNetworkInfo).setter(vNetwork)
+		vNetInfo := setterVNet(vNetwork)
 		vNetList = append(vNetList, vNetInfo)
 	}
-
-	spew.Dump(vNetList)
-	return nil, nil
+	//spew.Dump(vNetList)
+	return vNetList, nil
 }
 
 func (vNetworkHandler *AzureVNetworkHandler) GetVNetwork(vNetworkID string) (irs.VNetworkInfo, error) {
-	vNetworkIdArr := strings.Split(vNetworkID, ":")
-	vNetwork, err := vNetworkHandler.Client.Get(vNetworkHandler.Ctx, vNetworkIdArr[0], vNetworkIdArr[1], "")
+	//vNetwork, err := vNetworkHandler.Client.Get(vNetworkHandler.Ctx, CBResourceGroupName, vNetworkID, "")
+	vNetwork, err := vNetworkHandler.SubnetClient.Get(vNetworkHandler.Ctx, CBResourceGroupName, CBVirutalNetworkName, vNetworkID, "")
 	if err != nil {
 		return irs.VNetworkInfo{}, err
 	}
 
-	vNetInfo := new(VNetworkInfo).setter(vNetwork)
-
-	spew.Dump(vNetInfo)
-	return irs.VNetworkInfo{}, nil
+	vNetInfo := setterVNet(vNetwork)
+	//spew.Dump(vNetInfo)
+	return *vNetInfo, nil
 }
 
 func (vNetworkHandler *AzureVNetworkHandler) DeleteVNetwork(vNetworkID string) (bool, error) {
-	vNetworkIdArr := strings.Split(vNetworkID, ":")
-	future, err := vNetworkHandler.Client.Delete(vNetworkHandler.Ctx, vNetworkIdArr[0], vNetworkIdArr[1])
+	//future, err := vNetworkHandler.Client.Delete(vNetworkHandler.Ctx, CBResourceGroupName, vNetworkID)
+	future, err := vNetworkHandler.SubnetClient.Delete(vNetworkHandler.Ctx, CBResourceGroupName, CBVirutalNetworkName, vNetworkID)
 	if err != nil {
 		return false, err
 	}

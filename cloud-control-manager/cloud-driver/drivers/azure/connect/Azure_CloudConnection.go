@@ -17,7 +17,7 @@ import (
 	cblog "github.com/cloud-barista/cb-log"
 	azrs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/azure/resources"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
-	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
+	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/new-resources"
 	"github.com/sirupsen/logrus"
 )
 
@@ -42,7 +42,7 @@ type AzureCloudConnection struct {
 
 func (cloudConn *AzureCloudConnection) CreateVNetworkHandler() (irs.VNetworkHandler, error) {
 	cblogger.Info("Azure Cloud Driver: called CreateVNetworkHandler()!")
-	vNetHandler := azrs.AzureVNetworkHandler{cloudConn.Region, cloudConn.Ctx, cloudConn.VNetClient}
+	vNetHandler := azrs.AzureVNetworkHandler{cloudConn.Region, cloudConn.Ctx, cloudConn.VNetClient, cloudConn.SubnetClient}
 	return &vNetHandler, nil
 }
 
@@ -57,14 +57,17 @@ func (cloudConn *AzureCloudConnection) CreateSecurityHandler() (irs.SecurityHand
 	sgHandler := azrs.AzureSecurityHandler{cloudConn.Region, cloudConn.Ctx, cloudConn.SecurityGroupClient}
 	return &sgHandler, nil
 }
+
 func (AzureCloudConnection) CreateKeyPairHandler() (irs.KeyPairHandler, error) {
 	return nil, nil
 }
+
 func (cloudConn *AzureCloudConnection) CreateVNicHandler() (irs.VNicHandler, error) {
 	cblogger.Info("Azure Cloud Driver: called CreateVNicHandler()!")
 	vNicHandler := azrs.AzureVNicHandler{cloudConn.Region, cloudConn.Ctx, cloudConn.VNicClient, cloudConn.SubnetClient}
 	return &vNicHandler, nil
 }
+
 func (cloudConn *AzureCloudConnection) CreatePublicIPHandler() (irs.PublicIPHandler, error) {
 	cblogger.Info("Azure Cloud Driver: called CreatePublicIPHandler()!")
 	publicIPHandler := azrs.AzurePublicIPHandler{cloudConn.Region, cloudConn.Ctx, cloudConn.PublicIPClient}
@@ -80,6 +83,7 @@ func (cloudConn *AzureCloudConnection) CreateVMHandler() (irs.VMHandler, error) 
 func (AzureCloudConnection) IsConnected() (bool, error) {
 	return true, nil
 }
+
 func (AzureCloudConnection) Close() error {
 	return nil
 }

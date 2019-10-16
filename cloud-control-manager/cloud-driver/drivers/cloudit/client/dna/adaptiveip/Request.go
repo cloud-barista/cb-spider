@@ -14,6 +14,13 @@ func init() {
 	cblogger = cblog.GetLogger("CB-SPIDER")
 }
 
+type PublicIPReqInfo struct {
+	IP         string `json:"ip" required:"true"`
+	Name       string `json:"name" required:"true"`
+	PrivateIP  string `json:"privateIp" required:"true"` // PublicIP가 적용되는 VM의 Private IP
+	Protection int    `json:"protection" required:"false"`
+}
+
 type IPInfo struct {
 	IP      string `json:"addr"`
 	gateway string

@@ -14,6 +14,14 @@ func init() {
 	cblogger = cblog.GetLogger("CB-SPIDER")
 }
 
+type VNicReqInfo struct {
+	SubnetAddr string                             `json:"subnetAddr" required:"true"`
+	VmId       string                             `json:"vmId" required:"true"`
+	Type       string                             `json:"type" required:"true"`
+	Secgroups  []securitygroup.SecurityGroupRules `json:"secgroups" required:"true"`
+	IP         string                             `json:"ip" required:"true"`
+}
+
 type VmNicInfo struct {
 	TenantId        string
 	VmId            string

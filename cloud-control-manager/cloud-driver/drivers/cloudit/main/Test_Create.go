@@ -2,10 +2,11 @@ package main
 
 import (
 	"fmt"
+	"github.com/Azure/go-autorest/autorest/to"
 	cblog "github.com/cloud-barista/cb-log"
 	cidrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/cloudit"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
-	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
+	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/new-resources"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v3"
@@ -70,23 +71,18 @@ func testCreateVM() {
 	}
 	cblogger.Info("Finish CreateSecurity()")
 
+	//todo: //SecurityGroupIds: []string(securityGroup.Id) 받는 형식??
 	// 3. VM 생성
 	cblogger.Info("Start Create VM ...")
 	vmReqInfo := irs.VMReqInfo{
-		Name: config.Cloudit.VMInfo.Name,
-		ImageInfo: irs.ImageInfo{
-			Id: config.Cloudit.VMInfo.TemplateId,
+		VMName:           config.Cloudit.VMInfo.Name,
+		ImageId:          config.Cloudit.VMInfo.TemplateId,
+		VMSpecId:         config.Cloudit.VMInfo.SpecId,
+		VirtualNetworkId: vNetwork.Id,
+		SecurityGroupIds: []string{
+			securityGroup.Id,
 		},
-		SpecID: config.Cloudit.VMInfo.SpecId,
-		VNetworkInfo: irs.VNetworkInfo{
-			Id: vNetwork.Id,
-		},
-		SecurityInfo: irs.SecurityInfo{
-			Id: securityGroup.Id,
-		},
-		LoginInfo: irs.LoginInfo{
-			AdminPassword: config.Cloudit.VMInfo.RootPassword,
-		},
+		VMUserPasswd: config.Cloudit.VMInfo.RootPassword,
 	}
 
 	spew.Dump(vmReqInfo)
@@ -115,7 +111,7 @@ func testCreateVM() {
 	cblogger.Info("Start CreatePublicIP() ...")
 	publicIPReqInfo := irs.PublicIPReqInfo{
 		Name: config.Cloudit.Resource.PublicIP.Name,
-		Id:   vmInfo.PrivateIP,
+		//Id:   vmInfo.PrivateIP,
 	}
 	publicIP, err := publicIPHandler.CreatePublicIP(publicIPReqInfo)
 	if err != nil {
@@ -185,7 +181,7 @@ type Config struct {
 func readConfigFile() Config {
 	// Set Environment Value of Project Root Path
 	rootPath := os.Getenv("CBSPIDER_PATH")
-	data, err := ioutil.ReadFile(rootPath + "/config/config.yaml")
+	data, err := ioutil.ReadFile(rootPath + "/conf/config.yaml")
 	if err != nil {
 		cblogger.Error(err)
 	}

@@ -7,9 +7,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2018-04-01/network"
 	"github.com/Azure/go-autorest/autorest/to"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
-	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
-	"github.com/davecgh/go-spew/spew"
-	"strings"
+	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/new-resources"
 )
 
 type AzureSecurityHandler struct {
@@ -18,117 +16,45 @@ type AzureSecurityHandler struct {
 	Client *network.SecurityGroupsClient
 }
 
-// @TODO: SecurityInfo 리소스 프로퍼티 정의 필요
-type SecurityInfo struct {
-	Id                   string
-	Name                 string
-	Location             string
-	SecurityRules        []SecurityRuleInfo
-	DefaultSecurityRules []SecurityRuleInfo
-}
+func setterSec(securityGroup network.SecurityGroup) *irs.SecurityInfo {
+	security := &irs.SecurityInfo{
+		Id:           *securityGroup.ID,
+		Name:         *securityGroup.Name,
+		KeyValueList: []irs.KeyValue{{Key: "ResourceGroup", Value: CBResourceGroupName}},
+	}
 
-type SecurityRuleInfo struct {
-	Name                     string
-	SourceAddressPrefix      string
-	SourcePortRange          string
-	DestinationAddressPrefix string
-	DestinationPortRange     string
-	Protocol                 string
-	Access                   string
-	Priority                 int32
-	Direction                string
-}
-
-func (security *SecurityInfo) setter(securityGroup network.SecurityGroup) *SecurityInfo {
-	security.Id = *securityGroup.ID
-	security.Name = *securityGroup.Name
-	security.Location = *securityGroup.Location
-
-	var securityRuleArr []SecurityRuleInfo
-	var defaultSecurityRuleArr []SecurityRuleInfo
-
+	var securityRuleArr []irs.SecurityRuleInfo
 	for _, sgRule := range *securityGroup.SecurityRules {
-		ruleInfo := SecurityRuleInfo{
-			Name:                     *sgRule.Name,
-			SourceAddressPrefix:      *sgRule.SourceAddressPrefix,
-			SourcePortRange:          *sgRule.SourcePortRange,
-			DestinationAddressPrefix: *sgRule.DestinationAddressPrefix,
-			DestinationPortRange:     *sgRule.DestinationPortRange,
-			Protocol:                 fmt.Sprint(sgRule.Protocol),
-			Access:                   fmt.Sprint(sgRule.Access),
-			Priority:                 *sgRule.Priority,
-			Direction:                fmt.Sprint(sgRule.Direction),
+		ruleInfo := irs.SecurityRuleInfo{
+			FromPort:   *sgRule.SourcePortRange,
+			ToPort:     *sgRule.DestinationPortRange,
+			IPProtocol: fmt.Sprint(sgRule.Protocol),
+			Direction:  fmt.Sprint(sgRule.Direction),
 		}
+
 		securityRuleArr = append(securityRuleArr, ruleInfo)
 	}
-
-	for _, sgRule := range *securityGroup.DefaultSecurityRules {
-		ruleInfo := SecurityRuleInfo{
-			Name:                     *sgRule.Name,
-			SourceAddressPrefix:      *sgRule.SourceAddressPrefix,
-			SourcePortRange:          *sgRule.SourcePortRange,
-			DestinationAddressPrefix: *sgRule.DestinationAddressPrefix,
-			DestinationPortRange:     *sgRule.DestinationPortRange,
-			Protocol:                 fmt.Sprint(sgRule.Protocol),
-			Access:                   fmt.Sprint(sgRule.Access),
-			Priority:                 *sgRule.Priority,
-			Direction:                fmt.Sprint(sgRule.Direction),
-		}
-		defaultSecurityRuleArr = append(defaultSecurityRuleArr, ruleInfo)
-	}
-
-	security.SecurityRules = securityRuleArr
-	security.DefaultSecurityRules = defaultSecurityRuleArr
+	security.SecurityRules = &securityRuleArr
 
 	return security
 }
 
 func (securityHandler *AzureSecurityHandler) CreateSecurity(securityReqInfo irs.SecurityReqInfo) (irs.SecurityInfo, error) {
 
-	// @TODO: SecurityGroup 생성 요청 파라미터 정의 필요
-	type SecurityReqInfo struct {
-		SecurityRules *[]SecurityRuleInfo
-	}
-
-	reqInfo := SecurityReqInfo{
-		SecurityRules: &[]SecurityRuleInfo{
-			{
-				Name:                     "HTTP",
-				SourceAddressPrefix:      "*",
-				SourcePortRange:          "*",
-				DestinationAddressPrefix: "*",
-				DestinationPortRange:     "80",
-				Protocol:                 "TCP",
-				Access:                   "Allow",
-				Priority:                 300,
-				Direction:                "Inbound",
-			},
-			{
-				Name:                     "SSH",
-				SourceAddressPrefix:      "*",
-				SourcePortRange:          "*",
-				DestinationAddressPrefix: "*",
-				DestinationPortRange:     "22",
-				Protocol:                 "TCP",
-				Access:                   "Allow",
-				Priority:                 320,
-				Direction:                "Inbound",
-			},
-		},
-	}
-
 	var sgRuleList []network.SecurityRule
-	for _, rule := range *reqInfo.SecurityRules {
+	var priorityNum int32
+	for idx, rule := range *securityReqInfo.SecurityRules {
+		priorityNum = int32(300 + idx*100)
 		sgRuleInfo := network.SecurityRule{
-			Name: to.StringPtr(rule.Name),
+			Name: to.StringPtr(fmt.Sprintf("%s-rules-%d", securityReqInfo.Name, idx+1)),
 			SecurityRulePropertiesFormat: &network.SecurityRulePropertiesFormat{
-				SourceAddressPrefix:      to.StringPtr(rule.SourceAddressPrefix),
-				SourcePortRange:          to.StringPtr(rule.SourcePortRange),
-				DestinationAddressPrefix: to.StringPtr(rule.DestinationAddressPrefix),
-				DestinationPortRange:     to.StringPtr(rule.DestinationPortRange),
-				Protocol:                 network.SecurityRuleProtocol(rule.Protocol),
-				Access:                   network.SecurityRuleAccess(rule.Access),
-				Priority:                 to.Int32Ptr(rule.Priority),
+				SourceAddressPrefix:      to.StringPtr("*"),
+				SourcePortRange:          to.StringPtr(rule.FromPort),
+				DestinationAddressPrefix: to.StringPtr("*"),
+				DestinationPortRange:     to.StringPtr(rule.ToPort),
+				Protocol:                 network.SecurityRuleProtocol(rule.IPProtocol),
+				Access:                   network.SecurityRuleAccess("Allow"),
+				Priority:                 to.Int32Ptr(priorityNum),
 				Direction:                network.SecurityRuleDirection(rule.Direction),
 			},
 		}
@@ -142,17 +68,15 @@ func (securityHandler *AzureSecurityHandler) CreateSecurity(securityReqInfo irs.
 		Location: &securityHandler.Region.Region,
 	}
 
-	securityIdArr := strings.Split(securityReqInfo.Id, ":")
-
 	// Check SecurityGroup Exists
-	security, err := securityHandler.Client.Get(securityHandler.Ctx, securityIdArr[0], securityIdArr[1], "")
+	security, _ := securityHandler.Client.Get(securityHandler.Ctx, CBResourceGroupName, securityReqInfo.Name, "")
 	if security.ID != nil {
-		errMsg := fmt.Sprintf("Security Group with name %s already exist", securityIdArr[1])
+		errMsg := fmt.Sprintf("Security Group with name %s already exist", securityReqInfo.Name)
 		createErr := errors.New(errMsg)
 		return irs.SecurityInfo{}, createErr
 	}
 
-	future, err := securityHandler.Client.CreateOrUpdate(securityHandler.Ctx, securityIdArr[0], securityIdArr[1], createOpts)
+	future, err := securityHandler.Client.CreateOrUpdate(securityHandler.Ctx, CBResourceGroupName, securityReqInfo.Name, createOpts)
 	if err != nil {
 		return irs.SecurityInfo{}, err
 	}
@@ -161,47 +85,42 @@ func (securityHandler *AzureSecurityHandler) CreateSecurity(securityReqInfo irs.
 		return irs.SecurityInfo{}, err
 	}
 
-	// @TODO: 생성된 SecurityGroup 정보 리턴
-	publicIPInfo, err := securityHandler.GetSecurity(securityReqInfo.Id)
+	// 생성된 SecurityGroup 정보 리턴
+	securityInfo, err := securityHandler.GetSecurity(securityReqInfo.Name)
 	if err != nil {
 		return irs.SecurityInfo{}, err
 	}
-	return publicIPInfo, nil
+	return securityInfo, nil
 }
 
 func (securityHandler *AzureSecurityHandler) ListSecurity() ([]*irs.SecurityInfo, error) {
-	//result, err := securityHandler.Client.ListAll(securityHandler.Ctx)
-	result, err := securityHandler.Client.List(securityHandler.Ctx, securityHandler.Region.ResourceGroup)
+	result, err := securityHandler.Client.List(securityHandler.Ctx, CBResourceGroupName)
 	if err != nil {
 		return nil, err
 	}
 
-	var securityList []*SecurityInfo
+	var securityList []*irs.SecurityInfo
 	for _, security := range result.Values() {
-		securityInfo := new(SecurityInfo).setter(security)
+		securityInfo := setterSec(security)
 		securityList = append(securityList, securityInfo)
 	}
-
-	spew.Dump(securityList)
-	return nil, nil
+	//spew.Dump(securityList)
+	return securityList, nil
 }
 
 func (securityHandler *AzureSecurityHandler) GetSecurity(securityID string) (irs.SecurityInfo, error) {
-	securityIdArr := strings.Split(securityID, ":")
-	security, err := securityHandler.Client.Get(securityHandler.Ctx, securityIdArr[0], securityIdArr[1], "")
+	security, err := securityHandler.Client.Get(securityHandler.Ctx, CBResourceGroupName, securityID, "")
 	if err != nil {
 		return irs.SecurityInfo{}, err
 	}
 
-	securityInfo := new(SecurityInfo).setter(security)
-
-	spew.Dump(securityInfo)
-	return irs.SecurityInfo{}, nil
+	securityInfo := setterSec(security)
+	//spew.Dump(securityInfo)
+	return *securityInfo, nil
 }
 
 func (securityHandler *AzureSecurityHandler) DeleteSecurity(securityID string) (bool, error) {
-	securityIDArr := strings.Split(securityID, ":")
-	future, err := securityHandler.Client.Delete(securityHandler.Ctx, securityIDArr[0], securityIDArr[1])
+	future, err := securityHandler.Client.Delete(securityHandler.Ctx, CBResourceGroupName, securityID)
 	if err != nil {
 		return false, err
 	}

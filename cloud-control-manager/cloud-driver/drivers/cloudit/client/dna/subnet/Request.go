@@ -14,6 +14,14 @@ func init() {
 	cblogger = cblog.GetLogger("CB-SPIDER")
 }
 
+type VNetworkReqInfo struct {
+	Name       string `json:"name" required:"true"`
+	Addr       string `json:"addr" required:"true"`
+	Prefix     string `json:"prefix" required:"true"`
+	Gateway    string `json:"gateway" required:"false"`
+	Protection int    `json:"protection" required:"false"`
+}
+
 type SubnetInfo struct {
 	ID          string
 	TenantId    string

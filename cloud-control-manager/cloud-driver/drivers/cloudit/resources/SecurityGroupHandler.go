@@ -1,12 +1,13 @@
 package resources
 
 import (
+	"fmt"
 	"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/cloudit/client"
 	"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/cloudit/client/iam/securitygroup"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
-	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
+	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/new-resources"
 	"github.com/davecgh/go-spew/spew"
-	"strconv"
+	"strings"
 )
 
 type ClouditSecurityHandler struct {
@@ -14,36 +15,50 @@ type ClouditSecurityHandler struct {
 	Client         *client.RestClient
 }
 
+func setterSecGroup(secGroup securitygroup.SecurityGroupInfo) *irs.SecurityInfo {
+	secInfo := &irs.SecurityInfo{
+		Id:            secGroup.ID,
+		Name:          secGroup.Name,
+		SecurityRules: nil,
+	}
+
+	var secRuleArr []irs.SecurityRuleInfo
+	for _, sgRule := range secGroup.Rules {
+		secRuleInfo := irs.SecurityRuleInfo{
+			FromPort:   sgRule.Port,
+			ToPort:     sgRule.Port,
+			IPProtocol: sgRule.Protocol,
+			Direction:  sgRule.Type,
+		}
+
+		secRuleArr = append(secRuleArr, secRuleInfo)
+	}
+	secInfo.SecurityRules = &secRuleArr
+
+	return secInfo
+}
+
 func (securityHandler *ClouditSecurityHandler) CreateSecurity(securityReqInfo irs.SecurityReqInfo) (irs.SecurityInfo, error) {
 	securityHandler.Client.TokenID = securityHandler.CredentialInfo.AuthToken
 	authHeader := securityHandler.Client.AuthenticatedHeaders()
 
-	// @TODO: SecurityGroup 생성 요청 파라미터 정의 필요
-	type SecurityReqInfo struct {
-		Name       string                             `json:"name" required:"true"`
-		Rules      []securitygroup.SecurityGroupRules `json:"rules" required:"false"`
-		Protection int                                `json:"protection" required:"false"`
+	reqInfo := securitygroup.SecurityReqInfo{
+		Name: securityReqInfo.Name,
 	}
 
-	reqInfo := SecurityReqInfo{
-		Name: securityReqInfo.Name,
-		Rules: []securitygroup.SecurityGroupRules{
-			{
-				Name:     "SSH Inbound",
-				Protocol: "tcp",
-				Port:     "22",
-				Target:   "0.0.0.0/0",
-				Type:     "inbound",
-			},
-			{
-				Name:     "Default Outbound",
-				Protocol: "all",
-				Port:     "0",
-				Target:   "0.0.0.0/0",
-				Type:     "outbound",
-			},
-		},
+	// SecurityGroup Rule 설정
+	ruleList := []securitygroup.SecurityGroupRules{}
+	for idx, rule := range *securityReqInfo.SecurityRules {
+		secRuleInfo := securitygroup.SecurityGroupRules{
+			Name:     fmt.Sprintf("%s-rules-%d", securityReqInfo.Name, idx+1),
+			Type:     rule.Direction,
+			Port:     rule.ToPort,
+			Target:   "0.0.0.0/0",
+			Protocol: strings.ToLower(rule.IPProtocol),
+		}
+		ruleList = append(ruleList, secRuleInfo)
 	}
+	reqInfo.Rules = ruleList
 
 	createOpts := client.RequestOpts{
 		JSONBody:    reqInfo,
@@ -53,8 +68,9 @@ func (securityHandler *ClouditSecurityHandler) CreateSecurity(securityReqInfo ir
 	if securityGroup, err := securitygroup.Create(securityHandler.Client, &createOpts); err != nil {
 		return irs.SecurityInfo{}, err
 	} else {
-		spew.Dump(securityGroup)
-		return irs.SecurityInfo{Id: securityGroup.ID, Name: securityGroup.Name}, nil
+		//spew.Dump(securityGroup)
+		secGroupInfo := setterSecGroup(*securityGroup)
+		return *secGroupInfo, nil
 	}
 }
 
@@ -78,11 +94,12 @@ func (securityHandler *ClouditSecurityHandler) ListSecurity() ([]*irs.SecurityIn
 				(*securityList)[i].RulesCount = len(*sgRules)
 			}
 		}
-		for i, security := range *securityList {
-			cblogger.Info("[" + strconv.Itoa(i) + "]")
-			spew.Dump(security)
+		var resultList []*irs.SecurityInfo
+		for _, security := range *securityList {
+			secInfo := setterSecGroup(security)
+			resultList = append(resultList, secInfo)
 		}
-		return nil, nil
+		return resultList, nil
 	}
 }
 

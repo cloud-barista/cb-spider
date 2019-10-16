@@ -14,6 +14,22 @@ func init() {
 	cblogger = cblog.GetLogger("CB-SPIDER")
 }
 
+type SecGroupInfo struct {
+	Id string `json:"id" required:"true"`
+}
+
+type VMReqInfo struct {
+	TemplateId   string         `json:"templateId" required:"true"`
+	SpecId       string         `json:"specId" required:"true"`
+	Name         string         `json:"name" required:"true"`
+	HostName     string         `json:"hostName" required:"true"`
+	RootPassword string         `json:"rootPassword" required:"true"`
+	SubnetAddr   string         `json:"subnetAddr" required:"true"`
+	Secgroups    []SecGroupInfo `json:"secgroups" required:"true"`
+	Description  int            `json:"description" required:"false"`
+	Protection   int            `json:"protection" required:"false"`
+}
+
 type ServerInfo struct {
 	VolumeInfoList interface{}
 	VmNicInfoList  interface{}

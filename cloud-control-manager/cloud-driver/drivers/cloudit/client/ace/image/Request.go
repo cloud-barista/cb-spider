@@ -13,6 +13,19 @@ func init() {
 	cblogger = cblog.GetLogger("CB-SPIDER")
 }
 
+type ImageReqInfo struct {
+	Name         string `json:"name" required:"true"`
+	VolumeId     string `json:"volumeId" required:"true"`   // 정지된 서버 볼륨을 기준으로 이미지 템플릿 생성
+	SnapshotId   string `json:"snapshotId" required:"true"` // 서버 스냅샷을 기준으로 이미지 템플릿 생성
+	Ownership    string `json:"ownership" required:"true"`  // TENANT, PRIVATE
+	Format       string `json:"format" required:"true"`     // raw, vdi, vmdk, vpc, qcow2
+	SourceType   string `json:"sourceType" required:"true"` // server, snapshot
+	TemplateType string `json:"templateType" required:"true"`
+	Size         int    `json:"size" required:"false"`
+	PoolId       string `json:"poolId" required:"false"`
+	Protection   int    `json:"protection" required:"false"`
+}
+
 type ImageInfo struct {
 	ID            string
 	TenantID      string
