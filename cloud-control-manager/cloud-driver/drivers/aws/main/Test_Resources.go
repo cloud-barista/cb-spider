@@ -47,50 +47,52 @@ func handleSecurity() {
 	handler := ResourceHandler.(irs.SecurityHandler)
 
 	config := readConfigFile()
-
 	securityId := config.Aws.SecurityGroupID
 	cblogger.Infof(securityId)
-	//securityId = "sg-0fe21e070f09db954"
+	//securityId = "sg-0254f00ef99e40a3c"
 
-	//result, err := handler.GetSecurity(securityId)
-	//result, err := handler.GetSecurity("sg-0320a99e0c1bfcefc")
+	result, err := handler.GetSecurity(securityId)
+	//result, err := handler.GetSecurity("sg-0d4d11c090c4814e8")
 	//result, err := handler.GetSecurity("sg-0fd2d90b269ebc082") // sgtest-mcloub-barista
 
 	securityReqInfo := irs.SecurityReqInfo{
-		GroupName:   "sgtest2-mcloub-barista",
-		Description: "this is desc",
-		VpcId:       "vpc-5a837e31",
-		IPPermissions: []*irs.SecurityRuleInfo{ //인바운드 정책 설정
+		Name: "sgtest2-mcloub-barista",
+		SecurityRules: &[]irs.SecurityRuleInfo{ //보안 정책 설정
 			{
-				FromPort:   80,
-				ToPort:     80,
+				FromPort:   "80",
+				ToPort:     "80",
 				IPProtocol: "tcp",
-				Cidr:       "0.0.0.0/0",
+				Direction:  "inbound",
 			},
 			{
-				FromPort:   8080,
-				ToPort:     8080,
+				FromPort:   "8080",
+				ToPort:     "8080",
 				IPProtocol: "tcp",
-				Cidr:       "0.0.0.0/0",
-			},
-		},
-		IPPermissionsEgress: []*irs.SecurityRuleInfo{ //아웃바운드 정책 설정
-			{
-				FromPort:   443,
-				ToPort:     443,
-				IPProtocol: "tcp",
-				Cidr:       "0.0.0.0/0",
+				Direction:  "inbound",
 			},
 			{
-				FromPort:   9443,
-				ToPort:     9443,
+				FromPort:   "443",
+				ToPort:     "443",
 				IPProtocol: "tcp",
-				Cidr:       "0.0.0.0/0",
+				Direction:  "outbound",
+			},
+			{
+				FromPort:   "8443",
+				ToPort:     "9999",
+				IPProtocol: "tcp",
+				Direction:  "outbound",
+			},
+			{
+				//FromPort:   "8443",
+				//ToPort:     "9999",
+				IPProtocol: "-1", // 모두 허용 (포트 정보 없음)
+				Direction:  "inbound",
 			},
 		},
 	}
 
-	result, err := handler.CreateSecurity(securityReqInfo)
+	cblogger.Info(securityReqInfo)
+	//result, err := handler.CreateSecurity(securityReqInfo)
 
 	//result, err := handler.DeleteSecurity(securityId)
 	//result, err := handler.ListSecurity()
@@ -546,12 +548,12 @@ func handleVNic() {
 func main() {
 	cblogger.Info("AWS Resource Test")
 	//handleKeyPair()
-	handlePublicIP() // PublicIP 생성 후 conf
+	//handlePublicIP() // PublicIP 생성 후 conf
 
 	//handleVNetwork() //VPC
 	//handleImage() //AMI
 	//handleVNic() //Lancard
-	//handleSecurity()
+	handleSecurity()
 
 	/*
 		KeyPairHandler, err := setKeyPairHandler()

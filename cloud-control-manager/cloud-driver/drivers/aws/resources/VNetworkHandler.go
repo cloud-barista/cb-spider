@@ -23,12 +23,11 @@ import (
 	"github.com/aws/aws-sdk-go/service/ec2"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
+
+	//cbtool "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/aws/resources/tool"
+	//cbtool "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/aws/resources/tool"
 	"github.com/davecgh/go-spew/spew"
 )
-
-const CBDefaultVNetName string = "CB-VNet"          // CB Default Virtual Network Name
-const CBDefaultSubnetName string = "CB-VNet-Subnet" // CB Default Subnet Name
-const CBDefaultCidrBlock string = "192.168.0.0/16"  // CB Default CidrBlock
 
 type AwsVNetworkHandler struct {
 	Region idrv.RegionInfo
@@ -46,18 +45,6 @@ type AwsVpcInfo struct {
 	CidrBlock string // AWS
 	IsDefault bool   // AWS
 	State     string // AWS
-}
-
-func GetCBDefaultVNetName() string {
-	return CBDefaultVNetName
-}
-
-func GetCBDefaultSubnetName() string {
-	return CBDefaultSubnetName
-}
-
-func GetCBDefaultCidrBlock() string {
-	return CBDefaultCidrBlock
 }
 
 func (vNetworkHandler *AwsVNetworkHandler) ListVpc() ([]*AwsVpcInfo, error) {

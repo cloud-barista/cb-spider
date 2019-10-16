@@ -11,23 +11,23 @@
 package resources
 
 type SecurityReqInfo struct {
-     Name string
-     SecurityRules *[]SecurityRuleInfo
+	Name          string
+	SecurityRules *[]SecurityRuleInfo
 }
 
 type SecurityRuleInfo struct {
-        FromPort   string
-        ToPort     string
-        IPProtocol string
-        Direction string
+	FromPort   string
+	ToPort     string
+	IPProtocol string
+	Direction  string
 }
 
 type SecurityInfo struct {
-     Id string
-     Name string
-     SecurityRules *[]SecurityRuleInfo
+	Id            string
+	Name          string
+	SecurityRules *[]SecurityRuleInfo
 
-     KeyValueList []KeyValue
+	KeyValueList []KeyValue
 }
 
 type SecurityHandler interface {
