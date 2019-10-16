@@ -47,11 +47,15 @@ func (publicIPHandler *ClouditPublicIPHandler) CreatePublicIP(publicIPReqInfo ir
 	}
 
 	// 2. PublicIP 생성 및 할당
-
 	reqInfo := adaptiveip.PublicIPReqInfo{
-		IP:        availableIP.IP,
-		Name:      publicIPReqInfo.Name,
-		PrivateIP: "", // TODO: 필수값 추가
+		IP:   availableIP.IP,
+		Name: publicIPReqInfo.Name,
+	}
+	// VM PrivateIP 값 설정
+	for _, meta := range publicIPReqInfo.KeyValueList {
+		if meta.Key == "PrivateIP" {
+			reqInfo.PrivateIP = meta.Value
+		}
 	}
 
 	createOpts := client.RequestOpts{

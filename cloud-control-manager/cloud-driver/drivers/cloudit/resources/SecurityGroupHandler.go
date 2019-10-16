@@ -43,8 +43,7 @@ func (securityHandler *ClouditSecurityHandler) CreateSecurity(securityReqInfo ir
 	authHeader := securityHandler.Client.AuthenticatedHeaders()
 
 	reqInfo := securitygroup.SecurityReqInfo{
-		Name:  securityReqInfo.Name,
-		Rules: nil,
+		Name: securityReqInfo.Name,
 	}
 
 	// SecurityGroup Rule 설정

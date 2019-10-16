@@ -11,11 +11,15 @@
 package resources
 
 import (
+	"errors"
+	"fmt"
 	cblog "github.com/cloud-barista/cb-log"
 	"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/cloudit/client"
 	"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/cloudit/client/ace/server"
+	"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/cloudit/client/dna/adaptiveip"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/new-resources"
+	"github.com/davecgh/go-spew/spew"
 	"github.com/sirupsen/logrus"
 )
 
@@ -58,16 +62,33 @@ func (vmHandler *ClouditVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 		JSONBody:    reqInfo,
 	}
 
-	//var vmInfo server.ServerInfo
+	// VM 생성
 	if vm, err := server.Start(vmHandler.Client, &requestOpts); err != nil {
 		return irs.VMInfo{}, err
 	} else {
-		if vmDetailInfo, err := server.Get(vmHandler.Client, vm.ID, &requestOpts); err != nil {
+		// VM 정보 가져오기
+		vmDetailInfo, err := server.Get(vmHandler.Client, vm.ID, &requestOpts)
+		if err != nil {
 			return irs.VMInfo{}, err
-		} else {
-			vmInfo := mappingServerInfo(*vmDetailInfo)
-			return vmInfo, nil
 		}
+
+		// PublicIP 생성
+		publicIPReqInfo := irs.PublicIPReqInfo{
+			Name: vm.Name + "-PublicIP",
+			KeyValueList: []irs.KeyValue{
+				{
+					Key:   "PrivateIP",
+					Value: vm.PrivateIp,
+				},
+			},
+		}
+		if ok, err := vmHandler.AssociatePublicIP(publicIPReqInfo); !ok {
+			return irs.VMInfo{}, err
+		}
+
+		// 생성된 VM 정보 리턴
+		vmInfo := mappingServerInfo(*vmDetailInfo)
+		return vmInfo, nil
 	}
 }
 
@@ -199,6 +220,54 @@ func (vmHandler *ClouditVMHandler) GetVM(vmID string) irs.VMInfo {
 	} else {
 		vmInfo := mappingServerInfo(*vm)
 		return vmInfo
+	}
+}
+
+// VM에 PublicIP 연결
+func (vmHandler *ClouditVMHandler) AssociatePublicIP(publicIPReqInfo irs.PublicIPReqInfo) (bool, error) {
+	vmHandler.Client.TokenID = vmHandler.CredentialInfo.AuthToken
+	authHeader := vmHandler.Client.AuthenticatedHeaders()
+
+	var availableIP adaptiveip.IPInfo
+
+	// 1. 사용 가능한 PublicIP 목록 가져오기
+	requestOpts := client.RequestOpts{
+		MoreHeaders: authHeader,
+	}
+	if availableIPList, err := adaptiveip.ListAvailableIP(vmHandler.Client, &requestOpts); err != nil {
+		return false, err
+	} else {
+		if len(*availableIPList) == 0 {
+			allocateErr := errors.New(fmt.Sprintf("There is no PublicIPs to allocate"))
+			return false, allocateErr
+		} else {
+			availableIP = (*availableIPList)[0]
+		}
+	}
+
+	// 2. PublicIP 생성 및 할당
+	reqInfo := adaptiveip.PublicIPReqInfo{
+		IP:   availableIP.IP,
+		Name: publicIPReqInfo.Name,
+	}
+	// VM PrivateIP 값 설정
+	for _, meta := range publicIPReqInfo.KeyValueList {
+		if meta.Key == "PrivateIP" {
+			reqInfo.PrivateIP = meta.Value
+		}
+	}
+
+	createOpts := client.RequestOpts{
+		JSONBody:    reqInfo,
+		MoreHeaders: authHeader,
+	}
+	publicIP, err := adaptiveip.Create(vmHandler.Client, &createOpts)
+	if err != nil {
+		cblogger.Error(err)
+		return false, err
+	} else {
+		spew.Dump(publicIP)
+		return true, nil
 	}
 }
 
