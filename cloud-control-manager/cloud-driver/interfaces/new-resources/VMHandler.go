@@ -80,7 +80,7 @@ type VMInfo struct {
         VMBootDisk  string // ex) /dev/sda1
         VMBlockDisk string // ex)
 
-     keyValueList []KeyValue
+	KeyValueList []KeyValue
 }
 
 type VMHandler interface {

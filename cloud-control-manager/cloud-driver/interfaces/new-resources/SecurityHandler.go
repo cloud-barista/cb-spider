@@ -27,7 +27,7 @@ type SecurityInfo struct {
      Name string
      SecurityRules *[]SecurityRuleInfo
 
-     keyValueList []KeyValue
+     KeyValueList []KeyValue
 }
 
 type SecurityHandler interface {

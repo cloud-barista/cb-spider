@@ -21,7 +21,7 @@ type KeyPairInfo struct {
      PrivateKey  string
      VMUserID      string
 
-     keyValueList []KeyValue 
+     KeyValueList []KeyValue 
 }
 
 type KeyPairHandler interface {
