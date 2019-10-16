@@ -20,7 +20,7 @@ func setterSec(securityGroup network.SecurityGroup) *irs.SecurityInfo {
 	security := &irs.SecurityInfo{
 		Id:           *securityGroup.ID,
 		Name:         *securityGroup.Name,
-		KeyValueList: []irs.KeyValue{{Key: "ResourceGroup", Value: CB_GROUP}},
+		KeyValueList: []irs.KeyValue{{Key: "ResourceGroup", Value: CBResourceGroupName}},
 	}
 
 	var securityRuleArr []irs.SecurityRuleInfo
@@ -69,14 +69,14 @@ func (securityHandler *AzureSecurityHandler) CreateSecurity(securityReqInfo irs.
 	}
 
 	// Check SecurityGroup Exists
-	security, err := securityHandler.Client.Get(securityHandler.Ctx, CB_GROUP, securityReqInfo.Name, "")
+	security, _ := securityHandler.Client.Get(securityHandler.Ctx, CBResourceGroupName, securityReqInfo.Name, "")
 	if security.ID != nil {
 		errMsg := fmt.Sprintf("Security Group with name %s already exist", securityReqInfo.Name)
 		createErr := errors.New(errMsg)
 		return irs.SecurityInfo{}, createErr
 	}
 
-	future, err := securityHandler.Client.CreateOrUpdate(securityHandler.Ctx, CB_GROUP, securityReqInfo.Name, createOpts)
+	future, err := securityHandler.Client.CreateOrUpdate(securityHandler.Ctx, CBResourceGroupName, securityReqInfo.Name, createOpts)
 	if err != nil {
 		return irs.SecurityInfo{}, err
 	}
@@ -94,7 +94,7 @@ func (securityHandler *AzureSecurityHandler) CreateSecurity(securityReqInfo irs.
 }
 
 func (securityHandler *AzureSecurityHandler) ListSecurity() ([]*irs.SecurityInfo, error) {
-	result, err := securityHandler.Client.List(securityHandler.Ctx, CB_GROUP)
+	result, err := securityHandler.Client.List(securityHandler.Ctx, CBResourceGroupName)
 	if err != nil {
 		return nil, err
 	}
@@ -109,7 +109,7 @@ func (securityHandler *AzureSecurityHandler) ListSecurity() ([]*irs.SecurityInfo
 }
 
 func (securityHandler *AzureSecurityHandler) GetSecurity(securityID string) (irs.SecurityInfo, error) {
-	security, err := securityHandler.Client.Get(securityHandler.Ctx, CB_GROUP, securityID, "")
+	security, err := securityHandler.Client.Get(securityHandler.Ctx, CBResourceGroupName, securityID, "")
 	if err != nil {
 		return irs.SecurityInfo{}, err
 	}
@@ -120,7 +120,7 @@ func (securityHandler *AzureSecurityHandler) GetSecurity(securityID string) (irs
 }
 
 func (securityHandler *AzureSecurityHandler) DeleteSecurity(securityID string) (bool, error) {
-	future, err := securityHandler.Client.Delete(securityHandler.Ctx, CB_GROUP, securityID)
+	future, err := securityHandler.Client.Delete(securityHandler.Ctx, CBResourceGroupName, securityID)
 	if err != nil {
 		return false, err
 	}

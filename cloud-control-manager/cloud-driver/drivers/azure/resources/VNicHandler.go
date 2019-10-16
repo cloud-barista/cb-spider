@@ -8,8 +8,7 @@ import (
 	"github.com/Azure/go-autorest/autorest/to"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/new-resources"
-	"github.com/davecgh/go-spew/spew"
-	"strings"
+	"reflect"
 )
 
 type AzureVNicHandler struct {
@@ -19,90 +18,76 @@ type AzureVNicHandler struct {
 	SubnetClient *network.SubnetsClient
 }
 
-// @TODO: VNicInfo 리소스 프로퍼티 정의 필요
-type VNicInfo struct {
-	Id            string
-	Name          string
-	Location      string
-	Primary       bool
-	MacAddress    string
-	IP            []VNicIPConfig
-	SecurityGroup string
-}
-
-type VNicIPConfig struct {
-	Primary                   bool
-	PrivateIPAddress          string
-	PrivateIPAddressVersion   string
-	PrivateIPAllocationMethod string
-	PublicIP                  string
-	PublicIPAddressVersion    string
-	PublicIPAllocationMethod  string
-}
-
 func setterVNic(ni network.Interface) *irs.VNicInfo {
 	nic := &irs.VNicInfo{
-		Name:     *ni.Name,
-		PublicIP: "",
-		//MacAdress:        *ni.MacAddress,
-		OwnedVMID:        *ni.ID,
-		SecurityGroupIds: nil,
-		Status:           *ni.ProvisioningState,
+		Id:           *ni.ID,
+		Name:         *ni.Name,
+		Status:       *ni.ProvisioningState,
+		KeyValueList: []irs.KeyValue{{Key: "ResourceGroup", Value: CBResourceGroupName}},
 	}
+
+	if !reflect.ValueOf(ni.InterfacePropertiesFormat.MacAddress).IsNil() {
+		nic.MacAdress = *ni.MacAddress
+	}
+	if !reflect.ValueOf(ni.InterfacePropertiesFormat.VirtualMachine).IsNil() {
+		nic.OwnedVMID = *ni.InterfacePropertiesFormat.VirtualMachine.ID
+	}
+	if !reflect.ValueOf(ni.NetworkSecurityGroup).IsNil() {
+		nic.SecurityGroupIds = []string{*ni.NetworkSecurityGroup.ID}
+	}
+
 	return nic
 }
 
 func (vNicHandler *AzureVNicHandler) CreateVNic(vNicReqInfo irs.VNicReqInfo) (irs.VNicInfo, error) {
 
-	securityGroupId := "/subscriptions/cb592624-b77b-4a8f-bb13-0e5a48cae40f/resourceGroups/inno-platform1-rsrc-grup/providers/Microsoft.Network/networkSecurityGroups/inno-test-vm-nsg"
-	publicIpId := "/subscriptions/cb592624-b77b-4a8f-bb13-0e5a48cae40f/resourceGroups/inno-platform1-rsrc-grup/providers/Microsoft.Network/publicIPAddresses/mcb-test-publicip"
-
-	// TODO: Test_Resource에서 파라미터로 넘어옴
-	vNicReqInfo.VNetName = "inno-platform1-rsrc-grup-vnet"
-	vNicReqInfo.Name = "inno-platform1-rsrc-grup:Test-mcb-test-vnic"
-	vNicReqInfo.PublicIPid = publicIpId
-	vNicReqInfo.SecurityGroupIds = []string{securityGroupId}
-
-	vNicIdArr := strings.Split(vNicReqInfo.Name, ":")
 	// Check vNic Exists
-	//vNic, err := vNicHandler.NicClient.Get(vNicHandler.Ctx, vNicIdArr[0], vNicIdArr[1], "")
-	vNic, _ := vNicHandler.NicClient.Get(vNicHandler.Ctx, vNicIdArr[0], vNicIdArr[1], "")
+	vNic, _ := vNicHandler.NicClient.Get(vNicHandler.Ctx, CBResourceGroupName, vNicReqInfo.Name, "")
 	if vNic.ID != nil {
-		errMsg := fmt.Sprintf("Virtual Network Interface with name %s already exist", vNicIdArr[1])
+		errMsg := fmt.Sprintf("Virtual Network Interface with name %s already exist", vNicReqInfo.Name)
 		createErr := errors.New(errMsg)
 		return irs.VNicInfo{}, createErr
 	}
 
-	subnet, err := vNicHandler.getSubnet(vNicIdArr[0], vNicReqInfo.VNetName, "default")
-	// TODO: 추후 VNet 생성 API 기준 테스트
-	//subnet, err := vNicHandler.getSubnet(vNicIdArr[0], "CB-VNet", vNicReqInfo.VNetName)
+	subnet, err := vNicHandler.getSubnet(CBResourceGroupName, CBVirutalNetworkName, vNicReqInfo.VNetName)
 
-	// TODO: PublicIP Id 값 등록 후 테스트
 	var ipConfigArr []network.InterfaceIPConfiguration
 	ipConfig := network.InterfaceIPConfiguration{
 		Name: to.StringPtr("ipConfig1"),
 		InterfaceIPConfigurationPropertiesFormat: &network.InterfaceIPConfigurationPropertiesFormat{
 			Subnet:                    &subnet,
 			PrivateIPAllocationMethod: "Dynamic",
-			PublicIPAddress: &network.PublicIPAddress{
-				ID: &vNicReqInfo.PublicIPid,
-			},
+			/*PublicIPAddress: &network.PublicIPAddress{
+				//ID: &vNicReqInfo.PublicIPid,
+			},*/
 		},
 	}
+
+	if vNicReqInfo.PublicIPid != "" {
+		ipConfig.PublicIPAddress = &network.PublicIPAddress{
+			ID: &vNicReqInfo.PublicIPid,
+		}
+	}
+
 	ipConfigArr = append(ipConfigArr, ipConfig)
 
 	createOpts := network.Interface{
 		InterfacePropertiesFormat: &network.InterfacePropertiesFormat{
 			IPConfigurations: &ipConfigArr,
-			NetworkSecurityGroup: &network.SecurityGroup{
-				ID: &vNicReqInfo.SecurityGroupIds[0],
-			},
+			/*NetworkSecurityGroup: &network.SecurityGroup{
+				//ID: &vNicReqInfo.SecurityGroupIds[0],
+			},*/
 		},
 		Location: &vNicHandler.Region.Region,
-		//NetworkSecurityGroup:
 	}
 
-	future, err := vNicHandler.NicClient.CreateOrUpdate(vNicHandler.Ctx, vNicIdArr[0], vNicIdArr[1], createOpts)
+	if len(vNicReqInfo.SecurityGroupIds) != 0 {
+		createOpts.NetworkSecurityGroup = &network.SecurityGroup{
+			ID: &vNicReqInfo.SecurityGroupIds[0],
+		}
+	}
+
+	future, err := vNicHandler.NicClient.CreateOrUpdate(vNicHandler.Ctx, CBResourceGroupName, vNicReqInfo.Name, createOpts)
 	if err != nil {
 		return irs.VNicInfo{}, err
 	}
@@ -111,12 +96,16 @@ func (vNicHandler *AzureVNicHandler) CreateVNic(vNicReqInfo irs.VNicReqInfo) (ir
 		return irs.VNicInfo{}, err
 	}
 
-	return irs.VNicInfo{}, nil
+	// 생성된 VNet 정보 리턴
+	vNetInfo, err := vNicHandler.GetVNic(vNicReqInfo.Name)
+	if err != nil {
+		return irs.VNicInfo{}, err
+	}
+	return vNetInfo, nil
 }
 
 func (vNicHandler *AzureVNicHandler) ListVNic() ([]*irs.VNicInfo, error) {
-	//result, err := vNicHandler.NicClient.ListAll(vNicHandler.Ctx)
-	result, err := vNicHandler.NicClient.List(vNicHandler.Ctx, vNicHandler.Region.ResourceGroup)
+	result, err := vNicHandler.NicClient.List(vNicHandler.Ctx, CBResourceGroupName)
 	if err != nil {
 		return nil, err
 	}
@@ -126,27 +115,23 @@ func (vNicHandler *AzureVNicHandler) ListVNic() ([]*irs.VNicInfo, error) {
 		vNicInfo := setterVNic(vNic)
 		vNicList = append(vNicList, vNicInfo)
 	}
-
-	spew.Dump(vNicList)
-	return nil, nil
+	//spew.Dump(vNicList)
+	return vNicList, nil
 }
 
 func (vNicHandler *AzureVNicHandler) GetVNic(vNicID string) (irs.VNicInfo, error) {
-	vNicIDArr := strings.Split(vNicID, ":")
-	vNic, err := vNicHandler.NicClient.Get(vNicHandler.Ctx, vNicIDArr[0], vNicIDArr[1], "")
+	vNic, err := vNicHandler.NicClient.Get(vNicHandler.Ctx, CBResourceGroupName, vNicID, "")
 	if err != nil {
 		return irs.VNicInfo{}, err
 	}
 
 	vNicInfo := setterVNic(vNic)
-
-	spew.Dump(vNicInfo)
-	return irs.VNicInfo{}, nil
+	//spew.Dump(vNicInfo)
+	return *vNicInfo, nil
 }
 
 func (vNicHandler *AzureVNicHandler) DeleteVNic(vNicID string) (bool, error) {
-	vNicIDArr := strings.Split(vNicID, ":")
-	future, err := vNicHandler.NicClient.Delete(vNicHandler.Ctx, vNicIDArr[0], vNicIDArr[1])
+	future, err := vNicHandler.NicClient.Delete(vNicHandler.Ctx, CBResourceGroupName, vNicID)
 	if err != nil {
 		return false, err
 	}

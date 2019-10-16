@@ -249,7 +249,7 @@ func testVNetworkHandler(config Config) {
 	cblogger.Info("4. DeleteVNetwork()")
 	cblogger.Info("5. Exit")
 
-	vNetworkId := "Test-mcb-test-vnet"
+	vNetworkId := "CB-Subnet"
 
 Loop:
 
@@ -316,7 +316,10 @@ func testVNicHandler(config Config) {
 	cblogger.Info("4. DeleteVNic()")
 	cblogger.Info("5. Exit Program")
 
-	vNicId := "Test-mcb-test-vnic"
+	vNicId := "CB-VNic"
+	subetName := "CB-Subnet"
+	segGroupId := "/subscriptions/cb592624-b77b-4a8f-bb13-0e5a48cae40f/resourceGroups/CB-GROUP/providers/Microsoft.Network/networkSecurityGroups/CB-SecGroup"
+	publicIpId := "/subscriptions/cb592624-b77b-4a8f-bb13-0e5a48cae40f/resourceGroups/CB-GROUP/providers/Microsoft.Network/publicIPAddresses/CB-PublicIP"
 
 Loop:
 	for {
@@ -346,7 +349,12 @@ Loop:
 				cblogger.Info("Finish GetVNic()")
 			case 3:
 				cblogger.Info("Start CreateVNic() ...")
-				reqInfo := irs.VNicReqInfo{Name: vNicId}
+				reqInfo := irs.VNicReqInfo{
+					Name:             vNicId,
+					VNetName:         subetName,
+					SecurityGroupIds: []string{segGroupId},
+					PublicIPid:       publicIpId,
+				}
 				if vNicInfo, err := vNicHandler.CreateVNic(reqInfo); err != nil {
 					cblogger.Error(err)
 				} else {

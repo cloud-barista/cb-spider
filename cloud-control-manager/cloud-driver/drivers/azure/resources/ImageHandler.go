@@ -23,7 +23,7 @@ func setterImage(image compute.Image) *irs.ImageInfo {
 		Name:         *image.Name,
 		GuestOS:      fmt.Sprint(image.ImageProperties.StorageProfile.OsDisk.OsType),
 		Status:       *image.ProvisioningState,
-		KeyValueList: []irs.KeyValue{{Key: "ResourceGroup", Value: CB_GROUP}},
+		KeyValueList: []irs.KeyValue{{Key: "ResourceGroup", Value: CBResourceGroupName}},
 	}
 
 	return imageInfo
@@ -87,7 +87,7 @@ func (imageHandler *AzureImageHandler) CreateImage(imageReqInfo irs.ImageReqInfo
 }
 
 func (imageHandler *AzureImageHandler) ListImage() ([]*irs.ImageInfo, error) {
-	resultList, err := imageHandler.Client.ListByResourceGroup(imageHandler.Ctx, CB_GROUP)
+	resultList, err := imageHandler.Client.ListByResourceGroup(imageHandler.Ctx, CBResourceGroupName)
 	if err != nil {
 		cblogger.Error(err)
 	}
@@ -102,7 +102,7 @@ func (imageHandler *AzureImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 }
 
 func (imageHandler *AzureImageHandler) GetImage(imageID string) (irs.ImageInfo, error) {
-	image, err := imageHandler.Client.Get(imageHandler.Ctx, CB_GROUP, imageID, "")
+	image, err := imageHandler.Client.Get(imageHandler.Ctx, CBResourceGroupName, imageID, "")
 	if err != nil {
 		cblogger.Error(err)
 		return irs.ImageInfo{}, err
@@ -114,7 +114,7 @@ func (imageHandler *AzureImageHandler) GetImage(imageID string) (irs.ImageInfo, 
 }
 
 func (imageHandler *AzureImageHandler) DeleteImage(imageID string) (bool, error) {
-	future, err := imageHandler.Client.Delete(imageHandler.Ctx, CB_GROUP, imageID)
+	future, err := imageHandler.Client.Delete(imageHandler.Ctx, CBResourceGroupName, imageID)
 	if err != nil {
 		return false, err
 	}
