@@ -79,9 +79,10 @@ func testCreateVM() {
 		ImageId:          config.Cloudit.VMInfo.TemplateId,
 		VMSpecId:         config.Cloudit.VMInfo.SpecId,
 		VirtualNetworkId: vNetwork.Id,
-		//SecurityGroupIds: []string(securityGroup.Id),
-		SecurityGroupIds: strings.Fields(securityGroup.Id),
-		VMUserPasswd:     config.Cloudit.VMInfo.RootPassword,
+		SecurityGroupIds: []string{
+			securityGroup.Id,
+		},
+		VMUserPasswd: config.Cloudit.VMInfo.RootPassword,
 	}
 
 	spew.Dump(vmReqInfo)
