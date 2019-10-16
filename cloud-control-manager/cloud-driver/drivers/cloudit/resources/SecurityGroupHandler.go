@@ -24,9 +24,9 @@ func setterSecGroup(secGroup securitygroup.SecurityGroupInfo) *irs.SecurityInfo 
 	for _, sgRule := range secGroup.Rules {
 		secRuleInfo := irs.SecurityRuleInfo{
 			FromPort:   sgRule.Port,
-			ToPort:     sgRule.Target, //todo:  toport, Direction에 가져올 데이터????
+			ToPort:     sgRule.Port,
 			IPProtocol: sgRule.Protocol,
-			Direction:  sgRule.Target,
+			Direction:  sgRule.Type,
 		}
 
 		secRuleArr = append(secRuleArr, secRuleInfo)
