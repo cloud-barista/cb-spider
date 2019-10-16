@@ -3,14 +3,11 @@ package main
 import (
 	"fmt"
 	cblog "github.com/cloud-barista/cb-log"
-	"github.com/sirupsen/logrus"
-
-	//cblog "github.com/cloud-barista/cb-log"
 	cidrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/cloudit"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
-	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
+	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/new-resources"
 	"github.com/davecgh/go-spew/spew"
-	//"github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v3"
 	"io/ioutil"
 	"os"
@@ -26,20 +23,12 @@ func init() {
 func createVM(config Config, vmHandler irs.VMHandler) (irs.VMInfo, error) {
 
 	vmReqInfo := irs.VMReqInfo{
-		Name: config.Cloudit.VMInfo.Name,
-		ImageInfo: irs.ImageInfo{
-			Id: config.Cloudit.VMInfo.TemplateId,
-		},
-		SpecID: config.Cloudit.VMInfo.SpecId,
-		VNetworkInfo: irs.VNetworkInfo{
-			Id: config.Cloudit.VMInfo.SubnetAddr,
-		},
-		SecurityInfo: irs.SecurityInfo{
-			Id: config.Cloudit.VMInfo.SecGroups,
-		},
-		LoginInfo: irs.LoginInfo{
-			AdminPassword: config.Cloudit.VMInfo.RootPassword,
-		},
+		VMName:           config.Cloudit.VMInfo.Name,
+		ImageId:          config.Cloudit.VMInfo.TemplateId,
+		VMSpecId:         config.Cloudit.VMInfo.SpecId,
+		VirtualNetworkId: config.Cloudit.VMInfo.SubnetAddr,
+		//SecurityGroupIds: config.Cloudit.VMInfo.SecGroups,
+		VMUserPasswd: config.Cloudit.VMInfo.RootPassword,
 	}
 
 	spew.Dump(vmReqInfo)
@@ -183,7 +172,7 @@ type Config struct {
 func readConfigFile() Config {
 	// Set Environment Value of Project Root Path
 	rootPath := os.Getenv("CBSPIDER_PATH")
-	data, err := ioutil.ReadFile(rootPath + "/config/config.yaml")
+	data, err := ioutil.ReadFile(rootPath + "/conf/config.yaml")
 	if err != nil {
 		cblogger.Error(err)
 	}

@@ -15,7 +15,7 @@ import (
 	"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/cloudit/client"
 	"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/cloudit/client/ace/server"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
-	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
+	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/new-resources"
 	"github.com/sirupsen/logrus"
 )
 
@@ -35,31 +35,15 @@ func (vmHandler *ClouditVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 	vmHandler.Client.TokenID = vmHandler.CredentialInfo.AuthToken
 	authHeader := vmHandler.Client.AuthenticatedHeaders()
 
-	// @TODO: VM 생성 요청 파라미터 정의 필요
-	type SecGroupInfo struct {
-		Id string `json:"id" required:"true"`
-	}
-	type VMReqInfo struct {
-		TemplateId   string         `json:"templateId" required:"true"`
-		SpecId       string         `json:"specId" required:"true"`
-		Name         string         `json:"name" required:"true"`
-		HostName     string         `json:"hostName" required:"true"`
-		RootPassword string         `json:"rootPassword" required:"true"`
-		SubnetAddr   string         `json:"subnetAddr" required:"true"`
-		Secgroups    []SecGroupInfo `json:"secgroups" required:"true"`
-		Description  int            `json:"description" required:"false"`
-		Protection   int            `json:"protection" required:"false"`
-	}
-
-	reqInfo := VMReqInfo{
-		TemplateId:   vmReqInfo.ImageInfo.Id,
-		SpecId:       vmReqInfo.SpecID,
-		Name:         vmReqInfo.Name,
-		HostName:     vmReqInfo.Name,
-		RootPassword: vmReqInfo.LoginInfo.AdminPassword,
-		SubnetAddr:   vmReqInfo.VNetworkInfo.Id,
-		Secgroups: []SecGroupInfo{
-			{Id: vmReqInfo.SecurityInfo.Id},
+	reqInfo := server.VMReqInfo{
+		TemplateId:   vmReqInfo.ImageId,
+		SpecId:       vmReqInfo.VMSpecId,
+		Name:         vmReqInfo.VMName,
+		HostName:     vmReqInfo.VMUserId,
+		RootPassword: vmReqInfo.VMUserPasswd,
+		SubnetAddr:   vmReqInfo.VirtualNetworkId,
+		Secgroups:    []server.SecGroupInfo{
+			//{Id: vmReqInfo.SecurityGroupIds},
 		},
 	}
 
@@ -216,14 +200,14 @@ func mappingServerInfo(server server.ServerInfo) irs.VMInfo {
 
 	// Get Default VM Info
 	vmInfo := irs.VMInfo{
-		Name:         server.Name,
-		Id:           server.ID,
-		ImageID:      server.TemplateID,
-		SpecID:       server.SpecId,
-		SubNetworkID: server.SubnetAddr,
-		PublicIP:     server.AdaptiveIp,
-		PrivateIP:    server.PrivateIp,
-		KeyPairID:    server.RootPassword,
+		Name:             server.Name,
+		Id:               server.ID,
+		ImageId:          server.TemplateID,
+		VMSpecId:         server.SpecId,
+		VirtualNetworkId: server.SubnetAddr,
+		PublicIP:         server.AdaptiveIp,
+		PrivateIP:        server.PrivateIp,
+		KeyPairName:      server.RootPassword,
 	}
 
 	return vmInfo

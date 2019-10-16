@@ -5,7 +5,8 @@ import (
 	cblog "github.com/cloud-barista/cb-log"
 	cidrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/cloudit"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
-	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
+	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/new-resources"
+	"github.com/davecgh/go-spew/spew"
 	"github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v3"
 	"io/ioutil"
@@ -49,8 +50,10 @@ Loop:
 			switch commandNum {
 			case 1:
 				cblogger.Info("Start ListImage() ...")
-				if _, err := imageHandler.ListImage(); err != nil {
+				if imageList, err := imageHandler.ListImage(); err != nil {
 					cblogger.Error(err)
+				} else {
+					spew.Dump(imageList)
 				}
 				cblogger.Info("Finish ListImage()")
 			case 2:
@@ -113,8 +116,10 @@ Loop:
 			switch commandNum {
 			case 1:
 				cblogger.Info("Start ListPublicIP() ...")
-				if _, err := publicIPHandler.ListPublicIP(); err != nil {
+				if publicList, err := publicIPHandler.ListPublicIP(); err != nil {
 					cblogger.Error(err)
+				} else {
+					spew.Dump(publicList)
 				}
 				cblogger.Info("Finish ListPublicIP()")
 			case 2:
@@ -129,7 +134,7 @@ Loop:
 				if publicIP, err := publicIPHandler.CreatePublicIP(reqInfo); err != nil {
 					cblogger.Error(err)
 				} else {
-					publicIPId = publicIP.Id
+					publicIPId = publicIP.Name
 				}
 				cblogger.Info("Finish CreatePublicIP()")
 			case 4:
@@ -176,8 +181,10 @@ Loop:
 			switch commandNum {
 			case 1:
 				cblogger.Info("Start ListSecurity() ...")
-				if _, err := securityHandler.ListSecurity(); err != nil {
+				if securityList, err := securityHandler.ListSecurity(); err != nil {
 					cblogger.Error(err)
+				} else {
+					spew.Dump(securityList)
 				}
 				cblogger.Info("Finish ListSecurity()")
 			case 2:
@@ -239,8 +246,10 @@ Loop:
 			switch commandNum {
 			case 1:
 				cblogger.Info("Start ListVNetwork() ...")
-				if _, err := vNetworkHandler.ListVNetwork(); err != nil {
+				if subnetList, err := vNetworkHandler.ListVNetwork(); err != nil {
 					cblogger.Error(err)
+				} else {
+					spew.Dump(subnetList)
 				}
 				cblogger.Info("Finish ListVNetwork()")
 			case 2:
@@ -301,8 +310,10 @@ Loop:
 			switch commandNum {
 			case 1:
 				cblogger.Info("Start ListVNic() ...")
-				if _, err := vNicHandler.ListVNic(); err != nil {
+				if vNicList, err := vNicHandler.ListVNic(); err != nil {
 					cblogger.Error(err)
+				} else {
+					spew.Dump(vNicList)
 				}
 				cblogger.Info("Finish ListVNic()")
 			case 2:
@@ -483,7 +494,7 @@ type Config struct {
 func readConfigFile() Config {
 	// Set Environment Value of Project Root Path4
 	rootPath := os.Getenv("CBSPIDER_PATH")
-	data, err := ioutil.ReadFile(rootPath + "/config/config.yaml")
+	data, err := ioutil.ReadFile(rootPath + "/conf/config.yaml")
 	if err != nil {
 		cblogger.Error(err)
 	}

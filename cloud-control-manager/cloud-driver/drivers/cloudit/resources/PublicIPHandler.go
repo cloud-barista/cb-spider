@@ -3,19 +3,36 @@ package resources
 import (
 	"errors"
 	"fmt"
-	//cblog "github.com/cloud-barista/cb-log"
 	"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/cloudit/client"
 	"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/cloudit/client/dna/adaptiveip"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
-	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
+	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/new-resources"
 	"github.com/davecgh/go-spew/spew"
-	//"github.com/sirupsen/logrus"
-	"strconv"
 )
 
 type ClouditPublicIPHandler struct {
 	CredentialInfo idrv.CredentialInfo
 	Client         *client.RestClient
+}
+
+//func setter(image image.ImageInfo) *irs.ImageInfo {
+//	imageInfo := &irs.ImageInfo{
+//		Id:      image.ID,
+//		Name:    image.Name,
+//		GuestOS: image.OS,
+//		Status:  image.State,
+//	}
+//	return imageInfo
+//}
+
+func setterIP(adaptiveip adaptiveip.AdaptiveIPInfo) *irs.PublicIPInfo {
+	publicIP := &irs.PublicIPInfo{
+		Name:      adaptiveip.Name,
+		PublicIP:  adaptiveip.IP,
+		OwnedVMID: adaptiveip.VmName,
+		Status:    adaptiveip.State,
+	}
+	return publicIP
 }
 
 func (publicIPHandler *ClouditPublicIPHandler) CreatePublicIP(publicIPReqInfo irs.PublicIPReqInfo) (irs.PublicIPInfo, error) {
@@ -40,17 +57,10 @@ func (publicIPHandler *ClouditPublicIPHandler) CreatePublicIP(publicIPReqInfo ir
 	}
 
 	// 2. PublicIP 생성 및 할당
-	// @TODO: PublicIP 생성 요청 파라미터 정의 필요
-	type PublicIPReqInfo struct {
-		IP         string `json:"ip" required:"true"`
-		Name       string `json:"name" required:"true"`
-		PrivateIP  string `json:"privateIp" required:"true"` // PublicIP가 적용되는 VM의 Private IP
-		Protection int    `json:"protection" required:"false"`
-	}
-	reqInfo := PublicIPReqInfo{
-		IP:        availableIP.IP,
-		Name:      publicIPReqInfo.Name,
-		PrivateIP: publicIPReqInfo.Id,
+
+	reqInfo := adaptiveip.PublicIPReqInfo{
+		IP:   availableIP.IP,
+		Name: publicIPReqInfo.Name,
 	}
 
 	createOpts := client.RequestOpts{
@@ -63,7 +73,7 @@ func (publicIPHandler *ClouditPublicIPHandler) CreatePublicIP(publicIPReqInfo ir
 		return irs.PublicIPInfo{}, err
 	} else {
 		spew.Dump(publicIP)
-		return irs.PublicIPInfo{Id: publicIP.IP, Name: publicIP.Name}, nil
+		return irs.PublicIPInfo{Name: publicIP.Name}, nil
 	}
 }
 
@@ -79,11 +89,13 @@ func (publicIPHandler *ClouditPublicIPHandler) ListPublicIP() ([]*irs.PublicIPIn
 	if err != nil {
 		return nil, err
 	} else {
-		for i, publicIP := range *publicIPList {
-			cblogger.Info("[" + strconv.Itoa(i) + "]")
-			spew.Dump(publicIP)
+		var resultList []*irs.PublicIPInfo
+
+		for _, publicIP := range *publicIPList {
+			publicIPInfo := setterIP(publicIP)
+			resultList = append(resultList, publicIPInfo)
 		}
-		return nil, nil
+		return resultList, nil
 	}
 }
 
@@ -99,7 +111,7 @@ func (publicIPHandler *ClouditPublicIPHandler) GetPublicIP(publicIPID string) (i
 		return irs.PublicIPInfo{}, err
 	} else {
 		spew.Dump(publicIP)
-		return irs.PublicIPInfo{Id: publicIP.ID, Name: publicIP.Name}, nil
+		return irs.PublicIPInfo{Name: publicIP.Name}, nil
 	}
 }
 

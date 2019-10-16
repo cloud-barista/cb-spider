@@ -1,14 +1,12 @@
 package resources
 
 import (
-	//"fmt"
-	//cblog "github.com/cloud-barista/cb-log"
 	"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/cloudit/client"
 	"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/cloudit/client/ace/image"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/new-resources"
 	"github.com/davecgh/go-spew/spew"
-	//"github.com/sirupsen/logrus"
+	//"strconv"
 )
 
 type ClouditImageHandler struct {
@@ -16,7 +14,6 @@ type ClouditImageHandler struct {
 	Client         *client.RestClient
 }
 
-// TODO: 모든 cloudit resourceHandler에 setter 함수 추가
 func setterImage(image image.ImageInfo) *irs.ImageInfo {
 	imageInfo := &irs.ImageInfo{
 		Id:      image.ID,
@@ -31,21 +28,7 @@ func (imageHandler *ClouditImageHandler) CreateImage(imageReqInfo irs.ImageReqIn
 	imageHandler.Client.TokenID = imageHandler.CredentialInfo.AuthToken
 	authHeader := imageHandler.Client.AuthenticatedHeaders()
 
-	// @TODO: Image 생성 요청 파라미터 정의 필요
-	type ImageReqInfo struct {
-		Name         string `json:"name" required:"true"`
-		VolumeId     string `json:"volumeId" required:"true"`   // 정지된 서버 볼륨을 기준으로 이미지 템플릿 생성
-		SnapshotId   string `json:"snapshotId" required:"true"` // 서버 스냅샷을 기준으로 이미지 템플릿 생성
-		Ownership    string `json:"ownership" required:"true"`  // TENANT, PRIVATE
-		Format       string `json:"format" required:"true"`     // raw, vdi, vmdk, vpc, qcow2
-		SourceType   string `json:"sourceType" required:"true"` // server, snapshot
-		TemplateType string `json:"templateType" required:"true"`
-		Size         int    `json:"size" required:"false"`
-		PoolId       string `json:"poolId" required:"false"`
-		Protection   int    `json:"protection" required:"false"`
-	}
-
-	reqInfo := ImageReqInfo{
+	reqInfo := image.ImageReqInfo{
 		Name:         imageReqInfo.Name,
 		VolumeId:     "7f7a87f0-3acb-4313-90f7-22eb65a6d33f",
 		SnapshotId:   "",
@@ -80,13 +63,14 @@ func (imageHandler *ClouditImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 		return nil, err
 	} else {
 		var resultList []*irs.ImageInfo
-		// TODO: setter 함수 사용해서 리소스 반환
+
 		for _, image := range *imageList {
 			imageInfo := setterImage(image)
 			resultList = append(resultList, imageInfo)
 		}
 		return resultList, nil
 	}
+
 }
 
 func (imageHandler *ClouditImageHandler) GetImage(imageID string) (irs.ImageInfo, error) {

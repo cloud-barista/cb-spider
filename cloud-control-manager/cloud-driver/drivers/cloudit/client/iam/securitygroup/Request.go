@@ -13,6 +13,12 @@ func init() {
 	cblogger = cblog.GetLogger("CB-SPIDER")
 }
 
+type SecurityReqInfo struct {
+	Name       string               `json:"name" required:"true"`
+	Rules      []SecurityGroupRules `json:"rules" required:"false"`
+	Protection int                  `json:"protection" required:"false"`
+}
+
 type SecurityGroupRules struct {
 	ID         string `json:"id"`
 	SecGroupID string `json:"secgroupId"`
