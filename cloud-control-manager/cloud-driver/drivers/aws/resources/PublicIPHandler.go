@@ -26,14 +26,12 @@ type AwsPublicIPHandler struct {
 	Client *ec2.EC2
 }
 
-//@TODO : 공통 I/F에 함수 추가해야 함. - EC2에 Public를 할당하는 AssociatePublicIP함수를 별도로 구현이 필요 함. - 현재는 테스트를 위해 생성과 동시에 할당하도록 해 놨음.
+// VM 생성 시 PublicIP의 AllocationId를 전달 받는 방식으로 1차 확정되어서 이 곳에서는 관련 로직을 제거 함.
+// VMHandler.go에서 할당및 회수 함
 func (publicIpHandler *AwsPublicIPHandler) CreatePublicIP(publicIPReqInfo irs.PublicIPReqInfo) (irs.PublicIPInfo, error) {
 	cblogger.Info("Start : ", publicIPReqInfo)
 
-	var publicIPInfo irs.PublicIPInfo
-
-	//@TODO: 대체해야 함.
-	instanceID := publicIPReqInfo.Id
+	//var publicIPInfo irs.PublicIPInfo
 
 	// Attempt to allocate the Elastic IP address.
 	allocRes, err := publicIpHandler.Client.AllocateAddress(&ec2.AllocateAddressInput{
@@ -47,24 +45,27 @@ func (publicIpHandler *AwsPublicIPHandler) CreatePublicIP(publicIPReqInfo irs.Pu
 
 	spew.Dump(allocRes)
 	cblogger.Infof("EIP 생성 성공 - Public IP : [%s], Allocation Id : [%s]", *allocRes.PublicIp, *allocRes.AllocationId)
-	publicIPInfo.Domain = *allocRes.Domain
-	publicIPInfo.PublicIp = *allocRes.PublicIp
-	publicIPInfo.PublicIpv4Pool = *allocRes.PublicIpv4Pool
-	publicIPInfo.AllocationId = *allocRes.AllocationId
 
-	cblogger.Infof("[%s] EC2에 [%s] IP 할당 시작", instanceID, *allocRes.PublicIp)
-	// EC2에 할당.
-	// Associate the new Elastic IP address with an existing EC2 instance.
-	assocRes, err := publicIpHandler.Client.AssociateAddress(&ec2.AssociateAddressInput{
-		AllocationId: allocRes.AllocationId,
-		InstanceId:   aws.String(instanceID),
+	// Tag에 Name 설정
+	cblogger.Info("Name 설정 ", publicIPReqInfo.Name)
+	_, errtag := publicIpHandler.Client.CreateTags(&ec2.CreateTagsInput{
+		Resources: []*string{allocRes.AllocationId},
+		Tags: []*ec2.Tag{
+			{
+				Key:   aws.String("Name"),
+				Value: aws.String(publicIPReqInfo.Name),
+			},
+		},
 	})
-	if err != nil {
-		cblogger.Errorf("Unable to associate IP address with %s, %v", instanceID, err)
+	if errtag != nil {
+		cblogger.Error("Public IP에 Name Tag 설정 실패 : ")
+	}
+
+	publicIPInfo, errExtract := publicIpHandler.GetPublicIP(*allocRes.AllocationId)
+	if errExtract != nil {
+		cblogger.Errorf("Public IP 정보 추출 실패 ", errExtract)
 		return irs.PublicIPInfo{}, err
 	}
-	spew.Dump(assocRes)
-	cblogger.Infof("[%s] EC2에 [%s] IP 할당 완료 - Allocation Id : [%s]", instanceID, *allocRes.PublicIp, *assocRes.AssociationId)
 
 	return publicIPInfo, nil
 }
@@ -94,7 +95,7 @@ func (publicIpHandler *AwsPublicIPHandler) ListPublicIP() ([]*irs.PublicIPInfo, 
 	} else {
 		cblogger.Info("Elastic IPs")
 		for _, addr := range result.Addresses {
-			publicIPInfo := fmtAddress(addr)
+			publicIPInfo := extractPublicIpDescribeInfo(addr)
 			publicIpList = append(publicIpList, &publicIPInfo)
 		}
 	}
@@ -102,29 +103,44 @@ func (publicIpHandler *AwsPublicIPHandler) ListPublicIP() ([]*irs.PublicIPInfo, 
 	return publicIpList, nil
 }
 
-func fmtAddress(allocRes *ec2.Address) irs.PublicIPInfo {
+func extractPublicIpDescribeInfo(allocRes *ec2.Address) irs.PublicIPInfo {
 	var publicIPInfo irs.PublicIPInfo
 
+	keyValueList := []irs.KeyValue{
+		{Key: "Domain", Value: *allocRes.Domain},
+		{Key: "PublicIpv4Pool", Value: *allocRes.PublicIpv4Pool},
+		{Key: "AllocationId", Value: *allocRes.AllocationId},
+	}
+
+	publicIPInfo.KeyValueList = keyValueList
+
 	spew.Dump(allocRes)
-	publicIPInfo.Domain = *allocRes.Domain
-	publicIPInfo.PublicIp = *allocRes.PublicIp
-	publicIPInfo.PublicIpv4Pool = *allocRes.PublicIpv4Pool
-	publicIPInfo.AllocationId = *allocRes.AllocationId
+	publicIPInfo.PublicIP = *allocRes.PublicIp
+	//publicIPInfo.Domain = *allocRes.Domain
+	//publicIPInfo.PublicIpv4Pool = *allocRes.PublicIpv4Pool
+	//publicIPInfo.AllocationId = *allocRes.AllocationId
 
 	if !reflect.ValueOf(allocRes.InstanceId).IsNil() {
-		publicIPInfo.InstanceId = *allocRes.InstanceId // AWS:연결된 VM
+		//publicIPInfo.InstanceId = *allocRes.InstanceId // AWS:연결된 VM
+		publicIPInfo.OwnedVMID = *allocRes.InstanceId // AWS:연결된 VM
 	}
 
 	if !reflect.ValueOf(allocRes.AssociationId).IsNil() {
-		publicIPInfo.AssociationId = *allocRes.AssociationId // AWS:연결ID
+		//publicIPInfo.AssociationId = *allocRes.AssociationId // AWS:연결ID
+		keyValueList = append(keyValueList, irs.KeyValue{Key: "AssociationId", Value: *allocRes.AssociationId}) // AWS:연결ID
 	}
 
 	if !reflect.ValueOf(allocRes.NetworkInterfaceId).IsNil() {
-		publicIPInfo.NetworkInterfaceId = *allocRes.NetworkInterfaceId // AWS:연결된 Nic
-		publicIPInfo.NetworkInterfaceOwnerId = *allocRes.NetworkInterfaceOwnerId
-		publicIPInfo.PrivateIpAddress = *allocRes.PrivateIpAddress
+		//publicIPInfo.NetworkInterfaceId = *allocRes.NetworkInterfaceId // AWS:연결된 Nic
+		//publicIPInfo.NetworkInterfaceOwnerId = *allocRes.NetworkInterfaceOwnerId
+		//publicIPInfo.PrivateIpAddress = *allocRes.PrivateIpAddress
+
+		keyValueList = append(keyValueList, irs.KeyValue{Key: "NetworkInterfaceId", Value: *allocRes.NetworkInterfaceId}) // AWS:연결된 Nic
+		keyValueList = append(keyValueList, irs.KeyValue{Key: "NetworkInterfaceOwnerId", Value: *allocRes.NetworkInterfaceOwnerId})
+		keyValueList = append(keyValueList, irs.KeyValue{Key: "PrivateIpAddress", Value: *allocRes.PrivateIpAddress})
 	}
 
+	//Name 태그 설정
 	for _, t := range allocRes.Tags {
 		if *t.Key == "Name" {
 			publicIPInfo.Name = *t.Value
@@ -136,6 +152,7 @@ func fmtAddress(allocRes *ec2.Address) irs.PublicIPInfo {
 	return publicIPInfo
 }
 
+//@TODO : 2차 정책에 의해 IP에서 할당ID 기반으로 변경함.
 func (publicIpHandler *AwsPublicIPHandler) GetPublicIP(publicIPID string) (irs.PublicIPInfo, error) {
 	cblogger.Infof("publicIPID : [%s]", publicIPID)
 
@@ -145,7 +162,8 @@ func (publicIpHandler *AwsPublicIPHandler) GetPublicIP(publicIPID string) (irs.P
 	result, err := publicIpHandler.Client.DescribeAddresses(&ec2.DescribeAddressesInput{
 		Filters: []*ec2.Filter{
 			{
-				Name: aws.String("public-ip"),
+				//Name: aws.String("public-ip"),
+				Name: aws.String("allocation-id"),
 				//Values: aws.StringSlice([]string{"vpc"}),
 				Values: []*string{
 					aws.String(publicIPID),
@@ -164,7 +182,7 @@ func (publicIpHandler *AwsPublicIPHandler) GetPublicIP(publicIPID string) (irs.P
 	} else {
 		cblogger.Info("Elastic IPs")
 		for _, addr := range result.Addresses {
-			publicIPInfo = fmtAddress(addr)
+			publicIPInfo = extractPublicIpDescribeInfo(addr)
 		}
 	}
 

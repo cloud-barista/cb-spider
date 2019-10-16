@@ -12,6 +12,7 @@ package resources
 
 import (
 	"reflect"
+	"strconv"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
@@ -32,71 +33,143 @@ func (securityHandler *AwsSecurityHandler) CreateSecurity(securityReqInfo irs.Se
 	cblogger.Infof("securityReqInfo : ", securityReqInfo)
 	spew.Dump(securityReqInfo)
 
+	awsCBNetworkInfo, errVpc := GetCreateAutoCBNetworkInfo(securityHandler.Client)
+	if errVpc != nil {
+		return irs.SecurityInfo{}, nil
+	}
+
+	cblogger.Infof("==> [%s] CB Default VPC 정보 찾음", awsCBNetworkInfo.VpcId)
+	vpcId := awsCBNetworkInfo.VpcId
+
 	// Create the security group with the VPC, name and description.
-	createRes, err := securityHandler.Client.CreateSecurityGroup(&ec2.CreateSecurityGroupInput{
-		GroupName:   aws.String(securityReqInfo.GroupName),
-		Description: aws.String(securityReqInfo.Description),
-		VpcId:       aws.String(securityReqInfo.VpcId),
-	})
+	//createRes, err := securityHandler.Client.CreateSecurityGroup(&ec2.CreateSecurityGroupInput{
+	input := ec2.CreateSecurityGroupInput{
+		GroupName:   aws.String(securityReqInfo.Name),
+		Description: aws.String(securityReqInfo.Name),
+		//		VpcId:       aws.String(securityReqInfo.VpcId),awsCBNetworkInfo
+		VpcId: aws.String(vpcId),
+	}
+	cblogger.Infof("보안 그룹 생성 요청 정보", input)
+	createRes, err := securityHandler.Client.CreateSecurityGroup(&input)
 	if err != nil {
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
 			case "InvalidVpcID.NotFound":
-				cblogger.Errorf("Unable to find VPC with ID %q.", securityReqInfo.VpcId)
+				cblogger.Errorf("Unable to find VPC with ID %q.", vpcId)
 				return irs.SecurityInfo{}, err
 			case "InvalidGroup.Duplicate":
-				cblogger.Errorf("Security group %q already exists.", securityReqInfo.GroupName)
+				cblogger.Errorf("Security group %q already exists.", securityReqInfo.Name)
 				return irs.SecurityInfo{}, err
 			}
 		}
-		cblogger.Errorf("Unable to create security group %q, %v", securityReqInfo.GroupName, err)
+		cblogger.Errorf("Unable to create security group %q, %v", securityReqInfo.Name, err)
 		return irs.SecurityInfo{}, err
 	}
-	cblogger.Debug("보안 그룹 생성완료")
+	cblogger.Infof("[%s] 보안 그룹 생성완료", aws.StringValue(createRes.GroupId))
 	spew.Dump(createRes)
 
-	cblogger.Infof("Created security group %s with VPC %s.\n",
-		aws.StringValue(createRes.GroupId), securityReqInfo.VpcId)
+	//cblogger.Infof("Created security group %s with VPC %s.\n", aws.StringValue(createRes.GroupId), securityReqInfo.VpcId)
 
 	//newGroupId = *createRes.GroupId
 
+	cblogger.Infof("인바운드 보안 정책 처리")
 	//Ingress 처리
 	var ipPermissions []*ec2.IpPermission
-	for _, ip := range securityReqInfo.IPPermissions {
+	for _, ip := range *securityReqInfo.SecurityRules {
+		//for _, ip := range securityReqInfo.IPPermissions {
+		if ip.Direction != "inbound" {
+			cblogger.Info("==> inbound가 아닌 보안 그룹 Skip : ", ip.Direction)
+			continue
+		}
+
 		ipPermission := new(ec2.IpPermission)
 		ipPermission.SetIpProtocol(ip.IPProtocol)
-		ipPermission.SetFromPort(ip.FromPort)
-		ipPermission.SetToPort(ip.ToPort)
+
+		if ip.FromPort != "" {
+			if n, err := strconv.ParseInt(ip.FromPort, 10, 64); err == nil {
+				ipPermission.SetFromPort(n)
+			} else {
+				cblogger.Error(ip.FromPort, "은 숫자가 아님!!")
+				return irs.SecurityInfo{}, err
+			}
+		} else {
+			//ipPermission.SetFromPort(0)
+		}
+
+		if ip.ToPort != "" {
+			if n, err := strconv.ParseInt(ip.ToPort, 10, 64); err == nil {
+				ipPermission.SetToPort(n)
+			} else {
+				cblogger.Error(ip.ToPort, "은 숫자가 아님!!")
+				return irs.SecurityInfo{}, err
+			}
+		} else {
+			//ipPermission.SetToPort(0)
+		}
+
 		ipPermission.SetIpRanges([]*ec2.IpRange{
 			(&ec2.IpRange{}).
-				SetCidrIp(ip.Cidr),
+				//SetCidrIp(ip.Cidr),
+				SetCidrIp("0.0.0.0/0"),
 		})
 		ipPermissions = append(ipPermissions, ipPermission)
 	}
 
 	// Add permissions to the security group
 	_, err = securityHandler.Client.AuthorizeSecurityGroupIngress(&ec2.AuthorizeSecurityGroupIngressInput{
-		GroupName:     aws.String(securityReqInfo.GroupName),
+		//GroupName:     aws.String(securityReqInfo.Name),
+		GroupId:       createRes.GroupId,
 		IpPermissions: ipPermissions,
 	})
 	if err != nil {
-		cblogger.Errorf("Unable to set security group %q ingress, %v", securityReqInfo.GroupName, err)
+		cblogger.Errorf("Unable to set security group %q ingress, %v", securityReqInfo.Name, err)
 		return irs.SecurityInfo{}, err
 	}
 
 	cblogger.Info("Successfully set security group ingress")
 
+	cblogger.Infof("아웃바운드 보안 정책 처리")
 	//Egress 처리
 	var ipPermissionsEgress []*ec2.IpPermission
-	for _, ip := range securityReqInfo.IPPermissionsEgress {
+	//for _, ip := range securityReqInfo.IPPermissionsEgress {
+	for _, ip := range *securityReqInfo.SecurityRules {
+		if ip.Direction != "outbound" {
+			cblogger.Info("==> outbound가 아닌 보안 그룹 Skip : ", ip.Direction)
+			continue
+		}
+
 		ipPermission := new(ec2.IpPermission)
 		ipPermission.SetIpProtocol(ip.IPProtocol)
-		ipPermission.SetFromPort(ip.FromPort)
-		ipPermission.SetToPort(ip.ToPort)
+		//ipPermission.SetFromPort(ip.FromPort)
+		//ipPermission.SetToPort(ip.ToPort)
+		if ip.FromPort != "" {
+			if n, err := strconv.ParseInt(ip.FromPort, 10, 64); err == nil {
+				ipPermission.SetFromPort(n)
+			} else {
+				cblogger.Error(ip.FromPort, "은 숫자가 아님!!")
+				return irs.SecurityInfo{}, err
+			}
+		} else {
+			//ipPermission.SetFromPort(0)
+		}
+
+		if ip.ToPort != "" {
+			if n, err := strconv.ParseInt(ip.ToPort, 10, 64); err == nil {
+				ipPermission.SetToPort(n)
+			} else {
+				cblogger.Error(ip.ToPort, "은 숫자가 아님!!")
+				return irs.SecurityInfo{}, err
+			}
+		} else {
+			//ipPermission.SetToPort(0)
+		}
+
 		ipPermission.SetIpRanges([]*ec2.IpRange{
 			(&ec2.IpRange{}).
-				SetCidrIp(ip.Cidr),
+				//SetCidrIp(ip.Cidr),
+				SetCidrIp("0.0.0.0/0"),
 		})
+		//ipPermissions = append(ipPermissions, ipPermission)
 		ipPermissionsEgress = append(ipPermissionsEgress, ipPermission)
 	}
 
@@ -106,7 +179,7 @@ func (securityHandler *AwsSecurityHandler) CreateSecurity(securityReqInfo irs.Se
 		IpPermissions: ipPermissionsEgress,
 	})
 	if err != nil {
-		cblogger.Errorf("Unable to set security group %q egress, %v", securityReqInfo.GroupName, err)
+		cblogger.Errorf("Unable to set security group %q egress, %v", securityReqInfo.Name, err)
 		return irs.SecurityInfo{}, err
 	}
 
@@ -180,26 +253,29 @@ func (securityHandler *AwsSecurityHandler) GetSecurity(securityID string) (irs.S
 }
 
 func ExtractSecurityInfo(securityGroupResult *ec2.SecurityGroup) irs.SecurityInfo {
-	var ipPermissions []*irs.SecurityRuleInfo
-	var ipPermissionsEgress []*irs.SecurityRuleInfo
+	var ipPermissions []irs.SecurityRuleInfo
+	var ipPermissionsEgress []irs.SecurityRuleInfo
+	var securityRules []irs.SecurityRuleInfo
 
 	cblogger.Info("===[그룹아이디:%s]===", *securityGroupResult.GroupId)
-	ipPermissions = ExtractIpPermissions(securityGroupResult.IpPermissions)
-	cblogger.Info("InBouds : ", ipPermissions)
-	ipPermissionsEgress = ExtractIpPermissions(securityGroupResult.IpPermissionsEgress)
-	cblogger.Info("OutBounds : ", ipPermissionsEgress)
+	ipPermissions = ExtractIpPermissions(securityGroupResult.IpPermissions, "inbound")
+	cblogger.Debug("InBouds : ", ipPermissions)
+	ipPermissionsEgress = ExtractIpPermissions(securityGroupResult.IpPermissionsEgress, "outbound")
+	cblogger.Debug("OutBounds : ", ipPermissionsEgress)
 	//spew.Dump(ipPermissionsEgress)
+	securityRules = append(ipPermissions, ipPermissionsEgress...)
 
 	securityInfo := irs.SecurityInfo{
-		GroupName: *securityGroupResult.GroupName,
-		GroupID:   *securityGroupResult.GroupId,
+		Id: *securityGroupResult.GroupId,
+		//SecurityRules: &[]irs.SecurityRuleInfo{},
+		SecurityRules: &securityRules,
 
-		IPPermissions:       ipPermissions,       //AWS:InBounds
-		IPPermissionsEgress: ipPermissionsEgress, //AWS:OutBounds
-
-		Description: *securityGroupResult.Description,
-		VpcID:       *securityGroupResult.VpcId,
-		OwnerID:     *securityGroupResult.OwnerId,
+		KeyValueList: []irs.KeyValue{
+			{Key: "GroupName", Value: *securityGroupResult.GroupName},
+			{Key: "VpcID", Value: *securityGroupResult.VpcId},
+			{Key: "OwnerID", Value: *securityGroupResult.OwnerId},
+			{Key: "Description", Value: *securityGroupResult.Description},
+		},
 	}
 
 	//Name은 Tag의 "Name" 속성에만 저장됨
@@ -219,48 +295,57 @@ func ExtractSecurityInfo(securityGroupResult *ec2.SecurityGroup) irs.SecurityInf
 func ExtractIpPermissionCommon(ip *ec2.IpPermission, securityRuleInfo *irs.SecurityRuleInfo) {
 	//공통 정보
 	if !reflect.ValueOf(ip.FromPort).IsNil() {
-		securityRuleInfo.FromPort = *ip.FromPort
+		//securityRuleInfo.FromPort = *ip.FromPort
+		securityRuleInfo.FromPort = strconv.FormatInt(*ip.FromPort, 10)
 	}
 
 	if !reflect.ValueOf(ip.ToPort).IsNil() {
-		securityRuleInfo.ToPort = *ip.ToPort
+		//securityRuleInfo.ToPort = *ip.ToPort
+		securityRuleInfo.FromPort = strconv.FormatInt(*ip.ToPort, 10)
 	}
 
 	securityRuleInfo.IPProtocol = *ip.IpProtocol
 }
 
-func ExtractIpPermissions(ipPermissions []*ec2.IpPermission) []*irs.SecurityRuleInfo {
-
-	var results []*irs.SecurityRuleInfo
+func ExtractIpPermissions(ipPermissions []*ec2.IpPermission, direction string) []irs.SecurityRuleInfo {
+	var results []irs.SecurityRuleInfo
 
 	for _, ip := range ipPermissions {
 
 		//ipv4 처리
 		for _, ipv4 := range ip.IpRanges {
 			cblogger.Info("Inbound/Outbound 정보 조회 : ", *ip.IpProtocol)
-			securityRuleInfo := new(irs.SecurityRuleInfo)
-			securityRuleInfo.Cidr = *ipv4.CidrIp
+			securityRuleInfo := irs.SecurityRuleInfo{
+				Direction: direction, // "inbound | outbound"
+				//Cidr: *ipv4.CidrIp,
+			}
+			cblogger.Debug(*ipv4.CidrIp)
 
-			ExtractIpPermissionCommon(ip, securityRuleInfo)
+			ExtractIpPermissionCommon(ip, &securityRuleInfo) //IP & Port & Protocol 추출
 			results = append(results, securityRuleInfo)
 		}
 
 		//ipv6 처리
 		for _, ipv6 := range ip.Ipv6Ranges {
-			securityRuleInfo := new(irs.SecurityRuleInfo)
-			securityRuleInfo.Cidr = *ipv6.CidrIpv6
+			securityRuleInfo := irs.SecurityRuleInfo{
+				Direction: direction, // "inbound | outbound"
+				//Cidr: *ipv6.CidrIpv6,
+			}
+			cblogger.Debug(*ipv6.CidrIpv6)
 
-			ExtractIpPermissionCommon(ip, securityRuleInfo)
+			ExtractIpPermissionCommon(ip, &securityRuleInfo) //IP & Port & Protocol 추출
 			results = append(results, securityRuleInfo)
 		}
 
 		//ELB나 보안그룹 참조 방식 처리
 		for _, userIdGroup := range ip.UserIdGroupPairs {
-			securityRuleInfo := new(irs.SecurityRuleInfo)
-			securityRuleInfo.Cidr = *userIdGroup.GroupId
-			// *userIdGroup.GroupName / *userIdGroup.UserId
+			securityRuleInfo := irs.SecurityRuleInfo{
+				Direction: direction, // "inbound | outbound"
+				//Cidr: *userIdGroup.GroupId,
+			}
+			cblogger.Debug(*userIdGroup.UserId)
 
-			ExtractIpPermissionCommon(ip, securityRuleInfo)
+			ExtractIpPermissionCommon(ip, &securityRuleInfo) //IP & Port & Protocol 추출
 			results = append(results, securityRuleInfo)
 		}
 
@@ -277,45 +362,6 @@ func ExtractIpPermissions(ipPermissions []*ec2.IpPermission) []*irs.SecurityRule
 			}
 		}
 		*/
-	}
-
-	return results
-}
-
-//@TODO : CIDR이 없는 경우 구조처 처리해야 함.(예: 타겟이 ELB거나 다른 보안 그룹일 경우))
-//@TODO : InBound / OutBound의 배열 처리및 테스트해야 함.
-func _ExtractIpPermissions(ipPermissions []*ec2.IpPermission) []*irs.SecurityRuleInfo {
-
-	var results []*irs.SecurityRuleInfo
-
-	for _, ip := range ipPermissions {
-		cblogger.Info("Inbound/Outbound 정보 조회 : ", *ip.IpProtocol)
-		securityRuleInfo := new(irs.SecurityRuleInfo)
-
-		if !reflect.ValueOf(ip.FromPort).IsNil() {
-			securityRuleInfo.FromPort = *ip.FromPort
-		}
-
-		if !reflect.ValueOf(ip.ToPort).IsNil() {
-			securityRuleInfo.ToPort = *ip.ToPort
-		}
-
-		//IpRanges가 없고 UserIdGroupPairs가 있는 경우가 있음(ELB / 보안 그룹 참조 등)
-		securityRuleInfo.IPProtocol = *ip.IpProtocol
-
-		if !reflect.ValueOf(ip.IpRanges).IsNil() {
-			securityRuleInfo.Cidr = *ip.IpRanges[0].CidrIp
-		} else {
-			//ELB나 다른 보안그룹 참조처럼 IpRanges가 없고 UserIdGroupPairs가 있는 경우 처리
-			//https://docs.aws.amazon.com/ko_kr/elasticloadbalancing/latest/classic/elb-security-groups.html
-			if !reflect.ValueOf(ip.UserIdGroupPairs).IsNil() {
-				securityRuleInfo.Cidr = *ip.UserIdGroupPairs[0].GroupId
-			} else {
-				cblogger.Error("미지원 보안 그룹 형태 발견 - 구조 파악 필요 ", ip)
-			}
-		}
-
-		results = append(results, securityRuleInfo)
 	}
 
 	return results

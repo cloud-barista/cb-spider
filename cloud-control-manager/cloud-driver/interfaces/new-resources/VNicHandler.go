@@ -11,22 +11,22 @@
 package resources
 
 type VNicReqInfo struct {
-     Name string
-     VNetName string 
-     SecurityGroupIds []string
-     PublicIPid string 
+	Name             string
+	VNetName         string
+	SecurityGroupIds []string
+	PublicIPid       string
 }
 
 type VNicInfo struct {
-     Id   string 
-     Name   string 
-     PublicIP     string 
-     MacAdress    string 
-     OwnedVMID   string 
-     SecurityGroupIds []string
-     Status string
+	Id               string
+	Name             string
+	PublicIP         string
+	MacAdress        string
+	OwnedVMID        string
+	SecurityGroupIds []string
+	Status           string
 
-     keyValueList []KeyValue 
+	KeyValueList []KeyValue
 }
 
 type VNicHandler interface {

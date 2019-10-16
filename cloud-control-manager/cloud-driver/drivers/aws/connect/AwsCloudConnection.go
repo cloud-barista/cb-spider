@@ -13,6 +13,8 @@ package connect
 import (
 	cblog "github.com/cloud-barista/cb-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
+
+	//irs2 "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/new-resources"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/sirupsen/logrus"
 
@@ -66,34 +68,35 @@ func (cloudConn *AwsCloudConnection) Close() error {
 
 func (cloudConn *AwsCloudConnection) CreateVNetworkHandler() (irs.VNetworkHandler, error) {
 	cblogger.Info("Start")
-	handler := ars.AwsVNetworkHandler{cloudConn.Region, cloudConn.KeyPairClient}
+	handler := ars.AwsVNetworkHandler{cloudConn.Region, cloudConn.VNetworkClient}
 
 	return &handler, nil
 }
 
+//func (cloudConn *AwsCloudConnection) CreateImageHandler() (irs2.ImageHandler, error) {
 func (cloudConn *AwsCloudConnection) CreateImageHandler() (irs.ImageHandler, error) {
 	cblogger.Info("Start")
-	handler := ars.AwsImageHandler{cloudConn.Region, cloudConn.KeyPairClient}
+	handler := ars.AwsImageHandler{cloudConn.Region, cloudConn.ImageClient}
 
 	return &handler, nil
 }
 
 func (cloudConn *AwsCloudConnection) CreateSecurityHandler() (irs.SecurityHandler, error) {
 	cblogger.Info("Start")
-	handler := ars.AwsSecurityHandler{cloudConn.Region, cloudConn.KeyPairClient}
+	handler := ars.AwsSecurityHandler{cloudConn.Region, cloudConn.SecurityClient}
 
 	return &handler, nil
 }
 
 func (cloudConn *AwsCloudConnection) CreateVNicHandler() (irs.VNicHandler, error) {
 	cblogger.Info("Start")
-	handler := ars.AwsVNicHandler{cloudConn.Region, cloudConn.KeyPairClient}
+	handler := ars.AwsVNicHandler{cloudConn.Region, cloudConn.VNicClient}
 
 	return &handler, nil
 }
 func (cloudConn *AwsCloudConnection) CreatePublicIPHandler() (irs.PublicIPHandler, error) {
 	cblogger.Info("Start")
-	handler := ars.AwsPublicIPHandler{cloudConn.Region, cloudConn.KeyPairClient}
+	handler := ars.AwsPublicIPHandler{cloudConn.Region, cloudConn.PublicIPClient}
 
 	return &handler, nil
 }

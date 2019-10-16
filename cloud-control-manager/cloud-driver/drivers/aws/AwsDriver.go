@@ -16,7 +16,10 @@ import (
 
 	acon "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/aws/connect"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
+
 	icon "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/connect"
+	//icon "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/connect/AwsNewIfCloudConnect"
+	//icon "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/connect/connect"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -28,18 +31,18 @@ type AwsDriver struct {
 }
 
 func (AwsDriver) GetDriverVersion() string {
-	return "TEST AWS DRIVER Version 0.5"
+	return "TEST AWS DRIVER Version 1.0"
 }
 
 func (AwsDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	var drvCapabilityInfo idrv.DriverCapabilityInfo
 
-	drvCapabilityInfo.ImageHandler = false
-	drvCapabilityInfo.VNetworkHandler = false
-	drvCapabilityInfo.SecurityHandler = false
+	drvCapabilityInfo.ImageHandler = true
+	drvCapabilityInfo.VNetworkHandler = true
+	drvCapabilityInfo.SecurityHandler = true
 	drvCapabilityInfo.KeyPairHandler = true
 	drvCapabilityInfo.VNicHandler = false
-	drvCapabilityInfo.PublicIPHandler = false
+	drvCapabilityInfo.PublicIPHandler = true
 	drvCapabilityInfo.VMHandler = true
 
 	return drvCapabilityInfo

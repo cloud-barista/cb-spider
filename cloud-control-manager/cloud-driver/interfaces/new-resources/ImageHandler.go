@@ -24,7 +24,7 @@ type ImageInfo struct {
      GuestOS string // Windows7, Ubuntu etc.
      Status string  // available, unavailable
 
-     keyValueList []KeyValue 
+     KeyValueList []KeyValue 
 }
 
 type ImageHandler interface {
