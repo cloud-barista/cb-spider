@@ -4,8 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
-	"github.com/davecgh/go-spew/spew"
+	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/new-resources"
 	"github.com/rackspace/gophercloud"
 	"github.com/rackspace/gophercloud/openstack/compute/v2/images"
 	imgsvc "github.com/rackspace/gophercloud/openstack/imageservice/v2/images"
@@ -19,29 +18,23 @@ type OpenStackImageHandler struct {
 	ImageClient *gophercloud.ServiceClient
 }
 
-// @TODO: ImageInfo 리소스 프로퍼티 정의 필요
-type ImageInfo struct {
-	ID       string
-	Created  string
-	MinDisk  int
-	MinRAM   int
-	Name     string
-	Progress int
-	Status   string
-	Updated  string
-	Metadata map[string]string
-}
+func setterImage(image images.Image) *irs.ImageInfo {
+	imageInfo := &irs.ImageInfo{
+		Id:     image.ID,
+		Name:   image.Name,
+		Status: image.Status,
+	}
 
-func (imageInfo *ImageInfo) setter(results images.Image) *ImageInfo {
-	imageInfo.ID = results.ID
-	imageInfo.Created = results.Created
-	imageInfo.MinDisk = results.MinDisk
-	imageInfo.MinRAM = results.MinRAM
-	imageInfo.Name = results.Name
-	imageInfo.Progress = results.Progress
-	imageInfo.Status = results.Status
-	imageInfo.Updated = results.Updated
-	imageInfo.Metadata = results.Metadata
+	// 메타 정보 등록
+	metadataList := make([]irs.KeyValue, len(image.Metadata))
+	for key, val := range image.Metadata {
+		metadata := irs.KeyValue{
+			Key:   key,
+			Value: val,
+		}
+		metadataList = append(metadataList, metadata)
+	}
+	imageInfo.KeyValueList = metadataList
 
 	return imageInfo
 }
@@ -81,7 +74,6 @@ func (imageHandler *OpenStackImageHandler) CreateImage(imageReqInfo irs.ImageReq
 	if err != nil {
 		return irs.ImageInfo{}, err
 	}
-	spew.Dump(image)
 
 	// Upload Image file
 	imageBytes, err := ioutil.ReadFile(rootPath + "/image/mcb_custom_image.iso")
@@ -92,17 +84,24 @@ func (imageHandler *OpenStackImageHandler) CreateImage(imageReqInfo irs.ImageReq
 	if result.Err != nil {
 		return irs.ImageInfo{}, err
 	}
-	cblogger.Info(result)
 
-	imageInfo := irs.ImageInfo{
-		Id:   image.ID,
-		Name: image.Name,
+	// 생성된 Imgae 정보 리턴
+	mappedImageInfo := images.Image{
+		ID:       image.ID,
+		Created:  image.CreatedDate,
+		MinDisk:  image.MinDiskGigabytes,
+		MinRAM:   image.MinRAMMegabytes,
+		Name:     image.Name,
+		Status:   string(image.Status),
+		Updated:  image.LastUpdate,
+		Metadata: image.Metadata,
 	}
-	return imageInfo, nil
+	imageInfo := setterImage(mappedImageInfo)
+	return *imageInfo, nil
 }
 
 func (imageHandler *OpenStackImageHandler) ListImage() ([]*irs.ImageInfo, error) {
-	var imageList []*ImageInfo
+	var imageList []*irs.ImageInfo
 
 	pager := images.ListDetail(imageHandler.Client, images.ListOpts{})
 	err := pager.EachPage(func(page pagination.Page) (bool, error) {
@@ -113,7 +112,7 @@ func (imageHandler *OpenStackImageHandler) ListImage() ([]*irs.ImageInfo, error)
 		}
 		// Add to List
 		for _, img := range list {
-			imageInfo := new(ImageInfo).setter(img)
+			imageInfo := setterImage(img)
 			imageList = append(imageList, imageInfo)
 		}
 		return true, nil
@@ -122,8 +121,7 @@ func (imageHandler *OpenStackImageHandler) ListImage() ([]*irs.ImageInfo, error)
 		return nil, err
 	}
 
-	spew.Dump(imageList)
-	return nil, nil
+	return imageList, nil
 }
 
 func (imageHandler *OpenStackImageHandler) GetImage(imageID string) (irs.ImageInfo, error) {
@@ -132,10 +130,9 @@ func (imageHandler *OpenStackImageHandler) GetImage(imageID string) (irs.ImageIn
 		return irs.ImageInfo{}, err
 	}
 
-	imageInfo := new(ImageInfo).setter(*image)
-
-	spew.Dump(imageInfo)
-	return irs.ImageInfo{}, nil
+	imageInfo := setterImage(*image)
+	//spew.Dump(imageInfo)
+	return *imageInfo, nil
 }
 
 func (imageHandler *OpenStackImageHandler) DeleteImage(imageID string) (bool, error) {
