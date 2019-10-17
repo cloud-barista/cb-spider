@@ -12,7 +12,6 @@ package resources
 
 type PublicIPReqInfo struct {
 	Name         string
-	KeyValueList []KeyValue
 }
 
 type PublicIPInfo struct {
