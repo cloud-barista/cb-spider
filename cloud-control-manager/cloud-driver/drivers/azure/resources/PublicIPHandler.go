@@ -11,9 +11,10 @@ import (
 )
 
 type AzurePublicIPHandler struct {
-	Region idrv.RegionInfo
-	Ctx    context.Context
-	Client *network.PublicIPAddressesClient
+	Region         idrv.RegionInfo
+	Ctx            context.Context
+	Client         *network.PublicIPAddressesClient
+	IPConfigClient *network.InterfaceIPConfigurationsClient
 }
 
 func setterIP(address network.PublicIPAddress) *irs.PublicIPInfo {
@@ -77,7 +78,6 @@ func (publicIpHandler *AzurePublicIPHandler) ListPublicIP() ([]*irs.PublicIPInfo
 		publicIPInfo := setterIP(publicIP)
 		publicIPList = append(publicIPList, publicIPInfo)
 	}
-	//spew.Dump(publicIPList)
 	return publicIPList, nil
 }
 
@@ -88,7 +88,6 @@ func (publicIpHandler *AzurePublicIPHandler) GetPublicIP(publicIPID string) (irs
 	}
 
 	publicIPInfo := setterIP(publicIP)
-	//spew.Dump(publicIPInfo)
 	return *publicIPInfo, nil
 }
 

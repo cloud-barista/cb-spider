@@ -40,8 +40,7 @@ func setterVNic(ni network.Interface) *irs.VNicInfo {
 }
 
 func (vNicHandler *AzureVNicHandler) CreateVNic(vNicReqInfo irs.VNicReqInfo) (irs.VNicInfo, error) {
-
-	// Check vNic Exists
+	// Check VNic Exists
 	vNic, _ := vNicHandler.NicClient.Get(vNicHandler.Ctx, CBResourceGroupName, vNicReqInfo.Name, "")
 	if vNic.ID != nil {
 		errMsg := fmt.Sprintf("Virtual Network Interface with name %s already exist", vNicReqInfo.Name)
@@ -49,7 +48,7 @@ func (vNicHandler *AzureVNicHandler) CreateVNic(vNicReqInfo irs.VNicReqInfo) (ir
 		return irs.VNicInfo{}, createErr
 	}
 
-	subnet, err := vNicHandler.getSubnet(CBResourceGroupName, CBVirutalNetworkName, vNicReqInfo.VNetName)
+	subnet, err := vNicHandler.SubnetClient.Get(vNicHandler.Ctx, CBResourceGroupName, CBVirutalNetworkName, vNicReqInfo.VNetName, "")
 
 	var ipConfigArr []network.InterfaceIPConfiguration
 	ipConfig := network.InterfaceIPConfiguration{
@@ -57,26 +56,18 @@ func (vNicHandler *AzureVNicHandler) CreateVNic(vNicReqInfo irs.VNicReqInfo) (ir
 		InterfaceIPConfigurationPropertiesFormat: &network.InterfaceIPConfigurationPropertiesFormat{
 			Subnet:                    &subnet,
 			PrivateIPAllocationMethod: "Dynamic",
-			/*PublicIPAddress: &network.PublicIPAddress{
-				//ID: &vNicReqInfo.PublicIPid,
-			},*/
 		},
 	}
-
 	if vNicReqInfo.PublicIPid != "" {
 		ipConfig.PublicIPAddress = &network.PublicIPAddress{
 			ID: &vNicReqInfo.PublicIPid,
 		}
 	}
-
 	ipConfigArr = append(ipConfigArr, ipConfig)
 
 	createOpts := network.Interface{
 		InterfacePropertiesFormat: &network.InterfacePropertiesFormat{
 			IPConfigurations: &ipConfigArr,
-			/*NetworkSecurityGroup: &network.SecurityGroup{
-				//ID: &vNicReqInfo.SecurityGroupIds[0],
-			},*/
 		},
 		Location: &vNicHandler.Region.Region,
 	}
@@ -115,7 +106,6 @@ func (vNicHandler *AzureVNicHandler) ListVNic() ([]*irs.VNicInfo, error) {
 		vNicInfo := setterVNic(vNic)
 		vNicList = append(vNicList, vNicInfo)
 	}
-	//spew.Dump(vNicList)
 	return vNicList, nil
 }
 
@@ -126,7 +116,6 @@ func (vNicHandler *AzureVNicHandler) GetVNic(vNicID string) (irs.VNicInfo, error
 	}
 
 	vNicInfo := setterVNic(vNic)
-	//spew.Dump(vNicInfo)
 	return *vNicInfo, nil
 }
 
@@ -140,8 +129,4 @@ func (vNicHandler *AzureVNicHandler) DeleteVNic(vNicID string) (bool, error) {
 		return false, err
 	}
 	return true, err
-}
-
-func (vNicHandler *AzureVNicHandler) getSubnet(rsgName string, vNetName string, subnetName string) (network.Subnet, error) {
-	return vNicHandler.SubnetClient.Get(vNicHandler.Ctx, rsgName, vNetName, subnetName, "")
 }

@@ -75,6 +75,11 @@ func (driver *AzureDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (ico
 	if err != nil {
 		return nil, err
 	}
+	Ctx, IPConfigClient, err := getIPConfigClient(connectionInfo.CredentialInfo)
+	if err != nil {
+		return nil, err
+	}
+
 	iConn := azcon.AzureCloudConnection{
 		Region:              connectionInfo.RegionInfo,
 		Ctx:                 Ctx,
@@ -84,6 +89,7 @@ func (driver *AzureDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (ico
 		SecurityGroupClient: sgClient,
 		VNetClient:          VNetClient,
 		VNicClient:          vNicClient,
+		IPConfigClient:      IPConfigClient,
 		SubnetClient:        SubnetClient,
 	}
 	return &iConn, nil
@@ -176,6 +182,20 @@ func getVNicClient(credential idrv.CredentialInfo) (context.Context, *network.In
 	ctx, _ := context.WithTimeout(context.Background(), 600*time.Second)
 
 	return ctx, &vNicClient, nil
+}
+
+func getIPConfigClient(credential idrv.CredentialInfo) (context.Context, *network.InterfaceIPConfigurationsClient, error) {
+	config := auth.NewClientCredentialsConfig(credential.ClientId, credential.ClientSecret, credential.TenantId)
+	authorizer, err := config.Authorizer()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	ipConfigClient := network.NewInterfaceIPConfigurationsClient(credential.SubscriptionId)
+	ipConfigClient.Authorizer = authorizer
+	ctx, _ := context.WithTimeout(context.Background(), 600*time.Second)
+
+	return ctx, &ipConfigClient, nil
 }
 
 func getSubnetClient(credential idrv.CredentialInfo) (context.Context, *network.SubnetsClient, error) {

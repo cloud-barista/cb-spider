@@ -40,6 +40,13 @@ func setterSec(securityGroup network.SecurityGroup) *irs.SecurityInfo {
 }
 
 func (securityHandler *AzureSecurityHandler) CreateSecurity(securityReqInfo irs.SecurityReqInfo) (irs.SecurityInfo, error) {
+	// Check SecurityGroup Exists
+	security, _ := securityHandler.Client.Get(securityHandler.Ctx, CBResourceGroupName, securityReqInfo.Name, "")
+	if security.ID != nil {
+		errMsg := fmt.Sprintf("Security Group with name %s already exist", securityReqInfo.Name)
+		createErr := errors.New(errMsg)
+		return irs.SecurityInfo{}, createErr
+	}
 
 	var sgRuleList []network.SecurityRule
 	var priorityNum int32
@@ -66,14 +73,6 @@ func (securityHandler *AzureSecurityHandler) CreateSecurity(securityReqInfo irs.
 			SecurityRules: &sgRuleList,
 		},
 		Location: &securityHandler.Region.Region,
-	}
-
-	// Check SecurityGroup Exists
-	security, _ := securityHandler.Client.Get(securityHandler.Ctx, CBResourceGroupName, securityReqInfo.Name, "")
-	if security.ID != nil {
-		errMsg := fmt.Sprintf("Security Group with name %s already exist", securityReqInfo.Name)
-		createErr := errors.New(errMsg)
-		return irs.SecurityInfo{}, createErr
 	}
 
 	future, err := securityHandler.Client.CreateOrUpdate(securityHandler.Ctx, CBResourceGroupName, securityReqInfo.Name, createOpts)
@@ -104,7 +103,6 @@ func (securityHandler *AzureSecurityHandler) ListSecurity() ([]*irs.SecurityInfo
 		securityInfo := setterSec(security)
 		securityList = append(securityList, securityInfo)
 	}
-	//spew.Dump(securityList)
 	return securityList, nil
 }
 
@@ -115,7 +113,6 @@ func (securityHandler *AzureSecurityHandler) GetSecurity(securityID string) (irs
 	}
 
 	securityInfo := setterSec(security)
-	//spew.Dump(securityInfo)
 	return *securityInfo, nil
 }
 

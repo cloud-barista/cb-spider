@@ -30,6 +30,7 @@ func setterVNet(network network.Subnet) *irs.VNetworkInfo {
 }
 
 func (vNetworkHandler *AzureVNetworkHandler) CreateVNetwork(vNetworkReqInfo irs.VNetworkReqInfo) (irs.VNetworkInfo, error) {
+	// Check VNet Exists
 	// 기본 가상 네트워크가 생성되지 않았을 경우 디폴트 네트워크 생성 (CB-VNet)
 	vNetwork, _ := vNetworkHandler.Client.Get(vNetworkHandler.Ctx, CBResourceGroupName, CBVirutalNetworkName, "")
 	if vNetwork.ID == nil {
@@ -94,7 +95,12 @@ func (vNetworkHandler *AzureVNetworkHandler) CreateVNetwork(vNetworkReqInfo irs.
 }
 
 func (vNetworkHandler *AzureVNetworkHandler) ListVNetwork() ([]*irs.VNetworkInfo, error) {
-	//vNetworkList, err := vNetworkHandler.Client.List(vNetworkHandler.Ctx, CBResourceGroupName)
+	// Check VNet Exists
+	vNetwork, _ := vNetworkHandler.Client.Get(vNetworkHandler.Ctx, CBResourceGroupName, CBVirutalNetworkName, "")
+	if vNetwork.ID == nil {
+		return nil, nil
+	}
+
 	vNetworkList, err := vNetworkHandler.SubnetClient.List(vNetworkHandler.Ctx, CBResourceGroupName, CBVirutalNetworkName)
 	if err != nil {
 		return nil, err
@@ -105,24 +111,26 @@ func (vNetworkHandler *AzureVNetworkHandler) ListVNetwork() ([]*irs.VNetworkInfo
 		vNetInfo := setterVNet(vNetwork)
 		vNetList = append(vNetList, vNetInfo)
 	}
-	//spew.Dump(vNetList)
 	return vNetList, nil
 }
 
 func (vNetworkHandler *AzureVNetworkHandler) GetVNetwork(vNetworkID string) (irs.VNetworkInfo, error) {
-	//vNetwork, err := vNetworkHandler.Client.Get(vNetworkHandler.Ctx, CBResourceGroupName, vNetworkID, "")
-	vNetwork, err := vNetworkHandler.SubnetClient.Get(vNetworkHandler.Ctx, CBResourceGroupName, CBVirutalNetworkName, vNetworkID, "")
+	// Check VNet Exists
+	vNetwork, err := vNetworkHandler.Client.Get(vNetworkHandler.Ctx, CBResourceGroupName, CBVirutalNetworkName, "")
+	if vNetwork.ID == nil {
+		return irs.VNetworkInfo{}, err
+	}
+
+	subnet, err := vNetworkHandler.SubnetClient.Get(vNetworkHandler.Ctx, CBResourceGroupName, CBVirutalNetworkName, vNetworkID, "")
 	if err != nil {
 		return irs.VNetworkInfo{}, err
 	}
 
-	vNetInfo := setterVNet(vNetwork)
-	//spew.Dump(vNetInfo)
+	vNetInfo := setterVNet(subnet)
 	return *vNetInfo, nil
 }
 
 func (vNetworkHandler *AzureVNetworkHandler) DeleteVNetwork(vNetworkID string) (bool, error) {
-	//future, err := vNetworkHandler.Client.Delete(vNetworkHandler.Ctx, CBResourceGroupName, vNetworkID)
 	future, err := vNetworkHandler.SubnetClient.Delete(vNetworkHandler.Ctx, CBResourceGroupName, CBVirutalNetworkName, vNetworkID)
 	if err != nil {
 		return false, err
