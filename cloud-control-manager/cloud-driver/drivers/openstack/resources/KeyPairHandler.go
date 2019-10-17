@@ -25,17 +25,20 @@ func setterKeypair(keypair keypairs.KeyPair) *irs.KeyPairInfo {
 func (keyPairHandler *OpenStackKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPairReqInfo) (irs.KeyPairInfo, error) {
 
 	create0pts := keypairs.CreateOpts{
-		Name: keyPairReqInfo.Name,
+		Name:      keyPairReqInfo.Name,
+		PublicKey: "",
 	}
-	keypair, err := keypairs.Create(keyPairHandler.Client, create0pts).Extract()
+	keyPair, err := keypairs.Create(keyPairHandler.Client, create0pts).Extract()
 	if err != nil {
 		return irs.KeyPairInfo{}, err
 	}
 
 	// 생성된 KeyPair 정보 리턴
-	keypairInfo := setterKeypair(*keypair)
-	//spew.Dump(keyPairInfo)
-	return *keypairInfo, nil
+	keyPairInfo, err := keyPairHandler.GetKey(keyPair.Name)
+	if err != nil {
+		return irs.KeyPairInfo{}, nil
+	}
+	return keyPairInfo, nil
 }
 
 func (keyPairHandler *OpenStackKeyPairHandler) ListKey() ([]*irs.KeyPairInfo, error) {
@@ -65,7 +68,7 @@ func (keyPairHandler *OpenStackKeyPairHandler) ListKey() ([]*irs.KeyPairInfo, er
 func (keyPairHandler *OpenStackKeyPairHandler) GetKey(keyPairID string) (irs.KeyPairInfo, error) {
 	keyPair, err := keypairs.Get(keyPairHandler.Client, keyPairID).Extract()
 	if err != nil {
-		return irs.KeyPairInfo{}, nil
+		return irs.KeyPairInfo{}, err
 	}
 
 	keyPairInfo := setterKeypair(*keyPair)

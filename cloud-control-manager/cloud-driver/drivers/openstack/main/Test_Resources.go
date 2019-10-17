@@ -104,6 +104,8 @@ func testKeyPairHandler(config Config) {
 	cblogger.Info("4. DeleteKey()")
 	cblogger.Info("5. Exit")
 
+	keypairName := "CB-Keypair"
+
 Loop:
 	for {
 		var commandNum int
@@ -124,7 +126,7 @@ Loop:
 				cblogger.Info("Finish ListKey()")
 			case 2:
 				cblogger.Info("Start GetKey() ...")
-				if keyPairInfo, err := keyPairHandler.GetKey(config.Openstack.KeyPair.Name); err != nil {
+				if keyPairInfo, err := keyPairHandler.GetKey(keypairName); err != nil {
 					cblogger.Error(err)
 				} else {
 					spew.Dump(keyPairInfo)
@@ -133,7 +135,7 @@ Loop:
 			case 3:
 				cblogger.Info("Start CreateKey() ...")
 				reqInfo := irs.KeyPairReqInfo{
-					Name: config.Openstack.KeyPair.Name,
+					Name: keypairName,
 				}
 
 				if keyInfo, err := keyPairHandler.CreateKey(reqInfo); err != nil {
@@ -144,7 +146,9 @@ Loop:
 				cblogger.Info("Finish CreateKey()")
 			case 4:
 				cblogger.Info("Start DeleteKey() ...")
-				keyPairHandler.DeleteKey(config.Openstack.KeyPair.Name)
+				if ok, err := keyPairHandler.DeleteKey(keypairName); !ok {
+					cblogger.Error(err)
+				}
 				cblogger.Info("Finish DeleteKey()")
 			case 5:
 				cblogger.Info("Exit")
@@ -248,7 +252,8 @@ func testSecurityHandler(config Config) {
 	cblogger.Info("5. Exit")
 
 	//todo : Get, Delete시 ID값을 가져오는데 Name으로 변경 필요?(Name중복..)
-	//var securityGroupId string
+	securityGroupName := "CB-SecGroup"
+	var securityGroupId string
 
 Loop:
 
@@ -271,7 +276,7 @@ Loop:
 				cblogger.Info("Finish ListSecurity()")
 			case 2:
 				cblogger.Info("Start GetSecurity() ...")
-				if secInfo, err := securityHandler.GetSecurity(config.Openstack.SecurityGroup.Name); err != nil {
+				if secInfo, err := securityHandler.GetSecurity(securityGroupId); err != nil {
 					cblogger.Error(err)
 				} else {
 					spew.Dump(secInfo)
@@ -281,7 +286,7 @@ Loop:
 				cblogger.Info("Start CreateSecurity() ...")
 
 				reqInfo := irs.SecurityReqInfo{
-					Name: config.Openstack.SecurityGroup.Name,
+					Name: securityGroupName,
 					SecurityRules: &[]irs.SecurityRuleInfo{
 						{
 							FromPort:   "22",
@@ -307,11 +312,12 @@ Loop:
 					cblogger.Error(err)
 				} else {
 					spew.Dump(securityInfo)
+					securityGroupId = securityInfo.Id
 				}
 				cblogger.Info("Finish CreateSecurity()")
 			case 4:
 				cblogger.Info("Start DeleteSecurity() ...")
-				if ok, err := securityHandler.DeleteSecurity(config.Openstack.SecurityGroup.Name); !ok {
+				if ok, err := securityHandler.DeleteSecurity(securityGroupId); !ok {
 					cblogger.Error(err)
 				}
 				cblogger.Info("Finish DeleteSecurity()")
