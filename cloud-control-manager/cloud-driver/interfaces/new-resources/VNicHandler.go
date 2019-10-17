@@ -21,7 +21,7 @@ type VNicInfo struct {
 	Id               string
 	Name             string
 	PublicIP         string
-	MacAdress        string
+	MacAddress        string
 	OwnedVMID        string
 	SecurityGroupIds []string
 	Status           string
