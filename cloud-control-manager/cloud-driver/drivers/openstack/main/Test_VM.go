@@ -5,7 +5,7 @@ import (
 	cblog "github.com/cloud-barista/cb-log"
 	osdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/openstack"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
-	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
+	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/new-resources"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v3"
@@ -21,30 +21,22 @@ func init() {
 }
 
 // Create Instance
-func createVM(config Config, vmHandler irs.VMHandler) {
+func createVM(config Config, vmHandler irs.VMHandler) (*string, error) {
 
 	vmReqInfo := irs.VMReqInfo{
-		Name: config.Openstack.VMName,
-		ImageInfo: irs.ImageInfo{
-			Id: config.Openstack.ImageId,
-		},
-		SpecID: config.Openstack.FlavorId,
-		VNetworkInfo: irs.VNetworkInfo{
-			Id: config.Openstack.NetworkId,
-		},
-		SecurityInfo: irs.SecurityInfo{
-			Name: config.Openstack.SecurityGroups,
-		},
-		KeyPairInfo: irs.KeyPairInfo{
-			Name: config.Openstack.KeypairName,
-		},
+		VMName:           config.Openstack.VMName,
+		ImageId:          config.Openstack.ImageId,
+		VMSpecId:         config.Openstack.FlavorId,
+		VirtualNetworkId: config.Openstack.NetworkId,
+		SecurityGroupIds: []string{config.Openstack.SecurityGroups},
+		KeyPairName:      config.Openstack.KeypairName,
 	}
 
 	vm, err := vmHandler.StartVM(vmReqInfo)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
-	spew.Dump(vm)
+	return &vm.Id, nil
 }
 
 func testVMHandler() {
@@ -104,7 +96,11 @@ func testVMHandler() {
 				cblogger.Info("Finish Get VMStatus")
 			case 5:
 				cblogger.Info("Start Create VM ...")
-				createVM(config, vmHandler)
+				if createdVmId, err := createVM(config, vmHandler); err != nil {
+					cblogger.Error(err)
+				} else {
+					vmId = *createdVmId
+				}
 				cblogger.Info("Finish Create VM")
 			case 6:
 				cblogger.Info("Start Suspend VM ...")
@@ -196,7 +192,7 @@ type Config struct {
 func readConfigFile() Config {
 	// Set Environment Value of Project Root Path
 	rootPath := os.Getenv("CBSPIDER_PATH")
-	data, err := ioutil.ReadFile(rootPath + "/config/config.yaml")
+	data, err := ioutil.ReadFile(rootPath + "/conf/config.yaml")
 	if err != nil {
 		cblogger.Error(err)
 	}

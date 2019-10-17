@@ -210,7 +210,7 @@ Loop:
 				/*ipList := make([]irs.KeyValue, len(reqInfo.KeyValueList))
 				for _, key := range reqInfo.KeyValueList{
 					keyInfo := irs.KeyValue{
-						Key:   key.Key,
+				 		Key:   key.Key,
 						Value: key.Value,
 					}
 					ipList = append(ipList, keyInfo)
@@ -226,7 +226,9 @@ Loop:
 				cblogger.Info("Finish CreatePublicIP()")
 			case 4:
 				cblogger.Info("Start DeletePublicIP() ...")
-				publicIPHandler.DeletePublicIP(publicIPId)
+				if ok, err := publicIPHandler.DeletePublicIP(publicIPId); !ok {
+					cblogger.Error(err)
+				}
 				cblogger.Info("Finish DeletePublicIP()")
 			case 5:
 				cblogger.Info("Exit")

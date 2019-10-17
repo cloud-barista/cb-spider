@@ -11,15 +11,18 @@
 package resources
 
 import (
+	"fmt"
 	//"fmt"
 	cblog "github.com/cloud-barista/cb-log"
-	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
+	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/new-resources"
 	"github.com/rackspace/gophercloud"
 	"github.com/rackspace/gophercloud/openstack/compute/v2/extensions/keypairs"
 	"github.com/rackspace/gophercloud/openstack/compute/v2/extensions/startstop"
 	"github.com/rackspace/gophercloud/openstack/compute/v2/servers"
 	"github.com/rackspace/gophercloud/pagination"
 	"github.com/sirupsen/logrus"
+	"strings"
+	"time"
 )
 
 var cblogger *logrus.Logger
@@ -37,24 +40,20 @@ type OpenStackVMHandler struct {
 // modified by powerkim, 2019.07.29
 func (vmHandler *OpenStackVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, error) {
 
-	// Add Server Create Options
 	serverCreateOpts := servers.CreateOpts{
-		Name:      vmReqInfo.Name,
-		ImageRef:  vmReqInfo.ImageInfo.Id,
-		FlavorRef: vmReqInfo.SpecID,
+		Name:      vmReqInfo.VMName,
+		ImageRef:  vmReqInfo.ImageId,
+		FlavorRef: vmReqInfo.VMSpecId,
 		Networks: []servers.Network{
-			{UUID: vmReqInfo.VNetworkInfo.Id},
+			{UUID: vmReqInfo.VirtualNetworkId},
 		},
-		SecurityGroups: []string{
-			vmReqInfo.SecurityInfo.Name,
-		},
-		//ServiceClient: vmHandler.Client,
+		SecurityGroups: []string{},
 	}
 
 	// Add KeyPair
 	createOpts := keypairs.CreateOptsExt{
 		CreateOptsBuilder: serverCreateOpts,
-		KeyName:           vmReqInfo.KeyPairInfo.Name,
+		KeyName:           vmReqInfo.KeyPairName,
 	}
 
 	server, err := servers.Create(vmHandler.Client, createOpts).Extract()
@@ -62,8 +61,31 @@ func (vmHandler *OpenStackVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInf
 		return irs.VMInfo{}, err
 	}
 
-	vmInfo := mappingServerInfo(*server)
-	return vmInfo, nil
+	// VM 생성 완료까지 wait
+	vmId := server.ID
+	var isDeployed bool
+	var serverInfo irs.VMInfo
+
+	for {
+		if isDeployed {
+			break
+		}
+
+		time.Sleep(2 * time.Second)
+
+		// Check VM Deploy Status
+		serverResult, err := servers.Get(vmHandler.Client, vmId).Extract()
+		if err != nil {
+			return irs.VMInfo{}, err
+		}
+		fmt.Println(serverResult.Status)
+		if strings.ToUpper(serverResult.Status) == "ACTIVE" {
+			isDeployed = true
+			serverInfo = mappingServerInfo(*serverResult)
+		}
+	}
+
+	return serverInfo, nil
 }
 
 func (vmHandler *OpenStackVMHandler) SuspendVM(vmID string) {
@@ -163,7 +185,6 @@ func (vmHandler *OpenStackVMHandler) GetVM(vmID string) irs.VMInfo {
 	serverResult, err := servers.Get(vmHandler.Client, vmID).Extract()
 	if err != nil {
 		cblogger.Info(err)
-		return irs.VMInfo{}
 	}
 
 	vmInfo := mappingServerInfo(*serverResult)
@@ -174,28 +195,45 @@ func mappingServerInfo(server servers.Server) irs.VMInfo {
 
 	// Get Default VM Info
 	vmInfo := irs.VMInfo{
-		Name: server.Name,
-		Id:   server.ID,
-		//StartTime: server.Created,
-		KeyPairID: server.KeyName,
+		Name:        server.Name,
+		Id:          server.ID,
+		KeyPairName: server.KeyName,
+
+		VMUserId:           server.UserID,
+		VMUserPasswd:       server.AdminPass,
+		NetworkInterfaceId: server.HostID,
+
+		KeyValueList:     nil,
+		SecurityGroupIds: nil,
+	}
+
+	if creatTime, err := time.Parse(time.RFC3339, server.Created); err == nil {
+		vmInfo.StartTime = creatTime
 	}
 
 	if len(server.Image) != 0 {
-		vmInfo.ImageID = server.Image["id"].(string)
+		vmInfo.ImageId = server.Image["id"].(string)
 	}
 	if len(server.Flavor) != 0 {
-		vmInfo.SpecID = server.Flavor["id"].(string)
+		vmInfo.VMSpecId = server.Flavor["id"].(string)
+	}
+	if len(server.SecurityGroups) != 0 {
+		var securityGroupIdArr []string
+		for _, secGroupMap := range server.SecurityGroups {
+			securityGroupIdArr = append(securityGroupIdArr, fmt.Sprintf("%v", secGroupMap["name"]))
+		}
+		vmInfo.SecurityGroupIds = securityGroupIdArr
 	}
 
 	// Get VM Subnet, Address Info
 	for k, subnet := range server.Addresses {
-		vmInfo.SubNetworkID = k
+		vmInfo.VirtualNetworkId = k
 		for _, addr := range subnet.([]interface{}) {
 			addrMap := addr.(map[string]interface{})
 			if addrMap["OS-EXT-IPS:type"] == "floating" {
-				vmInfo.PrivateIP = addrMap["addr"].(string)
-			} else if addrMap["OS-EXT-IPS:type"] == "fixed" {
 				vmInfo.PublicIP = addrMap["addr"].(string)
+			} else if addrMap["OS-EXT-IPS:type"] == "fixed" {
+				vmInfo.PrivateIP = addrMap["addr"].(string)
 			}
 		}
 	}
