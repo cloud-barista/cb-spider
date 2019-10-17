@@ -59,7 +59,7 @@ func (publicIpHandler *GCPPublicIPHandler) ListPublicIP() ([]*nirs.PublicIPInfo,
 func (publicIpHandler *GCPPublicIPHandler) GetPublicIP(publicIPID string) (nirs.PublicIPInfo, error) {
 	projectID := publicIpHandler.Credential.projectID
 	region := publicIpHandler.Region.region
-	name := publicIPID
+	name := publicIPID // name or resource ID
 
 	info, err := publicIpHandler.Client.Addresses.Get(projectID, region, name).Do()
 	if err != nil {
@@ -73,13 +73,23 @@ func (publicIpHandler *GCPPublicIPHandler) GetPublicIP(publicIPID string) (nirs.
 	}
 
 	var publicInfo nirs.PublicIPInfo
+	var keyValueList []nirs.KeyValue
 
-	// 구조체 안에 해당값을 바인딩해준다.
-	err := json.Unmarshal(infoByte, &publicInfo)
+	publicInfo.Name = info.Name
+	publicInfo.PublicIP = info.Address
 	if users := info.Users; users != nil {
 		vmArr := strings.Split(users, "/")
-		&publicInfo.InstanceId = vmArr[len(vmArr)-1]
+		publicInfo.OwnedVMID = vmArr[len(vmArr)-1]
 	}
+	publicInfo.Status = info.Status
+
+	// 구조체 안에 해당값을 바인딩해준다.
+	var result map[string]interface{}
+	err := json.Unmarshal(infoByte, &result)
+	for key, value := range result {
+		keyValueList = append(keyValueList, nirs.KeyValue{key, value})
+	}
+	publicInfo.KeyValueList = keyValueList
 
 	if err != nil {
 		log.Fatal(err)
