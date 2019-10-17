@@ -19,6 +19,7 @@ import (
 	compute "google.golang.org/api/compute/v1"
 
 	idrv "../../../interfaces"
+	nirs "../../../interfaces/new-resources"
 	irs "../../../interfaces/resources"
 	_ "github.com/Azure/go-autorest/autorest/to"
 )
@@ -30,7 +31,7 @@ type GCPVMHandler struct {
 	Credential idrv.CredentialInfo
 }
 
-func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, error) {
+func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (nirs.VMInfo, error) {
 	// Set VM Create Information
 	// GCP 는 reqinfo에 ProjectID를 받아야 함.
 	ctx := vmHandler.Ctx
