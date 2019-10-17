@@ -11,6 +11,7 @@ package clouddriverhandler
 
 import (
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
+	icbs "github.com/cloud-barista/cb-store/interfaces"
 
         "github.com/sirupsen/logrus"
         "github.com/cloud-barista/cb-store/config"
@@ -46,9 +47,10 @@ func ListCloudDriver() []string {
 }
 */
 
-// 1. get the driver info
-// 2. load driver library
-// 3. get CloudDriver
+// 1. get the ConnectionConfig Info
+// 2. get the driver info
+// 3. load driver library
+// 4. get CloudDriver
 func GetCloudDriver(cloudConnectName string) (idrv.CloudDriver, error) {
 	cccInfo, err:= getConnectionConfigInfo(cloudConnectName)
         if err != nil {
@@ -60,27 +62,97 @@ func GetCloudDriver(cloudConnectName string) (idrv.CloudDriver, error) {
                 return nil, err
         }
 
-	// $CBSPIDER_ROOT/cloud-driver/libs/*
-	driverLibPath := os.Getenv("CBSPIDER_ROOT") + "/cloud-driver/libs/"
+	return getCloudDriver(cldDrvInfo)
+}
 
-	driverFile := cldDrvInfo.DriverLibFileName // ex) "aws-test-driver-v0.5.so"
-        if driverFile == "" {
-                return nil, fmt.Errorf("%q: driver library file can't nil or empty!!", cccInfo.DriverName )
+// 1. get credential info
+// 2. get region info
+// 3. get CloudConneciton
+func GetCloudConnection(cloudConnectName string) (icon.CloudConnection, error) {
+	cccInfo, err:= getConnectionConfigInfo(cloudConnectName)
+        if err != nil {
+                return nil, err
         }
-	driverPath := driverLibPath + driverFile
 
-	cblog.Info(cccInfo.DriverName + ": driver path - " + driverPath)
+        cldDrvInfo, err:= getCloudDriverInfo(cccInfo.DriverName)
+        if err != nil {
+                return nil, err
+        }
+
+        cldDriver, err:=getCloudDriver(cldDrvInfo)
+        if err != nil {
+                return nil, err
+        }
+
+	crdInfo, err:= getCredentialInfo(cccInfo.CredentialName)
+        if err != nil {
+                return nil, err
+        }
+
+	rgnInfo, err:= getRegionInfo(cccInfo.RegionName)
+        if err != nil {
+                return nil, err
+        }
+
+	//cblog.Info(cldDriver)
+	//cblog.Info(crdInfo)
+	//cblog.Info(rgnInfo)
+
+        connectionInfo := idrv.ConnectionInfo{
+                CredentialInfo: idrv.CredentialInfo{
+                        ClientId:       getValue(crdInfo.KeyValueInfoList, "ClientId"),
+                        ClientSecret:   getValue(crdInfo.KeyValueInfoList, "ClientSecret"),
+                        TenantId:       getValue(crdInfo.KeyValueInfoList, "TenantId"),
+                        SubscriptionId: getValue(crdInfo.KeyValueInfoList, "SubscriptionId"),
+                },
+                RegionInfo: idrv.RegionInfo{
+                        Region:        getValue(rgnInfo.KeyValueInfoList, "location"),
+                        // ResourceGroup: config.Azure.GroupName,
+                },
+        }
+
+        cldConnection, err := cldDriver.ConnectCloud(connectionInfo)
+	if err != nil {
+                return nil, err
+        }
+
+	return cldConnection, nil
+}
+
+func getValue(keyValueInfoList []icbs.KeyValue, key string) string {
+        for _, kv := range keyValueInfoList {
+                if kv.Key == key {
+                        return kv.Value
+                }
+        }	
+	return "Not set"
+}
+
+func getCloudDriver(cldDrvInfo dim.CloudDriverInfo) (idrv.CloudDriver, error) {
+	// $CBSPIDER_ROOT/cloud-driver/libs/*
+        driverLibPath := os.Getenv("CBSPIDER_ROOT") + "/cloud-driver/libs/"
+
+        driverFile := cldDrvInfo.DriverLibFileName // ex) "aws-test-driver-v0.5.so"
+        if driverFile == "" {
+                return nil, fmt.Errorf("%q: driver library file can't nil or empty!!", cldDrvInfo.DriverName )
+        }
+        driverPath := driverLibPath + driverFile
+
+        cblog.Info(cldDrvInfo.DriverName + ": driver path - " + driverPath)
 
 
-        var plug *plugin.Plugin
-        plug, err = plugin.Open(driverPath)
+/*---------------
+        A plugin is only initialized once, and cannot be closed.
+        ref) https://golang.org/pkg/plugin/
+-----------------*/
 
-        // fmt.Printf("plug: %#v\n\n", plug)
+        //var plug *plugin.Plugin
+        plug, err := plugin.Open(driverPath)
         if err != nil {
                 cblog.Errorf("plugin.Open: %v\n", err)
                 return nil, err
         }
-
+//      fmt.Printf("plug: %#v\n\n", plug)
 
         //driver, err := plug.Lookup(cccInfo.DriverName)
         driver, err := plug.Lookup("CloudDriver")
@@ -94,34 +166,8 @@ func GetCloudDriver(cloudConnectName string) (idrv.CloudDriver, error) {
                 cblog.Error("Not CloudDriver interface!!")
                 return nil, err
         }
-	
-	return cloudDriver, nil
-}
 
-// 1. get credential info
-// 2. get region info
-// 3. get CloudConneciton
-func GetCloudConnection(cloudConnectName string, cloudDriver *idrv.CloudDriver) (icon.CloudConnection, error) {
-        cccInfo, err:= ccim.GetConnectionConfig(cloudConnectName)
-        if err != nil {
-                return nil, err
-        }
-
-	crdInfo, err:= cim.GetCredential(cccInfo.CredentialName)
-        if err != nil {
-                return nil, err
-        }
-
-	rgnInfo, err:= rim.GetRegion(cccInfo.RegionName)
-        if err != nil {
-                return nil, err
-        }
-
-	// @todo from now
-	cblog.Info(crdInfo)
-	cblog.Info(rgnInfo)
-
-	return nil, nil
+        return cloudDriver, nil
 }
 
 func getConnectionConfigInfo(configName string) (ccim.ConnectionConfigInfo, error) {
