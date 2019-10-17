@@ -51,9 +51,11 @@ func handleSecurity() {
 	cblogger.Infof(securityId)
 	//securityId = "sg-0254f00ef99e40a3c"
 
-	result, err := handler.GetSecurity(securityId)
+	//result, err := handler.GetSecurity(securityId)
 	//result, err := handler.GetSecurity("sg-0d4d11c090c4814e8")
 	//result, err := handler.GetSecurity("sg-0fd2d90b269ebc082") // sgtest-mcloub-barista
+	//result, err := handler.DeleteSecurity(securityId)
+	//result, err := handler.ListSecurity()
 
 	securityReqInfo := irs.SecurityReqInfo{
 		Name: "sgtest2-mcloub-barista",
@@ -92,10 +94,8 @@ func handleSecurity() {
 	}
 
 	cblogger.Info(securityReqInfo)
-	//result, err := handler.CreateSecurity(securityReqInfo)
+	result, err := handler.CreateSecurity(securityReqInfo)
 
-	//result, err := handler.DeleteSecurity(securityId)
-	//result, err := handler.ListSecurity()
 	if err != nil {
 		cblogger.Infof("보안 그룹 조회 실패 : ", err)
 	} else {
@@ -304,7 +304,8 @@ func handleVNetwork() {
 		//CidrBlock: "10.0.0.0/16",
 		//CidrBlock: "192.168.0.0/16",
 	}
-	reqSubnetId := ""
+	reqSubnetId := "subnet-071c95d03cc330550"
+	reqSubnetId = ""
 
 	for {
 		fmt.Println("VNetworkHandler Management")
@@ -548,12 +549,12 @@ func handleVNic() {
 func main() {
 	cblogger.Info("AWS Resource Test")
 	//handleKeyPair()
-	//handlePublicIP() // PublicIP 생성 후 conf
+	handlePublicIP() // PublicIP 생성 후 conf
 
 	//handleVNetwork() //VPC
 	//handleImage() //AMI
 	//handleVNic() //Lancard
-	handleSecurity()
+	//handleSecurity()
 
 	/*
 		KeyPairHandler, err := setKeyPairHandler()

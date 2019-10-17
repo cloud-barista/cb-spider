@@ -60,14 +60,20 @@ func (vmHandler *AwsVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 	cblogger.Info(vmReqInfo)
 	spew.Dump(vmReqInfo)
 
-	imageID := vmReqInfo.ImageInfo.Id
-	instanceType := vmReqInfo.SpecID // "t2.micro"
+	//imageID := vmReqInfo.ImageInfo.Id
+	//instanceType := vmReqInfo.SpecID // "t2.micro"
+	//keyName := vmReqInfo.KeyPairInfo.Name
+	//securityGroupID := vmReqInfo.SecurityInfo.Id // "sg-0df1c209ea1915e4b" - 미지정시 보안 그룹명이 "default"인 보안 그룹이 사용 됨.
+	//subnetID := vmReqInfo.VNetworkInfo.Id // "subnet-cf9ccf83" - 미지정시 기본 VPC의 기본 서브넷이 임의로 이용되며 PublicIP가 할당 됨.
+	//baseName := vmReqInfo.Name            //"mcloud-barista-VMHandlerTest"
+
+	imageID := vmReqInfo.ImageId
+	instanceType := vmReqInfo.VMSpecId // "t2.micro"
 	minCount := aws.Int64(1)
 	maxCount := aws.Int64(1)
-	keyName := vmReqInfo.KeyPairInfo.Name
-	securityGroupID := vmReqInfo.SecurityInfo.Id // "sg-0df1c209ea1915e4b" - 미지정시 보안 그룹명이 "default"인 보안 그룹이 사용 됨.
-	subnetID := vmReqInfo.VNetworkInfo.Id        // "subnet-cf9ccf83" - 미지정시 기본 VPC의 기본 서브넷이 임의로 이용되며 PublicIP가 할당 됨.
-	baseName := vmReqInfo.Name                   //"mcloud-barista-VMHandlerTest"
+	keyName := vmReqInfo.KeyPairName
+	subnetID := vmReqInfo.VirtualNetworkId // "subnet-cf9ccf83" - 미지정시 기본 VPC의 기본 서브넷이 임의로 이용되며 PublicIP가 할당 됨.
+	baseName := vmReqInfo.VMName           //"mcloud-barista-VMHandlerTest"
 
 	cblogger.Info("Create EC2 Instance")
 
@@ -79,9 +85,11 @@ func (vmHandler *AwsVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 		MaxCount:     maxCount,
 		KeyName:      aws.String(keyName),
 
-		SecurityGroupIds: []*string{
+		SecurityGroupIds: aws.StringSlice(vmReqInfo.SecurityGroupIds),
+
+		/*SecurityGroupIds: []*string{
 			aws.String(securityGroupID), // set a security group.
-		},
+		},*/
 
 		SubnetId: aws.String(subnetID), // set a subnet.
 	})
@@ -107,20 +115,20 @@ func (vmHandler *AwsVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 		return irs.VMInfo{}, errtag
 	}
 
-	//EC2에 EIP 할당
+	//Public IP및 최신 정보 전달을 위해 부팅이 완료될 때까지 대기했다가 전달하는 것으로 변경 함.
+	cblogger.Info("Public IP 할당 및 최신 정보 획득을 위해 EC2가 Running 상태가 될때까지 대기")
+	WaitForRun(vmHandler.Client, newVmId)
+	cblogger.Info("EC2 Running 상태 완료 : ", runResult.Instances[0].State.Name)
+
+	//EC2에 EIP 할당 (펜딩 상태에서는 EIP 할당 불가)
 	cblogger.Infof("[%s] EC2에 [%s] IP 할당 시작", newVmId, vmReqInfo.PublicIPId)
 	assocRes, errIp := vmHandler.AssociatePublicIP(vmReqInfo.PublicIPId, newVmId)
 	if errIp != nil {
-		cblogger.Errorf("Unable to associate IP address with %s, %v", newVmId, err)
+		cblogger.Errorf("EC2[%s]에 Public IP Id[%s]를 할당 할 수 없습니다 - %v", newVmId, vmReqInfo.PublicIPId, err)
 		return irs.VMInfo{}, nil
 	}
 
 	cblogger.Infof("[%s] EC2에 Public IP 할당 결과 : ", newVmId, assocRes)
-
-	//Public IP및 초신 정보 전달을 위해 부팅이 완료될 때까지 대기했다가 전달하는 것으로 변경 함.
-	cblogger.Info("EC2 Running 상태 대기")
-	WaitForRun(vmHandler.Client, newVmId)
-	cblogger.Info("EC2 Running 상태 완료 : ", runResult.Instances[0].State.Name)
 
 	//최신 정보 조회
 	vmInfo := vmHandler.GetVM(newVmId)
@@ -319,12 +327,17 @@ func ExtractDescribeInstances(reservation *ec2.Reservation) irs.VMInfo {
 
 	//VM상태와 무관하게 항상 값이 존재하는 항목들만 초기화
 	vmInfo := irs.VMInfo{
-		Id:             *reservation.Instances[0].InstanceId,
-		ImageID:        *reservation.Instances[0].ImageId,
-		SpecID:         *reservation.Instances[0].InstanceType,
-		KeyPairID:      *reservation.Instances[0].KeyName,
-		GuestUserID:    "",
-		AdditionalInfo: "State:" + *reservation.Instances[0].State.Name,
+		Id:          *reservation.Instances[0].InstanceId,
+		ImageId:     *reservation.Instances[0].ImageId,
+		VMSpecId:    *reservation.Instances[0].InstanceType,
+		KeyPairName: *reservation.Instances[0].KeyName,
+		//GuestUserID:    "",
+		//AdditionalInfo: "State:" + *reservation.Instances[0].State.Name,
+	}
+
+	keyValueList := []irs.KeyValue{
+		{Key: "State", Value: *reservation.Instances[0].State.Name},
+		{Key: "Architecture", Value: *reservation.Instances[0].Architecture},
 	}
 
 	//cblogger.Info("=======>타입 : ", reflect.TypeOf(*reservation.Instances[0]))
@@ -346,7 +359,7 @@ func ExtractDescribeInstances(reservation *ec2.Reservation) irs.VMInfo {
 	cblogger.Info("===> BlockDeviceMappings ValueOf : ", reflect.ValueOf(reservation.Instances[0].BlockDeviceMappings))
 	if !reflect.ValueOf(reservation.Instances[0].BlockDeviceMappings).IsNil() {
 		if !reflect.ValueOf(reservation.Instances[0].BlockDeviceMappings[0].DeviceName).IsNil() {
-			vmInfo.GuestBlockDisk = *reservation.Instances[0].BlockDeviceMappings[0].DeviceName
+			vmInfo.VMBlockDisk = *reservation.Instances[0].BlockDeviceMappings[0].DeviceName
 		}
 	}
 
@@ -359,22 +372,34 @@ func ExtractDescribeInstances(reservation *ec2.Reservation) irs.VMInfo {
 	//NetworkInterfaces 배열 값들
 	if !reflect.ValueOf(reservation.Instances[0].NetworkInterfaces).IsNil() {
 		if !reflect.ValueOf(reservation.Instances[0].NetworkInterfaces[0].VpcId).IsNil() {
-			vmInfo.VNetworkID = *reservation.Instances[0].NetworkInterfaces[0].VpcId
+			vmInfo.VirtualNetworkId = *reservation.Instances[0].NetworkInterfaces[0].VpcId
+			keyValueList = append(keyValueList, irs.KeyValue{Key: "VpcId", Value: *reservation.Instances[0].NetworkInterfaces[0].VpcId})
 		}
 
 		if !reflect.ValueOf(reservation.Instances[0].NetworkInterfaces[0].SubnetId).IsNil() {
-			vmInfo.SubNetworkID = *reservation.Instances[0].NetworkInterfaces[0].SubnetId
+			keyValueList = append(keyValueList, irs.KeyValue{Key: "SubnetId", Value: *reservation.Instances[0].NetworkInterfaces[0].SubnetId})
 		}
 
-		if !reflect.ValueOf(reservation.Instances[0].NetworkInterfaces[0].Groups).IsNil() {
-			if !reflect.ValueOf(reservation.Instances[0].NetworkInterfaces[0].Groups[0].GroupId).IsNil() {
-				vmInfo.SecurityID = *reservation.Instances[0].NetworkInterfaces[0].Groups[0].GroupId
-			}
+		if !reflect.ValueOf(reservation.Instances[0].NetworkInterfaces[0].Attachment).IsNil() {
+			vmInfo.NetworkInterfaceId = *reservation.Instances[0].NetworkInterfaces[0].Attachment.AttachmentId
 		}
+
+		for _, security := range reservation.Instances[0].NetworkInterfaces[0].Groups {
+			vmInfo.SecurityGroupIds = append(vmInfo.SecurityGroupIds, *security.GroupId)
+		}
+
+		/*
+			if !reflect.ValueOf(reservation.Instances[0].NetworkInterfaces[0].Groups).IsNil() {
+				vmInfo.SecurityGroupIds = *reservation.Instances[0].NetworkInterfaces[0].Groups[0]
+				if !reflect.ValueOf(reservation.Instances[0].NetworkInterfaces[0].Groups[0].GroupId).IsNil() {
+					vmInfo.SecurityID = *reservation.Instances[0].NetworkInterfaces[0].Groups[0].GroupId
+				}
+			}
+		*/
 	}
 
 	//SecurityName: *reservation.Instances[0].NetworkInterfaces[0].Groups[0].GroupName,
-	vmInfo.VNIC = "eth0 - 값 위치 확인 필요"
+	//vmInfo.VNIC = "eth0 - 값 위치 확인 필요"
 
 	//vmInfo.PrivateIP = *reservation.Instances[0].NetworkInterfaces[0].PrivateIpAddress	//없는 경우 존재해서 Instances[0].PrivateIpAddress로 대체 - i-0b75cac73c4575386
 	if !reflect.ValueOf(reservation.Instances[0].PrivateIpAddress).IsNil() {
@@ -387,7 +412,11 @@ func ExtractDescribeInstances(reservation *ec2.Reservation) irs.VMInfo {
 	}
 
 	if !reflect.ValueOf(reservation.Instances[0].RootDeviceName).IsNil() {
-		vmInfo.GuestBootDisk = *reservation.Instances[0].RootDeviceName
+		vmInfo.VMBootDisk = *reservation.Instances[0].RootDeviceName
+	}
+
+	if !reflect.ValueOf(reservation.Instances[0].KeyName).IsNil() {
+		keyValueList = append(keyValueList, irs.KeyValue{Key: "KeyName", Value: *reservation.Instances[0].KeyName})
 	}
 
 	//Name은 Tag의 "Name" 속성에만 저장됨
@@ -400,6 +429,7 @@ func ExtractDescribeInstances(reservation *ec2.Reservation) irs.VMInfo {
 		}
 	}
 
+	vmInfo.KeyValueList = keyValueList
 	return vmInfo
 }
 
@@ -540,7 +570,7 @@ func (vmHandler *AwsVMHandler) AssociatePublicIP(allocationId string, instanceId
 	})
 
 	spew.Dump(assocRes)
-	cblogger.Infof("[%s] EC2에 EIP(AllocationId : [%s]) 할당 완료 - AssociationId Id : [%s]", instanceId, allocationId, *assocRes.AssociationId)
+	//cblogger.Infof("[%s] EC2에 EIP(AllocationId : [%s]) 할당 완료 - AssociationId Id : [%s]", instanceId, allocationId, *assocRes.AssociationId)
 
 	if err != nil {
 		cblogger.Errorf("Unable to associate IP address with %s, %v", instanceId, err)
