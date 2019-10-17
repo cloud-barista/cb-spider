@@ -24,6 +24,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"time"
 
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
@@ -62,6 +63,10 @@ type InstanceInfo struct {
 type vmInstanceInfo struct {
 	VMId string
 }
+type KeyValue struct {
+	Key   string
+	Value string
+}
 
 type PublicIPInfo struct {
 	Name string // AWS
@@ -84,7 +89,7 @@ type PublicIPInfo struct {
 	NetworkTier       string // GCP : PREMIUM, STANDARD
 	AddressType       string // GCP : External, INTERNAL, UNSPECIFIED_TYPE
 	Status            string // GCP : IN_USE, RESERVED, RESERVING
-
+	KeyValueList      []KeyValue
 }
 
 func createInstance(service *compute.Service, conf Config, zone string, vmname string, diskname string) {
@@ -166,16 +171,29 @@ func getPublicIP(ctx context.Context, service *compute.Service, region string, p
 	}
 
 	infoByte, err := info.MarshalJSON()
+	var result map[string]interface{}
+
+	fmt.Println("infoByte : ", string(infoByte))
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	var publicInfo PublicIPInfo
 	err = json.Unmarshal(infoByte, &publicInfo)
-	fmt.Println("publicInfo : ", publicInfo.Name)
-	users := info.Users[0]
-	vmArr := strings.Split(users, "/")
-	publicInfo.InstanceId = vmArr[len(vmArr)-1]
+	//key value 담아서 넣기
+	json.Unmarshal(infoByte, &result)
+	var keyValueList []KeyValue
+	for k, v := range result {
+		fmt.Println("key : ", k)
+		fmt.Println("value : ", v)
+		keyValueList = append(keyValueList, KeyValue{k, v.(string)})
+	}
+	fmt.Println("KeyValueList : ", keyValueList)
+	fmt.Println("publicInfo addressip : ", publicInfo.Address)
+	if users := info.Users; users != nil {
+		vmArr := strings.Split(users[0], "/")
+		publicInfo.InstanceId = vmArr[len(vmArr)-1]
+	}
 
 	if err != nil {
 		log.Fatal(err)
@@ -351,6 +369,9 @@ func CreatePublicIP(ctx context.Context, service *compute.Service, name string, 
 		log.Fatal(err)
 	}
 	fmt.Println("createPublicIP Info : ", string(infoJson))
+	time.Sleep(time.Second * 3)
+
+	getPublicIP(ctx, service, region, name, conf)
 
 }
 
@@ -420,11 +441,12 @@ func main() {
 	//stopVM(ctx, client, zone, instanceName, config)
 	//startVM(ctx, client, zone, instanceName, config)
 	//getGlobalAddressList(ctx, client, config)
-	getPublicIP(ctx, client, region, "natip", config)
-	//CreatePublicIP(ctx, client, "staticip3", region, config)
-	name, address := ListPublicIP(ctx, client, config, region)
-	fmt.Println("output name : ", name)
-	fmt.Println("output address : ", address)
+	//getPublicIP(ctx, client, region, "natip", config)
+	//CreatePublicIP(ctx, client, "publicip6", region, config)
+	getPublicIP(ctx, client, region, "publicip6", config)
+	//name, address := ListPublicIP(ctx, client, config, region)
+	//fmt.Println("output name : ", name)
+	//fmt.Println("output address : ", address)
 	//getVMlist := ListVM(ctx, client, zone, config)
 	//fmt.Println("getVMList : ", string(getVMlist))
 	//getImagelist := ListImage(ctx, client, config)

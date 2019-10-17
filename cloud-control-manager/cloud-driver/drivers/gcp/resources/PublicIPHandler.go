@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	idrv "../../../interfaces"
+	nirs "../../../interfaces/new-resources"
 	irs "../../../interfaces/resources"
 	compute "google.golang.org/api/compute/v1"
 )
@@ -31,12 +32,17 @@ type PublicIPInfo struct {
 	InstanceId        string // GCP : 연결된 VM
 }
 
-func (publicIpHandler *GCPPublicIPHandler) CreatePublicIP(publicIPReqInfo irs.PublicIPReqInfo) (irs.PublicIPInfo, error) {
-
+func (publicIpHandler *GCPPublicIPHandler) CreatePublicIP(publicIPReqInfo nirs.PublicIPReqInfo) (nirs.PublicIPInfo, error) {
+	projectID := publicIpHandler.Credential.projectID
+	region := publicIpHandler.Region.region
+	address := &compute.Address{
+		Name: publicIPReqInfo.Name,
+	}
+	publicIpHandler.Client.Addresses.Insert(projectID, region, address).Do()
 	return publicIPInfo, nil
 }
 
-func (publicIpHandler *GCPPublicIPHandler) ListPublicIP() ([]*irs.PublicIPInfo, error) {
+func (publicIpHandler *GCPPublicIPHandler) ListPublicIP() ([]*nirs.PublicIPInfo, error) {
 	projectID := publicIpHandler.Credential.projectID
 	region := publicIpHandler.Region.region
 
@@ -50,25 +56,31 @@ func (publicIpHandler *GCPPublicIPHandler) ListPublicIP() ([]*irs.PublicIPInfo, 
 	return nil, nil
 }
 
-func (publicIpHandler *GCPPublicIPHandler) GetPublicIP(publicIPID string) (irs.PublicIPInfo, error) {
+func (publicIpHandler *GCPPublicIPHandler) GetPublicIP(publicIPID string) (nirs.PublicIPInfo, error) {
 	projectID := publicIpHandler.Credential.projectID
 	region := publicIpHandler.Region.region
 	name := publicIPID
+
 	info, err := publicIpHandler.Client.Addresses.Get(projectID, region, name).Do()
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	//바인딩 하기위해 []byte로 변환 처리
 	infoByte, err := info.MarshalJSON()
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	var publicInfo irs.PublicIPInfo
+	var publicInfo nirs.PublicIPInfo
 
+	// 구조체 안에 해당값을 바인딩해준다.
 	err := json.Unmarshal(infoByte, &publicInfo)
-	users := info.Users[0]
-	vmArr := strings.Split(users, "/")
-	&publicInfo.InstanceId = vmArr[len(vmArr)-1]
+	if users := info.Users; users != nil {
+		vmArr := strings.Split(users, "/")
+		&publicInfo.InstanceId = vmArr[len(vmArr)-1]
+	}
+
 	if err != nil {
 		log.Fatal(err)
 	}
