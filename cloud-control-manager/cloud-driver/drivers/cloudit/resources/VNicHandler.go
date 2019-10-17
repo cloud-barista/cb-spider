@@ -21,7 +21,8 @@ func setterNic(nic nic.VmNicInfo) *irs.VNicInfo {
 		MacAdress:        nic.Mac,
 		OwnedVMID:        nic.VmId,
 		SecurityGroupIds: nil,
-		Status:           nic.State,
+		//SecurityGroupIds: []string{},
+		Status: nic.State,
 	}
 	return vNicInfo
 }
@@ -62,6 +63,7 @@ func (nicHandler *ClouditNicHandler) ListVNic() ([]*irs.VNicInfo, error) {
 		MoreHeaders: authHeader,
 	}
 
+	// TODO: serverId 인터페이스 정의
 	serverId := "025e5edc-54ad-4b98-9292-6eeca4c36a6d"
 	if vNicList, err := nic.List(nicHandler.Client, serverId, &requestOpts); err != nil {
 		return nil, err
@@ -83,6 +85,7 @@ func (nicHandler *ClouditNicHandler) GetVNic(vNicID string) (irs.VNicInfo, error
 		MoreHeaders: authHeader,
 	}
 
+	// TODO: serverId 인터페이스 정의
 	serverId := "025e5edc-54ad-4b98-9292-6eeca4c36a6d"
 	if vNic, err := nic.Get(nicHandler.Client, serverId, vNicID, &requestOpts); err != nil {
 		return irs.VNicInfo{}, err
@@ -99,6 +102,7 @@ func (nicHandler *ClouditNicHandler) DeleteVNic(vNicID string) (bool, error) {
 		MoreHeaders: authHeader,
 	}
 
+	// TODO: serverId 인터페이스 정의
 	serverId := "025e5edc-54ad-4b98-9292-6eeca4c36a6d"
 	if err := nic.Delete(nicHandler.Client, serverId, vNicID, &requestOpts); err != nil {
 		return false, err

@@ -340,6 +340,17 @@ Loop:
 				cblogger.Info("Finish GetVNic()")
 			case 3:
 				cblogger.Info("Start CreateVNic() ...")
+				/*reqInfo := nic.VNicReqInfo{
+					SubnetAddr: "10.0.8.0",
+					VmId:       "025e5edc-54ad-4b98-9292-6eeca4c36a6d",
+					Type:       "INTERNAL",
+					Secgroups: []securitygroup.SecurityGroupRules{
+						{
+							ID: "b2be62e7-fd29-43ff-b008-08ae736e092a",
+						},
+					},
+					IP: "",
+				}*/
 				reqInfo := irs.VNicReqInfo{}
 				if _, err := vNicHandler.CreateVNic(reqInfo); err != nil {
 					cblogger.Error(err)
@@ -460,29 +471,6 @@ type Config struct {
 		ServerId         string `yaml:"server_id"`
 		AuthToken        string `yaml:"auth_token"`
 
-		Image struct {
-			Name string `yaml:"name"`
-			ID   string `yaml:"id"`
-		} `yaml:"image_info"`
-
-		/*VirtualNetwork struct {
-			Name string `yaml:"name"`
-			Addr string `yaml:"addr"`
-			ID   string `yaml:"id"`
-		} `yaml:"vnet_info"`*/
-
-		publicIp struct {
-			Name string `yaml:"name"`
-			ID   string `yaml:"id"`
-			IP   string `yaml:"ip"`
-		} `yaml:"publicIp_info"`
-
-		securityGroup struct {
-			Name           string `yaml:"name"`
-			ID             string `yaml:"id"`
-			SecuiryGroupID string `yaml:"securitygroupid"`
-		}
-
 		Resource struct {
 			Image struct {
 				Name string `yaml:"name"`
@@ -501,7 +489,8 @@ type Config struct {
 			} `yaml:"vnet_info"`
 
 			VNic struct {
-				Mac string `yaml:"mac"`
+				VMID string `yaml:"vm_id"`
+				Mac  string `yaml:"mac"`
 			} `yaml:"vnic_info"`
 		} `yaml:"resource"`
 	} `yaml:"cloudit"`
