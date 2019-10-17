@@ -7,7 +7,8 @@ import (
 	"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/openstack/connect"
 	osrs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/openstack/resources"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
-	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
+	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/new-resources"
+	"github.com/davecgh/go-spew/spew"
 	"github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v3"
 	"io/ioutil"
@@ -37,6 +38,7 @@ func testImageHandler(config Config) {
 	cblogger.Info("5. Exit")
 
 	var imageId string
+	imageId = "a7ba7b4f-a878-4670-b2d1-5656b26b95ad"
 
 Loop:
 	for {
@@ -50,11 +52,19 @@ Loop:
 			switch commandNum {
 			case 1:
 				cblogger.Info("Start ListImage() ...")
-				imageHandler.ListImage()
+				if list, err := imageHandler.ListImage(); err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(list)
+				}
 				cblogger.Info("Finish ListImage()")
 			case 2:
 				cblogger.Info("Start GetImage() ...")
-				imageHandler.GetImage(imageId)
+				if imageInfo, err := imageHandler.GetImage(imageId); err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(imageInfo)
+				}
 				cblogger.Info("Finish GetImage()")
 			case 3:
 				cblogger.Info("Start CreateImage() ...")
@@ -67,7 +77,9 @@ Loop:
 				cblogger.Info("Finish CreateImage()")
 			case 4:
 				cblogger.Info("Start DeleteImage() ...")
-				imageHandler.DeleteImage(imageId)
+				if ok, err := imageHandler.DeleteImage(imageId); !ok {
+					cblogger.Error(err)
+				}
 				cblogger.Info("Finish DeleteImage()")
 			case 5:
 				cblogger.Info("Exit")
@@ -104,18 +116,30 @@ Loop:
 			switch commandNum {
 			case 1:
 				cblogger.Info("Start ListKey() ...")
-				keyPairHandler.ListKey()
+				if keyPairList, err := keyPairHandler.ListKey(); err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(keyPairList)
+				}
 				cblogger.Info("Finish ListKey()")
 			case 2:
 				cblogger.Info("Start GetKey() ...")
-				keyPairHandler.GetKey(config.Openstack.KeyPair.Name)
+				if keyPairInfo, err := keyPairHandler.GetKey(config.Openstack.KeyPair.Name); err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(keyPairInfo)
+				}
 				cblogger.Info("Finish GetKey()")
 			case 3:
 				cblogger.Info("Start CreateKey() ...")
-				reqInfo := irs.KeyPairReqInfo{Name: config.Openstack.KeyPair.Name}
-				_, err := keyPairHandler.CreateKey(reqInfo)
-				if err != nil {
+				reqInfo := irs.KeyPairReqInfo{
+					Name: config.Openstack.KeyPair.Name,
+				}
+
+				if keyInfo, err := keyPairHandler.CreateKey(reqInfo); err != nil {
 					cblogger.Error(err)
+				} else {
+					spew.Dump(keyInfo)
 				}
 				cblogger.Info("Finish CreateKey()")
 			case 4:
@@ -146,6 +170,7 @@ func testPublicIPHanlder(config Config) {
 	cblogger.Info("5. Exit")
 
 	var publicIPId string
+	//TODO : config.yaml 파일에 publicIP_info 추가 및 ID 값 -> Name으로 변경여부?
 
 Loop:
 	for {
@@ -159,20 +184,41 @@ Loop:
 			switch commandNum {
 			case 1:
 				cblogger.Info("Start ListPublicIP() ...")
-				publicIPHandler.ListPublicIP()
+				if publicList, err := publicIPHandler.ListPublicIP(); err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(publicList)
+				}
 				cblogger.Info("Finish ListPublicIP()")
 			case 2:
 				cblogger.Info("Start GetPublicIP() ...")
-				publicIPHandler.GetPublicIP(publicIPId)
+				if publicInfo, err := publicIPHandler.GetPublicIP(publicIPId); err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(publicInfo)
+				}
 				cblogger.Info("Finish GetPublicIP()")
 			case 3:
 				cblogger.Info("Start CreatePublicIP() ...")
+
 				reqInfo := irs.PublicIPReqInfo{}
-				publicIP, err := publicIPHandler.CreatePublicIP(reqInfo)
-				if err != nil {
-					cblogger.Error(err)
+
+				/*ipList := make([]irs.KeyValue, len(reqInfo.KeyValueList))
+				for _, key := range reqInfo.KeyValueList{
+					keyInfo := irs.KeyValue{
+						Key:   key.Key,
+						Value: key.Value,
+					}
+					ipList = append(ipList, keyInfo)
 				}
-				publicIPId = publicIP.Id
+				reqInfo.KeyValueList = ipList*/
+
+				if publicIP, err := publicIPHandler.CreatePublicIP(reqInfo); err != nil {
+					cblogger.Error(err)
+				} else {
+					publicIPId = publicIP.Name
+					spew.Dump(publicIP)
+				}
 				cblogger.Info("Finish CreatePublicIP()")
 			case 4:
 				cblogger.Info("Start DeletePublicIP() ...")
@@ -201,7 +247,8 @@ func testSecurityHandler(config Config) {
 	cblogger.Info("4. DeleteSecurity()")
 	cblogger.Info("5. Exit")
 
-	var securityGroupId string
+	//todo : Get, Delete시 ID값을 가져오는데 Name으로 변경 필요?(Name중복..)
+	//var securityGroupId string
 
 Loop:
 
@@ -216,24 +263,57 @@ Loop:
 			switch commandNum {
 			case 1:
 				cblogger.Info("Start ListSecurity() ...")
-				securityHandler.ListSecurity()
+				if securityList, err := securityHandler.ListSecurity(); err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(securityList)
+				}
 				cblogger.Info("Finish ListSecurity()")
 			case 2:
 				cblogger.Info("Start GetSecurity() ...")
-				securityHandler.GetSecurity(securityGroupId)
+				if secInfo, err := securityHandler.GetSecurity(config.Openstack.SecurityGroup.Name); err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(secInfo)
+				}
 				cblogger.Info("Finish GetSecurity()")
 			case 3:
 				cblogger.Info("Start CreateSecurity() ...")
-				reqInfo := irs.SecurityReqInfo{Name: config.Openstack.SecurityGroup.Name}
-				securityGroup, err := securityHandler.CreateSecurity(reqInfo)
-				if err != nil {
-					cblogger.Error(err)
+
+				reqInfo := irs.SecurityReqInfo{
+					Name: config.Openstack.SecurityGroup.Name,
+					SecurityRules: &[]irs.SecurityRuleInfo{
+						{
+							FromPort:   "22",
+							ToPort:     "22",
+							IPProtocol: "TCP",
+							Direction:  "inbound",
+						},
+						{
+							FromPort:   "3306",
+							ToPort:     "3306",
+							IPProtocol: "TCP",
+							Direction:  "outbound",
+						},
+						{
+							FromPort:   "-1",
+							ToPort:     "-1",
+							IPProtocol: "ICMP",
+							Direction:  "",
+						},
+					},
 				}
-				securityGroupId = securityGroup.Id
+				if securityInfo, err := securityHandler.CreateSecurity(reqInfo); err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(securityInfo)
+				}
 				cblogger.Info("Finish CreateSecurity()")
 			case 4:
 				cblogger.Info("Start DeleteSecurity() ...")
-				securityHandler.DeleteSecurity(securityGroupId)
+				if ok, err := securityHandler.DeleteSecurity(config.Openstack.SecurityGroup.Name); !ok {
+					cblogger.Error(err)
+				}
 				cblogger.Info("Finish DeleteSecurity()")
 			case 5:
 				cblogger.Info("Exit")
@@ -564,8 +644,8 @@ type Config struct {
 		SecurityGroups   string `yaml:"security_groups"`
 		KeypairName      string `yaml:"keypair_name"`
 
-		ServerId   string `yaml:"server_id"`
-		PublicIPID string `yaml:"public_ip_id"`
+		ServerId string `yaml:"server_id"`
+		//PublicIPID string `yaml:"public_ip_id"`
 
 		Image struct {
 			Name string `yaml:"name"`
@@ -574,6 +654,10 @@ type Config struct {
 		KeyPair struct {
 			Name string `yaml:"name"`
 		} `yaml:"keypair_info"`
+
+		PublicIP struct {
+			Name string `yaml:"name"`
+		} `yaml:"public_info"`
 
 		SecurityGroup struct {
 			Name string `yaml:"name"`
@@ -598,7 +682,7 @@ type Config struct {
 func readConfigFile() Config {
 	// Set Environment Value of Project Root Path
 	rootPath := os.Getenv("CBSPIDER_PATH")
-	data, err := ioutil.ReadFile(rootPath + "/config/config.yaml")
+	data, err := ioutil.ReadFile(rootPath + "/conf/config.yaml")
 	if err != nil {
 		cblogger.Error(err)
 	}
