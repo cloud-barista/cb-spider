@@ -20,7 +20,7 @@ type VNetworkInfo struct {
      AddressPrefix string 
      Status string  
 
-     keyValueList []KeyValue 
+     KeyValueList []KeyValue 
 }
 
 type VNetworkHandler interface {
