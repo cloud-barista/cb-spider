@@ -25,7 +25,11 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/ec2"
 )
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/aws/aws-sdk-go/aws/credentials"
+)
 
 type AwsDriver struct {
 }
@@ -41,19 +45,22 @@ func (AwsDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	drvCapabilityInfo.VNetworkHandler = true
 	drvCapabilityInfo.SecurityHandler = true
 	drvCapabilityInfo.KeyPairHandler = true
-	drvCapabilityInfo.VNicHandler = false
+	drvCapabilityInfo.VNicHandler = true
 	drvCapabilityInfo.PublicIPHandler = true
 	drvCapabilityInfo.VMHandler = true
 
 	return drvCapabilityInfo
 }
 
-func getVMClient(regionInfo idrv.RegionInfo) (*ec2.EC2, error) {
+//func getVMClient(regionInfo idrv.RegionInfo) (*ec2.EC2, error) {
+func getVMClient(connectionInfo idrv.ConnectionInfo) (*ec2.EC2, error) {
+
 	// setup Region
-	fmt.Println("AwsDriver : getVMClient() - Region : [" + regionInfo.Region + "]")
+	fmt.Println("AwsDriver : getVMClient() - Region : [" + connectionInfo.RegionInfo.Region + "]")
 
 	sess, err := session.NewSession(&aws.Config{
-		Region: aws.String(regionInfo.Region)},
+		Region:      aws.String(connectionInfo.RegionInfo.Region),
+		Credentials: credentials.NewStaticCredentials(connectionInfo.CredentialInfo.ClientId, connectionInfo.CredentialInfo.ClientSecret, "")},
 	)
 	if err != nil {
 		fmt.Println("Could not create aws New Session", err)
@@ -70,7 +77,6 @@ func getVMClient(regionInfo idrv.RegionInfo) (*ec2.EC2, error) {
 	return svc, nil
 }
 
-
 func (driver *AwsDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (icon.CloudConnection, error) {
 	// 1. get info of credential and region for Test A Cloud from connectionInfo.
 	// 2. create a client object(or service  object) of Test A Cloud with credential info.
@@ -79,8 +85,8 @@ func (driver *AwsDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (icon.
 
 	// sample code, do not user like this^^
 	//var iConn icon.CloudConnection
-	//VMClient, err := getVMClient(connectionInfo.CredentialInfo)
-	vmClient, err := getVMClient(connectionInfo.RegionInfo)
+	vmClient, err := getVMClient(connectionInfo)
+	//vmClient, err := getVMClient(connectionInfo.RegionInfo)
 	if err != nil {
 		return nil, err
 	}
