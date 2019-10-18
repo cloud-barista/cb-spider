@@ -33,8 +33,10 @@ func (securityHandler *AwsSecurityHandler) CreateSecurity(securityReqInfo irs.Se
 	cblogger.Infof("securityReqInfo : ", securityReqInfo)
 	spew.Dump(securityReqInfo)
 
-	awsCBNetworkInfo, errVpc := GetCreateAutoCBNetworkInfo(securityHandler.Client)
-	if errVpc != nil {
+	//VPC & Subnet을 자동으로 찾아서 처리
+	vNetworkHandler := AwsVNetworkHandler{Client: securityHandler.Client}
+	awsCBNetworkInfo, errAutoCBNetInfo := vNetworkHandler.GetAutoCBNetworkInfo()
+	if errAutoCBNetInfo != nil || awsCBNetworkInfo.VpcId == "" {
 		return irs.SecurityInfo{}, nil
 	}
 
@@ -49,7 +51,7 @@ func (securityHandler *AwsSecurityHandler) CreateSecurity(securityReqInfo irs.Se
 		//		VpcId:       aws.String(securityReqInfo.VpcId),awsCBNetworkInfo
 		VpcId: aws.String(vpcId),
 	}
-	cblogger.Infof("보안 그룹 생성 요청 정보", input)
+	cblogger.Debugf("보안 그룹 생성 요청 정보", input)
 	createRes, err := securityHandler.Client.CreateSecurityGroup(&input)
 	if err != nil {
 		if aerr, ok := err.(awserr.Error); ok {
@@ -68,8 +70,6 @@ func (securityHandler *AwsSecurityHandler) CreateSecurity(securityReqInfo irs.Se
 	cblogger.Infof("[%s] 보안 그룹 생성완료", aws.StringValue(createRes.GroupId))
 	spew.Dump(createRes)
 
-	//cblogger.Infof("Created security group %s with VPC %s.\n", aws.StringValue(createRes.GroupId), securityReqInfo.VpcId)
-
 	//newGroupId = *createRes.GroupId
 
 	cblogger.Infof("인바운드 보안 정책 처리")
@@ -78,7 +78,7 @@ func (securityHandler *AwsSecurityHandler) CreateSecurity(securityReqInfo irs.Se
 	for _, ip := range *securityReqInfo.SecurityRules {
 		//for _, ip := range securityReqInfo.IPPermissions {
 		if ip.Direction != "inbound" {
-			cblogger.Info("==> inbound가 아닌 보안 그룹 Skip : ", ip.Direction)
+			cblogger.Debug("==> inbound가 아닌 보안 그룹 Skip : ", ip.Direction)
 			continue
 		}
 
@@ -134,7 +134,7 @@ func (securityHandler *AwsSecurityHandler) CreateSecurity(securityReqInfo irs.Se
 	//for _, ip := range securityReqInfo.IPPermissionsEgress {
 	for _, ip := range *securityReqInfo.SecurityRules {
 		if ip.Direction != "outbound" {
-			cblogger.Info("==> outbound가 아닌 보안 그룹 Skip : ", ip.Direction)
+			cblogger.Debug("==> outbound가 아닌 보안 그룹 Skip : ", ip.Direction)
 			continue
 		}
 
@@ -185,15 +185,51 @@ func (securityHandler *AwsSecurityHandler) CreateSecurity(securityReqInfo irs.Se
 
 	cblogger.Info("Successfully set security group egress")
 
-	//return securityInfo, nil
+	cblogger.Info("Name Tag 처리")
+	//======================
+	// Name 태그 처리
+	//======================
+	//VPC Name 태깅
+	tagInput := &ec2.CreateTagsInput{
+		Resources: []*string{
+			aws.String(*createRes.GroupId),
+		},
+		Tags: []*ec2.Tag{
+			{
+				Key:   aws.String("Name"),
+				Value: aws.String(securityReqInfo.Name),
+			},
+		},
+	}
+	//spew.Dump(tagInput)
+
+	_, errTag := securityHandler.Client.CreateTags(tagInput)
+	//Tag 실패 시 별도의 처리 없이 에러 로그만 남겨 놓음.
+	if errTag != nil {
+		cblogger.Error(errTag)
+	}
+
 	securityInfo, _ := securityHandler.GetSecurity(*createRes.GroupId)
 	return securityInfo, nil
 }
 
 func (securityHandler *AwsSecurityHandler) ListSecurity() ([]*irs.SecurityInfo, error) {
+	//VPC ID 조회
+	vNetworkHandler := AwsVNetworkHandler{Client: securityHandler.Client}
+	vpcId := vNetworkHandler.GetMcloudBaristaDefaultVpcId()
+	if vpcId == "" {
+		return nil, nil
+	}
+
 	input := &ec2.DescribeSecurityGroupsInput{
 		GroupIds: []*string{
 			nil,
+		},
+		Filters: []*ec2.Filter{
+			{
+				Name:   aws.String("vpc-id"),
+				Values: aws.StringSlice([]string{vpcId}),
+			},
 		},
 	}
 
@@ -257,7 +293,7 @@ func ExtractSecurityInfo(securityGroupResult *ec2.SecurityGroup) irs.SecurityInf
 	var ipPermissionsEgress []irs.SecurityRuleInfo
 	var securityRules []irs.SecurityRuleInfo
 
-	cblogger.Info("===[그룹아이디:%s]===", *securityGroupResult.GroupId)
+	cblogger.Debugf("===[그룹아이디:%s]===", *securityGroupResult.GroupId)
 	ipPermissions = ExtractIpPermissions(securityGroupResult.IpPermissions, "inbound")
 	cblogger.Debug("InBouds : ", ipPermissions)
 	ipPermissionsEgress = ExtractIpPermissions(securityGroupResult.IpPermissionsEgress, "outbound")
@@ -314,7 +350,7 @@ func ExtractIpPermissions(ipPermissions []*ec2.IpPermission, direction string) [
 
 		//ipv4 처리
 		for _, ipv4 := range ip.IpRanges {
-			cblogger.Info("Inbound/Outbound 정보 조회 : ", *ip.IpProtocol)
+			cblogger.Debug("Inbound/Outbound 정보 조회 : ", *ip.IpProtocol)
 			securityRuleInfo := irs.SecurityRuleInfo{
 				Direction: direction, // "inbound | outbound"
 				//Cidr: *ipv4.CidrIp,

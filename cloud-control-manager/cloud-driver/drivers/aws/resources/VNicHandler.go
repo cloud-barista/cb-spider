@@ -12,6 +12,7 @@ package resources
 
 //@TODO : Default VPC & Default Subnet 처리해야 함.
 import (
+	"fmt"
 	"reflect"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -30,10 +31,24 @@ type AwsVNicHandler struct {
 
 //@TODO : 퍼블릭IP(EIP)는 이 곳이 아닌 VM생성 시 처리함. 이곳에서 처리해야 하면 구현해야 함.
 func (vNicHandler *AwsVNicHandler) CreateVNic(vNicReqInfo irs.VNicReqInfo) (irs.VNicInfo, error) {
+
+	//Nic 생성을 위해 VPC & Subnet 정보를 조회하고 없을 경우 VPC & Subnet을 자동으로 생성함.
+	vNetworkHandler := AwsVNetworkHandler{
+		//Region: vNicHandler.Region,
+		Client: vNicHandler.Client,
+	}
+	fmt.Println(vNetworkHandler)
+	//vNetworkHandler.FindOrCreateMcloudBaristaDefaultVPC(irs.VNetworkReqInfo{})
+	awsCBNetworkInfo, errAutoCBNetInfo := vNetworkHandler.GetAutoCBNetworkInfo()
+	if errAutoCBNetInfo != nil || awsCBNetworkInfo.VpcId == "" {
+		return irs.VNicInfo{}, nil
+	}
+
 	input := &ec2.CreateNetworkInterfaceInput{
 		Description: aws.String(vNicReqInfo.Name),
 		//PrivateIpAddress: aws.String("10.0.2.17"),
-		SubnetId: aws.String("subnet-0a25f65671fa64155"),
+		//SubnetId: aws.String("subnet-0a25f65671fa64155"),
+		SubnetId: aws.String(awsCBNetworkInfo.SubnetId),
 		Groups:   aws.StringSlice(vNicReqInfo.SecurityGroupIds),
 	}
 
@@ -107,6 +122,13 @@ func (vNicHandler *AwsVNicHandler) CreateVNic(vNicReqInfo irs.VNicReqInfo) (irs.
 func (vNicHandler *AwsVNicHandler) ListVNic() ([]*irs.VNicInfo, error) {
 	cblogger.Info("Start")
 
+	//VPC ID 조회
+	vNetworkHandler := AwsVNetworkHandler{Client: vNicHandler.Client}
+	vpcId := vNetworkHandler.GetMcloudBaristaDefaultVpcId()
+	if vpcId == "" {
+		return nil, nil
+	}
+
 	input := &ec2.DescribeNetworkInterfacesInput{
 		NetworkInterfaceIds: []*string{
 			nil,
@@ -114,7 +136,7 @@ func (vNicHandler *AwsVNicHandler) ListVNic() ([]*irs.VNicInfo, error) {
 		Filters: []*ec2.Filter{
 			{
 				Name:   aws.String("vpc-id"),
-				Values: aws.StringSlice([]string{"vpc-027696b302162edeb"}),
+				Values: aws.StringSlice([]string{vpcId}),
 			},
 		},
 	}
@@ -162,7 +184,7 @@ func ExtractVNicDescribeInfo(netIf *ec2.NetworkInterface) irs.VNicInfo {
 	}
 
 	if !reflect.ValueOf(netIf.MacAddress).IsNil() {
-		vNicInfo.MacAdress = *netIf.MacAddress
+		vNicInfo.MacAddress = *netIf.MacAddress
 	}
 
 	// 할당된 VM 정보 조회
@@ -260,5 +282,26 @@ func (vNicHandler *AwsVNicHandler) DeleteVNic(vNicID string) (bool, error) {
 		return false, err
 	}
 
+	/****
+		//@TODO : Nic외에도 보안 그룹 등도 함께 체크해야하므로 명시적으로 Subnet 삭제 외에는 삭제되지 않도록 주석 처리해 놓지만 나중에 처리해야 함.
+
+		//마지막 Nic이 삭제되면 VPC & Subnet도 자동 삭제함.
+		vNicList, err := vNicHandler.ListVNic()
+		//생성된 Nic이 없는 경우 Auto CB Network 삭제
+		if len(vNicList) < 1 && err == nil {
+			cblogger.Info("마지막 Nic이 삭제되었으므로 자동생성된 VPC와 Subnet을 제거함.")
+			//VPC ID 조회
+			vNetworkHandler := AwsVNetworkHandler{Client: vNicHandler.Client}
+
+			subnetId := vNetworkHandler.GetMcloudBaristaDefaultSubnetId()
+			if subnetId != "" {
+				_, errDel := vNetworkHandler.DeleteVNetwork(subnetId)
+				if errDel != nil {
+					cblogger.Error("CB Default Virtual Network 자동 제거 실패")
+					cblogger.Error(errDel)
+				}
+			}
+		}
+	****/
 	return true, nil
 }
