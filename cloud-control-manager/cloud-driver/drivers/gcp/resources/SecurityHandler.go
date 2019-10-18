@@ -4,18 +4,22 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2018-04-01/network"
-	"github.com/Azure/go-autorest/autorest/to"
-	idrv "github.com/cloud-barista/poc-cb-spider/cloud-driver/interfaces"
-	irs "github.com/cloud-barista/poc-cb-spider/cloud-driver/interfaces/resources"
-	"github.com/davecgh/go-spew/spew"
+	"log"
 	"strings"
+
+	idrv "../../../interfaces"
+	nirs "../../../interfaces/new-resources"
+	irs "../../../interfaces/resources"
+	"github.com/Azure/go-autorest/autorest/to"
+	"github.com/davecgh/go-spew/spew"
+	compute "google.golang.org/api/compute/v1"
 )
 
-type AzureSecurityHandler struct {
-	Region idrv.RegionInfo
-	Ctx    context.Context
-	Client *network.SecurityGroupsClient
+type GCPSecurityHandler struct {
+	Region     idrv.RegionInfo
+	Ctx        context.Context
+	Client     *compute.Service
+	Credential idrv.CredentialInfo
 }
 
 // @TODO: SecurityInfo 리소스 프로퍼티 정의 필요
@@ -43,7 +47,6 @@ func (security *SecurityInfo) setter(securityGroup network.SecurityGroup) *Secur
 	security.Id = *securityGroup.ID
 	security.Name = *securityGroup.Name
 	security.Location = *securityGroup.Location
-
 	var securityRuleArr []SecurityRuleInfo
 	var defaultSecurityRuleArr []SecurityRuleInfo
 
@@ -85,7 +88,7 @@ func (security *SecurityInfo) setter(securityGroup network.SecurityGroup) *Secur
 	return security
 }
 
-func (securityHandler *AzureSecurityHandler) CreateSecurity(securityReqInfo irs.SecurityReqInfo) (irs.SecurityInfo, error) {
+func (securityHandler *GCPSecurityHandler) CreateSecurity(securityReqInfo irs.SecurityReqInfo) (irs.SecurityInfo, error) {
 
 	// @TODO: SecurityGroup 생성 요청 파라미터 정의 필요
 	type SecurityReqInfo struct {
@@ -156,6 +159,7 @@ func (securityHandler *AzureSecurityHandler) CreateSecurity(securityReqInfo irs.
 
 	future, err := securityHandler.Client.CreateOrUpdate(securityHandler.Ctx, securityIdArr[0], securityIdArr[1], createOpts)
 	if err != nil {
+		log.Fatal(err)
 		return irs.SecurityInfo{}, err
 	}
 	err = future.WaitForCompletionRef(securityHandler.Ctx, securityHandler.Client.Client)
@@ -171,7 +175,7 @@ func (securityHandler *AzureSecurityHandler) CreateSecurity(securityReqInfo irs.
 	return publicIPInfo, nil
 }
 
-func (securityHandler *AzureSecurityHandler) ListSecurity() ([]*irs.SecurityInfo, error) {
+func (securityHandler *GCPSecurityHandler) ListSecurity() ([]*irs.SecurityInfo, error) {
 	//result, err := securityHandler.Client.ListAll(securityHandler.Ctx)
 	result, err := securityHandler.Client.List(securityHandler.Ctx, securityHandler.Region.ResourceGroup)
 	if err != nil {
@@ -188,7 +192,7 @@ func (securityHandler *AzureSecurityHandler) ListSecurity() ([]*irs.SecurityInfo
 	return nil, nil
 }
 
-func (securityHandler *AzureSecurityHandler) GetSecurity(securityID string) (irs.SecurityInfo, error) {
+func (securityHandler *GCPSecurityHandler) GetSecurity(securityID string) (irs.SecurityInfo, error) {
 	securityIdArr := strings.Split(securityID, ":")
 	security, err := securityHandler.Client.Get(securityHandler.Ctx, securityIdArr[0], securityIdArr[1], "")
 	if err != nil {
@@ -198,10 +202,10 @@ func (securityHandler *AzureSecurityHandler) GetSecurity(securityID string) (irs
 	securityInfo := new(SecurityInfo).setter(security)
 
 	spew.Dump(securityInfo)
-	return irs.SecurityInfo{}, nil
+	return nirs.SecurityInfo{}, nil
 }
 
-func (securityHandler *AzureSecurityHandler) DeleteSecurity(securityID string) (bool, error) {
+func (securityHandler *GCPSecurityHandler) DeleteSecurity(securityID string) (bool, error) {
 	securityIDArr := strings.Split(securityID, ":")
 	future, err := securityHandler.Client.Delete(securityHandler.Ctx, securityIDArr[0], securityIDArr[1])
 	if err != nil {
