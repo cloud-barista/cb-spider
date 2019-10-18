@@ -194,7 +194,7 @@ func getPublicIP(ctx context.Context, service *compute.Service, region string, p
 	//getkeyvaluelist test
 	kl := GetKeyValueList(result)
 	fmt.Println("GetKeyValueList : ", kl)
-	getValue := GetKeyValue(kl, "networkTier")
+	getValue := GetKeyValue(kl, "address")
 	fmt.Println("getValue :", getValue)
 	if users := info.Users; users != nil {
 		vmArr := strings.Split(users[0], "/")
