@@ -61,6 +61,57 @@ func main() {
                         {"GET", "/connectionconfig/:ConfigName", getConnectionConfig},
                         {"DELETE", "/connectionconfig/:ConfigName", deleteConnectionConfig},
 
+			//-------------------------------------------------------------------//
+
+                        //----------Image Handler
+                        {"POST", "/vmimage", createImage},
+                        {"GET", "/vmimage", listImage},
+                        {"GET", "/vmimage/:ImageName", getImage},
+                        {"DELETE", "/vmimage/:ImageName", deleteImage},
+
+                        //----------VNet Handler
+                        {"POST", "/vnetwork", createVNetwork},
+                        {"GET", "/vnetwork", listVNetwork},
+                        {"GET", "/vnetwork/:VNetId", getVNetwork},
+                        {"DELETE", "/vnetwork/:VNetId", deleteVNetwork},
+
+                        //----------SecurityGroup Handler
+                        {"POST", "/securitygroup", createSecurity},
+                        {"GET", "/securitygroup", listSecurity},
+                        {"GET", "/securitygroup/:SecurityGroupId", getSecurity},
+                        {"DELETE", "/securitygroup/:SecurityGroupId", deleteSecurity},
+
+                        //----------KeyPair Handler
+                        {"POST", "/keypair", createKey},
+                        {"GET", "/keypair", listKey},
+                        {"GET", "/keypair/:KeyPairId", getKey},
+                        {"DELETE", "/keypair/:KeyPairId", deleteKey},
+
+                        //----------VNic Handler
+                        {"POST", "/vnic", createVNic},
+                        {"GET", "/vnic", listVNic},
+                        {"GET", "/vnic/:VNicId", getVNic},
+                        {"DELETE", "/vnic/:VNicId", deleteVNic},
+
+                        //----------PublicIP Handler
+                        {"POST", "/publicip", createPublicIP},
+                        {"GET", "/publicip", listPublicIP},
+                        {"GET", "/publicip/:PublicIPId", getPublicIP},
+                        {"DELETE", "/publicip/:PublicIPId", deletePublicIP},
+
+                        //----------VM Handler
+                        {"POST", "/vm", startVM},
+                        {"GET", "/vm", controlVM},
+                        //{"GET", "/vm", suspendVM},
+                        //{"GET", "/vm", resumeVM},
+                        //{"GET", "/vm", rebootVM},
+                        {"DELETE", "/vm", terminateVM},
+
+                        {"GET", "/vmstatus", listVMStatus},
+                        {"GET", "/vmstatus/:VmId", getVMStatus},
+// todo from here!! 
+                        {"GET", "/vm/:VmId", getPublicIP},
+
                         }
 //======================================= setup routes
 

@@ -85,14 +85,14 @@ type VMInfo struct {
 
 type VMHandler interface {
 	StartVM(vmReqInfo VMReqInfo) (VMInfo, error)
-	SuspendVM(vmID string)
-	ResumeVM(vmID string)
-	RebootVM(vmID string)
-	TerminateVM(vmID string)
+	SuspendVM(vmID string) error
+	ResumeVM(vmID string) error
+	RebootVM(vmID string) error
+	TerminateVM(vmID string) error
 
-	ListVMStatus() []*VMStatusInfo
-	GetVMStatus(vmID string) VMStatus
+	ListVMStatus() ([]*VMStatusInfo, error)
+	GetVMStatus(vmID string) (VMStatus, error)
 
-	ListVM() []*VMInfo
-	GetVM(vmID string) VMInfo
+	ListVM() ([]*VMInfo, error)
+	GetVM(vmID string) (VMInfo, error)
 }
