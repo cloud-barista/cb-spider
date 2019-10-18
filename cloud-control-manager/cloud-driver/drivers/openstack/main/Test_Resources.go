@@ -346,6 +346,7 @@ func testVNetworkHandler(config Config) {
 	cblogger.Info("4. DeleteVNetwork()")
 	cblogger.Info("5. Exit")
 
+	vNetWorkName := "CB-VNet"
 	var vNetworkId string
 
 Loop:
@@ -361,24 +362,39 @@ Loop:
 			switch commandNum {
 			case 1:
 				cblogger.Info("Start ListVNetwork() ...")
-				vNetworkHandler.ListVNetwork()
+				if list, err := vNetworkHandler.ListVNetwork(); err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(list)
+				}
 				cblogger.Info("Finish ListVNetwork()")
 			case 2:
 				cblogger.Info("Start GetVNetwork() ...")
-				vNetworkHandler.GetVNetwork(vNetworkId)
+				if vNetInfo, err := vNetworkHandler.GetVNetwork(vNetworkId); err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(vNetInfo)
+				}
 				cblogger.Info("Finish GetVNetwork()")
 			case 3:
 				cblogger.Info("Start CreateVNetwork() ...")
-				reqInfo := irs.VNetworkReqInfo{Name: config.Openstack.VirtualNetwork.Name}
-				vNetwork, err := vNetworkHandler.CreateVNetwork(reqInfo)
-				if err != nil {
-					cblogger.Error(err)
+
+				reqInfo := irs.VNetworkReqInfo{
+					Name: vNetWorkName,
 				}
-				vNetworkId = vNetwork.Id
+
+				if vNetworkInfo, err := vNetworkHandler.CreateVNetwork(reqInfo); err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(vNetworkInfo)
+					vNetworkId = vNetworkInfo.Id
+				}
 				cblogger.Info("Finish CreateVNetwork()")
 			case 4:
 				cblogger.Info("Start DeleteVNetwork() ...")
-				vNetworkHandler.DeleteVNetwork(vNetworkId)
+				if ok, err := vNetworkHandler.DeleteVNetwork(vNetworkId); !ok {
+					cblogger.Error(err)
+				}
 				cblogger.Info("Finish DeleteVNetwork()")
 			case 5:
 				cblogger.Info("Exit")
