@@ -549,9 +549,9 @@ func handleVNic() {
 func main() {
 	cblogger.Info("AWS Resource Test")
 	//handleKeyPair()
-	handlePublicIP() // PublicIP 생성 후 conf
+	//handlePublicIP() // PublicIP 생성 후 conf
 
-	//handleVNetwork() //VPC
+	handleVNetwork() //VPC
 	//handleImage() //AMI
 	//handleVNic() //Lancard
 	//handleSecurity()

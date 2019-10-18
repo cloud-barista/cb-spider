@@ -53,7 +53,7 @@ func createVM() {
 		VirtualNetworkId: config.Aws.SubnetID,
 		//NetworkInterfaceId:
 		PublicIPId:       "eipalloc-0e95789a23e6d0c6f",
-		SecurityGroupIds: []string{"sg-099702cf5647f77c2"},
+		SecurityGroupIds: []string{"sg-09f8315746014adfc"},
 		VMSpecId:         config.Aws.InstanceType,
 		KeyPairName:      config.Aws.KeyName,
 	}
