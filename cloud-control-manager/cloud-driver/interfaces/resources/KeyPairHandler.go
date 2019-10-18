@@ -36,6 +36,6 @@ type KeyPairInfo struct {
 type KeyPairHandler interface {
 	CreateKey(keyPairReqInfo KeyPairReqInfo) (KeyPairInfo, error)
 	ListKey() ([]*KeyPairInfo, error)
-	GetKey(keyPairID string) (KeyPairInfo, error) // AWS는 keyPairName
-	DeleteKey(keyPairID string) (bool, error)     // AWS는 keyPairName
+	GetKey(keyName string) (KeyPairInfo, error) // AWS는 keyPairName
+	DeleteKey(keyName string) (bool, error)     // AWS는 keyPairName
 }
