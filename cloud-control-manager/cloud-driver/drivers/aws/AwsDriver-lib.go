@@ -8,8 +8,9 @@
 //
 // by powerkim@etri.re.kr, 2019.06.
 
-//package main
-package aws
+package main
+
+//package aws
 
 import (
 	"C"
