@@ -262,6 +262,51 @@ func (vNetworkHandler *AwsVNetworkHandler) CreateVpc(awsVpcReqInfo AwsVpcReqInfo
 
 	awsVpcInfo.Name = awsVpcReqInfo.Name
 
+	//====================================
+	// PublicIP 할당을 위해 IGW 생성및 연결
+	//====================================
+
+	//IGW 생성
+	resultIGW, errIGW := vNetworkHandler.Client.CreateInternetGateway(&ec2.CreateInternetGatewayInput{})
+	if errIGW != nil {
+		if aerr, ok := errIGW.(awserr.Error); ok {
+			switch aerr.Code() {
+			default:
+				cblogger.Error(aerr.Error())
+			}
+		} else {
+			// Print the error, cast err to awserr.Error to get the Code and
+			// Message from an error.
+			cblogger.Error(errIGW.Error())
+		}
+		return awsVpcInfo, errIGW
+	}
+
+	cblogger.Info(resultIGW)
+
+	// IGW에 VPC연결
+	inputIGW := &ec2.AttachInternetGatewayInput{
+		InternetGatewayId: aws.String(*resultIGW.InternetGateway.InternetGatewayId),
+		VpcId:             aws.String(awsVpcInfo.Id),
+	}
+
+	resultIGWAttach, errIGWAttach := vNetworkHandler.Client.AttachInternetGateway(inputIGW)
+	if err != nil {
+		if aerr, ok := errIGWAttach.(awserr.Error); ok {
+			switch aerr.Code() {
+			default:
+				cblogger.Error(aerr.Error())
+			}
+		} else {
+			// Print the error, cast err to awserr.Error to get the Code and
+			// Message from an error.
+			cblogger.Error(errIGWAttach.Error())
+		}
+		return awsVpcInfo, errIGWAttach
+	}
+
+	cblogger.Info(resultIGWAttach)
+
 	return awsVpcInfo, nil
 }
 
