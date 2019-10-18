@@ -265,7 +265,6 @@ func (vNetworkHandler *AwsVNetworkHandler) CreateVpc(awsVpcReqInfo AwsVpcReqInfo
 	//====================================
 	// PublicIP 할당을 위해 IGW 생성및 연결
 	//====================================
-
 	//IGW 생성
 	resultIGW, errIGW := vNetworkHandler.Client.CreateInternetGateway(&ec2.CreateInternetGatewayInput{})
 	if errIGW != nil {
@@ -283,6 +282,13 @@ func (vNetworkHandler *AwsVNetworkHandler) CreateVpc(awsVpcReqInfo AwsVpcReqInfo
 	}
 
 	cblogger.Info(resultIGW)
+
+	//IGW Name Tag 설정
+	if SetNameTag(vNetworkHandler.Client, *resultIGW.InternetGateway.InternetGatewayId, awsVpcReqInfo.Name) {
+		cblogger.Infof("IGW에 %s Name 설정 성공", awsVpcReqInfo.Name)
+	} else {
+		cblogger.Errorf("IGW에 %s Name 설정 실패", awsVpcReqInfo.Name)
+	}
 
 	// IGW에 VPC연결
 	inputIGW := &ec2.AttachInternetGatewayInput{

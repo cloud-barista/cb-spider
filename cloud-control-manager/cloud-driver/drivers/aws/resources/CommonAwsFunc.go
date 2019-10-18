@@ -11,7 +11,9 @@
 package resources
 
 import (
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
+	"github.com/aws/aws-sdk-go/service/ec2"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/davecgh/go-spew/spew"
 )
@@ -185,4 +187,25 @@ func (vNetworkHandler *AwsVNetworkHandler) FindOrCreateMcloudBaristaDefaultVPC(v
 //명시적으로 Subnet 삭제의 호출이 없기 때문에 시큐리티 그룹이나 vNic이 삭제되는 시점에 호출됨.
 func (vNetworkHandler *AwsVNetworkHandler) IsAvailableAutoCBNet() bool {
 	return false
+}
+
+func SetNameTag(Client *ec2.EC2, Id string, value string) bool {
+	// Tag에 Name 설정
+	cblogger.Infof("Name Tage 설정 - ResourceId : [%s]  Value : [%s] ", Id, value)
+	_, errtag := Client.CreateTags(&ec2.CreateTagsInput{
+		Resources: []*string{&Id},
+		Tags: []*ec2.Tag{
+			{
+				Key:   aws.String("Name"),
+				Value: aws.String(value),
+			},
+		},
+	})
+	if errtag != nil {
+		cblogger.Error("Name Tag 설정 실패 : ")
+		cblogger.Error(errtag)
+		return false
+	}
+
+	return true
 }
