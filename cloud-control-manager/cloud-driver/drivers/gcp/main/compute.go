@@ -190,6 +190,12 @@ func getPublicIP(ctx context.Context, service *compute.Service, region string, p
 	}
 	fmt.Println("KeyValueList : ", keyValueList)
 	fmt.Println("publicInfo addressip : ", publicInfo.Address)
+
+	//getkeyvaluelist test
+	kl := GetKeyValueList(result)
+	fmt.Println("GetKeyValueList : ", kl)
+	getValue := GetKeyValue(kl, "networkTier")
+	fmt.Println("getValue :", getValue)
 	if users := info.Users; users != nil {
 		vmArr := strings.Split(users[0], "/")
 		publicInfo.InstanceId = vmArr[len(vmArr)-1]
@@ -201,6 +207,27 @@ func getPublicIP(ctx context.Context, service *compute.Service, region string, p
 
 	fmt.Println("publicInfo : ", publicInfo)
 
+}
+func GetKeyValueList(i map[string]interface{}) []KeyValue {
+	var keyValueList []KeyValue
+	for k, v := range i {
+		keyValueList = append(keyValueList, KeyValue{k, v.(string)})
+		fmt.Println("getKeyValueList : ", keyValueList)
+	}
+
+	return keyValueList
+}
+
+func GetKeyValue(keyValusList []KeyValue, key string) interface{} {
+	var getValue string
+	for _, v := range keyValusList {
+		fmt.Println(v.Key)
+		if v.Key != "" && v.Key == key {
+			getValue = v.Value
+			return getValue
+		}
+	}
+	return nil
 }
 
 func getInstance(ctx context.Context, service *compute.Service, zone string, instanceName string, conf Config) *compute.Instance {
