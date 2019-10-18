@@ -92,6 +92,7 @@ func (vmHandler *AwsVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 		},*/
 
 		SubnetId: aws.String(subnetID), // set a subnet.
+		
 	})
 	if err != nil {
 		cblogger.Errorf("Could not create instance", err)
