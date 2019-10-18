@@ -4,18 +4,20 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2018-04-01/network"
-	idrv "github.com/cloud-barista/poc-cb-spider/cloud-driver/interfaces"
-	irs "github.com/cloud-barista/poc-cb-spider/cloud-driver/interfaces/resources"
-	"github.com/davecgh/go-spew/spew"
 	"strings"
+
+	idrv "../../../interfaces"
+	nirs "../../../interfaces/new-resources"
+	irs "../../../interfaces/resources"
+	"github.com/davecgh/go-spew/spew"
+	compute "google.golang.org/api/compute/v1"
 )
 
-type AzureVNicHandler struct {
+type GCPVNicHandler struct {
 	Region       idrv.RegionInfo
 	Ctx          context.Context
-	NicClient    *network.InterfacesClient
-	SubnetClient *network.SubnetsClient
+	SubnetClient *compute.Service
+	Credential   idrv.CredentialInfo
 }
 
 // @TODO: VNicInfo 리소스 프로퍼티 정의 필요
@@ -68,11 +70,11 @@ func (nic *VNicInfo) setter(ni network.Interface) *VNicInfo {
 	return nic
 }
 
-func (vNicHandler *AzureVNicHandler) CreateVNic(vNicReqInfo irs.VNicReqInfo) (irs.VNicInfo, error) {
+func (vNicHandler *GCPVNicHandler) CreateVNic(vNicReqInfo irs.VNicReqInfo) (nirs.VNicInfo, error) {
 
 	// @TODO: VNicInfo 생성 요청 파라미터 정의 필요
 	type VNicIPReqInfo struct {
-		Name string
+		Name                      string
 		PrivateIPAllocationMethod string
 	}
 	type VNicReqInfo struct {
@@ -106,7 +108,7 @@ func (vNicHandler *AzureVNicHandler) CreateVNic(vNicReqInfo irs.VNicReqInfo) (ir
 	if vNic.ID != nil {
 		errMsg := fmt.Sprintf("Virtual Network Interface with name %s already exist", vNicIdArr[1])
 		createErr := errors.New(errMsg)
-		return irs.VNicInfo{}, createErr
+		return nirs.VNicInfo{}, createErr
 	}
 
 	subnet, err := vNicHandler.getSubnet(vNicIdArr[0], reqInfo.VNetworkName, reqInfo.SubnetName)
@@ -142,7 +144,7 @@ func (vNicHandler *AzureVNicHandler) CreateVNic(vNicReqInfo irs.VNicReqInfo) (ir
 	return irs.VNicInfo{}, nil
 }
 
-func (vNicHandler *AzureVNicHandler) ListVNic() ([]*irs.VNicInfo, error) {
+func (vNicHandler *GCPVNicHandler) ListVNic() ([]*irs.VNicInfo, error) {
 	//result, err := vNicHandler.NicClient.ListAll(vNicHandler.Ctx)
 	result, err := vNicHandler.NicClient.List(vNicHandler.Ctx, vNicHandler.Region.ResourceGroup)
 	if err != nil {
@@ -159,7 +161,7 @@ func (vNicHandler *AzureVNicHandler) ListVNic() ([]*irs.VNicInfo, error) {
 	return nil, nil
 }
 
-func (vNicHandler *AzureVNicHandler) GetVNic(vNicID string) (irs.VNicInfo, error) {
+func (vNicHandler *GCPVNicHandler) GetVNic(vNicID string) (irs.VNicInfo, error) {
 	vNicIDArr := strings.Split(vNicID, ":")
 	vNic, err := vNicHandler.NicClient.Get(vNicHandler.Ctx, vNicIDArr[0], vNicIDArr[1], "")
 	if err != nil {
@@ -172,7 +174,7 @@ func (vNicHandler *AzureVNicHandler) GetVNic(vNicID string) (irs.VNicInfo, error
 	return irs.VNicInfo{}, nil
 }
 
-func (vNicHandler *AzureVNicHandler) DeleteVNic(vNicID string) (bool, error) {
+func (vNicHandler *GCPVNicHandler) DeleteVNic(vNicID string) (bool, error) {
 	vNicIDArr := strings.Split(vNicID, ":")
 	future, err := vNicHandler.NicClient.Delete(vNicHandler.Ctx, vNicIDArr[0], vNicIDArr[1])
 	if err != nil {
@@ -185,6 +187,6 @@ func (vNicHandler *AzureVNicHandler) DeleteVNic(vNicID string) (bool, error) {
 	return true, err
 }
 
-func (vNicHandler *AzureVNicHandler) getSubnet(rsgName string, vNetName string, subnetName string) (network.Subnet, error) {
+func (vNicHandler *GCPVNicHandler) getSubnet(rsgName string, vNetName string, subnetName string) (network.Subnet, error) {
 	return vNicHandler.SubnetClient.Get(vNicHandler.Ctx, rsgName, vNetName, subnetName, "")
 }
