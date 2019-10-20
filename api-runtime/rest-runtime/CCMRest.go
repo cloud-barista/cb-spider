@@ -667,7 +667,7 @@ func terminateVM(c echo.Context) error {
                 return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
         }
 
-        return c.JSON(http.StatusOK, nil)
+        return c.JSON(http.StatusOK, "SUCCESS")
 }
 
 func listVMStatus(c echo.Context) error {

@@ -103,7 +103,7 @@ func main() {
                         {"POST", "/vm", startVM},
                         {"GET", "/vm", listVM},
                         {"GET", "/vm/:VmId", getVM},
-                        {"DELETE", "/vm", terminateVM},
+                        {"DELETE", "/vm:VmId", terminateVM},
 
                         {"GET", "/vmstatus", listVMStatus},
                         {"GET", "/vmstatus/:VmId", getVMStatus},
