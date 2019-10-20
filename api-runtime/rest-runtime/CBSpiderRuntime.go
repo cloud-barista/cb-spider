@@ -101,16 +101,14 @@ func main() {
 
                         //----------VM Handler
                         {"POST", "/vm", startVM},
-                        {"GET", "/vm", controlVM},
-                        //{"GET", "/vm", suspendVM},
-                        //{"GET", "/vm", resumeVM},
-                        //{"GET", "/vm", rebootVM},
+                        {"GET", "/vm", listVM},
+                        {"GET", "/vm/:VmId", getVM},
                         {"DELETE", "/vm", terminateVM},
 
                         {"GET", "/vmstatus", listVMStatus},
                         {"GET", "/vmstatus/:VmId", getVMStatus},
-// todo from here!! 
-                        {"GET", "/vm/:VmId", getPublicIP},
+
+                        {"GET", "/controlvm/:VmId", controlVM}, // suspend, resume, reboot
 
                         }
 //======================================= setup routes

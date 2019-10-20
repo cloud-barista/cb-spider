@@ -17,6 +17,8 @@ import (
         // REST API (echo)
         "net/http"
         "github.com/labstack/echo"
+
+	"strings"
 )
 
 
@@ -25,7 +27,7 @@ import (
 func createImage(c echo.Context) error {
         cblog.Info("call createImage()")
 
-	cldConn, err:= ccm.GetCloudConnection(c.Param("ConnectionName"))
+	cldConn, err:= ccm.GetCloudConnection(c.Param("connection_name"))
         if err != nil {
                 return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
         }
@@ -52,7 +54,7 @@ func createImage(c echo.Context) error {
 func listImage(c echo.Context) error {
         cblog.Info("call listImage()")
 
-        cldConn, err:= ccm.GetCloudConnection(c.Param("ConnectionName"))
+        cldConn, err:= ccm.GetCloudConnection(c.Param("connection_name"))
         if err != nil {
                 return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
         }
@@ -74,7 +76,7 @@ func listImage(c echo.Context) error {
 func getImage(c echo.Context) error {
         cblog.Info("call getImage()")
 
-        cldConn, err:= ccm.GetCloudConnection(c.Param("ConnectionName"))
+        cldConn, err:= ccm.GetCloudConnection(c.Param("connection_name"))
         if err != nil {
                 return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
         }
@@ -95,7 +97,7 @@ func getImage(c echo.Context) error {
 func deleteImage(c echo.Context) error {
         cblog.Info("call deleteImage()")
 
-        cldConn, err:= ccm.GetCloudConnection(c.Param("ConnectionName"))
+        cldConn, err:= ccm.GetCloudConnection(c.Param("connection_name"))
         if err != nil {
                 return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
         }
@@ -118,7 +120,7 @@ func deleteImage(c echo.Context) error {
 func createVNetwork(c echo.Context) error {
         cblog.Info("call createVNetwork()")
 
-        cldConn, err:= ccm.GetCloudConnection(c.Param("ConnectionName"))
+        cldConn, err:= ccm.GetCloudConnection(c.Param("connection_name"))
         if err != nil {
                 return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
         }
@@ -145,7 +147,7 @@ func createVNetwork(c echo.Context) error {
 func listVNetwork(c echo.Context) error {
         cblog.Info("call listVNetwork()")
 
-        cldConn, err:= ccm.GetCloudConnection(c.Param("ConnectionName"))
+        cldConn, err:= ccm.GetCloudConnection(c.Param("connection_name"))
         if err != nil {
                 return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
         }
@@ -167,7 +169,7 @@ func listVNetwork(c echo.Context) error {
 func getVNetwork(c echo.Context) error {
         cblog.Info("call getVNetwork()")
 
-        cldConn, err:= ccm.GetCloudConnection(c.Param("ConnectionName"))
+        cldConn, err:= ccm.GetCloudConnection(c.Param("connection_name"))
         if err != nil {
                 return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
         }
@@ -188,7 +190,7 @@ func getVNetwork(c echo.Context) error {
 func deleteVNetwork(c echo.Context) error {
         cblog.Info("call deleteVNetwork()")
 
-        cldConn, err:= ccm.GetCloudConnection(c.Param("ConnectionName"))
+        cldConn, err:= ccm.GetCloudConnection(c.Param("connection_name"))
         if err != nil {
                 return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
         }
@@ -211,7 +213,7 @@ func deleteVNetwork(c echo.Context) error {
 func createSecurity(c echo.Context) error {
         cblog.Info("call createSecurity()")
 
-        cldConn, err:= ccm.GetCloudConnection(c.Param("ConnectionName"))
+        cldConn, err:= ccm.GetCloudConnection(c.Param("connection_name"))
         if err != nil {
                 return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
         }
@@ -238,7 +240,7 @@ func createSecurity(c echo.Context) error {
 func listSecurity(c echo.Context) error {
         cblog.Info("call listSecurity()")
 
-        cldConn, err:= ccm.GetCloudConnection(c.Param("ConnectionName"))
+        cldConn, err:= ccm.GetCloudConnection(c.Param("connection_name"))
         if err != nil {
                 return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
         }
@@ -260,7 +262,7 @@ func listSecurity(c echo.Context) error {
 func getSecurity(c echo.Context) error {
         cblog.Info("call getSecurity()")
 
-        cldConn, err:= ccm.GetCloudConnection(c.Param("ConnectionName"))
+        cldConn, err:= ccm.GetCloudConnection(c.Param("connection_name"))
         if err != nil {
                 return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
         }
@@ -281,7 +283,7 @@ func getSecurity(c echo.Context) error {
 func deleteSecurity(c echo.Context) error {
         cblog.Info("call deleteSecurity()")
 
-        cldConn, err:= ccm.GetCloudConnection(c.Param("ConnectionName"))
+        cldConn, err:= ccm.GetCloudConnection(c.Param("connection_name"))
         if err != nil {
                 return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
         }
@@ -304,7 +306,7 @@ func deleteSecurity(c echo.Context) error {
 func createKey(c echo.Context) error {
         cblog.Info("call createKey()")
 
-        cldConn, err:= ccm.GetCloudConnection(c.Param("ConnectionName"))
+        cldConn, err:= ccm.GetCloudConnection(c.Param("connection_name"))
         if err != nil {
                 return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
         }
@@ -331,7 +333,7 @@ func createKey(c echo.Context) error {
 func listKey(c echo.Context) error {
         cblog.Info("call listKey()")
 
-        cldConn, err:= ccm.GetCloudConnection(c.Param("ConnectionName"))
+        cldConn, err:= ccm.GetCloudConnection(c.Param("connection_name"))
         if err != nil {
                 return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
         }
@@ -353,7 +355,7 @@ func listKey(c echo.Context) error {
 func getKey(c echo.Context) error {
         cblog.Info("call getKey()")
 
-        cldConn, err:= ccm.GetCloudConnection(c.Param("ConnectionName"))
+        cldConn, err:= ccm.GetCloudConnection(c.Param("connection_name"))
         if err != nil {
                 return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
         }
@@ -374,7 +376,7 @@ func getKey(c echo.Context) error {
 func deleteKey(c echo.Context) error {
         cblog.Info("call deleteKey()")
 
-        cldConn, err:= ccm.GetCloudConnection(c.Param("ConnectionName"))
+        cldConn, err:= ccm.GetCloudConnection(c.Param("connection_name"))
         if err != nil {
                 return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
         }
@@ -396,7 +398,7 @@ func deleteKey(c echo.Context) error {
 func createVNic(c echo.Context) error {
         cblog.Info("call createVNic()")
 
-        cldConn, err:= ccm.GetCloudConnection(c.Param("ConnectionName"))
+        cldConn, err:= ccm.GetCloudConnection(c.Param("connection_name"))
         if err != nil {
                 return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
         }
@@ -423,7 +425,7 @@ func createVNic(c echo.Context) error {
 func listVNic(c echo.Context) error {
         cblog.Info("call listVNic()")
 
-        cldConn, err:= ccm.GetCloudConnection(c.Param("ConnectionName"))
+        cldConn, err:= ccm.GetCloudConnection(c.Param("connection_name"))
         if err != nil {
                 return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
         }
@@ -445,7 +447,7 @@ func listVNic(c echo.Context) error {
 func getVNic(c echo.Context) error {
         cblog.Info("call getVNic()")
 
-        cldConn, err:= ccm.GetCloudConnection(c.Param("ConnectionName"))
+        cldConn, err:= ccm.GetCloudConnection(c.Param("connection_name"))
         if err != nil {
                 return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
         }
@@ -466,7 +468,7 @@ func getVNic(c echo.Context) error {
 func deleteVNic(c echo.Context) error {
         cblog.Info("call deleteVNic()")
 
-        cldConn, err:= ccm.GetCloudConnection(c.Param("ConnectionName"))
+        cldConn, err:= ccm.GetCloudConnection(c.Param("connection_name"))
         if err != nil {
                 return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
         }
@@ -488,7 +490,7 @@ func deleteVNic(c echo.Context) error {
 func createPublicIP(c echo.Context) error {
         cblog.Info("call createPublicIP()")
 
-        cldConn, err:= ccm.GetCloudConnection(c.Param("ConnectionName"))
+        cldConn, err:= ccm.GetCloudConnection(c.Param("connection_name"))
         if err != nil {
                 return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
         }
@@ -515,7 +517,7 @@ func createPublicIP(c echo.Context) error {
 func listPublicIP(c echo.Context) error {
         cblog.Info("call listPublicIP()")
 
-        cldConn, err:= ccm.GetCloudConnection(c.Param("ConnectionName"))
+        cldConn, err:= ccm.GetCloudConnection(c.Param("connection_name"))
         if err != nil {
                 return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
         }
@@ -537,7 +539,7 @@ func listPublicIP(c echo.Context) error {
 func getPublicIP(c echo.Context) error {
         cblog.Info("call getPublicIP()")
 
-        cldConn, err:= ccm.GetCloudConnection(c.Param("ConnectionName"))
+        cldConn, err:= ccm.GetCloudConnection(c.Param("connection_name"))
         if err != nil {
                 return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
         }
@@ -558,7 +560,7 @@ func getPublicIP(c echo.Context) error {
 func deletePublicIP(c echo.Context) error {
         cblog.Info("call deletePublicIP()")
 
-        cldConn, err:= ccm.GetCloudConnection(c.Param("ConnectionName"))
+        cldConn, err:= ccm.GetCloudConnection(c.Param("connection_name"))
         if err != nil {
                 return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
         }
@@ -580,7 +582,7 @@ func deletePublicIP(c echo.Context) error {
 func startVM(c echo.Context) error {
         cblog.Info("call startVM()")
 
-        cldConn, err:= ccm.GetCloudConnection(c.Param("ConnectionName"))
+        cldConn, err:= ccm.GetCloudConnection(c.Param("connection_name"))
         if err != nil {
                 return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
         }
@@ -604,136 +606,10 @@ func startVM(c echo.Context) error {
         return c.JSON(http.StatusOK, &info)
 }
 
-func suspendVM(c echo.Context) error {
-        cblog.Info("call suspendVM()")
-
-        cldConn, err:= ccm.GetCloudConnection(c.Param("ConnectionName"))
-        if err != nil {
-                return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
-        }
-
-        handler, err:= cldConn.CreateVMHandler()
-        if err != nil {
-                return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
-        }
-
-        err = handler.SuspendVM(c.Param("VmId"))
-        if err != nil {
-                return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
-        }
-
-        return c.JSON(http.StatusOK, nil)
-}
-
-func resumeVM(c echo.Context) error {
-        cblog.Info("call ResumeVM()")
-
-        cldConn, err:= ccm.GetCloudConnection(c.Param("ConnectionName"))
-        if err != nil {
-                return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
-        }
-
-        handler, err:= cldConn.CreateVMHandler()
-        if err != nil {
-                return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
-        }
-
-        err = handler.ResumeVM(c.Param("VmId"))
-        if err != nil {
-                return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
-        }
-
-        return c.JSON(http.StatusOK, nil)
-}
-
-func rebootVM(c echo.Context) error {
-        cblog.Info("call rebootVM()")
-
-        cldConn, err:= ccm.GetCloudConnection(c.Param("ConnectionName"))
-        if err != nil {
-                return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
-        }
-
-        handler, err:= cldConn.CreateVMHandler()
-        if err != nil {
-                return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
-        }
-
-        err = handler.RebootVM(c.Param("VmId"))
-        if err != nil {
-                return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
-        }
-
-        return c.JSON(http.StatusOK, nil)
-}
-
-func terminateVM(c echo.Context) error {
-        cblog.Info("call terminateVM()")
-
-        cldConn, err:= ccm.GetCloudConnection(c.Param("ConnectionName"))
-        if err != nil {
-                return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
-        }
-
-        handler, err:= cldConn.CreateVMHandler()
-        if err != nil {
-                return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
-        }
-
-        err = handler.TerminateVM(c.Param("VmId"))
-        if err != nil {
-                return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
-        }
-
-        return c.JSON(http.StatusOK, nil)
-}
-
-func listVMStatus(c echo.Context) error {
-        cblog.Info("call listVMStatus()")
-
-        cldConn, err:= ccm.GetCloudConnection(c.Param("ConnectionName"))
-        if err != nil {
-                return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
-        }
-
-        handler, err:= cldConn.CreateVMHandler()
-        if err != nil {
-                return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
-        }
-
-        infoList, err := handler.ListVMStatus()
-        if err != nil {
-                return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
-        }
-
-        return c.JSON(http.StatusOK, &infoList)
-}
-
-func getVMStatus(c echo.Context) error {
-        cblog.Info("call getVMStatus()")
-
-        cldConn, err:= ccm.GetCloudConnection(c.Param("ConnectionName"))
-        if err != nil {
-                return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
-        }
-
-        handler, err:= cldConn.CreateVMHandler()
-        if err != nil {
-                return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
-        }
-
-        info, err := handler.GetVMStatus(c.Param("VmId"))
-        if err != nil {
-                return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
-        }
-
-        return c.JSON(http.StatusOK, &info)
-}
-
 func listVM(c echo.Context) error {
         cblog.Info("call listVM()")
 
-        cldConn, err:= ccm.GetCloudConnection(c.Param("ConnectionName"))
+        cldConn, err:= ccm.GetCloudConnection(c.Param("connection_name"))
         if err != nil {
                 return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
         }
@@ -755,7 +631,7 @@ func listVM(c echo.Context) error {
 func getVM(c echo.Context) error {
         cblog.Info("call getVM()")
 
-        cldConn, err:= ccm.GetCloudConnection(c.Param("ConnectionName"))
+        cldConn, err:= ccm.GetCloudConnection(c.Param("connection_name"))
         if err != nil {
                 return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
         }
@@ -771,5 +647,110 @@ func getVM(c echo.Context) error {
         }
 
         return c.JSON(http.StatusOK, &info)
+}
+
+func terminateVM(c echo.Context) error {
+        cblog.Info("call terminateVM()")
+
+        cldConn, err:= ccm.GetCloudConnection(c.Param("connection_name"))
+        if err != nil {
+                return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+        }
+
+        handler, err:= cldConn.CreateVMHandler()
+        if err != nil {
+                return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+        }
+
+        err = handler.TerminateVM(c.Param("VmId"))
+        if err != nil {
+                return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+        }
+
+        return c.JSON(http.StatusOK, nil)
+}
+
+func listVMStatus(c echo.Context) error {
+        cblog.Info("call listVMStatus()")
+
+        cldConn, err:= ccm.GetCloudConnection(c.Param("connection_name"))
+        if err != nil {
+                return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+        }
+
+        handler, err:= cldConn.CreateVMHandler()
+        if err != nil {
+                return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+        }
+
+        infoList, err := handler.ListVMStatus()
+        if err != nil {
+                return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+        }
+
+        return c.JSON(http.StatusOK, &infoList)
+}
+
+func getVMStatus(c echo.Context) error {
+        cblog.Info("call getVMStatus()")
+
+        cldConn, err:= ccm.GetCloudConnection(c.Param("connection_name"))
+        if err != nil {
+                return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+        }
+
+        handler, err:= cldConn.CreateVMHandler()
+        if err != nil {
+                return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+        }
+
+        info, err := handler.GetVMStatus(c.Param("VmId"))
+        if err != nil {
+                return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+        }
+
+        return c.JSON(http.StatusOK, &info)
+}
+
+func controlVM(c echo.Context) error {
+        cblog.Info("call controlVM()")
+
+        cldConn, err:= ccm.GetCloudConnection(c.Param("connection_name"))
+        if err != nil {
+                return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+        }
+
+        handler, err:= cldConn.CreateVMHandler()
+        if err != nil {
+                return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+        }
+
+        vmID := c.Param("VmId")
+        if err != nil {
+                return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+        }
+
+        action := c.Param("action")
+        if err != nil {
+                return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+        }
+
+        switch strings.ToLower(action) {
+        case "suspend":
+		err = handler.SuspendVM(vmID)
+        case "resume":
+		err = handler.ResumeVM(vmID)
+        case "reboot":
+		err = handler.RebootVM(vmID)
+	default:
+                errmsg := action + " is not a valid action!!"
+                return echo.NewHTTPError(http.StatusInternalServerError, errmsg)
+		
+        }
+	if err != nil {
+                return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+        }
+
+        return c.JSON(http.StatusOK, "SUCCESS")
 }
 
