@@ -26,7 +26,8 @@ func setterImage(image images.Image) *irs.ImageInfo {
 	}
 
 	// 메타 정보 등록
-	metadataList := make([]irs.KeyValue, len(image.Metadata))
+	//metadataList := make([]irs.KeyValue, len(image.Metadata))
+	var metadataList []irs.KeyValue
 	for key, val := range image.Metadata {
 		metadata := irs.KeyValue{
 			Key:   key,
