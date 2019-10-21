@@ -548,13 +548,13 @@ func handleVNic() {
 
 func main() {
 	cblogger.Info("AWS Resource Test")
-	//handleKeyPair()
+	handleKeyPair()
 	//handlePublicIP() // PublicIP 생성 후 conf
 
 	//handleVNetwork() //VPC
 	//handleImage() //AMI
 	//handleVNic() //Lancard
-	handleSecurity()
+	//handleSecurity()
 
 	/*
 		KeyPairHandler, err := setKeyPairHandler()

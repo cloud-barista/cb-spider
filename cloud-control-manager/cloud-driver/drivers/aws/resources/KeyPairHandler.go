@@ -81,6 +81,7 @@ func (keyPairHandler *AwsKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPairReq
 	keyPairInfo := irs.KeyPairInfo{
 		Name:        *result.KeyName,
 		Fingerprint: *result.KeyFingerprint,
+		PrivateKey:  *result.KeyMaterial, // AWS(PEM파일-RSA PRIVATE KEY)
 		//KeyMaterial: *result.KeyMaterial,
 		KeyValueList: []irs.KeyValue{
 			{Key: "KeyMaterial", Value: *result.KeyMaterial},
