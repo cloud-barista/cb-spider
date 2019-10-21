@@ -35,13 +35,19 @@ type PublicIPInfo struct {
 func (publicIpHandler *GCPPublicIPHandler) CreatePublicIP(publicIPReqInfo irs.PublicIPReqInfo) (irs.PublicIPInfo, error) {
 	projectID := publicIpHandler.Credential.projectID
 	region := publicIpHandler.Region.region
+	publicIpName := publicIPReqInfo.Name
 	address := &compute.Address{
-		Name: publicIPReqInfo.Name,
+		Name: publicIpName,
 	}
 	publicIpHandler.Client.Addresses.Insert(projectID, region, address).Do()
 	time.Sleep(time.Second * 3)
 
-	return publicIPInfo, nil
+	publicIPInfo, err := publicIpHandler.GetPublicIP(publicIpName)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	return publicIPInfo, err
 }
 
 func (publicIpHandler *GCPPublicIPHandler) ListPublicIP() ([]*irs.PublicIPInfo, error) {
@@ -52,10 +58,15 @@ func (publicIpHandler *GCPPublicIPHandler) ListPublicIP() ([]*irs.PublicIPInfo, 
 	if err != nil {
 		log.Fatal(err)
 	}
+	var publicIpInfoArr []*irs.PublicIPInfo
 	for _, item := range list.Items {
-
+		var publicInfo irs.PublicIPInfo
+		publicInfo.Name = item.Name
+		publicInfo.PublicIP = item.Address
+		publicInfo.Status = item.Status
+		//publicInfo.KeyValueList = GetKeyValueList()
 	}
-	return nil, nil
+	return publicIpInfoArr, nil
 }
 
 func (publicIpHandler *GCPPublicIPHandler) GetPublicIP(publicIPID string) (irs.PublicIPInfo, error) {
@@ -87,10 +98,13 @@ func (publicIpHandler *GCPPublicIPHandler) GetPublicIP(publicIPID string) (irs.P
 
 	// 구조체 안에 해당값을 바인딩해준다.
 	var result map[string]interface{}
+
 	err := json.Unmarshal(infoByte, &result)
-	for key, value := range result {
-		keyValueList = append(keyValueList, irs.KeyValue{key, value})
-	}
+	keyValueList = GetKeyValueList(result)
+	// for key, value := range result {
+	// 	keyValueList = append(keyValueList, irs.KeyValue{key, value})
+	// }
+
 	publicInfo.KeyValueList = keyValueList
 
 	if err != nil {

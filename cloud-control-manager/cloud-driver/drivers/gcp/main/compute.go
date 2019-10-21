@@ -306,34 +306,41 @@ func ListPublicIP(ctx context.Context, service *compute.Service, conf Config, re
 	if err != nil {
 		log.Fatal(err)
 	}
-	fmt.Println("ListPublicIP Info : ", string(listInfo))
-	fmt.Println("ListPublicIP[0] Name : ", list.Items[0].Name)
-	fmt.Println("ListPublicIP[0] Address : ", list.Items[0].Address)
+
+	var result map[string]interface{}
+	json.Unmarshal(listInfo, &result)
+
+	fmt.Println("ListPublicIP Info : ", result)
+	// fmt.Println("ListPublicIP[0] Name : ", list.Items[0].Name)
+	// fmt.Println("ListPublicIP[0] Address : ", list.Items[0].Address)
 	//log.Printf("getGlovalAddressList, err: %#v, %v", list, err)
-	publicIPInfos := make([]PublicIPInfo, len(list.Items))
-	for index, item := range list.Items {
-		fmt.Println("index : ", index)
+	var publicInfoArr []*PublicIPInfo
+
+	for _, item := range list.Items {
+		// fmt.Println("index : ", index)
 		fmt.Println("item : ", item)
-		publicIPInfos[index].Name = item.Name
-		publicIPInfos[index].Id = strconv.FormatUint(item.Id, 10)
-		publicIPInfos[index].Region = item.Region
-		publicIPInfos[index].CreationTimestamp = item.CreationTimestamp
-		publicIPInfos[index].Address = item.Address
-		publicIPInfos[index].NetworkTier = item.Network
+		var publicIPInfos PublicIPInfo
+		publicIPInfos.Name = item.Name
+		publicIPInfos.Id = strconv.FormatUint(item.Id, 10)
+		publicIPInfos.Region = item.Region
+		publicIPInfos.CreationTimestamp = item.CreationTimestamp
+		publicIPInfos.Address = item.Address
+		publicIPInfos.NetworkTier = item.Network
 		if user := item.Users; user != nil {
-			publicIPInfos[index].InstanceId = user[0]
+			publicIPInfos.InstanceId = user[0]
 		}
 		// publicIPInfos[index].InstanceId = item.Users[0]
-		publicIPInfos[index].Status = item.Status
+		publicIPInfos.Status = item.Status
+		publicInfoArr = append(publicInfoArr, &publicIPInfos)
 
 	}
-	for _, st := range publicIPInfos {
+	// for _, st := range publicIPInfos {
 
-		if st.Status == "RESERVED" {
-			fmt.Println(st.Status)
-		}
-	}
-	fmt.Println("publicInfos Arr : ", publicIPInfos)
+	// 	if st.Status == "RESERVED" {
+	// 		fmt.Println(st.Status)
+	// 	}
+	// }
+	fmt.Println("publicInfos Arr : ", publicInfoArr)
 	name := list.Items[0].Name
 	address := list.Items[0].Address
 	return name, address
@@ -470,10 +477,10 @@ func main() {
 	//getGlobalAddressList(ctx, client, config)
 	//getPublicIP(ctx, client, region, "natip", config)
 	//CreatePublicIP(ctx, client, "publicip6", region, config)
-	getPublicIP(ctx, client, region, "publicip6", config)
-	//name, address := ListPublicIP(ctx, client, config, region)
-	//fmt.Println("output name : ", name)
-	//fmt.Println("output address : ", address)
+	//getPublicIP(ctx, client, region, "publicip6", config)
+	name, address := ListPublicIP(ctx, client, config, region)
+	fmt.Println("output name : ", name)
+	fmt.Println("output address : ", address)
 	//getVMlist := ListVM(ctx, client, zone, config)
 	//fmt.Println("getVMList : ", string(getVMlist))
 	//getImagelist := ListImage(ctx, client, config)
