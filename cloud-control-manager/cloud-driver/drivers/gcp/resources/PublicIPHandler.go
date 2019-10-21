@@ -115,6 +115,14 @@ func (publicIpHandler *GCPPublicIPHandler) GetPublicIP(publicIPID string) (irs.P
 }
 
 func (publicIpHandler *GCPPublicIPHandler) DeletePublicIP(publicIPID string) (bool, error) {
+	projectID := publicIpHandler.Credential.ProjectID
+	region := publicIpHandler.Region.Region
+	name := publicIPID // name or resource ID
+
+	info, err := publicIpHandler.Client.Addresses.Delete(projectID, region, name).Do()
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	return true, nil
 }
