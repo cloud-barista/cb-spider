@@ -33,8 +33,8 @@ type PublicIPInfo struct {
 }
 
 func (publicIpHandler *GCPPublicIPHandler) CreatePublicIP(publicIPReqInfo irs.PublicIPReqInfo) (irs.PublicIPInfo, error) {
-	projectID := publicIpHandler.Credential.projectID
-	region := publicIpHandler.Region.region
+	projectID := publicIpHandler.Credential.ProjectID
+	region := publicIpHandler.Region.Region
 	publicIpName := publicIPReqInfo.Name
 	address := &compute.Address{
 		Name: publicIpName,
@@ -51,8 +51,8 @@ func (publicIpHandler *GCPPublicIPHandler) CreatePublicIP(publicIPReqInfo irs.Pu
 }
 
 func (publicIpHandler *GCPPublicIPHandler) ListPublicIP() ([]*irs.PublicIPInfo, error) {
-	projectID := publicIpHandler.Credential.projectID
-	region := publicIpHandler.Region.region
+	projectID := publicIpHandler.Credential.ProjectID
+	region := publicIpHandler.Region.Region
 
 	list, err := publicIpHandler.Client.Addresses.List(projectID, region).Do()
 	if err != nil {
@@ -70,8 +70,8 @@ func (publicIpHandler *GCPPublicIPHandler) ListPublicIP() ([]*irs.PublicIPInfo, 
 }
 
 func (publicIpHandler *GCPPublicIPHandler) GetPublicIP(publicIPID string) (irs.PublicIPInfo, error) {
-	projectID := publicIpHandler.Credential.projectID
-	region := publicIpHandler.Region.region
+	projectID := publicIpHandler.Credential.ProjectID
+	region := publicIpHandler.Region.Region
 	name := publicIPID // name or resource ID
 
 	info, err := publicIpHandler.Client.Addresses.Get(projectID, region, name).Do()
@@ -91,7 +91,7 @@ func (publicIpHandler *GCPPublicIPHandler) GetPublicIP(publicIPID string) (irs.P
 	publicInfo.Name = info.Name
 	publicInfo.PublicIP = info.Address
 	if users := info.Users; users != nil {
-		vmArr := strings.Split(users, "/")
+		vmArr := strings.Split(users[0], "/")
 		publicInfo.OwnedVMID = vmArr[len(vmArr)-1]
 	}
 	publicInfo.Status = info.Status
@@ -99,7 +99,7 @@ func (publicIpHandler *GCPPublicIPHandler) GetPublicIP(publicIPID string) (irs.P
 	// 구조체 안에 해당값을 바인딩해준다.
 	var result map[string]interface{}
 
-	err := json.Unmarshal(infoByte, &result)
+	json.Unmarshal(infoByte, &result)
 	keyValueList = GetKeyValueList(result)
 	// for key, value := range result {
 	// 	keyValueList = append(keyValueList, irs.KeyValue{key, value})
@@ -119,9 +119,9 @@ func (publicIpHandler *GCPPublicIPHandler) DeletePublicIP(publicIPID string) (bo
 	return true, nil
 }
 
-func (*GCPPublicIPHandler) mappingPublicIpInfo(infos []byte) (irs.PublicIPInfo, error) {
-	var publicInfo irs.PublicIPInfo
-	err := json.Unmarshal(infos, &publicInfo)
+// func (*GCPPublicIPHandler) mappingPublicIpInfo(infos []byte) (irs.PublicIPInfo, error) {
+// 	var publicInfo irs.PublicIPInfo
+// 	err := json.Unmarshal(infos, &publicInfo)
 
-	return publicInfo
-}
+// 	return publicInfo
+// }

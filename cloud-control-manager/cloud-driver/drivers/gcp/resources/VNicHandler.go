@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	idrv "../../../interfaces"
-	nirs "../../../interfaces/new-resources"
 	irs "../../../interfaces/resources"
 	"github.com/davecgh/go-spew/spew"
 	compute "google.golang.org/api/compute/v1"

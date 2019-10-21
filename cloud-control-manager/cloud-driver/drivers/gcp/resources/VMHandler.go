@@ -43,15 +43,14 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (nirs.VMInfo, er
 	zone := vmHandler.Region.Zone
 	// email을 어디다가 넣지? 이것또한 문제넹
 	clientEmail := vmHandler.Credential.ClientEmail
-	
+
 	// PublicIPHandler  불러서 처리 해야 함.
 	publicIpHandler := GCPPublicIPHandler{
-		vmHandler.Region, vmHandler.Ctx, vmHandler.Client, vmHandler.Credential
-	}
+		vmHandler.Region, vmHandler.Ctx, vmHandler.Client, vmHandler.Credential}
 	publicIpName := vmReqInfo.PublicIPId
-	publicIpReqInfo := nirs.PublicIPReqInfo{Name:publicIpName}
+	publicIpReqInfo := nirs.PublicIPReqInfo{Name: publicIpName}
 	publicIPInfo, err := publicIpHandler.CreatePublicIP(publicIpReqInfo)
-	if err != nil{
+	if err != nil {
 		lof.Fatal(err)
 	}
 	publicIPAddress := publicIPInfo.PublicIP
@@ -75,8 +74,8 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (nirs.VMInfo, er
 			{
 				AccessConfigs: []*compute.AccessConfig{
 					{
-						Type: "ONE_TO_ONE_NAT",
-						Name: "External NAT", // default
+						Type:  "ONE_TO_ONE_NAT",
+						Name:  "External NAT", // default
 						NatIP: publicIPAddress,
 					},
 				},
