@@ -58,7 +58,7 @@ func handleSecurity() {
 	//result, err := handler.ListSecurity()
 
 	securityReqInfo := irs.SecurityReqInfo{
-		Name: "sgtest2-mcloub-barista",
+		Name: "sgtest-mcloud-barista",
 		SecurityRules: &[]irs.SecurityRuleInfo{ //보안 정책 설정
 			{
 				FromPort:   "80",
@@ -553,8 +553,8 @@ func main() {
 
 	//handleVNetwork() //VPC
 	//handleImage() //AMI
-	handleVNic() //Lancard
-	//handleSecurity()
+	//handleVNic() //Lancard
+	handleSecurity()
 
 	/*
 		KeyPairHandler, err := setKeyPairHandler()

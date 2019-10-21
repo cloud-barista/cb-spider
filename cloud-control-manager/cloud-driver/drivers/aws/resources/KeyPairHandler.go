@@ -87,24 +87,16 @@ func (keyPairHandler *AwsKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPairReq
 		},
 	}
 
-	/*
-		keyValueList := []irs.KeyValue{
-			{Key: "KeyMaterial", Value: *keyPair.KeyMaterial},
-		}
-
-		keyPairInfo.KeyValueList = keyValueList
-	*/
-
 	return keyPairInfo, nil
 }
 
-//혼선을 피하기 위해 keyPairID 대신 keyPairName으로 변경 함.
-func (keyPairHandler *AwsKeyPairHandler) GetKey(keyPairName string) (irs.KeyPairInfo, error) {
-	//keyPairID := keyPairName
-	cblogger.Infof("keyPairName : [%s]", keyPairName)
+//혼선을 피하기 위해 keyPairID 대신 keyName으로 변경 함.
+func (keyPairHandler *AwsKeyPairHandler) GetKey(keyName string) (irs.KeyPairInfo, error) {
+	//keyPairID := keyName
+	cblogger.Infof("keyName : [%s]", keyName)
 	input := &ec2.DescribeKeyPairsInput{
 		KeyNames: []*string{
-			aws.String(keyPairName),
+			aws.String(keyName),
 		},
 	}
 
@@ -131,14 +123,6 @@ func (keyPairHandler *AwsKeyPairHandler) GetKey(keyPairName string) (irs.KeyPair
 		return irs.KeyPairInfo{}, nil
 	}
 
-	/*
-		cblogger.Info("KeyName : ", *result.KeyPairs[0].KeyName)
-		cblogger.Info("Fingerprint : ", *result.KeyPairs[0].KeyFingerprint)
-		keyPairInfo := irs.KeyPairInfo{
-			Name:        *result.KeyPairs[0].KeyName,
-			Fingerprint: *result.KeyPairs[0].KeyFingerprint,
-		}
-	*/
 	keyPairInfo := ExtractKeyPairDescribeInfo(result.KeyPairs[0])
 
 	return keyPairInfo, nil
@@ -161,23 +145,23 @@ func ExtractKeyPairDescribeInfo(keyPair *ec2.KeyPairInfo) irs.KeyPairInfo {
 	return keyPairInfo
 }
 
-func (keyPairHandler *AwsKeyPairHandler) DeleteKey(keyPairName string) (bool, error) {
-	cblogger.Infof("DeleteKeyPaid : [%s]", keyPairName)
+func (keyPairHandler *AwsKeyPairHandler) DeleteKey(keyName string) (bool, error) {
+	cblogger.Infof("DeleteKeyPaid : [%s]", keyName)
 	// Delete the key pair by name
 	_, err := keyPairHandler.Client.DeleteKeyPair(&ec2.DeleteKeyPairInput{
-		KeyName: aws.String(keyPairName),
+		KeyName: aws.String(keyName),
 	})
 
 	if err != nil {
 		if aerr, ok := err.(awserr.Error); ok && aerr.Code() == "InvalidKeyPair.Duplicate" {
-			cblogger.Error("Key pair %q does not exist.", keyPairName)
+			cblogger.Error("Key pair %q does not exist.", keyName)
 			return false, err
 		}
-		cblogger.Errorf("Unable to delete key pair: %s, %v.", keyPairName, err)
+		cblogger.Errorf("Unable to delete key pair: %s, %v.", keyName, err)
 		return false, err
 	}
 
-	cblogger.Infof("Successfully deleted %q key pair\n", keyPairName)
+	cblogger.Infof("Successfully deleted %q key pair\n", keyName)
 
 	return true, nil
 }

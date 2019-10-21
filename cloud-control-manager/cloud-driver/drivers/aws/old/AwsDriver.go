@@ -9,6 +9,7 @@
 // by powerkim@etri.re.kr, 2019.06.
 
 //package main
+
 package aws
 
 import (
@@ -25,7 +26,11 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/ec2"
 )
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/aws/aws-sdk-go/aws/credentials"
+)
 
 type AwsDriver struct {
 }
@@ -48,12 +53,15 @@ func (AwsDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	return drvCapabilityInfo
 }
 
-func getVMClient(regionInfo idrv.RegionInfo) (*ec2.EC2, error) {
+//func getVMClient(regionInfo idrv.RegionInfo) (*ec2.EC2, error) {
+func getVMClient(connectionInfo idrv.ConnectionInfo) (*ec2.EC2, error) {
+
 	// setup Region
-	fmt.Println("AwsDriver : getVMClient() - Region : [" + regionInfo.Region + "]")
+	fmt.Println("AwsDriver : getVMClient() - Region : [" + connectionInfo.RegionInfo.Region + "]")
 
 	sess, err := session.NewSession(&aws.Config{
-		Region: aws.String(regionInfo.Region)},
+		Region:      aws.String(connectionInfo.RegionInfo.Region),
+		Credentials: credentials.NewStaticCredentials(connectionInfo.CredentialInfo.ClientId, connectionInfo.CredentialInfo.ClientSecret, "")},
 	)
 	if err != nil {
 		fmt.Println("Could not create aws New Session", err)
@@ -78,8 +86,8 @@ func (driver *AwsDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (icon.
 
 	// sample code, do not user like this^^
 	//var iConn icon.CloudConnection
-	//VMClient, err := getVMClient(connectionInfo.CredentialInfo)
-	vmClient, err := getVMClient(connectionInfo.RegionInfo)
+	vmClient, err := getVMClient(connectionInfo)
+	//vmClient, err := getVMClient(connectionInfo.RegionInfo)
 	if err != nil {
 		return nil, err
 	}
@@ -113,4 +121,4 @@ func (AwsDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (icon.CloudCon
 	return iConn, nil // return type: (icon.CloudConnection, error)
 }
 */
-var TestDriver AwsDriver
+var CloudDriver AwsDriver
