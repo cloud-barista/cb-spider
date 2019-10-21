@@ -18,6 +18,7 @@
 package resources
 
 import (
+	"errors"
 	"reflect"
 	"strconv"
 
@@ -246,6 +247,7 @@ func (vNetworkHandler *AwsVNetworkHandler) CreateVpc(awsVpcReqInfo AwsVpcReqInfo
 
 	_, errTag := vNetworkHandler.Client.CreateTags(tagInput)
 	if errTag != nil {
+		cblogger.Errorf("VPC에 Name[%s] 설정 실패", awsVpcReqInfo.Name)
 		//@TODO : Name 태깅 실패시 생성된 VPC를 삭제할지 Name 태깅을 하라고 전달할지 결정해야 함. - 일단, 바깥에서 처리 가능하도록 생성된 VPC 정보는 전달 함.
 		if aerr, ok := errTag.(awserr.Error); ok {
 			switch aerr.Code() {
@@ -257,10 +259,10 @@ func (vNetworkHandler *AwsVNetworkHandler) CreateVpc(awsVpcReqInfo AwsVpcReqInfo
 			// Message from an error.
 			cblogger.Error(errTag.Error())
 		}
-		return awsVpcInfo, errTag
+		//return awsVpcInfo, errTag
+	} else {
+		awsVpcInfo.Name = awsVpcReqInfo.Name
 	}
-
-	awsVpcInfo.Name = awsVpcReqInfo.Name
 
 	//====================================
 	// PublicIP 할당을 위해 IGW 생성및 연결
@@ -290,7 +292,7 @@ func (vNetworkHandler *AwsVNetworkHandler) CreateVpc(awsVpcReqInfo AwsVpcReqInfo
 		cblogger.Errorf("IGW에 %s Name 설정 실패", awsVpcReqInfo.Name)
 	}
 
-	// IGW에 VPC연결
+	// VPC에 IGW연결
 	inputIGW := &ec2.AttachInternetGatewayInput{
 		InternetGatewayId: aws.String(*resultIGW.InternetGateway.InternetGatewayId),
 		VpcId:             aws.String(awsVpcInfo.Id),
@@ -312,6 +314,12 @@ func (vNetworkHandler *AwsVNetworkHandler) CreateVpc(awsVpcReqInfo AwsVpcReqInfo
 	}
 
 	cblogger.Info(resultIGWAttach)
+
+	// 생성된 VPC의 기본 라우팅 테이블에 IGW 라우팅 정보 추가
+	errRoute := vNetworkHandler.CreateRouteIGW(awsVpcInfo.Id, *resultIGW.InternetGateway.InternetGatewayId)
+	if errRoute != nil {
+		return awsVpcInfo, errRoute
+	}
 
 	return awsVpcInfo, nil
 }
@@ -392,12 +400,128 @@ func (vNetworkHandler *AwsVNetworkHandler) CreateVNetwork(vNetworkReqInfo irs.VN
 			// Message from an error.
 			cblogger.Error(errTag.Error())
 		}
-		return vNetworkInfo, errTag
+		//return vNetworkInfo, errTag
+	} else {
+		vNetworkInfo.Name = vNetworkReqInfo.Name
 	}
 
-	vNetworkInfo.Name = vNetworkReqInfo.Name
+	// VPC의 라우팅 테이블에 생성된 Subnet 정보를 추가 함.
+	errSubnetRoute := vNetworkHandler.AssociateRouteTable(vpcId, vNetworkInfo.Id)
+	if errSubnetRoute != nil {
+	} else {
+		return vNetworkInfo, errSubnetRoute
+	}
 
 	return vNetworkInfo, nil
+}
+
+// 생성된 VPC의 라우팅 테이블에 IGW(Internet Gateway) 라우팅 정보를 생성함 (AWS 콘솔의 라우팅 테이블의 [라우팅] Tab 처리)
+func (vNetworkHandler *AwsVNetworkHandler) CreateRouteIGW(vpcId string, igwId string) error {
+	cblogger.Infof("VPC ID : [%s] / IGW ID : [%s]", vpcId, igwId)
+	routeTableId, errRoute := vNetworkHandler.GetCBDefaultRouteTable(vpcId)
+	if errRoute != nil {
+		return errRoute
+	}
+
+	cblogger.Infof("RouteTable[%s]에 IGW[%s]에 대한 라우팅(0.0.0.0/0) 정보를 추가 합니다.", routeTableId, igwId)
+	input := &ec2.CreateRouteInput{
+		DestinationCidrBlock: aws.String("0.0.0.0/0"),
+		GatewayId:            aws.String(igwId),
+		RouteTableId:         aws.String(routeTableId),
+	}
+
+	result, err := vNetworkHandler.Client.CreateRoute(input)
+	if err != nil {
+		cblogger.Errorf("RouteTable[%s]에 IGW[%s]에 대한 라우팅(0.0.0.0/0) 정보 추가 실패", routeTableId, igwId)
+		if aerr, ok := err.(awserr.Error); ok {
+			switch aerr.Code() {
+			default:
+				cblogger.Error(aerr.Error())
+			}
+		} else {
+			// Print the error, cast err to awserr.Error to get the Code and
+			// Message from an error.
+			cblogger.Error(err.Error())
+		}
+		return err
+	}
+	cblogger.Infof("RouteTable[%s]에 IGW[%s]에 대한 라우팅(0.0.0.0/0) 정보를 추가 완료", routeTableId, igwId)
+
+	cblogger.Info(result)
+	spew.Dump(result)
+	return nil
+}
+
+// VPC의 라우팅 테이블에 생성된 Subnet을 연결 함.
+func (vNetworkHandler *AwsVNetworkHandler) AssociateRouteTable(vpcId string, subnetId string) error {
+	routeTableId, errRoute := vNetworkHandler.GetCBDefaultRouteTable(vpcId)
+	if errRoute != nil {
+		return errRoute
+	}
+
+	input := &ec2.AssociateRouteTableInput{
+		RouteTableId: aws.String(routeTableId),
+		SubnetId:     aws.String(subnetId),
+	}
+
+	result, err := vNetworkHandler.Client.AssociateRouteTable(input)
+	if err != nil {
+		if aerr, ok := err.(awserr.Error); ok {
+			switch aerr.Code() {
+			default:
+				cblogger.Error(aerr.Error())
+			}
+		} else {
+			// Print the error, cast err to awserr.Error to get the Code and
+			// Message from an error.
+			cblogger.Error(err.Error())
+		}
+		return err
+	}
+
+	cblogger.Info(result)
+	spew.Dump(result)
+	return nil
+}
+
+// 자동 생성된 VPC의 기본 라우팅 테이블 정보를 찾음
+func (vNetworkHandler *AwsVNetworkHandler) GetCBDefaultRouteTable(vpcId string) (string, error) {
+	input := &ec2.DescribeRouteTablesInput{
+		Filters: []*ec2.Filter{
+			{
+				Name: aws.String("vpc-id"),
+				Values: []*string{
+					aws.String(vpcId),
+				},
+			},
+		},
+	}
+
+	result, err := vNetworkHandler.Client.DescribeRouteTables(input)
+	if err != nil {
+		if aerr, ok := err.(awserr.Error); ok {
+			switch aerr.Code() {
+			default:
+				cblogger.Error(aerr.Error())
+			}
+		} else {
+			// Print the error, cast err to awserr.Error to get the Code and
+			// Message from an error.
+			cblogger.Error(err.Error())
+		}
+		return "", err
+	}
+
+	cblogger.Info(result)
+	spew.Dump(result)
+
+	if len(result.RouteTables) > 0 {
+		routeTableId := *result.RouteTables[0].RouteTableId
+		cblogger.Infof("라우팅 테이블 ID 찾음 : [%s]", routeTableId)
+		return routeTableId, nil
+	} else {
+		return "", errors.New("VPC에 할당된 라우팅 테이블 ID를 찾을 수 없습니다.")
+	}
 }
 
 //vNetworkID를 전달 받으면 해당 Subnet을 조회하고 / vNetworkID의 값이 없으면 CB Default Subnet을 조회함.
