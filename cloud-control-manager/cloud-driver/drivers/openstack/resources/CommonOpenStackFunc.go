@@ -2,7 +2,7 @@ package resources
 
 import (
 	"fmt"
-	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/new-resources"
+	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"strconv"
 	"strings"
 )
