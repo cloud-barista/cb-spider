@@ -13,7 +13,7 @@ package connect
 import (
 	cblog "github.com/cloud-barista/cb-log"
 	osrs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/openstack/resources"
-	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
+	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/new-resources"
 	"github.com/rackspace/gophercloud"
 	"github.com/sirupsen/logrus"
 )

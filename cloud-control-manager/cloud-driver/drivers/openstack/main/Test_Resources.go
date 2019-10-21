@@ -419,6 +419,7 @@ func testVNicHandler(config Config) {
 	cblogger.Info("4. DeleteVNic()")
 	cblogger.Info("5. Exit")
 
+	vNicName := "CB-VNic"
 	var vNicId string
 
 Loop:
@@ -434,24 +435,43 @@ Loop:
 			switch commandNum {
 			case 1:
 				cblogger.Info("Start ListVNic() ...")
-				vNicHandler.ListVNic()
+				if List, err := vNicHandler.ListVNic(); err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(List)
+				}
 				cblogger.Info("Finish ListVNic()")
 			case 2:
 				cblogger.Info("Start GetVNic() ...")
-				vNicHandler.GetVNic(vNicId)
+				if vNicInfo, err := vNicHandler.GetVNic(vNicId); err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(vNicInfo)
+				}
 				cblogger.Info("Finish GetVNic()")
 			case 3:
 				cblogger.Info("Start CreateVNic() ...")
-				reqInfo := irs.VNicReqInfo{}
-				vNic, err := vNicHandler.CreateVNic(reqInfo)
-				if err != nil {
-					cblogger.Error(err)
+
+				//todo : port로 맵핑
+				reqInfo := irs.VNicReqInfo{
+					Name:             vNicName,
+					VNetId:           "0013efbf-9e64-476b-a09c-9e4f5c0c8bed",
+					SecurityGroupIds: []string{"34585b5e-5ea8-49b5-b38b-0d395689c994", "6d4085c1-e915-487d-9e83-7a5b64f27237"},
+					SubnetId:         "fe284dbf-e9f4-4add-a03f-9249cc30a2ac",
 				}
-				vNicId = vNic.Id
+
+				if vNicInfo, err := vNicHandler.CreateVNic(reqInfo); err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(vNicInfo)
+					vNicId = vNicInfo.Id
+				}
 				cblogger.Info("Finish CreateVNic()")
 			case 4:
 				cblogger.Info("Start DeleteVNic() ...")
-				vNicHandler.DeleteVNic(vNicId)
+				if ok, err := vNicHandler.DeleteVNic(vNicId); !ok {
+					cblogger.Error(err)
+				}
 				cblogger.Info("Finish DeleteVNic()")
 			case 5:
 				cblogger.Info("Exit")
@@ -669,7 +689,6 @@ type Config struct {
 		KeypairName      string `yaml:"keypair_name"`
 
 		ServerId string `yaml:"server_id"`
-		//PublicIPID string `yaml:"public_ip_id"`
 
 		Image struct {
 			Name string `yaml:"name"`
