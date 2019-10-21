@@ -13,20 +13,18 @@ package resources
 //package image
 
 type ImageReqInfo struct {
-	//2차 인터페이스
 	Name string
 	Id   string
 	// @todo
 }
 
 type ImageInfo struct {
-	//2차 인터페이스
-	Id      string
-	Name    string
-	GuestOS string // Windows7, Ubuntu etc.
-	Status  string // available, unavailable
+     Id   string
+     Name string
+     GuestOS string // Windows7, Ubuntu etc.
+     Status string  // available, unavailable
 
-	KeyValueList []KeyValue
+     KeyValueList []KeyValue 
 }
 
 type ImageHandler interface {

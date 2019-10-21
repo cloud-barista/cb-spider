@@ -112,8 +112,6 @@ func extractPublicIpDescribeInfo(allocRes *ec2.Address) irs.PublicIPInfo {
 		{Key: "AllocationId", Value: *allocRes.AllocationId},
 	}
 
-	publicIPInfo.KeyValueList = keyValueList
-
 	spew.Dump(allocRes)
 	publicIPInfo.PublicIP = *allocRes.PublicIp
 	//publicIPInfo.Domain = *allocRes.Domain
@@ -149,6 +147,7 @@ func extractPublicIpDescribeInfo(allocRes *ec2.Address) irs.PublicIPInfo {
 		}
 	}
 
+	publicIPInfo.KeyValueList = keyValueList
 	return publicIPInfo
 }
 

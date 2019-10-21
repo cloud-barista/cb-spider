@@ -11,31 +11,22 @@
 package resources
 
 type KeyPairReqInfo struct {
-	//2차 인터페이스
-	Name string
-
-	// @todo - 삭제예정(1차 인터페이스 잔여 필드)
-	Id string
+        Name     string
 }
 
 type KeyPairInfo struct {
-	//2차 인터페이스
-	Name        string
-	Fingerprint string // 추가 - AWS, OpenStack
-	PublicKey   string
-	PrivateKey  string
-	VMUserID    string
+     Name        string
+     Fingerprint string
+     PublicKey   string
+     PrivateKey  string
+     VMUserID      string
 
-	KeyValueList []KeyValue
-
-	// @todo - 삭제예정(1차 인터페이스 잔여 필드)
-	Id          string
-	KeyMaterial string // 추가 - AWS(PEM파일-RSA PRIVATE KEY)
+     KeyValueList []KeyValue 
 }
 
 type KeyPairHandler interface {
 	CreateKey(keyPairReqInfo KeyPairReqInfo) (KeyPairInfo, error)
 	ListKey() ([]*KeyPairInfo, error)
-	GetKey(keyPairID string) (KeyPairInfo, error) // AWS는 keyPairName
-	DeleteKey(keyPairID string) (bool, error)     // AWS는 keyPairName
+	GetKey(keyName string) (KeyPairInfo, error) // AWS는 keyPairName
+	DeleteKey(keyName string) (bool, error)     // AWS는 keyPairName
 }

@@ -12,6 +12,9 @@
 //VPC & Subnet 처리
 //Ver2 - <CB-Virtual Network> 개발 방안에 맞게 AWS의 VPC기능은 외부에 숨기고 Subnet을 Main으로 함.
 
+//2019-10-17 충돌 방지및 CB-VNet을 감추기 위해 명시적으로 각 핸들러들의 Create나 Delete에서만 자동으로 처리하며,
+//           정확하지는 않아도 네트워크 범위를 id 기반에서 name기반으로 변경 함. (예) vpc-name / subnet-name
+//           *** Subnet은 1개만 생성되도록 제한 함..***
 package resources
 
 import (
@@ -80,18 +83,36 @@ func (vNetworkHandler *AwsVNetworkHandler) ListVNetwork() ([]*irs.VNetworkInfo, 
 	cblogger.Debug("Start")
 	var vNetworkInfoList []*irs.VNetworkInfo
 
-	cblogger.Infof("조회 범위를 CBDefaultVPC[%s]로 제한합니다.", GetCBDefaultVNetName())
-	//defaultVpcInfo := irs.VNetworkReqInfo{}
-	VpcId, errVpc := vNetworkHandler.FindOrCreateMcloudBaristaDefaultVPC(irs.VNetworkReqInfo{})
-	cblogger.Info("CBDefaultVPC 조회 결과 : ", VpcId)
-	if errVpc != nil {
-		return nil, errVpc
-	}
+	cblogger.Infof("조회 범위를 CBDefaultVPC[%s]와 CBDefaultSubnet[%s]으로 제한합니다.", GetCBDefaultVNetName(), GetCBDefaultSubnetName())
 
-	//생성된 CB Default Virtual Network가 없는 경우 nil 리턴
+	VpcId := vNetworkHandler.GetMcloudBaristaDefaultVpcId()
 	if VpcId == "" {
-		return vNetworkInfoList, nil
+		return nil, nil
 	}
+	/*
+		VpcId, errVpc := vNetworkHandler.FindOrCreateMcloudBaristaDefaultVPC(irs.VNetworkReqInfo{})
+		cblogger.Info("CBDefaultVPC 조회 결과 : ", VpcId)
+		if errVpc != nil {
+			return nil, errVpc
+		}
+		if VpcId == "" {
+			return vNetworkInfoList, nil
+		}
+	*/
+
+	/*
+		awsCBNetworkInfo, errCBInfo := vNetworkHandler.GetAutoCBNetworkInfo()
+		if errCBInfo != nil {
+			return nil, errCBInfo
+		}
+
+		//생성된 CB Default Virtual Network가 없는 경우 nil 리턴
+		if awsCBNetworkInfo.VpcName == "" {
+			return vNetworkInfoList, nil
+		}
+
+		VpcId := awsCBNetworkInfo.VpcId
+	*/
 
 	//기본 CBVPC에 속한 서브넷만 조회
 	input := &ec2.DescribeSubnetsInput{
@@ -102,9 +123,16 @@ func (vNetworkHandler *AwsVNetworkHandler) ListVNetwork() ([]*irs.VNetworkInfo, 
 					aws.String(VpcId),
 				},
 			},
+			{
+				Name: aws.String("tag:Name"),
+				Values: []*string{
+					aws.String(GetCBDefaultSubnetName()),
+				},
+			},
 		},
 	}
 
+	//spew.Dump(input)
 	result, err := vNetworkHandler.Client.DescribeSubnets(input)
 	//result, err := vNetworkHandler.Client.DescribeSubnets(&ec2.DescribeSubnetsInput{})	//전체 서브넷 조회
 	if err != nil {
@@ -121,6 +149,7 @@ func (vNetworkHandler *AwsVNetworkHandler) ListVNetwork() ([]*irs.VNetworkInfo, 
 		return nil, err
 	}
 
+	spew.Dump(result)
 	for _, curSubnet := range result.Subnets {
 		cblogger.Infof("[%s] Subnet 정보 조회", *curSubnet.SubnetId)
 		vNetworkInfo := ExtractSubnetDescribeInfo(curSubnet)
@@ -129,66 +158,6 @@ func (vNetworkHandler *AwsVNetworkHandler) ListVNetwork() ([]*irs.VNetworkInfo, 
 
 	spew.Dump(vNetworkInfoList)
 	return vNetworkInfoList, nil
-}
-
-//@TODO : ListVNetwork()에서 호출되는 경우도 있기 때문에 필요하면 VPC조회와 생성을 별도의 Func으로 분리해야함.(일단은 큰 문제는 없어서 놔둠)
-//CB Default Virtual Network가 존재하지 않으면 생성하며, 존재하는 경우 Vpc ID를 리턴 함.
-func (vNetworkHandler *AwsVNetworkHandler) FindOrCreateMcloudBaristaDefaultVPC(vNetworkReqInfo irs.VNetworkReqInfo) (string, error) {
-	cblogger.Info(vNetworkReqInfo)
-
-	awsVpcInfo, err := vNetworkHandler.GetVpc(GetCBDefaultVNetName())
-	if err != nil {
-		if aerr, ok := err.(awserr.Error); ok {
-			switch aerr.Code() {
-			default:
-				cblogger.Error(aerr.Error())
-			}
-		} else {
-			// Print the error, cast err to awserr.Error to get the Code and
-			// Message from an error.
-			cblogger.Error(err.Error())
-		}
-		return "", err
-	}
-
-	//기존 정보가 존재하면...
-	if awsVpcInfo.Id != "" {
-		return awsVpcInfo.Id, nil
-	} else {
-		//@TODO : Subnet과 VPC모두 CSP별 고정된 값으로 드라이버가 내부적으로 자동으로 생성하도록 CB규약이 바뀌어서 서브넷 정보 기반의 로직은 모두 잠시 죽여 놓음 - 리스트 요청시에도 내부적으로 자동 생성하도록 변경 중
-		/*
-			cblogger.Infof("기본 VPC[%s]가 없어서 Subnet 요청 정보를 기반으로 /16 범위의 VPC를 생성합니다.", GetCBDefaultVNetName())
-			cblogger.Info("Subnet CIDR 요청 정보 : ", vNetworkReqInfo.CidrBlock)
-			if vNetworkReqInfo.CidrBlock == "" {
-				//VPC가 없는 최초 상태에서 List()에서 호출되었을 수 있기 때문에 에러 처리는 하지 않고 nil을 전달함.
-				cblogger.Infof("요청 정보에 CIDR 정보가 없어서 Default VPC[%s]를 생성하지 않음", GetCBDefaultVNetName())
-				return "", nil
-			}
-
-			reqCidr := strings.Split(vNetworkReqInfo.CidrBlock, ".")
-			//cblogger.Info("CIDR 추출 정보 : ", reqCidr[0])
-			VpcCidrBlock := reqCidr[0] + "." + reqCidr[1] + ".0.0/16"
-			cblogger.Info("신규 VPC에 사용할 CIDR 정보 : ", VpcCidrBlock)
-		*/
-
-		cblogger.Infof("기본 VPC[%s]가 없어서 CIDR[%s] 범위의 VPC를 자동으로 생성합니다.", GetCBDefaultVNetName(), GetCBDefaultCidrBlock())
-		awsVpcReqInfo := AwsVpcReqInfo{
-			Name: GetCBDefaultVNetName(),
-			//CidrBlock: VpcCidrBlock,
-			CidrBlock: GetCBDefaultCidrBlock(),
-		}
-
-		result, errVpc := vNetworkHandler.CreateVpc(awsVpcReqInfo)
-		if errVpc != nil {
-			cblogger.Error(errVpc)
-			return "", errVpc
-		}
-		cblogger.Infof("CB Default VPC[%s] 생성 완료 - CIDR : [%s]", GetCBDefaultVNetName(), result.CidrBlock)
-		cblogger.Info(result)
-		spew.Dump(result)
-
-		return result.Id, nil
-	}
 }
 
 func (vNetworkHandler *AwsVNetworkHandler) GetVpc(vpcName string) (AwsVpcInfo, error) {
@@ -293,15 +262,73 @@ func (vNetworkHandler *AwsVNetworkHandler) CreateVpc(awsVpcReqInfo AwsVpcReqInfo
 
 	awsVpcInfo.Name = awsVpcReqInfo.Name
 
+	//====================================
+	// PublicIP 할당을 위해 IGW 생성및 연결
+	//====================================
+	//IGW 생성
+	resultIGW, errIGW := vNetworkHandler.Client.CreateInternetGateway(&ec2.CreateInternetGatewayInput{})
+	if errIGW != nil {
+		if aerr, ok := errIGW.(awserr.Error); ok {
+			switch aerr.Code() {
+			default:
+				cblogger.Error(aerr.Error())
+			}
+		} else {
+			// Print the error, cast err to awserr.Error to get the Code and
+			// Message from an error.
+			cblogger.Error(errIGW.Error())
+		}
+		return awsVpcInfo, errIGW
+	}
+
+	cblogger.Info(resultIGW)
+
+	//IGW Name Tag 설정
+	if SetNameTag(vNetworkHandler.Client, *resultIGW.InternetGateway.InternetGatewayId, awsVpcReqInfo.Name) {
+		cblogger.Infof("IGW에 %s Name 설정 성공", awsVpcReqInfo.Name)
+	} else {
+		cblogger.Errorf("IGW에 %s Name 설정 실패", awsVpcReqInfo.Name)
+	}
+
+	// IGW에 VPC연결
+	inputIGW := &ec2.AttachInternetGatewayInput{
+		InternetGatewayId: aws.String(*resultIGW.InternetGateway.InternetGatewayId),
+		VpcId:             aws.String(awsVpcInfo.Id),
+	}
+
+	resultIGWAttach, errIGWAttach := vNetworkHandler.Client.AttachInternetGateway(inputIGW)
+	if err != nil {
+		if aerr, ok := errIGWAttach.(awserr.Error); ok {
+			switch aerr.Code() {
+			default:
+				cblogger.Error(aerr.Error())
+			}
+		} else {
+			// Print the error, cast err to awserr.Error to get the Code and
+			// Message from an error.
+			cblogger.Error(errIGWAttach.Error())
+		}
+		return awsVpcInfo, errIGWAttach
+	}
+
+	cblogger.Info(resultIGWAttach)
+
 	return awsVpcInfo, nil
 }
 
 func (vNetworkHandler *AwsVNetworkHandler) CreateVNetwork(vNetworkReqInfo irs.VNetworkReqInfo) (irs.VNetworkInfo, error) {
 	cblogger.Info(vNetworkReqInfo)
 
+	vpcList, _ := vNetworkHandler.ListVNetwork()
+	if len(vpcList) > 0 {
+		cblogger.Error("이미 Default Subnet이 존재하기 때문에 생성하지 않고 기존 정보를 리턴함.")
+		cblogger.Info(vpcList)
+		return *vpcList[0], nil
+	}
+
 	//최대 5개의 VPC 생성 제한이 있기 때문에 기본VPC 조회시 에러 처리를 해줌.
-	VpcId, errVpc := vNetworkHandler.FindOrCreateMcloudBaristaDefaultVPC(vNetworkReqInfo)
-	cblogger.Info("CBDefaultVPC 조회 결과 : ", VpcId)
+	vpcId, errVpc := vNetworkHandler.FindOrCreateMcloudBaristaDefaultVPC(vNetworkReqInfo)
+	cblogger.Info("CBDefaultVPC 조회 결과 : ", vpcId)
 	if errVpc != nil {
 		return irs.VNetworkInfo{}, errVpc
 	}
@@ -311,7 +338,7 @@ func (vNetworkHandler *AwsVNetworkHandler) CreateVNetwork(vNetworkReqInfo irs.VN
 	input := &ec2.CreateSubnetInput{
 		//CidrBlock: aws.String(vNetworkReqInfo.CidrBlock),
 		CidrBlock: aws.String(GetCBDefaultCidrBlock()), // VPC와 동일한 대역의 CB-Default Subnet을 생성 함.
-		VpcId:     aws.String(VpcId),
+		VpcId:     aws.String(vpcId),
 	}
 
 	cblogger.Info(input)
@@ -373,15 +400,35 @@ func (vNetworkHandler *AwsVNetworkHandler) CreateVNetwork(vNetworkReqInfo irs.VN
 	return vNetworkInfo, nil
 }
 
+//vNetworkID를 전달 받으면 해당 Subnet을 조회하고 / vNetworkID의 값이 없으면 CB Default Subnet을 조회함.
 func (vNetworkHandler *AwsVNetworkHandler) GetVNetwork(vNetworkID string) (irs.VNetworkInfo, error) {
 	cblogger.Infof("vNetworkID : [%s]", vNetworkID)
 
-	input := &ec2.DescribeSubnetsInput{
-		SubnetIds: []*string{
+	input := &ec2.DescribeSubnetsInput{}
+	//Subnet ID를 전달 받으면 해당 서브넷을 조회
+	if vNetworkID != "" {
+		input.SubnetIds = ([]*string{
 			aws.String(vNetworkID),
-		},
-	}
-
+		})
+	} else {
+		//그렇지 않으면 Default CB-Subnet 조회
+		input.Filters = ([]*ec2.Filter{
+			&ec2.Filter{
+				Name: aws.String("tag:Name"), // subnet-id
+				Values: []*string{
+					aws.String(GetCBDefaultSubnetName()),
+				},
+			},
+		})
+	} // end of if
+	/*
+		input := &ec2.DescribeSubnetsInput{
+			SubnetIds: []*string{
+				aws.String(vNetworkID),
+			},
+		}
+	*/
+	spew.Dump(input)
 	result, err := vNetworkHandler.Client.DescribeSubnets(input)
 	if err != nil {
 		if aerr, ok := err.(awserr.Error); ok {
@@ -399,6 +446,7 @@ func (vNetworkHandler *AwsVNetworkHandler) GetVNetwork(vNetworkID string) (irs.V
 
 	cblogger.Info(result)
 	//spew.Dump(result)
+
 	if !reflect.ValueOf(result.Subnets).IsNil() {
 		vNetworkInfo := ExtractSubnetDescribeInfo(result.Subnets[0])
 		return vNetworkInfo, nil

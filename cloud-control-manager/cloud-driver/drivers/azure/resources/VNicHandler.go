@@ -7,7 +7,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2018-04-01/network"
 	"github.com/Azure/go-autorest/autorest/to"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
-	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/new-resources"
+	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"reflect"
 )
 
@@ -27,7 +27,7 @@ func setterVNic(ni network.Interface) *irs.VNicInfo {
 	}
 
 	if !reflect.ValueOf(ni.InterfacePropertiesFormat.MacAddress).IsNil() {
-		nic.MacAdress = *ni.MacAddress
+		nic.MacAddress = *ni.MacAddress
 	}
 	if !reflect.ValueOf(ni.InterfacePropertiesFormat.VirtualMachine).IsNil() {
 		nic.OwnedVMID = *ni.InterfacePropertiesFormat.VirtualMachine.ID

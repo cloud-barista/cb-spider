@@ -48,20 +48,14 @@ func createVM() {
 	//maxCount := aws.Int64(config.Aws.MaxCount)
 
 	vmReqInfo := irs.VMReqInfo{
-		Name: config.Aws.BaseName,
-		ImageInfo: irs.ImageInfo{
-			Id: config.Aws.ImageID,
-		},
-		SpecID: config.Aws.InstanceType,
-		SecurityInfo: irs.SecurityInfo{
-			Id: config.Aws.SecurityGroupID,
-		},
-		KeyPairInfo: irs.KeyPairInfo{
-			Name: config.Aws.KeyName,
-		},
-		VNetworkInfo: irs.VNetworkInfo{
-			Id: config.Aws.SubnetID,
-		},
+		VMName:           config.Aws.BaseName,
+		ImageId:          config.Aws.ImageID,
+		VirtualNetworkId: config.Aws.SubnetID,
+		//NetworkInterfaceId:
+		PublicIPId:       "eipalloc-0e95789a23e6d0c6f",
+		SecurityGroupIds: []string{"sg-09f8315746014adfc"},
+		VMSpecId:         config.Aws.InstanceType,
+		KeyPairName:      config.Aws.KeyName,
 	}
 
 	vmInfo, err := vmHandler.StartVM(vmReqInfo)
@@ -110,6 +104,7 @@ func handleVM() {
 	}
 	config := readConfigFile()
 	VmID := config.Aws.VmID
+	VmID = "i-0612a67a63ddb8374"
 
 	for {
 		fmt.Println("VM Management")
