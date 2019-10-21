@@ -3,7 +3,7 @@ package resources
 import (
 	"errors"
 	"fmt"
-	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/new-resources"
+	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/rackspace/gophercloud"
 	"github.com/rackspace/gophercloud/openstack/networking/v2/networks"
 	"github.com/rackspace/gophercloud/openstack/networking/v2/subnets"
@@ -28,7 +28,7 @@ func (vNetworkHandler *OpenStackVNetworkHandler) CreateVNetwork(vNetworkReqInfo 
 
 	// Check VNet Exists
 	// 기본 가상 네트워크가 생성되지 않았을 경우 디폴트 네트워크 생성 (CB-VNet)
-	networkId, err := vNetworkHandler.GetCBVNetId()
+	networkId, err := GetCBVNetId(vNetworkHandler.Client)
 	if err != nil {
 		return irs.VNetworkInfo{}, err
 	}
@@ -76,7 +76,7 @@ func (vNetworkHandler *OpenStackVNetworkHandler) CreateVNetwork(vNetworkReqInfo 
 
 func (vNetworkHandler *OpenStackVNetworkHandler) ListVNetwork() ([]*irs.VNetworkInfo, error) {
 	// 기본 가상 네트워크 아이디 정보 가져오기
-	networkId, err := vNetworkHandler.GetCBVNetId()
+	networkId, err := GetCBVNetId(vNetworkHandler.Client)
 	if networkId == "" {
 		return nil, errors.New(fmt.Sprintf("failed to get virtual network by name, name: %s", CBVirutalNetworkName))
 	}
@@ -107,7 +107,7 @@ func (vNetworkHandler *OpenStackVNetworkHandler) ListVNetwork() ([]*irs.VNetwork
 }
 
 func (vNetworkHandler *OpenStackVNetworkHandler) GetVNetwork(vNetworkID string) (irs.VNetworkInfo, error) {
-	networkId, _ := vNetworkHandler.GetCBVNetId()
+	networkId, _ := GetCBVNetId(vNetworkHandler.Client)
 	if networkId == "" {
 		return irs.VNetworkInfo{}, errors.New(fmt.Sprintf("failed to get virtual network by name, name: %s", CBVirutalNetworkName))
 	}
@@ -122,7 +122,7 @@ func (vNetworkHandler *OpenStackVNetworkHandler) GetVNetwork(vNetworkID string) 
 }
 
 func (vNetworkHandler *OpenStackVNetworkHandler) DeleteVNetwork(vNetworkID string) (bool, error) {
-	networkId, _ := vNetworkHandler.GetCBVNetId()
+	networkId, _ := GetCBVNetId(vNetworkHandler.Client)
 	if networkId == "" {
 		return false, errors.New(fmt.Sprintf("failed to get virtual network by name, name: %s", CBVirutalNetworkName))
 	}
@@ -135,7 +135,7 @@ func (vNetworkHandler *OpenStackVNetworkHandler) DeleteVNetwork(vNetworkID strin
 }
 
 // 기본 가상 네트워크(CB-VNet) Id 정보 조회
-func (vNetworkHandler *OpenStackVNetworkHandler) GetCBVNetId() (string, error) {
+/*func (vNetworkHandler *OpenStackVNetworkHandler) GetCBVNetId() (string, error) {
 	listOpt := networks.ListOpts{
 		Name: CBVirutalNetworkName,
 	}
@@ -160,4 +160,4 @@ func (vNetworkHandler *OpenStackVNetworkHandler) GetCBVNetId() (string, error) {
 	}
 
 	return vNetworkId, nil
-}
+}*/

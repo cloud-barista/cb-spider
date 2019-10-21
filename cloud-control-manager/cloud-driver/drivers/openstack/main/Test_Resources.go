@@ -7,7 +7,7 @@ import (
 	"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/openstack/connect"
 	osrs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/openstack/resources"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
-	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/new-resources"
+	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v3"
@@ -455,9 +455,9 @@ Loop:
 				//todo : port로 맵핑
 				reqInfo := irs.VNicReqInfo{
 					Name:             vNicName,
-					VNetId:           "0013efbf-9e64-476b-a09c-9e4f5c0c8bed",
+					VNetId:           "fe284dbf-e9f4-4add-a03f-9249cc30a2ac",
 					SecurityGroupIds: []string{"34585b5e-5ea8-49b5-b38b-0d395689c994", "6d4085c1-e915-487d-9e83-7a5b64f27237"},
-					SubnetId:         "fe284dbf-e9f4-4add-a03f-9249cc30a2ac",
+					//SubnetId:         "fe284dbf-e9f4-4add-a03f-9249cc30a2ac",
 				}
 
 				if vNicInfo, err := vNicHandler.CreateVNic(reqInfo); err != nil {

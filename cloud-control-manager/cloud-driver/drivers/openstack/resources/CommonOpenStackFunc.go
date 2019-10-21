@@ -2,7 +2,10 @@ package resources
 
 import (
 	"fmt"
-	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/new-resources"
+	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
+	"github.com/rackspace/gophercloud"
+	"github.com/rackspace/gophercloud/openstack/networking/v2/networks"
+	"github.com/rackspace/gophercloud/pagination"
 	"strconv"
 	"strings"
 )
@@ -43,4 +46,32 @@ func CreateSubnetCIDR(subnetList []*irs.VNetworkInfo) (*string, error) {
 	vNetIPClass := strings.Split(vNetIP[0], ".")
 	subnetCIDR := fmt.Sprintf("%s.%s.%d.0/24", vNetIPClass[0], vNetIPClass[1], maxClassNum)
 	return &subnetCIDR, nil
+}
+
+// 기본 가상 네트워크(CB-VNet) Id 정보 조회
+func GetCBVNetId(client *gophercloud.ServiceClient) (string, error) {
+	listOpt := networks.ListOpts{
+		Name: CBVirutalNetworkName,
+	}
+
+	var vNetworkId string
+
+	pager := networks.List(client, listOpt)
+	err := pager.EachPage(func(page pagination.Page) (bool, error) {
+		// Get vNetwork
+		list, err := networks.ExtractNetworks(page)
+		if err != nil {
+			return false, err
+		}
+		// Add to List
+		for _, n := range list {
+			vNetworkId = n.ID
+		}
+		return true, nil
+	})
+	if err != nil {
+		return "", err
+	}
+
+	return vNetworkId, nil
 }
