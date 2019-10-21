@@ -16,7 +16,7 @@ type PublicIPReqInfo struct {
 }
 
 type PublicIPInfo struct {
-	Name      string
+	Name      string // AWS : Name Tag대신 AllocationId를 리턴 함.(편의를 위해 Name 정보는 KeyValueList에 전달 함.)
 	PublicIP  string
 	OwnedVMID string
 	Status    string
