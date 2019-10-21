@@ -5,7 +5,7 @@ import (
 	"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/cloudit/client/ace/nic"
 	"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/cloudit/client/iam/securitygroup"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
-	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/new-resources"
+	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/davecgh/go-spew/spew"
 )
 
@@ -18,7 +18,7 @@ func setterNic(nic nic.VmNicInfo) *irs.VNicInfo {
 	vNicInfo := &irs.VNicInfo{
 		Name:             nic.VmName,
 		PublicIP:         nic.AdaptiveIp,
-		MacAdress:        nic.Mac,
+		MacAddress:       nic.Mac,
 		OwnedVMID:        nic.VmId,
 		SecurityGroupIds: nil,
 		//SecurityGroupIds: []string{},

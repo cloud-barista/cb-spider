@@ -6,7 +6,7 @@ import (
 	cblog "github.com/cloud-barista/cb-log"
 	cidrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/cloudit"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
-	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/new-resources"
+	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v3"
@@ -97,12 +97,12 @@ func testCreateVM() {
 	var vmInfo irs.VMInfo
 	vmCreated := false
 	for !vmCreated {
-		if status := vmHandler.GetVMStatus(vm.Id); strings.ToUpper(fmt.Sprint(status)) != "RUNNING" {
+		if status, _ := vmHandler.GetVMStatus(vm.Id); strings.ToUpper(fmt.Sprint(status)) != "RUNNING" {
 			cblogger.Info("Wait for VM Create finished...")
 			time.Sleep(3 * time.Second)
 		} else {
 			vmCreated = true
-			vmInfo = vmHandler.GetVM(vm.Id)
+			vmInfo, _ = vmHandler.GetVM(vm.Id)
 		}
 	}
 	spew.Dump(vmInfo)

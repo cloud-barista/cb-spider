@@ -4,8 +4,7 @@ import (
 	"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/cloudit/client"
 	"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/cloudit/client/ace/image"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
-	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/new-resources"
-	//"strconv"
+	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 )
 
 type ClouditImageHandler struct {
@@ -45,7 +44,6 @@ func (imageHandler *ClouditImageHandler) CreateImage(imageReqInfo irs.ImageReqIn
 	if image, err := image.Create(imageHandler.Client, &createOpts); err != nil {
 		return irs.ImageInfo{}, err
 	} else {
-		//spew.Dump(image)
 		imageInfo := setterImage(*image)
 		return *imageInfo, nil
 	}
@@ -83,7 +81,6 @@ func (imageHandler *ClouditImageHandler) GetImage(imageID string) (irs.ImageInfo
 	if image, err := image.Get(imageHandler.Client, imageID, &requestOpts); err != nil {
 		return irs.ImageInfo{}, err
 	} else {
-		//spew.Dump(image)
 		imageInfo := setterImage(*image)
 		return *imageInfo, nil
 	}
