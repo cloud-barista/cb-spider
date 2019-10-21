@@ -11,21 +11,18 @@
 package resources
 
 type PublicIPReqInfo struct {
-	//2차 인터페이스
-	Name string
-
-	// @todo - 삭제예정(1차 인터페이스 잔여 필드)
-	Id string
+	Name         string
+	KeyValueList []KeyValue
 }
 
 type PublicIPInfo struct {
-	//2차 인터페이스
 	Name      string
 	PublicIP  string
 	OwnedVMID string
 	Status    string
 
 	KeyValueList []KeyValue
+<<<<<<< HEAD
 
 	// @todo - 삭제예정(1차 인터페이스 잔여 필드)
 	Id                      string
@@ -45,6 +42,8 @@ type PublicIPInfo struct {
 	NetworkTier       string // GCP : PREMIUM, STANDARD
 	AddressType       string // GCP : External, INTERNAL, UNSPECIFIED_TYPE
 	Status            string // GCP : IN_USE, RESERVED, RESERVING
+=======
+>>>>>>> 1cefbbb819ec4faf9ba803e90a1199db8bc27f6c
 }
 
 type PublicIPHandler interface {

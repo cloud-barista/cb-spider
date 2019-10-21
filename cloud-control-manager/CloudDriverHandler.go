@@ -129,8 +129,8 @@ func getValue(keyValueInfoList []icbs.KeyValue, key string) string {
 }
 
 func getCloudDriver(cldDrvInfo dim.CloudDriverInfo) (idrv.CloudDriver, error) {
-	// $CBSPIDER_ROOT/cloud-driver/libs/*
-        driverLibPath := os.Getenv("CBSPIDER_ROOT") + "/cloud-driver/libs/"
+	// $CBSPIDER_ROOT/cloud-driver-libs/*
+        driverLibPath := os.Getenv("CBSPIDER_ROOT") + "/cloud-driver-libs/"
 
         driverFile := cldDrvInfo.DriverLibFileName // ex) "aws-test-driver-v0.5.so"
         if driverFile == "" {

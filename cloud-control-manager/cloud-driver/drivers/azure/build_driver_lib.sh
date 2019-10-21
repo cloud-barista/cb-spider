@@ -1,4 +1,4 @@
-DRIVERLIB_PATH=$CBSTORE_ROOT/cloud-driver/libs
+DRIVERLIB_PATH=$CBSTORE_ROOT/cloud-driver-libs
 DRIVERFILENAME=azure-driver-v1.0
 
 rm -rf $DRIVERLIB_PATH/$DRIVERFILENAME.so
