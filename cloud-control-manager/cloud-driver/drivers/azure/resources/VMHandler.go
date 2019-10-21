@@ -12,10 +12,6 @@ package resources
 
 import (
 	"context"
-	"crypto/rand"
-	"crypto/rsa"
-	"crypto/x509"
-	"encoding/pem"
 	"errors"
 	"fmt"
 	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2018-06-01/compute"
@@ -24,10 +20,6 @@ import (
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/sirupsen/logrus"
-	"golang.org/x/crypto/ssh"
-	"io/ioutil"
-	"log"
-	"os"
 	"strings"
 )
 
@@ -46,22 +38,20 @@ type AzureVMHandler struct {
 
 func (vmHandler *AzureVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, error) {
 	// Set VM Create Information
-	imageId := vmReqInfo.ImageId
-	imageIdArr := strings.Split(imageId, ":")
 
 	// TODO: golang.org/x/crypto/ssh lib 기반 키 생성 기능 개발
-	sshKeyData, err := generateSSHKey("mcb-key")
+	/*sshKeyData, err := generateSSHKey("mcb-key")
 	if err != nil {
 		return irs.VMInfo{}, err
-	}
+	}*/
 
-	vmName := vmReqInfo.VMName
-	vmNameArr := strings.Split(vmName, ":")
+	//vmName := vmReqInfo.VMName
+	//vmNameArr := strings.Split(vmName, ":")
 
 	// Check VM Exists
-	vm, err := vmHandler.Client.Get(vmHandler.Ctx, vmNameArr[0], vmNameArr[1], compute.InstanceView)
+	vm, err := vmHandler.Client.Get(vmHandler.Ctx, CBResourceGroupName, vmReqInfo.VMName, compute.InstanceView)
 	if vm.ID != nil {
-		errMsg := fmt.Sprintf("VirtualMachine with name %s already exist", vmNameArr[1])
+		errMsg := fmt.Sprintf("VirtualMachine with name %s already exist", vmReqInfo.VMName)
 		createErr := errors.New(errMsg)
 		return irs.VMInfo{}, createErr
 	}
@@ -74,24 +64,25 @@ func (vmHandler *AzureVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 			},
 			StorageProfile: &compute.StorageProfile{
 				ImageReference: &compute.ImageReference{
-					Publisher: &imageIdArr[0],
-					Offer:     &imageIdArr[1],
-					Sku:       &imageIdArr[2],
-					Version:   &imageIdArr[3],
+					ID: &vmReqInfo.ImageId,
+					//Publisher: &imageIdArr[0],
+					//Offer:     &imageIdArr[1],
+					//Sku:       &imageIdArr[2],
+					//Version:   &imageIdArr[3],
 				},
 			},
 			OsProfile: &compute.OSProfile{
-				ComputerName:  &vmNameArr[1],
+				ComputerName:  &vmReqInfo.VMName,
 				AdminUsername: &vmReqInfo.VMUserId,
-				//AdminPassword: &vmReqInfo.VMUserPasswd,
+				AdminPassword: &vmReqInfo.VMUserPasswd,
 				LinuxConfiguration: &compute.LinuxConfiguration{
 					SSH: &compute.SSHConfiguration{
 						PublicKeys: &[]compute.SSHPublicKey{
 							{
-								Path: to.StringPtr(fmt.Sprintf("/home/%s/.ssh/authorized_keys", vmReqInfo.VMUserId)),
+								//Path: to.StringPtr(fmt.Sprintf("/home/%s/.ssh/authorized_keys", vmReqInfo.VMUserId)),
 								//KeyData: &sshKeyData,
 								// TODO: golang.org/x/crypto/ssh lib 기반 키 생성 기능 개발
-								KeyData: &sshKeyData,
+								//KeyData: &sshKeyData,
 							},
 						},
 					},
@@ -110,7 +101,7 @@ func (vmHandler *AzureVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 		},
 	}
 
-	future, err := vmHandler.Client.CreateOrUpdate(vmHandler.Ctx, vmNameArr[0], vmNameArr[1], vmOpts)
+	future, err := vmHandler.Client.CreateOrUpdate(vmHandler.Ctx, CBResourceGroupName, vmReqInfo.VMName, vmOpts)
 	if err != nil {
 		cblogger.Error(err)
 		return irs.VMInfo{}, err
@@ -121,7 +112,7 @@ func (vmHandler *AzureVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 		return irs.VMInfo{}, err
 	}
 
-	vm, err = vmHandler.Client.Get(vmHandler.Ctx, vmNameArr[0], vmNameArr[1], compute.InstanceView)
+	vm, err = vmHandler.Client.Get(vmHandler.Ctx, CBResourceGroupName, vmReqInfo.VMName, compute.InstanceView)
 	if err != nil {
 		cblogger.Error(err)
 	}
@@ -131,9 +122,7 @@ func (vmHandler *AzureVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 }
 
 func (vmHandler *AzureVMHandler) SuspendVM(vmID string) error {
-	vmIdArr := strings.Split(vmID, ":")
-
-	future, err := vmHandler.Client.PowerOff(vmHandler.Ctx, vmIdArr[0], vmIdArr[1])
+	future, err := vmHandler.Client.PowerOff(vmHandler.Ctx, CBResourceGroupName, vmID)
 	if err != nil {
 		cblogger.Error(err)
 		return err
@@ -147,9 +136,7 @@ func (vmHandler *AzureVMHandler) SuspendVM(vmID string) error {
 }
 
 func (vmHandler *AzureVMHandler) ResumeVM(vmID string) error {
-	vmIdArr := strings.Split(vmID, ":")
-
-	future, err := vmHandler.Client.Start(vmHandler.Ctx, vmIdArr[0], vmIdArr[1])
+	future, err := vmHandler.Client.Start(vmHandler.Ctx, CBResourceGroupName, vmID)
 	if err != nil {
 		cblogger.Error(err)
 		return err
@@ -163,9 +150,7 @@ func (vmHandler *AzureVMHandler) ResumeVM(vmID string) error {
 }
 
 func (vmHandler *AzureVMHandler) RebootVM(vmID string) error {
-	vmIdArr := strings.Split(vmID, ":")
-
-	future, err := vmHandler.Client.Restart(vmHandler.Ctx, vmIdArr[0], vmIdArr[1])
+	future, err := vmHandler.Client.Restart(vmHandler.Ctx, CBResourceGroupName, vmID)
 	if err != nil {
 		cblogger.Error(err)
 		return err
@@ -179,9 +164,7 @@ func (vmHandler *AzureVMHandler) RebootVM(vmID string) error {
 }
 
 func (vmHandler *AzureVMHandler) TerminateVM(vmID string) error {
-	vmIdArr := strings.Split(vmID, ":")
-
-	future, err := vmHandler.Client.Delete(vmHandler.Ctx, vmIdArr[0], vmIdArr[1])
+	future, err := vmHandler.Client.Delete(vmHandler.Ctx, CBResourceGroupName, vmID)
 	//future, err := vmHandler.Client.Deallocate(vmHandler.Ctx, vmIdArr[0], vmIdArr[1])
 	if err != nil {
 		cblogger.Error(err)
@@ -196,8 +179,7 @@ func (vmHandler *AzureVMHandler) TerminateVM(vmID string) error {
 }
 
 func (vmHandler *AzureVMHandler) ListVMStatus() ([]*irs.VMStatusInfo, error) {
-	//serverList, err := vmHandler.Client.ListAll(vmHandler.Ctx)
-	serverList, err := vmHandler.Client.List(vmHandler.Ctx, vmHandler.Region.ResourceGroup)
+	serverList, err := vmHandler.Client.List(vmHandler.Ctx, CBResourceGroupName)
 	if err != nil {
 		cblogger.Error(err)
 		return []*irs.VMStatusInfo{}, err
@@ -229,8 +211,7 @@ func (vmHandler *AzureVMHandler) ListVMStatus() ([]*irs.VMStatusInfo, error) {
 }
 
 func (vmHandler *AzureVMHandler) GetVMStatus(vmID string) (irs.VMStatus, error) {
-	vmIdArr := strings.Split(vmID, ":")
-	instanceView, err := vmHandler.Client.InstanceView(vmHandler.Ctx, vmIdArr[0], vmIdArr[1])
+	instanceView, err := vmHandler.Client.InstanceView(vmHandler.Ctx, CBResourceGroupName, vmID)
 	if err != nil {
 		cblogger.Error(err)
 		return "", err
@@ -243,7 +224,7 @@ func (vmHandler *AzureVMHandler) GetVMStatus(vmID string) (irs.VMStatus, error) 
 
 func (vmHandler *AzureVMHandler) ListVM() ([]*irs.VMInfo, error) {
 	//serverList, err := vmHandler.Client.ListAll(vmHandler.Ctx)
-	serverList, err := vmHandler.Client.List(vmHandler.Ctx, vmHandler.Region.ResourceGroup)
+	serverList, err := vmHandler.Client.List(vmHandler.Ctx, CBResourceGroupName)
 	if err != nil {
 		cblogger.Error(err)
 		return []*irs.VMInfo{}, err
@@ -259,8 +240,7 @@ func (vmHandler *AzureVMHandler) ListVM() ([]*irs.VMInfo, error) {
 }
 
 func (vmHandler *AzureVMHandler) GetVM(vmID string) (irs.VMInfo, error) {
-	vmIdArr := strings.Split(vmID, ":")
-	vm, err := vmHandler.Client.Get(vmHandler.Ctx, vmIdArr[0], vmIdArr[1], compute.InstanceView)
+	vm, err := vmHandler.Client.Get(vmHandler.Ctx, CBResourceGroupName, vmID, compute.InstanceView)
 	if err != nil {
 		return irs.VMInfo{}, err
 	}
@@ -340,116 +320,4 @@ func mappingServerInfo(server compute.VirtualMachine) irs.VMInfo {
 	}
 
 	return vmInfo
-}
-
-func generateSSHKey(keyName string) (string, error) {
-
-	// TODO: ENV 환경변수 PATH에 키 저장
-	rootPath := os.Getenv("CBSPIDER_PATH")
-	savePrivateFileTo := rootPath + "/conf/PrivateKey"
-	savePublicFileTo := rootPath + "/conf/PublicKey"
-	bitSize := 4096
-
-	// 지정된 바이트크기의 RSA 형식 개인키(비공개키)를 만듬
-	privateKey, err := generatePrivateKey(bitSize)
-	if err != nil {
-		//log.Fatal(err.Error())
-	}
-
-	// 개인키를 RSA에서 PEM 형식으로 인코딩
-	privateKeyBytes := encodePrivateKeyToPEM(privateKey)
-
-	// rsa.PublicKey를 가져와서 .pub 파일에 쓰기 적합한 바이트로 변환
-	// "ssh-rsa ..."형식으로 변환
-	publicKeyBytes, err := generatePublicKey(&privateKey.PublicKey)
-	if err != nil {
-		//log.Fatal(err.Error())
-	}
-
-	// 파일에 private Key를 쓴다
-	err = writeKeyToFile(privateKeyBytes, savePrivateFileTo)
-	if err != nil {
-		//log.Fatal(err.Error())
-	}
-
-	// 파일에 public Key를 쓴다
-	err = writeKeyToFile([]byte(publicKeyBytes), savePublicFileTo)
-	if err != nil {
-		//log.Fatal(err.Error())
-	}
-
-	// TODO: 파일 bytes로 읽어들여서 string으로 변환
-	var pubKeyStr string
-
-	data, err := ioutil.ReadFile(savePublicFileTo)
-	if err != nil {
-
-	}
-	pubKeyStr = string(data)
-
-	return pubKeyStr, nil
-}
-
-// 지정된 바이트크기의 RSA 형식 개인키(비공개키)를 만듬
-func generatePrivateKey(bitSize int) (*rsa.PrivateKey, error) {
-	// Private Key 생성
-	privateKey, err := rsa.GenerateKey(rand.Reader, bitSize)
-	if err != nil {
-		return nil, err
-	}
-
-	// Private Key 확인
-	err = privateKey.Validate()
-	if err != nil {
-		return nil, err
-	}
-
-	log.Println("Private Key generated(생성)")
-	fmt.Println(privateKey)
-	return privateKey, nil
-}
-
-// 개인키를 RSA에서 PEM 형식으로 인코딩
-func encodePrivateKeyToPEM(privateKey *rsa.PrivateKey) []byte {
-	// Get ASN.1 DER format
-	privDER := x509.MarshalPKCS1PrivateKey(privateKey)
-
-	// pem.Block
-	privBlock := pem.Block{
-		Type:    "RSA PRIVATE KEY",
-		Headers: nil,
-		Bytes:   privDER,
-	}
-
-	// Private key in PEM format
-	privatePEM := pem.EncodeToMemory(&privBlock)
-	fmt.Println("privateKey Rsa -> Pem 형식으로 변환")
-	fmt.Println(privatePEM)
-	return privatePEM
-}
-
-// rsa.PublicKey를 가져와서 .pub 파일에 쓰기 적합한 바이트로 변환
-// "ssh-rsa ..."형식으로 변환
-func generatePublicKey(privatekey *rsa.PublicKey) ([]byte, error) {
-	publicRsaKey, err := ssh.NewPublicKey(privatekey)
-	if err != nil {
-		return nil, err
-	}
-
-	pubKeyBytes := ssh.MarshalAuthorizedKey(publicRsaKey)
-
-	log.Println("Public key 생성")
-	fmt.Println(pubKeyBytes)
-	return pubKeyBytes, nil
-}
-
-// 파일에 Key를 쓴다
-func writeKeyToFile(keyBytes []byte, saveFileTo string) error {
-	err := ioutil.WriteFile(saveFileTo, keyBytes, 0600)
-	if err != nil {
-		return err
-	}
-
-	log.Printf("Key 저장위치: %s", saveFileTo)
-	return nil
 }
