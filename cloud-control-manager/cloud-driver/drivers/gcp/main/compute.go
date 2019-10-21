@@ -316,6 +316,7 @@ func ListPublicIP(ctx context.Context, service *compute.Service, conf Config, re
 	//log.Printf("getGlovalAddressList, err: %#v, %v", list, err)
 	var publicInfoArr []*PublicIPInfo
 
+	var rejson map[string]interface{}
 	for _, item := range list.Items {
 		// fmt.Println("index : ", index)
 		fmt.Println("item : ", item)
@@ -329,11 +330,18 @@ func ListPublicIP(ctx context.Context, service *compute.Service, conf Config, re
 		if user := item.Users; user != nil {
 			publicIPInfos.InstanceId = user[0]
 		}
+
+		it := item
+		fmt.Println("it :"git)
+		// bts := json.Marshal(it)
+		// json.Unmarshal(bts, &rejson)
 		// publicIPInfos[index].InstanceId = item.Users[0]
 		publicIPInfos.Status = item.Status
 		publicInfoArr = append(publicInfoArr, &publicIPInfos)
 
 	}
+
+	fmt.Println("rejson : ", rejson)
 	// for _, st := range publicIPInfos {
 
 	// 	if st.Status == "RESERVED" {
