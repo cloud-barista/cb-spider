@@ -5,9 +5,9 @@ import (
 	"encoding/json"
 	"log"
 	"strings"
+	"time"
 
 	idrv "../../../interfaces"
-	nirs "../../../interfaces/new-resources"
 	irs "../../../interfaces/resources"
 	compute "google.golang.org/api/compute/v1"
 )
@@ -32,17 +32,19 @@ type PublicIPInfo struct {
 	InstanceId        string // GCP : 연결된 VM
 }
 
-func (publicIpHandler *GCPPublicIPHandler) CreatePublicIP(publicIPReqInfo nirs.PublicIPReqInfo) (nirs.PublicIPInfo, error) {
+func (publicIpHandler *GCPPublicIPHandler) CreatePublicIP(publicIPReqInfo irs.PublicIPReqInfo) (irs.PublicIPInfo, error) {
 	projectID := publicIpHandler.Credential.projectID
 	region := publicIpHandler.Region.region
 	address := &compute.Address{
 		Name: publicIPReqInfo.Name,
 	}
 	publicIpHandler.Client.Addresses.Insert(projectID, region, address).Do()
+	time.Sleep(time.Second * 3)
+
 	return publicIPInfo, nil
 }
 
-func (publicIpHandler *GCPPublicIPHandler) ListPublicIP() ([]*nirs.PublicIPInfo, error) {
+func (publicIpHandler *GCPPublicIPHandler) ListPublicIP() ([]*irs.PublicIPInfo, error) {
 	projectID := publicIpHandler.Credential.projectID
 	region := publicIpHandler.Region.region
 
@@ -56,7 +58,7 @@ func (publicIpHandler *GCPPublicIPHandler) ListPublicIP() ([]*nirs.PublicIPInfo,
 	return nil, nil
 }
 
-func (publicIpHandler *GCPPublicIPHandler) GetPublicIP(publicIPID string) (nirs.PublicIPInfo, error) {
+func (publicIpHandler *GCPPublicIPHandler) GetPublicIP(publicIPID string) (irs.PublicIPInfo, error) {
 	projectID := publicIpHandler.Credential.projectID
 	region := publicIpHandler.Region.region
 	name := publicIPID // name or resource ID
@@ -72,8 +74,8 @@ func (publicIpHandler *GCPPublicIPHandler) GetPublicIP(publicIPID string) (nirs.
 		log.Fatal(err)
 	}
 
-	var publicInfo nirs.PublicIPInfo
-	var keyValueList []nirs.KeyValue
+	var publicInfo irs.PublicIPInfo
+	var keyValueList []irs.KeyValue
 
 	publicInfo.Name = info.Name
 	publicInfo.PublicIP = info.Address
@@ -87,7 +89,7 @@ func (publicIpHandler *GCPPublicIPHandler) GetPublicIP(publicIPID string) (nirs.
 	var result map[string]interface{}
 	err := json.Unmarshal(infoByte, &result)
 	for key, value := range result {
-		keyValueList = append(keyValueList, nirs.KeyValue{key, value})
+		keyValueList = append(keyValueList, irs.KeyValue{key, value})
 	}
 	publicInfo.KeyValueList = keyValueList
 

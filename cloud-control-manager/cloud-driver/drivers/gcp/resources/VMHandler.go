@@ -19,7 +19,7 @@ import (
 	compute "google.golang.org/api/compute/v1"
 
 	idrv "../../../interfaces"
-	nirs "../../../interfaces/new-resources"
+	nirs "../../../interfaces/old-resources"
 	irs "../../../interfaces/resources"
 	_ "github.com/Azure/go-autorest/autorest/to"
 )

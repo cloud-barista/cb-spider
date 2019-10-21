@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	idrv "../../../interfaces"
-	nirs "../../../interfaces/new-resources"
+	nirs "../../../interfaces/old-resources"
 	irs "../../../interfaces/resources"
 	"github.com/Azure/go-autorest/autorest/to"
 	"github.com/davecgh/go-spew/spew"
