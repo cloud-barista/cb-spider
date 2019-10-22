@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"log"
+	"strconv"
 	"strings"
 	"time"
 
@@ -65,6 +66,23 @@ func (publicIpHandler *GCPPublicIPHandler) ListPublicIP() ([]*irs.PublicIPInfo, 
 		publicInfo.PublicIP = item.Address
 		publicInfo.Status = item.Status
 		//publicInfo.KeyValueList = GetKeyValueList()
+		if users := item.Users; users != nil {
+			vmArr := strings.Split(users[0], "/")
+			publicInfo.OwnedVMID = vmArr[len(vmArr)-1]
+		}
+		keyValueList := []irs.KeyValue{
+			{"id", strconv.FormatUint(item.Id, 10)},
+			{"creationTimestamp", item.CreationTimestamp},
+			{"region", item.Region},
+			{"selfLink", item.SelfLink},
+			{"networkTier", item.NetworkTier},
+			{"addressType", item.AddressType},
+			{"kind", item.Kind},
+		}
+		publicInfo.KeyValueList = keyValueList
+
+		publicIpInfoArr = append(publicIpInfoArr, &publicInfo)
+
 	}
 	return publicIpInfoArr, nil
 }
