@@ -377,7 +377,7 @@ func ExtractDescribeInstances(reservation *ec2.Reservation) irs.VMInfo {
 
 	if !reflect.ValueOf(reservation.Instances[0].Placement.AvailabilityZone).IsNil() {
 		vmInfo.Region = irs.RegionInfo{
-			Region: *reservation.Instances[0].Placement.AvailabilityZone,
+			Zone: *reservation.Instances[0].Placement.AvailabilityZone,
 		}
 	}
 
