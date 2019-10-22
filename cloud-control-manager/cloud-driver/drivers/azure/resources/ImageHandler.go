@@ -8,7 +8,6 @@ import (
 	"github.com/Azure/go-autorest/autorest/to"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
-	"strings"
 )
 
 type AzureImageHandler struct {
@@ -30,8 +29,6 @@ func setterImage(image compute.Image) *irs.ImageInfo {
 }
 
 func (imageHandler *AzureImageHandler) CreateImage(imageReqInfo irs.ImageReqInfo) (irs.ImageInfo, error) {
-	imageIdArr := strings.Split(imageReqInfo.Id, ":")
-
 	// @TODO: PublicIP 생성 요청 파라미터 정의 필요
 	type ImageReqInfo struct {
 		OSType string

@@ -15,6 +15,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2018-06-01/compute"
+	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2018-04-01/network"
 	"github.com/Azure/go-autorest/autorest/to"
 	cblog "github.com/cloud-barista/cb-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
@@ -65,10 +66,6 @@ func (vmHandler *AzureVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 			StorageProfile: &compute.StorageProfile{
 				ImageReference: &compute.ImageReference{
 					ID: &vmReqInfo.ImageId,
-					//Publisher: &imageIdArr[0],
-					//Offer:     &imageIdArr[1],
-					//Sku:       &imageIdArr[2],
-					//Version:   &imageIdArr[3],
 				},
 			},
 			OsProfile: &compute.OSProfile{
@@ -91,7 +88,7 @@ func (vmHandler *AzureVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 			NetworkProfile: &compute.NetworkProfile{
 				NetworkInterfaces: &[]compute.NetworkInterfaceReference{
 					{
-						ID: &vmReqInfo.VirtualNetworkId,
+						ID: &vmReqInfo.NetworkInterfaceId,
 						NetworkInterfaceReferenceProperties: &compute.NetworkInterfaceReferenceProperties{
 							Primary: to.BoolPtr(true),
 						},

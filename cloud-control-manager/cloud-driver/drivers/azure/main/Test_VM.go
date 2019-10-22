@@ -75,28 +75,44 @@ func testVMHandler() {
 			switch commandNum {
 			case 1:
 				cblogger.Info("Start List VM ...")
-				vmList := vmHandler.ListVM()
-				for i, vm := range vmList {
-					cblogger.Info("[", i, "] ")
-					spew.Dump(vm)
+				vmList, err := vmHandler.ListVM()
+				if err != nil {
+					cblogger.Error(err)
+				} else {
+					for i, vm := range vmList {
+						cblogger.Info("[", i, "] ")
+						spew.Dump(vm)
+					}
 				}
 				cblogger.Info("Finish List VM")
 			case 2:
 				cblogger.Info("Start Get VM ...")
-				vmInfo := vmHandler.GetVM(vmId)
-				spew.Dump(vmInfo)
+				vmInfo, err := vmHandler.GetVM(vmId)
+				if err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(vmInfo)
+				}
 				cblogger.Info("Finish Get VM")
 			case 3:
 				cblogger.Info("Start List VMStatus ...")
-				vmStatusList := vmHandler.ListVMStatus()
-				for i, vmStatus := range vmStatusList {
-					cblogger.Info("[", i, "] ", *vmStatus)
+				vmStatusList, err := vmHandler.ListVMStatus()
+				if err != nil {
+					cblogger.Error(err)
+				} else {
+					for i, vmStatus := range vmStatusList {
+						cblogger.Info("[", i, "] ", *vmStatus)
+					}
 				}
 				cblogger.Info("Finish List VMStatus")
 			case 4:
 				cblogger.Info("Start Get VMStatus ...")
-				vmStatus := vmHandler.GetVMStatus(vmId)
-				cblogger.Info(vmStatus)
+				vmStatus, err := vmHandler.GetVMStatus(vmId)
+				if err != nil {
+					cblogger.Error(err)
+				} else {
+					cblogger.Info(vmStatus)
+				}
 				cblogger.Info("Finish Get VMStatus")
 			case 5:
 				cblogger.Info("Start Create VM ...")
@@ -104,19 +120,31 @@ func testVMHandler() {
 				cblogger.Info("Finish Create VM")
 			case 6:
 				cblogger.Info("Start Suspend VM ...")
-				vmHandler.SuspendVM(vmId)
+				err := vmHandler.SuspendVM(vmId)
+				if err != nil {
+					cblogger.Error(err)
+				}
 				cblogger.Info("Finish Suspend VM")
 			case 7:
 				cblogger.Info("Start Resume  VM ...")
-				vmHandler.ResumeVM(vmId)
+				err := vmHandler.ResumeVM(vmId)
+				if err != nil {
+					cblogger.Error(err)
+				}
 				cblogger.Info("Finish Resume VM")
 			case 8:
 				cblogger.Info("Start Reboot  VM ...")
-				vmHandler.RebootVM(vmId)
+				err := vmHandler.RebootVM(vmId)
+				if err != nil {
+					cblogger.Error(err)
+				}
 				cblogger.Info("Finish Reboot VM")
 			case 9:
 				cblogger.Info("Start Terminate  VM ...")
-				vmHandler.TerminateVM(vmId)
+				err := vmHandler.TerminateVM(vmId)
+				if err != nil {
+					cblogger.Error(err)
+				}
 				cblogger.Info("Finish Terminate VM")
 			}
 		}

@@ -318,8 +318,8 @@ func testVNicHandler(config Config) {
 
 	vNicId := "CB-VNic"
 	subetName := "CB-Subnet"
-	//segGroupId := "/subscriptions/cb592624-b77b-4a8f-bb13-0e5a48cae40f/resourceGroups/CB-GROUP/providers/Microsoft.Network/networkSecurityGroups/CB-SecGroup"
-	//publicIpId := "/subscriptions/cb592624-b77b-4a8f-bb13-0e5a48cae40f/resourceGroups/CB-GROUP/providers/Microsoft.Network/publicIPAddresses/CB-PublicIP"
+	segGroupId := "/subscriptions/cb592624-b77b-4a8f-bb13-0e5a48cae40f/resourceGroups/CB-GROUP/providers/Microsoft.Network/networkSecurityGroups/CB-SecGroup"
+	publicIpId := "/subscriptions/cb592624-b77b-4a8f-bb13-0e5a48cae40f/resourceGroups/CB-GROUP/providers/Microsoft.Network/publicIPAddresses/CB-PublicIP"
 
 Loop:
 	for {
@@ -350,10 +350,10 @@ Loop:
 			case 3:
 				cblogger.Info("Start CreateVNic() ...")
 				reqInfo := irs.VNicReqInfo{
-					Name:     vNicId,
-					VNetName: subetName,
-					//SecurityGroupIds: []string{segGroupId},
-					//PublicIPid:       publicIpId,
+					Name:             vNicId,
+					VNetName:         subetName,
+					SecurityGroupIds: []string{segGroupId},
+					PublicIPid:       publicIpId,
 				}
 				if vNicInfo, err := vNicHandler.CreateVNic(reqInfo); err != nil {
 					cblogger.Error(err)
