@@ -30,7 +30,6 @@ import (
 	"fmt"
 
 	"github.com/aws/aws-sdk-go/aws/credentials"
-	"github.com/davecgh/go-spew/spew"
 )
 
 type AwsDriver struct {
@@ -59,8 +58,8 @@ func getVMClient(connectionInfo idrv.ConnectionInfo) (*ec2.EC2, error) {
 
 	// setup Region
 	fmt.Println("AwsDriver : getVMClient() - Region : [" + connectionInfo.RegionInfo.Region + "]")
-	fmt.Println("전달 받은 커넥션 정보")
-	spew.Dump(connectionInfo)
+	//fmt.Println("전달 받은 커넥션 정보")
+	//spew.Dump(connectionInfo)
 
 	sess, err := session.NewSession(&aws.Config{
 		Region: aws.String(connectionInfo.RegionInfo.Region),
@@ -88,8 +87,8 @@ func (driver *AwsDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (icon.
 	// 3. create CloudConnection Instance of "connect/TDA_CloudConnection".
 	// 4. return CloudConnection Interface of TDA_CloudConnection.
 
-	fmt.Println("ConnectCloud의 전달 받은 idrv.ConnectionInfo 정보")
-	spew.Dump(connectionInfo)
+	//fmt.Println("ConnectCloud의 전달 받은 idrv.ConnectionInfo 정보")
+	//spew.Dump(connectionInfo)
 
 	// sample code, do not user like this^^
 	//var iConn icon.CloudConnection
