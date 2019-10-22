@@ -29,6 +29,7 @@ func init() {
 }
 
 type AzureCloudConnection struct {
+	CredentialInfo      idrv.CredentialInfo
 	Region              idrv.RegionInfo
 	Ctx                 context.Context
 	VMClient            *compute.VirtualMachinesClient
@@ -37,6 +38,7 @@ type AzureCloudConnection struct {
 	SecurityGroupClient *network.SecurityGroupsClient
 	VNetClient          *network.VirtualNetworksClient
 	VNicClient          *network.InterfacesClient
+	IPConfigClient      *network.InterfaceIPConfigurationsClient
 	SubnetClient        *network.SubnetsClient
 }
 
@@ -58,8 +60,10 @@ func (cloudConn *AzureCloudConnection) CreateSecurityHandler() (irs.SecurityHand
 	return &sgHandler, nil
 }
 
-func (AzureCloudConnection) CreateKeyPairHandler() (irs.KeyPairHandler, error) {
-	return nil, nil
+func (cloudConn *AzureCloudConnection) CreateKeyPairHandler() (irs.KeyPairHandler, error) {
+	cblogger.Info("Azure Cloud Driver: called CreateKeyPairHandler()!")
+	keypairHandler := azrs.AzureKeyPairHandler{cloudConn.CredentialInfo, cloudConn.Region}
+	return &keypairHandler, nil
 }
 
 func (cloudConn *AzureCloudConnection) CreateVNicHandler() (irs.VNicHandler, error) {
@@ -70,7 +74,7 @@ func (cloudConn *AzureCloudConnection) CreateVNicHandler() (irs.VNicHandler, err
 
 func (cloudConn *AzureCloudConnection) CreatePublicIPHandler() (irs.PublicIPHandler, error) {
 	cblogger.Info("Azure Cloud Driver: called CreatePublicIPHandler()!")
-	publicIPHandler := azrs.AzurePublicIPHandler{cloudConn.Region, cloudConn.Ctx, cloudConn.PublicIPClient}
+	publicIPHandler := azrs.AzurePublicIPHandler{cloudConn.Region, cloudConn.Ctx, cloudConn.PublicIPClient, cloudConn.IPConfigClient}
 	return &publicIPHandler, nil
 }
 

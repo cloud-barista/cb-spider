@@ -4,9 +4,7 @@ import (
 	"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/cloudit/client"
 	"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/cloudit/client/ace/image"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
-	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/new-resources"
-	"github.com/davecgh/go-spew/spew"
-	//"strconv"
+	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 )
 
 type ClouditImageHandler struct {
@@ -30,8 +28,8 @@ func (imageHandler *ClouditImageHandler) CreateImage(imageReqInfo irs.ImageReqIn
 
 	reqInfo := image.ImageReqInfo{
 		Name:         imageReqInfo.Name,
-		VolumeId:     "7f7a87f0-3acb-4313-90f7-22eb65a6d33f",
-		SnapshotId:   "",
+		VolumeId:     "fa4bb8d7-bf09-4fd7-b123-d08677ac0691",
+		SnapshotId:   "dbc61213-b37e-4cc2-94ca-47991337e36f",
 		Ownership:    "TENANT",
 		Format:       "qcow2",
 		SourceType:   "server",
@@ -46,8 +44,8 @@ func (imageHandler *ClouditImageHandler) CreateImage(imageReqInfo irs.ImageReqIn
 	if image, err := image.Create(imageHandler.Client, &createOpts); err != nil {
 		return irs.ImageInfo{}, err
 	} else {
-		spew.Dump(image)
-		return irs.ImageInfo{Id: image.ID, Name: image.Name}, nil
+		imageInfo := setterImage(*image)
+		return *imageInfo, nil
 	}
 }
 
@@ -70,7 +68,6 @@ func (imageHandler *ClouditImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 		}
 		return resultList, nil
 	}
-
 }
 
 func (imageHandler *ClouditImageHandler) GetImage(imageID string) (irs.ImageInfo, error) {
@@ -84,8 +81,8 @@ func (imageHandler *ClouditImageHandler) GetImage(imageID string) (irs.ImageInfo
 	if image, err := image.Get(imageHandler.Client, imageID, &requestOpts); err != nil {
 		return irs.ImageInfo{}, err
 	} else {
-		spew.Dump(image)
-		return irs.ImageInfo{Id: image.ID, Name: image.Name}, nil
+		imageInfo := setterImage(*image)
+		return *imageInfo, nil
 	}
 }
 

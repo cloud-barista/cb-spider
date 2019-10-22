@@ -5,7 +5,7 @@ import (
 	"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/cloudit/client/ace/nic"
 	"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/cloudit/client/iam/securitygroup"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
-	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/new-resources"
+	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/davecgh/go-spew/spew"
 )
 
@@ -16,12 +16,11 @@ type ClouditNicHandler struct {
 
 func setterNic(nic nic.VmNicInfo) *irs.VNicInfo {
 	vNicInfo := &irs.VNicInfo{
-		Name:             nic.VmName,
-		PublicIP:         nic.AdaptiveIp,
-		MacAdress:        nic.Mac,
-		OwnedVMID:        nic.VmId,
-		SecurityGroupIds: nil,
-		Status:           nic.State,
+		Name:       nic.VmName,
+		PublicIP:   nic.AdaptiveIp,
+		MacAddress: nic.Mac,
+		OwnedVMID:  nic.VmId,
+		Status:     nic.State,
 	}
 	return vNicInfo
 }
@@ -62,6 +61,7 @@ func (nicHandler *ClouditNicHandler) ListVNic() ([]*irs.VNicInfo, error) {
 		MoreHeaders: authHeader,
 	}
 
+	// TODO: serverId 인터페이스 정의
 	serverId := "025e5edc-54ad-4b98-9292-6eeca4c36a6d"
 	if vNicList, err := nic.List(nicHandler.Client, serverId, &requestOpts); err != nil {
 		return nil, err
@@ -83,6 +83,7 @@ func (nicHandler *ClouditNicHandler) GetVNic(vNicID string) (irs.VNicInfo, error
 		MoreHeaders: authHeader,
 	}
 
+	// TODO: serverId 인터페이스 정의
 	serverId := "025e5edc-54ad-4b98-9292-6eeca4c36a6d"
 	if vNic, err := nic.Get(nicHandler.Client, serverId, vNicID, &requestOpts); err != nil {
 		return irs.VNicInfo{}, err
@@ -99,6 +100,7 @@ func (nicHandler *ClouditNicHandler) DeleteVNic(vNicID string) (bool, error) {
 		MoreHeaders: authHeader,
 	}
 
+	// TODO: serverId 인터페이스 정의
 	serverId := "025e5edc-54ad-4b98-9292-6eeca4c36a6d"
 	if err := nic.Delete(nicHandler.Client, serverId, vNicID, &requestOpts); err != nil {
 		return false, err

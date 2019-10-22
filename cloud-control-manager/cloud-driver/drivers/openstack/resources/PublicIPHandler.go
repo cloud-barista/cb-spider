@@ -1,8 +1,7 @@
 package resources
 
 import (
-	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/new-resources"
-	"github.com/davecgh/go-spew/spew"
+	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/rackspace/gophercloud"
 	"github.com/rackspace/gophercloud/openstack/compute/v2/extensions/floatingip"
 	"github.com/rackspace/gophercloud/pagination"
@@ -26,15 +25,17 @@ func (publicIPHandler *OpenStackPublicIPHandler) CreatePublicIP(publicIPReqInfo 
 	createOpts := floatingip.CreateOpts{
 		Pool: CBPublicIPPool,
 	}
-	publicIPInfo, err := floatingip.Create(publicIPHandler.Client, createOpts).Extract()
+	publicIP, err := floatingip.Create(publicIPHandler.Client, createOpts).Extract()
 	if err != nil {
 		return irs.PublicIPInfo{}, err
 	}
 
 	// 생성된 PublicIP 정보 리턴
-
-	spew.Dump(publicIPInfo)
-	return irs.PublicIPInfo{Id: publicIPInfo.ID}, nil
+	publicIPInfo, err := publicIPHandler.GetPublicIP(publicIP.ID)
+	if err != nil {
+		return irs.PublicIPInfo{}, err
+	}
+	return publicIPInfo, nil
 }
 
 func (publicIPHandler *OpenStackPublicIPHandler) ListPublicIP() ([]*irs.PublicIPInfo, error) {
@@ -57,7 +58,6 @@ func (publicIPHandler *OpenStackPublicIPHandler) ListPublicIP() ([]*irs.PublicIP
 	if err != nil {
 		return nil, err
 	}
-	//spew.Dump(publicIPList)
 	return publicIPList, nil
 }
 
@@ -68,7 +68,6 @@ func (publicIPHandler *OpenStackPublicIPHandler) GetPublicIP(publicIPID string) 
 	}
 
 	publicIPInfo := setterPublicIP(*floatingIP)
-	//spew.Dump(publicIPInfo)
 	return *publicIPInfo, nil
 }
 

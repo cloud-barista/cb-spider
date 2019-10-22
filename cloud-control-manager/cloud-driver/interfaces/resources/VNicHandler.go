@@ -13,6 +13,7 @@ package resources
 type VNicReqInfo struct {
 	Name             string
 	VNetName         string
+	VNetId           string // ex) OpenStack, 0b108f81-f2a7-4fb7-bae3-fe5544b0b1d0
 	SecurityGroupIds []string
 	PublicIPid       string
 }
@@ -21,7 +22,7 @@ type VNicInfo struct {
 	Id               string
 	Name             string
 	PublicIP         string
-	MacAddress        string
+	MacAddress       string
 	OwnedVMID        string
 	SecurityGroupIds []string
 	Status           string

@@ -8,7 +8,6 @@ import (
 	"github.com/Azure/go-autorest/autorest/to"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
-	"strings"
 )
 
 type AzureImageHandler struct {
@@ -30,8 +29,6 @@ func setterImage(image compute.Image) *irs.ImageInfo {
 }
 
 func (imageHandler *AzureImageHandler) CreateImage(imageReqInfo irs.ImageReqInfo) (irs.ImageInfo, error) {
-	imageIdArr := strings.Split(imageReqInfo.Id, ":")
-
 	// @TODO: PublicIP 생성 요청 파라미터 정의 필요
 	type ImageReqInfo struct {
 		OSType string
@@ -47,9 +44,9 @@ func (imageHandler *AzureImageHandler) CreateImage(imageReqInfo irs.ImageReqInfo
 	}
 
 	// Check Image Exists
-	image, err := imageHandler.Client.Get(imageHandler.Ctx, imageIdArr[0], imageIdArr[1], "")
+	image, err := imageHandler.Client.Get(imageHandler.Ctx, CBResourceGroupName, imageReqInfo.Name, "")
 	if image.ID != nil {
-		errMsg := fmt.Sprintf("Image with name %s already exist", imageIdArr[1])
+		errMsg := fmt.Sprintf("Image with name %s already exist", imageReqInfo.Name)
 		createErr := errors.New(errMsg)
 		return irs.ImageInfo{}, createErr
 	}
@@ -58,18 +55,18 @@ func (imageHandler *AzureImageHandler) CreateImage(imageReqInfo irs.ImageReqInfo
 		ImageProperties: &compute.ImageProperties{
 			StorageProfile: &compute.ImageStorageProfile{
 				OsDisk: &compute.ImageOSDisk{
+					//BlobURI: to.StringPtr(reqInfo.BlobUrl),
 					ManagedDisk: &compute.SubResource{
 						ID: to.StringPtr(reqInfo.DiskId),
 					},
 					OsType: compute.OperatingSystemTypes(reqInfo.OSType),
-					//BlobURI: to.StringPtr(reqInfo.BlobUrl),
 				},
 			},
 		},
 		Location: &imageHandler.Region.Region,
 	}
 
-	future, err := imageHandler.Client.CreateOrUpdate(imageHandler.Ctx, imageIdArr[0], imageIdArr[1], createOpts)
+	future, err := imageHandler.Client.CreateOrUpdate(imageHandler.Ctx, CBResourceGroupName, imageReqInfo.Name, createOpts)
 	if err != nil {
 		return irs.ImageInfo{}, err
 	}
@@ -97,7 +94,6 @@ func (imageHandler *AzureImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 		imageInfo := setterImage(image)
 		imageList = append(imageList, imageInfo)
 	}
-	//spew.Dump(imageList)
 	return imageList, nil
 }
 
@@ -109,7 +105,6 @@ func (imageHandler *AzureImageHandler) GetImage(imageID string) (irs.ImageInfo, 
 	}
 
 	imageInfo := setterImage(image)
-	//spew.Dump(imageInfo)
 	return *imageInfo, nil
 }
 

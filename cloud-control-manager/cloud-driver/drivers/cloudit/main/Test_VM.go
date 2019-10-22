@@ -5,7 +5,7 @@ import (
 	cblog "github.com/cloud-barista/cb-log"
 	cidrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/cloudit"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
-	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/new-resources"
+	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v3"
@@ -68,7 +68,7 @@ func testVMHandler() {
 			switch commandNum {
 			case 1:
 				cblogger.Info("Start List VM ...")
-				vmList := vmHandler.ListVM()
+				vmList, _ := vmHandler.ListVM()
 				for i, vm := range vmList {
 					cblogger.Info("[", i, "] ")
 					spew.Dump(vm)
@@ -76,19 +76,19 @@ func testVMHandler() {
 				cblogger.Info("Finish List VM")
 			case 2:
 				cblogger.Info("Start Get VM ...")
-				vmInfo := vmHandler.GetVM(serverId)
+				vmInfo, _ := vmHandler.GetVM(serverId)
 				spew.Dump(vmInfo)
 				cblogger.Info("Finish Get VM")
 			case 3:
 				cblogger.Info("Start List VMStatus ...")
-				vmStatusList := vmHandler.ListVMStatus()
+				vmStatusList, _ := vmHandler.ListVMStatus()
 				for i, vmStatus := range vmStatusList {
 					cblogger.Info("[", i, "] ", *vmStatus)
 				}
 				cblogger.Info("Finish List VMStatus")
 			case 4:
 				cblogger.Info("Start Get VMStatus ...")
-				vmStatus := vmHandler.GetVMStatus(serverId)
+				vmStatus, _ := vmHandler.GetVMStatus(serverId)
 				cblogger.Info(vmStatus)
 				cblogger.Info("Finish Get VMStatus")
 			case 5:
