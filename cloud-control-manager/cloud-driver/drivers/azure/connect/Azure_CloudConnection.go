@@ -29,6 +29,7 @@ func init() {
 }
 
 type AzureCloudConnection struct {
+	CredentialInfo      idrv.CredentialInfo
 	Region              idrv.RegionInfo
 	Ctx                 context.Context
 	VMClient            *compute.VirtualMachinesClient
@@ -61,7 +62,7 @@ func (cloudConn *AzureCloudConnection) CreateSecurityHandler() (irs.SecurityHand
 
 func (cloudConn *AzureCloudConnection) CreateKeyPairHandler() (irs.KeyPairHandler, error) {
 	cblogger.Info("Azure Cloud Driver: called CreateKeyPairHandler()!")
-	keypairHandler := azrs.AzureKeyPairHandler{cloudConn.Region}
+	keypairHandler := azrs.AzureKeyPairHandler{cloudConn.CredentialInfo, cloudConn.Region}
 	return &keypairHandler, nil
 }
 

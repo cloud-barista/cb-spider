@@ -30,12 +30,12 @@ func (AzureDriver) GetDriverVersion() string {
 func (AzureDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	var drvCapabilityInfo idrv.DriverCapabilityInfo
 
-	drvCapabilityInfo.ImageHandler = false
-	drvCapabilityInfo.VNetworkHandler = false
-	drvCapabilityInfo.SecurityHandler = false
-	drvCapabilityInfo.KeyPairHandler = false
-	drvCapabilityInfo.VNicHandler = false
-	drvCapabilityInfo.PublicIPHandler = false
+	drvCapabilityInfo.ImageHandler = true
+	drvCapabilityInfo.VNetworkHandler = true
+	drvCapabilityInfo.SecurityHandler = true
+	drvCapabilityInfo.KeyPairHandler = true
+	drvCapabilityInfo.VNicHandler = true
+	drvCapabilityInfo.PublicIPHandler = true
 	drvCapabilityInfo.VMHandler = true
 
 	return drvCapabilityInfo
@@ -81,6 +81,7 @@ func (driver *AzureDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (ico
 	}
 
 	iConn := azcon.AzureCloudConnection{
+		CredentialInfo:      connectionInfo.CredentialInfo,
 		Region:              connectionInfo.RegionInfo,
 		Ctx:                 Ctx,
 		VMClient:            VMClient,

@@ -7,7 +7,7 @@ import (
 	"encoding/pem"
 	"fmt"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
-	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/new-resources"
+	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"golang.org/x/crypto/ssh"
 	"io/ioutil"
 	"log"
@@ -15,7 +15,8 @@ import (
 )
 
 type AzureKeyPairHandler struct {
-	Region idrv.RegionInfo
+	CredentialInfo idrv.CredentialInfo
+	Region         idrv.RegionInfo
 }
 
 func setterKeypair(keypairName string) *irs.KeyPairInfo {
@@ -25,7 +26,57 @@ func setterKeypair(keypairName string) *irs.KeyPairInfo {
 
 func (keyPairHandler *AzureKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPairReqInfo) (irs.KeyPairInfo, error) {
 	// 생성된 KeyPair 정보 리턴
-	return irs.KeyPairInfo{}, nil
+
+	//keyPairHandler.
+
+	// TODO: ENV 환경변수 PATH에 키 저장
+	rootPath := os.Getenv("CBSPIDER_PATH")
+	savePrivateFileTo := rootPath + "/conf/PrivateKey"
+	savePublicFileTo := rootPath + "/conf/PublicKey"
+	bitSize := 4096
+
+	// 지정된 바이트크기의 RSA 형식 개인키(비공개키)를 만듬
+	privateKey, err := generatePrivateKey(bitSize)
+	if err != nil {
+		//log.Fatal(err.Error())
+	}
+
+	// 개인키를 RSA에서 PEM 형식으로 인코딩
+	privateKeyBytes := encodePrivateKeyToPEM(privateKey)
+
+	// rsa.PublicKey를 가져와서 .pub 파일에 쓰기 적합한 바이트로 변환
+	// "ssh-rsa ..."형식으로 변환
+	publicKeyBytes, err := generatePublicKey(&privateKey.PublicKey)
+	if err != nil {
+		//log.Fatal(err.Error())
+	}
+
+	// 파일에 private Key를 쓴다
+	err = writeKeyToFile(privateKeyBytes, savePrivateFileTo)
+	if err != nil {
+		//log.Fatal(err.Error())
+	}
+
+	// 파일에 public Key를 쓴다
+	err = writeKeyToFile([]byte(publicKeyBytes), savePublicFileTo)
+	if err != nil {
+		//log.Fatal(err.Error())
+	}
+
+	// TODO: 파일 bytes로 읽어들여서 string으로 변환
+	var pubKeyStr string
+
+	data, err := ioutil.ReadFile(savePublicFileTo)
+	if err != nil {
+
+	}
+	pubKeyStr = string(data)
+
+	keyPairInfo := irs.KeyPairInfo{
+		Name:      keyPairReqInfo.Name,
+		PublicKey: pubKeyStr,
+	}
+	return keyPairInfo, nil
 }
 
 func (keyPairHandler *AzureKeyPairHandler) ListKey() ([]*irs.KeyPairInfo, error) {
