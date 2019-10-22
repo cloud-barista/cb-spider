@@ -37,11 +37,11 @@ func (GCPDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	var drvCapabilityInfo idrv.DriverCapabilityInfo
 
 	drvCapabilityInfo.ImageHandler = false
-	drvCapabilityInfo.VNetworkHandler = false
-	drvCapabilityInfo.SecurityHandler = false
+	drvCapabilityInfo.VNetworkHandler = true
+	drvCapabilityInfo.SecurityHandler = true
 	drvCapabilityInfo.KeyPairHandler = false
 	drvCapabilityInfo.VNicHandler = false
-	drvCapabilityInfo.PublicIPHandler = false
+	drvCapabilityInfo.PublicIPHandler = true
 	drvCapabilityInfo.VMHandler = true
 
 	return drvCapabilityInfo
