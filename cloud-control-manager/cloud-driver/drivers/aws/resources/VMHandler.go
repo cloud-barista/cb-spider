@@ -92,7 +92,7 @@ func (vmHandler *AwsVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 		},*/
 
 		SubnetId: aws.String(subnetID), // set a subnet.
-		
+
 	})
 	if err != nil {
 		cblogger.Errorf("Could not create instance", err)
@@ -132,7 +132,7 @@ func (vmHandler *AwsVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 	cblogger.Infof("[%s] EC2에 Public IP 할당 결과 : ", newVmId, assocRes)
 
 	//최신 정보 조회
-	vmInfo := vmHandler.GetVM(newVmId)
+	vmInfo, _ := vmHandler.GetVM(newVmId)
 
 	/*
 		//빠른 생성을 위해 Running 상태를 대기하지 않고 최소한의 정보만 리턴 함.
@@ -168,7 +168,7 @@ func WaitForRun(svc *ec2.EC2, instanceID string) {
 	cblogger.Info("=========WaitForRun() 종료")
 }
 
-func (vmHandler *AwsVMHandler) ResumeVM(vmID string) {
+func (vmHandler *AwsVMHandler) ResumeVM(vmID string) error {
 	cblogger.Infof("vmID : [%s]", vmID)
 	input := &ec2.StartInstancesInput{
 		InstanceIds: []*string{
@@ -186,6 +186,7 @@ func (vmHandler *AwsVMHandler) ResumeVM(vmID string) {
 		if err != nil {
 			//fmt.Println("Error", err)
 			cblogger.Error(err)
+			return err
 		} else {
 			//fmt.Println("Success", result.StartingInstances)
 			cblogger.Info("Success", result.StartingInstances)
@@ -193,10 +194,13 @@ func (vmHandler *AwsVMHandler) ResumeVM(vmID string) {
 	} else { // This could be due to a lack of permissions
 		//fmt.Println("Error", err)
 		cblogger.Error(err)
+		return err
 	}
+
+	return nil
 }
 
-func (vmHandler *AwsVMHandler) SuspendVM(vmID string) {
+func (vmHandler *AwsVMHandler) SuspendVM(vmID string) error {
 	cblogger.Infof("vmID : [%s]", vmID)
 	input := &ec2.StopInstancesInput{
 		InstanceIds: []*string{
@@ -211,15 +215,19 @@ func (vmHandler *AwsVMHandler) SuspendVM(vmID string) {
 		result, err = vmHandler.Client.StopInstances(input)
 		if err != nil {
 			cblogger.Error(err)
+			return err
 		} else {
 			cblogger.Info("Success", result.StoppingInstances)
 		}
 	} else {
 		cblogger.Error("Error", err)
+		return err
 	}
+
+	return nil
 }
 
-func (vmHandler *AwsVMHandler) RebootVM(vmID string) {
+func (vmHandler *AwsVMHandler) RebootVM(vmID string) error {
 	cblogger.Infof("vmID : [%s]", vmID)
 	input := &ec2.RebootInstancesInput{
 		InstanceIds: []*string{
@@ -245,17 +253,19 @@ func (vmHandler *AwsVMHandler) RebootVM(vmID string) {
 		cblogger.Info("err 값 : ", err)
 		if err != nil {
 			cblogger.Error("Error", err)
+			return err
 		} else {
 			cblogger.Info("Success", result)
 		}
 	} else { // This could be due to a lack of permissions
 		cblogger.Info("리부팅 권한이 없는 것같음.")
 		cblogger.Error("Error", err)
+		return err
 	}
-	return
+	return nil
 }
 
-func (vmHandler *AwsVMHandler) TerminateVM(vmID string) {
+func (vmHandler *AwsVMHandler) TerminateVM(vmID string) error {
 	cblogger.Infof("vmID : [%s]", vmID)
 	input := &ec2.TerminateInstancesInput{
 		//InstanceIds: instanceIds,
@@ -267,15 +277,16 @@ func (vmHandler *AwsVMHandler) TerminateVM(vmID string) {
 	_, err := vmHandler.Client.TerminateInstances(input)
 	if err != nil {
 		cblogger.Error("Could not termiate instances", err)
+		return err
 	} else {
 		cblogger.Info("Success")
 	}
-	return
+	return nil
 }
 
 //- 보안그룹의 경우 멀티개 설정이 가능한데 현재는 1개만 입력 받음
 // @Todo : SecurityID에 보안그룹 Name을 할당하는게 맞는지 확인 필요
-func (vmHandler *AwsVMHandler) GetVM(vmID string) irs.VMInfo {
+func (vmHandler *AwsVMHandler) GetVM(vmID string) (irs.VMInfo, error) {
 	cblogger.Infof("vmID : [%s]", vmID)
 
 	input := &ec2.DescribeInstancesInput{
@@ -295,7 +306,7 @@ func (vmHandler *AwsVMHandler) GetVM(vmID string) irs.VMInfo {
 			// Print the error, cast err to awserr.Error to get the Code and Message from an error.
 			cblogger.Error(err.Error())
 		}
-		return irs.VMInfo{}
+		return irs.VMInfo{}, err
 	}
 
 	cblogger.Info("Success", result)
@@ -311,7 +322,7 @@ func (vmHandler *AwsVMHandler) GetVM(vmID string) irs.VMInfo {
 	}
 
 	cblogger.Info("vmInfo", vmInfo)
-	return vmInfo
+	return vmInfo, nil
 }
 
 // DescribeInstances결과에서 EC2 세부 정보 추출
@@ -434,7 +445,7 @@ func ExtractDescribeInstances(reservation *ec2.Reservation) irs.VMInfo {
 	return vmInfo
 }
 
-func (vmHandler *AwsVMHandler) ListVM() []*irs.VMInfo {
+func (vmHandler *AwsVMHandler) ListVM() ([]*irs.VMInfo, error) {
 	cblogger.Infof("Start")
 	var vmInfoList []*irs.VMInfo
 
@@ -450,14 +461,12 @@ func (vmHandler *AwsVMHandler) ListVM() []*irs.VMInfo {
 			switch aerr.Code() {
 			default:
 				cblogger.Error(aerr.Error())
-				return vmInfoList
 			}
 		} else {
 			// Print the error, cast err to awserr.Error to get the Code and Message from an error.
 			cblogger.Error(err.Error())
-			return vmInfoList
 		}
-		return vmInfoList
+		return nil, err
 	}
 
 	cblogger.Info("Success")
@@ -465,16 +474,16 @@ func (vmHandler *AwsVMHandler) ListVM() []*irs.VMInfo {
 	for _, i := range result.Reservations {
 		for _, vm := range i.Instances {
 			cblogger.Info("[%s] EC2 정보 조회", *vm.InstanceId)
-			vmInfo := vmHandler.GetVM(*vm.InstanceId)
+			vmInfo, _ := vmHandler.GetVM(*vm.InstanceId)
 			vmInfoList = append(vmInfoList, &vmInfo)
 		}
 	}
 
-	return vmInfoList
+	return vmInfoList, nil
 }
 
 //SHUTTING-DOWN / TERMINATED
-func (vmHandler *AwsVMHandler) GetVMStatus(vmID string) irs.VMStatus {
+func (vmHandler *AwsVMHandler) GetVMStatus(vmID string) (irs.VMStatus, error) {
 	cblogger.Infof("vmID : [%s]", vmID)
 
 	//vmStatus := "pending"
@@ -492,14 +501,12 @@ func (vmHandler *AwsVMHandler) GetVMStatus(vmID string) irs.VMStatus {
 			switch aerr.Code() {
 			default:
 				cblogger.Error(aerr.Error())
-				return irs.VMStatus("")
 			}
 		} else {
 			// Print the error, cast err to awserr.Error to get the Code and Message from an error.
 			cblogger.Error(err.Error())
-			return irs.VMStatus("")
 		}
-		return irs.VMStatus("")
+		return irs.VMStatus(""), err
 	}
 
 	cblogger.Info("Success", result)
@@ -507,14 +514,14 @@ func (vmHandler *AwsVMHandler) GetVMStatus(vmID string) irs.VMStatus {
 		for _, vm := range i.Instances {
 			vmStatus := strings.ToUpper(*vm.State.Name)
 			cblogger.Info(vmID, " EC2 Status : ", vmStatus)
-			return irs.VMStatus(vmStatus)
+			return irs.VMStatus(vmStatus), nil
 		}
 	}
 
-	return irs.VMStatus("")
+	return irs.VMStatus(""), nil
 }
 
-func (vmHandler *AwsVMHandler) ListVMStatus() []*irs.VMStatusInfo {
+func (vmHandler *AwsVMHandler) ListVMStatus() ([]*irs.VMStatusInfo, error) {
 	cblogger.Infof("Start")
 	var vmStatusList []*irs.VMStatusInfo
 
@@ -530,14 +537,12 @@ func (vmHandler *AwsVMHandler) ListVMStatus() []*irs.VMStatusInfo {
 			switch aerr.Code() {
 			default:
 				cblogger.Error(aerr.Error())
-				return vmStatusList
 			}
 		} else {
 			// Print the error, cast err to awserr.Error to get the Code and Message from an error.
 			cblogger.Error(err.Error())
-			return vmStatusList
 		}
-		return vmStatusList
+		return nil, err
 	}
 
 	cblogger.Info("Success")
@@ -556,7 +561,7 @@ func (vmHandler *AwsVMHandler) ListVMStatus() []*irs.VMStatusInfo {
 		}
 	}
 
-	return vmStatusList
+	return vmStatusList, nil
 }
 
 // AssociationId 대신 PublicIP로도 가능 함.
