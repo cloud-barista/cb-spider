@@ -19,7 +19,6 @@ import (
 	compute "google.golang.org/api/compute/v1"
 
 	idrv "../../../interfaces"
-	nirs "../../../interfaces/old-resources"
 	irs "../../../interfaces/resources"
 	_ "github.com/Azure/go-autorest/autorest/to"
 )
@@ -31,12 +30,12 @@ type GCPVMHandler struct {
 	Credential idrv.CredentialInfo
 }
 
-func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (nirs.VMInfo, error) {
+func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, error) {
 	// Set VM Create Information
 	// GCP 는 reqinfo에 ProjectID를 받아야 함.
 
 	ctx := vmHandler.Ctx
-	vmName := vmReqInfo.Name
+	vmName := vmReqInfo.VMName
 	projectID := vmHandler.Credential.ProjectID
 	prefix := "https://www.googleapis.com/compute/v1/projects/" + projectID
 	imageURL := "https://www.googleapis.com/compute/v1/projects/debian-cloud/global/images/debian-7-wheezy-v20140606"
@@ -48,10 +47,10 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (nirs.VMInfo, er
 	publicIpHandler := GCPPublicIPHandler{
 		vmHandler.Region, vmHandler.Ctx, vmHandler.Client, vmHandler.Credential}
 	publicIpName := vmReqInfo.PublicIPId
-	publicIpReqInfo := nirs.PublicIPReqInfo{Name: publicIpName}
+	publicIpReqInfo := irs.PublicIPReqInfo{Name: publicIpName}
 	publicIPInfo, err := publicIpHandler.CreatePublicIP(publicIpReqInfo)
 	if err != nil {
-		lof.Fatal(err)
+		log.Fatal(err)
 	}
 	publicIPAddress := publicIPInfo.PublicIP
 
@@ -270,12 +269,12 @@ func mappingServerInfo(server *compute.Instance) irs.VMInfo {
 		Region: irs.RegionInfo{
 			Zone: server.Zone,
 		},
-		VNIC:         server.NetworkInterfaces[0].Name,
-		SpecID:       server.MachineType,
-		PublicIP:     server.NetworkInterfaces[0].AccessConfigs[0].NatIP,
-		PrivateIP:    server.NetworkInterfaces[0].NetworkIP,
-		VNetworkID:   server.NetworkInterfaces[0].Network,
-		SubNetworkID: server.NetworkInterfaces[0].Subnetwork,
+		NetworkInterfaceId: server.NetworkInterfaces[0].Name,
+		VMSpecId:           server.MachineType,
+		PublicIP:           server.NetworkInterfaces[0].AccessConfigs[0].NatIP,
+		PrivateIP:          server.NetworkInterfaces[0].NetworkIP,
+		VirtualNetworkId:   server.NetworkInterfaces[0].Network,
+		// SubNetworkID:       server.NetworkInterfaces[0].Subnetwork,
 	}
 
 	return vmInfo

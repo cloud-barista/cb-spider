@@ -57,15 +57,14 @@ func (vNetworkHandler *GCPVNetworkHandler) CreateVNetwork(vNetworkReqInfo irs.VN
 	res, err := vNetworkHandler.Client.Networks.Insert(projectID, network).Do()
 	if err != nil {
 		log.Fatal(err)
-		return err
+
 	}
 
 	//생성되는데 시간이 필요 함. 약 20초정도?
 	time.Sleep(time.Second * 20)
-	info, err := vNetworkHandler.Client.Networks.Get(projectID, name).Do()
-	if err != nil {
-		log.Fatal(err)
-		return err
+	info, err2 := vNetworkHandler.Client.Networks.Get(projectID, name).Do()
+	if err2 != nil {
+		log.Fatal(err2)
 	}
 	networkInfo := irs.VNetworkInfo{
 		Name:     info.Name,
@@ -79,7 +78,7 @@ func (vNetworkHandler *GCPVNetworkHandler) CreateVNetwork(vNetworkReqInfo irs.VN
 func (vNetworkHandler *GCPVNetworkHandler) ListVNetwork() ([]*irs.VNetworkInfo, error) {
 	projectID := vNetworkHandler.Credential.ProjectID
 
-	vNetworkList, err := vNetworkHandler.Client.Networks.List(ProjectID).Do()
+	vNetworkList, err := vNetworkHandler.Client.Networks.List(projectID).Do()
 	if err != nil {
 		log.Fatal(err)
 		return nil, err
@@ -92,7 +91,7 @@ func (vNetworkHandler *GCPVNetworkHandler) ListVNetwork() ([]*irs.VNetworkInfo, 
 			SubnetId: item.Name,
 		}
 
-		VNetworkInfo = append(vNetworkInfo, &networkInfo)
+		vNetworkInfo = append(vNetworkInfo, &networkInfo)
 
 	}
 
