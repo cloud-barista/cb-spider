@@ -16,13 +16,11 @@ type ClouditNicHandler struct {
 
 func setterNic(nic nic.VmNicInfo) *irs.VNicInfo {
 	vNicInfo := &irs.VNicInfo{
-		Name:             nic.VmName,
-		PublicIP:         nic.AdaptiveIp,
-		MacAddress:       nic.Mac,
-		OwnedVMID:        nic.VmId,
-		SecurityGroupIds: nil,
-		//SecurityGroupIds: []string{},
-		Status: nic.State,
+		Name:       nic.VmName,
+		PublicIP:   nic.AdaptiveIp,
+		MacAddress: nic.Mac,
+		OwnedVMID:  nic.VmId,
+		Status:     nic.State,
 	}
 	return vNicInfo
 }

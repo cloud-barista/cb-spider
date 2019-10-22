@@ -15,12 +15,12 @@ import (
 	"errors"
 	"fmt"
 	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2018-06-01/compute"
-	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2018-04-01/network"
 	"github.com/Azure/go-autorest/autorest/to"
 	cblog "github.com/cloud-barista/cb-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/sirupsen/logrus"
+	"reflect"
 	"strings"
 )
 
@@ -72,7 +72,7 @@ func (vmHandler *AzureVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 				ComputerName:  &vmReqInfo.VMName,
 				AdminUsername: &vmReqInfo.VMUserId,
 				AdminPassword: &vmReqInfo.VMUserPasswd,
-				LinuxConfiguration: &compute.LinuxConfiguration{
+				/*LinuxConfiguration: &compute.LinuxConfiguration{
 					SSH: &compute.SSHConfiguration{
 						PublicKeys: &[]compute.SSHPublicKey{
 							{
@@ -83,7 +83,7 @@ func (vmHandler *AzureVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 							},
 						},
 					},
-				},
+				},*/
 			},
 			NetworkProfile: &compute.NetworkProfile{
 				NetworkInterfaces: &[]compute.NetworkInterfaceReference{
@@ -194,8 +194,8 @@ func (vmHandler *AzureVMHandler) ListVMStatus() ([]*irs.VMStatusInfo, error) {
 			vmStatusList = append(vmStatusList, &vmStatusInfo)
 		} else {
 			vmIdArr := strings.Split(*s.ID, "/")
-			vmId := vmIdArr[4] + ":" + vmIdArr[8]
-			status, _ := vmHandler.GetVMStatus(vmId)
+			vmName := vmIdArr[8]
+			status, _ := vmHandler.GetVMStatus(vmName)
 			vmStatusInfo := irs.VMStatusInfo{
 				VmId:     *s.ID,
 				VmStatus: status,
@@ -291,9 +291,12 @@ func mappingServerInfo(server compute.VirtualMachine) irs.VMInfo {
 	}
 
 	// Set VM Image Info
-	imageRef := server.VirtualMachineProperties.StorageProfile.ImageReference
-	imageId := *imageRef.Publisher + ":" + *imageRef.Offer + ":" + *imageRef.Sku + ":" + *imageRef.Version
-	vmInfo.ImageId = imageId
+	if reflect.ValueOf(server.StorageProfile.ImageReference.ID).IsNil() {
+		imageRef := server.VirtualMachineProperties.StorageProfile.ImageReference
+		vmInfo.ImageId = *imageRef.Publisher + ":" + *imageRef.Offer + ":" + *imageRef.Sku + ":" + *imageRef.Version
+	} else {
+		vmInfo.ImageId = *server.VirtualMachineProperties.StorageProfile.ImageReference.ID
+	}
 
 	// Set VNic Info
 	niList := *server.NetworkProfile.NetworkInterfaces
