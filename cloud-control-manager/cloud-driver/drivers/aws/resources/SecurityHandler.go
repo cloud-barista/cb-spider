@@ -11,6 +11,7 @@
 package resources
 
 import (
+	"errors"
 	"reflect"
 	"strconv"
 
@@ -37,7 +38,8 @@ func (securityHandler *AwsSecurityHandler) CreateSecurity(securityReqInfo irs.Se
 	vNetworkHandler := AwsVNetworkHandler{Client: securityHandler.Client}
 	awsCBNetworkInfo, errAutoCBNetInfo := vNetworkHandler.GetAutoCBNetworkInfo()
 	if errAutoCBNetInfo != nil || awsCBNetworkInfo.VpcId == "" {
-		return irs.SecurityInfo{}, nil
+		cblogger.Error("VPC 정보 획득 실패")
+		return irs.SecurityInfo{}, errors.New("mcloud-barista의 기본 네트워크 정보를 찾을 수 없습니다.")
 	}
 
 	cblogger.Infof("==> [%s] CB Default VPC 정보 찾음", awsCBNetworkInfo.VpcId)

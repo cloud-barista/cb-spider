@@ -138,11 +138,13 @@ func extractPublicIpDescribeInfo(allocRes *ec2.Address) irs.PublicIPInfo {
 		keyValueList = append(keyValueList, irs.KeyValue{Key: "PrivateIpAddress", Value: *allocRes.PrivateIpAddress})
 	}
 
+	publicIPInfo.Name = *allocRes.AllocationId //2019-10-21 Name 필드에 ID 값을 리턴하도록 변경 (만약을 위해 Key&Value 목록에 Name 정보 리턴)
 	//Name 태그 설정
 	for _, t := range allocRes.Tags {
 		if *t.Key == "Name" {
-			publicIPInfo.Name = *t.Value
-			cblogger.Debug("명칭 : ", publicIPInfo.Name)
+			//publicIPInfo.Name = *t.Value
+			//cblogger.Debug("명칭 : ", publicIPInfo.Name)
+			keyValueList = append(keyValueList, irs.KeyValue{Key: "Name", Value: *t.Value})
 			break
 		}
 	}
