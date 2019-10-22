@@ -117,18 +117,21 @@ func (securityHandler *AwsSecurityHandler) CreateSecurity(securityReqInfo irs.Se
 		ipPermissions = append(ipPermissions, ipPermission)
 	}
 
-	// Add permissions to the security group
-	_, err = securityHandler.Client.AuthorizeSecurityGroupIngress(&ec2.AuthorizeSecurityGroupIngressInput{
-		//GroupName:     aws.String(securityReqInfo.Name),
-		GroupId:       createRes.GroupId,
-		IpPermissions: ipPermissions,
-	})
-	if err != nil {
-		cblogger.Errorf("Unable to set security group %q ingress, %v", securityReqInfo.Name, err)
-		return irs.SecurityInfo{}, err
-	}
+	//인바운드 정책이 있는 경우에만 처리
+	if len(ipPermissions) > 0 {
+		// Add permissions to the security group
+		_, err = securityHandler.Client.AuthorizeSecurityGroupIngress(&ec2.AuthorizeSecurityGroupIngressInput{
+			//GroupName:     aws.String(securityReqInfo.Name),
+			GroupId:       createRes.GroupId,
+			IpPermissions: ipPermissions,
+		})
+		if err != nil {
+			cblogger.Errorf("Unable to set security group %q ingress, %v", securityReqInfo.Name, err)
+			return irs.SecurityInfo{}, err
+		}
 
-	cblogger.Info("Successfully set security group ingress")
+		cblogger.Info("Successfully set security group ingress")
+	}
 
 	cblogger.Infof("아웃바운드 보안 정책 처리")
 	//Egress 처리
@@ -175,17 +178,21 @@ func (securityHandler *AwsSecurityHandler) CreateSecurity(securityReqInfo irs.Se
 		ipPermissionsEgress = append(ipPermissionsEgress, ipPermission)
 	}
 
-	// Add permissions to the security group
-	_, err = securityHandler.Client.AuthorizeSecurityGroupEgress(&ec2.AuthorizeSecurityGroupEgressInput{
-		GroupId:       createRes.GroupId,
-		IpPermissions: ipPermissionsEgress,
-	})
-	if err != nil {
-		cblogger.Errorf("Unable to set security group %q egress, %v", securityReqInfo.Name, err)
-		return irs.SecurityInfo{}, err
-	}
+	//아웃바운드 정책이 있는 경우에만 처리
+	if len(ipPermissionsEgress) > 0 {
 
-	cblogger.Info("Successfully set security group egress")
+		// Add permissions to the security group
+		_, err = securityHandler.Client.AuthorizeSecurityGroupEgress(&ec2.AuthorizeSecurityGroupEgressInput{
+			GroupId:       createRes.GroupId,
+			IpPermissions: ipPermissionsEgress,
+		})
+		if err != nil {
+			cblogger.Errorf("Unable to set security group %q egress, %v", securityReqInfo.Name, err)
+			return irs.SecurityInfo{}, err
+		}
+
+		cblogger.Info("Successfully set security group egress")
+	}
 
 	cblogger.Info("Name Tag 처리")
 	//======================

@@ -8,9 +8,9 @@
 //
 // by powerkim@etri.re.kr, 2019.06.
 
-//package main
+package main
 
-package aws
+//package aws
 
 import (
 	"C"
@@ -30,6 +30,7 @@ import (
 	"fmt"
 
 	"github.com/aws/aws-sdk-go/aws/credentials"
+	"github.com/davecgh/go-spew/spew"
 )
 
 type AwsDriver struct {
@@ -58,9 +59,12 @@ func getVMClient(connectionInfo idrv.ConnectionInfo) (*ec2.EC2, error) {
 
 	// setup Region
 	fmt.Println("AwsDriver : getVMClient() - Region : [" + connectionInfo.RegionInfo.Region + "]")
+	fmt.Println("전달 받은 커넥션 정보")
+	spew.Dump(connectionInfo)
 
 	sess, err := session.NewSession(&aws.Config{
-		Region:      aws.String(connectionInfo.RegionInfo.Region),
+		Region: aws.String(connectionInfo.RegionInfo.Region),
+		//Region:      aws.String("ap-northeast-2"),
 		Credentials: credentials.NewStaticCredentials(connectionInfo.CredentialInfo.ClientId, connectionInfo.CredentialInfo.ClientSecret, "")},
 	)
 	if err != nil {
@@ -83,6 +87,9 @@ func (driver *AwsDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (icon.
 	// 2. create a client object(or service  object) of Test A Cloud with credential info.
 	// 3. create CloudConnection Instance of "connect/TDA_CloudConnection".
 	// 4. return CloudConnection Interface of TDA_CloudConnection.
+
+	fmt.Println("ConnectCloud의 전달 받은 idrv.ConnectionInfo 정보")
+	spew.Dump(connectionInfo)
 
 	// sample code, do not user like this^^
 	//var iConn icon.CloudConnection
@@ -114,7 +121,6 @@ func (AwsDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (icon.CloudCon
 	// 2. create a client object(or service  object) of Test A Cloud with credential info.
 	// 3. create CloudConnection Instance of "connect/TDA_CloudConnection".
 	// 4. return CloudConnection Interface of TDA_CloudConnection.
-
 	// sample code, do not user like this^^
 	var iConn icon.CloudConnection
 	iConn = acon.AwsCloudConnection{}
