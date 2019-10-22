@@ -27,7 +27,7 @@ func createVM(config Config, vmHandler irs.VMHandler) {
 	imageId := "/subscriptions/cb592624-b77b-4a8f-bb13-0e5a48cae40f/resourceGroups/CB-GROUP/providers/Microsoft.Compute/images/CB-IMG"
 	vmSpecId := "Standard_B1ls"
 	networkInterfaceId := "/subscriptions/cb592624-b77b-4a8f-bb13-0e5a48cae40f/resourceGroups/CB-GROUP/providers/Microsoft.Network/networkInterfaces/CB-VNic"
-	keypairName := "CB-Keypair2"
+	keypairName := "CB-Keypair"
 
 	vmReqInfo := irs.VMReqInfo{
 		VMName:             vmName,
@@ -35,6 +35,7 @@ func createVM(config Config, vmHandler irs.VMHandler) {
 		VMSpecId:           vmSpecId,
 		NetworkInterfaceId: networkInterfaceId,
 		KeyPairName:        keypairName,
+		//VMUserPasswd: "cbuserCBUSER!@#",
 	}
 
 	vm, err := vmHandler.StartVM(vmReqInfo)
