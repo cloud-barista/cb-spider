@@ -1,3 +1,3 @@
 RESTSERVER=node12
 
-curl -X GET http://$RESTSERVER:1024/vmimage/image01/connection_name=azure-config01 |json_pp
+curl -X GET http://$RESTSERVER:1024/vmimage/CB-IMG/connection_name=azure-config01
