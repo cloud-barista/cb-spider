@@ -20,6 +20,7 @@ import (
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/sirupsen/logrus"
+	"reflect"
 	"strings"
 )
 
@@ -38,36 +39,20 @@ type AzureVMHandler struct {
 
 func (vmHandler *AzureVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, error) {
 	// Set VM Create Information
-	imageId := vmReqInfo.ImageId
-	imageIdArr := strings.Split(imageId, ":")
-	//sshKeyPath := "test"
-	//sshKeyData := ""
-
-	//rootPath := os.Getenv("CBSPIDER_PATH")
-	//sshPublicKeyPath := rootPath + "/key/mcb-test-key.pub"
 
 	// TODO: golang.org/x/crypto/ssh lib 기반 키 생성 기능 개발
-	// Create Key (Private Key, Public Key)
-	/*var sshPublicKey string
-	fmt.Println(sshPublicKey)
-
-	var sshKeyData string
-	if _, err := os.Stat(sshPublicKeyPath); err == nil {
-		sshBytes, err := ioutil.ReadFile(sshPublicKeyPath)
-		if err != nil {
-			//log.Fatalf("failed to read SSH key data: %v", err)
-			return irs.VMInfo{}, err
-		}
-		sshKeyData = string(sshBytes)
+	/*sshKeyData, err := generateSSHKey("mcb-key")
+	if err != nil {
+		return irs.VMInfo{}, err
 	}*/
 
-	vmName := vmReqInfo.VMName
-	vmNameArr := strings.Split(vmName, ":")
+	//vmName := vmReqInfo.VMName
+	//vmNameArr := strings.Split(vmName, ":")
 
 	// Check VM Exists
-	vm, err := vmHandler.Client.Get(vmHandler.Ctx, vmNameArr[0], vmNameArr[1], compute.InstanceView)
+	vm, err := vmHandler.Client.Get(vmHandler.Ctx, CBResourceGroupName, vmReqInfo.VMName, compute.InstanceView)
 	if vm.ID != nil {
-		errMsg := fmt.Sprintf("VirtualMachine with name %s already exist", vmNameArr[1])
+		errMsg := fmt.Sprintf("VirtualMachine with name %s already exist", vmReqInfo.VMName)
 		createErr := errors.New(errMsg)
 		return irs.VMInfo{}, createErr
 	}
@@ -80,24 +65,21 @@ func (vmHandler *AzureVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 			},
 			StorageProfile: &compute.StorageProfile{
 				ImageReference: &compute.ImageReference{
-					Publisher: &imageIdArr[0],
-					Offer:     &imageIdArr[1],
-					Sku:       &imageIdArr[2],
-					Version:   &imageIdArr[3],
+					ID: &vmReqInfo.ImageId,
 				},
 			},
 			OsProfile: &compute.OSProfile{
-				ComputerName:  &vmNameArr[1],
+				ComputerName:  &vmReqInfo.VMName,
 				AdminUsername: &vmReqInfo.VMUserId,
 				AdminPassword: &vmReqInfo.VMUserPasswd,
 				/*LinuxConfiguration: &compute.LinuxConfiguration{
 					SSH: &compute.SSHConfiguration{
 						PublicKeys: &[]compute.SSHPublicKey{
 							{
-								Path:    to.StringPtr(fmt.Sprintf("/home/%s/.ssh/authorized_keys", vmReqInfo.VMUserId)),
-								KeyData: &sshKeyData,
+								//Path: to.StringPtr(fmt.Sprintf("/home/%s/.ssh/authorized_keys", vmReqInfo.VMUserId)),
+								//KeyData: &sshKeyData,
 								// TODO: golang.org/x/crypto/ssh lib 기반 키 생성 기능 개발
-								// KeyData: &sshPublicKey
+								//KeyData: &sshKeyData,
 							},
 						},
 					},
@@ -106,7 +88,7 @@ func (vmHandler *AzureVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 			NetworkProfile: &compute.NetworkProfile{
 				NetworkInterfaces: &[]compute.NetworkInterfaceReference{
 					{
-						ID: &vmReqInfo.VirtualNetworkId,
+						ID: &vmReqInfo.NetworkInterfaceId,
 						NetworkInterfaceReferenceProperties: &compute.NetworkInterfaceReferenceProperties{
 							Primary: to.BoolPtr(true),
 						},
@@ -116,7 +98,7 @@ func (vmHandler *AzureVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 		},
 	}
 
-	future, err := vmHandler.Client.CreateOrUpdate(vmHandler.Ctx, vmNameArr[0], vmNameArr[1], vmOpts)
+	future, err := vmHandler.Client.CreateOrUpdate(vmHandler.Ctx, CBResourceGroupName, vmReqInfo.VMName, vmOpts)
 	if err != nil {
 		cblogger.Error(err)
 		return irs.VMInfo{}, err
@@ -127,7 +109,7 @@ func (vmHandler *AzureVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 		return irs.VMInfo{}, err
 	}
 
-	vm, err = vmHandler.Client.Get(vmHandler.Ctx, vmNameArr[0], vmNameArr[1], compute.InstanceView)
+	vm, err = vmHandler.Client.Get(vmHandler.Ctx, CBResourceGroupName, vmReqInfo.VMName, compute.InstanceView)
 	if err != nil {
 		cblogger.Error(err)
 	}
@@ -137,9 +119,7 @@ func (vmHandler *AzureVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 }
 
 func (vmHandler *AzureVMHandler) SuspendVM(vmID string) error {
-	vmIdArr := strings.Split(vmID, ":")
-
-	future, err := vmHandler.Client.PowerOff(vmHandler.Ctx, vmIdArr[0], vmIdArr[1])
+	future, err := vmHandler.Client.PowerOff(vmHandler.Ctx, CBResourceGroupName, vmID)
 	if err != nil {
 		cblogger.Error(err)
 		return err
@@ -153,9 +133,7 @@ func (vmHandler *AzureVMHandler) SuspendVM(vmID string) error {
 }
 
 func (vmHandler *AzureVMHandler) ResumeVM(vmID string) error {
-	vmIdArr := strings.Split(vmID, ":")
-
-	future, err := vmHandler.Client.Start(vmHandler.Ctx, vmIdArr[0], vmIdArr[1])
+	future, err := vmHandler.Client.Start(vmHandler.Ctx, CBResourceGroupName, vmID)
 	if err != nil {
 		cblogger.Error(err)
 		return err
@@ -169,9 +147,7 @@ func (vmHandler *AzureVMHandler) ResumeVM(vmID string) error {
 }
 
 func (vmHandler *AzureVMHandler) RebootVM(vmID string) error {
-	vmIdArr := strings.Split(vmID, ":")
-
-	future, err := vmHandler.Client.Restart(vmHandler.Ctx, vmIdArr[0], vmIdArr[1])
+	future, err := vmHandler.Client.Restart(vmHandler.Ctx, CBResourceGroupName, vmID)
 	if err != nil {
 		cblogger.Error(err)
 		return err
@@ -185,9 +161,7 @@ func (vmHandler *AzureVMHandler) RebootVM(vmID string) error {
 }
 
 func (vmHandler *AzureVMHandler) TerminateVM(vmID string) error {
-	vmIdArr := strings.Split(vmID, ":")
-
-	future, err := vmHandler.Client.Delete(vmHandler.Ctx, vmIdArr[0], vmIdArr[1])
+	future, err := vmHandler.Client.Delete(vmHandler.Ctx, CBResourceGroupName, vmID)
 	//future, err := vmHandler.Client.Deallocate(vmHandler.Ctx, vmIdArr[0], vmIdArr[1])
 	if err != nil {
 		cblogger.Error(err)
@@ -202,8 +176,7 @@ func (vmHandler *AzureVMHandler) TerminateVM(vmID string) error {
 }
 
 func (vmHandler *AzureVMHandler) ListVMStatus() ([]*irs.VMStatusInfo, error) {
-	//serverList, err := vmHandler.Client.ListAll(vmHandler.Ctx)
-	serverList, err := vmHandler.Client.List(vmHandler.Ctx, vmHandler.Region.ResourceGroup)
+	serverList, err := vmHandler.Client.List(vmHandler.Ctx, CBResourceGroupName)
 	if err != nil {
 		cblogger.Error(err)
 		return []*irs.VMStatusInfo{}, err
@@ -221,8 +194,8 @@ func (vmHandler *AzureVMHandler) ListVMStatus() ([]*irs.VMStatusInfo, error) {
 			vmStatusList = append(vmStatusList, &vmStatusInfo)
 		} else {
 			vmIdArr := strings.Split(*s.ID, "/")
-			vmId := vmIdArr[4] + ":" + vmIdArr[8]
-			status, _ := vmHandler.GetVMStatus(vmId)
+			vmName := vmIdArr[8]
+			status, _ := vmHandler.GetVMStatus(vmName)
 			vmStatusInfo := irs.VMStatusInfo{
 				VmId:     *s.ID,
 				VmStatus: status,
@@ -235,8 +208,7 @@ func (vmHandler *AzureVMHandler) ListVMStatus() ([]*irs.VMStatusInfo, error) {
 }
 
 func (vmHandler *AzureVMHandler) GetVMStatus(vmID string) (irs.VMStatus, error) {
-	vmIdArr := strings.Split(vmID, ":")
-	instanceView, err := vmHandler.Client.InstanceView(vmHandler.Ctx, vmIdArr[0], vmIdArr[1])
+	instanceView, err := vmHandler.Client.InstanceView(vmHandler.Ctx, CBResourceGroupName, vmID)
 	if err != nil {
 		cblogger.Error(err)
 		return "", err
@@ -249,7 +221,7 @@ func (vmHandler *AzureVMHandler) GetVMStatus(vmID string) (irs.VMStatus, error) 
 
 func (vmHandler *AzureVMHandler) ListVM() ([]*irs.VMInfo, error) {
 	//serverList, err := vmHandler.Client.ListAll(vmHandler.Ctx)
-	serverList, err := vmHandler.Client.List(vmHandler.Ctx, vmHandler.Region.ResourceGroup)
+	serverList, err := vmHandler.Client.List(vmHandler.Ctx, CBResourceGroupName)
 	if err != nil {
 		cblogger.Error(err)
 		return []*irs.VMInfo{}, err
@@ -265,8 +237,7 @@ func (vmHandler *AzureVMHandler) ListVM() ([]*irs.VMInfo, error) {
 }
 
 func (vmHandler *AzureVMHandler) GetVM(vmID string) (irs.VMInfo, error) {
-	vmIdArr := strings.Split(vmID, ":")
-	vm, err := vmHandler.Client.Get(vmHandler.Ctx, vmIdArr[0], vmIdArr[1], compute.InstanceView)
+	vm, err := vmHandler.Client.Get(vmHandler.Ctx, CBResourceGroupName, vmID, compute.InstanceView)
 	if err != nil {
 		return irs.VMInfo{}, err
 	}
@@ -320,9 +291,12 @@ func mappingServerInfo(server compute.VirtualMachine) irs.VMInfo {
 	}
 
 	// Set VM Image Info
-	imageRef := server.VirtualMachineProperties.StorageProfile.ImageReference
-	imageId := *imageRef.Publisher + ":" + *imageRef.Offer + ":" + *imageRef.Sku + ":" + *imageRef.Version
-	vmInfo.ImageId = imageId
+	if reflect.ValueOf(server.StorageProfile.ImageReference.ID).IsNil() {
+		imageRef := server.VirtualMachineProperties.StorageProfile.ImageReference
+		vmInfo.ImageId = *imageRef.Publisher + ":" + *imageRef.Offer + ":" + *imageRef.Sku + ":" + *imageRef.Version
+	} else {
+		vmInfo.ImageId = *server.VirtualMachineProperties.StorageProfile.ImageReference.ID
+	}
 
 	// Set VNic Info
 	niList := *server.NetworkProfile.NetworkInterfaces

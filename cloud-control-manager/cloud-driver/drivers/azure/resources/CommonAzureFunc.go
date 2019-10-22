@@ -11,6 +11,7 @@ const (
 	CBResourceGroupName  = "CB-GROUP"
 	CBVirutalNetworkName = "CB-VNet"
 	CBVnetDefaultCidr    = "130.0.0.0/16"
+	CBVMUser             = "cb-user"
 )
 
 // 서브넷 CIDR 생성 (CIDR C class 기준 생성)

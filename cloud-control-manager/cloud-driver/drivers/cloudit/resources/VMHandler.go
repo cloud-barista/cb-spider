@@ -18,7 +18,7 @@ import (
 	"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/cloudit/client/ace/server"
 	"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/cloudit/client/dna/adaptiveip"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
-	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/new-resources"
+	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/sirupsen/logrus"
 )
@@ -92,7 +92,7 @@ func (vmHandler *ClouditVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 	}
 }
 
-func (vmHandler *ClouditVMHandler) SuspendVM(vmID string) {
+func (vmHandler *ClouditVMHandler) SuspendVM(vmID string) error {
 	vmHandler.Client.TokenID = vmHandler.CredentialInfo.AuthToken
 	authHeader := vmHandler.Client.AuthenticatedHeaders()
 
@@ -102,10 +102,12 @@ func (vmHandler *ClouditVMHandler) SuspendVM(vmID string) {
 
 	if err := server.Suspend(vmHandler.Client, vmID, &requestOpts); err != nil {
 		cblogger.Error(err)
+		return err
 	}
+	return nil
 }
 
-func (vmHandler *ClouditVMHandler) ResumeVM(vmID string) {
+func (vmHandler *ClouditVMHandler) ResumeVM(vmID string) error {
 	vmHandler.Client.TokenID = vmHandler.CredentialInfo.AuthToken
 	authHeader := vmHandler.Client.AuthenticatedHeaders()
 
@@ -115,10 +117,12 @@ func (vmHandler *ClouditVMHandler) ResumeVM(vmID string) {
 
 	if err := server.Resume(vmHandler.Client, vmID, &requestOpts); err != nil {
 		cblogger.Error(err)
+		return err
 	}
+	return nil
 }
 
-func (vmHandler *ClouditVMHandler) RebootVM(vmID string) {
+func (vmHandler *ClouditVMHandler) RebootVM(vmID string) error {
 	vmHandler.Client.TokenID = vmHandler.CredentialInfo.AuthToken
 	authHeader := vmHandler.Client.AuthenticatedHeaders()
 
@@ -128,10 +132,12 @@ func (vmHandler *ClouditVMHandler) RebootVM(vmID string) {
 
 	if err := server.Reboot(vmHandler.Client, vmID, &requestOpts); err != nil {
 		cblogger.Error(err)
+		return err
 	}
+	return nil
 }
 
-func (vmHandler *ClouditVMHandler) TerminateVM(vmID string) {
+func (vmHandler *ClouditVMHandler) TerminateVM(vmID string) error {
 	vmHandler.Client.TokenID = vmHandler.CredentialInfo.AuthToken
 	authHeader := vmHandler.Client.AuthenticatedHeaders()
 
@@ -141,10 +147,12 @@ func (vmHandler *ClouditVMHandler) TerminateVM(vmID string) {
 
 	if err := server.Terminate(vmHandler.Client, vmID, &requestOpts); err != nil {
 		cblogger.Error(err)
+		return err
 	}
+	return nil
 }
 
-func (vmHandler *ClouditVMHandler) ListVMStatus() []*irs.VMStatusInfo {
+func (vmHandler *ClouditVMHandler) ListVMStatus() ([]*irs.VMStatusInfo, error) {
 	vmHandler.Client.TokenID = vmHandler.CredentialInfo.AuthToken
 	authHeader := vmHandler.Client.AuthenticatedHeaders()
 
@@ -154,7 +162,7 @@ func (vmHandler *ClouditVMHandler) ListVMStatus() []*irs.VMStatusInfo {
 
 	if vmList, err := server.List(vmHandler.Client, &requestOpts); err != nil {
 		cblogger.Error(err)
-		return []*irs.VMStatusInfo{}
+		return []*irs.VMStatusInfo{}, err
 	} else {
 		var vmStatusList []*irs.VMStatusInfo
 		for _, vm := range *vmList {
@@ -164,11 +172,11 @@ func (vmHandler *ClouditVMHandler) ListVMStatus() []*irs.VMStatusInfo {
 			}
 			vmStatusList = append(vmStatusList, &vmStatusInfo)
 		}
-		return vmStatusList
+		return vmStatusList, nil
 	}
 }
 
-func (vmHandler *ClouditVMHandler) GetVMStatus(vmID string) irs.VMStatus {
+func (vmHandler *ClouditVMHandler) GetVMStatus(vmID string) (irs.VMStatus, error) {
 	vmHandler.Client.TokenID = vmHandler.CredentialInfo.AuthToken
 	authHeader := vmHandler.Client.AuthenticatedHeaders()
 
@@ -178,14 +186,13 @@ func (vmHandler *ClouditVMHandler) GetVMStatus(vmID string) irs.VMStatus {
 
 	if vm, err := server.Get(vmHandler.Client, vmID, &requestOpts); err != nil {
 		cblogger.Error(err)
-		//TODO ??
-		return ""
+		return "", err
 	} else {
-		return irs.VMStatus(vm.State)
+		return irs.VMStatus(vm.State), nil
 	}
 }
 
-func (vmHandler *ClouditVMHandler) ListVM() []*irs.VMInfo {
+func (vmHandler *ClouditVMHandler) ListVM() ([]*irs.VMInfo, error) {
 	vmHandler.Client.TokenID = vmHandler.CredentialInfo.AuthToken
 	authHeader := vmHandler.Client.AuthenticatedHeaders()
 
@@ -195,18 +202,18 @@ func (vmHandler *ClouditVMHandler) ListVM() []*irs.VMInfo {
 
 	if vmList, err := server.List(vmHandler.Client, &requestOpts); err != nil {
 		cblogger.Error(err)
-		return []*irs.VMInfo{}
+		return []*irs.VMInfo{}, err
 	} else {
 		var vmInfoList []*irs.VMInfo
 		for _, vm := range *vmList {
 			vmInfo := mappingServerInfo(vm)
 			vmInfoList = append(vmInfoList, &vmInfo)
 		}
-		return vmInfoList
+		return vmInfoList, nil
 	}
 }
 
-func (vmHandler *ClouditVMHandler) GetVM(vmID string) irs.VMInfo {
+func (vmHandler *ClouditVMHandler) GetVM(vmID string) (irs.VMInfo, error) {
 	vmHandler.Client.TokenID = vmHandler.CredentialInfo.AuthToken
 	authHeader := vmHandler.Client.AuthenticatedHeaders()
 
@@ -216,10 +223,10 @@ func (vmHandler *ClouditVMHandler) GetVM(vmID string) irs.VMInfo {
 
 	if vm, err := server.Get(vmHandler.Client, vmID, &requestOpts); err != nil {
 		cblogger.Error(err)
-		return irs.VMInfo{}
+		return irs.VMInfo{}, err
 	} else {
 		vmInfo := mappingServerInfo(*vm)
-		return vmInfo
+		return vmInfo, nil
 	}
 }
 
