@@ -70,6 +70,27 @@ type KeyValue struct {
 	Value string
 }
 
+type SecurityReqInfo struct {
+	Name          string
+	Direction     string // GCP 는 하나에 한개의 Direction만 생성/조회 가능
+	SecurityRules *[]SecurityRuleInfo
+}
+
+type SecurityRuleInfo struct {
+	FromPort   string
+	ToPort     string
+	IPProtocol string
+	Direction  string
+}
+
+type SecurityInfo struct {
+	Id            string
+	Name          string
+	Direction     string // GCP 는 하나에 한개의 Direction만 생성/조회 가능
+	SecurityRules *[]SecurityRuleInfo
+
+	KeyValueList []KeyValue
+}
 type PublicIPInfo struct {
 	Name string // AWS
 	Id   string
@@ -530,19 +551,103 @@ func getFireWall(service *compute.Service, name string) {
 	// }
 
 }
+
+func createFireWall(securityReqInfo SecurityReqInfo, service *compute.Service) {
+	ports := *securityReqInfo.SecurityRules
+	fmt.Println("ports : ", ports)
+	var firewallAllowed []*compute.FirewallAllowed
+	// fmt.Println(reflect.TypeOf(t))
+	// t = append(t, &compute.FirewallAllowed{
+	// 	IPProtocol: "tcp",
+	// })
+
+	// fmt.Println(t)
+	// for _, item := range ports {
+	// 	var port string
+	// 	fp := item.FromPort
+	// 	tp := item.ToPort
+
+	// 	if tp != "" && fp != "" {
+	// 		port = fp + "-" + tp
+	// 	}
+	// 	if tp != "" && fp == "" {
+	// 		port = tp
+	// 	}
+	// 	if tp == "" && fp != "" {
+	// 		port = fp
+	// 	}
+	// 	// if tp == "" && fp == "" {
+	// 	// 	port = ""
+	// 	// }
+	// 	fmt.Println(port)
+	// 	t = append(t, &compute.FirewallAllowed{
+	// 		IPProtocol: item.IPProtocol,
+	// 		Ports:      []string{port},
+	// 	})
+	// }
+	// fmt.Println(t[0])
+
+	for _, item := range ports {
+		var port string
+		fp := item.FromPort
+		tp := item.ToPort
+
+		if tp != "" && fp != "" {
+			port = fp + "-" + tp
+		}
+		if tp != "" && fp == "" {
+			port = tp
+		}
+		if tp == "" && fp != "" {
+			port = fp
+		}
+
+		firewallAllowed = append(firewallAllowed, &compute.FirewallAllowed{
+			IPProtocol: item.IPProtocol,
+			Ports: []string{
+				port,
+			},
+		})
+	}
+	fireWall := &compute.Firewall{
+		Allowed:   firewallAllowed,
+		Direction: securityReqInfo.Direction, //INGRESS(inbound), EGRESS(outbound)
+		SourceRanges: []string{
+			"0.0.0.0/0",
+		},
+		Name: securityReqInfo.Name,
+	}
+
+	res, err := service.Firewalls.Insert(ProjectID, fireWall).Do()
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println("create result : ", res)
+}
 func main() {
 	credentialFilePath := os.Getenv("GOOGLE_APPLICATION_CREDENTIALS")
-	config, _ := readFileConfig(credentialFilePath)
+	//config, _ := readFileConfig(credentialFilePath)
+
+	securityReq := SecurityReqInfo{
+		Name:      "firewalltest",
+		Direction: "INGRESS",
+		SecurityRules: &[]SecurityRuleInfo{
+			{FromPort: "22", ToPort: "25", IPProtocol: "tcp"},
+			{FromPort: "65234", ToPort: "", IPProtocol: "udp"},
+		},
+	}
+
+	client := connect(credentialFilePath)
+	createFireWall(securityReq, client)
 	//zone := "asia-northeast1-b"
 	//instanceName := "cscmcloud"
 	//diskname := "mzcsc21"
 	//region := "asia-northeast1"
 	//ctx := context.Background()
 
-	client := connect(credentialFilePath)
-	getFireWall(client, "firewall1")
-	fmt.Println(reflect.TypeOf(client))
-	fmt.Println("config Project ID : ", config.ProjectID)
+	// getFireWall(client, "firewall1")
+	// fmt.Println(reflect.TypeOf(client))
+	// fmt.Println("config Project ID : ", config.ProjectID)
 
 	//createInstance(client, config, zone, instanceName, diskname)
 	//instance := getInstance(ctx, client, zone, instanceName, config)

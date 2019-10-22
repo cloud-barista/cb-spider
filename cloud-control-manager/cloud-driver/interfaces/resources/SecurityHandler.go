@@ -12,6 +12,7 @@ package resources
 
 type SecurityReqInfo struct {
 	Name          string
+	Direction     string // GCP 는 하나에 한개의 Direction만 생성/조회 가능
 	SecurityRules *[]SecurityRuleInfo
 }
 
@@ -25,6 +26,7 @@ type SecurityRuleInfo struct {
 type SecurityInfo struct {
 	Id            string
 	Name          string
+	Direction     string // GCP 는 하나에 한개의 Direction만 생성/조회 가능
 	SecurityRules *[]SecurityRuleInfo
 
 	KeyValueList []KeyValue
