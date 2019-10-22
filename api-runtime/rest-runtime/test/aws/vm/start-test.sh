@@ -8,11 +8,11 @@ RESTSERVER=localhost
 curl -X POST http://$RESTSERVER:1024/vm?connection_name=aws-config01 -H 'Content-Type: application/json' -d '{
     "VMName": "vm01", 
         "ImageId": "ami-047f7b46bd6dd5d84",
-        "VirtualNetworkId": "subnet-08ec382e9cf881ab6",
+        "VirtualNetworkId": "subnet-0d81d17918521a19c",
         "NetworkInterfaceId": "",
         "PublicIPId": "eipalloc-0e95789a23e6d0c6f", 
     "SecurityGroupIds": [
-        "sg-07ae6fb4cddad34e4"
+        "sg-0061443c27dfa71c5"
     ],
         "VMSpecId": "t2.micro",
         "KeyPairName": "CB-KeyPairTest",
