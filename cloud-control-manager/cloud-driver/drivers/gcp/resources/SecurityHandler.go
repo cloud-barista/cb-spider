@@ -6,9 +6,10 @@ import (
 	"fmt"
 	"log"
 	"strings"
+	"strconv"
+	"encoding/json"
 
 	idrv "../../../interfaces"
-	nirs "../../../interfaces/old-resources"
 	irs "../../../interfaces/resources"
 	"github.com/Azure/go-autorest/autorest/to"
 	"github.com/davecgh/go-spew/spew"
@@ -43,58 +44,21 @@ type SecurityRuleInfo struct {
 	Direction                string
 }
 
-func (security *SecurityInfo) setter(securityGroup network.SecurityGroup) *SecurityInfo {
-	security.Id = *securityGroup.ID
-	security.Name = *securityGroup.Name
-	security.Location = *securityGroup.Location
-	var securityRuleArr []SecurityRuleInfo
-	var defaultSecurityRuleArr []SecurityRuleInfo
-
-	for _, sgRule := range *securityGroup.SecurityRules {
-		ruleInfo := SecurityRuleInfo{
-			Name:                     *sgRule.Name,
-			SourceAddressPrefix:      *sgRule.SourceAddressPrefix,
-			SourcePortRange:          *sgRule.SourcePortRange,
-			DestinationAddressPrefix: *sgRule.DestinationAddressPrefix,
-			DestinationPortRange:     *sgRule.DestinationPortRange,
-			Protocol:                 fmt.Sprint(sgRule.Protocol),
-			Access:                   fmt.Sprint(sgRule.Access),
-			Priority:                 *sgRule.Priority,
-			Direction:                fmt.Sprint(sgRule.Direction),
-		}
-		//fmt.Println(ruleInfo)
-		securityRuleArr = append(securityRuleArr, ruleInfo)
-	}
-
-	for _, sgRule := range *securityGroup.DefaultSecurityRules {
-		ruleInfo := SecurityRuleInfo{
-			Name:                     *sgRule.Name,
-			SourceAddressPrefix:      *sgRule.SourceAddressPrefix,
-			SourcePortRange:          *sgRule.SourcePortRange,
-			DestinationAddressPrefix: *sgRule.DestinationAddressPrefix,
-			DestinationPortRange:     *sgRule.DestinationPortRange,
-			Protocol:                 fmt.Sprint(sgRule.Protocol),
-			Access:                   fmt.Sprint(sgRule.Access),
-			Priority:                 *sgRule.Priority,
-			Direction:                fmt.Sprint(sgRule.Direction),
-		}
-		//fmt.Println(ruleInfo)
-		defaultSecurityRuleArr = append(defaultSecurityRuleArr, ruleInfo)
-	}
-
-	security.SecurityRules = securityRuleArr
-	security.DefaultSecurityRules = defaultSecurityRuleArr
-
-	return security
-}
-
 func (securityHandler *GCPSecurityHandler) CreateSecurity(securityReqInfo irs.SecurityReqInfo) (irs.SecurityInfo, error) {
 
 	// @TODO: SecurityGroup 생성 요청 파라미터 정의 필요
-	type SecurityReqInfo struct {
-		SecurityRules *[]SecurityRuleInfo
+	ports := *securityReqInfo.SecurityRules
+	fireWall := &compute.Firewall{
+		Allowed:  []*compute.FirewallAllowed{
+			{
+				IPProtocol:"tcp", // tcp, udp, icmp, esp, ah, ipip, sctp
+				Ports:[]string{
+//Example inputs include: ["22"], ["80","443"], and ["12345-12349"]
+				}
+			
+			},
+		}
 	}
-
 	reqInfo := SecurityReqInfo{
 		SecurityRules: &[]SecurityRuleInfo{
 			{
@@ -193,16 +157,33 @@ func (securityHandler *GCPSecurityHandler) ListSecurity() ([]*irs.SecurityInfo, 
 }
 
 func (securityHandler *GCPSecurityHandler) GetSecurity(securityID string) (irs.SecurityInfo, error) {
-	securityIdArr := strings.Split(securityID, ":")
-	security, err := securityHandler.Client.Get(securityHandler.Ctx, securityIdArr[0], securityIdArr[1], "")
+	projectID := securityHandler.Credential.ProjectID
+
+	security, err := securityHandler.Client.Firewalls.Get(projectID,securityID).Do()
 	if err != nil {
-		return irs.SecurityInfo{}, err
+		log.Fatal(err)
+		return nil, err
 	}
 
-	securityInfo := new(SecurityInfo).setter(security)
+	//전부 keyvalue 저장
+	var result map[string]interface{}
+	var keyValueList []irs.KeyValue
+	mjs, _ := security.MarshalJSON()
+	json.Unmarshal(mjs, &result)
+	for k, v := range result {
+		keyValueList = append(keyValueList, irs.KeyValue{
+			Key:k, Value: v,
+		})
+	}
+	var securityRules irs.SecurityRuleInfo
+	securityInfo := irs.SecurityInfo{
+		Id: strconv.FormatUint(security.Id,10),
+		Name: security.Name,
+		KeyValueList: keyValueList,
 
-	spew.Dump(securityInfo)
-	return nirs.SecurityInfo{}, nil
+	}
+
+	return securityInfo, nil
 }
 
 func (securityHandler *GCPSecurityHandler) DeleteSecurity(securityID string) (bool, error) {

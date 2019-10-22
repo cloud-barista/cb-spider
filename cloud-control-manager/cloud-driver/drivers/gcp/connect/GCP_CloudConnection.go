@@ -33,11 +33,11 @@ type GCPCloudConnection struct {
 	SubnetClient        *compute.Service
 }
 
-// func (cloudConn *GCPCloudConnection) CreateVNetworkHandler() (irs.VNetworkHandler, error) {
-// 	fmt.Println("GCP Cloud Driver: called CreateVNetworkHandler()!")
-// 	vNetHandler := gcprs.GCPVNetworkHandler{cloudConn.Region, cloudConn.Ctx, cloudConn.VNetClient}
-// 	return &vNetHandler, nil
-// }
+func (cloudConn *GCPCloudConnection) CreateVNetworkHandler() (irs.VNetworkHandler, error) {
+	fmt.Println("GCP Cloud Driver: called CreateVNetworkHandler()!")
+	vNetHandler := gcprs.GCPVNetworkHandler{cloudConn.Region, cloudConn.Ctx, cloudConn.VNetClient, cloudConn.Credential}
+	return &vNetHandler, nil
+}
 
 // func (cloudConn *GCPCloudConnection) CreateImageHandler() (irs.ImageHandler, error) {
 // 	fmt.Println("GCP Cloud Driver: called CreateImageHandler()!")
@@ -45,11 +45,12 @@ type GCPCloudConnection struct {
 // 	return &imageHandler, nil
 // }
 
-// func (cloudConn *GCPCloudConnection) CreateSecurityHandler() (irs.SecurityHandler, error) {
-// 	fmt.Println("GCP Cloud Driver: called CreateSecurityHandler()!")
-// 	sgHandler := gcprs.GCPSecurityHandler{cloudConn.Region, cloudConn.Ctx, cloudConn.SecurityGroupClient}
-// 	return &sgHandler, nil
-// }
+func (cloudConn *GCPCloudConnection) CreateSecurityHandler() (irs.SecurityHandler, error) {
+	fmt.Println("GCP Cloud Driver: called CreateSecurityHandler()!")
+	sgHandler := gcprs.GCPSecurityHandler{cloudConn.Region, cloudConn.Ctx, cloudConn.SecurityGroupClient, cloudConn.Credential}
+	return &sgHandler, nil
+}
+
 // func (GCPCloudConnection) CreateKeyPairHandler() (irs.KeyPairHandler, error) {
 // 	return nil, nil
 // }
@@ -61,7 +62,7 @@ type GCPCloudConnection struct {
 // }
 func (cloudConn *GCPCloudConnection) CreatePublicIPHandler() (irs.PublicIPHandler, error) {
 	fmt.Println("GCP Cloud Driver: called CreatePublicIPHandler()!")
-	publicIPHandler := gcprs.GCPPublicIPHandler{cloudConn.Region, cloudConn.Ctx, cloudConn.PublicIPClient}
+	publicIPHandler := gcprs.GCPPublicIPHandler{cloudConn.Region, cloudConn.Ctx, cloudConn.PublicIPClient, cloudConn.Credential}
 	return &publicIPHandler, nil
 }
 

@@ -499,6 +499,37 @@ func getVnet(ctx context.Context, service *compute.Service, conf Config, name st
 	fmt.Println("getVnet : ", string(js))
 }
 
+func getFireWall(service *compute.Service, name string) {
+
+	security, err := service.Firewalls.Get(ProjectID, name).Do()
+	if err != nil {
+		log.Fatal(err)
+
+	}
+
+	// //전부 keyvalue 저장
+	// var result map[string]interface{}
+	// var keyValueList []KeyValue
+	// security.Id = strconv.FormatUint(security.Id, 10)
+	mjs, _ := security.MarshalJSON()
+	fmt.Println(string(mjs))
+	//json.Unmarshal(mjs, &result)
+
+	// for k, v := range result {
+	// 	keyValueList = append(keyValueList, KeyValue{
+	// 		Key: k, Value: v.(string),
+	// 	})
+	// }
+	// fmt.Println(result)
+	// var securityRules irs.SecurityRuleInfo
+	// securityInfo := irs.SecurityInfo{
+	// 	Id: strconv.FormatUint(security.Id,10),
+	// 	Name: security.Name,
+	// 	KeyValueList: keyValueList,
+
+	// }
+
+}
 func main() {
 	credentialFilePath := os.Getenv("GOOGLE_APPLICATION_CREDENTIALS")
 	config, _ := readFileConfig(credentialFilePath)
@@ -506,10 +537,10 @@ func main() {
 	//instanceName := "cscmcloud"
 	//diskname := "mzcsc21"
 	//region := "asia-northeast1"
-	ctx := context.Background()
+	//ctx := context.Background()
 
 	client := connect(credentialFilePath)
-
+	getFireWall(client, "firewall1")
 	fmt.Println(reflect.TypeOf(client))
 	fmt.Println("config Project ID : ", config.ProjectID)
 
@@ -527,7 +558,7 @@ func main() {
 	// fmt.Println("output name : ", name)
 	// fmt.Println("output address : ", address)
 	//createVnet(ctx, client, config, "mynetwork2")
-	getVnet(ctx, client, config, "test1")
+	//getVnet(ctx, client, config, "test1")
 	//getVMlist := ListVM(ctx, client, zone, config)
 	//fmt.Println("getVMList : ", string(getVMlist))
 	//getImagelist := ListImage(ctx, client, config)
