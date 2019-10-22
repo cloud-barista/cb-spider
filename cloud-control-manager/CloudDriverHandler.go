@@ -24,6 +24,7 @@ import (
 
 	"fmt"
 	"os"
+	"strings"
 	"plugin"
 	"net/http"
         "encoding/json"
@@ -98,16 +99,40 @@ func GetCloudConnection(cloudConnectName string) (icon.CloudConnection, error) {
 	//cblog.Info(crdInfo)
 	//cblog.Info(rgnInfo)
 
-        connectionInfo := idrv.ConnectionInfo{
+	// @todo should move KeyValueList into XXXDriver.go, powerkim
+	var regionName string
+	var zoneName string
+	switch strings.ToUpper(rgnInfo.ProviderName) {
+	case "AZURE" :
+		regionName = getValue(rgnInfo.KeyValueInfoList, "location")
+	case "AWS" :
+		regionName = getValue(rgnInfo.KeyValueInfoList, "Region")
+	case "GCP" :
+		regionName = getValue(rgnInfo.KeyValueInfoList, "Region")
+		zoneName = getValue(rgnInfo.KeyValueInfoList, "Zone")
+	default:
+		errmsg := rgnInfo.ProviderName + " is not a valid ProviderName!!"
+		return nil, fmt.Errorf(errmsg)
+
+	}
+
+        connectionInfo := idrv.ConnectionInfo{ // @todo powerkim
                 CredentialInfo: idrv.CredentialInfo{
                         ClientId:       getValue(crdInfo.KeyValueInfoList, "ClientId"),
                         ClientSecret:   getValue(crdInfo.KeyValueInfoList, "ClientSecret"),
                         TenantId:       getValue(crdInfo.KeyValueInfoList, "TenantId"),
                         SubscriptionId: getValue(crdInfo.KeyValueInfoList, "SubscriptionId"),
+                        IdentityEndpoint: getValue(crdInfo.KeyValueInfoList, "IdentityEndpoint"),
+                        Username: getValue(crdInfo.KeyValueInfoList, "Username"),
+                        Password: getValue(crdInfo.KeyValueInfoList, "Password"),
+                        DomainName: getValue(crdInfo.KeyValueInfoList, "DomainName"),
+                        ProjectID: getValue(crdInfo.KeyValueInfoList, "ProjectID"),
+                        AuthToken: getValue(crdInfo.KeyValueInfoList, "AuthToken"),
                 },
-                RegionInfo: idrv.RegionInfo{
-                        Region:        getValue(rgnInfo.KeyValueInfoList, "location"),
-                        // ResourceGroup: config.Azure.GroupName,
+                RegionInfo: idrv.RegionInfo{ // @todo powerkim
+                        Region:        regionName,
+			Zone: 		zoneName,
+                        // ResourceGroup: config.Azure.GroupName, # will be deleted^^
                 },
         }
 
