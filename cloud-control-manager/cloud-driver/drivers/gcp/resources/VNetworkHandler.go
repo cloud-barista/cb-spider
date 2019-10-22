@@ -2,16 +2,25 @@ package resources
 
 import (
 	"context"
-	"errors"
-	"fmt"
-	"strings"
+	"log"
+	"strconv"
 
 	compute "google.golang.org/api/compute/v1"
 
+	"time"
+
+	cblog "github.com/cloud-barista/cb-log"
 	idrv "github.com/cloud-barista/poc-cb-spider/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/poc-cb-spider/cloud-driver/interfaces/resources"
-	"github.com/davecgh/go-spew/spew"
+	"github.com/sirupsen/logrus"
 )
+
+var cblogger *logrus.Logger
+
+func init() {
+	// cblog is a global variable.
+	cblogger = cblog.GetLogger("AWS Connect")
+}
 
 type GCPVNetworkHandler struct {
 	Region     idrv.RegionInfo
@@ -35,129 +44,86 @@ type SubnetInfo struct {
 	AddressPrefix string
 }
 
-func (vNetInfo *VNetworkInfo) setter(network network.VirtualNetwork) *VNetworkInfo {
-	vNetInfo.Id = *network.ID
-	vNetInfo.Name = *network.Name
-	vNetInfo.AddressPrefixes = *network.AddressSpace.AddressPrefixes
-	var subnetArr []SubnetInfo
-	for _, subnet := range *network.Subnets {
-		subnetInfo := SubnetInfo{
-			Id:            *subnet.ID,
-			Name:          *subnet.Name,
-			AddressPrefix: *subnet.AddressPrefix,
-		}
-		subnetArr = append(subnetArr, subnetInfo)
-	}
-	vNetInfo.Subnets = subnetArr
-
-	vNetInfo.Location = *network.Location
-
-	return vNetInfo
-}
-
 func (vNetworkHandler *GCPVNetworkHandler) CreateVNetwork(vNetworkReqInfo irs.VNetworkReqInfo) (irs.VNetworkInfo, error) {
+	// priject id
+	projectID := vNetworkHandler.Credential.ProjectID
+	name := vNetworkReqInfo.Name
 
-	// @TODO: VNicInfo 생성 요청 파라미터 정의 필요
-	type VNetworkReqInfo struct {
-		Name            string
-		AddressPrefixes []string
-		Subnets         *[]SubnetInfo
+	network := &compute.Network{
+		Name:                  name,
+		AutoCreateSubnetworks: true, // subnet 자동으로 생성됨
 	}
 
-	vNicIdArr := strings.Split(vNetworkReqInfo.Id, ":")
-
-	reqInfo := VNetworkReqInfo{
-		Name:            vNicIdArr[1],
-		AddressPrefixes: []string{"130.0.0.0/8"},
-		Subnets:         &[]SubnetInfo{
-			/*{
-				Name: "test-subnet1",
-				AddressPrefix: "10.0.0.0/16",
-			},*/
-		},
-	}
-
-	var subnetArr []network.Subnet
-	for _, subnet := range *reqInfo.Subnets {
-		subnetInfo := network.Subnet{
-			Name: &subnet.Name,
-			SubnetPropertiesFormat: &network.SubnetPropertiesFormat{
-				AddressPrefix: &subnet.AddressPrefix,
-			},
-		}
-		subnetArr = append(subnetArr, subnetInfo)
-	}
-
-	// Check vNetwork Exists
-	vNetwork, err := vNetworkHandler.Client.Get(vNetworkHandler.Ctx, vNicIdArr[0], vNicIdArr[1], "")
-	if vNetwork.ID != nil {
-		errMsg := fmt.Sprintf("Virtual Network with name %s already exist", vNicIdArr[1])
-		createErr := errors.New(errMsg)
-		return irs.VNetworkInfo{}, createErr
-	}
-
-	createOpts := network.VirtualNetwork{
-		Name: &reqInfo.Name,
-		VirtualNetworkPropertiesFormat: &network.VirtualNetworkPropertiesFormat{
-			AddressSpace: &network.AddressSpace{
-				AddressPrefixes: &reqInfo.AddressPrefixes,
-			},
-			Subnets: &subnetArr,
-		},
-		Location: &vNetworkHandler.Region.Region,
-	}
-
-	future, err := vNetworkHandler.Client.CreateOrUpdate(vNetworkHandler.Ctx, vNicIdArr[0], vNicIdArr[1], createOpts)
+	res, err := vNetworkHandler.Client.Networks.Insert(projectID, network).Do()
 	if err != nil {
-		return irs.VNetworkInfo{}, err
-	}
-	err = future.WaitForCompletionRef(vNetworkHandler.Ctx, vNetworkHandler.Client.Client)
-	if err != nil {
-		return irs.VNetworkInfo{}, err
+		log.Fatal(err)
+		return err
 	}
 
-	return irs.VNetworkInfo{}, nil
+	//생성되는데 시간이 필요 함. 약 20초정도?
+	time.Sleep(time.Second * 20)
+	info, err := vNetworkHandler.Client.Networks.Get(projectID, name).Do()
+	if err != nil {
+		log.Fatal(err)
+		return err
+	}
+	networkInfo := irs.VNetworkInfo{
+		Name:     info.Name,
+		Id:       strconv.FormatUint(info.Id, 10),
+		SubnetId: info.Name,
+	}
+
+	return networkInfo, nil
 }
 
 func (vNetworkHandler *GCPVNetworkHandler) ListVNetwork() ([]*irs.VNetworkInfo, error) {
-	//vNetworkList, err := vNetworkHandler.Client.ListAll(vNetworkHandler.Ctx)
-	vNetworkList, err := vNetworkHandler.Client.List(vNetworkHandler.Ctx, vNetworkHandler.Region.ResourceGroup)
+	projectID := vNetworkHandler.Credential.ProjectID
+
+	vNetworkList, err := vNetworkHandler.Client.Networks.List(ProjectID).Do()
 	if err != nil {
+		log.Fatal(err)
 		return nil, err
 	}
+	var vNetworkInfo []*irs.VNetworkInfo
+	for _, item := range vNetworkList.Items {
+		networkInfo := irs.VNetworkInfo{
+			Name:     item.Name,
+			Id:       strconv.FormatUint(item.Id, 10),
+			SubnetId: item.Name,
+		}
 
-	var vNetList []*VNetworkInfo
-	for _, vNetwork := range vNetworkList.Values() {
-		vNetInfo := new(VNetworkInfo).setter(vNetwork)
-		vNetList = append(vNetList, vNetInfo)
+		VNetworkInfo = append(vNetworkInfo, &networkInfo)
+
 	}
 
-	spew.Dump(vNetList)
-	return nil, nil
+	return vNetworkInfo, nil
 }
 
 func (vNetworkHandler *GCPVNetworkHandler) GetVNetwork(vNetworkID string) (irs.VNetworkInfo, error) {
-	vNetworkIdArr := strings.Split(vNetworkID, ":")
-	vNetwork, err := vNetworkHandler.Client.Get(vNetworkHandler.Ctx, vNetworkIdArr[0], vNetworkIdArr[1], "")
+
+	projectID := vNetworkHandler.Credential.ProjectID
+	name := vNetworkID
+	info, err := vNetworkHandler.Client.Networks.Get(projectID, name).Do()
 	if err != nil {
-		return irs.VNetworkInfo{}, err
+		log.Fatal(err)
 	}
 
-	vNetInfo := new(VNetworkInfo).setter(vNetwork)
+	networkInfo := irs.VNetworkInfo{
+		Name:     info.Name,
+		Id:       strconv.FormatUint(info.Id, 10),
+		SubnetId: info.Name,
+	}
 
-	spew.Dump(vNetInfo)
-	return irs.VNetworkInfo{}, nil
+	return networkInfo, nil
 }
 
 func (vNetworkHandler *GCPVNetworkHandler) DeleteVNetwork(vNetworkID string) (bool, error) {
-	vNetworkIdArr := strings.Split(vNetworkID, ":")
-	future, err := vNetworkHandler.Client.Delete(vNetworkHandler.Ctx, vNetworkIdArr[0], vNetworkIdArr[1])
+	projectID := vNetworkHandler.Credential.ProjectID
+	name := vNetworkID
+	info, err := vNetworkHandler.Client.Networks.Delete(projectID, name).Do()
 	if err != nil {
-		return false, err
+		log.Fatal(err)
 	}
-	err = future.WaitForCompletionRef(vNetworkHandler.Ctx, vNetworkHandler.Client.Client)
-	if err != nil {
-		return false, err
-	}
+
 	return true, nil
 }

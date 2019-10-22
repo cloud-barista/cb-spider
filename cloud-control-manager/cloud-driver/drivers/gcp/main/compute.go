@@ -43,6 +43,8 @@ func init() {
 	// registerDemo("compute", scopes, computeMain)
 }
 
+const ProjectID = "mcloud-barista-251102"
+
 type Config struct {
 	Type         string `json:"type"`
 	ProjectID    string `json:"project_id"`
@@ -332,7 +334,7 @@ func ListPublicIP(ctx context.Context, service *compute.Service, conf Config, re
 		}
 
 		it := item
-		fmt.Println("it :"git)
+		fmt.Println("it :", it)
 		// bts := json.Marshal(it)
 		// json.Unmarshal(bts, &rejson)
 		// publicIPInfos[index].InstanceId = item.Users[0]
@@ -462,13 +464,48 @@ func ListImage(ctx context.Context, service *compute.Service, conf Config) []byt
 	return imageListJson
 }
 
+func createVnet(ctx context.Context, service *compute.Service, conf Config, name string) {
+	network := &compute.Network{
+		Name:                  name,
+		AutoCreateSubnetworks: true,
+	}
+
+	res, err1 := service.Networks.Insert(conf.ProjectID, network).Context(ctx).Do()
+	if err1 != nil {
+		fmt.Println("create vnet error")
+		log.Fatal(err1)
+	}
+	fmt.Println("result", res)
+	time.Sleep(time.Second * 15)
+	info, err2 := service.Networks.Get(conf.ProjectID, name).Context(ctx).Do()
+	if err2 != nil {
+		fmt.Println("Get Vnetwork error")
+		log.Fatal(err2)
+	}
+
+	js, _ := info.MarshalJSON()
+	fmt.Println("getVnet : ", string(js))
+
+}
+
+func getVnet(ctx context.Context, service *compute.Service, conf Config, name string) {
+	info, err2 := service.Networks.Get(ProjectID, name).Context(ctx).Do()
+	if err2 != nil {
+		fmt.Println("Get Vnetwork error")
+		log.Fatal(err2)
+	}
+
+	js, _ := info.MarshalJSON()
+	fmt.Println("getVnet : ", string(js))
+}
+
 func main() {
 	credentialFilePath := os.Getenv("GOOGLE_APPLICATION_CREDENTIALS")
 	config, _ := readFileConfig(credentialFilePath)
 	//zone := "asia-northeast1-b"
 	//instanceName := "cscmcloud"
 	//diskname := "mzcsc21"
-	region := "asia-northeast1"
+	//region := "asia-northeast1"
 	ctx := context.Background()
 
 	client := connect(credentialFilePath)
@@ -486,9 +523,11 @@ func main() {
 	//getPublicIP(ctx, client, region, "natip", config)
 	//CreatePublicIP(ctx, client, "publicip6", region, config)
 	//getPublicIP(ctx, client, region, "publicip6", config)
-	name, address := ListPublicIP(ctx, client, config, region)
-	fmt.Println("output name : ", name)
-	fmt.Println("output address : ", address)
+	// name, address := ListPublicIP(ctx, client, config, region)
+	// fmt.Println("output name : ", name)
+	// fmt.Println("output address : ", address)
+	//createVnet(ctx, client, config, "mynetwork2")
+	getVnet(ctx, client, config, "test1")
 	//getVMlist := ListVM(ctx, client, zone, config)
 	//fmt.Println("getVMList : ", string(getVMlist))
 	//getImagelist := ListImage(ctx, client, config)
