@@ -23,15 +23,18 @@ func init() {
 // Create Instance
 func createVM(config Config, vmHandler irs.VMHandler) {
 
-	vmName := config.Azure.GroupName + ":" + config.Azure.VMName
-	imageId := config.Azure.Image.Publisher + ":" + config.Azure.Image.Offer + ":" + config.Azure.Image.Sku + ":" + config.Azure.Image.Version
+	vmName := "CBVm"
+	imageId := "/subscriptions/cb592624-b77b-4a8f-bb13-0e5a48cae40f/resourceGroups/CB-GROUP/providers/Microsoft.Compute/images/CB-IMG"
+	vmSpecId := "Standard_B1ls"
+	networkInterfaceId := "/subscriptions/cb592624-b77b-4a8f-bb13-0e5a48cae40f/resourceGroups/CB-GROUP/providers/Microsoft.Network/networkInterfaces/CB-VNic"
+	keypairName := "CB-Keypair2"
+
 	vmReqInfo := irs.VMReqInfo{
-		VMName:           vmName,
-		ImageId:          imageId,
-		VMSpecId:         config.Azure.VMSize,
-		VirtualNetworkId: config.Azure.Nic.ID,
-		VMUserId:         config.Azure.AdminUsername,
-		VMUserPasswd:     config.Azure.AdminPassword,
+		VMName:             vmName,
+		ImageId:            imageId,
+		VMSpecId:           vmSpecId,
+		NetworkInterfaceId: networkInterfaceId,
+		KeyPairName:        keypairName,
 	}
 
 	vm, err := vmHandler.StartVM(vmReqInfo)

@@ -1,7 +1,6 @@
 package resources
 
 import (
-	"crypto/md5"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
@@ -11,7 +10,6 @@ import (
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"golang.org/x/crypto/ssh"
-	"io"
 	"io/ioutil"
 	"log"
 	"os"
@@ -24,8 +22,8 @@ type AzureKeyPairHandler struct {
 }
 
 func (keyPairHandler *AzureKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPairReqInfo) (irs.KeyPairInfo, error) {
-	keyPairPath := os.Getenv("CBSPIDER_ROOT") + "/cloud-control-manager/cloud-driver/driver-libs/.ssh-azure/"
-	hashString, err := createHashString(keyPairHandler.CredentialInfo)
+	keyPairPath := os.Getenv("CBSPIDER_ROOT") + CBKeyPairPath
+	hashString, err := CreateHashString(keyPairHandler.CredentialInfo)
 	if err != nil {
 		return irs.KeyPairInfo{}, err
 	}
@@ -78,8 +76,8 @@ func (keyPairHandler *AzureKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPairR
 }
 
 func (keyPairHandler *AzureKeyPairHandler) ListKey() ([]*irs.KeyPairInfo, error) {
-	keyPairPath := os.Getenv("CBSPIDER_ROOT") + "/cloud-control-manager/cloud-driver/driver-libs/.ssh-azure/"
-	hashString, err := createHashString(keyPairHandler.CredentialInfo)
+	keyPairPath := os.Getenv("CBSPIDER_ROOT") + CBKeyPairPath
+	hashString, err := CreateHashString(keyPairHandler.CredentialInfo)
 	if err != nil {
 		return nil, err
 	}
@@ -109,8 +107,8 @@ func (keyPairHandler *AzureKeyPairHandler) ListKey() ([]*irs.KeyPairInfo, error)
 }
 
 func (keyPairHandler *AzureKeyPairHandler) GetKey(keyPairName string) (irs.KeyPairInfo, error) {
-	keyPairPath := os.Getenv("CBSPIDER_ROOT") + "/cloud-control-manager/cloud-driver/driver-libs/.ssh-azure/"
-	hashString, err := createHashString(keyPairHandler.CredentialInfo)
+	keyPairPath := os.Getenv("CBSPIDER_ROOT") + CBKeyPairPath
+	hashString, err := CreateHashString(keyPairHandler.CredentialInfo)
 
 	privateKeyPath := keyPairPath + hashString + "--" + keyPairName
 	publicKeyPath := keyPairPath + hashString + "--" + keyPairName + ".pub"
@@ -134,8 +132,8 @@ func (keyPairHandler *AzureKeyPairHandler) GetKey(keyPairName string) (irs.KeyPa
 }
 
 func (keyPairHandler *AzureKeyPairHandler) DeleteKey(keyPairName string) (bool, error) {
-	keyPairPath := os.Getenv("CBSPIDER_ROOT") + "/cloud-control-manager/cloud-driver/driver-libs/.ssh-azure/"
-	hashString, err := createHashString(keyPairHandler.CredentialInfo)
+	keyPairPath := os.Getenv("CBSPIDER_ROOT") + CBKeyPairPath
+	hashString, err := CreateHashString(keyPairHandler.CredentialInfo)
 	if err != nil {
 		return false, err
 	}
@@ -221,7 +219,7 @@ func writeKeyToFile(keyBytes []byte, saveFileTo string) error {
 }
 
 // Credential 기반 hash 생성
-func createHashString(credentialInfo idrv.CredentialInfo) (string, error) {
+/*func createHashString(credentialInfo idrv.CredentialInfo) (string, error) {
 	keyString := credentialInfo.ClientId + credentialInfo.ClientSecret + credentialInfo.TenantId + credentialInfo.SubscriptionId
 	hasher := md5.New()
 	_, err := io.WriteString(hasher, keyString)
@@ -229,4 +227,4 @@ func createHashString(credentialInfo idrv.CredentialInfo) (string, error) {
 		return "", err
 	}
 	return fmt.Sprintf("%x", hasher.Sum(nil)), nil
-}
+}*/
