@@ -124,9 +124,12 @@ func (keyPairHandler *AwsKeyPairHandler) GetKey(keyName string) (irs.KeyPairInfo
 		return irs.KeyPairInfo{}, nil
 	}
 
-	keyPairInfo := ExtractKeyPairDescribeInfo(result.KeyPairs[0])
-
-	return keyPairInfo, nil
+	if len(result.KeyPairs) > 0 {
+		keyPairInfo := ExtractKeyPairDescribeInfo(result.KeyPairs[0])
+		return keyPairInfo, nil
+	} else {
+		return irs.KeyPairInfo{}, nil
+	}
 }
 
 //KeyPair 정보를 추출함
