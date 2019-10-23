@@ -11,6 +11,7 @@
 package resources
 
 import (
+	"errors"
 	"reflect"
 	"strconv"
 
@@ -158,7 +159,7 @@ func (imageHandler *AwsImageHandler) GetImage(imageID string) (irs.ImageInfo, er
 		imageInfo := ExtractImageDescribeInfo(result.Images[0])
 		return imageInfo, nil
 	} else {
-		return irs.ImageInfo{}, nil
+		return irs.ImageInfo{}, errors.New("조회된 Image 정보가 없습니다.")
 	}
 
 }
