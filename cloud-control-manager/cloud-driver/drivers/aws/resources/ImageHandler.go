@@ -11,6 +11,7 @@
 package resources
 
 import (
+	"errors"
 	"reflect"
 	"strconv"
 
@@ -128,7 +129,7 @@ func ExtractImageDescribeInfo(image *ec2.Image) irs.ImageInfo {
 }
 
 func (imageHandler *AwsImageHandler) GetImage(imageID string) (irs.ImageInfo, error) {
-	cblogger.Infof("imageID : ", imageID)
+	cblogger.Infof("imageID : [%s]", imageID)
 
 	input := &ec2.DescribeImagesInput{
 		ImageIds: []*string{
@@ -154,9 +155,13 @@ func (imageHandler *AwsImageHandler) GetImage(imageID string) (irs.ImageInfo, er
 		return irs.ImageInfo{}, err
 	}
 
-	imageInfo := ExtractImageDescribeInfo(result.Images[0])
+	if len(result.Images) > 0 {
+		imageInfo := ExtractImageDescribeInfo(result.Images[0])
+		return imageInfo, nil
+	} else {
+		return irs.ImageInfo{}, errors.New("조회된 Image 정보가 없습니다.")
+	}
 
-	return imageInfo, nil
 }
 
 //@TODO : 삭제 API 찾아야 함.

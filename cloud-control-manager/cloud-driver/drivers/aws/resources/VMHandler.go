@@ -7,6 +7,7 @@
 package resources
 
 import (
+	"errors"
 	"fmt"
 	"reflect"
 	"strings"
@@ -77,8 +78,7 @@ func (vmHandler *AwsVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 
 	cblogger.Info("Create EC2 Instance")
 
-	// Specify the details of the instance that you want to create.
-	runResult, err := vmHandler.Client.RunInstances(&ec2.RunInstancesInput{
+	input := &ec2.RunInstancesInput{
 		ImageId:      aws.String(imageID),
 		InstanceType: aws.String(instanceType),
 		MinCount:     minCount,
@@ -93,14 +93,22 @@ func (vmHandler *AwsVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 
 		SubnetId: aws.String(subnetID), // set a subnet.
 
-	})
+	}
+	cblogger.Info(input)
+
+	// Specify the details of the instance that you want to create.
+	runResult, err := vmHandler.Client.RunInstances(input)
 	if err != nil {
-		cblogger.Errorf("Could not create instance", err)
+		cblogger.Errorf("EC2 인스턴스 생성 실패 : ", err)
 		return irs.VMInfo{}, err
 	}
 
+	if len(runResult.Instances) < 1 {
+		return irs.VMInfo{}, errors.New("AWS로부터 전달 받은 VM 정보가 없습니다.")
+	}
+
 	newVmId := *runResult.Instances[0].InstanceId
-	cblogger.Info("Created instance ", newVmId)
+	cblogger.Infof("[%s] VM이 생성되었습니다.", newVmId)
 	// Tag에 VM Name 설정
 	_, errtag := vmHandler.Client.CreateTags(&ec2.CreateTagsInput{
 		Resources: []*string{runResult.Instances[0].InstanceId},
@@ -112,7 +120,8 @@ func (vmHandler *AwsVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 		},
 	})
 	if errtag != nil {
-		cblogger.Error("Could not create tags for instance ", newVmId, errtag)
+		cblogger.Errorf("[%s] VM에 Name Tag 설정 실패", newVmId)
+		cblogger.Error(errtag)
 		return irs.VMInfo{}, errtag
 	}
 
@@ -377,7 +386,7 @@ func ExtractDescribeInstances(reservation *ec2.Reservation) irs.VMInfo {
 
 	if !reflect.ValueOf(reservation.Instances[0].Placement.AvailabilityZone).IsNil() {
 		vmInfo.Region = irs.RegionInfo{
-			Region: *reservation.Instances[0].Placement.AvailabilityZone,
+			Zone: *reservation.Instances[0].Placement.AvailabilityZone,
 		}
 	}
 

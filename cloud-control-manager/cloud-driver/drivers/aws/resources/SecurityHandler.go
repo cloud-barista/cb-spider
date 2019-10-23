@@ -293,8 +293,12 @@ func (securityHandler *AwsSecurityHandler) GetSecurity(securityID string) (irs.S
 		return irs.SecurityInfo{}, err
 	}
 
-	securityInfo := ExtractSecurityInfo(result.SecurityGroups[0])
-	return securityInfo, nil
+	if len(result.SecurityGroups) > 0 {
+		securityInfo := ExtractSecurityInfo(result.SecurityGroups[0])
+		return securityInfo, nil
+	} else {
+		return irs.SecurityInfo{}, err
+	}
 }
 
 func ExtractSecurityInfo(securityGroupResult *ec2.SecurityGroup) irs.SecurityInfo {
