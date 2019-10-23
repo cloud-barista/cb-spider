@@ -79,7 +79,7 @@ func (publicIPHandler *OpenStackPublicIPHandler) DeletePublicIP(publicIPID strin
 	return true, nil
 }
 
-func (publicIPHandler *OpenStackPublicIPHandler) AssociatePublicIP(serverID string, publicIPID string) (bool, error) {
+/*func (publicIPHandler *OpenStackPublicIPHandler) AssociatePublicIP(serverID string, publicIPID string) (bool, error) {
 	associateOpts := floatingip.AssociateOpts{
 		ServerID:   serverID,
 		FloatingIP: publicIPID,
@@ -89,4 +89,4 @@ func (publicIPHandler *OpenStackPublicIPHandler) AssociatePublicIP(serverID stri
 		return false, err
 	}
 	return true, nil
-}
+}*/

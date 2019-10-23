@@ -12,6 +12,8 @@ package resources
 
 import (
 	"fmt"
+	"github.com/rackspace/gophercloud/openstack/compute/v2/extensions/floatingip"
+
 	//"fmt"
 	cblog "github.com/cloud-barista/cb-log"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
@@ -34,18 +36,24 @@ func init() {
 
 // modified by powerkim, 2019.07.29
 type OpenStackVMHandler struct {
-	Client *gophercloud.ServiceClient
+	Client        *gophercloud.ServiceClient
+	NetworkClient *gophercloud.ServiceClient
 }
 
 // modified by powerkim, 2019.07.29
 func (vmHandler *OpenStackVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, error) {
+
+	vNetId, err := GetCBVNetId(vmHandler.NetworkClient)
+	if err != nil {
+		return irs.VMInfo{}, err
+	}
 
 	serverCreateOpts := servers.CreateOpts{
 		Name:      vmReqInfo.VMName,
 		ImageRef:  vmReqInfo.ImageId,
 		FlavorRef: vmReqInfo.VMSpecId,
 		Networks: []servers.Network{
-			{UUID: vmReqInfo.VirtualNetworkId},
+			{UUID: vNetId},
 		},
 		SecurityGroups: []string{},
 	}
@@ -80,8 +88,13 @@ func (vmHandler *OpenStackVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInf
 		}
 		fmt.Println(serverResult.Status)
 		if strings.ToUpper(serverResult.Status) == "ACTIVE" {
-			isDeployed = true
+			// Associate Public IP
+			if ok, err := vmHandler.AssociatePublicIP(serverResult.ID, vmReqInfo.PublicIPId); !ok {
+				return irs.VMInfo{}, err
+			}
+
 			serverInfo = mappingServerInfo(*serverResult)
+			isDeployed = true
 		}
 	}
 
@@ -201,6 +214,18 @@ func (vmHandler *OpenStackVMHandler) GetVM(vmID string) (irs.VMInfo, error) {
 
 	vmInfo := mappingServerInfo(*serverResult)
 	return vmInfo, nil
+}
+
+func (vmHandler *OpenStackVMHandler) AssociatePublicIP(serverID string, publicIPID string) (bool, error) {
+	associateOpts := floatingip.AssociateOpts{
+		ServerID:   serverID,
+		FloatingIP: publicIPID,
+	}
+	err := floatingip.AssociateInstance(vmHandler.Client, associateOpts).ExtractErr()
+	if err != nil {
+		return false, err
+	}
+	return true, nil
 }
 
 func mappingServerInfo(server servers.Server) irs.VMInfo {
