@@ -10,9 +10,9 @@ import (
 
 	"time"
 
+	idrv "../../../interfaces"
+	irs "../../../interfaces/resources"
 	cblog "github.com/cloud-barista/cb-log"
-	idrv "github.com/cloud-barista/poc-cb-spider/cloud-driver/interfaces"
-	irs "github.com/cloud-barista/poc-cb-spider/cloud-driver/interfaces/resources"
 	"github.com/sirupsen/logrus"
 )
 
@@ -54,9 +54,11 @@ func (vNetworkHandler *GCPVNetworkHandler) CreateVNetwork(vNetworkReqInfo irs.VN
 		log.Fatal(err2)
 	}
 	networkInfo := irs.VNetworkInfo{
-		Name:     info.Name,
-		Id:       strconv.FormatUint(info.Id, 10),
-		SubnetId: info.Name,
+		Name: info.Name,
+		Id:   strconv.FormatUint(info.Id, 10),
+		KeyValueList: []irs.KeyValue{
+			{"SubnetId", info.Name},
+		},
 	}
 
 	return networkInfo, nil
@@ -73,9 +75,11 @@ func (vNetworkHandler *GCPVNetworkHandler) ListVNetwork() ([]*irs.VNetworkInfo, 
 	var vNetworkInfo []*irs.VNetworkInfo
 	for _, item := range vNetworkList.Items {
 		networkInfo := irs.VNetworkInfo{
-			Name:     item.Name,
-			Id:       strconv.FormatUint(item.Id, 10),
-			SubnetId: item.Name,
+			Name: item.Name,
+			Id:   strconv.FormatUint(item.Id, 10),
+			KeyValueList: []irs.KeyValue{
+				{"SubnetId", item.Name},
+			},
 		}
 
 		vNetworkInfo = append(vNetworkInfo, &networkInfo)
@@ -95,9 +99,11 @@ func (vNetworkHandler *GCPVNetworkHandler) GetVNetwork(vNetworkID string) (irs.V
 	}
 
 	networkInfo := irs.VNetworkInfo{
-		Name:     info.Name,
-		Id:       strconv.FormatUint(info.Id, 10),
-		SubnetId: info.Name,
+		Name: info.Name,
+		Id:   strconv.FormatUint(info.Id, 10),
+		KeyValueList: []irs.KeyValue{
+			{"SubnetId", info.Name},
+		},
 	}
 
 	return networkInfo, nil
