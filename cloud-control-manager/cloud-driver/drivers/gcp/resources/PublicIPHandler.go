@@ -3,6 +3,7 @@ package resources
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log"
 	"strconv"
 	"strings"
@@ -32,6 +33,10 @@ type GCPPublicIPHandler struct {
 // 	Status            string // GCP : IN_USE, RESERVED, RESERVING
 // 	InstanceId        string // GCP : 연결된 VM
 // }
+
+//GCP에서 PublicIP를 변경하려 할때 deleteaccessConfig => addAccessconfig 이때 넣어줘야 할 값은
+// natIp, NetworkTier 이 2개를 추가 해 줘야 하며
+// 추가 또는 삭제 시에는 networkInterface Name, zone, instananceName, projectId, accessConfig Name 등을 알아야 한다.
 
 func (publicIpHandler *GCPPublicIPHandler) CreatePublicIP(publicIPReqInfo irs.PublicIPReqInfo) (irs.PublicIPInfo, error) {
 	projectID := publicIpHandler.Credential.ProjectID
@@ -141,6 +146,7 @@ func (publicIpHandler *GCPPublicIPHandler) DeletePublicIP(publicIPID string) (bo
 	if err != nil {
 		log.Fatal(err)
 	}
+	fmt.Println(info)
 
 	return true, nil
 }

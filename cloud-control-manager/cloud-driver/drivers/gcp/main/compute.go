@@ -26,6 +26,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/davecgh/go-spew/spew"
+
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 
@@ -82,7 +84,17 @@ type SecurityRuleInfo struct {
 	IPProtocol string
 	Direction  string
 }
+type VNicInfo struct {
+	Id               string
+	Name             string
+	PublicIP         string
+	MacAddress       string
+	OwnedVMID        string
+	SecurityGroupIds []string
+	Status           string
 
+	KeyValueList []KeyValue
+}
 type SecurityInfo struct {
 	Id            string
 	Name          string
@@ -542,7 +554,7 @@ func getFireWall(service *compute.Service, name string) {
 	// 	})
 	// }
 	// fmt.Println(result)
-	// var securityRules irs.SecurityRuleInfo
+	// var securityRules irs.SecurityRuleInfogi
 	// securityInfo := irs.SecurityInfo{
 	// 	Id: strconv.FormatUint(security.Id,10),
 	// 	Name: security.Name,
@@ -556,6 +568,7 @@ func createFireWall(securityReqInfo SecurityReqInfo, service *compute.Service) {
 	ports := *securityReqInfo.SecurityRules
 	fmt.Println("ports : ", ports)
 	var firewallAllowed []*compute.FirewallAllowed
+
 	// fmt.Println(reflect.TypeOf(t))
 	// t = append(t, &compute.FirewallAllowed{
 	// 	IPProtocol: "tcp",
@@ -624,21 +637,50 @@ func createFireWall(securityReqInfo SecurityReqInfo, service *compute.Service) {
 	}
 	fmt.Println("create result : ", res)
 }
+func getVNic(service *compute.Service) {
+	res, err := service.Instances.Get(ProjectID, "asia-northeast1-b", "2578782397763975033").Do()
+	if err != nil {
+		log.Fatal(err)
+	}
+	networkInfo := mappingNetworkInfo(res)
+	spew.Dump(networkInfo)
+	fmt.Println("networkInfo : ", networkInfo)
+}
+func mappingNetworkInfo(res *compute.Instance) VNicInfo {
+	netWorkInfo := VNicInfo{
+		Id:        strconv.FormatUint(res.Id, 10),
+		Name:      res.NetworkInterfaces[0].Name,
+		PublicIP:  res.NetworkInterfaces[0].AccessConfigs[0].NatIP,
+		OwnedVMID: strconv.FormatUint(res.Id, 10),
+		Status:    res.Status, //nic 상태를 알 수 있는 것이 없어서 Instance의 상태값을 가져다 넣어줌
+		KeyValueList: []KeyValue{
+			{"Network", res.NetworkInterfaces[0].Network},
+			{"NetworkIP", res.NetworkInterfaces[0].NetworkIP},
+			{"PublicIPName", res.NetworkInterfaces[0].AccessConfigs[0].Name},
+			{"NetworkTier", res.NetworkInterfaces[0].AccessConfigs[0].NetworkTier},
+			{"Network", res.NetworkInterfaces[0].Network},
+		},
+	}
+
+	return netWorkInfo
+
+}
 func main() {
 	credentialFilePath := os.Getenv("GOOGLE_APPLICATION_CREDENTIALS")
 	//config, _ := readFileConfig(credentialFilePath)
 
-	securityReq := SecurityReqInfo{
-		Name:      "firewalltest",
-		Direction: "INGRESS",
-		SecurityRules: &[]SecurityRuleInfo{
-			{FromPort: "22", ToPort: "25", IPProtocol: "tcp"},
-			{FromPort: "65234", ToPort: "", IPProtocol: "udp"},
-		},
-	}
+	// securityReq := SecurityReqInfo{
+	// 	Name:      "firewalltest",
+	// 	Direction: "INGRESS",
+	// 	SecurityRules: &[]SecurityRuleInfo{
+	// 		{FromPort: "22", ToPort: "25", IPProtocol: "tcp"},
+	// 		{FromPort: "65234", ToPort: "", IPProtocol: "udp"},
+	// 	},
+	// }
 
 	client := connect(credentialFilePath)
-	createFireWall(securityReq, client)
+	//createFireWall(securityReq, client)
+	getVNic(client)
 	//zone := "asia-northeast1-b"
 	//instanceName := "cscmcloud"
 	//diskname := "mzcsc21"

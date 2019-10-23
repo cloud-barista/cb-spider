@@ -15,6 +15,7 @@ import (
 	_ "errors"
 	"fmt"
 	"log"
+	"strconv"
 
 	compute "google.golang.org/api/compute/v1"
 
@@ -112,7 +113,7 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 }
 
 // stop이라고 보면 될듯
-func (vmHandler *GCPVMHandler) SuspendVM(vmID string) {
+func (vmHandler *GCPVMHandler) SuspendVM(vmID string) error {
 	projectID := vmHandler.Credential.ProjectID
 	zone := vmHandler.Region.Zone
 	ctx := vmHandler.Ctx
@@ -124,9 +125,10 @@ func (vmHandler *GCPVMHandler) SuspendVM(vmID string) {
 	}
 
 	fmt.Println("instance stop status :", inst.Status)
+	return err
 }
 
-func (vmHandler *GCPVMHandler) ResumeVM(vmID string) {
+func (vmHandler *GCPVMHandler) ResumeVM(vmID string) error {
 
 	projectID := vmHandler.Credential.ProjectID
 	zone := vmHandler.Region.Zone
@@ -139,16 +141,17 @@ func (vmHandler *GCPVMHandler) ResumeVM(vmID string) {
 	}
 
 	fmt.Println("instance resume status :", inst.Status)
-
+	return err
 }
 
-func (vmHandler *GCPVMHandler) RebootVM(vmID string) {
+func (vmHandler *GCPVMHandler) RebootVM(vmID string) error {
 
-	vmHandler.SuspendVM(vmID)
-	vmHandler.ResumeVM(vmID)
+	err := vmHandler.SuspendVM(vmID)
+	err = vmHandler.ResumeVM(vmID)
+	return err
 }
 
-func (vmHandler *GCPVMHandler) TerminateVM(vmID string) {
+func (vmHandler *GCPVMHandler) TerminateVM(vmID string) error {
 	projectID := vmHandler.Credential.ProjectID
 	zone := vmHandler.Region.Zone
 	ctx := vmHandler.Ctx
@@ -160,23 +163,25 @@ func (vmHandler *GCPVMHandler) TerminateVM(vmID string) {
 	}
 
 	fmt.Println("instance status :", inst.Status)
+
+	return err
 }
 
-func (vmHandler *GCPVMHandler) ListVMStatus() []*irs.VMStatusInfo {
+func (vmHandler *GCPVMHandler) ListVMStatus() ([]*irs.VMStatusInfo, error) {
 	//serverList, err := vmHandler.Client.ListAll(vmHandler.Ctx)
 	projectID := vmHandler.Credential.ProjectID
 	zone := vmHandler.Region.Zone
 
 	serverList, err := vmHandler.Client.Instances.List(projectID, zone).Do()
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 
 	var vmStatusList []*irs.VMStatusInfo
 	for _, s := range serverList.Items {
 		if s.Name != "" {
 			vmId := s.Name
-			status := vmHandler.GetVMStatus(vmId)
+			status, _ := vmHandler.GetVMStatus(vmId)
 			vmStatusInfo := irs.VMStatusInfo{
 				VmId:     vmId,
 				VmStatus: status,
@@ -185,24 +190,24 @@ func (vmHandler *GCPVMHandler) ListVMStatus() []*irs.VMStatusInfo {
 		}
 	}
 
-	return vmStatusList
+	return vmStatusList, err
 }
 
-func (vmHandler *GCPVMHandler) GetVMStatus(vmID string) irs.VMStatus { // GCP의 ID는 uint64 이므로 GCP에서는 Name을 ID값으로 사용한다.
+func (vmHandler *GCPVMHandler) GetVMStatus(vmID string) (irs.VMStatus, error) { // GCP의 ID는 uint64 이므로 GCP에서는 Name을 ID값으로 사용한다.
 	projectID := vmHandler.Credential.ProjectID
 	zone := vmHandler.Region.Zone
 
 	instanceView, err := vmHandler.Client.Instances.Get(projectID, zone, vmID).Do()
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 
 	// Get powerState, provisioningState
 	vmStatus := instanceView.Status
-	return irs.VMStatus(vmStatus)
+	return irs.VMStatus(vmStatus), err
 }
 
-func (vmHandler *GCPVMHandler) ListVM() []*irs.VMInfo {
+func (vmHandler *GCPVMHandler) ListVM() ([]*irs.VMInfo, error) {
 	projectID := vmHandler.Credential.ProjectID
 	zone := vmHandler.Region.Zone
 
@@ -217,10 +222,10 @@ func (vmHandler *GCPVMHandler) ListVM() []*irs.VMInfo {
 		vmList = append(vmList, &vmInfo)
 	}
 
-	return vmList
+	return vmList, err
 }
 
-func (vmHandler *GCPVMHandler) GetVM(vmName string) irs.VMInfo {
+func (vmHandler *GCPVMHandler) GetVM(vmName string) (irs.VMInfo, error) {
 	projectID := vmHandler.Credential.ProjectID
 	zone := vmHandler.Region.Zone
 
@@ -230,7 +235,7 @@ func (vmHandler *GCPVMHandler) GetVM(vmName string) irs.VMInfo {
 	}
 
 	vmInfo := mappingServerInfo(vm)
-	return vmInfo
+	return vmInfo, err
 }
 
 // func getVmStatus(vl *compute.Service) string {
@@ -265,7 +270,7 @@ func mappingServerInfo(server *compute.Instance) irs.VMInfo {
 	// Get Default VM Info
 	vmInfo := irs.VMInfo{
 		Name: server.Name,
-		Id:   string(server.Id),
+		Id:   strconv.FormatUint(server.Id, 10),
 		Region: irs.RegionInfo{
 			Zone: server.Zone,
 		},

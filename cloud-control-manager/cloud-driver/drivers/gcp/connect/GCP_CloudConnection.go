@@ -55,11 +55,11 @@ func (cloudConn *GCPCloudConnection) CreateSecurityHandler() (irs.SecurityHandle
 // 	return nil, nil
 // }
 
-// func (cloudConn *GCPCloudConnection) CreateVNicHandler() (irs.VNicHandler, error) {
-// 	fmt.Println("GCP Cloud Driver: called CreateVNicHandler()!")
-// 	vNicHandler := gcprs.GCPVNicHandler{cloudConn.Region, cloudConn.Ctx, cloudConn.VNicClient, cloudConn.SubnetClient}
-// 	return &vNicHandler, nil
-// }
+func (cloudConn *GCPCloudConnection) CreateVNicHandler() (irs.VNicHandler, error) {
+	fmt.Println("GCP Cloud Driver: called CreateVNicHandler()!")
+	vNicHandler := gcprs.GCPVNicHandler{cloudConn.Region, cloudConn.Ctx, cloudConn.VNicClient, cloudConn.Credential}
+	return &vNicHandler, nil
+}
 func (cloudConn *GCPCloudConnection) CreatePublicIPHandler() (irs.PublicIPHandler, error) {
 	fmt.Println("GCP Cloud Driver: called CreatePublicIPHandler()!")
 	publicIPHandler := gcprs.GCPPublicIPHandler{cloudConn.Region, cloudConn.Ctx, cloudConn.PublicIPClient, cloudConn.Credential}

@@ -26,7 +26,7 @@ func (securityHandler *GCPSecurityHandler) CreateSecurity(securityReqInfo irs.Se
 	ports := *securityReqInfo.SecurityRules
 	var firewallAllowed []*compute.FirewallAllowed
 
-	for i, item := range ports {
+	for _, item := range ports {
 		var port string
 		fp := item.FromPort
 		tp := item.ToPort
@@ -125,5 +125,6 @@ func (securityHandler *GCPSecurityHandler) DeleteSecurity(securityID string) (bo
 	if err != nil {
 		log.Fatal(err)
 	}
+	fmt.Println(res)
 	return true, err
 }

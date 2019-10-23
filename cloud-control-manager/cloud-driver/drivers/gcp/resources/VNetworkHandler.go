@@ -2,6 +2,7 @@ package resources
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"strconv"
 
@@ -44,6 +45,7 @@ func (vNetworkHandler *GCPVNetworkHandler) CreateVNetwork(vNetworkReqInfo irs.VN
 		log.Fatal(err)
 
 	}
+	fmt.Println(res)
 
 	//생성되는데 시간이 필요 함. 약 20초정도?
 	time.Sleep(time.Second * 20)
@@ -108,6 +110,6 @@ func (vNetworkHandler *GCPVNetworkHandler) DeleteVNetwork(vNetworkID string) (bo
 	if err != nil {
 		log.Fatal(err)
 	}
-
+	fmt.Println(info)
 	return true, nil
 }
