@@ -1,12 +1,11 @@
-// Cloud Info Manager's Rest Runtime of CB-Spider.
+// Rest Runtime Server of CB-Spider.
 // The CB-Spider is a sub-Framework of the Cloud-Barista Multi-Cloud Project.
 // The CB-Spider Mission is to connect all the clouds with a single interface.
 //
 //      * Cloud-Barista: https://github.com/cloud-barista
 //
-// by powerkim@etri.re.kr, 2019.09.
+// by powerkim@etri.re.kr, 2019.10.
 
-//package cimrestruntime
 package main
 
 import (
