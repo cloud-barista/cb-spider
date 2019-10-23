@@ -29,21 +29,6 @@ type GCPVNetworkHandler struct {
 	Credential idrv.CredentialInfo
 }
 
-// @TODO: VNetworkInfo 리소스 프로퍼티 정의 필요
-type VNetworkInfo struct {
-	Id              string
-	Name            string
-	AddressPrefixes []string
-	Subnets         []SubnetInfo
-	Location        string
-}
-
-type SubnetInfo struct {
-	Id            string
-	Name          string
-	AddressPrefix string
-}
-
 func (vNetworkHandler *GCPVNetworkHandler) CreateVNetwork(vNetworkReqInfo irs.VNetworkReqInfo) (irs.VNetworkInfo, error) {
 	// priject id
 	projectID := vNetworkHandler.Credential.ProjectID

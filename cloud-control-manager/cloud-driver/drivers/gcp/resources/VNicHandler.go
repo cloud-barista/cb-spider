@@ -19,27 +19,6 @@ type GCPVNicHandler struct {
 	Credential   idrv.CredentialInfo
 }
 
-// @TODO: VNicInfo 리소스 프로퍼티 정의 필요
-type VNicInfo struct {
-	Id            string
-	Name          string
-	Location      string
-	Primary       bool
-	MacAddress    string
-	IP            []VNicIPConfig
-	SecurityGroup string
-}
-
-type VNicIPConfig struct {
-	Primary                   bool
-	PrivateIPAddress          string
-	PrivateIPAddressVersion   string
-	PrivateIPAllocationMethod string
-	PublicIP                  string
-	PublicIPAddressVersion    string
-	PublicIPAllocationMethod  string
-}
-
 func (nic *VNicInfo) setter(ni network.Interface) *VNicInfo {
 	nic.Id = *ni.ID
 	nic.Name = *ni.Name

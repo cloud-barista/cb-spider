@@ -21,17 +21,17 @@ type GCPPublicIPHandler struct {
 }
 
 // @TODO: PublicIP 리소스 프로퍼티 정의 필요
-type PublicIPInfo struct {
-	Id                string
-	Name              string
-	Region            string // GCP
-	CreationTimestamp string // GCP
-	Address           string // GCP
-	NetworkTier       string // GCP : PREMIUM, STANDARD
-	AddressType       string // GCP : External, INTERNAL, UNSPECIFIED_TYPE
-	Status            string // GCP : IN_USE, RESERVED, RESERVING
-	InstanceId        string // GCP : 연결된 VM
-}
+// type PublicIPInfo struct {
+// 	Id                string
+// 	Name              string
+// 	Region            string // GCP
+// 	CreationTimestamp string // GCP
+// 	Address           string // GCP
+// 	NetworkTier       string // GCP : PREMIUM, STANDARD
+// 	AddressType       string // GCP : External, INTERNAL, UNSPECIFIED_TYPE
+// 	Status            string // GCP : IN_USE, RESERVED, RESERVING
+// 	InstanceId        string // GCP : 연결된 VM
+// }
 
 func (publicIpHandler *GCPPublicIPHandler) CreatePublicIP(publicIPReqInfo irs.PublicIPReqInfo) (irs.PublicIPInfo, error) {
 	projectID := publicIpHandler.Credential.ProjectID
