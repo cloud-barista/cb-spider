@@ -108,6 +108,10 @@ func main() {
 
 		{"GET", "/controlvm/:VmId", controlVM}, // suspend, resume, reboot
 
+		//-------------------------------------------------------------------//
+		//----------SSH RUN
+		{"POST", "/sshrun", sshRun},
+
 	}
 	//======================================= setup routes
 
