@@ -304,8 +304,8 @@ func handleVNetwork() {
 		//CidrBlock: "10.0.0.0/16",
 		//CidrBlock: "192.168.0.0/16",
 	}
-	reqSubnetId := "subnet-071c95d03cc330550"
-	reqSubnetId = ""
+	reqSubnetId := "subnet-0b9ea37601d46d8fa"
+	//reqSubnetId = ""
 
 	for {
 		fmt.Println("VNetworkHandler Management")
@@ -390,7 +390,7 @@ func handleImage() {
 
 	//imageReqInfo := irs2.ImageReqInfo{
 	imageReqInfo := irs.ImageReqInfo{
-		Id:   "ami-0d097db2fb6e0f05e",
+		Id:   "ami-047f7b46bd6dd5d84",
 		Name: "Test OS Image",
 	}
 
@@ -548,11 +548,11 @@ func handleVNic() {
 
 func main() {
 	cblogger.Info("AWS Resource Test")
-	handleKeyPair()
+	//handleKeyPair()
 	//handlePublicIP() // PublicIP 생성 후 conf
 
 	//handleVNetwork() //VPC
-	//handleImage() //AMI
+	handleImage() //AMI
 	//handleVNic() //Lancard
 	//handleSecurity()
 
