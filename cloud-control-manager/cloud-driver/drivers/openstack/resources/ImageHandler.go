@@ -126,6 +126,10 @@ func (imageHandler *OpenStackImageHandler) ListImage() ([]*irs.ImageInfo, error)
 }
 
 func (imageHandler *OpenStackImageHandler) GetImage(imageID string) (irs.ImageInfo, error) {
+	/*imageId, err := images.IDFromName(imageHandler.Client, imageID)
+	if err != nil {
+		return irs.ImageInfo{}, err
+	}*/
 	image, err := images.Get(imageHandler.Client, imageID).Extract()
 	if err != nil {
 		return irs.ImageInfo{}, err
@@ -137,6 +141,10 @@ func (imageHandler *OpenStackImageHandler) GetImage(imageID string) (irs.ImageIn
 }
 
 func (imageHandler *OpenStackImageHandler) DeleteImage(imageID string) (bool, error) {
+	/*imageId, err := images.IDFromName(imageHandler.Client, imageID)
+	if err != nil {
+		return false, err
+	}*/
 	err := images.Delete(imageHandler.Client, imageID).ExtractErr()
 	if err != nil {
 		return false, err

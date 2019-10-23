@@ -23,7 +23,6 @@ func setterKeypair(keypair keypairs.KeyPair) *irs.KeyPairInfo {
 }
 
 func (keyPairHandler *OpenStackKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPairReqInfo) (irs.KeyPairInfo, error) {
-
 	create0pts := keypairs.CreateOpts{
 		Name:      keyPairReqInfo.Name,
 		PublicKey: "",
@@ -65,8 +64,8 @@ func (keyPairHandler *OpenStackKeyPairHandler) ListKey() ([]*irs.KeyPairInfo, er
 	return keyPairList, nil
 }
 
-func (keyPairHandler *OpenStackKeyPairHandler) GetKey(keyPairID string) (irs.KeyPairInfo, error) {
-	keyPair, err := keypairs.Get(keyPairHandler.Client, keyPairID).Extract()
+func (keyPairHandler *OpenStackKeyPairHandler) GetKey(keyName string) (irs.KeyPairInfo, error) {
+	keyPair, err := keypairs.Get(keyPairHandler.Client, keyName).Extract()
 	if err != nil {
 		return irs.KeyPairInfo{}, err
 	}
@@ -76,8 +75,8 @@ func (keyPairHandler *OpenStackKeyPairHandler) GetKey(keyPairID string) (irs.Key
 	return *keyPairInfo, nil
 }
 
-func (keyPairHandler *OpenStackKeyPairHandler) DeleteKey(keyPairID string) (bool, error) {
-	err := keypairs.Delete(keyPairHandler.Client, keyPairID).ExtractErr()
+func (keyPairHandler *OpenStackKeyPairHandler) DeleteKey(keyName string) (bool, error) {
+	err := keypairs.Delete(keyPairHandler.Client, keyName).ExtractErr()
 	if err != nil {
 		return false, err
 	}
