@@ -32,23 +32,13 @@ func init() {
 }
 
 type AzureVMHandler struct {
-	Region idrv.RegionInfo
-	Ctx    context.Context
-	Client *compute.VirtualMachinesClient
+	CredentialInfo idrv.CredentialInfo
+	Region         idrv.RegionInfo
+	Ctx            context.Context
+	Client         *compute.VirtualMachinesClient
 }
 
 func (vmHandler *AzureVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, error) {
-	// Set VM Create Information
-
-	// TODO: golang.org/x/crypto/ssh lib 기반 키 생성 기능 개발
-	/*sshKeyData, err := generateSSHKey("mcb-key")
-	if err != nil {
-		return irs.VMInfo{}, err
-	}*/
-
-	//vmName := vmReqInfo.VMName
-	//vmNameArr := strings.Split(vmName, ":")
-
 	// Check VM Exists
 	vm, err := vmHandler.Client.Get(vmHandler.Ctx, CBResourceGroupName, vmReqInfo.VMName, compute.InstanceView)
 	if vm.ID != nil {
@@ -70,15 +60,13 @@ func (vmHandler *AzureVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 			},
 			OsProfile: &compute.OSProfile{
 				ComputerName:  &vmReqInfo.VMName,
-				AdminUsername: &vmReqInfo.VMUserId,
-				AdminPassword: &vmReqInfo.VMUserPasswd,
+				AdminUsername: to.StringPtr(CBVMUser),
+				//AdminPassword: &vmReqInfo.VMUserPasswd,
 				/*LinuxConfiguration: &compute.LinuxConfiguration{
 					SSH: &compute.SSHConfiguration{
 						PublicKeys: &[]compute.SSHPublicKey{
 							{
 								//Path: to.StringPtr(fmt.Sprintf("/home/%s/.ssh/authorized_keys", vmReqInfo.VMUserId)),
-								//KeyData: &sshKeyData,
-								// TODO: golang.org/x/crypto/ssh lib 기반 키 생성 기능 개발
 								//KeyData: &sshKeyData,
 							},
 						},
@@ -96,6 +84,26 @@ func (vmHandler *AzureVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 				},
 			},
 		},
+	}
+
+	if vmReqInfo.KeyPairName == "" {
+		vmOpts.OsProfile.AdminPassword = to.StringPtr(vmReqInfo.VMUserPasswd)
+	} else {
+		publicKey, err := GetPublicKey(vmHandler.CredentialInfo, vmReqInfo.KeyPairName)
+		if err != nil {
+			cblogger.Error(err)
+			return irs.VMInfo{}, err
+		}
+		vmOpts.OsProfile.LinuxConfiguration = &compute.LinuxConfiguration{
+			SSH: &compute.SSHConfiguration{
+				PublicKeys: &[]compute.SSHPublicKey{
+					{
+						Path:    to.StringPtr(fmt.Sprintf("/home/%s/.ssh/authorized_keys", CBVMUser)),
+						KeyData: to.StringPtr(publicKey),
+					},
+				},
+			},
+		}
 	}
 
 	future, err := vmHandler.Client.CreateOrUpdate(vmHandler.Ctx, CBResourceGroupName, vmReqInfo.VMName, vmOpts)
@@ -162,7 +170,7 @@ func (vmHandler *AzureVMHandler) RebootVM(vmID string) error {
 
 func (vmHandler *AzureVMHandler) TerminateVM(vmID string) error {
 	future, err := vmHandler.Client.Delete(vmHandler.Ctx, CBResourceGroupName, vmID)
-	//future, err := vmHandler.Client.Deallocate(vmHandler.Ctx, vmIdArr[0], vmIdArr[1])
+	//future, err := vmHandler.Client.Deallocate(vmHandler.Ctx, CBResourceGroupName, vmID)
 	if err != nil {
 		cblogger.Error(err)
 		return err
