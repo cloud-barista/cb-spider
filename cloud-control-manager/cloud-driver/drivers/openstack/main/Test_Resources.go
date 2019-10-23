@@ -174,7 +174,6 @@ func testPublicIPHanlder(config Config) {
 	cblogger.Info("5. Exit")
 
 	var publicIPId string
-	//TODO : config.yaml 파일에 publicIP_info 추가 및 ID 값 -> Name으로 변경여부?
 
 Loop:
 	for {
@@ -206,17 +205,6 @@ Loop:
 				cblogger.Info("Start CreatePublicIP() ...")
 
 				reqInfo := irs.PublicIPReqInfo{}
-
-				/*ipList := make([]irs.KeyValue, len(reqInfo.KeyValueList))
-				for _, key := range reqInfo.KeyValueList{
-					keyInfo := irs.KeyValue{
-				 		Key:   key.Key,
-						Value: key.Value,
-					}
-					ipList = append(ipList, keyInfo)
-				}
-				reqInfo.KeyValueList = ipList*/
-
 				if publicIP, err := publicIPHandler.CreatePublicIP(reqInfo); err != nil {
 					cblogger.Error(err)
 				} else {
@@ -253,7 +241,6 @@ func testSecurityHandler(config Config) {
 	cblogger.Info("4. DeleteSecurity()")
 	cblogger.Info("5. Exit")
 
-	//todo : Get, Delete시 ID값을 가져오는데 Name으로 변경 필요?(Name중복..)
 	securityGroupName := "CB-SecGroup"
 	var securityGroupId string
 

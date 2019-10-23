@@ -1,7 +1,4 @@
-RESTSERVER=192.168.130.8
+RESTSERVER=localhost
 
-#securityGroupId 경우 생성시 자동 할당
-securityGroupId = c2b6e1d6-dbb1-4100-818c-0f75cc89470c
-
-# subnetName -> ID로 변경 해야됨
-curl -X DELETE http://$RESTSERVER:1024/securitygroup/$securityGroupId?connection_name=openstack-config01
+SECURITYGROUP_ID=8d9fd96f-61da-4e4f-9370-4f363bf838b8
+curl -X DELETE http://$RESTSERVER:1024/securitygroup/$SECURITYGROUP_ID?connection_name=openstack-config01

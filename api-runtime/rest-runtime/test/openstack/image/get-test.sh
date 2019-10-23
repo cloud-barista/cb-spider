@@ -1,5 +1,4 @@
-RESTSERVER=node12
+RESTSERVER=localhost
 
-imageId = b3411d30-b054-4c02-8bd1-67cd78aecd63
-
-curl -X GET http://$RESTSERVER:1024/vmimage/$imageId/connection_name=openstack-config01 |json_pp
+IMAGE_ID=fef5366b-688d-4566-a687-736e8fd15032
+curl -X GET http://$RESTSERVER:1024/vmimage/$IMAGE_ID?connection_name=openstack-config01 |json_pp

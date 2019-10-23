@@ -1,3 +1,3 @@
-RESTSERVER=127.0.0.1
+RESTSERVER=localhost
 
-curl -X POST http://$RESTSERVER:1024/publicip?connection_name=openstack-config01 -H 'Content-Type: application/json' -d '{ "Name": "public1" }'
+curl -X POST http://$RESTSERVER:1024/publicip?connection_name=openstack-config01 -H 'Content-Type: application/json' -d '{}'

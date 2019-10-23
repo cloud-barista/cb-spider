@@ -1,6 +1,4 @@
-RESTSERVER=192.168.130.8
+RESTSERVER=localhost
 
-#생성시 Pool내의 IP자동할당
-publicIPId = 182.252.135.157
-
-curl -X DELETE http://$RESTSERVER:1024/publicip/$publicIPId?connection_name=openstack-config01
+PUBLICIP_ID=381a10f8-5831-4822-8388-922673addde4
+curl -X DELETE http://$RESTSERVER:1024/publicip/$PUBLICIP_ID?connection_name=openstack-config01
