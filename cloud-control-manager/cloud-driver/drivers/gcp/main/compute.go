@@ -646,6 +646,21 @@ func getVNic(service *compute.Service) {
 	spew.Dump(networkInfo)
 	fmt.Println("networkInfo : ", networkInfo)
 }
+func listVNic(service *compute.Service) {
+
+	res, err := service.Instances.List(ProjectID, "asia-northeast1-b").Do()
+	if err != nil {
+		log.Fatal(err)
+	}
+	var vNicInfo []*VNicInfo
+	for _, item := range res.Items {
+		info := mappingNetworkInfo(item)
+		vNicInfo = append(vNicInfo, &info)
+	}
+	spew.Dump(vNicInfo)
+	fmt.Println("networkInfo : ", vNicInfo)
+
+}
 func mappingNetworkInfo(res *compute.Instance) VNicInfo {
 	netWorkInfo := VNicInfo{
 		Id:        strconv.FormatUint(res.Id, 10),
@@ -680,7 +695,8 @@ func main() {
 
 	client := connect(credentialFilePath)
 	//createFireWall(securityReq, client)
-	getVNic(client)
+	//getVNic(client)
+	listVNic(client)
 	//zone := "asia-northeast1-b"
 	//instanceName := "cscmcloud"
 	//diskname := "mzcsc21"
