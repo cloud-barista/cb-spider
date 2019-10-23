@@ -1,0 +1,13 @@
+RESTSERVER=node12
+
+ # for Cloud Driver Info
+curl -X POST http://$RESTSERVER:1024/driver -H 'Content-Type: application/json' -d '{"DriverName":"openstack-driver01","ProviderName":"OPENSTACK", "DriverLibFileName":"openstack-driver-v1.0.so"}'
+
+ # for Cloud Credential Info
+curl -X POST http://$RESTSERVER:1024/credential -H 'Content-Type: application/json' -d '{"CredentialName":"openstack-credential01","ProviderName":"OPENSTACK", "KeyValueInfoList": [{"Key":"ClientId", "Value":"d783322f-d23d-4acd-b62d-aec35f75b47e"}, {"Key":"ClientSecret", "Value":"2d2a43c9-6c0e-49d3-a543-02f5a937b0fd"}, {"Key":"TenantId", "Value":"82a99008-10c9-41bb-ad72-8fa46f6fe1cb"}, {"Key":"SubscriptionId", "Value":"f1548292-2be3-4acd-84a4-6df079160846"}]}'
+
+ # for Cloud Region Info
+curl -X POST http://$RESTSERVER:1024/region -H 'Content-Type: application/json' -d '{"RegionName":"openstack-region01","ProviderName":"OPENSTACK", "KeyValueInfoList": [{"Key":"location", "Value":"koreacentral"}]}'
+
+ # for Cloud Connection Config Info
+curl -X POST http://$RESTSERVER:1024/connectionconfig -H 'Content-Type: application/json' -d '{"ConfigName":"openstack-config01","ProviderName":"OPENSTACK", "DriverName":"openstack-driver01", "CredentialName":"openstack-credential01", "RegionName":"openstack-region01"}'
