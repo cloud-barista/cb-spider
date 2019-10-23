@@ -1,12 +1,13 @@
-RESTSERVER=192.168.130.8
+RESTSERVER=localhost
 
 curl -X POST http://$RESTSERVER:1024/vm?connection_name=openstack-config01 -H 'Content-Type: application/json' -d '{
     "VMName": "CB-VM",
-    "ImageId": "b3411d30-b054-4c02-8bd1-67cd78aecd63",
-    "VirtualNetworkId": "43dcec05-a3a4-47dc-a342-1f673cb3f39d",
+    "ImageId": "c430f613-2b0d-48c8-9983-cdbc6826cca5",
+    "VirtualNetworkId": "c430f613-2b0d-48c8-9983-cdbc6826cca5",
     "SecurityGroupIds": [
-      "c2b6e1d6-dbb1-4100-818c-0f75cc89470c"
+        "fbcc9efc-feb7-4f55-a70d-7745c6880c14"
     ],
-    "VMSpecId": 2,
-    "KeyPairName": "CB-KeyPair"
+    "VMSpecId": "2",
+    "KeyPairName": "CB-KeyPair",
+    "PublicIPId": "1b61f689-dcd9-4037-9da7-dcb9a06c2c5e"
 }'
