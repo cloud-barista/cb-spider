@@ -552,9 +552,9 @@ func main() {
 	//handlePublicIP() // PublicIP 생성 후 conf
 
 	//handleVNetwork() //VPC
-	handleImage() //AMI
+	//handleImage() //AMI
 	//handleVNic() //Lancard
-	//handleSecurity()
+	handleSecurity()
 
 	/*
 		KeyPairHandler, err := setKeyPairHandler()
