@@ -28,7 +28,7 @@ func main() {
 	// saveGobKey("public.key", publicKey)
 	// savePublicPEMKey("public.pem", publicKey)
 	username := "cscservice"
-	cmdStr := "ssh-keygen -t rsa -f ./gce-vm-key -q -C " + username
+	cmdStr := `ssh-keygen -t rsa -f ./gce-vm-key -q -N "" -C ` + username
 	fmt.Println(cmdStr)
 	cmd := exec.Command("./", cmdStr)
 	err = cmd.Run()
