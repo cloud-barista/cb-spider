@@ -1,4 +1,4 @@
-RESTSERVER=192.168.130.8
+RESTSERVER=localhost
 
-#image01 -> 생성되있는 Image이름(mcb-test-img)으로 변경
-curl -X GET http://$RESTSERVER:1024/vmimage/im1age01/connection_name=cloudit-config01 |json_pp
+IMAGE_ID=a846af3b-5d80-4182-b38e-5501ad9f78f4
+curl -X GET http://$RESTSERVER:1024/vmimage/$IMAGE_ID?connection_name=cloudit-config01 | json_pp

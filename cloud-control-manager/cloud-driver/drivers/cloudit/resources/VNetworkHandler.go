@@ -7,7 +7,6 @@ import (
 	"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/cloudit/client/dna/subnet"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
-	"github.com/davecgh/go-spew/spew"
 )
 
 type ClouditVNetworkHandler struct {
@@ -16,10 +15,12 @@ type ClouditVNetworkHandler struct {
 }
 
 func setterVNet(vNet subnet.SubnetInfo) *irs.VNetworkInfo {
+	addrPrefix := vNet.Addr + "/" + vNet.Prefix
 	vNetInfo := &irs.VNetworkInfo{
-		Id:            vNet.ID,
+		//Id:            vNet.ID,
+		Id:            vNet.Addr,
 		Name:          vNet.Name,
-		AddressPrefix: vNet.Prefix,
+		AddressPrefix: addrPrefix,
 		Status:        vNet.State,
 	}
 	return vNetInfo
@@ -58,11 +59,11 @@ func (vNetworkHandler *ClouditVNetworkHandler) CreateVNetwork(vNetReqInfo irs.VN
 		MoreHeaders: authHeader,
 	}
 
-	if subnet, err := subnet.Create(vNetworkHandler.Client, &createOpts); err != nil {
+	if vNetwork, err := subnet.Create(vNetworkHandler.Client, &createOpts); err != nil {
 		return irs.VNetworkInfo{}, err
 	} else {
-		spew.Dump(subnet)
-		return irs.VNetworkInfo{Id: subnet.Addr, Name: subnet.Name}, nil
+		vNetInfo := setterVNet(*vNetwork)
+		return *vNetInfo, nil
 	}
 }
 
@@ -98,8 +99,8 @@ func (vNetworkHandler *ClouditVNetworkHandler) GetVNetwork(vNetworkID string) (i
 	if vNetwork, err := subnet.Get(vNetworkHandler.Client, vNetworkID, &requestOpts); err != nil {
 		return irs.VNetworkInfo{}, err
 	} else {
-		spew.Dump(vNetwork)
-		return irs.VNetworkInfo{Id: vNetwork.ID, Name: vNetwork.Name}, nil
+		vNetInfo := setterVNet(*vNetwork)
+		return *vNetInfo, nil
 	}
 }
 

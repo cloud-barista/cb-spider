@@ -7,7 +7,6 @@ import (
 	"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/cloudit/client/dna/adaptiveip"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
-	"github.com/davecgh/go-spew/spew"
 )
 
 type ClouditPublicIPHandler struct {
@@ -17,10 +16,11 @@ type ClouditPublicIPHandler struct {
 
 func setterIP(adaptiveip adaptiveip.AdaptiveIPInfo) *irs.PublicIPInfo {
 	publicIP := &irs.PublicIPInfo{
-		Name:      adaptiveip.Name,
-		PublicIP:  adaptiveip.IP,
-		OwnedVMID: adaptiveip.VmName,
-		Status:    adaptiveip.State,
+		Name:         adaptiveip.IP,
+		PublicIP:     adaptiveip.IP,
+		OwnedVMID:    adaptiveip.VmName,
+		Status:       adaptiveip.State,
+		KeyValueList: []irs.KeyValue{{Key: "Name", Value: adaptiveip.Name}},
 	}
 	return publicIP
 }
@@ -67,8 +67,8 @@ func (publicIPHandler *ClouditPublicIPHandler) CreatePublicIP(publicIPReqInfo ir
 		cblogger.Error(err)
 		return irs.PublicIPInfo{}, err
 	} else {
-		spew.Dump(publicIP)
-		return irs.PublicIPInfo{Name: publicIP.Name}, nil
+		publicIPInfo := setterIP(*publicIP)
+		return *publicIPInfo, nil
 	}
 }
 
@@ -105,8 +105,8 @@ func (publicIPHandler *ClouditPublicIPHandler) GetPublicIP(publicIPID string) (i
 	if publicIP, err := adaptiveip.Get(publicIPHandler.Client, publicIPID, &requestOpts); err != nil {
 		return irs.PublicIPInfo{}, err
 	} else {
-		spew.Dump(publicIP)
-		return irs.PublicIPInfo{Name: publicIP.Name}, nil
+		publicIPInfo := setterIP(*publicIP)
+		return *publicIPInfo, nil
 	}
 }
 
