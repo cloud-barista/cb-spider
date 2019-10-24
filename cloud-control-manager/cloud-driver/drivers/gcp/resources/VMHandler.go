@@ -104,7 +104,7 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 
 	// 이게 시작하는  api Start 내부 매개변수로 projectID, zone, InstanceID
 	//vm, err := vmHandler.Client.Instances.Start(project string, zone string, instance string)
-	time.Sleep(time.Second * 20)
+	time.Sleep(time.Second * 10)
 	vm, err := vmHandler.Client.Instances.Get(projectID, zone, vmName).Context(ctx).Do()
 	if err != nil {
 		panic(err)
