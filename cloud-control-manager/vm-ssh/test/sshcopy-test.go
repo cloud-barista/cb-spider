@@ -16,7 +16,6 @@ func main() {
 	// server connection info
 	userName := "root"
 
-
         privateKey  := []byte(`-----BEGIN RSA PRIVATE KEY-----
 MIIEoQIBAAKCAQEArVNOLwMIp5VmZ4VPZotcoCHdEzimKalAsz+ccLfvAA1Y2ELH
 VwihRvkrqukUlkC7B3ASSCtgxIt5ZqfAKy9JvlT+Po/XHfaIpu9KM/XsZSdsF2jS
@@ -45,25 +44,22 @@ cHMCgYBmdhIjJnWbqU5oHVQHN7sVCiRAScAUyTqlUCqB/qSpweZfR+aQ72thnx7C
 6BQlL1pZI4zGbG4H34TPraxvJVdVKVSLAXPur1pqgbJzD2nFUg==
 -----END RSA PRIVATE KEY-----`)
 
-
 	server := "node12"
 	port := ":22"
 	serverPort := server + port
 
-	// command for ssh run
-        cmd := "/bin/hostname"
-
-
-	sshInfo := sshrun.SSHInfo{
-		UserName: userName,
-		PrivateKey: privateKey,
-		ServerPort: serverPort,
-	}	
-	var result string
-	var err	error
-        if result, err = sshrun.SSHRun(sshInfo, cmd); err != nil {
-                fmt.Println("Error while running cmd: " + cmd, err)
+        sshInfo := sshrun.SSHInfo{
+                UserName: userName,
+                PrivateKey: privateKey,
+                ServerPort: serverPort,
         }
 
-	fmt.Println(result)
+        // file info to copy
+        sourceFile := "/root/go/src/farmoni/farmoni_agent/farmoni_agent"
+        targetFile := "/tmp/farmoni_agent"
+
+        // copy agent into the server.
+        if err := sshrun.SSHCopy(sshInfo, sourceFile, targetFile); err !=nil {
+                fmt.Println("Error while copying file ", err)
+        }
 }

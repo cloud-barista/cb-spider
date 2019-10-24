@@ -44,17 +44,12 @@ func sshRun(c echo.Context) error {
 		PrivateKey : []byte(strPrivateKey),
 		ServerPort : req.ServerPort,
 	}
-	sshCli, err := sshrun.Connect(sshInfo)
-	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-	}
-
 	var result string
-        if result, err = sshrun.RunCommand(sshCli, req.Command); err != nil {
+        var err error
+        if result, err = sshrun.SSHRun(sshInfo, req.Command); err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "Error while running cmd: " + req.Command + "]" + err.Error())
         }
 
-        sshrun.Close(sshCli)
-
 	return c.JSON(http.StatusOK, result)
 }
+
