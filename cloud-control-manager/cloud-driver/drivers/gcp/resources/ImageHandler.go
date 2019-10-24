@@ -7,8 +7,8 @@ import (
 	"strconv"
 	"strings"
 
-	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
-	idrv "github.com/cloud-barista/poc-cb-spider/cloud-driver/interfaces"
+	idrv "../../../interfaces"
+	irs "../../../interfaces/resources"
 	"github.com/davecgh/go-spew/spew"
 	compute "google.golang.org/api/compute/v1"
 )

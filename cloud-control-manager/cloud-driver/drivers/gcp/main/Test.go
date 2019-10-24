@@ -20,40 +20,61 @@ import (
 	idrv "../../../interfaces"
 	irs "../../../interfaces/resources"
 	gcpdrv "../../gcp"
-	yaml "gopkg.in/yaml.v3"
+	"github.com/davecgh/go-spew/spew"
 )
 
+type Config struct {
+	Type         string `json:"type"`
+	ProjectID    string `json:"project_id"`
+	PrivateKeyID string `json:"private_key_id"`
+	PrivateKey   string `json:"private_key"`
+	ClientEmail  string `json:"client_email"`
+	ClientID     string `json:"client_id"`
+	AuthURI      string `json:"auth_uri"`
+	TokenURI     string `json:"token_uri"`
+	AuthProvider string `json:"auth_provider_x509_cert_url"`
+}
+
+const CredentialFilePath = "/Users/thaeao/Keystore/mcloud-barista-251102-1569f817bd23.json"
+
 // Test VM Handler Functions (Get VM Info, VM Status)
-// func getVMInfo() {
-// 	vmHandler, err := setVMHandler()
-// 	if err != nil {
-// 		panic(err)
-// 	}
-// 	config := readConfigFile()
+func getVMInfo() {
 
-// 	// Get VM List
-// 	vmList := vmHandler.ListVM()
-// 	for i, vm := range vmList {
-// 		fmt.Println("[", i, "] ")
-// 		spew.Dump(vm)
-// 	}
+	vmHandler, err := setVMHandler()
+	if err != nil {
+		panic(err)
+	}
+	//config, _ := readFileConfig(CredentialFilePath)
 
-// 	vmId := config.GCP.GroupName + ":" + config.GCP.VMName
+	// Get VM List
+	vmList, err := vmHandler.ListVM()
+	if err != nil {
+		log.Fatal(err)
+	}
+	var vmId string
+	for i, vm := range vmList {
+		list := *vm
+		fmt.Println("[", i, "] ")
+		if i == 0 {
+			vmId = list.Id
+		}
+		spew.Dump(vm)
+	}
 
-// 	// Get VM Info
-// 	vmInfo := vmHandler.GetVM(vmId)
-// 	spew.Dump(vmInfo)
+	// Get VM Info
+	vmInfo, _ := vmHandler.GetVM(vmId)
+	spew.Dump(vmInfo)
 
-// 	// Get VM Status List
-// 	vmStatusList := vmHandler.ListVMStatus()
-// 	for i, vmStatus := range vmStatusList {
-// 		fmt.Println("[", i, "] ", *vmStatus)
-// 	}
+	// Get VM Status List
+	vmStatusList, _ := vmHandler.ListVMStatus()
+	for i, vmStatus := range vmStatusList {
+		fmt.Println("[", i, "] ", *vmStatus)
+	}
 
-// 	// Get VM Status
-// 	vmStatus := vmHandler.GetVMStatus(vmId)
-// 	fmt.Println(vmStatus)
-// }
+	// Get VM Status
+	vmStatus, _ := vmHandler.GetVMStatus(vmId)
+	fmt.Println(vmStatus)
+}
 
 // // Test VM Lifecycle Management (Suspend/Resume/Reboot/Terminate)
 // func handleVM() {
@@ -412,6 +433,7 @@ func setVMHandler() (irs.VMHandler, error) {
 	credentialFilePath := os.Getenv("GOOGLE_APPLICATION_CREDENTIALS")
 	config, _ := readFileConfig(credentialFilePath)
 	region := "asia-northeast1"
+	zone := "asia-northeast1-b"
 
 	connectionInfo := idrv.ConnectionInfo{
 		CredentialInfo: idrv.CredentialInfo{
@@ -420,6 +442,7 @@ func setVMHandler() (irs.VMHandler, error) {
 		},
 		RegionInfo: idrv.RegionInfo{
 			Region: region,
+			Zone:   zone,
 		},
 	}
 
@@ -586,7 +609,7 @@ func main() {
 		log.Fatal(err)
 	}
 	fmt.Println(vmHandler)
-	//getVMInfo()
+	getVMInfo()
 	//handleVM()
 	//createVM()
 
@@ -598,34 +621,6 @@ func main() {
 	//testVNicHandler()
 }
 
-type Config struct {
-	Type         string `json:"type"`
-	ProjectID    string `json:"project_id"`
-	PrivateKeyID string `json:"private_key_id"`
-	PrivateKey   string `json:"private_key"`
-	ClientEmail  string `json:"client_email"`
-	ClientID     string `json:"client_id"`
-	AuthURI      string `json:"auth_uri"`
-	TokenURI     string `json:"token_uri"`
-	AuthProvider string `json:"auth_provider_x509_cert_url"`
-}
-
-func readConfigFile() Config {
-	// Set Environment Value of Project Root Path
-	rootPath := os.Getenv("CBSPIDER_PATH")
-	data, err := ioutil.ReadFile(rootPath + "/config/config.yaml")
-	if err != nil {
-		panic(err)
-	}
-
-	var config Config
-	err = yaml.Unmarshal(data, &config)
-	if err != nil {
-		panic(err)
-	}
-
-	return config
-}
 func readFileConfig(filepath string) (Config, error) {
 
 	data, err := ioutil.ReadFile(filepath)

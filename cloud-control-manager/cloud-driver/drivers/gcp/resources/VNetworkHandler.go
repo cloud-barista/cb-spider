@@ -12,15 +12,13 @@ import (
 
 	idrv "../../../interfaces"
 	irs "../../../interfaces/resources"
-	cblog "github.com/cloud-barista/cb-log"
-	"github.com/sirupsen/logrus"
 )
 
-var cblogger *logrus.Logger
+//var cblogger *logrus.Logger
 
 func init() {
 	// cblog is a global variable.
-	cblogger = cblog.GetLogger("AWS Connect")
+	//cblogger = cblog.GetLogger("AWS Connect")
 }
 
 type GCPVNetworkHandler struct {
