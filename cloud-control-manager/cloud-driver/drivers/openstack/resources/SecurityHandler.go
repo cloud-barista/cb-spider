@@ -1,8 +1,9 @@
 package resources
 
 import (
+	"errors"
+	"fmt"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
-	_ "github.com/davecgh/go-spew/spew"
 	"github.com/rackspace/gophercloud"
 	"github.com/rackspace/gophercloud/openstack/compute/v2/extensions/secgroups"
 	"github.com/rackspace/gophercloud/pagination"
@@ -35,6 +36,20 @@ func setterSeg(secGroup secgroups.SecurityGroup) *irs.SecurityInfo {
 }
 
 func (securityHandler *OpenStackSecurityHandler) CreateSecurity(securityReqInfo irs.SecurityReqInfo) (irs.SecurityInfo, error) {
+	// Check SecurityGroup Exists
+	secGroupList, err := securityHandler.ListSecurity()
+	if err != nil {
+		return irs.SecurityInfo{}, err
+	}
+
+	for _, sg := range secGroupList {
+		if sg.Name == securityReqInfo.Name {
+			errMsg := fmt.Sprintf("Security Group with name %s already exist", securityReqInfo.Name)
+			createErr := errors.New(errMsg)
+			return irs.SecurityInfo{}, createErr
+		}
+	}
+
 	// Create SecurityGroup
 	createOpts := secgroups.CreateOpts{
 		Name:        securityReqInfo.Name,
@@ -64,7 +79,7 @@ func (securityHandler *OpenStackSecurityHandler) CreateSecurity(securityReqInfo 
 		}
 	}
 
-	// 생성된 SecurityGroup
+	// 생성된 SecurityGroup 정보 리턴
 	securityInfo, err := securityHandler.GetSecurity(group.ID)
 	if err != nil {
 		return irs.SecurityInfo{}, err

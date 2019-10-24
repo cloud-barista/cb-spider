@@ -257,8 +257,12 @@ func (vNicHandler *AwsVNicHandler) GetVNic(vNicID string) (irs.VNicInfo, error) 
 		return irs.VNicInfo{}, err
 	}
 
-	vNicInfo := ExtractVNicDescribeInfo(result.NetworkInterfaces[0])
-	return vNicInfo, nil
+	if len(result.NetworkInterfaces) > 0 {
+		vNicInfo := ExtractVNicDescribeInfo(result.NetworkInterfaces[0])
+		return vNicInfo, nil
+	} else {
+		return irs.VNicInfo{}, err
+	}
 }
 
 func (vNicHandler *AwsVNicHandler) DeleteVNic(vNicID string) (bool, error) {

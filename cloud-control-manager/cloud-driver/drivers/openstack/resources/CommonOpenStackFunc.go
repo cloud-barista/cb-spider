@@ -11,8 +11,8 @@ import (
 )
 
 const (
-	CBPublicIPPool = "public1"
-	//CBResourceGroupName  = "CB-GROUP"
+	CBPublicIPPool       = "public1"
+	CBGateWayId          = "b6610ceb-8089-48b0-9bfc-3c35e4e245cf"
 	CBVirutalNetworkName = "CB-VNet"
 	CBVnetDefaultCidr    = "130.0.0.0/16"
 	//CBVMUser             = "cb-user"

@@ -6,7 +6,6 @@
 //
 // by powerkim@etri.re.kr, 2019.09.
 
-//package cimrestruntime
 package main
 
 import (

@@ -452,6 +452,43 @@ func (vNetworkHandler *AwsVNetworkHandler) CreateRouteIGW(vpcId string, igwId st
 	return nil
 }
 
+// VPC에 설정된 0.0.0.0/0 라우터를 제거 함.
+func (vNetworkHandler *AwsVNetworkHandler) DeleteRouteIGW(vpcId string) error {
+	cblogger.Infof("VPC ID : [%s]", vpcId)
+	routeTableId, errRoute := vNetworkHandler.GetCBDefaultRouteTable(vpcId)
+	if errRoute != nil {
+		return errRoute
+	}
+
+	cblogger.Infof("RouteTable[%s]에 할당된 라우팅(0.0.0.0/0) 정보를 삭제합니다.", routeTableId)
+	input := &ec2.DeleteRouteInput{
+		DestinationCidrBlock: aws.String("0.0.0.0/0"),
+		RouteTableId:         aws.String(routeTableId),
+	}
+	cblogger.Info(input)
+
+	result, err := vNetworkHandler.Client.DeleteRoute(input)
+	if err != nil {
+		cblogger.Errorf("RouteTable[%s]에 대한 라우팅(0.0.0.0/0) 정보 삭제 실패", routeTableId)
+		if aerr, ok := err.(awserr.Error); ok {
+			switch aerr.Code() {
+			default:
+				cblogger.Error(aerr.Error())
+			}
+		} else {
+			// Print the error, cast err to awserr.Error to get the Code and
+			// Message from an error.
+			cblogger.Error(err.Error())
+		}
+		return err
+	}
+	cblogger.Infof("RouteTable[%s]에 대한 라우팅(0.0.0.0/0) 정보 삭제 완료", routeTableId)
+
+	cblogger.Info(result)
+	spew.Dump(result)
+	return nil
+}
+
 // VPC의 라우팅 테이블에 생성된 Subnet을 연결 함.
 func (vNetworkHandler *AwsVNetworkHandler) AssociateRouteTable(vpcId string, subnetId string) error {
 	routeTableId, errRoute := vNetworkHandler.GetCBDefaultRouteTable(vpcId)
@@ -630,8 +667,137 @@ func ExtractSubnetDescribeInfo(subnetInfo *ec2.Subnet) irs.VNetworkInfo {
 	return vNetworkInfo
 }
 
+//VPC에 연결된 모든 IGW를 삭제함.
+func (vNetworkHandler *AwsVNetworkHandler) DeleteAllIGW(vpcId string) error {
+	input := &ec2.DescribeInternetGatewaysInput{
+		Filters: []*ec2.Filter{
+			{
+				Name: aws.String("attachment.vpc-id"),
+				Values: []*string{
+					aws.String(vpcId),
+				},
+			},
+		},
+	}
+
+	result, err := vNetworkHandler.Client.DescribeInternetGateways(input)
+	if err != nil {
+		if aerr, ok := err.(awserr.Error); ok {
+			switch aerr.Code() {
+			default:
+				cblogger.Error(aerr.Error())
+			}
+		} else {
+			// Print the error, cast err to awserr.Error to get the Code and
+			// Message from an error.
+			cblogger.Error(err.Error())
+		}
+		return err
+	}
+
+	cblogger.Info(result)
+	spew.Dump(result)
+
+	// VPC 삭제를 위해 연결된 모든 IGW 제거
+	// 일단, 에러는 무시함.
+	for _, curIgw := range result.InternetGateways {
+		//IGW 삭제전 연결된 IGW의 연결을 끊어야함.
+		vNetworkHandler.DetachInternetGateway(vpcId, *curIgw.InternetGatewayId)
+		//IGW 삭제
+		vNetworkHandler.DeleteIGW(*curIgw.InternetGatewayId)
+	}
+
+	return nil
+}
+
+// VPC에 연결된 IGW의 연결을 해제함.
+func (vNetworkHandler *AwsVNetworkHandler) DetachInternetGateway(vpcId string, igwId string) error {
+	cblogger.Infof("VPC[%s]에 연결된 IGW[%s]의 연결을 해제함.", vpcId, igwId)
+
+	input := &ec2.DetachInternetGatewayInput{
+		InternetGatewayId: aws.String(igwId),
+		VpcId:             aws.String(vpcId),
+	}
+
+	result, err := vNetworkHandler.Client.DetachInternetGateway(input)
+	if err != nil {
+		if aerr, ok := err.(awserr.Error); ok {
+			switch aerr.Code() {
+			default:
+				cblogger.Error(aerr.Error())
+			}
+		} else {
+			// Print the error, cast err to awserr.Error to get the Code and
+			// Message from an error.
+			cblogger.Error(err.Error())
+		}
+		return err
+	}
+
+	cblogger.Info(result)
+	spew.Dump(result)
+	return nil
+}
+
+// IGW를 삭제 함.
+func (vNetworkHandler *AwsVNetworkHandler) DeleteIGW(igwId string) error {
+	input := &ec2.DeleteInternetGatewayInput{
+		InternetGatewayId: aws.String(igwId),
+	}
+
+	result, err := vNetworkHandler.Client.DeleteInternetGateway(input)
+	if err != nil {
+		if aerr, ok := err.(awserr.Error); ok {
+			switch aerr.Code() {
+			default:
+				cblogger.Error(aerr.Error())
+			}
+		} else {
+			// Print the error, cast err to awserr.Error to get the Code and
+			// Message from an error.
+			cblogger.Error(err.Error())
+		}
+		return err
+	}
+
+	cblogger.Info(result)
+	spew.Dump(result)
+	return nil
+}
+
+//@TODO : 의존관계를 체크해서 전체 삭제 로직을 추가해야 함.
 func (vNetworkHandler *AwsVNetworkHandler) DeleteVpc(vpcId string) (bool, error) {
-	cblogger.Info("vpcId : [%s]", vpcId)
+	cblogger.Infof("vpcId : [%s]", vpcId)
+
+	cblogger.Info("VPC 제거를 위해 생성된 IGW / Route들 제거 시작")
+
+	//VPC 제거에 필요한 리소스들을 모두 제거함.
+	// VPC에 연결된 IGW를 삭제함.
+	/*
+		errIgw := vNetworkHandler.DeleteIGW(vpcId)
+		if errIgw != nil {
+			return false, errIgw
+		}
+	*/
+
+	// 라우팅 테이블에 추가한 IGW 라우터를 먼저 삭제함.
+	errRoute := vNetworkHandler.DeleteRouteIGW(vpcId)
+	if errRoute != nil {
+		cblogger.Error("라우팅 테이블에 추가한 0.0.0.0/0 IGW 라우터 삭제 실패")
+		cblogger.Error(errRoute)
+		//return false, errRoute
+	} else {
+		cblogger.Info("라우팅 테이블에 추가한 0.0.0.0/0 IGW 라우터 삭제 완료")
+	}
+
+	//VPC에 연결된 모든 IGW를 삭제함.
+	errIgw := vNetworkHandler.DeleteAllIGW(vpcId)
+	if errIgw != nil {
+		cblogger.Error("모든 IGW 삭제 실패 : ", errIgw)
+	} else {
+		cblogger.Info("모든 IGW 삭제 완료")
+	}
+
 	input := &ec2.DeleteVpcInput{
 		VpcId: aws.String(vpcId),
 	}
@@ -681,10 +847,11 @@ func (vNetworkHandler *AwsVNetworkHandler) DeleteVNetwork(vNetworkID string) (bo
 	subnetList, _ := vNetworkHandler.ListVNetwork()
 
 	//서브넷이 존재하는경우 서브넷 삭제 결과 리턴
-	if subnetList != nil {
+	if len(subnetList) > 0 {
 		return true, nil
 	} else {
 		//서브넷이 없는 경우 기본 CBVPC도 삭제
+		cblogger.Info("모든 서브넷이 삭제되어서 VPC를 자동으로 삭제합니다.")
 		VpcId, errVpc := vNetworkHandler.FindOrCreateMcloudBaristaDefaultVPC(irs.VNetworkReqInfo{})
 		cblogger.Info("삭제할 CBDefaultVPC 조회 결과 : ", VpcId)
 		if errVpc != nil {
@@ -706,10 +873,10 @@ func (vNetworkHandler *AwsVNetworkHandler) DeleteVNetwork(vNetworkID string) (bo
 		}
 
 		if delVpc {
-			cblogger.Info("CBDefaultVPC를 삭제 완료.")
+			cblogger.Info("CBDefaultVPC 삭제 완료.")
 			return true, nil
 		} else {
-			cblogger.Info("CBDefaultVPC를 삭제 실패.")
+			cblogger.Info("CBDefaultVPC 삭제 실패.")
 			return false, nil //삭제 실패 이유를 모르는 경우
 		}
 
