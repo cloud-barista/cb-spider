@@ -16,6 +16,7 @@ import (
 	"fmt"
 	"log"
 	"strconv"
+	"time"
 
 	compute "google.golang.org/api/compute/v1"
 
@@ -65,7 +66,7 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 				Boot:       true,
 				Type:       "PERSISTENT",
 				InitializeParams: &compute.AttachedDiskInitializeParams{
-					DiskName:    "my-root-pd", //disk name 도 매번 바뀌어야 하는 값
+					DiskName:    vmName + "-" + zone, //disk name 도 매번 바뀌어야 하는 값
 					SourceImage: imageURL,
 				},
 			},
@@ -79,7 +80,7 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 						NatIP: publicIPAddress,
 					},
 				},
-				Network: prefix + "/global/networks/default",
+				Network: prefix + "/global/networks/" + vmReqInfo.VirtualNetworkId,
 			},
 		},
 		ServiceAccounts: []*compute.ServiceAccount{
@@ -103,6 +104,7 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 
 	// 이게 시작하는  api Start 내부 매개변수로 projectID, zone, InstanceID
 	//vm, err := vmHandler.Client.Instances.Start(project string, zone string, instance string)
+	time.Sleep(time.Second * 20)
 	vm, err := vmHandler.Client.Instances.Get(projectID, zone, vmName).Context(ctx).Do()
 	if err != nil {
 		panic(err)
