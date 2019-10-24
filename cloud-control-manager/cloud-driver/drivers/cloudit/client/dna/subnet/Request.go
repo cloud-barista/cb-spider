@@ -71,7 +71,7 @@ func ListCreatableSubnet(restClient *client.RestClient, requestOpts *client.Requ
 }
 
 func Get(restClient *client.RestClient, subnetId string, requestOpts *client.RequestOpts) (*SubnetInfo, error) {
-	requestURL := restClient.CreateRequestBaseURL(client.DNA, "subnets", subnetId, "detail")
+	requestURL := restClient.CreateRequestBaseURL(client.DNA, subnetId, "detail")
 	cblogger.Info(requestURL)
 
 	var result client.Result

@@ -43,7 +43,7 @@ func (vmHandler *ClouditVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 		TemplateId:   vmReqInfo.ImageId,
 		SpecId:       vmReqInfo.VMSpecId,
 		Name:         vmReqInfo.VMName,
-		HostName:     vmReqInfo.VMUserId,
+		HostName:     vmReqInfo.VMName,
 		RootPassword: vmReqInfo.VMUserPasswd,
 		SubnetAddr:   vmReqInfo.VirtualNetworkId,
 	}
@@ -73,7 +73,7 @@ func (vmHandler *ClouditVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 		}
 
 		// PublicIP 생성
-		publicIPReqInfo := irs.PublicIPReqInfo{
+		/*publicIPReqInfo := irs.PublicIPReqInfo{
 			Name: vm.Name + "-PublicIP",
 			KeyValueList: []irs.KeyValue{
 				{
@@ -84,7 +84,7 @@ func (vmHandler *ClouditVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 		}
 		if ok, err := vmHandler.AssociatePublicIP(publicIPReqInfo); !ok {
 			return irs.VMInfo{}, err
-		}
+		}*/
 
 		// 생성된 VM 정보 리턴
 		vmInfo := mappingServerInfo(*vmDetailInfo)
@@ -291,6 +291,12 @@ func mappingServerInfo(server server.ServerInfo) irs.VMInfo {
 		PrivateIP:        server.PrivateIp,
 		KeyPairName:      server.RootPassword,
 	}
+
+	/*if creatTime, err := time.Parse(time.RFC3339, server.CreatedAt); err == nil {
+		vmInfo.StartTime = creatTime
+	} else {
+		panic(err)
+	}*/
 
 	return vmInfo
 }

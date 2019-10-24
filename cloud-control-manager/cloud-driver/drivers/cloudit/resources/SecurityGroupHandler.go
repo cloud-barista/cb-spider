@@ -1,6 +1,7 @@
 package resources
 
 import (
+	"errors"
 	"fmt"
 	"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/cloudit/client"
 	"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/cloudit/client/iam/securitygroup"
@@ -30,7 +31,6 @@ func setterSecGroup(secGroup securitygroup.SecurityGroupInfo) *irs.SecurityInfo 
 			IPProtocol: sgRule.Protocol,
 			Direction:  sgRule.Type,
 		}
-
 		secRuleArr = append(secRuleArr, secRuleInfo)
 	}
 	secInfo.SecurityRules = &secRuleArr
@@ -39,6 +39,17 @@ func setterSecGroup(secGroup securitygroup.SecurityGroupInfo) *irs.SecurityInfo 
 }
 
 func (securityHandler *ClouditSecurityHandler) CreateSecurity(securityReqInfo irs.SecurityReqInfo) (irs.SecurityInfo, error) {
+	// Check SecurityGroup Exists
+	if securityId, err := securityHandler.CheckSecurityExist(securityReqInfo.Name); err != nil {
+		return irs.SecurityInfo{}, err
+	} else {
+		if *securityId != "" {
+			errMsg := fmt.Sprintf("Security Group with name %s already exist", securityReqInfo.Name)
+			createErr := errors.New(errMsg)
+			return irs.SecurityInfo{}, createErr
+		}
+	}
+
 	securityHandler.Client.TokenID = securityHandler.CredentialInfo.AuthToken
 	authHeader := securityHandler.Client.AuthenticatedHeaders()
 
@@ -122,7 +133,8 @@ func (securityHandler *ClouditSecurityHandler) GetSecurity(securityID string) (i
 			(*securityInfo).RulesCount = len(*sgRules)
 		}
 		spew.Dump(securityInfo)
-		return irs.SecurityInfo{Id: securityInfo.ID, Name: securityInfo.Name}, nil
+		secGroupInfo := setterSecGroup(*securityInfo)
+		return *secGroupInfo, nil
 	}
 }
 
@@ -139,4 +151,20 @@ func (securityHandler *ClouditSecurityHandler) DeleteSecurity(securityID string)
 	} else {
 		return true, nil
 	}
+}
+
+func (securityHandler *ClouditSecurityHandler) CheckSecurityExist(securityName string) (*string, error) {
+	var securityId string
+
+	securityList, err := securityHandler.ListSecurity()
+	if err != nil {
+		return nil, err
+	}
+
+	for _, sec := range securityList {
+		if sec.Name == securityName {
+			securityId = sec.Id
+		}
+	}
+	return &securityId, nil
 }
