@@ -79,7 +79,7 @@ func (cloudConn *OpenStackCloudConnection) CreateVMHandler() (irs.VMHandler, err
 	//     }
 
 	cblogger.Info("OpenStack Cloud Driver: called CreateVMHandler()!")
-	vmHandler := osrs.OpenStackVMHandler{cloudConn.Client}
+	vmHandler := osrs.OpenStackVMHandler{cloudConn.Client, cloudConn.NetworkClient}
 	return &vmHandler, nil
 }
 
