@@ -21,35 +21,6 @@ type GCPVNicHandler struct {
 	Credential idrv.CredentialInfo
 }
 
-// func (nic *VNicInfo) setter(ni network.Interface) *VNicInfo {
-// 	nic.Id = *ni.ID
-// 	nic.Name = *ni.Name
-// 	nic.Location = *ni.Location
-
-// 	if ni.NetworkSecurityGroup != nil {
-// 		nic.SecurityGroup = *ni.NetworkSecurityGroup.ID
-// 	}
-
-// 	var IPArr []VNicIPConfig
-// 	for _, ip := range *ni.IPConfigurations {
-// 		ipConfigInfo := VNicIPConfig{
-// 			Primary:                   *ip.Primary,
-// 			PrivateIPAddress:          *ip.PrivateIPAddress,
-// 			PrivateIPAddressVersion:   fmt.Sprint(ip.PrivateIPAddressVersion),
-// 			PrivateIPAllocationMethod: fmt.Sprint(ip.PrivateIPAllocationMethod),
-// 		}
-
-// 		if ip.PublicIPAddress != nil {
-// 			ipConfigInfo.PublicIP = *ip.PublicIPAddress.ID
-// 		}
-
-// 		IPArr = append(IPArr, ipConfigInfo)
-// 	}
-// 	nic.IP = IPArr
-
-// 	return nic
-// }
-
 func (vNicHandler *GCPVNicHandler) CreateVNic(vNicReqInfo irs.VNicReqInfo) (irs.VNicInfo, error) {
 
 	return irs.VNicInfo{}, nil
