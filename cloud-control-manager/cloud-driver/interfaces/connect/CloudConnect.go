@@ -11,12 +11,12 @@
 package connect
 
 import (
-	// irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
+	//irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	irs "../resources"
 )
 
 type CloudConnection interface {
-	//CreateImageHandler() (irs.ImageHandler, error)
+	CreateImageHandler() (irs.ImageHandler, error)
 	CreateVNetworkHandler() (irs.VNetworkHandler, error)
 	CreateSecurityHandler() (irs.SecurityHandler, error)
 	//CreateKeyPairHandler() (irs.KeyPairHandler, error)

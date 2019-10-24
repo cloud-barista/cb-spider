@@ -39,11 +39,11 @@ func (cloudConn *GCPCloudConnection) CreateVNetworkHandler() (irs.VNetworkHandle
 	return &vNetHandler, nil
 }
 
-// func (cloudConn *GCPCloudConnection) CreateImageHandler() (irs.ImageHandler, error) {
-// 	fmt.Println("GCP Cloud Driver: called CreateImageHandler()!")
-// 	imageHandler := gcprs.GCPImageHandler{cloudConn.Region, cloudConn.Ctx, cloudConn.ImageClient}
-// 	return &imageHandler, nil
-// }
+func (cloudConn *GCPCloudConnection) CreateImageHandler() (irs.ImageHandler, error) {
+	fmt.Println("GCP Cloud Driver: called CreateImageHandler()!")
+	imageHandler := gcprs.GCPImageHandler{cloudConn.Region, cloudConn.Ctx, cloudConn.ImageClient, cloudConn.Credential}
+	return &imageHandler, nil
+}
 
 func (cloudConn *GCPCloudConnection) CreateSecurityHandler() (irs.SecurityHandler, error) {
 	fmt.Println("GCP Cloud Driver: called CreateSecurityHandler()!")

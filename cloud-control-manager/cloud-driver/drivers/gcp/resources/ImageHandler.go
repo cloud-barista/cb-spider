@@ -2,137 +2,102 @@ package resources
 
 import (
 	"context"
+	"fmt"
+	"log"
+	"strconv"
+	"strings"
 
-	compute "google.golang.org/api/compute/v1"
-
+	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	idrv "github.com/cloud-barista/poc-cb-spider/cloud-driver/interfaces"
+	"github.com/davecgh/go-spew/spew"
+	compute "google.golang.org/api/compute/v1"
 )
 
 type GCPImageHandler struct {
-	Region idrv.RegionInfo
-	Ctx    context.Context
-	Client *compute.Service
+	Region     idrv.RegionInfo
+	Ctx        context.Context
+	Client     *compute.Service
+	Credential idrv.CredentialInfo
 }
 
-// @TODO: ImageInfo 리소스 프로퍼티 정의 필요
-type ImageInfo struct {
-	ID            string
-	Name          string
-	Location      string
-	OsType        string
-	OsDiskSize    int32
-	OsState       string
-	ManagedDiskId string
+/*
+이미지를 생성할 때 GCP 같은 경우는 내가 생성한 이미지에서만 리스트를 가져 올 수 있다.
+퍼블릭 이미지를 가져 올 수 없다.
+가져올라면 다르게 해야 함.
+Insert할때 필수 값
+name, sourceDisk(sourceImage),storageLocations(배열 ex : ["asia"])
+이미지를 어떻게 생성하는냐에 따라서 키 값이 변경됨
+디스크, 스냅샷,이미지, 가상디스크, Cloud storage
+1) Disk일 경우 :
+	{"sourceDisk": "projects/mcloud-barista-251102/zones/asia-northeast1-b/disks/my-root-pd",}
+2) Image일 경우 :
+	{"sourceImage": "projects/mcloud-barista-251102/global/images/image-1",}
+
+
+
+*/
+
+func (imageHandler *GCPImageHandler) CreateImage(imageReqInfo irs.ImageReqInfo) (irs.ImageInfo, error) {
+
+	return irs.ImageInfo{}, nil
 }
 
-// func (imageInfo *ImageInfo) setter(image compute.Image) *ImageInfo {
-// 	imageInfo.ID = *image.ID
-// 	imageInfo.Name = *image.Name
-// 	imageInfo.Location = *image.Location
-// 	imageInfo.OsType = fmt.Sprint(image.ImageProperties.StorageProfile.OsDisk.OsType)
-// 	imageInfo.OsDiskSize = *image.StorageProfile.OsDisk.DiskSizeGB
-// 	imageInfo.OsState = fmt.Sprint(image.StorageProfile.OsDisk.OsState)
+func (imageHandler *GCPImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 
-// 	if image.StorageProfile.OsDisk.ManagedDisk != nil {
-// 		imageInfo.ManagedDiskId = *image.StorageProfile.OsDisk.ManagedDisk.ID
-// 	}
+	projectId := imageHandler.Credential.ProjectID
 
-// 	return imageInfo
-// }
+	list, err := imageHandler.Client.Images.List(projectId).Do()
+	if err != nil {
+		log.Fatal(err)
+	}
+	var imageList []*irs.ImageInfo
+	for _, item := range list.Items {
+		info := mappingImageInfo(item)
+		imageList = append(imageList, &info)
+	}
 
-// func (imageHandler *GCPImageHandler) CreateImage(imageReqInfo irs.ImageReqInfo) (irs.ImageInfo, error) {
-// 	imageIdArr := strings.Split(imageReqInfo.Id, ":")
+	spew.Dump(imageList)
+	return imageList, err
+}
 
-// 	// @TODO: PublicIP 생성 요청 파라미터 정의 필요
-// 	type ImageReqInfo struct {
-// 		OSType string
-// 		DiskId string
-// 	}
-// 	reqInfo := ImageReqInfo{
-// 		//BlobUrl: "https://md-ds50xp550wh2.blob.core.windows.net/kt0lhznvgx2h/abcd?sv=2017-04-17&sr=b&si=b9674241-fb8e-4cb2-89c7-614d336dc3a7&sig=uvbqvAZQITSpxas%2BWosG%2FGOf6e%2BIBmWNxlUmvARnxiM%3D",
-// 		OSType: "Linux",
-// 		//DiskId: "/subscriptions/cb592624-b77b-4a8f-bb13-0e5a48cae40f/resourceGroups/INNO-PLATFORM1-RSRC-GRUP/providers/Microsoft.Compute/disks/vhd-test-vm_OsDisk_1_722bec6ef1fa45edb0c5d7925d32d44c",
-// 		// edited by powerkim for test, 2019.08.13
-// 		DiskId: "/subscriptions/f1548292-2be3-4acd-84a4-6df079160846/resourceGroups/CB-RESOURCE-GROUP/providers/Microsoft.Compute/disks/vm_name_OsDisk_1_2d63d9cd754c4094b1b1fb6a98c36b71",
-// 	}
+func (imageHandler *GCPImageHandler) GetImage(imageID string) (irs.ImageInfo, error) {
+	projectId := imageHandler.Credential.ProjectID
 
-// 	// Check Image Exists
-// 	image, err := imageHandler.Client.Get(imageHandler.Ctx, imageIdArr[0], imageIdArr[1], "")
-// 	if image.ID != nil {
-// 		errMsg := fmt.Sprintf("Image with name %s already exist", imageIdArr[1])
-// 		createErr := errors.New(errMsg)
-// 		return irs.ImageInfo{}, createErr
-// 	}
+	image, err := imageHandler.Client.Images.Get(projectId, imageID).Do()
+	if err != nil {
+		log.Fatal(err)
+	}
+	imageInfo := mappingImageInfo(image)
+	return imageInfo, err
+}
 
-// 	createOpts := compute.Image{
-// 		ImageProperties: &compute.ImageProperties{
-// 			StorageProfile: &compute.ImageStorageProfile{
-// 				OsDisk: &compute.ImageOSDisk{
-// 					ManagedDisk: &compute.SubResource{
-// 						ID: to.StringPtr(reqInfo.DiskId),
-// 					},
-// 					OsType: compute.OperatingSystemTypes(reqInfo.OSType),
-// 					//BlobURI: to.StringPtr(reqInfo.BlobUrl),
-// 				},
-// 			},
-// 		},
-// 		Location: &imageHandler.Region.Region,
-// 	}
+func (imageHandler *GCPImageHandler) DeleteImage(imageID string) (bool, error) {
+	projectId := imageHandler.Credential.ProjectID
 
-// 	future, err := imageHandler.Client.CreateOrUpdate(imageHandler.Ctx, imageIdArr[0], imageIdArr[1], createOpts)
-// 	if err != nil {
-// 		return irs.ImageInfo{}, err
-// 	}
-// 	err = future.WaitForCompletionRef(imageHandler.Ctx, imageHandler.Client.Client)
-// 	if err != nil {
-// 		return irs.ImageInfo{}, err
-// 	}
+	res, err := imageHandler.Client.Images.Delete(projectId, imageID).Do()
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println(res)
+	return true, err
+}
 
-// 	return irs.ImageInfo{}, nil
-// }
+func mappingImageInfo(imageInfo *compute.Image) irs.ImageInfo {
+	lArr := strings.Split(imageInfo.Licenses[0], "/")
+	os := lArr[len(lArr)-1]
+	imageList := irs.ImageInfo{
+		Id:      strconv.FormatUint(imageInfo.Id, 10),
+		Name:    imageInfo.Name,
+		GuestOS: os,
+		Status:  imageInfo.Status,
+		KeyValueList: []irs.KeyValue{
+			{"SourceType", imageInfo.SourceType},
+			{"SelfLink", imageInfo.SelfLink},
+			{"GuestOsFeature", imageInfo.GuestOsFeatures[0].Type},
+			{"DiskSizeGb", strconv.FormatInt(imageInfo.DiskSizeGb, 10)},
+		},
+	}
 
-// func (imageHandler *GCPImageHandler) ListImage() ([]*irs.ImageInfo, error) {
-// 	//resultList, err := imageHandler.Client.List(imageHandler.Ctx)
-// 	resultList, err := imageHandler.Client.ListByResourceGroup(imageHandler.Ctx, imageHandler.Region.ResourceGroup)
-// 	if err != nil {
-// 		panic(err)
-// 	}
+	return imageList
 
-// 	var imageList []*ImageInfo
-// 	for _, image := range resultList.Values() {
-
-// 		imageInfo := new(ImageInfo).setter(image)
-// 		imageList = append(imageList, imageInfo)
-// 	}
-
-// 	spew.Dump(imageList)
-// 	return nil, nil
-// }
-
-// func (imageHandler *GCPImageHandler) GetImage(imageID string) (irs.ImageInfo, error) {
-// 	imageIdArr := strings.Split(imageID, ":")
-
-// 	image, err := imageHandler.Client.Get(imageHandler.Ctx, imageIdArr[0], imageIdArr[1], "")
-// 	if err != nil {
-// 		panic(err)
-// 	}
-
-// 	imageInfo := new(ImageInfo).setter(image)
-
-// 	spew.Dump(imageInfo)
-// 	return irs.ImageInfo{}, nil
-// }
-
-// func (imageHandler *GCPImageHandler) DeleteImage(imageID string) (bool, error) {
-// 	imageIdArr := strings.Split(imageID, ":")
-
-// 	future, err := imageHandler.Client.Delete(imageHandler.Ctx, imageIdArr[0], imageIdArr[1])
-// 	if err != nil {
-// 		return false, err
-// 	}
-// 	err = future.WaitForCompletionRef(imageHandler.Ctx, imageHandler.Client.Client)
-// 	if err != nil {
-// 		return false, err
-// 	}
-// 	return true, nil
-// }
+}
