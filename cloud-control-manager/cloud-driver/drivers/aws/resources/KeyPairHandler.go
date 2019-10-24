@@ -150,12 +150,19 @@ func ExtractKeyPairDescribeInfo(keyPair *ec2.KeyPairInfo) irs.KeyPairInfo {
 }
 
 func (keyPairHandler *AwsKeyPairHandler) DeleteKey(keyName string) (bool, error) {
-	cblogger.Infof("DeleteKeyPaid : [%s]", keyName)
+	cblogger.Infof("삭제 요청된 키페어 : [%s]", keyName)
+
+	_, errGet := keyPairHandler.GetKey(keyName)
+	if errGet != nil {
+		return false, errGet
+	}
+
 	// Delete the key pair by name
-	_, err := keyPairHandler.Client.DeleteKeyPair(&ec2.DeleteKeyPairInput{
+	result, err := keyPairHandler.Client.DeleteKeyPair(&ec2.DeleteKeyPairInput{
 		KeyName: aws.String(keyName),
 	})
 
+	spew.Dump(result)
 	if err != nil {
 		if aerr, ok := err.(awserr.Error); ok && aerr.Code() == "InvalidKeyPair.Duplicate" {
 			cblogger.Error("Key pair %q does not exist.", keyName)
