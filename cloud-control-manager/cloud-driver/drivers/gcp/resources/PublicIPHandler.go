@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
-	idrv "../../../interfaces"
-	irs "../../../interfaces/resources"
+	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
+	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	compute "google.golang.org/api/compute/v1"
 )
 
@@ -20,19 +20,6 @@ type GCPPublicIPHandler struct {
 	Client     *compute.Service
 	Credential idrv.CredentialInfo
 }
-
-// @TODO: PublicIP 리소스 프로퍼티 정의 필요
-// type PublicIPInfo struct {
-// 	Id                string
-// 	Name              string
-// 	Region            string // GCP
-// 	CreationTimestamp string // GCP
-// 	Address           string // GCP
-// 	NetworkTier       string // GCP : PREMIUM, STANDARD
-// 	AddressType       string // GCP : External, INTERNAL, UNSPECIFIED_TYPE
-// 	Status            string // GCP : IN_USE, RESERVED, RESERVING
-// 	InstanceId        string // GCP : 연결된 VM
-// }
 
 //GCP에서 PublicIP를 변경하려 할때 deleteaccessConfig => addAccessconfig 이때 넣어줘야 할 값은
 // natIp, NetworkTier 이 2개를 추가 해 줘야 하며

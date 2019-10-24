@@ -51,9 +51,9 @@ func (cloudConn *GCPCloudConnection) CreateSecurityHandler() (irs.SecurityHandle
 	return &sgHandler, nil
 }
 
-// func (GCPCloudConnection) CreateKeyPairHandler() (irs.KeyPairHandler, error) {
-// 	return nil, nil
-// }
+func (GCPCloudConnection) CreateKeyPairHandler() (irs.KeyPairHandler, error) {
+	return nil, nil
+}
 
 func (cloudConn *GCPCloudConnection) CreateVNicHandler() (irs.VNicHandler, error) {
 	fmt.Println("GCP Cloud Driver: called CreateVNicHandler()!")
