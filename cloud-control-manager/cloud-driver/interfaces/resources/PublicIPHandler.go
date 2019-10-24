@@ -16,7 +16,7 @@ type PublicIPReqInfo struct {
 }
 
 type PublicIPInfo struct {
-	Name      string // AWS : Name Tag대신 AllocationId를 리턴 함.(편의를 위해 Name 정보는 KeyValueList에 전달 함.)
+	Name      string // AWS : Name Tag대신 AllocationId를 리턴 함.(편의를 위해 Name 정보는 KeyValueList에 전달 함.), OpenStack : 381a10f8-5831-4822-8388-922673addde4(ID), Cloudit : 182.252.135.44(IP)
 	PublicIP  string
 	OwnedVMID string
 	Status    string
