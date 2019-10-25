@@ -5,8 +5,8 @@ import (
 	"log"
 	"strconv"
 
-	idrv "../../../interfaces"
-	irs "../../../interfaces/resources"
+	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
+	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	compute "google.golang.org/api/compute/v1"
 )
 

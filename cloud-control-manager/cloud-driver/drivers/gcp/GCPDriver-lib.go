@@ -16,9 +16,10 @@ import (
 	"log"
 	"time"
 
-	idrv "../../interfaces"
-	icon "../../interfaces/connect"
-	gcpcon "../gcp/connect"
+	gcpcon "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/gcp/connect"
+	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
+
+	icon "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/connect"
 
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"

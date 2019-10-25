@@ -17,9 +17,9 @@ import (
 	"log"
 	"os"
 
-	idrv "../../../interfaces"
-	irs "../../../interfaces/resources"
-	gcpdrv "../../gcp"
+	gcpdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/gcp"
+	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
+	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/davecgh/go-spew/spew"
 )
 

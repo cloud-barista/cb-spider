@@ -7,8 +7,8 @@ import (
 	"io/ioutil"
 	"os"
 
-	idrv "../../../interfaces"
-	irs "../../../interfaces/resources"
+	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
+	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 )
 
 const (
