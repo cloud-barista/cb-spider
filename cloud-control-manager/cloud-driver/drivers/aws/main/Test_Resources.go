@@ -224,7 +224,7 @@ func handleKeyPair() {
 	//config := readConfigFile()
 	//VmID := config.Aws.VmID
 
-	keyPairName := "CB-KeyPairTest"
+	keyPairName := "CB-KeyPairTest123123"
 	//keyPairName := config.Aws.KeyName
 
 	for {
@@ -477,7 +477,8 @@ func handleVNic() {
 	vNicReqInfo := irs.VNicReqInfo{
 		Name: "TestCB-VNic",
 		SecurityGroupIds: []string{
-			"sg-0d4d11c090c4814e8", "sg-0dc15d050f8272e24",
+			//"sg-0d4d11c090c4814e8", "sg-0dc15d050f8272e24",
+			"sg-06c4523b969eaafc7",
 		},
 	}
 
@@ -549,10 +550,10 @@ func handleVNic() {
 func main() {
 	cblogger.Info("AWS Resource Test")
 	//handleKeyPair()
-	//handlePublicIP() // PublicIP 생성 후 conf
+	handlePublicIP() // PublicIP 생성 후 conf
 
 	//handleVNetwork() //VPC
-	handleImage() //AMI
+	//handleImage() //AMI
 	//handleVNic() //Lancard
 	//handleSecurity()
 
