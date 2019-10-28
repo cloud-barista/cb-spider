@@ -8,7 +8,7 @@
 //
 // by hyokyung.kim@innogrid.co.kr, 2019.07.
 
-package gcp
+package main
 
 import (
 	"context"
