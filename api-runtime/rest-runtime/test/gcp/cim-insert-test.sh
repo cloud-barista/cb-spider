@@ -1,13 +1,14 @@
 RESTSERVER=localhost
 
  # for Cloud Driver Info
-curl -X POST http://$RESTSERVER:1024/driver -H 'Content-Type: application/json' -d '{"DriverName":"aws-driver01","ProviderName":"AWS", "DriverLibFileName":"aws-driver-v1.0.so"}'
+curl -X POST http://$RESTSERVER:1024/driver -H 'Content-Type: application/json' -d '{"DriverName":"gcp-driver01","ProviderName":"GCP", "DriverLibFileName":"gcp-driver-v1.0.so"}'
 
  # for Cloud Credential Info
-curl -X POST http://$RESTSERVER:1024/credential -H 'Content-Type: application/json' -d '{"CredentialName":"aws-credential01","ProviderName":"AWS", "KeyValueInfoList": [{"Key":"ClientId", "Value":"생성된 API용 Access key ID 값을 입력함"}, {"Key":"ClientSecret", "Value":"생성된 API용 Secret access key 값을 입력 함."}]}'
+curl -X POST http://$RESTSERVER:1024/credential -H 'Content-Type: application/json' -d '{"CredentialName":"gcp-credential01","ProviderName":"GCP", "KeyValueInfoList": [{"Key":"ClientSecret", "Value":"/Users/thaeao/Keystore/mcloud-barista-251102-1569f817b
+d23.json"},{"Key":"ProjectID", "Value":"mcloud-barista-251102"}, {"Key":"ClientEmail", "Value":"675581125193-compute@developer.gserviceaccount.com"}]}'
 
  # for Cloud Region Info
-curl -X POST http://$RESTSERVER:1024/region -H 'Content-Type: application/json' -d '{"RegionName":"aws-region01","ProviderName":"AWS", "KeyValueInfoList": [{"Key":"Region", "Value":"ap-northeast-2"}]}'
+curl -X POST http://$RESTSERVER:1024/region -H 'Content-Type: application/json' -d '{"RegionName":"gcp-region01","ProviderName":"GCP", "KeyValueInfoList": [{"Key":"Region", "Value":"asia-northeast1"},{"Key":"Zone", "Value":"asia-northeast1-b"}]}'
 
  # for Cloud Connection Config Info
-curl -X POST http://$RESTSERVER:1024/connectionconfig -H 'Content-Type: application/json' -d '{"ConfigName":"aws-config01","ProviderName":"AWS", "DriverName":"aws-driver01", "CredentialName":"aws-credential01", "RegionName":"aws-region01"}'
+curl -X POST http://$RESTSERVER:1024/connectionconfig -H 'Content-Type: application/json' -d '{"ConfigName":"gcp-config01","ProviderName":"GCP", "DriverName":"gcp-driver01", "CredentialName":"gcp-credential01", "RegionName":"gcp-region01"}'
