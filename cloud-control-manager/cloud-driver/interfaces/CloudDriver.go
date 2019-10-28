@@ -39,6 +39,7 @@ type CredentialInfo struct {
 	ProjectID        string // OpenStack Credential
 	AuthToken        string // Cloudit Credential
 	ClientEmail      string // GCP
+	PrivateKey       string // GCP
 }
 
 type RegionInfo struct {
