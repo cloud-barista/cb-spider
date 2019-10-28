@@ -11,6 +11,7 @@
 package resources
 
 import (
+	"errors"
 	"reflect"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -173,13 +174,14 @@ func (publicIpHandler *AwsPublicIPHandler) GetPublicIP(publicIPID string) (irs.P
 		},
 	})
 	if err != nil {
-		cblogger.Errorf("Unable to elastic IP address, %v", err)
+		cblogger.Error(err)
 		return irs.PublicIPInfo{}, err
 	}
 
 	// Printout the IP addresses if there are any.
 	if len(result.Addresses) == 0 {
-		cblogger.Infof("No elastic IPs for %s region\n", *publicIpHandler.Client.Config.Region)
+		cblogger.Errorf("Not found Elastic IP Information - Request allocation-id : [%s]", publicIPID)
+		return irs.PublicIPInfo{}, errors.New("PublicIP NotFound")
 	} else {
 		cblogger.Info("Elastic IPs")
 		for _, addr := range result.Addresses {
