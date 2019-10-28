@@ -65,7 +65,7 @@ Loop:
 				cblogger.Info("Finish GetImage()")
 			case 3:
 				cblogger.Info("Start CreateImage() ...")
-				reqInfo := irs.ImageReqInfo{Id: imageId}
+				reqInfo := irs.ImageReqInfo{Name: imageId}
 				if imageInfo, err := imageHandler.CreateImage(reqInfo); err != nil {
 					cblogger.Error(err)
 				} else {
