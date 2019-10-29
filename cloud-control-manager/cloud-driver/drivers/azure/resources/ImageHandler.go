@@ -8,12 +8,14 @@ import (
 	"github.com/Azure/go-autorest/autorest/to"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
+	"strings"
 )
 
 type AzureImageHandler struct {
-	Region idrv.RegionInfo
-	Ctx    context.Context
-	Client *compute.ImagesClient
+	Region        idrv.RegionInfo
+	Ctx           context.Context
+	Client        *compute.ImagesClient
+	VMImageClient *compute.VirtualMachineImagesClient
 }
 
 func setterImage(image compute.Image) *irs.ImageInfo {
@@ -23,6 +25,16 @@ func setterImage(image compute.Image) *irs.ImageInfo {
 		GuestOS:      fmt.Sprint(image.ImageProperties.StorageProfile.OsDisk.OsType),
 		Status:       *image.ProvisioningState,
 		KeyValueList: []irs.KeyValue{{Key: "ResourceGroup", Value: CBResourceGroupName}},
+	}
+
+	return imageInfo
+}
+
+func setterVMImage(image compute.VirtualMachineImage) *irs.ImageInfo {
+	imageInfo := &irs.ImageInfo{
+		Id:      *image.ID,
+		Name:    *image.Name,
+		GuestOS: fmt.Sprint(image.OsDiskImage.OperatingSystem),
 	}
 
 	return imageInfo
@@ -98,13 +110,31 @@ func (imageHandler *AzureImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 }
 
 func (imageHandler *AzureImageHandler) GetImage(imageID string) (irs.ImageInfo, error) {
-	image, err := imageHandler.Client.Get(imageHandler.Ctx, CBResourceGroupName, imageID, "")
+
+	imageArr := strings.Split(imageID, ":")
+
+	// 해당 이미지 publisher, offer, skus 기준 version 목록 조회 (latest 기준 조회 불가)
+	vmImageList, err := imageHandler.VMImageClient.List(imageHandler.Ctx, imageHandler.Region.Region, imageArr[0], imageArr[1], imageArr[2], "", to.Int32Ptr(1), "")
+
+	var imageVersion string
+	if len(*vmImageList.Value) != 0 {
+		vmImage := (*vmImageList.Value)[0]
+		imageIdArr := strings.Split(*vmImage.ID, "/")
+		imageVersion = imageIdArr[len(imageIdArr)-1]
+	}
+
+	// 1개의 버전 정보를 기준으로 이미지 정보 조회
+	vmImage, err := imageHandler.VMImageClient.Get(imageHandler.Ctx, imageHandler.Region.Region, imageArr[0], imageArr[1], imageArr[2], imageVersion)
+
 	if err != nil {
 		cblogger.Error(err)
 		return irs.ImageInfo{}, err
 	}
 
-	imageInfo := setterImage(image)
+	//imageInfo := setterImage(image)
+	//return *imageInfo, nil
+
+	imageInfo := setterVMImage(vmImage)
 	return *imageInfo, nil
 }
 
