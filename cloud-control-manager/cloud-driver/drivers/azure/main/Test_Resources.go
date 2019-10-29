@@ -35,7 +35,15 @@ func testImageHandler(config Config) {
 	cblogger.Info("4. DeleteImage()")
 	cblogger.Info("5. Exit")
 
-	imageId := "CB-IMG"
+	/*
+		publisher: Canonical
+		offer: UbuntuServer
+		sku: 16.04.0-LTS
+		version: latest
+	*/
+	//imageId := "CB-IMG"
+	//imageId := "Canonical:UbuntuServer:16.04.0-LTS:latest"
+	imageId := "Canonical:UbuntuServer:18.04-LTS:18.04.201804262"
 
 Loop:
 	for {

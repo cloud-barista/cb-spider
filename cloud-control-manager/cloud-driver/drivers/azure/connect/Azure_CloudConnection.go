@@ -34,6 +34,7 @@ type AzureCloudConnection struct {
 	Ctx                 context.Context
 	VMClient            *compute.VirtualMachinesClient
 	ImageClient         *compute.ImagesClient
+	VMImageClient       *compute.VirtualMachineImagesClient
 	PublicIPClient      *network.PublicIPAddressesClient
 	SecurityGroupClient *network.SecurityGroupsClient
 	VNetClient          *network.VirtualNetworksClient
@@ -50,7 +51,7 @@ func (cloudConn *AzureCloudConnection) CreateVNetworkHandler() (irs.VNetworkHand
 
 func (cloudConn *AzureCloudConnection) CreateImageHandler() (irs.ImageHandler, error) {
 	cblogger.Info("Azure Cloud Driver: called CreateImageHandler()!")
-	imageHandler := azrs.AzureImageHandler{cloudConn.Region, cloudConn.Ctx, cloudConn.ImageClient}
+	imageHandler := azrs.AzureImageHandler{cloudConn.Region, cloudConn.Ctx, cloudConn.ImageClient, cloudConn.VMImageClient}
 	return &imageHandler, nil
 }
 
