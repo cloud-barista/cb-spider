@@ -112,6 +112,8 @@ func GetCloudConnection(cloudConnectName string) (icon.CloudConnection, error) {
 	case "OPENSTACK":
 		regionName = getValue(rgnInfo.KeyValueInfoList, "Region")
 	case "CLOUDIT":
+		// Cloudit do not use Region, But set default @todo 2019.10.28 by powerkim.
+		regionName = getValue(rgnInfo.KeyValueInfoList, "Region")
 		//regionName = getValue(rgnInfo.KeyValueInfoList, "Region")
 	default:
 		errmsg := rgnInfo.ProviderName + " is not a valid ProviderName!!"

@@ -58,6 +58,7 @@ type Config struct {
 	TokenURI     string `json:"token_uri"`
 	AuthProvider string `json:"auth_provider_x509_cert_url"`
 }
+
 type InstanceInfo struct {
 	zone         string
 	region       string
@@ -125,6 +126,24 @@ type PublicIPInfo struct {
 	AddressType       string // GCP : External, INTERNAL, UNSPECIFIED_TYPE
 	Status            string // GCP : IN_USE, RESERVED, RESERVING
 	KeyValueList      []KeyValue
+}
+
+type CredentialInfo struct {
+	// @todo TBD
+	// key-value pairs
+	ClientId         string // Azure Credential
+	ClientSecret     string // Azure Credential
+	TenantId         string // Azure Credential
+	SubscriptionId   string // Azure Credential
+	IdentityEndpoint string // OpenStack Credential
+	Username         string // OpenStack Credential
+	Password         string // OpenStack Credential
+	DomainName       string // OpenStack Credential
+	ProjectID        string // OpenStack Credential
+	AuthToken        string // Cloudit Credential
+	Client_Email     string // GCP
+	Private_Key      string // GCP
+
 }
 
 func createInstance(service *compute.Service, conf Config, zone string, vmname string, diskname string) {
@@ -411,19 +430,30 @@ func readFileConfig(filepath string) (Config, error) {
 }
 
 func connect(filePath string) *compute.Service {
+	gcpType := "service_account"
+	clientEmail := "675581125193-compute@developer.gserviceaccount.com"
+	privateKey := "-----BEGIN PRIVATE KEY-----\nMIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQCT+RlOV3L1si2q\npcjZj7jx+6MU24GjyDOjCL4Lo67scAP5QWHePzvqndIQzN1LqLeIJVtcYKLEzwER\nvM0wSzCnW768k9ek+Rpfu5znbas7wF9p36v9Z0qL3BaimkRxSb1kI6ENz7qbM/EY\nepS3do+G2+GeOKEA4JfAhGVQiit0EUEKQ1m7WB2izobjkgCZooaGt1suapG3VUzN\n8PYmn6mB0+Ls21TO/wTGZEhTkBzUN1S0+bc4Wum8M93mJ3n2VouGu6xXaqXgDdIu\nZZDqPdWGDvXzEBvk/4imtBt7+Chs4J9dvk48e0B4rvFx4H8HBWA6oFysZgwZkR51\nupf8WKxxAgMBAAECggEAMaVNnD8yzsQtFifxLy1NO8LVgFX1NOIikPyJ5pXQRnt+\nmc4Z69sDW0AADqrtREki6oa+FExH0Agzr6PMo/tWI5BgehyQKUV6V8w2ZF8jKDTu\nzjLBHY/eLvZ0kbF4bRn0dPiPPHcJgLD4nuHhq3wXw4NaOx98xTKVN340D8WLtrDg\nmrFnytZNyRqS/eHbNQtOWclMffbdA6hDJBBUA/J7bWnSkcjg+lccO+zs+yZgJ5wr\nKiN83dgXORimbjUWcdNnxoSC7HfgqmqziYg1s1MrdlVe9eL8fMi1Pz9jUnZwtk0D\nzJKDp8xbEsX4AXOHJK2KMsy3zJvUfgRH+J+L0ytPUQKBgQDI6UlaTTh4MRCgsVPr\n8yjiseCrAwXlxDyVX1Oy1ud5lkW1VvmxTs0KN8DScCj4jkXWKct2mh77v6Wg81MU\nxuUF8nC4bSYfLtahMmcaCN2Ccad4QaWGnEmKit6apOW+HbgU2i8pBvmcvv9JvJ59\n+p8jOKa/e9aVoY4zCNwxGXFYiwKBgQC8i+E9XdiSZ1ownHXz+GkdRoWsx0X+Tdkp\nS0XxEGaORh8DfXAo73O08eoBOjftS+aQfj/qEu31JQb0i07qZAAaZbf1WO8aG97G\n8JZLV5Aez0iNiSgNZJfKgjxlG+IVlpP0oWJXbpomIkWsjuONLYDX5f+jUlQeYb3U\n97O83wBycwKBgFr2hGeGHtMMI+MdZkmlxhUdRAMpUzo8JtHaXyLReevqxZTc1CAa\n9Wpy47JjZaljgOr98Ui5bt28X1kH0c3OX1LZ+X8GrAPiSPqiv1tiOCgfHRutXSwd\nBo7bYP3TOtFg0z9dqYyBw/Hb5+mSpI+VMQfZVmXLw9PrWV5x3H++bTsRAoGAKtOC\n99NnK+n53GzNhfr4tUOdfV9OELNSDkUgv96/zLU0ujA117Z8C6+fPWQh6+5/knZ6\nwgpGrpYYfFdgN3E7bMOKA1qOBNorwfhHyxk6jST8D9oFlPUyXTczzKuGsOyg8sHt\nenqO3PaP6OAT469gQqnlZQ2AOd5tpgAVfWMR0O0CgYBPJ6DSGlGlzCHpqpg2JGzO\nn3kXVxVvQA58cfZWz7hzmjyJr9B2bPFfeSidLJEBHjujW28663+9NVp7xwZRotir\nFw8k3/z97EKadjrvZB6m2CPS7NFFWDgDqSPz1YyNYxGyJynT5GIKpLFdqcMMc9Bk\nT9NsVtofa1Iu7Vos4vd+NA==\n-----END PRIVATE KEY-----\n"
+	data := make(map[string]string)
+	data["type"] = gcpType
+	data["private_key"] = privateKey
+	data["client_email"] = clientEmail
 
-	data, err := ioutil.ReadFile(filePath)
+	res, err := json.Marshal(data)
+
+	dt, err := ioutil.ReadFile(filePath)
+
 	if err != nil {
 		log.Fatal(err)
 	}
-	s := string(data)
-	d := []byte(s)
-	conf, err := google.JWTConfigFromJSON(d, "https://www.googleapis.com/auth/compute")
+	fmt.Println(dt)
+	// s := string(data)
+	// d := []byte(s)
+	conf, err := google.JWTConfigFromJSON(res, "https://www.googleapis.com/auth/compute")
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	fmt.Println("Connection Success : ", reflect.TypeOf(d))
+	fmt.Println("Connection Success : ", reflect.TypeOf(res))
 
 	client := conf.Client(oauth2.NoContext)
 

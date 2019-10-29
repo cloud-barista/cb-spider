@@ -8,11 +8,11 @@
 //
 // by hyokyung.kim@innogrid.co.kr, 2019.07.
 
-package gcp
+package main
 
 import (
 	"context"
-	"io/ioutil"
+	"encoding/json"
 	"log"
 	"time"
 
@@ -77,10 +77,17 @@ func (driver *GCPDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (icon.
 func getVMClient(credential idrv.CredentialInfo) (context.Context, *compute.Service, error) {
 
 	// GCP 는  ClientSecret에
-	// filepath를 전달 해서 credential.ClientSecret에 넣을꺼임
-	data, err := ioutil.ReadFile(credential.ClientSecret)
+	gcpType := "service_account"
+	data := make(map[string]string)
+
+	data["type"] = gcpType
+	data["private_key"] = credential.PrivateKey
+	data["client_email"] = credential.ClientEmail
+
+	res, _ := json.Marshal(data)
+	// data, err := ioutil.ReadFile(credential.ClientSecret)
 	authURL := "https://www.googleapis.com/auth/compute"
-	conf, err := google.JWTConfigFromJSON(data, authURL)
+	conf, err := google.JWTConfigFromJSON(res, authURL)
 
 	if err != nil {
 		log.Fatal(err)
