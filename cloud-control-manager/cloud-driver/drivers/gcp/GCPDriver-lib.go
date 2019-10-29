@@ -118,4 +118,4 @@ func getVMClient(credential idrv.CredentialInfo) (context.Context, *compute.Serv
 	return ctx, vmClient, nil
 }
 
-var TestDriver GCPDriver
+var CloudDriver GCPDriver

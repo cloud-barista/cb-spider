@@ -40,9 +40,7 @@ func init() {
 /*
 func ListCloudDriver() []string {
 	var cloudDriverList []string
-
 	// @todo get list from storage
-
 	return cloudDriverList
 }
 */
@@ -132,6 +130,8 @@ func GetCloudConnection(cloudConnectName string) (icon.CloudConnection, error) {
 			DomainName:       getValue(crdInfo.KeyValueInfoList, "DomainName"),
 			ProjectID:        getValue(crdInfo.KeyValueInfoList, "ProjectID"),
 			AuthToken:        getValue(crdInfo.KeyValueInfoList, "AuthToken"),
+			ClientEmail:      getValue(crdInfo.KeyValueInfoList, "ClientEmail"),
+			PrivateKey:       getValue(crdInfo.KeyValueInfoList, "PrivateKey"),
 		},
 		RegionInfo: idrv.RegionInfo{ // @todo powerkim
 			Region: regionName,
