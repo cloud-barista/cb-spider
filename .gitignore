@@ -11,6 +11,8 @@
 # Output of the go coverage tool, specifically when used with LiteIDE
 *.out
 
+.DS_Store
+
 cloud-driver-libs/*
 meta_db/dat/*
 conf/store_conf.yaml
