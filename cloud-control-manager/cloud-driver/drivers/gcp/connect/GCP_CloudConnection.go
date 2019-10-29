@@ -12,13 +12,21 @@ package connect
 
 import (
 	"context"
-	"fmt"
 
+	cblog "github.com/cloud-barista/cb-log"
 	gcprs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/gcp/resources"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
+	"github.com/sirupsen/logrus"
 	compute "google.golang.org/api/compute/v1"
 )
+
+var cblogger *logrus.Logger
+
+func init() {
+	// cblog is a global variable.
+	cblogger = cblog.GetLogger("CB-SPIDER")
+}
 
 type GCPCloudConnection struct {
 	Region              idrv.RegionInfo
@@ -34,19 +42,20 @@ type GCPCloudConnection struct {
 }
 
 func (cloudConn *GCPCloudConnection) CreateVNetworkHandler() (irs.VNetworkHandler, error) {
-	fmt.Println("GCP Cloud Driver: called CreateVNetworkHandler()!")
+	cblogger.Info("GCP Cloud Driver: called CreateVNetworkHandler()!")
+
 	vNetHandler := gcprs.GCPVNetworkHandler{cloudConn.Region, cloudConn.Ctx, cloudConn.VNetClient, cloudConn.Credential}
 	return &vNetHandler, nil
 }
 
 func (cloudConn *GCPCloudConnection) CreateImageHandler() (irs.ImageHandler, error) {
-	fmt.Println("GCP Cloud Driver: called CreateImageHandler()!")
+	cblogger.Info("GCP Cloud Driver: called CreateImageHandler()!")
 	imageHandler := gcprs.GCPImageHandler{cloudConn.Region, cloudConn.Ctx, cloudConn.ImageClient, cloudConn.Credential}
 	return &imageHandler, nil
 }
 
 func (cloudConn *GCPCloudConnection) CreateSecurityHandler() (irs.SecurityHandler, error) {
-	fmt.Println("GCP Cloud Driver: called CreateSecurityHandler()!")
+	cblogger.Info("GCP Cloud Driver: called CreateSecurityHandler()!")
 	sgHandler := gcprs.GCPSecurityHandler{cloudConn.Region, cloudConn.Ctx, cloudConn.SecurityGroupClient, cloudConn.Credential}
 	return &sgHandler, nil
 }
@@ -56,18 +65,18 @@ func (GCPCloudConnection) CreateKeyPairHandler() (irs.KeyPairHandler, error) {
 }
 
 func (cloudConn *GCPCloudConnection) CreateVNicHandler() (irs.VNicHandler, error) {
-	fmt.Println("GCP Cloud Driver: called CreateVNicHandler()!")
+	cblogger.Info("GCP Cloud Driver: called CreateVNicHandler()!")
 	vNicHandler := gcprs.GCPVNicHandler{cloudConn.Region, cloudConn.Ctx, cloudConn.VNicClient, cloudConn.Credential}
 	return &vNicHandler, nil
 }
 func (cloudConn *GCPCloudConnection) CreatePublicIPHandler() (irs.PublicIPHandler, error) {
-	fmt.Println("GCP Cloud Driver: called CreatePublicIPHandler()!")
+	cblogger.Info("GCP Cloud Driver: called CreatePublicIPHandler()!")
 	publicIPHandler := gcprs.GCPPublicIPHandler{cloudConn.Region, cloudConn.Ctx, cloudConn.PublicIPClient, cloudConn.Credential}
 	return &publicIPHandler, nil
 }
 
 func (cloudConn *GCPCloudConnection) CreateVMHandler() (irs.VMHandler, error) {
-	fmt.Println("GCP Cloud Driver: called CreateVMHandler()!")
+	cblogger.Info("GCP Cloud Driver: called CreateVMHandler()!")
 	vmHandler := gcprs.GCPVMHandler{cloudConn.Region, cloudConn.Ctx, cloudConn.VMClient, cloudConn.Credential}
 	return &vmHandler, nil
 }

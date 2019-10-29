@@ -8,11 +8,9 @@
 //
 // by hyokyung.kim@innogrid.co.kr, 2019.07.
 
-package main
+package gcp
 
 import (
-	"C"
-
 	"context"
 	"encoding/json"
 	"fmt"
@@ -101,14 +99,12 @@ func getVMClient(credential idrv.CredentialInfo) (context.Context, *compute.Serv
 	res, _ := json.Marshal(data)
 	// data, err := ioutil.ReadFile(credential.ClientSecret)
 	authURL := "https://www.googleapis.com/auth/compute"
-
 	conf, err := goo.JWTConfigFromJSON(res, authURL)
 
 	if err != nil {
 		log.Fatal(err)
 		return nil, nil, err
 	}
-
 	client := conf.Client(o2.NoContext)
 
 	vmClient, err := compute.New(client)
