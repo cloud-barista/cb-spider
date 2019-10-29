@@ -11,8 +11,11 @@
 package main
 
 import (
+	"C"
+
 	"context"
 	"encoding/json"
+	"fmt"
 	"log"
 	"time"
 
@@ -21,8 +24,8 @@ import (
 
 	icon "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/connect"
 
-	"golang.org/x/oauth2"
-	"golang.org/x/oauth2/google"
+	o2 "golang.org/x/oauth2"
+	goo "golang.org/x/oauth2/google"
 
 	compute "google.golang.org/api/compute/v1"
 )
@@ -55,6 +58,9 @@ func (driver *GCPDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (icon.
 	// 4. return CloudConnection Interface of TDA_CloudConnection.
 
 	Ctx, VMClient, err := getVMClient(connectionInfo.CredentialInfo)
+	fmt.Println("################## getVMClient ##################")
+	fmt.Println("getVMClient")
+	fmt.Println("################## getVMClient ##################")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -71,6 +77,10 @@ func (driver *GCPDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (icon.
 		VNicClient:          VMClient,
 		SubnetClient:        VMClient,
 	}
+
+	fmt.Println("################## resource ConnectionInfo ##################")
+	fmt.Println("iConn : ", iConn)
+	fmt.Println("################## resource ConnectionInfo ##################")
 	return &iConn, nil
 }
 
@@ -84,16 +94,22 @@ func getVMClient(credential idrv.CredentialInfo) (context.Context, *compute.Serv
 	data["private_key"] = credential.PrivateKey
 	data["client_email"] = credential.ClientEmail
 
+	fmt.Println("################## data ##################")
+	fmt.Println("data to json : ", data)
+	fmt.Println("################## data ##################")
+
 	res, _ := json.Marshal(data)
 	// data, err := ioutil.ReadFile(credential.ClientSecret)
 	authURL := "https://www.googleapis.com/auth/compute"
-	conf, err := google.JWTConfigFromJSON(res, authURL)
+
+	conf, err := goo.JWTConfigFromJSON(res, authURL)
 
 	if err != nil {
 		log.Fatal(err)
 		return nil, nil, err
 	}
-	client := conf.Client(oauth2.NoContext)
+
+	client := conf.Client(o2.NoContext)
 
 	vmClient, err := compute.New(client)
 
@@ -102,4 +118,4 @@ func getVMClient(credential idrv.CredentialInfo) (context.Context, *compute.Serv
 	return ctx, vmClient, nil
 }
 
-var TestDriver GCPDriver
+var CloudDriver GCPDriver

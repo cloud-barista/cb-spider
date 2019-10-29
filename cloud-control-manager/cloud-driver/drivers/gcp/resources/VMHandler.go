@@ -22,7 +22,6 @@ import (
 
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
-	_ "github.com/Azure/go-autorest/autorest/to"
 )
 
 type GCPVMHandler struct {
