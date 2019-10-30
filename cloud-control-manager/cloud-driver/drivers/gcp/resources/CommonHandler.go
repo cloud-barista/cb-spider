@@ -13,7 +13,9 @@ import (
 
 const (
 	CBVMUser      = "cscservice"
-	CBKeyPairPath = "/cloud-control-manager/cloud-driver/driver-libs/.ssh-gcp/"
+	//CBKeyPairPath = "/cloud-control-manager/cloud-driver/driver-libs/.ssh-gcp/"
+	// by powerkim, 2019.10.30
+	CBKeyPairPath = "/cloud-control-manager/cloud-driver-libs/.ssh-gcp/"
 )
 
 func GetKeyValueList(i map[string]interface{}) []irs.KeyValue {
