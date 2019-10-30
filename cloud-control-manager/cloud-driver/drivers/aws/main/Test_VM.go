@@ -48,11 +48,11 @@ func createVM() {
 	//maxCount := aws.Int64(config.Aws.MaxCount)
 
 	vmReqInfo := irs.VMReqInfo{
-		VMName:           config.Aws.BaseName,
-		ImageId:          config.Aws.ImageID,
-		VirtualNetworkId: config.Aws.SubnetID,
-		//NetworkInterfaceId:
-		PublicIPId: "eipalloc-0e95789a23e6d0c6f",
+		VMName:             config.Aws.BaseName,
+		ImageId:            config.Aws.ImageID,
+		VirtualNetworkId:   config.Aws.SubnetID,
+		NetworkInterfaceId: "eni-00befb6d8c3a87b24",
+		PublicIPId:         "eipalloc-0e95789a23e6d0c6f",
 		//SecurityGroupIds: []string{"sg-0df1c209ea1915e4b"},
 		SecurityGroupIds: []string{config.Aws.SecurityGroupID},
 		VMSpecId:         config.Aws.InstanceType,
@@ -61,12 +61,13 @@ func createVM() {
 
 	vmInfo, err := vmHandler.StartVM(vmReqInfo)
 	if err != nil {
-		panic(err)
+		//panic(err)
 		cblogger.Error(err)
+	} else {
+		cblogger.Info("VM 생성 완료!!", vmInfo)
+		spew.Dump(vmInfo)
 	}
-	cblogger.Info("VM 생성 완료!!", vmInfo)
 	//cblogger.Info(vm)
-	spew.Dump(vmInfo)
 
 	cblogger.Info("Finish Create VM")
 }
