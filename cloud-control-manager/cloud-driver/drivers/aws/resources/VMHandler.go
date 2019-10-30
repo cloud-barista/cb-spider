@@ -140,6 +140,19 @@ func (vmHandler *AwsVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 
 	cblogger.Infof("[%s] EC2에 Public IP 할당 결과 : ", newVmId, assocRes)
 
+	//
+	//vNic 추가 요청이 있는 경우 전달 받은 vNic을 VM에 추가 함.
+	//
+	if vmReqInfo.NetworkInterfaceId != "" {
+		_, errvNic := vmHandler.AttachNetworkInterface(vmReqInfo.NetworkInterfaceId, newVmId)
+		if errvNic != nil {
+			cblogger.Errorf("vNic [%s] 추가 실패!", vmReqInfo.NetworkInterfaceId)
+			cblogger.Error(errvNic)
+		} else {
+			cblogger.Infof("vNic [%s] 추가 완료", vmReqInfo.NetworkInterfaceId)
+		}
+	}
+
 	//최신 정보 조회
 	vmInfo, _ := vmHandler.GetVM(newVmId)
 
@@ -158,6 +171,7 @@ func (vmHandler *AwsVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 			vmInfo.Name = baseName
 		}
 	*/
+
 	return vmInfo, nil
 }
 
@@ -344,7 +358,7 @@ func ExtractDescribeInstances(reservation *ec2.Reservation) irs.VMInfo {
 	//"stopped" / "terminated" / "running" ...
 	var state string
 	state = *reservation.Instances[0].State.Name
-	cblogger.Info("EC2 상태 : [%s]", state)
+	cblogger.Infof("EC2 상태 : [%s]", state)
 
 	//VM상태와 무관하게 항상 값이 존재하는 항목들만 초기화
 	vmInfo := irs.VMInfo{
@@ -603,5 +617,35 @@ func (vmHandler *AwsVMHandler) AssociatePublicIP(allocationId string, instanceId
 	}
 
 	cblogger.Info(assocRes)
+	return true, nil
+}
+
+// 전달 받은 vNic을 VM에 추가함.
+func (vmHandler *AwsVMHandler) AttachNetworkInterface(vNicId string, instanceId string) (bool, error) {
+	cblogger.Infof("EC2[%s] VM에 vNic[%s] 추가 시작", vNicId, instanceId)
+
+	input := &ec2.AttachNetworkInterfaceInput{
+		DeviceIndex:        aws.Int64(1),
+		InstanceId:         aws.String(instanceId),
+		NetworkInterfaceId: aws.String(vNicId),
+	}
+
+	result, err := vmHandler.Client.AttachNetworkInterface(input)
+	cblogger.Info(result)
+
+	if err != nil {
+		cblogger.Errorf("EC2[%s] VM에 vNic[%s] 추가 실패", vNicId, instanceId)
+		if aerr, ok := err.(awserr.Error); ok {
+			switch aerr.Code() {
+			default:
+				cblogger.Errorf(aerr.Error())
+			}
+		} else {
+			// Print the error, cast err to awserr.Error to get the Code and Message from an error.
+			cblogger.Errorf(err.Error())
+		}
+		return false, err
+	}
+
 	return true, nil
 }
