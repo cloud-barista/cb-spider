@@ -13,6 +13,6 @@
 
 .DS_Store
 
-cloud-driver-libs/*
+cloud-driver-libs/*.so
 meta_db/dat/*
 conf/store_conf.yaml
