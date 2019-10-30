@@ -329,9 +329,9 @@ func (vNetworkHandler *AwsVNetworkHandler) CreateVNetwork(vNetworkReqInfo irs.VN
 
 	vpcList, _ := vNetworkHandler.ListVNetwork()
 	if len(vpcList) > 0 {
-		cblogger.Error("이미 Default Subnet이 존재하기 때문에 생성하지 않고 기존 정보를 리턴함.")
+		cblogger.Error("이미 Default Subnet이 존재하기 때문에 생성하지 않고 기존 정보와 함께 에러를 리턴함.")
 		cblogger.Info(vpcList)
-		return *vpcList[0], nil
+		return *vpcList[0], errors.New("이미 Default Subnet이 존재합니다.")
 	}
 
 	//최대 5개의 VPC 생성 제한이 있기 때문에 기본VPC 조회시 에러 처리를 해줌.
@@ -846,7 +846,7 @@ func (vNetworkHandler *AwsVNetworkHandler) DeleteVNetwork(vNetworkID string) (bo
 
 	subnetList, _ := vNetworkHandler.ListVNetwork()
 
-	//서브넷이 존재하는경우 서브넷 삭제 결과 리턴
+	//서브넷이 존재하는경우 요청한 서브넷 삭제 결과 리턴
 	if len(subnetList) > 0 {
 		return true, nil
 	} else {
@@ -862,7 +862,7 @@ func (vNetworkHandler *AwsVNetworkHandler) DeleteVNetwork(vNetworkID string) (bo
 		//발생할 경우가 없어 보이지만 삭제할 CB Default VPC가 없으면 종료
 		if VpcId == "" {
 			cblogger.Error("삭제할 CBDefaultVPC가 존재하지 않음")
-			return true, nil
+			return true, errors.New("삭제할 CBDefaultVPC가 존재하지 않음")
 		}
 
 		cblogger.Info("CBDefaultVPC를 삭제 함.")
@@ -877,9 +877,8 @@ func (vNetworkHandler *AwsVNetworkHandler) DeleteVNetwork(vNetworkID string) (bo
 			return true, nil
 		} else {
 			cblogger.Info("CBDefaultVPC 삭제 실패.")
-			return false, nil //삭제 실패 이유를 모르는 경우
+			return false, errors.New("CBDefaultVPC를 삭제하지 못 했습니다.") //삭제 실패 이유를 모르는 경우
 		}
-
 	}
 
 }

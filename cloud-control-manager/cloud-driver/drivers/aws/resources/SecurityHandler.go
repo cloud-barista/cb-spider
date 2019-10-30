@@ -297,7 +297,7 @@ func (securityHandler *AwsSecurityHandler) GetSecurity(securityID string) (irs.S
 		securityInfo := ExtractSecurityInfo(result.SecurityGroups[0])
 		return securityInfo, nil
 	} else {
-		return irs.SecurityInfo{}, err
+		return irs.SecurityInfo{}, errors.New("정보를 찾을 수 없습니다.")
 	}
 }
 
