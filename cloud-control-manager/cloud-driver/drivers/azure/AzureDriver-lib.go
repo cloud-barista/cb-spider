@@ -11,8 +11,6 @@
 package main
 
 import (
-	"C"
-
 	"context"
 	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2018-06-01/compute"
 	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2018-04-01/network"
@@ -32,12 +30,12 @@ func (AzureDriver) GetDriverVersion() string {
 func (AzureDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	var drvCapabilityInfo idrv.DriverCapabilityInfo
 
-	drvCapabilityInfo.ImageHandler = false
-	drvCapabilityInfo.VNetworkHandler = false
-	drvCapabilityInfo.SecurityHandler = false
-	drvCapabilityInfo.KeyPairHandler = false
-	drvCapabilityInfo.VNicHandler = false
-	drvCapabilityInfo.PublicIPHandler = false
+	drvCapabilityInfo.ImageHandler = true
+	drvCapabilityInfo.VNetworkHandler = true
+	drvCapabilityInfo.SecurityHandler = true
+	drvCapabilityInfo.KeyPairHandler = true
+	drvCapabilityInfo.VNicHandler = true
+	drvCapabilityInfo.PublicIPHandler = true
 	drvCapabilityInfo.VMHandler = true
 
 	return drvCapabilityInfo
@@ -77,7 +75,17 @@ func (driver *AzureDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (ico
 	if err != nil {
 		return nil, err
 	}
+	Ctx, IPConfigClient, err := getIPConfigClient(connectionInfo.CredentialInfo)
+	if err != nil {
+		return nil, err
+	}
+	Ctx, VMImageClient, err := getVMImageClient(connectionInfo.CredentialInfo)
+	if err != nil {
+		return nil, err
+	}
+
 	iConn := azcon.AzureCloudConnection{
+		CredentialInfo:      connectionInfo.CredentialInfo,
 		Region:              connectionInfo.RegionInfo,
 		Ctx:                 Ctx,
 		VMClient:            VMClient,
@@ -86,7 +94,9 @@ func (driver *AzureDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (ico
 		SecurityGroupClient: sgClient,
 		VNetClient:          VNetClient,
 		VNicClient:          vNicClient,
+		IPConfigClient:      IPConfigClient,
 		SubnetClient:        SubnetClient,
+		VMImageClient:       VMImageClient,
 	}
 	return &iConn, nil
 }
@@ -180,6 +190,20 @@ func getVNicClient(credential idrv.CredentialInfo) (context.Context, *network.In
 	return ctx, &vNicClient, nil
 }
 
+func getIPConfigClient(credential idrv.CredentialInfo) (context.Context, *network.InterfaceIPConfigurationsClient, error) {
+	config := auth.NewClientCredentialsConfig(credential.ClientId, credential.ClientSecret, credential.TenantId)
+	authorizer, err := config.Authorizer()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	ipConfigClient := network.NewInterfaceIPConfigurationsClient(credential.SubscriptionId)
+	ipConfigClient.Authorizer = authorizer
+	ctx, _ := context.WithTimeout(context.Background(), 600*time.Second)
+
+	return ctx, &ipConfigClient, nil
+}
+
 func getSubnetClient(credential idrv.CredentialInfo) (context.Context, *network.SubnetsClient, error) {
 	config := auth.NewClientCredentialsConfig(credential.ClientId, credential.ClientSecret, credential.TenantId)
 	authorizer, err := config.Authorizer()
@@ -192,6 +216,20 @@ func getSubnetClient(credential idrv.CredentialInfo) (context.Context, *network.
 	ctx, _ := context.WithTimeout(context.Background(), 600*time.Second)
 
 	return ctx, &subnetClient, nil
+}
+
+func getVMImageClient(credential idrv.CredentialInfo) (context.Context, *compute.VirtualMachineImagesClient, error) {
+	config := auth.NewClientCredentialsConfig(credential.ClientId, credential.ClientSecret, credential.TenantId)
+	authorizer, err := config.Authorizer()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	vmImageClient := compute.NewVirtualMachineImagesClient(credential.SubscriptionId)
+	vmImageClient.Authorizer = authorizer
+	ctx, _ := context.WithTimeout(context.Background(), 600*time.Second)
+
+	return ctx, &vmImageClient, nil
 }
 
 var CloudDriver AzureDriver

@@ -10,6 +10,7 @@ package main
 
 import (
 	"fmt"
+	"strconv"
 
 	ccim "github.com/cloud-barista/cb-spider/cloud-info-manager/connection-config-info-manager"
 	cim "github.com/cloud-barista/cb-spider/cloud-info-manager/credential-info-manager"
@@ -76,7 +77,11 @@ func unRegisterCloudDriver(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
 	}
 
-	return c.JSON(http.StatusOK, &result)
+        resultInfo := BooleanInfo{
+                Result: strconv.FormatBool(result),
+        }
+
+	return c.JSON(http.StatusOK, &resultInfo)
 }
 
 //================ Credential Handler
@@ -126,7 +131,11 @@ func unRegisterCredential(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
 	}
 
-	return c.JSON(http.StatusOK, &result)
+        resultInfo := BooleanInfo{
+                Result: strconv.FormatBool(result),
+        }
+
+	return c.JSON(http.StatusOK, &resultInfo)
 }
 
 //================ Region Handler
@@ -176,7 +185,11 @@ func unRegisterRegion(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
 	}
 
-	return c.JSON(http.StatusOK, &result)
+        resultInfo := BooleanInfo{
+                Result: strconv.FormatBool(result),
+        }
+
+	return c.JSON(http.StatusOK, &resultInfo)
 }
 
 //================ ConnectionConfig Handler
@@ -219,12 +232,16 @@ func getConnectionConfig(c echo.Context) error {
 }
 
 func deleteConnectionConfig(c echo.Context) error {
-	cblog.Info("call unRegisterConnectionConfig()")
+	cblog.Info("call deleteConnectionConfig()")
 
 	result, err := ccim.DeleteConnectionConfig(c.Param("ConfigName"))
 	if err != nil {
 		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
 	}
 
-	return c.JSON(http.StatusOK, &result)
+        resultInfo := BooleanInfo{
+                Result: strconv.FormatBool(result),
+        }
+
+	return c.JSON(http.StatusOK, &resultInfo)
 }
