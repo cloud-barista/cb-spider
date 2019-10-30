@@ -24,7 +24,8 @@ func init() {
 func createVM(config Config, vmHandler irs.VMHandler) {
 
 	vmName := "CBVm"
-	imageId := "/subscriptions/cb592624-b77b-4a8f-bb13-0e5a48cae40f/resourceGroups/CB-GROUP/providers/Microsoft.Compute/images/CB-IMG"
+	//imageId := "/subscriptions/cb592624-b77b-4a8f-bb13-0e5a48cae40f/resourceGroups/CB-GROUP/providers/Microsoft.Compute/images/CB-IMG"
+	imageId := "Canonical:UbuntuServer:18.04-LTS:18.04.201804262"
 	vmSpecId := "Standard_B1ls"
 	networkInterfaceId := "/subscriptions/cb592624-b77b-4a8f-bb13-0e5a48cae40f/resourceGroups/CB-GROUP/providers/Microsoft.Network/networkInterfaces/CB-VNic"
 	keypairName := "CB-Keypair"
@@ -35,7 +36,6 @@ func createVM(config Config, vmHandler irs.VMHandler) {
 		VMSpecId:           vmSpecId,
 		NetworkInterfaceId: networkInterfaceId,
 		KeyPairName:        keypairName,
-		//VMUserPasswd: "cbuserCBUSER!@#",
 	}
 
 	vm, err := vmHandler.StartVM(vmReqInfo)
@@ -66,7 +66,7 @@ func testVMHandler() {
 	cblogger.Info("10. Exit")
 	cblogger.Info("==========================================================")
 
-	vmId := config.Azure.GroupName + ":" + config.Azure.VMName
+	vmId := "CBVm"
 
 	for {
 		var commandNum int
