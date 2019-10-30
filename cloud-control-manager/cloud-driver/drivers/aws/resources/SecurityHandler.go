@@ -350,7 +350,7 @@ func ExtractIpPermissionCommon(ip *ec2.IpPermission, securityRuleInfo *irs.Secur
 
 	if !reflect.ValueOf(ip.ToPort).IsNil() {
 		//securityRuleInfo.ToPort = *ip.ToPort
-		securityRuleInfo.FromPort = strconv.FormatInt(*ip.ToPort, 10)
+		securityRuleInfo.ToPort = strconv.FormatInt(*ip.ToPort, 10)
 	}
 
 	securityRuleInfo.IPProtocol = *ip.IpProtocol
