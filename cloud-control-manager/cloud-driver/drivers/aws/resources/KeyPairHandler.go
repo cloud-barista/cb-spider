@@ -1,6 +1,8 @@
 package resources
 
 import (
+	"errors"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/ec2"
@@ -128,7 +130,7 @@ func (keyPairHandler *AwsKeyPairHandler) GetKey(keyName string) (irs.KeyPairInfo
 		keyPairInfo := ExtractKeyPairDescribeInfo(result.KeyPairs[0])
 		return keyPairInfo, nil
 	} else {
-		return irs.KeyPairInfo{}, nil
+		return irs.KeyPairInfo{}, errors.New("정보를 찾을 수 없습니다.")
 	}
 }
 

@@ -49,9 +49,9 @@ func handleSecurity() {
 	config := readConfigFile()
 	securityId := config.Aws.SecurityGroupID
 	cblogger.Infof(securityId)
-	//securityId = "sg-0254f00ef99e40a3c"
+	securityId = "sg-06c4523b969eaafc7"
 
-	//result, err := handler.GetSecurity(securityId)
+	result, err := handler.GetSecurity(securityId)
 	//result, err := handler.GetSecurity("sg-0d4d11c090c4814e8")
 	//result, err := handler.GetSecurity("sg-0fd2d90b269ebc082") // sgtest-mcloub-barista
 	//result, err := handler.DeleteSecurity(securityId)
@@ -61,40 +61,48 @@ func handleSecurity() {
 		Name: "sgtest-mcloud-barista",
 		SecurityRules: &[]irs.SecurityRuleInfo{ //보안 정책 설정
 			{
-				FromPort:   "80",
-				ToPort:     "80",
+				FromPort:   "20",
+				ToPort:     "22",
 				IPProtocol: "tcp",
 				Direction:  "inbound",
 			},
-			{
-				FromPort:   "8080",
-				ToPort:     "8080",
-				IPProtocol: "tcp",
-				Direction:  "inbound",
-			},
-			{
-				FromPort:   "443",
-				ToPort:     "443",
-				IPProtocol: "tcp",
-				Direction:  "outbound",
-			},
-			{
-				FromPort:   "8443",
-				ToPort:     "9999",
-				IPProtocol: "tcp",
-				Direction:  "outbound",
-			},
-			{
-				//FromPort:   "8443",
-				//ToPort:     "9999",
-				IPProtocol: "-1", // 모두 허용 (포트 정보 없음)
-				Direction:  "inbound",
-			},
+			/*
+				{
+					FromPort:   "80",
+					ToPort:     "80",
+					IPProtocol: "tcp",
+					Direction:  "inbound",
+				},
+				{
+					FromPort:   "8080",
+					ToPort:     "8080",
+					IPProtocol: "tcp",
+					Direction:  "inbound",
+				},
+				{
+					FromPort:   "443",
+					ToPort:     "443",
+					IPProtocol: "tcp",
+					Direction:  "outbound",
+				},
+				{
+					FromPort:   "8443",
+					ToPort:     "9999",
+					IPProtocol: "tcp",
+					Direction:  "outbound",
+				},
+				{
+					//FromPort:   "8443",
+					//ToPort:     "9999",
+					IPProtocol: "-1", // 모두 허용 (포트 정보 없음)
+					Direction:  "inbound",
+				},
+			*/
 		},
 	}
 
 	cblogger.Info(securityReqInfo)
-	result, err := handler.CreateSecurity(securityReqInfo)
+	//result, err := handler.CreateSecurity(securityReqInfo)
 
 	if err != nil {
 		cblogger.Infof("보안 그룹 조회 실패 : ", err)
@@ -475,7 +483,7 @@ func handleVNic() {
 	handler := ResourceHandler.(irs.VNicHandler)
 	reqVnicID := "eni-093deb03ca6eb70eb"
 	vNicReqInfo := irs.VNicReqInfo{
-		Name: "TestCB-VNic",
+		Name: "TestCB-VNic2",
 		SecurityGroupIds: []string{
 			//"sg-0d4d11c090c4814e8", "sg-0dc15d050f8272e24",
 			"sg-06c4523b969eaafc7",
@@ -550,11 +558,11 @@ func handleVNic() {
 func main() {
 	cblogger.Info("AWS Resource Test")
 	//handleKeyPair()
-	handlePublicIP() // PublicIP 생성 후 conf
+	//handlePublicIP() // PublicIP 생성 후 conf
 
 	//handleVNetwork() //VPC
 	//handleImage() //AMI
-	//handleVNic() //Lancard
+	handleVNic() //Lancard
 	//handleSecurity()
 
 	/*

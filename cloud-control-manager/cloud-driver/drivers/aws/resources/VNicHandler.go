@@ -12,7 +12,7 @@ package resources
 
 //@TODO : Default VPC & Default Subnet 처리해야 함.
 import (
-	"fmt"
+	"errors"
 	"reflect"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -37,13 +37,22 @@ func (vNicHandler *AwsVNicHandler) CreateVNic(vNicReqInfo irs.VNicReqInfo) (irs.
 		//Region: vNicHandler.Region,
 		Client: vNicHandler.Client,
 	}
-	fmt.Println(vNetworkHandler)
+	cblogger.Debug(vNetworkHandler)
 	//vNetworkHandler.FindOrCreateMcloudBaristaDefaultVPC(irs.VNetworkReqInfo{})
+	cblogger.Info("Default Subnet 정보를 찾기 위해 CBNetwork 정보 조회")
 	awsCBNetworkInfo, errAutoCBNetInfo := vNetworkHandler.GetAutoCBNetworkInfo()
 	if errAutoCBNetInfo != nil || awsCBNetworkInfo.VpcId == "" {
 		return irs.VNicInfo{}, nil
 	}
 
+	//기존에 생성된 vNic이 있는지 체크
+	cblogger.Infof("[%s]VPC안에 [%s]Name으로 생성된 vNic이있는지 체크", awsCBNetworkInfo.VpcId, vNicReqInfo.Name)
+	resultvNicExist, errChkvNicExist := vNicHandler.GetVNicByName(vNicReqInfo.Name, awsCBNetworkInfo.VpcId)
+	if errChkvNicExist == nil {
+		return resultvNicExist, errors.New(vNicReqInfo.Name + " vNic이 이미 존재합니다.")
+	}
+
+	cblogger.Info("신규 vNic 생성 시작")
 	input := &ec2.CreateNetworkInterfaceInput{
 		Description: aws.String(vNicReqInfo.Name),
 		//PrivateIpAddress: aws.String("10.0.2.17"),
@@ -234,6 +243,46 @@ func ExtractVNicDescribeInfo(netIf *ec2.NetworkInterface) irs.VNicInfo {
 	return vNicInfo
 }
 
+func (vNicHandler *AwsVNicHandler) GetVNicByName(vNicName string, vpcId string) (irs.VNicInfo, error) {
+	cblogger.Infof("vNicName : [%s] / vpcId : [%s]", vNicName, vpcId)
+	input := &ec2.DescribeNetworkInterfacesInput{
+		Filters: []*ec2.Filter{
+			{
+				Name:   aws.String("vpc-id"),
+				Values: aws.StringSlice([]string{vpcId}),
+			},
+			{
+				Name: aws.String("tag:Name"),
+				Values: []*string{
+					aws.String(vNicName),
+				},
+			},
+		},
+	}
+
+	result, err := vNicHandler.Client.DescribeNetworkInterfaces(input)
+	if err != nil {
+		if aerr, ok := err.(awserr.Error); ok {
+			switch aerr.Code() {
+			default:
+				cblogger.Error(aerr.Error())
+			}
+		} else {
+			// Print the error, cast err to awserr.Error to get the Code and
+			// Message from an error.
+			cblogger.Error(err.Error())
+		}
+		return irs.VNicInfo{}, err
+	}
+
+	if len(result.NetworkInterfaces) > 0 {
+		vNicInfo := ExtractVNicDescribeInfo(result.NetworkInterfaces[0])
+		return vNicInfo, nil
+	} else {
+		return irs.VNicInfo{}, errors.New("정보를 찾을 수 없습니다.")
+	}
+}
+
 func (vNicHandler *AwsVNicHandler) GetVNic(vNicID string) (irs.VNicInfo, error) {
 	cblogger.Info("vNicID : ", vNicID)
 	input := &ec2.DescribeNetworkInterfacesInput{
@@ -261,7 +310,7 @@ func (vNicHandler *AwsVNicHandler) GetVNic(vNicID string) (irs.VNicInfo, error) 
 		vNicInfo := ExtractVNicDescribeInfo(result.NetworkInterfaces[0])
 		return vNicInfo, nil
 	} else {
-		return irs.VNicInfo{}, err
+		return irs.VNicInfo{}, errors.New("정보를 찾을 수 없습니다.")
 	}
 }
 
