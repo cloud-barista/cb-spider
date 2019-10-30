@@ -15,3 +15,4 @@
 
 cloud-driver-libs/*
 meta_db/dat/*
+conf/store_conf.yaml
