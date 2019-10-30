@@ -7,15 +7,8 @@ RESTSERVER=localhost
 # - PublicIPId : PublicIP 생성 시 사용한 Name 필드 값이 아닌 생성 후 전달 받은 Name(AllocateID) 필드의 값을 입력해야 함.
 curl -X POST http://$RESTSERVER:1024/vm?connection_name=gcp-config01 -H 'Content-Type: application/json' -d '{
     "VMName": "vm01", 
-        "ImageId": "ami-047f7b46bd6dd5d84",
-        "VirtualNetworkId": "subnet-0d81d17918521a19c",
-        "NetworkInterfaceId": "",
-        "PublicIPId": "eipalloc-0e95789a23e6d0c6f", 
-    "SecurityGroupIds": [
-        "sg-0061443c27dfa71c5"
-    ],
-        "VMSpecId": "t2.micro",
-        "KeyPairName": "CB-KeyPairTest",
-        "VMUserId": "",
-        "VMUserPasswd": ""
+    "VirtualNetworkId": "cb-vnet",
+    "NetworkInterfaceId": "",
+    "PublicIPId": "publicip-vm01", 
+    "VMSpecId": "f1-micro"
 }' |json_pp
