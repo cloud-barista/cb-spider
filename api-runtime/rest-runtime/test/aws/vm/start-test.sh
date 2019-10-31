@@ -15,7 +15,7 @@ curl -X POST http://$RESTSERVER:1024/vm?connection_name=aws-config01 -H 'Content
         "sg-0061443c27dfa71c5"
     ],
         "VMSpecId": "t2.micro",
-        "KeyPairName": "CB-KeyPairTest",
+        "KeyPairName": "mcb-keypair",
         "VMUserId": "",
         "VMUserPasswd": ""
 }' |json_pp
