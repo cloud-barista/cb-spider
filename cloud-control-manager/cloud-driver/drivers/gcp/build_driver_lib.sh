@@ -1,3 +1,4 @@
+CBSPIDER_ROOT=~/go/src/github.com/cloud-barista/cb-spider
 DRIVERLIB_PATH=$CBSPIDER_ROOT/cloud-driver-libs
 DRIVERFILENAME=gcp-driver-v1.0
 
