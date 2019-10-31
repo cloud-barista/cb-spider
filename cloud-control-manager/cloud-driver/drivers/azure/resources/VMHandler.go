@@ -53,11 +53,11 @@ func (vmHandler *AzureVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 			HardwareProfile: &compute.HardwareProfile{
 				VMSize: compute.VirtualMachineSizeTypes(vmReqInfo.VMSpecId),
 			},
-			StorageProfile: &compute.StorageProfile{
+			/*StorageProfile: &compute.StorageProfile{
 				ImageReference: &compute.ImageReference{
 					ID: &vmReqInfo.ImageId,
 				},
-			},
+			},*/
 			OsProfile: &compute.OSProfile{
 				ComputerName:  &vmReqInfo.VMName,
 				AdminUsername: to.StringPtr(CBVMUser),
@@ -86,6 +86,28 @@ func (vmHandler *AzureVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 		},
 	}
 
+	// Image 설정
+	if strings.Contains(vmReqInfo.ImageId, ":") {
+		imageArr := strings.Split(vmReqInfo.ImageId, ":")
+		// URN 기반 퍼블릭 이미지 설정
+		vmOpts.StorageProfile = &compute.StorageProfile{
+			ImageReference: &compute.ImageReference{
+				Publisher: &imageArr[0],
+				Offer:     &imageArr[1],
+				Sku:       &imageArr[2],
+				Version:   &imageArr[3],
+			},
+		}
+	} else {
+		// 사용자 프라이빗 이미지 설정
+		vmOpts.StorageProfile = &compute.StorageProfile{
+			ImageReference: &compute.ImageReference{
+				ID: &vmReqInfo.ImageId,
+			},
+		}
+	}
+
+	// KeyPair 설정
 	if vmReqInfo.KeyPairName == "" {
 		vmOpts.OsProfile.AdminPassword = to.StringPtr(vmReqInfo.VMUserPasswd)
 	} else {

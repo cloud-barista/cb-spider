@@ -17,6 +17,7 @@ import (
 	"net/http"
 
 	"strings"
+	"strconv"
 )
 
 //================ Image Handler
@@ -107,7 +108,11 @@ func deleteImage(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
 	}
 
-	return c.JSON(http.StatusOK, &result)
+	resultInfo := BooleanInfo{
+		Result: strconv.FormatBool(result),
+	}
+
+	return c.JSON(http.StatusOK, &resultInfo)
 }
 
 //================ VNetwork Handler
@@ -197,7 +202,11 @@ func deleteVNetwork(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
 	}
 
-	return c.JSON(http.StatusOK, &result)
+        resultInfo := BooleanInfo{
+                Result: strconv.FormatBool(result),
+        }
+
+	return c.JSON(http.StatusOK, &resultInfo)
 }
 
 //================ SecurityGroup Handler
@@ -287,7 +296,11 @@ func deleteSecurity(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
 	}
 
-	return c.JSON(http.StatusOK, &result)
+        resultInfo := BooleanInfo{
+                Result: strconv.FormatBool(result),
+        }
+
+	return c.JSON(http.StatusOK, &resultInfo)
 }
 
 //================ KeyPair Handler
@@ -467,7 +480,11 @@ func deleteVNic(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
 	}
 
-	return c.JSON(http.StatusOK, &result)
+        resultInfo := BooleanInfo{
+                Result: strconv.FormatBool(result),
+        }
+
+	return c.JSON(http.StatusOK, &resultInfo)
 }
 
 //================ PublicIP Handler
@@ -557,7 +574,11 @@ func deletePublicIP(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
 	}
 
-	return c.JSON(http.StatusOK, &result)
+        resultInfo := BooleanInfo{
+                Result: strconv.FormatBool(result),
+        }
+
+	return c.JSON(http.StatusOK, &resultInfo)
 }
 
 //================ VM Handler
@@ -668,6 +689,7 @@ func listVMStatus(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
 	}
 
+
 	return c.JSON(http.StatusOK, &infoList)
 }
 
@@ -689,7 +711,11 @@ func getVMStatus(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
 	}
 
-	return c.JSON(http.StatusOK, &info)
+        resultInfo := StatusInfo{
+                Status: string(info),
+        }
+
+	return c.JSON(http.StatusOK, &resultInfo)
 }
 
 func controlVM(c echo.Context) error {
@@ -731,5 +757,9 @@ func controlVM(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
-	return c.JSON(http.StatusOK, "SUCCESS")
+        resultInfo := BooleanInfo{
+                Result: "true",
+        }
+
+	return c.JSON(http.StatusOK, &resultInfo)
 }

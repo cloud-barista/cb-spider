@@ -22,7 +22,6 @@ import (
 
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
-	_ "github.com/Azure/go-autorest/autorest/to"
 )
 
 type GCPVMHandler struct {
@@ -40,7 +39,7 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 	vmName := vmReqInfo.VMName
 	projectID := vmHandler.Credential.ProjectID
 	prefix := "https://www.googleapis.com/compute/v1/projects/" + projectID
-	imageURL := "https://www.googleapis.com/compute/v1/projects/debian-cloud/global/images/debian-7-wheezy-v20140606"
+	imageURL := "projects/ubuntu-os-cloud/global/images/ubuntu-minimal-1804-bionic-v20191024"
 	zone := vmHandler.Region.Zone
 	// email을 어디다가 넣지? 이것또한 문제넹
 	clientEmail := vmHandler.Credential.ClientEmail
@@ -51,6 +50,7 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 	publicIpName := vmReqInfo.PublicIPId
 	publicIpReqInfo := irs.PublicIPReqInfo{Name: publicIpName}
 	publicIPInfo, err := publicIpHandler.CreatePublicIP(publicIpReqInfo)
+	networkURL := prefix + "/global/networks/" + vmReqInfo.VirtualNetworkId
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -59,7 +59,7 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 	instance := &compute.Instance{
 		Name:        vmName,
 		Description: "compute sample instance",
-		MachineType: prefix + "/zones/" + zone + "/machineTypes/n1-standard-1",
+		MachineType: prefix + "/zones/" + zone + "/machineTypes/" + vmReqInfo.VMSpecId,
 		Disks: []*compute.AttachedDisk{
 			{
 				AutoDelete: true,
@@ -80,7 +80,7 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 						NatIP: publicIPAddress,
 					},
 				},
-				Network: prefix + "/global/networks/" + vmReqInfo.VirtualNetworkId,
+				Network: networkURL,
 			},
 		},
 		ServiceAccounts: []*compute.ServiceAccount{
@@ -166,7 +166,7 @@ func (vmHandler *GCPVMHandler) TerminateVM(vmID string) error {
 
 	fmt.Println("instance status :", inst.Status)
 
-	return err
+	return nil
 }
 
 func (vmHandler *GCPVMHandler) ListVMStatus() ([]*irs.VMStatusInfo, error) {
@@ -282,6 +282,13 @@ func mappingServerInfo(server *compute.Instance) irs.VMInfo {
 		PrivateIP:          server.NetworkInterfaces[0].NetworkIP,
 		VirtualNetworkId:   server.NetworkInterfaces[0].Network,
 		// SubNetworkID:       server.NetworkInterfaces[0].Subnetwork,
+		KeyValueList: []irs.KeyValue{
+			{"SubNetwork", server.NetworkInterfaces[0].Subnetwork},
+			{"AccessConfigName", server.NetworkInterfaces[0].AccessConfigs[0].Name},
+			{"NetworkTier", server.NetworkInterfaces[0].AccessConfigs[0].NetworkTier},
+			{"DiskDeviceName", server.Disks[0].DeviceName},
+			{"DiskName", server.Disks[0].Source},
+		},
 	}
 
 	return vmInfo

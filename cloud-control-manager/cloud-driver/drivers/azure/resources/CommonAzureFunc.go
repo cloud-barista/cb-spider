@@ -17,7 +17,9 @@ const (
 	CBVirutalNetworkName = "CB-VNet"
 	CBVnetDefaultCidr    = "130.0.0.0/16"
 	CBVMUser             = "cb-user"
-	CBKeyPairPath        = "/cloud-control-manager/cloud-driver/driver-libs/.ssh-azure/"
+	//CBKeyPairPath        = "/cloud-control-manager/cloud-driver/driver-libs/.ssh-azure/"
+	// by powerkim, 2019.10.30
+	CBKeyPairPath        = "/cloud-driver-libs/.ssh-azure/"
 )
 
 // 서브넷 CIDR 생성 (CIDR C class 기준 생성)

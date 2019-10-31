@@ -25,6 +25,16 @@ func init() {
 	cblog = config.Cblogger
 }
 
+// REST API Return struct for boolena type
+type BooleanInfo struct {
+        Result string // true or false
+}
+
+type StatusInfo struct {
+        Status string // PENDING | RUNNING | SUSPENDING | SUSPENDED | REBOOTING | TERMINATING | TERMINATED 
+}
+
+
 //ex) {"POST", "/driver", registerCloudDriver}
 type route struct {
 	method, path string

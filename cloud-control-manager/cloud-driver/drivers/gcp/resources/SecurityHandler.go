@@ -76,10 +76,10 @@ func (securityHandler *GCPSecurityHandler) ListSecurity() ([]*irs.SecurityInfo, 
 	var securityInfo []*irs.SecurityInfo
 	for _, item := range result.Items {
 		name := item.Name
-		secInfo, err := securityHandler.GetSecurity(name)
-		if err != nil {
-			log.Fatal(err)
-		}
+		secInfo, _ := securityHandler.GetSecurity(name)
+		// if err != nil {
+		// 	log.Fatal(err)
+		// }
 		securityInfo = append(securityInfo, &secInfo)
 	}
 
@@ -96,11 +96,28 @@ func (securityHandler *GCPSecurityHandler) GetSecurity(securityID string) (irs.S
 	}
 	var securityRules []irs.SecurityRuleInfo
 	for _, item := range security.Allowed {
-		portArr := strings.Split(item.Ports[0], "-")
+		var portArr []string
+		var fromPort string
+		var toPort string
+		if ports := item.Ports; ports != nil {
+			portArr = strings.Split(item.Ports[0], "-")
+			fromPort = portArr[0]
+			if len(portArr) > 1 {
+				toPort = portArr[len(portArr)-1]
+			} else {
+				toPort = ""
+			}
+
+		} else {
+			fromPort = ""
+			toPort = ""
+		}
+
 		securityRules = append(securityRules, irs.SecurityRuleInfo{
-			FromPort:   portArr[0],
-			ToPort:     portArr[len(portArr)-1],
+			FromPort:   fromPort,
+			ToPort:     toPort,
 			IPProtocol: item.IPProtocol,
+			Direction:  security.Direction,
 		})
 	}
 
