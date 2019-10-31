@@ -390,7 +390,11 @@ func deleteKey(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
 	}
 
-	return c.JSON(http.StatusOK, &result)
+        resultInfo := BooleanInfo{
+                Result: strconv.FormatBool(result),
+        }
+
+	return c.JSON(http.StatusOK, &resultInfo)
 }
 
 //================ VNic Handler
