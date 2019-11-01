@@ -27,13 +27,12 @@ func init() {
 
 // REST API Return struct for boolena type
 type BooleanInfo struct {
-        Result string // true or false
+	Result string // true or false
 }
 
 type StatusInfo struct {
-        Status string // PENDING | RUNNING | SUSPENDING | SUSPENDED | REBOOTING | TERMINATING | TERMINATED 
+	Status string // PENDING | RUNNING | SUSPENDING | SUSPENDED | REBOOTING | TERMINATING | TERMINATED
 }
-
 
 //ex) {"POST", "/driver", registerCloudDriver}
 type route struct {
@@ -121,6 +120,8 @@ func main() {
 		//-------------------------------------------------------------------//
 		//----------SSH RUN
 		{"POST", "/sshrun", sshRun},
+		{"POST", "/sshrunkeypath", sshRunkeyPath},
+		{"POST", "/sshcopykeypath", sshCopykeyPath},
 	}
 	//======================================= setup routes
 
