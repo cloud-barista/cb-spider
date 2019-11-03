@@ -1,4 +1,4 @@
-RESTSERVER=localhost
+source ../setup.env
 
 
 echo ========================== tokyo

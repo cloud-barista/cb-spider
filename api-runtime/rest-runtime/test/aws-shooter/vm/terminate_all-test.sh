@@ -1,4 +1,4 @@
-RESTSERVER=localhost
+source ../setup.env
 
 #echo ========================== ohio
 #VM_IDS=`curl -X GET http://$RESTSERVER:1024/vm?connection_name=aws-ohio-config |json_pp |grep "\"Id\"" |awk '{print $3}' |sed 's/"//g' |sed 's/,//g'`

@@ -1,4 +1,4 @@
-RESTSERVER=localhost
+source ../setup.env
 
 curl -X GET http://$RESTSERVER:1024/securitygroup?connection_name=aws-ohio-config |json_pp
 curl -X GET http://$RESTSERVER:1024/securitygroup?connection_name=aws-oregon-config |json_pp

@@ -1,6 +1,6 @@
 source ../setup.image
 
-RESTSERVER=localhost
+source ../setup.env
 
 VNET_ID=`curl -X GET http://$RESTSERVER:1024/vnetwork?connection_name=aws-singapore-config |json_pp |grep "\"Id\"" |awk '{print $3}' |sed 's/"//g' |sed 's/,//g'`
 PIP_ID=`curl -X GET http://$RESTSERVER:1024/publicip?connection_name=aws-singapore-config |json_pp |grep "\"Name\" :" |awk '{print $3}' | head -n 1 |sed 's/"//g' |sed 's/,//g'`

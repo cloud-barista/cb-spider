@@ -1,6 +1,6 @@
 source ../setup.image
 
-RESTSERVER=localhost
+source ../setup.env
 
 #echo ========================== ohio
 #VNET_ID=`curl -X GET http://$RESTSERVER:1024/vnetwork?connection_name=aws-ohio-config |json_pp |grep "\"Id\"" |awk '{print $3}' |sed 's/"//g' |sed 's/,//g'`

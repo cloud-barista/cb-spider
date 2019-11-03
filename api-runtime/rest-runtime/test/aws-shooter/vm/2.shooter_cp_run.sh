@@ -1,4 +1,4 @@
-RESTSERVER=localhost
+source ../setup.env
 
 #scp -i ../keypair/aws-singapore.key -o "StrictHostKeyChecking no" ./shooter/shooter-sample.sh node13:/tmp
 #ssh -i ../keypair/aws-singapore.key -o "StrictHostKeyChecking no" ubuntu@13.228.136.25 

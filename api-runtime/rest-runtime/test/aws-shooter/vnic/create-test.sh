@@ -1,4 +1,4 @@
-RESTSERVER=localhost
+source ../setup.env
 
 ID1=`curl -X GET http://$RESTSERVER:1024/securitygroup?connection_name=aws-ohio-config |json_pp |grep "\"Id\" :" |awk '{print $3}' | head -n 1 |sed 's/"//g' |sed 's/,//g'`
 ID2=`curl -X GET http://$RESTSERVER:1024/securitygroup?connection_name=aws-ohio-config |json_pp |grep "\"Id\" :" |awk '{print $3}' |awk '{if(NR==2) print $1}' |sed 's/"//g' |sed 's/,//g'`

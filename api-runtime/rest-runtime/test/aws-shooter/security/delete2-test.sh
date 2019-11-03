@@ -1,4 +1,4 @@
-RESTSERVER=localhost
+source ../setup.env
 
 ID=`curl -X GET http://$RESTSERVER:1024/securitygroup?connection_name=aws-ohio-config |json_pp |grep "\"Id\" :" |awk '{print $3}' |awk '{if(NR==2) print $1}' |sed 's/"//g' |sed 's/,//g'`
 curl -X DELETE http://$RESTSERVER:1024/securitygroup/${ID}?connection_name=aws-ohio-config

@@ -1,6 +1,4 @@
-source ../setup.image
-
-RESTSERVER=localhost
+source ../setup.env
 
 curl -X GET http://$RESTSERVER:1024/vmimage/${OHIO_IMG_ID1}?connection_name=aws-ohio-config |json_pp
 curl -X GET http://$RESTSERVER:1024/vmimage/${OREGON_IMG_ID1}?connection_name=aws-oregon-config |json_pp

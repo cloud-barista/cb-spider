@@ -1,4 +1,4 @@
-RESTSERVER=localhost
+source ../setup.env
 
 KEY=`curl -X POST http://$RESTSERVER:1024/keypair?connection_name=aws-ohio-config -H 'Content-Type: application/json' -d '{ "Name": "mcb-keypair-powerkim" }' |json_pp | grep PrivateKey |sed 's/"PrivateKey" : "//g' |sed 's/-----",/-----/g' |sed 's/-----"/-----/g'`
 echo -e ${KEY}

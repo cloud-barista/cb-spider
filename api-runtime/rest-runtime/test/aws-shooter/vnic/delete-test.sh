@@ -1,4 +1,4 @@
-RESTSERVER=localhost
+source ../setup.env
 
 ID=`curl -X GET http://$RESTSERVER:1024/vnic?connection_name=aws-ohio-config |json_pp |grep "eni" |awk '{print $3}' |sed 's/"//g' |sed 's/,//g'`
 curl -X DELETE http://$RESTSERVER:1024/vnic/${ID}?connection_name=aws-ohio-config |json_pp

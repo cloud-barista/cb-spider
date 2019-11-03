@@ -1,4 +1,4 @@
-RESTSERVER=localhost
+source ../setup.env
 
 curl -X DELETE http://$RESTSERVER:1024/keypair/mcb-keypair-powerkim?connection_name=aws-ohio-config |json_pp
 curl -X DELETE http://$RESTSERVER:1024/keypair/mcb-keypair-powerkim?connection_name=aws-oregon-config |json_pp

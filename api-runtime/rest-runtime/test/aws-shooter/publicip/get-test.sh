@@ -1,4 +1,4 @@
-RESTSERVER=localhost
+source ../setup.env
 
 ID=`curl -X GET http://$RESTSERVER:1024/publicip?connection_name=aws-ohio-config |json_pp |grep "\"Name\" :" |awk '{print $3}' | head -n 1 |sed 's/"//g' |sed 's/,//g'`
 curl -X GET http://$RESTSERVER:1024/publicip/${ID}?connection_name=aws-ohio-config |json_pp

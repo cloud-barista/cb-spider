@@ -1,4 +1,4 @@
-RESTSERVER=localhost
+source ../setup.env
 
  # for Cloud Driver Info
 curl -X POST http://$RESTSERVER:1024/driver -H 'Content-Type: application/json' -d '{"DriverName":"aws-driver01","ProviderName":"AWS", "DriverLibFileName":"aws-driver-v1.0.so"}'

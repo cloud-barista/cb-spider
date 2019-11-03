@@ -1,4 +1,4 @@
-RESTSERVER=localhost
+source ../setup.env
 
 curl -X POST http://$RESTSERVER:1024/publicip?connection_name=aws-ohio-config -H 'Content-Type: application/json' -d '{ "Name": "publicipt01-powerkim" }' |json_pp
 curl -X POST http://$RESTSERVER:1024/publicip?connection_name=aws-oregon-config -H 'Content-Type: application/json' -d '{ "Name": "publicipt01-powerkim" }' |json_pp
