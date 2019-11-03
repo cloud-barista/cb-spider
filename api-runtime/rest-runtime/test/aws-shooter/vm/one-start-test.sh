@@ -1,5 +1,3 @@
-source ../setup.image
-
 source ../setup.env
 
 VNET_ID=`curl -X GET http://$RESTSERVER:1024/vnetwork?connection_name=aws-singapore-config |json_pp |grep "\"Id\"" |awk '{print $3}' |sed 's/"//g' |sed 's/,//g'`
