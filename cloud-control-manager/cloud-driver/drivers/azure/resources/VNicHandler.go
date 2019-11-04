@@ -18,12 +18,12 @@ type AzureVNicHandler struct {
 	SubnetClient *network.SubnetsClient
 }
 
-func setterVNic(ni network.Interface) *irs.VNicInfo {
+func (vNicHandler *AzureVNicHandler) setterVNic(ni network.Interface) *irs.VNicInfo {
 	nic := &irs.VNicInfo{
 		Id:           *ni.ID,
 		Name:         *ni.Name,
 		Status:       *ni.ProvisioningState,
-		KeyValueList: []irs.KeyValue{{Key: "ResourceGroup", Value: CBResourceGroupName}},
+		KeyValueList: []irs.KeyValue{{Key: "ResourceGroup", Value: vNicHandler.Region.ResourceGroup}},
 	}
 
 	if !reflect.ValueOf(ni.InterfacePropertiesFormat.MacAddress).IsNil() {
@@ -41,14 +41,14 @@ func setterVNic(ni network.Interface) *irs.VNicInfo {
 
 func (vNicHandler *AzureVNicHandler) CreateVNic(vNicReqInfo irs.VNicReqInfo) (irs.VNicInfo, error) {
 	// Check VNic Exists
-	vNic, _ := vNicHandler.NicClient.Get(vNicHandler.Ctx, CBResourceGroupName, vNicReqInfo.Name, "")
+	vNic, _ := vNicHandler.NicClient.Get(vNicHandler.Ctx, vNicHandler.Region.ResourceGroup, vNicReqInfo.Name, "")
 	if vNic.ID != nil {
 		errMsg := fmt.Sprintf("Virtual Network Interface with name %s already exist", vNicReqInfo.Name)
 		createErr := errors.New(errMsg)
 		return irs.VNicInfo{}, createErr
 	}
 
-	subnet, err := vNicHandler.SubnetClient.Get(vNicHandler.Ctx, CBResourceGroupName, CBVirutalNetworkName, vNicReqInfo.VNetName, "")
+	subnet, err := vNicHandler.SubnetClient.Get(vNicHandler.Ctx, vNicHandler.Region.ResourceGroup, CBVirutalNetworkName, vNicReqInfo.VNetName, "")
 
 	var ipConfigArr []network.InterfaceIPConfiguration
 	ipConfig := network.InterfaceIPConfiguration{
@@ -78,7 +78,7 @@ func (vNicHandler *AzureVNicHandler) CreateVNic(vNicReqInfo irs.VNicReqInfo) (ir
 		}
 	}
 
-	future, err := vNicHandler.NicClient.CreateOrUpdate(vNicHandler.Ctx, CBResourceGroupName, vNicReqInfo.Name, createOpts)
+	future, err := vNicHandler.NicClient.CreateOrUpdate(vNicHandler.Ctx, vNicHandler.Region.ResourceGroup, vNicReqInfo.Name, createOpts)
 	if err != nil {
 		return irs.VNicInfo{}, err
 	}
@@ -96,31 +96,31 @@ func (vNicHandler *AzureVNicHandler) CreateVNic(vNicReqInfo irs.VNicReqInfo) (ir
 }
 
 func (vNicHandler *AzureVNicHandler) ListVNic() ([]*irs.VNicInfo, error) {
-	result, err := vNicHandler.NicClient.List(vNicHandler.Ctx, CBResourceGroupName)
+	result, err := vNicHandler.NicClient.List(vNicHandler.Ctx, vNicHandler.Region.ResourceGroup)
 	if err != nil {
 		return nil, err
 	}
 
 	var vNicList []*irs.VNicInfo
 	for _, vNic := range result.Values() {
-		vNicInfo := setterVNic(vNic)
+		vNicInfo := vNicHandler.setterVNic(vNic)
 		vNicList = append(vNicList, vNicInfo)
 	}
 	return vNicList, nil
 }
 
 func (vNicHandler *AzureVNicHandler) GetVNic(vNicID string) (irs.VNicInfo, error) {
-	vNic, err := vNicHandler.NicClient.Get(vNicHandler.Ctx, CBResourceGroupName, vNicID, "")
+	vNic, err := vNicHandler.NicClient.Get(vNicHandler.Ctx, vNicHandler.Region.ResourceGroup, vNicID, "")
 	if err != nil {
 		return irs.VNicInfo{}, err
 	}
 
-	vNicInfo := setterVNic(vNic)
+	vNicInfo := vNicHandler.setterVNic(vNic)
 	return *vNicInfo, nil
 }
 
 func (vNicHandler *AzureVNicHandler) DeleteVNic(vNicID string) (bool, error) {
-	future, err := vNicHandler.NicClient.Delete(vNicHandler.Ctx, CBResourceGroupName, vNicID)
+	future, err := vNicHandler.NicClient.Delete(vNicHandler.Ctx, vNicHandler.Region.ResourceGroup, vNicID)
 	if err != nil {
 		return false, err
 	}

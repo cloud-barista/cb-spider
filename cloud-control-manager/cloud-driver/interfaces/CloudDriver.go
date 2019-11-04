@@ -45,7 +45,7 @@ type CredentialInfo struct {
 type RegionInfo struct {
 	Region        string
 	Zone          string
-	ResourceGroup string
+	ResourceGroup string // Azure RegionInfo
 }
 
 type ConnectionInfo struct {

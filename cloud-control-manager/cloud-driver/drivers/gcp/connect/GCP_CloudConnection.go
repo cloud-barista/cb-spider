@@ -25,7 +25,7 @@ var cblogger *logrus.Logger
 
 func init() {
 	// cblog is a global variable.
-	cblogger = cblog.GetLogger("CB-SPIDER")
+	cblogger = cblog.GetLogger("GCP Connect")
 }
 
 type GCPCloudConnection struct {
@@ -60,8 +60,10 @@ func (cloudConn *GCPCloudConnection) CreateSecurityHandler() (irs.SecurityHandle
 	return &sgHandler, nil
 }
 
-func (GCPCloudConnection) CreateKeyPairHandler() (irs.KeyPairHandler, error) {
-	return nil, nil
+func (cloudConn *GCPCloudConnection) CreateKeyPairHandler() (irs.KeyPairHandler, error) {
+        cblogger.Info("GCP Cloud Driver: called CreateKeyPairHandler()!")
+        keypairHandler := gcprs.GCPKeyPairHandler{cloudConn.Credential, cloudConn.Region}
+        return &keypairHandler, nil
 }
 
 func (cloudConn *GCPCloudConnection) CreateVNicHandler() (irs.VNicHandler, error) {

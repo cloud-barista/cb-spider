@@ -16,11 +16,11 @@ type AzureSecurityHandler struct {
 	Client *network.SecurityGroupsClient
 }
 
-func setterSec(securityGroup network.SecurityGroup) *irs.SecurityInfo {
+func (securityHandler *AzureSecurityHandler) setterSec(securityGroup network.SecurityGroup) *irs.SecurityInfo {
 	security := &irs.SecurityInfo{
 		Id:           *securityGroup.ID,
 		Name:         *securityGroup.Name,
-		KeyValueList: []irs.KeyValue{{Key: "ResourceGroup", Value: CBResourceGroupName}},
+		KeyValueList: []irs.KeyValue{{Key: "ResourceGroup", Value: securityHandler.Region.ResourceGroup}},
 	}
 
 	var securityRuleArr []irs.SecurityRuleInfo
@@ -41,7 +41,7 @@ func setterSec(securityGroup network.SecurityGroup) *irs.SecurityInfo {
 
 func (securityHandler *AzureSecurityHandler) CreateSecurity(securityReqInfo irs.SecurityReqInfo) (irs.SecurityInfo, error) {
 	// Check SecurityGroup Exists
-	security, _ := securityHandler.Client.Get(securityHandler.Ctx, CBResourceGroupName, securityReqInfo.Name, "")
+	security, _ := securityHandler.Client.Get(securityHandler.Ctx, securityHandler.Region.ResourceGroup, securityReqInfo.Name, "")
 	if security.ID != nil {
 		errMsg := fmt.Sprintf("Security Group with name %s already exist", securityReqInfo.Name)
 		createErr := errors.New(errMsg)
@@ -75,7 +75,7 @@ func (securityHandler *AzureSecurityHandler) CreateSecurity(securityReqInfo irs.
 		Location: &securityHandler.Region.Region,
 	}
 
-	future, err := securityHandler.Client.CreateOrUpdate(securityHandler.Ctx, CBResourceGroupName, securityReqInfo.Name, createOpts)
+	future, err := securityHandler.Client.CreateOrUpdate(securityHandler.Ctx, securityHandler.Region.ResourceGroup, securityReqInfo.Name, createOpts)
 	if err != nil {
 		return irs.SecurityInfo{}, err
 	}
@@ -93,31 +93,31 @@ func (securityHandler *AzureSecurityHandler) CreateSecurity(securityReqInfo irs.
 }
 
 func (securityHandler *AzureSecurityHandler) ListSecurity() ([]*irs.SecurityInfo, error) {
-	result, err := securityHandler.Client.List(securityHandler.Ctx, CBResourceGroupName)
+	result, err := securityHandler.Client.List(securityHandler.Ctx, securityHandler.Region.ResourceGroup)
 	if err != nil {
 		return nil, err
 	}
 
 	var securityList []*irs.SecurityInfo
 	for _, security := range result.Values() {
-		securityInfo := setterSec(security)
+		securityInfo := securityHandler.setterSec(security)
 		securityList = append(securityList, securityInfo)
 	}
 	return securityList, nil
 }
 
 func (securityHandler *AzureSecurityHandler) GetSecurity(securityID string) (irs.SecurityInfo, error) {
-	security, err := securityHandler.Client.Get(securityHandler.Ctx, CBResourceGroupName, securityID, "")
+	security, err := securityHandler.Client.Get(securityHandler.Ctx, securityHandler.Region.ResourceGroup, securityID, "")
 	if err != nil {
 		return irs.SecurityInfo{}, err
 	}
 
-	securityInfo := setterSec(security)
+	securityInfo := securityHandler.setterSec(security)
 	return *securityInfo, nil
 }
 
 func (securityHandler *AzureSecurityHandler) DeleteSecurity(securityID string) (bool, error) {
-	future, err := securityHandler.Client.Delete(securityHandler.Ctx, CBResourceGroupName, securityID)
+	future, err := securityHandler.Client.Delete(securityHandler.Ctx, securityHandler.Region.ResourceGroup, securityID)
 	if err != nil {
 		return false, err
 	}

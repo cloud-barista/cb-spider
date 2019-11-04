@@ -3,7 +3,6 @@ package resources
 import (
 	"context"
 	"fmt"
-	"log"
 	"strconv"
 
 	compute "google.golang.org/api/compute/v1"
@@ -13,13 +12,6 @@ import (
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 )
-
-//var cblogger *logrus.Logger
-
-func init() {
-	// cblog is a global variable.
-	//cblogger = cblog.GetLogger("AWS Connect")
-}
 
 type GCPVNetworkHandler struct {
 	Region     idrv.RegionInfo
@@ -40,7 +32,7 @@ func (vNetworkHandler *GCPVNetworkHandler) CreateVNetwork(vNetworkReqInfo irs.VN
 
 	res, err := vNetworkHandler.Client.Networks.Insert(projectID, network).Do()
 	if err != nil {
-		log.Fatal(err)
+		cblogger.Error(err)
 
 	}
 	fmt.Println(res)
@@ -49,7 +41,7 @@ func (vNetworkHandler *GCPVNetworkHandler) CreateVNetwork(vNetworkReqInfo irs.VN
 	time.Sleep(time.Second * 20)
 	info, err2 := vNetworkHandler.Client.Networks.Get(projectID, name).Do()
 	if err2 != nil {
-		log.Fatal(err2)
+		cblogger.Error(err2)
 	}
 	networkInfo := irs.VNetworkInfo{
 		Name: info.Name,
@@ -67,7 +59,7 @@ func (vNetworkHandler *GCPVNetworkHandler) ListVNetwork() ([]*irs.VNetworkInfo, 
 
 	vNetworkList, err := vNetworkHandler.Client.Networks.List(projectID).Do()
 	if err != nil {
-		log.Fatal(err)
+
 		return nil, err
 	}
 	var vNetworkInfo []*irs.VNetworkInfo
@@ -93,7 +85,7 @@ func (vNetworkHandler *GCPVNetworkHandler) GetVNetwork(vNetworkID string) (irs.V
 	name := vNetworkID
 	info, err := vNetworkHandler.Client.Networks.Get(projectID, name).Do()
 	if err != nil {
-		log.Fatal(err)
+		cblogger.Error(err)
 	}
 
 	networkInfo := irs.VNetworkInfo{
@@ -112,7 +104,7 @@ func (vNetworkHandler *GCPVNetworkHandler) DeleteVNetwork(vNetworkID string) (bo
 	name := vNetworkID
 	info, err := vNetworkHandler.Client.Networks.Delete(projectID, name).Do()
 	if err != nil {
-		log.Fatal(err)
+		cblogger.Error(err)
 	}
 	fmt.Println(info)
 	return true, nil
