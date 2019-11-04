@@ -40,7 +40,7 @@ type AzureVMHandler struct {
 
 func (vmHandler *AzureVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, error) {
 	// Check VM Exists
-	vm, err := vmHandler.Client.Get(vmHandler.Ctx, CBResourceGroupName, vmReqInfo.VMName, compute.InstanceView)
+	vm, err := vmHandler.Client.Get(vmHandler.Ctx, vmHandler.Region.ResourceGroup, vmReqInfo.VMName, compute.InstanceView)
 	if vm.ID != nil {
 		errMsg := fmt.Sprintf("VirtualMachine with name %s already exist", vmReqInfo.VMName)
 		createErr := errors.New(errMsg)
@@ -128,7 +128,7 @@ func (vmHandler *AzureVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 		}
 	}
 
-	future, err := vmHandler.Client.CreateOrUpdate(vmHandler.Ctx, CBResourceGroupName, vmReqInfo.VMName, vmOpts)
+	future, err := vmHandler.Client.CreateOrUpdate(vmHandler.Ctx, vmHandler.Region.ResourceGroup, vmReqInfo.VMName, vmOpts)
 	if err != nil {
 		cblogger.Error(err)
 		return irs.VMInfo{}, err
@@ -139,7 +139,7 @@ func (vmHandler *AzureVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 		return irs.VMInfo{}, err
 	}
 
-	vm, err = vmHandler.Client.Get(vmHandler.Ctx, CBResourceGroupName, vmReqInfo.VMName, compute.InstanceView)
+	vm, err = vmHandler.Client.Get(vmHandler.Ctx, vmHandler.Region.ResourceGroup, vmReqInfo.VMName, compute.InstanceView)
 	if err != nil {
 		cblogger.Error(err)
 	}
@@ -149,7 +149,7 @@ func (vmHandler *AzureVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 }
 
 func (vmHandler *AzureVMHandler) SuspendVM(vmID string) error {
-	future, err := vmHandler.Client.PowerOff(vmHandler.Ctx, CBResourceGroupName, vmID)
+	future, err := vmHandler.Client.PowerOff(vmHandler.Ctx, vmHandler.Region.ResourceGroup, vmID)
 	if err != nil {
 		cblogger.Error(err)
 		return err
@@ -163,7 +163,7 @@ func (vmHandler *AzureVMHandler) SuspendVM(vmID string) error {
 }
 
 func (vmHandler *AzureVMHandler) ResumeVM(vmID string) error {
-	future, err := vmHandler.Client.Start(vmHandler.Ctx, CBResourceGroupName, vmID)
+	future, err := vmHandler.Client.Start(vmHandler.Ctx, vmHandler.Region.ResourceGroup, vmID)
 	if err != nil {
 		cblogger.Error(err)
 		return err
@@ -177,7 +177,7 @@ func (vmHandler *AzureVMHandler) ResumeVM(vmID string) error {
 }
 
 func (vmHandler *AzureVMHandler) RebootVM(vmID string) error {
-	future, err := vmHandler.Client.Restart(vmHandler.Ctx, CBResourceGroupName, vmID)
+	future, err := vmHandler.Client.Restart(vmHandler.Ctx, vmHandler.Region.ResourceGroup, vmID)
 	if err != nil {
 		cblogger.Error(err)
 		return err
@@ -191,7 +191,7 @@ func (vmHandler *AzureVMHandler) RebootVM(vmID string) error {
 }
 
 func (vmHandler *AzureVMHandler) TerminateVM(vmID string) error {
-	future, err := vmHandler.Client.Delete(vmHandler.Ctx, CBResourceGroupName, vmID)
+	future, err := vmHandler.Client.Delete(vmHandler.Ctx, vmHandler.Region.ResourceGroup, vmID)
 	//future, err := vmHandler.Client.Deallocate(vmHandler.Ctx, CBResourceGroupName, vmID)
 	if err != nil {
 		cblogger.Error(err)
@@ -206,7 +206,7 @@ func (vmHandler *AzureVMHandler) TerminateVM(vmID string) error {
 }
 
 func (vmHandler *AzureVMHandler) ListVMStatus() ([]*irs.VMStatusInfo, error) {
-	serverList, err := vmHandler.Client.List(vmHandler.Ctx, CBResourceGroupName)
+	serverList, err := vmHandler.Client.List(vmHandler.Ctx, vmHandler.Region.ResourceGroup)
 	if err != nil {
 		cblogger.Error(err)
 		return []*irs.VMStatusInfo{}, err
@@ -238,7 +238,7 @@ func (vmHandler *AzureVMHandler) ListVMStatus() ([]*irs.VMStatusInfo, error) {
 }
 
 func (vmHandler *AzureVMHandler) GetVMStatus(vmID string) (irs.VMStatus, error) {
-	instanceView, err := vmHandler.Client.InstanceView(vmHandler.Ctx, CBResourceGroupName, vmID)
+	instanceView, err := vmHandler.Client.InstanceView(vmHandler.Ctx, vmHandler.Region.ResourceGroup, vmID)
 	if err != nil {
 		cblogger.Error(err)
 		return "", err
@@ -251,7 +251,7 @@ func (vmHandler *AzureVMHandler) GetVMStatus(vmID string) (irs.VMStatus, error) 
 
 func (vmHandler *AzureVMHandler) ListVM() ([]*irs.VMInfo, error) {
 	//serverList, err := vmHandler.Client.ListAll(vmHandler.Ctx)
-	serverList, err := vmHandler.Client.List(vmHandler.Ctx, CBResourceGroupName)
+	serverList, err := vmHandler.Client.List(vmHandler.Ctx, vmHandler.Region.ResourceGroup)
 	if err != nil {
 		cblogger.Error(err)
 		return []*irs.VMInfo{}, err
@@ -267,7 +267,7 @@ func (vmHandler *AzureVMHandler) ListVM() ([]*irs.VMInfo, error) {
 }
 
 func (vmHandler *AzureVMHandler) GetVM(vmID string) (irs.VMInfo, error) {
-	vm, err := vmHandler.Client.Get(vmHandler.Ctx, CBResourceGroupName, vmID, compute.InstanceView)
+	vm, err := vmHandler.Client.Get(vmHandler.Ctx, vmHandler.Region.ResourceGroup, vmID, compute.InstanceView)
 	if err != nil {
 		return irs.VMInfo{}, err
 	}

@@ -18,23 +18,24 @@ type AzureImageHandler struct {
 	VMImageClient *compute.VirtualMachineImagesClient
 }
 
-func setterImage(image compute.Image) *irs.ImageInfo {
+func (imageHandler *AzureImageHandler) setterImage(image compute.Image) *irs.ImageInfo {
 	imageInfo := &irs.ImageInfo{
 		Id:           *image.ID,
 		Name:         *image.Name,
 		GuestOS:      fmt.Sprint(image.ImageProperties.StorageProfile.OsDisk.OsType),
 		Status:       *image.ProvisioningState,
-		KeyValueList: []irs.KeyValue{{Key: "ResourceGroup", Value: CBResourceGroupName}},
+		KeyValueList: []irs.KeyValue{{Key: "ResourceGroup", Value: imageHandler.Region.ResourceGroup}},
 	}
 
 	return imageInfo
 }
 
-func setterVMImage(image compute.VirtualMachineImage) *irs.ImageInfo {
+func (imageHandler *AzureImageHandler) setterVMImage(image compute.VirtualMachineImage) *irs.ImageInfo {
 	imageInfo := &irs.ImageInfo{
-		Id:      *image.ID,
-		Name:    *image.Name,
-		GuestOS: fmt.Sprint(image.OsDiskImage.OperatingSystem),
+		Id:           *image.ID,
+		Name:         *image.Name,
+		GuestOS:      fmt.Sprint(image.OsDiskImage.OperatingSystem),
+		KeyValueList: []irs.KeyValue{{Key: "ResourceGroup", Value: imageHandler.Region.ResourceGroup}},
 	}
 
 	return imageInfo
@@ -56,7 +57,7 @@ func (imageHandler *AzureImageHandler) CreateImage(imageReqInfo irs.ImageReqInfo
 	}
 
 	// Check Image Exists
-	image, err := imageHandler.Client.Get(imageHandler.Ctx, CBResourceGroupName, imageReqInfo.Name, "")
+	image, err := imageHandler.Client.Get(imageHandler.Ctx, imageHandler.Region.ResourceGroup, imageReqInfo.Name, "")
 	if image.ID != nil {
 		errMsg := fmt.Sprintf("Image with name %s already exist", imageReqInfo.Name)
 		createErr := errors.New(errMsg)
@@ -78,7 +79,7 @@ func (imageHandler *AzureImageHandler) CreateImage(imageReqInfo irs.ImageReqInfo
 		Location: &imageHandler.Region.Region,
 	}
 
-	future, err := imageHandler.Client.CreateOrUpdate(imageHandler.Ctx, CBResourceGroupName, imageReqInfo.Name, createOpts)
+	future, err := imageHandler.Client.CreateOrUpdate(imageHandler.Ctx, imageHandler.Region.ResourceGroup, imageReqInfo.Name, createOpts)
 	if err != nil {
 		return irs.ImageInfo{}, err
 	}
@@ -96,14 +97,14 @@ func (imageHandler *AzureImageHandler) CreateImage(imageReqInfo irs.ImageReqInfo
 }
 
 func (imageHandler *AzureImageHandler) ListImage() ([]*irs.ImageInfo, error) {
-	resultList, err := imageHandler.Client.ListByResourceGroup(imageHandler.Ctx, CBResourceGroupName)
+	resultList, err := imageHandler.Client.ListByResourceGroup(imageHandler.Ctx, imageHandler.Region.ResourceGroup)
 	if err != nil {
 		cblogger.Error(err)
 	}
 
 	var imageList []*irs.ImageInfo
 	for _, image := range resultList.Values() {
-		imageInfo := setterImage(image)
+		imageInfo := imageHandler.setterImage(image)
 		imageList = append(imageList, imageInfo)
 	}
 	return imageList, nil
@@ -134,12 +135,12 @@ func (imageHandler *AzureImageHandler) GetImage(imageID string) (irs.ImageInfo, 
 	//imageInfo := setterImage(image)
 	//return *imageInfo, nil
 
-	imageInfo := setterVMImage(vmImage)
+	imageInfo := imageHandler.setterVMImage(vmImage)
 	return *imageInfo, nil
 }
 
 func (imageHandler *AzureImageHandler) DeleteImage(imageID string) (bool, error) {
-	future, err := imageHandler.Client.Delete(imageHandler.Ctx, CBResourceGroupName, imageID)
+	future, err := imageHandler.Client.Delete(imageHandler.Ctx, imageHandler.Region.ResourceGroup, imageID)
 	if err != nil {
 		return false, err
 	}

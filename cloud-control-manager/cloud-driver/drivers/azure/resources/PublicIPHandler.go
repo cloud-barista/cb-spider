@@ -17,12 +17,12 @@ type AzurePublicIPHandler struct {
 	IPConfigClient *network.InterfaceIPConfigurationsClient
 }
 
-func setterIP(address network.PublicIPAddress) *irs.PublicIPInfo {
+func (publicIpHandler *AzurePublicIPHandler) setterIP(address network.PublicIPAddress) *irs.PublicIPInfo {
 	publicIP := &irs.PublicIPInfo{
 		Name:         *address.Name,
 		PublicIP:     *address.IPAddress,
 		Status:       *address.ProvisioningState,
-		KeyValueList: []irs.KeyValue{{Key: "ResourceGroup", Value: CBResourceGroupName}},
+		KeyValueList: []irs.KeyValue{{Key: "ResourceGroup", Value: publicIpHandler.Region.ResourceGroup}},
 	}
 
 	return publicIP
@@ -30,7 +30,7 @@ func setterIP(address network.PublicIPAddress) *irs.PublicIPInfo {
 
 func (publicIpHandler *AzurePublicIPHandler) CreatePublicIP(publicIPReqInfo irs.PublicIPReqInfo) (irs.PublicIPInfo, error) {
 	// Check PublicIP Exists
-	publicIP, _ := publicIpHandler.Client.Get(publicIpHandler.Ctx, CBResourceGroupName, publicIPReqInfo.Name, "")
+	publicIP, _ := publicIpHandler.Client.Get(publicIpHandler.Ctx, publicIpHandler.Region.ResourceGroup, publicIPReqInfo.Name, "")
 	if publicIP.ID != nil {
 		errMsg := fmt.Sprintf("Public IP with name %s already exist", publicIPReqInfo.Name)
 		createErr := errors.New(errMsg)
@@ -50,7 +50,7 @@ func (publicIpHandler *AzurePublicIPHandler) CreatePublicIP(publicIPReqInfo irs.
 		Location: &publicIpHandler.Region.Region,
 	}
 
-	future, err := publicIpHandler.Client.CreateOrUpdate(publicIpHandler.Ctx, CBResourceGroupName, publicIPReqInfo.Name, createOpts)
+	future, err := publicIpHandler.Client.CreateOrUpdate(publicIpHandler.Ctx, publicIpHandler.Region.ResourceGroup, publicIPReqInfo.Name, createOpts)
 	if err != nil {
 		return irs.PublicIPInfo{}, err
 	}
@@ -68,31 +68,31 @@ func (publicIpHandler *AzurePublicIPHandler) CreatePublicIP(publicIPReqInfo irs.
 }
 
 func (publicIpHandler *AzurePublicIPHandler) ListPublicIP() ([]*irs.PublicIPInfo, error) {
-	result, err := publicIpHandler.Client.List(publicIpHandler.Ctx, CBResourceGroupName)
+	result, err := publicIpHandler.Client.List(publicIpHandler.Ctx, publicIpHandler.Region.ResourceGroup)
 	if err != nil {
 		return nil, err
 	}
 
 	var publicIPList []*irs.PublicIPInfo
 	for _, publicIP := range result.Values() {
-		publicIPInfo := setterIP(publicIP)
+		publicIPInfo := publicIpHandler.setterIP(publicIP)
 		publicIPList = append(publicIPList, publicIPInfo)
 	}
 	return publicIPList, nil
 }
 
 func (publicIpHandler *AzurePublicIPHandler) GetPublicIP(publicIPID string) (irs.PublicIPInfo, error) {
-	publicIP, err := publicIpHandler.Client.Get(publicIpHandler.Ctx, CBResourceGroupName, publicIPID, "")
+	publicIP, err := publicIpHandler.Client.Get(publicIpHandler.Ctx, publicIpHandler.Region.ResourceGroup, publicIPID, "")
 	if err != nil {
 		return irs.PublicIPInfo{}, err
 	}
 
-	publicIPInfo := setterIP(publicIP)
+	publicIPInfo := publicIpHandler.setterIP(publicIP)
 	return *publicIPInfo, nil
 }
 
 func (publicIpHandler *AzurePublicIPHandler) DeletePublicIP(publicIPID string) (bool, error) {
-	future, err := publicIpHandler.Client.Delete(publicIpHandler.Ctx, CBResourceGroupName, publicIPID)
+	future, err := publicIpHandler.Client.Delete(publicIpHandler.Ctx, publicIpHandler.Region.ResourceGroup, publicIPID)
 	if err != nil {
 		return false, err
 	}
