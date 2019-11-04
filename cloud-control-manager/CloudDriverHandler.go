@@ -134,9 +134,9 @@ func GetCloudConnection(cloudConnectName string) (icon.CloudConnection, error) {
 			PrivateKey:       getValue(crdInfo.KeyValueInfoList, "PrivateKey"),
 		},
 		RegionInfo: idrv.RegionInfo{ // @todo powerkim
-			Region: regionName,
-			Zone:   zoneName,
-			// ResourceGroup: config.Azure.GroupName, # will be deleted^^
+			Region:        regionName,
+			Zone:          zoneName,
+			ResourceGroup: getValue(rgnInfo.KeyValueInfoList, "ResourceGroup"),
 		},
 	}
 
