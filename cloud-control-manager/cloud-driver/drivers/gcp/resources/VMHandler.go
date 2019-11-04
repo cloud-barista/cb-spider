@@ -52,7 +52,7 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 	publicIPInfo, err := publicIpHandler.CreatePublicIP(publicIpReqInfo)
 	networkURL := prefix + "/global/networks/" + vmReqInfo.VirtualNetworkId
 	if err != nil {
-		log.Fatal(err)
+		cblogger.Error(err)
 	}
 	publicIPAddress := publicIPInfo.PublicIP
 
@@ -97,7 +97,7 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 	op, err := vmHandler.Client.Instances.Insert(projectID, zone, instance).Do()
 	js, err := op.MarshalJSON()
 	if err != nil {
-		log.Fatal(err)
+		cblogger.Error(err)
 	}
 	fmt.Println("Insert vm to marshal Json : ", string(js))
 	log.Printf("Got compute.Operation, err: %#v, %v", op, err)
@@ -106,8 +106,9 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 	//vm, err := vmHandler.Client.Instances.Start(project string, zone string, instance string)
 	time.Sleep(time.Second * 10)
 	vm, err := vmHandler.Client.Instances.Get(projectID, zone, vmName).Context(ctx).Do()
+
 	if err != nil {
-		panic(err)
+		cblogger.Error(err)
 	}
 	vmInfo := mappingServerInfo(vm)
 
@@ -123,7 +124,7 @@ func (vmHandler *GCPVMHandler) SuspendVM(vmID string) error {
 	inst, err := vmHandler.Client.Instances.Stop(projectID, zone, vmID).Context(ctx).Do()
 
 	if err != nil {
-		panic(err)
+		cblogger.Error(err)
 	}
 
 	fmt.Println("instance stop status :", inst.Status)
@@ -139,7 +140,7 @@ func (vmHandler *GCPVMHandler) ResumeVM(vmID string) error {
 	inst, err := vmHandler.Client.Instances.Start(projectID, zone, vmID).Context(ctx).Do()
 
 	if err != nil {
-		panic(err)
+		cblogger.Error(err)
 	}
 
 	fmt.Println("instance resume status :", inst.Status)
@@ -161,7 +162,7 @@ func (vmHandler *GCPVMHandler) TerminateVM(vmID string) error {
 	inst, err := vmHandler.Client.Instances.Delete(projectID, zone, vmID).Context(ctx).Do()
 
 	if err != nil {
-		panic(err)
+		cblogger.Error(err)
 	}
 
 	fmt.Println("instance status :", inst.Status)
@@ -176,7 +177,7 @@ func (vmHandler *GCPVMHandler) ListVMStatus() ([]*irs.VMStatusInfo, error) {
 
 	serverList, err := vmHandler.Client.Instances.List(projectID, zone).Do()
 	if err != nil {
-		log.Fatal(err)
+		cblogger.Error(err)
 	}
 
 	var vmStatusList []*irs.VMStatusInfo
@@ -201,7 +202,7 @@ func (vmHandler *GCPVMHandler) GetVMStatus(vmID string) (irs.VMStatus, error) { 
 
 	instanceView, err := vmHandler.Client.Instances.Get(projectID, zone, vmID).Do()
 	if err != nil {
-		log.Fatal(err)
+		cblogger.Error(err)
 	}
 
 	// Get powerState, provisioningState
@@ -215,7 +216,7 @@ func (vmHandler *GCPVMHandler) ListVM() ([]*irs.VMInfo, error) {
 
 	serverList, err := vmHandler.Client.Instances.List(projectID, zone).Do()
 	if err != nil {
-		panic(err)
+		cblogger.Error(err)
 	}
 
 	var vmList []*irs.VMInfo
@@ -233,7 +234,7 @@ func (vmHandler *GCPVMHandler) GetVM(vmName string) (irs.VMInfo, error) {
 
 	vm, err := vmHandler.Client.Instances.Get(projectID, zone, vmName).Do()
 	if err != nil {
-		panic(err)
+		cblogger.Error(err)
 	}
 
 	vmInfo := mappingServerInfo(vm)

@@ -2,7 +2,6 @@ package resources
 
 import (
 	"context"
-	"log"
 	"strconv"
 
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
@@ -44,7 +43,7 @@ func (vNicHandler *GCPVNicHandler) GetVNic(vNicID string) (irs.VNicInfo, error) 
 
 	res, err := vNicHandler.Client.Instances.Get(projectId, zone, vNicID).Do()
 	if err != nil {
-		log.Fatal(err)
+		cblogger.Error(err)
 	}
 	vNicInfo := irs.VNicInfo{
 		Id:        strconv.FormatUint(res.Id, 10),
