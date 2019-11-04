@@ -3,7 +3,6 @@ package resources
 import (
 	"context"
 	"fmt"
-	"log"
 	"strconv"
 	"strings"
 	"time"
@@ -59,7 +58,7 @@ func (securityHandler *GCPSecurityHandler) CreateSecurity(securityReqInfo irs.Se
 
 	res, err := securityHandler.Client.Firewalls.Insert(projectID, fireWall).Do()
 	if err != nil {
-		log.Fatal(err)
+		cblogger.Error(err)
 	}
 	fmt.Println("create result : ", res)
 	time.Sleep(time.Second * 3)
@@ -77,9 +76,7 @@ func (securityHandler *GCPSecurityHandler) ListSecurity() ([]*irs.SecurityInfo, 
 	for _, item := range result.Items {
 		name := item.Name
 		secInfo, _ := securityHandler.GetSecurity(name)
-		// if err != nil {
-		// 	log.Fatal(err)
-		// }
+
 		securityInfo = append(securityInfo, &secInfo)
 	}
 
@@ -91,7 +88,7 @@ func (securityHandler *GCPSecurityHandler) GetSecurity(securityID string) (irs.S
 
 	security, err := securityHandler.Client.Firewalls.Get(projectID, securityID).Do()
 	if err != nil {
-		log.Fatal(err)
+		cblogger.Error(err)
 
 	}
 	var securityRules []irs.SecurityRuleInfo
@@ -140,7 +137,7 @@ func (securityHandler *GCPSecurityHandler) DeleteSecurity(securityID string) (bo
 
 	res, err := securityHandler.Client.Firewalls.Delete(projectID, securityID).Do()
 	if err != nil {
-		log.Fatal(err)
+		cblogger.Error(err)
 	}
 	fmt.Println(res)
 	return true, err

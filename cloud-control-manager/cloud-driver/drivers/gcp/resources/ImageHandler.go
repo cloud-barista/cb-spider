@@ -3,15 +3,23 @@ package resources
 import (
 	"context"
 	"fmt"
-	"log"
 	"strconv"
 	"strings"
 
+	cblog "github.com/cloud-barista/cb-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/davecgh/go-spew/spew"
+	"github.com/sirupsen/logrus"
 	compute "google.golang.org/api/compute/v1"
 )
+
+var cblogger *logrus.Logger
+
+func init() {
+	// cblog is a global variable.
+	cblogger = cblog.GetLogger("CB-SPIDER")
+}
 
 type GCPImageHandler struct {
 	Region     idrv.RegionInfo
@@ -48,7 +56,7 @@ func (imageHandler *GCPImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 
 	list, err := imageHandler.Client.Images.List(projectId).Do()
 	if err != nil {
-		log.Fatal(err)
+		cblogger.Error(err)
 	}
 	var imageList []*irs.ImageInfo
 	for _, item := range list.Items {
@@ -65,7 +73,7 @@ func (imageHandler *GCPImageHandler) GetImage(imageID string) (irs.ImageInfo, er
 
 	image, err := imageHandler.Client.Images.Get(projectId, imageID).Do()
 	if err != nil {
-		log.Fatal(err)
+		cblogger.Error(err)
 	}
 	imageInfo := mappingImageInfo(image)
 	return imageInfo, err
@@ -76,7 +84,7 @@ func (imageHandler *GCPImageHandler) DeleteImage(imageID string) (bool, error) {
 
 	res, err := imageHandler.Client.Images.Delete(projectId, imageID).Do()
 	if err != nil {
-		log.Fatal(err)
+		cblogger.Error(err)
 	}
 	fmt.Println(res)
 	return true, err

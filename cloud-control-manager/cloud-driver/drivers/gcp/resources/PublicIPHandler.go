@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"strconv"
 	"strings"
 	"time"
@@ -37,7 +36,7 @@ func (publicIpHandler *GCPPublicIPHandler) CreatePublicIP(publicIPReqInfo irs.Pu
 
 	publicIPInfo, err := publicIpHandler.GetPublicIP(publicIpName)
 	if err != nil {
-		log.Fatal(err)
+		cblogger.Error(err)
 	}
 
 	return publicIPInfo, err
@@ -49,7 +48,7 @@ func (publicIpHandler *GCPPublicIPHandler) ListPublicIP() ([]*irs.PublicIPInfo, 
 
 	list, err := publicIpHandler.Client.Addresses.List(projectID, region).Do()
 	if err != nil {
-		log.Fatal(err)
+		cblogger.Error(err)
 	}
 	var publicIpInfoArr []*irs.PublicIPInfo
 	for _, item := range list.Items {
@@ -86,13 +85,13 @@ func (publicIpHandler *GCPPublicIPHandler) GetPublicIP(publicIPID string) (irs.P
 
 	info, err := publicIpHandler.Client.Addresses.Get(projectID, region, name).Do()
 	if err != nil {
-		log.Fatal(err)
+		cblogger.Error(err)
 	}
 
 	//바인딩 하기위해 []byte로 변환 처리
 	infoByte, err := info.MarshalJSON()
 	if err != nil {
-		log.Fatal(err)
+		cblogger.Error(err)
 	}
 
 	var publicInfo irs.PublicIPInfo
@@ -118,7 +117,7 @@ func (publicIpHandler *GCPPublicIPHandler) GetPublicIP(publicIPID string) (irs.P
 	publicInfo.KeyValueList = keyValueList
 
 	if err != nil {
-		log.Fatal(err)
+		cblogger.Error(err)
 	}
 
 	return publicInfo, err
@@ -131,7 +130,7 @@ func (publicIpHandler *GCPPublicIPHandler) DeletePublicIP(publicIPID string) (bo
 
 	info, err := publicIpHandler.Client.Addresses.Delete(projectID, region, name).Do()
 	if err != nil {
-		log.Fatal(err)
+		cblogger.Error(err)
 	}
 	fmt.Println(info)
 
