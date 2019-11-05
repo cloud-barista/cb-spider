@@ -25,7 +25,7 @@ var cblogger *logrus.Logger
 
 func init() {
 	// cblog is a global variable.
-	cblogger = cblog.GetLogger("CB-SPIDER")
+	cblogger = cblog.GetLogger("GCP Connect")
 }
 
 type GCPCloudConnection struct {

@@ -6,8 +6,7 @@
 //
 // This is a Cloud Driver Example for PoC Test.
 //
-// by hyokyung.kim@innogrid.co.kr, 2019.07.
-
+// by jazmandorf@gmail.com MZC
 package main
 
 import (
@@ -16,7 +15,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"time"
 
 	gcpcon "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/gcp/connect"
@@ -62,7 +60,7 @@ func (driver *GCPDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (icon.
 	fmt.Println("getVMClient")
 	fmt.Println("################## getVMClient ##################")
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
 
 	iConn := gcpcon.GCPCloudConnection{
@@ -105,7 +103,7 @@ func getVMClient(credential idrv.CredentialInfo) (context.Context, *compute.Serv
 	conf, err := goo.JWTConfigFromJSON(res, authURL)
 
 	if err != nil {
-		log.Fatal(err)
+
 		return nil, nil, err
 	}
 
