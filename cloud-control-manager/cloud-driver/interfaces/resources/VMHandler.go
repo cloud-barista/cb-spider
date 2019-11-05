@@ -39,16 +39,19 @@ type VMStatusInfo struct {
 type VMStatus string
 
 const (
-	Pending VMStatus = "PENDING" // from launch, suspended to running
-	Running VMStatus = "RUNNING"
+        Creating VMStatus = ¡°Creating" // from launch to running
+        Running VMStatus = ¡°Running"
 
-	Suspending VMStatus = "SUSPENDING" // from running to suspended
-	Suspended  VMStatus = "SUSPENDED"
+        Suspending VMStatus = ¡°Suspending" // from running to suspended
+        Suspended  VMStatus = ¡°Suspended"
+        Resuming VMStatus = ¡°Resuming" // from suspended to running
 
-	Rebooting VMStatus = "REBOOTING" // from running to running
+        Rebooting VMStatus = ¡°Rebooting" // from running to running
 
-	Termiating VMStatus = "TERMINATING" // from running, suspended to terminated
-	Termiated  VMStatus = "TERMINATED"
+        Terminating VMStatus = ¡°Terminating" // from running, suspended to terminated
+        Terminated  VMStatus = ¡°Terminated¡°
+
+        Failed  VMStatus = ¡°Failed¡°
 )
 
 type RegionInfo struct {
