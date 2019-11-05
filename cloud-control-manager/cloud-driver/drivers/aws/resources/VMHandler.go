@@ -541,7 +541,7 @@ func (vmHandler *AwsVMHandler) GetVMStatus(vmID string) (irs.VMStatus, error) {
 		}
 	}
 
-	return irs.VMStatus(""), nil
+	return irs.VMStatus(""), errors.New("상태 정보를 찾을 수 없습니다.")
 }
 
 func (vmHandler *AwsVMHandler) ListVMStatus() ([]*irs.VMStatusInfo, error) {

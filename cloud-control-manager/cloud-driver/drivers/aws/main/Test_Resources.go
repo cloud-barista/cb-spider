@@ -560,9 +560,9 @@ func main() {
 	//handleKeyPair()
 	//handlePublicIP() // PublicIP 생성 후 conf
 
-	//handleVNetwork() //VPC
+	handleVNetwork() //VPC
 	//handleImage() //AMI
-	handleVNic() //Lancard
+	//handleVNic() //Lancard
 	//handleSecurity()
 
 	/*
