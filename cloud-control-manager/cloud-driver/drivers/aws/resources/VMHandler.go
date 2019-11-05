@@ -505,6 +505,36 @@ func (vmHandler *AwsVMHandler) ListVM() ([]*irs.VMInfo, error) {
 	return vmInfoList, nil
 }
 
+func ConvertVMStatusString(vmStatus string) (irs.VMStatus, error) {
+	var resultStatus string
+	cblogger.Infof("vmStatus : [%s]", vmStatus)
+
+	if strings.EqualFold(vmStatus, "pending") {
+		//resultStatus = "Creating"	// VM 생성 시점의 Pending은 CB에서는 조회가 안되기 때문에 일단 처리하지 않음.
+		resultStatus = "Resuming" // Resume 요청을 받아서 재기동되는 단계에도 Pending이 있기 때문에 Pending은 Resuming으로 맵핑함.
+	} else if strings.EqualFold(vmStatus, "running") {
+		resultStatus = "Running"
+	} else if strings.EqualFold(vmStatus, "stopping") {
+		resultStatus = "Suspending"
+	} else if strings.EqualFold(vmStatus, "stopped") {
+		resultStatus = "Suspended"
+		//} else if strings.EqualFold(vmStatus, "pending") {
+		//	resultStatus = "Resuming"
+	} else if strings.EqualFold(vmStatus, "Rebooting") {
+		resultStatus = "Rebooting"
+	} else if strings.EqualFold(vmStatus, "shutting-down") {
+		resultStatus = "Terminating"
+	} else if strings.EqualFold(vmStatus, "Terminated") {
+		resultStatus = "Terminated"
+	} else {
+		//resultStatus = "Failed"
+		cblogger.Errorf("vmStatus [%s]와 일치하는 맵핑 정보를 찾지 못 함.", vmStatus)
+		return irs.VMStatus("Failed"), errors.New(vmStatus + "와 일치하는 CB VM 상태정보를 찾을 수 없습니다.")
+	}
+	cblogger.Infof("VM 상태 치환 : [%s] ==> [%s]", vmStatus, resultStatus)
+	return irs.VMStatus(resultStatus), nil
+}
+
 //SHUTTING-DOWN / TERMINATED
 func (vmHandler *AwsVMHandler) GetVMStatus(vmID string) (irs.VMStatus, error) {
 	cblogger.Infof("vmID : [%s]", vmID)
@@ -529,19 +559,21 @@ func (vmHandler *AwsVMHandler) GetVMStatus(vmID string) (irs.VMStatus, error) {
 			// Print the error, cast err to awserr.Error to get the Code and Message from an error.
 			cblogger.Error(err.Error())
 		}
-		return irs.VMStatus(""), err
+		return irs.VMStatus("Failed"), err
 	}
 
 	cblogger.Info("Success", result)
 	for _, i := range result.Reservations {
 		for _, vm := range i.Instances {
-			vmStatus := strings.ToUpper(*vm.State.Name)
-			cblogger.Info(vmID, " EC2 Status : ", vmStatus)
-			return irs.VMStatus(vmStatus), nil
+			//vmStatus := strings.ToUpper(*vm.State.Name)
+			cblogger.Info(vmID, " EC2 Status : ", *vm.State.Name)
+			vmStatus, errStatus := ConvertVMStatusString(*vm.State.Name)
+			return vmStatus, errStatus
+			//return irs.VMStatus(vmStatus), nil
 		}
 	}
 
-	return irs.VMStatus(""), errors.New("상태 정보를 찾을 수 없습니다.")
+	return irs.VMStatus("Failed"), errors.New("상태 정보를 찾을 수 없습니다.")
 }
 
 func (vmHandler *AwsVMHandler) ListVMStatus() ([]*irs.VMStatusInfo, error) {
@@ -574,10 +606,13 @@ func (vmHandler *AwsVMHandler) ListVMStatus() ([]*irs.VMStatusInfo, error) {
 		for _, vm := range i.Instances {
 			//*vm.State.Name
 			//*vm.InstanceId
+
+			vmStatus, _ := ConvertVMStatusString(*vm.State.Name)
 			vmStatusInfo := irs.VMStatusInfo{
 				VmId: *vm.InstanceId,
 				//VmStatus: vmHandler.GetVMStatus(*vm.InstanceId),
-				VmStatus: irs.VMStatus(strings.ToUpper(*vm.State.Name)),
+				//VmStatus: irs.VMStatus(strings.ToUpper(*vm.State.Name)),
+				VmStatus: vmStatus,
 			}
 			cblogger.Info(vmStatusInfo.VmId, " EC2 Status : ", vmStatusInfo.VmStatus)
 			vmStatusList = append(vmStatusList, &vmStatusInfo)
