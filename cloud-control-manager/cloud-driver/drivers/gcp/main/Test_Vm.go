@@ -1,23 +1,24 @@
 // Proof of Concepts of CB-Spider.
-// The CB-Spider is a sub-Framework of the Cloud-Barista Multi-Cloud Project.
+// The CB-Spider is sub-Framework of the Cloud-Barista Multi-Cloud Project.
 // The CB-Spider Mission is to connect all the clouds with a single interface.
 //
 //      * Cloud-Barista: https://github.com/cloud-barista
 //
 // This is a Cloud Driver Example for PoC Test.
 //
-// by hyokyung.kim@innogrid.co.kr, 2019.07.
+// by devunet@mz.co.kr, 2019.08.
 
 package main
 
 import (
 	"fmt"
 
-	testconf "./conf"
-	cblog "github.com/cloud-barista/cb-log"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/sirupsen/logrus"
+
+	testconf "./conf"
+	cblog "github.com/cloud-barista/cb-log"
 )
 
 var cblogger *logrus.Logger
@@ -39,7 +40,7 @@ func handleVM() {
 
 	handler := ResourceHandler.(irs.VMHandler)
 
-	VmID := "vm01"
+	VmID := "vm03"
 
 	for {
 		fmt.Println("VM Management")
@@ -68,11 +69,11 @@ func handleVM() {
 
 			case 1:
 				vmReqInfo := irs.VMReqInfo{
-					VMName: "vm01",
+					VMName: "vm03",
 					//ImageId:            config.Aws.ImageID,
 					VirtualNetworkId: "cb-vnet",
 					//NetworkInterfaceId: "eni-00befb6d8c3a87b24",
-					PublicIPId: "publicip-vm01",
+					PublicIPId: "publicip-vm03",
 					//SecurityGroupIds: []string{"sg-0df1c209ea1915e4b"},
 					//SecurityGroupIds: []string{config.Aws.SecurityGroupID},
 					VMSpecId: "f1-micro",
@@ -86,6 +87,8 @@ func handleVM() {
 				} else {
 					cblogger.Info("VM 생성 완료!!", vmInfo)
 					spew.Dump(vmInfo)
+					VmID = vmInfo.Name
+					cblogger.Infof("==>테스트를 위한 VM Name이 [%s]로 변경됨!!", VmID)
 				}
 
 			case 2:
