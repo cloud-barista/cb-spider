@@ -59,12 +59,14 @@ func (securityHandler *GCPSecurityHandler) CreateSecurity(securityReqInfo irs.Se
 	res, err := securityHandler.Client.Firewalls.Insert(projectID, fireWall).Do()
 	if err != nil {
 		cblogger.Error(err)
+
+		return irs.SecurityInfo{}, err
 	}
 	fmt.Println("create result : ", res)
 	time.Sleep(time.Second * 3)
-	secInfo, err := securityHandler.GetSecurity(securityReqInfo.Name)
+	secInfo, _ := securityHandler.GetSecurity(securityReqInfo.Name)
 
-	return secInfo, err
+	return secInfo, nil
 
 }
 
@@ -72,6 +74,10 @@ func (securityHandler *GCPSecurityHandler) ListSecurity() ([]*irs.SecurityInfo, 
 	//result, err := securityHandler.Client.ListAll(securityHandler.Ctx)
 	projectID := securityHandler.Credential.ProjectID
 	result, err := securityHandler.Client.Firewalls.List(projectID).Do()
+	if err != nil {
+		return nil, err
+	}
+
 	var securityInfo []*irs.SecurityInfo
 	for _, item := range result.Items {
 		name := item.Name
@@ -80,7 +86,7 @@ func (securityHandler *GCPSecurityHandler) ListSecurity() ([]*irs.SecurityInfo, 
 		securityInfo = append(securityInfo, &secInfo)
 	}
 
-	return securityInfo, err
+	return securityInfo, nil
 }
 
 func (securityHandler *GCPSecurityHandler) GetSecurity(securityID string) (irs.SecurityInfo, error) {
@@ -89,7 +95,7 @@ func (securityHandler *GCPSecurityHandler) GetSecurity(securityID string) (irs.S
 	security, err := securityHandler.Client.Firewalls.Get(projectID, securityID).Do()
 	if err != nil {
 		cblogger.Error(err)
-
+		return irs.SecurityInfo{}, err
 	}
 	var securityRules []irs.SecurityRuleInfo
 	for _, item := range security.Allowed {
@@ -138,7 +144,8 @@ func (securityHandler *GCPSecurityHandler) DeleteSecurity(securityID string) (bo
 	res, err := securityHandler.Client.Firewalls.Delete(projectID, securityID).Do()
 	if err != nil {
 		cblogger.Error(err)
+		return false, err
 	}
 	fmt.Println(res)
-	return true, err
+	return true, nil
 }

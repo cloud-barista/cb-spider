@@ -33,15 +33,16 @@ func (vNetworkHandler *GCPVNetworkHandler) CreateVNetwork(vNetworkReqInfo irs.VN
 	res, err := vNetworkHandler.Client.Networks.Insert(projectID, network).Do()
 	if err != nil {
 		cblogger.Error(err)
-
+		return irs.VNetworkInfo{}, err
 	}
-	fmt.Println(res)
+	cblogger.Info(res)
 
 	//생성되는데 시간이 필요 함. 약 20초정도?
 	time.Sleep(time.Second * 20)
 	info, err2 := vNetworkHandler.Client.Networks.Get(projectID, name).Do()
 	if err2 != nil {
 		cblogger.Error(err2)
+		return irs.VNetworkInfo{}, err2
 	}
 	networkInfo := irs.VNetworkInfo{
 		Name: info.Name,
@@ -86,6 +87,7 @@ func (vNetworkHandler *GCPVNetworkHandler) GetVNetwork(vNetworkID string) (irs.V
 	info, err := vNetworkHandler.Client.Networks.Get(projectID, name).Do()
 	if err != nil {
 		cblogger.Error(err)
+		return irs.VNetworkInfo{}, err
 	}
 
 	networkInfo := irs.VNetworkInfo{
@@ -105,6 +107,7 @@ func (vNetworkHandler *GCPVNetworkHandler) DeleteVNetwork(vNetworkID string) (bo
 	info, err := vNetworkHandler.Client.Networks.Delete(projectID, name).Do()
 	if err != nil {
 		cblogger.Error(err)
+		return false, err
 	}
 	fmt.Println(info)
 	return true, nil

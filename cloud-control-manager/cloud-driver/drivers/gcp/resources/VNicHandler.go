@@ -2,6 +2,7 @@ package resources
 
 import (
 	"context"
+	"errors"
 	"strconv"
 
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
@@ -22,19 +23,24 @@ type GCPVNicHandler struct {
 
 func (vNicHandler *GCPVNicHandler) CreateVNic(vNicReqInfo irs.VNicReqInfo) (irs.VNicInfo, error) {
 
-	return irs.VNicInfo{}, nil
+	return irs.VNicInfo{}, errors.New("Unsupported feature.")
 }
 
 func (vNicHandler *GCPVNicHandler) ListVNic() ([]*irs.VNicInfo, error) {
 	projectId := vNicHandler.Credential.ProjectID
 	zone := vNicHandler.Region.Zone
 	res, err := vNicHandler.Client.Instances.List(projectId, zone).Do()
+	if err != nil {
+		cblogger.Error(err)
+		return nil, err
+	}
+
 	var vNicInfo []*irs.VNicInfo
 	for _, item := range res.Items {
 		info := vNicHandler.mappingNetworkInfo(item)
 		vNicInfo = append(vNicInfo, &info)
 	}
-	return vNicInfo, err
+	return vNicInfo, nil
 }
 
 func (vNicHandler *GCPVNicHandler) GetVNic(vNicID string) (irs.VNicInfo, error) {
@@ -44,6 +50,7 @@ func (vNicHandler *GCPVNicHandler) GetVNic(vNicID string) (irs.VNicInfo, error) 
 	res, err := vNicHandler.Client.Instances.Get(projectId, zone, vNicID).Do()
 	if err != nil {
 		cblogger.Error(err)
+		return irs.VNicInfo{}, err
 	}
 	vNicInfo := irs.VNicInfo{
 		Id:        strconv.FormatUint(res.Id, 10),
@@ -60,12 +67,12 @@ func (vNicHandler *GCPVNicHandler) GetVNic(vNicID string) (irs.VNicInfo, error) 
 		},
 	}
 
-	return vNicInfo, err
+	return vNicInfo, nil
 }
 
 func (vNicHandler *GCPVNicHandler) DeleteVNic(vNicID string) (bool, error) {
 	//  networkInterface를 삭제 하는 API 및 기능이 없음
-	return true, nil
+	return false, errors.New("Unsupported feature.")
 }
 
 func (*GCPVNicHandler) mappingNetworkInfo(res *compute.Instance) irs.VNicInfo {
