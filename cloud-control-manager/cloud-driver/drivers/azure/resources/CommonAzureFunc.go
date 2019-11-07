@@ -19,7 +19,7 @@ const (
 	CBVMUser             = "cb-user"
 	//CBKeyPairPath        = "/cloud-control-manager/cloud-driver/driver-libs/.ssh-azure/"
 	// by powerkim, 2019.10.30
-	CBKeyPairPath        = "/cloud-driver-libs/.ssh-azure/"
+	CBKeyPairPath = "/cloud-driver-libs/.ssh-azure/"
 )
 
 // 서브넷 CIDR 생성 (CIDR C class 기준 생성)
@@ -77,3 +77,32 @@ func GetPublicKey(credentialInfo idrv.CredentialInfo, keyPairName string) (strin
 	}
 	return string(publicKeyBytes), nil
 }
+
+// Private KeyPair 정보 가져오기
+/*func GetPrivateKey(credentialInfo idrv.CredentialInfo, keyPairName string) (string, error) {
+	keyPairPath := os.Getenv("CBSPIDER_ROOT") + CBKeyPairPath
+	hashString, err := CreateHashString(credentialInfo)
+	if err != nil {
+		return "", err
+	}
+
+	privateKeyPath := keyPairPath + hashString + "--" + keyPairName + ".ppk"
+	privateKeyBytes, err := ioutil.ReadFile(privateKeyPath)
+	if err != nil {
+		return "", err
+	}
+	return string(privateKeyBytes), nil
+}*/
+
+func GetVNicIdByName(credentialInfo idrv.CredentialInfo, regionInfo idrv.RegionInfo, vNicName string) string {
+	return fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/networkInterfaces/%s", credentialInfo.SubscriptionId, regionInfo.ResourceGroup, vNicName)
+}
+
+/*func GetSecGroupIdByName(credentialInfo idrv.CredentialInfo, regionInfo idrv.RegionInfo, publicIPName string) string {
+	return fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/networkSecurityGroups/%s", credentialInfo.SubscriptionId, regionInfo.ResourceGroup, publicIPName)
+}*/
+
+/*func GetPublicIPIdByName(credentialInfo idrv.CredentialInfo, regionInfo idrv.RegionInfo, publicIPName string) string {
+	//"/subscriptions/cb592624-b77b-4a8f-bb13-0e5a48cae40f/resourceGroups/CB-GROUP/providers/Microsoft.Network/networkInterfaces/CB-VNic",
+	return fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/Microsoft.Network/networkInterfaces/%s", credentialInfo.SubscriptionId, regionInfo.ResourceGroup, publicIPName)
+}*/
