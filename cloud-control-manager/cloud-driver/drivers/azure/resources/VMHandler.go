@@ -15,6 +15,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2018-06-01/compute"
+	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2018-04-01/network"
 	"github.com/Azure/go-autorest/autorest/to"
 	cblog "github.com/cloud-barista/cb-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
@@ -36,6 +37,8 @@ type AzureVMHandler struct {
 	Region         idrv.RegionInfo
 	Ctx            context.Context
 	Client         *compute.VirtualMachinesClient
+	NicClient      *network.InterfacesClient
+	PublicIPClient *network.PublicIPAddressesClient
 }
 
 func (vmHandler *AzureVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, error) {
@@ -47,36 +50,30 @@ func (vmHandler *AzureVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 		return irs.VMInfo{}, createErr
 	}
 
+	// Check login method (keypair, password)
+	if vmReqInfo.VMUserPasswd != "" && vmReqInfo.KeyPairName != "" {
+		createErr := errors.New("Specifiy one login method, Password or Keypair")
+		return irs.VMInfo{}, createErr
+	}
+
+	// 리소스 Id 정보 매핑
+	vNicId := GetVNicIdByName(vmHandler.CredentialInfo, vmHandler.Region, vmReqInfo.NetworkInterfaceId)
+
 	vmOpts := compute.VirtualMachine{
 		Location: &vmHandler.Region.Region,
 		VirtualMachineProperties: &compute.VirtualMachineProperties{
 			HardwareProfile: &compute.HardwareProfile{
 				VMSize: compute.VirtualMachineSizeTypes(vmReqInfo.VMSpecId),
 			},
-			/*StorageProfile: &compute.StorageProfile{
-				ImageReference: &compute.ImageReference{
-					ID: &vmReqInfo.ImageId,
-				},
-			},*/
 			OsProfile: &compute.OSProfile{
 				ComputerName:  &vmReqInfo.VMName,
 				AdminUsername: to.StringPtr(CBVMUser),
-				//AdminPassword: &vmReqInfo.VMUserPasswd,
-				/*LinuxConfiguration: &compute.LinuxConfiguration{
-					SSH: &compute.SSHConfiguration{
-						PublicKeys: &[]compute.SSHPublicKey{
-							{
-								//Path: to.StringPtr(fmt.Sprintf("/home/%s/.ssh/authorized_keys", vmReqInfo.VMUserId)),
-								//KeyData: &sshKeyData,
-							},
-						},
-					},
-				},*/
 			},
 			NetworkProfile: &compute.NetworkProfile{
 				NetworkInterfaces: &[]compute.NetworkInterfaceReference{
 					{
-						ID: &vmReqInfo.NetworkInterfaceId,
+						//ID: &vmReqInfo.NetworkInterfaceId,
+						ID: to.StringPtr(vNicId),
 						NetworkInterfaceReferenceProperties: &compute.NetworkInterfaceReferenceProperties{
 							Primary: to.BoolPtr(true),
 						},
@@ -108,9 +105,7 @@ func (vmHandler *AzureVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 	}
 
 	// KeyPair 설정
-	if vmReqInfo.KeyPairName == "" {
-		vmOpts.OsProfile.AdminPassword = to.StringPtr(vmReqInfo.VMUserPasswd)
-	} else {
+	if vmReqInfo.KeyPairName != "" {
 		publicKey, err := GetPublicKey(vmHandler.CredentialInfo, vmReqInfo.KeyPairName)
 		if err != nil {
 			cblogger.Error(err)
@@ -126,6 +121,13 @@ func (vmHandler *AzureVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 				},
 			},
 		}
+
+		// KeyPair 정보 태깅 설정
+		vmOpts.Tags = map[string]*string{
+			"keypair": to.StringPtr(vmReqInfo.KeyPairName),
+		}
+	} else {
+		vmOpts.OsProfile.AdminPassword = to.StringPtr(vmReqInfo.VMUserPasswd)
 	}
 
 	future, err := vmHandler.Client.CreateOrUpdate(vmHandler.Ctx, vmHandler.Region.ResourceGroup, vmReqInfo.VMName, vmOpts)
@@ -143,7 +145,7 @@ func (vmHandler *AzureVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 	if err != nil {
 		cblogger.Error(err)
 	}
-	vmInfo := mappingServerInfo(vm)
+	vmInfo := vmHandler.mappingServerInfo(vm)
 
 	return vmInfo, nil
 }
@@ -259,7 +261,7 @@ func (vmHandler *AzureVMHandler) ListVM() ([]*irs.VMInfo, error) {
 
 	var vmList []*irs.VMInfo
 	for _, server := range serverList.Values() {
-		vmInfo := mappingServerInfo(server)
+		vmInfo := vmHandler.mappingServerInfo(server)
 		vmList = append(vmList, &vmInfo)
 	}
 
@@ -272,7 +274,7 @@ func (vmHandler *AzureVMHandler) GetVM(vmID string) (irs.VMInfo, error) {
 		return irs.VMInfo{}, err
 	}
 
-	vmInfo := mappingServerInfo(vm)
+	vmInfo := vmHandler.mappingServerInfo(vm)
 	return vmInfo, nil
 }
 
@@ -303,7 +305,7 @@ func getVmStatus(instanceView compute.VirtualMachineInstanceView) string {
 	return vmState
 }
 
-func mappingServerInfo(server compute.VirtualMachine) irs.VMInfo {
+func (vmHandler *AzureVMHandler) mappingServerInfo(server compute.VirtualMachine) irs.VMInfo {
 
 	// Get Default VM Info
 	vmInfo := irs.VMInfo{
@@ -331,8 +333,34 @@ func mappingServerInfo(server compute.VirtualMachine) irs.VMInfo {
 	// Set VNic Info
 	niList := *server.NetworkProfile.NetworkInterfaces
 	for _, ni := range niList {
-		if ni.NetworkInterfaceReferenceProperties != nil {
-			vmInfo.VirtualNetworkId = *ni.ID
+		if ni.ID != nil {
+			vmInfo.NetworkInterfaceId = *ni.ID
+		}
+	}
+
+	// Get VNic
+	nicIdArr := strings.Split(vmInfo.NetworkInterfaceId, "/")
+	nicName := nicIdArr[len(nicIdArr)-1]
+	vNic, _ := vmHandler.NicClient.Get(vmHandler.Ctx, vmHandler.Region.ResourceGroup, nicName, "")
+
+	vmInfo.SecurityGroupIds = []string{*vNic.NetworkSecurityGroup.ID}
+
+	// Get PrivateIP, PublicIpId
+	for _, ip := range *vNic.IPConfigurations {
+		if *ip.Primary {
+			// PrivateIP 정보 설정
+			vmInfo.PrivateIP = *ip.PrivateIPAddress
+
+			// PublicIP 정보 조회 및 설정
+			publicIPId := *ip.PublicIPAddress.ID
+			publicIPIdArr := strings.Split(publicIPId, "/")
+			publicIPName := publicIPIdArr[len(publicIPIdArr)-1]
+
+			publicIP, _ := vmHandler.PublicIPClient.Get(vmHandler.Ctx, vmHandler.Region.ResourceGroup, publicIPName, "")
+			vmInfo.PublicIP = *publicIP.IPAddress
+
+			// Subnet 정보 설정
+			vmInfo.VirtualNetworkId = *ip.InterfaceIPConfigurationPropertiesFormat.Subnet.ID
 		}
 	}
 
@@ -347,6 +375,14 @@ func mappingServerInfo(server compute.VirtualMachine) irs.VMInfo {
 	// Set BootDisk
 	if server.VirtualMachineProperties.StorageProfile.OsDisk.Name != nil {
 		vmInfo.VMBootDisk = *server.VirtualMachineProperties.StorageProfile.OsDisk.Name
+	}
+
+	// Get Keypair
+	tagList := server.Tags
+	for key, val := range tagList {
+		if key == "keypair" {
+			vmInfo.KeyPairName = *val
+		}
 	}
 
 	return vmInfo

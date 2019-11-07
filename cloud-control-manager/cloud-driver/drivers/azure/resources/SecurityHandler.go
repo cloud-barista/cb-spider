@@ -56,9 +56,9 @@ func (securityHandler *AzureSecurityHandler) CreateSecurity(securityReqInfo irs.
 			Name: to.StringPtr(fmt.Sprintf("%s-rules-%d", securityReqInfo.Name, idx+1)),
 			SecurityRulePropertiesFormat: &network.SecurityRulePropertiesFormat{
 				SourceAddressPrefix:      to.StringPtr("*"),
-				SourcePortRange:          to.StringPtr(rule.FromPort),
+				SourcePortRange:          to.StringPtr(rule.FromPort + "-" + rule.ToPort),
 				DestinationAddressPrefix: to.StringPtr("*"),
-				DestinationPortRange:     to.StringPtr(rule.ToPort),
+				DestinationPortRange:     to.StringPtr("*"),
 				Protocol:                 network.SecurityRuleProtocol(rule.IPProtocol),
 				Access:                   network.SecurityRuleAccess("Allow"),
 				Priority:                 to.Int32Ptr(priorityNum),
