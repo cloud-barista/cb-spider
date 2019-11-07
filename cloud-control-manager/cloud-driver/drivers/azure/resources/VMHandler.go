@@ -150,61 +150,64 @@ func (vmHandler *AzureVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 	return vmInfo, nil
 }
 
-func (vmHandler *AzureVMHandler) SuspendVM(vmID string) error {
+func (vmHandler *AzureVMHandler) SuspendVM(vmID string) (irs.VMStatus, error) {
 	future, err := vmHandler.Client.PowerOff(vmHandler.Ctx, vmHandler.Region.ResourceGroup, vmID)
 	if err != nil {
 		cblogger.Error(err)
-		return err
+		return irs.Failed, err
 	}
 	err = future.WaitForCompletionRef(vmHandler.Ctx, vmHandler.Client.Client)
 	if err != nil {
 		cblogger.Error(err)
-		return err
+		return irs.Failed, err
 	}
-	return nil
+
+	// Get VM Status
+	vmStatus, err := vmHandler.GetVMStatus(vmID)
+	return vmStatus, err
 }
 
-func (vmHandler *AzureVMHandler) ResumeVM(vmID string) error {
+func (vmHandler *AzureVMHandler) ResumeVM(vmID string) (irs.VMStatus, error) {
 	future, err := vmHandler.Client.Start(vmHandler.Ctx, vmHandler.Region.ResourceGroup, vmID)
 	if err != nil {
 		cblogger.Error(err)
-		return err
+		return irs.Failed, err
 	}
 	err = future.WaitForCompletionRef(vmHandler.Ctx, vmHandler.Client.Client)
 	if err != nil {
 		cblogger.Error(err)
-		return err
+		return irs.Failed, err
 	}
-	return nil
+	return irs.Resuming, nil
 }
 
-func (vmHandler *AzureVMHandler) RebootVM(vmID string) error {
+func (vmHandler *AzureVMHandler) RebootVM(vmID string) (irs.VMStatus, error) {
 	future, err := vmHandler.Client.Restart(vmHandler.Ctx, vmHandler.Region.ResourceGroup, vmID)
 	if err != nil {
 		cblogger.Error(err)
-		return err
+		return irs.Failed, err
 	}
 	err = future.WaitForCompletionRef(vmHandler.Ctx, vmHandler.Client.Client)
 	if err != nil {
 		cblogger.Error(err)
-		return err
+		return irs.Failed, err
 	}
-	return nil
+	return irs.Rebooting, nil
 }
 
-func (vmHandler *AzureVMHandler) TerminateVM(vmID string) error {
+func (vmHandler *AzureVMHandler) TerminateVM(vmID string) (irs.VMStatus, error) {
 	future, err := vmHandler.Client.Delete(vmHandler.Ctx, vmHandler.Region.ResourceGroup, vmID)
 	//future, err := vmHandler.Client.Deallocate(vmHandler.Ctx, CBResourceGroupName, vmID)
 	if err != nil {
 		cblogger.Error(err)
-		return err
+		return irs.Failed, err
 	}
 	err = future.WaitForCompletionRef(vmHandler.Ctx, vmHandler.Client.Client)
 	if err != nil {
 		cblogger.Error(err)
-		return err
+		return irs.Failed, err
 	}
-	return nil
+	return irs.NotExist, err
 }
 
 func (vmHandler *AzureVMHandler) ListVMStatus() ([]*irs.VMStatusInfo, error) {
@@ -243,7 +246,7 @@ func (vmHandler *AzureVMHandler) GetVMStatus(vmID string) (irs.VMStatus, error) 
 	instanceView, err := vmHandler.Client.InstanceView(vmHandler.Ctx, vmHandler.Region.ResourceGroup, vmID)
 	if err != nil {
 		cblogger.Error(err)
-		return "", err
+		return irs.Failed, nil
 	}
 
 	// Get powerState, provisioningState
@@ -278,7 +281,7 @@ func (vmHandler *AzureVMHandler) GetVM(vmID string) (irs.VMInfo, error) {
 	return vmInfo, nil
 }
 
-func getVmStatus(instanceView compute.VirtualMachineInstanceView) string {
+func getVmStatus(instanceView compute.VirtualMachineInstanceView) irs.VMStatus {
 	var powerState, provisioningState string
 
 	for _, stat := range *instanceView.Statuses {
@@ -291,18 +294,25 @@ func getVmStatus(instanceView compute.VirtualMachineInstanceView) string {
 		}
 	}
 
-	// Set VM Status Info
-	var vmState string
-	if powerState != "" && provisioningState != "" {
-		vmState = powerState + "(" + provisioningState + ")"
-	} else if powerState != "" && provisioningState == "" {
-		vmState = powerState
-	} else if powerState == "" && provisioningState != "" {
-		vmState = provisioningState
-	} else {
-		vmState = "-"
+	if strings.EqualFold(provisioningState, "failed") {
+		return irs.Failed
 	}
-	return vmState
+
+	// Set VM Status Info
+	var resultStatus string
+	switch powerState {
+	case "starting":
+		resultStatus = "Creating"
+	case "running":
+		resultStatus = "Running"
+	case "stopping":
+		resultStatus = "Suspending"
+	case "stopped":
+		resultStatus = "Suspended"
+	case "deleting":
+		resultStatus = "Terminating"
+	}
+	return irs.VMStatus(resultStatus)
 }
 
 func (vmHandler *AzureVMHandler) mappingServerInfo(server compute.VirtualMachine) irs.VMInfo {

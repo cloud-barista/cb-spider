@@ -69,7 +69,7 @@ func (cloudConn *AzureCloudConnection) CreateKeyPairHandler() (irs.KeyPairHandle
 
 func (cloudConn *AzureCloudConnection) CreateVNicHandler() (irs.VNicHandler, error) {
 	cblogger.Info("Azure Cloud Driver: called CreateVNicHandler()!")
-	vNicHandler := azrs.AzureVNicHandler{cloudConn.Region, cloudConn.Ctx, cloudConn.VNicClient, cloudConn.SubnetClient}
+	vNicHandler := azrs.AzureVNicHandler{cloudConn.CredentialInfo, cloudConn.Region, cloudConn.Ctx, cloudConn.VNicClient, cloudConn.SubnetClient}
 	return &vNicHandler, nil
 }
 
