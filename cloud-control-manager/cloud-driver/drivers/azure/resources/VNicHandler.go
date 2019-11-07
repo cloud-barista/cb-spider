@@ -12,10 +12,11 @@ import (
 )
 
 type AzureVNicHandler struct {
-	Region       idrv.RegionInfo
-	Ctx          context.Context
-	NicClient    *network.InterfacesClient
-	SubnetClient *network.SubnetsClient
+	CredentialInfo idrv.CredentialInfo
+	Region         idrv.RegionInfo
+	Ctx            context.Context
+	NicClient      *network.InterfacesClient
+	SubnetClient   *network.SubnetsClient
 }
 
 func (vNicHandler *AzureVNicHandler) setterVNic(ni network.Interface) *irs.VNicInfo {
@@ -48,6 +49,10 @@ func (vNicHandler *AzureVNicHandler) CreateVNic(vNicReqInfo irs.VNicReqInfo) (ir
 		return irs.VNicInfo{}, createErr
 	}
 
+	// 리소스 Id 정보 매핑
+	secGroupId := GetSecGroupIdByName(vNicHandler.CredentialInfo, vNicHandler.Region, vNicReqInfo.SecurityGroupIds[0])
+	publicIPId := GetPublicIPIdByName(vNicHandler.CredentialInfo, vNicHandler.Region, vNicReqInfo.PublicIPid)
+
 	subnet, err := vNicHandler.SubnetClient.Get(vNicHandler.Ctx, vNicHandler.Region.ResourceGroup, CBVirutalNetworkName, vNicReqInfo.VNetName, "")
 
 	var ipConfigArr []network.InterfaceIPConfiguration
@@ -60,7 +65,7 @@ func (vNicHandler *AzureVNicHandler) CreateVNic(vNicReqInfo irs.VNicReqInfo) (ir
 	}
 	if vNicReqInfo.PublicIPid != "" {
 		ipConfig.PublicIPAddress = &network.PublicIPAddress{
-			ID: &vNicReqInfo.PublicIPid,
+			ID: to.StringPtr(publicIPId),
 		}
 	}
 	ipConfigArr = append(ipConfigArr, ipConfig)
@@ -74,7 +79,7 @@ func (vNicHandler *AzureVNicHandler) CreateVNic(vNicReqInfo irs.VNicReqInfo) (ir
 
 	if len(vNicReqInfo.SecurityGroupIds) != 0 {
 		createOpts.NetworkSecurityGroup = &network.SecurityGroup{
-			ID: &vNicReqInfo.SecurityGroupIds[0],
+			ID: to.StringPtr(secGroupId),
 		}
 	}
 

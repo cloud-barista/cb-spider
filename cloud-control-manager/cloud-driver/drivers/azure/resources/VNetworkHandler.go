@@ -139,5 +139,23 @@ func (vNetworkHandler *AzureVNetworkHandler) DeleteVNetwork(vNetworkID string) (
 	if err != nil {
 		return false, err
 	}
+
+	// 서브넷이 없을 경우 해당 VNetwork도 함께 삭제 처리
+	vNetworkList, err := vNetworkHandler.ListVNetwork()
+	if err != nil {
+		return false, err
+	}
+
+	if len(vNetworkList) == 0 {
+		future, err := vNetworkHandler.Client.Delete(vNetworkHandler.Ctx, vNetworkHandler.Region.ResourceGroup, CBVirutalNetworkName)
+		if err != nil {
+			return false, err
+		}
+		err = future.WaitForCompletionRef(vNetworkHandler.Ctx, vNetworkHandler.Client.Client)
+		if err != nil {
+			return false, err
+		}
+	}
+
 	return true, nil
 }
