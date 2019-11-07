@@ -50,7 +50,7 @@ const (
 
 	Terminating VMStatus = "Terminating" // from running, suspended to terminated
 	Terminated  VMStatus = "Terminated"
-	NotExist  VMStatus = ¡°NotExist¡°  // VM does not exist
+	NotExist  VMStatus = "NotExist" // VM does not exist
 
 	Failed VMStatus = "Failed"
 )
