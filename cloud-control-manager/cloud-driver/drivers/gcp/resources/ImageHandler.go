@@ -2,6 +2,7 @@ package resources
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -47,7 +48,7 @@ name, sourceDisk(sourceImage),storageLocations(배열 ex : ["asia"])
 
 func (imageHandler *GCPImageHandler) CreateImage(imageReqInfo irs.ImageReqInfo) (irs.ImageInfo, error) {
 
-	return irs.ImageInfo{}, nil
+	return irs.ImageInfo{}, errors.New("Feature not implemented.")
 }
 
 func (imageHandler *GCPImageHandler) ListImage() ([]*irs.ImageInfo, error) {
@@ -57,6 +58,7 @@ func (imageHandler *GCPImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 	list, err := imageHandler.Client.Images.List(projectId).Do()
 	if err != nil {
 		cblogger.Error(err)
+		return nil, err
 	}
 	var imageList []*irs.ImageInfo
 	for _, item := range list.Items {
@@ -65,7 +67,7 @@ func (imageHandler *GCPImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 	}
 
 	spew.Dump(imageList)
-	return imageList, err
+	return imageList, nil
 }
 
 func (imageHandler *GCPImageHandler) GetImage(imageID string) (irs.ImageInfo, error) {
@@ -74,9 +76,10 @@ func (imageHandler *GCPImageHandler) GetImage(imageID string) (irs.ImageInfo, er
 	image, err := imageHandler.Client.Images.Get(projectId, imageID).Do()
 	if err != nil {
 		cblogger.Error(err)
+		return irs.ImageInfo{}, err
 	}
 	imageInfo := mappingImageInfo(image)
-	return imageInfo, err
+	return imageInfo, nil
 }
 
 func (imageHandler *GCPImageHandler) DeleteImage(imageID string) (bool, error) {
@@ -85,6 +88,7 @@ func (imageHandler *GCPImageHandler) DeleteImage(imageID string) (bool, error) {
 	res, err := imageHandler.Client.Images.Delete(projectId, imageID).Do()
 	if err != nil {
 		cblogger.Error(err)
+		return false, err
 	}
 	fmt.Println(res)
 	return true, err

@@ -10,6 +10,7 @@ import (
 
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
+	"github.com/davecgh/go-spew/spew"
 	compute "google.golang.org/api/compute/v1"
 )
 
@@ -25,21 +26,34 @@ type GCPPublicIPHandler struct {
 // 추가 또는 삭제 시에는 networkInterface Name, zone, instananceName, projectId, accessConfig Name 등을 알아야 한다.
 
 func (publicIpHandler *GCPPublicIPHandler) CreatePublicIP(publicIPReqInfo irs.PublicIPReqInfo) (irs.PublicIPInfo, error) {
+	cblogger.Info(publicIPReqInfo)
+
 	projectID := publicIpHandler.Credential.ProjectID
 	region := publicIpHandler.Region.Region
 	publicIpName := publicIPReqInfo.Name
 	address := &compute.Address{
 		Name: publicIpName,
 	}
-	publicIpHandler.Client.Addresses.Insert(projectID, region, address).Do()
+
+	result, errInsert := publicIpHandler.Client.Addresses.Insert(projectID, region, address).Do()
+	if errInsert != nil {
+		cblogger.Error("PublicIp 생성 실패1!")
+		cblogger.Error(errInsert)
+		return irs.PublicIPInfo{}, errInsert
+	}
+	cblogger.Info("PublicIP 생성 요청 성공 - 정보 조회를 위해 3초간 대기")
+	cblogger.Info(result)
 	time.Sleep(time.Second * 3)
 
 	publicIPInfo, err := publicIpHandler.GetPublicIP(publicIpName)
 	if err != nil {
+		cblogger.Error("PublicIp 생성 실패!")
 		cblogger.Error(err)
+		return irs.PublicIPInfo{}, err
 	}
+	cblogger.Info(publicIPInfo)
 
-	return publicIPInfo, err
+	return publicIPInfo, nil
 }
 
 func (publicIpHandler *GCPPublicIPHandler) ListPublicIP() ([]*irs.PublicIPInfo, error) {
@@ -47,9 +61,12 @@ func (publicIpHandler *GCPPublicIPHandler) ListPublicIP() ([]*irs.PublicIPInfo, 
 	region := publicIpHandler.Region.Region
 
 	list, err := publicIpHandler.Client.Addresses.List(projectID, region).Do()
+	spew.Dump(list)
 	if err != nil {
 		cblogger.Error(err)
+		return nil, err
 	}
+
 	var publicIpInfoArr []*irs.PublicIPInfo
 	for _, item := range list.Items {
 		var publicInfo irs.PublicIPInfo
@@ -86,12 +103,14 @@ func (publicIpHandler *GCPPublicIPHandler) GetPublicIP(publicIPID string) (irs.P
 	info, err := publicIpHandler.Client.Addresses.Get(projectID, region, name).Do()
 	if err != nil {
 		cblogger.Error(err)
+		return irs.PublicIPInfo{}, err
 	}
 
 	//바인딩 하기위해 []byte로 변환 처리
-	infoByte, err := info.MarshalJSON()
-	if err != nil {
-		cblogger.Error(err)
+	infoByte, err2 := info.MarshalJSON()
+	if err2 != nil {
+		cblogger.Error(err2)
+		return irs.PublicIPInfo{}, err2
 	}
 
 	var publicInfo irs.PublicIPInfo
@@ -116,11 +135,13 @@ func (publicIpHandler *GCPPublicIPHandler) GetPublicIP(publicIPID string) (irs.P
 
 	publicInfo.KeyValueList = keyValueList
 
-	if err != nil {
-		cblogger.Error(err)
-	}
+	/*
+		if err != nil {
+			cblogger.Error(err)
+		}
+	*/
 
-	return publicInfo, err
+	return publicInfo, nil
 }
 
 func (publicIpHandler *GCPPublicIPHandler) DeletePublicIP(publicIPID string) (bool, error) {
@@ -131,6 +152,7 @@ func (publicIpHandler *GCPPublicIPHandler) DeletePublicIP(publicIPID string) (bo
 	info, err := publicIpHandler.Client.Addresses.Delete(projectID, region, name).Do()
 	if err != nil {
 		cblogger.Error(err)
+		return false, err
 	}
 	fmt.Println(info)
 
