@@ -50,6 +50,7 @@ const (
 
 	Terminating VMStatus = "Terminating" // from running, suspended to terminated
 	Terminated  VMStatus = "Terminated"
+	NotExist  VMStatus = ¡°NotExist¡°  // VM does not exist
 
 	Failed VMStatus = "Failed"
 )
@@ -88,10 +89,11 @@ type VMInfo struct {
 
 type VMHandler interface {
 	StartVM(vmReqInfo VMReqInfo) (VMInfo, error)
-	SuspendVM(vmID string) error
-	ResumeVM(vmID string) error
-	RebootVM(vmID string) error
-	TerminateVM(vmID string) error
+
+	SuspendVM(vmID string) (VMStatus, error)
+	ResumeVM(vmID string) (VMStatus, error)
+	RebootVM(vmID string) (VMStatus, error)
+	TerminateVM(vmID string) (VMStatus, error)
 
 	ListVMStatus() ([]*VMStatusInfo, error)
 	GetVMStatus(vmID string) (VMStatus, error)
