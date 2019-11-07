@@ -82,7 +82,16 @@ func (cloudConn *AzureCloudConnection) CreatePublicIPHandler() (irs.PublicIPHand
 
 func (cloudConn *AzureCloudConnection) CreateVMHandler() (irs.VMHandler, error) {
 	cblogger.Info("Azure Cloud Driver: called CreateVMHandler()!")
-	vmHandler := azrs.AzureVMHandler{cloudConn.CredentialInfo, cloudConn.Region, cloudConn.Ctx, cloudConn.VMClient, cloudConn.VNicClient, cloudConn.PublicIPClient, cloudConn.DiskClient}
+	vmHandler := azrs.AzureVMHandler{
+		CredentialInfo: cloudConn.CredentialInfo,
+		Region:         cloudConn.Region,
+		Ctx:            cloudConn.Ctx,
+		Client:         cloudConn.VMClient,
+		SubnetClient:   cloudConn.SubnetClient,
+		NicClient:      cloudConn.VNicClient,
+		PublicIPClient: cloudConn.PublicIPClient,
+		DiskClient:     cloudConn.DiskClient,
+	}
 	return &vmHandler, nil
 }
 
