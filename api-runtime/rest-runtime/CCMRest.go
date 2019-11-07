@@ -667,16 +667,16 @@ func terminateVM(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
 	}
 
-	err = handler.TerminateVM(c.Param("VmId"))
-	if err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
-	}
-
-        resultInfo := BooleanInfo{
-                Result: "true",
+	info, err := handler.TerminateVM(c.Param("VmId"))
+        if err != nil {
+                return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
         }
 
-	return c.JSON(http.StatusOK, &resultInfo)
+        resultInfo := StatusInfo{
+                Status: string(info),
+        }
+
+        return c.JSON(http.StatusOK, &resultInfo)
 }
 
 func listVMStatus(c echo.Context) error {
@@ -749,13 +749,16 @@ func controlVM(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
 	}
 
+
+	var info cres.VMStatus
+
 	switch strings.ToLower(action) {
 	case "suspend":
-		err = handler.SuspendVM(vmID)
+		info, err = handler.SuspendVM(vmID)
 	case "resume":
-		err = handler.ResumeVM(vmID)
+		info, err = handler.ResumeVM(vmID)
 	case "reboot":
-		err = handler.RebootVM(vmID)
+		info, err = handler.RebootVM(vmID)
 	default:
 		errmsg := action + " is not a valid action!!"
 		return echo.NewHTTPError(http.StatusInternalServerError, errmsg)
@@ -764,10 +767,9 @@ func controlVM(c echo.Context) error {
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
-
-        resultInfo := BooleanInfo{
-                Result: "true",
+        resultInfo := StatusInfo{
+                Status: string(info),
         }
 
-	return c.JSON(http.StatusOK, &resultInfo)
+        return c.JSON(http.StatusOK, &resultInfo)
 }
