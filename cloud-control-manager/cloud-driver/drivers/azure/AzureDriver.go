@@ -83,6 +83,10 @@ func (driver *AzureDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (ico
 	if err != nil {
 		return nil, err
 	}
+	Ctx, DiskClient, err := getDiskClient(connectionInfo.CredentialInfo)
+	if err != nil {
+		return nil, err
+	}
 
 	iConn := azcon.AzureCloudConnection{
 		CredentialInfo:      connectionInfo.CredentialInfo,
@@ -97,6 +101,7 @@ func (driver *AzureDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (ico
 		IPConfigClient:      IPConfigClient,
 		SubnetClient:        SubnetClient,
 		VMImageClient:       VMImageClient,
+		DiskClient:          DiskClient,
 	}
 	return &iConn, nil
 }
@@ -230,6 +235,20 @@ func getVMImageClient(credential idrv.CredentialInfo) (context.Context, *compute
 	ctx, _ := context.WithTimeout(context.Background(), 600*time.Second)
 
 	return ctx, &vmImageClient, nil
+}
+
+func getDiskClient(credential idrv.CredentialInfo) (context.Context, *compute.DisksClient, error) {
+	config := auth.NewClientCredentialsConfig(credential.ClientId, credential.ClientSecret, credential.TenantId)
+	authorizer, err := config.Authorizer()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	diskClient := compute.NewDisksClient(credential.SubscriptionId)
+	diskClient.Authorizer = authorizer
+	ctx, _ := context.WithTimeout(context.Background(), 600*time.Second)
+
+	return ctx, &diskClient, nil
 }
 
 var TestDriver AzureDriver

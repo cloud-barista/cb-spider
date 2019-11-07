@@ -39,6 +39,7 @@ type AzureVMHandler struct {
 	Client         *compute.VirtualMachinesClient
 	NicClient      *network.InterfacesClient
 	PublicIPClient *network.PublicIPAddressesClient
+	DiskClient     *compute.DisksClient
 }
 
 func (vmHandler *AzureVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, error) {
@@ -121,13 +122,16 @@ func (vmHandler *AzureVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 				},
 			},
 		}
-
-		// KeyPair 정보 태깅 설정
-		vmOpts.Tags = map[string]*string{
-			"keypair": to.StringPtr(vmReqInfo.KeyPairName),
-		}
 	} else {
 		vmOpts.OsProfile.AdminPassword = to.StringPtr(vmReqInfo.VMUserPasswd)
+	}
+
+	// VM 정보 태깅 설정
+	/*vmOpts.Tags = map[string]*string{
+		"vmName": to.StringPtr(vmReqInfo.VMName),
+	}*/
+	if vmReqInfo.KeyPairName != "" {
+		vmOpts.Tags["keypair"] = to.StringPtr(vmReqInfo.KeyPairName)
 	}
 
 	future, err := vmHandler.Client.CreateOrUpdate(vmHandler.Ctx, vmHandler.Region.ResourceGroup, vmReqInfo.VMName, vmOpts)
@@ -196,8 +200,17 @@ func (vmHandler *AzureVMHandler) RebootVM(vmID string) (irs.VMStatus, error) {
 }
 
 func (vmHandler *AzureVMHandler) TerminateVM(vmID string) (irs.VMStatus, error) {
+
+	// VM 삭제 시 OS Disk도 함께 삭제 처리
+	// VM OSDisk 이름 가져오기
+	vmInfo, err := vmHandler.GetVM(vmID)
+	if err != nil {
+		return irs.Failed, err
+	}
+	osDiskName := vmInfo.VMBootDisk
+
+	// VM 삭제
 	future, err := vmHandler.Client.Delete(vmHandler.Ctx, vmHandler.Region.ResourceGroup, vmID)
-	//future, err := vmHandler.Client.Deallocate(vmHandler.Ctx, CBResourceGroupName, vmID)
 	if err != nil {
 		cblogger.Error(err)
 		return irs.Failed, err
@@ -207,7 +220,20 @@ func (vmHandler *AzureVMHandler) TerminateVM(vmID string) (irs.VMStatus, error) 
 		cblogger.Error(err)
 		return irs.Failed, err
 	}
-	return irs.NotExist, err
+
+	// OS Disk 삭제
+	diskFuture, err := vmHandler.DiskClient.Delete(vmHandler.Ctx, vmHandler.Region.ResourceGroup, osDiskName)
+	if err != nil {
+		cblogger.Error(err)
+		return irs.Failed, err
+	}
+	err = diskFuture.WaitForCompletionRef(vmHandler.Ctx, vmHandler.Client.Client)
+	if err != nil {
+		cblogger.Error(err)
+		return irs.Failed, err
+	}
+
+	return irs.NotExist, nil
 }
 
 func (vmHandler *AzureVMHandler) ListVMStatus() ([]*irs.VMStatusInfo, error) {
@@ -246,7 +272,7 @@ func (vmHandler *AzureVMHandler) GetVMStatus(vmID string) (irs.VMStatus, error) 
 	instanceView, err := vmHandler.Client.InstanceView(vmHandler.Ctx, vmHandler.Region.ResourceGroup, vmID)
 	if err != nil {
 		cblogger.Error(err)
-		return irs.Failed, nil
+		return irs.Failed, err
 	}
 
 	// Get powerState, provisioningState
@@ -362,12 +388,14 @@ func (vmHandler *AzureVMHandler) mappingServerInfo(server compute.VirtualMachine
 			vmInfo.PrivateIP = *ip.PrivateIPAddress
 
 			// PublicIP 정보 조회 및 설정
-			publicIPId := *ip.PublicIPAddress.ID
-			publicIPIdArr := strings.Split(publicIPId, "/")
-			publicIPName := publicIPIdArr[len(publicIPIdArr)-1]
+			if ip.PublicIPAddress != nil {
+				publicIPId := *ip.PublicIPAddress.ID
+				publicIPIdArr := strings.Split(publicIPId, "/")
+				publicIPName := publicIPIdArr[len(publicIPIdArr)-1]
 
-			publicIP, _ := vmHandler.PublicIPClient.Get(vmHandler.Ctx, vmHandler.Region.ResourceGroup, publicIPName, "")
-			vmInfo.PublicIP = *publicIP.IPAddress
+				publicIP, _ := vmHandler.PublicIPClient.Get(vmHandler.Ctx, vmHandler.Region.ResourceGroup, publicIPName, "")
+				vmInfo.PublicIP = *publicIP.IPAddress
+			}
 
 			// Subnet 정보 설정
 			vmInfo.VirtualNetworkId = *ip.InterfaceIPConfigurationPropertiesFormat.Subnet.ID
