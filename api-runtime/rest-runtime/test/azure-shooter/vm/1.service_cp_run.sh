@@ -5,7 +5,8 @@ source ../setup.env
 CONNECT_NAME=${CONNECT_NAMES[0]}
 
 echo ========================== $CONNECT_NAME
-PUBLIC_IPS=`curl -sX GET http://$RESTSERVER:1024/publicip/publicipt01-powerkim?connection_name=azure-northeu-config |json_pp |grep "\"PublicIP\"" |awk '{print $3}' |sed 's/"//g' |sed 's/,//g'`
+PUBLIC_IPS=`curl -sX GET http://$RESTSERVER:1024/publicip/publicipt01-powerkim?connection_name=$CONNECT_NAME |json_pp |grep "\"PublicIP\"" |awk '{print $3}' |sed 's/"//g' |sed 's/,//g'`
+# 137.135.167.9
 for PUBLIC_IP in ${PUBLIC_IPS}
 do
         echo $CONNECT_NAME : copy testsvc into ${PUBLIC_IP} ...
