@@ -162,9 +162,10 @@ func (vNetworkHandler *OpenStackVNetworkHandler) DeleteVNetwork(vNetworkID strin
 	}
 
 	// Delete Interface
-	if ok, err := vNetworkHandler.DeleteInterface(subnet.ID, *routerId); !ok {
+	vNetworkHandler.DeleteInterface(subnet.ID, *routerId)
+	/*if ok, err := vNetworkHandler.DeleteInterface(subnet.ID, *routerId); !ok {
 		return false, err
-	}
+	}*/
 
 	// Delete Subnet
 	networkId, _ := GetCBVNetId(vNetworkHandler.Client)
@@ -174,6 +175,29 @@ func (vNetworkHandler *OpenStackVNetworkHandler) DeleteVNetwork(vNetworkID strin
 	err = subnets.Delete(vNetworkHandler.Client, vNetworkID).ExtractErr()
 	if err != nil {
 		return false, err
+	}
+
+	// 마지막 서브넷을 삭제할 경우 VNetwork, Router 삭제
+	list, err := vNetworkHandler.ListVNetwork()
+	if err != nil {
+		return false, err
+	}
+	if len(list) == 0 {
+
+		// Delete Router
+		if ok, err := vNetworkHandler.DeleteRouter(subnet.Name); !ok {
+			return false, err
+		}
+
+		// Delete VNetwork
+		networkId, err := GetCBVNetId(vNetworkHandler.Client)
+		if err != nil {
+			return false, err
+		}
+		err = networks.Delete(vNetworkHandler.Client, networkId).ExtractErr()
+		if err != nil {
+			return false, err
+		}
 	}
 
 	return true, nil
