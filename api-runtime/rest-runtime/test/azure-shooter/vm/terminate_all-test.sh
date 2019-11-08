@@ -7,6 +7,6 @@ do
 
 	VM_ID=vm-powerkim01
 	echo ....terminate ${VM_ID} ...
-	curl -sX DELETE http://$RESTSERVER:1024/vm/${VM_ID}?connection_name=${NAME}
+	curl -sX DELETE http://$RESTSERVER:1024/vm/${VM_ID}?connection_name=${NAME} &
 done
 
