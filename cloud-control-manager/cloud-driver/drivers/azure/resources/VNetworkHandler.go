@@ -131,7 +131,7 @@ func (vNetworkHandler *AzureVNetworkHandler) GetVNetwork(vNetworkID string) (irs
 }
 
 func (vNetworkHandler *AzureVNetworkHandler) DeleteVNetwork(vNetworkID string) (bool, error) {
-	future, err := vNetworkHandler.SubnetClient.Delete(vNetworkHandler.Ctx, CBResourceGroupName, CBVirutalNetworkName, vNetworkID)
+	future, err := vNetworkHandler.SubnetClient.Delete(vNetworkHandler.Ctx, vNetworkHandler.Region.ResourceGroup, CBVirutalNetworkName, vNetworkID)
 	if err != nil {
 		return false, err
 	}
