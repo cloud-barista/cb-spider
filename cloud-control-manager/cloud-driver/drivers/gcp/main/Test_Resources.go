@@ -6,7 +6,7 @@
 //
 // This is a Cloud Driver Example for PoC Test.
 //
-// by devunet@mz.co.kr, 2019.08.
+// by devunet@mz.co.kr, 2019.11.
 
 package main
 
@@ -40,7 +40,7 @@ func handlePublicIP() {
 
 	handler := ResourceHandler.(irs.PublicIPHandler)
 
-	reqPublicIP := "34.84.54.185"
+	reqPublicIP := "publicip-vm01"
 	cblogger.Info("reqPublicIP : ", reqPublicIP)
 
 	for {

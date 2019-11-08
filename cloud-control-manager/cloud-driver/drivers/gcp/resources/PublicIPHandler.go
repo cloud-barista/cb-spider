@@ -1,3 +1,14 @@
+// Proof of Concepts of CB-Spider.
+// The CB-Spider is a sub-Framework of the Cloud-Barista Multi-Cloud Project.
+// The CB-Spider Mission is to connect all the clouds with a single interface.
+//
+//      * Cloud-Barista: https://github.com/cloud-barista
+//
+// This is a Cloud Driver Example for PoC Test.
+//
+// program by ysjeon@mz.co.kr, 2019.07.
+// modify by devunet@mz.co.kr, 2019.11.
+
 package resources
 
 import (
@@ -96,19 +107,27 @@ func (publicIpHandler *GCPPublicIPHandler) ListPublicIP() ([]*irs.PublicIPInfo, 
 }
 
 func (publicIpHandler *GCPPublicIPHandler) GetPublicIP(publicIPID string) (irs.PublicIPInfo, error) {
+	cblogger.Infof("publicIPID : [%s]", publicIPID)
 	projectID := publicIpHandler.Credential.ProjectID
 	region := publicIpHandler.Region.Region
 	name := publicIPID // name or resource ID
 
 	info, err := publicIpHandler.Client.Addresses.Get(projectID, region, name).Do()
+	//cblogger.Info(info)
+	spew.Dump(info)
 	if err != nil {
+		cblogger.Error("PublicIP 정보 조회 실패")
 		cblogger.Error(err)
 		return irs.PublicIPInfo{}, err
 	}
+	cblogger.Infof("PublicIP[%s] 정보 조회 API 응답 수신", publicIPID)
 
 	//바인딩 하기위해 []byte로 변환 처리
 	infoByte, err2 := info.MarshalJSON()
+	cblogger.Info(infoByte)
+	//spew.Dump(infoByte)
 	if err2 != nil {
+		cblogger.Error("JSON 변환 실패")
 		cblogger.Error(err2)
 		return irs.PublicIPInfo{}, err2
 	}
@@ -128,19 +147,15 @@ func (publicIpHandler *GCPPublicIPHandler) GetPublicIP(publicIPID string) (irs.P
 	var result map[string]interface{}
 
 	json.Unmarshal(infoByte, &result)
+	//spew.Dump(result)
+	//cblogger.Info(result)
+
 	keyValueList = GetKeyValueList(result)
 	// for key, value := range result {
 	// 	keyValueList = append(keyValueList, irs.KeyValue{key, value})
 	// }
 
 	publicInfo.KeyValueList = keyValueList
-
-	/*
-		if err != nil {
-			cblogger.Error(err)
-		}
-	*/
-
 	return publicInfo, nil
 }
 

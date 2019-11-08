@@ -6,7 +6,8 @@
 //
 // This is a Cloud Driver Example for PoC Test.
 //
-// by hyokyung.kim@innogrid.co.kr, 2019.07.
+// program by ysjeon@mz.co.kr, 2019.07.
+// modify by devunet@mz.co.kr, 2019.11.
 
 package resources
 
@@ -23,6 +24,7 @@ import (
 
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
+	"github.com/davecgh/go-spew/spew"
 )
 
 type GCPVMHandler struct {
@@ -35,6 +37,7 @@ type GCPVMHandler struct {
 func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, error) {
 	// Set VM Create Information
 	// GCP 는 reqinfo에 ProjectID를 받아야 함.
+	cblogger.Info(vmReqInfo)
 
 	ctx := vmHandler.Ctx
 	vmName := vmReqInfo.VMName
@@ -45,23 +48,39 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 	// email을 어디다가 넣지? 이것또한 문제넹
 	clientEmail := vmHandler.Credential.ClientEmail
 
-	cblogger.Info("PublicIp 생성 시작")
-	// PublicIPHandler  불러서 처리 해야 함.
+	//PublicIP처리
+	var publicIPAddress string
+	cblogger.Info("PublicIp 처리 시작")
 	publicIpHandler := GCPPublicIPHandler{
 		vmHandler.Region, vmHandler.Ctx, vmHandler.Client, vmHandler.Credential}
-	publicIpName := vmReqInfo.PublicIPId
-	publicIpReqInfo := irs.PublicIPReqInfo{Name: publicIpName}
-	publicIPInfo, err := publicIpHandler.CreatePublicIP(publicIpReqInfo)
-	if err != nil {
-		cblogger.Error(err)
-		return irs.VMInfo{}, err
+
+	//PublicIp를 전달 받았으면 전달 받은 Ip를 할당
+	if vmReqInfo.PublicIPId != "" {
+		cblogger.Info("PublicIp 정보 조회 시작")
+		publicIPInfo, err := publicIpHandler.GetPublicIP(vmReqInfo.PublicIPId)
+		if err != nil {
+			cblogger.Error(err)
+			return irs.VMInfo{}, err
+		}
+		cblogger.Info("PublicIp 조회됨")
+		cblogger.Info(publicIPInfo)
+		publicIPAddress = publicIPInfo.PublicIP
+	} else { //PublicIp가 없으면 직접 생성
+		cblogger.Info("PublicIp 생성 시작")
+		// PublicIPHandler  불러서 처리 해야 함.
+		publicIpName := vmReqInfo.PublicIPId
+		publicIpReqInfo := irs.PublicIPReqInfo{Name: publicIpName}
+		publicIPInfo, err := publicIpHandler.CreatePublicIP(publicIpReqInfo)
+		if err != nil {
+			cblogger.Error(err)
+			return irs.VMInfo{}, err
+		}
+		cblogger.Info("PublicIp 생성됨")
+		cblogger.Info(publicIPInfo)
+		publicIPAddress = publicIPInfo.PublicIP
 	}
-	cblogger.Info("PublicIp 생성됨")
-	cblogger.Info(publicIPInfo)
 
 	networkURL := prefix + "/global/networks/" + vmReqInfo.VirtualNetworkId
-	publicIPAddress := publicIPInfo.PublicIP
-
 	instance := &compute.Instance{
 		Name:        vmName,
 		Description: "compute sample instance",
@@ -102,24 +121,33 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 
 	cblogger.Info("VM 생성 시작")
 	cblogger.Info(instance)
-	op, err := vmHandler.Client.Instances.Insert(projectID, zone, instance).Do()
-	js, err := op.MarshalJSON()
-	if err != nil {
+	op, err1 := vmHandler.Client.Instances.Insert(projectID, zone, instance).Do()
+	cblogger.Info(op)
+	if err1 != nil {
 		cblogger.Info("VM 생성 실패")
-		cblogger.Error(err)
-		return irs.VMInfo{}, err
+		cblogger.Error(err1)
+		return irs.VMInfo{}, err1
 	}
 
-	cblogger.Info("Insert vm to marshal Json : ", string(js))
-	cblogger.Infof("Got compute.Operation, err: %#v, %v", op, err)
+	/*
+		js, err := op.MarshalJSON()
+		if err != nil {
+			cblogger.Info("VM 생성 실패")
+			cblogger.Error(err)
+			return irs.VMInfo{}, err
+		}
+
+		cblogger.Info("Insert vm to marshal Json : ", string(js))
+		cblogger.Infof("Got compute.Operation, err: %#v, %v", op, err)
+	*/
 
 	// 이게 시작하는  api Start 내부 매개변수로 projectID, zone, InstanceID
 	//vm, err := vmHandler.Client.Instances.Start(project string, zone string, instance string)
 	time.Sleep(time.Second * 10)
-	vm, err := vmHandler.Client.Instances.Get(projectID, zone, vmName).Context(ctx).Do()
-	if err != nil {
-		cblogger.Error(err)
-		return irs.VMInfo{}, err
+	vm, err2 := vmHandler.Client.Instances.Get(projectID, zone, vmName).Context(ctx).Do()
+	if err2 != nil {
+		cblogger.Error(err2)
+		return irs.VMInfo{}, err2
 	}
 	vmInfo := mappingServerInfo(vm)
 
@@ -127,66 +155,69 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 }
 
 // stop이라고 보면 될듯
-func (vmHandler *GCPVMHandler) SuspendVM(vmID string) error {
+func (vmHandler *GCPVMHandler) SuspendVM(vmID string) (irs.VMStatus, error) {
 	projectID := vmHandler.Credential.ProjectID
 	zone := vmHandler.Region.Zone
 	ctx := vmHandler.Ctx
 
 	inst, err := vmHandler.Client.Instances.Stop(projectID, zone, vmID).Context(ctx).Do()
+	spew.Dump(inst)
 	if err != nil {
 		cblogger.Error(err)
-		return err
+		return irs.VMStatus("Failed"), err
 	}
 
 	fmt.Println("instance stop status :", inst.Status)
-	return nil
+	return irs.VMStatus("Suspending"), nil
 }
 
-func (vmHandler *GCPVMHandler) ResumeVM(vmID string) error {
+func (vmHandler *GCPVMHandler) ResumeVM(vmID string) (irs.VMStatus, error) {
 
 	projectID := vmHandler.Credential.ProjectID
 	zone := vmHandler.Region.Zone
 	ctx := vmHandler.Ctx
 
 	inst, err := vmHandler.Client.Instances.Start(projectID, zone, vmID).Context(ctx).Do()
+	spew.Dump(inst)
 	if err != nil {
 		cblogger.Error(err)
-		return err
+		return irs.VMStatus("Failed"), err
 	}
 
 	fmt.Println("instance resume status :", inst.Status)
-	return nil
+	return irs.VMStatus("Resuming"), nil
 }
 
-func (vmHandler *GCPVMHandler) RebootVM(vmID string) error {
+func (vmHandler *GCPVMHandler) RebootVM(vmID string) (irs.VMStatus, error) {
 
-	err := vmHandler.SuspendVM(vmID)
+	_, err := vmHandler.SuspendVM(vmID)
 	if err != nil {
-		return err
+		return irs.VMStatus("Failed"), err
 	}
 
-	err2 := vmHandler.ResumeVM(vmID)
+	_, err2 := vmHandler.ResumeVM(vmID)
 	if err2 != nil {
-		return err2
+		return irs.VMStatus("Failed"), err2
 	}
 
-	return nil
+	return irs.VMStatus("Rebooting"), nil
 }
 
-func (vmHandler *GCPVMHandler) TerminateVM(vmID string) error {
+func (vmHandler *GCPVMHandler) TerminateVM(vmID string) (irs.VMStatus, error) {
 	projectID := vmHandler.Credential.ProjectID
 	zone := vmHandler.Region.Zone
 	ctx := vmHandler.Ctx
 
 	inst, err := vmHandler.Client.Instances.Delete(projectID, zone, vmID).Context(ctx).Do()
+	spew.Dump(inst)
 	if err != nil {
 		cblogger.Error(err)
-		return err
+		return irs.VMStatus("Failed"), err
 	}
 
 	fmt.Println("instance status :", inst.Status)
 
-	return nil
+	return irs.VMStatus("Terminating"), nil
 }
 
 func (vmHandler *GCPVMHandler) ListVMStatus() ([]*irs.VMStatusInfo, error) {
