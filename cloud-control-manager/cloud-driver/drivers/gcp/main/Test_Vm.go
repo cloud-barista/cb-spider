@@ -6,7 +6,7 @@
 //
 // This is a Cloud Driver Example for PoC Test.
 //
-// by devunet@mz.co.kr, 2019.08.
+// by devunet@mz.co.kr, 2019.11.
 
 package main
 
@@ -104,42 +104,42 @@ func handleVM() {
 
 			case 3:
 				cblogger.Info("Start Suspend VM ...")
-				err := handler.SuspendVM(VmID)
+				result, err := handler.SuspendVM(VmID)
 				if err != nil {
-					cblogger.Errorf("[%s] VM Suspend 실패", VmID)
+					cblogger.Errorf("[%s] VM Suspend 실패 - [%s]", VmID, result)
 					cblogger.Error(err)
 				} else {
-					cblogger.Infof("[%s] VM Suspend 성공", VmID)
+					cblogger.Infof("[%s] VM Suspend 성공 - [%s]", VmID, result)
 				}
 
 			case 4:
 				cblogger.Info("Start Resume  VM ...")
-				err := handler.ResumeVM(VmID)
+				result, err := handler.ResumeVM(VmID)
 				if err != nil {
-					cblogger.Errorf("[%s] VM Resume 실패", VmID)
+					cblogger.Errorf("[%s] VM Resume 실패 - [%s]", VmID, result)
 					cblogger.Error(err)
 				} else {
-					cblogger.Infof("[%s] VM Resume 성공", VmID)
+					cblogger.Infof("[%s] VM Resume 성공 - [%s]", VmID, result)
 				}
 
 			case 5:
 				cblogger.Info("Start Reboot  VM ...")
-				err := handler.RebootVM(VmID)
+				result, err := handler.RebootVM(VmID)
 				if err != nil {
-					cblogger.Errorf("[%s] VM Reboot 실패", VmID)
+					cblogger.Errorf("[%s] VM Reboot 실패 - [%s]", VmID, result)
 					cblogger.Error(err)
 				} else {
-					cblogger.Infof("[%s] VM Reboot 성공", VmID)
+					cblogger.Infof("[%s] VM Reboot 성공 - [%s]", VmID, result)
 				}
 
 			case 6:
 				cblogger.Info("Start Terminate  VM ...")
-				err := handler.TerminateVM(VmID)
+				result, err := handler.TerminateVM(VmID)
 				if err != nil {
-					cblogger.Errorf("[%s] VM Terminate 실패", VmID)
+					cblogger.Errorf("[%s] VM Terminate 실패 - [%s]", VmID, result)
 					cblogger.Error(err)
 				} else {
-					cblogger.Infof("[%s] VM Terminate 성공", VmID)
+					cblogger.Infof("[%s] VM Terminate 성공 - [%s]", VmID, result)
 				}
 
 			case 7:

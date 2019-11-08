@@ -1,3 +1,14 @@
+// Proof of Concepts of CB-Spider.
+// The CB-Spider is a sub-Framework of the Cloud-Barista Multi-Cloud Project.
+// The CB-Spider Mission is to connect all the clouds with a single interface.
+//
+//      * Cloud-Barista: https://github.com/cloud-barista
+//
+// This is a Cloud Driver Example for PoC Test.
+//
+// program by ysjeon@mz.co.kr, 2019.07.
+// modify by devunet@mz.co.kr, 2019.11.
+
 package resources
 
 import (
@@ -12,7 +23,7 @@ import (
 )
 
 const (
-	CBVMUser      = "cscservice"
+	CBVMUser = "cscservice"
 	//CBKeyPairPath = "/cloud-control-manager/cloud-driver/driver-libs/.ssh-gcp/"
 	// by powerkim, 2019.10.30
 	CBKeyPairPath = "/cloud-driver-libs/.ssh-gcp/"
@@ -21,8 +32,18 @@ const (
 func GetKeyValueList(i map[string]interface{}) []irs.KeyValue {
 	var keyValueList []irs.KeyValue
 	for k, v := range i {
+		//cblogger.Infof("K:[%s]====>", k)
+		_, ok := v.(string)
+		if !ok {
+			cblogger.Errorf("Key[%s]의 값은 변환 불가", k)
+			continue
+		}
+		//if strings.EqualFold(k, "users") {
+		//	continue
+		//}
+		//cblogger.Infof("====>", v)
 		keyValueList = append(keyValueList, irs.KeyValue{k, v.(string)})
-		fmt.Println("getKeyValueList : ", keyValueList)
+		cblogger.Info("getKeyValueList : ", keyValueList)
 	}
 
 	return keyValueList
