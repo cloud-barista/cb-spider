@@ -230,6 +230,18 @@ func (vmHandler *AzureVMHandler) TerminateVM(vmID string) (irs.VMStatus, error) 
 		return irs.Failed, err
 	}
 
+	// vNic 삭제
+	nicFuture, err := vmHandler.NicClient.Delete(vmHandler.Ctx, vmHandler.Region.ResourceGroup, vmInfo.Name+"-NIC")
+	if err != nil {
+		cblogger.Error(err)
+		return irs.Failed, err
+	}
+	err = nicFuture.WaitForCompletionRef(vmHandler.Ctx, vmHandler.Client.Client)
+	if err != nil {
+		cblogger.Error(err)
+		return irs.Failed, err
+	}
+
 	// OS Disk 삭제
 	diskFuture, err := vmHandler.DiskClient.Delete(vmHandler.Ctx, vmHandler.Region.ResourceGroup, osDiskName)
 	if err != nil {
