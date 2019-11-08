@@ -191,7 +191,7 @@ func WaitForRun(svc *ec2.EC2, instanceID string) {
 	cblogger.Info("=========WaitForRun() 종료")
 }
 
-func (vmHandler *AwsVMHandler) ResumeVM(vmID string) error {
+func (vmHandler *AwsVMHandler) ResumeVM(vmID string) (irs.VMStatus, error) {
 	cblogger.Infof("vmID : [%s]", vmID)
 	input := &ec2.StartInstancesInput{
 		InstanceIds: []*string{
@@ -200,16 +200,18 @@ func (vmHandler *AwsVMHandler) ResumeVM(vmID string) error {
 		DryRun: aws.Bool(true),
 	}
 	result, err := vmHandler.Client.StartInstances(input)
+	spew.Dump(result)
 	awsErr, ok := err.(awserr.Error)
 
 	if ok && awsErr.Code() == "DryRunOperation" {
 		// Let's now set dry run to be false. This will allow us to start the instances
 		input.DryRun = aws.Bool(false)
 		result, err = vmHandler.Client.StartInstances(input)
+		spew.Dump(result)
 		if err != nil {
 			//fmt.Println("Error", err)
 			cblogger.Error(err)
-			return err
+			return irs.VMStatus("Failed"), err
 		} else {
 			//fmt.Println("Success", result.StartingInstances)
 			cblogger.Info("Success", result.StartingInstances)
@@ -217,13 +219,13 @@ func (vmHandler *AwsVMHandler) ResumeVM(vmID string) error {
 	} else { // This could be due to a lack of permissions
 		//fmt.Println("Error", err)
 		cblogger.Error(err)
-		return err
+		return irs.VMStatus("Failed"), err
 	}
 
-	return nil
+	return irs.VMStatus("Resuming"), nil
 }
 
-func (vmHandler *AwsVMHandler) SuspendVM(vmID string) error {
+func (vmHandler *AwsVMHandler) SuspendVM(vmID string) (irs.VMStatus, error) {
 	cblogger.Infof("vmID : [%s]", vmID)
 	input := &ec2.StopInstancesInput{
 		InstanceIds: []*string{
@@ -232,25 +234,27 @@ func (vmHandler *AwsVMHandler) SuspendVM(vmID string) error {
 		DryRun: aws.Bool(true),
 	}
 	result, err := vmHandler.Client.StopInstances(input)
+	spew.Dump(result)
 	awsErr, ok := err.(awserr.Error)
 	if ok && awsErr.Code() == "DryRunOperation" {
 		input.DryRun = aws.Bool(false)
 		result, err = vmHandler.Client.StopInstances(input)
+		spew.Dump(result)
 		if err != nil {
 			cblogger.Error(err)
-			return err
+			return irs.VMStatus("Failed"), err
 		} else {
 			cblogger.Info("Success", result.StoppingInstances)
 		}
 	} else {
 		cblogger.Error("Error", err)
-		return err
+		return irs.VMStatus("Failed"), err
 	}
 
-	return nil
+	return irs.VMStatus("Suspending"), nil
 }
 
-func (vmHandler *AwsVMHandler) RebootVM(vmID string) error {
+func (vmHandler *AwsVMHandler) RebootVM(vmID string) (irs.VMStatus, error) {
 	cblogger.Infof("vmID : [%s]", vmID)
 	input := &ec2.RebootInstancesInput{
 		InstanceIds: []*string{
@@ -272,23 +276,24 @@ func (vmHandler *AwsVMHandler) RebootVM(vmID string) error {
 		cblogger.Info("DryRun 권한 해제 후 리부팅을 요청 함.")
 		input.DryRun = aws.Bool(false)
 		result, err = vmHandler.Client.RebootInstances(input)
+		spew.Dump(result)
 		cblogger.Info("result 값 : ", result)
 		cblogger.Info("err 값 : ", err)
 		if err != nil {
 			cblogger.Error("Error", err)
-			return err
+			return irs.VMStatus("Failed"), err
 		} else {
 			cblogger.Info("Success", result)
 		}
 	} else { // This could be due to a lack of permissions
 		cblogger.Info("리부팅 권한이 없는 것같음.")
 		cblogger.Error("Error", err)
-		return err
+		return irs.VMStatus("Failed"), err
 	}
-	return nil
+	return irs.VMStatus("Rebooting"), nil
 }
 
-func (vmHandler *AwsVMHandler) TerminateVM(vmID string) error {
+func (vmHandler *AwsVMHandler) TerminateVM(vmID string) (irs.VMStatus, error) {
 	cblogger.Infof("vmID : [%s]", vmID)
 	input := &ec2.TerminateInstancesInput{
 		//InstanceIds: instanceIds,
@@ -297,14 +302,15 @@ func (vmHandler *AwsVMHandler) TerminateVM(vmID string) error {
 		},
 	}
 
-	_, err := vmHandler.Client.TerminateInstances(input)
+	result, err := vmHandler.Client.TerminateInstances(input)
+	spew.Dump(result)
 	if err != nil {
 		cblogger.Error("Could not termiate instances", err)
-		return err
+		return irs.VMStatus("Failed"), err
 	} else {
 		cblogger.Info("Success")
 	}
-	return nil
+	return irs.VMStatus("Terminating"), nil
 }
 
 //- 보안그룹의 경우 멀티개 설정이 가능한데 현재는 1개만 입력 받음

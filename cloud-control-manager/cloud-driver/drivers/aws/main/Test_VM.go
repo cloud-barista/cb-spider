@@ -151,42 +151,42 @@ func handleVM() {
 
 			case 3:
 				cblogger.Info("Start Suspend VM ...")
-				err := vmHandler.SuspendVM(VmID)
+				result, err := vmHandler.SuspendVM(VmID)
 				if err != nil {
-					cblogger.Errorf("[%s] VM Suspend 실패", VmID)
+					cblogger.Errorf("[%s] VM Suspend 실패 - [%s]", VmID, result)
 					cblogger.Error(err)
 				} else {
-					cblogger.Infof("[%s] VM Suspend 성공", VmID)
+					cblogger.Infof("[%s] VM Suspend 성공 - [%s]", VmID, result)
 				}
 
 			case 4:
 				cblogger.Info("Start Resume  VM ...")
-				err := vmHandler.ResumeVM(VmID)
+				result, err := vmHandler.ResumeVM(VmID)
 				if err != nil {
-					cblogger.Errorf("[%s] VM Resume 실패", VmID)
+					cblogger.Errorf("[%s] VM Resume 실패 - [%s]", VmID, result)
 					cblogger.Error(err)
 				} else {
-					cblogger.Infof("[%s] VM Resume 성공", VmID)
+					cblogger.Infof("[%s] VM Resume 성공 - [%s]", VmID, result)
 				}
 
 			case 5:
 				cblogger.Info("Start Reboot  VM ...")
-				err := vmHandler.RebootVM(VmID)
+				result, err := vmHandler.RebootVM(VmID)
 				if err != nil {
-					cblogger.Errorf("[%s] VM Reboot 실패", VmID)
+					cblogger.Errorf("[%s] VM Reboot 실패 - [%s]", VmID, result)
 					cblogger.Error(err)
 				} else {
-					cblogger.Infof("[%s] VM Reboot 성공", VmID)
+					cblogger.Infof("[%s] VM Reboot 성공 - [%s]", VmID, result)
 				}
 
 			case 6:
 				cblogger.Info("Start Terminate  VM ...")
-				err := vmHandler.TerminateVM(VmID)
+				result, err := vmHandler.TerminateVM(VmID)
 				if err != nil {
-					cblogger.Errorf("[%s] VM Terminate 실패", VmID)
+					cblogger.Errorf("[%s] VM Terminate 실패 - [%s]", VmID, result)
 					cblogger.Error(err)
 				} else {
-					cblogger.Infof("[%s] VM Terminate 성공", VmID)
+					cblogger.Infof("[%s] VM Terminate 성공 - [%s]", VmID, result)
 				}
 
 			case 7:
