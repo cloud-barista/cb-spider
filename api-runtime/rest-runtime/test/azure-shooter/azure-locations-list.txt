@@ -1,5 +1,5 @@
 # 2019.11.07. by powerkim.
-$ az account list-locations
+$az account list-locations
 
 [
   {
