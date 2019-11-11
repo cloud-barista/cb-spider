@@ -131,12 +131,260 @@ func handlePublicIP() {
 	}
 }
 
+// Test SecurityHandler
+func handleSecurity() {
+	cblogger.Debug("Start handler")
+
+	ResourceHandler, err := testconf.GetResourceHandler("Security")
+	if err != nil {
+		panic(err)
+	}
+
+	handler := ResourceHandler.(irs.SecurityHandler)
+
+	securityId := "sgvm02"
+	cblogger.Infof(securityId)
+
+	//result, err := handler.GetSecurity(securityId)
+	//result, err := handler.GetSecurity("sg-0d4d11c090c4814e8")
+	//result, err := handler.GetSecurity("sg-0fd2d90b269ebc082") // sgtest-mcloub-barista
+	//result, err := handler.DeleteSecurity(securityId)
+	//result, err := handler.ListSecurity()
+
+	securityReqInfo := irs.SecurityReqInfo{
+		Name: "sgvm02",
+		SecurityRules: &[]irs.SecurityRuleInfo{ //보안 정책 설정
+			{
+				FromPort:   "20",
+				ToPort:     "22",
+				IPProtocol: "tcp",
+				Direction:  "inbound",
+			},
+			/*
+				{
+					FromPort:   "80",
+					ToPort:     "80",
+					IPProtocol: "tcp",
+					Direction:  "inbound",
+				},
+				{
+					FromPort:   "8080",
+					ToPort:     "8080",
+					IPProtocol: "tcp",
+					Direction:  "inbound",
+				},
+				{
+					FromPort:   "443",
+					ToPort:     "443",
+					IPProtocol: "tcp",
+					Direction:  "outbound",
+				},
+				{
+					FromPort:   "8443",
+					ToPort:     "9999",
+					IPProtocol: "tcp",
+					Direction:  "outbound",
+				},
+				{
+					//FromPort:   "8443",
+					//ToPort:     "9999",
+					IPProtocol: "-1", // 모두 허용 (포트 정보 없음)
+					Direction:  "inbound",
+				},
+			*/
+		},
+	}
+
+	cblogger.Info(securityReqInfo)
+	result, err := handler.CreateSecurity(securityReqInfo)
+
+	if err != nil {
+		cblogger.Infof("보안 그룹 조회 실패 : ", err)
+	} else {
+		cblogger.Info("보안 그룹 조회 결과")
+		//cblogger.Info(result)
+		spew.Dump(result)
+	}
+}
+
+// Test AMI
+func handleImage() {
+	cblogger.Debug("Start ImageHandler Resource Test")
+
+	ResourceHandler, err := testconf.GetResourceHandler("Image")
+	if err != nil {
+		panic(err)
+	}
+	handler := ResourceHandler.(irs.ImageHandler)
+
+	//imageReqInfo := irs2.ImageReqInfo{
+	imageReqInfo := irs.ImageReqInfo{
+		Id:   "vmsg02-asia-northeast1-b",
+		Name: "Test OS Image",
+	}
+
+	for {
+		fmt.Println("ImageHandler Management")
+		fmt.Println("0. Quit")
+		fmt.Println("1. Image List")
+		fmt.Println("2. Image Create")
+		fmt.Println("3. Image Get")
+		fmt.Println("4. Image Delete")
+
+		var commandNum int
+		inputCnt, err := fmt.Scan(&commandNum)
+		if err != nil {
+			panic(err)
+		}
+
+		if inputCnt == 1 {
+			switch commandNum {
+			case 0:
+				return
+
+			case 1:
+				result, err := handler.ListImage()
+				if err != nil {
+					cblogger.Infof(" Image 목록 조회 실패 : ", err)
+				} else {
+					cblogger.Info("Image 목록 조회 결과")
+					cblogger.Info(result)
+					cblogger.Info("출력 결과 수 : ", len(result))
+					//spew.Dump(result)
+
+					//조회및 삭제 테스트를 위해 리스트의 첫번째 정보의 ID를 요청ID로 자동 갱신함.
+					if result != nil {
+						imageReqInfo.Id = result[0].Id // 조회 및 삭제를 위해 생성된 ID로 변경
+					}
+				}
+
+			case 2:
+				cblogger.Infof("[%s] Image 생성 테스트", imageReqInfo.Name)
+				//vNetworkReqInfo := irs.VNetworkReqInfo{}
+				result, err := handler.CreateImage(imageReqInfo)
+				if err != nil {
+					cblogger.Infof(imageReqInfo.Id, " Image 생성 실패 : ", err)
+				} else {
+					cblogger.Infof("Image 생성 결과 : ", result)
+					imageReqInfo.Id = result.Id // 조회 및 삭제를 위해 생성된 ID로 변경
+					spew.Dump(result)
+				}
+
+			case 3:
+				cblogger.Infof("[%s] Image 조회 테스트", imageReqInfo.Id)
+				result, err := handler.GetImage(imageReqInfo.Id)
+				if err != nil {
+					cblogger.Infof("[%s] Image 조회 실패 : ", imageReqInfo.Id, err)
+				} else {
+					cblogger.Infof("[%s] Image 조회 결과 : [%s]", imageReqInfo.Id, result)
+					spew.Dump(result)
+				}
+
+			case 4:
+				cblogger.Infof("[%s] Image 삭제 테스트", imageReqInfo.Id)
+				result, err := handler.DeleteImage(imageReqInfo.Id)
+				if err != nil {
+					cblogger.Infof("[%s] Image 삭제 실패 : ", imageReqInfo.Id, err)
+				} else {
+					cblogger.Infof("[%s] Image 삭제 결과 : [%s]", imageReqInfo.Id, result)
+				}
+			}
+		}
+	}
+}
+
+// Test handleVNetwork (VPC)
+func handleVNetwork() {
+	cblogger.Debug("Start VPC Resource Test")
+
+	ResourceHandler, err := testconf.GetResourceHandler("VNetwork")
+	if err != nil {
+		panic(err)
+	}
+	handler := ResourceHandler.(irs.VNetworkHandler)
+
+	vNetworkReqInfo := irs.VNetworkReqInfo{
+		Name: "CB-VNet-Subnet2", // 웹 도구 등 외부에서 전달 받지 않고 드라이버 내부적으로 자동 구현때문에 사용하지 않음.
+	}
+	reqSubnetId := "subnet-0b9ea37601d46d8fa"
+	//reqSubnetId = ""
+
+	for {
+		fmt.Println("VNetworkHandler Management")
+		fmt.Println("0. Quit")
+		fmt.Println("1. VNetwork List")
+		fmt.Println("2. VNetwork Create")
+		fmt.Println("3. VNetwork Get")
+		fmt.Println("4. VNetwork Delete")
+
+		var commandNum int
+		inputCnt, err := fmt.Scan(&commandNum)
+		if err != nil {
+			panic(err)
+		}
+
+		if inputCnt == 1 {
+			switch commandNum {
+			case 0:
+				return
+
+			case 1:
+				result, err := handler.ListVNetwork()
+				if err != nil {
+					cblogger.Infof(" VNetwork 목록 조회 실패 : ", err)
+				} else {
+					cblogger.Info("VNetwork 목록 조회 결과")
+					//cblogger.Info(result)
+					spew.Dump(result)
+
+					// 내부적으로 1개만 존재함.
+					//조회및 삭제 테스트를 위해 리스트의 첫번째 서브넷 ID를 요청ID로 자동 갱신함.
+					if result != nil {
+						reqSubnetId = result[0].Id // 조회 및 삭제를 위해 생성된 ID로 변경
+					}
+				}
+
+			case 2:
+				cblogger.Infof("[%s] VNetwork 생성 테스트", vNetworkReqInfo.Name)
+				//vNetworkReqInfo := irs.VNetworkReqInfo{}
+				result, err := handler.CreateVNetwork(vNetworkReqInfo)
+				if err != nil {
+					cblogger.Infof(reqSubnetId, " VNetwork 생성 실패 : ", err)
+				} else {
+					cblogger.Infof("VNetwork 생성 결과 : ", result)
+					reqSubnetId = result.Id // 조회 및 삭제를 위해 생성된 ID로 변경
+					spew.Dump(result)
+				}
+
+			case 3:
+				cblogger.Infof("[%s] VNetwork 조회 테스트", reqSubnetId)
+				result, err := handler.GetVNetwork(reqSubnetId)
+				if err != nil {
+					cblogger.Infof("[%s] VNetwork 조회 실패 : ", reqSubnetId, err)
+				} else {
+					cblogger.Infof("[%s] VNetwork 조회 결과 : [%s]", reqSubnetId, result)
+					spew.Dump(result)
+				}
+
+			case 4:
+				cblogger.Infof("[%s] VNetwork 삭제 테스트", reqSubnetId)
+				result, err := handler.DeleteVNetwork(reqSubnetId)
+				if err != nil {
+					cblogger.Infof("[%s] VNetwork 삭제 실패 : ", reqSubnetId, err)
+				} else {
+					cblogger.Infof("[%s] VNetwork 삭제 결과 : [%s]", reqSubnetId, result)
+				}
+			}
+		}
+	}
+}
+
 func main() {
 	cblogger.Info("GCP Resource Test")
-	handlePublicIP()
+	//handlePublicIP()
 
 	//handleKeyPair()
-	//handleVNetwork() //VPC
+	handleVNetwork() //VPC
 	//handleImage() //AMI
 	//handleVNic() //Lancard
 	//handleSecurity()

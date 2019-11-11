@@ -13,7 +13,7 @@ package resources
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"strconv"
 
 	compute "google.golang.org/api/compute/v1"
@@ -22,6 +22,7 @@ import (
 
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
+	"github.com/davecgh/go-spew/spew"
 )
 
 type GCPVNetworkHandler struct {
@@ -32,12 +33,22 @@ type GCPVNetworkHandler struct {
 }
 
 func (vNetworkHandler *GCPVNetworkHandler) CreateVNetwork(vNetworkReqInfo irs.VNetworkReqInfo) (irs.VNetworkInfo, error) {
+
+	vNetInfo, errVnet := vNetworkHandler.GetVNetwork(GetCBDefaultVNetName())
+	spew.Dump(vNetInfo)
+	if errVnet == nil {
+		if len(vNetInfo.Name) > 0 {
+			return irs.VNetworkInfo{}, errors.New("Already exists.")
+		}
+	}
+
 	// priject id
 	projectID := vNetworkHandler.Credential.ProjectID
 	name := vNetworkReqInfo.Name
 
 	network := &compute.Network{
-		Name:                  name,
+		//Name:                  name,
+		Name:                  GetCBDefaultVNetName(),
 		AutoCreateSubnetworks: true, // subnet 자동으로 생성됨
 	}
 
@@ -114,12 +125,15 @@ func (vNetworkHandler *GCPVNetworkHandler) GetVNetwork(vNetworkID string) (irs.V
 
 func (vNetworkHandler *GCPVNetworkHandler) DeleteVNetwork(vNetworkID string) (bool, error) {
 	projectID := vNetworkHandler.Credential.ProjectID
-	name := vNetworkID
+	//name := vNetworkID
+	name := GetCBDefaultVNetName()
+	cblogger.Info("Name : [%s]", name)
 	info, err := vNetworkHandler.Client.Networks.Delete(projectID, name).Do()
+	cblogger.Info(info)
 	if err != nil {
 		cblogger.Error(err)
 		return false, err
 	}
-	fmt.Println(info)
+	//fmt.Println(info)
 	return true, nil
 }
