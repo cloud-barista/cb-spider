@@ -331,7 +331,8 @@ func (vNetworkHandler *AwsVNetworkHandler) CreateVNetwork(vNetworkReqInfo irs.VN
 	if len(vpcList) > 0 {
 		cblogger.Error("이미 Default Subnet이 존재하기 때문에 생성하지 않고 기존 정보와 함께 에러를 리턴함.")
 		cblogger.Info(vpcList)
-		return *vpcList[0], errors.New("이미 Default Subnet이 존재합니다.")
+		//return *vpcList[0], errors.New("이미 Default Subnet이 존재합니다.")
+		return *vpcList[0], errors.New("InvalidSubnet.Duplicate: The subnet '" + GetCBDefaultSubnetName() + "' already exists.")
 	}
 
 	//최대 5개의 VPC 생성 제한이 있기 때문에 기본VPC 조회시 에러 처리를 해줌.

@@ -1,3 +1,14 @@
+// Proof of Concepts of CB-Spider.
+// The CB-Spider is a sub-Framework of the Cloud-Barista Multi-Cloud Project.
+// The CB-Spider Mission is to connect all the clouds with a single interface.
+//
+//      * Cloud-Barista: https://github.com/cloud-barista
+//
+// This is a Cloud Driver Example for PoC Test.
+//
+// program by ysjeon@mz.co.kr, 2019.07.
+// modify by devunet@mz.co.kr, 2019.11.
+
 package resources
 
 import (
@@ -23,19 +34,23 @@ type GCPKeyPairHandler struct {
 }
 
 func (keyPairHandler *GCPKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPairReqInfo) (irs.KeyPairInfo, error) {
+	keyPairName := strings.ToLower(keyPairReqInfo.Name)
+	cblogger.Infof("keyPairName [%s] --> [%s]", keyPairReqInfo.Name, keyPairName)
+
+	projectId := keyPairHandler.CredentialInfo.ProjectID
 	keyPairPath := os.Getenv("CBSPIDER_ROOT") + CBKeyPairPath
 	hashString, err := CreateHashString(keyPairHandler.CredentialInfo)
 	if err != nil {
 		return irs.KeyPairInfo{}, err
 	}
 
-	savePrivateFileTo := keyPairPath + hashString + "--" + keyPairReqInfo.Name
-	savePublicFileTo := keyPairPath + hashString + "--" + keyPairReqInfo.Name + ".pub"
+	savePrivateFileTo := keyPairPath + hashString + "--" + keyPairName
+	savePublicFileTo := keyPairPath + hashString + "--" + keyPairName + ".pub"
 	bitSize := 4096
 
 	// Check KeyPair Exists
 	if _, err := os.Stat(savePrivateFileTo); err == nil {
-		errMsg := fmt.Sprintf("KeyPair with name %s already exist", keyPairReqInfo.Name)
+		errMsg := fmt.Sprintf("KeyPair with name %s already exist", keyPairName)
 		createErr := errors.New(errMsg)
 		return irs.KeyPairInfo{}, createErr
 	}
@@ -52,6 +67,9 @@ func (keyPairHandler *GCPKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPairReq
 	// rsa.PublicKey를 가져와서 .pub 파일에 쓰기 적합한 바이트로 변환
 	// "ssh-rsa ..."형식으로 변환
 	publicKeyBytes, err := generatePublicKey(&privateKey.PublicKey)
+	publicKeyString := string(publicKeyBytes)
+	publicKeyString = strings.TrimSpace(publicKeyString) + " " + projectId
+	fmt.Println("publicKeyString : ", publicKeyString)
 	if err != nil {
 		return irs.KeyPairInfo{}, err
 	}
@@ -63,13 +81,13 @@ func (keyPairHandler *GCPKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPairReq
 	}
 
 	// 파일에 public Key를 쓴다
-	err = writeKeyToFile([]byte(publicKeyBytes), savePublicFileTo)
+	err = writeKeyToFile([]byte(publicKeyString), savePublicFileTo)
 	if err != nil {
 		return irs.KeyPairInfo{}, err
 	}
 
 	keyPairInfo := irs.KeyPairInfo{
-		Name:       keyPairReqInfo.Name,
+		Name:       keyPairName,
 		PublicKey:  string(publicKeyBytes),
 		PrivateKey: string(privateKeyBytes),
 	}
@@ -108,6 +126,10 @@ func (keyPairHandler *GCPKeyPairHandler) ListKey() ([]*irs.KeyPairInfo, error) {
 }
 
 func (keyPairHandler *GCPKeyPairHandler) GetKey(keyPairName string) (irs.KeyPairInfo, error) {
+	cblogger.Infof("keyPairName : [%s]", keyPairName)
+	keyPairName = strings.ToLower(keyPairName)
+	cblogger.Infof("keyPairName 소문자로 치환 : [%s]", keyPairName)
+
 	keyPairPath := os.Getenv("CBSPIDER_ROOT") + CBKeyPairPath
 	hashString, err := CreateHashString(keyPairHandler.CredentialInfo)
 
@@ -133,6 +155,10 @@ func (keyPairHandler *GCPKeyPairHandler) GetKey(keyPairName string) (irs.KeyPair
 }
 
 func (keyPairHandler *GCPKeyPairHandler) DeleteKey(keyPairName string) (bool, error) {
+	cblogger.Infof("keyPairName : [%s]", keyPairName)
+	keyPairName = strings.ToLower(keyPairName)
+	cblogger.Infof("keyPairName 소문자로 치환 : [%s]", keyPairName)
+
 	keyPairPath := os.Getenv("CBSPIDER_ROOT") + CBKeyPairPath
 	hashString, err := CreateHashString(keyPairHandler.CredentialInfo)
 	if err != nil {

@@ -17,8 +17,7 @@ type ClouditVNetworkHandler struct {
 func setterVNet(vNet subnet.SubnetInfo) *irs.VNetworkInfo {
 	addrPrefix := vNet.Addr + "/" + vNet.Prefix
 	vNetInfo := &irs.VNetworkInfo{
-		//Id:            vNet.ID,
-		Id:            vNet.Addr,
+		Id:            vNet.Addr, // Subnet 주소 정보를 Id로 사용
 		Name:          vNet.Name,
 		AddressPrefix: addrPrefix,
 		Status:        vNet.State,

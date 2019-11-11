@@ -15,19 +15,19 @@ import (
 )
 
 type VMReqInfo struct {
-        VMName string
+	VMName string
 
-        ImageId string
-        VirtualNetworkId string 
-        NetworkInterfaceId string
-        PublicIPId string
-        SecurityGroupIds []string
+	ImageId            string
+	VirtualNetworkId   string
+	NetworkInterfaceId string
+	PublicIPId         string
+	SecurityGroupIds   []string
 
-        VMSpecId       string
+	VMSpecId string
 
-        KeyPairName  string
-        VMUserId  string
-        VMUserPasswd string
+	KeyPairName  string
+	VMUserId     string
+	VMUserPasswd string
 }
 
 type VMStatusInfo struct {
@@ -39,16 +39,20 @@ type VMStatusInfo struct {
 type VMStatus string
 
 const (
-	Pending VMStatus = "PENDING" // from launch, suspended to running
-	Running VMStatus = "RUNNING"
+	Creating VMStatus = "Creating" // from launch to running
+	Running  VMStatus = "Running"
 
-	Suspending VMStatus = "SUSPENDING" // from running to suspended
-	Suspended  VMStatus = "SUSPENDED"
+	Suspending VMStatus = "Suspending" // from running to suspended
+	Suspended  VMStatus = "Suspended"
+	Resuming   VMStatus = "Resuming" // from suspended to running
 
-	Rebooting VMStatus = "REBOOTING" // from running to running
+	Rebooting VMStatus = "Rebooting" // from running to running
 
-	Termiating VMStatus = "TERMINATING" // from running, suspended to terminated
-	Termiated  VMStatus = "TERMINATED"
+	Terminating VMStatus = "Terminating" // from running, suspended to terminated
+	Terminated  VMStatus = "Terminated"
+	NotExist  VMStatus = "NotExist" // VM does not exist
+
+	Failed VMStatus = "Failed"
 )
 
 type RegionInfo struct {
@@ -57,38 +61,39 @@ type RegionInfo struct {
 }
 
 type VMInfo struct {
-        Name      string    // AWS,
-        Id        string    // AWS,
-        StartTime time.Time // Timezone: based on cloud-barista server location.
+	Name      string    // AWS,
+	Id        string    // AWS,
+	StartTime time.Time // Timezone: based on cloud-barista server location.
 
-        Region       RegionInfo // AWS, ex) {us-east1, us-east1-c} or {ap-northeast-2}
-        ImageId string
-        VMSpecId string     // AWS, instance type or flavour, etc... ex) t2.micro or f1.micro
-        VirtualNetworkId string     // AWS, ex) subnet-8c4a53e4
-        SecurityGroupIds   []string     // AWS, ex) sg-0b7452563e1121bb6
+	Region           RegionInfo // AWS, ex) {us-east1, us-east1-c} or {ap-northeast-2}
+	ImageId          string
+	VMSpecId         string   // AWS, instance type or flavour, etc... ex) t2.micro or f1.micro
+	VirtualNetworkId string   // AWS, ex) subnet-8c4a53e4
+	SecurityGroupIds []string // AWS, ex) sg-0b7452563e1121bb6
 
-        NetworkInterfaceId string // ex) eth0
-        PublicIP   string // ex) AWS, 13.125.43.21
-        PublicDNS  string // ex) AWS, ec2-13-125-43-0.ap-northeast-2.compute.amazonaws.com
-        PrivateIP  string // ex) AWS, ip-172-31-4-60.ap-northeast-2.compute.internal
-        PrivateDNS string // ex) AWS, 172.31.4.60
+	NetworkInterfaceId string // ex) eth0
+	PublicIP           string // ex) AWS, 13.125.43.21
+	PublicDNS          string // ex) AWS, ec2-13-125-43-0.ap-northeast-2.compute.amazonaws.com
+	PrivateIP          string // ex) AWS, ip-172-31-4-60.ap-northeast-2.compute.internal
+	PrivateDNS         string // ex) AWS, 172.31.4.60
 
-        KeyPairName    string // ex) AWS, powerkimKeyPair
-        VMUserId string // ex) user1
-        VMUserPasswd string
+	KeyPairName  string // ex) AWS, powerkimKeyPair
+	VMUserId     string // ex) user1
+	VMUserPasswd string
 
-        VMBootDisk  string // ex) /dev/sda1
-        VMBlockDisk string // ex)
+	VMBootDisk  string // ex) /dev/sda1
+	VMBlockDisk string // ex)
 
 	KeyValueList []KeyValue
 }
 
 type VMHandler interface {
 	StartVM(vmReqInfo VMReqInfo) (VMInfo, error)
-	SuspendVM(vmID string) error
-	ResumeVM(vmID string) error
-	RebootVM(vmID string) error
-	TerminateVM(vmID string) error
+
+	SuspendVM(vmID string) (VMStatus, error)
+	ResumeVM(vmID string) (VMStatus, error)
+	RebootVM(vmID string) (VMStatus, error)
+	TerminateVM(vmID string) (VMStatus, error)
 
 	ListVMStatus() ([]*VMStatusInfo, error)
 	GetVMStatus(vmID string) (VMStatus, error)

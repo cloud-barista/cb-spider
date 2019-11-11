@@ -1,4 +1,4 @@
 RESTSERVER=localhost
 
-VM_ID=f565d481-6209-4932-a422-04195d4215e0
+VM_ID=3cac5ef3-a338-411d-9614-c42b044fe19c
 curl -X GET "http://$RESTSERVER:1024/controlvm/$VM_ID?connection_name=openstack-config01&action=suspend"

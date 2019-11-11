@@ -33,11 +33,8 @@ func (keyPairHandler *OpenStackKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyP
 	}
 
 	// 생성된 KeyPair 정보 리턴
-	keyPairInfo, err := keyPairHandler.GetKey(keyPair.Name)
-	if err != nil {
-		return irs.KeyPairInfo{}, nil
-	}
-	return keyPairInfo, nil
+	keyPairInfo := setterKeypair(*keyPair)
+	return *keyPairInfo, nil
 }
 
 func (keyPairHandler *OpenStackKeyPairHandler) ListKey() ([]*irs.KeyPairInfo, error) {
@@ -60,7 +57,6 @@ func (keyPairHandler *OpenStackKeyPairHandler) ListKey() ([]*irs.KeyPairInfo, er
 	if err != nil {
 		return nil, err
 	}
-	//spew.Dump(keyPairList)
 	return keyPairList, nil
 }
 
@@ -71,7 +67,6 @@ func (keyPairHandler *OpenStackKeyPairHandler) GetKey(keyName string) (irs.KeyPa
 	}
 
 	keyPairInfo := setterKeypair(*keyPair)
-	//spew.Dump(keyPairInfo)
 	return *keyPairInfo, nil
 }
 

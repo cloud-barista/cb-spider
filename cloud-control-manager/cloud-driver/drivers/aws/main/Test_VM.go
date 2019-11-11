@@ -11,9 +11,11 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
+	"strings"
 
 	awsdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/aws"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
@@ -149,42 +151,42 @@ func handleVM() {
 
 			case 3:
 				cblogger.Info("Start Suspend VM ...")
-				err := vmHandler.SuspendVM(VmID)
+				result, err := vmHandler.SuspendVM(VmID)
 				if err != nil {
-					cblogger.Errorf("[%s] VM Suspend 실패", VmID)
+					cblogger.Errorf("[%s] VM Suspend 실패 - [%s]", VmID, result)
 					cblogger.Error(err)
 				} else {
-					cblogger.Infof("[%s] VM Suspend 성공", VmID)
+					cblogger.Infof("[%s] VM Suspend 성공 - [%s]", VmID, result)
 				}
 
 			case 4:
 				cblogger.Info("Start Resume  VM ...")
-				err := vmHandler.ResumeVM(VmID)
+				result, err := vmHandler.ResumeVM(VmID)
 				if err != nil {
-					cblogger.Errorf("[%s] VM Resume 실패", VmID)
+					cblogger.Errorf("[%s] VM Resume 실패 - [%s]", VmID, result)
 					cblogger.Error(err)
 				} else {
-					cblogger.Infof("[%s] VM Resume 성공", VmID)
+					cblogger.Infof("[%s] VM Resume 성공 - [%s]", VmID, result)
 				}
 
 			case 5:
 				cblogger.Info("Start Reboot  VM ...")
-				err := vmHandler.RebootVM(VmID)
+				result, err := vmHandler.RebootVM(VmID)
 				if err != nil {
-					cblogger.Errorf("[%s] VM Reboot 실패", VmID)
+					cblogger.Errorf("[%s] VM Reboot 실패 - [%s]", VmID, result)
 					cblogger.Error(err)
 				} else {
-					cblogger.Infof("[%s] VM Reboot 성공", VmID)
+					cblogger.Infof("[%s] VM Reboot 성공 - [%s]", VmID, result)
 				}
 
 			case 6:
 				cblogger.Info("Start Terminate  VM ...")
-				err := vmHandler.TerminateVM(VmID)
+				result, err := vmHandler.TerminateVM(VmID)
 				if err != nil {
-					cblogger.Errorf("[%s] VM Terminate 실패", VmID)
+					cblogger.Errorf("[%s] VM Terminate 실패 - [%s]", VmID, result)
 					cblogger.Error(err)
 				} else {
-					cblogger.Infof("[%s] VM Terminate 성공", VmID)
+					cblogger.Infof("[%s] VM Terminate 성공 - [%s]", VmID, result)
 				}
 
 			case 7:
@@ -227,8 +229,85 @@ func handleVM() {
 	}
 }
 
+type VMStatus string
+
+const (
+	Pending VMStatus = "PENDING" // from launch, suspended to running
+	Running VMStatus = "RUNNING"
+
+	Suspending VMStatus = "SUSPENDING" // from running to suspended
+	Suspended  VMStatus = "SUSPENDED"
+
+	Rebooting VMStatus = "REBOOTING" // from running to running
+
+	Termiating VMStatus = "TERMINATING" // from running, suspended to terminated
+	Termiated  VMStatus = "TERMINATED"
+)
+
+/*
+	Creating VMStatus = "Creating" // from launch to running
+	Running  VMStatus = "Running"
+	Suspending VMStatus = "Suspending" // from running to suspended
+	Suspended  VMStatus = "Suspended"
+	Resuming   VMStatus = "Resuming" // from suspended to running
+	Rebooting VMStatus = "Rebooting" // from running to running
+	Terminating VMStatus = "Terminating" // from running, suspended to terminated
+	Terminated  VMStatus = "Terminated"
+	Failed VMStatus = "Failed"
+*/
+//Cloud-Barista 기반의 VM Status로 변환 함.
+func ConvertVMStatusString(vmStatus string) (irs.VMStatus, error) {
+	var resultStatus string
+	cblogger.Info("vmStatus : [%s]", vmStatus)
+
+	if strings.EqualFold(vmStatus, "pending") {
+		resultStatus = "Creating"
+	} else if strings.EqualFold(vmStatus, "running") {
+		resultStatus = "Running"
+	} else if strings.EqualFold(vmStatus, "stopping") {
+		resultStatus = "Suspending"
+	} else if strings.EqualFold(vmStatus, "stopped") {
+		resultStatus = "Suspended"
+	} else if strings.EqualFold(vmStatus, "pending") {
+		resultStatus = "Resuming"
+	} else if strings.EqualFold(vmStatus, "Rebooting") {
+		resultStatus = "Rebooting"
+	} else if strings.EqualFold(vmStatus, "shutting-down") {
+		resultStatus = "Terminating"
+	} else if strings.EqualFold(vmStatus, "Terminated") {
+		resultStatus = "Terminated"
+	} else {
+		//resultStatus = "Failed"
+		return irs.VMStatus("Failed"), errors.New(vmStatus + "와 일치하는 CB VM 상태정보를 찾을 수 없습니다.")
+	}
+	return irs.VMStatus(resultStatus), nil
+}
+
 func main() {
 	cblogger.Info("AWS Driver Test")
+	/*
+		cblogger.Info(ConvertVMStatusString("Creating"))
+		cblogger.Info(ConvertVMStatusString("Running"))
+		cblogger.Info(ConvertVMStatusString("Suspending"))
+		cblogger.Info(ConvertVMStatusString("Suspended"))
+		cblogger.Info(ConvertVMStatusString("Resuming"))
+		cblogger.Info(ConvertVMStatusString("Rebooting"))
+		cblogger.Info(ConvertVMStatusString("Terminating"))
+		cblogger.Info(ConvertVMStatusString("Terminated"))
+	*/
+	//irs.VMStatus("")
+	//status := irs.VMStatus("PenDing")
+	/*
+		status := VMStatus("PENDING")
+		spew.Dump(status)
+		spew.Dump(Pending)
+
+		if status == Pending {
+			cblogger.Info("같음")
+		} else {
+			cblogger.Info("다름")
+		}
+	*/
 
 	//createVM()
 	//suspendVM(vmID)

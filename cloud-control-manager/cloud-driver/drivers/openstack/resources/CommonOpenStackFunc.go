@@ -11,8 +11,8 @@ import (
 )
 
 const (
-	CBPublicIPPool       = "public1"
-	CBGateWayId          = "b6610ceb-8089-48b0-9bfc-3c35e4e245cf"
+	CBPublicIPPool       = "ext"
+	CBGateWayId          = "8c1af031-aad6-4762-ac83-52e09dd82571"
 	CBVirutalNetworkName = "CB-VNet"
 	CBVnetDefaultCidr    = "130.0.0.0/16"
 	//CBVMUser             = "cb-user"
@@ -47,6 +47,14 @@ func CreateSubnetCIDR(subnetList []*irs.VNetworkInfo) (*string, error) {
 	subnetCIDR := fmt.Sprintf("%s.%s.%d.0/24", vNetIPClass[0], vNetIPClass[1], maxClassNum)
 	return &subnetCIDR, nil
 }
+
+// 외부 네트워크(Public Network) 정보 조회
+/*func GetExternalNetwork(client *gophercloud.ServiceClient) (string, error) {
+
+	listOpts := external.ListOptsExt{
+		External: to.BoolPtr(true),
+	}
+}*/
 
 // 기본 가상 네트워크(CB-VNet) Id 정보 조회
 func GetCBVNetId(client *gophercloud.ServiceClient) (string, error) {

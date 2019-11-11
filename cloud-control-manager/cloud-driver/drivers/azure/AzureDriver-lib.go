@@ -14,7 +14,9 @@ import (
 	"context"
 	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2018-06-01/compute"
 	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2018-04-01/network"
+	"github.com/Azure/azure-sdk-for-go/services/resources/mgmt/2017-05-10/resources"
 	"github.com/Azure/go-autorest/autorest/azure/auth"
+	"github.com/Azure/go-autorest/autorest/to"
 	azcon "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/azure/connect"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	icon "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/connect"
@@ -46,6 +48,12 @@ func (driver *AzureDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (ico
 	// 2. create a client object(or service  object) of Test A Cloud with credential info.
 	// 3. create CloudConnection Instance of "connect/TDA_CloudConnection".
 	// 4. return CloudConnection Interface of TDA_CloudConnection.
+
+	// Credentail에 등록된 ResourceGroup 존재 여부 체크 및 생성
+	err := checkResourceGroup(connectionInfo.CredentialInfo, connectionInfo.RegionInfo)
+	if err != nil {
+		return nil, err
+	}
 
 	Ctx, VMClient, err := getVMClient(connectionInfo.CredentialInfo)
 	if err != nil {
@@ -83,6 +91,10 @@ func (driver *AzureDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (ico
 	if err != nil {
 		return nil, err
 	}
+	Ctx, DiskClient, err := getDiskClient(connectionInfo.CredentialInfo)
+	if err != nil {
+		return nil, err
+	}
 
 	iConn := azcon.AzureCloudConnection{
 		CredentialInfo:      connectionInfo.CredentialInfo,
@@ -97,8 +109,36 @@ func (driver *AzureDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (ico
 		IPConfigClient:      IPConfigClient,
 		SubnetClient:        SubnetClient,
 		VMImageClient:       VMImageClient,
+		DiskClient:          DiskClient,
 	}
 	return &iConn, nil
+}
+
+func checkResourceGroup(credential idrv.CredentialInfo, region idrv.RegionInfo) error {
+	config := auth.NewClientCredentialsConfig(credential.ClientId, credential.ClientSecret, credential.TenantId)
+	authorizer, err := config.Authorizer()
+	if err != nil {
+		return nil
+	}
+
+	resourceClient := resources.NewGroupsClient(credential.SubscriptionId)
+	resourceClient.Authorizer = authorizer
+	ctx, _ := context.WithTimeout(context.Background(), 600*time.Second)
+
+	rg, err := resourceClient.Get(ctx, region.ResourceGroup)
+
+	// 해당 리소스 그룹이 없을 경우 생성
+	if rg.ID == nil {
+		rg, err = resourceClient.CreateOrUpdate(ctx, region.ResourceGroup,
+			resources.Group{
+				Name:     to.StringPtr(region.ResourceGroup),
+				Location: to.StringPtr(region.Region),
+			})
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func getVMClient(credential idrv.CredentialInfo) (context.Context, *compute.VirtualMachinesClient, error) {
@@ -230,6 +270,20 @@ func getVMImageClient(credential idrv.CredentialInfo) (context.Context, *compute
 	ctx, _ := context.WithTimeout(context.Background(), 600*time.Second)
 
 	return ctx, &vmImageClient, nil
+}
+
+func getDiskClient(credential idrv.CredentialInfo) (context.Context, *compute.DisksClient, error) {
+	config := auth.NewClientCredentialsConfig(credential.ClientId, credential.ClientSecret, credential.TenantId)
+	authorizer, err := config.Authorizer()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	diskClient := compute.NewDisksClient(credential.SubscriptionId)
+	diskClient.Authorizer = authorizer
+	ctx, _ := context.WithTimeout(context.Background(), 600*time.Second)
+
+	return ctx, &diskClient, nil
 }
 
 var CloudDriver AzureDriver

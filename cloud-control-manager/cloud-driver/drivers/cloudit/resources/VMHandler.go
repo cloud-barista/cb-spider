@@ -19,8 +19,9 @@ import (
 	"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/cloudit/client/dna/adaptiveip"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
-	"github.com/davecgh/go-spew/spew"
 	"github.com/sirupsen/logrus"
+	"strings"
+	"time"
 )
 
 var cblogger *logrus.Logger
@@ -63,36 +64,52 @@ func (vmHandler *ClouditVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 	}
 
 	// VM 생성
-	if vm, err := server.Start(vmHandler.Client, &requestOpts); err != nil {
+	vm, err := server.Start(vmHandler.Client, &requestOpts)
+	if err != nil {
 		return irs.VMInfo{}, err
-	} else {
-		// VM 정보 가져오기
-		vmDetailInfo, err := server.Get(vmHandler.Client, vm.ID, &requestOpts)
+	}
+
+	// VM 생성 완료까지 wait
+	vmId := vm.ID
+	var isDeployed bool
+	var serverInfo irs.VMInfo
+
+	for {
+		if isDeployed {
+			break
+		}
+
+		// Check VM Deploy Status
+		vmDetailInfo, err := server.Get(vmHandler.Client, vmId, &requestOpts)
 		if err != nil {
 			return irs.VMInfo{}, err
 		}
-
-		// PublicIP 생성
-		/*publicIPReqInfo := irs.PublicIPReqInfo{
-			Name: vm.Name + "-PublicIP",
-			KeyValueList: []irs.KeyValue{
-				{
-					Key:   "PrivateIP",
-					Value: vm.PrivateIp,
+		if vmDetailInfo.PrivateIp != "" {
+			publicIPReqInfo := irs.PublicIPReqInfo{
+				Name: vm.Name + "-PublicIP",
+				KeyValueList: []irs.KeyValue{
+					{
+						Key:   "PrivateIP",
+						Value: vmDetailInfo.PrivateIp,
+					},
 				},
-			},
-		}
-		if ok, err := vmHandler.AssociatePublicIP(publicIPReqInfo); !ok {
-			return irs.VMInfo{}, err
-		}*/
+			}
+			// Associate Public IP
+			if ok, err := vmHandler.AssociatePublicIP(publicIPReqInfo); !ok {
+				return irs.VMInfo{}, err
+			}
 
-		// 생성된 VM 정보 리턴
-		vmInfo := mappingServerInfo(*vmDetailInfo)
-		return vmInfo, nil
+			serverInfo = mappingServerInfo(*vmDetailInfo)
+			isDeployed = true
+		}
+
+		time.Sleep(5 * time.Second)
 	}
+
+	return serverInfo, nil
 }
 
-func (vmHandler *ClouditVMHandler) SuspendVM(vmID string) error {
+func (vmHandler *ClouditVMHandler) SuspendVM(vmID string) (irs.VMStatus, error) {
 	vmHandler.Client.TokenID = vmHandler.CredentialInfo.AuthToken
 	authHeader := vmHandler.Client.AuthenticatedHeaders()
 
@@ -102,12 +119,19 @@ func (vmHandler *ClouditVMHandler) SuspendVM(vmID string) error {
 
 	if err := server.Suspend(vmHandler.Client, vmID, &requestOpts); err != nil {
 		cblogger.Error(err)
-		return err
+		return irs.Failed, err
 	}
-	return nil
+
+	// VM 상태 정보 반환
+	vmStatus, err := vmHandler.GetVMStatus(vmID)
+	if err != nil {
+		cblogger.Error(err)
+		return irs.Failed, err
+	}
+	return vmStatus, nil
 }
 
-func (vmHandler *ClouditVMHandler) ResumeVM(vmID string) error {
+func (vmHandler *ClouditVMHandler) ResumeVM(vmID string) (irs.VMStatus, error) {
 	vmHandler.Client.TokenID = vmHandler.CredentialInfo.AuthToken
 	authHeader := vmHandler.Client.AuthenticatedHeaders()
 
@@ -117,12 +141,19 @@ func (vmHandler *ClouditVMHandler) ResumeVM(vmID string) error {
 
 	if err := server.Resume(vmHandler.Client, vmID, &requestOpts); err != nil {
 		cblogger.Error(err)
-		return err
+		return irs.Failed, err
 	}
-	return nil
+
+	// VM 상태 정보 반환
+	vmStatus, err := vmHandler.GetVMStatus(vmID)
+	if err != nil {
+		cblogger.Error(err)
+		return irs.Failed, err
+	}
+	return vmStatus, nil
 }
 
-func (vmHandler *ClouditVMHandler) RebootVM(vmID string) error {
+func (vmHandler *ClouditVMHandler) RebootVM(vmID string) (irs.VMStatus, error) {
 	vmHandler.Client.TokenID = vmHandler.CredentialInfo.AuthToken
 	authHeader := vmHandler.Client.AuthenticatedHeaders()
 
@@ -132,12 +163,19 @@ func (vmHandler *ClouditVMHandler) RebootVM(vmID string) error {
 
 	if err := server.Reboot(vmHandler.Client, vmID, &requestOpts); err != nil {
 		cblogger.Error(err)
-		return err
+		return irs.Failed, err
 	}
-	return nil
+
+	// VM 상태 정보 반환
+	vmStatus, err := vmHandler.GetVMStatus(vmID)
+	if err != nil {
+		cblogger.Error(err)
+		return irs.Failed, err
+	}
+	return vmStatus, nil
 }
 
-func (vmHandler *ClouditVMHandler) TerminateVM(vmID string) error {
+func (vmHandler *ClouditVMHandler) TerminateVM(vmID string) (irs.VMStatus, error) {
 	vmHandler.Client.TokenID = vmHandler.CredentialInfo.AuthToken
 	authHeader := vmHandler.Client.AuthenticatedHeaders()
 
@@ -145,11 +183,30 @@ func (vmHandler *ClouditVMHandler) TerminateVM(vmID string) error {
 		MoreHeaders: authHeader,
 	}
 
+	// VM 정보 조회
+	vmInfo, err := vmHandler.GetVM(vmID)
+	if err != nil {
+		cblogger.Error(err)
+		return irs.Failed, err
+	}
+
+	// 연결된 PublicIP 반환
+	if vmInfo.PublicIP != "" {
+		reqOpts := irs.PublicIPReqInfo{
+			Name: vmInfo.PublicIP,
+		}
+		if ok, err := vmHandler.DisassociatePublicIP(reqOpts); !ok {
+			return irs.Failed, err
+		}
+	}
+
 	if err := server.Terminate(vmHandler.Client, vmID, &requestOpts); err != nil {
 		cblogger.Error(err)
-		return err
+		return irs.Failed, err
 	}
-	return nil
+
+	// VM 상태 정보 반환
+	return irs.Terminating, nil
 }
 
 func (vmHandler *ClouditVMHandler) ListVMStatus() ([]*irs.VMStatusInfo, error) {
@@ -184,12 +241,36 @@ func (vmHandler *ClouditVMHandler) GetVMStatus(vmID string) (irs.VMStatus, error
 		MoreHeaders: authHeader,
 	}
 
-	if vm, err := server.Get(vmHandler.Client, vmID, &requestOpts); err != nil {
+	vm, err := server.Get(vmHandler.Client, vmID, &requestOpts)
+	if err != nil {
 		cblogger.Error(err)
-		return "", err
-	} else {
-		return irs.VMStatus(vm.State), nil
+		return irs.Failed, err
 	}
+
+	// Set VM Status Info
+	var resultStatus string
+	switch strings.ToLower(vm.State) {
+	case "creating":
+		resultStatus = "Creating"
+	case "running":
+		resultStatus = "Running"
+	case "stopping":
+		resultStatus = "Suspending"
+	case "stopped":
+		resultStatus = "Suspended"
+	case "starting":
+		resultStatus = "Resuming"
+	case "rebooting":
+		resultStatus = "Rebooting"
+	case "terminating":
+		resultStatus = "Terminating"
+	case "terminated":
+		resultStatus = "Terminated"
+	case "failed":
+	default:
+		resultStatus = "Failed"
+	}
+	return irs.VMStatus(resultStatus), nil
 }
 
 func (vmHandler *ClouditVMHandler) ListVM() ([]*irs.VMInfo, error) {
@@ -268,12 +349,28 @@ func (vmHandler *ClouditVMHandler) AssociatePublicIP(publicIPReqInfo irs.PublicI
 		JSONBody:    reqInfo,
 		MoreHeaders: authHeader,
 	}
-	publicIP, err := adaptiveip.Create(vmHandler.Client, &createOpts)
+	_, err := adaptiveip.Create(vmHandler.Client, &createOpts)
 	if err != nil {
 		cblogger.Error(err)
 		return false, err
 	} else {
-		spew.Dump(publicIP)
+		return true, nil
+	}
+}
+
+// VM에 PublicIP 해제
+func (vmHandler *ClouditVMHandler) DisassociatePublicIP(publicIPReqInfo irs.PublicIPReqInfo) (bool, error) {
+	vmHandler.Client.TokenID = vmHandler.CredentialInfo.AuthToken
+	authHeader := vmHandler.Client.AuthenticatedHeaders()
+
+	requestOpts := client.RequestOpts{
+		MoreHeaders: authHeader,
+	}
+
+	if err := adaptiveip.Delete(vmHandler.Client, publicIPReqInfo.Name, &requestOpts); err != nil {
+		cblogger.Error(err)
+		return false, err
+	} else {
 		return true, nil
 	}
 }

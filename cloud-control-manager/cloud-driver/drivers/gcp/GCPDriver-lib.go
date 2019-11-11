@@ -7,7 +7,10 @@
 // This is a Cloud Driver Example for PoC Test.
 //
 // by jazmandorf@gmail.com MZC
+
 package main
+
+//package gcp
 
 import (
 	"C"
@@ -15,7 +18,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"time"
 
 	gcpcon "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/gcp/connect"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
@@ -111,7 +113,7 @@ func getVMClient(credential idrv.CredentialInfo) (context.Context, *compute.Serv
 
 	vmClient, err := compute.New(client)
 
-	ctx, _ := context.WithTimeout(context.Background(), 600*time.Second)
+	ctx := context.Background()
 
 	return ctx, vmClient, nil
 }

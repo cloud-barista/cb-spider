@@ -1,10 +1,21 @@
+// Proof of Concepts of CB-Spider.
+// The CB-Spider is a sub-Framework of the Cloud-Barista Multi-Cloud Project.
+// The CB-Spider Mission is to connect all the clouds with a single interface.
+//
+//      * Cloud-Barista: https://github.com/cloud-barista
+//
+// This is a Cloud Driver Example for PoC Test.
+//
+// program by ysjeon@mz.co.kr, 2019.07.
+// modify by devunet@mz.co.kr, 2019.11.
+
 package resources
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strconv"
-	"strings"
 
 	cblog "github.com/cloud-barista/cb-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
@@ -46,17 +57,19 @@ name, sourceDisk(sourceImage),storageLocations(배열 ex : ["asia"])
 */
 
 func (imageHandler *GCPImageHandler) CreateImage(imageReqInfo irs.ImageReqInfo) (irs.ImageInfo, error) {
-
-	return irs.ImageInfo{}, nil
+	return irs.ImageInfo{}, errors.New("Feature not implemented.")
 }
 
 func (imageHandler *GCPImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 
-	projectId := imageHandler.Credential.ProjectID
+	//projectId := imageHandler.Credential.ProjectID
+	projectId := "gce-uefi-images"
 
+	// list, err := imageHandler.Client.Images.List(projectId).Do()
 	list, err := imageHandler.Client.Images.List(projectId).Do()
 	if err != nil {
 		cblogger.Error(err)
+		return nil, err
 	}
 	var imageList []*irs.ImageInfo
 	for _, item := range list.Items {
@@ -65,43 +78,49 @@ func (imageHandler *GCPImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 	}
 
 	spew.Dump(imageList)
-	return imageList, err
+	return imageList, nil
 }
 
 func (imageHandler *GCPImageHandler) GetImage(imageID string) (irs.ImageInfo, error) {
-	projectId := imageHandler.Credential.ProjectID
+	//projectId := imageHandler.Credential.ProjectID
+	projectId := "gce-uefi-images"
 
 	image, err := imageHandler.Client.Images.Get(projectId, imageID).Do()
 	if err != nil {
 		cblogger.Error(err)
+		return irs.ImageInfo{}, err
 	}
 	imageInfo := mappingImageInfo(image)
-	return imageInfo, err
+	return imageInfo, nil
 }
 
 func (imageHandler *GCPImageHandler) DeleteImage(imageID string) (bool, error) {
+	// public Image 는 지울 수 없는데 어떻게 해야 하는가?
 	projectId := imageHandler.Credential.ProjectID
 
 	res, err := imageHandler.Client.Images.Delete(projectId, imageID).Do()
 	if err != nil {
 		cblogger.Error(err)
+		return false, err
 	}
 	fmt.Println(res)
 	return true, err
 }
 
 func mappingImageInfo(imageInfo *compute.Image) irs.ImageInfo {
-	lArr := strings.Split(imageInfo.Licenses[0], "/")
-	os := lArr[len(lArr)-1]
+	//lArr := strings.Split(imageInfo.Licenses[0], "/")
+	//os := lArr[len(lArr)-1]
 	imageList := irs.ImageInfo{
-		Id:      strconv.FormatUint(imageInfo.Id, 10),
+		//Id:      strconv.FormatUint(imageInfo.Id, 10),
+		Id:      imageInfo.SelfLink,
 		Name:    imageInfo.Name,
-		GuestOS: os,
+		GuestOS: imageInfo.Family,
 		Status:  imageInfo.Status,
 		KeyValueList: []irs.KeyValue{
 			{"SourceType", imageInfo.SourceType},
 			{"SelfLink", imageInfo.SelfLink},
 			{"GuestOsFeature", imageInfo.GuestOsFeatures[0].Type},
+			{"Family", imageInfo.Family},
 			{"DiskSizeGb", strconv.FormatInt(imageInfo.DiskSizeGb, 10)},
 		},
 	}
