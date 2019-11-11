@@ -29,7 +29,7 @@ const (
 	CBKeyPairPath = "/cloud-driver-libs/.ssh-gcp/"
 )
 
-const CBDefaultVNetName string = "cb-vnet2"  // CB Default Virtual Network Name
+const CBDefaultVNetName string = "cb-vnet"   // CB Default Virtual Network Name
 const CBDefaultSubnetName string = "cb-vnet" // CB Default Subnet Name
 
 type GcpCBNetworkInfo struct {

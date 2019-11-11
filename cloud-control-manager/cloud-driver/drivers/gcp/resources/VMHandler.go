@@ -73,6 +73,7 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 		publicIpName := vmReqInfo.PublicIPId
 		publicIpReqInfo := irs.PublicIPReqInfo{Name: publicIpName}
 		publicIPInfo, err := publicIpHandler.CreatePublicIP(publicIpReqInfo)
+
 		if err != nil {
 			cblogger.Error(err)
 			return irs.VMInfo{}, err
@@ -81,10 +82,28 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 		cblogger.Info(publicIPInfo)
 		publicIPAddress = publicIPInfo.PublicIP
 	}
+	//KEYPAIR HANDLER
+	keypairHandler := GCPKeyPairHandler{
+		vmHandler.Credential, vmHandler.Region}
+	keypairInfo, errKeypair := keypairHandler.GetKey(vmReqInfo.KeyPairName)
+	pubKey := projectID + ":" + keypairInfo.PublicKey
+	if errKeypair != nil {
+		cblogger.Error(errKeypair)
+		return irs.VMInfo{}, errKeypair
+	}
+
+	cblogger.Info("keypairInfo 정보")
+	spew.Dump(keypairInfo)
 
 	networkURL := prefix + "/global/networks/" + vmReqInfo.VirtualNetworkId
 	instance := &compute.Instance{
-		Name:        vmName,
+		Name: vmName,
+		Metadata: &compute.Metadata{
+			Items: []*compute.MetadataItems{
+				{Key: "ssh-keys",
+					Value: &pubKey},
+			},
+		},
 		Description: "compute sample instance",
 		MachineType: prefix + "/zones/" + zone + "/machineTypes/" + vmReqInfo.VMSpecId,
 		Disks: []*compute.AttachedDisk{
@@ -126,6 +145,7 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 
 	cblogger.Info("VM 생성 시작")
 	cblogger.Info(instance)
+	spew.Dump(instance)
 	op, err1 := vmHandler.Client.Instances.Insert(projectID, zone, instance).Do()
 	cblogger.Info(op)
 	spew.Dump(op)
@@ -365,6 +385,7 @@ func (vmHandler *GCPVMHandler) mappingServerInfo(server *compute.Instance) irs.V
 		Region: irs.RegionInfo{
 			Zone: server.Zone,
 		},
+		VMUserId:           vmHandler.Credential.ProjectID,
 		NetworkInterfaceId: server.NetworkInterfaces[0].Name,
 		SecurityGroupIds:   server.Tags.Items,
 		VMSpecId:           server.MachineType,

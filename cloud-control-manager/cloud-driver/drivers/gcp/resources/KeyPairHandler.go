@@ -34,6 +34,7 @@ type GCPKeyPairHandler struct {
 }
 
 func (keyPairHandler *GCPKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPairReqInfo) (irs.KeyPairInfo, error) {
+	projectId := keyPairHandler.CredentialInfo.ProjectID
 	keyPairPath := os.Getenv("CBSPIDER_ROOT") + CBKeyPairPath
 	hashString, err := CreateHashString(keyPairHandler.CredentialInfo)
 	if err != nil {
@@ -63,6 +64,9 @@ func (keyPairHandler *GCPKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPairReq
 	// rsa.PublicKey를 가져와서 .pub 파일에 쓰기 적합한 바이트로 변환
 	// "ssh-rsa ..."형식으로 변환
 	publicKeyBytes, err := generatePublicKey(&privateKey.PublicKey)
+	publicKeyString := string(publicKeyBytes)
+	publicKeyString = strings.TrimSpace(publicKeyString) + " " + projectId
+	fmt.Println("publicKeyString : ", publicKeyString)
 	if err != nil {
 		return irs.KeyPairInfo{}, err
 	}
@@ -74,7 +78,7 @@ func (keyPairHandler *GCPKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPairReq
 	}
 
 	// 파일에 public Key를 쓴다
-	err = writeKeyToFile([]byte(publicKeyBytes), savePublicFileTo)
+	err = writeKeyToFile([]byte(publicKeyString), savePublicFileTo)
 	if err != nil {
 		return irs.KeyPairInfo{}, err
 	}
