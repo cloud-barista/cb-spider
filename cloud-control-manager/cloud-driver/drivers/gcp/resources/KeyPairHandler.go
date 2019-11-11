@@ -37,7 +37,7 @@ func (keyPairHandler *GCPKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPairReq
 	keyPairName := strings.ToLower(keyPairReqInfo.Name)
 	cblogger.Infof("keyPairName [%s] --> [%s]", keyPairReqInfo.Name, keyPairName)
 
-	projectId := keyPairHandler.CredentialInfo.ProjectID
+	//projectId := keyPairHandler.CredentialInfo.ProjectID
 	keyPairPath := os.Getenv("CBSPIDER_ROOT") + CBKeyPairPath
 	hashString, err := CreateHashString(keyPairHandler.CredentialInfo)
 	if err != nil {
@@ -68,7 +68,8 @@ func (keyPairHandler *GCPKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPairReq
 	// "ssh-rsa ..."형식으로 변환
 	publicKeyBytes, err := generatePublicKey(&privateKey.PublicKey)
 	publicKeyString := string(publicKeyBytes)
-	publicKeyString = strings.TrimSpace(publicKeyString) + " " + projectId
+	// projectId 대신에 cb-user 고정
+	publicKeyString = strings.TrimSpace(publicKeyString) + " " + "cb-user"
 	fmt.Println("publicKeyString : ", publicKeyString)
 	if err != nil {
 		return irs.KeyPairInfo{}, err
@@ -88,7 +89,7 @@ func (keyPairHandler *GCPKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPairReq
 
 	keyPairInfo := irs.KeyPairInfo{
 		Name:       keyPairName,
-		PublicKey:  string(publicKeyBytes),
+		PublicKey:  publicKeyString,
 		PrivateKey: string(privateKeyBytes),
 	}
 	return keyPairInfo, nil
