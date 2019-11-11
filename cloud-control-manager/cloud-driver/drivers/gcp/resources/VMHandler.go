@@ -86,7 +86,7 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 	keypairHandler := GCPKeyPairHandler{
 		vmHandler.Credential, vmHandler.Region}
 	keypairInfo, errKeypair := keypairHandler.GetKey(vmReqInfo.KeyPairName)
-	pubKey := projectID + ":" + keypairInfo.PublicKey
+	pubKey := "cb-user:" + keypairInfo.PublicKey
 	if errKeypair != nil {
 		cblogger.Error(errKeypair)
 		return irs.VMInfo{}, errKeypair
@@ -386,9 +386,10 @@ func (vmHandler *GCPVMHandler) mappingServerInfo(server *compute.Instance) irs.V
 		Name: server.Name,
 		Id:   strconv.FormatUint(server.Id, 10),
 		Region: irs.RegionInfo{
-			Zone: server.Zone,
+			Region: vmHandler.Region.Region,
+			Zone:   vmHandler.Region.Zone,
 		},
-		VMUserId:           vmHandler.Credential.ProjectID,
+		VMUserId:           "cb-user",
 		NetworkInterfaceId: server.NetworkInterfaces[0].Name,
 		SecurityGroupIds:   server.Tags.Items,
 		VMSpecId:           server.MachineType,
