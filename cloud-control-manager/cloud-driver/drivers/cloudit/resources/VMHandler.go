@@ -21,6 +21,7 @@ import (
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/sirupsen/logrus"
+	"strings"
 )
 
 var cblogger *logrus.Logger
@@ -92,7 +93,7 @@ func (vmHandler *ClouditVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 	}
 }
 
-func (vmHandler *ClouditVMHandler) SuspendVM(vmID string) error {
+func (vmHandler *ClouditVMHandler) SuspendVM(vmID string) (irs.VMStatus, error) {
 	vmHandler.Client.TokenID = vmHandler.CredentialInfo.AuthToken
 	authHeader := vmHandler.Client.AuthenticatedHeaders()
 
@@ -102,12 +103,19 @@ func (vmHandler *ClouditVMHandler) SuspendVM(vmID string) error {
 
 	if err := server.Suspend(vmHandler.Client, vmID, &requestOpts); err != nil {
 		cblogger.Error(err)
-		return err
+		return irs.Failed, err
 	}
-	return nil
+
+	// VM 상태 정보 반환
+	vmStatus, err := vmHandler.GetVMStatus(vmID)
+	if err != nil {
+		cblogger.Error(err)
+		return irs.Failed, err
+	}
+	return vmStatus, nil
 }
 
-func (vmHandler *ClouditVMHandler) ResumeVM(vmID string) error {
+func (vmHandler *ClouditVMHandler) ResumeVM(vmID string) (irs.VMStatus, error) {
 	vmHandler.Client.TokenID = vmHandler.CredentialInfo.AuthToken
 	authHeader := vmHandler.Client.AuthenticatedHeaders()
 
@@ -117,12 +125,19 @@ func (vmHandler *ClouditVMHandler) ResumeVM(vmID string) error {
 
 	if err := server.Resume(vmHandler.Client, vmID, &requestOpts); err != nil {
 		cblogger.Error(err)
-		return err
+		return irs.Failed, err
 	}
-	return nil
+
+	// VM 상태 정보 반환
+	vmStatus, err := vmHandler.GetVMStatus(vmID)
+	if err != nil {
+		cblogger.Error(err)
+		return irs.Failed, err
+	}
+	return vmStatus, nil
 }
 
-func (vmHandler *ClouditVMHandler) RebootVM(vmID string) error {
+func (vmHandler *ClouditVMHandler) RebootVM(vmID string) (irs.VMStatus, error) {
 	vmHandler.Client.TokenID = vmHandler.CredentialInfo.AuthToken
 	authHeader := vmHandler.Client.AuthenticatedHeaders()
 
@@ -132,12 +147,19 @@ func (vmHandler *ClouditVMHandler) RebootVM(vmID string) error {
 
 	if err := server.Reboot(vmHandler.Client, vmID, &requestOpts); err != nil {
 		cblogger.Error(err)
-		return err
+		return irs.Failed, err
 	}
-	return nil
+
+	// VM 상태 정보 반환
+	vmStatus, err := vmHandler.GetVMStatus(vmID)
+	if err != nil {
+		cblogger.Error(err)
+		return irs.Failed, err
+	}
+	return vmStatus, nil
 }
 
-func (vmHandler *ClouditVMHandler) TerminateVM(vmID string) error {
+func (vmHandler *ClouditVMHandler) TerminateVM(vmID string) (irs.VMStatus, error) {
 	vmHandler.Client.TokenID = vmHandler.CredentialInfo.AuthToken
 	authHeader := vmHandler.Client.AuthenticatedHeaders()
 
@@ -147,9 +169,11 @@ func (vmHandler *ClouditVMHandler) TerminateVM(vmID string) error {
 
 	if err := server.Terminate(vmHandler.Client, vmID, &requestOpts); err != nil {
 		cblogger.Error(err)
-		return err
+		return irs.Failed, err
 	}
-	return nil
+
+	// VM 상태 정보 반환
+	return irs.Terminating, nil
 }
 
 func (vmHandler *ClouditVMHandler) ListVMStatus() ([]*irs.VMStatusInfo, error) {
@@ -184,12 +208,36 @@ func (vmHandler *ClouditVMHandler) GetVMStatus(vmID string) (irs.VMStatus, error
 		MoreHeaders: authHeader,
 	}
 
-	if vm, err := server.Get(vmHandler.Client, vmID, &requestOpts); err != nil {
+	vm, err := server.Get(vmHandler.Client, vmID, &requestOpts)
+	if err != nil {
 		cblogger.Error(err)
-		return "", err
-	} else {
-		return irs.VMStatus(vm.State), nil
+		return irs.Failed, err
 	}
+
+	// Set VM Status Info
+	var resultStatus string
+	switch strings.ToLower(vm.State) {
+	case "creating":
+		resultStatus = "Creating"
+	case "running":
+		resultStatus = "Running"
+	case "stopping":
+		resultStatus = "Suspending"
+	case "stopped":
+		resultStatus = "Suspended"
+	case "starting":
+		resultStatus = "Resuming"
+	case "rebooting":
+		resultStatus = "Rebooting"
+	case "terminating":
+		resultStatus = "Terminating"
+	case "terminated":
+		resultStatus = "Terminated"
+	case "failed":
+	default:
+		resultStatus = "Failed"
+	}
+	return irs.VMStatus(resultStatus), nil
 }
 
 func (vmHandler *ClouditVMHandler) ListVM() ([]*irs.VMInfo, error) {
