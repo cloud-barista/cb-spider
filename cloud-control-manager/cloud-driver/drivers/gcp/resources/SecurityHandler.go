@@ -20,6 +20,7 @@ import (
 
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
+	"github.com/davecgh/go-spew/spew"
 	compute "google.golang.org/api/compute/v1"
 )
 
@@ -31,6 +32,20 @@ type GCPSecurityHandler struct {
 }
 
 func (securityHandler *GCPSecurityHandler) CreateSecurity(securityReqInfo irs.SecurityReqInfo) (irs.SecurityInfo, error) {
+
+	vNetworkHandler := GCPVNetworkHandler{
+		Client:     securityHandler.Client,
+		Region:     securityHandler.Region,
+		Ctx:        securityHandler.Ctx,
+		Credential: securityHandler.Credential,
+	}
+
+	vNetInfo, errVnet := vNetworkHandler.GetVNetwork(GetCBDefaultVNetName())
+	spew.Dump(vNetInfo)
+	if errVnet != nil {
+		return irs.SecurityInfo{}, errVnet
+	}
+
 	projectID := securityHandler.Credential.ProjectID
 	// @TODO: SecurityGroup 생성 요청 파라미터 정의 필요
 	ports := *securityReqInfo.SecurityRules
@@ -58,13 +73,28 @@ func (securityHandler *GCPSecurityHandler) CreateSecurity(securityReqInfo irs.Se
 			},
 		})
 	}
+
+	var sgDirection string
+	if strings.EqualFold(securityReqInfo.Direction, "inbound") {
+		sgDirection = "INGRESS"
+	} else if strings.EqualFold(securityReqInfo.Direction, "outbound") {
+		sgDirection = "EGRESS"
+	}
+
+	prefix := "https://www.googleapis.com/compute/v1/projects/" + projectID
+	networkURL := prefix + "/global/networks/" + GetCBDefaultVNetName()
+
 	fireWall := &compute.Firewall{
 		Allowed:   firewallAllowed,
-		Direction: securityReqInfo.Direction, //INGRESS(inbound), EGRESS(outbound)
+		Direction: sgDirection, //INGRESS(inbound), EGRESS(outbound)
 		SourceRanges: []string{
 			"0.0.0.0/0",
 		},
 		Name: securityReqInfo.Name,
+		TargetTags: []string{
+			securityReqInfo.Name,
+		},
+		Network: networkURL,
 	}
 
 	res, err := securityHandler.Client.Firewalls.Insert(projectID, fireWall).Do()

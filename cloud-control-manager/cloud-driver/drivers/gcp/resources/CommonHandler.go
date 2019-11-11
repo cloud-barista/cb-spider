@@ -29,6 +29,30 @@ const (
 	CBKeyPairPath = "/cloud-driver-libs/.ssh-gcp/"
 )
 
+const CBDefaultVNetName string = "cb-vnet2"  // CB Default Virtual Network Name
+const CBDefaultSubnetName string = "cb-vnet" // CB Default Subnet Name
+
+type GcpCBNetworkInfo struct {
+	VpcName   string
+	VpcId     string
+	CidrBlock string
+	IsDefault bool
+	State     string
+
+	SubnetName string
+	SubnetId   string
+}
+
+//VPC
+func GetCBDefaultVNetName() string {
+	return CBDefaultVNetName
+}
+
+//Subnet
+func GetCBDefaultSubnetName() string {
+	return CBDefaultSubnetName
+}
+
 func GetKeyValueList(i map[string]interface{}) []irs.KeyValue {
 	var keyValueList []irs.KeyValue
 	for k, v := range i {

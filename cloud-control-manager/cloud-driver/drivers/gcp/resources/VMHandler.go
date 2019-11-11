@@ -43,7 +43,9 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 	vmName := vmReqInfo.VMName
 	projectID := vmHandler.Credential.ProjectID
 	prefix := "https://www.googleapis.com/compute/v1/projects/" + projectID
-	imageURL := "projects/ubuntu-os-cloud/global/images/ubuntu-minimal-1804-bionic-v20191024"
+	//imageURL := "projects/ubuntu-os-cloud/global/images/ubuntu-minimal-1804-bionic-v20191024"
+	imageURL := vmReqInfo.ImageId
+
 	zone := vmHandler.Region.Zone
 	// email을 어디다가 넣지? 이것또한 문제넹
 	clientEmail := vmHandler.Credential.ClientEmail
@@ -117,12 +119,16 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 				},
 			},
 		},
+		Tags: &compute.Tags{
+			Items: vmReqInfo.SecurityGroupIds,
+		},
 	}
 
 	cblogger.Info("VM 생성 시작")
 	cblogger.Info(instance)
 	op, err1 := vmHandler.Client.Instances.Insert(projectID, zone, instance).Do()
 	cblogger.Info(op)
+	spew.Dump(op)
 	if err1 != nil {
 		cblogger.Info("VM 생성 실패")
 		cblogger.Error(err1)
@@ -149,7 +155,7 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 		cblogger.Error(err2)
 		return irs.VMInfo{}, err2
 	}
-	vmInfo := mappingServerInfo(vm)
+	vmInfo := vmHandler.mappingServerInfo(vm)
 
 	return vmInfo, nil
 }
@@ -300,7 +306,7 @@ func (vmHandler *GCPVMHandler) ListVM() ([]*irs.VMInfo, error) {
 
 	var vmList []*irs.VMInfo
 	for _, server := range serverList.Items {
-		vmInfo := mappingServerInfo(server)
+		vmInfo := vmHandler.mappingServerInfo(server)
 		vmList = append(vmList, &vmInfo)
 	}
 
@@ -312,12 +318,13 @@ func (vmHandler *GCPVMHandler) GetVM(vmName string) (irs.VMInfo, error) {
 	zone := vmHandler.Region.Zone
 
 	vm, err := vmHandler.Client.Instances.Get(projectID, zone, vmName).Do()
+	spew.Dump(vm)
 	if err != nil {
 		cblogger.Error(err)
 		return irs.VMInfo{}, err
 	}
 
-	vmInfo := mappingServerInfo(vm)
+	vmInfo := vmHandler.mappingServerInfo(vm)
 	return vmInfo, nil
 }
 
@@ -348,9 +355,10 @@ func (vmHandler *GCPVMHandler) GetVM(vmName string) (irs.VMInfo, error) {
 // 	return vmState
 // }
 
-func mappingServerInfo(server *compute.Instance) irs.VMInfo {
-
+func (vmHandler *GCPVMHandler) mappingServerInfo(server *compute.Instance) irs.VMInfo {
+	//var gcpHanler *GCPVMHandler
 	// Get Default VM Info
+
 	vmInfo := irs.VMInfo{
 		Name: server.Name,
 		Id:   strconv.FormatUint(server.Id, 10),
@@ -358,7 +366,9 @@ func mappingServerInfo(server *compute.Instance) irs.VMInfo {
 			Zone: server.Zone,
 		},
 		NetworkInterfaceId: server.NetworkInterfaces[0].Name,
+		SecurityGroupIds:   server.Tags.Items,
 		VMSpecId:           server.MachineType,
+		ImageId:            vmHandler.getImageInfo(server.Disks[0].Source),
 		PublicIP:           server.NetworkInterfaces[0].AccessConfigs[0].NatIP,
 		PrivateIP:          server.NetworkInterfaces[0].NetworkIP,
 		VirtualNetworkId:   server.NetworkInterfaces[0].Network,
@@ -373,4 +383,23 @@ func mappingServerInfo(server *compute.Instance) irs.VMInfo {
 	}
 
 	return vmInfo
+}
+func (vmHandler *GCPVMHandler) getImageInfo(diskname string) string {
+	projectID := vmHandler.Credential.ProjectID
+	zone := vmHandler.Region.Zone
+	dArr := strings.Split(diskname, "/")
+	var result string
+	if dArr != nil {
+		result = dArr[len(dArr)-1]
+	}
+	cblogger.Infof("result : [%s]", result)
+
+	info, err := vmHandler.Client.Disks.Get(projectID, zone, result).Do()
+	spew.Dump(info)
+	if err != nil {
+		cblogger.Error(err)
+		return ""
+	}
+	iArr := strings.Split(info.SourceImage, "/")
+	return iArr[len(iArr)-1]
 }
