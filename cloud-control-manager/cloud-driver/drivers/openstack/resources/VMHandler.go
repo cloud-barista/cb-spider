@@ -55,7 +55,7 @@ func (vmHandler *OpenStackVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInf
 		Networks: []servers.Network{
 			{UUID: vNetId},
 		},
-		SecurityGroups: []string{},
+		SecurityGroups: vmReqInfo.SecurityGroupIds,
 	}
 
 	// Add KeyPair
@@ -79,7 +79,7 @@ func (vmHandler *OpenStackVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInf
 			break
 		}
 
-		time.Sleep(2 * time.Second)
+		time.Sleep(5 * time.Second)
 
 		// Check VM Deploy Status
 		serverResult, err := servers.Get(vmHandler.Client, vmId).Extract()
@@ -101,25 +101,31 @@ func (vmHandler *OpenStackVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInf
 	return serverInfo, nil
 }
 
-func (vmHandler *OpenStackVMHandler) SuspendVM(vmID string) error {
+func (vmHandler *OpenStackVMHandler) SuspendVM(vmID string) (irs.VMStatus, error) {
 	err := startstop.Stop(vmHandler.Client, vmID).Err
 	if err != nil {
 		cblogger.Error(err)
-		return err
+		return irs.Failed, err
 	}
-	return nil
+
+	// Get VM Status
+	vmStatus, err := vmHandler.GetVMStatus(vmID)
+	return vmStatus, err
 }
 
-func (vmHandler *OpenStackVMHandler) ResumeVM(vmID string) error {
+func (vmHandler *OpenStackVMHandler) ResumeVM(vmID string) (irs.VMStatus, error) {
 	err := startstop.Start(vmHandler.Client, vmID).Err
 	if err != nil {
 		cblogger.Error(err)
-		return err
+		return irs.Failed, err
 	}
-	return nil
+
+	// Get VM Status
+	vmStatus, err := vmHandler.GetVMStatus(vmID)
+	return vmStatus, err
 }
 
-func (vmHandler *OpenStackVMHandler) RebootVM(vmID string) error {
+func (vmHandler *OpenStackVMHandler) RebootVM(vmID string) (irs.VMStatus, error) {
 	/*rebootOpts := servers.RebootOpts{
 		Type: servers.SoftReboot,
 		//Type: servers.HardReboot,
@@ -128,18 +134,24 @@ func (vmHandler *OpenStackVMHandler) RebootVM(vmID string) error {
 	err := servers.Reboot(vmHandler.Client, vmID, rebootOpts).ExtractErr()
 	if err != nil {
 		cblogger.Error(err)
-		return err
+		return irs.Failed, err
 	}
-	return nil
+
+	// Get VM Status
+	vmStatus, err := vmHandler.GetVMStatus(vmID)
+	return vmStatus, err
 }
 
-func (vmHandler *OpenStackVMHandler) TerminateVM(vmID string) error {
+func (vmHandler *OpenStackVMHandler) TerminateVM(vmID string) (irs.VMStatus, error) {
 	err := servers.Delete(vmHandler.Client, vmID).ExtractErr()
 	if err != nil {
 		cblogger.Error(err)
-		return err
+		return irs.Failed, err
 	}
-	return nil
+
+	// Get VM Status
+	vmStatus, err := vmHandler.GetVMStatus(vmID)
+	return vmStatus, err
 }
 
 func (vmHandler *OpenStackVMHandler) ListVMStatus() ([]*irs.VMStatusInfo, error) {
@@ -177,7 +189,13 @@ func (vmHandler *OpenStackVMHandler) GetVMStatus(vmID string) (irs.VMStatus, err
 		cblogger.Error(err)
 		return irs.VMStatus(""), err
 	}
-	return irs.VMStatus(serverResult.Status), nil
+
+	// Set VM Status Info
+	var resultStatus string
+	switch serverResult.Status {
+	case "":
+	}
+	return irs.VMStatus(resultStatus), nil
 }
 
 func (vmHandler *OpenStackVMHandler) ListVM() ([]*irs.VMInfo, error) {
