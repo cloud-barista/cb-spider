@@ -104,6 +104,9 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 					Value: &pubKey},
 			},
 		},
+		Labels: map[string]string{
+			"keypair": strings.ToLower(vmReqInfo.KeyPairName),
+		},
 		Description: "compute sample instance",
 		MachineType: prefix + "/zones/" + zone + "/machineTypes/" + vmReqInfo.VMSpecId,
 		Disks: []*compute.AttachedDisk{
@@ -389,6 +392,7 @@ func (vmHandler *GCPVMHandler) mappingServerInfo(server *compute.Instance) irs.V
 		NetworkInterfaceId: server.NetworkInterfaces[0].Name,
 		SecurityGroupIds:   server.Tags.Items,
 		VMSpecId:           server.MachineType,
+		KeyPairName:        server.Labels["keypair"],
 		ImageId:            vmHandler.getImageInfo(server.Disks[0].Source),
 		PublicIP:           server.NetworkInterfaces[0].AccessConfigs[0].NatIP,
 		PrivateIP:          server.NetworkInterfaces[0].NetworkIP,
@@ -406,6 +410,26 @@ func (vmHandler *GCPVMHandler) mappingServerInfo(server *compute.Instance) irs.V
 	return vmInfo
 }
 func (vmHandler *GCPVMHandler) getImageInfo(diskname string) string {
+	projectID := vmHandler.Credential.ProjectID
+	zone := vmHandler.Region.Zone
+	dArr := strings.Split(diskname, "/")
+	var result string
+	if dArr != nil {
+		result = dArr[len(dArr)-1]
+	}
+	cblogger.Infof("result : [%s]", result)
+
+	info, err := vmHandler.Client.Disks.Get(projectID, zone, result).Do()
+	spew.Dump(info)
+	if err != nil {
+		cblogger.Error(err)
+		return ""
+	}
+	iArr := strings.Split(info.SourceImage, "/")
+	return iArr[len(iArr)-1]
+}
+
+func (vmHandler *GCPVMHandler) getKeyPairInfo(diskname string) string {
 	projectID := vmHandler.Credential.ProjectID
 	zone := vmHandler.Region.Zone
 	dArr := strings.Split(diskname, "/")
