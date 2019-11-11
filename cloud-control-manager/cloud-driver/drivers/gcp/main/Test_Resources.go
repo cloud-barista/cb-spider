@@ -389,7 +389,7 @@ func handleKeyPair() {
 	}
 	handler := ResourceHandler.(irs.KeyPairHandler)
 
-	keyPairName := "cb-keyPairTest123123"
+	keyPairName := "cb-keyPairTest"
 
 	for {
 		fmt.Println("KeyPair Management")

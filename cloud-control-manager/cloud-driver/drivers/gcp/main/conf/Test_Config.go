@@ -93,6 +93,8 @@ func GetResourceHandler(handlerType string) (interface{}, error) {
 		resourceHandler, err = cloudConnection.CreateVNicHandler()
 	case "VM":
 		resourceHandler, err = cloudConnection.CreateVMHandler()
+	case "KeyPair":
+		resourceHandler, err = cloudConnection.CreateKeyPairHandler()
 	}
 
 	if err != nil {

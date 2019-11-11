@@ -34,6 +34,9 @@ type GCPKeyPairHandler struct {
 }
 
 func (keyPairHandler *GCPKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPairReqInfo) (irs.KeyPairInfo, error) {
+	keyPairName := strings.ToLower(keyPairReqInfo.Name)
+	cblogger.Infof("keyPairName [%s] --> [%s]", keyPairReqInfo.Name, keyPairName)
+
 	projectId := keyPairHandler.CredentialInfo.ProjectID
 	keyPairPath := os.Getenv("CBSPIDER_ROOT") + CBKeyPairPath
 	hashString, err := CreateHashString(keyPairHandler.CredentialInfo)
@@ -41,13 +44,13 @@ func (keyPairHandler *GCPKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPairReq
 		return irs.KeyPairInfo{}, err
 	}
 
-	savePrivateFileTo := keyPairPath + hashString + "--" + keyPairReqInfo.Name
-	savePublicFileTo := keyPairPath + hashString + "--" + keyPairReqInfo.Name + ".pub"
+	savePrivateFileTo := keyPairPath + hashString + "--" + keyPairName
+	savePublicFileTo := keyPairPath + hashString + "--" + keyPairName + ".pub"
 	bitSize := 4096
 
 	// Check KeyPair Exists
 	if _, err := os.Stat(savePrivateFileTo); err == nil {
-		errMsg := fmt.Sprintf("KeyPair with name %s already exist", keyPairReqInfo.Name)
+		errMsg := fmt.Sprintf("KeyPair with name %s already exist", keyPairName)
 		createErr := errors.New(errMsg)
 		return irs.KeyPairInfo{}, createErr
 	}
@@ -84,7 +87,7 @@ func (keyPairHandler *GCPKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPairReq
 	}
 
 	keyPairInfo := irs.KeyPairInfo{
-		Name:       keyPairReqInfo.Name,
+		Name:       keyPairName,
 		PublicKey:  string(publicKeyBytes),
 		PrivateKey: string(privateKeyBytes),
 	}
@@ -123,6 +126,10 @@ func (keyPairHandler *GCPKeyPairHandler) ListKey() ([]*irs.KeyPairInfo, error) {
 }
 
 func (keyPairHandler *GCPKeyPairHandler) GetKey(keyPairName string) (irs.KeyPairInfo, error) {
+	cblogger.Infof("keyPairName : [%s]", keyPairName)
+	keyPairName = strings.ToLower(keyPairName)
+	cblogger.Infof("keyPairName 소문자로 치환 : [%s]", keyPairName)
+
 	keyPairPath := os.Getenv("CBSPIDER_ROOT") + CBKeyPairPath
 	hashString, err := CreateHashString(keyPairHandler.CredentialInfo)
 
@@ -148,6 +155,10 @@ func (keyPairHandler *GCPKeyPairHandler) GetKey(keyPairName string) (irs.KeyPair
 }
 
 func (keyPairHandler *GCPKeyPairHandler) DeleteKey(keyPairName string) (bool, error) {
+	cblogger.Infof("keyPairName : [%s]", keyPairName)
+	keyPairName = strings.ToLower(keyPairName)
+	cblogger.Infof("keyPairName 소문자로 치환 : [%s]", keyPairName)
+
 	keyPairPath := os.Getenv("CBSPIDER_ROOT") + CBKeyPairPath
 	hashString, err := CreateHashString(keyPairHandler.CredentialInfo)
 	if err != nil {
