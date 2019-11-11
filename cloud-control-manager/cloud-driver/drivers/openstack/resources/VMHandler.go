@@ -12,12 +12,10 @@ package resources
 
 import (
 	"fmt"
-	"github.com/rackspace/gophercloud/openstack/compute/v2/extensions/floatingip"
-
-	//"fmt"
 	cblog "github.com/cloud-barista/cb-log"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/rackspace/gophercloud"
+	"github.com/rackspace/gophercloud/openstack/compute/v2/extensions/floatingip"
 	"github.com/rackspace/gophercloud/openstack/compute/v2/extensions/keypairs"
 	"github.com/rackspace/gophercloud/openstack/compute/v2/extensions/startstop"
 	"github.com/rackspace/gophercloud/openstack/compute/v2/servers"
@@ -86,8 +84,7 @@ func (vmHandler *OpenStackVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInf
 		if err != nil {
 			return irs.VMInfo{}, err
 		}
-		fmt.Println(serverResult.Status)
-		if strings.ToUpper(serverResult.Status) == "ACTIVE" {
+		if strings.ToLower(serverResult.Status) == "active" {
 			// Associate Public IP
 			if ok, err := vmHandler.AssociatePublicIP(serverResult.ID, vmReqInfo.PublicIPId); !ok {
 				return irs.VMInfo{}, err
@@ -108,9 +105,8 @@ func (vmHandler *OpenStackVMHandler) SuspendVM(vmID string) (irs.VMStatus, error
 		return irs.Failed, err
 	}
 
-	// Get VM Status
-	vmStatus, err := vmHandler.GetVMStatus(vmID)
-	return vmStatus, err
+	// 자체생성상태 반환 (OpenStack은 진행 중인 상태에 대한 정보 미제공)
+	return irs.Suspending, nil
 }
 
 func (vmHandler *OpenStackVMHandler) ResumeVM(vmID string) (irs.VMStatus, error) {
@@ -120,9 +116,8 @@ func (vmHandler *OpenStackVMHandler) ResumeVM(vmID string) (irs.VMStatus, error)
 		return irs.Failed, err
 	}
 
-	// Get VM Status
-	vmStatus, err := vmHandler.GetVMStatus(vmID)
-	return vmStatus, err
+	// 자체생성상태 반환 (OpenStack은 진행 중인 상태에 대한 정보 미제공)
+	return irs.Resuming, nil
 }
 
 func (vmHandler *OpenStackVMHandler) RebootVM(vmID string) (irs.VMStatus, error) {
@@ -137,9 +132,8 @@ func (vmHandler *OpenStackVMHandler) RebootVM(vmID string) (irs.VMStatus, error)
 		return irs.Failed, err
 	}
 
-	// Get VM Status
-	vmStatus, err := vmHandler.GetVMStatus(vmID)
-	return vmStatus, err
+	// 자체생성상태 반환 (OpenStack은 진행 중인 상태에 대한 정보 미제공)
+	return irs.Rebooting, nil
 }
 
 func (vmHandler *OpenStackVMHandler) TerminateVM(vmID string) (irs.VMStatus, error) {
@@ -149,9 +143,8 @@ func (vmHandler *OpenStackVMHandler) TerminateVM(vmID string) (irs.VMStatus, err
 		return irs.Failed, err
 	}
 
-	// Get VM Status
-	vmStatus, err := vmHandler.GetVMStatus(vmID)
-	return vmStatus, err
+	// 자체생성상태 반환 (OpenStack은 진행 중인 상태에 대한 정보 미제공)
+	return irs.Terminating, nil
 }
 
 func (vmHandler *OpenStackVMHandler) ListVMStatus() ([]*irs.VMStatusInfo, error) {
@@ -192,8 +185,18 @@ func (vmHandler *OpenStackVMHandler) GetVMStatus(vmID string) (irs.VMStatus, err
 
 	// Set VM Status Info
 	var resultStatus string
-	switch serverResult.Status {
-	case "":
+	switch strings.ToLower(serverResult.Status) {
+	case "build":
+		resultStatus = "Creating"
+	case "active":
+		resultStatus = "Running"
+	case "shutoff":
+		resultStatus = "Suspended"
+	case "reboot":
+		resultStatus = "Rebooting"
+	case "error":
+	default:
+		resultStatus = "Failed"
 	}
 	return irs.VMStatus(resultStatus), nil
 }

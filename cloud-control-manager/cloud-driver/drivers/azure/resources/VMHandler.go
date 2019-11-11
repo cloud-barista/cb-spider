@@ -191,6 +191,8 @@ func (vmHandler *AzureVMHandler) ResumeVM(vmID string) (irs.VMStatus, error) {
 		cblogger.Error(err)
 		return irs.Failed, err
 	}
+
+	// 자체생성상태 반환
 	return irs.Resuming, nil
 }
 
@@ -205,6 +207,8 @@ func (vmHandler *AzureVMHandler) RebootVM(vmID string) (irs.VMStatus, error) {
 		cblogger.Error(err)
 		return irs.Failed, err
 	}
+
+	// 자체생성상태 반환
 	return irs.Rebooting, nil
 }
 
@@ -254,6 +258,7 @@ func (vmHandler *AzureVMHandler) TerminateVM(vmID string) (irs.VMStatus, error) 
 		return irs.Failed, err
 	}
 
+	// 자체생성상태 반환
 	return irs.NotExist, nil
 }
 
@@ -335,9 +340,9 @@ func getVmStatus(instanceView compute.VirtualMachineInstanceView) irs.VMStatus {
 		statArr := strings.Split(*stat.Code, "/")
 
 		if statArr[0] == "PowerState" {
-			powerState = statArr[1]
+			powerState = strings.ToLower(statArr[1])
 		} else if statArr[0] == "ProvisioningState" {
-			provisioningState = statArr[1]
+			provisioningState = strings.ToLower(statArr[1])
 		}
 	}
 
@@ -358,6 +363,8 @@ func getVmStatus(instanceView compute.VirtualMachineInstanceView) irs.VMStatus {
 		resultStatus = "Suspended"
 	case "deleting":
 		resultStatus = "Terminating"
+	default:
+		resultStatus = "Failed"
 	}
 	return irs.VMStatus(resultStatus)
 }
