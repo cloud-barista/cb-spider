@@ -19,9 +19,9 @@ import (
 	"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/cloudit/client/dna/adaptiveip"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
-	"github.com/davecgh/go-spew/spew"
 	"github.com/sirupsen/logrus"
 	"strings"
+	"time"
 )
 
 var cblogger *logrus.Logger
@@ -64,33 +64,49 @@ func (vmHandler *ClouditVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 	}
 
 	// VM 생성
-	if vm, err := server.Start(vmHandler.Client, &requestOpts); err != nil {
+	vm, err := server.Start(vmHandler.Client, &requestOpts)
+	if err != nil {
 		return irs.VMInfo{}, err
-	} else {
-		// VM 정보 가져오기
-		vmDetailInfo, err := server.Get(vmHandler.Client, vm.ID, &requestOpts)
+	}
+
+	// VM 생성 완료까지 wait
+	vmId := vm.ID
+	var isDeployed bool
+	var serverInfo irs.VMInfo
+
+	for {
+		if isDeployed {
+			break
+		}
+
+		// Check VM Deploy Status
+		vmDetailInfo, err := server.Get(vmHandler.Client, vmId, &requestOpts)
 		if err != nil {
 			return irs.VMInfo{}, err
 		}
-
-		// PublicIP 생성
-		/*publicIPReqInfo := irs.PublicIPReqInfo{
-			Name: vm.Name + "-PublicIP",
-			KeyValueList: []irs.KeyValue{
-				{
-					Key:   "PrivateIP",
-					Value: vm.PrivateIp,
+		if vmDetailInfo.PrivateIp != "" {
+			publicIPReqInfo := irs.PublicIPReqInfo{
+				Name: vm.Name + "-PublicIP",
+				KeyValueList: []irs.KeyValue{
+					{
+						Key:   "PrivateIP",
+						Value: vmDetailInfo.PrivateIp,
+					},
 				},
-			},
-		}
-		if ok, err := vmHandler.AssociatePublicIP(publicIPReqInfo); !ok {
-			return irs.VMInfo{}, err
-		}*/
+			}
+			// Associate Public IP
+			if ok, err := vmHandler.AssociatePublicIP(publicIPReqInfo); !ok {
+				return irs.VMInfo{}, err
+			}
 
-		// 생성된 VM 정보 리턴
-		vmInfo := mappingServerInfo(*vmDetailInfo)
-		return vmInfo, nil
+			serverInfo = mappingServerInfo(*vmDetailInfo)
+			isDeployed = true
+		}
+
+		time.Sleep(5 * time.Second)
 	}
+
+	return serverInfo, nil
 }
 
 func (vmHandler *ClouditVMHandler) SuspendVM(vmID string) (irs.VMStatus, error) {
@@ -165,6 +181,23 @@ func (vmHandler *ClouditVMHandler) TerminateVM(vmID string) (irs.VMStatus, error
 
 	requestOpts := client.RequestOpts{
 		MoreHeaders: authHeader,
+	}
+
+	// VM 정보 조회
+	vmInfo, err := vmHandler.GetVM(vmID)
+	if err != nil {
+		cblogger.Error(err)
+		return irs.Failed, err
+	}
+
+	// 연결된 PublicIP 반환
+	if vmInfo.PublicIP != "" {
+		reqOpts := irs.PublicIPReqInfo{
+			Name: vmInfo.PublicIP,
+		}
+		if ok, err := vmHandler.DisassociatePublicIP(reqOpts); !ok {
+			return irs.Failed, err
+		}
 	}
 
 	if err := server.Terminate(vmHandler.Client, vmID, &requestOpts); err != nil {
@@ -316,12 +349,28 @@ func (vmHandler *ClouditVMHandler) AssociatePublicIP(publicIPReqInfo irs.PublicI
 		JSONBody:    reqInfo,
 		MoreHeaders: authHeader,
 	}
-	publicIP, err := adaptiveip.Create(vmHandler.Client, &createOpts)
+	_, err := adaptiveip.Create(vmHandler.Client, &createOpts)
 	if err != nil {
 		cblogger.Error(err)
 		return false, err
 	} else {
-		spew.Dump(publicIP)
+		return true, nil
+	}
+}
+
+// VM에 PublicIP 해제
+func (vmHandler *ClouditVMHandler) DisassociatePublicIP(publicIPReqInfo irs.PublicIPReqInfo) (bool, error) {
+	vmHandler.Client.TokenID = vmHandler.CredentialInfo.AuthToken
+	authHeader := vmHandler.Client.AuthenticatedHeaders()
+
+	requestOpts := client.RequestOpts{
+		MoreHeaders: authHeader,
+	}
+
+	if err := adaptiveip.Delete(vmHandler.Client, publicIPReqInfo.Name, &requestOpts); err != nil {
+		cblogger.Error(err)
+		return false, err
+	} else {
 		return true, nil
 	}
 }

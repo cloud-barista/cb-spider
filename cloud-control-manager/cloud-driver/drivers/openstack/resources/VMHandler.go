@@ -77,8 +77,6 @@ func (vmHandler *OpenStackVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInf
 			break
 		}
 
-		time.Sleep(5 * time.Second)
-
 		// Check VM Deploy Status
 		serverResult, err := servers.Get(vmHandler.Client, vmId).Extract()
 		if err != nil {
@@ -93,6 +91,8 @@ func (vmHandler *OpenStackVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInf
 			serverInfo = mappingServerInfo(*serverResult)
 			isDeployed = true
 		}
+
+		time.Sleep(5 * time.Second)
 	}
 
 	return serverInfo, nil

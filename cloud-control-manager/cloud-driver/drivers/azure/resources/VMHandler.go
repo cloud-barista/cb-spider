@@ -177,7 +177,11 @@ func (vmHandler *AzureVMHandler) SuspendVM(vmID string) (irs.VMStatus, error) {
 
 	// Get VM Status
 	vmStatus, err := vmHandler.GetVMStatus(vmID)
-	return vmStatus, err
+	if err != nil {
+		cblogger.Error(err)
+		return irs.Failed, err
+	}
+	return vmStatus, nil
 }
 
 func (vmHandler *AzureVMHandler) ResumeVM(vmID string) (irs.VMStatus, error) {
