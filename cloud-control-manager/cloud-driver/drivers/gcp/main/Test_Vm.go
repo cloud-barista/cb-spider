@@ -71,7 +71,7 @@ func handleVM() {
 				vmReqInfo := irs.VMReqInfo{
 					//VMName:           "vmsg02",
 					VMName:           VmID,
-					ImageId:          "projects/ubuntu-os-cloud/global/images/ubuntu-minimal-1804-bionic-v20191024",
+					ImageId:          "projects/gce-uefi-images/global/images/ubuntu-1804-bionic-v20190722a",
 					VirtualNetworkId: "cb-vnet",
 					//NetworkInterfaceId: "eni-00befb6d8c3a87b24",
 					PublicIPId:       "publicip5",
