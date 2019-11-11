@@ -16,7 +16,6 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
-	"strings"
 
 	cblog "github.com/cloud-barista/cb-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
@@ -58,14 +57,15 @@ name, sourceDisk(sourceImage),storageLocations(배열 ex : ["asia"])
 */
 
 func (imageHandler *GCPImageHandler) CreateImage(imageReqInfo irs.ImageReqInfo) (irs.ImageInfo, error) {
-
 	return irs.ImageInfo{}, errors.New("Feature not implemented.")
 }
 
 func (imageHandler *GCPImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 
-	projectId := imageHandler.Credential.ProjectID
+	//projectId := imageHandler.Credential.ProjectID
+	projectId := "gce-uefi-images"
 
+	// list, err := imageHandler.Client.Images.List(projectId).Do()
 	list, err := imageHandler.Client.Images.List(projectId).Do()
 	if err != nil {
 		cblogger.Error(err)
@@ -82,7 +82,8 @@ func (imageHandler *GCPImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 }
 
 func (imageHandler *GCPImageHandler) GetImage(imageID string) (irs.ImageInfo, error) {
-	projectId := imageHandler.Credential.ProjectID
+	//projectId := imageHandler.Credential.ProjectID
+	projectId := "gce-uefi-images"
 
 	image, err := imageHandler.Client.Images.Get(projectId, imageID).Do()
 	if err != nil {
@@ -94,6 +95,7 @@ func (imageHandler *GCPImageHandler) GetImage(imageID string) (irs.ImageInfo, er
 }
 
 func (imageHandler *GCPImageHandler) DeleteImage(imageID string) (bool, error) {
+	// public Image 는 지울 수 없는데 어떻게 해야 하는가?
 	projectId := imageHandler.Credential.ProjectID
 
 	res, err := imageHandler.Client.Images.Delete(projectId, imageID).Do()
@@ -106,17 +108,19 @@ func (imageHandler *GCPImageHandler) DeleteImage(imageID string) (bool, error) {
 }
 
 func mappingImageInfo(imageInfo *compute.Image) irs.ImageInfo {
-	lArr := strings.Split(imageInfo.Licenses[0], "/")
-	os := lArr[len(lArr)-1]
+	//lArr := strings.Split(imageInfo.Licenses[0], "/")
+	//os := lArr[len(lArr)-1]
 	imageList := irs.ImageInfo{
-		Id:      strconv.FormatUint(imageInfo.Id, 10),
+		//Id:      strconv.FormatUint(imageInfo.Id, 10),
+		Id:      imageInfo.SelfLink,
 		Name:    imageInfo.Name,
-		GuestOS: os,
+		GuestOS: imageInfo.Family,
 		Status:  imageInfo.Status,
 		KeyValueList: []irs.KeyValue{
 			{"SourceType", imageInfo.SourceType},
 			{"SelfLink", imageInfo.SelfLink},
 			{"GuestOsFeature", imageInfo.GuestOsFeatures[0].Type},
+			{"Family", imageInfo.Family},
 			{"DiskSizeGb", strconv.FormatInt(imageInfo.DiskSizeGb, 10)},
 		},
 	}
