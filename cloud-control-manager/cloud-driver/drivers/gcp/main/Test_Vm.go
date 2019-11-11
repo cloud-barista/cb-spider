@@ -40,7 +40,7 @@ func handleVM() {
 
 	handler := ResourceHandler.(irs.VMHandler)
 
-	VmID := "vm03"
+	VmID := "vmsg02"
 
 	for {
 		fmt.Println("VM Management")
@@ -69,12 +69,12 @@ func handleVM() {
 
 			case 1:
 				vmReqInfo := irs.VMReqInfo{
-					VMName: "vm03",
-					//ImageId:            config.Aws.ImageID,
+					VMName:           "vmsg02",
+					ImageId:          "projects/ubuntu-os-cloud/global/images/ubuntu-minimal-1804-bionic-v20191024",
 					VirtualNetworkId: "cb-vnet",
 					//NetworkInterfaceId: "eni-00befb6d8c3a87b24",
-					PublicIPId: "publicip-vm03",
-					//SecurityGroupIds: []string{"sg-0df1c209ea1915e4b"},
+					PublicIPId:       "publicip1",
+					SecurityGroupIds: []string{"sgvm02"},
 					//SecurityGroupIds: []string{config.Aws.SecurityGroupID},
 					VMSpecId: "f1-micro",
 					//KeyPairName:      config.Aws.KeyName,
