@@ -458,8 +458,8 @@ func main() {
 	cblogger.Info("GCP Resource Test")
 	//handlePublicIP()
 
-	handleKeyPair()
-	//handleVNetwork() //VPC
+	//handleKeyPair()
+	handleVNetwork() //VPC
 	//handleImage() //AMI
 	//handleVNic() //Lancard
 	//handleSecurity()

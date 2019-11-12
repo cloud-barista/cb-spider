@@ -44,11 +44,12 @@ func (vNetworkHandler *GCPVNetworkHandler) CreateVNetwork(vNetworkReqInfo irs.VN
 
 	// priject id
 	projectID := vNetworkHandler.Credential.ProjectID
-	name := vNetworkReqInfo.Name
+	//name := vNetworkReqInfo.Name
+	name := GetCBDefaultVNetName()
 
 	network := &compute.Network{
-		//Name:                  name,
-		Name:                  GetCBDefaultVNetName(),
+		Name: name,
+		//Name:                  GetCBDefaultVNetName(),
 		AutoCreateSubnetworks: true, // subnet 자동으로 생성됨
 	}
 
@@ -105,7 +106,9 @@ func (vNetworkHandler *GCPVNetworkHandler) ListVNetwork() ([]*irs.VNetworkInfo, 
 func (vNetworkHandler *GCPVNetworkHandler) GetVNetwork(vNetworkID string) (irs.VNetworkInfo, error) {
 
 	projectID := vNetworkHandler.Credential.ProjectID
-	name := vNetworkID
+	//name := vNetworkID
+	name := GetCBDefaultVNetName()
+	cblogger.Infof("Name : [%s]", name)
 	info, err := vNetworkHandler.Client.Networks.Get(projectID, name).Do()
 	if err != nil {
 		cblogger.Error(err)
@@ -127,7 +130,7 @@ func (vNetworkHandler *GCPVNetworkHandler) DeleteVNetwork(vNetworkID string) (bo
 	projectID := vNetworkHandler.Credential.ProjectID
 	//name := vNetworkID
 	name := GetCBDefaultVNetName()
-	cblogger.Info("Name : [%s]", name)
+	cblogger.Infof("Name : [%s]", name)
 	info, err := vNetworkHandler.Client.Networks.Delete(projectID, name).Do()
 	cblogger.Info(info)
 	if err != nil {
