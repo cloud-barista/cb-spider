@@ -33,27 +33,51 @@ type GCPVNetworkHandler struct {
 }
 
 func (vNetworkHandler *GCPVNetworkHandler) CreateVNetwork(vNetworkReqInfo irs.VNetworkReqInfo) (irs.VNetworkInfo, error) {
-
-	vNetInfo, errVnet := vNetworkHandler.GetVNetwork(GetCBDefaultVNetName())
-	spew.Dump(vNetInfo)
-	if errVnet == nil {
-		if len(vNetInfo.Name) > 0 {
-			return irs.VNetworkInfo{}, errors.New("Already exists.")
-		}
-	}
-
 	// priject id
 	projectID := vNetworkHandler.Credential.ProjectID
-	//name := vNetworkReqInfo.Name
+	region := vNetworkHandler.Region.Region
 	name := GetCBDefaultVNetName()
+	vNetInfo, errVnet := vNetworkHandler.Client.Networks.Get(projectID, name).Do()
 
-	network := &compute.Network{
-		Name: name,
-		//Name:                  GetCBDefaultVNetName(),
-		AutoCreateSubnetworks: true, // subnet 자동으로 생성됨
+	spew.Dump(vNetInfo)
+	if errVnet != nil {
+		network := &compute.Network{
+			Name: name,
+			//Name:                  GetCBDefaultVNetName(),
+			AutoCreateSubnetworks: false, // subnet 자동으로 생성됨
+		}
+
+		_, err := vNetworkHandler.Client.Networks.Insert(projectID, network).Do()
+		if err != nil {
+			cblogger.Error(err)
+		}
+
 	}
 
-	res, err := vNetworkHandler.Client.Networks.Insert(projectID, network).Do()
+	subnetInfo, errSubnet := vNetworkHandler.GetVNetwork(vNetworkReqInfo.Name)
+
+	if errSubnet == nil {
+		spew.Dump(subnetInfo)
+		cblogger.Error(errSubnet)
+		return irs.VNetworkInfo{}, errors.New("Already Exist")
+	}
+
+	//name := vNetworkReqInfo.Name
+
+	// network := &compute.Network{
+	// 	Name: name,
+	// 	//Name:                  GetCBDefaultVNetName(),
+	// 	AutoCreateSubnetworks: false, // subnet 자동으로 생성됨
+	// }
+
+	//res, err := vNetworkHandler.Client.Networks.Insert(projectID, network).Do()
+	networkUrl := "/projects/" + projectID + "/global/networks/" + name
+	subnetWork := &compute.Subnetwork{
+		Name:        vNetworkReqInfo.Name,
+		IpCidrRange: "192.168.0.0/16",
+		Network:     networkUrl,
+	}
+	res, err := vNetworkHandler.Client.Subnetworks.Insert(projectID, region, subnetWork).Do()
 	if err != nil {
 		cblogger.Error(err)
 		return irs.VNetworkInfo{}, err
@@ -62,16 +86,20 @@ func (vNetworkHandler *GCPVNetworkHandler) CreateVNetwork(vNetworkReqInfo irs.VN
 
 	//생성되는데 시간이 필요 함. 약 20초정도?
 	time.Sleep(time.Second * 20)
-	info, err2 := vNetworkHandler.Client.Networks.Get(projectID, name).Do()
+	info, err2 := vNetworkHandler.Client.Subnetworks.Get(projectID, region, vNetworkReqInfo.Name).Do()
 	if err2 != nil {
 		cblogger.Error(err2)
 		return irs.VNetworkInfo{}, err2
 	}
 	networkInfo := irs.VNetworkInfo{
-		Name: info.Name,
-		Id:   strconv.FormatUint(info.Id, 10),
+		Name:          info.Name,
+		Id:            strconv.FormatUint(info.Id, 10),
+		AddressPrefix: info.IpCidrRange,
 		KeyValueList: []irs.KeyValue{
 			{"SubnetId", info.Name},
+			{"Region", info.Region},
+			{"GatewayAddress", info.GatewayAddress},
+			{"SelfLink", info.SelfLink},
 		},
 	}
 
@@ -80,8 +108,9 @@ func (vNetworkHandler *GCPVNetworkHandler) CreateVNetwork(vNetworkReqInfo irs.VN
 
 func (vNetworkHandler *GCPVNetworkHandler) ListVNetwork() ([]*irs.VNetworkInfo, error) {
 	projectID := vNetworkHandler.Credential.ProjectID
+	region := vNetworkHandler.Region.Region
 
-	vNetworkList, err := vNetworkHandler.Client.Networks.List(projectID).Do()
+	vNetworkList, err := vNetworkHandler.Client.Subnetworks.List(projectID, region).Do()
 	if err != nil {
 
 		return nil, err
@@ -89,10 +118,14 @@ func (vNetworkHandler *GCPVNetworkHandler) ListVNetwork() ([]*irs.VNetworkInfo, 
 	var vNetworkInfo []*irs.VNetworkInfo
 	for _, item := range vNetworkList.Items {
 		networkInfo := irs.VNetworkInfo{
-			Name: item.Name,
-			Id:   strconv.FormatUint(item.Id, 10),
+			Name:          item.Name,
+			Id:            strconv.FormatUint(item.Id, 10),
+			AddressPrefix: item.IpCidrRange,
 			KeyValueList: []irs.KeyValue{
 				{"SubnetId", item.Name},
+				{"Region", item.Region},
+				{"GatewayAddress", item.GatewayAddress},
+				{"SelfLink", item.SelfLink},
 			},
 		}
 
@@ -106,20 +139,25 @@ func (vNetworkHandler *GCPVNetworkHandler) ListVNetwork() ([]*irs.VNetworkInfo, 
 func (vNetworkHandler *GCPVNetworkHandler) GetVNetwork(vNetworkID string) (irs.VNetworkInfo, error) {
 
 	projectID := vNetworkHandler.Credential.ProjectID
+	region := vNetworkHandler.Region.Region
 	//name := vNetworkID
 	name := GetCBDefaultVNetName()
 	cblogger.Infof("Name : [%s]", name)
-	info, err := vNetworkHandler.Client.Networks.Get(projectID, name).Do()
+	info, err := vNetworkHandler.Client.Subnetworks.Get(projectID, region, vNetworkID).Do()
 	if err != nil {
 		cblogger.Error(err)
 		return irs.VNetworkInfo{}, err
 	}
 
 	networkInfo := irs.VNetworkInfo{
-		Name: info.Name,
-		Id:   strconv.FormatUint(info.Id, 10),
+		Name:          info.Name,
+		Id:            strconv.FormatUint(info.Id, 10),
+		AddressPrefix: info.IpCidrRange,
 		KeyValueList: []irs.KeyValue{
 			{"SubnetId", info.Name},
+			{"Region", info.Region},
+			{"GatewayAddress", info.GatewayAddress},
+			{"SelfLink", info.SelfLink},
 		},
 	}
 
@@ -128,10 +166,11 @@ func (vNetworkHandler *GCPVNetworkHandler) GetVNetwork(vNetworkID string) (irs.V
 
 func (vNetworkHandler *GCPVNetworkHandler) DeleteVNetwork(vNetworkID string) (bool, error) {
 	projectID := vNetworkHandler.Credential.ProjectID
+	region := vNetworkHandler.Region.Region
 	//name := vNetworkID
 	name := GetCBDefaultVNetName()
 	cblogger.Infof("Name : [%s]", name)
-	info, err := vNetworkHandler.Client.Networks.Delete(projectID, name).Do()
+	info, err := vNetworkHandler.Client.Subnetworks.Delete(projectID, region, vNetworkID).Do()
 	cblogger.Info(info)
 	if err != nil {
 		cblogger.Error(err)
