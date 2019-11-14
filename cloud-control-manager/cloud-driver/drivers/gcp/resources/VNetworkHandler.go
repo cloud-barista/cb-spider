@@ -39,9 +39,8 @@ func (vNetworkHandler *GCPVNetworkHandler) CreateVNetwork(vNetworkReqInfo irs.VN
 	region := vNetworkHandler.Region.Region
 	name := GetCBDefaultVNetName()
 	vNetInfo, errVnet := vNetworkHandler.Client.Networks.Get(projectID, name).Do()
-	cnt := strconv.Itoa(len(vNetInfo.Subnetworks) + 1)
-	fmt.Println("CNT : ", cnt)
 
+	var cnt string
 	spew.Dump(vNetInfo)
 	if errVnet != nil {
 		network := &compute.Network{
@@ -57,7 +56,16 @@ func (vNetworkHandler *GCPVNetworkHandler) CreateVNetwork(vNetworkReqInfo irs.VN
 			cblogger.Error(err)
 		}
 
+		newvNetInfo, errVnet := vNetworkHandler.Client.Networks.Get(projectID, name).Do()
+		if errVnet != nil {
+			return irs.VNetworkInfo{}, errVnet
+		}
+		cnt = strconv.Itoa(len(newvNetInfo.Subnetworks) + 1)
+	} else {
+		cnt = strconv.Itoa(len(vNetInfo.Subnetworks) + 1)
 	}
+
+	fmt.Println("CNT : ", cnt)
 
 	subnetInfo, errSubnet := vNetworkHandler.GetVNetwork(vNetworkReqInfo.Name)
 
