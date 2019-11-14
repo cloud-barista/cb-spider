@@ -142,7 +142,7 @@ func handleSecurity() {
 
 	handler := ResourceHandler.(irs.SecurityHandler)
 
-	securityId := "sgvm02"
+	securityId := "europe-west1"
 	cblogger.Infof(securityId)
 
 	//result, err := handler.GetSecurity(securityId)
@@ -152,7 +152,7 @@ func handleSecurity() {
 	//result, err := handler.ListSecurity()
 
 	securityReqInfo := irs.SecurityReqInfo{
-		Name: "sgvm02",
+		Name: securityId,
 		SecurityRules: &[]irs.SecurityRuleInfo{ //보안 정책 설정
 			{
 				FromPort:   "20",
@@ -304,9 +304,9 @@ func handleVNetwork() {
 	handler := ResourceHandler.(irs.VNetworkHandler)
 
 	vNetworkReqInfo := irs.VNetworkReqInfo{
-		Name: "CB-VNet-Subnet2", // 웹 도구 등 외부에서 전달 받지 않고 드라이버 내부적으로 자동 구현때문에 사용하지 않음.
+		Name: "cb-subnet5", // 웹 도구 등 외부에서 전달 받지 않고 드라이버 내부적으로 자동 구현때문에 사용하지 않음.
 	}
-	reqSubnetId := "subnet-0b9ea37601d46d8fa"
+	reqSubnetId := "subnet-12345"
 	//reqSubnetId = ""
 
 	for {
@@ -459,8 +459,8 @@ func main() {
 	//handlePublicIP()
 
 	//handleKeyPair()
-	handleVNetwork() //VPC
+	//handleVNetwork() //VPC
 	//handleImage() //AMI
 	//handleVNic() //Lancard
-	//handleSecurity()
+	handleSecurity()
 }

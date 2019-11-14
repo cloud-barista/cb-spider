@@ -45,6 +45,7 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 	prefix := "https://www.googleapis.com/compute/v1/projects/" + projectID
 	//imageURL := "projects/ubuntu-os-cloud/global/images/ubuntu-minimal-1804-bionic-v20191024"
 	imageURL := vmReqInfo.ImageId
+	region := vmHandler.Region.Region
 
 	zone := vmHandler.Region.Zone
 	// email을 어디다가 넣지? 이것또한 문제넹
@@ -70,7 +71,7 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 	} else { //PublicIp가 없으면 직접 생성
 		cblogger.Info("PublicIp 생성 시작")
 		// PublicIPHandler  불러서 처리 해야 함.
-		publicIpName := vmReqInfo.PublicIPId
+		publicIpName := vmReqInfo.VMName
 		publicIpReqInfo := irs.PublicIPReqInfo{Name: publicIpName}
 		publicIPInfo, err := publicIpHandler.CreatePublicIP(publicIpReqInfo)
 
@@ -95,7 +96,8 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 	cblogger.Info("keypairInfo 정보")
 	spew.Dump(keypairInfo)
 
-	networkURL := prefix + "/global/networks/" + vmReqInfo.VirtualNetworkId
+	networkURL := prefix + "/global/networks/" + GetCBDefaultVNetName()
+	subnetWorkURL := prefix + "/regions/" + region + "/subnetworks/" + vmReqInfo.VirtualNetworkId
 	instance := &compute.Instance{
 		Name: vmName,
 		Metadata: &compute.Metadata{
@@ -129,7 +131,8 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 						NatIP: publicIPAddress,
 					},
 				},
-				Network: networkURL,
+				Network:    networkURL,
+				Subnetwork: subnetWorkURL,
 			},
 		},
 		ServiceAccounts: []*compute.ServiceAccount{

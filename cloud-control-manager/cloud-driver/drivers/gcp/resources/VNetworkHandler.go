@@ -14,6 +14,7 @@ package resources
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strconv"
 
 	compute "google.golang.org/api/compute/v1"
@@ -38,16 +39,20 @@ func (vNetworkHandler *GCPVNetworkHandler) CreateVNetwork(vNetworkReqInfo irs.VN
 	region := vNetworkHandler.Region.Region
 	name := GetCBDefaultVNetName()
 	vNetInfo, errVnet := vNetworkHandler.Client.Networks.Get(projectID, name).Do()
+	cnt := strconv.Itoa(len(vNetInfo.Subnetworks) + 1)
+	fmt.Println("CNT : ", cnt)
 
 	spew.Dump(vNetInfo)
 	if errVnet != nil {
 		network := &compute.Network{
 			Name: name,
 			//Name:                  GetCBDefaultVNetName(),
-			AutoCreateSubnetworks: false, // subnet 자동으로 생성됨
+			AutoCreateSubnetworks: true, // subnet 자동으로 생성됨
+
 		}
 
 		_, err := vNetworkHandler.Client.Networks.Insert(projectID, network).Do()
+		time.Sleep(time.Second * 20)
 		if err != nil {
 			cblogger.Error(err)
 		}
@@ -62,19 +67,12 @@ func (vNetworkHandler *GCPVNetworkHandler) CreateVNetwork(vNetworkReqInfo irs.VN
 		return irs.VNetworkInfo{}, errors.New("Already Exist")
 	}
 
-	//name := vNetworkReqInfo.Name
+	// vNetResult, _ := vNetworkHandler.ListVNetwork()
 
-	// network := &compute.Network{
-	// 	Name: name,
-	// 	//Name:                  GetCBDefaultVNetName(),
-	// 	AutoCreateSubnetworks: false, // subnet 자동으로 생성됨
-	// }
-
-	//res, err := vNetworkHandler.Client.Networks.Insert(projectID, network).Do()
-	networkUrl := "/projects/" + projectID + "/global/networks/" + name
+	networkUrl := "https://www.googleapis.com/compute/v1/projects/" + projectID + "/global/networks/" + name
 	subnetWork := &compute.Subnetwork{
 		Name:        vNetworkReqInfo.Name,
-		IpCidrRange: "192.168.0.0/16",
+		IpCidrRange: "192.168." + cnt + ".0/24",
 		Network:     networkUrl,
 	}
 	res, err := vNetworkHandler.Client.Subnetworks.Insert(projectID, region, subnetWork).Do()
@@ -85,7 +83,7 @@ func (vNetworkHandler *GCPVNetworkHandler) CreateVNetwork(vNetworkReqInfo irs.VN
 	cblogger.Info(res)
 
 	//생성되는데 시간이 필요 함. 약 20초정도?
-	time.Sleep(time.Second * 20)
+
 	info, err2 := vNetworkHandler.Client.Subnetworks.Get(projectID, region, vNetworkReqInfo.Name).Do()
 	if err2 != nil {
 		cblogger.Error(err2)
