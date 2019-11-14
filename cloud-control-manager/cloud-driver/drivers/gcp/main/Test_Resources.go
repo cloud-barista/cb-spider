@@ -142,7 +142,7 @@ func handleSecurity() {
 
 	handler := ResourceHandler.(irs.SecurityHandler)
 
-	securityId := "sgvm02"
+	securityId := "europe-west1"
 	cblogger.Infof(securityId)
 
 	//result, err := handler.GetSecurity(securityId)
@@ -152,7 +152,7 @@ func handleSecurity() {
 	//result, err := handler.ListSecurity()
 
 	securityReqInfo := irs.SecurityReqInfo{
-		Name: "sgvm02",
+		Name: securityId,
 		SecurityRules: &[]irs.SecurityRuleInfo{ //보안 정책 설정
 			{
 				FromPort:   "20",
@@ -459,8 +459,8 @@ func main() {
 	//handlePublicIP()
 
 	//handleKeyPair()
-	handleVNetwork() //VPC
+	//handleVNetwork() //VPC
 	//handleImage() //AMI
 	//handleVNic() //Lancard
-	//handleSecurity()
+	handleSecurity()
 }
