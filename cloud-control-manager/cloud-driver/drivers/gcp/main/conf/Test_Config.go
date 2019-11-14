@@ -55,7 +55,8 @@ func GetResourceHandler(handlerType string) (interface{}, error) {
 	cblogger.Infof("credentialFilePath : [%s]", credentialFilePath)
 
 	config, _ := readFileConfig(credentialFilePath)
-	region := "europe-west1"
+	//region := "europe-west1"
+	region := "us-central1"
 	zone := "europe-west1-b"
 
 	connectionInfo := idrv.ConnectionInfo{

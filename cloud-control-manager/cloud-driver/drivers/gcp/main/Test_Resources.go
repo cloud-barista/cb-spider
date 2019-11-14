@@ -304,7 +304,7 @@ func handleVNetwork() {
 	handler := ResourceHandler.(irs.VNetworkHandler)
 
 	vNetworkReqInfo := irs.VNetworkReqInfo{
-		Name: "cb-subnet5", // 웹 도구 등 외부에서 전달 받지 않고 드라이버 내부적으로 자동 구현때문에 사용하지 않음.
+		Name: "cb-subnet3", // 웹 도구 등 외부에서 전달 받지 않고 드라이버 내부적으로 자동 구현때문에 사용하지 않음.
 	}
 	reqSubnetId := "subnet-12345"
 	//reqSubnetId = ""
@@ -459,8 +459,8 @@ func main() {
 	//handlePublicIP()
 
 	//handleKeyPair()
-	//handleVNetwork() //VPC
+	handleVNetwork() //VPC
 	//handleImage() //AMI
 	//handleVNic() //Lancard
-	handleSecurity()
+	//handleSecurity()
 }
