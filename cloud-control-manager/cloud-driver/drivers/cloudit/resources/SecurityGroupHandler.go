@@ -7,7 +7,6 @@ import (
 	"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/cloudit/client/iam/securitygroup"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
-	"github.com/davecgh/go-spew/spew"
 	"strings"
 )
 
@@ -114,7 +113,28 @@ func (securityHandler *ClouditSecurityHandler) ListSecurity() ([]*irs.SecurityIn
 	}
 }
 
-func (securityHandler *ClouditSecurityHandler) GetSecurity(securityID string) (irs.SecurityInfo, error) {
+func (securityHandler *ClouditSecurityHandler) GetSecurity(securityNameID string) (irs.SecurityInfo, error) {
+	var securityInfo *irs.SecurityInfo
+
+	securityList, err := securityHandler.ListSecurity()
+	if err != nil {
+		return irs.SecurityInfo{}, nil
+	}
+	for _, s := range securityList {
+		if strings.EqualFold(s.Name, securityNameID) {
+			securityInfo = s
+			break
+		}
+	}
+
+	if securityInfo == nil {
+		err := errors.New(fmt.Sprintf("failed to find security group with name %s", securityNameID))
+		return irs.SecurityInfo{}, err
+	}
+	return *securityInfo, nil
+}
+
+/*func (securityHandler *ClouditSecurityHandler) GetSecurity(securityID string) (irs.SecurityInfo, error) {
 	securityHandler.Client.TokenID = securityHandler.CredentialInfo.AuthToken
 	authHeader := securityHandler.Client.AuthenticatedHeaders()
 
@@ -136,7 +156,7 @@ func (securityHandler *ClouditSecurityHandler) GetSecurity(securityID string) (i
 		secGroupInfo := setterSecGroup(*securityInfo)
 		return *secGroupInfo, nil
 	}
-}
+}*/
 
 func (securityHandler *ClouditSecurityHandler) DeleteSecurity(securityID string) (bool, error) {
 	securityHandler.Client.TokenID = securityHandler.CredentialInfo.AuthToken

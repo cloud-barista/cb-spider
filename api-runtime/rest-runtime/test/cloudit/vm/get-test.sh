@@ -1,4 +1,5 @@
 RESTSERVER=localhost
 
-VM_ID=41928fab-9362-4bca-87ea-83ebfe15262c
-curl -X GET http://$RESTSERVER:1024/vm/$VM_ID?connection_name=cloudit-config01 | json_pp
+VM_NAME=CBVm
+#curl -X GET http://$RESTSERVER:1024/vm/$VM_ID?connection_name=cloudit-config01 | json_pp
+curl -X GET http://$RESTSERVER:1024/vm/$VM_NAME?connection_name=cloudit-config01 | json_pp

@@ -294,7 +294,28 @@ func (vmHandler *ClouditVMHandler) ListVM() ([]*irs.VMInfo, error) {
 	}
 }
 
-func (vmHandler *ClouditVMHandler) GetVM(vmID string) (irs.VMInfo, error) {
+func (vmHandler *ClouditVMHandler) GetVM(vmNameID string) (irs.VMInfo, error) {
+	var vmInfo *irs.VMInfo
+
+	vmList, err := vmHandler.ListVM()
+	if err != nil {
+		return irs.VMInfo{}, nil
+	}
+	for _, s := range vmList {
+		if strings.EqualFold(s.Name, vmNameID) {
+			vmInfo = s
+			break
+		}
+	}
+
+	if vmInfo == nil {
+		err := errors.New(fmt.Sprintf("failed to find vm with name %s", vmNameID))
+		return irs.VMInfo{}, err
+	}
+	return *vmInfo, nil
+}
+
+/*func (vmHandler *ClouditVMHandler) GetVM(vmID string) (irs.VMInfo, error) {
 	vmHandler.Client.TokenID = vmHandler.CredentialInfo.AuthToken
 	authHeader := vmHandler.Client.AuthenticatedHeaders()
 
@@ -309,7 +330,7 @@ func (vmHandler *ClouditVMHandler) GetVM(vmID string) (irs.VMInfo, error) {
 		vmInfo := mappingServerInfo(*vm)
 		return vmInfo, nil
 	}
-}
+}*/
 
 // VM에 PublicIP 연결
 func (vmHandler *ClouditVMHandler) AssociatePublicIP(publicIPReqInfo irs.PublicIPReqInfo) (bool, error) {
