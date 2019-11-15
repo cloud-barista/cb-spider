@@ -134,7 +134,8 @@ func (securityHandler *ClouditSecurityHandler) GetSecurity(securityNameID string
 	return *securityInfo, nil
 }
 
-/*func (securityHandler *ClouditSecurityHandler) GetSecurity(securityID string) (irs.SecurityInfo, error) {
+/* 지워도되는 코드
+func (securityHandler *ClouditSecurityHandler) GetSecurity(securityID string) (irs.SecurityInfo, error) {
 	securityHandler.Client.TokenID = securityHandler.CredentialInfo.AuthToken
 	authHeader := securityHandler.Client.AuthenticatedHeaders()
 

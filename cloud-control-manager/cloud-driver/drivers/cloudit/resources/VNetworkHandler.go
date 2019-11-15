@@ -109,7 +109,8 @@ func (vNetworkHandler *ClouditVNetworkHandler) GetVNetwork(vNetworkNameID string
 	return *vNetworkInfo, nil
 }
 
-/*func (vNetworkHandler *ClouditVNetworkHandler) GetVNetwork(vNetworkID string) (irs.VNetworkInfo, error) {
+/* 지워도 되는 코드
+func (vNetworkHandler *ClouditVNetworkHandler) GetVNetwork(vNetworkID string) (irs.VNetworkInfo, error) {
 	vNetworkHandler.Client.TokenID = vNetworkHandler.CredentialInfo.AuthToken
 	authHeader := vNetworkHandler.Client.AuthenticatedHeaders()
 
