@@ -10,7 +10,6 @@ import (
 	"github.com/rackspace/gophercloud/openstack/networking/v2/extensions/layer3/routers"
 	"github.com/rackspace/gophercloud/openstack/networking/v2/networks"
 	"github.com/rackspace/gophercloud/openstack/networking/v2/subnets"
-	"github.com/rackspace/gophercloud/pagination"
 )
 
 type OpenStackVNetworkHandler struct {
@@ -95,7 +94,7 @@ func (vNetworkHandler *OpenStackVNetworkHandler) CreateVNetwork(vNetworkReqInfo 
 		return irs.VNetworkInfo{}, err
 	}
 
-	vNetIPInfo, err := vNetworkHandler.GetVNetwork(subnet.ID)
+	vNetIPInfo, err := vNetworkHandler.GetVNetworkById(subnet.ID)
 	if err != nil {
 		return irs.VNetworkInfo{}, err
 	}
@@ -109,32 +108,65 @@ func (vNetworkHandler *OpenStackVNetworkHandler) ListVNetwork() ([]*irs.VNetwork
 		return nil, errors.New(fmt.Sprintf("failed to get virtual network by name, name: %s", CBVirutalNetworkName))
 	}
 
-	var vNetworkIList []*irs.VNetworkInfo
-
+	// 서브넷 목록 조회
 	listOpts := subnets.ListOpts{
 		NetworkID: networkId,
 	}
-	pager := subnets.List(vNetworkHandler.Client, listOpts)
-	err = pager.EachPage(func(page pagination.Page) (bool, error) {
-		// Get vNetwork
-		list, err := subnets.ExtractSubnets(page)
-		if err != nil {
-			return false, err
-		}
-		// Add to List
-		for _, n := range list {
-			vNetworkInfo := setterVNet(n)
-			vNetworkIList = append(vNetworkIList, vNetworkInfo)
-		}
-		return true, nil
-	})
+	pager, err := subnets.List(vNetworkHandler.Client, listOpts).AllPages()
 	if err != nil {
 		return nil, err
+	}
+	network, err := subnets.ExtractSubnets(pager)
+	if err != nil {
+		return nil, err
+	}
+
+	// 서브넷 목록 정보 매핑
+	vNetworkIList := make([]*irs.VNetworkInfo, len(network))
+	for i, n := range network {
+		vNetworkIList[i] = setterVNet(n)
 	}
 	return vNetworkIList, nil
 }
 
-func (vNetworkHandler *OpenStackVNetworkHandler) GetVNetwork(vNetworkID string) (irs.VNetworkInfo, error) {
+func (vNetworkHandler *OpenStackVNetworkHandler) GetVNetwork(vNetworkNameId string) (irs.VNetworkInfo, error) {
+	// 기본 가상 네트워크 아이디 정보 가져오기
+	networkId, _ := GetCBVNetId(vNetworkHandler.Client)
+	if networkId == "" {
+		return irs.VNetworkInfo{}, errors.New(fmt.Sprintf("failed to get virtual network by name, name: %s", CBVirutalNetworkName))
+	}
+
+	// 기존의 vNetworkID 기준 조회 (old)
+	/*network, err := subnets.Get(vNetworkHandler.Client, vNetworkID).Extract()
+	if err != nil {
+		return irs.VNetworkInfo{}, err
+	}*/
+
+	// Name 기준으로 조회
+	listOpts := subnets.ListOpts{
+		NetworkID: networkId,
+		Name:      vNetworkNameId,
+	}
+	pager, err := subnets.List(vNetworkHandler.Client, listOpts).AllPages()
+	if err != nil {
+		return irs.VNetworkInfo{}, err
+	}
+	network, err := subnets.ExtractSubnets(pager)
+	if err != nil {
+		return irs.VNetworkInfo{}, err
+	}
+
+	// 1개 이상의 서브넷이 중복 조회될 경우 에러 처리
+	if len(network) > 1 {
+		err := errors.New(fmt.Sprintf("failed to search subnet, duplicate nameId exists, %s", vNetworkNameId))
+		return irs.VNetworkInfo{}, err
+	}
+
+	vNetworkInfo := setterVNet(network[0])
+	return *vNetworkInfo, nil
+}
+
+func (vNetworkHandler *OpenStackVNetworkHandler) GetVNetworkById(vNetworkID string) (irs.VNetworkInfo, error) {
 	networkId, _ := GetCBVNetId(vNetworkHandler.Client)
 	if networkId == "" {
 		return irs.VNetworkInfo{}, errors.New(fmt.Sprintf("failed to get virtual network by name, name: %s", CBVirutalNetworkName))
@@ -163,9 +195,6 @@ func (vNetworkHandler *OpenStackVNetworkHandler) DeleteVNetwork(vNetworkID strin
 
 	// Delete Interface
 	vNetworkHandler.DeleteInterface(subnet.ID, *routerId)
-	/*if ok, err := vNetworkHandler.DeleteInterface(subnet.ID, *routerId); !ok {
-		return false, err
-	}*/
 
 	// Delete Subnet
 	networkId, _ := GetCBVNetId(vNetworkHandler.Client)
@@ -266,11 +295,10 @@ func (vNetworkHandler *OpenStackVNetworkHandler) AddInterface(subnetId string, r
 	}
 
 	// Add Interface
-	ir, err := routers.AddInterface(vNetworkHandler.Client, routerId, createOpts).Extract()
+	_, err := routers.AddInterface(vNetworkHandler.Client, routerId, createOpts).Extract()
 	if err != nil {
 		return false, err
 	}
-	spew.Dump(ir)
 	return true, nil
 }
 
@@ -280,10 +308,9 @@ func (vNetworkHandler *OpenStackVNetworkHandler) DeleteInterface(subnetID string
 	}
 
 	// Delete Interface
-	ir, err := routers.RemoveInterface(vNetworkHandler.Client, routerID, deleteOpts).Extract()
+	_, err := routers.RemoveInterface(vNetworkHandler.Client, routerID, deleteOpts).Extract()
 	if err != nil {
 		return false, err
 	}
-	spew.Dump(ir)
 	return true, nil
 }

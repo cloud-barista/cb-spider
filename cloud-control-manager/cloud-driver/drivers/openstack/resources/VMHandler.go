@@ -11,6 +11,7 @@
 package resources
 
 import (
+	"errors"
 	"fmt"
 	cblog "github.com/cloud-barista/cb-log"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
@@ -202,38 +203,54 @@ func (vmHandler *OpenStackVMHandler) GetVMStatus(vmID string) (irs.VMStatus, err
 }
 
 func (vmHandler *OpenStackVMHandler) ListVM() ([]*irs.VMInfo, error) {
-	var vmList []*irs.VMInfo
 
-	pager := servers.List(vmHandler.Client, nil)
-	err := pager.EachPage(func(page pagination.Page) (bool, error) {
-		// Get Servers
-		list, err := servers.ExtractServers(page)
-		if err != nil {
-			return false, err
-		}
-		// Add to List
-		for _, s := range list {
-			vmInfo := mappingServerInfo(s)
-			vmList = append(vmList, &vmInfo)
-		}
-		return true, nil
-	})
+	// 가상서버 목록 조회
+	pager, err := servers.List(vmHandler.Client, nil).AllPages()
 	if err != nil {
-		cblogger.Error(err)
+		return nil, err
+	}
+	servers, err := servers.ExtractServers(pager)
+	if err != nil {
 		return nil, err
 	}
 
-	return vmList, err
+	// 가상서버 목록 정보 매핑
+	vmList := make([]*irs.VMInfo, len(servers))
+	for i, v := range servers {
+		serverInfo := mappingServerInfo(v)
+		vmList[i] = &serverInfo
+	}
+	return vmList, nil
 }
 
-func (vmHandler *OpenStackVMHandler) GetVM(vmID string) (irs.VMInfo, error) {
-	serverResult, err := servers.Get(vmHandler.Client, vmID).Extract()
+func (vmHandler *OpenStackVMHandler) GetVM(vmNameId string) (irs.VMInfo, error) {
+	// 기존의 vmID 기준 가상서버 조회 (old)
+	/*serverResult, err := servers.Get(vmHandler.Client, vmID).Extract()
 	if err != nil {
 		cblogger.Info(err)
 		return irs.VMInfo{}, err
+	}*/
+
+	// vmNameId 기준 가상서버 조회
+	listOpts := servers.ListOpts{
+		Name: vmNameId,
+	}
+	pager, err := servers.List(vmHandler.Client, listOpts).AllPages()
+	if err != nil {
+		return irs.VMInfo{}, err
+	}
+	server, err := servers.ExtractServers(pager)
+	if err != nil {
+		return irs.VMInfo{}, err
 	}
 
-	vmInfo := mappingServerInfo(*serverResult)
+	// 1개 이상의 가상서버가 중복 조회될 경우 에러 처리
+	if len(server) > 1 {
+		err := errors.New(fmt.Sprintf("failed to search vm, duplicate nameId exists, %s", vmNameId))
+		return irs.VMInfo{}, err
+	}
+
+	vmInfo := mappingServerInfo(server[0])
 	return vmInfo, nil
 }
 

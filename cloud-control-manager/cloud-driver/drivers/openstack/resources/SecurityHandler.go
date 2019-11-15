@@ -6,8 +6,8 @@ import (
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/rackspace/gophercloud"
 	"github.com/rackspace/gophercloud/openstack/compute/v2/extensions/secgroups"
-	"github.com/rackspace/gophercloud/pagination"
 	"strconv"
+	"strings"
 )
 
 type OpenStackSecurityHandler struct {
@@ -80,7 +80,7 @@ func (securityHandler *OpenStackSecurityHandler) CreateSecurity(securityReqInfo 
 	}
 
 	// 생성된 SecurityGroup 정보 리턴
-	securityInfo, err := securityHandler.GetSecurity(group.ID)
+	securityInfo, err := securityHandler.GetSecurityById(group.ID)
 	if err != nil {
 		return irs.SecurityInfo{}, err
 	}
@@ -88,29 +88,49 @@ func (securityHandler *OpenStackSecurityHandler) CreateSecurity(securityReqInfo 
 }
 
 func (securityHandler *OpenStackSecurityHandler) ListSecurity() ([]*irs.SecurityInfo, error) {
-	var securityList []*irs.SecurityInfo
 
-	pager := secgroups.List(securityHandler.Client)
-	err := pager.EachPage(func(page pagination.Page) (bool, error) {
-		// Get SecurityGroup
-		list, err := secgroups.ExtractSecurityGroups(page)
-		if err != nil {
-			return false, err
-		}
-		// Add to List
-		for _, s := range list {
-			securityInfo := setterSeg(s)
-			securityList = append(securityList, securityInfo)
-		}
-		return true, nil
-	})
+	// 보안그룹 목록 조회
+	pager, err := secgroups.List(securityHandler.Client).AllPages()
 	if err != nil {
 		return nil, err
+	}
+	security, err := secgroups.ExtractSecurityGroups(pager)
+	if err != nil {
+		return nil, err
+	}
+
+	// 보안그룹 목록 정보 매핑
+	var securityList []*irs.SecurityInfo
+	securityList = make([]*irs.SecurityInfo, len(security))
+	for i, v := range security {
+		securityList[i] = setterSeg(v)
 	}
 	return securityList, nil
 }
 
-func (securityHandler *OpenStackSecurityHandler) GetSecurity(securityID string) (irs.SecurityInfo, error) {
+func (securityHandler *OpenStackSecurityHandler) GetSecurity(securityIDName string) (irs.SecurityInfo, error) {
+	var securityInfo *irs.SecurityInfo
+
+	securityList, err := securityHandler.ListSecurity()
+	if err != nil {
+		return irs.SecurityInfo{}, err
+	}
+	for _, s := range securityList {
+		if strings.EqualFold(s.Name, securityIDName) {
+			securityInfo = s
+			break
+		}
+	}
+
+	// 해당 이름의 보안그룹이 없을 경우 에러 처리
+	if securityInfo == nil {
+		err := errors.New(fmt.Sprintf("failed to find security group with name %s", securityIDName))
+		return irs.SecurityInfo{}, err
+	}
+	return *securityInfo, nil
+}
+
+func (securityHandler *OpenStackSecurityHandler) GetSecurityById(securityID string) (irs.SecurityInfo, error) {
 	securityGroup, err := secgroups.Get(securityHandler.Client, securityID).Extract()
 	if err != nil {
 		return irs.SecurityInfo{}, err
