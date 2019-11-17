@@ -1,3 +1,4 @@
+#!/bin/bash
 source setup.env
 
 #DRIVERS=( aws azure cloudit gcp openstack cloudtwin )

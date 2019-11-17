@@ -27,13 +27,12 @@ func init() {
 
 // REST API Return struct for boolena type
 type BooleanInfo struct {
-        Result string // true or false
+	Result string // true or false
 }
 
 type StatusInfo struct {
-        Status string // PENDING | RUNNING | SUSPENDING | SUSPENDED | REBOOTING | TERMINATING | TERMINATED 
+	Status string // PENDING | RUNNING | SUSPENDING | SUSPENDED | REBOOTING | TERMINATING | TERMINATED
 }
-
 
 //ex) {"POST", "/driver", registerCloudDriver}
 type route struct {
@@ -136,6 +135,7 @@ func ApiServer(routes []route, strPort string) {
 	e := echo.New()
 
 	// Middleware
+	e.Use(middleware.CORS())
 	e.Use(middleware.Logger())
 	e.Use(middleware.Recover())
 
