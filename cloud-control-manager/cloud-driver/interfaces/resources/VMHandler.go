@@ -32,6 +32,7 @@ type VMReqInfo struct {
 
 type VMStatusInfo struct {
 	VmId     string
+	VmName   string
 	VmStatus VMStatus
 }
 

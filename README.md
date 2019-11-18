@@ -44,6 +44,9 @@ The CB-Spider Mission is to connect all the clouds with a single interface.
   - `cd cb-spider/cloud-control-manager/cloud-driver/drivers/aws` # AWS Driver 경우
   - `./build_driver_lib.sh` 실행
   -	결과: cb-spider/cloud-driver-libs/aws-driver-v1.0.so 생성
+  - 참고: 제공하는 모든 driver 한번에 build 방법
+    - `cd github.com/cloud-barista/cb-spider`
+    - `build_all_driver_lib.sh` 실행
 
 ## [서버 실행]
 - `cd cb-spider/api-runtime/rest-runtime`

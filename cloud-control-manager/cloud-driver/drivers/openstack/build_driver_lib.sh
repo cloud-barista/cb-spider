@@ -1,3 +1,5 @@
+source ../../../../setup.env
+
 DRIVERLIB_PATH=$CBSPIDER_ROOT/cloud-driver-libs
 DRIVERFILENAME=openstack-driver-v1.0
 
