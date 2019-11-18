@@ -33,13 +33,11 @@ func init() {
 	cblogger = cblog.GetLogger("CB-SPIDER")
 }
 
-// modified by powerkim, 2019.07.29
 type OpenStackVMHandler struct {
 	Client        *gophercloud.ServiceClient
 	NetworkClient *gophercloud.ServiceClient
 }
 
-// modified by powerkim, 2019.07.29
 func (vmHandler *OpenStackVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, error) {
 
 	vNetId, err := GetCBVNetId(vmHandler.NetworkClient)
@@ -78,6 +76,8 @@ func (vmHandler *OpenStackVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInf
 			break
 		}
 
+		time.Sleep(5 * time.Second)
+
 		// Check VM Deploy Status
 		serverResult, err := servers.Get(vmHandler.Client, vmId).Extract()
 		if err != nil {
@@ -85,15 +85,13 @@ func (vmHandler *OpenStackVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInf
 		}
 		if strings.ToLower(serverResult.Status) == "active" {
 			// Associate Public IP
-			if ok, err := vmHandler.AssociatePublicIP(serverResult.ID, vmReqInfo.PublicIPId); !ok {
+			if ok, err := vmHandler.AssociatePublicIP(serverResult.ID); !ok {
 				return irs.VMInfo{}, err
 			}
 
 			serverInfo = mappingServerInfo(*serverResult)
 			isDeployed = true
 		}
-
-		time.Sleep(5 * time.Second)
 	}
 
 	return serverInfo, nil
@@ -102,7 +100,8 @@ func (vmHandler *OpenStackVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInf
 func (vmHandler *OpenStackVMHandler) SuspendVM(vmNameID string) (irs.VMStatus, error) {
 	vmID, err := vmHandler.getVmIdByName(vmNameID)
 	if err != nil {
-		return "", nil
+		cblogger.Error(err)
+		return irs.Failed, err
 	}
 
 	err = startstop.Stop(vmHandler.Client, vmID).Err
@@ -118,7 +117,8 @@ func (vmHandler *OpenStackVMHandler) SuspendVM(vmNameID string) (irs.VMStatus, e
 func (vmHandler *OpenStackVMHandler) ResumeVM(vmNameID string) (irs.VMStatus, error) {
 	vmID, err := vmHandler.getVmIdByName(vmNameID)
 	if err != nil {
-		return "", nil
+		cblogger.Error(err)
+		return irs.Failed, err
 	}
 
 	err = startstop.Start(vmHandler.Client, vmID).Err
@@ -138,7 +138,8 @@ func (vmHandler *OpenStackVMHandler) RebootVM(vmNameID string) (irs.VMStatus, er
 	}*/
 	vmID, err := vmHandler.getVmIdByName(vmNameID)
 	if err != nil {
-		return "", nil
+		cblogger.Error(err)
+		return irs.Failed, err
 	}
 
 	rebootOpts := servers.SoftReboot
@@ -153,12 +154,44 @@ func (vmHandler *OpenStackVMHandler) RebootVM(vmNameID string) (irs.VMStatus, er
 }
 
 func (vmHandler *OpenStackVMHandler) TerminateVM(vmNameID string) (irs.VMStatus, error) {
-	vmID, err := vmHandler.getVmIdByName(vmNameID)
+	// VM 정보 조회
+	server, err := vmHandler.GetVM(vmNameID)
 	if err != nil {
-		return "", nil
+		cblogger.Error(err)
+		return irs.Failed, err
 	}
 
-	err = servers.Delete(vmHandler.Client, vmID).ExtractErr()
+	// VM에 연결된 PublicIP 삭제
+	pager, err := floatingip.List(vmHandler.Client).AllPages()
+	if err != nil {
+		cblogger.Error(err)
+		return irs.Failed, err
+	}
+	publicIPList, err := floatingip.ExtractFloatingIPs(pager)
+	if err != nil {
+		cblogger.Error(err)
+		return irs.Failed, err
+	}
+
+	// IP 기준 PublicIP 검색
+	var publicIPId string
+	for _, p := range publicIPList {
+		if strings.EqualFold(server.PublicIP, p.IP) {
+			publicIPId = p.ID
+			break
+		}
+	}
+	// Public IP 삭제
+	if publicIPId != "" {
+		err := floatingip.Delete(vmHandler.Client, publicIPId).ExtractErr()
+		if err != nil {
+			cblogger.Error(err)
+			return irs.Failed, err
+		}
+	}
+
+	// VM 삭제
+	err = servers.Delete(vmHandler.Client, server.Id).ExtractErr()
 	if err != nil {
 		cblogger.Error(err)
 		return irs.Failed, err
@@ -271,12 +304,21 @@ func (vmHandler *OpenStackVMHandler) GetVM(vmNameID string) (irs.VMInfo, error) 
 	return vmInfo, nil
 }
 
-func (vmHandler *OpenStackVMHandler) AssociatePublicIP(serverID string, publicIPID string) (bool, error) {
+func (vmHandler *OpenStackVMHandler) AssociatePublicIP(serverID string) (bool, error) {
+	// PublicIP 생성
+	createOpts := floatingip.CreateOpts{
+		Pool: CBPublicIPPool,
+	}
+	publicIP, err := floatingip.Create(vmHandler.Client, createOpts).Extract()
+	if err != nil {
+		return false, err
+	}
+	// PublicIP VM 연결
 	associateOpts := floatingip.AssociateOpts{
 		ServerID:   serverID,
-		FloatingIP: publicIPID,
+		FloatingIP: publicIP.IP,
 	}
-	err := floatingip.AssociateInstance(vmHandler.Client, associateOpts).ExtractErr()
+	err = floatingip.AssociateInstance(vmHandler.Client, associateOpts).ExtractErr()
 	if err != nil {
 		return false, err
 	}

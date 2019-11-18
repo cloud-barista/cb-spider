@@ -1,3 +1,4 @@
 RESTSERVER=localhost
 
-curl -X DELETE http://$RESTSERVER:1024/keypair/CB-Keypair?connection_name=openstack-config01
+KEYPAIR_ID=CB-Keypair
+curl -X DELETE http://$RESTSERVER:1024/keypair/$KEYPAIR_ID?connection_name=openstack-config01

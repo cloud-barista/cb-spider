@@ -125,18 +125,17 @@ func (imageHandler *OpenStackImageHandler) ListImage() ([]*irs.ImageInfo, error)
 	return imageList, nil
 }
 
-func (imageHandler *OpenStackImageHandler) GetImage(imageID string) (irs.ImageInfo, error) {
-	/*imageId, err := images.IDFromName(imageHandler.Client, imageID)
+func (imageHandler *OpenStackImageHandler) GetImage(imageNameId string) (irs.ImageInfo, error) {
+	imageId, err := images.IDFromName(imageHandler.Client, imageNameId)
 	if err != nil {
 		return irs.ImageInfo{}, err
-	}*/
-	image, err := images.Get(imageHandler.Client, imageID).Extract()
+	}
+	image, err := images.Get(imageHandler.Client, imageId).Extract()
 	if err != nil {
 		return irs.ImageInfo{}, err
 	}
 
 	imageInfo := setterImage(*image)
-	//spew.Dump(imageInfo)
 	return *imageInfo, nil
 }
 

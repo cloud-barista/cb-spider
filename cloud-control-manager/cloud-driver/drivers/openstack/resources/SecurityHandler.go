@@ -80,7 +80,7 @@ func (securityHandler *OpenStackSecurityHandler) CreateSecurity(securityReqInfo 
 	}
 
 	// 생성된 SecurityGroup 정보 리턴
-	securityInfo, err := securityHandler.GetSecurityById(group.ID)
+	securityInfo, err := securityHandler.getSecurityById(group.ID)
 	if err != nil {
 		return irs.SecurityInfo{}, err
 	}
@@ -108,29 +108,33 @@ func (securityHandler *OpenStackSecurityHandler) ListSecurity() ([]*irs.Security
 	return securityList, nil
 }
 
-func (securityHandler *OpenStackSecurityHandler) GetSecurity(securityIDName string) (irs.SecurityInfo, error) {
-	var securityInfo *irs.SecurityInfo
-
-	securityList, err := securityHandler.ListSecurity()
+func (securityHandler *OpenStackSecurityHandler) GetSecurity(securityNameId string) (irs.SecurityInfo, error) {
+	securityId, err := securityHandler.getSecurityIdByName(securityNameId)
 	if err != nil {
 		return irs.SecurityInfo{}, err
 	}
-	for _, s := range securityList {
-		if strings.EqualFold(s.Name, securityIDName) {
-			securityInfo = s
-			break
-		}
-	}
 
-	// 해당 이름의 보안그룹이 없을 경우 에러 처리
-	if securityInfo == nil {
-		err := errors.New(fmt.Sprintf("failed to find security group with name %s", securityIDName))
+	securityGroup, err := securityHandler.getSecurityById(securityId)
+	if err != nil {
 		return irs.SecurityInfo{}, err
 	}
-	return *securityInfo, nil
+	return securityGroup, nil
 }
 
-func (securityHandler *OpenStackSecurityHandler) GetSecurityById(securityID string) (irs.SecurityInfo, error) {
+func (securityHandler *OpenStackSecurityHandler) DeleteSecurity(securityNameId string) (bool, error) {
+	securityId, err := securityHandler.getSecurityIdByName(securityNameId)
+	if err != nil {
+		return false, err
+	}
+
+	result := secgroups.Delete(securityHandler.Client, securityId)
+	if result.Err != nil {
+		return false, result.Err
+	}
+	return true, nil
+}
+
+func (securityHandler *OpenStackSecurityHandler) getSecurityById(securityID string) (irs.SecurityInfo, error) {
 	securityGroup, err := secgroups.Get(securityHandler.Client, securityID).Extract()
 	if err != nil {
 		return irs.SecurityInfo{}, err
@@ -140,10 +144,19 @@ func (securityHandler *OpenStackSecurityHandler) GetSecurityById(securityID stri
 	return *securityInfo, nil
 }
 
-func (securityHandler *OpenStackSecurityHandler) DeleteSecurity(securityID string) (bool, error) {
-	result := secgroups.Delete(securityHandler.Client, securityID)
-	if result.Err != nil {
-		return false, result.Err
+func (securityHandler *OpenStackSecurityHandler) getSecurityIdByName(securityName string) (string, error) {
+	var securityId string
+
+	securityList, err := securityHandler.ListSecurity()
+	if err != nil {
+		return "", err
 	}
-	return true, nil
+	for _, s := range securityList {
+		if strings.EqualFold(s.Name, securityName) {
+			securityId = s.Id
+			break
+		}
+	}
+
+	return securityId, nil
 }

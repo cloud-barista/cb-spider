@@ -94,7 +94,7 @@ func (vNetworkHandler *OpenStackVNetworkHandler) CreateVNetwork(vNetworkReqInfo 
 		return irs.VNetworkInfo{}, err
 	}
 
-	vNetIPInfo, err := vNetworkHandler.GetVNetworkById(subnet.ID)
+	vNetIPInfo, err := vNetworkHandler.getVNetworkById(subnet.ID)
 	if err != nil {
 		return irs.VNetworkInfo{}, err
 	}
@@ -136,57 +136,26 @@ func (vNetworkHandler *OpenStackVNetworkHandler) GetVNetwork(vNetworkNameId stri
 		return irs.VNetworkInfo{}, errors.New(fmt.Sprintf("failed to get virtual network by name, name: %s", CBVirutalNetworkName))
 	}
 
-	// 기존의 vNetworkID 기준 조회 (old)
-	/*network, err := subnets.Get(vNetworkHandler.Client, vNetworkID).Extract()
-	if err != nil {
-		return irs.VNetworkInfo{}, err
-	}*/
-
-	// Name 기준으로 조회
-	listOpts := subnets.ListOpts{
-		NetworkID: networkId,
-		Name:      vNetworkNameId,
-	}
-	pager, err := subnets.List(vNetworkHandler.Client, listOpts).AllPages()
-	if err != nil {
-		return irs.VNetworkInfo{}, err
-	}
-	network, err := subnets.ExtractSubnets(pager)
+	subnetId, err := vNetworkHandler.getVNetworkIdByName(vNetworkNameId)
 	if err != nil {
 		return irs.VNetworkInfo{}, err
 	}
 
-	// 1개 이상의 서브넷이 중복 조회될 경우 에러 처리
-	if len(network) > 1 {
-		err := errors.New(fmt.Sprintf("failed to search subnet, duplicate nameId exists, %s", vNetworkNameId))
+	subnet, err := vNetworkHandler.getVNetworkById(subnetId)
+	if err != nil {
 		return irs.VNetworkInfo{}, err
 	}
 
-	vNetworkInfo := setterVNet(network[0])
-	return *vNetworkInfo, nil
+	return subnet, nil
 }
 
-func (vNetworkHandler *OpenStackVNetworkHandler) GetVNetworkById(vNetworkID string) (irs.VNetworkInfo, error) {
-	networkId, _ := GetCBVNetId(vNetworkHandler.Client)
-	if networkId == "" {
-		return irs.VNetworkInfo{}, errors.New(fmt.Sprintf("failed to get virtual network by name, name: %s", CBVirutalNetworkName))
-	}
-
-	network, err := subnets.Get(vNetworkHandler.Client, vNetworkID).Extract()
-	if err != nil {
-		return irs.VNetworkInfo{}, err
-	}
-
-	vNetworkInfo := setterVNet(*network)
-	return *vNetworkInfo, nil
-}
-
-func (vNetworkHandler *OpenStackVNetworkHandler) DeleteVNetwork(vNetworkID string) (bool, error) {
+func (vNetworkHandler *OpenStackVNetworkHandler) DeleteVNetwork(vNetworkNameId string) (bool, error) {
 	// Get Subnet Info
-	subnet, err := subnets.Get(vNetworkHandler.Client, vNetworkID).Extract()
+	subnet, err := vNetworkHandler.GetVNetwork(vNetworkNameId)
 	if err != nil {
 		return false, err
 	}
+
 	// Get Router Info
 	routerId, err := vNetworkHandler.GetRouterID()
 	if err != nil {
@@ -194,14 +163,14 @@ func (vNetworkHandler *OpenStackVNetworkHandler) DeleteVNetwork(vNetworkID strin
 	}
 
 	// Delete Interface
-	vNetworkHandler.DeleteInterface(subnet.ID, *routerId)
+	vNetworkHandler.DeleteInterface(subnet.Id, *routerId)
 
 	// Delete Subnet
 	networkId, _ := GetCBVNetId(vNetworkHandler.Client)
 	if networkId == "" {
 		return false, errors.New(fmt.Sprintf("failed to get virtual network by name, name: %s", CBVirutalNetworkName))
 	}
-	err = subnets.Delete(vNetworkHandler.Client, vNetworkID).ExtractErr()
+	err = subnets.Delete(vNetworkHandler.Client, subnet.Id).ExtractErr()
 	if err != nil {
 		return false, err
 	}
@@ -313,4 +282,41 @@ func (vNetworkHandler *OpenStackVNetworkHandler) DeleteInterface(subnetID string
 		return false, err
 	}
 	return true, nil
+}
+
+func (vNetworkHandler *OpenStackVNetworkHandler) getVNetworkById(vNetworkID string) (irs.VNetworkInfo, error) {
+	network, err := subnets.Get(vNetworkHandler.Client, vNetworkID).Extract()
+	if err != nil {
+		return irs.VNetworkInfo{}, err
+	}
+
+	vNetworkInfo := setterVNet(*network)
+	return *vNetworkInfo, nil
+}
+
+func (vNetworkHandler *OpenStackVNetworkHandler) getVNetworkIdByName(vNetworkName string) (string, error) {
+	var vNetworkId string
+
+	// Name 기준으로 조회
+	listOpts := subnets.ListOpts{
+		Name: vNetworkName,
+	}
+	pager, err := subnets.List(vNetworkHandler.Client, listOpts).AllPages()
+	if err != nil {
+		return "", err
+	}
+	network, err := subnets.ExtractSubnets(pager)
+	if err != nil {
+		return "", err
+	}
+
+	// 1개 이상의 서브넷이 중복 조회될 경우 에러 처리
+	if len(network) > 1 {
+		err := errors.New(fmt.Sprintf("failed to search subnet, duplicate nameId exists, %s", vNetworkName))
+		return "", err
+	} else {
+		vNetworkId = network[0].ID
+	}
+
+	return vNetworkId, nil
 }
