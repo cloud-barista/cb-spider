@@ -15,6 +15,8 @@ import (
 	"io/ioutil"
 	"os"
 
+	"github.com/aws/aws-sdk-go/aws/awserr"
+
 	awsdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/aws"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 
@@ -49,16 +51,16 @@ func handleSecurity() {
 	config := readConfigFile()
 	securityId := config.Aws.SecurityGroupID
 	cblogger.Infof(securityId)
-	securityId = "sg-06c4523b969eaafc7"
+	//securityId = "sg-06c4523b969eaafc7"
+	securityId = "cb-sgtest-mcloud-barista"
 
-	result, err := handler.GetSecurity(securityId)
-	//result, err := handler.GetSecurity("sg-0d4d11c090c4814e8")
+	//result, err := handler.GetSecurity(securityId)
 	//result, err := handler.GetSecurity("sg-0fd2d90b269ebc082") // sgtest-mcloub-barista
 	//result, err := handler.DeleteSecurity(securityId)
 	//result, err := handler.ListSecurity()
 
 	securityReqInfo := irs.SecurityReqInfo{
-		Name: "sgtest-mcloud-barista",
+		Name: securityId,
 		SecurityRules: &[]irs.SecurityRuleInfo{ //보안 정책 설정
 			{
 				FromPort:   "20",
@@ -102,7 +104,7 @@ func handleSecurity() {
 	}
 
 	cblogger.Info(securityReqInfo)
-	//result, err := handler.CreateSecurity(securityReqInfo)
+	result, err := handler.CreateSecurity(securityReqInfo)
 
 	if err != nil {
 		cblogger.Infof("보안 그룹 조회 실패 : ", err)
@@ -127,6 +129,7 @@ func handlePublicIP() {
 	config := readConfigFile()
 	//reqGetPublicIP := "13.124.140.207"
 	reqPublicIP := config.Aws.PublicIP
+	reqPublicIP = "mcloud-barista-eip-test"
 	//reqPublicIP = "eipalloc-0231a3e16ec42e869"
 	cblogger.Info("reqPublicIP : ", reqPublicIP)
 	//handler.CreatePublicIP(publicIPReqInfo)
@@ -189,19 +192,22 @@ func handlePublicIP() {
 
 			case 4:
 				fmt.Println("Start DeletePublicIP() ...")
-				fmt.Print("삭제할 PublicIP를 입력하세요 : ")
-				inputCnt, err := fmt.Scan(&reqDelIP)
-				if err != nil {
-					panic(err)
-				}
+				/*
+					fmt.Print("삭제할 PublicIP를 입력하세요 : ")
+					inputCnt, err := fmt.Scan(&reqDelIP)
+					if err != nil {
+						panic(err)
+					}
 
-				if inputCnt == 1 {
-					cblogger.Info("삭제할 PublicIP : ", reqDelIP)
-				} else {
-					fmt.Println("삭제할 Public IP만 입력하세요.")
-				}
+					if inputCnt == 1 {
+						cblogger.Info("삭제할 PublicIP : ", reqDelIP)
+					} else {
+						fmt.Println("삭제할 Public IP만 입력하세요.")
+					}
+					result, err := handler.DeletePublicIP(reqDelIP)
+				*/
 
-				result, err := handler.DeletePublicIP(reqDelIP)
+				result, err := handler.DeletePublicIP(reqPublicIP)
 				if err != nil {
 					cblogger.Error(reqDelIP, " PublicIP 삭제 실패 : ", err)
 				} else {
@@ -308,7 +314,7 @@ func handleVNetwork() {
 
 	vNetworkReqInfo := irs.VNetworkReqInfo{
 		//Id:   "subnet-044a2b57145e5afc5",
-		//Name: "CB-VNet-Subnet2",	// 웹 도구 등 외부에서 전달 받지 않고 드라이버 내부적으로 자동 구현때문에 사용하지 않음.
+		Name: "CB-VNet-Subnet", // 웹 도구 등 외부에서 전달 받지 않고 드라이버 내부적으로 자동 구현때문에 사용하지 않음.
 		//CidrBlock: "10.0.0.0/16",
 		//CidrBlock: "192.168.0.0/16",
 	}
@@ -555,15 +561,39 @@ func handleVNic() {
 	}
 }
 
+func testErr() error {
+	//return awserr.Error("")
+	//return errors.New("")
+	return awserr.New("504", "찾을 수 없음", nil)
+}
+
 func main() {
 	cblogger.Info("AWS Resource Test")
-	//handleKeyPair()
-	//handlePublicIP() // PublicIP 생성 후 conf
+	/*
+		err := testErr()
+		spew.Dump(err)
+		if err != nil {
+			cblogger.Info("에러 발생")
+			awsErr, ok := err.(awserr.Error)
+			spew.Dump(awsErr)
+			spew.Dump(ok)
+			if ok {
+				if "404" == awsErr.Code() {
+					cblogger.Info("404!!!")
+				} else {
+					cblogger.Info("404 아님")
+				}
+			}
+		}
+	*/
 
-	handleVNetwork() //VPC
+	//handleVNetwork() //VPC
+	//handleKeyPair()
+	handlePublicIP() // PublicIP 생성 후 conf
+	//handleSecurity()
+
 	//handleImage() //AMI
 	//handleVNic() //Lancard
-	//handleSecurity()
 
 	/*
 		KeyPairHandler, err := setKeyPairHandler()

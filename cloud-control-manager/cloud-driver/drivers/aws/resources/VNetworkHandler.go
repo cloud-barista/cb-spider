@@ -324,15 +324,26 @@ func (vNetworkHandler *AwsVNetworkHandler) CreateVpc(awsVpcReqInfo AwsVpcReqInfo
 	return awsVpcInfo, nil
 }
 
+//2019-11-16부로 CB-Driver 전체 로직이 NameId 기반으로 변경됨.
 func (vNetworkHandler *AwsVNetworkHandler) CreateVNetwork(vNetworkReqInfo irs.VNetworkReqInfo) (irs.VNetworkInfo, error) {
 	cblogger.Info(vNetworkReqInfo)
 
-	vpcList, _ := vNetworkHandler.ListVNetwork()
-	if len(vpcList) > 0 {
+	//사용자에게 Open된 Api의 List는 드라이버가 바라보는 List와 달라서 등록된 이름으로 검색해야 해서 로직 변경.
+	/*
+		vpcList, _ := vNetworkHandler.ListVNetwork()
+		if len(vpcList) > 0 {
+			cblogger.Error("이미 Default Subnet이 존재하기 때문에 생성하지 않고 기존 정보와 함께 에러를 리턴함.")
+			cblogger.Info(vpcList)
+			//return *vpcList[0], errors.New("이미 Default Subnet이 존재합니다.")
+			return *vpcList[0], errors.New("InvalidSubnet.Duplicate: The subnet '" + GetCBDefaultSubnetName() + "' already exists.")
+		}
+	*/
+
+	vpcInfo, errVpcInfo := vNetworkHandler.GetVNetwork(GetCBDefaultSubnetName())
+	if errVpcInfo == nil {
 		cblogger.Error("이미 Default Subnet이 존재하기 때문에 생성하지 않고 기존 정보와 함께 에러를 리턴함.")
-		cblogger.Info(vpcList)
-		//return *vpcList[0], errors.New("이미 Default Subnet이 존재합니다.")
-		return *vpcList[0], errors.New("InvalidSubnet.Duplicate: The subnet '" + GetCBDefaultSubnetName() + "' already exists.")
+		cblogger.Info(vpcInfo)
+		return vpcInfo, errors.New("InvalidVNetwork.Duplicate: The CBVnetwork '" + GetCBDefaultSubnetName() + "' already exists.")
 	}
 
 	//최대 5개의 VPC 생성 제한이 있기 때문에 기본VPC 조회시 에러 처리를 해줌.
@@ -562,27 +573,33 @@ func (vNetworkHandler *AwsVNetworkHandler) GetCBDefaultRouteTable(vpcId string) 
 	}
 }
 
+//2019-11-16부로 CB-Driver 전체 로직이 NameId 기반으로 변경됨.
 //vNetworkID를 전달 받으면 해당 Subnet을 조회하고 / vNetworkID의 값이 없으면 CB Default Subnet을 조회함.
-func (vNetworkHandler *AwsVNetworkHandler) GetVNetwork(vNetworkID string) (irs.VNetworkInfo, error) {
-	cblogger.Infof("vNetworkID : [%s]", vNetworkID)
+func (vNetworkHandler *AwsVNetworkHandler) GetVNetwork(vNetworkNameId string) (irs.VNetworkInfo, error) {
+	cblogger.Infof("vNetworkNameId : [%s]", vNetworkNameId)
+	cblogger.Infof("AWS 드라이버는 고정된 vNetwork 1개만 허용하므로 vNetworkNameId를 [%s] ==> [%s]로 변경합니다.", vNetworkNameId, GetCBDefaultSubnetName())
 
+	vNetworkNameId = GetCBDefaultSubnetName()
 	input := &ec2.DescribeSubnetsInput{}
-	//Subnet ID를 전달 받으면 해당 서브넷을 조회
-	if vNetworkID != "" {
-		input.SubnetIds = ([]*string{
-			aws.String(vNetworkID),
-		})
-	} else {
-		//그렇지 않으면 Default CB-Subnet 조회
-		input.Filters = ([]*ec2.Filter{
-			&ec2.Filter{
-				Name: aws.String("tag:Name"), // subnet-id
-				Values: []*string{
-					aws.String(GetCBDefaultSubnetName()),
+	/*
+		//Subnet ID를 전달 받으면 해당 서브넷을 조회
+		if vNetworkID != "" {
+			input.SubnetIds = ([]*string{
+				aws.String(vNetworkID),
+			})
+		} else {
+			//그렇지 않으면 Default CB-Subnet 조회
+			input.Filters = ([]*ec2.Filter{
+				&ec2.Filter{
+					Name: aws.String("tag:Name"), // subnet-id
+					Values: []*string{
+						aws.String(GetCBDefaultSubnetName()),
+					},
 				},
-			},
-		})
-	} // end of if
+			})
+		}
+	*/
+	// end of if
 	/*
 		input := &ec2.DescribeSubnetsInput{
 			SubnetIds: []*string{
@@ -590,8 +607,20 @@ func (vNetworkHandler *AwsVNetworkHandler) GetVNetwork(vNetworkID string) (irs.V
 			},
 		}
 	*/
+	//NameId기반 로직 구현
+	input.Filters = ([]*ec2.Filter{
+		&ec2.Filter{
+			Name: aws.String("tag:Name"), // subnet-id
+			Values: []*string{
+				aws.String(vNetworkNameId),
+			},
+		},
+	})
+
 	spew.Dump(input)
 	result, err := vNetworkHandler.Client.DescribeSubnets(input)
+	cblogger.Info(result)
+	//spew.Dump(result)
 	if err != nil {
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
@@ -606,14 +635,11 @@ func (vNetworkHandler *AwsVNetworkHandler) GetVNetwork(vNetworkID string) (irs.V
 		return irs.VNetworkInfo{}, err
 	}
 
-	cblogger.Info(result)
-	//spew.Dump(result)
-
 	if !reflect.ValueOf(result.Subnets).IsNil() {
 		vNetworkInfo := ExtractSubnetDescribeInfo(result.Subnets[0])
 		return vNetworkInfo, nil
 	} else {
-		return irs.VNetworkInfo{}, nil
+		return irs.VNetworkInfo{}, errors.New("InvalidVNetwork.NotFound: The CBVnetwork '" + vNetworkNameId + "' does not exist")
 	}
 }
 
@@ -824,14 +850,27 @@ func (vNetworkHandler *AwsVNetworkHandler) DeleteVpc(vpcId string) (bool, error)
 
 //서브넷 삭제
 //마지막 서브넷인 경우 CB-Default Virtual Network도 함께 제거
-func (vNetworkHandler *AwsVNetworkHandler) DeleteVNetwork(vNetworkID string) (bool, error) {
-	cblogger.Info("vNetworkID : [%s]", vNetworkID)
+//2019-11-16부로 CB-Driver 전체 로직이 NameId 기반으로 변경됨.
+func (vNetworkHandler *AwsVNetworkHandler) DeleteVNetwork(vNetworkNameId string) (bool, error) {
+	//cblogger.Info("vNetworkID : [%s]", vNetworkID)
+	cblogger.Infof("vNetworkNameId : [%s]", vNetworkNameId)
+	cblogger.Infof("AWS 드라이버는 고정된 vNetwork 1개만 허용하므로 사용자 요청과 무관하게 [%s]을 삭제합니다.", GetCBDefaultSubnetName())
 
+	cblogger.Infof("삭제할 vNetworkId를 검색합니다.")
+	vNetworkNameId = GetCBDefaultSubnetName()
+	vpcInfo, errVpcInfo := vNetworkHandler.GetVNetwork(vNetworkNameId)
+	if errVpcInfo != nil {
+		return false, errVpcInfo
+	}
+
+	vNetworkID := vpcInfo.Id
 	input := &ec2.DeleteSubnetInput{
 		SubnetId: aws.String(vNetworkID),
 	}
+	cblogger.Info(input)
 
 	_, err := vNetworkHandler.Client.DeleteSubnet(input)
+	cblogger.Info(err)
 	if err != nil {
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {

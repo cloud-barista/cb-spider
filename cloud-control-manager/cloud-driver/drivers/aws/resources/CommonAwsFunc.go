@@ -33,6 +33,9 @@ type AwsCBNetworkInfo struct {
 	SubnetId   string
 }
 
+const CUSTOM_ERR_CODE_TOOMANY string = "600"  //awserr.New("600", "n개 이상의 xxxx 정보가 존재합니다.", nil)
+const CUSTOM_ERR_CODE_NOTFOUND string = "404" //awserr.New("404", "XXX 정보가 존재하지 않습니다.", nil)
+
 //VPC
 func GetCBDefaultVNetName() string {
 	return CBDefaultVNetName

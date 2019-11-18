@@ -48,17 +48,31 @@ func createVM() {
 
 	//minCount := aws.Int64(int64(config.Aws.MinCount))
 	//maxCount := aws.Int64(config.Aws.MaxCount)
-
+	/*
+		vmReqInfo := irs.VMReqInfo{
+			VMName:             config.Aws.BaseName,
+			ImageId:            config.Aws.ImageID,
+			VirtualNetworkId:   config.Aws.SubnetID,
+			NetworkInterfaceId: "eni-00befb6d8c3a87b24",
+			PublicIPId:         "eipalloc-0e95789a23e6d0c6f",
+			//SecurityGroupIds: []string{"sg-0df1c209ea1915e4b"},
+			SecurityGroupIds: []string{config.Aws.SecurityGroupID},
+			VMSpecId:         config.Aws.InstanceType,
+			KeyPairName:      config.Aws.KeyName,
+		}
+	*/
 	vmReqInfo := irs.VMReqInfo{
-		VMName:             config.Aws.BaseName,
-		ImageId:            config.Aws.ImageID,
-		VirtualNetworkId:   config.Aws.SubnetID,
-		NetworkInterfaceId: "eni-00befb6d8c3a87b24",
-		PublicIPId:         "eipalloc-0e95789a23e6d0c6f",
-		//SecurityGroupIds: []string{"sg-0df1c209ea1915e4b"},
-		SecurityGroupIds: []string{config.Aws.SecurityGroupID},
-		VMSpecId:         config.Aws.InstanceType,
-		KeyPairName:      config.Aws.KeyName,
+		//VMName:           config.Aws.BaseName,
+		VMName:           "mcloud-barista-vnictest3",
+		ImageId:          config.Aws.ImageID,
+		VirtualNetworkId: "CB-VNet-Subnet",
+		//NetworkInterfaceId: "eni-00befb6d8c3a87b24",
+		PublicIPId:       "mcloud-barista-eip-test",
+		SecurityGroupIds: []string{"cb-sgtest-mcloud-barista"},
+		//SecurityGroupIds: []string{"cb-sgtest-mcloud-barista", "cb-sgtest-mcloud-barista2"},
+		//SecurityGroupIds: []string{config.Aws.SecurityGroupID},
+		VMSpecId:    config.Aws.InstanceType,
+		KeyPairName: config.Aws.KeyName,
 	}
 
 	vmInfo, err := vmHandler.StartVM(vmReqInfo)
@@ -108,7 +122,7 @@ func handleVM() {
 	}
 	config := readConfigFile()
 	VmID := config.Aws.VmID
-	//VmID = "i-0612a67a63ddb8374"
+	VmID = "mcloud-barista-vnictest3"
 
 	for {
 		fmt.Println("VM Management")
