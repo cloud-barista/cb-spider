@@ -7,6 +7,7 @@ import (
 	"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/cloudit/client/dna/subnet"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
+	"strings"
 )
 
 type ClouditVNetworkHandler struct {
@@ -87,6 +88,28 @@ func (vNetworkHandler *ClouditVNetworkHandler) ListVNetwork() ([]*irs.VNetworkIn
 	}
 }
 
+func (vNetworkHandler *ClouditVNetworkHandler) GetVNetwork(vNetworkNameID string) (irs.VNetworkInfo, error) {
+	var vNetworkInfo *irs.VNetworkInfo
+
+	vNetList, err := vNetworkHandler.ListVNetwork()
+	if err != nil {
+		return irs.VNetworkInfo{}, nil
+	}
+	for _, s := range vNetList {
+		if strings.EqualFold(s.Name, vNetworkNameID) {
+			vNetworkInfo = s
+			break
+		}
+	}
+
+	if vNetworkInfo == nil {
+		err := errors.New(fmt.Sprintf("failed to find vNetwork with name %s", vNetworkNameID))
+		return irs.VNetworkInfo{}, err
+	}
+	return *vNetworkInfo, nil
+}
+
+/* 지워도 되는 코드
 func (vNetworkHandler *ClouditVNetworkHandler) GetVNetwork(vNetworkID string) (irs.VNetworkInfo, error) {
 	vNetworkHandler.Client.TokenID = vNetworkHandler.CredentialInfo.AuthToken
 	authHeader := vNetworkHandler.Client.AuthenticatedHeaders()
@@ -101,7 +124,7 @@ func (vNetworkHandler *ClouditVNetworkHandler) GetVNetwork(vNetworkID string) (i
 		vNetInfo := setterVNet(*vNetwork)
 		return *vNetInfo, nil
 	}
-}
+}*/
 
 func (vNetworkHandler *ClouditVNetworkHandler) DeleteVNetwork(vNetworkID string) (bool, error) {
 	vNetworkHandler.Client.TokenID = vNetworkHandler.CredentialInfo.AuthToken

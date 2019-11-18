@@ -4,7 +4,6 @@ import (
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/rackspace/gophercloud"
 	"github.com/rackspace/gophercloud/openstack/compute/v2/extensions/keypairs"
-	"github.com/rackspace/gophercloud/pagination"
 )
 
 type OpenStackKeyPairHandler struct {
@@ -38,24 +37,21 @@ func (keyPairHandler *OpenStackKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyP
 }
 
 func (keyPairHandler *OpenStackKeyPairHandler) ListKey() ([]*irs.KeyPairInfo, error) {
-	var keyPairList []*irs.KeyPairInfo
 
-	pager := keypairs.List(keyPairHandler.Client)
-	err := pager.EachPage(func(page pagination.Page) (bool, error) {
-		// Get KeyPair
-		list, err := keypairs.ExtractKeyPairs(page)
-		if err != nil {
-			return false, err
-		}
-		// Add to List
-		for _, k := range list {
-			keyPairInfo := setterKeypair(k)
-			keyPairList = append(keyPairList, keyPairInfo)
-		}
-		return true, nil
-	})
+	// 키페어 목록 조회
+	pager, err := keypairs.List(keyPairHandler.Client).AllPages()
 	if err != nil {
 		return nil, err
+	}
+	keypair, err := keypairs.ExtractKeyPairs(pager)
+	if err != nil {
+		return nil, err
+	}
+
+	// 키페어 목록 정보 매핑
+	keyPairList := make([]*irs.KeyPairInfo, len(keypair))
+	for i, k := range keypair {
+		keyPairList[i] = setterKeypair(k)
 	}
 	return keyPairList, nil
 }

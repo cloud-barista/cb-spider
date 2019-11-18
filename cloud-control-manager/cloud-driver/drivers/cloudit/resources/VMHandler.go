@@ -109,12 +109,18 @@ func (vmHandler *ClouditVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 	return serverInfo, nil
 }
 
-func (vmHandler *ClouditVMHandler) SuspendVM(vmID string) (irs.VMStatus, error) {
+func (vmHandler *ClouditVMHandler) SuspendVM(vmNameID string) (irs.VMStatus, error) {
 	vmHandler.Client.TokenID = vmHandler.CredentialInfo.AuthToken
 	authHeader := vmHandler.Client.AuthenticatedHeaders()
 
 	requestOpts := client.RequestOpts{
 		MoreHeaders: authHeader,
+	}
+
+	vmID, err := vmHandler.getVmIdByName(vmNameID)
+	if err != nil {
+		cblogger.Error(err)
+		return irs.Failed, err
 	}
 
 	if err := server.Suspend(vmHandler.Client, vmID, &requestOpts); err != nil {
@@ -131,12 +137,18 @@ func (vmHandler *ClouditVMHandler) SuspendVM(vmID string) (irs.VMStatus, error) 
 	return vmStatus, nil
 }
 
-func (vmHandler *ClouditVMHandler) ResumeVM(vmID string) (irs.VMStatus, error) {
+func (vmHandler *ClouditVMHandler) ResumeVM(vmNameID string) (irs.VMStatus, error) {
 	vmHandler.Client.TokenID = vmHandler.CredentialInfo.AuthToken
 	authHeader := vmHandler.Client.AuthenticatedHeaders()
 
 	requestOpts := client.RequestOpts{
 		MoreHeaders: authHeader,
+	}
+
+	vmID, err := vmHandler.getVmIdByName(vmNameID)
+	if err != nil {
+		cblogger.Error(err)
+		return irs.Failed, err
 	}
 
 	if err := server.Resume(vmHandler.Client, vmID, &requestOpts); err != nil {
@@ -153,12 +165,18 @@ func (vmHandler *ClouditVMHandler) ResumeVM(vmID string) (irs.VMStatus, error) {
 	return vmStatus, nil
 }
 
-func (vmHandler *ClouditVMHandler) RebootVM(vmID string) (irs.VMStatus, error) {
+func (vmHandler *ClouditVMHandler) RebootVM(vmNameID string) (irs.VMStatus, error) {
 	vmHandler.Client.TokenID = vmHandler.CredentialInfo.AuthToken
 	authHeader := vmHandler.Client.AuthenticatedHeaders()
 
 	requestOpts := client.RequestOpts{
 		MoreHeaders: authHeader,
+	}
+
+	vmID, err := vmHandler.getVmIdByName(vmNameID)
+	if err != nil {
+		cblogger.Error(err)
+		return irs.Failed, err
 	}
 
 	if err := server.Reboot(vmHandler.Client, vmID, &requestOpts); err != nil {
@@ -175,12 +193,18 @@ func (vmHandler *ClouditVMHandler) RebootVM(vmID string) (irs.VMStatus, error) {
 	return vmStatus, nil
 }
 
-func (vmHandler *ClouditVMHandler) TerminateVM(vmID string) (irs.VMStatus, error) {
+func (vmHandler *ClouditVMHandler) TerminateVM(vmNameID string) (irs.VMStatus, error) {
 	vmHandler.Client.TokenID = vmHandler.CredentialInfo.AuthToken
 	authHeader := vmHandler.Client.AuthenticatedHeaders()
 
 	requestOpts := client.RequestOpts{
 		MoreHeaders: authHeader,
+	}
+
+	vmID, err := vmHandler.getVmIdByName(vmNameID)
+	if err != nil {
+		cblogger.Error(err)
+		return irs.Failed, err
 	}
 
 	// VM 정보 조회
@@ -233,12 +257,18 @@ func (vmHandler *ClouditVMHandler) ListVMStatus() ([]*irs.VMStatusInfo, error) {
 	}
 }
 
-func (vmHandler *ClouditVMHandler) GetVMStatus(vmID string) (irs.VMStatus, error) {
+func (vmHandler *ClouditVMHandler) GetVMStatus(vmNameID string) (irs.VMStatus, error) {
 	vmHandler.Client.TokenID = vmHandler.CredentialInfo.AuthToken
 	authHeader := vmHandler.Client.AuthenticatedHeaders()
 
 	requestOpts := client.RequestOpts{
 		MoreHeaders: authHeader,
+	}
+
+	vmID, err := vmHandler.getVmIdByName(vmNameID)
+	if err != nil {
+		cblogger.Error(err)
+		return irs.Failed, err
 	}
 
 	vm, err := server.Get(vmHandler.Client, vmID, &requestOpts)
@@ -294,12 +324,18 @@ func (vmHandler *ClouditVMHandler) ListVM() ([]*irs.VMInfo, error) {
 	}
 }
 
-func (vmHandler *ClouditVMHandler) GetVM(vmID string) (irs.VMInfo, error) {
+func (vmHandler *ClouditVMHandler) GetVM(vmNameID string) (irs.VMInfo, error) {
 	vmHandler.Client.TokenID = vmHandler.CredentialInfo.AuthToken
 	authHeader := vmHandler.Client.AuthenticatedHeaders()
 
 	requestOpts := client.RequestOpts{
 		MoreHeaders: authHeader,
+	}
+
+	// VM 이름으로 ID 정보 가져오기
+	vmID, err := vmHandler.getVmIdByName(vmNameID)
+	if err != nil {
+		return irs.VMInfo{}, err
 	}
 
 	if vm, err := server.Get(vmHandler.Client, vmID, &requestOpts); err != nil {
@@ -396,4 +432,21 @@ func mappingServerInfo(server server.ServerInfo) irs.VMInfo {
 	}*/
 
 	return vmInfo
+}
+
+func (vmHandler *ClouditVMHandler) getVmIdByName(vmNameID string) (string, error) {
+	var vmId string
+
+	vmList, err := vmHandler.ListVM()
+	if err != nil {
+		return "", err
+	}
+	for _, v := range vmList {
+		if strings.EqualFold(v.Name, vmNameID) {
+			vmId = v.Id
+			break
+		}
+	}
+
+	return vmId, nil
 }
