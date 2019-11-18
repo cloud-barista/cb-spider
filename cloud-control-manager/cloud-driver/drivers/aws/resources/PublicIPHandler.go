@@ -27,10 +27,19 @@ type AwsPublicIPHandler struct {
 	Client *ec2.EC2
 }
 
+//2019-11-16부로 CB-Driver 전체 로직이 NameId 기반으로 변경됨.
 // VM 생성 시 PublicIP의 AllocationId를 전달 받는 방식으로 1차 확정되어서 이 곳에서는 관련 로직을 제거 함.
 // VMHandler.go에서 할당및 회수 함
 func (publicIpHandler *AwsPublicIPHandler) CreatePublicIP(publicIPReqInfo irs.PublicIPReqInfo) (irs.PublicIPInfo, error) {
 	cblogger.Info("Start : ", publicIPReqInfo)
+
+	cblogger.Infof("중복 생성 방지를 위해 기존에 생성된 PublicIp[%s]가 있는지 조회 함.", publicIPReqInfo.Name)
+	publicInfo, errPublicInfo := publicIpHandler.GetPublicIP(publicIPReqInfo.Name)
+	if errPublicInfo == nil {
+		cblogger.Errorf("이미 요청한 PublicIp[%s]가 존재하기 때문에 생성하지 않고 기존 정보와 함께 에러를 리턴함.", publicIPReqInfo.Name)
+		cblogger.Info(publicInfo)
+		return publicInfo, errors.New("InvalidPublicIp.Duplicate: The PublicIp '" + publicIPReqInfo.Name + "' already exists.")
+	}
 
 	//var publicIPInfo irs.PublicIPInfo
 
@@ -59,10 +68,13 @@ func (publicIpHandler *AwsPublicIPHandler) CreatePublicIP(publicIPReqInfo irs.Pu
 		},
 	})
 	if errtag != nil {
-		cblogger.Error("Public IP에 Name Tag 설정 실패 : ")
+		cblogger.Errorf("Public IP에 [%s] Name Tag 설정 실패 : ", publicIPReqInfo.Name)
+		cblogger.Error(errtag)
+		return irs.PublicIPInfo{}, errors.New("PublicIP [" + *allocRes.PublicIp + "]에 [" + publicIPReqInfo.Name + "] Name Tag 설정 실패")
 	}
 
-	publicIPInfo, errExtract := publicIpHandler.GetPublicIP(*allocRes.AllocationId)
+	//publicIPInfo, errExtract := publicIpHandler.GetPublicIP(*allocRes.AllocationId)
+	publicIPInfo, errExtract := publicIpHandler.GetPublicIP(publicIPReqInfo.Name)
 	if errExtract != nil {
 		cblogger.Errorf("Public IP 정보 추출 실패 ", errExtract)
 		return irs.PublicIPInfo{}, err
@@ -97,6 +109,11 @@ func (publicIpHandler *AwsPublicIPHandler) ListPublicIP() ([]*irs.PublicIPInfo, 
 		cblogger.Info("Elastic IPs")
 		for _, addr := range result.Addresses {
 			publicIPInfo := extractPublicIpDescribeInfo(addr)
+			if len(publicIPInfo.Name) < 1 {
+				cblogger.Errorf("PublicIp [%s]의 Name Tag가 없으므로 결과에서 제외함", publicIPInfo.PublicIP)
+				continue
+			}
+
 			publicIpList = append(publicIpList, &publicIPInfo)
 		}
 	}
@@ -104,6 +121,7 @@ func (publicIpHandler *AwsPublicIPHandler) ListPublicIP() ([]*irs.PublicIPInfo, 
 	return publicIpList, nil
 }
 
+//2019-11-16부로 CB-Driver 전체 로직이 NameId 기반으로 변경됨.
 func extractPublicIpDescribeInfo(allocRes *ec2.Address) irs.PublicIPInfo {
 	var publicIPInfo irs.PublicIPInfo
 
@@ -115,6 +133,7 @@ func extractPublicIpDescribeInfo(allocRes *ec2.Address) irs.PublicIPInfo {
 
 	spew.Dump(allocRes)
 	publicIPInfo.PublicIP = *allocRes.PublicIp
+	publicIPInfo.Id = *allocRes.AllocationId //2019-11-16 Name 기반으로 로직 변경
 	//publicIPInfo.Domain = *allocRes.Domain
 	//publicIPInfo.PublicIpv4Pool = *allocRes.PublicIpv4Pool
 	//publicIPInfo.AllocationId = *allocRes.AllocationId
@@ -139,13 +158,14 @@ func extractPublicIpDescribeInfo(allocRes *ec2.Address) irs.PublicIPInfo {
 		keyValueList = append(keyValueList, irs.KeyValue{Key: "PrivateIpAddress", Value: *allocRes.PrivateIpAddress})
 	}
 
-	publicIPInfo.Name = *allocRes.AllocationId //2019-10-21 Name 필드에 ID 값을 리턴하도록 변경 (만약을 위해 Key&Value 목록에 Name 정보 리턴)
+	//publicIPInfo.Name = *allocRes.AllocationId //2019-10-21 Name 필드에 ID 값을 리턴하도록 변경 (만약을 위해 Key&Value 목록에 Name 정보 리턴)
 	//Name 태그 설정
 	for _, t := range allocRes.Tags {
 		if *t.Key == "Name" {
 			//publicIPInfo.Name = *t.Value
 			//cblogger.Debug("명칭 : ", publicIPInfo.Name)
 			keyValueList = append(keyValueList, irs.KeyValue{Key: "Name", Value: *t.Value})
+			publicIPInfo.Name = *t.Value //2019-11-16 NameId 기반으로 로직 변경
 			break
 		}
 	}
@@ -155,9 +175,9 @@ func extractPublicIpDescribeInfo(allocRes *ec2.Address) irs.PublicIPInfo {
 }
 
 //@TODO : 2차 정책에 의해 IP에서 할당ID 기반으로 변경함.
-func (publicIpHandler *AwsPublicIPHandler) GetPublicIP(publicIPID string) (irs.PublicIPInfo, error) {
-	cblogger.Infof("publicIPID : [%s]", publicIPID)
-
+//2019-11-16부로 CB-Driver 전체 로직이 NameId 기반으로 변경됨.
+func (publicIpHandler *AwsPublicIPHandler) GetPublicIP(publicIPNameId string) (irs.PublicIPInfo, error) {
+	cblogger.Infof("publicIPNameId : [%s]", publicIPNameId)
 	var publicIPInfo irs.PublicIPInfo
 
 	// Make the API request to EC2 filtering for the addresses in the account's VPC.
@@ -165,10 +185,11 @@ func (publicIpHandler *AwsPublicIPHandler) GetPublicIP(publicIPID string) (irs.P
 		Filters: []*ec2.Filter{
 			{
 				//Name: aws.String("public-ip"),
-				Name: aws.String("allocation-id"),
+				//Name: aws.String("allocation-id"),
 				//Values: aws.StringSlice([]string{"vpc"}),
+				Name: aws.String("tag:Name"), // subnet-id
 				Values: []*string{
-					aws.String(publicIPID),
+					aws.String(publicIPNameId),
 				},
 			},
 		},
@@ -180,8 +201,9 @@ func (publicIpHandler *AwsPublicIPHandler) GetPublicIP(publicIPID string) (irs.P
 
 	// Printout the IP addresses if there are any.
 	if len(result.Addresses) == 0 {
-		cblogger.Errorf("Not found Elastic IP Information - Request allocation-id : [%s]", publicIPID)
-		return irs.PublicIPInfo{}, errors.New("PublicIP NotFound")
+		//cblogger.Errorf("Not found Elastic IP Information - Request allocation-id : [%s]", publicIPNameId)
+		cblogger.Errorf("Not found Elastic IP Information - Request name : [%s]", publicIPNameId)
+		return irs.PublicIPInfo{}, errors.New("PublicIP NotFound : " + publicIPNameId)
 	} else {
 		cblogger.Info("Elastic IPs")
 		for _, addr := range result.Addresses {
@@ -192,14 +214,26 @@ func (publicIpHandler *AwsPublicIPHandler) GetPublicIP(publicIPID string) (irs.P
 	return publicIPInfo, nil
 }
 
+//2019-11-16부로 CB-Driver 전체 로직이 NameId 기반으로 변경됨.
 // Public IP를 완전히 제거 함.(AWS Pool로 되돌려 보냄)
-func (publicIpHandler *AwsPublicIPHandler) DeletePublicIP(allocationId string) (bool, error) {
-	cblogger.Infof("allocationId : [%s]", allocationId)
-	input := &ec2.ReleaseAddressInput{
-		AllocationId: aws.String(allocationId), //eipalloc-64d5890a - VPC에서 삭제
+func (publicIpHandler *AwsPublicIPHandler) DeletePublicIP(publicIPNameId string) (bool, error) {
+	//cblogger.Infof("allocationId : [%s]", allocationId)
+	cblogger.Infof("publicIPNameId : [%s]", publicIPNameId)
+
+	publicInfo, errPublicInfo := publicIpHandler.GetPublicIP(publicIPNameId)
+	if errPublicInfo != nil {
+		return false, errPublicInfo
 	}
+	cblogger.Info(publicInfo)
+
+	input := &ec2.ReleaseAddressInput{
+		//AllocationId: aws.String(allocationId), //eipalloc-64d5890a - VPC에서 삭제
+		AllocationId: aws.String(publicInfo.Id),
+	}
+	cblogger.Info(input)
 
 	result, err := publicIpHandler.Client.ReleaseAddress(input)
+	cblogger.Info(result)
 	if err != nil {
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
