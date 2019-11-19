@@ -485,6 +485,10 @@ func (vmHandler *AwsVMHandler) GetVM(vmNameId string) (irs.VMInfo, error) {
 		vmInfo = ExtractDescribeInstances(i)
 	}
 
+	//if len(vmInfo.Region.Zone) > 0 {
+	vmInfo.Region.Region = vmHandler.Region.Region
+	//}
+
 	cblogger.Info("vmInfo", vmInfo)
 	return vmInfo, nil
 }
