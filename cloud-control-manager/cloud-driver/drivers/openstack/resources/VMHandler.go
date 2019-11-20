@@ -39,12 +39,36 @@ type OpenStackVMHandler struct {
 }
 
 func (vmHandler *OpenStackVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, error) {
+	// 가상서버 이름 중복 체크
+	vmId, _ := vmHandler.getVmIdByName(vmReqInfo.VMName)
+	if vmId != "" {
+		errMsg := fmt.Sprintf("VirtualMachine with name %s already exist", vmReqInfo.VMName)
+		createErr := errors.New(errMsg)
+		return irs.VMInfo{}, createErr
+	}
 
 	vNetId, err := GetCBVNetId(vmHandler.NetworkClient)
 	if err != nil {
 		return irs.VMInfo{}, err
 	}
 
+	//  이미지 정보 조회 (Name)
+	/*imageHandler := OpenStackImageHandler{
+		Client: vmHandler.Client,
+	}
+	image, err := imageHandler.GetImage(vmReqInfo.ImageId)
+	if err != nil {
+		return irs.VMInfo{}, err
+	}*/
+
+	//  네트워크 정보 조회 (Name)
+	/*vNetworkHandler := OpenStackVNetworkHandler{
+
+	}*/
+
+	// 보안그룹 정보 조회 (Name)
+
+	//
 	serverCreateOpts := servers.CreateOpts{
 		Name:      vmReqInfo.VMName,
 		ImageRef:  vmReqInfo.ImageId,
@@ -67,7 +91,7 @@ func (vmHandler *OpenStackVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInf
 	}
 
 	// VM 생성 완료까지 wait
-	vmId := server.ID
+	vmId = server.ID
 	var isDeployed bool
 	var serverInfo irs.VMInfo
 
@@ -393,7 +417,10 @@ func (vmHandler *OpenStackVMHandler) getVmIdByName(vmNameID string) (string, err
 	}
 
 	// 1개 이상의 가상서버가 중복 조회될 경우 에러 처리
-	if len(server) > 1 {
+	if len(server) == 0 {
+		err := errors.New(fmt.Sprintf("failed to search vm with name %s", vmNameID))
+		return "", err
+	} else if len(server) > 1 {
 		err := errors.New(fmt.Sprintf("failed to search vm, duplicate nameId exists, %s", vmNameID))
 		return "", err
 	} else {
