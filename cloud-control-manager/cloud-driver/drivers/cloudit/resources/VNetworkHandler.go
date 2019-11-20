@@ -27,6 +27,14 @@ func setterVNet(vNet subnet.SubnetInfo) *irs.VNetworkInfo {
 }
 
 func (vNetworkHandler *ClouditVNetworkHandler) CreateVNetwork(vNetReqInfo irs.VNetworkReqInfo) (irs.VNetworkInfo, error) {
+	// 서브넷 이름 중복 체크
+	vnetwork, _ := vNetworkHandler.getVNetworkByName(vNetReqInfo.Name)
+	if vnetwork != nil {
+		errMsg := fmt.Sprintf("VirtualNetwork with name %s already exist", vNetReqInfo.Name)
+		createErr := errors.New(errMsg)
+		return irs.VNetworkInfo{}, createErr
+	}
+
 	vNetworkHandler.Client.TokenID = vNetworkHandler.CredentialInfo.AuthToken
 	authHeader := vNetworkHandler.Client.AuthenticatedHeaders()
 
@@ -115,7 +123,8 @@ func (vNetworkHandler *ClouditVNetworkHandler) DeleteVNetwork(vNetworkNameID str
 		MoreHeaders: authHeader,
 	}
 
-	if err := subnet.Delete(vNetworkHandler.Client, subnetInfo.ID, &requestOpts); err != nil {
+	if err := subnet.Delete(vNetworkHandler.Client, subnetInfo.Addr, &requestOpts); err != nil {
+		//panic(err)
 		return false, err
 	} else {
 		return true, nil
@@ -140,11 +149,12 @@ func (vNetworkHandler *ClouditVNetworkHandler) getVNetworkByName(subnetName stri
 	for _, s := range *subnetList {
 		if strings.EqualFold(s.Name, subnetName) {
 			subnetInfo = &s
+			break
 		}
 	}
 
 	if subnetInfo == nil {
-		err := errors.New(fmt.Sprintf("failed to find subnet with name %s", subnetName))
+		err := errors.New(fmt.Sprintf("failed to find virtual network with name %s", subnetName))
 		return nil, err
 	}
 	return subnetInfo, nil
