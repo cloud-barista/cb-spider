@@ -438,10 +438,13 @@ func mappingServerInfo(server server.ServerInfo) irs.VMInfo {
 func (vmHandler *ClouditVMHandler) getVmIdByName(vmNameID string) (string, error) {
 	var vmId string
 
+	// VM 목록 검색
 	vmList, err := vmHandler.ListVM()
 	if err != nil {
 		return "", err
 	}
+
+	// VM 목록에서 Name 기준 검색
 	for _, v := range vmList {
 		if strings.EqualFold(v.Name, vmNameID) {
 			vmId = v.Id
@@ -449,5 +452,10 @@ func (vmHandler *ClouditVMHandler) getVmIdByName(vmNameID string) (string, error
 		}
 	}
 
+	// 만약 VM이 검색되지 않을 경우 에러 처리
+	if vmId == "" {
+		err := errors.New(fmt.Sprintf("failed to find vm with name %s", vmNameID))
+		return "", err
+	}
 	return vmId, nil
 }
