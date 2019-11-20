@@ -201,14 +201,14 @@ func (vmHandler *ClouditVMHandler) TerminateVM(vmNameID string) (irs.VMStatus, e
 		MoreHeaders: authHeader,
 	}
 
-	vmID, err := vmHandler.getVmIdByName(vmNameID)
+	/*vmID, err := vmHandler.getVmIdByName(vmNameID)
 	if err != nil {
 		cblogger.Error(err)
 		return irs.Failed, err
-	}
+	}*/
 
 	// VM 정보 조회
-	vmInfo, err := vmHandler.GetVM(vmID)
+	vmInfo, err := vmHandler.GetVM(vmNameID)
 	if err != nil {
 		cblogger.Error(err)
 		return irs.Failed, err
@@ -224,8 +224,9 @@ func (vmHandler *ClouditVMHandler) TerminateVM(vmNameID string) (irs.VMStatus, e
 		}
 	}
 
-	if err := server.Terminate(vmHandler.Client, vmID, &requestOpts); err != nil {
+	if err := server.Terminate(vmHandler.Client, vmInfo.Id, &requestOpts); err != nil {
 		cblogger.Error(err)
+		panic(err)
 		return irs.Failed, err
 	}
 
