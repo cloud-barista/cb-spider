@@ -41,7 +41,7 @@ func (securityHandler *ClouditSecurityHandler) CreateSecurity(securityReqInfo ir
 	// 보안그룹 이름 중복 체크
 	securityInfo, _ := securityHandler.getSecurityByName(securityReqInfo.Name)
 	if securityInfo != nil {
-		errMsg := fmt.Sprintf("Security Group with name %s already exist", securityReqInfo.Name)
+		errMsg := fmt.Sprintf("SecurityGroup with name %s already exist", securityReqInfo.Name)
 		createErr := errors.New(errMsg)
 		return irs.SecurityInfo{}, createErr
 	}

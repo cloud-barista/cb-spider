@@ -92,6 +92,7 @@ func (nicHandler *ClouditNicHandler) GetVNic(vNicID string) (irs.VNicInfo, error
 		return irs.VNicInfo{Name: vNic.Mac}, nil
 	}
 }
+
 func (nicHandler *ClouditNicHandler) DeleteVNic(vNicID string) (bool, error) {
 	nicHandler.Client.TokenID = nicHandler.CredentialInfo.AuthToken
 	authHeader := nicHandler.Client.AuthenticatedHeaders()

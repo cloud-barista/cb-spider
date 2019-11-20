@@ -37,6 +37,14 @@ type ClouditVMHandler struct {
 }
 
 func (vmHandler *ClouditVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, error) {
+	// 가상서버 이름 중복 체크
+	vmId, _ := vmHandler.getVmIdByName(vmReqInfo.VMName)
+	if vmId != "" {
+		errMsg := fmt.Sprintf("VirtualMachine with name %s already exist", vmReqInfo.VMName)
+		createErr := errors.New(errMsg)
+		return irs.VMInfo{}, createErr
+	}
+
 	vmHandler.Client.TokenID = vmHandler.CredentialInfo.AuthToken
 	authHeader := vmHandler.Client.AuthenticatedHeaders()
 
@@ -70,7 +78,7 @@ func (vmHandler *ClouditVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 	}
 
 	// VM 생성 완료까지 wait
-	vmId := vm.ID
+	vmId = vm.ID
 	var isDeployed bool
 	var serverInfo irs.VMInfo
 
@@ -200,12 +208,6 @@ func (vmHandler *ClouditVMHandler) TerminateVM(vmNameID string) (irs.VMStatus, e
 	requestOpts := client.RequestOpts{
 		MoreHeaders: authHeader,
 	}
-
-	/*vmID, err := vmHandler.getVmIdByName(vmNameID)
-	if err != nil {
-		cblogger.Error(err)
-		return irs.Failed, err
-	}*/
 
 	// VM 정보 조회
 	vmInfo, err := vmHandler.GetVM(vmNameID)
