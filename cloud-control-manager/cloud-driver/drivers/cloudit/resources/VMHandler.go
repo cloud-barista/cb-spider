@@ -137,7 +137,7 @@ func (vmHandler *ClouditVMHandler) SuspendVM(vmNameID string) (irs.VMStatus, err
 	}
 
 	// VM 상태 정보 반환
-	vmStatus, err := vmHandler.GetVMStatus(vmID)
+	vmStatus, err := vmHandler.GetVMStatus(vmNameID)
 	if err != nil {
 		cblogger.Error(err)
 		return irs.Failed, err
@@ -165,7 +165,7 @@ func (vmHandler *ClouditVMHandler) ResumeVM(vmNameID string) (irs.VMStatus, erro
 	}
 
 	// VM 상태 정보 반환
-	vmStatus, err := vmHandler.GetVMStatus(vmID)
+	vmStatus, err := vmHandler.GetVMStatus(vmNameID)
 	if err != nil {
 		cblogger.Error(err)
 		return irs.Failed, err
@@ -193,7 +193,7 @@ func (vmHandler *ClouditVMHandler) RebootVM(vmNameID string) (irs.VMStatus, erro
 	}
 
 	// VM 상태 정보 반환
-	vmStatus, err := vmHandler.GetVMStatus(vmID)
+	vmStatus, err := vmHandler.GetVMStatus(vmNameID)
 	if err != nil {
 		cblogger.Error(err)
 		return irs.Failed, err
