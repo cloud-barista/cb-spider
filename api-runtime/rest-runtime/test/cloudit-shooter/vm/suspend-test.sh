@@ -1,3 +1,3 @@
 source ../setup.env
 
-curl -X GET "http://$RESTSERVER:1024/controlvm/CBVm?connection_name=azure-config01&action=suspend"
+curl -sX GET "http://$RESTSERVER:1024/controlvm/vm-powerkim01?connection_name=cloudit-config01&action=suspend"

@@ -1,3 +1,3 @@
 source ../setup.env
 
-curl -X GET http://$RESTSERVER:1024/vmstatus/CBVm?connection_name=azure-config01
+curl -sX GET http://$RESTSERVER:1024/vmstatus/vm-powerkim01?connection_name=cloudit-config01 |json_pp
