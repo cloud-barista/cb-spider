@@ -311,7 +311,10 @@ func (vNetworkHandler *OpenStackVNetworkHandler) getVNetworkIdByName(vNetworkNam
 	}
 
 	// 1개 이상의 서브넷이 중복 조회될 경우 에러 처리
-	if len(network) > 1 {
+	if len(network) == 0 {
+		err := errors.New(fmt.Sprintf("failed to search vm with name %s", vNetworkName))
+		return "", err
+	} else if len(network) > 1 {
 		err := errors.New(fmt.Sprintf("failed to search subnet, duplicate nameId exists, %s", vNetworkName))
 		return "", err
 	} else {
