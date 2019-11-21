@@ -4,7 +4,7 @@ RESTSERVER=localhost
 curl -X POST http://$RESTSERVER:1024/driver -H 'Content-Type: application/json' -d '{"DriverName":"cloudit-driver01","ProviderName":"CLOUDIT", "DriverLibFileName":"cloudit-driver-v1.0.so"}'
 
  # for Cloud Credential Info
-curl -X POST http://$RESTSERVER:1024/credential -H 'Content-Type: application/json' -d '{ "CredentialName":"cloudit-credential01", "ProviderName":"CLOUDIT", "KeyValueInfoList": [{"Key":"IdentityEndpoint", "Value":"http://stg.cloudit.co.kr:9090"}, {"Key":"AuthToken", "Value":"05ae4abeebf06cc29a1d5c96c5fc4459abf7ee1d"}, {"Key":"Username", "Value":"etriuser"}, {"Key":"Password", "Value":"Qaz!@#$11"}, {"Key":"TenantId", "Value":"tnt0009"}]}'
+curl -X POST http://$RESTSERVER:1024/credential -H 'Content-Type: application/json' -d '{ "CredentialName":"cloudit-credential01", "ProviderName":"CLOUDIT", "KeyValueInfoList": [{"Key":"IdentityEndpoint", "Value":"http://xxx.xxx.xxx:9090"}, {"Key":"AuthToken", "Value":"xxxxxxxxxxxxx"}, {"Key":"Username", "Value":"xxxxxxx"}, {"Key":"Password", "Value":"xxxxxxx"}, {"Key":"TenantId", "Value":"tnt0009"}]}'
 
  # for Cloud Region Info
 curl -X POST http://$RESTSERVER:1024/region -H 'Content-Type: application/json' -d '{"RegionName":"cloudit-region01","ProviderName":"CLOUDIT", "KeyValueInfoList": [{"Key":"Region", "Value":"default"}]}'
