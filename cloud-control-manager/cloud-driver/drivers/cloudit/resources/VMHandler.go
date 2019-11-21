@@ -37,6 +37,14 @@ type ClouditVMHandler struct {
 }
 
 func (vmHandler *ClouditVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, error) {
+	// 가상서버 이름 중복 체크
+	vmId, _ := vmHandler.getVmIdByName(vmReqInfo.VMName)
+	if vmId != "" {
+		errMsg := fmt.Sprintf("VirtualMachine with name %s already exist", vmReqInfo.VMName)
+		createErr := errors.New(errMsg)
+		return irs.VMInfo{}, createErr
+	}
+
 	vmHandler.Client.TokenID = vmHandler.CredentialInfo.AuthToken
 	authHeader := vmHandler.Client.AuthenticatedHeaders()
 
@@ -70,7 +78,7 @@ func (vmHandler *ClouditVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 	}
 
 	// VM 생성 완료까지 wait
-	vmId := vm.ID
+	vmId = vm.ID
 	var isDeployed bool
 	var serverInfo irs.VMInfo
 
@@ -129,7 +137,7 @@ func (vmHandler *ClouditVMHandler) SuspendVM(vmNameID string) (irs.VMStatus, err
 	}
 
 	// VM 상태 정보 반환
-	vmStatus, err := vmHandler.GetVMStatus(vmID)
+	vmStatus, err := vmHandler.GetVMStatus(vmNameID)
 	if err != nil {
 		cblogger.Error(err)
 		return irs.Failed, err
@@ -157,7 +165,7 @@ func (vmHandler *ClouditVMHandler) ResumeVM(vmNameID string) (irs.VMStatus, erro
 	}
 
 	// VM 상태 정보 반환
-	vmStatus, err := vmHandler.GetVMStatus(vmID)
+	vmStatus, err := vmHandler.GetVMStatus(vmNameID)
 	if err != nil {
 		cblogger.Error(err)
 		return irs.Failed, err
@@ -185,7 +193,7 @@ func (vmHandler *ClouditVMHandler) RebootVM(vmNameID string) (irs.VMStatus, erro
 	}
 
 	// VM 상태 정보 반환
-	vmStatus, err := vmHandler.GetVMStatus(vmID)
+	vmStatus, err := vmHandler.GetVMStatus(vmNameID)
 	if err != nil {
 		cblogger.Error(err)
 		return irs.Failed, err
@@ -201,14 +209,8 @@ func (vmHandler *ClouditVMHandler) TerminateVM(vmNameID string) (irs.VMStatus, e
 		MoreHeaders: authHeader,
 	}
 
-	vmID, err := vmHandler.getVmIdByName(vmNameID)
-	if err != nil {
-		cblogger.Error(err)
-		return irs.Failed, err
-	}
-
 	// VM 정보 조회
-	vmInfo, err := vmHandler.GetVM(vmID)
+	vmInfo, err := vmHandler.GetVM(vmNameID)
 	if err != nil {
 		cblogger.Error(err)
 		return irs.Failed, err
@@ -224,8 +226,9 @@ func (vmHandler *ClouditVMHandler) TerminateVM(vmNameID string) (irs.VMStatus, e
 		}
 	}
 
-	if err := server.Terminate(vmHandler.Client, vmID, &requestOpts); err != nil {
+	if err := server.Terminate(vmHandler.Client, vmInfo.Id, &requestOpts); err != nil {
 		cblogger.Error(err)
+		panic(err)
 		return irs.Failed, err
 	}
 
@@ -437,10 +440,13 @@ func mappingServerInfo(server server.ServerInfo) irs.VMInfo {
 func (vmHandler *ClouditVMHandler) getVmIdByName(vmNameID string) (string, error) {
 	var vmId string
 
+	// VM 목록 검색
 	vmList, err := vmHandler.ListVM()
 	if err != nil {
 		return "", err
 	}
+
+	// VM 목록에서 Name 기준 검색
 	for _, v := range vmList {
 		if strings.EqualFold(v.Name, vmNameID) {
 			vmId = v.Id
@@ -448,5 +454,10 @@ func (vmHandler *ClouditVMHandler) getVmIdByName(vmNameID string) (string, error
 		}
 	}
 
+	// 만약 VM이 검색되지 않을 경우 에러 처리
+	if vmId == "" {
+		err := errors.New(fmt.Sprintf("failed to find vm with name %s", vmNameID))
+		return "", err
+	}
 	return vmId, nil
 }

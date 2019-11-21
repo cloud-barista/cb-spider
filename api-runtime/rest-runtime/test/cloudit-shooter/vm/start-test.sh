@@ -1,5 +1,11 @@
 source ../setup.env
 
-#curl -X POST http://$RESTSERVER:1024/vm?connection_name=azure-config01 -H 'Content-Type: application/json' -d '{ "VMName": "CBVm", "ImageId": "Canonical:UbuntuServer:18.04-LTS:18.04.201804262", "NetworkInterfaceId": "/subscriptions/cb592624-b77b-4a8f-bb13-0e5a48cae40f/resourceGroups/CB-GROUP/providers/Microsoft.Network/networkInterfaces/CB-VNic", "SecurityGroupIds": ["/subscriptions/cb592624-b77b-4a8f-bb13-0e5a48cae40f/resourceGroups/CB-GROUP/providers/Microsoft.Network/networkSecurityGroups/CB-SecGroup"], "VMSpecId": "Standard_B1ls", "VMUserId": "cb-user", "VMUserPasswd": "cb-userCBUSER!@#"}'
-
-curl -X POST http://$RESTSERVER:1024/vm?connection_name=azure-config01 -H 'Content-Type: application/json' -d '{ "VMName": "CBVm", "ImageId": "Canonical:UbuntuServer:18.04-LTS:18.04.201804262", "NetworkInterfaceId": "/subscriptions/f1548292-2be3-4acd-84a4-6df079160846/resourceGroups/CB-GROUP/providers/Microsoft.Network/networkInterfaces/CB-VNic", "SecurityGroupIds": ["//subscriptions/f1548292-2be3-4acd-84a4-6df079160846/resourceGroups/CB-GROUP/providers/Microsoft.Network/networkSecurityGroups/CB-SecGroup"], "VMSpecId": "Standard_B1ls", "VMUserId": "cb-user", "VMUserPasswd": "cb-userCBUSER!@#"}'
+curl -sX POST http://$RESTSERVER:1024/vm?connection_name=cloudit-config01 -H 'Content-Type: application/json' -d '{ 
+	"VMName": "vm-powerkim01", 
+	"ImageId": "a846af3b-5d80-4182-b38e-5501ad9f78f4",
+	"VirtualNetworkId": "10.0.8.0",
+	"SecurityGroupIds": ["064616d0-74fe-4840-8a42-8af4ce24e96a"], 
+	"VMSpecId": "1c38e438-ede9-4df5-8775-2ce791698924",
+	"VMUserId": "root", 
+	"VMUserPasswd": "etriETRI!@"
+}' |json_pp

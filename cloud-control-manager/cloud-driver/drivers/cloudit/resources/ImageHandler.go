@@ -1,10 +1,13 @@
 package resources
 
 import (
+	"errors"
+	"fmt"
 	"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/cloudit/client"
 	"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/cloudit/client/ace/image"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
+	"strings"
 )
 
 type ClouditImageHandler struct {
@@ -70,20 +73,13 @@ func (imageHandler *ClouditImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 	}
 }
 
-func (imageHandler *ClouditImageHandler) GetImage(imageID string) (irs.ImageInfo, error) {
-	imageHandler.Client.TokenID = imageHandler.CredentialInfo.AuthToken
-	authHeader := imageHandler.Client.AuthenticatedHeaders()
+func (imageHandler *ClouditImageHandler) GetImage(imageNameId string) (irs.ImageInfo, error) {
 
-	requestOpts := client.RequestOpts{
-		MoreHeaders: authHeader,
-	}
-
-	if image, err := image.Get(imageHandler.Client, imageID, &requestOpts); err != nil {
+	imageInfo, err := imageHandler.getImageByName(imageNameId)
+	if err != nil {
 		return irs.ImageInfo{}, err
-	} else {
-		imageInfo := setterImage(*image)
-		return *imageInfo, nil
 	}
+	return *imageInfo, nil
 }
 
 func (imageHandler *ClouditImageHandler) DeleteImage(imageID string) (bool, error) {
@@ -99,4 +95,32 @@ func (imageHandler *ClouditImageHandler) DeleteImage(imageID string) (bool, erro
 	} else {
 		return true, nil
 	}
+}
+
+func (imageHandler *ClouditImageHandler) getImageByName(imageName string) (*irs.ImageInfo, error) {
+	imageHandler.Client.TokenID = imageHandler.CredentialInfo.AuthToken
+	authHeader := imageHandler.Client.AuthenticatedHeaders()
+
+	requestOpts := client.RequestOpts{
+		MoreHeaders: authHeader,
+	}
+
+	imageList, err := image.List(imageHandler.Client, &requestOpts)
+	if err != nil {
+		return nil, err
+	}
+
+	var imageInfo *irs.ImageInfo
+	for _, image := range *imageList {
+		if strings.EqualFold(image.Name, imageName) {
+			imageInfo = setterImage(image)
+			break
+		}
+	}
+
+	if imageInfo == nil {
+		err := errors.New(fmt.Sprintf("failed to find image with name %s", imageName))
+		return nil, err
+	}
+	return imageInfo, nil
 }

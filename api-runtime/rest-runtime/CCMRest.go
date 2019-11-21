@@ -18,6 +18,8 @@ import (
 
 	"strings"
 	"strconv"
+
+	"time"
 )
 
 //================ Image Handler
@@ -81,12 +83,13 @@ func getImage(c echo.Context) error {
 	if err != nil {
 		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
 	}
-
+start := time.Now()
 	info, err := handler.GetImage(c.Param("ImageName"))
 	if err != nil {
 		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
 	}
-
+elapsed := time.Since(start)
+cblog.Infof(c.QueryParam("connection_name") + " : elapsed %d", elapsed.Nanoseconds()/1000000) // msec
 	return c.JSON(http.StatusOK, &info)
 }
 
