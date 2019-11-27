@@ -9,7 +9,7 @@ RESTSERVER=localhost
 # KeyPairName = CB-KeyPair
 
 curl -X POST http://$RESTSERVER:1024/vm?connection_name=openstack-config01 -H 'Content-Type: application/json' -d '{
-    "VMName": "CBVm2",
+    "VMName": "CBVm",
     "ImageId": "ubuntu16.04",
     "SecurityGroupIds": [
         "CB-SecGroup"
