@@ -4,6 +4,7 @@ import (
 	"fmt"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/rackspace/gophercloud"
+	"github.com/rackspace/gophercloud/openstack/compute/v2/flavors"
 	"github.com/rackspace/gophercloud/openstack/networking/v2/networks"
 	"github.com/rackspace/gophercloud/pagination"
 	"strconv"
@@ -74,6 +75,14 @@ func GetCBVNetId(client *gophercloud.ServiceClient) (string, error) {
 	}
 
 	return vNetworkId, nil
+}
+
+func GetFlavor(client *gophercloud.ServiceClient, flavorName string) (*string, error) {
+	flavorId, err := flavors.IDFromName(client, flavorName)
+	if err != nil {
+		return nil, err
+	}
+	return &flavorId, nil
 }
 
 // 외부 네트워크(Public Network) 정보 조회

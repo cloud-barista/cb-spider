@@ -45,26 +45,72 @@ func (vmHandler *ClouditVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 		return irs.VMInfo{}, createErr
 	}
 
+	// 이미지 정보 조회 (Name)
+	imageHandler := ClouditImageHandler{
+		Client:         vmHandler.Client,
+		CredentialInfo: vmHandler.CredentialInfo,
+	}
+	image, err := imageHandler.GetImage(vmReqInfo.ImageId)
+	if err != nil {
+		cblogger.Error(fmt.Sprintf("failed to get image, err : %s", err))
+		return irs.VMInfo{}, err
+	}
+
+	//  네트워크 정보 조회 (Name)
+	vNetworkHandler := ClouditVNetworkHandler{
+		Client:         vmHandler.Client,
+		CredentialInfo: vmHandler.CredentialInfo,
+	}
+	vNetwork, err := vNetworkHandler.GetVNetwork(vmReqInfo.VirtualNetworkId)
+	if err != nil {
+		cblogger.Error(fmt.Sprintf("failed to get virtual network, err : %s", err))
+		return irs.VMInfo{}, err
+	}
+
+	// 보안그룹 정보 조회 (Name)
+	securityHandler := ClouditSecurityHandler{
+		Client:         vmHandler.Client,
+		CredentialInfo: vmHandler.CredentialInfo,
+	}
+	secGroups := make([]server.SecGroupInfo, len(vmReqInfo.SecurityGroupIds))
+	for i, s := range vmReqInfo.SecurityGroupIds {
+		security, err := securityHandler.GetSecurity(s)
+		if err != nil {
+			cblogger.Error(fmt.Sprintf("failed to get security group, err : %s", err))
+			continue
+		}
+		secGroups[i] = server.SecGroupInfo{
+			Id: security.Id,
+		}
+	}
+
+	// Spec 정보 조회 (Name)
+	vmSpecId, err := GetVMSpec(vmHandler.Client.AuthenticatedHeaders(), vmHandler.Client, vmReqInfo.VMSpecId)
+	if err != nil {
+		cblogger.Error(fmt.Sprintf("failed to get vm spec, err : %s", err))
+		return irs.VMInfo{}, err
+	}
+
 	vmHandler.Client.TokenID = vmHandler.CredentialInfo.AuthToken
 	authHeader := vmHandler.Client.AuthenticatedHeaders()
 
-	reqInfo := server.VMReqInfo{
+	/*reqInfo := server.VMReqInfo{
 		TemplateId:   vmReqInfo.ImageId,
 		SpecId:       vmReqInfo.VMSpecId,
 		Name:         vmReqInfo.VMName,
 		HostName:     vmReqInfo.VMName,
 		RootPassword: vmReqInfo.VMUserPasswd,
 		SubnetAddr:   vmReqInfo.VirtualNetworkId,
+	}*/
+	reqInfo := server.VMReqInfo{
+		TemplateId:   image.Id,
+		SpecId:       *vmSpecId,
+		Name:         vmReqInfo.VMName,
+		HostName:     vmReqInfo.VMName,
+		RootPassword: vmReqInfo.VMUserPasswd,
+		SubnetAddr:   vNetwork.Id,
+		Secgroups:    secGroups,
 	}
-
-	secGroupList := make([]server.SecGroupInfo, len(vmReqInfo.SecurityGroupIds))
-	for _, sec := range vmReqInfo.SecurityGroupIds {
-		secGroupInfo := server.SecGroupInfo{
-			Id: sec,
-		}
-		secGroupList = append(secGroupList, secGroupInfo)
-	}
-	reqInfo.Secgroups = secGroupList
 
 	requestOpts := client.RequestOpts{
 		MoreHeaders: authHeader,
