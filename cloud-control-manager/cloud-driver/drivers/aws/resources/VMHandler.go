@@ -482,8 +482,12 @@ func (vmHandler *AwsVMHandler) GetVM(vmNameId string) (irs.VMInfo, error) {
 	vmInfo := irs.VMInfo{}
 	for _, i := range result.Reservations {
 		//vmInfo := ExtractDescribeInstances(result.Reservations[0])
-		vmInfo = ExtractDescribeInstances(i)
+		vmInfo = vmHandler.ExtractDescribeInstances(i)
 	}
+
+	//if len(vmInfo.Region.Zone) > 0 {
+	//vmInfo.Region.Region = vmHandler.Region.Region
+	//}
 
 	cblogger.Info("vmInfo", vmInfo)
 	return vmInfo, nil
@@ -492,7 +496,7 @@ func (vmHandler *AwsVMHandler) GetVM(vmNameId string) (irs.VMInfo, error) {
 // DescribeInstances결과에서 EC2 세부 정보 추출
 // VM 생성 시에는 Running 이전 상태의 정보가 넘어오기 때문에
 // 최종 정보 기반으로 리턴 받고 싶으면 GetVM에 통합해야 할 듯.
-func ExtractDescribeInstances(reservation *ec2.Reservation) irs.VMInfo {
+func (vmHandler *AwsVMHandler) ExtractDescribeInstances(reservation *ec2.Reservation) irs.VMInfo {
 	//cblogger.Info("ExtractDescribeInstances", reservation)
 	cblogger.Debug("Instances[0]", reservation.Instances[0])
 
@@ -541,7 +545,8 @@ func ExtractDescribeInstances(reservation *ec2.Reservation) irs.VMInfo {
 
 	if !reflect.ValueOf(reservation.Instances[0].Placement.AvailabilityZone).IsNil() {
 		vmInfo.Region = irs.RegionInfo{
-			Zone: *reservation.Instances[0].Placement.AvailabilityZone,
+			Region: vmHandler.Region.Region, //리전 정보 추가
+			Zone:   *reservation.Instances[0].Placement.AvailabilityZone,
 		}
 	}
 
