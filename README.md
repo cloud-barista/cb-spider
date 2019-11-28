@@ -40,13 +40,12 @@ The CB-Spider Mission is to connect all the clouds with a single interface.
 - CB-Spider 실행에 필요한 환경변수 설정
   - `source setup.env` (위치: ./cb-spider)
 
--	driver shared library 생성 방법(설시 시스템 당 1회 실행, driver source 변경시 실행)
-  - `cd cb-spider/cloud-control-manager/cloud-driver/drivers/aws` # AWS Driver 경우
-  - `./build_driver_lib.sh` 실행
-  -	결과: cb-spider/cloud-driver-libs/aws-driver-v1.0.so 생성
-  - 참고: 제공하는 모든 driver 한번에 build 방법
-    - `cd github.com/cloud-barista/cb-spider`
-    - `build_all_driver_lib.sh` 실행
+-	driver shared library 생성 방법(설치 시스템 당 1회 실행, driver source 변경시 실행)
+  - `./build_all_driver_lib.sh` 실행
+  -	결과: cb-spider/cloud-driver-libs/xxx-driver-v1.0.so 생성
+  - 참고: 특정 CSP driver만 build하는 방법
+    - `cd cb-spider/cloud-control-manager/cloud-driver/drivers/aws` # AWS Driver 경우
+    - `build_driver_lib.sh` 실행
 
 ## [서버 실행]
 - `cd cb-spider/api-runtime/rest-runtime`
