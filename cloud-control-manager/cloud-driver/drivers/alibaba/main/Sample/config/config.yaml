@@ -1,0 +1,24 @@
+ali:
+
+  # Ali Credential Info
+  ali_access_key_id: LTA********
+  ali_secret_access_key: 84mGX*********
+  region: ap-northeast-2
+
+  # AMI
+  image_id: ami-047f7b46bd6dd5d84
+
+  # EC2
+  ec2_instance_id: i-040124dab74b11c48
+  base_name: mcloud-barista-vnictest
+  instance_type: t2.micro
+  key_name: CB-KeyPairTest
+  min_count: 1
+  max_count: 1
+
+  # Network
+  subnet_id: subnet-0c618f11349dad285
+  security_group_id: sg-06c4523b969eaafc7
+
+  # PublicIP Test
+  public_ip: eipalloc-081849160f2b98917
