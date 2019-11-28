@@ -139,7 +139,7 @@ func handlePublicIP() {
 }
 
 func main() {
-	cblogger.Info("AWS Resource Test")
+	cblogger.Info("Alibaba Cloud Resource Test")
 	//handleKeyPair()
 	handlePublicIP() // PublicIP 생성 후 conf
 
