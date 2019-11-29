@@ -83,7 +83,7 @@ The CB-Spider Mission is to connect all the clouds with a single interface.
 - 개발상태: 초기 기능 중심 개발추진 중 / 기술개발용 / 상용활용시 보완필요
 - Alibaba: 통합 시험 전 상태
 - Key관리: CSP가 제공하지 않는 경우 Key 자체 생성 및 Key 파일 내부 관리
-  - 관리위치: cb-spider/cloud-driver-libs/.ssh-<CSP Name>/* (임시방법)
+  - 관리위치: cb-spider/cloud-driver-libs/.ssh-CSPName/* (임시방법)
   - 공유서버에서 운영시 보안 이슈 존재
 
 
