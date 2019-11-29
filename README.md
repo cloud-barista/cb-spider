@@ -68,7 +68,7 @@ The CB-Spider Mission is to connect all the clouds with a single interface.
   - VM 제어 및 정보 제공
   
 ## [활용 예시]
-- 시험 도구: `cb-spier/api-runtime/rest-runtime/test/aws` (AWS 경우)
+- 시험 도구: `cb-spier/api-runtime/rest-runtime/test/[aws|azure|gcp|openstack|cloudit]` (AWS 경우:aws)
 - 시험 순서: 연동 정보 추가 => 자원등록 => VM 생성 및 제어 시험
 - 시험 방법: 
   - (연동정보관리) cb-spider/api-runtime/rest-runtime/test/aws/cim-insert-test.sh 참고(Credential 정보 수정 후 실행)
