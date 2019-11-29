@@ -34,7 +34,7 @@ type GCPVNetworkHandler struct {
 }
 
 func (vNetworkHandler *GCPVNetworkHandler) CreateVNetwork(vNetworkReqInfo irs.VNetworkReqInfo) (irs.VNetworkInfo, error) {
-	// priject id
+
 	projectID := vNetworkHandler.Credential.ProjectID
 	region := vNetworkHandler.Region.Region
 	name := GetCBDefaultVNetName()
@@ -51,16 +51,33 @@ func (vNetworkHandler *GCPVNetworkHandler) CreateVNetwork(vNetworkReqInfo irs.VN
 		}
 
 		_, err := vNetworkHandler.Client.Networks.Insert(projectID, network).Do()
-		time.Sleep(time.Second * 20)
 		if err != nil {
 			cblogger.Error(err)
 		}
+		before_time := time.Now()
+		time.Sleep(time.Second * 20)
+		max_time := 120
 
-		newvNetInfo, errVnet := vNetworkHandler.Client.Networks.Get(projectID, name).Do()
-		if errVnet != nil {
-			return irs.VNetworkInfo{}, errVnet
+		// loop --> 생성 check --> 생성 되었으면, break; 안됐으면 sleep 5초 -->
+		// if(total sleep 120sec?) error
+
+		for {
+			newvNetInfo, errVnet := vNetworkHandler.Client.Networks.Get(projectID, name).Do()
+			if errVnet != nil {
+				time.Sleep(time.Second * 5)
+				after_time := time.Now()
+				diff := after_time.Sub(before_time)
+				if int(diff.Seconds()) > max_time {
+					cblogger.Error("max time 동안 vNet 정보가  조회가 안되어서 에러처리함")
+					cblogger.Error(errVnet)
+					return irs.VNetworkInfo{}, errVnet
+				}
+			} else {
+				cnt = strconv.Itoa(len(newvNetInfo.Subnetworks) + 1)
+				break
+			}
 		}
-		cnt = strconv.Itoa(len(newvNetInfo.Subnetworks) + 1)
+
 	} else {
 		cnt = strconv.Itoa(len(vNetInfo.Subnetworks) + 1)
 	}
