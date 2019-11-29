@@ -19,7 +19,7 @@ The CB-Spider Mission is to connect all the clouds with a single interface.
 
 ## [설치 환경]
 
-- 리눅스(검증시험:Ubuntu 18.04)
+- 리눅스(검증시험:Ubuntu 18.04, Raspbian GNU/Linux 10)
 
 ## [소스 설치]
 
