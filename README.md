@@ -71,9 +71,10 @@ The CB-Spider Mission is to connect all the clouds with a single interface.
 - 시험 도구: `cb-spier/api-runtime/rest-runtime/test/aws` (AWS 경우)
 - 시험 순서: 연동 정보 추가 => 자원등록 => VM 생성 및 제어 시험
 - 시험 방법: 
-  - cb-spider/api-runtime/rest-runtime/test/aws 아래 자원 별 디렉토리 시험 스크립트 존재
-  -	자원별 create/list/get/delete 관련 shell 스크립트 실행
-  - 자원 생성 순서
+  - (연동정보관리) cb-spider/api-runtime/rest-runtime/test/aws/cim-insert-test.sh 참고(Credential 정보 수정 후 실행)
+  - (자원관리) cb-spider/api-runtime/rest-runtime/test/aws 아래 자원 별 디렉토리 시험 스크립트 존재
+  -	(자원관리) 자원별 create/list/get/delete 관련 shell 스크립트 실행
+  - (자원관리) 자원 생성 순서
     - (1) vnetwork, keypair, publicip 및 securitygroup 생성
     - (2) vm 생성 및 제어
     - (3)	삭제는 자원 생성 역순
