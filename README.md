@@ -13,6 +13,7 @@ The CB-Spider Mission is to connect all the clouds with a single interface.
 4. [서버 실행](#서버-실행)
 5. [API 규격](#API-규격)
 6. [활용 예시](#활용-예시)
+7. [특이 사항](#특이-사항)
 
 ***
 
@@ -75,5 +76,12 @@ The CB-Spider Mission is to connect all the clouds with a single interface.
   - 자원 생성 순서
     - (1) vnetwork, keypair, publicip 및 securitygroup 생성
     - (2) vm 생성 및 제어
-    - (3)	delete는 자원 생성 역순
+    - (3)	삭제는 자원 생성 역순
     
+## [특이 사항]
+- 개발상태: 초기 기능 중심 개발추진 중 / 기술개발용 / 상용활용시 보완필요
+- Key관리: CSP가 제공하지 않는 경우 Key 자체 생성 및 Key 파일 내부 관리
+  - 관리위치: cb-spider/cloud-driver-libs/.ssh-<CSP Name>/* (임시방법)
+  - 공유서버에서 운영시 보안 이슈 존재
+
+
