@@ -1,3 +1,4 @@
-RESTSERVER=node12
+RESTSERVER=localhost
 
-curl -X DELETE http://$RESTSERVER:1024/publicip/CB-PublicIP?connection_name=azure-config01
+PUBLICIP_NAME=CB-PublicIP
+curl -X DELETE http://$RESTSERVER:1024/publicip/$PUBLICIP_NAME?connection_name=azure-config01

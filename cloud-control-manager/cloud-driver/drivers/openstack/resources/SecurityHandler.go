@@ -6,27 +6,56 @@ import (
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/rackspace/gophercloud"
 	"github.com/rackspace/gophercloud/openstack/compute/v2/extensions/secgroups"
+	"github.com/rackspace/gophercloud/openstack/networking/v2/extensions/security/rules"
 	"strconv"
 	"strings"
 )
 
 type OpenStackSecurityHandler struct {
-	Client *gophercloud.ServiceClient
+	Client        *gophercloud.ServiceClient
+	NetworkClient *gophercloud.ServiceClient
 }
 
-func setterSeg(secGroup secgroups.SecurityGroup) *irs.SecurityInfo {
+func (securityHandler *OpenStackSecurityHandler) setterSeg(secGroup secgroups.SecurityGroup) *irs.SecurityInfo {
 	secInfo := &irs.SecurityInfo{
 		Id:   secGroup.ID,
 		Name: secGroup.Name,
 	}
 
+	listOpts := rules.ListOpts{
+		SecGroupID: secGroup.ID,
+	}
+	pager, err := rules.List(securityHandler.NetworkClient, listOpts).AllPages()
+	if err != nil {
+		return nil
+	}
+	secList, err := rules.ExtractRules(pager)
+	if err != nil {
+		return nil
+	}
+
 	// 보안그룹 룰 정보 등록
 	secRuleList := []irs.SecurityRuleInfo{}
-	for _, rule := range secGroup.Rules {
+	/*for _, rule := range secGroup.Rules {
 		ruleInfo := irs.SecurityRuleInfo{
 			FromPort:   strconv.Itoa(rule.FromPort),
 			ToPort:     strconv.Itoa(rule.ToPort),
 			IPProtocol: rule.IPProtocol,
+		}
+		secRuleList = append(secRuleList, ruleInfo)
+	}*/
+	for _, rule := range secList {
+		var direction string
+		if strings.EqualFold(rule.Direction, rules.DirIngress) {
+			direction = "inbound"
+		} else {
+			direction = "outbound"
+		}
+		ruleInfo := irs.SecurityRuleInfo{
+			Direction:  direction,
+			FromPort:   strconv.Itoa(rule.PortRangeMin),
+			ToPort:     strconv.Itoa(rule.PortRangeMax),
+			IPProtocol: rule.Protocol,
 		}
 		secRuleList = append(secRuleList, ruleInfo)
 	}
@@ -62,10 +91,18 @@ func (securityHandler *OpenStackSecurityHandler) CreateSecurity(securityReqInfo 
 
 	// Create SecurityGroup Rules
 	for _, rule := range *securityReqInfo.SecurityRules {
+
+		var direction string
+		if strings.EqualFold(strings.ToLower(rule.Direction), "inbound") {
+			direction = rules.DirIngress
+		} else {
+			direction = rules.DirEgress
+		}
+
 		fromPort, _ := strconv.Atoi(rule.FromPort)
 		toPort, _ := strconv.Atoi(rule.ToPort)
 
-		createRuleOpts := secgroups.CreateRuleOpts{
+		/*createRuleOpts := secgroups.CreateRuleOpts{
 			FromPort:      fromPort,
 			ToPort:        toPort,
 			IPProtocol:    rule.IPProtocol,
@@ -74,6 +111,20 @@ func (securityHandler *OpenStackSecurityHandler) CreateSecurity(securityReqInfo 
 		}
 
 		_, err := secgroups.CreateRule(securityHandler.Client, createRuleOpts).Extract()
+		if err != nil {
+			return irs.SecurityInfo{}, err
+		}*/
+
+		createRuleOpts := rules.CreateOpts{
+			Direction:      direction,
+			EtherType:      rules.Ether4,
+			SecGroupID:     group.ID,
+			PortRangeMin:   fromPort,
+			PortRangeMax:   toPort,
+			Protocol:       rule.IPProtocol,
+			RemoteIPPrefix: "0.0.0.0/0",
+		}
+		_, err := rules.Create(securityHandler.NetworkClient, createRuleOpts).Extract()
 		if err != nil {
 			return irs.SecurityInfo{}, err
 		}
@@ -103,7 +154,7 @@ func (securityHandler *OpenStackSecurityHandler) ListSecurity() ([]*irs.Security
 	var securityList []*irs.SecurityInfo
 	securityList = make([]*irs.SecurityInfo, len(security))
 	for i, v := range security {
-		securityList[i] = setterSeg(v)
+		securityList[i] = securityHandler.setterSeg(v)
 	}
 	return securityList, nil
 }
@@ -140,7 +191,7 @@ func (securityHandler *OpenStackSecurityHandler) getSecurityById(securityID stri
 		return irs.SecurityInfo{}, err
 	}
 
-	securityInfo := setterSeg(*securityGroup)
+	securityInfo := securityHandler.setterSeg(*securityGroup)
 	return *securityInfo, nil
 }
 

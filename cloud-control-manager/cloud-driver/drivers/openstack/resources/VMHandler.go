@@ -51,6 +51,10 @@ func (vmHandler *OpenStackVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInf
 	if err != nil {
 		return irs.VMInfo{}, err
 	}
+	if vNetId == "" {
+		cblogger.Error(fmt.Sprintf("failed to get vnetwork"))
+		return irs.VMInfo{}, err
+	}
 
 	//  이미지 정보 조회 (Name)
 	imageHandler := OpenStackImageHandler{
@@ -74,14 +78,16 @@ func (vmHandler *OpenStackVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInf
 
 	// 보안그룹 정보 조회 (Name)
 	securityHandler := OpenStackSecurityHandler{
-		Client: vmHandler.Client,
+		Client:        vmHandler.Client,
+		NetworkClient: vmHandler.NetworkClient,
 	}
 	secGroups := make([]string, len(vmReqInfo.SecurityGroupIds))
 	for i, s := range vmReqInfo.SecurityGroupIds {
 		security, err := securityHandler.GetSecurity(s)
 		if err != nil {
 			cblogger.Error(fmt.Sprintf("failed to get security group, err : %s", err))
-			continue
+			return irs.VMInfo{}, err
+			//continue
 		}
 		secGroups[i] = security.Id
 	}
@@ -94,15 +100,6 @@ func (vmHandler *OpenStackVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInf
 	}
 
 	// VM 생성
-	/*serverCreateOpts := servers.CreateOpts{
-		Name:      vmReqInfo.VMName,
-		ImageRef:  vmReqInfo.ImageId,
-		FlavorRef: vmReqInfo.VMSpecId,
-		Networks: []servers.Network{
-			{UUID: vNetId},
-		},
-		SecurityGroups: vmReqInfo.SecurityGroupIds,
-	}*/
 	serverCreateOpts := servers.CreateOpts{
 		Name:      vmReqInfo.VMName,
 		ImageRef:  image.Id,
@@ -274,6 +271,7 @@ func (vmHandler *OpenStackVMHandler) ListVMStatus() ([]*irs.VMStatusInfo, error)
 			vmStatus := irs.VMStatus(s.Status)
 			vmStatusInfo := irs.VMStatusInfo{
 				VmId:     s.ID,
+				VmName:   s.Name,
 				VmStatus: vmStatus,
 			}
 			vmStatusList = append(vmStatusList, &vmStatusInfo)

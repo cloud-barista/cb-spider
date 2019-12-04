@@ -16,4 +16,4 @@ curl -X POST http://$RESTSERVER:1024/vm?connection_name=openstack-config01 -H 'C
     ],
     "VMSpecId": "m1.small",
     "KeyPairName": "CB-KeyPair"
-}'
+}' |json_pp

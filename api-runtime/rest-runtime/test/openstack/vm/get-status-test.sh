@@ -1,4 +1,4 @@
 RESTSERVER=localhost
 
-VM_ID=CBVm
-curl -X GET http://$RESTSERVER:1024/vmstatus/$VM_ID?connection_name=openstack-config01
+VM_NAME=CBVm
+curl -X GET http://$RESTSERVER:1024/vmstatus/$VM_NAME?connection_name=openstack-config01

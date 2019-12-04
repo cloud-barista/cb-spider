@@ -1,3 +1,4 @@
-RESTSERVER=node12
+RESTSERVER=localhost
 
-curl -X GET http://$RESTSERVER:1024/securitygroup/CB-SecGroup?connection_name=azure-config01
+SECURITY_NAME=CB-SecGroup
+curl -X GET http://$RESTSERVER:1024/securitygroup/$SECURITY_NAME?connection_name=azure-config01 |json_pp

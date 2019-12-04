@@ -46,7 +46,7 @@ func (cloudConn *OpenStackCloudConnection) CreateImageHandler() (irs.ImageHandle
 
 func (cloudConn OpenStackCloudConnection) CreateSecurityHandler() (irs.SecurityHandler, error) {
 	cblogger.Info("OpenStack Cloud Driver: called CreateSecurityHandler()!")
-	securityHandler := osrs.OpenStackSecurityHandler{cloudConn.Client}
+	securityHandler := osrs.OpenStackSecurityHandler{cloudConn.Client, cloudConn.NetworkClient}
 	return &securityHandler, nil
 }
 func (cloudConn *OpenStackCloudConnection) CreateKeyPairHandler() (irs.KeyPairHandler, error) {
