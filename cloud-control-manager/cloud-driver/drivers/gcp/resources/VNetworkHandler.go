@@ -89,10 +89,10 @@ func (vNetworkHandler *GCPVNetworkHandler) CreateVNetwork(vNetworkReqInfo irs.VN
 				}
 			} else {
 				//생성된 VPC와 서브넷 이름이 동일하지 않으면 VPC의 기본 서브넷이 모두 생성될 때까지 20초 정도 대기
-				if name != vNetworkReqInfo.Name {
-					cblogger.Info("생성된 VNetwork정보가 조회되어도 리전에서는 계속 생성되고 있기 때문에 20초 대기")
-					time.Sleep(time.Second * 20)
-				}
+				//if name != vNetworkReqInfo.Name {
+				cblogger.Info("생성된 VNetwork정보가 조회되어도 리전에서는 계속 생성되고 있기 때문에 20초 대기")
+				time.Sleep(time.Second * 20)
+				//}
 
 				cblogger.Infof("==> [%s] VNetwork 정보 생성 완료", name)
 				//서브넷이 비동기로 생성되고 있기 때문에 다시 체크해야 함.
