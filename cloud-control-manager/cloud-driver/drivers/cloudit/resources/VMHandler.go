@@ -270,6 +270,8 @@ func (vmHandler *ClouditVMHandler) TerminateVM(vmNameID string) (irs.VMStatus, e
 		if ok, err := vmHandler.DisassociatePublicIP(reqOpts); !ok {
 			return irs.Failed, err
 		}
+
+		time.Sleep(5 * time.Second)
 	}
 
 	if err := server.Terminate(vmHandler.Client, vmInfo.Id, &requestOpts); err != nil {
