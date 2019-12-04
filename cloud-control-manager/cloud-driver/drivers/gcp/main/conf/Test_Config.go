@@ -56,8 +56,8 @@ func GetResourceHandler(handlerType string) (interface{}, error) {
 
 	config, _ := readFileConfig(credentialFilePath)
 	//region := "europe-west1"
-	region := "us-central1"
-	zone := "europe-west1-b"
+	region := "asia-northeast1"
+	zone := "asia-northeast1-b"
 
 	connectionInfo := idrv.ConnectionInfo{
 		CredentialInfo: idrv.CredentialInfo{
