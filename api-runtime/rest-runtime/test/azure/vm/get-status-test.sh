@@ -1,3 +1,4 @@
-RESTSERVER=node12
+RESTSERVER=localhost
 
-curl -X GET http://$RESTSERVER:1024/vmstatus/CBVm?connection_name=azure-config01
+VM_NAME=CBVm
+curl -X GET http://$RESTSERVER:1024/vmstatus/$VM_NAME?connection_name=azure-config01

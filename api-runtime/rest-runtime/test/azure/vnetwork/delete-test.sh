@@ -1,3 +1,4 @@
-RESTSERVER=node12
+RESTSERVER=localhost
 
-curl -X DELETE http://$RESTSERVER:1024/vnetwork/CB-Subnet?connection_name=azure-config01
+VNETWORK_NAME=CB-Subnet
+curl -X DELETE http://$RESTSERVER:1024/vnetwork/$VNETWORK_NAME?connection_name=azure-config01

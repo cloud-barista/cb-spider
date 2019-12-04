@@ -1,3 +1,4 @@
-RESTSERVER=node12
+RESTSERVER=localhost
 
-curl -X DELETE "http://$RESTSERVER:1024/vm/CBVm?connection_name=azure-config01"
+VM_NAME=CBVm
+curl -X DELETE "http://$RESTSERVER:1024/vm/$VM_NAME?connection_name=azure-config01"
