@@ -4,7 +4,7 @@
 //
 //      * Cloud-Barista: https://github.com/cloud-barista
 //
-// by powerkim@etri.re.kr, 2019.10.
+// by CB-Spider Team, 2019.10.
 
 package main
 

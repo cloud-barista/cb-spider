@@ -6,7 +6,7 @@
 //
 // This is Resouces interfaces of Cloud Driver.
 //
-// by powerkim@etri.re.kr, 2019.06.
+// by CB-Spider Team, 2019.06.
 
 package resources
 
@@ -62,23 +62,23 @@ type RegionInfo struct {
 }
 
 type VMInfo struct {
-	Name      string    // AWS,
-	Id        string    // AWS,
+	Name      string    
+	Id        string    
 	StartTime time.Time // Timezone: based on cloud-barista server location.
 
-	Region           RegionInfo // AWS, ex) {us-east1, us-east1-c} or {ap-northeast-2}
+	Region           RegionInfo //  ex) {us-east1, us-east1-c} or {ap-northeast-2}
 	ImageId          string
-	VMSpecId         string   // AWS, instance type or flavour, etc... ex) t2.micro or f1.micro
+	VMSpecId         string   //  instance type or flavour, etc... ex) t2.micro or f1.micro
 	VirtualNetworkId string   // AWS, ex) subnet-8c4a53e4
 	SecurityGroupIds []string // AWS, ex) sg-0b7452563e1121bb6
 
 	NetworkInterfaceId string // ex) eth0
-	PublicIP           string // ex) AWS, 13.125.43.21
-	PublicDNS          string // ex) AWS, ec2-13-125-43-0.ap-northeast-2.compute.amazonaws.com
-	PrivateIP          string // ex) AWS, ip-172-31-4-60.ap-northeast-2.compute.internal
-	PrivateDNS         string // ex) AWS, 172.31.4.60
+	PublicIP           string 
+	PublicDNS          string 
+	PrivateIP          string 
+	PrivateDNS         string 
 
-	KeyPairName  string // ex) AWS, powerkimKeyPair
+	KeyPairName  string 
 	VMUserId     string // ex) user1
 	VMUserPasswd string
 

@@ -3,7 +3,7 @@
 //
 // EC2 Hander (AWS SDK GO Version 1.16.26, Thanks AWS.)
 //
-// by powerkim@powerkim.co.kr, 2019.03.
+// by CB-Spider Team, 2019.03.
 package resources
 
 import (
