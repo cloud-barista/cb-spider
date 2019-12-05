@@ -14,7 +14,6 @@ package resources
 import (
 	"context"
 	"errors"
-	"fmt"
 	"strconv"
 
 	compute "google.golang.org/api/compute/v1"
@@ -34,62 +33,93 @@ type GCPVNetworkHandler struct {
 }
 
 func (vNetworkHandler *GCPVNetworkHandler) CreateVNetwork(vNetworkReqInfo irs.VNetworkReqInfo) (irs.VNetworkInfo, error) {
+	cblogger.Info(vNetworkReqInfo)
+
+	var cnt string
+	isFirst := false
 
 	projectID := vNetworkHandler.Credential.ProjectID
 	region := vNetworkHandler.Region.Region
 	name := GetCBDefaultVNetName()
-	vNetInfo, errVnet := vNetworkHandler.Client.Networks.Get(projectID, name).Do()
 
-	var cnt string
+	cblogger.Infof("생성된 [%s] VNetwork가 있는지 체크", name)
+	vNetInfo, errVnet := vNetworkHandler.Client.Networks.Get(projectID, name).Do()
 	spew.Dump(vNetInfo)
 	if errVnet != nil {
+		isFirst = true
+		cblogger.Error(errVnet)
+
+		cblogger.Infof("존재하는 [%s] VNetwork가 없으므로 새로 생성해야 함", name)
 		network := &compute.Network{
 			Name: name,
 			//Name:                  GetCBDefaultVNetName(),
 			AutoCreateSubnetworks: true, // subnet 자동으로 생성됨
-
 		}
 
+		cblogger.Infof("[%s] VNetwork 생성 시작", name)
+		cblogger.Info(network)
 		_, err := vNetworkHandler.Client.Networks.Insert(projectID, network).Do()
 		if err != nil {
+			cblogger.Errorf("[%s] VNetwork 생성 실패", name)
 			cblogger.Error(err)
+			return irs.VNetworkInfo{}, errVnet
 		}
+
+		cblogger.Infof("[%s] VNetwork 정상적으로 생성되고 있습니다.", name)
 		before_time := time.Now()
-		time.Sleep(time.Second * 20)
 		max_time := 120
 
 		// loop --> 생성 check --> 생성 되었으면, break; 안됐으면 sleep 5초 -->
 		// if(total sleep 120sec?) error
 
+		cblogger.Info("VNetwork가 모두 생성될 때까지 5초 텀으로 체크 시작")
 		for {
-			newvNetInfo, errVnet := vNetworkHandler.Client.Networks.Get(projectID, name).Do()
+			cblogger.Infof("==> [%s] VNetwork 정보 조회", name)
+			_, errVnet := vNetworkHandler.Client.Networks.Get(projectID, name).Do()
 			if errVnet != nil {
+				cblogger.Errorf("==> [%s] VNetwork 정보 조회 실패", name)
+				cblogger.Error(errVnet)
+
 				time.Sleep(time.Second * 5)
 				after_time := time.Now()
 				diff := after_time.Sub(before_time)
 				if int(diff.Seconds()) > max_time {
-					cblogger.Error("max time 동안 vNet 정보가  조회가 안되어서 에러처리함")
-					cblogger.Error(errVnet)
+					cblogger.Errorf("[%d]초 동안 [%s] VNetwork 정보가 조회되지 않아서 강제로 종료함.", max_time, name)
 					return irs.VNetworkInfo{}, errVnet
 				}
 			} else {
+				//생성된 VPC와 서브넷 이름이 동일하지 않으면 VPC의 기본 서브넷이 모두 생성될 때까지 20초 정도 대기
+				//if name != vNetworkReqInfo.Name {
+				cblogger.Info("생성된 VNetwork정보가 조회되어도 리전에서는 계속 생성되고 있기 때문에 20초 대기")
+				time.Sleep(time.Second * 20)
+				//}
+
+				cblogger.Infof("==> [%s] VNetwork 정보 생성 완료", name)
+				//서브넷이 비동기로 생성되고 있기 때문에 다시 체크해야 함.
+				newvNetInfo, _ := vNetworkHandler.Client.Networks.Get(projectID, name).Do()
 				cnt = strconv.Itoa(len(newvNetInfo.Subnetworks) + 1)
 				break
 			}
 		}
-
 	} else {
+		cblogger.Infof("이미 [%s] VNetworks가 존재함.", name)
 		cnt = strconv.Itoa(len(vNetInfo.Subnetworks) + 1)
 	}
 
-	fmt.Println("CNT : ", cnt)
+	cblogger.Info("현재 생성된 서브넷 수 : ", cnt)
+	cblogger.Infof("생성할 [%s] Subnet이 존재하는지 체크", vNetworkReqInfo.Name)
 
 	subnetInfo, errSubnet := vNetworkHandler.GetVNetwork(vNetworkReqInfo.Name)
-
 	if errSubnet == nil {
 		spew.Dump(subnetInfo)
-		cblogger.Error(errSubnet)
-		return irs.VNetworkInfo{}, errors.New("Already Exist")
+		//최초 생성인 경우 VNetwork와 Subnet 이름이 동일하면 이미 생성되었으므로 추가로 생성하지 않고 리턴 함.
+		if isFirst {
+			cblogger.Error("최초 VNetwork 생성이므로 에러 없이 조회된 서브넷 정보를 리턴 함.")
+			return subnetInfo, nil
+		} else {
+			cblogger.Error(errSubnet)
+			return irs.VNetworkInfo{}, errors.New("Already Exist - " + vNetworkReqInfo.Name)
+		}
 	}
 
 	// vNetResult, _ := vNetworkHandler.ListVNetwork()
@@ -100,14 +130,19 @@ func (vNetworkHandler *GCPVNetworkHandler) CreateVNetwork(vNetworkReqInfo irs.VN
 		IpCidrRange: "192.168." + cnt + ".0/24",
 		Network:     networkUrl,
 	}
+	cblogger.Infof("[%s] Subnet 생성시작", vNetworkReqInfo.Name)
+	cblogger.Info(subnetWork)
 	res, err := vNetworkHandler.Client.Subnetworks.Insert(projectID, region, subnetWork).Do()
 	if err != nil {
+		cblogger.Error("Subnet 생성 실패")
 		cblogger.Error(err)
 		return irs.VNetworkInfo{}, err
 	}
+	cblogger.Infof("[%s] Subnet 생성완료", vNetworkReqInfo.Name)
 	cblogger.Info(res)
 
 	//생성되는데 시간이 필요 함. 약 20초정도?
+	//time.Sleep(time.Second * 20)
 
 	info, err2 := vNetworkHandler.Client.Subnetworks.Get(projectID, region, vNetworkReqInfo.Name).Do()
 	if err2 != nil {
@@ -165,7 +200,7 @@ func (vNetworkHandler *GCPVNetworkHandler) GetVNetwork(vNetworkID string) (irs.V
 	region := vNetworkHandler.Region.Region
 	//name := vNetworkID
 	name := GetCBDefaultVNetName()
-	cblogger.Infof("Name : [%s]", name)
+	cblogger.Infof("Name : [%s] / Subnet : [%s]", name, vNetworkID)
 	info, err := vNetworkHandler.Client.Subnetworks.Get(projectID, region, vNetworkID).Do()
 	if err != nil {
 		cblogger.Error(err)

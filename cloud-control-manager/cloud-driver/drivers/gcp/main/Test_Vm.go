@@ -40,7 +40,7 @@ func handleVM() {
 
 	handler := ResourceHandler.(irs.VMHandler)
 
-	VmID := "europe-west1"
+	VmID := "vm123"
 
 	for {
 		fmt.Println("VM Management")

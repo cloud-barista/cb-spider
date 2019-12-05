@@ -459,8 +459,8 @@ func main() {
 	//handlePublicIP()
 
 	//handleKeyPair()
-	handleVNetwork() //VPC
+	//handleVNetwork() //VPC
 	//handleImage() //AMI
 	//handleVNic() //Lancard
-	//handleSecurity()
+	handleSecurity()
 }
