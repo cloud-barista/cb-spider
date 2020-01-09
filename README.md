@@ -52,7 +52,7 @@ The CB-Spider Mission is to connect all the clouds with a single interface.
 - `cd cb-spider/api-runtime/rest-runtime`
 -	`go run *.go`    # 1024 포트 REST API Server 실행됨
 -	참고: 메타 정보 초기화 방법
-  - cb-spider/meta_db/dat 아래 파일 삭제(ex: 0.dat) 후 서버 재가동
+    - cb-spider/meta_db/dat 아래 파일 삭제(ex: 0.dat) 후 서버 재가동
   
 ## [API 규격]
 - 클라우드 인프라 연동 정보 관리: https://documenter.getpostman.com/view/9027676/SVzz4fb4?version=latest
