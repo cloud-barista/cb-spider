@@ -37,6 +37,15 @@ The CB-Spider Mission is to connect all the clouds with a single interface.
 - CB-Spider 설치
     - `go get -u -v github.com/cloud-barista/cb-spider`    
 
+- 설치 오류시 참고
+    - 오류 메시지: "panic: /debug/requests is already registered. You may have two independent copies of golang.org/x/net/trace in your binary, trying to maintain separate state. This may involve a vendored copy of golang.org/x/net/trace.”
+    
+      - 해결방법: $ rm -rf $GOPATH/src/go.etcd.io/etcd/vendor/golang.org/x/net/trace
+      
+    - 오류 메시지: "gosrc/src/go.etcd.io/etcd/vendor/google.golang.org/grpc/clientconn.go:49:2: use of internal package google.golang.org/grpc/internal/resolver/dns not allowed"
+    
+      - 해결방법: $ rm -rf $GOPATH/gosrc/src/go.etcd.io/etcd/vendor/google.golang.org/grpc
+      
 ## [실행 준비]
 - CB-Spider 실행에 필요한 환경변수 설정
   - `source setup.env` (위치: ./cb-spider)
