@@ -479,6 +479,8 @@ func getResourceHandler(resourceType string) (interface{}, error) {
 		resourceHandler, err = cloudConnection.CreateVNicHandler()
 	case "keypair":
 		resourceHandler, err = cloudConnection.CreateKeyPairHandler()
+	case "vmspec":
+		resourceHandler, err = cloudConnection.CreateVMSpecHandler()
 	}
 
 	if err != nil {
@@ -496,7 +498,8 @@ func showTestHandlerInfo() {
 	cblogger.Info("4. VNetworkHandler")
 	cblogger.Info("5. VNicHandler")
 	cblogger.Info("6. KeyPairHandler")
-	cblogger.Info("7. Exit")
+	cblogger.Info("7. VmSpecHandler")
+	cblogger.Info("8. Exit")
 	cblogger.Info("==========================================================")
 }
 
@@ -535,6 +538,10 @@ Loop:
 				testKeypairHandler(config)
 				showTestHandlerInfo()
 			case 7:
+				testVmSpecHandler(config)
+				//testKeypairHandler(config)
+				showTestHandlerInfo()
+			case 8:
 				cblogger.Info("Exit Test ResourceHandler Program")
 				break Loop
 			}
@@ -598,9 +605,48 @@ type Config struct {
 	} `yaml:"azure"`
 }
 
+func testVmSpecHandler(config Config) {
+	resourceHandler, err := getResourceHandler("vmspec")
+	if err != nil {
+		cblogger.Error(err)
+	}
+	vmSpecHandler := resourceHandler.(irs.VMSpecHandler)
+
+	cblogger.Info("Test VmSpecHandler")
+	cblogger.Info("1. ListVmSpec()")
+	cblogger.Info("9. Exit")
+
+Loop:
+	for {
+		var commandNum int
+		inputCnt, err := fmt.Scan(&commandNum)
+		if err != nil {
+			cblogger.Error(err)
+		}
+
+		if inputCnt == 1 {
+			switch commandNum {
+			case 1:
+				cblogger.Info("Start ListVmSpec() ...")
+				region := "koreacentral" // TODO: region 정보 받아오기
+				if list, err := vmSpecHandler.ListVMSpec(region); err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(list)
+				}
+				cblogger.Info("Finish ListVmSpec()")
+			case 9:
+				cblogger.Info("Exit")
+				break Loop
+			}
+		}
+	}
+}
+
 func readConfigFile() Config {
 	// Set Environment Value of Project Root Path
 	rootPath := os.Getenv("CBSPIDER_PATH")
+	fmt.Println(rootPath)
 	data, err := ioutil.ReadFile(rootPath + "/conf/config.yaml")
 	if err != nil {
 		cblogger.Error(err)
