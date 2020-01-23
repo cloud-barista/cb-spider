@@ -2,6 +2,9 @@ package resources
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
 	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2018-06-01/compute"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
@@ -15,7 +18,6 @@ type AzureVmSpecHandler struct {
 }
 
 func (vmSpecHandler *AzureVmSpecHandler) setterVmSpec(vmSpec compute.VirtualMachineSize) *irs.VMSpecInfo {
-
 	vmSpecInfo := &irs.VMSpecInfo{
 		Region:       vmSpecHandler.Region.ResourceGroup,
 		Name:         *vmSpec.Name,
@@ -24,7 +26,6 @@ func (vmSpecHandler *AzureVmSpecHandler) setterVmSpec(vmSpec compute.VirtualMach
 		Gpu:          nil,
 		KeyValueList: nil,
 	}
-
 	return vmSpecInfo
 }
 
@@ -58,10 +59,50 @@ func (vmSpecHandler *AzureVmSpecHandler) GetVVMSpec(Region string, Name string) 
 	return irs.VMSpecInfo{}, nil
 }
 
-func (vmSpecHandler *AzureVmSpecHandler) ListOrgVMSpec(Region string) (string error) {
-	return nil
+func (vmSpecHandler *AzureVmSpecHandler) ListOrgVMSpec(Region string) (string, error) {
+	result, err := vmSpecHandler.Client.List(vmSpecHandler.Ctx, vmSpecHandler.Region.Region)
+	if err != nil {
+		return "", err
+	}
+
+	var vmSpecList []*irs.VMSpecInfo
+	for _, spec := range *result.Value {
+		vmSpecInfo := vmSpecHandler.setterVmSpec(spec)
+		vmSpecList = append(vmSpecList, vmSpecInfo)
+	}
+
+	jsonBytes, err := json.Marshal(vmSpecList)
+	if err != nil {
+		panic(err)
+	}
+
+	jsonString := string(jsonBytes)
+
+	return jsonString, nil
 }
 
 func (vmSpecHandler *AzureVmSpecHandler) GetOrgVVMSpec(Region string, Name string) (string, error) {
-	return "", nil
+	result, err := vmSpecHandler.Client.List(vmSpecHandler.Ctx, vmSpecHandler.Region.Region)
+	if err != nil {
+		return "", err
+	}
+
+	for _, spec := range *result.Value {
+		if Name == *spec.Name {
+			vmSpecInfo := vmSpecHandler.setterVmSpec(spec)
+
+			jsonBytes, err := json.Marshal(vmSpecInfo)
+			if err != nil {
+				cblogger.Error(fmt.Sprintf("failed to get VM spec, err : %s", err))
+				return "", err
+			}
+
+			jsonString := string(jsonBytes)
+			return jsonString, nil
+		}
+	}
+
+	cblogger.Error(fmt.Sprintf("failed to get VM spec, err : %s", err))
+	notFoundErr := errors.New("failed to get VM spec")
+	return "", notFoundErr
 }

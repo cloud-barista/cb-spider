@@ -1,6 +1,7 @@
 package resources
 
 import (
+	"encoding/json"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/rackspace/gophercloud"
 	"github.com/rackspace/gophercloud/openstack/compute/v2/flavors"
@@ -55,12 +56,49 @@ func (vmSpecHandler *OpenStackVMSpecHandler) GetVVMSpec(Region string, Name stri
 	return *vmSpecInfo, nil
 }
 
-func (vmSpecHandler *OpenStackVMSpecHandler) ListOrgVMSpec(Region string) (string error) {
+func (vmSpecHandler *OpenStackVMSpecHandler) ListOrgVMSpec(Region string) (string, error) {
+	pager, err := flavors.ListDetail(vmSpecHandler.Client, flavors.ListOpts{}).AllPages()
+	if err != nil {
+		return "", err
+	}
+	list, err := flavors.ExtractFlavors(pager)
+	if err != nil {
+		return "", err
+	}
 
-	return nil
+	vmSpecList := make([]*irs.VMSpecInfo, len(list))
+	for i, spec := range list {
+		vmSpecList[i] = setterVMSpec(spec)
+	}
+
+	jsonBytes, err := json.Marshal(vmSpecList)
+	if err != nil {
+		panic(err)
+	}
+
+	jsonString := string(jsonBytes)
+
+	return jsonString, nil
 }
 
 func (vmSpecHandler *OpenStackVMSpecHandler) GetOrgVVMSpec(Region string, Name string) (string, error) {
+	vmSpecId, err := flavors.IDFromName(vmSpecHandler.Client, Name)
+	if err != nil {
+		return "", err
+	}
+	vmSpec, err := flavors.Get(vmSpecHandler.Client, vmSpecId).Extract()
+	if err != nil {
+		return "", err
+	}
 
-	return "", nil
+	vmSpecInfo := setterVMSpec(*vmSpec)
+
+	jsonBytes, err := json.Marshal(vmSpecInfo)
+	if err != nil {
+		return "", err
+	}
+
+	jsonString := string(jsonBytes)
+
+	return jsonString, nil
 }

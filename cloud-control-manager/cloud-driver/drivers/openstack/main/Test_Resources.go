@@ -560,6 +560,8 @@ func testVMSpecHandler(config Config) {
 	cblogger.Info("Test VMSpecHandler")
 	cblogger.Info("1. ListVMSpec()")
 	cblogger.Info("2. GetVMSpec()")
+	cblogger.Info("3. ListOrgVMSpec()")
+	cblogger.Info("4. GetOrgVMSpec()")
 	cblogger.Info("5. Exit")
 
 	var vmSpecId string
@@ -591,6 +593,22 @@ Loop:
 					spew.Dump(vmSpecInfo)
 				}
 				cblogger.Info("Finish GetVMSpec()")
+			case 3:
+				cblogger.Info("Start ListOrgVMSpec() ...")
+				if listStr, err := vmSpecHandler.ListOrgVMSpec(""); err != nil {
+					cblogger.Error(err)
+				} else {
+					fmt.Println(listStr)
+				}
+				cblogger.Info("Finish ListOrgVMSpec()")
+			case 4:
+				cblogger.Info("Start GetOrgVMSpec() ...")
+				if vmSpecStr, err := vmSpecHandler.GetOrgVVMSpec("", vmSpecId); err != nil {
+					cblogger.Error(err)
+				} else {
+					fmt.Println(vmSpecStr)
+				}
+				cblogger.Info("Finish GetOrgVMSpec()")
 			case 5:
 				cblogger.Info("Exit")
 				break Loop

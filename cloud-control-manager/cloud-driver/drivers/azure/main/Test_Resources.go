@@ -443,6 +443,77 @@ Loop:
 	}
 }
 
+func testVmSpecHandler(config Config) {
+	resourceHandler, err := getResourceHandler("vmspec")
+	if err != nil {
+		cblogger.Error(err)
+	}
+	vmSpecHandler := resourceHandler.(irs.VMSpecHandler)
+
+	cblogger.Info("Test VmSpecHandler")
+	cblogger.Info("1. ListVmSpec()")
+	cblogger.Info("2. GetVmSpec()")
+	cblogger.Info("3. ListOrgVmSpec()")
+	cblogger.Info("4. GetOrgVmSpec()")
+	cblogger.Info("9. Exit")
+
+	var vmSpecName string
+	vmSpecName = "Standard_F72s_v2ojpijipo"
+
+Loop:
+	for {
+		var commandNum int
+		inputCnt, err := fmt.Scan(&commandNum)
+		if err != nil {
+			cblogger.Error(err)
+		}
+
+		if inputCnt == 1 {
+			switch commandNum {
+			case 1:
+				cblogger.Info("Start ListVmSpec() ...")
+				region := "koreacentral" // TODO: region 정보 받아오기
+				if list, err := vmSpecHandler.ListVMSpec(region); err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(list)
+				}
+				cblogger.Info("Finish ListVmSpec()")
+			case 2:
+				cblogger.Info("Start GetVmSpec() ...")
+				region := "koreacentral" // TODO: region 정보 받아오기
+				if vmSpec, err := vmSpecHandler.GetVVMSpec(region, vmSpecName); err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(vmSpec)
+				}
+				cblogger.Info("Finish GetVmSpec()")
+			case 3:
+				cblogger.Info("Start ListOrgVmSpec() ...")
+				region := "koreacentral" // TODO: region 정보 받아오기
+				if listStr, err := vmSpecHandler.ListOrgVMSpec(region); err != nil {
+					cblogger.Error(err)
+				} else {
+					fmt.Println(listStr)
+				}
+				cblogger.Info("Finish ListOrgVmSpec()")
+			case 4:
+				cblogger.Info("Start GetOrgVmSpec() ...")
+				region := "koreacentral" // TODO: region 정보 받아오기
+				if vmSpecStr, err := vmSpecHandler.GetOrgVVMSpec(region, vmSpecName); err != nil {
+					cblogger.Error(err)
+				} else {
+					fmt.Println(vmSpecStr)
+				}
+				cblogger.Info("Finish GetOrgVmSpec()")
+			case 9:
+				cblogger.Info("Exit")
+				break Loop
+			}
+		}
+	}
+}
+
 func getResourceHandler(resourceType string) (interface{}, error) {
 	var cloudDriver idrv.CloudDriver
 	cloudDriver = new(azdrv.AzureDriver)
@@ -603,57 +674,6 @@ type Config struct {
 			Name      string `yaml:"name"`
 		} `yaml:"network_interface"`
 	} `yaml:"azure"`
-}
-
-func testVmSpecHandler(config Config) {
-	resourceHandler, err := getResourceHandler("vmspec")
-	if err != nil {
-		cblogger.Error(err)
-	}
-	vmSpecHandler := resourceHandler.(irs.VMSpecHandler)
-
-	cblogger.Info("Test VmSpecHandler")
-	cblogger.Info("1. ListVmSpec()")
-	cblogger.Info("2. GetVmSpec()")
-	cblogger.Info("9. Exit")
-
-	var vmSpecName string
-	vmSpecName = "Standard_F72s_v2"
-
-Loop:
-	for {
-		var commandNum int
-		inputCnt, err := fmt.Scan(&commandNum)
-		if err != nil {
-			cblogger.Error(err)
-		}
-
-		if inputCnt == 1 {
-			switch commandNum {
-			case 1:
-				cblogger.Info("Start ListVmSpec() ...")
-				region := "koreacentral" // TODO: region 정보 받아오기
-				if list, err := vmSpecHandler.ListVMSpec(region); err != nil {
-					cblogger.Error(err)
-				} else {
-					spew.Dump(list)
-				}
-				cblogger.Info("Finish ListVmSpec()")
-			case 2:
-				cblogger.Info("Start GetVmSpec() ...")
-				region := "koreacentral" // TODO: region 정보 받아오기
-				if vmSpec, err := vmSpecHandler.GetVVMSpec(region, vmSpecName); err != nil {
-					cblogger.Error(err)
-				} else {
-					spew.Dump(vmSpec)
-				}
-				cblogger.Info("Finish GetVmSpec()")
-			case 9:
-				cblogger.Info("Exit")
-				break Loop
-			}
-		}
-	}
 }
 
 func readConfigFile() Config {
