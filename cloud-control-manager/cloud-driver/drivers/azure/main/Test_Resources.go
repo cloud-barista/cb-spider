@@ -614,7 +614,11 @@ func testVmSpecHandler(config Config) {
 
 	cblogger.Info("Test VmSpecHandler")
 	cblogger.Info("1. ListVmSpec()")
+	cblogger.Info("2. GetVmSpec()")
 	cblogger.Info("9. Exit")
+
+	var vmSpecName string
+	vmSpecName = "Standard_F72s_v2"
 
 Loop:
 	for {
@@ -635,6 +639,15 @@ Loop:
 					spew.Dump(list)
 				}
 				cblogger.Info("Finish ListVmSpec()")
+			case 2:
+				cblogger.Info("Start GetVmSpec() ...")
+				region := "koreacentral" // TODO: region 정보 받아오기
+				if vmSpec, err := vmSpecHandler.GetVVMSpec(region, vmSpecName); err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(vmSpec)
+				}
+				cblogger.Info("Finish GetVmSpec()")
 			case 9:
 				cblogger.Info("Exit")
 				break Loop

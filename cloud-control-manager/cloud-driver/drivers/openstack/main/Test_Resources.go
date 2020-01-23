@@ -549,6 +549,56 @@ Loop:
 	}
 }
 
+func testVMSpecHandler(config Config) {
+	resourceHandler, err := getResourceHandler("vmspec")
+	if err != nil {
+		panic(err)
+	}
+
+	vmSpecHandler := resourceHandler.(irs.VMSpecHandler)
+
+	cblogger.Info("Test VMSpecHandler")
+	cblogger.Info("1. ListVMSpec()")
+	cblogger.Info("2. GetVMSpec()")
+	cblogger.Info("5. Exit")
+
+	var vmSpecId string
+	vmSpecId = "babo"
+
+Loop:
+	for {
+		var commandNum int
+		inputCnt, err := fmt.Scan(&commandNum)
+		if err != nil {
+			cblogger.Error(err)
+		}
+
+		if inputCnt == 1 {
+			switch commandNum {
+			case 1:
+				cblogger.Info("Start ListVMSpec() ...")
+				if list, err := vmSpecHandler.ListVMSpec(""); err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(list)
+				}
+				cblogger.Info("Finish ListVMSpec()")
+			case 2:
+				cblogger.Info("Start GetVMSpec() ...")
+				if vmSpecInfo, err := vmSpecHandler.GetVVMSpec("", vmSpecId); err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(vmSpecInfo)
+				}
+				cblogger.Info("Finish GetVMSpec()")
+			case 5:
+				cblogger.Info("Exit")
+				break Loop
+			}
+		}
+	}
+}
+
 func getResourceHandler(resourceType string) (interface{}, error) {
 	var cloudDriver idrv.CloudDriver
 	cloudDriver = new(osdrv.OpenStackDriver)
@@ -593,6 +643,8 @@ func getResourceHandler(resourceType string) (interface{}, error) {
 		}
 		osCloudConn := cloudConn.(*connect.OpenStackCloudConnection)
 		resourceHandler = osrs.OpenStackRouterHandler{Client: osCloudConn.NetworkClient}
+	case "vmspec":
+		resourceHandler, err = cloudConnection.CreateVMSpecHandler()
 	}
 
 	if err != nil {
@@ -611,7 +663,8 @@ func showTestHandlerInfo() {
 	cblogger.Info("5. VNetworkHandler")
 	cblogger.Info("6. VNicHandler")
 	cblogger.Info("7. RouterHandler")
-	cblogger.Info("8. Exit")
+	cblogger.Info("8. VMSpecHandler")
+	cblogger.Info("9. Exit")
 	cblogger.Info("==========================================================")
 }
 
@@ -653,6 +706,9 @@ Loop:
 				testRouterHandler(config)
 				showTestHandlerInfo()
 			case 8:
+				testVMSpecHandler(config)
+				showTestHandlerInfo()
+			case 9:
 				cblogger.Info("Exit Test ResourceHandler Program")
 				break Loop
 			}
