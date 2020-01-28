@@ -6,7 +6,7 @@
 //
 // This is a Cloud Driver Example for PoC Test.
 //
-// by hyokyung.kim@innogrid.co.kr, 2019.07.
+// by jaz, 2019.07.
 
 package connect
 
@@ -61,9 +61,9 @@ func (cloudConn *GCPCloudConnection) CreateSecurityHandler() (irs.SecurityHandle
 }
 
 func (cloudConn *GCPCloudConnection) CreateKeyPairHandler() (irs.KeyPairHandler, error) {
-        cblogger.Info("GCP Cloud Driver: called CreateKeyPairHandler()!")
-        keypairHandler := gcprs.GCPKeyPairHandler{cloudConn.Credential, cloudConn.Region}
-        return &keypairHandler, nil
+	cblogger.Info("GCP Cloud Driver: called CreateKeyPairHandler()!")
+	keypairHandler := gcprs.GCPKeyPairHandler{cloudConn.Credential, cloudConn.Region}
+	return &keypairHandler, nil
 }
 
 func (cloudConn *GCPCloudConnection) CreateVNicHandler() (irs.VNicHandler, error) {
@@ -80,6 +80,12 @@ func (cloudConn *GCPCloudConnection) CreatePublicIPHandler() (irs.PublicIPHandle
 func (cloudConn *GCPCloudConnection) CreateVMHandler() (irs.VMHandler, error) {
 	cblogger.Info("GCP Cloud Driver: called CreateVMHandler()!")
 	vmHandler := gcprs.GCPVMHandler{cloudConn.Region, cloudConn.Ctx, cloudConn.VMClient, cloudConn.Credential}
+	return &vmHandler, nil
+}
+
+func (cloudConn *GCPCloudConnection) CreateVMSpecHandler() (irs.VMHandler, error) {
+	cblogger.Info("GCP Cloud Driver: called CreateVMSpecHandler()!")
+	vmHandler := gcprs.GCPVMSpecHandler{cloudConn.Region, cloudConn.Ctx, cloudConn.VMClient, cloudConn.Credential}
 	return &vmHandler, nil
 }
 

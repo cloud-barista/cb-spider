@@ -22,6 +22,7 @@ type DriverCapabilityInfo struct {
 	VNicHandler     bool // support: true, do not support: false
 	PublicIPHandler bool // support: true, do not support: false
 	VMHandler       bool // support: true, do not support: false
+	VMSpecHandler   bool // support: true, do not support: false
 }
 
 type CredentialInfo struct {
