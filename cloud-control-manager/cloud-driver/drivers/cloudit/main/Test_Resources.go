@@ -370,6 +370,77 @@ Loop:
 	}
 }
 
+func testVmSpecHandler(config Config) {
+	resourceHandler, err := getResourceHandler("vmspec")
+	if err != nil {
+		cblogger.Error(err)
+	}
+	vmSpecHandler := resourceHandler.(irs.VMSpecHandler)
+
+	cblogger.Info("Test VmSpecHandler")
+	cblogger.Info("1. ListVmSpec()")
+	cblogger.Info("2. GetVmSpec()")
+	cblogger.Info("3. ListOrgVmSpec()")
+	cblogger.Info("4. GetOrgVmSpec()")
+	cblogger.Info("9. Exit")
+
+	var vmSpecName string
+	vmSpecName = ""
+
+Loop:
+	for {
+		var commandNum int
+		inputCnt, err := fmt.Scan(&commandNum)
+		if err != nil {
+			cblogger.Error(err)
+		}
+
+		if inputCnt == 1 {
+			switch commandNum {
+			case 1:
+				cblogger.Info("Start ListVmSpec() ...")
+				region := "" // TODO: region 정보 받아오기
+				if list, err := vmSpecHandler.ListVMSpec(region); err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(list)
+				}
+				cblogger.Info("Finish ListVmSpec()")
+			case 2:
+				cblogger.Info("Start GetVmSpec() ...")
+				region := "" // TODO: region 정보 받아오기
+				if vmSpec, err := vmSpecHandler.GetVVMSpec(region, vmSpecName); err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(vmSpec)
+				}
+				cblogger.Info("Finish GetVmSpec()")
+			case 3:
+				cblogger.Info("Start ListOrgVmSpec() ...")
+				region := "" // TODO: region 정보 받아오기
+				if listStr, err := vmSpecHandler.ListOrgVMSpec(region); err != nil {
+					cblogger.Error(err)
+				} else {
+					fmt.Println(listStr)
+				}
+				cblogger.Info("Finish ListOrgVmSpec()")
+			case 4:
+				cblogger.Info("Start GetOrgVmSpec() ...")
+				region := "" // TODO: region 정보 받아오기
+				if vmSpecStr, err := vmSpecHandler.GetOrgVVMSpec(region, vmSpecName); err != nil {
+					cblogger.Error(err)
+				} else {
+					fmt.Println(vmSpecStr)
+				}
+				cblogger.Info("Finish GetOrgVmSpec()")
+			case 9:
+				cblogger.Info("Exit")
+				break Loop
+			}
+		}
+	}
+}
+
 func getResourceHandler(resourceType string) (interface{}, error) {
 	var cloudDriver idrv.CloudDriver
 	cloudDriver = new(cidrv.ClouditDriver)
@@ -403,6 +474,8 @@ func getResourceHandler(resourceType string) (interface{}, error) {
 		resourceHandler, err = cloudConnection.CreateVNetworkHandler()
 	case "vnic":
 		resourceHandler, err = cloudConnection.CreateVNicHandler()
+	case "vmspec":
+		resourceHandler, err = cloudConnection.CreateVMSpecHandler()
 	}
 
 	if err != nil {
@@ -419,7 +492,8 @@ func showTestHandlerInfo() {
 	cblogger.Info("3. SecurityHandler")
 	cblogger.Info("4. VNetworkHandler")
 	cblogger.Info("5. VNicHandler")
-	cblogger.Info("6. Exit")
+	cblogger.Info("6. VMSpecHandler")
+	cblogger.Info("7. Exit")
 	cblogger.Info("==========================================================")
 }
 
@@ -455,6 +529,9 @@ Loop:
 				testVNicHandler(config)
 				showTestHandlerInfo()
 			case 6:
+				testVmSpecHandler(config)
+				showTestHandlerInfo()
+			case 7:
 				cblogger.Info("Exit Test ResourceHandler Program")
 				break Loop
 			}
