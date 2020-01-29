@@ -76,3 +76,8 @@ func (vmSpecHandler *GCPVMSpecHandler) ListOrgVMSpec(Region string) (string, err
 func (vmSpecHandler *GCPVMSpecHandler) GetOrgVMSpec(Region string, Name string) (string, error) {
 	return nil, nil
 }
+
+// gcp 같은경우 n1 타입만 그래픽 카드가 추가 되며
+// 1. n1타입인지 확인하는 로직 필요
+// 2. 해당 카드에 관련된 정보를 조회하는 로직필요. 
+// 3. 해당 리스트를 조회하고 해당 GPU를 선택하는 로직
