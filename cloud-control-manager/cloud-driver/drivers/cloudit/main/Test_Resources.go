@@ -385,7 +385,7 @@ func testVmSpecHandler(config Config) {
 	cblogger.Info("9. Exit")
 
 	var vmSpecName string
-	vmSpecName = ""
+	vmSpecName = "large-4"
 
 Loop:
 	for {
