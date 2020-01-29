@@ -14,6 +14,7 @@ package resources
 import (
 	"context"
 	_ "errors"
+	"strings"
 
 	compute "google.golang.org/api/compute/v1"
 
@@ -88,14 +89,31 @@ func (vmSpecHandler *GCPVMSpecHandler) GetVMSpec(Region string, Name string) (ir
 }
 
 func (vmSpecHandler *GCPVMSpecHandler) ListOrgVMSpec(Region string) (string, error) {
-	return nil, nil
+	// projectID := vmSpecHandler.Credential.ProjectID
+	// zone := vmSpecHandler.Region.Zone
+
+	return "", nil
 }
 
 func (vmSpecHandler *GCPVMSpecHandler) GetOrgVMSpec(Region string, Name string) (string, error) {
-	return nil, nil
+	// projectID := vmSpecHandler.Credential.ProjectID
+	// zone := vmSpecHandler.Region.Zone
+
+	return "", nil
 }
 
 // gcp 같은경우 n1 타입만 그래픽 카드가 추가 되며
 // 1. n1타입인지 확인하는 로직 필요
 // 2. 해당 카드에 관련된 정보를 조회하는 로직필요.
 // 3. 해당 리스트를 조회하고 해당 GPU를 선택하는 로직
+
+func CheckMachineType(Name string) bool {
+	prefix := "n1"
+
+	if ok := strings.HasPrefix(prefix, Name); ok {
+		return ok
+	}
+
+	return false
+
+}
