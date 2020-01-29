@@ -6,8 +6,7 @@
 //
 // This is a Cloud Driver Example for PoC Test.
 //
-// program by ysjeon@mz.co.kr, 2019.07.
-// modify by devunet@mz.co.kr, 2019.11.
+// program by ysjeon@mz.co.kr, 2020.01.
 
 package resources
 
