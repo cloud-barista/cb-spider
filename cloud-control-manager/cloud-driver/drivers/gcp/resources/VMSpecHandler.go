@@ -29,11 +29,29 @@ type GCPVMSpecHandler struct {
 }
 
 func (vmSpecHandler *GCPVMSpecHandler) ListVMSpec(Region string) ([]*irs.VMSpecInfo, error) {
-	
-	projectID := vmSpecHandler.Credential.ProjectID
-	zone := 
 
-	return nil, nil
+	projectID := vmSpecHandler.Credential.ProjectID
+	zone := vmSpecHandler.Region.Zone
+
+	resp, err := vmSpecHandler.Client.MachineTypes.List(projectID, zone).Do()
+
+	if err != nil {
+		cblogger.Error(err)
+		return []*irs.VMSpecInfo{}, err
+	}
+	var vmSpecInfo []*irs.VMSpecInfo
+	for _, i := range resp.Items {
+		info := irs.VMSpecInfo{
+			Region: zone,
+			Name:   i.Name,
+			VCpu: irs.VCpuInfo{
+				Count: string(i.GuestCpus),
+			},
+			Mem: string(i.MemoryMb),
+		}
+		vmSpecInfo = append(vmSpecInfo, &info)
+	}
+	return vmSpecInfo, nil
 }
 
 func (vmSpecHandler *GCPVMSpecHandler) GetVMSpec(Region string, Name string) (irs.VMSpecInfo, error) {
@@ -45,27 +63,27 @@ func (vmSpecHandler *GCPVMSpecHandler) GetVMSpec(Region string, Name string) (ir
 
 	if err != nil {
 		cblogger.Error(err)
-		return irs.VMSpecInfo{},err
+		return irs.VMSpecInfo{}, err
 	}
 
 	vmSpecInfo := irs.VMSpecInfo{
-		Region : Region,
-		Name : Name,
-		VCpu : irs.VCpuInfo{
-			Count :string(info.GuestCpus),
-			Clock : "",
+		Region: Region,
+		Name:   Name,
+		VCpu: irs.VCpuInfo{
+			Count: string(info.GuestCpus),
+			Clock: "",
 		},
-		Mem : string(info.MemoryMb),
-		Gpu : irs.GpuInfo{
+		Mem: string(info.MemoryMb),
+		Gpu: []irs.GpuInfo{
 			{
-				Count :"",
-				Mfr : "",
-				Model : "",
-				Mem : "",
+				Count: "",
+				Mfr:   "",
+				Model: "",
+				Mem:   "",
 			},
 		},
 	}
-	
+
 	return vmSpecInfo, nil
 }
 
@@ -79,5 +97,5 @@ func (vmSpecHandler *GCPVMSpecHandler) GetOrgVMSpec(Region string, Name string) 
 
 // gcp 같은경우 n1 타입만 그래픽 카드가 추가 되며
 // 1. n1타입인지 확인하는 로직 필요
-// 2. 해당 카드에 관련된 정보를 조회하는 로직필요. 
+// 2. 해당 카드에 관련된 정보를 조회하는 로직필요.
 // 3. 해당 리스트를 조회하고 해당 GPU를 선택하는 로직
