@@ -29,12 +29,44 @@ type GCPVMSpecHandler struct {
 }
 
 func (vmSpecHandler *GCPVMSpecHandler) ListVMSpec(Region string) ([]*irs.VMSpecInfo, error) {
+	
+	projectID := vmSpecHandler.Credential.ProjectID
+	zone := 
 
 	return nil, nil
 }
 
-func (vmSpecHandler *GCPVMSpecHandler) GetVMSpec(Region string) (irs.VMSpecInfo, error) {
-	return nil, nil
+func (vmSpecHandler *GCPVMSpecHandler) GetVMSpec(Region string, Name string) (irs.VMSpecInfo, error) {
+	// default info
+	projectID := vmSpecHandler.Credential.ProjectID
+	zone := vmSpecHandler.Region.Zone
+
+	info, err := vmSpecHandler.Client.MachineTypes.Get(projectID, zone, Name).Do()
+
+	if err != nil {
+		cblogger.Error(err)
+		return irs.VMSpecInfo{},err
+	}
+
+	vmSpecInfo := irs.VMSpecInfo{
+		Region : Region,
+		Name : Name,
+		VCpu : irs.VCpuInfo{
+			Count :string(info.GuestCpus),
+			Clock : "",
+		},
+		Mem : string(info.MemoryMb),
+		Gpu : irs.GpuInfo{
+			{
+				Count :"",
+				Mfr : "",
+				Model : "",
+				Mem : "",
+			},
+		},
+	}
+	
+	return vmSpecInfo, nil
 }
 
 func (vmSpecHandler *GCPVMSpecHandler) ListOrgVMSpec(Region string) (string, error) {

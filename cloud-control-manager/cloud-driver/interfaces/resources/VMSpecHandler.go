@@ -21,12 +21,12 @@ type VMSpecInfo struct {
 }
 
 type VCpuInfo struct {
-	Conut string
+	Count string //  오타로 보여 수정 Conut => Count
 	Clock string // GHz
 }
 
 type GpuInfo struct {
-	Conut string
+	Count string //  오타로 보여 수정 Conut => Count
 	Mfr   string
 	Model string
 	Mem   string
@@ -38,6 +38,6 @@ type VMSpecHandler interface {
 	ListVMSpec(Region string) ([]*VMSpecInfo, error)
 	GetVMSpec(Region string, Name string) (VMSpecInfo, error)
 
-	ListOrgVMSpec(Region string) (string error)              // return string: json format
+	ListOrgVMSpec(Region string) (string, error)             // return string: json format
 	GetOrgVMSpec(Region string, Name string) (string, error) // return string: json format
 }
