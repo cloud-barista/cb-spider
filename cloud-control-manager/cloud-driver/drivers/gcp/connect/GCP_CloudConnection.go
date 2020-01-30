@@ -39,6 +39,7 @@ type GCPCloudConnection struct {
 	VNetClient          *compute.Service
 	VNicClient          *compute.Service
 	SubnetClient        *compute.Service
+	VMSpecHandler       *compute.Service
 }
 
 func (cloudConn *GCPCloudConnection) CreateVNetworkHandler() (irs.VNetworkHandler, error) {
@@ -83,10 +84,10 @@ func (cloudConn *GCPCloudConnection) CreateVMHandler() (irs.VMHandler, error) {
 	return &vmHandler, nil
 }
 
-func (cloudConn *GCPCloudConnection) CreateVMSpecHandler() (irs.VMHandler, error) {
+func (cloudConn *GCPCloudConnection) CreateVMSpecHandler() (irs.VMSpecHandler, error) {
 	cblogger.Info("GCP Cloud Driver: called CreateVMSpecHandler()!")
-	vmHandler := gcprs.GCPVMSpecHandler{cloudConn.Region, cloudConn.Ctx, cloudConn.VMClient, cloudConn.Credential}
-	return &vmHandler, nil
+	vmSpecHandler := gcprs.GCPVMSpecHandler{cloudConn.Region, cloudConn.Ctx, cloudConn.VMClient, cloudConn.Credential}
+	return &vmSpecHandler, nil
 }
 
 func (GCPCloudConnection) IsConnected() (bool, error) {
