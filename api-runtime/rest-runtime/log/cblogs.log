@@ -1,0 +1,4 @@
+[CLOUD-BARISTA].[INFO]: 2020-01-30 06:42:48 nutsdb-driver.go:34, github.com/cloud-barista/cb-store/store-drivers/nutsdb-driver.getFileDir() - ######## dbfile: $CBSTORE_ROOT/meta_db/dat
+[CLOUD-BARISTA].[INFO]: 2020-01-30 06:42:48 nutsdb-driver.go:34, github.com/cloud-barista/cb-store/store-drivers/nutsdb-driver.getFileDir() - ######## dbfile: $CBSTORE_ROOT/meta_db/dat
+[CLOUD-BARISTA].[INFO]: 2020-01-30 06:42:48 nutsdb-driver.go:45, github.com/cloud-barista/cb-store/store-drivers/nutsdb-driver.initialize() - ######## dbfile: /home/ubuntu/gosrc/src/github.com/cloud-barista/JINI/cb-spider/meta_db/dat
+[CLOUD-BARISTA].[INFO]: 2020-01-30 06:42:48 cbstore.go:22, github.com/cloud-barista/cb-store.init.0() - calling!
