@@ -35,6 +35,7 @@ type AwsCloudConnection struct {
 	ImageClient    *ec2.EC2
 	PublicIPClient *ec2.EC2
 	SecurityClient *ec2.EC2
+	VmSpecClient   *ec2.EC2
 }
 
 var cblogger *logrus.Logger
@@ -94,9 +95,16 @@ func (cloudConn *AwsCloudConnection) CreateVNicHandler() (irs.VNicHandler, error
 
 	return &handler, nil
 }
+
 func (cloudConn *AwsCloudConnection) CreatePublicIPHandler() (irs.PublicIPHandler, error) {
 	cblogger.Info("Start")
 	handler := ars.AwsPublicIPHandler{cloudConn.Region, cloudConn.PublicIPClient}
 
+	return &handler, nil
+}
+
+func (cloudConn *AwsCloudConnection) CreateVMSpecHandler() (irs.VMSpecHandler, error) {
+	cblogger.Info("Start")
+	handler := ars.AwsVmSpecHandler{cloudConn.Region, cloudConn.VmSpecClient}
 	return &handler, nil
 }

@@ -8,9 +8,9 @@
 //
 // by CB-Spider Team, 2019.06.
 
-package main
+//package main
 
-//package aws
+package aws
 
 import (
 	"C"
@@ -49,6 +49,7 @@ func (AwsDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	drvCapabilityInfo.VNicHandler = true
 	drvCapabilityInfo.PublicIPHandler = true
 	drvCapabilityInfo.VMHandler = true
+	drvCapabilityInfo.VMSpecHandler = true
 
 	return drvCapabilityInfo
 }
@@ -109,6 +110,7 @@ func (driver *AwsDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (icon.
 		ImageClient:    vmClient,
 		PublicIPClient: vmClient,
 		SecurityClient: vmClient,
+		VmSpecClient:   vmClient,
 	}
 
 	return &iConn, nil // return type: (icon.CloudConnection, error)
