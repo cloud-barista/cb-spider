@@ -454,6 +454,96 @@ func handleKeyPair() {
 	}
 }
 
+// Test VMSpec
+func handleVMSpec() {
+	cblogger.Info("Start VMSpec Resource Test")
+
+	ResourceHandler, err := testconf.GetResourceHandler("VMSpec")
+	if err != nil {
+		panic(err)
+	}
+
+	handler := ResourceHandler.(irs.VMSpecHandler)
+	region := "asia-northeast1"
+
+	zone := "asia-northeast1-b"
+	machinename := ""
+
+	cblogger.Info("zone : ", zone)
+
+	for {
+		fmt.Println("")
+		fmt.Println("VMSpec Resource Test")
+		fmt.Println("1. ListVMSpec()")
+		fmt.Println("2. GetVMSpec()")
+		fmt.Println("3. ListOrgVMSpec()")
+		fmt.Println("4. GetOrgVMSpec()")
+		fmt.Println("5. Exit")
+
+		var commandNum int
+		var reqDelIP string
+
+		inputCnt, err := fmt.Scan(&commandNum)
+		if err != nil {
+			panic(err)
+		}
+
+		if inputCnt == 1 {
+			switch commandNum {
+			case 1:
+				fmt.Println("Start ListVMSpec() ...")
+				result, err := handler.ListVMSpec(zone)
+				if err != nil {
+					cblogger.Error("PublicIP 목록 조회 실패 : ", err)
+				} else {
+					cblogger.Info("PublicIP 목록 조회 결과")
+					spew.Dump(result)
+				}
+
+				fmt.Println("Finish ListPublicIP()")
+
+			case 2:
+				fmt.Println("Start GetVMSpec() ...")
+				result, err := handler.GetVMSpec(zone, machinename)
+				if err != nil {
+					cblogger.Error(machinename, " GetVMSpec 정보 조회 실패 : ", err)
+				} else {
+					cblogger.Infof("PublicIP[%s]  정보 조회 결과", reqPublicIP)
+					spew.Dump(result)
+				}
+				fmt.Println("Finish GetPublicIP()")
+
+			case 3:
+				fmt.Println("Start ListOrgVMSpec() ...")
+				result, err := handler.ListOrgVMSpec(zone)
+				if err != nil {
+					cblogger.Error("ListOrgVMSpec 목록 조회 실패 : ", err)
+				} else {
+					cblogger.Info("ListOrgVMSpec 목록 조회 결과")
+					spew.Dump(result)
+				}
+
+				fmt.Println("Finish ListPublicIP()")
+
+			case 4:
+				fmt.Println("Start GetOrgVMSpec() ...")
+				result, err := handler.GetOrgVMSpec(zone, machinename)
+				if err != nil {
+					cblogger.Error(machinename, " GetOrgVMSpec 정보 조회 실패 : ", err)
+				} else {
+					cblogger.Infof("GetOrgVMSpec[%s]  정보 조회 결과", reqPublicIP)
+					spew.Dump(result)
+				}
+				fmt.Println("Finish GetOrgVMSpec()")
+
+			case 5:
+				fmt.Println("Exit")
+				return
+			}
+		}
+	}
+}
+
 func main() {
 	cblogger.Info("GCP Resource Test")
 	//handlePublicIP()
