@@ -88,17 +88,33 @@ func (vmSpecHandler *GCPVMSpecHandler) GetVMSpec(Region string, Name string) (ir
 }
 
 func (vmSpecHandler *GCPVMSpecHandler) ListOrgVMSpec(Region string) (string, error) {
-	// projectID := vmSpecHandler.Credential.ProjectID
-	// zone := vmSpecHandler.Region.Zone
+	projectID := vmSpecHandler.Credential.ProjectID
+	zone := vmSpecHandler.Region.Zone
 
-	return "", nil
+	resp, err := vmSpecHandler.Client.MachineTypes.List(projectID, zone).Do()
+
+	if err != nil {
+		cblogger.Error(err)
+		return "", err
+	}
+	j, _ := resp.MarshalJSON()
+
+	return string(j), err
 }
 
 func (vmSpecHandler *GCPVMSpecHandler) GetOrgVMSpec(Region string, Name string) (string, error) {
-	// projectID := vmSpecHandler.Credential.ProjectID
-	// zone := vmSpecHandler.Region.Zone
+	projectID := vmSpecHandler.Credential.ProjectID
+	zone := vmSpecHandler.Region.Zone
 
-	return "", nil
+	info, err := vmSpecHandler.Client.MachineTypes.Get(projectID, zone, Name).Do()
+
+	if err != nil {
+		cblogger.Error(err)
+		return "", err
+	}
+	j, _ := info.MarshalJSON()
+
+	return string(j), err
 }
 
 // gcp 같은경우 n1 타입만 그래픽 카드가 추가 되며
