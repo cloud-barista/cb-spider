@@ -10,35 +10,34 @@
 
 package resources
 
-
 type VMSpecInfo struct {
-	Region           string
-	Name             string
-	VCpu             VCpuInfo
-	Mem	         string
-	Gpu              []GpuInfo
+	Region string
+	Name   string
+	VCpu   VCpuInfo
+	Mem    string
+	Gpu    []GpuInfo
 
-	KeyValueList     []KeyValue
+	KeyValueList []KeyValue
 }
 
 type VCpuInfo struct {
-	Count	         string
-	Clock	         string // GHz
+	Count string
+	Clock string // GHz
 }
 
 type GpuInfo struct {
-	Conut	         string
-	Mfr	         string
-	Model	         string
-	Mem	         string
+	Count string //  오타로 보여 수정 Conut => Count
+	Mfr   string
+	Model string
+	Mem   string
 }
 
 type VMSpecHandler interface {
 
-	// Region: AWS=Region, GCP=Zone, Azure=Location	
+	// Region: AWS=Region, GCP=Zone, Azure=Location
 	ListVMSpec(Region string) ([]*VMSpecInfo, error)
 	GetVMSpec(Region string, Name string) (VMSpecInfo, error)
 
-	ListOrgVMSpec(Region string) (string, error) // return string: json format
+	ListOrgVMSpec(Region string) (string, error)             // return string: json format
 	GetOrgVMSpec(Region string, Name string) (string, error) // return string: json format
 }
