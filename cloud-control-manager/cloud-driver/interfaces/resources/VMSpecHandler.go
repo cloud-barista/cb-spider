@@ -39,6 +39,6 @@ type VMSpecHandler interface {
 	ListVMSpec(Region string) ([]*VMSpecInfo, error)
 	GetVMSpec(Region string, Name string) (VMSpecInfo, error)
 
-	ListOrgVMSpec(Region string) (string error) // return string: json format
+	ListOrgVMSpec(Region string) (string, error) // return string: json format
 	GetOrgVMSpec(Region string, Name string) (string, error) // return string: json format
 }
