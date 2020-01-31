@@ -482,7 +482,7 @@ Loop:
 			case 2:
 				cblogger.Info("Start GetVmSpec() ...")
 				region := "koreacentral" // TODO: region 정보 받아오기
-				if vmSpec, err := vmSpecHandler.GetVVMSpec(region, vmSpecName); err != nil {
+				if vmSpec, err := vmSpecHandler.GetVMSpec(region, vmSpecName); err != nil {
 					cblogger.Error(err)
 				} else {
 					spew.Dump(vmSpec)
@@ -500,7 +500,7 @@ Loop:
 			case 4:
 				cblogger.Info("Start GetOrgVmSpec() ...")
 				region := "koreacentral" // TODO: region 정보 받아오기
-				if vmSpecStr, err := vmSpecHandler.GetOrgVVMSpec(region, vmSpecName); err != nil {
+				if vmSpecStr, err := vmSpecHandler.GetOrgVMSpec(region, vmSpecName); err != nil {
 					cblogger.Error(err)
 				} else {
 					fmt.Println(vmSpecStr)

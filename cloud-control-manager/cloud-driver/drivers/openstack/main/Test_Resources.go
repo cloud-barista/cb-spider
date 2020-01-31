@@ -587,7 +587,7 @@ Loop:
 				cblogger.Info("Finish ListVMSpec()")
 			case 2:
 				cblogger.Info("Start GetVMSpec() ...")
-				if vmSpecInfo, err := vmSpecHandler.GetVVMSpec("", vmSpecId); err != nil {
+				if vmSpecInfo, err := vmSpecHandler.GetVMSpec("", vmSpecId); err != nil {
 					cblogger.Error(err)
 				} else {
 					spew.Dump(vmSpecInfo)
@@ -603,7 +603,7 @@ Loop:
 				cblogger.Info("Finish ListOrgVMSpec()")
 			case 4:
 				cblogger.Info("Start GetOrgVMSpec() ...")
-				if vmSpecStr, err := vmSpecHandler.GetOrgVVMSpec("", vmSpecId); err != nil {
+				if vmSpecStr, err := vmSpecHandler.GetOrgVMSpec("", vmSpecId); err != nil {
 					cblogger.Error(err)
 				} else {
 					fmt.Println(vmSpecStr)

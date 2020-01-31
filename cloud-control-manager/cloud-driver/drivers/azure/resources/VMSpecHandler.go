@@ -21,7 +21,7 @@ func (vmSpecHandler *AzureVmSpecHandler) setterVmSpec(vmSpec compute.VirtualMach
 	vmSpecInfo := &irs.VMSpecInfo{
 		Region:       vmSpecHandler.Region.ResourceGroup,
 		Name:         *vmSpec.Name,
-		VCpu:         irs.VCpuInfo{Conut: strconv.FormatInt(int64(*vmSpec.NumberOfCores), 10)},
+		VCpu:         irs.VCpuInfo{Count: strconv.FormatInt(int64(*vmSpec.NumberOfCores), 10)},
 		Mem:          strconv.FormatInt(int64(*vmSpec.MemoryInMB), 10),
 		Gpu:          nil,
 		KeyValueList: nil,
@@ -43,7 +43,7 @@ func (vmSpecHandler *AzureVmSpecHandler) ListVMSpec(Region string) ([]*irs.VMSpe
 	return vmSpecList, nil
 }
 
-func (vmSpecHandler *AzureVmSpecHandler) GetVVMSpec(Region string, Name string) (irs.VMSpecInfo, error) {
+func (vmSpecHandler *AzureVmSpecHandler) GetVMSpec(Region string, Name string) (irs.VMSpecInfo, error) {
 	result, err := vmSpecHandler.Client.List(vmSpecHandler.Ctx, vmSpecHandler.Region.Region)
 	if err != nil {
 		return irs.VMSpecInfo{}, err
@@ -81,7 +81,7 @@ func (vmSpecHandler *AzureVmSpecHandler) ListOrgVMSpec(Region string) (string, e
 	return jsonString, nil
 }
 
-func (vmSpecHandler *AzureVmSpecHandler) GetOrgVVMSpec(Region string, Name string) (string, error) {
+func (vmSpecHandler *AzureVmSpecHandler) GetOrgVMSpec(Region string, Name string) (string, error) {
 	result, err := vmSpecHandler.Client.List(vmSpecHandler.Ctx, vmSpecHandler.Region.Region)
 	if err != nil {
 		return "", err

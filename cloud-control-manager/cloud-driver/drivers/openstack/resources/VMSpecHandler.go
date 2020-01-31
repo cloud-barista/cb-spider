@@ -16,7 +16,7 @@ func setterVMSpec(vmSpec flavors.Flavor) *irs.VMSpecInfo {
 	vmSpecInfo := &irs.VMSpecInfo{
 		//Region:       "",
 		Name: vmSpec.Name,
-		VCpu: irs.VCpuInfo{Conut: strconv.Itoa(vmSpec.VCPUs)},
+		VCpu: irs.VCpuInfo{Count: strconv.Itoa(vmSpec.VCPUs)},
 		Mem:  strconv.Itoa(vmSpec.RAM),
 		//Gpu:          nil,
 		//KeyValueList: nil,
@@ -42,7 +42,7 @@ func (vmSpecHandler *OpenStackVMSpecHandler) ListVMSpec(Region string) ([]*irs.V
 	return vmSpecList, nil
 }
 
-func (vmSpecHandler *OpenStackVMSpecHandler) GetVVMSpec(Region string, Name string) (irs.VMSpecInfo, error) {
+func (vmSpecHandler *OpenStackVMSpecHandler) GetVMSpec(Region string, Name string) (irs.VMSpecInfo, error) {
 	vmSpecId, err := flavors.IDFromName(vmSpecHandler.Client, Name)
 	if err != nil {
 		return irs.VMSpecInfo{}, err
@@ -81,7 +81,7 @@ func (vmSpecHandler *OpenStackVMSpecHandler) ListOrgVMSpec(Region string) (strin
 	return jsonString, nil
 }
 
-func (vmSpecHandler *OpenStackVMSpecHandler) GetOrgVVMSpec(Region string, Name string) (string, error) {
+func (vmSpecHandler *OpenStackVMSpecHandler) GetOrgVMSpec(Region string, Name string) (string, error) {
 	vmSpecId, err := flavors.IDFromName(vmSpecHandler.Client, Name)
 	if err != nil {
 		return "", err
