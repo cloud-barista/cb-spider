@@ -22,7 +22,7 @@ type VMSpecInfo struct {
 }
 
 type VCpuInfo struct {
-	Conut	         string
+	Count	         string
 	Clock	         string // GHz
 }
 
@@ -37,8 +37,8 @@ type VMSpecHandler interface {
 
 	// Region: AWS=Region, GCP=Zone, Azure=Location	
 	ListVMSpec(Region string) ([]*VMSpecInfo, error)
-	GetVVMSpec(Region string, Name string) (VMSpecInfo, error)
+	GetVMSpec(Region string, Name string) (VMSpecInfo, error)
 
 	ListOrgVMSpec(Region string) (string error) // return string: json format
-	GetOrgVVMSpec(Region string, Name string) (string, error) // return string: json format
+	GetOrgVMSpec(Region string, Name string) (string, error) // return string: json format
 }
