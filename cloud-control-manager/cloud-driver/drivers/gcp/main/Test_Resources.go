@@ -494,13 +494,13 @@ func handleVMSpec() {
 				fmt.Println("Start ListVMSpec() ...")
 				result, err := handler.ListVMSpec(zone)
 				if err != nil {
-					cblogger.Error("PublicIP 목록 조회 실패 : ", err)
+					cblogger.Error("ListVMSpec 목록 조회 실패 : ", err)
 				} else {
-					cblogger.Info("PublicIP 목록 조회 결과")
+					cblogger.Info("ListVMSpec 목록 조회 결과")
 					spew.Dump(result)
 				}
 
-				fmt.Println("Finish ListPublicIP()")
+				fmt.Println("Finish ListVMSpec()")
 
 			case 2:
 				fmt.Println("Start GetVMSpec() ...")
@@ -508,10 +508,10 @@ func handleVMSpec() {
 				if err != nil {
 					cblogger.Error(machinename, " GetVMSpec 정보 조회 실패 : ", err)
 				} else {
-					cblogger.Infof("PublicIP[%s]  정보 조회 결과", reqPublicIP)
+					cblogger.Infof("GetVMSpec[%s]  정보 조회 결과", machinename)
 					spew.Dump(result)
 				}
-				fmt.Println("Finish GetPublicIP()")
+				fmt.Println("Finish GetVMSpec()")
 
 			case 3:
 				fmt.Println("Start ListOrgVMSpec() ...")
@@ -523,7 +523,7 @@ func handleVMSpec() {
 					spew.Dump(result)
 				}
 
-				fmt.Println("Finish ListPublicIP()")
+				fmt.Println("Finish ListOrgVMSpec()")
 
 			case 4:
 				fmt.Println("Start GetOrgVMSpec() ...")
@@ -531,7 +531,7 @@ func handleVMSpec() {
 				if err != nil {
 					cblogger.Error(machinename, " GetOrgVMSpec 정보 조회 실패 : ", err)
 				} else {
-					cblogger.Infof("GetOrgVMSpec[%s]  정보 조회 결과", reqPublicIP)
+					cblogger.Infof("GetOrgVMSpec[%s]  정보 조회 결과", machinename)
 					spew.Dump(result)
 				}
 				fmt.Println("Finish GetOrgVMSpec()")
