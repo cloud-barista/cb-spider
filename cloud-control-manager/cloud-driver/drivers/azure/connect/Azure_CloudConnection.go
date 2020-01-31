@@ -42,6 +42,7 @@ type AzureCloudConnection struct {
 	IPConfigClient      *network.InterfaceIPConfigurationsClient
 	SubnetClient        *network.SubnetsClient
 	DiskClient          *compute.DisksClient
+	VmSpecClient        *compute.VirtualMachineSizesClient
 }
 
 func (cloudConn *AzureCloudConnection) CreateVNetworkHandler() (irs.VNetworkHandler, error) {
@@ -93,6 +94,12 @@ func (cloudConn *AzureCloudConnection) CreateVMHandler() (irs.VMHandler, error) 
 		DiskClient:     cloudConn.DiskClient,
 	}
 	return &vmHandler, nil
+}
+
+func (cloudConn *AzureCloudConnection) CreateVMSpecHandler() (irs.VMSpecHandler, error) {
+	cblogger.Info("Azure Cloud Driver: called CreateVMSpecHandler()!")
+	vmSpecHandler := azrs.AzureVmSpecHandler{cloudConn.Region, cloudConn.Ctx, cloudConn.VmSpecClient}
+	return &vmSpecHandler, nil
 }
 
 func (AzureCloudConnection) IsConnected() (bool, error) {

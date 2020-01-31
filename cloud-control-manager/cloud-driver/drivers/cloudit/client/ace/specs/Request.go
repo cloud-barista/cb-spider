@@ -19,6 +19,7 @@ type VMSpecInfo struct {
 	Cpu     int    `json:"cpu" required:"true"`
 	Mem     int    `json:"mem" required:"true"`
 	Disk    int    `json:"disk" required:"true"`
+	GPU     int    `json:"gpu" required:"true"`
 	Enabled int    `json:"enabled" required:"true"`
 }
 
