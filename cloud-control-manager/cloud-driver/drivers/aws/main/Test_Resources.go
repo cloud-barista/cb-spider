@@ -579,7 +579,10 @@ func handleVMSpec() {
 
 	config := readConfigFile()
 	//reqVMSpec := config.Aws.VMSpec
-	reqVMSpec := "t2.small"
+	//reqVMSpec := "t2.small"	// GPU가 없음
+	//reqVMSpec := "p3.2xlarge" // GPU 1개
+	reqVMSpec := "p3.8xlarge" // GPU 4개
+
 	reqRegion := config.Aws.Region
 	reqRegion = "us-east-1"
 	cblogger.Info("reqVMSpec : ", reqVMSpec)
