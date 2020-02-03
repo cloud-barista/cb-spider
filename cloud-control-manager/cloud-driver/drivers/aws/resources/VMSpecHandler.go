@@ -1,7 +1,8 @@
 package resources
 
 import (
-	"fmt"
+	"encoding/json"
+	"errors"
 	"reflect"
 	"strconv"
 
@@ -82,7 +83,7 @@ func ExtractVMSpecInfo(Region string, instanceTypeInfo *ec2.InstanceTypeInfo) ir
 
 func (vmSpecHandler *AwsVmSpecHandler) ListVMSpec(Region string) ([]*irs.VMSpecInfo, error) {
 
-	cblogger.Infof("Start ListVMSpec(%s)", Region)
+	cblogger.Infof("Start ListVMSpec(Region:[%s])", Region)
 
 	var vMSpecInfoList []*irs.VMSpecInfo
 	/*
@@ -121,7 +122,8 @@ func (vmSpecHandler *AwsVmSpecHandler) ListVMSpec(Region string) ([]*irs.VMSpecI
 		return vMSpecInfoList, err
 	}
 
-	fmt.Println(resp)
+	cblogger.Info(resp)
+	//fmt.Println(resp)
 
 	//ExtractVMSpecInfo(Region, resp.InstanceTypes[0])
 	//var vMSpecInfoList []*irs.VMSpecInfo
@@ -155,15 +157,76 @@ func (vmSpecHandler *AwsVmSpecHandler) GetVMSpec(Region string, Name string) (ir
 		return irs.VMSpecInfo{}, err
 	}
 
-	fmt.Println(resp)
+	cblogger.Info(resp)
+	//fmt.Println(resp)
+	if len(resp.InstanceTypes) < 1 {
+		return irs.VMSpecInfo{}, errors.New(Name + "에 해당하는 Spec 정보를 찾을 수 없습니다.")
+	}
+
 	vMSpecInfo := ExtractVMSpecInfo(Region, resp.InstanceTypes[0])
 	return vMSpecInfo, nil
 }
 
+// AWS의 정보 그대로를 가공 없이 JSON으로 리턴 함.
 func (vmSpecHandler *AwsVmSpecHandler) ListOrgVMSpec(Region string) (string, error) {
-	return "", nil
+	cblogger.Infof("Start ListOrgVMSpec(Region:[%s])", Region)
+
+	input := &ec2.DescribeInstanceTypesInput{
+		//MaxResults: aws.Int64(5),
+	}
+
+	req, resp := vmSpecHandler.Client.DescribeInstanceTypesRequest(input)
+	err := req.Send()
+	if err != nil { // resp is now filled
+		cblogger.Errorf("Unable to get ListOrgVMSpec - %v", err)
+		return "", err
+	}
+
+	cblogger.Info(resp)
+	//fmt.Println(resp)
+
+	jsonBytes, errJson := json.Marshal(resp.InstanceTypes)
+	if errJson != nil {
+		cblogger.Error("JSON 변환 실패")
+		cblogger.Error(errJson)
+		return "", errJson
+	}
+
+	jsonString := string(jsonBytes)
+	return jsonString, nil
 }
 
+// AWS의 정보 그대로를 가공 없이 JSON으로 리턴 함.
 func (vmSpecHandler *AwsVmSpecHandler) GetOrgVMSpec(Region string, Name string) (string, error) {
-	return "", nil
+	cblogger.Infof("Start GetOrgVMSpec(Region:[%s], Name:[%s])", Region, Name)
+
+	input := &ec2.DescribeInstanceTypesInput{
+		InstanceTypes: []*string{
+			aws.String(Name),
+		},
+	}
+
+	req, resp := vmSpecHandler.Client.DescribeInstanceTypesRequest(input)
+	err := req.Send()
+	if err != nil { // resp is now filled
+		cblogger.Errorf("Unable to get GetVMSpec - %v", err)
+		return "", err
+	}
+
+	cblogger.Info(resp)
+	//fmt.Println(resp)
+	if len(resp.InstanceTypes) < 1 {
+		return "", errors.New(Name + "에 해당하는 Spec 정보를 찾을 수 없습니다.")
+	}
+
+	//vMSpecInfo := ExtractVMSpecInfo(Region, resp.InstanceTypes[0])
+	jsonBytes, errJson := json.Marshal(resp.InstanceTypes[0])
+	if errJson != nil {
+		cblogger.Error("JSON 변환 실패")
+		cblogger.Error(errJson)
+		return "", errJson
+	}
+
+	jsonString := string(jsonBytes)
+	return jsonString, nil
 }
