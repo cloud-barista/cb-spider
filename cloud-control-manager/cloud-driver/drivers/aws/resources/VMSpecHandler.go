@@ -1,7 +1,6 @@
 package resources
 
 import (
-	"encoding/json"
 	"errors"
 	"reflect"
 	"strconv"
@@ -76,6 +75,13 @@ func ExtractVMSpecInfo(Region string, instanceTypeInfo *ec2.InstanceTypeInfo) ir
 
 	if !reflect.ValueOf(instanceTypeInfo.MemoryInfo.SizeInMiB).IsNil() {
 		vmSpecInfo.Mem = strconv.FormatInt(*instanceTypeInfo.MemoryInfo.SizeInMiB, 10)
+	}
+
+
+	keyValueList := []irs.KeyValue{
+		{Key: "Domain", Value: *allocRes.Domain},
+		{Key: "PublicIpv4Pool", Value: *allocRes.PublicIpv4Pool},
+		{Key: "AllocationId", Value: *allocRes.AllocationId},
 	}
 
 	return vmSpecInfo
@@ -164,6 +170,14 @@ func (vmSpecHandler *AwsVmSpecHandler) GetVMSpec(Region string, Name string) (ir
 	}
 
 	vMSpecInfo := ExtractVMSpecInfo(Region, resp.InstanceTypes[0])
+
+	//KeyValue 목록 처리
+	keyValueList, errKeyValue := ConvertKeyValueList(resp.InstanceTypes[0])
+	if errKeyValue != nil {
+		return irs.VMSpecInfo{}, errKeyValue
+	}
+	vMSpecInfo.KeyValueList = keyValueList
+
 	return vMSpecInfo, nil
 }
 
@@ -185,15 +199,11 @@ func (vmSpecHandler *AwsVmSpecHandler) ListOrgVMSpec(Region string) (string, err
 	cblogger.Info(resp)
 	//fmt.Println(resp)
 
-	jsonBytes, errJson := json.Marshal(resp.InstanceTypes)
+	jsonString, errJson := ConvertJsonString(resp.InstanceTypes[0])
 	if errJson != nil {
-		cblogger.Error("JSON 변환 실패")
 		cblogger.Error(errJson)
-		return "", errJson
 	}
-
-	jsonString := string(jsonBytes)
-	return jsonString, nil
+	return jsonString, errJson
 }
 
 // AWS의 정보 그대로를 가공 없이 JSON으로 리턴 함.
@@ -219,14 +229,9 @@ func (vmSpecHandler *AwsVmSpecHandler) GetOrgVMSpec(Region string, Name string) 
 		return "", errors.New(Name + "에 해당하는 Spec 정보를 찾을 수 없습니다.")
 	}
 
-	//vMSpecInfo := ExtractVMSpecInfo(Region, resp.InstanceTypes[0])
-	jsonBytes, errJson := json.Marshal(resp.InstanceTypes[0])
+	jsonString, errJson := ConvertJsonString(resp.InstanceTypes[0])
 	if errJson != nil {
-		cblogger.Error("JSON 변환 실패")
 		cblogger.Error(errJson)
-		return "", errJson
 	}
-
-	jsonString := string(jsonBytes)
-	return jsonString, nil
+	return jsonString, errJson
 }

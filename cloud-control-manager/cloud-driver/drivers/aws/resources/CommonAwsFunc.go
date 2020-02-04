@@ -11,6 +11,8 @@
 package resources
 
 import (
+	"encoding/json"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/ec2"
@@ -192,6 +194,7 @@ func (vNetworkHandler *AwsVNetworkHandler) IsAvailableAutoCBNet() bool {
 	return false
 }
 
+//Name Tag 설정
 func SetNameTag(Client *ec2.EC2, Id string, value string) bool {
 	// Tag에 Name 설정
 	cblogger.Infof("Name Tage 설정 - ResourceId : [%s]  Value : [%s] ", Id, value)
@@ -211,4 +214,47 @@ func SetNameTag(Client *ec2.EC2, Id string, value string) bool {
 	}
 
 	return true
+}
+
+//AWS 출력 결과를 JSON으로 변환이 필요할 경우 이용
+func ConvertJsonString(v interface{}) (string, error) {
+	jsonBytes, errJson := json.Marshal(v)
+	if errJson != nil {
+		cblogger.Error("JSON 변환 실패")
+		cblogger.Error(errJson)
+		return "", errJson
+	}
+
+	jsonString := string(jsonBytes)
+
+	return jsonString, nil
+}
+
+//AWS 출력 결과를 CB-KeyValue 형식으로 변환이 필요할 경우 이용
+func ConvertKeyValueList(v interface{}) ([]irs.KeyValue, error) {
+	var keyValueList []irs.KeyValue
+	var i map[string]interface{}
+
+	jsonBytes, errJson := json.Marshal(v)
+	if errJson != nil {
+		cblogger.Error("KeyValue 변환 실패")
+		cblogger.Error(errJson)
+		return nil, errJson
+	}
+
+	json.Unmarshal(jsonBytes, &i)
+	//jsonString := string(jsonBytes)
+
+	for k, v := range i {
+		//cblogger.Infof("K:[%s]====>", k)
+		_, ok := v.(string)
+		if !ok {
+			cblogger.Errorf("Key[%s]의 값은 변환 불가", k)
+			continue
+		}
+		keyValueList = append(keyValueList, irs.KeyValue{k, v.(string)})
+		cblogger.Info("getKeyValueList : ", keyValueList)
+	}
+
+	return keyValueList, nil
 }

@@ -26,7 +26,7 @@ var cblogger *logrus.Logger
 
 func init() {
 	// cblog is a global variable.
-	cblogger = cblog.GetLogger("AWS Resource Test")
+	cblogger = cblog.GetLogger("AlibabaCloud Resource Test")
 	cblog.SetLevel("debug")
 }
 
