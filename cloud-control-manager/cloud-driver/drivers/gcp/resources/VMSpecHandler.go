@@ -28,12 +28,13 @@ type GCPVMSpecHandler struct {
 	Credential idrv.CredentialInfo
 }
 
+//GCP는 Zone을 받아야 함 여기서 받는 Region 은 GCP에서는 Zone의 개념
 func (vmSpecHandler *GCPVMSpecHandler) ListVMSpec(Region string) ([]*irs.VMSpecInfo, error) {
 
 	projectID := vmSpecHandler.Credential.ProjectID
-	zone := vmSpecHandler.Region.Zone
+	//zone := vmSpecHandler.Region.Zone
 
-	resp, err := vmSpecHandler.Client.MachineTypes.List(projectID, zone).Do()
+	resp, err := vmSpecHandler.Client.MachineTypes.List(projectID, Region).Do()
 
 	if err != nil {
 		cblogger.Error(err)
@@ -42,7 +43,7 @@ func (vmSpecHandler *GCPVMSpecHandler) ListVMSpec(Region string) ([]*irs.VMSpecI
 	var vmSpecInfo []*irs.VMSpecInfo
 	for _, i := range resp.Items {
 		info := irs.VMSpecInfo{
-			Region: zone,
+			Region: Region,
 			Name:   i.Name,
 			VCpu: irs.VCpuInfo{
 				Count: string(i.GuestCpus),
@@ -57,9 +58,9 @@ func (vmSpecHandler *GCPVMSpecHandler) ListVMSpec(Region string) ([]*irs.VMSpecI
 func (vmSpecHandler *GCPVMSpecHandler) GetVMSpec(Region string, Name string) (irs.VMSpecInfo, error) {
 	// default info
 	projectID := vmSpecHandler.Credential.ProjectID
-	zone := vmSpecHandler.Region.Zone
+	//zone := vmSpecHandler.Region.Zone
 
-	info, err := vmSpecHandler.Client.MachineTypes.Get(projectID, zone, Name).Do()
+	info, err := vmSpecHandler.Client.MachineTypes.Get(projectID, Region, Name).Do()
 
 	if err != nil {
 		cblogger.Error(err)
@@ -89,9 +90,9 @@ func (vmSpecHandler *GCPVMSpecHandler) GetVMSpec(Region string, Name string) (ir
 
 func (vmSpecHandler *GCPVMSpecHandler) ListOrgVMSpec(Region string) (string, error) {
 	projectID := vmSpecHandler.Credential.ProjectID
-	zone := vmSpecHandler.Region.Zone
+	//zone := vmSpecHandler.Region.Zone
 
-	resp, err := vmSpecHandler.Client.MachineTypes.List(projectID, zone).Do()
+	resp, err := vmSpecHandler.Client.MachineTypes.List(projectID, Region).Do()
 
 	if err != nil {
 		cblogger.Error(err)
@@ -104,9 +105,9 @@ func (vmSpecHandler *GCPVMSpecHandler) ListOrgVMSpec(Region string) (string, err
 
 func (vmSpecHandler *GCPVMSpecHandler) GetOrgVMSpec(Region string, Name string) (string, error) {
 	projectID := vmSpecHandler.Credential.ProjectID
-	zone := vmSpecHandler.Region.Zone
+	//zone := vmSpecHandler.Region.Zone
 
-	info, err := vmSpecHandler.Client.MachineTypes.Get(projectID, zone, Name).Do()
+	info, err := vmSpecHandler.Client.MachineTypes.Get(projectID, Region, Name).Do()
 
 	if err != nil {
 		cblogger.Error(err)
