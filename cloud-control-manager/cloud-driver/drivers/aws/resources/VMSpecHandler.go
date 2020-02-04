@@ -77,13 +77,6 @@ func ExtractVMSpecInfo(Region string, instanceTypeInfo *ec2.InstanceTypeInfo) ir
 		vmSpecInfo.Mem = strconv.FormatInt(*instanceTypeInfo.MemoryInfo.SizeInMiB, 10)
 	}
 
-
-	keyValueList := []irs.KeyValue{
-		{Key: "Domain", Value: *allocRes.Domain},
-		{Key: "PublicIpv4Pool", Value: *allocRes.PublicIpv4Pool},
-		{Key: "AllocationId", Value: *allocRes.AllocationId},
-	}
-
 	return vmSpecInfo
 }
 
