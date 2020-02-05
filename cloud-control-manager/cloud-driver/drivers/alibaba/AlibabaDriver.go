@@ -38,6 +38,7 @@ func (AlibabaDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	drvCapabilityInfo.VNicHandler = false
 	drvCapabilityInfo.PublicIPHandler = false
 	drvCapabilityInfo.VMHandler = false
+	drvCapabilityInfo.VMSpecHandler = false
 
 	return drvCapabilityInfo
 }
@@ -68,6 +69,7 @@ func (driver *AlibabaDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (i
 		VNetClient:          VPCClient,
 		VNicClient:          ECSClient,
 		SubnetClient:        VPCClient,
+		VmSpecClient:        ECSClient,
 	}
 	return &iConn, nil
 }
