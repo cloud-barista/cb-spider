@@ -147,8 +147,11 @@ func (vmSpecHandler *AwsVmSpecHandler) GetVMSpec(Region string, Name string) (ir
 		},
 	}
 
+	//svc := ec2.New(&sess)
+	//svc := ec2.New(&vmSpecHandler.Client, aws.NewConfig().WithRegion("us-west-2"))
+	//req, resp := svc.DescribeInstanceTypesRequest(input)
+
 	// Example sending a request using the DescribeInstanceTypesRequest method.
-	//req, resp := vmSpecHandler.Client.DescribeInstanceTypesRequest(nil)
 	req, resp := vmSpecHandler.Client.DescribeInstanceTypesRequest(input)
 	err := req.Send()
 	if err != nil { // resp is now filled
