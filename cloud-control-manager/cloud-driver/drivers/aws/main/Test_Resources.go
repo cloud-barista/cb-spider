@@ -20,7 +20,6 @@ import (
 	awsdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/aws"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 
-	//irs2 "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/new-resources"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/sirupsen/logrus"
@@ -567,6 +566,100 @@ func testErr() error {
 	return awserr.New("504", "찾을 수 없음", nil)
 }
 
+// Test VMSpec
+func handleVMSpec() {
+	cblogger.Debug("Start VMSpec Resource Test")
+
+	ResourceHandler, err := getResourceHandler("VMSpec")
+	if err != nil {
+		panic(err)
+	}
+
+	handler := ResourceHandler.(irs.VMSpecHandler)
+
+	config := readConfigFile()
+	//reqVMSpec := config.Aws.VMSpec
+	//reqVMSpec := "t2.small"	// GPU가 없음
+	//reqVMSpec := "p3.2xlarge" // GPU 1개
+	reqVMSpec := "p3.8xlarge" // GPU 4개
+
+	reqRegion := config.Aws.Region
+	reqRegion = "us-east-1"
+	cblogger.Info("reqVMSpec : ", reqVMSpec)
+
+	for {
+		fmt.Println("")
+		fmt.Println("VMSpec Resource Test")
+		fmt.Println("1. ListVMSpec()")
+		fmt.Println("2. GetVMSpec()")
+		fmt.Println("3. ListOrgVMSpec()")
+		fmt.Println("4. GetOrgVMSpec()")
+		fmt.Println("0. Exit")
+
+		var commandNum int
+		//var reqDelIP string
+
+		inputCnt, err := fmt.Scan(&commandNum)
+		if err != nil {
+			panic(err)
+		}
+
+		if inputCnt == 1 {
+			switch commandNum {
+			case 1:
+				fmt.Println("Start ListVMSpec() ...")
+				result, err := handler.ListVMSpec(reqRegion)
+				if err != nil {
+					cblogger.Error("VMSpec 목록 조회 실패 : ", err)
+				} else {
+					cblogger.Info("VMSpec 목록 조회 결과")
+					spew.Dump(result)
+				}
+
+				fmt.Println("Finish ListVMSpec()")
+
+			case 2:
+				fmt.Println("Start GetVMSpec() ...")
+				result, err := handler.GetVMSpec(reqRegion, reqVMSpec)
+				if err != nil {
+					cblogger.Error(reqVMSpec, " VMSpec 정보 조회 실패 : ", err)
+				} else {
+					cblogger.Infof("VMSpec[%s]  정보 조회 결과", reqVMSpec)
+					spew.Dump(result)
+				}
+				fmt.Println("Finish GetVMSpec()")
+
+			case 3:
+				fmt.Println("Start ListOrgVMSpec() ...")
+				result, err := handler.ListOrgVMSpec(reqRegion)
+				if err != nil {
+					cblogger.Error("VMSpec 목록 조회 실패 : ", err)
+				} else {
+					cblogger.Info("VMSpec 목록 조회 결과")
+					spew.Dump(result)
+				}
+
+				fmt.Println("Finish ListOrgVMSpec()")
+
+			case 4:
+				fmt.Println("Start GetOrgVMSpec() ...")
+				result, err := handler.GetOrgVMSpec(reqRegion, reqVMSpec)
+				if err != nil {
+					cblogger.Error(reqVMSpec, " VMSpec 정보 조회 실패 : ", err)
+				} else {
+					cblogger.Infof("VMSpec[%s]  정보 조회 결과", reqVMSpec)
+					spew.Dump(result)
+				}
+				fmt.Println("Finish GetOrgVMSpec()")
+
+			case 0:
+				fmt.Println("Exit")
+				return
+			}
+		}
+	}
+}
+
 func main() {
 	cblogger.Info("AWS Resource Test")
 	/*
@@ -589,11 +682,12 @@ func main() {
 
 	//handleVNetwork() //VPC
 	//handleKeyPair()
-	handlePublicIP() // PublicIP 생성 후 conf
+	//handlePublicIP() // PublicIP 생성 후 conf
 	//handleSecurity()
 
 	//handleImage() //AMI
 	//handleVNic() //Lancard
+	handleVMSpec()
 
 	/*
 		KeyPairHandler, err := setKeyPairHandler()
@@ -649,6 +743,8 @@ func getResourceHandler(handlerType string) (interface{}, error) {
 		resourceHandler, err = cloudConnection.CreateVNetworkHandler()
 	case "VNic":
 		resourceHandler, err = cloudConnection.CreateVNicHandler()
+	case "VMSpec":
+		resourceHandler, err = cloudConnection.CreateVMSpecHandler()
 	}
 
 	if err != nil {
