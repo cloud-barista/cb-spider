@@ -77,6 +77,17 @@ func ExtractVMSpecInfo(Region string, instanceTypeInfo *ec2.InstanceTypeInfo) ir
 		vmSpecInfo.Mem = strconv.FormatInt(*instanceTypeInfo.MemoryInfo.SizeInMiB, 10)
 	}
 
+	//KeyValue 목록 처리
+	keyValueList, errKeyValue := ConvertKeyValueList(instanceTypeInfo)
+	cblogger.Errorf("[%]의 KeyValue 추출 실패", *instanceTypeInfo.InstanceType)
+	cblogger.Error(errKeyValue)
+	/*
+		if errKeyValue != nil {
+			return irs.VMSpecInfo{}, errKeyValue
+		}
+	*/
+	vmSpecInfo.KeyValueList = keyValueList
+
 	return vmSpecInfo
 }
 
@@ -167,12 +178,14 @@ func (vmSpecHandler *AwsVmSpecHandler) GetVMSpec(Region string, Name string) (ir
 
 	vMSpecInfo := ExtractVMSpecInfo(Region, resp.InstanceTypes[0])
 
-	//KeyValue 목록 처리
-	keyValueList, errKeyValue := ConvertKeyValueList(resp.InstanceTypes[0])
-	if errKeyValue != nil {
-		return irs.VMSpecInfo{}, errKeyValue
-	}
-	vMSpecInfo.KeyValueList = keyValueList
+	/*
+		//KeyValue 목록 처리
+		keyValueList, errKeyValue := ConvertKeyValueList(resp.InstanceTypes[0])
+		if errKeyValue != nil {
+			return irs.VMSpecInfo{}, errKeyValue
+		}
+		vMSpecInfo.KeyValueList = keyValueList
+	*/
 
 	return vMSpecInfo, nil
 }
