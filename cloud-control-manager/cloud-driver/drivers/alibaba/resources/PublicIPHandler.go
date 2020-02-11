@@ -93,22 +93,25 @@ func (publicIpHandler *AlibabaPublicIPHandler) ListPublicIP() ([]*irs.PublicIPIn
 	// 	},
 	// })
 	result, err := publicIpHandler.Client.DescribeEipAddresses(request)
+	spew.Dump(result)
 	if err != nil {
 		cblogger.Errorf("Unable to get elastic IP address, %v", err)
 		return nil, err
 	}
 
 	// Printout the IP addresses if there are any.
-	if reflect.ValueOf(result.EipAddresses).IsNil() {
-		//if len(result.EipAddresses) == 0 {
+	//if reflect.ValueOf(result.EipAddresses).IsNil() {
+	//if len(result.EipAddresses) == 0 {
+	if result.TotalCount < 1 {
 		//cblogger.Infof("No elastic IPs for %s region\n", publicIpHandler.Region)
 		cblogger.Info("Not found Elastic IP List Information")
-	} else {
-		cblogger.Info("Elastic IPs")
-		for _, addr := range result.EipAddresses.EipAddress {
-			publicIPInfo := extractPublicIpDescribeInfo(&addr)
-			publicIpList = append(publicIpList, &publicIPInfo)
-		}
+		return publicIpList, nil
+	}
+
+	cblogger.Info("Elastic IPs")
+	for _, addr := range result.EipAddresses.EipAddress {
+		publicIPInfo := extractPublicIpDescribeInfo(&addr)
+		publicIpList = append(publicIpList, &publicIPInfo)
 	}
 
 	return publicIpList, nil
