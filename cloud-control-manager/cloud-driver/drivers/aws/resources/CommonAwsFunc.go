@@ -12,6 +12,10 @@ package resources
 
 import (
 	"encoding/json"
+	"errors"
+	"fmt"
+	"reflect"
+	"strconv"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
@@ -216,7 +220,7 @@ func SetNameTag(Client *ec2.EC2, Id string, value string) bool {
 	return true
 }
 
-//AWS 출력 결과를 JSON으로 변환이 필요할 경우 이용
+//Cloud Object를 JSON String 타입으로 변환
 func ConvertJsonString(v interface{}) (string, error) {
 	jsonBytes, errJson := json.Marshal(v)
 	if errJson != nil {
@@ -230,8 +234,36 @@ func ConvertJsonString(v interface{}) (string, error) {
 	return jsonString, nil
 }
 
-//AWS 출력 결과를 CB-KeyValue 형식으로 변환이 필요할 경우 이용
+//CB-KeyValue 등을 위해 String 타입으로 변환
+func ConvertToString(value interface{}) (string, error) {
+	if value == nil {
+		cblogger.Error("Nil Value")
+		return "", errors.New("NIL Value")
+	}
+
+	var result string
+	t := reflect.ValueOf(value)
+	cblogger.Debug("==>ValueOf : ", t)
+
+	switch value.(type) {
+	case float32:
+		result = strconv.FormatFloat(t.Float(), 'f', -1, 32) // f, fmt, prec, bitSize
+	case float64:
+		result = strconv.FormatFloat(t.Float(), 'f', -1, 64) // f, fmt, prec, bitSize
+		//strconv.FormatFloat(instanceTypeInfo.MemorySize, 'f', 0, 64)
+
+	default:
+		cblogger.Debug("--> default type:", reflect.ValueOf(value).Type())
+		result = fmt.Sprint(value)
+	}
+
+	return result, nil
+}
+
+//Cloud Object를 CB-KeyValue 형식으로 변환이 필요할 경우 이용
 func ConvertKeyValueList(v interface{}) ([]irs.KeyValue, error) {
+	spew.Dump(v)
+
 	var keyValueList []irs.KeyValue
 	var i map[string]interface{}
 
@@ -243,18 +275,36 @@ func ConvertKeyValueList(v interface{}) ([]irs.KeyValue, error) {
 	}
 
 	json.Unmarshal(jsonBytes, &i)
-	//jsonString := string(jsonBytes)
 
 	for k, v := range i {
-		//cblogger.Infof("K:[%s]====>", k)
-		_, ok := v.(string)
-		if !ok {
-			cblogger.Errorf("Key[%s]의 값은 변환 불가", k)
+		cblogger.Debugf("K:[%s]====>", k)
+		/*
+			cblogger.Infof("v:[%s]====>", reflect.ValueOf(v))
+
+			vv := reflect.ValueOf(v)
+			cblogger.Infof("value ====>[%s]", vv.String())
+			s := fmt.Sprint(v)
+			cblogger.Infof("value2 ====>[%s]", s)
+		*/
+		//value := fmt.Sprint(v)
+		value, errString := ConvertToString(v)
+		if errString != nil {
+			cblogger.Errorf("Key[%s]의 값은 변환 불가 - [%s]", k, errString)
 			continue
 		}
-		keyValueList = append(keyValueList, irs.KeyValue{k, v.(string)})
-		cblogger.Info("getKeyValueList : ", keyValueList)
+		keyValueList = append(keyValueList, irs.KeyValue{k, value})
+
+		/*
+			_, ok := v.(string)
+			if !ok {
+				cblogger.Errorf("Key[%s]의 값은 변환 불가", k)
+				continue
+			}
+			keyValueList = append(keyValueList, irs.KeyValue{k, v.(string)})
+		*/
 	}
+	cblogger.Debug("getKeyValueList : ", keyValueList)
+	//keyValueList = append(keyValueList, irs.KeyValue{"test", typeToString([]float32{3.14, 1.53, 2.0000000000000})})
 
 	return keyValueList, nil
 }

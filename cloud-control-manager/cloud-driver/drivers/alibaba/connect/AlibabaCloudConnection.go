@@ -39,6 +39,7 @@ type AlibabaCloudConnection struct {
 	VNetClient          *vpc.Client
 	VNicClient          *ecs.Client
 	SubnetClient        *vpc.Client
+	VmSpecClient        *ecs.Client
 }
 
 func (cloudConn *AlibabaCloudConnection) CreateVNetworkHandler() (irs.VNetworkHandler, error) {
@@ -82,6 +83,12 @@ func (cloudConn *AlibabaCloudConnection) CreateVMHandler() (irs.VMHandler, error
 	cblogger.Info("Alibaba Cloud Driver: called CreateVMHandler()!")
 	vmHandler := alirs.AlibabaVMHandler{cloudConn.Region, cloudConn.VMClient}
 	return &vmHandler, nil
+}
+
+func (cloudConn *AlibabaCloudConnection) CreateVMSpecHandler() (irs.VMSpecHandler, error) {
+	cblogger.Info("Start")
+	handler := alirs.AlibabaVmSpecHandler{cloudConn.Region, cloudConn.VmSpecClient}
+	return &handler, nil
 }
 
 func (AlibabaCloudConnection) IsConnected() (bool, error) {
