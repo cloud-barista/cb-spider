@@ -3,19 +3,20 @@ RESTSERVER=localhost
 #정상 동작
 
 #[참고]
-# - NetworkInterfaceId는 현재 전달 받아도 내부에서 처리하지 않음. (지금은 AWS API에서 자동으로 생성되는 vNic에 전달 받은 PublicIP를 할당 함.)
-# - PublicIPId : PublicIP 생성 시 사용한 Name 필드 값이 아닌 생성 후 전달 받은 Name(AllocateID) 필드의 값을 입력해야 함.
+# - ~~Id는 AWS 기준의 Id가 아닌 각 객체를 생성할 때 사용한 Name임.
+# - VirtualNetworkId는 현재 CB-VNet-Subnet 고정임.
+# - NetworkInterfaceId는 전달할 필요 없으며, 전달할 경우 eth1에 할당됨.
 curl -X POST http://$RESTSERVER:1024/vm?connection_name=aws-config01 -H 'Content-Type: application/json' -d '{
-    "VMName": "vm01", 
+    "VMName": "cbvm01", 
         "ImageId": "ami-047f7b46bd6dd5d84",
-        "VirtualNetworkId": "subnet-0c618f11349dad285",
+        "VirtualNetworkId": "CB-VNet-Subnet",
         "NetworkInterfaceId": "",
-        "PublicIPId": "eipalloc-0e95789a23e6d0c6f", 
+        "PublicIPId": "cbpublicip01", 
     "SecurityGroupIds": [
-        "sg-06c4523b969eaafc7"
+        "cbsg01-in"
     ],
         "VMSpecId": "t2.micro",
-        "KeyPairName": "mcb-keypair",
+        "KeyPairName": "cbkeypair01",
         "VMUserId": "",
         "VMUserPasswd": ""
 }' |json_pp

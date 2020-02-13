@@ -6,7 +6,7 @@
 //
 // This is a Cloud Driver Example for PoC Test.
 //
-// by powerkim@etri.re.kr, 2019.06.
+// by CB-Spider Team, 2019.06.
 
 package connect
 
@@ -46,7 +46,7 @@ func (cloudConn *OpenStackCloudConnection) CreateImageHandler() (irs.ImageHandle
 
 func (cloudConn OpenStackCloudConnection) CreateSecurityHandler() (irs.SecurityHandler, error) {
 	cblogger.Info("OpenStack Cloud Driver: called CreateSecurityHandler()!")
-	securityHandler := osrs.OpenStackSecurityHandler{cloudConn.Client}
+	securityHandler := osrs.OpenStackSecurityHandler{cloudConn.Client, cloudConn.NetworkClient}
 	return &securityHandler, nil
 }
 func (cloudConn *OpenStackCloudConnection) CreateKeyPairHandler() (irs.KeyPairHandler, error) {
@@ -81,6 +81,12 @@ func (cloudConn *OpenStackCloudConnection) CreateVMHandler() (irs.VMHandler, err
 	cblogger.Info("OpenStack Cloud Driver: called CreateVMHandler()!")
 	vmHandler := osrs.OpenStackVMHandler{cloudConn.Client, cloudConn.NetworkClient}
 	return &vmHandler, nil
+}
+
+func (cloudConn *OpenStackCloudConnection) CreateVMSpecHandler() (irs.VMSpecHandler, error) {
+	cblogger.Info("OpenStack Cloud Driver: called CreateVMSpecHandler()!")
+	vmSpecHandler := osrs.OpenStackVMSpecHandler{cloudConn.Client}
+	return &vmSpecHandler, nil
 }
 
 func (OpenStackCloudConnection) IsConnected() (bool, error) {

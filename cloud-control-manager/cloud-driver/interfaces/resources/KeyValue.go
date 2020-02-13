@@ -6,7 +6,7 @@
 //
 // This is Resouces interfaces of Cloud Driver.
 //
-// by powerkim@etri.re.kr, 2019.10.
+// by CB-Spider Team, 2019.10.
 
 package resources
 

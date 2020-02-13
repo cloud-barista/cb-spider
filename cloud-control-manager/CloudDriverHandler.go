@@ -4,7 +4,7 @@
 //
 //      * Cloud-Barista: https://github.com/cloud-barista
 //
-// by powerkim@etri.re.kr, 2019.09.
+// by CB-Spider Team, 2019.09.
 
 package clouddriverhandler
 
@@ -108,6 +108,7 @@ func GetCloudConnection(cloudConnectName string) (icon.CloudConnection, error) {
 		regionName = getValue(rgnInfo.KeyValueInfoList, "Region")
 		zoneName = getValue(rgnInfo.KeyValueInfoList, "Zone")
 	case "OPENSTACK":
+	case "CLOUDTWIN":
 		regionName = getValue(rgnInfo.KeyValueInfoList, "Region")
 	case "CLOUDIT":
 		// Cloudit do not use Region, But set default @todo 2019.10.28 by powerkim.

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/rackspace/gophercloud"
+	"github.com/rackspace/gophercloud/openstack/compute/v2/flavors"
 	"github.com/rackspace/gophercloud/openstack/networking/v2/networks"
 	"github.com/rackspace/gophercloud/pagination"
 	"strconv"
@@ -48,14 +49,6 @@ func CreateSubnetCIDR(subnetList []*irs.VNetworkInfo) (*string, error) {
 	return &subnetCIDR, nil
 }
 
-// 외부 네트워크(Public Network) 정보 조회
-/*func GetExternalNetwork(client *gophercloud.ServiceClient) (string, error) {
-
-	listOpts := external.ListOptsExt{
-		External: to.BoolPtr(true),
-	}
-}*/
-
 // 기본 가상 네트워크(CB-VNet) Id 정보 조회
 func GetCBVNetId(client *gophercloud.ServiceClient) (string, error) {
 	listOpt := networks.ListOpts{
@@ -83,3 +76,37 @@ func GetCBVNetId(client *gophercloud.ServiceClient) (string, error) {
 
 	return vNetworkId, nil
 }
+
+func GetFlavor(client *gophercloud.ServiceClient, flavorName string) (*string, error) {
+	flavorId, err := flavors.IDFromName(client, flavorName)
+	if err != nil {
+		return nil, err
+	}
+	return &flavorId, nil
+}
+
+// 외부 네트워크(Public Network) 정보 조회
+/*func GetExternalNetwork(client *gophercloud.ServiceClient) (string, error) {
+
+	listOpts := external.ListOptsExt{
+		External: to.BoolPtr(true),
+	}
+}*/
+/*func GetPublicGatewayId() (*string, error) {
+	//CBPublicIPPool       = "ext"
+	//CBGateWayId          = "8c1af031-aad6-4762-ac83-52e09dd82571"
+
+	listOpts := external.ListOptsExt{
+		External: to.BoolPtr(true),
+	}
+
+	query, err := listOpts.ToNetworkListQuery()
+	if err != nil {
+		panic(err)
+		return nil, err
+	}
+
+	fmt.Println(query)
+
+	return nil, nil
+}*/

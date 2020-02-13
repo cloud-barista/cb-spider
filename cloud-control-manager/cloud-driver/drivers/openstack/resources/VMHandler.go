@@ -11,6 +11,7 @@
 package resources
 
 import (
+	"errors"
 	"fmt"
 	cblog "github.com/cloud-barista/cb-log"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
@@ -32,28 +33,81 @@ func init() {
 	cblogger = cblog.GetLogger("CB-SPIDER")
 }
 
-// modified by powerkim, 2019.07.29
 type OpenStackVMHandler struct {
 	Client        *gophercloud.ServiceClient
 	NetworkClient *gophercloud.ServiceClient
 }
 
-// modified by powerkim, 2019.07.29
 func (vmHandler *OpenStackVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, error) {
+	// 가상서버 이름 중복 체크
+	vmId, _ := vmHandler.getVmIdByName(vmReqInfo.VMName)
+	if vmId != "" {
+		errMsg := fmt.Sprintf("VirtualMachine with name %s already exist", vmReqInfo.VMName)
+		createErr := errors.New(errMsg)
+		return irs.VMInfo{}, createErr
+	}
 
 	vNetId, err := GetCBVNetId(vmHandler.NetworkClient)
 	if err != nil {
 		return irs.VMInfo{}, err
 	}
+	if vNetId == "" {
+		cblogger.Error(fmt.Sprintf("failed to get vnetwork"))
+		return irs.VMInfo{}, err
+	}
 
+	//  이미지 정보 조회 (Name)
+	imageHandler := OpenStackImageHandler{
+		Client: vmHandler.Client,
+	}
+	image, err := imageHandler.GetImage(vmReqInfo.ImageId)
+	if err != nil {
+		cblogger.Error(fmt.Sprintf("failed to get image, err : %s", err))
+		return irs.VMInfo{}, err
+	}
+
+	//  네트워크 정보 조회 (Name)
+	/*vNetworkHandler := OpenStackVNetworkHandler{
+		Client: vmHandler.Client,
+	}
+	vNetwork, err := vNetworkHandler.GetVNetwork(vmReqInfo.VirtualNetworkId)
+	if err != nil {
+		cblogger.Error(fmt.Sprintf("failed to get virtual network, err : %s", err))
+		return irs.VMInfo{}, err
+	}*/
+
+	// 보안그룹 정보 조회 (Name)
+	securityHandler := OpenStackSecurityHandler{
+		Client:        vmHandler.Client,
+		NetworkClient: vmHandler.NetworkClient,
+	}
+	secGroups := make([]string, len(vmReqInfo.SecurityGroupIds))
+	for i, s := range vmReqInfo.SecurityGroupIds {
+		security, err := securityHandler.GetSecurity(s)
+		if err != nil {
+			cblogger.Error(fmt.Sprintf("failed to get security group, err : %s", err))
+			return irs.VMInfo{}, err
+			//continue
+		}
+		secGroups[i] = security.Id
+	}
+
+	// Flavor 정보 조회 (Name)
+	flavorId, err := GetFlavor(vmHandler.Client, vmReqInfo.VMSpecId)
+	if err != nil {
+		cblogger.Error(fmt.Sprintf("failed to get vm spec, err : %s", err))
+		return irs.VMInfo{}, err
+	}
+
+	// VM 생성
 	serverCreateOpts := servers.CreateOpts{
 		Name:      vmReqInfo.VMName,
-		ImageRef:  vmReqInfo.ImageId,
-		FlavorRef: vmReqInfo.VMSpecId,
+		ImageRef:  image.Id,
+		FlavorRef: *flavorId,
 		Networks: []servers.Network{
 			{UUID: vNetId},
 		},
-		SecurityGroups: vmReqInfo.SecurityGroupIds,
+		SecurityGroups: secGroups,
 	}
 
 	// Add KeyPair
@@ -68,7 +122,7 @@ func (vmHandler *OpenStackVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInf
 	}
 
 	// VM 생성 완료까지 wait
-	vmId := server.ID
+	vmId = server.ID
 	var isDeployed bool
 	var serverInfo irs.VMInfo
 
@@ -77,6 +131,8 @@ func (vmHandler *OpenStackVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInf
 			break
 		}
 
+		time.Sleep(5 * time.Second)
+
 		// Check VM Deploy Status
 		serverResult, err := servers.Get(vmHandler.Client, vmId).Extract()
 		if err != nil {
@@ -84,22 +140,26 @@ func (vmHandler *OpenStackVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInf
 		}
 		if strings.ToLower(serverResult.Status) == "active" {
 			// Associate Public IP
-			if ok, err := vmHandler.AssociatePublicIP(serverResult.ID, vmReqInfo.PublicIPId); !ok {
+			if ok, err := vmHandler.AssociatePublicIP(serverResult.ID); !ok {
 				return irs.VMInfo{}, err
 			}
 
 			serverInfo = mappingServerInfo(*serverResult)
 			isDeployed = true
 		}
-
-		time.Sleep(5 * time.Second)
 	}
 
 	return serverInfo, nil
 }
 
-func (vmHandler *OpenStackVMHandler) SuspendVM(vmID string) (irs.VMStatus, error) {
-	err := startstop.Stop(vmHandler.Client, vmID).Err
+func (vmHandler *OpenStackVMHandler) SuspendVM(vmNameID string) (irs.VMStatus, error) {
+	vmID, err := vmHandler.getVmIdByName(vmNameID)
+	if err != nil {
+		cblogger.Error(err)
+		return irs.Failed, err
+	}
+
+	err = startstop.Stop(vmHandler.Client, vmID).Err
 	if err != nil {
 		cblogger.Error(err)
 		return irs.Failed, err
@@ -109,8 +169,14 @@ func (vmHandler *OpenStackVMHandler) SuspendVM(vmID string) (irs.VMStatus, error
 	return irs.Suspending, nil
 }
 
-func (vmHandler *OpenStackVMHandler) ResumeVM(vmID string) (irs.VMStatus, error) {
-	err := startstop.Start(vmHandler.Client, vmID).Err
+func (vmHandler *OpenStackVMHandler) ResumeVM(vmNameID string) (irs.VMStatus, error) {
+	vmID, err := vmHandler.getVmIdByName(vmNameID)
+	if err != nil {
+		cblogger.Error(err)
+		return irs.Failed, err
+	}
+
+	err = startstop.Start(vmHandler.Client, vmID).Err
 	if err != nil {
 		cblogger.Error(err)
 		return irs.Failed, err
@@ -120,13 +186,19 @@ func (vmHandler *OpenStackVMHandler) ResumeVM(vmID string) (irs.VMStatus, error)
 	return irs.Resuming, nil
 }
 
-func (vmHandler *OpenStackVMHandler) RebootVM(vmID string) (irs.VMStatus, error) {
+func (vmHandler *OpenStackVMHandler) RebootVM(vmNameID string) (irs.VMStatus, error) {
 	/*rebootOpts := servers.RebootOpts{
 		Type: servers.SoftReboot,
 		//Type: servers.HardReboot,
 	}*/
+	vmID, err := vmHandler.getVmIdByName(vmNameID)
+	if err != nil {
+		cblogger.Error(err)
+		return irs.Failed, err
+	}
+
 	rebootOpts := servers.SoftReboot
-	err := servers.Reboot(vmHandler.Client, vmID, rebootOpts).ExtractErr()
+	err = servers.Reboot(vmHandler.Client, vmID, rebootOpts).ExtractErr()
 	if err != nil {
 		cblogger.Error(err)
 		return irs.Failed, err
@@ -136,8 +208,45 @@ func (vmHandler *OpenStackVMHandler) RebootVM(vmID string) (irs.VMStatus, error)
 	return irs.Rebooting, nil
 }
 
-func (vmHandler *OpenStackVMHandler) TerminateVM(vmID string) (irs.VMStatus, error) {
-	err := servers.Delete(vmHandler.Client, vmID).ExtractErr()
+func (vmHandler *OpenStackVMHandler) TerminateVM(vmNameID string) (irs.VMStatus, error) {
+	// VM 정보 조회
+	server, err := vmHandler.GetVM(vmNameID)
+	if err != nil {
+		cblogger.Error(err)
+		return irs.Failed, err
+	}
+
+	// VM에 연결된 PublicIP 삭제
+	pager, err := floatingip.List(vmHandler.Client).AllPages()
+	if err != nil {
+		cblogger.Error(err)
+		return irs.Failed, err
+	}
+	publicIPList, err := floatingip.ExtractFloatingIPs(pager)
+	if err != nil {
+		cblogger.Error(err)
+		return irs.Failed, err
+	}
+
+	// IP 기준 PublicIP 검색
+	var publicIPId string
+	for _, p := range publicIPList {
+		if strings.EqualFold(server.PublicIP, p.IP) {
+			publicIPId = p.ID
+			break
+		}
+	}
+	// Public IP 삭제
+	if publicIPId != "" {
+		err := floatingip.Delete(vmHandler.Client, publicIPId).ExtractErr()
+		if err != nil {
+			cblogger.Error(err)
+			return irs.Failed, err
+		}
+	}
+
+	// VM 삭제
+	err = servers.Delete(vmHandler.Client, server.Id).ExtractErr()
 	if err != nil {
 		cblogger.Error(err)
 		return irs.Failed, err
@@ -162,6 +271,7 @@ func (vmHandler *OpenStackVMHandler) ListVMStatus() ([]*irs.VMStatusInfo, error)
 			vmStatus := irs.VMStatus(s.Status)
 			vmStatusInfo := irs.VMStatusInfo{
 				VmId:     s.ID,
+				VmName:   s.Name,
 				VmStatus: vmStatus,
 			}
 			vmStatusList = append(vmStatusList, &vmStatusInfo)
@@ -176,7 +286,12 @@ func (vmHandler *OpenStackVMHandler) ListVMStatus() ([]*irs.VMStatusInfo, error)
 	return vmStatusList, nil
 }
 
-func (vmHandler *OpenStackVMHandler) GetVMStatus(vmID string) (irs.VMStatus, error) {
+func (vmHandler *OpenStackVMHandler) GetVMStatus(vmNameID string) (irs.VMStatus, error) {
+	vmID, err := vmHandler.getVmIdByName(vmNameID)
+	if err != nil {
+		return "", nil
+	}
+
 	serverResult, err := servers.Get(vmHandler.Client, vmID).Extract()
 	if err != nil {
 		cblogger.Error(err)
@@ -202,31 +317,39 @@ func (vmHandler *OpenStackVMHandler) GetVMStatus(vmID string) (irs.VMStatus, err
 }
 
 func (vmHandler *OpenStackVMHandler) ListVM() ([]*irs.VMInfo, error) {
-	var vmList []*irs.VMInfo
 
-	pager := servers.List(vmHandler.Client, nil)
-	err := pager.EachPage(func(page pagination.Page) (bool, error) {
-		// Get Servers
-		list, err := servers.ExtractServers(page)
-		if err != nil {
-			return false, err
-		}
-		// Add to List
-		for _, s := range list {
-			vmInfo := mappingServerInfo(s)
-			vmList = append(vmList, &vmInfo)
-		}
-		return true, nil
-	})
+	// 가상서버 목록 조회
+	pager, err := servers.List(vmHandler.Client, nil).AllPages()
 	if err != nil {
-		cblogger.Error(err)
+		return nil, err
+	}
+	servers, err := servers.ExtractServers(pager)
+	if err != nil {
 		return nil, err
 	}
 
-	return vmList, err
+	// 가상서버 목록 정보 매핑
+	vmList := make([]*irs.VMInfo, len(servers))
+	for i, v := range servers {
+		serverInfo := mappingServerInfo(v)
+		vmList[i] = &serverInfo
+	}
+	return vmList, nil
 }
 
-func (vmHandler *OpenStackVMHandler) GetVM(vmID string) (irs.VMInfo, error) {
+func (vmHandler *OpenStackVMHandler) GetVM(vmNameID string) (irs.VMInfo, error) {
+	// 기존의 vmID 기준 가상서버 조회 (old)
+	/*serverResult, err := servers.Get(vmHandler.Client, vmID).Extract()
+	if err != nil {
+		cblogger.Info(err)
+		return irs.VMInfo{}, err
+	}*/
+
+	vmID, err := vmHandler.getVmIdByName(vmNameID)
+	if err != nil {
+		return irs.VMInfo{}, err
+	}
+
 	serverResult, err := servers.Get(vmHandler.Client, vmID).Extract()
 	if err != nil {
 		cblogger.Info(err)
@@ -237,12 +360,21 @@ func (vmHandler *OpenStackVMHandler) GetVM(vmID string) (irs.VMInfo, error) {
 	return vmInfo, nil
 }
 
-func (vmHandler *OpenStackVMHandler) AssociatePublicIP(serverID string, publicIPID string) (bool, error) {
+func (vmHandler *OpenStackVMHandler) AssociatePublicIP(serverID string) (bool, error) {
+	// PublicIP 생성
+	createOpts := floatingip.CreateOpts{
+		Pool: CBPublicIPPool,
+	}
+	publicIP, err := floatingip.Create(vmHandler.Client, createOpts).Extract()
+	if err != nil {
+		return false, err
+	}
+	// PublicIP VM 연결
 	associateOpts := floatingip.AssociateOpts{
 		ServerID:   serverID,
-		FloatingIP: publicIPID,
+		FloatingIP: publicIP.IP,
 	}
-	err := floatingip.AssociateInstance(vmHandler.Client, associateOpts).ExtractErr()
+	err = floatingip.AssociateInstance(vmHandler.Client, associateOpts).ExtractErr()
 	if err != nil {
 		return false, err
 	}
@@ -297,4 +429,35 @@ func mappingServerInfo(server servers.Server) irs.VMInfo {
 	}
 
 	return vmInfo
+}
+
+func (vmHandler *OpenStackVMHandler) getVmIdByName(vmNameID string) (string, error) {
+	var vmId string
+
+	// vmNameId 기준 가상서버 조회
+	listOpts := servers.ListOpts{
+		Name: vmNameID,
+	}
+
+	pager, err := servers.List(vmHandler.Client, listOpts).AllPages()
+	if err != nil {
+		return "", err
+	}
+	server, err := servers.ExtractServers(pager)
+	if err != nil {
+		return "", err
+	}
+
+	// 1개 이상의 가상서버가 중복 조회될 경우 에러 처리
+	if len(server) == 0 {
+		err := errors.New(fmt.Sprintf("failed to search vm with name %s", vmNameID))
+		return "", err
+	} else if len(server) > 1 {
+		err := errors.New(fmt.Sprintf("failed to search vm, duplicate nameId exists, %s", vmNameID))
+		return "", err
+	} else {
+		vmId = server[0].ID
+	}
+
+	return vmId, nil
 }

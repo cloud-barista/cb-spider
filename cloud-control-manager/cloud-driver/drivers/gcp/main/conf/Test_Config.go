@@ -55,6 +55,7 @@ func GetResourceHandler(handlerType string) (interface{}, error) {
 	cblogger.Infof("credentialFilePath : [%s]", credentialFilePath)
 
 	config, _ := readFileConfig(credentialFilePath)
+	//region := "europe-west1"
 	region := "asia-northeast1"
 	zone := "asia-northeast1-b"
 
@@ -95,6 +96,8 @@ func GetResourceHandler(handlerType string) (interface{}, error) {
 		resourceHandler, err = cloudConnection.CreateVMHandler()
 	case "KeyPair":
 		resourceHandler, err = cloudConnection.CreateKeyPairHandler()
+	case "VMSpec":
+		resourceHandler, err = cloudConnection.CreateVMSpecHandler()
 	}
 
 	if err != nil {

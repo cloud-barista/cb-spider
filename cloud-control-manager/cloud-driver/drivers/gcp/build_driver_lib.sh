@@ -1,3 +1,6 @@
+#!/bin/bash
+source ../../../../setup.env
+
 DRIVERLIB_PATH=$CBSPIDER_ROOT/cloud-driver-libs
 DRIVERFILENAME=gcp-driver-v1.0
 

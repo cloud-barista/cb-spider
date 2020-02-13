@@ -4,7 +4,7 @@
 //
 //      * Cloud-Barista: https://github.com/cloud-barista
 //
-// by powerkim@etri.re.kr, 2019.09.
+// by CB-Spider Team, 2019.09.
 
 package main
 
@@ -17,11 +17,6 @@ import (
 	dim "github.com/cloud-barista/cb-spider/cloud-info-manager/driver-info-manager"
 	rim "github.com/cloud-barista/cb-spider/cloud-info-manager/region-info-manager"
 
-	// ccim "../../cloud-info-manager/connection-config-info-manager"
-	// cim "../../cloud-info-manager/credential-info-manager"
-	// dim "../../cloud-info-manager/driver-info-manager"
-	// rim "../../cloud-info-manager/region-info-manager"
-
 	// REST API (echo)
 	"net/http"
 
@@ -31,7 +26,6 @@ import (
 //================ CloudDriver Handler
 func registerCloudDriver(c echo.Context) error {
 	cblog.Info("call registerCloudDriver()")
-	fmt.Println("###############호출 했음. 왜 안되는가 봅시다.###############")
 	req := &dim.CloudDriverInfo{}
 	if err := c.Bind(req); err != nil {
 		fmt.Println("Binding error!!!")

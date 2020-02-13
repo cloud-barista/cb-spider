@@ -6,12 +6,11 @@
 //
 // This is interfaces of Cloud Driver.
 //
-// by powerkim@etri.re.kr, 2019.06.
+// by CB-Spider Team, 2019.06.
 
 package interfaces
 
 import (
-	//icon "./connect"
 	icon "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/connect"
 )
 
@@ -23,6 +22,7 @@ type DriverCapabilityInfo struct {
 	VNicHandler     bool // support: true, do not support: false
 	PublicIPHandler bool // support: true, do not support: false
 	VMHandler       bool // support: true, do not support: false
+	VMSpecHandler   bool // support: true, do not support: false
 }
 
 type CredentialInfo struct {

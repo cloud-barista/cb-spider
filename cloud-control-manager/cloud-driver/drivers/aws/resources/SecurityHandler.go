@@ -6,7 +6,7 @@
 //
 // This is Resouces interfaces of Cloud Driver.
 //
-// by powerkim@etri.re.kr, 2019.06.
+// by CB-Spider Team, 2019.06.
 
 package resources
 
@@ -28,6 +28,7 @@ type AwsSecurityHandler struct {
 	Client *ec2.EC2
 }
 
+//2019-11-16부로 CB-Driver 전체 로직이 NameId 기반으로 변경됨. (보안 그룹은 그룹명으로 처리 가능하기 때문에 Name 태깅시 에러는 무시함)
 //@TODO : 존재하는 보안 그룹에 정책 추가하는 기능 필요
 //VPC 생략 시 활성화된 세션의 기본 VPC를 이용 함.
 func (securityHandler *AwsSecurityHandler) CreateSecurity(securityReqInfo irs.SecurityReqInfo) (irs.SecurityInfo, error) {
@@ -218,7 +219,8 @@ func (securityHandler *AwsSecurityHandler) CreateSecurity(securityReqInfo irs.Se
 		cblogger.Error(errTag)
 	}
 
-	securityInfo, _ := securityHandler.GetSecurity(*createRes.GroupId)
+	//securityInfo, _ := securityHandler.GetSecurity(*createRes.GroupId)
+	securityInfo, _ := securityHandler.GetSecurity(securityReqInfo.Name) //2019-11-16 NameId 기반으로 변경됨
 	return securityInfo, nil
 }
 
@@ -268,13 +270,26 @@ func (securityHandler *AwsSecurityHandler) ListSecurity() ([]*irs.SecurityInfo, 
 	return results, nil
 }
 
-func (securityHandler *AwsSecurityHandler) GetSecurity(securityID string) (irs.SecurityInfo, error) {
-	cblogger.Infof("securityID : [%s]", securityID)
+//2019-11-16부로 CB-Driver 전체 로직이 NameId 기반으로 변경됨.
+func (securityHandler *AwsSecurityHandler) GetSecurity(securityNameId string) (irs.SecurityInfo, error) {
+	cblogger.Infof("securityNameId : [%s]", securityNameId)
 	input := &ec2.DescribeSecurityGroupsInput{
-		GroupIds: []*string{
-			aws.String(securityID),
-		},
+		/*
+			GroupIds: []*string{
+				aws.String(securityID),
+			},
+		*/
 	}
+	input.Filters = ([]*ec2.Filter{
+		&ec2.Filter{
+			//Name: aws.String("tag:Name"), // subnet-id
+			Name: aws.String("group-name"), // subnet-id
+			Values: []*string{
+				aws.String(securityNameId),
+			},
+		},
+	})
+	cblogger.Info(input)
 
 	result, err := securityHandler.Client.DescribeSecurityGroups(input)
 	cblogger.Info("result : ", result)
@@ -297,7 +312,8 @@ func (securityHandler *AwsSecurityHandler) GetSecurity(securityID string) (irs.S
 		securityInfo := ExtractSecurityInfo(result.SecurityGroups[0])
 		return securityInfo, nil
 	} else {
-		return irs.SecurityInfo{}, errors.New("정보를 찾을 수 없습니다.")
+		//return irs.SecurityInfo{}, errors.New("[" + securityNameId + "] 정보를 찾을 수 없습니다.")
+		return irs.SecurityInfo{}, errors.New("InvalidSecurityGroup.NotFound: The security group '" + securityNameId + "' does not exist")
 	}
 }
 
@@ -416,8 +432,17 @@ func ExtractIpPermissions(ipPermissions []*ec2.IpPermission, direction string) [
 	return results
 }
 
-func (securityHandler *AwsSecurityHandler) DeleteSecurity(securityID string) (bool, error) {
-	cblogger.Infof("securityID : [%s]", securityID)
+//2019-11-16부로 CB-Driver 전체 로직이 NameId 기반으로 변경됨.
+func (securityHandler *AwsSecurityHandler) DeleteSecurity(securityNameId string) (bool, error) {
+	cblogger.Infof("securityNameId : [%s]", securityNameId)
+
+	securityInfo, errsecurityInfo := securityHandler.GetSecurity(securityNameId)
+	if errsecurityInfo != nil {
+		return false, errsecurityInfo
+	}
+	cblogger.Info(securityInfo)
+
+	securityID := securityInfo.Id
 
 	// Delete the security group.
 	_, err := securityHandler.Client.DeleteSecurityGroup(&ec2.DeleteSecurityGroupInput{

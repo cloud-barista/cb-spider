@@ -6,7 +6,7 @@
 //
 // This is Resouces interfaces of Cloud Driver.
 //
-// by powerkim@etri.re.kr, 2019.06.
+// by CB-Spider Team, 2019.06.
 
 package resources
 
@@ -16,7 +16,8 @@ type PublicIPReqInfo struct {
 }
 
 type PublicIPInfo struct {
-	Name      string // AWS : Name Tag대신 AllocationId를 리턴 함.(편의를 위해 Name 정보는 KeyValueList에 전달 함.), OpenStack : 381a10f8-5831-4822-8388-922673addde4(ID), Cloudit : 182.252.135.44(IP)
+	Name      string 
+	Id        string 
 	PublicIP  string
 	OwnedVMID string
 	Status    string

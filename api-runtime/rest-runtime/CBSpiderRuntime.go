@@ -4,7 +4,7 @@
 //
 //      * Cloud-Barista: https://github.com/cloud-barista
 //
-// by powerkim@etri.re.kr, 2019.10.
+// by CB-Spider Team, 2019.10.
 
 package main
 
@@ -137,6 +137,7 @@ func ApiServer(routes []route, strPort string) {
 	e := echo.New()
 
 	// Middleware
+	e.Use(middleware.CORS())
 	e.Use(middleware.Logger())
 	e.Use(middleware.Recover())
 

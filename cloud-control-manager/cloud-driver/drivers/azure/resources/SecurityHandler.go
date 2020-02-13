@@ -8,6 +8,7 @@ import (
 	"github.com/Azure/go-autorest/autorest/to"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
+	"strings"
 )
 
 type AzureSecurityHandler struct {
@@ -25,9 +26,23 @@ func (securityHandler *AzureSecurityHandler) setterSec(securityGroup network.Sec
 
 	var securityRuleArr []irs.SecurityRuleInfo
 	for _, sgRule := range *securityGroup.SecurityRules {
+
+		var fromPort string
+		var toPort string
+
+		if strings.Contains(*sgRule.SourcePortRange, "-") {
+			sourcePortArr := strings.Split(*sgRule.SourcePortRange, "-")
+			fromPort = sourcePortArr[0]
+			toPort = sourcePortArr[1]
+		} else {
+			fromPort = *sgRule.SourcePortRange
+			toPort = *sgRule.DestinationPortRange
+		}
+		//spew.Dump(sourcePortArr)
+
 		ruleInfo := irs.SecurityRuleInfo{
-			FromPort:   *sgRule.SourcePortRange,
-			ToPort:     *sgRule.DestinationPortRange,
+			FromPort:   fromPort,
+			ToPort:     toPort,
 			IPProtocol: fmt.Sprint(sgRule.Protocol),
 			Direction:  fmt.Sprint(sgRule.Direction),
 		}

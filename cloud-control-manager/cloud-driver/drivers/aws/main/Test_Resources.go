@@ -15,10 +15,11 @@ import (
 	"io/ioutil"
 	"os"
 
+	"github.com/aws/aws-sdk-go/aws/awserr"
+
 	awsdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/aws"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 
-	//irs2 "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/new-resources"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/sirupsen/logrus"
@@ -49,16 +50,16 @@ func handleSecurity() {
 	config := readConfigFile()
 	securityId := config.Aws.SecurityGroupID
 	cblogger.Infof(securityId)
-	securityId = "sg-06c4523b969eaafc7"
+	//securityId = "sg-06c4523b969eaafc7"
+	securityId = "cb-sgtest-mcloud-barista"
 
-	result, err := handler.GetSecurity(securityId)
-	//result, err := handler.GetSecurity("sg-0d4d11c090c4814e8")
+	//result, err := handler.GetSecurity(securityId)
 	//result, err := handler.GetSecurity("sg-0fd2d90b269ebc082") // sgtest-mcloub-barista
 	//result, err := handler.DeleteSecurity(securityId)
 	//result, err := handler.ListSecurity()
 
 	securityReqInfo := irs.SecurityReqInfo{
-		Name: "sgtest-mcloud-barista",
+		Name: securityId,
 		SecurityRules: &[]irs.SecurityRuleInfo{ //보안 정책 설정
 			{
 				FromPort:   "20",
@@ -102,7 +103,7 @@ func handleSecurity() {
 	}
 
 	cblogger.Info(securityReqInfo)
-	//result, err := handler.CreateSecurity(securityReqInfo)
+	result, err := handler.CreateSecurity(securityReqInfo)
 
 	if err != nil {
 		cblogger.Infof("보안 그룹 조회 실패 : ", err)
@@ -127,6 +128,7 @@ func handlePublicIP() {
 	config := readConfigFile()
 	//reqGetPublicIP := "13.124.140.207"
 	reqPublicIP := config.Aws.PublicIP
+	reqPublicIP = "mcloud-barista-eip-test"
 	//reqPublicIP = "eipalloc-0231a3e16ec42e869"
 	cblogger.Info("reqPublicIP : ", reqPublicIP)
 	//handler.CreatePublicIP(publicIPReqInfo)
@@ -189,19 +191,22 @@ func handlePublicIP() {
 
 			case 4:
 				fmt.Println("Start DeletePublicIP() ...")
-				fmt.Print("삭제할 PublicIP를 입력하세요 : ")
-				inputCnt, err := fmt.Scan(&reqDelIP)
-				if err != nil {
-					panic(err)
-				}
+				/*
+					fmt.Print("삭제할 PublicIP를 입력하세요 : ")
+					inputCnt, err := fmt.Scan(&reqDelIP)
+					if err != nil {
+						panic(err)
+					}
 
-				if inputCnt == 1 {
-					cblogger.Info("삭제할 PublicIP : ", reqDelIP)
-				} else {
-					fmt.Println("삭제할 Public IP만 입력하세요.")
-				}
+					if inputCnt == 1 {
+						cblogger.Info("삭제할 PublicIP : ", reqDelIP)
+					} else {
+						fmt.Println("삭제할 Public IP만 입력하세요.")
+					}
+					result, err := handler.DeletePublicIP(reqDelIP)
+				*/
 
-				result, err := handler.DeletePublicIP(reqDelIP)
+				result, err := handler.DeletePublicIP(reqPublicIP)
 				if err != nil {
 					cblogger.Error(reqDelIP, " PublicIP 삭제 실패 : ", err)
 				} else {
@@ -308,7 +313,7 @@ func handleVNetwork() {
 
 	vNetworkReqInfo := irs.VNetworkReqInfo{
 		//Id:   "subnet-044a2b57145e5afc5",
-		//Name: "CB-VNet-Subnet2",	// 웹 도구 등 외부에서 전달 받지 않고 드라이버 내부적으로 자동 구현때문에 사용하지 않음.
+		Name: "CB-VNet-Subnet", // 웹 도구 등 외부에서 전달 받지 않고 드라이버 내부적으로 자동 구현때문에 사용하지 않음.
 		//CidrBlock: "10.0.0.0/16",
 		//CidrBlock: "192.168.0.0/16",
 	}
@@ -555,15 +560,134 @@ func handleVNic() {
 	}
 }
 
+func testErr() error {
+	//return awserr.Error("")
+	//return errors.New("")
+	return awserr.New("504", "찾을 수 없음", nil)
+}
+
+// Test VMSpec
+func handleVMSpec() {
+	cblogger.Debug("Start VMSpec Resource Test")
+
+	ResourceHandler, err := getResourceHandler("VMSpec")
+	if err != nil {
+		panic(err)
+	}
+
+	handler := ResourceHandler.(irs.VMSpecHandler)
+
+	config := readConfigFile()
+	//reqVMSpec := config.Aws.VMSpec
+	//reqVMSpec := "t2.small"	// GPU가 없음
+	//reqVMSpec := "p3.2xlarge" // GPU 1개
+	reqVMSpec := "p3.8xlarge" // GPU 4개
+
+	reqRegion := config.Aws.Region
+	reqRegion = "us-east-1"
+	cblogger.Info("reqVMSpec : ", reqVMSpec)
+
+	for {
+		fmt.Println("")
+		fmt.Println("VMSpec Resource Test")
+		fmt.Println("1. ListVMSpec()")
+		fmt.Println("2. GetVMSpec()")
+		fmt.Println("3. ListOrgVMSpec()")
+		fmt.Println("4. GetOrgVMSpec()")
+		fmt.Println("0. Exit")
+
+		var commandNum int
+		//var reqDelIP string
+
+		inputCnt, err := fmt.Scan(&commandNum)
+		if err != nil {
+			panic(err)
+		}
+
+		if inputCnt == 1 {
+			switch commandNum {
+			case 1:
+				fmt.Println("Start ListVMSpec() ...")
+				result, err := handler.ListVMSpec(reqRegion)
+				if err != nil {
+					cblogger.Error("VMSpec 목록 조회 실패 : ", err)
+				} else {
+					cblogger.Info("VMSpec 목록 조회 결과")
+					spew.Dump(result)
+				}
+
+				fmt.Println("Finish ListVMSpec()")
+
+			case 2:
+				fmt.Println("Start GetVMSpec() ...")
+				result, err := handler.GetVMSpec(reqRegion, reqVMSpec)
+				if err != nil {
+					cblogger.Error(reqVMSpec, " VMSpec 정보 조회 실패 : ", err)
+				} else {
+					cblogger.Infof("VMSpec[%s]  정보 조회 결과", reqVMSpec)
+					spew.Dump(result)
+				}
+				fmt.Println("Finish GetVMSpec()")
+
+			case 3:
+				fmt.Println("Start ListOrgVMSpec() ...")
+				result, err := handler.ListOrgVMSpec(reqRegion)
+				if err != nil {
+					cblogger.Error("VMSpec 목록 조회 실패 : ", err)
+				} else {
+					cblogger.Info("VMSpec 목록 조회 결과")
+					spew.Dump(result)
+				}
+
+				fmt.Println("Finish ListOrgVMSpec()")
+
+			case 4:
+				fmt.Println("Start GetOrgVMSpec() ...")
+				result, err := handler.GetOrgVMSpec(reqRegion, reqVMSpec)
+				if err != nil {
+					cblogger.Error(reqVMSpec, " VMSpec 정보 조회 실패 : ", err)
+				} else {
+					cblogger.Infof("VMSpec[%s]  정보 조회 결과", reqVMSpec)
+					spew.Dump(result)
+				}
+				fmt.Println("Finish GetOrgVMSpec()")
+
+			case 0:
+				fmt.Println("Exit")
+				return
+			}
+		}
+	}
+}
+
 func main() {
 	cblogger.Info("AWS Resource Test")
+	/*
+		err := testErr()
+		spew.Dump(err)
+		if err != nil {
+			cblogger.Info("에러 발생")
+			awsErr, ok := err.(awserr.Error)
+			spew.Dump(awsErr)
+			spew.Dump(ok)
+			if ok {
+				if "404" == awsErr.Code() {
+					cblogger.Info("404!!!")
+				} else {
+					cblogger.Info("404 아님")
+				}
+			}
+		}
+	*/
+
+	//handleVNetwork() //VPC
 	//handleKeyPair()
 	//handlePublicIP() // PublicIP 생성 후 conf
+	//handleSecurity()
 
-	handleVNetwork() //VPC
 	//handleImage() //AMI
 	//handleVNic() //Lancard
-	//handleSecurity()
+	handleVMSpec()
 
 	/*
 		KeyPairHandler, err := setKeyPairHandler()
@@ -619,6 +743,8 @@ func getResourceHandler(handlerType string) (interface{}, error) {
 		resourceHandler, err = cloudConnection.CreateVNetworkHandler()
 	case "VNic":
 		resourceHandler, err = cloudConnection.CreateVNicHandler()
+	case "VMSpec":
+		resourceHandler, err = cloudConnection.CreateVMSpecHandler()
 	}
 
 	if err != nil {

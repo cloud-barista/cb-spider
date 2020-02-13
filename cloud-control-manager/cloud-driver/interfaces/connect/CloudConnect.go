@@ -6,13 +6,12 @@
 //
 // This is Connection interfaces of Cloud Driver.
 //
-// by powerkim@etri.re.kr, 2019.06.
+// by CB-Spider Team, 2019.06.
 
 package connect
 
 import (
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
-	//irs "../resources"
 )
 
 type CloudConnection interface {
@@ -24,6 +23,8 @@ type CloudConnection interface {
 	CreatePublicIPHandler() (irs.PublicIPHandler, error)
 
 	CreateVMHandler() (irs.VMHandler, error)
+
+	CreateVMSpecHandler() (irs.VMSpecHandler, error)
 
 	IsConnected() (bool, error)
 	Close() error

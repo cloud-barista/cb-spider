@@ -142,7 +142,7 @@ func handleSecurity() {
 
 	handler := ResourceHandler.(irs.SecurityHandler)
 
-	securityId := "sgvm02"
+	securityId := "europe-west1"
 	cblogger.Infof(securityId)
 
 	//result, err := handler.GetSecurity(securityId)
@@ -152,7 +152,7 @@ func handleSecurity() {
 	//result, err := handler.ListSecurity()
 
 	securityReqInfo := irs.SecurityReqInfo{
-		Name: "sgvm02",
+		Name: securityId,
 		SecurityRules: &[]irs.SecurityRuleInfo{ //보안 정책 설정
 			{
 				FromPort:   "20",
@@ -304,9 +304,9 @@ func handleVNetwork() {
 	handler := ResourceHandler.(irs.VNetworkHandler)
 
 	vNetworkReqInfo := irs.VNetworkReqInfo{
-		Name: "CB-VNet-Subnet2", // 웹 도구 등 외부에서 전달 받지 않고 드라이버 내부적으로 자동 구현때문에 사용하지 않음.
+		Name: "cb-subnet3", // 웹 도구 등 외부에서 전달 받지 않고 드라이버 내부적으로 자동 구현때문에 사용하지 않음.
 	}
-	reqSubnetId := "subnet-0b9ea37601d46d8fa"
+	reqSubnetId := "subnet-12345"
 	//reqSubnetId = ""
 
 	for {
@@ -454,13 +454,103 @@ func handleKeyPair() {
 	}
 }
 
+// Test VMSpec
+func handleVMSpec() {
+	cblogger.Info("Start VMSpec Resource Test")
+
+	ResourceHandler, err := testconf.GetResourceHandler("VMSpec")
+	if err != nil {
+		panic(err)
+	}
+
+	handler := ResourceHandler.(irs.VMSpecHandler)
+	region := "asia-northeast1"
+
+	zone := "asia-northeast1-b"
+	machinename := ""
+
+	cblogger.Info("zone : ", zone)
+
+	for {
+		fmt.Println("")
+		fmt.Println("VMSpec Resource Test")
+		fmt.Println("1. ListVMSpec()")
+		fmt.Println("2. GetVMSpec()")
+		fmt.Println("3. ListOrgVMSpec()")
+		fmt.Println("4. GetOrgVMSpec()")
+		fmt.Println("5. Exit")
+
+		var commandNum int
+		var reqDelIP string
+
+		inputCnt, err := fmt.Scan(&commandNum)
+		if err != nil {
+			panic(err)
+		}
+
+		if inputCnt == 1 {
+			switch commandNum {
+			case 1:
+				fmt.Println("Start ListVMSpec() ...")
+				result, err := handler.ListVMSpec(zone)
+				if err != nil {
+					cblogger.Error("ListVMSpec 목록 조회 실패 : ", err)
+				} else {
+					cblogger.Info("ListVMSpec 목록 조회 결과")
+					spew.Dump(result)
+				}
+
+				fmt.Println("Finish ListVMSpec()")
+
+			case 2:
+				fmt.Println("Start GetVMSpec() ...")
+				result, err := handler.GetVMSpec(zone, machinename)
+				if err != nil {
+					cblogger.Error(machinename, " GetVMSpec 정보 조회 실패 : ", err)
+				} else {
+					cblogger.Infof("GetVMSpec[%s]  정보 조회 결과", machinename)
+					spew.Dump(result)
+				}
+				fmt.Println("Finish GetVMSpec()")
+
+			case 3:
+				fmt.Println("Start ListOrgVMSpec() ...")
+				result, err := handler.ListOrgVMSpec(zone)
+				if err != nil {
+					cblogger.Error("ListOrgVMSpec 목록 조회 실패 : ", err)
+				} else {
+					cblogger.Info("ListOrgVMSpec 목록 조회 결과")
+					spew.Dump(result)
+				}
+
+				fmt.Println("Finish ListOrgVMSpec()")
+
+			case 4:
+				fmt.Println("Start GetOrgVMSpec() ...")
+				result, err := handler.GetOrgVMSpec(zone, machinename)
+				if err != nil {
+					cblogger.Error(machinename, " GetOrgVMSpec 정보 조회 실패 : ", err)
+				} else {
+					cblogger.Infof("GetOrgVMSpec[%s]  정보 조회 결과", machinename)
+					spew.Dump(result)
+				}
+				fmt.Println("Finish GetOrgVMSpec()")
+
+			case 5:
+				fmt.Println("Exit")
+				return
+			}
+		}
+	}
+}
+
 func main() {
 	cblogger.Info("GCP Resource Test")
 	//handlePublicIP()
 
-	handleKeyPair()
+	//handleKeyPair()
 	//handleVNetwork() //VPC
 	//handleImage() //AMI
 	//handleVNic() //Lancard
-	//handleSecurity()
+	handleSecurity()
 }
