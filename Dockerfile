@@ -16,7 +16,7 @@ WORKDIR /go/src/github.com/cloud-barista/cb-spider
 
 WORKDIR api-runtime/rest-runtime
 
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags '-w -extldflags "-static"' -tags cb-spider -o cb-spider -v
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags '-w -extldflags "-static"' -tags cb-spider -o cb-spider -v
 
 #############################################################
 ## Stage 2 - Application Setup
