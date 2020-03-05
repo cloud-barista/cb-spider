@@ -9,24 +9,12 @@
 package main
 
 import (
-	"github.com/sirupsen/logrus"
-	"github.com/cloud-barista/cb-store/config"
-
 	ccm "github.com/cloud-barista/cb-spider/cloud-control-manager"
 
 	"fmt"
 )
 
-
-var cblog *logrus.Logger
-
-func init() {
-        cblog = config.Cblogger
-}
-
-
-func main() {
-
+func getDriver() {
 
 	fmt.Println("\n============== GetCloudDriver()")
 
@@ -34,7 +22,7 @@ func main() {
 
 	cldDrv, err := ccm.GetCloudDriver(cloudConnectConfigName)
 	if err != nil {
-		cblog.Error(err)
+                panic(err)
 	}
 
 	fmt.Printf(" === %#v\n", cldDrv)
@@ -44,10 +32,14 @@ func main() {
 
         cldConn, err := ccm.GetCloudConnection(cloudConnectConfigName)
         if err != nil {
-                cblog.Error(err)
+                panic(err)
         }
 
         fmt.Printf(" === %#v\n", cldConn)
+}
 
+
+func main() {
+	getDriver()
 }
 

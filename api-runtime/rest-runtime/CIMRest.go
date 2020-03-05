@@ -13,6 +13,7 @@ import (
 	"strconv"
 
 	ccim "github.com/cloud-barista/cb-spider/cloud-info-manager/connection-config-info-manager"
+	im "github.com/cloud-barista/cb-spider/cloud-info-manager"
 	cim "github.com/cloud-barista/cb-spider/cloud-info-manager/credential-info-manager"
 	dim "github.com/cloud-barista/cb-spider/cloud-info-manager/driver-info-manager"
 	rim "github.com/cloud-barista/cb-spider/cloud-info-manager/region-info-manager"
@@ -22,6 +23,16 @@ import (
 
 	"github.com/labstack/echo"
 )
+
+//================ List of support CloudOS
+func listCloudOS(c echo.Context) error {
+        cblog.Info("call listCloudOS()")
+
+        cldOSList := im.ListCloudOS()
+
+        return c.JSON(http.StatusOK, &cldOSList)
+}
+
 
 //================ CloudDriver Handler
 func registerCloudDriver(c echo.Context) error {
