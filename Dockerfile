@@ -2,9 +2,11 @@
 ## Stage 1 - Go Build
 ##############################################################
 
-FROM golang:alpine AS builder
+#FROM golang:alpine AS builder
+FROM golang:1.14.0 AS builder
 
-RUN apk update && apk add --no-cache bash
+#RUN apk update && apk add --no-cache bash
+#RUN apt update
 
 #RUN apk add gcc
 
@@ -12,11 +14,11 @@ ADD . /go/src/github.com/cloud-barista/cb-spider
 
 WORKDIR /go/src/github.com/cloud-barista/cb-spider
 
-#RUN ./build_all_driver_lib.sh
+RUN ./build_all_driver_lib.sh
 
 WORKDIR api-runtime/rest-runtime
 
-RUN CGO_ENABLED=0 GOOS=linux go build -ldflags '-w -extldflags "-static"' -tags cb-spider -o cb-spider -v
+RUN GOOS=linux go build -tags cb-spider -o cb-spider -v
 
 #############################################################
 ## Stage 2 - Application Setup
