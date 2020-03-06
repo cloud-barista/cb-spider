@@ -26,23 +26,27 @@ RUN GOOS=linux go build -tags cb-spider -o cb-spider -v
 
 FROM ubuntu:latest
 
+RUN apt update
+
+RUN apt install -y ca-certificates
+
 # use bash
 RUN rm /bin/sh && ln -s /bin/bash /bin/sh
 
-WORKDIR /app
+WORKDIR /root/go/src/github.com/cloud-barista/cb-spider
 
-COPY --from=builder /go/src/github.com/cloud-barista/cb-spider/cloud-driver-libs/* /app/cloud-driver-libs/
+COPY --from=builder /go/src/github.com/cloud-barista/cb-spider/cloud-driver-libs/* /root/go/src/github.com/cloud-barista/cb-spider/cloud-driver-libs/
 
-COPY --from=builder /go/src/github.com/cloud-barista/cb-spider/conf/* /app/conf/
+COPY --from=builder /go/src/github.com/cloud-barista/cb-spider/conf/* /root/go/src/github.com/cloud-barista/cb-spider/conf/
 
-COPY --from=builder /go/src/github.com/cloud-barista/cb-spider/api-runtime/rest-runtime/cb-spider /app/api-runtime/rest-runtime/
+COPY --from=builder /go/src/github.com/cloud-barista/cb-spider/api-runtime/rest-runtime/cb-spider /root/go/src/github.com/cloud-barista/cb-spider/api-runtime/rest-runtime/
 
-#COPY --from=builder /go/src/github.com/cloud-barista/cb-spider/setup.env /app/
-#RUN /bin/bash -c "source /app/setup.env"
-ENV CBSPIDER_ROOT /app
-ENV CBSTORE_ROOT /app
-ENV CBLOG_ROOT /app
+#COPY --from=builder /go/src/github.com/cloud-barista/cb-spider/setup.env /root/go/src/github.com/cloud-barista/cb-spider/
+#RUN /bin/bash -c "source /root/go/src/github.com/cloud-barista/cb-spider/setup.env"
+ENV CBSPIDER_ROOT /root/go/src/github.com/cloud-barista/cb-spider
+ENV CBSTORE_ROOT /root/go/src/github.com/cloud-barista/cb-spider
+ENV CBLOG_ROOT /root/go/src/github.com/cloud-barista/cb-spider
 
-ENTRYPOINT [ "/app/api-runtime/rest-runtime/cb-spider" ]
+ENTRYPOINT [ "/root/go/src/github.com/cloud-barista/cb-spider/api-runtime/rest-runtime/cb-spider" ]
 
 EXPOSE 1024
