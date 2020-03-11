@@ -208,7 +208,8 @@ func (vmSpecHandler *AwsVmSpecHandler) ListOrgVMSpec(Region string) (string, err
 	cblogger.Info(resp)
 	//fmt.Println(resp)
 
-	jsonString, errJson := ConvertJsonString(resp.InstanceTypes[0])
+	//jsonString, errJson := ConvertJsonString(resp.InstanceTypes[0])
+	jsonString, errJson := ConvertJsonString(resp)
 	if errJson != nil {
 		cblogger.Error(errJson)
 	}

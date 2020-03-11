@@ -633,12 +633,13 @@ func handleVMSpec() {
 				fmt.Println("Start ListOrgVMSpec() ...")
 				result, err := handler.ListOrgVMSpec(reqRegion)
 				if err != nil {
-					cblogger.Error("VMSpec 목록 조회 실패 : ", err)
+					cblogger.Error("VMSpec Org 목록 조회 실패 : ", err)
 				} else {
-					cblogger.Info("VMSpec 목록 조회 결과")
-					spew.Dump(result)
-					fmt.Println("=========================")
-					fmt.Println(result)
+					cblogger.Info("VMSpec Org 목록 조회 결과")
+					//spew.Dump(result)
+					cblogger.Info(result)
+					//fmt.Println("=========================")
+					//fmt.Println(result)
 				}
 
 				fmt.Println("Finish ListOrgVMSpec()")
@@ -647,9 +648,9 @@ func handleVMSpec() {
 				fmt.Println("Start GetOrgVMSpec() ...")
 				result, err := handler.GetOrgVMSpec(reqRegion, reqVMSpec)
 				if err != nil {
-					cblogger.Error(reqVMSpec, " VMSpec 정보 조회 실패 : ", err)
+					cblogger.Error(reqVMSpec, " VMSpec Org 정보 조회 실패 : ", err)
 				} else {
-					cblogger.Infof("VMSpec[%s]  정보 조회 결과", reqVMSpec)
+					cblogger.Infof("VMSpec[%s] Org 정보 조회 결과", reqVMSpec)
 					spew.Dump(result)
 				}
 				fmt.Println("Finish GetOrgVMSpec()")
