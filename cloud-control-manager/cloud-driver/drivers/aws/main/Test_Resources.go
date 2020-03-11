@@ -637,6 +637,8 @@ func handleVMSpec() {
 				} else {
 					cblogger.Info("VMSpec 목록 조회 결과")
 					spew.Dump(result)
+					fmt.Println("=========================")
+					fmt.Println(result)
 				}
 
 				fmt.Println("Finish ListOrgVMSpec()")
@@ -862,6 +864,8 @@ func readConfigFile() Config {
 
 	cblogger.Info("Loaded ConfigFile...")
 	//spew.Dump(config)
-	cblogger.Info(config)
+	//cblogger.Info(config)
+	cblogger.Debug(config.Aws.AawsAccessKeyID, " ", config.Aws.Region)
+	//cblogger.Debug(config.Aws.Region)
 	return config
 }
