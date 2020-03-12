@@ -118,6 +118,87 @@ func deleteImage(c echo.Context) error {
 	return c.JSON(http.StatusOK, &resultInfo)
 }
 
+//================ VMSpec Handler
+func listVMSpec(c echo.Context) error {
+        cblog.Info("call listVMSpec()")
+
+        cldConn, err := ccm.GetCloudConnection(c.QueryParam("connection_name"))
+        if err != nil {
+                return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+        }
+
+        handler, err := cldConn.CreateVMSpecHandler()
+        if err != nil {
+                return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+        }
+
+        infoList, err := handler.ListVMSpec(c.Param("RegionName"))
+        if err != nil {
+                return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+        }
+
+        return c.JSON(http.StatusOK, &infoList)
+}
+
+func getVMSpec(c echo.Context) error {
+        cblog.Info("call getVMSpec()")
+
+        cldConn, err := ccm.GetCloudConnection(c.QueryParam("connection_name"))
+        if err != nil {
+                return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+        }
+
+        handler, err := cldConn.CreateVMSpecHandler()
+        if err != nil {
+                return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+        }
+        info, err := handler.GetVMSpec(c.Param("RegionName"), c.Param("VMSpecName"))
+        if err != nil {
+                return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+        }
+        return c.JSON(http.StatusOK, &info)
+}
+
+func listOrgVMSpec(c echo.Context) error {
+        cblog.Info("call listOrgVMSpec()")
+
+        cldConn, err := ccm.GetCloudConnection(c.QueryParam("connection_name"))
+        if err != nil {
+                return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+        }
+
+        handler, err := cldConn.CreateVMSpecHandler()
+        if err != nil {
+                return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+        }
+
+        infoList, err := handler.ListOrgVMSpec(c.Param("RegionName"))
+        if err != nil {
+                return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+        }
+
+        return c.JSON(http.StatusOK, &infoList)
+}
+
+func getOrgVMSpec(c echo.Context) error {
+        cblog.Info("call getOrgVMSpec()")
+
+        cldConn, err := ccm.GetCloudConnection(c.QueryParam("connection_name"))
+        if err != nil {
+                return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+        }
+
+        handler, err := cldConn.CreateVMSpecHandler()
+        if err != nil {
+                return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+        }
+        info, err := handler.GetOrgVMSpec(c.Param("RegionName"), c.Param("VMSpecName"))
+        if err != nil {
+                return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+        }
+        return c.JSON(http.StatusOK, &info)
+}
+
 //================ VNetwork Handler
 func createVNetwork(c echo.Context) error {
 	cblog.Info("call createVNetwork()")
