@@ -85,7 +85,7 @@ func ReadConfigFile() Config {
 
 	cblogger.Info("Loaded ConfigFile...")
 	//spew.Dump(config)
-	cblogger.Info(config)
+	//cblogger.Info(config)
 	return config
 }
 
@@ -125,6 +125,8 @@ func GetResourceHandler(handlerType string) (interface{}, error) {
 		resourceHandler, err = cloudConnection.CreateVNetworkHandler()
 	case "VNic":
 		resourceHandler, err = cloudConnection.CreateVNicHandler()
+	case "VMSpec":
+		resourceHandler, err = cloudConnection.CreateVMSpecHandler()
 	}
 
 	if err != nil {

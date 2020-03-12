@@ -13,8 +13,12 @@
 
 .DS_Store
 
+*.log
+
 cloud-driver-libs/*.so
 meta_db/dat/*
 api-runtime/rest-runtime/~/go/src/github.com/cloud-barista/cb-spider/meta_db/dat/*
 conf/store_conf.yaml
 cloud-control-manager/cloud-driver/drivers/aws/main/log/cblogs.log
+api-runtime/rest-runtime/$CBSTORE_ROOT/meta_db/dat/0.dat
+api-runtime/rest-runtime/log/cblogs.log

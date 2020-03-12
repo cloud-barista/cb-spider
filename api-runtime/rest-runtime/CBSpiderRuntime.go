@@ -44,6 +44,9 @@ func main() {
 
 	//======================================= setup routes
 	routes := []route{
+		//----------CloudOS
+		{"GET", "/cloudos", listCloudOS},
+
 		//----------CloudDriverInfo
 		{"POST", "/driver", registerCloudDriver},
 		{"GET", "/driver", listCloudDriver},

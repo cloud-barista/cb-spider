@@ -13,13 +13,13 @@ package alibaba
 import (
 	"fmt"
 
-	"github.com/aliyun/alibaba-cloud-sdk-go/sdk"
 	"github.com/aliyun/alibaba-cloud-sdk-go/sdk/auth/credentials"
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/ecs"
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/vpc"
 	alicon "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/alibaba/connect"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	icon "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/connect"
+	"github.com/davecgh/go-spew/spew"
 )
 
 type AlibabaDriver struct{}
@@ -38,6 +38,7 @@ func (AlibabaDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	drvCapabilityInfo.VNicHandler = false
 	drvCapabilityInfo.PublicIPHandler = false
 	drvCapabilityInfo.VMHandler = false
+	drvCapabilityInfo.VMSpecHandler = false
 
 	return drvCapabilityInfo
 }
@@ -68,6 +69,7 @@ func (driver *AlibabaDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (i
 		VNetClient:          VPCClient,
 		VNicClient:          ECSClient,
 		SubnetClient:        VPCClient,
+		VmSpecClient:        ECSClient,
 	}
 	return &iConn, nil
 }
@@ -77,14 +79,17 @@ func getECSClient(connectionInfo idrv.ConnectionInfo) (*ecs.Client, error) {
 	// Region Info
 	fmt.Println("AlibabaDriver : getECSClient() - Region : [" + connectionInfo.RegionInfo.Region + "]")
 
-	// Customize config
-	config := sdk.NewConfig().
-		WithEnableAsync(true).
-		WithGoRoutinePoolSize(5).
-		WithMaxTaskQueueSize(1000)
-		// 600*time.Second
+	/*
+		// Customize config
+		config := sdk.NewConfig().
+			WithEnableAsync(true).
+			WithGoRoutinePoolSize(5).
+			WithMaxTaskQueueSize(1000)
+			// 600*time.Second
 
-	fmt.Println(config)
+		//fmt.Println(config)
+		spew.Dump(config)
+	*/
 
 	// Create a credential object
 	credential := &credentials.BaseCredential{
@@ -93,11 +98,15 @@ func getECSClient(connectionInfo idrv.ConnectionInfo) (*ecs.Client, error) {
 	}
 
 	escClient, err := ecs.NewClientWithAccessKey(connectionInfo.RegionInfo.Region, credential.AccessKeyId, credential.AccessKeySecret)
+
 	//escClient, err := ecs.NewClientWithOptions(connectionInfo.RegionInfo.Region, config, credential)
 	if err != nil {
 		fmt.Println("Could not create alibaba's ecs service client", err)
+		spew.Dump(err)
 		return nil, err
 	}
+
+	//spew.Dump(escClient)
 
 	/*
 		escClient, err := sdk.NewClientWithAccessKey("REGION_ID", "ACCESS_KEY_ID", "ACCESS_KEY_SECRET")
@@ -115,14 +124,15 @@ func getVPCClient(connectionInfo idrv.ConnectionInfo) (*vpc.Client, error) {
 	// Region Info
 	fmt.Println("AlibabaDriver : getVPCClient() - Region : [" + connectionInfo.RegionInfo.Region + "]")
 
-	// Customize config
-	config := sdk.NewConfig().
-		WithEnableAsync(true).
-		WithGoRoutinePoolSize(5).
-		WithMaxTaskQueueSize(1000)
-	// 600*time.Second
-
-	fmt.Println(config)
+	/*
+		// Customize config
+		config := sdk.NewConfig().
+			WithEnableAsync(true).
+			WithGoRoutinePoolSize(5).
+			WithMaxTaskQueueSize(1000)
+		// 600*time.Second
+		//fmt.Println(config)
+	*/
 
 	// Create a credential object
 	credential := &credentials.BaseCredential{

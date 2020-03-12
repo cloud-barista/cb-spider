@@ -38,7 +38,7 @@ func setterVMSpec(vmSpec specs.VMSpecInfo) *irs.VMSpecInfo {
 		Name: vmSpec.Name,
 		VCpu: irs.VCpuInfo{Count: strconv.Itoa(vmSpec.Cpu)},
 		Mem:  strconv.Itoa(vmSpec.Mem),
-		Gpu:  []irs.GpuInfo{{Conut: strconv.Itoa(vmSpec.GPU)}},
+		Gpu:  []irs.GpuInfo{{Count: strconv.Itoa(vmSpec.GPU)}},
 		//KeyValueList: nil,
 	}
 
