@@ -68,7 +68,14 @@ func listImage(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
 	}
 
-	return c.JSON(http.StatusOK, &infoList)
+        var jsonResult struct {
+                Result []*cres.ImageInfo `json:"image"`
+        }
+        if infoList == nil {
+                infoList = []*cres.ImageInfo{}
+        }
+        jsonResult.Result = infoList
+        return c.JSON(http.StatusOK, &jsonResult)
 }
 
 func getImage(c echo.Context) error {
@@ -137,7 +144,14 @@ func listVMSpec(c echo.Context) error {
                 return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
         }
 
-        return c.JSON(http.StatusOK, &infoList)
+        var jsonResult struct {
+                Result []*cres.VMSpecInfo `json:"vmspec"`
+        }
+        if infoList == nil {
+                infoList = []*cres.VMSpecInfo{}
+        }
+        jsonResult.Result = infoList
+        return c.JSON(http.StatusOK, &jsonResult)
 }
 
 func getVMSpec(c echo.Context) error {
@@ -244,7 +258,14 @@ func listVNetwork(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
 	}
 
-	return c.JSON(http.StatusOK, &infoList)
+        var jsonResult struct {
+                Result []*cres.VNetworkInfo `json:"vnetwork"`
+        }
+	if infoList == nil {
+		infoList = []*cres.VNetworkInfo{}
+	}
+        jsonResult.Result = infoList
+        return c.JSON(http.StatusOK, &jsonResult)
 }
 
 func getVNetwork(c echo.Context) error {
@@ -338,7 +359,14 @@ func listSecurity(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
 	}
 
-	return c.JSON(http.StatusOK, &infoList)
+        var jsonResult struct {
+                Result []*cres.SecurityInfo `json:"securitygroup"`
+        }
+        if infoList == nil {
+                infoList = []*cres.SecurityInfo{}
+        }
+        jsonResult.Result = infoList
+        return c.JSON(http.StatusOK, &jsonResult)
 }
 
 func getSecurity(c echo.Context) error {
@@ -432,7 +460,14 @@ func listKey(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
 	}
 
-	return c.JSON(http.StatusOK, &infoList)
+        var jsonResult struct {
+                Result []*cres.KeyPairInfo `json:"keypair"`
+        }
+        if infoList == nil {
+                infoList = []*cres.KeyPairInfo{}
+        }
+        jsonResult.Result = infoList
+        return c.JSON(http.StatusOK, &jsonResult)
 }
 
 func getKey(c echo.Context) error {
@@ -526,7 +561,14 @@ func listVNic(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
 	}
 
-	return c.JSON(http.StatusOK, &infoList)
+        var jsonResult struct {
+                Result []*cres.VNicInfo `json:"vnic"`
+        }
+        if infoList == nil {
+                infoList = []*cres.VNicInfo{}
+        }
+        jsonResult.Result = infoList
+        return c.JSON(http.StatusOK, &jsonResult)
 }
 
 func getVNic(c echo.Context) error {
@@ -620,7 +662,14 @@ func listPublicIP(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
 	}
 
-	return c.JSON(http.StatusOK, &infoList)
+        var jsonResult struct {
+                Result []*cres.PublicIPInfo `json:"publicip"`
+        }
+        if infoList == nil {
+                infoList = []*cres.PublicIPInfo{}
+        }
+        jsonResult.Result = infoList
+        return c.JSON(http.StatusOK, &jsonResult)
 }
 
 func getPublicIP(c echo.Context) error {
@@ -714,7 +763,14 @@ func listVM(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
 	}
 
-	return c.JSON(http.StatusOK, &infoList)
+        var jsonResult struct {
+                Result []*cres.VMInfo `json:"vm"`
+        }
+        if infoList == nil {
+                infoList = []*cres.VMInfo{}
+        }
+        jsonResult.Result = infoList
+        return c.JSON(http.StatusOK, &jsonResult)
 }
 
 func getVM(c echo.Context) error {
@@ -781,8 +837,14 @@ func listVMStatus(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
 	}
 
-
-	return c.JSON(http.StatusOK, &infoList)
+        var jsonResult struct {
+                Result []*cres.VMStatusInfo `json:"vmstatus"`
+        }
+        if infoList == nil {
+                infoList = []*cres.VMStatusInfo{}
+        }
+        jsonResult.Result = infoList
+        return c.JSON(http.StatusOK, &jsonResult)
 }
 
 func getVMStatus(c echo.Context) error {
