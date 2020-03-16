@@ -5,6 +5,8 @@
 #FROM golang:alpine AS builder
 FROM golang:1.12.4 AS builder
 
+ENV GO111MODULE on
+
 #RUN apk update && apk add --no-cache bash
 #RUN apt update
 
