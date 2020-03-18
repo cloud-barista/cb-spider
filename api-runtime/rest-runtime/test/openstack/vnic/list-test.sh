@@ -1,3 +1,3 @@
 RESTSERVER=localhost
 
-curl -X GET http://$RESTSERVER:1024/vnic?connection_name=openstack-config01
+curl -X GET http://$RESTSERVER:1024/spider/vnic?connection_name=openstack-config01

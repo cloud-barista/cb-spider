@@ -1,10 +1,10 @@
 RESTSERVER=node12
 
  # for Cloud Driver Info
-curl -X POST http://$RESTSERVER:1024/driver -H 'Content-Type: application/json' -d '{"DriverName":"openstack-driver01","ProviderName":"OPENSTACK", "DriverLibFileName":"openstack-driver-v1.0.so"}'
+curl -X POST http://$RESTSERVER:1024/spider/driver -H 'Content-Type: application/json' -d '{"DriverName":"openstack-driver01","ProviderName":"OPENSTACK", "DriverLibFileName":"openstack-driver-v1.0.so"}'
 
  # for Cloud Credential Info
-curl -X POST http://$RESTSERVER:1024/credential -H 'Content-Type: application/json' -d '{
+curl -X POST http://$RESTSERVER:1024/spider/credential -H 'Content-Type: application/json' -d '{
     "CredentialName":"openstack-credential01",
     "ProviderName":"OPENSTACK",
     "KeyValueInfoList": [
@@ -16,8 +16,8 @@ curl -X POST http://$RESTSERVER:1024/credential -H 'Content-Type: application/js
 ]}'
 
  # for Cloud Region Info
-curl -X POST http://$RESTSERVER:1024/region -H 'Content-Type: application/json' -d '{"RegionName":"openstack-region01","ProviderName":"OPENSTACK","KeyValueInfoList": [{"Key":"Region", "Value":"RegionOne"}]}'
+curl -X POST http://$RESTSERVER:1024/spider/region -H 'Content-Type: application/json' -d '{"RegionName":"openstack-region01","ProviderName":"OPENSTACK","KeyValueInfoList": [{"Key":"Region", "Value":"RegionOne"}]}'
 
  # for Cloud Connection Config Info
-curl -X POST http://$RESTSERVER:1024/connectionconfig -H 'Content-Type: application/json' -d '{"ConfigName":"openstack-config01","ProviderName":"OPENSTACK", "DriverName":"openstack-driver01", "CredentialName":"openstack-credential01", "RegionName":"openstack-region01"}'
+curl -X POST http://$RESTSERVER:1024/spider/connectionconfig -H 'Content-Type: application/json' -d '{"ConfigName":"openstack-config01","ProviderName":"OPENSTACK", "DriverName":"openstack-driver01", "CredentialName":"openstack-credential01", "RegionName":"openstack-region01"}'
 

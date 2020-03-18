@@ -14,7 +14,7 @@ RESTSERVER=localhost
 # Cloudit의 경우 KeyPair 미지원 (root 계정 패스워드 로그인 방식 지원)
 # VMUserPasswd = "etriETRI!@"
 
-curl -X POST http://$RESTSERVER:1024/vm?connection_name=cloudit-config01 -H 'Content-Type: application/json' -d '{
+curl -X POST http://$RESTSERVER:1024/spider/vm?connection_name=cloudit-config01 -H 'Content-Type: application/json' -d '{
     "VMName": "CBVm",
     "ImageId": "CentOS-7",
     "VirtualNetworkId": "CB-Subnet",
