@@ -27,7 +27,16 @@ import (
 func createImage(c echo.Context) error {
 	cblog.Info("call createImage()")
 
-	cldConn, err := ccm.GetCloudConnection(c.QueryParam("connection_name"))
+        var req struct {
+                ConnectionName string
+                ReqInfo cres.ImageReqInfo
+        }
+
+        if err := c.Bind(&req); err != nil {
+                return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+        }
+
+        cldConn, err := ccm.GetCloudConnection(req.ConnectionName)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
 	}
@@ -37,12 +46,7 @@ func createImage(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
 	}
 
-	req := &cres.ImageReqInfo{}
-	if err := c.Bind(req); err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
-	}
-
-	info, err := handler.CreateImage(*req)
+	info, err := handler.CreateImage(req.ReqInfo)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
 	}
@@ -53,7 +57,15 @@ func createImage(c echo.Context) error {
 func listImage(c echo.Context) error {
 	cblog.Info("call listImage()")
 
-	cldConn, err := ccm.GetCloudConnection(c.QueryParam("connection_name"))
+        var req struct {
+                ConnectionName string
+        }
+
+        if err := c.Bind(&req); err != nil {
+                return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+        }
+
+        cldConn, err := ccm.GetCloudConnection(req.ConnectionName)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
 	}
@@ -81,7 +93,15 @@ func listImage(c echo.Context) error {
 func getImage(c echo.Context) error {
 	cblog.Info("call getImage()")
 
-	cldConn, err := ccm.GetCloudConnection(c.QueryParam("connection_name"))
+        var req struct {
+                ConnectionName string
+        }
+
+        if err := c.Bind(&req); err != nil {
+                return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+        }
+
+        cldConn, err := ccm.GetCloudConnection(req.ConnectionName)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
 	}
@@ -103,7 +123,15 @@ cblog.Infof(c.QueryParam("connection_name") + " : elapsed %d", elapsed.Nanosecon
 func deleteImage(c echo.Context) error {
 	cblog.Info("call deleteImage()")
 
-	cldConn, err := ccm.GetCloudConnection(c.QueryParam("connection_name"))
+        var req struct {
+                ConnectionName string
+        }
+
+        if err := c.Bind(&req); err != nil {
+                return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+        }
+
+        cldConn, err := ccm.GetCloudConnection(req.ConnectionName)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
 	}
@@ -129,7 +157,15 @@ func deleteImage(c echo.Context) error {
 func listVMSpec(c echo.Context) error {
         cblog.Info("call listVMSpec()")
 
-        cldConn, err := ccm.GetCloudConnection(c.QueryParam("connection_name"))
+        var req struct {
+                ConnectionName string
+        }
+
+        if err := c.Bind(&req); err != nil {
+                return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+        }
+
+        cldConn, err := ccm.GetCloudConnection(req.ConnectionName)
         if err != nil {
                 return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
         }
@@ -157,7 +193,15 @@ func listVMSpec(c echo.Context) error {
 func getVMSpec(c echo.Context) error {
         cblog.Info("call getVMSpec()")
 
-        cldConn, err := ccm.GetCloudConnection(c.QueryParam("connection_name"))
+        var req struct {
+                ConnectionName string
+        }
+
+        if err := c.Bind(&req); err != nil {
+                return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+        }
+
+        cldConn, err := ccm.GetCloudConnection(req.ConnectionName)
         if err != nil {
                 return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
         }
@@ -176,7 +220,15 @@ func getVMSpec(c echo.Context) error {
 func listOrgVMSpec(c echo.Context) error {
         cblog.Info("call listOrgVMSpec()")
 
-        cldConn, err := ccm.GetCloudConnection(c.QueryParam("connection_name"))
+        var req struct {
+                ConnectionName string
+        }
+
+        if err := c.Bind(&req); err != nil {
+                return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+        }
+
+        cldConn, err := ccm.GetCloudConnection(req.ConnectionName)
         if err != nil {
                 return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
         }
@@ -197,7 +249,15 @@ func listOrgVMSpec(c echo.Context) error {
 func getOrgVMSpec(c echo.Context) error {
         cblog.Info("call getOrgVMSpec()")
 
-        cldConn, err := ccm.GetCloudConnection(c.QueryParam("connection_name"))
+        var req struct {
+                ConnectionName string
+        }
+
+        if err := c.Bind(&req); err != nil {
+                return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+        }
+
+        cldConn, err := ccm.GetCloudConnection(req.ConnectionName)
         if err != nil {
                 return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
         }
@@ -217,7 +277,16 @@ func getOrgVMSpec(c echo.Context) error {
 func createVNetwork(c echo.Context) error {
 	cblog.Info("call createVNetwork()")
 
-	cldConn, err := ccm.GetCloudConnection(c.QueryParam("connection_name"))
+        var req struct {
+                ConnectionName string
+                ReqInfo cres.VNetworkReqInfo
+        }
+
+        if err := c.Bind(&req); err != nil {
+                return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+        }
+
+        cldConn, err := ccm.GetCloudConnection(req.ConnectionName)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
 	}
@@ -227,12 +296,7 @@ func createVNetwork(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
 	}
 
-	req := &cres.VNetworkReqInfo{}
-	if err := c.Bind(req); err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
-	}
-
-	info, err := handler.CreateVNetwork(*req)
+	info, err := handler.CreateVNetwork(req.ReqInfo)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
 	}
@@ -243,7 +307,15 @@ func createVNetwork(c echo.Context) error {
 func listVNetwork(c echo.Context) error {
 	cblog.Info("call listVNetwork()")
 
-	cldConn, err := ccm.GetCloudConnection(c.QueryParam("connection_name"))
+        var req struct {
+                ConnectionName string
+        }
+
+        if err := c.Bind(&req); err != nil {
+                return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+        }
+
+        cldConn, err := ccm.GetCloudConnection(req.ConnectionName)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
 	}
@@ -271,7 +343,15 @@ func listVNetwork(c echo.Context) error {
 func getVNetwork(c echo.Context) error {
 	cblog.Info("call getVNetwork()")
 
-	cldConn, err := ccm.GetCloudConnection(c.QueryParam("connection_name"))
+        var req struct {
+                ConnectionName string
+        }
+
+        if err := c.Bind(&req); err != nil {
+                return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+        }
+
+        cldConn, err := ccm.GetCloudConnection(req.ConnectionName)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
 	}
@@ -292,7 +372,15 @@ func getVNetwork(c echo.Context) error {
 func deleteVNetwork(c echo.Context) error {
 	cblog.Info("call deleteVNetwork()")
 
-	cldConn, err := ccm.GetCloudConnection(c.QueryParam("connection_name"))
+        var req struct {
+                ConnectionName string
+        }
+
+        if err := c.Bind(&req); err != nil {
+                return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+        }
+
+        cldConn, err := ccm.GetCloudConnection(req.ConnectionName)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
 	}
@@ -318,7 +406,16 @@ func deleteVNetwork(c echo.Context) error {
 func createSecurity(c echo.Context) error {
 	cblog.Info("call createSecurity()")
 
-	cldConn, err := ccm.GetCloudConnection(c.QueryParam("connection_name"))
+	var req struct {
+		ConnectionName string
+		ReqInfo cres.SecurityReqInfo
+	}
+
+	if err := c.Bind(&req); err != nil {
+		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+	}
+
+	cldConn, err := ccm.GetCloudConnection(req.ConnectionName)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
 	}
@@ -328,12 +425,7 @@ func createSecurity(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
 	}
 
-	req := &cres.SecurityReqInfo{}
-	if err := c.Bind(req); err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
-	}
-
-	info, err := handler.CreateSecurity(*req)
+	info, err := handler.CreateSecurity(req.ReqInfo)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
 	}
@@ -344,7 +436,15 @@ func createSecurity(c echo.Context) error {
 func listSecurity(c echo.Context) error {
 	cblog.Info("call listSecurity()")
 
-	cldConn, err := ccm.GetCloudConnection(c.QueryParam("connection_name"))
+	var req struct {
+                ConnectionName string
+        }
+
+        if err := c.Bind(&req); err != nil {
+                return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+        }
+
+        cldConn, err := ccm.GetCloudConnection(req.ConnectionName)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
 	}
@@ -372,7 +472,15 @@ func listSecurity(c echo.Context) error {
 func getSecurity(c echo.Context) error {
 	cblog.Info("call getSecurity()")
 
-	cldConn, err := ccm.GetCloudConnection(c.QueryParam("connection_name"))
+        var req struct {
+                ConnectionName string
+        }
+
+        if err := c.Bind(&req); err != nil {
+                return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+        }
+
+        cldConn, err := ccm.GetCloudConnection(req.ConnectionName)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
 	}
@@ -393,7 +501,15 @@ func getSecurity(c echo.Context) error {
 func deleteSecurity(c echo.Context) error {
 	cblog.Info("call deleteSecurity()")
 
-	cldConn, err := ccm.GetCloudConnection(c.QueryParam("connection_name"))
+        var req struct {
+                ConnectionName string
+        }
+
+        if err := c.Bind(&req); err != nil {
+                return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+        }
+
+        cldConn, err := ccm.GetCloudConnection(req.ConnectionName)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
 	}
@@ -419,7 +535,16 @@ func deleteSecurity(c echo.Context) error {
 func createKey(c echo.Context) error {
 	cblog.Info("call createKey()")
 
-	cldConn, err := ccm.GetCloudConnection(c.QueryParam("connection_name"))
+        var req struct {
+                ConnectionName string
+                ReqInfo cres.KeyPairReqInfo
+        }
+
+        if err := c.Bind(&req); err != nil {
+                return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+        }
+
+        cldConn, err := ccm.GetCloudConnection(req.ConnectionName)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
 	}
@@ -429,12 +554,7 @@ func createKey(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
 	}
 
-	req := &cres.KeyPairReqInfo{}
-	if err := c.Bind(req); err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
-	}
-
-	info, err := handler.CreateKey(*req)
+	info, err := handler.CreateKey(req.ReqInfo)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
 	}
@@ -445,7 +565,15 @@ func createKey(c echo.Context) error {
 func listKey(c echo.Context) error {
 	cblog.Info("call listKey()")
 
-	cldConn, err := ccm.GetCloudConnection(c.QueryParam("connection_name"))
+        var req struct {
+                ConnectionName string
+        }
+
+        if err := c.Bind(&req); err != nil {
+                return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+        }
+
+        cldConn, err := ccm.GetCloudConnection(req.ConnectionName)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
 	}
@@ -473,7 +601,15 @@ func listKey(c echo.Context) error {
 func getKey(c echo.Context) error {
 	cblog.Info("call getKey()")
 
-	cldConn, err := ccm.GetCloudConnection(c.QueryParam("connection_name"))
+        var req struct {
+                ConnectionName string
+        }
+
+        if err := c.Bind(&req); err != nil {
+                return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+        }
+
+        cldConn, err := ccm.GetCloudConnection(req.ConnectionName)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
 	}
@@ -494,7 +630,15 @@ func getKey(c echo.Context) error {
 func deleteKey(c echo.Context) error {
 	cblog.Info("call deleteKey()")
 
-	cldConn, err := ccm.GetCloudConnection(c.QueryParam("connection_name"))
+        var req struct {
+                ConnectionName string
+        }
+
+        if err := c.Bind(&req); err != nil {
+                return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+        }
+
+        cldConn, err := ccm.GetCloudConnection(req.ConnectionName)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
 	}
@@ -520,7 +664,16 @@ func deleteKey(c echo.Context) error {
 func createVNic(c echo.Context) error {
 	cblog.Info("call createVNic()")
 
-	cldConn, err := ccm.GetCloudConnection(c.QueryParam("connection_name"))
+        var req struct {
+                ConnectionName string
+                ReqInfo cres.VNicReqInfo
+        }
+
+        if err := c.Bind(&req); err != nil {
+                return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+        }
+
+        cldConn, err := ccm.GetCloudConnection(req.ConnectionName)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
 	}
@@ -530,12 +683,7 @@ func createVNic(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
 	}
 
-	req := &cres.VNicReqInfo{}
-	if err := c.Bind(req); err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
-	}
-
-	info, err := handler.CreateVNic(*req)
+	info, err := handler.CreateVNic(req.ReqInfo)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
 	}
@@ -546,7 +694,15 @@ func createVNic(c echo.Context) error {
 func listVNic(c echo.Context) error {
 	cblog.Info("call listVNic()")
 
-	cldConn, err := ccm.GetCloudConnection(c.QueryParam("connection_name"))
+        var req struct {
+                ConnectionName string
+        }
+
+        if err := c.Bind(&req); err != nil {
+                return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+        }
+
+        cldConn, err := ccm.GetCloudConnection(req.ConnectionName)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
 	}
@@ -574,7 +730,15 @@ func listVNic(c echo.Context) error {
 func getVNic(c echo.Context) error {
 	cblog.Info("call getVNic()")
 
-	cldConn, err := ccm.GetCloudConnection(c.QueryParam("connection_name"))
+        var req struct {
+                ConnectionName string
+        }
+
+        if err := c.Bind(&req); err != nil {
+                return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+        }
+
+        cldConn, err := ccm.GetCloudConnection(req.ConnectionName)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
 	}
@@ -595,7 +759,15 @@ func getVNic(c echo.Context) error {
 func deleteVNic(c echo.Context) error {
 	cblog.Info("call deleteVNic()")
 
-	cldConn, err := ccm.GetCloudConnection(c.QueryParam("connection_name"))
+        var req struct {
+                ConnectionName string
+        }
+
+        if err := c.Bind(&req); err != nil {
+                return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+        }
+
+        cldConn, err := ccm.GetCloudConnection(req.ConnectionName)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
 	}
@@ -621,7 +793,16 @@ func deleteVNic(c echo.Context) error {
 func createPublicIP(c echo.Context) error {
 	cblog.Info("call createPublicIP()")
 
-	cldConn, err := ccm.GetCloudConnection(c.QueryParam("connection_name"))
+        var req struct {
+                ConnectionName string
+                ReqInfo cres.PublicIPReqInfo
+        }
+
+        if err := c.Bind(&req); err != nil {
+                return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+        }
+
+        cldConn, err := ccm.GetCloudConnection(req.ConnectionName)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
 	}
@@ -631,12 +812,7 @@ func createPublicIP(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
 	}
 
-	req := &cres.PublicIPReqInfo{}
-	if err := c.Bind(req); err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
-	}
-
-	info, err := handler.CreatePublicIP(*req)
+	info, err := handler.CreatePublicIP(req.ReqInfo)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
 	}
@@ -647,7 +823,15 @@ func createPublicIP(c echo.Context) error {
 func listPublicIP(c echo.Context) error {
 	cblog.Info("call listPublicIP()")
 
-	cldConn, err := ccm.GetCloudConnection(c.QueryParam("connection_name"))
+        var req struct {
+                ConnectionName string
+        }
+
+        if err := c.Bind(&req); err != nil {
+                return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+        }
+
+        cldConn, err := ccm.GetCloudConnection(req.ConnectionName)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
 	}
@@ -675,7 +859,15 @@ func listPublicIP(c echo.Context) error {
 func getPublicIP(c echo.Context) error {
 	cblog.Info("call getPublicIP()")
 
-	cldConn, err := ccm.GetCloudConnection(c.QueryParam("connection_name"))
+        var req struct {
+                ConnectionName string
+        }
+
+        if err := c.Bind(&req); err != nil {
+                return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+        }
+
+        cldConn, err := ccm.GetCloudConnection(req.ConnectionName)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
 	}
@@ -696,7 +888,15 @@ func getPublicIP(c echo.Context) error {
 func deletePublicIP(c echo.Context) error {
 	cblog.Info("call deletePublicIP()")
 
-	cldConn, err := ccm.GetCloudConnection(c.QueryParam("connection_name"))
+        var req struct {
+                ConnectionName string
+        }
+
+        if err := c.Bind(&req); err != nil {
+                return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+        }
+
+        cldConn, err := ccm.GetCloudConnection(req.ConnectionName)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
 	}
@@ -722,7 +922,16 @@ func deletePublicIP(c echo.Context) error {
 func startVM(c echo.Context) error {
 	cblog.Info("call startVM()")
 
-	cldConn, err := ccm.GetCloudConnection(c.QueryParam("connection_name"))
+        var req struct {
+                ConnectionName string
+                ReqInfo cres.VMReqInfo
+        }
+
+        if err := c.Bind(&req); err != nil {
+                return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+        }
+
+        cldConn, err := ccm.GetCloudConnection(req.ConnectionName)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
 	}
@@ -732,12 +941,7 @@ func startVM(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
 	}
 
-	req := &cres.VMReqInfo{}
-	if err := c.Bind(req); err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
-	}
-
-	info, err := handler.StartVM(*req)
+	info, err := handler.StartVM(req.ReqInfo)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
 	}
@@ -748,7 +952,15 @@ func startVM(c echo.Context) error {
 func listVM(c echo.Context) error {
 	cblog.Info("call listVM()")
 
-	cldConn, err := ccm.GetCloudConnection(c.QueryParam("connection_name"))
+        var req struct {
+                ConnectionName string
+        }
+
+        if err := c.Bind(&req); err != nil {
+                return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+        }
+
+        cldConn, err := ccm.GetCloudConnection(req.ConnectionName)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
 	}
@@ -776,7 +988,15 @@ func listVM(c echo.Context) error {
 func getVM(c echo.Context) error {
 	cblog.Info("call getVM()")
 
-	cldConn, err := ccm.GetCloudConnection(c.QueryParam("connection_name"))
+        var req struct {
+                ConnectionName string
+        }
+
+        if err := c.Bind(&req); err != nil {
+                return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+        }
+
+        cldConn, err := ccm.GetCloudConnection(req.ConnectionName)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
 	}
@@ -797,7 +1017,15 @@ func getVM(c echo.Context) error {
 func terminateVM(c echo.Context) error {
 	cblog.Info("call terminateVM()")
 
-	cldConn, err := ccm.GetCloudConnection(c.QueryParam("connection_name"))
+        var req struct {
+                ConnectionName string
+        }
+
+        if err := c.Bind(&req); err != nil {
+                return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+        }
+
+        cldConn, err := ccm.GetCloudConnection(req.ConnectionName)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
 	}
@@ -822,7 +1050,15 @@ func terminateVM(c echo.Context) error {
 func listVMStatus(c echo.Context) error {
 	cblog.Info("call listVMStatus()")
 
-	cldConn, err := ccm.GetCloudConnection(c.QueryParam("connection_name"))
+        var req struct {
+                ConnectionName string
+        }
+
+        if err := c.Bind(&req); err != nil {
+                return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+        }
+
+        cldConn, err := ccm.GetCloudConnection(req.ConnectionName)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
 	}
@@ -850,7 +1086,15 @@ func listVMStatus(c echo.Context) error {
 func getVMStatus(c echo.Context) error {
 	cblog.Info("call getVMStatus()")
 
-	cldConn, err := ccm.GetCloudConnection(c.QueryParam("connection_name"))
+        var req struct {
+                ConnectionName string
+        }
+
+        if err := c.Bind(&req); err != nil {
+                return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+        }
+
+        cldConn, err := ccm.GetCloudConnection(req.ConnectionName)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
 	}
@@ -875,7 +1119,15 @@ func getVMStatus(c echo.Context) error {
 func controlVM(c echo.Context) error {
 	cblog.Info("call controlVM()")
 
-	cldConn, err := ccm.GetCloudConnection(c.QueryParam("connection_name"))
+        var req struct {
+                ConnectionName string
+        }
+
+        if err := c.Bind(&req); err != nil {
+                return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+        }
+
+        cldConn, err := ccm.GetCloudConnection(req.ConnectionName)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
 	}

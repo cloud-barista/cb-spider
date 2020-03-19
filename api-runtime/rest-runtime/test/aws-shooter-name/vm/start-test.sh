@@ -10,7 +10,7 @@ do
         SG_ID1=security01-powerkim
         #echo ${VNET_ID}, ${PIP_ID}, ${SG_ID}, ${VNIC_ID}
 
-        curl -sX POST http://$RESTSERVER:1024/spider/vm?connection_name=${NAME} -H 'Content-Type: application/json' -d '{
+        curl -sX POST http://$RESTSERVER:1024/spider/vm -H 'Content-Type: application/json' -d '{ "ConnectionName": "'${NAME}'", "ReqInfo": {
             "VMName": "vm-powerkim01",
                 "ImageId": "'${IMG_IDS[num]}'",
                 "VirtualNetworkId": "'${VNET_ID}'",
@@ -20,7 +20,7 @@ do
                 "VMSpecId": "t3.micro",
                  "KeyPairName": "mcb-keypair-powerkim",
                 "VMUserId": ""
-        }' |json_pp &
+        }}' |json_pp &
 
 
         num=`expr $num + 1`
