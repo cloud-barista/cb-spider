@@ -1,6 +1,6 @@
 RESTSERVER=localhost
 
-curl -X POST http://$RESTSERVER:1024/sshrun -H 'Content-Type: application/json' -d '{
+curl -X POST http://$RESTSERVER:1024/spider/sshrun -H 'Content-Type: application/json' -d '{
     "PrivateKey": [
         "-----BEGIN RSA PRIVATE KEY-----",
         "MIIEoQIBAAKCAQEArVNOLwMIp5VmZ4VPZotcoCHdEzimKalAsz+ccLfvAA1Y2ELH",

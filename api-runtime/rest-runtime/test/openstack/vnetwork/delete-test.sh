@@ -5,4 +5,4 @@ RESTSERVER=localhost
 # 서브넷 삭제 시 자동으로 라우터 인터페이스 삭제
 
 VNETWORK_NAME=CB-Subnet
-curl -X DELETE http://$RESTSERVER:1024/vnetwork/$VNETWORK_NAME?connection_name=openstack-config01
+curl -X DELETE http://$RESTSERVER:1024/spider/vnetwork/$VNETWORK_NAME?connection_name=openstack-config01

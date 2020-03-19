@@ -79,6 +79,12 @@ func main() {
 		{"GET", "/vmimage/:ImageName", getImage},
 		{"DELETE", "/vmimage/:ImageName", deleteImage},
 
+		//----------VMSpec Handler
+		{"GET", "/vmspec/:RegionName", listVMSpec},
+		{"GET", "/vmspec/:RegionName/:VMSpecName", getVMSpec},
+		{"GET", "/vmorgspec/:RegionName", listOrgVMSpec},
+		{"GET", "/vmorgspec/:RegionName/:VMSpecName", getOrgVMSpec},
+
 		//----------VNet Handler
 		{"POST", "/vnetwork", createVNetwork},
 		{"GET", "/vnetwork", listVNetwork},
@@ -143,6 +149,8 @@ func ApiServer(routes []route, strPort string) {
 	e.Use(middleware.Recover())
 
 	for _, route := range routes {
+		// /driver => /spider/driver
+		route.path = "/spider" + route.path
 		switch route.method {
 		case "POST":
 			e.POST(route.path, route.function)

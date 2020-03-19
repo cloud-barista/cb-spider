@@ -21,9 +21,9 @@ import (
 	dim "github.com/cloud-barista/cb-spider/cloud-info-manager/driver-info-manager"
 	rim "github.com/cloud-barista/cb-spider/cloud-info-manager/region-info-manager"
 
-	"encoding/json"
+	//"encoding/json"
 	"fmt"
-	"net/http"
+	//"net/http"
 	"os"
 	"plugin"
 	"strings"
@@ -50,44 +50,44 @@ func ListCloudDriver() []string {
 // 3. load driver library
 // 4. get CloudDriver
 func GetCloudDriver(cloudConnectName string) (idrv.CloudDriver, error) {
-	cccInfo, err := getConnectionConfigInfo(cloudConnectName)
+	cccInfo, err := ccim.GetConnectionConfig(cloudConnectName)
 	if err != nil {
 		return nil, err
 	}
 
-	cldDrvInfo, err := getCloudDriverInfo(cccInfo.DriverName)
+	cldDrvInfo, err := dim.GetCloudDriver(cccInfo.DriverName)
 	if err != nil {
 		return nil, err
 	}
 
-	return getCloudDriver(cldDrvInfo)
+	return getCloudDriver(*cldDrvInfo)
 }
 
 // 1. get credential info
 // 2. get region info
 // 3. get CloudConneciton
 func GetCloudConnection(cloudConnectName string) (icon.CloudConnection, error) {
-	cccInfo, err := getConnectionConfigInfo(cloudConnectName)
+	cccInfo, err := ccim.GetConnectionConfig(cloudConnectName)
 	if err != nil {
 		return nil, err
 	}
 
-	cldDrvInfo, err := getCloudDriverInfo(cccInfo.DriverName)
+	cldDrvInfo, err := dim.GetCloudDriver(cccInfo.DriverName)
 	if err != nil {
 		return nil, err
 	}
 
-	cldDriver, err := getCloudDriver(cldDrvInfo)
+	cldDriver, err := getCloudDriver(*cldDrvInfo)
 	if err != nil {
 		return nil, err
 	}
 
-	crdInfo, err := getCredentialInfo(cccInfo.CredentialName)
+	crdInfo, err := cim.GetCredential(cccInfo.CredentialName)
 	if err != nil {
 		return nil, err
 	}
 
-	rgnInfo, err := getRegionInfo(cccInfo.RegionName)
+	rgnInfo, err := rim.GetRegion(cccInfo.RegionName)
 	if err != nil {
 		return nil, err
 	}
@@ -197,127 +197,4 @@ func getCloudDriver(cldDrvInfo dim.CloudDriverInfo) (idrv.CloudDriver, error) {
 	}
 
 	return cloudDriver, nil
-}
-
-func getConnectionConfigInfo(configName string) (ccim.ConnectionConfigInfo, error) {
-	// Build the request
-	req, err := http.NewRequest("GET", CIM_RESTSERVER+"/connectionconfig/"+configName, nil)
-	if err != nil {
-		cblog.Errorf("Error is req: ", err)
-	}
-
-	// create a Client
-	client := &http.Client{}
-
-	// Do sends an HTTP request and
-	resp, err := client.Do(req)
-	if err != nil {
-		cblog.Errorf("error in send req: ", err)
-	}
-
-	// Defer the closing of the body
-	defer resp.Body.Close()
-
-	// Fill the data with the data from the JSON
-	var data ccim.ConnectionConfigInfo
-
-	// Use json.Decode for reading streams of JSON data
-	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
-		cblog.Error(err)
-	}
-
-	return data, nil
-}
-
-func getCloudDriverInfo(driverName string) (dim.CloudDriverInfo, error) {
-
-	// Build the request
-	req, err := http.NewRequest("GET", CIM_RESTSERVER+"/driver/"+driverName, nil)
-	if err != nil {
-		cblog.Errorf("Error is req: ", err)
-	}
-
-	// create a Client
-	client := &http.Client{}
-
-	// Do sends an HTTP request and
-	resp, err := client.Do(req)
-	if err != nil {
-		cblog.Errorf("error in send req: ", err)
-	}
-
-	// Defer the closing of the body
-	defer resp.Body.Close()
-
-	// Fill the data with the data from the JSON
-	var data dim.CloudDriverInfo
-
-	// Use json.Decode for reading streams of JSON data
-	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
-		cblog.Error(err)
-	}
-
-	return data, nil
-}
-
-func getCredentialInfo(credentialName string) (cim.CredentialInfo, error) {
-
-	// Build the request
-	req, err := http.NewRequest("GET", CIM_RESTSERVER+"/credential/"+credentialName, nil)
-	if err != nil {
-		cblog.Errorf("Error is req: ", err)
-	}
-
-	// create a Client
-	client := &http.Client{}
-
-	// Do sends an HTTP request and
-	resp, err := client.Do(req)
-	if err != nil {
-		cblog.Errorf("error in send req: ", err)
-	}
-
-	// Defer the closing of the body
-	defer resp.Body.Close()
-
-	// Fill the data with the data from the JSON
-	var data cim.CredentialInfo
-
-	// Use json.Decode for reading streams of JSON data
-	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
-		cblog.Error(err)
-	}
-
-	return data, nil
-}
-
-func getRegionInfo(regionName string) (rim.RegionInfo, error) {
-
-	// Build the request
-	req, err := http.NewRequest("GET", CIM_RESTSERVER+"/region/"+regionName, nil)
-	if err != nil {
-		cblog.Errorf("Error is req: ", err)
-	}
-
-	// create a Client
-	client := &http.Client{}
-
-	// Do sends an HTTP request and
-	resp, err := client.Do(req)
-	if err != nil {
-		cblog.Errorf("error in send req: ", err)
-	}
-
-	// Defer the closing of the body
-	defer resp.Body.Close()
-
-	// Fill the data with the data from the JSON
-	var data rim.RegionInfo
-
-	// Use json.Decode for reading streams of JSON data
-	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
-		cblog.Error(err)
-	}
-
-	return data, nil
 }

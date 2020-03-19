@@ -7,4 +7,4 @@ RESTSERVER=localhost
 # 반드시 소문자로 기입
 
 #정상 동작
-curl -X POST http://$RESTSERVER:1024/vnetwork?connection_name=gcp-config01 -H 'Content-Type: application/json' -d '{"Name":"cb-vnet"}' |json_pp
+curl -X POST http://$RESTSERVER:1024/spider/vnetwork?connection_name=gcp-config01 -H 'Content-Type: application/json' -d '{"Name":"cb-vnet"}' |json_pp

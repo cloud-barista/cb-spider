@@ -4,6 +4,6 @@ source ../setup.env
 for NAME in "${CONNECT_NAMES[@]}"
 do
         ID=cb-vnet
-        curl -sX GET http://$RESTSERVER:1024/vnetwork/${ID}?connection_name=${NAME} |json_pp &
+        curl -sX GET http://$RESTSERVER:1024/spider/vnetwork/${ID}?connection_name=${NAME} |json_pp &
 done
 

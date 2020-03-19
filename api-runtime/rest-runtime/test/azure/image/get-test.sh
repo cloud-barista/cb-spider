@@ -4,4 +4,4 @@ RESTSERVER=localhost
 # URN 형태의 Image ID를 기준으로 이미지 정보 조회
 
 IMAGE_ID=Canonical:UbuntuServer:18.04-LTS:latest
-curl -X GET http://$RESTSERVER:1024/vmimage/$IMAGE_ID?connection_name=azure-config01 |json_pp
+curl -X GET http://$RESTSERVER:1024/spider/vmimage/$IMAGE_ID?connection_name=azure-config01 |json_pp
