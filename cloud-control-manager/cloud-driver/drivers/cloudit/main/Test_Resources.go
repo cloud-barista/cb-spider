@@ -384,8 +384,8 @@ func testVmSpecHandler(config Config) {
 	cblogger.Info("4. GetOrgVmSpec()")
 	cblogger.Info("9. Exit")
 
-	var vmSpecName string
-	vmSpecName = "large-4"
+	region := config.Cloudit.TenantID
+	vmSpecName := "large-4"
 
 Loop:
 	for {
@@ -399,7 +399,6 @@ Loop:
 			switch commandNum {
 			case 1:
 				cblogger.Info("Start ListVmSpec() ...")
-				region := "" // TODO: region 정보 받아오기
 				if list, err := vmSpecHandler.ListVMSpec(region); err != nil {
 					cblogger.Error(err)
 				} else {
@@ -408,7 +407,6 @@ Loop:
 				cblogger.Info("Finish ListVmSpec()")
 			case 2:
 				cblogger.Info("Start GetVmSpec() ...")
-				region := "" // TODO: region 정보 받아오기
 				if vmSpec, err := vmSpecHandler.GetVMSpec(region, vmSpecName); err != nil {
 					cblogger.Error(err)
 				} else {
@@ -417,7 +415,6 @@ Loop:
 				cblogger.Info("Finish GetVmSpec()")
 			case 3:
 				cblogger.Info("Start ListOrgVmSpec() ...")
-				region := "" // TODO: region 정보 받아오기
 				if listStr, err := vmSpecHandler.ListOrgVMSpec(region); err != nil {
 					cblogger.Error(err)
 				} else {
@@ -426,7 +423,6 @@ Loop:
 				cblogger.Info("Finish ListOrgVmSpec()")
 			case 4:
 				cblogger.Info("Start GetOrgVmSpec() ...")
-				region := "" // TODO: region 정보 받아오기
 				if vmSpecStr, err := vmSpecHandler.GetOrgVMSpec(region, vmSpecName); err != nil {
 					cblogger.Error(err)
 				} else {

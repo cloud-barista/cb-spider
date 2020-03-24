@@ -33,12 +33,13 @@ type ClouditVMSpecHandler struct {
 	Client         *client.RestClient
 }
 
-func setterVMSpec(vmSpec specs.VMSpecInfo) *irs.VMSpecInfo {
+func setterVMSpec(region string, vmSpec specs.VMSpecInfo) *irs.VMSpecInfo {
 	vmSpecInfo := &irs.VMSpecInfo{
-		Name: vmSpec.Name,
-		VCpu: irs.VCpuInfo{Count: strconv.Itoa(vmSpec.Cpu)},
-		Mem:  strconv.Itoa(vmSpec.Mem),
-		Gpu:  []irs.GpuInfo{{Count: strconv.Itoa(vmSpec.GPU)}},
+		Name:   vmSpec.Name,
+		VCpu:   irs.VCpuInfo{Count: strconv.Itoa(vmSpec.Cpu)},
+		Mem:    strconv.Itoa(vmSpec.Mem),
+		Gpu:    []irs.GpuInfo{{Count: strconv.Itoa(vmSpec.GPU)}},
+		Region: region,
 		//KeyValueList: nil,
 	}
 
@@ -60,14 +61,14 @@ func (vmSpecHandler *ClouditVMSpecHandler) ListVMSpec(Region string) ([]*irs.VMS
 
 	vmSpecList := make([]*irs.VMSpecInfo, len(*list))
 	for i, spec := range *list {
-		vmSpecList[i] = setterVMSpec(spec)
+		vmSpecList[i] = setterVMSpec(vmSpecHandler.CredentialInfo.TenantId, spec)
 	}
 	return vmSpecList, nil
 }
 
 func (vmSpecHandler *ClouditVMSpecHandler) GetVMSpec(Region string, Name string) (irs.VMSpecInfo, error) {
 
-	specInfo, err := vmSpecHandler.GetVVMSpecByName(Name)
+	specInfo, err := vmSpecHandler.GetVMSpecByName(Region, Name)
 	if err != nil {
 		cblogger.Error(fmt.Sprintf("failed to get VM spec, err : %s", err))
 		notFoundErr := errors.New("failed to get VM spec")
@@ -92,7 +93,7 @@ func (vmSpecHandler *ClouditVMSpecHandler) ListOrgVMSpec(Region string) (string,
 
 	vmSpecList := make([]*irs.VMSpecInfo, len(*list))
 	for i, spec := range *list {
-		vmSpecList[i] = setterVMSpec(spec)
+		vmSpecList[i] = setterVMSpec(vmSpecHandler.CredentialInfo.TenantId, spec)
 	}
 
 	jsonBytes, err := json.Marshal(vmSpecList)
@@ -106,7 +107,7 @@ func (vmSpecHandler *ClouditVMSpecHandler) ListOrgVMSpec(Region string) (string,
 }
 
 func (vmSpecHandler *ClouditVMSpecHandler) GetOrgVMSpec(Region string, Name string) (string, error) {
-	specInfo, err := vmSpecHandler.GetVVMSpecByName(Name)
+	specInfo, err := vmSpecHandler.GetVMSpecByName(Region, Name)
 	if err != nil {
 		cblogger.Error(fmt.Sprintf("failed to get VM spec, err : %s", err))
 		notFoundErr := errors.New("failed to get VM spec")
@@ -124,7 +125,7 @@ func (vmSpecHandler *ClouditVMSpecHandler) GetOrgVMSpec(Region string, Name stri
 	return jsonString, err
 }
 
-func (vmSpecHandler *ClouditVMSpecHandler) GetVVMSpecByName(specName string) (*irs.VMSpecInfo, error) {
+func (vmSpecHandler *ClouditVMSpecHandler) GetVMSpecByName(region string, specName string) (*irs.VMSpecInfo, error) {
 	vmSpecHandler.Client.TokenID = vmSpecHandler.CredentialInfo.AuthToken
 	authHeader := vmSpecHandler.Client.AuthenticatedHeaders()
 
@@ -140,7 +141,7 @@ func (vmSpecHandler *ClouditVMSpecHandler) GetVVMSpecByName(specName string) (*i
 	var specInfo *irs.VMSpecInfo
 	for _, spec := range *specList {
 		if strings.EqualFold(spec.Name, specName) {
-			specInfo = setterVMSpec(spec)
+			specInfo = setterVMSpec(vmSpecHandler.CredentialInfo.TenantId, spec)
 			break
 		}
 	}

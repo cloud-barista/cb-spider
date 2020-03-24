@@ -12,12 +12,12 @@ type OpenStackVMSpecHandler struct {
 	Client *gophercloud.ServiceClient
 }
 
-func setterVMSpec(vmSpec flavors.Flavor) *irs.VMSpecInfo {
+func setterVMSpec(region string, vmSpec flavors.Flavor) *irs.VMSpecInfo {
 	vmSpecInfo := &irs.VMSpecInfo{
-		//Region:       "",
-		Name: vmSpec.Name,
-		VCpu: irs.VCpuInfo{Count: strconv.Itoa(vmSpec.VCPUs)},
-		Mem:  strconv.Itoa(vmSpec.RAM),
+		Region: region,
+		Name:   vmSpec.Name,
+		VCpu:   irs.VCpuInfo{Count: strconv.Itoa(vmSpec.VCPUs)},
+		Mem:    strconv.Itoa(vmSpec.RAM),
 		//Gpu:          nil,
 		//KeyValueList: nil,
 	}
@@ -37,7 +37,7 @@ func (vmSpecHandler *OpenStackVMSpecHandler) ListVMSpec(Region string) ([]*irs.V
 
 	vmSpecList := make([]*irs.VMSpecInfo, len(list))
 	for i, spec := range list {
-		vmSpecList[i] = setterVMSpec(spec)
+		vmSpecList[i] = setterVMSpec(Region, spec)
 	}
 	return vmSpecList, nil
 }
@@ -52,7 +52,7 @@ func (vmSpecHandler *OpenStackVMSpecHandler) GetVMSpec(Region string, Name strin
 		return irs.VMSpecInfo{}, err
 	}
 
-	vmSpecInfo := setterVMSpec(*vmSpec)
+	vmSpecInfo := setterVMSpec(Region, *vmSpec)
 	return *vmSpecInfo, nil
 }
 
@@ -68,7 +68,7 @@ func (vmSpecHandler *OpenStackVMSpecHandler) ListOrgVMSpec(Region string) (strin
 
 	vmSpecList := make([]*irs.VMSpecInfo, len(list))
 	for i, spec := range list {
-		vmSpecList[i] = setterVMSpec(spec)
+		vmSpecList[i] = setterVMSpec(Region, spec)
 	}
 
 	jsonBytes, err := json.Marshal(vmSpecList)
@@ -91,7 +91,7 @@ func (vmSpecHandler *OpenStackVMSpecHandler) GetOrgVMSpec(Region string, Name st
 		return "", err
 	}
 
-	vmSpecInfo := setterVMSpec(*vmSpec)
+	vmSpecInfo := setterVMSpec(Region, *vmSpec)
 
 	jsonBytes, err := json.Marshal(vmSpecInfo)
 	if err != nil {
