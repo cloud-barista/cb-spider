@@ -243,7 +243,7 @@ func listOrgVMSpec(c echo.Context) error {
                 return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
         }
 
-        return c.JSON(http.StatusOK, &infoList)
+        return c.String(http.StatusOK, infoList)
 }
 
 func getOrgVMSpec(c echo.Context) error {
@@ -270,7 +270,7 @@ func getOrgVMSpec(c echo.Context) error {
         if err != nil {
                 return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
         }
-        return c.JSON(http.StatusOK, &info)
+        return c.String(http.StatusOK, info)
 }
 
 //================ VNetwork Handler
