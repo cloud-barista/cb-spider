@@ -132,7 +132,7 @@ func (vmSpecHandler *AwsVmSpecHandler) ListVMSpec(Region string) ([]*irs.VMSpecI
 		return vMSpecInfoList, err
 	}
 
-	cblogger.Info(resp)
+	//cblogger.Info(resp)
 	//fmt.Println(resp)
 
 	//ExtractVMSpecInfo(Region, resp.InstanceTypes[0])
@@ -170,7 +170,7 @@ func (vmSpecHandler *AwsVmSpecHandler) GetVMSpec(Region string, Name string) (ir
 		return irs.VMSpecInfo{}, err
 	}
 
-	cblogger.Info(resp)
+	//cblogger.Info(resp)
 	//fmt.Println(resp)
 	if len(resp.InstanceTypes) < 1 {
 		return irs.VMSpecInfo{}, errors.New(Name + "에 해당하는 Spec 정보를 찾을 수 없습니다.")
@@ -205,7 +205,7 @@ func (vmSpecHandler *AwsVmSpecHandler) ListOrgVMSpec(Region string) (string, err
 		return "", err
 	}
 
-	cblogger.Info(resp)
+	//cblogger.Info(resp)
 	//fmt.Println(resp)
 
 	//jsonString, errJson := ConvertJsonString(resp.InstanceTypes[0])
@@ -233,7 +233,7 @@ func (vmSpecHandler *AwsVmSpecHandler) GetOrgVMSpec(Region string, Name string) 
 		return "", err
 	}
 
-	cblogger.Info(resp)
+	//cblogger.Info(resp)
 	//fmt.Println(resp)
 	if len(resp.InstanceTypes) < 1 {
 		return "", errors.New(Name + "에 해당하는 Spec 정보를 찾을 수 없습니다.")

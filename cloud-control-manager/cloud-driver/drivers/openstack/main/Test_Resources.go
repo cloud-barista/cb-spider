@@ -575,11 +575,13 @@ Loop:
 			cblogger.Error(err)
 		}
 
+		region := config.Openstack.Region
+
 		if inputCnt == 1 {
 			switch commandNum {
 			case 1:
 				cblogger.Info("Start ListVMSpec() ...")
-				if list, err := vmSpecHandler.ListVMSpec(""); err != nil {
+				if list, err := vmSpecHandler.ListVMSpec(region); err != nil {
 					cblogger.Error(err)
 				} else {
 					spew.Dump(list)
@@ -587,7 +589,7 @@ Loop:
 				cblogger.Info("Finish ListVMSpec()")
 			case 2:
 				cblogger.Info("Start GetVMSpec() ...")
-				if vmSpecInfo, err := vmSpecHandler.GetVMSpec("", vmSpecId); err != nil {
+				if vmSpecInfo, err := vmSpecHandler.GetVMSpec(region, vmSpecId); err != nil {
 					cblogger.Error(err)
 				} else {
 					spew.Dump(vmSpecInfo)
@@ -595,7 +597,7 @@ Loop:
 				cblogger.Info("Finish GetVMSpec()")
 			case 3:
 				cblogger.Info("Start ListOrgVMSpec() ...")
-				if listStr, err := vmSpecHandler.ListOrgVMSpec(""); err != nil {
+				if listStr, err := vmSpecHandler.ListOrgVMSpec(region); err != nil {
 					cblogger.Error(err)
 				} else {
 					fmt.Println(listStr)
@@ -603,7 +605,7 @@ Loop:
 				cblogger.Info("Finish ListOrgVMSpec()")
 			case 4:
 				cblogger.Info("Start GetOrgVMSpec() ...")
-				if vmSpecStr, err := vmSpecHandler.GetOrgVMSpec("", vmSpecId); err != nil {
+				if vmSpecStr, err := vmSpecHandler.GetOrgVMSpec(region, vmSpecId); err != nil {
 					cblogger.Error(err)
 				} else {
 					fmt.Println(vmSpecStr)

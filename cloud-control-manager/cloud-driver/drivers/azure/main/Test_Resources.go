@@ -468,11 +468,12 @@ Loop:
 			cblogger.Error(err)
 		}
 
+		region := config.Azure.Location
+
 		if inputCnt == 1 {
 			switch commandNum {
 			case 1:
 				cblogger.Info("Start ListVmSpec() ...")
-				region := "koreacentral" // TODO: region 정보 받아오기
 				if list, err := vmSpecHandler.ListVMSpec(region); err != nil {
 					cblogger.Error(err)
 				} else {
@@ -481,7 +482,6 @@ Loop:
 				cblogger.Info("Finish ListVmSpec()")
 			case 2:
 				cblogger.Info("Start GetVmSpec() ...")
-				region := "koreacentral" // TODO: region 정보 받아오기
 				if vmSpec, err := vmSpecHandler.GetVMSpec(region, vmSpecName); err != nil {
 					cblogger.Error(err)
 				} else {
@@ -490,7 +490,6 @@ Loop:
 				cblogger.Info("Finish GetVmSpec()")
 			case 3:
 				cblogger.Info("Start ListOrgVmSpec() ...")
-				region := "koreacentral" // TODO: region 정보 받아오기
 				if listStr, err := vmSpecHandler.ListOrgVMSpec(region); err != nil {
 					cblogger.Error(err)
 				} else {
@@ -499,7 +498,6 @@ Loop:
 				cblogger.Info("Finish ListOrgVmSpec()")
 			case 4:
 				cblogger.Info("Start GetOrgVmSpec() ...")
-				region := "koreacentral" // TODO: region 정보 받아오기
 				if vmSpecStr, err := vmSpecHandler.GetOrgVMSpec(region, vmSpecName); err != nil {
 					cblogger.Error(err)
 				} else {

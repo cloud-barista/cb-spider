@@ -17,9 +17,9 @@ type AzureVmSpecHandler struct {
 	Client *compute.VirtualMachineSizesClient
 }
 
-func (vmSpecHandler *AzureVmSpecHandler) setterVmSpec(vmSpec compute.VirtualMachineSize) *irs.VMSpecInfo {
+func (vmSpecHandler *AzureVmSpecHandler) setterVmSpec(region string, vmSpec compute.VirtualMachineSize) *irs.VMSpecInfo {
 	vmSpecInfo := &irs.VMSpecInfo{
-		Region:       vmSpecHandler.Region.ResourceGroup,
+		Region:       region,
 		Name:         *vmSpec.Name,
 		VCpu:         irs.VCpuInfo{Count: strconv.FormatInt(int64(*vmSpec.NumberOfCores), 10)},
 		Mem:          strconv.FormatInt(int64(*vmSpec.MemoryInMB), 10),
@@ -30,28 +30,28 @@ func (vmSpecHandler *AzureVmSpecHandler) setterVmSpec(vmSpec compute.VirtualMach
 }
 
 func (vmSpecHandler *AzureVmSpecHandler) ListVMSpec(Region string) ([]*irs.VMSpecInfo, error) {
-	result, err := vmSpecHandler.Client.List(vmSpecHandler.Ctx, vmSpecHandler.Region.Region)
+	result, err := vmSpecHandler.Client.List(vmSpecHandler.Ctx, Region)
 	if err != nil {
 		return nil, err
 	}
 
 	var vmSpecList []*irs.VMSpecInfo
 	for _, spec := range *result.Value {
-		vmSpecInfo := vmSpecHandler.setterVmSpec(spec)
+		vmSpecInfo := vmSpecHandler.setterVmSpec(Region, spec)
 		vmSpecList = append(vmSpecList, vmSpecInfo)
 	}
 	return vmSpecList, nil
 }
 
 func (vmSpecHandler *AzureVmSpecHandler) GetVMSpec(Region string, Name string) (irs.VMSpecInfo, error) {
-	result, err := vmSpecHandler.Client.List(vmSpecHandler.Ctx, vmSpecHandler.Region.Region)
+	result, err := vmSpecHandler.Client.List(vmSpecHandler.Ctx, Region)
 	if err != nil {
 		return irs.VMSpecInfo{}, err
 	}
 
 	for _, spec := range *result.Value {
 		if Name == *spec.Name {
-			vmSpecInfo := vmSpecHandler.setterVmSpec(spec)
+			vmSpecInfo := vmSpecHandler.setterVmSpec(Region, spec)
 			return *vmSpecInfo, nil
 		}
 	}
@@ -60,14 +60,14 @@ func (vmSpecHandler *AzureVmSpecHandler) GetVMSpec(Region string, Name string) (
 }
 
 func (vmSpecHandler *AzureVmSpecHandler) ListOrgVMSpec(Region string) (string, error) {
-	result, err := vmSpecHandler.Client.List(vmSpecHandler.Ctx, vmSpecHandler.Region.Region)
+	result, err := vmSpecHandler.Client.List(vmSpecHandler.Ctx, Region)
 	if err != nil {
 		return "", err
 	}
 
 	var vmSpecList []*irs.VMSpecInfo
 	for _, spec := range *result.Value {
-		vmSpecInfo := vmSpecHandler.setterVmSpec(spec)
+		vmSpecInfo := vmSpecHandler.setterVmSpec(Region, spec)
 		vmSpecList = append(vmSpecList, vmSpecInfo)
 	}
 
@@ -82,14 +82,14 @@ func (vmSpecHandler *AzureVmSpecHandler) ListOrgVMSpec(Region string) (string, e
 }
 
 func (vmSpecHandler *AzureVmSpecHandler) GetOrgVMSpec(Region string, Name string) (string, error) {
-	result, err := vmSpecHandler.Client.List(vmSpecHandler.Ctx, vmSpecHandler.Region.Region)
+	result, err := vmSpecHandler.Client.List(vmSpecHandler.Ctx, Region)
 	if err != nil {
 		return "", err
 	}
 
 	for _, spec := range *result.Value {
 		if Name == *spec.Name {
-			vmSpecInfo := vmSpecHandler.setterVmSpec(spec)
+			vmSpecInfo := vmSpecHandler.setterVmSpec(Region, spec)
 
 			jsonBytes, err := json.Marshal(vmSpecInfo)
 			if err != nil {
