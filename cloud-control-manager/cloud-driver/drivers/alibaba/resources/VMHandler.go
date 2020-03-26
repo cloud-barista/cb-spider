@@ -309,7 +309,10 @@ func (vmHandler *AlibabaVMHandler) GetVM(vmID string) (irs.VMInfo, error) {
 // DescribeInstances결과에서 EC2 세부 정보 추출
 // VM 생성 시에는 Running 이전 상태의 정보가 넘어오기 때문에
 // 최종 정보 기반으로 리턴 받고 싶으면 GetVM에 통합해야 할 듯.
-func ExtractDescribeInstances(instancInfo *ecs.Instance) irs.VMInfo {
+
+//@TODO : 2020-03-26 Ali클라우드 API 구조가 바뀐 것 같아서 임시로 변경해 놓음.
+func ExtractDescribeInstances() irs.VMInfo {
+	//func ExtractDescribeInstances(instancInfo *ecs.Instance) irs.VMInfo {
 	return irs.VMInfo{}
 	/*
 		//cblogger.Info("ExtractDescribeInstances", instancInfo)
