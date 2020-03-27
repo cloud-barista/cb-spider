@@ -104,10 +104,13 @@ func GetCloudConnection(cloudConnectName string) (icon.CloudConnection, error) {
 		regionName = getValue(rgnInfo.KeyValueInfoList, "location")
 	case "AWS":
 		regionName = getValue(rgnInfo.KeyValueInfoList, "Region")
+	case "ALIBABA":
+		regionName = getValue(rgnInfo.KeyValueInfoList, "Region")
 	case "GCP":
 		regionName = getValue(rgnInfo.KeyValueInfoList, "Region")
 		zoneName = getValue(rgnInfo.KeyValueInfoList, "Zone")
 	case "OPENSTACK":
+		regionName = getValue(rgnInfo.KeyValueInfoList, "Region")
 	case "CLOUDTWIN":
 		regionName = getValue(rgnInfo.KeyValueInfoList, "Region")
 	case "CLOUDIT":
