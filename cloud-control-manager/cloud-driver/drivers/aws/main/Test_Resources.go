@@ -638,6 +638,8 @@ func handleVMSpec() {
 					cblogger.Info("VMSpec Org 목록 조회 결과")
 					//spew.Dump(result)
 					cblogger.Info(result)
+					//spew.Dump(result)
+					//fmt.Println(result)
 					//fmt.Println("=========================")
 					//fmt.Println(result)
 				}
@@ -651,7 +653,9 @@ func handleVMSpec() {
 					cblogger.Error(reqVMSpec, " VMSpec Org 정보 조회 실패 : ", err)
 				} else {
 					cblogger.Infof("VMSpec[%s] Org 정보 조회 결과", reqVMSpec)
-					spew.Dump(result)
+					//spew.Dump(result)
+					cblogger.Info(result)
+					//fmt.Println(result)
 				}
 				fmt.Println("Finish GetOrgVMSpec()")
 

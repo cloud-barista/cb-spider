@@ -240,6 +240,8 @@ func (vmSpecHandler *AwsVmSpecHandler) GetOrgVMSpec(Region string, Name string) 
 	}
 
 	jsonString, errJson := ConvertJsonString(resp.InstanceTypes[0])
+	//jsonString, errJson := ConvertJsonStringNoEscape(resp.InstanceTypes[0])
+
 	if errJson != nil {
 		cblogger.Error(errJson)
 	}
