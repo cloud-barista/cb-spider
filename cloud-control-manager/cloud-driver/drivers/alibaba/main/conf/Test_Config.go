@@ -8,7 +8,7 @@
 //
 // by devunet@mz.co.kr, 2019.08.
 
-package TestConfig
+package AliTestConfig
 
 import (
 	"io/ioutil"
