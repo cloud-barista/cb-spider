@@ -152,7 +152,8 @@ func (vmSpecHandler *AlibabaVmSpecHandler) ListOrgVMSpec(Region string) (string,
 		return "", err
 	}
 
-	jsonString, errJson := ConvertJsonString(resp.InstanceTypes.InstanceType)
+	//jsonString, errJson := ConvertJsonString(resp.InstanceTypes.InstanceType)
+	jsonString, errJson := ConvertJsonString(resp.InstanceTypes)
 	if errJson != nil {
 		cblogger.Error(errJson)
 	}

@@ -13,7 +13,8 @@ package main
 import (
 	"fmt"
 
-	testconf "./conf"
+	//testconf "./conf"
+	testconf "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/alibaba/main/conf"
 
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/davecgh/go-spew/spew"
@@ -208,7 +209,8 @@ func handleVMSpec() {
 					cblogger.Error("VMSpec 목록 조회 실패 : ", err)
 				} else {
 					cblogger.Info("VMSpec 목록 조회 결과")
-					spew.Dump(result)
+					cblogger.Info(result)
+					//spew.Dump(result)
 				}
 
 				fmt.Println("Finish ListOrgVMSpec()")
@@ -220,7 +222,8 @@ func handleVMSpec() {
 					cblogger.Error(reqVMSpec, " VMSpec 정보 조회 실패 : ", err)
 				} else {
 					cblogger.Infof("VMSpec[%s]  정보 조회 결과", reqVMSpec)
-					spew.Dump(result)
+					cblogger.Info(result)
+					//spew.Dump(result)
 				}
 				fmt.Println("Finish GetOrgVMSpec()")
 
@@ -232,14 +235,121 @@ func handleVMSpec() {
 	}
 }
 
+// Test AMI
+func handleImage() {
+	cblogger.Debug("Start ImageHandler Resource Test")
+
+	ResourceHandler, err := testconf.GetResourceHandler("Image")
+	if err != nil {
+		panic(err)
+	}
+	//handler := ResourceHandler.(irs2.ImageHandler)
+	handler := ResourceHandler.(irs.ImageHandler)
+
+	//imageReqInfo := irs2.ImageReqInfo{
+	imageReqInfo := irs.ImageReqInfo{
+		Id:   "ami-047f7b46bd6dd5d84",
+		Name: "Test OS Image",
+	}
+
+	for {
+		fmt.Println("ImageHandler Management")
+		fmt.Println("0. Quit")
+		fmt.Println("1. Image List")
+		fmt.Println("2. Image Create")
+		fmt.Println("3. Image Get")
+		fmt.Println("4. Image Delete")
+
+		var commandNum int
+		inputCnt, err := fmt.Scan(&commandNum)
+		if err != nil {
+			panic(err)
+		}
+
+		if inputCnt == 1 {
+			switch commandNum {
+			case 0:
+				return
+
+			case 1:
+				result, err := handler.ListImage()
+				if err != nil {
+					cblogger.Infof(" Image 목록 조회 실패 : ", err)
+				} else {
+					cblogger.Info("Image 목록 조회 결과")
+					cblogger.Info(result)
+					//spew.Dump(result)
+					cblogger.Info("출력 결과 수 : ", len(result))
+
+					//조회및 삭제 테스트를 위해 리스트의 첫번째 정보의 ID를 요청ID로 자동 갱신함.
+					if result != nil {
+						imageReqInfo.Id = result[0].Id // 조회 및 삭제를 위해 생성된 ID로 변경
+					}
+				}
+
+			case 2:
+				cblogger.Infof("[%s] Image 생성 테스트", imageReqInfo.Name)
+				//vNetworkReqInfo := irs.VNetworkReqInfo{}
+				result, err := handler.CreateImage(imageReqInfo)
+				if err != nil {
+					cblogger.Infof(imageReqInfo.Id, " Image 생성 실패 : ", err)
+				} else {
+					cblogger.Infof("Image 생성 결과 : ", result)
+					imageReqInfo.Id = result.Id // 조회 및 삭제를 위해 생성된 ID로 변경
+					spew.Dump(result)
+				}
+
+			case 3:
+				cblogger.Infof("[%s] Image 조회 테스트", imageReqInfo.Id)
+				result, err := handler.GetImage(imageReqInfo.Id)
+				if err != nil {
+					cblogger.Infof("[%s] Image 조회 실패 : ", imageReqInfo.Id, err)
+				} else {
+					cblogger.Infof("[%s] Image 조회 결과 : [%s]", imageReqInfo.Id, result)
+					spew.Dump(result)
+				}
+
+			case 4:
+				cblogger.Infof("[%s] Image 삭제 테스트", imageReqInfo.Id)
+				result, err := handler.DeleteImage(imageReqInfo.Id)
+				if err != nil {
+					cblogger.Infof("[%s] Image 삭제 실패 : ", imageReqInfo.Id, err)
+				} else {
+					cblogger.Infof("[%s] Image 삭제 결과 : [%s]", imageReqInfo.Id, result)
+				}
+			}
+		}
+	}
+}
+
+func TestMain() {
+	cblogger.Debug("Start ImageHandler Resource Test")
+
+	ResourceHandler, err := testconf.GetResourceHandler("Image")
+	if err != nil {
+		panic(err)
+	}
+	handler := ResourceHandler.(irs.ImageHandler)
+
+	result, err := handler.ListImage()
+	if err != nil {
+		cblogger.Infof(" Image 목록 조회 실패 : ", err)
+	} else {
+		cblogger.Info("Image 목록 조회 결과")
+		cblogger.Info(result)
+		cblogger.Info("출력 결과 수 : ", len(result))
+		spew.Dump(result)
+	}
+}
+
 func main() {
 	cblogger.Info("Alibaba Cloud Resource Test")
 	//handleKeyPair()
 	//handlePublicIP() // PublicIP 생성 후 conf
-	handleVMSpec()
+	//handleVMSpec()
 
 	//handleVNetwork() //VPC
-	//handleImage() //AMI
+	handleImage() //AMI
 	//handleVNic() //Lancard
 	//handleSecurity()
 }
