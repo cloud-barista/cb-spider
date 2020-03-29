@@ -278,8 +278,8 @@ func handleImage() {
 				} else {
 					cblogger.Info("Image 목록 조회 결과")
 					cblogger.Info(result)
-					cblogger.Info("출력 결과 수 : ", len(result))
 					//spew.Dump(result)
+					cblogger.Info("출력 결과 수 : ", len(result))
 
 					//조회및 삭제 테스트를 위해 리스트의 첫번째 정보의 ID를 요청ID로 자동 갱신함.
 					if result != nil {
@@ -346,10 +346,10 @@ func main() {
 	cblogger.Info("Alibaba Cloud Resource Test")
 	//handleKeyPair()
 	//handlePublicIP() // PublicIP 생성 후 conf
-	handleVMSpec()
+	//handleVMSpec()
 
 	//handleVNetwork() //VPC
-	//handleImage() //AMI
+	handleImage() //AMI
 	//handleVNic() //Lancard
 	//handleSecurity()
 }

@@ -50,7 +50,7 @@ const (
 	// page number for control pages
 	CBPageNumber = 1
 	// page size for control pages
-	CBPageSize = 10
+	CBPageSize = 100
 )
 
 type AlibabaCBNetworkInfo struct {
