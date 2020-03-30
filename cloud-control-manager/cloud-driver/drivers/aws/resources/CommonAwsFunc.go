@@ -11,11 +11,13 @@
 package resources
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"reflect"
 	"strconv"
+	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
@@ -220,9 +222,43 @@ func SetNameTag(Client *ec2.EC2, Id string, value string) bool {
 	return true
 }
 
+func JSONMarshal(t interface{}) ([]byte, error) {
+	buffer := &bytes.Buffer{}
+	encoder := json.NewEncoder(buffer)
+	encoder.SetEscapeHTML(false)
+	err := encoder.Encode(t)
+	return buffer.Bytes(), err
+}
+
+//Cloud Object를 JSON String 타입으로 변환
+func ConvertJsonStringNoEscape(v interface{}) (string, error) {
+	//jsonBytes, errJson := json.Marshal(v)
+
+	buffer := &bytes.Buffer{}
+	encoder := json.NewEncoder(buffer)
+	encoder.SetEscapeHTML(false)
+	errJson := encoder.Encode(v)
+	if errJson != nil {
+		cblogger.Error("JSON 변환 실패")
+		cblogger.Error(errJson)
+		return "", errJson
+	}
+
+	//fmt.Println("After marshal", string(buffer.Bytes()))
+	//spew.Dump(string(buffer.Bytes()))
+	spew.Dump("\"TEST")
+
+	jsonString := string(buffer.Bytes())
+	//jsonString = strings.Replace(jsonString, "\n", "", -1)
+	jsonString = strings.Replace(jsonString, "\"", "", -1)
+
+	return jsonString, nil
+}
+
 //Cloud Object를 JSON String 타입으로 변환
 func ConvertJsonString(v interface{}) (string, error) {
 	jsonBytes, errJson := json.Marshal(v)
+
 	if errJson != nil {
 		cblogger.Error("JSON 변환 실패")
 		cblogger.Error(errJson)

@@ -289,7 +289,6 @@ func (imageHandler *AlibabaImageHandler) DeleteImage(imageID string) (bool, erro
 package resources
 
 import (
-	"reflect"
 	"strconv"
 
 	"github.com/aliyun/alibaba-cloud-sdk-go/sdk/requests"
@@ -400,18 +399,8 @@ func (imageHandler *AlibabaImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 	}
 
 	result, err := imageHandler.Client.DescribeImages(request)
-	//spew.Dump(result)	//출력 정보가 너무 많아서 생략
+	//spew.Dump(result) //출력 정보가 너무 많아서 생략
 	if err != nil {
-		// if aerr, ok := err.(errors.Error); ok {
-		// 	switch aerr.Code() {
-		// 	default:
-		// 		cblogger.Error(aerr.Error())
-		// 	}
-		// } else {
-		// 	// Print the error, cast err to awserr.Error to get the Code and
-		// 	// Message from an error.
-		// 	cblogger.Error(err.Error())
-		// }
 		cblogger.Errorf("Unable to get Images, %v", err)
 		return nil, err
 	}
@@ -421,12 +410,6 @@ func (imageHandler *AlibabaImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 		cblogger.Infof("[%s] Image 정보 처리", cur.ImageId)
 		imageInfo := ExtractImageDescribeInfo(&cur)
 		imageInfoList = append(imageInfoList, &imageInfo)
-		/*
-			cnt++
-			if cnt > 20 {
-				break
-			}
-		*/
 	}
 
 	//spew.Dump(imageInfoList)
@@ -438,7 +421,8 @@ func (imageHandler *AlibabaImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 //@TODO : 2020-03-26 Ali클라우드 API 구조가 바뀐 것 같아서 임시로 변경해 놓음.
 func ExtractImageDescribeInfo(image *ecs.ImageInDescribeImages) irs.ImageInfo {
 	//*ecs.DescribeImagesResponse
-	//spew.Dump(image)
+	cblogger.Infof("=====> ")
+	spew.Dump(image)
 	imageInfo := irs.ImageInfo{
 		Id:     image.ImageId,
 		Name:   image.ImageName,
@@ -472,9 +456,10 @@ func ExtractImageDescribeInfo(image *ecs.ImageInDescribeImages) irs.ImageInfo {
 	}
 
 	// 일부 이미지들은 아래 정보가 없어서 예외 처리 함.
-	if !reflect.ValueOf(image.Description).IsNil() {
-		keyValueList = append(keyValueList, irs.KeyValue{Key: "Description", Value: image.Description})
-	}
+	//if !reflect.ValueOf(image.Description).IsNil() {
+	keyValueList = append(keyValueList, irs.KeyValue{Key: "Description", Value: image.Description})
+	//}
+
 	// if !reflect.ValueOf(image.ImageOwnerAlias).IsNil() {
 	// 	keyValueList = append(keyValueList, irs.KeyValue{Key: "ImageOwnerAlias", Value: *image.ImageOwnerAlias})
 	// }

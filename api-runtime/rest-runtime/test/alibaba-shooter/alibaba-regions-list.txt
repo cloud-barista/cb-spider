@@ -1,0 +1,115 @@
+# 2020.03.27. by powerkim.
+# $aliyun ecs DescribeRegions
+
+{
+	"Regions": {
+		"Region": [
+			{
+				"LocalName": "华北 1",
+				"RegionEndpoint": "ecs.aliyuncs.com",
+				"RegionId": "cn-qingdao"
+			},
+			{
+				"LocalName": "华北 2",
+				"RegionEndpoint": "ecs.aliyuncs.com",
+				"RegionId": "cn-beijing"
+			},
+			{
+				"LocalName": "华北 3",
+				"RegionEndpoint": "ecs.cn-zhangjiakou.aliyuncs.com",
+				"RegionId": "cn-zhangjiakou"
+			},
+			{
+				"LocalName": "华北 5",
+				"RegionEndpoint": "ecs.cn-huhehaote.aliyuncs.com",
+				"RegionId": "cn-huhehaote"
+			},
+			{
+				"LocalName": "华东 1",
+				"RegionEndpoint": "ecs.aliyuncs.com",
+				"RegionId": "cn-hangzhou"
+			},
+			{
+				"LocalName": "华东 2",
+				"RegionEndpoint": "ecs.aliyuncs.com",
+				"RegionId": "cn-shanghai"
+			},
+			{
+				"LocalName": "华南 1",
+				"RegionEndpoint": "ecs.aliyuncs.com",
+				"RegionId": "cn-shenzhen"
+			},
+			{
+				"LocalName": "华南2（河源）",
+				"RegionEndpoint": "ecs.cn-heyuan.aliyuncs.com",
+				"RegionId": "cn-heyuan"
+			},
+			{
+				"LocalName": "西南1（成都）",
+				"RegionEndpoint": "ecs.cn-chengdu.aliyuncs.com",
+				"RegionId": "cn-chengdu"
+			},
+			{
+				"LocalName": "香港",
+				"RegionEndpoint": "ecs.aliyuncs.com",
+				"RegionId": "cn-hongkong"
+			},
+			{
+				"LocalName": "亚太东北 1 (东京)",
+				"RegionEndpoint": "ecs.ap-northeast-1.aliyuncs.com",
+				"RegionId": "ap-northeast-1"
+			},
+			{
+				"LocalName": "亚太东南 1 (新加坡)",
+				"RegionEndpoint": "ecs.aliyuncs.com",
+				"RegionId": "ap-southeast-1"
+			},
+			{
+				"LocalName": "亚太东南 2 (悉尼)",
+				"RegionEndpoint": "ecs.ap-southeast-2.aliyuncs.com",
+				"RegionId": "ap-southeast-2"
+			},
+			{
+				"LocalName": "亚太东南 3 (吉隆坡)",
+				"RegionEndpoint": "ecs.ap-southeast-3.aliyuncs.com",
+				"RegionId": "ap-southeast-3"
+			},
+			{
+				"LocalName": "亚太东南 5 (雅加达)",
+				"RegionEndpoint": "ecs.ap-southeast-5.aliyuncs.com",
+				"RegionId": "ap-southeast-5"
+			},
+			{
+				"LocalName": "亚太南部 1 (孟买)",
+				"RegionEndpoint": "ecs.ap-south-1.aliyuncs.com",
+				"RegionId": "ap-south-1"
+			},
+			{
+				"LocalName": "美国东部 1 (弗吉尼亚)",
+				"RegionEndpoint": "ecs.aliyuncs.com",
+				"RegionId": "us-east-1"
+			},
+			{
+				"LocalName": "美国西部 1 (硅谷)",
+				"RegionEndpoint": "ecs.aliyuncs.com",
+				"RegionId": "us-west-1"
+			},
+			{
+				"LocalName": "英国 (伦敦)",
+				"RegionEndpoint": "ecs.eu-west-1.aliyuncs.com",
+				"RegionId": "eu-west-1"
+			},
+			{
+				"LocalName": "中东东部 1 (迪拜)",
+				"RegionEndpoint": "ecs.me-east-1.aliyuncs.com",
+				"RegionId": "me-east-1"
+			},
+			{
+				"LocalName": "欧洲中部 1 (法兰克福)",
+				"RegionEndpoint": "ecs.eu-central-1.aliyuncs.com",
+				"RegionId": "eu-central-1"
+			}
+		]
+	},
+	"RequestId": "BE978F1C-52A0-4C34-804E-4D78C967A62B"
+}
