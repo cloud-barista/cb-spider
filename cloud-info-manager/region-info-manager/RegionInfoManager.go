@@ -11,28 +11,29 @@ package regioninfomanager
 import (
 	"fmt"
 
-	"github.com/sirupsen/logrus"
-	icbs "github.com/cloud-barista/cb-store/interfaces"
 	"github.com/cloud-barista/cb-store/config"
+	icbs "github.com/cloud-barista/cb-store/interfaces"
+	"github.com/sirupsen/logrus"
 )
 
 var cblog *logrus.Logger
 
 func init() {
-        cblog = config.Cblogger
+	cblog = config.Cblogger
 }
 
 //====================================================================
 type RegionInfo struct {
-	RegionName	string	// ex) "region01"
-	ProviderName	string	// ex) "GCP"
-	KeyValueInfoList	[]icbs.KeyValue	// ex) { {region, us-east1}, 
-						//	 {zone, us-east1-c},
+	RegionName       string          // ex) "region01"
+	ProviderName     string          // ex) "GCP"
+	KeyValueInfoList []icbs.KeyValue // ex) { {region, us-east1},
+	//	 {zone, us-east1-c},
 }
+
 //====================================================================
 
 func RegisterRegionInfo(rgnInfo RegionInfo) (*RegionInfo, error) {
-        return RegisterRegion(rgnInfo.RegionName, rgnInfo.ProviderName, rgnInfo.KeyValueInfoList)
+	return RegisterRegion(rgnInfo.RegionName, rgnInfo.ProviderName, rgnInfo.KeyValueInfoList)
 }
 
 // 1. check params
@@ -44,7 +45,7 @@ func RegisterRegion(regionName string, providerName string, keyValueInfoList []i
 	err := checkParams(regionName, providerName, keyValueInfoList)
 	if err != nil {
 		return nil, err
-	
+
 	}
 
 	cblog.Debug("insert metainfo into store")
@@ -62,12 +63,12 @@ func RegisterRegion(regionName string, providerName string, keyValueInfoList []i
 func ListRegion() ([]*RegionInfo, error) {
 	cblog.Info("call ListRegion()")
 
-        regionInfoList, err := listInfo()
-        if err != nil {
-                return nil, err
-        }
+	regionInfoList, err := listInfo()
+	if err != nil {
+		return nil, err
+	}
 
-        return regionInfoList, nil
+	return regionInfoList, nil
 }
 
 // 1. check params
@@ -76,14 +77,14 @@ func GetRegion(regionName string) (*RegionInfo, error) {
 	cblog.Info("call GetRegion()")
 
 	if regionName == "" {
-                return nil, fmt.Errorf("regionName is empty!")
-        }
-	
+		return nil, fmt.Errorf("RegionName is empty!")
+	}
+
 	rgnInfo, err := getInfo(regionName)
 	if err != nil {
-                cblog.Error(err)
-                return nil, err
-        }
+		cblog.Error(err)
+		return nil, err
+	}
 
 	return rgnInfo, err
 }
@@ -91,28 +92,28 @@ func GetRegion(regionName string) (*RegionInfo, error) {
 func UnRegisterRegion(regionName string) (bool, error) {
 	cblog.Info("call UnRegisterRegion()")
 
-        if regionName == "" {
-                return false, fmt.Errorf("regionName is empty!")
-        }
+	if regionName == "" {
+		return false, fmt.Errorf("RegionName is empty!")
+	}
 
-        result, err := deleteInfo(regionName)
-        if err != nil {
-                cblog.Error(err)
-                return false, err
-        }
+	result, err := deleteInfo(regionName)
+	if err != nil {
+		cblog.Error(err)
+		return false, err
+	}
 
-        return result, nil
+	return result, nil
 }
 
 //----------------
 
 func checkParams(regionName string, providerName string, keyValueInfoList []icbs.KeyValue) error {
-        if regionName == "" {
-                return fmt.Errorf("regionName is empty!")
-        }
-        if providerName == "" {
-                return fmt.Errorf("providerName is empty!")
-        }
+	if regionName == "" {
+		return fmt.Errorf("RegionName is empty!")
+	}
+	if providerName == "" {
+		return fmt.Errorf("ProviderName is empty!")
+	}
 	for _, kv := range keyValueInfoList {
 		if kv.Key == "" { // Value can be empty.
 			return fmt.Errorf("Key is empty!")
@@ -120,4 +121,3 @@ func checkParams(regionName string, providerName string, keyValueInfoList []icbs
 	}
 	return nil
 }
-
