@@ -322,6 +322,162 @@ func handleImage() {
 	}
 }
 
+// Test SecurityHandler
+func handleSecurity() {
+	cblogger.Debug("Start handler")
+
+	ResourceHandler, err := testconf.GetResourceHandler("Security")
+	if err != nil {
+		panic(err)
+	}
+
+	handler := ResourceHandler.(irs.SecurityHandler)
+
+	config := testconf.ReadConfigFile()
+	securityId := config.Ali.SecurityGroupID
+	cblogger.Infof(securityId)
+	//securityId = "sg-06c4523b969eaafc7"
+	securityId = "cb-sgtest-mcloud-barista"
+
+	//result, err := handler.GetSecurity(securityId)
+	//result, err := handler.GetSecurity("sg-0fd2d90b269ebc082") // sgtest-mcloub-barista
+	//result, err := handler.DeleteSecurity(securityId)
+	//result, err := handler.ListSecurity()
+
+	securityReqInfo := irs.SecurityReqInfo{
+		Name: securityId,
+		SecurityRules: &[]irs.SecurityRuleInfo{ //보안 정책 설정
+			{
+				FromPort:   "20",
+				ToPort:     "22",
+				IPProtocol: "tcp",
+				Direction:  "inbound",
+			},
+			/*
+				{
+					FromPort:   "80",
+					ToPort:     "80",
+					IPProtocol: "tcp",
+					Direction:  "inbound",
+				},
+				{
+					FromPort:   "8080",
+					ToPort:     "8080",
+					IPProtocol: "tcp",
+					Direction:  "inbound",
+				},
+				{
+					FromPort:   "443",
+					ToPort:     "443",
+					IPProtocol: "tcp",
+					Direction:  "outbound",
+				},
+				{
+					FromPort:   "8443",
+					ToPort:     "9999",
+					IPProtocol: "tcp",
+					Direction:  "outbound",
+				},
+				{
+					//FromPort:   "8443",
+					//ToPort:     "9999",
+					IPProtocol: "-1", // 모두 허용 (포트 정보 없음)
+					Direction:  "inbound",
+				},
+			*/
+		},
+	}
+
+	cblogger.Info(securityReqInfo)
+	result, err := handler.CreateSecurity(securityReqInfo)
+
+	if err != nil {
+		cblogger.Infof("보안 그룹 조회 실패 : ", err)
+	} else {
+		cblogger.Info("보안 그룹 조회 결과")
+		//cblogger.Info(result)
+		spew.Dump(result)
+	}
+}
+
+// Test KeyPair
+func handleKeyPair() {
+	cblogger.Debug("Start KeyPair Resource Test")
+
+	ResourceHandler, err := testconf.GetResourceHandler("KeyPair")
+	if err != nil {
+		panic(err)
+	}
+	handler := ResourceHandler.(irs.KeyPairHandler)
+
+	//config := readConfigFile()
+	//VmID := config.Aws.VmID
+
+	keyPairName := "CB-KeyPairTest123123"
+	//keyPairName := config.Aws.KeyName
+
+	for {
+		fmt.Println("KeyPair Management")
+		fmt.Println("0. Quit")
+		fmt.Println("1. KeyPair List")
+		fmt.Println("2. KeyPair Create")
+		fmt.Println("3. KeyPair Get")
+		fmt.Println("4. KeyPair Delete")
+
+		var commandNum int
+		inputCnt, err := fmt.Scan(&commandNum)
+		if err != nil {
+			panic(err)
+		}
+
+		if inputCnt == 1 {
+			switch commandNum {
+			case 0:
+				return
+
+			case 1:
+				result, err := handler.ListKey()
+				if err != nil {
+					cblogger.Infof(" 키 페어 목록 조회 실패 : ", err)
+				} else {
+					cblogger.Info("키 페어 목록 조회 결과")
+					//cblogger.Info(result)
+					spew.Dump(result)
+				}
+
+			case 2:
+				cblogger.Infof("[%s] 키 페어 생성 테스트", keyPairName)
+				keyPairReqInfo := irs.KeyPairReqInfo{
+					Name: keyPairName,
+				}
+				result, err := handler.CreateKey(keyPairReqInfo)
+				if err != nil {
+					cblogger.Infof(keyPairName, " 키 페어 생성 실패 : ", err)
+				} else {
+					cblogger.Infof("[%s] 키 페어 생성 결과 : [%s]", keyPairName, result)
+					spew.Dump(result)
+				}
+			case 3:
+				cblogger.Infof("[%s] 키 페어 조회 테스트", keyPairName)
+				result, err := handler.GetKey(keyPairName)
+				if err != nil {
+					cblogger.Infof(keyPairName, " 키 페어 조회 실패 : ", err)
+				} else {
+					cblogger.Infof("[%s] 키 페어 조회 결과 : [%s]", keyPairName, result)
+				}
+			case 4:
+				cblogger.Infof("[%s] 키 페어 삭제 테스트", keyPairName)
+				result, err := handler.DeleteKey(keyPairName)
+				if err != nil {
+					cblogger.Infof(keyPairName, " 키 페어 삭제 실패 : ", err)
+				} else {
+					cblogger.Infof("[%s] 키 페어 삭제 결과 : [%s]", keyPairName, result)
+				}
+			}
+		}
+	}
+}
+
 func TestMain() {
 	cblogger.Debug("Start ImageHandler Resource Test")
 
