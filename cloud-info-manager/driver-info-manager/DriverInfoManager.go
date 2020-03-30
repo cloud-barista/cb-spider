@@ -11,28 +11,28 @@ package driverinfomanager
 import (
 	"fmt"
 
-	"github.com/sirupsen/logrus"
 	"github.com/cloud-barista/cb-store/config"
+	"github.com/sirupsen/logrus"
 )
 
 var cblog *logrus.Logger
 
 func init() {
-        cblog = config.Cblogger
+	cblog = config.Cblogger
 }
 
 //====================================================================
 type CloudDriverInfo struct {
-	DriverName	string	// ex) "AWS-Test-Driver-V0.5"
-	ProviderName	string	// ex) "AWS"
-	DriverLibFileName	string	// ex) "aws-test-driver-v0.5.so"  //Already, you need to insert "*.so" in $CB_SPIDER_ROOT/cloud-driver/libs.
+	DriverName        string // ex) "AWS-Test-Driver-V0.5"
+	ProviderName      string // ex) "AWS"
+	DriverLibFileName string // ex) "aws-test-driver-v0.5.so"  //Already, you need to insert "*.so" in $CB_SPIDER_ROOT/cloud-driver/libs.
 }
+
 //====================================================================
 
 func RegisterCloudDriverInfo(cldInfo CloudDriverInfo) (*CloudDriverInfo, error) {
 	return RegisterCloudDriver(cldInfo.DriverName, cldInfo.ProviderName, cldInfo.DriverLibFileName)
 }
-
 
 // 1. check params
 // 2. check driver files
@@ -45,7 +45,7 @@ func RegisterCloudDriver(driverName string, providerName string, driverLibFileNa
 	err := checkParams(driverName, providerName, driverLibFileName)
 	if err != nil {
 		return nil, err
-	
+
 	}
 
 	cblog.Debug("check the driver library file")
@@ -53,7 +53,6 @@ func RegisterCloudDriver(driverName string, providerName string, driverLibFileNa
 	if err != nil {
 		return nil, err
 	}
-	
 
 	cblog.Debug("insert metainfo into store")
 
@@ -70,12 +69,12 @@ func RegisterCloudDriver(driverName string, providerName string, driverLibFileNa
 func ListCloudDriver() ([]*CloudDriverInfo, error) {
 	cblog.Info("call ListCloudDriver()")
 
-        cloudDriverInfoList, err := listInfo()
-        if err != nil {
-                return nil, err
-        }
+	cloudDriverInfoList, err := listInfo()
+	if err != nil {
+		return nil, err
+	}
 
-        return cloudDriverInfoList, nil
+	return cloudDriverInfoList, nil
 }
 
 // 1. check params
@@ -84,14 +83,14 @@ func GetCloudDriver(driverName string) (*CloudDriverInfo, error) {
 	cblog.Info("call GetCloudDriver()")
 
 	if driverName == "" {
-                return nil, fmt.Errorf("driverName is empty!")
-        }
-	
+		return nil, fmt.Errorf("DriverName is empty!")
+	}
+
 	drvInfo, err := getInfo(driverName)
 	if err != nil {
-                cblog.Error(err)
-                return nil, err
-        }
+		cblog.Error(err)
+		return nil, err
+	}
 
 	return drvInfo, err
 }
@@ -99,31 +98,31 @@ func GetCloudDriver(driverName string) (*CloudDriverInfo, error) {
 func UnRegisterCloudDriver(driverName string) (bool, error) {
 	cblog.Info("call UnRegisterCloudDriver()")
 
-        if driverName == "" {
-                return false, fmt.Errorf("driverName is empty!")
-        }
+	if driverName == "" {
+		return false, fmt.Errorf("DriverName is empty!")
+	}
 
-        result, err := deleteInfo(driverName)
-        if err != nil {
-                cblog.Error(err)
-                return false, err
-        }
+	result, err := deleteInfo(driverName)
+	if err != nil {
+		cblog.Error(err)
+		return false, err
+	}
 
-        return result, nil
+	return result, nil
 }
 
 //----------------
 
 func checkParams(driverName string, providerName string, driverLibFileName string) error {
-        if driverName == "" {
-                return fmt.Errorf("driverName is empty!")
-        }
-        if providerName == "" {
-                return fmt.Errorf("providerName is empty!")
-        }
-        if driverLibFileName == "" {
-                return fmt.Errorf("driverLibFileName is empty!")
-        }
+	if driverName == "" {
+		return fmt.Errorf("DriverName is empty!")
+	}
+	if providerName == "" {
+		return fmt.Errorf("ProviderName is empty!")
+	}
+	if driverLibFileName == "" {
+		return fmt.Errorf("DriverLibFileName is empty!")
+	}
 	return nil
 }
 
@@ -133,4 +132,3 @@ func checkDriverLibFile(driverLibFileName string) error {
 	// @todo
 	return nil
 }
-
