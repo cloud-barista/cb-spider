@@ -357,10 +357,6 @@ func (imageHandler *AlibabaImageHandler) CreateImage(imageReqInfo irs.ImageReqIn
 	// Creates a new custom Image with the given name
 	result, err := imageHandler.Client.CreateImage(request)
 	if err != nil {
-		// if aerr, ok := err.(errors.Error); ok && aerr.Code() == "InvalidKeyPair.Duplicate" {
-		// 	cblogger.Errorf("Image %q already exists.", imageReqInfo.ImageName)
-		// 	return irs.ImageReqInfo{}, err
-		// }
 		cblogger.Errorf("Unable to create Image: %s, %v.", imageReqInfo.Name, err)
 		return irs.ImageInfo{}, err
 	}
@@ -424,9 +420,10 @@ func ExtractImageDescribeInfo(image *ecs.ImageInDescribeImages) irs.ImageInfo {
 	cblogger.Infof("=====> ")
 	spew.Dump(image)
 	imageInfo := irs.ImageInfo{
-		Id:     image.ImageId,
-		Name:   image.ImageName,
-		Status: image.Status,
+		Id:      image.ImageId,
+		Name:    image.ImageName,
+		Status:  image.Status,
+		GuestOS: image.OSNameEn,
 	}
 
 	keyValueList := []irs.KeyValue{
@@ -447,30 +444,9 @@ func ExtractImageDescribeInfo(image *ecs.ImageInDescribeImages) irs.ImageInfo {
 		{Key: "IsSubscribed", Value: strconv.FormatBool(image.IsSubscribed)},
 		{Key: "Platform", Value: image.Platform},
 		{Key: "Size", Value: strconv.Itoa(image.Size)},
-
-		// {Key: "ImageOwnerId", Value: *image.ImageOwnerId},
-		// {Key: "ImageType", Value: *image.ImageType},
-		// {Key: "ImageLocation", Value: *image.ImageLocation},
-		// {Key: "VirtualizationType", Value: *image.VirtualizationType},
-		// {Key: "Public", Value: strconv.FormatBool(*image.Public)},
 	}
 
-	// 일부 이미지들은 아래 정보가 없어서 예외 처리 함.
-	//if !reflect.ValueOf(image.Description).IsNil() {
 	keyValueList = append(keyValueList, irs.KeyValue{Key: "Description", Value: image.Description})
-	//}
-
-	// if !reflect.ValueOf(image.ImageOwnerAlias).IsNil() {
-	// 	keyValueList = append(keyValueList, irs.KeyValue{Key: "ImageOwnerAlias", Value: *image.ImageOwnerAlias})
-	// }
-	// if !reflect.ValueOf(image.RootDeviceName).IsNil() {
-	// 	keyValueList = append(keyValueList, irs.KeyValue{Key: "RootDeviceName", Value: *image.RootDeviceName})
-	// 	keyValueList = append(keyValueList, irs.KeyValue{Key: "RootDeviceType", Value: *image.RootDeviceType})
-	// }
-	// if !reflect.ValueOf(image.EnaSupport).IsNil() {
-	// 	keyValueList = append(keyValueList, irs.KeyValue{Key: "EnaSupport", Value: strconv.FormatBool(*image.EnaSupport)})
-	// }
-
 	imageInfo.KeyValueList = keyValueList
 
 	return imageInfo
@@ -491,16 +467,6 @@ func (imageHandler *AlibabaImageHandler) GetImage(imageID string) (irs.ImageInfo
 	//spew.Dump(result)
 	cblogger.Info(result)
 	if err != nil {
-		// if aerr, ok := err.(errors.Error); ok {
-		// 	switch aerr.Code() {
-		// 	default:
-		// 		cblogger.Error(aerr.Error())
-		// 	}
-		// } else {
-		// 	// Print the error, cast err to awserr.Error to get the Code and
-		// 	// Message from an error.
-		// 	cblogger.Error(err.Error())
-		// }
 		cblogger.Errorf("Unable to get Images, %v", err)
 		return irs.ImageInfo{}, err
 	}
@@ -525,10 +491,6 @@ func (imageHandler *AlibabaImageHandler) DeleteImage(imageID string) (bool, erro
 	result, err := imageHandler.Client.DeleteImage(request)
 	cblogger.Info(result)
 	if err != nil {
-		// if aerr, ok := err.(errors.Error); ok && aerr.Code() == "InvalidKeyPair.Duplicate" {
-		// 	cblogger.Error("Image %q does not exist.", keyPairName)
-		// 	return false, err
-		// }
 		cblogger.Errorf("Unable to delete Image: %s, %v.", imageID, err)
 		return false, err
 	}
