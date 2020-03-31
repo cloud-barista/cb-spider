@@ -552,5 +552,6 @@ func main() {
 	//handleVNetwork() //VPC
 	//handleImage() //AMI
 	//handleVNic() //Lancard
+	handleVMSpec()
 	handleSecurity()
 }

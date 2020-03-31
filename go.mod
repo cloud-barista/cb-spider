@@ -4,7 +4,7 @@ go 1.13
 
 replace github.com/coreos/go-systemd => github.com/coreos/go-systemd/v22 v22.0.0
 
-// replace github.com/coreos/bbolt => go.etcd.io/bbolt v1.3.4
+replace github.com/coreos/bbolt => go.etcd.io/bbolt v1.3.4
 
 require (
 	github.com/Azure/azure-sdk-for-go v40.5.0+incompatible
