@@ -8,12 +8,16 @@ The CB-Spider Mission is to connect all the clouds with a single interface.
 ## [목    차]
 
 1. [설치 환경](#설치-환경)
-2. [소스 설치](#소스-설치)
-3. [실행 준비](#실행-준비)
-4. [서버 실행](#서버-실행)
-5. [API 규격](#API-규격)
-6. [활용 예시](#활용-예시)
-7. [특이 사항](#특이-사항)
+2. [실행 방법](#실행-방법)
+    1. [Docker Container Image 이용하여 CB-Spider 단독 실행](#Docker-Container-Image-이용하여-CB-Spider-단독-실행)
+    2. [Docker-Compose 이용하여 Cloud-Barista 시스템 실행](#Docker-Compose-이용하여-Cloud-Barista-시스템-실행)
+    3. [소스 설치 및 실행](#소스-설치-및-실행)
+        1. [소스 설치](#소스-설치)
+        2. [실행 준비](#실행-준비)
+        3. [서버 실행](#서버-실행)
+3. [API 규격](#API-규격)
+4. [활용 예시](#활용-예시)
+5. [특이 사항](#특이-사항)
 
 ***
 
@@ -21,7 +25,28 @@ The CB-Spider Mission is to connect all the clouds with a single interface.
 
 - 리눅스(검증시험:Ubuntu 18.04, Raspbian GNU/Linux 10)
 
-## [소스 설치]
+## [실행 방법]
+
+### [Docker Container Image 이용하여 CB-Spider 단독 실행]
+- [CB-Spider Docker Hub Repo](https://hub.docker.com/repository/registry-1.docker.io/cloudbaristahub/cb-spider/tags?page=1) 에서 최신 tag 확인
+- 다음 명령으로 CB-Spider 컨테이너 실행
+```
+# docker run -p 1024:1024 \
+-v /root/go/src/github.com/cloud-barista/cb-spider/meta_db:/root/go/src/github.com/cloud-barista/cb-spider/meta_db \
+--name cb-spider \
+cloudbaristahub/cb-spider:v0.1-yyyymmdd
+```
+
+### [Docker-Compose 이용하여 Cloud-Barista 시스템 실행]
+```
+# git clone https://github.com/jihoon-seo/cb-deployer.git
+# cd cb-deployer
+# docker-compose up
+```
+
+### [소스 설치 및 실행]
+
+#### [소스 설치]
 
 - Git 설치
 - Go 설치(1.12 이상)  
@@ -46,7 +71,7 @@ The CB-Spider Mission is to connect all the clouds with a single interface.
     
       - 해결방법: $ rm -rf $GOPATH/gosrc/src/go.etcd.io/etcd/vendor/google.golang.org/grpc
       
-## [실행 준비]
+#### [실행 준비]
 - CB-Spider 실행에 필요한 환경변수 설정
   - `source setup.env` (위치: ./cb-spider)
 
@@ -57,7 +82,7 @@ The CB-Spider Mission is to connect all the clouds with a single interface.
     - `cd cb-spider/cloud-control-manager/cloud-driver/drivers/aws` # AWS Driver 경우
     - `build_driver_lib.sh` 실행
 
-## [서버 실행]
+#### [서버 실행]
 - `cd cb-spider/api-runtime/rest-runtime`
 -	`go run *.go`    # 1024 포트 REST API Server 실행됨
 -	참고: 메타 정보 초기화 방법
