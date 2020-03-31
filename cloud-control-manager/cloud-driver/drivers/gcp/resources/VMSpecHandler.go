@@ -75,7 +75,7 @@ func (vmSpecHandler *GCPVMSpecHandler) GetVMSpec(Region string, Name string) (ir
 			Count: strconv.FormatInt(info.GuestCpus, 10),
 			Clock: "",
 		},
-		Mem: strconv.FormatInt(info.MemoryMb),
+		Mem: strconv.FormatInt(info.MemoryMb, 10),
 		Gpu: []irs.GpuInfo{
 			{
 				Count: "",
