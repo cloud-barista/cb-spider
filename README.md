@@ -87,7 +87,7 @@ cloudbaristahub/cb-spider:v0.1-yyyymmdd
   - 클라우드 드라이버 정보 관리
   - 클라우드 인프라 인증정보 관리
   - 클라우드 인프라 리젼 정보 관리
-- 클라우드 인프라 공통 제어 관리(): https://documenter.getpostman.com/view/9027676/SVtSXpzE
+- 클라우드 인프라 공통 제어 관리: https://documenter.getpostman.com/view/9027676/SVtSXpzE
   - 이미지 자원 제어
   - 네트워크 자원 제어
   - Security Group 자원 제어
