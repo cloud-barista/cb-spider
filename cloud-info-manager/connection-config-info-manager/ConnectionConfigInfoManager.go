@@ -11,26 +11,26 @@ package connectionconfiginfomanager
 import (
 	"fmt"
 
-	"github.com/sirupsen/logrus"
 	"github.com/cloud-barista/cb-store/config"
+	"github.com/sirupsen/logrus"
 )
 
 var cblog *logrus.Logger
 
 func init() {
-        cblog = config.Cblogger
+	cblog = config.Cblogger
 }
 
 //====================================================================
 type ConnectionConfigInfo struct {
-	ConfigName	string	// ex) "config01"
-	ProviderName	string	// ex) "AWS"
-	DriverName	string	// ex) "AWS-Test-Driver-V0.5"
-	CredentialName	string	// ex) "credential01"
-	RegionName	string	// ex) "region01"
+	ConfigName     string // ex) "config01"
+	ProviderName   string // ex) "AWS"
+	DriverName     string // ex) "AWS-Test-Driver-V0.5"
+	CredentialName string // ex) "credential01"
+	RegionName     string // ex) "region01"
 }
-//====================================================================
 
+//====================================================================
 
 func CreateConnectionConfigInfo(configInfo ConnectionConfigInfo) (*ConnectionConfigInfo, error) {
 	return CreateConnectionConfig(configInfo.ConfigName, configInfo.ProviderName, configInfo.DriverName, configInfo.CredentialName, configInfo.RegionName)
@@ -47,7 +47,7 @@ func CreateConnectionConfig(configName string, providerName string, driverName s
 	err := checkParams(configName, providerName, driverName, credentialName, regionName)
 	if err != nil {
 		return nil, err
-	
+
 	}
 
 	cblog.Debug("insert metainfo into store")
@@ -65,12 +65,12 @@ func CreateConnectionConfig(configName string, providerName string, driverName s
 func ListConnectionConfig() ([]*ConnectionConfigInfo, error) {
 	cblog.Info("call ListConnectionConfig()")
 
-        configInfoList, err := listInfo()
-        if err != nil {
-                return nil, err
-        }
+	configInfoList, err := listInfo()
+	if err != nil {
+		return nil, err
+	}
 
-        return configInfoList, nil
+	return configInfoList, nil
 }
 
 // 1. check params
@@ -79,14 +79,14 @@ func GetConnectionConfig(configName string) (*ConnectionConfigInfo, error) {
 	cblog.Info("call GetConnectionConfig()")
 
 	if configName == "" {
-                return nil, fmt.Errorf("configName is empty!")
-        }
-	
+		return nil, fmt.Errorf("ConnectionName is empty!")
+	}
+
 	cncInfo, err := getInfo(configName)
 	if err != nil {
-                cblog.Error(err)
-                return nil, err
-        }
+		cblog.Error(err)
+		return nil, err
+	}
 
 	return cncInfo, err
 }
@@ -94,37 +94,36 @@ func GetConnectionConfig(configName string) (*ConnectionConfigInfo, error) {
 func DeleteConnectionConfig(configName string) (bool, error) {
 	cblog.Info("call DeleteConnectionConfig()")
 
-        if configName == "" {
-                return false, fmt.Errorf("configName is empty!")
-        }
+	if configName == "" {
+		return false, fmt.Errorf("ConnectionName is empty!")
+	}
 
-        result, err := deleteInfo(configName)
-        if err != nil {
-                cblog.Error(err)
-                return false, err
-        }
+	result, err := deleteInfo(configName)
+	if err != nil {
+		cblog.Error(err)
+		return false, err
+	}
 
-        return result, nil
+	return result, nil
 }
 
 //----------------
 
 func checkParams(configName string, providerName string, driverName string, credentialName string, regionName string) error {
-        if configName == "" {
-                return fmt.Errorf("configName is empty!")
-        }
-        if providerName == "" {
-                return fmt.Errorf("providerName is empty!")
-        }
-        if driverName == "" {
-                return fmt.Errorf("driverName is empty!")
-        }
-        if credentialName == "" {
-                return fmt.Errorf("credentialName is empty!")
-        }
-        if regionName == "" {
-                return fmt.Errorf("regionName is empty!")
-        }
+	if configName == "" {
+		return fmt.Errorf("ConnectionName is empty!")
+	}
+	if providerName == "" {
+		return fmt.Errorf("ProviderName is empty!")
+	}
+	if driverName == "" {
+		return fmt.Errorf("DriverName is empty!")
+	}
+	if credentialName == "" {
+		return fmt.Errorf("CredentialName is empty!")
+	}
+	if regionName == "" {
+		return fmt.Errorf("RegionName is empty!")
+	}
 	return nil
 }
-

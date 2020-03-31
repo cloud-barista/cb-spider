@@ -14,12 +14,12 @@ type OpenStackVMSpecHandler struct {
 
 func setterVMSpec(region string, vmSpec flavors.Flavor) *irs.VMSpecInfo {
 	vmSpecInfo := &irs.VMSpecInfo{
-		Region: region,
-		Name:   vmSpec.Name,
-		VCpu:   irs.VCpuInfo{Count: strconv.Itoa(vmSpec.VCPUs)},
-		Mem:    strconv.Itoa(vmSpec.RAM),
-		//Gpu:          nil,
-		//KeyValueList: nil,
+		Region:       region,
+		Name:         vmSpec.Name,
+		VCpu:         irs.VCpuInfo{Count: strconv.Itoa(vmSpec.VCPUs)},
+		Mem:          strconv.Itoa(vmSpec.RAM),
+		Gpu:          nil,
+		KeyValueList: nil,
 	}
 
 	return vmSpecInfo
@@ -66,12 +66,11 @@ func (vmSpecHandler *OpenStackVMSpecHandler) ListOrgVMSpec(Region string) (strin
 		return "", err
 	}
 
-	vmSpecList := make([]*irs.VMSpecInfo, len(list))
-	for i, spec := range list {
-		vmSpecList[i] = setterVMSpec(Region, spec)
+	var jsonResult struct {
+		Result []flavors.Flavor `json:"list"`
 	}
-
-	jsonBytes, err := json.Marshal(vmSpecList)
+	jsonResult.Result = list
+	jsonBytes, err := json.Marshal(jsonResult)
 	if err != nil {
 		panic(err)
 	}
@@ -91,9 +90,7 @@ func (vmSpecHandler *OpenStackVMSpecHandler) GetOrgVMSpec(Region string, Name st
 		return "", err
 	}
 
-	vmSpecInfo := setterVMSpec(Region, *vmSpec)
-
-	jsonBytes, err := json.Marshal(vmSpecInfo)
+	jsonBytes, err := json.Marshal(vmSpec)
 	if err != nil {
 		return "", err
 	}

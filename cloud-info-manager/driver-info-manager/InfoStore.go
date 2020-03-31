@@ -87,7 +87,7 @@ func getInfo(driverName string) (*CloudDriverInfo, error) {
         }
 
 	if len(keyValueList) < 1 {
-		return nil, fmt.Errorf(driverName + ": is not exist!")
+		return nil, fmt.Errorf(driverName + ": does not exist!")
 	}
 
         for _, kv := range keyValueList {
@@ -101,7 +101,7 @@ func getInfo(driverName string) (*CloudDriverInfo, error) {
                 }
         }
 
-        return nil, fmt.Errorf(driverName + ": is not exist!")
+        return nil, fmt.Errorf(driverName + ": does not exist!")
 }
 
 // 1. get the original Key.
@@ -131,6 +131,6 @@ func deleteInfo(driverName string) (bool, error) {
 	}
 // @todo lock-end
 
-        return false, fmt.Errorf(driverName + ": is not exist!")
+        return false, fmt.Errorf(driverName + ": does not exist!")
 }
 

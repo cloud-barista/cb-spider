@@ -11,33 +11,32 @@ package credentialinfomanager
 import (
 	"fmt"
 
-	"github.com/sirupsen/logrus"
-	icbs "github.com/cloud-barista/cb-store/interfaces"
 	"github.com/cloud-barista/cb-store/config"
+	icbs "github.com/cloud-barista/cb-store/interfaces"
+	"github.com/sirupsen/logrus"
 )
 
 var cblog *logrus.Logger
 
 func init() {
-        cblog = config.Cblogger
+	cblog = config.Cblogger
 }
 
 //====================================================================
 type CredentialInfo struct {
-	CredentialName	string	// ex) "credential01"
-	ProviderName	string	// ex) "AWS"
-	KeyValueInfoList	[]icbs.KeyValue	// ex) { {ClientId, XXX}, 
-						//	 {ClientSecret, XXX},
-						//	 {TenantId, XXX},
-						//	 {SubscriptionId, XXX} }
+	CredentialName   string          // ex) "credential01"
+	ProviderName     string          // ex) "AWS"
+	KeyValueInfoList []icbs.KeyValue // ex) { {ClientId, XXX},
+	//	 {ClientSecret, XXX},
+	//	 {TenantId, XXX},
+	//	 {SubscriptionId, XXX} }
 }
+
 //====================================================================
 
-
 func RegisterCredentialInfo(crdInfo CredentialInfo) (*CredentialInfo, error) {
-        return RegisterCredential(crdInfo.CredentialName, crdInfo.ProviderName, crdInfo.KeyValueInfoList)
+	return RegisterCredential(crdInfo.CredentialName, crdInfo.ProviderName, crdInfo.KeyValueInfoList)
 }
-
 
 // 1. check params
 // 2. insert them into cb-store
@@ -48,7 +47,7 @@ func RegisterCredential(credentialName string, providerName string, keyValueInfo
 	err := checkParams(credentialName, providerName, keyValueInfoList)
 	if err != nil {
 		return nil, err
-	
+
 	}
 
 	cblog.Debug("insert metainfo into store")
@@ -66,12 +65,12 @@ func RegisterCredential(credentialName string, providerName string, keyValueInfo
 func ListCredential() ([]*CredentialInfo, error) {
 	cblog.Info("call ListCredential()")
 
-        credentialInfoList, err := listInfo()
-        if err != nil {
-                return nil, err
-        }
+	credentialInfoList, err := listInfo()
+	if err != nil {
+		return nil, err
+	}
 
-        return credentialInfoList, nil
+	return credentialInfoList, nil
 }
 
 // 1. check params
@@ -80,14 +79,14 @@ func GetCredential(credentialName string) (*CredentialInfo, error) {
 	cblog.Info("call GetCredential()")
 
 	if credentialName == "" {
-                return nil, fmt.Errorf("credentialName is empty!")
-        }
-	
+		return nil, fmt.Errorf("CredentialName is empty!")
+	}
+
 	crdInfo, err := getInfo(credentialName)
 	if err != nil {
-                cblog.Error(err)
-                return nil, err
-        }
+		cblog.Error(err)
+		return nil, err
+	}
 
 	return crdInfo, err
 }
@@ -95,28 +94,28 @@ func GetCredential(credentialName string) (*CredentialInfo, error) {
 func UnRegisterCredential(credentialName string) (bool, error) {
 	cblog.Info("call UnRegisterCredential()")
 
-        if credentialName == "" {
-                return false, fmt.Errorf("credentialName is empty!")
-        }
+	if credentialName == "" {
+		return false, fmt.Errorf("CredentialName is empty!")
+	}
 
-        result, err := deleteInfo(credentialName)
-        if err != nil {
-                cblog.Error(err)
-                return false, err
-        }
+	result, err := deleteInfo(credentialName)
+	if err != nil {
+		cblog.Error(err)
+		return false, err
+	}
 
-        return result, nil
+	return result, nil
 }
 
 //----------------
 
 func checkParams(credentialName string, providerName string, keyValueInfoList []icbs.KeyValue) error {
-        if credentialName == "" {
-                return fmt.Errorf("credentialName is empty!")
-        }
-        if providerName == "" {
-                return fmt.Errorf("providerName is empty!")
-        }
+	if credentialName == "" {
+		return fmt.Errorf("CredentialName is empty!")
+	}
+	if providerName == "" {
+		return fmt.Errorf("ProviderName is empty!")
+	}
 	for _, kv := range keyValueInfoList {
 		if kv.Key == "" { // Value can be empty.
 			return fmt.Errorf("Key is empty!")
@@ -124,4 +123,3 @@ func checkParams(credentialName string, providerName string, keyValueInfoList []
 	}
 	return nil
 }
-
