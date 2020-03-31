@@ -13,6 +13,7 @@ package resources
 import (
 	"context"
 	_ "errors"
+	"strconv"
 	"strings"
 
 	compute "google.golang.org/api/compute/v1"
@@ -46,9 +47,9 @@ func (vmSpecHandler *GCPVMSpecHandler) ListVMSpec(Region string) ([]*irs.VMSpecI
 			Region: Region,
 			Name:   i.Name,
 			VCpu: irs.VCpuInfo{
-				Count: string(i.GuestCpus),
+				Count: strconv.FormatInt(i.GuestCpus, 10),
 			},
-			Mem: string(i.MemoryMb),
+			Mem: strconv.FormatInt(i.MemoryMb, 10),
 		}
 		vmSpecInfo = append(vmSpecInfo, &info)
 	}
@@ -71,7 +72,7 @@ func (vmSpecHandler *GCPVMSpecHandler) GetVMSpec(Region string, Name string) (ir
 		Region: Region,
 		Name:   Name,
 		VCpu: irs.VCpuInfo{
-			Count: string(info.GuestCpus),
+			Count: strconv.FormatInt(info.GuestCpus, 10),
 			Clock: "",
 		},
 		Mem: string(info.MemoryMb),
