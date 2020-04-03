@@ -6,26 +6,28 @@
 //
 // This is Resouces interfaces of Cloud Driver.
 //
+// by CB-Spider Team, 2020.04.
 // by CB-Spider Team, 2019.06.
 
 package resources
 
+// @todo add subnets by powerkim, 2020.04
 type VNetworkReqInfo struct { 
-     Name string
+	IId   IID       // {NameId, SystemId}
 }
 
 type VNetworkInfo struct {
-     Id   string 
-     Name string 
-     AddressPrefix string 
-     Status string  
+	IId   IID       // {NameId, SystemId}
 
-     KeyValueList []KeyValue 
+	AddressPrefix string 
+	Status string  
+
+	KeyValueList []KeyValue 
 }
 
 type VNetworkHandler interface {
 	CreateVNetwork(vNetworkReqInfo VNetworkReqInfo) (VNetworkInfo, error)
 	ListVNetwork() ([]*VNetworkInfo, error)
-	GetVNetwork(vNetworkID string) (VNetworkInfo, error)
-	DeleteVNetwork(vNetworkID string) (bool, error)
+	GetVNetwork(vNetworkIID IID) (VNetworkInfo, error)
+	DeleteVNetwork(vNetworkIID IID) (bool, error)
 }

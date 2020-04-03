@@ -6,6 +6,7 @@
 //
 // This is Resouces interfaces of Cloud Driver.
 //
+// by CB-Spider Team, 2020.04.
 // by CB-Spider Team, 2019.06.
 
 package resources
@@ -15,24 +16,21 @@ import (
 )
 
 type VMReqInfo struct {
-	VMName string
+        IId   IID       // {NameId, SystemId}
 
-	ImageId            string
-	VirtualNetworkId   string
-	NetworkInterfaceId string
-	PublicIPId         string
-	SecurityGroupIds   []string
+	ImageIID           IID
+	VirtualNetworkId   IID
+	SecurityGroupIIDs  []IID
 
-	VMSpecId string
+	VMSpecName   string
+	KeyPairIID   IID
 
-	KeyPairName  string
 	VMUserId     string
 	VMUserPasswd string
 }
 
 type VMStatusInfo struct {
-	VmId     string
-	VmName   string
+        IId   IID       // {NameId, SystemId}
 	VmStatus VMStatus
 }
 
@@ -62,25 +60,25 @@ type RegionInfo struct {
 }
 
 type VMInfo struct {
-	Name      string    
-	Id        string    
+        IId   IID       // {NameId, SystemId}
 	StartTime time.Time // Timezone: based on cloud-barista server location.
 
-	Region           RegionInfo //  ex) {us-east1, us-east1-c} or {ap-northeast-2}
-	ImageId          string
-	VMSpecId         string   //  instance type or flavour, etc... ex) t2.micro or f1.micro
-	VirtualNetworkId string   // AWS, ex) subnet-8c4a53e4
-	SecurityGroupIds []string // AWS, ex) sg-0b7452563e1121bb6
+	Region            RegionInfo //  ex) {us-east1, us-east1-c} or {ap-northeast-2}
+	ImageIId          IID
+	VMSpecName        string   //  instance type or flavour, etc... ex) t2.micro or f1.micro
+	VirtualNetworkIId IID   // AWS, ex) subnet-8c4a53e4
+	SecurityGroupIIds []IID // AWS, ex) sg-0b7452563e1121bb6
 
-	NetworkInterfaceId string // ex) eth0
+	KeyPairIId   IID 
+
+	VMUserId     string // ex) user1
+	VMUserPasswd string
+
+	NetworkInterface   string // ex) eth0
 	PublicIP           string 
 	PublicDNS          string 
 	PrivateIP          string 
 	PrivateDNS         string 
-
-	KeyPairName  string 
-	VMUserId     string // ex) user1
-	VMUserPasswd string
 
 	VMBootDisk  string // ex) /dev/sda1
 	VMBlockDisk string // ex)
@@ -91,14 +89,14 @@ type VMInfo struct {
 type VMHandler interface {
 	StartVM(vmReqInfo VMReqInfo) (VMInfo, error)
 
-	SuspendVM(vmID string) (VMStatus, error)
-	ResumeVM(vmID string) (VMStatus, error)
-	RebootVM(vmID string) (VMStatus, error)
-	TerminateVM(vmID string) (VMStatus, error)
+	SuspendVM(vmIID IID) (VMStatus, error)
+	ResumeVM(vmIID IID) (VMStatus, error)
+	RebootVM(vmIID IID) (VMStatus, error)
+	TerminateVM(vmIID IID) (VMStatus, error)
 
 	ListVMStatus() ([]*VMStatusInfo, error)
-	GetVMStatus(vmID string) (VMStatus, error)
+	GetVMStatus(vmIID IID) (VMStatus, error)
 
 	ListVM() ([]*VMInfo, error)
-	GetVM(vmID string) (VMInfo, error)
+	GetVM(vmIID IID) (VMInfo, error)
 }
