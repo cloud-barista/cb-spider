@@ -80,10 +80,10 @@ func main() {
 		{"DELETE", "/vmimage/:ImageName", deleteImage},
 
 		//----------VMSpec Handler
-		{"GET", "/vmspec/:RegionName", listVMSpec},
-		{"GET", "/vmspec/:RegionName/:VMSpecName", getVMSpec},
-		{"GET", "/vmorgspec/:RegionName", listOrgVMSpec},
-		{"GET", "/vmorgspec/:RegionName/:VMSpecName", getOrgVMSpec},
+		{"GET", "/vmspec", listVMSpec},
+		{"GET", "/vmspec/:VMSpecName", getVMSpec},
+		{"GET", "/vmorgspec", listOrgVMSpec},
+		{"GET", "/vmorgspec/:VMSpecName", getOrgVMSpec},
 
 		//----------VNet Handler
 		{"POST", "/vnetwork", createVNetwork},

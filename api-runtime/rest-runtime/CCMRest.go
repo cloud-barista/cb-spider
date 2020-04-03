@@ -11,6 +11,7 @@ package main
 import (
 	ccm "github.com/cloud-barista/cb-spider/cloud-control-manager"
 	cres "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
+	iidm "github.com/cloud-barista/cb-spider/cloud-control-manager/iid-manager"
 
 	// REST API (echo)
 	"github.com/labstack/echo"
@@ -21,6 +22,12 @@ import (
 
 	"time"
 )
+
+
+// definition of Global RW Lock
+var iidRWLock = new(iidm.IIDRWLOCK)
+
+
 
 //================ Image Handler
 // @todo
@@ -170,12 +177,17 @@ func listVMSpec(c echo.Context) error {
                 return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
         }
 
+	regionName, _, err := ccm.GetRegionNameByConnectionName(req.ConnectionName)
+        if err != nil {
+                return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+        }
+
         handler, err := cldConn.CreateVMSpecHandler()
         if err != nil {
                 return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
         }
 
-        infoList, err := handler.ListVMSpec(c.Param("RegionName"))
+        infoList, err := handler.ListVMSpec(regionName)
         if err != nil {
                 return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
         }
@@ -206,11 +218,16 @@ func getVMSpec(c echo.Context) error {
                 return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
         }
 
+	regionName, _, err := ccm.GetRegionNameByConnectionName(req.ConnectionName)
+        if err != nil {
+                return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+        }
+
         handler, err := cldConn.CreateVMSpecHandler()
         if err != nil {
                 return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
         }
-        info, err := handler.GetVMSpec(c.Param("RegionName"), c.Param("VMSpecName"))
+        info, err := handler.GetVMSpec(regionName, c.Param("VMSpecName"))
         if err != nil {
                 return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
         }
@@ -233,12 +250,17 @@ func listOrgVMSpec(c echo.Context) error {
                 return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
         }
 
+	regionName, _, err := ccm.GetRegionNameByConnectionName(req.ConnectionName)
+        if err != nil {
+                return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+        }
+
         handler, err := cldConn.CreateVMSpecHandler()
         if err != nil {
                 return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
         }
 
-        infoList, err := handler.ListOrgVMSpec(c.Param("RegionName"))
+        infoList, err := handler.ListOrgVMSpec(regionName)
         if err != nil {
                 return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
         }
@@ -262,16 +284,22 @@ func getOrgVMSpec(c echo.Context) error {
                 return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
         }
 
+	regionName, _, err := ccm.GetRegionNameByConnectionName(req.ConnectionName)
+        if err != nil {
+                return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+        }
+
         handler, err := cldConn.CreateVMSpecHandler()
         if err != nil {
                 return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
         }
-        info, err := handler.GetOrgVMSpec(c.Param("RegionName"), c.Param("VMSpecName"))
+        info, err := handler.GetOrgVMSpec(regionName, c.Param("VMSpecName"))
         if err != nil {
                 return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
         }
         return c.String(http.StatusOK, info)
 }
+
 
 //================ VNetwork Handler
 func createVNetwork(c echo.Context) error {

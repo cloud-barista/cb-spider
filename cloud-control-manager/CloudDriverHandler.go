@@ -96,31 +96,10 @@ func GetCloudConnection(cloudConnectName string) (icon.CloudConnection, error) {
 	//cblog.Info(crdInfo)
 	//cblog.Info(rgnInfo)
 
-	// @todo should move KeyValueList into XXXDriver.go, powerkim
-	var regionName string
-	var zoneName string
-	switch strings.ToUpper(rgnInfo.ProviderName) {
-	case "AZURE":
-		regionName = getValue(rgnInfo.KeyValueInfoList, "location")
-	case "AWS":
-		regionName = getValue(rgnInfo.KeyValueInfoList, "Region")
-	case "ALIBABA":
-		regionName = getValue(rgnInfo.KeyValueInfoList, "Region")
-	case "GCP":
-		regionName = getValue(rgnInfo.KeyValueInfoList, "Region")
-		zoneName = getValue(rgnInfo.KeyValueInfoList, "Zone")
-	case "OPENSTACK":
-		regionName = getValue(rgnInfo.KeyValueInfoList, "Region")
-	case "CLOUDTWIN":
-		regionName = getValue(rgnInfo.KeyValueInfoList, "Region")
-	case "CLOUDIT":
-		// Cloudit do not use Region, But set default @todo 2019.10.28 by powerkim.
-		regionName = getValue(rgnInfo.KeyValueInfoList, "Region")
-		//regionName = getValue(rgnInfo.KeyValueInfoList, "Region")
-	default:
-		errmsg := rgnInfo.ProviderName + " is not a valid ProviderName!!"
-		return nil, fmt.Errorf(errmsg)
-	}
+	regionName, zoneName, err := GetRegionNameByRegionInfo(rgnInfo)
+        if err != nil {
+                return nil, err
+        }
 
 	connectionInfo := idrv.ConnectionInfo{ // @todo powerkim
 		CredentialInfo: idrv.CredentialInfo{
@@ -152,6 +131,8 @@ func GetCloudConnection(cloudConnectName string) (icon.CloudConnection, error) {
 	return cldConnection, nil
 }
 
+
+
 func getValue(keyValueInfoList []icbs.KeyValue, key string) string {
 	for _, kv := range keyValueInfoList {
 		if kv.Key == key {
@@ -159,6 +140,51 @@ func getValue(keyValueInfoList []icbs.KeyValue, key string) string {
 		}
 	}
 	return "Not set"
+}
+
+func GetRegionNameByConnectionName(cloudConnectName string) (string, string, error) {
+        cccInfo, err := ccim.GetConnectionConfig(cloudConnectName)
+        if err != nil {
+                return "", "", err
+        }
+
+        rgnInfo, err := rim.GetRegion(cccInfo.RegionName)
+        if err != nil {
+                return "", "", err
+        }
+
+	return GetRegionNameByRegionInfo(rgnInfo)
+}
+
+func GetRegionNameByRegionInfo(rgnInfo *rim.RegionInfo) (string, string, error) {
+
+        // @todo should move KeyValueList into XXXDriver.go, powerkim
+        var regionName string
+        var zoneName string
+        switch strings.ToUpper(rgnInfo.ProviderName) {
+        case "AZURE":
+                regionName = getValue(rgnInfo.KeyValueInfoList, "location")
+        case "AWS":
+                regionName = getValue(rgnInfo.KeyValueInfoList, "Region")
+        case "ALIBABA":
+                regionName = getValue(rgnInfo.KeyValueInfoList, "Region")
+        case "GCP":
+                regionName = getValue(rgnInfo.KeyValueInfoList, "Region")
+                zoneName = getValue(rgnInfo.KeyValueInfoList, "Zone")
+        case "OPENSTACK":
+                regionName = getValue(rgnInfo.KeyValueInfoList, "Region")
+        case "CLOUDTWIN":
+                regionName = getValue(rgnInfo.KeyValueInfoList, "Region")
+        case "CLOUDIT":
+                // Cloudit do not use Region, But set default @todo 2019.10.28 by powerkim.
+                regionName = getValue(rgnInfo.KeyValueInfoList, "Region")
+                //regionName = getValue(rgnInfo.KeyValueInfoList, "Region")
+        default:
+                errmsg := rgnInfo.ProviderName + " is not a valid ProviderName!!"
+                return "", "", fmt.Errorf(errmsg)
+        }
+
+        return regionName, zoneName, nil
 }
 
 func getCloudDriver(cldDrvInfo dim.CloudDriverInfo) (idrv.CloudDriver, error) {
