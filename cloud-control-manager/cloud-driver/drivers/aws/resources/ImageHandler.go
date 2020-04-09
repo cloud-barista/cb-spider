@@ -90,11 +90,13 @@ func (imageHandler *AwsImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 }
 
 //Image 정보를 추출함
+//@TODO : GuestOS 쳌크할 것
 func ExtractImageDescribeInfo(image *ec2.Image) irs.ImageInfo {
 	//spew.Dump(image)
 	imageInfo := irs.ImageInfo{
-		Id:     *image.ImageId,
-		Name:   *image.Name,
+		IId: irs.IID{*image.Name, *image.ImageId},
+		//Id:     *image.ImageId,
+		//Name:   *image.Name,
 		Status: *image.State,
 	}
 
@@ -128,12 +130,14 @@ func ExtractImageDescribeInfo(image *ec2.Image) irs.ImageInfo {
 	return imageInfo
 }
 
-func (imageHandler *AwsImageHandler) GetImage(imageID string) (irs.ImageInfo, error) {
-	cblogger.Infof("imageID : [%s]", imageID)
+//func (imageHandler *AwsImageHandler) GetImage(imageID string) (irs.ImageInfo, error) {
+func (imageHandler *AwsImageHandler) GetImage(imageIID irs.IID) (irs.ImageInfo, error) {
+
+	cblogger.Infof("imageID : [%s]", imageIID.SystemId)
 
 	input := &ec2.DescribeImagesInput{
 		ImageIds: []*string{
-			aws.String(imageID),
+			aws.String(imageIID.SystemId),
 		},
 	}
 
@@ -165,6 +169,6 @@ func (imageHandler *AwsImageHandler) GetImage(imageID string) (irs.ImageInfo, er
 }
 
 //@TODO : 삭제 API 찾아야 함.
-func (imageHandler *AwsImageHandler) DeleteImage(imageID string) (bool, error) {
+func (imageHandler *AwsImageHandler) DeleteImage(imageIID irs.IID) (bool, error) {
 	return false, nil
 }

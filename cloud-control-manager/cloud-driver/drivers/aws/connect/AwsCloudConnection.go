@@ -31,9 +31,9 @@ type AwsCloudConnection struct {
 	VMClient      *ec2.EC2
 
 	VNetworkClient *ec2.EC2
-	VNicClient     *ec2.EC2
-	ImageClient    *ec2.EC2
-	PublicIPClient *ec2.EC2
+	//VNicClient     *ec2.EC2
+	ImageClient *ec2.EC2
+	//PublicIPClient *ec2.EC2
 	SecurityClient *ec2.EC2
 	VmSpecClient   *ec2.EC2
 }
@@ -89,6 +89,7 @@ func (cloudConn *AwsCloudConnection) CreateSecurityHandler() (irs.SecurityHandle
 	return &handler, nil
 }
 
+/*
 func (cloudConn *AwsCloudConnection) CreateVNicHandler() (irs.VNicHandler, error) {
 	cblogger.Info("Start")
 	handler := ars.AwsVNicHandler{cloudConn.Region, cloudConn.VNicClient}
@@ -102,6 +103,7 @@ func (cloudConn *AwsCloudConnection) CreatePublicIPHandler() (irs.PublicIPHandle
 
 	return &handler, nil
 }
+*/
 
 func (cloudConn *AwsCloudConnection) CreateVMSpecHandler() (irs.VMSpecHandler, error) {
 	cblogger.Info("Start")

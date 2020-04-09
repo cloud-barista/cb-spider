@@ -67,21 +67,23 @@ func (keyPairHandler *AwsKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPairReq
 
 	// Creates a new  key pair with the given name
 	result, err := keyPairHandler.Client.CreateKeyPair(&ec2.CreateKeyPairInput{
-		KeyName: aws.String(keyPairReqInfo.Name),
+		//KeyName: aws.String(keyPairReqInfo.Name),
+		KeyName: aws.String(keyPairReqInfo.IId.NameId),
 	})
 	if err != nil {
 		if aerr, ok := err.(awserr.Error); ok && aerr.Code() == "InvalidKeyPair.Duplicate" {
-			cblogger.Errorf("Keypair %q already exists.", keyPairReqInfo.Name)
+			cblogger.Errorf("Keypair %q already exists.", keyPairReqInfo.IId.NameId)
 			return irs.KeyPairInfo{}, err
 		}
-		cblogger.Errorf("Unable to create key pair: %s, %v.", keyPairReqInfo.Name, err)
+		cblogger.Errorf("Unable to create key pair: %s, %v.", keyPairReqInfo.IId.NameId, err)
 		return irs.KeyPairInfo{}, err
 	}
 
 	cblogger.Infof("Created key pair %q %s\n%s\n", *result.KeyName, *result.KeyFingerprint, *result.KeyMaterial)
 	spew.Dump(result)
 	keyPairInfo := irs.KeyPairInfo{
-		Name:        *result.KeyName,
+		//Name:        *result.KeyName,
+		IId:         irs.IID{keyPairReqInfo.IId.NameId, *result.KeyName},
 		Fingerprint: *result.KeyFingerprint,
 		PrivateKey:  *result.KeyMaterial, // AWS(PEM파일-RSA PRIVATE KEY)
 		//KeyMaterial: *result.KeyMaterial,
@@ -94,12 +96,12 @@ func (keyPairHandler *AwsKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPairReq
 }
 
 //혼선을 피하기 위해 keyPairID 대신 keyName으로 변경 함.
-func (keyPairHandler *AwsKeyPairHandler) GetKey(keyName string) (irs.KeyPairInfo, error) {
+func (keyPairHandler *AwsKeyPairHandler) GetKey(keyIID irs.IID) (irs.KeyPairInfo, error) {
 	//keyPairID := keyName
-	cblogger.Infof("keyName : [%s]", keyName)
+	cblogger.Infof("keyName : [%s]", keyIID.NameId)
 	input := &ec2.DescribeKeyPairsInput{
 		KeyNames: []*string{
-			aws.String(keyName),
+			aws.String(keyIID.NameId),
 		},
 	}
 
@@ -138,7 +140,8 @@ func (keyPairHandler *AwsKeyPairHandler) GetKey(keyName string) (irs.KeyPairInfo
 func ExtractKeyPairDescribeInfo(keyPair *ec2.KeyPairInfo) irs.KeyPairInfo {
 	spew.Dump(keyPair)
 	keyPairInfo := irs.KeyPairInfo{
-		Name:        *keyPair.KeyName,
+		IId: irs.IID{*keyPair.KeyName, *keyPair.KeyName},
+		//Name:        *keyPair.KeyName,
 		Fingerprint: *keyPair.KeyFingerprint,
 	}
 
@@ -151,30 +154,30 @@ func ExtractKeyPairDescribeInfo(keyPair *ec2.KeyPairInfo) irs.KeyPairInfo {
 	return keyPairInfo
 }
 
-func (keyPairHandler *AwsKeyPairHandler) DeleteKey(keyName string) (bool, error) {
-	cblogger.Infof("삭제 요청된 키페어 : [%s]", keyName)
+func (keyPairHandler *AwsKeyPairHandler) DeleteKey(keyIID irs.IID) (bool, error) {
+	cblogger.Infof("삭제 요청된 키페어 : [%s]", keyIID.NameId)
 
-	_, errGet := keyPairHandler.GetKey(keyName)
+	_, errGet := keyPairHandler.GetKey(keyIID)
 	if errGet != nil {
 		return false, errGet
 	}
 
 	// Delete the key pair by name
 	result, err := keyPairHandler.Client.DeleteKeyPair(&ec2.DeleteKeyPairInput{
-		KeyName: aws.String(keyName),
+		KeyName: aws.String(keyIID.NameId),
 	})
 
 	spew.Dump(result)
 	if err != nil {
 		if aerr, ok := err.(awserr.Error); ok && aerr.Code() == "InvalidKeyPair.Duplicate" {
-			cblogger.Error("Key pair %q does not exist.", keyName)
+			cblogger.Error("Key pair %q does not exist.", keyIID.NameId)
 			return false, err
 		}
-		cblogger.Errorf("Unable to delete key pair: %s, %v.", keyName, err)
+		cblogger.Errorf("Unable to delete key pair: %s, %v.", keyIID.NameId, err)
 		return false, err
 	}
 
-	cblogger.Infof("Successfully deleted %q key pair\n", keyName)
+	cblogger.Infof("Successfully deleted %q key pair\n", keyIID.NameId)
 
 	return true, nil
 }

@@ -64,14 +64,14 @@ func (vmHandler *AwsVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 	// 동일한 이름을 사용하는 VM이 존재하는지 확인함.
 	//=============================================
 	cblogger.Infof("생성할 VM이 존재하는지 체크합니다.")
-	vmInfo, errVmInfo := vmHandler.GetVM(vmReqInfo.VMName)
+	vmInfo, errVmInfo := vmHandler.GetVM(vmReqInfo.IId)
 
 	if errVmInfo != nil {
 		awsErr, ok := errVmInfo.(awserr.Error)
 		//spew.Dump(awsErr)
 		if ok {
 			if CUSTOM_ERR_CODE_NOTFOUND == awsErr.Code() {
-				cblogger.Infof("존재하는 VM [%s]이 없기 때문에 생성을 시작합니다.", vmReqInfo.VMName)
+				cblogger.Infof("존재하는 VM [%s]이 없기 때문에 생성을 시작합니다.", vmReqInfo.IId.NameId)
 			} else { // 404 Not Found 외의 에러는 모두 에러임.
 				cblogger.Error(errVmInfo)
 				return irs.VMInfo{}, errVmInfo
@@ -80,19 +80,22 @@ func (vmHandler *AwsVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 			return irs.VMInfo{}, errVmInfo
 		}
 	} else { //에러 정보가 없는 경우 이미 해당 VM이 생성되어 있기 때문에 에러임.
-		if len(vmInfo.Name) > 0 {
-			cblogger.Errorf("이미 [%s] VM이 존재하기 때문에 생성하지 않고 기존 정보와 함께 에러를 리턴함.", vmReqInfo.VMName)
+		if len(vmInfo.IId.NameId) > 0 {
+			cblogger.Errorf("이미 [%s] VM이 존재하기 때문에 생성하지 않고 기존 정보와 함께 에러를 리턴함.", vmReqInfo.IId.NameId)
 			cblogger.Info(vmInfo)
-			return vmInfo, errors.New("InvalidVM.Duplicate: The VM '" + vmReqInfo.VMName + "' already exists.")
+			return vmInfo, errors.New("InvalidVM.Duplicate: The VM '" + vmReqInfo.IId.NameId + "' already exists.")
 		}
 	}
 
-	imageID := vmReqInfo.ImageId
-	instanceType := vmReqInfo.VMSpecId // "t2.micro"
+	//imageID := vmReqInfo.ImageId
+	imageID := vmReqInfo.IId.SystemId
+	//instanceType := vmReqInfo.VMSpecId // "t2.micro"
+	instanceType := vmReqInfo.VMSpecName // "t2.micro"
 	minCount := aws.Int64(1)
 	maxCount := aws.Int64(1)
-	keyName := vmReqInfo.KeyPairName
-	baseName := vmReqInfo.VMName //"mcloud-barista-VMHandlerTest"
+	//keyName := vmReqInfo.KeyPairName
+	keyName := vmReqInfo.KeyPairIID.NameId
+	baseName := vmReqInfo.IId.NameId //"mcloud-barista-VMHandlerTest"
 
 	//=============================
 	// Subnet 처리 - NameId 기반
@@ -106,11 +109,11 @@ func (vmHandler *AwsVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 	}
 	cblogger.Info(vNetworkHandler)
 
-	subnetInfo, errSubnetInfo := vNetworkHandler.GetVNetwork(GetCBDefaultSubnetName())
+	subnetInfo, errSubnetInfo := vNetworkHandler.GetVNetwork(irs.IID{NameId: GetCBDefaultSubnetName()})
 	if errSubnetInfo != nil {
 		return irs.VMInfo{}, errSubnetInfo
 	}
-	subnetID := subnetInfo.Id
+	subnetID := subnetInfo.IId.SystemId
 
 	//=============================
 	// 보안그룹 처리 - NameId 기반
@@ -123,19 +126,21 @@ func (vmHandler *AwsVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 	}
 	cblogger.Info(securityHandler)
 
-	for _, sgName := range vmReqInfo.SecurityGroupIds {
+	for _, sgName := range vmReqInfo.SecurityGroupIIDs {
+		//for _, sgName := range vmReqInfo.SecurityGroupIds {
 		cblogger.Infof("보안그룹 조회 : [%s]", sgName)
 		sgInfo, errSgInfo := securityHandler.GetSecurity(sgName)
 		if errSgInfo != nil {
 			return irs.VMInfo{}, errSgInfo
 		}
-		cblogger.Infof("보안그룹 변환 : [%s] ==> [%s]", sgName, sgInfo.Id)
-		newSecurityGroupIds = append(newSecurityGroupIds, sgInfo.Id)
+		cblogger.Infof("보안그룹 변환 : [%s] ==> [%s]", sgName.NameId, sgInfo.IId.SystemId)
+		newSecurityGroupIds = append(newSecurityGroupIds, sgInfo.IId.SystemId)
 	}
 
 	cblogger.Info("보안그룹 변환 완료")
 	cblogger.Info(newSecurityGroupIds)
 
+	/* 2020-04-08 EIP 로직 제거
 	//=============================
 	// PublicIp 처리 - NameId 기반
 	//=============================
@@ -154,6 +159,7 @@ func (vmHandler *AwsVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 	}
 	publicIpId := publicIPInfo.Id
 	cblogger.Infof("PublicIP ID를 [%s]대신 [%s]로 사용합니다.", publicIPInfo.Id, publicIpId)
+	*/
 
 	//=============================
 	// VM생성 처리
@@ -213,6 +219,7 @@ func (vmHandler *AwsVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 	WaitForRun(vmHandler.Client, newVmId)
 	cblogger.Info("EC2 Running 상태 완료 : ", runResult.Instances[0].State.Name)
 
+	/* 2020-04-08 EIP 로직 제거
 	//EC2에 EIP 할당 (펜딩 상태에서는 EIP 할당 불가)
 	cblogger.Infof("[%s] EC2에 [%s] IP 할당 시작", newVmId, publicIpId)
 	assocRes, errIp := vmHandler.AssociatePublicIP(publicIpId, newVmId)
@@ -222,7 +229,9 @@ func (vmHandler *AwsVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 	}
 
 	cblogger.Infof("[%s] EC2에 Public IP 할당 결과 : ", newVmId, assocRes)
+	*/
 
+	/* 2020-04-08 vNic 로직 제거
 	//
 	//vNic 추가 요청이 있는 경우 전달 받은 vNic을 VM에 추가 함.
 	//
@@ -236,10 +245,11 @@ func (vmHandler *AwsVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 			cblogger.Infof("vNic [%s] 추가 완료", vmReqInfo.NetworkInterfaceId)
 		}
 	}
+	*/
 
 	//최신 정보 조회
 	//newVmInfo, _ := vmHandler.GetVM(newVmId)
-	newVmInfo, _ := vmHandler.GetVM(vmReqInfo.VMName)
+	newVmInfo, _ := vmHandler.GetVM(vmReqInfo.IId)
 
 	/*
 		//빠른 생성을 위해 Running 상태를 대기하지 않고 최소한의 정보만 리턴 함.
@@ -276,15 +286,16 @@ func WaitForRun(svc *ec2.EC2, instanceID string) {
 	cblogger.Info("=========WaitForRun() 종료")
 }
 
-func (vmHandler *AwsVMHandler) ResumeVM(vmNameId string) (irs.VMStatus, error) {
-	cblogger.Infof("vmNameId : [%s]", vmNameId)
+//func (vmHandler *AwsVMHandler) ResumeVM(vmNameId string) (irs.VMStatus, error) {
+func (vmHandler *AwsVMHandler) ResumeVM(vmIID irs.IID) (irs.VMStatus, error) {
+	cblogger.Infof("vmNameId : [%s]", vmIID.NameId)
 
-	vmInfo, errVmInfo := vmHandler.GetVM(vmNameId)
+	vmInfo, errVmInfo := vmHandler.GetVM(vmIID)
 	if errVmInfo != nil {
 		return irs.VMStatus("Failed"), errVmInfo
 	}
 	cblogger.Info(vmInfo)
-	vmID := vmInfo.Id
+	vmID := vmInfo.IId.SystemId
 	cblogger.Infof("vmID : [%s]", vmID)
 
 	input := &ec2.StartInstancesInput{
@@ -319,15 +330,16 @@ func (vmHandler *AwsVMHandler) ResumeVM(vmNameId string) (irs.VMStatus, error) {
 	return irs.VMStatus("Resuming"), nil
 }
 
-func (vmHandler *AwsVMHandler) SuspendVM(vmNameId string) (irs.VMStatus, error) {
-	cblogger.Infof("vmNameId : [%s]", vmNameId)
+//func (vmHandler *AwsVMHandler) SuspendVM(vmNameId string) (irs.VMStatus, error) {
+func (vmHandler *AwsVMHandler) SuspendVM(vmIID irs.IID) (irs.VMStatus, error) {
+	cblogger.Infof("vmNameId : [%s]", vmIID.NameId)
 
-	vmInfo, errVmInfo := vmHandler.GetVM(vmNameId)
+	vmInfo, errVmInfo := vmHandler.GetVM(vmIID)
 	if errVmInfo != nil {
 		return irs.VMStatus("Failed"), errVmInfo
 	}
 	cblogger.Info(vmInfo)
-	vmID := vmInfo.Id
+	vmID := vmInfo.IId.SystemId
 	cblogger.Infof("vmID : [%s]", vmID)
 
 	input := &ec2.StopInstancesInput{
@@ -358,15 +370,16 @@ func (vmHandler *AwsVMHandler) SuspendVM(vmNameId string) (irs.VMStatus, error) 
 	return irs.VMStatus("Suspending"), nil
 }
 
-func (vmHandler *AwsVMHandler) RebootVM(vmNameId string) (irs.VMStatus, error) {
-	cblogger.Infof("vmNameId : [%s]", vmNameId)
+//func (vmHandler *AwsVMHandler) RebootVM(vmNameId string) (irs.VMStatus, error) {
+func (vmHandler *AwsVMHandler) RebootVM(vmIID irs.IID) (irs.VMStatus, error) {
+	cblogger.Infof("vmNameId : [%s]", vmIID.NameId)
 
-	vmInfo, errVmInfo := vmHandler.GetVM(vmNameId)
+	vmInfo, errVmInfo := vmHandler.GetVM(vmIID)
 	if errVmInfo != nil {
 		return irs.VMStatus("Failed"), errVmInfo
 	}
 	cblogger.Info(vmInfo)
-	vmID := vmInfo.Id
+	vmID := vmInfo.IId.SystemId
 	cblogger.Infof("vmID : [%s]", vmID)
 
 	input := &ec2.RebootInstancesInput{
@@ -406,15 +419,16 @@ func (vmHandler *AwsVMHandler) RebootVM(vmNameId string) (irs.VMStatus, error) {
 	return irs.VMStatus("Rebooting"), nil
 }
 
-func (vmHandler *AwsVMHandler) TerminateVM(vmNameId string) (irs.VMStatus, error) {
-	cblogger.Infof("vmNameId : [%s]", vmNameId)
+//func (vmHandler *AwsVMHandler) TerminateVM(vmNameId string) (irs.VMStatus, error) {
+func (vmHandler *AwsVMHandler) TerminateVM(vmIID irs.IID) (irs.VMStatus, error) {
+	cblogger.Infof("vmNameId : [%s]", vmIID.NameId)
 
-	vmInfo, errVmInfo := vmHandler.GetVM(vmNameId)
+	vmInfo, errVmInfo := vmHandler.GetVM(vmIID)
 	if errVmInfo != nil {
 		return irs.VMStatus("Failed"), errVmInfo
 	}
 	cblogger.Info(vmInfo)
-	vmID := vmInfo.Id
+	vmID := vmInfo.IId.SystemId
 	cblogger.Infof("vmID : [%s]", vmID)
 
 	input := &ec2.TerminateInstancesInput{
@@ -436,8 +450,9 @@ func (vmHandler *AwsVMHandler) TerminateVM(vmNameId string) (irs.VMStatus, error
 }
 
 //2019-11-16부로 CB-Driver 전체 로직이 NameId 기반으로 변경됨.
-func (vmHandler *AwsVMHandler) GetVM(vmNameId string) (irs.VMInfo, error) {
-	cblogger.Infof("vmNameId : [%s]", vmNameId)
+//func (vmHandler *AwsVMHandler) GetVM(vmNameId string) (irs.VMInfo, error) {
+func (vmHandler *AwsVMHandler) GetVM(vmIID irs.IID) (irs.VMInfo, error) {
+	cblogger.Infof("vmNameId : [%s]", vmIID.NameId)
 	input := &ec2.DescribeInstancesInput{
 		/*
 			InstanceIds: []*string{
@@ -449,7 +464,7 @@ func (vmHandler *AwsVMHandler) GetVM(vmNameId string) (irs.VMInfo, error) {
 		&ec2.Filter{
 			Name: aws.String("tag:Name"),
 			Values: []*string{
-				aws.String(vmNameId),
+				aws.String(vmIID.NameId),
 			},
 		},
 	})
@@ -472,10 +487,10 @@ func (vmHandler *AwsVMHandler) GetVM(vmNameId string) (irs.VMInfo, error) {
 	//cblogger.Info(result)
 	cblogger.Infof("조회된 VM 정보 수 : [%d]", len(result.Reservations))
 	if len(result.Reservations) > 1 {
-		return irs.VMInfo{}, awserr.New("600", "1개 이상의 VM ["+vmNameId+"] 정보가 존재합니다.", nil)
+		return irs.VMInfo{}, awserr.New("600", "1개 이상의 VM ["+vmIID.NameId+"] 정보가 존재합니다.", nil)
 	} else if len(result.Reservations) == 0 {
-		cblogger.Errorf("VM [%s] 정보가 존재하지 않습니다.", vmNameId)
-		return irs.VMInfo{}, awserr.New("404", "VM ["+vmNameId+"] 정보가 존재하지 않습니다.", nil)
+		cblogger.Errorf("VM [%s] 정보가 존재하지 않습니다.", vmIID.NameId)
+		return irs.VMInfo{}, awserr.New("404", "VM ["+vmIID.NameId+"] 정보가 존재하지 않습니다.", nil)
 	}
 
 	vmInfo := irs.VMInfo{}
@@ -506,10 +521,10 @@ func (vmHandler *AwsVMHandler) ExtractDescribeInstances(reservation *ec2.Reserva
 
 	//VM상태와 무관하게 항상 값이 존재하는 항목들만 초기화
 	vmInfo := irs.VMInfo{
-		Id:          *reservation.Instances[0].InstanceId,
-		ImageId:     *reservation.Instances[0].ImageId,
-		VMSpecId:    *reservation.Instances[0].InstanceType,
-		KeyPairName: *reservation.Instances[0].KeyName,
+		IId:        irs.IID{"", *reservation.Instances[0].InstanceId},
+		ImageIId:   irs.IID{*reservation.Instances[0].ImageId, *reservation.Instances[0].ImageId},
+		VMSpecName: *reservation.Instances[0].InstanceType,
+		KeyPairIId: irs.IID{*reservation.Instances[0].KeyName, *reservation.Instances[0].KeyName},
 		//GuestUserID:    "",
 		//AdditionalInfo: "State:" + *reservation.Instances[0].State.Name,
 	}
@@ -552,7 +567,8 @@ func (vmHandler *AwsVMHandler) ExtractDescribeInstances(reservation *ec2.Reserva
 	//NetworkInterfaces 배열 값들
 	if !reflect.ValueOf(reservation.Instances[0].NetworkInterfaces).IsNil() {
 		if !reflect.ValueOf(reservation.Instances[0].NetworkInterfaces[0].VpcId).IsNil() {
-			vmInfo.VirtualNetworkId = *reservation.Instances[0].NetworkInterfaces[0].VpcId
+			//vmInfo.VirtualNetworkId = *reservation.Instances[0].NetworkInterfaces[0].VpcId
+			vmInfo.VirtualNetworkIId = irs.IID{"", *reservation.Instances[0].NetworkInterfaces[0].VpcId}
 			keyValueList = append(keyValueList, irs.KeyValue{Key: "VpcId", Value: *reservation.Instances[0].NetworkInterfaces[0].VpcId})
 		}
 
@@ -561,11 +577,12 @@ func (vmHandler *AwsVMHandler) ExtractDescribeInstances(reservation *ec2.Reserva
 		}
 
 		if !reflect.ValueOf(reservation.Instances[0].NetworkInterfaces[0].Attachment).IsNil() {
-			vmInfo.NetworkInterfaceId = *reservation.Instances[0].NetworkInterfaces[0].Attachment.AttachmentId
+			vmInfo.NetworkInterface = *reservation.Instances[0].NetworkInterfaces[0].Attachment.AttachmentId
 		}
 
 		for _, security := range reservation.Instances[0].NetworkInterfaces[0].Groups {
-			vmInfo.SecurityGroupIds = append(vmInfo.SecurityGroupIds, *security.GroupId)
+			//vmInfo.SecurityGroupIds = append(vmInfo.SecurityGroupIds, *security.GroupId)
+			vmInfo.SecurityGroupIIds = append(vmInfo.SecurityGroupIIds, irs.IID{*security.GroupName, *security.GroupId})
 		}
 
 		/*
@@ -603,8 +620,8 @@ func (vmHandler *AwsVMHandler) ExtractDescribeInstances(reservation *ec2.Reserva
 	cblogger.Debug("Name Tag 찾기")
 	for _, t := range reservation.Instances[0].Tags {
 		if *t.Key == "Name" {
-			vmInfo.Name = *t.Value
-			cblogger.Debug("EC2 명칭 : ", vmInfo.Name)
+			vmInfo.IId.NameId = *t.Value
+			cblogger.Debug("EC2 명칭 : ", vmInfo.IId.NameId)
 			break
 		}
 	}
@@ -658,7 +675,7 @@ func (vmHandler *AwsVMHandler) ListVM() ([]*irs.VMInfo, error) {
 				cblogger.Errorf("VM Id[%s]에 해당하는 VM 이름을 찾을 수 없습니다!!!", *vm.InstanceId)
 				continue
 			}
-			vmInfo, _ := vmHandler.GetVM(tmpVmName)
+			vmInfo, _ := vmHandler.GetVM(irs.IID{NameId: tmpVmName})
 			//vmInfo, _ := vmHandler.GetVM(*vm.InstanceId)
 			vmInfoList = append(vmInfoList, &vmInfo)
 		}
@@ -698,15 +715,16 @@ func ConvertVMStatusString(vmStatus string) (irs.VMStatus, error) {
 }
 
 //SHUTTING-DOWN / TERMINATED
-func (vmHandler *AwsVMHandler) GetVMStatus(vmNameId string) (irs.VMStatus, error) {
-	cblogger.Infof("vmNameId : [%s]", vmNameId)
+//func (vmHandler *AwsVMHandler) GetVMStatus(vmNameId string) (irs.VMStatus, error) {
+func (vmHandler *AwsVMHandler) GetVMStatus(vmIID irs.IID) (irs.VMStatus, error) {
+	cblogger.Infof("vmNameId : [%s]", vmIID.NameId)
 
-	vmInfo, errVmInfo := vmHandler.GetVM(vmNameId)
+	vmInfo, errVmInfo := vmHandler.GetVM(vmIID)
 	if errVmInfo != nil {
 		return irs.VMStatus("Failed"), errVmInfo
 	}
 	cblogger.Info(vmInfo)
-	vmID := vmInfo.Id
+	vmID := vmInfo.IId.SystemId
 	cblogger.Infof("vmID : [%s]", vmID)
 
 	//vmStatus := "pending"
@@ -786,13 +804,14 @@ func (vmHandler *AwsVMHandler) ListVMStatus() ([]*irs.VMStatusInfo, error) {
 			}
 
 			vmStatusInfo := irs.VMStatusInfo{
-				VmId:   *vm.InstanceId,
-				VmName: tmpVmName,
+				//VmId:   *vm.InstanceId,
+				//VmName: tmpVmName,
+				IId: irs.IID{tmpVmName, *vm.InstanceId},
 				//VmStatus: vmHandler.GetVMStatus(*vm.InstanceId),
 				//VmStatus: irs.VMStatus(strings.ToUpper(*vm.State.Name)),
 				VmStatus: vmStatus,
 			}
-			cblogger.Info(vmStatusInfo.VmId, " EC2 Status : ", vmStatusInfo.VmStatus)
+			cblogger.Info(vmStatusInfo.IId.SystemId, " EC2 Status : ", vmStatusInfo.VmStatus)
 			vmStatusList = append(vmStatusList, &vmStatusInfo)
 		}
 	}

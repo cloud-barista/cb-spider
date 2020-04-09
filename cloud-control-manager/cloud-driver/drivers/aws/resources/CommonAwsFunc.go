@@ -80,10 +80,12 @@ func (vNetworkHandler *AwsVNetworkHandler) GetAutoCBNetworkInfo() (AwsCBNetworkI
 	awsCBNetworkInfo.VpcId = awsVpcInfo.Id
 	awsCBNetworkInfo.VpcName = awsVpcInfo.Name
 
-	awsSubnetInfo, _ := vNetworkHandler.GetVNetwork("")
+	awsSubnetInfo, _ := vNetworkHandler.GetVNetwork(irs.IID{})
 	spew.Dump(awsSubnetInfo)
-	awsCBNetworkInfo.SubnetId = awsSubnetInfo.Id
-	awsCBNetworkInfo.SubnetName = awsSubnetInfo.Name
+	//awsCBNetworkInfo.SubnetId = awsSubnetInfo.Id
+	//awsCBNetworkInfo.SubnetName = awsSubnetInfo.Name
+	awsCBNetworkInfo.SubnetId = awsSubnetInfo.IId.SystemId
+	awsCBNetworkInfo.SubnetName = awsSubnetInfo.IId.NameId
 
 	spew.Dump(awsCBNetworkInfo)
 
@@ -112,8 +114,9 @@ func (vNetworkHandler *AwsVNetworkHandler) GetMcloudBaristaDefaultVpcId() string
 	}
 }
 
+//@TODO : awsSubnetInfo.IId.SystemId를 리턴해야 하는지 NameId를 리턴해야 하는지 체크해야 함. -> 생성된 정보가 있는지만 체크 하므로 상관 없음.
 func (vNetworkHandler *AwsVNetworkHandler) GetMcloudBaristaDefaultSubnetId() string {
-	awsSubnetInfo, err := vNetworkHandler.GetVNetwork("")
+	awsSubnetInfo, err := vNetworkHandler.GetVNetwork(irs.IID{})
 	if err != nil {
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
@@ -127,8 +130,10 @@ func (vNetworkHandler *AwsVNetworkHandler) GetMcloudBaristaDefaultSubnetId() str
 	}
 
 	//기존 정보가 존재하면...
-	if awsSubnetInfo.Id != "" {
-		return awsSubnetInfo.Id
+	//if awsSubnetInfo.Id != "" {
+	//	return awsSubnetInfo.Id
+	if awsSubnetInfo.IId.SystemId != "" {
+		return awsSubnetInfo.IId.SystemId
 	} else {
 		return ""
 	}
