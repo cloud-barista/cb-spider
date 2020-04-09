@@ -50,16 +50,17 @@ func handleSecurity() {
 	config := readConfigFile()
 	securityId := config.Aws.SecurityGroupID
 	cblogger.Infof(securityId)
-	//securityId = "sg-06c4523b969eaafc7"
-	securityId = "cb-sgtest-mcloud-barista"
+	securityId = "sg-0101df0e8d4f27fec"
+	//securityId = "cb-sgtest-mcloud-barista"
 
-	//result, err := handler.GetSecurity(securityId)
+	//result, err := handler.GetSecurity(irs.IID{SystemId: securityId})
 	//result, err := handler.GetSecurity("sg-0fd2d90b269ebc082") // sgtest-mcloub-barista
-	//result, err := handler.DeleteSecurity(securityId)
+	//result, err := handler.DeleteSecurity(irs.IID{SystemId: securityId})
+	//result, err := handler.DeleteSecurity(irs.IID{SystemId: "sg-0101df0e8d4f27fec"})
 	//result, err := handler.ListSecurity()
 
 	securityReqInfo := irs.SecurityReqInfo{
-		IId: irs.IID{NameId: securityId},
+		IId: irs.IID{NameId: "cb-sgtest-mcloud-barista"},
 		SecurityRules: &[]irs.SecurityRuleInfo{ //보안 정책 설정
 			{
 				FromPort:   "20",
@@ -559,6 +560,159 @@ func testErr() error {
 	return awserr.New("504", "찾을 수 없음", nil)
 }
 
+// Test VM Lifecycle Management (Create/Suspend/Resume/Reboot/Terminate)
+func handleVM() {
+	cblogger.Debug("Start VMHandler Resource Test")
+
+	ResourceHandler, err := getResourceHandler("VM")
+	if err != nil {
+		panic(err)
+	}
+	//handler := ResourceHandler.(irs2.ImageHandler)
+	vmHandler := ResourceHandler.(irs.VMHandler)
+
+	//config := readConfigFile()
+	//VmID := irs.IID{NameId: config.Aws.BaseName, SystemId: config.Aws.VmID}
+	VmID := irs.IID{SystemId: "i-0c158bf27da9a8dfb"}
+
+	for {
+		fmt.Println("VM Management")
+		fmt.Println("0. Quit")
+		fmt.Println("1. VM Start")
+		fmt.Println("2. VM Info")
+		fmt.Println("3. Suspend VM")
+		fmt.Println("4. Resume VM")
+		fmt.Println("5. Reboot VM")
+		fmt.Println("6. Terminate VM")
+
+		fmt.Println("7. GetVMStatus VM")
+		fmt.Println("8. ListVMStatus VM")
+		fmt.Println("9. ListVM")
+
+		var commandNum int
+		inputCnt, err := fmt.Scan(&commandNum)
+		if err != nil {
+			panic(err)
+		}
+
+		if inputCnt == 1 {
+			switch commandNum {
+			case 0:
+				return
+
+			case 1:
+				vmReqInfo := irs.VMReqInfo{
+					IId:               irs.IID{NameId: "mcloud-barista-iid-vm-test"},
+					ImageIID:          irs.IID{SystemId: "ami-047f7b46bd6dd5d84"},
+					VirtualNetworkId:  irs.IID{SystemId: "subnet-012957090a923c498"},
+					SecurityGroupIIDs: []irs.IID{{SystemId: "sg-013868663c85586f9"}},
+					VMSpecName:        "t2.micro",
+					KeyPairIID:        irs.IID{SystemId: "CB-KeyPairTest123123"},
+				}
+
+				vmInfo, err := vmHandler.StartVM(vmReqInfo)
+				if err != nil {
+					//panic(err)
+					cblogger.Error(err)
+				} else {
+					cblogger.Info("VM 생성 완료!!", vmInfo)
+					spew.Dump(vmInfo)
+				}
+				//cblogger.Info(vm)
+
+				cblogger.Info("Finish Create VM")
+
+			case 2:
+				vmInfo, err := vmHandler.GetVM(VmID)
+				if err != nil {
+					cblogger.Errorf("[%s] VM 정보 조회 실패", VmID)
+					cblogger.Error(err)
+				} else {
+					cblogger.Infof("[%s] VM 정보 조회 결과", VmID)
+					cblogger.Info(vmInfo)
+					spew.Dump(vmInfo)
+				}
+
+			case 3:
+				cblogger.Info("Start Suspend VM ...")
+				result, err := vmHandler.SuspendVM(VmID)
+				if err != nil {
+					cblogger.Errorf("[%s] VM Suspend 실패 - [%s]", VmID, result)
+					cblogger.Error(err)
+				} else {
+					cblogger.Infof("[%s] VM Suspend 성공 - [%s]", VmID, result)
+				}
+
+			case 4:
+				cblogger.Info("Start Resume  VM ...")
+				result, err := vmHandler.ResumeVM(VmID)
+				if err != nil {
+					cblogger.Errorf("[%s] VM Resume 실패 - [%s]", VmID, result)
+					cblogger.Error(err)
+				} else {
+					cblogger.Infof("[%s] VM Resume 성공 - [%s]", VmID, result)
+				}
+
+			case 5:
+				cblogger.Info("Start Reboot  VM ...")
+				result, err := vmHandler.RebootVM(VmID)
+				if err != nil {
+					cblogger.Errorf("[%s] VM Reboot 실패 - [%s]", VmID, result)
+					cblogger.Error(err)
+				} else {
+					cblogger.Infof("[%s] VM Reboot 성공 - [%s]", VmID, result)
+				}
+
+			case 6:
+				cblogger.Info("Start Terminate  VM ...")
+				result, err := vmHandler.TerminateVM(VmID)
+				if err != nil {
+					cblogger.Errorf("[%s] VM Terminate 실패 - [%s]", VmID, result)
+					cblogger.Error(err)
+				} else {
+					cblogger.Infof("[%s] VM Terminate 성공 - [%s]", VmID, result)
+				}
+
+			case 7:
+				cblogger.Info("Start Get VM Status...")
+				vmStatus, err := vmHandler.GetVMStatus(VmID)
+				if err != nil {
+					cblogger.Errorf("[%s] VM Get Status 실패", VmID)
+					cblogger.Error(err)
+				} else {
+					cblogger.Infof("[%s] VM Get Status 성공 : [%s]", VmID, vmStatus)
+				}
+
+			case 8:
+				cblogger.Info("Start ListVMStatus ...")
+				vmStatusInfos, err := vmHandler.ListVMStatus()
+				if err != nil {
+					cblogger.Error("ListVMStatus 실패")
+					cblogger.Error(err)
+				} else {
+					cblogger.Info("ListVMStatus 성공")
+					cblogger.Info(vmStatusInfos)
+					spew.Dump(vmStatusInfos)
+				}
+
+			case 9:
+				cblogger.Info("Start ListVM ...")
+				vmList, err := vmHandler.ListVM()
+				if err != nil {
+					cblogger.Error("ListVM 실패")
+					cblogger.Error(err)
+				} else {
+					cblogger.Info("ListVM 성공")
+					cblogger.Info("=========== VM 목록 ================")
+					cblogger.Info(vmList)
+					spew.Dump(vmList)
+				}
+
+			}
+		}
+	}
+}
+
 // Test VMSpec
 func handleVMSpec() {
 	cblogger.Debug("Start VMSpec Resource Test")
@@ -684,10 +838,11 @@ func main() {
 	//handleKeyPair()
 	//handlePublicIP() // PublicIP 생성 후 conf
 	//handleSecurity()
+	handleVM()
 
 	//handleImage() //AMI
 	//handleVNic() //Lancard
-	handleVMSpec()
+	//handleVMSpec()
 
 	/*
 		KeyPairHandler, err := setKeyPairHandler()
@@ -741,8 +896,10 @@ func getResourceHandler(handlerType string) (interface{}, error) {
 		resourceHandler, err = cloudConnection.CreateSecurityHandler()
 	case "VNetwork":
 		resourceHandler, err = cloudConnection.CreateVNetworkHandler()
-	//case "VNic":
-	//	resourceHandler, err = cloudConnection.CreateVNicHandler()
+		//case "VNic":
+		//	resourceHandler, err = cloudConnection.CreateVNicHandler()
+	case "VM":
+		resourceHandler, err = cloudConnection.CreateVMHandler()
 	case "VMSpec":
 		resourceHandler, err = cloudConnection.CreateVMSpecHandler()
 	}

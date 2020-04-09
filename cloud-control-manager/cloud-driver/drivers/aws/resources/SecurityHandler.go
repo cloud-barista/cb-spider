@@ -222,7 +222,9 @@ func (securityHandler *AwsSecurityHandler) CreateSecurity(securityReqInfo irs.Se
 	}
 
 	//securityInfo, _ := securityHandler.GetSecurity(*createRes.GroupId)
-	securityInfo, _ := securityHandler.GetSecurity(securityReqInfo.IId) //2019-11-16 NameId 기반으로 변경됨
+	//securityInfo, _ := securityHandler.GetSecurity(securityReqInfo.IId) //2019-11-16 NameId 기반으로 변경됨
+	securityInfo, _ := securityHandler.GetSecurity(irs.IID{SystemId: *createRes.GroupId}) //2020-04-09 SystemId기반으로 변경
+	securityInfo.IId.NameId = securityReqInfo.IId.NameId                                  // Name이 필수가 아니므로 혹시 모르니 사용자가 요청한 NameId로 재설정 함.
 	return securityInfo, nil
 }
 
@@ -275,23 +277,25 @@ func (securityHandler *AwsSecurityHandler) ListSecurity() ([]*irs.SecurityInfo, 
 //2019-11-16부로 CB-Driver 전체 로직이 NameId 기반으로 변경됨.
 //func (securityHandler *AwsSecurityHandler) GetSecurity(securityNameId string) (irs.SecurityInfo, error) {
 func (securityHandler *AwsSecurityHandler) GetSecurity(securityIID irs.IID) (irs.SecurityInfo, error) {
-	cblogger.Infof("securityNameId : [%s]", securityIID.NameId)
+	cblogger.Infof("securityNameId : [%s]", securityIID.SystemId)
+
+	//2020-04-09 Filter 대신 SystemId 기반으로 변경
 	input := &ec2.DescribeSecurityGroupsInput{
-		/*
-			GroupIds: []*string{
-				aws.String(securityID),
-			},
-		*/
+		GroupIds: []*string{
+			aws.String(securityIID.SystemId),
+		},
 	}
+	/* 2020-04-09 Name 기반으로 조회 하지 않기때문에 미사용
 	input.Filters = ([]*ec2.Filter{
 		&ec2.Filter{
 			//Name: aws.String("tag:Name"), // subnet-id
 			Name: aws.String("group-name"), // subnet-id
 			Values: []*string{
-				aws.String(securityIID.NameId),
+				aws.String(securityIID.SystemId),
 			},
 		},
 	})
+	*/
 	cblogger.Info(input)
 
 	result, err := securityHandler.Client.DescribeSecurityGroups(input)
@@ -316,7 +320,7 @@ func (securityHandler *AwsSecurityHandler) GetSecurity(securityIID irs.IID) (irs
 		return securityInfo, nil
 	} else {
 		//return irs.SecurityInfo{}, errors.New("[" + securityNameId + "] 정보를 찾을 수 없습니다.")
-		return irs.SecurityInfo{}, errors.New("InvalidSecurityGroup.NotFound: The security group '" + securityIID.NameId + "' does not exist")
+		return irs.SecurityInfo{}, errors.New("InvalidSecurityGroup.NotFound: The security group '" + securityIID.SystemId + "' does not exist")
 	}
 }
 
@@ -440,16 +444,19 @@ func ExtractIpPermissions(ipPermissions []*ec2.IpPermission, direction string) [
 //2019-11-16부로 CB-Driver 전체 로직이 NameId 기반으로 변경됨.
 //func (securityHandler *AwsSecurityHandler) DeleteSecurity(securityNameId string) (bool, error) {
 func (securityHandler *AwsSecurityHandler) DeleteSecurity(securityIID irs.IID) (bool, error) {
-	cblogger.Infof("securityNameId : [%s]", securityIID.NameId)
+	cblogger.Infof("securityNameId : [%s]", securityIID.SystemId)
 
+	/* //2020-04-09 SystemId 기반으로 변경되어서 필요 없음.
 	securityInfo, errsecurityInfo := securityHandler.GetSecurity(securityIID)
 	if errsecurityInfo != nil {
 		return false, errsecurityInfo
 	}
 	cblogger.Info(securityInfo)
+	*/
 
 	//securityID := securityInfo.Id
-	securityID := securityInfo.IId.SystemId
+	//securityID := securityInfo.IId.SystemId
+	securityID := securityIID.SystemId
 
 	// Delete the security group.
 	_, err := securityHandler.Client.DeleteSecurityGroup(&ec2.DeleteSecurityGroupInput{
