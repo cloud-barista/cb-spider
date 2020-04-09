@@ -49,8 +49,10 @@ func (securityHandler *AwsSecurityHandler) CreateSecurity(securityReqInfo irs.Se
 	// Create the security group with the VPC, name and description.
 	//createRes, err := securityHandler.Client.CreateSecurityGroup(&ec2.CreateSecurityGroupInput{
 	input := ec2.CreateSecurityGroupInput{
-		GroupName:   aws.String(securityReqInfo.Name),
-		Description: aws.String(securityReqInfo.Name),
+		//GroupName:   aws.String(securityReqInfo.Name),
+		GroupName: aws.String(securityReqInfo.IId.NameId),
+		//Description: aws.String(securityReqInfo.Name),
+		Description: aws.String(securityReqInfo.IId.NameId),
 		//		VpcId:       aws.String(securityReqInfo.VpcId),awsCBNetworkInfo
 		VpcId: aws.String(vpcId),
 	}
@@ -63,11 +65,11 @@ func (securityHandler *AwsSecurityHandler) CreateSecurity(securityReqInfo irs.Se
 				cblogger.Errorf("Unable to find VPC with ID %q.", vpcId)
 				return irs.SecurityInfo{}, err
 			case "InvalidGroup.Duplicate":
-				cblogger.Errorf("Security group %q already exists.", securityReqInfo.Name)
+				cblogger.Errorf("Security group %q already exists.", securityReqInfo.IId.NameId)
 				return irs.SecurityInfo{}, err
 			}
 		}
-		cblogger.Errorf("Unable to create security group %q, %v", securityReqInfo.Name, err)
+		cblogger.Errorf("Unable to create security group %q, %v", securityReqInfo.IId.NameId, err)
 		return irs.SecurityInfo{}, err
 	}
 	cblogger.Infof("[%s] 보안 그룹 생성완료", aws.StringValue(createRes.GroupId))
@@ -127,7 +129,7 @@ func (securityHandler *AwsSecurityHandler) CreateSecurity(securityReqInfo irs.Se
 			IpPermissions: ipPermissions,
 		})
 		if err != nil {
-			cblogger.Errorf("Unable to set security group %q ingress, %v", securityReqInfo.Name, err)
+			cblogger.Errorf("Unable to set security group %q ingress, %v", securityReqInfo.IId.NameId, err)
 			return irs.SecurityInfo{}, err
 		}
 
@@ -188,7 +190,7 @@ func (securityHandler *AwsSecurityHandler) CreateSecurity(securityReqInfo irs.Se
 			IpPermissions: ipPermissionsEgress,
 		})
 		if err != nil {
-			cblogger.Errorf("Unable to set security group %q egress, %v", securityReqInfo.Name, err)
+			cblogger.Errorf("Unable to set security group %q egress, %v", securityReqInfo.IId.NameId, err)
 			return irs.SecurityInfo{}, err
 		}
 
@@ -207,7 +209,7 @@ func (securityHandler *AwsSecurityHandler) CreateSecurity(securityReqInfo irs.Se
 		Tags: []*ec2.Tag{
 			{
 				Key:   aws.String("Name"),
-				Value: aws.String(securityReqInfo.Name),
+				Value: aws.String(securityReqInfo.IId.NameId),
 			},
 		},
 	}
@@ -220,7 +222,7 @@ func (securityHandler *AwsSecurityHandler) CreateSecurity(securityReqInfo irs.Se
 	}
 
 	//securityInfo, _ := securityHandler.GetSecurity(*createRes.GroupId)
-	securityInfo, _ := securityHandler.GetSecurity(securityReqInfo.Name) //2019-11-16 NameId 기반으로 변경됨
+	securityInfo, _ := securityHandler.GetSecurity(securityReqInfo.IId) //2019-11-16 NameId 기반으로 변경됨
 	return securityInfo, nil
 }
 
@@ -271,8 +273,9 @@ func (securityHandler *AwsSecurityHandler) ListSecurity() ([]*irs.SecurityInfo, 
 }
 
 //2019-11-16부로 CB-Driver 전체 로직이 NameId 기반으로 변경됨.
-func (securityHandler *AwsSecurityHandler) GetSecurity(securityNameId string) (irs.SecurityInfo, error) {
-	cblogger.Infof("securityNameId : [%s]", securityNameId)
+//func (securityHandler *AwsSecurityHandler) GetSecurity(securityNameId string) (irs.SecurityInfo, error) {
+func (securityHandler *AwsSecurityHandler) GetSecurity(securityIID irs.IID) (irs.SecurityInfo, error) {
+	cblogger.Infof("securityNameId : [%s]", securityIID.NameId)
 	input := &ec2.DescribeSecurityGroupsInput{
 		/*
 			GroupIds: []*string{
@@ -285,7 +288,7 @@ func (securityHandler *AwsSecurityHandler) GetSecurity(securityNameId string) (i
 			//Name: aws.String("tag:Name"), // subnet-id
 			Name: aws.String("group-name"), // subnet-id
 			Values: []*string{
-				aws.String(securityNameId),
+				aws.String(securityIID.NameId),
 			},
 		},
 	})
@@ -313,7 +316,7 @@ func (securityHandler *AwsSecurityHandler) GetSecurity(securityNameId string) (i
 		return securityInfo, nil
 	} else {
 		//return irs.SecurityInfo{}, errors.New("[" + securityNameId + "] 정보를 찾을 수 없습니다.")
-		return irs.SecurityInfo{}, errors.New("InvalidSecurityGroup.NotFound: The security group '" + securityNameId + "' does not exist")
+		return irs.SecurityInfo{}, errors.New("InvalidSecurityGroup.NotFound: The security group '" + securityIID.NameId + "' does not exist")
 	}
 }
 
@@ -331,7 +334,8 @@ func ExtractSecurityInfo(securityGroupResult *ec2.SecurityGroup) irs.SecurityInf
 	securityRules = append(ipPermissions, ipPermissionsEgress...)
 
 	securityInfo := irs.SecurityInfo{
-		Id: *securityGroupResult.GroupId,
+		//Id: *securityGroupResult.GroupId,
+		IId: irs.IID{"", *securityGroupResult.GroupId},
 		//SecurityRules: &[]irs.SecurityRuleInfo{},
 		SecurityRules: &securityRules,
 
@@ -347,8 +351,9 @@ func ExtractSecurityInfo(securityGroupResult *ec2.SecurityGroup) irs.SecurityInf
 	cblogger.Debug("Name Tag 찾기")
 	for _, t := range securityGroupResult.Tags {
 		if *t.Key == "Name" {
-			securityInfo.Name = *t.Value
-			cblogger.Debug("Name : ", securityInfo.Name)
+			//securityInfo.Name = *t.Value
+			securityInfo.IId.NameId = *t.Value
+			cblogger.Debug("Name : ", securityInfo.IId.NameId)
 			break
 		}
 	}
@@ -433,16 +438,18 @@ func ExtractIpPermissions(ipPermissions []*ec2.IpPermission, direction string) [
 }
 
 //2019-11-16부로 CB-Driver 전체 로직이 NameId 기반으로 변경됨.
-func (securityHandler *AwsSecurityHandler) DeleteSecurity(securityNameId string) (bool, error) {
-	cblogger.Infof("securityNameId : [%s]", securityNameId)
+//func (securityHandler *AwsSecurityHandler) DeleteSecurity(securityNameId string) (bool, error) {
+func (securityHandler *AwsSecurityHandler) DeleteSecurity(securityIID irs.IID) (bool, error) {
+	cblogger.Infof("securityNameId : [%s]", securityIID.NameId)
 
-	securityInfo, errsecurityInfo := securityHandler.GetSecurity(securityNameId)
+	securityInfo, errsecurityInfo := securityHandler.GetSecurity(securityIID)
 	if errsecurityInfo != nil {
 		return false, errsecurityInfo
 	}
 	cblogger.Info(securityInfo)
 
-	securityID := securityInfo.Id
+	//securityID := securityInfo.Id
+	securityID := securityInfo.IId.SystemId
 
 	// Delete the security group.
 	_, err := securityHandler.Client.DeleteSecurityGroup(&ec2.DeleteSecurityGroupInput{
