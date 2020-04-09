@@ -101,6 +101,7 @@ func ExtractImageDescribeInfo(image *ec2.Image) irs.ImageInfo {
 	}
 
 	keyValueList := []irs.KeyValue{
+		{Key: "Name", Value: *image.Name},
 		{Key: "CreationDate", Value: *image.CreationDate},
 		{Key: "Architecture", Value: *image.Architecture},
 		{Key: "OwnerId", Value: *image.OwnerId},
