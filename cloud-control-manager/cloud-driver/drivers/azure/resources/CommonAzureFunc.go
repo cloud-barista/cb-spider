@@ -3,13 +3,15 @@ package resources
 import (
 	"crypto/md5"
 	"fmt"
+	cblog "github.com/cloud-barista/cb-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
-	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
+	_ "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
+	"github.com/sirupsen/logrus"
 	"io"
 	"io/ioutil"
 	"os"
-	"strconv"
-	"strings"
+	_ "strconv"
+	_ "strings"
 )
 
 const (
@@ -22,13 +24,23 @@ const (
 	CBKeyPairPath = "/cloud-driver-libs/.ssh-azure/"
 )
 
+var cblogger *logrus.Logger
+
+func init() {
+	// cblog is a global variable.
+	cblogger = cblog.GetLogger("CB-SPIDER")
+}
+
 // 서브넷 CIDR 생성 (CIDR C class 기준 생성)
-func CreateSubnetCIDR(subnetList []*irs.VNetworkInfo) (*string, error) {
+/*func CreateSubnetCIDR(subnetList []*irs.VPCHandler) (*string, error) {
+
+	addressPrefix := "0.0.0.0/24"
 
 	// CIDR C class 최대값 찾기
 	maxClassNum := 0
 	for _, subnet := range subnetList {
-		addressArr := strings.Split(subnet.AddressPrefix, ".")
+		//addressArr := strings.Split(subnet.AddressPrefix, ".")
+		addressArr := strings.Split(addressPrefix, ".")
 		if curClassNum, err := strconv.Atoi(addressArr[2]); err != nil {
 			return nil, err
 		} else {
@@ -49,7 +61,7 @@ func CreateSubnetCIDR(subnetList []*irs.VNetworkInfo) (*string, error) {
 	vNetIPClass := strings.Split(vNetIP[0], ".")
 	subnetCIDR := fmt.Sprintf("%s.%s.%d.0/24", vNetIPClass[0], vNetIPClass[1], maxClassNum)
 	return &subnetCIDR, nil
-}
+}*/
 
 // KeyPair 해시 생성 함수
 func CreateHashString(credentialInfo idrv.CredentialInfo) (string, error) {
