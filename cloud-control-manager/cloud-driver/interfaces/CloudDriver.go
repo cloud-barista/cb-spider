@@ -15,6 +15,7 @@ import (
 )
 
 type DriverCapabilityInfo struct {
+	VPC_CIDR    	bool // support: true, do not support: false
 	ImageHandler    bool // support: true, do not support: false
 	VNetworkHandler bool // support: true, do not support: false
 	SecurityHandler bool // support: true, do not support: false

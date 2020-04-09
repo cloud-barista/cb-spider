@@ -11,23 +11,30 @@
 
 package resources
 
-// @todo add subnets by powerkim, 2020.04
-type VNetworkReqInfo struct { 
+type VPCReqInfo struct { 
 	IId   IID       // {NameId, SystemId}
+	IPv4_CIDR string 
+	SubnetInfoList []SubnetInfo 
 }
 
-type VNetworkInfo struct {
+type VPCInfo struct {
 	IId   IID       // {NameId, SystemId}
-
-	AddressPrefix string 
-	Status string  
+	IPv4_CIDR string 
+	SubnetInfoList []SubnetInfo 
 
 	KeyValueList []KeyValue 
 }
 
-type VNetworkHandler interface {
-	CreateVNetwork(vNetworkReqInfo VNetworkReqInfo) (VNetworkInfo, error)
-	ListVNetwork() ([]*VNetworkInfo, error)
-	GetVNetwork(vNetworkIID IID) (VNetworkInfo, error)
-	DeleteVNetwork(vNetworkIID IID) (bool, error)
+type SubnetInfo struct {
+	IId   IID       // {NameId, SystemId}
+	IPv4_CIDR string 
+
+	KeyValueList []KeyValue 
+}
+
+type VPCHandler interface {
+	CreateVPC(vpcReqInfo VPCReqInfo) (VPCInfo, error)
+	ListVPC() ([]*VPCInfo, error)
+	GetVPC(vpcIID IID) (VPCInfo, error)
+	DeleteVPC(vpcIID IID) (bool, error)
 }
