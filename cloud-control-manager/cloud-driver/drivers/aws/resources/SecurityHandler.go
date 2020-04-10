@@ -36,8 +36,8 @@ func (securityHandler *AwsSecurityHandler) CreateSecurity(securityReqInfo irs.Se
 	spew.Dump(securityReqInfo)
 
 	//VPC & Subnet을 자동으로 찾아서 처리
-	vNetworkHandler := AwsVNetworkHandler{Client: securityHandler.Client}
-	awsCBNetworkInfo, errAutoCBNetInfo := vNetworkHandler.GetAutoCBNetworkInfo()
+	VPCHandler := AwsVPCHandler{Client: securityHandler.Client}
+	awsCBNetworkInfo, errAutoCBNetInfo := VPCHandler.GetAutoCBNetworkInfo()
 	if errAutoCBNetInfo != nil || awsCBNetworkInfo.VpcId == "" {
 		cblogger.Error("VPC 정보 획득 실패")
 		return irs.SecurityInfo{}, errors.New("mcloud-barista의 기본 네트워크 정보를 찾을 수 없습니다.")
@@ -230,8 +230,8 @@ func (securityHandler *AwsSecurityHandler) CreateSecurity(securityReqInfo irs.Se
 
 func (securityHandler *AwsSecurityHandler) ListSecurity() ([]*irs.SecurityInfo, error) {
 	//VPC ID 조회
-	vNetworkHandler := AwsVNetworkHandler{Client: securityHandler.Client}
-	vpcId := vNetworkHandler.GetMcloudBaristaDefaultVpcId()
+	VPCHandler := AwsVPCHandler{Client: securityHandler.Client}
+	vpcId := VPCHandler.GetMcloudBaristaDefaultVpcId()
 	if vpcId == "" {
 		return nil, nil
 	}

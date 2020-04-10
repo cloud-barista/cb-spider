@@ -33,14 +33,14 @@ type AwsVNicHandler struct {
 func (vNicHandler *AwsVNicHandler) CreateVNic(vNicReqInfo irs.VNicReqInfo) (irs.VNicInfo, error) {
 
 	//Nic 생성을 위해 VPC & Subnet 정보를 조회하고 없을 경우 VPC & Subnet을 자동으로 생성함.
-	vNetworkHandler := AwsVNetworkHandler{
+	VPCHandler := AwsVPCHandler{
 		//Region: vNicHandler.Region,
 		Client: vNicHandler.Client,
 	}
-	cblogger.Debug(vNetworkHandler)
-	//vNetworkHandler.FindOrCreateMcloudBaristaDefaultVPC(irs.VNetworkReqInfo{})
+	cblogger.Debug(VPCHandler)
+	//VPCHandler.FindOrCreateMcloudBaristaDefaultVPC(irs.VNetworkReqInfo{})
 	cblogger.Info("Default Subnet 정보를 찾기 위해 CBNetwork 정보 조회")
-	awsCBNetworkInfo, errAutoCBNetInfo := vNetworkHandler.GetAutoCBNetworkInfo()
+	awsCBNetworkInfo, errAutoCBNetInfo := VPCHandler.GetAutoCBNetworkInfo()
 	if errAutoCBNetInfo != nil || awsCBNetworkInfo.VpcId == "" {
 		return irs.VNicInfo{}, nil
 	}
@@ -132,8 +132,8 @@ func (vNicHandler *AwsVNicHandler) ListVNic() ([]*irs.VNicInfo, error) {
 	cblogger.Info("Start")
 
 	//VPC ID 조회
-	vNetworkHandler := AwsVNetworkHandler{Client: vNicHandler.Client}
-	vpcId := vNetworkHandler.GetMcloudBaristaDefaultVpcId()
+	VPCHandler := AwsVPCHandler{Client: vNicHandler.Client}
+	vpcId := VPCHandler.GetMcloudBaristaDefaultVpcId()
 	if vpcId == "" {
 		return nil, nil
 	}
@@ -344,11 +344,11 @@ func (vNicHandler *AwsVNicHandler) DeleteVNic(vNicID string) (bool, error) {
 		if len(vNicList) < 1 && err == nil {
 			cblogger.Info("마지막 Nic이 삭제되었으므로 자동생성된 VPC와 Subnet을 제거함.")
 			//VPC ID 조회
-			vNetworkHandler := AwsVNetworkHandler{Client: vNicHandler.Client}
+			VPCHandler := AwsVPCHandler{Client: vNicHandler.Client}
 
-			subnetId := vNetworkHandler.GetMcloudBaristaDefaultSubnetId()
+			subnetId := VPCHandler.GetMcloudBaristaDefaultSubnetId()
 			if subnetId != "" {
-				_, errDel := vNetworkHandler.DeleteVNetwork(subnetId)
+				_, errDel := VPCHandler.DeleteVNetwork(subnetId)
 				if errDel != nil {
 					cblogger.Error("CB Default Virtual Network 자동 제거 실패")
 					cblogger.Error(errDel)
