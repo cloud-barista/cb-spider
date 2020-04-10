@@ -67,9 +67,9 @@ func (cloudConn *AwsCloudConnection) Close() error {
 	return nil
 }
 
-func (cloudConn *AwsCloudConnection) CreateVNetworkHandler() (irs.VNetworkHandler, error) {
+func (cloudConn *AwsCloudConnection) CreateVPCHandler() (irs.VPCHandler, error) {
 	cblogger.Info("Start")
-	handler := ars.AwsVNetworkHandler{cloudConn.Region, cloudConn.VNetworkClient}
+	handler := ars.AwsVPCHandler{cloudConn.Region, cloudConn.VNetworkClient}
 
 	return &handler, nil
 }

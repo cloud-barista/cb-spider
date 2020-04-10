@@ -8,9 +8,9 @@
 //
 // by CB-Spider Team, 2019.06.
 
-package main
+//package main
 
-//package aws
+package aws
 
 import (
 	"C"
@@ -43,7 +43,7 @@ func (AwsDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	var drvCapabilityInfo idrv.DriverCapabilityInfo
 
 	drvCapabilityInfo.ImageHandler = true
-	drvCapabilityInfo.VNetworkHandler = true
+	drvCapabilityInfo.VPCHandler = true
 	drvCapabilityInfo.SecurityHandler = true
 	drvCapabilityInfo.KeyPairHandler = true
 	drvCapabilityInfo.VNicHandler = false

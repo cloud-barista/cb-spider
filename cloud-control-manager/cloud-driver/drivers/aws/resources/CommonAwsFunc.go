@@ -20,7 +20,6 @@ import (
 	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/davecgh/go-spew/spew"
@@ -60,63 +59,71 @@ func GetCBDefaultCidrBlock() string {
 
 //이 함수는 VPC & Subnet이 존재하는 곳에서만 사용됨.
 //VPC & Subnet이 존재하는 경우 정보를 리턴하고 없는 경우 Default VPC & Subnet을 생성 후 정보를 리턴 함.
-func (vNetworkHandler *AwsVNetworkHandler) GetAutoCBNetworkInfo() (AwsCBNetworkInfo, error) {
-	var awsCBNetworkInfo AwsCBNetworkInfo
+func (VPCHandler *AwsVPCHandler) GetAutoCBNetworkInfo() (AwsCBNetworkInfo, error) {
+	return AwsCBNetworkInfo{}, errors.New("인터페이스 변경해야 함!!!!")
+	/*
+		var awsCBNetworkInfo AwsCBNetworkInfo
 
-	subNetId := vNetworkHandler.GetMcloudBaristaDefaultSubnetId()
-	if subNetId == "" {
-		//내부에서 VPC를 자동으로 생성후 Subnet을 생성함.
-		_, err := vNetworkHandler.CreateVNetwork(irs.VNetworkReqInfo{})
-		if err != nil {
-			cblogger.Error("Default VNetwork(VPC & Subnet) 자동 생성 실패")
-			cblogger.Error(err)
-			return AwsCBNetworkInfo{}, err
-		}
-	}
-
-	//VPC & Subnet을 생성했으므로 예외처리 없이 조회만 처리함.
-	awsVpcInfo, _ := vNetworkHandler.GetVpc(GetCBDefaultVNetName())
-	spew.Dump(awsVpcInfo)
-	awsCBNetworkInfo.VpcId = awsVpcInfo.Id
-	awsCBNetworkInfo.VpcName = awsVpcInfo.Name
-
-	awsSubnetInfo, _ := vNetworkHandler.GetVNetwork(irs.IID{})
-	spew.Dump(awsSubnetInfo)
-	//awsCBNetworkInfo.SubnetId = awsSubnetInfo.Id
-	//awsCBNetworkInfo.SubnetName = awsSubnetInfo.Name
-	awsCBNetworkInfo.SubnetId = awsSubnetInfo.IId.SystemId
-	awsCBNetworkInfo.SubnetName = awsSubnetInfo.IId.NameId
-
-	spew.Dump(awsCBNetworkInfo)
-
-	return awsCBNetworkInfo, nil
-}
-
-func (vNetworkHandler *AwsVNetworkHandler) GetMcloudBaristaDefaultVpcId() string {
-	awsVpcInfo, err := vNetworkHandler.GetVpc(GetCBDefaultVNetName())
-	if err != nil {
-		if aerr, ok := err.(awserr.Error); ok {
-			switch aerr.Code() {
-			default:
-				cblogger.Error(aerr.Error())
+		subNetId := VPCHandler.GetMcloudBaristaDefaultSubnetId()
+		if subNetId == "" {
+			//내부에서 VPC를 자동으로 생성후 Subnet을 생성함.
+			_, err := VPCHandler.CreateVNetwork(irs.VNetworkReqInfo{})
+			if err != nil {
+				cblogger.Error("Default VNetwork(VPC & Subnet) 자동 생성 실패")
+				cblogger.Error(err)
+				return AwsCBNetworkInfo{}, err
 			}
-		} else {
-			cblogger.Error(err.Error())
 		}
-		return ""
-	}
 
-	//기존 정보가 존재하면...
-	if awsVpcInfo.Id != "" {
-		return awsVpcInfo.Id
-	} else {
-		return ""
-	}
+		//VPC & Subnet을 생성했으므로 예외처리 없이 조회만 처리함.
+		awsVpcInfo, _ := VPCHandler.GetVpc(GetCBDefaultVNetName())
+		spew.Dump(awsVpcInfo)
+		awsCBNetworkInfo.VpcId = awsVpcInfo.Id
+		awsCBNetworkInfo.VpcName = awsVpcInfo.Name
+
+		awsSubnetInfo, _ := VPCHandler.GetVNetwork(irs.IID{})
+		spew.Dump(awsSubnetInfo)
+		//awsCBNetworkInfo.SubnetId = awsSubnetInfo.Id
+		//awsCBNetworkInfo.SubnetName = awsSubnetInfo.Name
+		awsCBNetworkInfo.SubnetId = awsSubnetInfo.IId.SystemId
+		awsCBNetworkInfo.SubnetName = awsSubnetInfo.IId.NameId
+
+		spew.Dump(awsCBNetworkInfo)
+
+		return awsCBNetworkInfo, nil
+	*/
 }
+
+func (VPCHandler *AwsVPCHandler) GetMcloudBaristaDefaultVpcId() string {
+	return ""
+	/*
+		awsVpcInfo, err := VPCHandler.GetVpc(GetCBDefaultVNetName())
+		if err != nil {
+			if aerr, ok := err.(awserr.Error); ok {
+				switch aerr.Code() {
+				default:
+					cblogger.Error(aerr.Error())
+				}
+			} else {
+				cblogger.Error(err.Error())
+			}
+			return ""
+		}
+
+		//기존 정보가 존재하면...
+		if awsVpcInfo.Id != "" {
+			return awsVpcInfo.Id
+		} else {
+			return ""
+		}
+	*/
+}
+
+/*
 
 //@TODO : awsSubnetInfo.IId.SystemId를 리턴해야 하는지 NameId를 리턴해야 하는지 체크해야 함. -> 생성된 정보가 있는지만 체크 하므로 상관 없음.
-func (vNetworkHandler *AwsVNetworkHandler) GetMcloudBaristaDefaultSubnetId() string {
-	awsSubnetInfo, err := vNetworkHandler.GetVNetwork(irs.IID{})
+func (VPCHandler *AwsVPCHandler) GetMcloudBaristaDefaultSubnetId() string {
+	awsSubnetInfo, err := VPCHandler.GetVNetwork(irs.IID{})
 	if err != nil {
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
@@ -141,10 +148,10 @@ func (vNetworkHandler *AwsVNetworkHandler) GetMcloudBaristaDefaultSubnetId() str
 
 //@TODO : ListVNetwork()에서 호출되는 경우도 있기 때문에 필요하면 VPC조회와 생성을 별도의 Func으로 분리해야함.(일단은 큰 문제는 없어서 놔둠)
 //CB Default Virtual Network가 존재하지 않으면 생성하며, 존재하는 경우 Vpc ID를 리턴 함.
-func (vNetworkHandler *AwsVNetworkHandler) FindOrCreateMcloudBaristaDefaultVPC(vNetworkReqInfo irs.VNetworkReqInfo) (string, error) {
+func (VPCHandler *AwsVPCHandler) FindOrCreateMcloudBaristaDefaultVPC(vNetworkReqInfo irs.VNetworkReqInfo) (string, error) {
 	cblogger.Info(vNetworkReqInfo)
 
-	awsVpcInfo, err := vNetworkHandler.GetVpc(GetCBDefaultVNetName())
+	awsVpcInfo, err := VPCHandler.GetVpc(GetCBDefaultVNetName())
 	if err != nil {
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
@@ -164,7 +171,7 @@ func (vNetworkHandler *AwsVNetworkHandler) FindOrCreateMcloudBaristaDefaultVPC(v
 		return awsVpcInfo.Id, nil
 	} else {
 		//@TODO : Subnet과 VPC모두 CSP별 고정된 값으로 드라이버가 내부적으로 자동으로 생성하도록 CB규약이 바뀌어서 서브넷 정보 기반의 로직은 모두 잠시 죽여 놓음 - 리스트 요청시에도 내부적으로 자동 생성하도록 변경 중
-		/*
+		/ *
 			cblogger.Infof("기본 VPC[%s]가 없어서 Subnet 요청 정보를 기반으로 /16 범위의 VPC를 생성합니다.", GetCBDefaultVNetName())
 			cblogger.Info("Subnet CIDR 요청 정보 : ", vNetworkReqInfo.CidrBlock)
 			if vNetworkReqInfo.CidrBlock == "" {
@@ -177,7 +184,7 @@ func (vNetworkHandler *AwsVNetworkHandler) FindOrCreateMcloudBaristaDefaultVPC(v
 			//cblogger.Info("CIDR 추출 정보 : ", reqCidr[0])
 			VpcCidrBlock := reqCidr[0] + "." + reqCidr[1] + ".0.0/16"
 			cblogger.Info("신규 VPC에 사용할 CIDR 정보 : ", VpcCidrBlock)
-		*/
+		* /
 
 		cblogger.Infof("기본 VPC[%s]가 없어서 CIDR[%s] 범위의 VPC를 자동으로 생성합니다.", GetCBDefaultVNetName(), GetCBDefaultCidrBlock())
 		awsVpcReqInfo := AwsVpcReqInfo{
@@ -186,7 +193,7 @@ func (vNetworkHandler *AwsVNetworkHandler) FindOrCreateMcloudBaristaDefaultVPC(v
 			CidrBlock: GetCBDefaultCidrBlock(),
 		}
 
-		result, errVpc := vNetworkHandler.CreateVpc(awsVpcReqInfo)
+		result, errVpc := VPCHandler.CreateVpc(awsVpcReqInfo)
 		if errVpc != nil {
 			cblogger.Error(errVpc)
 			return "", errVpc
@@ -201,9 +208,10 @@ func (vNetworkHandler *AwsVNetworkHandler) FindOrCreateMcloudBaristaDefaultVPC(v
 
 //자동으로 생성된 VPC & Subnet을 삭제해도 되는가?
 //명시적으로 Subnet 삭제의 호출이 없기 때문에 시큐리티 그룹이나 vNic이 삭제되는 시점에 호출됨.
-func (vNetworkHandler *AwsVNetworkHandler) IsAvailableAutoCBNet() bool {
+func (VPCHandler *AwsVPCHandler) IsAvailableAutoCBNet() bool {
 	return false
 }
+*/
 
 //Name Tag 설정
 func SetNameTag(Client *ec2.EC2, Id string, value string) bool {

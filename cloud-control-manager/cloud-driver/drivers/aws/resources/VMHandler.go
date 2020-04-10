@@ -106,13 +106,13 @@ func (vmHandler *AwsVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 		cblogger.Info("NameId 기반으로 처리하기 위해 Subnet 정보를 조회함.")
 		//사용자가 입력한 Subnet말고 기본으로 생성된 Subnet 정보를 조회함
 		//@TODO - 나중에 vNic 등의 핸들러가 없어지고 Subnet 정보가 필요한 곳에서 명시적으로 모두 입력 받을 수 있다면 사용자가 입력한 값으로 변경 가능
-		vNetworkHandler := AwsVNetworkHandler{
+		VPCHandler := AwsVPCHandler{
 			//Region: vmHandler.Region,
 			Client: vmHandler.Client,
 		}
-		cblogger.Info(vNetworkHandler)
+		cblogger.Info(VPCHandler)
 
-		subnetInfo, errSubnetInfo := vNetworkHandler.GetVNetwork(irs.IID{NameId: GetCBDefaultSubnetName()})
+		subnetInfo, errSubnetInfo := VPCHandler.GetVNetwork(irs.IID{NameId: GetCBDefaultSubnetName()})
 		if errSubnetInfo != nil {
 			return irs.VMInfo{}, errSubnetInfo
 		}

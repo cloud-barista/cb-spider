@@ -292,10 +292,11 @@ func handleKeyPair() {
 }
 
 // Test handleVNetwork (VPC)
+/*
 func handleVNetwork() {
 	cblogger.Debug("Start VPC Resource Test")
 
-	vNetworkHandler, err := setVNetworkHandler()
+	VPCHandler, err := setVPCHandler()
 	if err != nil {
 		panic(err)
 	}
@@ -312,7 +313,7 @@ func handleVNetwork() {
 	//reqSubnetId = ""
 
 	for {
-		fmt.Println("VNetworkHandler Management")
+		fmt.Println("VPCHandler Management")
 		fmt.Println("0. Quit")
 		fmt.Println("1. VNetwork List")
 		fmt.Println("2. VNetwork Create")
@@ -331,7 +332,7 @@ func handleVNetwork() {
 				return
 
 			case 1:
-				result, err := vNetworkHandler.ListVNetwork()
+				result, err := VPCHandler.ListVNetwork()
 				if err != nil {
 					cblogger.Infof(" VNetwork 목록 조회 실패 : ", err)
 				} else {
@@ -349,7 +350,7 @@ func handleVNetwork() {
 			case 2:
 				cblogger.Infof("[%s] VNetwork 생성 테스트", vNetworkReqInfo.IId.NameId)
 				//vNetworkReqInfo := irs.VNetworkReqInfo{}
-				result, err := vNetworkHandler.CreateVNetwork(vNetworkReqInfo)
+				result, err := VPCHandler.CreateVNetwork(vNetworkReqInfo)
 				if err != nil {
 					cblogger.Infof(reqSubnetId.NameId, " VNetwork 생성 실패 : ", err)
 				} else {
@@ -360,7 +361,7 @@ func handleVNetwork() {
 
 			case 3:
 				cblogger.Infof("[%s] VNetwork 조회 테스트", reqSubnetId)
-				result, err := vNetworkHandler.GetVNetwork(reqSubnetId)
+				result, err := VPCHandler.GetVNetwork(reqSubnetId)
 				if err != nil {
 					cblogger.Infof("[%s] VNetwork 조회 실패 : ", reqSubnetId, err)
 				} else {
@@ -370,7 +371,99 @@ func handleVNetwork() {
 
 			case 4:
 				cblogger.Infof("[%s] VNetwork 삭제 테스트", reqSubnetId)
-				result, err := vNetworkHandler.DeleteVNetwork(reqSubnetId)
+				result, err := VPCHandler.DeleteVNetwork(reqSubnetId)
+				if err != nil {
+					cblogger.Infof("[%s] VNetwork 삭제 실패 : ", reqSubnetId, err)
+				} else {
+					cblogger.Infof("[%s] VNetwork 삭제 결과 : [%s]", reqSubnetId, result)
+				}
+			}
+		}
+	}
+}
+*/
+
+func handleVPC() {
+	cblogger.Debug("Start VPC Resource Test")
+
+	VPCHandler, err := setVPCHandler()
+	if err != nil {
+		panic(err)
+	}
+
+	vpcReqInfo := irs.VPCReqInfo{
+		IId:            irs.IID{NameId: "CB-NewIF-VPC"},
+		IPv4_CIDR:      "10.0.0.0/16",
+		SubnetInfoList: []irs.SubnetInfo{{}},
+		//Id:   "subnet-044a2b57145e5afc5",
+		//Name: "CB-VNet-Subnet", // 웹 도구 등 외부에서 전달 받지 않고 드라이버 내부적으로 자동 구현때문에 사용하지 않음.
+		//CidrBlock: "10.0.0.0/16",
+		//CidrBlock: "192.168.0.0/16",
+	}
+	//reqSubnetId := "subnet-0b9ea37601d46d8fa"
+	reqSubnetId := irs.IID{NameId: "subnet-0b9ea37601d46d8fa"}
+	//reqSubnetId = ""
+
+	for {
+		fmt.Println("VPCHandler Management")
+		fmt.Println("0. Quit")
+		fmt.Println("1. VNetwork List")
+		fmt.Println("2. VNetwork Create")
+		fmt.Println("3. VNetwork Get")
+		fmt.Println("4. VNetwork Delete")
+
+		var commandNum int
+		inputCnt, err := fmt.Scan(&commandNum)
+		if err != nil {
+			panic(err)
+		}
+
+		if inputCnt == 1 {
+			switch commandNum {
+			case 0:
+				return
+
+			case 1:
+				result, err := VPCHandler.ListVPC()
+				if err != nil {
+					cblogger.Infof(" VNetwork 목록 조회 실패 : ", err)
+				} else {
+					cblogger.Info("VNetwork 목록 조회 결과")
+					//cblogger.Info(result)
+					spew.Dump(result)
+
+					// 내부적으로 1개만 존재함.
+					//조회및 삭제 테스트를 위해 리스트의 첫번째 서브넷 ID를 요청ID로 자동 갱신함.
+					if result != nil {
+						reqSubnetId = result[0].IId // 조회 및 삭제를 위해 생성된 ID로 변경
+					}
+				}
+
+			case 2:
+				cblogger.Infof("[%s] VNetwork 생성 테스트", vpcReqInfo.IId.NameId)
+				//vpcReqInfo := irs.VPCReqInfo{}
+				result, err := VPCHandler.CreateVPC(vpcReqInfo)
+				if err != nil {
+					cblogger.Infof(reqSubnetId.NameId, " VNetwork 생성 실패 : ", err)
+				} else {
+					cblogger.Infof("VNetwork 생성 결과 : ", result)
+					reqSubnetId = result.IId // 조회 및 삭제를 위해 생성된 ID로 변경
+					spew.Dump(result)
+				}
+
+			case 3:
+				cblogger.Infof("[%s] VNetwork 조회 테스트", reqSubnetId)
+				result, err := VPCHandler.GetVPC(reqSubnetId)
+				if err != nil {
+					cblogger.Infof("[%s] VNetwork 조회 실패 : ", reqSubnetId, err)
+				} else {
+					cblogger.Infof("[%s] VNetwork 조회 결과 : [%s]", reqSubnetId, result)
+					spew.Dump(result)
+				}
+
+			case 4:
+				cblogger.Infof("[%s] VNetwork 삭제 테스트", reqSubnetId)
+				result, err := VPCHandler.DeleteVPC(reqSubnetId)
 				if err != nil {
 					cblogger.Infof("[%s] VNetwork 삭제 실패 : ", reqSubnetId, err)
 				} else {
@@ -436,7 +529,6 @@ func handleImage() {
 
 			case 2:
 				cblogger.Infof("[%s] Image 생성 테스트", imageReqInfo.IId.NameId)
-				//vNetworkReqInfo := irs.VNetworkReqInfo{}
 				result, err := handler.CreateImage(imageReqInfo)
 				if err != nil {
 					cblogger.Infof(imageReqInfo.IId.NameId, " Image 생성 실패 : ", err)
@@ -838,11 +930,12 @@ func main() {
 	//handleKeyPair()
 	//handlePublicIP() // PublicIP 생성 후 conf
 	//handleSecurity()
-	handleVM()
+	//handleVM()
 
 	//handleImage() //AMI
 	//handleVNic() //Lancard
 	//handleVMSpec()
+	handleVPC()
 
 	/*
 		KeyPairHandler, err := setKeyPairHandler()
@@ -895,7 +988,7 @@ func getResourceHandler(handlerType string) (interface{}, error) {
 	case "Security":
 		resourceHandler, err = cloudConnection.CreateSecurityHandler()
 	case "VNetwork":
-		resourceHandler, err = cloudConnection.CreateVNetworkHandler()
+		resourceHandler, err = cloudConnection.CreateVPCHandler()
 		//case "VNic":
 		//	resourceHandler, err = cloudConnection.CreateVNicHandler()
 	case "VM":
@@ -937,7 +1030,7 @@ func setKeyPairHandler() (irs.KeyPairHandler, error) {
 	return keyPairHandler, nil
 }
 
-func setVNetworkHandler() (irs.VNetworkHandler, error) {
+func setVPCHandler() (irs.VPCHandler, error) {
 	var cloudDriver idrv.CloudDriver
 	cloudDriver = new(awsdrv.AwsDriver)
 
@@ -957,7 +1050,7 @@ func setVNetworkHandler() (irs.VNetworkHandler, error) {
 		return nil, err
 	}
 
-	handler, err := cloudConnection.CreateVNetworkHandler()
+	handler, err := cloudConnection.CreateVPCHandler()
 	if err != nil {
 		return nil, err
 	}
