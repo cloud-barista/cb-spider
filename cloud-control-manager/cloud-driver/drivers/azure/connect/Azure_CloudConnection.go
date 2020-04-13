@@ -45,16 +45,22 @@ type AzureCloudConnection struct {
 	VmSpecClient        *compute.VirtualMachineSizesClient
 }
 
-func (cloudConn *AzureCloudConnection) CreateVNetworkHandler() (irs.VNetworkHandler, error) {
-	cblogger.Info("Azure Cloud Driver: called CreateVNetworkHandler()!")
-	vNetHandler := azrs.AzureVNetworkHandler{cloudConn.Region, cloudConn.Ctx, cloudConn.VNetClient, cloudConn.SubnetClient}
-	return &vNetHandler, nil
-}
-
 func (cloudConn *AzureCloudConnection) CreateImageHandler() (irs.ImageHandler, error) {
 	cblogger.Info("Azure Cloud Driver: called CreateImageHandler()!")
 	imageHandler := azrs.AzureImageHandler{cloudConn.Region, cloudConn.Ctx, cloudConn.ImageClient, cloudConn.VMImageClient}
 	return &imageHandler, nil
+}
+
+/*func (cloudConn *AzureCloudConnection) CreateVNetworkHandler() (irs.VNetworkHandler, error) {
+	cblogger.Info("Azure Cloud Driver: called CreateVNetworkHandler()!")
+	vNetHandler := azrs.AzureVPCHandler{cloudConn.Region, cloudConn.Ctx, cloudConn.VNetClient, cloudConn.SubnetClient}
+	return &vNetHandler, nil
+}*/
+
+func (cloudConn *AzureCloudConnection) CreateVPCHandler() (irs.VPCHandler, error) {
+	cblogger.Info("Azure Cloud Driver: called CreateVNetworkHandler()!")
+	vpcHandler := azrs.AzureVPCHandler{cloudConn.Region, cloudConn.Ctx, cloudConn.VNetClient, cloudConn.SubnetClient}
+	return &vpcHandler, nil
 }
 
 func (cloudConn *AzureCloudConnection) CreateSecurityHandler() (irs.SecurityHandler, error) {
@@ -69,31 +75,32 @@ func (cloudConn *AzureCloudConnection) CreateKeyPairHandler() (irs.KeyPairHandle
 	return &keypairHandler, nil
 }
 
-func (cloudConn *AzureCloudConnection) CreateVNicHandler() (irs.VNicHandler, error) {
+/*func (cloudConn *AzureCloudConnection) CreateVNicHandler() (irs.VNicHandler, error) {
 	cblogger.Info("Azure Cloud Driver: called CreateVNicHandler()!")
 	vNicHandler := azrs.AzureVNicHandler{cloudConn.CredentialInfo, cloudConn.Region, cloudConn.Ctx, cloudConn.VNicClient, cloudConn.SubnetClient}
 	return &vNicHandler, nil
-}
+}*/
 
-func (cloudConn *AzureCloudConnection) CreatePublicIPHandler() (irs.PublicIPHandler, error) {
+/*func (cloudConn *AzureCloudConnection) CreatePublicIPHandler() (irs.PublicIPHandler, error) {
 	cblogger.Info("Azure Cloud Driver: called CreatePublicIPHandler()!")
 	publicIPHandler := azrs.AzurePublicIPHandler{cloudConn.Region, cloudConn.Ctx, cloudConn.PublicIPClient, cloudConn.IPConfigClient}
 	return &publicIPHandler, nil
-}
+}*/
 
 func (cloudConn *AzureCloudConnection) CreateVMHandler() (irs.VMHandler, error) {
 	cblogger.Info("Azure Cloud Driver: called CreateVMHandler()!")
-	vmHandler := azrs.AzureVMHandler{
-		CredentialInfo: cloudConn.CredentialInfo,
-		Region:         cloudConn.Region,
-		Ctx:            cloudConn.Ctx,
-		Client:         cloudConn.VMClient,
-		SubnetClient:   cloudConn.SubnetClient,
-		NicClient:      cloudConn.VNicClient,
-		PublicIPClient: cloudConn.PublicIPClient,
-		DiskClient:     cloudConn.DiskClient,
-	}
-	return &vmHandler, nil
+	//vmHandler := azrs.AzureVMHandler{
+	//	CredentialInfo: cloudConn.CredentialInfo,
+	//	Region:         cloudConn.Region,
+	//	Ctx:            cloudConn.Ctx,
+	//	Client:         cloudConn.VMClient,
+	//	SubnetClient:   cloudConn.SubnetClient,
+	//	NicClient:      cloudConn.VNicClient,
+	//	PublicIPClient: cloudConn.PublicIPClient,
+	//	DiskClient:     cloudConn.DiskClient,
+	//}
+	//return &vmHandler, nil
+	return nil, nil
 }
 
 func (cloudConn *AzureCloudConnection) CreateVMSpecHandler() (irs.VMSpecHandler, error) {

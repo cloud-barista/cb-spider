@@ -8,7 +8,7 @@
 //
 // by hyokyung.kim@innogrid.co.kr, 2019.07.
 
-package main
+package azure
 
 import (
 	"context"
@@ -33,12 +33,14 @@ func (AzureDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	var drvCapabilityInfo idrv.DriverCapabilityInfo
 
 	drvCapabilityInfo.ImageHandler = true
-	drvCapabilityInfo.VNetworkHandler = true
+	//drvCapabilityInfo.VNetworkHandler = true
+	drvCapabilityInfo.VPCHandler = true
 	drvCapabilityInfo.SecurityHandler = true
 	drvCapabilityInfo.KeyPairHandler = true
-	drvCapabilityInfo.VNicHandler = true
-	drvCapabilityInfo.PublicIPHandler = true
+	drvCapabilityInfo.VNicHandler = false
+	drvCapabilityInfo.PublicIPHandler = false
 	drvCapabilityInfo.VMHandler = true
+	drvCapabilityInfo.VMSpecHandler = true
 
 	return drvCapabilityInfo
 }
@@ -305,4 +307,4 @@ func getVmSpecClient(credential idrv.CredentialInfo) (context.Context, *compute.
 	return ctx, &vmSpecClient, nil
 }
 
-var CloudDriver AzureDriver
+var TestDriver AzureDriver

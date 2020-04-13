@@ -17,20 +17,11 @@ import (
 	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2018-06-01/compute"
 	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2018-04-01/network"
 	"github.com/Azure/go-autorest/autorest/to"
-	cblog "github.com/cloud-barista/cb-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
-	"github.com/sirupsen/logrus"
 	"reflect"
 	"strings"
 )
-
-var cblogger *logrus.Logger
-
-func init() {
-	// cblog is a global variable.
-	cblogger = cblog.GetLogger("CB-SPIDER")
-}
 
 type AzureVMHandler struct {
 	CredentialInfo idrv.CredentialInfo
@@ -45,21 +36,18 @@ type AzureVMHandler struct {
 
 func (vmHandler *AzureVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, error) {
 	// Check VM Exists
-	vm, err := vmHandler.Client.Get(vmHandler.Ctx, vmHandler.Region.ResourceGroup, vmReqInfo.VMName, compute.InstanceView)
+	vm, err := vmHandler.Client.Get(vmHandler.Ctx, vmHandler.Region.ResourceGroup, vmReqInfo.IId.NameId, compute.InstanceView)
 	if vm.ID != nil {
-		errMsg := fmt.Sprintf("VirtualMachine with name %s already exist", vmReqInfo.VMName)
+		errMsg := fmt.Sprintf("VirtualMachine with name %s already exist", vmReqInfo.IId.NameId)
 		createErr := errors.New(errMsg)
 		return irs.VMInfo{}, createErr
 	}
 
 	// Check login method (keypair, password)
-	if vmReqInfo.VMUserPasswd != "" && vmReqInfo.KeyPairName != "" {
+	if vmReqInfo.VMUserPasswd != "" && vmReqInfo.KeyPairIID.NameId != "" {
 		createErr := errors.New("Specifiy one login method, Password or Keypair")
 		return irs.VMInfo{}, createErr
 	}
-
-	// (old) 리소스 Id 정보 매핑
-	//vNicId := GetVNicIdByName(vmHandler.CredentialInfo, vmHandler.Region, vmReqInfo.NetworkInterfaceId)
 
 	// VNic 생성
 	vNicId, err := CreateVNic(vmHandler, vmReqInfo)
@@ -71,10 +59,10 @@ func (vmHandler *AzureVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 		Location: &vmHandler.Region.Region,
 		VirtualMachineProperties: &compute.VirtualMachineProperties{
 			HardwareProfile: &compute.HardwareProfile{
-				VMSize: compute.VirtualMachineSizeTypes(vmReqInfo.VMSpecId),
+				VMSize: compute.VirtualMachineSizeTypes(vmReqInfo.VMSpecName),
 			},
 			OsProfile: &compute.OSProfile{
-				ComputerName:  &vmReqInfo.VMName,
+				ComputerName:  &vmReqInfo.IId.NameId,
 				AdminUsername: to.StringPtr(CBVMUser),
 			},
 			NetworkProfile: &compute.NetworkProfile{
@@ -92,8 +80,8 @@ func (vmHandler *AzureVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 	}
 
 	// Image 설정
-	if strings.Contains(vmReqInfo.ImageId, ":") {
-		imageArr := strings.Split(vmReqInfo.ImageId, ":")
+	if strings.Contains(vmReqInfo.ImageIID.SystemId, ":") {
+		imageArr := strings.Split(vmReqInfo.ImageIID.SystemId, ":")
 		// URN 기반 퍼블릭 이미지 설정
 		vmOpts.StorageProfile = &compute.StorageProfile{
 			ImageReference: &compute.ImageReference{
@@ -107,14 +95,14 @@ func (vmHandler *AzureVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 		// 사용자 프라이빗 이미지 설정
 		vmOpts.StorageProfile = &compute.StorageProfile{
 			ImageReference: &compute.ImageReference{
-				ID: &vmReqInfo.ImageId,
+				ID: &vmReqInfo.ImageIID.NameId,
 			},
 		}
 	}
 
 	// KeyPair 설정
-	if vmReqInfo.KeyPairName != "" {
-		publicKey, err := GetPublicKey(vmHandler.CredentialInfo, vmReqInfo.KeyPairName)
+	if vmReqInfo.KeyPairIID.NameId != "" {
+		publicKey, err := GetPublicKey(vmHandler.CredentialInfo, vmReqInfo.KeyPairIID.NameId)
 		if err != nil {
 			cblogger.Error(err)
 			return irs.VMInfo{}, err
@@ -137,13 +125,13 @@ func (vmHandler *AzureVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 	/*vmOpts.Tags = map[string]*string{
 		"vmName": to.StringPtr(vmReqInfo.VMName),
 	}*/
-	if vmReqInfo.KeyPairName != "" {
+	if vmReqInfo.KeyPairIID.NameId != "" {
 		vmOpts.Tags = map[string]*string{
-			"keypair": to.StringPtr(vmReqInfo.KeyPairName),
+			"keypair": to.StringPtr(vmReqInfo.KeyPairIID.NameId),
 		}
 	}
 
-	future, err := vmHandler.Client.CreateOrUpdate(vmHandler.Ctx, vmHandler.Region.ResourceGroup, vmReqInfo.VMName, vmOpts)
+	future, err := vmHandler.Client.CreateOrUpdate(vmHandler.Ctx, vmHandler.Region.ResourceGroup, vmReqInfo.IId.NameId, vmOpts)
 	if err != nil {
 		cblogger.Error(err)
 		return irs.VMInfo{}, err
@@ -154,7 +142,7 @@ func (vmHandler *AzureVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 		return irs.VMInfo{}, err
 	}
 
-	vm, err = vmHandler.Client.Get(vmHandler.Ctx, vmHandler.Region.ResourceGroup, vmReqInfo.VMName, compute.InstanceView)
+	vm, err = vmHandler.Client.Get(vmHandler.Ctx, vmHandler.Region.ResourceGroup, vmReqInfo.IId.NameId, compute.InstanceView)
 	if err != nil {
 		cblogger.Error(err)
 	}
@@ -163,8 +151,8 @@ func (vmHandler *AzureVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 	return vmInfo, nil
 }
 
-func (vmHandler *AzureVMHandler) SuspendVM(vmID string) (irs.VMStatus, error) {
-	future, err := vmHandler.Client.PowerOff(vmHandler.Ctx, vmHandler.Region.ResourceGroup, vmID)
+func (vmHandler *AzureVMHandler) SuspendVM(vmIID irs.IID) (irs.VMStatus, error) {
+	future, err := vmHandler.Client.PowerOff(vmHandler.Ctx, vmHandler.Region.ResourceGroup, vmIID.NameId)
 	if err != nil {
 		cblogger.Error(err)
 		return irs.Failed, err
@@ -176,7 +164,7 @@ func (vmHandler *AzureVMHandler) SuspendVM(vmID string) (irs.VMStatus, error) {
 	}
 
 	// Get VM Status
-	vmStatus, err := vmHandler.GetVMStatus(vmID)
+	vmStatus, err := vmHandler.GetVMStatus(vmIID)
 	if err != nil {
 		cblogger.Error(err)
 		return irs.Failed, err
@@ -184,8 +172,8 @@ func (vmHandler *AzureVMHandler) SuspendVM(vmID string) (irs.VMStatus, error) {
 	return vmStatus, nil
 }
 
-func (vmHandler *AzureVMHandler) ResumeVM(vmID string) (irs.VMStatus, error) {
-	future, err := vmHandler.Client.Start(vmHandler.Ctx, vmHandler.Region.ResourceGroup, vmID)
+func (vmHandler *AzureVMHandler) ResumeVM(vmIID irs.IID) (irs.VMStatus, error) {
+	future, err := vmHandler.Client.Start(vmHandler.Ctx, vmHandler.Region.ResourceGroup, vmIID.NameId)
 	if err != nil {
 		cblogger.Error(err)
 		return irs.Failed, err
@@ -200,8 +188,8 @@ func (vmHandler *AzureVMHandler) ResumeVM(vmID string) (irs.VMStatus, error) {
 	return irs.Resuming, nil
 }
 
-func (vmHandler *AzureVMHandler) RebootVM(vmID string) (irs.VMStatus, error) {
-	future, err := vmHandler.Client.Restart(vmHandler.Ctx, vmHandler.Region.ResourceGroup, vmID)
+func (vmHandler *AzureVMHandler) RebootVM(vmIID irs.IID) (irs.VMStatus, error) {
+	future, err := vmHandler.Client.Restart(vmHandler.Ctx, vmHandler.Region.ResourceGroup, vmIID.NameId)
 	if err != nil {
 		cblogger.Error(err)
 		return irs.Failed, err
@@ -216,18 +204,18 @@ func (vmHandler *AzureVMHandler) RebootVM(vmID string) (irs.VMStatus, error) {
 	return irs.Rebooting, nil
 }
 
-func (vmHandler *AzureVMHandler) TerminateVM(vmID string) (irs.VMStatus, error) {
+func (vmHandler *AzureVMHandler) TerminateVM(vmIID irs.IID) (irs.VMStatus, error) {
 
 	// VM 삭제 시 OS Disk도 함께 삭제 처리
 	// VM OSDisk 이름 가져오기
-	vmInfo, err := vmHandler.GetVM(vmID)
+	vmInfo, err := vmHandler.GetVM(vmIID.NameId)
 	if err != nil {
 		return irs.Failed, err
 	}
 	osDiskName := vmInfo.VMBootDisk
 
 	// VM 삭제
-	future, err := vmHandler.Client.Delete(vmHandler.Ctx, vmHandler.Region.ResourceGroup, vmID)
+	future, err := vmHandler.Client.Delete(vmHandler.Ctx, vmHandler.Region.ResourceGroup, vmIID.NameId)
 	if err != nil {
 		cblogger.Error(err)
 		return irs.Failed, err
@@ -239,7 +227,7 @@ func (vmHandler *AzureVMHandler) TerminateVM(vmID string) (irs.VMStatus, error) 
 	}
 
 	// vNic 삭제
-	nicFuture, err := vmHandler.NicClient.Delete(vmHandler.Ctx, vmHandler.Region.ResourceGroup, vmInfo.Name+"-NIC")
+	nicFuture, err := vmHandler.NicClient.Delete(vmHandler.Ctx, vmHandler.Region.ResourceGroup, vmIID.NameId+"-NIC")
 	if err != nil {
 		cblogger.Error(err)
 		return irs.Failed, err
@@ -279,16 +267,22 @@ func (vmHandler *AzureVMHandler) ListVMStatus() ([]*irs.VMStatusInfo, error) {
 			statusStr := getVmStatus(*s.InstanceView)
 			status := irs.VMStatus(statusStr)
 			vmStatusInfo := irs.VMStatusInfo{
-				VmId:     *s.ID,
+				IId: irs.IID{
+					NameId:   *s.Name,
+					SystemId: *s.ID,
+				},
 				VmStatus: status,
 			}
 			vmStatusList = append(vmStatusList, &vmStatusInfo)
 		} else {
 			vmIdArr := strings.Split(*s.ID, "/")
 			vmName := vmIdArr[8]
-			status, _ := vmHandler.GetVMStatus(vmName)
+			status, _ := vmHandler.GetVMStatus(irs.IID{NameId: vmName, SystemId: *s.ID})
 			vmStatusInfo := irs.VMStatusInfo{
-				VmId:     *s.ID,
+				IId: irs.IID{
+					NameId:   *s.Name,
+					SystemId: *s.ID,
+				},
 				VmStatus: status,
 			}
 			vmStatusList = append(vmStatusList, &vmStatusInfo)
@@ -298,8 +292,8 @@ func (vmHandler *AzureVMHandler) ListVMStatus() ([]*irs.VMStatusInfo, error) {
 	return vmStatusList, nil
 }
 
-func (vmHandler *AzureVMHandler) GetVMStatus(vmID string) (irs.VMStatus, error) {
-	instanceView, err := vmHandler.Client.InstanceView(vmHandler.Ctx, vmHandler.Region.ResourceGroup, vmID)
+func (vmHandler *AzureVMHandler) GetVMStatus(vmIID irs.IID) (irs.VMStatus, error) {
+	instanceView, err := vmHandler.Client.InstanceView(vmHandler.Ctx, vmHandler.Region.ResourceGroup, vmIID.NameId)
 	if err != nil {
 		cblogger.Error(err)
 		return irs.Failed, err
@@ -311,7 +305,6 @@ func (vmHandler *AzureVMHandler) GetVMStatus(vmID string) (irs.VMStatus, error) 
 }
 
 func (vmHandler *AzureVMHandler) ListVM() ([]*irs.VMInfo, error) {
-	//serverList, err := vmHandler.Client.ListAll(vmHandler.Ctx)
 	serverList, err := vmHandler.Client.List(vmHandler.Ctx, vmHandler.Region.ResourceGroup)
 	if err != nil {
 		cblogger.Error(err)
@@ -377,12 +370,14 @@ func (vmHandler *AzureVMHandler) mappingServerInfo(server compute.VirtualMachine
 
 	// Get Default VM Info
 	vmInfo := irs.VMInfo{
-		Name: *server.Name,
-		Id:   *server.ID,
+		IId: irs.IID{
+			NameId:   *server.Name,
+			SystemId: *server.ID,
+		},
 		Region: irs.RegionInfo{
 			Region: *server.Location,
 		},
-		VMSpecId: string(server.VirtualMachineProperties.HardwareProfile.VMSize),
+		VMSpecName: string(server.VirtualMachineProperties.HardwareProfile.VMSize),
 	}
 
 	// Set VM Zone
@@ -393,9 +388,11 @@ func (vmHandler *AzureVMHandler) mappingServerInfo(server compute.VirtualMachine
 	// Set VM Image Info
 	if reflect.ValueOf(server.StorageProfile.ImageReference.ID).IsNil() {
 		imageRef := server.VirtualMachineProperties.StorageProfile.ImageReference
-		vmInfo.ImageId = *imageRef.Publisher + ":" + *imageRef.Offer + ":" + *imageRef.Sku + ":" + *imageRef.Version
+		vmInfo.ImageIId.NameId = *imageRef.Publisher + ":" + *imageRef.Offer + ":" + *imageRef.Sku + ":" + *imageRef.Version
+		vmInfo.ImageIId.SystemId = vmInfo.ImageIId.NameId
 	} else {
-		vmInfo.ImageId = *server.VirtualMachineProperties.StorageProfile.ImageReference.ID
+		vmInfo.ImageIId.NameId = *server.VirtualMachineProperties.StorageProfile.ImageReference.ID
+		vmInfo.ImageIId.SystemId = vmInfo.ImageIId.NameId
 	}
 
 	// Set VNic Info
@@ -460,7 +457,7 @@ func (vmHandler *AzureVMHandler) mappingServerInfo(server compute.VirtualMachine
 
 // VM 생성 시 VNic 자동 생성
 func CreateVNic(vmHandler *AzureVMHandler, vmReqInfo irs.VMReqInfo) (*string, error) {
-	vNicName := vmReqInfo.VMName + "-NIC"
+	vNicName := vmReqInfo.IId.NameId + "-NIC"
 
 	// Check VNic Exists
 	vNic, _ := vmHandler.NicClient.Get(vmHandler.Ctx, vmHandler.Region.ResourceGroup, vNicName, "")
