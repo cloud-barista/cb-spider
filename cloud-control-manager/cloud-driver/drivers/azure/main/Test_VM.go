@@ -27,15 +27,25 @@ func createVM(config Config, vmHandler irs.VMHandler) {
 	//imageId := "/subscriptions/cb592624-b77b-4a8f-bb13-0e5a48cae40f/resourceGroups/CB-GROUP/providers/Microsoft.Compute/images/CB-IMG"
 	imageId := "Canonical:UbuntuServer:18.04-LTS:18.04.201804262"
 	vmSpecId := "Standard_B1ls"
-	networkInterfaceId := "/subscriptions/cb592624-b77b-4a8f-bb13-0e5a48cae40f/resourceGroups/CB-GROUP/providers/Microsoft.Network/networkInterfaces/CB-VNic"
+	//networkInterfaceId := "/subscriptions/cb592624-b77b-4a8f-bb13-0e5a48cae40f/resourceGroups/CB-GROUP/providers/Microsoft.Network/networkInterfaces/CB-VNic"
+	vpcName := "CB-VNet"
+	subnetName := "CB-VNet-subnet-1"
+	securityName := "CB-SecGroup"
 	keypairName := "CB-Keypair"
 
 	vmReqInfo := irs.VMReqInfo{
-		VMName:             vmName,
-		ImageId:            imageId,
-		VMSpecId:           vmSpecId,
-		NetworkInterfaceId: networkInterfaceId,
-		KeyPairName:        keypairName,
+		IId:               irs.IID{NameId: vmName},
+		ImageIID:          irs.IID{SystemId: imageId},
+		VpcIID:            irs.IID{NameId: vpcName},
+		SubnetIID:         irs.IID{NameId: subnetName},
+		SecurityGroupIIDs: []irs.IID{{NameId: securityName}},
+		VMSpecName:        vmSpecId,
+		KeyPairIID:        irs.IID{NameId: keypairName},
+		//VMName:             vmName,
+		//ImageId:            imageId,
+		//VMSpecId:           vmSpecId,
+		//NetworkInterfaceId: networkInterfaceId,
+		//KeyPairName:        keypairName,
 	}
 
 	vm, err := vmHandler.StartVM(vmReqInfo)
@@ -66,7 +76,8 @@ func testVMHandler() {
 	cblogger.Info("10. Exit")
 	cblogger.Info("==========================================================")
 
-	vmId := "CBVm"
+	//vmId := "CBVm"
+	vmId := irs.IID{NameId: "CBVm"}
 
 	for {
 		var commandNum int
@@ -124,28 +135,28 @@ func testVMHandler() {
 				cblogger.Info("Finish Create VM")
 			case 6:
 				cblogger.Info("Start Suspend VM ...")
-				err := vmHandler.SuspendVM(vmId)
+				_, err := vmHandler.SuspendVM(vmId)
 				if err != nil {
 					cblogger.Error(err)
 				}
 				cblogger.Info("Finish Suspend VM")
 			case 7:
 				cblogger.Info("Start Resume  VM ...")
-				err := vmHandler.ResumeVM(vmId)
+				_, err := vmHandler.ResumeVM(vmId)
 				if err != nil {
 					cblogger.Error(err)
 				}
 				cblogger.Info("Finish Resume VM")
 			case 8:
 				cblogger.Info("Start Reboot  VM ...")
-				err := vmHandler.RebootVM(vmId)
+				_, err := vmHandler.RebootVM(vmId)
 				if err != nil {
 					cblogger.Error(err)
 				}
 				cblogger.Info("Finish Reboot VM")
 			case 9:
 				cblogger.Info("Start Terminate  VM ...")
-				err := vmHandler.TerminateVM(vmId)
+				_, err := vmHandler.TerminateVM(vmId)
 				if err != nil {
 					cblogger.Error(err)
 				}
