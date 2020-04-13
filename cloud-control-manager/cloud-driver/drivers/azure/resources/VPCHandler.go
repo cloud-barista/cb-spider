@@ -69,13 +69,34 @@ func (vpcHandler *AzureVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.VPC
 		Location: &vpcHandler.Region.Region,
 	}
 
-	future, err := vpcHandler.Client.CreateOrUpdate(vpcHandler.Ctx, vpcHandler.Region.ResourceGroup, CBVirutalNetworkName, createOpts)
+	future, err := vpcHandler.Client.CreateOrUpdate(vpcHandler.Ctx, vpcHandler.Region.ResourceGroup, vpcReqInfo.IId.NameId, createOpts)
 	if err != nil {
 		return irs.VPCInfo{}, err
 	}
 	err = future.WaitForCompletionRef(vpcHandler.Ctx, vpcHandler.Client.Client)
 	if err != nil {
 		return irs.VPCInfo{}, err
+	}
+
+	// Create Subnet
+	var subnetCreateOpts network.Subnet
+	for _, subnet := range vpcReqInfo.SubnetInfoList {
+		subnetCreateOpts = network.Subnet{
+			Name: to.StringPtr(subnet.IId.NameId),
+			SubnetPropertiesFormat: &network.SubnetPropertiesFormat{
+				AddressPrefix: to.StringPtr(subnet.IPv4_CIDR),
+			},
+		}
+		future, err := vpcHandler.SubnetClient.CreateOrUpdate(vpcHandler.Ctx, vpcHandler.Region.ResourceGroup, vpcReqInfo.IId.NameId, subnet.IId.NameId, subnetCreateOpts)
+		if err != nil {
+			cblogger.Error(fmt.Sprint("Failed to create subnet with name %s", subnet.IId.NameId))
+			continue
+		}
+		err = future.WaitForCompletionRef(vpcHandler.Ctx, vpcHandler.Client.Client)
+		if err != nil {
+			cblogger.Error(fmt.Sprint("Failed to create subnet with name %s", subnet.IId.NameId))
+			continue
+		}
 	}
 
 	// 생성된 VNetwork 정보 리턴

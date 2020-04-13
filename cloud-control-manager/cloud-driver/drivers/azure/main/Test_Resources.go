@@ -378,6 +378,91 @@ Loop:
 	}
 }*/
 
+func testVPCHandler(config Config) {
+	resourceHandler, err := getResourceHandler("vpc")
+	if err != nil {
+		cblogger.Error(err)
+	}
+
+	vpcHandler := resourceHandler.(irs.VPCHandler)
+
+	cblogger.Info("Test VPCHandler")
+	cblogger.Info("1. ListVPC()")
+	cblogger.Info("2. GetVPC()")
+	cblogger.Info("3. CreateVPC()")
+	cblogger.Info("4. DeleteVPC()")
+	cblogger.Info("5. Exit")
+
+	vpcId := irs.IID{NameId: "CB-VNet"}
+
+Loop:
+
+	for {
+		var commandNum int
+		inputCnt, err := fmt.Scan(&commandNum)
+		if err != nil {
+			cblogger.Error(err)
+		}
+
+		if inputCnt == 1 {
+			switch commandNum {
+			case 1:
+				cblogger.Info("Start ListVPC() ...")
+				if list, err := vpcHandler.ListVPC(); err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(list)
+				}
+				cblogger.Info("Finish ListVPC()")
+			case 2:
+				cblogger.Info("Start GetVPC() ...")
+				if vNetInfo, err := vpcHandler.GetVPC(vpcId); err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(vNetInfo)
+				}
+				cblogger.Info("Finish GetVPC()")
+			case 3:
+				cblogger.Info("Start CreateVPC() ...")
+				reqInfo := irs.VPCReqInfo{
+					IId:       vpcId,
+					IPv4_CIDR: "130.0.0.0/16",
+					SubnetInfoList: []irs.SubnetInfo{
+						{
+							IId: irs.IID{
+								NameId: vpcId.NameId + "-subnet-1",
+							},
+							IPv4_CIDR: "130.0.0.0/24",
+						},
+						{
+							IId: irs.IID{
+								NameId: vpcId.NameId + "-subnet-2",
+							},
+							IPv4_CIDR: "130.0.1.0/24",
+						},
+					},
+				}
+
+				if vNetInfo, err := vpcHandler.CreateVPC(reqInfo); err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(vNetInfo)
+				}
+				cblogger.Info("Finish CreateVPC()")
+			case 4:
+				cblogger.Info("Start DeleteVPC() ...")
+				if ok, err := vpcHandler.DeleteVPC(vpcId); !ok {
+					cblogger.Error(err)
+				}
+				cblogger.Info("Finish DeleteVPC()")
+			case 5:
+				cblogger.Info("Exit")
+				break Loop
+			}
+		}
+	}
+}
+
 func testKeypairHandler(config Config) {
 	resourceHandler, err := getResourceHandler("keypair")
 	if err != nil {
@@ -550,6 +635,8 @@ func getResourceHandler(resourceType string) (interface{}, error) {
 		resourceHandler, err = cloudConnection.CreateSecurityHandler()
 	case "vnetwork":
 		//resourceHandler, err = cloudConnection.CreateVNetworkHandler()
+	case "vpc":
+		resourceHandler, err = cloudConnection.CreateVPCHandler()
 	case "vnic":
 		//resourceHandler, err = cloudConnection.CreateVNicHandler()
 	case "keypair":
@@ -570,7 +657,7 @@ func showTestHandlerInfo() {
 	cblogger.Info("1. ImageHandler")
 	cblogger.Info("2. PublicIPHandler")
 	cblogger.Info("3. SecurityHandler")
-	cblogger.Info("4. VNetworkHandler")
+	cblogger.Info("4. VPCHandler")
 	cblogger.Info("5. VNicHandler")
 	cblogger.Info("6. KeyPairHandler")
 	cblogger.Info("7. VmSpecHandler")
@@ -605,6 +692,7 @@ Loop:
 				showTestHandlerInfo()
 			case 4:
 				//testVNetworkHandler(config)
+				testVPCHandler(config)
 				showTestHandlerInfo()
 			case 5:
 				//testVNicHandler(config)
