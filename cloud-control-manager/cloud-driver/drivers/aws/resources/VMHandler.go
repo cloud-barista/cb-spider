@@ -118,7 +118,9 @@ func (vmHandler *AwsVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 		}
 		subnetID := subnetInfo.IId.SystemId
 	*/
-	subnetID := vmReqInfo.VirtualNetworkId.SystemId
+
+	subnetID := vmReqInfo.SubnetIID.SystemId
+	//subnetID := vmReqInfo.VirtualNetworkId.SystemId
 
 	/*
 		//=============================
@@ -596,7 +598,7 @@ func (vmHandler *AwsVMHandler) ExtractDescribeInstances(reservation *ec2.Reserva
 	if !reflect.ValueOf(reservation.Instances[0].NetworkInterfaces).IsNil() {
 		if !reflect.ValueOf(reservation.Instances[0].NetworkInterfaces[0].VpcId).IsNil() {
 			//vmInfo.VirtualNetworkId = *reservation.Instances[0].NetworkInterfaces[0].VpcId
-			vmInfo.VirtualNetworkIId = irs.IID{"", *reservation.Instances[0].NetworkInterfaces[0].VpcId}
+			vmInfo.VpcIID = irs.IID{"", *reservation.Instances[0].NetworkInterfaces[0].VpcId}
 			keyValueList = append(keyValueList, irs.KeyValue{Key: "VpcId", Value: *reservation.Instances[0].NetworkInterfaces[0].VpcId})
 		}
 
