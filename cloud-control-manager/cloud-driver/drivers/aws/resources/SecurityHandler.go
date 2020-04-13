@@ -35,16 +35,19 @@ func (securityHandler *AwsSecurityHandler) CreateSecurity(securityReqInfo irs.Se
 	cblogger.Infof("securityReqInfo : ", securityReqInfo)
 	spew.Dump(securityReqInfo)
 
-	//VPC & Subnet을 자동으로 찾아서 처리
-	VPCHandler := AwsVPCHandler{Client: securityHandler.Client}
-	awsCBNetworkInfo, errAutoCBNetInfo := VPCHandler.GetAutoCBNetworkInfo()
-	if errAutoCBNetInfo != nil || awsCBNetworkInfo.VpcId == "" {
-		cblogger.Error("VPC 정보 획득 실패")
-		return irs.SecurityInfo{}, errors.New("mcloud-barista의 기본 네트워크 정보를 찾을 수 없습니다.")
-	}
+	/*
+		//VPC & Subnet을 자동으로 찾아서 처리
+		VPCHandler := AwsVPCHandler{Client: securityHandler.Client}
+		awsCBNetworkInfo, errAutoCBNetInfo := VPCHandler.GetAutoCBNetworkInfo()
+		if errAutoCBNetInfo != nil || awsCBNetworkInfo.VpcId == "" {
+			cblogger.Error("VPC 정보 획득 실패")
+			return irs.SecurityInfo{}, errors.New("mcloud-barista의 기본 네트워크 정보를 찾을 수 없습니다.")
+		}
 
-	cblogger.Infof("==> [%s] CB Default VPC 정보 찾음", awsCBNetworkInfo.VpcId)
-	vpcId := awsCBNetworkInfo.VpcId
+		cblogger.Infof("==> [%s] CB Default VPC 정보 찾음", awsCBNetworkInfo.VpcId)
+		vpcId := awsCBNetworkInfo.VpcId
+	*/
+	vpcId := securityReqInfo.VpcIID.SystemId
 
 	// Create the security group with the VPC, name and description.
 	//createRes, err := securityHandler.Client.CreateSecurityGroup(&ec2.CreateSecurityGroupInput{
@@ -225,31 +228,36 @@ func (securityHandler *AwsSecurityHandler) CreateSecurity(securityReqInfo irs.Se
 	//securityInfo, _ := securityHandler.GetSecurity(securityReqInfo.IId) //2019-11-16 NameId 기반으로 변경됨
 	securityInfo, _ := securityHandler.GetSecurity(irs.IID{SystemId: *createRes.GroupId}) //2020-04-09 SystemId기반으로 변경
 	securityInfo.IId.NameId = securityReqInfo.IId.NameId                                  // Name이 필수가 아니므로 혹시 모르니 사용자가 요청한 NameId로 재설정 함.
+	securityInfo.VpcIID.NameId = securityReqInfo.VpcIID.NameId                            // Name이 필수가 아니므로 객체에 저장되지 않기 때문에 시스템에서 활용 가능하도록 사용자가 요청한 NameId 값을 그대로 돌려 줌.
 	return securityInfo, nil
 }
 
 func (securityHandler *AwsSecurityHandler) ListSecurity() ([]*irs.SecurityInfo, error) {
 	//VPC ID 조회
+	/* 2020-04-13 : 전체 영역에서 조회하도록 변경
 	VPCHandler := AwsVPCHandler{Client: securityHandler.Client}
 	vpcId := VPCHandler.GetMcloudBaristaDefaultVpcId()
 	if vpcId == "" {
 		return nil, nil
 	}
+	*/
 
 	input := &ec2.DescribeSecurityGroupsInput{
 		GroupIds: []*string{
 			nil,
 		},
-		Filters: []*ec2.Filter{
-			{
-				Name:   aws.String("vpc-id"),
-				Values: aws.StringSlice([]string{vpcId}),
+		/*
+			Filters: []*ec2.Filter{
+				{
+					Name:   aws.String("vpc-id"),
+					Values: aws.StringSlice([]string{vpcId}),
+				},
 			},
-		},
+		*/
 	}
 
 	result, err := securityHandler.Client.DescribeSecurityGroups(input)
-	//cblogger.Info("result : ", result)
+	cblogger.Info("result : ", result)
 	if err != nil {
 		cblogger.Info("err : ", err)
 		if aerr, ok := err.(awserr.Error); ok {
@@ -342,6 +350,7 @@ func ExtractSecurityInfo(securityGroupResult *ec2.SecurityGroup) irs.SecurityInf
 		IId: irs.IID{"", *securityGroupResult.GroupId},
 		//SecurityRules: &[]irs.SecurityRuleInfo{},
 		SecurityRules: &securityRules,
+		VpcIID:        irs.IID{"", *securityGroupResult.VpcId},
 
 		KeyValueList: []irs.KeyValue{
 			{Key: "GroupName", Value: *securityGroupResult.GroupName},
