@@ -12,10 +12,10 @@
 package resources
 
 type SecurityReqInfo struct {
-        IId     IID       // {NameId, SystemId}
+	IId IID // {NameId, SystemId}
 
-        vpcIID  IID       // {NameId, SystemId}
-	Direction     string  // @todo used??
+	VpcIID        IID    // {NameId, SystemId}
+	Direction     string // @todo used??
 	SecurityRules *[]SecurityRuleInfo
 }
 
@@ -27,9 +27,9 @@ type SecurityRuleInfo struct {
 }
 
 type SecurityInfo struct {
-        IId   IID       // {NameId, SystemId}
+	IId IID // {NameId, SystemId}
 
-        vpcIID  IID       // {NameId, SystemId}
+	VpcIID        IID    // {NameId, SystemId}
 	Direction     string // @todo userd??
 	SecurityRules *[]SecurityRuleInfo
 
