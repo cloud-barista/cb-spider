@@ -19,7 +19,8 @@ type VMReqInfo struct {
         IId   IID       // {NameId, SystemId}
 
 	ImageIID           IID
-	VirtualNetworkId   IID
+	vpcIID   	   IID
+	subnetIID   	   IID
 	SecurityGroupIIDs  []IID
 
 	VMSpecName   string
@@ -66,7 +67,8 @@ type VMInfo struct {
 	Region            RegionInfo //  ex) {us-east1, us-east1-c} or {ap-northeast-2}
 	ImageIId          IID
 	VMSpecName        string   //  instance type or flavour, etc... ex) t2.micro or f1.micro
-	VirtualNetworkIId IID   // AWS, ex) subnet-8c4a53e4
+	vpcIID   	   IID
+	subnetIID   	   IID  // AWS, ex) subnet-8c4a53e4 
 	SecurityGroupIIds []IID // AWS, ex) sg-0b7452563e1121bb6
 
 	KeyPairIId   IID 
