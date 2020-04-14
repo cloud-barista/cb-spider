@@ -89,18 +89,17 @@ func (cloudConn *AzureCloudConnection) CreateKeyPairHandler() (irs.KeyPairHandle
 
 func (cloudConn *AzureCloudConnection) CreateVMHandler() (irs.VMHandler, error) {
 	cblogger.Info("Azure Cloud Driver: called CreateVMHandler()!")
-	//vmHandler := azrs.AzureVMHandler{
-	//	CredentialInfo: cloudConn.CredentialInfo,
-	//	Region:         cloudConn.Region,
-	//	Ctx:            cloudConn.Ctx,
-	//	Client:         cloudConn.VMClient,
-	//	SubnetClient:   cloudConn.SubnetClient,
-	//	NicClient:      cloudConn.VNicClient,
-	//	PublicIPClient: cloudConn.PublicIPClient,
-	//	DiskClient:     cloudConn.DiskClient,
-	//}
-	//return &vmHandler, nil
-	return nil, nil
+	vmHandler := azrs.AzureVMHandler{
+		CredentialInfo: cloudConn.CredentialInfo,
+		Region:         cloudConn.Region,
+		Ctx:            cloudConn.Ctx,
+		Client:         cloudConn.VMClient,
+		SubnetClient:   cloudConn.SubnetClient,
+		NicClient:      cloudConn.VNicClient,
+		PublicIPClient: cloudConn.PublicIPClient,
+		DiskClient:     cloudConn.DiskClient,
+	}
+	return &vmHandler, nil
 }
 
 func (cloudConn *AzureCloudConnection) CreateVMSpecHandler() (irs.VMSpecHandler, error) {
@@ -109,10 +108,10 @@ func (cloudConn *AzureCloudConnection) CreateVMSpecHandler() (irs.VMSpecHandler,
 	return &vmSpecHandler, nil
 }
 
-func (AzureCloudConnection) IsConnected() (bool, error) {
+func (cloudConn *AzureCloudConnection) IsConnected() (bool, error) {
 	return true, nil
 }
 
-func (AzureCloudConnection) Close() error {
+func (cloudConn *AzureCloudConnection) Close() error {
 	return nil
 }

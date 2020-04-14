@@ -33,7 +33,6 @@ func (AzureDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	var drvCapabilityInfo idrv.DriverCapabilityInfo
 
 	drvCapabilityInfo.ImageHandler = true
-	//drvCapabilityInfo.VNetworkHandler = true
 	drvCapabilityInfo.VPCHandler = true
 	drvCapabilityInfo.SecurityHandler = true
 	drvCapabilityInfo.KeyPairHandler = true
@@ -149,11 +148,6 @@ func checkResourceGroup(credential idrv.CredentialInfo, region idrv.RegionInfo) 
 }
 
 func getVMClient(credential idrv.CredentialInfo) (context.Context, *compute.VirtualMachinesClient, error) {
-	/*auth.NewClientCredentialsConfig()
-	  authorizer, err := auth.NewAuthorizerFromFile(azure.PublicCloud.ResourceManagerEndpoint)
-	  if err != nil {
-	      return nil, nil, err
-	  }*/
 	config := auth.NewClientCredentialsConfig(credential.ClientId, credential.ClientSecret, credential.TenantId)
 	authorizer, err := config.Authorizer()
 	if err != nil {

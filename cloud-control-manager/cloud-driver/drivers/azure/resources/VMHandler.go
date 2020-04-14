@@ -49,8 +49,16 @@ func (vmHandler *AzureVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 		return irs.VMInfo{}, createErr
 	}
 
+	// TODO: nested flow 개선
+	// PublicIP 생성
+	publicIPIId, err := CreatePublicIP(vmHandler, vmReqInfo)
+	if err != nil {
+		return irs.VMInfo{}, err
+	}
+
+	// TODO: nested flow 개선
 	// VNic 생성
-	vNicId, err := CreateVNic(vmHandler, vmReqInfo)
+	vNicIId, err := CreateVNic(vmHandler, vmReqInfo, publicIPIId)
 	if err != nil {
 		return irs.VMInfo{}, err
 	}
@@ -69,7 +77,7 @@ func (vmHandler *AzureVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 				NetworkInterfaces: &[]compute.NetworkInterfaceReference{
 					{
 						//ID: &vmReqInfo.NetworkInterfaceId,
-						ID: vNicId,
+						ID: &vNicIId.SystemId,
 						NetworkInterfaceReferenceProperties: &compute.NetworkInterfaceReferenceProperties{
 							Primary: to.BoolPtr(true),
 						},
@@ -122,12 +130,10 @@ func (vmHandler *AzureVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 	}
 
 	// VM 정보 태깅 설정
-	/*vmOpts.Tags = map[string]*string{
-		"vmName": to.StringPtr(vmReqInfo.VMName),
-	}*/
 	if vmReqInfo.KeyPairIID.NameId != "" {
 		vmOpts.Tags = map[string]*string{
-			"keypair": to.StringPtr(vmReqInfo.KeyPairIID.NameId),
+			"keypair":  to.StringPtr(vmReqInfo.KeyPairIID.NameId),
+			"publicip": to.StringPtr(publicIPIId.NameId),
 		}
 	}
 
@@ -208,11 +214,19 @@ func (vmHandler *AzureVMHandler) TerminateVM(vmIID irs.IID) (irs.VMStatus, error
 
 	// VM 삭제 시 OS Disk도 함께 삭제 처리
 	// VM OSDisk 이름 가져오기
-	vmInfo, err := vmHandler.GetVM(vmIID.NameId)
+	vmInfo, err := vmHandler.GetVM(vmIID)
 	if err != nil {
 		return irs.Failed, err
 	}
 	osDiskName := vmInfo.VMBootDisk
+
+	// TODO: nested flow 개선
+	// VNic에서 PublicIP 연결해제
+	vNicDetachStatus, err := DetachVNic(vmHandler, vmInfo)
+	if err != nil {
+		cblogger.Error(err)
+		return vNicDetachStatus, err
+	}
 
 	// VM 삭제
 	future, err := vmHandler.Client.Delete(vmHandler.Ctx, vmHandler.Region.ResourceGroup, vmIID.NameId)
@@ -226,28 +240,28 @@ func (vmHandler *AzureVMHandler) TerminateVM(vmIID irs.IID) (irs.VMStatus, error
 		return irs.Failed, err
 	}
 
-	// vNic 삭제
-	nicFuture, err := vmHandler.NicClient.Delete(vmHandler.Ctx, vmHandler.Region.ResourceGroup, vmIID.NameId+"-NIC")
+	// TODO: nested flow 개선
+	// VNic 삭제
+	vNicStatus, err := DeleteVNic(vmHandler, vmInfo)
 	if err != nil {
 		cblogger.Error(err)
-		return irs.Failed, err
-	}
-	err = nicFuture.WaitForCompletionRef(vmHandler.Ctx, vmHandler.Client.Client)
-	if err != nil {
-		cblogger.Error(err)
-		return irs.Failed, err
+		return vNicStatus, err
 	}
 
-	// OS Disk 삭제
-	diskFuture, err := vmHandler.DiskClient.Delete(vmHandler.Ctx, vmHandler.Region.ResourceGroup, osDiskName)
+	// TODO: nested flow 개선
+	// PublicIP 삭제
+	publicIPStatus, err := DeletePublicIP(vmHandler, vmInfo)
 	if err != nil {
 		cblogger.Error(err)
-		return irs.Failed, err
+		return publicIPStatus, err
 	}
-	err = diskFuture.WaitForCompletionRef(vmHandler.Ctx, vmHandler.Client.Client)
+
+	// TODO: nested flow 개선
+	// OS Disk 삭제
+	diskStatus, err := DeleteVMDisk(vmHandler, osDiskName)
 	if err != nil {
 		cblogger.Error(err)
-		return irs.Failed, err
+		return diskStatus, err
 	}
 
 	// 자체생성상태 반환
@@ -320,8 +334,8 @@ func (vmHandler *AzureVMHandler) ListVM() ([]*irs.VMInfo, error) {
 	return vmList, nil
 }
 
-func (vmHandler *AzureVMHandler) GetVM(vmID string) (irs.VMInfo, error) {
-	vm, err := vmHandler.Client.Get(vmHandler.Ctx, vmHandler.Region.ResourceGroup, vmID, compute.InstanceView)
+func (vmHandler *AzureVMHandler) GetVM(vmIID irs.IID) (irs.VMInfo, error) {
+	vm, err := vmHandler.Client.Get(vmHandler.Ctx, vmHandler.Region.ResourceGroup, vmIID.NameId, compute.InstanceView)
 	if err != nil {
 		return irs.VMInfo{}, err
 	}
@@ -388,27 +402,35 @@ func (vmHandler *AzureVMHandler) mappingServerInfo(server compute.VirtualMachine
 	// Set VM Image Info
 	if reflect.ValueOf(server.StorageProfile.ImageReference.ID).IsNil() {
 		imageRef := server.VirtualMachineProperties.StorageProfile.ImageReference
-		vmInfo.ImageIId.NameId = *imageRef.Publisher + ":" + *imageRef.Offer + ":" + *imageRef.Sku + ":" + *imageRef.Version
-		vmInfo.ImageIId.SystemId = vmInfo.ImageIId.NameId
+		vmInfo.ImageIId.SystemId = *imageRef.Publisher + ":" + *imageRef.Offer + ":" + *imageRef.Sku + ":" + *imageRef.Version
+		//vmInfo.ImageIId.SystemId = vmInfo.ImageIId.NameId
 	} else {
-		vmInfo.ImageIId.NameId = *server.VirtualMachineProperties.StorageProfile.ImageReference.ID
-		vmInfo.ImageIId.SystemId = vmInfo.ImageIId.NameId
+		vmInfo.ImageIId.SystemId = *server.VirtualMachineProperties.StorageProfile.ImageReference.ID
+		//vmInfo.ImageIId.SystemId = vmInfo.ImageIId.NameId
 	}
 
-	// Set VNic Info
+	// Get VNic ID
 	niList := *server.NetworkProfile.NetworkInterfaces
+	var VNicId string
 	for _, ni := range niList {
 		if ni.ID != nil {
-			vmInfo.NetworkInterfaceId = *ni.ID
+			VNicId = *ni.ID
 		}
 	}
 
 	// Get VNic
-	nicIdArr := strings.Split(vmInfo.NetworkInterfaceId, "/")
+	nicIdArr := strings.Split(VNicId, "/")
 	nicName := nicIdArr[len(nicIdArr)-1]
 	vNic, _ := vmHandler.NicClient.Get(vmHandler.Ctx, vmHandler.Region.ResourceGroup, nicName, "")
+	vmInfo.NetworkInterface = nicName
 
-	vmInfo.SecurityGroupIds = []string{*vNic.NetworkSecurityGroup.ID}
+	// Get SecurityGroup
+	sgGroupIdArr := strings.Split(*vNic.NetworkSecurityGroup.ID, "/")
+	sgGroupName := sgGroupIdArr[len(sgGroupIdArr)-1]
+	vmInfo.SubnetIID = irs.IID{
+		NameId:   sgGroupName,
+		SystemId: *vNic.NetworkSecurityGroup.ID,
+	}
 
 	// Get PrivateIP, PublicIpId
 	for _, ip := range *vNic.IPConfigurations {
@@ -426,8 +448,15 @@ func (vmHandler *AzureVMHandler) mappingServerInfo(server compute.VirtualMachine
 				vmInfo.PublicIP = *publicIP.IPAddress
 			}
 
-			// Subnet 정보 설정
-			vmInfo.VirtualNetworkId = *ip.InterfaceIPConfigurationPropertiesFormat.Subnet.ID
+			// Get Subnet
+			subnetIdArr := strings.Split(*ip.InterfaceIPConfigurationPropertiesFormat.Subnet.ID, "/")
+			subnetName := subnetIdArr[len(subnetIdArr)-1]
+			vmInfo.SubnetIID = irs.IID{NameId: subnetName, SystemId: *ip.InterfaceIPConfigurationPropertiesFormat.Subnet.ID}
+
+			// Get VPC
+			vpcIdArr := subnetIdArr[:len(subnetIdArr)-2]
+			vpcName := vpcIdArr[len(vpcIdArr)-1]
+			vmInfo.VpcIID = irs.IID{NameId: vpcName, SystemId: strings.Join(vpcIdArr, "/")}
 		}
 	}
 
@@ -448,30 +477,106 @@ func (vmHandler *AzureVMHandler) mappingServerInfo(server compute.VirtualMachine
 	tagList := server.Tags
 	for key, val := range tagList {
 		if key == "keypair" {
-			vmInfo.KeyPairName = *val
+			vmInfo.KeyPairIId = irs.IID{NameId: *val, SystemId: *val}
+		}
+		if key == "publicip" {
+			vmInfo.KeyValueList = []irs.KeyValue{
+				{Key: "publicip", Value: *val},
+			}
 		}
 	}
 
 	return vmInfo
 }
 
-// VM 생성 시 VNic 자동 생성
-func CreateVNic(vmHandler *AzureVMHandler, vmReqInfo irs.VMReqInfo) (*string, error) {
-	vNicName := vmReqInfo.IId.NameId + "-NIC"
+// VM 생성 시 Public IP 자동 생성 (nested flow 적용)
+func CreatePublicIP(vmHandler *AzureVMHandler, vmReqInfo irs.VMReqInfo) (irs.IID, error) {
 
-	// Check VNic Exists
-	vNic, _ := vmHandler.NicClient.Get(vmHandler.Ctx, vmHandler.Region.ResourceGroup, vNicName, "")
-	if vNic.ID != nil {
-		errMsg := fmt.Sprintf("Virtual Network Interface with name %s already exist", vNicName)
-		createErr := errors.New(errMsg)
-		return nil, createErr
+	// PublicIP 이름 생성
+	/*var publicIPName string
+	uuid, err := uuid.NewUUID()
+	if err != nil {
+		createErr := errors.New(fmt.Sprintf("Failed to generate UUID, error=%s", err))
+		return irs.IID{}, createErr
+	}*/
+	//publicIPName = fmt.Sprintf("%s-%s-PublicIP", vmReqInfo.IId.NameId, uuid)
+	publicIPName := fmt.Sprintf("%s-PublicIP", vmReqInfo.IId.NameId)
+
+	createOpts := network.PublicIPAddress{
+		Name: to.StringPtr(publicIPName),
+		Sku: &network.PublicIPAddressSku{
+			Name: network.PublicIPAddressSkuName("Basic"),
+		},
+		PublicIPAddressPropertiesFormat: &network.PublicIPAddressPropertiesFormat{
+			PublicIPAddressVersion:   network.IPVersion("IPv4"),
+			PublicIPAllocationMethod: network.IPAllocationMethod("Static"),
+			IdleTimeoutInMinutes:     to.Int32Ptr(4),
+		},
+		Location: &vmHandler.Region.Region,
 	}
 
-	// 리소스 Id 정보 매핑
-	secGroupId := GetSecGroupIdByName(vmHandler.CredentialInfo, vmHandler.Region, vmReqInfo.SecurityGroupIds[0])
-	publicIPId := GetPublicIPIdByName(vmHandler.CredentialInfo, vmHandler.Region, vmReqInfo.PublicIPId)
+	future, err := vmHandler.PublicIPClient.CreateOrUpdate(vmHandler.Ctx, vmHandler.Region.ResourceGroup, publicIPName, createOpts)
+	if err != nil {
+		createErr := errors.New(fmt.Sprintf("Failed to create PublicIP, error=%s", err))
+		return irs.IID{}, createErr
+	}
+	err = future.WaitForCompletionRef(vmHandler.Ctx, vmHandler.PublicIPClient.Client)
+	if err != nil {
+		createErr := errors.New(fmt.Sprintf("Failed to create PublicIP, error=%s", err))
+		return irs.IID{}, createErr
+	}
 
-	subnet, err := vmHandler.SubnetClient.Get(vmHandler.Ctx, vmHandler.Region.ResourceGroup, CBVirutalNetworkName, vmReqInfo.VirtualNetworkId, "")
+	// 생성된 PublicIP 정보 리턴
+	publicIPInfo, err := vmHandler.PublicIPClient.Get(vmHandler.Ctx, vmHandler.Region.ResourceGroup, publicIPName, "")
+	if err != nil {
+		getErr := errors.New(fmt.Sprintf("Failed to get PublicIP, error=%s", err))
+		return irs.IID{}, getErr
+	}
+	publicIPIId := irs.IID{NameId: *publicIPInfo.Name, SystemId: *publicIPInfo.ID}
+	return publicIPIId, nil
+}
+
+// VM 삭제 시 Public IP 자동 삭제 (nested flow 적용)
+func DeletePublicIP(vmHandler *AzureVMHandler, vmInfo irs.VMInfo) (irs.VMStatus, error) {
+	var publicIPId string
+	for _, keyInfo := range vmInfo.KeyValueList {
+		if keyInfo.Key == "publicip" {
+			publicIPId = keyInfo.Value
+			break
+		}
+	}
+
+	publicIPFuture, err := vmHandler.PublicIPClient.Delete(vmHandler.Ctx, vmHandler.Region.ResourceGroup, publicIPId)
+	if err != nil {
+		cblogger.Error(err)
+		return irs.Failed, err
+	}
+	err = publicIPFuture.WaitForCompletionRef(vmHandler.Ctx, vmHandler.PublicIPClient.Client)
+	if err != nil {
+		cblogger.Error(err)
+		return irs.Failed, err
+	}
+
+	return irs.Terminating, nil
+}
+
+// VM 생성 시 VNic 자동 생성 (nested flow 적용)
+func CreateVNic(vmHandler *AzureVMHandler, vmReqInfo irs.VMReqInfo, publicIPIId irs.IID) (irs.IID, error) {
+
+	// VNic 이름 생성
+	/*var VNicName string
+	uuid, err := uuid.NewUUID()
+	if err != nil {
+		createErr := errors.New(fmt.Sprintf("Failed to generate UUID, error=%s", err))
+		return irs.IID{}, createErr
+	}*/
+	//VNicName = fmt.Sprintf("%s-%s-VNic", vmReqInfo.IId.NameId, uuid)
+	VNicName := fmt.Sprintf("%s-VNic", vmReqInfo.IId.NameId)
+
+	// 리소스 Id 정보 매핑
+	// Azure의 경우 VNic에 1개의 보안그룹만 할당 가능
+	secGroupId := GetSecGroupIdByName(vmHandler.CredentialInfo, vmHandler.Region, vmReqInfo.SecurityGroupIIDs[0].NameId)
+	subnet, err := vmHandler.SubnetClient.Get(vmHandler.Ctx, vmHandler.Region.ResourceGroup, vmReqInfo.VpcIID.NameId, vmReqInfo.SubnetIID.NameId, "")
 
 	var ipConfigArr []network.InterfaceIPConfiguration
 	ipConfig := network.InterfaceIPConfiguration{
@@ -479,41 +584,105 @@ func CreateVNic(vmHandler *AzureVMHandler, vmReqInfo irs.VMReqInfo) (*string, er
 		InterfaceIPConfigurationPropertiesFormat: &network.InterfaceIPConfigurationPropertiesFormat{
 			Subnet:                    &subnet,
 			PrivateIPAllocationMethod: "Dynamic",
+			PublicIPAddress: &network.PublicIPAddress{
+				ID: to.StringPtr(publicIPIId.SystemId),
+			},
 		},
-	}
-	if publicIPId != "" {
-		ipConfig.PublicIPAddress = &network.PublicIPAddress{
-			ID: to.StringPtr(publicIPId),
-		}
 	}
 	ipConfigArr = append(ipConfigArr, ipConfig)
 
 	createOpts := network.Interface{
 		InterfacePropertiesFormat: &network.InterfacePropertiesFormat{
 			IPConfigurations: &ipConfigArr,
+			NetworkSecurityGroup: &network.SecurityGroup{
+				ID: to.StringPtr(secGroupId),
+			},
 		},
 		Location: &vmHandler.Region.Region,
 	}
 
-	if len(vmReqInfo.SecurityGroupIds) != 0 {
-		createOpts.NetworkSecurityGroup = &network.SecurityGroup{
-			ID: to.StringPtr(secGroupId),
-		}
-	}
-
-	future, err := vmHandler.NicClient.CreateOrUpdate(vmHandler.Ctx, vmHandler.Region.ResourceGroup, vNicName, createOpts)
+	future, err := vmHandler.NicClient.CreateOrUpdate(vmHandler.Ctx, vmHandler.Region.ResourceGroup, VNicName, createOpts)
 	if err != nil {
-		return nil, err
+		return irs.IID{}, err
 	}
 	err = future.WaitForCompletionRef(vmHandler.Ctx, vmHandler.NicClient.Client)
 	if err != nil {
-		return nil, err
+		return irs.IID{}, err
 	}
 
-	vNic, err = vmHandler.NicClient.Get(vmHandler.Ctx, vmHandler.Region.ResourceGroup, vNicName, "")
+	// 생성된 VNic 정보 리턴
+	VNic, err := vmHandler.NicClient.Get(vmHandler.Ctx, vmHandler.Region.ResourceGroup, VNicName, "")
 	if err != nil {
-		return nil, err
+		return irs.IID{}, err
+	}
+	VNicIId := irs.IID{NameId: *VNic.Name, SystemId: *VNic.ID}
+	return VNicIId, nil
+}
+
+// VNic 삭제 전 PublicIP 연결 해제
+func DetachVNic(vmHandler *AzureVMHandler, vmInfo irs.VMInfo) (irs.VMStatus, error) {
+	var ipConfigArr []network.InterfaceIPConfiguration
+	ipConfig := network.InterfaceIPConfiguration{
+		Name: to.StringPtr("ipConfig1"),
+		InterfaceIPConfigurationPropertiesFormat: &network.InterfaceIPConfigurationPropertiesFormat{
+			Subnet: &network.Subnet{
+				Name: to.StringPtr(vmInfo.SubnetIID.NameId),
+				ID:   to.StringPtr(vmInfo.SubnetIID.SystemId),
+			},
+			PrivateIPAllocationMethod: "Dynamic",
+			PublicIPAddress:           nil,
+		},
+	}
+	ipConfigArr = append(ipConfigArr, ipConfig)
+
+	detachOpts := network.Interface{
+		InterfacePropertiesFormat: &network.InterfacePropertiesFormat{
+			IPConfigurations: &ipConfigArr,
+		},
+		Location: &vmHandler.Region.Region,
 	}
 
-	return vNic.ID, nil
+	nicDetachFuture, err := vmHandler.NicClient.CreateOrUpdate(vmHandler.Ctx, vmHandler.Region.ResourceGroup, vmInfo.NetworkInterface, detachOpts)
+	if err != nil {
+		cblogger.Error(err)
+		return irs.Failed, err
+	}
+	err = nicDetachFuture.WaitForCompletionRef(vmHandler.Ctx, vmHandler.NicClient.Client)
+	if err != nil {
+		cblogger.Error(err)
+		return irs.Failed, err
+	}
+	return irs.Terminating, nil
+}
+
+// VM 삭제 시 VNic 자동 삭제 (nested flow 적용)
+func DeleteVNic(vmHandler *AzureVMHandler, vmInfo irs.VMInfo) (irs.VMStatus, error) {
+	nicDeleteFuture, err := vmHandler.NicClient.Delete(vmHandler.Ctx, vmHandler.Region.ResourceGroup, vmInfo.NetworkInterface)
+	if err != nil {
+		cblogger.Error(err)
+		return irs.Failed, err
+	}
+	err = nicDeleteFuture.WaitForCompletionRef(vmHandler.Ctx, vmHandler.NicClient.Client)
+	if err != nil {
+		cblogger.Error(err)
+		return irs.Failed, err
+	}
+
+	return irs.Terminating, nil
+}
+
+// VM 삭제 시 VM Disk 자동 삭제 (nested flow 적용)
+func DeleteVMDisk(vmHandler *AzureVMHandler, osDiskName string) (irs.VMStatus, error) {
+	diskFuture, err := vmHandler.DiskClient.Delete(vmHandler.Ctx, vmHandler.Region.ResourceGroup, osDiskName)
+	if err != nil {
+		cblogger.Error(err)
+		return irs.Failed, err
+	}
+	err = diskFuture.WaitForCompletionRef(vmHandler.Ctx, vmHandler.Client.Client)
+	if err != nil {
+		cblogger.Error(err)
+		return irs.Failed, err
+	}
+
+	return irs.Terminating, nil
 }
