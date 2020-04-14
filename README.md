@@ -22,13 +22,13 @@ The CB-Spider Mission is to connect all the clouds with a single interface.
 ## [실행 방법]
 
 ### (1) 컨테이너 기반 실행
-- CB-Spider 이미지 확인(https://hub.docker.com/r/cloudbaristahub/cb-spider/tags)
+- CB-Spider 이미지 확인(https://hub.docker.com/r/cloudbaristaorg/cb-spider/tags)
 - CB-Spider 컨테이너 실행
 ```
 # docker run -p 1024:1024 \
 -v /root/go/src/github.com/cloud-barista/cb-spider/meta_db:/root/go/src/github.com/cloud-barista/cb-spider/meta_db \
 --name cb-spider \
-cloudbaristahub/cb-spider:v0.1-yyyymmdd
+cloudbaristaorg/cb-spider:v0.1.v-yyyymmdd
 ```
 
 ### (2) 소스 기반 실행
