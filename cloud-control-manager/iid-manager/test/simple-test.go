@@ -24,7 +24,17 @@ var iidRWLock = new(iidm.IIDRWLOCK)
 	nameID1 := "powerkim_vm_01"	// NameID
 	nameID2 := "powerkim_vm_02"	// NameID
 
-	iId := rsid.IID{nameID1, ""}
+
+        iId := rsid.IID{nameID1, ""}
+fmt.Println("\n============== IsExistIID(" + iId.NameId + "): false\n")
+        bool_ret, err := iidRWLock.IsExistIID(cName, rName, iId)
+        if err != nil {
+                config.Cblogger.Error(err)
+        }
+        fmt.Printf(" === %#v\n", bool_ret)
+
+
+	iId = rsid.IID{nameID1, ""}
 fmt.Println("\n============== CreateIID(" + iId.NameId + ")\n")
 	iidInfo, err := iidRWLock.CreateIID(cName, rName, iId)
 	if err != nil {
@@ -32,6 +42,13 @@ fmt.Println("\n============== CreateIID(" + iId.NameId + ")\n")
 	}
 	fmt.Printf(" === %#v\n", iidInfo)
 
+        iId = rsid.IID{nameID1, ""}
+fmt.Println("\n============== IsExistIID(" + iId.NameId + "): true\n")
+        bool_ret, err = iidRWLock.IsExistIID(cName, rName, iId)
+        if err != nil {
+                config.Cblogger.Error(err)
+        }
+        fmt.Printf(" === %#v\n", bool_ret)
 
 
         iId = rsid.IID{nameID2, ""}

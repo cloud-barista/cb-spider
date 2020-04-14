@@ -38,6 +38,15 @@ type IIDInfo struct {
 }
 //====================================================================
 
+func (iidRWLock *IIDRWLOCK)IsExistIID(connectionName string, resourceType string, iId resources.IID) (bool, error) {
+        cblog.Debug("check the IID.NameId:" + iId.NameId + " existence")
+
+iidRWLock.rwMutex.RLock()
+defer iidRWLock.rwMutex.RUnlock()
+
+        return isExist(connectionName, resourceType, iId.NameId)
+}
+
 func (iidRWLock *IIDRWLOCK)CreateIID(connectionName string, resourceType string, iId resources.IID) (*IIDInfo, error) {
 	cblog.Debug("check the IID.NameId:" + iId.NameId + " existence")
 
