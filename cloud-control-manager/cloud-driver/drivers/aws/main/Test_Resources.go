@@ -57,10 +57,11 @@ func handleSecurity() {
 	//result, err := handler.GetSecurity("sg-0fd2d90b269ebc082") // sgtest-mcloub-barista
 	//result, err := handler.DeleteSecurity(irs.IID{SystemId: securityId})
 	//result, err := handler.DeleteSecurity(irs.IID{SystemId: "sg-0101df0e8d4f27fec"})
-	//result, err := handler.ListSecurity()
+	result, err := handler.ListSecurity()
 
 	securityReqInfo := irs.SecurityReqInfo{
-		IId: irs.IID{NameId: "cb-sgtest-mcloud-barista"},
+		IId:    irs.IID{NameId: "cb-sgtest2-mcloud-barista"},
+		VpcIID: irs.IID{NameId: "CB-VNet", SystemId: "vpc-0c23cb9c0e68c735a"},
 		SecurityRules: &[]irs.SecurityRuleInfo{ //보안 정책 설정
 			{
 				FromPort:   "20",
@@ -104,7 +105,7 @@ func handleSecurity() {
 	}
 
 	cblogger.Info(securityReqInfo)
-	result, err := handler.CreateSecurity(securityReqInfo)
+	//result, err := handler.CreateSecurity(securityReqInfo)
 
 	if err != nil {
 		cblogger.Infof("보안 그룹 조회 실패 : ", err)
@@ -696,7 +697,7 @@ func handleVM() {
 				vmReqInfo := irs.VMReqInfo{
 					IId:               irs.IID{NameId: "mcloud-barista-iid-vm-test"},
 					ImageIID:          irs.IID{SystemId: "ami-047f7b46bd6dd5d84"},
-					VirtualNetworkId:  irs.IID{SystemId: "subnet-012957090a923c498"},
+					SubnetIID:         irs.IID{SystemId: "subnet-012957090a923c498"},
 					SecurityGroupIIDs: []irs.IID{{SystemId: "sg-013868663c85586f9"}},
 					VMSpecName:        "t2.micro",
 					KeyPairIID:        irs.IID{SystemId: "CB-KeyPairTest123123"},
@@ -929,13 +930,13 @@ func main() {
 	//handleVNetwork() //VPC
 	//handleKeyPair()
 	//handlePublicIP() // PublicIP 생성 후 conf
-	//handleSecurity()
+	handleSecurity()
 	//handleVM()
 
 	//handleImage() //AMI
 	//handleVNic() //Lancard
 	//handleVMSpec()
-	handleVPC()
+	//handleVPC()
 
 	/*
 		KeyPairHandler, err := setKeyPairHandler()

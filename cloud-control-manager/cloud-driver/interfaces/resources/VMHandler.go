@@ -16,22 +16,22 @@ import (
 )
 
 type VMReqInfo struct {
-        IId   IID       // {NameId, SystemId}
+	IId IID // {NameId, SystemId}
 
-	ImageIID           IID
-	vpcIID   	   IID
-	subnetIID   	   IID
-	SecurityGroupIIDs  []IID
+	ImageIID          IID
+	VpcIID            IID
+	SubnetIID         IID
+	SecurityGroupIIDs []IID
 
-	VMSpecName   string
-	KeyPairIID   IID
+	VMSpecName string
+	KeyPairIID IID
 
 	VMUserId     string
 	VMUserPasswd string
 }
 
 type VMStatusInfo struct {
-        IId   IID       // {NameId, SystemId}
+	IId      IID // {NameId, SystemId}
 	VmStatus VMStatus
 }
 
@@ -50,7 +50,7 @@ const (
 
 	Terminating VMStatus = "Terminating" // from running, suspended to terminated
 	Terminated  VMStatus = "Terminated"
-	NotExist  VMStatus = "NotExist" // VM does not exist
+	NotExist    VMStatus = "NotExist" // VM does not exist
 
 	Failed VMStatus = "Failed"
 )
@@ -61,26 +61,26 @@ type RegionInfo struct {
 }
 
 type VMInfo struct {
-        IId   IID       // {NameId, SystemId}
+	IId       IID       // {NameId, SystemId}
 	StartTime time.Time // Timezone: based on cloud-barista server location.
 
 	Region            RegionInfo //  ex) {us-east1, us-east1-c} or {ap-northeast-2}
 	ImageIId          IID
-	VMSpecName        string   //  instance type or flavour, etc... ex) t2.micro or f1.micro
-	vpcIID   	   IID
-	subnetIID   	   IID  // AWS, ex) subnet-8c4a53e4 
+	VMSpecName        string //  instance type or flavour, etc... ex) t2.micro or f1.micro
+	VpcIID            IID
+	SubnetIID         IID   // AWS, ex) subnet-8c4a53e4
 	SecurityGroupIIds []IID // AWS, ex) sg-0b7452563e1121bb6
 
-	KeyPairIId   IID 
+	KeyPairIId IID
 
 	VMUserId     string // ex) user1
 	VMUserPasswd string
 
-	NetworkInterface   string // ex) eth0
-	PublicIP           string 
-	PublicDNS          string 
-	PrivateIP          string 
-	PrivateDNS         string 
+	NetworkInterface string // ex) eth0
+	PublicIP         string
+	PublicDNS        string
+	PrivateIP        string
+	PrivateDNS       string
 
 	VMBootDisk  string // ex) /dev/sda1
 	VMBlockDisk string // ex)
