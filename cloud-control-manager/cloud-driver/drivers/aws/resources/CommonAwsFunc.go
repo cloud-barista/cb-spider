@@ -57,11 +57,11 @@ func GetCBDefaultCidrBlock() string {
 	return CBDefaultCidrBlock
 }
 
+/*
 //이 함수는 VPC & Subnet이 존재하는 곳에서만 사용됨.
 //VPC & Subnet이 존재하는 경우 정보를 리턴하고 없는 경우 Default VPC & Subnet을 생성 후 정보를 리턴 함.
 func (VPCHandler *AwsVPCHandler) GetAutoCBNetworkInfo() (AwsCBNetworkInfo, error) {
 	return AwsCBNetworkInfo{}, errors.New("인터페이스 변경해야 함!!!!")
-	/*
 		var awsCBNetworkInfo AwsCBNetworkInfo
 
 		subNetId := VPCHandler.GetMcloudBaristaDefaultSubnetId()
@@ -91,12 +91,13 @@ func (VPCHandler *AwsVPCHandler) GetAutoCBNetworkInfo() (AwsCBNetworkInfo, error
 		spew.Dump(awsCBNetworkInfo)
 
 		return awsCBNetworkInfo, nil
-	*/
 }
+*/
+
+/*
 
 func (VPCHandler *AwsVPCHandler) GetMcloudBaristaDefaultVpcId() string {
 	return ""
-	/*
 		awsVpcInfo, err := VPCHandler.GetVpc(GetCBDefaultVNetName())
 		if err != nil {
 			if aerr, ok := err.(awserr.Error); ok {
@@ -116,8 +117,8 @@ func (VPCHandler *AwsVPCHandler) GetMcloudBaristaDefaultVpcId() string {
 		} else {
 			return ""
 		}
-	*/
 }
+*/
 
 /*
 
