@@ -393,17 +393,19 @@ func handleVPC() {
 	}
 
 	vpcReqInfo := irs.VPCReqInfo{
-		IId:            irs.IID{NameId: "CB-NewIF-VPC"},
-		IPv4_CIDR:      "10.0.0.0/16",
-		SubnetInfoList: []irs.SubnetInfo{{}},
+		IId:       irs.IID{NameId: "New-CB-VPC"},
+		IPv4_CIDR: "10.0.0.0/16",
+		SubnetInfoList: []irs.SubnetInfo{{
+			IId:       irs.IID{NameId: "New-CB-Subnet"},
+			IPv4_CIDR: "10.0.0.0/16",
+		}},
 		//Id:   "subnet-044a2b57145e5afc5",
 		//Name: "CB-VNet-Subnet", // 웹 도구 등 외부에서 전달 받지 않고 드라이버 내부적으로 자동 구현때문에 사용하지 않음.
 		//CidrBlock: "10.0.0.0/16",
 		//CidrBlock: "192.168.0.0/16",
 	}
-	//reqSubnetId := "subnet-0b9ea37601d46d8fa"
-	reqSubnetId := irs.IID{NameId: "subnet-0b9ea37601d46d8fa"}
-	//reqSubnetId = ""
+
+	reqSubnetId := irs.IID{SystemId: "vpc-09830f6a8c774f2cd"}
 
 	for {
 		fmt.Println("VPCHandler Management")
@@ -930,13 +932,13 @@ func main() {
 	//handleVNetwork() //VPC
 	//handleKeyPair()
 	//handlePublicIP() // PublicIP 생성 후 conf
-	handleSecurity()
+	//handleSecurity()
 	//handleVM()
 
 	//handleImage() //AMI
 	//handleVNic() //Lancard
 	//handleVMSpec()
-	//handleVPC()
+	handleVPC()
 
 	/*
 		KeyPairHandler, err := setKeyPairHandler()
