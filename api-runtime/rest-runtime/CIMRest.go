@@ -44,13 +44,13 @@ func registerCloudDriver(c echo.Context) error {
 	req := &dim.CloudDriverInfo{}
 	if err := c.Bind(req); err != nil {
 		fmt.Println("Binding error!!!")
-		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
 	cldinfoList, err := dim.RegisterCloudDriverInfo(*req)
 	if err != nil {
 		fmt.Println("Register error!!!")
-		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
 	return c.JSON(http.StatusOK, &cldinfoList)
@@ -61,7 +61,7 @@ func listCloudDriver(c echo.Context) error {
 
 	infoList, err := dim.ListCloudDriver()
 	if err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
         var jsonResult struct {
@@ -80,7 +80,7 @@ func getCloudDriver(c echo.Context) error {
 
 	cldinfo, err := dim.GetCloudDriver(c.Param("DriverName"))
 	if err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
 	return c.JSON(http.StatusOK, &cldinfo)
@@ -91,7 +91,7 @@ func unRegisterCloudDriver(c echo.Context) error {
 
 	result, err := dim.UnRegisterCloudDriver(c.Param("DriverName"))
 	if err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
         resultInfo := BooleanInfo{
@@ -107,12 +107,12 @@ func registerCredential(c echo.Context) error {
 
 	req := &cim.CredentialInfo{}
 	if err := c.Bind(req); err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
 	crdinfoList, err := cim.RegisterCredentialInfo(*req)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
 	return c.JSON(http.StatusOK, &crdinfoList)
@@ -123,7 +123,7 @@ func listCredential(c echo.Context) error {
 
 	infoList, err := cim.ListCredential()
 	if err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
         var jsonResult struct {
@@ -141,7 +141,7 @@ func getCredential(c echo.Context) error {
 
 	crdinfo, err := cim.GetCredential(c.Param("CredentialName"))
 	if err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
 	return c.JSON(http.StatusOK, &crdinfo)
@@ -152,7 +152,7 @@ func unRegisterCredential(c echo.Context) error {
 
 	result, err := cim.UnRegisterCredential(c.Param("CredentialName"))
 	if err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
         resultInfo := BooleanInfo{
@@ -168,12 +168,12 @@ func registerRegion(c echo.Context) error {
 
 	req := &rim.RegionInfo{}
 	if err := c.Bind(req); err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
 	crdinfoList, err := rim.RegisterRegionInfo(*req)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
 	return c.JSON(http.StatusOK, &crdinfoList)
@@ -184,7 +184,7 @@ func listRegion(c echo.Context) error {
 
 	infoList, err := rim.ListRegion()
 	if err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
         var jsonResult struct {
@@ -202,7 +202,7 @@ func getRegion(c echo.Context) error {
 
 	crdinfo, err := rim.GetRegion(c.Param("RegionName"))
 	if err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
 	return c.JSON(http.StatusOK, &crdinfo)
@@ -213,7 +213,7 @@ func unRegisterRegion(c echo.Context) error {
 
 	result, err := rim.UnRegisterRegion(c.Param("RegionName"))
 	if err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
         resultInfo := BooleanInfo{
@@ -229,12 +229,12 @@ func createConnectionConfig(c echo.Context) error {
 
 	req := &ccim.ConnectionConfigInfo{}
 	if err := c.Bind(req); err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
 	crdinfoList, err := ccim.CreateConnectionConfigInfo(*req)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
 	return c.JSON(http.StatusOK, &crdinfoList)
@@ -245,7 +245,7 @@ func listConnectionConfig(c echo.Context) error {
 
 	infoList, err := ccim.ListConnectionConfig()
 	if err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
         var jsonResult struct {
@@ -263,7 +263,7 @@ func getConnectionConfig(c echo.Context) error {
 
 	crdinfo, err := ccim.GetConnectionConfig(c.Param("ConfigName"))
 	if err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
 	return c.JSON(http.StatusOK, &crdinfo)
@@ -274,7 +274,7 @@ func deleteConnectionConfig(c echo.Context) error {
 
 	result, err := ccim.DeleteConnectionConfig(c.Param("ConfigName"))
 	if err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
         resultInfo := BooleanInfo{

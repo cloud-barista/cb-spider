@@ -76,33 +76,33 @@ func main() {
 		//----------Image Handler
 		{"POST", "/vmimage", createImage},
 		{"GET", "/vmimage", listImage},
-		{"GET", "/vmimage/:ImageName", getImage},
-		{"DELETE", "/vmimage/:ImageName", deleteImage},
+		{"GET", "/vmimage/:Name", getImage},
+		{"DELETE", "/vmimage/:Name", deleteImage},
 
 		//----------VMSpec Handler
 		{"GET", "/vmspec", listVMSpec},
-		{"GET", "/vmspec/:VMSpecName", getVMSpec},
+		{"GET", "/vmspec/:Name", getVMSpec},
 		{"GET", "/vmorgspec", listOrgVMSpec},
-		{"GET", "/vmorgspec/:VMSpecName", getOrgVMSpec},
+		{"GET", "/vmorgspec/:Name", getOrgVMSpec},
 
-		//----------VNet Handler
-		{"POST", "/vnetwork", createVNetwork},
-		{"GET", "/vnetwork", listVNetwork},
-		{"GET", "/vnetwork/:VNetId", getVNetwork},
-		{"DELETE", "/vnetwork/:VNetId", deleteVNetwork},
+		//----------VPC Handler
+		{"POST", "/vpc", createVPC},
+		{"GET", "/vpc", listVPC},
+		{"GET", "/vpc/:Name", getVPC},
+		{"DELETE", "/vpc/:Name", deleteVPC},
 
 		//----------SecurityGroup Handler
 		{"POST", "/securitygroup", createSecurity},
 		{"GET", "/securitygroup", listSecurity},
-		{"GET", "/securitygroup/:SecurityGroupId", getSecurity},
-		{"DELETE", "/securitygroup/:SecurityGroupId", deleteSecurity},
+		{"GET", "/securitygroup/:Name", getSecurity},
+		{"DELETE", "/securitygroup/:Name", deleteSecurity},
 
 		//----------KeyPair Handler
 		{"POST", "/keypair", createKey},
 		{"GET", "/keypair", listKey},
-		{"GET", "/keypair/:KeyPairId", getKey},
-		{"DELETE", "/keypair/:KeyPairId", deleteKey},
-
+		{"GET", "/keypair/:Name", getKey},
+		{"DELETE", "/keypair/:Name", deleteKey},
+/*
 		//----------VNic Handler
 		{"POST", "/vnic", createVNic},
 		{"GET", "/vnic", listVNic},
@@ -114,17 +114,17 @@ func main() {
 		{"GET", "/publicip", listPublicIP},
 		{"GET", "/publicip/:PublicIPId", getPublicIP},
 		{"DELETE", "/publicip/:PublicIPId", deletePublicIP},
-
+*/
 		//----------VM Handler
 		{"POST", "/vm", startVM},
 		{"GET", "/vm", listVM},
-		{"GET", "/vm/:VmId", getVM},
-		{"DELETE", "/vm/:VmId", terminateVM},
+		{"GET", "/vm/:Name", getVM},
+		{"DELETE", "/vm/:Name", terminateVM},
 
 		{"GET", "/vmstatus", listVMStatus},
-		{"GET", "/vmstatus/:VmId", getVMStatus},
+		{"GET", "/vmstatus/:Name", getVMStatus},
 
-		{"GET", "/controlvm/:VmId", controlVM}, // suspend, resume, reboot
+		{"GET", "/controlvm/:Name", controlVM}, // suspend, resume, reboot
 
 		//-------------------------------------------------------------------//
 		//----------SSH RUN
