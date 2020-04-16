@@ -395,17 +395,23 @@ func handleVPC() {
 	vpcReqInfo := irs.VPCReqInfo{
 		IId:       irs.IID{NameId: "New-CB-VPC"},
 		IPv4_CIDR: "10.0.0.0/16",
-		SubnetInfoList: []irs.SubnetInfo{{
-			IId:       irs.IID{NameId: "New-CB-Subnet"},
-			IPv4_CIDR: "10.0.0.0/16",
-		}},
+		SubnetInfoList: []irs.SubnetInfo{
+			{
+				IId:       irs.IID{NameId: "New-CB-Subnet"},
+				IPv4_CIDR: "10.0.1.0/24",
+			},
+			{
+				IId:       irs.IID{NameId: "New-CB-Subnet2"},
+				IPv4_CIDR: "10.0.2.0/24",
+			},
+		},
 		//Id:   "subnet-044a2b57145e5afc5",
 		//Name: "CB-VNet-Subnet", // 웹 도구 등 외부에서 전달 받지 않고 드라이버 내부적으로 자동 구현때문에 사용하지 않음.
 		//CidrBlock: "10.0.0.0/16",
 		//CidrBlock: "192.168.0.0/16",
 	}
 
-	reqSubnetId := irs.IID{SystemId: "vpc-09830f6a8c774f2cd"}
+	reqSubnetId := irs.IID{SystemId: "vpc-04f6de5c2af880978"}
 
 	for {
 		fmt.Println("VPCHandler Management")
