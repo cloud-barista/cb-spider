@@ -166,7 +166,7 @@ func ApiServer(routes []route, strPort string) {
 
 	e.HideBanner = true
 	if strPort == "" {
-		strPort = ":1323"
+		strPort = ":1024"
 	}
 	e.Logger.Fatal(e.Start(strPort))
 }

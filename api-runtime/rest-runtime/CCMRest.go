@@ -149,7 +149,7 @@ defer imgRWLock.RUnlock()
                 Result []*cres.ImageInfo `json:"image"`
         }
 	var infoList []*cres.ImageInfo
-        if iidInfoList == nil {
+	if iidInfoList == nil || len(iidInfoList) <= 0 {
                 infoList = []*cres.ImageInfo{}
                 jsonResult.Result = infoList
                 return c.JSON(http.StatusOK, &jsonResult)
@@ -168,9 +168,9 @@ defer imgRWLock.RUnlock()
         infoList2 := []*cres.ImageInfo{}
         for _, iidInfo := range iidInfoList {
                 exist := false
-                for count, info := range infoList {
+                for _, info := range infoList {
                         if iidInfo.IId.SystemId == info.IId.SystemId {
-                                infoList2[count] = info
+                                infoList2 = append(infoList2, info)
                                 exist = true
                         }
                 }
@@ -340,7 +340,7 @@ func listVMSpec(c echo.Context) error {
         var jsonResult struct {
                 Result []*cres.VMSpecInfo `json:"vmspec"`
         }
-        if infoList == nil {
+	if infoList == nil || len(infoList) <= 0 {
                 infoList = []*cres.VMSpecInfo{}
         }
         jsonResult.Result = infoList
@@ -484,12 +484,13 @@ defer vpcRWLock.Unlock()
 	if bool_ret == true {
                 return echo.NewHTTPError(http.StatusInternalServerError, fmt.Errorf(rsType + "-" + req.ReqInfo.IId.NameId + " already exists!"))
 	}
-
+fmt.Printf("req.ReqInfo=============== %#v\n", req.ReqInfo)
 // (2) create Resource
 	info, err := handler.CreateVPC(req.ReqInfo)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
+fmt.Printf("info =============== %#v\n", info)
 
 // (3) insert IID
         iidInfo, err := iidRWLock.CreateIID(req.ConnectionName, rsType, info.IId)
@@ -542,10 +543,10 @@ defer vpcRWLock.RUnlock()
         }
 
         var jsonResult struct {
-                Result []*cres.VPCInfo `json:"vnetwork"`
+                Result []*cres.VPCInfo `json:"vpc"`
         }
 	var infoList []*cres.VPCInfo
-	if iidInfoList == nil {
+	if iidInfoList == nil || len(iidInfoList) <= 0 {
 		infoList = []*cres.VPCInfo{}
 		jsonResult.Result = infoList
 		return c.JSON(http.StatusOK, &jsonResult)
@@ -564,9 +565,9 @@ defer vpcRWLock.RUnlock()
 	infoList2 := []*cres.VPCInfo{}
         for _, iidInfo := range iidInfoList {
 		exist := false
-		for count, info := range infoList {
+		for _, info := range infoList {
 			if iidInfo.IId.SystemId == info.IId.SystemId {
-				infoList2[count] = info
+				infoList2 = append(infoList2, info)
 				exist = true
 			}
 		}
@@ -798,7 +799,7 @@ defer sgRWLock.RUnlock()
                 Result []*cres.SecurityInfo `json:"securitygroup"`
         }
 	var infoList []*cres.SecurityInfo
-        if iidInfoList == nil {
+	if iidInfoList == nil || len(iidInfoList) <= 0 {
                 infoList = []*cres.SecurityInfo{}
                 jsonResult.Result = infoList
                 return c.JSON(http.StatusOK, &jsonResult)
@@ -817,9 +818,9 @@ defer sgRWLock.RUnlock()
         infoList2 := []*cres.SecurityInfo{}
         for _, iidInfo := range iidInfoList {
                 exist := false
-                for count, info := range infoList {
+                for _, info := range infoList {
                         if iidInfo.IId.SystemId == info.IId.SystemId {
-                                infoList2[count] = info
+				infoList2 = append(infoList2, info)
                                 exist = true
                         }
                 }
@@ -902,7 +903,7 @@ func deleteSecurity(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
-        rsType := rsVPC
+        rsType := rsSG
 sgRWLock.Lock()
 defer sgRWLock.Unlock()
 // (1) get IID(NameId)
@@ -1050,7 +1051,7 @@ defer keyRWLock.RUnlock()
                 Result []*cres.KeyPairInfo `json:"keypair"`
         }
         var infoList []*cres.KeyPairInfo
-        if iidInfoList == nil {
+	if iidInfoList == nil || len(iidInfoList) <= 0 {
                 infoList = []*cres.KeyPairInfo{}
                 jsonResult.Result = infoList
                 return c.JSON(http.StatusOK, &jsonResult)
@@ -1069,9 +1070,9 @@ defer keyRWLock.RUnlock()
         infoList2 := []*cres.KeyPairInfo{}
         for _, iidInfo := range iidInfoList {
                 exist := false
-                for count, info := range infoList {
+                for _, info := range infoList {
                         if iidInfo.IId.SystemId == info.IId.SystemId {
-                                infoList2[count] = info
+                                infoList2 = append(infoList2, info)
                                 exist = true
                         }
                 }
@@ -1156,7 +1157,7 @@ func deleteKey(c echo.Context) error {
 
         rsType := rsKey
 keyRWLock.Lock()
-defer imgRWLock.Unlock()
+defer keyRWLock.Unlock()
 // (1) get IID(NameId)
         iidInfo, err := iidRWLock.GetIID(req.ConnectionName, rsType, cres.IID{c.Param("Name"), ""})
         if err != nil {
@@ -1563,7 +1564,7 @@ defer vmRWLock.RUnlock()
                 Result []*cres.VMInfo `json:"vm"`
         }
         var infoList []*cres.VMInfo
-        if iidInfoList == nil {
+	if iidInfoList == nil || len(iidInfoList) <= 0 {
                 infoList = []*cres.VMInfo{}
                 jsonResult.Result = infoList
                 return c.JSON(http.StatusOK, &jsonResult)
@@ -1582,9 +1583,9 @@ defer vmRWLock.RUnlock()
         infoList2 := []*cres.VMInfo{}
         for _, iidInfo := range iidInfoList {
                 exist := false
-                for count, info := range infoList {
+                for _, info := range infoList {
                         if iidInfo.IId.SystemId == info.IId.SystemId {
-                                infoList2[count] = info
+                                infoList2 = append(infoList2, info)
                                 exist = true
                         }
                 }
@@ -1748,7 +1749,7 @@ defer vmRWLock.RUnlock()
                 Result []*cres.VMStatusInfo `json:"vmstatus"`
         }
         var infoList []*cres.VMStatusInfo
-        if iidInfoList == nil {
+	if iidInfoList == nil || len(iidInfoList) <= 0 {
                 infoList = []*cres.VMStatusInfo{}
                 jsonResult.Result = infoList
                 return c.JSON(http.StatusOK, &jsonResult)
@@ -1767,9 +1768,9 @@ defer vmRWLock.RUnlock()
         infoList2 := []*cres.VMStatusInfo{}
         for _, iidInfo := range iidInfoList {
                 exist := false
-                for count, info := range infoList {
+                for _, info := range infoList {
                         if iidInfo.IId.SystemId == info.IId.SystemId {
-                                infoList2[count] = info
+                                infoList2 = append(infoList2, info)
                                 exist = true
                         }
                 }
