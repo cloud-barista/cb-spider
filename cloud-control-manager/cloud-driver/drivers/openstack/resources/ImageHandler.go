@@ -20,13 +20,14 @@ type OpenStackImageHandler struct {
 
 func setterImage(image images.Image) *irs.ImageInfo {
 	imageInfo := &irs.ImageInfo{
-		Id:     image.ID,
-		Name:   image.Name,
+		IId: irs.IID{
+			NameId:   image.Name,
+			SystemId: image.ID,
+		},
 		Status: image.Status,
 	}
 
 	// 메타 정보 등록
-	//metadataList := make([]irs.KeyValue, len(image.Metadata))
 	var metadataList []irs.KeyValue
 	for key, val := range image.Metadata {
 		metadata := irs.KeyValue{
@@ -49,7 +50,7 @@ func (imageHandler *OpenStackImageHandler) CreateImage(imageReqInfo irs.ImageReq
 		DiskFormat      string
 	}
 	reqInfo := ImageReqInfo{
-		Name:            imageReqInfo.Name,
+		Name:            imageReqInfo.IId.NameId,
 		ContainerFormat: "bare",
 		DiskFormat:      "iso",
 	}
@@ -60,10 +61,9 @@ func (imageHandler *OpenStackImageHandler) CreateImage(imageReqInfo irs.ImageReq
 		DiskFormat:      reqInfo.DiskFormat,
 	}
 
-	rootPath := os.Getenv("CBSPIDER_PATH")
-
 	// Check Image file exists
-	imageFilePath := rootPath + "/image/mcb_custom_image.iso"
+	rootPath := os.Getenv("CBSPIDER_PATH")
+	imageFilePath := fmt.Sprintf("%s/image/%s.iso", rootPath, reqInfo.Name)
 	if _, err := os.Stat(imageFilePath); os.IsNotExist(err) {
 		errMsg := fmt.Sprintf("Image files in path %s not exist", imageFilePath)
 		createErr := errors.New(errMsg)
@@ -77,7 +77,7 @@ func (imageHandler *OpenStackImageHandler) CreateImage(imageReqInfo irs.ImageReq
 	}
 
 	// Upload Image file
-	imageBytes, err := ioutil.ReadFile(rootPath + "/image/mcb_custom_image.iso")
+	imageBytes, err := ioutil.ReadFile(imageFilePath)
 	if err != nil {
 		return irs.ImageInfo{}, err
 	}
@@ -125,12 +125,12 @@ func (imageHandler *OpenStackImageHandler) ListImage() ([]*irs.ImageInfo, error)
 	return imageList, nil
 }
 
-func (imageHandler *OpenStackImageHandler) GetImage(imageNameId string) (irs.ImageInfo, error) {
-	imageId, err := images.IDFromName(imageHandler.Client, imageNameId)
+func (imageHandler *OpenStackImageHandler) GetImage(imageIID irs.IID) (irs.ImageInfo, error) {
+	/*imageId, err := images.IDFromName(imageHandler.Client, imageIID.NameId)
 	if err != nil {
 		return irs.ImageInfo{}, err
-	}
-	image, err := images.Get(imageHandler.Client, imageId).Extract()
+	}*/
+	image, err := images.Get(imageHandler.Client, imageIID.SystemId).Extract()
 	if err != nil {
 		return irs.ImageInfo{}, err
 	}
@@ -139,12 +139,12 @@ func (imageHandler *OpenStackImageHandler) GetImage(imageNameId string) (irs.Ima
 	return *imageInfo, nil
 }
 
-func (imageHandler *OpenStackImageHandler) DeleteImage(imageID string) (bool, error) {
-	/*imageId, err := images.IDFromName(imageHandler.Client, imageID)
+func (imageHandler *OpenStackImageHandler) DeleteImage(imageIID irs.IID) (bool, error) {
+	/*imageId, err := images.IDFromName(imageHandler.Client, imageIID.NameId)
 	if err != nil {
 		return false, err
 	}*/
-	err := images.Delete(imageHandler.Client, imageID).ExtractErr()
+	err := images.Delete(imageHandler.Client, imageIID.SystemId).ExtractErr()
 	if err != nil {
 		return false, err
 	}
