@@ -39,12 +39,6 @@ type OpenStackVMHandler struct {
 }
 
 func (vmHandler *OpenStackVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, error) {
-	/*vmId, _ := vmHandler.getVmIdByName(vmReqInfo.IId.NameId)
-	if vmId != "" {
-		errMsg := fmt.Sprintf("VirtualMachine with name %s already exist", vmReqInfo.IId.NameId)
-		createErr := errors.New(errMsg)
-		return irs.VMInfo{}, createErr
-	}*/
 	// 가상서버 이름 중복 체크
 	pager, err := servers.List(vmHandler.Client, servers.ListOpts{Name: vmReqInfo.IId.NameId}).AllPages()
 	if err != nil {
@@ -61,24 +55,24 @@ func (vmHandler *OpenStackVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInf
 		return irs.VMInfo{}, createErr
 	}
 
-	vNetId, err := GetCBVNetId(vmHandler.NetworkClient)
+	/*vNetId, err := GetCBVNetId(vmHandler.NetworkClient)
 	if err != nil {
 		return irs.VMInfo{}, err
 	}
 	if vNetId == "" {
 		cblogger.Error(fmt.Sprintf("failed to get vnetwork"))
 		return irs.VMInfo{}, err
-	}
+	}*/
 
 	//  이미지 정보 조회 (Name)
-	imageHandler := OpenStackImageHandler{
+	/*imageHandler := OpenStackImageHandler{
 		Client: vmHandler.Client,
 	}
 	image, err := imageHandler.GetImage(vmReqInfo.IId)
 	if err != nil {
 		cblogger.Error(fmt.Sprintf("failed to get image, err : %s", err))
 		return irs.VMInfo{}, err
-	}
+	}*/
 
 	//  네트워크 정보 조회 (Name)
 	/*vNetworkHandler := OpenStackVPCHandler{
@@ -91,7 +85,7 @@ func (vmHandler *OpenStackVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInf
 	}*/
 
 	// 보안그룹 정보 조회 (Name)
-	securityHandler := OpenStackSecurityHandler{
+	/*securityHandler := OpenStackSecurityHandler{
 		Client:        vmHandler.Client,
 		NetworkClient: vmHandler.NetworkClient,
 	}
@@ -104,25 +98,32 @@ func (vmHandler *OpenStackVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInf
 			//continue
 		}
 		secGroups[i] = security.IId.SystemId
-	}
+	}*/
 
 	// Flavor 정보 조회 (Name)
-	flavorId, err := GetFlavor(vmHandler.Client, vmReqInfo.VMSpecName)
+	/*flavorId, err := GetFlavor(vmHandler.Client, vmReqInfo.VMSpecName)
 	if err != nil {
 		cblogger.Error(fmt.Sprintf("failed to get vm spec, err : %s", err))
 		return irs.VMInfo{}, err
-	}
+	}*/
 
 	// VM 생성
 	serverCreateOpts := servers.CreateOpts{
 		Name:      vmReqInfo.IId.NameId,
-		ImageRef:  image.IId.SystemId,
-		FlavorRef: *flavorId,
+		ImageName: vmReqInfo.ImageIID.NameId,
+		//ImageRef:  vmReqInfo.ImageIID.SystemId,
+		FlavorName: vmReqInfo.VMSpecName,
+		//FlavorRef: *flavorId,
 		Networks: []servers.Network{
-			{UUID: vNetId},
+			{UUID: vmReqInfo.VpcIID.SystemId},
 		},
-		SecurityGroups: secGroups,
 	}
+
+	sgIdArr := make([]string, len(vmReqInfo.SecurityGroupIIDs))
+	for i, sg := range vmReqInfo.SecurityGroupIIDs {
+		sgIdArr[i] = sg.SystemId
+	}
+	serverCreateOpts.SecurityGroups = sgIdArr
 
 	// Add KeyPair
 	createOpts := keypairs.CreateOptsExt{

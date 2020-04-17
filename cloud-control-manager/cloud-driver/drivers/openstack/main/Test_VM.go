@@ -23,20 +23,38 @@ func init() {
 // Create Instance
 func createVM(config Config, vmHandler irs.VMHandler) (*string, error) {
 
+	vmName := "CBVm"
+	imageId := "c14a9728-eb03-4813-9e1a-8f57fe62b4fb"
+	imageName := "ubuntu16.04"
+	vmSpecName := "nano.1"
+	vpcId := "deae15ce-9789-4a4a-8f84-885e01ce8c1d"
+	//subnetId := "03e48ba2-c0ac-4e2f-8d9f-dd4fb1615d5a"
+	securityId := "392b779d-4c41-4f7e-aeb2-a5673108df86"
+	keypairName := "CB-Keypair"
+
 	vmReqInfo := irs.VMReqInfo{
+		IId:               irs.IID{NameId: vmName},
+		ImageIID:          irs.IID{SystemId: imageId, NameId: imageName},
+		VpcIID:            irs.IID{SystemId: vpcId},
+		SecurityGroupIIDs: []irs.IID{{SystemId: securityId}},
+		VMSpecName:        vmSpecName,
+		KeyPairIID:        irs.IID{NameId: keypairName},
+	}
+
+	/*vmReqInfo := irs.VMReqInfo{
 		VMName:           config.Openstack.VMName,
 		ImageId:          config.Openstack.ImageId,
 		VMSpecId:         config.Openstack.FlavorId,
 		VirtualNetworkId: config.Openstack.NetworkId,
 		SecurityGroupIds: []string{config.Openstack.SecurityGroups},
 		KeyPairName:      config.Openstack.KeypairName,
-	}
+	}*/
 
 	vm, err := vmHandler.StartVM(vmReqInfo)
 	if err != nil {
 		return nil, err
 	}
-	return &vm.Id, nil
+	return &vm.IId.SystemId, nil
 }
 
 func testVMHandler() {
@@ -58,7 +76,7 @@ func testVMHandler() {
 	cblogger.Info("9. Terminate VM")
 	cblogger.Info("10. Exit")
 
-	var vmId string
+	vmIId := irs.IID{SystemId: "352d5aca-78d4-4eee-99d0-10404d9ed197"}
 
 	for {
 		var commandNum int
@@ -83,7 +101,7 @@ func testVMHandler() {
 				cblogger.Info("Finish List VM")
 			case 2:
 				cblogger.Info("Start Get VM ...")
-				vmInfo, err := vmHandler.GetVM(vmId)
+				vmInfo, err := vmHandler.GetVM(vmIId)
 				if err != nil {
 					cblogger.Error(err)
 				} else {
@@ -103,7 +121,7 @@ func testVMHandler() {
 				cblogger.Info("Finish List VMStatus")
 			case 4:
 				cblogger.Info("Start Get VMStatus ...")
-				vmStatus, err := vmHandler.GetVMStatus(vmId)
+				vmStatus, err := vmHandler.GetVMStatus(vmIId)
 				if err != nil {
 					cblogger.Error(err)
 				} else {
@@ -112,36 +130,37 @@ func testVMHandler() {
 				cblogger.Info("Finish Get VMStatus")
 			case 5:
 				cblogger.Info("Start Create VM ...")
-				if createdVmId, err := createVM(config, vmHandler); err != nil {
+				vmId, err := createVM(config, vmHandler)
+				if err != nil {
 					cblogger.Error(err)
 				} else {
-					vmId = *createdVmId
+					vmIId.SystemId = *vmId
 				}
 				cblogger.Info("Finish Create VM")
 			case 6:
 				cblogger.Info("Start Suspend VM ...")
-				err := vmHandler.SuspendVM(vmId)
+				_, err := vmHandler.SuspendVM(vmIId)
 				if err != nil {
 					cblogger.Error(err)
 				}
 				cblogger.Info("Finish Suspend VM")
 			case 7:
 				cblogger.Info("Start Resume  VM ...")
-				err := vmHandler.ResumeVM(vmId)
+				_, err := vmHandler.ResumeVM(vmIId)
 				if err != nil {
 					cblogger.Error(err)
 				}
 				cblogger.Info("Finish Resume VM")
 			case 8:
 				cblogger.Info("Start Reboot  VM ...")
-				err := vmHandler.RebootVM(vmId)
+				_, err := vmHandler.RebootVM(vmIId)
 				if err != nil {
 					cblogger.Error(err)
 				}
 				cblogger.Info("Finish Reboot VM")
 			case 9:
 				cblogger.Info("Start Terminate  VM ...")
-				err := vmHandler.TerminateVM(vmId)
+				_, err := vmHandler.TerminateVM(vmIId)
 				if err != nil {
 					cblogger.Error(err)
 				}
