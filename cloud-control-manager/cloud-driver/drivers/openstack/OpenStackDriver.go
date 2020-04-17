@@ -37,12 +37,13 @@ func (OpenStackDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	var drvCapabilityInfo idrv.DriverCapabilityInfo
 
 	drvCapabilityInfo.ImageHandler = true
-	drvCapabilityInfo.VNetworkHandler = true
+	drvCapabilityInfo.VPCHandler = true
 	drvCapabilityInfo.SecurityHandler = true
 	drvCapabilityInfo.KeyPairHandler = true
 	drvCapabilityInfo.VNicHandler = false
-	drvCapabilityInfo.PublicIPHandler = true
+	drvCapabilityInfo.PublicIPHandler = false
 	drvCapabilityInfo.VMHandler = true
+	drvCapabilityInfo.VMSpecHandler = true
 
 	return drvCapabilityInfo
 }
@@ -68,8 +69,6 @@ func (driver *OpenStackDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) 
 	// 2. create a client object(or service  object) of Test A Cloud with credential info.
 	// 3. create CloudConnection Instance of "connect/TDA_CloudConnection".
 	// 4. return CloudConnection Interface of TDA_CloudConnection.
-
-	// sample code, do not user like this^^
 
 	Client, err := getServiceClient(connectionInfo)
 	if err != nil {
@@ -197,4 +196,4 @@ func getNetworkClient(connInfo idrv.ConnectionInfo) (*gophercloud.ServiceClient,
 	return client, err
 }
 
-var TestDriver OpenStackDriver
+var CloudDriver OpenStackDriver

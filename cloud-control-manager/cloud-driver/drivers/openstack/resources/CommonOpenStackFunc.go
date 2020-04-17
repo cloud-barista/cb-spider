@@ -1,27 +1,25 @@
 package resources
 
 import (
-	"fmt"
-	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
+	_ "fmt"
+	_ "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/rackspace/gophercloud"
 	"github.com/rackspace/gophercloud/openstack/compute/v2/flavors"
 	"github.com/rackspace/gophercloud/openstack/networking/v2/networks"
 	"github.com/rackspace/gophercloud/pagination"
-	"strconv"
-	"strings"
+	_ "strconv"
+	_ "strings"
 )
 
 const (
 	CBPublicIPPool       = "ext"
 	CBGateWayId          = "8c1af031-aad6-4762-ac83-52e09dd82571"
 	CBVirutalNetworkName = "CB-VNet"
-	CBVnetDefaultCidr    = "130.0.0.0/16"
-	//CBVMUser             = "cb-user"
-	DNSNameservers = "8.8.8.8"
+	DNSNameservers       = "8.8.8.8"
 )
 
 // 서브넷 CIDR 생성 (CIDR C class 기준 생성)
-func CreateSubnetCIDR(subnetList []*irs.VNetworkInfo) (*string, error) {
+/*func CreateSubnetCIDR(subnetList []*irs.VNetworkInfo) (*string, error) {
 
 	// CIDR C class 최대값 찾기
 	maxClassNum := 0
@@ -47,7 +45,7 @@ func CreateSubnetCIDR(subnetList []*irs.VNetworkInfo) (*string, error) {
 	vNetIPClass := strings.Split(vNetIP[0], ".")
 	subnetCIDR := fmt.Sprintf("%s.%s.%d.0/24", vNetIPClass[0], vNetIPClass[1], maxClassNum)
 	return &subnetCIDR, nil
-}
+}*/
 
 // 기본 가상 네트워크(CB-VNet) Id 정보 조회
 func GetCBVNetId(client *gophercloud.ServiceClient) (string, error) {
