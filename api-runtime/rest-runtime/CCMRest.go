@@ -706,13 +706,34 @@ func createSecurity(c echo.Context) error {
 
 	var req struct {
 		ConnectionName string
-		ReqInfo cres.SecurityReqInfo
+		ReqInfo struct {
+			Name string
+			VPCName string
+			Direction     string
+			SecurityRules *[]cres.SecurityRuleInfo
+		}
 	}
 
 	if err := c.Bind(&req); err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
+	// Rest RegInfo => Driver ReqInfo
+	reqInfo := cres.SecurityReqInfo {
+			IId: cres.IID{req.ReqInfo.Name, ""},
+			VpcIID: cres.IID{req.ReqInfo.VPCName, ""},
+			Direction: req.ReqInfo.Direction,
+			SecurityRules: req.ReqInfo.SecurityRules,
+		   }
+//+++++++++++++++++++++++++++++++++++++++++++
+        // set VPC SystemId
+        vpcIIDInfo, err := iidRWLock.GetIID(req.ConnectionName, rsVPC, reqInfo.VpcIID)
+        if err != nil {
+                return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+        }
+        reqInfo.VpcIID.SystemId = vpcIIDInfo.IId.SystemId
+//+++++++++++++++++++++++++++++++++++++++++++
+	
 	cldConn, err := ccm.GetCloudConnection(req.ConnectionName)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
@@ -727,21 +748,30 @@ func createSecurity(c echo.Context) error {
 sgRWLock.Lock()
 defer sgRWLock.Unlock()
 // (1) check exist(NameID)
-        bool_ret, err := iidRWLock.IsExistIID(req.ConnectionName, rsType, req.ReqInfo.IId)
+        bool_ret, err := iidRWLock.IsExistIID(req.ConnectionName, rsType, reqInfo.IId)
         if err != nil {
                 cblog.Error(err)
                 return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
         }
 
         if bool_ret == true {
-                return echo.NewHTTPError(http.StatusInternalServerError, fmt.Errorf(rsType + "-" + req.ReqInfo.IId.NameId + " already exists!"))
+                return echo.NewHTTPError(http.StatusInternalServerError, fmt.Errorf(rsType + "-" + reqInfo.IId.NameId + " already exists!"))
         }
 
 // (2) create Resource
-	info, err := handler.CreateSecurity(req.ReqInfo)
+	info, err := handler.CreateSecurity(reqInfo)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
+/*
+	// set VPC NameId
+	vpcIIDInfo, err := iidRWLock.GetIIDbySystemID(req.ConnectionName, rsVPC, info.VpcIID)
+        if err != nil {
+                return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+        }
+
+	info.VpcIID.NameId = vpcIIDInfo.IId.NameId
+*/
 
 // (3) insert IID
         iidInfo, err := iidRWLock.CreateIID(req.ConnectionName, rsType, info.IId)
@@ -818,6 +848,19 @@ defer sgRWLock.RUnlock()
                 exist := false
                 for _, info := range infoList {
                         if iidInfo.IId.SystemId == info.IId.SystemId {
+
+//+++++++++++++++++++++++++++++++++++++++++++
+// set ResourceInfo(IID.NameId)
+        //info.IId.NameId = iidInfo.IId.NameId
+
+        // set VPC NameId
+        vpcIIDInfo, err := iidRWLock.GetIIDbySystemID(req.ConnectionName, rsVPC, info.VpcIID)
+        if err != nil {
+                return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+        }
+        info.VpcIID.NameId = vpcIIDInfo.IId.NameId
+//+++++++++++++++++++++++++++++++++++++++++++
+
 				infoList2 = append(infoList2, info)
                                 exist = true
                         }
@@ -871,8 +914,17 @@ defer sgRWLock.RUnlock()
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
+//+++++++++++++++++++++++++++++++++++++++++++
 // (3) set ResourceInfo(IID.NameId)
-        info.IId.NameId = iidInfo.IId.NameId
+        //info.IId.NameId = iidInfo.IId.NameId
+
+        // set VPC NameId
+        vpcIIDInfo, err := iidRWLock.GetIIDbySystemID(req.ConnectionName, rsVPC, info.VpcIID)
+        if err != nil {
+                return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+        }
+        info.VpcIID.NameId = vpcIIDInfo.IId.NameId
+//+++++++++++++++++++++++++++++++++++++++++++
 
 	return c.JSON(http.StatusOK, &info)
 }

@@ -145,6 +145,29 @@ defer iidRWLock.rwMutex.RUnlock()
 	return iidInfo, err
 }
 
+// 1. check params
+// 2. get IIDInfo from cb-store
+func (iidRWLock *IIDRWLOCK)GetIIDbySystemID(connectionName string, resourceType string, iId resources.IID) (*IIDInfo, error) {
+        cblog.Info("call GetIIDbySystemID()")
+
+        cblog.Debug("check params")
+        err := checkParamsSystemId(connectionName, resourceType, &iId)
+        if err != nil {
+                return nil, err
+        }
+
+iidRWLock.rwMutex.RLock()
+defer iidRWLock.rwMutex.RUnlock()
+        iidInfo, err := getInfoByValue(connectionName, resourceType, iId.SystemId)
+        if err != nil {
+                cblog.Error(err)
+                return nil, err
+        }
+
+        return iidInfo, err
+}
+
+
 func (iidRWLock *IIDRWLOCK)DeleteIID(connectionName string, resourceType string, iId resources.IID) (bool, error) {
 	cblog.Info("call DeleteIID()")
 
@@ -185,3 +208,18 @@ func checkParams(connectionName string, resourceType string, iId *resources.IID)
 	return nil
 }
 
+func checkParamsSystemId(connectionName string, resourceType string, iId *resources.IID) error {
+        if connectionName == "" {
+                return fmt.Errorf("ConnectionName is empty!")
+        }
+        if resourceType == "" {
+                return fmt.Errorf("ResourceType is empty!")
+        }
+        if iId == nil {
+                return fmt.Errorf("IID is empty!")
+        }
+        if iId.SystemId == "" {
+                return fmt.Errorf("IID.SystemId is empty!")
+        }
+        return nil
+}
