@@ -40,34 +40,42 @@ type OpenStackVMHandler struct {
 
 func (vmHandler *OpenStackVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, error) {
 	// 가상서버 이름 중복 체크
-	vmId, _ := vmHandler.getVmIdByName(vmReqInfo.VMName)
-	if vmId != "" {
-		errMsg := fmt.Sprintf("VirtualMachine with name %s already exist", vmReqInfo.VMName)
-		createErr := errors.New(errMsg)
+	pager, err := servers.List(vmHandler.Client, servers.ListOpts{Name: vmReqInfo.IId.NameId}).AllPages()
+	if err != nil {
+		cblogger.Error(fmt.Sprintf("failed to get vm with name %s", vmReqInfo.IId.NameId))
+		return irs.VMInfo{}, err
+	}
+	existServer, err := servers.ExtractServers(pager)
+	if err != nil {
+		cblogger.Error(fmt.Sprintf("failed to extract vm information with name %s", vmReqInfo.IId.NameId))
+		return irs.VMInfo{}, err
+	}
+	if len(existServer) != 0 {
+		createErr := errors.New(fmt.Sprintf("VirtualMachine with name %s already exist", vmReqInfo.IId.NameId))
 		return irs.VMInfo{}, createErr
 	}
 
-	vNetId, err := GetCBVNetId(vmHandler.NetworkClient)
+	/*vNetId, err := GetCBVNetId(vmHandler.NetworkClient)
 	if err != nil {
 		return irs.VMInfo{}, err
 	}
 	if vNetId == "" {
 		cblogger.Error(fmt.Sprintf("failed to get vnetwork"))
 		return irs.VMInfo{}, err
-	}
+	}*/
 
 	//  이미지 정보 조회 (Name)
-	imageHandler := OpenStackImageHandler{
+	/*imageHandler := OpenStackImageHandler{
 		Client: vmHandler.Client,
 	}
-	image, err := imageHandler.GetImage(vmReqInfo.ImageId)
+	image, err := imageHandler.GetImage(vmReqInfo.IId)
 	if err != nil {
 		cblogger.Error(fmt.Sprintf("failed to get image, err : %s", err))
 		return irs.VMInfo{}, err
-	}
+	}*/
 
 	//  네트워크 정보 조회 (Name)
-	/*vNetworkHandler := OpenStackVNetworkHandler{
+	/*vNetworkHandler := OpenStackVPCHandler{
 		Client: vmHandler.Client,
 	}
 	vNetwork, err := vNetworkHandler.GetVNetwork(vmReqInfo.VirtualNetworkId)
@@ -77,43 +85,50 @@ func (vmHandler *OpenStackVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInf
 	}*/
 
 	// 보안그룹 정보 조회 (Name)
-	securityHandler := OpenStackSecurityHandler{
+	/*securityHandler := OpenStackSecurityHandler{
 		Client:        vmHandler.Client,
 		NetworkClient: vmHandler.NetworkClient,
 	}
-	secGroups := make([]string, len(vmReqInfo.SecurityGroupIds))
-	for i, s := range vmReqInfo.SecurityGroupIds {
+	secGroups := make([]string, len(vmReqInfo.SecurityGroupIIDs))
+	for i, s := range vmReqInfo.SecurityGroupIIDs {
 		security, err := securityHandler.GetSecurity(s)
 		if err != nil {
 			cblogger.Error(fmt.Sprintf("failed to get security group, err : %s", err))
 			return irs.VMInfo{}, err
 			//continue
 		}
-		secGroups[i] = security.Id
-	}
+		secGroups[i] = security.IId.SystemId
+	}*/
 
 	// Flavor 정보 조회 (Name)
-	flavorId, err := GetFlavor(vmHandler.Client, vmReqInfo.VMSpecId)
+	/*flavorId, err := GetFlavor(vmHandler.Client, vmReqInfo.VMSpecName)
 	if err != nil {
 		cblogger.Error(fmt.Sprintf("failed to get vm spec, err : %s", err))
 		return irs.VMInfo{}, err
-	}
+	}*/
 
 	// VM 생성
 	serverCreateOpts := servers.CreateOpts{
-		Name:      vmReqInfo.VMName,
-		ImageRef:  image.Id,
-		FlavorRef: *flavorId,
+		Name:      vmReqInfo.IId.NameId,
+		ImageName: vmReqInfo.ImageIID.NameId,
+		//ImageRef:  vmReqInfo.ImageIID.SystemId,
+		FlavorName: vmReqInfo.VMSpecName,
+		//FlavorRef: *flavorId,
 		Networks: []servers.Network{
-			{UUID: vNetId},
+			{UUID: vmReqInfo.VpcIID.SystemId},
 		},
-		SecurityGroups: secGroups,
 	}
+
+	sgIdArr := make([]string, len(vmReqInfo.SecurityGroupIIDs))
+	for i, sg := range vmReqInfo.SecurityGroupIIDs {
+		sgIdArr[i] = sg.SystemId
+	}
+	serverCreateOpts.SecurityGroups = sgIdArr
 
 	// Add KeyPair
 	createOpts := keypairs.CreateOptsExt{
 		CreateOptsBuilder: serverCreateOpts,
-		KeyName:           vmReqInfo.KeyPairName,
+		KeyName:           vmReqInfo.KeyPairIID.NameId,
 	}
 
 	server, err := servers.Create(vmHandler.Client, createOpts).Extract()
@@ -122,7 +137,7 @@ func (vmHandler *OpenStackVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInf
 	}
 
 	// VM 생성 완료까지 wait
-	vmId = server.ID
+	vmId := server.ID
 	var isDeployed bool
 	var serverInfo irs.VMInfo
 
@@ -152,14 +167,13 @@ func (vmHandler *OpenStackVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInf
 	return serverInfo, nil
 }
 
-func (vmHandler *OpenStackVMHandler) SuspendVM(vmNameID string) (irs.VMStatus, error) {
-	vmID, err := vmHandler.getVmIdByName(vmNameID)
+func (vmHandler *OpenStackVMHandler) SuspendVM(vmIID irs.IID) (irs.VMStatus, error) {
+	/*vmID, err := vmHandler.getVmIdByName(vmNameID)
 	if err != nil {
 		cblogger.Error(err)
 		return irs.Failed, err
-	}
-
-	err = startstop.Stop(vmHandler.Client, vmID).Err
+	}*/
+	err := startstop.Stop(vmHandler.Client, vmIID.SystemId).Err
 	if err != nil {
 		cblogger.Error(err)
 		return irs.Failed, err
@@ -169,14 +183,13 @@ func (vmHandler *OpenStackVMHandler) SuspendVM(vmNameID string) (irs.VMStatus, e
 	return irs.Suspending, nil
 }
 
-func (vmHandler *OpenStackVMHandler) ResumeVM(vmNameID string) (irs.VMStatus, error) {
-	vmID, err := vmHandler.getVmIdByName(vmNameID)
+func (vmHandler *OpenStackVMHandler) ResumeVM(vmIID irs.IID) (irs.VMStatus, error) {
+	/*vmID, err := vmHandler.getVmIdByName(vmNameID)
 	if err != nil {
 		cblogger.Error(err)
 		return irs.Failed, err
-	}
-
-	err = startstop.Start(vmHandler.Client, vmID).Err
+	}*/
+	err := startstop.Start(vmHandler.Client, vmIID.SystemId).Err
 	if err != nil {
 		cblogger.Error(err)
 		return irs.Failed, err
@@ -186,19 +199,14 @@ func (vmHandler *OpenStackVMHandler) ResumeVM(vmNameID string) (irs.VMStatus, er
 	return irs.Resuming, nil
 }
 
-func (vmHandler *OpenStackVMHandler) RebootVM(vmNameID string) (irs.VMStatus, error) {
-	/*rebootOpts := servers.RebootOpts{
-		Type: servers.SoftReboot,
-		//Type: servers.HardReboot,
-	}*/
-	vmID, err := vmHandler.getVmIdByName(vmNameID)
+func (vmHandler *OpenStackVMHandler) RebootVM(vmIID irs.IID) (irs.VMStatus, error) {
+	/*vmID, err := vmHandler.getVmIdByName(vmNameID)
 	if err != nil {
 		cblogger.Error(err)
 		return irs.Failed, err
-	}
-
+	}*/
 	rebootOpts := servers.SoftReboot
-	err = servers.Reboot(vmHandler.Client, vmID, rebootOpts).ExtractErr()
+	err := servers.Reboot(vmHandler.Client, vmIID.SystemId, rebootOpts).ExtractErr()
 	if err != nil {
 		cblogger.Error(err)
 		return irs.Failed, err
@@ -208,9 +216,9 @@ func (vmHandler *OpenStackVMHandler) RebootVM(vmNameID string) (irs.VMStatus, er
 	return irs.Rebooting, nil
 }
 
-func (vmHandler *OpenStackVMHandler) TerminateVM(vmNameID string) (irs.VMStatus, error) {
+func (vmHandler *OpenStackVMHandler) TerminateVM(vmIID irs.IID) (irs.VMStatus, error) {
 	// VM 정보 조회
-	server, err := vmHandler.GetVM(vmNameID)
+	server, err := vmHandler.GetVM(vmIID)
 	if err != nil {
 		cblogger.Error(err)
 		return irs.Failed, err
@@ -246,7 +254,7 @@ func (vmHandler *OpenStackVMHandler) TerminateVM(vmNameID string) (irs.VMStatus,
 	}
 
 	// VM 삭제
-	err = servers.Delete(vmHandler.Client, server.Id).ExtractErr()
+	err = servers.Delete(vmHandler.Client, server.IId.SystemId).ExtractErr()
 	if err != nil {
 		cblogger.Error(err)
 		return irs.Failed, err
@@ -270,8 +278,10 @@ func (vmHandler *OpenStackVMHandler) ListVMStatus() ([]*irs.VMStatusInfo, error)
 		for _, s := range list {
 			vmStatus := irs.VMStatus(s.Status)
 			vmStatusInfo := irs.VMStatusInfo{
-				VmId:     s.ID,
-				VmName:   s.Name,
+				IId: irs.IID{
+					NameId:   s.Name,
+					SystemId: s.ID,
+				},
 				VmStatus: vmStatus,
 			}
 			vmStatusList = append(vmStatusList, &vmStatusInfo)
@@ -286,13 +296,12 @@ func (vmHandler *OpenStackVMHandler) ListVMStatus() ([]*irs.VMStatusInfo, error)
 	return vmStatusList, nil
 }
 
-func (vmHandler *OpenStackVMHandler) GetVMStatus(vmNameID string) (irs.VMStatus, error) {
-	vmID, err := vmHandler.getVmIdByName(vmNameID)
+func (vmHandler *OpenStackVMHandler) GetVMStatus(vmIID irs.IID) (irs.VMStatus, error) {
+	/*vmID, err := vmHandler.getVmIdByName(vmNameID)
 	if err != nil {
 		return "", nil
-	}
-
-	serverResult, err := servers.Get(vmHandler.Client, vmID).Extract()
+	}*/
+	serverResult, err := servers.Get(vmHandler.Client, vmIID.SystemId).Extract()
 	if err != nil {
 		cblogger.Error(err)
 		return irs.VMStatus(""), err
@@ -337,20 +346,19 @@ func (vmHandler *OpenStackVMHandler) ListVM() ([]*irs.VMInfo, error) {
 	return vmList, nil
 }
 
-func (vmHandler *OpenStackVMHandler) GetVM(vmNameID string) (irs.VMInfo, error) {
+func (vmHandler *OpenStackVMHandler) GetVM(vmIID irs.IID) (irs.VMInfo, error) {
 	// 기존의 vmID 기준 가상서버 조회 (old)
 	/*serverResult, err := servers.Get(vmHandler.Client, vmID).Extract()
 	if err != nil {
 		cblogger.Info(err)
 		return irs.VMInfo{}, err
 	}*/
-
-	vmID, err := vmHandler.getVmIdByName(vmNameID)
+	/*vmID, err := vmHandler.getVmIdByName(vmIID.NameId)
 	if err != nil {
 		return irs.VMInfo{}, err
-	}
+	}*/
 
-	serverResult, err := servers.Get(vmHandler.Client, vmID).Extract()
+	serverResult, err := servers.Get(vmHandler.Client, vmIID.SystemId).Extract()
 	if err != nil {
 		cblogger.Info(err)
 		return irs.VMInfo{}, err
@@ -385,16 +393,18 @@ func mappingServerInfo(server servers.Server) irs.VMInfo {
 
 	// Get Default VM Info
 	vmInfo := irs.VMInfo{
-		Name:        server.Name,
-		Id:          server.ID,
-		KeyPairName: server.KeyName,
-
-		VMUserId:           server.UserID,
-		VMUserPasswd:       server.AdminPass,
-		NetworkInterfaceId: server.HostID,
-
-		KeyValueList:     nil,
-		SecurityGroupIds: nil,
+		IId: irs.IID{
+			NameId:   server.Name,
+			SystemId: server.ID,
+		},
+		KeyPairIId: irs.IID{
+			NameId: server.KeyName,
+		},
+		VMUserId:          server.UserID,
+		VMUserPasswd:      server.AdminPass,
+		NetworkInterface:  server.HostID,
+		KeyValueList:      nil,
+		SecurityGroupIIds: nil,
 	}
 
 	if creatTime, err := time.Parse(time.RFC3339, server.Created); err == nil {
@@ -402,22 +412,26 @@ func mappingServerInfo(server servers.Server) irs.VMInfo {
 	}
 
 	if len(server.Image) != 0 {
-		vmInfo.ImageId = server.Image["id"].(string)
+		vmInfo.ImageIId = irs.IID{
+			SystemId: server.Image["id"].(string),
+		}
 	}
 	if len(server.Flavor) != 0 {
-		vmInfo.VMSpecId = server.Flavor["id"].(string)
+		vmInfo.VMSpecName = server.Flavor["id"].(string)
 	}
 	if len(server.SecurityGroups) != 0 {
-		var securityGroupIdArr []string
-		for _, secGroupMap := range server.SecurityGroups {
-			securityGroupIdArr = append(securityGroupIdArr, fmt.Sprintf("%v", secGroupMap["name"]))
+		securityGroupIdArr := make([]irs.IID, len(server.SecurityGroups))
+		for i, secGroupMap := range server.SecurityGroups {
+			securityGroupIdArr[i] = irs.IID{
+				NameId: secGroupMap["name"].(string),
+			}
 		}
-		vmInfo.SecurityGroupIds = securityGroupIdArr
+		vmInfo.SecurityGroupIIds = securityGroupIdArr
 	}
 
 	// Get VM Subnet, Address Info
 	for k, subnet := range server.Addresses {
-		vmInfo.VirtualNetworkId = k
+		vmInfo.NetworkInterface = k
 		for _, addr := range subnet.([]interface{}) {
 			addrMap := addr.(map[string]interface{})
 			if addrMap["OS-EXT-IPS:type"] == "floating" {
@@ -431,7 +445,7 @@ func mappingServerInfo(server servers.Server) irs.VMInfo {
 	return vmInfo
 }
 
-func (vmHandler *OpenStackVMHandler) getVmIdByName(vmNameID string) (string, error) {
+/*func (vmHandler *OpenStackVMHandler) getVmIdByName(vmNameID string) (string, error) {
 	var vmId string
 
 	// vmNameId 기준 가상서버 조회
@@ -460,4 +474,4 @@ func (vmHandler *OpenStackVMHandler) getVmIdByName(vmNameID string) (string, err
 	}
 
 	return vmId, nil
-}
+}*/

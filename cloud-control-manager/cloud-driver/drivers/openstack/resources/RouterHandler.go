@@ -1,7 +1,6 @@
 package resources
 
 import (
-	//irs "github.com/cloud-barista/poc-cb-spider/cloud-driver/interfaces/resources"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/rackspace/gophercloud"
 	"github.com/rackspace/gophercloud/openstack/networking/v2/extensions/layer3/routers"
