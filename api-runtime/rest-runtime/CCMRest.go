@@ -484,13 +484,11 @@ defer vpcRWLock.Unlock()
 	if bool_ret == true {
                 return echo.NewHTTPError(http.StatusInternalServerError, fmt.Errorf(rsType + "-" + req.ReqInfo.IId.NameId + " already exists!"))
 	}
-fmt.Printf("req.ReqInfo=============== %#v\n", req.ReqInfo)
 // (2) create Resource
 	info, err := handler.CreateVPC(req.ReqInfo)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
-fmt.Printf("info =============== %#v\n", info)
 
 // (3) insert IID
         iidInfo, err := iidRWLock.CreateIID(req.ConnectionName, rsType, info.IId)
@@ -1081,7 +1079,7 @@ defer keyRWLock.RUnlock()
                 }
         }
 
-        jsonResult.Result = infoList
+        jsonResult.Result = infoList2
         return c.JSON(http.StatusOK, &jsonResult)
 }
 
