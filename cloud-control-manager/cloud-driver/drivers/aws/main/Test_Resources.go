@@ -939,12 +939,12 @@ func main() {
 	//handleKeyPair()
 	//handlePublicIP() // PublicIP 생성 후 conf
 	//handleSecurity()
-	//handleVM()
+	handleVM()
 
 	//handleImage() //AMI
 	//handleVNic() //Lancard
 	//handleVMSpec()
-	handleVPC()
+	//handleVPC()
 
 	/*
 		KeyPairHandler, err := setKeyPairHandler()

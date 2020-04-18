@@ -705,8 +705,8 @@ func (vmHandler *AwsVMHandler) ListVM() ([]*irs.VMInfo, error) {
 				cblogger.Errorf("VM Id[%s]에 해당하는 VM 이름을 찾을 수 없습니다!!!", *vm.InstanceId)
 				continue
 			}
-			vmInfo, _ := vmHandler.GetVM(irs.IID{NameId: tmpVmName})
-			//vmInfo, _ := vmHandler.GetVM(*vm.InstanceId)
+			//vmInfo, _ := vmHandler.GetVM(irs.IID{NameId: tmpVmName})
+			vmInfo, _ := vmHandler.GetVM(irs.IID{SystemId: *vm.InstanceId})
 			vmInfoList = append(vmInfoList, &vmInfo)
 		}
 	}
