@@ -478,7 +478,8 @@ func (vmHandler *AwsVMHandler) GetVM(vmIID irs.IID) (irs.VMInfo, error) {
 // 최종 정보 기반으로 리턴 받고 싶으면 GetVM에 통합해야 할 듯.
 func (vmHandler *AwsVMHandler) ExtractDescribeInstances(reservation *ec2.Reservation) irs.VMInfo {
 	//cblogger.Info("ExtractDescribeInstances", reservation)
-	cblogger.Debug("Instances[0]", reservation.Instances[0])
+	cblogger.Info("Instances[0]", reservation.Instances[0])
+	//spew.Dump(reservation.Instances[0])
 
 	//"stopped" / "terminated" / "running" ...
 	var state string
@@ -499,6 +500,10 @@ func (vmHandler *AwsVMHandler) ExtractDescribeInstances(reservation *ec2.Reserva
 		{Key: "State", Value: *reservation.Instances[0].State.Name},
 		{Key: "Architecture", Value: *reservation.Instances[0].Architecture},
 	}
+
+	//if *reservation.Instances[0].LaunchTime != "" {
+	vmInfo.StartTime = *reservation.Instances[0].LaunchTime
+	//}
 
 	//cblogger.Info("=======>타입 : ", reflect.TypeOf(*reservation.Instances[0]))
 	//cblogger.Info("===> PublicIpAddress TypeOf : ", reflect.TypeOf(reservation.Instances[0].PublicIpAddress))
@@ -540,6 +545,7 @@ func (vmHandler *AwsVMHandler) ExtractDescribeInstances(reservation *ec2.Reserva
 
 		if !reflect.ValueOf(reservation.Instances[0].NetworkInterfaces[0].SubnetId).IsNil() {
 			keyValueList = append(keyValueList, irs.KeyValue{Key: "SubnetId", Value: *reservation.Instances[0].NetworkInterfaces[0].SubnetId})
+			vmInfo.SubnetIID = irs.IID{SystemId: *reservation.Instances[0].NetworkInterfaces[0].SubnetId}
 		}
 
 		if !reflect.ValueOf(reservation.Instances[0].NetworkInterfaces[0].Attachment).IsNil() {
