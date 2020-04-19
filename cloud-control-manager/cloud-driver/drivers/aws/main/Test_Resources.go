@@ -674,7 +674,7 @@ func handleVM() {
 
 	//config := readConfigFile()
 	//VmID := irs.IID{NameId: config.Aws.BaseName, SystemId: config.Aws.VmID}
-	VmID := irs.IID{SystemId: "i-0c158bf27da9a8dfb"}
+	VmID := irs.IID{SystemId: "i-08f13a125cc74bef6"}
 
 	for {
 		fmt.Println("VM Management")
