@@ -72,25 +72,25 @@ func (keyPairHandler *AlibabaKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPai
 	request := ecs.CreateCreateKeyPairRequest()
 	request.Scheme = "https"
 
-	request.KeyPairName = keyPairReqInfo.Name
+	request.KeyPairName = keyPairReqInfo.IId.NameId
 
 	// Creates a new  key pair with the given name
 	result, err := keyPairHandler.Client.CreateKeyPair(request)
 	if err != nil {
 		// if aerr, ok := err.(errors.Error); ok && aerr.Code() == "InvalidKeyPair.Duplicate" {
-		// 	cblogger.Errorf("Keypair %q already exists.", keyPairReqInfo.Name)
+		// 	cblogger.Errorf("Keypair %q already exists.", keyPairReqInfo.IId.NameId)
 		// 	return irs.KeyPairInfo{}, err
 		// }
-		cblogger.Errorf("Unable to create key pair: %s, %v.", keyPairReqInfo.Name, err)
+		cblogger.Errorf("Unable to create key pair: %s, %v.", keyPairReqInfo.IId.NameId, err)
 		return irs.KeyPairInfo{}, err
 	}
 
 	cblogger.Infof("Created key pair %q %s\n%s\n", result.KeyPairName, result.KeyPairFingerPrint, result.PrivateKeyBody)
 	spew.Dump(result)
 	keyPairInfo := irs.KeyPairInfo{
-		Name:        result.KeyPairName,
+		IId:         irs.IID{NameId: result.KeyPairName, SystemId: result.KeyPairName},
 		Fingerprint: result.KeyPairFingerPrint,
-		//KeyMaterial: *result.PrivateKeyBody,
+		PrivateKey:  result.PrivateKeyBody,
 		KeyValueList: []irs.KeyValue{
 			{Key: "KeyMaterial", Value: result.PrivateKeyBody},
 		},
@@ -100,14 +100,14 @@ func (keyPairHandler *AlibabaKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPai
 }
 
 // 혼선을 피하기 위해 keyPairID 대신 keyPairName으로 변경 함.
-func (keyPairHandler *AlibabaKeyPairHandler) GetKey(keyPairName string) (irs.KeyPairInfo, error) {
+func (keyPairHandler *AlibabaKeyPairHandler) GetKey(keyIID irs.IID) (irs.KeyPairInfo, error) {
 	//keyPairID := keyPairName
-	cblogger.Infof("GetKey(keyPairName) : [%s]", keyPairName)
+	cblogger.Infof("GetKey(keyPairName) : [%s]", keyIID.SystemId)
 
 	request := ecs.CreateDescribeKeyPairsRequest()
 	request.Scheme = "https"
 
-	request.KeyPairName = keyPairName
+	request.KeyPairName = keyIID.SystemId
 
 	result, err := keyPairHandler.Client.DescribeKeyPairs(request)
 	cblogger.Info("result : ", result)
@@ -129,7 +129,7 @@ func (keyPairHandler *AlibabaKeyPairHandler) GetKey(keyPairName string) (irs.Key
 		// 	cblogger.Error(err.Error())
 		// 	return irs.KeyPairInfo{}, err
 		// }
-		cblogger.Errorf("Unable to get key pair: %s, %v.", keyPairName, err)
+		cblogger.Errorf("Unable to get key pair: %s, %v.", keyIID.SystemId, err)
 		return irs.KeyPairInfo{}, nil
 	}
 
@@ -151,7 +151,7 @@ func ExtractKeyPairDescribeInfo(keyPair *ecs.KeyPair) irs.KeyPairInfo {
 	spew.Dump(keyPair)
 
 	keyPairInfo := irs.KeyPairInfo{
-		Name:        keyPair.KeyPairName,
+		IId:         irs.IID{NameId: keyPair.KeyPairName},
 		Fingerprint: keyPair.KeyPairFingerPrint,
 		// *keyPair.ResourceGroupId
 		// *keyPair.Tags
@@ -168,14 +168,14 @@ func ExtractKeyPairDescribeInfo(keyPair *ecs.KeyPair) irs.KeyPairInfo {
 	return keyPairInfo
 }
 
-func (keyPairHandler *AlibabaKeyPairHandler) DeleteKey(keyPairName string) (bool, error) {
-	cblogger.Infof("DeleteKey(KeyPairName) : [%s]", keyPairName)
+func (keyPairHandler *AlibabaKeyPairHandler) DeleteKey(keyIID irs.IID) (bool, error) {
+	cblogger.Infof("DeleteKey(KeyPairName) : [%s]", keyIID.SystemId)
 	// Delete the key pair by name
 
 	request := ecs.CreateDeleteKeyPairsRequest()
 	request.Scheme = "https"
 
-	request.KeyPairNames = keyPairName
+	request.KeyPairNames = keyIID.SystemId
 
 	result, err := keyPairHandler.Client.DeleteKeyPairs(request)
 	cblogger.Info(result)
@@ -184,11 +184,11 @@ func (keyPairHandler *AlibabaKeyPairHandler) DeleteKey(keyPairName string) (bool
 		// 	cblogger.Error("Key pair %q does not exist.", keyPairName)
 		// 	return false, err
 		// }
-		cblogger.Errorf("Unable to delete key pair: %s, %v.", keyPairName, err)
+		cblogger.Errorf("Unable to delete key pair: %s, %v.", keyIID.SystemId, err)
 		return false, err
 	}
 
-	cblogger.Infof("Successfully deleted %q key pair\n", keyPairName)
+	cblogger.Infof("Successfully deleted %q key pair\n", keyIID.SystemId)
 
 	return true, nil
 }

@@ -16,6 +16,7 @@ import (
 	"fmt"
 	"reflect"
 	"strconv"
+	"strings"
 
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/ecs"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
@@ -48,7 +49,6 @@ const (
 	CBPageOn = true
 	// page number for control pages
 	CBPageNumber = 1
-
 	// page size for control pages
 	CBPageSize = 100
 )
@@ -80,6 +80,96 @@ func GetCBSubnetName() string {
 
 func GetCBVnetDefaultCidr() string {
 	return CBVnetDefaultCidr
+}
+
+// func GetCBDefaultVNetName() string {
+// 	return CBVirutalNetworkName
+// }
+
+// func GetCBDefaultSubnetName() string {
+// 	return CBSubnetName
+// }
+
+// func GetCBDefaultCidrBlock() string {
+// 	return CBVnetDefaultCidr
+// }
+
+//이 함수는 VPC & Subnet이 존재하는 곳에서만 사용됨.
+//VPC & Subnet이 존재하는 경우 정보를 리턴하고 없는 경우 Default VPC & Subnet을 생성 후 정보를 리턴 함.
+func (vNetworkHandler *AlibabaVPCHandler) GetAutoCBNetworkInfo() (AlibabaCBNetworkInfo, error) {
+	var alibabaCBNetworkInfo AlibabaCBNetworkInfo
+
+	subNetId := vNetworkHandler.GetMcloudBaristaDefaultSubnetId()
+	if subNetId == "" {
+		//내부에서 VPC를 자동으로 생성후 Subnet을 생성함.
+		_, err := vNetworkHandler.CreateVPC(irs.VPCReqInfo{})
+		if err != nil {
+			cblogger.Error("Default VPC(VPC & Subnet) 자동 생성 실패")
+			cblogger.Error(err)
+			return AlibabaCBNetworkInfo{}, err
+		}
+	}
+
+	//VPC & Subnet을 생성했으므로 예외처리 없이 조회만 처리함.
+	alibabaVpcInfo, _ := vNetworkHandler.GetVpc(GetCBVirutalNetworkName())
+	spew.Dump(alibabaVpcInfo)
+	alibabaCBNetworkInfo.VpcId = alibabaVpcInfo.Id
+	alibabaCBNetworkInfo.VpcName = alibabaVpcInfo.Name
+
+	alibabaSubnetInfo, _ := vNetworkHandler.GetVPC("")
+	spew.Dump(alibabaSubnetInfo)
+	alibabaCBNetworkInfo.SubnetId = alibabaSubnetInfo.Id
+	alibabaCBNetworkInfo.SubnetName = alibabaSubnetInfo.Name
+
+	spew.Dump(alibabaCBNetworkInfo)
+
+	return alibabaCBNetworkInfo, nil
+}
+
+func (vNetworkHandler *AlibabaVPCHandler) GetMcloudBaristaDefaultVpcId() string {
+	alibabaVpcInfo, err := vNetworkHandler.GetVpc(GetCBVirutalNetworkName())
+	if err != nil {
+		// if aerr, ok := err.(errors.Error); ok {
+		// 	switch aerr.Code() {
+		// 	default:
+		// 		cblogger.Error(aerr.Error())
+		// 	}
+		// } else {
+		// 	cblogger.Error(err.Error())
+		// }
+		cblogger.Error(err.Error())
+		return ""
+	}
+
+	//기존 정보가 존재하면...
+	if alibabaVpcInfo.Id != "" {
+		return alibabaVpcInfo.Id
+	} else {
+		return ""
+	}
+}
+
+func (vNetworkHandler *AlibabaVPCHandler) GetMcloudBaristaDefaultSubnetId() string {
+	alibabaSubnetInfo, err := vNetworkHandler.GetVPC("")
+	if err != nil {
+		// if aerr, ok := err.(errors.Error); ok {
+		// 	switch aerr.Code() {
+		// 	default:
+		// 		cblogger.Error(aerr.Error())
+		// 	}
+		// } else {
+		// 	cblogger.Error(err.Error())
+		// }
+		cblogger.Error(err.Error())
+		return ""
+	}
+
+	//기존 정보가 존재하면...
+	if alibabaSubnetInfo.Id != "" {
+		return alibabaSubnetInfo.Id
+	} else {
+		return ""
+	}
 }
 
 func SetNameTag(Client *ecs.Client, resourceId string, resourceType string, value string) bool {
@@ -114,6 +204,62 @@ func SetNameTag(Client *ecs.Client, resourceId string, resourceType string, valu
 	}
 
 	return true
+}
+
+// 서브넷 CIDR 생성 (CIDR C class 기준 생성)
+func CreateSubnetCIDR(subnetList []*irs.VPCInfo) (*string, error) {
+
+	// CIDR C class 최대값 찾기
+	maxClassNum := 0
+	for _, subnet := range subnetList.SubnetInfoList {
+		irs.SubnetInfo
+		addressArr := strings.Split(subnet.IPv4_CIDR, ".")
+		if curClassNum, err := strconv.Atoi(addressArr[2]); err != nil {
+			return nil, err
+		} else {
+			if curClassNum > maxClassNum {
+				maxClassNum = curClassNum
+			}
+		}
+	}
+
+	if len(subnetList) == 0 {
+		maxClassNum = 0
+	} else {
+		maxClassNum = maxClassNum + 1
+	}
+
+	// 서브넷 CIDR 할당
+	vNetIP := strings.Split(CBVnetDefaultCidr, "/")
+	vNetIPClass := strings.Split(vNetIP[0], ".")
+	subnetCIDR := fmt.Sprintf("%s.%s.%d.0/24", vNetIPClass[0], vNetIPClass[1], maxClassNum)
+	return &subnetCIDR, nil
+}
+
+// AssociationId 대신 PublicIP로도 가능 함.
+func AssociatePublicIP(client *ecs.Client, allocationId string, instanceId string) (bool, error) {
+	cblogger.Infof("ECS에 퍼블릭 IP할당 - AllocationId : [%s], InstanceId : [%s]", allocationId, instanceId)
+
+	// ECS에 할당.
+	// Associate the new Elastic IP address with an existing ECS instance.
+	request := ecs.CreateAssociateEipAddressRequest()
+	request.Scheme = "https"
+
+	request.InstanceId = instanceId
+	request.AllocationId = allocationId
+
+	assocRes, err := client.AssociateEipAddress(request)
+	spew.Dump(assocRes)
+	cblogger.Infof("[%s] ECS에 EIP(AllocationId : [%s]) 할당 완료", instanceId, allocationId)
+	// cblogger.Infof("[%s] ECS에 EIP(AllocationId : [%s]) 할당 완료 - AssociationId Id : [%s]", instanceId, allocationId, *assocRes.AssociationId)
+
+	if err != nil {
+		cblogger.Errorf("Unable to associate IP address with %s, %v", instanceId, err)
+		return false, err
+	}
+
+	cblogger.Info(assocRes)
+	return true, nil
 }
 
 //Cloud Object를 JSON String 타입으로 변환

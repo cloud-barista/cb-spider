@@ -31,6 +31,7 @@ func init() {
 	cblog.SetLevel("debug")
 }
 
+/*
 // Test PublicIp
 func handlePublicIP() {
 	cblogger.Debug("Start Publicip Resource Test")
@@ -138,6 +139,7 @@ func handlePublicIP() {
 		}
 	}
 }
+*/
 
 // Test VMSpec
 func handleVMSpec() {
@@ -235,6 +237,7 @@ func handleVMSpec() {
 	}
 }
 
+/*
 // Test AMI
 func handleImage() {
 	cblogger.Debug("Start ImageHandler Resource Test")
@@ -322,6 +325,8 @@ func handleImage() {
 	}
 }
 
+*/
+
 // Test SecurityHandler
 func handleSecurity() {
 	cblogger.Debug("Start handler")
@@ -345,7 +350,7 @@ func handleSecurity() {
 	//result, err := handler.ListSecurity()
 
 	securityReqInfo := irs.SecurityReqInfo{
-		Name: securityId,
+		IId: irs.IID{NameId: securityId},
 		SecurityRules: &[]irs.SecurityRuleInfo{ //보안 정책 설정
 			{
 				FromPort:   "20",
@@ -448,7 +453,7 @@ func handleKeyPair() {
 			case 2:
 				cblogger.Infof("[%s] 키 페어 생성 테스트", keyPairName)
 				keyPairReqInfo := irs.KeyPairReqInfo{
-					Name: keyPairName,
+					IId: irs.IID{NameId: keyPairName},
 				}
 				result, err := handler.CreateKey(keyPairReqInfo)
 				if err != nil {
@@ -459,7 +464,7 @@ func handleKeyPair() {
 				}
 			case 3:
 				cblogger.Infof("[%s] 키 페어 조회 테스트", keyPairName)
-				result, err := handler.GetKey(keyPairName)
+				result, err := handler.GetKey(irs.IID{SystemId: keyPairName})
 				if err != nil {
 					cblogger.Infof(keyPairName, " 키 페어 조회 실패 : ", err)
 				} else {
@@ -467,7 +472,7 @@ func handleKeyPair() {
 				}
 			case 4:
 				cblogger.Infof("[%s] 키 페어 삭제 테스트", keyPairName)
-				result, err := handler.DeleteKey(keyPairName)
+				result, err := handler.DeleteKey(irs.IID{SystemId: keyPairName})
 				if err != nil {
 					cblogger.Infof(keyPairName, " 키 페어 삭제 실패 : ", err)
 				} else {
@@ -478,6 +483,7 @@ func handleKeyPair() {
 	}
 }
 
+/*
 func TestMain() {
 	cblogger.Debug("Start ImageHandler Resource Test")
 
@@ -497,15 +503,16 @@ func TestMain() {
 		spew.Dump(result)
 	}
 }
+*/
 
 func main() {
 	cblogger.Info("Alibaba Cloud Resource Test")
 	//handleKeyPair()
 	//handlePublicIP() // PublicIP 생성 후 conf
-	//handleVMSpec()
+	handleVMSpec()
 
 	//handleVNetwork() //VPC
-	handleImage() //AMI
+	//handleImage() //AMI
 	//handleVNic() //Lancard
 	//handleSecurity()
 }

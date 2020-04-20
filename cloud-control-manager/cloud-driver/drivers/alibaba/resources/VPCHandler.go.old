@@ -8,7 +8,7 @@
 //
 // by zephy@mz.co.kr, 2019.09.
 
-//VNetworkHandler는 서브넷을 처리하는 핸들러임.
+//VPCHandler는 서브넷을 처리하는 핸들러임.
 //VPC & Subnet 처리 (AlibabaCloud's Subnet --> VSwitch 임)
 //Ver2 - <CB-Virtual Network> 개발 방안에 맞게 VPC기능은 외부에 숨기고 Subnet을 Main으로 함.
 
@@ -29,7 +29,7 @@ import (
 		"github.com/davecgh/go-spew/spew"
 	*/)
 
-type AlibabaVNetworkHandler struct {
+type AlibabaVPCHandler struct {
 	Region idrv.RegionInfo
 	Client *vpc.Client
 }
@@ -66,7 +66,7 @@ type AlibabaZoneInfo struct {
 	ZoneId    string // Alibaba
 }
 
-func (vNetworkHandler *AlibabaVNetworkHandler) GetZone(regionId string) (AlibabaZoneInfo, error) {
+func (vNetworkHandler *AlibabaVPCHandler) GetZone(regionId string) (AlibabaZoneInfo, error) {
 	cblogger.Info("Region Id : ", regionId)
 
 	request := vpc.CreateDescribeZonesRequest()
@@ -89,7 +89,7 @@ func (vNetworkHandler *AlibabaVNetworkHandler) GetZone(regionId string) (Alibaba
 	}
 }
 
-func (vNetworkHandler *AlibabaVNetworkHandler) ListVpc() ([]*AlibabaVpcInfo, error) {
+func (vNetworkHandler *AlibabaVPCHandler) ListVpc() ([]*AlibabaVpcInfo, error) {
 	cblogger.Debug("Start")
 
 	request := vpc.CreateDescribeVpcsRequest()
@@ -112,13 +112,13 @@ func (vNetworkHandler *AlibabaVNetworkHandler) ListVpc() ([]*AlibabaVpcInfo, err
 }
 
 //@TODO : 여러 VPC에 속한 Subnet 목록을 조회하게되는데... CB-Vnet의 서브넷만 조회해야할지 결정이 필요함. 현재는 1차 버전 문맥상 CB-Vnet으로 내부적으로 제한해서 구현했음.
-func (vNetworkHandler *AlibabaVNetworkHandler) ListVNetwork() ([]*irs.VNetworkInfo, error) {
+func (vNetworkHandler *AlibabaVPCHandler) ListVPC() ([]*irs.VPCInfo, error) {
 	cblogger.Debug("Start")
-	var vNetworkInfoList []*irs.VNetworkInfo
+	var vNetworkInfoList []*irs.VPCInfo
 
 	//cblogger.Infof("조회 범위를 CBDefaultVPC[%s]로 제한합니다.", GetCBDefaultVNetName())
-	//defaultVpcInfo := irs.VNetworkReqInfo{}
-	VpcId, errVpc := vNetworkHandler.FindOrCreateMcloudBaristaDefaultVPC(irs.VNetworkReqInfo{})
+	//defaultVpcInfo := irs.VPCReqInfo{}
+	VpcId, errVpc := vNetworkHandler.FindOrCreateMcloudBaristaDefaultVPC(irs.VPCReqInfo{})
 	cblogger.Info("CBDefaultVPC 조회 결과 : ", VpcId)
 	if errVpc != nil {
 		return nil, errVpc
@@ -162,7 +162,7 @@ func (vNetworkHandler *AlibabaVNetworkHandler) ListVNetwork() ([]*irs.VNetworkIn
 	return vNetworkInfoList, nil
 }
 
-func (vNetworkHandler *AlibabaVNetworkHandler) GetVpc(vpcName string) (AlibabaVpcInfo, error) {
+func (vNetworkHandler *AlibabaVPCHandler) GetVpc(vpcName string) (AlibabaVpcInfo, error) {
 	cblogger.Info("VPC Name : ", vpcName)
 
 	request := vpc.CreateDescribeVpcsRequest()
@@ -188,7 +188,7 @@ func (vNetworkHandler *AlibabaVNetworkHandler) GetVpc(vpcName string) (AlibabaVp
 
 // FindOrCreateMcloudBaristaDefaultVPC()에서 호출됨. - 이 곳은 나중을 위해 전달 받은 정보는 이용함
 // 기본 VPC 생성이 필요하면 FindOrCreateMcloudBaristaDefaultVPC()를 호출할 것
-func (vNetworkHandler *AlibabaVNetworkHandler) CreateVpc(alibabaVpcReqInfo AlibabaVpcReqInfo) (AlibabaVpcInfo, error) {
+func (vNetworkHandler *AlibabaVPCHandler) CreateVpc(alibabaVpcReqInfo AlibabaVpcReqInfo) (AlibabaVpcInfo, error) {
 	cblogger.Info(alibabaVpcReqInfo)
 	return AlibabaVpcInfo{}, nil
 	/*
@@ -261,11 +261,11 @@ func (vNetworkHandler *AlibabaVNetworkHandler) CreateVpc(alibabaVpcReqInfo Aliba
 	*/
 }
 
-func (vNetworkHandler *AlibabaVNetworkHandler) CreateVNetwork(vNetworkReqInfo irs.VNetworkReqInfo) (irs.VNetworkInfo, error) {
+func (vNetworkHandler *AlibabaVPCHandler) CreateVPC(vNetworkReqInfo irs.VPCReqInfo) (irs.VPCInfo, error) {
 	// 기본 가상 네트워크가 생성되지 않았을 경우 디폴트 네트워크 생성 (CB-VNet)
 	cblogger.Info(vNetworkReqInfo)
 
-	return irs.VNetworkInfo{}, nil
+	return irs.VPCInfo{}, nil
 
 	/*
 
@@ -273,7 +273,7 @@ func (vNetworkHandler *AlibabaVNetworkHandler) CreateVNetwork(vNetworkReqInfo ir
 		VpcId, errVpc := vNetworkHandler.FindOrCreateMcloudBaristaDefaultVPC(vNetworkReqInfo)
 		cblogger.Info("CBDefaultVPC 조회 결과 : ", VpcId)
 		if errVpc != nil {
-			return irs.VNetworkInfo{}, errVpc
+			return irs.VPCInfo{}, errVpc
 		}
 
 		//서브넷 생성
@@ -288,14 +288,14 @@ func (vNetworkHandler *AlibabaVNetworkHandler) CreateVNetwork(vNetworkReqInfo ir
 		alibabaZoneInfo, err := vNetworkHandler.GetZone(GetCBDefaultVNetName())
 		if err != nil {
 			cblogger.Error(err.Error())
-			return irs.VNetworkInfo{}, err
+			return irs.VPCInfo{}, err
 		}
 
 		//정보가 존재하면...
 		if alibabaZoneInfo.ZoneId != "" {
 			request.ZoneId = alibabaZoneInfo.ZoneId
 		} else {
-			return irs.VNetworkInfo{}, err
+			return irs.VPCInfo{}, err
 		}
 
 		request.VSwitchName = GetCBDefaultSubnetName() // "CB-VNet-Sub"
@@ -323,13 +323,13 @@ func (vNetworkHandler *AlibabaVNetworkHandler) CreateVNetwork(vNetworkReqInfo ir
 				// Message from an error.
 				cblogger.Error(err.Error())
 			}
-			return irs.VNetworkInfo{}, err
+			return irs.VPCInfo{}, err
 		}
 		cblogger.Info(result)
 		spew.Dump(result)
 
-		// getVSWitch() GetVNetwork(vNetworkID string) (VNetworkInfo, error)
-		alibabaVNetworkInfo, err := vNetworkHandler.GetVNetwork(result.VSwitchId)
+		// getVSWitch() GetVPC(vNetworkID string) (VPCInfo, error)
+		alibabaVPCInfo, err := vNetworkHandler.GetVPC(result.VSwitchId)
 		if err != nil {
 			if aerr, ok := err.(errors.Error); ok {
 				switch aerr.Code() {
@@ -341,14 +341,14 @@ func (vNetworkHandler *AlibabaVNetworkHandler) CreateVNetwork(vNetworkReqInfo ir
 				// Message from an error.
 				cblogger.Error(err.Error())
 			}
-			return irs.VNetworkInfo{}, err
+			return irs.VPCInfo{}, err
 		}
 
 		//기존 정보가 존재하면...
-		if alibabaVNetworkInfo.Id != "" {
-			return irs.VNetworkInfo{}, nil
+		if alibabaVPCInfo.Id != "" {
+			return irs.VPCInfo{}, nil
 		} else {
-			//vNetworkInfo := irs.VNetworkInfo{}
+			//vNetworkInfo := irs.VPCInfo{}
 			vNetworkInfo := ExtractSubnetDescribeInfo(result.VSwitches[0])
 		}
 
@@ -392,9 +392,9 @@ func (vNetworkHandler *AlibabaVNetworkHandler) CreateVNetwork(vNetworkReqInfo ir
 }
 
 //vNetworkID를 전달 받으면 해당 Subnet을 조회하고 / vNetworkID의 값이 없으면 CB Default Subnet을 조회함.
-func (vNetworkHandler *AlibabaVNetworkHandler) GetVNetwork(vNetworkID string) (irs.VNetworkInfo, error) {
+func (vNetworkHandler *AlibabaVPCHandler) GetVPC(vNetworkID string) (irs.VPCInfo, error) {
 	cblogger.Infof("vNetworkID : [%s]", vNetworkID)
-	return irs.VNetworkInfo{}, nil
+	return irs.VPCInfo{}, nil
 	/*
 
 		request := vpc.CreateDescribeVSwitchesRequest()
@@ -424,7 +424,7 @@ func (vNetworkHandler *AlibabaVNetworkHandler) GetVNetwork(vNetworkID string) (i
 				// Message from an error.
 				cblogger.Error(err.Error())
 			}
-			return irs.VNetworkInfo{}, err
+			return irs.VPCInfo{}, err
 		}
 
 		cblogger.Info(result)
@@ -433,14 +433,14 @@ func (vNetworkHandler *AlibabaVNetworkHandler) GetVNetwork(vNetworkID string) (i
 			vNetworkInfo := ExtractSubnetDescribeInfo(result.VSwitches[0])
 			return vNetworkInfo, nil
 		} else {
-			return irs.VNetworkInfo{}, nil
+			return irs.VPCInfo{}, nil
 		}
 	*/
 }
 
-func (vNetworkHandler *AlibabaVNetworkHandler) GetVNetworkByName(vNetworkName string) (irs.VNetworkInfo, error) {
+func (vNetworkHandler *AlibabaVPCHandler) GetVPCByName(vNetworkName string) (irs.VPCInfo, error) {
 	cblogger.Infof("vNetworkID : [%s]", vNetworkName)
-	return irs.VNetworkInfo{}, nil
+	return irs.VPCInfo{}, nil
 
 	/*
 
@@ -471,7 +471,7 @@ func (vNetworkHandler *AlibabaVNetworkHandler) GetVNetworkByName(vNetworkName st
 				// Message from an error.
 				cblogger.Error(err.Error())
 			}
-			return irs.VNetworkInfo{}, err
+			return irs.VPCInfo{}, err
 		}
 
 		cblogger.Info(result)
@@ -480,7 +480,7 @@ func (vNetworkHandler *AlibabaVNetworkHandler) GetVNetworkByName(vNetworkName st
 			vNetworkInfo := ExtractSubnetDescribeInfo(result.VSwitches[0])
 			return vNetworkInfo, nil
 		} else {
-			return irs.VNetworkInfo{}, nil
+			return irs.VPCInfo{}, nil
 		}
 	*/
 }
@@ -546,10 +546,10 @@ func ExtractVpcDescribeInfo(vpcInfo *vpc.Vpc) AlibabaVpcInfo {
 }
 
 //Subnet 정보를 추출함
-func ExtractSubnetDescribeInfo(subnetInfo *vpc.VSwitch) irs.VNetworkInfo {
-	return irs.VNetworkInfo{}
+func ExtractSubnetDescribeInfo(subnetInfo *vpc.VSwitch) irs.VPCInfo {
+	return irs.VPCInfo{}
 	/*
-		vNetworkInfo := irs.VNetworkInfo{
+		vNetworkInfo := irs.VPCInfo{
 			Id:            *subnetInfo.VSwitchId,
 			Name:          *subnetInfo.VSwitchName,
 			AddressPrefix: *subnetInfo.CidrBlock,
@@ -588,7 +588,7 @@ func ExtractSubnetDescribeInfo(subnetInfo *vpc.VSwitch) irs.VNetworkInfo {
 	*/
 }
 
-func (vNetworkHandler *AlibabaVNetworkHandler) DeleteVpc(vpcId string) (bool, error) {
+func (vNetworkHandler *AlibabaVPCHandler) DeleteVpc(vpcId string) (bool, error) {
 	cblogger.Info("vpcId : [%s]", vpcId)
 	return false, nil
 	/*
@@ -615,7 +615,7 @@ func (vNetworkHandler *AlibabaVNetworkHandler) DeleteVpc(vpcId string) (bool, er
 
 //서브넷 삭제
 //마지막 서브넷인 경우 CB-Default Virtual Network도 함께 제거
-func (vNetworkHandler *AlibabaVNetworkHandler) DeleteVNetwork(vNetworkID string) (bool, error) {
+func (vNetworkHandler *AlibabaVPCHandler) DeleteVPC(vNetworkID string) (bool, error) {
 	cblogger.Info("vNetworkID : [%s]", vNetworkID)
 	return false, nil
 
@@ -634,14 +634,14 @@ func (vNetworkHandler *AlibabaVNetworkHandler) DeleteVNetwork(vNetworkID string)
 			return false, err
 		}
 
-		subnetList, _ := vNetworkHandler.ListVNetwork()
+		subnetList, _ := vNetworkHandler.ListVPC()
 
 		//서브넷이 존재하는경우 서브넷 삭제 결과 리턴
 		if subnetList != nil {
 			return true, nil
 		} else {
 			//서브넷이 없는 경우 기본 CBVPC도 삭제
-			VpcId, errVpc := vNetworkHandler.FindOrCreateMcloudBaristaDefaultVPC(irs.VNetworkReqInfo{})
+			VpcId, errVpc := vNetworkHandler.FindOrCreateMcloudBaristaDefaultVPC(irs.VPCReqInfo{})
 			cblogger.Info("삭제할 CBDefaultVPC 조회 결과 : ", VpcId)
 			if errVpc != nil {
 				cblogger.Error("삭제할 CBDefaultVPC 조회 실패 : ", errVpc)

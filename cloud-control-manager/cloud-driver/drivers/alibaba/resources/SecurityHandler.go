@@ -212,7 +212,7 @@ func (securityHandler *AlibabaSecurityHandler) ListSecurity() ([]*irs.SecurityIn
 
 }
 
-func (securityHandler *AlibabaSecurityHandler) GetSecurity(securityID string) (irs.SecurityInfo, error) {
+func (securityHandler *AlibabaSecurityHandler) GetSecurity(securityIID irs.IID) (irs.SecurityInfo, error) {
 	return irs.SecurityInfo{}, nil
 	/*
 		cblogger.Infof("securityID : [%s]", securityID)
@@ -406,8 +406,8 @@ func _ExtractIpPermissions(ipPermissions []*ecs.Permission) []*irs.SecurityRuleI
 	*/
 }
 
-func (securityHandler *AlibabaSecurityHandler) DeleteSecurity(securityID string) (bool, error) {
-	cblogger.Infof("securityID : [%s]", securityID)
+func (securityHandler *AlibabaSecurityHandler) DeleteSecurity(securityIID irs.IID) (bool, error) {
+	cblogger.Infof("securityID : [%s]", securityIID.SystemId)
 	/*
 		// Delete the security group.
 		_, err := securityHandler.Client.DeleteSecurityGroup(&ec2.DeleteSecurityGroupInput{

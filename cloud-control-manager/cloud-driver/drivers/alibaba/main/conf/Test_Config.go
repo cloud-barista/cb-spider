@@ -117,14 +117,16 @@ func GetResourceHandler(handlerType string) (interface{}, error) {
 	switch handlerType {
 	case "Image":
 		resourceHandler, err = cloudConnection.CreateImageHandler()
-	case "Publicip":
-		resourceHandler, err = cloudConnection.CreatePublicIPHandler()
+	//case "Publicip":
+	//resourceHandler, err = cloudConnection.CreatePublicIPHandler()
 	case "Security":
 		resourceHandler, err = cloudConnection.CreateSecurityHandler()
-	case "VNetwork":
-		resourceHandler, err = cloudConnection.CreateVNetworkHandler()
-	case "VNic":
-		resourceHandler, err = cloudConnection.CreateVNicHandler()
+		//	case "VNetwork":
+		//resourceHandler, err = cloudConnection.CreateVNetworkHandler()
+	case "VPC":
+		resourceHandler, err = cloudConnection.CreateVPCHandler()
+	//case "VNic":
+	//resourceHandler, err = cloudConnection.CreateVNicHandler()
 	case "VMSpec":
 		resourceHandler, err = cloudConnection.CreateVMSpecHandler()
 	}

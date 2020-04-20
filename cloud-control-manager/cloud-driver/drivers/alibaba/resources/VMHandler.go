@@ -151,8 +151,8 @@ func WaitForRun(svc *ecs.Client, instanceID string) {
 }
 */
 
-func (vmHandler *AlibabaVMHandler) ResumeVM(vmID string) (irs.VMStatus, error) {
-	cblogger.Infof("vmID : [%s]", vmID)
+func (vmHandler *AlibabaVMHandler) ResumeVM(vmIID irs.IID) (irs.VMStatus, error) {
+	cblogger.Infof("vmID : [%s]", vmIID.SystemId)
 	return irs.VMStatus("Failed"), nil
 	/*
 		input := &ec2.StartInstancesInput{
@@ -182,8 +182,8 @@ func (vmHandler *AlibabaVMHandler) ResumeVM(vmID string) (irs.VMStatus, error) {
 	*/
 }
 
-func (vmHandler *AlibabaVMHandler) SuspendVM(vmID string) (irs.VMStatus, error) {
-	cblogger.Infof("vmID : [%s]", vmID)
+func (vmHandler *AlibabaVMHandler) SuspendVM(vmIID irs.IID) (irs.VMStatus, error) {
+	cblogger.Infof("vmID : [%s]", vmIID.SystemId)
 	return irs.VMStatus("Failed"), nil
 	/*
 		input := &ec2.StopInstancesInput{
@@ -208,8 +208,8 @@ func (vmHandler *AlibabaVMHandler) SuspendVM(vmID string) (irs.VMStatus, error) 
 	*/
 }
 
-func (vmHandler *AlibabaVMHandler) RebootVM(vmID string) (irs.VMStatus, error) {
-	cblogger.Infof("vmID : [%s]", vmID)
+func (vmHandler *AlibabaVMHandler) RebootVM(vmIID irs.IID) (irs.VMStatus, error) {
+	cblogger.Infof("vmID : [%s]", vmIID.SystemId)
 	/*
 		input := &ec2.RebootInstancesInput{
 			InstanceIds: []*string{
@@ -246,8 +246,8 @@ func (vmHandler *AlibabaVMHandler) RebootVM(vmID string) (irs.VMStatus, error) {
 	return irs.VMStatus("Failed"), nil
 }
 
-func (vmHandler *AlibabaVMHandler) TerminateVM(vmID string) (irs.VMStatus, error) {
-	cblogger.Infof("vmID : [%s]", vmID)
+func (vmHandler *AlibabaVMHandler) TerminateVM(vmIID irs.IID) (irs.VMStatus, error) {
+	cblogger.Infof("vmID : [%s]", vmIID.SystemId)
 	return irs.VMStatus("Failed"), nil
 	/*
 		input := &ec2.TerminateInstancesInput{
@@ -268,8 +268,8 @@ func (vmHandler *AlibabaVMHandler) TerminateVM(vmID string) (irs.VMStatus, error
 
 //- 보안그룹의 경우 멀티개 설정이 가능한데 현재는 1개만 입력 받음
 // @Todo : SecurityID에 보안그룹 Name을 할당하는게 맞는지 확인 필요
-func (vmHandler *AlibabaVMHandler) GetVM(vmID string) (irs.VMInfo, error) {
-	cblogger.Infof("vmID : [%s]", vmID)
+func (vmHandler *AlibabaVMHandler) GetVM(vmIID irs.IID) (irs.VMInfo, error) {
+	cblogger.Infof("vmID : [%s]", vmIID.SystemId)
 	return irs.VMInfo{}, nil
 	/*
 
@@ -456,8 +456,8 @@ func (vmHandler *AlibabaVMHandler) ListVM() ([]*irs.VMInfo, error) {
 }
 
 //SHUTTING-DOWN / TERMINATED
-func (vmHandler *AlibabaVMHandler) GetVMStatus(vmID string) (irs.VMStatus, error) {
-	cblogger.Infof("vmID : [%s]", vmID)
+func (vmHandler *AlibabaVMHandler) GetVMStatus(vmIID irs.IID) (irs.VMStatus, error) {
+	cblogger.Infof("vmID : [%s]", vmIID.SystemId)
 	/*
 
 		//vmStatus := "pending"
