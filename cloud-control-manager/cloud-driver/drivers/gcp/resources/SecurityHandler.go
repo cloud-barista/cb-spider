@@ -130,10 +130,10 @@ func (securityHandler *GCPSecurityHandler) ListSecurity() ([]*irs.SecurityInfo, 
 	return securityInfo, nil
 }
 
-func (securityHandler *GCPSecurityHandler) GetSecurity(securityID string) (irs.SecurityInfo, error) {
+func (securityHandler *GCPSecurityHandler) GetSecurity(securityIID irs.IID) (irs.SecurityInfo, error) {
 	projectID := securityHandler.Credential.ProjectID
 
-	security, err := securityHandler.Client.Firewalls.Get(projectID, securityID).Do()
+	security, err := securityHandler.Client.Firewalls.Get(projectID, securityIID.SystemId).Do()
 	if err != nil {
 		cblogger.Error(err)
 		return irs.SecurityInfo{}, err
@@ -166,8 +166,11 @@ func (securityHandler *GCPSecurityHandler) GetSecurity(securityID string) (irs.S
 	}
 
 	securityInfo := irs.SecurityInfo{
-		Id:        strconv.FormatUint(security.Id, 10),
-		Name:      security.Name,
+		IId: irs.IID{
+			NameId:   security.Name,
+			SystemId: strconv.FormatUint(security.Id, 10),
+		},
+
 		Direction: security.Direction,
 		KeyValueList: []irs.KeyValue{
 			{"Priority", strconv.FormatInt(security.Priority, 10)},
@@ -179,10 +182,10 @@ func (securityHandler *GCPSecurityHandler) GetSecurity(securityID string) (irs.S
 	return securityInfo, nil
 }
 
-func (securityHandler *GCPSecurityHandler) DeleteSecurity(securityID string) (bool, error) {
+func (securityHandler *GCPSecurityHandler) DeleteSecurity(securityIID irs.IID) (bool, error) {
 	projectID := securityHandler.Credential.ProjectID
 
-	res, err := securityHandler.Client.Firewalls.Delete(projectID, securityID).Do()
+	res, err := securityHandler.Client.Firewalls.Delete(projectID, securityIID.SystemId).Do()
 	if err != nil {
 		cblogger.Error(err)
 		return false, err
