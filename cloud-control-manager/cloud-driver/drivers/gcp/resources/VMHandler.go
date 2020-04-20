@@ -40,11 +40,11 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 	cblogger.Info(vmReqInfo)
 
 	ctx := vmHandler.Ctx
-	vmName := vmReqInfo.VMName
+	vmName := vmReqInfo.IId.NameId
 	projectID := vmHandler.Credential.ProjectID
 	prefix := "https://www.googleapis.com/compute/v1/projects/" + projectID
 	//imageURL := "projects/ubuntu-os-cloud/global/images/ubuntu-minimal-1804-bionic-v20191024"
-	imageURL := vmReqInfo.ImageId
+	imageURL := vmReqInfo.ImageIID.SystemId
 	region := vmHandler.Region.Region
 
 	zone := vmHandler.Region.Zone
@@ -52,41 +52,42 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 	clientEmail := vmHandler.Credential.ClientEmail
 
 	//PublicIP처리
-	var publicIPAddress string
-	cblogger.Info("PublicIp 처리 시작")
-	publicIpHandler := GCPPublicIPHandler{
-		vmHandler.Region, vmHandler.Ctx, vmHandler.Client, vmHandler.Credential}
+	// var publicIPAddress string
+	// cblogger.Info("PublicIp 처리 시작")
+	// publicIpHandler := GCPPublicIPHandler{
+	// 	vmHandler.Region, vmHandler.Ctx, vmHandler.Client, vmHandler.Credential}
 
 	//PublicIp를 전달 받았으면 전달 받은 Ip를 할당
-	if vmReqInfo.PublicIPId != "" {
-		cblogger.Info("PublicIp 정보 조회 시작")
-		publicIPInfo, err := publicIpHandler.GetPublicIP(vmReqInfo.PublicIPId)
-		if err != nil {
-			cblogger.Error(err)
-			return irs.VMInfo{}, err
-		}
-		cblogger.Info("PublicIp 조회됨")
-		cblogger.Info(publicIPInfo)
-		publicIPAddress = publicIPInfo.PublicIP
-	} else { //PublicIp가 없으면 직접 생성
-		cblogger.Info("PublicIp 생성 시작")
-		// PublicIPHandler  불러서 처리 해야 함.
-		publicIpName := vmReqInfo.VMName
-		publicIpReqInfo := irs.PublicIPReqInfo{Name: publicIpName}
-		publicIPInfo, err := publicIpHandler.CreatePublicIP(publicIpReqInfo)
+	// if vmReqInfo.PublicIPId != "" {
+	// 	cblogger.Info("PublicIp 정보 조회 시작")
+	// 	publicIPInfo, err := publicIpHandler.GetPublicIP(vmReqInfo.PublicIPId)
+	// 	if err != nil {
+	// 		cblogger.Error(err)
+	// 		return irs.VMInfo{}, err
+	// 	}
+	// 	cblogger.Info("PublicIp 조회됨")
+	// 	cblogger.Info(publicIPInfo)
+	// 	publicIPAddress = publicIPInfo.PublicIP
+	// } else { //PublicIp가 없으면 직접 생성
+	// 	cblogger.Info("PublicIp 생성 시작")
+	// 	// PublicIPHandler  불러서 처리 해야 함.
+	// 	publicIpName := vmReqInfo.VMName
+	// 	publicIpReqInfo := irs.PublicIPReqInfo{Name: publicIpName}
+	// 	publicIPInfo, err := publicIpHandler.CreatePublicIP(publicIpReqInfo)
 
-		if err != nil {
-			cblogger.Error(err)
-			return irs.VMInfo{}, err
-		}
-		cblogger.Info("PublicIp 생성됨")
-		cblogger.Info(publicIPInfo)
-		publicIPAddress = publicIPInfo.PublicIP
-	}
+	// 	if err != nil {
+	// 		cblogger.Error(err)
+	// 		return irs.VMInfo{}, err
+	// 	}
+	// 	cblogger.Info("PublicIp 생성됨")
+	// 	cblogger.Info(publicIPInfo)
+	// 	publicIPAddress = publicIPInfo.PublicIP
+	// }
+
 	//KEYPAIR HANDLER
 	keypairHandler := GCPKeyPairHandler{
 		vmHandler.Credential, vmHandler.Region}
-	keypairInfo, errKeypair := keypairHandler.GetKey(vmReqInfo.KeyPairName)
+	keypairInfo, errKeypair := keypairHandler.GetKey(vmReqInfo.KeyPairIID.NameId)
 	pubKey := "cb-user:" + keypairInfo.PublicKey
 	if errKeypair != nil {
 		cblogger.Error(errKeypair)
@@ -97,7 +98,7 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 	spew.Dump(keypairInfo)
 
 	networkURL := prefix + "/global/networks/" + GetCBDefaultVNetName()
-	subnetWorkURL := prefix + "/regions/" + region + "/subnetworks/" + vmReqInfo.VirtualNetworkId
+	subnetWorkURL := prefix + "/regions/" + region + "/subnetworks/" + vmReqInfo. .VirtualNetworkId
 	instance := &compute.Instance{
 		Name: vmName,
 		Metadata: &compute.Metadata{
@@ -110,7 +111,7 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 			"keypair": strings.ToLower(vmReqInfo.KeyPairName),
 		},
 		Description: "compute sample instance",
-		MachineType: prefix + "/zones/" + zone + "/machineTypes/" + vmReqInfo.VMSpecId,
+		MachineType: prefix + "/zones/" + zone + "/machineTypes/" + vmReqInfo.. VMSpecId,
 		Disks: []*compute.AttachedDisk{
 			{
 				AutoDelete: true,
@@ -126,9 +127,9 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 			{
 				AccessConfigs: []*compute.AccessConfig{
 					{
-						Type:  "ONE_TO_ONE_NAT",
-						Name:  "External NAT", // default
-						NatIP: publicIPAddress,
+						Type: "ONE_TO_ONE_NAT",
+						Name: "External NAT", // default
+
 					},
 				},
 				Network:    networkURL,
