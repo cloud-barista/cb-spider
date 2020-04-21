@@ -118,18 +118,9 @@ func (vVPCHandler *GCPVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.VPCI
 
 	// 여기서부터 서브넷 체크하는 로직이 들어가야 하네. 하필 배열이네
 	for _, item := range vpcReqInfo.SubnetInfoList{
-		subnetName := item.IId.NameId
-		cblogger.Infof("생성할 [%s] Subnet이 존재하는지 체크", subnetName)
-		checkInfo, err := vVPCHandler.Client.Subnetworks.Get(projectID,region,subnetName).Do()
-		if err == nil {
-			cblogger.Error("이미 해당하는 Subnet이 존재함")
-			return irs.VPCInfo, error
-		}
-		// 4.21 오늘은 여기까지 위쪽에서 미리 서브넷안에 이미 존재하는지 체트하고 Cidr이 있는지 
-		//확인한 후 VPC  만들고 만들어지면 그 다음에 서브넷 생성 로직으로 가자.그게 낫겠다
 		
 	}
-	
+	cblogger.Infof("생성할 [%s] Subnet이 존재하는지 체크", vpcReqInfo.Name)
 
 	subnetInfo, errSubnet := vVPCHandler.GetVPC(vPC)
 	if errSubnet == nil {

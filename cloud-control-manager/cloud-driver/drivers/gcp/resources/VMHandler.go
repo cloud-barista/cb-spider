@@ -111,7 +111,7 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 			"keypair": strings.ToLower(vmReqInfo.KeyPairName),
 		},
 		Description: "compute sample instance",
-		MachineType: prefix + "/zones/" + zone + "/machineTypes/" + vmReqInfo.. VMSpecId,
+		MachineType: prefix + "/zones/" + zone + "/machineTypes/" + vmReqInfo. VMSpecId,
 		Disks: []*compute.AttachedDisk{
 			{
 				AutoDelete: true,
