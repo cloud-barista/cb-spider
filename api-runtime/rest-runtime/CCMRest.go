@@ -31,13 +31,15 @@ import (
 // define string of resource types
 const (
         rsImage string = "image"
-        rsVPC string = "vpc"  // rsSubnet = SUBNET:{VPC NameID}
+        rsVPC string = "vpc"  
+	// rsSubnet = SUBNET:{VPC NameID} => cook in code
         rsSG string = "sg"
         rsKey string = "keypair"
         rsVM string = "vm"
 )
 
 const rsSubnetPrefix string = "SUBNET:"
+const sgDELIMITER string = "-DELIMITER-"
 
 // definition of RWLock for each Resource Ops
 var imgRWLock = new(sync.RWMutex)
@@ -473,6 +475,12 @@ func createVPC(c echo.Context) error {
 	if strings.HasPrefix(req.ReqInfo.Name, rsSubnetPrefix) {
 		return echo.NewHTTPError(http.StatusInternalServerError, fmt.Errorf(rsSubnetPrefix + " cannot be used for VPC name prefix!!"))
 	}
+        // check the input Name to include the SecurityGroup Delimiter
+        if strings.HasPrefix(req.ReqInfo.Name, sgDELIMITER) {
+                return echo.NewHTTPError(http.StatusInternalServerError, fmt.Errorf(sgDELIMITER + " cannot be used in VPC name!!"))
+        }
+
+
 
         // Rest RegInfo => Driver ReqInfo
 	// (1) create SubnetInfo List
@@ -863,9 +871,16 @@ func createSecurity(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
+        // check the input Name to include the SecurityGroup Delimiter
+        if strings.HasPrefix(req.ReqInfo.Name, sgDELIMITER) {
+                return echo.NewHTTPError(http.StatusInternalServerError, fmt.Errorf(sgDELIMITER + " cannot be used in SecurityGroup name!!"))
+        }
+
 	// Rest RegInfo => Driver ReqInfo
 	reqInfo := cres.SecurityReqInfo {
-			IId: cres.IID{req.ReqInfo.Name, ""},
+			// SG NameID format => {VPC NameID} + sgDELIMITER + {SG NameID}
+			// transform: SG NameID => {VPC NameID} + sgDELIMITER + {SG NameID}
+			IId: cres.IID{req.ReqInfo.VPCName + sgDELIMITER + req.ReqInfo.Name, ""},
 			VpcIID: cres.IID{req.ReqInfo.VPCName, ""},
 			Direction: req.ReqInfo.Direction,
 			SecurityRules: req.ReqInfo.SecurityRules,
@@ -905,12 +920,11 @@ defer sgRWLock.Unlock()
 
 // (2) create Resource
 	info, err := handler.CreateSecurity(reqInfo)
-	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-	}
+	if err != nil { return echo.NewHTTPError(http.StatusInternalServerError, err.Error()) }
 
 	// set VPC NameId
 	info.VpcIID.NameId = vpcIIDInfo.IId.NameId
+	info.VpcIID.SystemId = vpcIIDInfo.IId.SystemId
 
 
 // (3) insert IID
@@ -989,17 +1003,18 @@ defer sgRWLock.RUnlock()
                 for _, info := range infoList {
                         if iidInfo.IId.SystemId == info.IId.SystemId {
 
-//+++++++++++++++++++++++++++++++++++++++++++
-// set ResourceInfo(IID.NameId)
-        //info.IId.NameId = iidInfo.IId.NameId
+				// set ResourceInfo(IID.NameId)
+				// iidInfo.IId.NameID format => {VPC NameID} + sgDELIMITER + {SG NameID}
+				vpc_sg_nameid := strings.Split(iidInfo.IId.NameId, sgDELIMITER)
+				info.VpcIID.NameId = vpc_sg_nameid[0]
+				info.IId.NameId = vpc_sg_nameid[1]
 
-        // set VPC NameId
-        vpcIIDInfo, err := iidRWLock.GetIIDbySystemID(req.ConnectionName, rsVPC, info.VpcIID)
-        if err != nil {
-                return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-        }
-        info.VpcIID.NameId = vpcIIDInfo.IId.NameId
-//+++++++++++++++++++++++++++++++++++++++++++
+				// set VPC SystemId
+				vpcIIDInfo, err := iidRWLock.GetIID(req.ConnectionName, rsVPC, info.VpcIID)
+				if err != nil {
+					return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+				}
+				info.VpcIID.SystemId = vpcIIDInfo.IId.SystemId
 
 				infoList2 = append(infoList2, info)
                                 exist = true
@@ -1042,7 +1057,8 @@ func getSecurity(c echo.Context) error {
 sgRWLock.RLock()
 defer sgRWLock.RUnlock()
 // (1) get IID(NameId)
-        iidInfo, err := iidRWLock.GetIID(req.ConnectionName, rsType, cres.IID{c.Param("Name"), ""})
+	// SG NameID format => {VPC NameID} + sgDELIMITER + {SG NameID}
+        iidInfo, err := iidRWLock.FindIID(req.ConnectionName, rsType, c.Param("Name"))
         if err != nil {
                 cblog.Error(err)
                 return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
@@ -1054,17 +1070,20 @@ defer sgRWLock.RUnlock()
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
-//+++++++++++++++++++++++++++++++++++++++++++
 // (3) set ResourceInfo(IID.NameId)
-        info.IId.NameId = iidInfo.IId.NameId
+	// set ResourceInfo(IID.NameId)
+	// iidInfo.IId.NameID format => {VPC NameID} + sgDELIMITER + {SG NameID}
+	vpc_sg_nameid := strings.Split(iidInfo.IId.NameId, sgDELIMITER)
+	info.VpcIID.NameId = vpc_sg_nameid[0]
+	info.IId.NameId = vpc_sg_nameid[1]
 
-        // set VPC NameId
-        vpcIIDInfo, err := iidRWLock.GetIIDbySystemID(req.ConnectionName, rsVPC, info.VpcIID)
-        if err != nil {
-                return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-        }
-        info.VpcIID.NameId = vpcIIDInfo.IId.NameId
-//+++++++++++++++++++++++++++++++++++++++++++
+	// set VPC SystemId
+	vpcIIDInfo, err := iidRWLock.GetIID(req.ConnectionName, rsVPC, info.VpcIID)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+	info.VpcIID.SystemId = vpcIIDInfo.IId.SystemId
+
 
 	return c.JSON(http.StatusOK, &info)
 }
@@ -1097,7 +1116,8 @@ func deleteSecurity(c echo.Context) error {
 sgRWLock.Lock()
 defer sgRWLock.Unlock()
 // (1) get IID(NameId)
-        iidInfo, err := iidRWLock.GetIID(req.ConnectionName, rsType, cres.IID{c.Param("Name"), ""})
+	// SG NameID format => {VPC NameID} + sgDELIMITER + {SG NameID}
+        iidInfo, err := iidRWLock.FindIID(req.ConnectionName, rsType, c.Param("Name"))
         if err != nil {
                 cblog.Error(err)
                 return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
@@ -1733,7 +1753,9 @@ func startVM(c echo.Context) error {
 	// (1) create SecurityGroup IID List
 	sgIIDList := []cres.IID{}
 	for _, sgName := range req.ReqInfo.SecurityGroupNames {
-                sgIID := cres.IID{sgName, ""}
+		// SG NameID format => {VPC NameID} + sgDELIMITER + {SG NameID}
+		// transform: SG NameID => {VPC NameID}-{SG NameID}
+                sgIID := cres.IID{req.ReqInfo.VPCName + sgDELIMITER + sgName, ""}
                 sgIIDList = append(sgIIDList, sgIID)
         }
 	// (2) create VMReqInfo with SecurityGroup IID List
@@ -1818,6 +1840,8 @@ func setNameId(ConnectionName string, vmInfo *cres.VMInfo, reqInfo *cres.VMReqIn
         // set Subnet SystemId
         vmInfo.SubnetIID.NameId = reqInfo.SubnetIID.NameId
 
+	vmInfo.SecurityGroupIIds = reqInfo.SecurityGroupIIDs
+/*
         // set SecurityGroups SystemId
         for i, sgIID := range reqInfo.SecurityGroupIIDs {
                 IIdInfo, err := iidRWLock.GetIIDbySystemID(ConnectionName, rsSG, sgIID)
@@ -1826,7 +1850,7 @@ func setNameId(ConnectionName string, vmInfo *cres.VMInfo, reqInfo *cres.VMReqIn
                 }
                 reqInfo.SecurityGroupIIDs[i].NameId = IIdInfo.IId.NameId
         }
-
+*/
         // set KeyPair SystemId
         vmInfo.KeyPairIId.NameId = reqInfo.KeyPairIID.NameId
 
