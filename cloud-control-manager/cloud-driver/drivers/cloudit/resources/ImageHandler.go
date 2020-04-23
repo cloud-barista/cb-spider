@@ -17,8 +17,12 @@ type ClouditImageHandler struct {
 
 func setterImage(image image.ImageInfo) *irs.ImageInfo {
 	imageInfo := &irs.ImageInfo{
-		Id:      image.ID,
-		Name:    image.Name,
+		IId: irs.IID{
+			NameId:   image.Name,
+			SystemId: image.ID,
+		},
+		//Id:      image.ID,
+		//Name:    image.Name,
 		GuestOS: image.OS,
 		Status:  image.State,
 	}
@@ -30,7 +34,7 @@ func (imageHandler *ClouditImageHandler) CreateImage(imageReqInfo irs.ImageReqIn
 	authHeader := imageHandler.Client.AuthenticatedHeaders()
 
 	reqInfo := image.ImageReqInfo{
-		Name:         imageReqInfo.Name,
+		Name:         imageReqInfo.IId.NameId,
 		VolumeId:     "fa4bb8d7-bf09-4fd7-b123-d08677ac0691",
 		SnapshotId:   "dbc61213-b37e-4cc2-94ca-47991337e36f",
 		Ownership:    "TENANT",
@@ -73,12 +77,18 @@ func (imageHandler *ClouditImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 	}
 }
 
-func (imageHandler *ClouditImageHandler) GetImage(imageNameId string) (irs.ImageInfo, error) {
-
-	imageInfo, err := imageHandler.getImageByName(imageNameId)
+func (imageHandler *ClouditImageHandler) GetImage(imageIID irs.IID) (irs.ImageInfo, error) {
+	/*
+		imageInfo, err := imageHandler.getImageByName(imageNameId)
+		if err != nil {
+			return irs.ImageInfo{}, err
+		}
+	*/
+	imageInfo, err := imageHandler.getImageByName(imageIID.NameId)
 	if err != nil {
 		return irs.ImageInfo{}, err
 	}
+
 	return *imageInfo, nil
 }
 
