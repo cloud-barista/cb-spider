@@ -31,12 +31,13 @@ import (
 // define string of resource types
 const (
         rsImage string = "image"
-        rsVPC string = "vpc"
-        rsSubnet string = "subnet"
+        rsVPC string = "vpc"  // rsSubnet = SUBNET:{VPC NameID}
         rsSG string = "sg"
         rsKey string = "keypair"
         rsVM string = "vm"
 )
+
+const rsSubnetPrefix string = "SUBNET:"
 
 // definition of RWLock for each Resource Ops
 var imgRWLock = new(sync.RWMutex)
@@ -454,12 +455,38 @@ func createVPC(c echo.Context) error {
 
         var req struct {
                 ConnectionName string
-                ReqInfo cres.VPCReqInfo
+                ReqInfo struct {
+                        Name 		string
+                        IPv4_CIDR	string
+			SubnetInfoList [] struct {
+				Name  string
+				IPv4_CIDR string
+			}
+                }
         }
 
         if err := c.Bind(&req); err != nil {
                 return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
         }
+
+	// check the input Name to include the SUBNET: Prefix
+	if strings.HasPrefix(req.ReqInfo.Name, rsSubnetPrefix) {
+		return echo.NewHTTPError(http.StatusInternalServerError, fmt.Errorf(rsSubnetPrefix + " cannot be used for VPC name prefix!!"))
+	}
+
+        // Rest RegInfo => Driver ReqInfo
+	// (1) create SubnetInfo List
+	subnetInfoList := []cres.SubnetInfo{}
+	for _, info := range req.ReqInfo.SubnetInfoList {
+		subnetInfo := cres.SubnetInfo{IId: cres.IID{info.Name, ""}, IPv4_CIDR: info.IPv4_CIDR}
+		subnetInfoList = append(subnetInfoList, subnetInfo)
+	}
+	// (2) create VPCReqInfo with SubnetInfo List
+        reqInfo := cres.VPCReqInfo {
+                        IId: cres.IID{req.ReqInfo.Name, ""},
+                        IPv4_CIDR: req.ReqInfo.IPv4_CIDR,
+                       SubnetInfoList: subnetInfoList,
+                   }
 
         cldConn, err := ccm.GetCloudConnection(req.ConnectionName)
 	if err != nil {
@@ -475,22 +502,24 @@ func createVPC(c echo.Context) error {
 vpcRWLock.Lock()
 defer vpcRWLock.Unlock()
 // (1) check exist(NameID)
-	bool_ret, err := iidRWLock.IsExistIID(req.ConnectionName, rsType, req.ReqInfo.IId)
+	bool_ret, err := iidRWLock.IsExistIID(req.ConnectionName, rsType, reqInfo.IId)
         if err != nil {
                 cblog.Error(err)
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
         }
 
 	if bool_ret == true {
-                return echo.NewHTTPError(http.StatusInternalServerError, fmt.Errorf(rsType + "-" + req.ReqInfo.IId.NameId + " already exists!"))
+                return echo.NewHTTPError(http.StatusInternalServerError, fmt.Errorf(rsType + "-" + reqInfo.IId.NameId + " already exists!"))
 	}
 // (2) create Resource
-	info, err := handler.CreateVPC(req.ReqInfo)
+	info, err := handler.CreateVPC(reqInfo)
 	if err != nil {
+                cblog.Error(err)
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
 // (3) insert IID
+	// for VPC
         iidInfo, err := iidRWLock.CreateIID(req.ConnectionName, rsType, info.IId)
         if err != nil {
                 cblog.Error(err)
@@ -502,6 +531,38 @@ defer vpcRWLock.Unlock()
 		}
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
         }
+	// for Subnet list
+	for _, subnetInfo := range info.SubnetInfoList {
+		// key-value structure: /{ConnectionName}/{VPC-NameId}/{Subnet-IId}
+                _, err := iidRWLock.CreateIID(req.ConnectionName, rsSubnetPrefix + info.IId.NameId, subnetInfo.IId)
+                if err != nil {
+			cblog.Error(err)
+			// rollback
+			// (1) for resource
+			cblog.Info("<<ROLLBACK:TRY:VPC-CSP>> " + info.IId.SystemId)
+			_, err2 := handler.DeleteVPC(iidInfo.IId)
+			if err2 != nil {
+				cblog.Error(err2)
+				return echo.NewHTTPError(http.StatusInternalServerError, err.Error() + ", " + err2.Error())
+			}
+			// (2) for VPC IID
+			cblog.Info("<<ROLLBACK:TRY:VPC-IID>> " + info.IId.NameId)
+			_, err := iidRWLock.DeleteIID(req.ConnectionName, rsType, info.IId)
+			if err != nil {
+				return echo.NewHTTPError(http.StatusInternalServerError, err.Error() + ", " + err.Error())
+			}
+			// (3) for Subnet IID
+			tmpIIdInfoList, err := iidRWLock.ListIID(req.ConnectionName, rsSubnetPrefix + info.IId.NameId)
+			for _, subnetInfo := range tmpIIdInfoList {
+				_, err := iidRWLock.DeleteIID(req.ConnectionName, rsSubnetPrefix + info.IId.NameId, subnetInfo.IId)
+				if err != nil {
+					return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+				}
+			}
+                        return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+                }
+        }
+	
 
 	return c.JSON(http.StatusOK, &info)
 }
@@ -565,6 +626,26 @@ defer vpcRWLock.RUnlock()
 		exist := false
 		for _, info := range infoList {
 			if iidInfo.IId.SystemId == info.IId.SystemId {
+				
+//+++++++++++++++++++++++++++++++++++++++++++
+// set ResourceInfo(IID.NameId)
+        // set VPC NameId
+        IIdInfo, err := iidRWLock.GetIIDbySystemID(req.ConnectionName, rsType, info.IId)
+        if err != nil {
+                return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+        }
+        info.IId.NameId = IIdInfo.IId.NameId
+//+++++++++++++++++++++++++++++++++++++++++++
+// set NameId for SubnetInfo List
+	for i, subnetInfo := range info.SubnetInfoList {
+		subnetIIDInfo, err := iidRWLock.GetIIDbySystemID(req.ConnectionName, rsSubnetPrefix + info.IId.NameId, subnetInfo.IId)
+		if err != nil {
+			return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		}
+		info.SubnetInfoList[i].IId.NameId = subnetIIDInfo.IId.NameId
+	}
+
+
 				infoList2 = append(infoList2, info)
 				exist = true
 			}
@@ -620,6 +701,14 @@ defer vpcRWLock.RUnlock()
 // (3) set ResourceInfo(IID.NameId)
 	info.IId.NameId = iidInfo.IId.NameId
 
+	// set NameId for SubnetInfo List
+        for i, subnetInfo := range info.SubnetInfoList {
+                subnetIIDInfo, err := iidRWLock.GetIIDbySystemID(req.ConnectionName, rsSubnetPrefix + info.IId.NameId, subnetInfo.IId)
+                if err != nil {
+                        return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+                }
+                info.SubnetInfoList[i].IId.NameId = subnetIIDInfo.IId.NameId
+        }
 	return c.JSON(http.StatusOK, &info)
 }
 
@@ -656,11 +745,21 @@ defer vpcRWLock.Unlock()
                 cblog.Error(err)
                 return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
         }
+        if err != nil {
+                return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+        }
 
 	// keeping for rollback
         info, err := handler.GetVPC(iidInfo.IId)
-        if err != nil {
-                return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	// set NameId
+	info.IId.NameId = iidInfo.IId.NameId
+	// set NameId for SubnetInfo List
+        for i, subnetInfo := range info.SubnetInfoList {
+                subnetIIDInfo, err := iidRWLock.GetIIDbySystemID(req.ConnectionName, rsSubnetPrefix + info.IId.NameId, subnetInfo.IId)
+                if err != nil {
+                        return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+                }
+                info.SubnetInfoList[i].IId.NameId = subnetIIDInfo.IId.NameId
         }
 
 
@@ -677,18 +776,64 @@ defer vpcRWLock.Unlock()
         }
 
 // (3) delete IID
+	// for VPC
         _, err = iidRWLock.DeleteIID(req.ConnectionName, rsType, iidInfo.IId)
         if err != nil {
                 cblog.Error(err)
                 // rollback
+		cblog.Info("<<ROLLBACK:VPC-CSP:TRY>> " + info.IId.NameId)	
 		reqInfo := cres.VPCReqInfo{info.IId, info.IPv4_CIDR, info.SubnetInfoList } 	
                 _, err2 := handler.CreateVPC(reqInfo)
                 if err2 != nil {
                         cblog.Error(err2)
 			return echo.NewHTTPError(http.StatusInternalServerError, err.Error() + ", " + err2.Error())
                 }
-                return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		cblog.Info("<<ROLLBACK:VPC-CSP:PASS>> " + info.IId.NameId)	
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error() + "\n<<ROLLBACK:VPC-CSP:PASS>>")
         }
+	// for Subnet list
+	for _, subnetInfo := range info.SubnetInfoList {
+                // key-value structure: /{ConnectionName}/{VPC-NameId}/{Subnet-IId}
+                _, err := iidRWLock.DeleteIID(req.ConnectionName, rsSubnetPrefix + info.IId.NameId, subnetInfo.IId)
+                if err != nil {
+                        cblog.Error(err)
+                        // rollback
+                        // (1) for resource
+                        cblog.Info("<<ROLLBACK:VPC-CSP:TRY>> " + info.IId.NameId)
+			reqInfo := cres.VPCReqInfo{info.IId, info.IPv4_CIDR, info.SubnetInfoList } 	
+                        info, err2 := handler.CreateVPC(reqInfo)
+                        if err2 != nil {
+                                cblog.Error(err2)
+                                return echo.NewHTTPError(http.StatusInternalServerError, "<<ROLLBACK:FAIL>> " + err.Error() + err2.Error())
+                        }
+                        cblog.Info("<<ROLLBACK:VPC-CSP:PASS>> " + info.IId.NameId)
+
+                        // (2) for VPC IID
+                        cblog.Info("<<ROLLBACK:VPC-IID:TRY>> " + info.IId.NameId)
+                        _, err := iidRWLock.CreateIID(req.ConnectionName, rsType, info.IId)
+                        if err != nil {
+                                cblog.Error(err)
+                                return echo.NewHTTPError(http.StatusInternalServerError, "<<ROLLBACK:FAIL>> " + err.Error() + err.Error())
+                        }
+                        cblog.Info("<<ROLLBACK:VPC-IID:PASS>> " + info.IId.NameId)
+
+                        // (3) for Subnet IID
+                        tmpIIdInfoList, err := iidRWLock.ListIID(req.ConnectionName, rsSubnetPrefix + info.IId.NameId)
+                        for _, subnetInfo := range tmpIIdInfoList {
+				cblog.Info("<<ROLLBACK:VPC-SUBNET-IID:TRY>> " + subnetInfo.IId.NameId)
+                                _, err := iidRWLock.CreateIID(req.ConnectionName, rsSubnetPrefix + info.IId.NameId, subnetInfo.IId)
+                                if err != nil {
+					cblog.Error(err)
+                                        return echo.NewHTTPError(http.StatusInternalServerError, "<<ROLLBACK:FAIL>> " + err.Error())
+                                }
+				cblog.Info("<<ROLLBACK:VPC-SUBNET-IID:PASS>> " + subnetInfo.IId.NameId)
+                        }
+			cblog.Info("<<ROLLBACK:VPC-CSP:PASS>> " + info.IId.NameId)	
+			return echo.NewHTTPError(http.StatusInternalServerError, err.Error() + "\n<<ROLLBACK:VPC-CSP-IID-SUBNET-IID:PASS>>")
+                }
+        }
+
+
 
         resultInfo := BooleanInfo{
                 Result: strconv.FormatBool(result),
@@ -763,15 +908,10 @@ defer sgRWLock.Unlock()
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
-/*
-	// set VPC NameId
-	vpcIIDInfo, err := iidRWLock.GetIIDbySystemID(req.ConnectionName, rsVPC, info.VpcIID)
-        if err != nil {
-                return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-        }
 
+	// set VPC NameId
 	info.VpcIID.NameId = vpcIIDInfo.IId.NameId
-*/
+
 
 // (3) insert IID
         iidInfo, err := iidRWLock.CreateIID(req.ConnectionName, rsType, info.IId)
@@ -916,7 +1056,7 @@ defer sgRWLock.RUnlock()
 
 //+++++++++++++++++++++++++++++++++++++++++++
 // (3) set ResourceInfo(IID.NameId)
-        //info.IId.NameId = iidInfo.IId.NameId
+        info.IId.NameId = iidInfo.IId.NameId
 
         // set VPC NameId
         vpcIIDInfo, err := iidRWLock.GetIIDbySystemID(req.ConnectionName, rsVPC, info.VpcIID)
@@ -1010,12 +1150,19 @@ func createKey(c echo.Context) error {
 
         var req struct {
                 ConnectionName string
-                ReqInfo cres.KeyPairReqInfo
+                ReqInfo struct {
+			Name string
+		}
         }
 
         if err := c.Bind(&req); err != nil {
                 return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
         }
+
+        // Rest RegInfo => Driver ReqInfo
+        reqInfo := cres.KeyPairReqInfo {
+                        IId: cres.IID{req.ReqInfo.Name, ""},
+                   }
 
         cldConn, err := ccm.GetCloudConnection(req.ConnectionName)
 	if err != nil {
@@ -1031,18 +1178,18 @@ func createKey(c echo.Context) error {
 keyRWLock.Lock()
 defer keyRWLock.Unlock()
 // (1) check exist(NameID)
-        bool_ret, err := iidRWLock.IsExistIID(req.ConnectionName, rsType, req.ReqInfo.IId)
+        bool_ret, err := iidRWLock.IsExistIID(req.ConnectionName, rsType, reqInfo.IId)
         if err != nil {
                 cblog.Error(err)
                 return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
         }
 
         if bool_ret == true {
-                return echo.NewHTTPError(http.StatusInternalServerError, fmt.Errorf(req.ReqInfo.IId.NameId + " already exists!"))
+                return echo.NewHTTPError(http.StatusInternalServerError, fmt.Errorf(reqInfo.IId.NameId + " already exists!"))
         }
 
 // (2) create Resource
-	info, err := handler.CreateKey(req.ReqInfo)
+	info, err := handler.CreateKey(reqInfo)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
@@ -1514,6 +1661,47 @@ func deletePublicIP(c echo.Context) error {
 }
 ****************************/
 
+
+func getSetSystemId(ConnectionName string, reqInfo *cres.VMReqInfo) error {
+
+        // set Image SystemId
+	// @todo before Image Handling by powerkim
+        reqInfo.ImageIID.SystemId = reqInfo.ImageIID.NameId
+
+        // set VPC SystemId
+        IIdInfo, err := iidRWLock.GetIID(ConnectionName, rsVPC, reqInfo.VpcIID)
+        if err != nil {
+                return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+        }
+        reqInfo.VpcIID.SystemId = IIdInfo.IId.SystemId
+
+        // set Subnet SystemId
+        IIdInfo, err = iidRWLock.GetIID(ConnectionName, rsSubnetPrefix + reqInfo.VpcIID.NameId, reqInfo.SubnetIID)
+        if err != nil {
+                return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+        }
+        reqInfo.SubnetIID.SystemId = IIdInfo.IId.SystemId
+
+        // set SecurityGroups SystemId
+	for i, sgIID := range reqInfo.SecurityGroupIIDs {
+		IIdInfo, err = iidRWLock.GetIID(ConnectionName, rsSG, sgIID)
+		if err != nil {
+			return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		}
+		reqInfo.SecurityGroupIIDs[i].SystemId = IIdInfo.IId.SystemId
+		
+	}
+
+        // set KeyPair SystemId
+        IIdInfo, err = iidRWLock.GetIID(ConnectionName, rsKey, reqInfo.KeyPairIID)
+        if err != nil {
+                return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+        }
+        reqInfo.KeyPairIID.SystemId = IIdInfo.IId.SystemId
+
+	return nil
+}
+
 //================ VM Handler
 // (1) check exist(NameID)
 // (2) create Resource
@@ -1523,12 +1711,51 @@ func startVM(c echo.Context) error {
 
         var req struct {
                 ConnectionName string
-                ReqInfo cres.VMReqInfo
+                ReqInfo struct {
+			Name string
+			ImageName string
+			VPCName string
+			SubnetName string
+			SecurityGroupNames []string
+			VMSpecName string
+			KeyPairName string
+
+			VMUserId string
+			VMUserPasswd string
+		}
         }
 
         if err := c.Bind(&req); err != nil {
                 return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
         }
+
+	// Rest RegInfo => Driver ReqInfo
+	// (1) create SecurityGroup IID List
+	sgIIDList := []cres.IID{}
+	for _, sgName := range req.ReqInfo.SecurityGroupNames {
+                sgIID := cres.IID{sgName, ""}
+                sgIIDList = append(sgIIDList, sgIID)
+        }
+	// (2) create VMReqInfo with SecurityGroup IID List
+	reqInfo := cres.VMReqInfo {
+		IId: cres.IID{req.ReqInfo.Name, ""},
+		ImageIID: cres.IID{req.ReqInfo.ImageName, ""}, 
+		VpcIID: cres.IID{req.ReqInfo.VPCName, ""},
+		SubnetIID: cres.IID{req.ReqInfo.SubnetName, ""},
+		SecurityGroupIIDs: sgIIDList,
+
+		VMSpecName: req.ReqInfo.VMSpecName,
+		KeyPairIID: cres.IID{req.ReqInfo.KeyPairName, ""},
+
+		VMUserId: req.ReqInfo.VMUserId,
+		VMUserPasswd: req.ReqInfo.VMUserPasswd,
+	   }
+
+	// get & set SystemId
+	err := getSetSystemId(req.ConnectionName, &reqInfo)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
 
         cldConn, err := ccm.GetCloudConnection(req.ConnectionName)
 	if err != nil {
@@ -1544,21 +1771,23 @@ func startVM(c echo.Context) error {
 vmRWLock.Lock()
 defer vmRWLock.Unlock()
 // (1) check exist(NameID)
-        bool_ret, err := iidRWLock.IsExistIID(req.ConnectionName, rsType, req.ReqInfo.IId)
+        bool_ret, err := iidRWLock.IsExistIID(req.ConnectionName, rsType, reqInfo.IId)
         if err != nil {
                 cblog.Error(err)
                 return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
         }
 
         if bool_ret == true {
-                return echo.NewHTTPError(http.StatusInternalServerError, fmt.Errorf(rsType + "-" + req.ReqInfo.IId.NameId + " already exists!"))
+                return echo.NewHTTPError(http.StatusInternalServerError, fmt.Errorf(rsType + "-" + reqInfo.IId.NameId + " already exists!"))
         }
 
 // (2) create Resource
-	info, err := handler.StartVM(req.ReqInfo)
+	info, err := handler.StartVM(reqInfo)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
+	// set NameId for info by reqInfo
+	setNameId(req.ConnectionName, &info, &reqInfo)
 
 // (3) insert IID
         iidInfo, err := iidRWLock.CreateIID(req.ConnectionName, rsType, info.IId)
@@ -1575,6 +1804,35 @@ defer vmRWLock.Unlock()
 
 	return c.JSON(http.StatusOK, &info)
 }
+
+
+func setNameId(ConnectionName string, vmInfo *cres.VMInfo, reqInfo *cres.VMReqInfo) error {
+
+        // set Image SystemId
+        // @todo before Image Handling by powerkim
+        vmInfo.ImageIId.NameId = reqInfo.ImageIID.NameId
+
+        // set VPC SystemId
+        vmInfo.VpcIID.NameId = reqInfo.VpcIID.NameId
+
+        // set Subnet SystemId
+        vmInfo.SubnetIID.NameId = reqInfo.SubnetIID.NameId
+
+        // set SecurityGroups SystemId
+        for i, sgIID := range reqInfo.SecurityGroupIIDs {
+                IIdInfo, err := iidRWLock.GetIIDbySystemID(ConnectionName, rsSG, sgIID)
+                if err != nil {
+                        return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+                }
+                reqInfo.SecurityGroupIIDs[i].NameId = IIdInfo.IId.NameId
+        }
+
+        // set KeyPair SystemId
+        vmInfo.KeyPairIId.NameId = reqInfo.KeyPairIID.NameId
+
+        return nil
+}
+
 
 // (1) get IID:list
 // (2) get CSP:list
@@ -1635,6 +1893,22 @@ defer vmRWLock.RUnlock()
                 exist := false
                 for _, info := range infoList {
                         if iidInfo.IId.SystemId == info.IId.SystemId {
+
+//+++++++++++++++++++++++++++++++++++++++++++
+// set ResourceInfo(IID.NameId)
+        // set VPC NameId
+        IIdInfo, err := iidRWLock.GetIIDbySystemID(req.ConnectionName, rsType, info.IId)
+        if err != nil {
+                return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+        }
+        info.IId.NameId = IIdInfo.IId.NameId
+//+++++++++++++++++++++++++++++++++++++++++++
+	err = getSetNameId(req.ConnectionName, info)
+	if err != nil {
+                return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+
                                 infoList2 = append(infoList2, info)
                                 exist = true
                         }
@@ -1644,8 +1918,48 @@ defer vmRWLock.RUnlock()
                 }
         }
 
+
         jsonResult.Result = infoList2
         return c.JSON(http.StatusOK, &jsonResult)
+}
+
+func getSetNameId(ConnectionName string, vmInfo *cres.VMInfo) error {
+
+        // set Image NameId
+        // @todo before Image Handling by powerkim
+        vmInfo.ImageIId.NameId = vmInfo.ImageIId.SystemId
+
+        // set VPC NameId
+        IIdInfo, err := iidRWLock.GetIIDbySystemID(ConnectionName, rsVPC, vmInfo.VpcIID)
+        if err != nil {
+                return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+        }
+        vmInfo.VpcIID.NameId = IIdInfo.IId.NameId
+
+        // set Subnet NameId
+        IIdInfo, err = iidRWLock.GetIIDbySystemID(ConnectionName, rsSubnetPrefix + vmInfo.VpcIID.NameId, vmInfo.SubnetIID)
+        if err != nil {
+                return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+        }
+        vmInfo.SubnetIID.NameId = IIdInfo.IId.NameId
+
+        // set SecurityGroups NameId
+        for i, sgIID := range vmInfo.SecurityGroupIIds {
+                IIdInfo, err = iidRWLock.GetIIDbySystemID(ConnectionName, rsSG, sgIID)
+                if err != nil {
+                        return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+                }
+                vmInfo.SecurityGroupIIds[i].NameId = IIdInfo.IId.NameId
+        }
+
+        // set KeyPair NameId
+        IIdInfo, err = iidRWLock.GetIIDbySystemID(ConnectionName, rsKey, vmInfo.KeyPairIId)
+        if err != nil {
+                return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+        }
+        vmInfo.KeyPairIId.NameId = IIdInfo.IId.NameId
+
+        return nil
 }
 
 // (1) get IID(NameId)
@@ -1690,6 +2004,11 @@ defer vmRWLock.RUnlock()
 
 // (3) set ResourceInfo(IID.NameId)
         info.IId.NameId = iidInfo.IId.NameId
+
+	err = getSetNameId(req.ConnectionName, &info)
+        if err != nil {
+                return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+        }
 
 	return c.JSON(http.StatusOK, &info)
 }
