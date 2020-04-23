@@ -1,6 +1,6 @@
 
 echo "####################################################################"
-echo "## Full Test Scripts for CB-Spider IID Working Version - 2020.04.21."
+echo "## Full Test Scripts for CB-Spider IID Working Version - 2020.04.22."
 echo "##   1. VPC: Create -> List -> Get"
 echo "##   2. SecurityGroup: Create -> List -> Get"
 echo "##   3. KeyPair: Create -> List -> Get"
@@ -39,8 +39,8 @@ echo "#-----------------------------"
 echo "####################################################################"
 echo "## 4. VM: StartVM -> List -> Get -> ListStatus -> GetStatus -> Suspend -> Resume -> Reboot"
 echo "####################################################################"
-curl -sX POST http://localhost:1024/spider/vm -H 'Content-Type: application/json' -d '{ "ConnectionName": "'${CONN_CONFIG}'", "ReqInfo": { "Name": "VM-01", "ImageName": "'${IMAGE_NAME}'", "VPCName": "VPC-01", "SubnetName": "Subnet-01", "SecurityGroupNames": [ "SG-01" ], "VMSpecName": "t3.micro", "KeyPairName": "KEYPAIR-01"} }' |json_pp
-echo "============== sleep 30 after sart VM"
+curl -sX POST http://localhost:1024/spider/vm -H 'Content-Type: application/json' -d '{ "ConnectionName": "'${CONN_CONFIG}'", "ReqInfo": { "Name": "VM-01", "ImageName": "'${IMAGE_NAME}'", "VPCName": "VPC-01", "SubnetName": "Subnet-01", "SecurityGroupNames": [ "SG-01" ], "VMSpecName": "'${SPEC_NAME}'", "KeyPairName": "KEYPAIR-01"} }' |json_pp
+echo "============== sleep 30 after start VM"
 sleep 30
 curl -sX GET http://localhost:1024/spider/vm -H 'Content-Type: application/json' -d '{ "ConnectionName": "'${CONN_CONFIG}'"}' |json_pp
 curl -sX GET http://localhost:1024/spider/vm/VM-01 -H 'Content-Type: application/json' -d '{ "ConnectionName": "'${CONN_CONFIG}'"}' |json_pp
