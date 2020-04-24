@@ -110,7 +110,7 @@ func (imageHandler *GCPImageHandler) DeleteImage(imageIID irs.IID) (bool, error)
 func mappingImageInfo(imageInfo *compute.Image) irs.ImageInfo {
 	//lArr := strings.Split(imageInfo.Licenses[0], "/")
 	//os := lArr[len(lArr)-1]
-	irs.ImageInfo{}
+
 	imageList := irs.ImageInfo{
 		IId: irs.IID{
 			NameId:   imageInfo.Name,

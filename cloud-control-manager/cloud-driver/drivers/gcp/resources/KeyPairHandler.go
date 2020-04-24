@@ -34,8 +34,8 @@ type GCPKeyPairHandler struct {
 }
 
 func (keyPairHandler *GCPKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPairReqInfo) (irs.KeyPairInfo, error) {
-	keyPairName := strings.ToLower(keyPairReqInfo.Name)
-	cblogger.Infof("keyPairName [%s] --> [%s]", keyPairReqInfo.Name, keyPairName)
+	keyPairName := strings.ToLower(keyPairReqInfo.IId.NameId)
+	cblogger.Infof("keyPairName [%s] --> [%s]", keyPairReqInfo.IId.NameId, keyPairName)
 
 	//projectId := keyPairHandler.CredentialInfo.ProjectID
 	keyPairPath := os.Getenv("CBSPIDER_ROOT") + CBKeyPairPath
@@ -88,7 +88,10 @@ func (keyPairHandler *GCPKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPairReq
 	}
 
 	keyPairInfo := irs.KeyPairInfo{
-		Name:       keyPairName,
+		IId: irs.IID{
+			NameId:   keyPairName,
+			SystemId: keyPairName,
+		},
 		PublicKey:  publicKeyString,
 		PrivateKey: string(privateKeyBytes),
 	}
@@ -115,7 +118,7 @@ func (keyPairHandler *GCPKeyPairHandler) ListKey() ([]*irs.KeyPairInfo, error) {
 		}
 		if strings.Contains(f.Name(), hashString) {
 			fileNameArr := strings.Split(f.Name(), "--")
-			keypairInfo, err := keyPairHandler.GetKey(fileNameArr[1])
+			keypairInfo, err := keyPairHandler.GetKey(irs.IID{NameId: fileNameArr[1]})
 			if err != nil {
 				return nil, err
 			}
@@ -126,9 +129,9 @@ func (keyPairHandler *GCPKeyPairHandler) ListKey() ([]*irs.KeyPairInfo, error) {
 	return keyPairInfoList, nil
 }
 
-func (keyPairHandler *GCPKeyPairHandler) GetKey(keyPairName string) (irs.KeyPairInfo, error) {
-	cblogger.Infof("keyPairName : [%s]", keyPairName)
-	keyPairName = strings.ToLower(keyPairName)
+func (keyPairHandler *GCPKeyPairHandler) GetKey(keyIID irs.IID) (irs.KeyPairInfo, error) {
+	cblogger.Infof("keyPairName : [%s]", keyIID.NameId)
+	keyPairName := strings.ToLower(keyIID.NameId)
 	cblogger.Infof("keyPairName 소문자로 치환 : [%s]", keyPairName)
 
 	keyPairPath := os.Getenv("CBSPIDER_ROOT") + CBKeyPairPath
@@ -148,16 +151,19 @@ func (keyPairHandler *GCPKeyPairHandler) GetKey(keyPairName string) (irs.KeyPair
 	}
 
 	keypairInfo := irs.KeyPairInfo{
-		Name:       keyPairName,
+		IId: irs.IID{
+			NameId:   keyPairName,
+			SystemId: keyPairName,
+		},
 		PublicKey:  string(publicKeyBytes),
 		PrivateKey: string(privateKeyBytes),
 	}
 	return keypairInfo, nil
 }
 
-func (keyPairHandler *GCPKeyPairHandler) DeleteKey(keyPairName string) (bool, error) {
-	cblogger.Infof("keyPairName : [%s]", keyPairName)
-	keyPairName = strings.ToLower(keyPairName)
+func (keyPairHandler *GCPKeyPairHandler) DeleteKey(keyIID irs.IID) (bool, error) {
+	cblogger.Infof("keyPairName : [%s]", keyIID.NameId)
+	keyPairName := strings.ToLower(keyIID.NameId)
 	cblogger.Infof("keyPairName 소문자로 치환 : [%s]", keyPairName)
 
 	keyPairPath := os.Getenv("CBSPIDER_ROOT") + CBKeyPairPath

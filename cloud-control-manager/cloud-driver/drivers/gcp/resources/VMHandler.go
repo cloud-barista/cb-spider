@@ -96,9 +96,14 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 
 	cblogger.Info("keypairInfo 정보")
 	spew.Dump(keypairInfo)
+	// Security Group Tags
+	var securityTags []string
 
-	networkURL := prefix + "/global/networks/" + GetCBDefaultVNetName()
-	subnetWorkURL := prefix + "/regions/" + region + "/subnetworks/" + vmReqInfo. .VirtualNetworkId
+	for _, item := range vmReqInfo.SecurityGroupIIDs {
+		securityTags = append(securityTags, item.NameId)
+	}
+	networkURL := prefix + "/global/networks/" + vmReqInfo.VpcIID.NameId
+	subnetWorkURL := prefix + "/regions/" + region + "/subnetworks/" + vmReqInfo.SubnetIID.NameId
 	instance := &compute.Instance{
 		Name: vmName,
 		Metadata: &compute.Metadata{
@@ -108,10 +113,10 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 			},
 		},
 		Labels: map[string]string{
-			"keypair": strings.ToLower(vmReqInfo.KeyPairName),
+			"keypair": strings.ToLower(vmReqInfo.KeyPairIID.NameId),
 		},
 		Description: "compute sample instance",
-		MachineType: prefix + "/zones/" + zone + "/machineTypes/" + vmReqInfo. VMSpecId,
+		MachineType: prefix + "/zones/" + zone + "/machineTypes/" + vmReqInfo.VMSpecName,
 		Disks: []*compute.AttachedDisk{
 			{
 				AutoDelete: true,
@@ -146,7 +151,7 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 			},
 		},
 		Tags: &compute.Tags{
-			Items: vmReqInfo.SecurityGroupIds,
+			Items: securityTags,
 		},
 	}
 
@@ -268,9 +273,13 @@ func (vmHandler *GCPVMHandler) ListVMStatus() ([]*irs.VMStatusInfo, error) {
 	for _, s := range serverList.Items {
 		if s.Name != "" {
 			vmId := s.Name
-			status, _ := vmHandler.GetVMStatus(vmId)
+			status, _ := vmHandler.GetVMStatus(irs.IID{NameId: vmId, SystemId: vmId})
 			vmStatusInfo := irs.VMStatusInfo{
-				VmId:     vmId,
+				IId: irs.IID{
+					NameId:   vmId,
+					SystemId: strconv.FormatUint(s.Id, 10),
+				},
+
 				VmStatus: status,
 			}
 			vmStatusList = append(vmStatusList, &vmStatusInfo)
@@ -388,23 +397,23 @@ func (vmHandler *GCPVMHandler) mappingServerInfo(server *compute.Instance) irs.V
 
 	vmInfo := irs.VMInfo{
 		IId: irs.IID{
-			NameId: server.Name,
+			NameId:   server.Name,
 			SystemId: strconv.FormatUint(server.Id, 10),
-		}
-	
+		},
+
 		Region: irs.RegionInfo{
 			Region: vmHandler.Region.Region,
 			Zone:   vmHandler.Region.Zone,
 		},
-		VMUserId:           "cb-user",
-		NetworkInterfaceId: server.NetworkInterfaces[0].Name,
-		SecurityGroupIds:   server.Tags.Items,
-		VMSpecId:           server.MachineType,
-		KeyPairName:        server.Labels["keypair"],
-		ImageId:            vmHandler.getImageInfo(server.Disks[0].Source),
-		PublicIP:           server.NetworkInterfaces[0].AccessConfigs[0].NatIP,
-		PrivateIP:          server.NetworkInterfaces[0].NetworkIP,
-		VirtualNetworkId:   server.NetworkInterfaces[0].Network,
+		VMUserId:          "cb-user",
+		NetworkInterface:  server.NetworkInterfaces[0].Name,
+		SecurityGroupIIds: server.Tags.Items,
+		VMSpecId:          server.MachineType,
+		KeyPairName:       server.Labels["keypair"],
+		ImageIId:          vmHandler.getImageInfo(server.Disks[0].Source),
+		PublicIP:          server.NetworkInterfaces[0].AccessConfigs[0].NatIP,
+		PrivateIP:         server.NetworkInterfaces[0].NetworkIP,
+		VirtualNetworkId:  server.NetworkInterfaces[0].Network,
 		// SubNetworkID:       server.NetworkInterfaces[0].Subnetwork,
 		KeyValueList: []irs.KeyValue{
 			{"SubNetwork", server.NetworkInterfaces[0].Subnetwork},

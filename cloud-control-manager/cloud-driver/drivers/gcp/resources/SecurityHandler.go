@@ -33,14 +33,14 @@ type GCPSecurityHandler struct {
 
 func (securityHandler *GCPSecurityHandler) CreateSecurity(securityReqInfo irs.SecurityReqInfo) (irs.SecurityInfo, error) {
 
-	vNetworkHandler := GCPVNetworkHandler{
+	vNetworkHandler := GCPVPCHandler{
 		Client:     securityHandler.Client,
 		Region:     securityHandler.Region,
 		Ctx:        securityHandler.Ctx,
 		Credential: securityHandler.Credential,
 	}
 
-	vNetInfo, errVnet := vNetworkHandler.GetVNetwork(GetCBDefaultVNetName())
+	vNetInfo, errVnet := vNetworkHandler.GetVPC(securityReqInfo.VpcIID)
 	spew.Dump(vNetInfo)
 	if errVnet != nil {
 		return irs.SecurityInfo{}, errVnet
@@ -82,7 +82,7 @@ func (securityHandler *GCPSecurityHandler) CreateSecurity(securityReqInfo irs.Se
 	}
 
 	prefix := "https://www.googleapis.com/compute/v1/projects/" + projectID
-	networkURL := prefix + "/global/networks/" + GetCBDefaultVNetName()
+	networkURL := prefix + "/global/networks/" + securityReqInfo.VpcIID.NameId
 
 	fireWall := &compute.Firewall{
 		Allowed:   firewallAllowed,
@@ -90,9 +90,9 @@ func (securityHandler *GCPSecurityHandler) CreateSecurity(securityReqInfo irs.Se
 		SourceRanges: []string{
 			"0.0.0.0/0",
 		},
-		Name: securityReqInfo.Name,
+		Name: securityReqInfo.IId.NameId,
 		TargetTags: []string{
-			securityReqInfo.Name,
+			securityReqInfo.IId.NameId,
 		},
 		Network: networkURL,
 	}
@@ -105,7 +105,7 @@ func (securityHandler *GCPSecurityHandler) CreateSecurity(securityReqInfo irs.Se
 	}
 	fmt.Println("create result : ", res)
 	time.Sleep(time.Second * 3)
-	secInfo, _ := securityHandler.GetSecurity(securityReqInfo.Name)
+	secInfo, _ := securityHandler.GetSecurity(securityReqInfo.IId)
 
 	return secInfo, nil
 
@@ -122,7 +122,7 @@ func (securityHandler *GCPSecurityHandler) ListSecurity() ([]*irs.SecurityInfo, 
 	var securityInfo []*irs.SecurityInfo
 	for _, item := range result.Items {
 		name := item.Name
-		secInfo, _ := securityHandler.GetSecurity(name)
+		secInfo, _ := securityHandler.GetSecurity(irs.IID{NameId: name, SystemId: name})
 
 		securityInfo = append(securityInfo, &secInfo)
 	}
