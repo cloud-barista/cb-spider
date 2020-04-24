@@ -279,13 +279,14 @@ func mappingSubnet(subnet *compute.Subnetwork) irs.SubnetInfo{
 	return subnetInfo
 }
 
-func (vVPCHandler *GCPVPCHandler) DeleteVPC(VPCID string) (bool, error) {
+func (vVPCHandler *GCPVPCHandler) DeleteVPC(vpcID irs.IID) (bool, error) {
 	projectID := vVPCHandler.Credential.ProjectID
 	region := vVPCHandler.Region.Region
 	//name := VPCID
-	name := GetCBDefaultVNetName()
+	name := vpcID.NameID
 	cblogger.Infof("Name : [%s]", name)
-	info, err := vVPCHandler.Client.Subnetworks.Delete(projectID, region, VPCID).Do()
+	info, err := vVPCHandler.Client.Networks.Delete(projectID, name).Do()
+	
 	cblogger.Info(info)
 	if err != nil {
 		cblogger.Error(err)
