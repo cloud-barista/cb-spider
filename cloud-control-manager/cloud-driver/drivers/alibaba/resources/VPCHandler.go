@@ -98,7 +98,7 @@ func (VPCHandler *AlibabaVPCHandler) CreateSubnet(vpcId string, reqSubnetInfo ir
 	request.VpcId = vpcId
 	request.CidrBlock = reqSubnetInfo.IPv4_CIDR
 	request.VSwitchName = reqSubnetInfo.IId.NameId
-	request.ZoneId = "ap-northeast-1a" // @TOTO : ZoneId 전달 받아야 함.
+	request.ZoneId = VPCHandler.Region.Zone //"ap-northeast-1a" // @TOTO : ZoneId 전달 받아야 함.
 	cblogger.Info(request)
 
 	response, err := VPCHandler.Client.CreateVSwitch(request)
@@ -209,6 +209,7 @@ func ExtractVpcDescribeInfo(vpcInfo *vpc.Vpc) irs.VPCInfo {
 }
 
 func (VPCHandler *AlibabaVPCHandler) GetVPC(vpcIID irs.IID) (irs.VPCInfo, error) {
+	spew.Dump(VPCHandler)
 	cblogger.Info("VPC IID : ", vpcIID.SystemId)
 
 	request := vpc.CreateDescribeVpcsRequest()

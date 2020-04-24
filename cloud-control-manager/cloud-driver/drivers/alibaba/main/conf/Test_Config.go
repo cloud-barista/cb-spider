@@ -45,6 +45,7 @@ type Config struct {
 		AliAccessKeyID     string `yaml:"ali_access_key_id"`
 		AliSecretAccessKey string `yaml:"ali_secret_access_key"`
 		Region             string `yaml:"region"`
+		Zone               string `yaml:"zone"`
 
 		ImageID string `yaml:"image_id"`
 
@@ -103,6 +104,7 @@ func GetResourceHandler(handlerType string) (interface{}, error) {
 		},
 		RegionInfo: idrv.RegionInfo{
 			Region: config.Ali.Region,
+			Zone:   config.Ali.Zone,
 		},
 	}
 
