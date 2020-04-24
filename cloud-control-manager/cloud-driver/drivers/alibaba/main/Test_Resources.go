@@ -28,7 +28,7 @@ var cblogger *logrus.Logger
 func init() {
 	// cblog is a global variable.
 	cblogger = cblog.GetLogger("AlibabaCloud Resource Test")
-	cblog.SetLevel("debug")
+	cblog.SetLevel("info")
 }
 
 /*
@@ -521,11 +521,11 @@ func handleVPC() {
 				IId:       irs.IID{NameId: "New-CB-Subnet"},
 				IPv4_CIDR: "10.0.1.0/24",
 			},
-			/*
-				{
-					IId:       irs.IID{NameId: "New-CB-Subnet2"},
-					IPv4_CIDR: "10.0.2.0/24",
-				},*/
+
+			{
+				IId:       irs.IID{NameId: "New-CB-Subnet2"},
+				IPv4_CIDR: "10.0.2.0/24",
+			},
 		},
 		//Id:   "subnet-044a2b57145e5afc5",
 		//Name: "CB-VNet-Subnet", // 웹 도구 등 외부에서 전달 받지 않고 드라이버 내부적으로 자동 구현때문에 사용하지 않음.
@@ -533,7 +533,7 @@ func handleVPC() {
 		//CidrBlock: "192.168.0.0/16",
 	}
 
-	reqSubnetId := irs.IID{SystemId: "vpc-6we8sizxidaddzmwul6e7"}
+	reqSubnetId := irs.IID{SystemId: "vpc-6wexksin0sd5wa3cqs0xu"}
 
 	for {
 		fmt.Println("Handler Management")
@@ -607,11 +607,11 @@ func handleVPC() {
 
 func main() {
 	cblogger.Info("Alibaba Cloud Resource Test")
+	handleVPC() //VPC
+	//handleVMSpec()
 	//handleKeyPair()
 	//handlePublicIP() // PublicIP 생성 후 conf
-	//handleVMSpec()
 
-	handleVPC() //VPC
 	//handleImage() //AMI
 	//handleVNic() //Lancard
 	//handleSecurity()

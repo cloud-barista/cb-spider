@@ -16,6 +16,8 @@ import (
 	"errors"
 	"reflect"
 	"strconv"
+	"strings"
+	"time"
 
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/vpc"
 	"github.com/davecgh/go-spew/spew"
@@ -52,10 +54,13 @@ func (VPCHandler *AlibabaVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.V
 		return irs.VPCInfo{}, err
 	}
 
+	//VPC를 생성하면 Pending 상태라서 Subnet을 추가할 수 없기 때문에 Available로 바뀔 때까지 대기함.
+	VPCHandler.WaitForRun(response.VpcId)
+
 	//==========================
 	// Subnet 생성
 	//==========================
-	//VPCHandler.CreateSubnet(retVpcInfo.IId.SystemId, vpcReqInfo.SubnetInfoList[0])
+	cblogger.Info("Subnet 생성 시작")
 	//var resSubnetList []irs.SubnetInfo
 	for _, curSubnet := range vpcReqInfo.SubnetInfoList {
 		cblogger.Infof("[%s] Subnet 생성", curSubnet.IId.NameId)
@@ -65,17 +70,15 @@ func (VPCHandler *AlibabaVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.V
 		if errSubnet != nil {
 			return irs.VPCInfo{}, errSubnet
 		}
-		//resSubnetList = append(resSubnetList, resSubnet)
 	}
-	//retVpcInfo.SubnetInfoList = resSubnetList
 
-	//생성된 VPC의 세부 정보를 조회함.
+	//생성된 Subnet을 포함한 VPC의 최신 정보를 조회함.
 	retVpcInfo, errVpc := VPCHandler.GetVPC(irs.IID{SystemId: response.VpcId})
 	if errVpc != nil {
 		cblogger.Error(errVpc)
 		return irs.VPCInfo{}, errVpc
 	}
-	retVpcInfo.IId.NameId = vpcReqInfo.IId.NameId // NameId는 요청 받은 값으로 리턴해야 함.
+	//retVpcInfo.IId.NameId = vpcReqInfo.IId.NameId // NameId는 요청 받은 값으로 리턴해야 함.
 
 	return retVpcInfo, nil
 }
@@ -119,13 +122,14 @@ func (VPCHandler *AlibabaVPCHandler) CreateSubnet(vpcId string, reqSubnetInfo ir
 }
 
 func (VPCHandler *AlibabaVPCHandler) ListVPC() ([]*irs.VPCInfo, error) {
-	cblogger.Debug("Start")
+	cblogger.Info("Start")
 
 	request := vpc.CreateDescribeVpcsRequest()
 	request.Scheme = "https"
 
 	result, err := VPCHandler.Client.DescribeVpcs(request)
-	spew.Dump(result)
+	cblogger.Debug(result)
+	//spew.Dump(result)
 	if err != nil {
 		return nil, err
 	}
@@ -141,7 +145,8 @@ func (VPCHandler *AlibabaVPCHandler) ListVPC() ([]*irs.VPCInfo, error) {
 		vpcInfoList = append(vpcInfoList, &vpcInfo)
 	}
 
-	spew.Dump(vpcInfoList)
+	cblogger.Debug(result)
+	//spew.Dump(vpcInfoList)
 	return vpcInfoList, nil
 }
 
@@ -150,8 +155,6 @@ func ExtractVpcDescribeInfo(vpcInfo *vpc.Vpc) irs.VPCInfo {
 	aliVpcInfo := irs.VPCInfo{
 		IId:       irs.IID{NameId: vpcInfo.VpcName, SystemId: vpcInfo.VpcId},
 		IPv4_CIDR: vpcInfo.CidrBlock,
-		//IsDefault: *vpcInfo.IsDefault,
-		//State:     *vpcInfo.State,
 	}
 
 	keyValueList := []irs.KeyValue{
@@ -163,53 +166,51 @@ func ExtractVpcDescribeInfo(vpcInfo *vpc.Vpc) irs.VPCInfo {
 	aliVpcInfo.KeyValueList = keyValueList
 
 	return aliVpcInfo
-	/*
-		alibabaVpcInfo := AlibabaVpcInfo{
-			Name:      *vpcInfo.VpcName,
-			Id:        *vpcInfo.VpcId,
-			CidrBlock: *vpcInfo.CidrBlock,
-			IsDefault: *vpcInfo.IsDefault,
-			Status:    *vpcInfo.Status,
+}
 
-			CenStatus:       *vpcInfo.CenStatus,
-			ResourceGroupId: *vpcInfo.ResourceGroupId,
-			VRouterId:       *vpcInfo.VRouterId,
+//Pending , Available
+func (VPCHandler *AlibabaVPCHandler) WaitForRun(vpcId string) error {
+	cblogger.Info("======> VPC가 Running 될 때까지 대기함.")
 
-			CreationTime: *vpcInfo.CreationTime,
-			RegionId:     *vpcInfo.RegionId,
+	maxRetryCnt := 10
+	curRetryCnt := 0
+	status := ""
+	request := vpc.CreateDescribeVpcsRequest()
+	request.Scheme = "https"
+	request.VpcId = vpcId
 
-			RouterTableIds: *vpcInfo.RouterTableIds,
-			VSwitchId:      *vpcInfo.VSwitchIds,
-
-			Description: *vpcInfo.Description,
+	for {
+		result, err := VPCHandler.Client.DescribeVpcs(request)
+		if err != nil {
+			return err
 		}
 
-		cblogger.Debug("RouterTableId 찾기")
-		for _, rt := range vpcInfo.RouterTableIds {
-			alibabaVpcInfo.RouterTableIds.append(*rt.RouterTableIds)
+		if len(result.Vpcs.Vpc) < 1 {
+			return errors.New("Not found")
 		}
 
-		cblogger.Debug("VSwitchId 찾기")
-		for _, vs := range vpcInfo.VSwitchIds {
-			alibabaVpcInfo.VSwitchId.append(*vs.VSwitchIds)
+		status = result.Vpcs.Vpc[0].Status
+		cblogger.Info("===>VPC Status : ", status)
+		if strings.EqualFold(status, "Pending") {
+			curRetryCnt++
+			cblogger.Error("VPC 상태가 Available이 아니라서 3초가 대기후 조회합니다.")
+			time.Sleep(time.Second * 1)
+			if curRetryCnt > maxRetryCnt {
+				cblogger.Error("장시간 VPC의 Status 값이 Available로 변경되지 않아서 강제로 중단합니다.")
+			}
+		} else {
+			if strings.EqualFold(status, "Available") {
+				break
+			} else {
+				return errors.New("Unknown VPC Status value.")
+			}
 		}
+	}
 
-		//Name은 Tag의 "Name" 속성에만 저장됨
-		// cblogger.Debug("Name Tag 찾기")
-		// for _, t := range vpcInfo.Tags {
-		// 	if *t.Key == "Name" {
-		// 		alibabaVpcInfo.Name = *t.Value
-		// 		cblogger.Debug("VPC Name : ", alibabaVpcInfo.Name)
-		// 		break
-		// 	}
-		// }
-
-		return alibabaVpcInfo
-	*/
+	return nil
 }
 
 func (VPCHandler *AlibabaVPCHandler) GetVPC(vpcIID irs.IID) (irs.VPCInfo, error) {
-	spew.Dump(VPCHandler)
 	cblogger.Info("VPC IID : ", vpcIID.SystemId)
 
 	request := vpc.CreateDescribeVpcsRequest()
@@ -224,7 +225,7 @@ func (VPCHandler *AlibabaVPCHandler) GetVPC(vpcIID irs.IID) (irs.VPCInfo, error)
 
 	cblogger.Info("VPC 개수 : ", len(result.Vpcs.Vpc))
 	if len(result.Vpcs.Vpc) < 1 {
-		return irs.VPCInfo{}, nil
+		return irs.VPCInfo{}, errors.New("Not found")
 	}
 
 	vpcInfo := ExtractVpcDescribeInfo(&result.Vpcs.Vpc[0])
@@ -333,6 +334,7 @@ func ExtractSubnetDescribeInfo(subnetInfo vpc.VSwitch) irs.SubnetInfo {
 	keyValueList := []irs.KeyValue{
 		{Key: "Status", Value: subnetInfo.Status},
 		{Key: "IsDefault", Value: strconv.FormatBool(subnetInfo.IsDefault)},
+		{Key: "ZoneId", Value: subnetInfo.ZoneId},
 	}
 	vNetworkInfo.KeyValueList = keyValueList
 
