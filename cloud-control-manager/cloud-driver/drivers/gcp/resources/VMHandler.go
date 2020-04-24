@@ -188,12 +188,12 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 }
 
 // stop이라고 보면 될듯
-func (vmHandler *GCPVMHandler) SuspendVM(vmID string) (irs.VMStatus, error) {
+func (vmHandler *GCPVMHandler) SuspendVM(vmID irs.IID) (irs.VMStatus, error) {
 	projectID := vmHandler.Credential.ProjectID
 	zone := vmHandler.Region.Zone
 	ctx := vmHandler.Ctx
 
-	inst, err := vmHandler.Client.Instances.Stop(projectID, zone, vmID).Context(ctx).Do()
+	inst, err := vmHandler.Client.Instances.Stop(projectID, zone, vmID.NameId).Context(ctx).Do()
 	spew.Dump(inst)
 	if err != nil {
 		cblogger.Error(err)
@@ -204,13 +204,13 @@ func (vmHandler *GCPVMHandler) SuspendVM(vmID string) (irs.VMStatus, error) {
 	return irs.VMStatus("Suspending"), nil
 }
 
-func (vmHandler *GCPVMHandler) ResumeVM(vmID string) (irs.VMStatus, error) {
+func (vmHandler *GCPVMHandler) ResumeVM(vmID irs.IID) (irs.VMStatus, error) {
 
 	projectID := vmHandler.Credential.ProjectID
 	zone := vmHandler.Region.Zone
 	ctx := vmHandler.Ctx
 
-	inst, err := vmHandler.Client.Instances.Start(projectID, zone, vmID).Context(ctx).Do()
+	inst, err := vmHandler.Client.Instances.Start(projectID, zone, vmID.NameId).Context(ctx).Do()
 	spew.Dump(inst)
 	if err != nil {
 		cblogger.Error(err)
@@ -221,7 +221,7 @@ func (vmHandler *GCPVMHandler) ResumeVM(vmID string) (irs.VMStatus, error) {
 	return irs.VMStatus("Resuming"), nil
 }
 
-func (vmHandler *GCPVMHandler) RebootVM(vmID string) (irs.VMStatus, error) {
+func (vmHandler *GCPVMHandler) RebootVM(vmID irs.IID) (irs.VMStatus, error) {
 
 	_, err := vmHandler.SuspendVM(vmID)
 	if err != nil {
@@ -236,12 +236,12 @@ func (vmHandler *GCPVMHandler) RebootVM(vmID string) (irs.VMStatus, error) {
 	return irs.VMStatus("Rebooting"), nil
 }
 
-func (vmHandler *GCPVMHandler) TerminateVM(vmID string) (irs.VMStatus, error) {
+func (vmHandler *GCPVMHandler) TerminateVM(vmID irs.IID) (irs.VMStatus, error) {
 	projectID := vmHandler.Credential.ProjectID
 	zone := vmHandler.Region.Zone
 	ctx := vmHandler.Ctx
 
-	inst, err := vmHandler.Client.Instances.Delete(projectID, zone, vmID).Context(ctx).Do()
+	inst, err := vmHandler.Client.Instances.Delete(projectID, zone, vmID.NameId).Context(ctx).Do()
 	spew.Dump(inst)
 	if err != nil {
 		cblogger.Error(err)
@@ -304,11 +304,11 @@ func ConvertVMStatusString(vmStatus string) (irs.VMStatus, error) {
 	return irs.VMStatus(resultStatus), nil
 }
 
-func (vmHandler *GCPVMHandler) GetVMStatus(vmID string) (irs.VMStatus, error) { // GCP의 ID는 uint64 이므로 GCP에서는 Name을 ID값으로 사용한다.
+func (vmHandler *GCPVMHandler) GetVMStatus(vmID irs.IID) (irs.VMStatus, error) { // GCP의 ID는 uint64 이므로 GCP에서는 Name을 ID값으로 사용한다.
 	projectID := vmHandler.Credential.ProjectID
 	zone := vmHandler.Region.Zone
 
-	instanceView, err := vmHandler.Client.Instances.Get(projectID, zone, vmID).Do()
+	instanceView, err := vmHandler.Client.Instances.Get(projectID, zone, vmID.NameId).Do()
 	if err != nil {
 		cblogger.Error(err)
 		return irs.VMStatus("Failed"), err
@@ -340,11 +340,11 @@ func (vmHandler *GCPVMHandler) ListVM() ([]*irs.VMInfo, error) {
 	return vmList, nil
 }
 
-func (vmHandler *GCPVMHandler) GetVM(vmName string) (irs.VMInfo, error) {
+func (vmHandler *GCPVMHandler) GetVM(vmID irs.IID) (irs.VMInfo, error) {
 	projectID := vmHandler.Credential.ProjectID
 	zone := vmHandler.Region.Zone
 
-	vm, err := vmHandler.Client.Instances.Get(projectID, zone, vmName).Do()
+	vm, err := vmHandler.Client.Instances.Get(projectID, zone, vmID.NameId).Do()
 	spew.Dump(vm)
 	if err != nil {
 		cblogger.Error(err)
@@ -387,8 +387,11 @@ func (vmHandler *GCPVMHandler) mappingServerInfo(server *compute.Instance) irs.V
 	// Get Default VM Info
 
 	vmInfo := irs.VMInfo{
-		Name: server.Name,
-		Id:   strconv.FormatUint(server.Id, 10),
+		IId: irs.IID{
+			NameId: server.Name,
+			SystemId: strconv.FormatUint(server.Id, 10),
+		}
+	
 		Region: irs.RegionInfo{
 			Region: vmHandler.Region.Region,
 			Zone:   vmHandler.Region.Zone,
