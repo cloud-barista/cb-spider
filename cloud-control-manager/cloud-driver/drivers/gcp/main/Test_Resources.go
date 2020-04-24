@@ -379,6 +379,94 @@ func handleVNetwork() {
 	}
 }
 
+// Test handleVPC (VPC)
+func handleVPC() {
+	cblogger.Debug("Start VPC Resource Test")
+
+	ResourceHandler, err := testconf.GetResourceHandler("VPCHandler")
+	if err != nil {
+		panic(err)
+	}
+	handler := ResourceHandler.(irs.VPCHandler)
+
+	vNetworkReqInfo := irs.VPCReqInfo{
+		Id: irs.IID{
+			NameId:
+		}
+	}
+	reqSubnetId := "subnet-12345"
+	//reqSubnetId = ""
+
+	for {
+		fmt.Println("VNetworkHandler Management")
+		fmt.Println("0. Quit")
+		fmt.Println("1. VNetwork List")
+		fmt.Println("2. VNetwork Create")
+		fmt.Println("3. VNetwork Get")
+		fmt.Println("4. VNetwork Delete")
+
+		var commandNum int
+		inputCnt, err := fmt.Scan(&commandNum)
+		if err != nil {
+			panic(err)
+		}
+
+		if inputCnt == 1 {
+			switch commandNum {
+			case 0:
+				return
+
+			case 1:
+				result, err := handler.ListVPC()
+				if err != nil {
+					cblogger.Infof(" VNetwork 목록 조회 실패 : ", err)
+				} else {
+					cblogger.Info("VPC 목록 조회 결과")
+					//cblogger.Info(result)
+					spew.Dump(result)
+
+					// 내부적으로 1개만 존재함.
+					//조회및 삭제 테스트를 위해 리스트의 첫번째 서브넷 ID를 요청ID로 자동 갱신함.
+					if result != nil {
+						reqSubnetId = result[0].Id // 조회 및 삭제를 위해 생성된 ID로 변경
+					}
+				}
+
+			case 2:
+				cblogger.Infof("[%s] VNetwork 생성 테스트", vNetworkReqInfo.Name)
+				//vNetworkReqInfo := irs.VNetworkReqInfo{}
+				result, err := handler.CreateVNetwork(vNetworkReqInfo)
+				if err != nil {
+					cblogger.Infof(reqSubnetId, " VNetwork 생성 실패 : ", err)
+				} else {
+					cblogger.Infof("VNetwork 생성 결과 : ", result)
+					reqSubnetId = result.Id // 조회 및 삭제를 위해 생성된 ID로 변경
+					spew.Dump(result)
+				}
+
+			case 3:
+				cblogger.Infof("[%s] VNetwork 조회 테스트", reqSubnetId)
+				result, err := handler.GetVNetwork(reqSubnetId)
+				if err != nil {
+					cblogger.Infof("[%s] VNetwork 조회 실패 : ", reqSubnetId, err)
+				} else {
+					cblogger.Infof("[%s] VNetwork 조회 결과 : [%s]", reqSubnetId, result)
+					spew.Dump(result)
+				}
+
+			case 4:
+				cblogger.Infof("[%s] VNetwork 삭제 테스트", reqSubnetId)
+				result, err := handler.DeleteVNetwork(reqSubnetId)
+				if err != nil {
+					cblogger.Infof("[%s] VNetwork 삭제 실패 : ", reqSubnetId, err)
+				} else {
+					cblogger.Infof("[%s] VNetwork 삭제 결과 : [%s]", reqSubnetId, result)
+				}
+			}
+		}
+	}
+}
+
 // Test KeyPair
 func handleKeyPair() {
 	cblogger.Debug("Start KeyPair Resource Test")

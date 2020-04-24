@@ -48,6 +48,7 @@ func (GCPDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	drvCapabilityInfo.PublicIPHandler = true
 	drvCapabilityInfo.VMHandler = true
 	drvCapabilityInfo.VMSpecHandler = true
+	drvCapabilityInfo.VPCHandler = true
 
 	return drvCapabilityInfo
 }
@@ -78,6 +79,7 @@ func (driver *GCPDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (icon.
 		// VNicClient:          VMClient,
 		SubnetClient:  VMClient,
 		VMSpecHandler: VMClient,
+		VPCHandler:    VMClient,
 	}
 
 	fmt.Println("################## resource ConnectionInfo ##################")

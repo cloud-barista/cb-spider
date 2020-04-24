@@ -40,6 +40,7 @@ type GCPCloudConnection struct {
 	VNicClient          *compute.Service
 	SubnetClient        *compute.Service
 	VMSpecHandler       *compute.Service
+	VPCHandler          *compute.Service
 }
 
 func (cloudConn *GCPCloudConnection) CreateVNetworkHandler() (irs.VNetworkHandler, error) {
@@ -82,6 +83,12 @@ func (cloudConn *GCPCloudConnection) CreateVMHandler() (irs.VMHandler, error) {
 	cblogger.Info("GCP Cloud Driver: called CreateVMHandler()!")
 	vmHandler := gcprs.GCPVMHandler{cloudConn.Region, cloudConn.Ctx, cloudConn.VMClient, cloudConn.Credential}
 	return &vmHandler, nil
+}
+
+func (cloudConn *GCPCloudConnection) CreateVPCHandler() (irs.VMHandler, error) {
+	cblogger.Info("GCP Cloud Driver: called CreateVPCHandler()!")
+	vpcHandler := gcprs.GCPVPCHandler{cloudConn.Region, cloudConn.Ctx, cloudConn.VMClient, cloudConn.Credential}
+	return &vpcHandler, nil
 }
 
 func (cloudConn *GCPCloudConnection) CreateVMSpecHandler() (irs.VMSpecHandler, error) {

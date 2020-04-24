@@ -115,7 +115,7 @@ func (vVPCHandler *GCPVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.VPCI
 	}
 
 	cblogger.Info("현재 생성된 서브넷 수 : ", cnt)
-
+	vpcNetworkUrl := "https://www.googleapis.com/compute/v1/projects/" + projectID + "/global/networks/" + vpcReqInfo.IId.NameId
 	// 여기서부터 서브넷 체크하는 로직이 들어가야 하네. 하필 배열이네
 	for _, item := range vpcReqInfo.SubnetInfoList{
 		subnetName := item.IId.NameId
@@ -125,65 +125,46 @@ func (vVPCHandler *GCPVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.VPCI
 			cblogger.Error("이미 해당하는 Subnet이 존재함")
 			return irs.VPCInfo, error
 		}
-		// 4.21 오늘은 여기까지 위쪽에서 미리 서브넷안에 이미 존재하는지 체트하고 Cidr이 있는지 
-		//확인한 후 VPC  만들고 만들어지면 그 다음에 서브넷 생성 로직으로 가자.그게 낫겠다
+
+		subnetWork := &compute.Subnetwork{
+			Name:        subnetName,
+			IpCidrRange: item.IPv4_CIDR,
+			Network:     vpcNetworkUrl,
+		}
+		cblogger.Infof("[%s] Subnet 생성시작", subnetName)
+		cblogger.Info(subnetWork)
+		
+		infoSubnet, errSubnet := vVPCHandler.Client.Subnetworks.Insert(projectID,region,subnetWork).Do()
+		if errSubnet != nil {
+			cblogger.Error(errSubnet)
+			return irs.VPCInfo{}, errors.New("Making Subnet Error - "+subnetName)
+		}
+
+		cblogger.Infof("[%s] Subnet 생성완료", subnetName)
+		cblogger.Info(infoSubnet)
 		
 	}
 	
 
-	subnetInfo, errSubnet := vVPCHandler.GetVPC(vPC)
-	if errSubnet == nil {
-		spew.Dump(subnetInfo)
+	vpcInfo, errVPC := vVPCHandler.GetVPC(vpcReqInfo.IId.NameId)
+	if errVPC == nil {
+		spew.Dump(vpcInfo)
 		//최초 생성인 경우 VPC와 Subnet 이름이 동일하면 이미 생성되었으므로 추가로 생성하지 않고 리턴 함.
 		if isFirst {
 			cblogger.Error("최초 VPC 생성이므로 에러 없이 조회된 서브넷 정보를 리턴 함.")
-			return subnetInfo, nil
+			return vpcInfo, nil
 		} else {
-			cblogger.Error(errSubnet)
-			return irs.VPCInfo{}, errors.New("Already Exist - " + VPCReqInfo.Name)
+			cblogger.Error(errVPC)
+			return irs.VPCInfo{}, errors.New("Already Exist - " + vpcReqInfo.IId.NameId)
 		}
-	}
-
-	// vNetResult, _ := vVPCHandler.ListVPC()
-
-	networkUrl := "https://www.googleapis.com/compute/v1/projects/" + projectID + "/global/networks/" + name
-	subnetWork := &compute.Subnetwork{
-		Name:        VPCReqInfo.Name,
-		IpCidrRange: "192.168." + cnt + ".0/24",
-		Network:     networkUrl,
-	}
-	cblogger.Infof("[%s] Subnet 생성시작", VPCReqInfo.Name)
-	cblogger.Info(subnetWork)
-	res, err := vVPCHandler.Client.Subnetworks.Insert(projectID, region, subnetWork).Do()
-	if err != nil {
-		cblogger.Error("Subnet 생성 실패")
-		cblogger.Error(err)
-		return irs.VPCInfo{}, err
-	}
-	cblogger.Infof("[%s] Subnet 생성완료", VPCReqInfo.Name)
-	cblogger.Info(res)
+	}	
 
 	//생성되는데 시간이 필요 함. 약 20초정도?
 	//time.Sleep(time.Second * 20)
 
-	info, err2 := vVPCHandler.Client.Subnetworks.Get(projectID, region, VPCReqInfo.Name).Do()
-	if err2 != nil {
-		cblogger.Error(err2)
-		return irs.VPCInfo{}, err2
-	}
-	networkInfo := irs.VPCInfo{
-		Name:          info.Name,
-		Id:            strconv.FormatUint(info.Id, 10),
-		AddressPrefix: info.IpCidrRange,
-		KeyValueList: []irs.KeyValue{
-			{"SubnetId", info.Name},
-			{"Region", info.Region},
-			{"GatewayAddress", info.GatewayAddress},
-			{"SelfLink", info.SelfLink},
-		},
-	}
+	
 
-	return networkInfo, nil
+	return vpcInfo, nil
 }
 
 func (vVPCHandler *GCPVPCHandler) ListVPC() ([]*irs.VPCInfo, error) {
