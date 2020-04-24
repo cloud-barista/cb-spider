@@ -17,8 +17,12 @@ type ClouditSecurityHandler struct {
 
 func setterSecGroup(secGroup securitygroup.SecurityGroupInfo) *irs.SecurityInfo {
 	secInfo := &irs.SecurityInfo{
-		Id:            secGroup.ID,
-		Name:          secGroup.Name,
+		IId: irs.IID{
+			NameId:   secGroup.ID,
+			SystemId: secGroup.Name,
+		},
+		//Id:            secGroup.ID,
+		//Name:          secGroup.Name,
 		SecurityRules: nil,
 	}
 
@@ -39,9 +43,9 @@ func setterSecGroup(secGroup securitygroup.SecurityGroupInfo) *irs.SecurityInfo 
 
 func (securityHandler *ClouditSecurityHandler) CreateSecurity(securityReqInfo irs.SecurityReqInfo) (irs.SecurityInfo, error) {
 	// 보안그룹 이름 중복 체크
-	securityInfo, _ := securityHandler.getSecurityByName(securityReqInfo.Name)
+	securityInfo, _ := securityHandler.getSecurityByName(securityReqInfo.IId.NameId)
 	if securityInfo != nil {
-		errMsg := fmt.Sprintf("SecurityGroup with name %s already exist", securityReqInfo.Name)
+		errMsg := fmt.Sprintf("SecurityGroup with name %s already exist", securityReqInfo.IId.NameId)
 		createErr := errors.New(errMsg)
 		return irs.SecurityInfo{}, createErr
 	}
@@ -50,14 +54,14 @@ func (securityHandler *ClouditSecurityHandler) CreateSecurity(securityReqInfo ir
 	authHeader := securityHandler.Client.AuthenticatedHeaders()
 
 	reqInfo := securitygroup.SecurityReqInfo{
-		Name: securityReqInfo.Name,
+		Name: securityReqInfo.IId.NameId,
 	}
 
 	// SecurityGroup Rule 설정
 	ruleList := []securitygroup.SecurityGroupRules{}
 	for idx, rule := range *securityReqInfo.SecurityRules {
 		secRuleInfo := securitygroup.SecurityGroupRules{
-			Name:     fmt.Sprintf("%s-rules-%d", securityReqInfo.Name, idx+1),
+			Name:     fmt.Sprintf("%s-rules-%d", securityReqInfo.IId.NameId, idx+1),
 			Type:     rule.Direction,
 			Port:     rule.FromPort + "-" + rule.ToPort,
 			Target:   "0.0.0.0/0",
@@ -166,7 +170,8 @@ func (securityHandler *ClouditSecurityHandler) getSecurityByName(securityName st
 	requestOpts := client.RequestOpts{
 		MoreHeaders: authHeader,
 	}
-
+	// name Id
+	// Deploy,
 	securityList, err := securitygroup.List(securityHandler.Client, &requestOpts)
 	if err != nil {
 		return nil, err

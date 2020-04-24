@@ -38,9 +38,9 @@ type ClouditVMHandler struct {
 
 func (vmHandler *ClouditVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, error) {
 	// 가상서버 이름 중복 체크
-	vmId, _ := vmHandler.getVmIdByName(vmReqInfo.VMName)
+	vmId, _ := vmHandler.getVmIdByName(vmReqInfo.IId.NameId)
 	if vmId != "" {
-		errMsg := fmt.Sprintf("VirtualMachine with name %s already exist", vmReqInfo.VMName)
+		errMsg := fmt.Sprintf("VirtualMachine with name %s already exist", vmReqInfo.IId.NameId)
 		createErr := errors.New(errMsg)
 		return irs.VMInfo{}, createErr
 	}
@@ -50,7 +50,7 @@ func (vmHandler *ClouditVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 		Client:         vmHandler.Client,
 		CredentialInfo: vmHandler.CredentialInfo,
 	}
-	image, err := imageHandler.GetImage(vmReqInfo.ImageId)
+	image, err := imageHandler.GetImage(vmReqInfo.IId)
 	if err != nil {
 		cblogger.Error(fmt.Sprintf("failed to get image, err : %s", err))
 		return irs.VMInfo{}, err
@@ -72,20 +72,20 @@ func (vmHandler *ClouditVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 		Client:         vmHandler.Client,
 		CredentialInfo: vmHandler.CredentialInfo,
 	}
-	secGroups := make([]server.SecGroupInfo, len(vmReqInfo.SecurityGroupIds))
-	for i, s := range vmReqInfo.SecurityGroupIds {
-		security, err := securityHandler.GetSecurity(s)
+	secGroups := make([]server.SecGroupInfo, len(vmReqInfo.SecurityGroupIIDs))
+	for i, s := range vmReqInfo.SecurityGroupIIDs {
+		security, err := securityHandler.GetSecurity(s.NameId)
 		if err != nil {
 			cblogger.Error(fmt.Sprintf("failed to get security group, err : %s", err))
 			continue
 		}
 		secGroups[i] = server.SecGroupInfo{
-			Id: security.Id,
+			Id: security.IId.NameId,
 		}
 	}
 
 	// Spec 정보 조회 (Name)
-	vmSpecId, err := GetVMSpec(vmHandler.Client.AuthenticatedHeaders(), vmHandler.Client, vmReqInfo.VMSpecId)
+	vmSpecId, err := GetVMSpec(vmHandler.Client.AuthenticatedHeaders(), vmHandler.Client, vmReqInfo.VMSpecName)
 	if err != nil {
 		cblogger.Error(fmt.Sprintf("failed to get vm spec, err : %s", err))
 		return irs.VMInfo{}, err
@@ -103,10 +103,10 @@ func (vmHandler *ClouditVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 		SubnetAddr:   vmReqInfo.VirtualNetworkId,
 	}*/
 	reqInfo := server.VMReqInfo{
-		TemplateId:   image.Id,
+		TemplateId:   image.IId.NameId,
 		SpecId:       *vmSpecId,
-		Name:         vmReqInfo.VMName,
-		HostName:     vmReqInfo.VMName,
+		Name:         vmReqInfo.IId.NameId,
+		HostName:     vmReqInfo.IId.NameId,
 		RootPassword: vmReqInfo.VMUserPasswd,
 		SubnetAddr:   vNetwork.Id,
 		Secgroups:    secGroups,
@@ -274,7 +274,7 @@ func (vmHandler *ClouditVMHandler) TerminateVM(vmNameID string) (irs.VMStatus, e
 		time.Sleep(5 * time.Second)
 	}
 
-	if err := server.Terminate(vmHandler.Client, vmInfo.Id, &requestOpts); err != nil {
+	if err := server.Terminate(vmHandler.Client, vmInfo.IId.NameId, &requestOpts); err != nil {
 		cblogger.Error(err)
 		panic(err)
 		return irs.Failed, err
@@ -466,14 +466,16 @@ func mappingServerInfo(server server.ServerInfo) irs.VMInfo {
 
 	// Get Default VM Info
 	vmInfo := irs.VMInfo{
-		Name:             server.Name,
-		Id:               server.ID,
-		ImageId:          server.TemplateID,
-		VMSpecId:         server.SpecId,
+		IId: irs.IID{
+			NameId:   server.Name,
+			SystemId: server.ID,
+		},
+		ImageIId:         server.TemplateID,
+		VMSpecName:       server.SpecId,
 		VirtualNetworkId: server.SubnetAddr,
 		PublicIP:         server.AdaptiveIp,
 		PrivateIP:        server.PrivateIp,
-		KeyPairName:      server.RootPassword,
+		KeyPairIId:       server.RootPassword,
 	}
 
 	/*if creatTime, err := time.Parse(time.RFC3339, server.CreatedAt); err == nil {
@@ -496,8 +498,8 @@ func (vmHandler *ClouditVMHandler) getVmIdByName(vmNameID string) (string, error
 
 	// VM 목록에서 Name 기준 검색
 	for _, v := range vmList {
-		if strings.EqualFold(v.Name, vmNameID) {
-			vmId = v.Id
+		if strings.EqualFold(v.IId.NameId, vmNameID) {
+			vmId = v.IId.NameId
 			break
 		}
 	}
