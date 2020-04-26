@@ -137,9 +137,9 @@ func (imageHandler *AlibabaImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 //Image 정보를 추출함
 //func ExtractImageDescribeInfo(image *ecs.Image) irs.ImageInfo {
 //@TODO : 2020-03-26 Ali클라우드 API 구조가 바뀐 것 같아서 임시로 변경해 놓음.
-//func ExtractImageDescribeInfo(image *ecs.ImageInDescribeImages) irs.ImageInfo {
-//@TODO : 2020-04-20 ecs.ImageInDescribeImages를 인식 못해서 다시 ecs.Image로 변경해 놓음.
-func ExtractImageDescribeInfo(image *ecs.Image) irs.ImageInfo {
+func ExtractImageDescribeInfo(image *ecs.ImageInDescribeImages) irs.ImageInfo {
+	//@TODO : 2020-04-20 ecs.ImageInDescribeImages를 인식 못해서 다시 ecs.Image로 변경해 놓음.
+	//func ExtractImageDescribeInfo(image *ecs.Image) irs.ImageInfo {
 	//*ecs.DescribeImagesResponse
 	cblogger.Infof("=====> ")
 	spew.Dump(image)

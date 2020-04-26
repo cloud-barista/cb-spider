@@ -22,9 +22,9 @@ type AlibabaVmSpecHandler struct {
 //func ExtractVMSpecInfo(Region string, instanceTypeInfo ecs.InstanceType) irs.VMSpecInfo {
 //@TODO : 2020-03-26 Ali클라우드 API 구조가 바뀐 것 같아서 임시로 변경해 놓음.
 //윈도우즈에서는 ecs.InstanceType를 인식하지만 Mac과 신규 API에서는 ecs.InstanceType를 못찾고 ecs.InstanceTypeInDescribeInstanceTypes를 이용함.
-//func ExtractVMSpecInfo(Region string, instanceTypeInfo ecs.InstanceTypeInDescribeInstanceTypes) irs.VMSpecInfo {
-//@todo : 2020-04-20 ecs.InstanceTypeInDescribeInstanceTypes을 인식 못해서 다시 ecs.InstanceType을 사용함.
-func ExtractVMSpecInfo(Region string, instanceTypeInfo ecs.InstanceType) irs.VMSpecInfo {
+func ExtractVMSpecInfo(Region string, instanceTypeInfo ecs.InstanceTypeInDescribeInstanceTypes) irs.VMSpecInfo {
+	//@todo : 2020-04-20 ecs.InstanceTypeInDescribeInstanceTypes을 인식 못해서 다시 ecs.InstanceType을 사용함.
+	//func ExtractVMSpecInfo(Region string, instanceTypeInfo ecs.InstanceType) irs.VMSpecInfo {
 	//ecs.InstanceType
 	cblogger.Infof("ExtractVMSpecInfo : Region:[%s] / SpecName:[%s]", Region, instanceTypeInfo.InstanceTypeFamily)
 	//spew.Dump(instanceTypeInfo)

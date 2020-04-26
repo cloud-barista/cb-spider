@@ -236,14 +236,21 @@ func (VPCHandler *AlibabaVPCHandler) GetVPC(vpcIID irs.IID) (irs.VPCInfo, error)
 	//==========================
 	var subnetInfoList []irs.SubnetInfo
 	for _, curSubnet := range result.Vpcs.Vpc[0].VSwitchIds.VSwitchId {
+		//cblogger.Infof("\n\n\n\n")
+		//cblogger.Infof("---------------------------------------------------------------------")
 		cblogger.Infof("[%s] VSwitch 정보 조회", curSubnet)
 		subnetInfo, errSubnet := VPCHandler.GetSubnet(curSubnet)
 		if errSubnet != nil {
+			cblogger.Errorf("[%s] VSwitch 정보 조회 실패", curSubnet)
+			cblogger.Error(errSubnet)
 			return irs.VPCInfo{}, errSubnet
 		}
+		//cblogger.Infof("    =====> [%s] 조회 결과", curSubnet)
+		//spew.Dump(subnetInfo)
 		subnetInfoList = append(subnetInfoList, subnetInfo)
 	}
-	spew.Dump(subnetInfoList)
+	//cblogger.Info("===========> 서브넷 목록")
+	//spew.Dump(subnetInfoList)
 
 	vpcInfo.SubnetInfoList = subnetInfoList
 	return vpcInfo, nil
@@ -308,11 +315,13 @@ func (VPCHandler *AlibabaVPCHandler) GetSubnet(reqSubnetId string) (irs.SubnetIn
 
 	request := vpc.CreateDescribeVSwitchesRequest()
 	request.Scheme = "https"
+	request.VSwitchId = reqSubnetId
 
 	result, err := VPCHandler.Client.DescribeVSwitches(request)
 	spew.Dump(result)
-	cblogger.Info(result)
+	//cblogger.Info(result)
 	if err != nil {
+		cblogger.Error(err)
 		return irs.SubnetInfo{}, err
 	}
 

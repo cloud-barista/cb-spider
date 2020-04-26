@@ -533,7 +533,7 @@ func handleVPC() {
 		//CidrBlock: "192.168.0.0/16",
 	}
 
-	reqSubnetId := irs.IID{SystemId: "vpc-6wexksin0sd5wa3cqs0xu"}
+	reqSubnetId := irs.IID{SystemId: "vpc-6wetgosz2ryog07lwnemg"}
 
 	for {
 		fmt.Println("Handler Management")
