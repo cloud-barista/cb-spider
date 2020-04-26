@@ -42,21 +42,6 @@ func (securityHandler *AlibabaSecurityHandler) CreateSecurity(securityReqInfo ir
 			request := ecs.CreateCreateSecurityGroupRequest()
 		    request.Scheme = "https"
 
-			//=========> 제거 시작 ========
-			//VPC & Subnet을 자동으로 찾아서 처리
-			vNetworkHandler := AlibabaVNetworkHandler{Client: securityHandler.Client}
-			alibabaCBNetworkInfo, errAutoCBNetInfo := vNetworkHandler.GetAutoCBNetworkInfo()
-			if errAutoCBNetInfo != nil || alibabaCBNetworkInfo.VpcId == "" {
-				cblogger.Error("VPC 정보 획득 실패")
-				return irs.SecurityInfo{}, errors.New("mcloud-barista의 기본 네트워크 정보를 찾을 수 없습니다.")
-			}
-
-			cblogger.Infof("==> [%s] CB Default VPC 정보 찾음", alibabaCBNetworkInfo.VpcId)
-			vpcId := alibabaCBNetworkInfo.VpcId
-
-		    vpcId := "" //@TODO : 구현해야 함.
-			//=========> 제거 종료 ========
-
 			request.Description = securityReqInfo.Name
 		 	request.SecurityGroupName = securityReqInfo.Name
 			request.VpcId = vpcId // "vpc-t4nevljk4rfqxa9n92vh7"

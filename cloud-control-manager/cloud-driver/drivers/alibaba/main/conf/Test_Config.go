@@ -125,6 +125,8 @@ func GetResourceHandler(handlerType string) (interface{}, error) {
 		resourceHandler, err = cloudConnection.CreateSecurityHandler()
 		//	case "VNetwork":
 		//resourceHandler, err = cloudConnection.CreateVNetworkHandler()
+	case "KeyPair":
+		resourceHandler, err = cloudConnection.CreateKeyPairHandler()
 	case "VPC":
 		resourceHandler, err = cloudConnection.CreateVPCHandler()
 	//case "VNic":
