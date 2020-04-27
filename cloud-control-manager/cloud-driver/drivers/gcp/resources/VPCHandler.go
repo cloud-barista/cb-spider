@@ -47,8 +47,8 @@ func (vVPCHandler *GCPVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.VPCI
 	//서브넷 있는지 확인
 	autoCreateSubnetworks := false
 
-	if vpcReqInfo.SubnetInfoList != nil {
-		autoCreateSubnetworks := true
+	if vpcReqInfo.SubnetInfoList == nil {
+		autoCreateSubnetworks = true
 	}
 
 	cblogger.Infof("생성된 [%s] VPC가 있는지 체크", name)
@@ -63,6 +63,7 @@ func (vVPCHandler *GCPVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.VPCI
 			Name: name,
 			//Name:                  GetCBDefaultVNetName(),
 			AutoCreateSubnetworks: autoCreateSubnetworks, // subnet 유무에 따라서 달라짐 true, false
+			ForceSendFields:       []string{"AutoCreateSubnetworks"},
 		}
 
 		cblogger.Infof("[%s] VPC 생성 시작", name)
@@ -126,6 +127,7 @@ func (vVPCHandler *GCPVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.VPCI
 			cblogger.Error("이미 해당하는 Subnet이 존재함")
 			return irs.VPCInfo{}, err
 		}
+		cblogger.Info(" Subnet info : ", checkInfo)
 
 		subnetWork := &compute.Subnetwork{
 			Name:        subnetName,
@@ -167,7 +169,7 @@ func (vVPCHandler *GCPVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.VPCI
 
 func (vVPCHandler *GCPVPCHandler) ListVPC() ([]*irs.VPCInfo, error) {
 	projectID := vVPCHandler.Credential.ProjectID
-	region := vVPCHandler.Region.Region
+	//region := vVPCHandler.Region.Region
 
 	vpcList, err := vVPCHandler.Client.Networks.List(projectID).Do()
 
@@ -213,7 +215,9 @@ func (vVPCHandler *GCPVPCHandler) GetVPC(vpcIID irs.IID) (irs.VPCInfo, error) {
 	}
 	if infoVPC.Subnetworks != nil {
 		for _, item := range infoVPC.Subnetworks {
+
 			str := strings.Split(item, "/")
+			region = str[len(str)-3]
 			subnet := str[len(str)-1]
 			infoSubnet, err := vVPCHandler.Client.Subnetworks.Get(projectID, region, subnet).Do()
 			if err != nil {
@@ -246,6 +250,8 @@ func mappingSubnet(subnet *compute.Subnetwork) irs.SubnetInfo {
 	//str := subnet.SelfLink
 	str := strings.Split(subnet.SelfLink, "/")
 	vpcName := str[len(str)-1]
+	regionStr := strings.Split(subnet.Region, "/")
+	region := regionStr[len(regionStr)-1]
 	subnetInfo := irs.SubnetInfo{
 		IId: irs.IID{
 			NameId:   subnet.Name,
@@ -253,7 +259,7 @@ func mappingSubnet(subnet *compute.Subnetwork) irs.SubnetInfo {
 		},
 		IPv4_CIDR: subnet.IpCidrRange,
 		KeyValueList: []irs.KeyValue{
-			{"region", subnet.Region},
+			{"region", region},
 			{"vpc", vpcName},
 		},
 	}
@@ -262,12 +268,37 @@ func mappingSubnet(subnet *compute.Subnetwork) irs.SubnetInfo {
 
 func (vVPCHandler *GCPVPCHandler) DeleteVPC(vpcID irs.IID) (bool, error) {
 	projectID := vVPCHandler.Credential.ProjectID
-	region := vVPCHandler.Region.Region
+	//region := vVPCHandler.Region.Region
 	//name := VPCID
 	name := vpcID.NameId
 	cblogger.Infof("Name : [%s]", name)
+	subnetInfo, subErr := vVPCHandler.GetVPC(vpcID)
+	if subErr != nil {
+		cblogger.Error(subErr)
+		return false, subErr
+	}
+	if subnetInfo.SubnetInfoList != nil {
+		for _, item := range subnetInfo.SubnetInfoList {
+			for _, si := range item.KeyValueList {
+				if si.Key == "region" {
+					region := si.Value
+					infoSubnet, infoSubErr := vVPCHandler.Client.Subnetworks.Delete(projectID, region, item.IId.NameId).Do()
+					if infoSubErr != nil {
+						cblogger.Error(infoSubErr)
+						return false, infoSubErr
+					}
+					cblogger.Info("Delete subnet result :", infoSubnet)
+					cblogger.Info("Subnet Deleting....wait 10seconds")
+					time.Sleep(time.Second * 10)
+				}
+			}
+		}
+	}
+	cblogger.Info("VPC Deleting....wait 15seconds")
+	time.Sleep(time.Second * 15)
+	cblogger.Info("[NOW Delete VPC]")
 	info, err := vVPCHandler.Client.Networks.Delete(projectID, name).Do()
-
+	time.Sleep(time.Second * 15)
 	cblogger.Info(info)
 	if err != nil {
 		cblogger.Error(err)

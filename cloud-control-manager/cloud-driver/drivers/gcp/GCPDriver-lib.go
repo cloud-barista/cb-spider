@@ -8,9 +8,9 @@
 //
 // by jazmandorf@gmail.com MZC
 
-package main
+//package main
 
-//package gcp
+package gcp
 
 import (
 	"C"
@@ -44,8 +44,8 @@ func (GCPDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	drvCapabilityInfo.VPCHandler = true
 	drvCapabilityInfo.SecurityHandler = true
 	drvCapabilityInfo.KeyPairHandler = true
-	drvCapabilityInfo.VNicHandler = true
-	drvCapabilityInfo.PublicIPHandler = true
+	//drvCapabilityInfo.VNicHandler = true
+	//drvCapabilityInfo.PublicIPHandler = true
 	drvCapabilityInfo.VMHandler = true
 	drvCapabilityInfo.VMSpecHandler = true
 	drvCapabilityInfo.VPCHandler = true
@@ -75,7 +75,7 @@ func (driver *GCPDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (icon.
 		ImageClient: VMClient,
 		// PublicIPClient:      VMClient,
 		SecurityGroupClient: VMClient,
-		VNetClient:          VMClient,
+		// VNetClient:          VMClient,
 		// VNicClient:          VMClient,
 		SubnetClient:  VMClient,
 		VMSpecHandler: VMClient,

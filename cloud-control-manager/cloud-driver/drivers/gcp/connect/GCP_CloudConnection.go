@@ -43,12 +43,12 @@ type GCPCloudConnection struct {
 	VPCHandler          *compute.Service
 }
 
-func (cloudConn *GCPCloudConnection) CreateVNetworkHandler() (irs.VNetworkHandler, error) {
-	cblogger.Info("GCP Cloud Driver: called CreateVNetworkHandler()!")
+// func (cloudConn *GCPCloudConnection) CreateVNetworkHandler() (irs.VNetworkHandler, error) {
+// 	cblogger.Info("GCP Cloud Driver: called CreateVNetworkHandler()!")
 
-	vNetHandler := gcprs.GCPVNetworkHandler{cloudConn.Region, cloudConn.Ctx, cloudConn.VNetClient, cloudConn.Credential}
-	return &vNetHandler, nil
-}
+// 	vNetHandler := gcprs.GCPVNetworkHandler{cloudConn.Region, cloudConn.Ctx, cloudConn.VNetClient, cloudConn.Credential}
+// 	return &vNetHandler, nil
+// }
 
 func (cloudConn *GCPCloudConnection) CreateImageHandler() (irs.ImageHandler, error) {
 	cblogger.Info("GCP Cloud Driver: called CreateImageHandler()!")
@@ -68,16 +68,17 @@ func (cloudConn *GCPCloudConnection) CreateKeyPairHandler() (irs.KeyPairHandler,
 	return &keypairHandler, nil
 }
 
-func (cloudConn *GCPCloudConnection) CreateVNicHandler() (irs.VNicHandler, error) {
-	cblogger.Info("GCP Cloud Driver: called CreateVNicHandler()!")
-	vNicHandler := gcprs.GCPVNicHandler{cloudConn.Region, cloudConn.Ctx, cloudConn.VNicClient, cloudConn.Credential}
-	return &vNicHandler, nil
-}
-func (cloudConn *GCPCloudConnection) CreatePublicIPHandler() (irs.PublicIPHandler, error) {
-	cblogger.Info("GCP Cloud Driver: called CreatePublicIPHandler()!")
-	publicIPHandler := gcprs.GCPPublicIPHandler{cloudConn.Region, cloudConn.Ctx, cloudConn.PublicIPClient, cloudConn.Credential}
-	return &publicIPHandler, nil
-}
+// func (cloudConn *GCPCloudConnection) CreateVNicHandler() (irs.VNicHandler, error) {
+// 	cblogger.Info("GCP Cloud Driver: called CreateVNicHandler()!")
+// 	vNicHandler := gcprs.GCPVNicHandler{cloudConn.Region, cloudConn.Ctx, cloudConn.VNicClient, cloudConn.Credential}
+// 	return &vNicHandler, nil
+// }
+
+// func (cloudConn *GCPCloudConnection) CreatePublicIPHandler() (irs.PublicIPHandler, error) {
+// 	cblogger.Info("GCP Cloud Driver: called CreatePublicIPHandler()!")
+// 	publicIPHandler := gcprs.GCPPublicIPHandler{cloudConn.Region, cloudConn.Ctx, cloudConn.PublicIPClient, cloudConn.Credential}
+// 	return &publicIPHandler, nil
+// }
 
 func (cloudConn *GCPCloudConnection) CreateVMHandler() (irs.VMHandler, error) {
 	cblogger.Info("GCP Cloud Driver: called CreateVMHandler()!")
@@ -85,7 +86,7 @@ func (cloudConn *GCPCloudConnection) CreateVMHandler() (irs.VMHandler, error) {
 	return &vmHandler, nil
 }
 
-func (cloudConn *GCPCloudConnection) CreateVPCHandler() (irs.VMHandler, error) {
+func (cloudConn *GCPCloudConnection) CreateVPCHandler() (irs.VPCHandler, error) {
 	cblogger.Info("GCP Cloud Driver: called CreateVPCHandler()!")
 	vpcHandler := gcprs.GCPVPCHandler{cloudConn.Region, cloudConn.Ctx, cloudConn.VMClient, cloudConn.Credential}
 	return &vpcHandler, nil

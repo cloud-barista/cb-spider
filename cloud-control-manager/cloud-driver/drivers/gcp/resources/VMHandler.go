@@ -198,7 +198,7 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 
 		securityTag = append(securityTag, iId)
 	}
-	var vpcHandler *GCPVPCHandler
+	//var vpcHandler *GCPVPCHandler
 	vmInfo := irs.VMInfo{
 		IId: irs.IID{
 			NameId:   vm.Name,
@@ -432,49 +432,48 @@ func (vmHandler *GCPVMHandler) GetVM(vmID irs.IID) (irs.VMInfo, error) {
 // 	return vmState
 // }
 
-// func (vmHandler *GCPVMHandler) mappingServerInfo(server *compute.Instance) irs.VMInfo {
-// 	//var gcpHanler *GCPVMHandler
-// 	// Get Default VM Info
+func (vmHandler *GCPVMHandler) mappingServerInfo(server *compute.Instance) irs.VMInfo {
+	//var gcpHanler *GCPVMHandler
 
-// 	// vmInfo := irs.VMInfo{
-// 	// 	IId: irs.IID{
-// 	// 		NameId:   server.Name,
-// 	// 		SystemId: strconv.FormatUint(server.Id, 10),
-// 	// 	},
+	vmInfo := irs.VMInfo{
+		IId: irs.IID{
+			NameId:   server.Name,
+			SystemId: strconv.FormatUint(server.Id, 10),
+		},
 
-// 	// 	Region: irs.RegionInfo{
-// 	// 		Region: vmHandler.Region.Region,
-// 	// 		Zone:   vmHandler.Region.Zone,
-// 	// 	},
-// 	// 	VMUserId:          "cb-user",
-// 	// 	NetworkInterface:  server.NetworkInterfaces[0].Name,
-// 	// 	SecurityGroupIIds: []irs.IID{
-// 	// 		//server.Tags.Items,
-// 	// 	},
-// 	// 	VMSpecId: server.MachineType,
-// 	// 	KeyPairIId: irs.IID{
-// 	// 		NameId:   server.Labels["keypair"],
-// 	// 		SystemId: server.Labels["keypair"],
-// 	// 	},
-// 	// 	ImageIId:  vmHandler.getImageInfo(server.Disks[0].Source),
-// 	// 	PublicIP:  server.NetworkInterfaces[0].AccessConfigs[0].NatIP,
-// 	// 	PrivateIP: server.NetworkInterfaces[0].NetworkIP,
-// 	// 	VpcIID: irs.IID{
-// 	// 		NameId: server.NetworkInterfaces[0].Network,
-// 	// 	},
-// 	// 	VirtualNetworkId: server.NetworkInterfaces[0].Network,
-// 	// 	// SubNetworkID:       server.NetworkInterfaces[0].Subnetwork,
-// 	// 	KeyValueList: []irs.KeyValue{
-// 	// 		{"SubNetwork", server.NetworkInterfaces[0].Subnetwork},
-// 	// 		{"AccessConfigName", server.NetworkInterfaces[0].AccessConfigs[0].Name},
-// 	// 		{"NetworkTier", server.NetworkInterfaces[0].AccessConfigs[0].NetworkTier},
-// 	// 		{"DiskDeviceName", server.Disks[0].DeviceName},
-// 	// 		{"DiskName", server.Disks[0].Source},
-// 	// 	},
-// 	// }
+		Region: irs.RegionInfo{
+			Region: vmHandler.Region.Region,
+			Zone:   vmHandler.Region.Zone,
+		},
+		VMUserId:          "cb-user",
+		NetworkInterface:  server.NetworkInterfaces[0].Name,
+		SecurityGroupIIds: []irs.IID{
+			//server.Tags.Items,
+		},
+		//VMSpecId: server.MachineType,
+		KeyPairIId: irs.IID{
+			NameId:   server.Labels["keypair"],
+			SystemId: server.Labels["keypair"],
+		},
+		ImageIId:  vmHandler.getImageInfo(server.Disks[0].Source),
+		PublicIP:  server.NetworkInterfaces[0].AccessConfigs[0].NatIP,
+		PrivateIP: server.NetworkInterfaces[0].NetworkIP,
+		VpcIID: irs.IID{
+			NameId: server.NetworkInterfaces[0].Network,
+		},
+		//VirtualNetworkId: server.NetworkInterfaces[0].Network,
+		// SubNetworkID:       server.NetworkInterfaces[0].Subnetwork,
+		KeyValueList: []irs.KeyValue{
+			{"SubNetwork", server.NetworkInterfaces[0].Subnetwork},
+			{"AccessConfigName", server.NetworkInterfaces[0].AccessConfigs[0].Name},
+			{"NetworkTier", server.NetworkInterfaces[0].AccessConfigs[0].NetworkTier},
+			{"DiskDeviceName", server.Disks[0].DeviceName},
+			{"DiskName", server.Disks[0].Source},
+		},
+	}
 
-// 	return vmInfo
-// }
+	return vmInfo
+}
 func (vmHandler *GCPVMHandler) getImageInfo(diskname string) irs.IID {
 	projectID := vmHandler.Credential.ProjectID
 	zone := vmHandler.Region.Zone
@@ -499,22 +498,21 @@ func (vmHandler *GCPVMHandler) getImageInfo(diskname string) irs.IID {
 	return iId
 }
 
-func (vmHandler *GCPVMHandler) getKeyPairInfo(diskname string) irs.IID {
-	projectID := vmHandler.Credential.ProjectID
-	zone := vmHandler.Region.Zone
-	dArr := strings.Split(diskname, "/")
-	var result string
-	if dArr != nil {
-		result = dArr[len(dArr)-1]
-	}
-	cblogger.Infof("result : [%s]", result)
+// func (vmHandler *GCPVMHandler) getKeyPairInfo(diskname string) irs.IID {
+// 	projectID := vmHandler.Credential.ProjectID
+// 	zone := vmHandler.Region.Zone
+// 	var gcpKeyPairHandler *GCPKeyPairHandler
+// 	iId := irs.IID{
+// 		NameId:   "cb-user",
+// 		SystemId: "cb-user",
+// 	}
+// 	result, err := gcpKeyPairHandler.GetKey(iId)
 
-	info, err := vmHandler.Client.Disks.Get(projectID, zone, result).Do()
-	spew.Dump(info)
-	if err != nil {
-		cblogger.Error(err)
-		return ""
-	}
-	iArr := strings.Split(info.SourceImage, "/")
-	return iArr[len(iArr)-1]
-}
+// 	spew.Dump(result)
+// 	if err != nil {
+// 		cblogger.Error(err)
+// 		return result
+// 	}
+
+// 	return result
+// }
