@@ -81,11 +81,11 @@ func (imageHandler *GCPImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 	return imageList, nil
 }
 
-func (imageHandler *GCPImageHandler) GetImage(imageID string) (irs.ImageInfo, error) {
+func (imageHandler *GCPImageHandler) GetImage(imageIID irs.IID) (irs.ImageInfo, error) {
 	//projectId := imageHandler.Credential.ProjectID
 	projectId := "gce-uefi-images"
 
-	image, err := imageHandler.Client.Images.Get(projectId, imageID).Do()
+	image, err := imageHandler.Client.Images.Get(projectId, imageIID.SystemId).Do()
 	if err != nil {
 		cblogger.Error(err)
 		return irs.ImageInfo{}, err
@@ -94,11 +94,11 @@ func (imageHandler *GCPImageHandler) GetImage(imageID string) (irs.ImageInfo, er
 	return imageInfo, nil
 }
 
-func (imageHandler *GCPImageHandler) DeleteImage(imageID string) (bool, error) {
+func (imageHandler *GCPImageHandler) DeleteImage(imageIID irs.IID) (bool, error) {
 	// public Image 는 지울 수 없는데 어떻게 해야 하는가?
 	projectId := imageHandler.Credential.ProjectID
 
-	res, err := imageHandler.Client.Images.Delete(projectId, imageID).Do()
+	res, err := imageHandler.Client.Images.Delete(projectId, imageIID.SystemId).Do()
 	if err != nil {
 		cblogger.Error(err)
 		return false, err
@@ -110,10 +110,15 @@ func (imageHandler *GCPImageHandler) DeleteImage(imageID string) (bool, error) {
 func mappingImageInfo(imageInfo *compute.Image) irs.ImageInfo {
 	//lArr := strings.Split(imageInfo.Licenses[0], "/")
 	//os := lArr[len(lArr)-1]
+
 	imageList := irs.ImageInfo{
+		IId: irs.IID{
+			NameId:   imageInfo.Name,
+			SystemId: strconv.FormatUint(imageInfo.Id, 10),
+		},
 		//Id:      strconv.FormatUint(imageInfo.Id, 10),
-		Id:      imageInfo.SelfLink,
-		Name:    imageInfo.Name,
+		//Id:      imageInfo.SelfLink,
+		//Name:    imageInfo.Name,
 		GuestOS: imageInfo.Family,
 		Status:  imageInfo.Status,
 		KeyValueList: []irs.KeyValue{

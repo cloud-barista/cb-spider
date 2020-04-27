@@ -33,14 +33,14 @@ type GCPSecurityHandler struct {
 
 func (securityHandler *GCPSecurityHandler) CreateSecurity(securityReqInfo irs.SecurityReqInfo) (irs.SecurityInfo, error) {
 
-	vNetworkHandler := GCPVNetworkHandler{
+	vNetworkHandler := GCPVPCHandler{
 		Client:     securityHandler.Client,
 		Region:     securityHandler.Region,
 		Ctx:        securityHandler.Ctx,
 		Credential: securityHandler.Credential,
 	}
 
-	vNetInfo, errVnet := vNetworkHandler.GetVNetwork(GetCBDefaultVNetName())
+	vNetInfo, errVnet := vNetworkHandler.GetVPC(securityReqInfo.VpcIID)
 	spew.Dump(vNetInfo)
 	if errVnet != nil {
 		return irs.SecurityInfo{}, errVnet
@@ -82,7 +82,7 @@ func (securityHandler *GCPSecurityHandler) CreateSecurity(securityReqInfo irs.Se
 	}
 
 	prefix := "https://www.googleapis.com/compute/v1/projects/" + projectID
-	networkURL := prefix + "/global/networks/" + GetCBDefaultVNetName()
+	networkURL := prefix + "/global/networks/" + securityReqInfo.VpcIID.NameId
 
 	fireWall := &compute.Firewall{
 		Allowed:   firewallAllowed,
@@ -90,9 +90,9 @@ func (securityHandler *GCPSecurityHandler) CreateSecurity(securityReqInfo irs.Se
 		SourceRanges: []string{
 			"0.0.0.0/0",
 		},
-		Name: securityReqInfo.Name,
+		Name: securityReqInfo.IId.NameId,
 		TargetTags: []string{
-			securityReqInfo.Name,
+			securityReqInfo.IId.NameId,
 		},
 		Network: networkURL,
 	}
@@ -105,7 +105,7 @@ func (securityHandler *GCPSecurityHandler) CreateSecurity(securityReqInfo irs.Se
 	}
 	fmt.Println("create result : ", res)
 	time.Sleep(time.Second * 3)
-	secInfo, _ := securityHandler.GetSecurity(securityReqInfo.Name)
+	secInfo, _ := securityHandler.GetSecurity(securityReqInfo.IId)
 
 	return secInfo, nil
 
@@ -122,7 +122,7 @@ func (securityHandler *GCPSecurityHandler) ListSecurity() ([]*irs.SecurityInfo, 
 	var securityInfo []*irs.SecurityInfo
 	for _, item := range result.Items {
 		name := item.Name
-		secInfo, _ := securityHandler.GetSecurity(name)
+		secInfo, _ := securityHandler.GetSecurity(irs.IID{NameId: name, SystemId: name})
 
 		securityInfo = append(securityInfo, &secInfo)
 	}
@@ -130,10 +130,10 @@ func (securityHandler *GCPSecurityHandler) ListSecurity() ([]*irs.SecurityInfo, 
 	return securityInfo, nil
 }
 
-func (securityHandler *GCPSecurityHandler) GetSecurity(securityID string) (irs.SecurityInfo, error) {
+func (securityHandler *GCPSecurityHandler) GetSecurity(securityIID irs.IID) (irs.SecurityInfo, error) {
 	projectID := securityHandler.Credential.ProjectID
 
-	security, err := securityHandler.Client.Firewalls.Get(projectID, securityID).Do()
+	security, err := securityHandler.Client.Firewalls.Get(projectID, securityIID.SystemId).Do()
 	if err != nil {
 		cblogger.Error(err)
 		return irs.SecurityInfo{}, err
@@ -166,8 +166,11 @@ func (securityHandler *GCPSecurityHandler) GetSecurity(securityID string) (irs.S
 	}
 
 	securityInfo := irs.SecurityInfo{
-		Id:        strconv.FormatUint(security.Id, 10),
-		Name:      security.Name,
+		IId: irs.IID{
+			NameId:   security.Name,
+			SystemId: strconv.FormatUint(security.Id, 10),
+		},
+
 		Direction: security.Direction,
 		KeyValueList: []irs.KeyValue{
 			{"Priority", strconv.FormatInt(security.Priority, 10)},
@@ -179,10 +182,10 @@ func (securityHandler *GCPSecurityHandler) GetSecurity(securityID string) (irs.S
 	return securityInfo, nil
 }
 
-func (securityHandler *GCPSecurityHandler) DeleteSecurity(securityID string) (bool, error) {
+func (securityHandler *GCPSecurityHandler) DeleteSecurity(securityIID irs.IID) (bool, error) {
 	projectID := securityHandler.Credential.ProjectID
 
-	res, err := securityHandler.Client.Firewalls.Delete(projectID, securityID).Do()
+	res, err := securityHandler.Client.Firewalls.Delete(projectID, securityIID.SystemId).Do()
 	if err != nil {
 		cblogger.Error(err)
 		return false, err
