@@ -87,7 +87,7 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 	//KEYPAIR HANDLER
 	keypairHandler := GCPKeyPairHandler{
 		vmHandler.Credential, vmHandler.Region}
-	keypairInfo, errKeypair := keypairHandler.GetKey(vmReqInfo.KeyPairIID.NameId)
+	keypairInfo, errKeypair := keypairHandler.GetKey(vmReqInfo.KeyPairIID)
 	pubKey := "cb-user:" + keypairInfo.PublicKey
 	if errKeypair != nil {
 		cblogger.Error(errKeypair)
@@ -187,7 +187,48 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 		cblogger.Error(err2)
 		return irs.VMInfo{}, err2
 	}
-	vmInfo := vmHandler.mappingServerInfo(vm)
+	//vmInfo := vmHandler.mappingServerInfo(vm)
+	var securityTag []irs.IID
+
+	for _, item := range vm.Tags.Items {
+		iId := irs.IID{
+			NameId:   item,
+			SystemId: item,
+		}
+
+		securityTag = append(securityTag, iId)
+	}
+	var vpcHandler *GCPVPCHandler
+	vmInfo := irs.VMInfo{
+		IId: irs.IID{
+			NameId:   vm.Name,
+			SystemId: strconv.FormatUint(vm.Id, 10),
+		},
+		Region: irs.RegionInfo{
+			Region: vmHandler.Region.Region,
+			Zone:   vmHandler.Region.Zone,
+		},
+		VMUserId:          "cb-user",
+		NetworkInterface:  vm.NetworkInterfaces[0].Name,
+		SecurityGroupIIds: securityTag,
+		VMSpecName:        vm.MachineType,
+		KeyPairIId: irs.IID{
+			NameId:   vm.Labels["keypair"],
+			SystemId: vm.Labels["keypair"],
+		},
+		ImageIId:  vmHandler.getImageInfo(vm.Disks[0].Source),
+		PublicIP:  vm.NetworkInterfaces[0].AccessConfigs[0].NatIP,
+		PrivateIP: vm.NetworkInterfaces[0].NetworkIP,
+		VpcIID:    vmReqInfo.VpcIID,
+		SubnetIID: vmReqInfo.SubnetIID,
+		KeyValueList: []irs.KeyValue{
+			{"SubNetwork", vm.NetworkInterfaces[0].Subnetwork},
+			{"AccessConfigName", vm.NetworkInterfaces[0].AccessConfigs[0].Name},
+			{"NetworkTier", vm.NetworkInterfaces[0].AccessConfigs[0].NetworkTier},
+			{"DiskDeviceName", vm.Disks[0].DeviceName},
+			{"DiskName", vm.Disks[0].Source},
+		},
+	}
 
 	return vmInfo, nil
 }
@@ -391,42 +432,50 @@ func (vmHandler *GCPVMHandler) GetVM(vmID irs.IID) (irs.VMInfo, error) {
 // 	return vmState
 // }
 
-func (vmHandler *GCPVMHandler) mappingServerInfo(server *compute.Instance) irs.VMInfo {
-	//var gcpHanler *GCPVMHandler
-	// Get Default VM Info
+// func (vmHandler *GCPVMHandler) mappingServerInfo(server *compute.Instance) irs.VMInfo {
+// 	//var gcpHanler *GCPVMHandler
+// 	// Get Default VM Info
 
-	vmInfo := irs.VMInfo{
-		IId: irs.IID{
-			NameId:   server.Name,
-			SystemId: strconv.FormatUint(server.Id, 10),
-		},
+// 	// vmInfo := irs.VMInfo{
+// 	// 	IId: irs.IID{
+// 	// 		NameId:   server.Name,
+// 	// 		SystemId: strconv.FormatUint(server.Id, 10),
+// 	// 	},
 
-		Region: irs.RegionInfo{
-			Region: vmHandler.Region.Region,
-			Zone:   vmHandler.Region.Zone,
-		},
-		VMUserId:          "cb-user",
-		NetworkInterface:  server.NetworkInterfaces[0].Name,
-		SecurityGroupIIds: server.Tags.Items,
-		VMSpecId:          server.MachineType,
-		KeyPairName:       server.Labels["keypair"],
-		ImageIId:          vmHandler.getImageInfo(server.Disks[0].Source),
-		PublicIP:          server.NetworkInterfaces[0].AccessConfigs[0].NatIP,
-		PrivateIP:         server.NetworkInterfaces[0].NetworkIP,
-		VirtualNetworkId:  server.NetworkInterfaces[0].Network,
-		// SubNetworkID:       server.NetworkInterfaces[0].Subnetwork,
-		KeyValueList: []irs.KeyValue{
-			{"SubNetwork", server.NetworkInterfaces[0].Subnetwork},
-			{"AccessConfigName", server.NetworkInterfaces[0].AccessConfigs[0].Name},
-			{"NetworkTier", server.NetworkInterfaces[0].AccessConfigs[0].NetworkTier},
-			{"DiskDeviceName", server.Disks[0].DeviceName},
-			{"DiskName", server.Disks[0].Source},
-		},
-	}
+// 	// 	Region: irs.RegionInfo{
+// 	// 		Region: vmHandler.Region.Region,
+// 	// 		Zone:   vmHandler.Region.Zone,
+// 	// 	},
+// 	// 	VMUserId:          "cb-user",
+// 	// 	NetworkInterface:  server.NetworkInterfaces[0].Name,
+// 	// 	SecurityGroupIIds: []irs.IID{
+// 	// 		//server.Tags.Items,
+// 	// 	},
+// 	// 	VMSpecId: server.MachineType,
+// 	// 	KeyPairIId: irs.IID{
+// 	// 		NameId:   server.Labels["keypair"],
+// 	// 		SystemId: server.Labels["keypair"],
+// 	// 	},
+// 	// 	ImageIId:  vmHandler.getImageInfo(server.Disks[0].Source),
+// 	// 	PublicIP:  server.NetworkInterfaces[0].AccessConfigs[0].NatIP,
+// 	// 	PrivateIP: server.NetworkInterfaces[0].NetworkIP,
+// 	// 	VpcIID: irs.IID{
+// 	// 		NameId: server.NetworkInterfaces[0].Network,
+// 	// 	},
+// 	// 	VirtualNetworkId: server.NetworkInterfaces[0].Network,
+// 	// 	// SubNetworkID:       server.NetworkInterfaces[0].Subnetwork,
+// 	// 	KeyValueList: []irs.KeyValue{
+// 	// 		{"SubNetwork", server.NetworkInterfaces[0].Subnetwork},
+// 	// 		{"AccessConfigName", server.NetworkInterfaces[0].AccessConfigs[0].Name},
+// 	// 		{"NetworkTier", server.NetworkInterfaces[0].AccessConfigs[0].NetworkTier},
+// 	// 		{"DiskDeviceName", server.Disks[0].DeviceName},
+// 	// 		{"DiskName", server.Disks[0].Source},
+// 	// 	},
+// 	// }
 
-	return vmInfo
-}
-func (vmHandler *GCPVMHandler) getImageInfo(diskname string) string {
+// 	return vmInfo
+// }
+func (vmHandler *GCPVMHandler) getImageInfo(diskname string) irs.IID {
 	projectID := vmHandler.Credential.ProjectID
 	zone := vmHandler.Region.Zone
 	dArr := strings.Split(diskname, "/")
@@ -440,13 +489,17 @@ func (vmHandler *GCPVMHandler) getImageInfo(diskname string) string {
 	spew.Dump(info)
 	if err != nil {
 		cblogger.Error(err)
-		return ""
+		return irs.IID{}
 	}
-	iArr := strings.Split(info.SourceImage, "/")
-	return iArr[len(iArr)-1]
+	//iArr := strings.Split(info.SourceImage, "/")
+	iId := irs.IID{
+		NameId:   info.Name,
+		SystemId: strconv.FormatUint(info.Id, 10),
+	}
+	return iId
 }
 
-func (vmHandler *GCPVMHandler) getKeyPairInfo(diskname string) string {
+func (vmHandler *GCPVMHandler) getKeyPairInfo(diskname string) irs.IID {
 	projectID := vmHandler.Credential.ProjectID
 	zone := vmHandler.Region.Zone
 	dArr := strings.Split(diskname, "/")
