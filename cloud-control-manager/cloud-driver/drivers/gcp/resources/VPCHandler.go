@@ -178,11 +178,15 @@ func (vVPCHandler *GCPVPCHandler) ListVPC() ([]*irs.VPCInfo, error) {
 	var vpcInfo []*irs.VPCInfo
 
 	for _, item := range vpcList.Items {
-		iid := irs.IID{
+		iId := irs.IID{
 			NameId:   item.Name,
 			SystemId: strconv.FormatUint(item.Id, 10),
 		}
-		subnetInfo := vVPCHandler.GetVPC(iid)
+		subnetInfo, err := vVPCHandler.GetVPC(iId)
+		if err != nil {
+			cblogger.Error(err)
+			return vpcInfo, err
+		}
 
 		vpcInfo = append(vpcInfo, &subnetInfo)
 
@@ -223,16 +227,15 @@ func (vVPCHandler *GCPVPCHandler) GetVPC(vpcIID irs.IID) (irs.VPCInfo, error) {
 
 	networkInfo := irs.VPCInfo{
 		IId: irs.IID{
-			NameId:   info.Name,
-			SystemId: strconv.FormatUint(info.Id, 10),
+			NameId:   infoVPC.Name,
+			SystemId: strconv.FormatUint(infoVPC.Id, 10),
 		},
 		IPv4_CIDR:      "Not support IPv4_CIDR at GCP VPC",
 		SubnetInfoList: subnetInfoList,
 		KeyValueList: []irs.KeyValue{
-			{"RoutingMode", info.RoutingMode},
-			{"Description", info.Description},
-			{"GatewayAddress", info.GatewayAddress},
-			{"SelfLink", info.SelfLink},
+			{"RoutingMode", infoVPC.RoutingConfig.RoutingMode},
+			{"Description", infoVPC.Description},
+			{"SelfLink", infoVPC.SelfLink},
 		},
 	}
 
@@ -261,7 +264,7 @@ func (vVPCHandler *GCPVPCHandler) DeleteVPC(vpcID irs.IID) (bool, error) {
 	projectID := vVPCHandler.Credential.ProjectID
 	region := vVPCHandler.Region.Region
 	//name := VPCID
-	name := vpcID.NameID
+	name := vpcID.NameId
 	cblogger.Infof("Name : [%s]", name)
 	info, err := vVPCHandler.Client.Networks.Delete(projectID, name).Do()
 
