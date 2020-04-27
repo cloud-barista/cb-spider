@@ -11,6 +11,8 @@
 package resources
 
 import (
+	"errors"
+
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/ecs"
 
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
@@ -51,18 +53,12 @@ func (keyPairHandler *AlibabaKeyPairHandler) ListKey() ([]*irs.KeyPairInfo, erro
 
 	//cblogger.Debugf("Key Pairs:")
 	for _, pair := range result.KeyPairs.KeyPair {
-		/*
-			cblogger.Debugf("%s: %s\n", *pair.KeyName, *pair.KeyFingerprint)
-			keyPairInfo := new(irs.KeyPairInfo)
-			keyPairInfo.Name = *pair.KeyName
-			keyPairInfo.Fingerprint = *pair.KeyFingerprint
-		*/
 		keyPairInfo := ExtractKeyPairDescribeInfo(&pair)
 		keyPairList = append(keyPairList, &keyPairInfo)
 	}
 
 	cblogger.Info(keyPairList)
-	spew.Dump(keyPairList)
+	//spew.Dump(keyPairList)
 	return keyPairList, nil
 }
 
@@ -77,10 +73,6 @@ func (keyPairHandler *AlibabaKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPai
 	// Creates a new  key pair with the given name
 	result, err := keyPairHandler.Client.CreateKeyPair(request)
 	if err != nil {
-		// if aerr, ok := err.(errors.Error); ok && aerr.Code() == "InvalidKeyPair.Duplicate" {
-		// 	cblogger.Errorf("Keypair %q already exists.", keyPairReqInfo.IId.NameId)
-		// 	return irs.KeyPairInfo{}, err
-		// }
 		cblogger.Errorf("Unable to create key pair: %s, %v.", keyPairReqInfo.IId.NameId, err)
 		return irs.KeyPairInfo{}, err
 	}
@@ -106,43 +98,20 @@ func (keyPairHandler *AlibabaKeyPairHandler) GetKey(keyIID irs.IID) (irs.KeyPair
 
 	request := ecs.CreateDescribeKeyPairsRequest()
 	request.Scheme = "https"
-
 	request.KeyPairName = keyIID.SystemId
 
 	result, err := keyPairHandler.Client.DescribeKeyPairs(request)
-	cblogger.Info("result : ", result)
-	cblogger.Info("err : ", err)
-
 	if err != nil {
 		// if aerr, ok := err.(errors.Error); ok {
-		// 	cblogger.Info("aerr : ", aerr)
-		// 	cblogger.Info("aerr.Code()  : ", aerr.Code())
-		// 	cblogger.Info("ok : ", ok)
-		// 	switch aerr.Code() {
-		// 	default:
-		// 		//fmt.Println(aerr.Error())
-		// 		cblogger.Error(aerr.Error())
-		// 		return irs.KeyPairInfo{}, aerr
-		// 	}
-		// } else {
-		// 	// Print the error, cast err to awserr.Error to get the Code and Message from an error.
-		// 	cblogger.Error(err.Error())
-		// 	return irs.KeyPairInfo{}, err
-		// }
 		cblogger.Errorf("Unable to get key pair: %s, %v.", keyIID.SystemId, err)
 		return irs.KeyPairInfo{}, nil
 	}
+	cblogger.Info("result : ", result)
+	if result.TotalCount < 1 {
+		return irs.KeyPairInfo{}, errors.New("Notfound: '" + keyIID.SystemId + "' KeyPair Not found")
+	}
 
-	/*
-		cblogger.Info("KeyName : ", *result.KeyPairs[0].KeyName)
-		cblogger.Info("Fingerprint : ", *result.KeyPairs[0].KeyFingerprint)
-		keyPairInfo := irs.KeyPairInfo{
-			Name:        *result.KeyPairs[0].KeyName,
-			Fingerprint: *result.KeyPairs[0].KeyFingerprint,
-		}
-	*/
 	keyPairInfo := ExtractKeyPairDescribeInfo(&result.KeyPairs.KeyPair[0])
-
 	return keyPairInfo, nil
 }
 
@@ -151,17 +120,14 @@ func ExtractKeyPairDescribeInfo(keyPair *ecs.KeyPair) irs.KeyPairInfo {
 	spew.Dump(keyPair)
 
 	keyPairInfo := irs.KeyPairInfo{
-		IId:         irs.IID{NameId: keyPair.KeyPairName},
+		IId:         irs.IID{NameId: keyPair.KeyPairName, SystemId: keyPair.KeyPairName},
 		Fingerprint: keyPair.KeyPairFingerPrint,
-		// *keyPair.ResourceGroupId
-		// *keyPair.Tags
 	}
 
 	keyValueList := []irs.KeyValue{
-		{Key: "ResourceGroupId", Value: keyPair.ResourceGroupId},
-		//{Key: "KeyMaterial", Value: *keyPair.KeyMaterial},
+		//{Key: "ResourceGroupId", Value: keyPair.ResourceGroupId},
+		{Key: "CreationTime", Value: keyPair.CreationTime},
 	}
-	// Tags := []ecs.Tag{}
 
 	keyPairInfo.KeyValueList = keyValueList
 
@@ -172,18 +138,22 @@ func (keyPairHandler *AlibabaKeyPairHandler) DeleteKey(keyIID irs.IID) (bool, er
 	cblogger.Infof("DeleteKey(KeyPairName) : [%s]", keyIID.SystemId)
 	// Delete the key pair by name
 
+	//없는 키도 무조건 성공하기 때문에 미리 조회함.
+	_, errKey := keyPairHandler.GetKey(keyIID)
+	if errKey != nil {
+		cblogger.Errorf("[%s] KeyPair Delete fail", keyIID.SystemId)
+		cblogger.Error(errKey)
+		return false, errKey
+	}
+
 	request := ecs.CreateDeleteKeyPairsRequest()
 	request.Scheme = "https"
+	request.KeyPairNames = "[" + "\"" + keyIID.SystemId + "\"]"
 
-	request.KeyPairNames = keyIID.SystemId
-
+	spew.Dump(request)
 	result, err := keyPairHandler.Client.DeleteKeyPairs(request)
 	cblogger.Info(result)
 	if err != nil {
-		// if aerr, ok := err.(errors.Error); ok && aerr.Code() == "InvalidKeyPair.Duplicate" {
-		// 	cblogger.Error("Key pair %q does not exist.", keyPairName)
-		// 	return false, err
-		// }
 		cblogger.Errorf("Unable to delete key pair: %s, %v.", keyIID.SystemId, err)
 		return false, err
 	}

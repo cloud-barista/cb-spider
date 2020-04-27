@@ -13,7 +13,6 @@ package resources
 import (
 	"errors"
 
-	"github.com/aliyun/alibaba-cloud-sdk-go/sdk/requests"
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/ecs"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
@@ -172,20 +171,21 @@ func (securityHandler *AlibabaSecurityHandler) ListSecurity() ([]*irs.SecurityIn
 
 	request := ecs.CreateDescribeSecurityGroupsRequest()
 	request.Scheme = "https"
-
-	request.VpcId = "vpc-t4nokxb60pv7ejm9ebsjr"
-	request.PageNumber = requests.NewInteger(1)
-	request.PageSize = requests.NewInteger(10)
-	request.SecurityGroupIds = "[\"sg-t4n5d7znfsqs69xer1w2\"]"
-	request.SecurityGroupId = "sg-t4n5d7znfsqs69xer1w2"
-	request.SecurityGroupName = "sg-20191010"
-
+	/*
+		request.VpcId = "vpc-t4nokxb60pv7ejm9ebsjr"
+		request.PageNumber = requests.NewInteger(1)
+		request.PageSize = requests.NewInteger(10)
+		request.SecurityGroupIds = "[\"sg-t4n5d7znfsqs69xer1w2\"]"
+		request.SecurityGroupId = "sg-t4n5d7znfsqs69xer1w2"
+		request.SecurityGroupName = "sg-20191010"
+	*/
 	result, err := securityHandler.Client.DescribeSecurityGroups(request)
-	spew.Dump(result)
 	//cblogger.Info("result : ", result)
 	if err != nil {
+		cblogger.Error(err)
 		return nil, err
 	}
+	spew.Dump(result)
 
 	var results []*irs.SecurityInfo
 	for _, securityGroup := range result.SecurityGroups.SecurityGroup {
@@ -194,7 +194,6 @@ func (securityHandler *AlibabaSecurityHandler) ListSecurity() ([]*irs.SecurityIn
 	}
 
 	return results, nil
-
 }
 
 func (securityHandler *AlibabaSecurityHandler) GetSecurity(securityIID irs.IID) (irs.SecurityInfo, error) {

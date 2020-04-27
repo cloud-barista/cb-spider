@@ -448,6 +448,9 @@ func handleKeyPair() {
 					cblogger.Info("키 페어 목록 조회 결과")
 					//cblogger.Info(result)
 					spew.Dump(result)
+					if result != nil {
+						keyPairName = result[0].IId.SystemId // 조회 및 삭제를 위해 생성된 ID로 변경
+					}
 				}
 
 			case 2:
@@ -469,6 +472,7 @@ func handleKeyPair() {
 					cblogger.Infof(keyPairName, " 키 페어 조회 실패 : ", err)
 				} else {
 					cblogger.Infof("[%s] 키 페어 조회 결과 : [%s]", keyPairName, result)
+					spew.Dump(result)
 				}
 			case 4:
 				cblogger.Infof("[%s] 키 페어 삭제 테스트", keyPairName)
@@ -533,7 +537,7 @@ func handleVPC() {
 		//CidrBlock: "192.168.0.0/16",
 	}
 
-	reqSubnetId := irs.IID{SystemId: "vpc-6wetgosz2ryog07lwnemg"}
+	reqVpcId := irs.IID{SystemId: "vpc-6we11xwqjc9tyma5i68z0"}
 
 	for {
 		fmt.Println("Handler Management")
@@ -566,7 +570,7 @@ func handleVPC() {
 					// 내부적으로 1개만 존재함.
 					//조회및 삭제 테스트를 위해 리스트의 첫번째 서브넷 ID를 요청ID로 자동 갱신함.
 					if result != nil {
-						reqSubnetId = result[0].IId // 조회 및 삭제를 위해 생성된 ID로 변경
+						reqVpcId = result[0].IId // 조회 및 삭제를 위해 생성된 ID로 변경
 					}
 				}
 
@@ -575,30 +579,30 @@ func handleVPC() {
 				//vpcReqInfo := irs.VPCReqInfo{}
 				result, err := handler.CreateVPC(vpcReqInfo)
 				if err != nil {
-					cblogger.Infof(reqSubnetId.NameId, " VPC 생성 실패 : ", err)
+					cblogger.Infof(reqVpcId.NameId, " VPC 생성 실패 : ", err)
 				} else {
 					cblogger.Infof("VPC 생성 결과 : ", result)
-					reqSubnetId = result.IId // 조회 및 삭제를 위해 생성된 ID로 변경
+					reqVpcId = result.IId // 조회 및 삭제를 위해 생성된 ID로 변경
 					spew.Dump(result)
 				}
 
 			case 3:
-				cblogger.Infof("[%s] VPC 조회 테스트", reqSubnetId)
-				result, err := handler.GetVPC(reqSubnetId)
+				cblogger.Infof("[%s] VPC 조회 테스트", reqVpcId)
+				result, err := handler.GetVPC(reqVpcId)
 				if err != nil {
-					cblogger.Infof("[%s] VPC 조회 실패 : ", reqSubnetId, err)
+					cblogger.Infof("[%s] VPC 조회 실패 : ", reqVpcId, err)
 				} else {
-					cblogger.Infof("[%s] VPC 조회 결과 : [%s]", reqSubnetId, result)
+					cblogger.Infof("[%s] VPC 조회 결과 : [%s]", reqVpcId, result)
 					spew.Dump(result)
 				}
 
 			case 4:
-				cblogger.Infof("[%s] VPC 삭제 테스트", reqSubnetId)
-				result, err := handler.DeleteVPC(reqSubnetId)
+				cblogger.Infof("[%s] VPC 삭제 테스트", reqVpcId)
+				result, err := handler.DeleteVPC(reqVpcId)
 				if err != nil {
-					cblogger.Infof("[%s] VPC 삭제 실패 : ", reqSubnetId, err)
+					cblogger.Infof("[%s] VPC 삭제 실패 : ", reqVpcId, err)
 				} else {
-					cblogger.Infof("[%s] VPC 삭제 결과 : [%s]", reqSubnetId, result)
+					cblogger.Infof("[%s] VPC 삭제 결과 : [%s]", reqVpcId, result)
 				}
 			}
 		}
@@ -693,10 +697,10 @@ func handleImage() {
 
 func main() {
 	cblogger.Info("Alibaba Cloud Resource Test")
-	//handleVPC() //VPC
+	handleVPC() //VPC
 	//handleVMSpec()
 	//handleImage() //AMI
-	handleKeyPair()
+	//handleKeyPair()
 
 	//handlePublicIP() // PublicIP 생성 후 conf
 

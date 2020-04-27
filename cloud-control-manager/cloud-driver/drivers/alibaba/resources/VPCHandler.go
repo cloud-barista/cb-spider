@@ -172,7 +172,7 @@ func ExtractVpcDescribeInfo(vpcInfo *vpc.Vpc) irs.VPCInfo {
 func (VPCHandler *AlibabaVPCHandler) WaitForRun(vpcId string) error {
 	cblogger.Info("======> VPC가 Running 될 때까지 대기함.")
 
-	maxRetryCnt := 10
+	maxRetryCnt := 20
 	curRetryCnt := 0
 	status := ""
 	request := vpc.CreateDescribeVpcsRequest()
@@ -193,7 +193,7 @@ func (VPCHandler *AlibabaVPCHandler) WaitForRun(vpcId string) error {
 		cblogger.Info("===>VPC Status : ", status)
 		if strings.EqualFold(status, "Pending") {
 			curRetryCnt++
-			cblogger.Error("VPC 상태가 Available이 아니라서 3초가 대기후 조회합니다.")
+			cblogger.Error("VPC 상태가 Available이 아니라서 1초가 대기후 조회합니다.")
 			time.Sleep(time.Second * 1)
 			if curRetryCnt > maxRetryCnt {
 				cblogger.Error("장시간 VPC의 Status 값이 Available로 변경되지 않아서 강제로 중단합니다.")
@@ -256,6 +256,16 @@ func (VPCHandler *AlibabaVPCHandler) GetVPC(vpcIID irs.IID) (irs.VPCInfo, error)
 	return vpcInfo, nil
 }
 
+//@TODO : 라우트 삭제 로직이 없어서 VPC가 삭제 안되는 현상이 있어서 라우트 정보를 조회해서 삭제하려다 서브넷 삭제 후 특정 시간 이후에 Route가 자동으로 삭제되기 때문에 임시로 4초 대기 후 VPC를 삭제하도록 로직을 변경함.
+//@TODO : VPCHandler로 생성하지 않은 VPC의 경우 다른 서비스가 있을 수 있기 때문에 관련 서비스들을 조회후 삭제하는 로직이 필요할 수 있음.
+/*
+  - 삭제 오류
+	자동 할당된 Route가 남아있어서 삭제가 안되는 듯.
+	ErrorCode: Forbbiden
+	Recommend:
+	RequestId: 8871BF19-330B-4F00-93ED-D886F2CE066F
+	Message: Active custom route in vpc.)
+*/
 func (VPCHandler *AlibabaVPCHandler) DeleteVPC(vpcIID irs.IID) (bool, error) {
 	cblogger.Infof("Delete VPC : [%s]", vpcIID.SystemId)
 
@@ -275,6 +285,12 @@ func (VPCHandler *AlibabaVPCHandler) DeleteVPC(vpcIID irs.IID) (bool, error) {
 			return false, errSubnet
 		}
 	}
+
+	//=====================
+	// 라우트를 제거해야 삭제 가능 함.
+	//=================
+	//특정 시간 이후 자동 삭제되니 라우트 삭제 대신 3초 대기후 시도해 봄.
+	time.Sleep(time.Second * 3)
 
 	cblogger.Infof("[%s] VPC를 삭제 함.", vpcInfo.IId.SystemId)
 	//cblogger.Info("VPC 제거를 위해 생성된 IGW / Route들 제거 시작")
