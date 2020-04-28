@@ -102,8 +102,12 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 	for _, item := range vmReqInfo.SecurityGroupIIDs {
 		securityTags = append(securityTags, item.NameId)
 	}
+	cblogger.Info("Security Tags 정보 : ", securityTags)
 	networkURL := prefix + "/global/networks/" + vmReqInfo.VpcIID.NameId
 	subnetWorkURL := prefix + "/regions/" + region + "/subnetworks/" + vmReqInfo.SubnetIID.NameId
+
+	cblogger.Info("networkURL 정보 : ", networkURL)
+	cblogger.Info("subnetWorkURL 정보 : ", subnetWorkURL)
 	instance := &compute.Instance{
 		Name: vmName,
 		Metadata: &compute.Metadata{
@@ -374,10 +378,11 @@ func (vmHandler *GCPVMHandler) GetVMStatus(vmID irs.IID) (irs.VMStatus, error) {
 func (vmHandler *GCPVMHandler) ListVM() ([]*irs.VMInfo, error) {
 	projectID := vmHandler.Credential.ProjectID
 	zone := vmHandler.Region.Zone
-
+	cblogger.Info("VMLIST zone info :", zone)
 	serverList, err := vmHandler.Client.Instances.List(projectID, zone).Do()
 	if err != nil {
 		cblogger.Error(err)
+		cblogger.Infof("해당존에 만들어진 Vm List 가 없음")
 		return nil, err
 	}
 
@@ -434,6 +439,23 @@ func (vmHandler *GCPVMHandler) GetVM(vmID irs.IID) (irs.VMInfo, error) {
 
 func (vmHandler *GCPVMHandler) mappingServerInfo(server *compute.Instance) irs.VMInfo {
 	//var gcpHanler *GCPVMHandler
+	vpcArr := strings.Split(server.NetworkInterfaces[0].Network, "/")
+	subnetArr := strings.Split(server.NetworkInterfaces[0].Subnetwork, "/")
+	vpcName := vpcArr[len(vpcArr)-1]
+	subnetName := subnetArr[len(subnetArr)-1]
+
+	type IIDBox struct {
+		Items []irs.IID
+	}
+
+	var iIdBox IIDBox
+	for _, item := range server.Tags.Items {
+		iId := irs.IID{
+			NameId:   item,
+			SystemId: item,
+		}
+		iIdBox.Items = append(iIdBox.Items, iId)
+	}
 
 	vmInfo := irs.VMInfo{
 		IId: irs.IID{
@@ -447,9 +469,7 @@ func (vmHandler *GCPVMHandler) mappingServerInfo(server *compute.Instance) irs.V
 		},
 		VMUserId:          "cb-user",
 		NetworkInterface:  server.NetworkInterfaces[0].Name,
-		SecurityGroupIIds: []irs.IID{
-			//server.Tags.Items,
-		},
+		SecurityGroupIIds: iIdBox.Items,
 		//VMSpecId: server.MachineType,
 		KeyPairIId: irs.IID{
 			NameId:   server.Labels["keypair"],
@@ -459,10 +479,13 @@ func (vmHandler *GCPVMHandler) mappingServerInfo(server *compute.Instance) irs.V
 		PublicIP:  server.NetworkInterfaces[0].AccessConfigs[0].NatIP,
 		PrivateIP: server.NetworkInterfaces[0].NetworkIP,
 		VpcIID: irs.IID{
-			NameId: server.NetworkInterfaces[0].Network,
+			NameId:   vpcName,
+			SystemId: vpcName,
 		},
-		//VirtualNetworkId: server.NetworkInterfaces[0].Network,
-		// SubNetworkID:       server.NetworkInterfaces[0].Subnetwork,
+		SubnetIID: irs.IID{
+			NameId:   subnetName,
+			SystemId: subnetName,
+		},
 		KeyValueList: []irs.KeyValue{
 			{"SubNetwork", server.NetworkInterfaces[0].Subnetwork},
 			{"AccessConfigName", server.NetworkInterfaces[0].AccessConfigs[0].Name},

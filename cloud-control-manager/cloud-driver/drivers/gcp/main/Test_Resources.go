@@ -29,108 +29,6 @@ func init() {
 	cblog.SetLevel("debug")
 }
 
-// Test PublicIp
-// func handlePublicIP() {
-// 	cblogger.Info("Start Publicip Resource Test")
-
-// 	ResourceHandler, err := testconf.GetResourceHandler("Publicip")
-// 	if err != nil {
-// 		panic(err)
-// 	}
-
-// 	handler := ResourceHandler.(irs.PublicIPHandler)
-
-// 	reqPublicIP := "publicip-vm01"
-// 	cblogger.Info("reqPublicIP : ", reqPublicIP)
-
-// 	for {
-// 		fmt.Println("")
-// 		fmt.Println("Publicip Resource Test")
-// 		fmt.Println("1. ListPublicIP()")
-// 		fmt.Println("2. GetPublicIP()")
-// 		fmt.Println("3. CreatePublicIP()")
-// 		fmt.Println("4. DeletePublicIP()")
-// 		fmt.Println("5. Exit")
-
-// 		var commandNum int
-// 		var reqDelIP string
-
-// 		inputCnt, err := fmt.Scan(&commandNum)
-// 		if err != nil {
-// 			panic(err)
-// 		}
-
-// 		if inputCnt == 1 {
-// 			switch commandNum {
-// 			case 1:
-// 				fmt.Println("Start ListPublicIP() ...")
-// 				result, err := handler.ListPublicIP()
-// 				if err != nil {
-// 					cblogger.Error("PublicIP 목록 조회 실패 : ", err)
-// 				} else {
-// 					cblogger.Info("PublicIP 목록 조회 결과")
-// 					spew.Dump(result)
-// 				}
-
-// 				fmt.Println("Finish ListPublicIP()")
-
-// 			case 2:
-// 				fmt.Println("Start GetPublicIP() ...")
-// 				result, err := handler.GetPublicIP(reqPublicIP)
-// 				if err != nil {
-// 					cblogger.Error(reqPublicIP, " PublicIP 정보 조회 실패 : ", err)
-// 				} else {
-// 					cblogger.Infof("PublicIP[%s]  정보 조회 결과", reqPublicIP)
-// 					spew.Dump(result)
-// 				}
-// 				fmt.Println("Finish GetPublicIP()")
-
-// 			case 3:
-// 				fmt.Println("Start CreatePublicIP() ...")
-// 				reqInfo := irs.PublicIPReqInfo{Name: "mcloud-barista-eip-test"}
-// 				result, err := handler.CreatePublicIP(reqInfo)
-// 				if err != nil {
-// 					cblogger.Error("PublicIP 생성 실패 : ", err)
-// 				} else {
-// 					cblogger.Info("PublicIP 생성 성공 ", result)
-// 					spew.Dump(result)
-// 				}
-// 				fmt.Println("Finish CreatePublicIP()")
-
-// 			case 4:
-// 				fmt.Println("Start DeletePublicIP() ...")
-// 				fmt.Print("삭제할 PublicIP를 입력하세요 : ")
-// 				inputCnt, err := fmt.Scan(&reqDelIP)
-// 				if err != nil {
-// 					panic(err)
-// 				}
-
-// 				if inputCnt == 1 {
-// 					cblogger.Info("삭제할 PublicIP : ", reqDelIP)
-// 				} else {
-// 					fmt.Println("삭제할 Public IP만 입력하세요.")
-// 				}
-
-// 				result, err := handler.DeletePublicIP(reqDelIP)
-// 				if err != nil {
-// 					cblogger.Error(reqDelIP, " PublicIP 삭제 실패 : ", err)
-// 				} else {
-// 					if result {
-// 						cblogger.Infof("PublicIP[%s] 삭제 완료", reqDelIP)
-// 					} else {
-// 						cblogger.Errorf("PublicIP[%s] 삭제 실패", reqDelIP)
-// 					}
-// 				}
-// 				fmt.Println("Finish DeletePublicIP()")
-
-// 			case 5:
-// 				fmt.Println("Exit")
-// 				return
-// 			}
-// 		}
-// 	}
-// }
-
 // Test SecurityHandler
 func handleSecurity() {
 	cblogger.Debug("Start handler")
@@ -142,7 +40,7 @@ func handleSecurity() {
 
 	handler := ResourceHandler.(irs.SecurityHandler)
 
-	securityId := "europe-west1"
+	securityId := "sg1234"
 	cblogger.Infof(securityId)
 
 	//result, err := handler.GetSecurity(securityId)
@@ -155,6 +53,10 @@ func handleSecurity() {
 		IId: irs.IID{
 			NameId:   securityId,
 			SystemId: securityId,
+		},
+		VpcIID: irs.IID{
+			NameId:   "vpc-11",
+			SystemId: "vpc-11",
 		},
 
 		SecurityRules: &[]irs.SecurityRuleInfo{ //보안 정책 설정
@@ -299,92 +201,6 @@ func handleImage() {
 	}
 }
 
-// Test handleVNetwork (VPC)
-// func handleVNetwork() {
-// 	cblogger.Debug("Start VPC Resource Test")
-
-// 	ResourceHandler, err := testconf.GetResourceHandler("VNetwork")
-// 	if err != nil {
-// 		panic(err)
-// 	}
-// 	handler := ResourceHandler.(irs.VNetworkHandler)
-
-// 	vNetworkReqInfo := irs.VNetworkReqInfo{
-// 		Name: "cb-subnet3", // 웹 도구 등 외부에서 전달 받지 않고 드라이버 내부적으로 자동 구현때문에 사용하지 않음.
-// 	}
-// 	reqSubnetId := "subnet-12345"
-// 	//reqSubnetId = ""
-
-// 	for {
-// 		fmt.Println("VNetworkHandler Management")
-// 		fmt.Println("0. Quit")
-// 		fmt.Println("1. VNetwork List")
-// 		fmt.Println("2. VNetwork Create")
-// 		fmt.Println("3. VNetwork Get")
-// 		fmt.Println("4. VNetwork Delete")
-
-// 		var commandNum int
-// 		inputCnt, err := fmt.Scan(&commandNum)
-// 		if err != nil {
-// 			panic(err)
-// 		}
-
-// 		if inputCnt == 1 {
-// 			switch commandNum {
-// 			case 0:
-// 				return
-
-// 			case 1:
-// 				result, err := handler.ListVNetwork()
-// 				if err != nil {
-// 					cblogger.Infof(" VNetwork 목록 조회 실패 : ", err)
-// 				} else {
-// 					cblogger.Info("VNetwork 목록 조회 결과")
-// 					//cblogger.Info(result)
-// 					spew.Dump(result)
-
-// 					// 내부적으로 1개만 존재함.
-// 					//조회및 삭제 테스트를 위해 리스트의 첫번째 서브넷 ID를 요청ID로 자동 갱신함.
-// 					if result != nil {
-// 						reqSubnetId = result[0].Id // 조회 및 삭제를 위해 생성된 ID로 변경
-// 					}
-// 				}
-
-// 			case 2:
-// 				cblogger.Infof("[%s] VNetwork 생성 테스트", vNetworkReqInfo.Name)
-// 				//vNetworkReqInfo := irs.VNetworkReqInfo{}
-// 				result, err := handler.CreateVNetwork(vNetworkReqInfo)
-// 				if err != nil {
-// 					cblogger.Infof(reqSubnetId, " VNetwork 생성 실패 : ", err)
-// 				} else {
-// 					cblogger.Infof("VNetwork 생성 결과 : ", result)
-// 					reqSubnetId = result.Id // 조회 및 삭제를 위해 생성된 ID로 변경
-// 					spew.Dump(result)
-// 				}
-
-// 			case 3:
-// 				cblogger.Infof("[%s] VNetwork 조회 테스트", reqSubnetId)
-// 				result, err := handler.GetVNetwork(reqSubnetId)
-// 				if err != nil {
-// 					cblogger.Infof("[%s] VNetwork 조회 실패 : ", reqSubnetId, err)
-// 				} else {
-// 					cblogger.Infof("[%s] VNetwork 조회 결과 : [%s]", reqSubnetId, result)
-// 					spew.Dump(result)
-// 				}
-
-// 			case 4:
-// 				cblogger.Infof("[%s] VNetwork 삭제 테스트", reqSubnetId)
-// 				result, err := handler.DeleteVNetwork(reqSubnetId)
-// 				if err != nil {
-// 					cblogger.Infof("[%s] VNetwork 삭제 실패 : ", reqSubnetId, err)
-// 				} else {
-// 					cblogger.Infof("[%s] VNetwork 삭제 결과 : [%s]", reqSubnetId, result)
-// 				}
-// 			}
-// 		}
-// 	}
-// }
-
 // Test handleVPC (VPC)
 func handleVPC() {
 	cblogger.Debug("Start VPC Resource Test")
@@ -418,7 +234,7 @@ func handleVPC() {
 		},
 		SubnetInfoList: subnetList,
 	}
-	//reqSubnetId := "subnet-12345"
+
 	reqSubnetId := irs.IID{
 		NameId:   "cb-vpc",
 		SystemId: "cb-vpc",
@@ -668,12 +484,10 @@ func handleVMSpec() {
 
 func main() {
 	cblogger.Info("GCP Resource Test")
-	//handlePublicIP()
 
-	// handleKeyPair()
+	handleKeyPair()
 
-	handleImage() //AMI
-	//handleVNic() //Lancard
+	// handleImage() //AMI
 	//handleSecurity()
 	//handleVPC()
 }
