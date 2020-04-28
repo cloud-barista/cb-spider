@@ -122,7 +122,8 @@ func (securityHandler *GCPSecurityHandler) ListSecurity() ([]*irs.SecurityInfo, 
 	var securityInfo []*irs.SecurityInfo
 	for _, item := range result.Items {
 		name := item.Name
-		secInfo, _ := securityHandler.GetSecurity(irs.IID{NameId: name, SystemId: name})
+		systemId := strconv.FormatUint(item.Id, 10)
+		secInfo, _ := securityHandler.GetSecurity(irs.IID{NameId: name, SystemId: systemId})
 
 		securityInfo = append(securityInfo, &secInfo)
 	}
@@ -164,7 +165,8 @@ func (securityHandler *GCPSecurityHandler) GetSecurity(securityIID irs.IID) (irs
 			Direction:  security.Direction,
 		})
 	}
-
+	vpcArr := strings.Split(security.Network, "/")
+	vpcName := vpcArr[len(vpcArr)-1]
 	securityInfo := irs.SecurityInfo{
 		IId: irs.IID{
 			NameId:   security.Name,
@@ -175,6 +177,8 @@ func (securityHandler *GCPSecurityHandler) GetSecurity(securityIID irs.IID) (irs
 		KeyValueList: []irs.KeyValue{
 			{"Priority", strconv.FormatInt(security.Priority, 10)},
 			{"SourceRanges", security.SourceRanges[0]},
+			{"Allowed", security.Allowed[0].IPProtocol},
+			{"VpcName", vpcName},
 		},
 		SecurityRules: &securityRules,
 	}
