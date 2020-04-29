@@ -340,8 +340,8 @@ func handleSecurity() {
 	//VmID := config.Aws.VmID
 
 	securityName := "CB-SecurityTest123123"
-	securityId := "sg-6weij715fdb3jz87f7n8"
-	vpcId := ""
+	securityId := "CB-SecurityTest123123"
+	vpcId := "vpc-6wei16ufuimfcct41o0xh"
 
 	for {
 		fmt.Println("Security Management")

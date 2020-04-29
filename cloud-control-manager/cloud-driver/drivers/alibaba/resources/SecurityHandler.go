@@ -11,6 +11,8 @@
 package resources
 
 import (
+	"errors"
+
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/ecs"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
@@ -80,6 +82,7 @@ func (securityHandler *AlibabaSecurityHandler) AuthorizeSecurityRules(securityGr
 			request.SourceCidrIp = "0.0.0.0/0"
 
 			cblogger.Infof("[%s] [%s] inbound rule Request", request.IpProtocol, request.PortRange)
+			spew.Dump(request)
 			response, err := securityHandler.Client.AuthorizeSecurityGroup(request)
 			if err != nil {
 				cblogger.Errorf("Unable to create security group[%s] inbound rule - [%s] [%s] AuthorizeSecurityGroup Request", securityGroupId, request.IpProtocol, request.PortRange)
@@ -93,12 +96,14 @@ func (securityHandler *AlibabaSecurityHandler) AuthorizeSecurityRules(securityGr
 			request.IpProtocol = curRule.IPProtocol
 			request.PortRange = curRule.FromPort + "/" + curRule.ToPort
 			request.SecurityGroupId = securityGroupId
-			request.SourceCidrIp = "0.0.0.0/0"
+			//request.SourceCidrIp = "0.0.0.0/0"
+			request.DestCidrIp = "0.0.0.0/0"
 
-			cblogger.Infof("[%s] [%s] inbound rule Request", request.IpProtocol, request.PortRange)
+			cblogger.Infof("[%s] [%s] outbound rule Request", request.IpProtocol, request.PortRange)
+			spew.Dump(request)
 			response, err := securityHandler.Client.AuthorizeSecurityGroupEgress(request)
 			if err != nil {
-				cblogger.Errorf("Unable to create security group[%s] inbound rule - [%s] [%s] AuthorizeSecurityGroup Request", securityGroupId, request.IpProtocol, request.PortRange)
+				cblogger.Errorf("Unable to create security group[%s] outbound rule - [%s] [%s] AuthorizeSecurityGroup Request", securityGroupId, request.IpProtocol, request.PortRange)
 				cblogger.Error(err)
 				return nil, err
 			}
@@ -115,6 +120,7 @@ func (securityHandler *AlibabaSecurityHandler) ListSecurity() ([]*irs.SecurityIn
 	// get SecurityGroup & SecurityGroupAttribute for Alibaba
 	request := ecs.CreateDescribeSecurityGroupsRequest()
 	request.Scheme = "https"
+	spew.Dump(request)
 	result, err := securityHandler.Client.DescribeSecurityGroups(request)
 	if err != nil {
 		cblogger.Error(err)
@@ -146,11 +152,17 @@ func (securityHandler *AlibabaSecurityHandler) GetSecurity(securityIID irs.IID) 
 		return irs.SecurityInfo{}, err
 	}
 
+	//ecs.DescribeSecurityGroupsResponse.SecurityGroups
+	//ecs.SecurityGroups
 	cblogger.Info(result)
 	spew.Dump(result)
 	//ecs.DescribeSecurityGroupsResponse
+	if result.TotalCount < 1 {
+		return irs.SecurityInfo{}, errors.New("Notfound: '" + securityIID.SystemId + "' SecurityGroup Not found")
+	}
 
-	return irs.SecurityInfo{}, nil
+	securityInfo := ExtractSecurityInfo(&result.SecurityGroups.SecurityGroup[0])
+	return securityInfo, nil
 }
 
 func ExtractSecurityInfo(securityGroupResult *ecs.SecurityGroup) irs.SecurityInfo {
