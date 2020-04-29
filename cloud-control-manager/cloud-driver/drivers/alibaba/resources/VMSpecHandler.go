@@ -121,7 +121,7 @@ func (vmSpecHandler *AlibabaVmSpecHandler) GetVMSpec(Region string, Name string)
 	//	spew.Dump(resp)
 
 	if len(resp.InstanceTypes.InstanceType) < 1 {
-		return irs.VMSpecInfo{}, errors.New(Name + "에 해당하는 Spec 정보를 찾을 수 없습니다.")
+		return irs.VMSpecInfo{}, errors.New("Notfound: '" + Name + "'에 해당하는 Spec 정보를 찾을 수 없습니다.")
 	}
 
 	var vMSpecInfo irs.VMSpecInfo

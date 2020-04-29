@@ -224,8 +224,9 @@ func (VPCHandler *AlibabaVPCHandler) GetVPC(vpcIID irs.IID) (irs.VPCInfo, error)
 	}
 
 	cblogger.Info("VPC 개수 : ", len(result.Vpcs.Vpc))
+	//if result.TotalCount < 1 {
 	if len(result.Vpcs.Vpc) < 1 {
-		return irs.VPCInfo{}, errors.New("Not found")
+		return irs.VPCInfo{}, errors.New("Notfound: '" + vpcIID.SystemId + "' VPC Not found")
 	}
 
 	vpcInfo := ExtractVpcDescribeInfo(&result.Vpcs.Vpc[0])
@@ -339,6 +340,10 @@ func (VPCHandler *AlibabaVPCHandler) GetSubnet(reqSubnetId string) (irs.SubnetIn
 	if err != nil {
 		cblogger.Error(err)
 		return irs.SubnetInfo{}, err
+	}
+
+	if result.TotalCount < 1 {
+		return irs.SubnetInfo{}, errors.New("Notfound: '" + reqSubnetId + "' Subnet Not found")
 	}
 
 	if !reflect.ValueOf(result.VSwitches.VSwitch).IsNil() {

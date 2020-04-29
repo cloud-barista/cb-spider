@@ -11,6 +11,7 @@
 package resources
 
 import (
+	"errors"
 	"strconv"
 
 	"github.com/aliyun/alibaba-cloud-sdk-go/sdk/requests"
@@ -194,6 +195,10 @@ func (imageHandler *AlibabaImageHandler) GetImage(imageIID irs.IID) (irs.ImageIn
 	if err != nil {
 		cblogger.Errorf("Unable to get Images, %v", err)
 		return irs.ImageInfo{}, err
+	}
+
+	if result.TotalCount < 1 {
+		return irs.ImageInfo{}, errors.New("Notfound: '" + imageIID.SystemId + "' Images Not found")
 	}
 
 	imageInfo := ExtractImageDescribeInfo(&result.Images.Image[0])
