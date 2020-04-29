@@ -8,6 +8,10 @@
 package resources
 
 import (
+	"errors"
+	"fmt"
+	"time"
+
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/ecs"
 	cblog "github.com/cloud-barista/cb-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
@@ -266,151 +270,74 @@ func (vmHandler *AlibabaVMHandler) TerminateVM(vmIID irs.IID) (irs.VMStatus, err
 	*/
 }
 
-//- 보안그룹의 경우 멀티개 설정이 가능한데 현재는 1개만 입력 받음
-// @Todo : SecurityID에 보안그룹 Name을 할당하는게 맞는지 확인 필요
 func (vmHandler *AlibabaVMHandler) GetVM(vmIID irs.IID) (irs.VMInfo, error) {
 	cblogger.Infof("vmID : [%s]", vmIID.SystemId)
-	return irs.VMInfo{}, nil
+
+	request := ecs.CreateDescribeInstancesRequest()
+	request.Scheme = "https"
+	request.InstanceIds = "[\"" + vmIID.SystemId + "\"]"
+
+	response, err := vmHandler.Client.DescribeInstances(request)
+	if err != nil {
+		fmt.Print(err.Error())
+	}
+
+	if response.TotalCount < 1 {
+		return irs.VMInfo{}, errors.New("Notfound: '" + vmIID.SystemId + "' VM Not found")
+	}
+
 	/*
-
-		input := &ec2.DescribeInstancesInput{
-			InstanceIds: []*string{
-				aws.String(vmID),
-			},
-		}
-
-		result, err := vmHandler.Client.DescribeInstances(input)
-		if err != nil {
-			if aerr, ok := err.(awserr.Error); ok {
-				switch aerr.Code() {
-				default:
-					cblogger.Error(aerr.Error())
-				}
-			} else {
-				// Print the error, cast err to awserr.Error to get the Code and Message from an error.
-				cblogger.Error(err.Error())
-			}
-			return irs.VMInfo{}
-		}
-
-		cblogger.Info("Success", result)
-
 		vmInfo := irs.VMInfo{}
-		for _, i := range result.Reservations {
-			//vmInfo := ExtractDescribeInstances(result.Reservations[0])
-			vmInfo = ExtractDescribeInstances(i)
+		for _, curInstance := range response.Instances.Instance {
+			vmInfo := ExtractDescribeInstances(result.Reservations[0])
+			vmInfo = vmHandler.ExtractDescribeInstances(curInstance)
 		}
-
-		cblogger.Info("vmInfo", vmInfo)
-		return vmInfo
 	*/
+
+	//	vmInfo := vmHandler.ExtractDescribeInstances(response.Instances.Instance[0])
+	vmInfo := vmHandler.ExtractDescribeInstances(&response.Instances.Instance[0])
+	cblogger.Info("vmInfo", vmInfo)
+	return vmInfo, nil
 }
 
-// DescribeInstances결과에서 EC2 세부 정보 추출
-// VM 생성 시에는 Running 이전 상태의 정보가 넘어오기 때문에
-// 최종 정보 기반으로 리턴 받고 싶으면 GetVM에 통합해야 할 듯.
-
 //@TODO : 2020-03-26 Ali클라우드 API 구조가 바뀐 것 같아서 임시로 변경해 놓음.
-func ExtractDescribeInstances() irs.VMInfo {
-	//func ExtractDescribeInstances(instancInfo *ecs.Instance) irs.VMInfo {
-	return irs.VMInfo{}
-	/*
-		//cblogger.Info("ExtractDescribeInstances", instancInfo)
-		cblogger.Debug("Instances[0]", instancInfo.Instances[0])
+//func (vmHandler *AlibabaVMHandler) ExtractDescribeInstances() irs.VMInfo {
+func (vmHandler *AlibabaVMHandler) ExtractDescribeInstances(instancInfo *ecs.Instance) irs.VMInfo {
+	cblogger.Info(instancInfo)
 
-		//"stopped" / "terminated" / "running" ...
-		var state string
-		state = *instancInfo.Instances[0].Status
-		cblogger.Info("EC2 상태 : [%s]", state)
+	//time.Parse(layout, str)
+	vmInfo := irs.VMInfo{
+		IId:        irs.IID{NameId: instancInfo.InstanceName, SystemId: instancInfo.InstanceId},
+		ImageIId:   irs.IID{SystemId: instancInfo.ImageId},
+		VMSpecName: instancInfo.InstanceType,
+		KeyPairIId: irs.IID{SystemId: instancInfo.KeyPairName},
+		//StartTime:  instancInfo.StartTime,
 
-		//VM상태와 무관하게 항상 값이 존재하는 항목들만 초기화
-		vmInfo := irs.VMInfo{
-			Name:           *instancInfo.Instances[0].InstanceName,
-			Id:             *instancInfo.Instances[0].InstanceId,
-			ImageID:        *instancInfo.Instances[0].ImageId,
-			SpecID:         *instancInfo.Instances[0].InstanceType,
-			KeyPairID:      *instancInfo.Instances[0].KeyName,
-			GuestUserID:    "",
-			AdditionalInfo: "State:" + *instancInfo.Instances[0].State.Name,
-		}
+		//Region            RegionInfo //  ex) {us-east1, us-east1-c} or {ap-northeast-2}
+		//VpcIID            irs.IID{SystemId: instancInfo,
+		//SubnetIID         IID   // AWS, ex) subnet-8c4a53e4
+		//SecurityGroupIIds []IID // AWS, ex) sg-0b7452563e1121bb6
+		//NetworkInterface string // ex) eth0
+		//PublicIP
+		//PublicDNS
+		//PrivateIP
+		//PrivateDNS
 
-		// vmInfo.StartTime =  // StartTime time.Time
+		//VMBootDisk  string // ex) /dev/sda1
+		//VMBlockDisk string // ex)
 
-		//cblogger.Info("=======>타입 : ", reflect.TypeOf(*instancInfo.Instances[0]))
-		//cblogger.Info("===> PublicIpAddress TypeOf : ", reflect.TypeOf(instancInfo.Instances[0].PublicIpAddress))
-		//cblogger.Info("===> PublicIpAddress ValueOf : ", reflect.ValueOf(instancInfo.Instances[0].PublicIpAddress))
+		KeyValueList: []irs.KeyValue{{Key: "", Value: ""}},
+	}
 
-		//vmInfo.PublicIP = *instancInfo.Instances[0].NetworkInterfaces[0].Association.PublicIp
-		//vmInfo.PublicDNS = *instancInfo.Instances[0].NetworkInterfaces[0].Association.PublicDnsName
+	if instancInfo.StartTime != "" {
+		cblogger.Infof("Convert StartTime string [%s] to time.time", instancInfo.StartTime)
 
-		// 특정 항목(예:EIP)은 VM 상태와 무관하게 동작하므로 VM 상태와 무관하게 Nil처리로 모든 필드를 처리 함.
-		if !reflect.ValueOf(instancInfo.Instances[0].PublicIpAddress).IsNil() {
-			vmInfo.PublicIP = *instancInfo.Instances[0].PublicIpAddress
-		}
+		layout := "2017-12-10T04:04Z"
+		t, _ := time.Parse(layout, instancInfo.StartTime)
+		vmInfo.StartTime = t
+	}
 
-		if !reflect.ValueOf(instancInfo.Instances[0].PublicDnsName).IsNil() {
-			vmInfo.PublicDNS = *instancInfo.Instances[0].PublicDnsName
-		}
-
-		cblogger.Info("===> BlockDeviceMappings ValueOf : ", reflect.ValueOf(instancInfo.Instances[0].BlockDeviceMappings))
-		if !reflect.ValueOf(instancInfo.Instances[0].BlockDeviceMappings).IsNil() {
-			if !reflect.ValueOf(instancInfo.Instances[0].BlockDeviceMappings[0].DeviceName).IsNil() {
-				vmInfo.GuestBlockDisk = *instancInfo.Instances[0].BlockDeviceMappings[0].DeviceName
-			}
-		}
-
-		if !reflect.ValueOf(instancInfo.Instances[0].Placement.AvailabilityZone).IsNil() {
-			vmInfo.Region = irs.RegionInfo{
-				Region: *instancInfo.Instances[0].Placement.AvailabilityZone,
-			}
-		}
-
-		//NetworkInterfaces 배열 값들
-		if !reflect.ValueOf(instancInfo.Instances[0].NetworkInterfaces).IsNil() {
-			if !reflect.ValueOf(instancInfo.Instances[0].NetworkInterfaces[0].VpcId).IsNil() {
-				vmInfo.VNetworkID = *instancInfo.Instances[0].NetworkInterfaces[0].VpcId
-			}
-
-			if !reflect.ValueOf(instancInfo.Instances[0].NetworkInterfaces[0].SubnetId).IsNil() {
-				vmInfo.SubNetworkID = *instancInfo.Instances[0].NetworkInterfaces[0].SubnetId
-			}
-
-			if !reflect.ValueOf(instancInfo.Instances[0].NetworkInterfaces[0].Groups).IsNil() {
-				if !reflect.ValueOf(instancInfo.Instances[0].NetworkInterfaces[0].Groups[0].GroupId).IsNil() {
-					vmInfo.SecurityID = *instancInfo.Instances[0].NetworkInterfaces[0].Groups[0].GroupId
-				}
-			}
-		}
-
-		//SecurityName: *instancInfo.Instances[0].NetworkInterfaces[0].Groups[0].GroupName,
-		vmInfo.VNIC = "eth0 - 값 위치 확인 필요"
-
-		//vmInfo.PrivateIP = *instancInfo.Instances[0].NetworkInterfaces[0].PrivateIpAddress	//없는 경우 존재해서 Instances[0].PrivateIpAddress로 대체 - i-0b75cac73c4575386
-		if !reflect.ValueOf(instancInfo.Instances[0].PrivateIpAddress).IsNil() {
-			vmInfo.PrivateIP = *instancInfo.Instances[0].PrivateIpAddress
-		}
-
-		//vmInfo.PrivateDNS = *instancInfo.Instances[0].NetworkInterfaces[0].PrivateDnsName		//없는 경우 존재해서 Instances[0].PrivateDnsName로 대체 - i-0b75cac73c4575386
-		if !reflect.ValueOf(instancInfo.Instances[0].PrivateDnsName).IsNil() {
-			vmInfo.PrivateDNS = *instancInfo.Instances[0].PrivateDnsName
-		}
-
-		if !reflect.ValueOf(instancInfo.Instances[0].RootDeviceName).IsNil() {
-			vmInfo.GuestBootDisk = *instancInfo.Instances[0].RootDeviceName
-		}
-
-		//Name은 Tag의 "Name" 속성에만 저장됨
-		cblogger.Debug("Name Tag 찾기")
-		for _, t := range instancInfo.Instances[0].Tags {
-			if *t.Key == "Name" {
-				vmInfo.Name = *t.Value
-				cblogger.Debug("EC2 명칭 : ", vmInfo.Name)
-				break
-			}
-		}
-
-		return vmInfo
-	*/
+	return vmInfo
 }
 
 func (vmHandler *AlibabaVMHandler) ListVM() ([]*irs.VMInfo, error) {
@@ -460,39 +387,43 @@ func (vmHandler *AlibabaVMHandler) GetVMStatus(vmIID irs.IID) (irs.VMStatus, err
 	cblogger.Infof("vmID : [%s]", vmIID.SystemId)
 	/*
 
-		//vmStatus := "pending"
-		//return irs.VMStatus(vmStatus)
-
-		input := &ec2.DescribeInstancesInput{
-			InstanceIds: []*string{
-				aws.String(vmID),
-			},
+		if result.TotalCount < 1 {
+			return irs.SubnetInfo{}, errors.New("Notfound: '" + reqSubnetId + "' Subnet Not found")
 		}
 
-		result, err := vmHandler.Client.DescribeInstances(input)
-		if err != nil {
-			if aerr, ok := err.(awserr.Error); ok {
-				switch aerr.Code() {
-				default:
-					cblogger.Error(aerr.Error())
+			//vmStatus := "pending"
+			//return irs.VMStatus(vmStatus)
+
+			input := &ec2.DescribeInstancesInput{
+				InstanceIds: []*string{
+					aws.String(vmID),
+				},
+			}
+
+			result, err := vmHandler.Client.DescribeInstances(input)
+			if err != nil {
+				if aerr, ok := err.(awserr.Error); ok {
+					switch aerr.Code() {
+					default:
+						cblogger.Error(aerr.Error())
+						return irs.VMStatus("")
+					}
+				} else {
+					// Print the error, cast err to awserr.Error to get the Code and Message from an error.
+					cblogger.Error(err.Error())
 					return irs.VMStatus("")
 				}
-			} else {
-				// Print the error, cast err to awserr.Error to get the Code and Message from an error.
-				cblogger.Error(err.Error())
 				return irs.VMStatus("")
 			}
-			return irs.VMStatus("")
-		}
 
-		cblogger.Info("Success", result)
-		for _, i := range result.Reservations {
-			for _, vm := range i.Instances {
-				vmStatus := strings.ToUpper(*vm.State.Name)
-				cblogger.Info(vmID, " EC2 Status : ", vmStatus)
-				return irs.VMStatus(vmStatus)
+			cblogger.Info("Success", result)
+			for _, i := range result.Reservations {
+				for _, vm := range i.Instances {
+					vmStatus := strings.ToUpper(*vm.State.Name)
+					cblogger.Info(vmID, " EC2 Status : ", vmStatus)
+					return irs.VMStatus(vmStatus)
+				}
 			}
-		}
 	*/
 
 	return irs.VMStatus(""), nil
@@ -543,42 +474,5 @@ func (vmHandler *AlibabaVMHandler) ListVMStatus() ([]*irs.VMStatusInfo, error) {
 		}
 
 		return vmStatusList
-	*/
-}
-
-// AssociationId 대신 PublicIP로도 가능 함.
-func (vmHandler *AlibabaVMHandler) AssociatePublicIP(allocationId string, instanceId string) (bool, error) {
-	cblogger.Infof("EC2에 퍼블릭 IP할당 - AllocationId : [%s], InstanceId : [%s]", allocationId, instanceId)
-	return true, nil
-
-	/*
-
-		// EC2에 할당.
-		// Associate the new Elastic IP address with an existing EC2 instance.
-		assocRes, err := vmHandler.Client.AssociateAddress(&ec2.AssociateAddressInput{
-			AllocationId: aws.String(allocationId),
-			InstanceId:   aws.String(instanceId),
-		})
-
-		spew.Dump(assocRes)
-		cblogger.Infof("[%s] EC2에 EIP(AllocationId : [%s]) 할당 완료 - AssociationId Id : [%s]", instanceId, allocationId, *assocRes.AssociationId)
-
-		if err != nil {
-			cblogger.Errorf("Unable to associate IP address with %s, %v", instanceId, err)
-			if aerr, ok := err.(awserr.Error); ok {
-				switch aerr.Code() {
-				default:
-					cblogger.Errorf(aerr.Error())
-				}
-			} else {
-				// Print the error, cast err to awserr.Error to get the Code and
-				// Message from an error.
-				cblogger.Errorf(err.Error())
-			}
-			return false, err
-		}
-
-		cblogger.Info(assocRes)
-		return true, nil
 	*/
 }
