@@ -133,6 +133,8 @@ func GetResourceHandler(handlerType string) (interface{}, error) {
 	//resourceHandler, err = cloudConnection.CreateVNicHandler()
 	case "VMSpec":
 		resourceHandler, err = cloudConnection.CreateVMSpecHandler()
+	case "VM":
+		resourceHandler, err = cloudConnection.CreateVMHandler()
 	}
 
 	if err != nil {

@@ -64,6 +64,7 @@ func (securityHandler *AlibabaSecurityHandler) CreateSecurity(securityReqInfo ir
 	spew.Dump(createRuleRes)
 
 	securityInfo, _ := securityHandler.GetSecurity(irs.IID{SystemId: createRes.SecurityGroupId})
+	//securityInfo.IId.NameId = securityReqInfo.IId.NameId
 	return securityInfo, nil
 }
 
@@ -168,7 +169,7 @@ func (securityHandler *AlibabaSecurityHandler) GetSecurity(securityIID irs.IID) 
 func ExtractSecurityInfo(securityGroupResult *ecs.SecurityGroup) irs.SecurityInfo {
 	//securityRules := ExtractIpPermissions(securityGroupResult.SecurityGroups.SecurityGroup)
 	securityInfo := irs.SecurityInfo{
-		IId: irs.IID{SystemId: securityGroupResult.SecurityGroupId},
+		IId: irs.IID{NameId: securityGroupResult.SecurityGroupName, SystemId: securityGroupResult.SecurityGroupId},
 		//SecurityRules: &[]irs.SecurityRuleInfo{},
 		//SecurityRules: &securityRules,
 		VpcIID: irs.IID{SystemId: securityGroupResult.VpcId},

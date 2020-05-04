@@ -9,13 +9,14 @@ package resources
 
 import (
 	"errors"
-	"fmt"
+	"strings"
 	"time"
 
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/ecs"
 	cblog "github.com/cloud-barista/cb-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
+	"github.com/davecgh/go-spew/spew"
 	"github.com/sirupsen/logrus"
 	/*
 		"github.com/sirupsen/logrus"
@@ -41,233 +42,181 @@ func init() {
 	cblogger = cblog.GetLogger("ALIBABA VMHandler")
 }
 
-// func Connect(region string) *ecs.Client {
-// 	// setup Region
-// 	sess, err := session.NewSession(&aws.Config{
-// 		Region: aws.String(region)},
-// 	)
-
-// 	if err != nil {
-// 		fmt.Println("Could not create instance", err)
-// 		return nil
-// 	}
-
-// 	// Create EC2 service client
-// 	svc := ec2.New(sess)
-
-// 	return svc
-// }
-
 // @Todo : SecurityGroupId 배열 처리 방안
 // 1개의 VM만 생성되도록 수정 (MinCount / MaxCount 이용 안 함)
 //키페어 이름(예:mcloud-barista)은 아래 URL에 나오는 목록 중 "키페어 이름"의 값을 적으면 됨.
 //https://ap-northeast-2.console.aws.amazon.com/ec2/v2/home?region=ap-northeast-2#KeyPairs:sort=keyName
 func (vmHandler *AlibabaVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, error) {
-	return irs.VMInfo{}, nil
-	/*
-		cblogger.Info(vmReqInfo)
-		spew.Dump(vmReqInfo)
+	//cblogger.Info(vmReqInfo)
+	spew.Dump(vmReqInfo)
 
-		imageID := vmReqInfo.ImageId
-		instanceType := vmReqInfo.SpecId // "t2.micro"
-		minCount := requests.NewInteger64(1)
-		maxCount := requests.NewInteger64(1)
-		keyName := vmReqInfo.KeyPairInfo.Name
-		securityGroupID := vmReqInfo.SecurityInfo.Id // "sg-0df1c209ea1915e4b" - 미지정시 보안 그룹명이 "default"인 보안 그룹이 사용 됨.
-		subnetID := vmReqInfo.VNetworkInfo.Id        // "subnet-cf9ccf83" - 미지정시 기본 VPC의 기본 서브넷이 임의로 이용되며 PublicIP가 할당 됨.
-		baseName := vmReqInfo.Name                   //"mcloud-barista-VMHandlerTest"
+	//=============================
+	// 보안그룹 처리 - SystemId 기반
+	//=============================
+	cblogger.Info("SystemId 기반으로 처리하기 위해 IID 기반의 보안그룹 배열을 SystemId 기반 보안그룹 배열로 조회및 변환함.")
+	var newSecurityGroupIds []string
+	//var firstSecurityGroupId string
 
-		cblogger.Info("Create ECS Instance")
-
-		// Specify the details of the instance that you want to create.
-		runResult, err := vmHandler.Client.RunInstances(&ec2.RunInstancesInput{
-			ImageId:      aws.String(imageID),
-			InstanceType: aws.String(instanceType),
-			MinCount:     minCount,
-			MaxCount:     maxCount,
-			KeyName:      aws.String(keyName),
-
-			SecurityGroupIds: []*string{
-				aws.String(securityGroupID), // set a security group.
-			},
-
-			SubnetId: aws.String(subnetID), // set a subnet.
-		})
-		if err != nil {
-			cblogger.Errorf("Could not create instance", err)
-			return irs.VMInfo{}, err
-		}
-
-		newVmId := *runResult.Instances[0].InstanceId
-		cblogger.Info("Created instance ", newVmId)
-		// Tag에 VM Name 설정
-		_, errtag := vmHandler.Client.CreateTags(&ec2.CreateTagsInput{
-			Resources: []*string{runResult.Instances[0].InstanceId},
-			Tags: []*ec2.Tag{
-				{
-					Key:   aws.String("Name"),
-					Value: aws.String(baseName),
-				},
-			},
-		})
-		if errtag != nil {
-			cblogger.Error("Could not create tags for instance ", newVmId, errtag)
-			return irs.VMInfo{}, errtag
-		}
-
-		//EC2에 EIP 할당
-		cblogger.Infof("[%s] EC2에 [%s] IP 할당 시작", newVmId, vmReqInfo.PublicIPId)
-		assocRes, errIp := vmHandler.AssociatePublicIP(vmReqInfo.PublicIPId, newVmId)
-		if errIp != nil {
-			cblogger.Errorf("Unable to associate IP address with %s, %v", newVmId, err)
-			return irs.VMInfo{}, nil
-		}
-
-		cblogger.Infof("[%s] EC2에 Public IP 할당 결과 : ", newVmId, assocRes)
-
-		//Public IP및 초신 정보 전달을 위해 부팅이 완료될 때까지 대기했다가 전달하는 것으로 변경 함.
-		cblogger.Info("EC2 Running 상태 대기")
-		WaitForRun(vmHandler.Client, newVmId)
-		cblogger.Info("EC2 Running 상태 완료 : ", runResult.Instances[0].State.Name)
-
-		//최신 정보 조회
-		vmInfo := vmHandler.GetVM(newVmId)
-
-		return vmInfo, nil
-	*/
-}
-
-/*
-//VM이 Running 상태일때까지 대기 함.
-func WaitForRun(svc *ecs.Client, instanceID string) {
-	cblogger.Infof("ECS ID : [%s]", instanceID)
-
-	input := &ecs.DescribeInstancesInput{
-		InstanceIds: []*string{
-			aws.String(instanceID),
-		},
+	for _, sgId := range vmReqInfo.SecurityGroupIIDs {
+		cblogger.Infof("보안그룹 변환 : [%s]", sgId)
+		newSecurityGroupIds = append(newSecurityGroupIds, sgId.SystemId)
+		//firstSecurityGroupId = sgId.SystemId
+		//break
 	}
-	err := svc.WaitUntilInstanceRunning(input)
+
+	cblogger.Info("보안그룹 변환 완료")
+	cblogger.Info(newSecurityGroupIds)
+
+	//request := ecs.CreateCreateInstanceRequest()	// CreateInstance는 PublicIp가 자동으로 할당되지 않음.
+	request := ecs.CreateRunInstancesRequest() // RunInstances는 PublicIp가 자동으로 할당됨.
+	request.Scheme = "https"
+
+	request.InstanceChargeType = "PostPaid" //저렴한 실시간 요금으로 설정 //PrePaid: subscription.  / PostPaid: pay-as-you-go. Default value: PostPaid.
+	request.ImageId = vmReqInfo.ImageIID.SystemId
+	//request.SecurityGroupIds *[]string
+	request.SecurityGroupIds = &newSecurityGroupIds
+	//request.SecurityGroupId = firstSecurityGroupId // string 타입이라 첫번째 보안 그룹만 적용
+	//request.SecurityGroupId =  "[\"" + newSecurityGroupIds + "\"]" // string 타입이라 첫번째 보안 그룹만 적용
+
+	request.InstanceName = vmReqInfo.IId.NameId
+	//request.HostName = vmReqInfo.IId.NameId	// OS 호스트 명
+	request.InstanceType = vmReqInfo.VMSpecName
+	request.KeyPairName = vmReqInfo.KeyPairIID.SystemId
+	request.VSwitchId = vmReqInfo.SubnetIID.SystemId
+	spew.Dump(request)
+
+	//=============================
+	// VM생성 처리
+	//=============================
+	cblogger.Info("Create EC2 Instance")
+	cblogger.Info(request)
+
+	//response, err := vmHandler.Client.CreateInstance(request)
+	response, err := vmHandler.Client.RunInstances(request)
 	if err != nil {
-		cblogger.Errorf("failed to wait until instances exist: %v", err)
+		cblogger.Error(err.Error())
+		return irs.VMInfo{}, err
 	}
-	cblogger.Info("=========WaitForRun() 종료")
+	spew.Dump(response)
+
+	if len(response.InstanceIdSets.InstanceIdSet) < 1 {
+		return irs.VMInfo{}, errors.New("No errors have occurred, but no VMs have been created.")
+	}
+
+	if 1 == 1 {
+		return irs.VMInfo{}, nil
+	}
+
+	//vmInfo, errVmInfo := vmHandler.GetVM(irs.IID{SystemId: response.InstanceId})
+	vmInfo, errVmInfo := vmHandler.GetVM(irs.IID{SystemId: response.InstanceIdSets.InstanceIdSet[0]})
+	if errVmInfo != nil {
+		cblogger.Error(errVmInfo.Error())
+		return irs.VMInfo{}, errVmInfo
+	}
+	vmInfo.IId.NameId = vmReqInfo.IId.NameId
+	return vmInfo, nil
 }
-*/
 
 func (vmHandler *AlibabaVMHandler) ResumeVM(vmIID irs.IID) (irs.VMStatus, error) {
 	cblogger.Infof("vmID : [%s]", vmIID.SystemId)
-	return irs.VMStatus("Failed"), nil
-	/*
-		input := &ec2.StartInstancesInput{
-			InstanceIds: []*string{
-				aws.String(vmID),
-			},
-			DryRun: aws.Bool(true),
-		}
-		result, err := vmHandler.Client.StartInstances(input)
-		awsErr, ok := err.(awserr.Error)
 
-		if ok && awsErr.Code() == "DryRunOperation" {
-			// Let's now set dry run to be false. This will allow us to start the instances
-			input.DryRun = aws.Bool(false)
-			result, err = vmHandler.Client.StartInstances(input)
-			if err != nil {
-				//fmt.Println("Error", err)
-				cblogger.Error(err)
-			} else {
-				//fmt.Println("Success", result.StartingInstances)
-				cblogger.Info("Success", result.StartingInstances)
-			}
-		} else { // This could be due to a lack of permissions
-			//fmt.Println("Error", err)
-			cblogger.Error(err)
-		}
-	*/
+	request := ecs.CreateStartInstanceRequest()
+	request.Scheme = "https"
+	request.InstanceId = vmIID.SystemId
+
+	response, err := vmHandler.Client.StartInstance(request)
+	if err != nil {
+		cblogger.Error(err.Error())
+		return irs.VMStatus("Failed"), err
+	}
+	cblogger.Info(response)
+	return irs.VMStatus("Resuming"), nil
+
 }
 
 func (vmHandler *AlibabaVMHandler) SuspendVM(vmIID irs.IID) (irs.VMStatus, error) {
 	cblogger.Infof("vmID : [%s]", vmIID.SystemId)
-	return irs.VMStatus("Failed"), nil
-	/*
-		input := &ec2.StopInstancesInput{
-			InstanceIds: []*string{
-				aws.String(vmID),
-			},
-			DryRun: aws.Bool(true),
-		}
-		result, err := vmHandler.Client.StopInstances(input)
-		awsErr, ok := err.(awserr.Error)
-		if ok && awsErr.Code() == "DryRunOperation" {
-			input.DryRun = aws.Bool(false)
-			result, err = vmHandler.Client.StopInstances(input)
-			if err != nil {
-				cblogger.Error(err)
-			} else {
-				cblogger.Info("Success", result.StoppingInstances)
-			}
-		} else {
-			cblogger.Error("Error", err)
-		}
-	*/
+
+	request := ecs.CreateStopInstanceRequest()
+	request.Scheme = "https"
+	request.InstanceId = vmIID.SystemId
+
+	response, err := vmHandler.Client.StopInstance(request)
+	if err != nil {
+		cblogger.Error(err.Error())
+		return irs.VMStatus("Failed"), err
+	}
+	cblogger.Info(response)
+	return irs.VMStatus("Suspending"), nil
 }
 
 func (vmHandler *AlibabaVMHandler) RebootVM(vmIID irs.IID) (irs.VMStatus, error) {
 	cblogger.Infof("vmID : [%s]", vmIID.SystemId)
-	/*
-		input := &ec2.RebootInstancesInput{
-			InstanceIds: []*string{
-				aws.String(vmID),
-			},
-			DryRun: aws.Bool(true),
-		}
-		result, err := vmHandler.Client.RebootInstances(input)
-		cblogger.Info("result 값 : ", result)
-		cblogger.Info("err 값 : ", err)
 
-		awsErr, ok := err.(awserr.Error)
-		cblogger.Info("ok 값 : ", ok)
-		cblogger.Info("awsErr 값 : ", awsErr)
-		if ok && awsErr.Code() == "DryRunOperation" {
-			cblogger.Info("Reboot 권한 있음 - awsErr.Code() : ", awsErr.Code())
+	request := ecs.CreateRebootInstanceRequest()
+	request.Scheme = "https"
+	request.InstanceId = vmIID.SystemId
 
-			//DryRun 권한 해제 후 리부팅을 요청 함.
-			cblogger.Info("DryRun 권한 해제 후 리부팅을 요청 함.")
-			input.DryRun = aws.Bool(false)
-			result, err = vmHandler.Client.RebootInstances(input)
-			cblogger.Info("result 값 : ", result)
-			cblogger.Info("err 값 : ", err)
-			if err != nil {
-				cblogger.Error("Error", err)
-			} else {
-				cblogger.Info("Success", result)
-			}
-		} else { // This could be due to a lack of permissions
-			cblogger.Info("리부팅 권한이 없는 것같음.")
-			cblogger.Error("Error", err)
-		}
-	*/
-	return irs.VMStatus("Failed"), nil
+	response, err := vmHandler.Client.RebootInstance(request)
+	if err != nil {
+		cblogger.Error(err.Error())
+		return irs.VMStatus("Failed"), err
+	}
+	cblogger.Info(response)
+	return irs.VMStatus("Rebooting"), nil
 }
 
 func (vmHandler *AlibabaVMHandler) TerminateVM(vmIID irs.IID) (irs.VMStatus, error) {
 	cblogger.Infof("vmID : [%s]", vmIID.SystemId)
-	return irs.VMStatus("Failed"), nil
-	/*
-		input := &ec2.TerminateInstancesInput{
-			//InstanceIds: instanceIds,
-			InstanceIds: []*string{
-				aws.String(vmID),
-			},
+
+	cblogger.Infof("VM을 종료하기 위해 Suspend 모드로 실행합니다.")
+	//Terminate하려면 VM이 Running 상태면 안됨.
+	sus, errSus := vmHandler.SuspendVM(vmIID)
+	if errSus != nil {
+		cblogger.Error(errSus.Error())
+		return irs.VMStatus("Failed"), errSus
+	}
+
+	if sus != "Suspending" {
+		cblogger.Errorf("[%s] VM의 Suspend 모드 실행 결과[%s]가 Suspending이 아닙니다.", vmIID.SystemId, sus)
+		return irs.VMStatus("Failed"), errors.New(vmIID.SystemId + " VM의 Suspend 모드 실행 결과 가 Suspending이 아닙니다.")
+	}
+
+	//===================================
+	// Suspending 되도록 3초 정도 대기 함.
+	//===================================
+	curRetryCnt := 0
+	maxRetryCnt := 10
+	for {
+		curStatus, errStatus := vmHandler.GetVMStatus(vmIID)
+		if errStatus != nil {
+			cblogger.Error(errStatus.Error())
 		}
 
-		_, err := vmHandler.Client.TerminateInstances(input)
-		if err != nil {
-			cblogger.Error("Could not termiate instances", err)
+		cblogger.Info("===>VM Status : ", curStatus)
+		if curStatus != irs.VMStatus("Suspended") {
+			curRetryCnt++
+			cblogger.Error("VM 상태가 Suspended가 아니라서 1초가 대기후 조회합니다.")
+			time.Sleep(time.Second * 1)
+			if curRetryCnt > maxRetryCnt {
+				cblogger.Error("장시간 대기해도 VM의 Status 값이 Suspended로 변경되지 않아서 강제로 중단합니다.")
+			}
 		} else {
-			cblogger.Info("Success")
+			break
 		}
-	*/
+	}
+
+	request := ecs.CreateDeleteInstanceRequest()
+	request.Scheme = "https"
+	request.InstanceId = vmIID.SystemId
+
+	response, err := vmHandler.Client.DeleteInstance(request)
+	if err != nil {
+		cblogger.Error(err.Error())
+		return irs.VMStatus("Failed"), err
+	}
+	cblogger.Info(response)
+	return irs.VMStatus("Terminating"), nil
 }
 
 func (vmHandler *AlibabaVMHandler) GetVM(vmIID irs.IID) (irs.VMInfo, error) {
@@ -279,20 +228,14 @@ func (vmHandler *AlibabaVMHandler) GetVM(vmIID irs.IID) (irs.VMInfo, error) {
 
 	response, err := vmHandler.Client.DescribeInstances(request)
 	if err != nil {
-		fmt.Print(err.Error())
+		cblogger.Error(err.Error())
+		return irs.VMInfo{}, err
 	}
+	spew.Dump(response)
 
 	if response.TotalCount < 1 {
 		return irs.VMInfo{}, errors.New("Notfound: '" + vmIID.SystemId + "' VM Not found")
 	}
-
-	/*
-		vmInfo := irs.VMInfo{}
-		for _, curInstance := range response.Instances.Instance {
-			vmInfo := ExtractDescribeInstances(result.Reservations[0])
-			vmInfo = vmHandler.ExtractDescribeInstances(curInstance)
-		}
-	*/
 
 	//	vmInfo := vmHandler.ExtractDescribeInstances(response.Instances.Instance[0])
 	vmInfo := vmHandler.ExtractDescribeInstances(&response.Instances.Instance[0])
@@ -313,14 +256,15 @@ func (vmHandler *AlibabaVMHandler) ExtractDescribeInstances(instancInfo *ecs.Ins
 		KeyPairIId: irs.IID{SystemId: instancInfo.KeyPairName},
 		//StartTime:  instancInfo.StartTime,
 
-		//Region            RegionInfo //  ex) {us-east1, us-east1-c} or {ap-northeast-2}
-		//VpcIID            irs.IID{SystemId: instancInfo,
-		//SubnetIID         IID   // AWS, ex) subnet-8c4a53e4
+		Region:    irs.RegionInfo{Region: instancInfo.RegionId, Zone: instancInfo.ZoneId}, //  ex) {us-east1, us-east1-c} or {ap-northeast-2}
+		VpcIID:    irs.IID{SystemId: instancInfo.VpcAttributes.VpcId},
+		SubnetIID: irs.IID{SystemId: instancInfo.VpcAttributes.VSwitchId},
 		//SecurityGroupIIds []IID // AWS, ex) sg-0b7452563e1121bb6
 		//NetworkInterface string // ex) eth0
 		//PublicIP
 		//PublicDNS
 		//PrivateIP
+		PrivateIP: instancInfo.VpcAttributes.PrivateIpAddress.IpAddress[0],
 		//PrivateDNS
 
 		//VMBootDisk  string // ex) /dev/sda1
@@ -329,12 +273,18 @@ func (vmHandler *AlibabaVMHandler) ExtractDescribeInstances(instancInfo *ecs.Ins
 		KeyValueList: []irs.KeyValue{{Key: "", Value: ""}},
 	}
 
+	for _, security := range instancInfo.SecurityGroupIds.SecurityGroupId {
+		//vmInfo.SecurityGroupIds = append(vmInfo.SecurityGroupIds, *security.GroupId)
+		vmInfo.SecurityGroupIIds = append(vmInfo.SecurityGroupIIds, irs.IID{SystemId: security})
+	}
+
 	if instancInfo.StartTime != "" {
 		cblogger.Infof("Convert StartTime string [%s] to time.time", instancInfo.StartTime)
 
 		layout := "2017-12-10T04:04Z"
 		t, _ := time.Parse(layout, instancInfo.StartTime)
 		vmInfo.StartTime = t
+		cblogger.Info("======> [%v]", t)
 	}
 
 	return vmInfo
@@ -342,137 +292,126 @@ func (vmHandler *AlibabaVMHandler) ExtractDescribeInstances(instancInfo *ecs.Ins
 
 func (vmHandler *AlibabaVMHandler) ListVM() ([]*irs.VMInfo, error) {
 	cblogger.Infof("Start")
-	return nil, nil
-	/*
-		var vmInfoList []*irs.VMInfo
 
-		input := &ec2.DescribeInstancesInput{
-			InstanceIds: []*string{
-				nil,
-			},
+	request := ecs.CreateDescribeInstancesRequest()
+	request.Scheme = "https"
+
+	response, err := vmHandler.Client.DescribeInstances(request)
+	if err != nil {
+		cblogger.Error(err.Error())
+		return nil, err
+	}
+	spew.Dump(response)
+
+	var vmInfoList []*irs.VMInfo
+	for _, curInstance := range response.Instances.Instance {
+
+		cblogger.Info("[%s] ECS 정보 조회", curInstance.InstanceId)
+		vmInfo, errVmInfo := vmHandler.GetVM(irs.IID{SystemId: curInstance.InstanceId})
+		if errVmInfo != nil {
+			cblogger.Error(errVmInfo.Error())
+			return nil, errVmInfo
 		}
+		vmInfoList = append(vmInfoList, &vmInfo)
+	}
 
-		result, err := vmHandler.Client.DescribeInstances(input)
-		if err != nil {
-			if aerr, ok := err.(awserr.Error); ok {
-				switch aerr.Code() {
-				default:
-					cblogger.Error(aerr.Error())
-					return vmInfoList
-				}
-			} else {
-				// Print the error, cast err to awserr.Error to get the Code and Message from an error.
-				cblogger.Error(err.Error())
-				return vmInfoList
-			}
-			return vmInfoList
-		}
-
-		cblogger.Info("Success")
-
-		for _, i := range result.Reservations {
-			for _, vm := range i.Instances {
-				cblogger.Info("[%s] EC2 정보 조회", *vm.InstanceId)
-				vmInfo := vmHandler.GetVM(*vm.InstanceId)
-				vmInfoList = append(vmInfoList, &vmInfo)
-			}
-		}
-
-		return vmInfoList
-	*/
+	spew.Dump(vmInfoList)
+	return vmInfoList, nil
 }
 
 //SHUTTING-DOWN / TERMINATED
 func (vmHandler *AlibabaVMHandler) GetVMStatus(vmIID irs.IID) (irs.VMStatus, error) {
-	cblogger.Infof("vmID : [%s]", vmIID.SystemId)
-	/*
+	vmID := vmIID.SystemId
+	cblogger.Infof("vmID : [%s]", vmID)
 
-		if result.TotalCount < 1 {
-			return irs.SubnetInfo{}, errors.New("Notfound: '" + reqSubnetId + "' Subnet Not found")
+	request := ecs.CreateDescribeInstanceStatusRequest()
+	request.Scheme = "https"
+	request.InstanceId = &[]string{vmIID.SystemId}
+	cblogger.Infof("request : [%v]", request)
+
+	response, err := vmHandler.Client.DescribeInstanceStatus(request)
+	if err != nil {
+		cblogger.Error(err.Error())
+		return irs.VMStatus("Failed"), err
+	}
+
+	cblogger.Info("Success", response)
+	if response.TotalCount < 1 {
+		return irs.VMStatus("Failed"), errors.New("Notfound: '" + vmIID.SystemId + "' VM Not found")
+	}
+
+	for _, vm := range response.InstanceStatuses.InstanceStatus {
+		//vmStatus := strings.ToUpper(vm.Status)
+		cblogger.Infof("Req VM:[%s] / Cur VM:[%s] / ECS Status : [%s]", vmID, vm.InstanceId, vm.Status)
+		vmStatus, errStatus := vmHandler.ConvertVMStatusString(vm.Status)
+		if errStatus != nil {
+			cblogger.Error(errStatus.Error())
+			return irs.VMStatus("Failed"), errStatus
 		}
+		return vmStatus, errStatus
+	}
 
-			//vmStatus := "pending"
-			//return irs.VMStatus(vmStatus)
+	return irs.VMStatus("Failed"), errors.New("No status information found.")
+}
 
-			input := &ec2.DescribeInstancesInput{
-				InstanceIds: []*string{
-					aws.String(vmID),
-				},
-			}
+func (vmHandler *AlibabaVMHandler) ConvertVMStatusString(vmStatus string) (irs.VMStatus, error) {
+	var resultStatus string
+	cblogger.Infof("vmStatus : [%s]", vmStatus)
 
-			result, err := vmHandler.Client.DescribeInstances(input)
-			if err != nil {
-				if aerr, ok := err.(awserr.Error); ok {
-					switch aerr.Code() {
-					default:
-						cblogger.Error(aerr.Error())
-						return irs.VMStatus("")
-					}
-				} else {
-					// Print the error, cast err to awserr.Error to get the Code and Message from an error.
-					cblogger.Error(err.Error())
-					return irs.VMStatus("")
-				}
-				return irs.VMStatus("")
-			}
-
-			cblogger.Info("Success", result)
-			for _, i := range result.Reservations {
-				for _, vm := range i.Instances {
-					vmStatus := strings.ToUpper(*vm.State.Name)
-					cblogger.Info(vmID, " EC2 Status : ", vmStatus)
-					return irs.VMStatus(vmStatus)
-				}
-			}
-	*/
-
-	return irs.VMStatus(""), nil
+	if strings.EqualFold(vmStatus, "pending") {
+		//resultStatus = "Creating"	// VM 생성 시점의 Pending은 CB에서는 조회가 안되기 때문에 일단 처리하지 않음.
+		resultStatus = "Resuming" // Resume 요청을 받아서 재기동되는 단계에도 Pending이 있기 때문에 Pending은 Resuming으로 맵핑함.
+	} else if strings.EqualFold(vmStatus, "running") {
+		resultStatus = "Running"
+	} else if strings.EqualFold(vmStatus, "stopping") {
+		resultStatus = "Suspending"
+	} else if strings.EqualFold(vmStatus, "stopped") {
+		resultStatus = "Suspended"
+		//} else if strings.EqualFold(vmStatus, "pending") {
+		//	resultStatus = "Resuming"
+	} else if strings.EqualFold(vmStatus, "Rebooting") {
+		resultStatus = "Rebooting"
+	} else if strings.EqualFold(vmStatus, "shutting-down") {
+		resultStatus = "Terminating"
+	} else if strings.EqualFold(vmStatus, "Terminated") {
+		resultStatus = "Terminated"
+	} else {
+		//resultStatus = "Failed"
+		cblogger.Errorf("vmStatus [%s]와 일치하는 맵핑 정보를 찾지 못 함.", vmStatus)
+		return irs.VMStatus("Failed"), errors.New(vmStatus + "와 일치하는 CB VM 상태정보를 찾을 수 없습니다.")
+	}
+	cblogger.Infof("VM 상태 치환 : [%s] ==> [%s]", vmStatus, resultStatus)
+	return irs.VMStatus(resultStatus), nil
 }
 
 func (vmHandler *AlibabaVMHandler) ListVMStatus() ([]*irs.VMStatusInfo, error) {
 	cblogger.Infof("Start")
-	return nil, nil
-	/*
-		var vmStatusList []*irs.VMStatusInfo
 
-		input := &ec2.DescribeInstancesInput{
-			InstanceIds: []*string{
-				nil,
-			},
+	request := ecs.CreateDescribeInstanceStatusRequest()
+	request.Scheme = "https"
+
+	response, err := vmHandler.Client.DescribeInstanceStatus(request)
+	if err != nil {
+		cblogger.Error(err.Error())
+		return nil, err
+	}
+
+	cblogger.Info("Success", response)
+	if response.TotalCount < 1 {
+		return nil, nil
+	}
+
+	var vmInfoList []*irs.VMStatusInfo
+	for _, vm := range response.InstanceStatuses.InstanceStatus {
+		cblogger.Infof("Cur VM:[%s] / ECS Status : [%s]", vm.InstanceId, vm.Status)
+		vmStatus, errStatus := vmHandler.ConvertVMStatusString(vm.Status)
+		if errStatus != nil {
+			cblogger.Error(errStatus.Error())
+			return nil, errStatus
 		}
+		curVmStatusInfo := irs.VMStatusInfo{IId: irs.IID{SystemId: vm.InstanceId}, VmStatus: vmStatus}
+		vmInfoList = append(vmInfoList, &curVmStatusInfo)
+	}
 
-		result, err := vmHandler.Client.DescribeInstances(input)
-		if err != nil {
-			if aerr, ok := err.(awserr.Error); ok {
-				switch aerr.Code() {
-				default:
-					cblogger.Error(aerr.Error())
-					return vmStatusList
-				}
-			} else {
-				// Print the error, cast err to awserr.Error to get the Code and Message from an error.
-				cblogger.Error(err.Error())
-				return vmStatusList
-			}
-			return vmStatusList
-		}
-
-		cblogger.Info("Success")
-
-		for _, i := range result.Reservations {
-			for _, vm := range i.Instances {
-				//*vm.State.Name
-				//*vm.InstanceId
-				vmStatusInfo := irs.VMStatusInfo{
-					VmId: *vm.InstanceId,
-					//VmStatus: vmHandler.GetVMStatus(*vm.InstanceId),
-					VmStatus: irs.VMStatus(strings.ToUpper(*vm.State.Name)),
-				}
-				cblogger.Info(vmStatusInfo.VmId, " EC2 Status : ", vmStatusInfo.VmStatus)
-				vmStatusList = append(vmStatusList, &vmStatusInfo)
-			}
-		}
-
-		return vmStatusList
-	*/
+	return vmInfoList, nil
 }
