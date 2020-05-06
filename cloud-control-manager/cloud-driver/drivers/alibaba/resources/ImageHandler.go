@@ -135,6 +135,8 @@ func (imageHandler *AlibabaImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 	return imageInfoList, nil
 }
 
+//https://pkg.go.dev/github.com/aliyun/alibaba-cloud-sdk-go/services/ecs?tab=doc#Image
+//package ecs v1.61.170 Latest Published: Apr 30, 2020
 //Image 정보를 추출함
 func ExtractImageDescribeInfo(image *ecs.Image) irs.ImageInfo {
 	//@TODO : 2020-03-26 Ali클라우드 API 구조가 바뀐 것 같아서 임시로 변경해 놓음.

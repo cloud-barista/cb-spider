@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/aliyun/alibaba-cloud-sdk-go/sdk/requests"
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/ecs"
 	cblog "github.com/cloud-barista/cb-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
@@ -42,10 +43,11 @@ func init() {
 	cblogger = cblog.GetLogger("ALIBABA VMHandler")
 }
 
-// @Todo : SecurityGroupId 배열 처리 방안
 // 1개의 VM만 생성되도록 수정 (MinCount / MaxCount 이용 안 함)
 //키페어 이름(예:mcloud-barista)은 아래 URL에 나오는 목록 중 "키페어 이름"의 값을 적으면 됨.
 //https://ap-northeast-2.console.aws.amazon.com/ec2/v2/home?region=ap-northeast-2#KeyPairs:sort=keyName
+
+// @TODO : PublicIp 요금제 방식과 대역폭 설정 방법 논의 필요
 func (vmHandler *AlibabaVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, error) {
 	//cblogger.Info(vmReqInfo)
 	spew.Dump(vmReqInfo)
@@ -83,6 +85,15 @@ func (vmHandler *AlibabaVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 	request.InstanceType = vmReqInfo.VMSpecName
 	request.KeyPairName = vmReqInfo.KeyPairIID.SystemId
 	request.VSwitchId = vmReqInfo.SubnetIID.SystemId
+
+	//==============
+	//PublicIp 설정
+	//==============
+	//Public Ip를 생성하기 위해서는 과금형태와 대역폭(1 Mbit/s이상)을 지정해야 함.
+	//PayByTraffic(기본값) : 트래픽 기준 결제(GB 단위) - 트래픽 기준 결제(GB 단위)를 사용하면 대역폭 사용료가 시간별로 청구
+	//PayByBandwidth : 대역폭 사용료는 구독 기반이고 ECS 인스턴스 사용료에 포함 됨.
+	request.InternetChargeType = "PayByBandwidth"           //Public Ip요금 방식을 1시간 단위(PayByBandwidth) 요금으로 설정 / PayByTraffic(기본값) : 1GB단위 시간당 트래픽 요금 청구
+	request.InternetMaxBandwidthOut = requests.Integer("5") // 0보다 크면 Public IP가 할당 됨 - 최대 아웃 바운드 공용 대역폭 단위 : Mbit / s 유효한 값 : 0 ~ 100
 	spew.Dump(request)
 
 	//=============================
@@ -261,7 +272,7 @@ func (vmHandler *AlibabaVMHandler) ExtractDescribeInstances(instancInfo *ecs.Ins
 		SubnetIID: irs.IID{SystemId: instancInfo.VpcAttributes.VSwitchId},
 		//SecurityGroupIIds []IID // AWS, ex) sg-0b7452563e1121bb6
 		//NetworkInterface string // ex) eth0
-		//PublicIP
+		PublicIP: instancInfo.PublicIpAddress.IpAddress[0],
 		//PublicDNS
 		//PrivateIP
 		PrivateIP: instancInfo.VpcAttributes.PrivateIpAddress.IpAddress[0],
