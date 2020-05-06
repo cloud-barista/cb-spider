@@ -12,6 +12,7 @@ package resources
 
 import (
 	"errors"
+	"strings"
 
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/ecs"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
@@ -73,8 +74,15 @@ func (securityHandler *AlibabaSecurityHandler) AuthorizeSecurityRules(securityGr
 	//cblogger.Info("AuthorizeSecurityRules ", securityRuleInfos)
 	spew.Dump(securityRuleInfos)
 
+	/*
+		if strings.EqualFold(curRule.Direction, "inbound") {
+		} else if strings.EqualFold(curRule.Direction, "outbound") {
+		}
+	*/
+
 	for _, curRule := range *securityRuleInfos {
-		if curRule.Direction == "inbound" {
+		//if curRule.Direction == "inbound" {
+		if strings.EqualFold(curRule.Direction, "inbound") {
 			request := ecs.CreateAuthorizeSecurityGroupRequest()
 			request.Scheme = "https"
 			request.IpProtocol = curRule.IPProtocol
@@ -91,7 +99,8 @@ func (securityHandler *AlibabaSecurityHandler) AuthorizeSecurityRules(securityGr
 				return nil, err
 			}
 			cblogger.Infof("[%s] [%s] AuthorizeSecurityGroup Request success - RequestId:[%s]", request.IpProtocol, request.PortRange, response)
-		} else if curRule.Direction == "outbound" {
+			//} else if curRule.Direction == "outbound" {
+		} else if strings.EqualFold(curRule.Direction, "outbound") {
 			request := ecs.CreateAuthorizeSecurityGroupEgressRequest()
 			request.Scheme = "https"
 			request.IpProtocol = curRule.IPProtocol
@@ -133,7 +142,12 @@ func (securityHandler *AlibabaSecurityHandler) ListSecurity() ([]*irs.SecurityIn
 
 	var securityInfoList []*irs.SecurityInfo
 	for _, curSecurityGroup := range result.SecurityGroups.SecurityGroup {
-		curSecurityInfo := ExtractSecurityInfo(&curSecurityGroup)
+		curSecurityInfo, errSecurityInfo := securityHandler.ExtractSecurityInfo(&curSecurityGroup)
+		if errSecurityInfo != nil {
+			cblogger.Error(errSecurityInfo)
+			return nil, errSecurityInfo
+		}
+
 		securityInfoList = append(securityInfoList, &curSecurityInfo)
 	}
 
@@ -162,17 +176,31 @@ func (securityHandler *AlibabaSecurityHandler) GetSecurity(securityIID irs.IID) 
 		return irs.SecurityInfo{}, errors.New("Notfound: '" + securityIID.SystemId + "' SecurityGroup Not found")
 	}
 
-	securityInfo := ExtractSecurityInfo(&result.SecurityGroups.SecurityGroup[0])
+	securityInfo, errSecurityInfo := securityHandler.ExtractSecurityInfo(&result.SecurityGroups.SecurityGroup[0])
+	if errSecurityInfo != nil {
+		cblogger.Error(errSecurityInfo)
+		return irs.SecurityInfo{}, errSecurityInfo
+	}
+
 	return securityInfo, nil
 }
 
-func ExtractSecurityInfo(securityGroupResult *ecs.SecurityGroup) irs.SecurityInfo {
+func (securityHandler *AlibabaSecurityHandler) ExtractSecurityInfo(securityGroupResult *ecs.SecurityGroup) (irs.SecurityInfo, error) {
 	//securityRules := ExtractIpPermissions(securityGroupResult.SecurityGroups.SecurityGroup)
+	var securityRuleInfos []irs.SecurityRuleInfo
+
+	securityRuleInfos, errRuleInfos := securityHandler.ExtractSecurityRuleInfo(securityGroupResult.SecurityGroupId)
+	if errRuleInfos != nil {
+		cblogger.Error(errRuleInfos)
+		return irs.SecurityInfo{}, errRuleInfos
+	}
+
 	securityInfo := irs.SecurityInfo{
 		IId: irs.IID{NameId: securityGroupResult.SecurityGroupName, SystemId: securityGroupResult.SecurityGroupId},
 		//SecurityRules: &[]irs.SecurityRuleInfo{},
 		//SecurityRules: &securityRules,
-		VpcIID: irs.IID{SystemId: securityGroupResult.VpcId},
+		VpcIID:        irs.IID{SystemId: securityGroupResult.VpcId},
+		SecurityRules: &securityRuleInfos,
 
 		KeyValueList: []irs.KeyValue{
 			{Key: "SecurityGroupName", Value: securityGroupResult.SecurityGroupName},
@@ -180,7 +208,51 @@ func ExtractSecurityInfo(securityGroupResult *ecs.SecurityGroup) irs.SecurityInf
 		},
 	}
 
-	return securityInfo
+	return securityInfo, nil
+}
+
+// 보안 그룹의 InBound / OutBound 정보를 조회함.
+func (securityHandler *AlibabaSecurityHandler) ExtractSecurityRuleInfo(securityGroupId string) ([]irs.SecurityRuleInfo, error) {
+	var securityRuleInfos []irs.SecurityRuleInfo
+
+	request := ecs.CreateDescribeSecurityGroupAttributeRequest()
+	request.Scheme = "https"
+	request.SecurityGroupId = securityGroupId
+
+	response, err := securityHandler.Client.DescribeSecurityGroupAttribute(request)
+	if err != nil {
+		cblogger.Error(err)
+		return nil, err
+	}
+	cblogger.Info(response)
+
+	/*
+	   FromPort    string
+	   ToPort        string
+	*/
+	var curSecurityRuleInfo irs.SecurityRuleInfo
+	for _, curPermission := range response.Permissions.Permission {
+		curSecurityRuleInfo.Direction = curPermission.Direction
+
+		/*
+			if strings.EqualFold(curPermission.Direction, "ingress") {
+				curSecurityRuleInfo.Direction = "inbound"
+			} else if strings.EqualFold(curPermission.Direction, "egress") {
+				curSecurityRuleInfo.Direction = "outbound"
+			}
+		*/
+		curSecurityRuleInfo.IPProtocol = curPermission.IpProtocol
+
+		portRange := strings.Split(curPermission.PortRange, "/")
+
+		curSecurityRuleInfo.FromPort = portRange[0]
+		if len(portRange) > 1 {
+			curSecurityRuleInfo.ToPort = portRange[1]
+		}
+		securityRuleInfos = append(securityRuleInfos, curSecurityRuleInfo)
+	}
+
+	return securityRuleInfos, nil
 }
 
 func (securityHandler *AlibabaSecurityHandler) DeleteSecurity(securityIID irs.IID) (bool, error) {

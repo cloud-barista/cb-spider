@@ -340,7 +340,7 @@ func handleSecurity() {
 	//VmID := config.Aws.VmID
 
 	securityName := "CB-SecurityTest1"
-	securityId := "CB-SecurityTest1"
+	securityId := "sg-6weeb9xaodr65g7bq10c"
 	vpcId := "vpc-6wei16ufuimfcct41o0xh"
 
 	for {
@@ -984,8 +984,8 @@ func main() {
 	//handleVMSpec()
 	//handleImage() //AMI
 	//handleKeyPair()
-	//handleSecurity()
-	handleVM()
+	handleSecurity()
+	//handleVM()
 
 	//handlePublicIP() // PublicIP 생성 후 conf
 
