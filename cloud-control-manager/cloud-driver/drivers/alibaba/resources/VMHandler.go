@@ -272,7 +272,6 @@ func (vmHandler *AlibabaVMHandler) ExtractDescribeInstances(instancInfo *ecs.Ins
 		SubnetIID: irs.IID{SystemId: instancInfo.VpcAttributes.VSwitchId},
 		//SecurityGroupIIds []IID // AWS, ex) sg-0b7452563e1121bb6
 		//NetworkInterface string // ex) eth0
-		PublicIP: instancInfo.PublicIpAddress.IpAddress[0],
 		//PublicDNS
 		//PrivateIP
 		PrivateIP: instancInfo.VpcAttributes.PrivateIpAddress.IpAddress[0],
@@ -282,6 +281,10 @@ func (vmHandler *AlibabaVMHandler) ExtractDescribeInstances(instancInfo *ecs.Ins
 		//VMBlockDisk string // ex)
 
 		KeyValueList: []irs.KeyValue{{Key: "", Value: ""}},
+	}
+
+	if len(instancInfo.PublicIpAddress.IpAddress) > 0 {
+		vmInfo.PublicIP = instancInfo.PublicIpAddress.IpAddress[0]
 	}
 
 	for _, security := range instancInfo.SecurityGroupIds.SecurityGroupId {
@@ -295,7 +298,7 @@ func (vmHandler *AlibabaVMHandler) ExtractDescribeInstances(instancInfo *ecs.Ins
 		layout := "2017-12-10T04:04Z"
 		t, _ := time.Parse(layout, instancInfo.StartTime)
 		vmInfo.StartTime = t
-		cblogger.Info("======> [%v]", t)
+		cblogger.Infof("======> [%v]", t)
 	}
 
 	return vmInfo
@@ -323,10 +326,15 @@ func (vmHandler *AlibabaVMHandler) ListVM() ([]*irs.VMInfo, error) {
 			cblogger.Error(errVmInfo.Error())
 			return nil, errVmInfo
 		}
+		//cblogger.Info("=======>VM 조회 결과")
+		spew.Dump(vmInfo)
+
 		vmInfoList = append(vmInfoList, &vmInfo)
 	}
 
+	//cblogger.Info("=======>VM 최종 목록결과")
 	spew.Dump(vmInfoList)
+	//cblogger.Info("=======>VM 목록 완료")
 	return vmInfoList, nil
 }
 
