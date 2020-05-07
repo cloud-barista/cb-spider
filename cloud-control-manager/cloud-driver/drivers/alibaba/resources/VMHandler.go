@@ -114,18 +114,68 @@ func (vmHandler *AlibabaVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 		return irs.VMInfo{}, errors.New("No errors have occurred, but no VMs have been created.")
 	}
 
-	if 1 == 1 {
+	//=========================================
+	// VM 정보를 조회할 수 있을 때까지 대기
+	//=========================================
+	newVmIID := irs.IID{SystemId: response.InstanceIdSets.InstanceIdSet[0]}
+	curStatus, errStatus := vmHandler.WaitForRun(newVmIID)
+	if errStatus != nil {
+		cblogger.Error(errStatus.Error())
 		return irs.VMInfo{}, nil
 	}
 
+	cblogger.Info("==>생성된 VM[%s]의 현재 상태[%s]", newVmIID, curStatus)
+
 	//vmInfo, errVmInfo := vmHandler.GetVM(irs.IID{SystemId: response.InstanceId})
-	vmInfo, errVmInfo := vmHandler.GetVM(irs.IID{SystemId: response.InstanceIdSets.InstanceIdSet[0]})
+	vmInfo, errVmInfo := vmHandler.GetVM(newVmIID)
 	if errVmInfo != nil {
 		cblogger.Error(errVmInfo.Error())
 		return irs.VMInfo{}, errVmInfo
 	}
 	vmInfo.IId.NameId = vmReqInfo.IId.NameId
 	return vmInfo, nil
+}
+
+// VM 정보를 조회할 수 있을 때까지 최대 30초간 대기
+func (vmHandler *AlibabaVMHandler) WaitForRun(vmIID irs.IID) (irs.VMStatus, error) {
+	cblogger.Info("======> VM 생성 직후에는 정보 조회가 안되기 때문에 Running 될 때까지 대기함.")
+
+	//waitStatus := "NotExist"	//VM정보 조회가 안됨.
+	waitStatus := "Running"
+	//waitStatus := "Creating" //너무 일찍 종료 시 리턴할 VM의 세부 항목의 정보 조회가 안됨.
+
+	//===================================
+	// Suspending 되도록 3초 정도 대기 함.
+	//===================================
+	curRetryCnt := 0
+	maxRetryCnt := 30
+	for {
+		curStatus, errStatus := vmHandler.GetVMStatus(vmIID)
+		if errStatus != nil {
+			cblogger.Error(errStatus.Error())
+		}
+
+		cblogger.Info("===>VM Status : ", curStatus)
+
+		if curStatus == irs.VMStatus(waitStatus) { //|| curStatus == irs.VMStatus("Running") {
+			cblogger.Infof("===>VM 상태가 [%s]라서 대기를 중단합니다.", curStatus)
+			break
+		}
+
+		//if curStatus != irs.VMStatus(waitStatus) {
+		curRetryCnt++
+		cblogger.Errorf("VM 상태가 [%s]이 아니라서 1초 대기후 조회합니다.", waitStatus)
+		time.Sleep(time.Second * 1)
+		if curRetryCnt > maxRetryCnt {
+			cblogger.Errorf("장시간(%d 초) 대기해도 VM의 Status 값이 [%s]으로 변경되지 않아서 강제로 중단합니다.", maxRetryCnt, waitStatus)
+			return irs.VMStatus("Failed"), errors.New("장시간 기다렸으나 생성된 VM의 상태가 [" + waitStatus + "]으로 바뀌지 않아서 중단 합니다.")
+		}
+		//} else {
+		//break
+		//}
+	}
+
+	return irs.VMStatus(waitStatus), nil
 }
 
 func (vmHandler *AlibabaVMHandler) ResumeVM(vmIID irs.IID) (irs.VMStatus, error) {
@@ -209,7 +259,7 @@ func (vmHandler *AlibabaVMHandler) TerminateVM(vmIID irs.IID) (irs.VMStatus, err
 		cblogger.Info("===>VM Status : ", curStatus)
 		if curStatus != irs.VMStatus("Suspended") {
 			curRetryCnt++
-			cblogger.Error("VM 상태가 Suspended가 아니라서 1초가 대기후 조회합니다.")
+			cblogger.Error("VM 상태가 Suspended가 아니라서 1초간 대기후 조회합니다.")
 			time.Sleep(time.Second * 1)
 			if curRetryCnt > maxRetryCnt {
 				cblogger.Error("장시간 대기해도 VM의 Status 값이 Suspended로 변경되지 않아서 강제로 중단합니다.")
@@ -393,28 +443,51 @@ func (vmHandler *AlibabaVMHandler) GetVMStatus(vmIID irs.IID) (irs.VMStatus, err
 	return irs.VMStatus("Failed"), errors.New("No status information found.")
 }
 
-//https://www.alibabacloud.com/help/doc-detail/25380.htm
+//알리 클라우드 라이프 사이클 : https://www.alibabacloud.com/help/doc-detail/25380.htm
+/*
+const (
+        Creating VMStatus = “Creating" // from launch to running
+        Running VMStatus = “Running"
+
+        Suspending VMStatus = “Suspending" // from running to suspended
+        Suspended  VMStatus = “Suspended"
+        Resuming VMStatus = “Resuming" // from suspended to running
+
+        Rebooting VMStatus = “Rebooting" // from running to running
+
+        Terminating VMStatus = “Terminating" // from running, suspended to terminated
+        Terminated  VMStatus = “Terminated“
+        NotExist  VMStatus = “NotExist“  // VM does not exist
+
+        Failed  VMStatus = “Failed“
+)
+
+<최종 상태>
+Running(동작 상태): MCIS가 동작 상태
+Suspended(중지 상태): MCIS가 중지된 상태
+Failed(실패 상태): MCIS가 오류로 인해 중단된 상태
+Terminated(종료 상태): MCIS가 종료된 상태
+
+<전이 상태>
+Creating(생성 진행 상태): MCIS가 생성되는 중간 상태
+Suspending(중지 진행 상태): MCIS를 일시 중지하기 위한 중간 상태
+Resuming(재개 진행 상태): MCIS를 다시 실행하기 위한 중간 상태
+Rebooting(재시작 진행 상태): MCIS를 재부팅하는 상태
+Terminating(종료 진행 상태): MCIS의 종료를 실행하고 있는 중간 상태
+
+*/
 func (vmHandler *AlibabaVMHandler) ConvertVMStatusString(vmStatus string) (irs.VMStatus, error) {
 	var resultStatus string
 	cblogger.Infof("vmStatus : [%s]", vmStatus)
 
-	if strings.EqualFold(vmStatus, "pending") {
-		//resultStatus = "Creating"	// VM 생성 시점의 Pending은 CB에서는 조회가 안되기 때문에 일단 처리하지 않음.
-		resultStatus = "Resuming" // Resume 요청을 받아서 재기동되는 단계에도 Pending이 있기 때문에 Pending은 Resuming으로 맵핑함.
-	} else if strings.EqualFold(vmStatus, "running") {
+	if strings.EqualFold(vmStatus, "Pending") {
+		resultStatus = "Creating"
+	} else if strings.EqualFold(vmStatus, "Running") {
 		resultStatus = "Running"
-	} else if strings.EqualFold(vmStatus, "stopping") {
+	} else if strings.EqualFold(vmStatus, "Stopping") {
 		resultStatus = "Suspending"
-	} else if strings.EqualFold(vmStatus, "stopped") {
+	} else if strings.EqualFold(vmStatus, "Stopped") {
 		resultStatus = "Suspended"
-		//} else if strings.EqualFold(vmStatus, "pending") {
-		//	resultStatus = "Resuming"
-	} else if strings.EqualFold(vmStatus, "Rebooting") {
-		resultStatus = "Rebooting"
-	} else if strings.EqualFold(vmStatus, "shutting-down") {
-		resultStatus = "Terminating"
-	} else if strings.EqualFold(vmStatus, "Terminated") {
-		resultStatus = "Terminated"
 	} else {
 		//resultStatus = "Failed"
 		cblogger.Errorf("vmStatus [%s]와 일치하는 맵핑 정보를 찾지 못 함.", vmStatus)
