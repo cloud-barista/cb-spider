@@ -92,7 +92,7 @@ func (imageHandler *ClouditImageHandler) GetImage(imageIID irs.IID) (irs.ImageIn
 	return *imageInfo, nil
 }
 
-func (imageHandler *ClouditImageHandler) DeleteImage(imageID string) (bool, error) {
+func (imageHandler *ClouditImageHandler) DeleteImage(mageIID irs.IID) (bool, error) {
 	imageHandler.Client.TokenID = imageHandler.CredentialInfo.AuthToken
 	authHeader := imageHandler.Client.AuthenticatedHeaders()
 
@@ -100,7 +100,7 @@ func (imageHandler *ClouditImageHandler) DeleteImage(imageID string) (bool, erro
 		MoreHeaders: authHeader,
 	}
 
-	if err := image.Delete(imageHandler.Client, imageID, &requestOpts); err != nil {
+	if err := image.Delete(imageHandler.Client, mageIID.SystemId, &requestOpts); err != nil {
 		return false, err
 	} else {
 		return true, nil
@@ -134,3 +134,4 @@ func (imageHandler *ClouditImageHandler) getImageByName(imageName string) (*irs.
 	}
 	return imageInfo, nil
 }
+

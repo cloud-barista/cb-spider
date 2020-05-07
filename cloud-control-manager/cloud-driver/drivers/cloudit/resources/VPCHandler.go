@@ -48,6 +48,7 @@ func (vpcHandler *ClouditVPCHandler) setterVPC(subnets []subnet.SubnetInfo) *irs
 
 func (vpcHandler *ClouditVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.VPCInfo, error) {
 
+	//fmt.Println(vpcReqInfo)
 	// VPC creation
 	vpcInfo := irs.VPCInfo{
 		IId: irs.IID{
@@ -67,6 +68,14 @@ func (vpcHandler *ClouditVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.V
 		subnetInfo[i] = result
 	}
 	vpcInfo.SubnetInfoList = subnetInfo
+	/*subnetInfo :=irs.SubnetInfo{
+
+			IId: irs.IID{
+				NameId:  defaultVPCName + "-subnet-1",
+			},
+			IPv4_CIDR: "180.0.10.0/24",
+	}
+	vpcInfo.SubnetInfoList = append(vpcInfo.SubnetInfoList,subnetInfo)*/
 
 	return vpcInfo, nil
 }
@@ -119,7 +128,7 @@ func (vpcHandler *ClouditVPCHandler) DeleteVPC(vpcIID irs.IID) (bool, error) {
 		if err != nil {
 			return false, err
 		}
-		vpcHandler.DeleteSubnet(cloutItSubnet.IId.NameId)
+		vpcHandler.DeleteSubnet(cloutItSubnet.IId)
 	}
 
 	return true, nil
@@ -154,6 +163,8 @@ func (vpcHandler *ClouditVPCHandler) CreateSubnet(subnetInfo irs.SubnetInfo) (ir
 	requestOpts := client.RequestOpts{
 		MoreHeaders: authHeader,
 	}
+
+	// VPC
 	if creatableSubnetList, err := subnet.ListCreatableSubnet(vpcHandler.Client, &requestOpts); err != nil {
 		return irs.SubnetInfo{}, err
 	} else {
@@ -166,7 +177,7 @@ func (vpcHandler *ClouditVPCHandler) CreateSubnet(subnetInfo irs.SubnetInfo) (ir
 	}
 
 	// 2. Subnet 생성
-	reqInfo := subnet.SubnetInfo{
+	reqInfo := subnet.VNetworkReqInfo{
 		Name:   subnetInfo.IId.NameId,
 		Addr:   creatableSubnet.Addr,
 		Prefix: creatableSubnet.Prefix,
@@ -187,7 +198,7 @@ func (vpcHandler *ClouditVPCHandler) CreateSubnet(subnetInfo irs.SubnetInfo) (ir
 
 func (vpcHandler *ClouditVPCHandler) GetSubnet(subnetIId irs.IID) (*irs.SubnetInfo, error) {
 	// 이름 기준 서브넷 조회
-	subnet, err := vpcHandler.getSubnetByName(subnetIId.SystemId)
+	subnet, err := vpcHandler.getSubnetByName(subnetIId.NameId)
 	if err != nil {
 		cblogger.Error(err)
 		return &irs.SubnetInfo{}, err
@@ -198,9 +209,9 @@ func (vpcHandler *ClouditVPCHandler) GetSubnet(subnetIId irs.IID) (*irs.SubnetIn
 	return subnetInfo, nil
 }
 
-func (vpcHandler *ClouditVPCHandler) DeleteSubnet(subnetNameID string) (bool, error) {
+func (vpcHandler *ClouditVPCHandler) DeleteSubnet(subnetIId irs.IID) (bool, error) {
 	// 이름 기준 서브넷 조회
-	subnetInfo, err := vpcHandler.getSubnetByName(subnetNameID)
+	subnetInfo, err := vpcHandler.getSubnetByName(subnetIId.NameId)
 	if err != nil {
 		cblogger.Error(err)
 		return false, err

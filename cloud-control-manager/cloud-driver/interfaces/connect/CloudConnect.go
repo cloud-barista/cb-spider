@@ -23,7 +23,7 @@ type CloudConnection interface {
 	//CreateVNicHandler() (irs.VNicHandler, error)
 	//CreatePublicIPHandler() (irs.PublicIPHandler, error)
 
-	CreateVMHandler() (irs.VMHandler, error)
+	//CreateVMHandler() (irs.VMHandler, error)
 
 	CreateVMSpecHandler() (irs.VMSpecHandler, error)
 
