@@ -375,7 +375,8 @@ func (vmHandler *AlibabaVMHandler) GetVMStatus(vmIID irs.IID) (irs.VMStatus, err
 
 	cblogger.Info("Success", response)
 	if response.TotalCount < 1 {
-		return irs.VMStatus("Failed"), errors.New("Notfound: '" + vmIID.SystemId + "' VM Not found")
+		//return irs.VMStatus("Failed"), errors.New("Notfound: '" + vmIID.SystemId + "' VM Not found")
+		return irs.VMStatus("NotExist"), nil
 	}
 
 	for _, vm := range response.InstanceStatuses.InstanceStatus {
@@ -392,6 +393,7 @@ func (vmHandler *AlibabaVMHandler) GetVMStatus(vmIID irs.IID) (irs.VMStatus, err
 	return irs.VMStatus("Failed"), errors.New("No status information found.")
 }
 
+//https://www.alibabacloud.com/help/doc-detail/25380.htm
 func (vmHandler *AlibabaVMHandler) ConvertVMStatusString(vmStatus string) (irs.VMStatus, error) {
 	var resultStatus string
 	cblogger.Infof("vmStatus : [%s]", vmStatus)
