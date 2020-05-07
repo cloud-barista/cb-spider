@@ -12,6 +12,7 @@ The CB-Spider Mission is to connect all the clouds with a single interface.
 3. [API 규격](#API-규격)
 4. [활용 예시](#활용-예시)
 5. [특이 사항](#특이-사항)
+6. [소스 트리](#소스-트리)
 
 ***
 
@@ -114,4 +115,53 @@ cloudbaristaorg/cb-spider:v0.1.v-yyyymmdd
   - 관리위치: cb-spider/cloud-driver-libs/.ssh-CSPName/* (임시방법)
   - 공유서버에서 운영시 보안 이슈 존재
 
+***
 
+## [소스 트리]
+```
+.
+. Dockerfile: docker image build용
+. setup.env: spider 운영에 필요한 환경변수 설정
+. build_all_driver_lib.sh: 드라이버 build 스크립트
+|-- api-runtime
+|   |-- grpc-runtime: 향후 grpc runtime 들어올 자리
+|   `-- rest-runtime: 현재 REST runtime
+|       `-- test: REST API 활용 참조
+|           |-- alibaba-shooter: 연결설정 생성만 참조(driver등록 -> credential 등록 -> region 등록 -> connection config 등록)
+|           |-- aws-shooter-name: 연결설정 생성만 참조(driver등록 -> credential 등록 -> region 등록 -> connection config 등록)
+|           |-- cloudit-shooter: 연결설정 생성만 참조(driver등록 -> credential 등록 -> region 등록 -> connection config 등록)
+|           |-- cloudtwin-shooter: 연결설정 생성만 참조(driver등록 -> credential 등록 -> region 등록 -> connection config 등록)
+|           |-- gcp-shooter: 연결설정 생성만 참조(driver등록 -> credential 등록 -> region 등록 -> connection config 등록)
+|           |-- openstack-shooter-name: 연결설정 생성만 참조(driver등록 -> credential 등록 -> region 등록 -> connection config 등록)
+|           |-- each-test: 자원별 기능 시험 참조(VPC->SecurityGroup->KeyPair->VM)
+|           |-- full-test: 모든 자원 전체 기능 시험 참조(create -> list -> get -> delete)
+
+|-- cloud-control-manager
+|   |-- cloud-driver
+|   |   |-- drivers: 드라이버 구현체 위치
+|   |   |   |-- alibaba
+|   |   |   |-- aws
+|   |   |   |-- azure
+|   |   |   |-- cloudit
+|   |   |   |-- cloudtwin
+|   |   |   |-- gcp
+|   |   |   |-- openstack
+|   |   `-- interfaces: 멀티 클라우드 연동 인터페이스(드라어비 공통 인터페이스)
+|   |       |-- connect
+|   |       |-- resources
+
+|   |-- iid-manager: Integrated ID 관리, IID 구조:{User-defined ID, System-defined ID}
+
+|-- cloud-driver-libs: 드라이버 공유 라이브러리, SSH Key 생성 파일 관리 위치
+
+|-- cloud-info-manager
+|   |-- driver-info-manager: 드라이버 정보 관리
+|   |-- credential-info-manager: 크리덴셜 정보 관리
+|   |-- region-info-manager: 리젼 정보 관리
+|   |-- connection-config-info-manager: 
+
+|-- conf: Spider 운영을 위한 설정 정보(spider설정, 메타 정보 관리 설정, 로그 설정)
+
+`-- meta_db: 메타 정보 local FS(nutsdb) 활용시 저장소 위치
+    `-- dat
+```

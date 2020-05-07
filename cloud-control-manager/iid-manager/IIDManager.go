@@ -11,6 +11,7 @@ package iidmanager
 import (
 	"fmt"
 	"sync"
+	"strings"
 
 	"github.com/sirupsen/logrus"
 	"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
@@ -146,6 +147,33 @@ defer iidRWLock.rwMutex.RUnlock()
 }
 
 // 1. check params
+// 2. find IIDInfo from cb-store
+func (iidRWLock *IIDRWLOCK)FindIID(connectionName string, resourceType string, keyword string) (*IIDInfo, error) {
+        cblog.Info("call FindIID()")
+
+        cblog.Debug("check params")
+        err := checkParamsKeyword(connectionName, resourceType, &keyword)
+        if err != nil {
+                return nil, err
+
+        }
+
+iidRWLock.rwMutex.RLock()
+defer iidRWLock.rwMutex.RUnlock()
+        iIDInfoList, err := listInfo(connectionName, resourceType)
+        if err != nil {
+                return nil, err
+        }
+	for _, iidInfo := range iIDInfoList {
+		if strings.Contains(iidInfo.IId.NameId, keyword) {
+			return iidInfo, nil
+		}
+	}
+
+        return &IIDInfo{}, nil
+}
+
+// 1. check params
 // 2. get IIDInfo from cb-store
 func (iidRWLock *IIDRWLOCK)GetIIDbySystemID(connectionName string, resourceType string, iId resources.IID) (*IIDInfo, error) {
         cblog.Info("call GetIIDbySystemID()")
@@ -223,3 +251,17 @@ func checkParamsSystemId(connectionName string, resourceType string, iId *resour
         }
         return nil
 }
+
+func checkParamsKeyword(connectionName string, resourceType string, keyword *string) error {
+        if connectionName == "" {
+                return fmt.Errorf("ConnectionName is empty!")
+        }
+        if resourceType == "" {
+                return fmt.Errorf("ResourceType is empty!")
+        }
+        if keyword == nil {
+                return fmt.Errorf("Keyword is empty!")
+        }
+        return nil
+}
+

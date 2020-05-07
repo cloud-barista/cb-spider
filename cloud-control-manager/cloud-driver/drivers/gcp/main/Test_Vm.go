@@ -40,7 +40,10 @@ func handleVM() {
 
 	handler := ResourceHandler.(irs.VMHandler)
 
-	VmID := "vm123"
+	VmID := irs.IID{
+		NameId:   "vm123",
+		SystemId: "vm123",
+	}
 
 	for {
 		fmt.Println("VM Management")
@@ -70,15 +73,36 @@ func handleVM() {
 			case 1:
 				vmReqInfo := irs.VMReqInfo{
 					//VMName:           "vmsg02",
-					VMName:           VmID,
-					ImageId:          "projects/gce-uefi-images/global/images/ubuntu-1804-bionic-v20190722a",
-					VirtualNetworkId: "cb-subnet4",
+					IId: VmID,
+					ImageIID: irs.IID{
+						NameId:   "projects/ubuntu-os-cloud/global/images/ubuntu-minimal-1804-bionic-v20200415",
+						SystemId: "projects/ubuntu-os-cloud/global/images/ubuntu-minimal-1804-bionic-v20200415",
+					},
+					VpcIID: irs.IID{
+						NameId:   "vpc-11",
+						SystemId: "vpc-11",
+					},
+					SubnetIID: irs.IID{
+						NameId:   "sub3",
+						SystemId: "sub3",
+					},
+					SecurityGroupIIDs: []irs.IID{
+						{
+							NameId:   "sg1234",
+							SystemId: "sg1234",
+						},
+					},
+
 					//NetworkInterfaceId: "eni-00befb6d8c3a87b24",
-					PublicIPId:       "europe-west1",
-					SecurityGroupIds: []string{"europe-west1"},
+
 					//SecurityGroupIds: []string{config.Aws.SecurityGroupID},
-					VMSpecId:    "f1-micro",
-					KeyPairName: "cb-keyPairTest",
+					VMUserId: "cb-user",
+
+					KeyPairIID: irs.IID{
+						NameId:   "cb-keyPairTest",
+						SystemId: "cb-keyPairTest",
+					},
+					VMSpecName: "f1-micro",
 				}
 
 				vmInfo, err := handler.StartVM(vmReqInfo)
@@ -88,7 +112,7 @@ func handleVM() {
 				} else {
 					cblogger.Info("VM 생성 완료!!", vmInfo)
 					spew.Dump(vmInfo)
-					VmID = vmInfo.Name
+					VmID = vmInfo.IId
 					cblogger.Infof("==>테스트를 위한 VM Name이 [%s]로 변경됨!!", VmID)
 				}
 
