@@ -220,9 +220,9 @@ func (VPCHandler *AwsVPCHandler) CreateSubnet(vpcId string, reqSubnetInfo irs.Su
 
 	vpcInfo, errVpcInfo := VPCHandler.GetSubnet(reqSubnetInfo.IId.SystemId)
 	if errVpcInfo == nil {
-		cblogger.Error("이미 Default Subnet이 존재하기 때문에 생성하지 않고 기존 정보와 함께 에러를 리턴함.")
+		cblogger.Errorf("이미 [%S] Subnet이 존재하기 때문에 생성하지 않고 기존 정보와 함께 에러를 리턴함.", reqSubnetInfo.IId.SystemId)
 		cblogger.Info(vpcInfo)
-		return vpcInfo, errors.New("InvalidVNetwork.Duplicate: The CBVnetwork '" + GetCBDefaultSubnetName() + "' already exists.")
+		return vpcInfo, errors.New("InvalidVNetwork.Duplicate: The Subnet '" + reqSubnetInfo.IId.SystemId + "' already exists.")
 	}
 
 	//서브넷 생성
