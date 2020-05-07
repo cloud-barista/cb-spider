@@ -807,6 +807,8 @@ func handleVM() {
 					cblogger.Info("=========== VM 목록 ================")
 					cblogger.Info(vmList)
 					spew.Dump(vmList)
+
+					VmID = vmList[0].IId
 				}
 
 			}

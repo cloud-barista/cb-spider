@@ -11,6 +11,7 @@
 package resources
 
 import (
+	"errors"
 	"strconv"
 
 	"github.com/aliyun/alibaba-cloud-sdk-go/sdk/requests"
@@ -33,8 +34,8 @@ func (imageHandler *AlibabaImageHandler) CreateImage(imageReqInfo irs.ImageReqIn
 	request.Scheme = "https"
 
 	// 필수 Req Name
-	request.ImageName = imageReqInfo.Name // ImageName
-	request.Tag = &[]ecs.CreateImageTag{  // Default Hidden Tags Info
+	request.ImageName = imageReqInfo.IId.NameId // ImageName
+	request.Tag = &[]ecs.CreateImageTag{        // Default Hidden Tags Info
 		{
 			Key:   CBMetaDefaultTagName,  // "cbCat",
 			Value: CBMetaDefaultTagValue, // "cbAlibaba",
@@ -49,7 +50,7 @@ func (imageHandler *AlibabaImageHandler) CreateImage(imageReqInfo irs.ImageReqIn
 
 	// >>>> Case2 - 시스템 디스크 또는 스냅 샷 (SnapshotId) 중 하나를 지정하여 사용자 정의 이미지를 생성
 	// for create Case 2 (SnapshotId)
-	request.SnapshotId = imageReqInfo.Id // SnapshotId
+	//request.SnapshotId = imageReqInfo.Id // SnapshotId
 
 	// Case3 - 여러 디스크의 스냅 샷을 이미지 템플릿으로 결합하려는 경우 DiskDeviceMapping을 지정하여 사용자 지정 이미지를 만들 수 있습니다.
 	// 향후 추가를 고려, for create Case 3 (DiskDeviceMapping)
@@ -79,11 +80,11 @@ func (imageHandler *AlibabaImageHandler) CreateImage(imageReqInfo irs.ImageReqIn
 	// Creates a new custom Image with the given name
 	result, err := imageHandler.Client.CreateImage(request)
 	if err != nil {
-		cblogger.Errorf("Unable to create Image: %s, %v.", imageReqInfo.Name, err)
+		cblogger.Errorf("Unable to create Image: %s, %v.", imageReqInfo.IId.NameId, err)
 		return irs.ImageInfo{}, err
 	}
 
-	cblogger.Infof("Created Image %q %s\n %s\n", result.ImageId, imageReqInfo.Name, result.RequestId)
+	cblogger.Infof("Created Image %q %s\n %s\n", result.ImageId, imageReqInfo.IId.NameId, result.RequestId)
 	spew.Dump(result)
 
 	/*
@@ -94,7 +95,7 @@ func (imageHandler *AlibabaImageHandler) CreateImage(imageReqInfo irs.ImageReqIn
 	*/
 
 	// 생성된 Image 정보 획득 후, Image 정보 리턴
-	imageInfo, err := imageHandler.GetImage(imageReqInfo.Name)
+	imageInfo, err := imageHandler.GetImage(imageReqInfo.IId)
 	if err != nil {
 		return irs.ImageInfo{}, err
 	}
@@ -134,16 +135,20 @@ func (imageHandler *AlibabaImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 	return imageInfoList, nil
 }
 
+//https://pkg.go.dev/github.com/aliyun/alibaba-cloud-sdk-go/services/ecs?tab=doc#Image
+//package ecs v1.61.170 Latest Published: Apr 30, 2020
 //Image 정보를 추출함
-//func ExtractImageDescribeInfo(image *ecs.Image) irs.ImageInfo {
-//@TODO : 2020-03-26 Ali클라우드 API 구조가 바뀐 것 같아서 임시로 변경해 놓음.
-func ExtractImageDescribeInfo(image *ecs.ImageInDescribeImages) irs.ImageInfo {
+func ExtractImageDescribeInfo(image *ecs.Image) irs.ImageInfo {
+	//@TODO : 2020-03-26 Ali클라우드 API 구조가 바뀐 것 같아서 임시로 변경해 놓음.
+	//func ExtractImageDescribeInfo(image *ecs.ImageInDescribeImages) irs.ImageInfo {
+	//@TODO : 2020-04-20 ecs.ImageInDescribeImages를 인식 못해서 다시 ecs.Image로 변경해 놓음.
+	//func ExtractImageDescribeInfo(image *ecs.Image) irs.ImageInfo {
 	//*ecs.DescribeImagesResponse
 	cblogger.Infof("=====> ")
 	spew.Dump(image)
 	imageInfo := irs.ImageInfo{
-		Id:      image.ImageId,
-		Name:    image.ImageName,
+		IId: irs.IID{SystemId: image.ImageId},
+		//Name:    image.ImageName,
 		Status:  image.Status,
 		GuestOS: image.OSNameEn,
 	}
@@ -174,8 +179,8 @@ func ExtractImageDescribeInfo(image *ecs.ImageInDescribeImages) irs.ImageInfo {
 	return imageInfo
 }
 
-func (imageHandler *AlibabaImageHandler) GetImage(imageID string) (irs.ImageInfo, error) {
-	cblogger.Infof("imageID : ", imageID)
+func (imageHandler *AlibabaImageHandler) GetImage(imageIID irs.IID) (irs.ImageInfo, error) {
+	cblogger.Infof("imageID : ", imageIID.SystemId)
 
 	request := ecs.CreateDescribeImagesRequest()
 	request.Scheme = "https"
@@ -183,9 +188,10 @@ func (imageHandler *AlibabaImageHandler) GetImage(imageID string) (irs.ImageInfo
 	// request.Status = "Available"
 	// request.ActionType = "*"
 
-	request.ImageId = imageID
+	request.ImageId = imageIID.SystemId
 
 	result, err := imageHandler.Client.DescribeImages(request)
+	//ecs.DescribeImagesResponse.Images.Image
 	//spew.Dump(result)
 	cblogger.Info(result)
 	if err != nil {
@@ -193,31 +199,35 @@ func (imageHandler *AlibabaImageHandler) GetImage(imageID string) (irs.ImageInfo
 		return irs.ImageInfo{}, err
 	}
 
+	if result.TotalCount < 1 {
+		return irs.ImageInfo{}, errors.New("Notfound: '" + imageIID.SystemId + "' Images Not found")
+	}
+
 	imageInfo := ExtractImageDescribeInfo(&result.Images.Image[0])
 
 	return imageInfo, nil
 }
 
-func (imageHandler *AlibabaImageHandler) DeleteImage(imageID string) (bool, error) {
-	cblogger.Infof("DeleteImage : [%s]", imageID)
+func (imageHandler *AlibabaImageHandler) DeleteImage(imageIID irs.IID) (bool, error) {
+	cblogger.Infof("DeleteImage : [%s]", imageIID.SystemId)
 	// Delete the Image by Id
 
 	request := ecs.CreateDeleteImageRequest()
 	request.Scheme = "https"
 
 	//request.ImageId = to.StringPtr(imageID)
-	request.ImageId = imageID
+	request.ImageId = imageIID.SystemId
 	// 추가 옵션 Req
 	// request.Force = requests.NewBoolean(true)
 
 	result, err := imageHandler.Client.DeleteImage(request)
 	cblogger.Info(result)
 	if err != nil {
-		cblogger.Errorf("Unable to delete Image: %s, %v.", imageID, err)
+		cblogger.Errorf("Unable to delete Image: %s, %v.", imageIID.SystemId, err)
 		return false, err
 	}
 
-	cblogger.Infof("Successfully deleted %q Image\n", imageID)
+	cblogger.Infof("Successfully deleted %q Image\n", imageIID.SystemId)
 
 	return true, nil
 }
