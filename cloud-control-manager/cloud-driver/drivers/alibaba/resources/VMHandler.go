@@ -114,18 +114,68 @@ func (vmHandler *AlibabaVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 		return irs.VMInfo{}, errors.New("No errors have occurred, but no VMs have been created.")
 	}
 
-	if 1 == 1 {
+	//=========================================
+	// VM 정보를 조회할 수 있을 때까지 대기
+	//=========================================
+	newVmIID := irs.IID{SystemId: response.InstanceIdSets.InstanceIdSet[0]}
+	curStatus, errStatus := vmHandler.WaitForRun(newVmIID)
+	if errStatus != nil {
+		cblogger.Error(errStatus.Error())
 		return irs.VMInfo{}, nil
 	}
 
+	cblogger.Info("==>생성된 VM[%s]의 현재 상태[%s]", newVmIID, curStatus)
+
 	//vmInfo, errVmInfo := vmHandler.GetVM(irs.IID{SystemId: response.InstanceId})
-	vmInfo, errVmInfo := vmHandler.GetVM(irs.IID{SystemId: response.InstanceIdSets.InstanceIdSet[0]})
+	vmInfo, errVmInfo := vmHandler.GetVM(newVmIID)
 	if errVmInfo != nil {
 		cblogger.Error(errVmInfo.Error())
 		return irs.VMInfo{}, errVmInfo
 	}
 	vmInfo.IId.NameId = vmReqInfo.IId.NameId
 	return vmInfo, nil
+}
+
+// VM 정보를 조회할 수 있을 때까지 최대 30초간 대기
+func (vmHandler *AlibabaVMHandler) WaitForRun(vmIID irs.IID) (irs.VMStatus, error) {
+	cblogger.Info("======> VM 생성 직후에는 정보 조회가 안되기 때문에 Running 될 때까지 대기함.")
+
+	//waitStatus := "NotExist"	//VM정보 조회가 안됨.
+	waitStatus := "Running"
+	//waitStatus := "Creating" //너무 일찍 종료 시 리턴할 VM의 세부 항목의 정보 조회가 안됨.
+
+	//===================================
+	// Suspending 되도록 3초 정도 대기 함.
+	//===================================
+	curRetryCnt := 0
+	maxRetryCnt := 30
+	for {
+		curStatus, errStatus := vmHandler.GetVMStatus(vmIID)
+		if errStatus != nil {
+			cblogger.Error(errStatus.Error())
+		}
+
+		cblogger.Info("===>VM Status : ", curStatus)
+
+		if curStatus == irs.VMStatus(waitStatus) { //|| curStatus == irs.VMStatus("Running") {
+			cblogger.Infof("===>VM 상태가 [%s]라서 대기를 중단합니다.", curStatus)
+			break
+		}
+
+		//if curStatus != irs.VMStatus(waitStatus) {
+		curRetryCnt++
+		cblogger.Errorf("VM 상태가 [%s]이 아니라서 1초 대기후 조회합니다.", waitStatus)
+		time.Sleep(time.Second * 1)
+		if curRetryCnt > maxRetryCnt {
+			cblogger.Errorf("장시간(%d 초) 대기해도 VM의 Status 값이 [%s]으로 변경되지 않아서 강제로 중단합니다.", maxRetryCnt, waitStatus)
+			return irs.VMStatus("Failed"), errors.New("장시간 기다렸으나 생성된 VM의 상태가 [" + waitStatus + "]으로 바뀌지 않아서 중단 합니다.")
+		}
+		//} else {
+		//break
+		//}
+	}
+
+	return irs.VMStatus(waitStatus), nil
 }
 
 func (vmHandler *AlibabaVMHandler) ResumeVM(vmIID irs.IID) (irs.VMStatus, error) {
