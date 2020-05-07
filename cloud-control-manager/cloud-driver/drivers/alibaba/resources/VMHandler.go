@@ -393,28 +393,51 @@ func (vmHandler *AlibabaVMHandler) GetVMStatus(vmIID irs.IID) (irs.VMStatus, err
 	return irs.VMStatus("Failed"), errors.New("No status information found.")
 }
 
-//https://www.alibabacloud.com/help/doc-detail/25380.htm
+//알리 클라우드 라이프 사이클 : https://www.alibabacloud.com/help/doc-detail/25380.htm
+/*
+const (
+        Creating VMStatus = “Creating" // from launch to running
+        Running VMStatus = “Running"
+
+        Suspending VMStatus = “Suspending" // from running to suspended
+        Suspended  VMStatus = “Suspended"
+        Resuming VMStatus = “Resuming" // from suspended to running
+
+        Rebooting VMStatus = “Rebooting" // from running to running
+
+        Terminating VMStatus = “Terminating" // from running, suspended to terminated
+        Terminated  VMStatus = “Terminated“
+        NotExist  VMStatus = “NotExist“  // VM does not exist
+
+        Failed  VMStatus = “Failed“
+)
+
+<최종 상태>
+Running(동작 상태): MCIS가 동작 상태
+Suspended(중지 상태): MCIS가 중지된 상태
+Failed(실패 상태): MCIS가 오류로 인해 중단된 상태
+Terminated(종료 상태): MCIS가 종료된 상태
+
+<전이 상태>
+Creating(생성 진행 상태): MCIS가 생성되는 중간 상태
+Suspending(중지 진행 상태): MCIS를 일시 중지하기 위한 중간 상태
+Resuming(재개 진행 상태): MCIS를 다시 실행하기 위한 중간 상태
+Rebooting(재시작 진행 상태): MCIS를 재부팅하는 상태
+Terminating(종료 진행 상태): MCIS의 종료를 실행하고 있는 중간 상태
+
+*/
 func (vmHandler *AlibabaVMHandler) ConvertVMStatusString(vmStatus string) (irs.VMStatus, error) {
 	var resultStatus string
 	cblogger.Infof("vmStatus : [%s]", vmStatus)
 
-	if strings.EqualFold(vmStatus, "pending") {
-		//resultStatus = "Creating"	// VM 생성 시점의 Pending은 CB에서는 조회가 안되기 때문에 일단 처리하지 않음.
-		resultStatus = "Resuming" // Resume 요청을 받아서 재기동되는 단계에도 Pending이 있기 때문에 Pending은 Resuming으로 맵핑함.
-	} else if strings.EqualFold(vmStatus, "running") {
+	if strings.EqualFold(vmStatus, "Pending") {
+		resultStatus = "Creating"
+	} else if strings.EqualFold(vmStatus, "Running") {
 		resultStatus = "Running"
-	} else if strings.EqualFold(vmStatus, "stopping") {
+	} else if strings.EqualFold(vmStatus, "Stopping") {
 		resultStatus = "Suspending"
-	} else if strings.EqualFold(vmStatus, "stopped") {
+	} else if strings.EqualFold(vmStatus, "Stopped") {
 		resultStatus = "Suspended"
-		//} else if strings.EqualFold(vmStatus, "pending") {
-		//	resultStatus = "Resuming"
-	} else if strings.EqualFold(vmStatus, "Rebooting") {
-		resultStatus = "Rebooting"
-	} else if strings.EqualFold(vmStatus, "shutting-down") {
-		resultStatus = "Terminating"
-	} else if strings.EqualFold(vmStatus, "Terminated") {
-		resultStatus = "Terminated"
 	} else {
 		//resultStatus = "Failed"
 		cblogger.Errorf("vmStatus [%s]와 일치하는 맵핑 정보를 찾지 못 함.", vmStatus)
