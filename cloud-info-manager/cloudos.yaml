@@ -10,10 +10,11 @@
 ### List of support CloudOS.
 
 cloudos:
-  - aws
+  - AWS
   - GCP
   - AZURE
   - OPENSTACK
   - CLOUDIT
   - ALIBABA
+  - DOCKER
   - CLOUDTWIN
