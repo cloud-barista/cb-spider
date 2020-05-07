@@ -454,85 +454,6 @@ func handleSecurity() {
 	}
 }
 
-// Test SecurityHandler
-func handleSecurity0() {
-	cblogger.Debug("Start handler")
-
-	ResourceHandler, err := testconf.GetResourceHandler("Security")
-	if err != nil {
-		panic(err)
-	}
-
-	handler := ResourceHandler.(irs.SecurityHandler)
-
-	//config := testconf.ReadConfigFile()
-	//securityId := config.Ali.SecurityGroupID
-	//securityId = "sg-06c4523b969eaafc7"
-	securityId := "cb-sgtest-mcloud-barista"
-	cblogger.Infof(securityId)
-
-	//result, err := handler.GetSecurity(securityId)
-	//result, err := handler.GetSecurity("sg-0fd2d90b269ebc082") // sgtest-mcloub-barista
-	//result, err := handler.DeleteSecurity(securityId)
-	//result, err := handler.ListSecurity()
-
-	securityReqInfo := irs.SecurityReqInfo{
-		IId: irs.IID{NameId: securityId},
-		SecurityRules: &[]irs.SecurityRuleInfo{ //보안 정책 설정
-			{
-				FromPort:   "20",
-				ToPort:     "22",
-				IPProtocol: "tcp",
-				Direction:  "inbound",
-			},
-
-			{
-				FromPort:   "80",
-				ToPort:     "80",
-				IPProtocol: "tcp",
-				Direction:  "inbound",
-			},
-			{
-				FromPort:   "8080",
-				ToPort:     "8080",
-				IPProtocol: "tcp",
-				Direction:  "inbound",
-			},
-			{
-				FromPort:   "443",
-				ToPort:     "443",
-				IPProtocol: "tcp",
-				Direction:  "outbound",
-			},
-			{
-				FromPort:   "8443",
-				ToPort:     "9999",
-				IPProtocol: "tcp",
-				Direction:  "outbound",
-			},
-			/*
-				{
-					//FromPort:   "8443",
-					//ToPort:     "9999",
-					IPProtocol: "-1", // 모두 허용 (포트 정보 없음)
-					Direction:  "inbound",
-				},
-			*/
-		},
-	}
-
-	cblogger.Info(securityReqInfo)
-	result, err := handler.CreateSecurity(securityReqInfo)
-
-	if err != nil {
-		cblogger.Infof("보안 그룹 조회 실패 : ", err)
-	} else {
-		cblogger.Info("보안 그룹 조회 결과")
-		//cblogger.Info(result)
-		spew.Dump(result)
-	}
-}
-
 func handleKeyPair() {
 	cblogger.Debug("Start KeyPair Resource Test")
 
@@ -834,7 +755,7 @@ func handleVM() {
 
 	//config := readConfigFile()
 	//VmID := irs.IID{NameId: config.Aws.BaseName, SystemId: config.Aws.VmID}
-	VmID := irs.IID{SystemId: "i-08f13a125cc74bef6"}
+	VmID := irs.IID{SystemId: "i-6weayupx7qvidhmyl48d"}
 
 	for {
 		fmt.Println("VM Management")
@@ -879,6 +800,7 @@ func handleVM() {
 				} else {
 					cblogger.Info("VM 생성 완료!!", vmInfo)
 					spew.Dump(vmInfo)
+					VmID = vmInfo.IId
 				}
 				//cblogger.Info(vm)
 
@@ -984,10 +906,36 @@ func main() {
 	//handleVMSpec()
 	//handleImage() //AMI
 	//handleKeyPair()
-	handleSecurity()
-	//handleVM()
+	//handleSecurity()
+	handleVM()
 
 	//handlePublicIP() // PublicIP 생성 후 conf
 
 	//handleVNic() //Lancard
+
+	/*
+		//StartTime := "2020-05-07T01:35:00Z"
+		StartTime := "2020-05-07T01:35Z"
+		timeLen := len(StartTime)
+		cblogger.Infof("======> 생성시간 길이 [%s]", timeLen)
+		if timeLen > 7 {
+			cblogger.Infof("======> 생성시간 마지막 문자열 [%s]", StartTime[timeLen-1:])
+			if StartTime[timeLen-1:] == "Z" {
+				cblogger.Infof("======> 문자열 변환 : [%s]", StartTime[:timeLen-1])
+				NewStartTime := StartTime[:timeLen-1] + ":00Z"
+				cblogger.Infof("======> 최종 문자열 변환 : [%s]", NewStartTime)
+			}
+		}
+
+		//:41+00:00
+		cblogger.Infof("Convert StartTime string [%s] to time.time", StartTime)
+
+		//layout := "2020-05-07T01:36Z"
+		t, err := time.Parse(time.RFC3339, StartTime)
+		if err != nil {
+			cblogger.Error(err)
+		} else {
+			cblogger.Infof("======> [%v]", t)
+		}
+	*/
 }

@@ -145,12 +145,14 @@ func (vmHandler *AlibabaVMHandler) ResumeVM(vmIID irs.IID) (irs.VMStatus, error)
 
 }
 
+// @TODO - 이슈 : 인스턴스 일시정지 시에 과금 정책을 결정해야 함 - StopCharging / KeepCharging
 func (vmHandler *AlibabaVMHandler) SuspendVM(vmIID irs.IID) (irs.VMStatus, error) {
 	cblogger.Infof("vmID : [%s]", vmIID.SystemId)
 
 	request := ecs.CreateStopInstanceRequest()
 	request.Scheme = "https"
 	request.InstanceId = vmIID.SystemId
+	request.StoppedMode = "StopCharging"
 
 	response, err := vmHandler.Client.StopInstance(request)
 	if err != nil {
@@ -292,13 +294,30 @@ func (vmHandler *AlibabaVMHandler) ExtractDescribeInstances(instancInfo *ecs.Ins
 		vmInfo.SecurityGroupIIds = append(vmInfo.SecurityGroupIIds, irs.IID{SystemId: security})
 	}
 
-	if instancInfo.StartTime != "" {
-		cblogger.Infof("Convert StartTime string [%s] to time.time", instancInfo.StartTime)
+	timeLen := len(instancInfo.CreationTime)
+	cblogger.Infof("서버 구동 시간 포멧 변환 처리")
+	cblogger.Infof("======> 생성시간 길이 [%s]", timeLen)
+	if timeLen > 7 {
+		cblogger.Infof("======> 생성시간 마지막 문자열 [%s]", instancInfo.CreationTime[timeLen-1:])
+		var NewStartTime string
+		if instancInfo.CreationTime[timeLen-1:] == "Z" && timeLen == 17 {
+			//cblogger.Infof("======> 문자열 변환 : [%s]", StartTime[:timeLen-1])
+			NewStartTime = instancInfo.CreationTime[:timeLen-1] + ":00Z"
+			cblogger.Infof("======> 최종 문자열 변환 : [%s]", NewStartTime)
+		} else {
+			NewStartTime = instancInfo.CreationTime
+		}
 
-		layout := "2017-12-10T04:04Z"
-		t, _ := time.Parse(layout, instancInfo.StartTime)
-		vmInfo.StartTime = t
-		cblogger.Infof("======> [%v]", t)
+		cblogger.Infof("Convert StartTime string [%s] to time.time", NewStartTime)
+
+		//layout := "2020-05-07T01:36Z"
+		t, err := time.Parse(time.RFC3339, NewStartTime)
+		if err != nil {
+			cblogger.Error(err)
+		} else {
+			cblogger.Infof("======> [%v]", t)
+			vmInfo.StartTime = t
+		}
 	}
 
 	return vmInfo
@@ -356,7 +375,8 @@ func (vmHandler *AlibabaVMHandler) GetVMStatus(vmIID irs.IID) (irs.VMStatus, err
 
 	cblogger.Info("Success", response)
 	if response.TotalCount < 1 {
-		return irs.VMStatus("Failed"), errors.New("Notfound: '" + vmIID.SystemId + "' VM Not found")
+		//return irs.VMStatus("Failed"), errors.New("Notfound: '" + vmIID.SystemId + "' VM Not found")
+		return irs.VMStatus("NotExist"), nil
 	}
 
 	for _, vm := range response.InstanceStatuses.InstanceStatus {
@@ -373,6 +393,7 @@ func (vmHandler *AlibabaVMHandler) GetVMStatus(vmIID irs.IID) (irs.VMStatus, err
 	return irs.VMStatus("Failed"), errors.New("No status information found.")
 }
 
+//https://www.alibabacloud.com/help/doc-detail/25380.htm
 func (vmHandler *AlibabaVMHandler) ConvertVMStatusString(vmStatus string) (irs.VMStatus, error) {
 	var resultStatus string
 	cblogger.Infof("vmStatus : [%s]", vmStatus)
