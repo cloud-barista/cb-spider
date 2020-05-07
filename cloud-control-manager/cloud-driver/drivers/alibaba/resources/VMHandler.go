@@ -259,7 +259,7 @@ func (vmHandler *AlibabaVMHandler) TerminateVM(vmIID irs.IID) (irs.VMStatus, err
 		cblogger.Info("===>VM Status : ", curStatus)
 		if curStatus != irs.VMStatus("Suspended") {
 			curRetryCnt++
-			cblogger.Error("VM 상태가 Suspended가 아니라서 1초가 대기후 조회합니다.")
+			cblogger.Error("VM 상태가 Suspended가 아니라서 1초간 대기후 조회합니다.")
 			time.Sleep(time.Second * 1)
 			if curRetryCnt > maxRetryCnt {
 				cblogger.Error("장시간 대기해도 VM의 Status 값이 Suspended로 변경되지 않아서 강제로 중단합니다.")
