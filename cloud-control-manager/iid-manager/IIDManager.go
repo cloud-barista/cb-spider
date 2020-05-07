@@ -170,7 +170,7 @@ defer iidRWLock.rwMutex.RUnlock()
 		}
 	}
 
-        return &IIDInfo{}, nil
+        return &IIDInfo{}, fmt.Errorf("[" + connectionName + ":" + resourceType +  ":" + keyword + "] does not exist!")
 }
 
 // 1. check params
