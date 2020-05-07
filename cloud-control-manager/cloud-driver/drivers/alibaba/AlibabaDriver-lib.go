@@ -8,11 +8,12 @@
 //
 // by zephy@mz.co.kr, 2019.09.
 
-package alibaba
+//package alibaba
 
-//package main
+package main
 
 import (
+	"C"
 	"fmt"
 
 	"github.com/aliyun/alibaba-cloud-sdk-go/sdk/auth/credentials"

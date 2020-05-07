@@ -13,6 +13,7 @@
 package resources
 
 import (
+	"fmt"
 	"errors"
 	"reflect"
 	"strconv"
@@ -101,6 +102,7 @@ func (VPCHandler *AlibabaVPCHandler) CreateSubnet(vpcId string, reqSubnetInfo ir
 	request.VpcId = vpcId
 	request.CidrBlock = reqSubnetInfo.IPv4_CIDR
 	request.VSwitchName = reqSubnetInfo.IId.NameId
+fmt.Printf("\n\n======= %#v\n\n", VPCHandler.Region.Zone) // by powerkim.
 	request.ZoneId = VPCHandler.Region.Zone //"ap-northeast-1a" // @TOTO : ZoneId 전달 받아야 함.
 	cblogger.Info(request)
 

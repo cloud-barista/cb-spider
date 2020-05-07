@@ -43,6 +43,8 @@ type CredentialInfo struct {
 	AuthToken        string // Cloudit Credential
 	ClientEmail      string // GCP
 	PrivateKey       string // GCP
+	Host      	 string // Docker
+	APIVersion       string // Docker
 }
 
 type RegionInfo struct {

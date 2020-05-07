@@ -38,8 +38,8 @@ const (
         rsVM string = "vm"
 )
 
-const rsSubnetPrefix string = "SUBNET:"
-const sgDELIMITER string = "-DELIMITER-"
+const rsSubnetPrefix string = "subnet:"
+const sgDELIMITER string = "-delimiter-"
 
 // definition of RWLock for each Resource Ops
 var imgRWLock = new(sync.RWMutex)
@@ -62,7 +62,9 @@ func createImage(c echo.Context) error {
 
         var req struct {
                 ConnectionName string
-                ReqInfo cres.ImageReqInfo
+                ReqInfo struct {
+			Name string
+		}
         }
 
         if err := c.Bind(&req); err != nil {
@@ -82,18 +84,22 @@ func createImage(c echo.Context) error {
 imgRWLock.Lock()
 defer imgRWLock.Unlock()
 // (1) check exist(NameID)
-        bool_ret, err := iidRWLock.IsExistIID(req.ConnectionName, rsType, req.ReqInfo.IId)
+        bool_ret, err := iidRWLock.IsExistIID(req.ConnectionName, rsType, cres.IID{req.ReqInfo.Name, ""})
         if err != nil {
                 cblog.Error(err)
                 return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
         }
 
         if bool_ret == true {
-                return echo.NewHTTPError(http.StatusInternalServerError, fmt.Errorf(req.ReqInfo.IId.NameId + " already exists!"))
+                return echo.NewHTTPError(http.StatusInternalServerError, fmt.Errorf(req.ReqInfo.Name + " already exists!"))
         }
 
+        reqInfo := cres.ImageReqInfo {
+                        IId: cres.IID{req.ReqInfo.Name, ""},
+                   }
+
 // (2) create Resource
-	info, err := handler.CreateImage(req.ReqInfo)
+	info, err := handler.CreateImage(reqInfo)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
@@ -173,6 +179,7 @@ defer imgRWLock.RUnlock()
                 exist := false
                 for _, info := range infoList {
                         if iidInfo.IId.SystemId == info.IId.SystemId {
+				info.IId.NameId = iidInfo.IId.NameId
                                 infoList2 = append(infoList2, info)
                                 exist = true
                         }
@@ -525,6 +532,7 @@ defer vpcRWLock.Unlock()
                 cblog.Error(err)
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
+	info.IId.NameId = req.ReqInfo.Name
 
 // (3) insert IID
 	// for VPC
@@ -939,6 +947,11 @@ defer sgRWLock.Unlock()
                 }
                 return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
         }
+
+	// set ResourceInfo(IID.NameId)
+	// iidInfo.IId.NameID format => {VPC NameID} + sgDELIMITER + {SG NameID}
+	vpc_sg_nameid := strings.Split(info.IId.NameId, sgDELIMITER)
+	info.IId.NameId = vpc_sg_nameid[1]
 
 	return c.JSON(http.StatusOK, &info)
 }
@@ -1841,7 +1854,7 @@ func setNameId(ConnectionName string, vmInfo *cres.VMInfo, reqInfo *cres.VMReqIn
         vmInfo.SubnetIID.NameId = reqInfo.SubnetIID.NameId
 
 	vmInfo.SecurityGroupIIds = reqInfo.SecurityGroupIIDs
-/*
+
         // set SecurityGroups SystemId
         for i, sgIID := range reqInfo.SecurityGroupIIDs {
                 IIdInfo, err := iidRWLock.GetIIDbySystemID(ConnectionName, rsSG, sgIID)
@@ -1850,7 +1863,7 @@ func setNameId(ConnectionName string, vmInfo *cres.VMInfo, reqInfo *cres.VMReqIn
                 }
                 reqInfo.SecurityGroupIIDs[i].NameId = IIdInfo.IId.NameId
         }
-*/
+
         // set KeyPair SystemId
         vmInfo.KeyPairIId.NameId = reqInfo.KeyPairIID.NameId
 
@@ -2163,6 +2176,7 @@ defer vmRWLock.RUnlock()
                 exist := false
                 for _, info := range infoList {
                         if iidInfo.IId.SystemId == info.IId.SystemId {
+				info.IId.NameId = iidInfo.IId.NameId
                                 infoList2 = append(infoList2, info)
                                 exist = true
                         }

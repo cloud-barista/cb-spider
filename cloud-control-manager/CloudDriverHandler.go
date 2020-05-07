@@ -115,6 +115,8 @@ func GetCloudConnection(cloudConnectName string) (icon.CloudConnection, error) {
 			AuthToken:        getValue(crdInfo.KeyValueInfoList, "AuthToken"),
 			ClientEmail:      getValue(crdInfo.KeyValueInfoList, "ClientEmail"),
 			PrivateKey:       getValue(crdInfo.KeyValueInfoList, "PrivateKey"),
+			Host:       	  getValue(crdInfo.KeyValueInfoList, "Host"),
+			APIVersion:    	  getValue(crdInfo.KeyValueInfoList, "APIVersion"),
 		},
 		RegionInfo: idrv.RegionInfo{ // @todo powerkim
 			Region:        regionName,
@@ -168,6 +170,7 @@ func GetRegionNameByRegionInfo(rgnInfo *rim.RegionInfo) (string, string, error) 
                 regionName = getValue(rgnInfo.KeyValueInfoList, "Region")
         case "ALIBABA":
                 regionName = getValue(rgnInfo.KeyValueInfoList, "Region")
+                zoneName = getValue(rgnInfo.KeyValueInfoList, "Zone")
         case "GCP":
                 regionName = getValue(rgnInfo.KeyValueInfoList, "Region")
                 zoneName = getValue(rgnInfo.KeyValueInfoList, "Zone")
@@ -176,9 +179,11 @@ func GetRegionNameByRegionInfo(rgnInfo *rim.RegionInfo) (string, string, error) 
         case "CLOUDTWIN":
                 regionName = getValue(rgnInfo.KeyValueInfoList, "Region")
         case "CLOUDIT":
-                // Cloudit do not use Region, But set default @todo 2019.10.28 by powerkim.
+                // Cloudit do not use Region, But set default @todo 2019.10.28. by powerkim.
                 regionName = getValue(rgnInfo.KeyValueInfoList, "Region")
-                //regionName = getValue(rgnInfo.KeyValueInfoList, "Region")
+        case "DOCKER":
+                // docker do not use Region, But set default @todo 2020.05.06. by powerkim.
+                regionName = getValue(rgnInfo.KeyValueInfoList, "Region")
         default:
                 errmsg := rgnInfo.ProviderName + " is not a valid ProviderName!!"
                 return "", "", fmt.Errorf(errmsg)
