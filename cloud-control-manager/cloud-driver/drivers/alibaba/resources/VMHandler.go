@@ -43,10 +43,9 @@ func init() {
 	cblogger = cblog.GetLogger("ALIBABA VMHandler")
 }
 
-// 1개의 VM만 생성되도록 수정 (MinCount / MaxCount 이용 안 함)
-//키페어 이름(예:mcloud-barista)은 아래 URL에 나오는 목록 중 "키페어 이름"의 값을 적으면 됨.
-//https://ap-northeast-2.console.aws.amazon.com/ec2/v2/home?region=ap-northeast-2#KeyPairs:sort=keyName
-
+// 참고 : VM 생성 시 인증 방식은 KeyPair 또는 ID&PWD 방식이 가능하지만 계정은 모두 root  - 비번 조회 기능은 없음
+//        비밀번호는 8-30자로서 대문자, 소문자, 숫자 및/또는 특수 문자가 포함되어야 합니다.
+// @TODO : root 계정의 비번만 설정 가능한 데 다른 계정이 요청되었을 경우 예외 처리할 것인지.. 아니면 비번을 설정할 것인지 확인 필요.
 // @TODO : PublicIp 요금제 방식과 대역폭 설정 방법 논의 필요
 func (vmHandler *AlibabaVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, error) {
 	//cblogger.Info(vmReqInfo)
@@ -85,6 +84,8 @@ func (vmHandler *AlibabaVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 	request.InstanceType = vmReqInfo.VMSpecName
 	request.KeyPairName = vmReqInfo.KeyPairIID.SystemId
 	request.VSwitchId = vmReqInfo.SubnetIID.SystemId
+
+	request.Password = vmReqInfo.VMUserPasswd //값에는 8-30자가 포함되고 대문자, 소문자, 숫자 및/또는 특수 문자가 포함되어야 합니다.
 
 	//==============
 	//PublicIp 설정
@@ -133,6 +134,12 @@ func (vmHandler *AlibabaVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 		return irs.VMInfo{}, errVmInfo
 	}
 	vmInfo.IId.NameId = vmReqInfo.IId.NameId
+
+	//VM 생성 시 요청한 계정 정보가 있을 경우 사용된 계정 정보를 함께 전달 함.
+	if vmReqInfo.VMUserPasswd != "" {
+		vmInfo.VMUserPasswd = vmReqInfo.VMUserPasswd
+		vmInfo.VMUserId = "root"
+	}
 	return vmInfo, nil
 }
 
@@ -334,6 +341,16 @@ func (vmHandler *AlibabaVMHandler) ExtractDescribeInstances(instancInfo *ecs.Ins
 
 		KeyValueList: []irs.KeyValue{{Key: "", Value: ""}},
 	}
+
+	if len(instancInfo.NetworkInterfaces.NetworkInterface) > 0 {
+		vmInfo.NetworkInterface = instancInfo.NetworkInterfaces.NetworkInterface[0].NetworkInterfaceId
+	}
+
+	vmInfo.VMUserId = "root"
+
+	//VMUserId
+	//VMUserPasswd
+	//NetworkInterfaceId
 
 	if len(instancInfo.PublicIpAddress.IpAddress) > 0 {
 		vmInfo.PublicIP = instancInfo.PublicIpAddress.IpAddress[0]

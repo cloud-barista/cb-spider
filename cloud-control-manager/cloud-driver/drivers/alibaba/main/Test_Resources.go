@@ -791,6 +791,8 @@ func handleVM() {
 					SecurityGroupIIDs: []irs.IID{{SystemId: "sg-6we0rxnoai067qbkdkgw"}, {SystemId: "sg-6weeb9xaodr65g7bq10c"}},
 					VMSpecName:        "ecs.t5-lc2m1.nano",
 					KeyPairIID:        irs.IID{SystemId: "CB-KeyPairTest123123"},
+					//VMUserId:          "root", //root만 가능
+					VMUserPasswd: "Cbuser!@#", //대문자 소문자 모두 사용되어야 함. 그리고 숫자나 특수 기호 중 하나가 포함되어야 함.
 				}
 
 				vmInfo, err := vmHandler.StartVM(vmReqInfo)
