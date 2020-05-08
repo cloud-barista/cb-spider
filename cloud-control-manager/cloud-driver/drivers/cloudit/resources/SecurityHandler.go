@@ -170,8 +170,6 @@ func (securityHandler *ClouditSecurityHandler) getSecurityByName(securityName st
 	requestOpts := client.RequestOpts{
 		MoreHeaders: authHeader,
 	}
-	// name Id
-	// Deploy,
 	securityList, err := securitygroup.List(securityHandler.Client, &requestOpts)
 	if err != nil {
 		return nil, err
