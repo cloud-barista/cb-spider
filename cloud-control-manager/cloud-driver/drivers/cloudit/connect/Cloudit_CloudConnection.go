@@ -53,6 +53,7 @@ func (cloudConn *ClouditCloudConnection) CreateKeyPairHandler() (irs.KeyPairHand
 	cblogger.Info("Cloudit Cloud Driver: called CreateKeyPairHandler()!")
 	return nil, nil
 }
+
 //
 //func (cloudConn ClouditCloudConnection) CreateVNicHandler() (irs.VNicHandler, error) {
 //	cblogger.Info("Cloudit Cloud Driver: called CreateVNicHandler()!")
@@ -66,11 +67,11 @@ func (cloudConn *ClouditCloudConnection) CreateKeyPairHandler() (irs.KeyPairHand
 //	return &publicIPHandler, nil
 //}
 //
-//func (cloudConn *ClouditCloudConnection) CreateVMHandler() (irs.VMHandler, error) {
-//	cblogger.Info("Cloudit Cloud Driver: called CreateVMHandler()!")
-//	vmHandler := cirs.ClouditVMHandler{cloudConn.CredentialInfo, &cloudConn.Client}
-//	return &vmHandler, nil
-//}
+func (cloudConn *ClouditCloudConnection) CreateVMHandler() (irs.VMHandler, error) {
+	cblogger.Info("Cloudit Cloud Driver: called CreateVMHandler()!")
+	vmHandler := cirs.ClouditVMHandler{cloudConn.CredentialInfo, &cloudConn.Client}
+	return &vmHandler, nil
+}
 
 func (cloudConn *ClouditCloudConnection) CreateVMSpecHandler() (irs.VMSpecHandler, error) {
 	cblogger.Info("Cloudit Cloud Driver: called CreateVMSpecHandler()!")

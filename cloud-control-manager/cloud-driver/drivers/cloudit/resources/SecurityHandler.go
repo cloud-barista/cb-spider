@@ -16,13 +16,16 @@ type ClouditSecurityHandler struct {
 }
 
 func setterSecGroup(secGroup securitygroup.SecurityGroupInfo) *irs.SecurityInfo {
+
 	secInfo := &irs.SecurityInfo{
 		IId: irs.IID{
-			NameId:   secGroup.ID,
-			SystemId: secGroup.Name,
+			NameId:   secGroup.Name,
+			SystemId: secGroup.ID,
 		},
-		//Id:            secGroup.ID,
-		//Name:          secGroup.Name,
+		VpcIID: irs.IID{
+			NameId:   "Default-VPC",
+			SystemId: "Default-VPC",
+		},
 		SecurityRules: nil,
 	}
 
