@@ -674,7 +674,7 @@ func handleVM() {
 
 	//config := readConfigFile()
 	//VmID := irs.IID{NameId: config.Aws.BaseName, SystemId: config.Aws.VmID}
-	VmID := irs.IID{SystemId: "i-0c158bf27da9a8dfb"}
+	VmID := irs.IID{SystemId: "i-08f13a125cc74bef6"}
 
 	for {
 		fmt.Println("VM Management")
@@ -807,6 +807,8 @@ func handleVM() {
 					cblogger.Info("=========== VM 목록 ================")
 					cblogger.Info(vmList)
 					spew.Dump(vmList)
+
+					VmID = vmList[0].IId
 				}
 
 			}
@@ -939,12 +941,12 @@ func main() {
 	//handleKeyPair()
 	//handlePublicIP() // PublicIP 생성 후 conf
 	//handleSecurity()
-	//handleVM()
+	handleVM()
 
 	//handleImage() //AMI
 	//handleVNic() //Lancard
 	//handleVMSpec()
-	handleVPC()
+	//handleVPC()
 
 	/*
 		KeyPairHandler, err := setKeyPairHandler()

@@ -41,13 +41,14 @@ func (GCPDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	var drvCapabilityInfo idrv.DriverCapabilityInfo
 
 	drvCapabilityInfo.ImageHandler = true
-	drvCapabilityInfo.VNetworkHandler = true
+	drvCapabilityInfo.VPCHandler = true
 	drvCapabilityInfo.SecurityHandler = true
 	drvCapabilityInfo.KeyPairHandler = true
-	drvCapabilityInfo.VNicHandler = true
-	drvCapabilityInfo.PublicIPHandler = true
+	//drvCapabilityInfo.VNicHandler = true
+	//drvCapabilityInfo.PublicIPHandler = true
 	drvCapabilityInfo.VMHandler = true
 	drvCapabilityInfo.VMSpecHandler = true
+	drvCapabilityInfo.VPCHandler = true
 
 	return drvCapabilityInfo
 }
@@ -67,17 +68,18 @@ func (driver *GCPDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (icon.
 	}
 
 	iConn := gcpcon.GCPCloudConnection{
-		Region:              connectionInfo.RegionInfo,
-		Credential:          connectionInfo.CredentialInfo,
-		Ctx:                 Ctx,
-		VMClient:            VMClient,
-		ImageClient:         VMClient,
-		PublicIPClient:      VMClient,
+		Region:      connectionInfo.RegionInfo,
+		Credential:  connectionInfo.CredentialInfo,
+		Ctx:         Ctx,
+		VMClient:    VMClient,
+		ImageClient: VMClient,
+		// PublicIPClient:      VMClient,
 		SecurityGroupClient: VMClient,
-		VNetClient:          VMClient,
-		VNicClient:          VMClient,
-		SubnetClient:        VMClient,
-		VMSpecHandler:       VMClient,
+		// VNetClient:          VMClient,
+		// VNicClient:          VMClient,
+		SubnetClient:  VMClient,
+		VMSpecHandler: VMClient,
+		VPCHandler:    VMClient,
 	}
 
 	fmt.Println("################## resource ConnectionInfo ##################")

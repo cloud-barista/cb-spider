@@ -60,94 +60,13 @@ func (vmHandler *AwsVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 	cblogger.Info(vmReqInfo)
 	spew.Dump(vmReqInfo)
 
-	/*
-		//=============================================
-		// 동일한 이름을 사용하는 VM이 존재하는지 확인함.
-		//=============================================
-		cblogger.Infof("생성할 VM이 존재하는지 체크합니다.")
-		vmInfo, errVmInfo := vmHandler.GetVM(vmReqInfo.IId)
-
-		if errVmInfo != nil {
-			awsErr, ok := errVmInfo.(awserr.Error)
-			//spew.Dump(awsErr)
-			if ok {
-				if CUSTOM_ERR_CODE_NOTFOUND == awsErr.Code() {
-					cblogger.Infof("존재하는 VM [%s]이 없기 때문에 생성을 시작합니다.", vmReqInfo.IId.NameId)
-				} else { // 404 Not Found 외의 에러는 모두 에러임.
-					cblogger.Error(errVmInfo)
-					return irs.VMInfo{}, errVmInfo
-				}
-			} else { //코드를 갖지 않는 에러들도 모두 에러임.
-				return irs.VMInfo{}, errVmInfo
-			}
-		} else { //에러 정보가 없는 경우 이미 해당 VM이 생성되어 있기 때문에 에러임.
-			if len(vmInfo.IId.NameId) > 0 {
-				cblogger.Errorf("이미 [%s] VM이 존재하기 때문에 생성하지 않고 기존 정보와 함께 에러를 리턴함.", vmReqInfo.IId.NameId)
-				cblogger.Info(vmInfo)
-				return vmInfo, errors.New("InvalidVM.Duplicate: The VM '" + vmReqInfo.IId.NameId + "' already exists.")
-			}
-		}
-	*/
-
-	//imageID := vmReqInfo.ImageId
 	imageID := vmReqInfo.ImageIID.SystemId
-	//instanceType := vmReqInfo.VMSpecId // "t2.micro"
 	instanceType := vmReqInfo.VMSpecName // "t2.micro"
 	minCount := aws.Int64(1)
 	maxCount := aws.Int64(1)
-	//keyName := vmReqInfo.KeyPairName
 	keyName := vmReqInfo.KeyPairIID.SystemId
 	baseName := vmReqInfo.IId.NameId //"mcloud-barista-VMHandlerTest"
-
-	/*
-		//=============================
-		// Subnet 처리 - NameId 기반
-		//=============================
-		cblogger.Info("NameId 기반으로 처리하기 위해 Subnet 정보를 조회함.")
-		//사용자가 입력한 Subnet말고 기본으로 생성된 Subnet 정보를 조회함
-		//@TODO - 나중에 vNic 등의 핸들러가 없어지고 Subnet 정보가 필요한 곳에서 명시적으로 모두 입력 받을 수 있다면 사용자가 입력한 값으로 변경 가능
-		VPCHandler := AwsVPCHandler{
-			//Region: vmHandler.Region,
-			Client: vmHandler.Client,
-		}
-		cblogger.Info(VPCHandler)
-
-		subnetInfo, errSubnetInfo := VPCHandler.GetVNetwork(irs.IID{NameId: GetCBDefaultSubnetName()})
-		if errSubnetInfo != nil {
-			return irs.VMInfo{}, errSubnetInfo
-		}
-		subnetID := subnetInfo.IId.SystemId
-	*/
-
 	subnetID := vmReqInfo.SubnetIID.SystemId
-	//subnetID := vmReqInfo.VirtualNetworkId.SystemId
-
-	/*
-		//=============================
-		// 보안그룹 처리 - NameId 기반
-		//=============================
-		cblogger.Info("NameId 기반으로 처리하기 위해 Name 기반의 보안그룹 배열을 Id 기반 보안그룹 배열로 조회및 변환함.")
-		var newSecurityGroupIds []string
-		securityHandler := AwsSecurityHandler{
-			//Region: vmHandler.Region,
-			Client: vmHandler.Client,
-		}
-		cblogger.Info(securityHandler)
-
-		for _, sgName := range vmReqInfo.SecurityGroupIIDs {
-			//for _, sgName := range vmReqInfo.SecurityGroupIds {
-			cblogger.Infof("보안그룹 조회 : [%s]", sgName)
-			sgInfo, errSgInfo := securityHandler.GetSecurity(sgName)
-			if errSgInfo != nil {
-				return irs.VMInfo{}, errSgInfo
-			}
-			cblogger.Infof("보안그룹 변환 : [%s] ==> [%s]", sgName.NameId, sgInfo.IId.SystemId)
-			newSecurityGroupIds = append(newSecurityGroupIds, sgInfo.IId.SystemId)
-		}
-
-		cblogger.Info("보안그룹 변환 완료")
-		cblogger.Info(newSecurityGroupIds)
-	*/
 
 	//=============================
 	// 보안그룹 처리 - SystemId 기반
@@ -194,13 +113,30 @@ func (vmHandler *AwsVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 		MinCount:     minCount,
 		MaxCount:     maxCount,
 		KeyName:      aws.String(keyName),
-		//SecurityGroupIds: aws.StringSlice(vmReqInfo.SecurityGroupIds),
-		SecurityGroupIds: aws.StringSlice(newSecurityGroupIds),
+
 		/*SecurityGroupIds: []*string{
 			aws.String(securityGroupID), // "sg-0df1c209ea1915e4b" - 미지정시 보안 그룹명이 "default"인 보안 그룹이 사용 됨.
 		},*/
 
-		SubnetId: aws.String(subnetID), // "subnet-cf9ccf83" - 미지정시 기본 VPC의 기본 서브넷이 임의로 이용되며 PublicIP가 할당 됨.
+		/* PrivateSubnet에도 PublicIp를 할당하려면 AssociatePublicIpAddress 옵션을 사용하거나 Subnet의 PublicIp 할당 옵션을 True로 생성해야 함.
+		// 현재는 PublicIp 자동할딩 옵션이 False인 서브넷을 위해 NetworkInterfaces 필드에서 보안그룹과 서브넷을 정의 함. - 2020-04-19
+		SecurityGroupIds: aws.StringSlice(newSecurityGroupIds),
+		SubnetId:         aws.String(subnetID), // "subnet-cf9ccf83" - 미지정시 기본 VPC의 기본 서브넷이 임의로 이용되며 PublicIP가 할당 됨.
+		*/
+
+		//AdditionalInfo: aws.String("--associate-public-ip-address"),
+		//AdditionalInfo: aws.String("AssociatePublicIpAddress=true"),
+		//NetworkInterfaces: []*ec2.InstanceNetworkInterfaceSpecification{{AssociatePublicIpAddress: aws.Bool(true)}},
+
+		NetworkInterfaces: []*ec2.InstanceNetworkInterfaceSpecification{ // PublicIp 할당을 위해 SubnetId와 보안 그룹을 이 곳에서 정의해야 함.
+			{AssociatePublicIpAddress: aws.Bool(true),
+				DeviceIndex: aws.Int64(0),
+				Groups:      aws.StringSlice(newSecurityGroupIds),
+				SubnetId:    aws.String(subnetID),
+			},
+		},
+
+		//ec2.InstanceNetworkInterfaceSpecification
 	}
 	cblogger.Info(input)
 
@@ -542,7 +478,8 @@ func (vmHandler *AwsVMHandler) GetVM(vmIID irs.IID) (irs.VMInfo, error) {
 // 최종 정보 기반으로 리턴 받고 싶으면 GetVM에 통합해야 할 듯.
 func (vmHandler *AwsVMHandler) ExtractDescribeInstances(reservation *ec2.Reservation) irs.VMInfo {
 	//cblogger.Info("ExtractDescribeInstances", reservation)
-	cblogger.Debug("Instances[0]", reservation.Instances[0])
+	cblogger.Info("Instances[0]", reservation.Instances[0])
+	//spew.Dump(reservation.Instances[0])
 
 	//"stopped" / "terminated" / "running" ...
 	var state string
@@ -563,6 +500,10 @@ func (vmHandler *AwsVMHandler) ExtractDescribeInstances(reservation *ec2.Reserva
 		{Key: "State", Value: *reservation.Instances[0].State.Name},
 		{Key: "Architecture", Value: *reservation.Instances[0].Architecture},
 	}
+
+	//if *reservation.Instances[0].LaunchTime != "" {
+	vmInfo.StartTime = *reservation.Instances[0].LaunchTime
+	//}
 
 	//cblogger.Info("=======>타입 : ", reflect.TypeOf(*reservation.Instances[0]))
 	//cblogger.Info("===> PublicIpAddress TypeOf : ", reflect.TypeOf(reservation.Instances[0].PublicIpAddress))
@@ -604,6 +545,7 @@ func (vmHandler *AwsVMHandler) ExtractDescribeInstances(reservation *ec2.Reserva
 
 		if !reflect.ValueOf(reservation.Instances[0].NetworkInterfaces[0].SubnetId).IsNil() {
 			keyValueList = append(keyValueList, irs.KeyValue{Key: "SubnetId", Value: *reservation.Instances[0].NetworkInterfaces[0].SubnetId})
+			vmInfo.SubnetIID = irs.IID{SystemId: *reservation.Instances[0].NetworkInterfaces[0].SubnetId}
 		}
 
 		if !reflect.ValueOf(reservation.Instances[0].NetworkInterfaces[0].Attachment).IsNil() {
@@ -705,8 +647,8 @@ func (vmHandler *AwsVMHandler) ListVM() ([]*irs.VMInfo, error) {
 				cblogger.Errorf("VM Id[%s]에 해당하는 VM 이름을 찾을 수 없습니다!!!", *vm.InstanceId)
 				continue
 			}
-			vmInfo, _ := vmHandler.GetVM(irs.IID{NameId: tmpVmName})
-			//vmInfo, _ := vmHandler.GetVM(*vm.InstanceId)
+			//vmInfo, _ := vmHandler.GetVM(irs.IID{NameId: tmpVmName})
+			vmInfo, _ := vmHandler.GetVM(irs.IID{SystemId: *vm.InstanceId})
 			vmInfoList = append(vmInfoList, &vmInfo)
 		}
 	}

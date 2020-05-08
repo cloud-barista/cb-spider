@@ -7,7 +7,7 @@ curl -X POST http://$RESTSERVER:1024/spider/driver -H 'Content-Type: application
 curl -X POST http://$RESTSERVER:1024/spider/credential -H 'Content-Type: application/json' -d '{"CredentialName":"alibaba-credential01","ProviderName":"ALIBABA", "KeyValueInfoList": [{"Key":"ClientId", "Value":"xxxxxx"}, {"Key":"ClientSecret", "Value":"xxxxxx"}]}'
 
  # Cloud Region Info for Shooter
-curl -X POST http://$RESTSERVER:1024/spider/region -H 'Content-Type: application/json' -d '{"RegionName":"alibaba-tokyo","ProviderName":"ALIBABA", "KeyValueInfoList": [{"Key":"Region", "Value":"ap-northeast-1"}]}'
+curl -X POST http://$RESTSERVER:1024/spider/region -H 'Content-Type: application/json' -d '{"RegionName":"alibaba-tokyo","ProviderName":"ALIBABA", "KeyValueInfoList": [{"Key":"Region", "Value":"ap-northeast-1"}, {"Key":"Zone", "Value":"ap-northeast-1a"}]}'
 
  # Cloud Connection Config Info for Shooter
 curl -X POST http://$RESTSERVER:1024/spider/connectionconfig -H 'Content-Type: application/json' -d '{"ConfigName":"alibaba-tokyo-config","ProviderName":"ALIBABA", "DriverName":"alibaba-driver01", "CredentialName":"alibaba-credential01", "RegionName":"alibaba-tokyo"}'

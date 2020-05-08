@@ -104,6 +104,30 @@ func getInfo(connectionName string, resourceType string, nameId string) (*IIDInf
         return nil, fmt.Errorf("[" + connectionName + ":" + resourceType +  ":" + nameId + "] does not exist!")
 }
 
+// 1. get list
+// 2. find keyvalue by value
+// 2. create IIDInfo & return
+func getInfoByValue(connectionName string, resourceType string, systemId string) (*IIDInfo, error) {
+        // ex) /resource-info-spaces/iids/aws-seoul-config/VM/??? [i-0bc7123b7e5cbf79d]
+
+        key := "/resource-info-spaces/iids/" + connectionName + "/" + resourceType
+        keyValueList, err := store.GetList(key, true)
+        if err != nil {
+                return nil, err
+        }
+
+        for _, kv := range keyValueList {
+                // keyValueList should have ~/nameId/... or ~/nameId-01/...,
+                // so we have to check the sameness of nameId.
+                if kv.Value == systemId {
+                        iidInfo := &IIDInfo{connectionName, resourceType, resources.IID{utils.GetNodeValue(kv.Key, 5), systemId} }
+                        return iidInfo, nil
+                }
+        }
+
+        return &IIDInfo{}, nil
+}
+
 // 1. get a key-value
 // 2. return existence of  or not
 func isExist(connectionName string, resourceType string, nameId string) (bool, error) {

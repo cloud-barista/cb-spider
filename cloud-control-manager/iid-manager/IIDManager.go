@@ -11,6 +11,7 @@ package iidmanager
 import (
 	"fmt"
 	"sync"
+	"strings"
 
 	"github.com/sirupsen/logrus"
 	"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
@@ -145,6 +146,55 @@ defer iidRWLock.rwMutex.RUnlock()
 	return iidInfo, err
 }
 
+// 1. check params
+// 2. find IIDInfo from cb-store
+func (iidRWLock *IIDRWLOCK)FindIID(connectionName string, resourceType string, keyword string) (*IIDInfo, error) {
+        cblog.Info("call FindIID()")
+
+        cblog.Debug("check params")
+        err := checkParamsKeyword(connectionName, resourceType, &keyword)
+        if err != nil {
+                return nil, err
+
+        }
+
+iidRWLock.rwMutex.RLock()
+defer iidRWLock.rwMutex.RUnlock()
+        iIDInfoList, err := listInfo(connectionName, resourceType)
+        if err != nil {
+                return nil, err
+        }
+	for _, iidInfo := range iIDInfoList {
+		if strings.Contains(iidInfo.IId.NameId, keyword) {
+			return iidInfo, nil
+		}
+	}
+        return &IIDInfo{}, fmt.Errorf("[" + connectionName + ":" + resourceType +  ":" + keyword + "] does not exist!")
+}
+
+// 1. check params
+// 2. get IIDInfo from cb-store
+func (iidRWLock *IIDRWLOCK)GetIIDbySystemID(connectionName string, resourceType string, iId resources.IID) (*IIDInfo, error) {
+        cblog.Info("call GetIIDbySystemID()")
+
+        cblog.Debug("check params")
+        err := checkParamsSystemId(connectionName, resourceType, &iId)
+        if err != nil {
+                return nil, err
+        }
+
+iidRWLock.rwMutex.RLock()
+defer iidRWLock.rwMutex.RUnlock()
+        iidInfo, err := getInfoByValue(connectionName, resourceType, iId.SystemId)
+        if err != nil {
+                cblog.Error(err)
+                return nil, err
+        }
+
+        return iidInfo, err
+}
+
+
 func (iidRWLock *IIDRWLOCK)DeleteIID(connectionName string, resourceType string, iId resources.IID) (bool, error) {
 	cblog.Info("call DeleteIID()")
 
@@ -183,5 +233,34 @@ func checkParams(connectionName string, resourceType string, iId *resources.IID)
                 return fmt.Errorf("IID.NameId is empty!")
         }
 	return nil
+}
+
+func checkParamsSystemId(connectionName string, resourceType string, iId *resources.IID) error {
+        if connectionName == "" {
+                return fmt.Errorf("ConnectionName is empty!")
+        }
+        if resourceType == "" {
+                return fmt.Errorf("ResourceType is empty!")
+        }
+        if iId == nil {
+                return fmt.Errorf("IID is empty!")
+        }
+        if iId.SystemId == "" {
+                return fmt.Errorf("IID.SystemId is empty!")
+        }
+        return nil
+}
+
+func checkParamsKeyword(connectionName string, resourceType string, keyword *string) error {
+        if connectionName == "" {
+                return fmt.Errorf("ConnectionName is empty!")
+        }
+        if resourceType == "" {
+                return fmt.Errorf("ResourceType is empty!")
+        }
+        if keyword == nil {
+                return fmt.Errorf("Keyword is empty!")
+        }
+        return nil
 }
 

@@ -31,21 +31,29 @@ func init() {
 type AlibabaCloudConnection struct {
 	Region idrv.RegionInfo
 
-	VMClient            *ecs.Client
-	KeyPairClient       *ecs.Client
-	ImageClient         *ecs.Client
-	PublicIPClient      *vpc.Client
+	VMClient      *ecs.Client
+	KeyPairClient *ecs.Client
+	ImageClient   *ecs.Client
+	//PublicIPClient      *vpc.Client
 	SecurityGroupClient *ecs.Client
-	VNetClient          *vpc.Client
-	VNicClient          *ecs.Client
-	SubnetClient        *vpc.Client
-	VmSpecClient        *ecs.Client
+	//VNetClient          *vpc.Client
+	VpcClient *vpc.Client
+	//VNicClient          *ecs.Client
+	SubnetClient *vpc.Client
+	VmSpecClient *ecs.Client
 }
 
+/*
 func (cloudConn *AlibabaCloudConnection) CreateVNetworkHandler() (irs.VNetworkHandler, error) {
 	cblogger.Info("Alibaba Cloud Driver: called CreateVNetworkHandler()!")
 	vNetHandler := alirs.AlibabaVNetworkHandler{cloudConn.Region, cloudConn.VNetClient}
 	return &vNetHandler, nil
+}
+*/
+func (cloudConn *AlibabaCloudConnection) CreateVPCHandler() (irs.VPCHandler, error) {
+	cblogger.Info("Alibaba Cloud Driver: called CreateVPCHandler()!")
+	vpcHandler := alirs.AlibabaVPCHandler{cloudConn.Region, cloudConn.VpcClient}
+	return &vpcHandler, nil
 }
 
 func (cloudConn *AlibabaCloudConnection) CreateImageHandler() (irs.ImageHandler, error) {
@@ -66,18 +74,22 @@ func (cloudConn *AlibabaCloudConnection) CreateKeyPairHandler() (irs.KeyPairHand
 	return &keyPairHandler, nil
 }
 
+/*
 func (cloudConn *AlibabaCloudConnection) CreateVNicHandler() (irs.VNicHandler, error) {
 	cblogger.Info("Alibaba Cloud Driver: called CreateVNicHandler()!")
 	//vNicHandler := alirs.AlibabaVNicHandler{cloudConn.Region, cloudConn.VNicClient, cloudConn.SubnetClient}
 	vNicHandler := alirs.AlibabaVNicHandler{cloudConn.Region, cloudConn.VNicClient}
 	return &vNicHandler, nil
 }
+*/
 
+/*
 func (cloudConn *AlibabaCloudConnection) CreatePublicIPHandler() (irs.PublicIPHandler, error) {
 	cblogger.Info("Alibaba Cloud Driver: called CreatePublicIPHandler()!")
 	publicIPHandler := alirs.AlibabaPublicIPHandler{cloudConn.Region, cloudConn.PublicIPClient}
 	return &publicIPHandler, nil
 }
+*/
 
 func (cloudConn *AlibabaCloudConnection) CreateVMHandler() (irs.VMHandler, error) {
 	cblogger.Info("Alibaba Cloud Driver: called CreateVMHandler()!")
