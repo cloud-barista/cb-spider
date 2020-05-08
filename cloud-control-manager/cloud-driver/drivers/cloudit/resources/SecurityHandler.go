@@ -16,13 +16,16 @@ type ClouditSecurityHandler struct {
 }
 
 func setterSecGroup(secGroup securitygroup.SecurityGroupInfo) *irs.SecurityInfo {
+
 	secInfo := &irs.SecurityInfo{
 		IId: irs.IID{
-			NameId:   secGroup.ID,
-			SystemId: secGroup.Name,
+			NameId:   secGroup.Name,
+			SystemId: secGroup.ID,
 		},
-		//Id:            secGroup.ID,
-		//Name:          secGroup.Name,
+		VpcIID: irs.IID{
+			NameId:   "Default-VPC",
+			SystemId: "Default-VPC",
+		},
 		SecurityRules: nil,
 	}
 
@@ -113,9 +116,9 @@ func (securityHandler *ClouditSecurityHandler) ListSecurity() ([]*irs.SecurityIn
 	}
 }
 
-func (securityHandler *ClouditSecurityHandler) GetSecurity(securityNameID string) (irs.SecurityInfo, error) {
+func (securityHandler *ClouditSecurityHandler) GetSecurity(securityNameID irs.IID) (irs.SecurityInfo, error) {
 	// 이름 기준 보안그룹 조회
-	securityInfo, err := securityHandler.getSecurityByName(securityNameID)
+	securityInfo, err := securityHandler.getSecurityByName(securityNameID.NameId)
 	if err != nil {
 		cblogger.Error(err)
 		return irs.SecurityInfo{}, err
@@ -139,9 +142,9 @@ func (securityHandler *ClouditSecurityHandler) GetSecurity(securityNameID string
 	return *secGroupInfo, nil
 }
 
-func (securityHandler *ClouditSecurityHandler) DeleteSecurity(securityNameID string) (bool, error) {
+func (securityHandler *ClouditSecurityHandler) DeleteSecurity(securityNameID irs.IID) (bool, error) {
 	// 이름 기준 보안그룹 조회
-	securityInfo, err := securityHandler.getSecurityByName(securityNameID)
+	securityInfo, err := securityHandler.getSecurityByName(securityNameID.NameId)
 	if err != nil {
 		cblogger.Error(err)
 		return false, err
@@ -170,8 +173,6 @@ func (securityHandler *ClouditSecurityHandler) getSecurityByName(securityName st
 	requestOpts := client.RequestOpts{
 		MoreHeaders: authHeader,
 	}
-	// name Id
-	// Deploy,
 	securityList, err := securitygroup.List(securityHandler.Client, &requestOpts)
 	if err != nil {
 		return nil, err
