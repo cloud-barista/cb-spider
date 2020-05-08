@@ -23,12 +23,29 @@ func init() {
 func createVM(config Config, vmHandler irs.VMHandler) (irs.VMInfo, error) {
 
 	vmReqInfo := irs.VMReqInfo{
+		IId: irs.IID{
+			NameId: config.Cloudit.VMInfo.Name,
+		},
+		ImageIID: irs.IID{
+			NameId: config.Cloudit.VMInfo.TemplateId,
+		},
+		VMSpecName: config.Cloudit.VMInfo.SpecId,
+		SubnetIID: irs.IID{ // Hard coding
+			NameId: "Default-VPC-subnet-1",
+		},
+		VMUserPasswd:      config.Cloudit.VMInfo.RootPassword,
+		SecurityGroupIIDs: []irs.IID{{NameId: config.Cloudit.VMInfo.SecGroups}},
+		VpcIID: irs.IID{
+			NameId:   "Default-VPC",
+			SystemId: "Default-VPC",
+		},
+		/* original
 		VMName:           config.Cloudit.VMInfo.Name,
 		ImageId:          config.Cloudit.VMInfo.TemplateId,
 		VMSpecId:         config.Cloudit.VMInfo.SpecId,
 		VirtualNetworkId: config.Cloudit.VMInfo.SubnetAddr,
 		//SecurityGroupIds: config.Cloudit.VMInfo.SecGroups,
-		VMUserPasswd: config.Cloudit.VMInfo.RootPassword,
+		VMUserPasswd: config.Cloudit.VMInfo.RootPassword,*/
 	}
 
 	spew.Dump(vmReqInfo)
@@ -55,7 +72,9 @@ func testVMHandler() {
 	cblogger.Info("9. Terminate VM")
 	cblogger.Info("10. Exit")
 
-	var serverId irs.IID
+	serverId := irs.IID{
+		NameId: config.Cloudit.VMInfo.Name,
+	}
 
 	for {
 		var commandNum int

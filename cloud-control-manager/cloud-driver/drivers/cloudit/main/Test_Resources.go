@@ -177,7 +177,7 @@ func testSecurityHandler(config Config) {
 
 	//var securityGroupId string
 	securityGroupId := irs.IID{
-		NameId: "test",
+		NameId: config.Cloudit.Resource.Security.Name,
 	}
 
 Loop:
@@ -245,7 +245,6 @@ Loop:
 	}
 }
 
-
 //Subnet
 func testVPCHandler(config Config) {
 	resourceHandler, err := getResourceHandler("vpc")
@@ -289,7 +288,7 @@ Loop:
 				} else {
 					spew.Dump(subnetList)
 				}
-					cblogger.Info("Finish GetVPC()")
+				cblogger.Info("Finish GetVPC()")
 			case 3:
 				cblogger.Info("Start CreateVPC() ...")
 				reqInfo := irs.VPCReqInfo{

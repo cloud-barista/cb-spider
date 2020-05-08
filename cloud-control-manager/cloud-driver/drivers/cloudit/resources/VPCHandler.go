@@ -140,7 +140,7 @@ func (vpcHandler *ClouditVPCHandler) setterSubnet(subnet subnet.SubnetInfo) *irs
 			NameId:   subnet.Name,
 			SystemId: subnet.ID,
 		},
-		IPv4_CIDR: defaultVPCCIDR,
+		IPv4_CIDR: subnet.Addr + "/" + subnet.Prefix,
 	}
 	return &subnetInfo
 }
@@ -276,3 +276,47 @@ func (vpcHandler *ClouditVPCHandler) getSubnetByName(subnetName string) (*subnet
 
 	return subnetInfo, nil
 }
+
+/*
+func (vpcHandler *ClouditVPCHandler) GetSubnetForVMCreation(subnetIId irs.IID) (*irs.SubnetInfo, error) {
+	// 이름 기준 서브넷 조회
+	subnet, err := vpcHandler.getSubnetByAddr(subnetIId.NameId)
+	if err != nil {
+		cblogger.Error(err)
+		return &irs.SubnetInfo{}, err
+	}
+
+	subnetInfo := vpcHandler.setterSubnet(*subnet)
+
+	return subnetInfo, nil
+}
+
+func (vpcHandler *ClouditVPCHandler) getSubnetByAddr(subnetAddr string) (*subnet.SubnetInfo, error) {
+	var subnetInfo *subnet.SubnetInfo
+
+	vpcHandler.Client.TokenID = vpcHandler.CredentialInfo.AuthToken
+	authHeader := vpcHandler.Client.AuthenticatedHeaders()
+
+	requestOpts := client.RequestOpts{
+		MoreHeaders: authHeader,
+	}
+
+	subnetList, err := subnet.List(vpcHandler.Client, &requestOpts)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, s := range *subnetList {
+		if strings.EqualFold(s.Addr, subnetAddr) {
+			subnetInfo = &s
+			break
+		}
+	}
+
+	if subnetInfo == nil {
+		err := errors.New(fmt.Sprintf("failed to find virtual network with name %s", subnetAddr))
+		return nil, err
+	}
+
+	return subnetInfo, nil
+}*/
