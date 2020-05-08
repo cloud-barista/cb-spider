@@ -55,7 +55,7 @@ func testVMHandler() {
 	cblogger.Info("9. Terminate VM")
 	cblogger.Info("10. Exit")
 
-	var serverId string
+	var serverId irs.IID
 
 	for {
 		var commandNum int
@@ -97,7 +97,7 @@ func testVMHandler() {
 					cblogger.Error(err)
 				} else {
 					spew.Dump(vm)
-					serverId = vm.Id
+					serverId = vm.IId
 				}
 				cblogger.Info("Finish Create VM")
 			case 6:

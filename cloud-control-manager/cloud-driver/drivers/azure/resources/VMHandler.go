@@ -605,6 +605,10 @@ func CreateVNic(vmHandler *AzureVMHandler, vmReqInfo irs.VMReqInfo, publicIPIId 
 	}
 	ipConfigArr = append(ipConfigArr, ipConfig)
 
+	/*
+	 test VM is interfacingProperties
+	 */
+
 	createOpts := network.Interface{
 		InterfacePropertiesFormat: &network.InterfacePropertiesFormat{
 			IPConfigurations: &ipConfigArr,
