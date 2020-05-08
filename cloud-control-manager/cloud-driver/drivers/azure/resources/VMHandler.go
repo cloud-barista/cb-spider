@@ -23,6 +23,10 @@ import (
 	"strings"
 )
 
+const (
+	PROVISIONING_STATE_CODE string = "ProvisioningState/succeeded"
+)
+
 type AzureVMHandler struct {
 	CredentialInfo idrv.CredentialInfo
 	Region         idrv.RegionInfo
@@ -427,9 +431,11 @@ func (vmHandler *AzureVMHandler) mappingServerInfo(server compute.VirtualMachine
 	// Get SecurityGroup
 	sgGroupIdArr := strings.Split(*vNic.NetworkSecurityGroup.ID, "/")
 	sgGroupName := sgGroupIdArr[len(sgGroupIdArr)-1]
-	vmInfo.SubnetIID = irs.IID{
-		NameId:   sgGroupName,
-		SystemId: *vNic.NetworkSecurityGroup.ID,
+	vmInfo.SecurityGroupIIds = []irs.IID{
+		{
+			NameId:   sgGroupName,
+			SystemId: *vNic.NetworkSecurityGroup.ID,
+		},
 	}
 
 	// Get PrivateIP, PublicIpId
@@ -471,6 +477,14 @@ func (vmHandler *AzureVMHandler) mappingServerInfo(server compute.VirtualMachine
 	// Set BootDisk
 	if server.VirtualMachineProperties.StorageProfile.OsDisk.Name != nil {
 		vmInfo.VMBootDisk = *server.VirtualMachineProperties.StorageProfile.OsDisk.Name
+	}
+
+	// Get StartTime
+	for _, status := range *server.VirtualMachineProperties.InstanceView.Statuses {
+		if strings.EqualFold(*status.Code, PROVISIONING_STATE_CODE) {
+			vmInfo.StartTime = status.Time.Local()
+			break
+		}
 	}
 
 	// Get Keypair
