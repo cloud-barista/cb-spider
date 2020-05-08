@@ -24,3 +24,4 @@ cloud-control-manager/cloud-driver/drivers/aws/main/log/cblogs.log
 api-runtime/rest-runtime/$CBSTORE_ROOT/meta_db/dat/0.dat
 api-runtime/rest-runtime/log/cblogs.log
 /.idea/
+conf/config.yaml
