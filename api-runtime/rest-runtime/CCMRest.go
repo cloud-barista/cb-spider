@@ -1803,8 +1803,8 @@ func startVM(c echo.Context) error {
 	}
 
         rsType := rsVM
-vmRWLock.Lock()
-defer vmRWLock.Unlock()
+// vmRWLock.Lock() @todo undo this until supporting async call. by powerkim, 2020.05.10
+// defer vmRWLock.Unlock() @todo undo this until supporting async call. by powerkim, 2020.05.10
 // (1) check exist(NameID)
         bool_ret, err := iidRWLock.IsExistIID(req.ConnectionName, rsType, reqInfo.IId)
         if err != nil {
@@ -2075,8 +2075,8 @@ func terminateVM(c echo.Context) error {
 	}
 
         rsType := rsVM
-vmRWLock.Lock()
-defer vmRWLock.Unlock()
+// vmRWLock.Lock() @todo undo this until supporting async call. by powerkim, 2020.05.10
+// defer vmRWLock.Unlock() @todo undo this until supporting async call. by powerkim, 2020.05.10
 // (1) get IID(NameId)
         iidInfo, err := iidRWLock.GetIID(req.ConnectionName, rsType, cres.IID{c.Param("Name"), ""})
         if err != nil {
