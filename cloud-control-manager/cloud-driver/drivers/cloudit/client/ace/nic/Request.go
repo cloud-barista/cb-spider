@@ -42,8 +42,17 @@ type VmNicInfo struct {
 	MemSize         string
 	VolumeSize      string
 	Qos             int
-	SecGroups       []securitygroup.SecurityGroupRules
+	SecGroups       []SecurityGroupInfo `json:"secgroupMapInfo"`
 	AdaptiveMapInfo interface{}
+}
+
+type SecurityGroupInfo struct {
+	Id         string `json:"secgroup_id"`
+	Name       string
+	TenantId   string `json:"tenant_id"`
+	State      string
+	Mac        string
+	Protection int
 }
 
 func List(restClient *client.RestClient, serverId string, requestOpts *client.RequestOpts) (*[]VmNicInfo, error) {
