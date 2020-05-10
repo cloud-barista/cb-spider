@@ -38,8 +38,8 @@ func testImageHandler(config Config) {
 
 	//var imageId string
 	imageId := irs.IID{
-		NameId:   "test",
-		SystemId: "c14a9728-eb03-4813-9e1a-8f57fe62b4fb", // Ubuntu 16.04
+		NameId:   "CentOS-7",
+		SystemId: "a846af3b-5d80-4182-b38e-5501ad9f78f4",
 	}
 
 Loop:
@@ -62,8 +62,10 @@ Loop:
 				cblogger.Info("Finish ListImage()")
 			case 2:
 				cblogger.Info("Start GetImage() ...")
-				if _, err := imageHandler.GetImage(imageId); err != nil {
+				if imageInfo, err := imageHandler.GetImage(imageId); err != nil {
 					cblogger.Error(err)
+				} else {
+					spew.Dump(imageInfo)
 				}
 				cblogger.Info("Finish GetImage()")
 			case 3:
@@ -175,7 +177,6 @@ func testSecurityHandler(config Config) {
 	cblogger.Info("4. DeleteSecurity()")
 	cblogger.Info("5. Exit")
 
-	//var securityGroupId string
 	securityGroupId := irs.IID{
 		NameId: config.Cloudit.Resource.Security.Name,
 	}
@@ -200,8 +201,10 @@ Loop:
 				cblogger.Info("Finish ListSecurity()")
 			case 2:
 				cblogger.Info("Start GetSecurity() ...")
-				if _, err := securityHandler.GetSecurity(securityGroupId); err != nil {
+				if secGroupInfo, err := securityHandler.GetSecurity(securityGroupId); err != nil {
 					cblogger.Error(err)
+				} else {
+					spew.Dump(secGroupInfo)
 				}
 				cblogger.Info("Finish GetSecurity()")
 			case 3:
@@ -225,11 +228,11 @@ Loop:
 						},
 					},
 				}
-				if security, err := securityHandler.CreateSecurity(reqInfo); err != nil {
+				security, err := securityHandler.CreateSecurity(reqInfo)
+				if err != nil {
 					cblogger.Error(err)
-				} else {
-					securityGroupId = security.IId
 				}
+				securityGroupId = security.IId
 				cblogger.Info("Finish CreateSecurity()")
 			case 4:
 				cblogger.Info("Start DeleteSecurity() ...")
@@ -298,13 +301,11 @@ Loop:
 							IId: irs.IID{
 								NameId: vpcId.NameId + "-subnet-1",
 							},
-							IPv4_CIDR: "180.0.10.0/24",
 						},
 						{
 							IId: irs.IID{
 								NameId: vpcId.NameId + "-subnet-2",
 							},
-							IPv4_CIDR: "180.0.20.0/24",
 						},
 					},
 				}

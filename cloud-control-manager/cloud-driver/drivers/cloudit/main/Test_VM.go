@@ -39,16 +39,16 @@ func createVM(config Config, vmHandler irs.VMHandler) (irs.VMInfo, error) {
 			NameId:   "Default-VPC",
 			SystemId: "Default-VPC",
 		},
-		/* original
-		VMName:           config.Cloudit.VMInfo.Name,
-		ImageId:          config.Cloudit.VMInfo.TemplateId,
-		VMSpecId:         config.Cloudit.VMInfo.SpecId,
-		VirtualNetworkId: config.Cloudit.VMInfo.SubnetAddr,
-		//SecurityGroupIds: config.Cloudit.VMInfo.SecGroups,
-		VMUserPasswd: config.Cloudit.VMInfo.RootPassword,*/
+		// original
+		/*
+			VMName:           config.Cloudit.VMInfo.Name,
+			ImageId:          config.Cloudit.VMInfo.TemplateId,
+			VMSpecId:         config.Cloudit.VMInfo.SpecId,
+			VirtualNetworkId: config.Cloudit.VMInfo.SubnetAddr,
+			//SecurityGroupIds: config.Cloudit.VMInfo.SecGroups,
+			VMUserPasswd: config.Cloudit.VMInfo.RootPassword,
+		*/
 	}
-
-	spew.Dump(vmReqInfo)
 
 	return vmHandler.StartVM(vmReqInfo)
 }
