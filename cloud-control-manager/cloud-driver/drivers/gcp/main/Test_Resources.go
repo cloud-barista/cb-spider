@@ -30,7 +30,7 @@ func init() {
 }
 
 // Test SecurityHandler
-func handleSecurity() {
+func handleSecurityOld() {
 	cblogger.Debug("Start handler")
 
 	ResourceHandler, err := testconf.GetResourceHandler("Security")
@@ -110,6 +110,134 @@ func handleSecurity() {
 		cblogger.Info("보안 그룹 조회 결과")
 		//cblogger.Info(result)
 		spew.Dump(result)
+	}
+}
+
+func handleSecurity() {
+	cblogger.Debug("Start Security Resource Test")
+
+	ResourceHandler, err := testconf.GetResourceHandler("Security")
+	if err != nil {
+		panic(err)
+	}
+	handler := ResourceHandler.(irs.SecurityHandler)
+
+	//config := readConfigFile()
+	//VmID := config.Aws.VmID
+
+	securityName := "cb-securitytest1"
+	securityId := "sg-6weeb9xaodr65g7bq10c"
+	vpcId := "cb-vpc"
+
+	for {
+		fmt.Println("Security Management")
+		fmt.Println("0. Quit")
+		fmt.Println("1. Security List")
+		fmt.Println("2. Security Create")
+		fmt.Println("3. Security Get")
+		fmt.Println("4. Security Delete")
+
+		var commandNum int
+		inputCnt, err := fmt.Scan(&commandNum)
+		if err != nil {
+			panic(err)
+		}
+
+		if inputCnt == 1 {
+			switch commandNum {
+			case 0:
+				return
+
+			case 1:
+				result, err := handler.ListSecurity()
+				if err != nil {
+					cblogger.Infof(" Security 목록 조회 실패 : ", err)
+				} else {
+					cblogger.Info("Security 목록 조회 결과")
+					//cblogger.Info(result)
+					spew.Dump(result)
+					if result != nil {
+						securityId = result[0].IId.SystemId // 조회 및 삭제를 위해 생성된 ID로 변경
+					}
+					cblogger.Infof("전체 목록 수 : [%d]", len(result))
+				}
+
+			case 2:
+				cblogger.Infof("[%s] Security 생성 테스트", securityName)
+				securityReqInfo := irs.SecurityReqInfo{
+					IId:    irs.IID{NameId: securityName},
+					VpcIID: irs.IID{SystemId: vpcId},
+					SecurityRules: &[]irs.SecurityRuleInfo{ //보안 정책 설정
+						{
+							FromPort:   "20",
+							ToPort:     "22",
+							IPProtocol: "tcp",
+							Direction:  "inbound",
+						},
+
+						{
+							FromPort:   "80",
+							ToPort:     "80",
+							IPProtocol: "tcp",
+							Direction:  "inbound",
+						},
+						{
+							FromPort:   "8080",
+							ToPort:     "8080",
+							IPProtocol: "tcp",
+							Direction:  "inbound",
+						},
+						{
+							FromPort:   "443",
+							ToPort:     "443",
+							IPProtocol: "tcp",
+							Direction:  "outbound",
+						},
+						{
+							FromPort:   "8443",
+							ToPort:     "9999",
+							IPProtocol: "tcp",
+							Direction:  "outbound",
+						},
+						/*
+							{
+								//FromPort:   "8443",
+								//ToPort:     "9999",
+								IPProtocol: "-1", // 모두 허용 (포트 정보 없음)
+								Direction:  "inbound",
+							},
+						*/
+					},
+				}
+
+				result, err := handler.CreateSecurity(securityReqInfo)
+				if err != nil {
+					cblogger.Infof(securityName, " Security 생성 실패 : ", err)
+				} else {
+					cblogger.Infof("[%s] Security 생성 결과 : [%v]", securityName, result)
+					spew.Dump(result)
+				}
+
+			case 3:
+				cblogger.Infof("[%s] Security 조회 테스트", securityId)
+				result, err := handler.GetSecurity(irs.IID{SystemId: securityId})
+				if err != nil {
+					cblogger.Infof(securityId, " Security 조회 실패 : ", err)
+				} else {
+					cblogger.Infof("[%s] Security 조회 결과 : [%v]", securityId, result)
+					spew.Dump(result)
+				}
+
+			case 4:
+				cblogger.Infof("[%s] Security 삭제 테스트", securityId)
+				result, err := handler.DeleteSecurity(irs.IID{SystemId: securityId})
+				if err != nil {
+					cblogger.Infof(securityId, " Security 삭제 실패 : ", err)
+				} else {
+					cblogger.Infof("[%s] Security 삭제 결과 : [%s]", securityId, result)
+				}
+			}
+		}
 	}
 }
 
@@ -211,37 +339,6 @@ func handleVPC() {
 	}
 	cblogger.Debug("=============================")
 	handler := ResourceHandler.(irs.VPCHandler)
-	/*
-		vpcName := "cb-vpc"
-		subnetList := []irs.SubnetInfo{
-			{
-				IId: irs.IID{
-					NameId:   "cb-sub1",
-					SystemId: "cb-sub1",
-				},
-				IPv4_CIDR: "10.0.3.0/24",
-			},
-			{
-				IId: irs.IID{
-					NameId:   "cb-sub2",
-					SystemId: "cb-sub2",
-				},
-				IPv4_CIDR: "10.0.4.0/24",
-			},
-		}
-		vNetworkReqInfo := irs.VPCReqInfo{
-			IId: irs.IID{
-				NameId:   vpcName,
-				SystemId: vpcName,
-			},
-			SubnetInfoList: subnetList,
-		}
-
-		reqSubnetId := irs.IID{
-			NameId:   "cb-vpc",
-			SystemId: "cb-vpc",
-		}
-	*/
 
 	vpcReqInfo := irs.VPCReqInfo{
 		IId: irs.IID{NameId: "cb-vpc"},
@@ -600,9 +697,8 @@ func main() {
 	//handleVPC()
 	//handleVMSpec()
 	//handleImage() //AMI
-
-	handleKeyPair()
-	//handleSecurity()
+	//handleKeyPair()
+	handleSecurity()
 
 	//handleVM()
 

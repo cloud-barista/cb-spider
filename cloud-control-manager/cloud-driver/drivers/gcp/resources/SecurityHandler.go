@@ -32,6 +32,7 @@ type GCPSecurityHandler struct {
 }
 
 func (securityHandler *GCPSecurityHandler) CreateSecurity(securityReqInfo irs.SecurityReqInfo) (irs.SecurityInfo, error) {
+	cblogger.Info(securityReqInfo)
 
 	vNetworkHandler := GCPVPCHandler{
 		Client:     securityHandler.Client,
@@ -43,6 +44,7 @@ func (securityHandler *GCPSecurityHandler) CreateSecurity(securityReqInfo irs.Se
 	vNetInfo, errVnet := vNetworkHandler.GetVPC(securityReqInfo.VpcIID)
 	spew.Dump(vNetInfo)
 	if errVnet != nil {
+		cblogger.Error(errVnet)
 		return irs.SecurityInfo{}, errVnet
 	}
 
@@ -82,7 +84,8 @@ func (securityHandler *GCPSecurityHandler) CreateSecurity(securityReqInfo irs.Se
 	}
 
 	prefix := "https://www.googleapis.com/compute/v1/projects/" + projectID
-	networkURL := prefix + "/global/networks/" + securityReqInfo.VpcIID.NameId
+	//networkURL := prefix + "/global/networks/" + securityReqInfo.VpcIID.NameId
+	networkURL := prefix + "/global/networks/" + securityReqInfo.VpcIID.SystemId
 
 	fireWall := &compute.Firewall{
 		Allowed:   firewallAllowed,
@@ -100,15 +103,13 @@ func (securityHandler *GCPSecurityHandler) CreateSecurity(securityReqInfo irs.Se
 	res, err := securityHandler.Client.Firewalls.Insert(projectID, fireWall).Do()
 	if err != nil {
 		cblogger.Error(err)
-
 		return irs.SecurityInfo{}, err
 	}
 	fmt.Println("create result : ", res)
 	time.Sleep(time.Second * 3)
-	secInfo, _ := securityHandler.GetSecurity(securityReqInfo.IId)
-
+	//secInfo, _ := securityHandler.GetSecurity(securityReqInfo.IId)
+	secInfo, _ := securityHandler.GetSecurity(irs.IID{SystemId: securityReqInfo.IId.NameId})
 	return secInfo, nil
-
 }
 
 func (securityHandler *GCPSecurityHandler) ListSecurity() ([]*irs.SecurityInfo, error) {
@@ -116,14 +117,16 @@ func (securityHandler *GCPSecurityHandler) ListSecurity() ([]*irs.SecurityInfo, 
 	projectID := securityHandler.Credential.ProjectID
 	result, err := securityHandler.Client.Firewalls.List(projectID).Do()
 	if err != nil {
+		cblogger.Error(err)
 		return nil, err
 	}
 
 	var securityInfo []*irs.SecurityInfo
 	for _, item := range result.Items {
 		name := item.Name
-		systemId := strconv.FormatUint(item.Id, 10)
-		secInfo, _ := securityHandler.GetSecurity(irs.IID{NameId: name, SystemId: systemId})
+		//systemId := strconv.FormatUint(item.Id, 10)
+		//secInfo, _ := securityHandler.GetSecurity(irs.IID{NameId: name, SystemId: systemId})
+		secInfo, _ := securityHandler.GetSecurity(irs.IID{SystemId: name})
 
 		securityInfo = append(securityInfo, &secInfo)
 	}
