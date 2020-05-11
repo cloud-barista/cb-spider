@@ -480,10 +480,12 @@ func (vmHandler *AzureVMHandler) mappingServerInfo(server compute.VirtualMachine
 	}
 
 	// Get StartTime
-	for _, status := range *server.VirtualMachineProperties.InstanceView.Statuses {
-		if strings.EqualFold(*status.Code, PROVISIONING_STATE_CODE) {
-			vmInfo.StartTime = status.Time.Local()
-			break
+	if server.VirtualMachineProperties.InstanceView != nil {
+		for _, status := range *server.VirtualMachineProperties.InstanceView.Statuses {
+			if strings.EqualFold(*status.Code, PROVISIONING_STATE_CODE) {
+				vmInfo.StartTime = status.Time.Local()
+				break
+			}
 		}
 	}
 
@@ -607,7 +609,7 @@ func CreateVNic(vmHandler *AzureVMHandler, vmReqInfo irs.VMReqInfo, publicIPIId 
 
 	/*
 	 test VM is interfacingProperties
-	 */
+	*/
 
 	createOpts := network.Interface{
 		InterfacePropertiesFormat: &network.InterfacePropertiesFormat{
