@@ -692,14 +692,174 @@ func handleVMSpec() {
 	}
 }
 
+// Test VM Lifecycle Management (Create/Suspend/Resume/Reboot/Terminate)
+func handleVM() {
+	cblogger.Debug("Start VMHandler Resource Test")
+
+	ResourceHandler, err := testconf.GetResourceHandler("VM")
+	if err != nil {
+		panic(err)
+	}
+	vmHandler := ResourceHandler.(irs.VMHandler)
+
+	//config := readConfigFile()
+	//VmID := irs.IID{NameId: config.Aws.BaseName, SystemId: config.Aws.VmID}
+	VmID := irs.IID{SystemId: "i-6weayupx7qvidhmyl48d"}
+
+	for {
+		fmt.Println("VM Management")
+		fmt.Println("0. Quit")
+		fmt.Println("1. VM Start")
+		fmt.Println("2. VM Info")
+		fmt.Println("3. Suspend VM")
+		fmt.Println("4. Resume VM")
+		fmt.Println("5. Reboot VM")
+		fmt.Println("6. Terminate VM")
+
+		fmt.Println("7. GetVMStatus VM")
+		fmt.Println("8. ListVMStatus VM")
+		fmt.Println("9. ListVM")
+
+		var commandNum int
+		inputCnt, err := fmt.Scan(&commandNum)
+		if err != nil {
+			panic(err)
+		}
+
+		if inputCnt == 1 {
+			switch commandNum {
+			case 0:
+				return
+
+			case 1:
+				vmReqInfo := irs.VMReqInfo{
+					IId: irs.IID{NameId: "mcloud-barista-vm-test"},
+					ImageIID: irs.IID{
+						NameId:   "projects/ubuntu-os-cloud/global/images/ubuntu-minimal-1804-bionic-v20200415",
+						SystemId: "projects/ubuntu-os-cloud/global/images/ubuntu-minimal-1804-bionic-v20200415",
+					},
+					VpcIID:            irs.IID{SystemId: "cb-vpc"},
+					SubnetIID:         irs.IID{SystemId: "cb-sub1"},
+					SecurityGroupIIDs: []irs.IID{{SystemId: "cb-securitytest1"}},
+					VMSpecName:        "f1-micro",
+					KeyPairIID:        irs.IID{SystemId: "cb-keypairtest123123"},
+					VMUserId:          "cb-user",
+				}
+
+				vmInfo, err := vmHandler.StartVM(vmReqInfo)
+				if err != nil {
+					//panic(err)
+					cblogger.Error(err)
+				} else {
+					cblogger.Info("VM 생성 완료!!", vmInfo)
+					spew.Dump(vmInfo)
+					VmID = vmInfo.IId
+				}
+				//cblogger.Info(vm)
+
+				cblogger.Info("Finish Create VM")
+
+			case 2:
+				vmInfo, err := vmHandler.GetVM(VmID)
+				if err != nil {
+					cblogger.Errorf("[%s] VM 정보 조회 실패", VmID)
+					cblogger.Error(err)
+				} else {
+					cblogger.Infof("[%s] VM 정보 조회 결과", VmID)
+					cblogger.Info(vmInfo)
+					spew.Dump(vmInfo)
+				}
+
+			case 3:
+				cblogger.Info("Start Suspend VM ...")
+				result, err := vmHandler.SuspendVM(VmID)
+				if err != nil {
+					cblogger.Errorf("[%s] VM Suspend 실패 - [%s]", VmID, result)
+					cblogger.Error(err)
+				} else {
+					cblogger.Infof("[%s] VM Suspend 성공 - [%s]", VmID, result)
+				}
+
+			case 4:
+				cblogger.Info("Start Resume  VM ...")
+				result, err := vmHandler.ResumeVM(VmID)
+				if err != nil {
+					cblogger.Errorf("[%s] VM Resume 실패 - [%s]", VmID, result)
+					cblogger.Error(err)
+				} else {
+					cblogger.Infof("[%s] VM Resume 성공 - [%s]", VmID, result)
+				}
+
+			case 5:
+				cblogger.Info("Start Reboot  VM ...")
+				result, err := vmHandler.RebootVM(VmID)
+				if err != nil {
+					cblogger.Errorf("[%s] VM Reboot 실패 - [%s]", VmID, result)
+					cblogger.Error(err)
+				} else {
+					cblogger.Infof("[%s] VM Reboot 성공 - [%s]", VmID, result)
+				}
+
+			case 6:
+				cblogger.Info("Start Terminate  VM ...")
+				result, err := vmHandler.TerminateVM(VmID)
+				if err != nil {
+					cblogger.Errorf("[%s] VM Terminate 실패 - [%s]", VmID, result)
+					cblogger.Error(err)
+				} else {
+					cblogger.Infof("[%s] VM Terminate 성공 - [%s]", VmID, result)
+				}
+
+			case 7:
+				cblogger.Info("Start Get VM Status...")
+				vmStatus, err := vmHandler.GetVMStatus(VmID)
+				if err != nil {
+					cblogger.Errorf("[%s] VM Get Status 실패", VmID)
+					cblogger.Error(err)
+				} else {
+					cblogger.Infof("[%s] VM Get Status 성공 : [%s]", VmID, vmStatus)
+				}
+
+			case 8:
+				cblogger.Info("Start ListVMStatus ...")
+				vmStatusInfos, err := vmHandler.ListVMStatus()
+				if err != nil {
+					cblogger.Error("ListVMStatus 실패")
+					cblogger.Error(err)
+				} else {
+					cblogger.Info("ListVMStatus 성공")
+					cblogger.Info(vmStatusInfos)
+					spew.Dump(vmStatusInfos)
+				}
+
+			case 9:
+				cblogger.Info("Start ListVM ...")
+				vmList, err := vmHandler.ListVM()
+				if err != nil {
+					cblogger.Error("ListVM 실패")
+					cblogger.Error(err)
+				} else {
+					cblogger.Info("ListVM 성공")
+					cblogger.Info("=========== VM 목록 ================")
+					cblogger.Info(vmList)
+					spew.Dump(vmList)
+					if len(vmList) > 0 {
+						VmID = vmList[0].IId
+					}
+				}
+
+			}
+		}
+	}
+}
+
 func main() {
 	cblogger.Info("GCP Resource Test")
 	//handleVPC()
 	//handleVMSpec()
 	//handleImage() //AMI
 	//handleKeyPair()
-	handleSecurity()
+	//handleSecurity()
 
-	//handleVM()
-
+	handleVM()
 }
