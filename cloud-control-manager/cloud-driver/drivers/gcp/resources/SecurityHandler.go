@@ -173,8 +173,13 @@ func (securityHandler *GCPSecurityHandler) GetSecurity(securityIID irs.IID) (irs
 	vpcName := vpcArr[len(vpcArr)-1]
 	securityInfo := irs.SecurityInfo{
 		IId: irs.IID{
-			NameId:   security.Name,
-			SystemId: strconv.FormatUint(security.Id, 10),
+			NameId: security.Name,
+			//SystemId: strconv.FormatUint(security.Id, 10),
+			SystemId: security.Name,
+		},
+		VpcIID: irs.IID{
+			NameId:   vpcName,
+			SystemId: vpcName,
 		},
 
 		Direction: security.Direction,
@@ -182,7 +187,7 @@ func (securityHandler *GCPSecurityHandler) GetSecurity(securityIID irs.IID) (irs
 			{"Priority", strconv.FormatInt(security.Priority, 10)},
 			{"SourceRanges", security.SourceRanges[0]},
 			{"Allowed", security.Allowed[0].IPProtocol},
-			{"VpcName", vpcName},
+			{"Vpc", vpcName},
 		},
 		SecurityRules: &securityRules,
 	}

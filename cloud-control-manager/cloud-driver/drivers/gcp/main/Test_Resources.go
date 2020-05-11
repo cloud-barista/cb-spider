@@ -859,7 +859,7 @@ func main() {
 	//handleVMSpec()
 	//handleImage() //AMI
 	//handleKeyPair()
-	//handleSecurity()
+	handleSecurity()
 
-	handleVM()
+	//handleVM()
 }

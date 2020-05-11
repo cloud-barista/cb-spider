@@ -269,18 +269,19 @@ func (vVPCHandler *GCPVPCHandler) GetVPC(vpcIID irs.IID) (irs.VPCInfo, error) {
 func mappingSubnet(subnet *compute.Subnetwork) irs.SubnetInfo {
 	//str := subnet.SelfLink
 	str := strings.Split(subnet.SelfLink, "/")
-	vpcName := str[len(str)-1]
+	subnetName := str[len(str)-1]
 	regionStr := strings.Split(subnet.Region, "/")
 	region := regionStr[len(regionStr)-1]
 	subnetInfo := irs.SubnetInfo{
 		IId: irs.IID{
-			NameId:   subnet.Name,
-			SystemId: strconv.FormatUint(subnet.Id, 10),
+			NameId: subnet.Name,
+			//SystemId: strconv.FormatUint(subnet.Id, 10),
+			SystemId: subnet.Name,
 		},
 		IPv4_CIDR: subnet.IpCidrRange,
 		KeyValueList: []irs.KeyValue{
 			{"region", region},
-			{"vpc", vpcName},
+			{"subnet", subnetName},
 		},
 	}
 	return subnetInfo
