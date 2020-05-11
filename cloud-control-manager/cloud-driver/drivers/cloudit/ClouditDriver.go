@@ -26,7 +26,7 @@ func (ClouditDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	var drvCapabilityInfo idrv.DriverCapabilityInfo
 
 	drvCapabilityInfo.ImageHandler = false
-	drvCapabilityInfo.VNetworkHandler = false
+	drvCapabilityInfo.VPCHandler = false
 	drvCapabilityInfo.SecurityHandler = false
 	drvCapabilityInfo.KeyPairHandler = false
 	drvCapabilityInfo.VNicHandler = false

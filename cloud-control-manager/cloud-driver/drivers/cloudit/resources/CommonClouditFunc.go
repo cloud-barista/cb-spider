@@ -3,12 +3,13 @@ package resources
 import (
 	"fmt"
 	"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/cloudit/client"
+	"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/cloudit/client/ace/nic"
 	"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/cloudit/client/ace/specs"
 	"strings"
 )
 
 // VM Spec 정보 조회
-func GetVMSpec(authHeader map[string]string, reqClient *client.RestClient, specName string) (*string, error) {
+func GetVMSpecByName(authHeader map[string]string, reqClient *client.RestClient, specName string) (*string, error) {
 	requestOpts := client.RequestOpts{
 		MoreHeaders: authHeader,
 	}
@@ -32,4 +33,16 @@ func GetVMSpec(authHeader map[string]string, reqClient *client.RestClient, specN
 		return nil, err
 	}
 	return &specInfo.Id, nil
+}
+
+// VNic 목록 조회
+func ListVNic(authHeader map[string]string, reqClient *client.RestClient, vmId string) (*[]nic.VmNicInfo, error) {
+	requestOpts := client.RequestOpts{
+		MoreHeaders: authHeader,
+	}
+	vNicList, err := nic.List(reqClient, vmId, &requestOpts)
+	if err != nil {
+		return nil, err
+	}
+	return vNicList, nil
 }
