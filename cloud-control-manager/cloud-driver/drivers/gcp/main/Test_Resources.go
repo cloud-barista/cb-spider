@@ -341,7 +341,7 @@ func handleVPC() {
 	handler := ResourceHandler.(irs.VPCHandler)
 
 	vpcReqInfo := irs.VPCReqInfo{
-		IId: irs.IID{NameId: "cb-vpc"},
+		IId: irs.IID{NameId: "cb-vpc2"},
 		//IPv4_CIDR: "10.0.0.0/16",
 		SubnetInfoList: []irs.SubnetInfo{
 			{
@@ -855,11 +855,11 @@ func handleVM() {
 
 func main() {
 	cblogger.Info("GCP Resource Test")
-	//handleVPC()
+	handleVPC()
 	//handleVMSpec()
 	//handleImage() //AMI
 	//handleKeyPair()
 	//handleSecurity()
 
-	handleVM()
+	//handleVM()
 }
