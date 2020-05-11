@@ -338,7 +338,7 @@ func handleVPC() {
 }
 
 // Test KeyPair
-func handleKeyPair() {
+func handleKeyPairOld() {
 	cblogger.Debug("Start KeyPair Resource Test")
 
 	ResourceHandler, err := testconf.GetResourceHandler("KeyPair")
@@ -419,6 +419,88 @@ func handleKeyPair() {
 	}
 }
 
+func handleKeyPair() {
+	cblogger.Debug("Start KeyPair Resource Test")
+
+	ResourceHandler, err := testconf.GetResourceHandler("KeyPair")
+	if err != nil {
+		panic(err)
+	}
+	handler := ResourceHandler.(irs.KeyPairHandler)
+
+	//config := readConfigFile()
+	//VmID := config.Aws.VmID
+
+	keyPairName := "CB-KeyPairTest123123"
+	//keyPairName := config.Aws.KeyName
+
+	for {
+		fmt.Println("KeyPair Management")
+		fmt.Println("0. Quit")
+		fmt.Println("1. KeyPair List")
+		fmt.Println("2. KeyPair Create")
+		fmt.Println("3. KeyPair Get")
+		fmt.Println("4. KeyPair Delete")
+
+		var commandNum int
+		inputCnt, err := fmt.Scan(&commandNum)
+		if err != nil {
+			panic(err)
+		}
+
+		if inputCnt == 1 {
+			switch commandNum {
+			case 0:
+				return
+
+			case 1:
+				result, err := handler.ListKey()
+				if err != nil {
+					cblogger.Infof(" 키 페어 목록 조회 실패 : ", err)
+				} else {
+					cblogger.Info("키 페어 목록 조회 결과")
+					//cblogger.Info(result)
+					spew.Dump(result)
+					if result != nil {
+						keyPairName = result[0].IId.SystemId // 조회 및 삭제를 위해 생성된 ID로 변경
+					}
+					cblogger.Infof("키 페어 목록 수 : [%d]", len(result))
+				}
+
+			case 2:
+				cblogger.Infof("[%s] 키 페어 생성 테스트", keyPairName)
+				keyPairReqInfo := irs.KeyPairReqInfo{
+					IId: irs.IID{NameId: keyPairName},
+				}
+				result, err := handler.CreateKey(keyPairReqInfo)
+				if err != nil {
+					cblogger.Infof(keyPairName, " 키 페어 생성 실패 : ", err)
+				} else {
+					cblogger.Infof("[%s] 키 페어 생성 결과 : [%s]", keyPairName, result)
+					spew.Dump(result)
+				}
+			case 3:
+				cblogger.Infof("[%s] 키 페어 조회 테스트", keyPairName)
+				result, err := handler.GetKey(irs.IID{SystemId: keyPairName})
+				if err != nil {
+					cblogger.Infof(keyPairName, " 키 페어 조회 실패 : ", err)
+				} else {
+					cblogger.Infof("[%s] 키 페어 조회 결과 : [%s]", keyPairName, result)
+					spew.Dump(result)
+				}
+			case 4:
+				cblogger.Infof("[%s] 키 페어 삭제 테스트", keyPairName)
+				result, err := handler.DeleteKey(irs.IID{SystemId: keyPairName})
+				if err != nil {
+					cblogger.Infof(keyPairName, " 키 페어 삭제 실패 : ", err)
+				} else {
+					cblogger.Infof("[%s] 키 페어 삭제 결과 : [%s]", keyPairName, result)
+				}
+			}
+		}
+	}
+}
+
 // Test VMSpec
 func handleVMSpec() {
 	cblogger.Info("Start VMSpec Resource Test")
@@ -463,6 +545,10 @@ func handleVMSpec() {
 				} else {
 					cblogger.Info("ListVMSpec 목록 조회 결과")
 					spew.Dump(result)
+					//n1-standard-64
+					if len(result) > 0 {
+						machinename = result[0].Name
+					}
 				}
 
 				fmt.Println("Finish ListVMSpec()")
@@ -511,10 +597,13 @@ func handleVMSpec() {
 
 func main() {
 	cblogger.Info("GCP Resource Test")
+	//handleVPC()
+	//handleVMSpec()
+	//handleImage() //AMI
 
-	//handleKeyPair()
-
-	// handleImage() //AMI
+	handleKeyPair()
 	//handleSecurity()
-	handleVPC()
+
+	//handleVM()
+
 }
