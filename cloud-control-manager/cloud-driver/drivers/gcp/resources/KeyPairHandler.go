@@ -39,8 +39,13 @@ func (keyPairHandler *GCPKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPairReq
 
 	//projectId := keyPairHandler.CredentialInfo.ProjectID
 	keyPairPath := os.Getenv("CBSPIDER_ROOT") + CBKeyPairPath
+	cblogger.Infof("Getenv[CBSPIDER_ROOT] : [%s]", os.Getenv("CBSPIDER_ROOT"))
+	cblogger.Infof("CBKeyPairPath : [%s]", CBKeyPairPath)
+	cblogger.Infof("Final keyPairPath : [%s]", keyPairPath)
+
 	hashString, err := CreateHashString(keyPairHandler.CredentialInfo)
 	if err != nil {
+		cblogger.Error(err)
 		return irs.KeyPairInfo{}, err
 	}
 
@@ -52,12 +57,14 @@ func (keyPairHandler *GCPKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPairReq
 	if _, err := os.Stat(savePrivateFileTo); err == nil {
 		errMsg := fmt.Sprintf("KeyPair with name %s already exist", keyPairName)
 		createErr := errors.New(errMsg)
+		cblogger.Error(err)
 		return irs.KeyPairInfo{}, createErr
 	}
 
 	// 지정된 바이트크기의 RSA 형식 개인키(비공개키)를 만듬
 	privateKey, err := generatePrivateKey(bitSize)
 	if err != nil {
+		cblogger.Error(err)
 		return irs.KeyPairInfo{}, err
 	}
 
@@ -72,18 +79,21 @@ func (keyPairHandler *GCPKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPairReq
 	publicKeyString = strings.TrimSpace(publicKeyString) + " " + "cb-user"
 	fmt.Println("publicKeyString : ", publicKeyString)
 	if err != nil {
+		cblogger.Error(err)
 		return irs.KeyPairInfo{}, err
 	}
 
 	// 파일에 private Key를 쓴다
 	err = writeKeyToFile(privateKeyBytes, savePrivateFileTo)
 	if err != nil {
+		cblogger.Error(err)
 		return irs.KeyPairInfo{}, err
 	}
 
 	// 파일에 public Key를 쓴다
 	err = writeKeyToFile([]byte(publicKeyString), savePublicFileTo)
 	if err != nil {
+		cblogger.Error(err)
 		return irs.KeyPairInfo{}, err
 	}
 
@@ -100,8 +110,14 @@ func (keyPairHandler *GCPKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPairReq
 
 func (keyPairHandler *GCPKeyPairHandler) ListKey() ([]*irs.KeyPairInfo, error) {
 	keyPairPath := os.Getenv("CBSPIDER_ROOT") + CBKeyPairPath
+	cblogger.Infof("Getenv[CBSPIDER_ROOT] : [%s]", os.Getenv("CBSPIDER_ROOT"))
+	cblogger.Infof("CBKeyPairPath : [%s]", CBKeyPairPath)
+	cblogger.Infof("Final keyPairPath : [%s]", keyPairPath)
+
 	hashString, err := CreateHashString(keyPairHandler.CredentialInfo)
 	if err != nil {
+		cblogger.Error("Fail CreateHashString")
+		cblogger.Error(err)
 		return nil, err
 	}
 
@@ -109,6 +125,8 @@ func (keyPairHandler *GCPKeyPairHandler) ListKey() ([]*irs.KeyPairInfo, error) {
 
 	files, err := ioutil.ReadDir(keyPairPath)
 	if err != nil {
+		cblogger.Error("Fail ReadDir(keyPairPath)")
+		cblogger.Error(err)
 		return nil, err
 	}
 
@@ -118,8 +136,10 @@ func (keyPairHandler *GCPKeyPairHandler) ListKey() ([]*irs.KeyPairInfo, error) {
 		}
 		if strings.Contains(f.Name(), hashString) {
 			fileNameArr := strings.Split(f.Name(), "--")
-			keypairInfo, err := keyPairHandler.GetKey(irs.IID{NameId: fileNameArr[1]})
+			keypairInfo, err := keyPairHandler.GetKey(irs.IID{SystemId: fileNameArr[1]})
 			if err != nil {
+				cblogger.Error("Fail GetKey")
+				cblogger.Error(err)
 				return nil, err
 			}
 			keyPairInfoList = append(keyPairInfoList, &keypairInfo)
@@ -130,12 +150,21 @@ func (keyPairHandler *GCPKeyPairHandler) ListKey() ([]*irs.KeyPairInfo, error) {
 }
 
 func (keyPairHandler *GCPKeyPairHandler) GetKey(keyIID irs.IID) (irs.KeyPairInfo, error) {
-	cblogger.Infof("keyPairName : [%s]", keyIID.NameId)
-	keyPairName := strings.ToLower(keyIID.NameId)
+	cblogger.Infof("keyPairName : [%s]", keyIID.SystemId)
+	keyPairName := strings.ToLower(keyIID.SystemId)
 	cblogger.Infof("keyPairName 소문자로 치환 : [%s]", keyPairName)
 
 	keyPairPath := os.Getenv("CBSPIDER_ROOT") + CBKeyPairPath
+	cblogger.Infof("Getenv[CBSPIDER_ROOT] : [%s]", os.Getenv("CBSPIDER_ROOT"))
+	cblogger.Infof("CBKeyPairPath : [%s]", CBKeyPairPath)
+	cblogger.Infof("Final keyPairPath : [%s]", keyPairPath)
+
 	hashString, err := CreateHashString(keyPairHandler.CredentialInfo)
+	if err != nil {
+		cblogger.Error("Fail CreateHashString")
+		cblogger.Error(err)
+		return irs.KeyPairInfo{}, err
+	}
 
 	privateKeyPath := keyPairPath + hashString + "--" + keyPairName
 	publicKeyPath := keyPairPath + hashString + "--" + keyPairName + ".pub"
@@ -143,10 +172,12 @@ func (keyPairHandler *GCPKeyPairHandler) GetKey(keyIID irs.IID) (irs.KeyPairInfo
 	// Private Key, Public Key 파일 정보 가져오기
 	privateKeyBytes, err := ioutil.ReadFile(privateKeyPath)
 	if err != nil {
+		cblogger.Error(err)
 		return irs.KeyPairInfo{}, err
 	}
 	publicKeyBytes, err := ioutil.ReadFile(publicKeyPath)
 	if err != nil {
+		cblogger.Error(err)
 		return irs.KeyPairInfo{}, err
 	}
 
@@ -162,13 +193,19 @@ func (keyPairHandler *GCPKeyPairHandler) GetKey(keyIID irs.IID) (irs.KeyPairInfo
 }
 
 func (keyPairHandler *GCPKeyPairHandler) DeleteKey(keyIID irs.IID) (bool, error) {
-	cblogger.Infof("keyPairName : [%s]", keyIID.NameId)
-	keyPairName := strings.ToLower(keyIID.NameId)
+	cblogger.Infof("keyPairName : [%s]", keyIID.SystemId)
+	keyPairName := strings.ToLower(keyIID.SystemId)
 	cblogger.Infof("keyPairName 소문자로 치환 : [%s]", keyPairName)
 
 	keyPairPath := os.Getenv("CBSPIDER_ROOT") + CBKeyPairPath
+	cblogger.Infof("Getenv[CBSPIDER_ROOT] : [%s]", os.Getenv("CBSPIDER_ROOT"))
+	cblogger.Infof("CBKeyPairPath : [%s]", CBKeyPairPath)
+	cblogger.Infof("Final keyPairPath : [%s]", keyPairPath)
+
 	hashString, err := CreateHashString(keyPairHandler.CredentialInfo)
 	if err != nil {
+		cblogger.Error("Fail CreateHashString")
+		cblogger.Error(err)
 		return false, err
 	}
 
@@ -178,10 +215,12 @@ func (keyPairHandler *GCPKeyPairHandler) DeleteKey(keyIID irs.IID) (bool, error)
 	// Private Key, Public Key 삭제
 	err = os.Remove(privateKeyPath)
 	if err != nil {
+		cblogger.Error(err)
 		return false, err
 	}
 	err = os.Remove(publicKeyPath)
 	if err != nil {
+		cblogger.Error(err)
 		return false, err
 	}
 
@@ -193,12 +232,14 @@ func generatePrivateKey(bitSize int) (*rsa.PrivateKey, error) {
 	// Private Key 생성
 	privateKey, err := rsa.GenerateKey(rand.Reader, bitSize)
 	if err != nil {
+		cblogger.Error(err)
 		return nil, err
 	}
 
 	// Private Key 확인
 	err = privateKey.Validate()
 	if err != nil {
+		cblogger.Error(err)
 		return nil, err
 	}
 
@@ -231,6 +272,7 @@ func encodePrivateKeyToPEM(privateKey *rsa.PrivateKey) []byte {
 func generatePublicKey(privatekey *rsa.PublicKey) ([]byte, error) {
 	publicRsaKey, err := ssh.NewPublicKey(privatekey)
 	if err != nil {
+		cblogger.Error(err)
 		return nil, err
 	}
 
@@ -245,6 +287,7 @@ func generatePublicKey(privatekey *rsa.PublicKey) ([]byte, error) {
 func writeKeyToFile(keyBytes []byte, saveFileTo string) error {
 	err := ioutil.WriteFile(saveFileTo, keyBytes, 0600)
 	if err != nil {
+		cblogger.Error(err)
 		return err
 	}
 

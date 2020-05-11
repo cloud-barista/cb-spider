@@ -8,9 +8,9 @@
 //
 // by jazmandorf@gmail.com MZC
 
-package main
+//package main
 
-//package gcp
+package gcp
 
 import (
 	"C"
@@ -82,9 +82,9 @@ func (driver *GCPDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (icon.
 		VPCHandler:    VMClient,
 	}
 
-	fmt.Println("################## resource ConnectionInfo ##################")
-	fmt.Println("iConn : ", iConn)
-	fmt.Println("################## resource ConnectionInfo ##################")
+	//fmt.Println("################## resource ConnectionInfo ##################")
+	//fmt.Println("iConn : ", iConn)
+	//fmt.Println("################## resource ConnectionInfo ##################")
 	return &iConn, nil
 }
 
@@ -99,7 +99,7 @@ func getVMClient(credential idrv.CredentialInfo) (context.Context, *compute.Serv
 	data["client_email"] = credential.ClientEmail
 
 	fmt.Println("################## data ##################")
-	fmt.Println("data to json : ", data)
+	//fmt.Println("data to json : ", data)
 	fmt.Println("################## data ##################")
 
 	res, _ := json.Marshal(data)

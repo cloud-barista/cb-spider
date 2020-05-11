@@ -100,11 +100,14 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 	var securityTags []string
 
 	for _, item := range vmReqInfo.SecurityGroupIIDs {
-		securityTags = append(securityTags, item.NameId)
+		//securityTags = append(securityTags, item.NameId)
+		securityTags = append(securityTags, item.SystemId)
 	}
 	cblogger.Info("Security Tags 정보 : ", securityTags)
-	networkURL := prefix + "/global/networks/" + vmReqInfo.VpcIID.NameId
-	subnetWorkURL := prefix + "/regions/" + region + "/subnetworks/" + vmReqInfo.SubnetIID.NameId
+	//networkURL := prefix + "/global/networks/" + vmReqInfo.VpcIID.NameId
+	networkURL := prefix + "/global/networks/" + vmReqInfo.VpcIID.SystemId
+	//subnetWorkURL := prefix + "/regions/" + region + "/subnetworks/" + vmReqInfo.SubnetIID.NameId
+	subnetWorkURL := prefix + "/regions/" + region + "/subnetworks/" + vmReqInfo.SubnetIID.SystemId
 
 	cblogger.Info("networkURL 정보 : ", networkURL)
 	cblogger.Info("subnetWorkURL 정보 : ", subnetWorkURL)
@@ -117,7 +120,8 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 			},
 		},
 		Labels: map[string]string{
-			"keypair": strings.ToLower(vmReqInfo.KeyPairIID.NameId),
+			//"keypair": strings.ToLower(vmReqInfo.KeyPairIID.NameId),
+			"keypair": strings.ToLower(vmReqInfo.KeyPairIID.SystemId),
 		},
 		Description: "compute sample instance",
 		MachineType: prefix + "/zones/" + zone + "/machineTypes/" + vmReqInfo.VMSpecName,
@@ -243,7 +247,7 @@ func (vmHandler *GCPVMHandler) SuspendVM(vmID irs.IID) (irs.VMStatus, error) {
 	zone := vmHandler.Region.Zone
 	ctx := vmHandler.Ctx
 
-	inst, err := vmHandler.Client.Instances.Stop(projectID, zone, vmID.NameId).Context(ctx).Do()
+	inst, err := vmHandler.Client.Instances.Stop(projectID, zone, vmID.SystemId).Context(ctx).Do()
 	spew.Dump(inst)
 	if err != nil {
 		cblogger.Error(err)
@@ -260,7 +264,7 @@ func (vmHandler *GCPVMHandler) ResumeVM(vmID irs.IID) (irs.VMStatus, error) {
 	zone := vmHandler.Region.Zone
 	ctx := vmHandler.Ctx
 
-	inst, err := vmHandler.Client.Instances.Start(projectID, zone, vmID.NameId).Context(ctx).Do()
+	inst, err := vmHandler.Client.Instances.Start(projectID, zone, vmID.SystemId).Context(ctx).Do()
 	spew.Dump(inst)
 	if err != nil {
 		cblogger.Error(err)
@@ -291,7 +295,7 @@ func (vmHandler *GCPVMHandler) TerminateVM(vmID irs.IID) (irs.VMStatus, error) {
 	zone := vmHandler.Region.Zone
 	ctx := vmHandler.Ctx
 
-	inst, err := vmHandler.Client.Instances.Delete(projectID, zone, vmID.NameId).Context(ctx).Do()
+	inst, err := vmHandler.Client.Instances.Delete(projectID, zone, vmID.SystemId).Context(ctx).Do()
 	spew.Dump(inst)
 	if err != nil {
 		cblogger.Error(err)
@@ -362,7 +366,7 @@ func (vmHandler *GCPVMHandler) GetVMStatus(vmID irs.IID) (irs.VMStatus, error) {
 	projectID := vmHandler.Credential.ProjectID
 	zone := vmHandler.Region.Zone
 
-	instanceView, err := vmHandler.Client.Instances.Get(projectID, zone, vmID.NameId).Do()
+	instanceView, err := vmHandler.Client.Instances.Get(projectID, zone, vmID.SystemId).Do()
 	if err != nil {
 		cblogger.Error(err)
 		return irs.VMStatus("Failed"), err
@@ -399,7 +403,7 @@ func (vmHandler *GCPVMHandler) GetVM(vmID irs.IID) (irs.VMInfo, error) {
 	projectID := vmHandler.Credential.ProjectID
 	zone := vmHandler.Region.Zone
 
-	vm, err := vmHandler.Client.Instances.Get(projectID, zone, vmID.NameId).Do()
+	vm, err := vmHandler.Client.Instances.Get(projectID, zone, vmID.SystemId).Do()
 	spew.Dump(vm)
 	if err != nil {
 		cblogger.Error(err)

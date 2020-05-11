@@ -33,6 +33,7 @@ type GCPVPCHandler struct {
 	Credential idrv.CredentialInfo
 }
 
+//@TODO : VPC 생성 로직 변경 필요 / 서브넷이 백그라운드로 생성되기 때문에 조회 시 모두 생성될 때까지 대기하는 로직 필요(그렇지 않으면 일부 정보가 누락됨)
 func (vVPCHandler *GCPVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.VPCInfo, error) {
 	cblogger.Info(vpcReqInfo)
 
@@ -114,6 +115,8 @@ func (vVPCHandler *GCPVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.VPCI
 	} else {
 		cblogger.Infof("이미 [%s] VPCs가 존재함.", name)
 		cnt = strconv.Itoa(len(vNetInfo.Subnetworks) + 1)
+		//return irs.VPCInfo{}, errors.New(name + " VPC가 존재하기 때문에 생서할 수 없습니다.")
+		return irs.VPCInfo{}, errors.New("Already Exist - " + vpcReqInfo.IId.NameId)
 	}
 
 	cblogger.Info("현재 생성된 서브넷 수 : ", cnt)
@@ -148,18 +151,31 @@ func (vVPCHandler *GCPVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.VPCI
 
 	}
 
-	vpcInfo, errVPC := vVPCHandler.GetVPC(vpcReqInfo.IId)
-	if errVPC == nil {
-		spew.Dump(vpcInfo)
-		//최초 생성인 경우 VPC와 Subnet 이름이 동일하면 이미 생성되었으므로 추가로 생성하지 않고 리턴 함.
-		if isFirst {
-			cblogger.Error("최초 VPC 생성이므로 에러 없이 조회된 서브넷 정보를 리턴 함.")
-			return vpcInfo, nil
-		} else {
-			cblogger.Error(errVPC)
-			return irs.VPCInfo{}, errors.New("Already Exist - " + vpcReqInfo.IId.NameId)
-		}
+	//생성된 서브넷이 모두 조회되는데 시간이 필요 함.
+	cblogger.Info("waiting 5 seconds for subnet info")
+	time.Sleep(time.Second * 5)
+
+	vpcInfo, errVPC := vVPCHandler.GetVPC(irs.IID{SystemId: vpcReqInfo.IId.NameId})
+	if errVPC != nil {
+		cblogger.Error("VPC 생성 후 생성된 정보 조회 시 에러 발생 - isFirst : ", isFirst)
+		cblogger.Error(errVPC)
+		return vpcInfo, errVPC
 	}
+	/*
+		if errVPC == nil {
+			spew.Dump(vpcInfo)
+			//최초 생성인 경우 VPC와 Subnet 이름이 동일하면 이미 생성되었으므로 추가로 생성하지 않고 리턴 함.
+			if isFirst {
+				cblogger.Error("최초 VPC 생성이므로 에러 없이 조회된 서브넷 정보를 리턴 함.")
+				return vpcInfo, nil
+			} else {
+				cblogger.Error(errVPC)
+				return irs.VPCInfo{}, errors.New("Already Exist - " + vpcReqInfo.IId.NameId)
+			}
+		}
+	*/
+
+	vpcInfo.IId.NameId = vpcReqInfo.IId.NameId
 
 	//생성되는데 시간이 필요 함. 약 20초정도?
 	//time.Sleep(time.Second * 20)
@@ -181,8 +197,9 @@ func (vVPCHandler *GCPVPCHandler) ListVPC() ([]*irs.VPCInfo, error) {
 
 	for _, item := range vpcList.Items {
 		iId := irs.IID{
-			NameId:   item.Name,
-			SystemId: strconv.FormatUint(item.Id, 10),
+			NameId: item.Name,
+			//SystemId: strconv.FormatUint(item.Id, 10),
+			SystemId: item.Name,
 		}
 		subnetInfo, err := vVPCHandler.GetVPC(iId)
 		if err != nil {
@@ -202,20 +219,22 @@ func (vVPCHandler *GCPVPCHandler) GetVPC(vpcIID irs.IID) (irs.VPCInfo, error) {
 	projectID := vVPCHandler.Credential.ProjectID
 	region := vVPCHandler.Region.Region
 	//name := VPCID
-	name := vpcIID.NameId
 	systemId := vpcIID.SystemId
+	//name := vpcIID.NameId
 
-	cblogger.Infof("NameID : [%s] / SystemID : [%s]", name, systemId)
+	//cblogger.Infof("NameID : [%s] / SystemID : [%s]", name, systemId)
+	cblogger.Infof("SystemID : [%s]", systemId)
 	subnetInfoList := []irs.SubnetInfo{}
 
 	infoVPC, err := vVPCHandler.Client.Networks.Get(projectID, systemId).Do()
+	//infoVPC, err := vVPCHandler.Client.Networks.Get(projectID, name).Do()
 	if err != nil {
 		cblogger.Error(err)
 		return irs.VPCInfo{}, err
 	}
+	spew.Dump(infoVPC)
 	if infoVPC.Subnetworks != nil {
 		for _, item := range infoVPC.Subnetworks {
-
 			str := strings.Split(item, "/")
 			region = str[len(str)-3]
 			subnet := str[len(str)-1]
@@ -231,8 +250,9 @@ func (vVPCHandler *GCPVPCHandler) GetVPC(vpcIID irs.IID) (irs.VPCInfo, error) {
 
 	networkInfo := irs.VPCInfo{
 		IId: irs.IID{
-			NameId:   infoVPC.Name,
-			SystemId: strconv.FormatUint(infoVPC.Id, 10),
+			NameId: infoVPC.Name,
+			//SystemId: strconv.FormatUint(infoVPC.Id, 10),
+			SystemId: infoVPC.Name,
 		},
 		IPv4_CIDR:      "Not support IPv4_CIDR at GCP VPC",
 		SubnetInfoList: subnetInfoList,
@@ -270,7 +290,8 @@ func (vVPCHandler *GCPVPCHandler) DeleteVPC(vpcID irs.IID) (bool, error) {
 	projectID := vVPCHandler.Credential.ProjectID
 	//region := vVPCHandler.Region.Region
 	//name := VPCID
-	name := vpcID.NameId
+	//name := vpcID.NameId
+	name := vpcID.SystemId
 	cblogger.Infof("Name : [%s]", name)
 	subnetInfo, subErr := vVPCHandler.GetVPC(vpcID)
 	if subErr != nil {
