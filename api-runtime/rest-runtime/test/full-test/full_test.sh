@@ -47,8 +47,8 @@ curl -sX GET http://localhost:1024/spider/vm/vm-01 -H 'Content-Type: application
 curl -sX GET http://localhost:1024/spider/vmstatus -H 'Content-Type: application/json' -d '{ "ConnectionName": "'${CONN_CONFIG}'"}' |json_pp
 curl -sX GET http://localhost:1024/spider/vmstatus/vm-01 -H 'Content-Type: application/json' -d '{ "ConnectionName": "'${CONN_CONFIG}'"}' |json_pp
 curl -sX GET http://localhost:1024/spider/controlvm/vm-01?action=suspend -H 'Content-Type: application/json' -d '{ "ConnectionName": "'${CONN_CONFIG}'"}' |json_pp
-echo "============== sleep 50 after suspend VM"
-sleep 50
+echo "============== sleep 60 after suspend VM"
+sleep 60
 curl -sX GET http://localhost:1024/spider/controlvm/vm-01?action=resume -H 'Content-Type: application/json' -d '{ "ConnectionName": "'${CONN_CONFIG}'"}' |json_pp
 echo "============== sleep 30 after resume VM"
 sleep 30
@@ -66,8 +66,8 @@ echo "####################################################################"
 echo "## 4. VM: Terminate(Delete)"
 echo "####################################################################"
 curl -sX DELETE http://localhost:1024/spider/vm/vm-01 -H 'Content-Type: application/json' -d '{ "ConnectionName": "'${CONN_CONFIG}'"}' |json_pp
-echo "============== sleep 60 after delete VM"
-sleep 60 
+echo "============== sleep 70 after delete VM"
+sleep 70 
 
 echo "####################################################################"
 echo "## 3. KeyPair: Delete"

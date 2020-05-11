@@ -1837,9 +1837,15 @@ func startVM(c echo.Context) error {
                 return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
         }
 
+        // set sg NameId from VPCNameId-SecurityGroupNameId
+        // IID.NameID format => {VPC NameID} + sgDELIMITER + {SG NameID}
+	for i, sgIID := range info.SecurityGroupIIds {
+		vpc_sg_nameid := strings.Split(sgIID.NameId, sgDELIMITER)
+		info.SecurityGroupIIds[i].NameId = vpc_sg_nameid[1]
+	}
+
 	return c.JSON(http.StatusOK, &info)
 }
-
 
 func setNameId(ConnectionName string, vmInfo *cres.VMInfo, reqInfo *cres.VMReqInfo) error {
 
@@ -1945,6 +1951,12 @@ defer vmRWLock.RUnlock()
                 return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
+				// set sg NameId from VPCNameId-SecurityGroupNameId
+				// IID.NameID format => {VPC NameID} + sgDELIMITER + {SG NameID}
+				for i, sgIID := range info.SecurityGroupIIds {
+					vpc_sg_nameid := strings.Split(sgIID.NameId, sgDELIMITER)
+					info.SecurityGroupIIds[i].NameId = vpc_sg_nameid[1]
+				}
 
                                 infoList2 = append(infoList2, info)
                                 exist = true
@@ -2045,6 +2057,13 @@ defer vmRWLock.RUnlock()
 	err = getSetNameId(req.ConnectionName, &info)
         if err != nil {
                 return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+        }
+
+        // set sg NameId from VPCNameId-SecurityGroupNameId
+        // IID.NameID format => {VPC NameID} + sgDELIMITER + {SG NameID}
+        for i, sgIID := range info.SecurityGroupIIds {
+                vpc_sg_nameid := strings.Split(sgIID.NameId, sgDELIMITER)
+                info.SecurityGroupIIds[i].NameId = vpc_sg_nameid[1]
         }
 
 	return c.JSON(http.StatusOK, &info)
