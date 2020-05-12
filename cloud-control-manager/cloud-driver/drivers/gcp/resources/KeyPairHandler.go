@@ -43,6 +43,20 @@ func (keyPairHandler *GCPKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPairReq
 	cblogger.Infof("CBKeyPairPath : [%s]", CBKeyPairPath)
 	cblogger.Infof("Final keyPairPath : [%s]", keyPairPath)
 
+	//키페어 생성 시 폴더가 존재하지 않으면 생성 함.
+	_, errChkDir := os.Stat(keyPairPath)
+	if os.IsNotExist(errChkDir) {
+		cblogger.Errorf("[%s] Path가 존재하지 않아서 생성합니다.", keyPairPath)
+
+		errDir := os.MkdirAll(keyPairPath, 0755)
+		if errDir != nil {
+			//log.Fatal(err)
+			cblogger.Errorf("[%s] Path가 생성 실패", keyPairPath)
+			cblogger.Error(errDir)
+			return irs.KeyPairInfo{}, errDir
+		}
+	}
+
 	hashString, err := CreateHashString(keyPairHandler.CredentialInfo)
 	if err != nil {
 		cblogger.Error(err)
@@ -125,9 +139,12 @@ func (keyPairHandler *GCPKeyPairHandler) ListKey() ([]*irs.KeyPairInfo, error) {
 
 	files, err := ioutil.ReadDir(keyPairPath)
 	if err != nil {
-		cblogger.Error("Fail ReadDir(keyPairPath)")
-		cblogger.Error(err)
-		return nil, err
+		//cblogger.Error("Fail ReadDir(keyPairPath)")
+		//cblogger.Error(err)
+		//return nil, err
+
+		//키페어 폴더가 없는 경우 생성된 키가 없는 것으로 변경
+		return nil, nil
 	}
 
 	for _, f := range files {
@@ -168,6 +185,12 @@ func (keyPairHandler *GCPKeyPairHandler) GetKey(keyIID irs.IID) (irs.KeyPairInfo
 
 	privateKeyPath := keyPairPath + hashString + "--" + keyPairName
 	publicKeyPath := keyPairPath + hashString + "--" + keyPairName + ".pub"
+
+	//키 페어 존재 여부 체크
+	if _, err := os.Stat(privateKeyPath); err != nil {
+		cblogger.Error(err)
+		return irs.KeyPairInfo{}, errors.New("Not Found : [" + keyIID.SystemId + "] KeyPair Not Found.")
+	}
 
 	// Private Key, Public Key 파일 정보 가져오기
 	privateKeyBytes, err := ioutil.ReadFile(privateKeyPath)
@@ -211,6 +234,12 @@ func (keyPairHandler *GCPKeyPairHandler) DeleteKey(keyIID irs.IID) (bool, error)
 
 	privateKeyPath := keyPairPath + hashString + "--" + keyPairName
 	publicKeyPath := keyPairPath + hashString + "--" + keyPairName + ".pub"
+
+	//키 페어 존재 여부 체크
+	if _, err := os.Stat(privateKeyPath); err != nil {
+		cblogger.Error(err)
+		return false, errors.New("Not Found : [" + keyIID.SystemId + "] KeyPair Not Found.")
+	}
 
 	// Private Key, Public Key 삭제
 	err = os.Remove(privateKeyPath)

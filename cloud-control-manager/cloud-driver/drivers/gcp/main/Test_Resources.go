@@ -858,8 +858,8 @@ func main() {
 	//handleVPC()
 	//handleVMSpec()
 	//handleImage() //AMI
-	//handleKeyPair()
-	handleSecurity()
+	handleKeyPair()
+	//handleSecurity()
 
 	//handleVM()
 }
