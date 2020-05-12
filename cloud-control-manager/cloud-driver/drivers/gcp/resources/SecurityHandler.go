@@ -54,28 +54,55 @@ func (securityHandler *GCPSecurityHandler) CreateSecurity(securityReqInfo irs.Se
 	ports := *securityReqInfo.SecurityRules
 	var firewallAllowed []*compute.FirewallAllowed
 
+	//다른 드라이버와의 통일을 위해 All은 -1로 처리함.
+	//GCP는 포트 번호를 적지 않으면 All임.
+	//GCP 방화벽 정책
+	//https://cloud.google.com/vpc/docs/firewalls?hl=ko&_ga=2.238147008.-1577666838.1589162755#protocols_and_ports
 	for _, item := range ports {
 		var port string
 		fp := item.FromPort
 		tp := item.ToPort
 
-		if tp != "" && fp != "" {
-			port = fp + "-" + tp
-		}
-		if tp != "" && fp == "" {
-			port = tp
-		}
-		if tp == "" && fp != "" {
-			port = fp
+		// CB Rule에 의해 Port 번호에 -1이 기입된 경우 GCP Rule에 맞게 치환함.
+		if fp == "-1" || tp == "-1" {
+			if (fp == "-1" && tp == "-1") || (fp == "-1" && tp == "") || (fp == "" && tp == "-1") {
+				port = ""
+			} else if fp == "-1" {
+				port = tp
+			} else {
+				port = fp
+			}
+		} else {
+			//둘 다 있는 경우
+			if tp != "" && fp != "" {
+				port = fp + "-" + tp
+				//From Port가 없는 경우
+			} else if tp != "" && fp == "" {
+				port = tp
+				//To Port가 없는 경우
+			} else if tp == "" && fp != "" {
+				port = fp
+			} else {
+				port = ""
+			}
 		}
 
-		firewallAllowed = append(firewallAllowed, &compute.FirewallAllowed{
-			IPProtocol: item.IPProtocol,
-			Ports: []string{
-				port,
-			},
-		})
+		if port == "" {
+			firewallAllowed = append(firewallAllowed, &compute.FirewallAllowed{
+				IPProtocol: item.IPProtocol,
+			})
+		} else {
+			firewallAllowed = append(firewallAllowed, &compute.FirewallAllowed{
+				IPProtocol: item.IPProtocol,
+				Ports: []string{
+					port,
+				},
+			})
+		}
 	}
+
+	cblogger.Info("생성할 방화벽 정책")
+	spew.Dump(firewallAllowed)
 
 	var sgDirection string
 	if strings.EqualFold(securityReqInfo.Direction, "inbound") {

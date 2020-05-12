@@ -49,6 +49,7 @@ func (keyPairHandler *GCPKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPairReq
 		cblogger.Errorf("[%s] Path가 존재하지 않아서 생성합니다.", keyPairPath)
 
 		errDir := os.MkdirAll(keyPairPath, 0755)
+		//errDir := os.MkdirAll(keyPairPath, os.ModePerm) // os.ModePerm : 0777	//os.ModeDir
 		if errDir != nil {
 			//log.Fatal(err)
 			cblogger.Errorf("[%s] Path가 생성 실패", keyPairPath)
