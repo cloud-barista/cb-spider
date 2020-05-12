@@ -125,8 +125,9 @@ func handleSecurity() {
 	//config := readConfigFile()
 	//VmID := config.Aws.VmID
 
-	securityName := "cb-securitytest1"
-	securityId := "sg-6weeb9xaodr65g7bq10c"
+	securityName := "cb-securitytest-all"
+	securityId := "cb-securitytest-all"
+	//securityId := "cb-secu-all"
 	vpcId := "cb-vpc"
 
 	for {
@@ -169,6 +170,12 @@ func handleSecurity() {
 					VpcIID: irs.IID{SystemId: vpcId},
 					SecurityRules: &[]irs.SecurityRuleInfo{ //보안 정책 설정
 						{
+							FromPort:   "",
+							ToPort:     "",
+							IPProtocol: "icmp", //icmp는 포트 정보가 없음
+							Direction:  "inbound",
+						},
+						{
 							FromPort:   "20",
 							ToPort:     "22",
 							IPProtocol: "tcp",
@@ -183,28 +190,48 @@ func handleSecurity() {
 						},
 						{
 							FromPort:   "8080",
-							ToPort:     "8080",
+							ToPort:     "-1", //FromPort나 ToPort중 하나에 -1이 입력될 경우 -1이 입력된 경우 -1을 공백으로 처리
 							IPProtocol: "tcp",
 							Direction:  "inbound",
 						},
 						{
-							FromPort:   "443",
-							ToPort:     "443",
+							FromPort:   "-1", //FromPort나 ToPort중 하나에 -1이 입력될 경우 -1이 입력된 경우 -1을 공백으로 처리
+							ToPort:     "1323",
 							IPProtocol: "tcp",
-							Direction:  "outbound",
+							Direction:  "inbound",
 						},
 						{
-							FromPort:   "8443",
-							ToPort:     "9999",
+							FromPort:   "",
+							ToPort:     "1024",
 							IPProtocol: "tcp",
-							Direction:  "outbound",
+							Direction:  "inbound",
+						},
+						{
+							FromPort:   "1234",
+							ToPort:     "",
+							IPProtocol: "tcp",
+							Direction:  "inbound",
 						},
 						/*
 							{
-								//FromPort:   "8443",
-								//ToPort:     "9999",
-								IPProtocol: "-1", // 모두 허용 (포트 정보 없음)
+								//FromPort:   "",
+								//ToPort:     "",
+								IPProtocol: "all", // 모두 허용 (포트 정보 없음)
 								Direction:  "inbound",
+							},
+						*/
+						/*
+							{
+								FromPort:   "443",
+								ToPort:     "443",
+								IPProtocol: "tcp",
+								Direction:  "outbound",
+							},
+							{
+								FromPort:   "8443",
+								ToPort:     "9999",
+								IPProtocol: "tcp",
+								Direction:  "outbound",
 							},
 						*/
 					},
@@ -860,8 +887,8 @@ func main() {
 	//handleVPC()
 	//handleVMSpec()
 	//handleImage() //AMI
-	handleKeyPair()
-	//handleSecurity()
+	//handleKeyPair()
+	handleSecurity()
 
 	//handleVM()
 	//cblogger.Info(filepath.Join("a/b", "\\cloud-driver-libs\\.ssh-gcp\\"))
