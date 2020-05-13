@@ -170,50 +170,53 @@ func handleSecurity() {
 					VpcIID: irs.IID{SystemId: vpcId},
 					SecurityRules: &[]irs.SecurityRuleInfo{ //보안 정책 설정
 						{
+							// All Port로 등록
 							FromPort:   "",
 							ToPort:     "",
 							IPProtocol: "icmp", //icmp는 포트 정보가 없음
 							Direction:  "inbound",
 						},
 						{
+							//20-22 Prot로 등록
 							FromPort:   "20",
 							ToPort:     "22",
 							IPProtocol: "tcp",
 							Direction:  "inbound",
 						},
-
 						{
+							// 80 Port로 등록
 							FromPort:   "80",
 							ToPort:     "80",
 							IPProtocol: "tcp",
 							Direction:  "inbound",
 						},
 						{
+							// 8080 Port로 등록
 							FromPort:   "8080",
 							ToPort:     "-1", //FromPort나 ToPort중 하나에 -1이 입력될 경우 -1이 입력된 경우 -1을 공백으로 처리
 							IPProtocol: "tcp",
 							Direction:  "inbound",
 						},
-						{
+						{ // 1323 Prot로 등록
 							FromPort:   "-1", //FromPort나 ToPort중 하나에 -1이 입력될 경우 -1이 입력된 경우 -1을 공백으로 처리
 							ToPort:     "1323",
 							IPProtocol: "tcp",
 							Direction:  "inbound",
 						},
-						{
+						{ // 1024 Prot로 등록
 							FromPort:   "",
 							ToPort:     "1024",
 							IPProtocol: "tcp",
 							Direction:  "inbound",
 						},
-						{
+						{ // 1234 Prot로 등록
 							FromPort:   "1234",
 							ToPort:     "",
 							IPProtocol: "tcp",
 							Direction:  "inbound",
 						},
 						/*
-							{
+							{ // 모든 프로토콜 모든 포트로 등록
 								//FromPort:   "",
 								//ToPort:     "",
 								IPProtocol: "all", // 모두 허용 (포트 정보 없음)
@@ -731,7 +734,7 @@ func handleVM() {
 
 	//config := readConfigFile()
 	//VmID := irs.IID{NameId: config.Aws.BaseName, SystemId: config.Aws.VmID}
-	VmID := irs.IID{SystemId: "i-6weayupx7qvidhmyl48d"}
+	VmID := irs.IID{SystemId: "mcloud-barista-vm-test"}
 
 	for {
 		fmt.Println("VM Management")
@@ -764,6 +767,8 @@ func handleVM() {
 					ImageIID: irs.IID{
 						NameId:   "projects/ubuntu-os-cloud/global/images/ubuntu-minimal-1804-bionic-v20200415",
 						SystemId: "projects/ubuntu-os-cloud/global/images/ubuntu-minimal-1804-bionic-v20200415",
+						//NameId:   "https://www.googleapis.com/compute/v1/projects/ubuntu-os-cloud/global/images/ubuntu-minimal-1804-bionic-v20200415",
+						//SystemId: "https://www.googleapis.com/compute/v1/projects/ubuntu-os-cloud/global/images/ubuntu-minimal-1804-bionic-v20200415",
 					},
 					VpcIID:            irs.IID{SystemId: "cb-vpc"},
 					SubnetIID:         irs.IID{SystemId: "cb-sub1"},
@@ -888,9 +893,8 @@ func main() {
 	//handleVMSpec()
 	//handleImage() //AMI
 	//handleKeyPair()
-	handleSecurity()
-
-	//handleVM()
+	//handleSecurity()
+	handleVM()
 	//cblogger.Info(filepath.Join("a/b", "\\cloud-driver-libs\\.ssh-gcp\\"))
 	//cblogger.Info(filepath.Join("\\cloud-driver-libs\\.ssh-gcp\\", "/b/c/d"))
 }

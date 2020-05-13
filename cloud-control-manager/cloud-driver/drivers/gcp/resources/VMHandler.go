@@ -16,7 +16,6 @@ import (
 	"errors"
 	_ "errors"
 	"fmt"
-	"strconv"
 	"strings"
 	"time"
 
@@ -39,7 +38,7 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 	// GCP 는 reqinfo에 ProjectID를 받아야 함.
 	cblogger.Info(vmReqInfo)
 
-	ctx := vmHandler.Ctx
+	//ctx := vmHandler.Ctx
 	vmName := vmReqInfo.IId.NameId
 	projectID := vmHandler.Credential.ProjectID
 	prefix := "https://www.googleapis.com/compute/v1/projects/" + projectID
@@ -189,7 +188,22 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 
 	// 이게 시작하는  api Start 내부 매개변수로 projectID, zone, InstanceID
 	//vm, err := vmHandler.Client.Instances.Start(project string, zone string, instance string)
-	time.Sleep(time.Second * 10)
+
+	//time.Sleep(time.Second * 10)
+
+	vmStatus, _ := vmHandler.WaitForRun(irs.IID{NameId: vmName, SystemId: vmName})
+	cblogger.Info("VM 상태 : ", vmStatus)
+
+	//만약 30초 이내에 VM이 Running 상태가 되지 않더라도 GetVM으로 VM의 정보 조회를 요청해 봄.
+	vmInfo, errVmInfo := vmHandler.GetVM(irs.IID{NameId: vmName, SystemId: vmName})
+	if errVmInfo != nil {
+		cblogger.Errorf("[%s] VM을 생성했지만 정보 조회는 실패 함.", vmName)
+		cblogger.Error(errVmInfo)
+		return irs.VMInfo{}, errVmInfo
+	}
+	return vmInfo, nil
+
+	/* 2020-05-13 Start & Get 요청 시의 리턴 정보 통일을 위해 기존 로직 임시 제거
 	vm, err2 := vmHandler.Client.Instances.Get(projectID, zone, vmName).Context(ctx).Do()
 	if err2 != nil {
 		cblogger.Error(err2)
@@ -209,8 +223,9 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 	//var vpcHandler *GCPVPCHandler
 	vmInfo := irs.VMInfo{
 		IId: irs.IID{
-			NameId:   vm.Name,
-			SystemId: strconv.FormatUint(vm.Id, 10),
+			NameId: vm.Name,
+			//SystemId: strconv.FormatUint(vm.Id, 10),
+			SystemId: vm.Name,
 		},
 		Region: irs.RegionInfo{
 			Region: vmHandler.Region.Region,
@@ -239,6 +254,43 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 	}
 
 	return vmInfo, nil
+	*/
+}
+
+// VM 정보를 조회할 수 있을 때까지 최대 30초간 대기
+func (vmHandler *GCPVMHandler) WaitForRun(vmIID irs.IID) (irs.VMStatus, error) {
+	cblogger.Info("======> 생성된 VM의 최종 정보 확인을 위해 Running 될 때까지 대기함.")
+
+	waitStatus := "Running"
+
+	//===================================
+	// Suspending 되도록 3초 정도 대기 함.
+	//===================================
+	curRetryCnt := 0
+	maxRetryCnt := 30
+	for {
+		curStatus, errStatus := vmHandler.GetVMStatus(vmIID)
+		if errStatus != nil {
+			cblogger.Error(errStatus.Error())
+		}
+
+		cblogger.Info("===>VM Status : ", curStatus)
+		if curStatus == irs.VMStatus(waitStatus) { //|| curStatus == irs.VMStatus("Running") {
+			cblogger.Infof("===>VM 상태가 [%s]라서 대기를 중단합니다.", curStatus)
+			break
+		}
+
+		//if curStatus != irs.VMStatus(waitStatus) {
+		curRetryCnt++
+		cblogger.Errorf("VM 상태가 [%s]이 아니라서 1초 대기후 조회합니다.", waitStatus)
+		time.Sleep(time.Second * 1)
+		if curRetryCnt > maxRetryCnt {
+			cblogger.Errorf("장시간(%d 초) 대기해도 VM의 Status 값이 [%s]으로 변경되지 않아서 강제로 중단합니다.", maxRetryCnt, waitStatus)
+			return irs.VMStatus("Failed"), errors.New("장시간 기다렸으나 생성된 VM의 상태가 [" + waitStatus + "]으로 바뀌지 않아서 중단 합니다.")
+		}
+	}
+
+	return irs.VMStatus(waitStatus), nil
 }
 
 // stop이라고 보면 될듯
@@ -325,8 +377,9 @@ func (vmHandler *GCPVMHandler) ListVMStatus() ([]*irs.VMStatusInfo, error) {
 			status, _ := vmHandler.GetVMStatus(irs.IID{NameId: vmId, SystemId: vmId})
 			vmStatusInfo := irs.VMStatusInfo{
 				IId: irs.IID{
-					NameId:   vmId,
-					SystemId: strconv.FormatUint(s.Id, 10),
+					NameId: vmId,
+					//SystemId: strconv.FormatUint(s.Id, 10),
+					SystemId: vmId,
 				},
 
 				VmStatus: status,
@@ -404,11 +457,11 @@ func (vmHandler *GCPVMHandler) GetVM(vmID irs.IID) (irs.VMInfo, error) {
 	zone := vmHandler.Region.Zone
 
 	vm, err := vmHandler.Client.Instances.Get(projectID, zone, vmID.SystemId).Do()
-	spew.Dump(vm)
 	if err != nil {
 		cblogger.Error(err)
 		return irs.VMInfo{}, err
 	}
+	spew.Dump(vm)
 
 	vmInfo := vmHandler.mappingServerInfo(vm)
 	return vmInfo, nil
@@ -442,6 +495,9 @@ func (vmHandler *GCPVMHandler) GetVM(vmID irs.IID) (irs.VMInfo, error) {
 // }
 
 func (vmHandler *GCPVMHandler) mappingServerInfo(server *compute.Instance) irs.VMInfo {
+	cblogger.Infof("=====================================================")
+	spew.Dump(server)
+
 	//var gcpHanler *GCPVMHandler
 	vpcArr := strings.Split(server.NetworkInterfaces[0].Network, "/")
 	subnetArr := strings.Split(server.NetworkInterfaces[0].Subnetwork, "/")
@@ -463,9 +519,11 @@ func (vmHandler *GCPVMHandler) mappingServerInfo(server *compute.Instance) irs.V
 
 	vmInfo := irs.VMInfo{
 		IId: irs.IID{
-			NameId:   server.Name,
-			SystemId: strconv.FormatUint(server.Id, 10),
+			NameId: server.Name,
+			//SystemId: strconv.FormatUint(server.Id, 10),
+			SystemId: server.Name,
 		},
+		//VMSpecName: server.MachineType,
 
 		Region: irs.RegionInfo{
 			Region: vmHandler.Region.Region,
@@ -474,7 +532,6 @@ func (vmHandler *GCPVMHandler) mappingServerInfo(server *compute.Instance) irs.V
 		VMUserId:          "cb-user",
 		NetworkInterface:  server.NetworkInterfaces[0].Name,
 		SecurityGroupIIds: iIdBox.Items,
-		//VMSpecId: server.MachineType,
 		KeyPairIId: irs.IID{
 			NameId:   server.Labels["keypair"],
 			SystemId: server.Labels["keypair"],
@@ -499,6 +556,25 @@ func (vmHandler *GCPVMHandler) mappingServerInfo(server *compute.Instance) irs.V
 		},
 	}
 
+	arrVmSpec := strings.Split(server.MachineType, "/")
+	cblogger.Info(arrVmSpec)
+	if len(arrVmSpec) > 1 {
+		cblogger.Info(arrVmSpec[len(arrVmSpec)-1])
+		vmInfo.VMSpecName = arrVmSpec[len(arrVmSpec)-1]
+	}
+
+	//2020-05-13T00:15:37.183-07:00
+	if len(server.CreationTimestamp) > 5 {
+		cblogger.Infof("서버 구동 시간 처리 : [%s]", server.CreationTimestamp)
+		t, err := time.Parse(time.RFC3339, server.CreationTimestamp)
+		if err != nil {
+			cblogger.Error(err)
+		} else {
+			cblogger.Infof("======> [%v]", t)
+			vmInfo.StartTime = t
+		}
+	}
+
 	return vmInfo
 }
 func (vmHandler *GCPVMHandler) getImageInfo(diskname string) irs.IID {
@@ -512,6 +588,8 @@ func (vmHandler *GCPVMHandler) getImageInfo(diskname string) irs.IID {
 	cblogger.Infof("result : [%s]", result)
 
 	info, err := vmHandler.Client.Disks.Get(projectID, zone, result).Do()
+
+	cblogger.Infof("********************************** Disk 정보 ****************")
 	spew.Dump(info)
 	if err != nil {
 		cblogger.Error(err)
@@ -519,9 +597,16 @@ func (vmHandler *GCPVMHandler) getImageInfo(diskname string) irs.IID {
 	}
 	//iArr := strings.Split(info.SourceImage, "/")
 	iId := irs.IID{
-		NameId:   info.Name,
-		SystemId: strconv.FormatUint(info.Id, 10),
+		NameId:   info.SourceImage,
+		SystemId: info.SourceImage,
 	}
+	/*
+		iId := irs.IID{
+			NameId: info.Name,
+			//SystemId: strconv.FormatUint(info.Id, 10),
+			SystemId: info.Name,
+		}
+	*/
 	return iId
 }
 
