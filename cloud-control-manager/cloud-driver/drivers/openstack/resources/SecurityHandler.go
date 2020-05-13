@@ -54,7 +54,7 @@ func (securityHandler *OpenStackSecurityHandler) setterSeg(secGroup secgroups.Se
 
 		ruleInfo := irs.SecurityRuleInfo{
 			Direction:  direction,
-			IPProtocol: rule.Protocol,
+			IPProtocol: strings.ToLower(rule.Protocol),
 		}
 
 		if strings.ToLower(rule.Protocol) == ICMP {

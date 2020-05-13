@@ -11,6 +11,10 @@ import (
 	"strings"
 )
 
+const (
+	ICMP = "icmp"
+)
+
 type AzureSecurityHandler struct {
 	Region idrv.RegionInfo
 	Ctx    context.Context
@@ -42,10 +46,16 @@ func (securityHandler *AzureSecurityHandler) setterSec(securityGroup network.Sec
 		}
 
 		ruleInfo := irs.SecurityRuleInfo{
-			FromPort:   fromPort,
-			ToPort:     toPort,
-			IPProtocol: fmt.Sprint(sgRule.Protocol),
+			IPProtocol: strings.ToLower(fmt.Sprint(sgRule.Protocol)),
 			Direction:  fmt.Sprint(sgRule.Direction),
+		}
+
+		if strings.ToLower(fmt.Sprint(sgRule.Protocol)) == ICMP {
+			ruleInfo.FromPort = "-1"
+			ruleInfo.ToPort = "-1"
+		} else {
+			ruleInfo.FromPort = fromPort
+			ruleInfo.ToPort = toPort
 		}
 
 		securityRuleArr = append(securityRuleArr, ruleInfo)
@@ -72,15 +82,23 @@ func (securityHandler *AzureSecurityHandler) CreateSecurity(securityReqInfo irs.
 			Name: to.StringPtr(fmt.Sprintf("%s-rules-%d", securityReqInfo.IId.NameId, idx+1)),
 			SecurityRulePropertiesFormat: &network.SecurityRulePropertiesFormat{
 				SourceAddressPrefix:      to.StringPtr("*"),
-				SourcePortRange:          to.StringPtr(rule.FromPort + "-" + rule.ToPort),
 				DestinationAddressPrefix: to.StringPtr("*"),
 				DestinationPortRange:     to.StringPtr("*"),
-				Protocol:                 network.SecurityRuleProtocol(rule.IPProtocol),
+				Protocol:                 network.SecurityRuleProtocol(strings.ToUpper(rule.IPProtocol)),
 				Access:                   network.SecurityRuleAccess("Allow"),
 				Priority:                 to.Int32Ptr(priorityNum),
 				Direction:                network.SecurityRuleDirection(rule.Direction),
 			},
 		}
+
+		if strings.ToUpper(rule.IPProtocol) == ICMP || (rule.FromPort == "*" && rule.ToPort == "*") {
+			sgRuleInfo.SourcePortRange = to.StringPtr("*")
+		} else if rule.FromPort == rule.ToPort {
+			sgRuleInfo.SourcePortRange = to.StringPtr(rule.FromPort)
+		} else {
+			sgRuleInfo.SourcePortRange = to.StringPtr(rule.FromPort + "-" + rule.ToPort)
+		}
+
 		sgRuleList = append(sgRuleList, sgRuleInfo)
 	}
 
