@@ -8,9 +8,9 @@
 //
 // by jazmandorf@gmail.com MZC
 
-//package main
+package main
 
-package gcp
+//package gcp
 
 import (
 	"C"
