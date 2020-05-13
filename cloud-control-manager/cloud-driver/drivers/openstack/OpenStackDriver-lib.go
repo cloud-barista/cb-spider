@@ -8,10 +8,9 @@
 //
 // by hyokyung.kim@innogrid.co.kr, 2019.07.
 
-package main
+package openstack
 
 import (
-	"C"
 	cblog "github.com/cloud-barista/cb-log"
 	oscon "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/openstack/connect"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
@@ -84,7 +83,7 @@ func (driver *OpenStackDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) 
 		cblogger.Error(err)
 	}
 
-	iConn := oscon.OpenStackCloudConnection{Client, ImageClient, NetworkClient}
+	iConn := oscon.OpenStackCloudConnection{connectionInfo.RegionInfo, Client, ImageClient, NetworkClient}
 
 	return &iConn, nil // return type: (icon.CloudConnection, error)
 }
