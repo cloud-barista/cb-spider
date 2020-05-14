@@ -51,11 +51,11 @@ echo "## 4. VM: multiple StartVM($max)"
 echo "####################################################################"
 for (( num=1; num <= $max; num++ ))
 do
-        curl -sX POST http://localhost:1024/spider/vm -H 'Content-Type: application/json' -d '{ "ConnectionName": "'${CONN_CONFIG}'", "ReqInfo": { "Name": "powerkim_vm_test_'${num}'", "ImageName": "'${IMAGE_NAME}'", "VPCName": "vpc-01", "SubnetName": "subnet-01", "SecurityGroupNames": [ "sg-01" ], "VMSpecName": "'${SPEC_NAME}'", "KeyPairName": "keypair-01"} }' |json_pp &
+        curl -sX POST http://localhost:1024/spider/vm -H 'Content-Type: application/json' -d '{ "ConnectionName": "'${CONN_CONFIG}'", "ReqInfo": { "Name": "powerkim-vm-test-'${num}'", "ImageName": "'${IMAGE_NAME}'", "VPCName": "vpc-01", "SubnetName": "subnet-01", "SecurityGroupNames": [ "sg-01" ], "VMSpecName": "'${SPEC_NAME}'", "KeyPairName": "keypair-01"} }' |json_pp &
 done
 
-echo "============== sleep 60 after start VM"
-sleep 60
+echo "============== sleep 300 after start VM"
+sleep 300
 echo "####################################################################"
 echo "## 5. VM: List -> ListStatus"
 echo "####################################################################"
@@ -74,12 +74,12 @@ echo "## 4. VM: Terminate($max)"
 echo "####################################################################"
 for (( num=1; num <= $max; num++ ))
 do
-        curl -sX DELETE http://localhost:1024/spider/vm/powerkim_vm_test_${num} -H 'Content-Type: application/json' -d '{ "ConnectionName": "'${CONN_CONFIG}'"}' |json_pp &
+        curl -sX DELETE http://localhost:1024/spider/vm/powerkim-vm-test-${num} -H 'Content-Type: application/json' -d '{ "ConnectionName": "'${CONN_CONFIG}'"}' |json_pp &
 done
 
 
-echo "============== sleep 60 after delete VM"
-sleep 60 
+echo "============== sleep 300 after terminate VM"
+sleep 300 
 
 echo "####################################################################"
 echo "## 3. KeyPair: Delete"
