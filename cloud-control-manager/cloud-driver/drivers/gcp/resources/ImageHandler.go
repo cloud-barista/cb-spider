@@ -407,7 +407,7 @@ func (imageHandler *GCPImageHandler) FindImageInfo(projectId string, reqImageNam
 }
 */
 
-//@TODO : 이미지 ID확인할 것
+//@TODO : 나중에 시스템아이디 값 변경해야 함.(현재 이미지 핸들러는 이름 기반으로 변경되어 있기 때문...)
 func mappingImageInfo(imageInfo *compute.Image) irs.ImageInfo {
 	//lArr := strings.Split(imageInfo.Licenses[0], "/")
 	//os := lArr[len(lArr)-1]
@@ -417,12 +417,12 @@ func mappingImageInfo(imageInfo *compute.Image) irs.ImageInfo {
 
 	imageList := irs.ImageInfo{
 		IId: irs.IID{
-			NameId:   imageInfo.Name,
-			SystemId: imageInfo.Name, //자체 기능 구현을 위해 Name 기반으로 리턴함.
+			NameId: imageInfo.Name,
+			//SystemId: imageInfo.Name, //자체 기능 구현을 위해 Name 기반으로 리턴함. - 2020-05-14 다음 버전에 적용 예정
+			SystemId: imageInfo.SelfLink, //2020-05-14 카푸치노는 VM 생성시 URL 방식을 사용하기 때문에 임의로 맞춤(이미지 핸들러의 다른 함수에는 적용 못함)
 			//SystemId: strconv.FormatUint(imageInfo.Id, 10), //이 값으로는 VM생성 안됨.
 
 			//SystemId: imageInfo.SourceImage, //imageInfo.SourceImage의 경우 공백("")인 경우가 있음
-			//SystemId: imageInfo.SelfLink,
 		},
 		//Id:      strconv.FormatUint(imageInfo.Id, 10),
 		//Id:      imageInfo.SelfLink,

@@ -768,8 +768,9 @@ func handleVM() {
 				vmReqInfo := irs.VMReqInfo{
 					IId: irs.IID{NameId: "mcloud-barista-vm-test"},
 					ImageIID: irs.IID{
-						SystemId: "ubuntu-minimal-1804-bionic-v20200415",
-						//SystemId: "https://www.googleapis.com/compute/v1/projects/gce-uefi-images/global/images/centos-7-v20190204",
+						NameId: "Test",
+						//SystemId: "ubuntu-minimal-1804-bionic-v20200415",
+						SystemId: "https://www.googleapis.com/compute/v1/projects/gce-uefi-images/global/images/centos-7-v20190204",
 
 						//NameId:   "projects/ubuntu-os-cloud/global/images/ubuntu-minimal-1804-bionic-v20200415",
 						//SystemId: "projects/ubuntu-os-cloud/global/images/ubuntu-minimal-1804-bionic-v20191024",

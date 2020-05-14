@@ -50,11 +50,10 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 	// email을 어디다가 넣지? 이것또한 문제넹
 	clientEmail := vmHandler.Credential.ClientEmail
 
+	/* // 2020-05-15 Name 기반 로직을 임의로 막아 놓음 - 다음 버전에 적용 예정. 현재는 URL 방식
 	//이미지 URL처리
 	cblogger.Infof("[%s] Image Name에 해당하는 Image Url 정보를 조회합니다.", vmReqInfo.ImageIID.SystemId)
 	imageHandler := GCPImageHandler{Credential: vmHandler.Credential, Region: vmHandler.Region, Client: vmHandler.Client}
-
-	//VPCHandler := AwsVPCHandler{Client: securityHandler.Client}
 
 	imageInfo, errImage := imageHandler.FindImageInfo(vmReqInfo.ImageIID.SystemId)
 	if errImage != nil {
@@ -63,6 +62,7 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 
 	cblogger.Infof("ImageName: [%s] ---> ImageUrl : [%s]", vmReqInfo.ImageIID.SystemId, imageInfo.ImageUrl)
 	imageURL = imageInfo.ImageUrl
+	*/
 
 	//PublicIP처리
 	// var publicIPAddress string
@@ -605,6 +605,7 @@ func (vmHandler *GCPVMHandler) mappingServerInfo(server *compute.Instance) irs.V
 }
 
 //이미지 URL 방식 대신 이름을 사용하도록 변경 중
+//@TODO : 2020-05-15 카푸치노 버전에서는 이름 대신 URL을 사용하기로 했음.
 func (vmHandler *GCPVMHandler) getImageInfo(diskname string) irs.IID {
 	projectID := vmHandler.Credential.ProjectID
 	zone := vmHandler.Region.Zone
@@ -623,23 +624,22 @@ func (vmHandler *GCPVMHandler) getImageInfo(diskname string) irs.IID {
 		cblogger.Error(err)
 		return irs.IID{}
 	}
-	//iArr := strings.Split(info.SourceImage, "/")
+
+	/* 2020-05-14 카푸치노 다음 버전에서 사용 예정
 	arrImageUrl := strings.Split(info.SourceImage, "/")
 	imageName := ""
 	if len(arrImageUrl) > 0 {
 		imageName = arrImageUrl[len(arrImageUrl)-1]
 	}
-
-	/*
-		iId := irs.IID{
-			NameId:   info.SourceImage,
-			SystemId: info.SourceImage,
-		}
-	*/
-
 	iId := irs.IID{
 		NameId:   imageName,
 		SystemId: imageName,
+	}
+	*/
+
+	iId := irs.IID{
+		NameId:   info.SourceImage, //2020-05-14 NameId는 사용자가 사용한 이름도 있기 때문에 리턴하지 않도록 수정
+		SystemId: info.SourceImage,
 	}
 
 	/*
