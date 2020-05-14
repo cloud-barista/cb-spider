@@ -91,7 +91,7 @@ func (securityHandler *AzureSecurityHandler) CreateSecurity(securityReqInfo irs.
 			},
 		}
 
-		if strings.ToUpper(rule.IPProtocol) == ICMP || (rule.FromPort == "*" && rule.ToPort == "*") {
+		if strings.ToLower(rule.IPProtocol) == ICMP || (rule.FromPort == "*" && rule.ToPort == "*") {
 			sgRuleInfo.SourcePortRange = to.StringPtr("*")
 		} else if rule.FromPort == rule.ToPort {
 			sgRuleInfo.SourcePortRange = to.StringPtr(rule.FromPort)

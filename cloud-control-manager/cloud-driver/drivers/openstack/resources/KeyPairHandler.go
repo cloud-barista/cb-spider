@@ -19,7 +19,6 @@ func setterKeypair(keypair keypairs.KeyPair) *irs.KeyPairInfo {
 		Fingerprint: keypair.Fingerprint,
 		PublicKey:   keypair.PublicKey,
 		PrivateKey:  keypair.PrivateKey,
-		VMUserID:    keypair.UserID,
 	}
 	return keypairInfo
 }
