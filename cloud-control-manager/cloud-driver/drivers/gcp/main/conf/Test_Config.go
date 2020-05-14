@@ -17,7 +17,6 @@ import (
 
 	gcpdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/gcp"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
-	"github.com/davecgh/go-spew/spew"
 	"github.com/sirupsen/logrus"
 
 	cblog "github.com/cloud-barista/cb-log"
@@ -118,8 +117,9 @@ func readFileConfig(filepath string) (Config, error) {
 
 	var config Config
 	json.Unmarshal(data, &config)
-	cblogger.Info("readFileConfig Json : ", config.ClientEmail)
-	spew.Dump(config)
+	cblogger.Info("Loaded ConfigFile...")
+	//cblogger.Info("readFileConfig Json : ", config.ClientEmail)
+	//spew.Dump(config)
 
 	return config, err
 

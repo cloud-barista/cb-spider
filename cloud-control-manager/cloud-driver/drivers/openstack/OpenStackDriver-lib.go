@@ -8,7 +8,7 @@
 //
 // by hyokyung.kim@innogrid.co.kr, 2019.07.
 
-package openstack
+package main
 
 import (
 	cblog "github.com/cloud-barista/cb-log"

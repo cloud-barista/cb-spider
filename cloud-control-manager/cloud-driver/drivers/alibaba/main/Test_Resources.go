@@ -339,8 +339,8 @@ func handleSecurity() {
 	//config := readConfigFile()
 	//VmID := config.Aws.VmID
 
-	securityName := "CB-SecurityTest1"
-	securityId := "sg-6weeb9xaodr65g7bq10c"
+	securityName := "CB-SecurityTestIcmp"
+	securityId := "sg-6wedru4yb4m6qqfvd3sj"
 	vpcId := "vpc-6wei16ufuimfcct41o0xh"
 
 	for {
@@ -400,6 +400,13 @@ func handleSecurity() {
 							IPProtocol: "tcp",
 							Direction:  "inbound",
 						},
+						{
+							FromPort:   "-1",
+							ToPort:     "-1",
+							IPProtocol: "icmp",
+							Direction:  "inbound",
+						},
+
 						{
 							FromPort:   "443",
 							ToPort:     "443",
@@ -908,8 +915,8 @@ func main() {
 	//handleVMSpec()
 	//handleImage() //AMI
 	//handleKeyPair()
-	//handleSecurity()
-	handleVM()
+	handleSecurity()
+	//handleVM()
 
 	//handlePublicIP() // PublicIP 생성 후 conf
 
