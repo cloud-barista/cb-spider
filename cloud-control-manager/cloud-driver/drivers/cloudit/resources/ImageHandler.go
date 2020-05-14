@@ -21,8 +21,6 @@ func setterImage(image image.ImageInfo) *irs.ImageInfo {
 			NameId:   image.Name,
 			SystemId: image.ID,
 		},
-		//Id:      image.ID,
-		//Name:    image.Name,
 		GuestOS: image.OS,
 		Status:  image.State,
 	}
@@ -48,12 +46,12 @@ func (imageHandler *ClouditImageHandler) CreateImage(imageReqInfo irs.ImageReqIn
 		MoreHeaders: authHeader,
 	}
 
-	if image, err := image.Create(imageHandler.Client, &createOpts); err != nil {
+	image, err := image.Create(imageHandler.Client, &createOpts)
+	if err != nil {
 		return irs.ImageInfo{}, err
-	} else {
-		imageInfo := setterImage(*image)
-		return *imageInfo, nil
 	}
+	imageInfo := setterImage(*image)
+	return *imageInfo, nil
 }
 
 func (imageHandler *ClouditImageHandler) ListImage() ([]*irs.ImageInfo, error) {
@@ -64,31 +62,24 @@ func (imageHandler *ClouditImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 		MoreHeaders: authHeader,
 	}
 
-	if imageList, err := image.List(imageHandler.Client, &requestOpts); err != nil {
+	imageList, err := image.List(imageHandler.Client, &requestOpts)
+	if err != nil {
 		return nil, err
-	} else {
-		var resultList []*irs.ImageInfo
-
-		for _, image := range *imageList {
-			imageInfo := setterImage(image)
-			resultList = append(resultList, imageInfo)
-		}
-		return resultList, nil
 	}
+
+	resultList := make([]*irs.ImageInfo, len(*imageList))
+	for i, image := range *imageList {
+		imageInfo := setterImage(image)
+		resultList[i] = imageInfo
+	}
+	return resultList, nil
 }
 
 func (imageHandler *ClouditImageHandler) GetImage(imageIID irs.IID) (irs.ImageInfo, error) {
-	/*
-		imageInfo, err := imageHandler.getImageByName(imageNameId)
-		if err != nil {
-			return irs.ImageInfo{}, err
-		}
-	*/
 	imageInfo, err := imageHandler.getImageByName(imageIID.NameId)
 	if err != nil {
 		return irs.ImageInfo{}, err
 	}
-
 	return *imageInfo, nil
 }
 
@@ -134,4 +125,3 @@ func (imageHandler *ClouditImageHandler) getImageByName(imageName string) (*irs.
 	}
 	return imageInfo, nil
 }
-

@@ -24,6 +24,10 @@ import (
 	"time"
 )
 
+const (
+	vmDefaultUser = "root"
+)
+
 var cblogger *logrus.Logger
 
 func init() {
@@ -50,19 +54,18 @@ func (vmHandler *ClouditVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 		Client:         vmHandler.Client,
 		CredentialInfo: vmHandler.CredentialInfo,
 	}
-	image, err := imageHandler.GetImage(vmReqInfo.IId)
+	image, err := imageHandler.GetImage(vmReqInfo.ImageIID)
 	if err != nil {
 		cblogger.Error(fmt.Sprintf("failed to get image, err : %s", err))
 		return irs.VMInfo{}, err
 	}
 
 	//  네트워크 정보 조회 (Name)
-	vNetworkHandler := ClouditVPCHandler{
+	VPCHandler := ClouditVPCHandler{
 		Client:         vmHandler.Client,
 		CredentialInfo: vmHandler.CredentialInfo,
 	}
-	//vNetwork, err := vNetworkHandler.GetVPC(vmReqInfo.VirtualNetworkId) check modify
-	vNetwork, err := vNetworkHandler.GetSubnet(vmReqInfo.SubnetIID)
+	VPC, err := VPCHandler.GetSubnet(vmReqInfo.SubnetIID)
 	if err != nil {
 		cblogger.Error(fmt.Sprintf("failed to get virtual network, err : %s", err))
 		return irs.VMInfo{}, err
@@ -81,12 +84,12 @@ func (vmHandler *ClouditVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 			continue
 		}
 		secGroups[i] = server.SecGroupInfo{
-			Id: security.IId.NameId,
+			Id: security.IId.SystemId,
 		}
 	}
 
 	// Spec 정보 조회 (Name)
-	vmSpecId, err := GetVMSpec(vmHandler.Client.AuthenticatedHeaders(), vmHandler.Client, vmReqInfo.VMSpecName)
+	vmSpecId, err := GetVMSpecByName(vmHandler.Client.AuthenticatedHeaders(), vmHandler.Client, vmReqInfo.VMSpecName)
 	if err != nil {
 		cblogger.Error(fmt.Sprintf("failed to get vm spec, err : %s", err))
 		return irs.VMInfo{}, err
@@ -95,21 +98,13 @@ func (vmHandler *ClouditVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 	vmHandler.Client.TokenID = vmHandler.CredentialInfo.AuthToken
 	authHeader := vmHandler.Client.AuthenticatedHeaders()
 
-	/*reqInfo := server.VMReqInfo{
-		TemplateId:   vmReqInfo.ImageId,
-		SpecId:       vmReqInfo.VMSpecId,
-		Name:         vmReqInfo.VMName,
-		HostName:     vmReqInfo.VMName,
-		RootPassword: vmReqInfo.VMUserPasswd,
-		SubnetAddr:   vmReqInfo.VirtualNetworkId,
-	}*/
 	reqInfo := server.VMReqInfo{
-		TemplateId:   image.IId.NameId,
+		TemplateId:   image.IId.SystemId,
 		SpecId:       *vmSpecId,
 		Name:         vmReqInfo.IId.NameId,
 		HostName:     vmReqInfo.IId.NameId,
 		RootPassword: vmReqInfo.VMUserPasswd,
-		SubnetAddr:   vNetwork.IId.NameId,
+		SubnetAddr:   VPC.Addr,
 		Secgroups:    secGroups,
 	}
 
@@ -119,43 +114,40 @@ func (vmHandler *ClouditVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 	}
 
 	// VM 생성
-	vm, err := server.Start(vmHandler.Client, &requestOpts)
+	creatingVm, err := server.Start(vmHandler.Client, &requestOpts)
 	if err != nil {
 		return irs.VMInfo{}, err
 	}
 
 	// VM 생성 완료까지 wait
-	vmId = vm.ID
-	var isDeployed bool
-	var serverInfo irs.VMInfo
-
 	for {
-		if isDeployed {
-			break
-		}
-
 		// Check VM Deploy Status
-		vmDetailInfo, err := server.Get(vmHandler.Client, vmId, &requestOpts)
+		vmInfo, err := server.Get(vmHandler.Client, creatingVm.ID, &requestOpts)
 		if err != nil {
 			return irs.VMInfo{}, err
 		}
 
-		// Associate Public IP
-		if ok, err := vmHandler.AssociatePublicIP(vm.Name, vmDetailInfo.PrivateIp); !ok {
-			return irs.VMInfo{}, err
+		if vmInfo.PrivateIp == "" {
+			time.Sleep(1 * time.Second)
+			continue
+		} else {
+			ok, err := vmHandler.AssociatePublicIP(creatingVm.Name, vmInfo.PrivateIp)
+			if !ok {
+				return irs.VMInfo{}, err
+			}
+			break
 		}
-
-		serverInfo = mappingServerInfo(*vmDetailInfo)
-		isDeployed = true
 	}
 
-	time.Sleep(5 * time.Second)
-
-
-	return serverInfo, nil
+	vm, err := server.Get(vmHandler.Client, creatingVm.ID, &requestOpts)
+	if err != nil {
+		return irs.VMInfo{}, err
+	}
+	vmInfo := vmHandler.mappingServerInfo(*vm)
+	return vmInfo, nil
 }
 
-func (vmHandler *ClouditVMHandler) SuspendVM(vmNameID string) (irs.VMStatus, error) {
+func (vmHandler *ClouditVMHandler) SuspendVM(vmIID irs.IID) (irs.VMStatus, error) {
 	vmHandler.Client.TokenID = vmHandler.CredentialInfo.AuthToken
 	authHeader := vmHandler.Client.AuthenticatedHeaders()
 
@@ -163,19 +155,13 @@ func (vmHandler *ClouditVMHandler) SuspendVM(vmNameID string) (irs.VMStatus, err
 		MoreHeaders: authHeader,
 	}
 
-	vmID, err := vmHandler.getVmIdByName(vmNameID)
-	if err != nil {
-		cblogger.Error(err)
-		return irs.Failed, err
-	}
-
-	if err := server.Suspend(vmHandler.Client, vmID, &requestOpts); err != nil {
+	if err := server.Suspend(vmHandler.Client, vmIID.SystemId, &requestOpts); err != nil {
 		cblogger.Error(err)
 		return irs.Failed, err
 	}
 
 	// VM 상태 정보 반환
-	vmStatus, err := vmHandler.GetVMStatus(vmNameID)
+	vmStatus, err := vmHandler.GetVMStatus(vmIID)
 	if err != nil {
 		cblogger.Error(err)
 		return irs.Failed, err
@@ -183,7 +169,7 @@ func (vmHandler *ClouditVMHandler) SuspendVM(vmNameID string) (irs.VMStatus, err
 	return vmStatus, nil
 }
 
-func (vmHandler *ClouditVMHandler) ResumeVM(vmNameID string) (irs.VMStatus, error) {
+func (vmHandler *ClouditVMHandler) ResumeVM(vmIID irs.IID) (irs.VMStatus, error) {
 	vmHandler.Client.TokenID = vmHandler.CredentialInfo.AuthToken
 	authHeader := vmHandler.Client.AuthenticatedHeaders()
 
@@ -191,19 +177,13 @@ func (vmHandler *ClouditVMHandler) ResumeVM(vmNameID string) (irs.VMStatus, erro
 		MoreHeaders: authHeader,
 	}
 
-	vmID, err := vmHandler.getVmIdByName(vmNameID)
-	if err != nil {
-		cblogger.Error(err)
-		return irs.Failed, err
-	}
-
-	if err := server.Resume(vmHandler.Client, vmID, &requestOpts); err != nil {
+	if err := server.Resume(vmHandler.Client, vmIID.SystemId, &requestOpts); err != nil {
 		cblogger.Error(err)
 		return irs.Failed, err
 	}
 
 	// VM 상태 정보 반환
-	vmStatus, err := vmHandler.GetVMStatus(vmNameID)
+	vmStatus, err := vmHandler.GetVMStatus(vmIID)
 	if err != nil {
 		cblogger.Error(err)
 		return irs.Failed, err
@@ -211,7 +191,7 @@ func (vmHandler *ClouditVMHandler) ResumeVM(vmNameID string) (irs.VMStatus, erro
 	return vmStatus, nil
 }
 
-func (vmHandler *ClouditVMHandler) RebootVM(vmNameID string) (irs.VMStatus, error) {
+func (vmHandler *ClouditVMHandler) RebootVM(vmIID irs.IID) (irs.VMStatus, error) {
 	vmHandler.Client.TokenID = vmHandler.CredentialInfo.AuthToken
 	authHeader := vmHandler.Client.AuthenticatedHeaders()
 
@@ -219,19 +199,13 @@ func (vmHandler *ClouditVMHandler) RebootVM(vmNameID string) (irs.VMStatus, erro
 		MoreHeaders: authHeader,
 	}
 
-	vmID, err := vmHandler.getVmIdByName(vmNameID)
-	if err != nil {
-		cblogger.Error(err)
-		return irs.Failed, err
-	}
-
-	if err := server.Reboot(vmHandler.Client, vmID, &requestOpts); err != nil {
+	if err := server.Reboot(vmHandler.Client, vmIID.SystemId, &requestOpts); err != nil {
 		cblogger.Error(err)
 		return irs.Failed, err
 	}
 
 	// VM 상태 정보 반환
-	vmStatus, err := vmHandler.GetVMStatus(vmNameID)
+	vmStatus, err := vmHandler.GetVMStatus(vmIID)
 	if err != nil {
 		cblogger.Error(err)
 		return irs.Failed, err
@@ -239,7 +213,7 @@ func (vmHandler *ClouditVMHandler) RebootVM(vmNameID string) (irs.VMStatus, erro
 	return vmStatus, nil
 }
 
-func (vmHandler *ClouditVMHandler) TerminateVM(vmNameID string) (irs.VMStatus, error) {
+func (vmHandler *ClouditVMHandler) TerminateVM(vmIID irs.IID) (irs.VMStatus, error) {
 	vmHandler.Client.TokenID = vmHandler.CredentialInfo.AuthToken
 	authHeader := vmHandler.Client.AuthenticatedHeaders()
 
@@ -248,7 +222,7 @@ func (vmHandler *ClouditVMHandler) TerminateVM(vmNameID string) (irs.VMStatus, e
 	}
 
 	// VM 정보 조회
-	vmInfo, err := vmHandler.GetVM(vmNameID)
+	vmInfo, err := vmHandler.GetVM(vmIID)
 	if err != nil {
 		cblogger.Error(err)
 		return irs.Failed, err
@@ -256,20 +230,14 @@ func (vmHandler *ClouditVMHandler) TerminateVM(vmNameID string) (irs.VMStatus, e
 
 	// 연결된 PublicIP 반환
 	if vmInfo.PublicIP != "" {
-
-		/*reqOpts := irs.PublicIPReqInfo{
-			Name: vmInfo.PublicIP,
-		}*/
-		if ok, err := vmHandler.DisassociatePublicIP(/*reqOpts*/vmInfo.PublicIP); !ok {
+		if ok, err := vmHandler.DisassociatePublicIP(vmInfo.PublicIP); !ok {
 			return irs.Failed, err
 		}
-
 		time.Sleep(5 * time.Second)
 	}
 
-	if err := server.Terminate(vmHandler.Client, vmInfo.IId.NameId, &requestOpts); err != nil {
+	if err := server.Terminate(vmHandler.Client, vmInfo.IId.SystemId, &requestOpts); err != nil {
 		cblogger.Error(err)
-		panic(err)
 		return irs.Failed, err
 	}
 
@@ -285,25 +253,25 @@ func (vmHandler *ClouditVMHandler) ListVMStatus() ([]*irs.VMStatusInfo, error) {
 		MoreHeaders: authHeader,
 	}
 
-	if vmList, err := server.List(vmHandler.Client, &requestOpts); err != nil {
+	vmList, err := server.List(vmHandler.Client, &requestOpts)
+	if err != nil {
 		cblogger.Error(err)
 		return []*irs.VMStatusInfo{}, err
-	} else {
-		var vmStatusList []*irs.VMStatusInfo
-		for _, vm := range *vmList {
-			vmStatusInfo := irs.VMStatusInfo{
-				IId:     irs.IID{
-					NameId:   vm.ID,
-				},
-				VmStatus: irs.VMStatus(vm.State),
-			}
-			vmStatusList = append(vmStatusList, &vmStatusInfo)
-		}
-		return vmStatusList, nil
 	}
+	vmStatusList := make([]*irs.VMStatusInfo, len(*vmList))
+	for i, vm := range *vmList {
+		vmStatusInfo := irs.VMStatusInfo{
+			IId: irs.IID{
+				NameId: vm.ID,
+			},
+			VmStatus: irs.VMStatus(vm.State),
+		}
+		vmStatusList[i] = &vmStatusInfo
+	}
+	return vmStatusList, nil
 }
 
-func (vmHandler *ClouditVMHandler) GetVMStatus(vmNameID string) (irs.VMStatus, error) {
+func (vmHandler *ClouditVMHandler) GetVMStatus(vmIID irs.IID) (irs.VMStatus, error) {
 	vmHandler.Client.TokenID = vmHandler.CredentialInfo.AuthToken
 	authHeader := vmHandler.Client.AuthenticatedHeaders()
 
@@ -311,7 +279,7 @@ func (vmHandler *ClouditVMHandler) GetVMStatus(vmNameID string) (irs.VMStatus, e
 		MoreHeaders: authHeader,
 	}
 
-	vmID, err := vmHandler.getVmIdByName(vmNameID)
+	vmID, err := vmHandler.getVmIdByName(vmIID.NameId)
 	if err != nil {
 		cblogger.Error(err)
 		return irs.Failed, err
@@ -357,20 +325,21 @@ func (vmHandler *ClouditVMHandler) ListVM() ([]*irs.VMInfo, error) {
 		MoreHeaders: authHeader,
 	}
 
-	if vmList, err := server.List(vmHandler.Client, &requestOpts); err != nil {
+	vmList, err := server.List(vmHandler.Client, &requestOpts)
+	if err != nil {
 		cblogger.Error(err)
 		return []*irs.VMInfo{}, err
-	} else {
-		var vmInfoList []*irs.VMInfo
-		for _, vm := range *vmList {
-			vmInfo := mappingServerInfo(vm)
-			vmInfoList = append(vmInfoList, &vmInfo)
-		}
-		return vmInfoList, nil
 	}
+
+	vmInfoList := make([]*irs.VMInfo, len(*vmList))
+	for i, vm := range *vmList {
+		vmInfo := vmHandler.mappingServerInfo(vm)
+		vmInfoList[i] = &vmInfo
+	}
+	return vmInfoList, nil
 }
 
-func (vmHandler *ClouditVMHandler) GetVM(vmNameID string) (irs.VMInfo, error) {
+func (vmHandler *ClouditVMHandler) GetVM(vmIID irs.IID) (irs.VMInfo, error) {
 	vmHandler.Client.TokenID = vmHandler.CredentialInfo.AuthToken
 	authHeader := vmHandler.Client.AuthenticatedHeaders()
 
@@ -378,19 +347,13 @@ func (vmHandler *ClouditVMHandler) GetVM(vmNameID string) (irs.VMInfo, error) {
 		MoreHeaders: authHeader,
 	}
 
-	// VM 이름으로 ID 정보 가져오기
-	vmID, err := vmHandler.getVmIdByName(vmNameID)
+	vm, err := server.Get(vmHandler.Client, vmIID.SystemId, &requestOpts)
 	if err != nil {
-		return irs.VMInfo{}, err
-	}
-
-	if vm, err := server.Get(vmHandler.Client, vmID, &requestOpts); err != nil {
 		cblogger.Error(err)
 		return irs.VMInfo{}, err
-	} else {
-		vmInfo := mappingServerInfo(*vm)
-		return vmInfo, nil
 	}
+	vmInfo := vmHandler.mappingServerInfo(*vm)
+	return vmInfo, nil
 }
 
 // VM에 PublicIP 연결
@@ -417,8 +380,8 @@ func (vmHandler *ClouditVMHandler) AssociatePublicIP(vmName string, vmIp string)
 
 	// 2. PublicIP 생성 및 할당
 	reqInfo := adaptiveip.PublicIPReqInfo{
-		IP:   availableIP.IP,
-		Name: vmName + "-PublicIP",
+		IP:        availableIP.IP,
+		Name:      vmName + "-PublicIP",
 		PrivateIP: vmIp,
 	}
 
@@ -430,13 +393,12 @@ func (vmHandler *ClouditVMHandler) AssociatePublicIP(vmName string, vmIp string)
 	if err != nil {
 		cblogger.Error(err)
 		return false, err
-	} else {
-		return true, nil
 	}
+	return true, nil
 }
 
 // VM에 PublicIP 해제
-func (vmHandler *ClouditVMHandler) DisassociatePublicIP(vmName string) (bool, error) {
+func (vmHandler *ClouditVMHandler) DisassociatePublicIP(publicIP string) (bool, error) {
 	vmHandler.Client.TokenID = vmHandler.CredentialInfo.AuthToken
 	authHeader := vmHandler.Client.AuthenticatedHeaders()
 
@@ -444,7 +406,7 @@ func (vmHandler *ClouditVMHandler) DisassociatePublicIP(vmName string) (bool, er
 		MoreHeaders: authHeader,
 	}
 
-	if err := adaptiveip.Delete(vmHandler.Client, vmName, &requestOpts); err != nil {
+	if err := adaptiveip.Delete(vmHandler.Client, publicIP, &requestOpts); err != nil {
 		cblogger.Error(err)
 		return false, err
 	} else {
@@ -452,7 +414,7 @@ func (vmHandler *ClouditVMHandler) DisassociatePublicIP(vmName string) (bool, er
 	}
 }
 
-func mappingServerInfo(server server.ServerInfo) irs.VMInfo {
+func (vmHandler *ClouditVMHandler) mappingServerInfo(server server.ServerInfo) irs.VMInfo {
 
 	// Get Default VM Info
 	vmInfo := irs.VMInfo{
@@ -460,22 +422,60 @@ func mappingServerInfo(server server.ServerInfo) irs.VMInfo {
 			NameId:   server.Name,
 			SystemId: server.ID,
 		},
-		ImageIId:         irs.IID{
-			NameId:   server.TemplateID,
+		Region: irs.RegionInfo{
+			Region: server.TenantID,
+			Zone:   server.TenantID,
 		},
-		VMSpecName:       server.SpecId,
-		// VirtualNetworkId: server.SubnetAddr,
-		PublicIP:         server.AdaptiveIp,
-		PrivateIP:        server.PrivateIp,
-		//KeyPairIId:       server.RootPassword,
+		ImageIId: irs.IID{
+			NameId:   server.Template,
+			SystemId: server.TemplateID,
+		},
+		VMSpecName: server.Spec,
+		VpcIID: irs.IID{
+			NameId:   defaultVPCName,
+			SystemId: defaultVPCName,
+		},
+		VMUserId:  vmDefaultUser,
+		PublicIP:  server.AdaptiveIp,
+		PrivateIP: server.PrivateIp,
 	}
 
-	/*if creatTime, err := time.Parse(time.RFC3339, server.CreatedAt); err == nil {
-		vmInfo.StartTime = creatTime
-	} else {
-		panic(err)
-	}*/
+	if server.CreatedAt != "" {
+		timeArr := strings.Split(server.CreatedAt, " ")
+		timeFormatStr := fmt.Sprintf("%sT%sZ", timeArr[0], timeArr[1])
+		if createTime, err := time.Parse(time.RFC3339, timeFormatStr); err == nil {
+			vmInfo.StartTime = createTime
+		}
+	}
 
+	// Get Subnet Info
+	VPCHandler := ClouditVPCHandler{
+		Client:         vmHandler.Client,
+		CredentialInfo: vmHandler.CredentialInfo,
+	}
+	subnet, err := VPCHandler.GetSubnet(irs.IID{NameId: server.SubnetAddr})
+	if err == nil {
+		vmInfo.SubnetIID = irs.IID{
+			NameId:   subnet.Name,
+			SystemId: subnet.ID,
+		}
+	}
+
+	// Get SecurityGroup Info
+	vmHandler.Client.TokenID = vmHandler.CredentialInfo.AuthToken
+	authHeader := vmHandler.Client.AuthenticatedHeaders()
+	vnicList, _ := ListVNic(authHeader, vmHandler.Client, server.ID)
+	if len(*vnicList) > 0 {
+		defaultVnic := (*vnicList)[0]
+		segGroupList := make([]irs.IID, len(defaultVnic.SecGroups))
+		for i, s := range defaultVnic.SecGroups {
+			segGroupList[i] = irs.IID{
+				NameId:   s.Name,
+				SystemId: s.Id,
+			}
+		}
+		vmInfo.SecurityGroupIIds = segGroupList
+	}
 	return vmInfo
 }
 

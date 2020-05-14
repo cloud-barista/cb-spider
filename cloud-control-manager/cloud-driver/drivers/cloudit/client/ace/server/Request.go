@@ -91,7 +91,7 @@ type ServerInfo struct {
 	ClusterId         string
 	ClusterName       string
 	NicType           string
-	Secgroups         []securitygroup.SecurityGroupRules
+	Secgroups         []securitygroup.SecurityGroupInfo
 	Ip                string
 	SubnetAddr        string
 	DeviceId          string

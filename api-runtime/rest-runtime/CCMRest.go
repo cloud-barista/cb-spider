@@ -1803,8 +1803,8 @@ func startVM(c echo.Context) error {
 	}
 
         rsType := rsVM
-vmRWLock.Lock()
-defer vmRWLock.Unlock()
+// vmRWLock.Lock() @todo undo this until supporting async call. by powerkim, 2020.05.10
+// defer vmRWLock.Unlock() @todo undo this until supporting async call. by powerkim, 2020.05.10
 // (1) check exist(NameID)
         bool_ret, err := iidRWLock.IsExistIID(req.ConnectionName, rsType, reqInfo.IId)
         if err != nil {
@@ -1837,9 +1837,15 @@ defer vmRWLock.Unlock()
                 return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
         }
 
+        // set sg NameId from VPCNameId-SecurityGroupNameId
+        // IID.NameID format => {VPC NameID} + sgDELIMITER + {SG NameID}
+	for i, sgIID := range info.SecurityGroupIIds {
+		vpc_sg_nameid := strings.Split(sgIID.NameId, sgDELIMITER)
+		info.SecurityGroupIIds[i].NameId = vpc_sg_nameid[1]
+	}
+
 	return c.JSON(http.StatusOK, &info)
 }
-
 
 func setNameId(ConnectionName string, vmInfo *cres.VMInfo, reqInfo *cres.VMReqInfo) error {
 
@@ -1945,6 +1951,12 @@ defer vmRWLock.RUnlock()
                 return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
+				// set sg NameId from VPCNameId-SecurityGroupNameId
+				// IID.NameID format => {VPC NameID} + sgDELIMITER + {SG NameID}
+				for i, sgIID := range info.SecurityGroupIIds {
+					vpc_sg_nameid := strings.Split(sgIID.NameId, sgDELIMITER)
+					info.SecurityGroupIIds[i].NameId = vpc_sg_nameid[1]
+				}
 
                                 infoList2 = append(infoList2, info)
                                 exist = true
@@ -2047,6 +2059,13 @@ defer vmRWLock.RUnlock()
                 return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
         }
 
+        // set sg NameId from VPCNameId-SecurityGroupNameId
+        // IID.NameID format => {VPC NameID} + sgDELIMITER + {SG NameID}
+        for i, sgIID := range info.SecurityGroupIIds {
+                vpc_sg_nameid := strings.Split(sgIID.NameId, sgDELIMITER)
+                info.SecurityGroupIIds[i].NameId = vpc_sg_nameid[1]
+        }
+
 	return c.JSON(http.StatusOK, &info)
 }
 
@@ -2075,8 +2094,8 @@ func terminateVM(c echo.Context) error {
 	}
 
         rsType := rsVM
-vmRWLock.Lock()
-defer vmRWLock.Unlock()
+// vmRWLock.Lock() @todo undo this until supporting async call. by powerkim, 2020.05.10
+// defer vmRWLock.Unlock() @todo undo this until supporting async call. by powerkim, 2020.05.10
 // (1) get IID(NameId)
         iidInfo, err := iidRWLock.GetIID(req.ConnectionName, rsType, cres.IID{c.Param("Name"), ""})
         if err != nil {
