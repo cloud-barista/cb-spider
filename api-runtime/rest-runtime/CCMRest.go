@@ -643,23 +643,30 @@ defer vpcRWLock.RUnlock()
 		for _, info := range infoList {
 			if iidInfo.IId.SystemId == info.IId.SystemId {
 				
-//+++++++++++++++++++++++++++++++++++++++++++
-// set ResourceInfo(IID.NameId)
-        // set VPC NameId
-        IIdInfo, err := iidRWLock.GetIIDbySystemID(req.ConnectionName, rsType, info.IId)
-        if err != nil {
-                return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-        }
-        info.IId.NameId = IIdInfo.IId.NameId
-//+++++++++++++++++++++++++++++++++++++++++++
-// set NameId for SubnetInfo List
-	for i, subnetInfo := range info.SubnetInfoList {
-		subnetIIDInfo, err := iidRWLock.GetIIDbySystemID(req.ConnectionName, rsSubnetPrefix + info.IId.NameId, subnetInfo.IId)
-		if err != nil {
-			return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-		}
-		info.SubnetInfoList[i].IId.NameId = subnetIIDInfo.IId.NameId
-	}
+				//+++++++++++++++++++++++++++++++++++++++++++
+				// set ResourceInfo(IID.NameId)
+					// set VPC NameId
+					IIdInfo, err := iidRWLock.GetIIDbySystemID(req.ConnectionName, rsType, info.IId)
+					if err != nil {
+						return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+					}
+					info.IId.NameId = IIdInfo.IId.NameId
+				//+++++++++++++++++++++++++++++++++++++++++++
+				// set NameId for SubnetInfo List
+					// create new SubnetInfo List
+					subnetInfoList := []cres.SubnetInfo{}
+					for _, subnetInfo := range info.SubnetInfoList {
+						subnetIIDInfo, err := iidRWLock.GetIIDbySystemID(req.ConnectionName, rsSubnetPrefix + info.IId.NameId, subnetInfo.IId)
+						if err != nil {
+							return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+						}	
+						if subnetIIDInfo.IId.NameId != "" { // insert only this user created.
+							subnetInfo.IId.NameId = subnetIIDInfo.IId.NameId
+							subnetInfoList = append(subnetInfoList, subnetInfo)
+						} 
+						
+					}
+					info.SubnetInfoList = subnetInfoList
 
 
 				infoList2 = append(infoList2, info)
@@ -718,13 +725,19 @@ defer vpcRWLock.RUnlock()
 	info.IId.NameId = iidInfo.IId.NameId
 
 	// set NameId for SubnetInfo List
+	// create new SubnetInfo List
+	subnetInfoList := []cres.SubnetInfo{}
         for i, subnetInfo := range info.SubnetInfoList {
                 subnetIIDInfo, err := iidRWLock.GetIIDbySystemID(req.ConnectionName, rsSubnetPrefix + info.IId.NameId, subnetInfo.IId)
                 if err != nil {
                         return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
                 }
-                info.SubnetInfoList[i].IId.NameId = subnetIIDInfo.IId.NameId
+		if subnetIIDInfo.IId.NameId != "" { // insert only this user created.
+			info.SubnetInfoList[i].IId.NameId = subnetIIDInfo.IId.NameId
+			subnetInfoList = append(subnetInfoList, info.SubnetInfoList[i])
+		}
         }
+	info.SubnetInfoList = subnetInfoList
 	return c.JSON(http.StatusOK, &info)
 }
 
@@ -1725,12 +1738,14 @@ func getSetSystemId(ConnectionName string, reqInfo *cres.VMReqInfo) error {
 		
 	}
 
-        // set KeyPair SystemId
-        IIdInfo, err = iidRWLock.GetIID(ConnectionName, rsKey, reqInfo.KeyPairIID)
-        if err != nil {
-                return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-        }
-        reqInfo.KeyPairIID.SystemId = IIdInfo.IId.SystemId
+	if reqInfo.KeyPairIID.NameId != "" {
+		// set KeyPair SystemId
+		IIdInfo, err = iidRWLock.GetIID(ConnectionName, rsKey, reqInfo.KeyPairIID)
+		if err != nil {
+			return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		}
+		reqInfo.KeyPairIID.SystemId = IIdInfo.IId.SystemId
+	}
 
 	return nil
 }
@@ -1976,7 +1991,7 @@ func getSetNameId(ConnectionName string, vmInfo *cres.VMInfo) error {
 
         // set Image NameId
         // @todo before Image Handling by powerkim
-        vmInfo.ImageIId.NameId = vmInfo.ImageIId.SystemId
+        //vmInfo.ImageIId.NameId = vmInfo.ImageIId.SystemId
 
         // set VPC NameId
         IIdInfo, err := iidRWLock.GetIIDbySystemID(ConnectionName, rsVPC, vmInfo.VpcIID)
