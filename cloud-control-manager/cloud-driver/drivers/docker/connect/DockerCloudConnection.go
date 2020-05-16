@@ -39,45 +39,34 @@ func (cloudConn *DockerCloudConnection) CreateImageHandler() (irs.ImageHandler, 
 	return &imageHandler, nil
 }
 
-/*
+
 func (cloudConn *DockerCloudConnection) CreateVMHandler() (irs.VMHandler, error) {
 	cblogger.Info("Docker Cloud Driver: called CreateVMHandler()!")
 	vmHandler := dkrs.DockerVMHandler{
-		CredentialInfo: cloudConn.CredentialInfo,
-		Region:         cloudConn.Region,
-		Ctx:            cloudConn.Ctx,
-		Client:         cloudConn.VMClient,
+		Region:         cloudConn.ConnectionInfo.RegionInfo,
+		Context:        cloudConn.Context,
+		Client:         cloudConn.Client,
 	}
 	return &vmHandler, nil
 }
-*/
-
-
-func (cloudConn *DockerCloudConnection) CreateVMHandler() (irs.VMHandler, error) {
-        cblogger.Info("Docker Cloud Driver: called CreateVMHandler()!")
-
-
-        return nil, nil
-}
-
 
 func (cloudConn *DockerCloudConnection) CreateVPCHandler() (irs.VPCHandler, error) {
-        cblogger.Info("OpenStack Cloud Driver: called CreateVPCHandler()!")
+        cblogger.Error("OpenStack Cloud Driver: called CreateVPCHandler(), but not supported!")
         return nil, nil
 }
 
 func (cloudConn DockerCloudConnection) CreateSecurityHandler() (irs.SecurityHandler, error) {
-        cblogger.Info("Docker Cloud Driver: called CreateSecurityHandler()!")
+        cblogger.Error("Docker Cloud Driver: called CreateSecurityHandler(), but not supported!")
         return nil, nil
 }
 
 func (cloudConn *DockerCloudConnection) CreateKeyPairHandler() (irs.KeyPairHandler, error) {
-        cblogger.Info("Docker Cloud Driver: called CreateKeyPairHandler()!")
+        cblogger.Error("Docker Cloud Driver: called CreateKeyPairHandler(), but not supported!")
         return nil, nil
 }
 
 func (cloudConn *DockerCloudConnection) CreateVMSpecHandler() (irs.VMSpecHandler, error) {
-        cblogger.Info("Docker Cloud Driver: called CreateVMSpecHandler()!")
+        cblogger.Error("Docker Cloud Driver: called CreateVMSpecHandler(), but not supported!")
 	return nil, nil
 }
 
@@ -86,15 +75,15 @@ func (cloudConn *DockerCloudConnection) IsConnected() (bool, error) {
 	if cloudConn == nil {
 		return false, nil
 	}
-/*
+
 	if cloudConn.Client == nil {
 		return false, nil
 	}
-*/
+
 	return true, nil
 }
 
 func (cloudConn *DockerCloudConnection) Close() error {
         cblogger.Info("Docker Cloud Driver: called Close()!")
-	return nil
+	return cloudConn.Client.Close()
 }

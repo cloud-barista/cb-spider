@@ -1715,32 +1715,35 @@ func getSetSystemId(ConnectionName string, reqInfo *cres.VMReqInfo) error {
         reqInfo.ImageIID.SystemId = reqInfo.ImageIID.NameId
 
         // set VPC SystemId
-        IIdInfo, err := iidRWLock.GetIID(ConnectionName, rsVPC, reqInfo.VpcIID)
-        if err != nil {
-                return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-        }
-        reqInfo.VpcIID.SystemId = IIdInfo.IId.SystemId
+	if reqInfo.VpcIID.NameId != "" {
+		IIdInfo, err := iidRWLock.GetIID(ConnectionName, rsVPC, reqInfo.VpcIID)
+		if err != nil {
+			return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		}
+		reqInfo.VpcIID.SystemId = IIdInfo.IId.SystemId
+	}
 
         // set Subnet SystemId
-        IIdInfo, err = iidRWLock.GetIID(ConnectionName, rsSubnetPrefix + reqInfo.VpcIID.NameId, reqInfo.SubnetIID)
-        if err != nil {
-                return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-        }
-        reqInfo.SubnetIID.SystemId = IIdInfo.IId.SystemId
+	if reqInfo.SubnetIID.NameId != "" {
+		IIdInfo, err := iidRWLock.GetIID(ConnectionName, rsSubnetPrefix + reqInfo.VpcIID.NameId, reqInfo.SubnetIID)
+		if err != nil {
+			return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		}
+		reqInfo.SubnetIID.SystemId = IIdInfo.IId.SystemId
+	}
 
         // set SecurityGroups SystemId
 	for i, sgIID := range reqInfo.SecurityGroupIIDs {
-		IIdInfo, err = iidRWLock.GetIID(ConnectionName, rsSG, sgIID)
+		IIdInfo, err := iidRWLock.GetIID(ConnectionName, rsSG, sgIID)
 		if err != nil {
 			return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 		}
 		reqInfo.SecurityGroupIIDs[i].SystemId = IIdInfo.IId.SystemId
-		
 	}
 
+	// set KeyPair SystemId
 	if reqInfo.KeyPairIID.NameId != "" {
-		// set KeyPair SystemId
-		IIdInfo, err = iidRWLock.GetIID(ConnectionName, rsKey, reqInfo.KeyPairIID)
+		IIdInfo, err := iidRWLock.GetIID(ConnectionName, rsKey, reqInfo.KeyPairIID)
 		if err != nil {
 			return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 		}
@@ -1866,13 +1869,19 @@ func setNameId(ConnectionName string, vmInfo *cres.VMInfo, reqInfo *cres.VMReqIn
 
         // set Image SystemId
         // @todo before Image Handling by powerkim
-        vmInfo.ImageIId.NameId = reqInfo.ImageIID.NameId
+	if reqInfo.ImageIID.NameId != "" {
+		vmInfo.ImageIId.NameId = reqInfo.ImageIID.NameId
+	}
 
         // set VPC SystemId
-        vmInfo.VpcIID.NameId = reqInfo.VpcIID.NameId
+	if reqInfo.VpcIID.NameId != "" {
+		vmInfo.VpcIID.NameId = reqInfo.VpcIID.NameId
+	}
 
-        // set Subnet SystemId
-        vmInfo.SubnetIID.NameId = reqInfo.SubnetIID.NameId
+	if reqInfo.SubnetIID.NameId != "" {
+		// set Subnet SystemId
+		vmInfo.SubnetIID.NameId = reqInfo.SubnetIID.NameId
+	}
 
 	vmInfo.SecurityGroupIIds = reqInfo.SecurityGroupIIDs
 
@@ -1885,8 +1894,10 @@ func setNameId(ConnectionName string, vmInfo *cres.VMInfo, reqInfo *cres.VMReqIn
                 reqInfo.SecurityGroupIIDs[i].NameId = IIdInfo.IId.NameId
         }
 
-        // set KeyPair SystemId
-        vmInfo.KeyPairIId.NameId = reqInfo.KeyPairIID.NameId
+	if reqInfo.KeyPairIID.NameId != "" {
+		// set KeyPair SystemId
+		vmInfo.KeyPairIId.NameId = reqInfo.KeyPairIID.NameId
+	}
 
         return nil
 }

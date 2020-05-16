@@ -50,7 +50,7 @@ func (cloudConn ClouditCloudConnection) CreateSecurityHandler() (irs.SecurityHan
 }
 
 func (cloudConn *ClouditCloudConnection) CreateKeyPairHandler() (irs.KeyPairHandler, error) {
-	cblogger.Info("Cloudit Cloud Driver: called CreateKeyPairHandler()!")
+	cblogger.Error("Cloudit Cloud Driver: called CreateKeyPairHandler(), but not supported!")
 	return nil, nil
 }
 
