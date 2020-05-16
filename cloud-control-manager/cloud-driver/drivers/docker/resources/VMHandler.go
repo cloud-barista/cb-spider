@@ -12,9 +12,11 @@ package resources
 
 import (
 	"context"
+	"github.com/docker/docker/client"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 //	"github.com/docker/docker/pkg/stdcopy"
+	"github.com/docker/go-connections/nat"
 
 //	"os"
 //	"errors"
@@ -85,7 +87,7 @@ type Config struct {
 		},
 	}
 
-	resp, err := vmHandler.Client.ContainerCreate(vmHandler.Context, Config, hostConfig, nil, "")
+	resp, err := vmHandler.Client.ContainerCreate(vmHandler.Context, config, hostConfig, nil, "")
         if err != nil {
 		cblogger.Error(err)
 		return irs.VMInfo{}, err
