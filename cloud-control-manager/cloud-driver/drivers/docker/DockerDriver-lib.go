@@ -4,7 +4,7 @@
 //
 //      * Cloud-Barista: https://github.com/cloud-barista
 //
-// This is interfaces of Cloud Driver.
+// This is Docker Driver.
 //
 // by CB-Spider Team, 2020.05.
 
