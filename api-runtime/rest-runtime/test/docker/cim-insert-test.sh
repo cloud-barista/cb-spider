@@ -6,9 +6,9 @@ curl -X POST http://$RESTSERVER:1024/spider/driver -H 'Content-Type: application
  # for Cloud Credential Info
 # APIVersion reference: $docker version or https://docs.docker.com/engine/api/ 
 # for AWS:VM:Docker
-curl -X POST http://$RESTSERVER:1024/spider/credential -H 'Content-Type: application/json' -d '{"CredentialName":"docker-credential01","ProviderName":"DOCKER", "KeyValueInfoList": [{"Key":"Host", "Value":"http://xxx.xxx.xxx.xxx:1004"}, {"Key":"APIVersion", "Value":"v1.40"}]}'
+curl -X POST http://$RESTSERVER:1024/spider/credential -H 'Content-Type: application/json' -d '{"CredentialName":"docker-credential01","ProviderName":"DOCKER", "KeyValueInfoList": [{"Key":"Host", "Value":"http://xxx.xxx.xxx.xxx:1004"}, {"Key":"APIVersion", "Value":"v1.38"}]}'
 # for powerkim:NAS:Docker
-curl -X POST http://$RESTSERVER:1024/spider/credential -H 'Content-Type: application/json' -d '{"CredentialName":"docker-credential01","ProviderName":"DOCKER", "KeyValueInfoList": [{"Key":"Host", "Value":"http://xxx.xxx.xxx.xxx:1004"}, {"Key":"APIVersion", "Value":"v1.39"}]}'
+curl -X POST http://$RESTSERVER:1024/spider/credential -H 'Content-Type: application/json' -d '{"CredentialName":"docker-credential01","ProviderName":"DOCKER", "KeyValueInfoList": [{"Key":"Host", "Value":"http://xxx.xxx.xxx.xxx:1004"}, {"Key":"APIVersion", "Value":"v1.38"}]}'
 
  # Cloud Region Info
 curl -X POST http://$RESTSERVER:1024/spider/region -H 'Content-Type: application/json' -d '{"RegionName":"docker-region01","ProviderName":"DOCKER", "KeyValueInfoList": [{"Key":"Region", "Value":"default"}]}'

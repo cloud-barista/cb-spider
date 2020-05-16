@@ -16,7 +16,7 @@ import (
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 //	"github.com/docker/docker/pkg/stdcopy"
-	"github.com/docker/go-connections/nat"
+//	"github.com/docker/go-connections/nat"
 
 //	"os"
 //	"errors"
@@ -65,17 +65,17 @@ type Config struct {
     Shell           strslice.StrSlice   `json:",omitempty"` // Shell for shell-form of RUN, CMD, ENTRYPOINT
 }
 */
+/*
 
 	// set Port binding
 	config := &container.Config{
 		Image: vmReqInfo.ImageIID.NameId,
 		//Cmd:   []string{"echo", "hello world"},
                 //Tty:   true,
-		ExposedPorts: nat.PortSet{
-				"80/tcp": struct{}{},
-			},
+//		ExposedPorts: nat.PortSet{
+//				"80/tcp": struct{}{},
+//			},
 	}
-
 	hostConfig := &container.HostConfig{
 		PortBindings: nat.PortMap{
 			"4140/tcp": []nat.PortBinding{
@@ -86,8 +86,15 @@ type Config struct {
 			},
 		},
 	}
+*/
 
-	resp, err := vmHandler.Client.ContainerCreate(vmHandler.Context, config, hostConfig, nil, "")
+	//resp, err := vmHandler.Client.ContainerCreate(vmHandler.Context, config, hostConfig, nil, "")
+	resp, err := vmHandler.Client.ContainerCreate(vmHandler.Context, &container.Config{
+                Image: vmReqInfo.ImageIID.NameId,
+               // Cmd:   []string{"echo", "hello world"},
+               // Tty:   true,
+        }, nil, nil, "")
+
         if err != nil {
 		cblogger.Error(err)
 		return irs.VMInfo{}, err
