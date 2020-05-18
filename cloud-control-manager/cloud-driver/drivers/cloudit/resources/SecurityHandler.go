@@ -36,10 +36,16 @@ func setterSecGroup(secGroup securitygroup.SecurityGroupInfo) *irs.SecurityInfo 
 	secRuleArr := make([]irs.SecurityRuleInfo, len(secGroup.Rules))
 	for i, sgRule := range secGroup.Rules {
 		secRuleInfo := irs.SecurityRuleInfo{
-			FromPort:   sgRule.Port,
-			ToPort:     sgRule.Port,
 			IPProtocol: sgRule.Protocol,
 			Direction:  sgRule.Type,
+		}
+		if strings.Contains(sgRule.Port, "-") {
+			portArr := strings.Split(sgRule.Port, "-")
+			secRuleInfo.FromPort = portArr[0]
+			secRuleInfo.ToPort = portArr[1]
+		} else {
+			secRuleInfo.FromPort = sgRule.Port
+			secRuleInfo.ToPort = sgRule.Port
 		}
 		secRuleArr[i] = secRuleInfo
 	}

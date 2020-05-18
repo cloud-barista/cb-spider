@@ -13,12 +13,12 @@ type OpenStackKeyPairHandler struct {
 func setterKeypair(keypair keypairs.KeyPair) *irs.KeyPairInfo {
 	keypairInfo := &irs.KeyPairInfo{
 		IId: irs.IID{
-			NameId:   keypair.Name,
-			SystemId: keypair.Name,
+			NameId: keypair.Name,
 		},
 		Fingerprint: keypair.Fingerprint,
 		PublicKey:   keypair.PublicKey,
 		PrivateKey:  keypair.PrivateKey,
+		VMUserID:    keypair.UserID,
 	}
 	return keypairInfo
 }
