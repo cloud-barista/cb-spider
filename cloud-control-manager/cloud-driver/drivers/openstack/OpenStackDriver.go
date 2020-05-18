@@ -82,8 +82,12 @@ func (driver *OpenStackDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) 
 	if err != nil {
 		cblogger.Error(err)
 	}
+	VolumeClient, err := getVolumeClient(connectionInfo)
+	if err != nil {
+		cblogger.Error(err)
+	}
 
-	iConn := oscon.OpenStackCloudConnection{connectionInfo.RegionInfo, Client, ImageClient, NetworkClient}
+	iConn := oscon.OpenStackCloudConnection{Client, ImageClient, NetworkClient, VolumeClient}
 
 	return &iConn, nil // return type: (icon.CloudConnection, error)
 }
@@ -195,5 +199,24 @@ func getNetworkClient(connInfo idrv.ConnectionInfo) (*gophercloud.ServiceClient,
 
 	return client, err
 }
-
+func getVolumeClient(connInfo idrv.ConnectionInfo) (*gophercloud.ServiceClient, error) {
+	authOpts := gophercloud.AuthOptions{
+		IdentityEndpoint: connInfo.CredentialInfo.IdentityEndpoint,
+		Username:         connInfo.CredentialInfo.Username,
+		Password:         connInfo.CredentialInfo.Password,
+		DomainName:       connInfo.CredentialInfo.DomainName,
+		TenantID:         connInfo.CredentialInfo.ProjectID,
+	}
+	provider, err := openstack.AuthenticatedClient(authOpts)
+	if err != nil {
+		return nil, err
+	}
+	client, err := openstack.NewBlockStorageV2(provider, gophercloud.EndpointOpts{
+		Region : connInfo.RegionInfo.Region,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return client, err
+}
 var CloudDriver OpenStackDriver

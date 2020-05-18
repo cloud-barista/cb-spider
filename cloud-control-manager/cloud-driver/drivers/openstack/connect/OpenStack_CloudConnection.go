@@ -13,7 +13,6 @@ package connect
 import (
 	cblog "github.com/cloud-barista/cb-log"
 	osrs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/openstack/resources"
-	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/rackspace/gophercloud"
 	"github.com/sirupsen/logrus"
@@ -28,10 +27,10 @@ func init() {
 
 // modified by powerkim, 2019.07.29
 type OpenStackCloudConnection struct {
-	Region        idrv.RegionInfo
 	Client        *gophercloud.ServiceClient
 	ImageClient   *gophercloud.ServiceClient
 	NetworkClient *gophercloud.ServiceClient
+	VolumeClient  *gophercloud.ServiceClient
 }
 
 func (cloudConn *OpenStackCloudConnection) CreateImageHandler() (irs.ImageHandler, error) {
@@ -78,7 +77,7 @@ func (cloudConn *OpenStackCloudConnection) CreateKeyPairHandler() (irs.KeyPairHa
 
 func (cloudConn *OpenStackCloudConnection) CreateVMHandler() (irs.VMHandler, error) {
 	cblogger.Info("OpenStack Cloud Driver: called CreateVMHandler()!")
-	vmHandler := osrs.OpenStackVMHandler{cloudConn.Region, cloudConn.Client, cloudConn.NetworkClient}
+	vmHandler := osrs.OpenStackVMHandler{cloudConn.Client, cloudConn.NetworkClient, cloudConn.VolumeClient}
 	return &vmHandler, nil
 }
 
