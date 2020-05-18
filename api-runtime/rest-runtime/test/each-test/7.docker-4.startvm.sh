@@ -3,4 +3,4 @@ export IMAGE_NAME=nginx:latest
 #export IMAGE_NAME=panubo/sshd:latest
 export SPEC_NAME=n/a
 
-./docker-full_test.sh
+./docker-startvm-test.sh

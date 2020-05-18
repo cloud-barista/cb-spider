@@ -15,15 +15,12 @@ import (
 	"github.com/docker/docker/client"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
-//	"github.com/docker/docker/pkg/stdcopy"
-//	"github.com/docker/go-connections/nat"
+	"github.com/docker/go-connections/nat"
 
-//	"os"
-//	"errors"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
-//	"reflect"
-//	"strings"
+	"time"
+	"strconv"
 )
 
 type DockerVMHandler struct {
@@ -65,36 +62,43 @@ type Config struct {
     Shell           strslice.StrSlice   `json:",omitempty"` // Shell for shell-form of RUN, CMD, ENTRYPOINT
 }
 */
-/*
+
 
 	// set Port binding
 	config := &container.Config{
 		Image: vmReqInfo.ImageIID.NameId,
+		//Image: "panubo/sshd",
 		//Cmd:   []string{"echo", "hello world"},
                 //Tty:   true,
-//		ExposedPorts: nat.PortSet{
-//				"80/tcp": struct{}{},
-//			},
+		ExposedPorts: nat.PortSet{
+				//"80/tcp": struct{}{},
+			},
 	}
+	// @todo now, fixed port binding. by powerkim, 2020.05.19
+        hostConfig := &container.HostConfig{
+                PortBindings: nat.PortMap{
+                        "80/tcp": []nat.PortBinding{
+                                {
+                                        HostIP: "0.0.0.0",
+                                        HostPort: "8080",
+                                },
+                        },
+                },
+        }
+
+/*
 	hostConfig := &container.HostConfig{
 		PortBindings: nat.PortMap{
-			"4140/tcp": []nat.PortBinding{
+			"22/tcp": []nat.PortBinding{
 				{
 					HostIP: "0.0.0.0",
-					HostPort: "8080",
+					HostPort: "44",
 				},
 			},
 		},
 	}
 */
-
-	//resp, err := vmHandler.Client.ContainerCreate(vmHandler.Context, config, hostConfig, nil, "")
-	resp, err := vmHandler.Client.ContainerCreate(vmHandler.Context, &container.Config{
-                Image: vmReqInfo.ImageIID.NameId,
-               // Cmd:   []string{"echo", "hello world"},
-               // Tty:   true,
-        }, nil, nil, "")
-
+	resp, err := vmHandler.Client.ContainerCreate(vmHandler.Context, config, hostConfig, nil, "")
         if err != nil {
 		cblogger.Error(err)
 		return irs.VMInfo{}, err
@@ -129,10 +133,10 @@ type Config struct {
                 return irs.VMInfo{}, err
         }
 
-	return getVMInfo(vmReqInfo, contJson), nil
+	return getVMInfoByContainerJSON(vmHandler.Region, vmReqInfo.IId, contJson), nil
 }
 
-func getVMInfo(vmReqInfo irs.VMReqInfo, contJson types.ContainerJSON) irs.VMInfo {
+func getVMInfoByContainerJSON(regionInfo idrv.RegionInfo, vmReqIID irs.IID, contJson types.ContainerJSON) irs.VMInfo {
 /* ref) https://godoc.org/github.com/docker/docker/api/types#ContainerJSON
 	type ContainerJSON struct {
 	    *ContainerJSONBase
@@ -166,237 +170,251 @@ func getVMInfo(vmReqInfo irs.VMReqInfo, contJson types.ContainerJSON) irs.VMInfo
 	    SizeRootFs      *int64 `json:",omitempty"`
 	}
 */
-	baseInfo := contJson.ContainerJSONBase
+	container := contJson.ContainerJSONBase
+	networks := contJson.NetworkSettings.Networks["bridge"] // @todo Now, only bridge.
 
-	iid := vmReqInfo.IId
-	iid.SystemId = baseInfo.ID
+	iid := vmReqIID
+	iid.SystemId = container.ID
+
+	int64Time, _ := strconv.ParseInt(container.Created, 10, 64)
+
 	vmInfo := irs.VMInfo{
 		IId:	iid,
-		ImageIId:irs.IID{baseInfo.Image, baseInfo.Image},
+                StartTime:       time.Unix(int64Time, 0),
+                Region:          irs.RegionInfo {regionInfo.Region, regionInfo.Zone},
+		ImageIId:	 irs.IID{container.Image, container.Image},
+                VMSpecName:      "",
+                VpcIID:          irs.IID{},
+                SubnetIID:       irs.IID{},
+                SecurityGroupIIds: []irs.IID{},
+
+                KeyPairIId:     irs.IID{},
+
+                VMUserId:       "",
+                VMUserPasswd:   "",
+
+                NetworkInterface: networks.NetworkID,
+                PublicIP:         "",
+                PublicDNS:        "",
+                PrivateIP:        networks.IPAddress,
+                PrivateDNS:       "",
+
+                VMBootDisk:     "", // ex) /dev/sda1
+                VMBlockDisk:    "", // ex)
+
+                KeyValueList: []irs.KeyValue{},
 	} 
 	return vmInfo
 }
 
 func (vmHandler *DockerVMHandler) SuspendVM(vmIID irs.IID) (irs.VMStatus, error) {
-/*
-	future, err := vmHandler.Client.PowerOff(vmHandler.Ctx, vmHandler.Region.ResourceGroup, vmIID.NameId)
-	if err != nil {
-		cblogger.Error(err)
-		return irs.Failed, err
-	}
-	err = future.WaitForCompletionRef(vmHandler.Ctx, vmHandler.Client.Client)
-	if err != nil {
-		cblogger.Error(err)
-		return irs.Failed, err
-	}
+        cblogger.Info("Docker Cloud Driver: called SuspendVM()!")
 
-	// Get VM Status
-	vmStatus, err := vmHandler.GetVMStatus(vmIID)
-	if err != nil {
-		cblogger.Error(err)
-		return irs.Failed, err
-	}
-	return vmStatus, nil
-*/
-	return "", nil
+        err := vmHandler.Client.ContainerPause(vmHandler.Context, vmIID.SystemId)
+        if err != nil {
+                cblogger.Error(err)
+                return "", err
+        }
+
+	return irs.Suspending, nil
 }
 
 func (vmHandler *DockerVMHandler) ResumeVM(vmIID irs.IID) (irs.VMStatus, error) {
-/*
-	future, err := vmHandler.Client.Start(vmHandler.Ctx, vmHandler.Region.ResourceGroup, vmIID.NameId)
-	if err != nil {
-		cblogger.Error(err)
-		return irs.Failed, err
-	}
-	err = future.WaitForCompletionRef(vmHandler.Ctx, vmHandler.Client.Client)
-	if err != nil {
-		cblogger.Error(err)
-		return irs.Failed, err
-	}
+        cblogger.Info("Docker Cloud Driver: called ResumeVM()!")
 
-	// 자체생성상태 반환
+        err := vmHandler.Client.ContainerUnpause(vmHandler.Context, vmIID.SystemId)
+        if err != nil {
+                cblogger.Error(err)
+                return "", err
+        }
+
 	return irs.Resuming, nil
-*/
-	return "", nil
 }
 
 func (vmHandler *DockerVMHandler) RebootVM(vmIID irs.IID) (irs.VMStatus, error) {
-/*
-	future, err := vmHandler.Client.Restart(vmHandler.Ctx, vmHandler.Region.ResourceGroup, vmIID.NameId)
-	if err != nil {
-		cblogger.Error(err)
-		return irs.Failed, err
-	}
-	err = future.WaitForCompletionRef(vmHandler.Ctx, vmHandler.Client.Client)
-	if err != nil {
-		cblogger.Error(err)
-		return irs.Failed, err
-	}
+        cblogger.Info("Docker Cloud Driver: called RebootVM()!")
 
-	// 자체생성상태 반환
+        err := vmHandler.Client.ContainerRestart(vmHandler.Context, vmIID.SystemId, nil)
+        if err != nil {
+                cblogger.Error(err)
+                return "", err
+        }
+
 	return irs.Rebooting, nil
-*/
-	return "", nil
 }
 
+// (1) docker stop
+// (2) docker rm
 func (vmHandler *DockerVMHandler) TerminateVM(vmIID irs.IID) (irs.VMStatus, error) {
-/*
-	// VM 삭제 시 OS Disk도 함께 삭제 처리
-	// VM OSDisk 이름 가져오기
-	vmInfo, err := vmHandler.GetVM(vmIID)
-	if err != nil {
-		return irs.Failed, err
-	}
-	osDiskName := vmInfo.VMBootDisk
+        cblogger.Info("Docker Cloud Driver: called TerminateVM()!")
 
-	// TODO: nested flow 개선
-	// VNic에서 PublicIP 연결해제
-	vNicDetachStatus, err := DetachVNic(vmHandler, vmInfo)
-	if err != nil {
-		cblogger.Error(err)
-		return vNicDetachStatus, err
-	}
+        err := vmHandler.Client.ContainerStop(vmHandler.Context, vmIID.SystemId, nil)
+        if err != nil {
+                cblogger.Error(err)
+                return "", err
+        }
 
-	// VM 삭제
-	future, err := vmHandler.Client.Delete(vmHandler.Ctx, vmHandler.Region.ResourceGroup, vmIID.NameId)
-	if err != nil {
-		cblogger.Error(err)
-		return irs.Failed, err
-	}
-	err = future.WaitForCompletionRef(vmHandler.Ctx, vmHandler.Client.Client)
-	if err != nil {
-		cblogger.Error(err)
-		return irs.Failed, err
-	}
+        statusCh, errCh := vmHandler.Client.ContainerWait(vmHandler.Context, vmIID.SystemId, container.WaitConditionNotRunning)
+        select {
+        case err := <-errCh:
+                if err != nil {
+                        cblogger.Error(err)
+                        return "", err
+                }
+        case <-statusCh:
+        }
+
+        err = vmHandler.Client.ContainerRemove(vmHandler.Context, vmIID.SystemId, types.ContainerRemoveOptions{})
+        if err != nil {
+                cblogger.Error(err)
+                return "", err
+        }
 
 	return irs.NotExist, nil
-*/
 	return "", nil
 }
 
 func (vmHandler *DockerVMHandler) ListVMStatus() ([]*irs.VMStatusInfo, error) {
-/*
-	serverList, err := vmHandler.Client.List(vmHandler.Ctx, vmHandler.Region.ResourceGroup)
-	if err != nil {
-		cblogger.Error(err)
-		return []*irs.VMStatusInfo{}, err
-	}
+        cblogger.Info("Docker Cloud Driver: called ListVMStatus()!")
 
-	var vmStatusList []*irs.VMStatusInfo
-	for _, s := range serverList.Values() {
-		if s.InstanceView != nil {
-			statusStr := getVmStatus(*s.InstanceView)
-			status := irs.VMStatus(statusStr)
-			vmStatusInfo := irs.VMStatusInfo{
-				IId: irs.IID{
-					NameId:   *s.Name,
-					SystemId: *s.ID,
-				},
-				VmStatus: status,
-			}
-			vmStatusList = append(vmStatusList, &vmStatusInfo)
-		} else {
-			vmIdArr := strings.Split(*s.ID, "/")
-			vmName := vmIdArr[8]
-			status, _ := vmHandler.GetVMStatus(irs.IID{NameId: vmName, SystemId: *s.ID})
-			vmStatusInfo := irs.VMStatusInfo{
-				IId: irs.IID{
-					NameId:   *s.Name,
-					SystemId: *s.ID,
-				},
-				VmStatus: status,
-			}
-			vmStatusList = append(vmStatusList, &vmStatusInfo)
-		}
-	}
+        // []types.Container
+        containers, err := vmHandler.Client.ContainerList(vmHandler.Context, types.ContainerListOptions{})
+        if err != nil {
+                cblogger.Error(err)
+                return []*irs.VMStatusInfo{}, err
+        }
 
-	return vmStatusList, nil
-*/
-	return []*irs.VMStatusInfo{}, nil
+        var vmStatusInfoList []*irs.VMStatusInfo
+        // Container = CM = VM
+        for _, container := range containers {
+		vmStatusInfo := irs.VMStatusInfo{irs.IID{"",container.ID}, getMappedStatus(container.State)}
+                vmStatusInfoList = append(vmStatusInfoList, &vmStatusInfo)
+        }
+
+        return vmStatusInfoList, nil
+}
+
+func getMappedStatus(containerStatus string) irs.VMStatus {
+// Container Status: "created", "running", "paused", "restarting", "removing", "exited", "dead"	
+// Spider Status:     Creating,  Running,  Suspended,   Rebooting,  Terminating, 
+
+        // Set VM Status Info
+        switch containerStatus {
+		case "created":
+			return irs.Creating
+		case "running":
+			return irs.Running
+		case "paused":
+			return irs.Suspended
+		case "restarting":
+			return irs.Rebooting
+		case "removing":
+			return irs.Terminating
+		default:
+			return irs.Failed
+        }
 }
 
 func (vmHandler *DockerVMHandler) GetVMStatus(vmIID irs.IID) (irs.VMStatus, error) {
-/*
-	instanceView, err := vmHandler.Client.InstanceView(vmHandler.Ctx, vmHandler.Region.ResourceGroup, vmIID.NameId)
-	if err != nil {
-		cblogger.Error(err)
-		return irs.Failed, err
-	}
+        cblogger.Info("Docker Cloud Driver: called GetVMStatus()!")
 
-	// Get powerState, provisioningState
-	vmStatus := getVmStatus(instanceView)
-	return irs.VMStatus(vmStatus), nil
-*/
-	return "", nil
+        // types.Container
+        container, err := vmHandler.Client.ContainerInspect(vmHandler.Context, vmIID.SystemId)
+        if err != nil {
+                cblogger.Error(err)
+                return "", err
+        }
+
+	return getMappedStatus(container.State.Status), nil
 }
 
 func (vmHandler *DockerVMHandler) ListVM() ([]*irs.VMInfo, error) {
-/*
-	serverList, err := vmHandler.Client.List(vmHandler.Ctx, vmHandler.Region.ResourceGroup)
-	if err != nil {
-		cblogger.Error(err)
-		return []*irs.VMInfo{}, err
-	}
+	cblogger.Info("Docker Cloud Driver: called ListVM()!")
+
+	// []types.Container
+	containers, err := vmHandler.Client.ContainerList(vmHandler.Context, types.ContainerListOptions{})
+        if err != nil {
+                cblogger.Error(err)
+                return []*irs.VMInfo{}, err
+        }
 
 	var vmList []*irs.VMInfo
-	for _, server := range serverList.Values() {
-		vmInfo := vmHandler.mappingServerInfo(server)
+	// Container = CM = VM
+	for _, container := range containers {
+		vmInfo := getVMInfoByContainer(vmHandler.Region, container)	
 		vmList = append(vmList, &vmInfo)
 	}
 
 	return vmList, nil
-*/
-	return []*irs.VMInfo{}, nil
 }
+
+func getVMInfoByContainer(regionInfo idrv.RegionInfo, container types.Container) irs.VMInfo {
+/* 
+type Container struct {
+    ID         string `json:"Id"`
+    Names      []string
+    Image      string
+    ImageID    string
+    Command    string
+    Created    int64
+    Ports      []Port
+    SizeRw     int64 `json:",omitempty"`
+    SizeRootFs int64 `json:",omitempty"`
+    Labels     map[string]string
+    State      string
+    Status     string
+    HostConfig struct {
+        NetworkMode string `json:",omitempty"`
+    }
+    NetworkSettings *SummaryNetworkSettings
+    Mounts          []MountPoint
+}
+*/		
+
+	// @todo NameId
+	vmIID := irs.IID{"", container.ID}
+	networks := container.NetworkSettings.Networks["bridge"] // @todo Now, only bridge.
+ 
+	vmInfo := irs.VMInfo {
+		IId:		 vmIID,
+		StartTime:	 time.Unix(container.Created, 0),  // @todo refine time display.
+		Region:          irs.RegionInfo {regionInfo.Region, regionInfo.Zone},
+		ImageIId:  irs.IID{container.Image, container.ImageID},
+		VMSpecName:      "",
+		VpcIID:          irs.IID{}, 
+		SubnetIID:       irs.IID{},
+		SecurityGroupIIds: []irs.IID{},
+
+		KeyPairIId:	irs.IID{},
+
+		VMUserId:	"",
+		VMUserPasswd: 	"",
+
+		NetworkInterface: networks.NetworkID,
+		PublicIP:         "",
+		PublicDNS:        "",
+		PrivateIP:        networks.IPAddress,
+		PrivateDNS:       "",
+
+		VMBootDisk:  	"", // ex) /dev/sda1
+		VMBlockDisk: 	"", // ex)
+
+		KeyValueList: []irs.KeyValue{},
+	}
+
+	return vmInfo
+}
+
 
 func (vmHandler *DockerVMHandler) GetVM(vmIID irs.IID) (irs.VMInfo, error) {
-/*
-	vm, err := vmHandler.Client.Get(vmHandler.Ctx, vmHandler.Region.ResourceGroup, vmIID.NameId, compute.InstanceView)
-	if err != nil {
-		return irs.VMInfo{}, err
-	}
+        cblogger.Info("Docker Cloud Driver: called GetVM()!")
 
-	vmInfo := vmHandler.mappingServerInfo(vm)
-	return vmInfo, nil
-*/
-	return irs.VMInfo{}, nil
+        // types.Container
+        container, err := vmHandler.Client.ContainerInspect(vmHandler.Context, vmIID.SystemId)
+        if err != nil {
+                cblogger.Error(err)
+                return irs.VMInfo{}, err
+        }
+	return getVMInfoByContainerJSON(vmHandler.Region, vmIID, container), nil
 }
-
-/*
-func getVmStatus(instanceView compute.VirtualMachineInstanceView) irs.VMStatus {
-	var powerState, provisioningState string
-
-	for _, stat := range *instanceView.Statuses {
-		statArr := strings.Split(*stat.Code, "/")
-
-		if statArr[0] == "PowerState" {
-			powerState = strings.ToLower(statArr[1])
-		} else if statArr[0] == "ProvisioningState" {
-			provisioningState = strings.ToLower(statArr[1])
-		}
-	}
-
-	if strings.EqualFold(provisioningState, "failed") {
-		return irs.Failed
-	}
-
-	// Set VM Status Info
-	var resultStatus string
-	switch powerState {
-	case "starting":
-		resultStatus = "Creating"
-	case "running":
-		resultStatus = "Running"
-	case "stopping":
-		resultStatus = "Suspending"
-	case "stopped":
-		resultStatus = "Suspended"
-	case "deleting":
-		resultStatus = "Terminating"
-	default:
-		resultStatus = "Failed"
-	}
-	return irs.VMStatus(resultStatus)
-}
-*/
 

@@ -79,7 +79,6 @@ func listInfo(connectionName string, resourceType string) ([]*IIDInfo, error) {
 func getInfo(connectionName string, resourceType string, nameId string) (*IIDInfo, error) {
         // ex) /resource-info-spaces/iids/aws-seoul-config/VM/powerkim_vm_01 [i-0bc7123b7e5cbf79d]
 
-	
 	key := "/resource-info-spaces/iids/" + connectionName + "/" + resourceType + "/" + nameId
 
 	// key is not the key of cb-store, so we have to use GetList()
@@ -135,6 +134,7 @@ func isExist(connectionName string, resourceType string, nameId string) (bool, e
 
 
         key := "/resource-info-spaces/iids/" + connectionName + "/" + resourceType + "/" + nameId
+
 
         // key is not the key of cb-store, so we have to use GetList()
         keyValueList, err := store.GetList(key, true)

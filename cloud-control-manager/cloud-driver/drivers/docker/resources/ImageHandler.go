@@ -20,6 +20,7 @@ import (
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"bytes"
 	"fmt"
+	"strings"
 )
 
 type DockerImageHandler struct {
@@ -37,8 +38,9 @@ func init() {
 
 
 // (1) pull from dockerhub
-// (2) get image summary from local
-// (3) inspect image info from local for OS info
+// (2) get repo digests id from pulling return
+// (3) get all image summary from local repos
+// (4) get image ID and OS Info from inspection
 func (imageHandler *DockerImageHandler) CreateImage(imageReqInfo irs.ImageReqInfo) (irs.ImageInfo, error) {
         cblogger.Info("Docker Cloud Driver: called CreateImage()!")
 
@@ -54,19 +56,27 @@ func (imageHandler *DockerImageHandler) CreateImage(imageReqInfo irs.ImageReqInf
 	buf := new(bytes.Buffer)
 	buf.ReadFrom(out)
 	msg := buf.String()
-	cblogger.Info(msg)
+//	cblogger.Info(msg)
 
-	// (2) get image summary from local
+	// (2) get repo digests id from pulling return
+	repoDigests, err := getRepoDigests(msg)
+	if err != nil {
+		cblogger.Error(err)
+		return irs.ImageInfo{}, err
+	}
+
+	// (3) get all image summary from local repos
         images, err := imageHandler.Client.ImageList(imageHandler.Context, types.ImageListOptions{})
         if err != nil {
                 cblogger.Error(err)
                 return irs.ImageInfo{}, err
         }
 
+	// (4) get image ID and OS Info from inspection
         for _, image := range images {
-		if image.RepoTags[0] == imageReqInfo.IId.NameId {
+		if strings.Contains(image.RepoDigests[0], repoDigests) {
 			imageReqInfo.IId.SystemId = image.ID
-			// (3) inspect image info from local for OS info
+			// (3) inspect image info for OS info
 			osName, err := getOSInfo(imageHandler, image.ID)
 			if err != nil {
 				cblogger.Error(err)
@@ -77,6 +87,29 @@ func (imageHandler *DockerImageHandler) CreateImage(imageReqInfo irs.ImageReqInf
         }
 	
 	return irs.ImageInfo{}, fmt.Errorf("[Local Repos:" + imageReqInfo.IId.NameId + "] does not exist!")
+}
+
+func getRepoDigests(msg string) (string, error) {
+
+	/*---------- msg example
+	{"status":"Pulling from panubo/sshd","id":"latest"}
+	{"status":"Digest: sha256:b260ab0136c734d80ef643387af0eeb807deb7e1f0a85cb432c7f310eca3bb83"}
+	{"status":"Status: Image is up to date for panubo/sshd:latest"}
+	------------*/
+	strList := strings.Split(msg, "\n")	
+
+	for _, str := range strList {
+		if strings.Contains(str, "sha256") {
+			tmpList := strings.Split(str, ":")
+			str1 := strings.Trim(tmpList[2], " ") // sha256
+			runes := []rune(tmpList[3])  // b260ab0136c734d80ef643387af0eeb807deb7e1f0a85cb432c7f310eca3bb83"}
+			str2 := string(runes[0:len(tmpList[3])-3]) // b260ab0136c734d80ef643387af0eeb807deb7e1f0a85cb432c7f310eca3bb83
+			return str1+":"+str2, nil
+
+		}
+	}
+
+	return "", fmt.Errorf("failed image pulling-" + msg)
 }
 
 func getOSInfo(imageHandler *DockerImageHandler, imageID string) (string, error) {
@@ -100,42 +133,28 @@ func (imageHandler *DockerImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 
 	listImages := make([]*irs.ImageInfo, len(images))
         for i, image := range images {
-		//fmt.Printf("\n\n======================\n%#v", image)
-		//cblogger.Info(image.ID)
-		//cblogger.Info(image.RepoTags[0])
-                listImages[i] = &irs.ImageInfo{irs.IID{"", image.ID}, "", "", nil } 
+		osName, err := getOSInfo(imageHandler, image.ID)
+		if err != nil {
+			cblogger.Error(err)
+			return []*irs.ImageInfo{}, err
+		}
+
+                listImages[i] = &irs.ImageInfo{irs.IID{"", image.ID}, osName, "", nil } 
         }
 
 	return listImages, nil
 }
 
-// (1) get image summary from local
-// (2) inspect image info from local for OS info
 func (imageHandler *DockerImageHandler) GetImage(imageIID irs.IID) (irs.ImageInfo, error) {
         cblogger.Info("Docker Cloud Driver: called GetImage()!")
 
-
-        // (1) get image summary from local
-        images, err := imageHandler.Client.ImageList(imageHandler.Context, types.ImageListOptions{})
-        if err != nil {
-                cblogger.Error(err)
-                return irs.ImageInfo{}, err
-        }
-
-        for _, image := range images {
-                if image.RepoTags[0] == imageIID.NameId {
-                        imageIID.SystemId = image.ID
-                        // (2) inspect image info from local for OS info
-                        osName, err := getOSInfo(imageHandler, image.ID)
-                        if err != nil {
-                                cblogger.Error(err)
-                                return irs.ImageInfo{}, err
-                        }
-                        return irs.ImageInfo{imageIID, osName, "", nil}, nil
-                }
-        }
-
-        return irs.ImageInfo{}, fmt.Errorf("[Local Repos:" + imageIID.NameId + "] does not exist!")
+	// inspect image info for OS info
+	osName, err := getOSInfo(imageHandler, imageIID.SystemId)
+	if err != nil {
+		cblogger.Error(err)
+		return irs.ImageInfo{}, err
+	}
+	return irs.ImageInfo{imageIID, osName, "", nil}, nil
 }
 
 func (imageHandler *DockerImageHandler) DeleteImage(imageIID irs.IID) (bool, error) {

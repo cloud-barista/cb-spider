@@ -1936,7 +1936,6 @@ defer vmRWLock.RUnlock()
                 cblog.Error(err)
                 return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
         }
-
         var jsonResult struct {
                 Result []*cres.VMInfo `json:"vm"`
         }
@@ -2004,35 +2003,41 @@ func getSetNameId(ConnectionName string, vmInfo *cres.VMInfo) error {
         // @todo before Image Handling by powerkim
         //vmInfo.ImageIId.NameId = vmInfo.ImageIId.SystemId
 
-        // set VPC NameId
-        IIdInfo, err := iidRWLock.GetIIDbySystemID(ConnectionName, rsVPC, vmInfo.VpcIID)
-        if err != nil {
-                return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-        }
-        vmInfo.VpcIID.NameId = IIdInfo.IId.NameId
+	if vmInfo.VpcIID.SystemId != "" {
+		// set VPC NameId
+		IIdInfo, err := iidRWLock.GetIIDbySystemID(ConnectionName, rsVPC, vmInfo.VpcIID)
+		if err != nil {
+			return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		}
+		vmInfo.VpcIID.NameId = IIdInfo.IId.NameId
+	}
 
-        // set Subnet NameId
-        IIdInfo, err = iidRWLock.GetIIDbySystemID(ConnectionName, rsSubnetPrefix + vmInfo.VpcIID.NameId, vmInfo.SubnetIID)
-        if err != nil {
-                return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-        }
-        vmInfo.SubnetIID.NameId = IIdInfo.IId.NameId
+	if vmInfo.SubnetIID.SystemId != "" {
+		// set Subnet NameId
+		IIdInfo, err := iidRWLock.GetIIDbySystemID(ConnectionName, rsSubnetPrefix + vmInfo.VpcIID.NameId, vmInfo.SubnetIID)
+		if err != nil {
+			return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		}
+		vmInfo.SubnetIID.NameId = IIdInfo.IId.NameId
+	}
 
         // set SecurityGroups NameId
         for i, sgIID := range vmInfo.SecurityGroupIIds {
-                IIdInfo, err = iidRWLock.GetIIDbySystemID(ConnectionName, rsSG, sgIID)
+                IIdInfo, err := iidRWLock.GetIIDbySystemID(ConnectionName, rsSG, sgIID)
                 if err != nil {
                         return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
                 }
                 vmInfo.SecurityGroupIIds[i].NameId = IIdInfo.IId.NameId
         }
 
-        // set KeyPair NameId
-        IIdInfo, err = iidRWLock.GetIIDbySystemID(ConnectionName, rsKey, vmInfo.KeyPairIId)
-        if err != nil {
-                return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-        }
-        vmInfo.KeyPairIId.NameId = IIdInfo.IId.NameId
+	if vmInfo.KeyPairIId.SystemId != "" {
+		// set KeyPair NameId
+		IIdInfo, err := iidRWLock.GetIIDbySystemID(ConnectionName, rsKey, vmInfo.KeyPairIId)
+		if err != nil {
+			return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		}
+		vmInfo.KeyPairIId.NameId = IIdInfo.IId.NameId
+	}
 
         return nil
 }

@@ -45,6 +45,9 @@ func (iidRWLock *IIDRWLOCK)IsExistIID(connectionName string, resourceType string
 iidRWLock.rwMutex.RLock()
 defer iidRWLock.rwMutex.RUnlock()
 
+	// escape: "/" => "%2F"
+	iId.NameId = strings.ReplaceAll(iId.NameId, "/", "%2F")
+
         return isExist(connectionName, resourceType, iId.NameId)
 }
 
@@ -53,6 +56,9 @@ func (iidRWLock *IIDRWLOCK)CreateIID(connectionName string, resourceType string,
 
 iidRWLock.rwMutex.Lock()
 defer iidRWLock.rwMutex.Unlock()
+
+	// escape: "/" => "%2F"
+	iId.NameId = strings.ReplaceAll(iId.NameId, "/", "%2F")
 
 	ret, err := isExist(connectionName, resourceType, iId.NameId)
 	if err != nil {
@@ -63,9 +69,12 @@ defer iidRWLock.rwMutex.Unlock()
 		return nil, fmt.Errorf(iId.NameId + " already exists!")
 	}
 
-	return forceCreateIID(connectionName, resourceType, iId)
-	//iidInfo, err2 := forceCreateIID(connectionName, resourceType, iId)
-	//return iidInfo, err2
+	iidInfo, err2 := forceCreateIID(connectionName, resourceType, iId)
+
+	// escape: "%2F" => "/"
+	iidInfo.IId.NameId = strings.ReplaceAll(iidInfo.IId.NameId, "%2F", "/")
+
+	return iidInfo, err2
 }
 
 func (iidRWLock *IIDRWLOCK)UpdateIID(connectionName string, resourceType string, iId resources.IID) (*IIDInfo, error) {
@@ -73,6 +82,9 @@ func (iidRWLock *IIDRWLOCK)UpdateIID(connectionName string, resourceType string,
 
 iidRWLock.rwMutex.Lock()
 defer iidRWLock.rwMutex.Unlock()
+
+	// escape: "/" => "%2F"
+	iId.NameId = strings.ReplaceAll(iId.NameId, "/", "%2F")
 
         ret, err := isExist(connectionName, resourceType, iId.NameId)
         if err != nil {
@@ -83,7 +95,12 @@ defer iidRWLock.rwMutex.Unlock()
                 return nil, fmt.Errorf(iId.NameId + " does not exists!")
         }
 
-	return forceCreateIID(connectionName, resourceType, iId)
+        iidInfo, err2 := forceCreateIID(connectionName, resourceType, iId)
+
+        // escape: "%2F" => "/"
+        iidInfo.IId.NameId = strings.ReplaceAll(iidInfo.IId.NameId, "%2F", "/")
+
+        return iidInfo, err2
 }
 
 // 1. check params
@@ -120,6 +137,11 @@ defer iidRWLock.rwMutex.RUnlock()
                 return nil, err
         }
 
+        // escape: "%2F" => "/"
+	for i, iidInfo := range iIDInfoList {
+		iIDInfoList[i].IId.NameId = strings.ReplaceAll(iidInfo.IId.NameId, "%2F", "/")
+	}
+
         return iIDInfoList, nil
 }
 
@@ -137,11 +159,18 @@ func (iidRWLock *IIDRWLOCK)GetIID(connectionName string, resourceType string, iI
 
 iidRWLock.rwMutex.RLock()
 defer iidRWLock.rwMutex.RUnlock()
+
+	// escape: "/" => "%2F"
+	iId.NameId = strings.ReplaceAll(iId.NameId, "/", "%2F")
+
 	iidInfo, err := getInfo(connectionName, resourceType, iId.NameId)
 	if err != nil {
                 cblog.Error(err)
                 return nil, err
         }
+
+        // escape: "%2F" => "/"
+        iidInfo.IId.NameId = strings.ReplaceAll(iidInfo.IId.NameId, "%2F", "/")
 
 	return iidInfo, err
 }
@@ -160,12 +189,18 @@ func (iidRWLock *IIDRWLOCK)FindIID(connectionName string, resourceType string, k
 
 iidRWLock.rwMutex.RLock()
 defer iidRWLock.rwMutex.RUnlock()
+
+	// escape: "/" => "%2F"
+	keyword = strings.ReplaceAll(keyword, "/", "%2F")
+
         iIDInfoList, err := listInfo(connectionName, resourceType)
         if err != nil {
                 return nil, err
         }
 	for _, iidInfo := range iIDInfoList {
 		if strings.Contains(iidInfo.IId.NameId, keyword) {
+			// escape: "%2F" => "/"
+			iidInfo.IId.NameId = strings.ReplaceAll(iidInfo.IId.NameId, "%2F", "/")
 			return iidInfo, nil
 		}
 	}
@@ -185,11 +220,18 @@ func (iidRWLock *IIDRWLOCK)GetIIDbySystemID(connectionName string, resourceType 
 
 iidRWLock.rwMutex.RLock()
 defer iidRWLock.rwMutex.RUnlock()
+
+	// escape: "/" => "%2F"
+	iId.NameId = strings.ReplaceAll(iId.NameId, "/", "%2F")
+
         iidInfo, err := getInfoByValue(connectionName, resourceType, iId.SystemId)
         if err != nil {
                 cblog.Error(err)
                 return nil, err
         }
+
+        // escape: "%2F" => "/"
+        iidInfo.IId.NameId = strings.ReplaceAll(iidInfo.IId.NameId, "%2F", "/")
 
         return iidInfo, err
 }
@@ -208,6 +250,10 @@ func (iidRWLock *IIDRWLOCK)DeleteIID(connectionName string, resourceType string,
 
 iidRWLock.rwMutex.Lock()
 defer iidRWLock.rwMutex.Unlock()
+
+	// escape: "/" => "%2F"
+	iId.NameId = strings.ReplaceAll(iId.NameId, "/", "%2F")
+
         result, err := deleteInfo(connectionName, resourceType, iId.NameId)
         if err != nil {
                 cblog.Error(err)
