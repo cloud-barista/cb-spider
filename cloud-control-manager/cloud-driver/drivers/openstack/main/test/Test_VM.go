@@ -76,8 +76,8 @@ func testVMHandler() {
 	cblogger.Info("9. Terminate VM")
 	cblogger.Info("10. Exit")
 
-	vmIId := irs.IID{SystemId: "352d5aca-78d4-4eee-99d0-10404d9ed197"}
-
+	//vmIId := irs.IID{SystemId: "352d5aca-78d4-4eee-99d0-10404d9ed197"}
+	vmIId := irs.IID{SystemId: "5cdf19b2-ece4-4ec7-99f5-31f8b7db05e6"}
 	for {
 		var commandNum int
 		inputCnt, err := fmt.Scan(&commandNum)

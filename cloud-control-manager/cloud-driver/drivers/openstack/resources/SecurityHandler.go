@@ -11,12 +11,6 @@ import (
 	"strings"
 )
 
-const (
-	Inbound  = "inbound"
-	Outbound = "outbound"
-	ICMP     = "icmp"
-)
-
 type OpenStackSecurityHandler struct {
 	Client        *gophercloud.ServiceClient
 	NetworkClient *gophercloud.ServiceClient
@@ -47,24 +41,16 @@ func (securityHandler *OpenStackSecurityHandler) setterSeg(secGroup secgroups.Se
 	for i, rule := range secList {
 		var direction string
 		if strings.EqualFold(rule.Direction, rules.DirIngress) {
-			direction = Inbound
+			direction = "inbound"
 		} else {
-			direction = Outbound
+			direction = "outbound"
 		}
-
 		ruleInfo := irs.SecurityRuleInfo{
 			Direction:  direction,
-			IPProtocol: strings.ToLower(rule.Protocol),
+			FromPort:   strconv.Itoa(rule.PortRangeMin),
+			ToPort:     strconv.Itoa(rule.PortRangeMax),
+			IPProtocol: rule.Protocol,
 		}
-
-		if strings.ToLower(rule.Protocol) == ICMP {
-			ruleInfo.FromPort = "-1"
-			ruleInfo.ToPort = "-1"
-		} else {
-			ruleInfo.FromPort = strconv.Itoa(rule.PortRangeMin)
-			ruleInfo.ToPort = strconv.Itoa(rule.PortRangeMax)
-		}
-
 		secRuleList[i] = ruleInfo
 	}
 	secInfo.SecurityRules = &secRuleList
@@ -100,7 +86,7 @@ func (securityHandler *OpenStackSecurityHandler) CreateSecurity(securityReqInfo 
 	for _, rule := range *securityReqInfo.SecurityRules {
 
 		var direction string
-		if strings.EqualFold(strings.ToLower(rule.Direction), Inbound) {
+		if strings.EqualFold(strings.ToLower(rule.Direction), "inbound") {
 			direction = rules.DirIngress
 		} else {
 			direction = rules.DirEgress
@@ -108,7 +94,7 @@ func (securityHandler *OpenStackSecurityHandler) CreateSecurity(securityReqInfo 
 
 		var createRuleOpts rules.CreateOpts
 
-		if strings.ToLower(rule.IPProtocol) == ICMP {
+		if strings.ToLower(rule.IPProtocol) == "icmp" {
 			createRuleOpts = rules.CreateOpts{
 				Direction:      direction,
 				EtherType:      rules.Ether4,
@@ -182,3 +168,29 @@ func (securityHandler *OpenStackSecurityHandler) DeleteSecurity(securityIID irs.
 	}
 	return true, nil
 }
+
+/*func (securityHandler *OpenStackSecurityHandler) getSecurityById(securityID string) (irs.SecurityInfo, error) {
+	securityGroup, err := secgroups.Get(securityHandler.Client, securityID).Extract()
+	if err != nil {
+		return irs.SecurityInfo{}, err
+	}
+
+	securityInfo := securityHandler.setterSeg(*securityGroup)
+	return *securityInfo, nil
+}*/
+
+/*func (securityHandler *OpenStackSecurityHandler) getSecurityIdByName(securityName string) (string, error) {
+	var securityId string
+
+	securityList, err := securityHandler.ListSecurity()
+	if err != nil {
+		return "", err
+	}
+	for _, s := range securityList {
+		if strings.EqualFold(s.IId.NameId, securityName) {
+			securityId = s.IId.SystemId
+			break
+		}
+	}
+	return securityId, nil
+}*/
