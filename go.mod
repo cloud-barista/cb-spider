@@ -20,6 +20,7 @@ require (
 	github.com/cloud-barista/cb-log v0.0.0-20200117022531-82070963ca10
 	github.com/cloud-barista/cb-store v0.0.0-20200324092155-64d4df337031
 	github.com/cncf/udpa/go v0.0.0-20200327203949-e8cd3a4bb307 // indirect
+	github.com/containerd/containerd v1.3.4 // indirect
 	github.com/coreos/bbolt v0.0.0-00010101000000-000000000000 // indirect
 	github.com/coreos/etcd v3.3.18+incompatible // indirect
 	github.com/coreos/go-semver v0.3.0 // indirect
@@ -27,8 +28,8 @@ require (
 	github.com/coreos/pkg v0.0.0-20180928190104-399ea9e2e55f // indirect
 	github.com/davecgh/go-spew v1.1.1
 	github.com/docker/distribution v2.7.1+incompatible // indirect
-	github.com/docker/docker v1.13.1
-	github.com/docker/go-connections v0.4.0 // indirect
+	github.com/docker/docker v0.0.0-20200309214505-aa6a9891b09c
+	github.com/docker/go-connections v0.4.0
 	github.com/docker/go-units v0.4.0 // indirect
 	github.com/envoyproxy/go-control-plane v0.9.5 // indirect
 	github.com/gogo/protobuf v1.3.1 // indirect
@@ -52,8 +53,10 @@ require (
 	github.com/labstack/echo v3.3.10+incompatible
 	github.com/labstack/gommon v0.3.0 // indirect
 	github.com/mitchellh/mapstructure v1.2.2 // indirect
+	github.com/moby/moby v1.13.1 // indirect
 	github.com/modern-go/reflect2 v1.0.1 // indirect
 	github.com/opencontainers/go-digest v1.0.0-rc1 // indirect
+	github.com/opencontainers/image-spec v1.0.1 // indirect
 	github.com/prometheus/client_golang v1.5.1 // indirect
 	github.com/rackspace/gophercloud v1.0.1-0.20161013120614-60916741c8ec
 	github.com/rogpeppe/go-internal v1.5.2 // indirect
