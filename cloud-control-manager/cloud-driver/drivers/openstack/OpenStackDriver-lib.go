@@ -87,7 +87,7 @@ func (driver *OpenStackDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) 
 		cblogger.Error(err)
 	}
 
-	iConn := oscon.OpenStackCloudConnection{Client, ImageClient, NetworkClient, VolumeClient}
+	iConn := oscon.OpenStackCloudConnection{connectionInfo.RegionInfo, Client, ImageClient, NetworkClient, VolumeClient}
 
 	return &iConn, nil // return type: (icon.CloudConnection, error)
 }

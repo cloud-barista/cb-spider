@@ -13,20 +13,21 @@ package resources
 import (
 	"errors"
 	"fmt"
-	"strings"
-	"time"
-
 	cblog "github.com/cloud-barista/cb-log"
+	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
+	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/rackspace/gophercloud"
 	"github.com/rackspace/gophercloud/openstack/blockstorage/v2/volumes"
 	"github.com/rackspace/gophercloud/openstack/compute/v2/extensions/floatingip"
 	"github.com/rackspace/gophercloud/openstack/compute/v2/extensions/keypairs"
 	"github.com/rackspace/gophercloud/openstack/compute/v2/extensions/startstop"
+	"github.com/rackspace/gophercloud/openstack/compute/v2/flavors"
+	"github.com/rackspace/gophercloud/openstack/compute/v2/images"
 	"github.com/rackspace/gophercloud/openstack/compute/v2/servers"
 	"github.com/rackspace/gophercloud/pagination"
 	"github.com/sirupsen/logrus"
-
-	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
+	"strings"
+	"time"
 )
 
 var cblogger *logrus.Logger
@@ -37,6 +38,7 @@ func init() {
 }
 
 type OpenStackVMHandler struct {
+	Region        idrv.RegionInfo
 	Client        *gophercloud.ServiceClient
 	NetworkClient *gophercloud.ServiceClient
 	VolumeClient  *gophercloud.ServiceClient
@@ -401,11 +403,16 @@ func (vmHandler *OpenStackVMHandler) mappingServerInfo(server servers.Server) ir
 			NameId:   server.Name,
 			SystemId: server.ID,
 		},
-		KeyPairIId: irs.IID{
-			NameId: server.KeyName,
+		Region: irs.RegionInfo{
+			Zone:   vmHandler.Region.Zone,
+			Region: vmHandler.Region.Region,
 		},
-		VMUserId:          server.UserID,
-		VMUserPasswd:      server.AdminPass,
+		KeyPairIId: irs.IID{
+			NameId:   server.KeyName,
+			SystemId: server.KeyName,
+		},
+		//VMUserId:          server.UserID,
+		//VMUserPasswd:      server.AdminPass,
 		NetworkInterface:  server.HostID,
 		KeyValueList:      nil,
 		SecurityGroupIIds: nil,
@@ -414,30 +421,52 @@ func (vmHandler *OpenStackVMHandler) mappingServerInfo(server servers.Server) ir
 	if creatTime, err := time.Parse(time.RFC3339, server.Created); err == nil {
 		vmInfo.StartTime = creatTime
 	}
-	// 이미지 조회
+
+	// VM Image 정보 설정
 	if len(server.Image) != 0 {
+		imageId := server.Image["id"].(string)
 		vmInfo.ImageIId = irs.IID{
-			SystemId: server.Image["id"].(string),
+			SystemId: imageId,
+		}
+		image, _ := images.Get(vmHandler.Client, imageId).Extract()
+		if image != nil {
+			vmInfo.ImageIId.NameId = image.Name
 		}
 	}
-	// Flavor 조회
-	if len(server.Flavor) != 0 {
-		vmInfo.VMSpecName = server.Flavor["id"].(string)
+
+	// VM Flavor 정보 설정
+	flavorId := server.Flavor["id"].(string)
+	flavor, _ := flavors.Get(vmHandler.Client, flavorId).Extract()
+	if flavor != nil {
+		vmInfo.VMSpecName = flavor.Name
 	}
-	// 보안그룹 조회
+
+	// VM SecurityGroup 정보 설정
 	if len(server.SecurityGroups) != 0 {
 		securityGroupIdArr := make([]irs.IID, len(server.SecurityGroups))
 		for i, secGroupMap := range server.SecurityGroups {
+			secGroupName := secGroupMap["name"].(string)
 			securityGroupIdArr[i] = irs.IID{
-				NameId: secGroupMap["name"].(string),
+				NameId: secGroupName,
+			}
+			secGroup, _ := GetSecurityByName(vmHandler.Client, secGroupName)
+			if secGroup != nil {
+				securityGroupIdArr[i].SystemId = secGroup.ID
 			}
 		}
 		vmInfo.SecurityGroupIIds = securityGroupIdArr
 	}
 
-	// Get VM Subnet, Address Info
+	// VM Subnet, IP 정보 설정
 	for k, subnet := range server.Addresses {
-		vmInfo.NetworkInterface = k
+		// VPC 정보 설정
+		vmInfo.VpcIID.NameId = k
+		network, _ := GetNetworkByName(vmHandler.NetworkClient, vmInfo.VpcIID.NameId)
+		if network != nil {
+			vmInfo.VpcIID.SystemId = network.ID
+		}
+
+		// PrivateIP, PublicIp 설정
 		for _, addr := range subnet.([]interface{}) {
 			addrMap := addr.(map[string]interface{})
 			if addrMap["OS-EXT-IPS:type"] == "floating" {
@@ -446,6 +475,23 @@ func (vmHandler *OpenStackVMHandler) mappingServerInfo(server servers.Server) ir
 				vmInfo.PrivateIP = addrMap["addr"].(string)
 			}
 		}
+	}
+
+	// Subnet, Network Interface 정보 설정
+	port, _ := GetPortByDeviceID(vmHandler.NetworkClient, vmInfo.IId.SystemId)
+	if port != nil {
+		// Subnet 정보 설정
+		if len(port.FixedIPs) > 0 {
+			ipInfo := port.FixedIPs[0]
+			vmInfo.SubnetIID.SystemId = ipInfo.SubnetID
+		}
+		subnet, _ := GetSubnetByID(vmHandler.NetworkClient, vmInfo.SubnetIID.SystemId)
+		if subnet != nil {
+			vmInfo.SubnetIID.NameId = subnet.Name
+		}
+
+		// Network Interface 정보 설정
+		vmInfo.NetworkInterface = port.ID
 	}
 
 	// Volume Disk 조회
