@@ -88,29 +88,26 @@ cloudbaristaorg/cb-spider:v0.1.v-yyyymmdd
   - 클라우드 드라이버 정보 관리
   - 클라우드 인프라 인증정보 관리
   - 클라우드 인프라 리젼 정보 관리
-- 클라우드 인프라 공통 제어 관리: https://documenter.getpostman.com/view/9027676/SVtSXpzE
+- 클라우드 인프라 공통 제어 관리: https://documenter.getpostman.com/view/9027676/SVtSXpzE (update 필요)
   - 이미지 자원 제어
   - 네트워크 자원 제어
-  - Security Group 자원 제어
-  - Public IP 자원 제어
+  - Security Group 자원 제어  
   - 키페어 자원 제어
   - VM 제어 및 정보 제공
   
 ## [활용 예시]
-- 시험 도구: `cb-spier/api-runtime/rest-runtime/test/[aws|azure|gcp|openstack|cloudit]` (AWS 경우:aws)
+- 시험 도구: `cb-spier/api-runtime/rest-runtime/test/[fulltest|eachtest|parallel-test]` (AWS 경우:aws)
 - 시험 순서: 연동 정보 추가 => 자원등록 => VM 생성 및 제어 시험
 - 시험 방법: 
-  - (연동정보관리) cb-spider/api-runtime/rest-runtime/test/aws/cim-insert-test.sh 참고(Credential 정보 수정 후 실행)
-  - (자원관리) cb-spider/api-runtime/rest-runtime/test/aws 아래 자원 별 디렉토리 시험 스크립트 존재
-  -	(자원관리) 자원별 create/list/get/delete 관련 shell 스크립트 실행
-  - (자원관리) 자원 생성 순서
-    - (1) vnetwork, keypair, publicip 및 securitygroup 생성
+  - (연동정보관리) cb-spider/api-runtime/rest-runtime/test/connect-config 참고(Credential 정보 수정 후 실행)
+  - (자원관리) cb-spider/api-runtime/rest-runtime/test/fuletest 아래 자원 별 시험 스크립트 존재
+    - (자원관리) 자원 생성 순서
+    - (1) vpc, security group, keypair 생성
     - (2) vm 생성 및 제어
     - (3)	삭제는 자원 생성 역순
     
 ## [특이 사항]
 - 개발상태: 초기 기능 중심 개발추진 중 / 기술개발용 / 상용활용시 보완필요
-- Alibaba: 통합 시험 전 상태
 - Key관리: CSP가 제공하지 않는 경우 Key 자체 생성 및 Key 파일 내부 관리
   - 관리위치: cb-spider/cloud-driver-libs/.ssh-CSPName/* (임시방법)
   - 공유서버에서 운영시 보안 이슈 존재
@@ -127,12 +124,7 @@ cloudbaristaorg/cb-spider:v0.1.v-yyyymmdd
 |   |-- grpc-runtime: 향후 grpc runtime 들어올 자리
 |   `-- rest-runtime: 현재 REST runtime
 |       `-- test: REST API 활용 참조
-|           |-- alibaba-shooter: 연결설정 생성만 참조(driver등록 -> credential 등록 -> region 등록 -> connection config 등록)
-|           |-- aws-shooter-name: 연결설정 생성만 참조(driver등록 -> credential 등록 -> region 등록 -> connection config 등록)
-|           |-- cloudit-shooter: 연결설정 생성만 참조(driver등록 -> credential 등록 -> region 등록 -> connection config 등록)
-|           |-- cloudtwin-shooter: 연결설정 생성만 참조(driver등록 -> credential 등록 -> region 등록 -> connection config 등록)
-|           |-- gcp-shooter: 연결설정 생성만 참조(driver등록 -> credential 등록 -> region 등록 -> connection config 등록)
-|           |-- openstack-shooter-name: 연결설정 생성만 참조(driver등록 -> credential 등록 -> region 등록 -> connection config 등록)
+|           |-- connect-config: 연결 설정 참조(driver등록 -> credential 등록 -> region 등록 -> connection config 등록)
 |           |-- each-test: 자원별 기능 시험 참조(VPC->SecurityGroup->KeyPair->VM)
 |           |-- full-test: 모든 자원 전체 기능 시험 참조(create -> list -> get -> delete)
 
@@ -145,6 +137,7 @@ cloudbaristaorg/cb-spider:v0.1.v-yyyymmdd
 |   |   |   |-- cloudit
 |   |   |   |-- cloudtwin
 |   |   |   |-- gcp
+|   |   |   |-- docker
 |   |   |   |-- openstack
 |   |   `-- interfaces: 멀티 클라우드 연동 인터페이스(드라어비 공통 인터페이스)
 |   |       |-- connect
