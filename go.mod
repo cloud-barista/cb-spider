@@ -17,8 +17,8 @@ require (
 	github.com/aliyun/alibaba-cloud-sdk-go v1.61.201
 	github.com/aws/aws-sdk-go v1.29.31
 	github.com/bramvdbogaerde/go-scp v0.0.0-20200119201711-987556b8bdd7
-	github.com/cloud-barista/cb-log v0.0.0-20200117022531-82070963ca10
-	github.com/cloud-barista/cb-store v0.0.0-20200324092155-64d4df337031
+	github.com/cloud-barista/cb-log v0.1.1
+	github.com/cloud-barista/cb-store v0.1.1
 	github.com/cncf/udpa/go v0.0.0-20200327203949-e8cd3a4bb307 // indirect
 	github.com/containerd/containerd v1.3.4 // indirect
 	github.com/coreos/bbolt v0.0.0-00010101000000-000000000000 // indirect
