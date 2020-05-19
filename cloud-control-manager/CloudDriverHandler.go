@@ -10,6 +10,16 @@ package clouddriverhandler
 
 import (
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
+
+	awsdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/aws"
+	azuredrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/azure"
+	gcpdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/gcp"
+	alibabadrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/alibaba"
+	openstackdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/openstack"
+	clouditdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/cloudit"
+	dockerdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/docker"
+//	cloudtwindrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/cloudtwin"
+
 	icbs "github.com/cloud-barista/cb-store/interfaces"
 
 	"github.com/cloud-barista/cb-store/config"
@@ -60,7 +70,12 @@ func GetCloudDriver(cloudConnectName string) (idrv.CloudDriver, error) {
 		return nil, err
 	}
 
-	return getCloudDriver(*cldDrvInfo)
+	pluginSW := os.Getenv("PLUGIN_SW")
+	if strings.ToUpper(pluginSW) == "ON" {
+		return getStaticCloudDriver(*cldDrvInfo)
+	} else {
+		return getCloudDriver(*cldDrvInfo)
+	}
 }
 
 // 1. get credential info
@@ -77,7 +92,13 @@ func GetCloudConnection(cloudConnectName string) (icon.CloudConnection, error) {
 		return nil, err
 	}
 
-	cldDriver, err := getCloudDriver(*cldDrvInfo)
+        pluginSW := os.Getenv("PLUGIN_SW")
+	var cldDriver idrv.CloudDriver
+        if strings.ToUpper(pluginSW) == "ON" {
+		cldDriver, err = getStaticCloudDriver(*cldDrvInfo)
+        } else {
+		cldDriver, err = getCloudDriver(*cldDrvInfo)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -229,6 +250,38 @@ func getCloudDriver(cldDrvInfo dim.CloudDriverInfo) (idrv.CloudDriver, error) {
 		cblog.Error("Not CloudDriver interface!!")
 		return nil, err
 	}
+
+	return cloudDriver, nil
+}
+
+func getStaticCloudDriver(cldDrvInfo dim.CloudDriverInfo) (idrv.CloudDriver, error) {
+	cblog.Info("CloudDriverHandler: called getStaticCloudDriver() - " + cldDrvInfo.DriverName )
+
+	var cloudDriver idrv.CloudDriver
+
+	// select driver
+        switch cldDrvInfo.ProviderName {
+                case "AWS":
+			cloudDriver = new(awsdrv.AwsDriver)
+		case "AZURE":
+			cloudDriver = new(azuredrv.AzureDriver)
+		case "GCP":
+			cloudDriver = new(gcpdrv.GCPDriver)
+		case "ALIBABA":
+			cloudDriver = new(alibabadrv.AlibabaDriver)
+		case "OPENSTACK":
+			cloudDriver = new(openstackdrv.OpenStackDriver)
+		case "CLOUDIT":
+			cloudDriver = new(clouditdrv.ClouditDriver)
+		case "DOCKER":
+			cloudDriver = new(dockerdrv.DockerDriver)
+		//case "CLOUDTWIN":
+		//	cloudDriver = new(cloudtwindrv.CloudTwinDriver)
+
+                default:
+			errmsg := cldDrvInfo.ProviderName + " is not supported static Cloud Driver!!"
+			return cloudDriver, fmt.Errorf(errmsg)
+        }
 
 	return cloudDriver, nil
 }
