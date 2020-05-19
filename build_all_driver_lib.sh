@@ -1,9 +1,7 @@
 #!/bin/bash
 source setup.env
 
-#DRIVERS=( aws azure cloudit gcp openstack cloudtwin )
-#DRIVERS=( aws azure cloudit gcp openstack alibaba)
-DRIVERS=( aws azure openstack gcp alibaba cloudit docker)
+DRIVERS=( aws-plugin azure-plugin openstack-plugin gcp-plugin alibaba-plugin cloudit-plugin docker-plugin)
 
 DRIVER_PATH=$CBSPIDER_ROOT/cloud-control-manager/cloud-driver/drivers
 DRIVERLIB_PATH=$CBSPIDER_ROOT/cloud-driver-libs
