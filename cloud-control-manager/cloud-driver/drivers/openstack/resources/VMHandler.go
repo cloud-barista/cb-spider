@@ -26,7 +26,6 @@ import (
 	"github.com/rackspace/gophercloud/pagination"
 	"github.com/sirupsen/logrus"
 
-	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 )
 
@@ -38,7 +37,6 @@ func init() {
 }
 
 type OpenStackVMHandler struct {
-	Region        idrv.RegionInfo
 	Client        *gophercloud.ServiceClient
 	NetworkClient *gophercloud.ServiceClient
 	VolumeClient  *gophercloud.ServiceClient
