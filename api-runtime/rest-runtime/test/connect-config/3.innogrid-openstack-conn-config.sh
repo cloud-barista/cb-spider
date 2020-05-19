@@ -1,4 +1,4 @@
-RESTSERVER=node12
+RESTSERVER=localhost
 
  # for Cloud Driver Info
 curl -X POST http://$RESTSERVER:1024/spider/driver -H 'Content-Type: application/json' -d '{"DriverName":"openstack-driver01","ProviderName":"OPENSTACK", "DriverLibFileName":"openstack-driver-v1.0.so"}'
