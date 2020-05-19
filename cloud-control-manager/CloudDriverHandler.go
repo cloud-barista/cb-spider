@@ -71,7 +71,7 @@ func GetCloudDriver(cloudConnectName string) (idrv.CloudDriver, error) {
 	}
 
 	pluginSW := os.Getenv("PLUGIN_SW")
-	if strings.ToUpper(pluginSW) == "ON" {
+	if strings.ToUpper(pluginSW) == "OFF" {
 		return getStaticCloudDriver(*cldDrvInfo)
 	} else {
 		return getCloudDriver(*cldDrvInfo)
@@ -94,7 +94,7 @@ func GetCloudConnection(cloudConnectName string) (icon.CloudConnection, error) {
 
         pluginSW := os.Getenv("PLUGIN_SW")
 	var cldDriver idrv.CloudDriver
-        if strings.ToUpper(pluginSW) == "ON" {
+        if strings.ToUpper(pluginSW) == "OFF" {
 		cldDriver, err = getStaticCloudDriver(*cldDrvInfo)
         } else {
 		cldDriver, err = getCloudDriver(*cldDrvInfo)
