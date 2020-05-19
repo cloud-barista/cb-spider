@@ -13,9 +13,10 @@ package resources
 import (
 	"errors"
 	"fmt"
+	"strings"
+	"time"
+
 	cblog "github.com/cloud-barista/cb-log"
-	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
-	"github.com/davecgh/go-spew/spew"
 	"github.com/rackspace/gophercloud"
 	"github.com/rackspace/gophercloud/openstack/blockstorage/v2/volumes"
 	"github.com/rackspace/gophercloud/openstack/compute/v2/extensions/floatingip"
@@ -24,8 +25,9 @@ import (
 	"github.com/rackspace/gophercloud/openstack/compute/v2/servers"
 	"github.com/rackspace/gophercloud/pagination"
 	"github.com/sirupsen/logrus"
-	"strings"
-	"time"
+
+	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
+	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 )
 
 var cblogger *logrus.Logger
@@ -36,6 +38,7 @@ func init() {
 }
 
 type OpenStackVMHandler struct {
+	Region        idrv.RegionInfo
 	Client        *gophercloud.ServiceClient
 	NetworkClient *gophercloud.ServiceClient
 	VolumeClient  *gophercloud.ServiceClient
@@ -413,7 +416,7 @@ func (vmHandler *OpenStackVMHandler) mappingServerInfo(server servers.Server) ir
 	if creatTime, err := time.Parse(time.RFC3339, server.Created); err == nil {
 		vmInfo.StartTime = creatTime
 	}
-    // 이미지 조회
+	// 이미지 조회
 	if len(server.Image) != 0 {
 		vmInfo.ImageIId = irs.IID{
 			SystemId: server.Image["id"].(string),
@@ -451,8 +454,8 @@ func (vmHandler *OpenStackVMHandler) mappingServerInfo(server servers.Server) ir
 	pages, _ := volumes.List(vmHandler.VolumeClient, volumes.ListOpts{}).AllPages()
 	volList, _ := volumes.ExtractVolumes(pages)
 
-	for _, vol := range volList{
-		for _, attach := range vol.Attachments{
+	for _, vol := range volList {
+		for _, attach := range vol.Attachments {
 			if val, ok := attach["server_id"].(string); ok {
 				if strings.EqualFold(val, vmInfo.IId.SystemId) {
 					vmInfo.VMBlockDisk = attach["device"].(string)
@@ -460,38 +463,6 @@ func (vmHandler *OpenStackVMHandler) mappingServerInfo(server servers.Server) ir
 			}
 		}
 	}
-	spew.Dump(volList)
 
 	return vmInfo
 }
-
-/*func (vmHandler *OpenStackVMHandler) getVmIdByName(vmNameID string) (string, error) {
-	var vmId string
-
-	// vmNameId 기준 가상서버 조회
-	listOpts := servers.ListOpts{
-		Name: vmNameID,
-	}
-
-	pager, err := servers.List(vmHandler.Client, listOpts).AllPages()
-	if err != nil {
-		return "", err
-	}
-	server, err := servers.ExtractServers(pager)
-	if err != nil {
-		return "", err
-	}
-
-	// 1개 이상의 가상서버가 중복 조회될 경우 에러 처리
-	if len(server) == 0 {
-		err := errors.New(fmt.Sprintf("failed to search vm with name %s", vmNameID))
-		return "", err
-	} else if len(server) > 1 {
-		err := errors.New(fmt.Sprintf("failed to search vm, duplicate nameId exists, %s", vmNameID))
-		return "", err
-	} else {
-		vmId = server[0].ID
-	}
-
-	return vmId, nil
-}*/
