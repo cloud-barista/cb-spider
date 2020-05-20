@@ -38,11 +38,10 @@ func setterVMSpec(region string, vmSpec specs.VMSpecInfo) *irs.VMSpecInfo {
 		Region:       region,
 		Name:         vmSpec.Name,
 		VCpu:         irs.VCpuInfo{Count: strconv.Itoa(vmSpec.Cpu)},
-		Mem:          strconv.Itoa(vmSpec.Mem),
 		Gpu:          []irs.GpuInfo{{Count: strconv.Itoa(vmSpec.GPU)}},
 		KeyValueList: nil,
 	}
-
+	vmSpecInfo.Mem = strconv.FormatFloat(float64(vmSpec.Mem)*1024, 'f', 0, 64)
 	return vmSpecInfo
 }
 
