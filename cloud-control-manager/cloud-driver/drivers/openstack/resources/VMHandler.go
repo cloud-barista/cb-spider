@@ -146,16 +146,18 @@ func (vmHandler *OpenStackVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInf
 	vmId := server.ID
 	var isDeployed bool
 	var serverInfo irs.VMInfo
-
+	var serverResult *servers.Server
 	for {
 		if isDeployed {
+			serverResult, err = servers.Get(vmHandler.Client, vmId).Extract()
+			serverInfo = vmHandler.mappingServerInfo(*serverResult)
 			break
 		}
 
 		time.Sleep(5 * time.Second)
 
 		// Check VM Deploy Status
-		serverResult, err := servers.Get(vmHandler.Client, vmId).Extract()
+		serverResult, err = servers.Get(vmHandler.Client, vmId).Extract()
 		if err != nil {
 			return irs.VMInfo{}, err
 		}
@@ -164,12 +166,10 @@ func (vmHandler *OpenStackVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInf
 			if ok, err := vmHandler.AssociatePublicIP(serverResult.ID); !ok {
 				return irs.VMInfo{}, err
 			}
-
-			serverInfo = vmHandler.mappingServerInfo(*serverResult)
 			isDeployed = true
+
 		}
 	}
-
 	return serverInfo, nil
 }
 
@@ -417,7 +417,6 @@ func (vmHandler *OpenStackVMHandler) mappingServerInfo(server servers.Server) ir
 		KeyValueList:      nil,
 		SecurityGroupIIds: nil,
 	}
-
 	if creatTime, err := time.Parse(time.RFC3339, server.Created); err == nil {
 		vmInfo.StartTime = creatTime
 	}
@@ -457,7 +456,6 @@ func (vmHandler *OpenStackVMHandler) mappingServerInfo(server servers.Server) ir
 		vmInfo.SecurityGroupIIds = securityGroupIdArr
 	}
 
-	// VM Subnet, IP 정보 설정
 	for k, subnet := range server.Addresses {
 		// VPC 정보 설정
 		vmInfo.VpcIID.NameId = k
@@ -465,7 +463,6 @@ func (vmHandler *OpenStackVMHandler) mappingServerInfo(server servers.Server) ir
 		if network != nil {
 			vmInfo.VpcIID.SystemId = network.ID
 		}
-
 		// PrivateIP, PublicIp 설정
 		for _, addr := range subnet.([]interface{}) {
 			addrMap := addr.(map[string]interface{})
