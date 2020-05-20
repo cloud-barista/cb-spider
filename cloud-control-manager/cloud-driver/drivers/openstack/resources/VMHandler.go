@@ -282,7 +282,7 @@ func (vmHandler *OpenStackVMHandler) ListVMStatus() ([]*irs.VMStatusInfo, error)
 		}
 		// Add to List
 		for _, s := range list {
-			vmStatus := irs.VMStatus(s.Status)
+			vmStatus := getVmStatus(s.Status)
 			vmStatusInfo := irs.VMStatusInfo{
 				IId: irs.IID{
 					NameId:   s.Name,
@@ -303,32 +303,14 @@ func (vmHandler *OpenStackVMHandler) ListVMStatus() ([]*irs.VMStatusInfo, error)
 }
 
 func (vmHandler *OpenStackVMHandler) GetVMStatus(vmIID irs.IID) (irs.VMStatus, error) {
-	/*vmID, err := vmHandler.getVmIdByName(vmNameID)
-	if err != nil {
-		return "", nil
-	}*/
 	serverResult, err := servers.Get(vmHandler.Client, vmIID.SystemId).Extract()
 	if err != nil {
 		cblogger.Error(err)
 		return irs.VMStatus(""), err
 	}
 
-	// Set VM Status Info
-	var resultStatus string
-	switch strings.ToLower(serverResult.Status) {
-	case "build":
-		resultStatus = "Creating"
-	case "active":
-		resultStatus = "Running"
-	case "shutoff":
-		resultStatus = "Suspended"
-	case "reboot":
-		resultStatus = "Rebooting"
-	case "error":
-	default:
-		resultStatus = "Failed"
-	}
-	return irs.VMStatus(resultStatus), nil
+	vmStatus := getVmStatus(serverResult.Status)
+	return vmStatus, nil
 }
 
 func (vmHandler *OpenStackVMHandler) ListVM() ([]*irs.VMInfo, error) {
@@ -393,6 +375,24 @@ func (vmHandler *OpenStackVMHandler) AssociatePublicIP(serverID string) (bool, e
 		return false, err
 	}
 	return true, nil
+}
+
+func getVmStatus(vmStatus string) irs.VMStatus {
+	var resultStatus string
+	switch strings.ToLower(vmStatus) {
+	case "build":
+		resultStatus = "Creating"
+	case "active":
+		resultStatus = "Running"
+	case "shutoff":
+		resultStatus = "Suspended"
+	case "reboot":
+		resultStatus = "Rebooting"
+	case "error":
+	default:
+		resultStatus = "Failed"
+	}
+	return irs.VMStatus(resultStatus)
 }
 
 func (vmHandler *OpenStackVMHandler) mappingServerInfo(server servers.Server) irs.VMInfo {
