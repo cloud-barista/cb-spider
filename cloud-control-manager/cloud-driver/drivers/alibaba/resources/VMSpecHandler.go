@@ -64,7 +64,8 @@ func ExtractVMSpecInfo(Region string, instanceTypeInfo ecs.InstanceType) irs.VMS
 	//}
 
 	//if !reflect.ValueOf(&instanceTypeInfo.MemorySize).IsNil() {
-	vmSpecInfo.Mem = strconv.FormatFloat(instanceTypeInfo.MemorySize, 'f', 0, 64)
+	//vmSpecInfo.Mem = strconv.FormatFloat(instanceTypeInfo.MemorySize, 'f', 0, 64)
+	vmSpecInfo.Mem = strconv.FormatFloat(instanceTypeInfo.MemorySize*1024, 'f', 0, 64) // GB->MB로 변환
 	//}
 
 	//KeyValue 목록 처리
