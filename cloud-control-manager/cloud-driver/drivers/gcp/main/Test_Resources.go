@@ -17,8 +17,9 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	"github.com/sirupsen/logrus"
 
-	testconf "./conf"
 	cblog "github.com/cloud-barista/cb-log"
+	//testconf "./conf"
+	testconf "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/gcp/main/conf"
 )
 
 var cblogger *logrus.Logger
@@ -898,12 +899,12 @@ func handleVM() {
 
 func main() {
 	cblogger.Info("GCP Resource Test")
-	//handleVPC()
+	handleVPC()
 	//handleVMSpec()
 	//handleImage() //AMI
 	//handleKeyPair()
 	//handleSecurity()
-	handleVM()
+	//handleVM()
 	//cblogger.Info(filepath.Join("a/b", "\\cloud-driver-libs\\.ssh-gcp\\"))
 	//cblogger.Info(filepath.Join("\\cloud-driver-libs\\.ssh-gcp\\", "/b/c/d"))
 }
