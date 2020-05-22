@@ -73,7 +73,8 @@ func testVMHandler() {
 	cblogger.Info("10. Exit")
 
 	serverId := irs.IID{
-		NameId: config.Cloudit.VMInfo.Name,
+		NameId:   config.Cloudit.VMInfo.Name,
+		SystemId: config.Cloudit.VMInfo.ID,
 	}
 
 	for {
@@ -178,6 +179,7 @@ type Config struct {
 		VMInfo           struct {
 			TemplateId   string `yaml:"template_id"`
 			SpecId       string `yaml:"spec_id"`
+			ID           string `yaml:"id"`
 			Name         string `yaml:"name"`
 			RootPassword string `yaml:"root_password"`
 			SubnetAddr   string `yaml:"subnet_addr"`

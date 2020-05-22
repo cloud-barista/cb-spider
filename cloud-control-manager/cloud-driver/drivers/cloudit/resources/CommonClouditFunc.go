@@ -21,7 +21,7 @@ func GetVMSpecByName(authHeader map[string]string, reqClient *client.RestClient,
 
 	specInfo := specs.VMSpecInfo{}
 	for _, s := range *specList {
-		if strings.EqualFold(specName, s.Name) {
+		if strings.EqualFold(specName, s.Id) {
 			specInfo = s
 			break
 		}
