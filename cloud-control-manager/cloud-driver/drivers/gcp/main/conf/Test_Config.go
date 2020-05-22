@@ -51,6 +51,7 @@ func GetResourceHandler(handlerType string) (interface{}, error) {
 	cloudDriver = new(gcpdrv.GCPDriver)
 
 	credentialFilePath := os.Getenv("GOOGLE_APPLICATION_CREDENTIALS")
+	cblogger.Infof("export $GOOGLE_APPLICATION_CREDENTIALS : [%s]", credentialFilePath)
 	cblogger.Infof("credentialFilePath : [%s]", credentialFilePath)
 
 	config, _ := readFileConfig(credentialFilePath)
