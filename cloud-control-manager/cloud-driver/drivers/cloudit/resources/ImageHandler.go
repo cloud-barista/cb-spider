@@ -113,7 +113,7 @@ func (imageHandler *ClouditImageHandler) getImageByName(imageName string) (*irs.
 
 	var imageInfo *irs.ImageInfo
 	for _, image := range *imageList {
-		if strings.EqualFold(image.Name, imageName) {
+		if strings.EqualFold(image.ID, imageName) {
 			imageInfo = setterImage(image)
 			break
 		}
