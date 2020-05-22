@@ -109,6 +109,9 @@ func (securityHandler *GCPSecurityHandler) CreateSecurity(securityReqInfo irs.Se
 		sgDirection = "INGRESS"
 	} else if strings.EqualFold(securityReqInfo.Direction, "outbound") {
 		sgDirection = "EGRESS"
+	} else {
+		cblogger.Errorf("!!!!!!!!! SecurityReqInfo.Direction 정보[%s]가 없어서 INGRESS로 처리합니다.", securityReqInfo.Direction)
+		sgDirection = "INGRESS"
 	}
 
 	prefix := "https://www.googleapis.com/compute/v1/projects/" + projectID
