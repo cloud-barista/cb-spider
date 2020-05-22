@@ -130,18 +130,16 @@ func (securityHandler *ClouditSecurityHandler) ListSecurity() ([]*irs.SecurityIn
 }
 
 func (securityHandler *ClouditSecurityHandler) GetSecurity(securityIID irs.IID) (irs.SecurityInfo, error) {
-	// 이름 기준 보안그룹 조회
-	securityInfo, err := securityHandler.getSecurityByName(securityIID.NameId)
-	if err != nil {
-		cblogger.Error(err)
-		return irs.SecurityInfo{}, err
-	}
-
 	securityHandler.Client.TokenID = securityHandler.CredentialInfo.AuthToken
 	authHeader := securityHandler.Client.AuthenticatedHeaders()
 
 	requestOpts := client.RequestOpts{
 		MoreHeaders: authHeader,
+	}
+
+	securityInfo, err := securitygroup.Get(securityHandler.Client, securityIID.SystemId, &requestOpts)
+	if err != nil {
+		return irs.SecurityInfo{}, err
 	}
 
 	// SecurityGroup Rule 정보 가져오기
@@ -157,21 +155,15 @@ func (securityHandler *ClouditSecurityHandler) GetSecurity(securityIID irs.IID) 
 }
 
 func (securityHandler *ClouditSecurityHandler) DeleteSecurity(securityIID irs.IID) (bool, error) {
-	// 이름 기준 보안그룹 조회
-	securityInfo, err := securityHandler.getSecurityByName(securityIID.NameId)
-	if err != nil {
-		cblogger.Error(err)
-		return false, err
-	}
-
 	securityHandler.Client.TokenID = securityHandler.CredentialInfo.AuthToken
 	authHeader := securityHandler.Client.AuthenticatedHeaders()
 
 	requestOpts := client.RequestOpts{
 		MoreHeaders: authHeader,
 	}
+
 	// 보안그룹 삭제
-	if err := securitygroup.Delete(securityHandler.Client, securityInfo.ID, &requestOpts); err != nil {
+	if err := securitygroup.Delete(securityHandler.Client, securityIID.SystemId, &requestOpts); err != nil {
 		return false, err
 	}
 	return true, nil

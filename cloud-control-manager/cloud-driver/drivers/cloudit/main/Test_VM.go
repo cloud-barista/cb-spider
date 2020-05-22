@@ -13,6 +13,10 @@ import (
 	"os"
 )
 
+const (
+	DefaultVPCName = "Default-VPC"
+)
+
 var cblogger *logrus.Logger
 
 func init() {
@@ -27,17 +31,24 @@ func createVM(config Config, vmHandler irs.VMHandler) (irs.VMInfo, error) {
 			NameId: config.Cloudit.VMInfo.Name,
 		},
 		ImageIID: irs.IID{
-			NameId: config.Cloudit.VMInfo.TemplateId,
+			SystemId: config.Cloudit.VMInfo.TemplateId,
+			NameId:   config.Cloudit.VMInfo.TemplateName,
 		},
-		VMSpecName: config.Cloudit.VMInfo.SpecId,
-		SubnetIID: irs.IID{ // Hard coding
-			NameId: "Default-VPC-subnet-1",
+		VMSpecName: config.Cloudit.VMInfo.SpecName,
+		SubnetIID: irs.IID{
+			SystemId: config.Cloudit.VMInfo.SubnetId,
+			NameId:   config.Cloudit.VMInfo.SubnetName,
 		},
-		VMUserPasswd:      config.Cloudit.VMInfo.RootPassword,
-		SecurityGroupIIDs: []irs.IID{{NameId: config.Cloudit.VMInfo.SecGroups}},
+		VMUserPasswd: config.Cloudit.VMInfo.RootPassword,
+		SecurityGroupIIDs: []irs.IID{
+			{
+				SystemId: config.Cloudit.VMInfo.SecGroupsID,
+				NameId:   config.Cloudit.VMInfo.Name,
+			},
+		},
 		VpcIID: irs.IID{
-			NameId:   "Default-VPC",
-			SystemId: "Default-VPC",
+			NameId:   DefaultVPCName,
+			SystemId: DefaultVPCName,
 		},
 		// original
 		/*
@@ -169,21 +180,26 @@ func main() {
 
 type Config struct {
 	Cloudit struct {
-		IdentityEndpoint string `yaml:"identity_endpoint"`
 		Username         string `yaml:"user_id"`
 		Password         string `yaml:"password"`
+		IdentityEndpoint string `yaml:"identity_endpoint"`
+		AuthToken        string `yaml:"auth_token"`
 		TenantID         string `yaml:"tenant_id"`
 		ServerId         string `yaml:"server_id"`
-		AuthToken        string `yaml:"auth_token"`
 		VMInfo           struct {
-			TemplateId   string `yaml:"template_id"`
-			SpecId       string `yaml:"spec_id"`
-			Name         string `yaml:"name"`
-			RootPassword string `yaml:"root_password"`
-			SubnetAddr   string `yaml:"subnet_addr"`
-			SecGroups    string `yaml:"sec_groups"`
-			Description  string `yaml:"description"`
-			Protection   int    `yaml:"protection"`
+			Name          string `yaml:"name"`
+			TemplateId    string `yaml:"template_id"`
+			TemplateName  string `yaml:"template_name"`
+			SpecId        string `yaml:"spec_id"`
+			SpecName      string `yaml:"spec_name"`
+			SubnetId      string `yaml:"subnet_id"`
+			SubnetName    string `yaml:"subnet_name"`
+			RootPassword  string `yaml:"root_password"`
+			SubnetAddr    string `yaml:"subnet_addr"`
+			SecGroupsID   string `yaml:"sec_groups_id"`
+			SecGroupsName string `yaml:"sec_groups_name"`
+			Description   string `yaml:"description"`
+			Protection    int    `yaml:"protection"`
 		} `yaml:"vm_info"`
 	} `yaml:"cloudit"`
 }

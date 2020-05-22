@@ -80,12 +80,18 @@ func (vpcHandler *ClouditVPCHandler) DeleteVPC(vpcIID irs.IID) (bool, error) {
 	}
 
 	for _, subnetInfo := range vpcInfo.SubnetInfoList {
-		// 기본 서브넷의 경우 삭제 예외처리
-		if strings.EqualFold(subnetInfo.IId.NameId, defaultSubnetName) {
-			continue
-		}
-		if ok, err := vpcHandler.DeleteSubnet(subnetInfo.IId); !ok {
+		subnetList, err := vpcHandler.ListSubnet()
+		if err != nil {
 			return false, err
+		}
+		for _, value := range subnetList {
+			if value.ID == subnetInfo.IId.SystemId {
+				if value.Protection == 0 {
+					if ok, _ := vpcHandler.DeleteSubnet(subnetInfo.IId); ok {
+						break
+					}
+				}
+			}
 		}
 	}
 	return true, nil

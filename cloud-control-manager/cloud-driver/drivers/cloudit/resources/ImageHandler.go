@@ -76,14 +76,6 @@ func (imageHandler *ClouditImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 }
 
 func (imageHandler *ClouditImageHandler) GetImage(imageIID irs.IID) (irs.ImageInfo, error) {
-	imageInfo, err := imageHandler.getImageByName(imageIID.NameId)
-	if err != nil {
-		return irs.ImageInfo{}, err
-	}
-	return *imageInfo, nil
-}
-
-func (imageHandler *ClouditImageHandler) DeleteImage(mageIID irs.IID) (bool, error) {
 	imageHandler.Client.TokenID = imageHandler.CredentialInfo.AuthToken
 	authHeader := imageHandler.Client.AuthenticatedHeaders()
 
@@ -91,7 +83,23 @@ func (imageHandler *ClouditImageHandler) DeleteImage(mageIID irs.IID) (bool, err
 		MoreHeaders: authHeader,
 	}
 
-	if err := image.Delete(imageHandler.Client, mageIID.SystemId, &requestOpts); err != nil {
+	image, err := image.Get(imageHandler.Client, imageIID.SystemId, &requestOpts)
+	if err != nil {
+		return irs.ImageInfo{}, err
+	}
+	imageInfo := setterImage(*image)
+	return *imageInfo, nil
+}
+
+func (imageHandler *ClouditImageHandler) DeleteImage(imageIID irs.IID) (bool, error) {
+	imageHandler.Client.TokenID = imageHandler.CredentialInfo.AuthToken
+	authHeader := imageHandler.Client.AuthenticatedHeaders()
+
+	requestOpts := client.RequestOpts{
+		MoreHeaders: authHeader,
+	}
+
+	if err := image.Delete(imageHandler.Client, imageIID.SystemId, &requestOpts); err != nil {
 		return false, err
 	} else {
 		return true, nil
