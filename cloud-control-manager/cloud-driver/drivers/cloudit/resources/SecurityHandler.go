@@ -192,7 +192,7 @@ func (securityHandler *ClouditSecurityHandler) getSecurityByName(securityName st
 	}
 
 	for _, s := range *securityList {
-		if strings.EqualFold(s.Name, securityName) {
+		if strings.EqualFold(s.ID, securityName) {
 			security = &s
 			break
 		}

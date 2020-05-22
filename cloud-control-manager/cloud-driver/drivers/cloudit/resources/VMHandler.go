@@ -465,7 +465,7 @@ func (vmHandler *ClouditVMHandler) mappingServerInfo(server server.ServerInfo) i
 	vmHandler.Client.TokenID = vmHandler.CredentialInfo.AuthToken
 	authHeader := vmHandler.Client.AuthenticatedHeaders()
 	vnicList, _ := ListVNic(authHeader, vmHandler.Client, server.ID)
-	if len(*vnicList) > 0 {
+	if vnicList != nil {
 		defaultVnic := (*vnicList)[0]
 		segGroupList := make([]irs.IID, len(defaultVnic.SecGroups))
 		for i, s := range defaultVnic.SecGroups {
