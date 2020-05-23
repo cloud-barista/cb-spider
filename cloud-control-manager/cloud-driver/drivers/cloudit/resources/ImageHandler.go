@@ -76,7 +76,12 @@ func (imageHandler *ClouditImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 }
 
 func (imageHandler *ClouditImageHandler) GetImage(imageIID irs.IID) (irs.ImageInfo, error) {
-	imageHandler.Client.TokenID = imageHandler.CredentialInfo.AuthToken
+	imageInfo, err := imageHandler.getImageByName(imageIID.NameId)
+	if err != nil {
+		return irs.ImageInfo{}, err
+	}
+	return *imageInfo, nil
+	/*imageHandler.Client.TokenID = imageHandler.CredentialInfo.AuthToken
 	authHeader := imageHandler.Client.AuthenticatedHeaders()
 
 	requestOpts := client.RequestOpts{
@@ -88,7 +93,7 @@ func (imageHandler *ClouditImageHandler) GetImage(imageIID irs.IID) (irs.ImageIn
 		return irs.ImageInfo{}, err
 	}
 	imageInfo := setterImage(*image)
-	return *imageInfo, nil
+	return *imageInfo, nil*/
 }
 
 func (imageHandler *ClouditImageHandler) DeleteImage(imageIID irs.IID) (bool, error) {

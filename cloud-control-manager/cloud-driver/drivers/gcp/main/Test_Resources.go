@@ -17,8 +17,9 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	"github.com/sirupsen/logrus"
 
-	testconf "./conf"
 	cblog "github.com/cloud-barista/cb-log"
+	//testconf "./conf"
+	testconf "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/gcp/main/conf"
 )
 
 var cblogger *logrus.Logger
@@ -373,27 +374,57 @@ func handleVPC() {
 	cblogger.Debug("=============================")
 	handler := ResourceHandler.(irs.VPCHandler)
 
+	/*
+		vpcReqInfo := irs.VPCReqInfo{
+			IId: irs.IID{NameId: "cb-vpc"},
+			//IPv4_CIDR: "10.0.0.0/16",
+			SubnetInfoList: []irs.SubnetInfo{
+				{
+					IId:       irs.IID{NameId: "cb-sub1"},
+					IPv4_CIDR: "10.0.3.0/24",
+				},
+
+				{
+					IId:       irs.IID{NameId: "cb-sub2"},
+					IPv4_CIDR: "10.0.4.0/24",
+				},
+			},
+			//Id:   "subnet-044a2b57145e5afc5",
+			//Name: "CB-VNet-Subnet", // 웹 도구 등 외부에서 전달 받지 않고 드라이버 내부적으로 자동 구현때문에 사용하지 않음.
+			//CidrBlock: "10.0.0.0/16",
+			//CidrBlock: "192.168.0.0/16",
+		}
+	*/
 	vpcReqInfo := irs.VPCReqInfo{
-		IId: irs.IID{NameId: "cb-vpc"},
-		//IPv4_CIDR: "10.0.0.0/16",
+		IId: irs.IID{NameId: "cb-vpc-load-test"},
 		SubnetInfoList: []irs.SubnetInfo{
 			{
-				IId:       irs.IID{NameId: "cb-sub1"},
+				IId:       irs.IID{NameId: "vpc-loadtest-sub1"},
 				IPv4_CIDR: "10.0.3.0/24",
 			},
-
 			{
-				IId:       irs.IID{NameId: "cb-sub2"},
+				IId:       irs.IID{NameId: "vpc-loadtest-sub2"},
 				IPv4_CIDR: "10.0.4.0/24",
 			},
+			{
+				IId:       irs.IID{NameId: "vpc-loadtest-sub3"},
+				IPv4_CIDR: "10.0.5.0/24",
+			},
+			{
+				IId:       irs.IID{NameId: "vpc-loadtest-sub4"},
+				IPv4_CIDR: "10.0.6.0/24",
+			},
+			{
+				IId:       irs.IID{NameId: "vpc-loadtest-sub5"},
+				IPv4_CIDR: "10.0.7.0/24",
+			},
 		},
-		//Id:   "subnet-044a2b57145e5afc5",
-		//Name: "CB-VNet-Subnet", // 웹 도구 등 외부에서 전달 받지 않고 드라이버 내부적으로 자동 구현때문에 사용하지 않음.
 		//CidrBlock: "10.0.0.0/16",
 		//CidrBlock: "192.168.0.0/16",
 	}
 
-	reqVpcId := irs.IID{SystemId: "vpc-6we11xwqjc9tyma5i68z0"}
+	//reqVpcId := irs.IID{SystemId: "vpc-6we11xwqjc9tyma5i68z0"}
+	reqVpcId := irs.IID{SystemId: vpcReqInfo.IId.NameId} //GCP는 SystemId에 NameId사용
 
 	for {
 		fmt.Println("Handler Management")
@@ -898,12 +929,12 @@ func handleVM() {
 
 func main() {
 	cblogger.Info("GCP Resource Test")
-	//handleVPC()
+	handleVPC()
 	//handleVMSpec()
 	//handleImage() //AMI
 	//handleKeyPair()
 	//handleSecurity()
-	handleVM()
+	//handleVM()
 	//cblogger.Info(filepath.Join("a/b", "\\cloud-driver-libs\\.ssh-gcp\\"))
 	//cblogger.Info(filepath.Join("\\cloud-driver-libs\\.ssh-gcp\\", "/b/c/d"))
 }
