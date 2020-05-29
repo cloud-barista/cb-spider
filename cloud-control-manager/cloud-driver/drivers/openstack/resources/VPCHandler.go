@@ -250,12 +250,13 @@ func (vpcHandler *OpenStackVPCHandler) DeleteSubnet(subnetIId irs.IID) (bool, er
 }
 
 func (vpcHandler *OpenStackVPCHandler) CreateRouter(vpcName string) (*string, error) {
+	externVPCId, _ := GetPublicVPCInfo(vpcHandler.Client, "ID")
 	routerName := vpcName + "-Router"
 	createOpts := routers.CreateOpts{
 		Name:         routerName,
 		AdminStateUp: to.BoolPtr(true),
 		GatewayInfo: &routers.GatewayInfo{
-			NetworkID: CBGateWayId,
+			NetworkID: externVPCId,
 		},
 	}
 

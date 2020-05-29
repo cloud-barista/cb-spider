@@ -19,13 +19,11 @@ import (
 )
 
 const (
-	CBGateWayId          = "8c1af031-aad6-4762-ac83-52e09dd82571"
 	CBVirutalNetworkName = "CB-VNet"
 	DNSNameservers       = "8.8.8.8"
 )
 
-func GetPublicVPCId(client *gophercloud.ServiceClient) (string, error) {
-	var vNetworkId string
+func GetPublicVPCInfo(client *gophercloud.ServiceClient, typeName string) (string, error) {
 	page, err := networks.List(client, nil).AllPages()
 	if err != nil {
 		cblogger.Error("Failed to get vpc list, err=%s", err)
@@ -39,11 +37,15 @@ func GetPublicVPCId(client *gophercloud.ServiceClient) (string, error) {
 	}
 	for _, nvpc := range nvpcList {
 		if nvpc.External == true {
-			vNetworkId = "ext"
+			if strings.EqualFold(strings.ToUpper(typeName), "ID") {
+				return nvpc.ID, nil
+			} else if strings.EqualFold(strings.ToUpper(typeName), "NAME") {
+				return nvpc.Name, nil
+			}
 		}
 	}
-
-	return vNetworkId, nil
+	cblogger.Error("Failed to get vpc list, err=%s", err)
+	return "", nil
 }
 
 // 기본 가상 네트워크(CB-VNet) Id 정보 조회
