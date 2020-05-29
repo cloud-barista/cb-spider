@@ -308,6 +308,8 @@ github.com/rackspace/gophercloud v1.0.0 h1:dI8jqEOOanEOgOSYcfvBRnETdeScNtlWg3KlJ
 github.com/rackspace/gophercloud v1.0.0/go.mod h1:4bJ1FwuaBZ6dt1VcDX5/O662mwR8GWqS4l68H6hkoYQ=
 github.com/rackspace/gophercloud v1.0.1-0.20161013120614-60916741c8ec h1:oVXcWlxqI1HoJS3r1eCEfJlHXtnQvGptcVMVY+uz1xE=
 github.com/rackspace/gophercloud v1.0.1-0.20161013120614-60916741c8ec/go.mod h1:4bJ1FwuaBZ6dt1VcDX5/O662mwR8GWqS4l68H6hkoYQ=
+github.com/rackspace/gophercloud v1.0.1-0.20161013232434-e00690e87603 h1:3RO95uGYUTNQcFopaYtINuS4nKp/fcdP9bJOQD99u8E=
+github.com/rackspace/gophercloud v1.0.1-0.20161013232434-e00690e87603/go.mod h1:4bJ1FwuaBZ6dt1VcDX5/O662mwR8GWqS4l68H6hkoYQ=
 github.com/rogpeppe/fastuuid v1.2.0/go.mod h1:jVj6XXZzXRy/MSR5jhDC/2q6DgLz+nrA6LYCDYWNEvQ=
 github.com/rogpeppe/go-internal v1.3.0/go.mod h1:M8bDsm7K2OlrFYOpmOWEs/qY81heoFRclV5y23lUDJ4=
 github.com/rogpeppe/go-internal v1.5.2/go.mod h1:xXDCJY+GAPziupqXw64V24skbSoqbTEfhy4qGm1nDQc=
