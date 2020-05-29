@@ -104,7 +104,18 @@ cloudbaristaorg/cb-spider:v0.1.v
     - (1) vpc, security group, keypair 생성
     - (2) vm 생성 및 제어
     - (3)	삭제는 자원 생성 역순
-    
+- CSP별 VM User: 2020.05.29.현재 
+
+  | CSP        | user ID          | 비고 |
+  |:-------------:|:-------------:|:-------------:|
+  | AWS      | ubuntu 또는 ec2-user 등 | Image 의존 |
+  | Azure      | cb-user | Driver에서 고정 |
+  | GCP      | cb-user      | Driver에서 고정  |
+  | Alibaba | root      |   CSP에서 고정, PW 설정 가능 |
+  | OpenStack | ubuntu 등     |    Image에 의존 |
+  | Cloudit | root      | sshkey 제공 안함. PW 설정 가능  |
+    - 개선예정(관련이슈:https://github.com/cloud-barista/cb-spider/issues/230)
+  
 ## [특이 사항]
 - 개발상태: 초기 주요 기능 중심 개발추진 중 / 기술개발용 / 상용활용시 보완필요
 - Key관리: CSP가 제공하지 않는 경우 Key 자체 생성 및 Key 파일 내부 관리
