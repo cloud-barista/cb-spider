@@ -107,7 +107,7 @@ cloudbaristaorg/cb-spider:v0.1.v
 - CSP별 VM User: 2020.05.29.현재 
 
   | CSP        | user ID          | 비고 |
-  |:-------------:|:-------------:|:-------------:|
+  |:-------------:|:-------------:|:-------------|
   | AWS      | ubuntu 또는 ec2-user 등 | Image 의존 |
   | Azure      | cb-user | Driver에서 고정 |
   | GCP      | cb-user      | Driver에서 고정  |
