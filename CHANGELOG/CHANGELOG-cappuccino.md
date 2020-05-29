@@ -1,5 +1,5 @@
 #### API Change
-- CloudOD 목록 제공 API 추가
+- CloudO 목록 제공 API 추가
 - VPC/Subnet API 추가 (https://github.com/cloud-barista/cb-spider/pulls?q=is%3Apr+is%3Aclosed+vpc)
 - VMSpec API 추가 (https://github.com/cloud-barista/cb-spider/pulls?q=is%3Apr+is%3Aclosed+vmspec)
 - VNic API 삭제
