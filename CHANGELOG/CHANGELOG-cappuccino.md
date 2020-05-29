@@ -1,4 +1,4 @@
-#### API Change
+### API Change
 - CloudO 목록 제공 API 추가
 - VPC/Subnet API 추가
   - 참고: https://github.com/cloud-barista/cb-spider/pulls?q=is%3Apr+is%3Aclosed+vpc
@@ -7,7 +7,7 @@
 - VNic API 삭제
 - PublicIP API 삭제
 
-#### Features
+### Features
 - 통합ID IID Manager 추가
   - 참고: https://github.com/cloud-barista/cb-spider/pulls?q=is%3Apr+is%3Aclosed+iid
 - VPC/Subnet 기능 추가
