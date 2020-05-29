@@ -18,7 +18,7 @@ The CB-Spider Mission is to connect all the clouds with a single interface.
 
 ## [실행 환경]
 
-- 리눅스 (검증시험:Ubuntu 18.04, Raspbian GNU/Linux 10)
+- 리눅스 (검증시험:Ubuntu 18.04, Raspbian GNU/Linux 10, Android aarch64)
 
 ## [실행 방법]
 
@@ -63,27 +63,24 @@ cloudbaristaorg/cb-spider:v0.1.v
 #### (b) 실행 준비
 - CB-Spider 실행에 필요한 환경변수 설정
   - `source setup.env` (위치: ./cb-spider)
+     - Android 실행시: export PLUGIN_SW=OFF
 
 -	driver shared library 생성 방법 (설치 시스템 당 1회 실행, driver source 변경시 실행)
     - `./build_all_driver_lib.sh` 실행
     -	결과: `cb-spider/cloud-driver-libs/xxx-driver-v1.0.so` 생성
     - 참고: 특정 CSP driver만 build하는 방법
-        - `cd cb-spider/cloud-control-manager/cloud-driver/drivers/aws` # AWS Driver 경우
+        - `cd cb-spider/cloud-control-manager/cloud-driver/drivers/aws-plugin` # AWS Driver 경우
         - `build_driver_lib.sh` 실행
 
 #### (c) 서버 실행
 - `cd cb-spider/api-runtime/rest-runtime`
 -	`go run *.go`    # 1024 포트 REST API Server 실행됨
--	참고: 메타 정보 초기화 방법
-    - `cb-spider/meta_db/dat` 아래 파일 삭제(ex: 0.dat) 후 서버 재가동
+-	참고: 메타 정보 손상시 초기화 방법
+    - `cb-spider/cloud-driver-libs/.ssh-*/*` 파일 삭제
+    - `cb-spider/meta_db/dat` 경로 삭제(ex: 0.dat) 후 서버 재가동
 
-### (3) Cloud-Barista 시스템 통합 실행 참고 (Docker-Compose 기반)
-```
-# git clone https://github.com/cloud-barista/cb-operator.git
-# cd cb-operator/src
-# make
-# ./operator run
-```
+### (3) Cloud-Barista 플랫폼 통합 실행 방법 (Docker-Compose 기반)
+- cb-operator 참고: https://github.com/cloud-barista/cb-operator
 
 ## [API 규격]
 - 클라우드 인프라 연동 정보 관리: https://documenter.getpostman.com/view/9027676/SVzz4fb4?version=latest
@@ -109,7 +106,7 @@ cloudbaristaorg/cb-spider:v0.1.v
     - (3)	삭제는 자원 생성 역순
     
 ## [특이 사항]
-- 개발상태: 초기 기능 중심 개발추진 중 / 기술개발용 / 상용활용시 보완필요
+- 개발상태: 초기 주요 기능 중심 개발추진 중 / 기술개발용 / 상용활용시 보완필요
 - Key관리: CSP가 제공하지 않는 경우 Key 자체 생성 및 Key 파일 내부 관리
   - 관리위치: `cb-spider/cloud-driver-libs/.ssh-CSPName/*` (임시방법)
   - 공유서버에서 운영시 보안 이슈 존재
@@ -129,18 +126,25 @@ cloudbaristaorg/cb-spider:v0.1.v
 |           |-- connect-config: 연결 설정 참조(driver등록 -> credential 등록 -> region 등록 -> connection config 등록)
 |           |-- each-test: 자원별 기능 시험 참조(VPC->SecurityGroup->KeyPair->VM)
 |           |-- full-test: 모든 자원 전체 기능 시험 참조(create -> list -> get -> delete)
+|           |-- parallel-test: VM 동시 실행 시험 참조(VPC생성 -> SecurityGroup생성 -> KeyPair생성 -> N개 VM 동시 Start)
 
 |-- cloud-control-manager
 |   |-- cloud-driver
 |   |   |-- drivers: 드라이버 구현체 위치
 |   |   |   |-- alibaba
+|   |   |   |-- alibaba-plugin
 |   |   |   |-- aws
+|   |   |   |-- aws-plugin
 |   |   |   |-- azure
+|   |   |   |-- azure-plugin
 |   |   |   |-- cloudit
-|   |   |   |-- cloudtwin
+|   |   |   |-- cloudit-plugin
 |   |   |   |-- gcp
+|   |   |   |-- gcp-plugin
 |   |   |   |-- docker
+|   |   |   |-- docker-plugin
 |   |   |   |-- openstack
+|   |   |   |-- openstack-plugin
 |   |   `-- interfaces: 멀티 클라우드 연동 인터페이스(드라어비 공통 인터페이스)
 |   |       |-- connect
 |   |       |-- resources
@@ -159,4 +163,6 @@ cloudbaristaorg/cb-spider:v0.1.v
 
 `-- meta_db: 메타 정보 local FS(nutsdb) 활용시 저장소 위치
     `-- dat
+`-- utils
+    |-- import-info: Cloud Driver 및 Region 정보 자동 등록 지원 도구
 ```
