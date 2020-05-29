@@ -358,8 +358,10 @@ func (vmHandler *OpenStackVMHandler) GetVM(vmIID irs.IID) (irs.VMInfo, error) {
 
 func (vmHandler *OpenStackVMHandler) AssociatePublicIP(serverID string) (bool, error) {
 	// PublicIP 생성
+	//VPCHander := cloudConnection.CreateVPCHandler()
+	externVPCName, _ := GetPublicVPCInfo(vmHandler.NetworkClient, "NAME")
 	createOpts := floatingip.CreateOpts{
-		Pool: CBPublicIPPool,
+		Pool: externVPCName,
 	}
 	publicIP, err := floatingip.Create(vmHandler.Client, createOpts).Extract()
 	if err != nil {

@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"github.com/Azure/go-autorest/autorest/to"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
+	//"github.com/davecgh/go-spew/spew"
 	"github.com/rackspace/gophercloud"
+	"github.com/rackspace/gophercloud/openstack/networking/v2/extensions/external"
 	"github.com/rackspace/gophercloud/openstack/networking/v2/extensions/layer3/routers"
 	"github.com/rackspace/gophercloud/openstack/networking/v2/networks"
 	"github.com/rackspace/gophercloud/openstack/networking/v2/subnets"
@@ -15,17 +17,28 @@ type OpenStackVPCHandler struct {
 	Client *gophercloud.ServiceClient
 }
 
-func (vpcHandler *OpenStackVPCHandler) setterVPC(vpc networks.Network) *irs.VPCInfo {
+func (vpcHandler *OpenStackVPCHandler) setterVPC(nvpc external.NetworkExternal) *irs.VPCInfo {
 	// VPC 정보 맵핑
 	vpcInfo := irs.VPCInfo{
 		IId: irs.IID{
-			NameId:   vpc.Name,
-			SystemId: vpc.ID,
+			NameId:   nvpc.Name,
+			SystemId: nvpc.ID,
 		},
 	}
+	var External string
+	if nvpc.External == true {
+		External = "Yes"
+	} else if nvpc.External == false {
+		External = "No"
+	}
+	keyValueList := []irs.KeyValue{
+		{Key: "External Network", Value: External},
+	}
+	vpcInfo.KeyValueList = keyValueList
 	// 서브넷 정보 조회
-	subnetInfoList := make([]irs.SubnetInfo, len(vpc.Subnets))
-	for i, subnetId := range vpc.Subnets {
+	subnetInfoList := make([]irs.SubnetInfo, len(nvpc.Subnets))
+
+	for i, subnetId := range nvpc.Subnets {
 		subnetInfo, err := vpcHandler.GetSubnet(irs.IID{SystemId: subnetId})
 		if err != nil {
 			cblogger.Error("Failed to get subnet with Id %s, err=%s", subnetId, err)
@@ -33,8 +46,8 @@ func (vpcHandler *OpenStackVPCHandler) setterVPC(vpc networks.Network) *irs.VPCI
 		}
 		subnetInfoList[i] = subnetInfo
 	}
-
 	vpcInfo.SubnetInfoList = subnetInfoList
+
 	return &vpcInfo
 }
 
@@ -112,22 +125,25 @@ func (vpcHandler *OpenStackVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs
 
 	return vpcInfo, nil
 }
-
 func (vpcHandler *OpenStackVPCHandler) ListVPC() ([]*irs.VPCInfo, error) {
+
 	page, err := networks.List(vpcHandler.Client, nil).AllPages()
 	if err != nil {
 		cblogger.Error("Failed to get vpc list, err=%s", err)
 		return nil, err
 	}
-	vpcList, err := networks.ExtractNetworks(page)
+
+	nvpcList, err := external.ExtractList(page)
 	if err != nil {
-		cblogger.Error("Failed to extract vpc list, err=%s", err)
+		cblogger.Error("Failed to get vpc list, err=%s", err)
 		return nil, err
 	}
 
+	//	keyValue := make([]*irs.KeyValue, len(vpcInfo.KeyValueList))
+
 	// Get VPC List
-	vpcInfoList := make([]*irs.VPCInfo, len(vpcList))
-	for i, vpc := range vpcList {
+	vpcInfoList := make([]*irs.VPCInfo, len(nvpcList))
+	for i, vpc := range nvpcList {
 		vpcInfo := vpcHandler.setterVPC(vpc)
 		vpcInfoList[i] = vpcInfo
 	}
@@ -135,12 +151,16 @@ func (vpcHandler *OpenStackVPCHandler) ListVPC() ([]*irs.VPCInfo, error) {
 }
 
 func (vpcHandler *OpenStackVPCHandler) GetVPC(vpcIID irs.IID) (irs.VPCInfo, error) {
-	vpc, err := networks.Get(vpcHandler.Client, vpcIID.SystemId).Extract()
+	vpc := networks.Get(vpcHandler.Client, vpcIID.SystemId)
+	//var vpc networks.GetResult
+	//nvpc ,err :=
+	nvpc, err := external.ExtractGet(vpc)
 	if err != nil {
 		cblogger.Error("Failed to get vpc with Id %s, err=%s", vpcIID.SystemId, err)
 		return irs.VPCInfo{}, err
 	}
-	vpcInfo := vpcHandler.setterVPC(*vpc)
+	vpcInfo := vpcHandler.setterVPC(*nvpc)
+
 	return *vpcInfo, nil
 }
 
@@ -183,7 +203,7 @@ func (vpcHandler *OpenStackVPCHandler) DeleteVPC(vpcIID irs.IID) (bool, error) {
 	}*/
 
 	// TODO: nested flow 개선
-	// Delete VPC
+	//Delete VPC
 	err = networks.Delete(vpcHandler.Client, vpcInfo.IId.SystemId).ExtractErr()
 	if err != nil {
 		cblogger.Error("Failed to delete vpc, err=%s", err)
@@ -230,12 +250,13 @@ func (vpcHandler *OpenStackVPCHandler) DeleteSubnet(subnetIId irs.IID) (bool, er
 }
 
 func (vpcHandler *OpenStackVPCHandler) CreateRouter(vpcName string) (*string, error) {
+	externVPCId, _ := GetPublicVPCInfo(vpcHandler.Client, "ID")
 	routerName := vpcName + "-Router"
 	createOpts := routers.CreateOpts{
 		Name:         routerName,
 		AdminStateUp: to.BoolPtr(true),
 		GatewayInfo: &routers.GatewayInfo{
-			NetworkID: CBGateWayId,
+			NetworkID: externVPCId,
 		},
 	}
 

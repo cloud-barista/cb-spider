@@ -8,6 +8,7 @@ import (
 	"github.com/rackspace/gophercloud"
 	"github.com/rackspace/gophercloud/openstack/compute/v2/extensions/secgroups"
 	"github.com/rackspace/gophercloud/openstack/compute/v2/flavors"
+	"github.com/rackspace/gophercloud/openstack/networking/v2/extensions/external"
 	"github.com/rackspace/gophercloud/openstack/networking/v2/networks"
 	"github.com/rackspace/gophercloud/openstack/networking/v2/ports"
 	"github.com/rackspace/gophercloud/openstack/networking/v2/subnets"
@@ -18,11 +19,34 @@ import (
 )
 
 const (
-	CBPublicIPPool       = "ext"
-	CBGateWayId          = "8c1af031-aad6-4762-ac83-52e09dd82571"
 	CBVirutalNetworkName = "CB-VNet"
 	DNSNameservers       = "8.8.8.8"
 )
+
+func GetPublicVPCInfo(client *gophercloud.ServiceClient, typeName string) (string, error) {
+	page, err := networks.List(client, nil).AllPages()
+	if err != nil {
+		cblogger.Error("Failed to get vpc list, err=%s", err)
+		return "", err
+	}
+
+	nvpcList, err := external.ExtractList(page)
+	if err != nil {
+		cblogger.Error("Failed to get vpc list, err=%s", err)
+		return "", err
+	}
+	for _, nvpc := range nvpcList {
+		if nvpc.External == true {
+			if strings.EqualFold(strings.ToUpper(typeName), "ID") {
+				return nvpc.ID, nil
+			} else if strings.EqualFold(strings.ToUpper(typeName), "NAME") {
+				return nvpc.Name, nil
+			}
+		}
+	}
+	cblogger.Error("Failed to get vpc list, err=%s", err)
+	return "", nil
+}
 
 // 기본 가상 네트워크(CB-VNet) Id 정보 조회
 func GetCBVNetId(client *gophercloud.ServiceClient) (string, error) {
