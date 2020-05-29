@@ -58,7 +58,7 @@ require (
 	github.com/opencontainers/go-digest v1.0.0-rc1 // indirect
 	github.com/opencontainers/image-spec v1.0.1 // indirect
 	github.com/prometheus/client_golang v1.5.1 // indirect
-	github.com/rackspace/gophercloud v1.0.1-0.20161013120614-60916741c8ec
+	github.com/rackspace/gophercloud v1.0.1-0.20161013232434-e00690e87603
 	github.com/rogpeppe/go-internal v1.5.2 // indirect
 	github.com/sirupsen/logrus v1.5.0
 	github.com/smartystreets/assertions v1.1.0 // indirect
