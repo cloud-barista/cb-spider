@@ -103,7 +103,7 @@ func GetCloudConnection(cloudConnectName string) (icon.CloudConnection, error) {
 		return nil, err
 	}
 
-	crdInfo, err := cim.GetCredential(cccInfo.CredentialName)
+	crdInfo, err := cim.GetCredentialDecrypt(cccInfo.CredentialName)
 	if err != nil {
 		return nil, err
 	}
