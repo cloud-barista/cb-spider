@@ -118,7 +118,7 @@ func (vmHandler *ClouditVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 	if err != nil {
 		return irs.VMInfo{}, err
 	}
-
+	index := 100
 	// VM 생성 완료까지 wait
 	for {
 		// Check VM Deploy Status
@@ -126,9 +126,13 @@ func (vmHandler *ClouditVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 		if err != nil {
 			return irs.VMInfo{}, err
 		}
-
+		if index == 0 {
+			cblogger.Error(err)
+			break
+		}
 		if vmInfo.PrivateIp == "" {
 			time.Sleep(1 * time.Second)
+			index--
 			continue
 		} else {
 			ok, err := vmHandler.AssociatePublicIP(creatingVm.Name, vmInfo.PrivateIp)
