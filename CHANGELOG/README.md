@@ -1,1 +1,0 @@
-- [CHANGELOG-cappuccino.md](https://github.com/cloud-barista/cb-spider/blob/master/CHANGELOG/CHANGELOG-cappuccino.md)
