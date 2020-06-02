@@ -93,11 +93,11 @@ cloudbaristaorg/cb-spider:v0.1.v
 - cb-operator 참고: https://github.com/cloud-barista/cb-operator
 
 ## [API 규격]
-- 클라우드 인프라 연동 정보 관리: https://documenter.getpostman.com/view/9027676/SVzz4fb4?version=latest
+- 클라우드 인프라 연동 정보 관리: https://cloud-barista.github.io/rest-api/v0.2.0/spider/ccim/
   - 클라우드 드라이버 정보 관리
   - 클라우드 인프라 인증정보 관리
   - 클라우드 인프라 리젼 정보 관리
-- 클라우드 인프라 공통 제어 관리: https://documenter.getpostman.com/view/9027676/SVtSXpzE (update 필요)
+- 클라우드 인프라 공통 제어 관리: https://cloud-barista.github.io/rest-api/v0.2.0/spider/cctm/
   - 이미지 자원 제어
   - 네트워크 자원 제어
   - Security Group 자원 제어  
