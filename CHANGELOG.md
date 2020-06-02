@@ -16,3 +16,9 @@
 - Android 운영 환경을 위한 plugin off mode 추가 ([3938ea0](https://github.com/cloud-barista/cb-spider/commit/3938ea0c70e69664a62eb3cee6611cfbf26ea4ea))  
 
 ### Bug Fix
+
+# v0.1.0-americano (2019.12.23.)
+
+### Feature
+- 멀티 클라우드 연동 기본 기능 제공
+
