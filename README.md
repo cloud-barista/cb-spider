@@ -109,7 +109,7 @@ cloudbaristaorg/cb-spider:v0.1.v
 - 시험 순서: 연동 정보 추가 => 자원등록 => VM 생성 및 제어 시험
 - 시험 방법: 
   - (연동정보관리) `cb-spider/api-runtime/rest-runtime/test/connect-config` 참고(Credential 정보 수정 후 실행)
-  - (자원관리) `cb-spider/api-runtime/rest-runtime/test/fuletest` 아래 자원 별 시험 스크립트 존재
+  - (자원관리) `cb-spider/api-runtime/rest-runtime/test/fulltest` 아래 자원 별 시험 스크립트 존재
     - (자원관리) 자원 생성 순서
     - (1) vpc, security group, keypair 생성
     - (2) vm 생성 및 제어
