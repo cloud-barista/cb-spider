@@ -774,9 +774,6 @@ defer vpcRWLock.Unlock()
                 cblog.Error(err)
                 return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
         }
-        if err != nil {
-                return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-        }
 
 	// keeping for rollback
         info, err := handler.GetVPC(iidInfo.IId)
