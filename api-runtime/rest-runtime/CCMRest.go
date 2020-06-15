@@ -1,4 +1,4 @@
-// Cloud Control Manager's Rest Runtime of CB-Spider.
+// Cloud Control Manager's Rest Runtime of CB-Spider.ll
 // The CB-Spider is a sub-Framework of the Cloud-Barista Multi-Cloud Project.
 // The CB-Spider Mission is to connect all the clouds with a single interface.
 //
@@ -16,6 +16,7 @@ import (
 	ccm "github.com/cloud-barista/cb-spider/cloud-control-manager"
 	cres "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	iidm "github.com/cloud-barista/cb-spider/cloud-control-manager/iid-manager"
+	cmrt "github.com/cloud-barista/cb-spider/api-runtime/common-runtime"
 
 	// REST API (echo)
 	"github.com/labstack/echo"
@@ -682,6 +683,32 @@ defer vpcRWLock.RUnlock()
         return c.JSON(http.StatusOK, &jsonResult)
 }
 
+// list all VPCs for management
+// (1) get args from REST Call
+// (2) get all VPC List by common-runtime API
+// (3) return REST Json Format
+func listAllVPC(c echo.Context) error {
+        cblog.Info("call listAllVPC()")
+
+        var req struct {
+                ConnectionName string
+        }
+
+        if err := c.Bind(&req); err != nil {
+                return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+        }
+
+	// Call common-runtime API
+        rsType := rsVPC
+	allResourceList, err := cmrt.ListAllResource(req.ConnectionName, rsType)
+        if err != nil {
+                return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+        }	
+
+        return c.JSON(http.StatusOK, &allResourceList)
+}
+
+
 // (1) get IID(NameId)
 // (2) get resource(SystemId)
 // (3) set ResourceInfo(IID.NameId)
@@ -755,116 +782,26 @@ func deleteVPC(c echo.Context) error {
                 return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
         }
 
-        cldConn, err := ccm.GetCloudConnection(req.ConnectionName)
+	// Call common-runtime API
+        result, _, err := cmrt.DeleteResource(req.ConnectionName, rsVPC, c.Param("Name"), c.QueryParam("force"))
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
-
-	handler, err := cldConn.CreateVPCHandler()
-	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-	}
-
-	rsType := rsVPC
-vpcRWLock.Lock()
-defer vpcRWLock.Unlock()
-// (1) get IID(NameId)
-        iidInfo, err := iidRWLock.GetIID(req.ConnectionName, rsType, cres.IID{c.Param("Name"), ""})
-        if err != nil {
-                cblog.Error(err)
-                return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-        }
-
-	// keeping for rollback
-        info, err := handler.GetVPC(iidInfo.IId)
-	// set NameId
-	info.IId.NameId = iidInfo.IId.NameId
-	// set NameId for SubnetInfo List
-        for i, subnetInfo := range info.SubnetInfoList {
-                subnetIIDInfo, err := iidRWLock.GetIIDbySystemID(req.ConnectionName, rsSubnetPrefix + info.IId.NameId, subnetInfo.IId)
-                if err != nil {
-                        return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-                }
-                info.SubnetInfoList[i].IId.NameId = subnetIIDInfo.IId.NameId
-        }
-
-
-// (2) delete Resource(SystemId)
-	result, err := handler.DeleteVPC(iidInfo.IId)
-	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-	}
-        if result == false {
-                resultInfo := BooleanInfo{
-                        Result: strconv.FormatBool(result),
-                }
-                return c.JSON(http.StatusOK, &resultInfo)
-        }
-
-// (3) delete IID
-	// for VPC
-        _, err = iidRWLock.DeleteIID(req.ConnectionName, rsType, iidInfo.IId)
-        if err != nil {
-                cblog.Error(err)
-                // rollback
-		cblog.Info("<<ROLLBACK:VPC-CSP:TRY>> " + info.IId.NameId)	
-		reqInfo := cres.VPCReqInfo{info.IId, info.IPv4_CIDR, info.SubnetInfoList } 	
-                _, err2 := handler.CreateVPC(reqInfo)
-                if err2 != nil {
-                        cblog.Error(err2)
-			return echo.NewHTTPError(http.StatusInternalServerError, err.Error() + ", " + err2.Error())
-                }
-		cblog.Info("<<ROLLBACK:VPC-CSP:PASS>> " + info.IId.NameId)	
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error() + "\n<<ROLLBACK:VPC-CSP:PASS>>")
-        }
-	// for Subnet list
-	for _, subnetInfo := range info.SubnetInfoList {
-                // key-value structure: /{ConnectionName}/{VPC-NameId}/{Subnet-IId}
-                _, err := iidRWLock.DeleteIID(req.ConnectionName, rsSubnetPrefix + info.IId.NameId, subnetInfo.IId)
-                if err != nil {
-                        cblog.Error(err)
-                        // rollback
-                        // (1) for resource
-                        cblog.Info("<<ROLLBACK:VPC-CSP:TRY>> " + info.IId.NameId)
-			reqInfo := cres.VPCReqInfo{info.IId, info.IPv4_CIDR, info.SubnetInfoList } 	
-                        info, err2 := handler.CreateVPC(reqInfo)
-                        if err2 != nil {
-                                cblog.Error(err2)
-                                return echo.NewHTTPError(http.StatusInternalServerError, "<<ROLLBACK:FAIL>> " + err.Error() + err2.Error())
-                        }
-                        cblog.Info("<<ROLLBACK:VPC-CSP:PASS>> " + info.IId.NameId)
-
-                        // (2) for VPC IID
-                        cblog.Info("<<ROLLBACK:VPC-IID:TRY>> " + info.IId.NameId)
-                        _, err := iidRWLock.CreateIID(req.ConnectionName, rsType, info.IId)
-                        if err != nil {
-                                cblog.Error(err)
-                                return echo.NewHTTPError(http.StatusInternalServerError, "<<ROLLBACK:FAIL>> " + err.Error() + err.Error())
-                        }
-                        cblog.Info("<<ROLLBACK:VPC-IID:PASS>> " + info.IId.NameId)
-
-                        // (3) for Subnet IID
-                        tmpIIdInfoList, err := iidRWLock.ListIID(req.ConnectionName, rsSubnetPrefix + info.IId.NameId)
-                        for _, subnetInfo := range tmpIIdInfoList {
-				cblog.Info("<<ROLLBACK:VPC-SUBNET-IID:TRY>> " + subnetInfo.IId.NameId)
-                                _, err := iidRWLock.CreateIID(req.ConnectionName, rsSubnetPrefix + info.IId.NameId, subnetInfo.IId)
-                                if err != nil {
-					cblog.Error(err)
-                                        return echo.NewHTTPError(http.StatusInternalServerError, "<<ROLLBACK:FAIL>> " + err.Error())
-                                }
-				cblog.Info("<<ROLLBACK:VPC-SUBNET-IID:PASS>> " + subnetInfo.IId.NameId)
-                        }
-			cblog.Info("<<ROLLBACK:VPC-CSP:PASS>> " + info.IId.NameId)	
-			return echo.NewHTTPError(http.StatusInternalServerError, err.Error() + "\n<<ROLLBACK:VPC-CSP-IID-SUBNET-IID:PASS>>")
-                }
-        }
-
-
 
         resultInfo := BooleanInfo{
                 Result: strconv.FormatBool(result),
         }
 
+	return c.JSON(http.StatusOK, &resultInfo)
+}
+
+func deleteVPCForce(c echo.Context, handler *cres.VPCHandler, iid *cres.IID) error {
+
+	result := true
+        resultInfo := BooleanInfo{
+                Result: strconv.FormatBool(result),
+        }
+	
 	return c.JSON(http.StatusOK, &resultInfo)
 }
 
@@ -1052,6 +989,31 @@ defer sgRWLock.RUnlock()
         return c.JSON(http.StatusOK, &jsonResult)
 }
 
+// list all SGs for management
+// (1) get args from REST Call
+// (2) get all SG List by common-runtime API
+// (3) return REST Json Format
+func listAllSecurity(c echo.Context) error {
+        cblog.Info("call listAllSecurity()")
+
+        var req struct {
+                ConnectionName string
+        }
+
+        if err := c.Bind(&req); err != nil {
+                return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+        }
+
+        // Call common-runtime API
+        rsType := rsSG
+        allResourceList, err := cmrt.ListAllResource(req.ConnectionName, rsType)
+        if err != nil {
+                return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+        }
+
+        return c.JSON(http.StatusOK, &allResourceList)
+}
+
 // (1) get IID(NameId)
 // (2) get resource(SystemId)
 // (3) set ResourceInfo(IID.NameId)
@@ -1125,58 +1087,12 @@ func deleteSecurity(c echo.Context) error {
                 return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
         }
 
-        cldConn, err := ccm.GetCloudConnection(req.ConnectionName)
-	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-	}
-
-	handler, err := cldConn.CreateSecurityHandler()
-	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-	}
-
-        rsType := rsSG
-sgRWLock.Lock()
-defer sgRWLock.Unlock()
-// (1) get IID(NameId)
-	// SG NameID format => {VPC NameID} + sgDELIMITER + {SG NameID}
-        iidInfo, err := iidRWLock.FindIID(req.ConnectionName, rsType, c.Param("Name"))
-        if err != nil {
-                cblog.Error(err)
-                return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-        }
-
-        // keeping for rollback
-        info, err := handler.GetSecurity(iidInfo.IId)
+        // Call common-runtime API
+        result, _, err := cmrt.DeleteResource(req.ConnectionName, rsSG, c.Param("Name"), c.QueryParam("force"))
         if err != nil {
                 return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
         }
 
-// (2) delete Resource(SystemId)
-	result, err := handler.DeleteSecurity(iidInfo.IId)
-	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-	}
-        if result == false {
-                resultInfo := BooleanInfo{
-                        Result: strconv.FormatBool(result),
-                }
-                return c.JSON(http.StatusOK, &resultInfo)
-        }
-
-// (3) delete IID
-        _, err = iidRWLock.DeleteIID(req.ConnectionName, rsType, iidInfo.IId)
-        if err != nil {
-                cblog.Error(err)
-                // rollback
-                reqInfo := cres.SecurityReqInfo{info.IId, info.VpcIID, info.Direction, info.SecurityRules}
-                _, err2 := handler.CreateSecurity(reqInfo)
-                if err2 != nil {
-                        cblog.Error(err2)
-                        return echo.NewHTTPError(http.StatusInternalServerError, err.Error() + ", " + err2.Error())
-                }
-                return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-        }
         resultInfo := BooleanInfo{
                 Result: strconv.FormatBool(result),
         }
@@ -1325,6 +1241,31 @@ defer keyRWLock.RUnlock()
         return c.JSON(http.StatusOK, &jsonResult)
 }
 
+// list all KeyPairs for management
+// (1) get args from REST Call
+// (2) get all KeyPair List by common-runtime API
+// (3) return REST Json Format
+func listAllKey(c echo.Context) error {
+        cblog.Info("call listAllKey()")
+
+        var req struct {
+                ConnectionName string
+        }
+
+        if err := c.Bind(&req); err != nil {
+                return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+        }
+
+        // Call common-runtime API
+        rsType := rsKey
+        allResourceList, err := cmrt.ListAllResource(req.ConnectionName, rsType)
+        if err != nil {
+                return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+        }
+
+        return c.JSON(http.StatusOK, &allResourceList)
+}
+
 // (1) get IID(NameId)
 // (2) get resource(SystemId)
 // (3) set ResourceInfo(IID.NameId)
@@ -1385,55 +1326,9 @@ func deleteKey(c echo.Context) error {
                 return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
         }
 
-        cldConn, err := ccm.GetCloudConnection(req.ConnectionName)
-	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-	}
-
-	handler, err := cldConn.CreateKeyPairHandler()
-	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-	}
-
-        rsType := rsKey
-keyRWLock.Lock()
-defer keyRWLock.Unlock()
-// (1) get IID(NameId)
-        iidInfo, err := iidRWLock.GetIID(req.ConnectionName, rsType, cres.IID{c.Param("Name"), ""})
+        // Call common-runtime API
+        result, _, err := cmrt.DeleteResource(req.ConnectionName, rsKey, c.Param("Name"), c.QueryParam("force"))
         if err != nil {
-                cblog.Error(err)
-                return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-        }
-
-        // keeping for rollback
-        info, err := handler.GetKey(iidInfo.IId)
-        if err != nil {
-                return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-        }
-
-// (2) delete Resource(SystemId)
-	result, err := handler.DeleteKey(iidInfo.IId)
-	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-	}
-        if result == false {
-                resultInfo := BooleanInfo{
-                        Result: strconv.FormatBool(result),
-                }
-                return c.JSON(http.StatusOK, &resultInfo)
-        }
-
-// (3) delete IID
-        _, err = iidRWLock.DeleteIID(req.ConnectionName, rsType, iidInfo.IId)
-        if err != nil {
-                cblog.Error(err)
-                // rollback
-                reqInfo := cres.KeyPairReqInfo{info.IId}
-                _, err2 := handler.CreateKey(reqInfo) // @todo check local key files
-                if err2 != nil {
-                        cblog.Error(err2)
-                        return echo.NewHTTPError(http.StatusInternalServerError, err.Error() + ", " + err2.Error())
-                }
                 return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
         }
 
@@ -2039,6 +1934,31 @@ func getSetNameId(ConnectionName string, vmInfo *cres.VMInfo) error {
         return nil
 }
 
+// list all VMs for management
+// (1) get args from REST Call
+// (2) get all VM List by common-runtime API
+// (3) return REST Json Format
+func listAllVM(c echo.Context) error {
+        cblog.Info("call listAllVM()")
+
+        var req struct {
+                ConnectionName string
+        }
+
+        if err := c.Bind(&req); err != nil {
+                return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+        }
+
+        // Call common-runtime API
+        rsType := rsVM
+        allResourceList, err := cmrt.ListAllResource(req.ConnectionName, rsType)
+        if err != nil {
+                return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+        }
+
+        return c.JSON(http.StatusOK, &allResourceList)
+}
+
 // (1) get IID(NameId)
 // (2) get resource(SystemId)
 // (3) set ResourceInfo(IID.NameId)
@@ -2111,54 +2031,14 @@ func terminateVM(c echo.Context) error {
                 return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
         }
 
-        cldConn, err := ccm.GetCloudConnection(req.ConnectionName)
-	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-	}
-
-	handler, err := cldConn.CreateVMHandler()
-	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-	}
-
-        rsType := rsVM
-// vmRWLock.Lock() @todo undo this until supporting async call. by powerkim, 2020.05.10
-// defer vmRWLock.Unlock() @todo undo this until supporting async call. by powerkim, 2020.05.10
-// (1) get IID(NameId)
-        iidInfo, err := iidRWLock.GetIID(req.ConnectionName, rsType, cres.IID{c.Param("Name"), ""})
+        // Call common-runtime API
+        _, result, err := cmrt.DeleteResource(req.ConnectionName, rsVM, c.Param("Name"), c.QueryParam("force"))
         if err != nil {
-                cblog.Error(err)
-                return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-        }
-
-        // keeping for rollback
-        info, err := handler.GetVM(iidInfo.IId)
-        if err != nil {
-                return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-        }
-
-// (2) delete Resource(SystemId)
-	info2, err := handler.TerminateVM(iidInfo.IId)
-        if err != nil {
-                return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-        }
-
-// (3) delete IID
-        _, err = iidRWLock.DeleteIID(req.ConnectionName, rsType, iidInfo.IId)
-        if err != nil {
-                cblog.Error(err)
-                // rollback
-                reqInfo := cres.VMReqInfo{info.IId, info.ImageIId, info.VpcIID, info.SubnetIID, info.SecurityGroupIIds, info.VMSpecName, info.KeyPairIId, info.VMUserId, info.VMUserPasswd}
-                _, err2 := handler.StartVM(reqInfo)
-                if err2 != nil {
-                        cblog.Error(err2)
-                        return echo.NewHTTPError(http.StatusInternalServerError, err.Error() + ", " + err2.Error())
-                }
                 return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
         }
 
         resultInfo := StatusInfo{
-                Status: string(info2),
+                Status: string(result),
         }
 
         return c.JSON(http.StatusOK, &resultInfo)
