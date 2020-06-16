@@ -941,8 +941,10 @@ func handleVM() {
 					cblogger.Info("=========== VM 목록 ================")
 					cblogger.Info(vmList)
 					spew.Dump(vmList)
-
-					VmID = vmList[0].IId
+					cblogger.Infof("=========== VM 목록 수 : [%d] ================", len(vmList))
+					if len(vmList) > 0 {
+						VmID = vmList[0].IId
+					}
 				}
 
 			}
