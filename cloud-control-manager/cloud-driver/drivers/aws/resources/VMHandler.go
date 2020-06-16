@@ -157,22 +157,26 @@ func (vmHandler *AwsVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 	//=============================
 	newVmId := *runResult.Instances[0].InstanceId
 	cblogger.Infof("[%s] VM이 생성되었습니다.", newVmId)
-	// Tag에 VM Name 설정
-	_, errtag := vmHandler.Client.CreateTags(&ec2.CreateTagsInput{
-		Resources: []*string{runResult.Instances[0].InstanceId},
-		Tags: []*ec2.Tag{
-			{
-				Key:   aws.String("Name"),
-				Value: aws.String(baseName),
-			},
-		},
-	})
-	if errtag != nil {
-		cblogger.Errorf("[%s] VM에 Name Tag 설정 실패", newVmId)
-		cblogger.Error(errtag)
-		//return irs.VMInfo{}, errtag
-	}
 
+	if baseName != "" {
+		// Tag에 VM Name 설정
+		_, errtag := vmHandler.Client.CreateTags(&ec2.CreateTagsInput{
+			Resources: []*string{runResult.Instances[0].InstanceId},
+			Tags: []*ec2.Tag{
+				{
+					Key:   aws.String("Name"),
+					Value: aws.String(baseName),
+				},
+			},
+		})
+		if errtag != nil {
+			cblogger.Errorf("[%s] VM에 Name Tag 설정 실패", newVmId)
+			cblogger.Error(errtag)
+			//return irs.VMInfo{}, errtag
+		}
+	} else {
+		cblogger.Error("vmReqInfo.IId.NameId가 전달되지 않아서 Name Tag를 설정하지않습니다.")
+	}
 	//Public IP및 최신 정보 전달을 위해 부팅이 완료될 때까지 대기했다가 전달하는 것으로 변경 함.
 	//cblogger.Info("Public IP 할당 및 VM의 최신 정보 획득을 위해 EC2가 Running 상태가 될때까지 대기")
 	cblogger.Info("VM의 최신 정보 획득을 위해 EC2가 Running 상태가 될때까지 대기")
@@ -638,15 +642,17 @@ func (vmHandler *AwsVMHandler) ListVM() ([]*irs.VMInfo, error) {
 
 	cblogger.Info("Success")
 
-	tmpVmName := ""
+	//tmpVmName := ""
 	for _, i := range result.Reservations {
 		for _, vm := range i.Instances {
 			cblogger.Info("[%s] EC2 정보 조회", *vm.InstanceId)
-			tmpVmName = ExtractVmName(vm.Tags)
-			if tmpVmName == "" {
-				cblogger.Errorf("VM Id[%s]에 해당하는 VM 이름을 찾을 수 없습니다!!!", *vm.InstanceId)
-				continue
-			}
+			/*
+				tmpVmName = ExtractVmName(vm.Tags)
+				if tmpVmName == "" {
+					cblogger.Errorf("VM Id[%s]에 해당하는 VM 이름을 찾을 수 없습니다!!!", *vm.InstanceId)
+					continue
+				}
+			*/
 			//vmInfo, _ := vmHandler.GetVM(irs.IID{NameId: tmpVmName})
 			vmInfo, _ := vmHandler.GetVM(irs.IID{SystemId: *vm.InstanceId})
 			vmInfoList = append(vmInfoList, &vmInfo)
@@ -774,10 +780,12 @@ func (vmHandler *AwsVMHandler) ListVMStatus() ([]*irs.VMStatusInfo, error) {
 
 			vmStatus, _ := ConvertVMStatusString(*vm.State.Name)
 			tmpVmName = ExtractVmName(vm.Tags)
-			if tmpVmName == "" {
-				cblogger.Errorf("VM Id[%s]에 해당하는 VM 이름을 찾을 수 없습니다!!!", *vm.InstanceId)
-				//continue //2020-04-10 Name이 필수는 아니기 때문에 예외에서 제외 함.
-			}
+			/*
+				if tmpVmName == "" {
+					cblogger.Errorf("VM Id[%s]에 해당하는 VM 이름을 찾을 수 없습니다!!!", *vm.InstanceId)
+					//continue //2020-04-10 Name이 필수는 아니기 때문에 예외에서 제외 함.
+				}
+			*/
 
 			vmStatusInfo := irs.VMStatusInfo{
 				//VmId:   *vm.InstanceId,
