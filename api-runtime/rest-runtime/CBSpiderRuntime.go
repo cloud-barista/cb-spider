@@ -10,6 +10,7 @@ package main
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/cloud-barista/cb-store/config"
 	"github.com/sirupsen/logrus"
@@ -20,9 +21,11 @@ import (
 )
 
 var cblog *logrus.Logger
+var StartTime string
 
 func init() {
 	cblog = config.Cblogger
+	StartTime = time.Now().Format("2006.01.02 15:04:05 Mon")
 }
 
 // REST API Return struct for boolena type
@@ -141,6 +144,13 @@ func main() {
 		//-------------------------------------------------------------------//
 		//----------SSH RUN
 		{"POST", "/sshrun", sshRun},
+
+		
+		//----------AdminWeb Handler
+		{"GET", "/adminweb", frame},
+		{"GET", "/adminweb/top", top},
+		{"GET", "/adminweb/driver", driver},
+		
 	}
 	//======================================= setup routes
 
