@@ -92,7 +92,7 @@ func main() {
 		{"DELETE", "/vpc/:Name", deleteVPC},
 		//-- for management
 		{"GET", "/allvpc", listAllVPC},
-	//	{"DELETE", "/mgmtvpc/:Name", mgmtDeleteVPC},
+		{"DELETE", "/cspvpc/:Id", deleteCSPVPC},
 
 		//----------SecurityGroup Handler
 		{"POST", "/securitygroup", createSecurity},
@@ -101,6 +101,7 @@ func main() {
 		{"DELETE", "/securitygroup/:Name", deleteSecurity},
 		//-- for management
 		{"GET", "/allsecuritygroup", listAllSecurity},
+		{"DELETE", "/cspsecuritygroup/:Id", deleteCSPSecurity},
 
 		//----------KeyPair Handler
 		{"POST", "/keypair", createKey},
@@ -109,6 +110,7 @@ func main() {
 		{"DELETE", "/keypair/:Name", deleteKey},
 		//-- for management
 		{"GET", "/allkeypair", listAllKey},
+		{"DELETE", "/cspkeypair/:Id", deleteCSPKey},
 /*
 		//----------VNic Handler
 		{"POST", "/vnic", createVNic},
@@ -129,6 +131,7 @@ func main() {
 		{"DELETE", "/vm/:Name", terminateVM},
 		//-- for management
 		{"GET", "/allvm", listAllVM},
+		{"DELETE", "/cspvm/:Id", terminateCSPVM},
 
 		{"GET", "/vmstatus", listVMStatus},
 		{"GET", "/vmstatus/:Name", getVMStatus},

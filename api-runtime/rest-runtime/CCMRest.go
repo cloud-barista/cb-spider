@@ -768,9 +768,9 @@ defer vpcRWLock.RUnlock()
 	return c.JSON(http.StatusOK, &info)
 }
 
-// (1) get IID(NameId)
-// (2) delete Resource(SystemId)
-// (3) delete IID
+// (1) get args from REST Call
+// (2) call common-runtime API
+// (3) return REST Json Format
 func deleteVPC(c echo.Context) error {
 	cblog.Info("call deleteVPC()")
 
@@ -795,14 +795,31 @@ func deleteVPC(c echo.Context) error {
 	return c.JSON(http.StatusOK, &resultInfo)
 }
 
-func deleteVPCForce(c echo.Context, handler *cres.VPCHandler, iid *cres.IID) error {
+// (1) get args from REST Call
+// (2) call common-runtime API
+// (3) return REST Json Format
+func deleteCSPVPC(c echo.Context) error {
+        cblog.Info("call deleteCSPVPC()")
 
-	result := true
+        var req struct {
+                ConnectionName string
+        }
+
+        if err := c.Bind(&req); err != nil {
+                return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+        }
+
+        // Call common-runtime API
+        result, _, err := cmrt.DeleteCSPResource(req.ConnectionName, rsVPC, c.Param("Id"))
+        if err != nil {
+                return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+        }
+
         resultInfo := BooleanInfo{
                 Result: strconv.FormatBool(result),
         }
-	
-	return c.JSON(http.StatusOK, &resultInfo)
+
+        return c.JSON(http.StatusOK, &resultInfo)
 }
 
 //================ SecurityGroup Handler
@@ -1073,9 +1090,9 @@ defer sgRWLock.RUnlock()
 	return c.JSON(http.StatusOK, &info)
 }
 
-// (1) get IID(NameId)
-// (2) delete Resource(SystemId)
-// (3) delete IID
+// (1) get args from REST Call
+// (2) call common-runtime API
+// (3) return REST Json Format
 func deleteSecurity(c echo.Context) error {
 	cblog.Info("call deleteSecurity()")
 
@@ -1099,6 +1116,34 @@ func deleteSecurity(c echo.Context) error {
 
 	return c.JSON(http.StatusOK, &resultInfo)
 }
+
+// (1) get args from REST Call
+// (2) call common-runtime API
+// (3) return REST Json Format
+func deleteCSPSecurity(c echo.Context) error {
+        cblog.Info("call deleteCSPSecurity()")
+
+        var req struct {
+                ConnectionName string
+        }
+
+        if err := c.Bind(&req); err != nil {
+                return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+        }
+
+        // Call common-runtime API
+        result, _, err := cmrt.DeleteCSPResource(req.ConnectionName, rsSG, c.Param("Id"))
+        if err != nil {
+                return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+        }
+
+        resultInfo := BooleanInfo{
+                Result: strconv.FormatBool(result),
+        }
+
+        return c.JSON(http.StatusOK, &resultInfo)
+}
+
 
 //================ KeyPair Handler
 // (1) check exist(NameID)
@@ -1312,9 +1357,9 @@ defer keyRWLock.RUnlock()
 	return c.JSON(http.StatusOK, &info)
 }
 
-// (1) get IID(NameId)
-// (2) delete Resource(SystemId)
-// (3) delete IID
+// (1) get args from REST Call
+// (2) call common-runtime API
+// (3) return REST Json Format
 func deleteKey(c echo.Context) error {
 	cblog.Info("call deleteKey()")
 
@@ -1337,6 +1382,33 @@ func deleteKey(c echo.Context) error {
         }
 
 	return c.JSON(http.StatusOK, &resultInfo)
+}
+
+// (1) get args from REST Call
+// (2) call common-runtime API
+// (3) return REST Json Format
+func deleteCSPKey(c echo.Context) error {
+        cblog.Info("call deleteCSPKey()")
+
+        var req struct {
+                ConnectionName string
+        }
+
+        if err := c.Bind(&req); err != nil {
+                return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+        }
+
+        // Call common-runtime API
+        result, _, err := cmrt.DeleteCSPResource(req.ConnectionName, rsKey, c.Param("Id"))
+        if err != nil {
+                return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+        }
+
+        resultInfo := BooleanInfo{
+                Result: strconv.FormatBool(result),
+        }
+
+        return c.JSON(http.StatusOK, &resultInfo)
 }
 
 /****************************
@@ -2017,9 +2089,9 @@ defer vmRWLock.RUnlock()
 	return c.JSON(http.StatusOK, &info)
 }
 
-// (1) get IID(NameId)
-// (2) delete Resource(SystemId)
-// (3) delete IID
+// (1) get args from REST Call
+// (2) call common-runtime API
+// (3) return REST Json Format
 func terminateVM(c echo.Context) error {
 	cblog.Info("call terminateVM()")
 
@@ -2033,6 +2105,33 @@ func terminateVM(c echo.Context) error {
 
         // Call common-runtime API
         _, result, err := cmrt.DeleteResource(req.ConnectionName, rsVM, c.Param("Name"), c.QueryParam("force"))
+        if err != nil {
+                return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+        }
+
+        resultInfo := StatusInfo{
+                Status: string(result),
+        }
+
+        return c.JSON(http.StatusOK, &resultInfo)
+}
+
+// (1) get args from REST Call
+// (2) call common-runtime API
+// (3) return REST Json Format
+func terminateCSPVM(c echo.Context) error {
+        cblog.Info("call terminateCSPVM()")
+
+        var req struct {
+                ConnectionName string
+        }
+
+        if err := c.Bind(&req); err != nil {
+                return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+        }
+
+        // Call common-runtime API
+        _, result, err := cmrt.DeleteCSPResource(req.ConnectionName, rsVM, c.Param("Id"))
         if err != nil {
                 return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
         }

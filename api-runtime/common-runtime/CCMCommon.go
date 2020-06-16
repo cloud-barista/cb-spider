@@ -177,7 +177,6 @@ defer vmRWLock.RUnlock()
 				iidCSPList = append(iidCSPList, &info.IId)
 			}
 		}
-
         default:
                 return AllResourceList{}, fmt.Errorf(rsType + " is not supported Resource!!")
         }
@@ -411,3 +410,82 @@ defer vmRWLock.Unlock()
 		return result, "", nil
 	}
 }
+
+// (1) delete Resource(SystemId)
+func DeleteCSPResource(connectionName string, rsType string, systemID string) (bool, cres.VMStatus, error) {
+        cblog.Info("call DeleteResource()")
+
+        cldConn, err := ccm.GetCloudConnection(connectionName)
+        if err != nil {
+                cblog.Error(err)
+                return  false, "", err
+        }
+
+        var handler interface{}
+
+        switch rsType {
+        case rsVPC:
+                handler, err = cldConn.CreateVPCHandler()
+        case rsSG:
+                handler, err = cldConn.CreateSecurityHandler()
+        case rsKey:
+                handler, err = cldConn.CreateKeyPairHandler()
+        case rsVM:
+                handler, err = cldConn.CreateVMHandler()
+        default:
+                return false, "", fmt.Errorf(rsType + " is not supported Resource!!")
+        }
+        if err != nil {
+                cblog.Error(err)
+                return  false, "", err
+        }
+
+
+	iid := cres.IID{"", systemID}
+
+// (1) delete Resource(SystemId)
+        result := false
+        var vmStatus cres.VMStatus
+        switch rsType {
+        case rsVPC:
+                result, err = handler.(cres.VPCHandler).DeleteVPC(iid)
+                if err != nil {
+                        cblog.Error(err)
+			return  false, "", err
+                }
+        case rsSG:
+                result, err = handler.(cres.SecurityHandler).DeleteSecurity(iid)
+                if err != nil {
+                        cblog.Error(err)
+			return  false, "", err
+                }
+        case rsKey:
+                result, err = handler.(cres.KeyPairHandler).DeleteKey(iid)
+                if err != nil {
+                        cblog.Error(err)
+			return  false, "", err
+                }
+        case rsVM:
+                vmStatus, err = handler.(cres.VMHandler).TerminateVM(iid)
+                if err != nil {
+                        cblog.Error(err)
+			return  false, vmStatus, err
+                }
+        default:
+                return false, "", fmt.Errorf(rsType + " is not supported Resource!!")
+        }
+
+	if rsType != rsVM {
+		if result == false {
+			return result, "", nil
+		}
+	}
+
+
+        if rsType == rsVM {
+                return result, vmStatus, nil
+        }else {
+                return result, "", nil
+        }
+}
+
