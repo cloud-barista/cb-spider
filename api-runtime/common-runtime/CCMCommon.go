@@ -58,8 +58,8 @@ func init() {
 type AllResourceList struct {
 	AllList struct {
 		MappedList []*cres.IID `json:"MappedList"`
-		UserOnlyList []*cres.IID `json:"UserOnlyList"`
-		CspOnlyList []*cres.IID `json:"CspOnlyList"`
+		OnlySpiderList []*cres.IID `json:"OnlySpiderList"`
+		OnlyCSPList []*cres.IID `json:"OnlyCSPList"`
 	}
 }
 
@@ -68,7 +68,7 @@ type AllResourceList struct {
 // (1) get IID:list
 // (2) get CSP:list
 // (3) filtering CSP-list by IID-list
-// (4) make MappedList, UserOnlyList, CspOnlyList
+// (4) make MappedList, OnlySpiderList, OnlyCSPList
 func ListAllResource(connectionName string, rsType string) (AllResourceList, error) {
         cblog.Info("call ListAllResource()")
 
@@ -123,11 +123,11 @@ defer vmRWLock.RUnlock()
                 return  AllResourceList{}, err
         }
 
-	// if iidInfoList is empty, UserOnlyList is empty.
+	// if iidInfoList is empty, OnlySpiderList is empty.
         if iidInfoList == nil || len(iidInfoList) <= 0 {
                 emptyIIDInfoList := []*cres.IID{}
                 allResList.AllList.MappedList = emptyIIDInfoList
-                allResList.AllList.UserOnlyList = emptyIIDInfoList
+                allResList.AllList.OnlySpiderList = emptyIIDInfoList
         }
 
 // (2) get CSP:list
@@ -185,26 +185,26 @@ defer vmRWLock.RUnlock()
 		// if iidCSPList is empty, iidInfoList is empty => all list is empty <-------------- (1)
 		if iidInfoList == nil || len(iidInfoList) <= 0 {
 			emptyIIDInfoList := []*cres.IID{}
-			allResList.AllList.CspOnlyList = emptyIIDInfoList
+			allResList.AllList.OnlyCSPList = emptyIIDInfoList
 
 			return allResList, nil
-		} else { // iidCSPList is empty and iidInfoList has value => only UserOnlyList <--(2)
+		} else { // iidCSPList is empty and iidInfoList has value => only OnlySpiderList <--(2)
 			emptyIIDInfoList := []*cres.IID{}
 			allResList.AllList.MappedList = emptyIIDInfoList
-			allResList.AllList.CspOnlyList = emptyIIDInfoList
-			allResList.AllList.UserOnlyList = getIIDList(iidInfoList)
+			allResList.AllList.OnlyCSPList = emptyIIDInfoList
+			allResList.AllList.OnlySpiderList = getIIDList(iidInfoList)
 
 			return allResList, nil
 		}
         }
 
-	// iidInfoList is empty, iidCSPList has values => only CspOnlyList <--------------------------(3)
+	// iidInfoList is empty, iidCSPList has values => only OnlyCSPList <--------------------------(3)
 	if iidInfoList == nil || len(iidInfoList) <= 0 {
-		CspOnlyList := []*cres.IID{}
+		OnlyCSPList := []*cres.IID{}
                 for _, iid := range iidCSPList {
-			CspOnlyList = append(CspOnlyList, iid)
+			OnlyCSPList = append(OnlyCSPList, iid)
 		}
-		allResList.AllList.CspOnlyList = CspOnlyList
+		allResList.AllList.OnlyCSPList = OnlyCSPList
 
 		return allResList, nil
 	}
@@ -212,7 +212,7 @@ defer vmRWLock.RUnlock()
 	////// iidInfoList has values, iidCSPList has values  <----------------------------------(4)
 // (3) filtering CSP-list by IID-list
         MappedList := []*cres.IID{}
-        UserOnlyList := []*cres.IID{}
+        OnlySpiderList := []*cres.IID{}
         for _, iidInfo := range iidInfoList {
                 exist := false
                 for _, iid := range iidCSPList {
@@ -222,26 +222,26 @@ defer vmRWLock.RUnlock()
                         }
                 }
                 if exist == false {
-			UserOnlyList = append(UserOnlyList, &iidInfo.IId)
+			OnlySpiderList = append(OnlySpiderList, &iidInfo.IId)
                 }
         }
 
 	allResList.AllList.MappedList = MappedList
-	allResList.AllList.UserOnlyList = UserOnlyList
+	allResList.AllList.OnlySpiderList = OnlySpiderList
 
-        CspOnlyList := []*cres.IID{}
+        OnlyCSPList := []*cres.IID{}
 	for _, iid := range iidCSPList {
 		if MappedList == nil || len(MappedList) <= 0 {
-			CspOnlyList = append(CspOnlyList, iid)
+			OnlyCSPList = append(OnlyCSPList, iid)
 		} else {
 			for _, mappedInfo := range MappedList {
 				if iid.SystemId != mappedInfo.SystemId {
-					CspOnlyList = append(CspOnlyList, iid)
+					OnlyCSPList = append(OnlyCSPList, iid)
 				}
 			}
 		}
 	}
-	allResList.AllList.CspOnlyList = CspOnlyList
+	allResList.AllList.OnlyCSPList = OnlyCSPList
 
 
 	return allResList, nil
