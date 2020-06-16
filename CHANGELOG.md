@@ -1,3 +1,14 @@
+# next version
+### API Change
+- 관리용 API listAllXXX(), deleteXXX(force=true), deleteCSPXXX() 추가
+  - ref) https://github.com/cloud-barista/cb-spider/issues/228#issuecomment-644536669
+
+### Feature
+- IID에 등록된 자원 ID와 CSP 자원 ID에 대한 맵핑 관계 손상시 관리 기능 추가
+  - ref) https://github.com/cloud-barista/cb-spider/issues/228#issuecomment-644536669
+
+### Bug Fix
+
 
 # v0.2.0-cappuccino (2020.06.01.)
 ### API Change
