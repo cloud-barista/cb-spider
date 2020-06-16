@@ -1074,8 +1074,8 @@ func main() {
 	//handleVPC()
 	//handleKeyPair()
 	//handlePublicIP() // PublicIP 생성 후 conf
-	handleSecurity()
-	//handleVM()
+	//handleSecurity()
+	handleVM()
 
 	//handleImage() //AMI
 	//handleVNic() //Lancard

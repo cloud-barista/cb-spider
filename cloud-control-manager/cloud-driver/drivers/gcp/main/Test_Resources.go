@@ -801,12 +801,14 @@ func handleVM() {
 					ImageIID: irs.IID{
 						NameId: "Test",
 						//SystemId: "ubuntu-minimal-1804-bionic-v20200415",
-						SystemId: "https://www.googleapis.com/compute/v1/projects/gce-uefi-images/global/images/centos-7-v20190204",
+						//SystemId: "https://www.googleapis.com/compute/v1/projects/gce-uefi-images/global/images/centos-7-v20190204",
+						SystemId: "https://www.googleapis.com/compute/v1/projects/ubuntu-os-cloud/global/images/ubuntu-1804-bionic-v20200521",
 
 						//NameId:   "projects/ubuntu-os-cloud/global/images/ubuntu-minimal-1804-bionic-v20200415",
 						//SystemId: "projects/ubuntu-os-cloud/global/images/ubuntu-minimal-1804-bionic-v20191024",
 						//SystemId: "2076268724445164462",	//에러
 						//SystemId: "ubuntu-minimal-1804-bionic-v20191024",
+						//https://www.googleapis.com/compute/v1/projects/ubuntu-os-cloud/global/images/ubuntu-1804-bionic-v20200521
 						//NameId:   "https://www.googleapis.com/compute/v1/projects/ubuntu-os-cloud/global/images/ubuntu-minimal-1804-bionic-v20200415",
 						//SystemId: "https://www.googleapis.com/compute/v1/projects/ubuntu-os-cloud/global/images/ubuntu-minimal-1804-bionic-v20200415",
 					},
@@ -929,12 +931,12 @@ func handleVM() {
 
 func main() {
 	cblogger.Info("GCP Resource Test")
-	handleVPC()
+	//handleVPC()
 	//handleVMSpec()
 	//handleImage() //AMI
 	//handleKeyPair()
 	//handleSecurity()
-	//handleVM()
+	handleVM()
 	//cblogger.Info(filepath.Join("a/b", "\\cloud-driver-libs\\.ssh-gcp\\"))
 	//cblogger.Info(filepath.Join("\\cloud-driver-libs\\.ssh-gcp\\", "/b/c/d"))
 }
