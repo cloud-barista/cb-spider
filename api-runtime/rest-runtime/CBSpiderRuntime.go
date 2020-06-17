@@ -12,6 +12,8 @@ import (
 	"fmt"
 	"time"
 
+	"net"
+	"os"
 	"github.com/cloud-barista/cb-store/config"
 	"github.com/sirupsen/logrus"
 
@@ -22,10 +24,13 @@ import (
 
 var cblog *logrus.Logger
 var StartTime string
+var HostIPorName string
+var ServicePort string
 
 func init() {
 	cblog = config.Cblogger
 	StartTime = time.Now().Format("2006.01.02 15:04:05 Mon")
+	HostIPorName = getHostIPorName()
 }
 
 // REST API Return struct for boolena type
@@ -41,6 +46,23 @@ type StatusInfo struct {
 type route struct {
 	method, path string
 	function     echo.HandlerFunc
+}
+
+func getHostIPorName() string {
+	conn, err := net.Dial("udp", "8.8.8.8:80")
+	if err != nil {
+		cblog.Error(err)
+		hostName, err := os.Hostname()
+		if err != nil {
+			cblog.Error(err)
+		}
+		return hostName
+	}
+	defer conn.Close()
+
+	localAddr := conn.LocalAddr().(*net.UDPAddr)
+
+	return localAddr.IP.String()
 }
 
 func main() {
@@ -150,6 +172,9 @@ func main() {
 		{"GET", "/adminweb", frame},
 		{"GET", "/adminweb/top", top},
 		{"GET", "/adminweb/driver", driver},
+		{"GET", "/adminweb/credential", credential},
+
+		{"GET", "/adminweb/spiderinfo", spiderInfo},
 		
 	}
 	//======================================= setup routes
@@ -190,5 +215,6 @@ func ApiServer(routes []route, strPort string) {
 	if strPort == "" {
 		strPort = ":1024"
 	}
+	ServicePort = strPort
 	e.Logger.Fatal(e.Start(strPort))
 }
