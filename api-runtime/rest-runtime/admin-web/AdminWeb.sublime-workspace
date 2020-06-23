@@ -1,0 +1,178 @@
+{
+	"auto_complete":
+	{
+		"selected_items":
+		[
+		]
+	},
+	"buffers":
+	[
+	],
+	"build_system": "",
+	"build_system_choices":
+	[
+	],
+	"build_varint": "",
+	"command_palette":
+	{
+		"height": 0.0,
+		"last_filter": "",
+		"selected_items":
+		[
+		],
+		"width": 0.0
+	},
+	"console":
+	{
+		"height": 0.0,
+		"history":
+		[
+		]
+	},
+	"distraction_free":
+	{
+		"menu_visible": true,
+		"show_minimap": false,
+		"show_open_files": false,
+		"show_tabs": false,
+		"side_bar_visible": false,
+		"status_bar_visible": false
+	},
+	"file_history":
+	[
+		"/Users/powerkim/Desktop/Contents/1.Official/etcd 설치",
+		"/Users/powerkim/Desktop/Contents/환경문제해결방안.txt",
+		"/Users/powerkim/Desktop/Contents/1.Official/farMon,VMware,CoreOS,etcd설치",
+		"/#identity_endpoint: http:::172.31.13.137:5000:v3",
+		"/Users/powerkim/Desktop/Contents/1.Official/2.기획작업/2018/멀티클라우드-제목,코드네임",
+		"/Users/powerkim/Desktop/Contents/1.Official/1.심클라우드/사업킥오프(7.27)/<2018.07.27(금)> 도시행정 디지털트윈 연구 Kick-Off:현장 검증단",
+		"/Users/powerkim/Desktop/Contents/1.Official/1.심클라우드/Simulation Innovation Day 2018",
+		"/Users/powerkim/Desktop/Contents/1.Official/2.기획작업/2018/탈중앙클라우드-성능목표",
+		"/Users/powerkim/Desktop/Contents/1.Official/1.심클라우드/심클라우드-정의이슈.txt",
+		"/Users/powerkim/Desktop/Contents/1.Official/2.기획작업/2018/멀티클라우드-정량목표",
+		"/Users/powerkim/Desktop/Contents/1.Official/1.심클라우드/클라우드기반ABMS논문.txt",
+		"/Users/powerkim/Desktop/Contents/1.Official/1.심클라우드/사업TF/다음소프트-생활연회의-2018.07.06.txt",
+		"/Users/powerkim/Desktop/Contents/1.Official/1.심클라우드/Data-TF/다음소프트-생활연회의-2018.07.06.txt",
+		"/Users/powerkim/Desktop/Contents/1.Official/1.심클라우드/Data-TF/다음-생활연회의-2018.07.06.txt"
+	],
+	"find":
+	{
+		"height": 39.0
+	},
+	"find_in_files":
+	{
+		"height": 0.0,
+		"where_history":
+		[
+		]
+	},
+	"find_state":
+	{
+		"case_sensitive": false,
+		"find_history":
+		[
+		],
+		"highlight": true,
+		"in_selection": false,
+		"preserve_case": false,
+		"regex": false,
+		"replace_history":
+		[
+		],
+		"reverse": false,
+		"show_context": true,
+		"use_buffer2": true,
+		"whole_word": false,
+		"wrap": true
+	},
+	"groups":
+	[
+		{
+			"sheets":
+			[
+			]
+		}
+	],
+	"incremental_find":
+	{
+		"height": 24.0
+	},
+	"input":
+	{
+		"height": 0.0
+	},
+	"layout":
+	{
+		"cells":
+		[
+			[
+				0,
+				0,
+				1,
+				1
+			]
+		],
+		"cols":
+		[
+			0.0,
+			1.0
+		],
+		"rows":
+		[
+			0.0,
+			1.0
+		]
+	},
+	"menu_visible": true,
+	"output.find_results":
+	{
+		"height": 0.0
+	},
+	"pinned_build_system": "",
+	"project": "AdminWeb.sublime-project",
+	"replace":
+	{
+		"height": 44.0
+	},
+	"save_all_on_build": true,
+	"select_file":
+	{
+		"height": 0.0,
+		"last_filter": "",
+		"selected_items":
+		[
+		],
+		"width": 0.0
+	},
+	"select_project":
+	{
+		"height": 0.0,
+		"last_filter": "",
+		"selected_items":
+		[
+		],
+		"width": 0.0
+	},
+	"select_symbol":
+	{
+		"height": 0.0,
+		"last_filter": "",
+		"selected_items":
+		[
+		],
+		"width": 0.0
+	},
+	"selected_group": 0,
+	"settings":
+	{
+	},
+	"show_minimap": true,
+	"show_open_files": false,
+	"show_tabs": true,
+	"side_bar_visible": true,
+	"side_bar_width": 150.0,
+	"status_bar_visible": true,
+	"template_settings":
+	{
+	}
+}

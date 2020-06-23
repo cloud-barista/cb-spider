@@ -15,6 +15,8 @@ import (
 	"net"
 	"os"
 	"github.com/cloud-barista/cb-store/config"
+	cr "github.com/cloud-barista/cb-spider/api-runtime/common-runtime"
+	aw "github.com/cloud-barista/cb-spider/api-runtime/rest-runtime/admin-web"
 	"github.com/sirupsen/logrus"
 
 	// REST API (echo)
@@ -23,14 +25,13 @@ import (
 )
 
 var cblog *logrus.Logger
-var StartTime string
-var HostIPorName string
-var ServicePort string
 
 func init() {
 	cblog = config.Cblogger
-	StartTime = time.Now().Format("2006.01.02 15:04:05 Mon")
-	HostIPorName = getHostIPorName()
+	currentTime := time.Now()
+	cr.StartTime = currentTime.Format("2006.01.02 15:04:05 Mon")
+	cr.ShortStartTime = fmt.Sprintf("T%02d:%02d:%02d", currentTime.Hour(), currentTime.Minute(), currentTime.Second())
+	cr.HostIPorName = getHostIPorName()
 }
 
 // REST API Return struct for boolena type
@@ -169,12 +170,14 @@ func main() {
 
 		
 		//----------AdminWeb Handler
-		{"GET", "/adminweb", frame},
-		{"GET", "/adminweb/top", top},
-		{"GET", "/adminweb/driver", driver},
-		{"GET", "/adminweb/credential", credential},
+		{"GET", "/adminweb", aw.Frame},
+		{"GET", "/adminweb/top", aw.Top},
+		{"GET", "/adminweb/driver", aw.Driver},
+		{"GET", "/adminweb/credential", aw.Credential},
+		{"GET", "/adminweb/region", aw.Region},
+		{"GET", "/adminweb/connectionconfig", aw.Connectionconfig},
 
-		{"GET", "/adminweb/spiderinfo", spiderInfo},
+		{"GET", "/adminweb/spiderinfo", aw.SpiderInfo},
 		
 	}
 	//======================================= setup routes
@@ -215,6 +218,6 @@ func ApiServer(routes []route, strPort string) {
 	if strPort == "" {
 		strPort = ":1024"
 	}
-	ServicePort = strPort
+	cr.ServicePort = strPort
 	e.Logger.Fatal(e.Start(strPort))
 }
