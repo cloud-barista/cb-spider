@@ -6,7 +6,7 @@
 //
 // by CB-Spider Team, 2019.10.
 
-package main
+package restruntime
 
 import (
 	"fmt"
@@ -14,9 +14,10 @@ import (
 
 	"net"
 	"os"
-	"github.com/cloud-barista/cb-store/config"
+
 	cr "github.com/cloud-barista/cb-spider/api-runtime/common-runtime"
 	aw "github.com/cloud-barista/cb-spider/api-runtime/rest-runtime/admin-web"
+	"github.com/cloud-barista/cb-store/config"
 	"github.com/sirupsen/logrus"
 
 	// REST API (echo)
@@ -66,7 +67,7 @@ func getHostIPorName() string {
 	return localAddr.IP.String()
 }
 
-func main() {
+func RunServer() {
 
 	//======================================= setup routes
 	routes := []route{
@@ -137,19 +138,19 @@ func main() {
 		//-- for management
 		{"GET", "/allkeypair", listAllKey},
 		{"DELETE", "/cspkeypair/:Id", deleteCSPKey},
-/*
-		//----------VNic Handler
-		{"POST", "/vnic", createVNic},
-		{"GET", "/vnic", listVNic},
-		{"GET", "/vnic/:VNicId", getVNic},
-		{"DELETE", "/vnic/:VNicId", deleteVNic},
+		/*
+			//----------VNic Handler
+			{"POST", "/vnic", createVNic},
+			{"GET", "/vnic", listVNic},
+			{"GET", "/vnic/:VNicId", getVNic},
+			{"DELETE", "/vnic/:VNicId", deleteVNic},
 
-		//----------PublicIP Handler
-		{"POST", "/publicip", createPublicIP},
-		{"GET", "/publicip", listPublicIP},
-		{"GET", "/publicip/:PublicIPId", getPublicIP},
-		{"DELETE", "/publicip/:PublicIPId", deletePublicIP},
-*/
+			//----------PublicIP Handler
+			{"POST", "/publicip", createPublicIP},
+			{"GET", "/publicip", listPublicIP},
+			{"GET", "/publicip/:PublicIPId", getPublicIP},
+			{"DELETE", "/publicip/:PublicIPId", deletePublicIP},
+		*/
 		//----------VM Handler
 		{"POST", "/vm", startVM},
 		{"GET", "/vm", listVM},
@@ -168,7 +169,6 @@ func main() {
 		//----------SSH RUN
 		{"POST", "/sshrun", sshRun},
 
-		
 		//----------AdminWeb Handler
 		{"GET", "/adminweb", aw.Frame},
 		{"GET", "/adminweb/top", aw.Top},
@@ -178,7 +178,6 @@ func main() {
 		{"GET", "/adminweb/connectionconfig", aw.Connectionconfig},
 
 		{"GET", "/adminweb/spiderinfo", aw.SpiderInfo},
-		
 	}
 	//======================================= setup routes
 

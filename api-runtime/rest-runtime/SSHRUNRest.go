@@ -6,26 +6,25 @@
 //
 // by CB-Spider Team, 2019.10.
 
-package main
+package restruntime
 
 import (
-
-	"github.com/cloud-barista/cb-spider/cloud-control-manager/vm-ssh"
+	sshrun "github.com/cloud-barista/cb-spider/cloud-control-manager/vm-ssh"
 
 	"strings"
 	// REST API (echo)
-	"github.com/labstack/echo"
 	"net/http"
+
+	"github.com/labstack/echo"
 )
 
-
 type SSHRUNReqInfo struct {
-        UserName        string  // ex) "root"
-        PrivateKey      []string  // ex)   ["-----BEGIN RSA PRIVATE KEY-----",
-                                //          "MIIEoQIBAAKCAQEArVNOLwMIp5VmZ4VPZotcoCHdEzimKalAsz+ccLfvAA1Y2ELH",
-                                //          "..."]
-        ServerPort      string  // ex) "node12:22"
-        Command         string  // ex) "hostname"
+	UserName   string   // ex) "root"
+	PrivateKey []string // ex)   ["-----BEGIN RSA PRIVATE KEY-----",
+	//          "MIIEoQIBAAKCAQEArVNOLwMIp5VmZ4VPZotcoCHdEzimKalAsz+ccLfvAA1Y2ELH",
+	//          "..."]
+	ServerPort string // ex) "node12:22"
+	Command    string // ex) "hostname"
 }
 
 //================ SSH RUN
@@ -37,19 +36,17 @@ func sshRun(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 	strPrivateKey := strings.Join(req.PrivateKey[:], "\n")
-	
 
-	sshInfo := sshrun.SSHInfo {
-		UserName : req.UserName,
-		PrivateKey : []byte(strPrivateKey),
-		ServerPort : req.ServerPort,
+	sshInfo := sshrun.SSHInfo{
+		UserName:   req.UserName,
+		PrivateKey: []byte(strPrivateKey),
+		ServerPort: req.ServerPort,
 	}
 	var result string
-        var err error
-        if result, err = sshrun.SSHRun(sshInfo, req.Command); err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Error while running cmd: " + req.Command + "]" + err.Error())
-        }
+	var err error
+	if result, err = sshrun.SSHRun(sshInfo, req.Command); err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "Error while running cmd: "+req.Command+"]"+err.Error())
+	}
 
 	return c.JSON(http.StatusOK, result)
 }
-

@@ -6,6 +6,8 @@ replace github.com/coreos/go-systemd => github.com/coreos/go-systemd/v22 v22.0.0
 
 replace github.com/coreos/bbolt => go.etcd.io/bbolt v1.3.3
 
+replace google.golang.org/grpc => google.golang.org/grpc v1.26.0
+
 require (
 	cloud.google.com/go/bigquery v1.4.0 // indirect
 	dmitri.shuralyov.com/gpu/mtl v0.0.0-20191203043605-d42048ed14fd // indirect
@@ -35,7 +37,6 @@ require (
 	github.com/gogo/protobuf v1.3.1 // indirect
 	github.com/golang/mock v1.4.3 // indirect
 	github.com/golang/protobuf v1.4.0 // indirect
-	github.com/google/btree v1.0.0 // indirect
 	github.com/google/gofuzz v1.1.0 // indirect
 	github.com/google/pprof v0.0.0-20200417002340-c6e0a841f49a // indirect
 	github.com/google/uuid v1.1.1 // indirect
@@ -54,7 +55,6 @@ require (
 	github.com/labstack/gommon v0.3.0 // indirect
 	github.com/mitchellh/mapstructure v1.2.2 // indirect
 	github.com/moby/moby v1.13.1 // indirect
-	github.com/modern-go/reflect2 v1.0.1 // indirect
 	github.com/opencontainers/go-digest v1.0.0-rc1 // indirect
 	github.com/opencontainers/image-spec v1.0.1 // indirect
 	github.com/prometheus/client_golang v1.5.1 // indirect
