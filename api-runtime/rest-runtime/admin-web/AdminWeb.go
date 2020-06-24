@@ -92,10 +92,9 @@ func Top(c echo.Context) error {
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
 </head>
 <body>
-    <br>
     <!-- <table border="0" bordercolordark="#FFFFFF" cellpadding="0" cellspacing="2" bgcolor="#FFFFFF" width="320" style="font-size:small;"> -->
     <table border="0" bordercolordark="#FFFFFF" cellpadding="0" cellspacing="1" bgcolor="#FFFFFF"  style="font-size:small;">      
-        <tr bgcolor="#FFFFFF" align="center">
+        <tr bgcolor="#FFFFFF" align="left">
             <td rowspan="2" width="80" bgcolor="#FFFFFF">
                 <!-- CB-Spider Logo -->
                 <a href="../adminweb" target="_top">
@@ -107,34 +106,34 @@ func Top(c echo.Context) error {
             <td width="100">       
                 <!-- Drivers Management --> 
                 <a href="driver" target="main_frame">            
-                    <font size=2>driver</font>
+                    <font size=2>1.driver</font>
                 </a>
             </td>
-            <td width="100">       
+            <td width="120">       
                 <!-- Credential Management -->
                 <a href="credential" target="main_frame">            
-                    <font size=2>credential</font>
+                    <font size=2>1.credential</font>
                 </a>
             </td>
-            <td width="100">       
+            <td width="80">       
                 <!-- Regions Management -->
                 <a href="region" target="main_frame">            
-                    <font size=2>region</font>
+                    <font size=2>1.region</font>
                 </a>
             </td>
-            <td width="100">       
+            <td width="200">
                 <!-- Connection Management -->
                 <a href="connectionconfig" target="main_frame">            
-                    <font size=2>CONNECTION</font>
+                    <font size=2>2.CONNECTION</font>
                 </a>
             </td>
-            <td width="100">       
+            <td width="120">       
                 <!-- This CB-Spider Info -->
                 <a href="spiderinfo" target="main_frame">            
                     <font size=2>this spider</font>
                 </a>
             </td>
-            <td width="100">       
+            <td width="120">       
                 <!-- CB-Spider Github -->
                 <a href="https://github.com/cloud-barista/cb-spider" target="_blank">            
                     <font size=2>github</font>
@@ -142,41 +141,41 @@ func Top(c echo.Context) error {
             </td> 
 	</tr>
 
-        <tr bgcolor="#FFFFFF" align="center">
+        <tr bgcolor="#FFFFFF" align="left">
             <td width="100">
+                <!-- VPC/Subnet Management -->
+                <a href="vpc" target="_blank">
+                    <font size=2>1.vpc/subnet</font>
+                </a>
+            </td>
+            <td width="120">
+                <!-- SecurityGroup Management -->
+                <a href="security" target="_blank">
+                    <font size=2>1.1.security group</font>
+                </a>
+            </td>
+            <td width="80">
+                <!-- KeyPair Management -->
+                <a href="keypair" target="_blank">
+                    <font size=2>1.keypair</font>
+                </a>
+            </td>
+            <td width="200">
+                <!-- VM Management -->
+                <a href="vm">
+                    <font size=2>2.VM</font>
+                </a>
+            </td>
+            <td width="120">
                 <!-- Image Management -->
                 <a href="image" target="main_frame">
                     <font size=2>image(tbd)</font>
                 </a>
             </td>
-            <td width="100">
+            <td width="120">
                 <!-- Spec Management -->
                 <a href="spec" target="_blank">
                     <font size=2>spec</font>
-                </a>
-            </td>
-            <td width="100">
-                <!-- VPC/Subnet Management -->
-                <a href="vpc" target="_blank">
-                    <font size=2>vpc/subnet</font>
-                </a>
-            </td>
-            <td width="100">
-                <!-- SecurityGroup Management -->
-                <a href="security" target="_blank">
-                    <font size=2>security group</font>
-                </a>
-            </td>
-            <td width="100">
-                <!-- KeyPair Management -->
-                <a href="keypair" target="_blank">
-                    <font size=2>keypair</font>
-                </a>
-            </td>
-            <td width="100">
-                <!-- VM Management -->
-                <a href="vm">
-                    <font size=2>VM</font>
                 </a>
             </td>
         </tr>
@@ -460,8 +459,8 @@ func Driver(c echo.Context) error {
 		htmlStr +=  makeTitleTRList_html("#DDDDDD", "2", nameWidthList)
 
 
-	// (4) make Table info list TR
-        // (4-1) get driver info list @todo if empty list
+	// (4) make TR list with info list
+        // (4-1) get info list @todo if empty list
 		resBody, err := getResourceList_JsonByte("driver")
 		if err != nil {
 			cblog.Error(err)
@@ -472,7 +471,7 @@ func Driver(c echo.Context) error {
 		}
 		json.Unmarshal(resBody, &info)
 
-        // (4-2) make Table info list TR
+        // (4-2) make TR list with info list
 		htmlStr += makeDriverTRList_html("", "", "", info.ResultList)
 
 
@@ -710,8 +709,8 @@ func Credential(c echo.Context) error {
                 htmlStr +=  makeTitleTRList_html("#DDDDDD", "2", nameWidthList)
 
 
-        // (4) make Table info list TR
-        // (4-1) get driver info list @todo if empty list
+        // (4) make TR list with info list
+        // (4-1) get info list @todo if empty list
                 resBody, err := getResourceList_JsonByte("credential")
                 if err != nil {
                         cblog.Error(err)
@@ -722,7 +721,7 @@ func Credential(c echo.Context) error {
                 }
                 json.Unmarshal(resBody, &info)
 
-        // (4-2) make Table info list TR
+        // (4-2) make TR list with info list
                 htmlStr += makeCredentialTRList_html("", "", "", info.ResultList)
 
 
@@ -978,8 +977,8 @@ func Region(c echo.Context) error {
                 htmlStr +=  makeTitleTRList_html("#DDDDDD", "2", nameWidthList)
 
 
-        // (4) make Table info list TR
-        // (4-1) get driver info list @todo if empty list
+        // (4) make TR list with info list
+        // (4-1) get info list @todo if empty list
                 resBody, err := getResourceList_JsonByte("region")
                 if err != nil {
                         cblog.Error(err)
@@ -990,7 +989,7 @@ func Region(c echo.Context) error {
                 }
                 json.Unmarshal(resBody, &info)
 
-        // (4-2) make Table info list TR
+        // (4-2) make TR list with info list
                 htmlStr += makeRegionTRList_html("", "", "", info.ResultList)
 
 
@@ -1034,43 +1033,104 @@ func Region(c echo.Context) error {
 }
 
 // make the string of javascript function
+func makeOnInitialInputBoxSetup_js() string {
+        strFunc := `
+              function onInitialSetup() {
+		 cspSelect = document.getElementById('1')
+		 onchangeProvider(cspSelect) 
+	      }
+	`
+        return strFunc
+}
+
+// make the string of javascript function
 func makeOnchangeConnectionConfigProviderFunc_js() string {
         strFunc := `
               function onchangeProvider(source) {
                 var providerName = source.value
         // for credential info
+	var driverNameList = []
+	var credentialNameList
+	var regionNameList
         switch(providerName) {
           case "AWS":
-            credentialInfo = '[{"Key":"ClientId", "Value":"XXXXXX"}, {"Key":"ClientSecret", "Value":"XXXXXX"}]'
+	    driverNameList = document.getElementsByName('driverName-AWS');
+	    credentialNameList = document.getElementsByName('credentialName-AWS');
+	    regionNameList = document.getElementsByName('regionName-AWS');
             break;
           case "AZURE":
-            credentialInfo = '[{"Key":"ClientId", "Value":"XXXX-XXXX"}, {"Key":"ClientSecret", "Value":"xxxx-xxxx"}, {"Key":"TenantId", "Value":"xxxx-xxxx"}, {"Key":"SubscriptionId", "Value":"xxxx-xxxx"}]'
+	    driverNameList = document.getElementsByName('driverName-AZURE');
+	    credentialNameList = document.getElementsByName('credentialName-AZURE');
+	    regionNameList = document.getElementsByName('regionName-AZURE');
             break;
           case "GCP":
-            credentialInfo = '[{"Key":"PrivateKey", "Value":"-----BEGIN PRIVATE KEY-----\nXXXX\n-----END PRIVATE KEY-----\n"},{"Key":"ProjectID", "Value":"powerkimhub"}, {"Key":"ClientEmail", "Value":"xxxx@xxxx.iam.gserviceaccount.com"}]'
+	    driverNameList = document.getElementsByName('driverName-GCP');
+	    credentialNameList = document.getElementsByName('credentialName-GCP');
+	    regionNameList = document.getElementsByName('regionName-GCP');
             break;
           case "ALIBABA":
-            credentialInfo = '[{"Key":"ClientId", "Value":"XXXXXX"}, {"Key":"ClientSecret", "Value":"XXXXXX"}]'
+	    driverNameList = document.getElementsByName('driverName-ALIBABA');
+	    credentialNameList = document.getElementsByName('credentialName-ALIBABA');
+	    regionNameList = document.getElementsByName('regionName-ALIBABA');
             break;
           case "CLOUDIT":
-            credentialInfo = '[{"Key":"IdentityEndpoint", "Value":"http://xxx.xxx.co.kr:9090"}, {"Key":"AuthToken", "Value":"xxxx"}, {"Key":"Username", "Value":"xxxx"}, {"Key":"Password", "Value":"xxxx"}, {"Key":"TenantId", "Value":"tnt0009"}]'
+	    driverNameList = document.getElementsByName('driverName-CLOUDIT');
+	    credentialNameList = document.getElementsByName('credentialName-CLOUDIT');
+	    regionNameList = document.getElementsByName('regionName-CLOUDIT');
             break;
           case "OPENSTACK":
-            credentialInfo = '[{"Key":"IdentityEndpoint", "Value":"http://182.252.xxx.xxx:5000/v3"}, {"Key":"Username", "Value":"etri"}, {"Key":"Password", "Value":"xxxx"}, {"Key":"DomainName", "Value":"default"}, {"Key":"ProjectID", "Value":"xxxx"}]'
+	    driverNameList = document.getElementsByName('driverName-OPENSTACK');
+	    credentialNameList = document.getElementsByName('credentialName-OPENSTACK');
+	    regionNameList = document.getElementsByName('regionName-OPENSTACK');
             break;
           case "DOCKER":
-            credentialInfo = '[{"Key":"Host", "Value":"http://18.191.xxx.xxx:1004"}, {"Key":"APIVersion", "Value":"v1.38"}]'
+	    driverNameList = document.getElementsByName('driverName-DOCKER');
+	    credentialNameList = document.getElementsByName('credentialName-DOCKER');
+	    regionNameList = document.getElementsByName('regionName-DOCKER');
             break;
           case "CLOUDTWIN":
-            credentialInfo = '[{"Key":"ClientId", "Value":"XXXXXX"}, {"Key":"ClientSecret", "Value":"XXXXXX"}]'
+	    driverNameList = document.getElementsByName('driverName-CLOUDTWIN');
+	    credentialNameList = document.getElementsByName('credentialName-CLOUDTWIN');
+	    regionNameList = document.getElementsByName('regionName-CLOUDTWIN');
             break;
           default:
-            credentialInfo = '[{"Key":"ClientId", "Value":"XXXXXX"}, {"Key":"ClientSecret", "Value":"XXXXXX"}]'
+	    driverNameList = document.getElementsByName('driverName-AWS');
+	    credentialNameList = document.getElementsByName('credentialName-AWS');
+	    regionNameList = document.getElementsByName('regionName-AWS');
         }
-                document.getElementById('2').value= credentialInfo
 
-        // for credential name
-                document.getElementById('3').value= providerName.toLowerCase() + "-credential-01";
+	// Select Tag for drivers
+	//  options remove & create
+	var len = document.getElementById('2').options.length
+	for (var i=0; i < len; i++) {
+		document.getElementById('2').remove(0);
+	}
+	for (var i=0; i < driverNameList.length; i++) {
+		document.getElementById('2').options.add(new Option(driverNameList[i].innerHTML, driverNameList[i].innerHTML));
+	}
+
+        // Select Tag for Credentials
+        //  options remove & create
+        var len = document.getElementById('3').options.length
+        for (var i=0; i < len; i++) {
+                document.getElementById('3').remove(0);
+        }
+        for (var i=0; i < credentialNameList.length; i++) {
+                document.getElementById('3').options.add(new Option(credentialNameList[i].innerHTML, credentialNameList[i].innerHTML));
+        }
+
+        // Select Tag for Regions
+        //  options remove & create
+        var len = document.getElementById('4').options.length
+        for (var i=0; i < len; i++) {
+                document.getElementById('4').remove(0);
+        }
+        for (var i=0; i < regionNameList.length; i++) {
+                document.getElementById('4').options.add(new Option(regionNameList[i].innerHTML, regionNameList[i].innerHTML));
+        }
+
+	document.getElementById('5').value= providerName.toLowerCase() + "-" +  document.getElementById('4').value + "-connection-config-01";
+
               }
         `
         return strFunc
@@ -1104,7 +1164,7 @@ func makeConnectionConfigTRList_html(bgcolor string, height string, fontSize str
                             <font size=%s>$$S5$$</font>
                     </td>
                     <td>
-                        <input type="checkbox" name="check_box" value=$$S3$$>
+                        <input type="checkbox" name="check_box" value=$$S5$$>
                     </td>
                 </tr>
                 `, bgcolor, height, fontSize, fontSize, fontSize, fontSize)
@@ -1131,9 +1191,9 @@ func makePostConnectionConfigFunc_js() string {
 //    -d '{"ProviderName":"AWS", "DriverName":"aws-driver01", "CredentialName":"aws-credential01", "RegionName":"aws-ohio", "ConfigName":"aws-ohio-config",}'
 
         strFunc := `
-                function postConnection() {
+                function postConnectionConfig() {
                         var textboxes = document.getElementsByName('text_box');
-            sendJson = '{ "ProviderName" : "$$PROVIDER$$", "DriverName" : $$DRIVERNAME$$, "CredentialName" : "$$CREDENTIALNAME$$", 
+            sendJson = '{ "ProviderName" : "$$PROVIDER$$", "DriverName" : "$$DRIVERNAME$$", "CredentialName" : "$$CREDENTIALNAME$$", \
                                                 "RegionName" : "$$REGIONNAME$$", "ConfigName" : "$$NAME$$" }'
 
                         for (var i = 0; i < textboxes.length; i++) { // @todo make parallel executions
@@ -1145,7 +1205,7 @@ func makePostConnectionConfigFunc_js() string {
                                                 sendJson = sendJson.replace("$$DRIVERNAME$$", textboxes[i].value);
                                                 break;
                                         case "3":
-                                                sendJson = sendJson.replace("$$CREDENTIALNAME$", textboxes[i].value);
+                                                sendJson = sendJson.replace("$$CREDENTIALNAME$$", textboxes[i].value);
                                                 break;
                                         case "4":
                                                 sendJson = sendJson.replace("$$REGIONNAME$$", textboxes[i].value);
@@ -1158,7 +1218,7 @@ func makePostConnectionConfigFunc_js() string {
                                 }
                         }
                         var xhr = new XMLHttpRequest();
-                        xhr.open("POST", "$$SPIDER_SERVER$$/spider/connection", true);
+                        xhr.open("POST", "$$SPIDER_SERVER$$/spider/connectionconfig", true);
                         xhr.setRequestHeader('Content-Type', 'application/json');
                         xhr.send(sendJson);
 
@@ -1177,7 +1237,7 @@ func makeDeleteConnectionConfigFunc_js() string {
 // curl -X DELETE http://$RESTSERVER:1024/spider/connectionconfig/aws-connection01 -H 'Content-Type: application/json'
 
         strFunc := `
-                function deleteConnection() {
+                function deleteConnectionConfig() {
                         var checkboxes = document.getElementsByName('check_box');
                         for (var i = 0; i < checkboxes.length; i++) { // @todo make parallel executions
                                 if (checkboxes[i].checked) {
@@ -1197,6 +1257,54 @@ func makeDeleteConnectionConfigFunc_js() string {
         return strFunc
 }
 
+func makeDriverNameHiddenTRList_html(infoList []*dim.CloudDriverInfo) string {
+
+        // make base Label frame for info list
+        strTR := `<label name="driverName-$$CSP$$" hidden>$$DRIVERNAME$$</label>`
+
+        strData := ""
+        // set data and make TR list
+        for _, one := range infoList{
+                str := strings.ReplaceAll(strTR, "$$CSP$$", one.ProviderName)
+                str = strings.ReplaceAll(str, "$$DRIVERNAME$$", one.DriverName)
+                strData += str
+        }
+
+        return strData
+}
+
+func makeCredentialNameHiddenTRList_html(infoList []*cim.CredentialInfo) string {
+
+        // make base Label frame for info list
+        strTR := `<label name="credentialName-$$CSP$$" hidden>$$CREDENTIALNAME$$</label>`
+
+        strData := ""
+        // set data and make TR list
+        for _, one := range infoList{
+                str := strings.ReplaceAll(strTR, "$$CSP$$", one.ProviderName)
+                str = strings.ReplaceAll(str, "$$CREDENTIALNAME$$", one.CredentialName)
+                strData += str
+        }
+
+        return strData
+}
+
+func makeRegionNameHiddenTRList_html(infoList []*rim.RegionInfo) string {
+
+        // make base Label frame for info list
+        strTR := `<label name="regionName-$$CSP$$" hidden>$$REGIONNAME$$</label>`
+
+        strData := ""
+        // set data and make TR list
+        for _, one := range infoList{
+                str := strings.ReplaceAll(strTR, "$$CSP$$", one.ProviderName)
+                str = strings.ReplaceAll(str, "$$REGIONNAME$$", one.RegionName)
+                strData += str
+        }
+
+        return strData
+}
+
 //================ Connection Config Info Management
 // create Connection page
 func Connectionconfig(c echo.Context) error {
@@ -1211,6 +1319,7 @@ func Connectionconfig(c echo.Context) error {
                 `
         // (1) make Javascript Function
         htmlStr += makeOnchangeConnectionConfigProviderFunc_js()
+                htmlStr += makeOnInitialInputBoxSetup_js()
                 htmlStr += makeCheckBoxToggleFunc_js()
                 htmlStr += makePostConnectionConfigFunc_js()
                 htmlStr += makeDeleteConnectionConfigFunc_js()
@@ -1220,13 +1329,13 @@ func Connectionconfig(c echo.Context) error {
                     </script>
                 </head>
 
-                <body>
+                <body onload=onInitialSetup()>
                     <table border="0" bordercolordark="#F8F8FF" cellpadding="0" cellspacing="1" bgcolor="#FFFFFF"  style="font-size:small;">
                 `
 
         // (2) make Table Action TR
                 // colspan, f5_href, delete_href, fontSize
-                htmlStr += makeActionTR_html("5", "connectionconfig", "deleteConnectionConfig()", "2")
+                htmlStr += makeActionTR_html("7", "connectionconfig", "deleteConnectionConfig()", "2")
 
 
         // (3) make Table Header TR
@@ -1239,8 +1348,8 @@ func Connectionconfig(c echo.Context) error {
                 }
                 htmlStr +=  makeTitleTRList_html("#DDDDDD", "2", nameWidthList)
 
-        // (4) make Table info list TR
-        // (4-1) get driver info list @todo if empty list
+        // (4) make TR list with info list
+        // (4-1) get info list @todo if empty list
                 resBody, err := getResourceList_JsonByte("connectionconfig")
                 if err != nil {
                         cblog.Error(err)
@@ -1251,8 +1360,45 @@ func Connectionconfig(c echo.Context) error {
                 }
                 json.Unmarshal(resBody, &info)
 
-        // (4-2) make Table info list TR
+        // (4-2) make TR list with info list
                 htmlStr += makeConnectionConfigTRList_html("", "", "", info.ResultList)
+
+        // (4-3) make hidden TR list with info list
+		// (a) Driver Name Hidden List
+		resBody, err = getResourceList_JsonByte("driver")
+		if err != nil {
+			cblog.Error(err)
+			return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		}
+		var driverInfo struct {
+			ResultList []*dim.CloudDriverInfo `json:"driver"`
+		}
+                json.Unmarshal(resBody, &driverInfo)
+                htmlStr += makeDriverNameHiddenTRList_html(driverInfo.ResultList)
+
+		// (b) Credential Name Hidden List
+                resBody, err = getResourceList_JsonByte("credential")
+                if err != nil {
+                        cblog.Error(err)
+                        return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+                }
+                var credentialInfo struct {
+                        ResultList []*cim.CredentialInfo `json:"credential"`
+                }
+                json.Unmarshal(resBody, &credentialInfo)
+                htmlStr += makeCredentialNameHiddenTRList_html(credentialInfo.ResultList)
+
+		// (c) Region Name Hidden List
+                resBody, err = getResourceList_JsonByte("region")
+                if err != nil {
+                        cblog.Error(err)
+                        return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+                }
+                var regionInfo struct {
+                        ResultList []*rim.RegionInfo `json:"region"`
+                }
+                json.Unmarshal(resBody, &regionInfo)
+                htmlStr += makeRegionNameHiddenTRList_html(regionInfo.ResultList)
 
 
         // (5) make input field and add
@@ -1270,14 +1416,15 @@ func Connectionconfig(c echo.Context) error {
             
         htmlStr += `    
                             </td>
+			    <!-- value is set up by '<body onload()=onInitialSetup()>' -->
                             <td>
-                                <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="2" value="aws-driver-v1.0">
+                                <select style="font-size:12px;text-align:center;" name="text_box" id="2" value="aws-driver-v1.0">
                             </td>
                             <td>
-                                <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="3" value="aws-credential01">
+                                <select style="font-size:12px;text-align:center;" name="text_box" id="3" value="aws-credential01">
                             </td>
                             <td>
-                                <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="4" value="aws-region01">
+                                <select style="font-size:12px;text-align:center;" name="text_box" id="4" value="aws-region01">
                             </td>
                             <td>
                                 <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="5" value="aws-connection-config01">
