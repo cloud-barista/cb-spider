@@ -243,6 +243,7 @@ func Driver(c echo.Context) error {
 	// make page tail
         htmlStr += `
                     </table>
+		    <hr>
                 </body>
                 </html>
         `
@@ -490,6 +491,7 @@ func Credential(c echo.Context) error {
         // make page tail
         htmlStr += `
                     </table>
+		    <hr>
                 </body>
                 </html>
         `
@@ -755,6 +757,7 @@ func Region(c echo.Context) error {
         // make page tail
         htmlStr += `
                     </table>
+		    <hr>
                 </body>
                 </html>
         `
@@ -867,8 +870,54 @@ func makeOnchangeConnectionConfigProviderFunc_js() string {
         return strFunc
 }
 
+func getRegionZone(regionName string) (string, string, error) {
+	// Region Name List
+	resBody, err := getResource_JsonByte("region", regionName)
+	if err != nil {
+		cblog.Error(err)
+		return "", "", err 
+	}
+	var regionInfo rim.RegionInfo
+	json.Unmarshal(resBody, &regionInfo)
+
+	region := ""
+	zone := ""
+	// get the region & zone
+	for _, one := range regionInfo.KeyValueInfoList {
+		if one.Key == "Region" {
+			region = one.Value
+		}
+		if one.Key == "location" {
+			region = one.Value
+		}
+		if one.Key == "Zone" {
+			zone = one.Value
+		}
+		
+	}
+	return region, zone, nil
+}
+
+// make the string of javascript function
+func makeSetupConnectionConfigFunc_js() string {
+
+        strFunc := `
+                function setupConnectionConfig(configName, providerName, region, zone) {
+                        var cspText = parent.frames["top_frame"].document.getElementById("cspName");
+			cspText.value = providerName
+
+                        var regionText = parent.frames["top_frame"].document.getElementById("regionName");
+			regionText.value = region
+
+                        var zoneText = parent.frames["top_frame"].document.getElementById("zoneName");
+			zoneText.value = zone
+                }
+        `
+        return strFunc
+}
+
 // number, Provider Name, Driver Name, Credential Name, Region Name, Connection Name, checkbox
-func makeConnectionConfigTRList_html(bgcolor string, height string, fontSize string, infoList []*ccim.ConnectionConfigInfo) string {
+func makeConnectionConfigTRList_html(bgcolor string, height string, fontSize string, infoList []*ccim.ConnectionConfigInfo) (string, error) {
         if bgcolor == "" { bgcolor = "#FFFFFF" }
         if height == "" { height = "30" }
         if fontSize == "" { fontSize = "2" }
@@ -880,7 +929,7 @@ func makeConnectionConfigTRList_html(bgcolor string, height string, fontSize str
                             <font size=%s>$$NUM$$</font>
                     </td>
                     <td>
-                            <font size=%s>$$S1$$</font>
+                            <font size=%s>$$PROVIDERNAME$$</font>
                     </td>
                     <td>
                             <font size=%s>$$S2$$</font>
@@ -891,28 +940,39 @@ func makeConnectionConfigTRList_html(bgcolor string, height string, fontSize str
                     <td>
                             <font size=%s>$$S4$$</font>
                     </td>
-                                                            <td>
-                            <font size=%s>$$S5$$</font>
+		    <td>                                       <!-- configName, CSP, Region, Zone -->
+			<a href="javascript:setupConnectionConfig('$$CONFIGNAME$$', '$$PROVIDERNAME$$', '$$REGION$$', '$$ZONE$$')">
+                            <font size=%s>$$CONFIGNAME$$</font>
+			</a>
                     </td>
                     <td>
-                        <input type="checkbox" name="check_box" value=$$S5$$>
+                        <input type="checkbox" name="check_box" value=$$CONFIGNAME$$>
                     </td>
                 </tr>
-                `, bgcolor, height, fontSize, fontSize, fontSize, fontSize)
+                `, bgcolor, height, fontSize, fontSize, fontSize, fontSize, fontSize, fontSize)
 
         strData := ""
         // set data and make TR list
         for i, one := range infoList{
                 str := strings.ReplaceAll(strTR, "$$NUM$$", strconv.Itoa(i+1))
-                str = strings.ReplaceAll(str, "$$S1$$", one.ProviderName)
+                str = strings.ReplaceAll(str, "$$PROVIDERNAME$$", one.ProviderName)
                 str = strings.ReplaceAll(str, "$$S2$$", one.DriverName)
                 str = strings.ReplaceAll(str, "$$S3$$", one.CredentialName)
                 str = strings.ReplaceAll(str, "$$S4$$", one.RegionName)
-                str = strings.ReplaceAll(str, "$$S5$$", one.ConfigName)
+                str = strings.ReplaceAll(str, "$$CONFIGNAME$$", one.ConfigName)
+
+		region, zone, err := getRegionZone(one.RegionName)
+		if err != nil {
+			cblog.Error(err)
+			return "", err
+		}
+                str = strings.ReplaceAll(str, "$$REGION$$", region)
+                str = strings.ReplaceAll(str, "$$ZONE$$", zone)
+	
                 strData += str
         }
 
-        return strData
+        return strData, nil
 }
 
 // make the string of javascript function
@@ -1047,6 +1107,7 @@ func Connectionconfig(c echo.Context) error {
                 `
         // (1) make Javascript Function
         htmlStr += makeOnchangeConnectionConfigProviderFunc_js()
+                htmlStr += makeSetupConnectionConfigFunc_js()
                 htmlStr += makeOnInitialInputBoxSetup_js()
                 htmlStr += makeCheckBoxToggleFunc_js()
                 htmlStr += makePostConnectionConfigFunc_js()
@@ -1089,7 +1150,12 @@ func Connectionconfig(c echo.Context) error {
                 json.Unmarshal(resBody, &info)
 
         // (4-2) make TR list with info list
-                htmlStr += makeConnectionConfigTRList_html("", "", "", info.ResultList)
+                trStrList, err :=  makeConnectionConfigTRList_html("", "", "", info.ResultList)
+                if err != nil {
+                        cblog.Error(err)
+                        return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+                }
+                htmlStr += trStrList
 
         // (4-3) make hidden TR list with info list
 		// (a) Driver Name Hidden List
@@ -1168,6 +1234,7 @@ func Connectionconfig(c echo.Context) error {
         // make page tail
         htmlStr += `
                     </table>
+		    <hr>
                 </body>
                 </html>
         `
@@ -1214,6 +1281,7 @@ func SpiderInfo(c echo.Context) error {
                                 </tr>
 
                     </table>
+		    <hr>
 		<br>
 		<br>
 		<br>
@@ -1250,6 +1318,7 @@ func SpiderInfo(c echo.Context) error {
                                 </tr>
 
                     </table>
+		    <hr>
                 </body>
                 </html>
                 `

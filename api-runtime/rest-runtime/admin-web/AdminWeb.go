@@ -55,7 +55,7 @@ func Frame(c echo.Context) error {
     <title>CB-Spider Admin Web Tool ....__^..^__....</title>
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
   </head>
-    <frameset rows="80,*" frameborder="Yes" border=1">
+    <frameset rows="120,*" frameborder="Yes" border=1">
         <frame src="adminweb/top" name="top_frame" scrolling="auto" noresize marginwidth="0" marginheight="0"/>
         <frameset frameborder="Yes" border=1">
             <frame src="adminweb/driver" name="main_frame" scrolling="auto" noresize marginwidth="5" marginheight="0"/> 
@@ -172,6 +172,24 @@ func Top(c echo.Context) error {
         </tr>
 
     </table>
+    <hr>
+	<label name="space">&nbsp;&nbsp;&nbsp;</label>
+	<label name="space">&nbsp;&nbsp;&nbsp;</label>
+
+	<label name="csp" for="cspName"><font size=2 color="blue"><b>* CloudOS:</b></font></label>
+	<input style="font-size:13px;font-weight:bold;text-align:center;background-color:#EDF7F9;" type="text" id="cspName" name="cspName" disabled value="">
+
+	<label name="space">&nbsp;&nbsp;&nbsp;</label>
+
+	<label name="region" for="regionName"><font size=2 color="blue"><b>* Region:</b></font></label>
+	<input style="font-size:13px;font-weight:bold;text-align:center;background-color:#EDF7F9;" type="text" id="regionName" name="regionName" disabled value="">
+
+	<label name="space">&nbsp;&nbsp;&nbsp;</label>
+
+	<label name="zone" for="zoneName"><font size=2 color="blue"><b>* Zone:</b></font></label>
+	<input style="font-size:13px;font-weight:bold;text-align:center;background-color:#EDF7F9;" type="text" id="zoneName" name="zoneName" disabled value="">
+
+    <hr>
 </body>
 </html>
 	`
@@ -204,6 +222,24 @@ func makeSelect_html(onchangeFunctionName string) string {
 func getResourceList_JsonByte(resourceName string) ([]byte, error) {
         // cr.ServicePort = ":1024"
 	url := "http://localhost" + cr.ServicePort + "/spider/" + resourceName
+
+        // get object list
+        res, err := http.Get(url)
+        if err != nil {
+                return nil, err
+        }
+        resBody, err := ioutil.ReadAll(res.Body)
+        res.Body.Close()
+        if err != nil {
+                return nil, err
+        }
+	return resBody, err
+}
+
+
+func getResource_JsonByte(resourceName string, name string) ([]byte, error) {
+        // cr.ServicePort = ":1024"
+	url := "http://localhost" + cr.ServicePort + "/spider/" + resourceName + "/" + name
 
         // get object list
         res, err := http.Get(url)
