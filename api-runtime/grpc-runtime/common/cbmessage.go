@@ -2,6 +2,7 @@ package common
 
 import (
 	"encoding/json"
+	"strings"
 
 	"github.com/cloud-barista/cb-spider/api-runtime/grpc-runtime/logger"
 
@@ -52,9 +53,33 @@ func ConvertToOutput(outType string, obj interface{}) (string, error) {
 			return "", err
 		}
 
+		// yaml 에서 지원하지 않는 control character 제거
+		cleanStr := strings.Map(func(value rune) rune {
+			switch {
+			case value == 0x09:
+				return value
+			case value == 0x0A:
+				return value
+			case value == 0x0D:
+				return value
+			case value >= 0x20 && value <= 0x7E:
+				return value
+			case value == 0x85:
+				return value
+			case value >= 0xA0 && value <= 0xD7FF:
+				return value
+			case value >= 0xE000 && value <= 0xFFFD:
+				return value
+			case value >= 0x10000 && value <= 0x10FFFF:
+				return value
+			default:
+				return -1 // control characters are not allowed
+			}
+		}, string(j))
+
 		// 필드를 소팅하지 않고 지정된 순서대로 출력하기 위해 MapSlice 이용
 		jsonObj := yaml.MapSlice{}
-		err2 := yaml.Unmarshal(j, &jsonObj)
+		err2 := yaml.Unmarshal([]byte(cleanStr), &jsonObj)
 		if err2 != nil {
 			return "", err2
 		}
