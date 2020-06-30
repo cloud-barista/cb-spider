@@ -176,8 +176,9 @@ func RunServer() {
 		{"GET", "/adminweb/credential", aw.Credential},
 		{"GET", "/adminweb/region", aw.Region},
 		{"GET", "/adminweb/connectionconfig", aw.Connectionconfig},
-
 		{"GET", "/adminweb/spiderinfo", aw.SpiderInfo},
+
+		{"GET", "/adminweb/vpc/:ConnectConfig", aw.VPC},
 	}
 	//======================================= setup routes
 

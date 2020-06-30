@@ -903,14 +903,18 @@ func makeSetupConnectionConfigFunc_js() string {
 
         strFunc := `
                 function setupConnectionConfig(configName, providerName, region, zone) {
-                        var cspText = parent.frames["top_frame"].document.getElementById("cspName");
-			cspText.value = providerName
+                        var connConfigLabel = parent.frames["top_frame"].document.getElementById("connConfig");
+			connConfigLabel.innerHTML = configName
 
-                        var regionText = parent.frames["top_frame"].document.getElementById("regionName");
-			regionText.value = region
+                        var cspText = parent.frames["top_frame"].document.getElementById("connDisplay");
+			if (zone) {
+				cspText.value = providerName + ": " + region + " / " + zone
+			} else {
+				cspText.value = providerName + ": " + region
+			}
 
-                        var zoneText = parent.frames["top_frame"].document.getElementById("zoneName");
-			zoneText.value = zone
+                        var a = parent.frames["top_frame"].document.getElementById("vpcHref");
+			a.href = "vpc/" + configName
                 }
         `
         return strFunc

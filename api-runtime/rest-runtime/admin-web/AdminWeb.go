@@ -10,6 +10,7 @@ package adminweb
 
 import (
 	"fmt"
+	"bytes"
         "github.com/cloud-barista/cb-store/config"
         "github.com/sirupsen/logrus"
 	cr "github.com/cloud-barista/cb-spider/api-runtime/common-runtime"
@@ -55,7 +56,7 @@ func Frame(c echo.Context) error {
     <title>CB-Spider Admin Web Tool ....__^..^__....</title>
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
   </head>
-    <frameset rows="120,*" frameborder="Yes" border=1">
+    <frameset rows="66,*" frameborder="Yes" border=1">
         <frame src="adminweb/top" name="top_frame" scrolling="auto" noresize marginwidth="0" marginheight="0"/>
         <frameset frameborder="Yes" border=1">
             <frame src="adminweb/driver" name="main_frame" scrolling="auto" noresize marginwidth="5" marginheight="0"/> 
@@ -112,84 +113,65 @@ func Top(c echo.Context) error {
                     <font size=2>1.region</font>
                 </a>
             </td>
-            <td width="200">
+            <td width="120">
                 <!-- Connection Management -->
                 <a href="connectionconfig" target="main_frame">            
                     <font size=2>2.CONNECTION</font>
                 </a>
             </td>
-            <td width="120">       
+            <td width="210">
+                <!-- Display Connection Config -->
+		<label id="connConfig" hidden></label>
+		<input style="font-size:11px;font-weight:bold;text-align:center;background-color:#EDF7F9;" type="text" id="connDisplay" name="connDisplay" size = 24 disabled value="CloudOS: Region / Zone">
+
+            </td>
+            <td rowspan="2" width="60">       
                 <!-- This CB-Spider Info -->
                 <a href="spiderinfo" target="main_frame">            
-                    <font size=2>this spider</font>
+                    <font size=2>info</font>
                 </a>
             </td>
-            <td width="120">       
-                <!-- CB-Spider Github -->
-                <a href="https://github.com/cloud-barista/cb-spider" target="_blank">            
-                    <font size=2>github</font>
-                </a>
-            </td> 
 	</tr>
 
         <tr bgcolor="#FFFFFF" align="left">
             <td width="100">
                 <!-- VPC/Subnet Management -->
-                <a href="vpc" target="_blank">
+                <a href="vpc/region not set" target="main_frame" id="vpcHref">
                     <font size=2>1.vpc/subnet</font>
                 </a>
             </td>
             <td width="120">
                 <!-- SecurityGroup Management -->
-                <a href="security" target="_blank">
+                <a href="security/region not set" target="main_frame" id="securityHref">
                     <font size=2>1.1.security group</font>
                 </a>
             </td>
             <td width="80">
                 <!-- KeyPair Management -->
-                <a href="keypair" target="_blank">
+                <a href="keypair/region not set" target="main_frame" id="keypairHref">
                     <font size=2>1.keypair</font>
                 </a>
             </td>
-            <td width="200">
+            <td width="120">
                 <!-- VM Management -->
-                <a href="vm">
+                <a href="vm/region not set" target="main_frame" id="vmHref">
                     <font size=2>2.VM</font>
                 </a>
             </td>
-            <td width="120">
+            <td width="210">
                 <!-- Image Management -->
-                <a href="image" target="main_frame">
+                <a href="image/region not set" target="main_frame" id="imageHref">
                     <font size=2>image(tbd)</font>
                 </a>
-            </td>
-            <td width="120">
+		&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
                 <!-- Spec Management -->
-                <a href="spec" target="_blank">
+                <a href="spec/region not set" target="main_frame" id="specHref">
                     <font size=2>spec</font>
                 </a>
             </td>
         </tr>
 
     </table>
-    <hr>
-	<label name="space">&nbsp;&nbsp;&nbsp;</label>
-	<label name="space">&nbsp;&nbsp;&nbsp;</label>
-
-	<label name="csp" for="cspName"><font size=2 color="blue"><b>* CloudOS:</b></font></label>
-	<input style="font-size:13px;font-weight:bold;text-align:center;background-color:#EDF7F9;" type="text" id="cspName" name="cspName" disabled value="">
-
-	<label name="space">&nbsp;&nbsp;&nbsp;</label>
-
-	<label name="region" for="regionName"><font size=2 color="blue"><b>* Region:</b></font></label>
-	<input style="font-size:13px;font-weight:bold;text-align:center;background-color:#EDF7F9;" type="text" id="regionName" name="regionName" disabled value="">
-
-	<label name="space">&nbsp;&nbsp;&nbsp;</label>
-
-	<label name="zone" for="zoneName"><font size=2 color="blue"><b>* Zone:</b></font></label>
-	<input style="font-size:13px;font-weight:bold;text-align:center;background-color:#EDF7F9;" type="text" id="zoneName" name="zoneName" disabled value="">
-
-    <hr>
 </body>
 </html>
 	`
@@ -234,6 +216,36 @@ func getResourceList_JsonByte(resourceName string) ([]byte, error) {
                 return nil, err
         }
 	return resBody, err
+}
+
+func getResourceList_with_Connection_JsonByte(connConfig string, resourceName string) ([]byte, error) {
+        // cr.ServicePort = ":1024"
+        url := "http://localhost" + cr.ServicePort + "/spider/" + resourceName
+        // get object list
+	var reqBody struct {
+		Value string `json:"ConnectionName"`
+	}	
+	reqBody.Value = connConfig
+
+	jsonValue, _ := json.Marshal(reqBody)
+        request, err := http.NewRequest("GET", url, bytes.NewBuffer(jsonValue))
+        if err != nil {
+                return nil, err
+        }
+        request.Header.Set("Content-Type", "application/json")
+
+	client := http.Client{}
+	resp, err := client.Do(request)
+        if err != nil {
+                return nil, err
+        }
+	
+        resBody, err := ioutil.ReadAll(resp.Body)
+        resp.Body.Close()
+        if err != nil {
+                return nil, err
+        }
+        return resBody, err
 }
 
 
