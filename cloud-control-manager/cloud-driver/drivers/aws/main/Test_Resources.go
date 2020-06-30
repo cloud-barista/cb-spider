@@ -534,10 +534,12 @@ func handleVPC() {
 				IId:       irs.IID{NameId: "New-CB-Subnet"},
 				IPv4_CIDR: "10.0.1.0/24",
 			},
-			{
-				IId:       irs.IID{NameId: "New-CB-Subnet2"},
-				IPv4_CIDR: "10.0.2.0/24",
-			},
+			/*
+				{
+					IId:       irs.IID{NameId: "New-CB-Subnet2"},
+					IPv4_CIDR: "10.0.2.0/24",
+				},
+			*/
 		},
 		//Id:   "subnet-044a2b57145e5afc5",
 		//Name: "CB-VNet-Subnet", // 웹 도구 등 외부에서 전달 받지 않고 드라이버 내부적으로 자동 구현때문에 사용하지 않음.
@@ -1073,11 +1075,11 @@ func main() {
 		}
 	*/
 
-	//handleVPC()
+	handleVPC()
 	//handleKeyPair()
 	//handlePublicIP() // PublicIP 생성 후 conf
 	//handleSecurity()
-	handleVM()
+	//handleVM()
 
 	//handleImage() //AMI
 	//handleVNic() //Lancard
@@ -1188,6 +1190,7 @@ func setVPCHandler() (irs.VPCHandler, error) {
 		},
 		RegionInfo: idrv.RegionInfo{
 			Region: config.Aws.Region,
+			Zone:   config.Aws.Zone,
 		},
 	}
 
@@ -1218,6 +1221,7 @@ type Config struct {
 		AawsAccessKeyID    string `yaml:"aws_access_key_id"`
 		AwsSecretAccessKey string `yaml:"aws_secret_access_key"`
 		Region             string `yaml:"region"`
+		Zone               string `yaml:"zone"`
 
 		ImageID string `yaml:"image_id"`
 

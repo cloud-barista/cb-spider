@@ -31,6 +31,13 @@ type AwsVPCHandler struct {
 func (VPCHandler *AwsVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.VPCInfo, error) {
 	cblogger.Info(vpcReqInfo)
 
+	zoneId := VPCHandler.Region.Zone
+	cblogger.Infof("Zone : %s", zoneId)
+	if zoneId == "" {
+		cblogger.Error("Connection 정보에 Zone 정보가 없습니다.")
+		return irs.VPCInfo{}, errors.New("Connection 정보에 Zone 정보가 없습니다.")
+	}
+
 	input := &ec2.CreateVpcInput{
 		CidrBlock: aws.String(vpcReqInfo.IPv4_CIDR),
 	}
@@ -218,6 +225,13 @@ func (VPCHandler *AwsVPCHandler) GetDefaultRouteTable(vpcId string) (string, err
 func (VPCHandler *AwsVPCHandler) CreateSubnet(vpcId string, reqSubnetInfo irs.SubnetInfo) (irs.SubnetInfo, error) {
 	cblogger.Info(reqSubnetInfo)
 
+	zoneId := VPCHandler.Region.Zone
+	cblogger.Infof("Zone : %s", zoneId)
+	if zoneId == "" {
+		cblogger.Error("Connection 정보에 Zone 정보가 없습니다.")
+		return irs.SubnetInfo{}, errors.New("Connection 정보에 Zone 정보가 없습니다.")
+	}
+
 	vpcInfo, errVpcInfo := VPCHandler.GetSubnet(reqSubnetInfo.IId.SystemId)
 	if errVpcInfo == nil {
 		cblogger.Errorf("이미 [%S] Subnet이 존재하기 때문에 생성하지 않고 기존 정보와 함께 에러를 리턴함.", reqSubnetInfo.IId.SystemId)
@@ -229,6 +243,8 @@ func (VPCHandler *AwsVPCHandler) CreateSubnet(vpcId string, reqSubnetInfo irs.Su
 	input := &ec2.CreateSubnetInput{
 		CidrBlock: aws.String(reqSubnetInfo.IPv4_CIDR),
 		VpcId:     aws.String(vpcId),
+		//AvailabilityZoneId: aws.String(zoneId),	//use1-az1, use1-az2, use1-az3, use1-az4, use1-az5, use1-az6
+		AvailabilityZone: aws.String(zoneId),
 	}
 
 	cblogger.Info(input)
