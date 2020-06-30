@@ -913,11 +913,17 @@ func makeSetupConnectionConfigFunc_js() string {
 				cspText.value = providerName + ": " + region
 			}
 
-                        var a = parent.frames["top_frame"].document.getElementById("vpcHref");
+            // for vpc
+            var a = parent.frames["top_frame"].document.getElementById("vpcHref");
 			a.href = "vpc/" + configName
+            a = parent.frames["top_frame"].document.getElementById("vpcmgmtHref");
+            a.href = "vpc/" + configName
 
-                        var a = parent.frames["top_frame"].document.getElementById("securitygroupHref");
+            // for securitygroup
+            a = parent.frames["top_frame"].document.getElementById("securitygroupHref");
 			a.href = "securitygroup/" + configName
+            //a = parent.frames["top_frame"].document.getElementById("securitygroupmgmtHref");
+            a.href = "securitygroup/" + configName
                 }
         `
         return strFunc

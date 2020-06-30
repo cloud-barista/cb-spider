@@ -139,6 +139,9 @@ func Top(c echo.Context) error {
                 <a href="vpc/region not set" target="main_frame" id="vpcHref">
                     <font size=2>1.vpc/subnet</font>
                 </a>
+                <a href="vpcmgmt/region not set" target="main_frame" id="vpcmgmtHref">
+                    <font size=2>Mgmt!</font>
+                </a>                
             </td>
             <td width="120">
                 <!-- SecurityGroup Management -->

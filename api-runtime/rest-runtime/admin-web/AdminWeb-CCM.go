@@ -392,7 +392,7 @@ func makeDeleteSecurityGroupFunc_js() string {
 }
 
 func SecurityGroup(c echo.Context) error {
-        cblog.Info("call Security()")
+        cblog.Info("call SecurityGroup()")
 
     connConfig := c.Param("ConnectConfig")
     if connConfig == "region not set" {
