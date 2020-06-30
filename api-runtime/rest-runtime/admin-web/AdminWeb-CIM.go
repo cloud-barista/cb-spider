@@ -915,6 +915,9 @@ func makeSetupConnectionConfigFunc_js() string {
 
                         var a = parent.frames["top_frame"].document.getElementById("vpcHref");
 			a.href = "vpc/" + configName
+
+                        var a = parent.frames["top_frame"].document.getElementById("securitygroupHref");
+			a.href = "securitygroup/" + configName
                 }
         `
         return strFunc

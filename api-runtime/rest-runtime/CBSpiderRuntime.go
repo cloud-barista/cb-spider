@@ -179,6 +179,7 @@ func RunServer() {
 		{"GET", "/adminweb/spiderinfo", aw.SpiderInfo},
 
 		{"GET", "/adminweb/vpc/:ConnectConfig", aw.VPC},
+		{"GET", "/adminweb/securitygroup/:ConnectConfig", aw.SecurityGroup},
 	}
 	//======================================= setup routes
 

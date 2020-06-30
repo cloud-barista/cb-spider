@@ -142,7 +142,7 @@ func Top(c echo.Context) error {
             </td>
             <td width="120">
                 <!-- SecurityGroup Management -->
-                <a href="security/region not set" target="main_frame" id="securityHref">
+                <a href="securitygroup/region not set" target="main_frame" id="securitygroupHref">
                     <font size=2>1.1.security group</font>
                 </a>
             </td>
