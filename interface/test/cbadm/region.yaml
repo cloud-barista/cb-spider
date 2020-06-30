@@ -1,0 +1,5 @@
+RegionName: openstack-region01
+ProviderName: OPENSTACK
+KeyValueInfoList:
+  - Key: Region
+    Value: RegionOne
