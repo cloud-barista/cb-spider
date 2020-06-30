@@ -25,7 +25,7 @@ import (
 	"encoding/json"
 )
 
-// number, VPC IID, VPC CIDR, SUBNET Info, Additional Info, checkbox
+// number, VPC Name, VPC CIDR, SUBNET Info, Additional Info, checkbox
 func makeVPCTRList_html(bgcolor string, height string, fontSize string, infoList []*cres.VPCInfo) string {
         if bgcolor == "" { bgcolor = "#FFFFFF" }
         if height == "" { height = "30" }
@@ -38,7 +38,7 @@ func makeVPCTRList_html(bgcolor string, height string, fontSize string, infoList
                             <font size=%s>$$NUM$$</font>
                     </td>
                     <td>
-                            <font size=%s>$$VPCIID$$</font>
+                            <font size=%s>$$VPCNAME$$</font>
                     </td>
                     <td>
                             <font size=%s>$$VPCCIDR$$</font>
@@ -50,7 +50,7 @@ func makeVPCTRList_html(bgcolor string, height string, fontSize string, infoList
                             <font size=%s>$$ADDITIONALINFO$$</font>
                     </td>
                     <td>
-                        <input type="checkbox" name="check_box" value=$$VPCNAMEID$$>
+                        <input type="checkbox" name="check_box" value=$$VPCNAME$$>
                     </td>
                 </tr>
                 `, bgcolor, height, fontSize, fontSize, fontSize, fontSize, fontSize)
@@ -59,13 +59,13 @@ func makeVPCTRList_html(bgcolor string, height string, fontSize string, infoList
         // set data and make TR list
         for i, one := range infoList{
                 str := strings.ReplaceAll(strTR, "$$NUM$$", strconv.Itoa(i+1))
-                str = strings.ReplaceAll(str, "$$VPCIID$$", one.IId.NameId + ":" + one.IId.SystemId)
+                str = strings.ReplaceAll(str, "$$VPCNAME$$", one.IId.NameId)
                 str = strings.ReplaceAll(str, "$$VPCCIDR$$", one.IPv4_CIDR)
 
 		// for subnet
 		strSubnetList := ""
                 for _, one := range one.SubnetInfoList {
-                        strSubnetList += one.IId.NameId + ":" + one.IId.SystemId + ", "
+                        strSubnetList += one.IId.NameId + ", "
                         strSubnetList += "CIDR:" + one.IPv4_CIDR + ", {"
 			for _, kv := range one.KeyValueList {
 				strSubnetList += kv.Key + ":" + kv.Value + ", "
@@ -81,8 +81,6 @@ func makeVPCTRList_html(bgcolor string, height string, fontSize string, infoList
                         strKeyList += kv.Key + ":" + kv.Value + ", "
                 }
                 str = strings.ReplaceAll(str, "$$ADDITIONALINFO$$", strKeyList)
-
-                str = strings.ReplaceAll(str, "$$VPCNAMEID$$", one.IId.NameId)
 
                 strData += str
         }
@@ -205,7 +203,7 @@ func VPC(c echo.Context) error {
 
         // (3) make Table Header TR
                 nameWidthList := []NameWidth {
-                    {"VPC IID", "200"},
+                    {"VPC Name", "200"},
                     {"VPC CIDR", "200"},
                     {"Subnet Info", "300"},
                     {"Additional Info", "300"},
@@ -267,7 +265,7 @@ func VPC(c echo.Context) error {
         return c.HTML(http.StatusOK, htmlStr)
 }
 
-// number, VPC IID, SecurityGroup IID, Security Rules, Additional Info, checkbox
+// number, VPC Name, SecurityGroup Name, Security Rules, Additional Info, checkbox
 func makeSecurityGroupTRList_html(bgcolor string, height string, fontSize string, infoList []*cres.SecurityInfo) string {
         if bgcolor == "" { bgcolor = "#FFFFFF" }
         if height == "" { height = "30" }
@@ -280,10 +278,10 @@ func makeSecurityGroupTRList_html(bgcolor string, height string, fontSize string
                             <font size=%s>$$NUM$$</font>
                     </td>
                     <td>
-                            <font size=%s>$$VPCIID$$</font>
+                            <font size=%s>$$VPCNAME$$</font>
                     </td>
                     <td>
-                            <font size=%s>$$SGIID$$</font>
+                            <font size=%s>$$SGNAME$$</font>
                     </td>                    
                     <td>
                             <font size=%s>$$SECURITYRULES$$</font>
@@ -292,7 +290,7 @@ func makeSecurityGroupTRList_html(bgcolor string, height string, fontSize string
                             <font size=%s>$$ADDITIONALINFO$$</font>
                     </td>
                     <td>
-                        <input type="checkbox" name="check_box" value=$$SGNAMEID$$>
+                        <input type="checkbox" name="check_box" value=$$SGNAME$$>
                     </td>
                 </tr>
                 `, bgcolor, height, fontSize, fontSize, fontSize, fontSize, fontSize)
@@ -301,8 +299,8 @@ func makeSecurityGroupTRList_html(bgcolor string, height string, fontSize string
         // set data and make TR list
         for i, one := range infoList{
                 str := strings.ReplaceAll(strTR, "$$NUM$$", strconv.Itoa(i+1))
-                str = strings.ReplaceAll(str, "$$VPCIID$$", one.VpcIID.NameId + ":" + one.VpcIID.SystemId)
-                str = strings.ReplaceAll(str, "$$SGIID$$", one.IId.NameId + ":" + one.IId.SystemId)                
+                str = strings.ReplaceAll(str, "$$VPCNAME$$", one.VpcIID.NameId)
+                str = strings.ReplaceAll(str, "$$SGNAME$$", one.IId.NameId)
 
         // for security rules info
         strSRList := ""
@@ -321,8 +319,6 @@ func makeSecurityGroupTRList_html(bgcolor string, height string, fontSize string
                         strKeyList += kv.Key + ":" + kv.Value + ", "
                 }
                 str = strings.ReplaceAll(str, "$$ADDITIONALINFO$$", strKeyList)
-
-                str = strings.ReplaceAll(str, "$$SGNAMEID$$", one.IId.NameId)
 
                 strData += str
         }
@@ -447,8 +443,8 @@ func SecurityGroup(c echo.Context) error {
 
         // (3) make Table Header TR
                 nameWidthList := []NameWidth {
-                    {"VPC IID", "200"},
-                    {"SecurityGroup IID", "200"},
+                    {"VPC Name", "200"},
+                    {"SecurityGroup Name", "200"},
                     {"Security Rules", "300"},
                     {"Additional Info", "300"},
                 }
