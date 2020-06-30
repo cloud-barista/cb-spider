@@ -10,7 +10,6 @@ package adminweb
 
 import (
 	"fmt"
-	cres "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	cr "github.com/cloud-barista/cb-spider/api-runtime/common-runtime"
 
 /*
@@ -47,35 +46,37 @@ func makeVPCMgmtTRList_html(bgcolor string, height string, fontSize string, info
                         <input type="checkbox" name="check_box" value=$$IID$$>
                     </td>
                 </tr>
-                `, bgcolor, height, fontSize, fontSize, fontSize, fontSize, fontSize)
+                `, bgcolor, height, fontSize, fontSize, fontSize)
 
         strData := ""
         // set data and make TR list
-        for i, one := range infoList.MappedList{
+        for i, one := range infoList.AllList.MappedList{
                 str := strings.ReplaceAll(strTR, "$$NUM$$", strconv.Itoa(i+1))
-                str = strings.ReplaceAll(str, "$$NAMEID$$", one.IId.NameId)
-                str = strings.ReplaceAll(str, "$$SYTEMID$$", one.IId.SystemId)
-                str = strings.ReplaceAll(str, "$$IID$$", one.IId.NameId + ":" + one.IId.SystemId) // MappedList: contain ":"
+                str = strings.ReplaceAll(str, "$$NAMEID$$", one.NameId)
+                str = strings.ReplaceAll(str, "$$SYTEMID$$", one.SystemId)
+                str = strings.ReplaceAll(str, "$$IID$$", one.NameId + ":" + one.SystemId) // MappedList: contain ":"
+                str = strings.ReplaceAll(str, "$$NAMEIDSTYLE$$", `style="background-color:#F0F3FF;"`)
+                str = strings.ReplaceAll(str, "$$SYTEMIDSTYLE$$", `style="background-color:#F0F3FF;"`)
                 strData += str
         }
-        for i, one := range infoList.OnlySpiderList{
+        for i, one := range infoList.AllList.OnlySpiderList{
                 str := strings.ReplaceAll(strTR, "$$NUM$$", strconv.Itoa(i+1))
-                str = strings.ReplaceAll(str, "$$NAMEID$$", one.IId.NameId)
-                str = strings.ReplaceAll(str, "$$SYTEMID$$", "(" + one.IId.SystemId + ")")
-                str = strings.ReplaceAll(str, "$$IID$$", one.IId.NameId + ":" + one.IId.SystemId) // OnlySpiderList: contain ":"
+                str = strings.ReplaceAll(str, "$$NAMEID$$", one.NameId)
+                str = strings.ReplaceAll(str, "$$SYTEMID$$", "(" + one.SystemId + ")")
+                str = strings.ReplaceAll(str, "$$IID$$", one.NameId + ":" + one.SystemId) // OnlySpiderList: contain ":"
 
-                str = strings.ReplaceAll(str, "$$NAMEIDSTYLE$$", '')
-                str = strings.ReplaceAll(str, "$$SYTEMIDSTYLE$$", 'style="font-size:11px;font-weight:bold;text-align:center;background-color:#D6D8D8;"')
+                str = strings.ReplaceAll(str, "$$NAMEIDSTYLE$$", `style="background-color:#F0F3FF;"`)
+                str = strings.ReplaceAll(str, "$$SYTEMIDSTYLE$$", ``)
                 strData += str
         }
-        for i, one := range infoList.OnlyCSPList{
+        for i, one := range infoList.AllList.OnlyCSPList{
                 str := strings.ReplaceAll(strTR, "$$NUM$$", strconv.Itoa(i+1))
-                str = strings.ReplaceAll(str, "$$NAMEID$$", "(" + one.IId.NameId + ")")
-                str = strings.ReplaceAll(str, "$$SYTEMID$$", one.IId.SystemId)
-                str = strings.ReplaceAll(str, "$$IID$$", one.IId.SystemId) // OnlyCSPList: not contain ":"
+                str = strings.ReplaceAll(str, "$$NAMEID$$", "(" + one.NameId + ")")
+                str = strings.ReplaceAll(str, "$$SYTEMID$$", one.SystemId)
+                str = strings.ReplaceAll(str, "$$IID$$", one.SystemId) // OnlyCSPList: not contain ":"
 
-                str = strings.ReplaceAll(str, "$$NAMEIDSTYLE$$", 'style="font-size:11px;font-weight:bold;text-align:center;background-color:#D6D8D8;"')
-                str = strings.ReplaceAll(str, "$$SYTEMIDSTYLE$$", '')
+                str = strings.ReplaceAll(str, "$$NAMEIDSTYLE$$", ``)
+                str = strings.ReplaceAll(str, "$$SYTEMIDSTYLE$$", `style="background-color:#F0F3FF;"`)
                 strData += str
         }        
 
@@ -167,7 +168,7 @@ func VPCMgmt(c echo.Context) error {
                 nameWidthList := []NameWidth {
                     {"Spider's NameId", "300"},
                     {"CSP's SystemId", "300"},                    
-                }8
+                }
                 htmlStr +=  makeTitleTRList_html("#DDDDDD", "2", nameWidthList)
 
 

@@ -251,6 +251,35 @@ func getResourceList_with_Connection_JsonByte(connConfig string, resourceName st
         return resBody, err
 }
 
+func getAllResourceList_with_Connection_JsonByte(connConfig string, resourceName string) ([]byte, error) {
+        // cr.ServicePort = ":1024"
+        url := "http://localhost" + cr.ServicePort + "/spider/all" + resourceName
+        // get object list
+        var reqBody struct {
+                Value string `json:"ConnectionName"`
+        }
+        reqBody.Value = connConfig
+
+        jsonValue, _ := json.Marshal(reqBody)
+        request, err := http.NewRequest("GET", url, bytes.NewBuffer(jsonValue))
+        if err != nil {
+                return nil, err
+        }
+        request.Header.Set("Content-Type", "application/json")
+
+        client := http.Client{}
+        resp, err := client.Do(request)
+        if err != nil {
+                return nil, err
+        }
+
+        resBody, err := ioutil.ReadAll(resp.Body)
+        resp.Body.Close()
+        if err != nil {
+                return nil, err
+        }
+        return resBody, err
+}
 
 func getResource_JsonByte(resourceName string, name string) ([]byte, error) {
         // cr.ServicePort = ":1024"
