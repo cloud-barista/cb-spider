@@ -59,6 +59,7 @@ require (
 	github.com/sirupsen/logrus v1.5.0
 	github.com/smartystreets/assertions v1.1.0 // indirect
 	github.com/snowzach/rotatefilehook v0.0.0-20180327172521-2f64f265f58c // indirect
+	github.com/spf13/cobra v1.0.0
 	github.com/spf13/viper v1.7.0
 	github.com/stretchr/objx v0.2.0 // indirect
 	github.com/tmc/grpc-websocket-proxy v0.0.0-20200122045848-3419fae592fc // indirect
