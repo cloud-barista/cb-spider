@@ -922,8 +922,8 @@ func makeSetupConnectionConfigFunc_js() string {
 			// for securitygroup
 			a = parent.frames["top_frame"].document.getElementById("securitygroupHref");
 			a.href = "securitygroup/" + configName
-			//a = parent.frames["top_frame"].document.getElementById("securitygroupmgmtHref");
-			//a.href = "securitygroupmgmt/" + configName
+			a = parent.frames["top_frame"].document.getElementById("securitygroupmgmtHref");
+			a.href = "securitygroupmgmt/" + configName
                 }
         `
         return strFunc

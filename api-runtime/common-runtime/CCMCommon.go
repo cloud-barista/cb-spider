@@ -1652,8 +1652,22 @@ func ListAllResource(connectionName string, rsType string) (AllResourceList, err
 		}
 	}
 
+	// if SG then MappedList, OnlySpiderList : remove delimeter and set SG name
+	if rsType == rsSG { // vpc-01-delimiter-sg-01 ==> sg-01
+		for i, iid := range MappedList{
+			vpc_sg_nameid := strings.Split(iid.NameId, sgDELIMITER)
+			MappedList[i].NameId = vpc_sg_nameid[1]
+		}
+		for i, iid := range OnlySpiderList{
+			vpc_sg_nameid := strings.Split(iid.NameId, sgDELIMITER)
+			OnlySpiderList[i].NameId = vpc_sg_nameid[1]
+		}
+	}
+
+
 	allResList.AllList.MappedList = MappedList
 	allResList.AllList.OnlySpiderList = OnlySpiderList
+
 
 	OnlyCSPList := []*cres.IID{}
 	for _, iid := range iidCSPList {

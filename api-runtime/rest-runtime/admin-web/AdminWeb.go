@@ -95,31 +95,31 @@ func Top(c echo.Context) error {
 		<font size=1>$$TIME$$</font>	
             </td>
 
-            <td width="100">       
+            <td width="160"> 
                 <!-- Drivers Management --> 
                 <a href="driver" target="main_frame">            
                     <font size=2>1.driver</font>
                 </a>
             </td>
-            <td width="120">       
+            <td width="200">       
                 <!-- Credential Management -->
                 <a href="credential" target="main_frame">            
                     <font size=2>1.credential</font>
                 </a>
             </td>
-            <td width="80">       
+            <td width="100">       
                 <!-- Regions Management -->
                 <a href="region" target="main_frame">            
                     <font size=2>1.region</font>
                 </a>
             </td>
-            <td width="120">
+            <td width="140">
                 <!-- Connection Management -->
                 <a href="connectionconfig" target="main_frame">            
                     <font size=2>2.CONNECTION</font>
                 </a>
             </td>
-            <td width="210">
+            <td width="230">
                 <!-- Display Connection Config -->
 		<label id="connConfig" hidden></label>
 		<input style="font-size:11px;font-weight:bold;text-align:center;background-color:#EDF7F9;" type="text" id="connDisplay" name="connDisplay" size = 24 disabled value="CloudOS: Region / Zone">
@@ -134,34 +134,39 @@ func Top(c echo.Context) error {
 	</tr>
 
         <tr bgcolor="#FFFFFF" align="left">
-            <td width="100">
+            <td width="160">
                 <!-- VPC/Subnet Management -->
                 <a href="vpc/region not set" target="main_frame" id="vpcHref">
                     <font size=2>1.vpc/subnet</font>
                 </a>
+		&nbsp;
                 <a href="vpcmgmt/region not set" target="main_frame" id="vpcmgmtHref">
-                    <font size=2>Mgmt!</font>
+                    <font size=2>[mgmt]</font>
                 </a>                
             </td>
-            <td width="120">
+            <td width="200">
                 <!-- SecurityGroup Management -->
                 <a href="securitygroup/region not set" target="main_frame" id="securitygroupHref">
                     <font size=2>1.1.security group</font>
                 </a>
+		&nbsp;
+                <a href="securitygroupmgmt/region not set" target="main_frame" id="securitygroupmgmtHref">
+                    <font size=2>[mgmt]</font>
+                </a>
             </td>
-            <td width="80">
+            <td width="100">
                 <!-- KeyPair Management -->
                 <a href="keypair/region not set" target="main_frame" id="keypairHref">
                     <font size=2>1.keypair</font>
                 </a>
             </td>
-            <td width="120">
+            <td width="140">
                 <!-- VM Management -->
                 <a href="vm/region not set" target="main_frame" id="vmHref">
                     <font size=2>2.VM</font>
                 </a>
             </td>
-            <td width="210">
+            <td width="230">
                 <!-- Image Management -->
                 <a href="image/region not set" target="main_frame" id="imageHref">
                     <font size=2>image(tbd)</font>
