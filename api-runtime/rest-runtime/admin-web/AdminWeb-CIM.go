@@ -214,6 +214,7 @@ func Driver(c echo.Context) error {
 
         // (5) make input field and add
         // attach text box for add
+		nameList := cloudosList()
 		htmlStr += `
 			<tr bgcolor="#FFFFFF" align="center" height="30">
 			    <td>
@@ -223,7 +224,7 @@ func Driver(c echo.Context) error {
 				<!-- <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="1" value="AWS"> -->
 		`
 		// Select format of CloudOS  name=text_box, id=1
-		htmlStr += makeSelect_html("onchangeProvider")
+		htmlStr += makeSelect_html("onchangeProvider", nameList)
 
 		htmlStr += `
 			    </td>
@@ -462,6 +463,7 @@ func Credential(c echo.Context) error {
 
         // (5) make input field and add
         // attach text box for add
+		nameList := cloudosList()
                 htmlStr += `
                         <tr bgcolor="#FFFFFF" align="center" height="30">
                             <td>
@@ -471,7 +473,7 @@ func Credential(c echo.Context) error {
 				<!-- <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="1" value="AWS"> -->
 		`
                 // Select format of CloudOS  name=text_box, id=1
-                htmlStr += makeSelect_html("onchangeProvider")
+                htmlStr += makeSelect_html("onchangeProvider", nameList)
 			
 		htmlStr += `	
                             </td>
@@ -728,6 +730,7 @@ func Region(c echo.Context) error {
 
         // (5) make input field and add
         // attach text box for add
+		nameList := cloudosList()
                 htmlStr += `
                         <tr bgcolor="#FFFFFF" align="center" height="30">
                             <td>
@@ -737,7 +740,7 @@ func Region(c echo.Context) error {
                 <!-- <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="1" value="AWS"> -->
         `
                 // Select format of CloudOS  name=text_box, id=1
-                htmlStr += makeSelect_html("onchangeProvider")
+                htmlStr += makeSelect_html("onchangeProvider", nameList)
             
         htmlStr += `    
                             </td>
@@ -1210,6 +1213,7 @@ func Connectionconfig(c echo.Context) error {
 
         // (5) make input field and add
         // attach text box for add
+		nameList := cloudosList()
                 htmlStr += `
                         <tr bgcolor="#FFFFFF" align="center" height="30">
                             <td>
@@ -1219,7 +1223,7 @@ func Connectionconfig(c echo.Context) error {
                 <!-- <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="1" value="AWS"> -->
         `
                 // Select format of CloudOS  name=text_box, id=1
-                htmlStr += makeSelect_html("onchangeProvider")
+                htmlStr += makeSelect_html("onchangeProvider", nameList)
             
         htmlStr += `    
                             </td>

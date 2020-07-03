@@ -68,7 +68,7 @@ func makeMgmtTRList_html(bgcolor string, height string, fontSize string, infoLis
                 str := strings.ReplaceAll(strTR, "$$NUM$$", strconv.Itoa(i+1))
                 str = strings.ReplaceAll(str, "$$NAMEID$$", "( " + one.NameId + " )")
                 str = strings.ReplaceAll(str, "$$SYTEMID$$", one.SystemId)
-                str = strings.ReplaceAll(str, "$$ID$$", one.SystemId) // OnlyCSPList: not contain "$$NAMEID$$"
+                str = strings.ReplaceAll(str, "$$ID$$", one.SystemId) // OnlyCSPList: not contain "::NAMEID::"
 
                 str = strings.ReplaceAll(str, "$$NAMEIDSTYLE$$", ``)
                 str = strings.ReplaceAll(str, "$$SYTEMIDSTYLE$$", `style="background-color:#F0F3FF;"`)
@@ -92,8 +92,8 @@ func makeDeleteVPCMgmtFunc_js() string {
                         for (var i = 0; i < checkboxes.length; i++) { // @todo make parallel executions
                                 if (checkboxes[i].checked) {
                                         var xhr = new XMLHttpRequest();
-                                        if(checkboxes[i].value.includes(":")) { // MappedList & OnlySpiderList
-                                            xhr.open("DELETE", "$$SPIDER_SERVER$$/spider/vpc/" + checkboxes[i].value + "?force=true", false);
+                                        if(checkboxes[i].value.includes("::NAMEID::")) { // MappedList & OnlySpiderList
+                                            xhr.open("DELETE", "$$SPIDER_SERVER$$/spider/vpc/" + checkboxes[i].value.replace("::NAMEID::", "") + "?force=true", false);
                                         }else { // OnlyCSPList
                                             xhr.open("DELETE", "$$SPIDER_SERVER$$/spider/cspvpc/" + checkboxes[i].value, false);
                                         }

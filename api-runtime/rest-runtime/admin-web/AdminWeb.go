@@ -13,6 +13,7 @@ import (
 	"bytes"
         "github.com/cloud-barista/cb-store/config"
         "github.com/sirupsen/logrus"
+	cres "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	cr "github.com/cloud-barista/cb-spider/api-runtime/common-runtime"
 
 	"net/http"
@@ -44,6 +45,23 @@ func cloudosList() []string {
 	json.Unmarshal(resBody, &info)
 
 	return info.ResultList
+}
+
+func vpcList(connConfig string) []string {
+        resBody, err := getResourceList_with_Connection_JsonByte(connConfig, "vpc")
+        if err != nil {
+                cblog.Error(err)
+        }
+        var info struct {
+                ResultList []cres.VPCInfo `json:"vpc"`
+        }
+        json.Unmarshal(resBody, &info)
+
+	var nameList []string
+	for _, vpc := range info.ResultList {
+		nameList = append(nameList, vpc.IId.NameId)
+	}
+        return nameList
 }
 
 //================ Frame
@@ -189,8 +207,7 @@ func Top(c echo.Context) error {
 	return c.HTML(http.StatusOK, htmlStr)
 }
 
-func makeSelect_html(onchangeFunctionName string) string {
-	strList := cloudosList()
+func makeSelect_html(onchangeFunctionName string, strList []string) string {
 
 	strSelect := `<select name="text_box" id="1" onchange="` + onchangeFunctionName + `(this)">`
 	for _, one := range strList {

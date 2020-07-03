@@ -469,13 +469,19 @@ func SecurityGroup(c echo.Context) error {
 
         // (5) make input field and add
         // attach text box for add
+		nameList := vpcList(connConfig)
+
                 htmlStr += `
                         <tr bgcolor="#FFFFFF" align="center" height="30">
                             <td>
                                     <font size=2>#</font>
                             </td>
                             <td>
-                                <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="1" value="vpc-01">
+		`
+				// Select format of CloudOS  name=text_box, id=1
+				htmlStr += makeSelect_html("onchangeVPC", nameList)
+
+		htmlStr += `
                             </td>
                             <td>
                                 <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="2" value="sg-01">

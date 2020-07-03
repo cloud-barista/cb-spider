@@ -1674,10 +1674,14 @@ func ListAllResource(connectionName string, rsType string) (AllResourceList, err
 		if MappedList == nil || len(MappedList) <= 0 {
 			OnlyCSPList = append(OnlyCSPList, iid)
 		} else {
+			isMapped := false
 			for _, mappedInfo := range MappedList {
-				if iid.SystemId != mappedInfo.SystemId {
-					OnlyCSPList = append(OnlyCSPList, iid)
+				if iid.SystemId == mappedInfo.SystemId {
+					isMapped = true
 				}
+			}
+			if isMapped == false {
+				OnlyCSPList = append(OnlyCSPList, iid)
 			}
 		}
 	}
