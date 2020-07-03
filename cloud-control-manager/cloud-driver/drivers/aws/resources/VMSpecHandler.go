@@ -225,7 +225,8 @@ func (vmSpecHandler *AwsVmSpecHandler) ListVMSpec(Region string) ([]*irs.VMSpecI
 	}
 	//spew.Dump(vMSpecInfoList)
 
-	cblogger.Infof("===> Total Check Spec Count : [%d]", totCnt)
+	//cblogger.Infof("===> Total Check Spec Count : [%d]", totCnt)
+	cblogger.Infof("==>[%s] AZ에서는 [%s]리전의 [%d] 스펙 중 [%d]개의 스펙을 사용할 수 있음.", zoneId, Region, totCnt, len(vMSpecInfoList))
 
 	return vMSpecInfoList, nil
 }
@@ -275,6 +276,92 @@ func (vmSpecHandler *AwsVmSpecHandler) GetVMSpec(Region string, Name string) (ir
 
 // AWS의 정보 그대로를 가공 없이 JSON으로 리턴 함.
 func (vmSpecHandler *AwsVmSpecHandler) ListOrgVMSpec(Region string) (string, error) {
+	cblogger.Infof("Start ListOrgVMSpec(Region:[%s])", Region)
+
+	zoneId := vmSpecHandler.Region.Zone
+	cblogger.Infof("Zone : %s", zoneId)
+	if zoneId == "" {
+		cblogger.Error("Connection 정보에 Zone 정보가 없습니다.")
+		return "", errors.New("Connection 정보에 Zone 정보가 없습니다.")
+	}
+
+	mapVmSpecIds, errListVMSpecAZ := vmSpecHandler.ListVMSpecAZ(zoneId)
+	if errListVMSpecAZ != nil {
+		cblogger.Error(errListVMSpecAZ)
+		return "", errListVMSpecAZ
+	}
+
+	input := &ec2.DescribeInstanceTypesInput{
+		//MaxResults: aws.Int64(5),
+	}
+
+	/*
+		req, resp := vmSpecHandler.Client.DescribeInstanceTypesRequest(input)
+		err := req.Send()
+		if err != nil { // resp is now filled
+			cblogger.Errorf("Unable to get ListOrgVMSpec - %v", err)
+			return "", err
+		}
+	*/
+
+	//cblogger.Info(resp)
+	//fmt.Println(resp)
+
+	//var resp *ec2.DescribeInstanceTypesOutput
+
+	/*
+		resp := *ec2.DescribeInstanceTypesOutput{
+			InstanceTypes: &[]ec2.InstanceTypeInfo{{}},
+		}
+	*/
+
+	resp := new(ec2.DescribeInstanceTypesOutput)
+
+	pageNum := 0
+	totCnt := 0
+	err := vmSpecHandler.Client.DescribeInstanceTypesPages(input,
+		func(page *ec2.DescribeInstanceTypesOutput, lastPage bool) bool {
+			pageNum++
+			//fmt.Println(page)
+			cblogger.Infof("PageNum : [%d] / Count : [%d] / lastPage : [%v]", pageNum, len(page.InstanceTypes), lastPage)
+			//totCnt = totCnt + len(page.InstanceTypes)
+
+			for _, curInstance := range page.InstanceTypes {
+				totCnt++
+				//cblogger.Infof("[%d]번째 [%s] VM 스펙 정보 조회", totCnt, *curInstance.InstanceType)
+
+				_, exists := mapVmSpecIds[*curInstance.InstanceType]
+				if !exists {
+					cblogger.Infof("[%s] 스펙은 [%s] Zone에서 지원되지 않습니다.", *curInstance.InstanceType, zoneId)
+					continue
+				}
+
+				//vMSpecInfo := ExtractVMSpecInfo(Region, curInstance)
+				//vMSpecInfoList = append(vMSpecInfoList, &vMSpecInfo)
+				resp.InstanceTypes = append(resp.InstanceTypes, curInstance)
+			}
+
+			return !lastPage
+		})
+
+	if err != nil { // resp is now filled
+		cblogger.Error(err)
+		return "", err
+	}
+	//spew.Dump(vMSpecInfoList)
+
+	cblogger.Infof("==>[%s] AZ에서는 [%s]리전의 [%d] 스펙 중 [%d]개의 스펙을 사용할 수 있음.", zoneId, Region, totCnt, len(resp.InstanceTypes))
+
+	//jsonString, errJson := ConvertJsonString(resp.InstanceTypes[0])
+	jsonString, errJson := ConvertJsonString(resp)
+	if errJson != nil {
+		cblogger.Error(errJson)
+	}
+	return jsonString, errJson
+}
+
+// AWS의 정보 그대로를 가공 없이 JSON으로 리턴 함.
+func (vmSpecHandler *AwsVmSpecHandler) ListOrgVMSpecOld(Region string) (string, error) {
 	cblogger.Infof("Start ListOrgVMSpec(Region:[%s])", Region)
 
 	input := &ec2.DescribeInstanceTypesInput{
