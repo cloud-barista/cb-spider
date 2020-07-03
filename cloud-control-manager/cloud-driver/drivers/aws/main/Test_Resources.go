@@ -1075,7 +1075,7 @@ func main() {
 		}
 	*/
 
-	handleVPC()
+	//handleVPC()
 	//handleKeyPair()
 	//handlePublicIP() // PublicIP 생성 후 conf
 	//handleSecurity()
@@ -1083,7 +1083,7 @@ func main() {
 
 	//handleImage() //AMI
 	//handleVNic() //Lancard
-	//handleVMSpec()
+	handleVMSpec()
 
 	/*
 		KeyPairHandler, err := setKeyPairHandler()
@@ -1117,6 +1117,7 @@ func getResourceHandler(handlerType string) (interface{}, error) {
 		},
 		RegionInfo: idrv.RegionInfo{
 			Region: config.Aws.Region,
+			Zone:   config.Aws.Zone,
 		},
 	}
 
@@ -1163,6 +1164,7 @@ func setKeyPairHandler() (irs.KeyPairHandler, error) {
 		},
 		RegionInfo: idrv.RegionInfo{
 			Region: config.Aws.Region,
+			Zone:   config.Aws.Zone,
 		},
 	}
 

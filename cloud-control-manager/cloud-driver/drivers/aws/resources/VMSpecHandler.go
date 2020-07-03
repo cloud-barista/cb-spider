@@ -91,36 +91,69 @@ func ExtractVMSpecInfo(Region string, instanceTypeInfo *ec2.InstanceTypeInfo) ir
 	return vmSpecInfo
 }
 
-func (vmSpecHandler *AwsVmSpecHandler) ListVMSpec(Region string) ([]*irs.VMSpecInfo, error) {
+//해당 Zone의 스펙 ID 목록을 조회함.
+func (vmSpecHandler *AwsVmSpecHandler) ListVMSpecAZ(ZoneName string) (map[string]string, error) {
+	cblogger.Infof("Start ListVMSpecAZ(ZoneName:[%s])", ZoneName)
+	if ZoneName == "" {
+		cblogger.Error("Connection 정보에 Zone 정보가 없습니다.")
+		return nil, errors.New("Connection 정보에 Zone 정보가 없습니다.")
+	}
 
+	var mapVmSpecIds map[string]string
+	mapVmSpecIds = make(map[string]string)
+
+	//https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribeInstanceTypeOfferings.html
+	input := &ec2.DescribeInstanceTypeOfferingsInput{
+		//[]*string
+		LocationType: aws.String("availability-zone"),
+		Filters: []*ec2.Filter{
+			{
+				Name:   aws.String("location"),
+				Values: aws.StringSlice([]string{ZoneName}),
+			},
+		},
+		MaxResults: aws.Int64(1000), //5~1000
+	}
+
+	pageNum := 0
+	totCnt := 0
+	vmSpecHandler.Client.DescribeInstanceTypeOfferingsPages(input,
+		func(page *ec2.DescribeInstanceTypeOfferingsOutput, lastPage bool) bool {
+			pageNum++
+			//fmt.Println(page)
+			cblogger.Infof("PageNum : [%d] / Count : [%d] / lastPage : [%v]", pageNum, len(page.InstanceTypeOfferings), lastPage)
+			totCnt = totCnt + len(page.InstanceTypeOfferings)
+
+			for _, specInfo := range page.InstanceTypeOfferings {
+				//cblogger.Infof("===> [%s]", *specInfo.InstanceType)
+				mapVmSpecIds[*specInfo.InstanceType] = ""
+			}
+			return !lastPage
+		})
+
+	cblogger.Infof("===> Total Spec Count : [%d]", totCnt)
+	//spew.Dump(mapVmSpecIds)
+
+	return mapVmSpecIds, nil
+}
+
+func (vmSpecHandler *AwsVmSpecHandler) ListVMSpec(Region string) ([]*irs.VMSpecInfo, error) {
 	cblogger.Infof("Start ListVMSpec(Region:[%s])", Region)
 
+	zoneId := vmSpecHandler.Region.Zone
+	cblogger.Infof("Zone : %s", zoneId)
+	if zoneId == "" {
+		cblogger.Error("Connection 정보에 Zone 정보가 없습니다.")
+		return nil, errors.New("Connection 정보에 Zone 정보가 없습니다.")
+	}
+
+	mapVmSpecIds, errListVMSpecAZ := vmSpecHandler.ListVMSpecAZ(zoneId)
+	if errListVMSpecAZ != nil {
+		cblogger.Error(errListVMSpecAZ)
+		return nil, errListVMSpecAZ
+	}
+
 	var vMSpecInfoList []*irs.VMSpecInfo
-	/*
-		//https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribeInstanceTypes.html
-		//    LocationType LocationType `type:"string" enum:"true"`
-		input := &ec2.DescribeInstanceTypeOfferingsInput{
-			//[]*string
-			LocationType: aws.String("region"),
-			Filters: []*ec2.Filter{
-				{
-					Name:   aws.String("location"),
-					Values: aws.StringSlice([]string{"ap-northeast-2"}),
-				},
-			},
-			//MaxResults: aws.Int64(5),
-		}
-
-		// Example sending a request using the DescribeInstanceTypesRequest method.
-		//req, resp := vmSpecHandler.Client.DescribeInstanceTypesRequest(nil)
-		req, resp := vmSpecHandler.Client.DescribeInstanceTypeOfferingsRequest(input)
-		err := req.Send()
-		if err != nil { // resp is now filled
-			cblogger.Errorf("Unable to get ListVMSpec - %v", err)
-			return vMSpecInfoList, err
-		}
-	*/
-
 	input := &ec2.DescribeInstanceTypesInput{
 		//MaxResults: aws.Int64(5),
 	}
@@ -139,10 +172,17 @@ func (vmSpecHandler *AwsVmSpecHandler) ListVMSpec(Region string) ([]*irs.VMSpecI
 	//var vMSpecInfoList []*irs.VMSpecInfo
 	for _, curInstance := range resp.InstanceTypes {
 		cblogger.Infof("[%s] VM 스펙 정보 조회", *curInstance.InstanceType)
-		vMSpecInfo := ExtractVMSpecInfo(Region, curInstance)
-		vMSpecInfoList = append(vMSpecInfoList, &vMSpecInfo)
+
+		_, exists := mapVmSpecIds[*curInstance.InstanceType]
+		if !exists {
+			cblogger.Infof("[%s] 스펙은 [%s] Zone에서 사용할 수 없습니다.", *curInstance.InstanceType, zoneId)
+			continue
+		}
+
+		//vMSpecInfo := ExtractVMSpecInfo(Region, curInstance)
+		//vMSpecInfoList = append(vMSpecInfoList, &vMSpecInfo)
 	}
-	spew.Dump(vMSpecInfoList)
+	//spew.Dump(vMSpecInfoList)
 
 	return vMSpecInfoList, nil
 }
