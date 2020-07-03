@@ -1002,6 +1002,7 @@ func handleVMSpec() {
 				} else {
 					cblogger.Info("VMSpec 목록 조회 결과")
 					spew.Dump(result)
+					cblogger.Infof("전체 목록 개수 : [%d]", len(result))
 				}
 
 				fmt.Println("Finish ListVMSpec()")

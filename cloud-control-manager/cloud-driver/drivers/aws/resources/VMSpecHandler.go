@@ -117,21 +117,27 @@ func (vmSpecHandler *AwsVmSpecHandler) ListVMSpecAZ(ZoneName string) (map[string
 
 	pageNum := 0
 	totCnt := 0
-	vmSpecHandler.Client.DescribeInstanceTypeOfferingsPages(input,
+	err := vmSpecHandler.Client.DescribeInstanceTypeOfferingsPages(input,
 		func(page *ec2.DescribeInstanceTypeOfferingsOutput, lastPage bool) bool {
 			pageNum++
 			//fmt.Println(page)
 			cblogger.Infof("PageNum : [%d] / Count : [%d] / lastPage : [%v]", pageNum, len(page.InstanceTypeOfferings), lastPage)
-			totCnt = totCnt + len(page.InstanceTypeOfferings)
+			//totCnt = totCnt + len(page.InstanceTypeOfferings)
 
 			for _, specInfo := range page.InstanceTypeOfferings {
+				totCnt++
 				//cblogger.Infof("===> [%s]", *specInfo.InstanceType)
 				mapVmSpecIds[*specInfo.InstanceType] = ""
 			}
 			return !lastPage
 		})
 
-	cblogger.Infof("===> Total Spec Count : [%d]", totCnt)
+	if err != nil { // resp is now filled
+		cblogger.Error(err)
+		return nil, err
+	}
+
+	cblogger.Infof("===> Total Check AZ Spec Count : [%d]", totCnt)
 	//spew.Dump(mapVmSpecIds)
 
 	return mapVmSpecIds, nil
@@ -158,31 +164,68 @@ func (vmSpecHandler *AwsVmSpecHandler) ListVMSpec(Region string) ([]*irs.VMSpecI
 		//MaxResults: aws.Int64(5),
 	}
 
-	req, resp := vmSpecHandler.Client.DescribeInstanceTypesRequest(input)
-	err := req.Send()
-	if err != nil { // resp is now filled
-		cblogger.Errorf("Unable to get ListVMSpec - %v", err)
-		return vMSpecInfoList, err
-	}
+	/*
+		req, resp := vmSpecHandler.Client.DescribeInstanceTypesRequest(input)
+		err := req.Send()
+		if err != nil { // resp is now filled
+			cblogger.Errorf("Unable to get ListVMSpec - %v", err)
+			return vMSpecInfoList, err
+		}
+	*/
 
 	//cblogger.Info(resp)
 	//fmt.Println(resp)
 
 	//ExtractVMSpecInfo(Region, resp.InstanceTypes[0])
 	//var vMSpecInfoList []*irs.VMSpecInfo
-	for _, curInstance := range resp.InstanceTypes {
-		cblogger.Infof("[%s] VM 스펙 정보 조회", *curInstance.InstanceType)
+	/*
+		for _, curInstance := range resp.InstanceTypes {
+			cblogger.Infof("[%s] VM 스펙 정보 조회", *curInstance.InstanceType)
 
-		_, exists := mapVmSpecIds[*curInstance.InstanceType]
-		if !exists {
-			cblogger.Infof("[%s] 스펙은 [%s] Zone에서 사용할 수 없습니다.", *curInstance.InstanceType, zoneId)
-			continue
+			_, exists := mapVmSpecIds[*curInstance.InstanceType]
+			if !exists {
+				cblogger.Infof("[%s] 스펙은 [%s] Zone에서 사용할 수 없습니다.", *curInstance.InstanceType, zoneId)
+				continue
+			}
+
+			//vMSpecInfo := ExtractVMSpecInfo(Region, curInstance)
+			//vMSpecInfoList = append(vMSpecInfoList, &vMSpecInfo)
 		}
+	*/
 
-		//vMSpecInfo := ExtractVMSpecInfo(Region, curInstance)
-		//vMSpecInfoList = append(vMSpecInfoList, &vMSpecInfo)
+	pageNum := 0
+	totCnt := 0
+	err := vmSpecHandler.Client.DescribeInstanceTypesPages(input,
+		func(page *ec2.DescribeInstanceTypesOutput, lastPage bool) bool {
+			pageNum++
+			//fmt.Println(page)
+			cblogger.Infof("PageNum : [%d] / Count : [%d] / lastPage : [%v]", pageNum, len(page.InstanceTypes), lastPage)
+			//totCnt = totCnt + len(page.InstanceTypes)
+
+			for _, curInstance := range page.InstanceTypes {
+				totCnt++
+				//cblogger.Infof("[%d]번째 [%s] VM 스펙 정보 조회", totCnt, *curInstance.InstanceType)
+
+				_, exists := mapVmSpecIds[*curInstance.InstanceType]
+				if !exists {
+					cblogger.Infof("[%s] 스펙은 [%s] Zone에서 지원되지 않습니다.", *curInstance.InstanceType, zoneId)
+					continue
+				}
+
+				vMSpecInfo := ExtractVMSpecInfo(Region, curInstance)
+				vMSpecInfoList = append(vMSpecInfoList, &vMSpecInfo)
+			}
+
+			return !lastPage
+		})
+
+	if err != nil { // resp is now filled
+		cblogger.Error(err)
+		return vMSpecInfoList, err
 	}
 	//spew.Dump(vMSpecInfoList)
+
+	cblogger.Infof("===> Total Check Spec Count : [%d]", totCnt)
 
 	return vMSpecInfoList, nil
 }
