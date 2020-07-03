@@ -26,7 +26,7 @@ type VCpuInfo struct {
 }
 
 type GpuInfo struct {
-	Count string //  오타로 보여 수정 Conut => Count
+	Count string
 	Mfr   string
 	Model string
 	Mem   string
