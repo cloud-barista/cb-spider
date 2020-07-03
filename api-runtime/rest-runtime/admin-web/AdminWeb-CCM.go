@@ -534,7 +534,7 @@ func makeKeyPairTRList_html(bgcolor string, height string, fontSize string, info
                     <td>
                             <font size=%s>$$KEYPAIRNAME$$</font>
                     </td>
-                    <td>
+                    <td align="left">
                             <font size=%s>$$KEYINFO$$</font>
                     </td>
                     <td>
@@ -556,15 +556,16 @@ func makeKeyPairTRList_html(bgcolor string, height string, fontSize string, info
                 str = strings.ReplaceAll(str, "$$KEYPAIRNAME$$", one.IId.NameId)
                 // KeyPair Info: Fingerprint, PrivateKey, PublicKey
                 runes := []rune(one.Fingerprint)
-                fingerPrint := string(runes[0:8]) + "XXXXXXXXXXX"
+                fingerPrint := string(runes[0:12]) + "XXXXXXXXXXX"
                 runes = []rune(one.PrivateKey)
-                privateKey := string(runes[0:8]) + "XXXXXXXXXXX"
+                privateKey := string(runes[0:12]) + "XXXXXXXXXXX"
                 runes = []rune(one.PublicKey)
-                publicKey := string(runes[0:8]) + "XXXXXXXXXXX"
-                keyInfo := "* " + fingerPrint + "\n"
-                         + "* " + privateKey + "\n"
-                         + "* " + publciKey + "\n"                            
-                str = strings.ReplaceAll(str, "$$KEYINFO$$", )
+                publicKey := string(runes[0:12]) + "XXXXXXXXXXX"
+                keyInfo := "&nbsp;* Fingerprint: " + fingerPrint + "<br>"
+                keyInfo += "&nbsp;* PrivateKey: " + privateKey + "<br>"
+                keyInfo += "&nbsp;* PublicKey: " + publicKey
+                str = strings.ReplaceAll(str, "$$KEYINFO$$", keyInfo)
+                str = strings.ReplaceAll(str, "$$KEYUSER$$", one.VMUserID)
 
         // for KeyValueList
         strKeyList := ""

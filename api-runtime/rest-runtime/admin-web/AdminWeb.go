@@ -125,7 +125,7 @@ func Top(c echo.Context) error {
                     <font size=2>1.credential</font>
                 </a>
             </td>
-            <td width="100">       
+            <td width="140">
                 <!-- Regions Management -->
                 <a href="region" target="main_frame">            
                     <font size=2>1.region</font>
@@ -172,10 +172,14 @@ func Top(c echo.Context) error {
                     <font size=2>[mgmt]</font>
                 </a>
             </td>
-            <td width="100">
+            <td width="140">
                 <!-- KeyPair Management -->
                 <a href="keypair/region not set" target="main_frame" id="keypairHref">
                     <font size=2>1.keypair</font>
+                </a>
+		&nbsp;
+                <a href="keypairmgmt/region not set" target="main_frame" id="keypairmgmtHref">
+                    <font size=2>[mgmt]</font>
                 </a>
             </td>
             <td width="140">

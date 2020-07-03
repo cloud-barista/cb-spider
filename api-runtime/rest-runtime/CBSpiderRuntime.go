@@ -182,6 +182,8 @@ func RunServer() {
 		{"GET", "/adminweb/vpcmgmt/:ConnectConfig", aw.VPCMgmt},
 		{"GET", "/adminweb/securitygroup/:ConnectConfig", aw.SecurityGroup},
 		{"GET", "/adminweb/securitygroupmgmt/:ConnectConfig", aw.SecurityGroupMgmt},
+		{"GET", "/adminweb/keypair/:ConnectConfig", aw.KeyPair},
+		{"GET", "/adminweb/keypairmgmt/:ConnectConfig", aw.KeyPairMgmt},
 
 	}
 	//======================================= setup routes
