@@ -59,6 +59,7 @@ func getVMClient(connectionInfo idrv.ConnectionInfo) (*ec2.EC2, error) {
 
 	// setup Region
 	fmt.Println("AwsDriver : getVMClient() - Region : [" + connectionInfo.RegionInfo.Region + "]")
+	fmt.Println("AwsDriver : getVMClient() - Zone : [" + connectionInfo.RegionInfo.Zone + "]")
 	//fmt.Println("전달 받은 커넥션 정보")
 	//spew.Dump(connectionInfo)
 
