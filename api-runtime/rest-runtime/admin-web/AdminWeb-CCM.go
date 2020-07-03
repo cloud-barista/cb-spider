@@ -25,6 +25,8 @@ import (
 	"encoding/json"
 )
 
+//====================================== VPC
+
 // number, VPC Name, VPC CIDR, SUBNET Info, Additional Info, checkbox
 func makeVPCTRList_html(bgcolor string, height string, fontSize string, infoList []*cres.VPCInfo) string {
         if bgcolor == "" { bgcolor = "#FFFFFF" }
@@ -91,7 +93,9 @@ func makeVPCTRList_html(bgcolor string, height string, fontSize string, infoList
 // make the string of javascript function
 func makePostVPCFunc_js() string {
 
-//curl -sX POST http://localhost:1024/spider/vpc -H 'Content-Type: application/json' -d '{ "ConnectionName": "'${CONN_CONFIG}'", "ReqInfo": { "Name": "vpc-01", "IPv4_CIDR": "192.168.0.0/16", "SubnetInfoList": [ { "Name": "subnet-01", "IPv4_CIDR": "192.168.1.0/24"} ] } }'
+//curl -sX POST http://localhost:1024/spider/vpc -H 'Content-Type: application/json' 
+//      -d '{ "ConnectionName": "'${CONN_CONFIG}'", "ReqInfo": { "Name": "vpc-01", "IPv4_CIDR": "192.168.0.0/16", 
+//              "SubnetInfoList": [ { "Name": "subnet-01", "IPv4_CIDR": "192.168.1.0/24"} ] } }'
 
         strFunc := `
                 function postVPC() {
@@ -264,6 +268,8 @@ func VPC(c echo.Context) error {
 //fmt.Println(htmlStr)
         return c.HTML(http.StatusOK, htmlStr)
 }
+
+//====================================== Security Group
 
 // number, VPC Name, SecurityGroup Name, Security Rules, Additional Info, checkbox
 func makeSecurityGroupTRList_html(bgcolor string, height string, fontSize string, infoList []*cres.SecurityInfo) string {
@@ -494,6 +500,241 @@ func SecurityGroup(c echo.Context) error {
                             </td>
                             <td>
                                 <a href="javascript:postSecurityGroup()">
+                                    <font size=3><b>+</b></font>
+                                </a>
+                            </td>
+                        </tr>
+                `
+        // make page tail
+        htmlStr += `
+                    </table>
+            <hr>
+                </body>
+                </html>
+        `
+
+//fmt.Println(htmlStr)
+        return c.HTML(http.StatusOK, htmlStr)
+}
+
+//====================================== KeyPair
+
+// number, KeyPair Name, KeyPair Info, Key User, Additional Info, checkbox
+func makeKeyPairTRList_html(bgcolor string, height string, fontSize string, infoList []*cres.KeyPairInfo) string {
+        if bgcolor == "" { bgcolor = "#FFFFFF" }
+        if height == "" { height = "30" }
+        if fontSize == "" { fontSize = "2" }
+
+        // make base TR frame for info list
+        strTR := fmt.Sprintf(`
+                <tr bgcolor="%s" align="center" height="%s">
+                    <td>
+                            <font size=%s>$$NUM$$</font>
+                    </td>
+                    <td>
+                            <font size=%s>$$KEYPAIRNAME$$</font>
+                    </td>
+                    <td>
+                            <font size=%s>$$KEYINFO$$</font>
+                    </td>
+                    <td>
+                            <font size=%s>$$KEYUSER$$</font>
+                    </td>
+                    <td>
+                            <font size=%s>$$ADDITIONALINFO$$</font>
+                    </td>
+                    <td>
+                        <input type="checkbox" name="check_box" value=$$VPCNAME$$>
+                    </td>
+                </tr>
+                `, bgcolor, height, fontSize, fontSize, fontSize, fontSize, fontSize)
+
+        strData := ""
+        // set data and make TR list
+        for i, one := range infoList{
+                str := strings.ReplaceAll(strTR, "$$NUM$$", strconv.Itoa(i+1))
+                str = strings.ReplaceAll(str, "$$KEYPAIRNAME$$", one.IId.NameId)
+                // KeyPair Info: Fingerprint, PrivateKey, PublicKey
+                runes := []rune(one.Fingerprint)
+                fingerPrint := string(runes[0:8]) + "XXXXXXXXXXX"
+                runes = []rune(one.PrivateKey)
+                privateKey := string(runes[0:8]) + "XXXXXXXXXXX"
+                runes = []rune(one.PublicKey)
+                publicKey := string(runes[0:8]) + "XXXXXXXXXXX"
+                keyInfo := "* " + fingerPrint + "\n"
+                         + "* " + privateKey + "\n"
+                         + "* " + publciKey + "\n"                            
+                str = strings.ReplaceAll(str, "$$KEYINFO$$", )
+
+        // for KeyValueList
+        strKeyList := ""
+                for _, kv := range one.KeyValueList {
+                        strKeyList += kv.Key + ":" + kv.Value + ", "
+                }
+                str = strings.ReplaceAll(str, "$$ADDITIONALINFO$$", strKeyList)
+
+                strData += str
+        }
+
+        return strData
+}
+
+// make the string of javascript function
+func makePostKeyPairFunc_js() string {
+
+//curl -sX POST http://localhost:1024/spider/keypair -H 'Content-Type: application/json' 
+//      -d '{ "ConnectionName": "'${CONN_CONFIG}'", "ReqInfo": { "Name": "keypair-01" } }'
+
+        strFunc := `
+                function postKeyPair() {
+                        var connConfig = parent.frames["top_frame"].document.getElementById("connConfig").innerHTML;
+
+                        var textboxes = document.getElementsByName('text_box');
+            sendJson = '{ "ConnectionName" : "' + connConfig + '", "ReqInfo" : { "Name" : "$$KEYPAIRNAME$$"}}'
+
+                        for (var i = 0; i < textboxes.length; i++) { // @todo make parallel executions
+                                switch (textboxes[i].id) {
+                                        case "1":
+                                                sendJson = sendJson.replace("$$KEYPAIRNAME$$", textboxes[i].value);
+                                                break;
+                                        default:
+                                                break;
+                                }
+                        }
+                        var xhr = new XMLHttpRequest();
+                        xhr.open("POST", "$$SPIDER_SERVER$$/spider/keypair", false);
+                        xhr.setRequestHeader('Content-Type', 'application/json');
+                        xhr.send(sendJson);
+
+            location.reload();
+                }
+        `
+        strFunc = strings.ReplaceAll(strFunc, "$$SPIDER_SERVER$$", "http://" + cr.HostIPorName + cr.ServicePort) // cr.ServicePort = ":1024"
+        return strFunc
+}
+
+// make the string of javascript function
+func makeDeleteKeyPairFunc_js() string {
+// curl -sX DELETE http://localhost:1024/spider/keypair/keypair-01 -H 'Content-Type: application/json'
+//           -d '{ "ConnectionName": "'${CONN_CONFIG}'"}'
+
+        strFunc := `
+                function deleteKeyPair() {
+                        var connConfig = parent.frames["top_frame"].document.getElementById("connConfig").innerHTML;
+                        var checkboxes = document.getElementsByName('check_box');
+                        for (var i = 0; i < checkboxes.length; i++) { // @todo make parallel executions
+                                if (checkboxes[i].checked) {
+                                        var xhr = new XMLHttpRequest();
+                                        xhr.open("DELETE", "$$SPIDER_SERVER$$/spider/keypair/" + checkboxes[i].value, false);
+                                        xhr.setRequestHeader('Content-Type', 'application/json');
+                    sendJson = '{ "ConnectionName": "' + connConfig + '"}'
+                                        xhr.send(sendJson);
+                                }
+                        }
+            location.reload();
+                }
+        `
+        strFunc = strings.ReplaceAll(strFunc, "$$SPIDER_SERVER$$", "http://" + cr.HostIPorName + cr.ServicePort) // cr.ServicePort = ":1024"
+        return strFunc
+}
+
+func KeyPair(c echo.Context) error {
+        cblog.Info("call KeyPair()")
+
+    connConfig := c.Param("ConnectConfig")
+    if connConfig == "region not set" {
+        htmlStr :=  `
+            <html>
+            <head>
+                <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+                <script type="text/javascript">
+                alert(connConfig)
+                </script>
+            </head>
+            <body>
+                <br>
+                <br>
+                <label style="font-size:24px;color:#606262;">&nbsp;&nbsp;&nbsp;Please select a Connection Configuration! (MENU: 2.CONNECTION)</label>   
+            </body>
+        `
+
+        return c.HTML(http.StatusOK, htmlStr)
+    }
+    
+        // make page header
+        htmlStr :=  `
+                <html>
+                <head>
+                    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+                    <script type="text/javascript">
+                `
+        // (1) make Javascript Function
+                htmlStr += makeCheckBoxToggleFunc_js()
+                htmlStr += makePostKeyPairFunc_js()
+                htmlStr += makeDeleteKeyPairFunc_js()
+
+
+        htmlStr += `
+                    </script>
+                </head>
+
+                <body>
+                    <table border="0" bordercolordark="#F8F8FF" cellpadding="0" cellspacing="1" bgcolor="#FFFFFF"  style="font-size:small;">
+                `
+
+        // (2) make Table Action TR
+                // colspan, f5_href, delete_href, fontSize
+                //htmlStr += makeActionTR_html("6", "keypair", "deleteKeyPair()", "2")
+                htmlStr += makeActionTR_html("6", "", "deleteKeyPair()", "2")
+
+
+        // (3) make Table Header TR
+                nameWidthList := []NameWidth {
+                    {"KeyPair Name", "200"},
+                    {"KeyPair Info", "300"},
+                    {"Key User", "200"},
+                    {"Additional Info", "300"},
+                }
+                htmlStr +=  makeTitleTRList_html("#DDDDDD", "2", nameWidthList)
+
+
+        // (4) make TR list with info list
+        // (4-1) get info list 
+                resBody, err := getResourceList_with_Connection_JsonByte(connConfig, "keypair")
+                if err != nil {
+                        cblog.Error(err)
+                        return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+                }
+                var info struct {
+                        ResultList []*cres.KeyPairInfo `json:"keypair"`
+                }
+                json.Unmarshal(resBody, &info)
+
+        // (4-2) make TR list with info list
+                htmlStr += makeKeyPairTRList_html("", "", "", info.ResultList)
+
+
+        // (5) make input field and add
+        // attach text box for add
+                htmlStr += `
+                        <tr bgcolor="#FFFFFF" align="center" height="30">
+                            <td>
+                                    <font size=2>#</font>
+                            </td>
+                            <td>
+                                <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="1" value="keypair-01">
+                            </td>
+                            <td>
+                                <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="2" disabled value="N/A">
+                            </td>
+                            <td>
+                                <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="3" disabled value="N/A">
+                            <td>
+                                <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="4" disabled value="N/A">
+                            </td>
+                            </td>
+                            <td>
+                                <a href="javascript:postKeyPair()">
                                     <font size=3><b>+</b></font>
                                 </a>
                             </td>
