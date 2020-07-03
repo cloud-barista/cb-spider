@@ -189,6 +189,7 @@ func GetRegionNameByRegionInfo(rgnInfo *rim.RegionInfo) (string, string, error) 
                 regionName = getValue(rgnInfo.KeyValueInfoList, "location")
         case "AWS":
                 regionName = getValue(rgnInfo.KeyValueInfoList, "Region")
+                zoneName = getValue(rgnInfo.KeyValueInfoList, "Zone")
         case "ALIBABA":
                 regionName = getValue(rgnInfo.KeyValueInfoList, "Region")
                 zoneName = getValue(rgnInfo.KeyValueInfoList, "Zone")
