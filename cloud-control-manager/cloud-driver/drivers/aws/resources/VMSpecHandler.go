@@ -10,7 +10,6 @@ import (
 	"github.com/aws/aws-sdk-go/service/ec2"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
-	"github.com/davecgh/go-spew/spew"
 )
 
 //https://docs.aws.amazon.com/sdk-for-go/api/service/ec2/#EC2.DescribeInstanceTypes
@@ -20,9 +19,9 @@ type AwsVmSpecHandler struct {
 }
 
 func ExtractGpuInfo(gpuDeviceInfo *ec2.GpuDeviceInfo) irs.GpuInfo {
-	cblogger.Info(gpuDeviceInfo)
+	cblogger.Debug(gpuDeviceInfo)
 	//cblogger.Info("================")
-	spew.Dump(gpuDeviceInfo)
+	//spew.Dump(gpuDeviceInfo)
 
 	gpuInfo := irs.GpuInfo{
 		Count: strconv.FormatInt(*gpuDeviceInfo.Count, 10),
@@ -37,7 +36,7 @@ func ExtractGpuInfo(gpuDeviceInfo *ec2.GpuDeviceInfo) irs.GpuInfo {
 //인스턴스 스펙 정보를 추출함
 func ExtractVMSpecInfo(Region string, instanceTypeInfo *ec2.InstanceTypeInfo) irs.VMSpecInfo {
 	cblogger.Infof("ExtractVMSpecInfo : Region:[%s] / SpecName:[%s]", Region, *instanceTypeInfo.InstanceType)
-	spew.Dump(instanceTypeInfo)
+	//spew.Dump(instanceTypeInfo)
 
 	vCpuInfo := irs.VCpuInfo{}
 	gpuInfoList := []irs.GpuInfo{}
@@ -61,11 +60,11 @@ func ExtractVMSpecInfo(Region string, instanceTypeInfo *ec2.InstanceTypeInfo) ir
 	//GPU 정보가 있는 인스터스는 GPU 처리
 	if !reflect.ValueOf(instanceTypeInfo.GpuInfo).IsNil() {
 		for _, curGpu := range instanceTypeInfo.GpuInfo.Gpus {
-			cblogger.Infof("[%s] Gpu 스펙 정보 조회", *curGpu.Name)
+			cblogger.Debugf("[%s] Gpu 스펙 정보 조회", *curGpu.Name)
 			gpuInfo := ExtractGpuInfo(curGpu)
 			gpuInfoList = append(gpuInfoList, gpuInfo)
 		}
-		spew.Dump(gpuInfoList)
+		//spew.Dump(gpuInfoList)
 	}
 	vmSpecInfo.Gpu = gpuInfoList
 
@@ -79,8 +78,10 @@ func ExtractVMSpecInfo(Region string, instanceTypeInfo *ec2.InstanceTypeInfo) ir
 
 	//KeyValue 목록 처리
 	keyValueList, errKeyValue := ConvertKeyValueList(instanceTypeInfo)
-	cblogger.Errorf("[%]의 KeyValue 추출 실패", *instanceTypeInfo.InstanceType)
-	cblogger.Error(errKeyValue)
+	if errKeyValue != nil {
+		cblogger.Errorf("[%]의 KeyValue 추출 실패", *instanceTypeInfo.InstanceType)
+		cblogger.Error(errKeyValue)
+	}
 	/*
 		if errKeyValue != nil {
 			return irs.VMSpecInfo{}, errKeyValue
