@@ -21,8 +21,21 @@ type AzureKeyPairHandler struct {
 	Region         idrv.RegionInfo
 }
 
+func (keyPairHandler *AzureKeyPairHandler) CheckKeyPairFolder(folderPath string) error {
+	// Check KeyPair Folder Exists
+	if _, err := os.Stat(folderPath); os.IsNotExist(err) {
+		if err := os.Mkdir(folderPath, 0700); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (keyPairHandler *AzureKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPairReqInfo) (irs.KeyPairInfo, error) {
 	keyPairPath := os.Getenv("CBSPIDER_ROOT") + CBKeyPairPath
+	if err := keyPairHandler.CheckKeyPairFolder(keyPairPath); err != nil {
+		return irs.KeyPairInfo{}, err
+	}
 	hashString, err := CreateHashString(keyPairHandler.CredentialInfo)
 	if err != nil {
 		return irs.KeyPairInfo{}, err
@@ -80,6 +93,9 @@ func (keyPairHandler *AzureKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPairR
 
 func (keyPairHandler *AzureKeyPairHandler) ListKey() ([]*irs.KeyPairInfo, error) {
 	keyPairPath := os.Getenv("CBSPIDER_ROOT") + CBKeyPairPath
+	if err := keyPairHandler.CheckKeyPairFolder(keyPairPath); err != nil {
+		return nil, err
+	}
 	hashString, err := CreateHashString(keyPairHandler.CredentialInfo)
 	if err != nil {
 		return nil, err
@@ -111,6 +127,9 @@ func (keyPairHandler *AzureKeyPairHandler) ListKey() ([]*irs.KeyPairInfo, error)
 
 func (keyPairHandler *AzureKeyPairHandler) GetKey(keyIID irs.IID) (irs.KeyPairInfo, error) {
 	keyPairPath := os.Getenv("CBSPIDER_ROOT") + CBKeyPairPath
+	if err := keyPairHandler.CheckKeyPairFolder(keyPairPath); err != nil {
+		return irs.KeyPairInfo{}, err
+	}
 	hashString, err := CreateHashString(keyPairHandler.CredentialInfo)
 
 	privateKeyPath := keyPairPath + hashString + "--" + keyIID.NameId
@@ -139,6 +158,9 @@ func (keyPairHandler *AzureKeyPairHandler) GetKey(keyIID irs.IID) (irs.KeyPairIn
 
 func (keyPairHandler *AzureKeyPairHandler) DeleteKey(keyIID irs.IID) (bool, error) {
 	keyPairPath := os.Getenv("CBSPIDER_ROOT") + CBKeyPairPath
+	if err := keyPairHandler.CheckKeyPairFolder(keyPairPath); err != nil {
+		return false, err
+	}
 	hashString, err := CreateHashString(keyPairHandler.CredentialInfo)
 	if err != nil {
 		return false, err
@@ -223,14 +245,3 @@ func writeKeyToFile(keyBytes []byte, saveFileTo string) error {
 	log.Printf("Key 저장위치: %s", saveFileTo)
 	return nil
 }
-
-// Credential 기반 hash 생성
-/*func createHashString(credentialInfo idrv.CredentialInfo) (string, error) {
-	keyString := credentialInfo.ClientId + credentialInfo.ClientSecret + credentialInfo.TenantId + credentialInfo.SubscriptionId
-	hasher := md5.New()
-	_, err := io.WriteString(hasher, keyString)
-	if err != nil {
-		return "", err
-	}
-	return fmt.Sprintf("%x", hasher.Sum(nil)), nil
-}*/
