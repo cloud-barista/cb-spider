@@ -880,6 +880,10 @@ func VMSpec(c echo.Context) error {
                 }
                 json.Unmarshal(resBody, &info)
 
+fmt.Println("======================================================================")
+fmt.Printf("============ %#v", connConfig)
+fmt.Printf("============ %#v", info.ResultList)
+
         // (4-2) make TR list with info list
                 htmlStr += makeVMSpecTRList_html("", "", "", info.ResultList)
 
@@ -916,13 +920,13 @@ func makeVMImageTRList_html(bgcolor string, height string, fontSize string, info
                             <font size=%s>$$GUESTOS$$</font>
                     </td>
                     <td>
-                            <font size=%s>$$VMIMAGESTATUS$$ MB</font>
+                            <font size=%s>$$VMIMAGESTATUS$$</font>
                     </td>
                     <td align="left">
                             <font size=%s>$$ADDITIONALINFO$$</font>
                     </td>
                 </tr>
-                `, bgcolor, height, fontSize, fontSize, fontSize, fontSize, fontSize, fontSize)
+                `, bgcolor, height, fontSize, fontSize, fontSize, fontSize, fontSize)
 
         strData := ""
         // set data and make TR list
@@ -998,7 +1002,7 @@ func VMImage(c echo.Context) error {
                         return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
                 }
                 var info struct {
-                        ResultList []*cres.ImageInfo `json:"vmimage"`
+                        ResultList []*cres.ImageInfo `json:"image"`
                 }
                 json.Unmarshal(resBody, &info)
 

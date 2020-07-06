@@ -1,5 +1,4 @@
-// Cloud Driver Interface of CB-Spider.
-// The CB-Spider is a sub-Framework of the Cloud-Barista Multi-Cloud Project.
+// Cloud Driver Interface of CB-Spider.  // The CB-Spider is a sub-Framework of the Cloud-Barista Multi-Cloud Project.
 // The CB-Spider Mission is to connect all the clouds with a single interface.
 //
 //      * Cloud-Barista: https://github.com/cloud-barista
@@ -31,7 +30,8 @@ type AwsImageHandler struct {
 //@TODO : 작업해야 함.
 func (imageHandler *AwsImageHandler) CreateImage(imageReqInfo irs.ImageReqInfo) (irs.ImageInfo, error) {
 
-	return irs.ImageInfo{}, nil
+	imageReqInfo.IId.SystemId = imageReqInfo.IId.NameId
+	return irs.ImageInfo{imageReqInfo.IId, "", "", nil}, nil
 }
 
 //@TODO : 목록이 너무 많기 때문에 amazon 계정으로 공유된 퍼블릭 이미지중 AMI만 조회 함.
