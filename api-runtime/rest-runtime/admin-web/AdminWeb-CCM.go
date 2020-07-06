@@ -928,7 +928,7 @@ func makeVMImageTRList_html(bgcolor string, height string, fontSize string, info
         // set data and make TR list
         for i, one := range infoList{
                 str := strings.ReplaceAll(strTR, "$$NUM$$", strconv.Itoa(i+1))
-                str = strings.ReplaceAll(str, "$$VMIMAGENAME$$", one.IID.NameId)
+                str = strings.ReplaceAll(str, "$$VMIMAGENAME$$", one.IId.NameId)
                 str = strings.ReplaceAll(str, "$$GUESTOS$$", one.GuestOS)
                 str = strings.ReplaceAll(str, "$$VMIMAGESTATUS$$", one.Status)
 
