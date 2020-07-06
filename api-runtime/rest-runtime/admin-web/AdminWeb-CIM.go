@@ -936,6 +936,9 @@ func makeSetupConnectionConfigFunc_js() string {
 			a = parent.frames["top_frame"].document.getElementById("keypairmgmtHref");
 			a.href = "keypairmgmt/" + configName
 
+            // for VMImage
+            a = parent.frames["top_frame"].document.getElementById("vmimageHref");
+            a.href = "vmimage/" + configName
 
             // for VMSpec
             a = parent.frames["top_frame"].document.getElementById("vmspecHref");
