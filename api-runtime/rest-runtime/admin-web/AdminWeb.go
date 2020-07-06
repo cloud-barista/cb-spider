@@ -195,8 +195,8 @@ func Top(c echo.Context) error {
                 </a>
 		&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
                 <!-- Spec Management -->
-                <a href="spec/region not set" target="main_frame" id="specHref">
-                    <font size=2>spec</font>
+                <a href="vmspec/region not set" target="main_frame" id="vmspecHref">
+                    <font size=2>vmspec</font>
                 </a>
             </td>
         </tr>
@@ -348,7 +348,7 @@ func makeActionTR_html(colspan string, f5_href string,  delete_href string, font
 
 //         fieldName-width
 // number, fieldName0-200, fieldName1-400, ... , checkbox
-func makeTitleTRList_html(bgcolor string, fontSize string, nameWidthList []NameWidth) string {
+func makeTitleTRList_html(bgcolor string, fontSize string, nameWidthList []NameWidth, hasCheckBox bool) string {
 	if bgcolor == "" { bgcolor = "#DDDDDD" }
 	if fontSize == "" { fontSize = "2" }
 
@@ -369,13 +369,15 @@ func makeTitleTRList_html(bgcolor string, fontSize string, nameWidthList []NameW
 			`, one.Width, one.Name)
 		strTR += str
 	}
-	
-	// (3) header checkbox field
-        strTR += `
-		    <td width="15">
-			    <input type="checkbox" onclick="toggle(this);" />
-		    </td>
-		</tr>
-		`
+
+	if hasCheckBox {	
+		// (3) header checkbox field
+		strTR += `
+			    <td width="15">
+				    <input type="checkbox" onclick="toggle(this);" />
+			    </td>
+			</tr>
+			`
+	}
 	return strTR
 }

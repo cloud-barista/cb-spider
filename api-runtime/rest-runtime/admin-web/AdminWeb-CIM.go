@@ -193,7 +193,7 @@ func Driver(c echo.Context) error {
 		    {"Driver Library Name", "300"},
 		    {"Driver Name", "200"},
 		}	
-		htmlStr +=  makeTitleTRList_html("#DDDDDD", "2", nameWidthList)
+		htmlStr +=  makeTitleTRList_html("#DDDDDD", "2", nameWidthList, true)
 
 
 	// (4) make TR list with info list
@@ -442,7 +442,7 @@ func Credential(c echo.Context) error {
                     {"Credential Info", "300"},
                     {"Credential Name", "200"},
                 }
-                htmlStr +=  makeTitleTRList_html("#DDDDDD", "2", nameWidthList)
+                htmlStr +=  makeTitleTRList_html("#DDDDDD", "2", nameWidthList, true)
 
 
         // (4) make TR list with info list
@@ -510,7 +510,7 @@ func makeOnchangeRegionProviderFunc_js() string {
         // for region info
         switch(providerName) {
           case "AWS":
-            regionInfo = '[{"Key":"Region", "Value":"us-east-2"}]'
+            regionInfo = '[{"Key":"Region", "Value":"us-east-2"}, {"Key":"Zone", "Value":"us-east-2a"}]'
             region = '(ohio)us-east-2'
             zone = ''
             break;
@@ -550,7 +550,7 @@ func makeOnchangeRegionProviderFunc_js() string {
             zone = '' 
             break;
           default:
-            regionInfo = '[{"Key":"Region", "Value":"us-east-2"}]'
+            regionInfo = '[{"Key":"Region", "Value":"us-east-2"}, {"Key":"Zone", "Value":"us-east-2a"}]'
             region = '(ohio)us-east-2'
             zone = ''
         }
@@ -610,7 +610,9 @@ func makeRegionTRList_html(bgcolor string, height string, fontSize string, infoL
 // make the string of javascript function
 func makePostRegionFunc_js() string {
 
-// curl -X POST http://$RESTSERVER:1024/spider/region -H 'Content-Type: application/json' -d '{"RegionName":"aws-(ohio)us-east-2","ProviderName":"AWS", "KeyValueInfoList": [{"Key":"Region", "Value":"us-east-2"}]}'
+// curl -X POST http://$RESTSERVER:1024/spider/region -H 'Content-Type: application/json' 
+//      -d '{"RegionName":"aws-(ohio)us-east-2","ProviderName":"AWS", "KeyValueInfoList": 
+//.       '[{"Key":"Region", "Value":"us-east-2"}, {"Key":"Zone", "Value":"us-east-2a"}]'}'
 
         strFunc := `
                 function postRegion() {
@@ -709,7 +711,7 @@ func Region(c echo.Context) error {
                     {"Region Info", "300"},
                     {"Region Name", "200"},
                 }
-                htmlStr +=  makeTitleTRList_html("#DDDDDD", "2", nameWidthList)
+                htmlStr +=  makeTitleTRList_html("#DDDDDD", "2", nameWidthList, true)
 
 
         // (4) make TR list with info list
@@ -745,7 +747,7 @@ func Region(c echo.Context) error {
         htmlStr += `    
                             </td>
                             <td>
-                                <textarea style="font-size:12px;text-align:center;" name="text_box" id="2" cols=50>[{"Key":"Region", "Value":"us-east-2"}]</textarea>
+                                <textarea style="font-size:12px;text-align:center;" name="text_box" id="2" cols=50>[{"Key":"Region", "Value":"us-east-2"}, {"Key":"Zone", "Value":"us-east-2a"}]</textarea>
                             </td>
                             <td>
                                 <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="3" value="aws-(ohio)us-east-2">
@@ -933,6 +935,12 @@ func makeSetupConnectionConfigFunc_js() string {
 			a.href = "keypair/" + configName
 			a = parent.frames["top_frame"].document.getElementById("keypairmgmtHref");
 			a.href = "keypairmgmt/" + configName
+
+
+            // for VMSpec
+            a = parent.frames["top_frame"].document.getElementById("vmspecHref");
+            a.href = "vmspec/" + configName
+
                 }
         `
         return strFunc
@@ -1157,7 +1165,7 @@ func Connectionconfig(c echo.Context) error {
                     {"Region Name", "200"},
                     {"Connection Config Name", "200"},
                 }
-                htmlStr +=  makeTitleTRList_html("#DDDDDD", "2", nameWidthList)
+                htmlStr +=  makeTitleTRList_html("#DDDDDD", "2", nameWidthList, true)
 
         // (4) make TR list with info list
         // (4-1) get info list @todo if empty list

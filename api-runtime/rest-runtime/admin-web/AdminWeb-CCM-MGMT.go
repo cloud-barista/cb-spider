@@ -166,7 +166,7 @@ func VPCMgmt(c echo.Context) error {
                     {"Spider's NameId", "300"},
                     {"CSP's SystemId", "300"},                    
                 }
-                htmlStr +=  makeTitleTRList_html("#DDDDDD", "2", nameWidthList)
+                htmlStr +=  makeTitleTRList_html("#DDDDDD", "2", nameWidthList, true)
 
 
         // (4) make TR list with info list
@@ -284,7 +284,7 @@ func SecurityGroupMgmt(c echo.Context) error {
                     {"Spider's NameId", "300"},
                     {"CSP's SystemId", "300"},
                 }
-                htmlStr +=  makeTitleTRList_html("#DDDDDD", "2", nameWidthList)
+                htmlStr +=  makeTitleTRList_html("#DDDDDD", "2", nameWidthList, true)
 
 
         // (4) make TR list with info list
@@ -402,7 +402,7 @@ func KeyPairMgmt(c echo.Context) error {
                     {"Spider's NameId", "300"},
                     {"CSP's SystemId", "300"},                    
                 }
-                htmlStr +=  makeTitleTRList_html("#DDDDDD", "2", nameWidthList)
+                htmlStr +=  makeTitleTRList_html("#DDDDDD", "2", nameWidthList, true)
 
 
         // (4) make TR list with info list
