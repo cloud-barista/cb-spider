@@ -1076,7 +1076,7 @@ func main() {
 		}
 	*/
 
-	handleVPC()
+	//handleVPC()
 	//handleKeyPair()
 	//handlePublicIP() // PublicIP 생성 후 conf
 	//handleSecurity()
@@ -1084,7 +1084,7 @@ func main() {
 
 	//handleImage() //AMI
 	//handleVNic() //Lancard
-	//handleVMSpec()
+	handleVMSpec()
 
 	/*
 		KeyPairHandler, err := setKeyPairHandler()
