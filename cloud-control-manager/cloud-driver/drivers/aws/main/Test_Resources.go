@@ -33,7 +33,7 @@ var cblogger *logrus.Logger
 func init() {
 	// cblog is a global variable.
 	cblogger = cblog.GetLogger("AWS Resource Test")
-	cblog.SetLevel("debug")
+	cblog.SetLevel("info")
 }
 
 func handleSecurity() {

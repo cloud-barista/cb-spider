@@ -260,7 +260,7 @@ func ConvertJsonStringNoEscape(v interface{}) (string, error) {
 
 	//fmt.Println("After marshal", string(buffer.Bytes()))
 	//spew.Dump(string(buffer.Bytes()))
-	spew.Dump("\"TEST")
+	//spew.Dump("\"TEST")
 
 	jsonString := string(buffer.Bytes())
 	//jsonString = strings.Replace(jsonString, "\n", "", -1)
@@ -287,8 +287,8 @@ func ConvertJsonString(v interface{}) (string, error) {
 //CB-KeyValue 등을 위해 String 타입으로 변환
 func ConvertToString(value interface{}) (string, error) {
 	if value == nil {
-		cblogger.Error("Nil Value")
-		return "", errors.New("NIL Value")
+		cblogger.Warnf("Nil Value")
+		return "", errors.New("Nil. Value")
 	}
 
 	var result string
@@ -339,7 +339,8 @@ func ConvertKeyValueList(v interface{}) ([]irs.KeyValue, error) {
 		//value := fmt.Sprint(v)
 		value, errString := ConvertToString(v)
 		if errString != nil {
-			cblogger.Errorf("Key[%s]의 값은 변환 불가 - [%s]", k, errString)
+			//cblogger.Errorf("Key[%s]의 값은 변환 불가 - [%s]", k, errString)
+			cblogger.Warnf("Key[%s]의 값은 변환 불가 - [%s]", k, errString) //요구에 의해서 Error에서 Warn으로 낮춤
 			continue
 		}
 		keyValueList = append(keyValueList, irs.KeyValue{k, value})
