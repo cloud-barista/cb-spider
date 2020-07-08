@@ -182,6 +182,8 @@ func (VPCHandler *AwsVPCHandler) CreateRouteIGW(vpcId string, igwId string) erro
 	return nil
 }
 
+//https://docs.aws.amazon.com/ko_kr/vpc/latest/userguide/VPC_Route_Tables.html
+//https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribeRouteTables.html
 // 자동 생성된 VPC의 기본 라우팅 테이블 정보를 찾음
 func (VPCHandler *AwsVPCHandler) GetDefaultRouteTable(vpcId string) (string, error) {
 	input := &ec2.DescribeRouteTablesInput{
@@ -482,12 +484,16 @@ func (VPCHandler *AwsVPCHandler) DeleteVPC(vpcIID irs.IID) (bool, error) {
 	if errRoute != nil {
 		cblogger.Error("라우팅 테이블에 추가한 0.0.0.0/0 IGW 라우터 삭제 실패")
 		cblogger.Error(errRoute)
-		return false, errRoute
+		if "InvalidRoute.NotFound" == errRoute.Error() {
+			cblogger.Infof("[%s]예외는 #255예외에 의해 정상으로 간주하고 다음 단계를 진행함.", errRoute)
+		} else {
+			return false, errRoute
+		}
 	} else {
 		cblogger.Info("라우팅 테이블에 추가한 0.0.0.0/0 IGW 라우터 삭제 완료")
 	}
 
-	//VPC에 연결된 모든 IGW를 삭제함.
+	//VPC에 연결된 모든 IGW를 삭제함. (VPC에 할당된 모든 IGW조회후 삭제)
 	errIgw := VPCHandler.DeleteAllIGW(vpcInfo.IId.SystemId)
 	if errIgw != nil {
 		cblogger.Error("모든 IGW 삭제 실패 : ", errIgw)
@@ -533,11 +539,16 @@ func (VPCHandler *AwsVPCHandler) DeleteRouteIGW(vpcId string) error {
 	}
 	cblogger.Info(input)
 
+	//https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DeleteRoute.html
 	result, err := VPCHandler.Client.DeleteRoute(input)
 	if err != nil {
 		cblogger.Errorf("RouteTable[%s]에 대한 라우팅(0.0.0.0/0) 정보 삭제 실패", routeTableId)
 		if aerr, ok := err.(awserr.Error); ok {
+			//InvalidRoute.NotFound
+			cblogger.Errorf("Error Code : [%s] - Error:[%s] - Message:[%s]", aerr.Code(), aerr.Error(), aerr.Message())
 			switch aerr.Code() {
+			case "InvalidRoute.NotFound": //NotFound에러는 무시하라고 해서 (예외#255)
+				return errors.New(aerr.Code())
 			default:
 				cblogger.Error(aerr.Error())
 			}
