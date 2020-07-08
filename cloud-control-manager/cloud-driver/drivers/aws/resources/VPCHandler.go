@@ -489,8 +489,8 @@ func (VPCHandler *AwsVPCHandler) DeleteVPC(vpcIID irs.IID) (bool, error) {
 		} else {
 			return false, errRoute
 		}
-	} else {
-		cblogger.Info("라우팅 테이블에 추가한 0.0.0.0/0 IGW 라우터 삭제 완료")
+		//} else {
+		//	cblogger.Info("라우팅 테이블에 추가한 0.0.0.0/0 IGW 라우터 삭제 완료")
 	}
 
 	//VPC에 연결된 모든 IGW를 삭제함. (VPC에 할당된 모든 IGW조회후 삭제)
@@ -524,8 +524,9 @@ func (VPCHandler *AwsVPCHandler) DeleteVPC(vpcIID irs.IID) (bool, error) {
 	return true, nil
 }
 
+/*
 // VPC에 설정된 0.0.0.0/0 라우터를 제거 함.
-func (VPCHandler *AwsVPCHandler) DeleteRouteIGW(vpcId string) error {
+func (VPCHandler *AwsVPCHandler) DeleteRouteIGWOld(vpcId string) error {
 	cblogger.Infof("VPC ID : [%s]", vpcId)
 	routeTableId, errRoute := VPCHandler.GetDefaultRouteTable(vpcId)
 	if errRoute != nil {
@@ -563,6 +564,94 @@ func (VPCHandler *AwsVPCHandler) DeleteRouteIGW(vpcId string) error {
 
 	cblogger.Info(result)
 	spew.Dump(result)
+	cblogger.Info("라우팅 테이블에 추가한 0.0.0.0/0 IGW 라우터 삭제 완료")
+	return nil
+}
+*/
+
+// VPC에 설정된 0.0.0.0/0 라우터를 제거 함.
+// #255예외 처리 보완에 따른 라우팅 정보 삭제전 0.0.0.0 조회후 삭제하도록 로직 변경
+func (VPCHandler *AwsVPCHandler) DeleteRouteIGW(vpcId string) error {
+	cblogger.Infof("VPC ID : [%s]", vpcId)
+	routeTableId := ""
+
+	input := &ec2.DescribeRouteTablesInput{
+		Filters: []*ec2.Filter{
+			{
+				Name: aws.String("vpc-id"),
+				Values: []*string{
+					aws.String(vpcId),
+				},
+			},
+		},
+	}
+
+	result, err := VPCHandler.Client.DescribeRouteTables(input)
+	if err != nil {
+		return err
+	}
+
+	cblogger.Info(result)
+	spew.Dump(result)
+
+	if len(result.RouteTables) < 1 {
+		return errors.New("VPC에 할당된 라우팅 테이블 정보를 찾을 수 없습니다.")
+	}
+
+	routeTableId = *result.RouteTables[0].RouteTableId
+	cblogger.Infof("라우팅 테이블 ID 찾음 : [%s]", routeTableId)
+
+	cblogger.Infof("RouteTable[%s]에 할당된 라우팅(0.0.0.0/0) 정보를 조회합니다.", routeTableId)
+
+	//ec2.Route
+	findIgw := false
+	for _, curRoute := range result.RouteTables[0].Routes {
+		cblogger.Infof("DestinationCidrBlock[%s] Check", *curRoute.DestinationCidrBlock)
+
+		if "0.0.0.0/0" == *curRoute.DestinationCidrBlock {
+			cblogger.Infof("===>RouteTable[%s]에 할당된 라우팅(0.0.0.0/0) 정보를 찾았습니다!!", routeTableId)
+			findIgw = true
+			break
+		}
+	}
+
+	if !findIgw {
+		cblogger.Infof("RouteTable[%s]에 할당된 IGW의 라우팅(0.0.0.0/0) 정보가 없으므로 라우트 삭제처리는 중단합니다. ", routeTableId)
+		return nil
+	}
+
+	cblogger.Infof("RouteTable[%s]에 할당된 라우팅(0.0.0.0/0) 정보를 삭제합니다.", routeTableId)
+	inputDel := &ec2.DeleteRouteInput{
+		DestinationCidrBlock: aws.String("0.0.0.0/0"),
+		RouteTableId:         aws.String(routeTableId),
+	}
+	cblogger.Info(inputDel)
+
+	//https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DeleteRoute.html
+	resultDel, err := VPCHandler.Client.DeleteRoute(inputDel)
+	if err != nil {
+		cblogger.Errorf("RouteTable[%s]에 대한 라우팅(0.0.0.0/0) 정보 삭제 실패", routeTableId)
+		if aerr, ok := err.(awserr.Error); ok {
+			//InvalidRoute.NotFound
+			cblogger.Errorf("Error Code : [%s] - Error:[%s] - Message:[%s]", aerr.Code(), aerr.Error(), aerr.Message())
+			switch aerr.Code() {
+			case "InvalidRoute.NotFound": //NotFound에러는 무시하라고 해서 (예외#255)
+				return errors.New(aerr.Code())
+			default:
+				cblogger.Error(aerr.Error())
+			}
+		} else {
+			// Print the error, cast err to awserr.Error to get the Code and
+			// Message from an error.
+			cblogger.Error(err.Error())
+		}
+		return err
+	}
+	cblogger.Infof("RouteTable[%s]에 대한 라우팅(0.0.0.0/0) 정보 삭제 완료", routeTableId)
+
+	cblogger.Info(resultDel)
+	spew.Dump(resultDel)
+	cblogger.Info("라우팅 테이블에 추가한 0.0.0.0/0 IGW 라우터 삭제 완료")
 	return nil
 }
 
