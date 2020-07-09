@@ -139,7 +139,7 @@ func getInfo(regionName string) (*RegionInfo, error) {
         }
 
         if len(keyValueList) < 1 {
-                return nil, fmt.Errorf(regionName + ": is not exist!")
+                return nil, fmt.Errorf(regionName + ": does not exist!")
         }
 
         // keyValueList should have ~/driverName/... or ~/driverName-01/...,
@@ -153,7 +153,7 @@ func getInfo(regionName string) (*RegionInfo, error) {
         }
 
         if len(oneKeyValueList) < 1 {
-                return nil, fmt.Errorf(regionName + ": is not exist!")
+                return nil, fmt.Errorf(regionName + ": does not exist!")
         }
 
         var inKeyValueList []icbs.KeyValue
@@ -203,6 +203,6 @@ func deleteInfo(regionName string) (bool, error) {
         if isDelete {
                 return true, nil
         }
-        return false, fmt.Errorf(regionName + ": is not exist!")
+        return false, fmt.Errorf(regionName + ": does not exist!")
 }
 

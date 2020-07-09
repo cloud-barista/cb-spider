@@ -17,8 +17,10 @@ type ClouditImageHandler struct {
 
 func setterImage(image image.ImageInfo) *irs.ImageInfo {
 	imageInfo := &irs.ImageInfo{
-		Id:      image.ID,
-		Name:    image.Name,
+		IId: irs.IID{
+			NameId:   image.Name,
+			SystemId: image.ID,
+		},
 		GuestOS: image.OS,
 		Status:  image.State,
 	}
@@ -30,7 +32,7 @@ func (imageHandler *ClouditImageHandler) CreateImage(imageReqInfo irs.ImageReqIn
 	authHeader := imageHandler.Client.AuthenticatedHeaders()
 
 	reqInfo := image.ImageReqInfo{
-		Name:         imageReqInfo.Name,
+		Name:         imageReqInfo.IId.NameId,
 		VolumeId:     "fa4bb8d7-bf09-4fd7-b123-d08677ac0691",
 		SnapshotId:   "dbc61213-b37e-4cc2-94ca-47991337e36f",
 		Ownership:    "TENANT",
@@ -44,12 +46,12 @@ func (imageHandler *ClouditImageHandler) CreateImage(imageReqInfo irs.ImageReqIn
 		MoreHeaders: authHeader,
 	}
 
-	if image, err := image.Create(imageHandler.Client, &createOpts); err != nil {
+	image, err := image.Create(imageHandler.Client, &createOpts)
+	if err != nil {
 		return irs.ImageInfo{}, err
-	} else {
-		imageInfo := setterImage(*image)
-		return *imageInfo, nil
 	}
+	imageInfo := setterImage(*image)
+	return *imageInfo, nil
 }
 
 func (imageHandler *ClouditImageHandler) ListImage() ([]*irs.ImageInfo, error) {
@@ -60,29 +62,41 @@ func (imageHandler *ClouditImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 		MoreHeaders: authHeader,
 	}
 
-	if imageList, err := image.List(imageHandler.Client, &requestOpts); err != nil {
+	imageList, err := image.List(imageHandler.Client, &requestOpts)
+	if err != nil {
 		return nil, err
-	} else {
-		var resultList []*irs.ImageInfo
-
-		for _, image := range *imageList {
-			imageInfo := setterImage(image)
-			resultList = append(resultList, imageInfo)
-		}
-		return resultList, nil
 	}
+
+	resultList := make([]*irs.ImageInfo, len(*imageList))
+	for i, image := range *imageList {
+		imageInfo := setterImage(image)
+		resultList[i] = imageInfo
+	}
+	return resultList, nil
 }
 
-func (imageHandler *ClouditImageHandler) GetImage(imageNameId string) (irs.ImageInfo, error) {
-
-	imageInfo, err := imageHandler.getImageByName(imageNameId)
+func (imageHandler *ClouditImageHandler) GetImage(imageIID irs.IID) (irs.ImageInfo, error) {
+	imageInfo, err := imageHandler.getImageByName(imageIID.NameId)
 	if err != nil {
 		return irs.ImageInfo{}, err
 	}
 	return *imageInfo, nil
+	/*imageHandler.Client.TokenID = imageHandler.CredentialInfo.AuthToken
+	authHeader := imageHandler.Client.AuthenticatedHeaders()
+
+	requestOpts := client.RequestOpts{
+		MoreHeaders: authHeader,
+	}
+
+	image, err := image.Get(imageHandler.Client, imageIID.SystemId, &requestOpts)
+	if err != nil {
+		return irs.ImageInfo{}, err
+	}
+	imageInfo := setterImage(*image)
+	return *imageInfo, nil*/
 }
 
-func (imageHandler *ClouditImageHandler) DeleteImage(imageID string) (bool, error) {
+func (imageHandler *ClouditImageHandler) DeleteImage(imageIID irs.IID) (bool, error) {
 	imageHandler.Client.TokenID = imageHandler.CredentialInfo.AuthToken
 	authHeader := imageHandler.Client.AuthenticatedHeaders()
 
@@ -90,7 +104,7 @@ func (imageHandler *ClouditImageHandler) DeleteImage(imageID string) (bool, erro
 		MoreHeaders: authHeader,
 	}
 
-	if err := image.Delete(imageHandler.Client, imageID, &requestOpts); err != nil {
+	if err := image.Delete(imageHandler.Client, imageIID.SystemId, &requestOpts); err != nil {
 		return false, err
 	} else {
 		return true, nil

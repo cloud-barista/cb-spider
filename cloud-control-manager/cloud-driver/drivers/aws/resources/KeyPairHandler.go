@@ -8,7 +8,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/ec2"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
-	"github.com/davecgh/go-spew/spew"
+	_ "github.com/davecgh/go-spew/spew"
 )
 
 type AwsKeyPairHandler struct {
@@ -29,7 +29,7 @@ func (keyPairHandler *AwsKeyPairHandler) ListKey() ([]*irs.KeyPairInfo, error) {
 	cblogger.Debug("Start ListKey()")
 	var keyPairList []*irs.KeyPairInfo
 	//spew.Dump(keyPairHandler)
-	cblogger.Info(keyPairHandler)
+	cblogger.Debug(keyPairHandler)
 
 	input := &ec2.DescribeKeyPairsInput{
 		KeyNames: []*string{
@@ -39,7 +39,7 @@ func (keyPairHandler *AwsKeyPairHandler) ListKey() ([]*irs.KeyPairInfo, error) {
 
 	//  Returns a list of key pairs
 	result, err := keyPairHandler.Client.DescribeKeyPairs(input)
-	cblogger.Info(result)
+	cblogger.Debug(result)
 	if err != nil {
 		cblogger.Errorf("Unable to get key pairs, %v", err)
 		return keyPairList, err
@@ -57,8 +57,8 @@ func (keyPairHandler *AwsKeyPairHandler) ListKey() ([]*irs.KeyPairInfo, error) {
 		keyPairList = append(keyPairList, &keyPairInfo)
 	}
 
-	cblogger.Info(keyPairList)
-	spew.Dump(keyPairList)
+	cblogger.Debug(keyPairList)
+	//spew.Dump(keyPairList)
 	return keyPairList, nil
 }
 
@@ -67,21 +67,23 @@ func (keyPairHandler *AwsKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPairReq
 
 	// Creates a new  key pair with the given name
 	result, err := keyPairHandler.Client.CreateKeyPair(&ec2.CreateKeyPairInput{
-		KeyName: aws.String(keyPairReqInfo.Name),
+		//KeyName: aws.String(keyPairReqInfo.Name),
+		KeyName: aws.String(keyPairReqInfo.IId.NameId),
 	})
 	if err != nil {
 		if aerr, ok := err.(awserr.Error); ok && aerr.Code() == "InvalidKeyPair.Duplicate" {
-			cblogger.Errorf("Keypair %q already exists.", keyPairReqInfo.Name)
+			cblogger.Errorf("Keypair %q already exists.", keyPairReqInfo.IId.NameId)
 			return irs.KeyPairInfo{}, err
 		}
-		cblogger.Errorf("Unable to create key pair: %s, %v.", keyPairReqInfo.Name, err)
+		cblogger.Errorf("Unable to create key pair: %s, %v.", keyPairReqInfo.IId.NameId, err)
 		return irs.KeyPairInfo{}, err
 	}
 
 	cblogger.Infof("Created key pair %q %s\n%s\n", *result.KeyName, *result.KeyFingerprint, *result.KeyMaterial)
-	spew.Dump(result)
+	//spew.Dump(result)
 	keyPairInfo := irs.KeyPairInfo{
-		Name:        *result.KeyName,
+		//Name:        *result.KeyName,
+		IId:         irs.IID{keyPairReqInfo.IId.NameId, *result.KeyName},
 		Fingerprint: *result.KeyFingerprint,
 		PrivateKey:  *result.KeyMaterial, // AWS(PEM파일-RSA PRIVATE KEY)
 		//KeyMaterial: *result.KeyMaterial,
@@ -94,12 +96,12 @@ func (keyPairHandler *AwsKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPairReq
 }
 
 //혼선을 피하기 위해 keyPairID 대신 keyName으로 변경 함.
-func (keyPairHandler *AwsKeyPairHandler) GetKey(keyName string) (irs.KeyPairInfo, error) {
+func (keyPairHandler *AwsKeyPairHandler) GetKey(keyIID irs.IID) (irs.KeyPairInfo, error) {
 	//keyPairID := keyName
-	cblogger.Infof("keyName : [%s]", keyName)
+	cblogger.Infof("keyName : [%s]", keyIID.SystemId)
 	input := &ec2.DescribeKeyPairsInput{
 		KeyNames: []*string{
-			aws.String(keyName),
+			aws.String(keyIID.SystemId),
 		},
 	}
 
@@ -136,9 +138,10 @@ func (keyPairHandler *AwsKeyPairHandler) GetKey(keyName string) (irs.KeyPairInfo
 
 //KeyPair 정보를 추출함
 func ExtractKeyPairDescribeInfo(keyPair *ec2.KeyPairInfo) irs.KeyPairInfo {
-	spew.Dump(keyPair)
+	//spew.Dump(keyPair)
 	keyPairInfo := irs.KeyPairInfo{
-		Name:        *keyPair.KeyName,
+		IId: irs.IID{*keyPair.KeyName, *keyPair.KeyName},
+		//Name:        *keyPair.KeyName,
 		Fingerprint: *keyPair.KeyFingerprint,
 	}
 
@@ -151,30 +154,31 @@ func ExtractKeyPairDescribeInfo(keyPair *ec2.KeyPairInfo) irs.KeyPairInfo {
 	return keyPairInfo
 }
 
-func (keyPairHandler *AwsKeyPairHandler) DeleteKey(keyName string) (bool, error) {
-	cblogger.Infof("삭제 요청된 키페어 : [%s]", keyName)
+func (keyPairHandler *AwsKeyPairHandler) DeleteKey(keyIID irs.IID) (bool, error) {
+	cblogger.Infof("삭제 요청된 키페어 : [%s]", keyIID.SystemId)
 
-	_, errGet := keyPairHandler.GetKey(keyName)
+	_, errGet := keyPairHandler.GetKey(keyIID)
 	if errGet != nil {
 		return false, errGet
 	}
 
 	// Delete the key pair by name
-	result, err := keyPairHandler.Client.DeleteKeyPair(&ec2.DeleteKeyPairInput{
-		KeyName: aws.String(keyName),
+	//by powerkim, result, err := keyPairHandler.Client.DeleteKeyPair(&ec2.DeleteKeyPairInput{
+	_, err := keyPairHandler.Client.DeleteKeyPair(&ec2.DeleteKeyPairInput{
+		KeyName: aws.String(keyIID.SystemId),
 	})
 
-	spew.Dump(result)
+	//spew.Dump(result)
 	if err != nil {
 		if aerr, ok := err.(awserr.Error); ok && aerr.Code() == "InvalidKeyPair.Duplicate" {
-			cblogger.Error("Key pair %q does not exist.", keyName)
+			cblogger.Error("Key pair %q does not exist.", keyIID.SystemId)
 			return false, err
 		}
-		cblogger.Errorf("Unable to delete key pair: %s, %v.", keyName, err)
+		cblogger.Errorf("Unable to delete key pair: %s, %v.", keyIID.SystemId, err)
 		return false, err
 	}
 
-	cblogger.Infof("Successfully deleted %q key pair\n", keyName)
+	cblogger.Infof("Successfully deleted %q key pair\n", keyIID.SystemId)
 
 	return true, nil
 }

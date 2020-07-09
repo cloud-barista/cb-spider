@@ -1,5 +1,4 @@
-// Cloud Driver Interface of CB-Spider.
-// The CB-Spider is a sub-Framework of the Cloud-Barista Multi-Cloud Project.
+// Cloud Driver Interface of CB-Spider.  // The CB-Spider is a sub-Framework of the Cloud-Barista Multi-Cloud Project.
 // The CB-Spider Mission is to connect all the clouds with a single interface.
 //
 //      * Cloud-Barista: https://github.com/cloud-barista
@@ -31,7 +30,8 @@ type AwsImageHandler struct {
 //@TODO : 작업해야 함.
 func (imageHandler *AwsImageHandler) CreateImage(imageReqInfo irs.ImageReqInfo) (irs.ImageInfo, error) {
 
-	return irs.ImageInfo{}, nil
+	imageReqInfo.IId.SystemId = imageReqInfo.IId.NameId
+	return irs.ImageInfo{imageReqInfo.IId, "", "", nil}, nil
 }
 
 //@TODO : 목록이 너무 많기 때문에 amazon 계정으로 공유된 퍼블릭 이미지중 AMI만 조회 함.
@@ -90,15 +90,18 @@ func (imageHandler *AwsImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 }
 
 //Image 정보를 추출함
+//@TODO : GuestOS 쳌크할 것
 func ExtractImageDescribeInfo(image *ec2.Image) irs.ImageInfo {
 	//spew.Dump(image)
 	imageInfo := irs.ImageInfo{
-		Id:     *image.ImageId,
-		Name:   *image.Name,
+		IId: irs.IID{*image.Name, *image.ImageId},
+		//Id:     *image.ImageId,
+		//Name:   *image.Name,
 		Status: *image.State,
 	}
 
 	keyValueList := []irs.KeyValue{
+		{Key: "Name", Value: *image.Name},
 		{Key: "CreationDate", Value: *image.CreationDate},
 		{Key: "Architecture", Value: *image.Architecture},
 		{Key: "OwnerId", Value: *image.OwnerId},
@@ -128,12 +131,14 @@ func ExtractImageDescribeInfo(image *ec2.Image) irs.ImageInfo {
 	return imageInfo
 }
 
-func (imageHandler *AwsImageHandler) GetImage(imageID string) (irs.ImageInfo, error) {
-	cblogger.Infof("imageID : [%s]", imageID)
+//func (imageHandler *AwsImageHandler) GetImage(imageID string) (irs.ImageInfo, error) {
+func (imageHandler *AwsImageHandler) GetImage(imageIID irs.IID) (irs.ImageInfo, error) {
+
+	cblogger.Infof("imageID : [%s]", imageIID.SystemId)
 
 	input := &ec2.DescribeImagesInput{
 		ImageIds: []*string{
-			aws.String(imageID),
+			aws.String(imageIID.SystemId),
 		},
 	}
 
@@ -165,6 +170,6 @@ func (imageHandler *AwsImageHandler) GetImage(imageID string) (irs.ImageInfo, er
 }
 
 //@TODO : 삭제 API 찾아야 함.
-func (imageHandler *AwsImageHandler) DeleteImage(imageID string) (bool, error) {
+func (imageHandler *AwsImageHandler) DeleteImage(imageIID irs.IID) (bool, error) {
 	return false, nil
 }

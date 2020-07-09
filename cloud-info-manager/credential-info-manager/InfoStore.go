@@ -139,7 +139,7 @@ func getInfo(credentialName string) (*CredentialInfo, error) {
         }
 
         if len(keyValueList) < 1 {
-                return nil, fmt.Errorf(credentialName + ": is not exist!")
+                return nil, fmt.Errorf(credentialName + ": does not exist!")
         }
 
 	// keyValueList should have ~/driverName/... or ~/driverName-01/...,
@@ -153,7 +153,7 @@ func getInfo(credentialName string) (*CredentialInfo, error) {
 	}
 
         if len(oneKeyValueList) < 1 {
-                return nil, fmt.Errorf(credentialName + ": is not exist!")
+                return nil, fmt.Errorf(credentialName + ": does not exist!")
         }
 
 	var inKeyValueList []icbs.KeyValue
@@ -202,6 +202,6 @@ func deleteInfo(credentialName string) (bool, error) {
 	if isDelete {
 		return true, nil
 	}
-        return false, fmt.Errorf(credentialName + ": is not exist!")
+        return false, fmt.Errorf(credentialName + ": does not exist!")
 }
 

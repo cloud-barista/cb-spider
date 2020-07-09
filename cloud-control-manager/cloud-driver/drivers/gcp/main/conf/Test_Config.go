@@ -17,7 +17,6 @@ import (
 
 	gcpdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/gcp"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
-	"github.com/davecgh/go-spew/spew"
 	"github.com/sirupsen/logrus"
 
 	cblog "github.com/cloud-barista/cb-log"
@@ -52,12 +51,13 @@ func GetResourceHandler(handlerType string) (interface{}, error) {
 	cloudDriver = new(gcpdrv.GCPDriver)
 
 	credentialFilePath := os.Getenv("GOOGLE_APPLICATION_CREDENTIALS")
+	cblogger.Infof("export $GOOGLE_APPLICATION_CREDENTIALS : [%s]", credentialFilePath)
 	cblogger.Infof("credentialFilePath : [%s]", credentialFilePath)
 
 	config, _ := readFileConfig(credentialFilePath)
 	//region := "europe-west1"
-	region := "asia-northeast1"
-	zone := "asia-northeast1-b"
+	region := "asia-northeast3"
+	zone := "asia-northeast3-a"
 
 	connectionInfo := idrv.ConnectionInfo{
 		CredentialInfo: idrv.CredentialInfo{
@@ -84,20 +84,22 @@ func GetResourceHandler(handlerType string) (interface{}, error) {
 	switch handlerType {
 	case "Image":
 		resourceHandler, err = cloudConnection.CreateImageHandler()
-	case "Publicip":
-		resourceHandler, err = cloudConnection.CreatePublicIPHandler()
+	// case "Publicip":
+	// 	resourceHandler, err = cloudConnection.CreatePublicIPHandler()
 	case "Security":
 		resourceHandler, err = cloudConnection.CreateSecurityHandler()
-	case "VNetwork":
-		resourceHandler, err = cloudConnection.CreateVNetworkHandler()
-	case "VNic":
-		resourceHandler, err = cloudConnection.CreateVNicHandler()
+	// case "VNetwork":
+	// 	resourceHandler, err = cloudConnection.CreateVNetworkHandler()
+	// case "VNic":
+	// 	resourceHandler, err = cloudConnection.CreateVNicHandler()
 	case "VM":
 		resourceHandler, err = cloudConnection.CreateVMHandler()
 	case "KeyPair":
 		resourceHandler, err = cloudConnection.CreateKeyPairHandler()
 	case "VMSpec":
 		resourceHandler, err = cloudConnection.CreateVMSpecHandler()
+	case "VPCHandler":
+		resourceHandler, err = cloudConnection.CreateVPCHandler()
 	}
 
 	if err != nil {
@@ -116,8 +118,9 @@ func readFileConfig(filepath string) (Config, error) {
 
 	var config Config
 	json.Unmarshal(data, &config)
-	cblogger.Info("readFileConfig Json : ", config.ClientEmail)
-	spew.Dump(config)
+	cblogger.Info("Loaded ConfigFile...")
+	//cblogger.Info("readFileConfig Json : ", config.ClientEmail)
+	//spew.Dump(config)
 
 	return config, err
 

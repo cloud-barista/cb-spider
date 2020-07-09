@@ -17,9 +17,9 @@ type AzureVmSpecHandler struct {
 	Client *compute.VirtualMachineSizesClient
 }
 
-func (vmSpecHandler *AzureVmSpecHandler) setterVmSpec(vmSpec compute.VirtualMachineSize) *irs.VMSpecInfo {
+func setterVmSpec(region string, vmSpec compute.VirtualMachineSize) *irs.VMSpecInfo {
 	vmSpecInfo := &irs.VMSpecInfo{
-		Region:       vmSpecHandler.Region.ResourceGroup,
+		Region:       region,
 		Name:         *vmSpec.Name,
 		VCpu:         irs.VCpuInfo{Count: strconv.FormatInt(int64(*vmSpec.NumberOfCores), 10)},
 		Mem:          strconv.FormatInt(int64(*vmSpec.MemoryInMB), 10),
@@ -30,50 +30,50 @@ func (vmSpecHandler *AzureVmSpecHandler) setterVmSpec(vmSpec compute.VirtualMach
 }
 
 func (vmSpecHandler *AzureVmSpecHandler) ListVMSpec(Region string) ([]*irs.VMSpecInfo, error) {
-	result, err := vmSpecHandler.Client.List(vmSpecHandler.Ctx, vmSpecHandler.Region.Region)
+	result, err := vmSpecHandler.Client.List(vmSpecHandler.Ctx, Region)
 	if err != nil {
 		return nil, err
 	}
 
-	var vmSpecList []*irs.VMSpecInfo
-	for _, spec := range *result.Value {
-		vmSpecInfo := vmSpecHandler.setterVmSpec(spec)
-		vmSpecList = append(vmSpecList, vmSpecInfo)
+	vmSpecList := make([]*irs.VMSpecInfo, len(*result.Value))
+	for i, spec := range *result.Value {
+		vmSpecList[i] = setterVmSpec(Region, spec)
 	}
 	return vmSpecList, nil
 }
 
 func (vmSpecHandler *AzureVmSpecHandler) GetVMSpec(Region string, Name string) (irs.VMSpecInfo, error) {
-	result, err := vmSpecHandler.Client.List(vmSpecHandler.Ctx, vmSpecHandler.Region.Region)
+	result, err := vmSpecHandler.Client.List(vmSpecHandler.Ctx, Region)
 	if err != nil {
 		return irs.VMSpecInfo{}, err
 	}
 
 	for _, spec := range *result.Value {
 		if Name == *spec.Name {
-			vmSpecInfo := vmSpecHandler.setterVmSpec(spec)
+			vmSpecInfo := setterVmSpec(Region, spec)
 			return *vmSpecInfo, nil
 		}
 	}
 
-	return irs.VMSpecInfo{}, nil
+	cblogger.Error(fmt.Sprintf("failed to get VM spec, err : %s", err))
+	notFoundErr := errors.New("failed to get VM spec")
+	return irs.VMSpecInfo{}, notFoundErr
 }
 
 func (vmSpecHandler *AzureVmSpecHandler) ListOrgVMSpec(Region string) (string, error) {
-	result, err := vmSpecHandler.Client.List(vmSpecHandler.Ctx, vmSpecHandler.Region.Region)
+	result, err := vmSpecHandler.Client.List(vmSpecHandler.Ctx, Region)
 	if err != nil {
 		return "", err
 	}
 
-	var vmSpecList []*irs.VMSpecInfo
-	for _, spec := range *result.Value {
-		vmSpecInfo := vmSpecHandler.setterVmSpec(spec)
-		vmSpecList = append(vmSpecList, vmSpecInfo)
+	var jsonResult struct {
+		Result []compute.VirtualMachineSize `json:"list"`
 	}
-
-	jsonBytes, err := json.Marshal(vmSpecList)
+	jsonResult.Result = *result.Value
+	jsonBytes, err := json.Marshal(jsonResult)
 	if err != nil {
-		panic(err)
+		cblogger.Error("failed to marshal strings")
+		return "", err
 	}
 
 	jsonString := string(jsonBytes)
@@ -82,16 +82,14 @@ func (vmSpecHandler *AzureVmSpecHandler) ListOrgVMSpec(Region string) (string, e
 }
 
 func (vmSpecHandler *AzureVmSpecHandler) GetOrgVMSpec(Region string, Name string) (string, error) {
-	result, err := vmSpecHandler.Client.List(vmSpecHandler.Ctx, vmSpecHandler.Region.Region)
+	result, err := vmSpecHandler.Client.List(vmSpecHandler.Ctx, Region)
 	if err != nil {
 		return "", err
 	}
 
 	for _, spec := range *result.Value {
 		if Name == *spec.Name {
-			vmSpecInfo := vmSpecHandler.setterVmSpec(spec)
-
-			jsonBytes, err := json.Marshal(vmSpecInfo)
+			jsonBytes, err := json.Marshal(spec)
 			if err != nil {
 				cblogger.Error(fmt.Sprintf("failed to get VM spec, err : %s", err))
 				return "", err

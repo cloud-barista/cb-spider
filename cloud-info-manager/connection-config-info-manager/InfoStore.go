@@ -93,7 +93,7 @@ func getInfo(configName string) (*ConnectionConfigInfo, error) {
         }
 
         if len(keyValueList) < 1 {
-                return nil, fmt.Errorf(configName + ": is not exist!")
+                return nil, fmt.Errorf(configName + ": does not exist!")
         }
 
         for _, kv := range keyValueList {
@@ -108,7 +108,7 @@ func getInfo(configName string) (*ConnectionConfigInfo, error) {
 		} // end of if
 	} // end of for
 
-        return nil, fmt.Errorf(configName + ": is not exist!")
+        return nil, fmt.Errorf(configName + ": does not exist!")
 }
 
 // 1. get the original Key.
@@ -137,6 +137,6 @@ func deleteInfo(configName string) (bool, error) {
         }
 // @todo lock-end
 
-        return false, fmt.Errorf(configName + ": is not exist!")
+        return false, fmt.Errorf(configName + ": does not exist!")
 }
 

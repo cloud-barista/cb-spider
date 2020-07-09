@@ -6,13 +6,16 @@
 //
 // This is Resouces interfaces of Cloud Driver.
 //
+// by CB-Spider Team, 2020.04.
 // by CB-Spider Team, 2019.06.
 
 package resources
 
 type SecurityReqInfo struct {
-	Name          string
-	Direction     string 
+	IId IID // {NameId, SystemId}
+
+	VpcIID        IID    // {NameId, SystemId}
+	Direction     string // @todo used??
 	SecurityRules *[]SecurityRuleInfo
 }
 
@@ -24,9 +27,10 @@ type SecurityRuleInfo struct {
 }
 
 type SecurityInfo struct {
-	Id            string
-	Name          string
-	Direction     string 
+	IId IID // {NameId, SystemId}
+
+	VpcIID        IID    // {NameId, SystemId}
+	Direction     string // @todo userd??
 	SecurityRules *[]SecurityRuleInfo
 
 	KeyValueList []KeyValue
@@ -35,6 +39,6 @@ type SecurityInfo struct {
 type SecurityHandler interface {
 	CreateSecurity(securityReqInfo SecurityReqInfo) (SecurityInfo, error)
 	ListSecurity() ([]*SecurityInfo, error)
-	GetSecurity(securityID string) (SecurityInfo, error)
-	DeleteSecurity(securityID string) (bool, error)
+	GetSecurity(securityIID IID) (SecurityInfo, error)
+	DeleteSecurity(securityIID IID) (bool, error)
 }

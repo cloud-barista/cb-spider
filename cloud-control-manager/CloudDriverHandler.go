@@ -10,6 +10,16 @@ package clouddriverhandler
 
 import (
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
+
+	awsdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/aws"
+	azuredrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/azure"
+	gcpdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/gcp"
+	alibabadrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/alibaba"
+	openstackdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/openstack"
+	clouditdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/cloudit"
+	dockerdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/docker"
+//	cloudtwindrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/cloudtwin"
+
 	icbs "github.com/cloud-barista/cb-store/interfaces"
 
 	"github.com/cloud-barista/cb-store/config"
@@ -21,9 +31,9 @@ import (
 	dim "github.com/cloud-barista/cb-spider/cloud-info-manager/driver-info-manager"
 	rim "github.com/cloud-barista/cb-spider/cloud-info-manager/region-info-manager"
 
-	"encoding/json"
+	//"encoding/json"
 	"fmt"
-	"net/http"
+	//"net/http"
 	"os"
 	"plugin"
 	"strings"
@@ -50,44 +60,55 @@ func ListCloudDriver() []string {
 // 3. load driver library
 // 4. get CloudDriver
 func GetCloudDriver(cloudConnectName string) (idrv.CloudDriver, error) {
-	cccInfo, err := getConnectionConfigInfo(cloudConnectName)
+	cccInfo, err := ccim.GetConnectionConfig(cloudConnectName)
 	if err != nil {
 		return nil, err
 	}
 
-	cldDrvInfo, err := getCloudDriverInfo(cccInfo.DriverName)
+	cldDrvInfo, err := dim.GetCloudDriver(cccInfo.DriverName)
 	if err != nil {
 		return nil, err
 	}
 
-	return getCloudDriver(cldDrvInfo)
+	pluginSW := os.Getenv("PLUGIN_SW")
+	if strings.ToUpper(pluginSW) == "OFF" {
+		return getStaticCloudDriver(*cldDrvInfo)
+	} else {
+		return getCloudDriver(*cldDrvInfo)
+	}
 }
 
 // 1. get credential info
 // 2. get region info
 // 3. get CloudConneciton
 func GetCloudConnection(cloudConnectName string) (icon.CloudConnection, error) {
-	cccInfo, err := getConnectionConfigInfo(cloudConnectName)
+	cccInfo, err := ccim.GetConnectionConfig(cloudConnectName)
 	if err != nil {
 		return nil, err
 	}
 
-	cldDrvInfo, err := getCloudDriverInfo(cccInfo.DriverName)
+	cldDrvInfo, err := dim.GetCloudDriver(cccInfo.DriverName)
 	if err != nil {
 		return nil, err
 	}
 
-	cldDriver, err := getCloudDriver(cldDrvInfo)
+        pluginSW := os.Getenv("PLUGIN_SW")
+	var cldDriver idrv.CloudDriver
+        if strings.ToUpper(pluginSW) == "OFF" {
+		cldDriver, err = getStaticCloudDriver(*cldDrvInfo)
+        } else {
+		cldDriver, err = getCloudDriver(*cldDrvInfo)
+	}
 	if err != nil {
 		return nil, err
 	}
 
-	crdInfo, err := getCredentialInfo(cccInfo.CredentialName)
+	crdInfo, err := cim.GetCredentialDecrypt(cccInfo.CredentialName)
 	if err != nil {
 		return nil, err
 	}
 
-	rgnInfo, err := getRegionInfo(cccInfo.RegionName)
+	rgnInfo, err := rim.GetRegion(cccInfo.RegionName)
 	if err != nil {
 		return nil, err
 	}
@@ -96,28 +117,10 @@ func GetCloudConnection(cloudConnectName string) (icon.CloudConnection, error) {
 	//cblog.Info(crdInfo)
 	//cblog.Info(rgnInfo)
 
-	// @todo should move KeyValueList into XXXDriver.go, powerkim
-	var regionName string
-	var zoneName string
-	switch strings.ToUpper(rgnInfo.ProviderName) {
-	case "AZURE":
-		regionName = getValue(rgnInfo.KeyValueInfoList, "location")
-	case "AWS":
-		regionName = getValue(rgnInfo.KeyValueInfoList, "Region")
-	case "GCP":
-		regionName = getValue(rgnInfo.KeyValueInfoList, "Region")
-		zoneName = getValue(rgnInfo.KeyValueInfoList, "Zone")
-	case "OPENSTACK":
-	case "CLOUDTWIN":
-		regionName = getValue(rgnInfo.KeyValueInfoList, "Region")
-	case "CLOUDIT":
-		// Cloudit do not use Region, But set default @todo 2019.10.28 by powerkim.
-		regionName = getValue(rgnInfo.KeyValueInfoList, "Region")
-		//regionName = getValue(rgnInfo.KeyValueInfoList, "Region")
-	default:
-		errmsg := rgnInfo.ProviderName + " is not a valid ProviderName!!"
-		return nil, fmt.Errorf(errmsg)
-	}
+	regionName, zoneName, err := GetRegionNameByRegionInfo(rgnInfo)
+        if err != nil {
+                return nil, err
+        }
 
 	connectionInfo := idrv.ConnectionInfo{ // @todo powerkim
 		CredentialInfo: idrv.CredentialInfo{
@@ -133,6 +136,8 @@ func GetCloudConnection(cloudConnectName string) (icon.CloudConnection, error) {
 			AuthToken:        getValue(crdInfo.KeyValueInfoList, "AuthToken"),
 			ClientEmail:      getValue(crdInfo.KeyValueInfoList, "ClientEmail"),
 			PrivateKey:       getValue(crdInfo.KeyValueInfoList, "PrivateKey"),
+			Host:       	  getValue(crdInfo.KeyValueInfoList, "Host"),
+			APIVersion:    	  getValue(crdInfo.KeyValueInfoList, "APIVersion"),
 		},
 		RegionInfo: idrv.RegionInfo{ // @todo powerkim
 			Region:        regionName,
@@ -149,6 +154,8 @@ func GetCloudConnection(cloudConnectName string) (icon.CloudConnection, error) {
 	return cldConnection, nil
 }
 
+
+
 func getValue(keyValueInfoList []icbs.KeyValue, key string) string {
 	for _, kv := range keyValueInfoList {
 		if kv.Key == key {
@@ -156,6 +163,55 @@ func getValue(keyValueInfoList []icbs.KeyValue, key string) string {
 		}
 	}
 	return "Not set"
+}
+
+func GetRegionNameByConnectionName(cloudConnectName string) (string, string, error) {
+        cccInfo, err := ccim.GetConnectionConfig(cloudConnectName)
+        if err != nil {
+                return "", "", err
+        }
+
+        rgnInfo, err := rim.GetRegion(cccInfo.RegionName)
+        if err != nil {
+                return "", "", err
+        }
+
+	return GetRegionNameByRegionInfo(rgnInfo)
+}
+
+func GetRegionNameByRegionInfo(rgnInfo *rim.RegionInfo) (string, string, error) {
+
+        // @todo should move KeyValueList into XXXDriver.go, powerkim
+        var regionName string
+        var zoneName string
+        switch strings.ToUpper(rgnInfo.ProviderName) {
+        case "AZURE":
+                regionName = getValue(rgnInfo.KeyValueInfoList, "location")
+        case "AWS":
+                regionName = getValue(rgnInfo.KeyValueInfoList, "Region")
+                zoneName = getValue(rgnInfo.KeyValueInfoList, "Zone")
+        case "ALIBABA":
+                regionName = getValue(rgnInfo.KeyValueInfoList, "Region")
+                zoneName = getValue(rgnInfo.KeyValueInfoList, "Zone")
+        case "GCP":
+                regionName = getValue(rgnInfo.KeyValueInfoList, "Region")
+                zoneName = getValue(rgnInfo.KeyValueInfoList, "Zone")
+        case "OPENSTACK":
+                regionName = getValue(rgnInfo.KeyValueInfoList, "Region")
+        case "CLOUDTWIN":
+                regionName = getValue(rgnInfo.KeyValueInfoList, "Region")
+        case "CLOUDIT":
+                // Cloudit do not use Region, But set default @todo 2019.10.28. by powerkim.
+                regionName = getValue(rgnInfo.KeyValueInfoList, "Region")
+        case "DOCKER":
+                // docker do not use Region, But set default @todo 2020.05.06. by powerkim.
+                regionName = getValue(rgnInfo.KeyValueInfoList, "Region")
+        default:
+                errmsg := rgnInfo.ProviderName + " is not a valid ProviderName!!"
+                return "", "", fmt.Errorf(errmsg)
+        }
+
+        return regionName, zoneName, nil
 }
 
 func getCloudDriver(cldDrvInfo dim.CloudDriverInfo) (idrv.CloudDriver, error) {
@@ -199,125 +255,34 @@ func getCloudDriver(cldDrvInfo dim.CloudDriverInfo) (idrv.CloudDriver, error) {
 	return cloudDriver, nil
 }
 
-func getConnectionConfigInfo(configName string) (ccim.ConnectionConfigInfo, error) {
-	// Build the request
-	req, err := http.NewRequest("GET", CIM_RESTSERVER+"/connectionconfig/"+configName, nil)
-	if err != nil {
-		cblog.Errorf("Error is req: ", err)
-	}
+func getStaticCloudDriver(cldDrvInfo dim.CloudDriverInfo) (idrv.CloudDriver, error) {
+	cblog.Info("CloudDriverHandler: called getStaticCloudDriver() - " + cldDrvInfo.DriverName )
 
-	// create a Client
-	client := &http.Client{}
+	var cloudDriver idrv.CloudDriver
 
-	// Do sends an HTTP request and
-	resp, err := client.Do(req)
-	if err != nil {
-		cblog.Errorf("error in send req: ", err)
-	}
+	// select driver
+        switch cldDrvInfo.ProviderName {
+                case "AWS":
+			cloudDriver = new(awsdrv.AwsDriver)
+		case "AZURE":
+			cloudDriver = new(azuredrv.AzureDriver)
+		case "GCP":
+			cloudDriver = new(gcpdrv.GCPDriver)
+		case "ALIBABA":
+			cloudDriver = new(alibabadrv.AlibabaDriver)
+		case "OPENSTACK":
+			cloudDriver = new(openstackdrv.OpenStackDriver)
+		case "CLOUDIT":
+			cloudDriver = new(clouditdrv.ClouditDriver)
+		case "DOCKER":
+			cloudDriver = new(dockerdrv.DockerDriver)
+		//case "CLOUDTWIN":
+		//	cloudDriver = new(cloudtwindrv.CloudTwinDriver)
 
-	// Defer the closing of the body
-	defer resp.Body.Close()
+                default:
+			errmsg := cldDrvInfo.ProviderName + " is not supported static Cloud Driver!!"
+			return cloudDriver, fmt.Errorf(errmsg)
+        }
 
-	// Fill the data with the data from the JSON
-	var data ccim.ConnectionConfigInfo
-
-	// Use json.Decode for reading streams of JSON data
-	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
-		cblog.Error(err)
-	}
-
-	return data, nil
-}
-
-func getCloudDriverInfo(driverName string) (dim.CloudDriverInfo, error) {
-
-	// Build the request
-	req, err := http.NewRequest("GET", CIM_RESTSERVER+"/driver/"+driverName, nil)
-	if err != nil {
-		cblog.Errorf("Error is req: ", err)
-	}
-
-	// create a Client
-	client := &http.Client{}
-
-	// Do sends an HTTP request and
-	resp, err := client.Do(req)
-	if err != nil {
-		cblog.Errorf("error in send req: ", err)
-	}
-
-	// Defer the closing of the body
-	defer resp.Body.Close()
-
-	// Fill the data with the data from the JSON
-	var data dim.CloudDriverInfo
-
-	// Use json.Decode for reading streams of JSON data
-	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
-		cblog.Error(err)
-	}
-
-	return data, nil
-}
-
-func getCredentialInfo(credentialName string) (cim.CredentialInfo, error) {
-
-	// Build the request
-	req, err := http.NewRequest("GET", CIM_RESTSERVER+"/credential/"+credentialName, nil)
-	if err != nil {
-		cblog.Errorf("Error is req: ", err)
-	}
-
-	// create a Client
-	client := &http.Client{}
-
-	// Do sends an HTTP request and
-	resp, err := client.Do(req)
-	if err != nil {
-		cblog.Errorf("error in send req: ", err)
-	}
-
-	// Defer the closing of the body
-	defer resp.Body.Close()
-
-	// Fill the data with the data from the JSON
-	var data cim.CredentialInfo
-
-	// Use json.Decode for reading streams of JSON data
-	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
-		cblog.Error(err)
-	}
-
-	return data, nil
-}
-
-func getRegionInfo(regionName string) (rim.RegionInfo, error) {
-
-	// Build the request
-	req, err := http.NewRequest("GET", CIM_RESTSERVER+"/region/"+regionName, nil)
-	if err != nil {
-		cblog.Errorf("Error is req: ", err)
-	}
-
-	// create a Client
-	client := &http.Client{}
-
-	// Do sends an HTTP request and
-	resp, err := client.Do(req)
-	if err != nil {
-		cblog.Errorf("error in send req: ", err)
-	}
-
-	// Defer the closing of the body
-	defer resp.Body.Close()
-
-	// Fill the data with the data from the JSON
-	var data rim.RegionInfo
-
-	// Use json.Decode for reading streams of JSON data
-	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
-		cblog.Error(err)
-	}
-
-	return data, nil
+	return cloudDriver, nil
 }

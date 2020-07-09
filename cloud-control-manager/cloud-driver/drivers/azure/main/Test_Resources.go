@@ -20,7 +20,7 @@ func init() {
 	cblogger = cblog.GetLogger("CB-SPIDER")
 }
 
-func testImageHandler(config Config) {
+/*func testImageHandler(config Config) {
 	resourceHandler, err := getResourceHandler("image")
 	if err != nil {
 		cblogger.Error(err)
@@ -84,9 +84,9 @@ Loop:
 			}
 		}
 	}
-}
+}*/
 
-func testPublicIPHanlder(config Config) {
+/*func testPublicIPHanlder(config Config) {
 	resourceHandler, err := getResourceHandler("publicip")
 	if err != nil {
 		cblogger.Error(err)
@@ -149,7 +149,7 @@ Loop:
 			}
 		}
 	}
-}
+}*/
 
 func testSecurityHandler(config Config) {
 	resourceHandler, err := getResourceHandler("security")
@@ -166,7 +166,10 @@ func testSecurityHandler(config Config) {
 	cblogger.Info("4. DeleteSecurity()")
 	cblogger.Info("5. Exit")
 
-	securityGroupId := "CB-SecGroup"
+	iid := irs.IID{
+		NameId:   "CB-SecGroup",
+		SystemId: "CB-SecGroup",
+	}
 
 Loop:
 
@@ -189,7 +192,7 @@ Loop:
 				cblogger.Info("Finish ListSecurity()")
 			case 2:
 				cblogger.Info("Start GetSecurity() ...")
-				if securityInfo, err := securityHandler.GetSecurity(securityGroupId); err != nil {
+				if securityInfo, err := securityHandler.GetSecurity(iid); err != nil {
 					cblogger.Error(err)
 				} else {
 					spew.Dump(securityInfo)
@@ -198,7 +201,7 @@ Loop:
 			case 3:
 				cblogger.Info("Start CreateSecurity() ...")
 				reqInfo := irs.SecurityReqInfo{
-					Name: securityGroupId,
+					IId: iid,
 					SecurityRules: &[]irs.SecurityRuleInfo{
 						{
 							FromPort:   "22",
@@ -222,7 +225,7 @@ Loop:
 				cblogger.Info("Finish CreateSecurity()")
 			case 4:
 				cblogger.Info("Start DeleteSecurity() ...")
-				if ok, err := securityHandler.DeleteSecurity(securityGroupId); !ok {
+				if ok, err := securityHandler.DeleteSecurity(iid); !ok {
 					cblogger.Error(err)
 				}
 				cblogger.Info("Finish DeleteSecurity()")
@@ -234,7 +237,7 @@ Loop:
 	}
 }
 
-func testVNetworkHandler(config Config) {
+/*func testVNetworkHandler(config Config) {
 	resourceHandler, err := getResourceHandler("vnetwork")
 	if err != nil {
 		cblogger.Error(err)
@@ -299,9 +302,9 @@ Loop:
 			}
 		}
 	}
-}
+}*/
 
-func testVNicHandler(config Config) {
+/*func testVNicHandler(config Config) {
 	resourceHandler, err := getResourceHandler("vnic")
 	if err != nil {
 		cblogger.Error(err)
@@ -373,6 +376,91 @@ Loop:
 			}
 		}
 	}
+}*/
+
+func testVPCHandler(config Config) {
+	resourceHandler, err := getResourceHandler("vpc")
+	if err != nil {
+		cblogger.Error(err)
+	}
+
+	vpcHandler := resourceHandler.(irs.VPCHandler)
+
+	cblogger.Info("Test VPCHandler")
+	cblogger.Info("1. ListVPC()")
+	cblogger.Info("2. GetVPC()")
+	cblogger.Info("3. CreateVPC()")
+	cblogger.Info("4. DeleteVPC()")
+	cblogger.Info("5. Exit")
+
+	vpcId := irs.IID{NameId: "CB-VNet"}
+
+Loop:
+
+	for {
+		var commandNum int
+		inputCnt, err := fmt.Scan(&commandNum)
+		if err != nil {
+			cblogger.Error(err)
+		}
+
+		if inputCnt == 1 {
+			switch commandNum {
+			case 1:
+				cblogger.Info("Start ListVPC() ...")
+				if list, err := vpcHandler.ListVPC(); err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(list)
+				}
+				cblogger.Info("Finish ListVPC()")
+			case 2:
+				cblogger.Info("Start GetVPC() ...")
+				if vNetInfo, err := vpcHandler.GetVPC(vpcId); err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(vNetInfo)
+				}
+				cblogger.Info("Finish GetVPC()")
+			case 3:
+				cblogger.Info("Start CreateVPC() ...")
+				reqInfo := irs.VPCReqInfo{
+					IId:       vpcId,
+					IPv4_CIDR: "130.0.0.0/16",
+					SubnetInfoList: []irs.SubnetInfo{
+						{
+							IId: irs.IID{
+								NameId: vpcId.NameId + "-subnet-1",
+							},
+							IPv4_CIDR: "130.0.0.0/24",
+						},
+						{
+							IId: irs.IID{
+								NameId: vpcId.NameId + "-subnet-2",
+							},
+							IPv4_CIDR: "130.0.1.0/24",
+						},
+					},
+				}
+
+				if vNetInfo, err := vpcHandler.CreateVPC(reqInfo); err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(vNetInfo)
+				}
+				cblogger.Info("Finish CreateVPC()")
+			case 4:
+				cblogger.Info("Start DeleteVPC() ...")
+				if ok, err := vpcHandler.DeleteVPC(vpcId); !ok {
+					cblogger.Error(err)
+				}
+				cblogger.Info("Finish DeleteVPC()")
+			case 5:
+				cblogger.Info("Exit")
+				break Loop
+			}
+		}
+	}
 }
 
 func testKeypairHandler(config Config) {
@@ -390,7 +478,10 @@ func testKeypairHandler(config Config) {
 	cblogger.Info("4. DeleteKeyPair()")
 	cblogger.Info("5. Exit Program")
 
-	keypairName := "CB-Keypair"
+	iid := irs.IID{
+		NameId:   "CB-Keypair",
+		SystemId: "CB-Keypair",
+	}
 
 Loop:
 	for {
@@ -412,7 +503,7 @@ Loop:
 				cblogger.Info("Finish ListKeyPair()")
 			case 2:
 				cblogger.Info("Start GetKeyPair() ...")
-				if vNicInfo, err := keypairHandler.GetKey(keypairName); err != nil {
+				if vNicInfo, err := keypairHandler.GetKey(iid); err != nil {
 					cblogger.Error(err)
 				} else {
 					spew.Dump(vNicInfo)
@@ -421,7 +512,7 @@ Loop:
 			case 3:
 				cblogger.Info("Start CreateKeyPair() ...")
 				reqInfo := irs.KeyPairReqInfo{
-					Name: keypairName,
+					IId: iid,
 				}
 				if vNicInfo, err := keypairHandler.CreateKey(reqInfo); err != nil {
 					cblogger.Error(err)
@@ -431,7 +522,7 @@ Loop:
 				cblogger.Info("Finish CreateKeyPair()")
 			case 4:
 				cblogger.Info("Start DeleteKeyPair() ...")
-				if ok, err := keypairHandler.DeleteKey(keypairName); !ok {
+				if ok, err := keypairHandler.DeleteKey(iid); !ok {
 					cblogger.Error(err)
 				}
 				cblogger.Info("Finish DeleteKeyPair()")
@@ -468,11 +559,12 @@ Loop:
 			cblogger.Error(err)
 		}
 
+		region := config.Azure.Location
+
 		if inputCnt == 1 {
 			switch commandNum {
 			case 1:
 				cblogger.Info("Start ListVmSpec() ...")
-				region := "koreacentral" // TODO: region 정보 받아오기
 				if list, err := vmSpecHandler.ListVMSpec(region); err != nil {
 					cblogger.Error(err)
 				} else {
@@ -481,7 +573,6 @@ Loop:
 				cblogger.Info("Finish ListVmSpec()")
 			case 2:
 				cblogger.Info("Start GetVmSpec() ...")
-				region := "koreacentral" // TODO: region 정보 받아오기
 				if vmSpec, err := vmSpecHandler.GetVMSpec(region, vmSpecName); err != nil {
 					cblogger.Error(err)
 				} else {
@@ -490,7 +581,6 @@ Loop:
 				cblogger.Info("Finish GetVmSpec()")
 			case 3:
 				cblogger.Info("Start ListOrgVmSpec() ...")
-				region := "koreacentral" // TODO: region 정보 받아오기
 				if listStr, err := vmSpecHandler.ListOrgVMSpec(region); err != nil {
 					cblogger.Error(err)
 				} else {
@@ -499,7 +589,6 @@ Loop:
 				cblogger.Info("Finish ListOrgVmSpec()")
 			case 4:
 				cblogger.Info("Start GetOrgVmSpec() ...")
-				region := "koreacentral" // TODO: region 정보 받아오기
 				if vmSpecStr, err := vmSpecHandler.GetOrgVMSpec(region, vmSpecName); err != nil {
 					cblogger.Error(err)
 				} else {
@@ -541,13 +630,15 @@ func getResourceHandler(resourceType string) (interface{}, error) {
 	case "image":
 		resourceHandler, err = cloudConnection.CreateImageHandler()
 	case "publicip":
-		resourceHandler, err = cloudConnection.CreatePublicIPHandler()
+		//resourceHandler, err = cloudConnection.CreatePublicIPHandler()
 	case "security":
 		resourceHandler, err = cloudConnection.CreateSecurityHandler()
 	case "vnetwork":
-		resourceHandler, err = cloudConnection.CreateVNetworkHandler()
+		//resourceHandler, err = cloudConnection.CreateVNetworkHandler()
+	case "vpc":
+		resourceHandler, err = cloudConnection.CreateVPCHandler()
 	case "vnic":
-		resourceHandler, err = cloudConnection.CreateVNicHandler()
+		//resourceHandler, err = cloudConnection.CreateVNicHandler()
 	case "keypair":
 		resourceHandler, err = cloudConnection.CreateKeyPairHandler()
 	case "vmspec":
@@ -566,7 +657,7 @@ func showTestHandlerInfo() {
 	cblogger.Info("1. ImageHandler")
 	cblogger.Info("2. PublicIPHandler")
 	cblogger.Info("3. SecurityHandler")
-	cblogger.Info("4. VNetworkHandler")
+	cblogger.Info("4. VPCHandler")
 	cblogger.Info("5. VNicHandler")
 	cblogger.Info("6. KeyPairHandler")
 	cblogger.Info("7. VmSpecHandler")
@@ -591,19 +682,20 @@ Loop:
 		if inputCnt == 1 {
 			switch commandNum {
 			case 1:
-				testImageHandler(config)
+				//testImageHandler(config)
 				showTestHandlerInfo()
 			case 2:
-				testPublicIPHanlder(config)
+				//testPublicIPHanlder(config)
 				showTestHandlerInfo()
 			case 3:
 				testSecurityHandler(config)
 				showTestHandlerInfo()
 			case 4:
-				testVNetworkHandler(config)
+				//testVNetworkHandler(config)
+				testVPCHandler(config)
 				showTestHandlerInfo()
 			case 5:
-				testVNicHandler(config)
+				//testVNicHandler(config)
 				showTestHandlerInfo()
 			case 6:
 				testKeypairHandler(config)

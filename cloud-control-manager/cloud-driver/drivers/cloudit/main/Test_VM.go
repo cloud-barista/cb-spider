@@ -13,6 +13,10 @@ import (
 	"os"
 )
 
+const (
+	DefaultVPCName = "Default-VPC"
+)
+
 var cblogger *logrus.Logger
 
 func init() {
@@ -23,15 +27,39 @@ func init() {
 func createVM(config Config, vmHandler irs.VMHandler) (irs.VMInfo, error) {
 
 	vmReqInfo := irs.VMReqInfo{
-		VMName:           config.Cloudit.VMInfo.Name,
-		ImageId:          config.Cloudit.VMInfo.TemplateId,
-		VMSpecId:         config.Cloudit.VMInfo.SpecId,
-		VirtualNetworkId: config.Cloudit.VMInfo.SubnetAddr,
-		//SecurityGroupIds: config.Cloudit.VMInfo.SecGroups,
+		IId: irs.IID{
+			NameId: config.Cloudit.VMInfo.Name,
+		},
+		ImageIID: irs.IID{
+			SystemId: config.Cloudit.VMInfo.TemplateId,
+			NameId:   config.Cloudit.VMInfo.TemplateName,
+		},
+		VMSpecName: config.Cloudit.VMInfo.SpecName,
+		SubnetIID: irs.IID{
+			SystemId: config.Cloudit.VMInfo.SubnetId,
+			NameId:   config.Cloudit.VMInfo.SubnetName,
+		},
 		VMUserPasswd: config.Cloudit.VMInfo.RootPassword,
+		SecurityGroupIIDs: []irs.IID{
+			{
+				SystemId: config.Cloudit.VMInfo.SecGroupsID,
+				NameId:   config.Cloudit.VMInfo.Name,
+			},
+		},
+		VpcIID: irs.IID{
+			NameId:   DefaultVPCName,
+			SystemId: DefaultVPCName,
+		},
+		// original
+		/*
+			VMName:           config.Cloudit.VMInfo.Name,
+			ImageId:          config.Cloudit.VMInfo.TemplateId,
+			VMSpecId:         config.Cloudit.VMInfo.SpecId,
+			VirtualNetworkId: config.Cloudit.VMInfo.SubnetAddr,
+			//SecurityGroupIds: config.Cloudit.VMInfo.SecGroups,
+			VMUserPasswd: config.Cloudit.VMInfo.RootPassword,
+		*/
 	}
-
-	spew.Dump(vmReqInfo)
 
 	return vmHandler.StartVM(vmReqInfo)
 }
@@ -55,7 +83,9 @@ func testVMHandler() {
 	cblogger.Info("9. Terminate VM")
 	cblogger.Info("10. Exit")
 
-	var serverId string
+	serverId := irs.IID{
+		NameId: config.Cloudit.VMInfo.Name,
+	}
 
 	for {
 		var commandNum int
@@ -97,7 +127,7 @@ func testVMHandler() {
 					cblogger.Error(err)
 				} else {
 					spew.Dump(vm)
-					serverId = vm.Id
+					serverId = vm.IId
 				}
 				cblogger.Info("Finish Create VM")
 			case 6:
@@ -150,21 +180,26 @@ func main() {
 
 type Config struct {
 	Cloudit struct {
-		IdentityEndpoint string `yaml:"identity_endpoint"`
 		Username         string `yaml:"user_id"`
 		Password         string `yaml:"password"`
+		IdentityEndpoint string `yaml:"identity_endpoint"`
+		AuthToken        string `yaml:"auth_token"`
 		TenantID         string `yaml:"tenant_id"`
 		ServerId         string `yaml:"server_id"`
-		AuthToken        string `yaml:"auth_token"`
 		VMInfo           struct {
-			TemplateId   string `yaml:"template_id"`
-			SpecId       string `yaml:"spec_id"`
-			Name         string `yaml:"name"`
-			RootPassword string `yaml:"root_password"`
-			SubnetAddr   string `yaml:"subnet_addr"`
-			SecGroups    string `yaml:"sec_groups"`
-			Description  string `yaml:"description"`
-			Protection   int    `yaml:"protection"`
+			Name          string `yaml:"name"`
+			TemplateId    string `yaml:"template_id"`
+			TemplateName  string `yaml:"template_name"`
+			SpecId        string `yaml:"spec_id"`
+			SpecName      string `yaml:"spec_name"`
+			SubnetId      string `yaml:"subnet_id"`
+			SubnetName    string `yaml:"subnet_name"`
+			RootPassword  string `yaml:"root_password"`
+			SubnetAddr    string `yaml:"subnet_addr"`
+			SecGroupsID   string `yaml:"sec_groups_id"`
+			SecGroupsName string `yaml:"sec_groups_name"`
+			Description   string `yaml:"description"`
+			Protection    int    `yaml:"protection"`
 		} `yaml:"vm_info"`
 	} `yaml:"cloudit"`
 }

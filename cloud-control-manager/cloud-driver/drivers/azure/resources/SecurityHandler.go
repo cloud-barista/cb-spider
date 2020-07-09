@@ -11,6 +11,10 @@ import (
 	"strings"
 )
 
+const (
+	ICMP = "icmp"
+)
+
 type AzureSecurityHandler struct {
 	Region idrv.RegionInfo
 	Ctx    context.Context
@@ -19,8 +23,10 @@ type AzureSecurityHandler struct {
 
 func (securityHandler *AzureSecurityHandler) setterSec(securityGroup network.SecurityGroup) *irs.SecurityInfo {
 	security := &irs.SecurityInfo{
-		Id:           *securityGroup.ID,
-		Name:         *securityGroup.Name,
+		IId: irs.IID{
+			NameId:   *securityGroup.Name,
+			SystemId: *securityGroup.ID,
+		},
 		KeyValueList: []irs.KeyValue{{Key: "ResourceGroup", Value: securityHandler.Region.ResourceGroup}},
 	}
 
@@ -38,13 +44,18 @@ func (securityHandler *AzureSecurityHandler) setterSec(securityGroup network.Sec
 			fromPort = *sgRule.SourcePortRange
 			toPort = *sgRule.DestinationPortRange
 		}
-		//spew.Dump(sourcePortArr)
 
 		ruleInfo := irs.SecurityRuleInfo{
-			FromPort:   fromPort,
-			ToPort:     toPort,
-			IPProtocol: fmt.Sprint(sgRule.Protocol),
+			IPProtocol: strings.ToLower(fmt.Sprint(sgRule.Protocol)),
 			Direction:  fmt.Sprint(sgRule.Direction),
+		}
+
+		if strings.ToLower(fmt.Sprint(sgRule.Protocol)) == ICMP {
+			ruleInfo.FromPort = "-1"
+			ruleInfo.ToPort = "-1"
+		} else {
+			ruleInfo.FromPort = fromPort
+			ruleInfo.ToPort = toPort
 		}
 
 		securityRuleArr = append(securityRuleArr, ruleInfo)
@@ -56,9 +67,9 @@ func (securityHandler *AzureSecurityHandler) setterSec(securityGroup network.Sec
 
 func (securityHandler *AzureSecurityHandler) CreateSecurity(securityReqInfo irs.SecurityReqInfo) (irs.SecurityInfo, error) {
 	// Check SecurityGroup Exists
-	security, _ := securityHandler.Client.Get(securityHandler.Ctx, securityHandler.Region.ResourceGroup, securityReqInfo.Name, "")
+	security, _ := securityHandler.Client.Get(securityHandler.Ctx, securityHandler.Region.ResourceGroup, securityReqInfo.IId.NameId, "")
 	if security.ID != nil {
-		errMsg := fmt.Sprintf("Security Group with name %s already exist", securityReqInfo.Name)
+		errMsg := fmt.Sprintf("Security Group with name %s already exist", securityReqInfo.IId.NameId)
 		createErr := errors.New(errMsg)
 		return irs.SecurityInfo{}, createErr
 	}
@@ -68,18 +79,26 @@ func (securityHandler *AzureSecurityHandler) CreateSecurity(securityReqInfo irs.
 	for idx, rule := range *securityReqInfo.SecurityRules {
 		priorityNum = int32(300 + idx*100)
 		sgRuleInfo := network.SecurityRule{
-			Name: to.StringPtr(fmt.Sprintf("%s-rules-%d", securityReqInfo.Name, idx+1)),
+			Name: to.StringPtr(fmt.Sprintf("%s-rules-%d", securityReqInfo.IId.NameId, idx+1)),
 			SecurityRulePropertiesFormat: &network.SecurityRulePropertiesFormat{
 				SourceAddressPrefix:      to.StringPtr("*"),
-				SourcePortRange:          to.StringPtr(rule.FromPort + "-" + rule.ToPort),
 				DestinationAddressPrefix: to.StringPtr("*"),
 				DestinationPortRange:     to.StringPtr("*"),
-				Protocol:                 network.SecurityRuleProtocol(rule.IPProtocol),
+				Protocol:                 network.SecurityRuleProtocol(strings.ToUpper(rule.IPProtocol)),
 				Access:                   network.SecurityRuleAccess("Allow"),
 				Priority:                 to.Int32Ptr(priorityNum),
 				Direction:                network.SecurityRuleDirection(rule.Direction),
 			},
 		}
+
+		if strings.ToLower(rule.IPProtocol) == ICMP || (rule.FromPort == "*" && rule.ToPort == "*") {
+			sgRuleInfo.SourcePortRange = to.StringPtr("*")
+		} else if rule.FromPort == rule.ToPort {
+			sgRuleInfo.SourcePortRange = to.StringPtr(rule.FromPort)
+		} else {
+			sgRuleInfo.SourcePortRange = to.StringPtr(rule.FromPort + "-" + rule.ToPort)
+		}
+
 		sgRuleList = append(sgRuleList, sgRuleInfo)
 	}
 
@@ -90,7 +109,7 @@ func (securityHandler *AzureSecurityHandler) CreateSecurity(securityReqInfo irs.
 		Location: &securityHandler.Region.Region,
 	}
 
-	future, err := securityHandler.Client.CreateOrUpdate(securityHandler.Ctx, securityHandler.Region.ResourceGroup, securityReqInfo.Name, createOpts)
+	future, err := securityHandler.Client.CreateOrUpdate(securityHandler.Ctx, securityHandler.Region.ResourceGroup, securityReqInfo.IId.NameId, createOpts)
 	if err != nil {
 		return irs.SecurityInfo{}, err
 	}
@@ -100,7 +119,7 @@ func (securityHandler *AzureSecurityHandler) CreateSecurity(securityReqInfo irs.
 	}
 
 	// 생성된 SecurityGroup 정보 리턴
-	securityInfo, err := securityHandler.GetSecurity(securityReqInfo.Name)
+	securityInfo, err := securityHandler.GetSecurity(securityReqInfo.IId)
 	if err != nil {
 		return irs.SecurityInfo{}, err
 	}
@@ -121,8 +140,8 @@ func (securityHandler *AzureSecurityHandler) ListSecurity() ([]*irs.SecurityInfo
 	return securityList, nil
 }
 
-func (securityHandler *AzureSecurityHandler) GetSecurity(securityID string) (irs.SecurityInfo, error) {
-	security, err := securityHandler.Client.Get(securityHandler.Ctx, securityHandler.Region.ResourceGroup, securityID, "")
+func (securityHandler *AzureSecurityHandler) GetSecurity(securityIID irs.IID) (irs.SecurityInfo, error) {
+	security, err := securityHandler.Client.Get(securityHandler.Ctx, securityHandler.Region.ResourceGroup, securityIID.NameId, "")
 	if err != nil {
 		return irs.SecurityInfo{}, err
 	}
@@ -131,8 +150,8 @@ func (securityHandler *AzureSecurityHandler) GetSecurity(securityID string) (irs
 	return *securityInfo, nil
 }
 
-func (securityHandler *AzureSecurityHandler) DeleteSecurity(securityID string) (bool, error) {
-	future, err := securityHandler.Client.Delete(securityHandler.Ctx, securityHandler.Region.ResourceGroup, securityID)
+func (securityHandler *AzureSecurityHandler) DeleteSecurity(securityIID irs.IID) (bool, error) {
+	future, err := securityHandler.Client.Delete(securityHandler.Ctx, securityHandler.Region.ResourceGroup, securityIID.NameId)
 	if err != nil {
 		return false, err
 	}

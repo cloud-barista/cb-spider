@@ -20,8 +20,10 @@ type AzureImageHandler struct {
 
 func (imageHandler *AzureImageHandler) setterImage(image compute.Image) *irs.ImageInfo {
 	imageInfo := &irs.ImageInfo{
-		Id:           *image.ID,
-		Name:         *image.Name,
+		IId: irs.IID{
+			NameId:   *image.Name,
+			SystemId: *image.ID,
+		},
 		GuestOS:      fmt.Sprint(image.ImageProperties.StorageProfile.OsDisk.OsType),
 		Status:       *image.ProvisioningState,
 		KeyValueList: []irs.KeyValue{{Key: "ResourceGroup", Value: imageHandler.Region.ResourceGroup}},
@@ -32,8 +34,10 @@ func (imageHandler *AzureImageHandler) setterImage(image compute.Image) *irs.Ima
 
 func (imageHandler *AzureImageHandler) setterVMImage(image compute.VirtualMachineImage) *irs.ImageInfo {
 	imageInfo := &irs.ImageInfo{
-		Id:           *image.ID,
-		Name:         *image.Name,
+		IId: irs.IID{
+			NameId:   *image.Name,
+			SystemId: *image.ID,
+		},
 		GuestOS:      fmt.Sprint(image.OsDiskImage.OperatingSystem),
 		KeyValueList: []irs.KeyValue{{Key: "ResourceGroup", Value: imageHandler.Region.ResourceGroup}},
 	}
@@ -42,6 +46,7 @@ func (imageHandler *AzureImageHandler) setterVMImage(image compute.VirtualMachin
 }
 
 func (imageHandler *AzureImageHandler) CreateImage(imageReqInfo irs.ImageReqInfo) (irs.ImageInfo, error) {
+
 	// @TODO: PublicIP 생성 요청 파라미터 정의 필요
 	type ImageReqInfo struct {
 		OSType string
@@ -57,9 +62,9 @@ func (imageHandler *AzureImageHandler) CreateImage(imageReqInfo irs.ImageReqInfo
 	}
 
 	// Check Image Exists
-	image, err := imageHandler.Client.Get(imageHandler.Ctx, imageHandler.Region.ResourceGroup, imageReqInfo.Name, "")
+	image, err := imageHandler.Client.Get(imageHandler.Ctx, imageHandler.Region.ResourceGroup, imageReqInfo.IId.NameId, "")
 	if image.ID != nil {
-		errMsg := fmt.Sprintf("Image with name %s already exist", imageReqInfo.Name)
+		errMsg := fmt.Sprintf("Image with name %s already exist", imageReqInfo.IId.NameId)
 		createErr := errors.New(errMsg)
 		return irs.ImageInfo{}, createErr
 	}
@@ -79,7 +84,7 @@ func (imageHandler *AzureImageHandler) CreateImage(imageReqInfo irs.ImageReqInfo
 		Location: &imageHandler.Region.Region,
 	}
 
-	future, err := imageHandler.Client.CreateOrUpdate(imageHandler.Ctx, imageHandler.Region.ResourceGroup, imageReqInfo.Name, createOpts)
+	future, err := imageHandler.Client.CreateOrUpdate(imageHandler.Ctx, imageHandler.Region.ResourceGroup, imageReqInfo.IId.NameId, createOpts)
 	if err != nil {
 		return irs.ImageInfo{}, err
 	}
@@ -89,7 +94,7 @@ func (imageHandler *AzureImageHandler) CreateImage(imageReqInfo irs.ImageReqInfo
 	}
 
 	// 생성된 Image 정보 리턴
-	imageInfo, err := imageHandler.GetImage(imageReqInfo.Name)
+	imageInfo, err := imageHandler.GetImage(imageReqInfo.IId)
 	if err != nil {
 		return irs.ImageInfo{}, err
 	}
@@ -97,22 +102,34 @@ func (imageHandler *AzureImageHandler) CreateImage(imageReqInfo irs.ImageReqInfo
 }
 
 func (imageHandler *AzureImageHandler) ListImage() ([]*irs.ImageInfo, error) {
-	resultList, err := imageHandler.Client.ListByResourceGroup(imageHandler.Ctx, imageHandler.Region.ResourceGroup)
+	/*
+		resultList, err := imageHandler.Client.ListByResourceGroup(imageHandler.Ctx, imageHandler.Region.ResourceGroup)
+		if err != nil {
+			cblogger.Error(err)
+		}
+
+		var imageList []*irs.ImageInfo
+		for _, image := range resultList.Values() {
+			imageInfo := imageHandler.setterImage(image)
+			imageList = append(imageList, imageInfo)
+		}
+		return imageList, nil
+	*/
+	vmImageList, err := imageHandler.VMImageClient.ListPublishers(imageHandler.Ctx, imageHandler.Region.Region)
 	if err != nil {
 		cblogger.Error(err)
 	}
 
-	var imageList []*irs.ImageInfo
-	for _, image := range resultList.Values() {
-		imageInfo := imageHandler.setterImage(image)
-		imageList = append(imageList, imageInfo)
+	for vmImageList := range *vmImageList.Value {
+		fmt.Println(vmImageList)
 	}
-	return imageList, nil
+
+	return nil, nil
 }
 
-func (imageHandler *AzureImageHandler) GetImage(imageID string) (irs.ImageInfo, error) {
+func (imageHandler *AzureImageHandler) GetImage(imageIID irs.IID) (irs.ImageInfo, error) {
 
-	imageArr := strings.Split(imageID, ":")
+	imageArr := strings.Split(imageIID.NameId, ":")
 
 	// 해당 이미지 publisher, offer, skus 기준 version 목록 조회 (latest 기준 조회 불가)
 	vmImageList, err := imageHandler.VMImageClient.List(imageHandler.Ctx, imageHandler.Region.Region, imageArr[0], imageArr[1], imageArr[2], "", to.Int32Ptr(1), "")
@@ -139,8 +156,8 @@ func (imageHandler *AzureImageHandler) GetImage(imageID string) (irs.ImageInfo, 
 	return *imageInfo, nil
 }
 
-func (imageHandler *AzureImageHandler) DeleteImage(imageID string) (bool, error) {
-	future, err := imageHandler.Client.Delete(imageHandler.Ctx, imageHandler.Region.ResourceGroup, imageID)
+func (imageHandler *AzureImageHandler) DeleteImage(imageIID irs.IID) (bool, error) {
+	future, err := imageHandler.Client.Delete(imageHandler.Ctx, imageHandler.Region.ResourceGroup, imageIID.NameId)
 	if err != nil {
 		return false, err
 	}

@@ -1,0 +1,12 @@
+## AWS - last update: 2020.05.15
+$aws ec2 describe-regions > aws-regions-list.json
+
+## AZURE - last update: 2020.05.15
+$az account list-locations > azure-regions-list.json
+
+## GCP - last update: 2020.05.15
+$gcloud compute zones list --project powerkimhub --format=json > gcp-regions-list.json
+
+## ALIBABA - last update: 2020.05.15
+$aliyun ecs DescribeRegions > alibaba-regions-list.json
+

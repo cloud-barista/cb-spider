@@ -21,20 +21,33 @@ type AzureKeyPairHandler struct {
 	Region         idrv.RegionInfo
 }
 
+func (keyPairHandler *AzureKeyPairHandler) CheckKeyPairFolder(folderPath string) error {
+	// Check KeyPair Folder Exists
+	if _, err := os.Stat(folderPath); os.IsNotExist(err) {
+		if err := os.Mkdir(folderPath, 0700); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (keyPairHandler *AzureKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPairReqInfo) (irs.KeyPairInfo, error) {
 	keyPairPath := os.Getenv("CBSPIDER_ROOT") + CBKeyPairPath
+	if err := keyPairHandler.CheckKeyPairFolder(keyPairPath); err != nil {
+		return irs.KeyPairInfo{}, err
+	}
 	hashString, err := CreateHashString(keyPairHandler.CredentialInfo)
 	if err != nil {
 		return irs.KeyPairInfo{}, err
 	}
 
-	savePrivateFileTo := keyPairPath + hashString + "--" + keyPairReqInfo.Name
-	savePublicFileTo := keyPairPath + hashString + "--" + keyPairReqInfo.Name + ".pub"
+	savePrivateFileTo := keyPairPath + hashString + "--" + keyPairReqInfo.IId.NameId
+	savePublicFileTo := keyPairPath + hashString + "--" + keyPairReqInfo.IId.NameId + ".pub"
 	bitSize := 4096
 
 	// Check KeyPair Exists
 	if _, err := os.Stat(savePrivateFileTo); err == nil {
-		errMsg := fmt.Sprintf("KeyPair with name %s already exist", keyPairReqInfo.Name)
+		errMsg := fmt.Sprintf("KeyPair with name %s already exist", keyPairReqInfo.IId.NameId)
 		createErr := errors.New(errMsg)
 		return irs.KeyPairInfo{}, createErr
 	}
@@ -68,7 +81,10 @@ func (keyPairHandler *AzureKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPairR
 	}
 
 	keyPairInfo := irs.KeyPairInfo{
-		Name:       keyPairReqInfo.Name,
+		IId: irs.IID{
+			NameId:   keyPairReqInfo.IId.NameId,
+			SystemId: keyPairReqInfo.IId.NameId,
+		},
 		PublicKey:  string(publicKeyBytes),
 		PrivateKey: string(privateKeyBytes),
 	}
@@ -77,6 +93,9 @@ func (keyPairHandler *AzureKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPairR
 
 func (keyPairHandler *AzureKeyPairHandler) ListKey() ([]*irs.KeyPairInfo, error) {
 	keyPairPath := os.Getenv("CBSPIDER_ROOT") + CBKeyPairPath
+	if err := keyPairHandler.CheckKeyPairFolder(keyPairPath); err != nil {
+		return nil, err
+	}
 	hashString, err := CreateHashString(keyPairHandler.CredentialInfo)
 	if err != nil {
 		return nil, err
@@ -95,7 +114,7 @@ func (keyPairHandler *AzureKeyPairHandler) ListKey() ([]*irs.KeyPairInfo, error)
 		}
 		if strings.Contains(f.Name(), hashString) {
 			fileNameArr := strings.Split(f.Name(), "--")
-			keypairInfo, err := keyPairHandler.GetKey(fileNameArr[1])
+			keypairInfo, err := keyPairHandler.GetKey(irs.IID{NameId: fileNameArr[1]})
 			if err != nil {
 				return nil, err
 			}
@@ -106,12 +125,15 @@ func (keyPairHandler *AzureKeyPairHandler) ListKey() ([]*irs.KeyPairInfo, error)
 	return keyPairInfoList, nil
 }
 
-func (keyPairHandler *AzureKeyPairHandler) GetKey(keyPairName string) (irs.KeyPairInfo, error) {
+func (keyPairHandler *AzureKeyPairHandler) GetKey(keyIID irs.IID) (irs.KeyPairInfo, error) {
 	keyPairPath := os.Getenv("CBSPIDER_ROOT") + CBKeyPairPath
+	if err := keyPairHandler.CheckKeyPairFolder(keyPairPath); err != nil {
+		return irs.KeyPairInfo{}, err
+	}
 	hashString, err := CreateHashString(keyPairHandler.CredentialInfo)
 
-	privateKeyPath := keyPairPath + hashString + "--" + keyPairName
-	publicKeyPath := keyPairPath + hashString + "--" + keyPairName + ".pub"
+	privateKeyPath := keyPairPath + hashString + "--" + keyIID.NameId
+	publicKeyPath := keyPairPath + hashString + "--" + keyIID.NameId + ".pub"
 
 	// Private Key, Public Key 파일 정보 가져오기
 	privateKeyBytes, err := ioutil.ReadFile(privateKeyPath)
@@ -124,22 +146,28 @@ func (keyPairHandler *AzureKeyPairHandler) GetKey(keyPairName string) (irs.KeyPa
 	}
 
 	keypairInfo := irs.KeyPairInfo{
-		Name:       keyPairName,
+		IId: irs.IID{
+			NameId:   keyIID.NameId,
+			SystemId: keyIID.NameId,
+		},
 		PublicKey:  string(publicKeyBytes),
 		PrivateKey: string(privateKeyBytes),
 	}
 	return keypairInfo, nil
 }
 
-func (keyPairHandler *AzureKeyPairHandler) DeleteKey(keyPairName string) (bool, error) {
+func (keyPairHandler *AzureKeyPairHandler) DeleteKey(keyIID irs.IID) (bool, error) {
 	keyPairPath := os.Getenv("CBSPIDER_ROOT") + CBKeyPairPath
+	if err := keyPairHandler.CheckKeyPairFolder(keyPairPath); err != nil {
+		return false, err
+	}
 	hashString, err := CreateHashString(keyPairHandler.CredentialInfo)
 	if err != nil {
 		return false, err
 	}
 
-	privateKeyPath := keyPairPath + hashString + "--" + keyPairName
-	publicKeyPath := keyPairPath + hashString + "--" + keyPairName + ".pub"
+	privateKeyPath := keyPairPath + hashString + "--" + keyIID.NameId
+	publicKeyPath := keyPairPath + hashString + "--" + keyIID.NameId + ".pub"
 
 	// Private Key, Public Key 삭제
 	err = os.Remove(privateKeyPath)
@@ -217,14 +245,3 @@ func writeKeyToFile(keyBytes []byte, saveFileTo string) error {
 	log.Printf("Key 저장위치: %s", saveFileTo)
 	return nil
 }
-
-// Credential 기반 hash 생성
-/*func createHashString(credentialInfo idrv.CredentialInfo) (string, error) {
-	keyString := credentialInfo.ClientId + credentialInfo.ClientSecret + credentialInfo.TenantId + credentialInfo.SubscriptionId
-	hasher := md5.New()
-	_, err := io.WriteString(hasher, keyString)
-	if err != nil {
-		return "", err
-	}
-	return fmt.Sprintf("%x", hasher.Sum(nil)), nil
-}*/

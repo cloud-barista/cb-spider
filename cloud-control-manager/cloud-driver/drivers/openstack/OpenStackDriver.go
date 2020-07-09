@@ -37,12 +37,13 @@ func (OpenStackDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	var drvCapabilityInfo idrv.DriverCapabilityInfo
 
 	drvCapabilityInfo.ImageHandler = true
-	drvCapabilityInfo.VNetworkHandler = true
+	drvCapabilityInfo.VPCHandler = true
 	drvCapabilityInfo.SecurityHandler = true
 	drvCapabilityInfo.KeyPairHandler = true
 	drvCapabilityInfo.VNicHandler = false
-	drvCapabilityInfo.PublicIPHandler = true
+	drvCapabilityInfo.PublicIPHandler = false
 	drvCapabilityInfo.VMHandler = true
+	drvCapabilityInfo.VMSpecHandler = true
 
 	return drvCapabilityInfo
 }
@@ -69,8 +70,6 @@ func (driver *OpenStackDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) 
 	// 3. create CloudConnection Instance of "connect/TDA_CloudConnection".
 	// 4. return CloudConnection Interface of TDA_CloudConnection.
 
-	// sample code, do not user like this^^
-
 	Client, err := getServiceClient(connectionInfo)
 	if err != nil {
 		cblogger.Error(err)
@@ -83,8 +82,12 @@ func (driver *OpenStackDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) 
 	if err != nil {
 		cblogger.Error(err)
 	}
+	VolumeClient, err := getVolumeClient(connectionInfo)
+	if err != nil {
+		cblogger.Error(err)
+	}
 
-	iConn := oscon.OpenStackCloudConnection{Client, ImageClient, NetworkClient}
+	iConn := oscon.OpenStackCloudConnection{connectionInfo.RegionInfo, Client, ImageClient, NetworkClient, VolumeClient}
 
 	return &iConn, nil // return type: (icon.CloudConnection, error)
 }
@@ -196,5 +199,25 @@ func getNetworkClient(connInfo idrv.ConnectionInfo) (*gophercloud.ServiceClient,
 
 	return client, err
 }
+func getVolumeClient(connInfo idrv.ConnectionInfo) (*gophercloud.ServiceClient, error) {
+	authOpts := gophercloud.AuthOptions{
+		IdentityEndpoint: connInfo.CredentialInfo.IdentityEndpoint,
+		Username:         connInfo.CredentialInfo.Username,
+		Password:         connInfo.CredentialInfo.Password,
+		DomainName:       connInfo.CredentialInfo.DomainName,
+		TenantID:         connInfo.CredentialInfo.ProjectID,
+	}
+	provider, err := openstack.AuthenticatedClient(authOpts)
+	if err != nil {
+		return nil, err
+	}
+	client, err := openstack.NewBlockStorageV2(provider, gophercloud.EndpointOpts{
+		Region: connInfo.RegionInfo.Region,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return client, err
+}
 
-var TestDriver OpenStackDriver
+var CloudDriver OpenStackDriver

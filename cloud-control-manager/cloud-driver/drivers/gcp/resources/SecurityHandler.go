@@ -31,18 +31,21 @@ type GCPSecurityHandler struct {
 	Credential idrv.CredentialInfo
 }
 
+//@TODO : 이슈
 func (securityHandler *GCPSecurityHandler) CreateSecurity(securityReqInfo irs.SecurityReqInfo) (irs.SecurityInfo, error) {
+	cblogger.Info(securityReqInfo)
 
-	vNetworkHandler := GCPVNetworkHandler{
+	vNetworkHandler := GCPVPCHandler{
 		Client:     securityHandler.Client,
 		Region:     securityHandler.Region,
 		Ctx:        securityHandler.Ctx,
 		Credential: securityHandler.Credential,
 	}
 
-	vNetInfo, errVnet := vNetworkHandler.GetVNetwork(GetCBDefaultVNetName())
+	vNetInfo, errVnet := vNetworkHandler.GetVPC(securityReqInfo.VpcIID)
 	spew.Dump(vNetInfo)
 	if errVnet != nil {
+		cblogger.Error(errVnet)
 		return irs.SecurityInfo{}, errVnet
 	}
 
@@ -51,38 +54,69 @@ func (securityHandler *GCPSecurityHandler) CreateSecurity(securityReqInfo irs.Se
 	ports := *securityReqInfo.SecurityRules
 	var firewallAllowed []*compute.FirewallAllowed
 
+	//다른 드라이버와의 통일을 위해 All은 -1로 처리함.
+	//GCP는 포트 번호를 적지 않으면 All임.
+	//GCP 방화벽 정책
+	//https://cloud.google.com/vpc/docs/firewalls?hl=ko&_ga=2.238147008.-1577666838.1589162755#protocols_and_ports
 	for _, item := range ports {
 		var port string
 		fp := item.FromPort
 		tp := item.ToPort
 
-		if tp != "" && fp != "" {
-			port = fp + "-" + tp
-		}
-		if tp != "" && fp == "" {
-			port = tp
-		}
-		if tp == "" && fp != "" {
-			port = fp
+		// CB Rule에 의해 Port 번호에 -1이 기입된 경우 GCP Rule에 맞게 치환함.
+		if fp == "-1" || tp == "-1" {
+			if (fp == "-1" && tp == "-1") || (fp == "-1" && tp == "") || (fp == "" && tp == "-1") {
+				port = ""
+			} else if fp == "-1" {
+				port = tp
+			} else {
+				port = fp
+			}
+		} else {
+			//둘 다 있는 경우
+			if tp != "" && fp != "" {
+				port = fp + "-" + tp
+				//From Port가 없는 경우
+			} else if tp != "" && fp == "" {
+				port = tp
+				//To Port가 없는 경우
+			} else if tp == "" && fp != "" {
+				port = fp
+			} else {
+				port = ""
+			}
 		}
 
-		firewallAllowed = append(firewallAllowed, &compute.FirewallAllowed{
-			IPProtocol: item.IPProtocol,
-			Ports: []string{
-				port,
-			},
-		})
+		if port == "" {
+			firewallAllowed = append(firewallAllowed, &compute.FirewallAllowed{
+				IPProtocol: item.IPProtocol,
+			})
+		} else {
+			firewallAllowed = append(firewallAllowed, &compute.FirewallAllowed{
+				IPProtocol: item.IPProtocol,
+				Ports: []string{
+					port,
+				},
+			})
+		}
 	}
+
+	cblogger.Info("생성할 방화벽 정책")
+	spew.Dump(firewallAllowed)
 
 	var sgDirection string
 	if strings.EqualFold(securityReqInfo.Direction, "inbound") {
 		sgDirection = "INGRESS"
 	} else if strings.EqualFold(securityReqInfo.Direction, "outbound") {
 		sgDirection = "EGRESS"
+	} else {
+		cblogger.Errorf("!!!!!!!!! SecurityReqInfo.Direction 정보[%s]가 없어서 INGRESS로 처리합니다.", securityReqInfo.Direction)
+		sgDirection = "INGRESS"
 	}
 
 	prefix := "https://www.googleapis.com/compute/v1/projects/" + projectID
-	networkURL := prefix + "/global/networks/" + GetCBDefaultVNetName()
+	//networkURL := prefix + "/global/networks/" + securityReqInfo.VpcIID.NameId
+	networkURL := prefix + "/global/networks/" + securityReqInfo.VpcIID.SystemId
 
 	fireWall := &compute.Firewall{
 		Allowed:   firewallAllowed,
@@ -90,9 +124,9 @@ func (securityHandler *GCPSecurityHandler) CreateSecurity(securityReqInfo irs.Se
 		SourceRanges: []string{
 			"0.0.0.0/0",
 		},
-		Name: securityReqInfo.Name,
+		Name: securityReqInfo.IId.NameId,
 		TargetTags: []string{
-			securityReqInfo.Name,
+			securityReqInfo.IId.NameId,
 		},
 		Network: networkURL,
 	}
@@ -100,15 +134,13 @@ func (securityHandler *GCPSecurityHandler) CreateSecurity(securityReqInfo irs.Se
 	res, err := securityHandler.Client.Firewalls.Insert(projectID, fireWall).Do()
 	if err != nil {
 		cblogger.Error(err)
-
 		return irs.SecurityInfo{}, err
 	}
 	fmt.Println("create result : ", res)
 	time.Sleep(time.Second * 3)
-	secInfo, _ := securityHandler.GetSecurity(securityReqInfo.Name)
-
+	//secInfo, _ := securityHandler.GetSecurity(securityReqInfo.IId)
+	secInfo, _ := securityHandler.GetSecurity(irs.IID{SystemId: securityReqInfo.IId.NameId})
 	return secInfo, nil
-
 }
 
 func (securityHandler *GCPSecurityHandler) ListSecurity() ([]*irs.SecurityInfo, error) {
@@ -116,13 +148,16 @@ func (securityHandler *GCPSecurityHandler) ListSecurity() ([]*irs.SecurityInfo, 
 	projectID := securityHandler.Credential.ProjectID
 	result, err := securityHandler.Client.Firewalls.List(projectID).Do()
 	if err != nil {
+		cblogger.Error(err)
 		return nil, err
 	}
 
 	var securityInfo []*irs.SecurityInfo
 	for _, item := range result.Items {
 		name := item.Name
-		secInfo, _ := securityHandler.GetSecurity(name)
+		//systemId := strconv.FormatUint(item.Id, 10)
+		//secInfo, _ := securityHandler.GetSecurity(irs.IID{NameId: name, SystemId: systemId})
+		secInfo, _ := securityHandler.GetSecurity(irs.IID{SystemId: name})
 
 		securityInfo = append(securityInfo, &secInfo)
 	}
@@ -130,10 +165,10 @@ func (securityHandler *GCPSecurityHandler) ListSecurity() ([]*irs.SecurityInfo, 
 	return securityInfo, nil
 }
 
-func (securityHandler *GCPSecurityHandler) GetSecurity(securityID string) (irs.SecurityInfo, error) {
+func (securityHandler *GCPSecurityHandler) GetSecurity(securityIID irs.IID) (irs.SecurityInfo, error) {
 	projectID := securityHandler.Credential.ProjectID
 
-	security, err := securityHandler.Client.Firewalls.Get(projectID, securityID).Do()
+	security, err := securityHandler.Client.Firewalls.Get(projectID, securityIID.SystemId).Do()
 	if err != nil {
 		cblogger.Error(err)
 		return irs.SecurityInfo{}, err
@@ -164,14 +199,25 @@ func (securityHandler *GCPSecurityHandler) GetSecurity(securityID string) (irs.S
 			Direction:  security.Direction,
 		})
 	}
-
+	vpcArr := strings.Split(security.Network, "/")
+	vpcName := vpcArr[len(vpcArr)-1]
 	securityInfo := irs.SecurityInfo{
-		Id:        strconv.FormatUint(security.Id, 10),
-		Name:      security.Name,
+		IId: irs.IID{
+			NameId: security.Name,
+			//SystemId: strconv.FormatUint(security.Id, 10),
+			SystemId: security.Name,
+		},
+		VpcIID: irs.IID{
+			NameId:   vpcName,
+			SystemId: vpcName,
+		},
+
 		Direction: security.Direction,
 		KeyValueList: []irs.KeyValue{
 			{"Priority", strconv.FormatInt(security.Priority, 10)},
 			{"SourceRanges", security.SourceRanges[0]},
+			{"Allowed", security.Allowed[0].IPProtocol},
+			{"Vpc", vpcName},
 		},
 		SecurityRules: &securityRules,
 	}
@@ -179,10 +225,10 @@ func (securityHandler *GCPSecurityHandler) GetSecurity(securityID string) (irs.S
 	return securityInfo, nil
 }
 
-func (securityHandler *GCPSecurityHandler) DeleteSecurity(securityID string) (bool, error) {
+func (securityHandler *GCPSecurityHandler) DeleteSecurity(securityIID irs.IID) (bool, error) {
 	projectID := securityHandler.Credential.ProjectID
 
-	res, err := securityHandler.Client.Firewalls.Delete(projectID, securityID).Do()
+	res, err := securityHandler.Client.Firewalls.Delete(projectID, securityIID.SystemId).Do()
 	if err != nil {
 		cblogger.Error(err)
 		return false, err

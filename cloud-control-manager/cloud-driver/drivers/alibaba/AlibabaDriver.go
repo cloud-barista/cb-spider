@@ -11,6 +11,7 @@
 package alibaba
 
 import (
+	"C"
 	"fmt"
 
 	"github.com/aliyun/alibaba-cloud-sdk-go/sdk/auth/credentials"
@@ -32,7 +33,7 @@ func (AlibabaDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	var drvCapabilityInfo idrv.DriverCapabilityInfo
 
 	drvCapabilityInfo.ImageHandler = false
-	drvCapabilityInfo.VNetworkHandler = false
+	drvCapabilityInfo.VPCHandler = false
 	drvCapabilityInfo.SecurityHandler = false
 	drvCapabilityInfo.KeyPairHandler = false
 	drvCapabilityInfo.VNicHandler = false
@@ -60,16 +61,17 @@ func (driver *AlibabaDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (i
 	}
 
 	iConn := alicon.AlibabaCloudConnection{
-		Region:              connectionInfo.RegionInfo,
-		VMClient:            ECSClient,
-		KeyPairClient:       ECSClient,
-		ImageClient:         ECSClient,
-		PublicIPClient:      VPCClient,
+		Region:        connectionInfo.RegionInfo,
+		VMClient:      ECSClient,
+		KeyPairClient: ECSClient,
+		ImageClient:   ECSClient,
+		//PublicIPClient:      VPCClient,
 		SecurityGroupClient: ECSClient,
-		VNetClient:          VPCClient,
-		VNicClient:          ECSClient,
-		SubnetClient:        VPCClient,
-		VmSpecClient:        ECSClient,
+		VpcClient:           VPCClient,
+		//VNetClient:          VPCClient,
+		//VNicClient:          ECSClient,
+		//SubnetClient: VPCClient,
+		VmSpecClient: ECSClient,
 	}
 	return &iConn, nil
 }

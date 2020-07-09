@@ -6,28 +6,27 @@
 //
 // This is Resouces interfaces of Cloud Driver.
 //
+// by CB-Spider Team, 2020.04.
 // by CB-Spider Team, 2019.06.
 
 package resources
 
 type ImageReqInfo struct {
-	Name string
-	Id   string
+	IId   IID 	// {NameId, SystemId}
 	// @todo
 }
 
 type ImageInfo struct {
-     Id   string
-     Name string
-     GuestOS string // Windows7, Ubuntu etc.
-     Status string  // available, unavailable
+	IId   IID 	// {NameId, SystemId}
+	GuestOS string // Windows7, Ubuntu etc.
+	Status string  // available, unavailable
 
-     KeyValueList []KeyValue 
+	KeyValueList []KeyValue 
 }
 
 type ImageHandler interface {
 	CreateImage(imageReqInfo ImageReqInfo) (ImageInfo, error)
 	ListImage() ([]*ImageInfo, error)
-	GetImage(imageID string) (ImageInfo, error)
-	DeleteImage(imageID string) (bool, error)
+	GetImage(imageIID IID) (ImageInfo, error)
+	DeleteImage(imageIID IID) (bool, error)
 }

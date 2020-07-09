@@ -1,52 +1,51 @@
 package resources
 
 import (
+	"errors"
 	"fmt"
-	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
+	_ "fmt"
+	_ "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/rackspace/gophercloud"
+	"github.com/rackspace/gophercloud/openstack/compute/v2/extensions/secgroups"
 	"github.com/rackspace/gophercloud/openstack/compute/v2/flavors"
+	"github.com/rackspace/gophercloud/openstack/networking/v2/extensions/external"
 	"github.com/rackspace/gophercloud/openstack/networking/v2/networks"
+	"github.com/rackspace/gophercloud/openstack/networking/v2/ports"
+	"github.com/rackspace/gophercloud/openstack/networking/v2/subnets"
 	"github.com/rackspace/gophercloud/pagination"
-	"strconv"
+	_ "strconv"
 	"strings"
+	_ "strings"
 )
 
 const (
-	CBPublicIPPool       = "ext"
-	CBGateWayId          = "8c1af031-aad6-4762-ac83-52e09dd82571"
 	CBVirutalNetworkName = "CB-VNet"
-	CBVnetDefaultCidr    = "130.0.0.0/16"
-	//CBVMUser             = "cb-user"
-	DNSNameservers = "8.8.8.8"
+	DNSNameservers       = "8.8.8.8"
 )
 
-// 서브넷 CIDR 생성 (CIDR C class 기준 생성)
-func CreateSubnetCIDR(subnetList []*irs.VNetworkInfo) (*string, error) {
+func GetPublicVPCInfo(client *gophercloud.ServiceClient, typeName string) (string, error) {
+	page, err := networks.List(client, nil).AllPages()
+	if err != nil {
+		cblogger.Error("Failed to get vpc list, err=%s", err)
+		return "", err
+	}
 
-	// CIDR C class 최대값 찾기
-	maxClassNum := 0
-	for _, subnet := range subnetList {
-		addressArr := strings.Split(subnet.AddressPrefix, ".")
-		if curClassNum, err := strconv.Atoi(addressArr[2]); err != nil {
-			return nil, err
-		} else {
-			if curClassNum > maxClassNum {
-				maxClassNum = curClassNum
+	nvpcList, err := external.ExtractList(page)
+	if err != nil {
+		cblogger.Error("Failed to get vpc list, err=%s", err)
+		return "", err
+	}
+	for _, nvpc := range nvpcList {
+		if nvpc.External == true {
+			if strings.EqualFold(strings.ToUpper(typeName), "ID") {
+				return nvpc.ID, nil
+			} else if strings.EqualFold(strings.ToUpper(typeName), "NAME") {
+				return nvpc.Name, nil
 			}
 		}
 	}
-
-	if len(subnetList) == 0 {
-		maxClassNum = 0
-	} else {
-		maxClassNum = maxClassNum + 1
-	}
-
-	// 서브넷 CIDR 할당
-	vNetIP := strings.Split(CBVnetDefaultCidr, "/")
-	vNetIPClass := strings.Split(vNetIP[0], ".")
-	subnetCIDR := fmt.Sprintf("%s.%s.%d.0/24", vNetIPClass[0], vNetIPClass[1], maxClassNum)
-	return &subnetCIDR, nil
+	cblogger.Error("Failed to get vpc list, err=%s", err)
+	return "", nil
 }
 
 // 기본 가상 네트워크(CB-VNet) Id 정보 조회
@@ -85,28 +84,64 @@ func GetFlavor(client *gophercloud.ServiceClient, flavorName string) (*string, e
 	return &flavorId, nil
 }
 
-// 외부 네트워크(Public Network) 정보 조회
-/*func GetExternalNetwork(client *gophercloud.ServiceClient) (string, error) {
-
-	listOpts := external.ListOptsExt{
-		External: to.BoolPtr(true),
-	}
-}*/
-/*func GetPublicGatewayId() (*string, error) {
-	//CBPublicIPPool       = "ext"
-	//CBGateWayId          = "8c1af031-aad6-4762-ac83-52e09dd82571"
-
-	listOpts := external.ListOptsExt{
-		External: to.BoolPtr(true),
-	}
-
-	query, err := listOpts.ToNetworkListQuery()
+func GetSecurityByName(networkClient *gophercloud.ServiceClient, securityName string) (*secgroups.SecurityGroup, error) {
+	pages, err := secgroups.List(networkClient).AllPages()
 	if err != nil {
-		panic(err)
+		return nil, err
+	}
+	secGroupList, err := secgroups.ExtractSecurityGroups(pages)
+	if err != nil {
 		return nil, err
 	}
 
-	fmt.Println(query)
+	for _, s := range secGroupList {
+		if strings.EqualFold(s.Name, securityName) {
+			return &s, nil
+		}
+	}
+	return nil, errors.New(fmt.Sprintf("could not found SecurityGroups with name %s ", securityName))
+}
 
-	return nil, nil
-}*/
+func GetNetworkByName(networkClient *gophercloud.ServiceClient, networkName string) (*networks.Network, error) {
+	pages, err := networks.List(networkClient, networks.ListOpts{Name: networkName}).AllPages()
+	if err != nil {
+		return nil, err
+	}
+	netList, err := networks.ExtractNetworks(pages)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, s := range netList {
+		if strings.EqualFold(s.Name, networkName) {
+			return &s, nil
+		}
+	}
+	return nil, errors.New(fmt.Sprintf("could not found SecurityGroups with name %s ", networkName))
+}
+
+func GetSubnetByID(networkClient *gophercloud.ServiceClient, subnetId string) (*subnets.Subnet, error) {
+	subnet, err := subnets.Get(networkClient, subnetId).Extract()
+	if err != nil {
+		return nil, err
+	}
+	return subnet, nil
+}
+
+func GetPortByDeviceID(networkClient *gophercloud.ServiceClient, deviceID string) (*ports.Port, error) {
+	pages, err := ports.List(networkClient, ports.ListOpts{}).AllPages()
+	if err != nil {
+		return nil, err
+	}
+	portList, err := ports.ExtractPorts(pages)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, s := range portList {
+		if strings.EqualFold(s.DeviceID, deviceID) {
+			return &s, nil
+		}
+	}
+	return nil, errors.New(fmt.Sprintf("could not found SecurityGroups with name %s ", deviceID))
+}

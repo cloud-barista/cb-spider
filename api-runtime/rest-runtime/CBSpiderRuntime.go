@@ -6,11 +6,17 @@
 //
 // by CB-Spider Team, 2019.10.
 
-package main
+package restruntime
 
 import (
 	"fmt"
+	"time"
 
+	"net"
+	"os"
+
+	cr "github.com/cloud-barista/cb-spider/api-runtime/common-runtime"
+	aw "github.com/cloud-barista/cb-spider/api-runtime/rest-runtime/admin-web"
 	"github.com/cloud-barista/cb-store/config"
 	"github.com/sirupsen/logrus"
 
@@ -23,6 +29,10 @@ var cblog *logrus.Logger
 
 func init() {
 	cblog = config.Cblogger
+	currentTime := time.Now()
+	cr.StartTime = currentTime.Format("2006.01.02 15:04:05 Mon")
+	cr.ShortStartTime = fmt.Sprintf("T%02d:%02d:%02d", currentTime.Hour(), currentTime.Minute(), currentTime.Second())
+	cr.HostIPorName = getHostIPorName()
 }
 
 // REST API Return struct for boolena type
@@ -40,10 +50,30 @@ type route struct {
 	function     echo.HandlerFunc
 }
 
-func main() {
+func getHostIPorName() string {
+	conn, err := net.Dial("udp", "8.8.8.8:80")
+	if err != nil {
+		cblog.Error(err)
+		hostName, err := os.Hostname()
+		if err != nil {
+			cblog.Error(err)
+		}
+		return hostName
+	}
+	defer conn.Close()
+
+	localAddr := conn.LocalAddr().(*net.UDPAddr)
+
+	return localAddr.IP.String()
+}
+
+func RunServer() {
 
 	//======================================= setup routes
 	routes := []route{
+		//----------CloudOS
+		{"GET", "/cloudos", listCloudOS},
+
 		//----------CloudDriverInfo
 		{"POST", "/driver", registerCloudDriver},
 		{"GET", "/driver", listCloudDriver},
@@ -73,55 +103,90 @@ func main() {
 		//----------Image Handler
 		{"POST", "/vmimage", createImage},
 		{"GET", "/vmimage", listImage},
-		{"GET", "/vmimage/:ImageName", getImage},
-		{"DELETE", "/vmimage/:ImageName", deleteImage},
+		{"GET", "/vmimage/:Name", getImage},
+		{"DELETE", "/vmimage/:Name", deleteImage},
 
-		//----------VNet Handler
-		{"POST", "/vnetwork", createVNetwork},
-		{"GET", "/vnetwork", listVNetwork},
-		{"GET", "/vnetwork/:VNetId", getVNetwork},
-		{"DELETE", "/vnetwork/:VNetId", deleteVNetwork},
+		//----------VMSpec Handler
+		{"GET", "/vmspec", listVMSpec},
+		{"GET", "/vmspec/:Name", getVMSpec},
+		{"GET", "/vmorgspec", listOrgVMSpec},
+		{"GET", "/vmorgspec/:Name", getOrgVMSpec},
+
+		//----------VPC Handler
+		{"POST", "/vpc", createVPC},
+		{"GET", "/vpc", listVPC},
+		{"GET", "/vpc/:Name", getVPC},
+		{"DELETE", "/vpc/:Name", deleteVPC},
+		//-- for management
+		{"GET", "/allvpc", listAllVPC},
+		{"DELETE", "/cspvpc/:Id", deleteCSPVPC},
 
 		//----------SecurityGroup Handler
 		{"POST", "/securitygroup", createSecurity},
 		{"GET", "/securitygroup", listSecurity},
-		{"GET", "/securitygroup/:SecurityGroupId", getSecurity},
-		{"DELETE", "/securitygroup/:SecurityGroupId", deleteSecurity},
+		{"GET", "/securitygroup/:Name", getSecurity},
+		{"DELETE", "/securitygroup/:Name", deleteSecurity},
+		//-- for management
+		{"GET", "/allsecuritygroup", listAllSecurity},
+		{"DELETE", "/cspsecuritygroup/:Id", deleteCSPSecurity},
 
 		//----------KeyPair Handler
 		{"POST", "/keypair", createKey},
 		{"GET", "/keypair", listKey},
-		{"GET", "/keypair/:KeyPairId", getKey},
-		{"DELETE", "/keypair/:KeyPairId", deleteKey},
+		{"GET", "/keypair/:Name", getKey},
+		{"DELETE", "/keypair/:Name", deleteKey},
+		//-- for management
+		{"GET", "/allkeypair", listAllKey},
+		{"DELETE", "/cspkeypair/:Id", deleteCSPKey},
+		/*
+			//----------VNic Handler
+			{"POST", "/vnic", createVNic},
+			{"GET", "/vnic", listVNic},
+			{"GET", "/vnic/:VNicId", getVNic},
+			{"DELETE", "/vnic/:VNicId", deleteVNic},
 
-		//----------VNic Handler
-		{"POST", "/vnic", createVNic},
-		{"GET", "/vnic", listVNic},
-		{"GET", "/vnic/:VNicId", getVNic},
-		{"DELETE", "/vnic/:VNicId", deleteVNic},
-
-		//----------PublicIP Handler
-		{"POST", "/publicip", createPublicIP},
-		{"GET", "/publicip", listPublicIP},
-		{"GET", "/publicip/:PublicIPId", getPublicIP},
-		{"DELETE", "/publicip/:PublicIPId", deletePublicIP},
-
+			//----------PublicIP Handler
+			{"POST", "/publicip", createPublicIP},
+			{"GET", "/publicip", listPublicIP},
+			{"GET", "/publicip/:PublicIPId", getPublicIP},
+			{"DELETE", "/publicip/:PublicIPId", deletePublicIP},
+		*/
 		//----------VM Handler
 		{"POST", "/vm", startVM},
 		{"GET", "/vm", listVM},
-		{"GET", "/vm/:VmId", getVM},
-		{"DELETE", "/vm/:VmId", terminateVM},
+		{"GET", "/vm/:Name", getVM},
+		{"DELETE", "/vm/:Name", terminateVM},
+		//-- for management
+		{"GET", "/allvm", listAllVM},
+		{"DELETE", "/cspvm/:Id", terminateCSPVM},
 
 		{"GET", "/vmstatus", listVMStatus},
-		{"GET", "/vmstatus/:VmId", getVMStatus},
+		{"GET", "/vmstatus/:Name", getVMStatus},
 
-		{"GET", "/controlvm/:VmId", controlVM}, // suspend, resume, reboot
+		{"GET", "/controlvm/:Name", controlVM}, // suspend, resume, reboot
 
 		//-------------------------------------------------------------------//
 		//----------SSH RUN
 		{"POST", "/sshrun", sshRun},
-		{"POST", "/sshrunkeypath", sshRunkeyPath},
-		{"POST", "/sshcopykeypath", sshCopykeyPath},
+
+		//----------AdminWeb Handler
+		{"GET", "/adminweb", aw.Frame},
+		{"GET", "/adminweb/top", aw.Top},
+		{"GET", "/adminweb/driver", aw.Driver},
+		{"GET", "/adminweb/credential", aw.Credential},
+		{"GET", "/adminweb/region", aw.Region},
+		{"GET", "/adminweb/connectionconfig", aw.Connectionconfig},
+		{"GET", "/adminweb/spiderinfo", aw.SpiderInfo},
+
+		{"GET", "/adminweb/vpc/:ConnectConfig", aw.VPC},
+		{"GET", "/adminweb/vpcmgmt/:ConnectConfig", aw.VPCMgmt},
+		{"GET", "/adminweb/securitygroup/:ConnectConfig", aw.SecurityGroup},
+		{"GET", "/adminweb/securitygroupmgmt/:ConnectConfig", aw.SecurityGroupMgmt},
+		{"GET", "/adminweb/keypair/:ConnectConfig", aw.KeyPair},
+		{"GET", "/adminweb/keypairmgmt/:ConnectConfig", aw.KeyPairMgmt},
+
+		{"GET", "/adminweb/vmimage/:ConnectConfig", aw.VMImage},		
+		{"GET", "/adminweb/vmspec/:ConnectConfig", aw.VMSpec},
 	}
 	//======================================= setup routes
 
@@ -142,6 +207,8 @@ func ApiServer(routes []route, strPort string) {
 	e.Use(middleware.Recover())
 
 	for _, route := range routes {
+		// /driver => /spider/driver
+		route.path = "/spider" + route.path
 		switch route.method {
 		case "POST":
 			e.POST(route.path, route.function)
@@ -157,7 +224,8 @@ func ApiServer(routes []route, strPort string) {
 
 	e.HideBanner = true
 	if strPort == "" {
-		strPort = ":1323"
+		strPort = ":1024"
 	}
+	cr.ServicePort = strPort
 	e.Logger.Fatal(e.Start(strPort))
 }

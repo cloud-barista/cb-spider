@@ -10,27 +10,44 @@ import (
 	"strings"
 )
 
+const (
+	defaultSecGroupCIDR = "0.0.0.0/0"
+)
+
 type ClouditSecurityHandler struct {
 	CredentialInfo idrv.CredentialInfo
 	Client         *client.RestClient
 }
 
 func setterSecGroup(secGroup securitygroup.SecurityGroupInfo) *irs.SecurityInfo {
+
 	secInfo := &irs.SecurityInfo{
-		Id:            secGroup.ID,
-		Name:          secGroup.Name,
+		IId: irs.IID{
+			NameId:   secGroup.Name,
+			SystemId: secGroup.ID,
+		},
+		VpcIID: irs.IID{
+			NameId:   defaultVPCName,
+			SystemId: defaultVPCName,
+		},
 		SecurityRules: nil,
 	}
 
-	var secRuleArr []irs.SecurityRuleInfo
-	for _, sgRule := range secGroup.Rules {
+	secRuleArr := make([]irs.SecurityRuleInfo, len(secGroup.Rules))
+	for i, sgRule := range secGroup.Rules {
 		secRuleInfo := irs.SecurityRuleInfo{
-			FromPort:   sgRule.Port,
-			ToPort:     sgRule.Port,
 			IPProtocol: sgRule.Protocol,
 			Direction:  sgRule.Type,
 		}
-		secRuleArr = append(secRuleArr, secRuleInfo)
+		if strings.Contains(sgRule.Port, "-") {
+			portArr := strings.Split(sgRule.Port, "-")
+			secRuleInfo.FromPort = portArr[0]
+			secRuleInfo.ToPort = portArr[1]
+		} else {
+			secRuleInfo.FromPort = sgRule.Port
+			secRuleInfo.ToPort = sgRule.Port
+		}
+		secRuleArr[i] = secRuleInfo
 	}
 	secInfo.SecurityRules = &secRuleArr
 
@@ -39,9 +56,9 @@ func setterSecGroup(secGroup securitygroup.SecurityGroupInfo) *irs.SecurityInfo 
 
 func (securityHandler *ClouditSecurityHandler) CreateSecurity(securityReqInfo irs.SecurityReqInfo) (irs.SecurityInfo, error) {
 	// 보안그룹 이름 중복 체크
-	securityInfo, _ := securityHandler.getSecurityByName(securityReqInfo.Name)
+	securityInfo, _ := securityHandler.getSecurityByName(securityReqInfo.IId.NameId)
 	if securityInfo != nil {
-		errMsg := fmt.Sprintf("SecurityGroup with name %s already exist", securityReqInfo.Name)
+		errMsg := fmt.Sprintf("SecurityGroup with name %s already exist", securityReqInfo.IId.NameId)
 		createErr := errors.New(errMsg)
 		return irs.SecurityInfo{}, createErr
 	}
@@ -50,20 +67,20 @@ func (securityHandler *ClouditSecurityHandler) CreateSecurity(securityReqInfo ir
 	authHeader := securityHandler.Client.AuthenticatedHeaders()
 
 	reqInfo := securitygroup.SecurityReqInfo{
-		Name: securityReqInfo.Name,
+		Name: securityReqInfo.IId.NameId,
 	}
 
 	// SecurityGroup Rule 설정
-	ruleList := []securitygroup.SecurityGroupRules{}
-	for idx, rule := range *securityReqInfo.SecurityRules {
+	ruleList := make([]securitygroup.SecurityGroupRules, len(*securityReqInfo.SecurityRules))
+	for i, rule := range *securityReqInfo.SecurityRules {
 		secRuleInfo := securitygroup.SecurityGroupRules{
-			Name:     fmt.Sprintf("%s-rules-%d", securityReqInfo.Name, idx+1),
+			Name:     fmt.Sprintf("%s-rules-%d", securityReqInfo.IId.NameId, i+1),
 			Type:     rule.Direction,
 			Port:     rule.FromPort + "-" + rule.ToPort,
-			Target:   "0.0.0.0/0",
+			Target:   defaultSecGroupCIDR,
 			Protocol: strings.ToLower(rule.IPProtocol),
 		}
-		ruleList = append(ruleList, secRuleInfo)
+		ruleList[i] = secRuleInfo
 	}
 	reqInfo.Rules = ruleList
 
@@ -72,12 +89,12 @@ func (securityHandler *ClouditSecurityHandler) CreateSecurity(securityReqInfo ir
 		MoreHeaders: authHeader,
 	}
 
-	if securityGroup, err := securitygroup.Create(securityHandler.Client, &createOpts); err != nil {
+	securityGroup, err := securitygroup.Create(securityHandler.Client, &createOpts)
+	if err != nil {
 		return irs.SecurityInfo{}, err
-	} else {
-		secGroupInfo := setterSecGroup(*securityGroup)
-		return *secGroupInfo, nil
 	}
+	secGroupInfo := setterSecGroup(*securityGroup)
+	return *secGroupInfo, nil
 }
 
 func (securityHandler *ClouditSecurityHandler) ListSecurity() ([]*irs.SecurityInfo, error) {
@@ -88,30 +105,33 @@ func (securityHandler *ClouditSecurityHandler) ListSecurity() ([]*irs.SecurityIn
 		MoreHeaders: authHeader,
 	}
 
-	if securityList, err := securitygroup.List(securityHandler.Client, &requestOpts); err != nil {
+	securityList, err := securitygroup.List(securityHandler.Client, &requestOpts)
+	if err != nil {
 		return nil, err
-	} else {
-		// SecurityGroup Rule 정보 가져오기
-		for i, sg := range *securityList {
-			if sgRules, err := securitygroup.ListRule(securityHandler.Client, sg.ID, &requestOpts); err != nil {
-				return nil, err
-			} else {
-				(*securityList)[i].Rules = *sgRules
-				(*securityList)[i].RulesCount = len(*sgRules)
-			}
-		}
-		var resultList []*irs.SecurityInfo
-		for _, security := range *securityList {
-			secInfo := setterSecGroup(security)
-			resultList = append(resultList, secInfo)
-		}
-		return resultList, nil
 	}
+
+	// SecurityGroup Rule 정보 가져오기
+	for i, sg := range *securityList {
+		sgRules, err := securitygroup.ListRule(securityHandler.Client, sg.ID, &requestOpts)
+		if err != nil {
+			cblogger.Error(err)
+			continue
+		}
+		(*securityList)[i].Rules = *sgRules
+		(*securityList)[i].RulesCount = len(*sgRules)
+	}
+
+	resultList := make([]*irs.SecurityInfo, len(*securityList))
+	for i, security := range *securityList {
+		secInfo := setterSecGroup(security)
+		resultList[i] = secInfo
+	}
+	return resultList, nil
 }
 
-func (securityHandler *ClouditSecurityHandler) GetSecurity(securityNameID string) (irs.SecurityInfo, error) {
+func (securityHandler *ClouditSecurityHandler) GetSecurity(securityIID irs.IID) (irs.SecurityInfo, error) {
 	// 이름 기준 보안그룹 조회
-	securityInfo, err := securityHandler.getSecurityByName(securityNameID)
+	securityInfo, err := securityHandler.getSecurityByName(securityIID.NameId)
 	if err != nil {
 		cblogger.Error(err)
 		return irs.SecurityInfo{}, err
@@ -124,20 +144,26 @@ func (securityHandler *ClouditSecurityHandler) GetSecurity(securityNameID string
 		MoreHeaders: authHeader,
 	}
 
+	//securityInfo, err := securitygroup.Get(securityHandler.Client, securityIID.SystemId, &requestOpts)
+	//if err != nil {
+	//	return irs.SecurityInfo{}, err
+	//}
+
 	// SecurityGroup Rule 정보 가져오기
-	if sgRules, err := securitygroup.ListRule(securityHandler.Client, securityInfo.ID, &requestOpts); err != nil {
+	sgRules, err := securitygroup.ListRule(securityHandler.Client, securityInfo.ID, &requestOpts)
+	if err != nil {
 		return irs.SecurityInfo{}, err
-	} else {
-		(*securityInfo).Rules = *sgRules
-		(*securityInfo).RulesCount = len(*sgRules)
 	}
+
+	(*securityInfo).Rules = *sgRules
+	(*securityInfo).RulesCount = len(*sgRules)
 	secGroupInfo := setterSecGroup(*securityInfo)
 	return *secGroupInfo, nil
 }
 
-func (securityHandler *ClouditSecurityHandler) DeleteSecurity(securityNameID string) (bool, error) {
+func (securityHandler *ClouditSecurityHandler) DeleteSecurity(securityIID irs.IID) (bool, error) {
 	// 이름 기준 보안그룹 조회
-	securityInfo, err := securityHandler.getSecurityByName(securityNameID)
+	securityInfo, err := securityHandler.getSecurityByName(securityIID.NameId)
 	if err != nil {
 		cblogger.Error(err)
 		return false, err
@@ -149,12 +175,15 @@ func (securityHandler *ClouditSecurityHandler) DeleteSecurity(securityNameID str
 	requestOpts := client.RequestOpts{
 		MoreHeaders: authHeader,
 	}
+
 	// 보안그룹 삭제
+	//if err := securitygroup.Delete(securityHandler.Client, securityIID.SystemId, &requestOpts); err != nil {
+	//	return false, err
+	//}
 	if err := securitygroup.Delete(securityHandler.Client, securityInfo.ID, &requestOpts); err != nil {
 		return false, err
-	} else {
-		return true, nil
 	}
+	return true, nil
 }
 
 func (securityHandler *ClouditSecurityHandler) getSecurityByName(securityName string) (*securitygroup.SecurityGroupInfo, error) {
@@ -166,7 +195,6 @@ func (securityHandler *ClouditSecurityHandler) getSecurityByName(securityName st
 	requestOpts := client.RequestOpts{
 		MoreHeaders: authHeader,
 	}
-
 	securityList, err := securitygroup.List(securityHandler.Client, &requestOpts)
 	if err != nil {
 		return nil, err

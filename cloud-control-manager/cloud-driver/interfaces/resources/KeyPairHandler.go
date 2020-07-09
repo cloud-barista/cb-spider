@@ -6,27 +6,28 @@
 //
 // This is Resouces interfaces of Cloud Driver.
 //
+// by CB-Spider Team, 2020.04.
 // by CB-Spider Team, 2019.06.
 
 package resources
 
 type KeyPairReqInfo struct {
-        Name     string
+	IId   IID       // {NameId, SystemId}
 }
 
 type KeyPairInfo struct {
-     Name        string
-     Fingerprint string
-     PublicKey   string
-     PrivateKey  string
-     VMUserID      string
+	IId   IID       // {NameId, SystemId}
+	Fingerprint string
+	PublicKey   string
+	PrivateKey  string
+	VMUserID      string
 
-     KeyValueList []KeyValue 
+	KeyValueList []KeyValue 
 }
 
 type KeyPairHandler interface {
 	CreateKey(keyPairReqInfo KeyPairReqInfo) (KeyPairInfo, error)
 	ListKey() ([]*KeyPairInfo, error)
-	GetKey(keyName string) (KeyPairInfo, error) 
-	DeleteKey(keyName string) (bool, error)     
+	GetKey(keyIID IID) (KeyPairInfo, error) 
+	DeleteKey(keyIID IID) (bool, error)     
 }

@@ -11,6 +11,12 @@ import (
 	"strings"
 )
 
+const (
+	Inbound  = "inbound"
+	Outbound = "outbound"
+	ICMP     = "icmp"
+)
+
 type OpenStackSecurityHandler struct {
 	Client        *gophercloud.ServiceClient
 	NetworkClient *gophercloud.ServiceClient
@@ -18,8 +24,10 @@ type OpenStackSecurityHandler struct {
 
 func (securityHandler *OpenStackSecurityHandler) setterSeg(secGroup secgroups.SecurityGroup) *irs.SecurityInfo {
 	secInfo := &irs.SecurityInfo{
-		Id:   secGroup.ID,
-		Name: secGroup.Name,
+		IId: irs.IID{
+			NameId:   secGroup.Name,
+			SystemId: secGroup.ID,
+		},
 	}
 
 	listOpts := rules.ListOpts{
@@ -35,29 +43,29 @@ func (securityHandler *OpenStackSecurityHandler) setterSeg(secGroup secgroups.Se
 	}
 
 	// 보안그룹 룰 정보 등록
-	secRuleList := []irs.SecurityRuleInfo{}
-	/*for _, rule := range secGroup.Rules {
-		ruleInfo := irs.SecurityRuleInfo{
-			FromPort:   strconv.Itoa(rule.FromPort),
-			ToPort:     strconv.Itoa(rule.ToPort),
-			IPProtocol: rule.IPProtocol,
-		}
-		secRuleList = append(secRuleList, ruleInfo)
-	}*/
-	for _, rule := range secList {
+	secRuleList := make([]irs.SecurityRuleInfo, len(secList))
+	for i, rule := range secList {
 		var direction string
 		if strings.EqualFold(rule.Direction, rules.DirIngress) {
-			direction = "inbound"
+			direction = Inbound
 		} else {
-			direction = "outbound"
+			direction = Outbound
 		}
+
 		ruleInfo := irs.SecurityRuleInfo{
 			Direction:  direction,
-			FromPort:   strconv.Itoa(rule.PortRangeMin),
-			ToPort:     strconv.Itoa(rule.PortRangeMax),
-			IPProtocol: rule.Protocol,
+			IPProtocol: strings.ToLower(rule.Protocol),
 		}
-		secRuleList = append(secRuleList, ruleInfo)
+
+		if strings.ToLower(rule.Protocol) == ICMP {
+			ruleInfo.FromPort = "-1"
+			ruleInfo.ToPort = "-1"
+		} else {
+			ruleInfo.FromPort = strconv.Itoa(rule.PortRangeMin)
+			ruleInfo.ToPort = strconv.Itoa(rule.PortRangeMax)
+		}
+
+		secRuleList[i] = ruleInfo
 	}
 	secInfo.SecurityRules = &secRuleList
 
@@ -70,10 +78,9 @@ func (securityHandler *OpenStackSecurityHandler) CreateSecurity(securityReqInfo 
 	if err != nil {
 		return irs.SecurityInfo{}, err
 	}
-
 	for _, sg := range secGroupList {
-		if sg.Name == securityReqInfo.Name {
-			errMsg := fmt.Sprintf("Security Group with name %s already exist", securityReqInfo.Name)
+		if sg.IId.NameId == securityReqInfo.IId.NameId {
+			errMsg := fmt.Sprintf("Security Group with name %s already exist", securityReqInfo.IId.NameId)
 			createErr := errors.New(errMsg)
 			return irs.SecurityInfo{}, createErr
 		}
@@ -81,8 +88,8 @@ func (securityHandler *OpenStackSecurityHandler) CreateSecurity(securityReqInfo 
 
 	// Create SecurityGroup
 	createOpts := secgroups.CreateOpts{
-		Name:        securityReqInfo.Name,
-		Description: securityReqInfo.Name,
+		Name:        securityReqInfo.IId.NameId,
+		Description: securityReqInfo.IId.NameId,
 	}
 	group, err := secgroups.Create(securityHandler.Client, createOpts).Extract()
 	if err != nil {
@@ -93,37 +100,36 @@ func (securityHandler *OpenStackSecurityHandler) CreateSecurity(securityReqInfo 
 	for _, rule := range *securityReqInfo.SecurityRules {
 
 		var direction string
-		if strings.EqualFold(strings.ToLower(rule.Direction), "inbound") {
+		if strings.EqualFold(strings.ToLower(rule.Direction), Inbound) {
 			direction = rules.DirIngress
 		} else {
 			direction = rules.DirEgress
 		}
 
-		fromPort, _ := strconv.Atoi(rule.FromPort)
-		toPort, _ := strconv.Atoi(rule.ToPort)
+		var createRuleOpts rules.CreateOpts
 
-		/*createRuleOpts := secgroups.CreateRuleOpts{
-			FromPort:      fromPort,
-			ToPort:        toPort,
-			IPProtocol:    rule.IPProtocol,
-			CIDR:          "0.0.0.0/0",
-			ParentGroupID: group.ID,
+		if strings.ToLower(rule.IPProtocol) == ICMP {
+			createRuleOpts = rules.CreateOpts{
+				Direction:      direction,
+				EtherType:      rules.Ether4,
+				SecGroupID:     group.ID,
+				Protocol:       strings.ToLower(rule.IPProtocol),
+				RemoteIPPrefix: "0.0.0.0/0",
+			}
+		} else {
+			fromPort, _ := strconv.Atoi(rule.FromPort)
+			toPort, _ := strconv.Atoi(rule.ToPort)
+			createRuleOpts = rules.CreateOpts{
+				Direction:      direction,
+				EtherType:      rules.Ether4,
+				SecGroupID:     group.ID,
+				PortRangeMin:   fromPort,
+				PortRangeMax:   toPort,
+				Protocol:       strings.ToLower(rule.IPProtocol),
+				RemoteIPPrefix: "0.0.0.0/0",
+			}
 		}
 
-		_, err := secgroups.CreateRule(securityHandler.Client, createRuleOpts).Extract()
-		if err != nil {
-			return irs.SecurityInfo{}, err
-		}*/
-
-		createRuleOpts := rules.CreateOpts{
-			Direction:      direction,
-			EtherType:      rules.Ether4,
-			SecGroupID:     group.ID,
-			PortRangeMin:   fromPort,
-			PortRangeMax:   toPort,
-			Protocol:       rule.IPProtocol,
-			RemoteIPPrefix: "0.0.0.0/0",
-		}
 		_, err := rules.Create(securityHandler.NetworkClient, createRuleOpts).Extract()
 		if err != nil {
 			return irs.SecurityInfo{}, err
@@ -131,7 +137,7 @@ func (securityHandler *OpenStackSecurityHandler) CreateSecurity(securityReqInfo 
 	}
 
 	// 생성된 SecurityGroup 정보 리턴
-	securityInfo, err := securityHandler.getSecurityById(group.ID)
+	securityInfo, err := securityHandler.GetSecurity(irs.IID{SystemId: group.ID})
 	if err != nil {
 		return irs.SecurityInfo{}, err
 	}
@@ -159,34 +165,8 @@ func (securityHandler *OpenStackSecurityHandler) ListSecurity() ([]*irs.Security
 	return securityList, nil
 }
 
-func (securityHandler *OpenStackSecurityHandler) GetSecurity(securityNameId string) (irs.SecurityInfo, error) {
-	securityId, err := securityHandler.getSecurityIdByName(securityNameId)
-	if err != nil {
-		return irs.SecurityInfo{}, err
-	}
-
-	securityGroup, err := securityHandler.getSecurityById(securityId)
-	if err != nil {
-		return irs.SecurityInfo{}, err
-	}
-	return securityGroup, nil
-}
-
-func (securityHandler *OpenStackSecurityHandler) DeleteSecurity(securityNameId string) (bool, error) {
-	securityId, err := securityHandler.getSecurityIdByName(securityNameId)
-	if err != nil {
-		return false, err
-	}
-
-	result := secgroups.Delete(securityHandler.Client, securityId)
-	if result.Err != nil {
-		return false, result.Err
-	}
-	return true, nil
-}
-
-func (securityHandler *OpenStackSecurityHandler) getSecurityById(securityID string) (irs.SecurityInfo, error) {
-	securityGroup, err := secgroups.Get(securityHandler.Client, securityID).Extract()
+func (securityHandler *OpenStackSecurityHandler) GetSecurity(securityIID irs.IID) (irs.SecurityInfo, error) {
+	securityGroup, err := secgroups.Get(securityHandler.Client, securityIID.SystemId).Extract()
 	if err != nil {
 		return irs.SecurityInfo{}, err
 	}
@@ -195,19 +175,10 @@ func (securityHandler *OpenStackSecurityHandler) getSecurityById(securityID stri
 	return *securityInfo, nil
 }
 
-func (securityHandler *OpenStackSecurityHandler) getSecurityIdByName(securityName string) (string, error) {
-	var securityId string
-
-	securityList, err := securityHandler.ListSecurity()
-	if err != nil {
-		return "", err
+func (securityHandler *OpenStackSecurityHandler) DeleteSecurity(securityIID irs.IID) (bool, error) {
+	result := secgroups.Delete(securityHandler.Client, securityIID.SystemId)
+	if result.Err != nil {
+		return false, result.Err
 	}
-	for _, s := range securityList {
-		if strings.EqualFold(s.Name, securityName) {
-			securityId = s.Id
-			break
-		}
-	}
-
-	return securityId, nil
+	return true, nil
 }

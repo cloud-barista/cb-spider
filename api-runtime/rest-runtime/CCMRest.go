@@ -1,114 +1,130 @@
-// Cloud Control Manager's Rest Runtime of CB-Spider.
+// Cloud Control Manager's Rest Runtime of CB-Spider.ll
 // The CB-Spider is a sub-Framework of the Cloud-Barista Multi-Cloud Project.
 // The CB-Spider Mission is to connect all the clouds with a single interface.
 //
 //      * Cloud-Barista: https://github.com/cloud-barista
 //
+// by CB-Spider Team, 2020.04.
 // by CB-Spider Team, 2019.10.
 
-package main
+package restruntime
 
 import (
-	ccm "github.com/cloud-barista/cb-spider/cloud-control-manager"
+	"fmt"
+
+	cmrt "github.com/cloud-barista/cb-spider/api-runtime/common-runtime"
 	cres "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 
 	// REST API (echo)
-	"github.com/labstack/echo"
 	"net/http"
 
-	"strings"
-	"strconv"
+	"github.com/labstack/echo"
 
-	"time"
+	"strconv"
+	"strings"
 )
 
+// define string of resource types
+const (
+	rsImage string = "image"
+	rsVPC   string = "vpc"
+	// rsSubnet = SUBNET:{VPC NameID} => cook in code
+	rsSG  string = "sg"
+	rsKey string = "keypair"
+	rsVM  string = "vm"
+)
+
+const rsSubnetPrefix string = "subnet:"
+const sgDELIMITER string = "-delimiter-"
+
 //================ Image Handler
-// @todo
 func createImage(c echo.Context) error {
 	cblog.Info("call createImage()")
 
-	cldConn, err := ccm.GetCloudConnection(c.QueryParam("connection_name"))
+	var req struct {
+		ConnectionName string
+		ReqInfo        struct {
+			Name string
+		}
+	}
+
+	if err := c.Bind(&req); err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	reqInfo := cres.ImageReqInfo{
+		IId: cres.IID{req.ReqInfo.Name, ""},
+	}
+
+	// Call common-runtime API
+	result, err := cmrt.CreateImage(req.ConnectionName, rsImage, reqInfo)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
-	handler, err := cldConn.CreateImageHandler()
-	if err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
-	}
-
-	req := &cres.ImageReqInfo{}
-	if err := c.Bind(req); err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
-	}
-
-	info, err := handler.CreateImage(*req)
-	if err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
-	}
-
-	return c.JSON(http.StatusOK, &info)
+	return c.JSON(http.StatusOK, result)
 }
 
 func listImage(c echo.Context) error {
 	cblog.Info("call listImage()")
 
-	cldConn, err := ccm.GetCloudConnection(c.QueryParam("connection_name"))
-	if err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+	var req struct {
+		ConnectionName string
 	}
 
-	handler, err := cldConn.CreateImageHandler()
-	if err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+	if err := c.Bind(&req); err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
-	infoList, err := handler.ListImage()
+	// Call common-runtime API
+	result, err := cmrt.ListImage(req.ConnectionName, rsImage)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
-	return c.JSON(http.StatusOK, &infoList)
+	var jsonResult struct {
+		Result []*cres.ImageInfo `json:"image"`
+	}
+
+	jsonResult.Result = result
+	return c.JSON(http.StatusOK, &jsonResult)
 }
 
 func getImage(c echo.Context) error {
 	cblog.Info("call getImage()")
 
-	cldConn, err := ccm.GetCloudConnection(c.QueryParam("connection_name"))
-	if err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+	var req struct {
+		ConnectionName string
 	}
 
-	handler, err := cldConn.CreateImageHandler()
-	if err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+	if err := c.Bind(&req); err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
-start := time.Now()
-	info, err := handler.GetImage(c.Param("ImageName"))
+
+	// Call common-runtime API
+	result, err := cmrt.GetImage(req.ConnectionName, rsImage, c.Param("Name"))
 	if err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
-elapsed := time.Since(start)
-cblog.Infof(c.QueryParam("connection_name") + " : elapsed %d", elapsed.Nanoseconds()/1000000) // msec
-	return c.JSON(http.StatusOK, &info)
+
+	return c.JSON(http.StatusOK, result)
 }
 
 func deleteImage(c echo.Context) error {
 	cblog.Info("call deleteImage()")
 
-	cldConn, err := ccm.GetCloudConnection(c.QueryParam("connection_name"))
-	if err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+	var req struct {
+		ConnectionName string
 	}
 
-	handler, err := cldConn.CreateImageHandler()
-	if err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+	if err := c.Bind(&req); err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
-	result, err := handler.DeleteImage(c.Param("ImageId"))
+	// Call common-runtime API
+	result, err := cmrt.DeleteImage(req.ConnectionName, rsImage, c.Param("Name"))
 	if err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
 	resultInfo := BooleanInfo{
@@ -118,96 +134,262 @@ func deleteImage(c echo.Context) error {
 	return c.JSON(http.StatusOK, &resultInfo)
 }
 
-//================ VNetwork Handler
-func createVNetwork(c echo.Context) error {
-	cblog.Info("call createVNetwork()")
+//================ VMSpec Handler
+func listVMSpec(c echo.Context) error {
+	cblog.Info("call listVMSpec()")
 
-	cldConn, err := ccm.GetCloudConnection(c.QueryParam("connection_name"))
+	var req struct {
+		ConnectionName string
+	}
+
+	if err := c.Bind(&req); err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	// Call common-runtime API
+	result, err := cmrt.ListVMSpec(req.ConnectionName)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
-	handler, err := cldConn.CreateVNetworkHandler()
-	if err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+	var jsonResult struct {
+		Result []*cres.VMSpecInfo `json:"vmspec"`
 	}
-
-	req := &cres.VNetworkReqInfo{}
-	if err := c.Bind(req); err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
-	}
-
-	info, err := handler.CreateVNetwork(*req)
-	if err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
-	}
-
-	return c.JSON(http.StatusOK, &info)
+	jsonResult.Result = result
+	return c.JSON(http.StatusOK, &jsonResult)
 }
 
-func listVNetwork(c echo.Context) error {
-	cblog.Info("call listVNetwork()")
+func getVMSpec(c echo.Context) error {
+	cblog.Info("call getVMSpec()")
 
-	cldConn, err := ccm.GetCloudConnection(c.QueryParam("connection_name"))
-	if err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+	var req struct {
+		ConnectionName string
 	}
 
-	handler, err := cldConn.CreateVNetworkHandler()
-	if err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+	if err := c.Bind(&req); err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
-	infoList, err := handler.ListVNetwork()
+	// Call common-runtime API
+	result, err := cmrt.GetVMSpec(req.ConnectionName, c.Param("Name"))
 	if err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
-	return c.JSON(http.StatusOK, &infoList)
+	return c.JSON(http.StatusOK, result)
 }
 
-func getVNetwork(c echo.Context) error {
-	cblog.Info("call getVNetwork()")
+func listOrgVMSpec(c echo.Context) error {
+	cblog.Info("call listOrgVMSpec()")
 
-	cldConn, err := ccm.GetCloudConnection(c.QueryParam("connection_name"))
-	if err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+	var req struct {
+		ConnectionName string
 	}
 
-	handler, err := cldConn.CreateVNetworkHandler()
-	if err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+	if err := c.Bind(&req); err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
-	info, err := handler.GetVNetwork(c.Param("VNetId"))
+	// Call common-runtime API
+	result, err := cmrt.ListOrgVMSpec(req.ConnectionName)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
-	return c.JSON(http.StatusOK, &info)
+	return c.String(http.StatusOK, result)
 }
 
-func deleteVNetwork(c echo.Context) error {
-	cblog.Info("call deleteVNetwork()")
+func getOrgVMSpec(c echo.Context) error {
+	cblog.Info("call getOrgVMSpec()")
 
-	cldConn, err := ccm.GetCloudConnection(c.QueryParam("connection_name"))
-	if err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+	var req struct {
+		ConnectionName string
 	}
 
-	handler, err := cldConn.CreateVNetworkHandler()
-	if err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+	if err := c.Bind(&req); err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
-	result, err := handler.DeleteVNetwork(c.Param("VNetId"))
+	// Call common-runtime API
+	result, err := cmrt.GetOrgVMSpec(req.ConnectionName, c.Param("Name"))
 	if err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
-        resultInfo := BooleanInfo{
-                Result: strconv.FormatBool(result),
-        }
+	return c.String(http.StatusOK, result)
+}
+
+//================ VPC Handler
+func createVPC(c echo.Context) error {
+	cblog.Info("call createVPC()")
+
+	var req struct {
+		ConnectionName string
+		ReqInfo        struct {
+			Name           string
+			IPv4_CIDR      string
+			SubnetInfoList []struct {
+				Name      string
+				IPv4_CIDR string
+			}
+		}
+	}
+
+	if err := c.Bind(&req); err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	// check the input Name to include the SUBNET: Prefix
+	if strings.HasPrefix(req.ReqInfo.Name, rsSubnetPrefix) {
+		return echo.NewHTTPError(http.StatusInternalServerError, fmt.Errorf(rsSubnetPrefix+" cannot be used for VPC name prefix!!"))
+	}
+	// check the input Name to include the SecurityGroup Delimiter
+	if strings.HasPrefix(req.ReqInfo.Name, sgDELIMITER) {
+		return echo.NewHTTPError(http.StatusInternalServerError, fmt.Errorf(sgDELIMITER+" cannot be used in VPC name!!"))
+	}
+
+	// Rest RegInfo => Driver ReqInfo
+	// (1) create SubnetInfo List
+	subnetInfoList := []cres.SubnetInfo{}
+	for _, info := range req.ReqInfo.SubnetInfoList {
+		subnetInfo := cres.SubnetInfo{IId: cres.IID{info.Name, ""}, IPv4_CIDR: info.IPv4_CIDR}
+		subnetInfoList = append(subnetInfoList, subnetInfo)
+	}
+	// (2) create VPCReqInfo with SubnetInfo List
+	reqInfo := cres.VPCReqInfo{
+		IId:            cres.IID{req.ReqInfo.Name, ""},
+		IPv4_CIDR:      req.ReqInfo.IPv4_CIDR,
+		SubnetInfoList: subnetInfoList,
+	}
+
+	// Call common-runtime API
+	result, err := cmrt.CreateVPC(req.ConnectionName, rsVPC, reqInfo)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	return c.JSON(http.StatusOK, result)
+}
+
+func listVPC(c echo.Context) error {
+	cblog.Info("call listVPC()")
+
+	var req struct {
+		ConnectionName string
+	}
+
+	if err := c.Bind(&req); err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	// Call common-runtime API
+	result, err := cmrt.ListVPC(req.ConnectionName, rsVPC)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	var jsonResult struct {
+		Result []*cres.VPCInfo `json:"vpc"`
+	}
+	jsonResult.Result = result
+
+	return c.JSON(http.StatusOK, &jsonResult)
+}
+
+// list all VPCs for management
+// (1) get args from REST Call
+// (2) get all VPC List by common-runtime API
+// (3) return REST Json Format
+func listAllVPC(c echo.Context) error {
+	cblog.Info("call listAllVPC()")
+
+	var req struct {
+		ConnectionName string
+	}
+
+	if err := c.Bind(&req); err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	// Call common-runtime API
+	allResourceList, err := cmrt.ListAllResource(req.ConnectionName, rsVPC)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	return c.JSON(http.StatusOK, &allResourceList)
+}
+
+func getVPC(c echo.Context) error {
+	cblog.Info("call getVPC()")
+
+	var req struct {
+		ConnectionName string
+	}
+
+	if err := c.Bind(&req); err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	// Call common-runtime API
+	result, err := cmrt.GetVPC(req.ConnectionName, rsVPC, c.Param("Name"))
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	return c.JSON(http.StatusOK, result)
+}
+
+// (1) get args from REST Call
+// (2) call common-runtime API
+// (3) return REST Json Format
+func deleteVPC(c echo.Context) error {
+	cblog.Info("call deleteVPC()")
+
+	var req struct {
+		ConnectionName string
+	}
+
+	if err := c.Bind(&req); err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	// Call common-runtime API
+	result, _, err := cmrt.DeleteResource(req.ConnectionName, rsVPC, c.Param("Name"), c.QueryParam("force"))
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	resultInfo := BooleanInfo{
+		Result: strconv.FormatBool(result),
+	}
+
+	return c.JSON(http.StatusOK, &resultInfo)
+}
+
+// (1) get args from REST Call
+// (2) call common-runtime API
+// (3) return REST Json Format
+func deleteCSPVPC(c echo.Context) error {
+	cblog.Info("call deleteCSPVPC()")
+
+	var req struct {
+		ConnectionName string
+	}
+
+	if err := c.Bind(&req); err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	// Call common-runtime API
+	result, _, err := cmrt.DeleteCSPResource(req.ConnectionName, rsVPC, c.Param("Id"))
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	resultInfo := BooleanInfo{
+		Result: strconv.FormatBool(result),
+	}
 
 	return c.JSON(http.StatusOK, &resultInfo)
 }
@@ -216,92 +398,162 @@ func deleteVNetwork(c echo.Context) error {
 func createSecurity(c echo.Context) error {
 	cblog.Info("call createSecurity()")
 
-	cldConn, err := ccm.GetCloudConnection(c.QueryParam("connection_name"))
+	var req struct {
+		ConnectionName string
+		ReqInfo        struct {
+			Name          string
+			VPCName       string
+			Direction     string
+			SecurityRules *[]cres.SecurityRuleInfo
+		}
+	}
+
+	if err := c.Bind(&req); err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	// check the input Name to include the SecurityGroup Delimiter
+	if strings.HasPrefix(req.ReqInfo.Name, sgDELIMITER) {
+		return echo.NewHTTPError(http.StatusInternalServerError, fmt.Errorf(sgDELIMITER+" cannot be used in SecurityGroup name!!"))
+	}
+
+	// Rest RegInfo => Driver ReqInfo
+	reqInfo := cres.SecurityReqInfo{
+		// SG NameID format => {VPC NameID} + sgDELIMITER + {SG NameID}
+		// transform: SG NameID => {VPC NameID} + sgDELIMITER + {SG NameID}
+		IId:           cres.IID{req.ReqInfo.VPCName + sgDELIMITER + req.ReqInfo.Name, ""},
+		VpcIID:        cres.IID{req.ReqInfo.VPCName, ""},
+		Direction:     req.ReqInfo.Direction,
+		SecurityRules: req.ReqInfo.SecurityRules,
+	}
+
+	// Call common-runtime API
+	result, err := cmrt.CreateSecurity(req.ConnectionName, rsSG, reqInfo)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
-	handler, err := cldConn.CreateSecurityHandler()
-	if err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
-	}
-
-	req := &cres.SecurityReqInfo{}
-	if err := c.Bind(req); err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
-	}
-
-	info, err := handler.CreateSecurity(*req)
-	if err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
-	}
-
-	return c.JSON(http.StatusOK, &info)
+	return c.JSON(http.StatusOK, result)
 }
 
 func listSecurity(c echo.Context) error {
 	cblog.Info("call listSecurity()")
 
-	cldConn, err := ccm.GetCloudConnection(c.QueryParam("connection_name"))
-	if err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+	var req struct {
+		ConnectionName string
 	}
 
-	handler, err := cldConn.CreateSecurityHandler()
-	if err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+	if err := c.Bind(&req); err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
-	infoList, err := handler.ListSecurity()
+	// Call common-runtime API
+	result, err := cmrt.ListSecurity(req.ConnectionName, rsSG)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
-	return c.JSON(http.StatusOK, &infoList)
+	var jsonResult struct {
+		Result []*cres.SecurityInfo `json:"securitygroup"`
+	}
+	jsonResult.Result = result
+	return c.JSON(http.StatusOK, &jsonResult)
+}
+
+// list all SGs for management
+// (1) get args from REST Call
+// (2) get all SG List by common-runtime API
+// (3) return REST Json Format
+func listAllSecurity(c echo.Context) error {
+	cblog.Info("call listAllSecurity()")
+
+	var req struct {
+		ConnectionName string
+	}
+
+	if err := c.Bind(&req); err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	// Call common-runtime API
+	allResourceList, err := cmrt.ListAllResource(req.ConnectionName, rsSG)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	return c.JSON(http.StatusOK, &allResourceList)
 }
 
 func getSecurity(c echo.Context) error {
 	cblog.Info("call getSecurity()")
 
-	cldConn, err := ccm.GetCloudConnection(c.QueryParam("connection_name"))
-	if err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+	var req struct {
+		ConnectionName string
 	}
 
-	handler, err := cldConn.CreateSecurityHandler()
-	if err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+	if err := c.Bind(&req); err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
-	info, err := handler.GetSecurity(c.Param("SecurityGroupId"))
+	// Call common-runtime API
+	result, err := cmrt.GetSecurity(req.ConnectionName, rsSG, c.Param("Name"))
 	if err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
-	return c.JSON(http.StatusOK, &info)
+	return c.JSON(http.StatusOK, result)
 }
 
+// (1) get args from REST Call
+// (2) call common-runtime API
+// (3) return REST Json Format
 func deleteSecurity(c echo.Context) error {
 	cblog.Info("call deleteSecurity()")
 
-	cldConn, err := ccm.GetCloudConnection(c.QueryParam("connection_name"))
-	if err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+	var req struct {
+		ConnectionName string
 	}
 
-	handler, err := cldConn.CreateSecurityHandler()
-	if err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+	if err := c.Bind(&req); err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
-	result, err := handler.DeleteSecurity(c.Param("SecurityGroupId"))
+	// Call common-runtime API
+	result, _, err := cmrt.DeleteResource(req.ConnectionName, rsSG, c.Param("Name"), c.QueryParam("force"))
 	if err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
-        resultInfo := BooleanInfo{
-                Result: strconv.FormatBool(result),
-        }
+	resultInfo := BooleanInfo{
+		Result: strconv.FormatBool(result),
+	}
+
+	return c.JSON(http.StatusOK, &resultInfo)
+}
+
+// (1) get args from REST Call
+// (2) call common-runtime API
+// (3) return REST Json Format
+func deleteCSPSecurity(c echo.Context) error {
+	cblog.Info("call deleteCSPSecurity()")
+
+	var req struct {
+		ConnectionName string
+	}
+
+	if err := c.Bind(&req); err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	// Call common-runtime API
+	result, _, err := cmrt.DeleteCSPResource(req.ConnectionName, rsSG, c.Param("Id"))
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	resultInfo := BooleanInfo{
+		Result: strconv.FormatBool(result),
+	}
 
 	return c.JSON(http.StatusOK, &resultInfo)
 }
@@ -310,118 +562,180 @@ func deleteSecurity(c echo.Context) error {
 func createKey(c echo.Context) error {
 	cblog.Info("call createKey()")
 
-	cldConn, err := ccm.GetCloudConnection(c.QueryParam("connection_name"))
+	var req struct {
+		ConnectionName string
+		ReqInfo        struct {
+			Name string
+		}
+	}
+
+	if err := c.Bind(&req); err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	// Rest RegInfo => Driver ReqInfo
+	reqInfo := cres.KeyPairReqInfo{
+		IId: cres.IID{req.ReqInfo.Name, ""},
+	}
+
+	// Call common-runtime API
+	result, err := cmrt.CreateKey(req.ConnectionName, rsKey, reqInfo)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
-	handler, err := cldConn.CreateKeyPairHandler()
-	if err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
-	}
-
-	req := &cres.KeyPairReqInfo{}
-	if err := c.Bind(req); err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
-	}
-
-	info, err := handler.CreateKey(*req)
-	if err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
-	}
-
-	return c.JSON(http.StatusOK, &info)
+	return c.JSON(http.StatusOK, result)
 }
 
 func listKey(c echo.Context) error {
 	cblog.Info("call listKey()")
 
-	cldConn, err := ccm.GetCloudConnection(c.QueryParam("connection_name"))
-	if err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+	var req struct {
+		ConnectionName string
 	}
 
-	handler, err := cldConn.CreateKeyPairHandler()
-	if err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+	if err := c.Bind(&req); err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
-	infoList, err := handler.ListKey()
+	// Call common-runtime API
+	result, err := cmrt.ListKey(req.ConnectionName, rsKey)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
-	return c.JSON(http.StatusOK, &infoList)
+	var jsonResult struct {
+		Result []*cres.KeyPairInfo `json:"keypair"`
+	}
+	jsonResult.Result = result
+	return c.JSON(http.StatusOK, &jsonResult)
+}
+
+// list all KeyPairs for management
+// (1) get args from REST Call
+// (2) get all KeyPair List by common-runtime API
+// (3) return REST Json Format
+func listAllKey(c echo.Context) error {
+	cblog.Info("call listAllKey()")
+
+	var req struct {
+		ConnectionName string
+	}
+
+	if err := c.Bind(&req); err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	// Call common-runtime API
+	allResourceList, err := cmrt.ListAllResource(req.ConnectionName, rsKey)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	return c.JSON(http.StatusOK, &allResourceList)
 }
 
 func getKey(c echo.Context) error {
 	cblog.Info("call getKey()")
 
-	cldConn, err := ccm.GetCloudConnection(c.QueryParam("connection_name"))
-	if err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+	var req struct {
+		ConnectionName string
 	}
 
-	handler, err := cldConn.CreateKeyPairHandler()
-	if err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+	if err := c.Bind(&req); err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
-	info, err := handler.GetKey(c.Param("KeyPairId"))
+	// Call common-runtime API
+	result, err := cmrt.GetKey(req.ConnectionName, rsKey, c.Param("Name"))
 	if err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
-	return c.JSON(http.StatusOK, &info)
+	return c.JSON(http.StatusOK, result)
 }
 
+// (1) get args from REST Call
+// (2) call common-runtime API
+// (3) return REST Json Format
 func deleteKey(c echo.Context) error {
 	cblog.Info("call deleteKey()")
 
-	cldConn, err := ccm.GetCloudConnection(c.QueryParam("connection_name"))
-	if err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+	var req struct {
+		ConnectionName string
 	}
 
-	handler, err := cldConn.CreateKeyPairHandler()
-	if err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+	if err := c.Bind(&req); err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
-	result, err := handler.DeleteKey(c.Param("KeyPairId"))
+	// Call common-runtime API
+	result, _, err := cmrt.DeleteResource(req.ConnectionName, rsKey, c.Param("Name"), c.QueryParam("force"))
 	if err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
-        resultInfo := BooleanInfo{
-                Result: strconv.FormatBool(result),
-        }
+	resultInfo := BooleanInfo{
+		Result: strconv.FormatBool(result),
+	}
 
 	return c.JSON(http.StatusOK, &resultInfo)
 }
 
+// (1) get args from REST Call
+// (2) call common-runtime API
+// (3) return REST Json Format
+func deleteCSPKey(c echo.Context) error {
+	cblog.Info("call deleteCSPKey()")
+
+	var req struct {
+		ConnectionName string
+	}
+
+	if err := c.Bind(&req); err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	// Call common-runtime API
+	result, _, err := cmrt.DeleteCSPResource(req.ConnectionName, rsKey, c.Param("Id"))
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	resultInfo := BooleanInfo{
+		Result: strconv.FormatBool(result),
+	}
+
+	return c.JSON(http.StatusOK, &resultInfo)
+}
+
+/****************************
 //================ VNic Handler
 func createVNic(c echo.Context) error {
 	cblog.Info("call createVNic()")
 
-	cldConn, err := ccm.GetCloudConnection(c.QueryParam("connection_name"))
+        var req struct {
+                ConnectionName string
+                ReqInfo cres.VNicReqInfo
+        }
+
+        if err := c.Bind(&req); err != nil {
+                return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+        }
+
+        cldConn, err := ccm.GetCloudConnection(req.ConnectionName)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
 	handler, err := cldConn.CreateVNicHandler()
 	if err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
-	req := &cres.VNicReqInfo{}
-	if err := c.Bind(req); err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
-	}
-
-	info, err := handler.CreateVNic(*req)
+	info, err := handler.CreateVNic(req.ReqInfo)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
 	return c.JSON(http.StatusOK, &info)
@@ -430,40 +744,63 @@ func createVNic(c echo.Context) error {
 func listVNic(c echo.Context) error {
 	cblog.Info("call listVNic()")
 
-	cldConn, err := ccm.GetCloudConnection(c.QueryParam("connection_name"))
+        var req struct {
+                ConnectionName string
+        }
+
+        if err := c.Bind(&req); err != nil {
+                return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+        }
+
+        cldConn, err := ccm.GetCloudConnection(req.ConnectionName)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
 	handler, err := cldConn.CreateVNicHandler()
 	if err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
 	infoList, err := handler.ListVNic()
 	if err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
-	return c.JSON(http.StatusOK, &infoList)
+        var jsonResult struct {
+                Result []*cres.VNicInfo `json:"vnic"`
+        }
+        if infoList == nil {
+                infoList = []*cres.VNicInfo{}
+        }
+        jsonResult.Result = infoList
+        return c.JSON(http.StatusOK, &jsonResult)
 }
 
 func getVNic(c echo.Context) error {
 	cblog.Info("call getVNic()")
 
-	cldConn, err := ccm.GetCloudConnection(c.QueryParam("connection_name"))
+        var req struct {
+                ConnectionName string
+        }
+
+        if err := c.Bind(&req); err != nil {
+                return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+        }
+
+        cldConn, err := ccm.GetCloudConnection(req.ConnectionName)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
 	handler, err := cldConn.CreateVNicHandler()
 	if err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
 	info, err := handler.GetVNic(c.Param("VNicId"))
 	if err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
 	return c.JSON(http.StatusOK, &info)
@@ -472,19 +809,27 @@ func getVNic(c echo.Context) error {
 func deleteVNic(c echo.Context) error {
 	cblog.Info("call deleteVNic()")
 
-	cldConn, err := ccm.GetCloudConnection(c.QueryParam("connection_name"))
+        var req struct {
+                ConnectionName string
+        }
+
+        if err := c.Bind(&req); err != nil {
+                return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+        }
+
+        cldConn, err := ccm.GetCloudConnection(req.ConnectionName)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
 	handler, err := cldConn.CreateVNicHandler()
 	if err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
 	result, err := handler.DeleteVNic(c.Param("VNicId"))
 	if err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
         resultInfo := BooleanInfo{
@@ -498,24 +843,28 @@ func deleteVNic(c echo.Context) error {
 func createPublicIP(c echo.Context) error {
 	cblog.Info("call createPublicIP()")
 
-	cldConn, err := ccm.GetCloudConnection(c.QueryParam("connection_name"))
+        var req struct {
+                ConnectionName string
+                ReqInfo cres.PublicIPReqInfo
+        }
+
+        if err := c.Bind(&req); err != nil {
+                return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+        }
+
+        cldConn, err := ccm.GetCloudConnection(req.ConnectionName)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
 	handler, err := cldConn.CreatePublicIPHandler()
 	if err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
-	req := &cres.PublicIPReqInfo{}
-	if err := c.Bind(req); err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
-	}
-
-	info, err := handler.CreatePublicIP(*req)
+	info, err := handler.CreatePublicIP(req.ReqInfo)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
 	return c.JSON(http.StatusOK, &info)
@@ -524,40 +873,63 @@ func createPublicIP(c echo.Context) error {
 func listPublicIP(c echo.Context) error {
 	cblog.Info("call listPublicIP()")
 
-	cldConn, err := ccm.GetCloudConnection(c.QueryParam("connection_name"))
+        var req struct {
+                ConnectionName string
+        }
+
+        if err := c.Bind(&req); err != nil {
+                return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+        }
+
+        cldConn, err := ccm.GetCloudConnection(req.ConnectionName)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
 	handler, err := cldConn.CreatePublicIPHandler()
 	if err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
 	infoList, err := handler.ListPublicIP()
 	if err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
-	return c.JSON(http.StatusOK, &infoList)
+        var jsonResult struct {
+                Result []*cres.PublicIPInfo `json:"publicip"`
+        }
+        if infoList == nil {
+                infoList = []*cres.PublicIPInfo{}
+        }
+        jsonResult.Result = infoList
+        return c.JSON(http.StatusOK, &jsonResult)
 }
 
 func getPublicIP(c echo.Context) error {
 	cblog.Info("call getPublicIP()")
 
-	cldConn, err := ccm.GetCloudConnection(c.QueryParam("connection_name"))
+        var req struct {
+                ConnectionName string
+        }
+
+        if err := c.Bind(&req); err != nil {
+                return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+        }
+
+        cldConn, err := ccm.GetCloudConnection(req.ConnectionName)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
 	handler, err := cldConn.CreatePublicIPHandler()
 	if err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
 	info, err := handler.GetPublicIP(c.Param("PublicIPId"))
 	if err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
 	return c.JSON(http.StatusOK, &info)
@@ -566,19 +938,27 @@ func getPublicIP(c echo.Context) error {
 func deletePublicIP(c echo.Context) error {
 	cblog.Info("call deletePublicIP()")
 
-	cldConn, err := ccm.GetCloudConnection(c.QueryParam("connection_name"))
+        var req struct {
+                ConnectionName string
+        }
+
+        if err := c.Bind(&req); err != nil {
+                return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+        }
+
+        cldConn, err := ccm.GetCloudConnection(req.ConnectionName)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
 	handler, err := cldConn.CreatePublicIPHandler()
 	if err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
 	result, err := handler.DeletePublicIP(c.Param("PublicIPId"))
 	if err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
         resultInfo := BooleanInfo{
@@ -587,144 +967,236 @@ func deletePublicIP(c echo.Context) error {
 
 	return c.JSON(http.StatusOK, &resultInfo)
 }
+****************************/
 
 //================ VM Handler
+// (1) check exist(NameID)
+// (2) create Resource
+// (3) insert IID
 func startVM(c echo.Context) error {
 	cblog.Info("call startVM()")
 
-	cldConn, err := ccm.GetCloudConnection(c.QueryParam("connection_name"))
+	var req struct {
+		ConnectionName string
+		ReqInfo        struct {
+			Name               string
+			ImageName          string
+			VPCName            string
+			SubnetName         string
+			SecurityGroupNames []string
+			VMSpecName         string
+			KeyPairName        string
+
+			VMUserId     string
+			VMUserPasswd string
+		}
+	}
+
+	if err := c.Bind(&req); err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	// Rest RegInfo => Driver ReqInfo
+	// (1) create SecurityGroup IID List
+	sgIIDList := []cres.IID{}
+	for _, sgName := range req.ReqInfo.SecurityGroupNames {
+		// SG NameID format => {VPC NameID} + sgDELIMITER + {SG NameID}
+		// transform: SG NameID => {VPC NameID}-{SG NameID}
+		sgIID := cres.IID{req.ReqInfo.VPCName + sgDELIMITER + sgName, ""}
+		sgIIDList = append(sgIIDList, sgIID)
+	}
+	// (2) create VMReqInfo with SecurityGroup IID List
+	reqInfo := cres.VMReqInfo{
+		IId:               cres.IID{req.ReqInfo.Name, ""},
+		ImageIID:          cres.IID{req.ReqInfo.ImageName, ""},
+		VpcIID:            cres.IID{req.ReqInfo.VPCName, ""},
+		SubnetIID:         cres.IID{req.ReqInfo.SubnetName, ""},
+		SecurityGroupIIDs: sgIIDList,
+
+		VMSpecName: req.ReqInfo.VMSpecName,
+		KeyPairIID: cres.IID{req.ReqInfo.KeyPairName, ""},
+
+		VMUserId:     req.ReqInfo.VMUserId,
+		VMUserPasswd: req.ReqInfo.VMUserPasswd,
+	}
+
+	// Call common-runtime API
+	result, err := cmrt.StartVM(req.ConnectionName, rsVM, reqInfo)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
-	handler, err := cldConn.CreateVMHandler()
-	if err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
-	}
-
-	req := &cres.VMReqInfo{}
-	if err := c.Bind(req); err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
-	}
-
-	info, err := handler.StartVM(*req)
-	if err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
-	}
-
-	return c.JSON(http.StatusOK, &info)
+	return c.JSON(http.StatusOK, result)
 }
 
 func listVM(c echo.Context) error {
 	cblog.Info("call listVM()")
 
-	cldConn, err := ccm.GetCloudConnection(c.QueryParam("connection_name"))
-	if err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+	var req struct {
+		ConnectionName string
 	}
 
-	handler, err := cldConn.CreateVMHandler()
-	if err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+	if err := c.Bind(&req); err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
-	infoList, err := handler.ListVM()
+	// Call common-runtime API
+	result, err := cmrt.ListVM(req.ConnectionName, rsVM)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
-	return c.JSON(http.StatusOK, &infoList)
+	var jsonResult struct {
+		Result []*cres.VMInfo `json:"vm"`
+	}
+	jsonResult.Result = result
+
+	return c.JSON(http.StatusOK, &jsonResult)
+}
+
+// list all VMs for management
+// (1) get args from REST Call
+// (2) get all VM List by common-runtime API
+// (3) return REST Json Format
+func listAllVM(c echo.Context) error {
+	cblog.Info("call listAllVM()")
+
+	var req struct {
+		ConnectionName string
+	}
+
+	if err := c.Bind(&req); err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	// Call common-runtime API
+	allResourceList, err := cmrt.ListAllResource(req.ConnectionName, rsVM)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	return c.JSON(http.StatusOK, &allResourceList)
 }
 
 func getVM(c echo.Context) error {
 	cblog.Info("call getVM()")
 
-	cldConn, err := ccm.GetCloudConnection(c.QueryParam("connection_name"))
-	if err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+	var req struct {
+		ConnectionName string
 	}
 
-	handler, err := cldConn.CreateVMHandler()
-	if err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+	if err := c.Bind(&req); err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
-	info, err := handler.GetVM(c.Param("VmId"))
+	// Call common-runtime API
+	result, err := cmrt.GetVM(req.ConnectionName, rsVM, c.Param("Name"))
 	if err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
-	return c.JSON(http.StatusOK, &info)
+	return c.JSON(http.StatusOK, result)
 }
 
+// (1) get args from REST Call
+// (2) call common-runtime API
+// (3) return REST Json Format
 func terminateVM(c echo.Context) error {
 	cblog.Info("call terminateVM()")
 
-	cldConn, err := ccm.GetCloudConnection(c.QueryParam("connection_name"))
-	if err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+	var req struct {
+		ConnectionName string
 	}
 
-	handler, err := cldConn.CreateVMHandler()
-	if err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+	if err := c.Bind(&req); err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
-	info, err := handler.TerminateVM(c.Param("VmId"))
-        if err != nil {
-                return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
-        }
+	// Call common-runtime API
+	_, result, err := cmrt.DeleteResource(req.ConnectionName, rsVM, c.Param("Name"), c.QueryParam("force"))
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
 
-        resultInfo := StatusInfo{
-                Status: string(info),
-        }
+	resultInfo := StatusInfo{
+		Status: string(result),
+	}
 
-        return c.JSON(http.StatusOK, &resultInfo)
+	return c.JSON(http.StatusOK, &resultInfo)
+}
+
+// (1) get args from REST Call
+// (2) call common-runtime API
+// (3) return REST Json Format
+func terminateCSPVM(c echo.Context) error {
+	cblog.Info("call terminateCSPVM()")
+
+	var req struct {
+		ConnectionName string
+	}
+
+	if err := c.Bind(&req); err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	// Call common-runtime API
+	_, result, err := cmrt.DeleteCSPResource(req.ConnectionName, rsVM, c.Param("Id"))
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	resultInfo := StatusInfo{
+		Status: string(result),
+	}
+
+	return c.JSON(http.StatusOK, &resultInfo)
 }
 
 func listVMStatus(c echo.Context) error {
 	cblog.Info("call listVMStatus()")
 
-	cldConn, err := ccm.GetCloudConnection(c.QueryParam("connection_name"))
-	if err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+	var req struct {
+		ConnectionName string
 	}
 
-	handler, err := cldConn.CreateVMHandler()
-	if err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+	if err := c.Bind(&req); err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
-	infoList, err := handler.ListVMStatus()
+	// Call common-runtime API
+	result, err := cmrt.ListVMStatus(req.ConnectionName, rsVM)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
+	var jsonResult struct {
+		Result []*cres.VMStatusInfo `json:"vmstatus"`
+	}
+	jsonResult.Result = result
 
-	return c.JSON(http.StatusOK, &infoList)
+	return c.JSON(http.StatusOK, &jsonResult)
 }
 
 func getVMStatus(c echo.Context) error {
 	cblog.Info("call getVMStatus()")
 
-	cldConn, err := ccm.GetCloudConnection(c.QueryParam("connection_name"))
-	if err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+	var req struct {
+		ConnectionName string
 	}
 
-	handler, err := cldConn.CreateVMHandler()
-	if err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+	if err := c.Bind(&req); err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
-	info, err := handler.GetVMStatus(c.Param("VmId"))
+	// Call common-runtime API
+	result, err := cmrt.GetVMStatus(req.ConnectionName, rsVM, c.Param("Name"))
 	if err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
-        resultInfo := StatusInfo{
-                Status: string(info),
-        }
+	resultInfo := StatusInfo{
+		Status: string(result),
+	}
 
 	return c.JSON(http.StatusOK, &resultInfo)
 }
@@ -732,47 +1204,23 @@ func getVMStatus(c echo.Context) error {
 func controlVM(c echo.Context) error {
 	cblog.Info("call controlVM()")
 
-	cldConn, err := ccm.GetCloudConnection(c.QueryParam("connection_name"))
-	if err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+	var req struct {
+		ConnectionName string
 	}
 
-	handler, err := cldConn.CreateVMHandler()
-	if err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+	if err := c.Bind(&req); err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
-	vmID := c.Param("VmId")
-	if err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
-	}
-
-	action := c.QueryParam("action")
-	if err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
-	}
-
-
-	var info cres.VMStatus
-
-	switch strings.ToLower(action) {
-	case "suspend":
-		info, err = handler.SuspendVM(vmID)
-	case "resume":
-		info, err = handler.ResumeVM(vmID)
-	case "reboot":
-		info, err = handler.RebootVM(vmID)
-	default:
-		errmsg := action + " is not a valid action!!"
-		return echo.NewHTTPError(http.StatusInternalServerError, errmsg)
-
-	}
+	// Call common-runtime API
+	result, err := cmrt.ControlVM(req.ConnectionName, rsVM, c.Param("Name"), c.QueryParam("action"))
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
-        resultInfo := StatusInfo{
-                Status: string(info),
-        }
 
-        return c.JSON(http.StatusOK, &resultInfo)
+	resultInfo := StatusInfo{
+		Status: string(result),
+	}
+
+	return c.JSON(http.StatusOK, &resultInfo)
 }

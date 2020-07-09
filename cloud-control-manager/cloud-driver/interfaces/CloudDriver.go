@@ -15,8 +15,11 @@ import (
 )
 
 type DriverCapabilityInfo struct {
-	ImageHandler    bool // support: true, do not support: false
-	VNetworkHandler bool // support: true, do not support: false
+	FIXED_SUBNET_CIDR   bool // support: true, do not support: false
+	VPC_CIDR     bool // support: true, do not support: false
+	ImageHandler bool // support: true, do not support: false
+	VPCHandler   bool // support: true, do not support: false
+	//VNetworkHandler bool // support: true, do not support: false
 	SecurityHandler bool // support: true, do not support: false
 	KeyPairHandler  bool // support: true, do not support: false
 	VNicHandler     bool // support: true, do not support: false
@@ -40,6 +43,8 @@ type CredentialInfo struct {
 	AuthToken        string // Cloudit Credential
 	ClientEmail      string // GCP
 	PrivateKey       string // GCP
+	Host      	 string // Docker
+	APIVersion       string // Docker
 }
 
 type RegionInfo struct {
