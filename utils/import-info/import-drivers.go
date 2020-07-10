@@ -39,7 +39,12 @@ func InsertDriverInfos() {
 
 	var files []string
 
-	drvLibPath := os.Getenv("CBSPIDER_ROOT") + "/cloud-driver-libs/"
+        cbspiderRoot := os.Getenv("CBSPIDER_ROOT")
+        if cbspiderRoot == "" {
+                Cblogger.Error("$CBSPIDER_ROOT is not set!!")
+                os.Exit(1)
+        }
+	drvLibPath := cbspiderRoot + "/cloud-driver-libs/"
 	err := filepath.Walk(drvLibPath, func(path string, info os.FileInfo, err error) error {
 		files = append(files, info.Name())
 		return nil

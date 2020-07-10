@@ -56,7 +56,10 @@ func InsertRegionInfos(resourceGroup string) ([]rim.RegionInfo) {
 
 	// Set Environment Value of Project Root Path
 	rootPath := os.Getenv("CBSPIDER_ROOT")
-
+        if rootPath == "" {
+                Cblogger.Error("$CBSPIDER_ROOT is not set!!")
+                os.Exit(1)
+        }
 	regionInfoList := []rim.RegionInfo{}
 	for _, cloudos := range cim.ListCloudOS() {
 		regionFile, err := os.Open(rootPath + "/utils/import-info/region-list/" + strings.ToLower(cloudos) + "-regions-list.json")

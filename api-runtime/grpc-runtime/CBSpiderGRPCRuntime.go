@@ -19,7 +19,12 @@ import (
 func RunServer() {
 	logger := logger.NewLogger()
 
-	configPath := os.Getenv("CBSPIDER_ROOT") + "/conf/grpc_conf.yaml"
+        cbspiderRoot := os.Getenv("CBSPIDER_ROOT")
+        if cbspiderRoot == "" {
+                logger.Error("$CBSPIDER_ROOT is not set!!")
+                os.Exit(1)
+        }
+	configPath := cbspiderRoot + "/conf/grpc_conf.yaml"
 	gConf, err := configLoad(configPath)
 	if err != nil {
 		logger.Error("failed to load config : ", err)

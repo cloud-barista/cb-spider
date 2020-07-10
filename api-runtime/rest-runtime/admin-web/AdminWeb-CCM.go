@@ -880,10 +880,6 @@ func VMSpec(c echo.Context) error {
                 }
                 json.Unmarshal(resBody, &info)
 
-fmt.Println("======================================================================")
-fmt.Printf("============ %#v", connConfig)
-fmt.Printf("============ %#v", info.ResultList)
-
         // (4-2) make TR list with info list
                 htmlStr += makeVMSpecTRList_html("", "", "", info.ResultList)
 

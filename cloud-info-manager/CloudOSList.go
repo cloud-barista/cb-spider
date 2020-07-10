@@ -28,6 +28,10 @@ type CloudOSList struct {
 func readYaml() CloudOSList {
 	// Set Environment Value of Project Root Path
 	rootPath := os.Getenv("CBSPIDER_ROOT")
+        if rootPath == "" {
+                cblog.Error("$CBSPIDER_ROOT is not set!!")
+                os.Exit(1)
+        }
 	data, err := ioutil.ReadFile(rootPath + "/cloud-info-manager/cloudos.yaml")
 	if err != nil {
 		cblog.Error(err)
