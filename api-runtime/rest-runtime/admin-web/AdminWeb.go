@@ -191,7 +191,7 @@ func Top(c echo.Context) error {
             <td width="230">
                 <!-- Image Management -->
                 <a href="vmimage/region not set" target="main_frame" id="vmimageHref">
-                    <font size=2>vmimage(tbd)</font>
+                    <font size=2>vmimage</font>
                 </a>
 		&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
                 <!-- Spec Management -->

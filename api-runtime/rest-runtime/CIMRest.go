@@ -9,7 +9,6 @@
 package restruntime
 
 import (
-	"fmt"
 	"strconv"
 
 	im "github.com/cloud-barista/cb-spider/cloud-info-manager"
@@ -42,13 +41,13 @@ func registerCloudDriver(c echo.Context) error {
 	cblog.Info("call registerCloudDriver()")
 	req := &dim.CloudDriverInfo{}
 	if err := c.Bind(req); err != nil {
-		fmt.Println("Binding error!!!")
+		cblog.Error(err)
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
 	cldinfoList, err := dim.RegisterCloudDriverInfo(*req)
 	if err != nil {
-		fmt.Println("Register error!!!")
+		cblog.Error(err)
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 

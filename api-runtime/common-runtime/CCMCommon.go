@@ -136,49 +136,81 @@ func ListImage(connectionName string, rsType string) ([]*cres.ImageInfo, error) 
 		return nil, err
 	}
 
-	imgRWLock.RLock()
-	defer imgRWLock.RUnlock()
-	// (1) get IID:list
-	iidInfoList, err := iidRWLock.ListIID(connectionName, rsType)
+	infoList, err := handler.ListImage()
 	if err != nil {
 		cblog.Error(err)
 		return nil, err
 	}
 
-	var infoList []*cres.ImageInfo
-	if iidInfoList == nil || len(iidInfoList) <= 0 {
-		infoList = []*cres.ImageInfo{}
-		return infoList, nil
-	}
+        if infoList == nil || len(infoList) <= 0 {
+                infoList = []*cres.ImageInfo{}
+        }
 
-	// (2) get CSP:list
-	infoList, err = handler.ListImage()
-	if err != nil {
-		cblog.Error(err)
-		return nil, err
-	}
-	if infoList == nil { // if iidInfoList not null, then infoList has any list.
-		return nil, fmt.Errorf("<IID-CSP mismatch> " + rsType + " IID List has " + strconv.Itoa(len(iidInfoList)) + ", but " + connectionName + " Resource list has nothing!")
-	}
-
-	// (3) filtering CSP-list by IID-list
-	infoList2 := []*cres.ImageInfo{}
-	for _, iidInfo := range iidInfoList {
-		exist := false
-		for _, info := range infoList {
-			if iidInfo.IId.SystemId == info.IId.SystemId {
-				info.IId.NameId = iidInfo.IId.NameId
-				infoList2 = append(infoList2, info)
-				exist = true
-			}
-		}
-		if exist == false {
-			return nil, fmt.Errorf("<IID-CSP mismatch> " + rsType + "-" + iidInfo.IId.NameId + ":" + iidInfo.IId.SystemId + " exsits. but " + connectionName + " does not have!")
-		}
-	}
-
-	return infoList2, nil
+	return infoList, nil
 }
+
+// (1) get IID:list
+// (2) get CSP:list
+// (3) filtering CSP-list by IID-list
+func ListRegisterImage(connectionName string, rsType string) ([]*cres.ImageInfo, error) {
+        cblog.Info("call ListImage()")
+
+        cldConn, err := ccm.GetCloudConnection(connectionName)
+        if err != nil {
+                cblog.Error(err)
+                return nil, err
+        }
+
+        handler, err := cldConn.CreateImageHandler()
+        if err != nil {
+                cblog.Error(err)
+                return nil, err
+        }
+
+        imgRWLock.RLock()
+        defer imgRWLock.RUnlock()
+        // (1) get IID:list
+        iidInfoList, err := iidRWLock.ListIID(connectionName, rsType)
+        if err != nil {
+                cblog.Error(err)
+                return nil, err
+        }
+
+        var infoList []*cres.ImageInfo
+        if iidInfoList == nil || len(iidInfoList) <= 0 {
+                infoList = []*cres.ImageInfo{}
+                return infoList, nil
+        }
+
+        // (2) get CSP:list
+        infoList, err = handler.ListImage()
+        if err != nil {
+                cblog.Error(err)
+                return nil, err
+        }
+        if infoList == nil { // if iidInfoList not null, then infoList has any list.
+                return nil, fmt.Errorf("<IID-CSP mismatch> " + rsType + " IID List has " + strconv.Itoa(len(iidInfoList)) + ", but " + connectionName + " Resource list has nothing!")
+        }
+
+        // (3) filtering CSP-list by IID-list
+        infoList2 := []*cres.ImageInfo{}
+        for _, iidInfo := range iidInfoList {
+                exist := false
+                for _, info := range infoList {
+                        if iidInfo.IId.SystemId == info.IId.SystemId {
+                                info.IId.NameId = iidInfo.IId.NameId
+                                infoList2 = append(infoList2, info)
+                                exist = true
+                        }
+                }
+                if exist == false {
+                        return nil, fmt.Errorf("<IID-CSP mismatch> " + rsType + "-" + iidInfo.IId.NameId + ":" + iidInfo.IId.SystemId + " exsits. but " + connectionName + " does not have!")
+                }
+        }
+
+        return infoList2, nil
+}
+
 
 // (1) get IID(NameId)
 // (2) get resource(SystemId)
@@ -198,29 +230,57 @@ func GetImage(connectionName string, rsType string, nameID string) (*cres.ImageI
 		return nil, err
 	}
 
-	imgRWLock.RLock()
-	defer imgRWLock.RUnlock()
-	// (1) get IID(NameId)
-	iidInfo, err := iidRWLock.GetIID(connectionName, rsType, cres.IID{nameID, ""})
+	// now, NameID = SystemID
+	info, err := handler.GetImage(cres.IID{nameID, nameID})
 	if err != nil {
 		cblog.Error(err)
 		return nil, err
 	}
-
-	// (2) get resource(SystemId)
-	start := time.Now()
-	info, err := handler.GetImage(iidInfo.IId)
-	if err != nil {
-		cblog.Error(err)
-		return nil, err
-	}
-	elapsed := time.Since(start)
-	cblog.Infof(connectionName+" : elapsed %d", elapsed.Nanoseconds()/1000000) // msec
-
-	// (3) set ResourceInfo(IID.NameId)
-	info.IId.NameId = iidInfo.IId.NameId
 
 	return &info, nil
+}
+
+// (1) get IID(NameId)
+// (2) get resource(SystemId)
+// (3) set ResourceInfo(IID.NameId)
+func GetRegisterImage(connectionName string, rsType string, nameID string) (*cres.ImageInfo, error) {
+        cblog.Info("call GetImage()")
+
+        cldConn, err := ccm.GetCloudConnection(connectionName)
+        if err != nil {
+                cblog.Error(err)
+                return nil, err
+        }
+
+        handler, err := cldConn.CreateImageHandler()
+        if err != nil {
+                cblog.Error(err)
+                return nil, err
+        }
+
+        imgRWLock.RLock()
+        defer imgRWLock.RUnlock()
+        // (1) get IID(NameId)
+        iidInfo, err := iidRWLock.GetIID(connectionName, rsType, cres.IID{nameID, ""})
+        if err != nil {
+                cblog.Error(err)
+                return nil, err
+        }
+
+        // (2) get resource(SystemId)
+        start := time.Now()
+        info, err := handler.GetImage(iidInfo.IId)
+        if err != nil {
+                cblog.Error(err)
+                return nil, err
+        }
+        elapsed := time.Since(start)
+        cblog.Infof(connectionName+" : elapsed %d", elapsed.Nanoseconds()/1000000) // msec
+
+        // (3) set ResourceInfo(IID.NameId)
+        info.IId.NameId = iidInfo.IId.NameId
+
+        return &info, nil
 }
 
 // (1) get IID(NameId)
