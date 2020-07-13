@@ -184,6 +184,8 @@ func RunServer() {
 		{"GET", "/adminweb/securitygroupmgmt/:ConnectConfig", aw.SecurityGroupMgmt},
 		{"GET", "/adminweb/keypair/:ConnectConfig", aw.KeyPair},
 		{"GET", "/adminweb/keypairmgmt/:ConnectConfig", aw.KeyPairMgmt},
+		{"GET", "/adminweb/vm/:ConnectConfig", aw.VM},
+		{"GET", "/adminweb/vmmgmt/:ConnectConfig", aw.VMMgmt},
 
 		{"GET", "/adminweb/vmimage/:ConnectConfig", aw.VMImage},		
 		{"GET", "/adminweb/vmspec/:ConnectConfig", aw.VMSpec},

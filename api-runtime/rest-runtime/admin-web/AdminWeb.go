@@ -187,6 +187,10 @@ func Top(c echo.Context) error {
                 <a href="vm/region not set" target="main_frame" id="vmHref">
                     <font size=2>2.VM</font>
                 </a>
+                &nbsp;
+                <a href="vmmgmt/region not set" target="main_frame" id="vmmgmtHref">
+                    <font size=2>[mgmt]</font>
+                </a>
             </td>
             <td width="230">
                 <!-- Image Management -->
@@ -213,7 +217,7 @@ func Top(c echo.Context) error {
 
 func makeSelect_html(onchangeFunctionName string, strList []string, id string) string {
 
-	strSelect := `<select name="text_box" id="` + id + `1" onchange="` + onchangeFunctionName + `(this)">`
+	strSelect := `<select name="text_box" id="` + id + `" onchange="` + onchangeFunctionName + `(this)">`
 	for _, one := range strList {
 		if one == "AWS" {
 			strSelect += `<option value="` + one + `" selected>` + one + `</option>`
@@ -322,6 +326,36 @@ func getResource_JsonByte(resourceName string, name string) ([]byte, error) {
                 return nil, err
         }
 	return resBody, err
+}
+
+func getResource_with_Connection_JsonByte(connConfig string, resourceName string, name string) ([]byte, error) {
+        // cr.ServicePort = ":1024"
+        url := "http://localhost" + cr.ServicePort + "/spider/" + resourceName + "/" + name
+        // get object list
+        var reqBody struct {
+                Value string `json:"ConnectionName"`
+        }
+        reqBody.Value = connConfig
+
+        jsonValue, _ := json.Marshal(reqBody)
+        request, err := http.NewRequest("GET", url, bytes.NewBuffer(jsonValue))
+        if err != nil {
+                return nil, err
+        }
+        request.Header.Set("Content-Type", "application/json")
+
+        client := http.Client{}
+        resp, err := client.Do(request)
+        if err != nil {
+                return nil, err
+        }
+
+        resBody, err := ioutil.ReadAll(resp.Body)
+        resp.Body.Close()
+        if err != nil {
+                return nil, err
+        }
+        return resBody, err
 }
 
 // F5, X ("5", "driver", "deleteDriver()", "2")
