@@ -83,8 +83,11 @@ cloudbaristaorg/cb-spider:v0.1.v
         - `build_driver_lib.sh` 실행
 
 #### (c) 서버 실행
-- `cd cb-spider/api-runtime/rest-runtime`
--	`go run *.go`    # 1024 포트 REST API Server 실행됨
+- `export GO111MODULE="on"`
+- `cd cb-spider/api-runtime/`
+-	`make` 로 build 후에
+- `./cb-spider` 로 실행 # 1024 포트 REST API Server, 50251 포트 gRPC Server 실행됨
+
 -	참고: 메타 정보 손상시 초기화 방법
     - `cb-spider/cloud-driver-libs/.ssh-*/*` 파일 삭제
     - `cb-spider/meta_db/dat` 경로 삭제(ex: 0.dat) 후 서버 재가동
