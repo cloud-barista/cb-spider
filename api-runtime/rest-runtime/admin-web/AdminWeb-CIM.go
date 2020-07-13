@@ -224,7 +224,7 @@ func Driver(c echo.Context) error {
 				<!-- <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="1" value="AWS"> -->
 		`
 		// Select format of CloudOS  name=text_box, id=1
-		htmlStr += makeSelect_html("onchangeProvider", nameList)
+		htmlStr += makeSelect_html("onchangeProvider", nameList, "1")
 
 		htmlStr += `
 			    </td>
@@ -473,7 +473,7 @@ func Credential(c echo.Context) error {
 				<!-- <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="1" value="AWS"> -->
 		`
                 // Select format of CloudOS  name=text_box, id=1
-                htmlStr += makeSelect_html("onchangeProvider", nameList)
+                htmlStr += makeSelect_html("onchangeProvider", nameList, "1")
 			
 		htmlStr += `	
                             </td>
@@ -742,7 +742,7 @@ func Region(c echo.Context) error {
                 <!-- <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="1" value="AWS"> -->
         `
                 // Select format of CloudOS  name=text_box, id=1
-                htmlStr += makeSelect_html("onchangeProvider", nameList)
+                htmlStr += makeSelect_html("onchangeProvider", nameList, "1")
             
         htmlStr += `    
                             </td>
@@ -1240,7 +1240,7 @@ func Connectionconfig(c echo.Context) error {
                 <!-- <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="1" value="AWS"> -->
         `
                 // Select format of CloudOS  name=text_box, id=1
-                htmlStr += makeSelect_html("onchangeProvider", nameList)
+                htmlStr += makeSelect_html("onchangeProvider", nameList, "1")
             
         htmlStr += `    
                             </td>

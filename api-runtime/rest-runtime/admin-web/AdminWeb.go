@@ -211,9 +211,9 @@ func Top(c echo.Context) error {
 	return c.HTML(http.StatusOK, htmlStr)
 }
 
-func makeSelect_html(onchangeFunctionName string, strList []string) string {
+func makeSelect_html(onchangeFunctionName string, strList []string, id string) string {
 
-	strSelect := `<select name="text_box" id="1" onchange="` + onchangeFunctionName + `(this)">`
+	strSelect := `<select name="text_box" id="` + id + `1" onchange="` + onchangeFunctionName + `(this)">`
 	for _, one := range strList {
 		if one == "AWS" {
 			strSelect += `<option value="` + one + `" selected>` + one + `</option>`

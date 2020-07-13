@@ -246,10 +246,10 @@ func VPC(c echo.Context) error {
                             </td>
                             <td>
                                 <textarea style="font-size:12px;text-align:center;" name="text_box" id="3" cols=50>[ { "Name": "subnet-01", "IPv4_CIDR": "192.168.1.0/24"} ]</textarea>
+                            </td>
                             <td>
                                 <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="4" disabled value="N/A">
-                            </td>
-                            </td>
+                            </td>                            
                             <td>
                                 <a href="javascript:postVPC()">
                                     <font size=3><b>+</b></font>
@@ -485,7 +485,7 @@ func SecurityGroup(c echo.Context) error {
                             <td>
 		`
 				// Select format of CloudOS  name=text_box, id=1
-				htmlStr += makeSelect_html("onchangeVPC", nameList)
+				htmlStr += makeSelect_html("onchangeVPC", nameList, "1")
 
 		htmlStr += `
                             </td>
@@ -494,9 +494,9 @@ func SecurityGroup(c echo.Context) error {
                             </td>
                             <td>
                                 <textarea style="font-size:12px;text-align:center;" name="text_box" id="3" cols=50>[ {"FromPort": "1", "ToPort" : "65535", "IPProtocol" : "tcp", "Direction" : "inbound"} ]</textarea>
-                            <td>
-                                <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="4" disabled value="N/A">
                             </td>
+                            <td>
+                                <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="4" disabled value="N/A">                            
                             </td>
                             <td>
                                 <a href="javascript:postSecurityGroup()">
@@ -730,9 +730,9 @@ func KeyPair(c echo.Context) error {
                             </td>
                             <td>
                                 <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="3" disabled value="N/A">
+                            </td>
                             <td>
                                 <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="4" disabled value="N/A">
-                            </td>
                             </td>
                             <td>
                                 <a href="javascript:postKeyPair()">
@@ -753,11 +753,11 @@ func KeyPair(c echo.Context) error {
         return c.HTML(http.StatusOK, htmlStr)
 }
 
+//====================================== VM
 
-//====================================== VMSpec
-
-// number, VMSpec Name, VCPU, Memory, GPU, KeyValueList
-func makeVMSpecTRList_html(bgcolor string, height string, fontSize string, infoList []*cres.VMSpecInfo) string {
+// number, VM Name/Control, VMStatus/Last Start Time, VMImage/VMSpec, VPC/Subnet/Security Group, 
+//         Network Interface/IP, DNS, Boot Disk/Block Disk, Access Key/Access User Name, Additional Info, checkbox
+func makeVMTRList_html(bgcolor string, height string, fontSize string, infoList []*cres.VMInfo) string {
         if bgcolor == "" { bgcolor = "#FFFFFF" }
         if height == "" { height = "30" }
         if fontSize == "" { fontSize = "2" }
@@ -769,45 +769,100 @@ func makeVMSpecTRList_html(bgcolor string, height string, fontSize string, infoL
                             <font size=%s>$$NUM$$</font>
                     </td>
                     <td>
-                            <font size=%s>$$VMSPECNAME$$</font>
-                    </td>
-                    <td align="left">
-                            <font size=%s>$$VCPUINFO$$</font>
+                            <font size=%s>$$VMNAME$$</font>
                     </td>
                     <td>
-                            <font size=%s>$$MEMINFO$$ MB</font>
+                            <font size=%s>$$VMSTATUS$$</font>
+                            <br>
+                            <font size=%s>$$LASTSTARTTIME$$</font>
+                    </td>                    
+                    <td>
+                            <font size=%s>$$IMAGE$$</font>
+                            <br>
+                            <font size=%s>$$SPEC$$</font>
                     </td>
-                    <td align="left">
-                            <font size=%s>$$GPUINFO$$</font>
+                    <td>
+                            <font size=%s>$$VPC$$</font>
+                            <br>
+                            <font size=%s>$$SUBNET$$</font>
+                            <br>
+                            <font size=%s>$$SECURITYGROUP$$</font>
                     </td>
-                    <td align="left">
+                    <td>
+                            <font size=%s>$$NETWORKINTERFACE$$</font>
+                            <br>
+                            <font size=%s>$$PUBLICIP$$</font>
+                            <br>
+                            <font size=%s>$$PRIVATEIP$$</font>
+                    </td>
+                    <td>
+                            <font size=%s>$$PUBLICDNS$$</font>
+                            <br>
+                            <font size=%s>$$PRIVATEDNS$$</font>
+                    </td>
+                    <td>
+                            <font size=%s>$$BOOTDISK$$</font>
+                            <br>
+                            <font size=%s>$$BLOCKDISK$$</font>
+                    </td>
+                    <td>
+                            <font size=%s>$$ACCESSKEY$$</font>
+                            <br>
+                            <font size=%s>$$ACCESSUSER$$</font>
+                    </td>
+                    <td>
                             <font size=%s>$$ADDITIONALINFO$$</font>
                     </td>
+                    <td>
+                        <input type="checkbox" name="check_box" value=$$VMNAME$$>
+                    </td>
                 </tr>
-                `, bgcolor, height, fontSize, fontSize, fontSize, fontSize, fontSize, fontSize)
+                `, bgcolor, height, fontSize, fontSize, fontSize, fontSize, fontSize, fontSize, fontSize, fontSize, fontSize, fontSize, \
+                                    fontSize, fontSize, fontSize, fontSize, fontSize, fontSize, fontSize, fontSize, fontSize)
 
         strData := ""
         // set data and make TR list
         for i, one := range infoList{
                 str := strings.ReplaceAll(strTR, "$$NUM$$", strconv.Itoa(i+1))
-                str = strings.ReplaceAll(str, "$$VMSPECNAME$$", one.Name)
-                // VCPU Info: count, GHz
-                vcpuInfo := "&nbsp;* Count: " + one.VCpu.Count + "<br>"
-                vcpuInfo += "&nbsp;* Clock: " + one.VCpu.Clock + "GHz" + "<br>"
-                str = strings.ReplaceAll(str, "$$VCPUINFO$$", vcpuInfo)
+                str = strings.ReplaceAll(str, "$$VMNAME$$", one.IId.NameId)
+                str = strings.ReplaceAll(str, "$$VMSTATUS$$", one.IId.NameId)
 
-                // Mem Info
-                str = strings.ReplaceAll(str, "$$MEMINFO$$", one.Mem)
+        // for Image & Spec
+                str = strings.ReplaceAll(str, "$$IMAGE$$", one.ImageIId.NameId)
+                str = strings.ReplaceAll(str, "$$SPEC$$", one.VMSpecName) 
 
-                // GPU Info: Mfr, Model, Mem, Count
-                gpuInfo := ""
-                for _, gpu := range one.Gpu {
-                    gpuInfo += "&nbsp;* Mfr: " + gpu.Mfr + "<br>"
-                    gpuInfo += "&nbsp;* Model: " + gpu.Model + "<br>"
-                    gpuInfo += "&nbsp;* Memory: " + gpu.Mem + " MB" + "<br>"
-                    gpuInfo += "&nbsp;* Count: " + gpu.Count + "<br><br>"
+        // for VPC & Subnet
+                str = strings.ReplaceAll(str, "$$VPC$$", one.VpcIID.NameId)
+                str = strings.ReplaceAll(str, "$$SUBNET$$", one.SubnetIID.NameId) 
+
+        // for security rules info
+        strSRList := ""
+                for _, one := range *one.SecurityRules {
+                        strSRList += "FromPort:" + one.FromPort + ", "
+                        strSRList += "ToPort:" + one.ToPort + ", "
+                        strSRList += "IPProtocol:" + one.IPProtocol + ", "
+                        strSRList += "Direction:" + one.Direction + ", "
+                        strSRList += "}<br>"    
                 }
-                str = strings.ReplaceAll(str, "$$GPUINFO$$", gpuInfo)
+                str = strings.ReplaceAll(str, "$$SECURITYGROUP$$", strSRList)
+
+        // for Network Interface & PublicIP & PrivateIP
+                str = strings.ReplaceAll(str, "$$NETWORKINTERFACE$$", one.NetworkInterface)
+                str = strings.ReplaceAll(str, "$$PUBLICIP$$", one.PublicIP) 
+                str = strings.ReplaceAll(str, "$$PRIVATEIP$$", one.PrivateIP) 
+
+        // for Public DNS & Private DNS
+                str = strings.ReplaceAll(str, "$$PUBLICDNS$$", one.PublicDNS) 
+                str = strings.ReplaceAll(str, "$$PRIVATEDNS$$", one.PrivateDNS) 
+
+        // for Boot Disk & Block Disk
+                str = strings.ReplaceAll(str, "$$BOOTDISK$$", one.VMBootDisk) 
+                str = strings.ReplaceAll(str, "$$BLOCKDISK$$", one.VMBlockDisk) 
+
+        // for Access Key & Access User
+                str = strings.ReplaceAll(str, "$$ACCESSKEY$$", one.KeyPairIId.NameId) 
+                str = strings.ReplaceAll(str, "$$ACCESSUSER$$", one.VMUserId) 
+
 
         // for KeyValueList
         strKeyList := ""
@@ -822,8 +877,95 @@ func makeVMSpecTRList_html(bgcolor string, height string, fontSize string, infoL
         return strData
 }
 
-func VMSpec(c echo.Context) error {
-        cblog.Info("call VMSpec()")
+// make the string of javascript function
+func makePostVMFunc_js() string {
+
+// curl -sX POST http://localhost:1024/spider/vm -H 'Content-Type: application/json' 
+//  -d '{ "ConnectionName": "'${CONN_CONFIG}'", 
+//  "ReqInfo": { "Name": "vm-01", "ImageName": "ami-f4f4cf91", "VPCName": "vpc-01", 
+//  "SubnetName": "subnet-01", "SecurityGroupNames": [ "sg-01" ], "VMSpecName": "t3.micro", "KeyPairName": "keypair-01"} }'
+
+        strFunc := `
+                function postVM() {
+                        var connConfig = parent.frames["top_frame"].document.getElementById("connConfig").innerHTML;
+
+                        var textboxes = document.getElementsByName('text_box');
+                        sendJson = '{ "ConnectionName" : "' + connConfig + '", "ReqInfo" : { "Name" : "$$VMNAME$$", \
+                                "ImageName" : "$$IMAGE$$", "VMSpecName" : "$$SPEC$$", "VPCName" : "$$VPC$$", "SubnetName" : $$SUBNET$$, \
+                                "SecurityGroupNames" : $$SECURITYGROUP$$, "KeyPairName" : "$$ACCESSKEY$$", "VMUserId" : "$$ACCESSUSER$$", , "VMUserPasswd" : "$$ACCESSPASSWD$$" }}'
+
+                        for (var i = 0; i < textboxes.length; i++) { // @todo make parallel executions
+                                switch (textboxes[i].id) {
+                                        case "1":
+                                                sendJson = sendJson.replace("$$VMNAME$$", textboxes[i].value);
+                                                break;
+                                        case "3":
+                                                sendJson = sendJson.replace("$$IMAGE$$", textboxes[i].value);
+                                                break;
+                                        case "4":
+                                                sendJson = sendJson.replace("$$SPEC$$", textboxes[i].value);
+                                                break;
+                                        case "5":
+                                                sendJson = sendJson.replace("$$VPC$$", textboxes[i].value);
+                                                break;
+                                        case "6":
+                                                sendJson = sendJson.replace("$$SUBNET$$", textboxes[i].value);
+                                                break;
+                                        case "7":
+                                                sendJson = sendJson.replace("$$SECURITYGROUP$$", textboxes[i].value);
+                                                break;
+                                        case "11":
+                                                sendJson = sendJson.replace("$$ACCESSKEY$$", textboxes[i].value);
+                                                break;
+                                        case "12":
+                                                sendJson = sendJson.replace("$$ACCESSUSER$$", textboxes[i].value);
+                                                break;
+                                        case "13":
+                                                sendJson = sendJson.replace("$$ACCESSPASSWD$$", textboxes[i].value);
+                                                break;
+
+                                        default:
+                                                break;
+                                }
+                        }
+                        var xhr = new XMLHttpRequest();
+                        xhr.open("POST", "$$SPIDER_SERVER$$/spider/vm", false);
+                        xhr.setRequestHeader('Content-Type', 'application/json');
+                        xhr.send(sendJson);
+
+            location.reload();
+                }
+        `
+        strFunc = strings.ReplaceAll(strFunc, "$$SPIDER_SERVER$$", "http://" + cr.HostIPorName + cr.ServicePort) // cr.ServicePort = ":1024"
+        return strFunc
+}
+
+// make the string of javascript function
+func makeDeleteVMFunc_js() string {
+// curl -sX DELETE http://localhost:1024/spider/vm/vm-01 -H 'Content-Type: application/json' -d '{ "ConnectionName": "'${CONN_CONFIG}'"}' 
+
+        strFunc := `
+                function deleteVM() {
+                        var connConfig = parent.frames["top_frame"].document.getElementById("connConfig").innerHTML;
+                        var checkboxes = document.getElementsByName('check_box');
+                        for (var i = 0; i < checkboxes.length; i++) { // @todo make parallel executions
+                                if (checkboxes[i].checked) {
+                                        var xhr = new XMLHttpRequest();
+                                        xhr.open("DELETE", "$$SPIDER_SERVER$$/spider/vm/" + checkboxes[i].value, false);
+                                        xhr.setRequestHeader('Content-Type', 'application/json');
+                    sendJson = '{ "ConnectionName": "' + connConfig + '"}'
+                                        xhr.send(sendJson);
+                                }
+                        }
+            location.reload();
+                }
+        `
+        strFunc = strings.ReplaceAll(strFunc, "$$SPIDER_SERVER$$", "http://" + cr.HostIPorName + cr.ServicePort) // cr.ServicePort = ":1024"
+        return strFunc
+}
+
+func VM(c echo.Context) error {
+        cblog.Info("call VM()")
 
     connConfig := c.Param("ConnectConfig")
     if connConfig == "region not set" {
@@ -850,39 +992,121 @@ func VMSpec(c echo.Context) error {
                 <html>
                 <head>
                     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+                    <script type="text/javascript">
+                `
+        // (1) make Javascript Function
+                htmlStr += makeCheckBoxToggleFunc_js()
+                htmlStr += makePostVMFunc_js()
+                htmlStr += makeDeleteVMFunc_js()
+
+
+        htmlStr += `
+                    </script>
                 </head>
 
                 <body>
-		<br>
                     <table border="0" bordercolordark="#F8F8FF" cellpadding="0" cellspacing="1" bgcolor="#FFFFFF"  style="font-size:small;">
                 `
 
+        // (2) make Table Action TR
+                // colspan, f5_href, delete_href, fontSize
+                //htmlStr += makeActionTR_html("6", "securitygroup", "deleteSecurityGroup()", "2")
+                htmlStr += makeActionTR_html("10", "", "deleteVM()", "2")
+
+
         // (3) make Table Header TR
                 nameWidthList := []NameWidth {
-                    {"VMSpec Name", "200"},
-                    {"VCPU", "300"},
-                    {"Memory", "200"},
-                    {"GPU", "300"},
+                    {"VM Name / Control", "200"},
+                    {"VM Status / Last Start Time", "200"},
+                    {"VM Image / VM Spec", "200"},
+                    {"VPC / Subnet / Security Group", "400"},
+                    {"NetworkInterface / PublicIP / PrivateIP", "400"},
+                    {"PublicDNS / PrivateDNS", "400"},
+                    {"BootDisk / BlockDisk", "200"},
+                    {"Access Key / Access User", "200"},
                     {"Additional Info", "300"},
                 }
-                htmlStr +=  makeTitleTRList_html("#DDDDDD", "2", nameWidthList, false)
+                htmlStr +=  makeTitleTRList_html("#DDDDDD", "2", nameWidthList, true)
 
 
         // (4) make TR list with info list
         // (4-1) get info list 
-                resBody, err := getResourceList_with_Connection_JsonByte(connConfig, "vmspec")
+                resBody, err := getResourceList_with_Connection_JsonByte(connConfig, "vm")
                 if err != nil {
                         cblog.Error(err)
                         return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
                 }
                 var info struct {
-                        ResultList []*cres.VMSpecInfo `json:"vmspec"`
+                        ResultList []*cres.VMInfo `json:"vm"`
                 }
                 json.Unmarshal(resBody, &info)
 
         // (4-2) make TR list with info list
-                htmlStr += makeVMSpecTRList_html("", "", "", info.ResultList)
+                htmlStr += makeVMTRList_html("", "", "", info.ResultList)
 
+
+        // (5) make input field and add
+        // attach text box for add
+        nameList := vpcList(connConfig)
+
+                htmlStr += `
+                        <tr bgcolor="#FFFFFF" align="center" height="30">
+                            <td>
+                                    <font size=2>#</font>
+                            </td>
+                            <td>
+                                <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="1" value="vm-01">
+                            </td>
+                            <td>
+                                <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="2" disabled value="N/A">
+                            </td>
+                            <td>
+                                <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="3" value="ami-f4f4cf91">
+                            </td>
+                            <td>
+                                <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="4" value="t3.micro">
+                            </td>
+                            <td>
+        `
+                // Select format of CloudOS  name=text_box, id=1
+                htmlStr += makeSelect_html("onchangeVPC", nameList, "5")
+
+        htmlStr += `
+                            </td>
+                            <td>
+                                <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="6" value="subnet-01">
+                            </td>
+                            <td>
+                                <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="7" value="sg-01">
+                            </td>
+                            <td>
+                                <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="8" disabled value="N/A">
+                            </td>
+                            <td>
+                                <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="9" disabled value="N/A">
+                            </td>
+                            <td>
+                                <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="10" disabled value="N/A">
+                            </td>
+                            <td>
+                                <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="11" value="keypair-01">
+                            </td>
+                            <td>
+                                <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="12" value="vmuser-01">
+                            </td>
+                            <td>
+                                <input style="font-size:12px;text-align:center;" type="password" name="text_box" id="13" value="password">
+                            </td>
+                            <td>
+                                <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="14" disabled value="N/A">
+                            </td>
+                            <td>
+                                <a href="javascript:postVM()">
+                                    <font size=3><b>+</b></font>
+                                </a>
+                            </td>
+                        </tr>
+                `
         // make page tail
         htmlStr += `
                     </table>
@@ -894,6 +1118,7 @@ func VMSpec(c echo.Context) error {
 //fmt.Println(htmlStr)
         return c.HTML(http.StatusOK, htmlStr)
 }
+
 
 //====================================== VMImage
 
@@ -1004,6 +1229,147 @@ func VMImage(c echo.Context) error {
 
         // (4-2) make TR list with info list
                 htmlStr += makeVMImageTRList_html("", "", "", info.ResultList)
+
+        // make page tail
+        htmlStr += `
+                    </table>
+            <hr>
+                </body>
+                </html>
+        `
+
+//fmt.Println(htmlStr)
+        return c.HTML(http.StatusOK, htmlStr)
+}
+
+//====================================== VMSpec
+
+// number, VMSpec Name, VCPU, Memory, GPU, KeyValueList
+func makeVMSpecTRList_html(bgcolor string, height string, fontSize string, infoList []*cres.VMSpecInfo) string {
+        if bgcolor == "" { bgcolor = "#FFFFFF" }
+        if height == "" { height = "30" }
+        if fontSize == "" { fontSize = "2" }
+
+        // make base TR frame for info list
+        strTR := fmt.Sprintf(`
+                <tr bgcolor="%s" align="center" height="%s">
+                    <td>
+                            <font size=%s>$$NUM$$</font>
+                    </td>
+                    <td>
+                            <font size=%s>$$VMSPECNAME$$</font>
+                    </td>
+                    <td align="left">
+                            <font size=%s>$$VCPUINFO$$</font>
+                    </td>
+                    <td>
+                            <font size=%s>$$MEMINFO$$ MB</font>
+                    </td>
+                    <td align="left">
+                            <font size=%s>$$GPUINFO$$</font>
+                    </td>
+                    <td align="left">
+                            <font size=%s>$$ADDITIONALINFO$$</font>
+                    </td>
+                </tr>
+                `, bgcolor, height, fontSize, fontSize, fontSize, fontSize, fontSize, fontSize)
+
+        strData := ""
+        // set data and make TR list
+        for i, one := range infoList{
+                str := strings.ReplaceAll(strTR, "$$NUM$$", strconv.Itoa(i+1))
+                str = strings.ReplaceAll(str, "$$VMSPECNAME$$", one.Name)
+                // VCPU Info: count, GHz
+                vcpuInfo := "&nbsp;* Count: " + one.VCpu.Count + "<br>"
+                vcpuInfo += "&nbsp;* Clock: " + one.VCpu.Clock + "GHz" + "<br>"
+                str = strings.ReplaceAll(str, "$$VCPUINFO$$", vcpuInfo)
+
+                // Mem Info
+                str = strings.ReplaceAll(str, "$$MEMINFO$$", one.Mem)
+
+                // GPU Info: Mfr, Model, Mem, Count
+                gpuInfo := ""
+                for _, gpu := range one.Gpu {
+                    gpuInfo += "&nbsp;* Mfr: " + gpu.Mfr + "<br>"
+                    gpuInfo += "&nbsp;* Model: " + gpu.Model + "<br>"
+                    gpuInfo += "&nbsp;* Memory: " + gpu.Mem + " MB" + "<br>"
+                    gpuInfo += "&nbsp;* Count: " + gpu.Count + "<br><br>"
+                }
+                str = strings.ReplaceAll(str, "$$GPUINFO$$", gpuInfo)
+
+        // for KeyValueList
+        strKeyList := ""
+                for _, kv := range one.KeyValueList {
+                        strKeyList += kv.Key + ":" + kv.Value + ", "
+                }
+                str = strings.ReplaceAll(str, "$$ADDITIONALINFO$$", strKeyList)
+
+                strData += str
+        }
+
+        return strData
+}
+
+func VMSpec(c echo.Context) error {
+        cblog.Info("call VMSpec()")
+
+    connConfig := c.Param("ConnectConfig")
+    if connConfig == "region not set" {
+        htmlStr :=  `
+            <html>
+            <head>
+                <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+                <script type="text/javascript">
+                alert(connConfig)
+                </script>
+            </head>
+            <body>
+                <br>
+                <br>
+                <label style="font-size:24px;color:#606262;">&nbsp;&nbsp;&nbsp;Please select a Connection Configuration! (MENU: 2.CONNECTION)</label>   
+            </body>
+        `
+
+        return c.HTML(http.StatusOK, htmlStr)
+    }
+    
+        // make page header
+        htmlStr :=  `
+                <html>
+                <head>
+                    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+                </head>
+
+                <body>
+        <br>
+                    <table border="0" bordercolordark="#F8F8FF" cellpadding="0" cellspacing="1" bgcolor="#FFFFFF"  style="font-size:small;">
+                `
+
+        // (3) make Table Header TR
+                nameWidthList := []NameWidth {
+                    {"VMSpec Name", "200"},
+                    {"VCPU", "300"},
+                    {"Memory", "200"},
+                    {"GPU", "300"},
+                    {"Additional Info", "300"},
+                }
+                htmlStr +=  makeTitleTRList_html("#DDDDDD", "2", nameWidthList, false)
+
+
+        // (4) make TR list with info list
+        // (4-1) get info list 
+                resBody, err := getResourceList_with_Connection_JsonByte(connConfig, "vmspec")
+                if err != nil {
+                        cblog.Error(err)
+                        return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+                }
+                var info struct {
+                        ResultList []*cres.VMSpecInfo `json:"vmspec"`
+                }
+                json.Unmarshal(resBody, &info)
+
+        // (4-2) make TR list with info list
+                htmlStr += makeVMSpecTRList_html("", "", "", info.ResultList)
 
         // make page tail
         htmlStr += `
