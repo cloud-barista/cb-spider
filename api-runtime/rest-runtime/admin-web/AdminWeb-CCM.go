@@ -1058,18 +1058,18 @@ func VM(c echo.Context) error {
                             <td>
                                     <font size=2>#</font>
                             </td>
-                            <td>
+                            <td style="vertical-align:top">
                                 <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="1" value="vm-01">
                             </td>
-                            <td>
+                            <td style="vertical-align:top">
                                 <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="2" disabled value="N/A">
                             </td>
-                            <td>
+                            <td style="vertical-align:top">
                                 <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="3" value="ami-f4f4cf91">
 			        <br>
                                 <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="4" value="t3.micro">
                             </td>
-                            <td>
+                            <td style="vertical-align:top">
         `
                 // Select format of CloudOS  name=text_box, id=1
                 htmlStr += makeSelect_html("onchangeVPC", nameList, "5")
@@ -1081,23 +1081,23 @@ func VM(c echo.Context) error {
 				<br>
                                 <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="7" value=["sg-01"]>
                             </td>
-                            <td>
+                            <td style="vertical-align:top">
                                 <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="8" disabled value="N/A">
                             </td>
-                            <td>
+                            <td style="vertical-align:top">
                                 <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="9" disabled value="N/A">
                             </td>
-                            <td>
+                            <td style="vertical-align:top">
                                 <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="10" disabled value="N/A">
                             </td>
-                            <td>
+                            <td style="vertical-align:top">
                                 <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="11" value="keypair-01">
 				<br>
                                 <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="12" value="vmuser-01">
 				<br>
                                 <input style="font-size:12px;text-align:center;" type="password" name="text_box" id="13" value="password">
                             </td>
-                            <td>
+                            <td style="vertical-align:top">
                                 <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="14" disabled value="N/A">
                             </td>
                             <td>
