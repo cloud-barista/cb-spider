@@ -22,7 +22,6 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
-	"github.com/davecgh/go-spew/spew"
 )
 
 const CBDefaultVNetName string = "CB-VNet"          // CB Default Virtual Network Name
@@ -287,7 +286,7 @@ func ConvertJsonString(v interface{}) (string, error) {
 //CB-KeyValue 등을 위해 String 타입으로 변환
 func ConvertToString(value interface{}) (string, error) {
 	if value == nil {
-		cblogger.Warnf("Nil Value")
+		cblogger.Debugf("Nil Value")
 		return "", errors.New("Nil. Value")
 	}
 
@@ -312,8 +311,7 @@ func ConvertToString(value interface{}) (string, error) {
 
 //Cloud Object를 CB-KeyValue 형식으로 변환이 필요할 경우 이용
 func ConvertKeyValueList(v interface{}) ([]irs.KeyValue, error) {
-	spew.Dump(v)
-
+	//spew.Dump(v)
 	var keyValueList []irs.KeyValue
 	var i map[string]interface{}
 
@@ -340,7 +338,7 @@ func ConvertKeyValueList(v interface{}) ([]irs.KeyValue, error) {
 		value, errString := ConvertToString(v)
 		if errString != nil {
 			//cblogger.Errorf("Key[%s]의 값은 변환 불가 - [%s]", k, errString)
-			cblogger.Warnf("Key[%s]의 값은 변환 불가 - [%s]", k, errString) //요구에 의해서 Error에서 Warn으로 낮춤
+			cblogger.Debugf("Key[%s]의 값은 변환 불가 - [%s]", k, errString) //요구에 의해서 Error에서 Warn으로 낮춤
 			continue
 		}
 		keyValueList = append(keyValueList, irs.KeyValue{k, value})
