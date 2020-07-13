@@ -936,13 +936,20 @@ func makeSetupConnectionConfigFunc_js() string {
 			a = parent.frames["top_frame"].document.getElementById("keypairmgmtHref");
 			a.href = "keypairmgmt/" + configName
 
-            // for VMImage
-            a = parent.frames["top_frame"].document.getElementById("vmimageHref");
-            a.href = "vmimage/" + configName
+                        // for vm
+                        a = parent.frames["top_frame"].document.getElementById("vmHref");
+                        a.href = "vm/" + configName
+                        a = parent.frames["top_frame"].document.getElementById("vmmgmtHref");
+                        a.href = "vmmgmt/" + configName
 
-            // for VMSpec
-            a = parent.frames["top_frame"].document.getElementById("vmspecHref");
-            a.href = "vmspec/" + configName
+
+		    // for VMImage
+		    a = parent.frames["top_frame"].document.getElementById("vmimageHref");
+		    a.href = "vmimage/" + configName
+
+		    // for VMSpec
+		    a = parent.frames["top_frame"].document.getElementById("vmspecHref");
+		    a.href = "vmspec/" + configName
 
                 }
         `

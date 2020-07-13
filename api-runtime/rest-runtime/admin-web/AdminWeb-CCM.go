@@ -13,10 +13,6 @@ import (
 	cres "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	cr "github.com/cloud-barista/cb-spider/api-runtime/common-runtime"
 
-/*
-        "github.com/cloud-barista/cb-store/config"
-        "github.com/sirupsen/logrus"
-*/
 	"strconv"
 
 	"net/http"
@@ -757,7 +753,7 @@ func KeyPair(c echo.Context) error {
 
 // number, VM Name/Control, VMStatus/Last Start Time, VMImage/VMSpec, VPC/Subnet/Security Group, 
 //         Network Interface/IP, DNS, Boot Disk/Block Disk, Access Key/Access User Name, Additional Info, checkbox
-func makeVMTRList_html(bgcolor string, height string, fontSize string, infoList []*cres.VMInfo) string {
+func makeVMTRList_html(connConfig string, bgcolor string, height string, fontSize string, infoList []*cres.VMInfo) string {
         if bgcolor == "" { bgcolor = "#FFFFFF" }
         if height == "" { height = "30" }
         if fontSize == "" { fontSize = "2" }
@@ -817,7 +813,7 @@ func makeVMTRList_html(bgcolor string, height string, fontSize string, infoList 
                         <input type="checkbox" name="check_box" value=$$VMNAME$$>
                     </td>
                 </tr>
-                `, bgcolor, height, fontSize, fontSize, fontSize, fontSize, fontSize, fontSize, fontSize, fontSize, fontSize, fontSize, \
+                `, bgcolor, height, fontSize, fontSize, fontSize, fontSize, fontSize, fontSize, fontSize, fontSize, fontSize, fontSize, 
                                     fontSize, fontSize, fontSize, fontSize, fontSize, fontSize, fontSize, fontSize, fontSize)
 
         strData := ""
@@ -837,11 +833,19 @@ func makeVMTRList_html(bgcolor string, height string, fontSize string, infoList 
 
         // for security rules info
         strSRList := ""
-                for _, one := range *one.SecurityRules {
-                        strSRList += "FromPort:" + one.FromPort + ", "
-                        strSRList += "ToPort:" + one.ToPort + ", "
-                        strSRList += "IPProtocol:" + one.IPProtocol + ", "
-                        strSRList += "Direction:" + one.Direction + ", "
+                for _, one := range one.SecurityGroupIIds {
+			resBody, err := getResource_with_Connection_JsonByte(connConfig, "vm", one.NameId)
+			if err != nil {
+				cblog.Error(err)
+				break
+			}
+			var secRuleInfo cres.SecurityRuleInfo
+			json.Unmarshal(resBody, &secRuleInfo)
+
+                        strSRList += "{FromPort:" + secRuleInfo.FromPort + ", "
+                        strSRList += "ToPort:" + secRuleInfo.ToPort + ", "
+                        strSRList += "IPProtocol:" + secRuleInfo.IPProtocol + ", "
+                        strSRList += "Direction:" + secRuleInfo.Direction + ", "
                         strSRList += "}<br>"    
                 }
                 str = strings.ReplaceAll(str, "$$SECURITYGROUP$$", strSRList)
@@ -888,11 +892,11 @@ func makePostVMFunc_js() string {
         strFunc := `
                 function postVM() {
                         var connConfig = parent.frames["top_frame"].document.getElementById("connConfig").innerHTML;
-
+alert(connConfig)
                         var textboxes = document.getElementsByName('text_box');
                         sendJson = '{ "ConnectionName" : "' + connConfig + '", "ReqInfo" : { "Name" : "$$VMNAME$$", \
-                                "ImageName" : "$$IMAGE$$", "VMSpecName" : "$$SPEC$$", "VPCName" : "$$VPC$$", "SubnetName" : $$SUBNET$$, \
-                                "SecurityGroupNames" : $$SECURITYGROUP$$, "KeyPairName" : "$$ACCESSKEY$$", "VMUserId" : "$$ACCESSUSER$$", , "VMUserPasswd" : "$$ACCESSPASSWD$$" }}'
+                                "ImageName" : "$$IMAGE$$", "VMSpecName" : "$$SPEC$$", "VPCName" : "$$VPC$$", "SubnetName" : "$$SUBNET$$", \
+                                "SecurityGroupNames" : $$SECURITYGROUP$$, "KeyPairName" : "$$ACCESSKEY$$", "VMUserId" : "$$ACCESSUSER$$", "VMUserPasswd" : "$$ACCESSPASSWD$$" }}'
 
                         for (var i = 0; i < textboxes.length; i++) { // @todo make parallel executions
                                 switch (textboxes[i].id) {
@@ -928,6 +932,7 @@ func makePostVMFunc_js() string {
                                                 break;
                                 }
                         }
+alert(sendJson)
                         var xhr = new XMLHttpRequest();
                         xhr.open("POST", "$$SPIDER_SERVER$$/spider/vm", false);
                         xhr.setRequestHeader('Content-Type', 'application/json');
@@ -1010,8 +1015,7 @@ func VM(c echo.Context) error {
 
         // (2) make Table Action TR
                 // colspan, f5_href, delete_href, fontSize
-                //htmlStr += makeActionTR_html("6", "securitygroup", "deleteSecurityGroup()", "2")
-                htmlStr += makeActionTR_html("10", "", "deleteVM()", "2")
+                htmlStr += makeActionTR_html("11", "", "deleteVM()", "2")
 
 
         // (3) make Table Header TR
@@ -1042,7 +1046,7 @@ func VM(c echo.Context) error {
                 json.Unmarshal(resBody, &info)
 
         // (4-2) make TR list with info list
-                htmlStr += makeVMTRList_html("", "", "", info.ResultList)
+                htmlStr += makeVMTRList_html(connConfig, "", "", "", info.ResultList)
 
 
         // (5) make input field and add
@@ -1062,8 +1066,7 @@ func VM(c echo.Context) error {
                             </td>
                             <td>
                                 <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="3" value="ami-f4f4cf91">
-                            </td>
-                            <td>
+			        <br>
                                 <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="4" value="t3.micro">
                             </td>
                             <td>
@@ -1072,12 +1075,11 @@ func VM(c echo.Context) error {
                 htmlStr += makeSelect_html("onchangeVPC", nameList, "5")
 
         htmlStr += `
-                            </td>
-                            <td>
+
+				<br>
                                 <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="6" value="subnet-01">
-                            </td>
-                            <td>
-                                <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="7" value="sg-01">
+				<br>
+                                <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="7" value=["sg-01"]>
                             </td>
                             <td>
                                 <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="8" disabled value="N/A">
@@ -1090,11 +1092,9 @@ func VM(c echo.Context) error {
                             </td>
                             <td>
                                 <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="11" value="keypair-01">
-                            </td>
-                            <td>
+				<br>
                                 <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="12" value="vmuser-01">
-                            </td>
-                            <td>
+				<br>
                                 <input style="font-size:12px;text-align:center;" type="password" name="text_box" id="13" value="password">
                             </td>
                             <td>

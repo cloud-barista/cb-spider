@@ -314,7 +314,7 @@ func SecurityGroupMgmt(c echo.Context) error {
         return c.HTML(http.StatusOK, htmlStr)
 }
 
-//====================================== VPC
+//====================================== KeyPair
 
 // make the string of javascript function
 func makeDeleteKeyPairMgmtFunc_js() string {
@@ -431,3 +431,10 @@ func KeyPairMgmt(c echo.Context) error {
 //fmt.Println(htmlStr)
         return c.HTML(http.StatusOK, htmlStr)
 }
+
+//====================================== VM
+
+func VMMgmt(c echo.Context) error {
+	return nil
+}
+
