@@ -83,7 +83,7 @@ cloudbaristaorg/cb-spider:v0.1.v
         - `build_driver_lib.sh` 실행
 
 #### (c) 서버 실행
-- `cd cb-spider/api-runtime/rest-runtime`
+- `cd cb-spider/api-runtime`
 -	`go run *.go`    # 1024 포트 REST API Server 실행됨
 -	참고: 메타 정보 손상시 초기화 방법
     - `cb-spider/cloud-driver-libs/.ssh-*/*` 파일 삭제
