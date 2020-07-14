@@ -1,6 +1,7 @@
 package api
 
 import (
+	"encoding/json"
 	"errors"
 	"io"
 	"time"
@@ -29,6 +30,97 @@ type CCMApi struct {
 	requestSSH   *request.SSHRequest
 	inType       string
 	outType      string
+}
+
+// ImageReq - Image 정보 생성 요청 구조 정의
+type ImageReq struct {
+	ConnectionName string    `yaml:"ConnectionName" json:"ConnectionName"`
+	ReqInfo        ImageInfo `yaml:"ReqInfo" json:"ReqInfo"`
+}
+
+// ImageInfo - Image 정보 구조 정의
+type ImageInfo struct {
+	Name string `yaml:"Name" json:"Name"`
+}
+
+// VPCReq - VPC 정보 생성 요청 구조 정의
+type VPCReq struct {
+	ConnectionName string  `yaml:"ConnectionName" json:"ConnectionName"`
+	ReqInfo        VPCInfo `yaml:"ReqInfo" json:"ReqInfo"`
+}
+
+// VPCInfo - VPC 정보 구조 정의
+type VPCInfo struct {
+	Name           string        `yaml:"Name" json:"Name"`
+	IPv4_CIDR      string        `yaml:"IPv4_CIDR" json:"IPv4_CIDR"`
+	SubnetInfoList *[]SubnetInfo `yaml:"SubnetInfoList" json:"SubnetInfoList"`
+}
+
+// SubnetInfo - Subnet 정보 구조 정의
+type SubnetInfo struct {
+	Name      string `yaml:"Name" json:"Name"`
+	IPv4_CIDR string `yaml:"IPv4_CIDR" json:"IPv4_CIDR"`
+}
+
+// SecurityReq - Security 정보 생성 요청 구조 정의
+type SecurityReq struct {
+	ConnectionName string       `yaml:"ConnectionName" json:"ConnectionName"`
+	ReqInfo        SecurityInfo `yaml:"ReqInfo" json:"ReqInfo"`
+}
+
+// SecurityInfo - Security 정보 구조 정의
+type SecurityInfo struct {
+	Name          string              `yaml:"Name" json:"Name"`
+	VPCName       string              `yaml:"VPCName" json:"VPCName"`
+	Direction     string              `yaml:"Direction" json:"Direction"`
+	SecurityRules *[]SecurityRuleInfo `yaml:"SecurityRules" json:"SecurityRules"`
+}
+
+// SecurityRuleInfo - Security Rule 정보 구조 정의
+type SecurityRuleInfo struct {
+	FromPort   string `yaml:"FromPort" json:"FromPort"`
+	ToPort     string `yaml:"ToPort" json:"ToPort"`
+	IPProtocol string `yaml:"IPProtocol" json:"IPProtocol"`
+	Direction  string `yaml:"Direction" json:"Direction"`
+}
+
+// KeyReq - Key Pair 정보 생성 요청 구조 정의
+type KeyReq struct {
+	ConnectionName string  `yaml:"ConnectionName" json:"ConnectionName"`
+	ReqInfo        KeyInfo `yaml:"ReqInfo" json:"ReqInfo"`
+}
+
+// KeyInfo - Key 정보 구조 정의
+type KeyInfo struct {
+	Name string `yaml:"Name" json:"Name"`
+}
+
+// VMReq - VM 정보 생성 요청 구조 정의
+type VMReq struct {
+	ConnectionName string `yaml:"ConnectionName" json:"ConnectionName"`
+	ReqInfo        VMInfo `yaml:"ReqInfo" json:"ReqInfo"`
+}
+
+//VMInfo - VM 정보 구조 정의
+type VMInfo struct {
+	Name               string   `yaml:"Name" json:"Name"`
+	ImageName          string   `yaml:"ImageName" json:"ImageName"`
+	VPCName            string   `yaml:"VPCName" json:"VPCName"`
+	SubnetName         string   `yaml:"SubnetName" json:"SubnetName"`
+	SecurityGroupNames []string `yaml:"SecurityGroupNames" json:"SecurityGroupNames"`
+	VMSpecName         string   `yaml:"VMSpecName" json:"VMSpecName"`
+	KeyPairName        string   `yaml:"KeyPairName" json:"KeyPairName"`
+
+	VMUserId     string `yaml:"VMUserId" json:"VMUserId"`
+	VMUserPasswd string `yaml:"VMUserPasswd" json:"VMUserPasswd"`
+}
+
+// SSHRUNReq - SSH 실행 요청 구조 정의
+type SSHRUNReq struct {
+	UserName   string   `yaml:"UserName" json:"UserName"`
+	PrivateKey []string `yaml:"PrivateKey" json:"PrivateKey"`
+	ServerPort string   `yaml:"ServerPort" json:"ServerPort"`
+	Command    string   `yaml:"Command" json:"Command"`
 }
 
 // ===== [ Implementations ] =====
@@ -279,6 +371,25 @@ func (ccm *CCMApi) CreateImage(doc string) (string, error) {
 	return ccm.requestCCM.CreateImage()
 }
 
+// CreateImageByParam - Image 생성
+func (ccm *CCMApi) CreateImageByParam(req *ImageReq) (string, error) {
+	if ccm.requestCCM == nil {
+		return "", errors.New("The Open() function must be called")
+	}
+
+	holdType, _ := ccm.GetInType()
+	ccm.SetInType("json")
+	j, err := json.Marshal(req)
+	if err != nil {
+		return "", err
+	}
+	ccm.requestCCM.InData = string(j)
+	result, err := ccm.requestCCM.CreateImage()
+	ccm.SetInType(holdType)
+
+	return result, err
+}
+
 // ListImage - Image 목록
 func (ccm *CCMApi) ListImage(doc string) (string, error) {
 	if ccm.requestCCM == nil {
@@ -464,6 +575,25 @@ func (ccm *CCMApi) CreateVPC(doc string) (string, error) {
 	return ccm.requestCCM.CreateVPC()
 }
 
+// CreateVPCByParam - VPC 생성
+func (ccm *CCMApi) CreateVPCByParam(req *VPCReq) (string, error) {
+	if ccm.requestCCM == nil {
+		return "", errors.New("The Open() function must be called")
+	}
+
+	holdType, _ := ccm.GetInType()
+	ccm.SetInType("json")
+	j, err := json.Marshal(req)
+	if err != nil {
+		return "", err
+	}
+	ccm.requestCCM.InData = string(j)
+	result, err := ccm.requestCCM.CreateVPC()
+	ccm.SetInType(holdType)
+
+	return result, err
+}
+
 // ListVPC - VPC 목록
 func (ccm *CCMApi) ListVPC(doc string) (string, error) {
 	if ccm.requestCCM == nil {
@@ -597,6 +727,25 @@ func (ccm *CCMApi) CreateSecurity(doc string) (string, error) {
 
 	ccm.requestCCM.InData = doc
 	return ccm.requestCCM.CreateSecurity()
+}
+
+// CreateSecurityByParam - Security 생성
+func (ccm *CCMApi) CreateSecurityByParam(req *SecurityReq) (string, error) {
+	if ccm.requestCCM == nil {
+		return "", errors.New("The Open() function must be called")
+	}
+
+	holdType, _ := ccm.GetInType()
+	ccm.SetInType("json")
+	j, err := json.Marshal(req)
+	if err != nil {
+		return "", err
+	}
+	ccm.requestCCM.InData = string(j)
+	result, err := ccm.requestCCM.CreateSecurity()
+	ccm.SetInType(holdType)
+
+	return result, err
 }
 
 // ListSecurity - Security 목록
@@ -734,6 +883,25 @@ func (ccm *CCMApi) CreateKey(doc string) (string, error) {
 	return ccm.requestCCM.CreateKey()
 }
 
+// CreateKeyByParam - Key Pair 생성
+func (ccm *CCMApi) CreateKeyByParam(req *KeyReq) (string, error) {
+	if ccm.requestCCM == nil {
+		return "", errors.New("The Open() function must be called")
+	}
+
+	holdType, _ := ccm.GetInType()
+	ccm.SetInType("json")
+	j, err := json.Marshal(req)
+	if err != nil {
+		return "", err
+	}
+	ccm.requestCCM.InData = string(j)
+	result, err := ccm.requestCCM.CreateKey()
+	ccm.SetInType(holdType)
+
+	return result, err
+}
+
 // ListKey - Key Pair 목록
 func (ccm *CCMApi) ListKey(doc string) (string, error) {
 	if ccm.requestCCM == nil {
@@ -867,6 +1035,25 @@ func (ccm *CCMApi) StartVM(doc string) (string, error) {
 
 	ccm.requestCCM.InData = doc
 	return ccm.requestCCM.StartVM()
+}
+
+// StartVMByParam - VM 시작
+func (ccm *CCMApi) StartVMByParam(req *VMReq) (string, error) {
+	if ccm.requestCCM == nil {
+		return "", errors.New("The Open() function must be called")
+	}
+
+	holdType, _ := ccm.GetInType()
+	ccm.SetInType("json")
+	j, err := json.Marshal(req)
+	if err != nil {
+		return "", err
+	}
+	ccm.requestCCM.InData = string(j)
+	result, err := ccm.requestCCM.StartVM()
+	ccm.SetInType(holdType)
+
+	return result, err
 }
 
 // ControlVM - VM 제어
@@ -1077,6 +1264,25 @@ func (ccm *CCMApi) SSHRun(doc string) (string, error) {
 
 	ccm.requestSSH.InData = doc
 	return ccm.requestSSH.SSHRun()
+}
+
+// SSHRunByParam - SSH 실행
+func (ccm *CCMApi) SSHRunByParam(req *SSHRUNReq) (string, error) {
+	if ccm.requestSSH == nil {
+		return "", errors.New("The Open() function must be called")
+	}
+
+	holdType, _ := ccm.GetInType()
+	ccm.SetInType("json")
+	j, err := json.Marshal(req)
+	if err != nil {
+		return "", err
+	}
+	ccm.requestSSH.InData = string(j)
+	result, err := ccm.requestSSH.SSHRun()
+	ccm.SetInType(holdType)
+
+	return result, err
 }
 
 // ===== [ Private Functions ] =====

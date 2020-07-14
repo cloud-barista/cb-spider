@@ -41,6 +41,9 @@ func SetupAndRun(cmd *cobra.Command, args []string) {
 	var (
 		result string
 		err    error
+
+		cim *api.CIMApi = nil
+		ccm *api.CCMApi = nil
 	)
 
 	// panic 처리
@@ -50,33 +53,40 @@ func SetupAndRun(cmd *cobra.Command, args []string) {
 		}
 	}()
 
-	// CIM API 설정
-	cim := api.NewCloudInfoManager()
-	err = cim.SetConfigPath(configFile)
-	if err != nil {
-		logger.Error("failed to set config : ", err)
-		return
-	}
-	err = cim.Open()
-	if err != nil {
-		logger.Error("cim api open failed : ", err)
-		return
-	}
-	defer cim.Close()
+	if cmd.Parent().Name() == "os" || cmd.Parent().Name() == "driver" || cmd.Parent().Name() == "credential" ||
+		cmd.Parent().Name() == "region" || cmd.Parent().Name() == "connection" {
 
-	// CCM API 설정
-	ccm := api.NewCloudInfoResourceHandler()
-	err = ccm.SetConfigPath(configFile)
-	if err != nil {
-		logger.Error("failed to set config : ", err)
-		return
+		// CIM API 설정
+		cim = api.NewCloudInfoManager()
+		err = cim.SetConfigPath(configFile)
+		if err != nil {
+			logger.Error("failed to set config : ", err)
+			return
+		}
+		err = cim.Open()
+		if err != nil {
+			logger.Error("cim api open failed : ", err)
+			return
+		}
+		defer cim.Close()
+
+	} else {
+
+		// CCM API 설정
+		ccm = api.NewCloudInfoResourceHandler()
+		err = ccm.SetConfigPath(configFile)
+		if err != nil {
+			logger.Error("failed to set config : ", err)
+			return
+		}
+		err = ccm.Open()
+		if err != nil {
+			logger.Error("cim api open failed : ", err)
+			return
+		}
+		defer ccm.Close()
+
 	}
-	err = ccm.Open()
-	if err != nil {
-		logger.Error("cim api open failed : ", err)
-		return
-	}
-	defer ccm.Close()
 
 	// 입력 파라미터 처리
 	if outType != "json" && outType != "yaml" {
@@ -87,10 +97,15 @@ func SetupAndRun(cmd *cobra.Command, args []string) {
 		logger.Error("failed to validate --input parameter : ", inType)
 		return
 	}
-	cim.SetInType(inType)
-	cim.SetOutType(outType)
-	ccm.SetInType(inType)
-	ccm.SetOutType(outType)
+
+	if cmd.Parent().Name() == "os" || cmd.Parent().Name() == "driver" || cmd.Parent().Name() == "credential" ||
+		cmd.Parent().Name() == "region" || cmd.Parent().Name() == "connection" {
+		cim.SetInType(inType)
+		cim.SetOutType(outType)
+	} else {
+		ccm.SetInType(inType)
+		ccm.SetOutType(outType)
+	}
 
 	logger.Debug("--input parameter value : ", inType)
 	logger.Debug("--output parameter value : ", outType)
