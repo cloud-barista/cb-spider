@@ -83,10 +83,15 @@ cloudbaristaorg/cb-spider:v0.1.v
         - `build_driver_lib.sh` 실행
 
 #### (c) 서버 실행
-- `export GO111MODULE="on"`
 - `cd cb-spider/api-runtime/`
--	`make` 로 build 후에
-- `./cb-spider` 로 실행 # 1024 포트 REST API Server, 50251 포트 gRPC Server 실행됨
+
+- 위의 위치에서 아래의 두가지 방법으로 cb-spider 서버를 실행할 수 있음.  # 1024 포트로 REST API Server 구동됨
+
+  - 방법 1)
+    - `go run *.go` 로 build 및 실행 
+
+  - 방법 2)
+    -	`make` 로 build 후 `./cb-spider` 로 실행
 
 -	참고: 메타 정보 손상시 초기화 방법
     - `cb-spider/cloud-driver-libs/.ssh-*/*` 파일 삭제
@@ -139,7 +144,6 @@ cloudbaristaorg/cb-spider:v0.1.v
 
 ## [소스 트리]
 ```
-.
 . Dockerfile: docker image build용
 . setup.env: spider 운영에 필요한 환경변수 설정
 . build_all_driver_lib.sh: 드라이버 build 스크립트
@@ -190,3 +194,5 @@ cloudbaristaorg/cb-spider:v0.1.v
 `-- utils
     |-- import-info: Cloud Driver 및 Region 정보 자동 등록 지원 도구
 ```
+
+- CB-Spider 소스 트리 관련 상세 설명 : https://han.gl/3IOVD
