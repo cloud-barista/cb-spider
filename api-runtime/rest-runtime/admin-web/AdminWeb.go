@@ -69,9 +69,13 @@ func vmStatus(connConfig string, vmName string) string {
         if err != nil {
                 cblog.Error(err)
         }
-	var info cres.VMStatusInfo 
+	//var info cres.VMStatusInfo 
+	var info struct {
+                Status string
+        }
         json.Unmarshal(resBody, &info)
-        return fmt.Sprint(info.VmStatus)
+        //return fmt.Sprint(info.Status)
+        return info.Status
 }
 
 func subnetList(connConfig string, vpcName string) []string {
@@ -148,7 +152,7 @@ func Top(c echo.Context) error {
     <!-- <table border="0" bordercolordark="#FFFFFF" cellpadding="0" cellspacing="2" bgcolor="#FFFFFF" width="320" style="font-size:small;"> -->
     <table border="0" bordercolordark="#FFFFFF" cellpadding="0" cellspacing="1" bgcolor="#FFFFFF"  style="font-size:small;">      
         <tr bgcolor="#FFFFFF" align="left">
-            <td rowspan="2" width="80" bgcolor="#FFFFFF">
+            <td rowspan="2" width="70" bgcolor="#FFFFFF" align="center">
                 <!-- CB-Spider Logo -->
                 <a href="../adminweb" target="_top">
                   <!-- <img height="45" width="42" src="https://cloud-barista.github.io/assets/img/frameworks/cb-spider.png" border='0' hspace='0' vspace='1' align="middle"> -->

@@ -540,7 +540,7 @@ func makeKeyPairTRList_html(bgcolor string, height string, fontSize string, info
                             <font size=%s>$$ADDITIONALINFO$$</font>
                     </td>
                     <td>
-                        <input type="checkbox" name="check_box" value=$$VPCNAME$$>
+                        <input type="checkbox" name="check_box" value=$$KEYPAIRNAME$$>
                     </td>
                 </tr>
                 `, bgcolor, height, fontSize, fontSize, fontSize, fontSize, fontSize)
