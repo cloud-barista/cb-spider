@@ -51,7 +51,7 @@ func (cloudConn *DockerCloudConnection) CreateVMHandler() (irs.VMHandler, error)
 }
 
 func (cloudConn *DockerCloudConnection) CreateVPCHandler() (irs.VPCHandler, error) {
-        cblogger.Error("OpenStack Cloud Driver: called CreateVPCHandler(), but not supported!")
+        cblogger.Error("Docker Cloud Driver: called CreateVPCHandler(), but not supported!")
         return nil, nil
 }
 
