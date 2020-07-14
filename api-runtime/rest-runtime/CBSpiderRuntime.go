@@ -224,6 +224,10 @@ func ApiServer(routes []route, strPort string) {
 		}
 	}
 
+	// for spider logo
+	cbspiderRoot := os.Getenv("CBSPIDER_ROOT")
+	e.File("/spider/adminweb/images/logo.png", cbspiderRoot + "/api-runtime/rest-runtime/admin-web/images/cb-spider-circle-logo.png")
+
 	e.HideBanner = true
 	if strPort == "" {
 		strPort = ":1024"

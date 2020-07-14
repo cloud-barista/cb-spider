@@ -821,7 +821,9 @@ func makeVMTRList_html(connConfig string, bgcolor string, height string, fontSiz
         for i, one := range infoList{
                 str := strings.ReplaceAll(strTR, "$$NUM$$", strconv.Itoa(i+1))
                 str = strings.ReplaceAll(str, "$$VMNAME$$", one.IId.NameId)
-                str = strings.ReplaceAll(str, "$$VMSTATUS$$", one.IId.NameId)
+		status := vmStatus(connConfig, one.IId.NameId)
+                str = strings.ReplaceAll(str, "$$VMSTATUS$$", status)
+                str = strings.ReplaceAll(str, "$$LASTSTARTTIME$$", one.StartTime.Format("2006.01.02 15:04:05 Mon"))
 
         // for Image & Spec
                 str = strings.ReplaceAll(str, "$$IMAGE$$", one.ImageIId.NameId)
@@ -834,19 +836,23 @@ func makeVMTRList_html(connConfig string, bgcolor string, height string, fontSiz
         // for security rules info
         strSRList := ""
                 for _, one := range one.SecurityGroupIIds {
-			resBody, err := getResource_with_Connection_JsonByte(connConfig, "vm", one.NameId)
+			resBody, err := getResource_with_Connection_JsonByte(connConfig, "securitygroup", one.NameId)
 			if err != nil {
 				cblog.Error(err)
 				break
 			}
-			var secRuleInfo cres.SecurityRuleInfo
-			json.Unmarshal(resBody, &secRuleInfo)
+			var secInfo cres.SecurityInfo
+			json.Unmarshal(resBody, &secInfo)
 
-                        strSRList += "{FromPort:" + secRuleInfo.FromPort + ", "
-                        strSRList += "ToPort:" + secRuleInfo.ToPort + ", "
-                        strSRList += "IPProtocol:" + secRuleInfo.IPProtocol + ", "
-                        strSRList += "Direction:" + secRuleInfo.Direction + ", "
-                        strSRList += "}<br>"    
+			strSRList += "["
+			for _, secRuleInfo := range *secInfo.SecurityRules {
+				strSRList += "{FromPort:" + secRuleInfo.FromPort + ", "
+				strSRList += "ToPort:" + secRuleInfo.ToPort + ", "
+				strSRList += "IPProtocol:" + secRuleInfo.IPProtocol + ", "
+				strSRList += "Direction:" + secRuleInfo.Direction
+				strSRList += "},<br>"    
+			}
+			strSRList += "]"
                 }
                 str = strings.ReplaceAll(str, "$$SECURITYGROUP$$", strSRList)
 
@@ -892,7 +898,6 @@ func makePostVMFunc_js() string {
         strFunc := `
                 function postVM() {
                         var connConfig = parent.frames["top_frame"].document.getElementById("connConfig").innerHTML;
-alert(connConfig)
                         var textboxes = document.getElementsByName('text_box');
                         sendJson = '{ "ConnectionName" : "' + connConfig + '", "ReqInfo" : { "Name" : "$$VMNAME$$", \
                                 "ImageName" : "$$IMAGE$$", "VMSpecName" : "$$SPEC$$", "VPCName" : "$$VPC$$", "SubnetName" : "$$SUBNET$$", \
@@ -932,7 +937,6 @@ alert(connConfig)
                                                 break;
                                 }
                         }
-alert(sendJson)
                         var xhr = new XMLHttpRequest();
                         xhr.open("POST", "$$SPIDER_SERVER$$/spider/vm", false);
                         xhr.setRequestHeader('Content-Type', 'application/json');
@@ -1052,6 +1056,70 @@ func VM(c echo.Context) error {
         // (5) make input field and add
         // attach text box for add
         nameList := vpcList(connConfig)
+        keyNameList := keyPairList(connConfig)
+	providerName, _ := getProviderName(connConfig)
+
+	imageName := ""
+	specName := ""
+	subnetName := ""
+	sgName := ""
+	vmUser := "" // AWS:ec2-user, Azure&GCP:cb-user, Alibaba&Cloudit:root, OpenStack: ubuntu
+	switch providerName {
+	case "AWS":
+		imageName = "ami-f4f4cf91"
+		specName = "t3.micro"
+		subnetName = "subnet-01"
+		sgName = `["sg-01"]`
+		vmUser = "ec2-user"
+	case "AZURE":
+		imageName = "Canonical:UbuntuServer:18.04-LTS:latest"
+		specName = "Standard_B1ls"
+		subnetName = "subnet-01"
+		sgName = `["sg-01"]`
+		vmUser = "cb-user"
+	case "GCP":
+		imageName = "https://www.googleapis.com/compute/v1/projects/ubuntu-os-cloud/global/images/ubuntu-minimal-1804-bionic-v20191024"
+		specName = "f1-micro"
+		subnetName = "subnet-01"
+		sgName = `["sg-01"]`
+		vmUser = "cb-user"
+	case "ALIBABA":
+		imageName = "ubuntu_18_04_x64_20G_alibase_20200220.vhd"
+		specName = "ecs.t5-lc1m2.small"
+		subnetName = "subnet-01"
+		sgName = `["sg-01"]`
+		vmUser = "root"
+	case "CLOUDIT":
+		imageName = "CentOS-7"
+		specName = "small-2"
+		subnetName = "subnet-01"
+		sgName = `["sg-01"]`
+		vmUser = "root"
+	case "OPENSTACK":
+		imageName = "Ubuntu16.04_2"
+		specName = "nano.1"
+		subnetName = "subnet-01"
+		sgName = `["sg-01"]`
+		vmUser = "ubuntu"
+	case "DOCKER":
+		imageName = "nginx:latest"
+		subnetName = ""
+		sgName = `[]`
+		specName = ""
+		vmUser = ""
+	case "CLOUDTWIN":
+		imageName = "nginx:latest"
+		subnetName = ""
+		sgName = ``
+		specName = ""
+		vmUser = ""
+	default:
+		imageName = "ami-f4f4cf91"
+		specName = "t3.micro"
+		subnetName = "subnet-01"
+		sgName = `["sg-01"]`
+		vmUser = "ec2-user"
+	}
 
                 htmlStr += `
                         <tr bgcolor="#FFFFFF" align="center" height="30">
@@ -1065,21 +1133,21 @@ func VM(c echo.Context) error {
                                 <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="2" disabled value="N/A">
                             </td>
                             <td style="vertical-align:top">
-                                <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="3" value="ami-f4f4cf91">
+                                <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="3" value="$$IMAGENAME$$">
 			        <br>
-                                <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="4" value="t3.micro">
+                                <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="4" value="$$SPECNAME$$">
                             </td>
                             <td style="vertical-align:top">
-        `
-                // Select format of CloudOS  name=text_box, id=1
-                htmlStr += makeSelect_html("onchangeVPC", nameList, "5")
+			    `
+				// Select format of VPC  name=text_box, id=5
+				htmlStr += makeSelect_html("onchangeVPC", nameList, "5")
 
-        htmlStr += `
+			    htmlStr += `
 
 				<br>
-                                <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="6" value="subnet-01">
+                                <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="6" value="$$SUBNETNAME$$">
 				<br>
-                                <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="7" value=["sg-01"]>
+                                <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="7" value=$$SGNAME$$>
                             </td>
                             <td style="vertical-align:top">
                                 <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="8" disabled value="N/A">
@@ -1091,11 +1159,15 @@ func VM(c echo.Context) error {
                                 <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="10" disabled value="N/A">
                             </td>
                             <td style="vertical-align:top">
-                                <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="11" value="keypair-01">
+			    `
+				// Select format of KeyPair  name=text_box, id=11
+				htmlStr += makeKeyPairSelect_html("onchangeKeyPair", keyNameList, "11")
+
+			    htmlStr += `
 				<br>
-                                <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="12" value="vmuser-01">
+                                <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="12" value="$$VMUSER$$">
 				<br>
-                                <input style="font-size:12px;text-align:center;" type="password" name="text_box" id="13" value="password">
+                                <input style="font-size:12px;text-align:center;" type="password" name="text_box" id="13" value="">
                             </td>
                             <td style="vertical-align:top">
                                 <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="14" disabled value="N/A">
@@ -1107,6 +1179,14 @@ func VM(c echo.Context) error {
                             </td>
                         </tr>
                 `
+
+		// set imageName & specName & vmUser
+		htmlStr = strings.ReplaceAll(htmlStr, "$$IMAGENAME$$", imageName);
+		htmlStr = strings.ReplaceAll(htmlStr, "$$SPECNAME$$", specName);
+		htmlStr = strings.ReplaceAll(htmlStr, "$$SUBNETNAME$$", subnetName);
+		htmlStr = strings.ReplaceAll(htmlStr, "$$SGNAME$$", sgName);
+		htmlStr = strings.ReplaceAll(htmlStr, "$$VMUSER$$", vmUser);
+
         // make page tail
         htmlStr += `
                     </table>

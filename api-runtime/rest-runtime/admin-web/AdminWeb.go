@@ -64,6 +64,49 @@ func vpcList(connConfig string) []string {
         return nameList
 }
 
+func vmStatus(connConfig string, vmName string) string {
+        resBody, err := getResource_with_Connection_JsonByte(connConfig, "vmstatus", vmName)
+        if err != nil {
+                cblog.Error(err)
+        }
+	var info cres.VMStatusInfo 
+        json.Unmarshal(resBody, &info)
+        return fmt.Sprint(info.VmStatus)
+}
+
+func subnetList(connConfig string, vpcName string) []string {
+        resBody, err := getResource_with_Connection_JsonByte(connConfig, "vpc", vpcName)
+        if err != nil {
+                cblog.Error(err)
+        }
+        var info cres.VPCInfo
+        json.Unmarshal(resBody, &info)
+
+        var nameList []string
+        for _, subnetInfo := range info.SubnetInfoList {
+                nameList = append(nameList, subnetInfo.IId.NameId)
+        }
+        return nameList
+}
+
+
+func keyPairList(connConfig string) []string {
+        resBody, err := getResourceList_with_Connection_JsonByte(connConfig, "keypair")
+        if err != nil {
+                cblog.Error(err)
+        }
+        var info struct {
+                ResultList []cres.VPCInfo `json:"keypair"`
+        }
+        json.Unmarshal(resBody, &info)
+
+        var nameList []string
+        for _, keypair := range info.ResultList {
+                nameList = append(nameList, keypair.IId.NameId)
+        }
+        return nameList
+}
+
 //================ Frame
 func Frame(c echo.Context) error {
 	cblog.Info("call Frame()")
@@ -108,7 +151,8 @@ func Top(c echo.Context) error {
             <td rowspan="2" width="80" bgcolor="#FFFFFF">
                 <!-- CB-Spider Logo -->
                 <a href="../adminweb" target="_top">
-                  <img height="45" width="42" src="https://cloud-barista.github.io/assets/img/frameworks/cb-spider.png" border='0' hspace='0' vspace='1' align="middle">
+                  <!-- <img height="45" width="42" src="https://cloud-barista.github.io/assets/img/frameworks/cb-spider.png" border='0' hspace='0' vspace='1' align="middle"> -->
+                  <img height="45" width="45" src="./images/logo.png" border='0' hspace='0' vspace='1' align="middle">
                 </a>
 		<font size=1>$$TIME$$</font>	
             </td>
@@ -233,6 +277,24 @@ func makeSelect_html(onchangeFunctionName string, strList []string, id string) s
 
 	return strSelect
 }
+
+func makeKeyPairSelect_html(onchangeFunctionName string, strList []string, id string) string {
+
+        strSelect := `<select name="text_box" id="` + id + `" onchange="` + onchangeFunctionName + `(this)">`
+        for _, one := range strList {
+		strSelect += `<option value="` + one + `">` + one + `</option>`
+        }
+	// add one more not to use Key but to use password
+	strSelect += `<option value=""</option>`
+
+        strSelect += `
+                </select>
+        `
+
+
+        return strSelect
+}
+
 
 func getResourceList_JsonByte(resourceName string) ([]byte, error) {
         // cr.ServicePort = ":1024"

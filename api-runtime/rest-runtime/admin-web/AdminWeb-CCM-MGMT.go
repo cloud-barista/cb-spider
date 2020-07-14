@@ -434,7 +434,119 @@ func KeyPairMgmt(c echo.Context) error {
 
 //====================================== VM
 
+// make the string of javascript function
+func makeDeleteVMMgmtFunc_js() string {
+// delete for MappedList & OnlySpiderList
+// curl -sX DELETE http://localhost:1024/spider/vm/vm-01?force=true -H 'Content-Type: application/json' -d '{ "ConnectionName": "aws-ohio-config"}
+// delete for OnlyCSPList
+// curl -sX DELETE http://localhost:1024/spider/cspvm/0b0d0d30794eab379 -H 'Content-Type: application/json' -d '{ "ConnectionName": "aws-ohio-config"}' |json_pp
+
+        strFunc := `
+                function deleteKeyPairMgmt() {
+                        var connConfig = parent.frames["top_frame"].document.getElementById("connConfig").innerHTML;
+                        var checkboxes = document.getElementsByName('check_box');
+                        for (var i = 0; i < checkboxes.length; i++) { // @todo make parallel executions
+                                if (checkboxes[i].checked) {
+                                        var xhr = new XMLHttpRequest();
+                                        if(checkboxes[i].value.includes("::NAMEID::")) { // MappedList & OnlySpiderList
+                                            xhr.open("DELETE", "$$SPIDER_SERVER$$/spider/vm/" + checkboxes[i].value.replace("::NAMEID::", "") + "?force=true", false);
+                                        }else { // OnlyCSPList
+                                            xhr.open("DELETE", "$$SPIDER_SERVER$$/spider/cspvm/" + checkboxes[i].value, false);
+                                        }
+
+                                        xhr.setRequestHeader('Content-Type', 'application/json');
+                    sendJson = '{ "ConnectionName": "' + connConfig + '"}'
+                                        xhr.send(sendJson);
+                                }
+                        }
+            location.reload();
+                }
+        `
+        strFunc = strings.ReplaceAll(strFunc, "$$SPIDER_SERVER$$", "http://" + cr.HostIPorName + cr.ServicePort) // cr.ServicePort = ":1024"
+        return strFunc
+}
+
 func VMMgmt(c echo.Context) error {
-	return nil
+        cblog.Info("call VMMgmt()")
+
+    connConfig := c.Param("ConnectConfig")
+    if connConfig == "region not set" {
+        htmlStr :=  `
+            <html>
+            <head>
+                <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+                <script type="text/javascript">
+                alert(connConfig)
+                </script>
+            </head>
+            <body>
+                <br>
+                <br>
+                <label style="font-size:24px;color:#606262;">&nbsp;&nbsp;&nbsp;Please select a Connection Configuration! (MENU: 2.CONNECTION)</label>
+            </body>
+        `
+
+        return c.HTML(http.StatusOK, htmlStr)
+    }
+
+        // make page header
+        htmlStr :=  `
+                <html>
+                <head>
+                    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+                    <script type="text/javascript">
+                `
+        // (1) make Javascript Function
+                htmlStr += makeCheckBoxToggleFunc_js()
+                htmlStr += makeDeleteVMMgmtFunc_js()
+
+
+        htmlStr += `
+                    </script>
+                </head>
+
+                <body>
+                    <table border="0" bordercolordark="#F8F8FF" cellpadding="0" cellspacing="1" bgcolor="#FFFFFF"  style="font-size:small;">
+                `
+
+        // (2) make Table Action TR
+                // colspan, f5_href, delete_href, fontSize
+                //htmlStr += makeActionTR_html("4", "vm", "deleteVMMgmt()", "2")
+                htmlStr += makeActionTR_html("4", "", "deleteVMMgmt()", "2")
+
+
+        // (3) make Table Header TR
+                nameWidthList := []NameWidth {
+                    {"Spider's NameId", "300"},
+                    {"CSP's SystemId", "300"},
+                }
+                htmlStr +=  makeTitleTRList_html("#DDDDDD", "2", nameWidthList, true)
+
+
+        // (4) make TR list with info list
+        // (4-1) get info list
+                resBody, err := getAllResourceList_with_Connection_JsonByte(connConfig, "vm")
+                if err != nil {
+                        cblog.Error(err)
+                        return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+                }
+
+                var info cr.AllResourceList
+
+                json.Unmarshal(resBody, &info)
+
+        // (4-2) make TR list with info list
+                htmlStr += makeMgmtTRList_html("", "", "", info)
+
+        // make page tail
+        htmlStr += `
+                    </table>
+            <hr>
+                </body>
+                </html>
+        `
+
+//fmt.Println(htmlStr)
+        return c.HTML(http.StatusOK, htmlStr)
 }
 

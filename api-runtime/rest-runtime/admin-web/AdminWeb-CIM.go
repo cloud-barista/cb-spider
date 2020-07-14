@@ -875,6 +875,18 @@ func makeOnchangeConnectionConfigProviderFunc_js() string {
         return strFunc
 }
 
+func getProviderName(connConfig string) (string, error) {
+        resBody, err := getResource_JsonByte("connectionconfig", connConfig)
+        if err != nil {
+                cblog.Error(err)
+                return "", err
+        }
+        var configInfo ccim.ConnectionConfigInfo
+        json.Unmarshal(resBody, &configInfo)
+
+        return configInfo.ProviderName, nil
+}
+
 func getRegionZone(regionName string) (string, string, error) {
 	// Region Name List
 	resBody, err := getResource_JsonByte("region", regionName)
