@@ -1,6 +1,7 @@
 package api
 
 import (
+	"encoding/json"
 	"errors"
 	"io"
 	"time"
@@ -27,6 +28,42 @@ type CIMApi struct {
 	requestCIM   *request.CIMRequest
 	inType       string
 	outType      string
+}
+
+// KeyValue - Key / Value 구조 정의
+type KeyValue struct {
+	Key   string `yaml:"Key" json:"Key"`
+	Value string `yaml:"Value" json:"Value"`
+}
+
+// CloudDriverReq - Cloud Driver 정보 생성 요청 구조 정의
+type CloudDriverReq struct {
+	DriverName        string `yaml:"DriverName" json:"DriverName"`
+	ProviderName      string `yaml:"ProviderName" json:"ProviderName"`
+	DriverLibFileName string `yaml:"DriverLibFileName" json:"DriverLibFileName"`
+}
+
+// CredentialReq - Credential 정보 생성 요청 구조 정의
+type CredentialReq struct {
+	CredentialName   string     `yaml:"CredentialName" json:"CredentialName"`
+	ProviderName     string     `yaml:"ProviderName" json:"ProviderName"`
+	KeyValueInfoList []KeyValue `yaml:"KeyValueInfoList" json:"KeyValueInfoList"`
+}
+
+// RegionReq - Region 정보 생성 요청 구조 정의
+type RegionReq struct {
+	RegionName       string     `yaml:"RegionName" json:"RegionName"`
+	ProviderName     string     `yaml:"ProviderName" json:"ProviderName"`
+	KeyValueInfoList []KeyValue `yaml:"KeyValueInfoList" json:"KeyValueInfoList"`
+}
+
+// ConnectionConfigReq - Connection Config 정보 생성 요청 구조 정의
+type ConnectionConfigReq struct {
+	ConfigName     string `yaml:"ConfigName" json:"ConfigName"`
+	ProviderName   string `yaml:"ProviderName" json:"ProviderName"`
+	DriverName     string `yaml:"DriverName" json:"DriverName"`
+	CredentialName string `yaml:"CredentialName" json:"CredentialName"`
+	RegionName     string `yaml:"RegionName" json:"RegionName"`
 }
 
 // ===== [ Implementations ] =====
@@ -282,6 +319,25 @@ func (cim *CIMApi) CreateCloudDriver(doc string) (string, error) {
 	return cim.requestCIM.CreateCloudDriver()
 }
 
+// CreateCloudDriverByParam - Cloud Driver 생성
+func (cim *CIMApi) CreateCloudDriverByParam(req *CloudDriverReq) (string, error) {
+	if cim.requestCIM == nil {
+		return "", errors.New("The Open() function must be called")
+	}
+
+	holdType, _ := cim.GetInType()
+	cim.SetInType("json")
+	j, err := json.Marshal(req)
+	if err != nil {
+		return "", err
+	}
+	cim.requestCIM.InData = string(j)
+	result, err := cim.requestCIM.CreateCloudDriver()
+	cim.SetInType(holdType)
+
+	return result, err
+}
+
 // ListCloudDriver -Cloud Driver 목록
 func (cim *CIMApi) ListCloudDriver() (string, error) {
 	if cim.requestCIM == nil {
@@ -349,6 +405,25 @@ func (cim *CIMApi) CreateCredential(doc string) (string, error) {
 
 	cim.requestCIM.InData = doc
 	return cim.requestCIM.CreateCredential()
+}
+
+// CreateCredentialByParam - Credential 생성
+func (cim *CIMApi) CreateCredentialByParam(req *CredentialReq) (string, error) {
+	if cim.requestCIM == nil {
+		return "", errors.New("The Open() function must be called")
+	}
+
+	holdType, _ := cim.GetInType()
+	cim.SetInType("json")
+	j, err := json.Marshal(req)
+	if err != nil {
+		return "", err
+	}
+	cim.requestCIM.InData = string(j)
+	result, err := cim.requestCIM.CreateCredential()
+	cim.SetInType(holdType)
+
+	return result, err
 }
 
 // ListCredential -Credential 목록
@@ -420,6 +495,25 @@ func (cim *CIMApi) CreateRegion(doc string) (string, error) {
 	return cim.requestCIM.CreateRegion()
 }
 
+// CreateRegionByParam - Region 생성
+func (cim *CIMApi) CreateRegionByParam(req *RegionReq) (string, error) {
+	if cim.requestCIM == nil {
+		return "", errors.New("The Open() function must be called")
+	}
+
+	holdType, _ := cim.GetInType()
+	cim.SetInType("json")
+	j, err := json.Marshal(req)
+	if err != nil {
+		return "", err
+	}
+	cim.requestCIM.InData = string(j)
+	result, err := cim.requestCIM.CreateRegion()
+	cim.SetInType(holdType)
+
+	return result, err
+}
+
 // ListRegion - Region 목록
 func (cim *CIMApi) ListRegion() (string, error) {
 	if cim.requestCIM == nil {
@@ -487,6 +581,25 @@ func (cim *CIMApi) CreateConnectionConfig(doc string) (string, error) {
 
 	cim.requestCIM.InData = doc
 	return cim.requestCIM.CreateConnectionConfig()
+}
+
+// CreateConnectionConfigByParam - Connection Config 생성
+func (cim *CIMApi) CreateConnectionConfigByParam(req *ConnectionConfigReq) (string, error) {
+	if cim.requestCIM == nil {
+		return "", errors.New("The Open() function must be called")
+	}
+
+	holdType, _ := cim.GetInType()
+	cim.SetInType("json")
+	j, err := json.Marshal(req)
+	if err != nil {
+		return "", err
+	}
+	cim.requestCIM.InData = string(j)
+	result, err := cim.requestCIM.CreateConnectionConfig()
+	cim.SetInType(holdType)
+
+	return result, err
 }
 
 // ListConnectionConfig - Connection Config 목록
