@@ -664,7 +664,7 @@ func handleImage() {
 					cblogger.Info("Image 목록 조회 결과")
 					cblogger.Info(result)
 					cblogger.Info("출력 결과 수 : ", len(result))
-					//spew.Dump(result)
+					spew.Dump(result)
 
 					//조회및 삭제 테스트를 위해 리스트의 첫번째 정보의 ID를 요청ID로 자동 갱신함.
 					if result != nil {
@@ -1000,8 +1000,9 @@ func handleVMSpec() {
 				if err != nil {
 					cblogger.Error("VMSpec 목록 조회 실패 : ", err)
 				} else {
-					cblogger.Info("VMSpec 목록 조회 결과")
-					spew.Dump(result)
+					cblogger.Debug("VMSpec 목록 조회 결과")
+					//spew.Dump(result)
+					cblogger.Debug(result)
 					cblogger.Infof("전체 목록 개수 : [%d]", len(result))
 				}
 
@@ -1013,8 +1014,9 @@ func handleVMSpec() {
 				if err != nil {
 					cblogger.Error(reqVMSpec, " VMSpec 정보 조회 실패 : ", err)
 				} else {
-					cblogger.Infof("VMSpec[%s]  정보 조회 결과", reqVMSpec)
-					spew.Dump(result)
+					cblogger.Debugf("VMSpec[%s]  정보 조회 결과", reqVMSpec)
+					//spew.Dump(result)
+					cblogger.Debug(result)
 				}
 				fmt.Println("Finish GetVMSpec()")
 
@@ -1024,13 +1026,14 @@ func handleVMSpec() {
 				if err != nil {
 					cblogger.Error("VMSpec Org 목록 조회 실패 : ", err)
 				} else {
-					cblogger.Info("VMSpec Org 목록 조회 결과")
+					cblogger.Debug("VMSpec Org 목록 조회 결과")
 					//spew.Dump(result)
-					cblogger.Info(result)
+					cblogger.Debug(result)
 					//spew.Dump(result)
 					//fmt.Println(result)
 					//fmt.Println("=========================")
 					//fmt.Println(result)
+					cblogger.Infof("전체 목록 개수 : [%d]", len(result))
 				}
 
 				fmt.Println("Finish ListOrgVMSpec()")
@@ -1041,9 +1044,9 @@ func handleVMSpec() {
 				if err != nil {
 					cblogger.Error(reqVMSpec, " VMSpec Org 정보 조회 실패 : ", err)
 				} else {
-					cblogger.Infof("VMSpec[%s] Org 정보 조회 결과", reqVMSpec)
+					cblogger.Debugf("VMSpec[%s] Org 정보 조회 결과", reqVMSpec)
 					//spew.Dump(result)
-					cblogger.Info(result)
+					cblogger.Debug(result)
 					//fmt.Println(result)
 				}
 				fmt.Println("Finish GetOrgVMSpec()")
@@ -1082,9 +1085,9 @@ func main() {
 	//handleSecurity()
 	//handleVM()
 
-	//handleImage() //AMI
+	handleImage() //AMI
 	//handleVNic() //Lancard
-	handleVMSpec()
+	//handleVMSpec()
 
 	/*
 		KeyPairHandler, err := setKeyPairHandler()

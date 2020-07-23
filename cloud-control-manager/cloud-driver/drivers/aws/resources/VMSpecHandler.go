@@ -35,7 +35,7 @@ func ExtractGpuInfo(gpuDeviceInfo *ec2.GpuDeviceInfo) irs.GpuInfo {
 
 //인스턴스 스펙 정보를 추출함
 func ExtractVMSpecInfo(Region string, instanceTypeInfo *ec2.InstanceTypeInfo) irs.VMSpecInfo {
-	cblogger.Infof("ExtractVMSpecInfo : Region:[%s] / SpecName:[%s]", Region, *instanceTypeInfo.InstanceType)
+	cblogger.Debugf("ExtractVMSpecInfo : Region:[%s] / SpecName:[%s]", Region, *instanceTypeInfo.InstanceType)
 	//spew.Dump(instanceTypeInfo)
 
 	vCpuInfo := irs.VCpuInfo{}
@@ -148,7 +148,7 @@ func (vmSpecHandler *AwsVmSpecHandler) ListVMSpec(Region string) ([]*irs.VMSpecI
 	cblogger.Infof("Start ListVMSpec(Region:[%s])", Region)
 
 	zoneId := vmSpecHandler.Region.Zone
-	cblogger.Infof("Zone : %s", zoneId)
+	cblogger.Infof("Request Zone : [%s]", zoneId)
 	if zoneId == "" {
 		cblogger.Error("Connection 정보에 Zone 정보가 없습니다.")
 		return nil, errors.New("Connection 정보에 Zone 정보가 없습니다.")
@@ -200,7 +200,7 @@ func (vmSpecHandler *AwsVmSpecHandler) ListVMSpec(Region string) ([]*irs.VMSpecI
 		func(page *ec2.DescribeInstanceTypesOutput, lastPage bool) bool {
 			pageNum++
 			//fmt.Println(page)
-			cblogger.Infof("PageNum : [%d] / Count : [%d] / lastPage : [%v]", pageNum, len(page.InstanceTypes), lastPage)
+			cblogger.Infof("PageNum : [%d] / Count : [%d] / isLastPage : [%v]", pageNum, len(page.InstanceTypes), lastPage)
 			//totCnt = totCnt + len(page.InstanceTypes)
 
 			for _, curInstance := range page.InstanceTypes {
@@ -209,7 +209,7 @@ func (vmSpecHandler *AwsVmSpecHandler) ListVMSpec(Region string) ([]*irs.VMSpecI
 
 				_, exists := mapVmSpecIds[*curInstance.InstanceType]
 				if !exists {
-					cblogger.Infof("[%s] 스펙은 [%s] Zone에서 지원되지 않습니다.", *curInstance.InstanceType, zoneId)
+					cblogger.Debugf("[%s] 스펙은 [%s] Zone에서 지원되지 않습니다.", *curInstance.InstanceType, zoneId)
 					continue
 				}
 
@@ -324,7 +324,7 @@ func (vmSpecHandler *AwsVmSpecHandler) ListOrgVMSpec(Region string) (string, err
 		func(page *ec2.DescribeInstanceTypesOutput, lastPage bool) bool {
 			pageNum++
 			//fmt.Println(page)
-			cblogger.Infof("PageNum : [%d] / Count : [%d] / lastPage : [%v]", pageNum, len(page.InstanceTypes), lastPage)
+			cblogger.Infof("PageNum : [%d] / Count : [%d] / isLastPage : [%v]", pageNum, len(page.InstanceTypes), lastPage)
 			//totCnt = totCnt + len(page.InstanceTypes)
 
 			for _, curInstance := range page.InstanceTypes {
@@ -333,7 +333,7 @@ func (vmSpecHandler *AwsVmSpecHandler) ListOrgVMSpec(Region string) (string, err
 
 				_, exists := mapVmSpecIds[*curInstance.InstanceType]
 				if !exists {
-					cblogger.Infof("[%s] 스펙은 [%s] Zone에서 지원되지 않습니다.", *curInstance.InstanceType, zoneId)
+					cblogger.Debugf("[%s] 스펙은 [%s] Zone에서 지원되지 않습니다.", *curInstance.InstanceType, zoneId)
 					continue
 				}
 
@@ -379,7 +379,7 @@ func (vmSpecHandler *AwsVmSpecHandler) ListOrgVMSpecOld(Region string) (string, 
 	//cblogger.Info(resp)
 	//fmt.Println(resp)
 
-	//jsonString, errJson := ConvertJsonString(resp.InstanceTypes[0])
+	//00, errJson := ConvertJsonString(resp.InstanceTypes[0])
 	jsonString, errJson := ConvertJsonString(resp)
 	if errJson != nil {
 		cblogger.Error(errJson)

@@ -933,10 +933,10 @@ func main() {
 	cblogger.Info("GCP Resource Test")
 	//handleVPC()
 	//handleVMSpec()
-	//handleImage() //AMI
+	handleImage() //AMI
 	//handleKeyPair()
 	//handleSecurity()
-	handleVM()
+	//handleVM()
 	//cblogger.Info(filepath.Join("a/b", "\\cloud-driver-libs\\.ssh-gcp\\"))
 	//cblogger.Info(filepath.Join("\\cloud-driver-libs\\.ssh-gcp\\", "/b/c/d"))
 }
