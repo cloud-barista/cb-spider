@@ -147,7 +147,7 @@ func ExtractImageDescribeInfo(image *ecs.Image) irs.ImageInfo {
 	cblogger.Infof("=====> ")
 	spew.Dump(image)
 	imageInfo := irs.ImageInfo{
-		IId: irs.IID{SystemId: image.ImageId},
+		IId: irs.IID{NameId: image.ImageId, SystemId: image.ImageId},
 		//Name:    image.ImageName,
 		Status:  image.Status,
 		GuestOS: image.OSNameEn,

@@ -198,6 +198,7 @@ func (imageHandler *GCPImageHandler) ConvertGcpImageInfoToCbImageInfo(imageInfo 
 	return cbImageInfo
 }
 
+//@TODO: URL기반에서 Name기반으로 조회하던 기능을 URL기반으로 원복해야 함.
 func (imageHandler *GCPImageHandler) GetImage(imageIID irs.IID) (irs.ImageInfo, error) {
 	cblogger.Info(imageIID)
 
