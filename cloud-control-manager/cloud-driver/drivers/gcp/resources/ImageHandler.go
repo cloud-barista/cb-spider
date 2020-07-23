@@ -87,7 +87,7 @@ func (imageHandler *GCPImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 
 //리스트의 경우 Name 기반으로 조회해서 처리하기에는 너무 느리기 때문에 직접 컨버팅함.
 func (imageHandler *GCPImageHandler) ListImage() ([]*irs.ImageInfo, error) {
-	cblogger.Info("전체 이미지 조회")
+	cblogger.Debug("전체 이미지 조회")
 
 	//https://cloud.google.com/compute/docs/images?hl=ko
 	arrImageProjectList := []string{
@@ -127,7 +127,7 @@ func (imageHandler *GCPImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 		}
 
 		nextPageToken = res.NextPageToken
-		cblogger.Info("NestPageToken : ", nextPageToken)
+		cblogger.Debug("NextPageToken : ", nextPageToken)
 
 		//현재 페이지부터 마지막 페이지까지 조회
 		for {
@@ -141,7 +141,7 @@ func (imageHandler *GCPImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 			if nextPageToken != "" {
 				res, err = req.PageToken(nextPageToken).Do()
 				nextPageToken = res.NextPageToken
-				cblogger.Info("NestPageToken : ", nextPageToken)
+				cblogger.Debug("NextPageToken : ", nextPageToken)
 			} else {
 				break
 			}
@@ -417,7 +417,8 @@ func mappingImageInfo(imageInfo *compute.Image) irs.ImageInfo {
 
 	imageList := irs.ImageInfo{
 		IId: irs.IID{
-			NameId: imageInfo.Name,
+			NameId: imageInfo.SelfLink,
+			//NameId: imageInfo.Name, //2020-07-23 이미지 핸들러는 아직 생성 기능을 지원하지 않기 때문에 NameId대신 SystemId로 통일
 			//SystemId: imageInfo.Name, //자체 기능 구현을 위해 Name 기반으로 리턴함. - 2020-05-14 다음 버전에 적용 예정
 			SystemId: imageInfo.SelfLink, //2020-05-14 카푸치노는 VM 생성시 URL 방식을 사용하기 때문에 임의로 맞춤(이미지 핸들러의 다른 함수에는 적용 못함)
 			//SystemId: strconv.FormatUint(imageInfo.Id, 10), //이 값으로는 VM생성 안됨.
