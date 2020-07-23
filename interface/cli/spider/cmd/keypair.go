@@ -136,6 +136,7 @@ func NewKeyPairDeleteCmd() *cobra.Command {
 			}
 			logger.Debug("--cname parameter value : ", connectionName)
 			logger.Debug("--name parameter value : ", keypairName)
+			logger.Debug("--force parameter value : ", force)
 
 			SetupAndRun(cmd, args)
 		},
@@ -143,6 +144,7 @@ func NewKeyPairDeleteCmd() *cobra.Command {
 
 	deleteCmd.PersistentFlags().StringVarP(&connectionName, "cname", "", "", "connection name")
 	deleteCmd.PersistentFlags().StringVarP(&keypairName, "name", "n", "", "keypair name")
+	deleteCmd.PersistentFlags().StringVarP(&force, "force", "", "false", "force flg (true/false)")
 
 	return deleteCmd
 }

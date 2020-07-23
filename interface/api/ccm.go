@@ -655,14 +655,14 @@ func (ccm *CCMApi) DeleteVPC(doc string) (string, error) {
 }
 
 // DeleteVPCByParam - VPC 삭제
-func (ccm *CCMApi) DeleteVPCByParam(connectionName string, name string) (string, error) {
+func (ccm *CCMApi) DeleteVPCByParam(connectionName string, name string, force string) (string, error) {
 	if ccm.requestCCM == nil {
 		return "", errors.New("The Open() function must be called")
 	}
 
 	holdType, _ := ccm.GetInType()
 	ccm.SetInType("json")
-	ccm.requestCCM.InData = `{"ConnectionName":"` + connectionName + `", "Name":"` + name + `"}`
+	ccm.requestCCM.InData = `{"ConnectionName":"` + connectionName + `", "Name":"` + name + `", "force":"` + force + `"}`
 	result, err := ccm.requestCCM.DeleteVPC()
 	ccm.SetInType(holdType)
 
@@ -809,14 +809,14 @@ func (ccm *CCMApi) DeleteSecurity(doc string) (string, error) {
 }
 
 // DeleteSecurityByParam - Security 삭제
-func (ccm *CCMApi) DeleteSecurityByParam(connectionName string, name string) (string, error) {
+func (ccm *CCMApi) DeleteSecurityByParam(connectionName string, name string, force string) (string, error) {
 	if ccm.requestCCM == nil {
 		return "", errors.New("The Open() function must be called")
 	}
 
 	holdType, _ := ccm.GetInType()
 	ccm.SetInType("json")
-	ccm.requestCCM.InData = `{"ConnectionName":"` + connectionName + `", "Name":"` + name + `"}`
+	ccm.requestCCM.InData = `{"ConnectionName":"` + connectionName + `", "Name":"` + name + `", "force":"` + force + `"}`
 	result, err := ccm.requestCCM.DeleteSecurity()
 	ccm.SetInType(holdType)
 
@@ -963,14 +963,14 @@ func (ccm *CCMApi) DeleteKey(doc string) (string, error) {
 }
 
 // DeleteKeyByParam - Key Pair 삭제
-func (ccm *CCMApi) DeleteKeyByParam(connectionName string, name string) (string, error) {
+func (ccm *CCMApi) DeleteKeyByParam(connectionName string, name string, force string) (string, error) {
 	if ccm.requestCCM == nil {
 		return "", errors.New("The Open() function must be called")
 	}
 
 	holdType, _ := ccm.GetInType()
 	ccm.SetInType("json")
-	ccm.requestCCM.InData = `{"ConnectionName":"` + connectionName + `", "Name":"` + name + `"}`
+	ccm.requestCCM.InData = `{"ConnectionName":"` + connectionName + `", "Name":"` + name + `", "force":"` + force + `"}`
 	result, err := ccm.requestCCM.DeleteKey()
 	ccm.SetInType(holdType)
 
@@ -1192,14 +1192,14 @@ func (ccm *CCMApi) TerminateVM(doc string) (string, error) {
 }
 
 // TerminateVMByParam - VM 삭제
-func (ccm *CCMApi) TerminateVMByParam(connectionName string, name string) (string, error) {
+func (ccm *CCMApi) TerminateVMByParam(connectionName string, name string, force string) (string, error) {
 	if ccm.requestCCM == nil {
 		return "", errors.New("The Open() function must be called")
 	}
 
 	holdType, _ := ccm.GetInType()
 	ccm.SetInType("json")
-	ccm.requestCCM.InData = `{"ConnectionName":"` + connectionName + `", "Name":"` + name + `"}`
+	ccm.requestCCM.InData = `{"ConnectionName":"` + connectionName + `", "Name":"` + name + `", "force":"` + force + `"}`
 	result, err := ccm.requestCCM.TerminateVM()
 	ccm.SetInType(holdType)
 

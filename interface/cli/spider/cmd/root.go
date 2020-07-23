@@ -29,6 +29,7 @@ var (
 	vmName         string
 	action         string
 	cspID          string
+	force          string
 
 	parser config.Parser
 )
