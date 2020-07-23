@@ -194,7 +194,7 @@ func SetupAndRun(cmd *cobra.Command, args []string) {
 		case "get":
 			result, err = ccm.GetVPCByParam(connectionName, vpcName)
 		case "delete":
-			result, err = ccm.DeleteVPCByParam(connectionName, vpcName)
+			result, err = ccm.DeleteVPCByParam(connectionName, vpcName, force)
 		case "listall":
 			result, err = ccm.ListAllVPCByParam(connectionName)
 		case "deletecsp":
@@ -209,7 +209,7 @@ func SetupAndRun(cmd *cobra.Command, args []string) {
 		case "get":
 			result, err = ccm.GetSecurityByParam(connectionName, securityName)
 		case "delete":
-			result, err = ccm.DeleteSecurityByParam(connectionName, securityName)
+			result, err = ccm.DeleteSecurityByParam(connectionName, securityName, force)
 		case "listall":
 			result, err = ccm.ListAllSecurityByParam(connectionName)
 		case "deletecsp":
@@ -224,7 +224,7 @@ func SetupAndRun(cmd *cobra.Command, args []string) {
 		case "get":
 			result, err = ccm.GetKeyByParam(connectionName, keypairName)
 		case "delete":
-			result, err = ccm.DeleteKeyByParam(connectionName, keypairName)
+			result, err = ccm.DeleteKeyByParam(connectionName, keypairName, force)
 		case "listall":
 			result, err = ccm.ListAllKeyByParam(connectionName)
 		case "deletecsp":
@@ -245,7 +245,7 @@ func SetupAndRun(cmd *cobra.Command, args []string) {
 		case "get":
 			result, err = ccm.GetVMByParam(connectionName, vmName)
 		case "terminate":
-			result, err = ccm.TerminateVMByParam(connectionName, vmName)
+			result, err = ccm.TerminateVMByParam(connectionName, vmName, force)
 		case "listall":
 			result, err = ccm.ListAllVMByParam(connectionName)
 		case "terminatecsp":

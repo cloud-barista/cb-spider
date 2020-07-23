@@ -130,23 +130,23 @@ echo "####################################################################"
 echo "####################################################################"
 echo "## 4. VM: Terminate(Delete)"
 echo "####################################################################"
-$CBSPIDER_ROOT/interface/spider vm terminate --config $CBSPIDER_ROOT/interface/grpc_conf.yaml --cname "${CONN_CONFIG}" -n vm-01
+$CBSPIDER_ROOT/interface/spider vm terminate --config $CBSPIDER_ROOT/interface/grpc_conf.yaml --cname "${CONN_CONFIG}" -n vm-01 --force false
 echo "============== sleep 70 after delete VM"
 sleep 70 
 
 echo "####################################################################"
 echo "## 3. KeyPair: Delete"
 echo "####################################################################"
-$CBSPIDER_ROOT/interface/spider keypair delete --config $CBSPIDER_ROOT/interface/grpc_conf.yaml --cname "${CONN_CONFIG}" -n keypair-01
+$CBSPIDER_ROOT/interface/spider keypair delete --config $CBSPIDER_ROOT/interface/grpc_conf.yaml --cname "${CONN_CONFIG}" -n keypair-01 --force false
 
 echo "####################################################################"
 echo "## 2. SecurityGroup: Delete"
 echo "####################################################################"
-$CBSPIDER_ROOT/interface/spider security delete --config $CBSPIDER_ROOT/interface/grpc_conf.yaml --cname "${CONN_CONFIG}" -n sg-01
+$CBSPIDER_ROOT/interface/spider security delete --config $CBSPIDER_ROOT/interface/grpc_conf.yaml --cname "${CONN_CONFIG}" -n sg-01 --force false
 
 echo "####################################################################"
 echo "## 1. VPC: Delete"
 echo "####################################################################"
-$CBSPIDER_ROOT/interface/spider vpc delete --config $CBSPIDER_ROOT/interface/grpc_conf.yaml --cname "${CONN_CONFIG}" -n vpc-01
+$CBSPIDER_ROOT/interface/spider vpc delete --config $CBSPIDER_ROOT/interface/grpc_conf.yaml --cname "${CONN_CONFIG}" -n vpc-01 --force false
 
 
