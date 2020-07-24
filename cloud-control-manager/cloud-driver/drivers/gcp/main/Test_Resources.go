@@ -288,8 +288,9 @@ func handleImage() {
 			//NameId: "Test OS Image",
 			//SystemId: "vmsg02-asia-northeast1-b",
 			//SystemId: "https://www.googleapis.com/compute/v1/projects/ubuntu-os-cloud/global/images/ubuntu-minimal-1804-bionic-v20200415",
+			SystemId: "https://www.googleapis.com/compute/v1/projects/gce-uefi-images/global/images/centos-7-v20190905",
 			//SystemId: "2076268724445164462", //centos-7-v20190204
-			SystemId: "ubuntu-minimal-1804-bionic-v20200415",
+			//SystemId: "ubuntu-minimal-1804-bionic-v20200415",
 		},
 	}
 
