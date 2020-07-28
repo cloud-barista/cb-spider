@@ -87,7 +87,7 @@ func (imageHandler *GCPImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 
 //리스트의 경우 Name 기반으로 조회해서 처리하기에는 너무 느리기 때문에 직접 컨버팅함.
 func (imageHandler *GCPImageHandler) ListImage() ([]*irs.ImageInfo, error) {
-	cblogger.Info("전체 이미지 조회")
+	cblogger.Debug("전체 이미지 조회")
 
 	//https://cloud.google.com/compute/docs/images?hl=ko
 	arrImageProjectList := []string{
@@ -127,12 +127,13 @@ func (imageHandler *GCPImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 		}
 
 		nextPageToken = res.NextPageToken
-		cblogger.Info("NestPageToken : ", nextPageToken)
+		cblogger.Debug("NextPageToken : ", nextPageToken)
 
 		//현재 페이지부터 마지막 페이지까지 조회
 		for {
 			for _, item := range res.Items {
 				cnt++
+				spew.Dump(item)
 				info := mappingImageInfo(item)
 				imageList = append(imageList, &info)
 			} // for : 페이지 데이터 추출
@@ -141,7 +142,7 @@ func (imageHandler *GCPImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 			if nextPageToken != "" {
 				res, err = req.PageToken(nextPageToken).Do()
 				nextPageToken = res.NextPageToken
-				cblogger.Info("NestPageToken : ", nextPageToken)
+				cblogger.Debug("NextPageToken : ", nextPageToken)
 			} else {
 				break
 			}
@@ -198,7 +199,43 @@ func (imageHandler *GCPImageHandler) ConvertGcpImageInfoToCbImageInfo(imageInfo 
 	return cbImageInfo
 }
 
+//이슈 #239에 의해 Name 기반에서 URL 기반으로 로직 변경
+//전달 받은 URL에서 projectId와 Name을 추출해서 조회함.
 func (imageHandler *GCPImageHandler) GetImage(imageIID irs.IID) (irs.ImageInfo, error) {
+	cblogger.Info(imageIID)
+
+	//"https://www.googleapis.com/compute/v1/projects/ubuntu-os-cloud/global/images/ubuntu-minimal-1804-bionic-v20200415"
+	//projectId := imageHandler.Credential.ProjectID
+	projectId := ""
+	imageName := ""
+
+	arrLink := strings.Split(imageIID.SystemId, "/")
+	if len(arrLink) > 0 {
+		imageName = arrLink[len(arrLink)-1]
+		for pos, item := range arrLink {
+			if strings.EqualFold(item, "projects") {
+				projectId = arrLink[pos+1]
+				break
+			}
+		}
+	}
+	cblogger.Infof("projectId : [%s] / imageName : [%s]", projectId, imageName)
+	if projectId == "" {
+		return irs.ImageInfo{}, errors.New("ProjectId information not found in URL.")
+	}
+
+	image, err := imageHandler.Client.Images.Get(projectId, imageName).Do()
+	if err != nil {
+		cblogger.Error(err)
+		return irs.ImageInfo{}, err
+	}
+	imageInfo := mappingImageInfo(image)
+	return imageInfo, nil
+}
+
+//이슈 #239에 의해 Name 기반에서 URL 기반으로 로직 변경
+//전체 목록에서 이미지 정보를 조회 함. - 위의 GetImage()로 검색되지 않는 경우가 발생하면 이 함수를 이용할 것.
+func (imageHandler *GCPImageHandler) GetImageByUrl(imageIID irs.IID) (irs.ImageInfo, error) {
 	cblogger.Info(imageIID)
 
 	//이미지 명을 기반으로 이미지 정보를 조회함.
@@ -251,10 +288,139 @@ func (imageHandler *GCPImageHandler) DeleteImage(imageIID irs.IID) (bool, error)
 	return true, err
 }
 
-//사용의 편의를 위해 이미지 이름을 전달 받아서 URL 링크로 리턴 함.
+//이슈 #239에 의해 Name 기반에서 URL 기반으로 로직 변경
+//사용의 편의를 위해 이미지 URL을 전달 받아서 이미지 정보를 리턴 함.
 //https://cloud.google.com/compute/docs/images?hl=ko
-//@TODO : 효율을 위해서 최소한 ProjectId 정보를 입력 받아야 하지만 현재는 이미지 명만 전달 받기 때문에 하나로 통합해 놓음.
+//@TODO : 효율을 위해서 최소한 ProjectId 정보를 입력 받아야 하지만 현재는 이미지 URL만 전달 받기 때문에 하나로 통합해 놓음.
 func (imageHandler *GCPImageHandler) FindImageInfo(reqImageName string) (GcpImageInfo, error) {
+	cblogger.Infof("[%s] 이미지 정보 찾기 ", reqImageName)
+
+	//https://cloud.google.com/compute/docs/images?hl=ko
+	arrImageProjectList := []string{
+		//"ubuntu-os-cloud",
+
+		"gce-uefi-images", // 보안 VM을 지원하는 이미지
+
+		//보안 VM을 지원하지 않는 이미지들
+		"centos-cloud",
+		"cos-cloud",
+		"coreos-cloud",
+		"debian-cloud",
+		"rhel-cloud",
+		"rhel-sap-cloud",
+		"suse-cloud",
+		"suse-sap-cloud",
+		"ubuntu-os-cloud",
+		"windows-cloud",
+		"windows-sql-cloud",
+	}
+
+	cnt := 0
+	//curImageLink := ""
+	imageInfo := GcpImageInfo{}
+	nextPageToken := ""
+	var req *compute.ImagesListCall
+	var res *compute.ImageList
+	var err error
+	for _, projectId := range arrImageProjectList {
+		cblogger.Infof("[%s] 프로젝트 소유의 이미지 목록 조회 처리", projectId)
+
+		//첫번째 호출
+		req = imageHandler.Client.Images.List(projectId)
+		//req.Filter("name=" + reqImageName)
+		//req.Filter("SelfLink=" + reqImageName)
+
+		res, err = req.Do()
+		if err != nil {
+			cblogger.Errorf("[%s] 프로젝트 소유의 이미지 목록 조회 실패!", projectId)
+			cblogger.Error(err)
+			return GcpImageInfo{}, err
+		}
+
+		nextPageToken = res.NextPageToken
+		cblogger.Info("NestPageToken : ", nextPageToken)
+
+		//현재 페이지부터 마지막 페이지까지 조회
+		for {
+			/*
+				//list, err := imageHandler.Client.Images.List(projectId).Do() // 1000 // 500
+				req := imageHandler.Client.Images.List(projectId)
+				ret, err := req.Do()
+				cblogger.Info("First -------------> ", ret.NextPageToken)
+				list, err := req.PageToken(ret.NextPageToken).Do()
+				cblogger.Info("Second -------------> ", list.NextPageToken)
+			*/
+
+			//데이터 찾기
+			for _, item := range res.Items {
+				cnt++
+
+				//curImageLink = imageInfo.SourceImage //보통은 SelfLink에 정보가 있는데 혹시 몰라서 SourceImage 정보와 함께 비교 함. // SourceImage는 Name과 동일할 때가 있음.
+				//cblogger.Debugf(" SourceImage : [%s]", curImageLink)
+
+				//SourceImage 정보가 없으면 SelfLink 정보를 이용함.
+				//SelfLink: [Output Only] Server-defined URL for the resource.
+				//if curImageLink == "" {
+
+				//2020-07-24 Name 기반에서 URL기반으로 바뀌었기 때문에 굳이 Split할 필요는 없음
+				/*
+					arrLink := strings.Split(item.SelfLink, "/")
+					if len(arrLink) > 0 {
+						curImageLink = arrLink[len(arrLink)-1]
+					}
+					cblogger.Debugf("  [%d] : [%s] : [%s]", item.Id, item.SelfLink, curImageLink)
+				*/
+				//cblogger.Debug("")
+				//}
+
+				//2020-07-24 Name 기반에서 URL기반으로 바뀌었기 때문에 직접 SelfLink만 체크 함.
+				if strings.EqualFold(reqImageName, item.SelfLink) {
+					//if strings.EqualFold(reqImageName, item.Name) || strings.EqualFold(reqImageName, curImageLink) {
+					//cblogger.Debug("=====************** 찾았다!!! *********======")
+					cblogger.Debugf("=====************** [%d]번째에 찾았다!!! *********======", cnt)
+					if item.SelfLink == "" {
+						cblogger.Errorf("요청 받은 [%s] 이미지의 정보를 찾았지만 Image URL[SelfLink]정보가 없습니다.", reqImageName)
+						return GcpImageInfo{}, errors.New("Not Found : [" + reqImageName + "] Image information does not contain URL information.")
+					}
+					//imageInfo.Id = item.Id
+					imageInfo.Id = strconv.FormatUint(item.Id, 10)
+					imageInfo.ImageUrl = item.SelfLink //item.SourceImage에 URL이 아닌 item.Name이 나와서 SelfLink만 이용함.
+
+					imageInfo.GuestOS = item.Family
+					imageInfo.Status = item.Status
+
+					//imageInfo.Name = item.Name
+					imageInfo.Name = item.SelfLink //2020-07-24 Name에서 URL로 변경됨. 이슈 #239
+					imageInfo.SourceImage = item.SourceImage
+					imageInfo.SourceType = item.SourceType
+					imageInfo.SelfLink = item.SelfLink
+					imageInfo.Family = item.Family
+					imageInfo.ProjectId = projectId
+
+					cblogger.Info("최종 이미지 정보")
+					//spew.Dump(imageInfo)
+					return imageInfo, nil
+				}
+			} // for : 조회 결과에서 일치하는 데이터 찾기
+
+			//다음 페이지가 존재하면 호출
+			if nextPageToken != "" {
+				res, err = req.PageToken(nextPageToken).Do()
+				nextPageToken = res.NextPageToken
+				cblogger.Info("NestPageToken : ", nextPageToken)
+			} else {
+				break
+			}
+		} // for : 멀티 페이지 처리
+	}
+
+	cblogger.Errorf("요청 받은 [%s] 이미지에 대한 정보를 찾지 못 했습니다. - 총 이미지 체크 갯수 : [%d]", reqImageName, cnt)
+	return GcpImageInfo{}, errors.New("Not Found : [" + reqImageName + "] Image information not found")
+}
+
+//목록에서 이미지 Name으로 정보를 찾아서 리턴 함. - 2020-07-24 URL기반으로 변경되어서 이 메소드는 사용 안 함.
+//@TODO : 효율을 위해서 최소한 ProjectId 정보를 입력 받아야 하지만 현재는 이미지 명만 전달 받기 때문에 하나로 통합해 놓음.
+func (imageHandler *GCPImageHandler) FindImageInfoByName(reqImageName string) (GcpImageInfo, error) {
 	cblogger.Infof("[%s] 이미지 정보 찾기 ", reqImageName)
 
 	//https://cloud.google.com/compute/docs/images?hl=ko
@@ -290,6 +456,7 @@ func (imageHandler *GCPImageHandler) FindImageInfo(reqImageName string) (GcpImag
 		//첫번째 호출
 		req = imageHandler.Client.Images.List(projectId)
 		req.Filter("name=" + reqImageName)
+
 		res, err = req.Do()
 		if err != nil {
 			cblogger.Errorf("[%s] 프로젝트 소유의 이미지 목록 조회 실패!", projectId)
@@ -417,7 +584,8 @@ func mappingImageInfo(imageInfo *compute.Image) irs.ImageInfo {
 
 	imageList := irs.ImageInfo{
 		IId: irs.IID{
-			NameId: imageInfo.Name,
+			NameId: imageInfo.SelfLink,
+			//NameId: imageInfo.Name, //2020-07-23 이미지 핸들러는 아직 생성 기능을 지원하지 않기 때문에 NameId대신 SystemId로 통일
 			//SystemId: imageInfo.Name, //자체 기능 구현을 위해 Name 기반으로 리턴함. - 2020-05-14 다음 버전에 적용 예정
 			SystemId: imageInfo.SelfLink, //2020-05-14 카푸치노는 VM 생성시 URL 방식을 사용하기 때문에 임의로 맞춤(이미지 핸들러의 다른 함수에는 적용 못함)
 			//SystemId: strconv.FormatUint(imageInfo.Id, 10), //이 값으로는 VM생성 안됨.

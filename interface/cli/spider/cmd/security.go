@@ -136,6 +136,7 @@ func NewSecurityDeleteCmd() *cobra.Command {
 			}
 			logger.Debug("--cname parameter value : ", connectionName)
 			logger.Debug("--name parameter value : ", securityName)
+			logger.Debug("--force parameter value : ", force)
 
 			SetupAndRun(cmd, args)
 		},
@@ -143,6 +144,7 @@ func NewSecurityDeleteCmd() *cobra.Command {
 
 	deleteCmd.PersistentFlags().StringVarP(&connectionName, "cname", "", "", "connection name")
 	deleteCmd.PersistentFlags().StringVarP(&securityName, "name", "n", "", "security name")
+	deleteCmd.PersistentFlags().StringVarP(&force, "force", "", "false", "force flg (true/false)")
 
 	return deleteCmd
 }

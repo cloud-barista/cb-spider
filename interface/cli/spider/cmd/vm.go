@@ -229,6 +229,7 @@ func NewVMTerminateCmd() *cobra.Command {
 			}
 			logger.Debug("--cname parameter value : ", connectionName)
 			logger.Debug("--name parameter value : ", vmName)
+			logger.Debug("--force parameter value : ", force)
 
 			SetupAndRun(cmd, args)
 		},
@@ -236,6 +237,7 @@ func NewVMTerminateCmd() *cobra.Command {
 
 	terminateCmd.PersistentFlags().StringVarP(&connectionName, "cname", "", "", "connection name")
 	terminateCmd.PersistentFlags().StringVarP(&vmName, "name", "n", "", "vm name")
+	terminateCmd.PersistentFlags().StringVarP(&force, "force", "", "false", "force flg (true/false)")
 
 	return terminateCmd
 }

@@ -94,14 +94,15 @@ func (imageHandler *AwsImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 func ExtractImageDescribeInfo(image *ec2.Image) irs.ImageInfo {
 	//spew.Dump(image)
 	imageInfo := irs.ImageInfo{
-		IId: irs.IID{*image.Name, *image.ImageId},
+		//IId: irs.IID{*image.Name, *image.ImageId},
+		IId: irs.IID{*image.ImageId, *image.ImageId},
 		//Id:     *image.ImageId,
 		//Name:   *image.Name,
 		Status: *image.State,
 	}
 
 	keyValueList := []irs.KeyValue{
-		{Key: "Name", Value: *image.Name},
+		//{Key: "Name", Value: *image.Name}, //20200723-Name이 없는 이미지 존재 - 예)ami-0008a301
 		{Key: "CreationDate", Value: *image.CreationDate},
 		{Key: "Architecture", Value: *image.Architecture},
 		{Key: "OwnerId", Value: *image.OwnerId},
@@ -112,6 +113,9 @@ func ExtractImageDescribeInfo(image *ec2.Image) irs.ImageInfo {
 	}
 
 	// 일부 이미지들은 아래 정보가 없어서 예외 처리 함.
+	if !reflect.ValueOf(image.Name).IsNil() {
+		keyValueList = append(keyValueList, irs.KeyValue{Key: "Name", Value: *image.Name})
+	}
 	if !reflect.ValueOf(image.Description).IsNil() {
 		keyValueList = append(keyValueList, irs.KeyValue{Key: "Description", Value: *image.Description})
 	}
