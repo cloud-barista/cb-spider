@@ -4,13 +4,14 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
+	"io/ioutil"
+	"os"
+
 	"github.com/rackspace/gophercloud"
 	"github.com/rackspace/gophercloud/openstack/compute/v2/images"
 	imgsvc "github.com/rackspace/gophercloud/openstack/imageservice/v2/images"
-	"github.com/rackspace/gophercloud/pagination"
-	"io/ioutil"
-	"os"
+
+	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 )
 
 type OpenStackImageHandler struct {
@@ -22,7 +23,7 @@ func setterImage(image images.Image) *irs.ImageInfo {
 	imageInfo := &irs.ImageInfo{
 		IId: irs.IID{
 			NameId:   image.Name,
-			SystemId: image.ID,
+			SystemId: image.Name,
 		},
 		Status: image.Status,
 	}
@@ -102,35 +103,29 @@ func (imageHandler *OpenStackImageHandler) CreateImage(imageReqInfo irs.ImageReq
 }
 
 func (imageHandler *OpenStackImageHandler) ListImage() ([]*irs.ImageInfo, error) {
-	var imageList []*irs.ImageInfo
-
-	pager := images.ListDetail(imageHandler.Client, images.ListOpts{})
-	err := pager.EachPage(func(page pagination.Page) (bool, error) {
-		// Get Image
-		list, err := images.ExtractImages(page)
-		if err != nil {
-			return false, err
-		}
-		// Add to List
-		for _, img := range list {
-			imageInfo := setterImage(img)
-			imageList = append(imageList, imageInfo)
-		}
-		return true, nil
-	})
+	pager, err := images.ListDetail(imageHandler.Client, images.ListOpts{}).AllPages()
+	if err != nil {
+		return nil, err
+	}
+	imageList, err := images.ExtractImages(pager)
 	if err != nil {
 		return nil, err
 	}
 
-	return imageList, nil
+	imageInfoList := make([]*irs.ImageInfo, len(imageList))
+	for i, img := range imageList {
+		imageInfo := setterImage(img)
+		imageInfoList[i] = imageInfo
+	}
+	return imageInfoList, nil
 }
 
 func (imageHandler *OpenStackImageHandler) GetImage(imageIID irs.IID) (irs.ImageInfo, error) {
-	/*imageId, err := images.IDFromName(imageHandler.Client, imageIID.NameId)
+	imageId, err := images.IDFromName(imageHandler.Client, imageIID.NameId)
 	if err != nil {
 		return irs.ImageInfo{}, err
-	}*/
-	image, err := images.Get(imageHandler.Client, imageIID.SystemId).Extract()
+	}
+	image, err := images.Get(imageHandler.Client, imageId).Extract()
 	if err != nil {
 		return irs.ImageInfo{}, err
 	}

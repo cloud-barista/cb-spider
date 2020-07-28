@@ -19,7 +19,7 @@ func setterImage(image image.ImageInfo) *irs.ImageInfo {
 	imageInfo := &irs.ImageInfo{
 		IId: irs.IID{
 			NameId:   image.Name,
-			SystemId: image.ID,
+			SystemId: image.Name,
 		},
 		GuestOS: image.OS,
 		Status:  image.State,

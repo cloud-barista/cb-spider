@@ -2,17 +2,19 @@ package main
 
 import (
 	"fmt"
+	"io/ioutil"
+	"os"
+
 	cblog "github.com/cloud-barista/cb-log"
-	osdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/openstack"
-	"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/openstack/connect"
-	osrs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/openstack/resources"
-	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
-	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v3"
-	"io/ioutil"
-	"os"
+
+	osdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/openstack"
+	_ "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/openstack/connect"
+	_ "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/openstack/resources"
+	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
+	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 )
 
 var cblogger *logrus.Logger
@@ -38,7 +40,7 @@ func testImageHandler(config Config) {
 	cblogger.Info("5. Exit")
 
 	imageId := irs.IID{
-		SystemId: "c14a9728-eb03-4813-9e1a-8f57fe62b4fb", // Ubuntu 16.04
+		NameId: "Fedora27-k8s", // Ubuntu 16.04
 	}
 
 Loop:
@@ -562,7 +564,7 @@ Loop:
 	}
 }*/
 
-func testRouterHandler(config Config) {
+/*func testRouterHandler(config Config) {
 	resourceHandler, err := getResourceHandler("router")
 	if err != nil {
 		cblogger.Error(err)
@@ -641,7 +643,7 @@ Loop:
 			}
 		}
 	}
-}
+}*/
 
 func testVMSpecHandler(config Config) {
 	resourceHandler, err := getResourceHandler("vmspec")
@@ -752,13 +754,13 @@ func getResourceHandler(resourceType string) (interface{}, error) {
 	//case "vnic":
 	//	resourceHandler, err = cloudConnection.CreateVNicHandler()
 	case "router":
-		osDriver := osdrv.OpenStackDriver{}
-		cloudConn, err := osDriver.ConnectCloud(connectionInfo)
-		if err != nil {
-			cblogger.Error(err)
-		}
-		osCloudConn := cloudConn.(*connect.OpenStackCloudConnection)
-		resourceHandler = osrs.OpenStackRouterHandler{Client: osCloudConn.NetworkClient}
+		//osDriver := osdrv.OpenStackDriver{}
+		//cloudConn, err := osDriver.ConnectCloud(connectionInfo)
+		//if err != nil {
+		//	cblogger.Error(err)
+		//}
+		//osCloudConn := cloudConn.(*connect.OpenStackCloudConnection)
+		//resourceHandler = osrs.OpenStackRouterHandler{Client: osCloudConn.NetworkClient}
 	case "vmspec":
 		resourceHandler, err = cloudConnection.CreateVMSpecHandler()
 	}
@@ -820,7 +822,7 @@ Loop:
 				//testVNicHandler(config)
 				//showTestHandlerInfo()
 			case 7:
-				testRouterHandler(config)
+				//testRouterHandler(config)
 				showTestHandlerInfo()
 			case 8:
 				testVMSpecHandler(config)
