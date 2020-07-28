@@ -4,11 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
+
 	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2018-06-01/compute"
 	"github.com/Azure/go-autorest/autorest/to"
+
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
-	"strings"
 )
 
 type AzureImageHandler struct {
@@ -22,7 +24,7 @@ func (imageHandler *AzureImageHandler) setterImage(image compute.Image) *irs.Ima
 	imageInfo := &irs.ImageInfo{
 		IId: irs.IID{
 			NameId:   *image.Name,
-			SystemId: *image.ID,
+			SystemId: *image.Name,
 		},
 		GuestOS:      fmt.Sprint(image.ImageProperties.StorageProfile.OsDisk.OsType),
 		Status:       *image.ProvisioningState,
@@ -33,10 +35,12 @@ func (imageHandler *AzureImageHandler) setterImage(image compute.Image) *irs.Ima
 }
 
 func (imageHandler *AzureImageHandler) setterVMImage(image compute.VirtualMachineImage) *irs.ImageInfo {
+	imageIdArr := strings.Split(*image.ID, "/")
+	imageName := fmt.Sprintf("%s:%s:%s:%s", imageIdArr[8], imageIdArr[12], imageIdArr[14], imageIdArr[16])
 	imageInfo := &irs.ImageInfo{
 		IId: irs.IID{
-			NameId:   *image.Name,
-			SystemId: *image.ID,
+			NameId:   imageName,
+			SystemId: imageName,
 		},
 		GuestOS:      fmt.Sprint(image.OsDiskImage.OperatingSystem),
 		KeyValueList: []irs.KeyValue{{Key: "ResourceGroup", Value: imageHandler.Region.ResourceGroup}},
@@ -102,40 +106,51 @@ func (imageHandler *AzureImageHandler) CreateImage(imageReqInfo irs.ImageReqInfo
 }
 
 func (imageHandler *AzureImageHandler) ListImage() ([]*irs.ImageInfo, error) {
-	/*
-		resultList, err := imageHandler.Client.ListByResourceGroup(imageHandler.Ctx, imageHandler.Region.ResourceGroup)
+	imageList := []*irs.ImageInfo{}
+
+	publishers, err := imageHandler.VMImageClient.ListPublishers(imageHandler.Ctx, imageHandler.Region.Region)
+	/*for _, p := range *publishers.Value {
+		if strings.Contains(*p.Name, "azure") {
+			spew.Dump(p)
+		}
+	}*/
+	if err != nil {
+		return nil, err
+	}
+	for _, publisher := range *publishers.Value {
+		offers, err := imageHandler.VMImageClient.ListOffers(imageHandler.Ctx, imageHandler.Region.Region, *publisher.Name)
 		if err != nil {
 			cblogger.Error(err)
+			return nil, err
 		}
-
-		var imageList []*irs.ImageInfo
-		for _, image := range resultList.Values() {
-			imageInfo := imageHandler.setterImage(image)
-			imageList = append(imageList, imageInfo)
+		for _, offer := range *offers.Value {
+			skus, err := imageHandler.VMImageClient.ListSkus(imageHandler.Ctx, imageHandler.Region.Region, *publisher.Name, *offer.Name)
+			if err != nil {
+				continue
+			}
+			for _, sku := range *skus.Value {
+				imageInfo, err := imageHandler.GetImage(irs.IID{NameId: fmt.Sprintf("%s:%s:%s", *publisher.Name, *offer.Name, *sku.Name)})
+				if err != nil {
+					continue
+				}
+				imageList = append(imageList, &imageInfo)
+			}
 		}
-		return imageList, nil
-	*/
-	vmImageList, err := imageHandler.VMImageClient.ListPublishers(imageHandler.Ctx, imageHandler.Region.Region)
-	if err != nil {
-		cblogger.Error(err)
 	}
 
-	for vmImageList := range *vmImageList.Value {
-		fmt.Println(vmImageList)
-	}
-
-	return nil, nil
+	return imageList, nil
 }
 
 func (imageHandler *AzureImageHandler) GetImage(imageIID irs.IID) (irs.ImageInfo, error) {
-
 	imageArr := strings.Split(imageIID.NameId, ":")
 
 	// 해당 이미지 publisher, offer, skus 기준 version 목록 조회 (latest 기준 조회 불가)
 	vmImageList, err := imageHandler.VMImageClient.List(imageHandler.Ctx, imageHandler.Region.Region, imageArr[0], imageArr[1], imageArr[2], "", to.Int32Ptr(1), "")
 
 	var imageVersion string
-	if len(*vmImageList.Value) != 0 {
+	if len(*vmImageList.Value) == 0 {
+		return irs.ImageInfo{}, errors.New(fmt.Sprintf("could not found image with imageId %s", imageIID.NameId))
+	} else {
 		vmImage := (*vmImageList.Value)[0]
 		imageIdArr := strings.Split(*vmImage.ID, "/")
 		imageVersion = imageIdArr[len(imageIdArr)-1]
@@ -143,14 +158,10 @@ func (imageHandler *AzureImageHandler) GetImage(imageIID irs.IID) (irs.ImageInfo
 
 	// 1개의 버전 정보를 기준으로 이미지 정보 조회
 	vmImage, err := imageHandler.VMImageClient.Get(imageHandler.Ctx, imageHandler.Region.Region, imageArr[0], imageArr[1], imageArr[2], imageVersion)
-
 	if err != nil {
 		cblogger.Error(err)
 		return irs.ImageInfo{}, err
 	}
-
-	//imageInfo := setterImage(image)
-	//return *imageInfo, nil
 
 	imageInfo := imageHandler.setterVMImage(vmImage)
 	return *imageInfo, nil

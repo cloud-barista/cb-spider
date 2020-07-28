@@ -20,7 +20,7 @@ func init() {
 	cblogger = cblog.GetLogger("CB-SPIDER")
 }
 
-/*func testImageHandler(config Config) {
+func testImageHandler(config Config) {
 	resourceHandler, err := getResourceHandler("image")
 	if err != nil {
 		cblogger.Error(err)
@@ -57,7 +57,7 @@ Loop:
 				cblogger.Info("Finish ListImage()")
 			case 2:
 				cblogger.Info("Start GetImage() ...")
-				if imageInfo, err := imageHandler.GetImage(imageId); err != nil {
+				if imageInfo, err := imageHandler.GetImage(irs.IID{NameId: imageId}); err != nil {
 					cblogger.Error(err)
 				} else {
 					spew.Dump(imageInfo)
@@ -65,18 +65,18 @@ Loop:
 				cblogger.Info("Finish GetImage()")
 			case 3:
 				cblogger.Info("Start CreateImage() ...")
-				reqInfo := irs.ImageReqInfo{Name: imageId}
+				/*reqInfo := irs.ImageReqInfo{Name: imageId}
 				if imageInfo, err := imageHandler.CreateImage(reqInfo); err != nil {
 					cblogger.Error(err)
 				} else {
 					spew.Dump(imageInfo)
-				}
+				}*/
 				cblogger.Info("Finish CreateImage()")
 			case 4:
 				cblogger.Info("Start DeleteImage() ...")
-				if ok, err := imageHandler.DeleteImage(imageId); !ok {
+				/*if ok, err := imageHandler.DeleteImage(imageId); !ok {
 					cblogger.Error(err)
-				}
+				}*/
 				cblogger.Info("Finish DeleteImage()")
 			case 5:
 				cblogger.Info("Exit")
@@ -84,7 +84,7 @@ Loop:
 			}
 		}
 	}
-}*/
+}
 
 /*func testPublicIPHanlder(config Config) {
 	resourceHandler, err := getResourceHandler("publicip")
@@ -682,7 +682,7 @@ Loop:
 		if inputCnt == 1 {
 			switch commandNum {
 			case 1:
-				//testImageHandler(config)
+				testImageHandler(config)
 				showTestHandlerInfo()
 			case 2:
 				//testPublicIPHanlder(config)
