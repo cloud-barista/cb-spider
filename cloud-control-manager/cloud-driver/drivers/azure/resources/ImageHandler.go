@@ -134,9 +134,6 @@ func (imageHandler *AzureImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 					continue
 				}
 				imageList = append(imageList, &imageInfo)
-				if imageListLen := len(imageList); imageListLen%10 == 0 {
-					fmt.Println(imageListLen)
-				}
 			}
 		}
 	}
