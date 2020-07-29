@@ -106,22 +106,22 @@ func (imageHandler *AzureImageHandler) CreateImage(imageReqInfo irs.ImageReqInfo
 }
 
 func (imageHandler *AzureImageHandler) ListImage() ([]*irs.ImageInfo, error) {
-	imageList := []*irs.ImageInfo{}
+	var imageList []*irs.ImageInfo
 
 	publishers, err := imageHandler.VMImageClient.ListPublishers(imageHandler.Ctx, imageHandler.Region.Region)
+	if err != nil {
+		return nil, err
+	}
 	/*for _, p := range *publishers.Value {
 		if strings.Contains(*p.Name, "azure") {
 			spew.Dump(p)
 		}
 	}*/
-	if err != nil {
-		return nil, err
-	}
+	//publishers := []string{"OpenLogic", "CoreOS", "Debian", "SUSE", "RedHat", "Canonical", "MicrosoftWindowsServer"}
 	for _, publisher := range *publishers.Value {
 		offers, err := imageHandler.VMImageClient.ListOffers(imageHandler.Ctx, imageHandler.Region.Region, *publisher.Name)
 		if err != nil {
-			cblogger.Error(err)
-			return nil, err
+			continue
 		}
 		for _, offer := range *offers.Value {
 			skus, err := imageHandler.VMImageClient.ListSkus(imageHandler.Ctx, imageHandler.Region.Region, *publisher.Name, *offer.Name)
@@ -134,10 +134,12 @@ func (imageHandler *AzureImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 					continue
 				}
 				imageList = append(imageList, &imageInfo)
+				if imageListLen := len(imageList); imageListLen%10 == 0 {
+					fmt.Println(imageListLen)
+				}
 			}
 		}
 	}
-
 	return imageList, nil
 }
 
@@ -146,13 +148,16 @@ func (imageHandler *AzureImageHandler) GetImage(imageIID irs.IID) (irs.ImageInfo
 
 	// 해당 이미지 publisher, offer, skus 기준 version 목록 조회 (latest 기준 조회 불가)
 	vmImageList, err := imageHandler.VMImageClient.List(imageHandler.Ctx, imageHandler.Region.Region, imageArr[0], imageArr[1], imageArr[2], "", to.Int32Ptr(1), "")
+	if err != nil {
+		return irs.ImageInfo{}, err
+	}
 
 	var imageVersion string
 	if len(*vmImageList.Value) == 0 {
 		return irs.ImageInfo{}, errors.New(fmt.Sprintf("could not found image with imageId %s", imageIID.NameId))
 	} else {
-		vmImage := (*vmImageList.Value)[0]
-		imageIdArr := strings.Split(*vmImage.ID, "/")
+		latestVmImage := (*vmImageList.Value)[0]
+		imageIdArr := strings.Split(*latestVmImage.ID, "/")
 		imageVersion = imageIdArr[len(imageIdArr)-1]
 	}
 
