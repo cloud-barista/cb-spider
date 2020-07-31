@@ -112,7 +112,12 @@ func (imageHandler *AzureImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 	if err != nil {
 		return nil, err
 	}
-
+	/*for _, p := range *publishers.Value {
+		if strings.Contains(*p.Name, "azure") {
+			spew.Dump(p)
+		}
+	}*/
+	//publishers := []string{"OpenLogic", "CoreOS", "Debian", "SUSE", "RedHat", "Canonical", "MicrosoftWindowsServer"}
 	for _, publisher := range *publishers.Value {
 		offers, err := imageHandler.VMImageClient.ListOffers(imageHandler.Ctx, imageHandler.Region.Region, *publisher.Name)
 		if err != nil {
@@ -129,9 +134,9 @@ func (imageHandler *AzureImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 					continue
 				}
 				imageList = append(imageList, &imageInfo)
-				/*if imageListLen := len(imageList); imageListLen%10 == 0 {
+				if imageListLen := len(imageList); imageListLen%10 == 0 {
 					fmt.Println(imageListLen)
-				}*/
+				}
 			}
 		}
 	}
