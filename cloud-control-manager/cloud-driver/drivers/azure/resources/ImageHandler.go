@@ -112,12 +112,7 @@ func (imageHandler *AzureImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 	if err != nil {
 		return nil, err
 	}
-	/*for _, p := range *publishers.Value {
-		if strings.Contains(*p.Name, "azure") {
-			spew.Dump(p)
-		}
-	}*/
-	//publishers := []string{"OpenLogic", "CoreOS", "Debian", "SUSE", "RedHat", "Canonical", "MicrosoftWindowsServer"}
+
 	for _, publisher := range *publishers.Value {
 		offers, err := imageHandler.VMImageClient.ListOffers(imageHandler.Ctx, imageHandler.Region.Region, *publisher.Name)
 		if err != nil {
@@ -134,6 +129,9 @@ func (imageHandler *AzureImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 					continue
 				}
 				imageList = append(imageList, &imageInfo)
+				/*if imageListLen := len(imageList); imageListLen%10 == 0 {
+					fmt.Println(imageListLen)
+				}*/
 			}
 		}
 	}
@@ -150,6 +148,14 @@ func (imageHandler *AzureImageHandler) GetImage(imageIID irs.IID) (irs.ImageInfo
 	}
 
 	var imageVersion string
+	if &vmImageList == nil {
+		cblogger.Error(fmt.Sprintf("이미지 조회 실패, ImageIID=%s", imageIID.NameId))
+		return irs.ImageInfo{}, errors.New(fmt.Sprintf("could not found image with imageId %s", imageIID.NameId))
+	}
+	if vmImageList.Value == nil {
+		cblogger.Error(fmt.Sprintf("이미지 조회 실패, ImageIID=%s", imageIID.NameId))
+		return irs.ImageInfo{}, errors.New(fmt.Sprintf("could not found image with imageId %s", imageIID.NameId))
+	}
 	if len(*vmImageList.Value) == 0 {
 		return irs.ImageInfo{}, errors.New(fmt.Sprintf("could not found image with imageId %s", imageIID.NameId))
 	} else {
