@@ -153,6 +153,14 @@ func (imageHandler *AzureImageHandler) GetImage(imageIID irs.IID) (irs.ImageInfo
 	}
 
 	var imageVersion string
+	if &vmImageList == nil {
+		cblogger.Error(fmt.Sprintf("이미지 조회 실패, ImageIID=%s", imageIID.NameId))
+		return irs.ImageInfo{}, errors.New(fmt.Sprintf("could not found image with imageId %s", imageIID.NameId))
+	}
+	if vmImageList.Value == nil {
+		cblogger.Error(fmt.Sprintf("이미지 조회 실패, ImageIID=%s", imageIID.NameId))
+		return irs.ImageInfo{}, errors.New(fmt.Sprintf("could not found image with imageId %s", imageIID.NameId))
+	}
 	if len(*vmImageList.Value) == 0 {
 		return irs.ImageInfo{}, errors.New(fmt.Sprintf("could not found image with imageId %s", imageIID.NameId))
 	} else {
