@@ -141,3 +141,13 @@ func (vpcHandler *AzureVPCHandler) DeleteVPC(vpcIID irs.IID) (bool, error) {
 	}
 	return true, nil
 }
+
+
+func (VPCHandler *AzureVPCHandler) AddSubnet(vpcIID irs.IID,  subnetInfo irs.SubnetInfo) (irs.VPCInfo, error) {
+        return irs.VPCInfo{}, nil
+}
+
+func (VPCHandler *AzureVPCHandler) RemoveSubnet(vpcIID irs.IID,  subnetIID irs.IID) (bool, error) {
+        return false, nil
+}
+

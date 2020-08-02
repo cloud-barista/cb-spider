@@ -332,3 +332,12 @@ func (vpcHandler *OpenStackVPCHandler) DeleteInterface(subnetId string, routerId
 	}
 	return true, nil
 }
+
+
+func (VPCHandler *OpenStackVPCHandler) AddSubnet(vpcIID irs.IID,  subnetInfo irs.SubnetInfo) (irs.VPCInfo, error) {
+        return irs.VPCInfo{}, nil
+}
+
+func (VPCHandler *OpenStackVPCHandler) RemoveSubnet(vpcIID irs.IID,  subnetIID irs.IID) (bool, error) {
+        return false, nil
+}

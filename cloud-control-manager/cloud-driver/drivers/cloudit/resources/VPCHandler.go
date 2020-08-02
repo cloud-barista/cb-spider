@@ -229,3 +229,13 @@ func (vpcHandler *ClouditVPCHandler) getSubnetByName(subnetName string) (*subnet
 	}
 	return subnetInfo, nil
 }
+
+
+func (VPCHandler *ClouditVPCHandler) AddSubnet(vpcIID irs.IID,  subnetInfo irs.SubnetInfo) (irs.VPCInfo, error) {
+        return irs.VPCInfo{}, nil
+}
+
+func (VPCHandler *ClouditVPCHandler) RemoveSubnet(vpcIID irs.IID,  subnetIID irs.IID) (bool, error) {
+        return false, nil
+}
+

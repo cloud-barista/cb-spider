@@ -6,6 +6,7 @@
 //
 // This is Resouces interfaces of Cloud Driver.
 //
+// by CB-Spider Team, 2020.08.
 // by CB-Spider Team, 2020.04.
 // by CB-Spider Team, 2019.06.
 
@@ -37,4 +38,7 @@ type VPCHandler interface {
 	ListVPC() ([]*VPCInfo, error)
 	GetVPC(vpcIID IID) (VPCInfo, error)
 	DeleteVPC(vpcIID IID) (bool, error)
+
+	AddSubnet(vpcIID IID, subnetInfo SubnetInfo) (VPCInfo, error)
+	RemoveSubnet(vpcIID IID, subnetIID IID) (bool, error)
 }

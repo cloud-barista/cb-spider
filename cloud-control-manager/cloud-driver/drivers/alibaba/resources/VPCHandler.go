@@ -372,3 +372,13 @@ func ExtractSubnetDescribeInfo(subnetInfo vpc.VSwitch) irs.SubnetInfo {
 
 	return vNetworkInfo
 }
+
+
+func (VPCHandler *AlibabaVPCHandler) AddSubnet(vpcIID irs.IID,  subnetInfo irs.SubnetInfo) (irs.VPCInfo, error) {
+        return irs.VPCInfo{}, nil
+}
+
+func (VPCHandler *AlibabaVPCHandler) RemoveSubnet(vpcIID irs.IID,  subnetIID irs.IID) (bool, error) {
+        return false, nil
+}
+

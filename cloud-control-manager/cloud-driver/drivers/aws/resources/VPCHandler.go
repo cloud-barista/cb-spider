@@ -874,3 +874,13 @@ func ExtractSubnetDescribeInfo(subnetInfo *ec2.Subnet) irs.SubnetInfo {
 
 	return vNetworkInfo
 }
+
+
+func (VPCHandler *AwsVPCHandler) AddSubnet(vpcIID irs.IID,  subnetInfo irs.SubnetInfo) (irs.VPCInfo, error) {
+        return irs.VPCInfo{}, nil
+}
+
+func (VPCHandler *AwsVPCHandler) RemoveSubnet(vpcIID irs.IID,  subnetIID irs.IID) (bool, error) {
+        return false, nil
+}
+
