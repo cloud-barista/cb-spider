@@ -230,12 +230,71 @@ func (vpcHandler *ClouditVPCHandler) getSubnetByName(subnetName string) (*subnet
 	return subnetInfo, nil
 }
 
+func (VPCHandler *ClouditVPCHandler) AddSubnet(vpcIID irs.IID, subnetInfo irs.SubnetInfo) (irs.VPCInfo, error) {
 
-func (VPCHandler *ClouditVPCHandler) AddSubnet(vpcIID irs.IID,  subnetInfo irs.SubnetInfo) (irs.VPCInfo, error) {
-        return irs.VPCInfo{}, nil
+	checkSubnet, _ := VPCHandler.getSubnetByName(subnetInfo.IId.NameId)
+	if checkSubnet != nil {
+		errMsg := fmt.Sprintf("VirtualNetwork with name %s already exist", subnetInfo.IId.NameId)
+		createErr := errors.New(errMsg)
+		return irs.VPCInfo{}, createErr
+	}
+
+	VPCHandler.Client.TokenID = VPCHandler.CredentialInfo.AuthToken
+	authHeader := VPCHandler.Client.AuthenticatedHeaders()
+
+	var creatableSubnet subnet.SubnetInfo
+
+	// 1. 사용 가능한 Subnet 목록 가져오기
+	requestOpts := client.RequestOpts{
+		MoreHeaders: authHeader,
+	}
+	if creatableSubnetList, err := subnet.ListCreatableSubnet(VPCHandler.Client, &requestOpts); err != nil {
+		return irs.VPCInfo{}, err
+	} else {
+		if len(*creatableSubnetList) == 0 {
+			allocateErr := errors.New(fmt.Sprintf("There is no PublicIPs to allocate"))
+			return irs.VPCInfo{}, allocateErr
+		} else {
+			creatableSubnet = (*creatableSubnetList)[0]
+		}
+	}
+
+	// 2. Subnet 생성
+	reqInfo := subnet.VNetworkReqInfo{
+		Name:   subnetInfo.IId.NameId,
+		Addr:   creatableSubnet.Addr,
+		Prefix: creatableSubnet.Prefix,
+	}
+
+	createOpts := client.RequestOpts{
+		JSONBody:    reqInfo,
+		MoreHeaders: authHeader,
+	}
+
+	createdata, err := subnet.Create(VPCHandler.Client, &createOpts)
+	if err != nil {
+		return irs.VPCInfo{}, err
+	}
+	_ = VPCHandler.setterSubnet(*createdata)
+	result, err := VPCHandler.GetVPC(vpcIID)
+	return result, nil
 }
 
-func (VPCHandler *ClouditVPCHandler) RemoveSubnet(vpcIID irs.IID,  subnetIID irs.IID) (bool, error) {
-        return false, nil
-}
+func (VPCHandler *ClouditVPCHandler) RemoveSubnet(vpcIID irs.IID, subnetIID irs.IID) (bool, error) {
+	subnetInfo, err := VPCHandler.getSubnetByName(subnetIID.NameId)
+	if err != nil {
+		return false, err
+	}
 
+	VPCHandler.Client.TokenID = VPCHandler.CredentialInfo.AuthToken
+	authHeader := VPCHandler.Client.AuthenticatedHeaders()
+
+	requestOpts := client.RequestOpts{
+		MoreHeaders: authHeader,
+	}
+
+	if err := subnet.Delete(VPCHandler.Client, subnetInfo.Addr, &requestOpts); err != nil {
+		return false, err
+	}
+	return true, nil
+}
