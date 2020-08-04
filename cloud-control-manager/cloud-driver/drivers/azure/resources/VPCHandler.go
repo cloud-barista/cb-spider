@@ -51,6 +51,7 @@ func (vpcHandler *AzureVPCHandler) setterSubnet(subnet network.Subnet) *irs.Subn
 func (vpcHandler *AzureVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.VPCInfo, error) {
 
 	// Check VPC Exists
+
 	vpc, _ := vpcHandler.Client.Get(vpcHandler.Ctx, vpcHandler.Region.ResourceGroup, vpcReqInfo.IId.NameId, "")
 	if vpc.ID != nil {
 		errMsg := fmt.Sprintf("VPC with name %s already exist", vpcReqInfo.IId.NameId)
@@ -142,12 +143,44 @@ func (vpcHandler *AzureVPCHandler) DeleteVPC(vpcIID irs.IID) (bool, error) {
 	return true, nil
 }
 
-
-func (VPCHandler *AzureVPCHandler) AddSubnet(vpcIID irs.IID,  subnetInfo irs.SubnetInfo) (irs.VPCInfo, error) {
-        return irs.VPCInfo{}, nil
+func (VPCHandler *AzureVPCHandler) AddSubnet(vpcIID irs.IID, subnetInfo irs.SubnetInfo) (irs.VPCInfo, error) {
+	vpc, _ := VPCHandler.Client.Get(VPCHandler.Ctx, VPCHandler.Region.ResourceGroup, vpcIID.NameId, "")
+	if vpc.ID == nil {
+		errMsg := fmt.Sprintf("VPC with name %s not exist", vpcIID.NameId)
+		createErr := errors.New(errMsg)
+		return irs.VPCInfo{}, createErr
+	}
+	subnetCreateOpts := network.Subnet{
+		Name: to.StringPtr(subnetInfo.IId.NameId),
+		SubnetPropertiesFormat: &network.SubnetPropertiesFormat{
+			AddressPrefix: to.StringPtr(subnetInfo.IPv4_CIDR),
+		},
+	}
+	future, err := VPCHandler.SubnetClient.CreateOrUpdate(VPCHandler.Ctx, VPCHandler.Region.ResourceGroup, *vpc.Name, subnetInfo.IId.NameId, subnetCreateOpts)
+	if err != nil {
+		cblogger.Error(fmt.Sprint("Failed to create subnet with name %s", subnetInfo.IId.NameId))
+		return irs.VPCInfo{}, err
+	}
+	err = future.WaitForCompletionRef(VPCHandler.Ctx, VPCHandler.Client.Client)
+	if err != nil {
+		cblogger.Error(fmt.Sprint("Failed to create subnet with name %s", subnetInfo.IId.NameId))
+		return irs.VPCInfo{}, err
+	}
+	result, err := VPCHandler.GetVPC(irs.IID{NameId: vpcIID.NameId})
+	if err != nil {
+		return irs.VPCInfo{}, err
+	}
+	return result, nil
 }
 
-func (VPCHandler *AzureVPCHandler) RemoveSubnet(vpcIID irs.IID,  subnetIID irs.IID) (bool, error) {
-        return false, nil
+func (VPCHandler *AzureVPCHandler) RemoveSubnet(vpcIID irs.IID, subnetIID irs.IID) (bool, error) {
+	future, err := VPCHandler.SubnetClient.Delete(VPCHandler.Ctx, VPCHandler.Region.ResourceGroup, vpcIID.NameId, subnetIID.NameId)
+	if err != nil {
+		return false, err
+	}
+	err = future.WaitForCompletionRef(VPCHandler.Ctx, VPCHandler.Client.Client)
+	if err != nil {
+		return false, err
+	}
+	return true, nil
 }
-

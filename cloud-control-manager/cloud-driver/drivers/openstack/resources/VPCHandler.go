@@ -333,11 +333,34 @@ func (vpcHandler *OpenStackVPCHandler) DeleteInterface(subnetId string, routerId
 	return true, nil
 }
 
+func (VPCHandler *OpenStackVPCHandler) AddSubnet(vpcIID irs.IID, subnetInfo irs.SubnetInfo) (irs.VPCInfo, error) {
+	subnetCreateOpts := subnets.CreateOpts{
+		NetworkID:      vpcIID.SystemId,
+		Name:           subnetInfo.IId.NameId,
+		CIDR:           subnetInfo.IPv4_CIDR,
+		IPVersion:      subnets.IPv4,
+		DNSNameservers: []string{DNSNameservers},
+	}
+	subnet, err := subnets.Create(VPCHandler.Client, subnetCreateOpts).Extract()
+	if err != nil {
+		cblogger.Error("Failed to create Subnet with name %s, err=%s", subnetCreateOpts.Name, err)
+		return irs.VPCInfo{}, err
+	}
 
-func (VPCHandler *OpenStackVPCHandler) AddSubnet(vpcIID irs.IID,  subnetInfo irs.SubnetInfo) (irs.VPCInfo, error) {
-        return irs.VPCInfo{}, nil
+	_ = *VPCHandler.setterSubnet(*subnet)
+	result, err := VPCHandler.GetVPC(vpcIID)
+	if err != nil {
+		return irs.VPCInfo{}, err
+	}
+	return result, nil
 }
 
-func (VPCHandler *OpenStackVPCHandler) RemoveSubnet(vpcIID irs.IID,  subnetIID irs.IID) (bool, error) {
-        return false, nil
+func (VPCHandler *OpenStackVPCHandler) RemoveSubnet(vpcIID irs.IID, subnetIID irs.IID) (bool, error) {
+	err := subnets.Delete(VPCHandler.Client, subnetIID.SystemId).ExtractErr()
+
+	if err != nil {
+		cblogger.Error("Failed to delete Subnet with Id %s, err=%s", subnetIID.SystemId, err)
+		return false, err
+	}
+	return true, nil
 }
