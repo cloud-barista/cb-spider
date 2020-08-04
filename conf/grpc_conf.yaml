@@ -1,7 +1,7 @@
 version: 1
 grpc:
   spidersrv:
-    addr: 127.0.0.1:50251
+    addr: :50251
     #reflection: enable
     #tls:
     #  tls_cert: $CBSPIDER_ROOT/certs/server.crt
