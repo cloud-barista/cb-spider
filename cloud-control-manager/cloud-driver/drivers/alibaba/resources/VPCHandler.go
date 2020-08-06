@@ -13,8 +13,8 @@
 package resources
 
 import (
-	"fmt"
 	"errors"
+	"fmt"
 	"reflect"
 	"strconv"
 	"strings"
@@ -102,8 +102,8 @@ func (VPCHandler *AlibabaVPCHandler) CreateSubnet(vpcId string, reqSubnetInfo ir
 	request.VpcId = vpcId
 	request.CidrBlock = reqSubnetInfo.IPv4_CIDR
 	request.VSwitchName = reqSubnetInfo.IId.NameId
-fmt.Printf("\n\n======= %#v\n\n", VPCHandler.Region.Zone) // by powerkim.
-	request.ZoneId = VPCHandler.Region.Zone //"ap-northeast-1a" // @TOTO : ZoneId 전달 받아야 함.
+	fmt.Printf("\n\n======= %#v\n\n", VPCHandler.Region.Zone) // by powerkim.
+	request.ZoneId = VPCHandler.Region.Zone                   //"ap-northeast-1a" // @TOTO : ZoneId 전달 받아야 함.
 	cblogger.Info(request)
 
 	response, err := VPCHandler.Client.CreateVSwitch(request)
@@ -373,12 +373,22 @@ func ExtractSubnetDescribeInfo(subnetInfo vpc.VSwitch) irs.SubnetInfo {
 	return vNetworkInfo
 }
 
+func (VPCHandler *AlibabaVPCHandler) AddSubnet(vpcIID irs.IID, subnetInfo irs.SubnetInfo) (irs.VPCInfo, error) {
+	cblogger.Infof("[%s] Subnet 추가 - CIDR : %s", subnetInfo.IId.NameId, subnetInfo.IPv4_CIDR)
+	resSubnet, errSubnet := VPCHandler.CreateSubnet(vpcIID.SystemId, subnetInfo)
+	if errSubnet != nil {
+		cblogger.Error(errSubnet)
+		return irs.VPCInfo{}, errSubnet
+	}
+	cblogger.Info(resSubnet)
 
-func (VPCHandler *AlibabaVPCHandler) AddSubnet(vpcIID irs.IID,  subnetInfo irs.SubnetInfo) (irs.VPCInfo, error) {
-        return irs.VPCInfo{}, nil
+	return VPCHandler.GetVPC(vpcIID)
+
+	//return irs.VPCInfo{}, nil
 }
 
-func (VPCHandler *AlibabaVPCHandler) RemoveSubnet(vpcIID irs.IID,  subnetIID irs.IID) (bool, error) {
-        return false, nil
-}
+func (VPCHandler *AlibabaVPCHandler) RemoveSubnet(vpcIID irs.IID, subnetIID irs.IID) (bool, error) {
+	cblogger.Infof("[%s] VPC의 [%s] Subnet 삭제", vpcIID.SystemId, subnetIID.SystemId)
 
+	return VPCHandler.DeleteSubnet(subnetIID)
+}
