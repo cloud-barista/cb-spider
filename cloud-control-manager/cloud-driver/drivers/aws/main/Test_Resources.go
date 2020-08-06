@@ -526,6 +526,16 @@ func handleVPC() {
 		panic(err)
 	}
 
+	subnetReqInfo := irs.SubnetInfo{
+		IId:       irs.IID{NameId: "AddTest-Subnet"},
+		IPv4_CIDR: "10.0.2.0/24",
+	}
+
+	subnetReqVpcInfo := irs.IID{SystemId: "vpc-00e513fd64a7d9972"}
+
+	cblogger.Debug(subnetReqInfo)
+	cblogger.Debug(subnetReqVpcInfo)
+
 	vpcReqInfo := irs.VPCReqInfo{
 		IId:       irs.IID{NameId: "New-CB-VPC"},
 		IPv4_CIDR: "10.0.0.0/16",
@@ -548,6 +558,7 @@ func handleVPC() {
 	}
 
 	reqSubnetId := irs.IID{SystemId: "vpc-04f6de5c2af880978"}
+	reqSubnetId = irs.IID{SystemId: "subnet-0ebd316ff47f07628"}
 
 	for {
 		fmt.Println("VPCHandler Management")
@@ -556,6 +567,8 @@ func handleVPC() {
 		fmt.Println("2. VNetwork Create")
 		fmt.Println("3. VNetwork Get")
 		fmt.Println("4. VNetwork Delete")
+		fmt.Println("5. Add Subnet")
+		fmt.Println("6. Delete Subnet")
 
 		var commandNum int
 		inputCnt, err := fmt.Scan(&commandNum)
@@ -613,6 +626,26 @@ func handleVPC() {
 					cblogger.Infof("[%s] VNetwork 삭제 실패 : ", reqSubnetId, err)
 				} else {
 					cblogger.Infof("[%s] VNetwork 삭제 결과 : [%s]", reqSubnetId, result)
+				}
+
+			case 5:
+				cblogger.Infof("[%s] Subnet 추가 테스트", vpcReqInfo.IId.NameId)
+				result, err := VPCHandler.AddSubnet(subnetReqVpcInfo, subnetReqInfo)
+				if err != nil {
+					cblogger.Infof(reqSubnetId.NameId, " VNetwork 생성 실패 : ", err)
+				} else {
+					cblogger.Infof("VNetwork 생성 결과 : ", result)
+					reqSubnetId = result.IId // 조회 및 삭제를 위해 생성된 ID로 변경
+					spew.Dump(result)
+				}
+
+			case 6:
+				cblogger.Infof("[%s] Subnet 삭제 테스트", reqSubnetId.SystemId)
+				result, err := VPCHandler.RemoveSubnet(subnetReqVpcInfo, reqSubnetId)
+				if err != nil {
+					cblogger.Infof("[%s] Subnet 삭제 실패 : ", reqSubnetId.SystemId, err)
+				} else {
+					cblogger.Infof("[%s] Subnet 삭제 결과 : [%s]", reqSubnetId.SystemId, result)
 				}
 			}
 		}
@@ -1079,13 +1112,13 @@ func main() {
 		}
 	*/
 
-	//handleVPC()
+	handleVPC()
 	//handleKeyPair()
 	//handlePublicIP() // PublicIP 생성 후 conf
 	//handleSecurity()
 	//handleVM()
 
-	handleImage() //AMI
+	//handleImage() //AMI
 	//handleVNic() //Lancard
 	//handleVMSpec()
 

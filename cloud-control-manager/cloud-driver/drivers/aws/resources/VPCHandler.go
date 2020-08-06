@@ -875,12 +875,21 @@ func ExtractSubnetDescribeInfo(subnetInfo *ec2.Subnet) irs.SubnetInfo {
 	return vNetworkInfo
 }
 
+func (VPCHandler *AwsVPCHandler) AddSubnet(vpcIID irs.IID, subnetInfo irs.SubnetInfo) (irs.VPCInfo, error) {
+	cblogger.Infof("[%s] Subnet 추가 - CIDR : %s", subnetInfo.IId.NameId, subnetInfo.IPv4_CIDR)
+	resSubnet, errSubnet := VPCHandler.CreateSubnet(vpcIID.SystemId, subnetInfo)
+	if errSubnet != nil {
+		cblogger.Error(errSubnet)
+		return irs.VPCInfo{}, errSubnet
+	}
+	cblogger.Info(resSubnet)
 
-func (VPCHandler *AwsVPCHandler) AddSubnet(vpcIID irs.IID,  subnetInfo irs.SubnetInfo) (irs.VPCInfo, error) {
-        return irs.VPCInfo{}, nil
+	return VPCHandler.GetVPC(vpcIID)
 }
 
-func (VPCHandler *AwsVPCHandler) RemoveSubnet(vpcIID irs.IID,  subnetIID irs.IID) (bool, error) {
-        return false, nil
-}
+func (VPCHandler *AwsVPCHandler) RemoveSubnet(vpcIID irs.IID, subnetIID irs.IID) (bool, error) {
+	cblogger.Infof("[%s] VPC의 [%s] Subnet 삭제", vpcIID.SystemId, subnetIID.SystemId)
 
+	return VPCHandler.DeleteSubnet(subnetIID)
+	//return false, nil
+}
