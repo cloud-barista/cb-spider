@@ -515,12 +515,93 @@ func (vVPCHandler *GCPVPCHandler) DeleteVPC(vpcID irs.IID) (bool, error) {
 	return true, nil
 }
 
+func (VPCHandler *GCPVPCHandler) AddSubnet(vpcIID irs.IID, subnetInfo irs.SubnetInfo) (irs.VPCInfo, error) {
+	cblogger.Infof("[%s] Subnet 추가 - CIDR : %s", subnetInfo.IId.NameId, subnetInfo.IPv4_CIDR)
+	//resSubnet, errSubnet := VPCHandler.CreateSubnet(vpcIID.SystemId, subnetInfo)
+	_, errSubnet := VPCHandler.CreateSubnet(vpcIID.SystemId, subnetInfo)
+	if errSubnet != nil {
+		cblogger.Error(errSubnet)
+		return irs.VPCInfo{}, errSubnet
+	}
+	//cblogger.Debug(resSubnet)
 
-func (VPCHandler *GCPVPCHandler) AddSubnet(vpcIID irs.IID,  subnetInfo irs.SubnetInfo) (irs.VPCInfo, error) {
-        return irs.VPCInfo{}, nil
+	return VPCHandler.GetVPC(vpcIID)
+	//return irs.VPCInfo{}, nil
 }
 
-func (VPCHandler *GCPVPCHandler) RemoveSubnet(vpcIID irs.IID,  subnetIID irs.IID) (bool, error) {
-        return false, nil
+//리턴 값은 구현하지 않고 nil을 리턴함. - 현재 사용되는 곳이 없어서 시간상 누락 시킴.
+func (vVPCHandler *GCPVPCHandler) CreateSubnet(vpcId string, reqSubnetInfo irs.SubnetInfo) (irs.SubnetInfo, error) {
+	cblogger.Info(reqSubnetInfo)
+
+	projectID := vVPCHandler.Credential.ProjectID
+	region := vVPCHandler.Region.Region
+
+	//서브넷 생성
+	vpcNetworkUrl := "https://www.googleapis.com/compute/v1/projects/" + projectID + "/global/networks/" + vpcId
+	subnetName := reqSubnetInfo.IId.NameId
+	cblogger.Infof("생성할 [%s] Subnet이 존재하는지 체크", subnetName)
+	checkInfo, err := vVPCHandler.Client.Subnetworks.Get(projectID, region, subnetName).Do()
+	if err == nil {
+		cblogger.Errorf("이미 [%s] Subnet이 존재함", subnetName)
+		return irs.SubnetInfo{}, errors.New("Already Exist - " + subnetName + " Subnet is exist")
+	}
+	cblogger.Info("Subnet info : ", checkInfo)
+
+	//서브넷 생성
+	subnetWork := &compute.Subnetwork{
+		Name:        subnetName,
+		IpCidrRange: reqSubnetInfo.IPv4_CIDR,
+		Network:     vpcNetworkUrl,
+	}
+	cblogger.Infof("[%s] Subnet 생성시작", subnetName)
+	cblogger.Info(subnetWork)
+
+	infoSubnet, errSubnet := vVPCHandler.Client.Subnetworks.Insert(projectID, region, subnetWork).Do()
+	if errSubnet != nil {
+		cblogger.Error(errSubnet)
+		return irs.SubnetInfo{}, errors.New("Making Subnet Error - " + subnetName)
+	}
+
+	spew.Dump(infoSubnet)
+	//생성된 서브넷이 조회되는데 시간이 필요하기 때문에 홀딩 함.
+	cblogger.Infof("[%s] Subnet 생성 성공 - 리소스 ID : [%d]", subnetName, infoSubnet.Id)
+	errWait := vVPCHandler.WaitUntilComplete(strconv.FormatUint(infoSubnet.Id, 10), false)
+	if errWait != nil {
+		cblogger.Errorf("[%s] Subnet 생성 완료 대기 실패", subnetName)
+		cblogger.Error(errWait)
+		return irs.SubnetInfo{}, errWait
+	}
+
+	cblogger.Infof("[%s] Subnet 생성완료", subnetName)
+	cblogger.Info(infoSubnet)
+
+	//생성된 정보 조회
+	//mappingSubnet() 이용하면 되지만 수정해야 함.
+
+	return irs.SubnetInfo{}, nil
 }
 
+func (vVPCHandler *GCPVPCHandler) RemoveSubnet(vpcIID irs.IID, subnetIID irs.IID) (bool, error) {
+	cblogger.Infof("[%s] VPC의 [%s] Subnet 삭제", vpcIID.SystemId, subnetIID.SystemId)
+
+	projectID := vVPCHandler.Credential.ProjectID
+	region := vVPCHandler.Region.Region
+
+	infoSubnet, infoSubErr := vVPCHandler.Client.Subnetworks.Delete(projectID, region, subnetIID.SystemId).Do()
+	if infoSubErr != nil {
+		cblogger.Error(infoSubErr)
+		return false, infoSubErr
+	}
+	cblogger.Info("Delete subnet result :", infoSubnet)
+
+	//서브넷이 완전히 삭제될때까지 대기
+	cblogger.Infof("[%s] Subnet 삭제 성공 - 리소스 ID : [%d]", subnetIID.SystemId, infoSubnet.Id)
+	errWait := vVPCHandler.WaitUntilComplete(strconv.FormatUint(infoSubnet.Id, 10), false)
+	if errWait != nil {
+		cblogger.Errorf("[%s] Subnet 삭제 완료 대기 실패", subnetIID.SystemId)
+		cblogger.Error(errWait)
+		return false, errWait
+	}
+
+	return true, nil
+}
