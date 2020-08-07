@@ -20,7 +20,7 @@ protoc \
     cbspider.proto \
 		-I . \
 		-I $GOPATH/src/github.com/gogo/protobuf/protobuf \
-		-I ~/cb.grpc.etri.project/cb-spider-dev/api-runtime/grpc-runtime/idl/gogoproto \
+		-I $GOPATH/src/github.com/cloud-barista/cb-spider/api-runtime/grpc-runtime/idl/gogoproto \
 		--gofast_out=plugins=grpc:\
 .	
 
