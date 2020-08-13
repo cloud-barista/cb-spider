@@ -1,8 +1,7 @@
 version: 1
 grpc:
-  spidersrv:
-    addr: 127.0.0.1:50251  
   spidercli:
+    server_addr: 127.0.0.1:50251
     timeout: 90s
     #tls:
     #  tls_ca: $CBSPIDER_ROOT/certs/ca.crt

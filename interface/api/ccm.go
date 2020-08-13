@@ -131,13 +131,13 @@ func (ccm *CCMApi) SetServerAddr(addr string) error {
 		return errors.New("parameter is empty")
 	}
 
-	ccm.gConf.GSL.SpiderSrv.Addr = addr
+	ccm.gConf.GSL.SpiderCli.ServerAddr = addr
 	return nil
 }
 
 // GetServerAddr - Spider 서버 주소 값 조회
 func (ccm *CCMApi) GetServerAddr() (string, error) {
-	return ccm.gConf.GSL.SpiderSrv.Addr, nil
+	return ccm.gConf.GSL.SpiderCli.ServerAddr, nil
 }
 
 // SetTLSCA - TLS CA 설정
@@ -227,23 +227,19 @@ func (ccm *CCMApi) SetConfigPath(configFile string) error {
 		return err
 	}
 
-	// SPIDER SERVER 필수 입력 항목 체크
-	spidersrv := gConf.GSL.SpiderSrv
-
-	if spidersrv == nil {
-		return errors.New("spidersrv field are not specified")
-	}
-
-	if spidersrv.Addr == "" {
-		return errors.New("spidersrv.addr field are not specified")
-	}
-
 	// SPIDER CLIENT 필수 입력 항목 체크
 	spidercli := gConf.GSL.SpiderCli
 
 	if spidercli == nil {
-		gConf.GSL.SpiderCli = &config.GrpcClientConfig{Timeout: 90 * time.Second}
-		spidercli = gConf.GSL.SpiderCli
+		return errors.New("spidercli field are not specified")
+	}
+
+	if spidercli.ServerAddr == "" {
+		return errors.New("spidercli.server_addr field are not specified")
+	}
+
+	if spidercli.Timeout == 0 {
+		spidercli.Timeout = 90 * time.Second
 	}
 
 	if spidercli.TLS != nil {
@@ -274,11 +270,10 @@ func (ccm *CCMApi) SetConfigPath(configFile string) error {
 // Open - 연결 설정
 func (ccm *CCMApi) Open() error {
 
-	spidersrv := ccm.gConf.GSL.SpiderSrv
 	spidercli := ccm.gConf.GSL.SpiderCli
 
 	// grpc 커넥션 생성
-	cbconn, closer, err := gc.NewCBConnection(spidersrv.Addr, spidercli)
+	cbconn, closer, err := gc.NewCBConnection(spidercli)
 	if err != nil {
 		return err
 	}
@@ -1294,7 +1289,6 @@ func NewCloudInfoResourceHandler() (ccm *CCMApi) {
 
 	ccm = &CCMApi{}
 	ccm.gConf = &config.GrpcConfig{}
-	ccm.gConf.GSL.SpiderSrv = &config.GrpcServerConfig{}
 	ccm.gConf.GSL.SpiderCli = &config.GrpcClientConfig{}
 
 	ccm.jaegerCloser = nil

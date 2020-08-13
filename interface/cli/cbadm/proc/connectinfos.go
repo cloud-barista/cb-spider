@@ -1,8 +1,10 @@
 package proc
 
 import (
+	"encoding/json"
+	"fmt"
+
 	gc "github.com/cloud-barista/cb-spider/api-runtime/grpc-runtime/common"
-	pb "github.com/cloud-barista/cb-spider/api-runtime/grpc-runtime/stub/cbspider"
 	"github.com/cloud-barista/cb-spider/interface/api"
 )
 
@@ -63,69 +65,74 @@ type KeyValueInfo struct {
 // ListConnectInfos - 연결정보 목록 통합 제공
 func ListConnectInfos(cim *api.CIMApi) (string, error) {
 
+	holdType, _ := cim.GetOutType()
+	cim.SetOutType("json")
+	defer cim.SetOutType(holdType)
+
 	result, err := cim.ListConnectionConfig()
 	if err != nil {
 		return "", err
 	}
 
-	outType, _ := cim.GetOutType()
-
-	var connectConfigList pb.ListConnectionConfigInfoResponse
-	err = gc.ConvertToMessage(outType, result, &connectConfigList)
+	connectConfigList := make(map[string]interface{})
+	err = json.Unmarshal([]byte(result), &connectConfigList)
 	if err != nil {
 		return "", err
 	}
 
 	connectInfoList := []ConnectInfo{}
-	for _, connectConfig := range connectConfigList.Items {
+	for _, m := range connectConfigList["connectionconfig"].([]interface{}) {
+
+		connectConfig := m.(map[string]interface{})
 
 		connectInfo := ConnectInfo{}
-		connectInfo.ConfigName = connectConfig.ConfigName
-		connectInfo.ProviderName = connectConfig.ProviderName
+		connectInfo.ConfigName = fmt.Sprintf("%v", connectConfig["ConfigName"])
+		connectInfo.ProviderName = fmt.Sprintf("%v", connectConfig["ProviderName"])
 
-		result, err := cim.GetCloudDriverByParam(connectConfig.DriverName)
+		result, err := cim.GetCloudDriverByParam(fmt.Sprintf("%v", connectConfig["DriverName"]))
 		if err != nil {
 			return "", err
 		}
 
-		var driverItem pb.CloudDriverInfo
-		err = gc.ConvertToMessage(outType, result, &driverItem)
+		driverItem := make(map[string]interface{})
+		err = json.Unmarshal([]byte(result), &driverItem)
 		if err != nil {
 			return "", err
 		}
 
-		connectInfo.Driver.DriverName = driverItem.DriverName
-		connectInfo.Driver.DriverLibFileName = driverItem.DriverLibFileName
+		connectInfo.Driver.DriverName = fmt.Sprintf("%v", driverItem["DriverName"])
+		connectInfo.Driver.DriverLibFileName = fmt.Sprintf("%v", driverItem["DriverLibFileName"])
 
-		result, err = cim.GetCredentialByParam(connectConfig.CredentialName)
+		result, err = cim.GetCredentialByParam(fmt.Sprintf("%v", connectConfig["CredentialName"]))
 		if err != nil {
 			return "", err
 		}
 
-		var credentialItem pb.CredentialInfo
-		err = gc.ConvertToMessage(outType, result, &credentialItem)
+		credentialItem := make(map[string]interface{})
+		err = json.Unmarshal([]byte(result), &credentialItem)
 		if err != nil {
 			return "", err
 		}
 
-		connectInfo.Credential.CredentialName = credentialItem.CredentialName
-		err = gc.CopySrcToDest(&credentialItem.KeyValueInfoList, &connectInfo.Credential.KeyValueInfoList)
+		connectInfo.Credential.CredentialName = fmt.Sprintf("%v", credentialItem["CredentialName"])
+		err = gc.CopySrcToDest(credentialItem["KeyValueInfoList"], &connectInfo.Credential.KeyValueInfoList)
 		if err != nil {
 			return "", err
 		}
 
-		result, err = cim.GetRegionByParam(connectConfig.RegionName)
+		result, err = cim.GetRegionByParam(fmt.Sprintf("%v", connectConfig["RegionName"]))
 		if err != nil {
 			return "", err
 		}
 
-		var regionItem pb.RegionInfo
-		err = gc.ConvertToMessage(outType, result, &regionItem)
+		regionItem := make(map[string]interface{})
+		err = json.Unmarshal([]byte(result), &regionItem)
 		if err != nil {
 			return "", err
 		}
-		connectInfo.Region.RegionName = regionItem.RegionName
-		err = gc.CopySrcToDest(&regionItem.KeyValueInfoList, &connectInfo.Region.KeyValueInfoList)
+
+		connectInfo.Region.RegionName = fmt.Sprintf("%v", regionItem["RegionName"])
+		err = gc.CopySrcToDest(regionItem["KeyValueInfoList"], &connectInfo.Region.KeyValueInfoList)
 		if err != nil {
 			return "", err
 		}
@@ -137,21 +144,23 @@ func ListConnectInfos(cim *api.CIMApi) (string, error) {
 	cfg.Version = ConfigVersion
 	cfg.ConnectInfoList = connectInfoList
 
-	return gc.ConvertToOutput(outType, &cfg)
+	return gc.ConvertToOutput(holdType, &cfg)
 }
 
 // GetConnectInfos - 연결정보 통합 제공
 func GetConnectInfos(cim *api.CIMApi, configName string) (string, error) {
+
+	holdType, _ := cim.GetOutType()
+	cim.SetOutType("json")
+	defer cim.SetOutType(holdType)
 
 	result, err := cim.GetConnectionConfigByParam(configName)
 	if err != nil {
 		return "", err
 	}
 
-	outType, _ := cim.GetOutType()
-
-	var connectConfig pb.ConnectionConfigInfo
-	err = gc.ConvertToMessage(outType, result, &connectConfig)
+	connectConfig := make(map[string]interface{})
+	err = json.Unmarshal([]byte(result), &connectConfig)
 	if err != nil {
 		return "", err
 	}
@@ -159,52 +168,53 @@ func GetConnectInfos(cim *api.CIMApi, configName string) (string, error) {
 	connectInfoList := []ConnectInfo{}
 
 	connectInfo := ConnectInfo{}
-	connectInfo.ConfigName = connectConfig.ConfigName
-	connectInfo.ProviderName = connectConfig.ProviderName
+	connectInfo.ConfigName = fmt.Sprintf("%v", connectConfig["ConfigName"])
+	connectInfo.ProviderName = fmt.Sprintf("%v", connectConfig["ProviderName"])
 
-	result, err = cim.GetCloudDriverByParam(connectConfig.DriverName)
+	result, err = cim.GetCloudDriverByParam(fmt.Sprintf("%v", connectConfig["DriverName"]))
 	if err != nil {
 		return "", err
 	}
 
-	var driverItem pb.CloudDriverInfo
-	err = gc.ConvertToMessage(outType, result, &driverItem)
+	driverItem := make(map[string]interface{})
+	err = json.Unmarshal([]byte(result), &driverItem)
 	if err != nil {
 		return "", err
 	}
 
-	connectInfo.Driver.DriverName = driverItem.DriverName
-	connectInfo.Driver.DriverLibFileName = driverItem.DriverLibFileName
+	connectInfo.Driver.DriverName = fmt.Sprintf("%v", driverItem["DriverName"])
+	connectInfo.Driver.DriverLibFileName = fmt.Sprintf("%v", driverItem["DriverLibFileName"])
 
-	result, err = cim.GetCredentialByParam(connectConfig.CredentialName)
+	result, err = cim.GetCredentialByParam(fmt.Sprintf("%v", connectConfig["CredentialName"]))
 	if err != nil {
 		return "", err
 	}
 
-	var credentialItem pb.CredentialInfo
-	err = gc.ConvertToMessage(outType, result, &credentialItem)
+	credentialItem := make(map[string]interface{})
+	err = json.Unmarshal([]byte(result), &credentialItem)
 	if err != nil {
 		return "", err
 	}
 
-	connectInfo.Credential.CredentialName = credentialItem.CredentialName
-	err = gc.CopySrcToDest(&credentialItem.KeyValueInfoList, &connectInfo.Credential.KeyValueInfoList)
+	connectInfo.Credential.CredentialName = fmt.Sprintf("%v", credentialItem["CredentialName"])
+	err = gc.CopySrcToDest(credentialItem["KeyValueInfoList"], &connectInfo.Credential.KeyValueInfoList)
 	if err != nil {
 		return "", err
 	}
 
-	result, err = cim.GetRegionByParam(connectConfig.RegionName)
+	result, err = cim.GetRegionByParam(fmt.Sprintf("%v", connectConfig["RegionName"]))
 	if err != nil {
 		return "", err
 	}
 
-	var regionItem pb.RegionInfo
-	err = gc.ConvertToMessage(outType, result, &regionItem)
+	regionItem := make(map[string]interface{})
+	err = json.Unmarshal([]byte(result), &regionItem)
 	if err != nil {
 		return "", err
 	}
-	connectInfo.Region.RegionName = regionItem.RegionName
-	err = gc.CopySrcToDest(&regionItem.KeyValueInfoList, &connectInfo.Region.KeyValueInfoList)
+
+	connectInfo.Region.RegionName = fmt.Sprintf("%v", regionItem["RegionName"])
+	err = gc.CopySrcToDest(regionItem["KeyValueInfoList"], &connectInfo.Region.KeyValueInfoList)
 	if err != nil {
 		return "", err
 	}
@@ -215,5 +225,5 @@ func GetConnectInfos(cim *api.CIMApi, configName string) (string, error) {
 	cfg.Version = ConfigVersion
 	cfg.ConnectInfoList = connectInfoList
 
-	return gc.ConvertToOutput(outType, &cfg)
+	return gc.ConvertToOutput(holdType, &cfg)
 }
