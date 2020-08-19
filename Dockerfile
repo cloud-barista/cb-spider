@@ -43,6 +43,8 @@ COPY --from=builder /go/src/github.com/cloud-barista/cb-spider/conf/* /root/go/s
 
 COPY --from=builder /go/src/github.com/cloud-barista/cb-spider/api-runtime/cb-spider /root/go/src/github.com/cloud-barista/cb-spider/api-runtime/
 
+COPY --from=builder /go/src/github.com/cloud-barista/cb-spider/api-runtime/rest-runtime/admin-web/images/cb-spider-circle-logo.png /root/go/src/github.com/cloud-barista/cb-spider/api-runtime/rest-runtime/admin-web/images/
+
 #COPY --from=builder /go/src/github.com/cloud-barista/cb-spider/setup.env /root/go/src/github.com/cloud-barista/cb-spider/
 #RUN /bin/bash -c "source /root/go/src/github.com/cloud-barista/cb-spider/setup.env"
 ENV CBSPIDER_ROOT /root/go/src/github.com/cloud-barista/cb-spider
