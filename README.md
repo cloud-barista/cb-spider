@@ -34,13 +34,13 @@ If you have any difficulties in using CB-Spider, please let us know.
 
 ### (1) 컨테이너 기반 실행
 - CB-Spider 이미지 확인 (https://hub.docker.com/r/cloudbaristaorg/cb-spider/tags)
-- CB-Spider 컨테이너 실행
+- CB-Spider 컨테이너 실행 (필요시 Tag Version 수정)
 
 ```
 # docker run -p 1024:1024 \
 -v /root/go/src/github.com/cloud-barista/cb-spider/meta_db:/root/go/src/github.com/cloud-barista/cb-spider/meta_db \
 --name cb-spider \
-cloudbaristaorg/cb-spider:v0.1.v
+cloudbaristaorg/cb-spider:v0.2.0-20200804
 ```
 
 ### (2) 소스 기반 실행
