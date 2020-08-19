@@ -12,8 +12,8 @@ import (
 	"fmt"
 	"time"
 
-	"net"
 	"os"
+	"github.com/chyeh/pubip"
 
 	cr "github.com/cloud-barista/cb-spider/api-runtime/common-runtime"
 	aw "github.com/cloud-barista/cb-spider/api-runtime/rest-runtime/admin-web"
@@ -51,7 +51,7 @@ type route struct {
 }
 
 func getHostIPorName() string {
-	conn, err := net.Dial("udp", "8.8.8.8:80")
+	ip, err := pubip.Get()
 	if err != nil {
 		cblog.Error(err)
 		hostName, err := os.Hostname()
@@ -60,11 +60,8 @@ func getHostIPorName() string {
 		}
 		return hostName
 	}
-	defer conn.Close()
 
-	localAddr := conn.LocalAddr().(*net.UDPAddr)
-
-	return localAddr.IP.String()
+	return ip.String()
 }
 
 func RunServer() {
