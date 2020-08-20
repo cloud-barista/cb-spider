@@ -27,7 +27,7 @@ func SimpleCIMApiTest() {
 
 	cim := api.NewCloudInfoManager()
 
-	err := cim.SetServerAddr("localhost:50251")
+	err := cim.SetServerAddr("localhost:2048")
 	if err != nil {
 		logger.Fatal(err)
 	}
@@ -214,7 +214,7 @@ func CreateCIMApiTest() {
 		CredentialName: "openstack-credential01",
 		ProviderName:   "OPENSTACK",
 		KeyValueInfoList: []api.KeyValue{
-			api.KeyValue{Key: "IdentityEndpoint", Value: "http://192.168.201.208:5000/v3"},
+			api.KeyValue{Key: "IdentityEndpoint", Value: "http://192.168.201.208:2048/v3"},
 			api.KeyValue{Key: "Username", Value: "demo"},
 			api.KeyValue{Key: "Password", Value: "openstack"},
 			api.KeyValue{Key: "DomainName", Value: "Default"},
@@ -268,7 +268,7 @@ func SimpleCCMApiTest() {
 
 	ccm := api.NewCloudInfoResourceHandler()
 
-	err := ccm.SetServerAddr("localhost:50251")
+	err := ccm.SetServerAddr("localhost:2048")
 	if err != nil {
 		logger.Fatal(err)
 	}

@@ -55,4 +55,4 @@ ENV PLUGIN_SW OFF
 ENTRYPOINT [ "/root/go/src/github.com/cloud-barista/cb-spider/api-runtime/cb-spider" ]
 
 EXPOSE 1024
-EXPOSE 50251
+EXPOSE 2048
