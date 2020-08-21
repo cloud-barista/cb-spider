@@ -214,7 +214,7 @@ func CreateCIMApiTest() {
 		CredentialName: "openstack-credential01",
 		ProviderName:   "OPENSTACK",
 		KeyValueInfoList: []api.KeyValue{
-			api.KeyValue{Key: "IdentityEndpoint", Value: "http://192.168.201.208:2048/v3"},
+			api.KeyValue{Key: "IdentityEndpoint", Value: "http://192.168.201.208:5000/v3"},
 			api.KeyValue{Key: "Username", Value: "demo"},
 			api.KeyValue{Key: "Password", Value: "openstack"},
 			api.KeyValue{Key: "DomainName", Value: "Default"},
