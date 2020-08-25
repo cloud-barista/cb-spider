@@ -8,6 +8,29 @@ import (
 	"github.com/cloud-barista/cb-spider/interface/api"
 )
 
+/* for ourtech openstack */
+var (
+	identityEndpoint string = "http://192.168.201.208:5000/v3"
+	username         string = "demo"
+	password         string = "openstack"
+	domainName       string = "Default"
+	projectID        string = "b31474c562184bcbaf3496e08f5a6a4c"
+	imageName        string = "cirros-0.5.1"
+	specName         string = "m1.tiny"
+)
+
+/* for etri openstack
+var (
+	identityEndpoint string = "http://129.254.188.234:5000/v3"
+	username         string = "powerkim"
+	password         string = "xxxx"
+	domainName       string = "Default"
+	projectID        string = "0e0833e1416a4b599bf4b58c5d95fdc4"
+	imageName        string = "ubuntu-18.04"
+	specName         string = "m1.small"
+)
+*/
+
 func main() {
 	SimpleCIMApiTest()
 	ConfigCIMApiTest()
@@ -213,27 +236,13 @@ func CreateCIMApiTest() {
 	reqCredential := &api.CredentialReq{
 		CredentialName: "openstack-credential01",
 		ProviderName:   "OPENSTACK",
-///* for ourtech
 		KeyValueInfoList: []api.KeyValue{
-			api.KeyValue{Key: "IdentityEndpoint", Value: "http://192.168.201.208:5000/v3"},
-			api.KeyValue{Key: "Username", Value: "demo"},
-			api.KeyValue{Key: "Password", Value: "openstack"},
-			api.KeyValue{Key: "DomainName", Value: "Default"},
-			api.KeyValue{Key: "ProjectID", Value: "b31474c562184bcbaf3496e08f5a6a4c"},
+			api.KeyValue{Key: "IdentityEndpoint", Value: identityEndpoint},
+			api.KeyValue{Key: "Username", Value: username},
+			api.KeyValue{Key: "Password", Value: password},
+			api.KeyValue{Key: "DomainName", Value: domainName},
+			api.KeyValue{Key: "ProjectID", Value: projectID},
 		},
-//*/
-
-/* for etri
-                KeyValueInfoList: []api.KeyValue{
-                        api.KeyValue{Key: "IdentityEndpoint", Value: "http://129.254.188.234:5000/v3"},
-                        api.KeyValue{Key: "Username", Value: "powerkim"},
-                        api.KeyValue{Key: "Password", Value: "xxxx"},
-                        api.KeyValue{Key: "DomainName", Value: "Default"},
-                        api.KeyValue{Key: "ProjectID", Value: "0e0833e1416a4b599bf4b58c5d95fdc4"},
-                },
-*/
-
-
 	}
 	result, err = cim.CreateCredentialByParam(reqCredential)
 	if err != nil {
@@ -311,7 +320,6 @@ func SimpleCCMApiTest() {
 		logger.Fatal(err)
 	}
 
-	//result, err := ccm.ListVMStatusByParam("openstack-driver01")
 	result, err := ccm.ListVMStatusByParam("openstack-config01")
 	if err != nil {
 		logger.Fatal(err)
@@ -404,32 +412,15 @@ func CreateCCMApiTest() {
 
 	reqVM := &api.VMReq{
 		ConnectionName: "openstack-config01",
-///* for ourtech
 		ReqInfo: api.VMInfo{
 			Name:               "vm-01",
-			ImageName:          "cirros-0.5.1",
+			ImageName:          imageName,
 			VPCName:            "vpc-01",
 			SubnetName:         "subnet-01",
 			SecurityGroupNames: []string{"sg-01"},
-			VMSpecName:         "m1.tiny",
+			VMSpecName:         specName,
 			KeyPairName:        "keypair-01",
 		},
-//*/
-
-/* for etri
-
-                ReqInfo: api.VMInfo{
-                        Name:               "vm-01",
-                        ImageName:          "ubuntu-18.04",
-                        VPCName:            "vpc-01",
-                        SubnetName:         "subnet-01",
-                        SecurityGroupNames: []string{"sg-01"},
-                        VMSpecName:         "m1.small",
-                        KeyPairName:        "keypair-01",
-                },
-*/
-
-
 	}
 	result, err = ccm.StartVMByParam(reqVM)
 	if err != nil {
