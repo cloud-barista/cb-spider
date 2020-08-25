@@ -1284,8 +1284,8 @@ func (ccm *CCMApi) SSHRunByParam(req *SSHRUNReq) (string, error) {
 
 // ===== [ Public Functions ] =====
 
-// NewCloudInfoResourceHandler - CCM API 객체 생성
-func NewCloudInfoResourceHandler() (ccm *CCMApi) {
+// NewCloudResourceHandler - CCM API 객체 생성
+func NewCloudResourceHandler() (ccm *CCMApi) {
 
 	ccm = &CCMApi{}
 	ccm.gConf = &config.GrpcConfig{}

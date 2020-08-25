@@ -289,7 +289,7 @@ func SimpleCCMApiTest() {
 
 	logger := logger.NewLogger()
 
-	ccm := api.NewCloudInfoResourceHandler()
+	ccm := api.NewCloudResourceHandler()
 
 	err := ccm.SetServerAddr("localhost:2048")
 	if err != nil {
@@ -337,7 +337,7 @@ func CreateCCMApiTest() {
 
 	logger := logger.NewLogger()
 
-	ccm := api.NewCloudInfoResourceHandler()
+	ccm := api.NewCloudResourceHandler()
 
 	err := ccm.SetConfigPath("../../grpc_conf.yaml")
 	if err != nil {

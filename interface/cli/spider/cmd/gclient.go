@@ -73,7 +73,7 @@ func SetupAndRun(cmd *cobra.Command, args []string) {
 	} else {
 
 		// CCM API 설정
-		ccm = api.NewCloudInfoResourceHandler()
+		ccm = api.NewCloudResourceHandler()
 		err = ccm.SetConfigPath(configFile)
 		if err != nil {
 			logger.Error("failed to set config : ", err)
