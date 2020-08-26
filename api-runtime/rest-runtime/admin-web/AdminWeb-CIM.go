@@ -232,7 +232,7 @@ func Driver(c echo.Context) error {
 				<input style="font-size:12px;text-align:center;" type="text" name="text_box" id="2" value="aws-driver-v1.0.so">
 			    </td>
 			    <td>
-				<input style="font-size:12px;text-align:center;" type="text" name="text_box" id="3" value="aws-driver01">
+				<input style="font-size:12px;text-align:center;" type="text" name="text_box" id="3" value="aws-driver-01">
 			    </td>
 			    <td>
 				<a href="javascript:postDriver()">
@@ -343,7 +343,7 @@ func makeCredentialTRList_html(bgcolor string, height string, fontSize string, i
 // make the string of javascript function
 func makePostCredentialFunc_js() string {
 
-// curl -X POST http://$RESTSERVER:1024/spider/credential -H 'Content-Type: application/json' '{"CredentialName":"aws-credential01","ProviderName":"AWS", "KeyValueInfoList": [{"Key":"ClientId", "Value":"XXXXXX"}, {"Key":"ClientSecret", "Value":"XXXXXX"}]}'
+// curl -X POST http://$RESTSERVER:1024/spider/credential -H 'Content-Type: application/json' '{"CredentialName":"aws-credential-01","ProviderName":"AWS", "KeyValueInfoList": [{"Key":"ClientId", "Value":"XXXXXX"}, {"Key":"ClientSecret", "Value":"XXXXXX"}]}'
 
         strFunc := `
                 function postCredential() {
@@ -384,7 +384,7 @@ func makePostCredentialFunc_js() string {
 
 // make the string of javascript function
 func makeDeleteCredentialFunc_js() string {
-// curl -X DELETE http://$RESTSERVER:1024/spider/credential/aws-credential01 -H 'Content-Type: application/json'
+// curl -X DELETE http://$RESTSERVER:1024/spider/credential/aws-credential-01 -H 'Content-Type: application/json'
 
         strFunc := `
                 function deleteCredential() {
@@ -481,7 +481,7 @@ func Credential(c echo.Context) error {
                                 <textarea style="font-size:12px;text-align:center;" name="text_box" id="2" cols=50>[{"Key":"ClientId", "Value":"XXXXXX"}, {"Key":"ClientSecret", "Value":"XXXXXX"}]</textarea>
                             </td>
                             <td>
-                                <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="3" value="aws-credential01">
+                                <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="3" value="aws-credential-01">
                             </td>
                             <td>
                                 <a href="javascript:postCredential()">
@@ -1031,7 +1031,7 @@ func makeConnectionConfigTRList_html(bgcolor string, height string, fontSize str
 func makePostConnectionConfigFunc_js() string {
 
 // curl -X POST http://$RESTSERVER:1024/spider/connectionconfig -H 'Content-Type: application/json' 
-//    -d '{"ProviderName":"AWS", "DriverName":"aws-driver01", "CredentialName":"aws-credential01", "RegionName":"aws-ohio", "ConfigName":"aws-ohio-config",}'
+//    -d '{"ProviderName":"AWS", "DriverName":"aws-driver01", "CredentialName":"aws-credential-01", "RegionName":"aws-ohio", "ConfigName":"aws-ohio-config",}'
 
         strFunc := `
                 function postConnectionConfig() {
@@ -1268,7 +1268,7 @@ func Connectionconfig(c echo.Context) error {
                                 <select style="font-size:12px;text-align:center;" name="text_box" id="2" value="aws-driver-v1.0">
                             </td>
                             <td>
-                                <select style="font-size:12px;text-align:center;" name="text_box" id="3" value="aws-credential01">
+                                <select style="font-size:12px;text-align:center;" name="text_box" id="3" value="aws-credential-01">
                             </td>
                             <td>
                                 <select style="font-size:12px;text-align:center;" name="text_box" id="4" value="aws-region01">
