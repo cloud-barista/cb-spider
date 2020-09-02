@@ -20,6 +20,7 @@ require (
 	github.com/aliyun/alibaba-cloud-sdk-go v1.61.201
 	github.com/aws/aws-sdk-go v1.29.31
 	github.com/bramvdbogaerde/go-scp v0.0.0-20200119201711-987556b8bdd7
+	github.com/chyeh/pubip v0.0.0-20170203095919-b7e679cf541c
 	github.com/cloud-barista/cb-log v0.1.1
 	github.com/cloud-barista/cb-store v0.1.1
 	github.com/cncf/udpa/go v0.0.0-20200327203949-e8cd3a4bb307 // indirect
@@ -45,6 +46,7 @@ require (
 	github.com/hashicorp/golang-lru v0.5.4 // indirect
 	github.com/ianlancetaylor/demangle v0.0.0-20200414190113-039b1ae3a340 // indirect
 	github.com/jmespath/go-jmespath v0.3.0 // indirect
+	github.com/jpillora/backoff v1.0.0 // indirect
 	github.com/kr/pretty v0.2.0 // indirect
 	github.com/kr/text v0.2.0 // indirect
 	github.com/labstack/echo v3.3.10+incompatible
