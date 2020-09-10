@@ -49,7 +49,7 @@ cloudbaristaorg/cb-spider:v0.2.0-20200819
 
 - Git 설치
 - Go 설치 (1.12 이상)  
-
+  - go download link (https://golang.org/dl/)
 - Cloud-Barista alliance 설치 (CB-Log)
   - `go get -u -v github.com/cloud-barista/cb-log`
   - https://github.com/cloud-barista/cb-log README를 참고하여 설치 및 설정
