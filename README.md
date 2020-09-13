@@ -96,7 +96,7 @@ cloudbaristaorg/cb-spider:v0.2.0-20200819
        - `PLUGIN_SW=ON` 으로 설정된 경우
          - CSP별 driver각 build되고 plugin 방식으로 (동적으로) driver를 추가할 수 있다
        - `PLUGIN_SW=OFF` 로 설정된 경우
-         - OFF mode로 설정하고 build하여 **Android** 환경에서 사용 가능하다
+         - OFF mode로 설정하고 build하여 **Android** 환경 등 plugin을 지원하지 않는 실행 환경에서 사용 가능하다
 
   3. 환경변수 반영
 
