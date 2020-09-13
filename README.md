@@ -72,8 +72,35 @@ cloudbaristaorg/cb-spider:v0.2.0-20200819
       
 #### (b) 실행 준비
 - CB-Spider 실행에 필요한 환경변수 설정
-  - `source setup.env` (위치: ./cb-spider)
-     - Android 실행시: export PLUGIN_SW=OFF
+
+  >  **setup.env** 에 환경변수를 설정한다
+
+  1. 해당 파일이 위치한 경로로 이동
+     - `cd $GOPATH/src/github.com/cloud-barista/cb-spider`
+
+  2. 환경변수 설정
+
+     - `vi setup.env` 
+
+     - ex)
+
+       ```properties
+       export CBSPIDER_ROOT=$GOPATH/src/github.com/cloud-barista/cb-spider
+       export CBSTORE_ROOT=$GOPATH/src/github.com/cloud-barista/cb-spider
+       export CBLOG_ROOT=$GOPATH/src/github.com/cloud-barista/cb-spider
+       export PLUGIN_SW=OFF
+       ```
+
+     - **PLUGIN_SW** 환경변수
+
+       - `PLUGIN_SW=ON` 으로 설정된 경우
+         - CSP별 driver각 build되고 plugin 방식으로 (동적으로) driver를 추가할 수 있다
+       - `PLUGIN_SW=OFF` 로 설정된 경우
+         - OFF mode로 설정하고 build하여 **Android** 환경에서 사용 가능하다
+
+  3. 환경변수 반영
+
+     - `$ source setup.env` (위치: ./cb-spider)
 
 -	driver shared library 생성 방법 (설치 시스템 당 1회 실행, driver source 변경시 실행)
     - `./build_all_driver_lib.sh` 실행
