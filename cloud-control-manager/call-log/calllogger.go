@@ -165,7 +165,7 @@ func Info(logInfo interface{}) {
 	for idx:=0; idx < t.NumField(); idx++ {
                 typeOne := t.Field(idx)
                 one := v.Field(idx)
-		if idx != t.NumField() {
+		if idx < (t.NumField()-1) {
 			msg += fmt.Sprintf("\"%s\" : \"%s\", ", typeOne.Name, one)
 		} else {
 			msg += fmt.Sprintf("\"%s\" : \"%s\"", typeOne.Name, one)
@@ -175,5 +175,5 @@ func Info(logInfo interface{}) {
 	callLogger.logrus.Info(msg)	
 }
 
-func Error(msg string) {
+func Error(logInfo interface{}, msg string) {
 }

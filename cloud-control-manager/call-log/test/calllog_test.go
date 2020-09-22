@@ -3,6 +3,7 @@ package main
 import (
 	"github.com/cloud-barista/cb-spider/cloud-control-manager/call-log"
 
+	"time"
 	"testing"
 )
 
@@ -35,11 +36,27 @@ func TestCallLog(t *testing.T) {
 func TestCallLog(t *testing.T) {
 
 	info := calllog.CLOUDLOGSCHEMA {
-		CSPName: "cspname-value",
-		RegionZone: "region/zone-value",
-		ResourceName: "resourceName-value",
+		CSPName: "AWS",
+		RegionZone: "us-east1/us-east1-c",
+		ResourceType: "VPC/SUBNET",
+
+		ResourceName: "aws-vpc-01",
+		ElapsedTime: "",
+
+		ErrorNumber: "",
+		ErrorMSG: "",
 	}
 
-        calllog.Info(info)
+start := time.Now()
+	err := CallFunc()
+info.ElapsedTime = time.Since(start).String()
+	if err != nil {
+		calllog.Error(info, err.Error())
+	} 
+	calllog.Info(info)
 }
 
+func CallFunc() error {
+        time.Sleep(time.Second*1)
+	return nil
+}
