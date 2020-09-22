@@ -27,7 +27,7 @@ import (
 
 const (
 	// Default log format will output [INFO]: 2006-01-02T15:04:05Z07:00 - Log message
-	defaultLogFormat       = "[%lvl%]: %time% %func% - %msg%\n"
+	defaultLogFormat       = "[%lvl%]: %time% (%weekday%) %func% - %msg%\n"
 	defaultTimestampFormat = time.RFC3339
 )
 
@@ -53,6 +53,7 @@ func (f *Formatter) Format(entry *logrus.Entry) ([]byte, error) {
 	output = strings.Replace(output, "%lvl%", level, 1)
 
 	output = strings.Replace(output, "%time%", entry.Time.Format(timestampFormat), 1)
+	output = strings.Replace(output, "%weekday%", entry.Time.Weekday().String(), 1)
 
 
         if entry.HasCaller() {

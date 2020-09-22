@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"time"
 	"strings"
+	"reflect"
 
         "github.com/sirupsen/logrus"
 	"github.com/snowzach/rotatefilehook"
@@ -37,6 +38,10 @@ var (
 	callFormatter *calllogformatter.Formatter
 	calllogConfig CALLLOGCONFIG
 )
+
+func GetLog() *CALLLogger {
+	return callLogger
+}
 
 func GetLogger(loggerName string) *logrus.Logger {
 	if callLogger != nil {
@@ -136,4 +141,39 @@ func getFormatter(loggerName string) *calllogformatter.Formatter {
 	return callFormatter
 }
 
+type CLOUDLOGSCHEMA struct {
+	CSPName string      // ex) AWS | AZURE | ALIBABA | GCP | OPENSTACK | CLOUDTWIN | CLOUDIT | DOCKER
+	RegionZone string   // ex) us-east1/us-east1-c
+	ResourceType string // ex) VPC/SUBNET | SECURITYGROUP | KEYPAIR | VM
 
+	ResourceName string // ex) vpc-01
+	ElapsedTime string  // ex) 10msec
+
+	ErrorNumber string  // if success, ""
+	ErrorMSG string     // if success, ""
+}
+/*
+type VMLOGSCHEMA struct {
+}
+*/
+
+func Info(logInfo interface{}) {
+	t := reflect.TypeOf(logInfo)
+	v := reflect.ValueOf(logInfo)
+
+	msg := ""
+	for idx:=0; idx < t.NumField(); idx++ {
+                typeOne := t.Field(idx)
+                one := v.Field(idx)
+		if idx != t.NumField() {
+			msg += fmt.Sprintf("\"%s\" : \"%s\", ", typeOne.Name, one)
+		} else {
+			msg += fmt.Sprintf("\"%s\" : \"%s\"", typeOne.Name, one)
+		}
+        }
+	
+	callLogger.logrus.Info(msg)	
+}
+
+func Error(msg string) {
+}
