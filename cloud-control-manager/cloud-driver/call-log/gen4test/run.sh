@@ -1,3 +1,3 @@
 #!/bin/bash
 
-go test -v
+go run *.go 

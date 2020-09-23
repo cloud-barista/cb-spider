@@ -27,7 +27,7 @@ import (
 
 const (
 	// Default log format will output [INFO]: 2006-01-02T15:04:05Z07:00 - Log message
-	defaultLogFormat       = "[%lvl%]: %time% (%weekday%) %func% - %msg%\n"
+	defaultLogFormat       = " %time% (%weekday%) %func% - %msg%\n"
 	defaultTimestampFormat = time.RFC3339
 )
 
@@ -49,20 +49,14 @@ func (f *Formatter) Format(entry *logrus.Entry) ([]byte, error) {
 		timestampFormat = defaultTimestampFormat
 	}
 
-	level := strings.ToUpper(entry.Level.String())
-	output = strings.Replace(output, "%lvl%", level, 1)
-
 	output = strings.Replace(output, "%time%", entry.Time.Format(timestampFormat), 1)
 	output = strings.Replace(output, "%weekday%", entry.Time.Weekday().String(), 1)
 
 
         if entry.HasCaller() {
-                fileVal := fmt.Sprintf("%s:%d", shortFilePathName(entry.Caller.File), entry.Caller.Line)
-                funcVal := fmt.Sprintf("%s()", entry.Caller.Function)
+                funcVal := fmt.Sprintf("%s():%d", entry.Caller.Function, entry.Caller.Line)
 		
-		funcInfo := fileVal + ", " + funcVal
-
-		output = strings.Replace(output, "%func%", funcInfo, 1)
+		output = strings.Replace(output, "%func%", funcVal, 1)
 	} else {
 		output = strings.Replace(output, "%func%", "", 1)
 	}

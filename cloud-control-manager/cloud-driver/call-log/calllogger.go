@@ -22,10 +22,37 @@ import (
 	"strings"
 	"reflect"
 
+	"github.com/chyeh/pubip"
         "github.com/sirupsen/logrus"
 	"github.com/snowzach/rotatefilehook"
-	"github.com/cloud-barista/cb-spider/cloud-control-manager/call-log/formatter"
+	"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log/formatter"
 )
+
+type CLOUD_OS string
+type RES_TYPE string
+
+const (
+	//=========== CloudOS (ref: cb-spider/conf/cloudos.yaml)
+        AWS CLOUD_OS = "AWS"
+        GCP CLOUD_OS = "GCP"
+        AZURE CLOUD_OS = "AZURE"
+        OPENSTACK CLOUD_OS = "OPENSTACK"
+        CLOUDIT CLOUD_OS = "CLOUDIT"
+        ALIBABA CLOUD_OS = "ALIBABA"
+        DOCKER CLOUD_OS = "DOCKER"
+        CLOUDTWIN CLOUD_OS = "CLOUDTWIN"
+
+
+	//=========== ResourceType
+        VMIMAGE RES_TYPE = "VMIMAGE"
+        VMSPEC RES_TYPE = "VMSPEC"
+        VPCSUBNET RES_TYPE = "VPC/SUBNET"
+        SECURITYGROUP RES_TYPE = "SECURITYGROUP"
+        VMKEYPAIR RES_TYPE = "VMKEYPAIR"
+        VM RES_TYPE = "VM"
+)
+
+
 
 type CALLLogger struct {
 	loggerName string
@@ -34,13 +61,28 @@ type CALLLogger struct {
 
 // global var.
 var (
+	HostIPorName string
 	callLogger *CALLLogger
 	callFormatter *calllogformatter.Formatter
 	calllogConfig CALLLOGCONFIG
 )
 
-func GetLog() *CALLLogger {
-	return callLogger
+func init() {
+	HostIPorName = getHostIPorName()	
+}
+
+func getHostIPorName() string {
+        ip, err := pubip.Get()
+        if err != nil {
+                logrus.Error(err)
+                hostName, err := os.Hostname()
+                if err != nil {
+                        logrus.Error(err)
+                }
+                return hostName
+        }
+
+        return ip.String()
 }
 
 func GetLogger(loggerName string) *logrus.Logger {
@@ -136,44 +178,48 @@ func getFormatter(loggerName string) *calllogformatter.Formatter {
 	}
 	callFormatter = &calllogformatter.Formatter{
             TimestampFormat: "2006-01-02 15:04:05",
-            LogFormat:       "[" + loggerName + "]." + "[%lvl%]: %time% %func% - %msg%\n",
+            LogFormat:       "[" + loggerName + "].[" + HostIPorName + "] %time% (%weekday%) %func% - %msg%\n",
         }	
 	return callFormatter
 }
 
+//=========================
 type CLOUDLOGSCHEMA struct {
-	CSPName string      // ex) AWS | AZURE | ALIBABA | GCP | OPENSTACK | CLOUDTWIN | CLOUDIT | DOCKER
+	CloudOS CLOUD_OS      // ex) AWS | AZURE | ALIBABA | GCP | OPENSTACK | CLOUDTWIN | CLOUDIT | DOCKER
 	RegionZone string   // ex) us-east1/us-east1-c
-	ResourceType string // ex) VPC/SUBNET | SECURITYGROUP | KEYPAIR | VM
-
+	ResourceType RES_TYPE // ex) VMIMAGE | VMSPEC | VPCSUBNET | SECURITYGROUP | VMKEYPAIR | VM
 	ResourceName string // ex) vpc-01
-	ElapsedTime string  // ex) 10msec
-
-	ErrorNumber string  // if success, ""
+	ElapsedTime string  // ex) 2.0201 (sec)
 	ErrorMSG string     // if success, ""
 }
-/*
+
+/* TBD or Do not support.
 type VMLOGSCHEMA struct {
 }
 */
 
-func Info(logInfo interface{}) {
-	t := reflect.TypeOf(logInfo)
-	v := reflect.ValueOf(logInfo)
-
-	msg := ""
-	for idx:=0; idx < t.NumField(); idx++ {
-                typeOne := t.Field(idx)
-                one := v.Field(idx)
-		if idx < (t.NumField()-1) {
-			msg += fmt.Sprintf("\"%s\" : \"%s\", ", typeOne.Name, one)
-		} else {
-			msg += fmt.Sprintf("\"%s\" : \"%s\"", typeOne.Name, one)
-		}
-        }
-	
-	callLogger.logrus.Info(msg)	
+func Start() time.Time {
+	return time.Now()
 }
 
-func Error(logInfo interface{}, msg string) {
+func Elapsed(start time.Time) string {
+	return fmt.Sprintf("%.4f", time.Since(start).Seconds())
+}
+
+func String(logInfo interface{}) string {
+        t := reflect.TypeOf(logInfo)
+        v := reflect.ValueOf(logInfo)
+
+        msg := ""
+        for idx:=0; idx < t.NumField(); idx++ {
+                typeOne := t.Field(idx)
+                one := v.Field(idx)
+                if idx < (t.NumField()-1) {
+                        msg += fmt.Sprintf("\"%s\" : \"%s\", ", typeOne.Name, one)
+                } else {
+                        msg += fmt.Sprintf("\"%s\" : \"%s\"", typeOne.Name, one)
+                }
+        }
+
+        return msg
 }
