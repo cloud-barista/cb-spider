@@ -34,10 +34,9 @@ func TestCallLog(t *testing.T) {
 		CloudOS: call.AWS,
 		RegionZone: "us-east1/us-east1-c",
 		ResourceType: call.VPCSUBNET,
-
 		ResourceName: "aws-vpc-01",
+		CloudOSAPI: "ListVPC()",
 		ElapsedTime: "",
-
 		ErrorMSG: "",
 	}
 	start := call.Start()

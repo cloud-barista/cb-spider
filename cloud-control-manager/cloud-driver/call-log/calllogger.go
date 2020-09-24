@@ -189,6 +189,7 @@ type CLOUDLOGSCHEMA struct {
 	RegionZone string   // ex) us-east1/us-east1-c
 	ResourceType RES_TYPE // ex) VMIMAGE | VMSPEC | VPCSUBNET | SECURITYGROUP | VMKEYPAIR | VM
 	ResourceName string // ex) vpc-01
+	CloudOSAPI string // ex) CreateKeyPair()
 	ElapsedTime string  // ex) 2.0201 (sec)
 	ErrorMSG string     // if success, ""
 }

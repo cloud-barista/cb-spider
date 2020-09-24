@@ -84,4 +84,5 @@ func setRandom(info *call.CLOUDLOGSCHEMA) {
 	info.ResourceType = resTypeList[r]
 	str = fmt.Sprintf("%s-%d", strings.ToLower(string(resTypeList[r])), r)
 	info.ResourceName = str
+	info.CloudOSAPI = "List" + string(resTypeList[r]) + "()"
 }
