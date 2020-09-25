@@ -108,10 +108,14 @@ github.com/cloud-barista/cb-log v0.0.0-20200117022531-82070963ca10 h1:HHIgGY3A4W
 github.com/cloud-barista/cb-log v0.0.0-20200117022531-82070963ca10/go.mod h1:/kfh19vJJ2hNcnhHfgDM2CeZSSGtuc2J7xj5R4QU/Oc=
 github.com/cloud-barista/cb-log v0.1.1 h1:b+26uJa9ieojcLooVqdQYAdZd6saPAkAtpSIl/7RzuM=
 github.com/cloud-barista/cb-log v0.1.1/go.mod h1:/kfh19vJJ2hNcnhHfgDM2CeZSSGtuc2J7xj5R4QU/Oc=
+github.com/cloud-barista/cb-log v0.2.0-cappuccino.0.20200913031717-ff545833c178 h1:t7F7O2Dcys9uvGDX8eplWYqHux6X+J7uO4GL0khGzAI=
+github.com/cloud-barista/cb-log v0.2.0-cappuccino.0.20200913031717-ff545833c178/go.mod h1:C0KNV97sw8IoLSlNuSiCGDQIuS/wXJaZWV/6MOwc20c=
 github.com/cloud-barista/cb-store v0.0.0-20200324092155-64d4df337031 h1:YulAUxx/xxlrWl5YXyCnKmZH8NULIjd38n+6+4WK8Zo=
 github.com/cloud-barista/cb-store v0.0.0-20200324092155-64d4df337031/go.mod h1:IZkIEZokowBnF7X6DIZt3fANO1qUu0UUAngD4yejURY=
 github.com/cloud-barista/cb-store v0.1.1 h1:n10JMjMqRVLSqZDU8HaLf1SE62go9tu8wvh5/AqcUHs=
 github.com/cloud-barista/cb-store v0.1.1/go.mod h1:IZkIEZokowBnF7X6DIZt3fANO1qUu0UUAngD4yejURY=
+github.com/cloud-barista/cb-store v0.2.0-cappuccino.0.20200924125209-c313bd2a3987 h1:DjBd/177X40PjmaLeBm5tl2LhxIueN4pRQVvbQQK6Wo=
+github.com/cloud-barista/cb-store v0.2.0-cappuccino.0.20200924125209-c313bd2a3987/go.mod h1:61kKVkx71mD1P1i7IwQUGjj6ZNceBJEZVgC3NTddAVo=
 github.com/cncf/udpa/go v0.0.0-20191209042840-269d4d468f6f/go.mod h1:M8M6+tZqaGXZJjfX53e64911xZQV5JYwmTeXPW+k8Sc=
 github.com/cncf/udpa/go v0.0.0-20200313221541-5f7e5dd04533/go.mod h1:WmhPx2Nbnhtbo57+VJT5O0JRkEi1Wbu0z5j0R8u5Hbk=
 github.com/cncf/udpa/go v0.0.0-20200327203949-e8cd3a4bb307/go.mod h1:WmhPx2Nbnhtbo57+VJT5O0JRkEi1Wbu0z5j0R8u5Hbk=
@@ -617,6 +621,8 @@ golang.org/x/sys v0.0.0-20200511232937-7e40ca221e25 h1:OKbAoGs4fGM5cPLlVQLZGYkFC
 golang.org/x/sys v0.0.0-20200511232937-7e40ca221e25/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
 golang.org/x/sys v0.0.0-20200515095857-1151b9dac4a9 h1:YTzHMGlqJu67/uEo1lBv0n3wBXhXNeUbB1XfN2vmTm0=
 golang.org/x/sys v0.0.0-20200515095857-1151b9dac4a9/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
+golang.org/x/sys v0.0.0-20200602225109-6fdc65e7d980 h1:OjiUf46hAmXblsZdnoSXsEUSKU8r1UEzcL5RVZ4gO9Y=
+golang.org/x/sys v0.0.0-20200602225109-6fdc65e7d980/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
 golang.org/x/text v0.0.0-20170915032832-14c0d48ead0c/go.mod h1:NqM8EUOU14njkJ3fqMW+pc6Ldnwhi/IjpwHt7yyuwOQ=
 golang.org/x/text v0.3.0/go.mod h1:NqM8EUOU14njkJ3fqMW+pc6Ldnwhi/IjpwHt7yyuwOQ=
 golang.org/x/text v0.3.1-0.20180807135948-17ff2d5776d2/go.mod h1:NqM8EUOU14njkJ3fqMW+pc6Ldnwhi/IjpwHt7yyuwOQ=
@@ -762,6 +768,8 @@ gopkg.in/yaml.v3 v3.0.0-20200313102051-9f266ea9e77c h1:dUUwHk2QECo/6vqA44rthZ8ie
 gopkg.in/yaml.v3 v3.0.0-20200313102051-9f266ea9e77c/go.mod h1:K4uyk7z7BCEPqu6E+C64Yfv1cQ7kz7rIZviUmN+EgEM=
 gopkg.in/yaml.v3 v3.0.0-20200506231410-2ff61e1afc86 h1:OfFoIUYv/me30yv7XlMy4F9RJw8DEm8WQ6QG1Ph4bH0=
 gopkg.in/yaml.v3 v3.0.0-20200506231410-2ff61e1afc86/go.mod h1:K4uyk7z7BCEPqu6E+C64Yfv1cQ7kz7rIZviUmN+EgEM=
+gopkg.in/yaml.v3 v3.0.0-20200603094226-e3079894b1e8 h1:jL/vaozO53FMfZLySWM+4nulF3gQEC6q5jH90LPomDo=
+gopkg.in/yaml.v3 v3.0.0-20200603094226-e3079894b1e8/go.mod h1:K4uyk7z7BCEPqu6E+C64Yfv1cQ7kz7rIZviUmN+EgEM=
 honnef.co/go/tools v0.0.0-20190102054323-c2f93a96b099/go.mod h1:rf3lG4BRIbNafJWhAfAdb/ePZxsR/4RtNHQocxwk9r4=
 honnef.co/go/tools v0.0.0-20190106161140-3f1c8253044a/go.mod h1:rf3lG4BRIbNafJWhAfAdb/ePZxsR/4RtNHQocxwk9r4=
 honnef.co/go/tools v0.0.0-20190418001031-e561f6794a2a/go.mod h1:rf3lG4BRIbNafJWhAfAdb/ePZxsR/4RtNHQocxwk9r4=

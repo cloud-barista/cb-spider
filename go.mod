@@ -21,8 +21,8 @@ require (
 	github.com/aws/aws-sdk-go v1.29.31
 	github.com/bramvdbogaerde/go-scp v0.0.0-20200119201711-987556b8bdd7
 	github.com/chyeh/pubip v0.0.0-20170203095919-b7e679cf541c
-	github.com/cloud-barista/cb-log v0.1.1
-	github.com/cloud-barista/cb-store v0.1.1
+	github.com/cloud-barista/cb-log v0.2.0-cappuccino.0.20200913031717-ff545833c178
+	github.com/cloud-barista/cb-store v0.2.0-cappuccino.0.20200924125209-c313bd2a3987
 	github.com/cncf/udpa/go v0.0.0-20200327203949-e8cd3a4bb307 // indirect
 	github.com/containerd/containerd v1.3.4 // indirect
 	github.com/coreos/etcd v3.3.18+incompatible // indirect
@@ -59,7 +59,7 @@ require (
 	github.com/prometheus/client_golang v1.5.1
 	github.com/rackspace/gophercloud v1.0.1-0.20161013232434-e00690e87603
 	github.com/rogpeppe/go-internal v1.5.2 // indirect
-	github.com/sirupsen/logrus v1.5.0
+	github.com/sirupsen/logrus v1.6.0
 	github.com/smartystreets/assertions v1.1.0 // indirect
 	github.com/snowzach/rotatefilehook v0.0.0-20180327172521-2f64f265f58c // indirect
 	github.com/spf13/cobra v1.0.0
@@ -74,7 +74,6 @@ require (
 	go.etcd.io/bbolt v1.3.4 // indirect
 	go.etcd.io/etcd v3.3.18+incompatible // indirect
 	go.opencensus.io v0.22.3 // indirect
-	go.uber.org/zap v1.14.1 // indirect
 	golang.org/x/crypto v0.0.0-20200510223506-06a226fb4e37
 	golang.org/x/exp v0.0.0-20200331195152-e8c3332aa8e5 // indirect
 	golang.org/x/image v0.0.0-20200119044424-58c23975cae1 // indirect
@@ -84,7 +83,6 @@ require (
 	golang.org/x/net v0.0.0-20200513185701-a91f0712d120 // indirect
 	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d
 	golang.org/x/sync v0.0.0-20200317015054-43a5402ce75a // indirect
-	golang.org/x/sys v0.0.0-20200515095857-1151b9dac4a9 // indirect
 	golang.org/x/time v0.0.0-20200416051211-89c76fbcd5d1 // indirect
 	golang.org/x/tools v0.0.0-20200518225412-897954058703 // indirect
 	google.golang.org/api v0.15.0
@@ -93,7 +91,7 @@ require (
 	gopkg.in/ini.v1 v1.56.0 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0 // indirect
 	gopkg.in/yaml.v2 v2.3.0
-	gopkg.in/yaml.v3 v3.0.0-20200313102051-9f266ea9e77c
+	gopkg.in/yaml.v3 v3.0.0-20200603094226-e3079894b1e8
 	honnef.co/go/tools v0.0.1-2020.1.3 // indirect
 	rsc.io/sampler v1.99.99 // indirect
 	sigs.k8s.io/yaml v1.2.0 // indirect
