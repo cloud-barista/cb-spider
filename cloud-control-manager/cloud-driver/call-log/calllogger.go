@@ -41,6 +41,7 @@ const (
         ALIBABA CLOUD_OS = "ALIBABA"
         DOCKER CLOUD_OS = "DOCKER"
         CLOUDTWIN CLOUD_OS = "CLOUDTWIN"
+        MOCK CLOUD_OS = "MOCK"
 
 
 	//=========== ResourceType

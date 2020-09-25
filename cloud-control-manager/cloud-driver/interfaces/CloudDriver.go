@@ -45,6 +45,7 @@ type CredentialInfo struct {
 	PrivateKey       string // GCP
 	Host      	 string // Docker
 	APIVersion       string // Docker
+	MockName         string // Mock
 }
 
 type RegionInfo struct {
