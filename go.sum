@@ -108,6 +108,8 @@ github.com/cloud-barista/cb-log v0.0.0-20200117022531-82070963ca10 h1:HHIgGY3A4W
 github.com/cloud-barista/cb-log v0.0.0-20200117022531-82070963ca10/go.mod h1:/kfh19vJJ2hNcnhHfgDM2CeZSSGtuc2J7xj5R4QU/Oc=
 github.com/cloud-barista/cb-log v0.1.1 h1:b+26uJa9ieojcLooVqdQYAdZd6saPAkAtpSIl/7RzuM=
 github.com/cloud-barista/cb-log v0.1.1/go.mod h1:/kfh19vJJ2hNcnhHfgDM2CeZSSGtuc2J7xj5R4QU/Oc=
+github.com/cloud-barista/cb-log v0.2.0-cappuccino.0.20200913031717-ff545833c178 h1:t7F7O2Dcys9uvGDX8eplWYqHux6X+J7uO4GL0khGzAI=
+github.com/cloud-barista/cb-log v0.2.0-cappuccino.0.20200913031717-ff545833c178/go.mod h1:C0KNV97sw8IoLSlNuSiCGDQIuS/wXJaZWV/6MOwc20c=
 github.com/cloud-barista/cb-store v0.0.0-20200324092155-64d4df337031 h1:YulAUxx/xxlrWl5YXyCnKmZH8NULIjd38n+6+4WK8Zo=
 github.com/cloud-barista/cb-store v0.0.0-20200324092155-64d4df337031/go.mod h1:IZkIEZokowBnF7X6DIZt3fANO1qUu0UUAngD4yejURY=
 github.com/cloud-barista/cb-store v0.1.1 h1:n10JMjMqRVLSqZDU8HaLf1SE62go9tu8wvh5/AqcUHs=
