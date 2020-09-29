@@ -18,6 +18,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/ec2"
+	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/davecgh/go-spew/spew"
@@ -43,20 +44,38 @@ func (VPCHandler *AwsVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.VPCIn
 	}
 
 	spew.Dump(input)
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.AWS,
+		RegionZone:   VPCHandler.Region.Zone,
+		ResourceType: call.VPCSUBNET,
+		ResourceName: vpcReqInfo.IId.NameId,
+		CloudOSAPI:   "CreateVpc()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+	callLogStart := call.Start()
+
 	result, err := VPCHandler.Client.CreateVpc(input)
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 	if err != nil {
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
 			default:
 				cblogger.Error(aerr.Error())
+				callLogInfo.ErrorMSG = aerr.Error()
 			}
 		} else {
 			// Print the error, cast err to awserr.Error to get the Code and
 			// Message from an error.
 			cblogger.Error(err.Error())
+			callLogInfo.ErrorMSG = err.Error()
 		}
+		callogger.Info(call.String(callLogInfo))
 		return irs.VPCInfo{}, err
 	}
+	callogger.Info(call.String(callLogInfo))
 
 	cblogger.Info(result)
 	spew.Dump(result)
@@ -134,6 +153,7 @@ func (VPCHandler *AwsVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.VPCIn
 	var resSubnetList []irs.SubnetInfo
 	for _, curSubnet := range vpcReqInfo.SubnetInfoList {
 		cblogger.Infof("[%s] Subnet 생성", curSubnet.IId.NameId)
+		cblogger.Infof("Reqt Subnet Info [%v]", curSubnet)
 		resSubnet, errSubnet := VPCHandler.CreateSubnet(retVpcInfo.IId.SystemId, curSubnet)
 
 		if errSubnet != nil {
@@ -160,22 +180,42 @@ func (VPCHandler *AwsVPCHandler) CreateRouteIGW(vpcId string, igwId string) erro
 		RouteTableId:         aws.String(routeTableId),
 	}
 
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.AWS,
+		RegionZone:   VPCHandler.Region.Zone,
+		ResourceType: call.VPCSUBNET,
+		ResourceName: igwId,
+		CloudOSAPI:   "CreateRoute()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+	callLogStart := call.Start()
+
 	result, err := VPCHandler.Client.CreateRoute(input)
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+
 	if err != nil {
 		cblogger.Errorf("RouteTable[%s]에 IGW[%s]에 대한 라우팅(0.0.0.0/0) 정보 추가 실패", routeTableId, igwId)
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
 			default:
 				cblogger.Error(aerr.Error())
+				callLogInfo.ErrorMSG = aerr.Error()
 			}
 		} else {
 			// Print the error, cast err to awserr.Error to get the Code and
 			// Message from an error.
 			cblogger.Error(err.Error())
+			callLogInfo.ErrorMSG = err.Error()
 		}
+		callogger.Info(call.String(callLogInfo))
 		return err
 	}
 	cblogger.Infof("RouteTable[%s]에 IGW[%s]에 대한 라우팅(0.0.0.0/0) 정보를 추가 완료", routeTableId, igwId)
+	callogger.Info(call.String(callLogInfo))
 
 	cblogger.Info(result)
 	spew.Dump(result)
@@ -234,11 +274,13 @@ func (VPCHandler *AwsVPCHandler) CreateSubnet(vpcId string, reqSubnetInfo irs.Su
 		return irs.SubnetInfo{}, errors.New("Connection 정보에 Zone 정보가 없습니다.")
 	}
 
-	vpcInfo, errVpcInfo := VPCHandler.GetSubnet(reqSubnetInfo.IId.SystemId)
-	if errVpcInfo == nil {
-		cblogger.Errorf("이미 [%S] Subnet이 존재하기 때문에 생성하지 않고 기존 정보와 함께 에러를 리턴함.", reqSubnetInfo.IId.SystemId)
-		cblogger.Info(vpcInfo)
-		return vpcInfo, errors.New("InvalidVNetwork.Duplicate: The Subnet '" + reqSubnetInfo.IId.SystemId + "' already exists.")
+	if reqSubnetInfo.IId.SystemId != "" {
+		vpcInfo, errVpcInfo := VPCHandler.GetSubnet(reqSubnetInfo.IId.SystemId)
+		if errVpcInfo == nil {
+			cblogger.Errorf("이미 [%S] Subnet이 존재하기 때문에 생성하지 않고 기존 정보와 함께 에러를 리턴함.", reqSubnetInfo.IId.SystemId)
+			cblogger.Info(vpcInfo)
+			return vpcInfo, errors.New("InvalidVNetwork.Duplicate: The Subnet '" + reqSubnetInfo.IId.SystemId + "' already exists.")
+		}
 	}
 
 	//서브넷 생성
@@ -249,23 +291,42 @@ func (VPCHandler *AwsVPCHandler) CreateSubnet(vpcId string, reqSubnetInfo irs.Su
 		AvailabilityZone: aws.String(zoneId),
 	}
 
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.AWS,
+		RegionZone:   VPCHandler.Region.Zone,
+		ResourceType: call.VPCSUBNET,
+		ResourceName: reqSubnetInfo.IId.NameId,
+		CloudOSAPI:   "CreateSubnet()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+	start := call.Start()
+
 	cblogger.Info(input)
 	result, err := VPCHandler.Client.CreateSubnet(input)
+	callLogInfo.ElapsedTime = call.Elapsed(start)
 	if err != nil {
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
 			default:
 				cblogger.Error(aerr.Error())
+				callLogInfo.ErrorMSG = aerr.Error()
 			}
 		} else {
 			// Print the error, cast err to awserr.Error to get the Code and
 			// Message from an error.
 			cblogger.Error(err.Error())
+			callLogInfo.ErrorMSG = err.Error()
 		}
+		callogger.Info(call.String(callLogInfo))
 		return irs.SubnetInfo{}, err
 	}
+	callogger.Info(call.String(callLogInfo))
 	cblogger.Info(result)
-	spew.Dump(result)
+	//spew.Dump(result)
 
 	//vNetworkInfo := irs.VNetworkInfo{}
 	vNetworkInfo := ExtractSubnetDescribeInfo(result.Subnet)
@@ -301,29 +362,62 @@ func (VPCHandler *AwsVPCHandler) AssociateRouteTable(vpcId string, subnetId stri
 		SubnetId:     aws.String(subnetId),
 	}
 
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.AWS,
+		RegionZone:   VPCHandler.Region.Zone,
+		ResourceType: call.VPCSUBNET,
+		ResourceName: subnetId,
+		CloudOSAPI:   "AssociateRouteTable()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+	callLogStart := call.Start()
+
 	result, err := VPCHandler.Client.AssociateRouteTable(input)
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 	if err != nil {
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
 			default:
 				cblogger.Error(aerr.Error())
+				callLogInfo.ErrorMSG = aerr.Error()
 			}
 		} else {
 			// Print the error, cast err to awserr.Error to get the Code and
 			// Message from an error.
 			cblogger.Error(err.Error())
+			callLogInfo.ErrorMSG = err.Error()
 		}
+		callogger.Info(call.String(callLogInfo))
 		return err
 	}
 
+	callogger.Info(call.String(callLogInfo))
 	cblogger.Info(result)
-	spew.Dump(result)
+	//spew.Dump(result)
 	return nil
 }
 
 func (VPCHandler *AwsVPCHandler) ListVPC() ([]*irs.VPCInfo, error) {
 	cblogger.Debug("Start")
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.AWS,
+		RegionZone:   VPCHandler.Region.Zone,
+		ResourceType: call.VPCSUBNET,
+		ResourceName: "ListVPC",
+		CloudOSAPI:   "DescribeVpcs()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+	callLogStart := call.Start()
+
 	result, err := VPCHandler.Client.DescribeVpcs(&ec2.DescribeVpcsInput{})
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 	if err != nil {
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
@@ -335,8 +429,11 @@ func (VPCHandler *AwsVPCHandler) ListVPC() ([]*irs.VPCInfo, error) {
 			// Message from an error.
 			cblogger.Error(err.Error())
 		}
+		callLogInfo.ErrorMSG = err.Error()
+		callogger.Info(call.String(callLogInfo))
 		return nil, err
 	}
+	callogger.Info(call.String(callLogInfo))
 
 	var vNetworkInfoList []*irs.VPCInfo
 	for _, curVpc := range result.Vpcs {
@@ -361,20 +458,38 @@ func (VPCHandler *AwsVPCHandler) GetVPC(vpcIID irs.IID) (irs.VPCInfo, error) {
 		},
 	}
 
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.AWS,
+		RegionZone:   VPCHandler.Region.Zone,
+		ResourceType: call.VPCSUBNET,
+		ResourceName: vpcIID.SystemId,
+		CloudOSAPI:   "DescribeVpcs()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+	callLogStart := call.Start()
+
 	result, err := VPCHandler.Client.DescribeVpcs(input)
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 	if err != nil {
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
 			default:
 				cblogger.Error(aerr.Error())
+				callLogInfo.ErrorMSG = aerr.Error()
 			}
 		} else {
 			// Print the error, cast err to awserr.Error to get the Code and
 			// Message from an error.
 			cblogger.Error(err.Error())
+			callLogInfo.ErrorMSG = err.Error()
 		}
+		callogger.Info(call.String(callLogInfo))
 		return irs.VPCInfo{}, err
 	}
+	callogger.Info(call.String(callLogInfo))
 
 	cblogger.Info(result)
 	//spew.Dump(result)
@@ -432,21 +547,40 @@ func (VPCHandler *AwsVPCHandler) DeleteSubnet(subnetIID irs.IID) (bool, error) {
 	}
 	cblogger.Info(input)
 
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.AWS,
+		RegionZone:   VPCHandler.Region.Zone,
+		ResourceType: call.VPCSUBNET,
+		ResourceName: subnetIID.SystemId,
+		CloudOSAPI:   "DeleteSubnet()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+	start := call.Start()
+
 	_, err := VPCHandler.Client.DeleteSubnet(input)
+	callLogInfo.ElapsedTime = call.Elapsed(start)
 	cblogger.Info(err)
 	if err != nil {
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
 			default:
 				cblogger.Error(aerr.Error())
+				callLogInfo.ErrorMSG = aerr.Error()
 			}
 		} else {
 			// Print the error, cast err to awserr.Error to get the Code and Message from an error.
 			cblogger.Error(err.Error())
+			callLogInfo.ErrorMSG = err.Error()
 		}
+		callogger.Info(call.String(callLogInfo))
 		return false, err
 	}
 
+	callogger.Info(call.String(callLogInfo))
 	return true, nil
 }
 
@@ -505,19 +639,38 @@ func (VPCHandler *AwsVPCHandler) DeleteVPC(vpcIID irs.IID) (bool, error) {
 		VpcId: aws.String(vpcInfo.IId.SystemId),
 	}
 
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.AWS,
+		RegionZone:   VPCHandler.Region.Zone,
+		ResourceType: call.VPCSUBNET,
+		ResourceName: vpcInfo.IId.SystemId,
+		CloudOSAPI:   "DeleteVpc()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+	callLogStart := call.Start()
+
 	result, err := VPCHandler.Client.DeleteVpc(input)
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+
 	if err != nil {
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
 			default:
 				cblogger.Error(aerr.Error())
+				callLogInfo.ErrorMSG = aerr.Error()
 			}
 		} else {
 			// Print the error, cast err to awserr.Error to get the Code and Message from an error.
 			cblogger.Error(err.Error())
+			callLogInfo.ErrorMSG = err.Error()
 		}
+		callogger.Info(call.String(callLogInfo))
 		return false, err
 	}
+	callogger.Info(call.String(callLogInfo))
 
 	cblogger.Info(result)
 	spew.Dump(result)
@@ -769,21 +922,41 @@ func (VPCHandler *AwsVPCHandler) ListSubnet(vpcId string) ([]irs.SubnetInfo, err
 		},
 	}
 
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.AWS,
+		RegionZone:   VPCHandler.Region.Zone,
+		ResourceType: call.VPCSUBNET,
+		ResourceName: "ListSubnet",
+		CloudOSAPI:   "DescribeSubnets()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+	callLogStart := call.Start()
+
 	//spew.Dump(input)
 	result, err := VPCHandler.Client.DescribeSubnets(input)
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+
 	if err != nil {
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
 			default:
 				cblogger.Error(aerr.Error())
+				callLogInfo.ErrorMSG = aerr.Error()
 			}
 		} else {
 			// Print the error, cast err to awserr.Error to get the Code and
 			// Message from an error.
 			cblogger.Error(err.Error())
+			callLogInfo.ErrorMSG = err.Error()
 		}
+		callogger.Info(call.String(callLogInfo))
 		return nil, err
 	}
+	callogger.Info(call.String(callLogInfo))
 
 	spew.Dump(result)
 	for _, curSubnet := range result.Subnets {
@@ -813,7 +986,21 @@ func (VPCHandler *AwsVPCHandler) GetSubnet(reqSubnetId string) (irs.SubnetInfo, 
 	}
 
 	spew.Dump(input)
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.AWS,
+		RegionZone:   VPCHandler.Region.Zone,
+		ResourceType: call.VPCSUBNET,
+		ResourceName: reqSubnetId,
+		CloudOSAPI:   "DescribeSubnets()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+	callLogStart := call.Start()
 	result, err := VPCHandler.Client.DescribeSubnets(input)
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 	cblogger.Info(result)
 	//spew.Dump(result)
 	if err != nil {
@@ -821,14 +1008,18 @@ func (VPCHandler *AwsVPCHandler) GetSubnet(reqSubnetId string) (irs.SubnetInfo, 
 			switch aerr.Code() {
 			default:
 				cblogger.Error(aerr.Error())
+				callLogInfo.ErrorMSG = aerr.Error()
 			}
 		} else {
 			// Print the error, cast err to awserr.Error to get the Code and
 			// Message from an error.
 			cblogger.Error(err.Error())
+			callLogInfo.ErrorMSG = err.Error()
 		}
+		callogger.Info(call.String(callLogInfo))
 		return irs.SubnetInfo{}, err
 	}
+	callogger.Info(call.String(callLogInfo))
 
 	if !reflect.ValueOf(result.Subnets).IsNil() {
 		retSubnetInfo := ExtractSubnetDescribeInfo(result.Subnets[0])
