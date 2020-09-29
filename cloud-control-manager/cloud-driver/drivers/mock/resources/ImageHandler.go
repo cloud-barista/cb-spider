@@ -14,6 +14,7 @@ import (
         "github.com/sirupsen/logrus"
         cblog "github.com/cloud-barista/cb-log"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
+	"fmt"
 )
 
 var rsInfoMap map[string][]*irs.ImageInfo
@@ -36,6 +37,8 @@ func (imageHandler *MockImageHandler) CreateImage(imageReqInfo irs.ImageReqInfo)
         cblogger.Info("Mock Driver: called CreateImage()!")
 
 	mockName := imageHandler.MockName
+	imageReqInfo.IId.SystemId = imageReqInfo.IId.NameId
+
 	// (1) create imageInfo object
 	imageInfo := irs.ImageInfo{irs.IID{imageReqInfo.IId.NameId, imageReqInfo.IId.SystemId}, "TestGuestOS", "TestStatus", nil}
 
@@ -43,10 +46,13 @@ func (imageHandler *MockImageHandler) CreateImage(imageReqInfo irs.ImageReqInfo)
 	imgInfoList, ok := rsInfoMap[mockName]
 	if !ok {
 		imgInfoList = make([]*irs.ImageInfo, 1)
+		imgInfoList[0] = &imageInfo
+		rsInfoMap[mockName]=imgInfoList
+	}else {
+		imgInfoList = append(imgInfoList, &imageInfo)
+		rsInfoMap[mockName]=imgInfoList
 	}
-	imgInfoList = append(imgInfoList, &imageInfo)
-	rsInfoMap[mockName]=imgInfoList
-	
+
 	return imageInfo, nil
 }
 
@@ -64,6 +70,7 @@ func (imageHandler *MockImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 func (imageHandler *MockImageHandler) GetImage(imageIID irs.IID) (irs.ImageInfo, error) {
         cblogger.Info("Mock Driver: called GetImage()!")
 
+
 	imgInfoList, err := imageHandler.ListImage()
 	if err != nil {
 		cblogger.Error(err)
@@ -71,12 +78,12 @@ func (imageHandler *MockImageHandler) GetImage(imageIID irs.IID) (irs.ImageInfo,
 	}
 
 	for _, info := range imgInfoList {
-		if((*info).IId.SystemId == imageIID.SystemId) {
+		if((*info).IId.NameId == imageIID.NameId) {
 			return *info, nil
 		}
 	}
 	
-	return irs.ImageInfo{}, nil
+	return irs.ImageInfo{}, fmt.Errorf("%s image does not exist!!")
 }
 
 func (imageHandler *MockImageHandler) DeleteImage(imageIID irs.IID) (bool, error) {
@@ -88,10 +95,15 @@ func (imageHandler *MockImageHandler) DeleteImage(imageIID irs.IID) (bool, error
                 return false, err
         }
 
+fmt.Printf("========= target: %s\n", imageIID.NameId)
+fmt.Printf("========= before: %v\n", len(imgInfoList))
+
 	mockName := imageHandler.MockName
         for idx, info := range imgInfoList {
-                if((*info).IId.SystemId == imageIID.SystemId) {
+fmt.Printf("A: %s, B: %s\n", info.IId.NameId, imageIID.NameId)
+                if(info.IId.NameId == imageIID.NameId) {
 			imgInfoList = append(imgInfoList[:idx], imgInfoList[idx+1:]...)
+fmt.Printf("========= after: %v\n", len(imgInfoList))
 			rsInfoMap[mockName]=imgInfoList
 			return true, nil
                 }
