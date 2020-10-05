@@ -3,15 +3,15 @@ package resources
 import (
 	"crypto/md5"
 	"fmt"
-	cblog "github.com/cloud-barista/cb-log"
-	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
-	_ "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
-	"github.com/sirupsen/logrus"
 	"io"
 	"io/ioutil"
 	"os"
-	_ "strconv"
-	_ "strings"
+
+	cblog "github.com/cloud-barista/cb-log"
+	"github.com/sirupsen/logrus"
+
+	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
+	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 )
 
 const (
@@ -25,10 +25,22 @@ const (
 )
 
 var cblogger *logrus.Logger
+var calllogger *logrus.Logger
 
 func init() {
 	// cblog is a global variable.
 	cblogger = cblog.GetLogger("CB-SPIDER")
+	calllogger = call.GetLogger("HISCALL")
+}
+
+func GetCallLogScheme(region idrv.RegionInfo, resourceType call.RES_TYPE, resourceName string, apiName string) call.CLOUDLOGSCHEMA {
+	return call.CLOUDLOGSCHEMA{
+		CloudOS:      call.AZURE,
+		RegionZone:   region.Region,
+		ResourceType: resourceType,
+		ResourceName: resourceName,
+		CloudOSAPI:   apiName,
+	}
 }
 
 // 서브넷 CIDR 생성 (CIDR C class 기준 생성)
