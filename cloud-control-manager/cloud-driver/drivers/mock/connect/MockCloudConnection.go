@@ -30,8 +30,8 @@ type MockConnection struct {
 
 func (cloudConn *MockConnection) CreateImageHandler() (irs.ImageHandler, error) {
 	cblogger.Info("Mock Driver: called CreateImageHandler()!")
-	imageHandler := mkrs.MockImageHandler{cloudConn.MockName}
-	return &imageHandler, nil
+	handler := mkrs.MockImageHandler{cloudConn.MockName}
+	return &handler, nil
 }
 
 
@@ -58,8 +58,9 @@ func (cloudConn MockConnection) CreateSecurityHandler() (irs.SecurityHandler, er
 }
 
 func (cloudConn *MockConnection) CreateKeyPairHandler() (irs.KeyPairHandler, error) {
-        cblogger.Error("Mock Driver: called CreateKeyPairHandler(), but not supported!")
-        return nil, nil
+	cblogger.Info("Mock Driver: called CreateKeyPairHandler()!")
+	handler := mkrs.MockKeyPairHandler{cloudConn.MockName}
+	return &handler, nil
 }
 
 func (cloudConn *MockConnection) CreateVMSpecHandler() (irs.VMSpecHandler, error) {

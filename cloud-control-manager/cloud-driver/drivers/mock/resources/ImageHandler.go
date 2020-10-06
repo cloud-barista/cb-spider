@@ -17,7 +17,7 @@ import (
 	"fmt"
 )
 
-var rsInfoMap map[string][]*irs.ImageInfo
+var imgInfoMap map[string][]*irs.ImageInfo
 
 type MockImageHandler struct {
 	MockName      string
@@ -28,7 +28,7 @@ var cblogger *logrus.Logger
 func init() {
         // cblog is a global variable.
         cblogger = cblog.GetLogger("CB-SPIDER")
-	rsInfoMap = make(map[string][]*irs.ImageInfo)
+	imgInfoMap = make(map[string][]*irs.ImageInfo)
 }
 
 // (1) create imageInfo object
@@ -43,14 +43,14 @@ func (imageHandler *MockImageHandler) CreateImage(imageReqInfo irs.ImageReqInfo)
 	imageInfo := irs.ImageInfo{irs.IID{imageReqInfo.IId.NameId, imageReqInfo.IId.SystemId}, "TestGuestOS", "TestStatus", nil}
 
 	// (2) insert ImageInfo into global Map
-	imgInfoList, ok := rsInfoMap[mockName]
+	imgInfoList, ok := imgInfoMap[mockName]
 	if !ok {
 		imgInfoList = make([]*irs.ImageInfo, 1)
 		imgInfoList[0] = &imageInfo
-		rsInfoMap[mockName]=imgInfoList
+		imgInfoMap[mockName]=imgInfoList
 	}else {
 		imgInfoList = append(imgInfoList, &imageInfo)
-		rsInfoMap[mockName]=imgInfoList
+		imgInfoMap[mockName]=imgInfoList
 	}
 
 	return imageInfo, nil
@@ -60,11 +60,14 @@ func (imageHandler *MockImageHandler) ListImage() ([]*irs.ImageInfo, error) {
         cblogger.Info("Mock Driver: called ListImage()!")
 	
 	mockName := imageHandler.MockName
-	imgInfoList, ok := rsInfoMap[mockName]
+	imgInfoList, ok := imgInfoMap[mockName]
 	if !ok {
 		return []*irs.ImageInfo{}, nil
 	}
-	return imgInfoList, nil
+	// cloning list of Image
+	resultList := make([]*irs.ImageInfo, 0)
+	resultList = append(resultList, imgInfoList[:]...)
+	return resultList, nil
 }
 
 func (imageHandler *MockImageHandler) GetImage(imageIID irs.IID) (irs.ImageInfo, error) {
@@ -95,16 +98,11 @@ func (imageHandler *MockImageHandler) DeleteImage(imageIID irs.IID) (bool, error
                 return false, err
         }
 
-fmt.Printf("========= target: %s\n", imageIID.NameId)
-fmt.Printf("========= before: %v\n", len(imgInfoList))
-
 	mockName := imageHandler.MockName
         for idx, info := range imgInfoList {
-fmt.Printf("A: %s, B: %s\n", info.IId.NameId, imageIID.NameId)
                 if(info.IId.NameId == imageIID.NameId) {
 			imgInfoList = append(imgInfoList[:idx], imgInfoList[idx+1:]...)
-fmt.Printf("========= after: %v\n", len(imgInfoList))
-			rsInfoMap[mockName]=imgInfoList
+			imgInfoMap[mockName]=imgInfoList
 			return true, nil
                 }
         }

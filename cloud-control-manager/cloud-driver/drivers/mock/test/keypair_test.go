@@ -10,6 +10,7 @@ package mocktest
 
 import (
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
+	// icon "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/connect"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	mockdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/mock"
 
@@ -17,7 +18,7 @@ import (
 	_ "fmt"
 )
 
-var imageHandler irs.ImageHandler
+var keyPairHandler irs.KeyPairHandler
 
 func init() {
         cred := idrv.CredentialInfo{
@@ -28,66 +29,66 @@ func init() {
 		RegionInfo: idrv.RegionInfo{},
 	}
 	cloudConn, _ := (&mockdrv.MockDriver{}).ConnectCloud(connInfo)
-	imageHandler, _ = cloudConn.CreateImageHandler()
+	keyPairHandler, _ = cloudConn.CreateKeyPairHandler()
 }
 
-type ImageTestInfo struct {
-	ImageId string
+type KeyPairTestInfo struct {
+	Id string
 }
 
-var imageTestInfoList = []ImageTestInfo{
-	{"mock-image-Name01"},
-	{"mock-image-Name02"},
-	{"mock-image-Name03"},
-	{"mock-image-Name04"},
-	{"mock-image-Name05"},
+var keyPairTestInfoList = []KeyPairTestInfo{
+	{"mock-key-Name01"},
+	{"mock-key-Name02"},
+	{"mock-key-Name03"},
+	{"mock-key-Name04"},
+	{"mock-key-Name05"},
 }
 
-func TestImageCreateList(t *testing.T) {
+func TestKeyPairCreateList(t *testing.T) {
 	// create
-	for _, info := range imageTestInfoList {
-		reqInfo := irs.ImageReqInfo {
-			IId : irs.IID{info.ImageId, ""},
+	for _, info := range keyPairTestInfoList {
+		reqInfo := irs.KeyPairReqInfo {
+			IId : irs.IID{info.Id, ""},
 		}
-		_, err := imageHandler.CreateImage(reqInfo)
+		_, err := keyPairHandler.CreateKey(reqInfo)
 		if err != nil {
 			t.Error(err.Error())
 		}
 	}
 
 	// check the list size and values
-	infoList, err := imageHandler.ListImage()
+	infoList, err := keyPairHandler.ListKey()
 	if err != nil {
 		t.Error(err.Error())
 	}
-	if len(infoList) != len(imageTestInfoList) {
-		t.Errorf("The number of Images is not %d. It is %d.", len(imageTestInfoList), len(infoList))
+	if len(infoList) != len(keyPairTestInfoList) {
+		t.Errorf("The number of KeyPairs is not %d. It is %d.", len(keyPairTestInfoList), len(infoList))
 	}
 	for i, info := range infoList {
-		if info.IId.SystemId != imageTestInfoList[i].ImageId {
-			t.Errorf("Image System ID %s is not same %s", info.IId.SystemId, imageTestInfoList[i].ImageId)
+		if info.IId.SystemId != keyPairTestInfoList[i].Id {
+			t.Errorf("Image System ID %s is not same %s", info.IId.SystemId, keyPairTestInfoList[i].Id)
 		}
 //		fmt.Printf("\n\t%#v\n", info)
 	}
 }
-
-func TestImageDeleteGet(t *testing.T) {
+/*
+func TestKeyPairDeleteGet(t *testing.T) {
         // Get & check the Value
-        imageInfo, err := imageHandler.GetImage(irs.IID{imageTestInfoList[0].ImageId, ""})
+        imageInfo, err := keyPairHandler.GetImage(irs.IID{keyPairTestInfoList[0].ImageId, ""})
         if err != nil {
                 t.Error(err.Error())
         }
-	if imageInfo.IId.SystemId != imageTestInfoList[0].ImageId {
-		t.Errorf("Image System ID %s is not same %s", imageInfo.IId.SystemId, imageTestInfoList[0].ImageId)
+	if imageInfo.IId.SystemId != keyPairTestInfoList[0].ImageId {
+		t.Errorf("Image System ID %s is not same %s", imageInfo.IId.SystemId, keyPairTestInfoList[0].ImageId)
 	}
 
 	// delete all
-	infoList, err := imageHandler.ListImage()
+	imageInfoList, err := keyPairHandler.ListImage()
         if err != nil {
                 t.Error(err.Error())
         }
-        for _, info := range infoList {
-		ret, err := imageHandler.DeleteImage(info.IId)
+        for _, info := range imageInfoList {
+		ret, err := keyPairHandler.DeleteImage(info.IId)
 		if err!=nil {
                         t.Error(err.Error())
 		}
@@ -96,11 +97,12 @@ func TestImageDeleteGet(t *testing.T) {
 		}
         }
 	// check the result of Delete Op
-	infoList, err = imageHandler.ListImage()
+	imageInfoList, err = keyPairHandler.ListImage()
         if err != nil {
                 t.Error(err.Error())
         }
-	if len(infoList)>0 {
-		t.Errorf("The number of Images is not %d. It is %d.", 0, len(infoList))
+	if len(imageInfoList)>0 {
+		t.Errorf("The number of Images is not %d. It is %d.", 0, len(imageInfoList))
 	}
 }
+*/
