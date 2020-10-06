@@ -64,8 +64,9 @@ func (cloudConn *MockConnection) CreateKeyPairHandler() (irs.KeyPairHandler, err
 }
 
 func (cloudConn *MockConnection) CreateVMSpecHandler() (irs.VMSpecHandler, error) {
-        cblogger.Error("Mock Driver: called CreateVMSpecHandler(), but not supported!")
-	return nil, nil
+	cblogger.Info("Mock Driver: called CreateVMSpecHandler()!")
+	handler := mkrs.MockVMSpecHandler{cloudConn.MockName}
+	return &handler, nil
 }
 
 func (cloudConn *MockConnection) IsConnected() (bool, error) {

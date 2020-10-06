@@ -42,15 +42,9 @@ func (keyPairHandler *MockKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPairRe
 			"XXXXFingerprint", "XXXXPublicKey", "XXXXPrivateKey", "cb-user", nil}
 
 	// (2) insert KeyPairInfo into global Map
-	infoList, ok := keyPairInfoMap[mockName]
-	if !ok {
-		infoList = make([]*irs.KeyPairInfo, 1)
-		infoList[0] = &keyPairInfo
-		keyPairInfoMap[mockName]=infoList
-	}else {
-		infoList = append(infoList, &keyPairInfo)
-		keyPairInfoMap[mockName]=infoList
-	}
+	infoList, _ := keyPairInfoMap[mockName]
+	infoList = append(infoList, &keyPairInfo)
+	keyPairInfoMap[mockName]=infoList
 
 	return keyPairInfo, nil
 }
@@ -65,8 +59,8 @@ func (keyPairHandler *MockKeyPairHandler) ListKey() ([]*irs.KeyPairInfo, error) 
 		return []*irs.KeyPairInfo{}, nil
 	}
 	// cloning list of KeyPair
-	resultList := make([]*irs.KeyPairInfo, 0)
-	resultList = append(resultList, infoList[:]...)
+	resultList := make([]*irs.KeyPairInfo, len(infoList))
+	copy(resultList, infoList)
 	return resultList, nil
 }
 

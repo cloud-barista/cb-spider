@@ -11,7 +11,6 @@
 package resources
 
 import (
-        "github.com/sirupsen/logrus"
         cblog "github.com/cloud-barista/cb-log"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"fmt"
@@ -23,17 +22,15 @@ type MockImageHandler struct {
 	MockName      string
 }
 
-var cblogger *logrus.Logger
-
 func init() {
         // cblog is a global variable.
-        cblogger = cblog.GetLogger("CB-SPIDER")
 	imgInfoMap = make(map[string][]*irs.ImageInfo)
 }
 
 // (1) create imageInfo object
 // (2) insert ImageInfo into global Map
 func (imageHandler *MockImageHandler) CreateImage(imageReqInfo irs.ImageReqInfo) (irs.ImageInfo, error) {
+        cblogger := cblog.GetLogger("CB-SPIDER")
         cblogger.Info("Mock Driver: called CreateImage()!")
 
 	mockName := imageHandler.MockName
@@ -43,20 +40,15 @@ func (imageHandler *MockImageHandler) CreateImage(imageReqInfo irs.ImageReqInfo)
 	imageInfo := irs.ImageInfo{irs.IID{imageReqInfo.IId.NameId, imageReqInfo.IId.SystemId}, "TestGuestOS", "TestStatus", nil}
 
 	// (2) insert ImageInfo into global Map
-	imgInfoList, ok := imgInfoMap[mockName]
-	if !ok {
-		imgInfoList = make([]*irs.ImageInfo, 1)
-		imgInfoList[0] = &imageInfo
-		imgInfoMap[mockName]=imgInfoList
-	}else {
-		imgInfoList = append(imgInfoList, &imageInfo)
-		imgInfoMap[mockName]=imgInfoList
-	}
+	imgInfoList, _ := imgInfoMap[mockName]
+	imgInfoList = append(imgInfoList, &imageInfo)
+	imgInfoMap[mockName]=imgInfoList
 
 	return imageInfo, nil
 }
 
 func (imageHandler *MockImageHandler) ListImage() ([]*irs.ImageInfo, error) {
+        cblogger := cblog.GetLogger("CB-SPIDER")
         cblogger.Info("Mock Driver: called ListImage()!")
 	
 	mockName := imageHandler.MockName
@@ -65,12 +57,13 @@ func (imageHandler *MockImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 		return []*irs.ImageInfo{}, nil
 	}
 	// cloning list of Image
-	resultList := make([]*irs.ImageInfo, 0)
-	resultList = append(resultList, imgInfoList[:]...)
+	resultList := make([]*irs.ImageInfo, len(imgInfoList))
+	copy(resultList, imgInfoList)
 	return resultList, nil
 }
 
 func (imageHandler *MockImageHandler) GetImage(imageIID irs.IID) (irs.ImageInfo, error) {
+        cblogger := cblog.GetLogger("CB-SPIDER")
         cblogger.Info("Mock Driver: called GetImage()!")
 
 
@@ -90,6 +83,7 @@ func (imageHandler *MockImageHandler) GetImage(imageIID irs.IID) (irs.ImageInfo,
 }
 
 func (imageHandler *MockImageHandler) DeleteImage(imageIID irs.IID) (bool, error) {
+        cblogger := cblog.GetLogger("CB-SPIDER")
         cblogger.Info("Mock Driver: called DeleteImage()!")
 
         imgInfoList, err := imageHandler.ListImage()
