@@ -62,33 +62,33 @@ func TestKeyPairCreateList(t *testing.T) {
 		t.Error(err.Error())
 	}
 	if len(infoList) != len(keyPairTestInfoList) {
-		t.Errorf("The number of KeyPairs is not %d. It is %d.", len(keyPairTestInfoList), len(infoList))
+		t.Errorf("The number of Infos is not %d. It is %d.", len(keyPairTestInfoList), len(infoList))
 	}
 	for i, info := range infoList {
 		if info.IId.SystemId != keyPairTestInfoList[i].Id {
-			t.Errorf("Image System ID %s is not same %s", info.IId.SystemId, keyPairTestInfoList[i].Id)
+			t.Errorf("System ID %s is not same %s", info.IId.SystemId, keyPairTestInfoList[i].Id)
 		}
 //		fmt.Printf("\n\t%#v\n", info)
 	}
 }
-/*
+
 func TestKeyPairDeleteGet(t *testing.T) {
         // Get & check the Value
-        imageInfo, err := keyPairHandler.GetImage(irs.IID{keyPairTestInfoList[0].ImageId, ""})
+        info, err := keyPairHandler.GetKey(irs.IID{keyPairTestInfoList[0].Id, ""})
         if err != nil {
                 t.Error(err.Error())
         }
-	if imageInfo.IId.SystemId != keyPairTestInfoList[0].ImageId {
-		t.Errorf("Image System ID %s is not same %s", imageInfo.IId.SystemId, keyPairTestInfoList[0].ImageId)
+	if info.IId.SystemId != keyPairTestInfoList[0].Id {
+		t.Errorf("System ID %s is not same %s", info.IId.SystemId, keyPairTestInfoList[0].Id)
 	}
 
 	// delete all
-	imageInfoList, err := keyPairHandler.ListImage()
+	infoList, err := keyPairHandler.ListKey()
         if err != nil {
                 t.Error(err.Error())
         }
-        for _, info := range imageInfoList {
-		ret, err := keyPairHandler.DeleteImage(info.IId)
+        for _, info := range infoList {
+		ret, err := keyPairHandler.DeleteKey(info.IId)
 		if err!=nil {
                         t.Error(err.Error())
 		}
@@ -97,12 +97,12 @@ func TestKeyPairDeleteGet(t *testing.T) {
 		}
         }
 	// check the result of Delete Op
-	imageInfoList, err = keyPairHandler.ListImage()
+	infoList, err = keyPairHandler.ListKey()
         if err != nil {
                 t.Error(err.Error())
         }
-	if len(imageInfoList)>0 {
-		t.Errorf("The number of Images is not %d. It is %d.", 0, len(imageInfoList))
+	if len(infoList)>0 {
+		t.Errorf("The number of Infos is not %d. It is %d.", 0, len(infoList))
 	}
 }
-*/
+

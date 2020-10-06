@@ -61,11 +61,11 @@ func TestImageCreateList(t *testing.T) {
 		t.Error(err.Error())
 	}
 	if len(infoList) != len(imageTestInfoList) {
-		t.Errorf("The number of Images is not %d. It is %d.", len(imageTestInfoList), len(infoList))
+		t.Errorf("The number of Infos is not %d. It is %d.", len(imageTestInfoList), len(infoList))
 	}
 	for i, info := range infoList {
 		if info.IId.SystemId != imageTestInfoList[i].ImageId {
-			t.Errorf("Image System ID %s is not same %s", info.IId.SystemId, imageTestInfoList[i].ImageId)
+			t.Errorf("System ID %s is not same %s", info.IId.SystemId, imageTestInfoList[i].ImageId)
 		}
 //		fmt.Printf("\n\t%#v\n", info)
 	}
@@ -73,12 +73,12 @@ func TestImageCreateList(t *testing.T) {
 
 func TestImageDeleteGet(t *testing.T) {
         // Get & check the Value
-        imageInfo, err := imageHandler.GetImage(irs.IID{imageTestInfoList[0].ImageId, ""})
+        info, err := imageHandler.GetImage(irs.IID{imageTestInfoList[0].ImageId, ""})
         if err != nil {
                 t.Error(err.Error())
         }
-	if imageInfo.IId.SystemId != imageTestInfoList[0].ImageId {
-		t.Errorf("Image System ID %s is not same %s", imageInfo.IId.SystemId, imageTestInfoList[0].ImageId)
+	if info.IId.SystemId != imageTestInfoList[0].ImageId {
+		t.Errorf("System ID %s is not same %s", info.IId.SystemId, imageTestInfoList[0].ImageId)
 	}
 
 	// delete all
@@ -101,6 +101,6 @@ func TestImageDeleteGet(t *testing.T) {
                 t.Error(err.Error())
         }
 	if len(infoList)>0 {
-		t.Errorf("The number of Images is not %d. It is %d.", 0, len(infoList))
+		t.Errorf("The number of Infos is not %d. It is %d.", 0, len(infoList))
 	}
 }
