@@ -22,38 +22,40 @@ type MockVMSpecHandler struct {
 	MockName      string
 }
 
-//var vmSpecHandler irs.VMSpecHandler
-var PrepareInfoList []irs.VMSpecInfo
+var PrepareInfoList []*irs.VMSpecInfo
 
 func init() {
-        // cblog is a global variable.
 	vmSpecInfoMap = make(map[string][]*irs.VMSpecInfo)
-	prepare("MockDriver-01")
 }
 
+// Be called before using the User function.
+// It is called in ListVMSpec().
 func prepare(mockName string) {
         cblogger := cblog.GetLogger("CB-SPIDER")
         cblogger.Info("Mock Driver: called prepare()!")
-/*
-	PrepareInfoList := []irs.VMSpecInfo{
-		{Region: "mock-region01", Name: "mock-vmspec-01", VCpu: {Count:"4", Clock:"2.7"}, Mem: "32768", Gpu: {Count:"2", Mfr:"NVIDIA", Model:"V100", Mem:"16384MB"}, KeyValueList:nil},
-		//{"mock-region01", "mock-vmspec-02", {"4", "3.2"}, "32768", {"1", "NVIDIA", "V100", "16384MB"}},
-		//{"mock-region02", "mock-vmspec-03", {"8", "2.7"}, "62464"},
-		//{"mock-region01", "mock-vmspec-04", {"8", "2.7"}, "1024"},
+
+	if PrepareInfoList != nil {
+		return
 	}
-        for _, info := range PrepareInfoList {
-		infoList, _ := vmSpecInfoMap[mockName]
-		infoList = append(infoList, &info)
-		vmSpecInfoMap[mockName]=infoList
+
+	PrepareInfoList = []*irs.VMSpecInfo{
+		{"mock-region01", "mock-vmspec-01", irs.VCpuInfo{"4", "2.7"}, "32768", []irs.GpuInfo{ {"2", "NVIDIA", "V100", "16384MB"} }, nil},
+		{"mock-region02", "mock-vmspec-02", irs.VCpuInfo{"4", "3.2"}, "32768", []irs.GpuInfo{ {"1", "NVIDIA", "V100", "16384MB"} }, nil},
+		{"mock-region02", "mock-vmspec-03", irs.VCpuInfo{"8", "2.7"}, "62464", nil, nil},
+		{"mock-region01", "mock-vmspec-04", irs.VCpuInfo{"8", "2.7"}, "1024", nil, nil},
 	}
-*/
+	vmSpecInfoMap[mockName]=PrepareInfoList
+
 }
 
 func (vmSpecHandler *MockVMSpecHandler) ListVMSpec(Region string) ([]*irs.VMSpecInfo, error) {
         cblogger := cblog.GetLogger("CB-SPIDER")
         cblogger.Info("Mock Driver: called ListVMSpec()!")
-	
+
 	mockName := vmSpecHandler.MockName
+	// Please, do not delete this line.
+	prepare(mockName)
+
 	infoList, ok := vmSpecInfoMap[mockName]
 	if !ok {
 		return []*irs.VMSpecInfo{}, nil

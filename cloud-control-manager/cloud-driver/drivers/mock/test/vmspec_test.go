@@ -10,12 +10,11 @@ package mocktest
 
 import (
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
-	// icon "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/connect"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	mockdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/mock"
 
 	"testing"
-	"fmt"
+	_ "fmt"
 )
 
 var vmSpecHandler irs.VMSpecHandler
@@ -34,22 +33,25 @@ func init() {
 
 
 func TestVMSpecListGet(t *testing.T) {
-	// check the list size and values
-	infoList, err := vmSpecHandler.ListVMSpec("mock-region01")
-	if err != nil {
-		t.Error(err.Error())
-	}
-/*
-	if len(infoList) != len(keyPairTestInfoList) {
-		t.Errorf("The number of Infos is not %d. It is %d.", len(keyPairTestInfoList), len(infoList))
-	}
-*/
-	for _, info := range infoList {
-/*
-		if info.IId.SystemId != keyPairTestInfoList[i].Id {
-			t.Errorf("System ID %s is not same %s", info.IId.SystemId, keyPairTestInfoList[i].Id)
-		}
-*/
-		fmt.Printf("\n\t%#v\n", info)
-	}
+	regionTest(t, "mock-region01")
+	regionTest(t, "mock-region02")
+}
+
+func regionTest(t *testing.T, mockRegion string) {
+        // check the list size and values
+        infoList, err := vmSpecHandler.ListVMSpec(mockRegion)
+        if err != nil {
+                t.Error(err.Error())
+        }
+
+        if len(infoList) != 2 {
+                t.Errorf("The number of Infos is not %d. It is %d.", len(infoList), 2)
+        }
+
+        for _, info := range infoList {
+                if info.Region != mockRegion {
+                        t.Errorf("Region Name %s is not same %s", info.Region, mockRegion)
+                }
+                //fmt.Printf("\n\t%#v\n", info)
+        }
 }
