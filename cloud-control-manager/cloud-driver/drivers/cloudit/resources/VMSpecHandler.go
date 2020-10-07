@@ -14,19 +14,19 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	cblog "github.com/cloud-barista/cb-log"
+	"strconv"
+	"strings"
+
+	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/cloudit/client"
 	"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/cloudit/client/ace/specs"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
-	"strconv"
-	"strings"
 )
 
-func init() {
-	// cblog is a global variable.
-	cblogger = cblog.GetLogger("CB-SPIDER")
-}
+const (
+	VMSpec = "VMSPEC"
+)
 
 type ClouditVMSpecHandler struct {
 	CredentialInfo idrv.CredentialInfo
@@ -46,17 +46,24 @@ func setterVMSpec(region string, vmSpec specs.VMSpecInfo) *irs.VMSpecInfo {
 }
 
 func (vmSpecHandler *ClouditVMSpecHandler) ListVMSpec(Region string) ([]*irs.VMSpecInfo, error) {
+	// log HisCall
+	hiscallInfo := GetCallLogScheme(vmSpecHandler.Client.IdentityEndpoint, call.VMSPEC, VMSpec, "ListVMSpec()")
+
 	vmSpecHandler.Client.TokenID = vmSpecHandler.CredentialInfo.AuthToken
 	authHeader := vmSpecHandler.Client.AuthenticatedHeaders()
 
 	requestOpts := client.RequestOpts{
 		MoreHeaders: authHeader,
 	}
+
+	start := call.Start()
 	list, err := specs.List(vmSpecHandler.Client, &requestOpts)
 	if err != nil {
-		cblogger.Error(fmt.Sprintf("failed to get VM spec list, err : %s", err))
-		return nil, err
+		getError := errors.New(fmt.Sprintf("failed to get VM spec list, err : %s", err.Error()))
+		LoggingError(hiscallInfo, getError)
+		return nil, getError
 	}
+	LoggingInfo(hiscallInfo, start)
 
 	vmSpecList := make([]*irs.VMSpecInfo, len(*list))
 	for i, spec := range *list {
@@ -66,27 +73,40 @@ func (vmSpecHandler *ClouditVMSpecHandler) ListVMSpec(Region string) ([]*irs.VMS
 }
 
 func (vmSpecHandler *ClouditVMSpecHandler) GetVMSpec(Region string, Name string) (irs.VMSpecInfo, error) {
+	// log HisCall
+	hiscallInfo := GetCallLogScheme(vmSpecHandler.Client.IdentityEndpoint, call.VMSPEC, Name, "GetVMSpec()")
+
+	start := call.Start()
 	specInfo, err := vmSpecHandler.GetVMSpecByName(Region, Name)
 	if err != nil {
-		cblogger.Error(fmt.Sprintf("failed to get VM spec, err : %s", err))
-		notFoundErr := errors.New("failed to get VM spec")
+		notFoundErr := errors.New(fmt.Sprintf("failed to get VM spec, err : %s", err.Error()))
+		LoggingError(hiscallInfo, notFoundErr)
 		return irs.VMSpecInfo{}, notFoundErr
 	}
+	LoggingInfo(hiscallInfo, start)
+
 	return *specInfo, nil
 }
 
 func (vmSpecHandler *ClouditVMSpecHandler) ListOrgVMSpec(Region string) (string, error) {
+	// log HisCall
+	hiscallInfo := GetCallLogScheme(vmSpecHandler.Client.IdentityEndpoint, call.VMSPEC, VMSpec, "ListOrgVMSpec()")
+
 	vmSpecHandler.Client.TokenID = vmSpecHandler.CredentialInfo.AuthToken
 	authHeader := vmSpecHandler.Client.AuthenticatedHeaders()
 
 	requestOpts := client.RequestOpts{
 		MoreHeaders: authHeader,
 	}
+
+	start := call.Start()
 	list, err := specs.List(vmSpecHandler.Client, &requestOpts)
 	if err != nil {
-		cblogger.Error(fmt.Sprintf("failed to get VM spec list, err : %s", err))
-		return "", err
+		getErr := errors.New(fmt.Sprintf("failed to get VM spec list, err : %s", err.Error()))
+		LoggingError(hiscallInfo, getErr)
+		return "", getErr
 	}
+	LoggingInfo(hiscallInfo, start)
 
 	var jsonResult struct {
 		Result []specs.VMSpecInfo `json:"list"`
@@ -94,7 +114,7 @@ func (vmSpecHandler *ClouditVMSpecHandler) ListOrgVMSpec(Region string) (string,
 	jsonResult.Result = *list
 	jsonBytes, err := json.Marshal(jsonResult)
 	if err != nil {
-		cblogger.Error("failed to marshal strings")
+		LoggingError(hiscallInfo, err)
 		return "", err
 	}
 
@@ -104,16 +124,22 @@ func (vmSpecHandler *ClouditVMSpecHandler) ListOrgVMSpec(Region string) (string,
 }
 
 func (vmSpecHandler *ClouditVMSpecHandler) GetOrgVMSpec(Region string, Name string) (string, error) {
+	// log HisCall
+	hiscallInfo := GetCallLogScheme(vmSpecHandler.Client.IdentityEndpoint, call.VMSPEC, Name, "GetOrgVMSpec()")
+
+	start := call.Start()
 	specInfo, err := vmSpecHandler.GetVMSpecByName(Region, Name)
 	if err != nil {
-		cblogger.Error(fmt.Sprintf("failed to get VM spec, err : %s", err))
-		notFoundErr := errors.New("failed to get VM spec")
+		notFoundErr := errors.New(fmt.Sprintf("failed to get VM spec, err : %s", err.Error()))
+		LoggingError(hiscallInfo, notFoundErr)
 		return "", notFoundErr
 	}
+	LoggingInfo(hiscallInfo, start)
 
 	jsonBytes, err := json.Marshal(specInfo)
 	if err != nil {
-		panic(err)
+		LoggingError(hiscallInfo, err)
+		return "", err
 	}
 
 	jsonString := string(jsonBytes)

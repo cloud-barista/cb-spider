@@ -127,18 +127,13 @@ func (imageHandler *AzureImageHandler) CreateImage(imageReqInfo irs.ImageReqInfo
 
 func (imageHandler *AzureImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 	// log HisCall
-	cblogger.Info("Call Azure ListImage()")
 	hiscallInfo := GetCallLogScheme(imageHandler.Region, call.VMIMAGE, Image, "ListImage()")
-
-	start := call.Start()
 
 	var imageList []*irs.ImageInfo
 
 	publishers, err := imageHandler.VMImageClient.ListPublishers(context.TODO(), imageHandler.Region.Region)
 	if err != nil {
-		cblogger.Error(err.Error())
-		hiscallInfo.ErrorMSG = err.Error()
-		calllogger.Info(call.String(hiscallInfo))
+		LoggingError(hiscallInfo, err)
 		return nil, err
 	}
 	/*for _, p := range *publishers.Value {
@@ -147,6 +142,9 @@ func (imageHandler *AzureImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 		}
 	}*/
 	//publishers := []string{"OpenLogic", "CoreOS", "Debian", "SUSE", "RedHat", "Canonical", "MicrosoftWindowsServer"}
+
+	start := call.Start()
+
 	for _, publisher := range *publishers.Value {
 		offers, err := imageHandler.VMImageClient.ListOffers(context.TODO(), imageHandler.Region.Region, *publisher.Name)
 		if err != nil {
@@ -193,9 +191,7 @@ func (imageHandler *AzureImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 			}
 		}
 	}
-
-	hiscallInfo.ElapsedTime = call.Elapsed(start)
-	calllogger.Info(call.String(hiscallInfo))
+	LoggingInfo(hiscallInfo, start)
 
 	fmt.Printf("imageSize=%d\n", len(imageList))
 	return imageList, nil
@@ -203,43 +199,31 @@ func (imageHandler *AzureImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 
 func (imageHandler *AzureImageHandler) GetImage(imageIID irs.IID) (irs.ImageInfo, error) {
 	// log HisCall
-	cblogger.Info("Call Azure GetImage()")
-	hiscallInfo := GetCallLogScheme(imageHandler.Region, call.VMIMAGE, Image, "GetImage()")
+	hiscallInfo := GetCallLogScheme(imageHandler.Region, call.VMIMAGE, imageIID.NameId, "GetImage()")
 
 	imageArr := strings.Split(imageIID.NameId, ":")
 
 	// 해당 이미지 publisher, offer, skus 기준 version 목록 조회 (latest 기준 조회 불가)
 	vmImageList, err := imageHandler.VMImageClient.List(imageHandler.Ctx, imageHandler.Region.Region, imageArr[0], imageArr[1], imageArr[2], "", to.Int32Ptr(1), "")
 	if err != nil {
-		cblogger.Error(err.Error())
-		hiscallInfo.ErrorMSG = err.Error()
-		calllogger.Info(call.String(hiscallInfo))
+		LoggingError(hiscallInfo, err)
 		return irs.ImageInfo{}, err
 	}
 
 	var imageVersion string
 	if &vmImageList == nil {
-		errMsg := fmt.Sprintf("could not found image with imageId %s", imageIID.NameId)
-		getErr := errors.New(errMsg)
-		cblogger.Error(getErr.Error())
-		hiscallInfo.ErrorMSG = getErr.Error()
-		calllogger.Info(call.String(hiscallInfo))
+		getErr := errors.New(fmt.Sprintf("could not found image with imageId %s", imageIID.NameId))
+		LoggingError(hiscallInfo, getErr)
 		return irs.ImageInfo{}, getErr
 	}
 	if vmImageList.Value == nil {
-		errMsg := fmt.Sprintf("could not found image with imageId %s", imageIID.NameId)
-		getErr := errors.New(errMsg)
-		cblogger.Error(getErr.Error())
-		hiscallInfo.ErrorMSG = getErr.Error()
-		calllogger.Info(call.String(hiscallInfo))
+		getErr := errors.New(fmt.Sprintf("could not found image with imageId %s", imageIID.NameId))
+		LoggingError(hiscallInfo, getErr)
 		return irs.ImageInfo{}, getErr
 	}
 	if len(*vmImageList.Value) == 0 {
-		errMsg := fmt.Sprintf("could not found image with imageId %s", imageIID.NameId)
-		getErr := errors.New(errMsg)
-		cblogger.Error(getErr.Error())
-		hiscallInfo.ErrorMSG = getErr.Error()
-		calllogger.Info(call.String(hiscallInfo))
+		getErr := errors.New(fmt.Sprintf("could not found image with imageId %s", imageIID.NameId))
+		LoggingError(hiscallInfo, getErr)
 		return irs.ImageInfo{}, getErr
 	} else {
 		latestVmImage := (*vmImageList.Value)[0]
@@ -251,13 +235,10 @@ func (imageHandler *AzureImageHandler) GetImage(imageIID irs.IID) (irs.ImageInfo
 	start := call.Start()
 	vmImage, err := imageHandler.VMImageClient.Get(imageHandler.Ctx, imageHandler.Region.Region, imageArr[0], imageArr[1], imageArr[2], imageVersion)
 	if err != nil {
-		cblogger.Error(err.Error())
-		hiscallInfo.ErrorMSG = err.Error()
-		calllogger.Info(call.String(hiscallInfo))
+		LoggingError(hiscallInfo, err)
 		return irs.ImageInfo{}, err
 	}
-	hiscallInfo.ElapsedTime = call.Elapsed(start)
-	calllogger.Info(call.String(hiscallInfo))
+	LoggingInfo(hiscallInfo, start)
 
 	imageInfo := imageHandler.setterVMImage(vmImage)
 	return *imageInfo, nil
@@ -265,26 +246,21 @@ func (imageHandler *AzureImageHandler) GetImage(imageIID irs.IID) (irs.ImageInfo
 
 func (imageHandler *AzureImageHandler) DeleteImage(imageIID irs.IID) (bool, error) {
 	// log HisCall
-	cblogger.Info("Call Azure DeleteImage()")
-	hiscallInfo := GetCallLogScheme(imageHandler.Region, call.VMIMAGE, Image, "DeleteImage()")
+	hiscallInfo := GetCallLogScheme(imageHandler.Region, call.VMIMAGE, imageIID.NameId, "DeleteImage()")
 
 	start := call.Start()
 	future, err := imageHandler.Client.Delete(imageHandler.Ctx, imageHandler.Region.ResourceGroup, imageIID.NameId)
 	if err != nil {
-		cblogger.Error(err.Error())
-		hiscallInfo.ErrorMSG = err.Error()
-		calllogger.Info(call.String(hiscallInfo))
+		LoggingError(hiscallInfo, err)
 		return false, err
 	}
+	LoggingInfo(hiscallInfo, start)
+
 	err = future.WaitForCompletionRef(imageHandler.Ctx, imageHandler.Client.Client)
 	if err != nil {
-		cblogger.Error(err.Error())
-		hiscallInfo.ErrorMSG = err.Error()
-		calllogger.Info(call.String(hiscallInfo))
+		LoggingError(hiscallInfo, err)
 		return false, err
 	}
-	hiscallInfo.ElapsedTime = call.Elapsed(start)
-	calllogger.Info(call.String(hiscallInfo))
 
 	return true, nil
 }

@@ -40,21 +40,16 @@ func (keyPairHandler *AzureKeyPairHandler) CheckKeyPairFolder(folderPath string)
 
 func (keyPairHandler *AzureKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPairReqInfo) (irs.KeyPairInfo, error) {
 	// log HisCall
-	cblogger.Info("Call Azure CreateKey()")
 	hiscallInfo := GetCallLogScheme(keyPairHandler.Region, call.VMKEYPAIR, keyPairReqInfo.IId.NameId, "CreateKey()")
 
 	keyPairPath := os.Getenv("CBSPIDER_ROOT") + CBKeyPairPath
 	if err := keyPairHandler.CheckKeyPairFolder(keyPairPath); err != nil {
-		cblogger.Error(err.Error())
-		hiscallInfo.ErrorMSG = err.Error()
-		calllogger.Info(call.String(hiscallInfo))
+		LoggingError(hiscallInfo, err)
 		return irs.KeyPairInfo{}, err
 	}
 	hashString, err := CreateHashString(keyPairHandler.CredentialInfo)
 	if err != nil {
-		cblogger.Error(err.Error())
-		hiscallInfo.ErrorMSG = err.Error()
-		calllogger.Info(call.String(hiscallInfo))
+		LoggingError(hiscallInfo, err)
 		return irs.KeyPairInfo{}, err
 	}
 
@@ -77,9 +72,7 @@ func (keyPairHandler *AzureKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPairR
 	// 지정된 바이트크기의 RSA 형식 개인키(비공개키)를 만듬
 	privateKey, err := generatePrivateKey(bitSize)
 	if err != nil {
-		cblogger.Error(err.Error())
-		hiscallInfo.ErrorMSG = err.Error()
-		calllogger.Info(call.String(hiscallInfo))
+		LoggingError(hiscallInfo, err)
 		return irs.KeyPairInfo{}, err
 	}
 
@@ -90,32 +83,25 @@ func (keyPairHandler *AzureKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPairR
 	// "ssh-rsa ..."형식으로 변환
 	publicKeyBytes, err := generatePublicKey(&privateKey.PublicKey)
 	if err != nil {
-		cblogger.Error(err.Error())
-		hiscallInfo.ErrorMSG = err.Error()
-		calllogger.Info(call.String(hiscallInfo))
+		LoggingError(hiscallInfo, err)
 		return irs.KeyPairInfo{}, err
 	}
 
 	// 파일에 private Key를 쓴다
 	err = writeKeyToFile(privateKeyBytes, savePrivateFileTo)
 	if err != nil {
-		cblogger.Error(err.Error())
-		hiscallInfo.ErrorMSG = err.Error()
-		calllogger.Info(call.String(hiscallInfo))
+		LoggingError(hiscallInfo, err)
 		return irs.KeyPairInfo{}, err
 	}
 
 	// 파일에 public Key를 쓴다
 	err = writeKeyToFile([]byte(publicKeyBytes), savePublicFileTo)
 	if err != nil {
-		cblogger.Error(err.Error())
-		hiscallInfo.ErrorMSG = err.Error()
-		calllogger.Info(call.String(hiscallInfo))
+		LoggingError(hiscallInfo, err)
 		return irs.KeyPairInfo{}, err
 	}
 
-	hiscallInfo.ElapsedTime = call.Elapsed(start)
-	calllogger.Info(call.String(hiscallInfo))
+	LoggingInfo(hiscallInfo, start)
 
 	keyPairInfo := irs.KeyPairInfo{
 		IId: irs.IID{
@@ -130,33 +116,26 @@ func (keyPairHandler *AzureKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPairR
 
 func (keyPairHandler *AzureKeyPairHandler) ListKey() ([]*irs.KeyPairInfo, error) {
 	// log HisCall
-	cblogger.Info("Call Azure ListKey()")
 	hiscallInfo := GetCallLogScheme(keyPairHandler.Region, call.VMKEYPAIR, KeyPair, "ListKey()")
 
 	keyPairPath := os.Getenv("CBSPIDER_ROOT") + CBKeyPairPath
 	if err := keyPairHandler.CheckKeyPairFolder(keyPairPath); err != nil {
-		cblogger.Error(err.Error())
-		hiscallInfo.ErrorMSG = err.Error()
-		calllogger.Info(call.String(hiscallInfo))
+		LoggingError(hiscallInfo, err)
 		return nil, err
 	}
 	hashString, err := CreateHashString(keyPairHandler.CredentialInfo)
 	if err != nil {
-		cblogger.Error(err.Error())
-		hiscallInfo.ErrorMSG = err.Error()
-		calllogger.Info(call.String(hiscallInfo))
+		LoggingError(hiscallInfo, err)
 		return nil, err
 	}
 
-	start := call.Start()
-
 	var keyPairInfoList []*irs.KeyPairInfo
+
+	start := call.Start()
 
 	files, err := ioutil.ReadDir(keyPairPath)
 	if err != nil {
-		cblogger.Error(err.Error())
-		hiscallInfo.ErrorMSG = err.Error()
-		calllogger.Info(call.String(hiscallInfo))
+		LoggingError(hiscallInfo, err)
 		return nil, err
 	}
 
@@ -174,22 +153,18 @@ func (keyPairHandler *AzureKeyPairHandler) ListKey() ([]*irs.KeyPairInfo, error)
 		}
 	}
 
-	hiscallInfo.ElapsedTime = call.Elapsed(start)
-	calllogger.Info(call.String(hiscallInfo))
+	LoggingInfo(hiscallInfo, start)
 
 	return keyPairInfoList, nil
 }
 
 func (keyPairHandler *AzureKeyPairHandler) GetKey(keyIID irs.IID) (irs.KeyPairInfo, error) {
 	// log HisCall
-	cblogger.Info("Call Azure GetKey()")
 	hiscallInfo := GetCallLogScheme(keyPairHandler.Region, call.VMKEYPAIR, keyIID.NameId, "GetKey()")
 
 	keyPairPath := os.Getenv("CBSPIDER_ROOT") + CBKeyPairPath
 	if err := keyPairHandler.CheckKeyPairFolder(keyPairPath); err != nil {
-		cblogger.Error(err.Error())
-		hiscallInfo.ErrorMSG = err.Error()
-		calllogger.Info(call.String(hiscallInfo))
+		LoggingError(hiscallInfo, err)
 		return irs.KeyPairInfo{}, err
 	}
 	hashString, err := CreateHashString(keyPairHandler.CredentialInfo)
@@ -202,21 +177,16 @@ func (keyPairHandler *AzureKeyPairHandler) GetKey(keyIID irs.IID) (irs.KeyPairIn
 	// Private Key, Public Key 파일 정보 가져오기
 	privateKeyBytes, err := ioutil.ReadFile(privateKeyPath)
 	if err != nil {
-		cblogger.Error(err.Error())
-		hiscallInfo.ErrorMSG = err.Error()
-		calllogger.Info(call.String(hiscallInfo))
+		LoggingError(hiscallInfo, err)
 		return irs.KeyPairInfo{}, err
 	}
 	publicKeyBytes, err := ioutil.ReadFile(publicKeyPath)
 	if err != nil {
-		cblogger.Error(err.Error())
-		hiscallInfo.ErrorMSG = err.Error()
-		calllogger.Info(call.String(hiscallInfo))
+		LoggingError(hiscallInfo, err)
 		return irs.KeyPairInfo{}, err
 	}
 
-	hiscallInfo.ElapsedTime = call.Elapsed(start)
-	calllogger.Info(call.String(hiscallInfo))
+	LoggingInfo(hiscallInfo, start)
 
 	keypairInfo := irs.KeyPairInfo{
 		IId: irs.IID{
@@ -231,7 +201,6 @@ func (keyPairHandler *AzureKeyPairHandler) GetKey(keyIID irs.IID) (irs.KeyPairIn
 
 func (keyPairHandler *AzureKeyPairHandler) DeleteKey(keyIID irs.IID) (bool, error) {
 	// log HisCall
-	cblogger.Info("Call Azure DeleteKey()")
 	hiscallInfo := GetCallLogScheme(keyPairHandler.Region, call.VMKEYPAIR, keyIID.NameId, "DeleteKey()")
 
 	keyPairPath := os.Getenv("CBSPIDER_ROOT") + CBKeyPairPath
@@ -240,9 +209,7 @@ func (keyPairHandler *AzureKeyPairHandler) DeleteKey(keyIID irs.IID) (bool, erro
 	}
 	hashString, err := CreateHashString(keyPairHandler.CredentialInfo)
 	if err != nil {
-		cblogger.Error(err.Error())
-		hiscallInfo.ErrorMSG = err.Error()
-		calllogger.Info(call.String(hiscallInfo))
+		LoggingError(hiscallInfo, err)
 		return false, err
 	}
 
@@ -254,21 +221,16 @@ func (keyPairHandler *AzureKeyPairHandler) DeleteKey(keyIID irs.IID) (bool, erro
 	// Private Key, Public Key 삭제
 	err = os.Remove(privateKeyPath)
 	if err != nil {
-		cblogger.Error(err.Error())
-		hiscallInfo.ErrorMSG = err.Error()
-		calllogger.Info(call.String(hiscallInfo))
+		LoggingError(hiscallInfo, err)
 		return false, err
 	}
 	err = os.Remove(publicKeyPath)
 	if err != nil {
-		cblogger.Error(err.Error())
-		hiscallInfo.ErrorMSG = err.Error()
-		calllogger.Info(call.String(hiscallInfo))
+		LoggingError(hiscallInfo, err)
 		return false, err
 	}
 
-	hiscallInfo.ElapsedTime = call.Elapsed(start)
-	calllogger.Info(call.String(hiscallInfo))
+	LoggingInfo(hiscallInfo, start)
 
 	return true, nil
 }

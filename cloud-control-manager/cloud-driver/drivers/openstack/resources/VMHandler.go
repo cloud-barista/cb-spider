@@ -13,9 +13,9 @@ package resources
 import (
 	"errors"
 	"fmt"
-	cblog "github.com/cloud-barista/cb-log"
-	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
-	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
+	"strings"
+	"time"
+
 	"github.com/rackspace/gophercloud"
 	"github.com/rackspace/gophercloud/openstack/blockstorage/v2/volumes"
 	"github.com/rackspace/gophercloud/openstack/compute/v2/extensions/floatingip"
@@ -24,18 +24,15 @@ import (
 	"github.com/rackspace/gophercloud/openstack/compute/v2/flavors"
 	"github.com/rackspace/gophercloud/openstack/compute/v2/images"
 	"github.com/rackspace/gophercloud/openstack/compute/v2/servers"
-	"github.com/rackspace/gophercloud/pagination"
-	"github.com/sirupsen/logrus"
-	"strings"
-	"time"
+
+	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
+	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
+	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 )
 
-var cblogger *logrus.Logger
-
-func init() {
-	// cblog is a global variable.
-	cblogger = cblog.GetLogger("CB-SPIDER")
-}
+const (
+	VM = "VM"
+)
 
 type OpenStackVMHandler struct {
 	Region        idrv.RegionInfo
@@ -45,19 +42,25 @@ type OpenStackVMHandler struct {
 }
 
 func (vmHandler *OpenStackVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, error) {
+	// log HisCall
+	hiscallInfo := GetCallLogScheme(vmHandler.Client.IdentityEndpoint, call.VM, vmReqInfo.IId.NameId, "StartVM()")
+
 	// 가상서버 이름 중복 체크
 	pager, err := servers.List(vmHandler.Client, servers.ListOpts{Name: vmReqInfo.IId.NameId}).AllPages()
 	if err != nil {
-		cblogger.Error(fmt.Sprintf("failed to get vm with name %s", vmReqInfo.IId.NameId))
-		return irs.VMInfo{}, err
+		createErr := errors.New(fmt.Sprintf("failed to get vm with name %s", vmReqInfo.IId.NameId))
+		LoggingError(hiscallInfo, createErr)
+		return irs.VMInfo{}, createErr
 	}
 	existServer, err := servers.ExtractServers(pager)
 	if err != nil {
-		cblogger.Error(fmt.Sprintf("failed to extract vm information with name %s", vmReqInfo.IId.NameId))
-		return irs.VMInfo{}, err
+		createErr := errors.New(fmt.Sprintf("failed to extract vm information with name %s", vmReqInfo.IId.NameId))
+		LoggingError(hiscallInfo, createErr)
+		return irs.VMInfo{}, createErr
 	}
 	if len(existServer) != 0 {
 		createErr := errors.New(fmt.Sprintf("VirtualMachine with name %s already exist", vmReqInfo.IId.NameId))
+		LoggingError(hiscallInfo, createErr)
 		return irs.VMInfo{}, createErr
 	}
 
@@ -137,10 +140,13 @@ func (vmHandler *OpenStackVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInf
 		KeyName:           vmReqInfo.KeyPairIID.NameId,
 	}
 
+	start := call.Start()
 	server, err := servers.Create(vmHandler.Client, createOpts).Extract()
 	if err != nil {
+		LoggingError(hiscallInfo, err)
 		return irs.VMInfo{}, err
 	}
+	LoggingInfo(hiscallInfo, start)
 
 	// VM 생성 완료까지 wait
 	vmId := server.ID
@@ -159,11 +165,13 @@ func (vmHandler *OpenStackVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInf
 		// Check VM Deploy Status
 		serverResult, err = servers.Get(vmHandler.Client, vmId).Extract()
 		if err != nil {
+			LoggingError(hiscallInfo, err)
 			return irs.VMInfo{}, err
 		}
 		if strings.ToLower(serverResult.Status) == "active" {
 			// Associate Public IP
 			if ok, err := vmHandler.AssociatePublicIP(serverResult.ID); !ok {
+				LoggingError(hiscallInfo, err)
 				return irs.VMInfo{}, err
 			}
 			isDeployed = true
@@ -174,71 +182,89 @@ func (vmHandler *OpenStackVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInf
 }
 
 func (vmHandler *OpenStackVMHandler) SuspendVM(vmIID irs.IID) (irs.VMStatus, error) {
+	// log HisCall
+	hiscallInfo := GetCallLogScheme(vmHandler.Client.IdentityEndpoint, call.VM, vmIID.NameId, "SuspendVM()")
+
 	/*vmID, err := vmHandler.getVmIdByName(vmNameID)
 	if err != nil {
 		cblogger.Error(err)
 		return irs.Failed, err
 	}*/
+	start := call.Start()
 	err := startstop.Stop(vmHandler.Client, vmIID.SystemId).Err
 	if err != nil {
-		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
 		return irs.Failed, err
 	}
+	LoggingInfo(hiscallInfo, start)
 
 	// 자체생성상태 반환 (OpenStack은 진행 중인 상태에 대한 정보 미제공)
 	return irs.Suspending, nil
 }
 
 func (vmHandler *OpenStackVMHandler) ResumeVM(vmIID irs.IID) (irs.VMStatus, error) {
+	// log HisCall
+	hiscallInfo := GetCallLogScheme(vmHandler.Client.IdentityEndpoint, call.VM, vmIID.NameId, "ResumeVM()")
+
 	/*vmID, err := vmHandler.getVmIdByName(vmNameID)
 	if err != nil {
 		cblogger.Error(err)
 		return irs.Failed, err
 	}*/
+	start := call.Start()
 	err := startstop.Start(vmHandler.Client, vmIID.SystemId).Err
 	if err != nil {
-		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
 		return irs.Failed, err
 	}
+	LoggingInfo(hiscallInfo, start)
 
 	// 자체생성상태 반환 (OpenStack은 진행 중인 상태에 대한 정보 미제공)
 	return irs.Resuming, nil
 }
 
 func (vmHandler *OpenStackVMHandler) RebootVM(vmIID irs.IID) (irs.VMStatus, error) {
+	// log HisCall
+	hiscallInfo := GetCallLogScheme(vmHandler.Client.IdentityEndpoint, call.VM, vmIID.NameId, "RebootVM()")
+
 	/*vmID, err := vmHandler.getVmIdByName(vmNameID)
 	if err != nil {
 		cblogger.Error(err)
 		return irs.Failed, err
 	}*/
+	start := call.Start()
 	rebootOpts := servers.SoftReboot
 	err := servers.Reboot(vmHandler.Client, vmIID.SystemId, rebootOpts).ExtractErr()
 	if err != nil {
-		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
 		return irs.Failed, err
 	}
+	LoggingInfo(hiscallInfo, start)
 
 	// 자체생성상태 반환 (OpenStack은 진행 중인 상태에 대한 정보 미제공)
 	return irs.Rebooting, nil
 }
 
 func (vmHandler *OpenStackVMHandler) TerminateVM(vmIID irs.IID) (irs.VMStatus, error) {
+	// log HisCall
+	hiscallInfo := GetCallLogScheme(vmHandler.Client.IdentityEndpoint, call.VM, vmIID.NameId, "TerminateVM()")
+
 	// VM 정보 조회
 	server, err := vmHandler.GetVM(vmIID)
 	if err != nil {
-		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
 		return irs.Failed, err
 	}
 
 	// VM에 연결된 PublicIP 삭제
 	pager, err := floatingip.List(vmHandler.Client).AllPages()
 	if err != nil {
-		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
 		return irs.Failed, err
 	}
 	publicIPList, err := floatingip.ExtractFloatingIPs(pager)
 	if err != nil {
-		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
 		return irs.Failed, err
 	}
 
@@ -254,74 +280,90 @@ func (vmHandler *OpenStackVMHandler) TerminateVM(vmIID irs.IID) (irs.VMStatus, e
 	if publicIPId != "" {
 		err := floatingip.Delete(vmHandler.Client, publicIPId).ExtractErr()
 		if err != nil {
-			cblogger.Error(err)
+			LoggingError(hiscallInfo, err)
 			return irs.Failed, err
 		}
 	}
 
 	// VM 삭제
+	start := call.Start()
 	err = servers.Delete(vmHandler.Client, server.IId.SystemId).ExtractErr()
 	if err != nil {
-		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
 		return irs.Failed, err
 	}
+	LoggingInfo(hiscallInfo, start)
 
 	// 자체생성상태 반환 (OpenStack은 진행 중인 상태에 대한 정보 미제공)
 	return irs.Terminating, nil
 }
 
 func (vmHandler *OpenStackVMHandler) ListVMStatus() ([]*irs.VMStatusInfo, error) {
-	var vmStatusList []*irs.VMStatusInfo
+	// log HisCall
+	hiscallInfo := GetCallLogScheme(vmHandler.Client.IdentityEndpoint, call.VM, VM, "ListVMStatus()")
 
-	pager := servers.List(vmHandler.Client, nil)
-	err := pager.EachPage(func(page pagination.Page) (bool, error) {
-		// Get VM Status
-		list, err := servers.ExtractServers(page)
-		if err != nil {
-			return false, err
-		}
-		// Add to List
-		for _, s := range list {
-			vmStatus := getVmStatus(s.Status)
-			vmStatusInfo := irs.VMStatusInfo{
-				IId: irs.IID{
-					NameId:   s.Name,
-					SystemId: s.ID,
-				},
-				VmStatus: vmStatus,
-			}
-			vmStatusList = append(vmStatusList, &vmStatusInfo)
-		}
-		return true, nil
-	})
+	start := call.Start()
+	pager, err := servers.List(vmHandler.Client, nil).AllPages()
 	if err != nil {
-		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
+		return nil, err
+	}
+	LoggingInfo(hiscallInfo, start)
+
+	servers, err := servers.ExtractServers(pager)
+	if err != nil {
+		LoggingError(hiscallInfo, err)
 		return nil, err
 	}
 
+	// Add to List
+	vmStatusList := make([]*irs.VMStatusInfo, len(servers))
+	for idx, s := range servers {
+		vmStatus := getVmStatus(s.Status)
+		vmStatusInfo := irs.VMStatusInfo{
+			IId: irs.IID{
+				NameId:   s.Name,
+				SystemId: s.ID,
+			},
+			VmStatus: vmStatus,
+		}
+		vmStatusList[idx] = &vmStatusInfo
+	}
 	return vmStatusList, nil
 }
 
 func (vmHandler *OpenStackVMHandler) GetVMStatus(vmIID irs.IID) (irs.VMStatus, error) {
+	// log HisCall
+	hiscallInfo := GetCallLogScheme(vmHandler.Client.IdentityEndpoint, call.VM, vmIID.NameId, "GetVMStatus()")
+
+	start := call.Start()
 	serverResult, err := servers.Get(vmHandler.Client, vmIID.SystemId).Extract()
 	if err != nil {
-		cblogger.Error(err)
-		return irs.VMStatus(""), err
+		LoggingError(hiscallInfo, err)
+		return "", err
 	}
+	LoggingInfo(hiscallInfo, start)
 
 	vmStatus := getVmStatus(serverResult.Status)
 	return vmStatus, nil
 }
 
 func (vmHandler *OpenStackVMHandler) ListVM() ([]*irs.VMInfo, error) {
+	// log HisCall
+	hiscallInfo := GetCallLogScheme(vmHandler.Client.IdentityEndpoint, call.VM, VM, "ListVM()")
 
 	// 가상서버 목록 조회
+	start := call.Start()
 	pager, err := servers.List(vmHandler.Client, nil).AllPages()
 	if err != nil {
+		LoggingError(hiscallInfo, err)
 		return nil, err
 	}
+	LoggingInfo(hiscallInfo, start)
+
 	servers, err := servers.ExtractServers(pager)
 	if err != nil {
+		LoggingError(hiscallInfo, err)
 		return nil, err
 	}
 
@@ -335,6 +377,9 @@ func (vmHandler *OpenStackVMHandler) ListVM() ([]*irs.VMInfo, error) {
 }
 
 func (vmHandler *OpenStackVMHandler) GetVM(vmIID irs.IID) (irs.VMInfo, error) {
+	// log HisCall
+	hiscallInfo := GetCallLogScheme(vmHandler.Client.IdentityEndpoint, call.VM, vmIID.NameId, "GetVM()")
+
 	// 기존의 vmID 기준 가상서버 조회 (old)
 	/*serverResult, err := servers.Get(vmHandler.Client, vmID).Extract()
 	if err != nil {
@@ -346,11 +391,13 @@ func (vmHandler *OpenStackVMHandler) GetVM(vmIID irs.IID) (irs.VMInfo, error) {
 		return irs.VMInfo{}, err
 	}*/
 
+	start := call.Start()
 	serverResult, err := servers.Get(vmHandler.Client, vmIID.SystemId).Extract()
 	if err != nil {
-		cblogger.Info(err)
+		LoggingError(hiscallInfo, err)
 		return irs.VMInfo{}, err
 	}
+	LoggingInfo(hiscallInfo, start)
 
 	vmInfo := vmHandler.mappingServerInfo(*serverResult)
 	return vmInfo, nil

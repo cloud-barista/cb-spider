@@ -11,21 +11,14 @@
 package openstack
 
 import (
-	cblog "github.com/cloud-barista/cb-log"
-	oscon "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/openstack/connect"
-	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
-	icon "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/connect"
 	"github.com/rackspace/gophercloud"
 	"github.com/rackspace/gophercloud/openstack"
-	"github.com/sirupsen/logrus"
+
+	oscon "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/openstack/connect"
+	osrs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/openstack/resources"
+	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
+	icon "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/connect"
 )
-
-var cblogger *logrus.Logger
-
-func init() {
-	// cblog is a global variable.
-	cblogger = cblog.GetLogger("CB-SPIDER")
-}
 
 type OpenStackDriver struct{}
 
@@ -48,21 +41,6 @@ func (OpenStackDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	return drvCapabilityInfo
 }
 
-/* org
-func (OpenStackDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (icon.CloudConnection, error) {
-	// 1. get info of credential and region for Test A Cloud from connectionInfo.
-	// 2. create a client object(or service  object) of Test A Cloud with credential info.
-	// 3. create CloudConnection Instance of "connect/TDA_CloudConnection".
-	// 4. return CloudConnection Interface of TDA_CloudConnection.
-
-	// sample code, do not user like this^^
-	var iConn icon.CloudConnection
-	iConn = oscon.OpenStackCloudConnection{}
-
-	return iConn, nil // return type: (icon.CloudConnection, error)
-}
-*/
-
 // modifiled by powerkim, 2019.07.29.
 func (driver *OpenStackDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (icon.CloudConnection, error) {
 	// 1. get info of credential and region for Test A Cloud from connectionInfo.
@@ -70,60 +48,30 @@ func (driver *OpenStackDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) 
 	// 3. create CloudConnection Instance of "connect/TDA_CloudConnection".
 	// 4. return CloudConnection Interface of TDA_CloudConnection.
 
+	// Initialize Logger
+	osrs.InitLog()
+
 	Client, err := getServiceClient(connectionInfo)
 	if err != nil {
-		cblogger.Error(err)
+		return nil, err
 	}
 	ImageClient, err := getImageClient(connectionInfo)
 	if err != nil {
-		cblogger.Error(err)
+		return nil, err
 	}
 	NetworkClient, err := getNetworkClient(connectionInfo)
 	if err != nil {
-		cblogger.Error(err)
+		return nil, err
 	}
 	VolumeClient, err := getVolumeClient(connectionInfo)
 	if err != nil {
-		cblogger.Error(err)
+		return nil, err
 	}
 
-	iConn := oscon.OpenStackCloudConnection{connectionInfo.RegionInfo, Client, ImageClient, NetworkClient, VolumeClient}
+	iConn := oscon.OpenStackCloudConnection{Region: connectionInfo.RegionInfo, Client: Client, ImageClient: ImageClient, NetworkClient: NetworkClient, VolumeClient: VolumeClient}
 
-	return &iConn, nil // return type: (icon.CloudConnection, error)
+	return &iConn, nil
 }
-
-/*func (driver *OpenStackDriver) ConnectNetworkCloud(connectionInfo idrv.ConnectionInfo) (icon.CloudConnection, error) {
-
-	NetworkClient, err := getNetworkClient(connectionInfo)
-	if err != nil {
-		cblogger.Error(err)
-	}
-
-	//var iConn icon.CloudConnection
-	iConn := oscon.OpenStackCloudConnection{nil, NetworkClient}
-
-	return &iConn, nil // return type: (icon.CloudConnection, error)
-}*/
-
-//--------- temporary  by powerkim, 2019.07.29.
-/*type Config struct {
-	Openstack struct {
-		DomainName       string `yaml:"domain_name"`
-		IdentityEndpoint string `yaml:"identity_endpoint"`
-		Password         string `yaml:"password"`
-		ProjectID        string `yaml:"project_id"`
-		Username         string `yaml:"username"`
-		Region           string `yaml:"region"`
-		VMName           string `yaml:"vm_name"`
-		ImageId          string `yaml:"image_id"`
-		FlavorId         string `yaml:"flavor_id"`
-		NetworkId        string `yaml:"network_id"`
-		SecurityGroups   string `yaml:"security_groups"`
-		KeypairName      string `yaml:"keypair_name"`
-
-		ServerId string `yaml:"server_id"`
-	} `yaml:"openstack"`
-}*/
 
 // moved by powerkim, 2019.07.29.
 func getServiceClient(connInfo idrv.ConnectionInfo) (*gophercloud.ServiceClient, error) {
@@ -219,5 +167,3 @@ func getVolumeClient(connInfo idrv.ConnectionInfo) (*gophercloud.ServiceClient, 
 	}
 	return client, err
 }
-
-var CloudDriver OpenStackDriver

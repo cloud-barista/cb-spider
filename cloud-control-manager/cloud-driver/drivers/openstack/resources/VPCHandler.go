@@ -3,14 +3,20 @@ package resources
 import (
 	"errors"
 	"fmt"
+
 	"github.com/Azure/go-autorest/autorest/to"
-	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
-	//"github.com/davecgh/go-spew/spew"
 	"github.com/rackspace/gophercloud"
 	"github.com/rackspace/gophercloud/openstack/networking/v2/extensions/external"
 	"github.com/rackspace/gophercloud/openstack/networking/v2/extensions/layer3/routers"
 	"github.com/rackspace/gophercloud/openstack/networking/v2/networks"
 	"github.com/rackspace/gophercloud/openstack/networking/v2/subnets"
+
+	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
+	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
+)
+
+const (
+	VPC = "VPC"
 )
 
 type OpenStackVPCHandler struct {
@@ -18,6 +24,7 @@ type OpenStackVPCHandler struct {
 }
 
 func (vpcHandler *OpenStackVPCHandler) setterVPC(nvpc external.NetworkExternal) *irs.VPCInfo {
+
 	// VPC 정보 맵핑
 	vpcInfo := irs.VPCInfo{
 		IId: irs.IID{
@@ -63,18 +70,24 @@ func (vpcHandler *OpenStackVPCHandler) setterSubnet(subnet subnets.Subnet) *irs.
 }
 
 func (vpcHandler *OpenStackVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.VPCInfo, error) {
+	// log HisCall
+	hiscallInfo := GetCallLogScheme(vpcHandler.Client.IdentityEndpoint, call.VPCSUBNET, vpcReqInfo.IId.NameId, "CreateVPC()")
+
 	// Check VPC Exists
 	listOpts := networks.ListOpts{Name: vpcReqInfo.IId.NameId}
 	page, err := networks.List(vpcHandler.Client, listOpts).AllPages()
 	if err != nil {
+		LoggingError(hiscallInfo, err)
 		return irs.VPCInfo{}, err
 	}
 	vpcList, err := networks.ExtractNetworks(page)
 	if err != nil {
+		LoggingError(hiscallInfo, err)
 		return irs.VPCInfo{}, err
 	}
 	if len(vpcList) != 0 {
 		createErr := errors.New(fmt.Sprintf("VPC with name %s already exist", vpcReqInfo.IId.NameId))
+		LoggingError(hiscallInfo, createErr)
 		return irs.VPCInfo{}, createErr
 	}
 
@@ -82,10 +95,14 @@ func (vpcHandler *OpenStackVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs
 	createOpts := networks.CreateOpts{
 		Name: vpcReqInfo.IId.NameId,
 	}
+
+	start := call.Start()
 	vpc, err := networks.Create(vpcHandler.Client, createOpts).Extract()
 	if err != nil {
+		LoggingError(hiscallInfo, err)
 		return irs.VPCInfo{}, err
 	}
+	LoggingInfo(hiscallInfo, start)
 
 	// Create Subnet
 	for _, subnet := range vpcReqInfo.SubnetInfoList {
@@ -96,54 +113,62 @@ func (vpcHandler *OpenStackVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs
 				cblogger.Error("Failed to delete vpc with Id %s, err=%s", vpc.ID, err)
 				return irs.VPCInfo{}, err
 			}*/
+			LoggingError(hiscallInfo, err)
 			return irs.VPCInfo{}, err
 		}
 	}
 
 	vpcInfo, err := vpcHandler.GetVPC(irs.IID{SystemId: vpc.ID})
 	if err != nil {
-		cblogger.Error("Failed to get vpc with Id %s, err=%s", vpc.ID, err)
-		return irs.VPCInfo{}, err
+		createErr := errors.New(fmt.Sprintf("Failed to get vpc with Id %s, err=%s", vpc.ID, err.Error()))
+		LoggingError(hiscallInfo, createErr)
+		return irs.VPCInfo{}, createErr
 	}
 
 	// TODO: nested flow 개선
 	// Create Router
 	routerId, err := vpcHandler.CreateRouter(vpcReqInfo.IId.NameId)
 	if err != nil {
-		cblogger.Error("Failed to get create router, err=%s", err)
-		return irs.VPCInfo{}, err
+		createErr := errors.New(fmt.Sprintf("Failed to get create router, err=%s", err.Error()))
+		LoggingError(hiscallInfo, createErr)
+		return irs.VPCInfo{}, createErr
 	}
 
 	// TODO: nested flow 개선
 	// Create Interface
 	for _, subnet := range vpcInfo.SubnetInfoList {
 		if ok, err := vpcHandler.AddInterface(subnet.IId.SystemId, *routerId); !ok {
-			cblogger.Error("Failed to get create router, err=%s", err)
-			return irs.VPCInfo{}, err
+			createErr := errors.New(fmt.Sprintf("Failed to get create router interface, err=%s", err.Error()))
+			LoggingError(hiscallInfo, createErr)
+			return irs.VPCInfo{}, createErr
 		}
 	}
 
 	return vpcInfo, nil
 }
 func (vpcHandler *OpenStackVPCHandler) ListVPC() ([]*irs.VPCInfo, error) {
+	// log HisCall
+	hiscallInfo := GetCallLogScheme(vpcHandler.Client.IdentityEndpoint, call.VPCSUBNET, VPC, "ListVPC()")
 
+	start := call.Start()
 	page, err := networks.List(vpcHandler.Client, nil).AllPages()
 	if err != nil {
-		cblogger.Error("Failed to get vpc list, err=%s", err)
-		return nil, err
+		getErr := errors.New(fmt.Sprintf("Failed to get vpc list, err=%s", err.Error()))
+		LoggingError(hiscallInfo, getErr)
+		return nil, getErr
 	}
+	LoggingInfo(hiscallInfo, start)
 
-	nvpcList, err := external.ExtractList(page)
+	vpcList, err := external.ExtractList(page)
 	if err != nil {
-		cblogger.Error("Failed to get vpc list, err=%s", err)
-		return nil, err
+		getErr := errors.New(fmt.Sprintf("Failed to get vpc list, err=%s", err.Error()))
+		LoggingError(hiscallInfo, getErr)
+		return nil, getErr
 	}
-
-	//	keyValue := make([]*irs.KeyValue, len(vpcInfo.KeyValueList))
 
 	// Get VPC List
-	vpcInfoList := make([]*irs.VPCInfo, len(nvpcList))
-	for i, vpc := range nvpcList {
+	vpcInfoList := make([]*irs.VPCInfo, len(vpcList))
+	for i, vpc := range vpcList {
 		vpcInfo := vpcHandler.setterVPC(vpc)
 		vpcInfoList[i] = vpcInfo
 	}
@@ -151,37 +176,47 @@ func (vpcHandler *OpenStackVPCHandler) ListVPC() ([]*irs.VPCInfo, error) {
 }
 
 func (vpcHandler *OpenStackVPCHandler) GetVPC(vpcIID irs.IID) (irs.VPCInfo, error) {
-	vpc := networks.Get(vpcHandler.Client, vpcIID.SystemId)
-	//var vpc networks.GetResult
-	//nvpc ,err :=
-	nvpc, err := external.ExtractGet(vpc)
-	if err != nil {
-		cblogger.Error("Failed to get vpc with Id %s, err=%s", vpcIID.SystemId, err)
-		return irs.VPCInfo{}, err
-	}
-	vpcInfo := vpcHandler.setterVPC(*nvpc)
+	// log HisCall
+	hiscallInfo := GetCallLogScheme(vpcHandler.Client.IdentityEndpoint, call.VPCSUBNET, vpcIID.NameId, "GetVPC()")
 
+	start := call.Start()
+	vpcResult := networks.Get(vpcHandler.Client, vpcIID.SystemId)
+	externalVpc, err := external.ExtractGet(vpcResult)
+	if err != nil {
+		getErr := errors.New(fmt.Sprintf("Failed to get vpc with Id %s, err=%s", vpcIID.SystemId, err.Error()))
+		LoggingError(hiscallInfo, getErr)
+		return irs.VPCInfo{}, getErr
+	}
+	LoggingInfo(hiscallInfo, start)
+
+	vpcInfo := vpcHandler.setterVPC(*externalVpc)
 	return *vpcInfo, nil
 }
 
 func (vpcHandler *OpenStackVPCHandler) DeleteVPC(vpcIID irs.IID) (bool, error) {
+	// log HisCall
+	hiscallInfo := GetCallLogScheme(vpcHandler.Client.IdentityEndpoint, call.VPCSUBNET, vpcIID.NameId, "DeleteVPC()")
+
 	vpcInfo, err := vpcHandler.GetVPC(vpcIID)
 	if err != nil {
-		cblogger.Error("Failed to get vpc with Id %s, err=%s", vpcIID.SystemId, err)
-		return false, err
+		getErr := errors.New(fmt.Sprintf("Failed to get vpc with Id %s, err=%s", vpcIID.SystemId, err.Error()))
+		LoggingError(hiscallInfo, getErr)
+		return false, getErr
 	}
 
 	// TODO: nested flow 개선
 	// Delete Interface
 	routerId, err := vpcHandler.GetRouter(vpcIID.NameId)
 	if err != nil {
-		cblogger.Error("Failed to get router, err=%s", err)
-		return false, err
+		getErr := errors.New(fmt.Sprintf("Failed to get router, err=%s", err.Error()))
+		LoggingError(hiscallInfo, getErr)
+		return false, getErr
 	}
 	for _, subnet := range vpcInfo.SubnetInfoList {
 		if ok, err := vpcHandler.DeleteInterface(subnet.IId.SystemId, *routerId); !ok {
-			cblogger.Error("Failed to delete router interface, err=%s", err)
-			return false, err
+			getErr := errors.New(fmt.Sprintf("Failed to delete router interface, err=%s", err.Error()))
+			LoggingError(hiscallInfo, getErr)
+			return false, getErr
 		}
 	}
 
@@ -189,8 +224,9 @@ func (vpcHandler *OpenStackVPCHandler) DeleteVPC(vpcIID irs.IID) (bool, error) {
 	// Delete Router
 	err = routers.Delete(vpcHandler.Client, *routerId).ExtractErr()
 	if err != nil {
-		cblogger.Error("Failed to delete router, err=%s", err)
-		return false, err
+		getErr := errors.New(fmt.Sprintf("Failed to delete router, err=%s", err.Error()))
+		LoggingError(hiscallInfo, getErr)
+		return false, getErr
 	}
 
 	// TODO: nested flow 개선
@@ -204,11 +240,14 @@ func (vpcHandler *OpenStackVPCHandler) DeleteVPC(vpcIID irs.IID) (bool, error) {
 
 	// TODO: nested flow 개선
 	//Delete VPC
+	start := call.Start()
 	err = networks.Delete(vpcHandler.Client, vpcInfo.IId.SystemId).ExtractErr()
 	if err != nil {
-		cblogger.Error("Failed to delete vpc, err=%s", err)
-		return false, err
+		getErr := errors.New(fmt.Sprintf("Failed to delete vpc, err=%s", err.Error()))
+		LoggingError(hiscallInfo, getErr)
+		return false, getErr
 	}
+	LoggingInfo(hiscallInfo, start)
 
 	return true, nil
 }
@@ -333,7 +372,10 @@ func (vpcHandler *OpenStackVPCHandler) DeleteInterface(subnetId string, routerId
 	return true, nil
 }
 
-func (VPCHandler *OpenStackVPCHandler) AddSubnet(vpcIID irs.IID, subnetInfo irs.SubnetInfo) (irs.VPCInfo, error) {
+func (vpcHandler *OpenStackVPCHandler) AddSubnet(vpcIID irs.IID, subnetInfo irs.SubnetInfo) (irs.VPCInfo, error) {
+	// log HisCall
+	hiscallInfo := GetCallLogScheme(vpcHandler.Client.IdentityEndpoint, call.VPCSUBNET, subnetInfo.IId.NameId, "AddSubnet()")
+
 	subnetCreateOpts := subnets.CreateOpts{
 		NetworkID:      vpcIID.SystemId,
 		Name:           subnetInfo.IId.NameId,
@@ -341,26 +383,35 @@ func (VPCHandler *OpenStackVPCHandler) AddSubnet(vpcIID irs.IID, subnetInfo irs.
 		IPVersion:      subnets.IPv4,
 		DNSNameservers: []string{DNSNameservers},
 	}
-	subnet, err := subnets.Create(VPCHandler.Client, subnetCreateOpts).Extract()
-	if err != nil {
-		cblogger.Error("Failed to create Subnet with name %s, err=%s", subnetCreateOpts.Name, err)
-		return irs.VPCInfo{}, err
-	}
 
-	_ = *VPCHandler.setterSubnet(*subnet)
-	result, err := VPCHandler.GetVPC(vpcIID)
+	start := call.Start()
+	_, err := subnets.Create(vpcHandler.Client, subnetCreateOpts).Extract()
 	if err != nil {
+		createErr := errors.New(fmt.Sprintf("Failed to create Subnet with name %s, err=%s", subnetCreateOpts.Name, err.Error()))
+		LoggingError(hiscallInfo, createErr)
+		return irs.VPCInfo{}, createErr
+	}
+	LoggingInfo(hiscallInfo, start)
+
+	result, err := vpcHandler.GetVPC(vpcIID)
+	if err != nil {
+		LoggingError(hiscallInfo, err)
 		return irs.VPCInfo{}, err
 	}
 	return result, nil
 }
 
-func (VPCHandler *OpenStackVPCHandler) RemoveSubnet(vpcIID irs.IID, subnetIID irs.IID) (bool, error) {
-	err := subnets.Delete(VPCHandler.Client, subnetIID.SystemId).ExtractErr()
+func (vpcHandler *OpenStackVPCHandler) RemoveSubnet(vpcIID irs.IID, subnetIID irs.IID) (bool, error) {
+	// log HisCall
+	hiscallInfo := GetCallLogScheme(vpcHandler.Client.IdentityEndpoint, call.VPCSUBNET, subnetIID.NameId, "RemoveSubnet()")
 
+	start := call.Start()
+	err := subnets.Delete(vpcHandler.Client, subnetIID.SystemId).ExtractErr()
 	if err != nil {
-		cblogger.Error("Failed to delete Subnet with Id %s, err=%s", subnetIID.SystemId, err)
+		LoggingError(hiscallInfo, err)
 		return false, err
 	}
+	LoggingInfo(hiscallInfo, start)
+
 	return true, nil
 }

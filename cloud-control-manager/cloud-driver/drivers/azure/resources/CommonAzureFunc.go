@@ -6,6 +6,8 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"sync"
+	"time"
 
 	cblog "github.com/cloud-barista/cb-log"
 	"github.com/sirupsen/logrus"
@@ -19,21 +21,35 @@ const (
 	CBVirutalNetworkName = "CB-VNet"
 	CBVnetDefaultCidr    = "130.0.0.0/16"
 	CBVMUser             = "cb-user"
-	//CBKeyPairPath        = "/cloud-control-manager/cloud-driver/driver-libs/.ssh-azure/"
 	// by powerkim, 2019.10.30
 	CBKeyPairPath = "/cloud-driver-libs/.ssh-azure/"
 )
 
+var once sync.Once
 var cblogger *logrus.Logger
 var calllogger *logrus.Logger
 
-func init() {
-	// cblog is a global variable.
-	cblogger = cblog.GetLogger("CB-SPIDER")
-	calllogger = call.GetLogger("HISCALL")
+func InitLog() {
+	once.Do(func() {
+		// cblog is a global variable.
+		cblogger = cblog.GetLogger("CB-SPIDER")
+		calllogger = call.GetLogger("HISCALL")
+	})
+}
+
+func LoggingError(hiscallInfo call.CLOUDLOGSCHEMA, err error) {
+	cblogger.Error(err.Error())
+	hiscallInfo.ErrorMSG = err.Error()
+	calllogger.Info(call.String(hiscallInfo))
+}
+
+func LoggingInfo(hiscallInfo call.CLOUDLOGSCHEMA, start time.Time) {
+	hiscallInfo.ElapsedTime = call.Elapsed(start)
+	calllogger.Info(call.String(hiscallInfo))
 }
 
 func GetCallLogScheme(region idrv.RegionInfo, resourceType call.RES_TYPE, resourceName string, apiName string) call.CLOUDLOGSCHEMA {
+	cblogger.Info(fmt.Sprintf("Call %s %s", call.AZURE, apiName))
 	return call.CLOUDLOGSCHEMA{
 		CloudOS:      call.AZURE,
 		RegionZone:   region.Region,
