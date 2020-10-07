@@ -91,7 +91,6 @@ func (vmSpecHandler *MockVMSpecHandler) GetVMSpec(Region string, Name string) (i
 	return irs.VMSpecInfo{}, fmt.Errorf("%s VMSpec does not exist!!")
 }
 
-
 func (vmSpecHandler *MockVMSpecHandler) ListOrgVMSpec(Region string) (string, error) {             // return string: json format
         cblogger := cblog.GetLogger("CB-SPIDER")
         cblogger.Info("Mock Driver: called ListOrgVMSpec()!")
