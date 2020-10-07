@@ -14,7 +14,7 @@ on:
     paths-ignore:
       - 'README.md'
       - 'conf/**'
-      - 'cb-spider/cloud-control-manager/cloud-driver/drivers/mock/**'
+      - 'cloud-control-manager/cloud-driver/drivers/mock/**'
 
   # Run tests for any PRs.
   pull_request:
