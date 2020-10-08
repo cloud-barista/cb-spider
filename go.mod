@@ -21,7 +21,7 @@ require (
 	github.com/aws/aws-sdk-go v1.29.31
 	github.com/bramvdbogaerde/go-scp v0.0.0-20200119201711-987556b8bdd7
 	github.com/chyeh/pubip v0.0.0-20170203095919-b7e679cf541c
-	github.com/cloud-barista/cb-log v0.2.0-cappuccino.0.20200913031717-ff545833c178
+	github.com/cloud-barista/cb-log v0.2.0-cappuccino.0.20201008023843-31002c0a088d
 	github.com/cloud-barista/cb-store v0.2.0-cappuccino.0.20200924125209-c313bd2a3987
 	github.com/cncf/udpa/go v0.0.0-20200327203949-e8cd3a4bb307 // indirect
 	github.com/containerd/containerd v1.3.4 // indirect
@@ -61,7 +61,7 @@ require (
 	github.com/rogpeppe/go-internal v1.5.2 // indirect
 	github.com/sirupsen/logrus v1.6.0
 	github.com/smartystreets/assertions v1.1.0 // indirect
-	github.com/snowzach/rotatefilehook v0.0.0-20180327172521-2f64f265f58c // indirect
+	github.com/snowzach/rotatefilehook v0.0.0-20180327172521-2f64f265f58c
 	github.com/spf13/cobra v1.0.0
 	github.com/spf13/viper v1.7.0
 	github.com/stretchr/objx v0.2.0 // indirect
