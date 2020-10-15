@@ -4,15 +4,19 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
+
 	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2018-04-01/network"
 	"github.com/Azure/go-autorest/autorest/to"
+
+	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
-	"strings"
 )
 
 const (
-	ICMP = "icmp"
+	ICMP          = "icmp"
+	SecurityGroup = "SECURITYGROUP"
 )
 
 type AzureSecurityHandler struct {
@@ -66,11 +70,14 @@ func (securityHandler *AzureSecurityHandler) setterSec(securityGroup network.Sec
 }
 
 func (securityHandler *AzureSecurityHandler) CreateSecurity(securityReqInfo irs.SecurityReqInfo) (irs.SecurityInfo, error) {
+	// log HisCall
+	hiscallInfo := GetCallLogScheme(securityHandler.Region, call.SECURITYGROUP, securityReqInfo.IId.NameId, "CreateSecurity()")
+
 	// Check SecurityGroup Exists
 	security, _ := securityHandler.Client.Get(securityHandler.Ctx, securityHandler.Region.ResourceGroup, securityReqInfo.IId.NameId, "")
 	if security.ID != nil {
-		errMsg := fmt.Sprintf("Security Group with name %s already exist", securityReqInfo.IId.NameId)
-		createErr := errors.New(errMsg)
+		createErr := errors.New(fmt.Sprintf("Security Group with name %s already exist", securityReqInfo.IId.NameId))
+		LoggingError(hiscallInfo, createErr)
 		return irs.SecurityInfo{}, createErr
 	}
 
@@ -109,28 +116,41 @@ func (securityHandler *AzureSecurityHandler) CreateSecurity(securityReqInfo irs.
 		Location: &securityHandler.Region.Region,
 	}
 
+	start := call.Start()
 	future, err := securityHandler.Client.CreateOrUpdate(securityHandler.Ctx, securityHandler.Region.ResourceGroup, securityReqInfo.IId.NameId, createOpts)
 	if err != nil {
+		LoggingError(hiscallInfo, err)
 		return irs.SecurityInfo{}, err
 	}
+	LoggingInfo(hiscallInfo, start)
+
 	err = future.WaitForCompletionRef(securityHandler.Ctx, securityHandler.Client.Client)
 	if err != nil {
+		LoggingError(hiscallInfo, err)
 		return irs.SecurityInfo{}, err
 	}
 
 	// 생성된 SecurityGroup 정보 리턴
 	securityInfo, err := securityHandler.GetSecurity(securityReqInfo.IId)
 	if err != nil {
+		LoggingError(hiscallInfo, err)
 		return irs.SecurityInfo{}, err
 	}
+
 	return securityInfo, nil
 }
 
 func (securityHandler *AzureSecurityHandler) ListSecurity() ([]*irs.SecurityInfo, error) {
+	// log HisCall
+	hiscallInfo := GetCallLogScheme(securityHandler.Region, call.SECURITYGROUP, SecurityGroup, "ListSecurity()")
+
+	start := call.Start()
 	result, err := securityHandler.Client.List(securityHandler.Ctx, securityHandler.Region.ResourceGroup)
 	if err != nil {
+		LoggingError(hiscallInfo, err)
 		return nil, err
 	}
+	LoggingInfo(hiscallInfo, start)
 
 	var securityList []*irs.SecurityInfo
 	for _, security := range result.Values() {
@@ -141,23 +161,36 @@ func (securityHandler *AzureSecurityHandler) ListSecurity() ([]*irs.SecurityInfo
 }
 
 func (securityHandler *AzureSecurityHandler) GetSecurity(securityIID irs.IID) (irs.SecurityInfo, error) {
+	// log HisCall
+	hiscallInfo := GetCallLogScheme(securityHandler.Region, call.SECURITYGROUP, securityIID.NameId, "GetSecurity()")
+
+	start := call.Start()
 	security, err := securityHandler.Client.Get(securityHandler.Ctx, securityHandler.Region.ResourceGroup, securityIID.NameId, "")
 	if err != nil {
+		LoggingError(hiscallInfo, err)
 		return irs.SecurityInfo{}, err
 	}
+	LoggingInfo(hiscallInfo, start)
 
 	securityInfo := securityHandler.setterSec(security)
 	return *securityInfo, nil
 }
 
 func (securityHandler *AzureSecurityHandler) DeleteSecurity(securityIID irs.IID) (bool, error) {
+	// log HisCall
+	hiscallInfo := GetCallLogScheme(securityHandler.Region, call.SECURITYGROUP, securityIID.NameId, "DeleteSecurity()")
+
+	start := call.Start()
 	future, err := securityHandler.Client.Delete(securityHandler.Ctx, securityHandler.Region.ResourceGroup, securityIID.NameId)
 	if err != nil {
+		LoggingError(hiscallInfo, err)
 		return false, err
 	}
 	err = future.WaitForCompletionRef(securityHandler.Ctx, securityHandler.Client.Client)
 	if err != nil {
+		LoggingError(hiscallInfo, err)
 		return false, err
 	}
+	LoggingInfo(hiscallInfo, start)
 	return true, nil
 }

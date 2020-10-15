@@ -3,17 +3,20 @@ package resources
 import (
 	"errors"
 	"fmt"
+	"strings"
+
+	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/cloudit/client"
 	"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/cloudit/client/dna/subnet"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
-	"strings"
 )
 
 const (
 	defaultVPCName    = "Default-VPC"
 	defaultVPCCIDR    = "10.0.0.0/16"
 	defaultSubnetName = "Default Network"
+	VPC               = "VPC"
 )
 
 type ClouditVPCHandler struct {
@@ -42,46 +45,73 @@ func (vpcHandler *ClouditVPCHandler) setterVPC(subnets []subnet.SubnetInfo) *irs
 }
 
 func (vpcHandler *ClouditVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.VPCInfo, error) {
+	// log HisCall
+	hiscallInfo := GetCallLogScheme(vpcHandler.Client.IdentityEndpoint, call.VPCSUBNET, VPC, "CreateVPC()")
+
 	// Create Subnet
+	start := call.Start()
 	subnetList := make([]subnet.SubnetInfo, len(vpcReqInfo.SubnetInfoList))
-	for i, subnet := range vpcReqInfo.SubnetInfoList {
-		result, err := vpcHandler.CreateSubnet(subnet)
+	for i, vpcSubnet := range vpcReqInfo.SubnetInfoList {
+		result, err := vpcHandler.CreateSubnet(vpcSubnet)
 		if err != nil {
+			LoggingError(hiscallInfo, err)
 			return irs.VPCInfo{}, err
 		}
 		subnetList[i] = result
 	}
+	LoggingInfo(hiscallInfo, start)
+
 	vpcInfo := vpcHandler.setterVPC(subnetList)
 	return *vpcInfo, nil
 }
 
 func (vpcHandler *ClouditVPCHandler) ListVPC() ([]*irs.VPCInfo, error) {
+	// log HisCall
+	hiscallInfo := GetCallLogScheme(vpcHandler.Client.IdentityEndpoint, call.VPCSUBNET, VPC, "ListVPC()")
+
+	start := call.Start()
 	subnetList, err := vpcHandler.ListSubnet()
 	if err != nil {
+		LoggingError(hiscallInfo, err)
 		return nil, err
 	}
+	LoggingInfo(hiscallInfo, start)
+
 	vpcInfo := vpcHandler.setterVPC(subnetList)
 	vpcInfoList := []*irs.VPCInfo{vpcInfo}
 	return vpcInfoList, nil
 }
 
 func (vpcHandler *ClouditVPCHandler) GetVPC(vpcIID irs.IID) (irs.VPCInfo, error) {
+	// log HisCall
+	hiscallInfo := GetCallLogScheme(vpcHandler.Client.IdentityEndpoint, call.VPCSUBNET, vpcIID.NameId, "GetVPC()")
+
+	start := call.Start()
 	vpcInfo, err := vpcHandler.ListVPC()
 	if err != nil {
+		LoggingError(hiscallInfo, err)
 		return irs.VPCInfo{}, err
 	}
+	LoggingInfo(hiscallInfo, start)
+
 	return *vpcInfo[0], err
 }
 
 func (vpcHandler *ClouditVPCHandler) DeleteVPC(vpcIID irs.IID) (bool, error) {
+	// log HisCall
+	hiscallInfo := GetCallLogScheme(vpcHandler.Client.IdentityEndpoint, call.VPCSUBNET, vpcIID.NameId, "DeleteVPC()")
+
 	vpcInfo, err := vpcHandler.GetVPC(vpcIID)
 	if err != nil {
+		LoggingError(hiscallInfo, err)
 		return false, err
 	}
 
+	start := call.Start()
 	for _, subnetInfo := range vpcInfo.SubnetInfoList {
 		subnetList, err := vpcHandler.ListSubnet()
 		if err != nil {
+			LoggingError(hiscallInfo, err)
 			return false, err
 		}
 		for _, value := range subnetList {
@@ -94,6 +124,8 @@ func (vpcHandler *ClouditVPCHandler) DeleteVPC(vpcIID irs.IID) (bool, error) {
 			}
 		}
 	}
+	LoggingInfo(hiscallInfo, start)
+
 	return true, nil
 }
 
@@ -112,7 +144,7 @@ func (vpcHandler *ClouditVPCHandler) CreateSubnet(subnetReqInfo irs.SubnetInfo) 
 	// 서브넷 이름 중복 체크
 	checkSubnet, _ := vpcHandler.getSubnetByName(subnetReqInfo.IId.NameId)
 	if checkSubnet != nil {
-		errMsg := fmt.Sprintf("VirtualNetwork with name %s already exist", subnetReqInfo.IId.NameId)
+		errMsg := fmt.Sprintf("virtualNetwork with name %s already exist", subnetReqInfo.IId.NameId)
 		createErr := errors.New(errMsg)
 		return subnet.SubnetInfo{}, createErr
 	}
@@ -130,7 +162,7 @@ func (vpcHandler *ClouditVPCHandler) CreateSubnet(subnetReqInfo irs.SubnetInfo) 
 		return subnet.SubnetInfo{}, err
 	} else {
 		if len(*creatableSubnetList) == 0 {
-			allocateErr := errors.New(fmt.Sprintf("There is no PublicIPs to allocate"))
+			allocateErr := errors.New("there is no PublicIPs to allocate")
 			return subnet.SubnetInfo{}, allocateErr
 		} else {
 			creatableSubnet = (*creatableSubnetList)[0]
@@ -230,17 +262,19 @@ func (vpcHandler *ClouditVPCHandler) getSubnetByName(subnetName string) (*subnet
 	return subnetInfo, nil
 }
 
-func (VPCHandler *ClouditVPCHandler) AddSubnet(vpcIID irs.IID, subnetInfo irs.SubnetInfo) (irs.VPCInfo, error) {
+func (vpcHandler *ClouditVPCHandler) AddSubnet(vpcIID irs.IID, subnetInfo irs.SubnetInfo) (irs.VPCInfo, error) {
+	// log HisCall
+	hiscallInfo := GetCallLogScheme(vpcHandler.Client.IdentityEndpoint, call.VPCSUBNET, vpcIID.NameId, "AddSubnet()")
 
-	checkSubnet, _ := VPCHandler.getSubnetByName(subnetInfo.IId.NameId)
+	checkSubnet, _ := vpcHandler.getSubnetByName(subnetInfo.IId.NameId)
 	if checkSubnet != nil {
-		errMsg := fmt.Sprintf("VirtualNetwork with name %s already exist", subnetInfo.IId.NameId)
-		createErr := errors.New(errMsg)
+		createErr := errors.New(fmt.Sprintf("virtualNetwork with name %s already exist", subnetInfo.IId.NameId))
+		LoggingError(hiscallInfo, createErr)
 		return irs.VPCInfo{}, createErr
 	}
 
-	VPCHandler.Client.TokenID = VPCHandler.CredentialInfo.AuthToken
-	authHeader := VPCHandler.Client.AuthenticatedHeaders()
+	vpcHandler.Client.TokenID = vpcHandler.CredentialInfo.AuthToken
+	authHeader := vpcHandler.Client.AuthenticatedHeaders()
 
 	var creatableSubnet subnet.SubnetInfo
 
@@ -248,11 +282,13 @@ func (VPCHandler *ClouditVPCHandler) AddSubnet(vpcIID irs.IID, subnetInfo irs.Su
 	requestOpts := client.RequestOpts{
 		MoreHeaders: authHeader,
 	}
-	if creatableSubnetList, err := subnet.ListCreatableSubnet(VPCHandler.Client, &requestOpts); err != nil {
+	if creatableSubnetList, err := subnet.ListCreatableSubnet(vpcHandler.Client, &requestOpts); err != nil {
+		LoggingError(hiscallInfo, err)
 		return irs.VPCInfo{}, err
 	} else {
 		if len(*creatableSubnetList) == 0 {
-			allocateErr := errors.New(fmt.Sprintf("There is no PublicIPs to allocate"))
+			allocateErr := errors.New("there is no PublicIPs to allocate")
+			LoggingError(hiscallInfo, allocateErr)
 			return irs.VPCInfo{}, allocateErr
 		} else {
 			creatableSubnet = (*creatableSubnetList)[0]
@@ -271,30 +307,47 @@ func (VPCHandler *ClouditVPCHandler) AddSubnet(vpcIID irs.IID, subnetInfo irs.Su
 		MoreHeaders: authHeader,
 	}
 
-	createdata, err := subnet.Create(VPCHandler.Client, &createOpts)
+	start := call.Start()
+	_, err := subnet.Create(vpcHandler.Client, &createOpts)
 	if err != nil {
+		LoggingError(hiscallInfo, err)
 		return irs.VPCInfo{}, err
 	}
-	_ = VPCHandler.setterSubnet(*createdata)
-	result, err := VPCHandler.GetVPC(vpcIID)
+	LoggingInfo(hiscallInfo, start)
+
+	result, err := vpcHandler.GetVPC(vpcIID)
+	if err != nil {
+		LoggingError(hiscallInfo, err)
+		return irs.VPCInfo{}, err
+	}
+
 	return result, nil
 }
 
-func (VPCHandler *ClouditVPCHandler) RemoveSubnet(vpcIID irs.IID, subnetIID irs.IID) (bool, error) {
-	subnetInfo, err := VPCHandler.getSubnetByName(subnetIID.NameId)
+func (vpcHandler *ClouditVPCHandler) RemoveSubnet(vpcIID irs.IID, subnetIID irs.IID) (bool, error) {
+	// log HisCall
+	hiscallInfo := GetCallLogScheme(vpcHandler.Client.IdentityEndpoint, call.VPCSUBNET, subnetIID.NameId, "RemoveSubnet()")
+
+	subnetInfo, err := vpcHandler.getSubnetByName(subnetIID.NameId)
 	if err != nil {
+		LoggingError(hiscallInfo, err)
 		return false, err
 	}
 
-	VPCHandler.Client.TokenID = VPCHandler.CredentialInfo.AuthToken
-	authHeader := VPCHandler.Client.AuthenticatedHeaders()
+	vpcHandler.Client.TokenID = vpcHandler.CredentialInfo.AuthToken
+	authHeader := vpcHandler.Client.AuthenticatedHeaders()
 
 	requestOpts := client.RequestOpts{
 		MoreHeaders: authHeader,
 	}
 
-	if err := subnet.Delete(VPCHandler.Client, subnetInfo.Addr, &requestOpts); err != nil {
+	start := call.Start()
+	err = subnet.Delete(vpcHandler.Client, subnetInfo.Addr, &requestOpts)
+	if err != nil {
+		LoggingError(hiscallInfo, err)
 		return false, err
 	}
+	LoggingInfo(hiscallInfo, start)
+
 	return true, nil
 }

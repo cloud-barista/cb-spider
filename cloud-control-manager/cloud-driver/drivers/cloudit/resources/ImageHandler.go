@@ -3,11 +3,17 @@ package resources
 import (
 	"errors"
 	"fmt"
+	"strings"
+
+	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/cloudit/client"
 	"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/cloudit/client/ace/image"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
-	"strings"
+)
+
+const (
+	Image = "IMAGE"
 )
 
 type ClouditImageHandler struct {
@@ -28,6 +34,9 @@ func setterImage(image image.ImageInfo) *irs.ImageInfo {
 }
 
 func (imageHandler *ClouditImageHandler) CreateImage(imageReqInfo irs.ImageReqInfo) (irs.ImageInfo, error) {
+	// log HisCall
+	hiscallInfo := GetCallLogScheme(imageHandler.Client.IdentityEndpoint, call.VMIMAGE, imageReqInfo.IId.NameId, "CreateImage()")
+
 	imageHandler.Client.TokenID = imageHandler.CredentialInfo.AuthToken
 	authHeader := imageHandler.Client.AuthenticatedHeaders()
 
@@ -46,15 +55,23 @@ func (imageHandler *ClouditImageHandler) CreateImage(imageReqInfo irs.ImageReqIn
 		MoreHeaders: authHeader,
 	}
 
+	// Create Image
+	start := call.Start()
 	image, err := image.Create(imageHandler.Client, &createOpts)
 	if err != nil {
+		LoggingError(hiscallInfo, err)
 		return irs.ImageInfo{}, err
 	}
+	LoggingInfo(hiscallInfo, start)
+
 	imageInfo := setterImage(*image)
 	return *imageInfo, nil
 }
 
 func (imageHandler *ClouditImageHandler) ListImage() ([]*irs.ImageInfo, error) {
+	// log HisCall
+	hiscallInfo := GetCallLogScheme(imageHandler.Client.IdentityEndpoint, call.VMIMAGE, Image, "ListImage()")
+
 	imageHandler.Client.TokenID = imageHandler.CredentialInfo.AuthToken
 	authHeader := imageHandler.Client.AuthenticatedHeaders()
 
@@ -62,41 +79,41 @@ func (imageHandler *ClouditImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 		MoreHeaders: authHeader,
 	}
 
+	start := call.Start()
 	imageList, err := image.List(imageHandler.Client, &requestOpts)
 	if err != nil {
+		LoggingError(hiscallInfo, err)
 		return nil, err
 	}
+	LoggingInfo(hiscallInfo, start)
 
 	resultList := make([]*irs.ImageInfo, len(*imageList))
-	for i, image := range *imageList {
-		imageInfo := setterImage(image)
+	for i, vmImage := range *imageList {
+		imageInfo := setterImage(vmImage)
 		resultList[i] = imageInfo
 	}
 	return resultList, nil
 }
 
 func (imageHandler *ClouditImageHandler) GetImage(imageIID irs.IID) (irs.ImageInfo, error) {
+	// log HisCall
+	hiscallInfo := GetCallLogScheme(imageHandler.Client.IdentityEndpoint, call.VMIMAGE, imageIID.NameId, "GetImage()")
+
+	start := call.Start()
 	imageInfo, err := imageHandler.getImageByName(imageIID.NameId)
 	if err != nil {
+		LoggingError(hiscallInfo, err)
 		return irs.ImageInfo{}, err
 	}
+	LoggingInfo(hiscallInfo, start)
+
 	return *imageInfo, nil
-	/*imageHandler.Client.TokenID = imageHandler.CredentialInfo.AuthToken
-	authHeader := imageHandler.Client.AuthenticatedHeaders()
-
-	requestOpts := client.RequestOpts{
-		MoreHeaders: authHeader,
-	}
-
-	image, err := image.Get(imageHandler.Client, imageIID.SystemId, &requestOpts)
-	if err != nil {
-		return irs.ImageInfo{}, err
-	}
-	imageInfo := setterImage(*image)
-	return *imageInfo, nil*/
 }
 
 func (imageHandler *ClouditImageHandler) DeleteImage(imageIID irs.IID) (bool, error) {
+	// log HisCall
+	hiscallInfo := GetCallLogScheme(imageHandler.Client.IdentityEndpoint, call.VMIMAGE, imageIID.NameId, "DeleteImage()")
+
 	imageHandler.Client.TokenID = imageHandler.CredentialInfo.AuthToken
 	authHeader := imageHandler.Client.AuthenticatedHeaders()
 
@@ -104,11 +121,15 @@ func (imageHandler *ClouditImageHandler) DeleteImage(imageIID irs.IID) (bool, er
 		MoreHeaders: authHeader,
 	}
 
-	if err := image.Delete(imageHandler.Client, imageIID.SystemId, &requestOpts); err != nil {
+	start := call.Start()
+	err := image.Delete(imageHandler.Client, imageIID.SystemId, &requestOpts)
+	if err != nil {
+		LoggingError(hiscallInfo, err)
 		return false, err
-	} else {
-		return true, nil
 	}
+	LoggingInfo(hiscallInfo, start)
+
+	return true, nil
 }
 
 func (imageHandler *ClouditImageHandler) getImageByName(imageName string) (*irs.ImageInfo, error) {

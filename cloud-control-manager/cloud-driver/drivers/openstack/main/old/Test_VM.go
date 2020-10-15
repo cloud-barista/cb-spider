@@ -64,17 +64,17 @@ func testVMHandler() {
 	}
 	config := readConfigFile()
 
-	cblogger.Info("Test VMHandler")
-	cblogger.Info("1. List VM")
-	cblogger.Info("2. Get VM")
-	cblogger.Info("3. List VMStatus")
-	cblogger.Info("4. Get VMStatus")
-	cblogger.Info("5. Create VM")
-	cblogger.Info("6. Suspend VM")
-	cblogger.Info("7. Resume VM")
-	cblogger.Info("8. Reboot VM")
-	cblogger.Info("9. Terminate VM")
-	cblogger.Info("10. Exit")
+	fmt.Println("Test VMHandler")
+	fmt.Println("1. List VM")
+	fmt.Println("2. Get VM")
+	fmt.Println("3. List VMStatus")
+	fmt.Println("4. Get VMStatus")
+	fmt.Println("5. Create VM")
+	fmt.Println("6. Suspend VM")
+	fmt.Println("7. Resume VM")
+	fmt.Println("8. Reboot VM")
+	fmt.Println("9. Terminate VM")
+	fmt.Println("10. Exit")
 
 	//vmIId := irs.IID{SystemId: "352d5aca-78d4-4eee-99d0-10404d9ed197"}
 	vmIId := irs.IID{SystemId: "5cdf19b2-ece4-4ec7-99f5-31f8b7db05e6"}
@@ -88,83 +88,83 @@ func testVMHandler() {
 		if inputCnt == 1 {
 			switch commandNum {
 			case 1:
-				cblogger.Info("Start List VM ...")
+				fmt.Println("Start List VM ...")
 				vmList, err := vmHandler.ListVM()
 				if err != nil {
 					cblogger.Error(err)
 				} else {
 					for i, vm := range vmList {
-						cblogger.Info("[", i, "] ")
+						fmt.Println("[", i, "] ")
 						spew.Dump(vm)
 					}
 				}
-				cblogger.Info("Finish List VM")
+				fmt.Println("Finish List VM")
 			case 2:
-				cblogger.Info("Start Get VM ...")
+				fmt.Println("Start Get VM ...")
 				vmInfo, err := vmHandler.GetVM(vmIId)
 				if err != nil {
 					cblogger.Error(err)
 				} else {
 					spew.Dump(vmInfo)
 				}
-				cblogger.Info("Finish Get VM")
+				fmt.Println("Finish Get VM")
 			case 3:
-				cblogger.Info("Start List VMStatus ...")
+				fmt.Println("Start List VMStatus ...")
 				vmStatusList, err := vmHandler.ListVMStatus()
 				if err != nil {
 					cblogger.Error(err)
 				} else {
 					for i, vmStatus := range vmStatusList {
-						cblogger.Info("[", i, "] ", *vmStatus)
+						fmt.Println("[", i, "] ", *vmStatus)
 					}
 				}
-				cblogger.Info("Finish List VMStatus")
+				fmt.Println("Finish List VMStatus")
 			case 4:
-				cblogger.Info("Start Get VMStatus ...")
+				fmt.Println("Start Get VMStatus ...")
 				vmStatus, err := vmHandler.GetVMStatus(vmIId)
 				if err != nil {
 					cblogger.Error(err)
 				} else {
-					cblogger.Info(vmStatus)
+					fmt.Println(vmStatus)
 				}
-				cblogger.Info("Finish Get VMStatus")
+				fmt.Println("Finish Get VMStatus")
 			case 5:
-				cblogger.Info("Start Create VM ...")
+				fmt.Println("Start Create VM ...")
 				vmId, err := createVM(config, vmHandler)
 				if err != nil {
 					cblogger.Error(err)
 				} else {
 					vmIId.SystemId = *vmId
 				}
-				cblogger.Info("Finish Create VM")
+				fmt.Println("Finish Create VM")
 			case 6:
-				cblogger.Info("Start Suspend VM ...")
+				fmt.Println("Start Suspend VM ...")
 				_, err := vmHandler.SuspendVM(vmIId)
 				if err != nil {
 					cblogger.Error(err)
 				}
-				cblogger.Info("Finish Suspend VM")
+				fmt.Println("Finish Suspend VM")
 			case 7:
-				cblogger.Info("Start Resume  VM ...")
+				fmt.Println("Start Resume  VM ...")
 				_, err := vmHandler.ResumeVM(vmIId)
 				if err != nil {
 					cblogger.Error(err)
 				}
-				cblogger.Info("Finish Resume VM")
+				fmt.Println("Finish Resume VM")
 			case 8:
-				cblogger.Info("Start Reboot  VM ...")
+				fmt.Println("Start Reboot  VM ...")
 				_, err := vmHandler.RebootVM(vmIId)
 				if err != nil {
 					cblogger.Error(err)
 				}
-				cblogger.Info("Finish Reboot VM")
+				fmt.Println("Finish Reboot VM")
 			case 9:
-				cblogger.Info("Start Terminate  VM ...")
+				fmt.Println("Start Terminate  VM ...")
 				_, err := vmHandler.TerminateVM(vmIId)
 				if err != nil {
 					cblogger.Error(err)
 				}
-				cblogger.Info("Finish Terminate VM")
+				fmt.Println("Finish Terminate VM")
 			}
 		}
 	}

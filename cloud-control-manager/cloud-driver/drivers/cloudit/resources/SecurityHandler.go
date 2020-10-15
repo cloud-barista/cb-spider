@@ -3,15 +3,18 @@ package resources
 import (
 	"errors"
 	"fmt"
+	"strings"
+
+	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/cloudit/client"
 	"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/cloudit/client/iam/securitygroup"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
-	"strings"
 )
 
 const (
 	defaultSecGroupCIDR = "0.0.0.0/0"
+	SecurityGroup       = "SECURITYGROUP"
 )
 
 type ClouditSecurityHandler struct {
@@ -55,11 +58,14 @@ func setterSecGroup(secGroup securitygroup.SecurityGroupInfo) *irs.SecurityInfo 
 }
 
 func (securityHandler *ClouditSecurityHandler) CreateSecurity(securityReqInfo irs.SecurityReqInfo) (irs.SecurityInfo, error) {
+	// log HisCall
+	hiscallInfo := GetCallLogScheme(securityHandler.Client.IdentityEndpoint, call.SECURITYGROUP, securityReqInfo.IId.NameId, "CreateSecurity()")
+
 	// 보안그룹 이름 중복 체크
 	securityInfo, _ := securityHandler.getSecurityByName(securityReqInfo.IId.NameId)
 	if securityInfo != nil {
-		errMsg := fmt.Sprintf("SecurityGroup with name %s already exist", securityReqInfo.IId.NameId)
-		createErr := errors.New(errMsg)
+		createErr := errors.New(fmt.Sprintf("SecurityGroup with name %s already exist", securityReqInfo.IId.NameId))
+		LoggingError(hiscallInfo, createErr)
 		return irs.SecurityInfo{}, createErr
 	}
 
@@ -89,15 +95,22 @@ func (securityHandler *ClouditSecurityHandler) CreateSecurity(securityReqInfo ir
 		MoreHeaders: authHeader,
 	}
 
+	start := call.Start()
 	securityGroup, err := securitygroup.Create(securityHandler.Client, &createOpts)
 	if err != nil {
+		LoggingError(hiscallInfo, err)
 		return irs.SecurityInfo{}, err
 	}
+	LoggingInfo(hiscallInfo, start)
+
 	secGroupInfo := setterSecGroup(*securityGroup)
 	return *secGroupInfo, nil
 }
 
 func (securityHandler *ClouditSecurityHandler) ListSecurity() ([]*irs.SecurityInfo, error) {
+	// log HisCall
+	hiscallInfo := GetCallLogScheme(securityHandler.Client.IdentityEndpoint, call.SECURITYGROUP, SecurityGroup, "ListSecurity()")
+
 	securityHandler.Client.TokenID = securityHandler.CredentialInfo.AuthToken
 	authHeader := securityHandler.Client.AuthenticatedHeaders()
 
@@ -105,10 +118,13 @@ func (securityHandler *ClouditSecurityHandler) ListSecurity() ([]*irs.SecurityIn
 		MoreHeaders: authHeader,
 	}
 
+	start := call.Start()
 	securityList, err := securitygroup.List(securityHandler.Client, &requestOpts)
 	if err != nil {
+		LoggingError(hiscallInfo, err)
 		return nil, err
 	}
+	LoggingInfo(hiscallInfo, start)
 
 	// SecurityGroup Rule 정보 가져오기
 	for i, sg := range *securityList {
@@ -130,12 +146,17 @@ func (securityHandler *ClouditSecurityHandler) ListSecurity() ([]*irs.SecurityIn
 }
 
 func (securityHandler *ClouditSecurityHandler) GetSecurity(securityIID irs.IID) (irs.SecurityInfo, error) {
+	// log HisCall
+	hiscallInfo := GetCallLogScheme(securityHandler.Client.IdentityEndpoint, call.SECURITYGROUP, securityIID.NameId, "GetSecurity()")
+
 	// 이름 기준 보안그룹 조회
+	start := call.Start()
 	securityInfo, err := securityHandler.getSecurityByName(securityIID.NameId)
 	if err != nil {
-		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
 		return irs.SecurityInfo{}, err
 	}
+	LoggingInfo(hiscallInfo, start)
 
 	securityHandler.Client.TokenID = securityHandler.CredentialInfo.AuthToken
 	authHeader := securityHandler.Client.AuthenticatedHeaders()
@@ -144,28 +165,28 @@ func (securityHandler *ClouditSecurityHandler) GetSecurity(securityIID irs.IID) 
 		MoreHeaders: authHeader,
 	}
 
-	//securityInfo, err := securitygroup.Get(securityHandler.Client, securityIID.SystemId, &requestOpts)
-	//if err != nil {
-	//	return irs.SecurityInfo{}, err
-	//}
-
 	// SecurityGroup Rule 정보 가져오기
 	sgRules, err := securitygroup.ListRule(securityHandler.Client, securityInfo.ID, &requestOpts)
 	if err != nil {
+		LoggingError(hiscallInfo, err)
 		return irs.SecurityInfo{}, err
 	}
 
 	(*securityInfo).Rules = *sgRules
 	(*securityInfo).RulesCount = len(*sgRules)
 	secGroupInfo := setterSecGroup(*securityInfo)
+
 	return *secGroupInfo, nil
 }
 
 func (securityHandler *ClouditSecurityHandler) DeleteSecurity(securityIID irs.IID) (bool, error) {
+	// log HisCall
+	hiscallInfo := GetCallLogScheme(securityHandler.Client.IdentityEndpoint, call.SECURITYGROUP, securityIID.NameId, "DeleteSecurity()")
+
 	// 이름 기준 보안그룹 조회
 	securityInfo, err := securityHandler.getSecurityByName(securityIID.NameId)
 	if err != nil {
-		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
 		return false, err
 	}
 
@@ -177,12 +198,14 @@ func (securityHandler *ClouditSecurityHandler) DeleteSecurity(securityIID irs.II
 	}
 
 	// 보안그룹 삭제
-	//if err := securitygroup.Delete(securityHandler.Client, securityIID.SystemId, &requestOpts); err != nil {
-	//	return false, err
-	//}
-	if err := securitygroup.Delete(securityHandler.Client, securityInfo.ID, &requestOpts); err != nil {
+	start := call.Start()
+	err = securitygroup.Delete(securityHandler.Client, securityInfo.ID, &requestOpts)
+	if err != nil {
+		LoggingError(hiscallInfo, err)
 		return false, err
 	}
+	LoggingInfo(hiscallInfo, start)
+
 	return true, nil
 }
 

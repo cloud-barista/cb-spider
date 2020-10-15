@@ -12,11 +12,12 @@ package connect
 
 import (
 	cblog "github.com/cloud-barista/cb-log"
+	"github.com/rackspace/gophercloud"
+	"github.com/sirupsen/logrus"
+
 	osrs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/openstack/resources"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
-	"github.com/rackspace/gophercloud"
-	"github.com/sirupsen/logrus"
 )
 
 var cblogger *logrus.Logger
@@ -41,12 +42,6 @@ func (cloudConn *OpenStackCloudConnection) CreateImageHandler() (irs.ImageHandle
 	return &imageHandler, nil
 }
 
-/*func (cloudConn *OpenStackCloudConnection) CreateVNetworkHandler() (irs.VNetworkHandler, error) {
-	cblogger.Info("OpenStack Cloud Driver: called CreateVNetworkHandler()!")
-	vNetworkHandler := osrs.OpenStackVPCHandler{cloudConn.NetworkClient}
-	return &vNetworkHandler, nil
-}*/
-
 func (cloudConn *OpenStackCloudConnection) CreateVPCHandler() (irs.VPCHandler, error) {
 	cblogger.Info("OpenStack Cloud Driver: called CreateVPCHandler()!")
 	vpcHandler := osrs.OpenStackVPCHandler{cloudConn.NetworkClient}
@@ -64,18 +59,6 @@ func (cloudConn *OpenStackCloudConnection) CreateKeyPairHandler() (irs.KeyPairHa
 	keypairHandler := osrs.OpenStackKeyPairHandler{cloudConn.Client}
 	return &keypairHandler, nil
 }
-
-/*func (cloudConn *OpenStackCloudConnection) CreateVNicHandler() (irs.VNicHandler, error) {
-	cblogger.Info("OpenStack Cloud Driver: called CreateVNicHandler()!")
-	vNicHandler := osrs.OpenStackVNicworkHandler{cloudConn.NetworkClient}
-	return &vNicHandler, nil
-}*/
-
-/*func (cloudConn OpenStackCloudConnection) CreatePublicIPHandler() (irs.PublicIPHandler, error) {
-	cblogger.Info("OpenStack Cloud Driver: called CreatePublicIPHandler()!")
-	publicIPHandler := osrs.OpenStackPublicIPHandler{cloudConn.Client}
-	return &publicIPHandler, nil
-}*/
 
 func (cloudConn *OpenStackCloudConnection) CreateVMHandler() (irs.VMHandler, error) {
 	cblogger.Info("OpenStack Cloud Driver: called CreateVMHandler()!")

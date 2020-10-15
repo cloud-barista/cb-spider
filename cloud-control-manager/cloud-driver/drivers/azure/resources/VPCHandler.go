@@ -4,10 +4,17 @@ import (
 	"context"
 	"errors"
 	"fmt"
+
 	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2018-04-01/network"
 	"github.com/Azure/go-autorest/autorest/to"
+
+	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
+)
+
+const (
+	VPC = "VPC"
 )
 
 type AzureVPCHandler struct {
@@ -49,13 +56,14 @@ func (vpcHandler *AzureVPCHandler) setterSubnet(subnet network.Subnet) *irs.Subn
 }
 
 func (vpcHandler *AzureVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.VPCInfo, error) {
+	// log HisCall
+	hiscallInfo := GetCallLogScheme(vpcHandler.Region, call.VPCSUBNET, VPC, "CreateVPC()")
 
 	// Check VPC Exists
-
 	vpc, _ := vpcHandler.Client.Get(vpcHandler.Ctx, vpcHandler.Region.ResourceGroup, vpcReqInfo.IId.NameId, "")
 	if vpc.ID != nil {
-		errMsg := fmt.Sprintf("VPC with name %s already exist", vpcReqInfo.IId.NameId)
-		createErr := errors.New(errMsg)
+		createErr := errors.New(fmt.Sprintf("vpc with name %s already exist", vpcReqInfo.IId.NameId))
+		LoggingError(hiscallInfo, createErr)
 		return irs.VPCInfo{}, createErr
 	}
 
@@ -70,14 +78,18 @@ func (vpcHandler *AzureVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.VPC
 		Location: &vpcHandler.Region.Region,
 	}
 
+	start := call.Start()
 	future, err := vpcHandler.Client.CreateOrUpdate(vpcHandler.Ctx, vpcHandler.Region.ResourceGroup, vpcReqInfo.IId.NameId, createOpts)
 	if err != nil {
+		LoggingError(hiscallInfo, err)
 		return irs.VPCInfo{}, err
 	}
 	err = future.WaitForCompletionRef(vpcHandler.Ctx, vpcHandler.Client.Client)
 	if err != nil {
+		LoggingError(hiscallInfo, err)
 		return irs.VPCInfo{}, err
 	}
+	LoggingInfo(hiscallInfo, start)
 
 	// Create Subnet
 	var subnetCreateOpts network.Subnet
@@ -90,12 +102,12 @@ func (vpcHandler *AzureVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.VPC
 		}
 		future, err := vpcHandler.SubnetClient.CreateOrUpdate(vpcHandler.Ctx, vpcHandler.Region.ResourceGroup, vpcReqInfo.IId.NameId, subnet.IId.NameId, subnetCreateOpts)
 		if err != nil {
-			cblogger.Error(fmt.Sprint("Failed to create subnet with name %s", subnet.IId.NameId))
+			cblogger.Error(fmt.Sprintf("failed to create subnet with name %s", subnet.IId.NameId))
 			continue
 		}
 		err = future.WaitForCompletionRef(vpcHandler.Ctx, vpcHandler.Client.Client)
 		if err != nil {
-			cblogger.Error(fmt.Sprint("Failed to create subnet with name %s", subnet.IId.NameId))
+			cblogger.Error(fmt.Sprintf("failed to create subnet with name %s", subnet.IId.NameId))
 			continue
 		}
 	}
@@ -109,10 +121,16 @@ func (vpcHandler *AzureVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.VPC
 }
 
 func (vpcHandler *AzureVPCHandler) ListVPC() ([]*irs.VPCInfo, error) {
+	// log HisCall
+	hiscallInfo := GetCallLogScheme(vpcHandler.Region, call.VPCSUBNET, VPC, "ListVPC()")
+
+	start := call.Start()
 	vpcList, err := vpcHandler.Client.List(vpcHandler.Ctx, vpcHandler.Region.ResourceGroup)
 	if err != nil {
+		LoggingError(hiscallInfo, err)
 		return nil, err
 	}
+	LoggingInfo(hiscallInfo, start)
 
 	vpcInfoList := make([]*irs.VPCInfo, len(vpcList.Values()))
 	for i, vpc := range vpcList.Values() {
@@ -122,32 +140,49 @@ func (vpcHandler *AzureVPCHandler) ListVPC() ([]*irs.VPCInfo, error) {
 }
 
 func (vpcHandler *AzureVPCHandler) GetVPC(vpcIID irs.IID) (irs.VPCInfo, error) {
+	// log HisCall
+	hiscallInfo := GetCallLogScheme(vpcHandler.Region, call.VPCSUBNET, vpcIID.NameId, "GetVPC()")
+
+	start := call.Start()
 	vpc, err := vpcHandler.Client.Get(vpcHandler.Ctx, vpcHandler.Region.ResourceGroup, vpcIID.NameId, "")
 	if err != nil {
+		LoggingError(hiscallInfo, err)
 		return irs.VPCInfo{}, err
 	}
+	LoggingInfo(hiscallInfo, start)
 
 	vpcInfo := vpcHandler.setterVPC(vpc)
 	return *vpcInfo, nil
 }
 
 func (vpcHandler *AzureVPCHandler) DeleteVPC(vpcIID irs.IID) (bool, error) {
+	// log HisCall
+	hiscallInfo := GetCallLogScheme(vpcHandler.Region, call.VPCSUBNET, vpcIID.NameId, "DeleteVPC()")
+
+	start := call.Start()
 	future, err := vpcHandler.Client.Delete(vpcHandler.Ctx, vpcHandler.Region.ResourceGroup, vpcIID.NameId)
 	if err != nil {
+		LoggingError(hiscallInfo, err)
 		return false, err
 	}
 	err = future.WaitForCompletionRef(vpcHandler.Ctx, vpcHandler.Client.Client)
 	if err != nil {
+		LoggingError(hiscallInfo, err)
 		return false, err
 	}
+	LoggingInfo(hiscallInfo, start)
+
 	return true, nil
 }
 
-func (VPCHandler *AzureVPCHandler) AddSubnet(vpcIID irs.IID, subnetInfo irs.SubnetInfo) (irs.VPCInfo, error) {
-	vpc, _ := VPCHandler.Client.Get(VPCHandler.Ctx, VPCHandler.Region.ResourceGroup, vpcIID.NameId, "")
+func (vpcHandler *AzureVPCHandler) AddSubnet(vpcIID irs.IID, subnetInfo irs.SubnetInfo) (irs.VPCInfo, error) {
+	// log HisCall
+	hiscallInfo := GetCallLogScheme(vpcHandler.Region, call.VPCSUBNET, subnetInfo.IId.NameId, "AddSubnet()")
+
+	vpc, _ := vpcHandler.Client.Get(vpcHandler.Ctx, vpcHandler.Region.ResourceGroup, vpcIID.NameId, "")
 	if vpc.ID == nil {
-		errMsg := fmt.Sprintf("VPC with name %s not exist", vpcIID.NameId)
-		createErr := errors.New(errMsg)
+		createErr := errors.New(fmt.Sprintf("vpc with name %s not exist", vpcIID.NameId))
+		LoggingError(hiscallInfo, createErr)
 		return irs.VPCInfo{}, createErr
 	}
 	subnetCreateOpts := network.Subnet{
@@ -156,29 +191,33 @@ func (VPCHandler *AzureVPCHandler) AddSubnet(vpcIID irs.IID, subnetInfo irs.Subn
 			AddressPrefix: to.StringPtr(subnetInfo.IPv4_CIDR),
 		},
 	}
-	future, err := VPCHandler.SubnetClient.CreateOrUpdate(VPCHandler.Ctx, VPCHandler.Region.ResourceGroup, *vpc.Name, subnetInfo.IId.NameId, subnetCreateOpts)
+	future, err := vpcHandler.SubnetClient.CreateOrUpdate(vpcHandler.Ctx, vpcHandler.Region.ResourceGroup, *vpc.Name, subnetInfo.IId.NameId, subnetCreateOpts)
 	if err != nil {
-		cblogger.Error(fmt.Sprint("Failed to create subnet with name %s", subnetInfo.IId.NameId))
-		return irs.VPCInfo{}, err
+		createErr := errors.New(fmt.Sprintf("failed to create subnet with name %s", subnetInfo.IId.NameId))
+		LoggingError(hiscallInfo, createErr)
+		return irs.VPCInfo{}, createErr
 	}
-	err = future.WaitForCompletionRef(VPCHandler.Ctx, VPCHandler.Client.Client)
+	err = future.WaitForCompletionRef(vpcHandler.Ctx, vpcHandler.Client.Client)
 	if err != nil {
-		cblogger.Error(fmt.Sprint("Failed to create subnet with name %s", subnetInfo.IId.NameId))
-		return irs.VPCInfo{}, err
+		createErr := errors.New(fmt.Sprintf("failed to create subnet with name %s", subnetInfo.IId.NameId))
+		LoggingError(hiscallInfo, createErr)
+		return irs.VPCInfo{}, createErr
 	}
-	result, err := VPCHandler.GetVPC(irs.IID{NameId: vpcIID.NameId})
+	result, err := vpcHandler.GetVPC(irs.IID{NameId: vpcIID.NameId})
 	if err != nil {
-		return irs.VPCInfo{}, err
+		createErr := errors.New(fmt.Sprintf("failed to create subnet with name %s", subnetInfo.IId.NameId))
+		LoggingError(hiscallInfo, createErr)
+		return irs.VPCInfo{}, createErr
 	}
 	return result, nil
 }
 
-func (VPCHandler *AzureVPCHandler) RemoveSubnet(vpcIID irs.IID, subnetIID irs.IID) (bool, error) {
-	future, err := VPCHandler.SubnetClient.Delete(VPCHandler.Ctx, VPCHandler.Region.ResourceGroup, vpcIID.NameId, subnetIID.NameId)
+func (vpcHandler *AzureVPCHandler) RemoveSubnet(vpcIID irs.IID, subnetIID irs.IID) (bool, error) {
+	future, err := vpcHandler.SubnetClient.Delete(vpcHandler.Ctx, vpcHandler.Region.ResourceGroup, vpcIID.NameId, subnetIID.NameId)
 	if err != nil {
 		return false, err
 	}
-	err = future.WaitForCompletionRef(VPCHandler.Ctx, VPCHandler.Client.Client)
+	err = future.WaitForCompletionRef(vpcHandler.Ctx, vpcHandler.Client.Client)
 	if err != nil {
 		return false, err
 	}

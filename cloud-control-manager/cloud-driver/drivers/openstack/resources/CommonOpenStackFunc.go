@@ -3,8 +3,11 @@ package resources
 import (
 	"errors"
 	"fmt"
-	_ "fmt"
-	_ "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
+	"strings"
+	"sync"
+	"time"
+
+	cblog "github.com/cloud-barista/cb-log"
 	"github.com/rackspace/gophercloud"
 	"github.com/rackspace/gophercloud/openstack/compute/v2/extensions/secgroups"
 	"github.com/rackspace/gophercloud/openstack/compute/v2/flavors"
@@ -13,15 +16,49 @@ import (
 	"github.com/rackspace/gophercloud/openstack/networking/v2/ports"
 	"github.com/rackspace/gophercloud/openstack/networking/v2/subnets"
 	"github.com/rackspace/gophercloud/pagination"
-	_ "strconv"
-	"strings"
-	_ "strings"
+	"github.com/sirupsen/logrus"
+
+	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 )
 
 const (
 	CBVirutalNetworkName = "CB-VNet"
 	DNSNameservers       = "8.8.8.8"
 )
+
+var once sync.Once
+var cblogger *logrus.Logger
+var calllogger *logrus.Logger
+
+func InitLog() {
+	once.Do(func() {
+		// cblog is a global variable.
+		cblogger = cblog.GetLogger("CB-SPIDER")
+		calllogger = call.GetLogger("HISCALL")
+	})
+}
+
+func LoggingError(hiscallInfo call.CLOUDLOGSCHEMA, err error) {
+	cblogger.Error(err.Error())
+	hiscallInfo.ErrorMSG = err.Error()
+	calllogger.Info(call.String(hiscallInfo))
+}
+
+func LoggingInfo(hiscallInfo call.CLOUDLOGSCHEMA, start time.Time) {
+	hiscallInfo.ElapsedTime = call.Elapsed(start)
+	calllogger.Info(call.String(hiscallInfo))
+}
+
+func GetCallLogScheme(endpoint string, resourceType call.RES_TYPE, resourceName string, apiName string) call.CLOUDLOGSCHEMA {
+	cblogger.Info(fmt.Sprintf("Call %s %s", call.OPENSTACK, apiName))
+	return call.CLOUDLOGSCHEMA{
+		CloudOS:      call.OPENSTACK,
+		RegionZone:   endpoint,
+		ResourceType: resourceType,
+		ResourceName: resourceName,
+		CloudOSAPI:   apiName,
+	}
+}
 
 func GetPublicVPCInfo(client *gophercloud.ServiceClient, typeName string) (string, error) {
 	page, err := networks.List(client, nil).AllPages()

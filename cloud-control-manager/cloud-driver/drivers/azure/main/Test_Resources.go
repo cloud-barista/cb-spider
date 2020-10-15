@@ -49,10 +49,10 @@ Loop:
 			switch commandNum {
 			case 1:
 				cblogger.Info("Start ListImage() ...")
-				if list, err := imageHandler.ListImage(); err != nil {
+				if _, err := imageHandler.ListImage(); err != nil {
 					cblogger.Error(err)
 				} else {
-					spew.Dump(list)
+					//spew.Dump(list)
 				}
 				cblogger.Info("Finish ListImage()")
 			case 2:

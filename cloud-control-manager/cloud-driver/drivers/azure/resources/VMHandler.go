@@ -14,17 +14,21 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"reflect"
+	"strings"
+
 	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2018-06-01/compute"
 	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2018-04-01/network"
 	"github.com/Azure/go-autorest/autorest/to"
+
+	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
-	"reflect"
-	"strings"
 )
 
 const (
-	PROVISIONING_STATE_CODE string = "ProvisioningState/succeeded"
+	ProvisioningStateCode string = "ProvisioningState/succeeded"
+	VM                           = "VM"
 )
 
 type AzureVMHandler struct {
@@ -39,17 +43,21 @@ type AzureVMHandler struct {
 }
 
 func (vmHandler *AzureVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, error) {
+	// log HisCall
+	hiscallInfo := GetCallLogScheme(vmHandler.Region, call.VM, vmReqInfo.IId.NameId, "StartVM()")
+
 	// Check VM Exists
 	vm, err := vmHandler.Client.Get(vmHandler.Ctx, vmHandler.Region.ResourceGroup, vmReqInfo.IId.NameId, compute.InstanceView)
 	if vm.ID != nil {
-		errMsg := fmt.Sprintf("VirtualMachine with name %s already exist", vmReqInfo.IId.NameId)
-		createErr := errors.New(errMsg)
+		createErr := errors.New(fmt.Sprintf("virtualMachine with name %s already exist", vmReqInfo.IId.NameId))
+		LoggingError(hiscallInfo, createErr)
 		return irs.VMInfo{}, createErr
 	}
 
 	// Check login method (keypair, password)
 	if vmReqInfo.VMUserPasswd != "" && vmReqInfo.KeyPairIID.NameId != "" {
-		createErr := errors.New("Specifiy one login method, Password or Keypair")
+		createErr := errors.New("specify one login method, Password or Keypair")
+		LoggingError(hiscallInfo, createErr)
 		return irs.VMInfo{}, createErr
 	}
 
@@ -57,6 +65,7 @@ func (vmHandler *AzureVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 	// PublicIP 생성
 	publicIPIId, err := CreatePublicIP(vmHandler, vmReqInfo)
 	if err != nil {
+		LoggingError(hiscallInfo, err)
 		return irs.VMInfo{}, err
 	}
 
@@ -64,6 +73,7 @@ func (vmHandler *AzureVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 	// VNic 생성
 	vNicIId, err := CreateVNic(vmHandler, vmReqInfo, publicIPIId)
 	if err != nil {
+		LoggingError(hiscallInfo, err)
 		return irs.VMInfo{}, err
 	}
 
@@ -116,7 +126,7 @@ func (vmHandler *AzureVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 	if vmReqInfo.KeyPairIID.NameId != "" {
 		publicKey, err := GetPublicKey(vmHandler.CredentialInfo, vmReqInfo.KeyPairIID.NameId)
 		if err != nil {
-			cblogger.Error(err)
+			LoggingError(hiscallInfo, err)
 			return irs.VMInfo{}, err
 		}
 		vmOpts.OsProfile.LinuxConfiguration = &compute.LinuxConfiguration{
@@ -141,85 +151,107 @@ func (vmHandler *AzureVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 		}
 	}
 
+	start := call.Start()
 	future, err := vmHandler.Client.CreateOrUpdate(vmHandler.Ctx, vmHandler.Region.ResourceGroup, vmReqInfo.IId.NameId, vmOpts)
 	if err != nil {
-		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
 		return irs.VMInfo{}, err
 	}
 	err = future.WaitForCompletionRef(vmHandler.Ctx, vmHandler.Client.Client)
 	if err != nil {
-		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
 		return irs.VMInfo{}, err
 	}
+	LoggingInfo(hiscallInfo, start)
 
 	vm, err = vmHandler.Client.Get(vmHandler.Ctx, vmHandler.Region.ResourceGroup, vmReqInfo.IId.NameId, compute.InstanceView)
 	if err != nil {
-		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
 	}
-	vmInfo := vmHandler.mappingServerInfo(vm)
 
+	vmInfo := vmHandler.mappingServerInfo(vm)
 	return vmInfo, nil
 }
 
 func (vmHandler *AzureVMHandler) SuspendVM(vmIID irs.IID) (irs.VMStatus, error) {
+	// log HisCall
+	hiscallInfo := GetCallLogScheme(vmHandler.Region, call.VM, vmIID.NameId, "SuspendVM()")
+
+	start := call.Start()
 	future, err := vmHandler.Client.PowerOff(vmHandler.Ctx, vmHandler.Region.ResourceGroup, vmIID.NameId)
 	if err != nil {
-		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
 		return irs.Failed, err
 	}
 	err = future.WaitForCompletionRef(vmHandler.Ctx, vmHandler.Client.Client)
 	if err != nil {
-		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
 		return irs.Failed, err
 	}
 
 	// Get VM Status
 	vmStatus, err := vmHandler.GetVMStatus(vmIID)
 	if err != nil {
-		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
 		return irs.Failed, err
 	}
+
+	LoggingInfo(hiscallInfo, start)
+
 	return vmStatus, nil
 }
 
 func (vmHandler *AzureVMHandler) ResumeVM(vmIID irs.IID) (irs.VMStatus, error) {
+	// log HisCall
+	hiscallInfo := GetCallLogScheme(vmHandler.Region, call.VM, vmIID.NameId, "ResumeVM()")
+
+	start := call.Start()
 	future, err := vmHandler.Client.Start(vmHandler.Ctx, vmHandler.Region.ResourceGroup, vmIID.NameId)
 	if err != nil {
-		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
 		return irs.Failed, err
 	}
 	err = future.WaitForCompletionRef(vmHandler.Ctx, vmHandler.Client.Client)
 	if err != nil {
-		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
 		return irs.Failed, err
 	}
+	LoggingInfo(hiscallInfo, start)
 
 	// 자체생성상태 반환
 	return irs.Resuming, nil
 }
 
 func (vmHandler *AzureVMHandler) RebootVM(vmIID irs.IID) (irs.VMStatus, error) {
+	// log HisCall
+	hiscallInfo := GetCallLogScheme(vmHandler.Region, call.VM, vmIID.NameId, "RebootVM()")
+
+	start := call.Start()
 	future, err := vmHandler.Client.Restart(vmHandler.Ctx, vmHandler.Region.ResourceGroup, vmIID.NameId)
 	if err != nil {
-		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
 		return irs.Failed, err
 	}
 	err = future.WaitForCompletionRef(vmHandler.Ctx, vmHandler.Client.Client)
 	if err != nil {
-		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
 		return irs.Failed, err
 	}
+	LoggingInfo(hiscallInfo, start)
 
 	// 자체생성상태 반환
 	return irs.Rebooting, nil
 }
 
 func (vmHandler *AzureVMHandler) TerminateVM(vmIID irs.IID) (irs.VMStatus, error) {
+	// log HisCall
+	hiscallInfo := GetCallLogScheme(vmHandler.Region, call.VM, vmIID.NameId, "TerminateVM()")
 
 	// VM 삭제 시 OS Disk도 함께 삭제 처리
 	// VM OSDisk 이름 가져오기
 	vmInfo, err := vmHandler.GetVM(vmIID)
 	if err != nil {
+		LoggingError(hiscallInfo, err)
 		return irs.Failed, err
 	}
 	osDiskName := vmInfo.VMBootDisk
@@ -228,27 +260,29 @@ func (vmHandler *AzureVMHandler) TerminateVM(vmIID irs.IID) (irs.VMStatus, error
 	// VNic에서 PublicIP 연결해제
 	vNicDetachStatus, err := DetachVNic(vmHandler, vmInfo)
 	if err != nil {
-		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
 		return vNicDetachStatus, err
 	}
 
 	// VM 삭제
+	start := call.Start()
 	future, err := vmHandler.Client.Delete(vmHandler.Ctx, vmHandler.Region.ResourceGroup, vmIID.NameId)
 	if err != nil {
-		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
 		return irs.Failed, err
 	}
 	err = future.WaitForCompletionRef(vmHandler.Ctx, vmHandler.Client.Client)
 	if err != nil {
-		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
 		return irs.Failed, err
 	}
+	LoggingInfo(hiscallInfo, start)
 
 	// TODO: nested flow 개선
 	// VNic 삭제
 	vNicStatus, err := DeleteVNic(vmHandler, vmInfo)
 	if err != nil {
-		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
 		return vNicStatus, err
 	}
 
@@ -256,7 +290,7 @@ func (vmHandler *AzureVMHandler) TerminateVM(vmIID irs.IID) (irs.VMStatus, error
 	// PublicIP 삭제
 	publicIPStatus, err := DeletePublicIP(vmHandler, vmInfo)
 	if err != nil {
-		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
 		return publicIPStatus, err
 	}
 
@@ -264,7 +298,7 @@ func (vmHandler *AzureVMHandler) TerminateVM(vmIID irs.IID) (irs.VMStatus, error
 	// OS Disk 삭제
 	diskStatus, err := DeleteVMDisk(vmHandler, osDiskName)
 	if err != nil {
-		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
 		return diskStatus, err
 	}
 
@@ -273,11 +307,16 @@ func (vmHandler *AzureVMHandler) TerminateVM(vmIID irs.IID) (irs.VMStatus, error
 }
 
 func (vmHandler *AzureVMHandler) ListVMStatus() ([]*irs.VMStatusInfo, error) {
+	// log HisCall
+	hiscallInfo := GetCallLogScheme(vmHandler.Region, call.VM, VM, "ListVMStatus()")
+
+	start := call.Start()
 	serverList, err := vmHandler.Client.List(vmHandler.Ctx, vmHandler.Region.ResourceGroup)
 	if err != nil {
-		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
 		return []*irs.VMStatusInfo{}, err
 	}
+	LoggingInfo(hiscallInfo, start)
 
 	var vmStatusList []*irs.VMStatusInfo
 	for _, s := range serverList.Values() {
@@ -311,11 +350,16 @@ func (vmHandler *AzureVMHandler) ListVMStatus() ([]*irs.VMStatusInfo, error) {
 }
 
 func (vmHandler *AzureVMHandler) GetVMStatus(vmIID irs.IID) (irs.VMStatus, error) {
+	// log HisCall
+	hiscallInfo := GetCallLogScheme(vmHandler.Region, call.VM, vmIID.NameId, "GetVMStatus()")
+
+	start := call.Start()
 	instanceView, err := vmHandler.Client.InstanceView(vmHandler.Ctx, vmHandler.Region.ResourceGroup, vmIID.NameId)
 	if err != nil {
-		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
 		return irs.Failed, err
 	}
+	LoggingInfo(hiscallInfo, start)
 
 	// Get powerState, provisioningState
 	vmStatus := getVmStatus(instanceView)
@@ -323,11 +367,16 @@ func (vmHandler *AzureVMHandler) GetVMStatus(vmIID irs.IID) (irs.VMStatus, error
 }
 
 func (vmHandler *AzureVMHandler) ListVM() ([]*irs.VMInfo, error) {
+	// log HisCall
+	hiscallInfo := GetCallLogScheme(vmHandler.Region, call.VM, VM, "ListVM()")
+
+	start := call.Start()
 	serverList, err := vmHandler.Client.List(vmHandler.Ctx, vmHandler.Region.ResourceGroup)
 	if err != nil {
-		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
 		return []*irs.VMInfo{}, err
 	}
+	LoggingInfo(hiscallInfo, start)
 
 	var vmList []*irs.VMInfo
 	for _, server := range serverList.Values() {
@@ -339,10 +388,16 @@ func (vmHandler *AzureVMHandler) ListVM() ([]*irs.VMInfo, error) {
 }
 
 func (vmHandler *AzureVMHandler) GetVM(vmIID irs.IID) (irs.VMInfo, error) {
+	// log HisCall
+	hiscallInfo := GetCallLogScheme(vmHandler.Region, call.VM, vmIID.NameId, "GetVM()")
+
+	start := call.Start()
 	vm, err := vmHandler.Client.Get(vmHandler.Ctx, vmHandler.Region.ResourceGroup, vmIID.NameId, compute.InstanceView)
 	if err != nil {
+		LoggingError(hiscallInfo, err)
 		return irs.VMInfo{}, err
 	}
+	LoggingInfo(hiscallInfo, start)
 
 	vmInfo := vmHandler.mappingServerInfo(vm)
 	return vmInfo, nil
@@ -482,7 +537,7 @@ func (vmHandler *AzureVMHandler) mappingServerInfo(server compute.VirtualMachine
 	// Get StartTime
 	if server.VirtualMachineProperties.InstanceView != nil {
 		for _, status := range *server.VirtualMachineProperties.InstanceView.Statuses {
-			if strings.EqualFold(*status.Code, PROVISIONING_STATE_CODE) {
+			if strings.EqualFold(*status.Code, ProvisioningStateCode) {
 				vmInfo.StartTime = status.Time.Local()
 				break
 			}

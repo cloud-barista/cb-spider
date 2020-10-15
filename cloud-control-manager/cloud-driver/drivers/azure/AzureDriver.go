@@ -12,15 +12,18 @@ package azure
 
 import (
 	"context"
+	"time"
+
 	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2018-06-01/compute"
 	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2018-04-01/network"
 	"github.com/Azure/azure-sdk-for-go/services/resources/mgmt/2017-05-10/resources"
 	"github.com/Azure/go-autorest/autorest/azure/auth"
 	"github.com/Azure/go-autorest/autorest/to"
+
 	azcon "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/azure/connect"
+	azrs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/azure/resources"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	icon "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/connect"
-	"time"
 )
 
 type AzureDriver struct{}
@@ -49,6 +52,9 @@ func (driver *AzureDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (ico
 	// 2. create a client object(or service  object) of Test A Cloud with credential info.
 	// 3. create CloudConnection Instance of "connect/TDA_CloudConnection".
 	// 4. return CloudConnection Interface of TDA_CloudConnection.
+
+	// Initialize Logger
+	azrs.InitLog()
 
 	// Credentail에 등록된 ResourceGroup 존재 여부 체크 및 생성
 	err := checkResourceGroup(connectionInfo.CredentialInfo, connectionInfo.RegionInfo)
