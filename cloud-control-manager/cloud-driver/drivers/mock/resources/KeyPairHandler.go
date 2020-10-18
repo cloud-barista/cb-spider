@@ -38,7 +38,7 @@ func (keyPairHandler *MockKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPairRe
 	keyPairReqInfo.IId.SystemId = keyPairReqInfo.IId.NameId
 
 	// (1) create keyPairInfo object
-	keyPairInfo := irs.KeyPairInfo{irs.IID{keyPairReqInfo.IId.NameId, keyPairReqInfo.IId.SystemId}, 
+	keyPairInfo := irs.KeyPairInfo{keyPairReqInfo.IId,
 			"XXXXFingerprint", "XXXXPublicKey", "XXXXPrivateKey", "cb-user", nil}
 
 	// (2) insert KeyPairInfo into global Map

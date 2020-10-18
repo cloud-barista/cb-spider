@@ -54,7 +54,8 @@ func (cloudConn *MockConnection) CreateVPCHandler() (irs.VPCHandler, error) {
 
 func (cloudConn MockConnection) CreateSecurityHandler() (irs.SecurityHandler, error) {
         cblogger.Error("Mock Driver: called CreateSecurityHandler(), but not supported!")
-        return nil, nil
+	handler := mkrs.MockSecurityHandler{cloudConn.MockName}
+	return &handler, nil
 }
 
 func (cloudConn *MockConnection) CreateKeyPairHandler() (irs.KeyPairHandler, error) {
