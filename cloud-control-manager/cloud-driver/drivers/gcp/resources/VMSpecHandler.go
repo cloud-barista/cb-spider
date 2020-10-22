@@ -18,6 +18,7 @@ import (
 
 	compute "google.golang.org/api/compute/v1"
 
+	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 )
@@ -34,12 +35,28 @@ func (vmSpecHandler *GCPVMSpecHandler) ListVMSpec(Region string) ([]*irs.VMSpecI
 	projectID := vmSpecHandler.Credential.ProjectID
 	zone := vmSpecHandler.Region.Zone
 
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.GCP,
+		RegionZone:   vmSpecHandler.Region.Zone,
+		ResourceType: call.VMSPEC,
+		ResourceName: "",
+		CloudOSAPI:   "List()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+	callLogStart := call.Start()
 	resp, err := vmSpecHandler.Client.MachineTypes.List(projectID, zone).Do()
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 
 	if err != nil {
+		callLogInfo.ErrorMSG = err.Error()
+		callogger.Info(call.String(callLogInfo))
 		cblogger.Error(err)
 		return []*irs.VMSpecInfo{}, err
 	}
+	callogger.Info(call.String(callLogInfo))
 	var vmSpecInfo []*irs.VMSpecInfo
 	for _, i := range resp.Items {
 		info := irs.VMSpecInfo{
@@ -60,12 +77,29 @@ func (vmSpecHandler *GCPVMSpecHandler) GetVMSpec(Region string, Name string) (ir
 	projectID := vmSpecHandler.Credential.ProjectID
 	zone := vmSpecHandler.Region.Zone
 
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.GCP,
+		RegionZone:   vmSpecHandler.Region.Zone,
+		ResourceType: call.VMSPEC,
+		ResourceName: Name,
+		CloudOSAPI:   "Get()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+	callLogStart := call.Start()
+
 	info, err := vmSpecHandler.Client.MachineTypes.Get(projectID, zone, Name).Do()
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 
 	if err != nil {
+		callLogInfo.ErrorMSG = err.Error()
+		callogger.Info(call.String(callLogInfo))
 		cblogger.Error(err)
 		return irs.VMSpecInfo{}, err
 	}
+	callogger.Info(call.String(callLogInfo))
 
 	vmSpecInfo := irs.VMSpecInfo{
 		Region: Region,
@@ -92,12 +126,28 @@ func (vmSpecHandler *GCPVMSpecHandler) ListOrgVMSpec(Region string) (string, err
 	projectID := vmSpecHandler.Credential.ProjectID
 	zone := vmSpecHandler.Region.Zone
 
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.GCP,
+		RegionZone:   vmSpecHandler.Region.Zone,
+		ResourceType: call.VMSPEC,
+		ResourceName: "",
+		CloudOSAPI:   "List()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+	callLogStart := call.Start()
 	resp, err := vmSpecHandler.Client.MachineTypes.List(projectID, zone).Do()
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 
 	if err != nil {
+		callLogInfo.ErrorMSG = err.Error()
+		callogger.Info(call.String(callLogInfo))
 		cblogger.Error(err)
 		return "", err
 	}
+	callogger.Info(call.String(callLogInfo))
 	j, _ := resp.MarshalJSON()
 
 	return string(j), err
@@ -107,12 +157,29 @@ func (vmSpecHandler *GCPVMSpecHandler) GetOrgVMSpec(Region string, Name string) 
 	projectID := vmSpecHandler.Credential.ProjectID
 	zone := vmSpecHandler.Region.Zone
 
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.GCP,
+		RegionZone:   vmSpecHandler.Region.Zone,
+		ResourceType: call.VMSPEC,
+		ResourceName: Name,
+		CloudOSAPI:   "Get()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+	callLogStart := call.Start()
+
 	info, err := vmSpecHandler.Client.MachineTypes.Get(projectID, zone, Name).Do()
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 
 	if err != nil {
+		callLogInfo.ErrorMSG = err.Error()
+		callogger.Info(call.String(callLogInfo))
 		cblogger.Error(err)
 		return "", err
 	}
+	callogger.Info(call.String(callLogInfo))
 	j, _ := info.MarshalJSON()
 
 	return string(j), err

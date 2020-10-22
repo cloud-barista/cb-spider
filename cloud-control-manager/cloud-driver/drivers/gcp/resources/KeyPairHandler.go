@@ -23,6 +23,7 @@ import (
 	"os"
 	"strings"
 
+	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"golang.org/x/crypto/ssh"
@@ -58,11 +59,28 @@ func (keyPairHandler *GCPKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPairReq
 		}
 	}
 
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.GCP,
+		RegionZone:   keyPairHandler.Region.Zone,
+		ResourceType: call.VMKEYPAIR,
+		ResourceName: keyPairReqInfo.IId.NameId,
+		CloudOSAPI:   "CreateHashString()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+	callLogStart := call.Start()
+
 	hashString, err := CreateHashString(keyPairHandler.CredentialInfo)
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 	if err != nil {
+		callLogInfo.ErrorMSG = err.Error()
+		callogger.Info(call.String(callLogInfo))
 		cblogger.Error(err)
 		return irs.KeyPairInfo{}, err
 	}
+	callogger.Info(call.String(callLogInfo))
 
 	savePrivateFileTo := keyPairPath + hashString + "--" + keyPairName
 	savePublicFileTo := keyPairPath + hashString + "--" + keyPairName + ".pub"
@@ -138,8 +156,24 @@ func (keyPairHandler *GCPKeyPairHandler) ListKey() ([]*irs.KeyPairInfo, error) {
 
 	var keyPairInfoList []*irs.KeyPairInfo
 
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.GCP,
+		RegionZone:   keyPairHandler.Region.Zone,
+		ResourceType: call.VMKEYPAIR,
+		ResourceName: "List",
+		CloudOSAPI:   "ioutil.ReadDir()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+	callLogStart := call.Start()
+
 	files, err := ioutil.ReadDir(keyPairPath)
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 	if err != nil {
+		callLogInfo.ErrorMSG = err.Error()
+		callogger.Info(call.String(callLogInfo))
 		//cblogger.Error("Fail ReadDir(keyPairPath)")
 		//cblogger.Error(err)
 		//return nil, err
@@ -147,6 +181,7 @@ func (keyPairHandler *GCPKeyPairHandler) ListKey() ([]*irs.KeyPairInfo, error) {
 		//키페어 폴더가 없는 경우 생성된 키가 없는 것으로 변경
 		return nil, nil
 	}
+	callogger.Info(call.String(callLogInfo))
 
 	for _, f := range files {
 		if strings.Contains(f.Name(), ".pub") {
@@ -187,11 +222,29 @@ func (keyPairHandler *GCPKeyPairHandler) GetKey(keyIID irs.IID) (irs.KeyPairInfo
 	privateKeyPath := keyPairPath + hashString + "--" + keyPairName
 	publicKeyPath := keyPairPath + hashString + "--" + keyPairName + ".pub"
 
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.GCP,
+		RegionZone:   keyPairHandler.Region.Zone,
+		ResourceType: call.VMKEYPAIR,
+		ResourceName: keyIID.SystemId,
+		CloudOSAPI:   "os.Stat()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+	callLogStart := call.Start()
+
 	//키 페어 존재 여부 체크
 	if _, err := os.Stat(privateKeyPath); err != nil {
+		callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+		callLogInfo.ErrorMSG = err.Error()
+		callogger.Info(call.String(callLogInfo))
 		cblogger.Error(err)
 		return irs.KeyPairInfo{}, errors.New("Not Found : [" + keyIID.SystemId + "] KeyPair Not Found.")
 	}
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+	callogger.Info(call.String(callLogInfo))
 
 	// Private Key, Public Key 파일 정보 가져오기
 	privateKeyBytes, err := ioutil.ReadFile(privateKeyPath)
@@ -242,12 +295,29 @@ func (keyPairHandler *GCPKeyPairHandler) DeleteKey(keyIID irs.IID) (bool, error)
 		return false, errors.New("Not Found : [" + keyIID.SystemId + "] KeyPair Not Found.")
 	}
 
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.GCP,
+		RegionZone:   keyPairHandler.Region.Zone,
+		ResourceType: call.VMKEYPAIR,
+		ResourceName: keyPairName,
+		CloudOSAPI:   "Remove()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+	callLogStart := call.Start()
+
 	// Private Key, Public Key 삭제
 	err = os.Remove(privateKeyPath)
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 	if err != nil {
+		callLogInfo.ErrorMSG = err.Error()
+		callogger.Info(call.String(callLogInfo))
 		cblogger.Error(err)
 		return false, err
 	}
+	callogger.Info(call.String(callLogInfo))
 	err = os.Remove(publicKeyPath)
 	if err != nil {
 		cblogger.Error(err)
