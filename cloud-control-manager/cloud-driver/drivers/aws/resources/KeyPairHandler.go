@@ -6,6 +6,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/ec2"
+	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	_ "github.com/davecgh/go-spew/spew"
@@ -37,13 +38,30 @@ func (keyPairHandler *AwsKeyPairHandler) ListKey() ([]*irs.KeyPairInfo, error) {
 		},
 	}
 
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.AWS,
+		RegionZone:   keyPairHandler.Region.Zone,
+		ResourceType: call.SECURITYGROUP,
+		ResourceName: "ListKey()",
+		CloudOSAPI:   "DescribeKeyPairs()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+	callLogStart := call.Start()
+
 	//  Returns a list of key pairs
 	result, err := keyPairHandler.Client.DescribeKeyPairs(input)
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 	cblogger.Debug(result)
 	if err != nil {
+		callLogInfo.ErrorMSG = err.Error()
+		callogger.Info(call.String(callLogInfo))
 		cblogger.Errorf("Unable to get key pairs, %v", err)
 		return keyPairList, err
 	}
+	callogger.Info(call.String(callLogInfo))
 
 	//cblogger.Debugf("Key Pairs:")
 	for _, pair := range result.KeyPairs {
@@ -65,12 +83,29 @@ func (keyPairHandler *AwsKeyPairHandler) ListKey() ([]*irs.KeyPairInfo, error) {
 func (keyPairHandler *AwsKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPairReqInfo) (irs.KeyPairInfo, error) {
 	cblogger.Info(keyPairReqInfo)
 
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.AWS,
+		RegionZone:   keyPairHandler.Region.Zone,
+		ResourceType: call.SECURITYGROUP,
+		ResourceName: keyPairReqInfo.IId.NameId,
+		CloudOSAPI:   "CreateKeyPair()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+	callLogStart := call.Start()
 	// Creates a new  key pair with the given name
 	result, err := keyPairHandler.Client.CreateKeyPair(&ec2.CreateKeyPairInput{
 		//KeyName: aws.String(keyPairReqInfo.Name),
 		KeyName: aws.String(keyPairReqInfo.IId.NameId),
 	})
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+
 	if err != nil {
+		callLogInfo.ErrorMSG = err.Error()
+		callogger.Info(call.String(callLogInfo))
+
 		if aerr, ok := err.(awserr.Error); ok && aerr.Code() == "InvalidKeyPair.Duplicate" {
 			cblogger.Errorf("Keypair %q already exists.", keyPairReqInfo.IId.NameId)
 			return irs.KeyPairInfo{}, err
@@ -78,6 +113,7 @@ func (keyPairHandler *AwsKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPairReq
 		cblogger.Errorf("Unable to create key pair: %s, %v.", keyPairReqInfo.IId.NameId, err)
 		return irs.KeyPairInfo{}, err
 	}
+	callogger.Info(call.String(callLogInfo))
 
 	cblogger.Infof("Created key pair %q %s\n%s\n", *result.KeyName, *result.KeyFingerprint, *result.KeyMaterial)
 	//spew.Dump(result)
@@ -105,11 +141,28 @@ func (keyPairHandler *AwsKeyPairHandler) GetKey(keyIID irs.IID) (irs.KeyPairInfo
 		},
 	}
 
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.AWS,
+		RegionZone:   keyPairHandler.Region.Zone,
+		ResourceType: call.SECURITYGROUP,
+		ResourceName: keyIID.SystemId,
+		CloudOSAPI:   "DescribeKeyPairs()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+	callLogStart := call.Start()
+
 	result, err := keyPairHandler.Client.DescribeKeyPairs(input)
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 	cblogger.Info("result : ", result)
 	cblogger.Info("err : ", err)
 
 	if err != nil {
+		callLogInfo.ErrorMSG = err.Error()
+		callogger.Info(call.String(callLogInfo))
+
 		if aerr, ok := err.(awserr.Error); ok {
 			cblogger.Info("aerr : ", aerr)
 			cblogger.Info("aerr.Code()  : ", aerr.Code())
@@ -127,6 +180,7 @@ func (keyPairHandler *AwsKeyPairHandler) GetKey(keyIID irs.IID) (irs.KeyPairInfo
 		}
 		return irs.KeyPairInfo{}, nil
 	}
+	callogger.Info(call.String(callLogInfo))
 
 	if len(result.KeyPairs) > 0 {
 		keyPairInfo := ExtractKeyPairDescribeInfo(result.KeyPairs[0])
@@ -162,14 +216,31 @@ func (keyPairHandler *AwsKeyPairHandler) DeleteKey(keyIID irs.IID) (bool, error)
 		return false, errGet
 	}
 
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.AWS,
+		RegionZone:   keyPairHandler.Region.Zone,
+		ResourceType: call.SECURITYGROUP,
+		ResourceName: keyIID.SystemId,
+		CloudOSAPI:   "DeleteKeyPair()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+	callLogStart := call.Start()
+
 	// Delete the key pair by name
 	//by powerkim, result, err := keyPairHandler.Client.DeleteKeyPair(&ec2.DeleteKeyPairInput{
 	_, err := keyPairHandler.Client.DeleteKeyPair(&ec2.DeleteKeyPairInput{
 		KeyName: aws.String(keyIID.SystemId),
 	})
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 
 	//spew.Dump(result)
 	if err != nil {
+		callLogInfo.ErrorMSG = err.Error()
+		callogger.Info(call.String(callLogInfo))
+
 		if aerr, ok := err.(awserr.Error); ok && aerr.Code() == "InvalidKeyPair.Duplicate" {
 			cblogger.Error("Key pair %q does not exist.", keyIID.SystemId)
 			return false, err
@@ -177,6 +248,7 @@ func (keyPairHandler *AwsKeyPairHandler) DeleteKey(keyIID irs.IID) (bool, error)
 		cblogger.Errorf("Unable to delete key pair: %s, %v.", keyIID.SystemId, err)
 		return false, err
 	}
+	callogger.Info(call.String(callLogInfo))
 
 	cblogger.Infof("Successfully deleted %q key pair\n", keyIID.SystemId)
 

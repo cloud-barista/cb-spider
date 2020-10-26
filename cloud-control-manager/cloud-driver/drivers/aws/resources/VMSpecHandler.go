@@ -8,6 +8,7 @@ import (
 	//sdk2 "github.com/aws/aws-sdk-go-v2"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/ec2"
+	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 )
@@ -116,6 +117,19 @@ func (vmSpecHandler *AwsVmSpecHandler) ListVMSpecAZ(ZoneName string) (map[string
 		MaxResults: aws.Int64(1000), //5~1000
 	}
 
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.AWS,
+		RegionZone:   vmSpecHandler.Region.Zone,
+		ResourceType: call.VMSPEC,
+		ResourceName: "",
+		CloudOSAPI:   "ListVMSpecAZ()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+	callLogStart := call.Start()
+
 	pageNum := 0
 	totCnt := 0
 	err := vmSpecHandler.Client.DescribeInstanceTypeOfferingsPages(input,
@@ -132,11 +146,15 @@ func (vmSpecHandler *AwsVmSpecHandler) ListVMSpecAZ(ZoneName string) (map[string
 			}
 			return !lastPage
 		})
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 
 	if err != nil { // resp is now filled
+		callLogInfo.ErrorMSG = err.Error()
+		callogger.Info(call.String(callLogInfo))
 		cblogger.Error(err)
 		return nil, err
 	}
+	callogger.Info(call.String(callLogInfo))
 
 	cblogger.Infof("===> Total Check AZ Spec Count : [%d]", totCnt)
 	//spew.Dump(mapVmSpecIds)
@@ -194,6 +212,19 @@ func (vmSpecHandler *AwsVmSpecHandler) ListVMSpec(Region string) ([]*irs.VMSpecI
 		}
 	*/
 
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.AWS,
+		RegionZone:   vmSpecHandler.Region.Zone,
+		ResourceType: call.VMSPEC,
+		ResourceName: "",
+		CloudOSAPI:   "ListVMSpec()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+	callLogStart := call.Start()
+
 	pageNum := 0
 	totCnt := 0
 	err := vmSpecHandler.Client.DescribeInstanceTypesPages(input,
@@ -220,10 +251,15 @@ func (vmSpecHandler *AwsVmSpecHandler) ListVMSpec(Region string) ([]*irs.VMSpecI
 			return !lastPage
 		})
 
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+
 	if err != nil { // resp is now filled
+		callLogInfo.ErrorMSG = err.Error()
+		callogger.Info(call.String(callLogInfo))
 		cblogger.Error(err)
 		return vMSpecInfoList, err
 	}
+	callogger.Info(call.String(callLogInfo))
 	//spew.Dump(vMSpecInfoList)
 
 	//cblogger.Infof("===> Total Check Spec Count : [%d]", totCnt)
@@ -247,13 +283,30 @@ func (vmSpecHandler *AwsVmSpecHandler) GetVMSpec(Region string, Name string) (ir
 	//svc := ec2.New(&vmSpecHandler.Client, aws.NewConfig().WithRegion("us-west-2"))
 	//req, resp := svc.DescribeInstanceTypesRequest(input)
 
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.AWS,
+		RegionZone:   vmSpecHandler.Region.Zone,
+		ResourceType: call.VMSPEC,
+		ResourceName: Name,
+		CloudOSAPI:   "CreateVpc()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+	callLogStart := call.Start()
+
 	// Example sending a request using the DescribeInstanceTypesRequest method.
 	req, resp := vmSpecHandler.Client.DescribeInstanceTypesRequest(input)
 	err := req.Send()
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 	if err != nil { // resp is now filled
 		cblogger.Errorf("Unable to get GetVMSpec - %v", err)
+		callLogInfo.ErrorMSG = err.Error()
+		callogger.Info(call.String(callLogInfo))
 		return irs.VMSpecInfo{}, err
 	}
+	callogger.Info(call.String(callLogInfo))
 
 	//cblogger.Info(resp)
 	//fmt.Println(resp)
@@ -320,6 +373,18 @@ func (vmSpecHandler *AwsVmSpecHandler) ListOrgVMSpec(Region string) (string, err
 
 	pageNum := 0
 	totCnt := 0
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.AWS,
+		RegionZone:   vmSpecHandler.Region.Zone,
+		ResourceType: call.VMSPEC,
+		ResourceName: "",
+		CloudOSAPI:   "ListOrgVMSpec()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+	callLogStart := call.Start()
 	err := vmSpecHandler.Client.DescribeInstanceTypesPages(input,
 		func(page *ec2.DescribeInstanceTypesOutput, lastPage bool) bool {
 			pageNum++
@@ -345,10 +410,14 @@ func (vmSpecHandler *AwsVmSpecHandler) ListOrgVMSpec(Region string) (string, err
 			return !lastPage
 		})
 
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 	if err != nil { // resp is now filled
+		callLogInfo.ErrorMSG = err.Error()
+		callogger.Info(call.String(callLogInfo))
 		cblogger.Error(err)
 		return "", err
 	}
+	callogger.Info(call.String(callLogInfo))
 	//spew.Dump(vMSpecInfoList)
 
 	cblogger.Infof("==>[%s] AZ에서는 [%s]리전의 [%d] 스펙 중 [%d]개의 스펙을 사용할 수 있음.", zoneId, Region, totCnt, len(resp.InstanceTypes))
@@ -397,12 +466,30 @@ func (vmSpecHandler *AwsVmSpecHandler) GetOrgVMSpec(Region string, Name string) 
 		},
 	}
 
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.AWS,
+		RegionZone:   vmSpecHandler.Region.Zone,
+		ResourceType: call.VMSPEC,
+		ResourceName: Name,
+		CloudOSAPI:   "DescribeInstanceTypesRequest()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+	callLogStart := call.Start()
+
 	req, resp := vmSpecHandler.Client.DescribeInstanceTypesRequest(input)
 	err := req.Send()
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+
 	if err != nil { // resp is now filled
 		cblogger.Errorf("Unable to get GetVMSpec - %v", err)
+		callLogInfo.ErrorMSG = err.Error()
+		callogger.Info(call.String(callLogInfo))
 		return "", err
 	}
+	callogger.Info(call.String(callLogInfo))
 
 	//cblogger.Info(resp)
 	//fmt.Println(resp)
