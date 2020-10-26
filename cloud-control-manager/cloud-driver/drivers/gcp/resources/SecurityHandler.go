@@ -18,6 +18,7 @@ import (
 	"strings"
 	"time"
 
+	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/davecgh/go-spew/spew"
@@ -131,11 +132,28 @@ func (securityHandler *GCPSecurityHandler) CreateSecurity(securityReqInfo irs.Se
 		Network: networkURL,
 	}
 
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.GCP,
+		RegionZone:   securityHandler.Region.Zone,
+		ResourceType: call.SECURITYGROUP,
+		ResourceName: securityReqInfo.IId.NameId,
+		CloudOSAPI:   "Firewalls.Insert()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+	callLogStart := call.Start()
+
 	res, err := securityHandler.Client.Firewalls.Insert(projectID, fireWall).Do()
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 	if err != nil {
+		callLogInfo.ErrorMSG = err.Error()
+		callogger.Info(call.String(callLogInfo))
 		cblogger.Error(err)
 		return irs.SecurityInfo{}, err
 	}
+	callogger.Info(call.String(callLogInfo))
 	fmt.Println("create result : ", res)
 	time.Sleep(time.Second * 3)
 	//secInfo, _ := securityHandler.GetSecurity(securityReqInfo.IId)
@@ -146,11 +164,28 @@ func (securityHandler *GCPSecurityHandler) CreateSecurity(securityReqInfo irs.Se
 func (securityHandler *GCPSecurityHandler) ListSecurity() ([]*irs.SecurityInfo, error) {
 	//result, err := securityHandler.Client.ListAll(securityHandler.Ctx)
 	projectID := securityHandler.Credential.ProjectID
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.GCP,
+		RegionZone:   securityHandler.Region.Zone,
+		ResourceType: call.SECURITYGROUP,
+		ResourceName: "",
+		CloudOSAPI:   "Firewalls.List()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+	callLogStart := call.Start()
+
 	result, err := securityHandler.Client.Firewalls.List(projectID).Do()
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 	if err != nil {
+		callLogInfo.ErrorMSG = err.Error()
+		callogger.Info(call.String(callLogInfo))
 		cblogger.Error(err)
 		return nil, err
 	}
+	callogger.Info(call.String(callLogInfo))
 
 	var securityInfo []*irs.SecurityInfo
 	for _, item := range result.Items {
@@ -168,11 +203,27 @@ func (securityHandler *GCPSecurityHandler) ListSecurity() ([]*irs.SecurityInfo, 
 func (securityHandler *GCPSecurityHandler) GetSecurity(securityIID irs.IID) (irs.SecurityInfo, error) {
 	projectID := securityHandler.Credential.ProjectID
 
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.GCP,
+		RegionZone:   securityHandler.Region.Zone,
+		ResourceType: call.SECURITYGROUP,
+		ResourceName: securityIID.SystemId,
+		CloudOSAPI:   "Firewalls.Get()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+	callLogStart := call.Start()
 	security, err := securityHandler.Client.Firewalls.Get(projectID, securityIID.SystemId).Do()
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 	if err != nil {
+		callLogInfo.ErrorMSG = err.Error()
+		callogger.Info(call.String(callLogInfo))
 		cblogger.Error(err)
 		return irs.SecurityInfo{}, err
 	}
+	callogger.Info(call.String(callLogInfo))
 	var securityRules []irs.SecurityRuleInfo
 	for _, item := range security.Allowed {
 		var portArr []string
@@ -228,11 +279,27 @@ func (securityHandler *GCPSecurityHandler) GetSecurity(securityIID irs.IID) (irs
 func (securityHandler *GCPSecurityHandler) DeleteSecurity(securityIID irs.IID) (bool, error) {
 	projectID := securityHandler.Credential.ProjectID
 
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.GCP,
+		RegionZone:   securityHandler.Region.Zone,
+		ResourceType: call.SECURITYGROUP,
+		ResourceName: securityIID.SystemId,
+		CloudOSAPI:   "CreateVpc()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+	callLogStart := call.Start()
 	res, err := securityHandler.Client.Firewalls.Delete(projectID, securityIID.SystemId).Do()
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 	if err != nil {
+		callLogInfo.ErrorMSG = err.Error()
+		callogger.Info(call.String(callLogInfo))
 		cblogger.Error(err)
 		return false, err
 	}
+	callogger.Info(call.String(callLogInfo))
 	fmt.Println(res)
 	return true, nil
 }
