@@ -24,6 +24,7 @@ import (
 	"github.com/davecgh/go-spew/spew"
 
 	//"github.com/aliyun/alibaba-cloud-sdk-go/services/vpc"
+	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	/*
@@ -47,13 +48,29 @@ func (VPCHandler *AlibabaVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.V
 	request.VpcName = vpcReqInfo.IId.NameId
 	request.CidrBlock = vpcReqInfo.IPv4_CIDR
 
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.ALIBABA,
+		RegionZone:   VPCHandler.Region.Zone,
+		ResourceType: call.VPCSUBNET,
+		ResourceName: vpcReqInfo.IId.NameId,
+		CloudOSAPI:   "CreateVpc()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+	callLogStart := call.Start()
 	response, err := VPCHandler.Client.CreateVpc(request)
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 	cblogger.Info(response)
 	spew.Dump(response)
 	if err != nil {
+		callLogInfo.ErrorMSG = err.Error()
+		callogger.Info(call.String(callLogInfo))
 		cblogger.Error(err)
 		return irs.VPCInfo{}, err
 	}
+	callogger.Info(call.String(callLogInfo))
 
 	//VPC를 생성하면 Pending 상태라서 Subnet을 추가할 수 없기 때문에 Available로 바뀔 때까지 대기함.
 	VPCHandler.WaitForRun(response.VpcId)
@@ -106,12 +123,29 @@ func (VPCHandler *AlibabaVPCHandler) CreateSubnet(vpcId string, reqSubnetInfo ir
 	request.ZoneId = VPCHandler.Region.Zone                   //"ap-northeast-1a" // @TOTO : ZoneId 전달 받아야 함.
 	cblogger.Info(request)
 
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.ALIBABA,
+		RegionZone:   VPCHandler.Region.Zone,
+		ResourceType: call.VPCSUBNET,
+		ResourceName: reqSubnetInfo.IId.NameId,
+		CloudOSAPI:   "CreateVSwitch()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+	callLogStart := call.Start()
+
 	response, err := VPCHandler.Client.CreateVSwitch(request)
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 	cblogger.Info(response)
 	if err != nil {
+		callLogInfo.ErrorMSG = err.Error()
+		callogger.Info(call.String(callLogInfo))
 		cblogger.Error(err.Error())
 		return irs.SubnetInfo{}, err
 	}
+	callogger.Info(call.String(callLogInfo))
 	spew.Dump(response)
 
 	subnetInfo, errSunetInfo := VPCHandler.GetSubnet(response.VSwitchId)
@@ -129,12 +163,29 @@ func (VPCHandler *AlibabaVPCHandler) ListVPC() ([]*irs.VPCInfo, error) {
 	request := vpc.CreateDescribeVpcsRequest()
 	request.Scheme = "https"
 
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.ALIBABA,
+		RegionZone:   VPCHandler.Region.Zone,
+		ResourceType: call.VPCSUBNET,
+		ResourceName: "List()",
+		CloudOSAPI:   "DescribeVpcs()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+	callLogStart := call.Start()
+
 	result, err := VPCHandler.Client.DescribeVpcs(request)
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 	cblogger.Debug(result)
 	//spew.Dump(result)
 	if err != nil {
+		callLogInfo.ErrorMSG = err.Error()
+		callogger.Info(call.String(callLogInfo))
 		return nil, err
 	}
+	callogger.Info(call.String(callLogInfo))
 
 	var vpcInfoList []*irs.VPCInfo
 	for _, curVpc := range result.Vpcs.Vpc {
@@ -219,11 +270,28 @@ func (VPCHandler *AlibabaVPCHandler) GetVPC(vpcIID irs.IID) (irs.VPCInfo, error)
 	request.Scheme = "https"
 	request.VpcId = vpcIID.SystemId
 
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.ALIBABA,
+		RegionZone:   VPCHandler.Region.Zone,
+		ResourceType: call.VPCSUBNET,
+		ResourceName: vpcIID.SystemId,
+		CloudOSAPI:   "DescribeVpcs()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+	callLogStart := call.Start()
+
 	result, err := VPCHandler.Client.DescribeVpcs(request)
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 	spew.Dump(result)
 	if err != nil {
+		callLogInfo.ErrorMSG = err.Error()
+		callogger.Info(call.String(callLogInfo))
 		return irs.VPCInfo{}, err
 	}
+	callogger.Info(call.String(callLogInfo))
 
 	cblogger.Info("VPC 개수 : ", len(result.Vpcs.Vpc))
 	//if result.TotalCount < 1 {
@@ -302,13 +370,30 @@ func (VPCHandler *AlibabaVPCHandler) DeleteVPC(vpcIID irs.IID) (bool, error) {
 	request.Scheme = "https"
 	request.VpcId = vpcIID.SystemId
 
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.ALIBABA,
+		RegionZone:   VPCHandler.Region.Zone,
+		ResourceType: call.VPCSUBNET,
+		ResourceName: vpcIID.SystemId,
+		CloudOSAPI:   "DeleteVpc()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+	callLogStart := call.Start()
+
 	response, err := VPCHandler.Client.DeleteVpc(request)
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 	cblogger.Info(response)
 	if err != nil {
+		callLogInfo.ErrorMSG = err.Error()
+		callogger.Info(call.String(callLogInfo))
 		cblogger.Infof("[%s] VPC Delete fail", vpcIID.SystemId)
 		cblogger.Error(err.Error())
 		return false, err
 	}
+	callogger.Info(call.String(callLogInfo))
 	return true, nil
 }
 
@@ -319,13 +404,29 @@ func (VPCHandler *AlibabaVPCHandler) DeleteSubnet(subnetIID irs.IID) (bool, erro
 	request.Scheme = "https"
 	request.VSwitchId = subnetIID.SystemId
 
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.ALIBABA,
+		RegionZone:   VPCHandler.Region.Zone,
+		ResourceType: call.VPCSUBNET,
+		ResourceName: subnetIID.SystemId,
+		CloudOSAPI:   "DeleteVSwitch()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+	callLogStart := call.Start()
 	response, err := VPCHandler.Client.DeleteVSwitch(request)
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 	cblogger.Info(response)
 	if err != nil {
+		callLogInfo.ErrorMSG = err.Error()
+		callogger.Info(call.String(callLogInfo))
 		cblogger.Infof("[%s] VSwitch Delete fail", subnetIID.SystemId)
 		cblogger.Error(err.Error())
 		return false, err
 	}
+	callogger.Info(call.String(callLogInfo))
 	return true, nil
 }
 
@@ -336,13 +437,30 @@ func (VPCHandler *AlibabaVPCHandler) GetSubnet(reqSubnetId string) (irs.SubnetIn
 	request.Scheme = "https"
 	request.VSwitchId = reqSubnetId
 
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.ALIBABA,
+		RegionZone:   VPCHandler.Region.Zone,
+		ResourceType: call.VPCSUBNET,
+		ResourceName: reqSubnetId,
+		CloudOSAPI:   "DescribeVSwitches()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+	callLogStart := call.Start()
+
 	result, err := VPCHandler.Client.DescribeVSwitches(request)
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 	spew.Dump(result)
 	//cblogger.Info(result)
 	if err != nil {
+		callLogInfo.ErrorMSG = err.Error()
+		callogger.Info(call.String(callLogInfo))
 		cblogger.Error(err)
 		return irs.SubnetInfo{}, err
 	}
+	callogger.Info(call.String(callLogInfo))
 
 	if result.TotalCount < 1 {
 		return irs.SubnetInfo{}, errors.New("Notfound: '" + reqSubnetId + "' Subnet Not found")
@@ -375,11 +493,28 @@ func ExtractSubnetDescribeInfo(subnetInfo vpc.VSwitch) irs.SubnetInfo {
 
 func (VPCHandler *AlibabaVPCHandler) AddSubnet(vpcIID irs.IID, subnetInfo irs.SubnetInfo) (irs.VPCInfo, error) {
 	cblogger.Infof("[%s] Subnet 추가 - CIDR : %s", subnetInfo.IId.NameId, subnetInfo.IPv4_CIDR)
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.ALIBABA,
+		RegionZone:   VPCHandler.Region.Zone,
+		ResourceType: call.VPCSUBNET,
+		ResourceName: vpcIID.SystemId,
+		CloudOSAPI:   "CreateSubnet()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+	callLogStart := call.Start()
 	resSubnet, errSubnet := VPCHandler.CreateSubnet(vpcIID.SystemId, subnetInfo)
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+
 	if errSubnet != nil {
+		callLogInfo.ErrorMSG = errSubnet.Error()
+		callogger.Info(call.String(callLogInfo))
 		cblogger.Error(errSubnet)
 		return irs.VPCInfo{}, errSubnet
 	}
+	callogger.Info(call.String(callLogInfo))
 	cblogger.Info(resSubnet)
 
 	return VPCHandler.GetVPC(vpcIID)
