@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 
 	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2018-06-01/compute"
 	"github.com/Azure/go-autorest/autorest/to"
@@ -131,69 +132,81 @@ func (imageHandler *AzureImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 
 	var imageList []*irs.ImageInfo
 
+	//publishers := []string{"OpenLogic", "CoreOS", "Debian", "SUSE", "RedHat", "Canonical", "MicrosoftWindowsServer"}
 	publishers, err := imageHandler.VMImageClient.ListPublishers(context.TODO(), imageHandler.Region.Region)
 	if err != nil {
 		LoggingError(hiscallInfo, err)
 		return nil, err
 	}
-	/*for _, p := range *publishers.Value {
-		if strings.Contains(*p.Name, "azure") {
-			spew.Dump(p)
-		}
-	}*/
-	//publishers := []string{"OpenLogic", "CoreOS", "Debian", "SUSE", "RedHat", "Canonical", "MicrosoftWindowsServer"}
 
 	start := call.Start()
 
-	for _, publisher := range *publishers.Value {
-		offers, err := imageHandler.VMImageClient.ListOffers(context.TODO(), imageHandler.Region.Region, *publisher.Name)
-		if err != nil {
-			cblogger.Error(fmt.Sprintf("[%s]%s", *publisher.Name, err))
-			continue
-		}
-		for _, offer := range *offers.Value {
-			skus, err := imageHandler.VMImageClient.ListSkus(context.TODO(), imageHandler.Region.Region, *publisher.Name, *offer.Name)
+	var publisherWg sync.WaitGroup
+	publisherWg.Add(len(*publishers.Value))
+	//doneCount := 0
+
+	for idx, p := range *publishers.Value {
+		fmt.Printf("[%d/%d] run goroutine()\n", idx, len(*publishers.Value))
+
+		go func(publisher compute.VirtualMachineImageResource) {
+			defer publisherWg.Done()
+			//defer func(){
+			//	doneCount++
+			//	fmt.Printf("[%d/%d] %s done %s\n", doneCount, len(*publishers.Value), *publisher.Name, time.Now())
+			//}()
+
+			//offers, err := imageHandler.VMImageClient.ListOffers(context.TODO(), imageHandler.Region.Region, *publisher.Name)
+			offers, err := imageHandler.VMImageClient.ListOffers(context.TODO(), imageHandler.Region.Region, *publisher.Name)
 			if err != nil {
-				cblogger.Error(fmt.Sprintf("[%s:%s]%s", *publisher.Name, *offer.Name, err))
-				continue
+				cblogger.Error(fmt.Sprintf("[%s]%s", *publisher.Name, err))
+				return
 			}
-			for _, sku := range *skus.Value {
-				imageVersionList, err := imageHandler.VMImageClient.List(context.TODO(), imageHandler.Region.Region, *publisher.Name, *offer.Name, *sku.Name, "", to.Int32Ptr(1), "")
+
+			for _, offer := range *offers.Value {
+				skus, err := imageHandler.VMImageClient.ListSkus(context.TODO(), imageHandler.Region.Region, *publisher.Name, *offer.Name)
 				if err != nil {
-					cblogger.Error(fmt.Sprintf("[%s:%s:%s]%s", *publisher.Name, *offer.Name, *sku.Name, err))
+					//cblogger.Error(fmt.Sprintf("[%s:%s]%s", *publisher.Name, *offer.Name, err))
 					continue
 				}
+				for _, sku := range *skus.Value {
+					//go func() {
+					//imageVersionCtx, _ := context.WithTimeout(context.TODO(), 1*time.Minute)
+					//imageVersionList, err := imageHandler.VMImageClient.List(imageVersionCtx, imageHandler.Region.Region, *publisher.Name, *offer.Name, *sku.Name, "", to.Int32Ptr(1), "")
+					imageVersionList, err := imageHandler.VMImageClient.List(context.TODO(), imageHandler.Region.Region, *publisher.Name, *offer.Name, *sku.Name, "", to.Int32Ptr(1), "")
+					if err != nil {
+						//cblogger.Error(fmt.Sprintf("[%s:%s:%s]%s", *publisher.Name, *offer.Name, *sku.Name, err))
+						continue
+					}
+					if len(*imageVersionList.Value) == 0 {
+						//cblogger.Error(fmt.Sprintf("NOT FOUND VERSION [%s:%s:%s]", *publisher.Name, *offer.Name, *sku.Name))
+						continue
+					}
 
-				//imageHandler.VMImageClient.Get()
-				if len(*imageVersionList.Value) == 0 {
-					cblogger.Error(fmt.Sprintf("NOT FOUND VERSION [%s:%s:%s]", *publisher.Name, *offer.Name, *sku.Name))
-					continue
+					latestVmImage := (*imageVersionList.Value)[0]
+					imageIdArr := strings.Split(*latestVmImage.ID, "/")
+					imageLastVersion := imageIdArr[len(imageIdArr)-1]
+
+					//imageCtx, _ := context.WithTimeout(context.TODO(), 1*time.Minute)
+					//vmImage, err := imageHandler.VMImageClient.Get(imageCtx, imageHandler.Region.Region, *publisher.Name, *offer.Name, *sku.Name, imageLastVersion)
+					vmImage, err := imageHandler.VMImageClient.Get(context.TODO(), imageHandler.Region.Region, *publisher.Name, *offer.Name, *sku.Name, imageLastVersion)
+					if err != nil {
+						//cblogger.Error(fmt.Sprintf("[%s:%s:%s]%s", *publisher.Name, *offer.Name, *sku.Name, err))
+						continue
+					}
+					vmImageInfo := imageHandler.setterVMImage(vmImage)
+					imageList = append(imageList, vmImageInfo)
+					//fmt.Printf("imageSize=%d\n", len(imageList))
+					//}()
 				}
-				latestVmImage := (*imageVersionList.Value)[0]
-				imageIdArr := strings.Split(*latestVmImage.ID, "/")
-				imageLastVersion := imageIdArr[len(imageIdArr)-1]
-
-				/*if err != nil {
-					cblogger.Error(fmt.Sprintf("[%s:%s:%s]%s", *publisher.Name, *offer.Name, *sku.Name, err))
-					continue
-				}*/
-				vmImage, err := imageHandler.VMImageClient.Get(context.TODO(), imageHandler.Region.Region, *publisher.Name, *offer.Name, *sku.Name, imageLastVersion)
-				if err != nil {
-					cblogger.Error(fmt.Sprintf("[%s:%s:%s]%s", *publisher.Name, *offer.Name, *sku.Name, err))
-					continue
-				}
-				vmImageInfo := imageHandler.setterVMImage(vmImage)
-				imageList = append(imageList, vmImageInfo)
-
-				/*if imageListLen := len(imageList); imageListLen%10 == 0 {
-					fmt.Println(imageListLen)
-				}*/
 			}
-		}
+			return
+		}(p)
 	}
-	LoggingInfo(hiscallInfo, start)
 
-	fmt.Printf("imageSize=%d\n", len(imageList))
+	publisherWg.Wait()
+	LoggingInfo(hiscallInfo, start)
+	//fmt.Printf("imageSize=%d\n", len(imageList))
+
 	return imageList, nil
 }
 
@@ -264,3 +277,19 @@ func (imageHandler *AzureImageHandler) DeleteImage(imageIID irs.IID) (bool, erro
 
 	return true, nil
 }
+
+/*
+func getVMImageClient(imageHandler *AzureImageHandler) (context.Context, *compute.VirtualMachineImagesClient, error) {
+	config := auth.NewClientCredentialsConfig(credential.ClientId, credential.ClientSecret, credential.TenantId)
+	authorizer, err := config.Authorizer()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	vmImageClient := compute.NewVirtualMachineImagesClient(credential.SubscriptionId)
+	vmImageClient.Authorizer = authorizer
+	ctx, _ := context.WithTimeout(context.Background(), 600*time.Second)
+
+	return ctx, &vmImageClient, nil
+}
+*/
