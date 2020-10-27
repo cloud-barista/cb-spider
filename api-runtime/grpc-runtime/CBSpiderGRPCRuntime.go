@@ -6,6 +6,7 @@ import (
 	"net"
 	"os"
 
+	cr "github.com/cloud-barista/cb-spider/api-runtime/common-runtime"
 	gc "github.com/cloud-barista/cb-spider/api-runtime/grpc-runtime/common"
 	"github.com/cloud-barista/cb-spider/api-runtime/grpc-runtime/config"
 	"github.com/cloud-barista/cb-spider/api-runtime/grpc-runtime/logger"
@@ -62,13 +63,17 @@ func RunServer() {
 		}
 	}
 
-	fmt.Printf("\n[CB-Spider:Cloud Info Management Framework]")
-	fmt.Printf("\n   Initiating GRPC API Server....__^..^__....")
-	fmt.Printf("\n\n => grpc server started on %s\n\n", spidersrv.Addr)
+	//fmt.Printf("\n\n => grpc server started on %s\n\n", spidersrv.Addr)
+	spiderBanner(cr.HostIPorName + spidersrv.Addr)
 
 	if err := gs.Serve(conn); err != nil {
 		logger.Error("failed to serve: ", err)
 	}
+}
+
+func spiderBanner(server string) {
+	gRPCServer := "grpc://" +  server
+        fmt.Printf("     - %s\n\n", gRPCServer)
 }
 
 func configLoad(cf string) (config.GrpcConfig, error) {
