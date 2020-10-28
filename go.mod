@@ -17,6 +17,7 @@ require (
 	github.com/Azure/go-autorest/autorest/validation v0.2.0 // indirect
 	github.com/BurntSushi/xgb v0.0.0-20200324125942-20f126ea2843 // indirect
 	github.com/Microsoft/go-winio v0.4.14 // indirect
+	github.com/NaverCloudPlatform/ncloud-sdk-go-v2 v1.2.0
 	github.com/aliyun/alibaba-cloud-sdk-go v1.61.201
 	github.com/aws/aws-sdk-go v1.29.31
 	github.com/bramvdbogaerde/go-scp v0.0.0-20200119201711-987556b8bdd7
