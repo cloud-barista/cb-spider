@@ -140,8 +140,6 @@ func GetCloudConnection(cloudConnectName string) (icon.CloudConnection, error) {
 			PrivateKey:       getValue(crdInfo.KeyValueInfoList, "PrivateKey"),
 			Host:             getValue(crdInfo.KeyValueInfoList, "Host"),
 			APIVersion:       getValue(crdInfo.KeyValueInfoList, "APIVersion"),
-			AccessKeyID:      getValue(crdInfo.KeyValueInfoList, "AccessKeyID"), // NCP
-			SecretKey:        getValue(crdInfo.KeyValueInfoList, "SecretKey"),   // NCP
 		},
 		RegionInfo: idrv.RegionInfo{ // @todo powerkim
 			Region:        regionName,
@@ -287,9 +285,8 @@ func getStaticCloudDriver(cldDrvInfo dim.CloudDriverInfo) (idrv.CloudDriver, err
 		cloudDriver = new(dockerdrv.DockerDriver)
 	// case "CLOUDTWIN":
 	// 	cloudDriver = new(cloudtwindrv.CloudTwinDriver)
-
 	// case "NCP": // NCP
-	// 	cloudDriver = new(ncpdrv.NcpDriver) // NCP
+	//	cloudDriver = new(ncpdrv.NcpDriver) // NCP
 
 	default:
 		errmsg := cldDrvInfo.ProviderName + " is not supported static Cloud Driver!!"
