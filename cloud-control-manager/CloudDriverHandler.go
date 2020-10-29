@@ -285,10 +285,11 @@ func getStaticCloudDriver(cldDrvInfo dim.CloudDriverInfo) (idrv.CloudDriver, err
 		cloudDriver = new(clouditdrv.ClouditDriver)
 	case "DOCKER":
 		cloudDriver = new(dockerdrv.DockerDriver)
-	//case "CLOUDTWIN":
-	//	cloudDriver = new(cloudtwindrv.CloudTwinDriver)
-	case "NCP": // NCP
-		cloudDriver = new(ncpdrv.NcpDriver) // NCP
+	// case "CLOUDTWIN":
+	// 	cloudDriver = new(cloudtwindrv.CloudTwinDriver)
+
+	// case "NCP": // NCP
+	// 	cloudDriver = new(ncpdrv.NcpDriver) // NCP
 
 	default:
 		errmsg := cldDrvInfo.ProviderName + " is not supported static Cloud Driver!!"
