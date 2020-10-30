@@ -12,8 +12,9 @@ package mock
 
 import (
 	"C"
+
+	cblog "github.com/cloud-barista/cb-log"
 	"github.com/sirupsen/logrus"
-        cblog "github.com/cloud-barista/cb-log"
 
 	mkcon "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/mock/connect"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
@@ -21,11 +22,12 @@ import (
 )
 
 type MockDriver struct{}
+
 var cblogger *logrus.Logger
 
 func init() {
-        // cblog is a global variable.
-        cblogger = cblog.GetLogger("CB-SPIDER")
+	// cblog is a global variable.
+	cblogger = cblog.GetLogger("CB-SPIDER")
 }
 
 func (MockDriver) GetDriverVersion() string {
@@ -49,15 +51,16 @@ func (MockDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 
 func (driver *MockDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (icon.CloudConnection, error) {
 	// <standard flow>
-        // 1. get info of credential and region for Test A Cloud from connectionInfo.
-        // 2. create a client object(or service  object) of XXX Cloud with credential info.
-        // 3. create CloudConnection Instance of "connect/XXX_CloudConnection".
-        // 4. return CloudConnection Interface of XXX_CloudConnection.
+	// 1. get info of credential and region for Test A Cloud from connectionInfo.
+	// 2. create a client object(or service  object) of XXX Cloud with credential info.
+	// 3. create CloudConnection Instance of "connect/XXX_CloudConnection".
+	// 4. return CloudConnection Interface of XXX_CloudConnection.
 
 	// ex)
-        // MockName = "mock01"
+	// MockName = "mock01"
 	iConn := mkcon.MockConnection{
-		MockName:      connectionInfo.CredentialInfo.MockName,
+		Region:   connectionInfo.RegionInfo,
+		MockName: connectionInfo.CredentialInfo.MockName,
 	}
 	return &iConn, nil
 }
