@@ -41,6 +41,7 @@ const (
         ALIBABA CLOUD_OS = "ALIBABA"
         DOCKER CLOUD_OS = "DOCKER"
         CLOUDTWIN CLOUD_OS = "CLOUDTWIN"
+        NCP CLOUD_OS = "NCP"
         MOCK CLOUD_OS = "MOCK"
 
 
@@ -186,7 +187,7 @@ func getFormatter(loggerName string) *calllogformatter.Formatter {
 
 //=========================
 type CLOUDLOGSCHEMA struct {
-	CloudOS CLOUD_OS      // ex) AWS | AZURE | ALIBABA | GCP | OPENSTACK | CLOUDTWIN | CLOUDIT | DOCKER
+	CloudOS CLOUD_OS      // ex) AWS | AZURE | ALIBABA | GCP | OPENSTACK | CLOUDTWIN | CLOUDIT | DOCKER | NCP | MOCK
 	RegionZone string   // ex) us-east1/us-east1-c
 	ResourceType RES_TYPE // ex) VMIMAGE | VMSPEC | VPCSUBNET | SECURITYGROUP | VMKEYPAIR | VM
 	ResourceName string // ex) vpc-01
