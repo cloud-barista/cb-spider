@@ -18,8 +18,9 @@ import (
 	dockerdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/docker"
 	gcpdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/gcp"
 	openstackdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/openstack"
+	mockdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/mock"
 
-	//	cloudtwindrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/cloudtwin"
+	//	cloudtwindrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/cloudtwin" // CLOUDTWIN
 	// ncpdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/ncp" // NCP
 
 	icbs "github.com/cloud-barista/cb-store/interfaces"
@@ -198,9 +199,7 @@ func GetRegionNameByRegionInfo(rgnInfo *rim.RegionInfo) (string, string, error) 
 		zoneName = getValue(rgnInfo.KeyValueInfoList, "Zone")
 	case "OPENSTACK":
 		regionName = getValue(rgnInfo.KeyValueInfoList, "Region")
-	case "CLOUDTWIN":
-		regionName = getValue(rgnInfo.KeyValueInfoList, "Region")
-	case "CLOUDIT":
+	case "CLOUDIT": 
 		// Cloudit do not use Region, But set default @todo 2019.10.28. by powerkim.
 		regionName = getValue(rgnInfo.KeyValueInfoList, "Region")
 	case "DOCKER":
@@ -208,6 +207,11 @@ func GetRegionNameByRegionInfo(rgnInfo *rim.RegionInfo) (string, string, error) 
 		regionName = getValue(rgnInfo.KeyValueInfoList, "Region")
 	case "NCP": // NCP
 		regionName = getValue(rgnInfo.KeyValueInfoList, "Region") // NCP
+
+	case "CLOUDTWIN":
+		regionName = getValue(rgnInfo.KeyValueInfoList, "Region")
+	case "MOCK":
+		regionName = getValue(rgnInfo.KeyValueInfoList, "Region")
 	default:
 		errmsg := rgnInfo.ProviderName + " is not a valid ProviderName!!"
 		return "", "", fmt.Errorf(errmsg)
@@ -283,10 +287,13 @@ func getStaticCloudDriver(cldDrvInfo dim.CloudDriverInfo) (idrv.CloudDriver, err
 		cloudDriver = new(clouditdrv.ClouditDriver)
 	case "DOCKER":
 		cloudDriver = new(dockerdrv.DockerDriver)
-	// case "CLOUDTWIN":
-	// 	cloudDriver = new(cloudtwindrv.CloudTwinDriver)
 	// case "NCP": // NCP
 	//	cloudDriver = new(ncpdrv.NcpDriver) // NCP
+
+	case "MOCK":
+		cloudDriver = new(dockerdrv.MockDriver)
+	// case "CLOUDTWIN":
+	// 	cloudDriver = new(cloudtwindrv.CloudTwinDriver)
 
 	default:
 		errmsg := cldDrvInfo.ProviderName + " is not supported static Cloud Driver!!"
