@@ -291,7 +291,7 @@ func getStaticCloudDriver(cldDrvInfo dim.CloudDriverInfo) (idrv.CloudDriver, err
 	//	cloudDriver = new(ncpdrv.NcpDriver) // NCP
 
 	case "MOCK":
-		cloudDriver = new(dockerdrv.MockDriver)
+		cloudDriver = new(mockdrv.MockDriver)
 	// case "CLOUDTWIN":
 	// 	cloudDriver = new(cloudtwindrv.CloudTwinDriver)
 
