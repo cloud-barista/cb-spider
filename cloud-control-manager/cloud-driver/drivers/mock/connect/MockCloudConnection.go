@@ -13,6 +13,7 @@ package connect
 import (
 	cblog "github.com/cloud-barista/cb-log"
 	mkrs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/mock/resources"
+	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/sirupsen/logrus"
 )
@@ -25,7 +26,8 @@ func init() {
 }
 
 type MockConnection struct {
-	MockName	string
+	Region   idrv.RegionInfo
+	MockName string
 }
 
 func (cloudConn *MockConnection) CreateImageHandler() (irs.ImageHandler, error) {
@@ -34,27 +36,20 @@ func (cloudConn *MockConnection) CreateImageHandler() (irs.ImageHandler, error) 
 	return &handler, nil
 }
 
-
 func (cloudConn *MockConnection) CreateVMHandler() (irs.VMHandler, error) {
 	cblogger.Info("Mock Driver: called CreateVMHandler()!")
-	/*vmHandler := dkrs.DockerVMHandler{
-		Region:         cloudConn.ConnectionInfo.RegionInfo,
-		Context:        cloudConn.Context,
-		Client:         cloudConn.Client,
-	}
-	return &vmHandler, nil
-	*/
-	return nil, nil
+	handler := mkrs.MockVMHandler{cloudConn.Region, cloudConn.MockName}
+	return &handler, nil
 }
 
 func (cloudConn *MockConnection) CreateVPCHandler() (irs.VPCHandler, error) {
-        cblogger.Info("Mock Driver: called CreateVPCHandler()!")
+	cblogger.Info("Mock Driver: called CreateVPCHandler()!")
 	handler := mkrs.MockVPCHandler{cloudConn.MockName}
-        return &handler, nil
+	return &handler, nil
 }
 
 func (cloudConn MockConnection) CreateSecurityHandler() (irs.SecurityHandler, error) {
-        cblogger.Info("Mock Driver: called CreateSecurityHandler()!")
+	cblogger.Info("Mock Driver: called CreateSecurityHandler()!")
 	handler := mkrs.MockSecurityHandler{cloudConn.MockName}
 	return &handler, nil
 }
@@ -72,7 +67,7 @@ func (cloudConn *MockConnection) CreateVMSpecHandler() (irs.VMSpecHandler, error
 }
 
 func (cloudConn *MockConnection) IsConnected() (bool, error) {
-        cblogger.Info("Mock Driver: called IsConnected()!")
+	cblogger.Info("Mock Driver: called IsConnected()!")
 	if cloudConn == nil {
 		return false, nil
 	}
@@ -81,6 +76,6 @@ func (cloudConn *MockConnection) IsConnected() (bool, error) {
 }
 
 func (cloudConn *MockConnection) Close() error {
-        cblogger.Info("Mock Driver: called Close()!")
+	cblogger.Info("Mock Driver: called Close()!")
 	return nil
 }
