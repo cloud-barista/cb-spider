@@ -72,7 +72,9 @@ func (vmHandler *MockVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, er
 		}
 	}
 	if validatedSubnetInfo == nil {
-		return irs.VMInfo{}, fmt.Errorf("%s subnet iid does not exist!!", vmReqInfo.SubnetIID.NameId)
+		errMSG := vmReqInfo.SubnetIID.NameId + " subnet iid does not exist!!"
+		cblogger.Error(errMSG)
+		return irs.VMInfo{}, fmt.Errorf(errMSG)
 	}
 
 	// sg validation
@@ -93,7 +95,9 @@ func (vmHandler *MockVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, er
 			}
 		}
 		if !flg {
-			return irs.VMInfo{}, fmt.Errorf("%s security group iid does not exist!!", info1.NameId)
+			errMSG := info1.NameId + " security group iid does not exist!!"
+			cblogger.Error(errMSG)
+			return irs.VMInfo{}, fmt.Errorf(errMSG)
 		}
 	}
 
@@ -122,14 +126,14 @@ func (vmHandler *MockVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, er
 		VMUserId:     vmReqInfo.VMUserId,
 		VMUserPasswd: vmReqInfo.VMUserPasswd,
 
-		NetworkInterface: "",
-		PublicIP:         "",
-		PublicDNS:        "",
-		PrivateIP:        "",
-		PrivateDNS:       "",
+		NetworkInterface: vmReqInfo.IId.NameId + "_" + mockName + "mockni",
+		PublicIP:         "4.3.2.1",
+		PublicDNS:        vmReqInfo.IId.NameId + "." + mockName + ".spider.barista.com",
+		PrivateIP:        "1.2.3.4",
+		PrivateDNS:       vmReqInfo.IId.NameId + "." + mockName + ".spider.barista.com",
 
-		VMBootDisk:  "",
-		VMBlockDisk: "",
+		VMBootDisk:  "/dev/sda1",
+		VMBlockDisk: "/dev/sda1",
 
 		KeyValueList: nil,
 	}
@@ -139,7 +143,7 @@ func (vmHandler *MockVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, er
 	vmInfoMap[mockName] = infoList
 
 	// vm status creation
-	vmStatusInfo := irs.VMStatusInfo{vmReqInfo.IId, "Running"}
+	vmStatusInfo := irs.VMStatusInfo{vmReqInfo.IId, irs.Running}
 
 	statusInfoList, _ := vmStatusInfoMap[mockName]
 	statusInfoList = append(statusInfoList, &vmStatusInfo)
@@ -156,7 +160,9 @@ func (vmHandler *MockVMHandler) SuspendVM(iid irs.IID) (irs.VMStatus, error) {
 
 	statusInfoList, ok := vmStatusInfoMap[mockName]
 	if !ok {
-		return "", fmt.Errorf("%s vm status does not exist!!", mockName)
+		errMSG := mockName + " vm status does not exist!!"
+		cblogger.Error(errMSG)
+		return "", fmt.Errorf(errMSG)
 	}
 
 	var validatedStatusInfo *irs.VMStatusInfo = nil
@@ -166,11 +172,13 @@ func (vmHandler *MockVMHandler) SuspendVM(iid irs.IID) (irs.VMStatus, error) {
 		}
 	}
 	if validatedStatusInfo == nil {
-		return "", fmt.Errorf("%s status iid does not exist!!", iid.NameId)
+		errMSG := iid.NameId + " status iid does not exist!!"
+		cblogger.Error(errMSG)
+		return "", fmt.Errorf(errMSG)
 	}
 
-	validatedStatusInfo.VmStatus = "Suspended"
-	return "Suspending", nil
+	validatedStatusInfo.VmStatus = irs.Suspended
+	return irs.Suspending, nil
 }
 
 func (vmHandler *MockVMHandler) ResumeVM(iid irs.IID) (irs.VMStatus, error) {
@@ -181,7 +189,10 @@ func (vmHandler *MockVMHandler) ResumeVM(iid irs.IID) (irs.VMStatus, error) {
 
 	statusInfoList, ok := vmStatusInfoMap[mockName]
 	if !ok {
-		return "", fmt.Errorf("%s vm status does not exist!!", mockName)
+		
+		errMSG := mockName + " vm status does not exist!!"
+		cblogger.Error(errMSG)
+		return "", fmt.Errorf(errMSG)
 	}
 
 	var validatedStatusInfo *irs.VMStatusInfo = nil
@@ -191,11 +202,13 @@ func (vmHandler *MockVMHandler) ResumeVM(iid irs.IID) (irs.VMStatus, error) {
 		}
 	}
 	if validatedStatusInfo == nil {
-		return "", fmt.Errorf("%s status iid does not exist!!", iid.NameId)
+		errMSG := iid.NameId + " vm status iid does not exist!!"
+		cblogger.Error(errMSG)
+		return "", fmt.Errorf(errMSG)
 	}
 
-	validatedStatusInfo.VmStatus = "Running"
-	return "Resuming", nil
+	validatedStatusInfo.VmStatus = irs.Running
+	return irs.Resuming, nil
 }
 
 func (vmHandler *MockVMHandler) RebootVM(iid irs.IID) (irs.VMStatus, error) {
@@ -206,7 +219,9 @@ func (vmHandler *MockVMHandler) RebootVM(iid irs.IID) (irs.VMStatus, error) {
 
 	statusInfoList, ok := vmStatusInfoMap[mockName]
 	if !ok {
-		return "", fmt.Errorf("%s vm status does not exist!!", mockName)
+		errMSG := mockName + " vm status does not exist!!"
+		cblogger.Error(errMSG)
+		return "", fmt.Errorf(errMSG)
 	}
 
 	var validatedStatusInfo *irs.VMStatusInfo = nil
@@ -216,15 +231,19 @@ func (vmHandler *MockVMHandler) RebootVM(iid irs.IID) (irs.VMStatus, error) {
 		}
 	}
 	if validatedStatusInfo == nil {
-		return "", fmt.Errorf("%s status iid does not exist!!", iid.NameId)
+		errMSG := iid.NameId + " vm status iid does not exist!!"
+		cblogger.Error(errMSG)
+		return "", fmt.Errorf(errMSG)
 	}
 
-	if validatedStatusInfo.VmStatus == "Suspended" {
-		return "", fmt.Errorf("reboot not supported in SUSPENDED status")
+	if validatedStatusInfo.VmStatus == irs.Suspended {
+		errMSG := "reboot not supported in SUSPENDED status"
+		cblogger.Error(errMSG)
+		return "", fmt.Errorf(errMSG)
 	}
 
-	validatedStatusInfo.VmStatus = "Running"
-	return "Rebooting", nil
+	validatedStatusInfo.VmStatus = irs.Running
+	return irs.Rebooting, nil
 }
 
 func (vmHandler *MockVMHandler) TerminateVM(iid irs.IID) (irs.VMStatus, error) {
@@ -258,7 +277,7 @@ func (vmHandler *MockVMHandler) TerminateVM(iid irs.IID) (irs.VMStatus, error) {
 	}
 	vmStatusInfoMap[mockName] = statusInfoList
 
-	return "Terminating", nil
+	return irs.Terminating, nil
 }
 
 func (vmHandler *MockVMHandler) ListVMStatus() ([]*irs.VMStatusInfo, error) {
@@ -292,7 +311,9 @@ func (vmHandler *MockVMHandler) GetVMStatus(iid irs.IID) (irs.VMStatus, error) {
 		}
 	}
 
-	return "", fmt.Errorf("%s status iid does not exist!!", iid.NameId)
+	errMSG := iid.NameId + " status iid does not exist!!"
+	cblogger.Error(errMSG)
+	return "", fmt.Errorf(errMSG)
 }
 
 func (vmHandler *MockVMHandler) ListVM() ([]*irs.VMInfo, error) {
@@ -326,5 +347,7 @@ func (vmHandler *MockVMHandler) GetVM(iid irs.IID) (irs.VMInfo, error) {
 		}
 	}
 
-	return irs.VMInfo{}, fmt.Errorf("%s vm iid does not exist!!", iid.NameId)
+	errMSG := iid.NameId + " vm iid does not exist!!"
+	cblogger.Error(errMSG)
+	return irs.VMInfo{}, fmt.Errorf(errMSG)
 }
