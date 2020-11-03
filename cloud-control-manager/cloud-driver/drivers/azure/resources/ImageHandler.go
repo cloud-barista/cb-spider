@@ -143,42 +143,26 @@ func (imageHandler *AzureImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 
 	var publisherWg sync.WaitGroup
 	publisherWg.Add(len(*publishers.Value))
-	//doneCount := 0
 
-	for idx, p := range *publishers.Value {
-		fmt.Printf("[%d/%d] run goroutine()\n", idx, len(*publishers.Value))
-
+	for _, p := range *publishers.Value {
 		go func(publisher compute.VirtualMachineImageResource) {
 			defer publisherWg.Done()
-			//defer func(){
-			//	doneCount++
-			//	fmt.Printf("[%d/%d] %s done %s\n", doneCount, len(*publishers.Value), *publisher.Name, time.Now())
-			//}()
-
-			//offers, err := imageHandler.VMImageClient.ListOffers(context.TODO(), imageHandler.Region.Region, *publisher.Name)
 			offers, err := imageHandler.VMImageClient.ListOffers(context.TODO(), imageHandler.Region.Region, *publisher.Name)
 			if err != nil {
-				cblogger.Error(fmt.Sprintf("[%s]%s", *publisher.Name, err))
 				return
 			}
 
 			for _, offer := range *offers.Value {
 				skus, err := imageHandler.VMImageClient.ListSkus(context.TODO(), imageHandler.Region.Region, *publisher.Name, *offer.Name)
 				if err != nil {
-					//cblogger.Error(fmt.Sprintf("[%s:%s]%s", *publisher.Name, *offer.Name, err))
 					continue
 				}
 				for _, sku := range *skus.Value {
-					//go func() {
-					//imageVersionCtx, _ := context.WithTimeout(context.TODO(), 1*time.Minute)
-					//imageVersionList, err := imageHandler.VMImageClient.List(imageVersionCtx, imageHandler.Region.Region, *publisher.Name, *offer.Name, *sku.Name, "", to.Int32Ptr(1), "")
 					imageVersionList, err := imageHandler.VMImageClient.List(context.TODO(), imageHandler.Region.Region, *publisher.Name, *offer.Name, *sku.Name, "", to.Int32Ptr(1), "")
 					if err != nil {
-						//cblogger.Error(fmt.Sprintf("[%s:%s:%s]%s", *publisher.Name, *offer.Name, *sku.Name, err))
 						continue
 					}
 					if len(*imageVersionList.Value) == 0 {
-						//cblogger.Error(fmt.Sprintf("NOT FOUND VERSION [%s:%s:%s]", *publisher.Name, *offer.Name, *sku.Name))
 						continue
 					}
 
@@ -186,17 +170,12 @@ func (imageHandler *AzureImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 					imageIdArr := strings.Split(*latestVmImage.ID, "/")
 					imageLastVersion := imageIdArr[len(imageIdArr)-1]
 
-					//imageCtx, _ := context.WithTimeout(context.TODO(), 1*time.Minute)
-					//vmImage, err := imageHandler.VMImageClient.Get(imageCtx, imageHandler.Region.Region, *publisher.Name, *offer.Name, *sku.Name, imageLastVersion)
 					vmImage, err := imageHandler.VMImageClient.Get(context.TODO(), imageHandler.Region.Region, *publisher.Name, *offer.Name, *sku.Name, imageLastVersion)
 					if err != nil {
-						//cblogger.Error(fmt.Sprintf("[%s:%s:%s]%s", *publisher.Name, *offer.Name, *sku.Name, err))
 						continue
 					}
 					vmImageInfo := imageHandler.setterVMImage(vmImage)
 					imageList = append(imageList, vmImageInfo)
-					//fmt.Printf("imageSize=%d\n", len(imageList))
-					//}()
 				}
 			}
 			return
@@ -205,7 +184,6 @@ func (imageHandler *AzureImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 
 	publisherWg.Wait()
 	LoggingInfo(hiscallInfo, start)
-	//fmt.Printf("imageSize=%d\n", len(imageList))
 
 	return imageList, nil
 }
@@ -277,19 +255,3 @@ func (imageHandler *AzureImageHandler) DeleteImage(imageIID irs.IID) (bool, erro
 
 	return true, nil
 }
-
-/*
-func getVMImageClient(imageHandler *AzureImageHandler) (context.Context, *compute.VirtualMachineImagesClient, error) {
-	config := auth.NewClientCredentialsConfig(credential.ClientId, credential.ClientSecret, credential.TenantId)
-	authorizer, err := config.Authorizer()
-	if err != nil {
-		return nil, nil, err
-	}
-
-	vmImageClient := compute.NewVirtualMachineImagesClient(credential.SubscriptionId)
-	vmImageClient.Authorizer = authorizer
-	ctx, _ := context.WithTimeout(context.Background(), 600*time.Second)
-
-	return ctx, &vmImageClient, nil
-}
-*/
