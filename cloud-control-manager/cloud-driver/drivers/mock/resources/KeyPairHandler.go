@@ -80,7 +80,7 @@ func (keyPairHandler *MockKeyPairHandler) GetKey(iid irs.IID) (irs.KeyPairInfo, 
 		}
 	}
 	
-	return irs.KeyPairInfo{}, fmt.Errorf("%s keypair does not exist!!")
+	return irs.KeyPairInfo{}, fmt.Errorf("%s keypair does not exist!!", iid.NameId)
 }
 
 func (keyPairHandler *MockKeyPairHandler) DeleteKey(iid irs.IID) (bool, error) {

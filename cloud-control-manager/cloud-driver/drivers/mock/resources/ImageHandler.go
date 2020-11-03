@@ -22,10 +22,33 @@ type MockImageHandler struct {
 	MockName      string
 }
 
+var PrepareImageInfoList []*irs.ImageInfo
+
 func init() {
         // cblog is a global variable.
 	imgInfoMap = make(map[string][]*irs.ImageInfo)
 }
+
+// Be called before using the User function.
+// Called in MockDriver
+func PrepareVMImage(mockName string) {
+        cblogger := cblog.GetLogger("CB-SPIDER")
+        cblogger.Info("Mock Driver: called PrepareVMImage()!")
+
+        if imgInfoMap[mockName] != nil {
+                return
+        }
+
+        PrepareImageInfoList = []*irs.ImageInfo{
+		{irs.IID{"mock-vmimage-01", "mock-vmimage-01"}, "TestGuestOS", "TestStatus", nil},
+		{irs.IID{"mock-vmimage-02", "mock-vmimage-02"}, "TestGuestOS", "TestStatus", nil},
+		{irs.IID{"mock-vmimage-03", "mock-vmimage-03"}, "TestGuestOS", "TestStatus", nil},
+		{irs.IID{"mock-vmimage-04", "mock-vmimage-04"}, "TestGuestOS", "TestStatus", nil},
+		{irs.IID{"mock-vmimage-05", "mock-vmimage-05"}, "TestGuestOS", "TestStatus", nil},
+        }
+        imgInfoMap[mockName] = PrepareImageInfoList
+}
+
 
 // (1) create imageInfo object
 // (2) insert ImageInfo into global Map
@@ -79,7 +102,7 @@ func (imageHandler *MockImageHandler) GetImage(imageIID irs.IID) (irs.ImageInfo,
 		}
 	}
 	
-	return irs.ImageInfo{}, fmt.Errorf("%s image does not exist!!")
+	return irs.ImageInfo{}, fmt.Errorf("%s image does not exist!!", imageIID.NameId)
 }
 
 func (imageHandler *MockImageHandler) DeleteImage(imageIID irs.IID) (bool, error) {

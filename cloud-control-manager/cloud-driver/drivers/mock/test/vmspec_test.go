@@ -33,8 +33,7 @@ func init() {
 
 
 func TestVMSpecListGet(t *testing.T) {
-	regionTest(t, "mock-region01")
-	regionTest(t, "mock-region02")
+	regionTest(t, "default")
 }
 
 func regionTest(t *testing.T, mockRegion string) {
@@ -44,8 +43,8 @@ func regionTest(t *testing.T, mockRegion string) {
                 t.Error(err.Error())
         }
 
-        if len(infoList) != 2 {
-                t.Errorf("The number of Infos is not %d. It is %d.", len(infoList), 2)
+        if len(infoList) != 4 {
+                t.Errorf("The number of Infos is not %d. It is %d.", len(infoList), 4)
         }
 
         for _, info := range infoList {

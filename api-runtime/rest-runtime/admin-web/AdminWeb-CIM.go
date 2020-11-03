@@ -281,6 +281,10 @@ func makeOnchangeCredentialProviderFunc_js() string {
 		  case "DOCKER":
 			credentialInfo = '[{"Key":"Host", "Value":"http://18.191.xxx.xxx:1004"}, {"Key":"APIVersion", "Value":"v1.38"}]'
 		    break;
+
+		  case "MOCK":
+			credentialInfo = '[{"Key":"MockName", "Value":"mock_name00"}]'
+		    break;
 		  case "CLOUDTWIN":
 			credentialInfo = '[{"Key":"ClientId", "Value":"XXXXXX"}, {"Key":"ClientSecret", "Value":"XXXXXX"}]'
 		    break;
@@ -540,6 +544,12 @@ func makeOnchangeRegionProviderFunc_js() string {
             zone = 'RegionOne'            
             break;
           case "DOCKER":
+            regionInfo = '[{"Key":"Region", "Value":"default"}]'
+            region = 'default'
+            zone = ''             
+            break;
+
+          case "MOCK":
             regionInfo = '[{"Key":"Region", "Value":"default"}]'
             region = 'default'
             zone = ''             
@@ -826,6 +836,11 @@ func makeOnchangeConnectionConfigProviderFunc_js() string {
 	    driverNameList = document.getElementsByName('driverName-DOCKER');
 	    credentialNameList = document.getElementsByName('credentialName-DOCKER');
 	    regionNameList = document.getElementsByName('regionName-DOCKER');
+            break;
+          case "MOCK":
+	    driverNameList = document.getElementsByName('driverName-MOCK');
+	    credentialNameList = document.getElementsByName('credentialName-MOCK');
+	    regionNameList = document.getElementsByName('regionName-MOCK');
             break;
           case "CLOUDTWIN":
 	    driverNameList = document.getElementsByName('driverName-CLOUDTWIN');

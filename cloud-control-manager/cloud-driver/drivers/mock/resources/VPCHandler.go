@@ -37,6 +37,12 @@ func (vpcHandler *MockVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.VPCI
 	mockName := vpcHandler.MockName
 	vpcReqInfo.IId.SystemId = vpcReqInfo.IId.NameId
 
+	// set SystemID of Subnet list
+	for i, subnetInfo := range vpcReqInfo.SubnetInfoList {
+		subnetInfo.IId.SystemId = subnetInfo.IId.NameId
+		vpcReqInfo.SubnetInfoList[i] = subnetInfo
+	}
+
 	// (1) create vpcInfo object
 	vpcInfo := irs.VPCInfo{
 			vpcReqInfo.IId,
@@ -83,7 +89,7 @@ func (vpcHandler *MockVPCHandler) GetVPC(iid irs.IID) (irs.VPCInfo, error) {
 		}
 	}
 	
-	return irs.VPCInfo{}, fmt.Errorf("%s VPCGroup does not exist!!")
+	return irs.VPCInfo{}, fmt.Errorf("%s VPCGroup does not exist!!", iid.NameId)
 }
 
 func (vpcHandler *MockVPCHandler) DeleteVPC(iid irs.IID) (bool, error) {
@@ -124,7 +130,7 @@ func (vpcHandler *MockVPCHandler) AddSubnet(iid irs.IID, subnetInfo irs.SubnetIn
                 }
         }
 
-        return irs.VPCInfo{}, fmt.Errorf("%s VPCGroup does not exist!!")
+        return irs.VPCInfo{}, fmt.Errorf("%s VPCGroup does not exist!!", iid.NameId)
 }
 
 func (vpcHandler *MockVPCHandler) RemoveSubnet(iid irs.IID, subnetIID irs.IID) (bool, error) {

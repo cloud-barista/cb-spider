@@ -24,7 +24,7 @@ func init() {
 	}
 	connInfo := idrv.ConnectionInfo{
 		CredentialInfo: cred,
-		RegionInfo:     idrv.RegionInfo{"mock-region01", "", ""},
+		RegionInfo:     idrv.RegionInfo{"default", "", ""},
 	}
 	cloudConn, _ := (&mockdrv.MockDriver{}).ConnectCloud(connInfo)
 	vmHandler, _ = cloudConn.CreateVMHandler()

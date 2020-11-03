@@ -17,6 +17,7 @@ import (
 	"github.com/sirupsen/logrus"
 
 	mkcon "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/mock/connect"
+	mkrs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/mock/resources"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	icon "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/connect"
 )
@@ -62,6 +63,11 @@ func (driver *MockDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (icon
 		Region:   connectionInfo.RegionInfo,
 		MockName: connectionInfo.CredentialInfo.MockName,
 	}
+	
+	// Please, do not delete this line.
+        mkrs.PrepareVMImage(iConn.MockName)
+        mkrs.PrepareVMSpec(iConn.MockName)
+
 	return &iConn, nil
 }
 

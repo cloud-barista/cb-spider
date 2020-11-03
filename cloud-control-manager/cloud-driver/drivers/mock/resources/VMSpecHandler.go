@@ -23,30 +23,29 @@ type MockVMSpecHandler struct {
 	MockName string
 }
 
-var PrepareInfoList []*irs.VMSpecInfo
+var PrepareVMSpecInfoList []*irs.VMSpecInfo
 
 func init() {
 	vmSpecInfoMap = make(map[string][]*irs.VMSpecInfo)
 }
 
 // Be called before using the User function.
-// It is called in ListVMSpec().
-func prepare(mockName string) {
-	cblogger := cblog.GetLogger("CB-SPIDER")
-	cblogger.Info("Mock Driver: called prepare()!")
+// Called in MockDriver
+func PrepareVMSpec(mockName string) {
+        cblogger := cblog.GetLogger("CB-SPIDER")
+        cblogger.Info("Mock Driver: called prepare()!")
 
-	if vmSpecInfoMap[mockName] != nil {
-		return
-	}
+        if vmSpecInfoMap[mockName] != nil {
+                return
+        }
 
-	PrepareInfoList = []*irs.VMSpecInfo{
-		{"mock-region01", "mock-vmspec-01", irs.VCpuInfo{"4", "2.7"}, "32768", []irs.GpuInfo{{"2", "NVIDIA", "V100", "16384MB"}}, nil},
-		{"mock-region02", "mock-vmspec-02", irs.VCpuInfo{"4", "3.2"}, "32768", []irs.GpuInfo{{"1", "NVIDIA", "V100", "16384MB"}}, nil},
-		{"mock-region02", "mock-vmspec-03", irs.VCpuInfo{"8", "2.7"}, "62464", nil, nil},
-		{"mock-region01", "mock-vmspec-04", irs.VCpuInfo{"8", "2.7"}, "1024", nil, nil},
-	}
-	vmSpecInfoMap[mockName] = PrepareInfoList
-
+        PrepareVMSpecInfoList = []*irs.VMSpecInfo{
+                {"default", "mock-vmspec-01", irs.VCpuInfo{"4", "2.7"}, "32768", []irs.GpuInfo{{"2", "NVIDIA", "V100", "16384MB"}}, nil},
+                {"default", "mock-vmspec-02", irs.VCpuInfo{"4", "3.2"}, "32768", []irs.GpuInfo{{"1", "NVIDIA", "V100", "16384MB"}}, nil},
+                {"default", "mock-vmspec-03", irs.VCpuInfo{"8", "2.7"}, "62464", nil, nil},
+                {"default", "mock-vmspec-04", irs.VCpuInfo{"8", "2.7"}, "1024", nil, nil},
+        }
+        vmSpecInfoMap[mockName] = PrepareVMSpecInfoList
 }
 
 func (vmSpecHandler *MockVMSpecHandler) ListVMSpec(Region string) ([]*irs.VMSpecInfo, error) {
@@ -54,8 +53,6 @@ func (vmSpecHandler *MockVMSpecHandler) ListVMSpec(Region string) ([]*irs.VMSpec
 	cblogger.Info("Mock Driver: called ListVMSpec()!")
 
 	mockName := vmSpecHandler.MockName
-	// Please, do not delete this line.
-	prepare(mockName)
 
 	infoList, ok := vmSpecInfoMap[mockName]
 	if !ok {
@@ -89,7 +86,7 @@ func (vmSpecHandler *MockVMSpecHandler) GetVMSpec(Region string, Name string) (i
 		}
 	}
 
-	return irs.VMSpecInfo{}, fmt.Errorf("%s VMSpec does not exist!!")
+	return irs.VMSpecInfo{}, fmt.Errorf("%s VMSpec does not exist!!", Name)
 }
 
 func (vmSpecHandler *MockVMSpecHandler) ListOrgVMSpec(Region string) (string, error) { // return string: json format

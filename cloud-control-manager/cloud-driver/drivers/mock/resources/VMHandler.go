@@ -17,7 +17,6 @@ import (
 	cblog "github.com/cloud-barista/cb-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
-	_ "github.com/sirupsen/logrus"
 )
 
 var vmInfoMap map[string][]*irs.VMInfo
@@ -77,6 +76,7 @@ func (vmHandler *MockVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, er
 		return irs.VMInfo{}, fmt.Errorf(errMSG)
 	}
 
+	/* Skip sg validation because of sgDELIMITER. by powerkim, 2020.11.03
 	// sg validation
 	securityHandler := MockSecurityHandler{mockName}
 	sgInfoList, err := securityHandler.ListSecurity()
@@ -100,6 +100,9 @@ func (vmHandler *MockVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, er
 			return irs.VMInfo{}, fmt.Errorf(errMSG)
 		}
 	}
+	*/
+	
+	validatedSgIIDs := vmReqInfo.SecurityGroupIIDs
 
 	// keypair validation
 	keyPairHandler := MockKeyPairHandler{mockName}

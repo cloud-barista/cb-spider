@@ -11,7 +11,6 @@
 package resources
 
 import (
-        _ "github.com/sirupsen/logrus"
         cblog "github.com/cloud-barista/cb-log"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"fmt"
@@ -22,6 +21,8 @@ var securityInfoMap map[string][]*irs.SecurityInfo
 type MockSecurityHandler struct {
 	MockName      string
 }
+
+const sgDELIMITER string = "-delimiter-"
 
 func init() {
         // cblog is a global variable.
@@ -36,7 +37,7 @@ func (securityHandler *MockSecurityHandler) CreateSecurity(securityReqInfo irs.S
 
 	mockName := securityHandler.MockName
 	securityReqInfo.IId.SystemId = securityReqInfo.IId.NameId
-
+	securityReqInfo.VpcIID.SystemId = securityReqInfo.VpcIID.NameId
 	// (1) create securityInfo object
 	securityInfo := irs.SecurityInfo{securityReqInfo.IId,
 			securityReqInfo.VpcIID,
@@ -49,7 +50,8 @@ func (securityHandler *MockSecurityHandler) CreateSecurity(securityReqInfo irs.S
 	infoList = append(infoList, &securityInfo)
 	securityInfoMap[mockName]=infoList
 
-	return securityInfo, nil
+	resultInfo :=  securityInfo
+	return resultInfo, nil
 }
 
 func (securityHandler *MockSecurityHandler) ListSecurity() ([]*irs.SecurityInfo, error) {
@@ -78,12 +80,21 @@ func (securityHandler *MockSecurityHandler) GetSecurity(iid irs.IID) (irs.Securi
 	}
 
 	for _, info := range infoList {
-		if((*info).IId.NameId == iid.NameId) {
+		nameId := info.IId.SystemId // NameId = "sg-01"
+		if(nameId == iid.NameId) {
+			return *info, nil
+		}
+	}
+
+
+	for _, info := range infoList {
+		// NameId="sg-01", SystemId="vpc-01-delimiter-sg-01", iid.NameId="vpc-01-delimiter-sg-01"
+		if((*info).IId.SystemId == iid.NameId) { 
 			return *info, nil
 		}
 	}
 	
-	return irs.SecurityInfo{}, fmt.Errorf("%s SecurityGroup does not exist!!")
+	return irs.SecurityInfo{}, fmt.Errorf("%s SecurityGroup does not exist!!", iid.NameId)
 }
 
 func (securityHandler *MockSecurityHandler) DeleteSecurity(iid irs.IID) (bool, error) {
@@ -98,7 +109,8 @@ func (securityHandler *MockSecurityHandler) DeleteSecurity(iid irs.IID) (bool, e
 
 	mockName := securityHandler.MockName
         for idx, info := range infoList {
-                if(info.IId.NameId == iid.NameId) {
+		// NameId="sg-01", SystemId="vpc-01-delimiter-sg-01", iid.NameId="vpc-01-delimiter-sg-01"
+                if(info.IId.SystemId == iid.NameId) {
 			infoList = append(infoList[:idx], infoList[idx+1:]...)
 			securityInfoMap[mockName]=infoList
 			return true, nil
