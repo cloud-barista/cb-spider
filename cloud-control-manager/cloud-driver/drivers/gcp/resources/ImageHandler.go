@@ -19,6 +19,7 @@ import (
 	"strings"
 
 	cblog "github.com/cloud-barista/cb-log"
+	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/davecgh/go-spew/spew"
@@ -114,6 +115,19 @@ func (imageHandler *GCPImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 	var req *compute.ImagesListCall
 	var res *compute.ImageList
 	var err error
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.GCP,
+		RegionZone:   imageHandler.Region.Zone,
+		ResourceType: call.VMIMAGE,
+		ResourceName: "",
+		CloudOSAPI:   "List()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+	callLogStart := call.Start()
+
 	for _, projectId := range arrImageProjectList {
 		cblogger.Infof("[%s] 프로젝트 소유의 이미지 목록 처리", projectId)
 
@@ -121,6 +135,9 @@ func (imageHandler *GCPImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 		req = imageHandler.Client.Images.List(projectId)
 		res, err = req.Do()
 		if err != nil {
+			callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+			callLogInfo.ErrorMSG = err.Error()
+			callogger.Info(call.String(callLogInfo))
 			cblogger.Errorf("[%s] 프로젝트 소유의 이미지 목록 조회 실패!", projectId)
 			cblogger.Error(err)
 			return nil, err
@@ -148,6 +165,8 @@ func (imageHandler *GCPImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 			}
 		} // for : 멀티 페이지 처리
 	}
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+	callogger.Info(call.String(callLogInfo))
 
 	//spew.Dump(imageList)
 	return imageList, nil
@@ -224,11 +243,27 @@ func (imageHandler *GCPImageHandler) GetImage(imageIID irs.IID) (irs.ImageInfo, 
 		return irs.ImageInfo{}, errors.New("ProjectId information not found in URL.")
 	}
 
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.GCP,
+		RegionZone:   imageHandler.Region.Zone,
+		ResourceType: call.VMIMAGE,
+		ResourceName: imageIID.SystemId,
+		CloudOSAPI:   "Images.Get()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+	callLogStart := call.Start()
 	image, err := imageHandler.Client.Images.Get(projectId, imageName).Do()
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 	if err != nil {
+		callLogInfo.ErrorMSG = err.Error()
+		callogger.Info(call.String(callLogInfo))
 		cblogger.Error(err)
 		return irs.ImageInfo{}, err
 	}
+	callogger.Info(call.String(callLogInfo))
 	imageInfo := mappingImageInfo(image)
 	return imageInfo, nil
 }
@@ -279,11 +314,27 @@ func (imageHandler *GCPImageHandler) DeleteImage(imageIID irs.IID) (bool, error)
 	imageId := gcpImageInfo.Id
 
 	//res, err := imageHandler.Client.Images.Delete(projectId, imageIID.SystemId).Do()
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.GCP,
+		RegionZone:   imageHandler.Region.Zone,
+		ResourceType: call.VMIMAGE,
+		ResourceName: imageIID.SystemId,
+		CloudOSAPI:   "CreateVpc()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+	callLogStart := call.Start()
 	res, err := imageHandler.Client.Images.Delete(projectId, imageId).Do()
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 	if err != nil {
+		callLogInfo.ErrorMSG = err.Error()
+		callogger.Info(call.String(callLogInfo))
 		cblogger.Error(err)
 		return false, err
 	}
+	callogger.Info(call.String(callLogInfo))
 	fmt.Println(res)
 	return true, err
 }

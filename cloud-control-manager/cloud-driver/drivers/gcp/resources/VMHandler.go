@@ -21,6 +21,7 @@ import (
 
 	compute "google.golang.org/api/compute/v1"
 
+	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/davecgh/go-spew/spew"
@@ -188,14 +189,30 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 	cblogger.Info("VM 생성 시작")
 	cblogger.Info(instance)
 	spew.Dump(instance)
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.GCP,
+		RegionZone:   vmHandler.Region.Zone,
+		ResourceType: call.VM,
+		ResourceName: vmName,
+		CloudOSAPI:   "Insert()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+	callLogStart := call.Start()
 	op, err1 := vmHandler.Client.Instances.Insert(projectID, zone, instance).Do()
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 	cblogger.Info(op)
 	spew.Dump(op)
 	if err1 != nil {
+		callLogInfo.ErrorMSG = err1.Error()
+		callogger.Info(call.String(callLogInfo))
 		cblogger.Info("VM 생성 실패")
 		cblogger.Error(err1)
 		return irs.VMInfo{}, err1
 	}
+	callogger.Info(call.String(callLogInfo))
 
 	/*
 		js, err := op.MarshalJSON()
@@ -325,12 +342,28 @@ func (vmHandler *GCPVMHandler) SuspendVM(vmID irs.IID) (irs.VMStatus, error) {
 	zone := vmHandler.Region.Zone
 	ctx := vmHandler.Ctx
 
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.GCP,
+		RegionZone:   vmHandler.Region.Zone,
+		ResourceType: call.VM,
+		ResourceName: vmID.SystemId,
+		CloudOSAPI:   "Stop()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+	callLogStart := call.Start()
 	inst, err := vmHandler.Client.Instances.Stop(projectID, zone, vmID.SystemId).Context(ctx).Do()
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 	spew.Dump(inst)
 	if err != nil {
+		callLogInfo.ErrorMSG = err.Error()
+		callogger.Info(call.String(callLogInfo))
 		cblogger.Error(err)
 		return irs.VMStatus("Failed"), err
 	}
+	callogger.Info(call.String(callLogInfo))
 
 	fmt.Println("instance stop status :", inst.Status)
 	return irs.VMStatus("Suspending"), nil
@@ -342,12 +375,28 @@ func (vmHandler *GCPVMHandler) ResumeVM(vmID irs.IID) (irs.VMStatus, error) {
 	zone := vmHandler.Region.Zone
 	ctx := vmHandler.Ctx
 
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.GCP,
+		RegionZone:   vmHandler.Region.Zone,
+		ResourceType: call.VM,
+		ResourceName: vmID.SystemId,
+		CloudOSAPI:   "Start()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+	callLogStart := call.Start()
 	inst, err := vmHandler.Client.Instances.Start(projectID, zone, vmID.SystemId).Context(ctx).Do()
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 	spew.Dump(inst)
 	if err != nil {
+		callLogInfo.ErrorMSG = err.Error()
+		callogger.Info(call.String(callLogInfo))
 		cblogger.Error(err)
 		return irs.VMStatus("Failed"), err
 	}
+	callogger.Info(call.String(callLogInfo))
 
 	fmt.Println("instance resume status :", inst.Status)
 	return irs.VMStatus("Resuming"), nil
@@ -355,10 +404,26 @@ func (vmHandler *GCPVMHandler) ResumeVM(vmID irs.IID) (irs.VMStatus, error) {
 
 func (vmHandler *GCPVMHandler) RebootVM(vmID irs.IID) (irs.VMStatus, error) {
 
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.GCP,
+		RegionZone:   vmHandler.Region.Zone,
+		ResourceType: call.VM,
+		ResourceName: vmID.SystemId,
+		CloudOSAPI:   "SuspendVM()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+	callLogStart := call.Start()
 	_, err := vmHandler.SuspendVM(vmID)
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 	if err != nil {
+		callLogInfo.ErrorMSG = err.Error()
+		callogger.Info(call.String(callLogInfo))
 		return irs.VMStatus("Failed"), err
 	}
+	callogger.Info(call.String(callLogInfo))
 
 	_, err2 := vmHandler.ResumeVM(vmID)
 	if err2 != nil {
@@ -373,12 +438,28 @@ func (vmHandler *GCPVMHandler) TerminateVM(vmID irs.IID) (irs.VMStatus, error) {
 	zone := vmHandler.Region.Zone
 	ctx := vmHandler.Ctx
 
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.GCP,
+		RegionZone:   vmHandler.Region.Zone,
+		ResourceType: call.VM,
+		ResourceName: vmID.SystemId,
+		CloudOSAPI:   "Delete()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+	callLogStart := call.Start()
 	inst, err := vmHandler.Client.Instances.Delete(projectID, zone, vmID.SystemId).Context(ctx).Do()
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 	spew.Dump(inst)
 	if err != nil {
+		callLogInfo.ErrorMSG = err.Error()
+		callogger.Info(call.String(callLogInfo))
 		cblogger.Error(err)
 		return irs.VMStatus("Failed"), err
 	}
+	callogger.Info(call.String(callLogInfo))
 
 	fmt.Println("instance status :", inst.Status)
 
@@ -390,11 +471,27 @@ func (vmHandler *GCPVMHandler) ListVMStatus() ([]*irs.VMStatusInfo, error) {
 	projectID := vmHandler.Credential.ProjectID
 	zone := vmHandler.Region.Zone
 
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.GCP,
+		RegionZone:   vmHandler.Region.Zone,
+		ResourceType: call.VM,
+		ResourceName: "",
+		CloudOSAPI:   "List()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+	callLogStart := call.Start()
 	serverList, err := vmHandler.Client.Instances.List(projectID, zone).Do()
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 	if err != nil {
+		callLogInfo.ErrorMSG = err.Error()
+		callogger.Info(call.String(callLogInfo))
 		cblogger.Error(err)
 		return nil, err
 	}
+	callogger.Info(call.String(callLogInfo))
 
 	var vmStatusList []*irs.VMStatusInfo
 	for _, s := range serverList.Items {
@@ -445,11 +542,28 @@ func (vmHandler *GCPVMHandler) GetVMStatus(vmID irs.IID) (irs.VMStatus, error) {
 	projectID := vmHandler.Credential.ProjectID
 	zone := vmHandler.Region.Zone
 
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.GCP,
+		RegionZone:   vmHandler.Region.Zone,
+		ResourceType: call.VM,
+		ResourceName: vmID.SystemId,
+		CloudOSAPI:   "Get()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+	callLogStart := call.Start()
+
 	instanceView, err := vmHandler.Client.Instances.Get(projectID, zone, vmID.SystemId).Do()
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 	if err != nil {
+		callLogInfo.ErrorMSG = err.Error()
+		callogger.Info(call.String(callLogInfo))
 		cblogger.Error(err)
 		return irs.VMStatus("Failed"), err
 	}
+	callogger.Info(call.String(callLogInfo))
 
 	// Get powerState, provisioningState
 	//vmStatus := instanceView.Status
@@ -462,12 +576,29 @@ func (vmHandler *GCPVMHandler) ListVM() ([]*irs.VMInfo, error) {
 	projectID := vmHandler.Credential.ProjectID
 	zone := vmHandler.Region.Zone
 	cblogger.Info("VMLIST zone info :", zone)
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.GCP,
+		RegionZone:   vmHandler.Region.Zone,
+		ResourceType: call.VM,
+		ResourceName: "",
+		CloudOSAPI:   "List()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+	callLogStart := call.Start()
+
 	serverList, err := vmHandler.Client.Instances.List(projectID, zone).Do()
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 	if err != nil {
+		callLogInfo.ErrorMSG = err.Error()
+		callogger.Info(call.String(callLogInfo))
 		cblogger.Error(err)
 		cblogger.Infof("해당존에 만들어진 Vm List 가 없음")
 		return nil, err
 	}
+	callogger.Info(call.String(callLogInfo))
 
 	var vmList []*irs.VMInfo
 	for _, server := range serverList.Items {
@@ -482,11 +613,27 @@ func (vmHandler *GCPVMHandler) GetVM(vmID irs.IID) (irs.VMInfo, error) {
 	projectID := vmHandler.Credential.ProjectID
 	zone := vmHandler.Region.Zone
 
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.GCP,
+		RegionZone:   vmHandler.Region.Zone,
+		ResourceType: call.VM,
+		ResourceName: vmID.SystemId,
+		CloudOSAPI:   "CreateVpc()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+	callLogStart := call.Start()
 	vm, err := vmHandler.Client.Instances.Get(projectID, zone, vmID.SystemId).Do()
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 	if err != nil {
+		callLogInfo.ErrorMSG = err.Error()
+		callogger.Info(call.String(callLogInfo))
 		cblogger.Error(err)
 		return irs.VMInfo{}, err
 	}
+	callogger.Info(call.String(callLogInfo))
 	spew.Dump(vm)
 
 	vmInfo := vmHandler.mappingServerInfo(vm)

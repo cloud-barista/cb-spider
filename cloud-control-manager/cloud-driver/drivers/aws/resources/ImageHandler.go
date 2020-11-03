@@ -19,7 +19,9 @@ import (
 	"github.com/aws/aws-sdk-go/service/ec2"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
+
 	//irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/new-resources"
+	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 )
 
 type AwsImageHandler struct {
@@ -29,8 +31,24 @@ type AwsImageHandler struct {
 
 //@TODO : 작업해야 함.
 func (imageHandler *AwsImageHandler) CreateImage(imageReqInfo irs.ImageReqInfo) (irs.ImageInfo, error) {
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.AWS,
+		RegionZone:   imageHandler.Region.Zone,
+		ResourceType: call.VMIMAGE,
+		ResourceName: imageReqInfo.IId.NameId,
+		CloudOSAPI:   "-",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+	callLogStart := call.Start()
 
 	imageReqInfo.IId.SystemId = imageReqInfo.IId.NameId
+
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+	callogger.Info(call.String(callLogInfo))
+
 	return irs.ImageInfo{imageReqInfo.IId, "", "", nil}, nil
 }
 
@@ -54,10 +72,29 @@ func (imageHandler *AwsImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 			},
 		},
 	}
+
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.AWS,
+		RegionZone:   imageHandler.Region.Zone,
+		ResourceType: call.VMIMAGE,
+		ResourceName: "ListImage()",
+		CloudOSAPI:   "DescribeImages",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+	callLogStart := call.Start()
+
 	result, err := imageHandler.Client.DescribeImages(input)
 	//spew.Dump(result)	//출력 정보가 너무 많아서 생략
 
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+
 	if err != nil {
+		callLogInfo.ErrorMSG = err.Error()
+		callogger.Info(call.String(callLogInfo))
+
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
 			default:
@@ -70,6 +107,7 @@ func (imageHandler *AwsImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 		}
 		return nil, err
 	}
+	callogger.Info(call.String(callLogInfo))
 
 	//cnt := 0
 	for _, cur := range result.Images {
@@ -146,11 +184,28 @@ func (imageHandler *AwsImageHandler) GetImage(imageIID irs.IID) (irs.ImageInfo, 
 		},
 	}
 
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.AWS,
+		RegionZone:   imageHandler.Region.Zone,
+		ResourceType: call.VMIMAGE,
+		ResourceName: imageIID.SystemId,
+		CloudOSAPI:   "DescribeImages",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+	callLogStart := call.Start()
+
 	result, err := imageHandler.Client.DescribeImages(input)
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 	//spew.Dump(result)
 	cblogger.Info(result)
 
 	if err != nil {
+		callLogInfo.ErrorMSG = err.Error()
+		callogger.Info(call.String(callLogInfo))
+
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
 			default:
@@ -163,6 +218,7 @@ func (imageHandler *AwsImageHandler) GetImage(imageIID irs.IID) (irs.ImageInfo, 
 		}
 		return irs.ImageInfo{}, err
 	}
+	callogger.Info(call.String(callLogInfo))
 
 	if len(result.Images) > 0 {
 		imageInfo := ExtractImageDescribeInfo(result.Images[0])
@@ -175,5 +231,21 @@ func (imageHandler *AwsImageHandler) GetImage(imageIID irs.IID) (irs.ImageInfo, 
 
 //@TODO : 삭제 API 찾아야 함.
 func (imageHandler *AwsImageHandler) DeleteImage(imageIID irs.IID) (bool, error) {
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.AWS,
+		RegionZone:   imageHandler.Region.Zone,
+		ResourceType: call.VMIMAGE,
+		ResourceName: imageIID.SystemId,
+		CloudOSAPI:   "-",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+	callLogStart := call.Start()
+
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+	callogger.Info(call.String(callLogInfo))
+
 	return false, nil
 }
