@@ -13,10 +13,10 @@ If you have any difficulties in using CB-Spider, please let us know.
 (Open an issue or Join the cloud-barista Slack)
 ```
 ***
-#### cf) [Old README(Go 1.12.x-based, until Cappuccino)](https://github.com/cloud-barista/cb-spider/wiki/Installation-Guide(until-Cappuccino))
+### cf) [Old README(Go 1.12.x-based, until Cappuccino)](https://github.com/cloud-barista/cb-spider/wiki/Installation-Guide(until-Cappuccino))
 ***
 
-### [Quick Guide] https://github.com/cloud-barista/cb-spider/wiki/Quick-Start-Guide
+## [Quick Guide] https://github.com/cloud-barista/cb-spider/wiki/Quick-Start-Guide
 ***
 
 ## [목    차]
@@ -30,14 +30,14 @@ If you have any difficulties in using CB-Spider, please let us know.
  
 ***
 
-## [실행 환경]
+### [실행 환경]
 
 - 리눅스 (검증시험:Ubuntu 18.04)
 
 
-## [실행 방법]
+### [실행 방법]
 
-### (1) 컨테이너 기반 실행
+#### (1) 컨테이너 기반 실행
 - CB-Spider 이미지 확인 (https://hub.docker.com/r/cloudbaristaorg/cb-spider/tags)
 - CB-Spider 컨테이너 실행 (필요시 Tag Version 수정)
 
@@ -48,24 +48,24 @@ If you have any difficulties in using CB-Spider, please let us know.
 cloudbaristaorg/cb-spider:latest
 ```
 
-### (2) 소스 기반 실행
+#### (2) 소스 기반 실행
 
 - Quick Guide 참고: https://github.com/cloud-barista/cb-spider/wiki/Quick-Start-Guide
 
-### (3) Cloud-Barista 플랫폼 통합 실행 방법 (Docker-Compose 기반)
+#### (3) Cloud-Barista 플랫폼 통합 실행 방법 (Docker-Compose 기반)
 - cb-operator 참고: https://github.com/cloud-barista/cb-operator
 
-###	참고: 메타 정보 손상시 초기화 방법
+####	* 참고: 메타 정보 손상시 초기화 방법
     - `cb-spider/cloud-driver-libs/.ssh-*/*` 파일 삭제
     - `cb-spider/meta_db` 경로 삭제 후 서버 재가동
 
-## [API 규격]
+### [API 규격]
 - 클라우드 인프라 연동 정보 관리: https://cloud-barista.github.io/rest-api/v0.2.0/spider/ccim/
   - Cloud Driver / Credential / Region/Zone
 - 클라우드 인프라 공통 제어 관리: https://cloud-barista.github.io/rest-api/v0.2.0/spider/cctm/
   - Image / Spec / VPC/Subnet / SecurityGroup / KeyPair / VM
   
-## [활용 예시]
+### [활용 예시]
 - 시험 도구: `cb-spier/api-runtime/rest-runtime/test/[fulltest|eachtest|parallel-test]` (AWS 경우:aws)
 - 시험 순서: 연동 정보 추가 => 자원등록 => VM 생성 및 제어 시험
 - 시험 방법: 
@@ -87,7 +87,7 @@ cloudbaristaorg/cb-spider:latest
   | Cloudit | root      | sshkey 제공 안함. PW 설정 가능  |
     - 개선예정(관련이슈:https://github.com/cloud-barista/cb-spider/issues/230)
   
-## [특이 사항]
+### [특이 사항]
 - 개발상태: 초기 주요 기능 중심 개발추진 중 / 기술개발용 / 상용활용시 보완필요
 - Key관리: CSP가 제공하지 않는 경우 Key 자체 생성 및 Key 파일 내부 관리
   - 관리위치: `cb-spider/cloud-driver-libs/.ssh-CSPName/*` (임시방법)
@@ -95,7 +95,7 @@ cloudbaristaorg/cb-spider:latest
 
 ***
 
-## [소스 트리]
+### [소스 트리]
 
 ```
 .
