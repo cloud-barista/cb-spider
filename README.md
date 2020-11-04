@@ -13,10 +13,9 @@ If you have any difficulties in using CB-Spider, please let us know.
 (Open an issue or Join the cloud-barista Slack)
 ```
 ***
-#### cf) [old README(Go 1.12.x-based, until Cappuccino)](https://github.com/cloud-barista/cb-spider/wiki/Installation-Guide(until-Cappuccino))
-***
-
 ### ▶ **[Quick Guide](https://github.com/cloud-barista/cb-spider/wiki/Quick-Start-Guide)**
+***
+#### cf) [old README(Go 1.12.x-based, until Cappuccino)](https://github.com/cloud-barista/cb-spider/wiki/Installation-Guide(until-Cappuccino))
 ***
 
 #### [목    차]
