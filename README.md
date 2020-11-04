@@ -26,7 +26,7 @@ If you have any difficulties in using CB-Spider, please let us know.
 3. [API 규격](#API-규격)
 4. [활용 예시](#활용-예시)
 5. [특이 사항](#특이-사항)
-6. [소스 트리](#소스-트리)
+6. [관련 정보](#관련-정보)
  
 ***
 
@@ -95,8 +95,10 @@ cloudbaristaorg/cb-spider:latest
 
 ***
 
+#### [관련 정보]
+- 위키: https://github.com/cloud-barista/cb-spider/wiki
 <details>
-#### <summary> [소스 트리] </summary>
+<summary> [소스 트리] </summary>
 
 ```
 .
@@ -171,5 +173,4 @@ cloudbaristaorg/cb-spider:latest
 ```
 </details>
 
-- CB-Spider 소스 트리 관련 상세 설명 : https://han.gl/3IOVD
-- 그외 정보: https://github.com/cloud-barista/cb-spider/wiki
+- 소스 트리 상세 설명 : https://han.gl/3IOVD
