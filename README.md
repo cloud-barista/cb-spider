@@ -169,7 +169,7 @@ cloudbaristaorg/cb-spider:latest
     `-- import-info: Cloud Driver 및 Region 정보 자동 등록 지원 도구
 
 ```
-<details>
+</details>
 
 - CB-Spider 소스 트리 관련 상세 설명 : https://han.gl/3IOVD
 - 그외 정보: https://github.com/cloud-barista/cb-spider/wiki
