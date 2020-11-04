@@ -36,9 +36,9 @@ If you have any difficulties in using CB-Spider, please let us know.
 
 #### [실행 방법]
 
-##### (1) 컨테이너 기반 실행
-- CB-Spider 이미지 확인 (https://hub.docker.com/r/cloudbaristaorg/cb-spider/tags)
-- CB-Spider 컨테이너 실행 (필요시 Tag Version 수정)
+- ##### 컨테이너 기반 실행
+  - CB-Spider 이미지 확인 (https://hub.docker.com/r/cloudbaristaorg/cb-spider/tags)
+  - CB-Spider 컨테이너 실행 (필요시 Tag Version 수정)
 
 ```
 # sudo docker run --rm -p 1024:1024 \
@@ -47,12 +47,12 @@ If you have any difficulties in using CB-Spider, please let us know.
 cloudbaristaorg/cb-spider:latest
 ```
 
-##### (2) 소스 기반 실행
+- ##### 소스 기반 실행
 
-- Quick Guide 참고: https://github.com/cloud-barista/cb-spider/wiki/Quick-Start-Guide
+  - Quick Guide 참고: https://github.com/cloud-barista/cb-spider/wiki/Quick-Start-Guide
 
-##### (3) Cloud-Barista 플랫폼 통합 실행 방법 (Docker-Compose 기반)
-- cb-operator 참고: https://github.com/cloud-barista/cb-operator
+- ##### Cloud-Barista 플랫폼 통합 실행 방법 (Docker-Compose 기반)
+  - cb-operator 참고: https://github.com/cloud-barista/cb-operator
 
 #####	* 참고: 메타 정보 손상시 초기화 방법
     - `cb-spider/cloud-driver-libs/.ssh-*/*` 파일 삭제
