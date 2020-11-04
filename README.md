@@ -15,7 +15,7 @@ If you have any difficulties in using CB-Spider, please let us know.
 ***
 ### ▶ **[Quick Guide](https://github.com/cloud-barista/cb-spider/wiki/Quick-Start-Guide)**
 ***
-#### cf) [old README(Go 1.12.x-based, until Cappuccino)](https://github.com/cloud-barista/cb-spider/wiki/Installation-Guide(until-Cappuccino))
+#### cf) [old README(Go 1.12.x-based, until Cappuccino)](https://github.com/cloud-barista/cb-spider/wiki/Old-Installation-Guide(until-Cappuccino))
 ***
 
 #### [목    차]
@@ -31,38 +31,25 @@ If you have any difficulties in using CB-Spider, please let us know.
 
 #### [실행 환경]
 
-- 리눅스 (검증시험:Ubuntu 18.04)
+- Linux (검증시험:Ubuntu 18.04)
 
 
 #### [실행 방법]
 
-- ##### 컨테이너 기반 실행
-  - CB-Spider 이미지 확인 (https://hub.docker.com/r/cloudbaristaorg/cb-spider/tags)
-  - CB-Spider 컨테이너 실행 (필요시 Tag Version 수정)
-
-```
-# sudo docker run --rm -p 1024:1024 \
--v ${HOME}/cloud-barista/cb-spider/meta_db:/root/go/src/github.com/cloud-barista/cb-spider/meta_db \
---name cb-spider \
-cloudbaristaorg/cb-spider:latest
-```
-
 - ##### 소스 기반 실행
+  - https://github.com/cloud-barista/cb-spider/wiki/Quick-Start-Guide
 
-  - Quick Guide 참고: https://github.com/cloud-barista/cb-spider/wiki/Quick-Start-Guide
+- ##### 컨테이너 기반 실행
+  - https://github.com/cloud-barista/cb-spider/wiki/Docker-based-Start-Guide
 
-- ##### Cloud-Barista 플랫폼 통합 실행 방법 (Docker-Compose 기반)
-  - cb-operator 참고: https://github.com/cloud-barista/cb-operator
-
-#####	* 참고: 메타 정보 손상시 초기화 방법
-    - `cb-spider/cloud-driver-libs/.ssh-*/*` 파일 삭제
-    - `cb-spider/meta_db` 경로 삭제 후 서버 재가동
+- ##### Cloud-Barista 플랫폼 통합 실행 방법(with cb-operator)
+  - https://github.com/cloud-barista/cb-operator
 
 #### [API 규격]
 - 클라우드 인프라 연동 정보 관리: https://cloud-barista.github.io/rest-api/v0.2.0/spider/ccim/
-  - Cloud Driver / Credential / Region/Zone
+  - 관리대상: Cloud Driver / Credential / Region:Zone
 - 클라우드 인프라 공통 제어 관리: https://cloud-barista.github.io/rest-api/v0.2.0/spider/cctm/
-  - Image / Spec / VPC/Subnet / SecurityGroup / KeyPair / VM
+  - 제어대상: Image / Spec / VPC/Subnet / SecurityGroup / KeyPair / VM
   
 #### [활용 예시]
 - 시험 도구: `cb-spier/api-runtime/rest-runtime/test/[fulltest|eachtest|parallel-test]` (AWS 경우:aws)
