@@ -966,9 +966,9 @@ func handleVM() {
 
 func main() {
 	cblogger.Info("GCP Resource Test")
-	handleVPC()
+	//handleVPC()
 	//handleVMSpec()
-	//handleImage() //AMI
+	handleImage() //AMI
 	//handleKeyPair()
 	//handleSecurity()
 	//handleVM()

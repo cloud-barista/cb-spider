@@ -18,6 +18,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/ec2"
+	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/davecgh/go-spew/spew"
@@ -60,8 +61,24 @@ func (securityHandler *AwsSecurityHandler) CreateSecurity(securityReqInfo irs.Se
 		VpcId: aws.String(vpcId),
 	}
 	cblogger.Debugf("보안 그룹 생성 요청 정보", input)
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.AWS,
+		RegionZone:   securityHandler.Region.Zone,
+		ResourceType: call.SECURITYGROUP,
+		ResourceName: securityReqInfo.IId.NameId,
+		CloudOSAPI:   "CreateSecurityGroup()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+	callLogStart := call.Start()
+
 	createRes, err := securityHandler.Client.CreateSecurityGroup(&input)
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 	if err != nil {
+		callLogInfo.ErrorMSG = err.Error()
+		callogger.Info(call.String(callLogInfo))
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
 			case "InvalidVpcID.NotFound":
@@ -75,6 +92,7 @@ func (securityHandler *AwsSecurityHandler) CreateSecurity(securityReqInfo irs.Se
 		cblogger.Errorf("Unable to create security group %q, %v", securityReqInfo.IId.NameId, err)
 		return irs.SecurityInfo{}, err
 	}
+	callogger.Info(call.String(callLogInfo))
 	cblogger.Infof("[%s] 보안 그룹 생성완료", aws.StringValue(createRes.GroupId))
 	spew.Dump(createRes)
 
@@ -256,9 +274,26 @@ func (securityHandler *AwsSecurityHandler) ListSecurity() ([]*irs.SecurityInfo, 
 		*/
 	}
 
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.AWS,
+		RegionZone:   securityHandler.Region.Zone,
+		ResourceType: call.SECURITYGROUP,
+		ResourceName: "List()",
+		CloudOSAPI:   "DescribeSecurityGroups()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+	callLogStart := call.Start()
+
 	result, err := securityHandler.Client.DescribeSecurityGroups(input)
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 	cblogger.Info("result : ", result)
 	if err != nil {
+		callLogInfo.ErrorMSG = err.Error()
+		callogger.Info(call.String(callLogInfo))
+
 		cblogger.Info("err : ", err)
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
@@ -272,6 +307,7 @@ func (securityHandler *AwsSecurityHandler) ListSecurity() ([]*irs.SecurityInfo, 
 		}
 		return nil, err
 	}
+	callogger.Info(call.String(callLogInfo))
 
 	var results []*irs.SecurityInfo
 	for _, securityGroup := range result.SecurityGroups {
@@ -306,10 +342,27 @@ func (securityHandler *AwsSecurityHandler) GetSecurity(securityIID irs.IID) (irs
 	*/
 	cblogger.Info(input)
 
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.AWS,
+		RegionZone:   securityHandler.Region.Zone,
+		ResourceType: call.SECURITYGROUP,
+		ResourceName: securityIID.SystemId,
+		CloudOSAPI:   "DescribeSecurityGroups()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+	callLogStart := call.Start()
+
 	result, err := securityHandler.Client.DescribeSecurityGroups(input)
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 	cblogger.Info("result : ", result)
 	cblogger.Info("err : ", err)
 	if err != nil {
+		callLogInfo.ErrorMSG = err.Error()
+		callogger.Info(call.String(callLogInfo))
+
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
 			default:
@@ -322,6 +375,7 @@ func (securityHandler *AwsSecurityHandler) GetSecurity(securityIID irs.IID) (irs
 		}
 		return irs.SecurityInfo{}, err
 	}
+	callogger.Info(call.String(callLogInfo))
 
 	if len(result.SecurityGroups) > 0 {
 		securityInfo := ExtractSecurityInfo(result.SecurityGroups[0])
@@ -467,11 +521,28 @@ func (securityHandler *AwsSecurityHandler) DeleteSecurity(securityIID irs.IID) (
 	//securityID := securityInfo.IId.SystemId
 	securityID := securityIID.SystemId
 
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.AWS,
+		RegionZone:   securityHandler.Region.Zone,
+		ResourceType: call.SECURITYGROUP,
+		ResourceName: securityIID.SystemId,
+		CloudOSAPI:   "DeleteSecurityGroup()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+	callLogStart := call.Start()
+
 	// Delete the security group.
 	_, err := securityHandler.Client.DeleteSecurityGroup(&ec2.DeleteSecurityGroupInput{
 		GroupId: aws.String(securityID),
 	})
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 	if err != nil {
+		callLogInfo.ErrorMSG = err.Error()
+		callogger.Info(call.String(callLogInfo))
+
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
 			case "InvalidGroupId.Malformed":
@@ -484,6 +555,7 @@ func (securityHandler *AwsSecurityHandler) DeleteSecurity(securityIID irs.IID) (
 		cblogger.Errorf("Unable to get descriptions for security groups, %v.", err)
 		return false, err
 	}
+	callogger.Info(call.String(callLogInfo))
 
 	cblogger.Infof("Successfully delete security group %q.", securityID)
 
