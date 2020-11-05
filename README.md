@@ -35,14 +35,9 @@ If you have any difficulties in using CB-Spider, please let us know.
 
 #### [실행 방법]
 
-- ##### 소스 기반 실행
-  - https://github.com/cloud-barista/cb-spider/wiki/Quick-Start-Guide
-
-- ##### 컨테이너 기반 실행
-  - https://github.com/cloud-barista/cb-spider/wiki/Docker-based-Start-Guide
-
-- ##### Cloud-Barista 플랫폼 통합 실행 방법(with cb-operator)
-  - https://github.com/cloud-barista/cb-operator
+- ##### 소스 기반 실행: https://github.com/cloud-barista/cb-spider/wiki/Quick-Start-Guide
+- ##### 컨테이너 기반 실행: https://github.com/cloud-barista/cb-spider/wiki/Docker-based-Start-Guide
+- ##### cb-operator 기반 실행: https://github.com/cloud-barista/cb-operator
 
 #### [API 규격]
 - 클라우드 인프라 연동 정보 관리: https://cloud-barista.github.io/rest-api/v0.2.0/spider/ccim/
