@@ -52,6 +52,10 @@ type route struct {
 }
 
 func getHostIPorName() string {
+	if os.Getenv("LOCALHOST") ==  "ON" {
+		return "localhost"
+	}
+
 	ip, err := pubip.Get()
 	if err != nil {
 		cblog.Error(err)
