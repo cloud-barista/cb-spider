@@ -30,7 +30,7 @@ If you have any difficulties in using CB-Spider, please let us know.
 
 #### [실행 환경]
 
-- Linux (검증시험:Ubuntu 18.04)
+- Linux (검증시험:Ubuntu 18.04, Android aarch64)
 
 
 #### [실행 방법]
