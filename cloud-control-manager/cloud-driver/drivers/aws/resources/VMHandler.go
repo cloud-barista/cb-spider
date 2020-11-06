@@ -34,7 +34,7 @@ var cblogger *logrus.Logger
 
 func init() {
 	// cblog is a global variable.
-	cblogger = cblog.GetLogger("AWS VMHandler")
+	cblogger = cblog.GetLogger("CB-SPIDER")
 }
 
 func Connect(region string) *ec2.EC2 {
