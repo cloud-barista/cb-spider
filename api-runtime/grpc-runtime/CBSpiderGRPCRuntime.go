@@ -80,8 +80,8 @@ func RunServer() {
 }
 
 func spiderBanner(server string) {
-	gRPCServer := "grpc://" +  server
-        fmt.Printf("     - %s\n\n", gRPCServer)
+	gRPCServer := "Go   API: grpc://" +  server
+        fmt.Printf("     - %s\n", gRPCServer)
 }
 
 func configLoad(cf string) (config.GrpcConfig, error) {

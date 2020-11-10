@@ -83,6 +83,7 @@ require (
 	golang.org/x/tools v0.0.0-20200518225412-897954058703 // indirect
 	google.golang.org/api v0.15.0
 	google.golang.org/grpc v1.33.0
+	google.golang.org/protobuf v1.24.0
 	gopkg.in/check.v1 v1.0.0-20200227125254-8fa46927fb4f // indirect
 	gopkg.in/ini.v1 v1.56.0 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0 // indirect

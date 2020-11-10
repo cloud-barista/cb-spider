@@ -11,25 +11,36 @@ package main
 
 import (
 	"sync"
+	"time"
 
 	grpcruntime "github.com/cloud-barista/cb-spider/api-runtime/grpc-runtime"
 	restruntime "github.com/cloud-barista/cb-spider/api-runtime/rest-runtime"	
+	meerkatruntime "github.com/cloud-barista/cb-spider/api-runtime/meerkat-runtime"	
 )
 
 func main() {
 	wg := new(sync.WaitGroup)
 
-	wg.Add(2)
+	wg.Add(3)
 
 	go func() {
 		restruntime.RunServer()
 		wg.Done()
 	}()
 
+	time.Sleep(time.Millisecond*5)
+
 	go func() {
 		grpcruntime.RunServer()
 		wg.Done()
 	}()
+
+	time.Sleep(time.Millisecond*10)
+
+	go func() {
+                meerkatruntime.RunServer()
+                wg.Done()
+        }()
 
 	wg.Wait()
 }

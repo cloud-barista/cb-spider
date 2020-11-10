@@ -1,0 +1,24 @@
+syntax = "proto3";
+
+option go_package = "github.com/cloud-barista/cb-spider/api-runtime/meerkat-runtime/common";
+
+package meerkatrpc;
+
+// The Resource status service definition.
+service ChildStatus {
+  // Sends a request of Resource status
+  rpc GetChildStatus (Empty) returns (Status) {}
+}
+
+// The request message with empty
+message Empty {
+}
+
+// The response message containing a ChildKat status
+message Status {
+  string ServerID = 1;
+  string Status = 2;
+  string Time = 3;
+  string Reserved = 4;
+}
+
