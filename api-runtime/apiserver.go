@@ -1,9 +1,17 @@
+// Start Runtime Servers of CB-Spider.
+// The CB-Spider is a sub-Framework of the Cloud-Barista Multi-Cloud Project.
+// The CB-Spider Mission is to connect all the clouds with a single interface.
+//
+//      * Cloud-Barista: https://github.com/cloud-barista
+//
+// by CB-Spider Team, 2020.09.
+
+
 package main
 
 import (
 	"sync"
 
-	// cr "github.com/cloud-barista/cb-spider/api-runtime/common-runtime"
 	grpcruntime "github.com/cloud-barista/cb-spider/api-runtime/grpc-runtime"
 	restruntime "github.com/cloud-barista/cb-spider/api-runtime/rest-runtime"	
 )

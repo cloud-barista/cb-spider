@@ -1,3 +1,11 @@
+// gRPC Runtime of CB-Spider.
+// The CB-Spider is a sub-Framework of the Cloud-Barista Multi-Cloud Project.
+// The CB-Spider Mission is to connect all the clouds with a single interface.
+//
+//      * Cloud-Barista: https://github.com/cloud-barista
+//
+// by CB-Spider Team, 2020.09.
+
 // Package cmd - 어플리케이션 실행을 위한 Cobra 기반의 CLI Commands 기능 제공
 package cmd
 
