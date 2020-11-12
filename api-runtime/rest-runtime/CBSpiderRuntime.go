@@ -32,6 +32,7 @@ func init() {
 	cblog = config.Cblogger
 	currentTime := time.Now()
 	cr.StartTime = currentTime.Format("2006.01.02 15:04:05 Mon")
+	cr.MiddleStartTime = currentTime.Format("2006.01.02.15:04:05")
 	cr.ShortStartTime = fmt.Sprintf("T%02d:%02d:%02d", currentTime.Hour(), currentTime.Minute(), currentTime.Second())
 	cr.HostIPorName = getHostIPorName()
 }

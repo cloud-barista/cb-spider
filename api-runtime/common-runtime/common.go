@@ -9,6 +9,7 @@
 package commonruntime
 
 var StartTime string
+var MiddleStartTime string
 var ShortStartTime string
 var HostIPorName string
 var ServicePort string
