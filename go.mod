@@ -22,7 +22,7 @@ require (
 	github.com/bramvdbogaerde/go-scp v0.0.0-20200119201711-987556b8bdd7
 	github.com/chyeh/pubip v0.0.0-20170203095919-b7e679cf541c
 	github.com/cloud-barista/cb-log v0.2.0-cappuccino.0.20201008023843-31002c0a088d
-	github.com/cloud-barista/cb-store v0.2.0-cappuccino.0.20201014054737-e2310432d256
+	github.com/cloud-barista/cb-store v0.2.0-cappuccino.0.20201111072717-b0bb715e2694
 	github.com/cncf/udpa/go v0.0.0-20200327203949-e8cd3a4bb307 // indirect
 	github.com/containerd/containerd v1.3.4 // indirect
 	github.com/coreos/bbolt v1.3.4 // indirect
