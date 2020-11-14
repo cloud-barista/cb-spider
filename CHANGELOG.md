@@ -16,7 +16,7 @@
 - Support HisCall Log Schema & Call-Log Logger for call logging.
 - Support MockDriver.
   - ref) https://github.com/cloud-barista/cb-spider/issues/292
-
+- Add Experimental Features about distributed Spiders PoC(MEERKAT Project)
 
 # v0.2.0-cappuccino (2020.06.01.)
 ### API Change
