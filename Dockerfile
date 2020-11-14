@@ -56,3 +56,4 @@ ENTRYPOINT [ "/root/go/src/github.com/cloud-barista/cb-spider/api-runtime/cb-spi
 
 EXPOSE 1024
 EXPOSE 2048
+EXPOSE 4096
