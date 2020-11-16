@@ -34,7 +34,7 @@ const ( port = ":4096")
 type server struct{}
 
 func init() {
-        myServerID = cr.HostIPorName + "-" +  cr.MiddleStartTime
+        myServerID = cr.HostIPorName + port + "-" +  cr.MiddleStartTime
 }
 
 func (s *server) GetChildStatus(ctx context.Context, in *common.Empty) (*common.Status, error) {
