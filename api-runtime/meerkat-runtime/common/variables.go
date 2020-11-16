@@ -11,6 +11,8 @@ package common
 
 const (
 
+	MaxSpiders = "50"
+
 	//// metadata base position of Table
 	// Status Table
 	StatusSheetName = "Status"

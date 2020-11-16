@@ -30,6 +30,13 @@ type CellRange struct {
         X2 string
 }
 
+type CellRange2 struct {
+        Sheet string
+        X string
+        Y string
+        X2 string
+        Y2 string
+}
 
 func GetHandler() (*sheets.Service, error) {
 	homePath := os.Getenv("HOME")
@@ -95,6 +102,35 @@ func ReadRange(handler *sheets.Service, cellRange *CellRange) ([]string, error) 
 	if (strResults == nil) || (len(strResults) == 0) {
                 return []string{}, nil
         }
+
+        return strResults, nil
+}
+
+func ReadRange2(handler *sheets.Service, cellRange *CellRange2) ([][]string, error) {
+        // ex) range format: "SheetName!B5:E8"
+        readRange := cellRange.Sheet + "!" + cellRange.X +cellRange.Y + ":" + cellRange.X2 + cellRange.Y2
+        resp, err := handler.Spreadsheets.Values.Get(spreadsheetId, readRange).Do()
+        if err != nil {
+                log.Fatalf("Unable to retrieve data from sheet: %v", err)
+                return [][]string{}, err
+        }
+        if resp.Values == nil {
+                return [][]string{}, nil
+        }
+
+	strResults := make([][]string, len(resp.Values))
+	for j, _ := range resp.Values {
+		// [][]interface[] ==> []string
+		strXResults := make([]string, len(resp.Values[j]))
+		for i, v := range resp.Values[j] {
+			strXResults[i] = v.(string)
+		}
+		strResults[j] = strXResults
+	}
+
+	if (strResults == nil) || (len(strResults) == 0) {
+		return [][]string{}, nil
+	}
 
         return strResults, nil
 }
