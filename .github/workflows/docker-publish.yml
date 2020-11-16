@@ -13,6 +13,7 @@ on:
     # ignoring files and paths
     paths-ignore:
       - 'README.md'
+      - 'CHANGELOG.md'
       - 'conf/**'
       - 'cloud-control-manager/cloud-driver/drivers/mock/**'
 
