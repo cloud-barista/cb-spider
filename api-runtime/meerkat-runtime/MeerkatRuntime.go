@@ -17,18 +17,15 @@ import (
 	"fmt"
 	"time"
 	"strconv"
-	"strings"
-	"sync"
 
 	"google.golang.org/grpc"
         "google.golang.org/grpc/reflection"
-	"google.golang.org/api/sheets/v4"
 
 	cblog "github.com/cloud-barista/cb-log"
 	cr "github.com/cloud-barista/cb-spider/api-runtime/common-runtime"
+	"github.com/cloud-barista/cb-spider/api-runtime/meerkat-runtime/momkat"
         common "github.com/cloud-barista/cb-spider/api-runtime/meerkat-runtime/common"
 	th "github.com/cloud-barista/cb-spider/api-runtime/meerkat-runtime/table-handler"
-	kv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 )
 
 var myServerID string
@@ -36,14 +33,6 @@ const ( port = ":4096")
 
 type server struct{}
 
-type StatusInfo struct{
-	RowNumber string
-	CheckBit string
-	ServerID string
-	Status string
-	Time string
-	Count string
-}
 
 func init() {
         myServerID = cr.HostIPorName + port + "-" +  cr.MiddleStartTime
@@ -88,7 +77,11 @@ func RunServer() {
 
 	defer clearCheckBit(strY)
 
-	go checkAndSet()
+	go func() {
+		// to wait this server listening
+		time.Sleep(time.Millisecond*10)
+		momkat.CheckChildKatAndSet()
+	}()
 
         if err := s.Serve(lis); err != nil {
                 cblogger.Errorf("failed to serve: %v", err)
@@ -126,14 +119,14 @@ func itsMe() string {
 		cblogger.Fatalf("could not Fetch Resource Status Information: %v", err)
 	}
 
-// @todo get LCK
+// @todo get LCK (maybe distributed LCK like zookeeper)
 	strY := findFreeRow()
 	setCheckBit(strY)
 // @todo relese LCK
 
 	cblogger.Info("[" + status.ServerID + "] " + status.Status + "-" + status.Time)
-	statusInfo := StatusInfo{RowNumber:strY, ServerID:status.ServerID, Status:status.Status, Time:status.Time, Count:"1"}
-	err = writeStatusInfo(&statusInfo)
+	statusInfo := common.StatusInfo{RowNumber:strY, ServerID:status.ServerID, Status:status.Status, Time:status.Time, Count:"1"}
+	err = common.WriteStatusInfo(&statusInfo)
 	if err != nil {
 		cblogger.Errorf("could not write Cell: %v", err)
 	}
@@ -143,12 +136,12 @@ func itsMe() string {
 func findFreeRow() string {
         cblogger := cblog.GetLogger("CB-SPIDER")
 
-	srv, err := getTableHandler()
+	srv, err := common.GetTableHandler()
         if err != nil {
                 cblogger.Fatalf("Unable to retrieve Sheets client: %v", err)
         }
 
-	max := getMaxSpiders()
+	max := common.GetMaxSpiders()
 	if max == -1 {
 		return "";
 	}
@@ -171,7 +164,7 @@ func findFreeRow() string {
 
 func setCheckBit(strY string) error {
 	cblogger := cblog.GetLogger("CB-SPIDER")
-	srv, err := getTableHandler()
+	srv, err := common.GetTableHandler()
         if err != nil {
                 cblogger.Fatalf("Unable to retrieve Sheets client: %v", err)
         }
@@ -183,7 +176,7 @@ func setCheckBit(strY string) error {
 func clearCheckBit(strY string) error {
 	cblogger := cblog.GetLogger("CB-SPIDER")
 
-	srv, err := getTableHandler()
+	srv, err := common.GetTableHandler()
         if err != nil {
                 cblogger.Fatalf("Unable to retrieve Sheets client: %v", err)
         }
@@ -192,204 +185,3 @@ func clearCheckBit(strY string) error {
         return err
 }
 
-func getMaxSpiders() int {
-	cblogger := cblog.GetLogger("CB-SPIDER")
-
-	result, err := strconv.Atoi(common.MaxSpiders)
-        if err != nil {
-                cblogger.Error(err)
-                return -1
-        }
-
-	return result
-
-/* Now, do not use this method because of Sheets Quota Limits.
-        srv, err := th.GetHandler()
-        if err != nil {
-                cblogger.Fatalf("Unable to retrieve Sheets client: %v", err)
-        }
-
-        value, err := th.ReadCell(srv, &th.Cell{Sheet:common.StatusSheetName, X:"c", Y:"2"})
-        if err != nil {
-                cblogger.Errorf("could not read Cell: %v", err)
-        }
-
-	result, err := strconv.Atoi(value)
-	if err != nil {
-                cblogger.Error(err)
-		return -1
-	}
-	return result
-*/
-}
-
-func checkAndSet() {
-	// to wait this server listening
-	time.Sleep(time.Millisecond*20)
-
-
-	//childKatList := getChildKatServerList()
-	childKatStatusInfoList := getChildKatStatusInfoList2()
-
-	wg := new(sync.WaitGroup)
-
-	for _, childKatStatusInfo:= range childKatStatusInfoList {
-		wg.Add(1)
-		go func() {
-			GetAndSetStatus(childKatStatusInfo)
-			wg.Done()
-		}()
-	}
-	wg.Wait()
-}
-
-func GetAndSetStatus(statusInfo StatusInfo) {
-	cblogger := cblog.GetLogger("CB-SPIDER")
-	serverIP := (strings.Split(statusInfo.ServerID, "-"))[0]
-	client, ctx, err := getClient(serverIP)
-	if err != nil {
-		cblogger.Errorf("could not get Client: %v", err)
-	}
-
-	_, err = client.GetChildStatus(ctx, &common.Empty{})
-	if err != nil {
-		//cblogger.Errorf("could not Fetch Resource Status Information: %v", err)
-		cblogger.Infof("%s: could not Fetch Resource Status Information: %v", serverIP, err)
-
-		statusInfo.Status = "N"
-	}
-	statusInfo.Time = GetCurrentTime()
-
-	cblogger.Info("[" + statusInfo.ServerID + "] " + statusInfo.Status + "-" + statusInfo.Time)
-	err = writeStatusInfo(&statusInfo)
-	if err != nil {
-		cblogger.Errorf("could not write Cell: %v", err)
-	}
-}
-
-// 1. check all Check Bits
-// 2. make the list of live children
-func getChildKatServerList() []kv.KeyValue {
-	cblogger := cblog.GetLogger("CB-SPIDER")
-
-	srv, err := getTableHandler()
-        if err != nil {
-                cblogger.Fatalf("Unable to retrieve Sheets client: %v", err)
-        }
-
-        max := getMaxSpiders()
-        if max == -1 {
-                return nil;
-        }
-
-	childKatList := []kv.KeyValue{}
-        for i:=0;i<max;i++ {
-                intY, _ := strconv.Atoi(common.StatusTableY)
-                intY += i
-                strY := strconv.Itoa(intY)
-                value, err := th.ReadCell(srv, &th.Cell{Sheet:common.StatusSheetName, X:common.StatusRowLockX, Y:strY})
-                if err != nil {
-                        cblogger.Errorf("could not read Cell: %v", err)
-                        break;
-                }
-                if value == "1" {
-			serverID, err := th.ReadCell(srv, &th.Cell{Sheet:common.StatusSheetName, X:common.StatusSpiderIDX, Y:strY})
-			if err != nil {
-				cblogger.Errorf("could not read Cell: %v", err)
-				break;
-			}
-
-			serverIP := (strings.Split(serverID, "-"))[0]
-			childKat := kv.KeyValue{strY, serverIP}
-				
-
-                        // add this server into the effective childKat list
-			childKatList = append(childKatList, childKat)
-                }
-        }
-
-        return childKatList
-}
-
-// 1. check all Check Bits
-// 2. make the list of live children
-func getChildKatStatusInfoList2() []StatusInfo {
-        cblogger := cblog.GetLogger("CB-SPIDER")
-
-	srv, err := getTableHandler()
-        if err != nil {
-                cblogger.Fatalf("Unable to retrieve Sheets client: %v", err)
-        }
-
-        max := getMaxSpiders()
-        if max == -1 {
-                return nil
-        }
-
-        childKatStatusInfoList := []StatusInfo{}
-	intY, _ := strconv.Atoi(common.StatusTableY)
-
-	values, err := th.ReadRange2(srv, &th.CellRange2{Sheet:common.StatusSheetName, X:common.StatusRowLockX, Y:common.StatusTableY, X2:common.StatusCountX, Y2:common.MaxSpiders})
-	if err != nil {
-		cblogger.Errorf("could not read Range: %v", err)
-		return nil
-	}
-
-	for count, row := range values {
-		if row[0] == "1"  {
-			intY += count 
-			strY := strconv.Itoa(intY)
-			statusInfo := StatusInfo{strY, row[0], row[1], row[2], row[3], "1"}
-
-			// add this server into the effective childKat list
-			childKatStatusInfoList = append(childKatStatusInfoList, statusInfo)
-		}
-        }
-
-        return childKatStatusInfoList
-}
-
-func writeStatusInfo(statusInfo *StatusInfo) error {
-        cblogger := cblog.GetLogger("CB-SPIDER")
-	srv, err := getTableHandler()
-        if err != nil {
-                cblogger.Fatalf("Unable to retrieve Sheets client: %v", err)
-        }
-
-	err = th.WriteRange(srv, &th.CellRange{Sheet:common.StatusSheetName, X:common.StatusSpiderIDX, Y:statusInfo.RowNumber, X2:common.StatusCountX},	
-		[]string{statusInfo.ServerID, statusInfo.Status, statusInfo.Time, statusInfo.Count})
-	return err
-}
-
-func getClient(serverPort string) (common.ChildStatusClient, context.Context, error)  {
-        cblogger := cblog.GetLogger("CB-SPIDER")
-
-	// Set up a connection to the server.
-        conn, err := grpc.Dial(serverPort, grpc.WithInsecure())
-        if err != nil {
-                cblogger.Errorf("did not connect: %v", err)
-        }
-
-        client := common.NewChildStatusClient(conn)
-        ctx, _ := context.WithTimeout(context.Background(), 100*time.Millisecond)
-
-	return client, ctx, nil
-}
-
-var tableHandler *sheets.Service
-func getTableHandler() (*sheets.Service, error) {
-        cblogger := cblog.GetLogger("CB-SPIDER")
-
-	if tableHandler != nil {
-		return tableHandler, nil
-	}
-
-	var err error
-	tableHandler, err = th.GetHandler()
-	if err != nil {
-                cblogger.Errorf("disconnected handler: %v", err)
-		return nil, err
-	}
-
-	return tableHandler, nil
-}
