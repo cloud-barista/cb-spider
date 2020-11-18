@@ -173,6 +173,30 @@ func WriteRange(handler *sheets.Service, cellRange *CellRange, valueList []strin
         return nil
 }
 
+func WriteRange2(handler *sheets.Service, cellRange *CellRange2, valueList [][]string) error {
+        // ex) range format: "SheetName!C4:E8"
+        writeRange := cellRange.Sheet + "!" + cellRange.X +cellRange.Y + ":" + cellRange.X2 + cellRange.Y2
+
+        //ifList := make([][]interface{}, len(valueList))
+        var vr sheets.ValueRange
+        for _, j_v := range valueList {
+		ifXList := make([]interface{}, len(j_v))
+		for i, i_v := range j_v {
+			ifXList[i] = i_v
+		}
+		//ifList[j] = ifXList
+		vr.Values = append(vr.Values, ifXList)
+        }
+
+        _, err := handler.Spreadsheets.Values.Update(spreadsheetId, writeRange, &vr).ValueInputOption("RAW").Do()
+        if err != nil {
+                log.Fatalf("Unable to write data into sheet: %v", err)
+                return err
+        }
+
+        return nil
+}
+
 // Retrieve a token, saves the token, then returns the generated client.
 func getClient(config *oauth2.Config) *http.Client {
         // The file token.json stores the user's access and refresh tokens, and is

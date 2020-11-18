@@ -9,6 +9,7 @@
 package momkat
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 	"sync"
@@ -23,6 +24,15 @@ import (
 	kv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 )
 
+// Loop:
+// 	1. start timer
+//	2. called by others => reset timer
+//	3. fired and be a MomKat
+//	  (1) get childkat list
+//	  (2) get the fist command
+//	  (3) check childkat liveness and set
+//	  (4) request the Command to all ChildKat
+//	  (5) clear the fist command after all completions.
 func CheckChildKatAndSet(myServerID string) {
 
 	for true { 
@@ -34,9 +44,12 @@ func CheckChildKatAndSet(myServerID string) {
 		// role of MomKat
 		SetImMomKat(myServerID)
 
-		//childKatList := getChildKatServerList()
+		// (1) childKatList := getChildKatServerList()
 		childKatStatusInfoList := getChildKatStatusInfoList2(myServerID)
 
+		// (2) get the first command
+		cmd := getFirstCommand()
+		
 		wg := new(sync.WaitGroup)
 
 		for _, childKatStatusInfo:= range childKatStatusInfoList {
@@ -45,12 +58,79 @@ func CheckChildKatAndSet(myServerID string) {
 				childKatStatusInfo.ServerID, childKatStatusInfo.Status, childKatStatusInfo.Time, childKatStatusInfo.Count}
 			wg.Add(1)
 			go func() {
+				// (3) check childkat liveness and set
 				GetAndSetStatus(statusInfo)
+
+				// (4) request the Command to all ChildKat
+				if cmd != nil {
+					RunCommandAndSetResult(statusInfo, cmd)
+				}
+
 				wg.Done()
 			}()
 		}
 		wg.Wait()
+		// (5)  clear the fist command and pupup command after all completions.
+		if cmd != nil {
+			popupCommand()
+		}
+
 	} // end of for true
+}
+
+// 1. retrive first command from Sheets
+// 2. make a Command objject and return it
+func getFirstCommand() *common.Command {
+        cblogger := cblog.GetLogger("CB-SPIDER")
+
+        srv, err := common.GetTableHandler()
+        if err != nil {
+                cblogger.Fatalf("Unable to retrieve Sheets client: %v", err)
+        }
+
+	values, err := th.ReadRange(srv, &th.CellRange{Sheet:common.CommandSheetName, X:common.CommandIDX, Y:common.CommandTableY, X2:common.CommandCMDX})
+	if err != nil {
+                cblogger.Errorf("could not read Range: %v", err)
+                return nil
+        }
+
+	return &common.Command{CMDID:values[0], CMDTYPE:values[1], CMD:values[2], Time:common.GetCurrentTime()}
+}
+
+func popupCommand(){
+        cblogger := cblog.GetLogger("CB-SPIDER")
+
+	srv, err := common.GetTableHandler()
+        if err != nil {
+                cblogger.Fatalf("Unable to retrieve Sheets client: %v", err)
+        }
+
+	values, err := th.ReadRange2(srv, &th.CellRange2{Sheet:common.CommandSheetName, X:common.CommandIDX, Y:common.CommandTableY, 
+			X2:common.CommandCMDX, Y2:strSum(common.CommandTableY, common.MaxCommands)})
+        if err != nil {
+                cblogger.Errorf("could not read Range: %v", err)
+        }
+
+	// popup command, values type: [][]string
+	switch len(values) {
+	case 0:
+		return 
+	case 1: 
+		
+		th.WriteRange(srv, &th.CellRange{Sheet:common.CommandSheetName, X:common.CommandIDX, Y:common.CommandTableY,
+                        X2:common.CommandCMDX}, []string{"", "", ""})
+	default :
+	fmt.Printf("==========: %#v\n", values)
+		for i, _ := range values {
+			if i < (len(values)-1) {
+				values[i] = values[i+1]
+			}
+		}
+		values[len(values)-1] = []string{"", "", ""}
+		th.WriteRange2(srv, &th.CellRange2{Sheet:common.CommandSheetName, X:common.CommandIDX, Y:common.CommandTableY,
+                        X2:common.CommandCMDX, Y2:strSum(common.CommandTableY, common.MaxCommands)}, values)
+	} // end of switch
+
 }
 
 func SetImMomKat(myServerID string) {
@@ -71,7 +151,7 @@ func SetImMomKat(myServerID string) {
 func GetAndSetStatus(statusInfo common.StatusInfo) {
 	cblogger := cblog.GetLogger("CB-SPIDER")
 	serverIP := (strings.Split(statusInfo.ServerID, "-"))[0]
-	client, ctx, err := getClient(serverIP)
+	client, ctx, err := getStatusClient(serverIP)
 	if err != nil {
 		cblogger.Errorf("could not get Client: %v", err)
 	}
@@ -122,6 +202,32 @@ func GetAndSetStatus(statusInfo common.StatusInfo) {
 	}
 }
 
+func RunCommandAndSetResult(statusInfo common.StatusInfo, cmd *common.Command) {
+        cblogger := cblog.GetLogger("CB-SPIDER")
+        serverIP := (strings.Split(statusInfo.ServerID, "-"))[0]
+        client, ctx, err := getRunCommandClient(serverIP)
+        if err != nil {
+                cblogger.Errorf("could not get Client: %v", err)
+        }
+
+	cmdResult, err := client.RunCommand(ctx, cmd)
+        if err != nil {
+                //cblogger.Errorf("could not Run Command: %v", err)
+                cblogger.Infof("%s: could not Run Command(%#v) - %v", serverIP, cmd, err)
+        }
+
+	// @todo Now, refined the time because time difference
+        cmdResult.Time = common.GetCurrentTime()
+
+        cblogger.Info("[" + cmdResult.ServerID + "] " + cmdResult.CMD + "-" + cmdResult.Result + "-" + cmdResult.Time)
+
+	cmdResultInfo := common.CommandResultInfo{RowNumber:common.CommandTableY, ServerID:cmdResult.ServerID, ResultNow:cmdResult.Result, Time:cmdResult.Time}
+        err = common.WriteCommandResult(&cmdResultInfo)
+        if err != nil {
+                cblogger.Errorf("could not write Cell: %v", err)
+        }
+}
+
 func strIncrement(strCount string) string {
 	intCount, _ := strconv.Atoi(strCount)
 	strCount = strconv.Itoa(intCount+1)
@@ -134,8 +240,14 @@ func strDecrement(strCount string) string {
         return strCount
 }
 
+func strSum(strCount1 string, strCount2 string) string {
+        intCount1, _ := strconv.Atoi(strCount1)
+        intCount2, _ := strconv.Atoi(strCount2)
+	strCount := strconv.Itoa(intCount1+intCount2)
+        return strCount
+}
 
-func getClient(serverPort string) (common.ChildStatusClient, context.Context, error)  {
+func getStatusClient(serverPort string) (common.ChildStatusClient, context.Context, error)  {
         cblogger := cblog.GetLogger("CB-SPIDER")
 
         // Set up a connection to the server.
@@ -145,6 +257,21 @@ func getClient(serverPort string) (common.ChildStatusClient, context.Context, er
         }
 
         client := common.NewChildStatusClient(conn)
+        ctx, _ := context.WithTimeout(context.Background(), common.ChildKatCallTimeout*time.Millisecond)
+
+        return client, ctx, nil
+}
+
+func getRunCommandClient(serverPort string) (common.RunCommandClient, context.Context, error)  {
+        cblogger := cblog.GetLogger("CB-SPIDER")
+
+        // Set up a connection to the server.
+        conn, err := grpc.Dial(serverPort, grpc.WithInsecure())
+        if err != nil {
+                cblogger.Errorf("did not connect: %v", err)
+        }
+
+        client := common.NewRunCommandClient(conn)
         ctx, _ := context.WithTimeout(context.Background(), common.ChildKatCallTimeout*time.Millisecond)
 
         return client, ctx, nil
@@ -168,7 +295,7 @@ func getChildKatStatusInfoList2(myServerID string) []common.StatusInfo {
         childKatStatusInfoList := []common.StatusInfo{}
 	intY, _ := strconv.Atoi(common.StatusTableY)
 
-	values, err := th.ReadRange2(srv, &th.CellRange2{Sheet:common.StatusSheetName, X:common.StatusRowLockX, Y:common.StatusTableY, X2:common.StatusCountX, Y2:common.MaxSpiders})
+	values, err := th.ReadRange2(srv, &th.CellRange2{Sheet:common.StatusSheetName, X:common.StatusRowLockX, Y:common.StatusTableY, X2:common.StatusCountX, Y2:strSum(common.StatusTableY, common.MaxSpiders)})
 	if err != nil {
 		cblogger.Errorf("could not read Range: %v", err)
 		return nil

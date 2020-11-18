@@ -27,11 +27,12 @@ func StartTimer() {
 	<-timer.C
 }
 
+// called by ChildKat:GetChildStatus()
 func ResetTimer() {
 	cblogger := cblog.GetLogger("CB-SPIDER")
 
 	cblogger.Info("Call ResetTimer()")
 	ResetFlag = true
-	//timer.Stop()
 	timer.Reset(TimerTime*time.Second)
 }
+

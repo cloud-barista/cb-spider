@@ -26,6 +26,15 @@ type StatusInfo struct{
         Count string
 }
 
+type CommandResultInfo struct{
+        RowNumber string
+        ServerID string
+        ResultNow string
+        ResultBefore string
+        ResultBeforeBefore string
+        Time string
+}
+
 
 var tableHandler *sheets.Service
 
@@ -74,6 +83,19 @@ func WriteStatusInfo(statusInfo *StatusInfo) error {
 
         err = th.WriteRange(srv, &th.CellRange{Sheet:StatusSheetName, X:StatusSpiderIDX, Y:statusInfo.RowNumber, X2:StatusCountX},
                 []string{statusInfo.ServerID, statusInfo.Status, statusInfo.Time, statusInfo.Count})
+        return err
+}
+
+func WriteCommandResult(commandResultInfo *CommandResultInfo) error {
+        cblogger := cblog.GetLogger("CB-SPIDER")
+
+        srv, err := GetTableHandler()
+        if err != nil {
+                cblogger.Fatalf("Unable to retrieve Sheets client: %v", err)
+        }
+
+        err = th.WriteRange(srv, &th.CellRange{Sheet:CommandSheetName, X:CommandSpiderIDX, Y:commandResultInfo.RowNumber, X2:StatusCountX},
+                []string{commandResultInfo.ServerID, commandResultInfo.ResultNow, "before", "before-before", commandResultInfo.Time})
         return err
 }
 

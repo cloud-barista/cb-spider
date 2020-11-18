@@ -10,7 +10,7 @@ package meerkatruntime
 
 import (
         "net"
-	"context"
+	//"context"
 	"os"
 	"os/signal"
 	"syscall"
@@ -25,19 +25,21 @@ import (
 	cr "github.com/cloud-barista/cb-spider/api-runtime/common-runtime"
 	"github.com/cloud-barista/cb-spider/api-runtime/meerkat-runtime/momkat"
         common "github.com/cloud-barista/cb-spider/api-runtime/meerkat-runtime/common"
+        childkat "github.com/cloud-barista/cb-spider/api-runtime/meerkat-runtime/childkat"
 	th "github.com/cloud-barista/cb-spider/api-runtime/meerkat-runtime/table-handler"
 )
 
 var myServerID string
 const ( port = ":4096")
 
-type server struct{}
+//type server struct{}
 
 
 func init() {
         myServerID = cr.HostIPorName + port + "-" +  cr.MiddleStartTime
+	childkat.MyServerID = myServerID
 }
-
+/*
 func (s *server) GetChildStatus(ctx context.Context, in *common.Empty) (*common.Status, error) {
 	common.ResetTimer()
         return getStatus()
@@ -45,15 +47,10 @@ func (s *server) GetChildStatus(ctx context.Context, in *common.Empty) (*common.
 
 func getStatus() (*common.Status, error) {
         status := "L"
-	time := GetCurrentTime()
+	time := common.GetCurrentTime()
 	return &common.Status{ServerID: myServerID, Status: status, Time: time}, nil
 }
-
-func GetCurrentTime() string {
-	currentTime := time.Now()
-	return currentTime.Format("2006.01.02 15:04:05 Mon")
-}
-
+*/
 
 func RunServer() {
         cblogger := cblog.GetLogger("CB-SPIDER")
@@ -64,7 +61,7 @@ func RunServer() {
                 cblogger.Errorf("failed to listen: %v", err)
         }
         s := grpc.NewServer()
-        common.RegisterChildStatusServer(s, &server{})
+        common.RegisterChildStatusServer(s, &childkat.Server{})
         // Register reflection service on gRPC server.
         reflection.Register(s)
 
@@ -115,7 +112,7 @@ func spiderBanner(server string) {
 func itsMe() string {
         cblogger := cblog.GetLogger("CB-SPIDER")
 
-	status, err := getStatus()
+	status, err := childkat.GetStatus()
 	if err != nil {
 		cblogger.Fatalf("could not Fetch Resource Status Information: %v", err)
 	}

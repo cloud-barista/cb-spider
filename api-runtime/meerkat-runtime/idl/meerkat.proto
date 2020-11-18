@@ -4,6 +4,7 @@ option go_package = "github.com/cloud-barista/cb-spider/api-runtime/meerkat-runt
 
 package meerkatrpc;
 
+//////////////////////////////////////////////// StatusZone
 // The Resource status service definition.
 service ChildStatus {
   // Sends a request of Resource status
@@ -22,3 +23,27 @@ message Status {
   string Reserved = 4;
 }
 
+
+//////////////////////////////////////////////// CommandZone
+// The Run Command service definition.
+service RunCommand {
+  rpc RunCommand (Command) returns (CommandResult) {}
+}
+
+// The input message containing for a ChildKat to run
+message Command {
+  string CMDID = 1;
+  string CMDTYPE = 2;
+  string CMD = 3;
+  string Time = 4;
+  string Reserved = 5;
+}
+
+// The response message containing a ChildKat Command Result
+message CommandResult {
+  string ServerID = 1;
+  string CMD = 2;
+  string Result = 3;
+  string Time = 4;
+  string Reserved = 5;
+}
