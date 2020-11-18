@@ -39,6 +39,7 @@ func init() {
 }
 
 func (s *server) GetChildStatus(ctx context.Context, in *common.Empty) (*common.Status, error) {
+	common.ResetTimer()
         return getStatus()
 }
 
@@ -75,12 +76,12 @@ func RunServer() {
 	// for Ctrl+C signal
 	setupSigHandler(strY)
 
-	defer clearCheckBit(strY)
+	defer common.ClearCheckBit(strY)
 
 	go func() {
 		// to wait this server listening
 		time.Sleep(time.Millisecond*10)
-		momkat.CheckChildKatAndSet()
+		momkat.CheckChildKatAndSet(myServerID)
 	}()
 
         if err := s.Serve(lis); err != nil {
@@ -96,7 +97,7 @@ func setupSigHandler(strY string) {
 	go func() {
 		<-c
 		cblogger.Info("\r- Ctrl+C pressed in Terminal")
-		clearCheckBit(strY)
+		common.ClearCheckBit(strY)
 		os.Exit(0)
 	}()
 }
@@ -121,7 +122,7 @@ func itsMe() string {
 
 // @todo get LCK (maybe distributed LCK like zookeeper)
 	strY := findFreeRow()
-	setCheckBit(strY)
+	common.SetCheckBit(strY)
 // @todo relese LCK
 
 	cblogger.Info("[" + status.ServerID + "] " + status.Status + "-" + status.Time)
@@ -160,28 +161,5 @@ func findFreeRow() string {
 	}
 	cblogger.Error("no free space in the Status Table")
 	return "" 
-}
-
-func setCheckBit(strY string) error {
-	cblogger := cblog.GetLogger("CB-SPIDER")
-	srv, err := common.GetTableHandler()
-        if err != nil {
-                cblogger.Fatalf("Unable to retrieve Sheets client: %v", err)
-        }
-
-        err = th.WriteCell(srv, &th.Cell{Sheet:common.StatusSheetName, X:common.StatusRowLockX, Y:strY},  "1")
-        return err
-}
-
-func clearCheckBit(strY string) error {
-	cblogger := cblog.GetLogger("CB-SPIDER")
-
-	srv, err := common.GetTableHandler()
-        if err != nil {
-                cblogger.Fatalf("Unable to retrieve Sheets client: %v", err)
-        }
-
-        err = th.WriteCell(srv, &th.Cell{Sheet:common.StatusSheetName, X:common.StatusRowLockX, Y:strY},  "")
-        return err
 }
 

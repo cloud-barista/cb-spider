@@ -23,20 +23,49 @@ import (
 	kv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 )
 
-func CheckChildKatAndSet() {
-	//childKatList := getChildKatServerList()
-	childKatStatusInfoList := getChildKatStatusInfoList2()
+func CheckChildKatAndSet(myServerID string) {
 
-	wg := new(sync.WaitGroup)
+	for true { 
+		common.StartTimer()
+		if common.ResetFlag == true {
+			continue
+		}
 
-	for _, childKatStatusInfo:= range childKatStatusInfoList {
-		wg.Add(1)
-		go func() {
-			GetAndSetStatus(childKatStatusInfo)
-			wg.Done()
-		}()
-	}
-	wg.Wait()
+		// role of MomKat
+		SetImMomKat(myServerID)
+
+		//childKatList := getChildKatServerList()
+		childKatStatusInfoList := getChildKatStatusInfoList2(myServerID)
+
+		wg := new(sync.WaitGroup)
+
+		for _, childKatStatusInfo:= range childKatStatusInfoList {
+			// sould clone info object because childKatStatusInfo is a point of childKatStatusInfoList's children
+			statusInfo := common.StatusInfo{childKatStatusInfo.RowNumber, childKatStatusInfo.CheckBit, 
+				childKatStatusInfo.ServerID, childKatStatusInfo.Status, childKatStatusInfo.Time, childKatStatusInfo.Count}
+			wg.Add(1)
+			go func() {
+				GetAndSetStatus(statusInfo)
+				wg.Done()
+			}()
+		}
+		wg.Wait()
+	} // end of for true
+}
+
+func SetImMomKat(myServerID string) {
+	cblogger := cblog.GetLogger("CB-SPIDER")
+        srv, err := common.GetTableHandler()
+        if err != nil {
+                cblogger.Fatalf("Unable to retrieve Sheets client: %v", err)
+        }
+
+	strY := strDecrement(common.StatusTableY)  // minus 1
+	strY = strDecrement(strY)   // minus 1
+        err = th.WriteCell(srv, &th.Cell{Sheet:common.StatusSheetName, X:common.StatusSpiderIDX, Y:strY}, myServerID)
+        if err != nil {
+                cblogger.Fatalf("Unable to write data into sheet: %v", err)
+        }
 }
 
 func GetAndSetStatus(statusInfo common.StatusInfo) {
@@ -52,16 +81,59 @@ func GetAndSetStatus(statusInfo common.StatusInfo) {
 		//cblogger.Errorf("could not Fetch Resource Status Information: %v", err)
 		cblogger.Infof("%s: could not Fetch Resource Status Information: %v", serverIP, err)
 
-		statusInfo.Status = "N"
+		statusInfo.Count = strIncrement(statusInfo.Count)
+
+		switch statusInfo.Status {
+		case "L": 
+			statusInfo.Status = "N"
+			statusInfo.Count = "1"
+		case "N": 
+			if statusInfo.Count >= common.TransCount {
+				statusInfo.Status = "Z"
+				statusInfo.Count = "1"
+			}
+		case "Z": 
+			if statusInfo.Count >= common.TransCount {
+				statusInfo.Status = "D"
+				statusInfo.Count = "1"
+			}
+		case "D": 
+			if statusInfo.Count >= common.TransCount {
+				// delete this spider in the list
+				common.ClearCheckBit(statusInfo.RowNumber)
+			}
+		} // end of switch
+	} else { // end of if
+		if statusInfo.Status == "L" {
+			statusInfo.Count = strIncrement(statusInfo.Count)
+		} else {
+			statusInfo.Status = "L"
+			statusInfo.Count = "1"
+		}
 	}
+
 	statusInfo.Time = common.GetCurrentTime()
 
 	cblogger.Info("[" + statusInfo.ServerID + "] " + statusInfo.Status + "-" + statusInfo.Time)
+
 	err = common.WriteStatusInfo(&statusInfo)
 	if err != nil {
 		cblogger.Errorf("could not write Cell: %v", err)
 	}
 }
+
+func strIncrement(strCount string) string {
+	intCount, _ := strconv.Atoi(strCount)
+	strCount = strconv.Itoa(intCount+1)
+	return strCount
+}
+
+func strDecrement(strCount string) string {
+        intCount, _ := strconv.Atoi(strCount)
+        strCount = strconv.Itoa(intCount-1)
+        return strCount
+}
+
 
 func getClient(serverPort string) (common.ChildStatusClient, context.Context, error)  {
         cblogger := cblog.GetLogger("CB-SPIDER")
@@ -73,59 +145,14 @@ func getClient(serverPort string) (common.ChildStatusClient, context.Context, er
         }
 
         client := common.NewChildStatusClient(conn)
-        ctx, _ := context.WithTimeout(context.Background(), 50*time.Millisecond)
+        ctx, _ := context.WithTimeout(context.Background(), common.ChildKatCallTimeout*time.Millisecond)
 
         return client, ctx, nil
 }
 
 // 1. check all Check Bits
 // 2. make the list of live children
-// deprecated because Goolge Sheeets access Quota limits
-func getChildKatServerList() []kv.KeyValue {
-	cblogger := cblog.GetLogger("CB-SPIDER")
-
-	srv, err := common.GetTableHandler()
-        if err != nil {
-                cblogger.Fatalf("Unable to retrieve Sheets client: %v", err)
-        }
-
-        max := common.GetMaxSpiders()
-        if max == -1 {
-                return nil;
-        }
-
-	childKatList := []kv.KeyValue{}
-        for i:=0;i<max;i++ {
-                intY, _ := strconv.Atoi(common.StatusTableY)
-                intY += i
-                strY := strconv.Itoa(intY)
-                value, err := th.ReadCell(srv, &th.Cell{Sheet:common.StatusSheetName, X:common.StatusRowLockX, Y:strY})
-                if err != nil {
-                        cblogger.Errorf("could not read Cell: %v", err)
-                        break;
-                }
-                if value == "1" {
-			serverID, err := th.ReadCell(srv, &th.Cell{Sheet:common.StatusSheetName, X:common.StatusSpiderIDX, Y:strY})
-			if err != nil {
-				cblogger.Errorf("could not read Cell: %v", err)
-				break;
-			}
-
-			serverIP := (strings.Split(serverID, "-"))[0]
-			childKat := kv.KeyValue{strY, serverIP}
-				
-
-                        // add this server into the effective childKat list
-			childKatList = append(childKatList, childKat)
-                }
-        }
-
-        return childKatList
-}
-
-// 1. check all Check Bits
-// 2. make the list of live children
-func getChildKatStatusInfoList2() []common.StatusInfo {
+func getChildKatStatusInfoList2(myServerID string) []common.StatusInfo {
         cblogger := cblog.GetLogger("CB-SPIDER")
 
 	srv, err := common.GetTableHandler()
@@ -148,10 +175,14 @@ func getChildKatStatusInfoList2() []common.StatusInfo {
 	}
 
 	for count, row := range values {
+		// skip self check.
+		if row[1] == myServerID {
+			continue
+		}
 		if row[0] == "1"  {
-			intY += count 
-			strY := strconv.Itoa(intY)
-			statusInfo := common.StatusInfo{strY, row[0], row[1], row[2], row[3], "1"}
+			thisY := intY + count 
+			strY := strconv.Itoa(thisY)
+			statusInfo := common.StatusInfo{strY, row[0], row[1], row[2], row[3], row[4]}
 
 			// add this server into the effective childKat list
 			childKatStatusInfoList = append(childKatStatusInfoList, statusInfo)
@@ -159,5 +190,50 @@ func getChildKatStatusInfoList2() []common.StatusInfo {
         }
 
         return childKatStatusInfoList
+}
+
+// 1. check all Check Bits
+// 2. make the list of live children
+// deprecated because Goolge Sheeets access Quota limits
+func getChildKatServerList() []kv.KeyValue {
+        cblogger := cblog.GetLogger("CB-SPIDER")
+
+        srv, err := common.GetTableHandler()
+        if err != nil {
+                cblogger.Fatalf("Unable to retrieve Sheets client: %v", err)
+        }
+
+        max := common.GetMaxSpiders()
+        if max == -1 {
+                return nil;
+        }
+
+        childKatList := []kv.KeyValue{}
+        for i:=0;i<max;i++ {
+                intY, _ := strconv.Atoi(common.StatusTableY)
+                intY += i
+                strY := strconv.Itoa(intY)
+                value, err := th.ReadCell(srv, &th.Cell{Sheet:common.StatusSheetName, X:common.StatusRowLockX, Y:strY})
+                if err != nil {
+                        cblogger.Errorf("could not read Cell: %v", err)
+                        break;
+                }
+                if value == "1" {
+                        serverID, err := th.ReadCell(srv, &th.Cell{Sheet:common.StatusSheetName, X:common.StatusSpiderIDX, Y:strY})
+                        if err != nil {
+                                cblogger.Errorf("could not read Cell: %v", err)
+                                break;
+                        }
+
+                        serverIP := (strings.Split(serverID, "-"))[0]
+                        childKat := kv.KeyValue{strY, serverIP}
+
+
+                        // add this server into the effective childKat list
+                        childKatList = append(childKatList, childKat)
+                }
+        }
+
+        return childKatList
 }
 

@@ -11,7 +11,10 @@ package common
 
 const (
 
-	MaxSpiders = "50"
+	MaxSpiders = "20"
+	TransCount = "3"
+	TimerTime = 5 // seconds
+	ChildKatCallTimeout = 3000 // milliseconds
 
 	//// metadata base position of Table
 	// Status Table

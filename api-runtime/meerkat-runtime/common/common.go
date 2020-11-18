@@ -94,3 +94,27 @@ func GetTableHandler() (*sheets.Service, error) {
         return tableHandler, nil
 }
 
+func SetCheckBit(strY string) error {
+        cblogger := cblog.GetLogger("CB-SPIDER")
+
+        srv, err := GetTableHandler()
+        if err != nil {
+                cblogger.Fatalf("Unable to retrieve Sheets client: %v", err)
+        }
+
+        err = th.WriteCell(srv, &th.Cell{Sheet:StatusSheetName, X:StatusRowLockX, Y:strY},  "1")
+        return err
+}
+
+func ClearCheckBit(strY string) error {
+        cblogger := cblog.GetLogger("CB-SPIDER")
+
+        srv, err := GetTableHandler()
+        if err != nil {
+                cblogger.Fatalf("Unable to retrieve Sheets client: %v", err)
+        }
+
+        err = th.WriteCell(srv, &th.Cell{Sheet:StatusSheetName, X:StatusRowLockX, Y:strY},  "")
+        return err
+}
+
