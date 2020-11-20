@@ -26,6 +26,12 @@ type StatusInfo struct{
         Count string
 }
 
+// Definitions of Command Type
+const (
+        MOMKAT string = "MOMKAT"
+        ALL  string = "ALL"
+)
+
 type CommandResultInfo struct{
         RowNumber string
         ServerID string
@@ -94,7 +100,7 @@ func WriteCommandResult(commandResultInfo *CommandResultInfo) error {
                 cblogger.Fatalf("Unable to retrieve Sheets client: %v", err)
         }
 
-        err = th.WriteRange(srv, &th.CellRange{Sheet:CommandSheetName, X:CommandSpiderIDX, Y:commandResultInfo.RowNumber, X2:StatusCountX},
+        err = th.WriteRange(srv, &th.CellRange{Sheet:CommandSheetName, X:CommandSpiderIDX, Y:commandResultInfo.RowNumber, X2:CommandResultTimeX},
                 []string{commandResultInfo.ServerID, commandResultInfo.ResultNow, "before", "before-before", commandResultInfo.Time})
         return err
 }

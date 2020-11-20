@@ -62,6 +62,7 @@ func RunServer() {
         }
         s := grpc.NewServer()
         common.RegisterChildStatusServer(s, &childkat.Server{})
+        common.RegisterRunCommandServer(s, &childkat.Server{})
         // Register reflection service on gRPC server.
         reflection.Register(s)
 

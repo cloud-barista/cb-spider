@@ -30,9 +30,10 @@ import (
 //	3. fired and be a MomKat
 //	  (1) get childkat list
 //	  (2) get the fist command
-//	  (3) check childkat liveness and set
-//	  (4) request the Command to all ChildKat
-//	  (5) clear the fist command after all completions.
+// 	  (3) if MomKat Command, run it!
+//	  (4) check childkat liveness and set
+//	  (5) request the Command to all ChildKat
+//	  (6) clear the fist command after all completions.
 func CheckChildKatAndSet(myServerID string) {
 
 	for true { 
@@ -49,20 +50,30 @@ func CheckChildKatAndSet(myServerID string) {
 
 		// (2) get the first command
 		cmd := getFirstCommand()
-		
+
 		wg := new(sync.WaitGroup)
 
+		// (3) if MomKat Command, run it!
+		if (cmd!=nil) && (cmd.CMDTYPE==common.MOMKAT) {
+			wg.Add(1)
+			go func() {
+				RunMomKatCommandAndSetResult(myServerID, cmd)
+				wg.Done()
+			}()
+		}
+		
+		// only all childkats except this momkat
 		for _, childKatStatusInfo:= range childKatStatusInfoList {
 			// sould clone info object because childKatStatusInfo is a point of childKatStatusInfoList's children
 			statusInfo := common.StatusInfo{childKatStatusInfo.RowNumber, childKatStatusInfo.CheckBit, 
 				childKatStatusInfo.ServerID, childKatStatusInfo.Status, childKatStatusInfo.Time, childKatStatusInfo.Count}
 			wg.Add(1)
 			go func() {
-				// (3) check childkat liveness and set
+				// (4) check childkat liveness and set
 				GetAndSetStatus(statusInfo)
 
-				// (4) request the Command to all ChildKat
-				if cmd != nil {
+				// (5) request the Command to all ChildKat
+				if (cmd!=nil) && (cmd.CMDTYPE==common.ALL) {
 					RunCommandAndSetResult(statusInfo, cmd)
 				}
 
@@ -70,7 +81,7 @@ func CheckChildKatAndSet(myServerID string) {
 			}()
 		}
 		wg.Wait()
-		// (5)  clear the fist command and pupup command after all completions.
+		// (6)  clear the fist command and pupup command after all completions.
 		if cmd != nil {
 			popupCommand()
 		}
@@ -93,6 +104,10 @@ func getFirstCommand() *common.Command {
                 cblogger.Errorf("could not read Range: %v", err)
                 return nil
         }
+
+	if len(values) <= 0 {
+		return nil
+	}
 
 	return &common.Command{CMDID:values[0], CMDTYPE:values[1], CMD:values[2], Time:common.GetCurrentTime()}
 }
@@ -120,7 +135,6 @@ func popupCommand(){
 		th.WriteRange(srv, &th.CellRange{Sheet:common.CommandSheetName, X:common.CommandIDX, Y:common.CommandTableY,
                         X2:common.CommandCMDX}, []string{"", "", ""})
 	default :
-	fmt.Printf("==========: %#v\n", values)
 		for i, _ := range values {
 			if i < (len(values)-1) {
 				values[i] = values[i+1]
@@ -200,6 +214,27 @@ func GetAndSetStatus(statusInfo common.StatusInfo) {
 	if err != nil {
 		cblogger.Errorf("could not write Cell: %v", err)
 	}
+}
+
+func RunMomKatCommandAndSetResult(myServerID string, cmd *common.Command) {
+	cblogger := cblog.GetLogger("CB-SPIDER")
+
+        cmdResult, err := RunCommand(myServerID, cmd)
+        if err != nil {
+                //cblogger.Errorf("could not Run Command: %v", err)
+                cblogger.Infof("%s: could not Run Command(%#v) - %v", myServerID, cmd, err)
+        }
+
+        // @todo Now, refined the time because time difference
+        cmdResult.Time = common.GetCurrentTime()
+
+        cblogger.Info("[" + cmdResult.ServerID + "] " + cmdResult.CMD + "-" + cmdResult.Result + "-" + cmdResult.Time)
+
+        cmdResultInfo := common.CommandResultInfo{RowNumber:common.CommandTableY, ServerID:cmdResult.ServerID, ResultNow:cmdResult.Result, Time:cmdResult.Time}
+        err = common.WriteCommandResult(&cmdResultInfo)
+        if err != nil {
+                cblogger.Errorf("could not write Cell: %v", err)
+        }
 }
 
 func RunCommandAndSetResult(statusInfo common.StatusInfo, cmd *common.Command) {
@@ -362,5 +397,19 @@ func getChildKatServerList() []kv.KeyValue {
         }
 
         return childKatList
+}
+
+func RunCommand(myServerID string, cmd *common.Command) (*common.CommandResult, error) {
+        if cmd.CMDTYPE ==  "ALL" {
+                return nil, fmt.Errorf("[%s] I'm a MomKat, I received ALL Command(%s)", myServerID, cmd.CMDID)
+        }
+        strResult := runCommand(cmd.CMD)
+        time := common.GetCurrentTime()
+        return &common.CommandResult{ServerID: myServerID, CMD: cmd.CMD, Result:strResult, Time: time}, nil
+}
+
+func runCommand(cmd string) string {
+        // @todo run command
+	return "MOMKAT:" + cmd + " - run command return sample msg"
 }
 
