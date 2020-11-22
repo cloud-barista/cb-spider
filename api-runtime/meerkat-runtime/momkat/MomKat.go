@@ -231,12 +231,13 @@ func RunMomKatCommandAndSetResult(myServerID string, cmd *common.Command) {
         cmdResult.Time = common.GetCurrentTime()
 
         cblogger.Info("[" + cmdResult.ServerID + "] " + cmdResult.CMD + "-" + cmdResult.Result + "-" + cmdResult.Time)
-
+/*
         cmdResultInfo := common.CommandResultInfo{RowNumber:common.CommandTableY, ServerID:cmdResult.ServerID, ResultNow:cmdResult.Result, Time:cmdResult.Time}
         err = common.WriteCommandResult(&cmdResultInfo)
         if err != nil {
                 cblogger.Errorf("could not write Cell: %v", err)
         }
+*/
 }
 
 func RunCommandAndSetResult(statusInfo common.StatusInfo, cmd *common.Command) {
@@ -257,12 +258,13 @@ func RunCommandAndSetResult(statusInfo common.StatusInfo, cmd *common.Command) {
         cmdResult.Time = common.GetCurrentTime()
 
         cblogger.Info("[" + cmdResult.ServerID + "] " + cmdResult.CMD + "-" + cmdResult.Result + "-" + cmdResult.Time)
-
+/*
 	cmdResultInfo := common.CommandResultInfo{RowNumber:common.CommandTableY, ServerID:cmdResult.ServerID, ResultNow:cmdResult.Result, Time:cmdResult.Time}
         err = common.WriteCommandResult(&cmdResultInfo)
         if err != nil {
                 cblogger.Errorf("could not write Cell: %v", err)
         }
+*/
 }
 
 func strIncrement(strCount string) string {

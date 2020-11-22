@@ -14,7 +14,7 @@ const (
 	/////////////////////////// StatusZone Table
 	MaxSpiders = "20"
 	TransCount = "3"
-	TimerTime = 5 // seconds (HeartBeat)
+	TimerTime = 10 // seconds (HeartBeat)
 	ChildKatCallTimeout = 3000 // milliseconds
 
 	//// metadata base position of Table
