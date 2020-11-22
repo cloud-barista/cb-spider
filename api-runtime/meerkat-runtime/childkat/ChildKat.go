@@ -11,7 +11,6 @@ package childkat
 import (
 	"context"
 	"fmt"
-	"strings"
         common "github.com/cloud-barista/cb-spider/api-runtime/meerkat-runtime/common"
 )
 
@@ -38,46 +37,8 @@ func (s *Server) RunCommand(ctx context.Context, cmd *common.Command) (*common.C
 	if cmd.CMDTYPE ==  "MOMKAT" {
 		return nil, fmt.Errorf("[%s] I'm a ChildKat, I received MOMKAT Command(%s)", MyServerID, cmd.CMDID)
 	}
-	strResult := runCommand(cmd.CMD)
+	strResult := common.RunCommand(cmd.CMD, MyServerID)
         time := common.GetCurrentTime()
 	return &common.CommandResult{ServerID: MyServerID, CMD: cmd.CMD, Result:strResult, Time: time}, nil
 }
 
-// Definitions of Command Type
-const (
-	// has no args
-        whoareu string = "$whoareu"
-
-	// has 1 arg
-        print string = "$print" // $print Hello
-        kill string = "$kill"   // $kill you, $kill ChildKatID
-        clear string = "$clear" // $clear cmdresult
-        list string = "$list"   // $list vm
-)
-
-func runCommand(cmd string) string {
-	cmd = strings.TrimSpace(cmd)
-	// ex) "$print abc def" => "$print" / "abc def"
-	cmd_args := strings.SplitN(cmd, " ", 2)
-	var strResult string = ""
-
-	switch cmd_args[0] {
-	// has no args
-	case whoareu: 
-		strResult = "I'm " + MyServerID  + "__^..^__"
-
-	// has 1 arg
-	case print: 
-		if len(cmd_args) == 1 {
-			strResult = ""
-		}else {
-			strResult = cmd_args[1]
-		}
-
-	default: 
-		strResult = cmd +" - is not a defined Command!"
-	}
-
-	fmt.Println(strResult)
-	return strResult
-}

@@ -9,7 +9,6 @@
 package momkat
 
 import (
-	"fmt"
 	"strconv"
 	"strings"
 	"sync"
@@ -30,7 +29,7 @@ import (
 //	3. fired and be a MomKat
 //	  (1) get childkat list
 //	  (2) get the fist command
-// 	  (3) if MomKat Command, run it!
+// 	  (3) MomKat: if Command is not nil, run it!
 //	  (4) check childkat liveness and set
 //	  (5) request the Command to all ChildKat
 //	  (6) clear the fist command after all completions.
@@ -45,7 +44,7 @@ func CheckChildKatAndSet(myServerID string) {
 		// role of MomKat
 		SetImMomKat(myServerID)
 
-		// (1) childKatList := getChildKatServerList()
+		// (1) childKatList := getChildKatStatusInfoList2()
 		childKatStatusInfoList := getChildKatStatusInfoList2(myServerID)
 
 		// (2) get the first command
@@ -53,8 +52,9 @@ func CheckChildKatAndSet(myServerID string) {
 
 		wg := new(sync.WaitGroup)
 
-		// (3) if MomKat Command, run it!
-		if (cmd!=nil) && (cmd.CMDTYPE==common.MOMKAT) {
+		// (3) MomKat: if Command is not nil, run it!
+		// MomKat is also a MeerKat.
+		if (cmd!=nil) {
 			wg.Add(1)
 			go func() {
 				RunMomKatCommandAndSetResult(myServerID, cmd)
@@ -74,7 +74,9 @@ func CheckChildKatAndSet(myServerID string) {
 
 				// (5) request the Command to all ChildKat
 				if (cmd!=nil) && (cmd.CMDTYPE==common.ALL) {
-					RunCommandAndSetResult(statusInfo, cmd)
+					if statusInfo.Status == "L" { // only live ChildKat
+						RunCommandAndSetResult(statusInfo, cmd)
+					}
 				}
 
 				wg.Done()
@@ -338,9 +340,12 @@ func getChildKatStatusInfoList2(myServerID string) []common.StatusInfo {
 
 	for count, row := range values {
 		// skip self check.
+ 
 		if row[1] == myServerID {
 			continue
 		}
+
+		
 		if row[0] == "1"  {
 			thisY := intY + count 
 			strY := strconv.Itoa(thisY)
@@ -400,16 +405,9 @@ func getChildKatServerList() []kv.KeyValue {
 }
 
 func RunCommand(myServerID string, cmd *common.Command) (*common.CommandResult, error) {
-        if cmd.CMDTYPE ==  "ALL" {
-                return nil, fmt.Errorf("[%s] I'm a MomKat, I received ALL Command(%s)", myServerID, cmd.CMDID)
-        }
-        strResult := runCommand(cmd.CMD)
+        strResult := common.RunCommand(cmd.CMD, myServerID)
         time := common.GetCurrentTime()
-        return &common.CommandResult{ServerID: myServerID, CMD: cmd.CMD, Result:strResult, Time: time}, nil
-}
 
-func runCommand(cmd string) string {
-        // @todo run command
-	return "MOMKAT:" + cmd + " - run command return sample msg"
+        return &common.CommandResult{ServerID: myServerID, CMD: cmd.CMD, Result:strResult, Time: time}, nil
 }
 
