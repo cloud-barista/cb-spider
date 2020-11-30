@@ -1,11 +1,12 @@
-# next version
+# # v0.3.0-espresso (2020.12.11.)
 ### API Change
 - 관리용 API listAllXXX(), deleteXXX(force=true), deleteCSPXXX() 추가
   - ref) https://github.com/cloud-barista/cb-spider/issues/228#issuecomment-644536669
 - AWS Region 등록 정보에 Zone 정보 추가
   - ref) https://github.com/cloud-barista/cb-spider/issues/248
-- Support gRPC-based GO API for all REST APIs.
-- Support Web-based AdminWeb Tool for easy management.
+- Supports adding and deleting subnets in an existing VPC 
+  - ref) https://github.com/cloud-barista/cb-spider/issues/277- Supports gRPC-based GO API for all REST APIs.
+- Supports Web-based AdminWeb Tool for easy management.
 
 ### Feature
 - IID에 등록된 자원 ID와 CSP 자원 ID에 대한 맵핑 관계 손상시 관리 기능 추가
