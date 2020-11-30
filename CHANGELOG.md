@@ -1,4 +1,4 @@
-# # v0.3.0-espresso (2020.12.11.)
+# v0.3.0-espresso (2020.12.11.)
 ### API Change
 - 관리용 API listAllXXX(), deleteXXX(force=true), deleteCSPXXX() 추가
   - ref) https://github.com/cloud-barista/cb-spider/issues/228#issuecomment-644536669
