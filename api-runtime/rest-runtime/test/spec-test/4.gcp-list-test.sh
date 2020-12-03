@@ -1,3 +1,3 @@
 export CONN_CONFIG=gcp-ohio-config
 
-./image-list-test.sh
+./spec-list-test.sh
