@@ -5,7 +5,8 @@
 - AWS Region 등록 정보에 Zone 정보 추가
   - ref) https://github.com/cloud-barista/cb-spider/issues/248
 - Supports adding and deleting subnets in an existing VPC 
-  - ref) https://github.com/cloud-barista/cb-spider/issues/277- Supports gRPC-based GO API for all REST APIs.
+  - ref) https://github.com/cloud-barista/cb-spider/issues/277
+- Supports gRPC-based GO API for all REST APIs.
 - Supports Web-based AdminWeb Tool for easy management.
 
 ### Feature
