@@ -59,11 +59,11 @@ If you have any difficulties in using CB-Spider, please let us know.
 
   | CSP        | user ID          | 비고 |
   |:-------------:|:-------------:|:-------------|
-  | AWS      | ubuntu 또는 ec2-user 등 | Image 의존 |
-  | Azure      | cb-user | Driver에서 고정 |
-  | GCP      | cb-user      | Driver에서 고정  |
+  | AWS      | ubuntu 또는 ec2-user 등 | Image에 의존적 |
+  | Azure      | cb-user | Spider에서 고정 |
+  | GCP      | cb-user      | Spider에서 고정  |
   | Alibaba | root      |   CSP에서 고정, PW 설정 가능 |
-  | OpenStack | ubuntu 등     |    Image에 의존 |
+  | OpenStack | ubuntu 등     |    Image에 의존적 |
   | Cloudit | root      | sshkey 제공 안함. PW 설정 가능  |
     - 개선예정(관련이슈:https://github.com/cloud-barista/cb-spider/issues/230)
   
