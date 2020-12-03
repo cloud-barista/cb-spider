@@ -7,6 +7,7 @@
 - Supports adding and deleting subnets in an existing VPC 
   - ref) https://github.com/cloud-barista/cb-spider/issues/277
 - Supports gRPC-based GO API for all REST APIs.
+- Supports CLI for Terminal User.
 - Supports Web-based AdminWeb Tool for easy management.
 
 ### Feature
