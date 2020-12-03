@@ -40,9 +40,9 @@ If you have any difficulties in using CB-Spider, please let us know.
 - ##### cb-operator 기반 실행: https://github.com/cloud-barista/cb-operator
 
 #### [API 규격]
-- 클라우드 인프라 연동 정보 관리: https://cloud-barista.github.io/rest-api/v0.2.0/spider/ccim/
+- 클라우드 인프라 연동 정보 관리: https://cloud-barista.github.io/rest-api/v0.3.0/spider/ccim/
   - 관리대상: Cloud Driver / Credential / Region:Zone
-- 클라우드 인프라 공통 제어 관리: https://cloud-barista.github.io/rest-api/v0.2.0/spider/cctm/
+- 클라우드 인프라 공통 제어 관리: https://cloud-barista.github.io/rest-api/v0.3.0/spider/cctm/
   - 제어대상: Image / Spec / VPC/Subnet / SecurityGroup / KeyPair / VM
   
 #### [활용 예시]
