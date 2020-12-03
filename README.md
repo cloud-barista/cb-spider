@@ -22,9 +22,10 @@ If you have any difficulties in using CB-Spider, please let us know.
 1. [실행 환경](#실행-환경)
 2. [실행 방법](#실행-방법)
 3. [API 규격](#API-규격)
-4. [활용 예시](#활용-예시)
-5. [특이 사항](#특이-사항)
-6. [관련 정보](#관련-정보)
+4. [제공 자원](#제공-자원)
+5. [활용 예시](#활용-예시)
+6. [특이 사항](#특이-사항)
+7. [관련 정보](#관련-정보)
  
 ***
 
@@ -44,7 +45,20 @@ If you have any difficulties in using CB-Spider, please let us know.
   - 관리대상: Cloud Driver / Credential / Region:Zone
 - 클라우드 인프라 공통 제어 관리: https://cloud-barista.github.io/rest-api/v0.3.0/spider/cctm/
   - 제어대상: Image / Spec / VPC/Subnet / SecurityGroup / KeyPair / VM
-  
+
+#### [제공 자원] 
+
+  | Provider(CloudOS) | Image List/Get | Spec List/Get| VPC/Subnet | Security Group | Key Pair| VM   |
+  |:-------------:|:-------------:|:-------------|:-------------|:-------------|:-------------|:-------------|
+  | AWS           | O          | O          | O          | O          | O          | O          |
+  | Azure         | O          | O          | O          | O          | O          | O          |
+  | GCP           | O          | O          | O          | O          | O          | O          |
+  | Alibaba       | O          | O          | O          | O          | O          | O          |
+  | OpenStack     | O          | O          | O          | O          | O          | O          |
+  | Cloudit       | O          | O          | O          | O          | -          | O          |
+  | Docker        | O          | -          | -          | -          | -          | O          |
+
+
 #### [활용 예시]
 - 시험 도구: `cb-spier/api-runtime/rest-runtime/test/[fulltest|eachtest|parallel-test]` (AWS 경우:aws)
 - 시험 순서: 연동 정보 추가 => 자원등록 => VM 생성 및 제어 시험
@@ -55,7 +69,7 @@ If you have any difficulties in using CB-Spider, please let us know.
     - (1) vpc, security group, keypair 생성
     - (2) vm 생성 및 제어
     - (3)	삭제는 자원 생성 역순
-- CSP별 VM User: 2020.11.04.현재 
+- CSP별 VM User 
 
   | CSP        | user ID          | 비고 |
   |:-------------:|:-------------:|:-------------|
