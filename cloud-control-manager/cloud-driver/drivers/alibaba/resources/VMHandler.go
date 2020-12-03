@@ -40,7 +40,7 @@ var cblogger *logrus.Logger
 
 func init() {
 	// cblog is a global variable.
-	cblogger = cblog.GetLogger("ALIBABA VMHandler")
+	cblogger = cblog.GetLogger("CB-SPIDER")
 }
 
 // 참고 : VM 생성 시 인증 방식은 KeyPair 또는 ID&PWD 방식이 가능하지만 계정은 모두 root  - 비번 조회 기능은 없음

@@ -407,7 +407,7 @@ func handleKeyPair() {
 				}
 			case 3:
 				cblogger.Infof("[%s] 키 페어 조회 테스트", keyPairName)
-				result, err := KeyPairHandler.GetKey(irs.IID{NameId: keyPairName})
+				result, err := KeyPairHandler.GetKey(irs.IID{SystemId: keyPairName})
 				if err != nil {
 					cblogger.Infof(keyPairName, " 키 페어 조회 실패 : ", err)
 				} else {
@@ -415,7 +415,7 @@ func handleKeyPair() {
 				}
 			case 4:
 				cblogger.Infof("[%s] 키 페어 삭제 테스트", keyPairName)
-				result, err := KeyPairHandler.DeleteKey(irs.IID{NameId: keyPairName})
+				result, err := KeyPairHandler.DeleteKey(irs.IID{SystemId: keyPairName})
 				if err != nil {
 					cblogger.Infof(keyPairName, " 키 페어 삭제 실패 : ", err)
 				} else {
@@ -1112,7 +1112,7 @@ func main() {
 		}
 	*/
 
-	handleVPC()
+	//handleVPC()
 	//handleKeyPair()
 	//handlePublicIP() // PublicIP 생성 후 conf
 	//handleSecurity()
@@ -1120,7 +1120,7 @@ func main() {
 
 	//handleImage() //AMI
 	//handleVNic() //Lancard
-	//handleVMSpec()
+	handleVMSpec()
 
 	/*
 		KeyPairHandler, err := setKeyPairHandler()

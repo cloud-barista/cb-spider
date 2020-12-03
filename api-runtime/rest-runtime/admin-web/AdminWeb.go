@@ -121,7 +121,8 @@ func Frame(c echo.Context) error {
     <title>CB-Spider Admin Web Tool ....__^..^__....</title>
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
   </head>
-    <frameset rows="66,*" frameborder="Yes" border=1">
+ <!--   <frameset rows="66,*" frameborder="Yes" border=1"> -->
+    <frameset rows="100,*" frameborder="Yes" border=1">
         <frame src="adminweb/top" name="top_frame" scrolling="auto" noresize marginwidth="0" marginheight="0"/>
         <frameset frameborder="Yes" border=1">
             <frame src="adminweb/driver" name="main_frame" scrolling="auto" noresize marginwidth="5" marginheight="0"/> 

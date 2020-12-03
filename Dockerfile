@@ -3,7 +3,7 @@
 ##############################################################
 
 #FROM golang:alpine AS builder
-FROM golang:1.12.4 AS builder
+FROM golang:1.15.3 AS builder
 
 ENV GO111MODULE on
 
@@ -56,3 +56,4 @@ ENTRYPOINT [ "/root/go/src/github.com/cloud-barista/cb-spider/api-runtime/cb-spi
 
 EXPOSE 1024
 EXPOSE 2048
+EXPOSE 4096

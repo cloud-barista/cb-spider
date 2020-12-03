@@ -11,14 +11,17 @@ package clouddriverhandler
 import (
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 
+	alibabadrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/alibaba"
 	awsdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/aws"
 	azuredrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/azure"
-	gcpdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/gcp"
-	alibabadrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/alibaba"
-	openstackdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/openstack"
 	clouditdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/cloudit"
 	dockerdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/docker"
-//	cloudtwindrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/cloudtwin"
+	gcpdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/gcp"
+	openstackdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/openstack"
+	mockdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/mock"
+
+	//	cloudtwindrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/cloudtwin" // CLOUDTWIN
+	// ncpdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/ncp" // NCP
 
 	icbs "github.com/cloud-barista/cb-store/interfaces"
 
@@ -92,11 +95,11 @@ func GetCloudConnection(cloudConnectName string) (icon.CloudConnection, error) {
 		return nil, err
 	}
 
-        pluginSW := os.Getenv("PLUGIN_SW")
+	pluginSW := os.Getenv("PLUGIN_SW")
 	var cldDriver idrv.CloudDriver
-        if strings.ToUpper(pluginSW) == "OFF" {
+	if strings.ToUpper(pluginSW) == "OFF" {
 		cldDriver, err = getStaticCloudDriver(*cldDrvInfo)
-        } else {
+	} else {
 		cldDriver, err = getCloudDriver(*cldDrvInfo)
 	}
 	if err != nil {
@@ -118,9 +121,9 @@ func GetCloudConnection(cloudConnectName string) (icon.CloudConnection, error) {
 	//cblog.Info(rgnInfo)
 
 	regionName, zoneName, err := GetRegionNameByRegionInfo(rgnInfo)
-        if err != nil {
-                return nil, err
-        }
+	if err != nil {
+		return nil, err
+	}
 
 	connectionInfo := idrv.ConnectionInfo{ // @todo powerkim
 		CredentialInfo: idrv.CredentialInfo{
@@ -136,8 +139,8 @@ func GetCloudConnection(cloudConnectName string) (icon.CloudConnection, error) {
 			AuthToken:        getValue(crdInfo.KeyValueInfoList, "AuthToken"),
 			ClientEmail:      getValue(crdInfo.KeyValueInfoList, "ClientEmail"),
 			PrivateKey:       getValue(crdInfo.KeyValueInfoList, "PrivateKey"),
-			Host:       	  getValue(crdInfo.KeyValueInfoList, "Host"),
-			APIVersion:    	  getValue(crdInfo.KeyValueInfoList, "APIVersion"),
+			Host:             getValue(crdInfo.KeyValueInfoList, "Host"),
+			APIVersion:       getValue(crdInfo.KeyValueInfoList, "APIVersion"),
 		},
 		RegionInfo: idrv.RegionInfo{ // @todo powerkim
 			Region:        regionName,
@@ -154,8 +157,6 @@ func GetCloudConnection(cloudConnectName string) (icon.CloudConnection, error) {
 	return cldConnection, nil
 }
 
-
-
 func getValue(keyValueInfoList []icbs.KeyValue, key string) string {
 	for _, kv := range keyValueInfoList {
 		if kv.Key == key {
@@ -166,61 +167,66 @@ func getValue(keyValueInfoList []icbs.KeyValue, key string) string {
 }
 
 func GetRegionNameByConnectionName(cloudConnectName string) (string, string, error) {
-        cccInfo, err := ccim.GetConnectionConfig(cloudConnectName)
-        if err != nil {
-                return "", "", err
-        }
+	cccInfo, err := ccim.GetConnectionConfig(cloudConnectName)
+	if err != nil {
+		return "", "", err
+	}
 
-        rgnInfo, err := rim.GetRegion(cccInfo.RegionName)
-        if err != nil {
-                return "", "", err
-        }
+	rgnInfo, err := rim.GetRegion(cccInfo.RegionName)
+	if err != nil {
+		return "", "", err
+	}
 
 	return GetRegionNameByRegionInfo(rgnInfo)
 }
 
 func GetRegionNameByRegionInfo(rgnInfo *rim.RegionInfo) (string, string, error) {
 
-        // @todo should move KeyValueList into XXXDriver.go, powerkim
-        var regionName string
-        var zoneName string
-        switch strings.ToUpper(rgnInfo.ProviderName) {
-        case "AZURE":
-                regionName = getValue(rgnInfo.KeyValueInfoList, "location")
-        case "AWS":
-                regionName = getValue(rgnInfo.KeyValueInfoList, "Region")
-                zoneName = getValue(rgnInfo.KeyValueInfoList, "Zone")
-        case "ALIBABA":
-                regionName = getValue(rgnInfo.KeyValueInfoList, "Region")
-                zoneName = getValue(rgnInfo.KeyValueInfoList, "Zone")
-        case "GCP":
-                regionName = getValue(rgnInfo.KeyValueInfoList, "Region")
-                zoneName = getValue(rgnInfo.KeyValueInfoList, "Zone")
-        case "OPENSTACK":
-                regionName = getValue(rgnInfo.KeyValueInfoList, "Region")
-        case "CLOUDTWIN":
-                regionName = getValue(rgnInfo.KeyValueInfoList, "Region")
-        case "CLOUDIT":
-                // Cloudit do not use Region, But set default @todo 2019.10.28. by powerkim.
-                regionName = getValue(rgnInfo.KeyValueInfoList, "Region")
-        case "DOCKER":
-                // docker do not use Region, But set default @todo 2020.05.06. by powerkim.
-                regionName = getValue(rgnInfo.KeyValueInfoList, "Region")
-        default:
-                errmsg := rgnInfo.ProviderName + " is not a valid ProviderName!!"
-                return "", "", fmt.Errorf(errmsg)
-        }
+	// @todo should move KeyValueList into XXXDriver.go, powerkim
+	var regionName string
+	var zoneName string
+	switch strings.ToUpper(rgnInfo.ProviderName) {
+	case "AZURE":
+		regionName = getValue(rgnInfo.KeyValueInfoList, "location")
+	case "AWS":
+		regionName = getValue(rgnInfo.KeyValueInfoList, "Region")
+		zoneName = getValue(rgnInfo.KeyValueInfoList, "Zone")
+	case "ALIBABA":
+		regionName = getValue(rgnInfo.KeyValueInfoList, "Region")
+		zoneName = getValue(rgnInfo.KeyValueInfoList, "Zone")
+	case "GCP":
+		regionName = getValue(rgnInfo.KeyValueInfoList, "Region")
+		zoneName = getValue(rgnInfo.KeyValueInfoList, "Zone")
+	case "OPENSTACK":
+		regionName = getValue(rgnInfo.KeyValueInfoList, "Region")
+	case "CLOUDIT": 
+		// Cloudit do not use Region, But set default @todo 2019.10.28. by powerkim.
+		regionName = getValue(rgnInfo.KeyValueInfoList, "Region")
+	case "DOCKER":
+		// docker do not use Region, But set default @todo 2020.05.06. by powerkim.
+		regionName = getValue(rgnInfo.KeyValueInfoList, "Region")
+	case "NCP": // NCP
+		regionName = getValue(rgnInfo.KeyValueInfoList, "Region") // NCP
 
-        return regionName, zoneName, nil
+	case "CLOUDTWIN":
+		regionName = getValue(rgnInfo.KeyValueInfoList, "Region")
+	case "MOCK":
+		regionName = getValue(rgnInfo.KeyValueInfoList, "Region")
+	default:
+		errmsg := rgnInfo.ProviderName + " is not a valid ProviderName!!"
+		return "", "", fmt.Errorf(errmsg)
+	}
+
+	return regionName, zoneName, nil
 }
 
 func getCloudDriver(cldDrvInfo dim.CloudDriverInfo) (idrv.CloudDriver, error) {
 	// $CBSPIDER_ROOT/cloud-driver-libs/*
 	cbspiderRoot := os.Getenv("CBSPIDER_ROOT")
-        if cbspiderRoot == "" {
-                cblog.Error("$CBSPIDER_ROOT is not set!!")
-                os.Exit(1)
-	} 
+	if cbspiderRoot == "" {
+		cblog.Error("$CBSPIDER_ROOT is not set!!")
+		os.Exit(1)
+	}
 	driverLibPath := cbspiderRoot + "/cloud-driver-libs/"
 
 	driverFile := cldDrvInfo.DriverLibFileName // ex) "aws-test-driver-v0.5.so"
@@ -261,33 +267,38 @@ func getCloudDriver(cldDrvInfo dim.CloudDriverInfo) (idrv.CloudDriver, error) {
 }
 
 func getStaticCloudDriver(cldDrvInfo dim.CloudDriverInfo) (idrv.CloudDriver, error) {
-	cblog.Info("CloudDriverHandler: called getStaticCloudDriver() - " + cldDrvInfo.DriverName )
+	cblog.Info("CloudDriverHandler: called getStaticCloudDriver() - " + cldDrvInfo.DriverName)
 
 	var cloudDriver idrv.CloudDriver
 
 	// select driver
-        switch cldDrvInfo.ProviderName {
-                case "AWS":
-			cloudDriver = new(awsdrv.AwsDriver)
-		case "AZURE":
-			cloudDriver = new(azuredrv.AzureDriver)
-		case "GCP":
-			cloudDriver = new(gcpdrv.GCPDriver)
-		case "ALIBABA":
-			cloudDriver = new(alibabadrv.AlibabaDriver)
-		case "OPENSTACK":
-			cloudDriver = new(openstackdrv.OpenStackDriver)
-		case "CLOUDIT":
-			cloudDriver = new(clouditdrv.ClouditDriver)
-		case "DOCKER":
-			cloudDriver = new(dockerdrv.DockerDriver)
-		//case "CLOUDTWIN":
-		//	cloudDriver = new(cloudtwindrv.CloudTwinDriver)
+	switch cldDrvInfo.ProviderName {
+	case "AWS":
+		cloudDriver = new(awsdrv.AwsDriver)
+	case "AZURE":
+		cloudDriver = new(azuredrv.AzureDriver)
+	case "GCP":
+		cloudDriver = new(gcpdrv.GCPDriver)
+	case "ALIBABA":
+		cloudDriver = new(alibabadrv.AlibabaDriver)
+	case "OPENSTACK":
+		cloudDriver = new(openstackdrv.OpenStackDriver)
+	case "CLOUDIT":
+		cloudDriver = new(clouditdrv.ClouditDriver)
+	case "DOCKER":
+		cloudDriver = new(dockerdrv.DockerDriver)
+	// case "NCP": // NCP
+	//	cloudDriver = new(ncpdrv.NcpDriver) // NCP
 
-                default:
-			errmsg := cldDrvInfo.ProviderName + " is not supported static Cloud Driver!!"
-			return cloudDriver, fmt.Errorf(errmsg)
-        }
+	case "MOCK":
+		cloudDriver = new(mockdrv.MockDriver)
+	// case "CLOUDTWIN":
+	// 	cloudDriver = new(cloudtwindrv.CloudTwinDriver)
+
+	default:
+		errmsg := cldDrvInfo.ProviderName + " is not supported static Cloud Driver!!"
+		return cloudDriver, fmt.Errorf(errmsg)
+	}
 
 	return cloudDriver, nil
 }

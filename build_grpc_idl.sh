@@ -5,8 +5,8 @@ cd $CBSPIDER_ROOT/api-runtime/grpc-runtime/idl/gogoproto
 protoc \
     gogo.proto \
 		-I . \
-		-I $GOPATH/src/github.com/gogo/protobuf/protobuf \
-		-I $GOPATH/src \
+		-I $HOME/go/src/github.com/gogo/protobuf/protobuf \
+		-I $HOME/go/src \
 		--gofast_out=plugins=grpc,paths=source_relative,\
 Mgoogle/protobuf/descriptor.proto=github.com/gogo/protobuf/protoc-gen-gogo/descriptor:\
 .
@@ -19,8 +19,8 @@ cd $CBSPIDER_ROOT/api-runtime/grpc-runtime/idl/cbspider
 protoc \
     cbspider.proto \
 		-I . \
-		-I $GOPATH/src/github.com/gogo/protobuf/protobuf \
-		-I $GOPATH/src/github.com/cloud-barista/cb-spider/api-runtime/grpc-runtime/idl/gogoproto \
+		-I $HOME/go/src/github.com/gogo/protobuf/protobuf \
+		-I $HOME/go/src/github.com/cloud-barista/cb-spider/api-runtime/grpc-runtime/idl/gogoproto \
 		--gofast_out=plugins=grpc:\
 .	
 

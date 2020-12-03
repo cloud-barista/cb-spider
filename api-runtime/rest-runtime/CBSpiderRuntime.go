@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"os"
+	"net/http"
 	"github.com/chyeh/pubip"
 
 	cr "github.com/cloud-barista/cb-spider/api-runtime/common-runtime"
@@ -31,6 +32,7 @@ func init() {
 	cblog = config.Cblogger
 	currentTime := time.Now()
 	cr.StartTime = currentTime.Format("2006.01.02 15:04:05 Mon")
+	cr.MiddleStartTime = currentTime.Format("2006.01.02.15:04:05")
 	cr.ShortStartTime = fmt.Sprintf("T%02d:%02d:%02d", currentTime.Hour(), currentTime.Minute(), currentTime.Second())
 	cr.HostIPorName = getHostIPorName()
 }
@@ -51,6 +53,10 @@ type route struct {
 }
 
 func getHostIPorName() string {
+	if os.Getenv("LOCALHOST") ==  "ON" {
+		return "localhost"
+	}
+
 	ip, err := pubip.Get()
 	if err != nil {
 		cblog.Error(err)
@@ -68,6 +74,10 @@ func RunServer() {
 
 	//======================================= setup routes
 	routes := []route{
+		//----------root
+		{"GET", "", aw.SpiderInfo},
+		{"GET", "/", aw.SpiderInfo},
+
 		//----------CloudOS
 		{"GET", "/cloudos", listCloudOS},
 
@@ -189,15 +199,16 @@ func RunServer() {
 	}
 	//======================================= setup routes
 
-	fmt.Println("\n[CB-Spider:Cloud Info Management Framework]")
-	fmt.Println("\n   Initiating REST API Server....__^..^__....\n\n")
+	// rest's service port, now fixed.
+	cr.ServicePort = ":1024"
 
 	// Run API Server
-	ApiServer(routes, ":1024")
+	ApiServer(routes)
+
 }
 
 //================ REST API Server: setup & start
-func ApiServer(routes []route, strPort string) {
+func ApiServer(routes []route) {
 	e := echo.New()
 
 	// Middleware
@@ -226,9 +237,29 @@ func ApiServer(routes []route, strPort string) {
 	e.File("/spider/adminweb/images/logo.png", cbspiderRoot + "/api-runtime/rest-runtime/admin-web/images/cb-spider-circle-logo.png")
 
 	e.HideBanner = true
-	if strPort == "" {
-		strPort = ":1024"
-	}
-	cr.ServicePort = strPort
-	e.Logger.Fatal(e.Start(strPort))
+	e.HidePort = true
+
+	spiderBanner()
+
+	e.Logger.Fatal(e.Start(cr.ServicePort))
+}
+
+//================ API Info
+func apiInfo(c echo.Context) error {
+        cblog.Info("call apiInfo()")
+
+	apiInfo :=  "api info"
+	return c.String(http.StatusOK, apiInfo)
+}
+
+func spiderBanner(){
+	fmt.Println("\n  <CB-Spider> Multi-Cloud Infrastructure Federation Framework")
+
+	// AdminWeb 
+        adminWebURL := "http://" + cr.HostIPorName + cr.ServicePort + "/spider/adminweb"
+        fmt.Printf("     - AdminWeb: %s\n", adminWebURL)
+
+	// REST API EndPoint 
+        restEndPoint := "http://" + cr.HostIPorName + cr.ServicePort + "/spider"
+        fmt.Printf("     - REST API: %s\n", restEndPoint)
 }

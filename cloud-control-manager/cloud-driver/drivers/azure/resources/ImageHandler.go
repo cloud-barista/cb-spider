@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 
 	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2018-06-01/compute"
 	"github.com/Azure/go-autorest/autorest/to"
@@ -131,69 +132,59 @@ func (imageHandler *AzureImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 
 	var imageList []*irs.ImageInfo
 
+	//publishers := []string{"OpenLogic", "CoreOS", "Debian", "SUSE", "RedHat", "Canonical", "MicrosoftWindowsServer"}
 	publishers, err := imageHandler.VMImageClient.ListPublishers(context.TODO(), imageHandler.Region.Region)
 	if err != nil {
 		LoggingError(hiscallInfo, err)
 		return nil, err
 	}
-	/*for _, p := range *publishers.Value {
-		if strings.Contains(*p.Name, "azure") {
-			spew.Dump(p)
-		}
-	}*/
-	//publishers := []string{"OpenLogic", "CoreOS", "Debian", "SUSE", "RedHat", "Canonical", "MicrosoftWindowsServer"}
 
 	start := call.Start()
 
-	for _, publisher := range *publishers.Value {
-		offers, err := imageHandler.VMImageClient.ListOffers(context.TODO(), imageHandler.Region.Region, *publisher.Name)
-		if err != nil {
-			cblogger.Error(fmt.Sprintf("[%s]%s", *publisher.Name, err))
-			continue
-		}
-		for _, offer := range *offers.Value {
-			skus, err := imageHandler.VMImageClient.ListSkus(context.TODO(), imageHandler.Region.Region, *publisher.Name, *offer.Name)
+	var publisherWg sync.WaitGroup
+	publisherWg.Add(len(*publishers.Value))
+
+	for _, p := range *publishers.Value {
+		go func(publisher compute.VirtualMachineImageResource) {
+			defer publisherWg.Done()
+			offers, err := imageHandler.VMImageClient.ListOffers(context.TODO(), imageHandler.Region.Region, *publisher.Name)
 			if err != nil {
-				cblogger.Error(fmt.Sprintf("[%s:%s]%s", *publisher.Name, *offer.Name, err))
-				continue
+				return
 			}
-			for _, sku := range *skus.Value {
-				imageVersionList, err := imageHandler.VMImageClient.List(context.TODO(), imageHandler.Region.Region, *publisher.Name, *offer.Name, *sku.Name, "", to.Int32Ptr(1), "")
+
+			for _, offer := range *offers.Value {
+				skus, err := imageHandler.VMImageClient.ListSkus(context.TODO(), imageHandler.Region.Region, *publisher.Name, *offer.Name)
 				if err != nil {
-					cblogger.Error(fmt.Sprintf("[%s:%s:%s]%s", *publisher.Name, *offer.Name, *sku.Name, err))
 					continue
 				}
+				for _, sku := range *skus.Value {
+					imageVersionList, err := imageHandler.VMImageClient.List(context.TODO(), imageHandler.Region.Region, *publisher.Name, *offer.Name, *sku.Name, "", to.Int32Ptr(1), "")
+					if err != nil {
+						continue
+					}
+					if len(*imageVersionList.Value) == 0 {
+						continue
+					}
 
-				//imageHandler.VMImageClient.Get()
-				if len(*imageVersionList.Value) == 0 {
-					cblogger.Error(fmt.Sprintf("NOT FOUND VERSION [%s:%s:%s]", *publisher.Name, *offer.Name, *sku.Name))
-					continue
+					latestVmImage := (*imageVersionList.Value)[0]
+					imageIdArr := strings.Split(*latestVmImage.ID, "/")
+					imageLastVersion := imageIdArr[len(imageIdArr)-1]
+
+					vmImage, err := imageHandler.VMImageClient.Get(context.TODO(), imageHandler.Region.Region, *publisher.Name, *offer.Name, *sku.Name, imageLastVersion)
+					if err != nil {
+						continue
+					}
+					vmImageInfo := imageHandler.setterVMImage(vmImage)
+					imageList = append(imageList, vmImageInfo)
 				}
-				latestVmImage := (*imageVersionList.Value)[0]
-				imageIdArr := strings.Split(*latestVmImage.ID, "/")
-				imageLastVersion := imageIdArr[len(imageIdArr)-1]
-
-				/*if err != nil {
-					cblogger.Error(fmt.Sprintf("[%s:%s:%s]%s", *publisher.Name, *offer.Name, *sku.Name, err))
-					continue
-				}*/
-				vmImage, err := imageHandler.VMImageClient.Get(context.TODO(), imageHandler.Region.Region, *publisher.Name, *offer.Name, *sku.Name, imageLastVersion)
-				if err != nil {
-					cblogger.Error(fmt.Sprintf("[%s:%s:%s]%s", *publisher.Name, *offer.Name, *sku.Name, err))
-					continue
-				}
-				vmImageInfo := imageHandler.setterVMImage(vmImage)
-				imageList = append(imageList, vmImageInfo)
-
-				/*if imageListLen := len(imageList); imageListLen%10 == 0 {
-					fmt.Println(imageListLen)
-				}*/
 			}
-		}
+			return
+		}(p)
 	}
+
+	publisherWg.Wait()
 	LoggingInfo(hiscallInfo, start)
 
-	fmt.Printf("imageSize=%d\n", len(imageList))
 	return imageList, nil
 }
 

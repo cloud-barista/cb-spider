@@ -31,3 +31,8 @@ conf/config.yaml
 
 interface/cbadm
 interface/spider
+
+.history/
+
+cloud-control-manager/cloud-driver/drivers/ncp/*
+cloud-control-manager/cloud-driver/drivers/ncp-plugin/*

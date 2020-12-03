@@ -20,6 +20,7 @@ import (
 	"github.com/sirupsen/logrus"
 
 	cblog "github.com/cloud-barista/cb-log"
+	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 )
@@ -33,7 +34,7 @@ var cblogger *logrus.Logger
 
 func init() {
 	// cblog is a global variable.
-	cblogger = cblog.GetLogger("AWS VMHandler")
+	cblogger = cblog.GetLogger("CB-SPIDER")
 }
 
 func Connect(region string) *ec2.EC2 {
@@ -140,13 +141,29 @@ func (vmHandler *AwsVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 	}
 	cblogger.Info(input)
 
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.AWS,
+		RegionZone:   vmHandler.Region.Zone,
+		ResourceType: call.VM,
+		ResourceName: vmReqInfo.IId.NameId,
+		CloudOSAPI:   "RunInstances()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+	callLogStart := call.Start()
 	// Specify the details of the instance that you want to create.
 	runResult, err := vmHandler.Client.RunInstances(input)
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 	cblogger.Info(runResult)
 	if err != nil {
+		callLogInfo.ErrorMSG = err.Error()
+		callogger.Info(call.String(callLogInfo))
 		cblogger.Errorf("EC2 인스턴스 생성 실패 : ", err)
 		return irs.VMInfo{}, err
 	}
+	callogger.Info(call.String(callLogInfo))
 
 	if len(runResult.Instances) < 1 {
 		return irs.VMInfo{}, errors.New("AWS로부터 전달 받은 VM 정보가 없습니다.")
@@ -272,7 +289,22 @@ func (vmHandler *AwsVMHandler) ResumeVM(vmIID irs.IID) (irs.VMStatus, error) {
 		},
 		DryRun: aws.Bool(true),
 	}
+
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.AWS,
+		RegionZone:   vmHandler.Region.Zone,
+		ResourceType: call.VM,
+		ResourceName: vmIID.SystemId,
+		CloudOSAPI:   "StartInstances()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+	callLogStart := call.Start()
+
 	result, err := vmHandler.Client.StartInstances(input)
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 	spew.Dump(result)
 	awsErr, ok := err.(awserr.Error)
 
@@ -284,6 +316,8 @@ func (vmHandler *AwsVMHandler) ResumeVM(vmIID irs.IID) (irs.VMStatus, error) {
 		if err != nil {
 			//fmt.Println("Error", err)
 			cblogger.Error(err)
+			callLogInfo.ErrorMSG = err.Error()
+			callogger.Info(call.String(callLogInfo))
 			return irs.VMStatus("Failed"), err
 		} else {
 			//fmt.Println("Success", result.StartingInstances)
@@ -292,8 +326,11 @@ func (vmHandler *AwsVMHandler) ResumeVM(vmIID irs.IID) (irs.VMStatus, error) {
 	} else { // This could be due to a lack of permissions
 		//fmt.Println("Error", err)
 		cblogger.Error(err)
+		callLogInfo.ErrorMSG = err.Error()
+		callogger.Info(call.String(callLogInfo))
 		return irs.VMStatus("Failed"), err
 	}
+	callogger.Info(call.String(callLogInfo))
 
 	return irs.VMStatus("Resuming"), nil
 }
@@ -319,7 +356,20 @@ func (vmHandler *AwsVMHandler) SuspendVM(vmIID irs.IID) (irs.VMStatus, error) {
 		DryRun: aws.Bool(true),
 	}
 	cblogger.Info(input)
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.AWS,
+		RegionZone:   vmHandler.Region.Zone,
+		ResourceType: call.VM,
+		ResourceName: vmIID.SystemId,
+		CloudOSAPI:   "StopInstances()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+	callLogStart := call.Start()
 	result, err := vmHandler.Client.StopInstances(input)
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 	spew.Dump(result)
 	awsErr, ok := err.(awserr.Error)
 	if ok && awsErr.Code() == "DryRunOperation" {
@@ -327,15 +377,20 @@ func (vmHandler *AwsVMHandler) SuspendVM(vmIID irs.IID) (irs.VMStatus, error) {
 		result, err = vmHandler.Client.StopInstances(input)
 		spew.Dump(result)
 		if err != nil {
+			callLogInfo.ErrorMSG = err.Error()
+			callogger.Info(call.String(callLogInfo))
 			cblogger.Error(err)
 			return irs.VMStatus("Failed"), err
 		} else {
 			cblogger.Info("Success", result.StoppingInstances)
 		}
 	} else {
+		callLogInfo.ErrorMSG = err.Error()
+		callogger.Info(call.String(callLogInfo))
 		cblogger.Error("Error", err)
 		return irs.VMStatus("Failed"), err
 	}
+	callogger.Info(call.String(callLogInfo))
 
 	return irs.VMStatus("Suspending"), nil
 }
@@ -358,7 +413,20 @@ func (vmHandler *AwsVMHandler) RebootVM(vmIID irs.IID) (irs.VMStatus, error) {
 		},
 		DryRun: aws.Bool(true),
 	}
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.AWS,
+		RegionZone:   vmHandler.Region.Zone,
+		ResourceType: call.VM,
+		ResourceName: vmIID.SystemId,
+		CloudOSAPI:   "RebootInstances()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+	callLogStart := call.Start()
 	result, err := vmHandler.Client.RebootInstances(input)
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 	cblogger.Info("result 값 : ", result)
 	cblogger.Info("err 값 : ", err)
 
@@ -376,6 +444,8 @@ func (vmHandler *AwsVMHandler) RebootVM(vmIID irs.IID) (irs.VMStatus, error) {
 		cblogger.Info("result 값 : ", result)
 		cblogger.Info("err 값 : ", err)
 		if err != nil {
+			callLogInfo.ErrorMSG = err.Error()
+			callogger.Info(call.String(callLogInfo))
 			cblogger.Error("Error", err)
 			return irs.VMStatus("Failed"), err
 		} else {
@@ -384,8 +454,11 @@ func (vmHandler *AwsVMHandler) RebootVM(vmIID irs.IID) (irs.VMStatus, error) {
 	} else { // This could be due to a lack of permissions
 		cblogger.Info("리부팅 권한이 없는 것같음.")
 		cblogger.Error("Error", err)
+		callLogInfo.ErrorMSG = err.Error()
+		callogger.Info(call.String(callLogInfo))
 		return irs.VMStatus("Failed"), err
 	}
+	callogger.Info(call.String(callLogInfo))
 	return irs.VMStatus("Rebooting"), nil
 }
 
@@ -408,14 +481,31 @@ func (vmHandler *AwsVMHandler) TerminateVM(vmIID irs.IID) (irs.VMStatus, error) 
 		},
 	}
 
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.AWS,
+		RegionZone:   vmHandler.Region.Zone,
+		ResourceType: call.VM,
+		ResourceName: vmIID.SystemId,
+		CloudOSAPI:   "TerminateInstances()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+	callLogStart := call.Start()
+
 	result, err := vmHandler.Client.TerminateInstances(input)
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 	spew.Dump(result)
 	if err != nil {
+		callLogInfo.ErrorMSG = err.Error()
+		callogger.Info(call.String(callLogInfo))
 		cblogger.Error("Could not termiate instances", err)
 		return irs.VMStatus("Failed"), err
 	} else {
 		cblogger.Info("Success")
 	}
+	callogger.Info(call.String(callLogInfo))
 	return irs.VMStatus("Terminating"), nil
 }
 
@@ -440,7 +530,21 @@ func (vmHandler *AwsVMHandler) GetVM(vmIID irs.IID) (irs.VMInfo, error) {
 	*/
 	cblogger.Info(input)
 
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.AWS,
+		RegionZone:   vmHandler.Region.Zone,
+		ResourceType: call.VM,
+		ResourceName: vmIID.SystemId,
+		CloudOSAPI:   "DescribeInstances()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+	callLogStart := call.Start()
+
 	result, err := vmHandler.Client.DescribeInstances(input)
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 	cblogger.Info(result)
 	if err != nil {
 		if aerr, ok := err.(awserr.Error); ok {
@@ -452,8 +556,12 @@ func (vmHandler *AwsVMHandler) GetVM(vmIID irs.IID) (irs.VMInfo, error) {
 			// Print the error, cast err to awserr.Error to get the Code and Message from an error.
 			cblogger.Error(err.Error())
 		}
+		callLogInfo.ErrorMSG = err.Error()
+		callogger.Info(call.String(callLogInfo))
 		return irs.VMInfo{}, err
 	}
+	callogger.Info(call.String(callLogInfo))
+
 	//cblogger.Info(result)
 	cblogger.Infof("조회된 VM 정보 수 : [%d]", len(result.Reservations))
 	if len(result.Reservations) > 1 {
@@ -626,7 +734,21 @@ func (vmHandler *AwsVMHandler) ListVM() ([]*irs.VMInfo, error) {
 		},
 	}
 
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.AWS,
+		RegionZone:   vmHandler.Region.Zone,
+		ResourceType: call.VM,
+		ResourceName: "",
+		CloudOSAPI:   "ListVM()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+	callLogStart := call.Start()
+
 	result, err := vmHandler.Client.DescribeInstances(input)
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 	if err != nil {
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
@@ -637,8 +759,11 @@ func (vmHandler *AwsVMHandler) ListVM() ([]*irs.VMInfo, error) {
 			// Print the error, cast err to awserr.Error to get the Code and Message from an error.
 			cblogger.Error(err.Error())
 		}
+		callLogInfo.ErrorMSG = err.Error()
+		callogger.Info(call.String(callLogInfo))
 		return nil, err
 	}
+	callogger.Info(call.String(callLogInfo))
 
 	cblogger.Info("Success")
 
@@ -718,7 +843,21 @@ func (vmHandler *AwsVMHandler) GetVMStatus(vmIID irs.IID) (irs.VMStatus, error) 
 		},
 	}
 
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.AWS,
+		RegionZone:   vmHandler.Region.Zone,
+		ResourceType: call.VM,
+		ResourceName: vmIID.SystemId,
+		CloudOSAPI:   "DescribeInstances()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+	callLogStart := call.Start()
+
 	result, err := vmHandler.Client.DescribeInstances(input)
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 	if err != nil {
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
@@ -729,8 +868,11 @@ func (vmHandler *AwsVMHandler) GetVMStatus(vmIID irs.IID) (irs.VMStatus, error) 
 			// Print the error, cast err to awserr.Error to get the Code and Message from an error.
 			cblogger.Error(err.Error())
 		}
+		callLogInfo.ErrorMSG = err.Error()
+		callogger.Info(call.String(callLogInfo))
 		return irs.VMStatus("Failed"), err
 	}
+	callogger.Info(call.String(callLogInfo))
 
 	cblogger.Info("Success", result)
 	for _, i := range result.Reservations {
@@ -756,7 +898,20 @@ func (vmHandler *AwsVMHandler) ListVMStatus() ([]*irs.VMStatusInfo, error) {
 		},
 	}
 
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.AWS,
+		RegionZone:   vmHandler.Region.Zone,
+		ResourceType: call.VM,
+		ResourceName: "",
+		CloudOSAPI:   "DescribeInstances()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+	callLogStart := call.Start()
 	result, err := vmHandler.Client.DescribeInstances(input)
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 	if err != nil {
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
@@ -767,8 +922,11 @@ func (vmHandler *AwsVMHandler) ListVMStatus() ([]*irs.VMStatusInfo, error) {
 			// Print the error, cast err to awserr.Error to get the Code and Message from an error.
 			cblogger.Error(err.Error())
 		}
+		callLogInfo.ErrorMSG = err.Error()
+		callogger.Info(call.String(callLogInfo))
 		return nil, err
 	}
+	callogger.Info(call.String(callLogInfo))
 
 	cblogger.Info("Success")
 
