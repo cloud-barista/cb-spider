@@ -325,14 +325,14 @@ func (vmHandler *ClouditVMHandler) GetVMStatus(vmIID irs.IID) (irs.VMStatus, err
 		MoreHeaders: authHeader,
 	}
 
-	vmID, err := vmHandler.getVmIdByName(vmIID.NameId)
+	vmSystemID, err := vmHandler.getVmIdByName(vmIID.NameId)
 	if err != nil {
 		LoggingError(hiscallInfo, err)
 		return irs.Failed, err
 	}
 
 	start := call.Start()
-	vm, err := server.Get(vmHandler.Client, vmID, &requestOpts)
+	vm, err := server.Get(vmHandler.Client, vmSystemID, &requestOpts)
 	if err != nil {
 		LoggingError(hiscallInfo, err)
 		return irs.Failed, err
@@ -550,7 +550,7 @@ func (vmHandler *ClouditVMHandler) getVmIdByName(vmNameID string) (string, error
 	// VM 목록에서 Name 기준 검색
 	for _, v := range vmList {
 		if strings.EqualFold(v.IId.NameId, vmNameID) {
-			vmId = v.IId.NameId
+			vmId = v.IId.SystemId
 			break
 		}
 	}
