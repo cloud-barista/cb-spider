@@ -17,7 +17,7 @@ import (
 
 	// REST API (echo)
 	"net/http"
-
+	"net/url"
 	"github.com/labstack/echo"
 
 	"strconv"
@@ -102,7 +102,14 @@ func getImage(c echo.Context) error {
 	}
 
 	// Call common-runtime API
-	result, err := cmrt.GetImage(req.ConnectionName, rsImage, c.Param("Name"))
+	encodededImageName := c.Param("Name")
+	decodedImageName, err := url.QueryUnescape(encodededImageName)
+	if err != nil {
+		cblog.Fatal(err)
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	result, err := cmrt.GetImage(req.ConnectionName, rsImage, decodedImageName)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
