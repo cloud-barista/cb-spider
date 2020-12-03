@@ -1341,10 +1341,10 @@ func SpiderInfo(c echo.Context) error {
                                             <font size=2>$$STARTTIME$$</font>
                                     </td>
                                     <td width="220">
-                                            <font size=2>CB-Spider v0.2.0 (Cappuccino)</font>
+                                            <font size=2>CB-Spider v0.3.0 (Espresso)</font>
                                     </td>
                                     <td width="220">
-                                            <font size=2>REST API v0.2.0 (Cappuccino)</font>
+                                            <font size=2>REST API v0.3.0 (Espresso)</font>
                                     </td>
                                 </tr>
 
@@ -1370,16 +1370,16 @@ func SpiderInfo(c echo.Context) error {
                                             <font size=2>
                                             * Cloud Connection Info Mgmt:
                                                 <br>
-                                                &nbsp;&nbsp;&nbsp;&nbsp;<a href='https://cloud-barista.github.io/rest-api/v0.2.0/spider/ccim/' target='_blank'>
-                                                    https://cloud-barista.github.io/rest-api/v0.2.0/spider/ccim/
+                                                &nbsp;&nbsp;&nbsp;&nbsp;<a href='https://cloud-barista.github.io/rest-api/v0.3.0/spider/ccim/' target='_blank'>
+                                                    https://cloud-barista.github.io/rest-api/v0.3.0/spider/ccim/
                                                 </a>
                                             </font>
                                             <p>
                                             <font size=2>
                                                 * Cloud Resource Control Mgmt: 
                                                 <br>
-                                                &nbsp;&nbsp;&nbsp;&nbsp;<a href='https://cloud-barista.github.io/rest-api/v0.2.0/spider/cctm/' target='_blank'>
-                                                    https://cloud-barista.github.io/rest-api/v0.2.0/spider/cctm/
+                                                &nbsp;&nbsp;&nbsp;&nbsp;<a href='https://cloud-barista.github.io/rest-api/v0.3.0/spider/cctm/' target='_blank'>
+                                                    https://cloud-barista.github.io/rest-api/v0.3.0/spider/cctm/
                                                 </a>
                                             </font>
                                     </td>
