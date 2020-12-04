@@ -305,7 +305,8 @@ func (vmHandler *ClouditVMHandler) ListVMStatus() ([]*irs.VMStatusInfo, error) {
 	for i, vm := range *vmList {
 		vmStatusInfo := irs.VMStatusInfo{
 			IId: irs.IID{
-				NameId: vm.ID,
+				NameId:   vm.Name,
+				SystemId: vm.ID,
 			},
 			VmStatus: irs.VMStatus(vm.State),
 		}
