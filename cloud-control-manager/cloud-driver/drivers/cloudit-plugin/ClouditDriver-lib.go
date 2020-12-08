@@ -58,3 +58,5 @@ func getServiceClient(connInfo idrv.ConnectionInfo) (*client.RestClient, error) 
 	}
 	return &restClient, nil
 }
+
+var CloudDriver ClouditDriver

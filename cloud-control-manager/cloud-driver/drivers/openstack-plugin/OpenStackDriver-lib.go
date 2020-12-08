@@ -167,3 +167,5 @@ func getVolumeClient(connInfo idrv.ConnectionInfo) (*gophercloud.ServiceClient, 
 	}
 	return client, err
 }
+
+var CloudDriver OpenStackDriver
