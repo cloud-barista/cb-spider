@@ -40,9 +40,14 @@ curl -sX POST http://localhost:1024/spider/vm -H 'Content-Type: application/json
 echo "============== sleep 60 after start VM"
 sleep 60
 curl -sX GET http://localhost:1024/spider/vm -H 'Content-Type: application/json' -d '{ "ConnectionName": "'${CONN_CONFIG}'"}' |json_pp
+echo "============== after List VM"
 curl -sX GET http://localhost:1024/spider/vm/vm-01 -H 'Content-Type: application/json' -d '{ "ConnectionName": "'${CONN_CONFIG}'"}' |json_pp
+echo "============== after Get VM"
 curl -sX GET http://localhost:1024/spider/vmstatus -H 'Content-Type: application/json' -d '{ "ConnectionName": "'${CONN_CONFIG}'"}' |json_pp
+echo "============== after List VM Status"
 curl -sX GET http://localhost:1024/spider/vmstatus/vm-01 -H 'Content-Type: application/json' -d '{ "ConnectionName": "'${CONN_CONFIG}'"}' |json_pp
+echo "============== after Get VM Status"
+
 curl -sX GET http://localhost:1024/spider/controlvm/vm-01?action=suspend -H 'Content-Type: application/json' -d '{ "ConnectionName": "'${CONN_CONFIG}'"}' |json_pp
 echo "============== sleep 60 after suspend VM"
 sleep 60
