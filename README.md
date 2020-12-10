@@ -6,7 +6,7 @@ The CB-Spider Mission is to connect all the clouds with a single interface.
 
 ```
 [NOTE]
-CB-Spider is currently under development. (the latest version is 0.2 cappuccino)
+CB-Spider is currently under development. (the latest version is 0.3 espresso)
 So, we do not recommend using the current release in production.
 Please note that the functionalities of CB-Spider are not stable and secure yet.
 If you have any difficulties in using CB-Spider, please let us know.
