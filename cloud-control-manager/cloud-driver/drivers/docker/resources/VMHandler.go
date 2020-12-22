@@ -271,7 +271,6 @@ func (vmHandler *DockerVMHandler) TerminateVM(vmIID irs.IID) (irs.VMStatus, erro
         }
 
 	return irs.NotExist, nil
-	return "", nil
 }
 
 func (vmHandler *DockerVMHandler) ListVMStatus() ([]*irs.VMStatusInfo, error) {
