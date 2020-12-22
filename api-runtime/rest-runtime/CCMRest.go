@@ -18,7 +18,7 @@ import (
 	// REST API (echo)
 	"net/http"
 	"net/url"
-	"github.com/labstack/echo"
+	"github.com/labstack/echo/v4"
 
 	"strconv"
 	"strings"
