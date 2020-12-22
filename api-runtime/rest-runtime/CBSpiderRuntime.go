@@ -12,8 +12,9 @@ import (
 	"fmt"
 	"time"
 
-	"os"
 	"net/http"
+	"os"
+
 	"github.com/chyeh/pubip"
 
 	cr "github.com/cloud-barista/cb-spider/api-runtime/common-runtime"
@@ -22,8 +23,8 @@ import (
 	"github.com/sirupsen/logrus"
 
 	// REST API (echo)
-	"github.com/labstack/echo"
-	"github.com/labstack/echo/middleware"
+	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v4/middleware"
 )
 
 var cblog *logrus.Logger
@@ -53,7 +54,7 @@ type route struct {
 }
 
 func getHostIPorName() string {
-	if os.Getenv("LOCALHOST") ==  "ON" {
+	if os.Getenv("LOCALHOST") == "ON" {
 		return "localhost"
 	}
 
@@ -194,7 +195,7 @@ func RunServer() {
 		{"GET", "/adminweb/vm/:ConnectConfig", aw.VM},
 		{"GET", "/adminweb/vmmgmt/:ConnectConfig", aw.VMMgmt},
 
-		{"GET", "/adminweb/vmimage/:ConnectConfig", aw.VMImage},		
+		{"GET", "/adminweb/vmimage/:ConnectConfig", aw.VMImage},
 		{"GET", "/adminweb/vmspec/:ConnectConfig", aw.VMSpec},
 	}
 	//======================================= setup routes
@@ -234,7 +235,7 @@ func ApiServer(routes []route) {
 
 	// for spider logo
 	cbspiderRoot := os.Getenv("CBSPIDER_ROOT")
-	e.File("/spider/adminweb/images/logo.png", cbspiderRoot + "/api-runtime/rest-runtime/admin-web/images/cb-spider-circle-logo.png")
+	e.File("/spider/adminweb/images/logo.png", cbspiderRoot+"/api-runtime/rest-runtime/admin-web/images/cb-spider-circle-logo.png")
 
 	e.HideBanner = true
 	e.HidePort = true
@@ -246,20 +247,20 @@ func ApiServer(routes []route) {
 
 //================ API Info
 func apiInfo(c echo.Context) error {
-        cblog.Info("call apiInfo()")
+	cblog.Info("call apiInfo()")
 
-	apiInfo :=  "api info"
+	apiInfo := "api info"
 	return c.String(http.StatusOK, apiInfo)
 }
 
-func spiderBanner(){
+func spiderBanner() {
 	fmt.Println("\n  <CB-Spider> Multi-Cloud Infrastructure Federation Framework")
 
-	// AdminWeb 
-        adminWebURL := "http://" + cr.HostIPorName + cr.ServicePort + "/spider/adminweb"
-        fmt.Printf("     - AdminWeb: %s\n", adminWebURL)
+	// AdminWeb
+	adminWebURL := "http://" + cr.HostIPorName + cr.ServicePort + "/spider/adminweb"
+	fmt.Printf("     - AdminWeb: %s\n", adminWebURL)
 
-	// REST API EndPoint 
-        restEndPoint := "http://" + cr.HostIPorName + cr.ServicePort + "/spider"
-        fmt.Printf("     - REST API: %s\n", restEndPoint)
+	// REST API EndPoint
+	restEndPoint := "http://" + cr.HostIPorName + cr.ServicePort + "/spider"
+	fmt.Printf("     - REST API: %s\n", restEndPoint)
 }

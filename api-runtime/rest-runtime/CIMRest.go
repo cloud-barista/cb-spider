@@ -20,7 +20,7 @@ import (
 	// REST API (echo)
 	"net/http"
 
-	"github.com/labstack/echo"
+	"github.com/labstack/echo/v4"
 )
 
 //================ List of support CloudOS
