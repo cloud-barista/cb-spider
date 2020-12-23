@@ -15,19 +15,20 @@
 package main
 
 import (
-	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
-	"time"
-	"strings"
-	"math/rand"
 	"fmt"
+	"math/rand"
+	"strings"
+	"time"
+
+	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 )
 
 func main() {
-        callogger := call.GetLogger("HISCALL")
+	callogger := call.GetLogger("HISCALL")
 
-	info := call.CLOUDLOGSCHEMA {
-		CloudOS: call.AWS,
-		RegionZone: "us-east1/us-east1-c",
+	info := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.AWS,
+		RegionZone:   "us-east1/us-east1-c",
 		ResourceType: call.VPCSUBNET,
 		ResourceName: "aws-vpc-01",
 	}
@@ -40,47 +41,49 @@ func main() {
 		info.ElapsedTime = call.Elapsed(start)
 		if err != nil {
 			info.ErrorMSG = err.Error()
-		} 
+		}
 		callogger.Info(call.String(info))
 	}
 }
 
 func ListVPC() error {
 	//r = random()%len(1000)
-	r:=time.Duration(rand.Int63n(1000))
-        time.Sleep(time.Millisecond*r)
+	r := time.Duration(rand.Int63n(1000))
+	time.Sleep(time.Millisecond * r)
 	return nil
 }
 
-var cloudOSList = []call.CLOUD_OS {
-	call.AWS, 
-	call.GCP, 
-	call.AZURE, 
-	call.OPENSTACK, 
-	call.CLOUDIT, 
-	call.ALIBABA, 
-	call.DOCKER, 
-	call.CLOUDTWIN, 
+var cloudOSList = []call.CLOUD_OS{
+	call.AWS,
+	call.GCP,
+	call.AZURE,
+	call.OPENSTACK,
+	call.CLOUDIT,
+	call.ALIBABA,
+	call.DOCKER,
+	call.CLOUDTWIN,
+	//call.NCP,
+	//call.NCPVPC,
 }
 
-var resTypeList = []call.RES_TYPE {
-	call.VMIMAGE, 
-	call.VMSPEC, 
-	call.VPCSUBNET, 
-	call.SECURITYGROUP, 
-	call.VMKEYPAIR, 
-	call.VM, 
+var resTypeList = []call.RES_TYPE{
+	call.VMIMAGE,
+	call.VMSPEC,
+	call.VPCSUBNET,
+	call.SECURITYGROUP,
+	call.VMKEYPAIR,
+	call.VM,
 }
 
 func setRandom(info *call.CLOUDLOGSCHEMA) {
 	//r = random()%len(cloudOSList)
-	r:=rand.Intn(len(cloudOSList))
+	r := rand.Intn(len(cloudOSList))
 	info.CloudOS = cloudOSList[r]
 	str := fmt.Sprintf("%s-region%d/zone-%d", strings.ToLower(string(cloudOSList[r])), r, r)
 	info.RegionZone = str
 
 	//r = random()%len(resTypeList)
-	r=rand.Intn(len(resTypeList))
+	r = rand.Intn(len(resTypeList))
 	info.ResourceType = resTypeList[r]
 	str = fmt.Sprintf("%s-%d", strings.ToLower(string(resTypeList[r])), r)
 	info.ResourceName = str

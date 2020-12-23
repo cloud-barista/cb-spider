@@ -1,7 +1,7 @@
 #!/bin/bash
 source setup.env
 
-#DRIVERS=( aws-plugin azure-plugin openstack-plugin gcp-plugin alibaba-plugin cloudit-plugin docker-plugin ncp-plugin)
+#DRIVERS=( aws-plugin azure-plugin openstack-plugin gcp-plugin alibaba-plugin cloudit-plugin docker-plugin ncp-plugin ncpvpc-plugin)
 DRIVERS=( aws-plugin azure-plugin gcp-plugin alibaba-plugin openstack-plugin cloudit-plugin docker-plugin )
 
 DRIVER_PATH=$CBSPIDER_ROOT/cloud-control-manager/cloud-driver/drivers
