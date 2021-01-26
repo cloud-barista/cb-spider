@@ -18,6 +18,7 @@ import (
 	// REST API (echo)
 	"net/http"
 	"net/url"
+
 	"github.com/labstack/echo/v4"
 
 	"strconv"
@@ -390,6 +391,90 @@ func deleteCSPVPC(c echo.Context) error {
 
 	// Call common-runtime API
 	result, _, err := cmrt.DeleteCSPResource(req.ConnectionName, rsVPC, c.Param("Id"))
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	resultInfo := BooleanInfo{
+		Result: strconv.FormatBool(result),
+	}
+
+	return c.JSON(http.StatusOK, &resultInfo)
+}
+
+// (1) get subnet info from REST Call
+// (2) call common-runtime API
+// (3) return REST Json Format
+func addSubnet(c echo.Context) error {
+	cblog.Info("call addSubnet()")
+
+	var req struct {
+		ConnectionName string
+		ReqInfo        struct {
+			Name      string
+			IPv4_CIDR string
+		}
+	}
+
+	if err := c.Bind(&req); err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	// Rest RegInfo => Driver ReqInfo
+	reqSubnetInfo := cres.SubnetInfo{IId: cres.IID{req.ReqInfo.Name, ""}, IPv4_CIDR: req.ReqInfo.IPv4_CIDR}
+
+	// Call common-runtime API
+	result, err := cmrt.AddSubnet(req.ConnectionName, rsSubnetPrefix+c.Param("VPCName"), c.Param("VPCName"), reqSubnetInfo)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	return c.JSON(http.StatusOK, result)
+}
+
+// (1) get args from REST Call
+// (2) call common-runtime API
+// (3) return REST Json Format
+func removeSubnet(c echo.Context) error {
+	cblog.Info("call removeSubnet()")
+
+	var req struct {
+		ConnectionName string
+	}
+
+	if err := c.Bind(&req); err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	// Call common-runtime API
+	result, _, err := cmrt.DeleteResource(req.ConnectionName, rsSubnetPrefix+c.Param("VPCName"), c.Param("SubnetName"), c.QueryParam("force"))
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	resultInfo := BooleanInfo{
+		Result: strconv.FormatBool(result),
+	}
+
+	return c.JSON(http.StatusOK, &resultInfo)
+}
+
+// (1) get args from REST Call
+// (2) call common-runtime API
+// (3) return REST Json Format
+func removeCSPSubnet(c echo.Context) error {
+	cblog.Info("call deleteCSPVPC()")
+
+	var req struct {
+		ConnectionName string
+	}
+
+	if err := c.Bind(&req); err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	// Call common-runtime API
+	result, _, err := cmrt.DeleteCSPResource(req.ConnectionName, rsSubnetPrefix+c.Param("VPCName"), c.Param("Id"))
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}

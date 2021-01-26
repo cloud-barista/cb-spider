@@ -125,6 +125,10 @@ func RunServer() {
 		{"GET", "/vpc", listVPC},
 		{"GET", "/vpc/:Name", getVPC},
 		{"DELETE", "/vpc/:Name", deleteVPC},
+		//-- for subnet
+		{"POST", "/vpc/:VPCName/subnet", addSubnet},
+		{"DELETE", "/vpc/:VPCName/subnet/:SubnetName", removeSubnet},
+		{"DELETE", "/vpc/:VPCName/cspsubnet/:Id", removeCSPSubnet},
 		//-- for management
 		{"GET", "/allvpc", listAllVPC},
 		{"DELETE", "/cspvpc/:Id", deleteCSPVPC},
