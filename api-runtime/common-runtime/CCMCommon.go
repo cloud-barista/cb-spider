@@ -142,9 +142,9 @@ func ListImage(connectionName string, rsType string) ([]*cres.ImageInfo, error) 
 		return nil, err
 	}
 
-        if infoList == nil || len(infoList) <= 0 {
-                infoList = []*cres.ImageInfo{}
-        }
+	if infoList == nil || len(infoList) <= 0 {
+		infoList = []*cres.ImageInfo{}
+	}
 
 	return infoList, nil
 }
@@ -153,64 +153,63 @@ func ListImage(connectionName string, rsType string) ([]*cres.ImageInfo, error) 
 // (2) get CSP:list
 // (3) filtering CSP-list by IID-list
 func ListRegisterImage(connectionName string, rsType string) ([]*cres.ImageInfo, error) {
-        cblog.Info("call ListImage()")
+	cblog.Info("call ListImage()")
 
-        cldConn, err := ccm.GetCloudConnection(connectionName)
-        if err != nil {
-                cblog.Error(err)
-                return nil, err
-        }
+	cldConn, err := ccm.GetCloudConnection(connectionName)
+	if err != nil {
+		cblog.Error(err)
+		return nil, err
+	}
 
-        handler, err := cldConn.CreateImageHandler()
-        if err != nil {
-                cblog.Error(err)
-                return nil, err
-        }
+	handler, err := cldConn.CreateImageHandler()
+	if err != nil {
+		cblog.Error(err)
+		return nil, err
+	}
 
-        imgRWLock.RLock()
-        defer imgRWLock.RUnlock()
-        // (1) get IID:list
-        iidInfoList, err := iidRWLock.ListIID(connectionName, rsType)
-        if err != nil {
-                cblog.Error(err)
-                return nil, err
-        }
+	imgRWLock.RLock()
+	defer imgRWLock.RUnlock()
+	// (1) get IID:list
+	iidInfoList, err := iidRWLock.ListIID(connectionName, rsType)
+	if err != nil {
+		cblog.Error(err)
+		return nil, err
+	}
 
-        var infoList []*cres.ImageInfo
-        if iidInfoList == nil || len(iidInfoList) <= 0 {
-                infoList = []*cres.ImageInfo{}
-                return infoList, nil
-        }
+	var infoList []*cres.ImageInfo
+	if iidInfoList == nil || len(iidInfoList) <= 0 {
+		infoList = []*cres.ImageInfo{}
+		return infoList, nil
+	}
 
-        // (2) get CSP:list
-        infoList, err = handler.ListImage()
-        if err != nil {
-                cblog.Error(err)
-                return nil, err
-        }
-        if infoList == nil { // if iidInfoList not null, then infoList has any list.
-                return nil, fmt.Errorf("<IID-CSP mismatch> " + rsType + " IID List has " + strconv.Itoa(len(iidInfoList)) + ", but " + connectionName + " Resource list has nothing!")
-        }
+	// (2) get CSP:list
+	infoList, err = handler.ListImage()
+	if err != nil {
+		cblog.Error(err)
+		return nil, err
+	}
+	if infoList == nil { // if iidInfoList not null, then infoList has any list.
+		return nil, fmt.Errorf("<IID-CSP mismatch> " + rsType + " IID List has " + strconv.Itoa(len(iidInfoList)) + ", but " + connectionName + " Resource list has nothing!")
+	}
 
-        // (3) filtering CSP-list by IID-list
-        infoList2 := []*cres.ImageInfo{}
-        for _, iidInfo := range iidInfoList {
-                exist := false
-                for _, info := range infoList {
-                        if iidInfo.IId.SystemId == info.IId.SystemId {
-                                info.IId.NameId = iidInfo.IId.NameId
-                                infoList2 = append(infoList2, info)
-                                exist = true
-                        }
-                }
-                if exist == false {
-                        return nil, fmt.Errorf("<IID-CSP mismatch> " + rsType + "-" + iidInfo.IId.NameId + ":" + iidInfo.IId.SystemId + " exsits. but " + connectionName + " does not have!")
-                }
-        }
+	// (3) filtering CSP-list by IID-list
+	infoList2 := []*cres.ImageInfo{}
+	for _, iidInfo := range iidInfoList {
+		exist := false
+		for _, info := range infoList {
+			if iidInfo.IId.SystemId == info.IId.SystemId {
+				info.IId.NameId = iidInfo.IId.NameId
+				infoList2 = append(infoList2, info)
+				exist = true
+			}
+		}
+		if exist == false {
+			return nil, fmt.Errorf("<IID-CSP mismatch> " + rsType + "-" + iidInfo.IId.NameId + ":" + iidInfo.IId.SystemId + " exsits. but " + connectionName + " does not have!")
+		}
+	}
 
-        return infoList2, nil
+	return infoList2, nil
 }
-
 
 // (1) get IID(NameId)
 // (2) get resource(SystemId)
@@ -244,43 +243,43 @@ func GetImage(connectionName string, rsType string, nameID string) (*cres.ImageI
 // (2) get resource(SystemId)
 // (3) set ResourceInfo(IID.NameId)
 func GetRegisterImage(connectionName string, rsType string, nameID string) (*cres.ImageInfo, error) {
-        cblog.Info("call GetImage()")
+	cblog.Info("call GetImage()")
 
-        cldConn, err := ccm.GetCloudConnection(connectionName)
-        if err != nil {
-                cblog.Error(err)
-                return nil, err
-        }
+	cldConn, err := ccm.GetCloudConnection(connectionName)
+	if err != nil {
+		cblog.Error(err)
+		return nil, err
+	}
 
-        handler, err := cldConn.CreateImageHandler()
-        if err != nil {
-                cblog.Error(err)
-                return nil, err
-        }
+	handler, err := cldConn.CreateImageHandler()
+	if err != nil {
+		cblog.Error(err)
+		return nil, err
+	}
 
-        imgRWLock.RLock()
-        defer imgRWLock.RUnlock()
-        // (1) get IID(NameId)
-        iidInfo, err := iidRWLock.GetIID(connectionName, rsType, cres.IID{nameID, ""})
-        if err != nil {
-                cblog.Error(err)
-                return nil, err
-        }
+	imgRWLock.RLock()
+	defer imgRWLock.RUnlock()
+	// (1) get IID(NameId)
+	iidInfo, err := iidRWLock.GetIID(connectionName, rsType, cres.IID{nameID, ""})
+	if err != nil {
+		cblog.Error(err)
+		return nil, err
+	}
 
-        // (2) get resource(SystemId)
-        start := time.Now()
-        info, err := handler.GetImage(iidInfo.IId)
-        if err != nil {
-                cblog.Error(err)
-                return nil, err
-        }
-        elapsed := time.Since(start)
-        cblog.Infof(connectionName+" : elapsed %d", elapsed.Nanoseconds()/1000000) // msec
+	// (2) get resource(SystemId)
+	start := time.Now()
+	info, err := handler.GetImage(iidInfo.IId)
+	if err != nil {
+		cblog.Error(err)
+		return nil, err
+	}
+	elapsed := time.Since(start)
+	cblog.Infof(connectionName+" : elapsed %d", elapsed.Nanoseconds()/1000000) // msec
 
-        // (3) set ResourceInfo(IID.NameId)
-        info.IId.NameId = iidInfo.IId.NameId
+	// (3) set ResourceInfo(IID.NameId)
+	info.IId.NameId = iidInfo.IId.NameId
 
-        return &info, nil
+	return &info, nil
 }
 
 // (1) get IID(NameId)
@@ -696,6 +695,80 @@ func GetVPC(connectionName string, rsType string, nameID string) (*cres.VPCInfo,
 		}
 	}
 	info.SubnetInfoList = subnetInfoList
+
+	return &info, nil
+}
+
+// (1) check exist(NameID)
+// (2) create Resource
+// (3) insert IID
+func AddSubnet(connectionName string, rsType string, vpcName string, reqInfo cres.SubnetInfo) (*cres.VPCInfo, error) {
+	cblog.Info("call AddSubnet()")
+
+	cldConn, err := ccm.GetCloudConnection(connectionName)
+	if err != nil {
+		cblog.Error(err)
+		return nil, err
+	}
+
+	handler, err := cldConn.CreateVPCHandler()
+	if err != nil {
+		cblog.Error(err)
+		return nil, err
+	}
+
+	vpcRWLock.Lock()
+	defer vpcRWLock.Unlock()
+	// (1) check exist(NameID)
+	bool_ret, err := iidRWLock.IsExistIID(connectionName, rsType, reqInfo.IId)
+	if err != nil {
+		cblog.Error(err)
+		return nil, err
+	}
+
+	if bool_ret == true {
+		return nil, fmt.Errorf(rsType + "-" + reqInfo.IId.NameId + " already exists!")
+	}
+	// (2) create Resource
+	iidVPCInfo, err := iidRWLock.GetIID(connectionName, rsVPC, cres.IID{vpcName, ""})
+	if err != nil {
+		cblog.Error(err)
+		return nil, err
+	}
+
+	info, err := handler.AddSubnet(iidVPCInfo.IId, reqInfo)
+	if err != nil {
+		cblog.Error(err)
+		return nil, err
+	}
+
+	// (3) insert IID
+	// for Subnet list
+	for _, subnetInfo := range info.SubnetInfoList {
+		if subnetInfo.IId.NameId == reqInfo.IId.NameId {
+			// key-value structure: /{ConnectionName}/{VPC-NameId}/{Subnet-IId}
+			_, err := iidRWLock.CreateIID(connectionName, rsSubnetPrefix+iidVPCInfo.IId.NameId, subnetInfo.IId)
+			if err != nil {
+				cblog.Error(err)
+				// rollback
+				// (1) for resource
+				cblog.Info("<<ROLLBACK:TRY:VPC-SUBNET-CSP>> " + subnetInfo.IId.SystemId)
+				_, err2 := handler.RemoveSubnet(iidVPCInfo.IId, subnetInfo.IId)
+				if err2 != nil {
+					cblog.Error(err2)
+					return nil, fmt.Errorf(err.Error() + ", " + err2.Error())
+				}
+				// (2) for Subnet IID
+				cblog.Info("<<ROLLBACK:TRY:VPC-SUBNET-IID>> " + subnetInfo.IId.NameId)
+				_, err3 := iidRWLock.DeleteIID(connectionName, rsSubnetPrefix+iidVPCInfo.IId.NameId, subnetInfo.IId)
+				if err3 != nil {
+					cblog.Error(err3)
+					return nil, fmt.Errorf(err.Error() + ", " + err3.Error())
+				}
+				return nil, err
+			}
+		}
+	}
 
 	return &info, nil
 }
@@ -1714,20 +1787,18 @@ func ListAllResource(connectionName string, rsType string) (AllResourceList, err
 
 	// if SG then MappedList, OnlySpiderList : remove delimeter and set SG name
 	if rsType == rsSG { // vpc-01-delimiter-sg-01 ==> sg-01
-		for i, iid := range MappedList{
+		for i, iid := range MappedList {
 			vpc_sg_nameid := strings.Split(iid.NameId, sgDELIMITER)
 			MappedList[i].NameId = vpc_sg_nameid[1]
 		}
-		for i, iid := range OnlySpiderList{
+		for i, iid := range OnlySpiderList {
 			vpc_sg_nameid := strings.Split(iid.NameId, sgDELIMITER)
 			OnlySpiderList[i].NameId = vpc_sg_nameid[1]
 		}
 	}
 
-
 	allResList.AllList.MappedList = MappedList
 	allResList.AllList.OnlySpiderList = OnlySpiderList
-
 
 	OnlyCSPList := []*cres.IID{}
 	for _, iid := range iidCSPList {
@@ -1782,7 +1853,11 @@ func DeleteResource(connectionName string, rsType string, nameID string, force s
 	case rsVM:
 		handler, err = cldConn.CreateVMHandler()
 	default:
-		return false, "", fmt.Errorf(rsType + " is not supported Resource!!")
+		if strings.HasPrefix(rsType, rsSubnetPrefix) {
+			handler, err = cldConn.CreateVPCHandler()
+		} else {
+			return false, "", fmt.Errorf(rsType + " is not supported Resource!!")
+		}
 	}
 	if err != nil {
 		cblog.Error(err)
@@ -1803,7 +1878,12 @@ func DeleteResource(connectionName string, rsType string, nameID string, force s
 		vmRWLock.Lock()
 		defer vmRWLock.Unlock()
 	default:
-		return false, "", fmt.Errorf(rsType + " is not supported Resource!!")
+		if strings.HasPrefix(rsType, rsSubnetPrefix) {
+			vpcRWLock.Lock()
+			defer vpcRWLock.Unlock()
+		} else {
+			return false, "", fmt.Errorf(rsType + " is not supported Resource!!")
+		}
 	}
 
 	// (1) get IID(NameId) for getting SystemId
@@ -1817,6 +1897,17 @@ func DeleteResource(connectionName string, rsType string, nameID string, force s
 		}
 	} else {
 		iidInfo, err = iidRWLock.GetIID(connectionName, rsType, cres.IID{nameID, ""})
+		if err != nil {
+			cblog.Error(err)
+			return false, "", err
+		}
+	}
+
+	// get VPC IID for remove subnet
+	var iidVPCInfo *iidm.IIDInfo
+	if strings.HasPrefix(rsType, rsSubnetPrefix) {
+		vpcName := strings.Replace(rsType, rsSubnetPrefix, "", 1)
+		iidVPCInfo, err = iidRWLock.GetIID(connectionName, rsVPC, cres.IID{vpcName, ""})
 		if err != nil {
 			cblog.Error(err)
 			return false, "", err
@@ -1860,7 +1951,17 @@ func DeleteResource(connectionName string, rsType string, nameID string, force s
 			}
 		}
 	default:
-		return false, "", fmt.Errorf(rsType + " is not supported Resource!!")
+		if strings.HasPrefix(rsType, rsSubnetPrefix) {
+			result, err = handler.(cres.VPCHandler).RemoveSubnet(iidVPCInfo.IId, iidInfo.IId)
+			if err != nil {
+				cblog.Error(err)
+				if force != "true" {
+					return false, "", err
+				}
+			}
+		} else {
+			return false, "", fmt.Errorf(rsType + " is not supported Resource!!")
+		}
 	}
 
 	if force != "true" {
@@ -1932,11 +2033,26 @@ func DeleteCSPResource(connectionName string, rsType string, systemID string) (b
 	case rsVM:
 		handler, err = cldConn.CreateVMHandler()
 	default:
-		return false, "", fmt.Errorf(rsType + " is not supported Resource!!")
+		if strings.HasPrefix(rsType, rsSubnetPrefix) {
+			handler, err = cldConn.CreateVPCHandler()
+		} else {
+			return false, "", fmt.Errorf(rsType + " is not supported Resource!!")
+		}
 	}
 	if err != nil {
 		cblog.Error(err)
 		return false, "", err
+	}
+
+	// get VPC IID for remove subnet
+	var iidVPCInfo *iidm.IIDInfo
+	if strings.HasPrefix(rsType, rsSubnetPrefix) {
+		vpcName := strings.Replace(rsType, rsSubnetPrefix, "", 1)
+		iidVPCInfo, err = iidRWLock.GetIID(connectionName, rsVPC, cres.IID{vpcName, ""})
+		if err != nil {
+			cblog.Error(err)
+			return false, "", err
+		}
 	}
 
 	iid := cres.IID{"", systemID}
@@ -1970,7 +2086,15 @@ func DeleteCSPResource(connectionName string, rsType string, systemID string) (b
 			return false, vmStatus, err
 		}
 	default:
-		return false, "", fmt.Errorf(rsType + " is not supported Resource!!")
+		if strings.HasPrefix(rsType, rsSubnetPrefix) {
+			result, err = handler.(cres.VPCHandler).RemoveSubnet(iidVPCInfo.IId, iid)
+			if err != nil {
+				cblog.Error(err)
+				return false, "", err
+			}
+		} else {
+			return false, "", fmt.Errorf(rsType + " is not supported Resource!!")
+		}
 	}
 
 	if rsType != rsVM {
