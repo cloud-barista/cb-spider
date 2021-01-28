@@ -38,7 +38,7 @@ $CBSPIDER_ROOT/interface/spider vpc add-subnet --config $CBSPIDER_ROOT/interface
         "Name": "subnet-02", 
         "IPv4_CIDR": "'${IPv4_CIDR_SUBNET2}'"
       } 
-    }'
+    }'  
 
 $CBSPIDER_ROOT/interface/spider vpc list --config $CBSPIDER_ROOT/interface/grpc_conf.yaml --cname "${CONN_CONFIG}"
 
@@ -106,8 +106,8 @@ $CBSPIDER_ROOT/interface/spider vm start --config $CBSPIDER_ROOT/interface/grpc_
       } 
     }'
 
-echo "============== sleep 60 after start VM"
-sleep 60
+echo "============== sleep 1 after start VM"
+sleep 1
 
 $CBSPIDER_ROOT/interface/spider vm list --config $CBSPIDER_ROOT/interface/grpc_conf.yaml --cname "${CONN_CONFIG}"
 
@@ -119,17 +119,17 @@ $CBSPIDER_ROOT/interface/spider vm getstatus --config $CBSPIDER_ROOT/interface/g
 
 $CBSPIDER_ROOT/interface/spider vm control --config $CBSPIDER_ROOT/interface/grpc_conf.yaml --cname "${CONN_CONFIG}" -n vm-01 -a suspend
 
-echo "============== sleep 60 after suspend VM"
-sleep 60
+echo "============== sleep 1 after suspend VM"
+sleep 1
 
 $CBSPIDER_ROOT/interface/spider vm control --config $CBSPIDER_ROOT/interface/grpc_conf.yaml --cname "${CONN_CONFIG}" -n vm-01 -a resume
-echo "============== sleep 30 after resume VM"
-sleep 30
+echo "============== sleep 1 after resume VM"
+sleep 1
 
 $CBSPIDER_ROOT/interface/spider vm control --config $CBSPIDER_ROOT/interface/grpc_conf.yaml --cname "${CONN_CONFIG}" -n vm-01 -a reboot
 
-echo "============== sleep 60 after reboot VM"
-sleep 60 
+echo "============== sleep 1 after reboot VM"
+sleep 1
 echo "#-----------------------------"
 
 
@@ -141,23 +141,19 @@ echo "####################################################################"
 echo "## 4. VM: Terminate(Delete)"
 echo "####################################################################"
 $CBSPIDER_ROOT/interface/spider vm terminate --config $CBSPIDER_ROOT/interface/grpc_conf.yaml --cname "${CONN_CONFIG}" -n vm-01 --force false
-echo "============== sleep 70 after delete VM"
-sleep 70 
+echo "============== sleep 1 after delete VM"
+sleep 1 
 
 echo "####################################################################"
 echo "## 3. KeyPair: Delete"
 echo "####################################################################"
 $CBSPIDER_ROOT/interface/spider keypair delete --config $CBSPIDER_ROOT/interface/grpc_conf.yaml --cname "${CONN_CONFIG}" -n keypair-01 --force false
-
 echo "####################################################################"
 echo "## 2. SecurityGroup: Delete"
 echo "####################################################################"
 $CBSPIDER_ROOT/interface/spider security delete --config $CBSPIDER_ROOT/interface/grpc_conf.yaml --cname "${CONN_CONFIG}" -n sg-01 --force false
-
 echo "####################################################################"
 echo "## 1. VPC: Remove-Subnet -> Delete"
 echo "####################################################################"
 $CBSPIDER_ROOT/interface/spider vpc remove-subnet --config $CBSPIDER_ROOT/interface/grpc_conf.yaml --cname "${CONN_CONFIG}" --vname vpc-01 --sname subnet-02 --force false
 $CBSPIDER_ROOT/interface/spider vpc delete --config $CBSPIDER_ROOT/interface/grpc_conf.yaml --cname "${CONN_CONFIG}" -n vpc-01 --force false
-
-
