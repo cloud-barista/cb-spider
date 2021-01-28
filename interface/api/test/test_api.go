@@ -361,7 +361,7 @@ func CreateCCMApiTest() {
 		ConnectionName: "openstack-config01",
 		ReqInfo: api.VPCInfo{
 			Name:      "vpc-01",
-			IPv4_CIDR: "10.0.1.0/24",
+			IPv4_CIDR: "10.0.0.0/20",
 			SubnetInfoList: &[]api.SubnetInfo{
 				api.SubnetInfo{
 					Name:      "subnet-01",
@@ -371,6 +371,22 @@ func CreateCCMApiTest() {
 		},
 	}
 	result, err := ccm.CreateVPCByParam(reqVPC)
+	if err != nil {
+		logger.Fatal(err)
+	}
+
+	fmt.Printf("\nresult :\n%s\n", result)
+
+	reqSubnet := &api.SubnetReq{
+		ConnectionName: "openstack-config01",
+		VPCName:        "vpc-01",
+		ReqInfo: api.SubnetInfo{
+			Name:      "subnet-02",
+			IPv4_CIDR: "10.0.2.0/24",
+		},
+	}
+
+	result, err = ccm.AddSubnetByParam(reqSubnet)
 	if err != nil {
 		logger.Fatal(err)
 	}

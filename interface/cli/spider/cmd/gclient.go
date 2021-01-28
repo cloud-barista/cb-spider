@@ -207,6 +207,12 @@ func SetupAndRun(cmd *cobra.Command, args []string) {
 			result, err = ccm.ListAllVPCByParam(connectionName)
 		case "deletecsp":
 			result, err = ccm.DeleteCSPVPCByParam(connectionName, cspID)
+		case "add-subnet":
+			result, err = ccm.AddSubnet(inData)
+		case "remove-subnet":
+			result, err = ccm.RemoveSubnetByParam(connectionName, vpcName, subnetName, force)
+		case "removecsp-subnet":
+			result, err = ccm.RemoveCSPSubnetByParam(connectionName, vpcName, cspID)
 		}
 	case "security":
 		switch cmd.Name() {

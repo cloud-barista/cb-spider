@@ -21,7 +21,7 @@ $CBSPIDER_ROOT/interface/spider security create --config $CBSPIDER_ROOT/interfac
       } 
     }'
 
-$CBSPIDER_ROOT/interface/spider security list --config $CBSPIDER_ROOT/interface/grpc_conf.yaml--cname "${CONN_CONFIG}"
+$CBSPIDER_ROOT/interface/spider security list --config $CBSPIDER_ROOT/interface/grpc_conf.yaml --cname "${CONN_CONFIG}"
 
 $CBSPIDER_ROOT/interface/spider security get --config $CBSPIDER_ROOT/interface/grpc_conf.yaml --cname "${CONN_CONFIG}" -n sg-01
        

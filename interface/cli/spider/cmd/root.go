@@ -32,6 +32,7 @@ var (
 	imageName      string
 	specName       string
 	vpcName        string
+	subnetName     string
 	securityName   string
 	keypairName    string
 	vmName         string
