@@ -70,6 +70,12 @@ type SubnetInfo struct {
 	IPv4_CIDR string `yaml:"IPv4_CIDR" json:"IPv4_CIDR"`
 }
 
+type SubnetReq struct {
+	ConnectionName string     `yaml:"ConnectionName" json:"ConnectionName"`
+	VPCName        string     `yaml:"VPCName" json:"VPCName"`
+	ReqInfo        SubnetInfo `yaml:"ReqInfo" json:"ReqInfo"`
+}
+
 // SecurityReq - Security 정보 생성 요청 구조 정의
 type SecurityReq struct {
 	ConnectionName string       `yaml:"ConnectionName" json:"ConnectionName"`
@@ -717,6 +723,85 @@ func (ccm *CCMApi) DeleteCSPVPCByParam(connectionName string, id string) (string
 	ccm.SetInType("json")
 	ccm.requestCCM.InData = `{"ConnectionName":"` + connectionName + `", "Id":"` + id + `"}`
 	result, err := ccm.requestCCM.DeleteCSPVPC()
+	ccm.SetInType(holdType)
+
+	return result, err
+}
+
+// AddSubnet - Subnet 추가
+func (ccm *CCMApi) AddSubnet(doc string) (string, error) {
+	if ccm.requestCCM == nil {
+		return "", errors.New("The Open() function must be called")
+	}
+
+	ccm.requestCCM.InData = doc
+	return ccm.requestCCM.AddSubnet()
+}
+
+// AddSubnetByParam - Subnet 추가
+func (ccm *CCMApi) AddSubnetByParam(req *SubnetReq) (string, error) {
+	if ccm.requestCCM == nil {
+		return "", errors.New("The Open() function must be called")
+	}
+
+	holdType, _ := ccm.GetInType()
+	ccm.SetInType("json")
+	j, err := json.Marshal(req)
+	if err != nil {
+		return "", err
+	}
+	ccm.requestCCM.InData = string(j)
+	result, err := ccm.requestCCM.AddSubnet()
+	ccm.SetInType(holdType)
+
+	return result, err
+}
+
+// RemoveSubnet - Subnet 삭제
+func (ccm *CCMApi) RemoveSubnet(doc string) (string, error) {
+	if ccm.requestCCM == nil {
+		return "", errors.New("The Open() function must be called")
+	}
+
+	ccm.requestCCM.InData = doc
+	return ccm.requestCCM.RemoveSubnet()
+}
+
+// RemoveSubnetByParam - Subnet 삭제
+func (ccm *CCMApi) RemoveSubnetByParam(connectionName string, vpcName string, subnetName string, force string) (string, error) {
+	if ccm.requestCCM == nil {
+		return "", errors.New("The Open() function must be called")
+	}
+
+	holdType, _ := ccm.GetInType()
+	ccm.SetInType("json")
+	ccm.requestCCM.InData = `{"ConnectionName":"` + connectionName + `", "VPCName":"` + vpcName + `", "SubnetName":"` + subnetName + `", "force":"` + force + `"}`
+	result, err := ccm.requestCCM.RemoveSubnet()
+	ccm.SetInType(holdType)
+
+	return result, err
+}
+
+// RemoveCSPSubnet - CSP Subnet 삭제
+func (ccm *CCMApi) RemoveCSPSubnet(doc string) (string, error) {
+	if ccm.requestCCM == nil {
+		return "", errors.New("The Open() function must be called")
+	}
+
+	ccm.requestCCM.InData = doc
+	return ccm.requestCCM.RemoveCSPSubnet()
+}
+
+// RemoveCSPSubnetByParam - CSP Subnet 삭제
+func (ccm *CCMApi) RemoveCSPSubnetByParam(connectionName string, vpcName string, id string) (string, error) {
+	if ccm.requestCCM == nil {
+		return "", errors.New("The Open() function must be called")
+	}
+
+	holdType, _ := ccm.GetInType()
+	ccm.SetInType("json")
+	ccm.requestCCM.InData = `{"ConnectionName":"` + connectionName + `", "VPCName":"` + vpcName + `", "Id":"` + id + `"}`
+	result, err := ccm.requestCCM.RemoveCSPSubnet()
 	ccm.SetInType(holdType)
 
 	return result, err

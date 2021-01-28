@@ -207,6 +207,9 @@ service CCM {
 	rpc DeleteVPC (VPCQryRequest) returns (BooleanResponse) {}
 	rpc ListAllVPC (VPCAllQryRequest) returns (AllResourceInfoResponse) {}
 	rpc DeleteCSPVPC (CSPVPCQryRequest) returns (BooleanResponse) {}
+	rpc AddSubnet (SubnetAddRequest) returns (VPCInfoResponse) {}
+	rpc RemoveSubnet (SubnetQryRequest) returns (BooleanResponse) {}
+	rpc RemoveCSPSubnet (CSPSubnetQryRequest) returns (BooleanResponse) {}
 
 	rpc CreateSecurity (SecurityCreateRequest) returns (SecurityInfoResponse) {}
 	rpc ListSecurity (SecurityAllQryRequest) returns (ListSecurityInfoResponse) {}
@@ -386,6 +389,24 @@ message CSPVPCQryRequest {
 	string id = 2 [json_name="Id", (gogoproto.jsontag) = "Id", (gogoproto.moretags) = "yaml:\"Id\""];
 }
 
+message SubnetAddRequest {
+	string connection_name = 1 [json_name="ConnectionName", (gogoproto.jsontag) = "ConnectionName", (gogoproto.moretags) = "yaml:\"ConnectionName\""];     
+	string vpc_name = 2 [json_name="VPCName", (gogoproto.jsontag) = "VPCName", (gogoproto.moretags) = "yaml:\"VPCName\""];
+	SubnetCreateInfo item = 3 [json_name="ReqInfo", (gogoproto.jsontag) = "ReqInfo", (gogoproto.moretags) = "yaml:\"ReqInfo\""];     
+}
+
+message SubnetQryRequest {
+	string connection_name = 1 [json_name="ConnectionName", (gogoproto.jsontag) = "ConnectionName", (gogoproto.moretags) = "yaml:\"ConnectionName\""];  
+	string vpc_name = 2 [json_name="VPCName", (gogoproto.jsontag) = "VPCName", (gogoproto.moretags) = "yaml:\"VPCName\""];
+	string subnet_name = 3 [json_name="SubnetName", (gogoproto.jsontag) = "SubnetName", (gogoproto.moretags) = "yaml:\"SubnetName\""];
+	string force = 4 [json_name="force", (gogoproto.jsontag) = "force", (gogoproto.moretags) = "yaml:\"force\""];
+}
+
+message CSPSubnetQryRequest {
+	string connection_name = 1 [json_name="ConnectionName", (gogoproto.jsontag) = "ConnectionName", (gogoproto.moretags) = "yaml:\"ConnectionName\""];  
+	string vpc_name = 2 [json_name="VPCName", (gogoproto.jsontag) = "VPCName", (gogoproto.moretags) = "yaml:\"VPCName\""];
+	string id = 3 [json_name="Id", (gogoproto.jsontag) = "Id", (gogoproto.moretags) = "yaml:\"Id\""];
+}
 
 //////////////////////////////////
 // Security 메시지 정의

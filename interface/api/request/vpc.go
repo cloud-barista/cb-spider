@@ -186,6 +186,87 @@ func (r *CCMRequest) DeleteCSPVPC() (string, error) {
 	return gc.ConvertToOutput(r.OutType, &resp)
 }
 
+// AddSubnet - Subnet 추가
+func (r *CCMRequest) AddSubnet() (string, error) {
+	// 입력데이터 검사
+	if r.InData == "" {
+		return "", errors.New("input data required")
+	}
+
+	// 입력데이터 언마샬링
+	var item pb.SubnetAddRequest
+	err := gc.ConvertToMessage(r.InType, r.InData, &item)
+	if err != nil {
+		return "", err
+	}
+
+	// 서버에 요청
+	ctx, cancel := context.WithTimeout(context.Background(), r.Timeout)
+	defer cancel()
+
+	resp, err2 := r.Client.AddSubnet(ctx, &item)
+	if err2 != nil {
+		return "", err2
+	}
+
+	// 결과값 마샬링
+	return gc.ConvertToOutput(r.OutType, &resp.Item)
+}
+
+// RemoveSubnet - Subnet 삭제
+func (r *CCMRequest) RemoveSubnet() (string, error) {
+	// 입력데이터 검사
+	if r.InData == "" {
+		return "", errors.New("input data required")
+	}
+
+	// 입력데이터 언마샬링
+	var item pb.SubnetQryRequest
+	err := gc.ConvertToMessage(r.InType, r.InData, &item)
+	if err != nil {
+		return "", err
+	}
+
+	// 서버에 요청
+	ctx, cancel := context.WithTimeout(context.Background(), r.Timeout)
+	defer cancel()
+
+	resp, err2 := r.Client.RemoveSubnet(ctx, &item)
+	if err2 != nil {
+		return "", err2
+	}
+
+	// 결과값 마샬링
+	return gc.ConvertToOutput(r.OutType, &resp)
+}
+
+// RemoveCSPSubnet - CSP Subnet 삭제
+func (r *CCMRequest) RemoveCSPSubnet() (string, error) {
+	// 입력데이터 검사
+	if r.InData == "" {
+		return "", errors.New("input data required")
+	}
+
+	// 입력데이터 언마샬링
+	var item pb.CSPSubnetQryRequest
+	err := gc.ConvertToMessage(r.InType, r.InData, &item)
+	if err != nil {
+		return "", err
+	}
+
+	// 서버에 요청
+	ctx, cancel := context.WithTimeout(context.Background(), r.Timeout)
+	defer cancel()
+
+	resp, err2 := r.Client.RemoveCSPSubnet(ctx, &item)
+	if err2 != nil {
+		return "", err2
+	}
+
+	// 결과값 마샬링
+	return gc.ConvertToOutput(r.OutType, &resp)
+}
+
 // ===== [ Private Functions ] =====
 
 // ===== [ Public Functions ] =====
