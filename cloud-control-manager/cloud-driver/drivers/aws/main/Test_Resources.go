@@ -593,7 +593,8 @@ func handleVPC() {
 					// 내부적으로 1개만 존재함.
 					//조회및 삭제 테스트를 위해 리스트의 첫번째 서브넷 ID를 요청ID로 자동 갱신함.
 					if result != nil {
-						reqSubnetId = result[0].IId // 조회 및 삭제를 위해 생성된 ID로 변경
+						reqSubnetId = result[0].IId    // 조회 및 삭제를 위해 생성된 ID로 변경
+						subnetReqVpcInfo = reqSubnetId //Subnet 추가/삭제 테스트용
 					}
 				}
 
@@ -635,7 +636,7 @@ func handleVPC() {
 					cblogger.Infof(reqSubnetId.NameId, " VNetwork 생성 실패 : ", err)
 				} else {
 					cblogger.Infof("VNetwork 생성 결과 : ", result)
-					reqSubnetId = result.IId // 조회 및 삭제를 위해 생성된 ID로 변경
+					//reqSubnetId = result.IId // 조회 및 삭제를 위해 생성된 ID로 변경
 					spew.Dump(result)
 				}
 
@@ -1112,7 +1113,7 @@ func main() {
 		}
 	*/
 
-	//handleVPC()
+	handleVPC()
 	//handleKeyPair()
 	//handlePublicIP() // PublicIP 생성 후 conf
 	//handleSecurity()
@@ -1120,7 +1121,7 @@ func main() {
 
 	//handleImage() //AMI
 	//handleVNic() //Lancard
-	handleVMSpec()
+	//handleVMSpec()
 
 	/*
 		KeyPairHandler, err := setKeyPairHandler()
