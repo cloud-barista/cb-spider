@@ -574,7 +574,7 @@ func handleVPC() {
 
 	subnetReqInfo := irs.SubnetInfo{
 		IId:       irs.IID{NameId: "AddTest-Subnet"},
-		IPv4_CIDR: "192.168.3.0/24",
+		IPv4_CIDR: "10.0.3.0/24",
 	}
 
 	subnetReqVpcInfo := irs.IID{SystemId: "vpc-6wex2mrx1fovfecsl44mx"}
@@ -638,7 +638,8 @@ func handleVPC() {
 					// 내부적으로 1개만 존재함.
 					//조회및 삭제 테스트를 위해 리스트의 첫번째 서브넷 ID를 요청ID로 자동 갱신함.
 					if result != nil {
-						reqVpcId = result[0].IId // 조회 및 삭제를 위해 생성된 ID로 변경
+						reqVpcId = result[0].IId    // 조회 및 삭제를 위해 생성된 ID로 변경
+						subnetReqVpcInfo = reqVpcId //Subnet 추가/삭제 테스트용
 					}
 				}
 
@@ -677,9 +678,9 @@ func handleVPC() {
 				cblogger.Infof("[%s] Subnet 추가 테스트", vpcReqInfo.IId.NameId)
 				result, err := handler.AddSubnet(subnetReqVpcInfo, subnetReqInfo)
 				if err != nil {
-					cblogger.Infof(reqSubnetId.NameId, " VNetwork 생성 실패 : ", err)
+					cblogger.Infof(reqSubnetId.NameId, " Subnet 추가 실패 : ", err)
 				} else {
-					cblogger.Infof("VNetwork 생성 결과 : ", result)
+					cblogger.Infof("Subnet 추가 결과 : ", result)
 					reqSubnetId = result.IId // 조회 및 삭제를 위해 생성된 ID로 변경
 					spew.Dump(result)
 				}
