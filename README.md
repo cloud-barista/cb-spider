@@ -4,7 +4,7 @@
 [![Release Version](https://img.shields.io/github/v/release/cloud-barista/cb-spider)](https://github.com/cloud-barista/cb-spider/releases)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://github.com/cloud-barista/cb-spider/blob/master/LICENSE)
 
-CB-Spider is a sub-Framework of the Cloud-Barista Multi-Cloud Project.
+CB-Spider is a sub-Framework of the Cloud-Barista Multi-Cloud Project.<br>
 The CB-Spider Mission is to connect all the clouds with a single interface.
 
 
