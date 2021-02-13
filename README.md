@@ -34,7 +34,8 @@ If you have any difficulties in using CB-Spider, please let us know.
 
 #### [실행 환경]
 
-- Linux (검증시험:Ubuntu 18.04, Ubuntu 20.04, Debian 10.6, macOS Catalina, Android aarch64)
+- 배포환경: Ubuntu 18.04, Docker 19.03, Go 1.15
+- 개발환경: Ubuntu 20.04, Ubuntu 18.04, Debian 10.6, macOS Catalina 10.15, Android 8.1, Docker, Go
 
 
 #### [실행 방법]
