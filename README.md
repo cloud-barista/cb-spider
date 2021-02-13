@@ -1,12 +1,10 @@
 # cb-spider
-CB-Spider is a sub-Framework of the Cloud-Barista Multi-Cloud Project.
-
 [![GitHub go.mod Go version](https://img.shields.io/github/go-mod/go-version/cloud-barista/cb-spider?label=go.mod)](https://github.com/cloud-barista/cb-spider/blob/master/go.mod)
 [![GoDoc](https://godoc.org/github.com/cloud-barista/cb-spider?status.svg)](https://pkg.go.dev/github.com/cloud-barista/cb-spider@master)&nbsp;&nbsp;&nbsp;
 [![Release Version](https://img.shields.io/github/v/release/cloud-barista/cb-spider)](https://github.com/cloud-barista/cb-spider/releases)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://github.com/cloud-barista/cb-spider/blob/master/LICENSE)
 
-
+CB-Spider is a sub-Framework of the Cloud-Barista Multi-Cloud Project.
 The CB-Spider Mission is to connect all the clouds with a single interface.
 
 
