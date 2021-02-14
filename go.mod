@@ -2,6 +2,11 @@ module github.com/cloud-barista/cb-spider
 
 go 1.15
 
+replace (
+        google.golang.org/api => google.golang.org/api v0.15.0
+        google.golang.org/grpc => google.golang.org/grpc v1.26.0
+)
+
 require (
 	github.com/Azure/azure-sdk-for-go v51.2.0+incompatible
 	github.com/Azure/go-autorest/autorest/azure/auth v0.5.7
@@ -52,7 +57,3 @@ require (
 	gotest.tools/v3 v3.0.3 // indirect
 )
 
-replace (
-	google.golang.org/api => google.golang.org/api v0.15.0
-	google.golang.org/grpc => google.golang.org/grpc v1.26.0
-)
