@@ -66,7 +66,7 @@ If you have any difficulties in using CB-Spider, please let us know.
 - #### 시험 결과: https://github.com/cloud-barista/cb-spider/wiki/Test-Reports-of-v0.3.0-espresso
 
 #### [활용 예시]
-- 시험 도구: `cb-spier/api-runtime/rest-runtime/test/[fulltest|image-test|spec-test|eachtest|parallel-test]` (AWS 경우:aws)
+- 시험 도구: `cb-spider/api-runtime/rest-runtime/test/[fulltest|image-test|spec-test|eachtest|parallel-test]` (AWS 경우:aws)
 - 시험 순서: 연동 정보 추가 => 자원등록 => VM 생성 및 제어 시험
 - 시험 방법: 
   - (연동정보관리) `cb-spider/api-runtime/rest-runtime/test/connect-config` 참고(Credential 정보 수정 후 실행)
