@@ -54,15 +54,17 @@ If you have any difficulties in using CB-Spider, please let us know.
 #### [제공 자원] 
 
   | Provider(CloudOS) | Image List/Get | Spec List/Get| VPC/Subnet | Security Group | Key Pair| VM   |
-  |:-------------:|:-------------:|:-------------|:-------------|:-------------|:-------------|:-------------|
+  |:-------------:|:-------------:|:-------------:|:-------------:|:-------------:|:-------------:|:-------------:|
   | AWS           | O          | O          | O          | O          | O          | O          |
   | Azure         | O          | O          | O          | O          | O          | O          |
   | GCP           | O          | O          | O          | O          | O          | O          |
   | Alibaba       | O          | O          | O          | O          | O          | O          |
   | OpenStack     | O          | O          | O          | O          | O          | O          |
-  | Cloudit       | O          | O          | O          | O          | -          | O          |
+  | Cloudit       | O          | O          | O(💬)          | O          | -          | O          |
   | Docker        | O          | -          | -          | -          | -          | O          |
 
+    💬 특이사항: 단일 VPC 제공, CIDR: 설정과 무관하게, CSP 내부에서 유휴 CIDR 할당 후 반납
+    
 - #### 시험 결과: https://github.com/cloud-barista/cb-spider/wiki/Test-Reports-of-v0.3.0-espresso
 
 #### [활용 예시]
