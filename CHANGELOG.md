@@ -1,3 +1,11 @@
+# latest
+### API Change
+- 기존 VPC에 Subnet add/delete API 추가 ([#325](https://github.com/cloud-barista/cb-spider/pull/325) [#326](https://github.com/cloud-barista/cb-spider/pull/326) [#327](https://github.com/cloud-barista/cb-spider/pull/327))
+
+### Feature
+- 기존 VPC에 Subnet add/delete 기능 추가 ([#325](https://github.com/cloud-barista/cb-spider/pull/325) [#326](https://github.com/cloud-barista/cb-spider/pull/326) [#327](https://github.com/cloud-barista/cb-spider/pull/327))
+
+
 # v0.3.0-espresso (2020.12.11.)
 ### API Change
 - 관리용 API listAllXXX(), deleteXXX(force=true), deleteCSPXXX() 추가
