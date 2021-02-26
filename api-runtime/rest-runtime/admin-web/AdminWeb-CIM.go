@@ -282,6 +282,9 @@ func makeOnchangeCredentialProviderFunc_js() string {
 			credentialInfo = '[{"Key":"Host", "Value":"http://18.191.xxx.xxx:1004"}, {"Key":"APIVersion", "Value":"v1.38"}]'
 		    break;
 
+		  case "NCP":
+			credentialInfo = ' [{"Key":"ClientId", "Value":"XXXXXXXXXXXXXXXXXXX"}, {"Key":"ClientSecret", "Value":"XXXXXXXXXXXXXXXXXXXXXXXXXXX"}]`
+		    break;
 		  case "MOCK":
 			credentialInfo = '[{"Key":"MockName", "Value":"mock_name00"}]'
 		    break;
@@ -548,6 +551,11 @@ func makeOnchangeRegionProviderFunc_js() string {
             region = 'default'
             zone = ''             
             break;
+
+          case "NCP":
+            regionInfo = '[{"Key":"region", "Value":"KR"}]'
+            region = 'KR'
+            zone = ''             
 
           case "MOCK":
             regionInfo = '[{"Key":"Region", "Value":"default"}]'
@@ -836,6 +844,11 @@ func makeOnchangeConnectionConfigProviderFunc_js() string {
 	    driverNameList = document.getElementsByName('driverName-DOCKER');
 	    credentialNameList = document.getElementsByName('credentialName-DOCKER');
 	    regionNameList = document.getElementsByName('regionName-DOCKER');
+            break;
+          case "NCP":
+	    driverNameList = document.getElementsByName('driverName-NCP');
+	    credentialNameList = document.getElementsByName('credentialName-NCP');
+	    regionNameList = document.getElementsByName('regionName-NCP');
             break;
           case "MOCK":
 	    driverNameList = document.getElementsByName('driverName-MOCK');
