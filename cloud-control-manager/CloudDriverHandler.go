@@ -4,7 +4,7 @@
 //
 //      * Cloud-Barista: https://github.com/cloud-barista
 //
-// by CB-Spider Team, 2019.09.
+// by CB-Spider Team, 2020.12.
 
 package clouddriverhandler
 
@@ -17,11 +17,12 @@ import (
 	clouditdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/cloudit"
 	dockerdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/docker"
 	gcpdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/gcp"
-	openstackdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/openstack"
 	mockdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/mock"
+	openstackdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/openstack"
 
 	//	cloudtwindrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/cloudtwin" // CLOUDTWIN
 	// ncpdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/ncp" // NCP
+	// ncpvpcdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/ncpvpc" // NCP-VPC
 
 	icbs "github.com/cloud-barista/cb-store/interfaces"
 
@@ -199,7 +200,7 @@ func GetRegionNameByRegionInfo(rgnInfo *rim.RegionInfo) (string, string, error) 
 		zoneName = getValue(rgnInfo.KeyValueInfoList, "Zone")
 	case "OPENSTACK":
 		regionName = getValue(rgnInfo.KeyValueInfoList, "Region")
-	case "CLOUDIT": 
+	case "CLOUDIT":
 		// Cloudit do not use Region, But set default @todo 2019.10.28. by powerkim.
 		regionName = getValue(rgnInfo.KeyValueInfoList, "Region")
 	case "DOCKER":
@@ -207,7 +208,10 @@ func GetRegionNameByRegionInfo(rgnInfo *rim.RegionInfo) (string, string, error) 
 		regionName = getValue(rgnInfo.KeyValueInfoList, "Region")
 	case "NCP": // NCP
 		regionName = getValue(rgnInfo.KeyValueInfoList, "Region") // NCP
-
+		zoneName = getValue(rgnInfo.KeyValueInfoList, "Zone")     // NCP
+	case "NCPVPC": // NCP-VPC
+		regionName = getValue(rgnInfo.KeyValueInfoList, "Region") // NCP-VPC
+		zoneName = getValue(rgnInfo.KeyValueInfoList, "Zone")     // NCP-VPC
 	case "CLOUDTWIN":
 		regionName = getValue(rgnInfo.KeyValueInfoList, "Region")
 	case "MOCK":
@@ -288,8 +292,9 @@ func getStaticCloudDriver(cldDrvInfo dim.CloudDriverInfo) (idrv.CloudDriver, err
 	case "DOCKER":
 		cloudDriver = new(dockerdrv.DockerDriver)
 	// case "NCP": // NCP
-	//	cloudDriver = new(ncpdrv.NcpDriver) // NCP
-
+	//  cloudDriver = new(ncpdrv.NcpDriver) // NCP
+	// case "NCPVPC": // NCP-VPC
+	//  cloudDriver = new(ncpvpcdrv.NcpVpcDriver) // NCP-VPC
 	case "MOCK":
 		cloudDriver = new(mockdrv.MockDriver)
 	// case "CLOUDTWIN":
