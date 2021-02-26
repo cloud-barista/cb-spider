@@ -283,7 +283,7 @@ func makeOnchangeCredentialProviderFunc_js() string {
 		    break;
 
 		  case "NCP":
-			credentialInfo = ' [{"Key":"ClientId", "Value":"XXXXXXXXXXXXXXXXXXX"}, {"Key":"ClientSecret", "Value":"XXXXXXXXXXXXXXXXXXXXXXXXXXX"}]`
+			credentialInfo = '[{"Key":"ClientId", "Value":"XXXXXXXXXXXXXXXXXXX"}, {"Key":"ClientSecret", "Value":"XXXXXXXXXXXXXXXXXXXXXXXXXXX"}]'
 		    break;
 		  case "MOCK":
 			credentialInfo = '[{"Key":"MockName", "Value":"mock_name00"}]'
