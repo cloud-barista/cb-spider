@@ -556,6 +556,7 @@ func makeOnchangeRegionProviderFunc_js() string {
             regionInfo = '[{"Key":"region", "Value":"KR"}]'
             region = 'KR'
             zone = ''             
+            break;
 
           case "MOCK":
             regionInfo = '[{"Key":"Region", "Value":"default"}]'
@@ -929,13 +930,13 @@ func getRegionZone(regionName string) (string, string, error) {
 	zone := ""
 	// get the region & zone
 	for _, one := range regionInfo.KeyValueInfoList {
-		if one.Key == "Region" {
+		if one.Key == "Region" || one.Key == "region" {
 			region = one.Value
 		}
 		if one.Key == "location" {
 			region = one.Value
 		}
-		if one.Key == "Zone" {
+		if one.Key == "Zone" || one.Key == "zone" {
 			zone = one.Value
 		}
 		
