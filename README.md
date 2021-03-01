@@ -53,7 +53,7 @@ If you have any difficulties in using CB-Spider, please let us know.
 
 #### [제공 자원] 
 
-  | Provider(CloudOS) | Image List/Get | Spec List/Get| VPC/Subnet | Security Group | Key Pair| VM   |
+  | Provider(CloudOS) | VM Image List/Get | VM Spec List/Get| VPC/Subnet | Security Group | VM KeyPair| VM   |
   |:-------------:|:-------------:|:-------------:|:-------------:|:-------------:|:-------------:|:-------------:|
   | AWS           | O          | O          | O          | O          | O          | O          |
   | Azure         | O          | O          | O          | O          | O          | O          |
