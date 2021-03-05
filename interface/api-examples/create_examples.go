@@ -437,7 +437,7 @@ func CIM_IOFormat_Test() {
   if err != nil {
     log.Error(err)
   }
-  result, err = cim.GetCloudDriverByParam(connConfigNameList[0])
+  result, err = cim.GetCloudDriverByParam("aws-driver-01")
   if err != nil {
     log.Error(err)
   }
