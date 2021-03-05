@@ -45,7 +45,8 @@ func (s *CCMService) CreateSecurity(ctx context.Context, req *pb.SecurityCreateR
 	}
 	// SG NameID format => {VPC NameID} + sgDELIMITER + {SG NameID}
 	// transform: SG NameID => {VPC NameID} + sgDELIMITER + {SG NameID}
-	reqInfo.IId = cres.IID{NameId: req.Item.VpcName + sgDELIMITER + req.Item.Name, SystemId: ""}
+	//reqInfo.IId = cres.IID{NameId: req.Item.VpcName + sgDELIMITER + req.Item.Name, SystemId: ""}
+	reqInfo.IId = cres.IID{NameId: req.Item.VpcName + sgDELIMITER + req.Item.Name, SystemId: req.Item.Name} // for NCP: fixed NameID => SystemID, Driver: (1)search systemID with fixed NameID (2)replace fixed NameID into SysemID
 	reqInfo.VpcIID = cres.IID{NameId: req.Item.VpcName, SystemId: ""}
 
 	// Call common-runtime API

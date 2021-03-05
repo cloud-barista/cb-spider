@@ -513,7 +513,8 @@ func createSecurity(c echo.Context) error {
 	reqInfo := cres.SecurityReqInfo{
 		// SG NameID format => {VPC NameID} + sgDELIMITER + {SG NameID}
 		// transform: SG NameID => {VPC NameID} + sgDELIMITER + {SG NameID}
-		IId:           cres.IID{req.ReqInfo.VPCName + sgDELIMITER + req.ReqInfo.Name, ""},
+		//IId:           cres.IID{req.ReqInfo.VPCName + sgDELIMITER + req.ReqInfo.Name, ""},
+		IId:           cres.IID{req.ReqInfo.VPCName + sgDELIMITER + req.ReqInfo.Name, req.ReqInfo.Name}, // for NCP: fixed NameID => SystemID, Driver: (1)search systemID with fixed NameID (2)replace fixed NameID into SysemID
 		VpcIID:        cres.IID{req.ReqInfo.VPCName, ""},
 		Direction:     req.ReqInfo.Direction,
 		SecurityRules: req.ReqInfo.SecurityRules,
