@@ -38,7 +38,7 @@ If you have any difficulties in using CB-Spider, please let us know.
   - OS: Ubuntu 20.04
   - Container: Docker 19.03
   - Build: Go 1.15
-- #### 가능환경
+- #### 시험환경
   - OS: Ubuntu 18.04, Ubuntu 20.04, Debian 10.6, macOS Catalina 10.15, Android 8.1 등
   - Container: latest Docker
   - Build: latest Go
