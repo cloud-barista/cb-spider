@@ -58,6 +58,13 @@ func getHostIPorName() string {
 		return "localhost"
 	}
 
+	// temporary trick for shared public IP Host or VirtualBox VM, etc.
+	// user can setup spider server's IP manually.
+	if os.Getenv("LOCALHOST") != "OFF" {
+		return os.Getenv("LOCALHOST")
+	}
+
+
 	ip, err := pubip.Get()
 	if err != nil {
 		cblog.Error(err)
