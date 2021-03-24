@@ -1249,6 +1249,11 @@ func StartVM(connectionName string, rsType string, reqInfo cres.VMReqInfo) (*cre
 		info.SecurityGroupIIds[i].NameId = vpc_sg_nameid[1]
 	}
 
+	// current: Assume 22 port, except Cloud-Twin, by powerkim, 2021.03.24.
+	if info.SSHAccessPoint == "" {
+		info.SSHAccessPoint = info.PublicIP + ":22"
+	}
+
 	return &info, nil
 }
 
@@ -1363,6 +1368,11 @@ func ListVM(connectionName string, rsType string) ([]*cres.VMInfo, error) {
 					info.SecurityGroupIIds[i].NameId = vpc_sg_nameid[1]
 				}
 
+				// current: Assume 22 port, except Cloud-Twin, by powerkim, 2021.03.24.
+				if info.SSHAccessPoint == "" {
+					info.SSHAccessPoint = info.PublicIP + ":22"
+				}
+
 				infoList2 = append(infoList2, info)
 				exist = true
 			}
@@ -1473,6 +1483,11 @@ func GetVM(connectionName string, rsType string, nameID string) (*cres.VMInfo, e
 		vpc_sg_nameid := strings.Split(sgIID.NameId, sgDELIMITER)
 		info.SecurityGroupIIds[i].NameId = vpc_sg_nameid[1]
 	}
+
+	// current: Assume 22 port, except Cloud-Twin, by powerkim, 2021.03.24.
+        if info.SSHAccessPoint == "" {
+                info.SSHAccessPoint = info.PublicIP + ":22"
+        }
 
 	return &info, nil
 }

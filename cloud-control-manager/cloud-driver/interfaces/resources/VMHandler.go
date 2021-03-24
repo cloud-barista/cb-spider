@@ -85,6 +85,8 @@ type VMInfo struct {
 	VMBootDisk  string // ex) /dev/sda1
 	VMBlockDisk string // ex)
 
+	SSHAccessPoint string // ex) 10.2.3.2:22, 123.456.789.123:4321
+
 	KeyValueList []KeyValue
 }
 
