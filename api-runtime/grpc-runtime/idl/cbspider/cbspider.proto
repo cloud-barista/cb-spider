@@ -556,7 +556,9 @@ message VMInfo {
 	string vm_boot_disk = 17 [json_name="VMBootDisk", (gogoproto.jsontag) = "VMBootDisk", (gogoproto.moretags) = "yaml:\"VMBootDisk\""];
 	string vm_block_disk = 18 [json_name="VMBlockDisk", (gogoproto.jsontag) = "VMBlockDisk", (gogoproto.moretags) = "yaml:\"VMBlockDisk\""];
 
-	repeated KeyValue key_value_list = 19 [json_name="KeyValueList", (gogoproto.jsontag) = "KeyValueList", (gogoproto.moretags) = "yaml:\"KeyValueList\""];
+	string ssh_access_point = 19 [json_name="SSHAccessPoint", (gogoproto.jsontag) = "SSHAccessPoint", (gogoproto.moretags) = "yaml:\"SSHAccessPoint\""];
+
+	repeated KeyValue key_value_list = 20 [json_name="KeyValueList", (gogoproto.jsontag) = "KeyValueList", (gogoproto.moretags) = "yaml:\"KeyValueList\""];
 }
 
 message VMRegionInfo {
