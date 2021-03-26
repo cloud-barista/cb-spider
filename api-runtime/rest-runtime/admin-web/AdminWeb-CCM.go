@@ -830,7 +830,7 @@ func KeyPair(c echo.Context) error {
 //====================================== VM
 
 // number, VM Name/Control, VMStatus/Last Start Time, VMImage/VMSpec, VPC/Subnet/Security Group,
-//         Network Interface/IP, DNS, Boot Disk/Block Disk, Access Key/Access User Name, Additional Info, checkbox
+//         Network Interface/IP, DNS, Boot Disk/Block Disk, SSH AccessPoint/Access Key/Access User Name, Additional Info, checkbox
 func makeVMTRList_html(connConfig string, bgcolor string, height string, fontSize string, infoList []*cres.VMInfo) string {
 	if bgcolor == "" {
 		bgcolor = "#FFFFFF"
@@ -886,6 +886,8 @@ func makeVMTRList_html(connConfig string, bgcolor string, height string, fontSiz
                             <font size=%s>$$BLOCKDISK$$</font>
                     </td>
                     <td>
+                            <font size=%s>$$SSHACCESSPOINT$$</font>
+                            <br>
                             <font size=%s>$$ACCESSKEY$$</font>
                             <br>
                             <font size=%s>$$ACCESSUSER$$</font>
@@ -953,7 +955,8 @@ func makeVMTRList_html(connConfig string, bgcolor string, height string, fontSiz
 		str = strings.ReplaceAll(str, "$$BOOTDISK$$", one.VMBootDisk)
 		str = strings.ReplaceAll(str, "$$BLOCKDISK$$", one.VMBlockDisk)
 
-		// for Access Key & Access User
+		// for SSH AccessPoint & Access Key & Access User
+		str = strings.ReplaceAll(str, "$$SSHACCESSPOINT$$", one.SSHAccessPoint)
 		str = strings.ReplaceAll(str, "$$ACCESSKEY$$", one.KeyPairIId.NameId)
 		str = strings.ReplaceAll(str, "$$ACCESSUSER$$", one.VMUserId)
 
@@ -1112,7 +1115,7 @@ func VM(c echo.Context) error {
 		{"NetworkInterface / PublicIP / PrivateIP", "400"},
 		{"PublicDNS / PrivateDNS", "400"},
 		{"BootDisk / BlockDisk", "200"},
-		{"Access Key / Access User", "200"},
+		{"SSH AccessPoint / Access Key / Access User", "200"},
 		{"Additional Info", "300"},
 	}
 	htmlStr += makeTitleTRList_html("#DDDDDD", "2", nameWidthList, true)
@@ -1186,12 +1189,18 @@ func VM(c echo.Context) error {
 		sgName = `[]`
 		specName = ""
 		vmUser = ""
+	case "MOCK":
+		imageName = "mock-vmimage-01"
+		subnetName = "subnet-01"
+		sgName = `["sg-01"]`
+		specName = "mock-vmspec-01"
+		vmUser = "cb-user"
 	case "CLOUDTWIN":
-		imageName = "nginx:latest"
-		subnetName = ""
-		sgName = ``
-		specName = ""
-		vmUser = ""
+		imageName = "ubuntu18.04-sshd-systemd"
+		subnetName = "subnet-01"
+		sgName = `["sg-01"]`
+		specName = "spec-1"
+		vmUser = "cb-user"
 	default:
 		imageName = "ami-0bbe28eb2173f6167"
 		specName = "t2.micro"
