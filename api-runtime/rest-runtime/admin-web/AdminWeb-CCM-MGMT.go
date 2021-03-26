@@ -442,7 +442,7 @@ func makeDeleteVMMgmtFunc_js() string {
 // curl -sX DELETE http://localhost:1024/spider/cspvm/0b0d0d30794eab379 -H 'Content-Type: application/json' -d '{ "ConnectionName": "aws-ohio-config"}' |json_pp
 
         strFunc := `
-                function deleteKeyPairMgmt() {
+                function deleteVMMgmt() {
                         var connConfig = parent.frames["top_frame"].document.getElementById("connConfig").innerHTML;
                         var checkboxes = document.getElementsByName('check_box');
                         for (var i = 0; i < checkboxes.length; i++) { // @todo make parallel executions
