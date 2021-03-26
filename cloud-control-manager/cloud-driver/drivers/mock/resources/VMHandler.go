@@ -76,7 +76,6 @@ func (vmHandler *MockVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, er
 		return irs.VMInfo{}, fmt.Errorf(errMSG)
 	}
 
-	/* Skip sg validation because of sgDELIMITER. by powerkim, 2020.11.03
 	// sg validation
 	securityHandler := MockSecurityHandler{mockName}
 	sgInfoList, err := securityHandler.ListSecurity()
@@ -100,10 +99,7 @@ func (vmHandler *MockVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, er
 			return irs.VMInfo{}, fmt.Errorf(errMSG)
 		}
 	}
-	*/
 	
-	validatedSgIIDs := vmReqInfo.SecurityGroupIIDs
-
 	// keypair validation
 	keyPairHandler := MockKeyPairHandler{mockName}
 	validatedKeyPairInfo, err := keyPairHandler.GetKey(vmReqInfo.KeyPairIID)
@@ -328,10 +324,8 @@ func (vmHandler *MockVMHandler) ListVM() ([]*irs.VMInfo, error) {
 	if !ok {
 		return []*irs.VMInfo{}, nil
 	}
-	// cloning list of VM
-	resultList := make([]*irs.VMInfo, len(infoList))
-	copy(resultList, infoList)
-	return resultList, nil
+
+	return infoList, nil
 }
 
 func (vmHandler *MockVMHandler) GetVM(iid irs.IID) (irs.VMInfo, error) {
@@ -344,6 +338,7 @@ func (vmHandler *MockVMHandler) GetVM(iid irs.IID) (irs.VMInfo, error) {
 		return irs.VMInfo{}, err
 	}
 
+	// infoList is already cloned in ListVM()
 	for _, info := range infoList {
 		if (*info).IId.NameId == iid.NameId {
 			return *info, nil

@@ -50,8 +50,41 @@ func (securityHandler *MockSecurityHandler) CreateSecurity(securityReqInfo irs.S
 	infoList = append(infoList, &securityInfo)
 	securityInfoMap[mockName]=infoList
 
-	resultInfo :=  securityInfo
-	return resultInfo, nil
+	return CloneSecurityInfo(securityInfo), nil
+}
+
+func CloneSecurityInfoList(srcInfoList []*irs.SecurityInfo) ([]*irs.SecurityInfo) {
+	clonedInfoList := []*irs.SecurityInfo{}
+	for _, srcInfo := range srcInfoList {
+		clonedInfo := CloneSecurityInfo(*srcInfo)
+		clonedInfoList = append(clonedInfoList, &clonedInfo)
+	}
+	return clonedInfoList
+}
+
+func CloneSecurityInfo(srcInfo irs.SecurityInfo) (irs.SecurityInfo) {
+	/*
+	type SecurityInfo struct {
+		IId IID // {NameId, SystemId}
+		VpcIID        IID    // {NameId, SystemId}
+		Direction     string // @todo userd??
+		SecurityRules *[]SecurityRuleInfo
+		KeyValueList []KeyValue
+	}
+	*/
+
+	// clone SecurityInfo
+	clonedInfo := irs.SecurityInfo {
+		IId: irs.IID{srcInfo.IId.NameId, srcInfo.IId.SystemId},
+		VpcIID: irs.IID{srcInfo.VpcIID.NameId, srcInfo.VpcIID.SystemId},
+		Direction: srcInfo.Direction,
+
+		// Need not clone
+		SecurityRules: srcInfo.SecurityRules,
+		KeyValueList: srcInfo.KeyValueList,
+	}
+
+	return clonedInfo
 }
 
 func (securityHandler *MockSecurityHandler) ListSecurity() ([]*irs.SecurityInfo, error) {
@@ -63,10 +96,8 @@ func (securityHandler *MockSecurityHandler) ListSecurity() ([]*irs.SecurityInfo,
 	if !ok {
 		return []*irs.SecurityInfo{}, nil
 	}
-	// cloning list of Security
-	resultList := make([]*irs.SecurityInfo, len(infoList))
-	copy(resultList, infoList)
-	return resultList, nil
+
+	return CloneSecurityInfoList(infoList), nil
 }
 
 func (securityHandler *MockSecurityHandler) GetSecurity(iid irs.IID) (irs.SecurityInfo, error) {
@@ -79,21 +110,13 @@ func (securityHandler *MockSecurityHandler) GetSecurity(iid irs.IID) (irs.Securi
 		return irs.SecurityInfo{}, err
 	}
 
+	// infoList is already cloned in ListSecurity()
 	for _, info := range infoList {
-		nameId := info.IId.SystemId // NameId = "sg-01"
-		if(nameId == iid.NameId) {
+		if(info.IId.NameId == iid.NameId) {
 			return *info, nil
 		}
 	}
 
-
-	for _, info := range infoList {
-		// NameId="sg-01", SystemId="vpc-01-delimiter-sg-01", iid.NameId="vpc-01-delimiter-sg-01"
-		if((*info).IId.SystemId == iid.NameId) { 
-			return *info, nil
-		}
-	}
-	
 	return irs.SecurityInfo{}, fmt.Errorf("%s SecurityGroup does not exist!!", iid.NameId)
 }
 
@@ -109,8 +132,7 @@ func (securityHandler *MockSecurityHandler) DeleteSecurity(iid irs.IID) (bool, e
 
 	mockName := securityHandler.MockName
         for idx, info := range infoList {
-		// NameId="sg-01", SystemId="vpc-01-delimiter-sg-01", iid.NameId="vpc-01-delimiter-sg-01"
-                if(info.IId.SystemId == iid.NameId) {
+                if(info.IId.NameId == iid.NameId) {
 			infoList = append(infoList[:idx], infoList[idx+1:]...)
 			securityInfoMap[mockName]=infoList
 			return true, nil
