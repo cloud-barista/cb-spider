@@ -6,13 +6,13 @@ grpc:
     #tls:
     #  tls_cert: $CBSPIDER_ROOT/certs/server.crt
     #  tls_key: $CBSPIDER_ROOT/certs/server.key
-    interceptors:
+    #interceptors:
       #auth_jwt:
       #  jwt_key: your_secret_key
-      prometheus_metrics:
-        listen_port: 9092
-      opentracing:
-        jaeger:
-          endpoint: localhost:6831
-          service_name: spider grpc server
-          sample_rate: 1
+      #prometheus_metrics:
+      #  listen_port: 9092
+      #opentracing:
+      #  jaeger:
+      #    endpoint: localhost:6831
+      #    service_name: spider grpc server
+      #    sample_rate: 1
