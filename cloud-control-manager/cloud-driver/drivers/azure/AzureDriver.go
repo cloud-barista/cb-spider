@@ -32,6 +32,11 @@ func (AzureDriver) GetDriverVersion() string {
 	return "AZURE DRIVER Version 1.0"
 }
 
+const (
+        cspTimeout time.Duration = 6000
+)
+
+
 func (AzureDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	var drvCapabilityInfo idrv.DriverCapabilityInfo
 
@@ -135,7 +140,7 @@ func checkResourceGroup(credential idrv.CredentialInfo, region idrv.RegionInfo) 
 
 	resourceClient := resources.NewGroupsClient(credential.SubscriptionId)
 	resourceClient.Authorizer = authorizer
-	ctx, _ := context.WithTimeout(context.Background(), 600*time.Second)
+	ctx, _ := context.WithTimeout(context.Background(), cspTimeout*time.Second)
 
 	rg, err := resourceClient.Get(ctx, region.ResourceGroup)
 
@@ -162,7 +167,7 @@ func getVMClient(credential idrv.CredentialInfo) (context.Context, *compute.Virt
 
 	vmClient := compute.NewVirtualMachinesClient(credential.SubscriptionId)
 	vmClient.Authorizer = authorizer
-	ctx, _ := context.WithTimeout(context.Background(), 600*time.Second)
+	ctx, _ := context.WithTimeout(context.Background(), cspTimeout*time.Second)
 
 	return ctx, &vmClient, nil
 }
@@ -176,7 +181,7 @@ func getImageClient(credential idrv.CredentialInfo) (context.Context, *compute.I
 
 	imageClient := compute.NewImagesClient(credential.SubscriptionId)
 	imageClient.Authorizer = authorizer
-	ctx, _ := context.WithTimeout(context.Background(), 600*time.Second)
+	ctx, _ := context.WithTimeout(context.Background(), cspTimeout*time.Second)
 
 	return ctx, &imageClient, nil
 }
@@ -190,7 +195,7 @@ func getPublicIPClient(credential idrv.CredentialInfo) (context.Context, *networ
 
 	publicIPClient := network.NewPublicIPAddressesClient(credential.SubscriptionId)
 	publicIPClient.Authorizer = authorizer
-	ctx, _ := context.WithTimeout(context.Background(), 600*time.Second)
+	ctx, _ := context.WithTimeout(context.Background(), cspTimeout*time.Second)
 
 	return ctx, &publicIPClient, nil
 }
@@ -204,7 +209,7 @@ func getSecurityGroupClient(credential idrv.CredentialInfo) (context.Context, *n
 
 	sgClient := network.NewSecurityGroupsClient(credential.SubscriptionId)
 	sgClient.Authorizer = authorizer
-	ctx, _ := context.WithTimeout(context.Background(), 600*time.Second)
+	ctx, _ := context.WithTimeout(context.Background(), cspTimeout*time.Second)
 
 	return ctx, &sgClient, nil
 }
@@ -218,7 +223,7 @@ func getVNetworkClient(credential idrv.CredentialInfo) (context.Context, *networ
 
 	vNetClient := network.NewVirtualNetworksClient(credential.SubscriptionId)
 	vNetClient.Authorizer = authorizer
-	ctx, _ := context.WithTimeout(context.Background(), 600*time.Second)
+	ctx, _ := context.WithTimeout(context.Background(), cspTimeout*time.Second)
 
 	return ctx, &vNetClient, nil
 }
@@ -232,7 +237,7 @@ func getVNicClient(credential idrv.CredentialInfo) (context.Context, *network.In
 
 	vNicClient := network.NewInterfacesClient(credential.SubscriptionId)
 	vNicClient.Authorizer = authorizer
-	ctx, _ := context.WithTimeout(context.Background(), 600*time.Second)
+	ctx, _ := context.WithTimeout(context.Background(), cspTimeout*time.Second)
 
 	return ctx, &vNicClient, nil
 }
@@ -246,7 +251,7 @@ func getIPConfigClient(credential idrv.CredentialInfo) (context.Context, *networ
 
 	ipConfigClient := network.NewInterfaceIPConfigurationsClient(credential.SubscriptionId)
 	ipConfigClient.Authorizer = authorizer
-	ctx, _ := context.WithTimeout(context.Background(), 600*time.Second)
+	ctx, _ := context.WithTimeout(context.Background(), cspTimeout*time.Second)
 
 	return ctx, &ipConfigClient, nil
 }
@@ -260,7 +265,7 @@ func getSubnetClient(credential idrv.CredentialInfo) (context.Context, *network.
 
 	subnetClient := network.NewSubnetsClient(credential.SubscriptionId)
 	subnetClient.Authorizer = authorizer
-	ctx, _ := context.WithTimeout(context.Background(), 600*time.Second)
+	ctx, _ := context.WithTimeout(context.Background(), cspTimeout*time.Second)
 
 	return ctx, &subnetClient, nil
 }
@@ -274,7 +279,7 @@ func getVMImageClient(credential idrv.CredentialInfo) (context.Context, *compute
 
 	vmImageClient := compute.NewVirtualMachineImagesClient(credential.SubscriptionId)
 	vmImageClient.Authorizer = authorizer
-	ctx, _ := context.WithTimeout(context.Background(), 600*time.Second)
+	ctx, _ := context.WithTimeout(context.Background(), cspTimeout*time.Second)
 
 	return ctx, &vmImageClient, nil
 }
@@ -288,7 +293,7 @@ func getDiskClient(credential idrv.CredentialInfo) (context.Context, *compute.Di
 
 	diskClient := compute.NewDisksClient(credential.SubscriptionId)
 	diskClient.Authorizer = authorizer
-	ctx, _ := context.WithTimeout(context.Background(), 600*time.Second)
+	ctx, _ := context.WithTimeout(context.Background(), cspTimeout*time.Second)
 
 	return ctx, &diskClient, nil
 }
@@ -302,7 +307,7 @@ func getVmSpecClient(credential idrv.CredentialInfo) (context.Context, *compute.
 
 	vmSpecClient := compute.NewVirtualMachineSizesClient(credential.SubscriptionId)
 	vmSpecClient.Authorizer = authorizer
-	ctx, _ := context.WithTimeout(context.Background(), 600*time.Second)
+	ctx, _ := context.WithTimeout(context.Background(), cspTimeout*time.Second)
 
 	return ctx, &vmSpecClient, nil
 }
