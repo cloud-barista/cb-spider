@@ -1,5 +1,5 @@
 #!/bin/bash
-source ../../../../setup.env
+source $CBSPIDER_ROOT/setup.env
 
 DRIVERLIB_PATH=$CBSPIDER_ROOT/cloud-driver-libs
 DRIVERFILENAME=mock-driver-v1.0
