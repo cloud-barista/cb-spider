@@ -26,7 +26,7 @@ RUN GOOS=linux go build -tags cb-spider -o cb-spider -v
 ## Stage 2 - Application Setup
 ##############################################################
 
-FROM ubuntu:latest
+FROM ubuntu:latest as prod
 
 RUN apt update
 
