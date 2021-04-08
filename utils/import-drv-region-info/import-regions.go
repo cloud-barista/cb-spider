@@ -62,7 +62,7 @@ func InsertRegionInfos(resourceGroup string) ([]rim.RegionInfo) {
         }
 	regionInfoList := []rim.RegionInfo{}
 	for _, cloudos := range cim.ListCloudOS() {
-		regionFile, err := os.Open(rootPath + "/utils/import-info/region-list/" + strings.ToLower(cloudos) + "-regions-list.json")
+		regionFile, err := os.Open(rootPath + "/utils/import-drv-region-info/region-list/" + strings.ToLower(cloudos) + "-regions-list.json")
 		if err != nil {
 			if strings.Contains(err.Error(), "no such") {
 				cblog.Info(err)
