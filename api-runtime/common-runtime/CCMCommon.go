@@ -1884,7 +1884,7 @@ func DeleteResource(connectionName string, rsType string, nameID string, force s
 		cblog.Error(err)
 		return false, "", err
 	}
-
+/* @todo, temporary delete Write Lock
 	switch rsType {
 	case rsVPC:
 		vpcRWLock.Lock()
@@ -1906,7 +1906,7 @@ func DeleteResource(connectionName string, rsType string, nameID string, force s
 			return false, "", fmt.Errorf(rsType + " is not supported Resource!!")
 		}
 	}
-
+*/
 	// (1) get IID(NameId) for getting SystemId
 	var iidInfo *iidm.IIDInfo
 	if rsType == rsSG {
