@@ -142,6 +142,7 @@ func GetCloudConnection(cloudConnectName string) (icon.CloudConnection, error) {
 			PrivateKey:       getValue(crdInfo.KeyValueInfoList, "PrivateKey"),
 			Host:             getValue(crdInfo.KeyValueInfoList, "Host"),
 			APIVersion:       getValue(crdInfo.KeyValueInfoList, "APIVersion"),
+			MockName:       getValue(crdInfo.KeyValueInfoList, "MockName"),
 		},
 		RegionInfo: idrv.RegionInfo{ // @todo powerkim
 			Region:        regionName,
