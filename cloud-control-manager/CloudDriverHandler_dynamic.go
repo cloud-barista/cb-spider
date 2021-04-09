@@ -1,3 +1,5 @@
+// +build dyna
+
 // Cloud Driver Manager of CB-Spider.
 // The CB-Spider is a sub-Framework of the Cloud-Barista Multi-Cloud Project.
 // The CB-Spider Mission is to connect all the clouds with a single interface.
@@ -10,20 +12,6 @@ package clouddriverhandler
 
 import (
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
-
-	alibabadrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/alibaba"
-	awsdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/aws"
-	azuredrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/azure"
-	clouditdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/cloudit"
-	dockerdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/docker"
-	gcpdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/gcp"
-	mockdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/mock"
-	openstackdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/openstack"
-
-	//	cloudtwindrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/cloudtwin" // CLOUDTWIN
-	// ncpdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/ncp" // NCP
-	// ncpvpcdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/ncpvpc" // NCP-VPC
-
 	icbs "github.com/cloud-barista/cb-store/interfaces"
 
 	"github.com/cloud-barista/cb-store/config"
@@ -74,12 +62,7 @@ func GetCloudDriver(cloudConnectName string) (idrv.CloudDriver, error) {
 		return nil, err
 	}
 
-	pluginSW := os.Getenv("PLUGIN_SW")
-	if strings.ToUpper(pluginSW) == "OFF" {
-		return getStaticCloudDriver(*cldDrvInfo)
-	} else {
-		return getCloudDriver(*cldDrvInfo)
-	}
+	return getCloudDriver(*cldDrvInfo)
 }
 
 // 1. get credential info
@@ -96,13 +79,8 @@ func GetCloudConnection(cloudConnectName string) (icon.CloudConnection, error) {
 		return nil, err
 	}
 
-	pluginSW := os.Getenv("PLUGIN_SW")
 	var cldDriver idrv.CloudDriver
-	if strings.ToUpper(pluginSW) == "OFF" {
-		cldDriver, err = getStaticCloudDriver(*cldDrvInfo)
-	} else {
-		cldDriver, err = getCloudDriver(*cldDrvInfo)
-	}
+	cldDriver, err = getCloudDriver(*cldDrvInfo)
 	if err != nil {
 		return nil, err
 	}
@@ -142,7 +120,6 @@ func GetCloudConnection(cloudConnectName string) (icon.CloudConnection, error) {
 			PrivateKey:       getValue(crdInfo.KeyValueInfoList, "PrivateKey"),
 			Host:             getValue(crdInfo.KeyValueInfoList, "Host"),
 			APIVersion:       getValue(crdInfo.KeyValueInfoList, "APIVersion"),
-			MockName:       getValue(crdInfo.KeyValueInfoList, "MockName"),
 		},
 		RegionInfo: idrv.RegionInfo{ // @todo powerkim
 			Region:        regionName,
@@ -266,44 +243,6 @@ func getCloudDriver(cldDrvInfo dim.CloudDriverInfo) (idrv.CloudDriver, error) {
 	if !ok {
 		cblog.Error("Not CloudDriver interface!!")
 		return nil, err
-	}
-
-	return cloudDriver, nil
-}
-
-func getStaticCloudDriver(cldDrvInfo dim.CloudDriverInfo) (idrv.CloudDriver, error) {
-	cblog.Info("CloudDriverHandler: called getStaticCloudDriver() - " + cldDrvInfo.DriverName)
-
-	var cloudDriver idrv.CloudDriver
-
-	// select driver
-	switch cldDrvInfo.ProviderName {
-	case "AWS":
-		cloudDriver = new(awsdrv.AwsDriver)
-	case "AZURE":
-		cloudDriver = new(azuredrv.AzureDriver)
-	case "GCP":
-		cloudDriver = new(gcpdrv.GCPDriver)
-	case "ALIBABA":
-		cloudDriver = new(alibabadrv.AlibabaDriver)
-	case "OPENSTACK":
-		cloudDriver = new(openstackdrv.OpenStackDriver)
-	case "CLOUDIT":
-		cloudDriver = new(clouditdrv.ClouditDriver)
-	case "DOCKER":
-		cloudDriver = new(dockerdrv.DockerDriver)
-	// case "NCP": // NCP
-	//  cloudDriver = new(ncpdrv.NcpDriver) // NCP
-	// case "NCPVPC": // NCP-VPC
-	//  cloudDriver = new(ncpvpcdrv.NcpVpcDriver) // NCP-VPC
-	case "MOCK":
-		cloudDriver = new(mockdrv.MockDriver)
-	// case "CLOUDTWIN":
-	// 	cloudDriver = new(cloudtwindrv.CloudTwinDriver)
-
-	default:
-		errmsg := cldDrvInfo.ProviderName + " is not supported static Cloud Driver!!"
-		return cloudDriver, fmt.Errorf(errmsg)
 	}
 
 	return cloudDriver, nil
