@@ -580,7 +580,8 @@ func CreatePublicIP(vmHandler *AzureVMHandler, vmReqInfo irs.VMReqInfo) (irs.IID
 		},
 		PublicIPAddressPropertiesFormat: &network.PublicIPAddressPropertiesFormat{
 			PublicIPAddressVersion:   network.IPVersion("IPv4"),
-			PublicIPAllocationMethod: network.IPAllocationMethod("Static"),
+			//PublicIPAllocationMethod: network.IPAllocationMethod("Static"),
+			PublicIPAllocationMethod: network.IPAllocationMethod("Dynamic"),
 			IdleTimeoutInMinutes:     to.Int32Ptr(4),
 		},
 		Location: &vmHandler.Region.Region,
