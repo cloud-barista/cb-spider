@@ -3,8 +3,8 @@ module github.com/cloud-barista/cb-spider
 go 1.15
 
 replace (
-        google.golang.org/api => google.golang.org/api v0.15.0
-        google.golang.org/grpc => google.golang.org/grpc v1.26.0
+	google.golang.org/api => google.golang.org/api v0.15.0
+	google.golang.org/grpc => google.golang.org/grpc v1.26.0
 )
 
 require (
@@ -29,6 +29,7 @@ require (
 	github.com/docker/go-units v0.4.0 // indirect
 	github.com/gogo/protobuf v1.3.2
 	github.com/golang/protobuf v1.4.3
+	github.com/gotestyourself/gotestyourself v1.4.0 // indirect
 	github.com/grpc-ecosystem/go-grpc-middleware v1.2.2
 	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0
 	github.com/labstack/echo/v4 v4.2.0
@@ -54,6 +55,6 @@ require (
 	google.golang.org/grpc/examples v0.0.0-20210212222430-425d405f3928 // indirect
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b
+	gotest.tools v1.4.0 // indirect
 	gotest.tools/v3 v3.0.3 // indirect
 )
-

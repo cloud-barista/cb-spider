@@ -33,25 +33,26 @@ type ClouditCloudConnection struct {
 
 func (cloudConn *ClouditCloudConnection) CreateImageHandler() (irs.ImageHandler, error) {
 	cblogger.Info("Cloudit Cloud Driver: called CreateImageHandler()!")
-	imageHandler := cirs.ClouditImageHandler{cloudConn.CredentialInfo, &cloudConn.Client}
+	imageHandler := cirs.ClouditImageHandler{CredentialInfo: cloudConn.CredentialInfo, Client: &cloudConn.Client}
 	return &imageHandler, nil
 }
 
 func (cloudConn *ClouditCloudConnection) CreateVPCHandler() (irs.VPCHandler, error) {
 	cblogger.Info("Cloudit Cloud Driver: called CreateVNetworkHandler()!")
-	vNetHandler := cirs.ClouditVPCHandler{cloudConn.CredentialInfo, &cloudConn.Client}
+	vNetHandler := cirs.ClouditVPCHandler{CredentialInfo: cloudConn.CredentialInfo, Client: &cloudConn.Client}
 	return &vNetHandler, nil
 }
 
 func (cloudConn ClouditCloudConnection) CreateSecurityHandler() (irs.SecurityHandler, error) {
 	cblogger.Info("Cloudit Cloud Driver: called CreateSecurityHandler()!")
-	securityHandler := cirs.ClouditSecurityHandler{cloudConn.CredentialInfo, &cloudConn.Client}
+	securityHandler := cirs.ClouditSecurityHandler{CredentialInfo: cloudConn.CredentialInfo, Client: &cloudConn.Client}
 	return &securityHandler, nil
 }
 
 func (cloudConn *ClouditCloudConnection) CreateKeyPairHandler() (irs.KeyPairHandler, error) {
-	cblogger.Error("Cloudit Cloud Driver: called CreateKeyPairHandler(), but not supported!")
-	return nil, nil
+	cblogger.Info("Cloudit Cloud Driver: called CreateKeyPairHandler()!")
+	keypairHandler := cirs.ClouditKeyPairHandler{CredentialInfo: cloudConn.CredentialInfo, Client: &cloudConn.Client}
+	return &keypairHandler, nil
 }
 
 /*func (cloudConn ClouditCloudConnection) CreateVNicHandler() (irs.VNicHandler, error) {
@@ -68,13 +69,13 @@ func (cloudConn *ClouditCloudConnection) CreateKeyPairHandler() (irs.KeyPairHand
 
 func (cloudConn *ClouditCloudConnection) CreateVMHandler() (irs.VMHandler, error) {
 	cblogger.Info("Cloudit Cloud Driver: called CreateVMHandler()!")
-	vmHandler := cirs.ClouditVMHandler{cloudConn.CredentialInfo, &cloudConn.Client}
+	vmHandler := cirs.ClouditVMHandler{CredentialInfo: cloudConn.CredentialInfo, Client: &cloudConn.Client}
 	return &vmHandler, nil
 }
 
 func (cloudConn *ClouditCloudConnection) CreateVMSpecHandler() (irs.VMSpecHandler, error) {
 	cblogger.Info("Cloudit Cloud Driver: called CreateVMSpecHandler()!")
-	vmSpecHandler := cirs.ClouditVMSpecHandler{cloudConn.CredentialInfo, &cloudConn.Client}
+	vmSpecHandler := cirs.ClouditVMSpecHandler{CredentialInfo: cloudConn.CredentialInfo, Client: &cloudConn.Client}
 	return &vmSpecHandler, nil
 }
 

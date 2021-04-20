@@ -157,6 +157,28 @@ func (vmHandler *ClouditVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 		return irs.VMInfo{}, err
 	}
 	vmInfo := vmHandler.mappingServerInfo(*vm)
+
+	loginUserId := "cb-user"
+
+	// TODO: SSH 접속 사용자 및 공개키 등록
+	sshClient, _ := GetSSHClient(vmInfo.PublicIP, 22, "root", vmReqInfo.VMUserPasswd)
+
+	// 사용자 등록 및 sudoer 권한 추가
+	RunCommand(sshClient, fmt.Sprintf("useradd -s /bin/bash %s -rm", loginUserId))
+	RunCommand(sshClient, fmt.Sprintf("echo \"%s ALL=(root) NOPASSWD:ALL\" >> /etc/sudoers", loginUserId))
+
+	// 공개키 등록
+	publicKey, err := GetPublicKey(vmHandler.CredentialInfo, vmReqInfo.KeyPairIID.NameId)
+	if err != nil {
+		LoggingError(hiscallInfo, err)
+		return irs.VMInfo{}, err
+	}
+	RunCommand(sshClient, fmt.Sprintf("echo %s > /home/%s/.ssh/authorized_keys\n", publicKey, vmInfo.VMUserId))
+
+	// ssh 접속 방법 변경 (sshd_config 파일 변경)
+	RunCommand(sshClient, "sed -i 's/PasswordAuthentication yes/PasswordAuthentication no/g' /etc/ssh/sshd_config")
+	RunCommand(sshClient, "sed -i 's/#PubkeyAuthentication yes/PubkeyAuthentication yes/g' /etc/ssh/sshd_config")
+	RunCommand(sshClient, "systemctl restart sshd")
 	return vmInfo, nil
 }
 
