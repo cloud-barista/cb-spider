@@ -128,28 +128,41 @@ func GetPublicKey(credentialInfo idrv.CredentialInfo, keyPairName string) (strin
 	return string(publicKeyBytes), nil
 }
 
-func GetSSHClient(serverIp string, serverPort int, username string, password string) (*scp.Client, error) {
+func GetSSHClient(serverIp string, serverPort int, username string, password string) (scp.Client, error) {
 	clientConfig, err := auth.PasswordKey(username, password, ssh.InsecureIgnoreHostKey())
 	if err != nil {
-		return nil, err
+		return scp.Client{}, err
+	}
+	sshClient := scp.NewClient(fmt.Sprintf("%s:%d", serverIp, serverPort), &clientConfig)
+	err = sshClient.Connect()
+	return sshClient, err
+}
+
+func RunCommand(serverIp string, serverPort int, username string, password string, command string) (string, error) {
+	clientConfig, err := auth.PasswordKey(username, password, ssh.InsecureIgnoreHostKey())
+	if err != nil {
+		return "", err
 	}
 	sshClient := scp.NewClient(fmt.Sprintf("%s:%d", serverIp, serverPort), &clientConfig)
 	err = sshClient.Connect()
 	if err != nil {
-		return nil, err
+		return "", err
 	}
-	return &sshClient, nil
-}
+	defer sshClient.Close()
 
-func RunCommand(client *scp.Client, command string) (string, error) {
-	session := client.Session
+	session := sshClient.Session
 	sshOut, err := session.StdoutPipe()
+	if err != nil {
+		return "", err
+	}
 	session.Stderr = os.Stderr
 
 	err = session.Run(command)
 	if err != nil {
+		fmt.Println(err)
 		return "", err
 	}
+	defer session.Close()
 	return stdoutToString(sshOut), err
 }
 
