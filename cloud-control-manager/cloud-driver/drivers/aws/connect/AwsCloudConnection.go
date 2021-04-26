@@ -26,9 +26,10 @@ import (
 
 //type AwsCloudConnection struct{}
 type AwsCloudConnection struct {
-	Region        idrv.RegionInfo
-	KeyPairClient *ec2.EC2
-	VMClient      *ec2.EC2
+	CredentialInfo idrv.CredentialInfo
+	Region         idrv.RegionInfo
+	KeyPairClient  *ec2.EC2
+	VMClient       *ec2.EC2
 
 	VNetworkClient *ec2.EC2
 	//VNicClient     *ec2.EC2
@@ -48,7 +49,8 @@ func init() {
 func (cloudConn *AwsCloudConnection) CreateKeyPairHandler() (irs.KeyPairHandler, error) {
 	cblogger.Info("Start CreateKeyPairHandler()")
 
-	keyPairHandler := ars.AwsKeyPairHandler{cloudConn.Region, cloudConn.KeyPairClient}
+	keyPairHandler := ars.AwsKeyPairHandler{cloudConn.CredentialInfo, cloudConn.Region, cloudConn.KeyPairClient}
+	//keyPairHandler := ars.AwsKeyPairHandler{cloudConn.Region, cloudConn.KeyPairClient}
 
 	return &keyPairHandler, nil
 }

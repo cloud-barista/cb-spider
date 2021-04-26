@@ -1113,8 +1113,8 @@ func main() {
 		}
 	*/
 
-	handleVPC()
-	//handleKeyPair()
+	//handleVPC()
+	handleKeyPair()
 	//handlePublicIP() // PublicIP 생성 후 conf
 	//handleSecurity()
 	//handleVM()
