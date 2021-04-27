@@ -27,7 +27,7 @@ func init() {
 	cblogger = cblog.GetLogger("CB-SPIDER")
 }
 
-// modified by powerkim, 2019.07.29
+// OpenStackCloudConnection modified by powerkim, 2019.07.29
 type OpenStackCloudConnection struct {
 	Region        idrv.RegionInfo
 	Client        *gophercloud.ServiceClient
@@ -38,37 +38,37 @@ type OpenStackCloudConnection struct {
 
 func (cloudConn *OpenStackCloudConnection) CreateImageHandler() (irs.ImageHandler, error) {
 	cblogger.Info("OpenStack Cloud Driver: called CreateImageHandler()!")
-	imageHandler := osrs.OpenStackImageHandler{cloudConn.Client, cloudConn.ImageClient}
+	imageHandler := osrs.OpenStackImageHandler{Client: cloudConn.Client, ImageClient: cloudConn.ImageClient}
 	return &imageHandler, nil
 }
 
 func (cloudConn *OpenStackCloudConnection) CreateVPCHandler() (irs.VPCHandler, error) {
 	cblogger.Info("OpenStack Cloud Driver: called CreateVPCHandler()!")
-	vpcHandler := osrs.OpenStackVPCHandler{cloudConn.NetworkClient}
+	vpcHandler := osrs.OpenStackVPCHandler{Client: cloudConn.NetworkClient}
 	return &vpcHandler, nil
 }
 
 func (cloudConn OpenStackCloudConnection) CreateSecurityHandler() (irs.SecurityHandler, error) {
 	cblogger.Info("OpenStack Cloud Driver: called CreateSecurityHandler()!")
-	securityHandler := osrs.OpenStackSecurityHandler{cloudConn.Client, cloudConn.NetworkClient}
+	securityHandler := osrs.OpenStackSecurityHandler{Client: cloudConn.Client, NetworkClient: cloudConn.NetworkClient}
 	return &securityHandler, nil
 }
 
 func (cloudConn *OpenStackCloudConnection) CreateKeyPairHandler() (irs.KeyPairHandler, error) {
 	cblogger.Info("OpenStack Cloud Driver: called CreateKeyPairHandler()!")
-	keypairHandler := osrs.OpenStackKeyPairHandler{cloudConn.Client}
+	keypairHandler := osrs.OpenStackKeyPairHandler{Client: cloudConn.Client}
 	return &keypairHandler, nil
 }
 
 func (cloudConn *OpenStackCloudConnection) CreateVMHandler() (irs.VMHandler, error) {
 	cblogger.Info("OpenStack Cloud Driver: called CreateVMHandler()!")
-	vmHandler := osrs.OpenStackVMHandler{cloudConn.Region, cloudConn.Client, cloudConn.NetworkClient, cloudConn.VolumeClient}
+	vmHandler := osrs.OpenStackVMHandler{Region: cloudConn.Region, Client: cloudConn.Client, NetworkClient: cloudConn.NetworkClient, VolumeClient: cloudConn.VolumeClient}
 	return &vmHandler, nil
 }
 
 func (cloudConn *OpenStackCloudConnection) CreateVMSpecHandler() (irs.VMSpecHandler, error) {
 	cblogger.Info("OpenStack Cloud Driver: called CreateVMSpecHandler()!")
-	vmSpecHandler := osrs.OpenStackVMSpecHandler{cloudConn.Client}
+	vmSpecHandler := osrs.OpenStackVMSpecHandler{Client: cloudConn.Client}
 	return &vmSpecHandler, nil
 }
 

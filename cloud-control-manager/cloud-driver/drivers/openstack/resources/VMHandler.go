@@ -13,6 +13,8 @@ package resources
 import (
 	"errors"
 	"fmt"
+	"io/ioutil"
+	"os"
 	"strings"
 	"time"
 
@@ -31,7 +33,8 @@ import (
 )
 
 const (
-	VM = "VM"
+	VM             = "VM"
+	SSHDefaultUser = "cb-user"
 )
 
 type OpenStackVMHandler struct {
@@ -136,9 +139,30 @@ func (vmHandler *OpenStackVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInf
 
 	// Add KeyPair
 	createOpts := keypairs.CreateOptsExt{
-		CreateOptsBuilder: serverCreateOpts,
-		KeyName:           vmReqInfo.KeyPairIID.NameId,
+		KeyName: vmReqInfo.KeyPairIID.NameId,
 	}
+
+	// KeyPair 정보 가져오기
+	keyPair, err := keypairs.Get(vmHandler.Client, vmReqInfo.KeyPairIID.NameId).Extract()
+	if err != nil {
+		LoggingError(hiscallInfo, err)
+		return irs.VMInfo{}, err
+	}
+
+	// cloud-init 스크립트 설정
+	rootPath := os.Getenv("CBSPIDER_PATH")
+	fileData, err := ioutil.ReadFile(rootPath + "/cloud-control-manager/cloud-driver/drivers/openstack/cloud-config")
+	if err != nil {
+		LoggingError(hiscallInfo, err)
+		return irs.VMInfo{}, err
+	}
+	fileStr := string(fileData)
+	fileStr = strings.ReplaceAll(fileStr, "{{username}}", SSHDefaultUser)
+	fileStr = strings.ReplaceAll(fileStr, "{{public_key}}", keyPair.PublicKey)
+
+	// cloud-init 스크립트 적용
+	serverCreateOpts.UserData = []byte(fileStr)
+	createOpts.CreateOptsBuilder = serverCreateOpts
 
 	start := call.Start()
 	server, err := servers.Create(vmHandler.Client, createOpts).Extract()
