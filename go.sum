@@ -112,7 +112,7 @@ github.com/chzyer/logex v1.1.10/go.mod h1:+Ywpsq7O8HXn0nuIou7OrIPyXbp3wmkHB+jjWR
 github.com/chzyer/readline v0.0.0-20180603132655-2972be24d48e/go.mod h1:nSuG5e5PlCu98SY8svDHJxuZscDgtXS6KTTbou5AhLI=
 github.com/chzyer/test v0.0.0-20180213035817-a1ea475d72b1/go.mod h1:Q3SI9o4m/ZMnBNeIyt5eFwwo7qiLfzFZmjNmxjkiQlU=
 github.com/clbanning/x2j v0.0.0-20191024224557-825249438eec/go.mod h1:jMjuTZXRI4dUb/I5gc9Hdhagfvm9+RyrPryS/auMzxE=
-github.com/cloud-barista/cb-log v0.3.1 h1:8JvQP3/NRF8jZywwvLoDIbCCAmNqIhCPdgRcMyhuvSE=
+github.com/cloud-barista/cb-log v0.3.1 h1:50Q0i7hZ7NrUzYsAJxzmTTlQc6PObZZAqGtxD9naxqY=
 github.com/cloud-barista/cb-log v0.3.1/go.mod h1:C0KNV97sw8IoLSlNuSiCGDQIuS/wXJaZWV/6MOwc20c=
 github.com/cloud-barista/cb-store v0.3.13 h1:IoWMnzDlMcesPreTT3Rf70yoMqu58cgAIQIGxKPhI/w=
 github.com/cloud-barista/cb-store v0.3.13/go.mod h1:jsw1K8IZd70SRcuHhPXPRO9Juxm5iO69iaGMOD0Fd34=
