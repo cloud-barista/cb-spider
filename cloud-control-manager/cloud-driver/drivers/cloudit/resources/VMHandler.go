@@ -25,9 +25,12 @@ import (
 )
 
 const (
-	VMDefaultUser  = "root"
-	VM             = "VM"
-	VMTimeoutCount = 100
+	VMDefaultUser                = "root"
+	SSHDefaultUser               = "cb-user"
+	SSHDefaultPort               = 22
+	SSHDefaultConnectionTryCount = 5
+	VM                           = "VM"
+	VMTimeoutCount               = 100
 )
 
 type ClouditVMHandler struct {
@@ -123,8 +126,8 @@ func (vmHandler *ClouditVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 	}
 	LoggingInfo(hiscallInfo, start)
 
-	timeoutIndex := VMTimeoutCount
 	// VM 생성 완료까지 wait
+	timeoutIndex := VMTimeoutCount
 	for {
 		// Check VM Deploy Status
 		vmInfo, err := server.Get(vmHandler.Client, creatingVm.ID, &requestOpts)
@@ -158,33 +161,64 @@ func (vmHandler *ClouditVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 	}
 	vmInfo := vmHandler.mappingServerInfo(*vm)
 
-	loginUserId := "cbuser"
-
 	// SSH 접속 사용자 및 공개키 등록
+	loginUserId := SSHDefaultUser
+
+	// SSH 접속까지 시도
+	connectionTryCnt := SSHDefaultConnectionTryCount
+	for connectionTryCnt > 0 {
+		_, err := RunCommand(vmInfo.PublicIP, SSHDefaultPort, VMDefaultUser, vmReqInfo.VMUserPasswd, "echo test")
+		if err == nil {
+			break
+		}
+		fmt.Println("Trying to connect via root user ...")
+		connectionTryCnt--
+		time.Sleep(time.Second * 2)
+	}
+
+	createUserErr := errors.New("Error adding cb-User to new VM")
+	if connectionTryCnt <= 0 {
+		return irs.VMInfo{}, createUserErr
+	}
 
 	// 사용자 등록 및 sudoer 권한 추가
-	output, err := RunCommand(vmInfo.PublicIP, 22, "root", vmReqInfo.VMUserPasswd, fmt.Sprintf("useradd -s /bin/bash %s -rm", loginUserId))
-	fmt.Println(output, err)
-	output, err = RunCommand(vmInfo.PublicIP, 22, "root", vmReqInfo.VMUserPasswd, fmt.Sprintf("echo \"%s ALL=(root) NOPASSWD:ALL\" >> /etc/sudoers", loginUserId))
-	fmt.Println(output, err)
+	_, err = RunCommand(vmInfo.PublicIP, SSHDefaultPort, VMDefaultUser, vmReqInfo.VMUserPasswd, fmt.Sprintf("useradd -s /bin/bash %s -rm", loginUserId))
+	if err != nil {
+		LoggingError(hiscallInfo, err)
+		return irs.VMInfo{}, createUserErr
+	}
+	_, err = RunCommand(vmInfo.PublicIP, SSHDefaultPort, VMDefaultUser, vmReqInfo.VMUserPasswd, fmt.Sprintf("echo \"%s ALL=(root) NOPASSWD:ALL\" >> /etc/sudoers", loginUserId))
+	if err != nil {
+		LoggingError(hiscallInfo, err)
+		return irs.VMInfo{}, createUserErr
+	}
 
 	// 공개키 등록
-	output, err = RunCommand(vmInfo.PublicIP, 22, "root", vmReqInfo.VMUserPasswd, fmt.Sprintf("mkdir -p /home/%s/.ssh", loginUserId))
+	_, err = RunCommand(vmInfo.PublicIP, SSHDefaultPort, VMDefaultUser, vmReqInfo.VMUserPasswd, fmt.Sprintf("mkdir -p /home/%s/.ssh", loginUserId))
 	publicKey, err := GetPublicKey(vmHandler.CredentialInfo, vmReqInfo.KeyPairIID.NameId)
 	if err != nil {
 		LoggingError(hiscallInfo, err)
-		return irs.VMInfo{}, err
+		return irs.VMInfo{}, createUserErr
 	}
-	output, err = RunCommand(vmInfo.PublicIP, 22, "root", vmReqInfo.VMUserPasswd, fmt.Sprintf("echo \"%s\" > /home/%s/.ssh/authorized_keys", publicKey, loginUserId))
-	fmt.Println(output, err)
+	_, err = RunCommand(vmInfo.PublicIP, SSHDefaultPort, VMDefaultUser, vmReqInfo.VMUserPasswd, fmt.Sprintf("echo \"%s\" > /home/%s/.ssh/authorized_keys", publicKey, loginUserId))
 
 	// ssh 접속 방법 변경 (sshd_config 파일 변경)
-	output, err = RunCommand(vmInfo.PublicIP, 22, "root", vmReqInfo.VMUserPasswd, "sed -i 's/PasswordAuthentication yes/PasswordAuthentication no/g' /etc/ssh/sshd_config")
-	fmt.Println(output, err)
-	output, err = RunCommand(vmInfo.PublicIP, 22, "root", vmReqInfo.VMUserPasswd, "sed -i 's/#PubkeyAuthentication yes/PubkeyAuthentication yes/g' /etc/ssh/sshd_config")
-	fmt.Println(output, err)
-	output, err = RunCommand(vmInfo.PublicIP, 22, "root", vmReqInfo.VMUserPasswd, "systemctl restart sshd")
-	fmt.Println(output, err)
+	_, err = RunCommand(vmInfo.PublicIP, SSHDefaultPort, VMDefaultUser, vmReqInfo.VMUserPasswd, "sed -i 's/PasswordAuthentication yes/PasswordAuthentication no/g' /etc/ssh/sshd_config")
+	if err != nil {
+		LoggingError(hiscallInfo, err)
+		return irs.VMInfo{}, createUserErr
+	}
+	_, err = RunCommand(vmInfo.PublicIP, SSHDefaultPort, VMDefaultUser, vmReqInfo.VMUserPasswd, "sed -i 's/#PubkeyAuthentication yes/PubkeyAuthentication yes/g' /etc/ssh/sshd_config")
+	if err != nil {
+		LoggingError(hiscallInfo, err)
+		return irs.VMInfo{}, createUserErr
+	}
+	_, err = RunCommand(vmInfo.PublicIP, SSHDefaultPort, VMDefaultUser, vmReqInfo.VMUserPasswd, "systemctl restart sshd")
+	if err != nil {
+		LoggingError(hiscallInfo, err)
+		return irs.VMInfo{}, createUserErr
+	}
+
 	return vmInfo, nil
 }
 
