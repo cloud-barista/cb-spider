@@ -874,9 +874,9 @@ func handleVM() {
 			case 1:
 				vmReqInfo := irs.VMReqInfo{
 					IId:               irs.IID{NameId: "mcloud-barista-iid-vm-test"},
-					ImageIID:          irs.IID{SystemId: "ami-047f7b46bd6dd5d84"},
-					SubnetIID:         irs.IID{SystemId: "subnet-012957090a923c498"},
-					SecurityGroupIIDs: []irs.IID{{SystemId: "sg-013868663c85586f9"}},
+					ImageIID:          irs.IID{SystemId: "ami-059b6d3840b03d6dd"},
+					SubnetIID:         irs.IID{SystemId: "subnet-0a6ca346752be1ca4"},
+					SecurityGroupIIDs: []irs.IID{{SystemId: "sg-0556ddbff4cab480e"}},
 					VMSpecName:        "t2.micro",
 					KeyPairIID:        irs.IID{SystemId: "CB-KeyPairTest123123"},
 				}
@@ -1114,10 +1114,10 @@ func main() {
 	*/
 
 	//handleVPC()
-	handleKeyPair()
+	//handleKeyPair()
 	//handlePublicIP() // PublicIP 생성 후 conf
 	//handleSecurity()
-	//handleVM()
+	handleVM()
 
 	//handleImage() //AMI
 	//handleVNic() //Lancard
