@@ -126,7 +126,7 @@ func (vmHandler *AwsVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 	//=============================
 	// UserData생성 처리
 	//=============================
-	userData := "#cloud-config\nusers:\n  - default\n  - name: cbuser\n    groups: sudo\n    shell: /bin/bash\n    sudo: ['ALL=(ALL) NOPASSWD:ALL']\n    ssh-authorized-keys:\n      - "
+	userData := "#cloud-config\nusers:\n  - default\n  - name: " + CBDefaultVmUserName + "\n    groups: sudo\n    shell: /bin/bash\n    sudo: ['ALL=(ALL) NOPASSWD:ALL']\n    ssh-authorized-keys:\n      - "
 	//userData = userData + "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC0wqohybvHvljVsUW7vmyicVNVDcPdzh6ZRkm1H9SyMuUEK0zOB3Kj+1MxMQPnRXgL9fI518ymUxavrkrHr0LwZtG8pfMOwZkZ7WD4WnT6Ho14N14U1JIM/+005cBBYyF+OWYyxD/q5p/y8R19NXLpEbnpTNL0mKjQ1q8a6/LVCsaKxy9OJ9o/ChN2FDXhCdVLPHL/jrUPqzjSLkm/GIt+v9RWJ0BFAk+rZY7abMNfGSorTqWZEYYd8gqofeTPh2mhYr21NVLBiAyzQqs6fgL+FgsnJFBnuIZ2peuCGxcOxZ7h8iEzJG2r+tGn+ivfMpla12oHxwihJhiodN1KxeZ7"
 	userData = userData + keyPairInfo.PublicKey
 	userDataBase64 := aws.String(base64.StdEncoding.EncodeToString([]byte(userData)))

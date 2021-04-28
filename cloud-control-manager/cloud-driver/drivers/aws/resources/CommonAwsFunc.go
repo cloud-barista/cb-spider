@@ -27,7 +27,8 @@ import (
 const CBDefaultVNetName string = "CB-VNet"          // CB Default Virtual Network Name
 const CBDefaultSubnetName string = "CB-VNet-Subnet" // CB Default Subnet Name
 const CBDefaultCidrBlock string = "192.168.0.0/16"  // CB Default CidrBlock
-const CBKeyPairPath = "/cloud-driver-libs/.ssh-aws/"
+const CBKeyPairPath string = "/cloud-driver-libs/.ssh-aws/"
+const CBDefaultVmUserName string = "cb-user" // default VM User Name
 
 const CUSTOM_ERR_CODE_TOOMANY string = "600"  //awserr.New("600", "n개 이상의 xxxx 정보가 존재합니다.", nil)
 const CUSTOM_ERR_CODE_NOTFOUND string = "404" //awserr.New("404", "XXX 정보가 존재하지 않습니다.", nil)

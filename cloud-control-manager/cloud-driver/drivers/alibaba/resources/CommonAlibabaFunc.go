@@ -6,7 +6,7 @@
 //
 // This is Resouces interfaces of Cloud Driver.
 //
-// by zephy@mz.co.kr, 2019.09.
+// by devunet@mz.co.kr, 2019.09.
 
 package resources
 
@@ -29,6 +29,8 @@ const (
 	CBVirutalNetworkName = "CB-VNet"
 	// default CIDR Block
 	CBVnetDefaultCidr = "130.0.0.0/16"
+	// default VM User Name
+	CBDefaultVmUserName = "cb-user"
 
 	// default Subnet Name
 	CBSubnetName = "CB-VNet-Sub"
@@ -51,6 +53,8 @@ const (
 
 	// page size for control pages
 	CBPageSize = 100
+
+	CBKeyPairPath = "/cloud-driver-libs/.ssh-aliyun/"
 )
 
 type AlibabaCBNetworkInfo struct {

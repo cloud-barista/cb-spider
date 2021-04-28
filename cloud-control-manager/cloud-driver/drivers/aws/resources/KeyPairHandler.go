@@ -410,36 +410,6 @@ func (keyPairHandler *AwsKeyPairHandler) CheckKeyPairFolder(keyPairPath string) 
 	return nil
 }
 
-// KeyPair 해시 생성 함수
-func CreateHashString(credentialInfo idrv.CredentialInfo, Region idrv.RegionInfo) (string, error) {
-	//func CreateHashString(credentialInfo string) (string, error) {
-	log.Println("credentialInfo.ClientId : " + credentialInfo.ClientId)
-	log.Println("Region.Region : " + Region.Region)
-	keyString := credentialInfo.ClientId + credentialInfo.ClientSecret + Region.Region
-	//keyString := credentialInfo
-	hasher := md5.New()
-	_, err := io.WriteString(hasher, keyString)
-	if err != nil {
-		return "", err
-	}
-	return fmt.Sprintf("%x", hasher.Sum(nil)), nil
-}
-
-// rsa.PublicKey를 가져와서 .pub 파일에 쓰기 적합한 바이트로 변환
-// "ssh-rsa ..."형식으로 변환
-func generatePublicKey(privatekey *rsa.PublicKey) ([]byte, error) {
-	publicRsaKey, err := ssh.NewPublicKey(privatekey)
-	if err != nil {
-		return nil, err
-	}
-
-	pubKeyBytes := ssh.MarshalAuthorizedKey(publicRsaKey)
-
-	log.Println("Public key 생성")
-	//fmt.Println(pubKeyBytes)
-	return pubKeyBytes, nil
-}
-
 // ParseKey reads the given RSA private key and create a public one for it.
 func makePublicKeyFromPrivateKey(pem string) (string, error) {
 	key, err := ssh.ParseRawPrivateKey([]byte(pem))
@@ -467,4 +437,20 @@ func writeKeyToFile(keyBytes []byte, saveFileTo string) error {
 
 	log.Printf("Key 저장위치: %s", saveFileTo)
 	return nil
+}
+
+// @TODO - PK 이슈 처리해야 함. (A User / B User / User 하위의 IAM 계정간의 호환성에 이슈가 없어야 하는데 현재는 안 됨.)
+//       - 따라서 AWS는 대안으로 KeyPair의 FingerPrint를 이용하도록 변경 - 필요시 리전및 키 이름과 혼용해서 만들어야할 듯.
+// KeyPair 해시 생성 함수 (PK 이슈로 현재는 사용하지 않음)
+func CreateHashString(credentialInfo idrv.CredentialInfo, Region idrv.RegionInfo) (string, error) {
+	log.Println("credentialInfo.ClientId : " + credentialInfo.ClientId)
+	log.Println("Region.Region : " + Region.Region)
+	keyString := credentialInfo.ClientId + credentialInfo.ClientSecret + Region.Region
+	//keyString := credentialInfo
+	hasher := md5.New()
+	_, err := io.WriteString(hasher, keyString)
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("%x", hasher.Sum(nil)), nil
 }
