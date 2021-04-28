@@ -70,7 +70,7 @@ func (imageHandler *OpenStackImageHandler) CreateImage(imageReqInfo irs.ImageReq
 	}
 
 	// Check Image file exists
-	rootPath := os.Getenv("CBSPIDER_PATH")
+	rootPath := os.Getenv("CBSPIDER_ROOT")
 	imageFilePath := fmt.Sprintf("%s/image/%s.iso", rootPath, reqInfo.Name)
 	if _, err := os.Stat(imageFilePath); os.IsNotExist(err) {
 		createErr := errors.New(fmt.Sprintf("Image files in path %s not exist", imageFilePath))
