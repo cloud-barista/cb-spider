@@ -3,8 +3,8 @@ module github.com/cloud-barista/cb-spider
 go 1.15
 
 replace (
-        google.golang.org/api => google.golang.org/api v0.15.0
-        google.golang.org/grpc => google.golang.org/grpc v1.26.0
+	google.golang.org/api => google.golang.org/api v0.15.0
+	google.golang.org/grpc => google.golang.org/grpc v1.26.0
 )
 
 require (
@@ -29,6 +29,7 @@ require (
 	github.com/docker/go-units v0.4.0 // indirect
 	github.com/gogo/protobuf v1.3.2
 	github.com/golang/protobuf v1.4.3
+	github.com/gotestyourself/gotestyourself v1.4.0 // indirect
 	github.com/grpc-ecosystem/go-grpc-middleware v1.2.2
 	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0
 	github.com/labstack/echo/v4 v4.2.0
@@ -40,7 +41,7 @@ require (
 	github.com/prometheus/client_golang v1.9.0
 	github.com/racker/perigee v0.1.0 // indirect
 	github.com/rackspace/gophercloud v1.0.1-0.20161013232434-e00690e87603
-	github.com/sirupsen/logrus v1.7.0
+	github.com/sirupsen/logrus v1.8.1
 	github.com/snowzach/rotatefilehook v0.0.0-20180327172521-2f64f265f58c
 	github.com/spf13/cobra v1.1.3
 	github.com/spf13/viper v1.7.1
@@ -49,11 +50,12 @@ require (
 	golang.org/x/crypto v0.0.0-20201221181555-eec23a3978ad
 	golang.org/x/net v0.0.0-20210119194325-5f4716e94777
 	golang.org/x/oauth2 v0.0.0-20210210192628-66670185b0cd
+	golang.org/x/sys v0.0.0-20210426230700-d19ff857e887 // indirect
 	google.golang.org/api v0.40.0
 	google.golang.org/grpc v1.35.0
 	google.golang.org/grpc/examples v0.0.0-20210212222430-425d405f3928 // indirect
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b
+	gotest.tools v1.4.0 // indirect
 	gotest.tools/v3 v3.0.3 // indirect
 )
-
