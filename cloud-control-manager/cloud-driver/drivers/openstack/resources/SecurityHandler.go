@@ -6,9 +6,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/rackspace/gophercloud"
-	"github.com/rackspace/gophercloud/openstack/compute/v2/extensions/secgroups"
-	"github.com/rackspace/gophercloud/openstack/networking/v2/extensions/security/rules"
+	"github.com/gophercloud/gophercloud"
+	"github.com/gophercloud/gophercloud/openstack/compute/v2/extensions/secgroups"
+	"github.com/gophercloud/gophercloud/openstack/networking/v2/extensions/security/rules"
 
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
@@ -50,7 +50,7 @@ func (securityHandler *OpenStackSecurityHandler) setterSeg(secGroup secgroups.Se
 	secRuleList := make([]irs.SecurityRuleInfo, len(secList))
 	for i, rule := range secList {
 		var direction string
-		if strings.EqualFold(rule.Direction, rules.DirIngress) {
+		if strings.EqualFold(rule.Direction, string(rules.DirIngress)) {
 			direction = Inbound
 		} else {
 			direction = Outbound
@@ -113,31 +113,31 @@ func (securityHandler *OpenStackSecurityHandler) CreateSecurity(securityReqInfo 
 
 		var direction string
 		if strings.EqualFold(strings.ToLower(rule.Direction), Inbound) {
-			direction = rules.DirIngress
+			direction = string(rules.DirIngress)
 		} else {
-			direction = rules.DirEgress
+			direction = string(rules.DirEgress)
 		}
 
 		var createRuleOpts rules.CreateOpts
 
 		if strings.ToLower(rule.IPProtocol) == ICMP {
 			createRuleOpts = rules.CreateOpts{
-				Direction:      direction,
-				EtherType:      rules.Ether4,
+				Direction:      rules.RuleDirection(direction),
+				EtherType:      rules.EtherType4,
 				SecGroupID:     group.ID,
-				Protocol:       strings.ToLower(rule.IPProtocol),
+				Protocol:       rules.RuleProtocol(strings.ToLower(rule.IPProtocol)),
 				RemoteIPPrefix: "0.0.0.0/0",
 			}
 		} else {
 			fromPort, _ := strconv.Atoi(rule.FromPort)
 			toPort, _ := strconv.Atoi(rule.ToPort)
 			createRuleOpts = rules.CreateOpts{
-				Direction:      direction,
-				EtherType:      rules.Ether4,
+				Direction:      rules.RuleDirection(direction),
+				EtherType:      rules.EtherType4,
 				SecGroupID:     group.ID,
 				PortRangeMin:   fromPort,
 				PortRangeMax:   toPort,
-				Protocol:       strings.ToLower(rule.IPProtocol),
+				Protocol:       rules.RuleProtocol(strings.ToLower(rule.IPProtocol)),
 				RemoteIPPrefix: "0.0.0.0/0",
 			}
 		}

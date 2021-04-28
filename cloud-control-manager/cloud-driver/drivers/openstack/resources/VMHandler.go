@@ -18,14 +18,14 @@ import (
 	"strings"
 	"time"
 
-	"github.com/rackspace/gophercloud"
-	"github.com/rackspace/gophercloud/openstack/blockstorage/v2/volumes"
-	"github.com/rackspace/gophercloud/openstack/compute/v2/extensions/floatingip"
-	"github.com/rackspace/gophercloud/openstack/compute/v2/extensions/keypairs"
-	"github.com/rackspace/gophercloud/openstack/compute/v2/extensions/startstop"
-	"github.com/rackspace/gophercloud/openstack/compute/v2/flavors"
-	"github.com/rackspace/gophercloud/openstack/compute/v2/images"
-	"github.com/rackspace/gophercloud/openstack/compute/v2/servers"
+	"github.com/gophercloud/gophercloud"
+	"github.com/gophercloud/gophercloud/openstack/blockstorage/v2/volumes"
+	"github.com/gophercloud/gophercloud/openstack/compute/v2/extensions/floatingips"
+	"github.com/gophercloud/gophercloud/openstack/compute/v2/extensions/keypairs"
+	"github.com/gophercloud/gophercloud/openstack/compute/v2/extensions/startstop"
+	"github.com/gophercloud/gophercloud/openstack/compute/v2/flavors"
+	"github.com/gophercloud/gophercloud/openstack/compute/v2/images"
+	"github.com/gophercloud/gophercloud/openstack/compute/v2/servers"
 
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
@@ -119,13 +119,30 @@ func (vmHandler *OpenStackVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInf
 		return irs.VMInfo{}, err
 	}*/
 
+	//  이미지 정보 조회 (Name)
+	imageHandler := OpenStackImageHandler{
+		Client: vmHandler.Client,
+	}
+	image, err := imageHandler.GetImage(vmReqInfo.IId)
+	if err != nil {
+		cblogger.Error(fmt.Sprintf("failed to get image, err : %s", err))
+		return irs.VMInfo{}, err
+	}
+
+	// Flavor 정보 조회 (Name)
+	vmSpecId, err := GetFlavorByName(vmHandler.Client, vmReqInfo.VMSpecName)
+	if err != nil {
+		LoggingError(hiscallInfo, err)
+		return irs.VMInfo{}, err
+	}
+
 	// VM 생성
 	serverCreateOpts := servers.CreateOpts{
-		Name:      vmReqInfo.IId.NameId,
-		ImageName: vmReqInfo.ImageIID.NameId,
-		//ImageRef:  vmReqInfo.ImageIID.SystemId,
-		FlavorName: vmReqInfo.VMSpecName,
-		//FlavorRef: *flavorId,
+		Name: vmReqInfo.IId.NameId,
+		//ImageName: vmReqInfo.ImageIID.NameId,
+		ImageRef: image.IId.SystemId,
+		//FlavorName: vmReqInfo.VMSpecName,
+		FlavorRef: vmSpecId,
 		Networks: []servers.Network{
 			{UUID: vmReqInfo.VpcIID.SystemId},
 		},
@@ -257,7 +274,10 @@ func (vmHandler *OpenStackVMHandler) RebootVM(vmIID irs.IID) (irs.VMStatus, erro
 		return irs.Failed, err
 	}*/
 	start := call.Start()
-	rebootOpts := servers.SoftReboot
+	rebootOpts := servers.RebootOpts{
+		Type: servers.SoftReboot,
+	}
+
 	err := servers.Reboot(vmHandler.Client, vmIID.SystemId, rebootOpts).ExtractErr()
 	if err != nil {
 		LoggingError(hiscallInfo, err)
@@ -281,12 +301,12 @@ func (vmHandler *OpenStackVMHandler) TerminateVM(vmIID irs.IID) (irs.VMStatus, e
 	}
 
 	// VM에 연결된 PublicIP 삭제
-	pager, err := floatingip.List(vmHandler.Client).AllPages()
+	pager, err := floatingips.List(vmHandler.Client).AllPages()
 	if err != nil {
 		LoggingError(hiscallInfo, err)
 		return irs.Failed, err
 	}
-	publicIPList, err := floatingip.ExtractFloatingIPs(pager)
+	publicIPList, err := floatingips.ExtractFloatingIPs(pager)
 	if err != nil {
 		LoggingError(hiscallInfo, err)
 		return irs.Failed, err
@@ -302,7 +322,7 @@ func (vmHandler *OpenStackVMHandler) TerminateVM(vmIID irs.IID) (irs.VMStatus, e
 	}
 	// Public IP 삭제
 	if publicIPId != "" {
-		err := floatingip.Delete(vmHandler.Client, publicIPId).ExtractErr()
+		err := floatingips.Delete(vmHandler.Client, publicIPId).ExtractErr()
 		if err != nil {
 			LoggingError(hiscallInfo, err)
 			return irs.Failed, err
@@ -431,19 +451,18 @@ func (vmHandler *OpenStackVMHandler) AssociatePublicIP(serverID string) (bool, e
 	// PublicIP 생성
 	//VPCHander := cloudConnection.CreateVPCHandler()
 	externVPCName, _ := GetPublicVPCInfo(vmHandler.NetworkClient, "NAME")
-	createOpts := floatingip.CreateOpts{
+	createOpts := floatingips.CreateOpts{
 		Pool: externVPCName,
 	}
-	publicIP, err := floatingip.Create(vmHandler.Client, createOpts).Extract()
+	publicIP, err := floatingips.Create(vmHandler.Client, createOpts).Extract()
 	if err != nil {
 		return false, err
 	}
 	// PublicIP VM 연결
-	associateOpts := floatingip.AssociateOpts{
-		ServerID:   serverID,
+	associateOpts := floatingips.AssociateOpts{
 		FloatingIP: publicIP.IP,
 	}
-	err = floatingip.AssociateInstance(vmHandler.Client, associateOpts).ExtractErr()
+	err = floatingips.AssociateInstance(vmHandler.Client, serverID, associateOpts).ExtractErr()
 	if err != nil {
 		return false, err
 	}
@@ -490,7 +509,7 @@ func (vmHandler *OpenStackVMHandler) mappingServerInfo(server servers.Server) ir
 		KeyValueList:      nil,
 		SecurityGroupIIds: nil,
 	}
-	if creatTime, err := time.Parse(time.RFC3339, server.Created); err == nil {
+	if creatTime, err := time.Parse(time.RFC3339, server.Created.String()); err == nil {
 		vmInfo.StartTime = creatTime
 	}
 
@@ -570,10 +589,8 @@ func (vmHandler *OpenStackVMHandler) mappingServerInfo(server servers.Server) ir
 
 	for _, vol := range volList {
 		for _, attach := range vol.Attachments {
-			if val, ok := attach["server_id"].(string); ok {
-				if strings.EqualFold(val, vmInfo.IId.SystemId) {
-					vmInfo.VMBlockDisk = attach["device"].(string)
-				}
+			if attach.ServerID == vmInfo.IId.SystemId {
+				vmInfo.VMBlockDisk = attach.Device
 			}
 		}
 	}
