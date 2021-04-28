@@ -40,7 +40,7 @@ func testImageHandler(config Config) {
 	cblogger.Info("5. Exit")
 
 	imageId := irs.IID{
-		NameId: "Fedora27-k8s", // Ubuntu 16.04
+		NameId: "openshift-4hn7m-ignition", // Ubuntu 16.04
 	}
 
 Loop:
@@ -111,7 +111,7 @@ func testVPCHandler(config Config) {
 	cblogger.Info("4. DeleteVPC()")
 	cblogger.Info("5. Exit")
 
-	vpcId := irs.IID{NameId: "CB-VNet2", SystemId: "fa517cc1-7d4a-4a6f-a0be-ff77761152b5"}
+	vpcId := irs.IID{NameId: "CB-VNet", SystemId: "af8010c9-4769-4545-9770-a31e9bb8b645"}
 
 Loop:
 
@@ -337,7 +337,8 @@ func testSecurityHandler(config Config) {
 	cblogger.Info("5. Exit")
 
 	securityGroupIId := irs.IID{
-		NameId: "CB-SecGroup",
+		NameId:   "CB-SecGroup",
+		SystemId: "45a9a7be-917b-4e9f-8cbf-4aca231ff607",
 	}
 
 Loop:
@@ -661,7 +662,7 @@ func testVMSpecHandler(config Config) {
 	cblogger.Info("5. Exit")
 
 	var vmSpecId string
-	vmSpecId = "babo"
+	vmSpecId = "k8s-farm-master"
 
 Loop:
 	for {
@@ -886,7 +887,7 @@ type Config struct {
 
 func readConfigFile() Config {
 	// Set Environment Value of Project Root Path
-	rootPath := os.Getenv("CBSPIDER_PATH")
+	rootPath := os.Getenv("CBSPIDER_ROOT")
 	data, err := ioutil.ReadFile(rootPath + "/conf/config.yaml")
 	if err != nil {
 		cblogger.Error(err)

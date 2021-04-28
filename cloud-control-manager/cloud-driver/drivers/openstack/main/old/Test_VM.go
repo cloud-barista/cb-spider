@@ -2,6 +2,9 @@ package main
 
 import (
 	"fmt"
+	"io/ioutil"
+	"os"
+
 	cblog "github.com/cloud-barista/cb-log"
 	osdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/openstack"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
@@ -9,8 +12,6 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	"github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v3"
-	"io/ioutil"
-	"os"
 )
 
 var cblogger *logrus.Logger
@@ -23,13 +24,12 @@ func init() {
 // Create Instance
 func createVM(config Config, vmHandler irs.VMHandler) (*string, error) {
 
-	vmName := "CBVm"
-	imageId := "c14a9728-eb03-4813-9e1a-8f57fe62b4fb"
-	imageName := "ubuntu16.04"
-	vmSpecName := "nano.1"
-	vpcId := "deae15ce-9789-4a4a-8f84-885e01ce8c1d"
-	//subnetId := "03e48ba2-c0ac-4e2f-8d9f-dd4fb1615d5a"
-	securityId := "392b779d-4c41-4f7e-aeb2-a5673108df86"
+	vmName := "CB-Vm"
+	imageId := "062ec06f-ead4-453b-91e4-e8c859b93afc"
+	imageName := "ubuntu-18.04"
+	vmSpecName := "m1.medium"
+	vpcId := "af8010c9-4769-4545-9770-a31e9bb8b645"
+	securityId := "45a9a7be-917b-4e9f-8cbf-4aca231ff607"
 	keypairName := "CB-Keypair"
 
 	vmReqInfo := irs.VMReqInfo{
@@ -238,7 +238,7 @@ type Config struct {
 
 func readConfigFile() Config {
 	// Set Environment Value of Project Root Path
-	rootPath := os.Getenv("CBSPIDER_PATH")
+	rootPath := os.Getenv("CBSPIDER_ROOT")
 	data, err := ioutil.ReadFile(rootPath + "/conf/config.yaml")
 	if err != nil {
 		cblogger.Error(err)

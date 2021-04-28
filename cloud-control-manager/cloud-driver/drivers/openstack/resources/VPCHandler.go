@@ -5,11 +5,11 @@ import (
 	"fmt"
 
 	"github.com/Azure/go-autorest/autorest/to"
-	"github.com/rackspace/gophercloud"
-	"github.com/rackspace/gophercloud/openstack/networking/v2/extensions/external"
-	"github.com/rackspace/gophercloud/openstack/networking/v2/extensions/layer3/routers"
-	"github.com/rackspace/gophercloud/openstack/networking/v2/networks"
-	"github.com/rackspace/gophercloud/openstack/networking/v2/subnets"
+	"github.com/gophercloud/gophercloud"
+	"github.com/gophercloud/gophercloud/openstack/networking/v2/extensions/external"
+	"github.com/gophercloud/gophercloud/openstack/networking/v2/extensions/layer3/routers"
+	"github.com/gophercloud/gophercloud/openstack/networking/v2/networks"
+	"github.com/gophercloud/gophercloud/openstack/networking/v2/subnets"
 
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
@@ -23,7 +23,12 @@ type OpenStackVPCHandler struct {
 	Client *gophercloud.ServiceClient
 }
 
-func (vpcHandler *OpenStackVPCHandler) setterVPC(nvpc external.NetworkExternal) *irs.VPCInfo {
+type NetworkWithExt struct {
+	networks.Network
+	external.NetworkExternalExt
+}
+
+func (vpcHandler *OpenStackVPCHandler) setterVPC(nvpc NetworkWithExt) *irs.VPCInfo {
 
 	// VPC 정보 맵핑
 	vpcInfo := irs.VPCInfo{
@@ -42,6 +47,7 @@ func (vpcHandler *OpenStackVPCHandler) setterVPC(nvpc external.NetworkExternal) 
 		{Key: "External Network", Value: External},
 	}
 	vpcInfo.KeyValueList = keyValueList
+
 	// 서브넷 정보 조회
 	subnetInfoList := make([]irs.SubnetInfo, len(nvpc.Subnets))
 
@@ -150,8 +156,12 @@ func (vpcHandler *OpenStackVPCHandler) ListVPC() ([]*irs.VPCInfo, error) {
 	// log HisCall
 	hiscallInfo := GetCallLogScheme(vpcHandler.Client.IdentityEndpoint, call.VPCSUBNET, VPC, "ListVPC()")
 
+	listOpts := external.ListOptsExt{
+		ListOptsBuilder: networks.ListOpts{},
+	}
+
 	start := call.Start()
-	page, err := networks.List(vpcHandler.Client, nil).AllPages()
+	page, err := networks.List(vpcHandler.Client, listOpts).AllPages()
 	if err != nil {
 		getErr := errors.New(fmt.Sprintf("Failed to get vpc list, err=%s", err.Error()))
 		LoggingError(hiscallInfo, getErr)
@@ -159,7 +169,8 @@ func (vpcHandler *OpenStackVPCHandler) ListVPC() ([]*irs.VPCInfo, error) {
 	}
 	LoggingInfo(hiscallInfo, start)
 
-	vpcList, err := external.ExtractList(page)
+	var vpcList []NetworkWithExt
+	err = networks.ExtractNetworksInto(page, &vpcList)
 	if err != nil {
 		getErr := errors.New(fmt.Sprintf("Failed to get vpc list, err=%s", err.Error()))
 		LoggingError(hiscallInfo, getErr)
@@ -179,9 +190,9 @@ func (vpcHandler *OpenStackVPCHandler) GetVPC(vpcIID irs.IID) (irs.VPCInfo, erro
 	// log HisCall
 	hiscallInfo := GetCallLogScheme(vpcHandler.Client.IdentityEndpoint, call.VPCSUBNET, vpcIID.NameId, "GetVPC()")
 
+	var vpc NetworkWithExt
 	start := call.Start()
-	vpcResult := networks.Get(vpcHandler.Client, vpcIID.SystemId)
-	externalVpc, err := external.ExtractGet(vpcResult)
+	err := networks.Get(vpcHandler.Client, vpcIID.SystemId).ExtractInto(&vpc)
 	if err != nil {
 		getErr := errors.New(fmt.Sprintf("Failed to get vpc with Id %s, err=%s", vpcIID.SystemId, err.Error()))
 		LoggingError(hiscallInfo, getErr)
@@ -189,7 +200,7 @@ func (vpcHandler *OpenStackVPCHandler) GetVPC(vpcIID irs.IID) (irs.VPCInfo, erro
 	}
 	LoggingInfo(hiscallInfo, start)
 
-	vpcInfo := vpcHandler.setterVPC(*externalVpc)
+	vpcInfo := vpcHandler.setterVPC(vpc)
 	return *vpcInfo, nil
 }
 
@@ -222,11 +233,13 @@ func (vpcHandler *OpenStackVPCHandler) DeleteVPC(vpcIID irs.IID) (bool, error) {
 
 	// TODO: nested flow 개선
 	// Delete Router
-	err = routers.Delete(vpcHandler.Client, *routerId).ExtractErr()
-	if err != nil {
-		getErr := errors.New(fmt.Sprintf("Failed to delete router, err=%s", err.Error()))
-		LoggingError(hiscallInfo, getErr)
-		return false, getErr
+	if routerId != nil {
+		err = routers.Delete(vpcHandler.Client, *routerId).ExtractErr()
+		if err != nil {
+			getErr := errors.New(fmt.Sprintf("Failed to delete router, err=%s", err.Error()))
+			LoggingError(hiscallInfo, getErr)
+			return false, getErr
+		}
 	}
 
 	// TODO: nested flow 개선
@@ -257,7 +270,7 @@ func (vpcHandler *OpenStackVPCHandler) CreateSubnet(vpcId string, reqSubnetInfo 
 		NetworkID:      vpcId,
 		Name:           reqSubnetInfo.IId.NameId,
 		CIDR:           reqSubnetInfo.IPv4_CIDR,
-		IPVersion:      subnets.IPv4,
+		IPVersion:      gophercloud.IPv4,
 		DNSNameservers: []string{DNSNameservers},
 	}
 	subnet, err := subnets.Create(vpcHandler.Client, subnetCreateOpts).Extract()
@@ -347,7 +360,7 @@ func (vpcHandler *OpenStackVPCHandler) DeleteRouter(vpcName string) (bool, error
 }
 
 func (vpcHandler *OpenStackVPCHandler) AddInterface(subnetId string, routerId string) (bool, error) {
-	createOpts := routers.InterfaceOpts{
+	createOpts := routers.AddInterfaceOpts{
 		SubnetID: subnetId,
 	}
 
@@ -360,7 +373,7 @@ func (vpcHandler *OpenStackVPCHandler) AddInterface(subnetId string, routerId st
 }
 
 func (vpcHandler *OpenStackVPCHandler) DeleteInterface(subnetId string, routerId string) (bool, error) {
-	deleteOpts := routers.InterfaceOpts{
+	deleteOpts := routers.RemoveInterfaceOpts{
 		SubnetID: subnetId,
 	}
 
@@ -380,7 +393,7 @@ func (vpcHandler *OpenStackVPCHandler) AddSubnet(vpcIID irs.IID, subnetInfo irs.
 		NetworkID:      vpcIID.SystemId,
 		Name:           subnetInfo.IId.NameId,
 		CIDR:           subnetInfo.IPv4_CIDR,
-		IPVersion:      subnets.IPv4,
+		IPVersion:      gophercloud.IPv4,
 		DNSNameservers: []string{DNSNameservers},
 	}
 
