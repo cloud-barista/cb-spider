@@ -7,6 +7,7 @@
 package resources
 
 import (
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"reflect"
@@ -69,6 +70,24 @@ func (vmHandler *AwsVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 	baseName := vmReqInfo.IId.NameId //"mcloud-barista-VMHandlerTest"
 	subnetID := vmReqInfo.SubnetIID.SystemId
 
+	// 2021-04-28 cbuser 추가에 따른 Local KeyPair만 VM 생성 가능하도록 강제
+	//=============================
+	// KeyPair의 PublicKey 정보 처리
+	//=============================
+	cblogger.Infof("[%s] KeyPair 조회 시작", keyName)
+	keypairHandler := AwsKeyPairHandler{
+		//CredentialInfo:
+		Region: vmHandler.Region,
+		Client: vmHandler.Client,
+	}
+	cblogger.Info(keypairHandler)
+
+	keyPairInfo, errKeyPair := keypairHandler.GetKey(vmReqInfo.KeyPairIID)
+	if errKeyPair != nil {
+		cblogger.Error(errKeyPair)
+		return irs.VMInfo{}, errKeyPair
+	}
+
 	//=============================
 	// 보안그룹 처리 - SystemId 기반
 	//=============================
@@ -105,6 +124,16 @@ func (vmHandler *AwsVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 	*/
 
 	//=============================
+	// UserData생성 처리
+	//=============================
+	userData := "#cloud-config\nusers:\n  - default\n  - name: " + CBDefaultVmUserName + "\n    groups: sudo\n    shell: /bin/bash\n    sudo: ['ALL=(ALL) NOPASSWD:ALL']\n    ssh-authorized-keys:\n      - "
+	//userData = userData + "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC0wqohybvHvljVsUW7vmyicVNVDcPdzh6ZRkm1H9SyMuUEK0zOB3Kj+1MxMQPnRXgL9fI518ymUxavrkrHr0LwZtG8pfMOwZkZ7WD4WnT6Ho14N14U1JIM/+005cBBYyF+OWYyxD/q5p/y8R19NXLpEbnpTNL0mKjQ1q8a6/LVCsaKxy9OJ9o/ChN2FDXhCdVLPHL/jrUPqzjSLkm/GIt+v9RWJ0BFAk+rZY7abMNfGSorTqWZEYYd8gqofeTPh2mhYr21NVLBiAyzQqs6fgL+FgsnJFBnuIZ2peuCGxcOxZ7h8iEzJG2r+tGn+ivfMpla12oHxwihJhiodN1KxeZ7"
+	userData = userData + keyPairInfo.PublicKey
+	userDataBase64 := aws.String(base64.StdEncoding.EncodeToString([]byte(userData)))
+	cblogger.Infof("===== userData ===")
+	spew.Dump(userDataBase64)
+
+	//=============================
 	// VM생성 처리
 	//=============================
 	cblogger.Info("Create EC2 Instance")
@@ -138,6 +167,7 @@ func (vmHandler *AwsVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 		},
 
 		//ec2.InstanceNetworkInterfaceSpecification
+		UserData: userDataBase64,
 	}
 	cblogger.Info(input)
 

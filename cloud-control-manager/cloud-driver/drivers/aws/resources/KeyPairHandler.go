@@ -1,7 +1,16 @@
 package resources
 
 import (
+	"bytes"
+	"crypto/md5"
+	"crypto/rsa"
 	"errors"
+	"fmt"
+	"io"
+	"io/ioutil"
+	"log"
+	"os"
+	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
@@ -9,12 +18,15 @@ import (
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
+	"github.com/davecgh/go-spew/spew"
 	_ "github.com/davecgh/go-spew/spew"
+	"golang.org/x/crypto/ssh"
 )
 
 type AwsKeyPairHandler struct {
-	Region idrv.RegionInfo
-	Client *ec2.EC2
+	CredentialInfo idrv.CredentialInfo
+	Region         idrv.RegionInfo
+	Client         *ec2.EC2
 }
 
 /*
@@ -71,8 +83,14 @@ func (keyPairHandler *AwsKeyPairHandler) ListKey() ([]*irs.KeyPairInfo, error) {
 			keyPairInfo.Name = *pair.KeyName
 			keyPairInfo.Fingerprint = *pair.KeyFingerprint
 		*/
-		keyPairInfo := ExtractKeyPairDescribeInfo(pair)
-		keyPairList = append(keyPairList, &keyPairInfo)
+		keyPairInfo, errKeyPair := ExtractKeyPairDescribeInfo(pair)
+		if errKeyPair != nil {
+			cblogger.Infof("[%s] KeyPair는 Local에서 관리하는 대상이 아니기 때문에 Skip합니다.", *pair.KeyName)
+			cblogger.Info(errKeyPair.Error())
+			//return nil, errKeyPair
+		} else {
+			keyPairList = append(keyPairList, &keyPairInfo)
+		}
 	}
 
 	cblogger.Debug(keyPairList)
@@ -82,6 +100,15 @@ func (keyPairHandler *AwsKeyPairHandler) ListKey() ([]*irs.KeyPairInfo, error) {
 
 func (keyPairHandler *AwsKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPairReqInfo) (irs.KeyPairInfo, error) {
 	cblogger.Info(keyPairReqInfo)
+	keyPairPath := os.Getenv("CBSPIDER_ROOT") + CBKeyPairPath
+	cblogger.Infof("Getenv[CBSPIDER_ROOT] : [%s]", os.Getenv("CBSPIDER_ROOT"))
+	cblogger.Infof("CBKeyPairPath : [%s]", CBKeyPairPath)
+	cblogger.Infof("Final keyPairPath : [%s]", keyPairPath)
+
+	if err := keyPairHandler.CheckKeyPairFolder(keyPairPath); err != nil {
+		cblogger.Error(err)
+		return irs.KeyPairInfo{}, err
+	}
 
 	// logger for HisCall
 	callogger := call.GetLogger("HISCALL")
@@ -116,16 +143,58 @@ func (keyPairHandler *AwsKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPairReq
 	callogger.Info(call.String(callLogInfo))
 
 	cblogger.Infof("Created key pair %q %s\n%s\n", *result.KeyName, *result.KeyFingerprint, *result.KeyMaterial)
-	//spew.Dump(result)
+
+	cblogger.Info("공개키 생성")
+	publicKey, errPub := makePublicKeyFromPrivateKey(*result.KeyMaterial)
+	if errPub != nil {
+		cblogger.Error(errPub)
+		return irs.KeyPairInfo{}, err
+	}
+
+	cblogger.Infof("Public Key")
+	//spew.Dump(publicKey)
 	keyPairInfo := irs.KeyPairInfo{
 		//Name:        *result.KeyName,
 		IId:         irs.IID{keyPairReqInfo.IId.NameId, *result.KeyName},
 		Fingerprint: *result.KeyFingerprint,
 		PrivateKey:  *result.KeyMaterial, // AWS(PEM파일-RSA PRIVATE KEY)
+		PublicKey:   publicKey,
 		//KeyMaterial: *result.KeyMaterial,
 		KeyValueList: []irs.KeyValue{
 			{Key: "KeyMaterial", Value: *result.KeyMaterial},
 		},
+	}
+
+	//spew.Dump(keyPairInfo)
+
+	//	resultStr = strings.ReplaceAll(resultStr, "//", "/")
+	//@TODO : File에 저장할 키 파일 이름의 PK 특징 때문에 제약이 걸릴 수 있음. (인증정보로 해쉬를 하면 부모 하위의 IAM 계정에서 해당 키를 못 찾을 수 있으며 사용자 정보를 사용하지 않으면 Uniqueue하지 않아서 충돌 날 수 있음.) 현재는 핑거프린트와 리전을 키로 사용함.
+	/*
+		hashString, err := CreateHashString(keyPairHandler.CredentialInfo, keyPairHandler.Region)
+		if err != nil {
+			cblogger.Error(err)
+			return irs.KeyPairInfo{}, err
+		}
+		savePrivateFileTo := keyPairPath + hashString + "--" + keyPairReqInfo.IId.NameId + ".pem"
+		savePublicFileTo := keyPairPath + hashString + "--" + keyPairReqInfo.IId.NameId + ".pub"
+	*/
+	hashString := strings.ReplaceAll(keyPairInfo.Fingerprint, ":", "") // 필요한 경우 리전 정보 추가하면 될 듯. 나중에 키 이름과 리전으로 암복호화를 진행하면 될 것같음.
+	savePrivateFileTo := keyPairPath + hashString + ".pem"
+	savePublicFileTo := keyPairPath + hashString + ".pub"
+	//cblogger.Infof("hashString : [%s]", hashString)
+	cblogger.Infof("savePrivateFileTo : [%s]", savePrivateFileTo)
+	cblogger.Infof("savePublicFileTo : [%s]", savePublicFileTo)
+
+	// 파일에 private Key를 쓴다
+	err = writeKeyToFile([]byte(keyPairInfo.PrivateKey), savePrivateFileTo)
+	if err != nil {
+		return irs.KeyPairInfo{}, err
+	}
+
+	// 파일에 public Key를 쓴다
+	err = writeKeyToFile([]byte(keyPairInfo.PublicKey), savePublicFileTo)
+	if err != nil {
+		return irs.KeyPairInfo{}, err
 	}
 
 	return keyPairInfo, nil
@@ -133,6 +202,17 @@ func (keyPairHandler *AwsKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPairReq
 
 //혼선을 피하기 위해 keyPairID 대신 keyName으로 변경 함.
 func (keyPairHandler *AwsKeyPairHandler) GetKey(keyIID irs.IID) (irs.KeyPairInfo, error) {
+
+	keyPairPath := os.Getenv("CBSPIDER_ROOT") + CBKeyPairPath
+	cblogger.Infof("Getenv[CBSPIDER_ROOT] : [%s]", os.Getenv("CBSPIDER_ROOT"))
+	cblogger.Infof("CBKeyPairPath : [%s]", CBKeyPairPath)
+	cblogger.Infof("Final keyPairPath : [%s]", keyPairPath)
+
+	if err := keyPairHandler.CheckKeyPairFolder(keyPairPath); err != nil {
+		cblogger.Error(err)
+		return irs.KeyPairInfo{}, err
+	}
+
 	//keyPairID := keyName
 	cblogger.Infof("keyName : [%s]", keyIID.SystemId)
 	input := &ec2.DescribeKeyPairsInput{
@@ -183,7 +263,13 @@ func (keyPairHandler *AwsKeyPairHandler) GetKey(keyIID irs.IID) (irs.KeyPairInfo
 	callogger.Info(call.String(callLogInfo))
 
 	if len(result.KeyPairs) > 0 {
-		keyPairInfo := ExtractKeyPairDescribeInfo(result.KeyPairs[0])
+		keyPairInfo, errKeyPair := ExtractKeyPairDescribeInfo(result.KeyPairs[0])
+		if errKeyPair != nil {
+			cblogger.Error(errKeyPair.Error())
+			return irs.KeyPairInfo{}, errKeyPair
+		}
+
+		spew.Dump(keyPairInfo)
 		return keyPairInfo, nil
 	} else {
 		return irs.KeyPairInfo{}, errors.New("정보를 찾을 수 없습니다.")
@@ -191,7 +277,7 @@ func (keyPairHandler *AwsKeyPairHandler) GetKey(keyIID irs.IID) (irs.KeyPairInfo
 }
 
 //KeyPair 정보를 추출함
-func ExtractKeyPairDescribeInfo(keyPair *ec2.KeyPairInfo) irs.KeyPairInfo {
+func ExtractKeyPairDescribeInfo(keyPair *ec2.KeyPairInfo) (irs.KeyPairInfo, error) {
 	//spew.Dump(keyPair)
 	keyPairInfo := irs.KeyPairInfo{
 		IId: irs.IID{*keyPair.KeyName, *keyPair.KeyName},
@@ -199,19 +285,45 @@ func ExtractKeyPairDescribeInfo(keyPair *ec2.KeyPairInfo) irs.KeyPairInfo {
 		Fingerprint: *keyPair.KeyFingerprint,
 	}
 
+	// Local Keyfile 처리
+	keyPairPath := os.Getenv("CBSPIDER_ROOT") + CBKeyPairPath
+	hashString := strings.ReplaceAll(keyPairInfo.Fingerprint, ":", "") // 필요한 경우 리전 정보 추가하면 될 듯. 나중에 키 이름과 리전으로 암복호화를 진행하면 될 것같음.
+	privateKeyPath := keyPairPath + hashString + ".pem"
+	publicKeyPath := keyPairPath + hashString + ".pub"
+	//cblogger.Infof("hashString : [%s]", hashString)
+	cblogger.Debugf("[%s] ==> [%s]", keyPairInfo.IId.NameId, privateKeyPath)
+	cblogger.Debugf("[%s] ==> [%s]", keyPairInfo.IId.NameId, publicKeyPath)
+
+	// Private Key, Public Key 파일 정보 가져오기
+	privateKeyBytes, err := ioutil.ReadFile(privateKeyPath)
+	if err != nil {
+		cblogger.Errorf("[%s] KeyPair의 Local Private 파일 조회 실패", keyPairInfo.IId.NameId)
+		cblogger.Error(err)
+		return irs.KeyPairInfo{}, err
+	}
+	publicKeyBytes, err := ioutil.ReadFile(publicKeyPath)
+	if err != nil {
+		cblogger.Errorf("[%s] KeyPair의 Local Public 파일 조회 실패", keyPairInfo.IId.NameId)
+		cblogger.Error(err)
+		return irs.KeyPairInfo{}, err
+	}
+
+	keyPairInfo.PublicKey = string(publicKeyBytes)
+	keyPairInfo.PrivateKey = string(privateKeyBytes)
+
 	keyValueList := []irs.KeyValue{
 		//{Key: "KeyMaterial", Value: *keyPair.KeyMaterial},
 	}
 
 	keyPairInfo.KeyValueList = keyValueList
 
-	return keyPairInfo
+	return keyPairInfo, nil
 }
 
 func (keyPairHandler *AwsKeyPairHandler) DeleteKey(keyIID irs.IID) (bool, error) {
 	cblogger.Infof("삭제 요청된 키페어 : [%s]", keyIID.SystemId)
 
-	_, errGet := keyPairHandler.GetKey(keyIID)
+	keyPairInfo, errGet := keyPairHandler.GetKey(keyIID)
 	if errGet != nil {
 		return false, errGet
 	}
@@ -249,8 +361,96 @@ func (keyPairHandler *AwsKeyPairHandler) DeleteKey(keyIID irs.IID) (bool, error)
 		return false, err
 	}
 	callogger.Info(call.String(callLogInfo))
+	cblogger.Infof("Successfully deleted %q AWS key pair\n", keyIID.SystemId)
 
-	cblogger.Infof("Successfully deleted %q key pair\n", keyIID.SystemId)
+	//====================
+	// Local Keyfile 처리
+	//====================
+	keyPairPath := os.Getenv("CBSPIDER_ROOT") + CBKeyPairPath
+	cblogger.Infof("Getenv[CBSPIDER_ROOT] : [%s]", os.Getenv("CBSPIDER_ROOT"))
+	cblogger.Infof("CBKeyPairPath : [%s]", CBKeyPairPath)
+	cblogger.Infof("Final keyPairPath : [%s]", keyPairPath)
+
+	hashString := strings.ReplaceAll(keyPairInfo.Fingerprint, ":", "") // 필요한 경우 리전 정보 추가하면 될 듯. 나중에 키 이름과 리전으로 암복호화를 진행하면 될 것같음.
+	privateKeyPath := keyPairPath + hashString + ".pem"
+	publicKeyPath := keyPairPath + hashString + ".pub"
+
+	// Private Key, Public Key 삭제
+	err = os.Remove(privateKeyPath)
+	if err != nil {
+		return false, err
+	}
+	err = os.Remove(publicKeyPath)
+	if err != nil {
+		return false, err
+	}
 
 	return true, nil
+}
+
+//=================================
+// 공개 키 변환 및 키 정보 로컬 보관 로직 추가
+//=================================
+func (keyPairHandler *AwsKeyPairHandler) CheckKeyPairFolder(keyPairPath string) error {
+	//키페어 생성 시 폴더가 존재하지 않으면 생성 함.
+	_, errChkDir := os.Stat(keyPairPath)
+	if os.IsNotExist(errChkDir) {
+		cblogger.Errorf("[%s] Path가 존재하지 않아서 생성합니다.", keyPairPath)
+
+		//errDir := os.MkdirAll(keyPairPath, 0755)
+		errDir := os.MkdirAll(keyPairPath, 0700)
+		//errDir := os.MkdirAll(keyPairPath, os.ModePerm) // os.ModePerm : 0777	//os.ModeDir
+		if errDir != nil {
+			//log.Fatal(err)
+			cblogger.Errorf("[%s] Path가 생성 실패", keyPairPath)
+			cblogger.Error(errDir)
+			return errDir
+		}
+	}
+	return nil
+}
+
+// ParseKey reads the given RSA private key and create a public one for it.
+func makePublicKeyFromPrivateKey(pem string) (string, error) {
+	key, err := ssh.ParseRawPrivateKey([]byte(pem))
+	if err != nil {
+		return "", err
+	}
+	rsaKey, ok := key.(*rsa.PrivateKey)
+	if !ok {
+		return "", fmt.Errorf("%q is not a RSA key", pem)
+	}
+	pub, err := ssh.NewPublicKey(&rsaKey.PublicKey)
+	if err != nil {
+		return "", err
+	}
+
+	return string(bytes.TrimRight(ssh.MarshalAuthorizedKey(pub), "\n")), nil
+}
+
+// 파일에 Key를 쓴다
+func writeKeyToFile(keyBytes []byte, saveFileTo string) error {
+	err := ioutil.WriteFile(saveFileTo, keyBytes, 0600)
+	if err != nil {
+		return err
+	}
+
+	log.Printf("Key 저장위치: %s", saveFileTo)
+	return nil
+}
+
+// @TODO - PK 이슈 처리해야 함. (A User / B User / User 하위의 IAM 계정간의 호환성에 이슈가 없어야 하는데 현재는 안 됨.)
+//       - 따라서 AWS는 대안으로 KeyPair의 FingerPrint를 이용하도록 변경 - 필요시 리전및 키 이름과 혼용해서 만들어야할 듯.
+// KeyPair 해시 생성 함수 (PK 이슈로 현재는 사용하지 않음)
+func CreateHashString(credentialInfo idrv.CredentialInfo, Region idrv.RegionInfo) (string, error) {
+	log.Println("credentialInfo.ClientId : " + credentialInfo.ClientId)
+	log.Println("Region.Region : " + Region.Region)
+	keyString := credentialInfo.ClientId + credentialInfo.ClientSecret + Region.Region
+	//keyString := credentialInfo
+	hasher := md5.New()
+	_, err := io.WriteString(hasher, keyString)
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("%x", hasher.Sum(nil)), nil
 }

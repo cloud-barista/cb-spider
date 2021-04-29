@@ -17,6 +17,9 @@
 
 *.log
 cloud-driver-libs/.ssh-gcp/*
+cloud-driver-libs/.ssh-aws/*
+cloud-driver-libs/.ssh-aliyun/*
+cloud-driver-libs/.ssh-tencent/*
 
 vendor/*
 cloud-driver-libs/*.so
