@@ -71,8 +71,25 @@ func (vmHandler *AlibabaVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 	//=============================
 	// UserData생성 처리
 	//=============================
-	userData := "#cloud-config\nusers:\n  - default\n  - name: " + CBDefaultVmUserName + "\n    groups: sudo\n    shell: /bin/bash\n    sudo: ['ALL=(ALL) NOPASSWD:ALL']\n    ssh-authorized-keys:\n      - "
-	//userData = userData + "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC0wqohybvHvljVsUW7vmyicVNVDcPdzh6ZRkm1H9SyMuUEK0zOB3Kj+1MxMQPnRXgL9fI518ymUxavrkrHr0LwZtG8pfMOwZkZ7WD4WnT6Ho14N14U1JIM/+005cBBYyF+OWYyxD/q5p/y8R19NXLpEbnpTNL0mKjQ1q8a6/LVCsaKxy9OJ9o/ChN2FDXhCdVLPHL/jrUPqzjSLkm/GIt+v9RWJ0BFAk+rZY7abMNfGSorTqWZEYYd8gqofeTPh2mhYr21NVLBiAyzQqs6fgL+FgsnJFBnuIZ2peuCGxcOxZ7h8iEzJG2r+tGn+ivfMpla12oHxwihJhiodN1KxeZ7"
+	/*
+		package_update: true
+		packages:
+		 - sudo
+		users:
+		  - default
+		  - name: cb-user
+			groups: sudo
+			shell: /bin/bash
+			sudo: ['ALL=(ALL) NOPASSWD:ALL']
+			ssh-authorized-keys:
+			  - ssh-rsa AAAAB3NzaC1y
+	*/
+	//sudo 패키지 설치
+	//userData := "#cloud-config\npackage_update: true\npackages:\n  - sudo\nusers:\n  - default\n  - name: " + CBDefaultVmUserName + "\n    groups: sudo\n    shell: /bin/bash\n    sudo: ['ALL=(ALL) NOPASSWD:ALL']\n    ssh-authorized-keys:\n      - "
+	//sudo 그룹 사용
+	//userData := "#cloud-config\nusers:\n  - default\n  - name: " + CBDefaultVmUserName + "\n    groups: sudo\n    shell: /bin/bash\n    sudo: ['ALL=(ALL) NOPASSWD:ALL']\n    ssh-authorized-keys:\n      - "
+	//그룹 제거
+	userData := "#cloud-config\nusers:\n  - default\n  - name: " + CBDefaultVmUserName + "\n    shell: /bin/bash\n    sudo: ['ALL=(ALL) NOPASSWD:ALL']\n    ssh-authorized-keys:\n      - "
 	userData = userData + keyPairInfo.PublicKey
 	userDataBase64 := base64.StdEncoding.EncodeToString([]byte(userData))
 	cblogger.Infof("===== userData ===")
