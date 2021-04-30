@@ -1,0 +1,1250 @@
+// Proof of Concepts of CB-Spider.
+// The CB-Spider is a sub-Framework of the Cloud-Barista Multi-Cloud Project.
+// The CB-Spider Mission is to connect all the clouds with a single interface.
+//
+//      * Cloud-Barista: https://github.com/cloud-barista
+//
+// This is a Cloud Driver Example for PoC Test.
+//
+// by devunet@mz.co.kr, 2019.08.
+
+package main
+
+import (
+	"fmt"
+	"io/ioutil"
+	"os"
+
+	"github.com/aws/aws-sdk-go/aws/awserr"
+
+	tencentdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/tencent"
+	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
+
+	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
+	"github.com/davecgh/go-spew/spew"
+	"github.com/sirupsen/logrus"
+	"gopkg.in/yaml.v3"
+
+	cblog "github.com/cloud-barista/cb-log"
+)
+
+var cblogger *logrus.Logger
+
+func init() {
+	// cblog is a global variable.
+	cblogger = cblog.GetLogger("Tencent Resource Test")
+	cblog.SetLevel("info")
+}
+
+func handleSecurity() {
+	cblogger.Debug("Start Security Resource Test")
+
+	ResourceHandler, err := getResourceHandler("Security")
+	if err != nil {
+		panic(err)
+	}
+	handler := ResourceHandler.(irs.SecurityHandler)
+
+	//config := readConfigFile()
+	//VmID := config.Tencent.VmID
+
+	securityName := "CB-SecurityTest1"
+	securityId := "sg-0d6a2bb960481ce68"
+	vpcId := "vpc-c0479cab"
+
+	for {
+		fmt.Println("Security Management")
+		fmt.Println("0. Quit")
+		fmt.Println("1. Security List")
+		fmt.Println("2. Security Create")
+		fmt.Println("3. Security Get")
+		fmt.Println("4. Security Delete")
+
+		var commandNum int
+		inputCnt, err := fmt.Scan(&commandNum)
+		if err != nil {
+			panic(err)
+		}
+
+		if inputCnt == 1 {
+			switch commandNum {
+			case 0:
+				return
+
+			case 1:
+				result, err := handler.ListSecurity()
+				if err != nil {
+					cblogger.Infof(" Security 목록 조회 실패 : ", err)
+				} else {
+					cblogger.Info("Security 목록 조회 결과")
+					//cblogger.Info(result)
+					spew.Dump(result)
+					if result != nil {
+						securityId = result[0].IId.SystemId // 조회 및 삭제를 위해 생성된 ID로 변경
+					}
+				}
+
+			case 2:
+				cblogger.Infof("[%s] Security 생성 테스트", securityName)
+
+				securityReqInfo := irs.SecurityReqInfo{
+					IId:    irs.IID{NameId: securityName},
+					VpcIID: irs.IID{SystemId: vpcId},
+					SecurityRules: &[]irs.SecurityRuleInfo{ //보안 정책 설정
+						{
+							FromPort:   "20",
+							ToPort:     "22",
+							IPProtocol: "tcp",
+							Direction:  "inbound",
+						},
+
+						{
+							FromPort:   "80",
+							ToPort:     "80",
+							IPProtocol: "tcp",
+							Direction:  "inbound",
+						},
+						{
+							FromPort:   "8080",
+							ToPort:     "8080",
+							IPProtocol: "tcp",
+							Direction:  "inbound",
+						},
+						{
+							FromPort:   "-1",
+							ToPort:     "-1",
+							IPProtocol: "icmp",
+							Direction:  "inbound",
+						},
+						{
+							FromPort:   "443",
+							ToPort:     "443",
+							IPProtocol: "tcp",
+							Direction:  "outbound",
+						},
+						{
+							FromPort:   "8443",
+							ToPort:     "9999",
+							IPProtocol: "tcp",
+							Direction:  "outbound",
+						},
+						/*
+							{
+								//FromPort:   "8443",
+								//ToPort:     "9999",
+								IPProtocol: "-1", // 모두 허용 (포트 정보 없음)
+								Direction:  "inbound",
+							},
+						*/
+					},
+				}
+
+				result, err := handler.CreateSecurity(securityReqInfo)
+				if err != nil {
+					cblogger.Infof(securityName, " Security 생성 실패 : ", err)
+				} else {
+					cblogger.Infof("[%s] Security 생성 결과 : [%v]", securityName, result)
+					spew.Dump(result)
+				}
+
+			case 3:
+				cblogger.Infof("[%s] Security 조회 테스트", securityId)
+				result, err := handler.GetSecurity(irs.IID{SystemId: securityId})
+				if err != nil {
+					cblogger.Infof(securityId, " Security 조회 실패 : ", err)
+				} else {
+					cblogger.Infof("[%s] Security 조회 결과 : [%v]", securityId, result)
+					spew.Dump(result)
+				}
+
+			case 4:
+				cblogger.Infof("[%s] Security 삭제 테스트", securityId)
+				result, err := handler.DeleteSecurity(irs.IID{SystemId: securityId})
+				if err != nil {
+					cblogger.Infof(securityId, " Security 삭제 실패 : ", err)
+				} else {
+					cblogger.Infof("[%s] Security 삭제 결과 : [%s]", securityId, result)
+				}
+			}
+		}
+	}
+}
+
+// Test SecurityHandler
+func handleSecurityOld() {
+	cblogger.Debug("Start handler")
+
+	ResourceHandler, err := getResourceHandler("Security")
+	if err != nil {
+		panic(err)
+	}
+
+	handler := ResourceHandler.(irs.SecurityHandler)
+
+	config := readConfigFile()
+	securityId := config.Tencent.SecurityGroupID
+	cblogger.Infof(securityId)
+	securityId = "sg-0101df0e8d4f27fec"
+	//securityId = "cb-sgtest-mcloud-barista"
+
+	//result, err := handler.GetSecurity(irs.IID{SystemId: securityId})
+	//result, err := handler.GetSecurity("sg-0fd2d90b269ebc082") // sgtest-mcloub-barista
+	//result, err := handler.DeleteSecurity(irs.IID{SystemId: securityId})
+	//result, err := handler.DeleteSecurity(irs.IID{SystemId: "sg-0101df0e8d4f27fec"})
+	result, err := handler.ListSecurity()
+
+	securityReqInfo := irs.SecurityReqInfo{
+		IId:    irs.IID{NameId: "cb-sgtest2-mcloud-barista"},
+		VpcIID: irs.IID{NameId: "CB-VNet", SystemId: "vpc-0c23cb9c0e68c735a"},
+		SecurityRules: &[]irs.SecurityRuleInfo{ //보안 정책 설정
+			{
+				FromPort:   "20",
+				ToPort:     "22",
+				IPProtocol: "tcp",
+				Direction:  "inbound",
+			},
+			/*
+				{
+					FromPort:   "80",
+					ToPort:     "80",
+					IPProtocol: "tcp",
+					Direction:  "inbound",
+				},
+				{
+					FromPort:   "8080",
+					ToPort:     "8080",
+					IPProtocol: "tcp",
+					Direction:  "inbound",
+				},
+				{
+					FromPort:   "443",
+					ToPort:     "443",
+					IPProtocol: "tcp",
+					Direction:  "outbound",
+				},
+				{
+					FromPort:   "8443",
+					ToPort:     "9999",
+					IPProtocol: "tcp",
+					Direction:  "outbound",
+				},
+				{
+					//FromPort:   "8443",
+					//ToPort:     "9999",
+					IPProtocol: "-1", // 모두 허용 (포트 정보 없음)
+					Direction:  "inbound",
+				},
+			*/
+		},
+	}
+
+	cblogger.Info(securityReqInfo)
+	//result, err := handler.CreateSecurity(securityReqInfo)
+
+	if err != nil {
+		cblogger.Infof("보안 그룹 조회 실패 : ", err)
+	} else {
+		cblogger.Info("보안 그룹 조회 결과")
+		//cblogger.Info(result)
+		spew.Dump(result)
+	}
+}
+
+/*
+// Test PublicIp
+func handlePublicIP() {
+	cblogger.Debug("Start Publicip Resource Test")
+
+	ResourceHandler, err := getResourceHandler("Publicip")
+	if err != nil {
+		panic(err)
+	}
+
+	handler := ResourceHandler.(irs.PublicIPHandler)
+
+	config := readConfigFile()
+	//reqGetPublicIP := "13.124.140.207"
+	reqPublicIP := config.Tencent.PublicIP
+	reqPublicIP = "mcloud-barista-eip-test"
+	//reqPublicIP = "eipalloc-0231a3e16ec42e869"
+	cblogger.Info("reqPublicIP : ", reqPublicIP)
+	//handler.CreatePublicIP(publicIPReqInfo)
+	//handler.ListPublicIP()
+	//handler.GetPublicIP("13.124.140.207")
+
+	for {
+		fmt.Println("")
+		fmt.Println("Publicip Resource Test")
+		fmt.Println("1. ListPublicIP()")
+		fmt.Println("2. GetPublicIP()")
+		fmt.Println("3. CreatePublicIP()")
+		fmt.Println("4. DeletePublicIP()")
+		fmt.Println("5. Exit")
+
+		var commandNum int
+		var reqDelIP string
+
+		inputCnt, err := fmt.Scan(&commandNum)
+		if err != nil {
+			panic(err)
+		}
+
+		if inputCnt == 1 {
+			switch commandNum {
+			case 1:
+				fmt.Println("Start ListPublicIP() ...")
+				result, err := handler.ListPublicIP()
+				if err != nil {
+					cblogger.Error("PublicIP 목록 조회 실패 : ", err)
+				} else {
+					cblogger.Info("PublicIP 목록 조회 결과")
+					spew.Dump(result)
+				}
+
+				fmt.Println("Finish ListPublicIP()")
+
+			case 2:
+				fmt.Println("Start GetPublicIP() ...")
+				result, err := handler.GetPublicIP(reqPublicIP)
+				if err != nil {
+					cblogger.Error(reqPublicIP, " PublicIP 정보 조회 실패 : ", err)
+				} else {
+					cblogger.Infof("PublicIP[%s]  정보 조회 결과", reqPublicIP)
+					spew.Dump(result)
+				}
+				fmt.Println("Finish GetPublicIP()")
+
+			case 3:
+				fmt.Println("Start CreatePublicIP() ...")
+				reqInfo := irs.PublicIPReqInfo{Name: "mcloud-barista-eip-test"}
+				result, err := handler.CreatePublicIP(reqInfo)
+				if err != nil {
+					cblogger.Error("PublicIP 생성 실패 : ", err)
+				} else {
+					cblogger.Info("PublicIP 생성 성공 ", result)
+					spew.Dump(result)
+				}
+				fmt.Println("Finish CreatePublicIP()")
+
+			case 4:
+				fmt.Println("Start DeletePublicIP() ...")
+				result, err := handler.DeletePublicIP(reqPublicIP)
+				if err != nil {
+					cblogger.Error(reqDelIP, " PublicIP 삭제 실패 : ", err)
+				} else {
+					if result {
+						cblogger.Infof("PublicIP[%s] 삭제 완료", reqDelIP)
+					} else {
+						cblogger.Errorf("PublicIP[%s] 삭제 실패", reqDelIP)
+					}
+				}
+				fmt.Println("Finish DeletePublicIP()")
+
+			case 5:
+				fmt.Println("Exit")
+				return
+			}
+		}
+	}
+}
+*/
+
+// Test KeyPair
+func handleKeyPair() {
+	cblogger.Debug("Start KeyPair Resource Test")
+
+	KeyPairHandler, err := setKeyPairHandler()
+	if err != nil {
+		panic(err)
+	}
+	//config := readConfigFile()
+	//VmID := config.Tencent.VmID
+
+	keyPairName := "CB-KeyPairTest123123"
+	//keyPairName := config.Tencent.KeyName
+
+	for {
+		fmt.Println("KeyPair Management")
+		fmt.Println("0. Quit")
+		fmt.Println("1. KeyPair List")
+		fmt.Println("2. KeyPair Create")
+		fmt.Println("3. KeyPair Get")
+		fmt.Println("4. KeyPair Delete")
+
+		var commandNum int
+		inputCnt, err := fmt.Scan(&commandNum)
+		if err != nil {
+			panic(err)
+		}
+
+		if inputCnt == 1 {
+			switch commandNum {
+			case 0:
+				return
+
+			case 1:
+				result, err := KeyPairHandler.ListKey()
+				if err != nil {
+					cblogger.Infof(" 키 페어 목록 조회 실패 : ", err)
+				} else {
+					cblogger.Info("키 페어 목록 조회 결과")
+					//cblogger.Info(result)
+					spew.Dump(result)
+				}
+
+			case 2:
+				cblogger.Infof("[%s] 키 페어 생성 테스트", keyPairName)
+				keyPairReqInfo := irs.KeyPairReqInfo{
+					IId: irs.IID{NameId: keyPairName},
+					//Name: keyPairName,
+				}
+				result, err := KeyPairHandler.CreateKey(keyPairReqInfo)
+				if err != nil {
+					cblogger.Infof(keyPairName, " 키 페어 생성 실패 : ", err)
+				} else {
+					cblogger.Infof("[%s] 키 페어 생성 결과 : [%s]", keyPairName, result)
+					spew.Dump(result)
+				}
+			case 3:
+				cblogger.Infof("[%s] 키 페어 조회 테스트", keyPairName)
+				result, err := KeyPairHandler.GetKey(irs.IID{SystemId: keyPairName})
+				if err != nil {
+					cblogger.Infof(keyPairName, " 키 페어 조회 실패 : ", err)
+				} else {
+					cblogger.Infof("[%s] 키 페어 조회 결과 : [%s]", keyPairName, result)
+				}
+			case 4:
+				cblogger.Infof("[%s] 키 페어 삭제 테스트", keyPairName)
+				result, err := KeyPairHandler.DeleteKey(irs.IID{SystemId: keyPairName})
+				if err != nil {
+					cblogger.Infof(keyPairName, " 키 페어 삭제 실패 : ", err)
+				} else {
+					cblogger.Infof("[%s] 키 페어 삭제 결과 : [%s]", keyPairName, result)
+				}
+			}
+		}
+	}
+}
+
+// Test handleVNetwork (VPC)
+/*
+func handleVNetwork() {
+	cblogger.Debug("Start VPC Resource Test")
+
+	VPCHandler, err := setVPCHandler()
+	if err != nil {
+		panic(err)
+	}
+
+	vNetworkReqInfo := irs.VNetworkReqInfo{
+		//Id:   "subnet-044a2b57145e5afc5",
+		//Name: "CB-VNet-Subnet", // 웹 도구 등 외부에서 전달 받지 않고 드라이버 내부적으로 자동 구현때문에 사용하지 않음.
+		IId: irs.IID{NameId: "CB-VNet-Subnet"},
+		//CidrBlock: "10.0.0.0/16",
+		//CidrBlock: "192.168.0.0/16",
+	}
+	//reqSubnetId := "subnet-0b9ea37601d46d8fa"
+	reqSubnetId := irs.IID{NameId: "subnet-0b9ea37601d46d8fa"}
+	//reqSubnetId = ""
+
+	for {
+		fmt.Println("VPCHandler Management")
+		fmt.Println("0. Quit")
+		fmt.Println("1. VNetwork List")
+		fmt.Println("2. VNetwork Create")
+		fmt.Println("3. VNetwork Get")
+		fmt.Println("4. VNetwork Delete")
+
+		var commandNum int
+		inputCnt, err := fmt.Scan(&commandNum)
+		if err != nil {
+			panic(err)
+		}
+
+		if inputCnt == 1 {
+			switch commandNum {
+			case 0:
+				return
+
+			case 1:
+				result, err := VPCHandler.ListVNetwork()
+				if err != nil {
+					cblogger.Infof(" VNetwork 목록 조회 실패 : ", err)
+				} else {
+					cblogger.Info("VNetwork 목록 조회 결과")
+					//cblogger.Info(result)
+					spew.Dump(result)
+
+					// 내부적으로 1개만 존재함.
+					//조회및 삭제 테스트를 위해 리스트의 첫번째 서브넷 ID를 요청ID로 자동 갱신함.
+					if result != nil {
+						reqSubnetId = result[0].IId // 조회 및 삭제를 위해 생성된 ID로 변경
+					}
+				}
+
+			case 2:
+				cblogger.Infof("[%s] VNetwork 생성 테스트", vNetworkReqInfo.IId.NameId)
+				//vNetworkReqInfo := irs.VNetworkReqInfo{}
+				result, err := VPCHandler.CreateVNetwork(vNetworkReqInfo)
+				if err != nil {
+					cblogger.Infof(reqSubnetId.NameId, " VNetwork 생성 실패 : ", err)
+				} else {
+					cblogger.Infof("VNetwork 생성 결과 : ", result)
+					reqSubnetId = result.IId // 조회 및 삭제를 위해 생성된 ID로 변경
+					spew.Dump(result)
+				}
+
+			case 3:
+				cblogger.Infof("[%s] VNetwork 조회 테스트", reqSubnetId)
+				result, err := VPCHandler.GetVNetwork(reqSubnetId)
+				if err != nil {
+					cblogger.Infof("[%s] VNetwork 조회 실패 : ", reqSubnetId, err)
+				} else {
+					cblogger.Infof("[%s] VNetwork 조회 결과 : [%s]", reqSubnetId, result)
+					spew.Dump(result)
+				}
+
+			case 4:
+				cblogger.Infof("[%s] VNetwork 삭제 테스트", reqSubnetId)
+				result, err := VPCHandler.DeleteVNetwork(reqSubnetId)
+				if err != nil {
+					cblogger.Infof("[%s] VNetwork 삭제 실패 : ", reqSubnetId, err)
+				} else {
+					cblogger.Infof("[%s] VNetwork 삭제 결과 : [%s]", reqSubnetId, result)
+				}
+			}
+		}
+	}
+}
+*/
+
+func handleVPC() {
+	cblogger.Debug("Start VPC Resource Test")
+
+	VPCHandler, err := setVPCHandler()
+	if err != nil {
+		panic(err)
+	}
+
+	subnetReqInfo := irs.SubnetInfo{
+		IId:       irs.IID{NameId: "AddTest-Subnet"},
+		IPv4_CIDR: "10.0.2.0/24",
+	}
+
+	subnetReqVpcInfo := irs.IID{SystemId: "vpc-00e513fd64a7d9972"}
+
+	cblogger.Debug(subnetReqInfo)
+	cblogger.Debug(subnetReqVpcInfo)
+
+	vpcReqInfo := irs.VPCReqInfo{
+		IId:       irs.IID{NameId: "New-CB-VPC"},
+		IPv4_CIDR: "10.0.0.0/16",
+		SubnetInfoList: []irs.SubnetInfo{
+			{
+				IId:       irs.IID{NameId: "New-CB-Subnet"},
+				IPv4_CIDR: "10.0.1.0/24",
+			},
+			/*
+				{
+					IId:       irs.IID{NameId: "New-CB-Subnet2"},
+					IPv4_CIDR: "10.0.2.0/24",
+				},
+			*/
+		},
+		//Id:   "subnet-044a2b57145e5afc5",
+		//Name: "CB-VNet-Subnet", // 웹 도구 등 외부에서 전달 받지 않고 드라이버 내부적으로 자동 구현때문에 사용하지 않음.
+		//CidrBlock: "10.0.0.0/16",
+		//CidrBlock: "192.168.0.0/16",
+	}
+
+	reqSubnetId := irs.IID{SystemId: "vpc-04f6de5c2af880978"}
+	reqSubnetId = irs.IID{SystemId: "subnet-0ebd316ff47f07628"}
+
+	for {
+		fmt.Println("VPCHandler Management")
+		fmt.Println("0. Quit")
+		fmt.Println("1. VNetwork List")
+		fmt.Println("2. VNetwork Create")
+		fmt.Println("3. VNetwork Get")
+		fmt.Println("4. VNetwork Delete")
+		fmt.Println("5. Add Subnet")
+		fmt.Println("6. Delete Subnet")
+
+		var commandNum int
+		inputCnt, err := fmt.Scan(&commandNum)
+		if err != nil {
+			panic(err)
+		}
+
+		if inputCnt == 1 {
+			switch commandNum {
+			case 0:
+				return
+
+			case 1:
+				result, err := VPCHandler.ListVPC()
+				if err != nil {
+					cblogger.Infof(" VNetwork 목록 조회 실패 : ", err)
+				} else {
+					cblogger.Info("VNetwork 목록 조회 결과")
+					//cblogger.Info(result)
+					spew.Dump(result)
+
+					// 내부적으로 1개만 존재함.
+					//조회및 삭제 테스트를 위해 리스트의 첫번째 서브넷 ID를 요청ID로 자동 갱신함.
+					if result != nil {
+						reqSubnetId = result[0].IId    // 조회 및 삭제를 위해 생성된 ID로 변경
+						subnetReqVpcInfo = reqSubnetId //Subnet 추가/삭제 테스트용
+					}
+				}
+
+			case 2:
+				cblogger.Infof("[%s] VNetwork 생성 테스트", vpcReqInfo.IId.NameId)
+				//vpcReqInfo := irs.VPCReqInfo{}
+				result, err := VPCHandler.CreateVPC(vpcReqInfo)
+				if err != nil {
+					cblogger.Infof(reqSubnetId.NameId, " VNetwork 생성 실패 : ", err)
+				} else {
+					cblogger.Infof("VNetwork 생성 결과 : ", result)
+					reqSubnetId = result.IId // 조회 및 삭제를 위해 생성된 ID로 변경
+					spew.Dump(result)
+				}
+
+			case 3:
+				cblogger.Infof("[%s] VNetwork 조회 테스트", reqSubnetId)
+				result, err := VPCHandler.GetVPC(reqSubnetId)
+				if err != nil {
+					cblogger.Infof("[%s] VNetwork 조회 실패 : ", reqSubnetId, err)
+				} else {
+					cblogger.Infof("[%s] VNetwork 조회 결과 : [%s]", reqSubnetId, result)
+					spew.Dump(result)
+				}
+
+			case 4:
+				cblogger.Infof("[%s] VNetwork 삭제 테스트", reqSubnetId)
+				result, err := VPCHandler.DeleteVPC(reqSubnetId)
+				if err != nil {
+					cblogger.Infof("[%s] VNetwork 삭제 실패 : ", reqSubnetId, err)
+				} else {
+					cblogger.Infof("[%s] VNetwork 삭제 결과 : [%s]", reqSubnetId, result)
+				}
+
+			case 5:
+				cblogger.Infof("[%s] Subnet 추가 테스트", vpcReqInfo.IId.NameId)
+				result, err := VPCHandler.AddSubnet(subnetReqVpcInfo, subnetReqInfo)
+				if err != nil {
+					cblogger.Infof(reqSubnetId.NameId, " VNetwork 생성 실패 : ", err)
+				} else {
+					cblogger.Infof("VNetwork 생성 결과 : ", result)
+					//reqSubnetId = result.IId // 조회 및 삭제를 위해 생성된 ID로 변경
+					spew.Dump(result)
+				}
+
+			case 6:
+				cblogger.Infof("[%s] Subnet 삭제 테스트", reqSubnetId.SystemId)
+				result, err := VPCHandler.RemoveSubnet(subnetReqVpcInfo, reqSubnetId)
+				if err != nil {
+					cblogger.Infof("[%s] Subnet 삭제 실패 : ", reqSubnetId.SystemId, err)
+				} else {
+					cblogger.Infof("[%s] Subnet 삭제 결과 : [%s]", reqSubnetId.SystemId, result)
+				}
+			}
+		}
+	}
+}
+
+// Test AMI
+func handleImage() {
+	cblogger.Debug("Start ImageHandler Resource Test")
+
+	ResourceHandler, err := getResourceHandler("Image")
+	if err != nil {
+		panic(err)
+	}
+	//handler := ResourceHandler.(irs2.ImageHandler)
+	handler := ResourceHandler.(irs.ImageHandler)
+
+	//imageReqInfo := irs2.ImageReqInfo{
+	imageReqInfo := irs.ImageReqInfo{
+		IId: irs.IID{NameId: "Test OS Image", SystemId: "ami-047f7b46bd6dd5d84"},
+		//Id:   "ami-047f7b46bd6dd5d84",
+		//Name: "Test OS Image",
+	}
+
+	for {
+		fmt.Println("ImageHandler Management")
+		fmt.Println("0. Quit")
+		fmt.Println("1. Image List")
+		fmt.Println("2. Image Create")
+		fmt.Println("3. Image Get")
+		fmt.Println("4. Image Delete")
+
+		var commandNum int
+		inputCnt, err := fmt.Scan(&commandNum)
+		if err != nil {
+			panic(err)
+		}
+
+		if inputCnt == 1 {
+			switch commandNum {
+			case 0:
+				return
+
+			case 1:
+				result, err := handler.ListImage()
+				if err != nil {
+					cblogger.Infof(" Image 목록 조회 실패 : ", err)
+				} else {
+					cblogger.Info("Image 목록 조회 결과")
+					cblogger.Info(result)
+					cblogger.Info("출력 결과 수 : ", len(result))
+					spew.Dump(result)
+
+					//조회및 삭제 테스트를 위해 리스트의 첫번째 정보의 ID를 요청ID로 자동 갱신함.
+					if result != nil {
+						imageReqInfo.IId = result[0].IId // 조회 및 삭제를 위해 생성된 ID로 변경
+					}
+				}
+
+			case 2:
+				cblogger.Infof("[%s] Image 생성 테스트", imageReqInfo.IId.NameId)
+				result, err := handler.CreateImage(imageReqInfo)
+				if err != nil {
+					cblogger.Infof(imageReqInfo.IId.NameId, " Image 생성 실패 : ", err)
+				} else {
+					cblogger.Infof("Image 생성 결과 : ", result)
+					imageReqInfo.IId = result.IId // 조회 및 삭제를 위해 생성된 ID로 변경
+					spew.Dump(result)
+				}
+
+			case 3:
+				cblogger.Infof("[%s] Image 조회 테스트", imageReqInfo.IId)
+				result, err := handler.GetImage(imageReqInfo.IId)
+				if err != nil {
+					cblogger.Infof("[%s] Image 조회 실패 : ", imageReqInfo.IId.NameId, err)
+				} else {
+					cblogger.Infof("[%s] Image 조회 결과 : [%s]", imageReqInfo.IId.NameId, result)
+					spew.Dump(result)
+				}
+
+			case 4:
+				cblogger.Infof("[%s] Image 삭제 테스트", imageReqInfo.IId.NameId)
+				result, err := handler.DeleteImage(imageReqInfo.IId)
+				if err != nil {
+					cblogger.Infof("[%s] Image 삭제 실패 : ", imageReqInfo.IId.NameId, err)
+				} else {
+					cblogger.Infof("[%s] Image 삭제 결과 : [%s]", imageReqInfo.IId.NameId, result)
+				}
+			}
+		}
+	}
+}
+
+/*
+// Test VNic
+func handleVNic() {
+	cblogger.Debug("Start VNicHandler Resource Test")
+
+	ResourceHandler, err := getResourceHandler("VNic")
+	if err != nil {
+		panic(err)
+	}
+	handler := ResourceHandler.(irs.VNicHandler)
+	reqVnicID := "eni-093deb03ca6eb70eb"
+	vNicReqInfo := irs.VNicReqInfo{
+		Name: "TestCB-VNic2",
+		SecurityGroupIds: []string{
+			//"sg-0d4d11c090c4814e8", "sg-0dc15d050f8272e24",
+			"sg-06c4523b969eaafc7",
+		},
+	}
+
+	for {
+		fmt.Println("VNicHandler Management")
+		fmt.Println("0. Quit")
+		fmt.Println("1. VNic List")
+		fmt.Println("2. VNic Create")
+		fmt.Println("3. VNic Get")
+		fmt.Println("4. VNic Delete")
+
+		var commandNum int
+		inputCnt, err := fmt.Scan(&commandNum)
+		if err != nil {
+			panic(err)
+		}
+
+		if inputCnt == 1 {
+			switch commandNum {
+			case 0:
+				return
+
+			case 1:
+				result, err := handler.ListVNic()
+				if err != nil {
+					cblogger.Infof(" VNic 목록 조회 실패 : ", err)
+				} else {
+					cblogger.Info("VNic 목록 조회 결과")
+					spew.Dump(result)
+					if len(result) > 0 {
+						reqVnicID = result[0].Id // 조회 및 삭제 편의를 위해 목록의 첫번째 ID로 변경
+					}
+				}
+
+			case 2:
+				cblogger.Infof("[%s] VNic 생성 테스트", vNicReqInfo.Name)
+				result, err := handler.CreateVNic(vNicReqInfo)
+				if err != nil {
+					cblogger.Infof(reqVnicID, " VNic 생성 실패 : ", err)
+				} else {
+					cblogger.Infof("VNic 생성 결과 : ", result)
+					reqVnicID = result.Id // 조회 및 삭제를 위해 생성된 ID로 변경
+					spew.Dump(result)
+				}
+
+			case 3:
+				cblogger.Infof("[%s] VNic 조회 테스트", reqVnicID)
+				result, err := handler.GetVNic(reqVnicID)
+				if err != nil {
+					cblogger.Infof("[%s] VNic 조회 실패 : ", reqVnicID, err)
+				} else {
+					cblogger.Infof("[%s] VNic 조회 결과 : [%s]", reqVnicID, result)
+					spew.Dump(result)
+				}
+
+			case 4:
+				cblogger.Infof("[%s] VNic 삭제 테스트", reqVnicID)
+				result, err := handler.DeleteVNic(reqVnicID)
+				if err != nil {
+					cblogger.Infof("[%s] VNic 삭제 실패 : ", reqVnicID, err)
+				} else {
+					cblogger.Infof("[%s] VNic 삭제 결과 : [%s]", reqVnicID, result)
+				}
+			}
+		}
+	}
+}
+*/
+
+func testErr() error {
+	//return awserr.Error("")
+	//return errors.New("")
+	return awserr.New("504", "찾을 수 없음", nil)
+}
+
+// Test VM Lifecycle Management (Create/Suspend/Resume/Reboot/Terminate)
+func handleVM() {
+	cblogger.Debug("Start VMHandler Resource Test")
+
+	ResourceHandler, err := getResourceHandler("VM")
+	if err != nil {
+		panic(err)
+	}
+	//handler := ResourceHandler.(irs2.ImageHandler)
+	vmHandler := ResourceHandler.(irs.VMHandler)
+
+	//config := readConfigFile()
+	//VmID := irs.IID{NameId: config.Tencent.BaseName, SystemId: config.Tencent.VmID}
+	VmID := irs.IID{SystemId: "i-08f13a125cc74bef6"}
+
+	for {
+		fmt.Println("VM Management")
+		fmt.Println("0. Quit")
+		fmt.Println("1. VM Start")
+		fmt.Println("2. VM Info")
+		fmt.Println("3. Suspend VM")
+		fmt.Println("4. Resume VM")
+		fmt.Println("5. Reboot VM")
+		fmt.Println("6. Terminate VM")
+
+		fmt.Println("7. GetVMStatus VM")
+		fmt.Println("8. ListVMStatus VM")
+		fmt.Println("9. ListVM")
+
+		var commandNum int
+		inputCnt, err := fmt.Scan(&commandNum)
+		if err != nil {
+			panic(err)
+		}
+
+		if inputCnt == 1 {
+			switch commandNum {
+			case 0:
+				return
+
+			case 1:
+				vmReqInfo := irs.VMReqInfo{
+					IId:               irs.IID{NameId: "mcloud-barista-iid-vm-test"},
+					ImageIID:          irs.IID{SystemId: "ami-047f7b46bd6dd5d84"},
+					SubnetIID:         irs.IID{SystemId: "subnet-012957090a923c498"},
+					SecurityGroupIIDs: []irs.IID{{SystemId: "sg-013868663c85586f9"}},
+					VMSpecName:        "t2.micro",
+					KeyPairIID:        irs.IID{SystemId: "CB-KeyPairTest123123"},
+				}
+
+				vmInfo, err := vmHandler.StartVM(vmReqInfo)
+				if err != nil {
+					//panic(err)
+					cblogger.Error(err)
+				} else {
+					cblogger.Info("VM 생성 완료!!", vmInfo)
+					spew.Dump(vmInfo)
+				}
+				//cblogger.Info(vm)
+
+				cblogger.Info("Finish Create VM")
+
+			case 2:
+				vmInfo, err := vmHandler.GetVM(VmID)
+				if err != nil {
+					cblogger.Errorf("[%s] VM 정보 조회 실패", VmID)
+					cblogger.Error(err)
+				} else {
+					cblogger.Infof("[%s] VM 정보 조회 결과", VmID)
+					cblogger.Info(vmInfo)
+					spew.Dump(vmInfo)
+				}
+
+			case 3:
+				cblogger.Info("Start Suspend VM ...")
+				result, err := vmHandler.SuspendVM(VmID)
+				if err != nil {
+					cblogger.Errorf("[%s] VM Suspend 실패 - [%s]", VmID, result)
+					cblogger.Error(err)
+				} else {
+					cblogger.Infof("[%s] VM Suspend 성공 - [%s]", VmID, result)
+				}
+
+			case 4:
+				cblogger.Info("Start Resume  VM ...")
+				result, err := vmHandler.ResumeVM(VmID)
+				if err != nil {
+					cblogger.Errorf("[%s] VM Resume 실패 - [%s]", VmID, result)
+					cblogger.Error(err)
+				} else {
+					cblogger.Infof("[%s] VM Resume 성공 - [%s]", VmID, result)
+				}
+
+			case 5:
+				cblogger.Info("Start Reboot  VM ...")
+				result, err := vmHandler.RebootVM(VmID)
+				if err != nil {
+					cblogger.Errorf("[%s] VM Reboot 실패 - [%s]", VmID, result)
+					cblogger.Error(err)
+				} else {
+					cblogger.Infof("[%s] VM Reboot 성공 - [%s]", VmID, result)
+				}
+
+			case 6:
+				cblogger.Info("Start Terminate  VM ...")
+				result, err := vmHandler.TerminateVM(VmID)
+				if err != nil {
+					cblogger.Errorf("[%s] VM Terminate 실패 - [%s]", VmID, result)
+					cblogger.Error(err)
+				} else {
+					cblogger.Infof("[%s] VM Terminate 성공 - [%s]", VmID, result)
+				}
+
+			case 7:
+				cblogger.Info("Start Get VM Status...")
+				vmStatus, err := vmHandler.GetVMStatus(VmID)
+				if err != nil {
+					cblogger.Errorf("[%s] VM Get Status 실패", VmID)
+					cblogger.Error(err)
+				} else {
+					cblogger.Infof("[%s] VM Get Status 성공 : [%s]", VmID, vmStatus)
+				}
+
+			case 8:
+				cblogger.Info("Start ListVMStatus ...")
+				vmStatusInfos, err := vmHandler.ListVMStatus()
+				if err != nil {
+					cblogger.Error("ListVMStatus 실패")
+					cblogger.Error(err)
+				} else {
+					cblogger.Info("ListVMStatus 성공")
+					cblogger.Info(vmStatusInfos)
+					spew.Dump(vmStatusInfos)
+				}
+
+			case 9:
+				cblogger.Info("Start ListVM ...")
+				vmList, err := vmHandler.ListVM()
+				if err != nil {
+					cblogger.Error("ListVM 실패")
+					cblogger.Error(err)
+				} else {
+					cblogger.Info("ListVM 성공")
+					cblogger.Info("=========== VM 목록 ================")
+					cblogger.Info(vmList)
+					spew.Dump(vmList)
+					cblogger.Infof("=========== VM 목록 수 : [%d] ================", len(vmList))
+					if len(vmList) > 0 {
+						VmID = vmList[0].IId
+					}
+				}
+
+			}
+		}
+	}
+}
+
+// Test VMSpec
+func handleVMSpec() {
+	cblogger.Debug("Start VMSpec Resource Test")
+
+	ResourceHandler, err := getResourceHandler("VMSpec")
+	if err != nil {
+		panic(err)
+	}
+
+	handler := ResourceHandler.(irs.VMSpecHandler)
+
+	config := readConfigFile()
+	//reqVMSpec := config.Tencent.VMSpec
+	//reqVMSpec := "t2.small"	// GPU가 없음
+	//reqVMSpec := "p3.2xlarge" // GPU 1개
+	reqVMSpec := "p3.8xlarge" // GPU 4개
+
+	reqRegion := config.Tencent.Region
+	reqRegion = "us-east-1"
+	cblogger.Info("reqVMSpec : ", reqVMSpec)
+
+	for {
+		fmt.Println("")
+		fmt.Println("VMSpec Resource Test")
+		fmt.Println("1. ListVMSpec()")
+		fmt.Println("2. GetVMSpec()")
+		fmt.Println("3. ListOrgVMSpec()")
+		fmt.Println("4. GetOrgVMSpec()")
+		fmt.Println("0. Exit")
+
+		var commandNum int
+		//var reqDelIP string
+
+		inputCnt, err := fmt.Scan(&commandNum)
+		if err != nil {
+			panic(err)
+		}
+
+		if inputCnt == 1 {
+			switch commandNum {
+			case 1:
+				fmt.Println("Start ListVMSpec() ...")
+				result, err := handler.ListVMSpec(reqRegion)
+				if err != nil {
+					cblogger.Error("VMSpec 목록 조회 실패 : ", err)
+				} else {
+					cblogger.Debug("VMSpec 목록 조회 결과")
+					//spew.Dump(result)
+					cblogger.Debug(result)
+					cblogger.Infof("전체 목록 개수 : [%d]", len(result))
+				}
+
+				fmt.Println("Finish ListVMSpec()")
+
+			case 2:
+				fmt.Println("Start GetVMSpec() ...")
+				result, err := handler.GetVMSpec(reqRegion, reqVMSpec)
+				if err != nil {
+					cblogger.Error(reqVMSpec, " VMSpec 정보 조회 실패 : ", err)
+				} else {
+					cblogger.Debugf("VMSpec[%s]  정보 조회 결과", reqVMSpec)
+					//spew.Dump(result)
+					cblogger.Debug(result)
+				}
+				fmt.Println("Finish GetVMSpec()")
+
+			case 3:
+				fmt.Println("Start ListOrgVMSpec() ...")
+				result, err := handler.ListOrgVMSpec(reqRegion)
+				if err != nil {
+					cblogger.Error("VMSpec Org 목록 조회 실패 : ", err)
+				} else {
+					cblogger.Debug("VMSpec Org 목록 조회 결과")
+					//spew.Dump(result)
+					cblogger.Debug(result)
+					//spew.Dump(result)
+					//fmt.Println(result)
+					//fmt.Println("=========================")
+					//fmt.Println(result)
+					cblogger.Infof("전체 목록 개수 : [%d]", len(result))
+				}
+
+				fmt.Println("Finish ListOrgVMSpec()")
+
+			case 4:
+				fmt.Println("Start GetOrgVMSpec() ...")
+				result, err := handler.GetOrgVMSpec(reqRegion, reqVMSpec)
+				if err != nil {
+					cblogger.Error(reqVMSpec, " VMSpec Org 정보 조회 실패 : ", err)
+				} else {
+					cblogger.Debugf("VMSpec[%s] Org 정보 조회 결과", reqVMSpec)
+					//spew.Dump(result)
+					cblogger.Debug(result)
+					//fmt.Println(result)
+				}
+				fmt.Println("Finish GetOrgVMSpec()")
+
+			case 0:
+				fmt.Println("Exit")
+				return
+			}
+		}
+	}
+}
+
+func main() {
+	cblogger.Info("Tencent Resource Test")
+	handleVPC()
+	//handleKeyPair()
+	//handlePublicIP() // PublicIP 생성 후 conf
+	//handleSecurity()
+	//handleVM()
+
+	//handleImage() //AMI
+	//handleVNic() //Lancard
+	//handleVMSpec()
+}
+
+//handlerType : resources폴더의 xxxHandler.go에서 Handler이전까지의 문자열
+//(예) ImageHandler.go -> "Image"
+func getResourceHandler(handlerType string) (interface{}, error) {
+	var cloudDriver idrv.CloudDriver
+	cloudDriver = new(tencentdrv.TencentDriver)
+
+	config := readConfigFile()
+	connectionInfo := idrv.ConnectionInfo{
+		CredentialInfo: idrv.CredentialInfo{
+			ClientId:     config.Tencent.TencentAccessKeyID,
+			ClientSecret: config.Tencent.TencentSecretAccessKey,
+		},
+		RegionInfo: idrv.RegionInfo{
+			Region: config.Tencent.Region,
+			Zone:   config.Tencent.Zone,
+		},
+	}
+
+	cloudConnection, errCon := cloudDriver.ConnectCloud(connectionInfo)
+	if errCon != nil {
+		return nil, errCon
+	}
+
+	var resourceHandler interface{}
+	var err error
+
+	switch handlerType {
+	case "Image":
+		resourceHandler, err = cloudConnection.CreateImageHandler()
+	//case "Publicip":
+	//	resourceHandler, err = cloudConnection.CreatePublicIPHandler()
+	case "Security":
+		resourceHandler, err = cloudConnection.CreateSecurityHandler()
+	case "VNetwork":
+		resourceHandler, err = cloudConnection.CreateVPCHandler()
+		//case "VNic":
+		//	resourceHandler, err = cloudConnection.CreateVNicHandler()
+	case "VM":
+		resourceHandler, err = cloudConnection.CreateVMHandler()
+	case "VMSpec":
+		resourceHandler, err = cloudConnection.CreateVMSpecHandler()
+	}
+
+	if err != nil {
+		return nil, err
+	}
+	return resourceHandler, nil
+}
+
+func setKeyPairHandler() (irs.KeyPairHandler, error) {
+	var cloudDriver idrv.CloudDriver
+	cloudDriver = new(tencentdrv.TencentDriver)
+
+	config := readConfigFile()
+	connectionInfo := idrv.ConnectionInfo{
+		CredentialInfo: idrv.CredentialInfo{
+			ClientId:     config.Tencent.TencentAccessKeyID,
+			ClientSecret: config.Tencent.TencentSecretAccessKey,
+		},
+		RegionInfo: idrv.RegionInfo{
+			Region: config.Tencent.Region,
+			Zone:   config.Tencent.Zone,
+		},
+	}
+
+	cloudConnection, err := cloudDriver.ConnectCloud(connectionInfo)
+	if err != nil {
+		return nil, err
+	}
+
+	keyPairHandler, err := cloudConnection.CreateKeyPairHandler()
+	if err != nil {
+		return nil, err
+	}
+	return keyPairHandler, nil
+}
+
+func setVPCHandler() (irs.VPCHandler, error) {
+	var cloudDriver idrv.CloudDriver
+	cloudDriver = new(tencentdrv.TencentDriver)
+
+	config := readConfigFile()
+	connectionInfo := idrv.ConnectionInfo{
+		CredentialInfo: idrv.CredentialInfo{
+			ClientId:     config.Tencent.TencentAccessKeyID,
+			ClientSecret: config.Tencent.TencentSecretAccessKey,
+		},
+		RegionInfo: idrv.RegionInfo{
+			Region: config.Tencent.Region,
+			Zone:   config.Tencent.Zone,
+		},
+	}
+
+	cloudConnection, err := cloudDriver.ConnectCloud(connectionInfo)
+	if err != nil {
+		return nil, err
+	}
+
+	handler, err := cloudConnection.CreateVPCHandler()
+	if err != nil {
+		return nil, err
+	}
+	return handler, nil
+}
+
+// 환경 설정 파일
+type Config struct {
+	Tencent struct {
+		TencentAccessKeyID     string `yaml:"tencent_secret_id"`
+		TencentSecretAccessKey string `yaml:"tencent_secret_key"`
+		Region                 string `yaml:"region"`
+		Zone                   string `yaml:"zone"`
+	} `yaml:"tencent"`
+}
+
+//환경 설정 파일 읽기
+//환경변수 CBSPIDER_PATH 설정 후 해당 폴더 하위에 /config/configTencent.yaml 파일 생성해야 함.
+func readConfigFile() Config {
+	// Set Environment Value of Project Root Path
+	rootPath := os.Getenv("CBSPIDER_PATH")
+	//rootpath := "D:/Workspace/mcloud-barista-config"
+	// /mnt/d/Workspace/mcloud-barista-config/config/config.yaml
+	cblogger.Debugf("Test Data 설정파일 : [%]", rootPath+"/config/configTencent.yaml")
+
+	data, err := ioutil.ReadFile(rootPath + "/config/configTencent.yaml")
+	if err != nil {
+		panic(err)
+	}
+
+	var config Config
+	err = yaml.Unmarshal(data, &config)
+	if err != nil {
+		panic(err)
+	}
+
+	cblogger.Info("Loaded ConfigFile...")
+	//spew.Dump(config)
+	//cblogger.Info(config)
+	cblogger.Debug(config.Tencent.TencentAccessKeyID, " ", config.Tencent.Region)
+	//cblogger.Debug(config.Tencent.Region)
+	return config
+}

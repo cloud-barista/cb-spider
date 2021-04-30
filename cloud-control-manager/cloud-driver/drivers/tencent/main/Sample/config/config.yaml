@@ -1,0 +1,6 @@
+tencent:
+  # Credential Info
+  tencent_secret_id: None
+  tencent_secret_key: None
+  region: ap-northeast-2
+  zone: ap-northeast-1a
