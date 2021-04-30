@@ -19,7 +19,7 @@ require (
 	github.com/bramvdbogaerde/go-scp v0.0.0-20201229172121-7a6c0268fa67
 	github.com/chyeh/pubip v0.0.0-20170203095919-b7e679cf541c
 	github.com/cloud-barista/cb-log v0.3.1
-	github.com/cloud-barista/cb-store v0.3.13
+	github.com/cloud-barista/cb-store v0.3.2
 	github.com/containerd/containerd v1.4.3 // indirect
 	github.com/davecgh/go-spew v1.1.1
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible

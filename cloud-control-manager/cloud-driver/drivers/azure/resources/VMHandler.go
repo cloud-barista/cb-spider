@@ -255,7 +255,7 @@ func (vmHandler *AzureVMHandler) TerminateVM(vmIID irs.IID) (irs.VMStatus, error
 		return irs.Failed, err
 	}
 	osDiskName := vmInfo.VMBootDisk
-
+/* Detach may not be required for dynamic public IP mode. by powerkim. 2021.04.30.
 	// TODO: nested flow 개선
 	// VNic에서 PublicIP 연결해제
 	vNicDetachStatus, err := DetachVNic(vmHandler, vmInfo)
@@ -263,6 +263,7 @@ func (vmHandler *AzureVMHandler) TerminateVM(vmIID irs.IID) (irs.VMStatus, error
 		LoggingError(hiscallInfo, err)
 		return vNicDetachStatus, err
 	}
+*/
 
 	// VM 삭제
 	start := call.Start()
