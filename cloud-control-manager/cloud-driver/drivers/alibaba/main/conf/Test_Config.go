@@ -85,6 +85,7 @@ func ReadConfigFile() Config {
 	}
 
 	cblogger.Info("Loaded ConfigFile...")
+	cblogger.Infof("AliAccessKeyID : [%s]", config.Ali.AliAccessKeyID)
 	//spew.Dump(config)
 	//cblogger.Info(config)
 	return config

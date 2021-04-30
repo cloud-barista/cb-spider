@@ -825,13 +825,13 @@ func handleVM() {
 
 			case 1:
 				vmReqInfo := irs.VMReqInfo{
-					IId: irs.IID{NameId: "mcloud-barista-vm-test"},
-					//ImageIID:  irs.IID{SystemId: "aliyun_2_1903_x64_20G_alibase_20200324.vhd"},
-					ImageIID:  irs.IID{SystemId: "ubuntu_18_04_x64_20G_alibase_20210318.vhd"},
-					VpcIID:    irs.IID{SystemId: "vpc-6weau9nh13ugnehqaurfy"},
-					SubnetIID: irs.IID{SystemId: "vsw-6wedza5q7vqoibbhi1bl7"},
+					IId:      irs.IID{NameId: "mcloud-barista-vm-test"},
+					ImageIID: irs.IID{SystemId: "aliyun_2_1903_x64_20G_alibase_20200324.vhd"},
+					//ImageIID:  irs.IID{SystemId: "ubuntu_18_04_x64_20G_alibase_20210318.vhd"},
+					VpcIID:    irs.IID{SystemId: "vpc-6wef2xf1a4tc8ykcu14x2"},
+					SubnetIID: irs.IID{SystemId: "vsw-6weqofn8cfidhaje5aocf"},
 					//SecurityGroupIIDs: []irs.IID{{SystemId: "sg-6we0rxnoai067qbkdkgw"}, {SystemId: "sg-6weeb9xaodr65g7bq10c"}},
-					SecurityGroupIIDs: []irs.IID{{SystemId: "sg-6we397ao1ir4cc6qian4"}},
+					SecurityGroupIIDs: []irs.IID{{SystemId: "sg-6we1j64n0yr0kidtx7oi"}},
 					VMSpecName:        "ecs.t5-lc2m1.nano",
 					KeyPairIID:        irs.IID{SystemId: "CB-KeyPairTest123123"},
 					//VMUserId:          "root", //root만 가능
