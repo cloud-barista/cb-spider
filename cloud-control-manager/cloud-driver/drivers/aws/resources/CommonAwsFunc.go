@@ -28,6 +28,8 @@ const CBDefaultVNetName string = "CB-VNet"          // CB Default Virtual Networ
 const CBDefaultSubnetName string = "CB-VNet-Subnet" // CB Default Subnet Name
 const CBDefaultCidrBlock string = "192.168.0.0/16"  // CB Default CidrBlock
 const CBKeyPairPath string = "/cloud-driver-libs/.ssh-aws/"
+const CBCloudInitFilePath string = "/cloud-driver-libs/.cloud-init-aws/cloud-init"
+
 const CBDefaultVmUserName string = "cb-user" // default VM User Name
 
 const CUSTOM_ERR_CODE_TOOMANY string = "600"  //awserr.New("600", "n개 이상의 xxxx 정보가 존재합니다.", nil)

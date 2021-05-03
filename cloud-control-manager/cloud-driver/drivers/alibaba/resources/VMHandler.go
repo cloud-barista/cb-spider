@@ -8,6 +8,8 @@ package resources
 import (
 	"encoding/base64"
 	"errors"
+	"io/ioutil"
+	"os"
 	"strings"
 	"time"
 
@@ -84,16 +86,34 @@ func (vmHandler *AlibabaVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 			ssh-authorized-keys:
 			  - ssh-rsa AAAAB3NzaC1y
 	*/
-	//sudo 패키지 설치
-	//userData := "#cloud-config\npackage_update: true\npackages:\n  - sudo\nusers:\n  - default\n  - name: " + CBDefaultVmUserName + "\n    groups: sudo\n    shell: /bin/bash\n    sudo: ['ALL=(ALL) NOPASSWD:ALL']\n    ssh-authorized-keys:\n      - "
-	//sudo 그룹 사용
-	//userData := "#cloud-config\nusers:\n  - default\n  - name: " + CBDefaultVmUserName + "\n    groups: sudo\n    shell: /bin/bash\n    sudo: ['ALL=(ALL) NOPASSWD:ALL']\n    ssh-authorized-keys:\n      - "
-	//그룹 제거
-	userData := "#cloud-config\nusers:\n  - default\n  - name: " + CBDefaultVmUserName + "\n    shell: /bin/bash\n    sudo: ['ALL=(ALL) NOPASSWD:ALL']\n    ssh-authorized-keys:\n      - "
-	userData = userData + keyPairInfo.PublicKey
+	/*
+		//sudo 패키지 설치
+		//userData := "#cloud-config\npackage_update: true\npackages:\n  - sudo\nusers:\n  - default\n  - name: " + CBDefaultVmUserName + "\n    groups: sudo\n    shell: /bin/bash\n    sudo: ['ALL=(ALL) NOPASSWD:ALL']\n    ssh-authorized-keys:\n      - "
+		//sudo 그룹 사용
+		//userData := "#cloud-config\nusers:\n  - default\n  - name: " + CBDefaultVmUserName + "\n    groups: sudo\n    shell: /bin/bash\n    sudo: ['ALL=(ALL) NOPASSWD:ALL']\n    ssh-authorized-keys:\n      - "
+		//그룹 제거
+		userData := "#cloud-config\nusers:\n  - default\n  - name: " + CBDefaultVmUserName + "\n    shell: /bin/bash\n    sudo: ['ALL=(ALL) NOPASSWD:ALL']\n    ssh-authorized-keys:\n      - "
+		userData = userData + keyPairInfo.PublicKey
+		userDataBase64 := base64.StdEncoding.EncodeToString([]byte(userData))
+		cblogger.Infof("===== userData ===")
+		spew.Dump(userDataBase64)
+	*/
+
+	//=============================
+	// UserData생성 처리(File기반)
+	//=============================
+	// 향후 공통 파일이나 외부에서 수정 가능하도록 cloud-init 스크립트 파일로 설정
+	rootPath := os.Getenv("CBSPIDER_ROOT")
+	fileDataCloudInit, err := ioutil.ReadFile(rootPath + CBCloudInitFilePath)
+	if err != nil {
+		cblogger.Error(err)
+		return irs.VMInfo{}, err
+	}
+	userData := string(fileDataCloudInit)
+	userData = strings.ReplaceAll(userData, "{{username}}", CBDefaultVmUserName)
+	userData = strings.ReplaceAll(userData, "{{public_key}}", keyPairInfo.PublicKey)
 	userDataBase64 := base64.StdEncoding.EncodeToString([]byte(userData))
-	cblogger.Infof("===== userData ===")
-	spew.Dump(userDataBase64)
+	cblogger.Debugf("cloud-init data : [%s]", userDataBase64)
 
 	//=============================
 	// 보안그룹 처리 - SystemId 기반

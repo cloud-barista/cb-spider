@@ -873,8 +873,10 @@ func handleVM() {
 
 			case 1:
 				vmReqInfo := irs.VMReqInfo{
-					IId:               irs.IID{NameId: "mcloud-barista-iid-vm-test"},
-					ImageIID:          irs.IID{SystemId: "ami-059b6d3840b03d6dd"},
+					IId: irs.IID{NameId: "mcloud-barista-iid-vm-test"},
+					//ImageIID:          irs.IID{SystemId: "ami-001b6f8703b50e077"}, //centos-stable-7.2003.13-ebs-202005201235
+					//ImageIID:          irs.IID{SystemId: "ami-059b6d3840b03d6dd"}, //Ubuntu Server 20.04 LTS (HVM)
+					ImageIID:          irs.IID{SystemId: "ami-059b6d3840b03d6dd"}, //Ubuntu Server 20.04 LTS (HVM)
 					SubnetIID:         irs.IID{SystemId: "subnet-0a6ca346752be1ca4"},
 					SecurityGroupIIDs: []irs.IID{{SystemId: "sg-0556ddbff4cab480e"}},
 					VMSpecName:        "t2.micro",
