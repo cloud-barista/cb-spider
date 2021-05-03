@@ -7,11 +7,8 @@
 package resources
 
 import (
-	"encoding/base64"
 	"errors"
 	"fmt"
-	"io/ioutil"
-	"os"
 	"reflect"
 	"strings"
 
@@ -28,7 +25,7 @@ import (
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 )
 
-type AwsVMHandler struct {
+type TencentVMHandler struct {
 	Region idrv.RegionInfo
 	Client *ec2.EC2
 }
@@ -60,7 +57,7 @@ func Connect(region string) *ec2.EC2 {
 // 1개의 VM만 생성되도록 수정 (MinCount / MaxCount 이용 안 함)
 //키페어 이름(예:mcloud-barista)은 아래 URL에 나오는 목록 중 "키페어 이름"의 값을 적으면 됨.
 //https://ap-northeast-2.console.aws.amazon.com/ec2/v2/home?region=ap-northeast-2#KeyPairs:sort=keyName
-func (vmHandler *AwsVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, error) {
+func (vmHandler *TencentVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, error) {
 	cblogger.Info(vmReqInfo)
 	spew.Dump(vmReqInfo)
 
@@ -71,24 +68,6 @@ func (vmHandler *AwsVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 	keyName := vmReqInfo.KeyPairIID.SystemId
 	baseName := vmReqInfo.IId.NameId //"mcloud-barista-VMHandlerTest"
 	subnetID := vmReqInfo.SubnetIID.SystemId
-
-	// 2021-04-28 cbuser 추가에 따른 Local KeyPair만 VM 생성 가능하도록 강제
-	//=============================
-	// KeyPair의 PublicKey 정보 처리
-	//=============================
-	cblogger.Infof("[%s] KeyPair 조회 시작", keyName)
-	keypairHandler := AwsKeyPairHandler{
-		//CredentialInfo:
-		Region: vmHandler.Region,
-		Client: vmHandler.Client,
-	}
-	cblogger.Info(keypairHandler)
-
-	keyPairInfo, errKeyPair := keypairHandler.GetKey(vmReqInfo.KeyPairIID)
-	if errKeyPair != nil {
-		cblogger.Error(errKeyPair)
-		return irs.VMInfo{}, errKeyPair
-	}
 
 	//=============================
 	// 보안그룹 처리 - SystemId 기반
@@ -109,7 +88,7 @@ func (vmHandler *AwsVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 	// PublicIp 처리 - NameId 기반
 	//=============================
 	cblogger.Info("NameId 기반으로 처리하기 위해 PublicIp 정보를 조회함.")
-	publicIPHandler := AwsPublicIPHandler{
+	publicIPHandler := TencentPublicIPHandler{
 		//Region: vmHandler.Region,
 		Client: vmHandler.Client,
 	}
@@ -124,34 +103,6 @@ func (vmHandler *AwsVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 	publicIpId := publicIPInfo.Id
 	cblogger.Infof("PublicIP ID를 [%s]대신 [%s]로 사용합니다.", publicIPInfo.Id, publicIpId)
 	*/
-
-	/*
-		//=============================
-		// UserData생성 처리
-		//=============================
-		userData := "#cloud-config\nusers:\n  - default\n  - name: " + CBDefaultVmUserName + "\n    groups: sudo\n    shell: /bin/bash\n    sudo: ['ALL=(ALL) NOPASSWD:ALL']\n    ssh-authorized-keys:\n      - "
-		//userData = userData + "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC0wqohybvHvljVsUW7vmyicVNVDcPdzh6ZRkm1H9SyMuUEK0zOB3Kj+1MxMQPnRXgL9fI518ymUxavrkrHr0LwZtG8pfMOwZkZ7WD4WnT6Ho14N14U1JIM/+005cBBYyF+OWYyxD/q5p/y8R19NXLpEbnpTNL0mKjQ1q8a6/LVCsaKxy9OJ9o/ChN2FDXhCdVLPHL/jrUPqzjSLkm/GIt+v9RWJ0BFAk+rZY7abMNfGSorTqWZEYYd8gqofeTPh2mhYr21NVLBiAyzQqs6fgL+FgsnJFBnuIZ2peuCGxcOxZ7h8iEzJG2r+tGn+ivfMpla12oHxwihJhiodN1KxeZ7"
-		userData = userData + keyPairInfo.PublicKey
-		userDataBase64 := aws.String(base64.StdEncoding.EncodeToString([]byte(userData)))
-		cblogger.Infof("===== userData ===")
-		spew.Dump(userDataBase64)
-	*/
-
-	//=============================
-	// UserData생성 처리(File기반)
-	//=============================
-	// 향후 공통 파일이나 외부에서 수정 가능하도록 cloud-init 스크립트 파일로 설정
-	rootPath := os.Getenv("CBSPIDER_ROOT")
-	fileDataCloudInit, err := ioutil.ReadFile(rootPath + CBCloudInitFilePath)
-	if err != nil {
-		cblogger.Error(err)
-		return irs.VMInfo{}, err
-	}
-	userData := string(fileDataCloudInit)
-	userData = strings.ReplaceAll(userData, "{{username}}", CBDefaultVmUserName)
-	userData = strings.ReplaceAll(userData, "{{public_key}}", keyPairInfo.PublicKey)
-	userDataBase64 := aws.String(base64.StdEncoding.EncodeToString([]byte(userData)))
-	cblogger.Debugf("cloud-init data : [%s]", userDataBase64)
 
 	//=============================
 	// VM생성 처리
@@ -187,7 +138,6 @@ func (vmHandler *AwsVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 		},
 
 		//ec2.InstanceNetworkInterfaceSpecification
-		UserData: userDataBase64,
 	}
 	cblogger.Info(input)
 
@@ -318,8 +268,8 @@ func WaitForRun(svc *ec2.EC2, instanceID string) {
 	cblogger.Info("=========WaitForRun() 종료")
 }
 
-//func (vmHandler *AwsVMHandler) ResumeVM(vmNameId string) (irs.VMStatus, error) {
-func (vmHandler *AwsVMHandler) ResumeVM(vmIID irs.IID) (irs.VMStatus, error) {
+//func (vmHandler *TencentVMHandler) ResumeVM(vmNameId string) (irs.VMStatus, error) {
+func (vmHandler *TencentVMHandler) ResumeVM(vmIID irs.IID) (irs.VMStatus, error) {
 	cblogger.Infof("vmNameId : [%s]", vmIID.SystemId)
 
 	/*
@@ -385,8 +335,8 @@ func (vmHandler *AwsVMHandler) ResumeVM(vmIID irs.IID) (irs.VMStatus, error) {
 	return irs.VMStatus("Resuming"), nil
 }
 
-//func (vmHandler *AwsVMHandler) SuspendVM(vmNameId string) (irs.VMStatus, error) {
-func (vmHandler *AwsVMHandler) SuspendVM(vmIID irs.IID) (irs.VMStatus, error) {
+//func (vmHandler *TencentVMHandler) SuspendVM(vmNameId string) (irs.VMStatus, error) {
+func (vmHandler *TencentVMHandler) SuspendVM(vmIID irs.IID) (irs.VMStatus, error) {
 	cblogger.Infof("vmNameId : [%s]", vmIID.SystemId)
 
 	/*
@@ -445,8 +395,8 @@ func (vmHandler *AwsVMHandler) SuspendVM(vmIID irs.IID) (irs.VMStatus, error) {
 	return irs.VMStatus("Suspending"), nil
 }
 
-//func (vmHandler *AwsVMHandler) RebootVM(vmNameId string) (irs.VMStatus, error) {
-func (vmHandler *AwsVMHandler) RebootVM(vmIID irs.IID) (irs.VMStatus, error) {
+//func (vmHandler *TencentVMHandler) RebootVM(vmNameId string) (irs.VMStatus, error) {
+func (vmHandler *TencentVMHandler) RebootVM(vmIID irs.IID) (irs.VMStatus, error) {
 	cblogger.Infof("vmNameId : [%s]", vmIID.NameId)
 
 	vmInfo, errVmInfo := vmHandler.GetVM(vmIID)
@@ -512,8 +462,8 @@ func (vmHandler *AwsVMHandler) RebootVM(vmIID irs.IID) (irs.VMStatus, error) {
 	return irs.VMStatus("Rebooting"), nil
 }
 
-//func (vmHandler *AwsVMHandler) TerminateVM(vmNameId string) (irs.VMStatus, error) {
-func (vmHandler *AwsVMHandler) TerminateVM(vmIID irs.IID) (irs.VMStatus, error) {
+//func (vmHandler *TencentVMHandler) TerminateVM(vmNameId string) (irs.VMStatus, error) {
+func (vmHandler *TencentVMHandler) TerminateVM(vmIID irs.IID) (irs.VMStatus, error) {
 	cblogger.Infof("vmNameId : [%s]", vmIID.NameId)
 
 	vmInfo, errVmInfo := vmHandler.GetVM(vmIID)
@@ -560,8 +510,8 @@ func (vmHandler *AwsVMHandler) TerminateVM(vmIID irs.IID) (irs.VMStatus, error) 
 }
 
 //2019-11-16부로 CB-Driver 전체 로직이 NameId 기반으로 변경됨.
-//func (vmHandler *AwsVMHandler) GetVM(vmNameId string) (irs.VMInfo, error) {
-func (vmHandler *AwsVMHandler) GetVM(vmIID irs.IID) (irs.VMInfo, error) {
+//func (vmHandler *TencentVMHandler) GetVM(vmNameId string) (irs.VMInfo, error) {
+func (vmHandler *TencentVMHandler) GetVM(vmIID irs.IID) (irs.VMInfo, error) {
 	cblogger.Infof("vmNameId : [%s]", vmIID.SystemId)
 	input := &ec2.DescribeInstancesInput{
 		InstanceIds: []*string{
@@ -638,7 +588,7 @@ func (vmHandler *AwsVMHandler) GetVM(vmIID irs.IID) (irs.VMInfo, error) {
 // DescribeInstances결과에서 EC2 세부 정보 추출
 // VM 생성 시에는 Running 이전 상태의 정보가 넘어오기 때문에
 // 최종 정보 기반으로 리턴 받고 싶으면 GetVM에 통합해야 할 듯.
-func (vmHandler *AwsVMHandler) ExtractDescribeInstances(reservation *ec2.Reservation) irs.VMInfo {
+func (vmHandler *TencentVMHandler) ExtractDescribeInstances(reservation *ec2.Reservation) irs.VMInfo {
 	//cblogger.Info("ExtractDescribeInstances", reservation)
 	cblogger.Info("Instances[0]", reservation.Instances[0])
 	//spew.Dump(reservation.Instances[0])
@@ -774,7 +724,7 @@ func ExtractVmName(Tags []*ec2.Tag) string {
 	return ""
 }
 
-func (vmHandler *AwsVMHandler) ListVM() ([]*irs.VMInfo, error) {
+func (vmHandler *TencentVMHandler) ListVM() ([]*irs.VMInfo, error) {
 	cblogger.Infof("Start")
 	var vmInfoList []*irs.VMInfo
 
@@ -868,8 +818,8 @@ func ConvertVMStatusString(vmStatus string) (irs.VMStatus, error) {
 }
 
 //SHUTTING-DOWN / TERMINATED
-//func (vmHandler *AwsVMHandler) GetVMStatus(vmNameId string) (irs.VMStatus, error) {
-func (vmHandler *AwsVMHandler) GetVMStatus(vmIID irs.IID) (irs.VMStatus, error) {
+//func (vmHandler *TencentVMHandler) GetVMStatus(vmNameId string) (irs.VMStatus, error) {
+func (vmHandler *TencentVMHandler) GetVMStatus(vmIID irs.IID) (irs.VMStatus, error) {
 	cblogger.Infof("vmNameId : [%s]", vmIID.SystemId)
 
 	/*
@@ -938,7 +888,7 @@ func (vmHandler *AwsVMHandler) GetVMStatus(vmIID irs.IID) (irs.VMStatus, error) 
 	return irs.VMStatus("Failed"), errors.New("상태 정보를 찾을 수 없습니다.")
 }
 
-func (vmHandler *AwsVMHandler) ListVMStatus() ([]*irs.VMStatusInfo, error) {
+func (vmHandler *TencentVMHandler) ListVMStatus() ([]*irs.VMStatusInfo, error) {
 	cblogger.Infof("Start")
 	var vmStatusList []*irs.VMStatusInfo
 
@@ -1012,7 +962,7 @@ func (vmHandler *AwsVMHandler) ListVMStatus() ([]*irs.VMStatusInfo, error) {
 }
 
 // AssociationId 대신 PublicIP로도 가능 함.
-func (vmHandler *AwsVMHandler) AssociatePublicIP(allocationId string, instanceId string) (bool, error) {
+func (vmHandler *TencentVMHandler) AssociatePublicIP(allocationId string, instanceId string) (bool, error) {
 	cblogger.Infof("EC2에 퍼블릭 IP할당 - AllocationId : [%s], InstanceId : [%s]", allocationId, instanceId)
 
 	// EC2에 할당.
@@ -1045,7 +995,7 @@ func (vmHandler *AwsVMHandler) AssociatePublicIP(allocationId string, instanceId
 }
 
 // 전달 받은 vNic을 VM에 추가함.
-func (vmHandler *AwsVMHandler) AttachNetworkInterface(vNicId string, instanceId string) (bool, error) {
+func (vmHandler *TencentVMHandler) AttachNetworkInterface(vNicId string, instanceId string) (bool, error) {
 	cblogger.Infof("EC2[%s] VM에 vNic[%s] 추가 시작", vNicId, instanceId)
 
 	input := &ec2.AttachNetworkInterfaceInput{

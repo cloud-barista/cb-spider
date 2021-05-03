@@ -27,119 +27,9 @@ var cblogger *logrus.Logger
 
 func init() {
 	// cblog is a global variable.
-	cblogger = cblog.GetLogger("AlibabaCloud Resource Test")
+	cblogger = cblog.GetLogger("TencentCloud Resource Test")
 	cblog.SetLevel("info")
 }
-
-/*
-// Test PublicIp
-func handlePublicIP() {
-	cblogger.Debug("Start Publicip Resource Test")
-
-	ResourceHandler, err := testconf.GetResourceHandler("Publicip")
-	if err != nil {
-		panic(err)
-	}
-
-	handler := ResourceHandler.(irs.PublicIPHandler)
-
-	config := testconf.ReadConfigFile()
-	//reqGetPublicIP := "13.124.140.207"
-	reqPublicIP := config.Ali.PublicIP
-	//reqPublicIP = "eipalloc-0231a3e16ec42e869"
-	cblogger.Info("reqPublicIP : ", reqPublicIP)
-	//handler.CreatePublicIP(publicIPReqInfo)
-	//handler.ListPublicIP()
-	//handler.GetPublicIP("13.124.140.207")
-
-	for {
-		fmt.Println("")
-		fmt.Println("Publicip Resource Test")
-		fmt.Println("1. ListPublicIP()")
-		fmt.Println("2. GetPublicIP()")
-		fmt.Println("3. CreatePublicIP()")
-		fmt.Println("4. DeletePublicIP()")
-		fmt.Println("5. Exit")
-
-		var commandNum int
-		var reqDelIP string
-
-		inputCnt, err := fmt.Scan(&commandNum)
-		if err != nil {
-			panic(err)
-		}
-
-		if inputCnt == 1 {
-			switch commandNum {
-			case 1:
-				fmt.Println("Start ListPublicIP() ...")
-				result, err := handler.ListPublicIP()
-				if err != nil {
-					cblogger.Error("PublicIP 목록 조회 실패 : ", err)
-				} else {
-					cblogger.Info("PublicIP 목록 조회 결과")
-					spew.Dump(result)
-				}
-
-				fmt.Println("Finish ListPublicIP()")
-
-			case 2:
-				fmt.Println("Start GetPublicIP() ...")
-				result, err := handler.GetPublicIP(reqPublicIP)
-				if err != nil {
-					cblogger.Error(reqPublicIP, " PublicIP 정보 조회 실패 : ", err)
-				} else {
-					cblogger.Infof("PublicIP[%s]  정보 조회 결과", reqPublicIP)
-					spew.Dump(result)
-				}
-				fmt.Println("Finish GetPublicIP()")
-
-			case 3:
-				fmt.Println("Start CreatePublicIP() ...")
-				reqInfo := irs.PublicIPReqInfo{Name: "mcloud-barista-eip-test"}
-				result, err := handler.CreatePublicIP(reqInfo)
-				if err != nil {
-					cblogger.Error("PublicIP 생성 실패 : ", err)
-				} else {
-					cblogger.Info("PublicIP 생성 성공 ", result)
-					spew.Dump(result)
-				}
-				fmt.Println("Finish CreatePublicIP()")
-
-			case 4:
-				fmt.Println("Start DeletePublicIP() ...")
-				fmt.Print("삭제할 PublicIP를 입력하세요 : ")
-				inputCnt, err := fmt.Scan(&reqDelIP)
-				if err != nil {
-					panic(err)
-				}
-
-				if inputCnt == 1 {
-					cblogger.Info("삭제할 PublicIP : ", reqDelIP)
-				} else {
-					fmt.Println("삭제할 Public IP만 입력하세요.")
-				}
-
-				result, err := handler.DeletePublicIP(reqDelIP)
-				if err != nil {
-					cblogger.Error(reqDelIP, " PublicIP 삭제 실패 : ", err)
-				} else {
-					if result {
-						cblogger.Infof("PublicIP[%s] 삭제 완료", reqDelIP)
-					} else {
-						cblogger.Errorf("PublicIP[%s] 삭제 실패", reqDelIP)
-					}
-				}
-				fmt.Println("Finish DeletePublicIP()")
-
-			case 5:
-				fmt.Println("Exit")
-				return
-			}
-		}
-	}
-}
-*/
 
 // Test VMSpec
 func handleVMSpec() {
@@ -236,96 +126,6 @@ func handleVMSpec() {
 		}
 	}
 }
-
-/*
-// Test AMI
-func handleImage() {
-	cblogger.Debug("Start ImageHandler Resource Test")
-
-	ResourceHandler, err := testconf.GetResourceHandler("Image")
-	if err != nil {
-		panic(err)
-	}
-	//handler := ResourceHandler.(irs2.ImageHandler)
-	handler := ResourceHandler.(irs.ImageHandler)
-
-	//imageReqInfo := irs2.ImageReqInfo{
-	imageReqInfo := irs.ImageReqInfo{
-		Id:   "ami-047f7b46bd6dd5d84",
-		Name: "Test OS Image",
-	}
-
-	for {
-		fmt.Println("ImageHandler Management")
-		fmt.Println("0. Quit")
-		fmt.Println("1. Image List")
-		fmt.Println("2. Image Create")
-		fmt.Println("3. Image Get")
-		fmt.Println("4. Image Delete")
-
-		var commandNum int
-		inputCnt, err := fmt.Scan(&commandNum)
-		if err != nil {
-			panic(err)
-		}
-
-		if inputCnt == 1 {
-			switch commandNum {
-			case 0:
-				return
-
-			case 1:
-				result, err := handler.ListImage()
-				if err != nil {
-					cblogger.Infof(" Image 목록 조회 실패 : ", err)
-				} else {
-					cblogger.Info("Image 목록 조회 결과")
-					cblogger.Info(result)
-					//spew.Dump(result)
-					cblogger.Info("출력 결과 수 : ", len(result))
-
-					//조회및 삭제 테스트를 위해 리스트의 첫번째 정보의 ID를 요청ID로 자동 갱신함.
-					if result != nil {
-						imageReqInfo.Id = result[0].Id // 조회 및 삭제를 위해 생성된 ID로 변경
-					}
-				}
-
-			case 2:
-				cblogger.Infof("[%s] Image 생성 테스트", imageReqInfo.Name)
-				//vNetworkReqInfo := irs.VNetworkReqInfo{}
-				result, err := handler.CreateImage(imageReqInfo)
-				if err != nil {
-					cblogger.Infof(imageReqInfo.Id, " Image 생성 실패 : ", err)
-				} else {
-					cblogger.Infof("Image 생성 결과 : ", result)
-					imageReqInfo.Id = result.Id // 조회 및 삭제를 위해 생성된 ID로 변경
-					spew.Dump(result)
-				}
-
-			case 3:
-				cblogger.Infof("[%s] Image 조회 테스트", imageReqInfo.Id)
-				result, err := handler.GetImage(imageReqInfo.Id)
-				if err != nil {
-					cblogger.Infof("[%s] Image 조회 실패 : ", imageReqInfo.Id, err)
-				} else {
-					cblogger.Infof("[%s] Image 조회 결과 : [%s]", imageReqInfo.Id, result)
-					spew.Dump(result)
-				}
-
-			case 4:
-				cblogger.Infof("[%s] Image 삭제 테스트", imageReqInfo.Id)
-				result, err := handler.DeleteImage(imageReqInfo.Id)
-				if err != nil {
-					cblogger.Infof("[%s] Image 삭제 실패 : ", imageReqInfo.Id, err)
-				} else {
-					cblogger.Infof("[%s] Image 삭제 결과 : [%s]", imageReqInfo.Id, result)
-				}
-			}
-		}
-	}
-}
-
-*/
 
 func handleSecurity() {
 	cblogger.Debug("Start Security Resource Test")
@@ -541,28 +341,6 @@ func handleKeyPair() {
 		}
 	}
 }
-
-/*
-func TestMain() {
-	cblogger.Debug("Start ImageHandler Resource Test")
-
-	ResourceHandler, err := testconf.GetResourceHandler("Image")
-	if err != nil {
-		panic(err)
-	}
-	handler := ResourceHandler.(irs.ImageHandler)
-
-	result, err := handler.ListImage()
-	if err != nil {
-		cblogger.Infof(" Image 목록 조회 실패 : ", err)
-	} else {
-		cblogger.Info("Image 목록 조회 결과")
-		cblogger.Info(result)
-		cblogger.Info("출력 결과 수 : ", len(result))
-		spew.Dump(result)
-	}
-}
-*/
 
 func handleVPC() {
 	cblogger.Debug("Start VPC Resource Test")
@@ -825,18 +603,15 @@ func handleVM() {
 
 			case 1:
 				vmReqInfo := irs.VMReqInfo{
-					IId: irs.IID{NameId: "mcloud-barista-vm-test"},
-					//ImageIID: irs.IID{SystemId: "aliyun_3_x64_20G_alibase_20210425.vhd"},
-					//ImageIID: irs.IID{SystemId: "aliyun_2_1903_x64_20G_alibase_20200324.vhd"},
-					ImageIID:  irs.IID{SystemId: "ubuntu_18_04_x64_20G_alibase_20210318.vhd"},
-					VpcIID:    irs.IID{SystemId: "vpc-6welivp7nl6yw5a2rxj2w"},
-					SubnetIID: irs.IID{SystemId: "vsw-6wedntef8vkfzctdps7dl"},
-					//SecurityGroupIIDs: []irs.IID{{SystemId: "sg-6we0rxnoai067qbkdkgw"}, {SystemId: "sg-6weeb9xaodr65g7bq10c"}},
-					SecurityGroupIIDs: []irs.IID{{SystemId: "sg-6we1jpq012lnye7i4np4"}},
+					IId:               irs.IID{NameId: "mcloud-barista-vm-test"},
+					ImageIID:          irs.IID{SystemId: "aliyun_2_1903_x64_20G_alibase_20200324.vhd"},
+					VpcIID:            irs.IID{SystemId: "vpc-6wei16ufuimfcct41o0xh"},
+					SubnetIID:         irs.IID{SystemId: "vsw-6wed4dlmdg2ac1urdfn3p"},
+					SecurityGroupIIDs: []irs.IID{{SystemId: "sg-6we0rxnoai067qbkdkgw"}, {SystemId: "sg-6weeb9xaodr65g7bq10c"}},
 					VMSpecName:        "ecs.t5-lc2m1.nano",
 					KeyPairIID:        irs.IID{SystemId: "CB-KeyPairTest123123"},
 					//VMUserId:          "root", //root만 가능
-					//VMUserPasswd: "Cbuser!@#", //대문자 소문자 모두 사용되어야 함. 그리고 숫자나 특수 기호 중 하나가 포함되어야 함.
+					VMUserPasswd: "Cbuser!@#", //대문자 소문자 모두 사용되어야 함. 그리고 숫자나 특수 기호 중 하나가 포함되어야 함.
 				}
 
 				vmInfo, err := vmHandler.StartVM(vmReqInfo)
@@ -946,14 +721,36 @@ func handleVM() {
 	}
 }
 
+/*
+func TestMain() {
+	cblogger.Debug("Start ImageHandler Resource Test")
+
+	ResourceHandler, err := testconf.GetResourceHandler("Image")
+	if err != nil {
+		panic(err)
+	}
+	handler := ResourceHandler.(irs.ImageHandler)
+
+	result, err := handler.ListImage()
+	if err != nil {
+		cblogger.Infof(" Image 목록 조회 실패 : ", err)
+	} else {
+		cblogger.Info("Image 목록 조회 결과")
+		cblogger.Info(result)
+		cblogger.Info("출력 결과 수 : ", len(result))
+		spew.Dump(result)
+	}
+}
+*/
+
 func main() {
-	cblogger.Info("Alibaba Cloud Resource Test")
-	//handleVPC() //VPC
+	cblogger.Info("Tencent Cloud Resource Test")
+	handleVPC() //VPC
 	//handleVMSpec()
 	//handleImage() //AMI
 	//handleKeyPair()
 	//handleSecurity()
-	handleVM()
+	//handleVM()
 
 	//handlePublicIP() // PublicIP 생성 후 conf
 
