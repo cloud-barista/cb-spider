@@ -474,6 +474,77 @@ Loop:
 	}
 }
 
+func testKeypairHandler(config Config) {
+	resourceHandler, err := getResourceHandler("keypair")
+	if err != nil {
+		cblogger.Error(err)
+	}
+
+	keypairHandler := resourceHandler.(irs.KeyPairHandler)
+
+	cblogger.Info("Test KeypairHandler")
+	cblogger.Info("1. ListKeyPair()")
+	cblogger.Info("2. GetKeyPair()")
+	cblogger.Info("3. CreateKeyPair()")
+	cblogger.Info("4. DeleteKeyPair()")
+	cblogger.Info("5. Exit Program")
+
+	iid := irs.IID{
+		NameId:   "CB-Keypair",
+		SystemId: "CB-Keypair",
+	}
+
+Loop:
+	for {
+		var commandNum int
+		inputCnt, err := fmt.Scan(&commandNum)
+		if err != nil {
+			cblogger.Error(err)
+		}
+
+		if inputCnt == 1 {
+			switch commandNum {
+			case 1:
+				cblogger.Info("Start ListKeyPair() ...")
+				if list, err := keypairHandler.ListKey(); err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(list)
+				}
+				cblogger.Info("Finish ListKeyPair()")
+			case 2:
+				cblogger.Info("Start GetKeyPair() ...")
+				if vNicInfo, err := keypairHandler.GetKey(iid); err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(vNicInfo)
+				}
+				cblogger.Info("Finish GetKeyPair()")
+			case 3:
+				cblogger.Info("Start CreateKeyPair() ...")
+				reqInfo := irs.KeyPairReqInfo{
+					IId: iid,
+				}
+				if vNicInfo, err := keypairHandler.CreateKey(reqInfo); err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(vNicInfo)
+				}
+				cblogger.Info("Finish CreateKeyPair()")
+			case 4:
+				cblogger.Info("Start DeleteKeyPair() ...")
+				if ok, err := keypairHandler.DeleteKey(iid); !ok {
+					cblogger.Error(err)
+				}
+				cblogger.Info("Finish DeleteKeyPair()")
+			case 5:
+				cblogger.Info("Exit Program")
+				break Loop
+			}
+		}
+	}
+}
+
 func getResourceHandler(resourceType string) (interface{}, error) {
 	var cloudDriver idrv.CloudDriver
 	cloudDriver = new(cidrv.ClouditDriver)
@@ -526,7 +597,8 @@ func showTestHandlerInfo() {
 	fmt.Println("4. VPCHandler")
 	fmt.Println("5. VNicHandler x")
 	fmt.Println("6. VMSpecHandler")
-	fmt.Println("7. Exit")
+	fmt.Println("7. KeyPairHandler")
+	fmt.Println("8. Exit")
 	fmt.Println("==========================================================")
 }
 
@@ -565,6 +637,9 @@ Loop:
 				testVmSpecHandler(config)
 				showTestHandlerInfo()
 			case 7:
+				testKeypairHandler(config)
+				showTestHandlerInfo()
+			case 8:
 				fmt.Println("Exit Test ResourceHandler Program")
 				break Loop
 			}

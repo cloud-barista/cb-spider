@@ -43,12 +43,16 @@ func createVM(config Config, vmHandler irs.VMHandler) (irs.VMInfo, error) {
 		SecurityGroupIIDs: []irs.IID{
 			{
 				SystemId: config.Cloudit.VMInfo.SecGroupsID,
-				NameId:   config.Cloudit.VMInfo.Name,
+				NameId:   config.Cloudit.VMInfo.SecGroupsName,
 			},
 		},
 		VpcIID: irs.IID{
 			NameId:   DefaultVPCName,
 			SystemId: DefaultVPCName,
+		},
+		KeyPairIID: irs.IID{
+			NameId:   config.Cloudit.VMInfo.KeypairName,
+			SystemId: config.Cloudit.VMInfo.KeypairName,
 		},
 		// original
 		/*
@@ -198,6 +202,7 @@ type Config struct {
 			SubnetAddr    string `yaml:"subnet_addr"`
 			SecGroupsID   string `yaml:"sec_groups_id"`
 			SecGroupsName string `yaml:"sec_groups_name"`
+			KeypairName   string `yaml:"keypair_name"`
 			Description   string `yaml:"description"`
 			Protection    int    `yaml:"protection"`
 		} `yaml:"vm_info"`

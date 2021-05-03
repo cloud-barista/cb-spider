@@ -35,7 +35,7 @@ If you have any difficulties in using CB-Spider, please let us know.
 #### [실행 환경]
 
 - ##### 공식환경
-  - OS: Ubuntu 20.04
+  - OS: Ubuntu 18.04
   - Container: Docker 19.03
   - Build: Go 1.15
 - ##### 시험환경
