@@ -13,20 +13,16 @@
 package tencent
 
 import (
-	"C"
+	"fmt"
 
+	tcon "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/tencent/connect"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	icon "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/connect"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/ec2"
-	tcon "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/tencent/connect"
-)
-import (
-	"fmt"
-
-	"github.com/aws/aws-sdk-go/aws/credentials"
+	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
+	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/profile"
+	cvm "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/cvm/v20170312"
+	vpc "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/vpc/v20170312"
 )
 
 type TencentDriver struct {
@@ -51,33 +47,52 @@ func (TencentDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	return drvCapabilityInfo
 }
 
-//func getVMClient(regionInfo idrv.RegionInfo) (*ec2.EC2, error) {
-func getVMClient(connectionInfo idrv.ConnectionInfo) (*ec2.EC2, error) {
+func getVmClient(connectionInfo idrv.ConnectionInfo) (*cvm.Client, error) {
 
 	// setup Region
-	fmt.Println("TencentDriver : getVMClient() - Region : [" + connectionInfo.RegionInfo.Region + "]")
-	fmt.Println("TencentDriver : getVMClient() - Zone : [" + connectionInfo.RegionInfo.Zone + "]")
-	//fmt.Println("전달 받은 커넥션 정보")
-	//spew.Dump(connectionInfo)
+	fmt.Println("TencentDriver : getVpcClient() - Region : [" + connectionInfo.RegionInfo.Region + "]")
+	fmt.Println("TencentDriver : getVpcClient() - Zone : [" + connectionInfo.RegionInfo.Zone + "]")
+	fmt.Println("TencentDriver : getVpcClient() - ClientId : [" + connectionInfo.CredentialInfo.ClientId + "]")
 
-	sess, err := session.NewSession(&aws.Config{
-		Region: aws.String(connectionInfo.RegionInfo.Region),
-		//Region:      aws.String("ap-northeast-2"),
-		Credentials: credentials.NewStaticCredentials(connectionInfo.CredentialInfo.ClientId, connectionInfo.CredentialInfo.ClientSecret, "")},
+	credential := common.NewCredential(
+		connectionInfo.CredentialInfo.ClientId,
+		connectionInfo.CredentialInfo.ClientSecret,
 	)
+
+	cpf := profile.NewClientProfile()
+	cpf.HttpProfile.Endpoint = "cvm.tencentcloudapi.com"
+	client, err := cvm.NewClient(credential, connectionInfo.RegionInfo.Region, cpf)
+
 	if err != nil {
 		fmt.Println("Could not create aws New Session", err)
 		return nil, err
 	}
 
-	// Create EC2 service client
-	svc := ec2.New(sess)
+	return client, nil
+}
+
+func getVpcClient(connectionInfo idrv.ConnectionInfo) (*vpc.Client, error) {
+
+	// setup Region
+	fmt.Println("TencentDriver : getVpcClient() - Region : [" + connectionInfo.RegionInfo.Region + "]")
+	fmt.Println("TencentDriver : getVpcClient() - Zone : [" + connectionInfo.RegionInfo.Zone + "]")
+	fmt.Println("TencentDriver : getVpcClient() - ClientId : [" + connectionInfo.CredentialInfo.ClientId + "]")
+
+	credential := common.NewCredential(
+		connectionInfo.CredentialInfo.ClientId,
+		connectionInfo.CredentialInfo.ClientSecret,
+	)
+
+	cpf := profile.NewClientProfile()
+	cpf.HttpProfile.Endpoint = "vpc.tencentcloudapi.com"
+	client, err := vpc.NewClient(credential, connectionInfo.RegionInfo.Region, cpf)
+
 	if err != nil {
-		fmt.Println("Could not create EC2 service client", err)
+		fmt.Println("Could not create aws New Session", err)
 		return nil, err
 	}
 
-	return svc, nil
+	return client, nil
 }
 
 func (driver *TencentDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (icon.CloudConnection, error) {
@@ -91,24 +106,28 @@ func (driver *TencentDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (i
 
 	// sample code, do not user like this^^
 	//var iConn icon.CloudConnection
-	vmClient, err := getVMClient(connectionInfo)
-	//vmClient, err := getVMClient(connectionInfo.RegionInfo)
+	vmClient, err := getVmClient(connectionInfo)
 	if err != nil {
 		return nil, err
 	}
 
-	//iConn = tcon.TencentCloudConnection{}
-	iConn := tcon.TencentCloudConnection{
-		Region:        connectionInfo.RegionInfo,
-		VMClient:      vmClient,
-		KeyPairClient: vmClient,
+	vpcClient, err := getVpcClient(connectionInfo)
+	if err != nil {
+		return nil, err
+	}
 
-		VNetworkClient: vmClient,
-		//VNicClient:     vmClient,
-		ImageClient: vmClient,
-		//PublicIPClient: vmClient,
+	iConn := tcon.TencentCloudConnection{
+		Region:         connectionInfo.RegionInfo,
+		VNetworkClient: vpcClient,
+
+		VMClient:       vmClient,
+		KeyPairClient:  vmClient,
+		ImageClient:    vmClient,
 		SecurityClient: vmClient,
 		VmSpecClient:   vmClient,
+
+		//VNicClient:     vmClient,
+		//PublicIPClient: vmClient,
 	}
 
 	return &iConn, nil // return type: (icon.CloudConnection, error)

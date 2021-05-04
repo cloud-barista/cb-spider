@@ -11,24 +11,136 @@
 package resources
 
 import (
-	"errors"
-	"reflect"
-	"strconv"
-
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/awserr"
-	"github.com/aws/aws-sdk-go/service/ec2"
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
-	"github.com/davecgh/go-spew/spew"
+
+	vpc "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/vpc/v20170312"
 )
 
 type TencentVPCHandler struct {
 	Region idrv.RegionInfo
-	Client *ec2.EC2
+	Client *vpc.Client
 }
 
+func (VPCHandler *TencentVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.VPCInfo, error) {
+	cblogger.Info(vpcReqInfo)
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.TENCENT,
+		RegionZone:   VPCHandler.Region.Zone,
+		ResourceType: call.VPCSUBNET,
+		ResourceName: vpcReqInfo.IId.NameId,
+		CloudOSAPI:   "CreateVpc()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+	callLogStart := call.Start()
+
+	// result, err := VPCHandler.Client.CreateVpc(input)
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+	// if err != nil {
+	// 	callLogInfo.ErrorMSG = err.Error()
+	// 	callogger.Info(call.String(callLogInfo))
+	// 	return nil, err
+	// }
+	callogger.Info(call.String(callLogInfo))
+
+	return irs.VPCInfo{}, nil
+}
+
+func (VPCHandler *TencentVPCHandler) ListVPC() ([]*irs.VPCInfo, error) {
+	cblogger.Debug("Start")
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.TENCENT,
+		RegionZone:   VPCHandler.Region.Zone,
+		ResourceType: call.VPCSUBNET,
+		ResourceName: "ListVPC",
+		CloudOSAPI:   "DescribeVpcs()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+	callLogStart := call.Start()
+	//result, err := VPCHandler.Client.DescribeVpcs(&ec2.DescribeVpcsInput{})
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+	// if err != nil {
+	// 	callLogInfo.ErrorMSG = err.Error()
+	// 	callogger.Info(call.String(callLogInfo))
+	// 	return nil, err
+	// }
+	callogger.Info(call.String(callLogInfo))
+	return nil, nil
+}
+
+func (VPCHandler *TencentVPCHandler) GetVPC(vpcIID irs.IID) (irs.VPCInfo, error) {
+	cblogger.Info("VPC IID : ", vpcIID.SystemId)
+
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.AWS,
+		RegionZone:   VPCHandler.Region.Zone,
+		ResourceType: call.VPCSUBNET,
+		ResourceName: vpcIID.SystemId,
+		CloudOSAPI:   "DescribeVpcs()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+
+	callLogStart := call.Start()
+	//result, err := VPCHandler.Client.DescribeVpcs(&ec2.DescribeVpcsInput{})
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+	// if err != nil {
+	// 	callLogInfo.ErrorMSG = err.Error()
+	// 	callogger.Info(call.String(callLogInfo))
+	// 	return nil, err
+	// }
+	callogger.Info(call.String(callLogInfo))
+
+	return irs.VPCInfo{}, nil
+}
+
+func (VPCHandler *TencentVPCHandler) DeleteVPC(vpcIID irs.IID) (bool, error) {
+	cblogger.Infof("Delete VPC : [%s]", vpcIID.SystemId)
+
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.TENCENT,
+		RegionZone:   VPCHandler.Region.Zone,
+		ResourceType: call.VPCSUBNET,
+		ResourceName: vpcIID.SystemId,
+		CloudOSAPI:   "DeleteVpc()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+	callLogStart := call.Start()
+	//result, err := VPCHandler.Client.DescribeVpcs(&ec2.DescribeVpcsInput{})
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+	// if err != nil {
+	// 	callLogInfo.ErrorMSG = err.Error()
+	// 	callogger.Info(call.String(callLogInfo))
+	// 	return nil, err
+	// }
+	callogger.Info(call.String(callLogInfo))
+
+	return true, nil
+}
+
+func (VPCHandler *TencentVPCHandler) AddSubnet(vpcIID irs.IID, subnetInfo irs.SubnetInfo) (irs.VPCInfo, error) {
+	cblogger.Infof("[%s] Subnet 추가 - CIDR : %s", subnetInfo.IId.NameId, subnetInfo.IPv4_CIDR)
+	return irs.VPCInfo{}, nil
+}
+
+func (VPCHandler *TencentVPCHandler) RemoveSubnet(vpcIID irs.IID, subnetIID irs.IID) (bool, error) {
+	cblogger.Infof("[%s] VPC의 [%s] Subnet 삭제", vpcIID.SystemId, subnetIID.SystemId)
+	return false, nil
+}
+
+/*
 func (VPCHandler *TencentVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.VPCInfo, error) {
 	cblogger.Info(vpcReqInfo)
 
@@ -508,15 +620,6 @@ func (VPCHandler *TencentVPCHandler) GetVPC(vpcIID irs.IID) (irs.VPCInfo, error)
 	return awsVpcInfo, nil
 }
 
-/*
-type VPCInfo struct {
-	IId   IID       // {NameId, SystemId}
-	IPv4_CIDR string
-	SubnetInfoList []SubnetInfo
-
-	KeyValueList []KeyValue
-}
-*/
 //VPC 정보를 추출함
 func ExtractVpcDescribeInfo(vpcInfo *ec2.Vpc) irs.VPCInfo {
 	awsVpcInfo := irs.VPCInfo{
@@ -528,16 +631,6 @@ func ExtractVpcDescribeInfo(vpcInfo *ec2.Vpc) irs.VPCInfo {
 
 	//Name은 Tag의 "Name" 속성에만 저장됨
 	//NameId는 전달할 필요가 없음.
-	/*
-		cblogger.Debug("Name Tag 찾기")
-		for _, t := range vpcInfo.Tags {
-			if *t.Key == "Name" {
-				awsVpcInfo.IId.NameId = *t.Value
-				cblogger.Debug("VPC Name : ", awsVpcInfo.IId.NameId)
-				break
-			}
-		}
-	*/
 	return awsVpcInfo
 }
 
@@ -676,51 +769,6 @@ func (VPCHandler *TencentVPCHandler) DeleteVPC(vpcIID irs.IID) (bool, error) {
 	spew.Dump(result)
 	return true, nil
 }
-
-/*
-// VPC에 설정된 0.0.0.0/0 라우터를 제거 함.
-func (VPCHandler *TencentVPCHandler) DeleteRouteIGWOld(vpcId string) error {
-	cblogger.Infof("VPC ID : [%s]", vpcId)
-	routeTableId, errRoute := VPCHandler.GetDefaultRouteTable(vpcId)
-	if errRoute != nil {
-		return errRoute
-	}
-
-	cblogger.Infof("RouteTable[%s]에 할당된 라우팅(0.0.0.0/0) 정보를 삭제합니다.", routeTableId)
-	input := &ec2.DeleteRouteInput{
-		DestinationCidrBlock: aws.String("0.0.0.0/0"),
-		RouteTableId:         aws.String(routeTableId),
-	}
-	cblogger.Info(input)
-
-	//https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DeleteRoute.html
-	result, err := VPCHandler.Client.DeleteRoute(input)
-	if err != nil {
-		cblogger.Errorf("RouteTable[%s]에 대한 라우팅(0.0.0.0/0) 정보 삭제 실패", routeTableId)
-		if aerr, ok := err.(awserr.Error); ok {
-			//InvalidRoute.NotFound
-			cblogger.Errorf("Error Code : [%s] - Error:[%s] - Message:[%s]", aerr.Code(), aerr.Error(), aerr.Message())
-			switch aerr.Code() {
-			case "InvalidRoute.NotFound": //NotFound에러는 무시하라고 해서 (예외#255)
-				return errors.New(aerr.Code())
-			default:
-				cblogger.Error(aerr.Error())
-			}
-		} else {
-			// Print the error, cast err to awserr.Error to get the Code and
-			// Message from an error.
-			cblogger.Error(err.Error())
-		}
-		return err
-	}
-	cblogger.Infof("RouteTable[%s]에 대한 라우팅(0.0.0.0/0) 정보 삭제 완료", routeTableId)
-
-	cblogger.Info(result)
-	spew.Dump(result)
-	cblogger.Info("라우팅 테이블에 추가한 0.0.0.0/0 IGW 라우터 삭제 완료")
-	return nil
-}
-*/
 
 // VPC에 설정된 0.0.0.0/0 라우터를 제거 함.
 // #255예외 처리 보완에 따른 라우팅 정보 삭제전 0.0.0.0 조회후 삭제하도록 로직 변경
@@ -962,13 +1010,6 @@ func (VPCHandler *TencentVPCHandler) ListSubnet(vpcId string) ([]irs.SubnetInfo,
 	for _, curSubnet := range result.Subnets {
 		cblogger.Infof("[%s] Subnet 정보 조회", *curSubnet.SubnetId)
 		arrSubnetInfo := ExtractSubnetDescribeInfo(curSubnet)
-		//arrSubnetInfo, errSubnet := VPCHandler.GetSubnet(*curSubnet.SubnetId)
-		/*
-			if errSubnet != nil {
-				return nil, errSubnet
-			}
-		*/
-		//arrSubnetInfoList = append(arrSubnetInfoList, arrSubnetInfo)
 		arrSubnetInfoList = append(arrSubnetInfoList, arrSubnetInfo)
 	}
 
@@ -1029,11 +1070,6 @@ func (VPCHandler *TencentVPCHandler) GetSubnet(reqSubnetId string) (irs.SubnetIn
 	}
 }
 
-/*
-    IId        IID
-    IPv4_CIDR    string
-	KeyValueList    []KeyValue
-*/
 
 //Subnet 정보를 추출함
 func ExtractSubnetDescribeInfo(subnetInfo *ec2.Subnet) irs.SubnetInfo {
@@ -1042,17 +1078,6 @@ func ExtractSubnetDescribeInfo(subnetInfo *ec2.Subnet) irs.SubnetInfo {
 		IPv4_CIDR: *subnetInfo.CidrBlock,
 		//Status:    *subnetInfo.State,
 	}
-
-	/*
-		cblogger.Debug("Name Tag 찾기")
-		for _, t := range subnetInfo.Tags {
-			if *t.Key == "Name" {
-				vNetworkInfo.IId.NameId = *t.Value
-				cblogger.Debug("Subnet Name : ", vNetworkInfo.IId.NameId)
-				break
-			}
-		}
-	*/
 
 	keyValueList := []irs.KeyValue{
 		{Key: "VpcId", Value: *subnetInfo.VpcId},
@@ -1111,3 +1136,4 @@ func (VPCHandler *TencentVPCHandler) RemoveSubnet(vpcIID irs.IID, subnetIID irs.
 	return VPCHandler.DeleteSubnet(subnetIID)
 	//return false, nil
 }
+*/

@@ -28,7 +28,7 @@ func main() {
 	cpf.SignMethod = "HmacSHA1"
 
 	// Instantiate the client object to request the product (with CVM as an example).
-	client, _ := cvm.NewClient(credential, "ap-beijing", cpf)
+	client, _ := cvm.NewClient(credential, "ap-tokyo", cpf)
 	// Instantiate a request object; you can further set the request parameters according to the API called and actual conditions.
 	request := cvm.NewDescribeZonesRequest()
 	// Call the API you want to access through the client object; you need to pass in the request object.

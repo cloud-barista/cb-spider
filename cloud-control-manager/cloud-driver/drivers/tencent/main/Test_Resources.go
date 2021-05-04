@@ -745,11 +745,11 @@ func TestMain() {
 
 func main() {
 	cblogger.Info("Tencent Cloud Resource Test")
-	handleVPC() //VPC
+	//handleVPC() //VPC
 	//handleVMSpec()
 	//handleImage() //AMI
 	//handleKeyPair()
-	//handleSecurity()
+	handleSecurity()
 	//handleVM()
 
 	//handlePublicIP() // PublicIP 생성 후 conf

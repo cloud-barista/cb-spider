@@ -1,31 +1,40 @@
 package resources
 
 import (
-	"errors"
-
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/awserr"
-	"github.com/aws/aws-sdk-go/service/ec2"
-	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	_ "github.com/davecgh/go-spew/spew"
+	cvm "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/cvm/v20170312"
 )
 
 type TencentKeyPairHandler struct {
 	Region idrv.RegionInfo
-	Client *ec2.EC2
+	Client *cvm.Client
+}
+
+func (keyPairHandler *TencentKeyPairHandler) ListKey() ([]*irs.KeyPairInfo, error) {
+	var keyPairList []*irs.KeyPairInfo
+	cblogger.Debug("Start ListKey()")
+	return keyPairList, nil
+}
+
+func (keyPairHandler *TencentKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPairReqInfo) (irs.KeyPairInfo, error) {
+	cblogger.Info(keyPairReqInfo)
+	return irs.KeyPairInfo{}, nil
+}
+
+func (keyPairHandler *TencentKeyPairHandler) GetKey(keyIID irs.IID) (irs.KeyPairInfo, error) {
+	//keyPairID := keyName
+	cblogger.Infof("keyName : [%s]", keyIID.SystemId)
+	return irs.KeyPairInfo{}, nil
+}
+
+func (keyPairHandler *TencentKeyPairHandler) DeleteKey(keyIID irs.IID) (bool, error) {
+	cblogger.Infof("삭제 요청된 키페어 : [%s]", keyIID.SystemId)
+	return false, nil
 }
 
 /*
-// @TODO: KeyPairInfo 리소스 프로퍼티 정의 필요
-type KeyPairInfo struct {
-	Name        string
-	Fingerprint string
-	KeyMaterial string //RSA PRIVATE KEY
-}
-*/
-
 func (keyPairHandler *TencentKeyPairHandler) ListKey() ([]*irs.KeyPairInfo, error) {
 	cblogger.Debug("Start ListKey()")
 	var keyPairList []*irs.KeyPairInfo
@@ -65,12 +74,6 @@ func (keyPairHandler *TencentKeyPairHandler) ListKey() ([]*irs.KeyPairInfo, erro
 
 	//cblogger.Debugf("Key Pairs:")
 	for _, pair := range result.KeyPairs {
-		/*
-			cblogger.Debugf("%s: %s\n", *pair.KeyName, *pair.KeyFingerprint)
-			keyPairInfo := new(irs.KeyPairInfo)
-			keyPairInfo.Name = *pair.KeyName
-			keyPairInfo.Fingerprint = *pair.KeyFingerprint
-		*/
 		keyPairInfo := ExtractKeyPairDescribeInfo(pair)
 		keyPairList = append(keyPairList, &keyPairInfo)
 	}
@@ -254,3 +257,4 @@ func (keyPairHandler *TencentKeyPairHandler) DeleteKey(keyIID irs.IID) (bool, er
 
 	return true, nil
 }
+*/

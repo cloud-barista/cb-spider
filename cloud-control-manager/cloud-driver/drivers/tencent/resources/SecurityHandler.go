@@ -11,24 +11,31 @@
 package resources
 
 import (
-	"errors"
-	"reflect"
-	"strconv"
-
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/awserr"
-	"github.com/aws/aws-sdk-go/service/ec2"
-	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
-	"github.com/davecgh/go-spew/spew"
+	cvm "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/cvm/v20170312"
 )
 
 type TencentSecurityHandler struct {
 	Region idrv.RegionInfo
-	Client *ec2.EC2
+	Client *cvm.Client
 }
 
+func (securityHandler *TencentSecurityHandler) ListSecurity() ([]*irs.SecurityInfo, error) {
+	return nil, nil
+}
+
+func (securityHandler *TencentSecurityHandler) GetSecurity(securityIID irs.IID) (irs.SecurityInfo, error) {
+	cblogger.Infof("securityNameId : [%s]", securityIID.SystemId)
+	return irs.SecurityInfo{}, nil
+}
+
+func (securityHandler *TencentSecurityHandler) DeleteSecurity(securityIID irs.IID) (bool, error) {
+	cblogger.Infof("securityNameId : [%s]", securityIID.SystemId)
+	return false, nil
+}
+
+/*
 //2019-11-16부로 CB-Driver 전체 로직이 NameId 기반으로 변경됨. (보안 그룹은 그룹명으로 처리 가능하기 때문에 Name 태깅시 에러는 무시함)
 //@TODO : 존재하는 보안 그룹에 정책 추가하는 기능 필요
 //VPC 생략 시 활성화된 세션의 기본 VPC를 이용 함.
@@ -36,18 +43,6 @@ func (securityHandler *TencentSecurityHandler) CreateSecurity(securityReqInfo ir
 	cblogger.Infof("securityReqInfo : ", securityReqInfo)
 	spew.Dump(securityReqInfo)
 
-	/*
-		//VPC & Subnet을 자동으로 찾아서 처리
-		VPCHandler := TencentVPCHandler{Client: securityHandler.Client}
-		awsCBNetworkInfo, errAutoCBNetInfo := VPCHandler.GetAutoCBNetworkInfo()
-		if errAutoCBNetInfo != nil || awsCBNetworkInfo.VpcId == "" {
-			cblogger.Error("VPC 정보 획득 실패")
-			return irs.SecurityInfo{}, errors.New("mcloud-barista의 기본 네트워크 정보를 찾을 수 없습니다.")
-		}
-
-		cblogger.Infof("==> [%s] CB Default VPC 정보 찾음", awsCBNetworkInfo.VpcId)
-		vpcId := awsCBNetworkInfo.VpcId
-	*/
 	vpcId := securityReqInfo.VpcIID.SystemId
 
 	// Create the security group with the VPC, name and description.
@@ -252,26 +247,10 @@ func (securityHandler *TencentSecurityHandler) CreateSecurity(securityReqInfo ir
 
 func (securityHandler *TencentSecurityHandler) ListSecurity() ([]*irs.SecurityInfo, error) {
 	//VPC ID 조회
-	/* 2020-04-13 : 전체 영역에서 조회하도록 변경
-	VPCHandler := TencentVPCHandler{Client: securityHandler.Client}
-	vpcId := VPCHandler.GetMcloudBaristaDefaultVpcId()
-	if vpcId == "" {
-		return nil, nil
-	}
-	*/
-
 	input := &ec2.DescribeSecurityGroupsInput{
 		GroupIds: []*string{
 			nil,
 		},
-		/*
-			Filters: []*ec2.Filter{
-				{
-					Name:   aws.String("vpc-id"),
-					Values: aws.StringSlice([]string{vpcId}),
-				},
-			},
-		*/
 	}
 
 	// logger for HisCall
@@ -329,17 +308,6 @@ func (securityHandler *TencentSecurityHandler) GetSecurity(securityIID irs.IID) 
 			aws.String(securityIID.SystemId),
 		},
 	}
-	/* 2020-04-09 Name 기반으로 조회 하지 않기때문에 미사용
-	input.Filters = ([]*ec2.Filter{
-		&ec2.Filter{
-			//Name: aws.String("tag:Name"), // subnet-id
-			Name: aws.String("group-name"), // subnet-id
-			Values: []*string{
-				aws.String(securityIID.SystemId),
-			},
-		},
-	})
-	*/
 	cblogger.Info(input)
 
 	// logger for HisCall
@@ -485,20 +453,6 @@ func ExtractIpPermissions(ipPermissions []*ec2.IpPermission, direction string) [
 			ExtractIpPermissionCommon(ip, &securityRuleInfo) //IP & Port & Protocol 추출
 			results = append(results, securityRuleInfo)
 		}
-
-		/*  @TODO : 미지원 방식 체크 로직 추가 여부 결정해야 함.
-		if !reflect.ValueOf(ip.IpRanges).IsNil() {
-			securityRuleInfo.Cidr = *ip.IpRanges[0].CidrIp
-		} else {
-			//ELB나 다른 보안그룹 참조처럼 IpRanges가 없고 UserIdGroupPairs가 있는 경우 처리
-			//https://docs.aws.amazon.com/ko_kr/elasticloadbalancing/latest/classic/elb-security-groups.html
-			if !reflect.ValueOf(ip.UserIdGroupPairs).IsNil() {
-				securityRuleInfo.Cidr = *ip.UserIdGroupPairs[0].GroupId
-			} else {
-				cblogger.Error("미지원 보안 그룹 형태 발견 - 구조 파악 필요 ", ip)
-			}
-		}
-		*/
 	}
 
 	return results
@@ -508,14 +462,6 @@ func ExtractIpPermissions(ipPermissions []*ec2.IpPermission, direction string) [
 //func (securityHandler *TencentSecurityHandler) DeleteSecurity(securityNameId string) (bool, error) {
 func (securityHandler *TencentSecurityHandler) DeleteSecurity(securityIID irs.IID) (bool, error) {
 	cblogger.Infof("securityNameId : [%s]", securityIID.SystemId)
-
-	/* //2020-04-09 SystemId 기반으로 변경되어서 필요 없음.
-	securityInfo, errsecurityInfo := securityHandler.GetSecurity(securityIID)
-	if errsecurityInfo != nil {
-		return false, errsecurityInfo
-	}
-	cblogger.Info(securityInfo)
-	*/
 
 	//securityID := securityInfo.Id
 	//securityID := securityInfo.IId.SystemId
@@ -561,3 +507,4 @@ func (securityHandler *TencentSecurityHandler) DeleteSecurity(securityIID irs.II
 
 	return true, nil
 }
+*/

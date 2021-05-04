@@ -4,43 +4,44 @@
 //
 //      * Cloud-Barista: https://github.com/cloud-barista
 //
-// This is a Cloud Driver Example for PoC Test.
-//
-// by powerkim@etri.re.kr, 2019.06.
+// by devunet@mz.co.kr, 2021.05.04
 
 package connect
 
 import (
+	"github.com/sirupsen/logrus"
+
 	cblog "github.com/cloud-barista/cb-log"
+	trs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/tencent/resources"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 
-	trs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/tencent/resources"
-	"github.com/sirupsen/logrus"
-
-	//ec2drv "github.com/tencent/aws-sdk-go/service/ec2"
-	"github.com/aws/aws-sdk-go/service/ec2"
+	//"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
+	//"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/errors"
+	//"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/profile"
+	cvm "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/cvm/v20170312"
+	vpc "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/vpc/v20170312"
 )
 
-//type TencentCloudConnection struct{}
 type TencentCloudConnection struct {
-	Region        idrv.RegionInfo
-	KeyPairClient *ec2.EC2
-	VMClient      *ec2.EC2
+	Region         idrv.RegionInfo
+	VNetworkClient *vpc.Client
 
-	VNetworkClient *ec2.EC2
-	//VNicClient     *ec2.EC2
-	ImageClient *ec2.EC2
-	//PublicIPClient *ec2.EC2
-	SecurityClient *ec2.EC2
-	VmSpecClient   *ec2.EC2
+	VMClient       *cvm.Client
+	KeyPairClient  *cvm.Client
+	ImageClient    *cvm.Client
+	SecurityClient *cvm.Client
+	VmSpecClient   *cvm.Client
+
+	//VNicClient     *cvm.Client
+	//PublicIPClient *cvm.Client
 }
 
 var cblogger *logrus.Logger
 
 func init() {
 	// cblog is a global variable.
-	cblogger = cblog.GetLogger("CB-SPIDER")
+	cblogger = cblog.GetLogger("CB-SPIDER TencentCloudConnection")
 }
 
 func (cloudConn *TencentCloudConnection) CreateKeyPairHandler() (irs.KeyPairHandler, error) {
@@ -72,7 +73,6 @@ func (cloudConn *TencentCloudConnection) CreateVPCHandler() (irs.VPCHandler, err
 	return &handler, nil
 }
 
-//func (cloudConn *TencentCloudConnection) CreateImageHandler() (irs2.ImageHandler, error) {
 func (cloudConn *TencentCloudConnection) CreateImageHandler() (irs.ImageHandler, error) {
 	cblogger.Info("Start")
 	handler := trs.TencentImageHandler{cloudConn.Region, cloudConn.ImageClient}
@@ -84,6 +84,12 @@ func (cloudConn *TencentCloudConnection) CreateSecurityHandler() (irs.SecurityHa
 	cblogger.Info("Start")
 	handler := trs.TencentSecurityHandler{cloudConn.Region, cloudConn.SecurityClient}
 
+	return &handler, nil
+}
+
+func (cloudConn *TencentCloudConnection) CreateVMSpecHandler() (irs.VMSpecHandler, error) {
+	cblogger.Info("Start")
+	handler := trs.TencentVmSpecHandler{cloudConn.Region, cloudConn.VmSpecClient}
 	return &handler, nil
 }
 
@@ -102,9 +108,3 @@ func (cloudConn *TencentCloudConnection) CreatePublicIPHandler() (irs.PublicIPHa
 	return &handler, nil
 }
 */
-
-func (cloudConn *TencentCloudConnection) CreateVMSpecHandler() (irs.VMSpecHandler, error) {
-	cblogger.Info("Start")
-	handler := trs.TencentVmSpecHandler{cloudConn.Region, cloudConn.VmSpecClient}
-	return &handler, nil
-}

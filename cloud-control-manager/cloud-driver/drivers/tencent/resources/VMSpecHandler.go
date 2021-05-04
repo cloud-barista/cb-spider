@@ -1,24 +1,41 @@
 package resources
 
 import (
-	"errors"
-	"reflect"
-	"strconv"
 
 	//sdk2 "github.com/aws/aws-sdk-go-v2"
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/ec2"
-	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
+
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
+	cvm "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/cvm/v20170312"
 )
 
 //https://docs.aws.amazon.com/sdk-for-go/api/service/ec2/#EC2.DescribeInstanceTypes
 type TencentVmSpecHandler struct {
 	Region idrv.RegionInfo
-	Client *ec2.EC2
+	Client *cvm.Client
 }
 
+func (vmSpecHandler *TencentVmSpecHandler) ListVMSpec(Region string) ([]*irs.VMSpecInfo, error) {
+	cblogger.Infof("Start ListVMSpec(Region:[%s])", Region)
+	return nil, nil
+}
+
+func (vmSpecHandler *TencentVmSpecHandler) GetVMSpec(Region string, Name string) (irs.VMSpecInfo, error) {
+	cblogger.Infof("Start GetVMSpec(Region:[%s], Name:[%s])", Region, Name)
+	return irs.VMSpecInfo{}, nil
+}
+
+func (vmSpecHandler *TencentVmSpecHandler) ListOrgVMSpec(Region string) (string, error) {
+	cblogger.Infof("Start ListOrgVMSpec(Region:[%s])", Region)
+	return "", nil
+}
+
+func (vmSpecHandler *TencentVmSpecHandler) GetOrgVMSpec(Region string, Name string) (string, error) {
+	cblogger.Infof("Start GetOrgVMSpec(Region:[%s], Name:[%s])", Region, Name)
+	return "", nil
+}
+
+/*
 func ExtractGpuInfo(gpuDeviceInfo *ec2.GpuDeviceInfo) irs.GpuInfo {
 	cblogger.Debug(gpuDeviceInfo)
 	//cblogger.Info("================")
@@ -83,11 +100,6 @@ func ExtractVMSpecInfo(Region string, instanceTypeInfo *ec2.InstanceTypeInfo) ir
 		cblogger.Errorf("[%]의 KeyValue 추출 실패", *instanceTypeInfo.InstanceType)
 		cblogger.Error(errKeyValue)
 	}
-	/*
-		if errKeyValue != nil {
-			return irs.VMSpecInfo{}, errKeyValue
-		}
-	*/
 	vmSpecInfo.KeyValueList = keyValueList
 
 	return vmSpecInfo
@@ -182,35 +194,6 @@ func (vmSpecHandler *TencentVmSpecHandler) ListVMSpec(Region string) ([]*irs.VMS
 	input := &ec2.DescribeInstanceTypesInput{
 		//MaxResults: aws.Int64(5),
 	}
-
-	/*
-		req, resp := vmSpecHandler.Client.DescribeInstanceTypesRequest(input)
-		err := req.Send()
-		if err != nil { // resp is now filled
-			cblogger.Errorf("Unable to get ListVMSpec - %v", err)
-			return vMSpecInfoList, err
-		}
-	*/
-
-	//cblogger.Info(resp)
-	//fmt.Println(resp)
-
-	//ExtractVMSpecInfo(Region, resp.InstanceTypes[0])
-	//var vMSpecInfoList []*irs.VMSpecInfo
-	/*
-		for _, curInstance := range resp.InstanceTypes {
-			cblogger.Infof("[%s] VM 스펙 정보 조회", *curInstance.InstanceType)
-
-			_, exists := mapVmSpecIds[*curInstance.InstanceType]
-			if !exists {
-				cblogger.Infof("[%s] 스펙은 [%s] Zone에서 사용할 수 없습니다.", *curInstance.InstanceType, zoneId)
-				continue
-			}
-
-			//vMSpecInfo := ExtractVMSpecInfo(Region, curInstance)
-			//vMSpecInfoList = append(vMSpecInfoList, &vMSpecInfo)
-		}
-	*/
 
 	// logger for HisCall
 	callogger := call.GetLogger("HISCALL")
@@ -316,15 +299,6 @@ func (vmSpecHandler *TencentVmSpecHandler) GetVMSpec(Region string, Name string)
 
 	vMSpecInfo := ExtractVMSpecInfo(Region, resp.InstanceTypes[0])
 
-	/*
-		//KeyValue 목록 처리
-		keyValueList, errKeyValue := ConvertKeyValueList(resp.InstanceTypes[0])
-		if errKeyValue != nil {
-			return irs.VMSpecInfo{}, errKeyValue
-		}
-		vMSpecInfo.KeyValueList = keyValueList
-	*/
-
 	return vMSpecInfo, nil
 }
 
@@ -349,25 +323,10 @@ func (vmSpecHandler *TencentVmSpecHandler) ListOrgVMSpec(Region string) (string,
 		//MaxResults: aws.Int64(5),
 	}
 
-	/*
-		req, resp := vmSpecHandler.Client.DescribeInstanceTypesRequest(input)
-		err := req.Send()
-		if err != nil { // resp is now filled
-			cblogger.Errorf("Unable to get ListOrgVMSpec - %v", err)
-			return "", err
-		}
-	*/
-
 	//cblogger.Info(resp)
 	//fmt.Println(resp)
 
 	//var resp *ec2.DescribeInstanceTypesOutput
-
-	/*
-		resp := *ec2.DescribeInstanceTypesOutput{
-			InstanceTypes: &[]ec2.InstanceTypeInfo{{}},
-		}
-	*/
 
 	resp := new(ec2.DescribeInstanceTypesOutput)
 
@@ -505,3 +464,4 @@ func (vmSpecHandler *TencentVmSpecHandler) GetOrgVMSpec(Region string, Name stri
 	}
 	return jsonString, errJson
 }
+*/

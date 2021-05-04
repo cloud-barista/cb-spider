@@ -10,25 +10,38 @@
 package resources
 
 import (
-	"errors"
-	"reflect"
-	"strconv"
-
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/awserr"
-	"github.com/aws/aws-sdk-go/service/ec2"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 
 	//irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/new-resources"
-	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
+
+	cvm "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/cvm/v20170312"
 )
 
 type TencentImageHandler struct {
 	Region idrv.RegionInfo
-	Client *ec2.EC2
+	Client *cvm.Client
 }
 
+func (imageHandler *TencentImageHandler) CreateImage(imageReqInfo irs.ImageReqInfo) (irs.ImageInfo, error) {
+	return irs.ImageInfo{imageReqInfo.IId, "", "", nil}, nil
+}
+
+func (imageHandler *TencentImageHandler) ListImage() ([]*irs.ImageInfo, error) {
+	cblogger.Debug("Start")
+	return nil, nil
+}
+func (imageHandler *TencentImageHandler) GetImage(imageIID irs.IID) (irs.ImageInfo, error) {
+
+	cblogger.Infof("imageID : [%s]", imageIID.SystemId)
+	return irs.ImageInfo{}, nil
+}
+
+func (imageHandler *TencentImageHandler) DeleteImage(imageIID irs.IID) (bool, error) {
+	return false, nil
+}
+
+/*
 //@TODO : 작업해야 함.
 func (imageHandler *TencentImageHandler) CreateImage(imageReqInfo irs.ImageReqInfo) (irs.ImageInfo, error) {
 	// logger for HisCall
@@ -114,12 +127,6 @@ func (imageHandler *TencentImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 		cblogger.Infof("[%s] AMI 정보 처리", *cur.ImageId)
 		imageInfo := ExtractImageDescribeInfo(cur)
 		imageInfoList = append(imageInfoList, &imageInfo)
-		/*
-			cnt++
-			if cnt > 20 {
-				break
-			}
-		*/
 	}
 
 	//spew.Dump(imageInfoList)
@@ -249,3 +256,4 @@ func (imageHandler *TencentImageHandler) DeleteImage(imageIID irs.IID) (bool, er
 
 	return false, nil
 }
+*/
