@@ -14,18 +14,17 @@
 
 package calllog
 
-
 import (
-	"os"
 	"fmt"
-	"time"
-	"strings"
+	"os"
 	"reflect"
+	"strings"
+	"time"
 
 	"github.com/chyeh/pubip"
-        "github.com/sirupsen/logrus"
+	calllogformatter "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log/formatter"
+	"github.com/sirupsen/logrus"
 	"github.com/snowzach/rotatefilehook"
-	"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log/formatter"
 )
 
 type CLOUD_OS string
@@ -33,58 +32,56 @@ type RES_TYPE string
 
 const (
 	//=========== CloudOS (ref: cb-spider/conf/cloudos.yaml)
-        AWS CLOUD_OS = "AWS"
-        GCP CLOUD_OS = "GCP"
-        AZURE CLOUD_OS = "AZURE"
-        OPENSTACK CLOUD_OS = "OPENSTACK"
-        CLOUDIT CLOUD_OS = "CLOUDIT"
-        ALIBABA CLOUD_OS = "ALIBABA"
-        DOCKER CLOUD_OS = "DOCKER"
-        CLOUDTWIN CLOUD_OS = "CLOUDTWIN"
-        NCP CLOUD_OS = "NCP"
-        MOCK CLOUD_OS = "MOCK"
-
+	AWS       CLOUD_OS = "AWS"
+	GCP       CLOUD_OS = "GCP"
+	AZURE     CLOUD_OS = "AZURE"
+	OPENSTACK CLOUD_OS = "OPENSTACK"
+	CLOUDIT   CLOUD_OS = "CLOUDIT"
+	ALIBABA   CLOUD_OS = "ALIBABA"
+	DOCKER    CLOUD_OS = "DOCKER"
+	CLOUDTWIN CLOUD_OS = "CLOUDTWIN"
+	NCP       CLOUD_OS = "NCP"
+	MOCK      CLOUD_OS = "MOCK"
+	TENCENT   CLOUD_OS = "TENCENT"
 
 	//=========== ResourceType
-        VMIMAGE RES_TYPE = "VMIMAGE"
-        VMSPEC RES_TYPE = "VMSPEC"
-        VPCSUBNET RES_TYPE = "VPC/SUBNET"
-        SECURITYGROUP RES_TYPE = "SECURITYGROUP"
-        VMKEYPAIR RES_TYPE = "VMKEYPAIR"
-        VM RES_TYPE = "VM"
+	VMIMAGE       RES_TYPE = "VMIMAGE"
+	VMSPEC        RES_TYPE = "VMSPEC"
+	VPCSUBNET     RES_TYPE = "VPC/SUBNET"
+	SECURITYGROUP RES_TYPE = "SECURITYGROUP"
+	VMKEYPAIR     RES_TYPE = "VMKEYPAIR"
+	VM            RES_TYPE = "VM"
 )
-
-
 
 type CALLLogger struct {
 	loggerName string
-	logrus *logrus.Logger
+	logrus     *logrus.Logger
 }
 
 // global var.
 var (
-	HostIPorName string
-	callLogger *CALLLogger
+	HostIPorName  string
+	callLogger    *CALLLogger
 	callFormatter *calllogformatter.Formatter
 	calllogConfig CALLLOGCONFIG
 )
 
 func init() {
-	HostIPorName = getHostIPorName()	
+	HostIPorName = getHostIPorName()
 }
 
 func getHostIPorName() string {
-        ip, err := pubip.Get()
-        if err != nil {
-                logrus.Error(err)
-                hostName, err := os.Hostname()
-                if err != nil {
-                        logrus.Error(err)
-                }
-                return hostName
-        }
+	ip, err := pubip.Get()
+	if err != nil {
+		logrus.Error(err)
+		hostName, err := os.Hostname()
+		if err != nil {
+			logrus.Error(err)
+		}
+		return hostName
+	}
 
-        return ip.String()
+	return ip.String()
 }
 
 func GetLogger(loggerName string) *logrus.Logger {
@@ -93,11 +90,11 @@ func GetLogger(loggerName string) *logrus.Logger {
 	}
 	callLogger = new(CALLLogger)
 	callLogger.loggerName = loggerName
-	callLogger.logrus =  &logrus.Logger{
-        Level: logrus.InfoLevel,
-        Out:   os.Stderr,
-        Hooks: make(logrus.LevelHooks),
-        Formatter: getFormatter(loggerName),
+	callLogger.logrus = &logrus.Logger{
+		Level:     logrus.InfoLevel,
+		Out:       os.Stderr,
+		Hooks:     make(logrus.LevelHooks),
+		Formatter: getFormatter(loggerName),
 	}
 
 	// set config.
@@ -121,45 +118,45 @@ func setup(loggerName string) {
 	}
 }
 
-// Now, this method is busy wait. 
+// Now, this method is busy wait.
 // @TODO must change this  with file watch&event.
 // ref) https://github.com/fsnotify/fsnotify/blob/master/example_test.go
 func levelSetupLoop(loggerName string) {
 	for {
 		calllogConfig = GetConfigInfos()
 		SetLevel(calllogConfig.CALLLOG.LOGLEVEL)
-		time.Sleep(time.Second*2)
+		time.Sleep(time.Second * 2)
 	}
 }
 
 func setRotateFileHook(loggerName string, logConfig *CALLLOGCONFIG) {
 	level, _ := logrus.ParseLevel(logConfig.CALLLOG.LOGLEVEL)
 
-        rotateFileHook, err := rotatefilehook.NewRotateFileHook(rotatefilehook.RotateFileConfig{
-                Filename:   logConfig.LOGFILEINFO.FILENAME,
-                MaxSize:    logConfig.LOGFILEINFO.MAXSIZE, // megabytes
-                MaxBackups: logConfig.LOGFILEINFO.MAXBACKUPS,
-                MaxAge:     logConfig.LOGFILEINFO.MAXAGE, //days
-                Level:      level,
-                Formatter: getFormatter(loggerName),
-        })
+	rotateFileHook, err := rotatefilehook.NewRotateFileHook(rotatefilehook.RotateFileConfig{
+		Filename:   logConfig.LOGFILEINFO.FILENAME,
+		MaxSize:    logConfig.LOGFILEINFO.MAXSIZE, // megabytes
+		MaxBackups: logConfig.LOGFILEINFO.MAXBACKUPS,
+		MaxAge:     logConfig.LOGFILEINFO.MAXAGE, //days
+		Level:      level,
+		Formatter:  getFormatter(loggerName),
+	})
 
-        if err != nil {
-                logrus.Fatalf("Failed to initialize file rotate hook: %v", err)
-        }
-        callLogger.logrus.AddHook(rotateFileHook)
+	if err != nil {
+		logrus.Fatalf("Failed to initialize file rotate hook: %v", err)
+	}
+	callLogger.logrus.AddHook(rotateFileHook)
 }
 
 func SetLevel(strLevel string) {
 	err := checkLevel(strLevel)
 	if err != nil {
-                logrus.Errorf("Failed to set log level: %v", err)
+		logrus.Errorf("Failed to set log level: %v", err)
 	}
 	level, _ := logrus.ParseLevel(strLevel)
 	callLogger.logrus.SetLevel(level)
 }
 
-func checkLevel(lvl string) (error) {
+func checkLevel(lvl string) error {
 	switch strings.ToLower(lvl) {
 	case "error":
 		return nil
@@ -179,21 +176,21 @@ func getFormatter(loggerName string) *calllogformatter.Formatter {
 		return callFormatter
 	}
 	callFormatter = &calllogformatter.Formatter{
-            TimestampFormat: "2006-01-02 15:04:05",
-            LogFormat:       "[" + loggerName + "].[" + HostIPorName + "] %time% (%weekday%) %func% - %msg%\n",
-        }	
+		TimestampFormat: "2006-01-02 15:04:05",
+		LogFormat:       "[" + loggerName + "].[" + HostIPorName + "] %time% (%weekday%) %func% - %msg%\n",
+	}
 	return callFormatter
 }
 
 //=========================
 type CLOUDLOGSCHEMA struct {
-	CloudOS CLOUD_OS      // ex) AWS | AZURE | ALIBABA | GCP | OPENSTACK | CLOUDTWIN | CLOUDIT | DOCKER | NCP | MOCK
-	RegionZone string   // ex) us-east1/us-east1-c
+	CloudOS      CLOUD_OS // ex) AWS | AZURE | ALIBABA | GCP | OPENSTACK | CLOUDTWIN | CLOUDIT | DOCKER | NCP | MOCK
+	RegionZone   string   // ex) us-east1/us-east1-c
 	ResourceType RES_TYPE // ex) VMIMAGE | VMSPEC | VPCSUBNET | SECURITYGROUP | VMKEYPAIR | VM
-	ResourceName string // ex) vpc-01
-	CloudOSAPI string // ex) CreateKeyPair()
-	ElapsedTime string  // ex) 2.0201 (sec)
-	ErrorMSG string     // if success, ""
+	ResourceName string   // ex) vpc-01
+	CloudOSAPI   string   // ex) CreateKeyPair()
+	ElapsedTime  string   // ex) 2.0201 (sec)
+	ErrorMSG     string   // if success, ""
 }
 
 /* TBD or Do not support.
@@ -210,19 +207,19 @@ func Elapsed(start time.Time) string {
 }
 
 func String(logInfo interface{}) string {
-        t := reflect.TypeOf(logInfo)
-        v := reflect.ValueOf(logInfo)
+	t := reflect.TypeOf(logInfo)
+	v := reflect.ValueOf(logInfo)
 
-        msg := ""
-        for idx:=0; idx < t.NumField(); idx++ {
-                typeOne := t.Field(idx)
-                one := v.Field(idx)
-                if idx < (t.NumField()-1) {
-                        msg += fmt.Sprintf("\"%s\" : \"%s\", ", typeOne.Name, one)
-                } else {
-                        msg += fmt.Sprintf("\"%s\" : \"%s\"", typeOne.Name, one)
-                }
-        }
+	msg := ""
+	for idx := 0; idx < t.NumField(); idx++ {
+		typeOne := t.Field(idx)
+		one := v.Field(idx)
+		if idx < (t.NumField() - 1) {
+			msg += fmt.Sprintf("\"%s\" : \"%s\", ", typeOne.Name, one)
+		} else {
+			msg += fmt.Sprintf("\"%s\" : \"%s\"", typeOne.Name, one)
+		}
+	}
 
-        return msg
+	return msg
 }
