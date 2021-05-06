@@ -22,5 +22,5 @@ source ../../setup.env
 # setup HOME env. with host $HOME in container
 sudo docker run --rm -it -v $PWD/2.build:$HOME/2.build -v $HOME/go:$HOME/go -v $CBSPIDER_ROOT:$CBSPIDER_ROOT \
 	-e GOPATH=$HOME/go -e CBSPIDER_ROOT=$CBSPIDER_ROOT \
-	-e  HOME=$HOME -w $HOME --hostname driver-build --name cloud-twin-dev \
+	-e  HOME=$HOME -w $HOME --hostname driver-build --name driver-build \
 	golang:$GOVERSION /bin/bash
