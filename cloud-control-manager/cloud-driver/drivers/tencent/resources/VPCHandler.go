@@ -11,10 +11,13 @@
 package resources
 
 import (
+	"errors"
+
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 
+	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
 	vpc "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/vpc/v20170312"
 )
 
@@ -25,6 +28,7 @@ type TencentVPCHandler struct {
 
 func (VPCHandler *TencentVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.VPCInfo, error) {
 	cblogger.Info(vpcReqInfo)
+
 	// logger for HisCall
 	callogger := call.GetLogger("HISCALL")
 	callLogInfo := call.CLOUDLOGSCHEMA{
@@ -38,20 +42,50 @@ func (VPCHandler *TencentVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.V
 	}
 	callLogStart := call.Start()
 
-	// result, err := VPCHandler.Client.CreateVpc(input)
-	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
-	// if err != nil {
-	// 	callLogInfo.ErrorMSG = err.Error()
-	// 	callogger.Info(call.String(callLogInfo))
-	// 	return nil, err
-	// }
-	callogger.Info(call.String(callLogInfo))
+	request := vpc.NewCreateVpcRequest()
+	request.VpcName = common.StringPtr(vpcReqInfo.IId.NameId)
+	request.CidrBlock = common.StringPtr(vpcReqInfo.IPv4_CIDR)
 
-	return irs.VPCInfo{}, nil
+	response, err := VPCHandler.Client.CreateVpc(request)
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+
+	cblogger.Debug(response.ToJsonString())
+	//spew.Dump(result)
+	if err != nil {
+		callLogInfo.ErrorMSG = err.Error()
+		callogger.Error(call.String(callLogInfo))
+		cblogger.Error(err)
+		return irs.VPCInfo{}, err
+	}
+
+	newVpcId := *response.Response.Vpc.VpcId // Subnet이 포함된 정보를 전달해야 하기 때문에 생성된 VPC Id를 보관함.
+
+	//생성된 Subnet을 포함한 VPC의 최신 정보를 조회함.
+	retVpcInfo, errVpc := VPCHandler.GetVPC(irs.IID{SystemId: newVpcId})
+	if errVpc != nil {
+		cblogger.Error(errVpc)
+		return irs.VPCInfo{}, errVpc
+	}
+	retVpcInfo.IId.NameId = vpcReqInfo.IId.NameId // 생성 시에는 NameId는 요청 받은 값으로 리턴해야 함.
+
+	return retVpcInfo, nil
+}
+
+//VPC 정보를 추출함
+func ExtractVpcDescribeInfo(vpcInfo *vpc.Vpc) irs.VPCInfo {
+	// cblogger.Debug("전달 받은 내용")
+	// spew.Dump(vpcInfo)
+	resVpcInfo := irs.VPCInfo{
+		//NameId는 사용되지 않기 때문에 전달할 필요가 없지만 Tencent는 Name도 필수로 들어가니 전달함.
+		IId:       irs.IID{SystemId: *vpcInfo.VpcId, NameId: *vpcInfo.VpcName},
+		IPv4_CIDR: *vpcInfo.CidrBlock,
+	}
+	return resVpcInfo
 }
 
 func (VPCHandler *TencentVPCHandler) ListVPC() ([]*irs.VPCInfo, error) {
-	cblogger.Debug("Start")
+	cblogger.Info("Start")
+
 	// logger for HisCall
 	callogger := call.GetLogger("HISCALL")
 	callLogInfo := call.CLOUDLOGSCHEMA{
@@ -64,15 +98,40 @@ func (VPCHandler *TencentVPCHandler) ListVPC() ([]*irs.VPCInfo, error) {
 		ErrorMSG:     "",
 	}
 	callLogStart := call.Start()
-	//result, err := VPCHandler.Client.DescribeVpcs(&ec2.DescribeVpcsInput{})
+	request := vpc.NewDescribeVpcsRequest()
+	response, err := VPCHandler.Client.DescribeVpcs(request)
 	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
-	// if err != nil {
-	// 	callLogInfo.ErrorMSG = err.Error()
-	// 	callogger.Info(call.String(callLogInfo))
-	// 	return nil, err
-	// }
+
+	cblogger.Debug(response.ToJsonString())
+	//spew.Dump(result)
+	if err != nil {
+		callLogInfo.ErrorMSG = err.Error()
+		callogger.Error(call.String(callLogInfo))
+		cblogger.Error(err)
+		return nil, err
+	}
+
 	callogger.Info(call.String(callLogInfo))
-	return nil, nil
+	cblogger.Info("VPC 개수 : ", *response.Response.TotalCount)
+
+	var vpcInfoList []*irs.VPCInfo
+	if *response.Response.TotalCount > 0 {
+		for _, curVpc := range response.Response.VpcSet {
+			cblogger.Debugf("[%s] VPC 정보 조회 - [%s]", *curVpc.VpcId, *curVpc.VpcName)
+			vpcInfo, vpcErr := VPCHandler.GetVPC(irs.IID{SystemId: *curVpc.VpcId})
+			// cblogger.Info("==>조회 결과")
+			// spew.Dump(vpcInfo)
+			if vpcErr != nil {
+				cblogger.Error(vpcErr)
+				return nil, vpcErr
+			}
+			vpcInfoList = append(vpcInfoList, &vpcInfo)
+		}
+	}
+
+	cblogger.Debugf("리턴 결과 목록 수 : [%d]", len(vpcInfoList))
+	// spew.Dump(vpcInfoList)
+	return vpcInfoList, nil
 }
 
 func (VPCHandler *TencentVPCHandler) GetVPC(vpcIID irs.IID) (irs.VPCInfo, error) {
@@ -81,26 +140,43 @@ func (VPCHandler *TencentVPCHandler) GetVPC(vpcIID irs.IID) (irs.VPCInfo, error)
 	// logger for HisCall
 	callogger := call.GetLogger("HISCALL")
 	callLogInfo := call.CLOUDLOGSCHEMA{
-		CloudOS:      call.AWS,
+		CloudOS:      call.TENCENT,
 		RegionZone:   VPCHandler.Region.Zone,
 		ResourceType: call.VPCSUBNET,
-		ResourceName: vpcIID.SystemId,
+		ResourceName: "GetVPC",
 		CloudOSAPI:   "DescribeVpcs()",
 		ElapsedTime:  "",
 		ErrorMSG:     "",
 	}
-
 	callLogStart := call.Start()
-	//result, err := VPCHandler.Client.DescribeVpcs(&ec2.DescribeVpcsInput{})
+
+	request := vpc.NewDescribeVpcsRequest()
+	request.VpcIds = common.StringPtrs([]string{vpcIID.SystemId})
+
+	response, err := VPCHandler.Client.DescribeVpcs(request)
 	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
-	// if err != nil {
-	// 	callLogInfo.ErrorMSG = err.Error()
-	// 	callogger.Info(call.String(callLogInfo))
-	// 	return nil, err
-	// }
+
+	if err != nil {
+		cblogger.Errorf("An API error has returned: %s", err.Error())
+		callLogInfo.ErrorMSG = err.Error()
+		callogger.Error(call.String(callLogInfo))
+		return irs.VPCInfo{}, err
+	}
+
 	callogger.Info(call.String(callLogInfo))
 
-	return irs.VPCInfo{}, nil
+	cblogger.Debug("VPC 개수 : ", *response.Response.TotalCount)
+	if *response.Response.TotalCount < 1 {
+		return irs.VPCInfo{}, errors.New("Notfound: '" + vpcIID.SystemId + "' VPC Not found")
+	}
+
+	vpcInfo := ExtractVpcDescribeInfo(response.Response.VpcSet[0])
+	cblogger.Debug(vpcInfo)
+
+	//=======================
+	// Subnet 처리
+	//=======================
+	return vpcInfo, nil
 }
 
 func (VPCHandler *TencentVPCHandler) DeleteVPC(vpcIID irs.IID) (bool, error) {

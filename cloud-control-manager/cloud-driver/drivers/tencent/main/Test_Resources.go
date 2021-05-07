@@ -14,8 +14,7 @@ import (
 	"fmt"
 
 	//testconf "./conf"
-	testconf "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/alibaba/main/conf"
-
+	testconf "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/tencent/main/conf"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/sirupsen/logrus"
@@ -48,8 +47,8 @@ func handleVMSpec() {
 	reqVMSpec := "ecs.vgn5i-m8.4xlarge" // GPU 1개
 	//reqVMSpec := "ecs.gn6i-c24g1.24xlarge" // GPU 4개
 
-	reqRegion := config.Ali.Region
-	reqRegion = "us-east-1"
+	reqRegion := config.Tencent.Region
+	reqRegion = "ap-tokyo"
 	cblogger.Info("reqVMSpec : ", reqVMSpec)
 
 	for {
@@ -745,40 +744,13 @@ func TestMain() {
 
 func main() {
 	cblogger.Info("Tencent Cloud Resource Test")
-	//handleVPC() //VPC
+	handleVPC() //VPC
 	//handleVMSpec()
 	//handleImage() //AMI
 	//handleKeyPair()
-	handleSecurity()
+	//handleSecurity()
 	//handleVM()
 
 	//handlePublicIP() // PublicIP 생성 후 conf
-
 	//handleVNic() //Lancard
-
-	/*
-		//StartTime := "2020-05-07T01:35:00Z"
-		StartTime := "2020-05-07T01:35Z"
-		timeLen := len(StartTime)
-		cblogger.Infof("======> 생성시간 길이 [%s]", timeLen)
-		if timeLen > 7 {
-			cblogger.Infof("======> 생성시간 마지막 문자열 [%s]", StartTime[timeLen-1:])
-			if StartTime[timeLen-1:] == "Z" {
-				cblogger.Infof("======> 문자열 변환 : [%s]", StartTime[:timeLen-1])
-				NewStartTime := StartTime[:timeLen-1] + ":00Z"
-				cblogger.Infof("======> 최종 문자열 변환 : [%s]", NewStartTime)
-			}
-		}
-
-		//:41+00:00
-		cblogger.Infof("Convert StartTime string [%s] to time.time", StartTime)
-
-		//layout := "2020-05-07T01:36Z"
-		t, err := time.Parse(time.RFC3339, StartTime)
-		if err != nil {
-			cblogger.Error(err)
-		} else {
-			cblogger.Infof("======> [%v]", t)
-		}
-	*/
 }

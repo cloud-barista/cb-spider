@@ -37,6 +37,11 @@ func (vmHandler *TencentVMHandler) SuspendVM(vmIID irs.IID) (irs.VMStatus, error
 	return irs.VMStatus("Suspending"), nil
 }
 
+func (vmHandler *TencentVMHandler) ResumeVM(vmIID irs.IID) (irs.VMStatus, error) {
+	cblogger.Infof("vmNameId : [%s]", vmIID.SystemId)
+	return irs.VMStatus("Resuming"), nil
+}
+
 func (vmHandler *TencentVMHandler) RebootVM(vmIID irs.IID) (irs.VMStatus, error) {
 	cblogger.Infof("vmNameId : [%s]", vmIID.NameId)
 	return irs.VMStatus("Rebooting"), nil

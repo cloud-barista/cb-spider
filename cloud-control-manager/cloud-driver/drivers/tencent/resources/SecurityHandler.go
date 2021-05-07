@@ -21,6 +21,11 @@ type TencentSecurityHandler struct {
 	Client *cvm.Client
 }
 
+func (securityHandler *TencentSecurityHandler) CreateSecurity(securityReqInfo irs.SecurityReqInfo) (irs.SecurityInfo, error) {
+	cblogger.Infof("securityReqInfo : ", securityReqInfo)
+	return irs.SecurityInfo{}, nil
+}
+
 func (securityHandler *TencentSecurityHandler) ListSecurity() ([]*irs.SecurityInfo, error) {
 	return nil, nil
 }
