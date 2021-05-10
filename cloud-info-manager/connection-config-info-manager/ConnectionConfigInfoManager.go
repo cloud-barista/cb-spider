@@ -50,6 +50,20 @@ func CreateConnectionConfig(configName string, providerName string, driverName s
 
 	}
 
+	// check the existence of the key to be inserted
+	tmpcncInfo, err := getInfo(configName)
+        if tmpcncInfo != nil {
+		if tmpcncInfo.ConfigName == configName {
+			cblog.Debug("delete the existed key to update it")
+			_, err := deleteInfo(configName)
+			if err != nil {
+				cblog.Error(err)
+				return nil, err
+			}			
+		}
+        }
+
+
 	cblog.Debug("insert metainfo into store")
 
 	err = insertInfo(configName, providerName, driverName, credentialName, regionName)

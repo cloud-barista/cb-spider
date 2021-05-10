@@ -48,7 +48,8 @@ func RegisterCredentialInfo(crdInfo CredentialInfo) (*CredentialInfo, error) {
 // 2. insert them into cb-store
 func RegisterCredential(credentialName string, providerName string, keyValueInfoList []icbs.KeyValue) (*CredentialInfo, error) {
 	cblog.Info("call RegisterCredential()")
-cblog.Debug("check params")
+
+	cblog.Debug("check params")
 	err := checkParams(credentialName, providerName, keyValueInfoList)
 	if err != nil {
 		return nil, err
