@@ -203,12 +203,13 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 	callLogStart := call.Start()
 	op, err1 := vmHandler.Client.Instances.Insert(projectID, zone, instance).Do()
 	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+	cblogger.Info("VM 생성 요청 호출 완료")
 	cblogger.Info(op)
 	spew.Dump(op)
 	if err1 != nil {
 		callLogInfo.ErrorMSG = err1.Error()
-		callogger.Info(call.String(callLogInfo))
-		cblogger.Info("VM 생성 실패")
+		callogger.Error(call.String(callLogInfo))
+		cblogger.Error("VM 생성 실패")
 		cblogger.Error(err1)
 		return irs.VMInfo{}, err1
 	}
@@ -231,9 +232,11 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 
 	//time.Sleep(time.Second * 10)
 
+	//2021-05-11 WaitForRun을 호출하지 않아도 GetVM() 호출 시 에러가 발생하지 않는 것은 확인했음. (우선은 정책이 최종 확정이 아니라서 WaitForRun을 사용하도록 원복함.)
 	vmStatus, _ := vmHandler.WaitForRun(irs.IID{NameId: vmName, SystemId: vmName})
 	cblogger.Info("VM 상태 : ", vmStatus)
 
+	cblogger.Info("VM 정보 조회 호출 - GetVM()")
 	//만약 30초 이내에 VM이 Running 상태가 되지 않더라도 GetVM으로 VM의 정보 조회를 요청해 봄.
 	vmInfo, errVmInfo := vmHandler.GetVM(irs.IID{NameId: vmName, SystemId: vmName})
 	if errVmInfo != nil {
@@ -668,7 +671,7 @@ func (vmHandler *GCPVMHandler) GetVM(vmID irs.IID) (irs.VMInfo, error) {
 // }
 
 func (vmHandler *GCPVMHandler) mappingServerInfo(server *compute.Instance) irs.VMInfo {
-	cblogger.Infof("=====================================================")
+	cblogger.Info("================맵핑=====================================")
 	spew.Dump(server)
 
 	//var gcpHanler *GCPVMHandler

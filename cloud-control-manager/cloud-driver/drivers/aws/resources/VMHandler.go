@@ -247,11 +247,11 @@ func (vmHandler *AwsVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 	//Public IP및 최신 정보 전달을 위해 부팅이 완료될 때까지 대기했다가 전달하는 것으로 변경 함.
 	//cblogger.Info("Public IP 할당 및 VM의 최신 정보 획득을 위해 EC2가 Running 상태가 될때까지 대기")
 
-	/* 2021-05-11 EIP 할당 로직이 제거되었으며 빠른 생성을 위해 Running 상태가 될때까지 대기하지 않음.
+	//2021-05-11 EIP 할당 로직이 제거되었으며 빠른 생성을 위해 Running 상태가 될때까지 대기하지 않음.
+	//2021-05-11 WaitForRun을 호출하지 않아도 GetVM() 호출 시 에러가 발생하지 않는 것은 확인했음. (우선은 정책이 최종 확정이 아니라서 WaitForRun을 사용하도록 원복함.)
 	cblogger.Info("VM의 최신 정보 획득을 위해 EC2가 Running 상태가 될때까지 대기")
 	WaitForRun(vmHandler.Client, newVmId)
 	cblogger.Info("EC2 Running 상태 완료 : ", runResult.Instances[0].State.Name)
-	*/
 
 	/* 2020-04-08 EIP 로직 제거
 	//EC2에 EIP 할당 (펜딩 상태에서는 EIP 할당 불가)
