@@ -50,7 +50,9 @@ COPY --from=builder /go/src/github.com/cloud-barista/cb-spider/api-runtime/rest-
 ENV CBSPIDER_ROOT /root/go/src/github.com/cloud-barista/cb-spider
 ENV CBSTORE_ROOT /root/go/src/github.com/cloud-barista/cb-spider
 ENV CBLOG_ROOT /root/go/src/github.com/cloud-barista/cb-spider
+ENV LOCALHOST OFF
 ENV PLUGIN_SW OFF
+ENV MEERKAT OFF
 
 ENTRYPOINT [ "/root/go/src/github.com/cloud-barista/cb-spider/api-runtime/cb-spider" ]
 
