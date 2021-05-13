@@ -417,6 +417,9 @@ func handleVPC() {
 					if result != nil {
 						reqVpcId = result[0].IId    // 조회 및 삭제를 위해 생성된 ID로 변경
 						subnetReqVpcInfo = reqVpcId //Subnet 추가/삭제 테스트용
+						if len(result[0].SubnetInfoList) > 0 {
+							reqSubnetId = result[0].SubnetInfoList[0].IId // 조회 및 삭제를 위해 생성된 ID로 변경
+						}
 					}
 				}
 
@@ -458,7 +461,7 @@ func handleVPC() {
 					cblogger.Infof(reqSubnetId.NameId, " Subnet 추가 실패 : ", err)
 				} else {
 					cblogger.Infof("Subnet 추가 결과 : ", result)
-					reqSubnetId = result.IId // 조회 및 삭제를 위해 생성된 ID로 변경
+					reqSubnetId = result.SubnetInfoList[0].IId // 조회 및 삭제를 위해 생성된 ID로 변경
 					spew.Dump(result)
 				}
 

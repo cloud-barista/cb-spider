@@ -1,6 +1,6 @@
 module github.com/cloud-barista/cb-spider
 
-go 1.15
+go 1.16
 
 replace (
 	google.golang.org/api => google.golang.org/api v0.15.0
@@ -19,7 +19,7 @@ require (
 	github.com/bramvdbogaerde/go-scp v0.0.0-20201229172121-7a6c0268fa67
 	github.com/chyeh/pubip v0.0.0-20170203095919-b7e679cf541c
 	github.com/cloud-barista/cb-log v0.3.1
-	github.com/cloud-barista/cb-store v0.3.2
+	github.com/cloud-barista/cb-store v0.3.14
 	github.com/containerd/containerd v1.4.3 // indirect
 	github.com/davecgh/go-spew v1.1.1
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
@@ -28,7 +28,7 @@ require (
 	github.com/docker/go-connections v0.4.0
 	github.com/docker/go-units v0.4.0 // indirect
 	github.com/gogo/protobuf v1.3.2
-	github.com/golang/protobuf v1.4.3
+	github.com/golang/protobuf v1.5.2
 	github.com/gotestyourself/gotestyourself v1.4.0 // indirect
 	github.com/grpc-ecosystem/go-grpc-middleware v1.2.2
 	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0
@@ -49,14 +49,20 @@ require (
 	github.com/uber/jaeger-client-go v2.25.0+incompatible
 	github.com/uber/jaeger-lib v2.4.0+incompatible // indirect
 	golang.org/x/crypto v0.0.0-20201221181555-eec23a3978ad
-	golang.org/x/net v0.0.0-20210119194325-5f4716e94777
+	golang.org/x/net v0.0.0-20210510120150-4163338589ed
 	golang.org/x/oauth2 v0.0.0-20210210192628-66670185b0cd
-	golang.org/x/sys v0.0.0-20210426230700-d19ff857e887 // indirect
+	golang.org/x/sys v0.0.0-20210510120138-977fb7262007 // indirect
 	google.golang.org/api v0.40.0
-	google.golang.org/grpc v1.35.0
+	google.golang.org/genproto v0.0.0-20210510173355-fb37daa5cd7a // indirect
+	google.golang.org/grpc v1.37.0
 	google.golang.org/grpc/examples v0.0.0-20210212222430-425d405f3928 // indirect
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b
 	gotest.tools v1.4.0 // indirect
 	gotest.tools/v3 v3.0.3 // indirect
+)
+
+retract (
+	v0.3.12
+	v0.3.11
 )

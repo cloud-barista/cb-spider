@@ -12,7 +12,6 @@ on:
       - '.gitignore'
       - 'LICENSE'
       - 'CODEOWNERS'
-      - 'conf/**'
 
 jobs:
   # The job key is "building"

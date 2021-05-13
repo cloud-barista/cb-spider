@@ -12,10 +12,12 @@ package resources
 
 import (
 	"errors"
+	"strconv"
 
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
+	"github.com/davecgh/go-spew/spew"
 
 	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
 	vpc "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/vpc/v20170312"
@@ -29,6 +31,13 @@ type TencentVPCHandler struct {
 func (VPCHandler *TencentVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.VPCInfo, error) {
 	cblogger.Info(vpcReqInfo)
 
+	zoneId := VPCHandler.Region.Zone
+	cblogger.Infof("Zone : %s", zoneId)
+	if zoneId == "" {
+		cblogger.Error("Connection 정보에 Zone 정보가 없습니다.")
+		return irs.VPCInfo{}, errors.New("Connection 정보에 Zone 정보가 없습니다.")
+	}
+
 	// logger for HisCall
 	callogger := call.GetLogger("HISCALL")
 	callLogInfo := call.CLOUDLOGSCHEMA{
@@ -40,12 +49,15 @@ func (VPCHandler *TencentVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.V
 		ElapsedTime:  "",
 		ErrorMSG:     "",
 	}
-	callLogStart := call.Start()
 
+	//=========================
+	// VPC 생성
+	//=========================
 	request := vpc.NewCreateVpcRequest()
 	request.VpcName = common.StringPtr(vpcReqInfo.IId.NameId)
 	request.CidrBlock = common.StringPtr(vpcReqInfo.IPv4_CIDR)
 
+	callLogStart := call.Start()
 	response, err := VPCHandler.Client.CreateVpc(request)
 	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 
@@ -57,16 +69,45 @@ func (VPCHandler *TencentVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.V
 		cblogger.Error(err)
 		return irs.VPCInfo{}, err
 	}
+	callogger.Info(call.String(callLogInfo))
 
 	newVpcId := *response.Response.Vpc.VpcId // Subnet이 포함된 정보를 전달해야 하기 때문에 생성된 VPC Id를 보관함.
 
+	//=========================
+	// Subnet 생성
+	//========================
+	requestSubnet := vpc.NewCreateSubnetsRequest()
+
+	requestSubnet.VpcId = common.StringPtr(newVpcId)
+	requestSubnet.Subnets = []*vpc.SubnetInput{}
+
+	for _, curSubnet := range vpcReqInfo.SubnetInfoList {
+		cblogger.Infof("[%s] Subnet 처리", curSubnet.IId.NameId)
+		reqSubnet := &vpc.SubnetInput{
+			CidrBlock:  common.StringPtr(curSubnet.IPv4_CIDR),
+			SubnetName: common.StringPtr(curSubnet.IId.NameId),
+			Zone:       common.StringPtr(zoneId),
+			//RouteTableId: common.StringPtr("route"),
+		}
+		requestSubnet.Subnets = append(requestSubnet.Subnets, reqSubnet)
+	}
+
+	responseSubnet, errSubnet := VPCHandler.Client.CreateSubnets(requestSubnet)
+	cblogger.Debug(responseSubnet.ToJsonString())
+	spew.Dump(responseSubnet)
+	if errSubnet != nil {
+		cblogger.Error(errSubnet)
+		return irs.VPCInfo{}, errSubnet
+	}
+
+	//신규로 생성된 VPC와 Subnet 정보를 irs.VPCInfo{}로 치환해도 되지만 수정의 편의및 최신 정보 통일을 위해 GetVPC롤 호출함.
 	//생성된 Subnet을 포함한 VPC의 최신 정보를 조회함.
 	retVpcInfo, errVpc := VPCHandler.GetVPC(irs.IID{SystemId: newVpcId})
 	if errVpc != nil {
 		cblogger.Error(errVpc)
 		return irs.VPCInfo{}, errVpc
 	}
-	retVpcInfo.IId.NameId = vpcReqInfo.IId.NameId // 생성 시에는 NameId는 요청 받은 값으로 리턴해야 함.
+	retVpcInfo.IId.NameId = vpcReqInfo.IId.NameId // 생성 시에는 NameId는 cb-spider를 위해 요청 받은 값을 그대로 리턴해야 함.
 
 	return retVpcInfo, nil
 }
@@ -80,6 +121,7 @@ func ExtractVpcDescribeInfo(vpcInfo *vpc.Vpc) irs.VPCInfo {
 		IId:       irs.IID{SystemId: *vpcInfo.VpcId, NameId: *vpcInfo.VpcName},
 		IPv4_CIDR: *vpcInfo.CidrBlock,
 	}
+
 	return resVpcInfo
 }
 
@@ -97,8 +139,9 @@ func (VPCHandler *TencentVPCHandler) ListVPC() ([]*irs.VPCInfo, error) {
 		ElapsedTime:  "",
 		ErrorMSG:     "",
 	}
-	callLogStart := call.Start()
+
 	request := vpc.NewDescribeVpcsRequest()
+	callLogStart := call.Start()
 	response, err := VPCHandler.Client.DescribeVpcs(request)
 	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 
@@ -110,8 +153,8 @@ func (VPCHandler *TencentVPCHandler) ListVPC() ([]*irs.VPCInfo, error) {
 		cblogger.Error(err)
 		return nil, err
 	}
-
 	callogger.Info(call.String(callLogInfo))
+
 	cblogger.Info("VPC 개수 : ", *response.Response.TotalCount)
 
 	var vpcInfoList []*irs.VPCInfo
@@ -148,11 +191,11 @@ func (VPCHandler *TencentVPCHandler) GetVPC(vpcIID irs.IID) (irs.VPCInfo, error)
 		ElapsedTime:  "",
 		ErrorMSG:     "",
 	}
-	callLogStart := call.Start()
 
 	request := vpc.NewDescribeVpcsRequest()
 	request.VpcIds = common.StringPtrs([]string{vpcIID.SystemId})
 
+	callLogStart := call.Start()
 	response, err := VPCHandler.Client.DescribeVpcs(request)
 	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 
@@ -162,7 +205,6 @@ func (VPCHandler *TencentVPCHandler) GetVPC(vpcIID irs.IID) (irs.VPCInfo, error)
 		callogger.Error(call.String(callLogInfo))
 		return irs.VPCInfo{}, err
 	}
-
 	callogger.Info(call.String(callLogInfo))
 
 	cblogger.Debug("VPC 개수 : ", *response.Response.TotalCount)
@@ -176,6 +218,13 @@ func (VPCHandler *TencentVPCHandler) GetVPC(vpcIID irs.IID) (irs.VPCInfo, error)
 	//=======================
 	// Subnet 처리
 	//=======================
+	var errSubnet error
+	vpcInfo.SubnetInfoList, errSubnet = VPCHandler.ListSubnet(vpcIID.SystemId)
+	if errSubnet != nil {
+		callogger.Error(errSubnet)
+		return vpcInfo, errSubnet
+	}
+
 	return vpcInfo, nil
 }
 
@@ -193,27 +242,217 @@ func (VPCHandler *TencentVPCHandler) DeleteVPC(vpcIID irs.IID) (bool, error) {
 		ElapsedTime:  "",
 		ErrorMSG:     "",
 	}
+
+	request := vpc.NewDeleteVpcRequest()
+	request.VpcId = common.StringPtr(vpcIID.SystemId)
+
 	callLogStart := call.Start()
-	//result, err := VPCHandler.Client.DescribeVpcs(&ec2.DescribeVpcsInput{})
+	_, err := VPCHandler.Client.DeleteVpc(request)
 	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
-	// if err != nil {
-	// 	callLogInfo.ErrorMSG = err.Error()
-	// 	callogger.Info(call.String(callLogInfo))
-	// 	return nil, err
-	// }
+
+	if err != nil {
+		cblogger.Errorf("An API error has returned: %s", err.Error())
+		callLogInfo.ErrorMSG = err.Error()
+		callogger.Error(call.String(callLogInfo))
+		return false, err
+	}
 	callogger.Info(call.String(callLogInfo))
+
+	return true, nil
+}
+
+func (VPCHandler *TencentVPCHandler) ListSubnet(reqVpcId string) ([]irs.SubnetInfo, error) {
+	cblogger.Infof("reqVpcId : [%s]", reqVpcId)
+	var arrSubnetInfoList []irs.SubnetInfo
+
+	/*
+		// logger for HisCall
+		callogger := call.GetLogger("HISCALL")
+		callLogInfo := call.CLOUDLOGSCHEMA{
+			CloudOS:      call.TENCENT,
+			RegionZone:   VPCHandler.Region.Zone,
+			ResourceType: call.VPCSUBNET,
+			ResourceName: "ListSubnet - VpcId:" + reqVpcId,
+			CloudOSAPI:   "DescribeSubnets()",
+			ElapsedTime:  "",
+			ErrorMSG:     "",
+		}
+	*/
+
+	request := vpc.NewDescribeSubnetsRequest()
+	request.Filters = []*vpc.Filter{
+		&vpc.Filter{
+			Name:   common.StringPtr("vpc-id"),
+			Values: common.StringPtrs([]string{reqVpcId}),
+		},
+	}
+
+	// callLogStart := call.Start()
+	response, err := VPCHandler.Client.DescribeSubnets(request)
+	// callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+
+	//cblogger.Debug(response.ToJsonString())
+	spew.Dump(response)
+	if err != nil {
+		// callLogInfo.ErrorMSG = err.Error()
+		// callogger.Error(call.String(callLogInfo))
+		cblogger.Error(err)
+		return nil, err
+	}
+	// callogger.Info(call.String(callLogInfo))
+
+	for _, curSubnet := range response.Response.SubnetSet {
+		cblogger.Infof("[%s] Subnet 정보 조회", *curSubnet.SubnetId)
+		resSubnetInfo := irs.SubnetInfo{
+			IId:       irs.IID{SystemId: *curSubnet.SubnetId, NameId: *curSubnet.SubnetName},
+			IPv4_CIDR: *curSubnet.CidrBlock,
+			//Status:    *subnetInfo.State,
+		}
+
+		keyValueList := []irs.KeyValue{
+			{Key: "VpcId", Value: *curSubnet.VpcId},
+			{Key: "IsDefault", Value: strconv.FormatBool(*curSubnet.IsDefault)},
+			{Key: "AvailabilityZone", Value: *curSubnet.Zone},
+		}
+		resSubnetInfo.KeyValueList = keyValueList
+		arrSubnetInfoList = append(arrSubnetInfoList, resSubnetInfo)
+	}
+
+	return arrSubnetInfoList, nil
+}
+
+func (VPCHandler *TencentVPCHandler) isExistSubnet(reqSubnetId string) (bool, error) {
+	cblogger.Infof("reqSubnetId : [%s]", reqSubnetId)
+
+	request := vpc.NewDescribeSubnetsRequest()
+	request.Filters = []*vpc.Filter{
+		&vpc.Filter{
+			Name:   common.StringPtr("subnet-name"),
+			Values: common.StringPtrs([]string{reqSubnetId}),
+		},
+	}
+
+	//spew.Dump(request)
+	response, err := VPCHandler.Client.DescribeSubnets(request)
+	cblogger.Info("서브넷 실행 결과")
+	//spew.Dump(response)
+	if err != nil {
+		cblogger.Error(err)
+		return false, err
+	}
+
+	if *response.Response.TotalCount < 1 {
+		return false, nil
+	}
 
 	return true, nil
 }
 
 func (VPCHandler *TencentVPCHandler) AddSubnet(vpcIID irs.IID, subnetInfo irs.SubnetInfo) (irs.VPCInfo, error) {
 	cblogger.Infof("[%s] Subnet 추가 - CIDR : %s", subnetInfo.IId.NameId, subnetInfo.IPv4_CIDR)
-	return irs.VPCInfo{}, nil
+
+	zoneId := VPCHandler.Region.Zone
+	cblogger.Infof("Zone : %s", zoneId)
+	if zoneId == "" {
+		cblogger.Error("Connection 정보에 Zone 정보가 없습니다.")
+		return irs.VPCInfo{}, errors.New("Connection 정보에 Zone 정보가 없습니다.")
+	}
+
+	if subnetInfo.IId.NameId == "" {
+		return irs.VPCInfo{}, errors.New("생성할 SubnetId 정보가 없습니다.")
+	}
+
+	isExit, errSubnetInfo := VPCHandler.isExistSubnet(subnetInfo.IId.NameId)
+	if errSubnetInfo != nil {
+		cblogger.Error(errSubnetInfo)
+		return irs.VPCInfo{}, errSubnetInfo
+	}
+
+	cblogger.Info("Subnet 존재여부 : ")
+	cblogger.Info(isExit)
+
+	if isExit {
+		cblogger.Errorf("이미 [%S] Subnet이 존재하기 때문에 생성하지 않고 기존 정보와 함께 에러를 리턴함.", subnetInfo.IId.NameId)
+		return irs.VPCInfo{}, errors.New("InvalidVNetwork.Duplicate: The Subnet '" + subnetInfo.IId.NameId + "' already exists.")
+	}
+
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.TENCENT,
+		RegionZone:   VPCHandler.Region.Zone,
+		ResourceType: call.VPCSUBNET,
+		ResourceName: vpcIID.SystemId,
+		CloudOSAPI:   "CreateSubnet()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+
+	request := vpc.NewCreateSubnetRequest()
+
+	request.VpcId = common.StringPtr(vpcIID.SystemId)
+	request.SubnetName = common.StringPtr(subnetInfo.IId.NameId)
+	request.CidrBlock = common.StringPtr(subnetInfo.IPv4_CIDR)
+	request.Zone = common.StringPtr(VPCHandler.Region.Zone)
+
+	callLogStart := call.Start()
+	response, err := VPCHandler.Client.CreateSubnet(request)
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+
+	cblogger.Debug(response.ToJsonString())
+	spew.Dump(response)
+	if err != nil {
+		callLogInfo.ErrorMSG = err.Error()
+		callogger.Error(call.String(callLogInfo))
+		cblogger.Error(err)
+		return irs.VPCInfo{}, err
+	}
+	callogger.Info(call.String(callLogInfo))
+
+	retVpcInfo, errVpcInfo := VPCHandler.GetVPC(vpcIID)
+	if errVpcInfo != nil {
+		cblogger.Error(errVpcInfo)
+		return irs.VPCInfo{}, err
+	}
+
+	//retVpcInfo.SubnetInfoList[0].IId.NameId = vpcReqInfo.IId.NameId // 생성 시에는 NameId는 요청 받은 값으로 리턴해야 함.
+
+	return retVpcInfo, nil
 }
 
 func (VPCHandler *TencentVPCHandler) RemoveSubnet(vpcIID irs.IID, subnetIID irs.IID) (bool, error) {
 	cblogger.Infof("[%s] VPC의 [%s] Subnet 삭제", vpcIID.SystemId, subnetIID.SystemId)
-	return false, nil
+
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.TENCENT,
+		RegionZone:   VPCHandler.Region.Zone,
+		ResourceType: call.VPCSUBNET,
+		ResourceName: vpcIID.SystemId,
+		CloudOSAPI:   "DeleteSubnet()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+
+	request := vpc.NewDeleteSubnetRequest()
+	request.SubnetId = common.StringPtr(subnetIID.SystemId)
+
+	callLogStart := call.Start()
+	response, err := VPCHandler.Client.DeleteSubnet(request)
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+
+	cblogger.Debug(response.ToJsonString())
+	//spew.Dump(response)
+	if err != nil {
+		callLogInfo.ErrorMSG = err.Error()
+		callogger.Error(call.String(callLogInfo))
+		cblogger.Error(err)
+		return false, err
+	}
+	callogger.Info(call.String(callLogInfo))
+
+	return true, nil
 }
 
 /*

@@ -14,10 +14,13 @@
 # get host go version
 GOVERSION=`go version |awk '{print $3}'|sed 's/go//g'`
 
+# for setup current $CBSPIDER_ROOT
+source ../../setup.env
+
 # mount volume for driver build script in Container
 # mount volume for same Go env. between host and container
 # setup HOME env. with host $HOME in container
-sudo docker run --rm -it -v $PWD/2.build:$HOME/2.build -v $HOME/go:$HOME/go \
-	-e GOPATH=$HOME/go -e CBSPIDER_ROOT=$HOME/go/src/github.com/cloud-barista/cb-spider \
-	-e  HOME=$HOME -w $HOME --hostname driver-build --name cloud-twin-dev \
+sudo docker run --rm -it -v $PWD/2.build:$HOME/2.build -v $HOME/go:$HOME/go -v $CBSPIDER_ROOT:$CBSPIDER_ROOT \
+	-e GOPATH=$HOME/go -e CBSPIDER_ROOT=$CBSPIDER_ROOT \
+	-e  HOME=$HOME -w $HOME --hostname driver-build --name driver-build \
 	golang:$GOVERSION /bin/bash
