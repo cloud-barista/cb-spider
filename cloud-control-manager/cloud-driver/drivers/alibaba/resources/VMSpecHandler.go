@@ -8,6 +8,7 @@ import (
 
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/ecs"
 
+	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 )
@@ -85,12 +86,31 @@ func (vmSpecHandler *AlibabaVmSpecHandler) ListVMSpec(Region string) ([]*irs.VMS
 	request.Scheme = "https"
 	request.RegionId = Region
 
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.ALIBABA,
+		RegionZone:   vmSpecHandler.Region.Zone,
+		ResourceType: call.VMSPEC,
+		ResourceName: "ListVMSpec()",
+		CloudOSAPI:   "DescribeInstanceTypes()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+
+	callLogStart := call.Start()
 	resp, err := vmSpecHandler.Client.DescribeInstanceTypes(request)
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 	cblogger.Debug(resp)
-	if err != nil { // resp is now filled
+
+	if err != nil {
+		callLogInfo.ErrorMSG = err.Error()
+		callogger.Error(call.String(callLogInfo))
+
 		cblogger.Errorf("Unable to get ListVMSpec - %v", err)
 		return vMSpecInfoList, err
 	}
+	callogger.Info(call.String(callLogInfo))
 
 	//spew.Dump(resp)
 	cblogger.Info("조회된 인스턴스 타입 수 : ", len(resp.InstanceTypes.InstanceType))
@@ -111,12 +131,31 @@ func (vmSpecHandler *AlibabaVmSpecHandler) GetVMSpec(Region string, Name string)
 	request.RegionId = Region
 	//request.InstanceTypeFamily = Name
 
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.ALIBABA,
+		RegionZone:   vmSpecHandler.Region.Zone,
+		ResourceType: call.VMSPEC,
+		ResourceName: "Region:" + Region + "/ Name:" + Name,
+		CloudOSAPI:   "DescribeInstanceTypes()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+
+	callLogStart := call.Start()
 	resp, err := vmSpecHandler.Client.DescribeInstanceTypes(request)
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 	cblogger.Debug(resp)
+
 	if err != nil {
+		callLogInfo.ErrorMSG = err.Error()
+		callogger.Error(call.String(callLogInfo))
+
 		cblogger.Errorf("Unable to get GetVMSpec - %v", err)
 		return irs.VMSpecInfo{}, err
 	}
+	callogger.Info(call.String(callLogInfo))
 
 	cblogger.Info("조회된 인스턴스 타입 수 : ", len(resp.InstanceTypes.InstanceType))
 	//	spew.Dump(resp)
@@ -149,12 +188,31 @@ func (vmSpecHandler *AlibabaVmSpecHandler) ListOrgVMSpec(Region string) (string,
 	request.Scheme = "https"
 	request.RegionId = Region
 
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.ALIBABA,
+		RegionZone:   vmSpecHandler.Region.Zone,
+		ResourceType: call.VMSPEC,
+		ResourceName: "ListOrgVMSpec()",
+		CloudOSAPI:   "DescribeInstanceTypes()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+
+	callLogStart := call.Start()
 	resp, err := vmSpecHandler.Client.DescribeInstanceTypes(request)
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 	cblogger.Debug(resp)
-	if err != nil { // resp is now filled
+
+	if err != nil {
+		callLogInfo.ErrorMSG = err.Error()
+		callogger.Error(call.String(callLogInfo))
+
 		cblogger.Errorf("Unable to get ListOrgVMSpec - %v", err)
 		return "", err
 	}
+	callogger.Info(call.String(callLogInfo))
 
 	//jsonString, errJson := ConvertJsonString(resp.InstanceTypes.InstanceType)
 	jsonString, errJson := ConvertJsonString(resp.InstanceTypes)
@@ -171,12 +229,31 @@ func (vmSpecHandler *AlibabaVmSpecHandler) GetOrgVMSpec(Region string, Name stri
 	request.Scheme = "https"
 	request.RegionId = Region
 
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.ALIBABA,
+		RegionZone:   vmSpecHandler.Region.Zone,
+		ResourceType: call.VMSPEC,
+		ResourceName: "Region:" + Region + "/ Name:" + Name,
+		CloudOSAPI:   "DescribeInstanceTypes()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+
+	callLogStart := call.Start()
 	resp, err := vmSpecHandler.Client.DescribeInstanceTypes(request)
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 	cblogger.Debug(resp)
-	if err != nil { // resp is now filled
-		cblogger.Errorf("Unable to get GetOrgVMSpec - %v", err)
+
+	if err != nil {
+		callLogInfo.ErrorMSG = err.Error()
+		callogger.Error(call.String(callLogInfo))
+
+		cblogger.Errorf("Unable to get GetVMSpec - %v", err)
 		return "", err
 	}
+	callogger.Info(call.String(callLogInfo))
 
 	cblogger.Info("조회된 인스턴스 타입 수 : ", len(resp.InstanceTypes.InstanceType))
 	//	spew.Dump(resp)

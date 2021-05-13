@@ -957,7 +957,7 @@ func (vmHandler *AwsVMHandler) ListVMStatus() ([]*irs.VMStatusInfo, error) {
 		CloudOS:      call.AWS,
 		RegionZone:   vmHandler.Region.Zone,
 		ResourceType: call.VM,
-		ResourceName: "",
+		ResourceName: "ListVMStatus()",
 		CloudOSAPI:   "DescribeInstances()",
 		ElapsedTime:  "",
 		ErrorMSG:     "",

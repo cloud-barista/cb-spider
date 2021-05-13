@@ -948,12 +948,12 @@ func handleVM() {
 
 func main() {
 	cblogger.Info("Alibaba Cloud Resource Test")
-	//handleVPC() //VPC
+	handleVPC() //VPC
 	//handleVMSpec()
 	//handleImage() //AMI
 	//handleKeyPair()
 	//handleSecurity()
-	handleVM()
+	//handleVM()
 
 	//handlePublicIP() // PublicIP 생성 후 conf
 

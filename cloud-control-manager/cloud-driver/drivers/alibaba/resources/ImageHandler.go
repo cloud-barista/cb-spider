@@ -16,6 +16,7 @@ import (
 
 	"github.com/aliyun/alibaba-cloud-sdk-go/sdk/requests"
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/ecs"
+	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/davecgh/go-spew/spew"
@@ -77,12 +78,31 @@ func (imageHandler *AlibabaImageHandler) CreateImage(imageReqInfo irs.ImageReqIn
 
 	// Check Image Exists
 
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.ALIBABA,
+		RegionZone:   imageHandler.Region.Zone,
+		ResourceType: call.VMIMAGE,
+		ResourceName: imageReqInfo.IId.SystemId,
+		CloudOSAPI:   "CreateImage()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+
+	callLogStart := call.Start()
 	// Creates a new custom Image with the given name
 	result, err := imageHandler.Client.CreateImage(request)
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+
 	if err != nil {
+		callLogInfo.ErrorMSG = err.Error()
+		callogger.Error(call.String(callLogInfo))
+
 		cblogger.Errorf("Unable to create Image: %s, %v.", imageReqInfo.IId.NameId, err)
 		return irs.ImageInfo{}, err
 	}
+	callogger.Info(call.String(callLogInfo))
 
 	cblogger.Infof("Created Image %q %s\n %s\n", result.ImageId, imageReqInfo.IId.NameId, result.RequestId)
 	spew.Dump(result)
@@ -117,12 +137,30 @@ func (imageHandler *AlibabaImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 		request.PageSize = requests.NewInteger(CBPageSize)
 	}
 
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.ALIBABA,
+		RegionZone:   imageHandler.Region.Zone,
+		ResourceType: call.VMIMAGE,
+		ResourceName: "ListImage()",
+		CloudOSAPI:   "DescribeImages()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+
+	callLogStart := call.Start()
 	result, err := imageHandler.Client.DescribeImages(request)
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 	//spew.Dump(result) //출력 정보가 너무 많아서 생략
 	if err != nil {
+		callLogInfo.ErrorMSG = err.Error()
+		callogger.Error(call.String(callLogInfo))
+
 		cblogger.Errorf("Unable to get Images, %v", err)
 		return nil, err
 	}
+	callogger.Info(call.String(callLogInfo))
 
 	//cnt := 0
 	for _, cur := range result.Images.Image {
@@ -190,14 +228,33 @@ func (imageHandler *AlibabaImageHandler) GetImage(imageIID irs.IID) (irs.ImageIn
 
 	request.ImageId = imageIID.SystemId
 
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.ALIBABA,
+		RegionZone:   imageHandler.Region.Zone,
+		ResourceType: call.VMIMAGE,
+		ResourceName: imageIID.SystemId,
+		CloudOSAPI:   "DescribeImages()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+
+	callLogStart := call.Start()
 	result, err := imageHandler.Client.DescribeImages(request)
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+
 	//ecs.DescribeImagesResponse.Images.Image
 	//spew.Dump(result)
 	cblogger.Info(result)
 	if err != nil {
+		callLogInfo.ErrorMSG = err.Error()
+		callogger.Error(call.String(callLogInfo))
+
 		cblogger.Errorf("Unable to get Images, %v", err)
 		return irs.ImageInfo{}, err
 	}
+	callogger.Info(call.String(callLogInfo))
 
 	if result.TotalCount < 1 {
 		return irs.ImageInfo{}, errors.New("Notfound: '" + imageIID.SystemId + "' Images Not found")
@@ -220,12 +277,30 @@ func (imageHandler *AlibabaImageHandler) DeleteImage(imageIID irs.IID) (bool, er
 	// 추가 옵션 Req
 	// request.Force = requests.NewBoolean(true)
 
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.ALIBABA,
+		RegionZone:   imageHandler.Region.Zone,
+		ResourceType: call.VMIMAGE,
+		ResourceName: imageIID.SystemId,
+		CloudOSAPI:   "DeleteImage()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+
+	callLogStart := call.Start()
 	result, err := imageHandler.Client.DeleteImage(request)
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 	cblogger.Info(result)
 	if err != nil {
+		callLogInfo.ErrorMSG = err.Error()
+		callogger.Error(call.String(callLogInfo))
+
 		cblogger.Errorf("Unable to delete Image: %s, %v.", imageIID.SystemId, err)
 		return false, err
 	}
+	callogger.Info(call.String(callLogInfo))
 
 	cblogger.Infof("Successfully deleted %q Image\n", imageIID.SystemId)
 

@@ -15,6 +15,7 @@ import (
 	"strings"
 
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/ecs"
+	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/davecgh/go-spew/spew"
@@ -40,12 +41,31 @@ func (securityHandler *AlibabaSecurityHandler) CreateSecurity(securityReqInfo ir
 	request.VpcId = securityReqInfo.VpcIID.SystemId
 	cblogger.Debugf("보안 그룹 생성 요청 정보", request)
 
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.ALIBABA,
+		RegionZone:   securityHandler.Region.Zone,
+		ResourceType: call.SECURITYGROUP,
+		ResourceName: securityReqInfo.IId.NameId,
+		CloudOSAPI:   "CreateSecurityGroup()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+
+	callLogStart := call.Start()
 	// Create the security group with the VPC, name and description.
 	createRes, err := securityHandler.Client.CreateSecurityGroup(request)
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+
 	if err != nil {
+		callLogInfo.ErrorMSG = err.Error()
+		callogger.Error(call.String(callLogInfo))
+
 		cblogger.Errorf("Unable to create security group %q, %v", securityReqInfo.IId.NameId, err)
 		return irs.SecurityInfo{}, err
 	}
+	callogger.Info(call.String(callLogInfo))
 	cblogger.Infof("[%s] 보안 그룹 생성완료: SecurityGroupId:[%s]", securityReqInfo.IId.NameId, createRes.SecurityGroupId)
 	//spew.Dump(createRes)
 
@@ -131,11 +151,32 @@ func (securityHandler *AlibabaSecurityHandler) ListSecurity() ([]*irs.SecurityIn
 	request := ecs.CreateDescribeSecurityGroupsRequest()
 	request.Scheme = "https"
 	spew.Dump(request)
+
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.ALIBABA,
+		RegionZone:   securityHandler.Region.Zone,
+		ResourceType: call.VM,
+		ResourceName: "ListSecurity()",
+		CloudOSAPI:   "DescribeSecurityGroups()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+
+	callLogStart := call.Start()
 	result, err := securityHandler.Client.DescribeSecurityGroups(request)
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+
 	if err != nil {
+		callLogInfo.ErrorMSG = err.Error()
+		callogger.Error(call.String(callLogInfo))
+
 		cblogger.Error(err)
 		return nil, err
 	}
+	callogger.Info(call.String(callLogInfo))
+
 	cblogger.Info(result)
 	//spew.Dump(result)
 	//ecs.DescribeSecurityGroupsResponse
@@ -161,11 +202,34 @@ func (securityHandler *AlibabaSecurityHandler) GetSecurity(securityIID irs.IID) 
 	request.Scheme = "https"
 	request.SecurityGroupId = securityIID.SystemId
 
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.ALIBABA,
+		RegionZone:   securityHandler.Region.Zone,
+		ResourceType: call.VM,
+		ResourceName: securityIID.SystemId,
+		CloudOSAPI:   "DescribeSecurityGroups()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+
+	callLogStart := call.Start()
 	result, err := securityHandler.Client.DescribeSecurityGroups(request)
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+
 	if err != nil {
+		callLogInfo.ErrorMSG = err.Error()
+		callogger.Error(call.String(callLogInfo))
+
 		cblogger.Error(err)
 		return irs.SecurityInfo{}, err
 	}
+	callogger.Info(call.String(callLogInfo))
+
+	cblogger.Info(result)
+	//spew.Dump(result)
+	//ecs.DescribeSecurityGroupsResponse
 
 	//ecs.DescribeSecurityGroupsResponse.SecurityGroups
 	//ecs.SecurityGroups
@@ -262,11 +326,31 @@ func (securityHandler *AlibabaSecurityHandler) DeleteSecurity(securityIID irs.II
 	request.Scheme = "https"
 	request.SecurityGroupId = securityIID.SystemId
 
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.ALIBABA,
+		RegionZone:   securityHandler.Region.Zone,
+		ResourceType: call.VM,
+		ResourceName: securityIID.SystemId,
+		CloudOSAPI:   "DeleteSecurityGroup()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+
+	callLogStart := call.Start()
 	response, err := securityHandler.Client.DeleteSecurityGroup(request)
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+
 	if err != nil {
+		callLogInfo.ErrorMSG = err.Error()
+		callogger.Error(call.String(callLogInfo))
+
 		cblogger.Errorf("Unable to get descriptions for security groups, %v.", err)
 		return false, err
 	}
+	callogger.Info(call.String(callLogInfo))
+
 	cblogger.Info(response)
 	cblogger.Infof("Successfully delete security group %q.", securityIID.SystemId)
 	return true, nil
