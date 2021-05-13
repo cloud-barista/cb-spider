@@ -129,7 +129,8 @@ func handleSecurity() {
 	securityName := "cb-securitytest-all"
 	securityId := "cb-securitytest-all"
 	//securityId := "cb-secu-all"
-	vpcId := "cb-vpc"
+	//vpcId := "cb-vpc"
+	vpcId := "cb-vpc-load-test"
 
 	for {
 		fmt.Println("Security Management")
@@ -847,8 +848,10 @@ func handleVM() {
 						//NameId:   "https://www.googleapis.com/compute/v1/projects/ubuntu-os-cloud/global/images/ubuntu-minimal-1804-bionic-v20200415",
 						//SystemId: "https://www.googleapis.com/compute/v1/projects/ubuntu-os-cloud/global/images/ubuntu-minimal-1804-bionic-v20200415",
 					},
-					VpcIID:            irs.IID{SystemId: "cb-vpc"},
-					SubnetIID:         irs.IID{SystemId: "cb-sub1"},
+					//VpcIID:            irs.IID{SystemId: "cb-vpc"},
+					//SubnetIID:         irs.IID{SystemId: "cb-sub1"},
+					VpcIID: irs.IID{SystemId: "cb-vpc-load-test"},
+					SubnetIID: irs.IID{SystemId: "vpc-loadtest-sub1	"},
 					SecurityGroupIIDs: []irs.IID{{SystemId: "cb-securitytest1"}},
 					VMSpecName:        "f1-micro",
 					KeyPairIID:        irs.IID{SystemId: "cb-keypairtest123123"},
@@ -968,10 +971,10 @@ func main() {
 	cblogger.Info("GCP Resource Test")
 	//handleVPC()
 	//handleVMSpec()
-	handleImage() //AMI
+	//handleImage() //AMI
 	//handleKeyPair()
 	//handleSecurity()
-	//handleVM()
+	handleVM()
 	//cblogger.Info(filepath.Join("a/b", "\\cloud-driver-libs\\.ssh-gcp\\"))
 	//cblogger.Info(filepath.Join("\\cloud-driver-libs\\.ssh-gcp\\", "/b/c/d"))
 }
