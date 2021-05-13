@@ -157,7 +157,7 @@ func (securityHandler *AlibabaSecurityHandler) ListSecurity() ([]*irs.SecurityIn
 	callLogInfo := call.CLOUDLOGSCHEMA{
 		CloudOS:      call.ALIBABA,
 		RegionZone:   securityHandler.Region.Zone,
-		ResourceType: call.VM,
+		ResourceType: call.SECURITYGROUP,
 		ResourceName: "ListSecurity()",
 		CloudOSAPI:   "DescribeSecurityGroups()",
 		ElapsedTime:  "",
@@ -207,7 +207,7 @@ func (securityHandler *AlibabaSecurityHandler) GetSecurity(securityIID irs.IID) 
 	callLogInfo := call.CLOUDLOGSCHEMA{
 		CloudOS:      call.ALIBABA,
 		RegionZone:   securityHandler.Region.Zone,
-		ResourceType: call.VM,
+		ResourceType: call.SECURITYGROUP,
 		ResourceName: securityIID.SystemId,
 		CloudOSAPI:   "DescribeSecurityGroups()",
 		ElapsedTime:  "",
@@ -331,7 +331,7 @@ func (securityHandler *AlibabaSecurityHandler) DeleteSecurity(securityIID irs.II
 	callLogInfo := call.CLOUDLOGSCHEMA{
 		CloudOS:      call.ALIBABA,
 		RegionZone:   securityHandler.Region.Zone,
-		ResourceType: call.VM,
+		ResourceType: call.SECURITYGROUP,
 		ResourceName: securityIID.SystemId,
 		CloudOSAPI:   "DeleteSecurityGroup()",
 		ElapsedTime:  "",
