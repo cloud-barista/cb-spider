@@ -157,12 +157,13 @@ func (vmHandler *AzureVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 		LoggingError(hiscallInfo, err)
 		return irs.VMInfo{}, err
 	}
+	LoggingInfo(hiscallInfo, start)
+
 	err = future.WaitForCompletionRef(vmHandler.Ctx, vmHandler.Client.Client)
 	if err != nil {
 		LoggingError(hiscallInfo, err)
 		return irs.VMInfo{}, err
 	}
-	LoggingInfo(hiscallInfo, start)
 
 	vm, err = vmHandler.Client.Get(vmHandler.Ctx, vmHandler.Region.ResourceGroup, vmReqInfo.IId.NameId, compute.InstanceView)
 	if err != nil {
