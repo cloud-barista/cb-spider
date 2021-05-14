@@ -272,7 +272,9 @@ func handleKeyPair() {
 	//config := readConfigFile()
 	//VmID := config.Aws.VmID
 
-	keyPairName := "CB-KeyPairTest123123"
+	//KeyPair 생성은 알파벳, 숫자 또는 밑줄 "_"만 지원
+	keyPairName := "CB_KeyPairTest123123"
+	keyPairId := ""
 	//keyPairName := config.Aws.KeyName
 
 	for {
@@ -303,7 +305,8 @@ func handleKeyPair() {
 					//cblogger.Info(result)
 					spew.Dump(result)
 					if result != nil {
-						keyPairName = result[0].IId.SystemId // 조회 및 삭제를 위해 생성된 ID로 변경
+						keyPairId = result[0].IId.SystemId // 조회 및 삭제를 위해 생성된 ID로 변경
+						keyPairName = result[0].IId.NameId
 					}
 				}
 
@@ -317,20 +320,23 @@ func handleKeyPair() {
 					cblogger.Infof(keyPairName, " 키 페어 생성 실패 : ", err)
 				} else {
 					cblogger.Infof("[%s] 키 페어 생성 결과 : [%s]", keyPairName, result)
+					keyPairId = result.IId.SystemId
 					spew.Dump(result)
 				}
 			case 3:
 				cblogger.Infof("[%s] 키 페어 조회 테스트", keyPairName)
-				result, err := handler.GetKey(irs.IID{SystemId: keyPairName})
+				result, err := handler.GetKey(irs.IID{SystemId: keyPairId})
 				if err != nil {
 					cblogger.Infof(keyPairName, " 키 페어 조회 실패 : ", err)
 				} else {
 					cblogger.Infof("[%s] 키 페어 조회 결과 : [%s]", keyPairName, result)
+					keyPairName = result.IId.NameId
+
 					spew.Dump(result)
 				}
 			case 4:
 				cblogger.Infof("[%s] 키 페어 삭제 테스트", keyPairName)
-				result, err := handler.DeleteKey(irs.IID{SystemId: keyPairName})
+				result, err := handler.DeleteKey(irs.IID{SystemId: keyPairId})
 				if err != nil {
 					cblogger.Infof(keyPairName, " 키 페어 삭제 실패 : ", err)
 				} else {
@@ -747,10 +753,10 @@ func TestMain() {
 
 func main() {
 	cblogger.Info("Tencent Cloud Resource Test")
-	handleVPC() //VPC
+	//handleVPC() //VPC
 	//handleVMSpec()
 	//handleImage() //AMI
-	//handleKeyPair()
+	handleKeyPair()
 	//handleSecurity()
 	//handleVM()
 
