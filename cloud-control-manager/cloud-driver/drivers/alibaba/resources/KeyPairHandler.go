@@ -59,7 +59,7 @@ func (keyPairHandler *AlibabaKeyPairHandler) ListKey() ([]*irs.KeyPairInfo, erro
 		RegionZone:   keyPairHandler.Region.Zone,
 		ResourceType: call.VMKEYPAIR,
 		ResourceName: "ListKey()",
-		CloudOSAPI:   "CreateImage()",
+		CloudOSAPI:   "DescribeKeyPairs()",
 		ElapsedTime:  "",
 		ErrorMSG:     "",
 	}
@@ -121,7 +121,7 @@ func (keyPairHandler *AlibabaKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPai
 		RegionZone:   keyPairHandler.Region.Zone,
 		ResourceType: call.VMKEYPAIR,
 		ResourceName: keyPairReqInfo.IId.NameId,
-		CloudOSAPI:   "CreateImage()",
+		CloudOSAPI:   "CreateKeyPair()",
 		ElapsedTime:  "",
 		ErrorMSG:     "",
 	}
