@@ -169,6 +169,20 @@ func getValue(keyValueInfoList []icbs.KeyValue, key string) string {
 	return "Not set"
 }
 
+func GetProviderNameByConnectionName(cloudConnectName string) (string, error) {
+        cccInfo, err := ccim.GetConnectionConfig(cloudConnectName)
+        if err != nil {
+                return "", err
+        }
+
+        rgnInfo, err := rim.GetRegion(cccInfo.RegionName)
+        if err != nil {
+                return "", err
+        }
+
+        return rgnInfo.ProviderName, nil
+}
+
 func GetRegionNameByConnectionName(cloudConnectName string) (string, string, error) {
 	cccInfo, err := ccim.GetConnectionConfig(cloudConnectName)
 	if err != nil {

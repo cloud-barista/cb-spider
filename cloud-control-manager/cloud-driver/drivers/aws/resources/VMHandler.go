@@ -519,12 +519,7 @@ func (vmHandler *AwsVMHandler) RebootVM(vmIID irs.IID) (irs.VMStatus, error) {
 func (vmHandler *AwsVMHandler) TerminateVM(vmIID irs.IID) (irs.VMStatus, error) {
 	cblogger.Infof("vmNameId : [%s]", vmIID.NameId)
 
-	vmInfo, errVmInfo := vmHandler.GetVM(vmIID)
-	if errVmInfo != nil {
-		return irs.VMStatus("Failed"), errVmInfo
-	}
-	cblogger.Info(vmInfo)
-	vmID := vmInfo.IId.SystemId
+	vmID := vmIID.SystemId
 	cblogger.Infof("vmID : [%s]", vmID)
 
 	input := &ec2.TerminateInstancesInput{
