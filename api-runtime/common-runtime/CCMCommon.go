@@ -20,9 +20,8 @@ import (
 	iidm "github.com/cloud-barista/cb-spider/cloud-control-manager/iid-manager"
 	"github.com/cloud-barista/cb-store/config"
 	"github.com/sirupsen/logrus"
-	//	"strings"
-	//	"strconv"
-	//	"time"
+
+	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 )
 
 // define string of resource types
@@ -49,9 +48,12 @@ var vmRWLock = new(sync.RWMutex)
 var iidRWLock = new(iidm.IIDRWLOCK)
 
 var cblog *logrus.Logger
+var callogger *logrus.Logger
 
 func init() {
 	cblog = config.Cblogger
+	// logger for HisCall
+        callogger = call.GetLogger("HISCALL")
 }
 
 type AllResourceList struct {
@@ -1224,12 +1226,38 @@ func StartVM(connectionName string, rsType string, reqInfo cres.VMReqInfo) (*cre
 		return nil, fmt.Errorf(rsType + "-" + reqInfo.IId.NameId + " already exists!")
 	}
 
+	providerName, err := ccm.GetProviderNameByConnectionName(connectionName)
+        if err != nil {
+                cblog.Error(err)
+                return nil, err
+        }
+
+        regionName, zoneName, err := ccm.GetRegionNameByConnectionName(connectionName)
+        if err != nil {
+                cblog.Error(err)
+                return nil, err
+        }
+
+	callInfo := call.CLOUDLOGSCHEMA {
+                CloudOS: call.CLOUD_OS(providerName),
+                RegionZone: regionName + "/" + zoneName,
+                ResourceType: call.VM,
+                ResourceName: reqInfo.IId.NameId,
+		CloudOSAPI: "CB-Spider:StartVM()",
+                ElapsedTime: "",
+                ErrorMSG: "",
+        }
+        start := call.Start()
 	// (2) create Resource
 	info, err := handler.StartVM(reqInfo)
+	callInfo.ElapsedTime = call.Elapsed(start)
 	if err != nil {
 		cblog.Error(err)
+		callInfo.ErrorMSG = err.Error()
 		return nil, err
 	}
+	callogger.Info(call.String(callInfo))
+
 	// set NameId for info by reqInfo
 	setNameId(connectionName, &info, &reqInfo)
 
@@ -1964,13 +1992,40 @@ func DeleteResource(connectionName string, rsType string, nameID string, force s
 			}
 		}
 	case rsVM:
-		vmStatus, err = handler.(cres.VMHandler).TerminateVM(iidInfo.IId)
+		providerName, err := ccm.GetProviderNameByConnectionName(connectionName)
 		if err != nil {
 			cblog.Error(err)
+			return false, "", err
+		}
+
+		regionName, zoneName, err := ccm.GetRegionNameByConnectionName(connectionName)
+		if err != nil {
+			cblog.Error(err)
+			return false, "", err
+		}
+
+		callInfo := call.CLOUDLOGSCHEMA {
+			CloudOS: call.CLOUD_OS(providerName),
+			RegionZone: regionName + "/" + zoneName,
+			ResourceType: call.VM,
+			ResourceName: iidInfo.IId.NameId,
+			CloudOSAPI: "CB-Spider:TerminateVM()",
+			ElapsedTime: "",
+			ErrorMSG: "",
+		}
+		start := call.Start()
+		vmStatus, err = handler.(cres.VMHandler).TerminateVM(iidInfo.IId)
+		callInfo.ElapsedTime = call.Elapsed(start)
+		if err != nil {
+			cblog.Error(err)
+			callInfo.ErrorMSG = err.Error()
 			if force != "true" {
 				return false, vmStatus, err
 			}
 		}
+		callogger.Info(call.String(callInfo))
+
+
 	default:
 		if strings.HasPrefix(rsType, rsSubnetPrefix) {
 			result, err = handler.(cres.VPCHandler).RemoveSubnet(iidVPCInfo.IId, iidInfo.IId)
