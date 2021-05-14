@@ -23,6 +23,7 @@ import (
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/ecs"
 	"golang.org/x/crypto/ssh"
 
+	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/davecgh/go-spew/spew"
@@ -51,13 +52,32 @@ func (keyPairHandler *AlibabaKeyPairHandler) ListKey() ([]*irs.KeyPairInfo, erro
 	request := ecs.CreateDescribeKeyPairsRequest()
 	request.Scheme = "https"
 
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.ALIBABA,
+		RegionZone:   keyPairHandler.Region.Zone,
+		ResourceType: call.VMKEYPAIR,
+		ResourceName: "ListKey()",
+		CloudOSAPI:   "DescribeKeyPairs()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+
+	callLogStart := call.Start()
 	//  Returns a list of key pairs
 	result, err := keyPairHandler.Client.DescribeKeyPairs(request)
-	cblogger.Info(result)
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+
 	if err != nil {
+		callLogInfo.ErrorMSG = err.Error()
+		callogger.Error(call.String(callLogInfo))
+
 		cblogger.Errorf("Unable to get key pairs, %v", err)
 		return keyPairList, err
 	}
+	callogger.Info(call.String(callLogInfo))
+	cblogger.Info(result)
 
 	//cblogger.Debugf("Key Pairs:")
 	for _, pair := range result.KeyPairs.KeyPair {
@@ -94,12 +114,31 @@ func (keyPairHandler *AlibabaKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPai
 
 	request.KeyPairName = keyPairReqInfo.IId.NameId
 
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.ALIBABA,
+		RegionZone:   keyPairHandler.Region.Zone,
+		ResourceType: call.VMKEYPAIR,
+		ResourceName: keyPairReqInfo.IId.NameId,
+		CloudOSAPI:   "CreateKeyPair()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+
+	callLogStart := call.Start()
 	// Creates a new  key pair with the given name
 	result, err := keyPairHandler.Client.CreateKeyPair(request)
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+
 	if err != nil {
+		callLogInfo.ErrorMSG = err.Error()
+		callogger.Error(call.String(callLogInfo))
+
 		cblogger.Errorf("Unable to create key pair: %s, %v.", keyPairReqInfo.IId.NameId, err)
 		return irs.KeyPairInfo{}, err
 	}
+	callogger.Info(call.String(callLogInfo))
 
 	cblogger.Infof("Created key pair %q %s\n%s\n", result.KeyPairName, result.KeyPairFingerPrint, result.PrivateKeyBody)
 	spew.Dump(result)
@@ -165,12 +204,32 @@ func (keyPairHandler *AlibabaKeyPairHandler) GetKey(keyIID irs.IID) (irs.KeyPair
 	request.Scheme = "https"
 	request.KeyPairName = keyIID.SystemId
 
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.ALIBABA,
+		RegionZone:   keyPairHandler.Region.Zone,
+		ResourceType: call.VMKEYPAIR,
+		ResourceName: keyIID.NameId,
+		CloudOSAPI:   "DescribeKeyPairs()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+
+	callLogStart := call.Start()
 	result, err := keyPairHandler.Client.DescribeKeyPairs(request)
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+
 	if err != nil {
+		callLogInfo.ErrorMSG = err.Error()
+		callogger.Error(call.String(callLogInfo))
+
 		// if aerr, ok := err.(errors.Error); ok {
 		cblogger.Errorf("Unable to get key pair: %s, %v.", keyIID.SystemId, err)
 		return irs.KeyPairInfo{}, nil
 	}
+	callogger.Info(call.String(callLogInfo))
+
 	cblogger.Info("result : ", result)
 	if result.TotalCount < 1 {
 		return irs.KeyPairInfo{}, errors.New("Notfound: '" + keyIID.SystemId + "' KeyPair Not found")
@@ -247,13 +306,33 @@ func (keyPairHandler *AlibabaKeyPairHandler) DeleteKey(keyIID irs.IID) (bool, er
 	request.KeyPairNames = "[" + "\"" + keyIID.SystemId + "\"]"
 
 	spew.Dump(request)
+
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.ALIBABA,
+		RegionZone:   keyPairHandler.Region.Zone,
+		ResourceType: call.VMKEYPAIR,
+		ResourceName: keyIID.NameId,
+		CloudOSAPI:   "DeleteKeyPairs()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+
+	callLogStart := call.Start()
 	result, err := keyPairHandler.Client.DeleteKeyPairs(request)
-	cblogger.Info(result)
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+
 	if err != nil {
+		callLogInfo.ErrorMSG = err.Error()
+		callogger.Error(call.String(callLogInfo))
+
 		cblogger.Errorf("Unable to delete key pair: %s, %v.", keyIID.SystemId, err)
 		return false, err
 	}
+	callogger.Info(call.String(callLogInfo))
 
+	cblogger.Info(result)
 	cblogger.Infof("Successfully deleted %q Alibaba Cloud key pair\n", keyIID.SystemId)
 
 	//====================

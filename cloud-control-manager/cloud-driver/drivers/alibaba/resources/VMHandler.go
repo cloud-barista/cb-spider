@@ -16,19 +16,12 @@ import (
 	"github.com/aliyun/alibaba-cloud-sdk-go/sdk/requests"
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/ecs"
 	cblog "github.com/cloud-barista/cb-log"
+	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/sirupsen/logrus"
 	/*
-		"github.com/sirupsen/logrus"
-		"reflect"
-		"strings"
-		"github.com/aliyun/alibaba-cloud-sdk-go/services/ecs"
-		"github.com/aliyun/alibaba-cloud-sdk-go/sdk/requests"
-		cblog "github.com/cloud-barista/cb-log"
-		idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
-		irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 		"github.com/davecgh/go-spew/spew"
 	*/)
 
@@ -169,13 +162,30 @@ func (vmHandler *AlibabaVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 	cblogger.Info("Create EC2 Instance")
 	cblogger.Info(request)
 
-	//response, err := vmHandler.Client.CreateInstance(request)
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.ALIBABA,
+		RegionZone:   vmHandler.Region.Zone,
+		ResourceType: call.VM,
+		ResourceName: vmReqInfo.IId.NameId,
+		CloudOSAPI:   "RunInstances()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+	callLogStart := call.Start()
+
 	response, err := vmHandler.Client.RunInstances(request)
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+
 	if err != nil {
+		callLogInfo.ErrorMSG = err.Error()
+		callogger.Error(call.String(callLogInfo))
 		cblogger.Error(err.Error())
 		return irs.VMInfo{}, err
 	}
-	spew.Dump(response)
+	callogger.Info(call.String(callLogInfo))
+	//spew.Dump(response)
 
 	if len(response.InstanceIdSets.InstanceIdSet) < 1 {
 		return irs.VMInfo{}, errors.New("No errors have occurred, but no VMs have been created.")
@@ -185,12 +195,15 @@ func (vmHandler *AlibabaVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 	// VM 정보를 조회할 수 있을 때까지 대기
 	//=========================================
 	newVmIID := irs.IID{SystemId: response.InstanceIdSets.InstanceIdSet[0]}
-	curStatus, errStatus := vmHandler.WaitForRun(newVmIID)
+
+	//VM 생성 요청 후에는 곧바로 VM 정보를 조회할 수 없기 때문에 VM 상태를 조회할 수 있는 NotExist 상태가 아닐 때까지만 대기 함.
+	//2021-05-11 WaitForRun을 호출하지 않아도 GetVM() 호출 시 에러가 발생하지 않는 것은 확인했음. (우선은 정책이 최종 확정이 아니라서 WaitForRun을 사용하도록 원복함.)
+	//curStatus, errStatus := vmHandler.WaitForExist(newVmIID) // 20210511 - NotExist 상태가 아닐 때 까지만 대기
+	curStatus, errStatus := vmHandler.WaitForRun(newVmIID) // 20210511 아직 정책이 최종 확정이 아니라서 WaitForRun을 사용하도록 원복함
 	if errStatus != nil {
 		cblogger.Error(errStatus.Error())
 		return irs.VMInfo{}, nil
 	}
-
 	cblogger.Info("==>생성된 VM[%s]의 현재 상태[%s]", newVmIID, curStatus)
 
 	//vmInfo, errVmInfo := vmHandler.GetVM(irs.IID{SystemId: response.InstanceId})
@@ -207,6 +220,48 @@ func (vmHandler *AlibabaVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 		vmInfo.VMUserId = "root"
 	}
 	return vmInfo, nil
+}
+
+// VM 상태가 정보를 조회할 수 있는 상태가 될때까지 기다림(최대 30초간 대기)
+func (vmHandler *AlibabaVMHandler) WaitForExist(vmIID irs.IID) (irs.VMStatus, error) {
+	cblogger.Info("======> VM 생성 직후에는 VM 정보를 조회할 수 없기 때문에 NotExist 상태가 아닐 때까지만 대기함.")
+
+	waitStatus := "NotExist" //VM정보 조회가 안됨.
+	//waitStatus := "Running"
+	//waitStatus := "Creating" //너무 일찍 종료 시 리턴할 VM의 세부 항목의 정보 조회가 안됨.
+
+	//===================================
+	// Suspending 되도록 3초 정도 대기 함.
+	//===================================
+	curRetryCnt := 0
+	maxRetryCnt := 30
+	for {
+		curStatus, errStatus := vmHandler.GetVMStatus(vmIID)
+		if errStatus != nil {
+			cblogger.Error(errStatus.Error())
+		}
+
+		cblogger.Info("===>VM Status : ", curStatus)
+
+		if curStatus != irs.VMStatus(waitStatus) { //|| curStatus == irs.VMStatus("Running") {
+			cblogger.Infof("===>VM 상태[%s]는 [%s]가 아니라서 대기를 중단합니다.", curStatus, waitStatus)
+			break
+		}
+
+		//if curStatus != irs.VMStatus(waitStatus) {
+		curRetryCnt++
+		cblogger.Errorf("VM 상태가 [%s]라서 1초 대기후 조회합니다.", curStatus)
+		time.Sleep(time.Second * 1)
+		if curRetryCnt > maxRetryCnt {
+			cblogger.Errorf("장시간(%d 초) 대기해도 VM의 Status 값이 [%s]를 유지해서 강제로 중단합니다.", maxRetryCnt, waitStatus)
+			return irs.VMStatus("Failed"), errors.New("장시간 기다렸으나 생성된 VM의 상태가 [" + waitStatus + "]외의 상태로 바뀌지 않아서 중단 합니다.")
+		}
+		//} else {
+		//break
+		//}
+	}
+
+	return irs.VMStatus(waitStatus), nil
 }
 
 // VM 정보를 조회할 수 있을 때까지 최대 30초간 대기
@@ -258,11 +313,30 @@ func (vmHandler *AlibabaVMHandler) ResumeVM(vmIID irs.IID) (irs.VMStatus, error)
 	request.Scheme = "https"
 	request.InstanceId = vmIID.SystemId
 
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.ALIBABA,
+		RegionZone:   vmHandler.Region.Zone,
+		ResourceType: call.VM,
+		ResourceName: vmIID.SystemId,
+		CloudOSAPI:   "StartInstance()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+
+	callLogStart := call.Start()
 	response, err := vmHandler.Client.StartInstance(request)
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+
 	if err != nil {
+		callLogInfo.ErrorMSG = err.Error()
+		callogger.Error(call.String(callLogInfo))
 		cblogger.Error(err.Error())
 		return irs.VMStatus("Failed"), err
 	}
+	callogger.Info(call.String(callLogInfo))
+
 	cblogger.Info(response)
 	return irs.VMStatus("Resuming"), nil
 
@@ -277,11 +351,29 @@ func (vmHandler *AlibabaVMHandler) SuspendVM(vmIID irs.IID) (irs.VMStatus, error
 	request.InstanceId = vmIID.SystemId
 	request.StoppedMode = "StopCharging"
 
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.ALIBABA,
+		RegionZone:   vmHandler.Region.Zone,
+		ResourceType: call.VM,
+		ResourceName: vmIID.SystemId,
+		CloudOSAPI:   "StopInstance()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+
+	callLogStart := call.Start()
 	response, err := vmHandler.Client.StopInstance(request)
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+
 	if err != nil {
+		callLogInfo.ErrorMSG = err.Error()
+		callogger.Error(call.String(callLogInfo))
 		cblogger.Error(err.Error())
 		return irs.VMStatus("Failed"), err
 	}
+	callogger.Info(call.String(callLogInfo))
 	cblogger.Info(response)
 	return irs.VMStatus("Suspending"), nil
 }
@@ -293,11 +385,29 @@ func (vmHandler *AlibabaVMHandler) RebootVM(vmIID irs.IID) (irs.VMStatus, error)
 	request.Scheme = "https"
 	request.InstanceId = vmIID.SystemId
 
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.ALIBABA,
+		RegionZone:   vmHandler.Region.Zone,
+		ResourceType: call.VM,
+		ResourceName: vmIID.SystemId,
+		CloudOSAPI:   "RebootInstance()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+
+	callLogStart := call.Start()
 	response, err := vmHandler.Client.RebootInstance(request)
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+
 	if err != nil {
+		callLogInfo.ErrorMSG = err.Error()
+		callogger.Error(call.String(callLogInfo))
 		cblogger.Error(err.Error())
 		return irs.VMStatus("Failed"), err
 	}
+	callogger.Info(call.String(callLogInfo))
 	cblogger.Info(response)
 	return irs.VMStatus("Rebooting"), nil
 }
@@ -346,11 +456,29 @@ func (vmHandler *AlibabaVMHandler) TerminateVM(vmIID irs.IID) (irs.VMStatus, err
 	request.Scheme = "https"
 	request.InstanceId = vmIID.SystemId
 
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.ALIBABA,
+		RegionZone:   vmHandler.Region.Zone,
+		ResourceType: call.VM,
+		ResourceName: vmIID.SystemId,
+		CloudOSAPI:   "DeleteInstance()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+
+	callLogStart := call.Start()
 	response, err := vmHandler.Client.DeleteInstance(request)
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+
 	if err != nil {
+		callLogInfo.ErrorMSG = err.Error()
+		callogger.Error(call.String(callLogInfo))
 		cblogger.Error(err.Error())
 		return irs.VMStatus("Failed"), err
 	}
+	callogger.Info(call.String(callLogInfo))
 	cblogger.Info(response)
 	return irs.VMStatus("Terminating"), nil
 }
@@ -362,12 +490,30 @@ func (vmHandler *AlibabaVMHandler) GetVM(vmIID irs.IID) (irs.VMInfo, error) {
 	request.Scheme = "https"
 	request.InstanceIds = "[\"" + vmIID.SystemId + "\"]"
 
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.ALIBABA,
+		RegionZone:   vmHandler.Region.Zone,
+		ResourceType: call.VM,
+		ResourceName: vmIID.SystemId,
+		CloudOSAPI:   "DescribeInstances()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+
+	callLogStart := call.Start()
 	response, err := vmHandler.Client.DescribeInstances(request)
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+
 	if err != nil {
+		callLogInfo.ErrorMSG = err.Error()
+		callogger.Error(call.String(callLogInfo))
 		cblogger.Error(err.Error())
 		return irs.VMInfo{}, err
 	}
-	spew.Dump(response)
+	callogger.Info(call.String(callLogInfo))
+	cblogger.Info(response)
 
 	if response.TotalCount < 1 {
 		return irs.VMInfo{}, errors.New("Notfound: '" + vmIID.SystemId + "' VM Not found")
@@ -399,7 +545,7 @@ func (vmHandler *AlibabaVMHandler) ExtractDescribeInstances(instancInfo *ecs.Ins
 		//NetworkInterface string // ex) eth0
 		//PublicDNS
 		//PrivateIP
-		PrivateIP: instancInfo.VpcAttributes.PrivateIpAddress.IpAddress[0],
+		//PrivateIP: instancInfo.VpcAttributes.PrivateIpAddress.IpAddress[0],
 		//PrivateDNS
 
 		//VMBootDisk  string // ex) /dev/sda1
@@ -412,7 +558,20 @@ func (vmHandler *AlibabaVMHandler) ExtractDescribeInstances(instancInfo *ecs.Ins
 		vmInfo.NetworkInterface = instancInfo.NetworkInterfaces.NetworkInterface[0].NetworkInterfaceId
 	}
 
-	vmInfo.VMUserId = "root"
+	//vmInfo.VMUserId = "root"
+	vmInfo.VMUserId = CBDefaultVmUserName //2021-05-11 VMUserId 정보를 cb-user로 리턴.
+
+	//2021-05-11 VM생성 후 WaitForRun()을 사용하지 않기 위해 추가
+	//VM을 생성하자 마자 조회하면 PrivateIpAddress 정보가 없음.
+	if len(instancInfo.VpcAttributes.PrivateIpAddress.IpAddress) > 0 {
+		vmInfo.PrivateIP = instancInfo.VpcAttributes.PrivateIpAddress.IpAddress[0]
+	}
+
+	/*
+		if !reflect.ValueOf(reservation.Instances[0].PublicDnsName).IsNil() {
+			vmInfo.PublicDNS = *reservation.Instances[0].PublicDnsName
+		}
+	*/
 
 	//VMUserId
 	//VMUserPasswd
@@ -462,12 +621,30 @@ func (vmHandler *AlibabaVMHandler) ListVM() ([]*irs.VMInfo, error) {
 	request := ecs.CreateDescribeInstancesRequest()
 	request.Scheme = "https"
 
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.ALIBABA,
+		RegionZone:   vmHandler.Region.Zone,
+		ResourceType: call.VM,
+		ResourceName: "ListVM()",
+		CloudOSAPI:   "DescribeInstances()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+
+	callLogStart := call.Start()
 	response, err := vmHandler.Client.DescribeInstances(request)
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+
 	if err != nil {
+		callLogInfo.ErrorMSG = err.Error()
+		callogger.Error(call.String(callLogInfo))
 		cblogger.Error(err.Error())
 		return nil, err
 	}
-	spew.Dump(response)
+	callogger.Info(call.String(callLogInfo))
+	cblogger.Info(response)
 
 	var vmInfoList []*irs.VMInfo
 	for _, curInstance := range response.Instances.Instance {
@@ -500,11 +677,30 @@ func (vmHandler *AlibabaVMHandler) GetVMStatus(vmIID irs.IID) (irs.VMStatus, err
 	request.InstanceId = &[]string{vmIID.SystemId}
 	cblogger.Infof("request : [%v]", request)
 
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.ALIBABA,
+		RegionZone:   vmHandler.Region.Zone,
+		ResourceType: call.VM,
+		ResourceName: vmIID.SystemId,
+		CloudOSAPI:   "DescribeInstanceStatus()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+
+	callLogStart := call.Start()
 	response, err := vmHandler.Client.DescribeInstanceStatus(request)
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+
 	if err != nil {
+		callLogInfo.ErrorMSG = err.Error()
+		callogger.Error(call.String(callLogInfo))
+
 		cblogger.Error(err.Error())
 		return irs.VMStatus("Failed"), err
 	}
+	callogger.Info(call.String(callLogInfo))
 
 	cblogger.Info("Success", response)
 	if response.TotalCount < 1 {
@@ -586,11 +782,30 @@ func (vmHandler *AlibabaVMHandler) ListVMStatus() ([]*irs.VMStatusInfo, error) {
 	request := ecs.CreateDescribeInstanceStatusRequest()
 	request.Scheme = "https"
 
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.ALIBABA,
+		RegionZone:   vmHandler.Region.Zone,
+		ResourceType: call.VM,
+		ResourceName: "ListVMStatus()",
+		CloudOSAPI:   "DescribeInstanceStatus()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+
+	callLogStart := call.Start()
 	response, err := vmHandler.Client.DescribeInstanceStatus(request)
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+
 	if err != nil {
+		callLogInfo.ErrorMSG = err.Error()
+		callogger.Error(call.String(callLogInfo))
+
 		cblogger.Error(err.Error())
 		return nil, err
 	}
+	callogger.Info(call.String(callLogInfo))
 
 	cblogger.Info("Success", response)
 	if response.TotalCount < 1 {
