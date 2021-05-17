@@ -28,7 +28,7 @@ const (
 	VMDefaultUser                = "root"
 	SSHDefaultUser               = "cb-user"
 	SSHDefaultPort               = 22
-	SSHDefaultConnectionTryCount = 5
+	SSHDefaultConnectionTryCount = 10
 	VM                           = "VM"
 	VMTimeoutCount               = 100
 )
@@ -75,19 +75,10 @@ func (vmHandler *ClouditVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 	}
 
 	// 보안그룹 정보 조회 (Name)
-	securityHandler := ClouditSecurityHandler{
-		Client:         vmHandler.Client,
-		CredentialInfo: vmHandler.CredentialInfo,
-	}
 	secGroups := make([]server.SecGroupInfo, len(vmReqInfo.SecurityGroupIIDs))
 	for i, s := range vmReqInfo.SecurityGroupIIDs {
-		security, err := securityHandler.GetSecurity(s)
-		if err != nil {
-			cblogger.Error(fmt.Sprintf("failed to get security group, err : %s", err.Error()))
-			continue
-		}
 		secGroups[i] = server.SecGroupInfo{
-			Id: security.IId.SystemId,
+			Id: s.SystemId,
 		}
 	}
 
@@ -127,7 +118,8 @@ func (vmHandler *ClouditVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 	LoggingInfo(hiscallInfo, start)
 
 	// VM 생성 완료까지 wait
-	timeoutIndex := VMTimeoutCount
+	curRetryCnt := 0
+	maxRetryCnt := 30
 	for {
 		// Check VM Deploy Status
 		vmInfo, err := server.Get(vmHandler.Client, creatingVm.ID, &requestOpts)
@@ -135,22 +127,20 @@ func (vmHandler *ClouditVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 			LoggingError(hiscallInfo, err)
 			return irs.VMInfo{}, err
 		}
-		if timeoutIndex == 0 {
-			createErr := errors.New(fmt.Sprintf("vm creation timeout with %d seconds", VMTimeoutCount))
-			LoggingError(hiscallInfo, createErr)
-			return irs.VMInfo{}, createErr
-		}
-		if vmInfo.PrivateIp == "" {
-			time.Sleep(1 * time.Second)
-			timeoutIndex--
-			continue
-		} else {
+
+		if vmInfo.PrivateIp != "" && getVmStatus(vmInfo.State) == irs.Running {
 			ok, err := vmHandler.AssociatePublicIP(creatingVm.Name, vmInfo.PrivateIp)
 			if !ok {
 				LoggingError(hiscallInfo, err)
 				return irs.VMInfo{}, err
 			}
 			break
+		}
+		time.Sleep(1 * time.Second)
+		curRetryCnt++
+		if curRetryCnt > maxRetryCnt {
+			cblogger.Errorf(fmt.Sprintf("failed to start vm, exceeded maximum retry count %d", maxRetryCnt))
+			return irs.VMInfo{}, errors.New(fmt.Sprintf("failed to start vm, exceeded maximum retry count %d", maxRetryCnt))
 		}
 	}
 
@@ -163,22 +153,22 @@ func (vmHandler *ClouditVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 
 	// SSH 접속 사용자 및 공개키 등록
 	loginUserId := SSHDefaultUser
+	createUserErr := errors.New("Error adding cb-User to new VM")
 
 	// SSH 접속까지 시도
-	connectionTryCnt := SSHDefaultConnectionTryCount
-	for connectionTryCnt > 0 {
+	curConnectionCnt := 0
+	maxConnectionRetryCnt := 30
+	for {
+		cblogger.Info("Trying to connect via root user ...")
 		_, err := RunCommand(vmInfo.PublicIP, SSHDefaultPort, VMDefaultUser, vmReqInfo.VMUserPasswd, "echo test")
 		if err == nil {
 			break
 		}
-		fmt.Println("Trying to connect via root user ...")
-		connectionTryCnt--
-		time.Sleep(time.Second * 2)
-	}
-
-	createUserErr := errors.New("Error adding cb-User to new VM")
-	if connectionTryCnt <= 0 {
-		return irs.VMInfo{}, createUserErr
+		time.Sleep(1 * time.Second)
+		curConnectionCnt++
+		if curConnectionCnt > maxConnectionRetryCnt {
+			return irs.VMInfo{}, createUserErr
+		}
 	}
 
 	// 사용자 등록 및 sudoer 권한 추가
@@ -403,29 +393,8 @@ func (vmHandler *ClouditVMHandler) GetVMStatus(vmIID irs.IID) (irs.VMStatus, err
 	LoggingInfo(hiscallInfo, start)
 
 	// Set VM Status Info
-	var resultStatus string
-	switch strings.ToLower(vm.State) {
-	case "creating":
-		resultStatus = "Creating"
-	case "running":
-		resultStatus = "Running"
-	case "stopping":
-		resultStatus = "Suspending"
-	case "stopped":
-		resultStatus = "Suspended"
-	case "starting":
-		resultStatus = "Resuming"
-	case "rebooting":
-		resultStatus = "Rebooting"
-	case "terminating":
-		resultStatus = "Terminating"
-	case "terminated":
-		resultStatus = "Terminated"
-	case "failed":
-	default:
-		resultStatus = "Failed"
-	}
-	return irs.VMStatus(resultStatus), nil
+	status := getVmStatus(vm.State)
+	return status, nil
 }
 
 func (vmHandler *ClouditVMHandler) ListVM() ([]*irs.VMInfo, error) {
@@ -624,4 +593,30 @@ func (vmHandler *ClouditVMHandler) getVmIdByName(vmNameID string) (string, error
 		return "", err
 	}
 	return vmId, nil
+}
+
+func getVmStatus(vmStatus string) irs.VMStatus {
+	var resultStatus string
+	switch strings.ToLower(vmStatus) {
+	case "creating":
+		resultStatus = "Creating"
+	case "running":
+		resultStatus = "Running"
+	case "stopping":
+		resultStatus = "Suspending"
+	case "stopped":
+		resultStatus = "Suspended"
+	case "starting":
+		resultStatus = "Resuming"
+	case "rebooting":
+		resultStatus = "Rebooting"
+	case "terminating":
+		resultStatus = "Terminating"
+	case "terminated":
+		resultStatus = "Terminated"
+	case "failed":
+	default:
+		resultStatus = "Failed"
+	}
+	return irs.VMStatus(resultStatus)
 }
