@@ -11,18 +11,82 @@
 package resources
 
 import (
+	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
-	cvm "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/cvm/v20170312"
+	"github.com/davecgh/go-spew/spew"
+	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
+	vpc "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/vpc/v20170312"
 )
 
 type TencentSecurityHandler struct {
 	Region idrv.RegionInfo
-	Client *cvm.Client
+	Client *vpc.Client
 }
 
+//https://intl.cloud.tencent.com/document/product/213/34272
+//https://intl.cloud.tencent.com/ko/document/api/215/36083
+/*
+Port: A single port number, or a port range in the format of “8000-8010”. The Port field is accepted only if the value of the Protocol field is TCP or UDP. Otherwise Protocol and Port are mutually exclusive.
+Action : ACCEPT or DROP
+*/
 func (securityHandler *TencentSecurityHandler) CreateSecurity(securityReqInfo irs.SecurityReqInfo) (irs.SecurityInfo, error) {
 	cblogger.Infof("securityReqInfo : ", securityReqInfo)
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.TENCENT,
+		RegionZone:   securityHandler.Region.Zone,
+		ResourceType: call.VMKEYPAIR,
+		ResourceName: securityReqInfo.IId.NameId,
+		CloudOSAPI:   "CreateSecurityGroupWithPolicies()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+
+	request := vpc.NewCreateSecurityGroupWithPoliciesRequest()
+	request.GroupName = common.StringPtr("mcb-test-sgroup")
+	request.GroupDescription = common.StringPtr("mcb-test-sgroup")
+	request.SecurityGroupPolicySet = &vpc.SecurityGroupPolicySet{
+		Egress: []*vpc.SecurityGroupPolicy{
+			&vpc.SecurityGroupPolicy{ //Outbound
+				// Protocol:  common.StringPtr("프로토콜"),
+				// Port:      common.StringPtr("포트"),
+				// CidrBlock: common.StringPtr("CIDR"),
+				// Action:    common.StringPtr("액션"),
+				Protocol:  common.StringPtr("TCP"),
+				Port:      common.StringPtr("80"),
+				CidrBlock: common.StringPtr("0.0.0.0/0"),
+				Action:    common.StringPtr("accept"),
+			},
+		},
+		/*
+			Ingress: []*vpc.SecurityGroupPolicy{	//InBound
+				&vpc.SecurityGroupPolicy{
+					// Protocol:  common.StringPtr("프로토콜"),
+					// Port:      common.StringPtr("포트"),
+					// CidrBlock: common.StringPtr("CIDR"),
+					// Action:    common.StringPtr("액션"),
+				},
+			},
+		*/
+	}
+
+	callLogStart := call.Start()
+	response, err := securityHandler.Client.CreateSecurityGroupWithPolicies(request)
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+
+	if err != nil {
+		callLogInfo.ErrorMSG = err.Error()
+		callogger.Error(call.String(callLogInfo))
+
+		cblogger.Error(err)
+		return irs.SecurityInfo{}, err
+	}
+	spew.Dump(response)
+	//cblogger.Debug(response.ToJsonString())
+	callogger.Info(call.String(callLogInfo))
+
 	return irs.SecurityInfo{}, nil
 }
 

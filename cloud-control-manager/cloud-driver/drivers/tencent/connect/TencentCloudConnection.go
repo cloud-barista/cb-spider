@@ -30,7 +30,7 @@ type TencentCloudConnection struct {
 	VMClient       *cvm.Client
 	KeyPairClient  *cvm.Client
 	ImageClient    *cvm.Client
-	SecurityClient *cvm.Client
+	SecurityClient *vpc.Client
 	VmSpecClient   *cvm.Client
 
 	//VNicClient     *cvm.Client
