@@ -11,8 +11,8 @@
 package main
 
 import (
-	"github.com/rackspace/gophercloud"
-	"github.com/rackspace/gophercloud/openstack"
+	"github.com/gophercloud/gophercloud"
+	"github.com/gophercloud/gophercloud/openstack"
 
 	oscon "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/openstack/connect"
 	osrs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/openstack/resources"
@@ -101,18 +101,19 @@ func getServiceClient(connInfo idrv.ConnectionInfo) (*gophercloud.ServiceClient,
 
 func getImageClient(connInfo idrv.ConnectionInfo) (*gophercloud.ServiceClient, error) {
 
-	client, err := openstack.NewClient(connInfo.CredentialInfo.IdentityEndpoint)
-
 	authOpts := gophercloud.AuthOptions{
-		//IdentityEndpoint: connInfo.CredentialInfo.IdentityEndpoint,
-		Username:   connInfo.CredentialInfo.Username,
-		Password:   connInfo.CredentialInfo.Password,
-		DomainName: connInfo.CredentialInfo.DomainName,
-		TenantID:   connInfo.CredentialInfo.ProjectID,
+		IdentityEndpoint: connInfo.CredentialInfo.IdentityEndpoint,
+		Username:         connInfo.CredentialInfo.Username,
+		Password:         connInfo.CredentialInfo.Password,
+		DomainName:       connInfo.CredentialInfo.DomainName,
+		TenantID:         connInfo.CredentialInfo.ProjectID,
 	}
-	err = openstack.AuthenticateV3(client, authOpts)
+	provider, err := openstack.AuthenticatedClient(authOpts)
+	if err != nil {
+		return nil, err
+	}
 
-	c, err := openstack.NewImageServiceV2(client, gophercloud.EndpointOpts{
+	c, err := openstack.NewImageServiceV2(provider, gophercloud.EndpointOpts{
 		Region: connInfo.RegionInfo.Region,
 	})
 	if err != nil {
