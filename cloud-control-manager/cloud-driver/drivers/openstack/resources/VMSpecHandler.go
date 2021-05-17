@@ -63,7 +63,7 @@ func (vmSpecHandler *OpenStackVMSpecHandler) GetVMSpec(Region string, Name strin
 	// log HisCall
 	hiscallInfo := GetCallLogScheme(vmSpecHandler.Client.IdentityEndpoint, call.VMSPEC, Name, "GetVMSpec()")
 
-	vmSpecId, err := vmSpecHandler.IDFromName(vmSpecHandler.Client, Name)
+	vmSpecId, err := vmSpecHandler.getIDFromName(vmSpecHandler.Client, Name)
 	if err != nil {
 		LoggingError(hiscallInfo, err)
 		return irs.VMSpecInfo{}, err
@@ -118,7 +118,7 @@ func (vmSpecHandler *OpenStackVMSpecHandler) GetOrgVMSpec(Region string, Name st
 	// log HisCall
 	hiscallInfo := GetCallLogScheme(vmSpecHandler.Client.IdentityEndpoint, call.VMSPEC, Name, "GetOrgVMSpec()")
 
-	vmSpecId, err := vmSpecHandler.IDFromName(vmSpecHandler.Client, Name)
+	vmSpecId, err := vmSpecHandler.getIDFromName(vmSpecHandler.Client, Name)
 	if err != nil {
 		LoggingError(hiscallInfo, err)
 		return "", err
@@ -143,7 +143,7 @@ func (vmSpecHandler *OpenStackVMSpecHandler) GetOrgVMSpec(Region string, Name st
 	return jsonString, nil
 }
 
-func (vmSpecHandler *OpenStackVMSpecHandler) IDFromName(serviceClient *gophercloud.ServiceClient, imageName string) (string, error) {
+func (vmSpecHandler *OpenStackVMSpecHandler) getIDFromName(serviceClient *gophercloud.ServiceClient, imageName string) (string, error) {
 	pager, err := flavors.ListDetail(serviceClient, flavors.ListOpts{}).AllPages()
 	if err != nil {
 		return "", err
