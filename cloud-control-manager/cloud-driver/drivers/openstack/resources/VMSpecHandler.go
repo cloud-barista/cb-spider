@@ -2,10 +2,12 @@ package resources
 
 import (
 	"encoding/json"
+	"errors"
+	"fmt"
 	"strconv"
 
-	"github.com/rackspace/gophercloud"
-	"github.com/rackspace/gophercloud/openstack/compute/v2/flavors"
+	"github.com/gophercloud/gophercloud"
+	"github.com/gophercloud/gophercloud/openstack/compute/v2/flavors"
 
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
@@ -61,7 +63,7 @@ func (vmSpecHandler *OpenStackVMSpecHandler) GetVMSpec(Region string, Name strin
 	// log HisCall
 	hiscallInfo := GetCallLogScheme(vmSpecHandler.Client.IdentityEndpoint, call.VMSPEC, Name, "GetVMSpec()")
 
-	vmSpecId, err := flavors.IDFromName(vmSpecHandler.Client, Name)
+	vmSpecId, err := vmSpecHandler.getIDFromName(vmSpecHandler.Client, Name)
 	if err != nil {
 		LoggingError(hiscallInfo, err)
 		return irs.VMSpecInfo{}, err
@@ -116,7 +118,7 @@ func (vmSpecHandler *OpenStackVMSpecHandler) GetOrgVMSpec(Region string, Name st
 	// log HisCall
 	hiscallInfo := GetCallLogScheme(vmSpecHandler.Client.IdentityEndpoint, call.VMSPEC, Name, "GetOrgVMSpec()")
 
-	vmSpecId, err := flavors.IDFromName(vmSpecHandler.Client, Name)
+	vmSpecId, err := vmSpecHandler.getIDFromName(vmSpecHandler.Client, Name)
 	if err != nil {
 		LoggingError(hiscallInfo, err)
 		return "", err
@@ -139,4 +141,29 @@ func (vmSpecHandler *OpenStackVMSpecHandler) GetOrgVMSpec(Region string, Name st
 	jsonString := string(jsonBytes)
 
 	return jsonString, nil
+}
+
+func (vmSpecHandler *OpenStackVMSpecHandler) getIDFromName(serviceClient *gophercloud.ServiceClient, imageName string) (string, error) {
+	pager, err := flavors.ListDetail(serviceClient, flavors.ListOpts{}).AllPages()
+	if err != nil {
+		return "", err
+	}
+	flavorList, err := flavors.ExtractFlavors(pager)
+	if err != nil {
+		return "", err
+	}
+
+	var flavorNameList []flavors.Flavor
+	for _, flavor := range flavorList {
+		if flavor.Name == imageName {
+			flavorNameList = append(flavorNameList, flavor)
+		}
+	}
+
+	if len(flavorNameList) > 1 {
+		return "", errors.New(fmt.Sprintf("found multiple images with name %s", imageName))
+	} else if len(flavorNameList) == 0 {
+		return "", errors.New(fmt.Sprintf("could not found image with name %s", imageName))
+	}
+	return flavorNameList[0].ID, nil
 }

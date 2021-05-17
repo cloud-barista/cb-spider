@@ -8,14 +8,14 @@ import (
 	"time"
 
 	cblog "github.com/cloud-barista/cb-log"
-	"github.com/rackspace/gophercloud"
-	"github.com/rackspace/gophercloud/openstack/compute/v2/extensions/secgroups"
-	"github.com/rackspace/gophercloud/openstack/compute/v2/flavors"
-	"github.com/rackspace/gophercloud/openstack/networking/v2/extensions/external"
-	"github.com/rackspace/gophercloud/openstack/networking/v2/networks"
-	"github.com/rackspace/gophercloud/openstack/networking/v2/ports"
-	"github.com/rackspace/gophercloud/openstack/networking/v2/subnets"
-	"github.com/rackspace/gophercloud/pagination"
+	"github.com/gophercloud/gophercloud"
+	"github.com/gophercloud/gophercloud/openstack/compute/v2/extensions/secgroups"
+	"github.com/gophercloud/gophercloud/openstack/compute/v2/flavors"
+	"github.com/gophercloud/gophercloud/openstack/networking/v2/extensions/external"
+	"github.com/gophercloud/gophercloud/openstack/networking/v2/networks"
+	"github.com/gophercloud/gophercloud/openstack/networking/v2/ports"
+	"github.com/gophercloud/gophercloud/openstack/networking/v2/subnets"
+	"github.com/gophercloud/gophercloud/pagination"
 	"github.com/sirupsen/logrus"
 
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
@@ -61,31 +61,29 @@ func GetCallLogScheme(endpoint string, resourceType call.RES_TYPE, resourceName 
 }
 
 func GetPublicVPCInfo(client *gophercloud.ServiceClient, typeName string) (string, error) {
-	page, err := networks.List(client, nil).AllPages()
+	// VPC 목록 조회
+	iTrue := true
+	listOpts := external.ListOptsExt{
+		ListOptsBuilder: networks.ListOpts{},
+		External:        &iTrue,
+	}
+	page, err := networks.List(client, listOpts).AllPages()
 	if err != nil {
 		cblogger.Error("Failed to get vpc list, err=%s", err)
 		return "", err
 	}
-
-	nvpcList, err := external.ExtractList(page)
+	// external VPC 필터링
+	var extVpc NetworkWithExt
+	err = networks.ExtractNetworksInto(page, &extVpc)
 	if err != nil {
 		cblogger.Error("Failed to get vpc list, err=%s", err)
-		return "", err
+		getErr := errors.New(fmt.Sprintf("Failed to get vpc list, err=%s", err.Error()))
+		return "", getErr
 	}
-	for _, nvpc := range nvpcList {
-		if nvpc.External == true {
-			if strings.EqualFold(strings.ToUpper(typeName), "ID") {
-				return nvpc.ID, nil
-			} else if strings.EqualFold(strings.ToUpper(typeName), "NAME") {
-				return nvpc.Name, nil
-			}
-		}
-	}
-	cblogger.Error("Failed to get vpc list, err=%s", err)
-	return "", nil
+	return extVpc.ID, nil
 }
 
-// 기본 가상 네트워크(CB-VNet) Id 정보 조회
+// GetCBVNetId 기본 가상 네트워크(CB-VNet) Id 정보 조회
 func GetCBVNetId(client *gophercloud.ServiceClient) (string, error) {
 	listOpt := networks.ListOpts{
 		Name: CBVirutalNetworkName,
@@ -113,12 +111,18 @@ func GetCBVNetId(client *gophercloud.ServiceClient) (string, error) {
 	return vNetworkId, nil
 }
 
-func GetFlavor(client *gophercloud.ServiceClient, flavorName string) (*string, error) {
-	flavorId, err := flavors.IDFromName(client, flavorName)
+func GetFlavorByName(client *gophercloud.ServiceClient, flavorName string) (string, error) {
+	pages, err := flavors.ListDetail(client, nil).AllPages()
 	if err != nil {
-		return nil, err
+		return "", err
 	}
-	return &flavorId, nil
+	flavorList, err := flavors.ExtractFlavors(pages)
+	for _, flavor := range flavorList {
+		if flavor.Name == flavorName {
+			return flavor.ID, nil
+		}
+	}
+	return "", errors.New(fmt.Sprintf("could not found Flavor with name %s ", flavorName))
 }
 
 func GetSecurityByName(networkClient *gophercloud.ServiceClient, securityName string) (*secgroups.SecurityGroup, error) {
