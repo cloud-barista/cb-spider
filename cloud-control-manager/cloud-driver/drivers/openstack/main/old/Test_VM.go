@@ -25,16 +25,16 @@ func init() {
 func createVM(config Config, vmHandler irs.VMHandler) (*string, error) {
 
 	vmName := "CB-Vm"
-	imageId := "062ec06f-ead4-453b-91e4-e8c859b93afc"
-	imageName := "ubuntu-18.04"
-	vmSpecName := "m1.medium"
-	vpcId := "af8010c9-4769-4545-9770-a31e9bb8b645"
-	securityId := "45a9a7be-917b-4e9f-8cbf-4aca231ff607"
+	//imageId := "062ec06f-ead4-453b-91e4-e8c859b93afc"
+	imageName := "ubuntu16.04"
+	vmSpecName := "m1"
+	vpcId := "5943bba1-237f-4ab1-bac5-70a8e08a1584"
+	securityId := "1220bb01-e93d-4d39-9475-523f519322a2"
 	keypairName := "CB-Keypair"
 
 	vmReqInfo := irs.VMReqInfo{
 		IId:               irs.IID{NameId: vmName},
-		ImageIID:          irs.IID{SystemId: imageId, NameId: imageName},
+		ImageIID:          irs.IID{SystemId: imageName, NameId: imageName},
 		VpcIID:            irs.IID{SystemId: vpcId},
 		SecurityGroupIIDs: []irs.IID{{SystemId: securityId}},
 		VMSpecName:        vmSpecName,

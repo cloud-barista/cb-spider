@@ -123,7 +123,7 @@ func (vmHandler *OpenStackVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInf
 	imageHandler := OpenStackImageHandler{
 		Client: vmHandler.Client,
 	}
-	image, err := imageHandler.GetImage(vmReqInfo.IId)
+	image, err := imageHandler.GetImage(vmReqInfo.ImageIID)
 	if err != nil {
 		cblogger.Error(fmt.Sprintf("failed to get image, err : %s", err))
 		return irs.VMInfo{}, err
@@ -189,36 +189,39 @@ func (vmHandler *OpenStackVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInf
 	}
 	LoggingInfo(hiscallInfo, start)
 
-	// VM 생성 완료까지 wait
-	vmId := server.ID
-	var isDeployed bool
-	var serverInfo irs.VMInfo
 	var serverResult *servers.Server
+	var serverInfo irs.VMInfo
+
+	// VM 생성 완료까지 wait
+	curRetryCnt := 0
+	maxRetryCnt := 30
 	for {
-		if isDeployed {
-			serverResult, err = servers.Get(vmHandler.Client, vmId).Extract()
-			serverInfo = vmHandler.mappingServerInfo(*serverResult)
-			break
-		}
-
-		time.Sleep(5 * time.Second)
-
 		// Check VM Deploy Status
-		serverResult, err = servers.Get(vmHandler.Client, vmId).Extract()
+		serverResult, err = servers.Get(vmHandler.Client, server.ID).Extract()
 		if err != nil {
 			LoggingError(hiscallInfo, err)
 			return irs.VMInfo{}, err
 		}
+
 		if strings.ToLower(serverResult.Status) == "active" {
 			// Associate Public IP
 			if ok, err := vmHandler.AssociatePublicIP(serverResult.ID); !ok {
 				LoggingError(hiscallInfo, err)
 				return irs.VMInfo{}, err
 			}
-			isDeployed = true
-
+			// Get server info
+			serverResult, err = servers.Get(vmHandler.Client, server.ID).Extract()
+			serverInfo = vmHandler.mappingServerInfo(*serverResult)
+			break
+		}
+		curRetryCnt++
+		time.Sleep(1 * time.Second)
+		if curRetryCnt > maxRetryCnt {
+			cblogger.Errorf(fmt.Sprintf("failed to start vm, exceeded maximum retry count %d", maxRetryCnt))
+			return irs.VMInfo{}, errors.New(fmt.Sprintf("failed to start vm, exceeded maximum retry count %d", maxRetryCnt))
 		}
 	}
+
 	return serverInfo, nil
 }
 
