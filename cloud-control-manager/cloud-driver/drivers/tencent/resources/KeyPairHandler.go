@@ -91,7 +91,7 @@ func ExtractKeyPairDescribeInfo(keyPair *cvm.KeyPair) (irs.KeyPairInfo, error) {
 
 	// Local Keyfile 처리
 	keyPairPath := os.Getenv("CBSPIDER_ROOT") + CBKeyPairPath
-	hashString := strings.ReplaceAll(keyPairInfo.Fingerprint, ":", "") // 필요한 경우 리전 정보 추가하면 될 듯. 나중에 키 이름과 리전으로 암복호화를 진행하면 될 것같음.
+	hashString := strings.ReplaceAll(*keyPair.KeyId, ":", "") // 필요한 경우 리전 정보 추가하면 될 듯. 나중에 키 이름과 리전으로 암복호화를 진행하면 될 것같음.
 	privateKeyPath := keyPairPath + hashString + ".pem"
 	publicKeyPath := keyPairPath + hashString + ".pub"
 	//cblogger.Infof("hashString : [%s]", hashString)
@@ -117,6 +117,7 @@ func ExtractKeyPairDescribeInfo(keyPair *cvm.KeyPair) (irs.KeyPairInfo, error) {
 	keyPairInfo.PrivateKey = string(privateKeyBytes)
 
 	keyValueList := []irs.KeyValue{
+		{Key: "KeyId", Value: *keyPair.KeyId},
 		//{Key: "KeyMaterial", Value: *keyPair.KeyMaterial},
 	}
 
@@ -174,17 +175,20 @@ func (keyPairHandler *TencentKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPai
 	//spew.Dump(result)
 	keyPairInfo := irs.KeyPairInfo{
 		//Name:        *result.KeyName,
-		IId:          irs.IID{NameId: keyPairReqInfo.IId.NameId, SystemId: *response.Response.KeyPair.KeyId},
-		PublicKey:    *response.Response.KeyPair.PublicKey,
-		PrivateKey:   *response.Response.KeyPair.PrivateKey,
-		KeyValueList: []irs.KeyValue{},
+		IId:        irs.IID{NameId: keyPairReqInfo.IId.NameId, SystemId: *response.Response.KeyPair.KeyId},
+		PublicKey:  *response.Response.KeyPair.PublicKey,
+		PrivateKey: *response.Response.KeyPair.PrivateKey,
+		KeyValueList: []irs.KeyValue{
+			{Key: "KeyId", Value: *response.Response.KeyPair.KeyId},
+		},
 	}
+
 	//spew.Dump(keyPairInfo)
 
 	//=============================
 	// 키 페어를 로컬 파일에 기록 함.
 	//=============================
-	hashString := strings.ReplaceAll(keyPairInfo.Fingerprint, ":", "") // 필요한 경우 리전 정보 추가하면 될 듯. 나중에 키 이름과 리전으로 암복호화를 진행하면 될 것같음.
+	hashString := strings.ReplaceAll(*response.Response.KeyPair.KeyId, ":", "") // 필요한 경우 리전 정보 추가하면 될 듯. 나중에 키 이름과 리전으로 암복호화를 진행하면 될 것같음.
 	savePrivateFileTo := keyPairPath + hashString + ".pem"
 	savePublicFileTo := keyPairPath + hashString + ".pub"
 	//cblogger.Infof("hashString : [%s]", hashString)
@@ -264,10 +268,28 @@ func (keyPairHandler *TencentKeyPairHandler) GetKey(keyIID irs.IID) (irs.KeyPair
 	}
 }
 
+//Tencent의 경우 FingerPrint같은 고유 값을 조회할 수 없기 때문에 KeyId를 로컬 파일의 고유 키 값으로 이용함.
+func (keyPairHandler *TencentKeyPairHandler) GetLocalKeyId(keyIID irs.IID) (string, error) {
+	//삭제할 Local Keyfile을 찾기 위해 조회
+	request := cvm.NewDescribeKeyPairsRequest()
+	request.KeyIds = common.StringPtrs([]string{keyIID.SystemId})
+	response, err := keyPairHandler.Client.DescribeKeyPairs(request)
+	if err != nil {
+		cblogger.Error(err)
+		return "", err
+	}
+
+	if *response.Response.TotalCount > 0 {
+		return *response.Response.KeyPairSet[0].KeyId, nil
+	} else {
+		return "", errors.New("InvalidKeyPair.NotFound: The KeyPair " + keyIID.SystemId + " does not exist")
+	}
+}
+
 func (keyPairHandler *TencentKeyPairHandler) DeleteKey(keyIID irs.IID) (bool, error) {
 	cblogger.Infof("삭제 요청된 키페어 : [%s]", keyIID.SystemId)
 
-	keyPairInfo, errGet := keyPairHandler.GetKey(keyIID)
+	keyPairId, errGet := keyPairHandler.GetLocalKeyId(keyIID)
 	if errGet != nil {
 		return false, errGet
 	}
@@ -310,7 +332,7 @@ func (keyPairHandler *TencentKeyPairHandler) DeleteKey(keyIID irs.IID) (bool, er
 	cblogger.Infof("CBKeyPairPath : [%s]", CBKeyPairPath)
 	cblogger.Infof("Final keyPairPath : [%s]", keyPairPath)
 
-	hashString := strings.ReplaceAll(keyPairInfo.Fingerprint, ":", "") // 필요한 경우 리전 정보 추가하면 될 듯. 나중에 키 이름과 리전으로 암복호화를 진행하면 될 것같음.
+	hashString := strings.ReplaceAll(keyPairId, ":", "") // 필요한 경우 리전 정보 추가하면 될 듯. 나중에 키 이름과 리전으로 암복호화를 진행하면 될 것같음.
 	privateKeyPath := keyPairPath + hashString + ".pem"
 	publicKeyPath := keyPairPath + hashString + ".pub"
 
