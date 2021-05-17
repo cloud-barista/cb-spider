@@ -25,12 +25,10 @@ import (
 )
 
 const (
-	VMDefaultUser                = "root"
-	SSHDefaultUser               = "cb-user"
-	SSHDefaultPort               = 22
-	SSHDefaultConnectionTryCount = 10
-	VM                           = "VM"
-	VMTimeoutCount               = 100
+	VMDefaultUser  = "root"
+	SSHDefaultUser = "cb-user"
+	SSHDefaultPort = 22
+	VM             = "VM"
 )
 
 type ClouditVMHandler struct {
