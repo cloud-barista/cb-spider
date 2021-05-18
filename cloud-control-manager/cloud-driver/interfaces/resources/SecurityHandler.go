@@ -24,6 +24,7 @@ type SecurityRuleInfo struct {
 	ToPort     string
 	IPProtocol string
 	Direction  string
+	CIDR       string
 }
 
 type SecurityInfo struct {

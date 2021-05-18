@@ -15,7 +15,8 @@ $CBSPIDER_ROOT/interface/spider security create --config $CBSPIDER_ROOT/interfac
             "FromPort": "1", 
             "ToPort" : "65535", 
             "IPProtocol" : "tcp", 
-            "Direction" : "inbound"
+            "Direction" : "inbound",
+            "CIDR" : "0.0.0.0/0"
           }
         ] 
       } 

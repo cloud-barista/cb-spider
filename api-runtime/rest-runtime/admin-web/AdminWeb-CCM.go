@@ -391,6 +391,7 @@ func makeSecurityGroupTRList_html(bgcolor string, height string, fontSize string
 			strSRList += "ToPort:" + one.ToPort + ", "
 			strSRList += "IPProtocol:" + one.IPProtocol + ", "
 			strSRList += "Direction:" + one.Direction + ", "
+			strSRList += "CIDR:" + one.CIDR + ", "
 			strSRList += "}<br>"
 		}
 		str = strings.ReplaceAll(str, "$$SECURITYRULES$$", strSRList)
@@ -413,7 +414,7 @@ func makePostSecurityGroupFunc_js() string {
 
 	//curl -sX POST http://localhost:1024/spider/securitygroup -H 'Content-Type: application/json'
 	//  -d '{ "ConnectionName": "'${CONN_CONFIG}'", "ReqInfo": { "Name": "sg-01", "VPCName": "vpc-01",
-	//      "SecurityRules": [ {"FromPort": "1", "ToPort" : "65535", "IPProtocol" : "tcp", "Direction" : "inbound"} ] } }'
+	//      "SecurityRules": [ {"FromPort": "1", "ToPort" : "65535", "IPProtocol" : "tcp", "Direction" : "inbound", "CIDR" : "0.0.0.0/0" } ] } }'
 
 	strFunc := `
                 function postSecurityGroup() {
@@ -565,7 +566,7 @@ func SecurityGroup(c echo.Context) error {
                                 <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="2" value="sg-01">
                             </td>
                             <td>
-                                <textarea style="font-size:12px;text-align:center;" name="text_box" id="3" cols=50>[ {"FromPort": "1", "ToPort" : "65535", "IPProtocol" : "tcp", "Direction" : "inbound"} ]</textarea>
+                                <textarea style="font-size:12px;text-align:center;" name="text_box" id="3" cols=50 rows=3>[ {"FromPort": "1", "ToPort" : "65535", "IPProtocol" : "tcp", "Direction" : "inbound", "CIDR" : "0.0.0.0/0" } ]</textarea>
                             </td>
                             <td>
                                 <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="4" disabled value="N/A">                            
