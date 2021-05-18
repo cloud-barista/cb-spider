@@ -26,9 +26,10 @@ If you have any difficulties in using CB-Spider, please let us know.
 2. [실행 방법](#실행-방법)
 3. [API 규격](#API-규격)
 4. [제공 자원](#제공-자원)
-5. [활용 예시](#활용-예시)
-6. [특이 사항](#특이-사항)
-7. [관련 정보](#관련-정보)
+5. [VM 계정](#VM-계정)
+6. [활용 예시](#활용-예시)
+7. [특이 사항](#특이-사항)
+8. [관련 정보](#관련-정보)
  
 ***
 
@@ -75,6 +76,11 @@ If you have any difficulties in using CB-Spider, please let us know.
     
 - #### 시험 결과: https://github.com/cloud-barista/cb-spider/wiki/Test-Reports-of-v0.3.0-espresso
 
+#### [VM 계정]
+- CB Spider VM User: cb-user
+- 관련 정보
+  - https://github.com/cloud-barista/cb-spider/wiki/CB-Spider-VM-User
+
 #### [활용 예시]
 - 시험 도구: `cb-spider/api-runtime/rest-runtime/test/[fulltest|image-test|spec-test|eachtest|parallel-test]` (AWS 경우:aws)
 - 시험 순서: 연동 정보 추가 => 자원등록 => VM 생성 및 제어 시험
@@ -85,17 +91,6 @@ If you have any difficulties in using CB-Spider, please let us know.
     - (1) vpc, security group, keypair 생성
     - (2) vm 생성 및 제어
     - (3)	삭제는 자원 생성 역순
-- CSP별 VM User 
-
-  | CSP        | user ID          | 비고 |
-  |:-------------:|:-------------:|:-------------|
-  | AWS      | ubuntu 또는 ec2-user 등 | Image에 의존적 |
-  | Azure      | cb-user | Spider에서 고정 |
-  | GCP      | cb-user      | Spider에서 고정  |
-  | Alibaba | root      |   CSP에서 고정, PW 설정 가능 |
-  | OpenStack | ubuntu 등     |    Image에 의존적 |
-  | Cloudit | root      | sshkey 제공 안함. PW 설정 가능  |
-    - 개선예정(관련이슈:https://github.com/cloud-barista/cb-spider/issues/230)
   
 #### [특이 사항]
 - 개발상태: 초기 주요 기능 중심 개발추진 중 / 기술개발용 / 상용활용시 보완필요
