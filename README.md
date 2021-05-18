@@ -69,8 +69,9 @@ If you have any difficulties in using CB-Spider, please let us know.
   | Docker        | O          | -          | -          | -          | -          | O          |
 
     💬 특이사항: 
-        - VPC: 단일 VPC 제공 
-        - CIDR: 사용자 설정과 무관하게, CSP 내부에서 유휴 CIDR 할당 후 반납
+        - VPC: 단일 VPC 생성 제공 (두개 이상 VPC 생성 요청시 동작을 보장할 수 없음)
+        - Subnet: 단일 VPC에 Subnet 추가/삭제 가능
+        - VPC 및 Subnet CIDR: 사용자의 설정값과 무관하게, CSP 내부에서 유휴 CIDR 할당 후 반납
     
 - #### 시험 결과: https://github.com/cloud-barista/cb-spider/wiki/Test-Reports-of-v0.3.0-espresso
 
