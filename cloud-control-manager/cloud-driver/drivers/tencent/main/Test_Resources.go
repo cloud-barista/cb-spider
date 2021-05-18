@@ -138,7 +138,7 @@ func handleSecurity() {
 	//config := readConfigFile()
 	//VmID := config.Aws.VmID
 
-	securityName := "CB-SecurityTestIcmp"
+	securityName := "CB-SecurityTest"
 	securityId := "sg-6wedru4yb4m6qqfvd3sj"
 	vpcId := "vpc-6wei16ufuimfcct41o0xh"
 
@@ -189,40 +189,40 @@ func handleSecurity() {
 
 						{
 							FromPort:   "80",
-							ToPort:     "80",
+							ToPort:     "",
 							IPProtocol: "tcp",
 							Direction:  "inbound",
 						},
 						{
 							FromPort:   "8080",
-							ToPort:     "8080",
+							ToPort:     "",
 							IPProtocol: "tcp",
 							Direction:  "inbound",
 						},
 						{
-							FromPort:   "-1",
-							ToPort:     "-1",
+							FromPort:   "ALL",
+							ToPort:     "",
 							IPProtocol: "icmp",
 							Direction:  "inbound",
 						},
 
-						{
-							FromPort:   "443",
-							ToPort:     "443",
-							IPProtocol: "tcp",
-							Direction:  "outbound",
-						},
-						{
-							FromPort:   "8443",
-							ToPort:     "9999",
-							IPProtocol: "tcp",
-							Direction:  "outbound",
-						},
+						// {
+						// 	FromPort:   "443",
+						// 	ToPort:     "",
+						// 	IPProtocol: "tcp",
+						// 	Direction:  "outbound",
+						// },
+						// {
+						// 	FromPort:   "8443",
+						// 	ToPort:     "9999",
+						// 	IPProtocol: "tcp",
+						// 	Direction:  "outbound",
+						// },
 						/*
 							{
 								//FromPort:   "8443",
 								//ToPort:     "9999",
-								IPProtocol: "-1", // 모두 허용 (포트 정보 없음)
+								IPProtocol: "ALL", // 모두 허용 (포트 정보 없음)
 								Direction:  "inbound",
 							},
 						*/
