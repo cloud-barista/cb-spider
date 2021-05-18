@@ -65,7 +65,7 @@ If you have any difficulties in using CB-Spider, please let us know.
   | GCP           | O          | O          | O          | O          | O          | O          |
   | Alibaba       | O          | O          | O          | O          | O          | O          |
   | OpenStack     | O          | O          | O          | O          | O          | O          |
-  | Cloudit       | O          | O          | O(💬)          | O          | -          | O          |
+  | Cloudit       | O          | O          | O(💬)          | O          | O          | O          |
   | Docker        | O          | -          | -          | -          | -          | O          |
 
     💬 특이사항: 
