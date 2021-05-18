@@ -96,6 +96,7 @@ type SecurityRuleInfo struct {
 	ToPort     string `yaml:"ToPort" json:"ToPort"`
 	IPProtocol string `yaml:"IPProtocol" json:"IPProtocol"`
 	Direction  string `yaml:"Direction" json:"Direction"`
+	CIDR       string `yaml:"CIDR" json:"CIDR"`
 }
 
 // KeyReq - Key Pair 정보 생성 요청 구조 정의
