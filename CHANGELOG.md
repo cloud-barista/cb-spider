@@ -4,7 +4,19 @@
 
 ### Feature
 - 기존 VPC에 Subnet add/delete 기능 추가 ([#325](https://github.com/cloud-barista/cb-spider/pull/325) [#326](https://github.com/cloud-barista/cb-spider/pull/326) [#327](https://github.com/cloud-barista/cb-spider/pull/327))
-
+- Azuer Driver static public ip 생성에서 dynamic mode로 개선 ([#dd881c2](https://github.com/cloud-barista/cb-spider/commit/dd881c2642286b98c5c1eb9ac6ce63de08378c8e))
+- VM 기본 사용자 cb-user 계정으로 통일
+  - ref) https://github.com/cloud-barista/cb-spider/issues/230
+- Cloud Connection Info 중복 등록 오류 해결 ([b69989f](https://github.com/cloud-barista/cb-spider/commit/b69989f05a73a9d42acafae238b8f2e4c21a67f2))
+- OpenStack Driver 무한 loop 가능성 해결 ([#368](https://github.com/cloud-barista/cb-spider/pull/368))
+- OpenStack Driver 활용 Go SDK 교체 ([#368](https://github.com/cloud-barista/cb-spider/pull/368) [#370](https://github.com/cloud-barista/cb-spider/pull/370))
+  - github.com/rackspace/gophercloud => github.com/gophercloud/gophercloud
+- Call Log Elapse time 측정 개선
+  - ref) https://github.com/cloud-barista/cb-spider/issues/359
+  - ref) https://github.com/cloud-barista/cb-spider/wiki/StartVM-and-TerminateVM-Main-Flow-of-Cloud-Drivers
+- Update the CSP Go sdk package of cloud drivers
+  - ref) https://github.com/cloud-barista/cb-spider/issues/328
+  - ref) https://github.com/cloud-barista/cb-spider/wiki/What-is-the-CSP-SDK-API-Version-of-drivers
 
 # v0.3.0-espresso (2020.12.11.)
 ### API Change

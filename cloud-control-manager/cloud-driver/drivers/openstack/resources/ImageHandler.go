@@ -7,9 +7,10 @@ import (
 	"io/ioutil"
 	"os"
 
-	"github.com/rackspace/gophercloud"
-	"github.com/rackspace/gophercloud/openstack/compute/v2/images"
-	imgsvc "github.com/rackspace/gophercloud/openstack/imageservice/v2/images"
+	"github.com/gophercloud/gophercloud"
+	"github.com/gophercloud/gophercloud/openstack/compute/v2/images"
+	"github.com/gophercloud/gophercloud/openstack/imageservice/v2/imagedata"
+	imgsvc "github.com/gophercloud/gophercloud/openstack/imageservice/v2/images"
 
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
@@ -28,7 +29,7 @@ func setterImage(image images.Image) *irs.ImageInfo {
 	imageInfo := &irs.ImageInfo{
 		IId: irs.IID{
 			NameId:   image.Name,
-			SystemId: image.Name,
+			SystemId: image.ID,
 		},
 		Status: image.Status,
 	}
@@ -38,7 +39,7 @@ func setterImage(image images.Image) *irs.ImageInfo {
 	for key, val := range image.Metadata {
 		metadata := irs.KeyValue{
 			Key:   key,
-			Value: val,
+			Value: val.(string),
 		}
 		metadataList = append(metadataList, metadata)
 	}
@@ -93,7 +94,7 @@ func (imageHandler *OpenStackImageHandler) CreateImage(imageReqInfo irs.ImageReq
 		LoggingError(hiscallInfo, err)
 		return irs.ImageInfo{}, err
 	}
-	result := imgsvc.Upload(imageHandler.ImageClient, image.ID, bytes.NewReader(imageBytes))
+	result := imagedata.Upload(imageHandler.ImageClient, image.ID, bytes.NewReader(imageBytes))
 	if result.Err != nil {
 		LoggingError(hiscallInfo, err)
 		return irs.ImageInfo{}, err
@@ -102,13 +103,13 @@ func (imageHandler *OpenStackImageHandler) CreateImage(imageReqInfo irs.ImageReq
 	// 생성된 Imgae 정보 리턴
 	mappedImageInfo := images.Image{
 		ID:       image.ID,
-		Created:  image.CreatedDate,
+		Created:  image.CreatedAt.String(),
 		MinDisk:  image.MinDiskGigabytes,
 		MinRAM:   image.MinRAMMegabytes,
 		Name:     image.Name,
 		Status:   string(image.Status),
-		Updated:  image.LastUpdate,
-		Metadata: image.Metadata,
+		Updated:  image.UpdatedAt.String(),
+		Metadata: image.Properties,
 	}
 	imageInfo := setterImage(mappedImageInfo)
 	return *imageInfo, nil
@@ -144,12 +145,11 @@ func (imageHandler *OpenStackImageHandler) GetImage(imageIID irs.IID) (irs.Image
 	// log HisCall
 	hiscallInfo := GetCallLogScheme(imageHandler.Client.IdentityEndpoint, call.VMIMAGE, imageIID.NameId, "GetImage()")
 
-	imageId, err := images.IDFromName(imageHandler.Client, imageIID.NameId)
+	imageId, err := imageHandler.IDFromName(imageHandler.Client, imageIID.NameId)
 	if err != nil {
 		LoggingError(hiscallInfo, err)
 		return irs.ImageInfo{}, err
 	}
-
 	start := call.Start()
 	image, err := images.Get(imageHandler.Client, imageId).Extract()
 	if err != nil {
@@ -166,16 +166,35 @@ func (imageHandler *OpenStackImageHandler) DeleteImage(imageIID irs.IID) (bool, 
 	// log HisCall
 	hiscallInfo := GetCallLogScheme(imageHandler.Client.IdentityEndpoint, call.VMIMAGE, imageIID.NameId, "DeleteImage()")
 
-	/*imageId, err := images.IDFromName(imageHandler.Client, imageIID.NameId)
+	imageId, err := imageHandler.IDFromName(imageHandler.Client, imageIID.NameId)
 	if err != nil {
+		LoggingError(hiscallInfo, err)
 		return false, err
-	}*/
+	}
 	start := call.Start()
-	err := images.Delete(imageHandler.Client, imageIID.SystemId).ExtractErr()
+	err = images.Delete(imageHandler.Client, imageId).ExtractErr()
 	if err != nil {
 		LoggingError(hiscallInfo, err)
 		return false, err
 	}
 	LoggingInfo(hiscallInfo, start)
 	return true, nil
+}
+
+func (imageHandler *OpenStackImageHandler) IDFromName(serviceClient *gophercloud.ServiceClient, imageName string) (string, error) {
+	pager, err := images.ListDetail(serviceClient, images.ListOpts{Name: imageName}).AllPages()
+	if err != nil {
+		return "", err
+	}
+	imageList, err := images.ExtractImages(pager)
+	if err != nil {
+		return "", err
+	}
+
+	if len(imageList) > 1 {
+		return "", errors.New(fmt.Sprintf("found multiple images with name %s", imageName))
+	} else if len(imageList) == 0 {
+		return "", errors.New(fmt.Sprintf("could not found image with name %s", imageName))
+	}
+	return imageList[0].ID, nil
 }

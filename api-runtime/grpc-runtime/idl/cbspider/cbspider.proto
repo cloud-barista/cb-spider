@@ -433,7 +433,8 @@ message SecurityRuleInfo {
 	string from_port = 1 [json_name="FromPort", (gogoproto.jsontag) = "FromPort", (gogoproto.moretags) = "yaml:\"FromPort\""];
 	string to_port = 2 [json_name="ToPort", (gogoproto.jsontag) = "ToPort", (gogoproto.moretags) = "yaml:\"ToPort\""];
 	string ip_protocol = 3 [json_name="IPProtocol", (gogoproto.jsontag) = "IPProtocol", (gogoproto.moretags) = "yaml:\"IPProtocol\""];     
-	string direction = 4 [json_name="Direction", (gogoproto.jsontag) = "Direction", (gogoproto.moretags) = "yaml:\"Direction\""]; 
+	string direction = 4 [json_name="Direction", (gogoproto.jsontag) = "Direction", (gogoproto.moretags) = "yaml:\"Direction\""];
+	string cidr = 5 [json_name="CIDR", (gogoproto.jsontag) = "CIDR", (gogoproto.moretags) = "yaml:\"CIDR\""];  
 }
 
 message SecurityCreateRequest {
