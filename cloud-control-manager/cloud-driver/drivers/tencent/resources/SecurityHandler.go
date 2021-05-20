@@ -235,37 +235,29 @@ func (securityHandler *TencentSecurityHandler) ExtractPolicyGroups(policyGroups 
 	var fromPort string
 	var toPort string
 	for _, curPolicy := range policyGroups {
-
 		if len(*curPolicy.Port) > 0 {
-			if strings.EqualFold(*curPolicy.Port, "all") {
-				fromPort = "ALL"
-				toPort = ""
-			} else if strings.Contains(*curPolicy.Port, ",") {
-				cblogger.Error("Port 정보에 콤머가 섞여있음 - [" + *curPolicy.Port + "]")
-				//콤머 기반에서 다시 "-"도 처리해줘야 함.
-				return nil, errors.New("NotSupport Rules: The port policy with a comma is not implemented on the mcb tencent spider driver-port[" + *curPolicy.Port + "]")
-			} else {
-				portArr := strings.Split(*curPolicy.Port, "-")
-				fromPort = portArr[0]
-				if len(portArr) > 1 {
-					toPort = portArr[len(portArr)-1]
+
+			//WEB UI에서는 입력 자체가 불 가능한 것 같지만 혹시 몰라서 콤머 기반으로 파싱 후 대쉬(-)를 처리함.
+			portArr := strings.Split(*curPolicy.Port, ",")
+			for _, curPort := range portArr {
+				portRange := strings.Split(curPort, "-")
+				fromPort = portRange[0]
+				if len(portRange) > 1 {
+					toPort = portRange[len(portRange)-1]
 				} else {
 					toPort = ""
 				}
-			}
-		} else {
-			fromPort = ""
-			toPort = ""
-		}
 
-		securityRuleInfo := irs.SecurityRuleInfo{
-			Direction: direction, // "inbound | outbound"
-			//Cidr:      *curPolicy.CidrBlock,
-			IPProtocol: *curPolicy.Protocol,
-			FromPort:   fromPort,
-			ToPort:     toPort,
+				securityRuleInfo := irs.SecurityRuleInfo{
+					Direction: direction, // "inbound | outbound"
+					//Cidr:      *curPolicy.CidrBlock,
+					IPProtocol: *curPolicy.Protocol,
+					FromPort:   fromPort,
+					ToPort:     toPort,
+				}
+				results = append(results, securityRuleInfo)
+			}
 		}
-		results = append(results, securityRuleInfo)
 	}
 
 	return results, nil
