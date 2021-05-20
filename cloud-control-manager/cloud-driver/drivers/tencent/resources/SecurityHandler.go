@@ -175,7 +175,7 @@ func (securityHandler *TencentSecurityHandler) GetSecurity(securityIID irs.IID) 
 	}
 	//spew.Dump(response)
 	cblogger.Debug(response.ToJsonString())
-	//callogger.Info(call.String(callLogInfo))
+	callogger.Info(call.String(callLogInfo))
 
 	if *response.Response.TotalCount > 0 {
 		securityInfo := irs.SecurityInfo{}
@@ -206,7 +206,6 @@ func (securityHandler *TencentSecurityHandler) GetSecurityRuleInfo(securityIID i
 	}
 	//spew.Dump(response)
 	cblogger.Debug(response.ToJsonString())
-	// callogger.Info(call.String(callLogInfo))
 
 	var securityRuleInfos []irs.SecurityRuleInfo
 	var ingress []irs.SecurityRuleInfo
@@ -293,7 +292,7 @@ func (securityHandler *TencentSecurityHandler) DeleteSecurity(securityIID irs.II
 	}
 	//spew.Dump(response)
 	cblogger.Debug(response.ToJsonString())
-	//callogger.Info(call.String(callLogInfo))
+	callogger.Info(call.String(callLogInfo))
 
 	return true, nil
 }
