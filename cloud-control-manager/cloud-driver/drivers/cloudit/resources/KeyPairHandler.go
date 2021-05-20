@@ -32,7 +32,7 @@ type ClouditKeyPairHandler struct {
 func (keyPairHandler *ClouditKeyPairHandler) CheckKeyPairFolder(folderPath string) error {
 	// Check KeyPair Folder Exists
 	if _, err := os.Stat(folderPath); os.IsNotExist(err) {
-		if err := os.Mkdir(folderPath, 0700); err != nil {
+		if err := os.MkdirAll(folderPath, 0700); err != nil {
 			return err
 		}
 	}
