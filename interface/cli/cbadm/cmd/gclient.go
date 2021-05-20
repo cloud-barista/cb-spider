@@ -139,8 +139,12 @@ func SetupAndRun(cmd *cobra.Command, args []string) {
 	}
 
 	if err != nil {
-		logger.Error("failed to run command: ", err)
+		if outType == "yaml" {
+			fmt.Fprintf(cmd.OutOrStdout(), "message: %v\n", err)
+		} else {
+			fmt.Fprintf(cmd.OutOrStdout(), "{\"message\": \"%v\"}\n", err)
+		}
+	} else {
+		fmt.Fprintf(cmd.OutOrStdout(), "%s\n", result)
 	}
-
-	fmt.Printf("%s\n", result)
 }

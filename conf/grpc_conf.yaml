@@ -10,7 +10,7 @@ grpc:
       #auth_jwt:
       #  jwt_key: your_secret_key
       #prometheus_metrics:
-      #  listen_port: 9092
+      #  listen_port: 9096
       #opentracing:
       #  jaeger:
       #    endpoint: localhost:6831
