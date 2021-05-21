@@ -48,7 +48,7 @@ func handleVMSpec() {
 	//reqVMSpec := "ecs.gn6i-c24g1.24xlarge" // GPU 4개
 
 	reqRegion := config.Tencent.Region
-	reqRegion = "ap-tokyo"
+	reqRegion = "ap-tokyo-1"
 	cblogger.Info("reqVMSpec : ", reqVMSpec)
 
 	for {
@@ -754,10 +754,10 @@ func TestMain() {
 func main() {
 	cblogger.Info("Tencent Cloud Resource Test")
 	//handleVPC() //VPC
-	//handleVMSpec()
-	//handleImage() //AMI
 	//handleKeyPair()
-	handleSecurity()
+	//handleSecurity()
+	//handleImage() //AMI
+	handleVMSpec()
 	//handleVM()
 
 	//handlePublicIP() // PublicIP 생성 후 conf

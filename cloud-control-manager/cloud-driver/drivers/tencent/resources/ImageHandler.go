@@ -10,11 +10,15 @@
 package resources
 
 import (
+	"errors"
+
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 
 	//irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/new-resources"
 
+	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
+	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
 	cvm "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/cvm/v20170312"
 )
 
@@ -23,237 +27,197 @@ type TencentImageHandler struct {
 	Client *cvm.Client
 }
 
+//@TODO - 이미지 생성에 따른 구조체 정의 필요 - 현재는 IID뿐이 없어서 이미지 이름으로만 생성하도록 했음.(인스턴스Id가 없어서 에러 발생함.)
 func (imageHandler *TencentImageHandler) CreateImage(imageReqInfo irs.ImageReqInfo) (irs.ImageInfo, error) {
-	return irs.ImageInfo{imageReqInfo.IId, "", "", nil}, nil
-}
+	cblogger.Info(imageReqInfo)
 
-func (imageHandler *TencentImageHandler) ListImage() ([]*irs.ImageInfo, error) {
-	cblogger.Debug("Start")
-	return nil, nil
-}
-func (imageHandler *TencentImageHandler) GetImage(imageIID irs.IID) (irs.ImageInfo, error) {
-
-	cblogger.Infof("imageID : [%s]", imageIID.SystemId)
-	return irs.ImageInfo{}, nil
-}
-
-func (imageHandler *TencentImageHandler) DeleteImage(imageIID irs.IID) (bool, error) {
-	return false, nil
-}
-
-/*
-//@TODO : 작업해야 함.
-func (imageHandler *TencentImageHandler) CreateImage(imageReqInfo irs.ImageReqInfo) (irs.ImageInfo, error) {
-	// logger for HisCall
 	callogger := call.GetLogger("HISCALL")
 	callLogInfo := call.CLOUDLOGSCHEMA{
-		CloudOS:      call.AWS,
+		CloudOS:      call.TENCENT,
 		RegionZone:   imageHandler.Region.Zone,
 		ResourceType: call.VMIMAGE,
 		ResourceName: imageReqInfo.IId.NameId,
-		CloudOSAPI:   "-",
+		CloudOSAPI:   "CreateImage()",
 		ElapsedTime:  "",
 		ErrorMSG:     "",
 	}
+
+	request := cvm.NewCreateImageRequest()
+	request.ImageName = common.StringPtr(imageReqInfo.IId.NameId)
+	request.ImageDescription = common.StringPtr(imageReqInfo.IId.NameId)
+	//request.InstanceId = common.StringPtr("InstanceId") //필수 - 이미지로 만들 인스턴스 Id
+
+	//request.ForcePoweroff = common.StringPtr("ForcePoweroff")	//옵션
+
+	// // Whether to enable Sysprep when creating a Windows image. Click here to learn more about Sysprep.
+	// // https://intl.cloud.tencent.com/document/product/213/35876
+	// request.Sysprep = common.StringPtr("Sysprep")
+
 	callLogStart := call.Start()
-
-	imageReqInfo.IId.SystemId = imageReqInfo.IId.NameId
-
-	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
-	callogger.Info(call.String(callLogInfo))
-
-	return irs.ImageInfo{imageReqInfo.IId, "", "", nil}, nil
-}
-
-//@TODO : 목록이 너무 많기 때문에 amazon 계정으로 공유된 퍼블릭 이미지중 AMI만 조회 함.
-func (imageHandler *TencentImageHandler) ListImage() ([]*irs.ImageInfo, error) {
-	cblogger.Debug("Start")
-	var imageInfoList []*irs.ImageInfo
-	input := &ec2.DescribeImagesInput{
-		//ImageIds: []*string{aws.String("ami-0d097db2fb6e0f05e")},
-		Owners: []*string{
-			aws.String("amazon"), //사용자 계정 번호를 넣으면 사용자의 이미지를 대상으로 조회 함.
-		},
-		Filters: []*ec2.Filter{
-			{
-				Name:   aws.String("image-type"),
-				Values: aws.StringSlice([]string{"machine"}),
-			},
-			{
-				Name:   aws.String("is-public"),
-				Values: aws.StringSlice([]string{"true"}),
-			},
-		},
-	}
-
-	// logger for HisCall
-	callogger := call.GetLogger("HISCALL")
-	callLogInfo := call.CLOUDLOGSCHEMA{
-		CloudOS:      call.AWS,
-		RegionZone:   imageHandler.Region.Zone,
-		ResourceType: call.VMIMAGE,
-		ResourceName: "ListImage()",
-		CloudOSAPI:   "DescribeImages",
-		ElapsedTime:  "",
-		ErrorMSG:     "",
-	}
-	callLogStart := call.Start()
-
-	result, err := imageHandler.Client.DescribeImages(input)
-	//spew.Dump(result)	//출력 정보가 너무 많아서 생략
-
+	response, err := imageHandler.Client.CreateImage(request)
 	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 
 	if err != nil {
 		callLogInfo.ErrorMSG = err.Error()
-		callogger.Info(call.String(callLogInfo))
+		callogger.Error(call.String(callLogInfo))
 
-		if aerr, ok := err.(awserr.Error); ok {
-			switch aerr.Code() {
-			default:
-				cblogger.Error(aerr.Error())
-			}
-		} else {
-			// Print the error, cast err to awserr.Error to get the Code and
-			// Message from an error.
-			cblogger.Error(err.Error())
-		}
+		cblogger.Error(err)
+		return irs.ImageInfo{}, err
+	}
+	//spew.Dump(response)
+	cblogger.Debug(response.ToJsonString())
+	callogger.Info(call.String(callLogInfo))
+
+	// imageInfo := irs.ImageInfo{
+	// 	IId: irs.IID{NameId: imageReqInfo.IId.NameId, SystemId: *response.Response.ImageId},
+	// }
+
+	//OS등의 정보 확인을 위해 GetImage를 호출 함.
+	imageInfo, errGetImage := imageHandler.GetImage(irs.IID{SystemId: *response.Response.ImageId})
+	if errGetImage != nil {
+		cblogger.Error(errGetImage)
+		return irs.ImageInfo{}, errGetImage
+	}
+	imageInfo.IId.NameId = imageReqInfo.IId.NameId
+	return imageInfo, nil
+}
+
+func (imageHandler *TencentImageHandler) ListImage() ([]*irs.ImageInfo, error) {
+	var imageInfoList []*irs.ImageInfo
+
+	cblogger.Debug("Start")
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.TENCENT,
+		RegionZone:   imageHandler.Region.Zone,
+		ResourceType: call.VMIMAGE,
+		ResourceName: "ListImage()",
+		CloudOSAPI:   "DescribeImages()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+
+	request := cvm.NewDescribeImagesRequest()
+
+	callLogStart := call.Start()
+	response, err := imageHandler.Client.DescribeImages(request)
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+
+	if err != nil {
+		callLogInfo.ErrorMSG = err.Error()
+		callogger.Error(call.String(callLogInfo))
+
+		cblogger.Error(err)
 		return nil, err
 	}
+	//spew.Dump(response)
+	//cblogger.Debug(response.ToJsonString())
 	callogger.Info(call.String(callLogInfo))
 
 	//cnt := 0
-	for _, cur := range result.Images {
-		cblogger.Infof("[%s] AMI 정보 처리", *cur.ImageId)
-		imageInfo := ExtractImageDescribeInfo(cur)
+	for _, curImage := range response.Response.ImageSet {
+		cblogger.Debugf("[%s] AMI 정보 처리", *curImage.ImageId)
+		imageInfo := ExtractImageDescribeInfo(curImage)
 		imageInfoList = append(imageInfoList, &imageInfo)
 	}
 
 	//spew.Dump(imageInfoList)
-
 	return imageInfoList, nil
 }
 
-//Image 정보를 추출함
-//@TODO : GuestOS 쳌크할 것
-func ExtractImageDescribeInfo(image *ec2.Image) irs.ImageInfo {
+func ExtractImageDescribeInfo(image *cvm.Image) irs.ImageInfo {
 	//spew.Dump(image)
 	imageInfo := irs.ImageInfo{
 		//IId: irs.IID{*image.Name, *image.ImageId},
-		IId: irs.IID{*image.ImageId, *image.ImageId},
-		//Id:     *image.ImageId,
-		//Name:   *image.Name,
-		Status: *image.State,
+		IId:     irs.IID{NameId: *image.ImageId, SystemId: *image.ImageId},
+		GuestOS: *image.OsName,
+		Status:  *image.ImageState,
 	}
 
-	keyValueList := []irs.KeyValue{
-		//{Key: "Name", Value: *image.Name}, //20200723-Name이 없는 이미지 존재 - 예)ami-0008a301
-		{Key: "CreationDate", Value: *image.CreationDate},
-		{Key: "Architecture", Value: *image.Architecture},
-		{Key: "OwnerId", Value: *image.OwnerId},
-		{Key: "ImageType", Value: *image.ImageType},
-		{Key: "ImageLocation", Value: *image.ImageLocation},
-		{Key: "VirtualizationType", Value: *image.VirtualizationType},
-		{Key: "Public", Value: strconv.FormatBool(*image.Public)},
-	}
-
-	// 일부 이미지들은 아래 정보가 없어서 예외 처리 함.
-	if !reflect.ValueOf(image.Name).IsNil() {
-		keyValueList = append(keyValueList, irs.KeyValue{Key: "Name", Value: *image.Name})
-	}
-	if !reflect.ValueOf(image.Description).IsNil() {
-		keyValueList = append(keyValueList, irs.KeyValue{Key: "Description", Value: *image.Description})
-	}
-	if !reflect.ValueOf(image.ImageOwnerAlias).IsNil() {
-		keyValueList = append(keyValueList, irs.KeyValue{Key: "ImageOwnerAlias", Value: *image.ImageOwnerAlias})
-	}
-	if !reflect.ValueOf(image.RootDeviceName).IsNil() {
-		keyValueList = append(keyValueList, irs.KeyValue{Key: "RootDeviceName", Value: *image.RootDeviceName})
-		keyValueList = append(keyValueList, irs.KeyValue{Key: "RootDeviceType", Value: *image.RootDeviceType})
-	}
-	if !reflect.ValueOf(image.EnaSupport).IsNil() {
-		keyValueList = append(keyValueList, irs.KeyValue{Key: "EnaSupport", Value: strconv.FormatBool(*image.EnaSupport)})
+	//KeyValue 목록 처리
+	keyValueList, errKeyValue := ConvertKeyValueList(image)
+	if errKeyValue != nil {
+		cblogger.Errorf("[%]의 KeyValue 추출 실패", *image.ImageId)
+		cblogger.Error(errKeyValue)
 	}
 
 	imageInfo.KeyValueList = keyValueList
-
 	return imageInfo
 }
 
-//func (imageHandler *TencentImageHandler) GetImage(imageID string) (irs.ImageInfo, error) {
 func (imageHandler *TencentImageHandler) GetImage(imageIID irs.IID) (irs.ImageInfo, error) {
-
 	cblogger.Infof("imageID : [%s]", imageIID.SystemId)
 
-	input := &ec2.DescribeImagesInput{
-		ImageIds: []*string{
-			aws.String(imageIID.SystemId),
-		},
-	}
-
-	// logger for HisCall
 	callogger := call.GetLogger("HISCALL")
 	callLogInfo := call.CLOUDLOGSCHEMA{
-		CloudOS:      call.AWS,
+		CloudOS:      call.TENCENT,
 		RegionZone:   imageHandler.Region.Zone,
 		ResourceType: call.VMIMAGE,
 		ResourceName: imageIID.SystemId,
-		CloudOSAPI:   "DescribeImages",
+		CloudOSAPI:   "DescribeImages()",
 		ElapsedTime:  "",
 		ErrorMSG:     "",
 	}
-	callLogStart := call.Start()
 
-	result, err := imageHandler.Client.DescribeImages(input)
+	request := cvm.NewDescribeImagesRequest()
+	request.ImageIds = common.StringPtrs([]string{imageIID.SystemId})
+
+	callLogStart := call.Start()
+	response, err := imageHandler.Client.DescribeImages(request)
 	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
-	//spew.Dump(result)
-	cblogger.Info(result)
 
 	if err != nil {
 		callLogInfo.ErrorMSG = err.Error()
-		callogger.Info(call.String(callLogInfo))
+		callogger.Error(call.String(callLogInfo))
 
-		if aerr, ok := err.(awserr.Error); ok {
-			switch aerr.Code() {
-			default:
-				cblogger.Error(aerr.Error())
-			}
-		} else {
-			// Print the error, cast err to awserr.Error to get the Code and
-			// Message from an error.
-			cblogger.Error(err.Error())
-		}
+		cblogger.Error(err)
 		return irs.ImageInfo{}, err
 	}
+
+	//spew.Dump(response)
+	cblogger.Debug(response.ToJsonString())
 	callogger.Info(call.String(callLogInfo))
 
-	if len(result.Images) > 0 {
-		imageInfo := ExtractImageDescribeInfo(result.Images[0])
+	if *response.Response.TotalCount > 0 {
+		imageInfo := ExtractImageDescribeInfo(response.Response.ImageSet[0])
 		return imageInfo, nil
 	} else {
-		return irs.ImageInfo{}, errors.New("조회된 Image 정보가 없습니다.")
+		return irs.ImageInfo{}, errors.New("정보를 찾을 수 없습니다")
 	}
 
 }
 
-//@TODO : 삭제 API 찾아야 함.
 func (imageHandler *TencentImageHandler) DeleteImage(imageIID irs.IID) (bool, error) {
-	// logger for HisCall
+	cblogger.Infof("imageIID : [%s]", imageIID.SystemId)
+
 	callogger := call.GetLogger("HISCALL")
 	callLogInfo := call.CLOUDLOGSCHEMA{
-		CloudOS:      call.AWS,
+		CloudOS:      call.TENCENT,
 		RegionZone:   imageHandler.Region.Zone,
 		ResourceType: call.VMIMAGE,
-		ResourceName: imageIID.SystemId,
-		CloudOSAPI:   "-",
+		ResourceName: imageIID.NameId,
+		CloudOSAPI:   "DeleteImages()",
 		ElapsedTime:  "",
 		ErrorMSG:     "",
 	}
-	callLogStart := call.Start()
 
+	request := cvm.NewDeleteImagesRequest()
+	request.ImageIds = common.StringPtrs([]string{imageIID.NameId})
+
+	callLogStart := call.Start()
+	response, err := imageHandler.Client.DeleteImages(request)
 	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+
+	if err != nil {
+		callLogInfo.ErrorMSG = err.Error()
+		callogger.Error(call.String(callLogInfo))
+
+		cblogger.Error(err)
+		return false, err
+	}
+	//spew.Dump(response)
+	cblogger.Debug(response.ToJsonString())
 	callogger.Info(call.String(callLogInfo))
 
-	return false, nil
+	return true, nil
 }
-*/
