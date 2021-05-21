@@ -41,6 +41,7 @@ func setterSecGroup(secGroup securitygroup.SecurityGroupInfo) *irs.SecurityInfo 
 		secRuleInfo := irs.SecurityRuleInfo{
 			IPProtocol: sgRule.Protocol,
 			Direction:  sgRule.Type,
+			CIDR:       sgRule.Target,
 		}
 		if strings.Contains(sgRule.Port, "-") {
 			portArr := strings.Split(sgRule.Port, "-")
@@ -90,7 +91,7 @@ func (securityHandler *ClouditSecurityHandler) CreateSecurity(securityReqInfo ir
 			Name:     fmt.Sprintf("%s-rules-%d", securityReqInfo.IId.NameId, i+1),
 			Type:     rule.Direction,
 			Port:     port,
-			Target:   defaultSecGroupCIDR,
+			Target:   rule.CIDR,
 			Protocol: strings.ToLower(rule.IPProtocol),
 		}
 		ruleList[i] = secRuleInfo
