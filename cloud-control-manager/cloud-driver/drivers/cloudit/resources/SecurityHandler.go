@@ -13,8 +13,7 @@ import (
 )
 
 const (
-	defaultSecGroupCIDR = "0.0.0.0/0"
-	SecurityGroup       = "SECURITYGROUP"
+	SecurityGroup = "SECURITYGROUP"
 )
 
 type ClouditSecurityHandler struct {
