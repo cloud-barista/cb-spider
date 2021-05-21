@@ -313,7 +313,7 @@ func (vmHandler *GCPVMHandler) WaitForRun(vmIID irs.IID) (irs.VMStatus, error) {
 	// Suspending 되도록 3초 정도 대기 함.
 	//===================================
 	curRetryCnt := 0
-	maxRetryCnt := 30
+	maxRetryCnt := 120
 	for {
 		curStatus, errStatus := vmHandler.GetVMStatus(vmIID)
 		if errStatus != nil {

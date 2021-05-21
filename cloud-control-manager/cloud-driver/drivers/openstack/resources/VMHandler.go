@@ -194,7 +194,7 @@ func (vmHandler *OpenStackVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInf
 
 	// VM 생성 완료까지 wait
 	curRetryCnt := 0
-	maxRetryCnt := 30
+	maxRetryCnt := 120
 	for {
 		// Check VM Deploy Status
 		serverResult, err = servers.Get(vmHandler.Client, server.ID).Extract()
