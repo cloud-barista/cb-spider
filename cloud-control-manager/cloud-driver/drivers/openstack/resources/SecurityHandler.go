@@ -59,6 +59,7 @@ func (securityHandler *OpenStackSecurityHandler) setterSeg(secGroup secgroups.Se
 		ruleInfo := irs.SecurityRuleInfo{
 			Direction:  direction,
 			IPProtocol: strings.ToLower(rule.Protocol),
+			CIDR:       rule.RemoteIPPrefix,
 		}
 
 		if strings.ToLower(rule.Protocol) == ICMP {
@@ -126,7 +127,7 @@ func (securityHandler *OpenStackSecurityHandler) CreateSecurity(securityReqInfo 
 				EtherType:      rules.EtherType4,
 				SecGroupID:     group.ID,
 				Protocol:       rules.RuleProtocol(strings.ToLower(rule.IPProtocol)),
-				RemoteIPPrefix: "0.0.0.0/0",
+				RemoteIPPrefix: rule.CIDR,
 			}
 		} else {
 			fromPort, _ := strconv.Atoi(rule.FromPort)
@@ -138,7 +139,7 @@ func (securityHandler *OpenStackSecurityHandler) CreateSecurity(securityReqInfo 
 				PortRangeMin:   fromPort,
 				PortRangeMax:   toPort,
 				Protocol:       rules.RuleProtocol(strings.ToLower(rule.IPProtocol)),
-				RemoteIPPrefix: "0.0.0.0/0",
+				RemoteIPPrefix: rule.CIDR,
 			}
 		}
 
