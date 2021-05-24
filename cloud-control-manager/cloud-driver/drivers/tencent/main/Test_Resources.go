@@ -4,16 +4,15 @@
 //
 //      * Cloud-Barista: https://github.com/cloud-barista
 //
-// This is a Cloud Driver Example for PoC Test.
+// This is a Tencent Cloud Driver Example for Test.
 //
-// by devunet@mz.co.kr, 2019.08.
+// by devunet@mz.co.kr, 2021.04.
 
 package main
 
 import (
 	"fmt"
 
-	//testconf "./conf"
 	testconf "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/tencent/main/conf"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/davecgh/go-spew/spew"
@@ -36,19 +35,18 @@ func handleVMSpec() {
 
 	ResourceHandler, err := testconf.GetResourceHandler("VMSpec")
 	if err != nil {
-		panic(err)
+		//panic(err)
+		cblogger.Error(err)
+		return
 	}
 
 	handler := ResourceHandler.(irs.VMSpecHandler)
 
-	config := testconf.ReadConfigFile()
-	//reqVMSpec := config.Ali.VMSpec
-	//reqVMSpec := "ecs.g6.large"	// GPU가 없음
-	reqVMSpec := "ecs.vgn5i-m8.4xlarge" // GPU 1개
-	//reqVMSpec := "ecs.gn6i-c24g1.24xlarge" // GPU 4개
+	//config := testconf.ReadConfigFile()
+	reqVMSpec := "C2.4XLARGE64" // GPU 1개
 
-	reqRegion := config.Tencent.Region
-	reqRegion = "ap-tokyo"
+	//reqRegion := config.Tencent.Region
+	reqRegion := "ap-tokyo-1"
 	cblogger.Info("reqVMSpec : ", reqVMSpec)
 
 	for {
@@ -77,6 +75,8 @@ func handleVMSpec() {
 					cblogger.Error("VMSpec 목록 조회 실패 : ", err)
 				} else {
 					cblogger.Info("VMSpec 목록 조회 결과")
+					spew.Dump(result)
+					cblogger.Info("출력 결과 수 : ", len(result))
 					spew.Dump(result)
 				}
 
@@ -131,7 +131,8 @@ func handleSecurity() {
 
 	ResourceHandler, err := testconf.GetResourceHandler("Security")
 	if err != nil {
-		panic(err)
+		//panic(err)
+		cblogger.Error(err)
 	}
 	handler := ResourceHandler.(irs.SecurityHandler)
 
@@ -265,12 +266,10 @@ func handleKeyPair() {
 
 	ResourceHandler, err := testconf.GetResourceHandler("KeyPair")
 	if err != nil {
-		panic(err)
+		//panic(err)
+		cblogger.Error(err)
 	}
 	handler := ResourceHandler.(irs.KeyPairHandler)
-
-	//config := readConfigFile()
-	//VmID := config.Aws.VmID
 
 	//KeyPair 생성은 알파벳, 숫자 또는 밑줄 "_"만 지원
 	keyPairName := "CB_KeyPairTest123123"
@@ -351,7 +350,8 @@ func handleVPC() {
 	cblogger.Debug("Start VPC Resource Test")
 	ResourceHandler, err := testconf.GetResourceHandler("VPC")
 	if err != nil {
-		panic(err)
+		//panic(err)
+		cblogger.Error(err)
 	}
 	handler := ResourceHandler.(irs.VPCHandler)
 
@@ -489,15 +489,13 @@ func handleImage() {
 	cblogger.Debug("Start ImageHandler Resource Test")
 	ResourceHandler, err := testconf.GetResourceHandler("Image")
 	if err != nil {
-		panic(err)
+		//panic(err)
+		cblogger.Error(err)
 	}
-	//handler := ResourceHandler.(irs2.ImageHandler)
 	handler := ResourceHandler.(irs.ImageHandler)
 
-	//imageReqInfo := irs2.ImageReqInfo{
 	imageReqInfo := irs.ImageReqInfo{
 		IId: irs.IID{NameId: "Test OS Image", SystemId: "ami-047f7b46bd6dd5d84"},
-		//Id:   "ami-047f7b46bd6dd5d84",
 		//Name: "Test OS Image",
 	}
 
@@ -576,12 +574,10 @@ func handleVM() {
 
 	ResourceHandler, err := testconf.GetResourceHandler("VM")
 	if err != nil {
-		panic(err)
+		//panic(err)
+		cblogger.Error(err)
 	}
 	vmHandler := ResourceHandler.(irs.VMHandler)
-
-	//config := readConfigFile()
-	//VmID := irs.IID{NameId: config.Aws.BaseName, SystemId: config.Aws.VmID}
 	VmID := irs.IID{SystemId: "i-6weayupx7qvidhmyl48d"}
 
 	for {
@@ -729,35 +725,13 @@ func handleVM() {
 	}
 }
 
-/*
-func TestMain() {
-	cblogger.Debug("Start ImageHandler Resource Test")
-
-	ResourceHandler, err := testconf.GetResourceHandler("Image")
-	if err != nil {
-		panic(err)
-	}
-	handler := ResourceHandler.(irs.ImageHandler)
-
-	result, err := handler.ListImage()
-	if err != nil {
-		cblogger.Infof(" Image 목록 조회 실패 : ", err)
-	} else {
-		cblogger.Info("Image 목록 조회 결과")
-		cblogger.Info(result)
-		cblogger.Info("출력 결과 수 : ", len(result))
-		spew.Dump(result)
-	}
-}
-*/
-
 func main() {
 	cblogger.Info("Tencent Cloud Resource Test")
 	//handleVPC() //VPC
-	//handleVMSpec()
-	//handleImage() //AMI
 	//handleKeyPair()
-	handleSecurity()
+	//handleSecurity()
+	//handleImage() //AMI
+	handleVMSpec()
 	//handleVM()
 
 	//handlePublicIP() // PublicIP 생성 후 conf

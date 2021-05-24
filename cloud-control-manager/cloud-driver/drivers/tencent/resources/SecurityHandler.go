@@ -116,6 +116,7 @@ func (securityHandler *TencentSecurityHandler) ListSecurity() ([]*irs.SecurityIn
 	}
 
 	request := vpc.NewDescribeSecurityGroupsRequest()
+	*request.Limit = "100" //default : 20 / max : 100
 
 	callLogStart := call.Start()
 	response, err := securityHandler.Client.DescribeSecurityGroups(request)
