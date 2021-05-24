@@ -13,7 +13,7 @@
 package tencent
 
 import (
-	"fmt"
+	"errors"
 
 	tcon "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/tencent/connect"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
@@ -23,6 +23,9 @@ import (
 	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/profile"
 	cvm "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/cvm/v20170312"
 	vpc "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/vpc/v20170312"
+
+	cblog "github.com/cloud-barista/cb-log"
+	"github.com/sirupsen/logrus"
 )
 
 type TencentDriver struct {
@@ -47,12 +50,24 @@ func (TencentDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	return drvCapabilityInfo
 }
 
-func getVmClient(connectionInfo idrv.ConnectionInfo) (*cvm.Client, error) {
+var cblogger *logrus.Logger
 
+func init() {
+	// cblog is a global variable.
+	cblogger = cblog.GetLogger("CB-SPIDER TencentDriver")
+}
+
+func getVmClient(connectionInfo idrv.ConnectionInfo) (*cvm.Client, error) {
 	// setup Region
-	fmt.Println("TencentDriver : getVpcClient() - Region : [" + connectionInfo.RegionInfo.Region + "]")
-	fmt.Println("TencentDriver : getVpcClient() - Zone : [" + connectionInfo.RegionInfo.Zone + "]")
-	fmt.Println("TencentDriver : getVpcClient() - ClientId : [" + connectionInfo.CredentialInfo.ClientId + "]")
+	cblogger.Debug("TencentDriver : getVpcClient() - Region : [" + connectionInfo.RegionInfo.Region + "]")
+	cblogger.Debug("TencentDriver : getVpcClient() - Zone : [" + connectionInfo.RegionInfo.Zone + "]")
+	cblogger.Debug("TencentDriver : getVpcClient() - ClientId : [" + connectionInfo.CredentialInfo.ClientId + "]")
+
+	zoneId := connectionInfo.RegionInfo.Zone
+	if len(zoneId) < 1 {
+		cblogger.Error("Connection 정보에 Zone 정보가 없습니다.")
+		return nil, errors.New("Connection 정보에 Zone 정보가 없습니다")
+	}
 
 	credential := common.NewCredential(
 		connectionInfo.CredentialInfo.ClientId,
@@ -64,7 +79,9 @@ func getVmClient(connectionInfo idrv.ConnectionInfo) (*cvm.Client, error) {
 	client, err := cvm.NewClient(credential, connectionInfo.RegionInfo.Region, cpf)
 
 	if err != nil {
-		fmt.Println("Could not create aws New Session", err)
+		cblogger.Error("Could not create aws New Session")
+		cblogger.Error(err)
+		// fmt.Println("Could not create aws New Session", err)
 		return nil, err
 	}
 
@@ -72,11 +89,16 @@ func getVmClient(connectionInfo idrv.ConnectionInfo) (*cvm.Client, error) {
 }
 
 func getVpcClient(connectionInfo idrv.ConnectionInfo) (*vpc.Client, error) {
-
 	// setup Region
-	fmt.Println("TencentDriver : getVpcClient() - Region : [" + connectionInfo.RegionInfo.Region + "]")
-	fmt.Println("TencentDriver : getVpcClient() - Zone : [" + connectionInfo.RegionInfo.Zone + "]")
-	fmt.Println("TencentDriver : getVpcClient() - ClientId : [" + connectionInfo.CredentialInfo.ClientId + "]")
+	cblogger.Debug("TencentDriver : getVpcClient() - Region : [" + connectionInfo.RegionInfo.Region + "]")
+	cblogger.Debug("TencentDriver : getVpcClient() - Zone : [" + connectionInfo.RegionInfo.Zone + "]")
+	cblogger.Debug("TencentDriver : getVpcClient() - ClientId : [" + connectionInfo.CredentialInfo.ClientId + "]")
+
+	zoneId := connectionInfo.RegionInfo.Zone
+	if len(zoneId) < 1 {
+		cblogger.Error("Connection 정보에 Zone 정보가 없습니다.")
+		return nil, errors.New("Connection 정보에 Zone 정보가 없습니다")
+	}
 
 	credential := common.NewCredential(
 		connectionInfo.CredentialInfo.ClientId,
@@ -88,7 +110,9 @@ func getVpcClient(connectionInfo idrv.ConnectionInfo) (*vpc.Client, error) {
 	client, err := vpc.NewClient(credential, connectionInfo.RegionInfo.Region, cpf)
 
 	if err != nil {
-		fmt.Println("Could not create aws New Session", err)
+		cblogger.Error("Could not create aws New Session")
+		cblogger.Error(err)
+		// fmt.Println("Could not create aws New Session", err)
 		return nil, err
 	}
 
@@ -108,11 +132,13 @@ func (driver *TencentDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (i
 	//var iConn icon.CloudConnection
 	vmClient, err := getVmClient(connectionInfo)
 	if err != nil {
+		cblogger.Error(err)
 		return nil, err
 	}
 
 	vpcClient, err := getVpcClient(connectionInfo)
 	if err != nil {
+		cblogger.Error(err)
 		return nil, err
 	}
 

@@ -98,6 +98,7 @@ func (imageHandler *TencentImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 	}
 
 	request := cvm.NewDescribeImagesRequest()
+	request.Limit = common.Uint64Ptr(100) //default : 20 / max : 100
 
 	callLogStart := call.Start()
 	response, err := imageHandler.Client.DescribeImages(request)
