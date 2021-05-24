@@ -276,7 +276,7 @@ func (vmHandler *AlibabaVMHandler) WaitForRun(vmIID irs.IID) (irs.VMStatus, erro
 	// Suspending 되도록 3초 정도 대기 함.
 	//===================================
 	curRetryCnt := 0
-	maxRetryCnt := 30
+	maxRetryCnt := 120
 	for {
 		curStatus, errStatus := vmHandler.GetVMStatus(vmIID)
 		if errStatus != nil {
@@ -432,7 +432,7 @@ func (vmHandler *AlibabaVMHandler) TerminateVM(vmIID irs.IID) (irs.VMStatus, err
 	// Suspending 되도록 3초 정도 대기 함.
 	//===================================
 	curRetryCnt := 0
-	maxRetryCnt := 10
+	maxRetryCnt := 60
 	for {
 		curStatus, errStatus := vmHandler.GetVMStatus(vmIID)
 		if errStatus != nil {

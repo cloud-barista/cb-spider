@@ -117,7 +117,7 @@ func (vmHandler *ClouditVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 
 	// VM 생성 완료까지 wait
 	curRetryCnt := 0
-	maxRetryCnt := 30
+	maxRetryCnt := 120
 	for {
 		// Check VM Deploy Status
 		vmInfo, err := server.Get(vmHandler.Client, creatingVm.ID, &requestOpts)

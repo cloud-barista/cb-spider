@@ -52,6 +52,7 @@ func (securityHandler *AzureSecurityHandler) setterSec(securityGroup network.Sec
 		ruleInfo := irs.SecurityRuleInfo{
 			IPProtocol: strings.ToLower(fmt.Sprint(sgRule.Protocol)),
 			Direction:  fmt.Sprint(sgRule.Direction),
+			CIDR:       *sgRule.SourceAddressPrefix,
 		}
 
 		if strings.ToLower(fmt.Sprint(sgRule.Protocol)) == ICMP {
@@ -88,7 +89,7 @@ func (securityHandler *AzureSecurityHandler) CreateSecurity(securityReqInfo irs.
 		sgRuleInfo := network.SecurityRule{
 			Name: to.StringPtr(fmt.Sprintf("%s-rules-%d", securityReqInfo.IId.NameId, idx+1)),
 			SecurityRulePropertiesFormat: &network.SecurityRulePropertiesFormat{
-				SourceAddressPrefix:      to.StringPtr("*"),
+				SourceAddressPrefix:      &rule.CIDR,
 				DestinationAddressPrefix: to.StringPtr("*"),
 				DestinationPortRange:     to.StringPtr("*"),
 				Protocol:                 network.SecurityRuleProtocol(strings.ToUpper(rule.IPProtocol)),
