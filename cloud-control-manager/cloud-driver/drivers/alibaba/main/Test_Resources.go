@@ -339,9 +339,9 @@ func handleSecurity() {
 	//config := readConfigFile()
 	//VmID := config.Aws.VmID
 
-	securityName := "CB-SecurityTestIcmp"
+	securityName := "CB-SecurityTestCidr"
 	securityId := "sg-6wedru4yb4m6qqfvd3sj"
-	vpcId := "vpc-6wei16ufuimfcct41o0xh"
+	vpcId := "vpc-6we8we6do6m72xzzipur1"
 
 	for {
 		fmt.Println("Security Management")
@@ -381,44 +381,61 @@ func handleSecurity() {
 					IId:    irs.IID{NameId: securityName},
 					VpcIID: irs.IID{SystemId: vpcId},
 					SecurityRules: &[]irs.SecurityRuleInfo{ //보안 정책 설정
+						//CIDR 테스트
 						{
-							FromPort:   "20",
-							ToPort:     "22",
+							FromPort:   "30",
+							ToPort:     "30",
 							IPProtocol: "tcp",
 							Direction:  "inbound",
-						},
-
-						{
-							FromPort:   "80",
-							ToPort:     "80",
-							IPProtocol: "tcp",
-							Direction:  "inbound",
+							CIDR:       "10.13.1.10/32",
 						},
 						{
-							FromPort:   "8080",
-							ToPort:     "8080",
-							IPProtocol: "tcp",
-							Direction:  "inbound",
-						},
-						{
-							FromPort:   "-1",
-							ToPort:     "-1",
-							IPProtocol: "icmp",
-							Direction:  "inbound",
-						},
-
-						{
-							FromPort:   "443",
-							ToPort:     "443",
+							FromPort:   "40",
+							ToPort:     "40",
 							IPProtocol: "tcp",
 							Direction:  "outbound",
+							CIDR:       "10.13.1.10/32",
 						},
-						{
-							FromPort:   "8443",
-							ToPort:     "9999",
-							IPProtocol: "tcp",
-							Direction:  "outbound",
-						},
+						/*
+							{
+								FromPort:   "20",
+								ToPort:     "22",
+								IPProtocol: "tcp",
+								Direction:  "inbound",
+							},
+
+							{
+								FromPort:   "80",
+								ToPort:     "80",
+								IPProtocol: "tcp",
+								Direction:  "inbound",
+							},
+							{
+								FromPort:   "8080",
+								ToPort:     "8080",
+								IPProtocol: "tcp",
+								Direction:  "inbound",
+							},
+							{
+								FromPort:   "-1",
+								ToPort:     "-1",
+								IPProtocol: "icmp",
+								Direction:  "inbound",
+							},
+
+							{
+								FromPort:   "443",
+								ToPort:     "443",
+								IPProtocol: "tcp",
+								Direction:  "outbound",
+							},
+							{
+								FromPort:   "8443",
+								ToPort:     "9999",
+								IPProtocol: "tcp",
+								Direction:  "outbound",
+							},
+						*/
 						/*
 							{
 								//FromPort:   "8443",
@@ -435,6 +452,7 @@ func handleSecurity() {
 					cblogger.Infof(securityName, " Security 생성 실패 : ", err)
 				} else {
 					cblogger.Infof("[%s] Security 생성 결과 : [%v]", securityName, result)
+					securityId = result.IId.SystemId
 					spew.Dump(result)
 				}
 
