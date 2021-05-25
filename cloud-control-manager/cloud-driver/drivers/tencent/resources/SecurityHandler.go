@@ -58,7 +58,8 @@ func (securityHandler *TencentSecurityHandler) CreateSecurity(securityReqInfo ir
 	for _, curPolicy := range *securityReqInfo.SecurityRules {
 		securityGroupPolicy := new(vpc.SecurityGroupPolicy)
 		securityGroupPolicy.Protocol = common.StringPtr(curPolicy.IPProtocol)
-		securityGroupPolicy.CidrBlock = common.StringPtr("0.0.0.0/0")
+		//securityGroupPolicy.CidrBlock = common.StringPtr("0.0.0.0/0")
+		securityGroupPolicy.CidrBlock = common.StringPtr(curPolicy.CIDR)
 		securityGroupPolicy.Action = common.StringPtr("accept")
 
 		if curPolicy.ToPort != "" {
@@ -249,8 +250,8 @@ func (securityHandler *TencentSecurityHandler) ExtractPolicyGroups(policyGroups 
 				}
 
 				securityRuleInfo := irs.SecurityRuleInfo{
-					Direction: direction, // "inbound | outbound"
-					//Cidr:      *curPolicy.CidrBlock,
+					Direction:  direction, // "inbound | outbound"
+					CIDR:       *curPolicy.CidrBlock,
 					IPProtocol: *curPolicy.Protocol,
 					FromPort:   fromPort,
 					ToPort:     toPort,

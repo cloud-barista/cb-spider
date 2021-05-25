@@ -21,7 +21,6 @@ import (
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
-	"github.com/davecgh/go-spew/spew"
 )
 
 type AwsSecurityHandler struct {
@@ -34,7 +33,7 @@ type AwsSecurityHandler struct {
 //VPC 생략 시 활성화된 세션의 기본 VPC를 이용 함.
 func (securityHandler *AwsSecurityHandler) CreateSecurity(securityReqInfo irs.SecurityReqInfo) (irs.SecurityInfo, error) {
 	cblogger.Infof("securityReqInfo : ", securityReqInfo)
-	spew.Dump(securityReqInfo)
+	//spew.Dump(securityReqInfo)
 
 	/*
 		//VPC & Subnet을 자동으로 찾아서 처리
@@ -94,11 +93,12 @@ func (securityHandler *AwsSecurityHandler) CreateSecurity(securityReqInfo irs.Se
 	}
 	callogger.Info(call.String(callLogInfo))
 	cblogger.Infof("[%s] 보안 그룹 생성완료", aws.StringValue(createRes.GroupId))
-	spew.Dump(createRes)
+	cblogger.Debug(createRes)
+	//spew.Dump(createRes)
 
 	//newGroupId = *createRes.GroupId
 
-	cblogger.Infof("인바운드 보안 정책 처리")
+	cblogger.Debug("인바운드 보안 정책 처리")
 	//Ingress 처리
 	var ipPermissions []*ec2.IpPermission
 	for _, ip := range *securityReqInfo.SecurityRules {
@@ -108,6 +108,8 @@ func (securityHandler *AwsSecurityHandler) CreateSecurity(securityReqInfo irs.Se
 			continue
 		}
 
+		// cblogger.Debug("===>변환중")
+		// spew.Dump(ip)
 		ipPermission := new(ec2.IpPermission)
 		ipPermission.SetIpProtocol(ip.IPProtocol)
 
@@ -135,14 +137,21 @@ func (securityHandler *AwsSecurityHandler) CreateSecurity(securityReqInfo irs.Se
 
 		ipPermission.SetIpRanges([]*ec2.IpRange{
 			(&ec2.IpRange{}).
-				//SetCidrIp(ip.Cidr),
-				SetCidrIp("0.0.0.0/0"),
+				SetCidrIp(ip.CIDR),
+			//SetCidrIp("0.0.0.0/0"),
 		})
+		// cblogger.Debug("===>변환완료")
+		// spew.Dump(ipPermission)
+
 		ipPermissions = append(ipPermissions, ipPermission)
 	}
 
 	//인바운드 정책이 있는 경우에만 처리
 	if len(ipPermissions) > 0 {
+		cblogger.Debug("===>적용할 최종 인바운드 정책")
+		cblogger.Debug(ipPermissions)
+		// spew.Dump(ipPermissions)
+
 		// Add permissions to the security group
 		_, err = securityHandler.Client.AuthorizeSecurityGroupIngress(&ec2.AuthorizeSecurityGroupIngressInput{
 			//GroupName:     aws.String(securityReqInfo.Name),
@@ -157,7 +166,7 @@ func (securityHandler *AwsSecurityHandler) CreateSecurity(securityReqInfo irs.Se
 		cblogger.Info("Successfully set security group ingress")
 	}
 
-	cblogger.Infof("아웃바운드 보안 정책 처리")
+	cblogger.Debug("아웃바운드 보안 정책 처리")
 	//Egress 처리
 	var ipPermissionsEgress []*ec2.IpPermission
 	//for _, ip := range securityReqInfo.IPPermissionsEgress {
@@ -195,8 +204,8 @@ func (securityHandler *AwsSecurityHandler) CreateSecurity(securityReqInfo irs.Se
 
 		ipPermission.SetIpRanges([]*ec2.IpRange{
 			(&ec2.IpRange{}).
-				//SetCidrIp(ip.Cidr),
-				SetCidrIp("0.0.0.0/0"),
+				SetCidrIp(ip.CIDR),
+			//SetCidrIp("0.0.0.0/0"),
 		})
 		//ipPermissions = append(ipPermissions, ipPermission)
 		ipPermissionsEgress = append(ipPermissionsEgress, ipPermission)
@@ -204,6 +213,8 @@ func (securityHandler *AwsSecurityHandler) CreateSecurity(securityReqInfo irs.Se
 
 	//아웃바운드 정책이 있는 경우에만 처리
 	if len(ipPermissionsEgress) > 0 {
+		cblogger.Debug("===>적용할 최종 아웃바운드 정책")
+		cblogger.Debug(ipPermissionsEgress)
 
 		// Add permissions to the security group
 		_, err = securityHandler.Client.AuthorizeSecurityGroupEgress(&ec2.AuthorizeSecurityGroupEgressInput{
@@ -218,7 +229,7 @@ func (securityHandler *AwsSecurityHandler) CreateSecurity(securityReqInfo irs.Se
 		cblogger.Info("Successfully set security group egress")
 	}
 
-	cblogger.Info("Name Tag 처리")
+	cblogger.Debug("Name Tag 처리")
 	//======================
 	// Name 태그 처리
 	//======================
@@ -454,7 +465,7 @@ func ExtractIpPermissions(ipPermissions []*ec2.IpPermission, direction string) [
 			cblogger.Debug("Inbound/Outbound 정보 조회 : ", *ip.IpProtocol)
 			securityRuleInfo := irs.SecurityRuleInfo{
 				Direction: direction, // "inbound | outbound"
-				//Cidr: *ipv4.CidrIp,
+				CIDR:      *ipv4.CidrIp,
 			}
 			cblogger.Debug(*ipv4.CidrIp)
 
@@ -466,7 +477,7 @@ func ExtractIpPermissions(ipPermissions []*ec2.IpPermission, direction string) [
 		for _, ipv6 := range ip.Ipv6Ranges {
 			securityRuleInfo := irs.SecurityRuleInfo{
 				Direction: direction, // "inbound | outbound"
-				//Cidr: *ipv6.CidrIpv6,
+				CIDR:      *ipv6.CidrIpv6,
 			}
 			cblogger.Debug(*ipv6.CidrIpv6)
 
@@ -478,7 +489,7 @@ func ExtractIpPermissions(ipPermissions []*ec2.IpPermission, direction string) [
 		for _, userIdGroup := range ip.UserIdGroupPairs {
 			securityRuleInfo := irs.SecurityRuleInfo{
 				Direction: direction, // "inbound | outbound"
-				//Cidr: *userIdGroup.GroupId,
+				CIDR:      *userIdGroup.GroupId,
 			}
 			cblogger.Debug(*userIdGroup.UserId)
 

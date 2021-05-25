@@ -181,31 +181,48 @@ func handleSecurity() {
 					IId:    irs.IID{NameId: securityName},
 					VpcIID: irs.IID{SystemId: vpcId},
 					SecurityRules: &[]irs.SecurityRuleInfo{ //보안 정책 설정
+						//CIDR 테스트
 						{
-							FromPort:   "20",
-							ToPort:     "22",
+							FromPort:   "30",
+							ToPort:     "",
 							IPProtocol: "tcp",
 							Direction:  "inbound",
+							CIDR:       "10.13.1.10/32",
 						},
+						{
+							FromPort:   "40",
+							ToPort:     "",
+							IPProtocol: "tcp",
+							Direction:  "outbound",
+							CIDR:       "10.13.1.10/32",
+						},
+						/*
+							{
+								FromPort:   "20",
+								ToPort:     "22",
+								IPProtocol: "tcp",
+								Direction:  "inbound",
+							},
 
-						{
-							FromPort:   "80",
-							ToPort:     "",
-							IPProtocol: "tcp",
-							Direction:  "inbound",
-						},
-						{
-							FromPort:   "8080",
-							ToPort:     "",
-							IPProtocol: "tcp",
-							Direction:  "inbound",
-						},
-						{
-							FromPort:   "ALL",
-							ToPort:     "",
-							IPProtocol: "icmp",
-							Direction:  "inbound",
-						},
+							{
+								FromPort:   "80",
+								ToPort:     "",
+								IPProtocol: "tcp",
+								Direction:  "inbound",
+							},
+							{
+								FromPort:   "8080",
+								ToPort:     "",
+								IPProtocol: "tcp",
+								Direction:  "inbound",
+							},
+							{
+								FromPort:   "ALL",
+								ToPort:     "",
+								IPProtocol: "icmp",
+								Direction:  "inbound",
+							},
+						*/
 
 						// {
 						// 	FromPort:   "443",
@@ -235,6 +252,7 @@ func handleSecurity() {
 					cblogger.Infof(securityName, " Security 생성 실패 : ", err)
 				} else {
 					cblogger.Infof("[%s] Security 생성 결과 : [%v]", securityName, result)
+					securityId = result.IId.SystemId
 					spew.Dump(result)
 				}
 
@@ -729,9 +747,9 @@ func main() {
 	cblogger.Info("Tencent Cloud Resource Test")
 	//handleVPC() //VPC
 	//handleKeyPair()
-	//handleSecurity()
+	handleSecurity()
 	//handleImage() //AMI
-	handleVMSpec()
+	//handleVMSpec()
 	//handleVM()
 
 	//handlePublicIP() // PublicIP 생성 후 conf

@@ -28,7 +28,7 @@ type AlibabaSecurityHandler struct {
 
 func (securityHandler *AlibabaSecurityHandler) CreateSecurity(securityReqInfo irs.SecurityReqInfo) (irs.SecurityInfo, error) {
 	cblogger.Infof("securityReqInfo : ", securityReqInfo)
-	spew.Dump(securityReqInfo)
+	//spew.Dump(securityReqInfo)
 
 	//=======================================
 	// 보안 그룹 생성
@@ -81,8 +81,9 @@ func (securityHandler *AlibabaSecurityHandler) CreateSecurity(securityReqInfo ir
 		cblogger.Info("Successfully set security group AuthorizeSecurityRules")
 	}
 
-	cblogger.Info("AuthorizeSecurityRules Result")
-	spew.Dump(createRuleRes)
+	cblogger.Debug("AuthorizeSecurityRules Result")
+	// spew.Dump(createRuleRes)
+	cblogger.Debug(createRuleRes)
 
 	securityInfo, _ := securityHandler.GetSecurity(irs.IID{SystemId: createRes.SecurityGroupId})
 	//securityInfo.IId.NameId = securityReqInfo.IId.NameId
@@ -108,7 +109,8 @@ func (securityHandler *AlibabaSecurityHandler) AuthorizeSecurityRules(securityGr
 			request.IpProtocol = curRule.IPProtocol
 			request.PortRange = curRule.FromPort + "/" + curRule.ToPort
 			request.SecurityGroupId = securityGroupId
-			request.SourceCidrIp = "0.0.0.0/0"
+			//request.SourceCidrIp = "0.0.0.0/0"
+			request.SourceCidrIp = curRule.CIDR
 
 			cblogger.Infof("[%s] [%s] inbound rule Request", request.IpProtocol, request.PortRange)
 			spew.Dump(request)
@@ -126,8 +128,8 @@ func (securityHandler *AlibabaSecurityHandler) AuthorizeSecurityRules(securityGr
 			request.IpProtocol = curRule.IPProtocol
 			request.PortRange = curRule.FromPort + "/" + curRule.ToPort
 			request.SecurityGroupId = securityGroupId
-			//request.SourceCidrIp = "0.0.0.0/0"
-			request.DestCidrIp = "0.0.0.0/0"
+			//request.DestCidrIp = "0.0.0.0/0"
+			request.DestCidrIp = curRule.CIDR
 
 			cblogger.Infof("[%s] [%s] outbound rule Request", request.IpProtocol, request.PortRange)
 			spew.Dump(request)
@@ -227,14 +229,14 @@ func (securityHandler *AlibabaSecurityHandler) GetSecurity(securityIID irs.IID) 
 	}
 	callogger.Info(call.String(callLogInfo))
 
-	cblogger.Info(result)
+	cblogger.Debug(result)
 	//spew.Dump(result)
 	//ecs.DescribeSecurityGroupsResponse
 
 	//ecs.DescribeSecurityGroupsResponse.SecurityGroups
 	//ecs.SecurityGroups
-	cblogger.Info(result)
-	spew.Dump(result)
+	//spew.Dump(result)
+	
 	//ecs.DescribeSecurityGroupsResponse
 	if result.TotalCount < 1 {
 		return irs.SecurityInfo{}, errors.New("Notfound: '" + securityIID.SystemId + "' SecurityGroup Not found")
@@ -298,13 +300,14 @@ func (securityHandler *AlibabaSecurityHandler) ExtractSecurityRuleInfo(securityG
 	for _, curPermission := range response.Permissions.Permission {
 		curSecurityRuleInfo.Direction = curPermission.Direction
 
-		/*
-			if strings.EqualFold(curPermission.Direction, "ingress") {
-				curSecurityRuleInfo.Direction = "inbound"
-			} else if strings.EqualFold(curPermission.Direction, "egress") {
-				curSecurityRuleInfo.Direction = "outbound"
-			}
-		*/
+		if strings.EqualFold(curPermission.Direction, "ingress") {
+			// curSecurityRuleInfo.Direction = "inbound"
+			curSecurityRuleInfo.CIDR = curPermission.SourceCidrIp
+		} else if strings.EqualFold(curPermission.Direction, "egress") {
+			// curSecurityRuleInfo.Direction = "outbound"
+			curSecurityRuleInfo.CIDR = curPermission.DestCidrIp
+		}
+
 		curSecurityRuleInfo.IPProtocol = curPermission.IpProtocol
 
 		portRange := strings.Split(curPermission.PortRange, "/")

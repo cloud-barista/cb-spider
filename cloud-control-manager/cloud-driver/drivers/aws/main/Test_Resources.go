@@ -50,7 +50,7 @@ func handleSecurity() {
 
 	securityName := "CB-SecurityTest1"
 	securityId := "sg-0d6a2bb960481ce68"
-	vpcId := "vpc-c0479cab"
+	vpcId := "vpc-0c4d36a3ac3924419"
 
 	for {
 		fmt.Println("Security Management")
@@ -91,43 +91,68 @@ func handleSecurity() {
 					IId:    irs.IID{NameId: securityName},
 					VpcIID: irs.IID{SystemId: vpcId},
 					SecurityRules: &[]irs.SecurityRuleInfo{ //보안 정책 설정
+						//CIDR 테스트
 						{
-							FromPort:   "20",
-							ToPort:     "22",
+							FromPort:   "30",
+							ToPort:     "30",
 							IPProtocol: "tcp",
 							Direction:  "inbound",
-						},
-
-						{
-							FromPort:   "80",
-							ToPort:     "80",
-							IPProtocol: "tcp",
-							Direction:  "inbound",
+							CIDR:       "10.13.1.10/32",
 						},
 						{
-							FromPort:   "8080",
-							ToPort:     "8080",
-							IPProtocol: "tcp",
-							Direction:  "inbound",
-						},
-						{
-							FromPort:   "-1",
-							ToPort:     "-1",
-							IPProtocol: "icmp",
-							Direction:  "inbound",
-						},
-						{
-							FromPort:   "443",
-							ToPort:     "443",
+							FromPort:   "40",
+							ToPort:     "40",
 							IPProtocol: "tcp",
 							Direction:  "outbound",
+							CIDR:       "10.13.1.10/32",
 						},
-						{
-							FromPort:   "8443",
-							ToPort:     "9999",
-							IPProtocol: "tcp",
-							Direction:  "outbound",
-						},
+						// {
+						// 	FromPort:   "30",
+						// 	ToPort:     "30",
+						// 	IPProtocol: "tcp",
+						// 	Direction:  "outbound",
+						// 	CIDR:       "1.2.3.4/0",
+						// },
+						// {
+						// 	FromPort:   "20",
+						// 	ToPort:     "22",
+						// 	IPProtocol: "tcp",
+						// 	Direction:  "inbound",
+						// 	//CIDR:       "1.2.3.4/0",
+						// },
+						/*
+							{
+								FromPort:   "80",
+								ToPort:     "80",
+								IPProtocol: "tcp",
+								Direction:  "inbound",
+								CIDR:       "1.2.3.4/0",
+							},
+							{
+								FromPort:   "8080",
+								ToPort:     "8080",
+								IPProtocol: "tcp",
+								Direction:  "inbound",
+							},
+							{
+								FromPort:   "-1",
+								ToPort:     "-1",
+								IPProtocol: "icmp",
+								Direction:  "inbound",
+							},
+							{
+								FromPort:   "443",
+								ToPort:     "443",
+								IPProtocol: "tcp",
+								Direction:  "outbound",
+							},
+							{
+								FromPort:   "8443",
+								ToPort:     "9999",
+								IPProtocol: "tcp",
+								Direction:  "outbound",
+							},
+						*/
 						/*
 							{
 								//FromPort:   "8443",
@@ -144,6 +169,7 @@ func handleSecurity() {
 					cblogger.Infof(securityName, " Security 생성 실패 : ", err)
 				} else {
 					cblogger.Infof("[%s] Security 생성 결과 : [%v]", securityName, result)
+					securityId = result.IId.SystemId
 					spew.Dump(result)
 				}
 
@@ -1118,29 +1144,12 @@ func main() {
 	//handleVPC()
 	//handleKeyPair()
 	//handlePublicIP() // PublicIP 생성 후 conf
-	//handleSecurity()
-	handleVM()
+	handleSecurity()
+	//handleVM()
 
 	//handleImage() //AMI
 	//handleVNic() //Lancard
 	//handleVMSpec()
-
-	/*
-		KeyPairHandler, err := setKeyPairHandler()
-		if err != nil {
-			panic(err)
-		}
-
-		keyPairName := "test123"
-		cblogger.Infof("[%s] 키 페어 조회 테스트", keyPairName)
-		result, err := KeyPairHandler.GetKey(keyPairName)
-		if err != nil {
-			cblogger.Infof(keyPairName, " 키 페어 조회 실패 : ", err)
-		} else {
-			cblogger.Infof("[%s] 키 페어 조회 결과")
-			spew.Dump(result)
-		}
-	*/
 }
 
 //handlerType : resources폴더의 xxxHandler.go에서 Handler이전까지의 문자열
