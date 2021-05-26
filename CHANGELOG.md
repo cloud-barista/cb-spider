@@ -17,6 +17,9 @@
 - Update the CSP Go sdk package of cloud drivers
   - ref) https://github.com/cloud-barista/cb-spider/issues/328
   - ref) https://github.com/cloud-barista/cb-spider/wiki/What-is-the-CSP-SDK-API-Version-of-drivers
+- SG delimiter 길이 축소: `-delimiter-` => `-deli-`
+  - 사용자 SG 이름 입력시 '-deli-' 사용 불가
+  - 사용자 SG 이름 '-deli-' 입력 시: http.StatusInternalServerError(500 error) error, msg: "-deli- cannot be used in Security Group name!!"
 
 # v0.3.0-espresso (2020.12.11.)
 ### API Change
