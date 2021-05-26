@@ -30,6 +30,7 @@
   - ref) https://github.com/cloud-barista/cb-spider/commit/144cc274dc3232b47226025dd6e8a24605784136
 - SG Source filter 추가(WIP)
 
+- ↓ **latest** (now)
 
 # v0.3.0-espresso (2020.12.11.)
 ### API Change
