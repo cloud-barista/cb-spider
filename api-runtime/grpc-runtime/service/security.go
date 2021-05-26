@@ -12,6 +12,7 @@ import (
 	"context"
 	"strings"
 
+	cm "github.com/cloud-barista/cb-spider/api-runtime/common-runtime"
 	gc "github.com/cloud-barista/cb-spider/api-runtime/grpc-runtime/common"
 	"github.com/cloud-barista/cb-spider/api-runtime/grpc-runtime/logger"
 	pb "github.com/cloud-barista/cb-spider/api-runtime/grpc-runtime/stub/cbspider"
@@ -33,8 +34,8 @@ func (s *CCMService) CreateSecurity(ctx context.Context, req *pb.SecurityCreateR
 	logger.Debug("calling CCMService.CreateSecurity()")
 
 	// check the input Name to include the SecurityGroup Delimiter
-	if strings.HasPrefix(req.Item.Name, sgDELIMITER) {
-		return nil, gc.NewGrpcStatusErr(sgDELIMITER+" cannot be used in SecurityGroup name!!", "", "CCMService.CreateSecurity()")
+	if strings.HasPrefix(req.Item.Name, cm.SG_DELIMITER) {
+		return nil, gc.NewGrpcStatusErr(cm.SG_DELIMITER+" cannot be used in SecurityGroup name!!", "", "CCMService.CreateSecurity()")
 	}
 
 	// GRPC 메시지에서 CCM 객체로 복사
@@ -43,10 +44,10 @@ func (s *CCMService) CreateSecurity(ctx context.Context, req *pb.SecurityCreateR
 	if err != nil {
 		return nil, gc.ConvGrpcStatusErr(err, "", "CCMService.CreateSecurity()")
 	}
-	// SG NameID format => {VPC NameID} + sgDELIMITER + {SG NameID}
-	// transform: SG NameID => {VPC NameID} + sgDELIMITER + {SG NameID}
-	//reqInfo.IId = cres.IID{NameId: req.Item.VpcName + sgDELIMITER + req.Item.Name, SystemId: ""}
-	reqInfo.IId = cres.IID{NameId: req.Item.VpcName + sgDELIMITER + req.Item.Name, SystemId: req.Item.Name} // for NCP: fixed NameID => SystemID, Driver: (1)search systemID with fixed NameID (2)replace fixed NameID into SysemID
+	// SG NameID format => {VPC NameID} + cm.SG_DELIMITER + {SG NameID}
+	// transform: SG NameID => {VPC NameID} + cm.SG_DELIMITER + {SG NameID}
+	//reqInfo.IId = cres.IID{NameId: req.Item.VpcName + cm.SG_DELIMITER + req.Item.Name, SystemId: ""}
+	reqInfo.IId = cres.IID{NameId: req.Item.VpcName + cm.SG_DELIMITER + req.Item.Name, SystemId: req.Item.Name} // for NCP: fixed NameID => SystemID, Driver: (1)search systemID with fixed NameID (2)replace fixed NameID into SysemID
 	reqInfo.VpcIID = cres.IID{NameId: req.Item.VpcName, SystemId: ""}
 
 	// Call common-runtime API

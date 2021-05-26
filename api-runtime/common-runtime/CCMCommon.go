@@ -34,9 +34,6 @@ const (
 	rsVM  string = "vm"
 )
 
-const rsSubnetPrefix string = "subnet:"
-const sgDELIMITER string = "-delimiter-"
-
 // definition of RWLock for each Resource Ops
 var imgRWLock = new(sync.RWMutex)
 var vpcRWLock = new(sync.RWMutex)
@@ -524,7 +521,7 @@ func CreateVPC(connectionName string, rsType string, reqInfo cres.VPCReqInfo) (*
 	// for Subnet list
 	for _, subnetInfo := range info.SubnetInfoList {
 		// key-value structure: /{ConnectionName}/{VPC-NameId}/{Subnet-IId}
-		_, err := iidRWLock.CreateIID(connectionName, rsSubnetPrefix+info.IId.NameId, subnetInfo.IId)
+		_, err := iidRWLock.CreateIID(connectionName, SUBNET_PREFIX+info.IId.NameId, subnetInfo.IId)
 		if err != nil {
 			cblog.Error(err)
 			// rollback
@@ -543,9 +540,9 @@ func CreateVPC(connectionName string, rsType string, reqInfo cres.VPCReqInfo) (*
 				return nil, fmt.Errorf(err.Error() + ", " + err3.Error())
 			}
 			// (3) for Subnet IID
-			tmpIIdInfoList, err := iidRWLock.ListIID(connectionName, rsSubnetPrefix+info.IId.NameId)
+			tmpIIdInfoList, err := iidRWLock.ListIID(connectionName, SUBNET_PREFIX+info.IId.NameId)
 			for _, subnetInfo := range tmpIIdInfoList {
-				_, err := iidRWLock.DeleteIID(connectionName, rsSubnetPrefix+info.IId.NameId, subnetInfo.IId)
+				_, err := iidRWLock.DeleteIID(connectionName, SUBNET_PREFIX+info.IId.NameId, subnetInfo.IId)
 				if err != nil {
 					cblog.Error(err)
 					return nil, err
@@ -622,7 +619,7 @@ func ListVPC(connectionName string, rsType string) ([]*cres.VPCInfo, error) {
 				// create new SubnetInfo List
 				subnetInfoList := []cres.SubnetInfo{}
 				for _, subnetInfo := range info.SubnetInfoList {
-					subnetIIDInfo, err := iidRWLock.GetIIDbySystemID(connectionName, rsSubnetPrefix+info.IId.NameId, subnetInfo.IId)
+					subnetIIDInfo, err := iidRWLock.GetIIDbySystemID(connectionName, SUBNET_PREFIX+info.IId.NameId, subnetInfo.IId)
 					if err != nil {
 						cblog.Error(err)
 						return nil, err
@@ -688,7 +685,7 @@ func GetVPC(connectionName string, rsType string, nameID string) (*cres.VPCInfo,
 	// create new SubnetInfo List
 	subnetInfoList := []cres.SubnetInfo{}
 	for i, subnetInfo := range info.SubnetInfoList {
-		subnetIIDInfo, err := iidRWLock.GetIIDbySystemID(connectionName, rsSubnetPrefix+info.IId.NameId, subnetInfo.IId)
+		subnetIIDInfo, err := iidRWLock.GetIIDbySystemID(connectionName, SUBNET_PREFIX+info.IId.NameId, subnetInfo.IId)
 		if err != nil {
 			cblog.Error(err)
 			return nil, err
@@ -751,7 +748,7 @@ func AddSubnet(connectionName string, rsType string, vpcName string, reqInfo cre
 	for _, subnetInfo := range info.SubnetInfoList {
 		if subnetInfo.IId.NameId == reqInfo.IId.NameId {
 			// key-value structure: /{ConnectionName}/{VPC-NameId}/{Subnet-IId}
-			_, err := iidRWLock.CreateIID(connectionName, rsSubnetPrefix+iidVPCInfo.IId.NameId, subnetInfo.IId)
+			_, err := iidRWLock.CreateIID(connectionName, SUBNET_PREFIX+iidVPCInfo.IId.NameId, subnetInfo.IId)
 			if err != nil {
 				cblog.Error(err)
 				// rollback
@@ -764,7 +761,7 @@ func AddSubnet(connectionName string, rsType string, vpcName string, reqInfo cre
 				}
 				// (2) for Subnet IID
 				cblog.Info("<<ROLLBACK:TRY:VPC-SUBNET-IID>> " + subnetInfo.IId.NameId)
-				_, err3 := iidRWLock.DeleteIID(connectionName, rsSubnetPrefix+iidVPCInfo.IId.NameId, subnetInfo.IId)
+				_, err3 := iidRWLock.DeleteIID(connectionName, SUBNET_PREFIX+iidVPCInfo.IId.NameId, subnetInfo.IId)
 				if err3 != nil {
 					cblog.Error(err3)
 					return nil, fmt.Errorf(err.Error() + ", " + err3.Error())
@@ -844,8 +841,8 @@ func CreateSecurity(connectionName string, rsType string, reqInfo cres.SecurityR
 	}
 
 	// set ResourceInfo(IID.NameId)
-	// iidInfo.IId.NameID format => {VPC NameID} + sgDELIMITER + {SG NameID}
-	vpc_sg_nameid := strings.Split(info.IId.NameId, sgDELIMITER)
+	// iidInfo.IId.NameID format => {VPC NameID} + SG_DELIMITER + {SG NameID}
+	vpc_sg_nameid := strings.Split(info.IId.NameId, SG_DELIMITER)
 	info.IId.NameId = vpc_sg_nameid[1]
 
 	return &info, nil
@@ -902,8 +899,8 @@ func ListSecurity(connectionName string, rsType string) ([]*cres.SecurityInfo, e
 			if iidInfo.IId.SystemId == info.IId.SystemId {
 
 				// set ResourceInfo(IID.NameId)
-				// iidInfo.IId.NameID format => {VPC NameID} + sgDELIMITER + {SG NameID}
-				vpc_sg_nameid := strings.Split(iidInfo.IId.NameId, sgDELIMITER)
+				// iidInfo.IId.NameID format => {VPC NameID} + SG_DELIMITER + {SG NameID}
+				vpc_sg_nameid := strings.Split(iidInfo.IId.NameId, SG_DELIMITER)
 				info.VpcIID.NameId = vpc_sg_nameid[0]
 				info.IId.NameId = vpc_sg_nameid[1]
 
@@ -949,7 +946,7 @@ func GetSecurity(connectionName string, rsType string, nameID string) (*cres.Sec
 	sgRWLock.RLock()
 	defer sgRWLock.RUnlock()
 	// (1) get IID(NameId)
-	// SG NameID format => {VPC NameID} + sgDELIMITER + {SG NameID}
+	// SG NameID format => {VPC NameID} + SG_DELIMITER + {SG NameID}
 	iidInfo, err := iidRWLock.FindIID(connectionName, rsType, nameID)
 	if err != nil {
 		cblog.Error(err)
@@ -965,8 +962,8 @@ func GetSecurity(connectionName string, rsType string, nameID string) (*cres.Sec
 
 	// (3) set ResourceInfo(IID.NameId)
 	// set ResourceInfo(IID.NameId)
-	// iidInfo.IId.NameID format => {VPC NameID} + sgDELIMITER + {SG NameID}
-	vpc_sg_nameid := strings.Split(iidInfo.IId.NameId, sgDELIMITER)
+	// iidInfo.IId.NameID format => {VPC NameID} + SG_DELIMITER + {SG NameID}
+	vpc_sg_nameid := strings.Split(iidInfo.IId.NameId, SG_DELIMITER)
 	info.VpcIID.NameId = vpc_sg_nameid[0]
 	info.IId.NameId = vpc_sg_nameid[1]
 
@@ -1156,7 +1153,7 @@ func getSetSystemId(ConnectionName string, reqInfo *cres.VMReqInfo) error {
 
 	// set Subnet SystemId
 	if reqInfo.SubnetIID.NameId != "" {
-		IIdInfo, err := iidRWLock.GetIID(ConnectionName, rsSubnetPrefix+reqInfo.VpcIID.NameId, reqInfo.SubnetIID)
+		IIdInfo, err := iidRWLock.GetIID(ConnectionName, SUBNET_PREFIX+reqInfo.VpcIID.NameId, reqInfo.SubnetIID)
 		if err != nil {
 			cblog.Error(err)
 			return err
@@ -1275,9 +1272,9 @@ func StartVM(connectionName string, rsType string, reqInfo cres.VMReqInfo) (*cre
 	}
 
 	// set sg NameId from VPCNameId-SecurityGroupNameId
-	// IID.NameID format => {VPC NameID} + sgDELIMITER + {SG NameID}
+	// IID.NameID format => {VPC NameID} + SG_DELIMITER + {SG NameID}
 	for i, sgIID := range info.SecurityGroupIIds {
-		vpc_sg_nameid := strings.Split(sgIID.NameId, sgDELIMITER)
+		vpc_sg_nameid := strings.Split(sgIID.NameId, SG_DELIMITER)
 		info.SecurityGroupIIds[i].NameId = vpc_sg_nameid[1]
 	}
 
@@ -1394,9 +1391,9 @@ func ListVM(connectionName string, rsType string) ([]*cres.VMInfo, error) {
 				}
 
 				// set sg NameId from VPCNameId-SecurityGroupNameId
-				// IID.NameID format => {VPC NameID} + sgDELIMITER + {SG NameID}
+				// IID.NameID format => {VPC NameID} + SG_DELIMITER + {SG NameID}
 				for i, sgIID := range info.SecurityGroupIIds {
-					vpc_sg_nameid := strings.Split(sgIID.NameId, sgDELIMITER)
+					vpc_sg_nameid := strings.Split(sgIID.NameId, SG_DELIMITER)
 					info.SecurityGroupIIds[i].NameId = vpc_sg_nameid[1]
 				}
 
@@ -1436,7 +1433,7 @@ func getSetNameId(ConnectionName string, vmInfo *cres.VMInfo) error {
 
 	if vmInfo.SubnetIID.SystemId != "" {
 		// set Subnet NameId
-		IIdInfo, err := iidRWLock.GetIIDbySystemID(ConnectionName, rsSubnetPrefix+vmInfo.VpcIID.NameId, vmInfo.SubnetIID)
+		IIdInfo, err := iidRWLock.GetIIDbySystemID(ConnectionName, SUBNET_PREFIX+vmInfo.VpcIID.NameId, vmInfo.SubnetIID)
 		if err != nil {
 			cblog.Error(err)
 			return err
@@ -1511,9 +1508,9 @@ func GetVM(connectionName string, rsType string, nameID string) (*cres.VMInfo, e
 	}
 
 	// set sg NameId from VPCNameId-SecurityGroupNameId
-	// IID.NameID format => {VPC NameID} + sgDELIMITER + {SG NameID}
+	// IID.NameID format => {VPC NameID} + SG_DELIMITER + {SG NameID}
 	for i, sgIID := range info.SecurityGroupIIds {
-		vpc_sg_nameid := strings.Split(sgIID.NameId, sgDELIMITER)
+		vpc_sg_nameid := strings.Split(sgIID.NameId, SG_DELIMITER)
 		info.SecurityGroupIIds[i].NameId = vpc_sg_nameid[1]
 	}
 
@@ -1837,11 +1834,11 @@ func ListAllResource(connectionName string, rsType string) (AllResourceList, err
 	// if SG then MappedList, OnlySpiderList : remove delimeter and set SG name
 	if rsType == rsSG { // vpc-01-delimiter-sg-01 ==> sg-01
 		for i, iid := range MappedList {
-			vpc_sg_nameid := strings.Split(iid.NameId, sgDELIMITER)
+			vpc_sg_nameid := strings.Split(iid.NameId, SG_DELIMITER)
 			MappedList[i].NameId = vpc_sg_nameid[1]
 		}
 		for i, iid := range OnlySpiderList {
-			vpc_sg_nameid := strings.Split(iid.NameId, sgDELIMITER)
+			vpc_sg_nameid := strings.Split(iid.NameId, SG_DELIMITER)
 			OnlySpiderList[i].NameId = vpc_sg_nameid[1]
 		}
 	}
@@ -1902,7 +1899,7 @@ func DeleteResource(connectionName string, rsType string, nameID string, force s
 	case rsVM:
 		handler, err = cldConn.CreateVMHandler()
 	default:
-		if strings.HasPrefix(rsType, rsSubnetPrefix) {
+		if strings.HasPrefix(rsType, SUBNET_PREFIX) {
 			handler, err = cldConn.CreateVPCHandler()
 		} else {
 			return false, "", fmt.Errorf(rsType + " is not supported Resource!!")
@@ -1927,7 +1924,7 @@ func DeleteResource(connectionName string, rsType string, nameID string, force s
 		vmRWLock.Lock()
 		defer vmRWLock.Unlock()
 	default:
-		if strings.HasPrefix(rsType, rsSubnetPrefix) {
+		if strings.HasPrefix(rsType, SUBNET_PREFIX) {
 			vpcRWLock.Lock()
 			defer vpcRWLock.Unlock()
 		} else {
@@ -1938,7 +1935,7 @@ func DeleteResource(connectionName string, rsType string, nameID string, force s
 	// (1) get IID(NameId) for getting SystemId
 	var iidInfo *iidm.IIDInfo
 	if rsType == rsSG {
-		// SG NameID format => {VPC NameID} + sgDELIMITER + {SG NameID}
+		// SG NameID format => {VPC NameID} + SG_DELIMITER + {SG NameID}
 		iidInfo, err = iidRWLock.FindIID(connectionName, rsType, nameID)
 		if err != nil {
 			cblog.Error(err)
@@ -1954,8 +1951,8 @@ func DeleteResource(connectionName string, rsType string, nameID string, force s
 
 	// get VPC IID for remove subnet
 	var iidVPCInfo *iidm.IIDInfo
-	if strings.HasPrefix(rsType, rsSubnetPrefix) {
-		vpcName := strings.Replace(rsType, rsSubnetPrefix, "", 1)
+	if strings.HasPrefix(rsType, SUBNET_PREFIX) {
+		vpcName := strings.Replace(rsType, SUBNET_PREFIX, "", 1)
 		iidVPCInfo, err = iidRWLock.GetIID(connectionName, rsVPC, cres.IID{vpcName, ""})
 		if err != nil {
 			cblog.Error(err)
@@ -2027,7 +2024,7 @@ func DeleteResource(connectionName string, rsType string, nameID string, force s
 
 
 	default:
-		if strings.HasPrefix(rsType, rsSubnetPrefix) {
+		if strings.HasPrefix(rsType, SUBNET_PREFIX) {
 			result, err = handler.(cres.VPCHandler).RemoveSubnet(iidVPCInfo.IId, iidInfo.IId)
 			if err != nil {
 				cblog.Error(err)
@@ -2060,8 +2057,8 @@ func DeleteResource(connectionName string, rsType string, nameID string, force s
 	// if VPC
 	if rsType == rsVPC {
 		// for Subnet list
-		// key-value structure: /{ConnectionName}/rsSubnetPrefix+{VPC-NameId}/{Subnet-IId}
-		subnetInfoList, err2 := iidRWLock.ListIID(connectionName, rsSubnetPrefix+iidInfo.IId.NameId)
+		// key-value structure: /{ConnectionName}/SUBNET_PREFIX+{VPC-NameId}/{Subnet-IId}
+		subnetInfoList, err2 := iidRWLock.ListIID(connectionName, SUBNET_PREFIX+iidInfo.IId.NameId)
 		if err2 != nil {
 			cblog.Error(err)
 			if force != "true" {
@@ -2069,8 +2066,8 @@ func DeleteResource(connectionName string, rsType string, nameID string, force s
 			}
 		}
 		for _, subnetInfo := range subnetInfoList {
-			// key-value structure: /{ConnectionName}/rsSubnetPrefix+{VPC-NameId}/{Subnet-IId}
-			_, err := iidRWLock.DeleteIID(connectionName, rsSubnetPrefix+iidInfo.IId.NameId, subnetInfo.IId)
+			// key-value structure: /{ConnectionName}/SUBNET_PREFIX+{VPC-NameId}/{Subnet-IId}
+			_, err := iidRWLock.DeleteIID(connectionName, SUBNET_PREFIX+iidInfo.IId.NameId, subnetInfo.IId)
 			if err != nil {
 				cblog.Error(err)
 				if force != "true" {
@@ -2109,7 +2106,7 @@ func DeleteCSPResource(connectionName string, rsType string, systemID string) (b
 	case rsVM:
 		handler, err = cldConn.CreateVMHandler()
 	default:
-		if strings.HasPrefix(rsType, rsSubnetPrefix) {
+		if strings.HasPrefix(rsType, SUBNET_PREFIX) {
 			handler, err = cldConn.CreateVPCHandler()
 		} else {
 			return false, "", fmt.Errorf(rsType + " is not supported Resource!!")
@@ -2122,8 +2119,8 @@ func DeleteCSPResource(connectionName string, rsType string, systemID string) (b
 
 	// get VPC IID for remove subnet
 	var iidVPCInfo *iidm.IIDInfo
-	if strings.HasPrefix(rsType, rsSubnetPrefix) {
-		vpcName := strings.Replace(rsType, rsSubnetPrefix, "", 1)
+	if strings.HasPrefix(rsType, SUBNET_PREFIX) {
+		vpcName := strings.Replace(rsType, SUBNET_PREFIX, "", 1)
 		iidVPCInfo, err = iidRWLock.GetIID(connectionName, rsVPC, cres.IID{vpcName, ""})
 		if err != nil {
 			cblog.Error(err)
@@ -2162,7 +2159,7 @@ func DeleteCSPResource(connectionName string, rsType string, systemID string) (b
 			return false, vmStatus, err
 		}
 	default:
-		if strings.HasPrefix(rsType, rsSubnetPrefix) {
+		if strings.HasPrefix(rsType, SUBNET_PREFIX) {
 			result, err = handler.(cres.VPCHandler).RemoveSubnet(iidVPCInfo.IId, iid)
 			if err != nil {
 				cblog.Error(err)

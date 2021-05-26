@@ -8,6 +8,10 @@
 
 package commonruntime
 
+
+const SUBNET_PREFIX string = "subnet:"
+const SG_DELIMITER string = "-deli-"
+
 var StartTime string
 var MiddleStartTime string
 var ShortStartTime string

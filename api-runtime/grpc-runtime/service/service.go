@@ -19,9 +19,6 @@ const (
 	rsVM    string = "vm"
 )
 
-const rsSubnetPrefix string = "subnet:"
-const sgDELIMITER string = "-delimiter-"
-
 // ===== [ Types ] =====
 
 // CIMService -

@@ -12,6 +12,7 @@ package restruntime
 import (
 	"fmt"
 
+	cm "github.com/cloud-barista/cb-spider/api-runtime/common-runtime"
 	cmrt "github.com/cloud-barista/cb-spider/api-runtime/common-runtime"
 	cres "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 
@@ -29,14 +30,11 @@ import (
 const (
 	rsImage string = "image"
 	rsVPC   string = "vpc"
-	// rsSubnet = SUBNET:{VPC NameID} => cook in code
+	// rsSubnet = cm.SUBNET:{VPC NameID} => cook in code
 	rsSG  string = "sg"
 	rsKey string = "keypair"
 	rsVM  string = "vm"
 )
-
-const rsSubnetPrefix string = "subnet:"
-const sgDELIMITER string = "-delimiter-"
 
 //================ Image Handler
 func createImage(c echo.Context) error {
@@ -248,12 +246,12 @@ func createVPC(c echo.Context) error {
 	}
 
 	// check the input Name to include the SUBNET: Prefix
-	if strings.HasPrefix(req.ReqInfo.Name, rsSubnetPrefix) {
-		return echo.NewHTTPError(http.StatusInternalServerError, fmt.Errorf(rsSubnetPrefix+" cannot be used for VPC name prefix!!"))
+	if strings.HasPrefix(req.ReqInfo.Name, cm.SUBNET_PREFIX) {
+		return echo.NewHTTPError(http.StatusInternalServerError, fmt.Errorf(cm.SUBNET_PREFIX+" cannot be used for VPC name prefix!!"))
 	}
 	// check the input Name to include the SecurityGroup Delimiter
-	if strings.HasPrefix(req.ReqInfo.Name, sgDELIMITER) {
-		return echo.NewHTTPError(http.StatusInternalServerError, fmt.Errorf(sgDELIMITER+" cannot be used in VPC name!!"))
+	if strings.HasPrefix(req.ReqInfo.Name, cm.SG_DELIMITER) {
+		return echo.NewHTTPError(http.StatusInternalServerError, fmt.Errorf(cm.SG_DELIMITER+" cannot be used in VPC name!!"))
 	}
 
 	// Rest RegInfo => Driver ReqInfo
@@ -424,7 +422,7 @@ func addSubnet(c echo.Context) error {
 	reqSubnetInfo := cres.SubnetInfo{IId: cres.IID{req.ReqInfo.Name, ""}, IPv4_CIDR: req.ReqInfo.IPv4_CIDR}
 
 	// Call common-runtime API
-	result, err := cmrt.AddSubnet(req.ConnectionName, rsSubnetPrefix+c.Param("VPCName"), c.Param("VPCName"), reqSubnetInfo)
+	result, err := cmrt.AddSubnet(req.ConnectionName, cm.SUBNET_PREFIX+c.Param("VPCName"), c.Param("VPCName"), reqSubnetInfo)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
@@ -447,7 +445,7 @@ func removeSubnet(c echo.Context) error {
 	}
 
 	// Call common-runtime API
-	result, _, err := cmrt.DeleteResource(req.ConnectionName, rsSubnetPrefix+c.Param("VPCName"), c.Param("SubnetName"), c.QueryParam("force"))
+	result, _, err := cmrt.DeleteResource(req.ConnectionName, cm.SUBNET_PREFIX+c.Param("VPCName"), c.Param("SubnetName"), c.QueryParam("force"))
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
@@ -474,7 +472,7 @@ func removeCSPSubnet(c echo.Context) error {
 	}
 
 	// Call common-runtime API
-	result, _, err := cmrt.DeleteCSPResource(req.ConnectionName, rsSubnetPrefix+c.Param("VPCName"), c.Param("Id"))
+	result, _, err := cmrt.DeleteCSPResource(req.ConnectionName, cm.SUBNET_PREFIX+c.Param("VPCName"), c.Param("Id"))
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
@@ -505,16 +503,16 @@ func createSecurity(c echo.Context) error {
 	}
 
 	// check the input Name to include the SecurityGroup Delimiter
-	if strings.HasPrefix(req.ReqInfo.Name, sgDELIMITER) {
-		return echo.NewHTTPError(http.StatusInternalServerError, fmt.Errorf(sgDELIMITER+" cannot be used in SecurityGroup name!!"))
+	if strings.HasPrefix(req.ReqInfo.Name, cm.SG_DELIMITER) {
+		return echo.NewHTTPError(http.StatusInternalServerError, fmt.Errorf(cm.SG_DELIMITER+" cannot be used in SecurityGroup name!!"))
 	}
 
 	// Rest RegInfo => Driver ReqInfo
 	reqInfo := cres.SecurityReqInfo{
-		// SG NameID format => {VPC NameID} + sgDELIMITER + {SG NameID}
-		// transform: SG NameID => {VPC NameID} + sgDELIMITER + {SG NameID}
-		//IId:           cres.IID{req.ReqInfo.VPCName + sgDELIMITER + req.ReqInfo.Name, ""},
-		IId:           cres.IID{req.ReqInfo.VPCName + sgDELIMITER + req.ReqInfo.Name, req.ReqInfo.Name}, // for NCP: fixed NameID => SystemID, Driver: (1)search systemID with fixed NameID (2)replace fixed NameID into SysemID
+		// SG NameID format => {VPC NameID} + cm.SG_DELIMITER + {SG NameID}
+		// transform: SG NameID => {VPC NameID} + cm.SG_DELIMITER + {SG NameID}
+		//IId:           cres.IID{req.ReqInfo.VPCName + cm.SG_DELIMITER + req.ReqInfo.Name, ""},
+		IId:           cres.IID{req.ReqInfo.VPCName + cm.SG_DELIMITER + req.ReqInfo.Name, req.ReqInfo.Name}, // for NCP: fixed NameID => SystemID, Driver: (1)search systemID with fixed NameID (2)replace fixed NameID into SysemID
 		VpcIID:        cres.IID{req.ReqInfo.VPCName, ""},
 		Direction:     req.ReqInfo.Direction,
 		SecurityRules: req.ReqInfo.SecurityRules,
@@ -1093,9 +1091,9 @@ func startVM(c echo.Context) error {
 	// (1) create SecurityGroup IID List
 	sgIIDList := []cres.IID{}
 	for _, sgName := range req.ReqInfo.SecurityGroupNames {
-		// SG NameID format => {VPC NameID} + sgDELIMITER + {SG NameID}
+		// SG NameID format => {VPC NameID} + cm.SG_DELIMITER + {SG NameID}
 		// transform: SG NameID => {VPC NameID}-{SG NameID}
-		sgIID := cres.IID{req.ReqInfo.VPCName + sgDELIMITER + sgName, ""}
+		sgIID := cres.IID{req.ReqInfo.VPCName + cm.SG_DELIMITER + sgName, ""}
 		sgIIDList = append(sgIIDList, sgIID)
 	}
 	// (2) create VMReqInfo with SecurityGroup IID List

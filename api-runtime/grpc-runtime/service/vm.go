@@ -11,6 +11,7 @@ package service
 import (
 	"context"
 
+	cm "github.com/cloud-barista/cb-spider/api-runtime/common-runtime"
 	gc "github.com/cloud-barista/cb-spider/api-runtime/grpc-runtime/common"
 	"github.com/cloud-barista/cb-spider/api-runtime/grpc-runtime/logger"
 	pb "github.com/cloud-barista/cb-spider/api-runtime/grpc-runtime/stub/cbspider"
@@ -35,9 +36,9 @@ func (s *CCMService) StartVM(ctx context.Context, req *pb.VMCreateRequest) (*pb.
 	// (1) create SecurityGroup IID List
 	sgIIDList := []cres.IID{}
 	for _, sgName := range req.Item.SecurityGroupNames {
-		// SG NameID format => {VPC NameID} + sgDELIMITER + {SG NameID}
+		// SG NameID format => {VPC NameID} + cm.SG_DELIMITER + {SG NameID}
 		// transform: SG NameID => {VPC NameID}-{SG NameID}
-		sgIID := cres.IID{NameId: req.Item.VpcName + sgDELIMITER + sgName, SystemId: ""}
+		sgIID := cres.IID{NameId: req.Item.VpcName + cm.SG_DELIMITER + sgName, SystemId: ""}
 		sgIIDList = append(sgIIDList, sgIID)
 	}
 	// (2) create VMReqInfo with SecurityGroup IID List
