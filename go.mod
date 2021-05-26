@@ -5,6 +5,7 @@ go 1.16
 replace (
 	google.golang.org/api => google.golang.org/api v0.15.0
 	google.golang.org/grpc => google.golang.org/grpc v1.26.0
+
 )
 
 require (
@@ -57,6 +58,14 @@ require (
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b
 	gotest.tools v1.4.0 // indirect
+
+	// Do not delete. These are packages used at building NCP plugin Driver in Container.
+	github.com/NaverCloudPlatform/ncloud-sdk-go-v2 v1.1.7
+	github.com/appleboy/easyssh-proxy v1.3.9
+	github.com/sfreiberg/simplessh v0.0.0-20180301191542-495cbb862a9c
+	github.com/pkg/sftp v1.13.0 // indirect
+	// Do not delete. These are packages used at building NCP plugin Driver in Container.
+
 )
 
 retract (
