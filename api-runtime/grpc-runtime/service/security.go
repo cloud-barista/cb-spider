@@ -34,8 +34,8 @@ func (s *CCMService) CreateSecurity(ctx context.Context, req *pb.SecurityCreateR
 	logger.Debug("calling CCMService.CreateSecurity()")
 
 	// check the input Name to include the SecurityGroup Delimiter
-	if strings.HasPrefix(req.Item.Name, cm.SG_DELIMITER) {
-		return nil, gc.NewGrpcStatusErr(cm.SG_DELIMITER+" cannot be used in SecurityGroup name!!", "", "CCMService.CreateSecurity()")
+	if strings.Contains(req.Item.Name, cm.SG_DELIMITER) {
+		return nil, gc.NewGrpcStatusErr(cm.SG_DELIMITER+" cannot be used in Security Group name!!", "", "CCMService.CreateSecurity()")
 	}
 
 	// GRPC 메시지에서 CCM 객체로 복사

@@ -503,8 +503,8 @@ func createSecurity(c echo.Context) error {
 	}
 
 	// check the input Name to include the SecurityGroup Delimiter
-	if strings.HasPrefix(req.ReqInfo.Name, cm.SG_DELIMITER) {
-		return echo.NewHTTPError(http.StatusInternalServerError, fmt.Errorf(cm.SG_DELIMITER+" cannot be used in SecurityGroup name!!"))
+	if strings.Contains(req.ReqInfo.Name, cm.SG_DELIMITER) {
+		return echo.NewHTTPError(http.StatusInternalServerError, fmt.Errorf(cm.SG_DELIMITER+" cannot be used in Security Group name!!"))
 	}
 
 	// Rest RegInfo => Driver ReqInfo
