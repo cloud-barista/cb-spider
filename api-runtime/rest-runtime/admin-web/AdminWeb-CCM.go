@@ -936,7 +936,8 @@ func makeVMTRList_html(connConfig string, bgcolor string, height string, fontSiz
 				strSRList += "{FromPort:" + secRuleInfo.FromPort + ", "
 				strSRList += "ToPort:" + secRuleInfo.ToPort + ", "
 				strSRList += "IPProtocol:" + secRuleInfo.IPProtocol + ", "
-				strSRList += "Direction:" + secRuleInfo.Direction
+				strSRList += "Direction:" + secRuleInfo.Direction + ", "
+				strSRList += "CIDR:" + secRuleInfo.CIDR
 				strSRList += "},<br>"
 			}
 			strSRList += "]"
