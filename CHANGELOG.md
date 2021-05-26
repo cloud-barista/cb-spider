@@ -20,6 +20,8 @@
 - SG delimiter 길이 축소: `-delimiter-` => `-deli-`
   - 사용자 SG 이름 입력시 '-deli-' 사용 불가
   - 사용자 SG 이름 '-deli-' 입력 시: http.StatusInternalServerError(500 error) error, msg: "-deli- cannot be used in Security Group name!!"
+  - ref) https://github.com/cloud-barista/cb-spider/commit/80b8b2151339d7ff31e2cc58935f365160e496bd
+  - ref) https://github.com/cloud-barista/cb-spider/commit/144cc274dc3232b47226025dd6e8a24605784136
 
 # v0.3.0-espresso (2020.12.11.)
 ### API Change
