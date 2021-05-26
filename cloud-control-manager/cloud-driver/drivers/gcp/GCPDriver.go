@@ -97,7 +97,7 @@ func getVMClient(credential idrv.CredentialInfo) (context.Context, *compute.Serv
 	data["client_email"] = credential.ClientEmail
 
 	fmt.Println("################## data ##################")
-	fmt.Println("data to json : ", data)
+	//fmt.Println("data to json : ", data)
 	fmt.Println("################## data ##################")
 
 	res, _ := json.Marshal(data)

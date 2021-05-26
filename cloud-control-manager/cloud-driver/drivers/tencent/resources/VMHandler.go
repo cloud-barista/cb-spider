@@ -8,9 +8,11 @@ package resources
 
 import (
 	cblog "github.com/cloud-barista/cb-log"
+	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/sirupsen/logrus"
+	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
 	cvm "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/cvm/v20170312"
 )
 
@@ -34,6 +36,62 @@ func (vmHandler *TencentVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 
 func (vmHandler *TencentVMHandler) SuspendVM(vmIID irs.IID) (irs.VMStatus, error) {
 	cblogger.Infof("vmNameId : [%s]", vmIID.SystemId)
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.TENCENT,
+		RegionZone:   vmHandler.Region.Zone,
+		ResourceType: call.VM,
+		ResourceName: vmIID.SystemId,
+		CloudOSAPI:   "StopInstances()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+
+	request := cvm.NewStopInstancesRequest()
+	request.InstanceIds = common.StringPtrs([]string{vmIID.SystemId})
+	/*
+		Whether to force shut down an instance after a normal shutdown fails. Valid values:
+		TRUE: force shut down an instance after a normal shutdown fails
+		FALSE: do not force shut down an instance after a normal shutdown fails
+		Default value: FALSE.
+	*/
+	// request.ForceStop = common.BoolPtr(true)
+
+	/*
+		Instance shutdown mode. Valid values:
+
+		SOFT_FIRST: perform a soft shutdown first, and force shut down the instance if the soft shutdown fails
+		HARD: force shut down the instance directly
+		SOFT: soft shutdown only
+		Default value: SOFT.
+	*/
+	// request.StopType = common.StringPtr("SOFT")
+
+	/*
+		Billing method of a pay-as-you-go instance after shutdown. Valid values:
+
+		KEEP_CHARGING: billing continues after shutdown
+		STOP_CHARGING: billing stops after shutdown
+		Default value: KEEP_CHARGING. This parameter is only valid for some pay-as-you-go instances using cloud disks. For more information, see No charges when shut down for pay-as-you-go instances.
+		https://intl.cloud.tencent.com/document/product/213/19918
+	*/
+	// request.StoppedMode = common.StringPtr("STOP_CHARGING")
+
+	callLogStart := call.Start()
+	response, err := vmHandler.Client.StopInstances(request)
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+
+	if err != nil {
+		callLogInfo.ErrorMSG = err.Error()
+		callogger.Error(call.String(callLogInfo))
+
+		cblogger.Error(err)
+		return irs.VMStatus("Failed"), err
+	}
+	//spew.Dump(response)
+	callogger.Info(call.String(callLogInfo))
+	cblogger.Info(response.ToJsonString())
+
 	return irs.VMStatus("Suspending"), nil
 }
 
