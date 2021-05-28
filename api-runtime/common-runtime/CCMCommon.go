@@ -816,6 +816,13 @@ func CreateSecurity(connectionName string, rsType string, reqInfo cres.SecurityR
 		return nil, fmt.Errorf(rsType + "-" + reqInfo.IId.NameId + " already exists!")
 	}
 
+	// if no CIDR in input rules, set default ("0.0.0.0/0")
+	for n, _ := range *reqInfo.SecurityRules {
+		if (*reqInfo.SecurityRules)[n].CIDR == "" {
+			(*reqInfo.SecurityRules)[n].CIDR = "0.0.0.0/0"
+		}
+	}
+
 	// (2) create Resource
 	info, err := handler.CreateSecurity(reqInfo)
 	if err != nil {

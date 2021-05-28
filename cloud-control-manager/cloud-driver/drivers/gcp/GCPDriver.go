@@ -8,7 +8,6 @@
 //
 // by jazmandorf@gmail.com MZC
 
-
 package gcp
 
 import (

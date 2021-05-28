@@ -7,10 +7,22 @@
 package resources
 
 import (
+	"encoding/base64"
+	"errors"
+	"io/ioutil"
+	"os"
+	"reflect"
+	"strconv"
+	"strings"
+	"time"
+
 	cblog "github.com/cloud-barista/cb-log"
+	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
+	"github.com/davecgh/go-spew/spew"
 	"github.com/sirupsen/logrus"
+	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
 	cvm "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/cvm/v20170312"
 )
 
@@ -26,107 +38,38 @@ type TencentVMHandler struct {
 	Client *cvm.Client
 }
 
+// VM생성 시 Zone이 필수라서 Credential의 Zone에만 생성함.
 func (vmHandler *TencentVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, error) {
 	cblogger.Info(vmReqInfo)
 
-	return irs.VMInfo{}, nil
-}
-
-func (vmHandler *TencentVMHandler) SuspendVM(vmIID irs.IID) (irs.VMStatus, error) {
-	cblogger.Infof("vmNameId : [%s]", vmIID.SystemId)
-	return irs.VMStatus("Suspending"), nil
-}
-
-func (vmHandler *TencentVMHandler) ResumeVM(vmIID irs.IID) (irs.VMStatus, error) {
-	cblogger.Infof("vmNameId : [%s]", vmIID.SystemId)
-	return irs.VMStatus("Resuming"), nil
-}
-
-func (vmHandler *TencentVMHandler) RebootVM(vmIID irs.IID) (irs.VMStatus, error) {
-	cblogger.Infof("vmNameId : [%s]", vmIID.NameId)
-	return irs.VMStatus("Rebooting"), nil
-}
-func (vmHandler *TencentVMHandler) TerminateVM(vmIID irs.IID) (irs.VMStatus, error) {
-	cblogger.Infof("vmNameId : [%s]", vmIID.NameId)
-	return irs.VMStatus("Terminating"), nil
-}
-
-func (vmHandler *TencentVMHandler) GetVM(vmIID irs.IID) (irs.VMInfo, error) {
-	cblogger.Infof("vmNameId : [%s]", vmIID.SystemId)
-	return irs.VMInfo{}, nil
-}
-func (vmHandler *TencentVMHandler) ListVM() ([]*irs.VMInfo, error) {
-	cblogger.Infof("Start")
-	return nil, nil
-}
-
-func (vmHandler *TencentVMHandler) GetVMStatus(vmIID irs.IID) (irs.VMStatus, error) {
-	cblogger.Infof("vmNameId : [%s]", vmIID.SystemId)
-	return irs.VMStatus("Failed"), nil
-}
-
-func (vmHandler *TencentVMHandler) ListVMStatus() ([]*irs.VMStatusInfo, error) {
-	cblogger.Infof("Start")
-	return nil, nil
-}
-
-/*
-// 1개의 VM만 생성되도록 수정 (MinCount / MaxCount 이용 안 함)
-//키페어 이름(예:mcloud-barista)은 아래 URL에 나오는 목록 중 "키페어 이름"의 값을 적으면 됨.
-//https://ap-northeast-2.console.aws.amazon.com/ec2/v2/home?region=ap-northeast-2#KeyPairs:sort=keyName
-func (vmHandler *TencentVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, error) {
-	cblogger.Info(vmReqInfo)
-	spew.Dump(vmReqInfo)
-
-	imageID := vmReqInfo.ImageIID.SystemId
-	instanceType := vmReqInfo.VMSpecName // "t2.micro"
-	minCount := aws.Int64(1)
-	maxCount := aws.Int64(1)
-	keyName := vmReqInfo.KeyPairIID.SystemId
-	baseName := vmReqInfo.IId.NameId //"mcloud-barista-VMHandlerTest"
-	subnetID := vmReqInfo.SubnetIID.SystemId
-
-	//=============================
-	// 보안그룹 처리 - SystemId 기반
-	//=============================
-	cblogger.Info("SystemId 기반으로 처리하기 위해 IID 기반의 보안그룹 배열을 SystemId 기반 보안그룹 배열로 조회및 변환함.")
-	var newSecurityGroupIds []string
-
-	for _, sgName := range vmReqInfo.SecurityGroupIIDs {
-		cblogger.Infof("보안그룹 변환 : [%s]", sgName)
-		newSecurityGroupIds = append(newSecurityGroupIds, sgName.SystemId)
+	zoneId := vmHandler.Region.Zone
+	cblogger.Debugf("Zone : %s", zoneId)
+	if zoneId == "" {
+		cblogger.Error("Connection 정보에 Zone 정보가 없습니다.")
+		return irs.VMInfo{}, errors.New("Connection 정보에 Zone 정보가 없습니다")
 	}
 
-	cblogger.Info("보안그룹 변환 완료")
-	cblogger.Info(newSecurityGroupIds)
-
+	// 2021-04-28 cbuser 추가에 따른 Local KeyPair만 VM 생성 가능하도록 강제
 	//=============================
-	// VM생성 처리
+	// KeyPair의 PublicKey 정보 처리
 	//=============================
-	cblogger.Info("Create EC2 Instance")
-	input := &ec2.RunInstancesInput{
-		ImageId:      aws.String(imageID),
-		InstanceType: aws.String(instanceType),
-		MinCount:     minCount,
-		MaxCount:     maxCount,
-		KeyName:      aws.String(keyName),
-
-		NetworkInterfaces: []*ec2.InstanceNetworkInterfaceSpecification{ // PublicIp 할당을 위해 SubnetId와 보안 그룹을 이 곳에서 정의해야 함.
-			{AssociatePublicIpAddress: aws.Bool(true),
-				DeviceIndex: aws.Int64(0),
-				Groups:      aws.StringSlice(newSecurityGroupIds),
-				SubnetId:    aws.String(subnetID),
-			},
-		},
-
-		//ec2.InstanceNetworkInterfaceSpecification
+	cblogger.Infof("[%s] KeyPair 조회 시작", vmReqInfo.KeyPairIID.SystemId)
+	keypairHandler := TencentKeyPairHandler{
+		//CredentialInfo:
+		Region: vmHandler.Region,
+		Client: vmHandler.Client,
 	}
-	cblogger.Info(input)
+	cblogger.Info(keypairHandler)
 
-	// logger for HisCall
+	keyPairInfo, errKeyPair := keypairHandler.GetKey(vmReqInfo.KeyPairIID)
+	if errKeyPair != nil {
+		cblogger.Error(errKeyPair)
+		return irs.VMInfo{}, errKeyPair
+	}
+
 	callogger := call.GetLogger("HISCALL")
 	callLogInfo := call.CLOUDLOGSCHEMA{
-		CloudOS:      call.AWS,
+		CloudOS:      call.TENCENT,
 		RegionZone:   vmHandler.Region.Zone,
 		ResourceType: call.VM,
 		ResourceName: vmReqInfo.IId.NameId,
@@ -134,155 +77,115 @@ func (vmHandler *TencentVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 		ElapsedTime:  "",
 		ErrorMSG:     "",
 	}
-	callLogStart := call.Start()
-	// Specify the details of the instance that you want to create.
-	runResult, err := vmHandler.Client.RunInstances(input)
-	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
-	cblogger.Info(runResult)
+
+	request := cvm.NewRunInstancesRequest()
+	request.InstanceType = common.StringPtr(vmReqInfo.VMSpecName)
+
+	request.ImageId = common.StringPtr(vmReqInfo.ImageIID.SystemId)
+	request.VirtualPrivateCloud = &cvm.VirtualPrivateCloud{
+		VpcId:    common.StringPtr(vmReqInfo.VpcIID.SystemId),
+		SubnetId: common.StringPtr(vmReqInfo.SubnetIID.SystemId),
+	}
+
+	request.InternetAccessible = &cvm.InternetAccessible{
+		// 	InternetChargeType: common.StringPtr("TRAFFIC_POSTPAID_BY_HOUR"),
+		PublicIpAssigned:        common.BoolPtr(true),
+		InternetMaxBandwidthOut: common.Int64Ptr(1), //Public Ip를 할당하려면 The maximum outbound bandwidth of the public network가 1Mbps이상이어야 함.
+	}
+
+	request.InstanceName = common.StringPtr(vmReqInfo.IId.NameId)
+	request.LoginSettings = &cvm.LoginSettings{
+		KeyIds: common.StringPtrs([]string{vmReqInfo.KeyPairIID.SystemId}),
+	}
+
+	//=============================
+	// 보안그룹 처리 - SystemId 기반
+	//=============================
+	cblogger.Debug("SystemId 기반으로 처리하기 위해 IID 기반의 보안그룹 배열을 SystemId 기반 보안그룹 배열로 조회및 변환함.")
+	var newSecurityGroupIds []string
+	for _, curSecurityGroup := range vmReqInfo.SecurityGroupIIDs {
+		cblogger.Infof("보안그룹 변환 : [%s]", curSecurityGroup)
+		newSecurityGroupIds = append(newSecurityGroupIds, curSecurityGroup.SystemId)
+	}
+
+	cblogger.Debug("보안그룹 변환 완료")
+	cblogger.Debug(newSecurityGroupIds)
+	request.SecurityGroupIds = common.StringPtrs(newSecurityGroupIds)
+
+	//=============================
+	// Placement 처리
+	//=============================
+	request.Placement = &cvm.Placement{
+		Zone: common.StringPtr(vmHandler.Region.Zone),
+	}
+
+	//=============================
+	// SystemDisk 처리
+	//=============================
+	request.SystemDisk = &cvm.SystemDisk{
+		DiskType: common.StringPtr("CLOUD_PREMIUM"),
+	}
+
+	//=============================
+	// UserData생성 처리(File기반)
+	//=============================
+	// 향후 공통 파일이나 외부에서 수정 가능하도록 cloud-init 스크립트 파일로 설정
+	rootPath := os.Getenv("CBSPIDER_ROOT")
+	fileDataCloudInit, err := ioutil.ReadFile(rootPath + CBCloudInitFilePath)
 	if err != nil {
-		callLogInfo.ErrorMSG = err.Error()
-		callogger.Info(call.String(callLogInfo))
-		cblogger.Errorf("EC2 인스턴스 생성 실패 : ", err)
+		cblogger.Error(err)
 		return irs.VMInfo{}, err
 	}
-	callogger.Info(call.String(callLogInfo))
+	userData := string(fileDataCloudInit)
+	userData = strings.ReplaceAll(userData, "{{username}}", CBDefaultVmUserName)
+	userData = strings.ReplaceAll(userData, "{{public_key}}", keyPairInfo.PublicKey)
+	userDataBase64 := base64.StdEncoding.EncodeToString([]byte(userData))
+	cblogger.Debugf("cloud-init data : [%s]", userDataBase64)
+	request.UserData = common.StringPtr(userDataBase64)
 
-	if len(runResult.Instances) < 1 {
-		return irs.VMInfo{}, errors.New("AWS로부터 전달 받은 VM 정보가 없습니다.")
-	}
-
-	//=============================
-	// Name Tag 처리 - NameId 기반
-	//=============================
-	newVmId := *runResult.Instances[0].InstanceId
-	cblogger.Infof("[%s] VM이 생성되었습니다.", newVmId)
-
-	if baseName != "" {
-		// Tag에 VM Name 설정
-		_, errtag := vmHandler.Client.CreateTags(&ec2.CreateTagsInput{
-			Resources: []*string{runResult.Instances[0].InstanceId},
-			Tags: []*ec2.Tag{
-				{
-					Key:   aws.String("Name"),
-					Value: aws.String(baseName),
-				},
-			},
-		})
-		if errtag != nil {
-			cblogger.Errorf("[%s] VM에 Name Tag 설정 실패", newVmId)
-			cblogger.Error(errtag)
-			//return irs.VMInfo{}, errtag
-		}
-	} else {
-		cblogger.Error("vmReqInfo.IId.NameId가 전달되지 않아서 Name Tag를 설정하지않습니다.")
-	}
-	//Public IP및 최신 정보 전달을 위해 부팅이 완료될 때까지 대기했다가 전달하는 것으로 변경 함.
-	//cblogger.Info("Public IP 할당 및 VM의 최신 정보 획득을 위해 EC2가 Running 상태가 될때까지 대기")
-	cblogger.Info("VM의 최신 정보 획득을 위해 EC2가 Running 상태가 될때까지 대기")
-	WaitForRun(vmHandler.Client, newVmId)
-	cblogger.Info("EC2 Running 상태 완료 : ", runResult.Instances[0].State.Name)
-
-	//최신 정보 조회
-	//newVmInfo, _ := vmHandler.GetVM(newVmId)
-	newVmInfo, _ := vmHandler.GetVM(irs.IID{SystemId: newVmId})
-	newVmInfo.IId.NameId = vmReqInfo.IId.NameId // Tag 정보가 없을 수 있기 때문에 요청 받은 NameId를 전달 함.
-
-	return newVmInfo, nil
-}
-
-//VM이 Running 상태일때까지 대기 함.
-func WaitForRun(svc *ec2.EC2, instanceID string) {
-	cblogger.Infof("EC2 ID : [%s]", instanceID)
-
-	input := &ec2.DescribeInstancesInput{
-		InstanceIds: []*string{
-			aws.String(instanceID),
-		},
-	}
-	err := svc.WaitUntilInstanceRunning(input)
-	if err != nil {
-		cblogger.Errorf("failed to wait until instances exist: %v", err)
-	}
-	cblogger.Info("=========WaitForRun() 종료")
-}
-
-//func (vmHandler *TencentVMHandler) ResumeVM(vmNameId string) (irs.VMStatus, error) {
-func (vmHandler *TencentVMHandler) ResumeVM(vmIID irs.IID) (irs.VMStatus, error) {
-	cblogger.Infof("vmNameId : [%s]", vmIID.SystemId)
-
-	vmID := vmIID.SystemId
-	cblogger.Infof("vmID : [%s]", vmID)
-
-	input := &ec2.StartInstancesInput{
-		InstanceIds: []*string{
-			aws.String(vmID),
-		},
-		DryRun: aws.Bool(true),
-	}
-
-	// logger for HisCall
-	callogger := call.GetLogger("HISCALL")
-	callLogInfo := call.CLOUDLOGSCHEMA{
-		CloudOS:      call.AWS,
-		RegionZone:   vmHandler.Region.Zone,
-		ResourceType: call.VM,
-		ResourceName: vmIID.SystemId,
-		CloudOSAPI:   "StartInstances()",
-		ElapsedTime:  "",
-		ErrorMSG:     "",
-	}
+	cblogger.Info("===== 요청 객체====")
+	spew.Config.Dump(request)
 	callLogStart := call.Start()
-
-	result, err := vmHandler.Client.StartInstances(input)
+	response, err := vmHandler.Client.RunInstances(request)
 	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
-	spew.Dump(result)
-	awsErr, ok := err.(awserr.Error)
 
-	if ok && awsErr.Code() == "DryRunOperation" {
-		// Let's now set dry run to be false. This will allow us to start the instances
-		input.DryRun = aws.Bool(false)
-		result, err = vmHandler.Client.StartInstances(input)
-		spew.Dump(result)
-		if err != nil {
-			//fmt.Println("Error", err)
-			cblogger.Error(err)
-			callLogInfo.ErrorMSG = err.Error()
-			callogger.Info(call.String(callLogInfo))
-			return irs.VMStatus("Failed"), err
-		} else {
-			//fmt.Println("Success", result.StartingInstances)
-			cblogger.Info("Success", result.StartingInstances)
-		}
-	} else { // This could be due to a lack of permissions
-		//fmt.Println("Error", err)
-		cblogger.Error(err)
+	if err != nil {
 		callLogInfo.ErrorMSG = err.Error()
-		callogger.Info(call.String(callLogInfo))
-		return irs.VMStatus("Failed"), err
-	}
-	callogger.Info(call.String(callLogInfo))
+		callogger.Error(call.String(callLogInfo))
 
-	return irs.VMStatus("Resuming"), nil
+		cblogger.Error(err)
+		return irs.VMInfo{}, err
+	}
+	spew.Dump(response)
+	callogger.Info(call.String(callLogInfo))
+	cblogger.Debug(response.ToJsonString())
+
+	//=========================================
+	// VM 정보를 조회할 수 있을 때까지 대기
+	//-----------------------------------------
+	// WaitForRun을 호출하지 않아도 상관 없지만 Public Ip 등은 할당되지 않아서 조회되지 않으며
+	// cb-tumblebug에서 일부 정보를 사용하기 때문에 Tencent도 Running 상태가 될때까지 대기 함.
+	//=========================================
+	newVmIID := irs.IID{SystemId: *response.Response.InstanceIdSet[0]}
+
+	curStatus, errStatus := vmHandler.WaitForRun(newVmIID)
+	if errStatus != nil {
+		cblogger.Error(errStatus.Error())
+		return irs.VMInfo{}, nil
+	}
+	cblogger.Info("==>생성된 VM[%s]의 현재 상태[%s]", newVmIID, curStatus)
+
+	vmInfo, errVmInfo := vmHandler.GetVM(newVmIID)
+	vmInfo.IId.NameId = vmReqInfo.IId.NameId
+	return vmInfo, errVmInfo
 }
 
-//func (vmHandler *TencentVMHandler) SuspendVM(vmNameId string) (irs.VMStatus, error) {
 func (vmHandler *TencentVMHandler) SuspendVM(vmIID irs.IID) (irs.VMStatus, error) {
 	cblogger.Infof("vmNameId : [%s]", vmIID.SystemId)
 
-	vmID := vmIID.SystemId
-	cblogger.Infof("vmID : [%s]", vmID)
-
-	input := &ec2.StopInstancesInput{
-		InstanceIds: []*string{
-			aws.String(vmID),
-		},
-		DryRun: aws.Bool(true),
-	}
-	cblogger.Info(input)
-	// logger for HisCall
 	callogger := call.GetLogger("HISCALL")
 	callLogInfo := call.CLOUDLOGSCHEMA{
-		CloudOS:      call.AWS,
+		CloudOS:      call.TENCENT,
 		RegionZone:   vmHandler.Region.Zone,
 		ResourceType: call.VM,
 		ResourceName: vmIID.SystemId,
@@ -290,56 +193,96 @@ func (vmHandler *TencentVMHandler) SuspendVM(vmIID irs.IID) (irs.VMStatus, error
 		ElapsedTime:  "",
 		ErrorMSG:     "",
 	}
+
+	request := cvm.NewStopInstancesRequest()
+	request.InstanceIds = common.StringPtrs([]string{vmIID.SystemId})
+	/*
+		Whether to force shut down an instance after a normal shutdown fails. Valid values:
+		TRUE: force shut down an instance after a normal shutdown fails
+		FALSE: do not force shut down an instance after a normal shutdown fails
+		Default value: FALSE.
+	*/
+	// request.ForceStop = common.BoolPtr(true)
+
+	/*
+		Instance shutdown mode. Valid values:
+
+		SOFT_FIRST: perform a soft shutdown first, and force shut down the instance if the soft shutdown fails
+		HARD: force shut down the instance directly
+		SOFT: soft shutdown only
+		Default value: SOFT.
+	*/
+	// request.StopType = common.StringPtr("SOFT")
+
+	/*
+		Billing method of a pay-as-you-go instance after shutdown. Valid values:
+
+		KEEP_CHARGING: billing continues after shutdown
+		STOP_CHARGING: billing stops after shutdown
+		Default value: KEEP_CHARGING. This parameter is only valid for some pay-as-you-go instances using cloud disks. For more information, see No charges when shut down for pay-as-you-go instances.
+		https://intl.cloud.tencent.com/document/product/213/19918
+	*/
+	// request.StoppedMode = common.StringPtr("STOP_CHARGING")
+
 	callLogStart := call.Start()
-	result, err := vmHandler.Client.StopInstances(input)
+	response, err := vmHandler.Client.StopInstances(request)
 	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
-	spew.Dump(result)
-	awsErr, ok := err.(awserr.Error)
-	if ok && awsErr.Code() == "DryRunOperation" {
-		input.DryRun = aws.Bool(false)
-		result, err = vmHandler.Client.StopInstances(input)
-		spew.Dump(result)
-		if err != nil {
-			callLogInfo.ErrorMSG = err.Error()
-			callogger.Info(call.String(callLogInfo))
-			cblogger.Error(err)
-			return irs.VMStatus("Failed"), err
-		} else {
-			cblogger.Info("Success", result.StoppingInstances)
-		}
-	} else {
+
+	if err != nil {
 		callLogInfo.ErrorMSG = err.Error()
-		callogger.Info(call.String(callLogInfo))
-		cblogger.Error("Error", err)
+		callogger.Error(call.String(callLogInfo))
+
+		cblogger.Error(err)
 		return irs.VMStatus("Failed"), err
 	}
+	//spew.Dump(response)
 	callogger.Info(call.String(callLogInfo))
+	cblogger.Debug(response.ToJsonString())
 
 	return irs.VMStatus("Suspending"), nil
 }
 
-//func (vmHandler *TencentVMHandler) RebootVM(vmNameId string) (irs.VMStatus, error) {
+func (vmHandler *TencentVMHandler) ResumeVM(vmIID irs.IID) (irs.VMStatus, error) {
+	cblogger.Infof("vmNameId : [%s]", vmIID.SystemId)
+
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.TENCENT,
+		RegionZone:   vmHandler.Region.Zone,
+		ResourceType: call.VM,
+		ResourceName: vmIID.SystemId,
+		CloudOSAPI:   "StartInstances()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+
+	request := cvm.NewStartInstancesRequest()
+	request.InstanceIds = common.StringPtrs([]string{vmIID.SystemId})
+
+	callLogStart := call.Start()
+	response, err := vmHandler.Client.StartInstances(request)
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+
+	if err != nil {
+		callLogInfo.ErrorMSG = err.Error()
+		callogger.Error(call.String(callLogInfo))
+
+		cblogger.Error(err)
+		return irs.VMStatus("Failed"), err
+	}
+	//spew.Dump(response)
+	callogger.Info(call.String(callLogInfo))
+	cblogger.Debug(response.ToJsonString())
+
+	return irs.VMStatus("Resuming"), nil
+}
+
 func (vmHandler *TencentVMHandler) RebootVM(vmIID irs.IID) (irs.VMStatus, error) {
 	cblogger.Infof("vmNameId : [%s]", vmIID.NameId)
 
-	vmInfo, errVmInfo := vmHandler.GetVM(vmIID)
-	if errVmInfo != nil {
-		return irs.VMStatus("Failed"), errVmInfo
-	}
-	cblogger.Info(vmInfo)
-	vmID := vmInfo.IId.SystemId
-	cblogger.Infof("vmID : [%s]", vmID)
-
-	input := &ec2.RebootInstancesInput{
-		InstanceIds: []*string{
-			aws.String(vmID),
-		},
-		DryRun: aws.Bool(true),
-	}
-	// logger for HisCall
 	callogger := call.GetLogger("HISCALL")
 	callLogInfo := call.CLOUDLOGSCHEMA{
-		CloudOS:      call.AWS,
+		CloudOS:      call.TENCENT,
 		RegionZone:   vmHandler.Region.Zone,
 		ResourceType: call.VM,
 		ResourceName: vmIID.SystemId,
@@ -347,67 +290,34 @@ func (vmHandler *TencentVMHandler) RebootVM(vmIID irs.IID) (irs.VMStatus, error)
 		ElapsedTime:  "",
 		ErrorMSG:     "",
 	}
+
+	request := cvm.NewRebootInstancesRequest()
+	request.InstanceIds = common.StringPtrs([]string{vmIID.SystemId})
+
 	callLogStart := call.Start()
-	result, err := vmHandler.Client.RebootInstances(input)
+	response, err := vmHandler.Client.RebootInstances(request)
 	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
-	cblogger.Info("result 값 : ", result)
-	cblogger.Info("err 값 : ", err)
 
-	awsErr, ok := err.(awserr.Error)
-	cblogger.Info("ok 값 : ", ok)
-	cblogger.Info("awsErr 값 : ", awsErr)
-	if ok && awsErr.Code() == "DryRunOperation" {
-		cblogger.Info("Reboot 권한 있음 - awsErr.Code() : ", awsErr.Code())
-
-		//DryRun 권한 해제 후 리부팅을 요청 함.
-		cblogger.Info("DryRun 권한 해제 후 리부팅을 요청 함.")
-		input.DryRun = aws.Bool(false)
-		result, err = vmHandler.Client.RebootInstances(input)
-		spew.Dump(result)
-		cblogger.Info("result 값 : ", result)
-		cblogger.Info("err 값 : ", err)
-		if err != nil {
-			callLogInfo.ErrorMSG = err.Error()
-			callogger.Info(call.String(callLogInfo))
-			cblogger.Error("Error", err)
-			return irs.VMStatus("Failed"), err
-		} else {
-			cblogger.Info("Success", result)
-		}
-	} else { // This could be due to a lack of permissions
-		cblogger.Info("리부팅 권한이 없는 것같음.")
-		cblogger.Error("Error", err)
+	if err != nil {
 		callLogInfo.ErrorMSG = err.Error()
-		callogger.Info(call.String(callLogInfo))
+		callogger.Error(call.String(callLogInfo))
+
+		cblogger.Error(err)
 		return irs.VMStatus("Failed"), err
 	}
+	//spew.Dump(response)
 	callogger.Info(call.String(callLogInfo))
+	cblogger.Debug(response.ToJsonString())
+
 	return irs.VMStatus("Rebooting"), nil
 }
 
-//func (vmHandler *TencentVMHandler) TerminateVM(vmNameId string) (irs.VMStatus, error) {
 func (vmHandler *TencentVMHandler) TerminateVM(vmIID irs.IID) (irs.VMStatus, error) {
 	cblogger.Infof("vmNameId : [%s]", vmIID.NameId)
 
-	vmInfo, errVmInfo := vmHandler.GetVM(vmIID)
-	if errVmInfo != nil {
-		return irs.VMStatus("Failed"), errVmInfo
-	}
-	cblogger.Info(vmInfo)
-	vmID := vmInfo.IId.SystemId
-	cblogger.Infof("vmID : [%s]", vmID)
-
-	input := &ec2.TerminateInstancesInput{
-		//InstanceIds: instanceIds,
-		InstanceIds: []*string{
-			aws.String(vmID),
-		},
-	}
-
-	// logger for HisCall
 	callogger := call.GetLogger("HISCALL")
 	callLogInfo := call.CLOUDLOGSCHEMA{
-		CloudOS:      call.AWS,
+		CloudOS:      call.TENCENT,
 		RegionZone:   vmHandler.Region.Zone,
 		ResourceType: call.VM,
 		ResourceName: vmIID.SystemId,
@@ -415,38 +325,34 @@ func (vmHandler *TencentVMHandler) TerminateVM(vmIID irs.IID) (irs.VMStatus, err
 		ElapsedTime:  "",
 		ErrorMSG:     "",
 	}
-	callLogStart := call.Start()
 
-	result, err := vmHandler.Client.TerminateInstances(input)
+	request := cvm.NewTerminateInstancesRequest()
+	request.InstanceIds = common.StringPtrs([]string{vmIID.SystemId})
+
+	callLogStart := call.Start()
+	response, err := vmHandler.Client.TerminateInstances(request)
 	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
-	spew.Dump(result)
+
 	if err != nil {
 		callLogInfo.ErrorMSG = err.Error()
-		callogger.Info(call.String(callLogInfo))
-		cblogger.Error("Could not termiate instances", err)
+		callogger.Error(call.String(callLogInfo))
+
+		cblogger.Error(err)
 		return irs.VMStatus("Failed"), err
-	} else {
-		cblogger.Info("Success")
 	}
+	//spew.Dump(response)
 	callogger.Info(call.String(callLogInfo))
+	cblogger.Debug(response.ToJsonString())
+
 	return irs.VMStatus("Terminating"), nil
 }
 
-//2019-11-16부로 CB-Driver 전체 로직이 NameId 기반으로 변경됨.
-//func (vmHandler *TencentVMHandler) GetVM(vmNameId string) (irs.VMInfo, error) {
 func (vmHandler *TencentVMHandler) GetVM(vmIID irs.IID) (irs.VMInfo, error) {
 	cblogger.Infof("vmNameId : [%s]", vmIID.SystemId)
-	input := &ec2.DescribeInstancesInput{
-		InstanceIds: []*string{
-			aws.String(vmIID.SystemId),
-		},
-	}
-	cblogger.Info(input)
 
-	// logger for HisCall
 	callogger := call.GetLogger("HISCALL")
 	callLogInfo := call.CLOUDLOGSCHEMA{
-		CloudOS:      call.AWS,
+		CloudOS:      call.TENCENT,
 		RegionZone:   vmHandler.Region.Zone,
 		ResourceType: call.VM,
 		ResourceName: vmIID.SystemId,
@@ -454,235 +360,290 @@ func (vmHandler *TencentVMHandler) GetVM(vmIID irs.IID) (irs.VMInfo, error) {
 		ElapsedTime:  "",
 		ErrorMSG:     "",
 	}
-	callLogStart := call.Start()
 
-	result, err := vmHandler.Client.DescribeInstances(input)
+	request := cvm.NewDescribeInstancesRequest()
+	request.InstanceIds = common.StringPtrs([]string{vmIID.SystemId})
+
+	callLogStart := call.Start()
+	response, err := vmHandler.Client.DescribeInstances(request)
 	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
-	cblogger.Info(result)
+
 	if err != nil {
-		if aerr, ok := err.(awserr.Error); ok {
-			switch aerr.Code() {
-			default:
-				cblogger.Error(aerr.Error())
-			}
-		} else {
-			// Print the error, cast err to awserr.Error to get the Code and Message from an error.
-			cblogger.Error(err.Error())
-		}
 		callLogInfo.ErrorMSG = err.Error()
-		callogger.Info(call.String(callLogInfo))
+		callogger.Error(call.String(callLogInfo))
+
+		cblogger.Error(err)
 		return irs.VMInfo{}, err
 	}
+
+	//spew.Dump(response)
 	callogger.Info(call.String(callLogInfo))
+	cblogger.Debug(response.ToJsonString())
 
-	//cblogger.Info(result)
-	cblogger.Infof("조회된 VM 정보 수 : [%d]", len(result.Reservations))
-	if len(result.Reservations) > 1 {
-		return irs.VMInfo{}, awserr.New("600", "1개 이상의 VM ["+vmIID.NameId+"] 정보가 존재합니다.", nil)
-	} else if len(result.Reservations) == 0 {
-		cblogger.Errorf("VM [%s] 정보가 존재하지 않습니다.", vmIID.NameId)
-		return irs.VMInfo{}, awserr.New("404", "VM ["+vmIID.NameId+"] 정보가 존재하지 않습니다.", nil)
+	if *response.Response.TotalCount < 1 {
+		return irs.VMInfo{}, errors.New("VM 정보를 찾을 수 없습니다")
 	}
 
-	vmInfo := irs.VMInfo{}
-	for _, i := range result.Reservations {
-		//vmInfo := ExtractDescribeInstances(result.Reservations[0])
-		vmInfo = vmHandler.ExtractDescribeInstances(i)
-	}
-
-	//if len(vmInfo.Region.Zone) > 0 {
-	//vmInfo.Region.Region = vmHandler.Region.Region
-	//}
-
+	vmInfo, errVmInfo := vmHandler.ExtractDescribeInstances(response.Response.InstanceSet[0])
 	cblogger.Info("vmInfo", vmInfo)
-	return vmInfo, nil
+	return vmInfo, errVmInfo
 }
 
-// DescribeInstances결과에서 EC2 세부 정보 추출
-// VM 생성 시에는 Running 이전 상태의 정보가 넘어오기 때문에
-// 최종 정보 기반으로 리턴 받고 싶으면 GetVM에 통합해야 할 듯.
-func (vmHandler *TencentVMHandler) ExtractDescribeInstances(reservation *ec2.Reservation) irs.VMInfo {
-	//cblogger.Info("ExtractDescribeInstances", reservation)
-	cblogger.Info("Instances[0]", reservation.Instances[0])
-	//spew.Dump(reservation.Instances[0])
-
-	//"stopped" / "terminated" / "running" ...
-	var state string
-	state = *reservation.Instances[0].State.Name
-	cblogger.Infof("EC2 상태 : [%s]", state)
+func (vmHandler *TencentVMHandler) ExtractDescribeInstances(curVm *cvm.Instance) (irs.VMInfo, error) {
+	//cblogger.Info("ExtractDescribeInstances", curVm)
+	spew.Dump(curVm)
 
 	//VM상태와 무관하게 항상 값이 존재하는 항목들만 초기화
 	vmInfo := irs.VMInfo{
-		IId:        irs.IID{"", *reservation.Instances[0].InstanceId},
-		ImageIId:   irs.IID{*reservation.Instances[0].ImageId, *reservation.Instances[0].ImageId},
-		VMSpecName: *reservation.Instances[0].InstanceType,
-		KeyPairIId: irs.IID{*reservation.Instances[0].KeyName, *reservation.Instances[0].KeyName},
-		//GuestUserID:    "",
-		//AdditionalInfo: "State:" + *reservation.Instances[0].State.Name,
+		IId:        irs.IID{SystemId: *curVm.InstanceId},
+		VMSpecName: *curVm.InstanceType,
+		//KeyPairIId: irs.IID{SystemId: *curVm.},
+	}
+
+	if !reflect.ValueOf(curVm.ImageId).IsNil() {
+		vmInfo.ImageIId = irs.IID{SystemId: *curVm.ImageId}
+	}
+
+	// vmInfo.StartTime = *curVm.CreatedTime
+	vmStartTime := *curVm.CreatedTime
+	timeLen := len(vmStartTime)
+	cblogger.Debug("서버 구동 시간 포멧 변환 처리")
+	cblogger.Debugf("======> 생성시간 길이 [%s]", timeLen)
+	if timeLen > 7 {
+		cblogger.Debugf("======> 생성시간 마지막 문자열 [%s]", vmStartTime[timeLen-1:])
+		var NewStartTime string
+		if vmStartTime[timeLen-1:] == "Z" && timeLen == 17 {
+			//cblogger.Infof("======> 문자열 변환 : [%s]", StartTime[:timeLen-1])
+			NewStartTime = vmStartTime[:timeLen-1] + ":00Z"
+			cblogger.Debugf("======> 최종 문자열 변환 : [%s]", NewStartTime)
+		} else {
+			NewStartTime = vmStartTime
+		}
+
+		cblogger.Debugf("Convert StartTime string [%s] to time.time", NewStartTime)
+
+		//layout := "2020-05-07T01:36Z"
+		t, err := time.Parse(time.RFC3339, NewStartTime)
+		if err != nil {
+			cblogger.Error(err)
+		} else {
+			cblogger.Debugf("======> [%v]", t)
+			vmInfo.StartTime = t
+		}
+	}
+
+	if !reflect.ValueOf(curVm.LoginSettings).IsNil() {
+		if !reflect.ValueOf(curVm.LoginSettings.KeyIds).IsNil() {
+			if len(curVm.LoginSettings.KeyIds) > 0 {
+				vmInfo.KeyPairIId = irs.IID{SystemId: *curVm.LoginSettings.KeyIds[0]}
+			}
+		}
+	}
+
+	if !reflect.ValueOf(curVm.PublicIpAddresses).IsNil() {
+		vmInfo.PublicIP = *curVm.PublicIpAddresses[0]
+	}
+
+	if !reflect.ValueOf(curVm.Placement.Zone).IsNil() {
+		vmInfo.Region = irs.RegionInfo{
+			Region: vmHandler.Region.Region, //리전 정보 추가
+			Zone:   *curVm.Placement.Zone,
+		}
+	}
+
+	if !reflect.ValueOf(curVm.VirtualPrivateCloud.VpcId).IsNil() {
+		vmInfo.VpcIID = irs.IID{SystemId: *curVm.VirtualPrivateCloud.VpcId}
+	}
+
+	if !reflect.ValueOf(curVm.VirtualPrivateCloud.SubnetId).IsNil() {
+		vmInfo.SubnetIID = irs.IID{SystemId: *curVm.VirtualPrivateCloud.SubnetId}
+	}
+
+	if !reflect.ValueOf(curVm.SecurityGroupIds).IsNil() {
+		for _, curSecurityGroupId := range curVm.SecurityGroupIds {
+			vmInfo.SecurityGroupIIds = append(vmInfo.SecurityGroupIIds, irs.IID{SystemId: *curSecurityGroupId})
+		}
+	}
+
+	if !reflect.ValueOf(curVm.PrivateIpAddresses).IsNil() {
+		vmInfo.PrivateIP = *curVm.PrivateIpAddresses[0]
 	}
 
 	keyValueList := []irs.KeyValue{
-		{Key: "State", Value: *reservation.Instances[0].State.Name},
-		{Key: "Architecture", Value: *reservation.Instances[0].Architecture},
+		{Key: "InstanceState", Value: *curVm.InstanceState},
+		{Key: "OsName", Value: *curVm.OsName},
 	}
 
-	//if *reservation.Instances[0].LaunchTime != "" {
-	vmInfo.StartTime = *reservation.Instances[0].LaunchTime
-	//}
-
-	//cblogger.Info("=======>타입 : ", reflect.TypeOf(*reservation.Instances[0]))
-	//cblogger.Info("===> PublicIpAddress TypeOf : ", reflect.TypeOf(reservation.Instances[0].PublicIpAddress))
-	//cblogger.Info("===> PublicIpAddress ValueOf : ", reflect.ValueOf(reservation.Instances[0].PublicIpAddress))
-
-	//vmInfo.PublicIP = *reservation.Instances[0].NetworkInterfaces[0].Association.PublicIp
-	//vmInfo.PublicDNS = *reservation.Instances[0].NetworkInterfaces[0].Association.PublicDnsName
-
-	// 특정 항목(예:EIP)은 VM 상태와 무관하게 동작하므로 VM 상태와 무관하게 Nil처리로 모든 필드를 처리 함.
-	if !reflect.ValueOf(reservation.Instances[0].PublicIpAddress).IsNil() {
-		vmInfo.PublicIP = *reservation.Instances[0].PublicIpAddress
+	//요금타입
+	if !reflect.ValueOf(curVm.InstanceChargeType).IsNil() {
+		keyValueList = append(keyValueList, irs.KeyValue{Key: "InstanceChargeType", Value: *curVm.InstanceChargeType})
 	}
 
-	if !reflect.ValueOf(reservation.Instances[0].PublicDnsName).IsNil() {
-		vmInfo.PublicDNS = *reservation.Instances[0].PublicDnsName
-	}
-
-	cblogger.Info("===> BlockDeviceMappings ValueOf : ", reflect.ValueOf(reservation.Instances[0].BlockDeviceMappings))
-	if !reflect.ValueOf(reservation.Instances[0].BlockDeviceMappings).IsNil() {
-		if !reflect.ValueOf(reservation.Instances[0].BlockDeviceMappings[0].DeviceName).IsNil() {
-			vmInfo.VMBlockDisk = *reservation.Instances[0].BlockDeviceMappings[0].DeviceName
+	//데이터 디스크 정보
+	if !reflect.ValueOf(curVm.DataDisks).IsNil() {
+		if len(curVm.DataDisks) > 0 {
+			if !reflect.ValueOf(curVm.DataDisks[0].DiskId).IsNil() {
+				vmInfo.VMBlockDisk = *curVm.DataDisks[0].DiskId
+			}
 		}
 	}
 
-	if !reflect.ValueOf(reservation.Instances[0].Placement.AvailabilityZone).IsNil() {
-		vmInfo.Region = irs.RegionInfo{
-			Region: vmHandler.Region.Region, //리전 정보 추가
-			Zone:   *reservation.Instances[0].Placement.AvailabilityZone,
+	//시스템 디스크 정보
+	if !reflect.ValueOf(curVm.SystemDisk).IsNil() {
+		if !reflect.ValueOf(curVm.SystemDisk.DiskType).IsNil() {
+			keyValueList = append(keyValueList, irs.KeyValue{Key: "SystemDiskType", Value: *curVm.SystemDisk.DiskType})
+		}
+		if !reflect.ValueOf(curVm.SystemDisk.DiskId).IsNil() {
+			keyValueList = append(keyValueList, irs.KeyValue{Key: "SystemDiskId", Value: *curVm.SystemDisk.DiskId})
+			vmInfo.VMBootDisk = *curVm.SystemDisk.DiskId
+		}
+		if !reflect.ValueOf(curVm.SystemDisk.DiskSize).IsNil() {
+			keyValueList = append(keyValueList, irs.KeyValue{Key: "SystemDiskSize", Value: strconv.FormatInt(*curVm.SystemDisk.DiskSize, 10)})
 		}
 	}
 
-	//NetworkInterfaces 배열 값들
-	if !reflect.ValueOf(reservation.Instances[0].NetworkInterfaces).IsNil() {
-		if !reflect.ValueOf(reservation.Instances[0].NetworkInterfaces[0].VpcId).IsNil() {
-			//vmInfo.VirtualNetworkId = *reservation.Instances[0].NetworkInterfaces[0].VpcId
-			vmInfo.VpcIID = irs.IID{"", *reservation.Instances[0].NetworkInterfaces[0].VpcId}
-			keyValueList = append(keyValueList, irs.KeyValue{Key: "VpcId", Value: *reservation.Instances[0].NetworkInterfaces[0].VpcId})
+	if !reflect.ValueOf(curVm.InternetAccessible).IsNil() {
+		if !reflect.ValueOf(curVm.InternetAccessible.InternetChargeType).IsNil() {
+			keyValueList = append(keyValueList, irs.KeyValue{Key: "InternetChargeType", Value: *curVm.InternetAccessible.InternetChargeType})
 		}
-
-		if !reflect.ValueOf(reservation.Instances[0].NetworkInterfaces[0].SubnetId).IsNil() {
-			keyValueList = append(keyValueList, irs.KeyValue{Key: "SubnetId", Value: *reservation.Instances[0].NetworkInterfaces[0].SubnetId})
-			vmInfo.SubnetIID = irs.IID{SystemId: *reservation.Instances[0].NetworkInterfaces[0].SubnetId}
-		}
-
-		if !reflect.ValueOf(reservation.Instances[0].NetworkInterfaces[0].Attachment).IsNil() {
-			vmInfo.NetworkInterface = *reservation.Instances[0].NetworkInterfaces[0].Attachment.AttachmentId
-		}
-
-		for _, security := range reservation.Instances[0].NetworkInterfaces[0].Groups {
-			//vmInfo.SecurityGroupIds = append(vmInfo.SecurityGroupIds, *security.GroupId)
-			vmInfo.SecurityGroupIIds = append(vmInfo.SecurityGroupIIds, irs.IID{*security.GroupName, *security.GroupId})
-		}
-
-	}
-
-	//SecurityName: *reservation.Instances[0].NetworkInterfaces[0].Groups[0].GroupName,
-	//vmInfo.VNIC = "eth0 - 값 위치 확인 필요"
-
-	//vmInfo.PrivateIP = *reservation.Instances[0].NetworkInterfaces[0].PrivateIpAddress	//없는 경우 존재해서 Instances[0].PrivateIpAddress로 대체 - i-0b75cac73c4575386
-	if !reflect.ValueOf(reservation.Instances[0].PrivateIpAddress).IsNil() {
-		vmInfo.PrivateIP = *reservation.Instances[0].PrivateIpAddress
-	}
-
-	//vmInfo.PrivateDNS = *reservation.Instances[0].NetworkInterfaces[0].PrivateDnsName		//없는 경우 존재해서 Instances[0].PrivateDnsName로 대체 - i-0b75cac73c4575386
-	if !reflect.ValueOf(reservation.Instances[0].PrivateDnsName).IsNil() {
-		vmInfo.PrivateDNS = *reservation.Instances[0].PrivateDnsName
-	}
-
-	if !reflect.ValueOf(reservation.Instances[0].RootDeviceName).IsNil() {
-		vmInfo.VMBootDisk = *reservation.Instances[0].RootDeviceName
-	}
-
-	if !reflect.ValueOf(reservation.Instances[0].KeyName).IsNil() {
-		keyValueList = append(keyValueList, irs.KeyValue{Key: "KeyName", Value: *reservation.Instances[0].KeyName})
-	}
-
-	//Name은 Tag의 "Name" 속성에만 저장됨
-	cblogger.Debug("Name Tag 찾기")
-	for _, t := range reservation.Instances[0].Tags {
-		if *t.Key == "Name" {
-			vmInfo.IId.NameId = *t.Value
-			cblogger.Debug("EC2 명칭 : ", vmInfo.IId.NameId)
-			break
+		if !reflect.ValueOf(curVm.InternetAccessible.InternetMaxBandwidthOut).IsNil() {
+			keyValueList = append(keyValueList, irs.KeyValue{Key: "InternetMaxBandwidthOut", Value: strconv.FormatInt(*curVm.InternetAccessible.InternetMaxBandwidthOut, 10)})
 		}
 	}
 
 	vmInfo.KeyValueList = keyValueList
-	return vmInfo
-}
 
-func ExtractVmName(Tags []*ec2.Tag) string {
-	for _, t := range Tags {
-		if *t.Key == "Name" {
-			cblogger.Info("  --> EC2 명칭 : ", *t.Key)
-			return *t.Value
-		}
-	}
-	return ""
+	return vmInfo, nil
 }
 
 func (vmHandler *TencentVMHandler) ListVM() ([]*irs.VMInfo, error) {
 	cblogger.Infof("Start")
-	var vmInfoList []*irs.VMInfo
 
-	input := &ec2.DescribeInstancesInput{
-		InstanceIds: []*string{
-			nil,
-		},
-	}
-
-	// logger for HisCall
 	callogger := call.GetLogger("HISCALL")
 	callLogInfo := call.CLOUDLOGSCHEMA{
-		CloudOS:      call.AWS,
+		CloudOS:      call.TENCENT,
 		RegionZone:   vmHandler.Region.Zone,
 		ResourceType: call.VM,
-		ResourceName: "",
-		CloudOSAPI:   "ListVM()",
+		ResourceName: "ListVM()",
+		CloudOSAPI:   "DescribeInstances()",
 		ElapsedTime:  "",
 		ErrorMSG:     "",
 	}
-	callLogStart := call.Start()
 
-	result, err := vmHandler.Client.DescribeInstances(input)
+	request := cvm.NewDescribeInstancesRequest()
+	request.Limit = common.Int64Ptr(100)
+
+	callLogStart := call.Start()
+	response, err := vmHandler.Client.DescribeInstances(request)
 	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+
 	if err != nil {
-		if aerr, ok := err.(awserr.Error); ok {
-			switch aerr.Code() {
-			default:
-				cblogger.Error(aerr.Error())
-			}
-		} else {
-			// Print the error, cast err to awserr.Error to get the Code and Message from an error.
-			cblogger.Error(err.Error())
-		}
 		callLogInfo.ErrorMSG = err.Error()
-		callogger.Info(call.String(callLogInfo))
+		callogger.Error(call.String(callLogInfo))
+
+		cblogger.Error(err)
 		return nil, err
 	}
+
+	//spew.Dump(response)
 	callogger.Info(call.String(callLogInfo))
+	cblogger.Debug(response.ToJsonString())
 
-	cblogger.Info("Success")
-
-	//tmpVmName := ""
-	for _, i := range result.Reservations {
-		for _, vm := range i.Instances {
-			cblogger.Info("[%s] EC2 정보 조회", *vm.InstanceId)
-			//vmInfo, _ := vmHandler.GetVM(irs.IID{NameId: tmpVmName})
-			vmInfo, _ := vmHandler.GetVM(irs.IID{SystemId: *vm.InstanceId})
-			vmInfoList = append(vmInfoList, &vmInfo)
-		}
+	var vmInfoList []*irs.VMInfo
+	for _, curVm := range response.Response.InstanceSet {
+		vmInfo, _ := vmHandler.GetVM(irs.IID{SystemId: *curVm.InstanceId})
+		vmInfoList = append(vmInfoList, &vmInfo)
 	}
 
 	return vmInfoList, nil
+}
+
+func (vmHandler *TencentVMHandler) GetVMStatus(vmIID irs.IID) (irs.VMStatus, error) {
+	cblogger.Infof("vmNameId : [%s]", vmIID.SystemId)
+
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.TENCENT,
+		RegionZone:   vmHandler.Region.Zone,
+		ResourceType: call.VM,
+		ResourceName: vmIID.SystemId,
+		CloudOSAPI:   "DescribeInstancesStatus()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+
+	request := cvm.NewDescribeInstancesStatusRequest()
+	request.InstanceIds = common.StringPtrs([]string{vmIID.SystemId})
+
+	callLogStart := call.Start()
+	response, err := vmHandler.Client.DescribeInstancesStatus(request)
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+
+	if err != nil {
+		callLogInfo.ErrorMSG = err.Error()
+		callogger.Error(call.String(callLogInfo))
+
+		cblogger.Error(err)
+		return irs.VMStatus("Failed"), err
+	}
+	//spew.Dump(response)
+	callogger.Info(call.String(callLogInfo))
+	cblogger.Debug(response.ToJsonString())
+
+	if *response.Response.TotalCount < 1 {
+		return irs.VMStatus("Failed"), errors.New("상태 정보를 찾을 수 없습니다")
+	}
+
+	vmStatus, errStatus := ConvertVMStatusString(*response.Response.InstanceStatusSet[0].InstanceState)
+	cblogger.Infof("vmStatus : [%s]", vmStatus)
+	return vmStatus, errStatus
+}
+
+func (vmHandler *TencentVMHandler) ListVMStatus() ([]*irs.VMStatusInfo, error) {
+	cblogger.Debug("Start")
+
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.TENCENT,
+		RegionZone:   vmHandler.Region.Zone,
+		ResourceType: call.VM,
+		ResourceName: "ListVMStatus()",
+		CloudOSAPI:   "DescribeInstancesStatus()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+
+	request := cvm.NewDescribeInstancesStatusRequest()
+	request.Limit = common.Int64Ptr(100)
+
+	callLogStart := call.Start()
+	response, err := vmHandler.Client.DescribeInstancesStatus(request)
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+
+	if err != nil {
+		callLogInfo.ErrorMSG = err.Error()
+		callogger.Error(call.String(callLogInfo))
+
+		cblogger.Error(err)
+		return nil, err
+	}
+	//spew.Dump(response)
+	callogger.Info(call.String(callLogInfo))
+	cblogger.Debug(response.ToJsonString())
+
+	var vmStatusList []*irs.VMStatusInfo
+	for _, curVm := range response.Response.InstanceStatusSet {
+		vmStatus, _ := ConvertVMStatusString(*curVm.InstanceState)
+
+		vmStatusInfo := irs.VMStatusInfo{
+			IId:      irs.IID{SystemId: *curVm.InstanceId},
+			VmStatus: vmStatus,
+		}
+		cblogger.Info(vmStatusInfo.IId.SystemId, " Instance Status : ", vmStatusInfo.VmStatus)
+		vmStatusList = append(vmStatusList, &vmStatusInfo)
+	}
+
+	return vmStatusList, nil
 }
 
 func ConvertVMStatusString(vmStatus string) (irs.VMStatus, error) {
@@ -715,191 +676,41 @@ func ConvertVMStatusString(vmStatus string) (irs.VMStatus, error) {
 	return irs.VMStatus(resultStatus), nil
 }
 
-//SHUTTING-DOWN / TERMINATED
-//func (vmHandler *TencentVMHandler) GetVMStatus(vmNameId string) (irs.VMStatus, error) {
-func (vmHandler *TencentVMHandler) GetVMStatus(vmIID irs.IID) (irs.VMStatus, error) {
-	cblogger.Infof("vmNameId : [%s]", vmIID.SystemId)
+// VM 정보를 조회할 수 있을 때까지 최대 30초간 대기
+func (vmHandler *TencentVMHandler) WaitForRun(vmIID irs.IID) (irs.VMStatus, error) {
+	cblogger.Info("======> VM 생성 직후에는 Public IP등 일부 정보 조회가 안되기 때문에 Running 될 때까지 대기함.")
 
-	vmID := vmIID.SystemId
-	cblogger.Infof("vmID : [%s]", vmID)
+	//waitStatus := "NotExist"	//VM정보 조회가 안됨.
+	waitStatus := "Running"
+	//waitStatus := "Creating" //너무 일찍 종료 시 리턴할 VM의 세부 항목의 정보 조회가 안됨.
 
-	//vmStatus := "pending"
-	//return irs.VMStatus(vmStatus)
-
-	input := &ec2.DescribeInstancesInput{
-		InstanceIds: []*string{
-			aws.String(vmID),
-		},
-	}
-
-	// logger for HisCall
-	callogger := call.GetLogger("HISCALL")
-	callLogInfo := call.CLOUDLOGSCHEMA{
-		CloudOS:      call.AWS,
-		RegionZone:   vmHandler.Region.Zone,
-		ResourceType: call.VM,
-		ResourceName: vmIID.SystemId,
-		CloudOSAPI:   "DescribeInstances()",
-		ElapsedTime:  "",
-		ErrorMSG:     "",
-	}
-	callLogStart := call.Start()
-
-	result, err := vmHandler.Client.DescribeInstances(input)
-	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
-	if err != nil {
-		if aerr, ok := err.(awserr.Error); ok {
-			switch aerr.Code() {
-			default:
-				cblogger.Error(aerr.Error())
-			}
-		} else {
-			// Print the error, cast err to awserr.Error to get the Code and Message from an error.
-			cblogger.Error(err.Error())
+	//===================================
+	// Suspending 되도록 3초 정도 대기 함.
+	//===================================
+	curRetryCnt := 0
+	maxRetryCnt := 120
+	for {
+		curStatus, errStatus := vmHandler.GetVMStatus(vmIID)
+		if errStatus != nil {
+			cblogger.Error(errStatus.Error())
 		}
-		callLogInfo.ErrorMSG = err.Error()
-		callogger.Info(call.String(callLogInfo))
-		return irs.VMStatus("Failed"), err
-	}
-	callogger.Info(call.String(callLogInfo))
 
-	cblogger.Info("Success", result)
-	for _, i := range result.Reservations {
-		for _, vm := range i.Instances {
-			//vmStatus := strings.ToUpper(*vm.State.Name)
-			cblogger.Info(vmID, " EC2 Status : ", *vm.State.Name)
-			vmStatus, errStatus := ConvertVMStatusString(*vm.State.Name)
-			return vmStatus, errStatus
-			//return irs.VMStatus(vmStatus), nil
+		cblogger.Info("===>VM Status : ", curStatus)
+
+		if curStatus == irs.VMStatus(waitStatus) { //|| curStatus == irs.VMStatus("Running") {
+			cblogger.Infof("===>VM 상태가 [%s]라서 대기를 중단합니다.", curStatus)
+			break
+		}
+
+		//if curStatus != irs.VMStatus(waitStatus) {
+		curRetryCnt++
+		cblogger.Errorf("VM 상태가 [%s]이 아니라서 1초 대기후 조회합니다.", waitStatus)
+		time.Sleep(time.Second * 1)
+		if curRetryCnt > maxRetryCnt {
+			cblogger.Errorf("장시간(%d 초) 대기해도 VM의 Status 값이 [%s]으로 변경되지 않아서 강제로 중단합니다.", maxRetryCnt, waitStatus)
+			return irs.VMStatus("Failed"), errors.New("장시간 기다렸으나 생성된 VM의 상태가 [" + waitStatus + "]으로 바뀌지 않아서 중단 합니다.")
 		}
 	}
 
-	return irs.VMStatus("Failed"), errors.New("상태 정보를 찾을 수 없습니다.")
+	return irs.VMStatus(waitStatus), nil
 }
-
-func (vmHandler *TencentVMHandler) ListVMStatus() ([]*irs.VMStatusInfo, error) {
-	cblogger.Infof("Start")
-	var vmStatusList []*irs.VMStatusInfo
-
-	input := &ec2.DescribeInstancesInput{
-		InstanceIds: []*string{
-			nil,
-		},
-	}
-
-	// logger for HisCall
-	callogger := call.GetLogger("HISCALL")
-	callLogInfo := call.CLOUDLOGSCHEMA{
-		CloudOS:      call.AWS,
-		RegionZone:   vmHandler.Region.Zone,
-		ResourceType: call.VM,
-		ResourceName: "",
-		CloudOSAPI:   "DescribeInstances()",
-		ElapsedTime:  "",
-		ErrorMSG:     "",
-	}
-	callLogStart := call.Start()
-	result, err := vmHandler.Client.DescribeInstances(input)
-	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
-	if err != nil {
-		if aerr, ok := err.(awserr.Error); ok {
-			switch aerr.Code() {
-			default:
-				cblogger.Error(aerr.Error())
-			}
-		} else {
-			// Print the error, cast err to awserr.Error to get the Code and Message from an error.
-			cblogger.Error(err.Error())
-		}
-		callLogInfo.ErrorMSG = err.Error()
-		callogger.Info(call.String(callLogInfo))
-		return nil, err
-	}
-	callogger.Info(call.String(callLogInfo))
-
-	cblogger.Info("Success")
-
-	tmpVmName := ""
-	for _, i := range result.Reservations {
-		for _, vm := range i.Instances {
-			vmStatus, _ := ConvertVMStatusString(*vm.State.Name)
-			tmpVmName = ExtractVmName(vm.Tags)
-			vmStatusInfo := irs.VMStatusInfo{
-				//VmId:   *vm.InstanceId,
-				//VmName: tmpVmName,
-				IId: irs.IID{tmpVmName, *vm.InstanceId},
-				//VmStatus: vmHandler.GetVMStatus(*vm.InstanceId),
-				//VmStatus: irs.VMStatus(strings.ToUpper(*vm.State.Name)),
-				VmStatus: vmStatus,
-			}
-			cblogger.Info(vmStatusInfo.IId.SystemId, " EC2 Status : ", vmStatusInfo.VmStatus)
-			vmStatusList = append(vmStatusList, &vmStatusInfo)
-		}
-	}
-
-	return vmStatusList, nil
-}
-
-// AssociationId 대신 PublicIP로도 가능 함.
-func (vmHandler *TencentVMHandler) AssociatePublicIP(allocationId string, instanceId string) (bool, error) {
-	cblogger.Infof("EC2에 퍼블릭 IP할당 - AllocationId : [%s], InstanceId : [%s]", allocationId, instanceId)
-
-	// EC2에 할당.
-	// Associate the new Elastic IP address with an existing EC2 instance.
-	assocRes, err := vmHandler.Client.AssociateAddress(&ec2.AssociateAddressInput{
-		AllocationId: aws.String(allocationId),
-		InstanceId:   aws.String(instanceId),
-	})
-
-	spew.Dump(assocRes)
-	//cblogger.Infof("[%s] EC2에 EIP(AllocationId : [%s]) 할당 완료 - AssociationId Id : [%s]", instanceId, allocationId, *assocRes.AssociationId)
-
-	if err != nil {
-		cblogger.Errorf("Unable to associate IP address with %s, %v", instanceId, err)
-		if aerr, ok := err.(awserr.Error); ok {
-			switch aerr.Code() {
-			default:
-				cblogger.Errorf(aerr.Error())
-			}
-		} else {
-			// Print the error, cast err to awserr.Error to get the Code and
-			// Message from an error.
-			cblogger.Errorf(err.Error())
-		}
-		return false, err
-	}
-
-	cblogger.Info(assocRes)
-	return true, nil
-}
-
-// 전달 받은 vNic을 VM에 추가함.
-func (vmHandler *TencentVMHandler) AttachNetworkInterface(vNicId string, instanceId string) (bool, error) {
-	cblogger.Infof("EC2[%s] VM에 vNic[%s] 추가 시작", vNicId, instanceId)
-
-	input := &ec2.AttachNetworkInterfaceInput{
-		DeviceIndex:        aws.Int64(1),
-		InstanceId:         aws.String(instanceId),
-		NetworkInterfaceId: aws.String(vNicId),
-	}
-
-	result, err := vmHandler.Client.AttachNetworkInterface(input)
-	cblogger.Info(result)
-
-	if err != nil {
-		cblogger.Errorf("EC2[%s] VM에 vNic[%s] 추가 실패", vNicId, instanceId)
-		if aerr, ok := err.(awserr.Error); ok {
-			switch aerr.Code() {
-			default:
-				cblogger.Errorf(aerr.Error())
-			}
-		} else {
-			// Print the error, cast err to awserr.Error to get the Code and Message from an error.
-			cblogger.Errorf(err.Error())
-		}
-		return false, err
-	}
-
-	return true, nil
-}
-*/

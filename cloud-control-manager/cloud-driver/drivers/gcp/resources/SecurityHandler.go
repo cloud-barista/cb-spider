@@ -13,6 +13,7 @@ package resources
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -50,6 +51,21 @@ func (securityHandler *GCPSecurityHandler) CreateSecurity(securityReqInfo irs.Se
 		return irs.SecurityInfo{}, errVnet
 	}
 
+	if len(*securityReqInfo.SecurityRules) < 1 {
+		return irs.SecurityInfo{}, errors.New("invalid value - The SecurityRules policy to add is empty")
+	}
+
+	//GCP의 경우 1개의 보안그룹에 Inbound나 Outbound를 1개만 지정할 수 있으며 CIDR도 1개의 보안그룹에 1개만 공통으로 지정됨.
+	//즉, 1개의 보안 정책에 다중 포트를 선언하는 형태라서  irs.SecurityReqInfo의 정보를 사용할 것인지
+	// irs.SecurityReqInfo의 *[]SecurityRuleInfo 배열의 첫 번째 값을 사용할 것인지 미정이라 공통 변수를 만들어서 처리함.
+	commonPolicy := *securityReqInfo.SecurityRules
+	commonDirection := commonPolicy[0].Direction
+	commonCidr := strings.Split(commonPolicy[0].CIDR, ",")
+
+	if len(commonCidr[0]) < 2 {
+		return irs.SecurityInfo{}, errors.New("invalid value - The CIDR is empty")
+	}
+
 	projectID := securityHandler.Credential.ProjectID
 	// @TODO: SecurityGroup 생성 요청 파라미터 정의 필요
 	ports := *securityReqInfo.SecurityRules
@@ -63,6 +79,11 @@ func (securityHandler *GCPSecurityHandler) CreateSecurity(securityReqInfo irs.Se
 		var port string
 		fp := item.FromPort
 		tp := item.ToPort
+
+		//GCP는 1개의 정책에 1가지 Direction만 지정 가능하기 때문에 Inbound와 Outbound 모두 지정되었을 경우 에러 처리함.
+		if !strings.EqualFold(item.Direction, commonDirection) {
+			return irs.SecurityInfo{}, errors.New("invalid value - GCP can only use one Direction for one security policy")
+		}
 
 		// CB Rule에 의해 Port 번호에 -1이 기입된 경우 GCP Rule에 맞게 치환함.
 		if fp == "-1" || tp == "-1" {
@@ -102,17 +123,13 @@ func (securityHandler *GCPSecurityHandler) CreateSecurity(securityReqInfo irs.Se
 		}
 	}
 
-	cblogger.Info("생성할 방화벽 정책")
-	spew.Dump(firewallAllowed)
-
-	var sgDirection string
-	if strings.EqualFold(securityReqInfo.Direction, "inbound") {
-		sgDirection = "INGRESS"
-	} else if strings.EqualFold(securityReqInfo.Direction, "outbound") {
-		sgDirection = "EGRESS"
+	if strings.EqualFold(commonDirection, "inbound") || strings.EqualFold(commonDirection, "INGRESS") {
+		commonDirection = "INGRESS"
+	} else if strings.EqualFold(commonDirection, "outbound") || strings.EqualFold(commonDirection, "EGRESS") {
+		commonDirection = "EGRESS"
 	} else {
-		cblogger.Errorf("!!!!!!!!! SecurityReqInfo.Direction 정보[%s]가 없어서 INGRESS로 처리합니다.", securityReqInfo.Direction)
-		sgDirection = "INGRESS"
+		// cblogger.Errorf("!!!!!!!!! SecurityReqInfo.Direction 정보[%s]가 없어서 INGRESS로 처리합니다.", securityReqInfo.Direction)
+		return irs.SecurityInfo{}, errors.New("invalid value - The direction[" + securityReqInfo.Direction + "] information is unknown")
 	}
 
 	prefix := "https://www.googleapis.com/compute/v1/projects/" + projectID
@@ -121,16 +138,30 @@ func (securityHandler *GCPSecurityHandler) CreateSecurity(securityReqInfo irs.Se
 
 	fireWall := &compute.Firewall{
 		Allowed:   firewallAllowed,
-		Direction: sgDirection, //INGRESS(inbound), EGRESS(outbound)
-		SourceRanges: []string{
-			"0.0.0.0/0",
-		},
+		Direction: commonDirection, //INGRESS(inbound), EGRESS(outbound)
+		// SourceRanges: []string{
+		// 	// "0.0.0.0/0",
+		// 	commonCidr,
+		// },
 		Name: securityReqInfo.IId.NameId,
 		TargetTags: []string{
 			securityReqInfo.IId.NameId,
 		},
 		Network: networkURL,
 	}
+
+	//CIDR 처리
+	if strings.EqualFold(commonDirection, "INGRESS") {
+		//fireWall.SourceRanges = []string{commonCidr}
+		fireWall.SourceRanges = commonCidr
+	} else {
+		//fireWall.DestinationRanges = []string{commonCidr}
+		fireWall.DestinationRanges = commonCidr
+	}
+
+	cblogger.Info("생성할 방화벽 정책")
+	cblogger.Debug(fireWall)
+	//spew.Dump(fireWall)
 
 	// logger for HisCall
 	callogger := call.GetLogger("HISCALL")
@@ -149,7 +180,7 @@ func (securityHandler *GCPSecurityHandler) CreateSecurity(securityReqInfo irs.Se
 	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 	if err != nil {
 		callLogInfo.ErrorMSG = err.Error()
-		callogger.Info(call.String(callLogInfo))
+		callogger.Error(call.String(callLogInfo))
 		cblogger.Error(err)
 		return irs.SecurityInfo{}, err
 	}
@@ -224,6 +255,14 @@ func (securityHandler *GCPSecurityHandler) GetSecurity(securityIID irs.IID) (irs
 		return irs.SecurityInfo{}, err
 	}
 	callogger.Info(call.String(callLogInfo))
+
+	var commonCidr string
+	if strings.EqualFold(security.Direction, "INGRESS") {
+		commonCidr = strings.Join(security.SourceRanges, ", ")
+	} else {
+		commonCidr = strings.Join(security.DestinationRanges, ", ")
+	}
+
 	var securityRules []irs.SecurityRuleInfo
 	for _, item := range security.Allowed {
 		var portArr []string
@@ -248,6 +287,7 @@ func (securityHandler *GCPSecurityHandler) GetSecurity(securityIID irs.IID) (irs
 			ToPort:     toPort,
 			IPProtocol: item.IPProtocol,
 			Direction:  security.Direction,
+			CIDR:       commonCidr,
 		})
 	}
 	vpcArr := strings.Split(security.Network, "/")
@@ -263,12 +303,12 @@ func (securityHandler *GCPSecurityHandler) GetSecurity(securityIID irs.IID) (irs
 			SystemId: vpcName,
 		},
 
-		Direction: security.Direction,
+		// Direction: security.Direction,
 		KeyValueList: []irs.KeyValue{
-			{"Priority", strconv.FormatInt(security.Priority, 10)},
-			{"SourceRanges", security.SourceRanges[0]},
-			{"Allowed", security.Allowed[0].IPProtocol},
-			{"Vpc", vpcName},
+			{Key: "Priority", Value: strconv.FormatInt(security.Priority, 10)},
+			// {"SourceRanges", security.SourceRanges[0]},
+			{Key: "Allowed", Value: security.Allowed[0].IPProtocol},
+			{Key: "Vpc", Value: vpcName},
 		},
 		SecurityRules: &securityRules,
 	}
