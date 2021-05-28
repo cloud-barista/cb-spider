@@ -42,6 +42,13 @@ type TencentVMHandler struct {
 func (vmHandler *TencentVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, error) {
 	cblogger.Info(vmReqInfo)
 
+	zoneId := vmHandler.Region.Zone
+	cblogger.Debugf("Zone : %s", zoneId)
+	if zoneId == "" {
+		cblogger.Error("Connection 정보에 Zone 정보가 없습니다.")
+		return irs.VMInfo{}, errors.New("Connection 정보에 Zone 정보가 없습니다")
+	}
+
 	// 2021-04-28 cbuser 추가에 따른 Local KeyPair만 VM 생성 가능하도록 강제
 	//=============================
 	// KeyPair의 PublicKey 정보 처리
