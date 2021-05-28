@@ -171,52 +171,69 @@ func handleSecurity() {
 					IId:    irs.IID{NameId: securityName},
 					VpcIID: irs.IID{SystemId: vpcId},
 					SecurityRules: &[]irs.SecurityRuleInfo{ //보안 정책 설정
+						//CIDR 테스트
 						{
-							// All Port로 등록
-							FromPort:   "",
-							ToPort:     "",
-							IPProtocol: "icmp", //icmp는 포트 정보가 없음
-							Direction:  "inbound",
-						},
-						{
-							//20-22 Prot로 등록
-							FromPort:   "20",
-							ToPort:     "22",
-							IPProtocol: "tcp",
-							Direction:  "inbound",
-						},
-						{
-							// 80 Port로 등록
-							FromPort:   "80",
-							ToPort:     "80",
-							IPProtocol: "tcp",
-							Direction:  "inbound",
-						},
-						{
-							// 8080 Port로 등록
-							FromPort:   "8080",
-							ToPort:     "-1", //FromPort나 ToPort중 하나에 -1이 입력될 경우 -1이 입력된 경우 -1을 공백으로 처리
-							IPProtocol: "tcp",
-							Direction:  "inbound",
-						},
-						{ // 1323 Prot로 등록
-							FromPort:   "-1", //FromPort나 ToPort중 하나에 -1이 입력될 경우 -1이 입력된 경우 -1을 공백으로 처리
-							ToPort:     "1323",
-							IPProtocol: "tcp",
-							Direction:  "inbound",
-						},
-						{ // 1024 Prot로 등록
-							FromPort:   "",
-							ToPort:     "1024",
-							IPProtocol: "tcp",
-							Direction:  "inbound",
-						},
-						{ // 1234 Prot로 등록
-							FromPort:   "1234",
+							FromPort:   "30",
 							ToPort:     "",
 							IPProtocol: "tcp",
 							Direction:  "inbound",
+							CIDR:       "10.13.1.10/32",
 						},
+						// {
+						// 	FromPort:   "40",
+						// 	ToPort:     "",
+						// 	IPProtocol: "tcp",
+						// 	Direction:  "outbound",
+						// 	CIDR:       "10.13.1.10/32,10.13.1.11/32",
+						// },
+						/*
+							{
+								// All Port로 등록
+								FromPort:   "",
+								ToPort:     "",
+								IPProtocol: "icmp", //icmp는 포트 정보가 없음
+								Direction:  "inbound",
+							},
+							{
+								//20-22 Prot로 등록
+								FromPort:   "20",
+								ToPort:     "22",
+								IPProtocol: "tcp",
+								Direction:  "inbound",
+							},
+							{
+								// 80 Port로 등록
+								FromPort:   "80",
+								ToPort:     "80",
+								IPProtocol: "tcp",
+								Direction:  "inbound",
+							},
+							{
+								// 8080 Port로 등록
+								FromPort:   "8080",
+								ToPort:     "-1", //FromPort나 ToPort중 하나에 -1이 입력될 경우 -1이 입력된 경우 -1을 공백으로 처리
+								IPProtocol: "tcp",
+								Direction:  "inbound",
+							},
+							{ // 1323 Prot로 등록
+								FromPort:   "-1", //FromPort나 ToPort중 하나에 -1이 입력될 경우 -1이 입력된 경우 -1을 공백으로 처리
+								ToPort:     "1323",
+								IPProtocol: "tcp",
+								Direction:  "inbound",
+							},
+							{ // 1024 Prot로 등록
+								FromPort:   "",
+								ToPort:     "1024",
+								IPProtocol: "tcp",
+								Direction:  "inbound",
+							},
+							{ // 1234 Prot로 등록
+								FromPort:   "1234",
+								ToPort:     "",
+								IPProtocol: "tcp",
+								Direction:  "inbound",
+							},
+						*/
 						/*
 							{ // 모든 프로토콜 모든 포트로 등록
 								//FromPort:   "",
@@ -248,6 +265,7 @@ func handleSecurity() {
 				} else {
 					cblogger.Infof("[%s] Security 생성 결과 : [%v]", securityName, result)
 					spew.Dump(result)
+					securityId = result.IId.SystemId
 				}
 
 			case 3:
@@ -973,8 +991,8 @@ func main() {
 	//handleVMSpec()
 	//handleImage() //AMI
 	//handleKeyPair()
-	//handleSecurity()
-	handleVM()
+	handleSecurity()
+	//handleVM()
 	//cblogger.Info(filepath.Join("a/b", "\\cloud-driver-libs\\.ssh-gcp\\"))
 	//cblogger.Info(filepath.Join("\\cloud-driver-libs\\.ssh-gcp\\", "/b/c/d"))
 }
