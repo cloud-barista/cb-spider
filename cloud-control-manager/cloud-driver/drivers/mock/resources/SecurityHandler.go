@@ -22,8 +22,6 @@ type MockSecurityHandler struct {
 	MockName      string
 }
 
-const sgDELIMITER string = "-delimiter-"
-
 func init() {
         // cblog is a global variable.
 	securityInfoMap = make(map[string][]*irs.SecurityInfo)

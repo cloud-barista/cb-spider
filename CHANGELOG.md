@@ -5,18 +5,32 @@
 ### Feature
 - 기존 VPC에 Subnet add/delete 기능 추가 ([#325](https://github.com/cloud-barista/cb-spider/pull/325) [#326](https://github.com/cloud-barista/cb-spider/pull/326) [#327](https://github.com/cloud-barista/cb-spider/pull/327))
 - Azuer Driver static public ip 생성에서 dynamic mode로 개선 ([#dd881c2](https://github.com/cloud-barista/cb-spider/commit/dd881c2642286b98c5c1eb9ac6ce63de08378c8e))
-- VM 기본 사용자 cb-user 계정으로 통일
-  - ref) https://github.com/cloud-barista/cb-spider/issues/230
 - Cloud Connection Info 중복 등록 오류 해결 ([b69989f](https://github.com/cloud-barista/cb-spider/commit/b69989f05a73a9d42acafae238b8f2e4c21a67f2))
 - OpenStack Driver 무한 loop 가능성 해결 ([#368](https://github.com/cloud-barista/cb-spider/pull/368))
 - OpenStack Driver 활용 Go SDK 교체 ([#368](https://github.com/cloud-barista/cb-spider/pull/368) [#370](https://github.com/cloud-barista/cb-spider/pull/370))
   - github.com/rackspace/gophercloud => github.com/gophercloud/gophercloud
+- ↓ **v0.3.8** (2021.04.30.PM10)
+
+- VM 기본 사용자 cb-user 계정으로 통일
+  - ref) https://github.com/cloud-barista/cb-spider/issues/230
+- ↓ **v0.3.9** (2021.05.05.PM17)
+
 - Call Log Elapse time 측정 개선
   - ref) https://github.com/cloud-barista/cb-spider/issues/359
   - ref) https://github.com/cloud-barista/cb-spider/wiki/StartVM-and-TerminateVM-Main-Flow-of-Cloud-Drivers
+- ↓ **v0.3.13** (2021.05.11.AM10)
+
 - Update the CSP Go sdk package of cloud drivers
   - ref) https://github.com/cloud-barista/cb-spider/issues/328
   - ref) https://github.com/cloud-barista/cb-spider/wiki/What-is-the-CSP-SDK-API-Version-of-drivers
+- SG delimiter 길이 축소: `-delimiter-` => `-deli-`
+  - 사용자 SG 이름 입력시 '-deli-' 사용 불가
+  - 사용자 SG 이름 '-deli-' 입력 시: http.StatusInternalServerError(500 error) error, msg: "-deli- cannot be used in Security Group name!!"
+  - ref) https://github.com/cloud-barista/cb-spider/commit/80b8b2151339d7ff31e2cc58935f365160e496bd
+  - ref) https://github.com/cloud-barista/cb-spider/commit/144cc274dc3232b47226025dd6e8a24605784136
+- SG Source filter 추가(WIP)
+
+- ↓ **latest** (now)
 
 # v0.3.0-espresso (2020.12.11.)
 ### API Change
