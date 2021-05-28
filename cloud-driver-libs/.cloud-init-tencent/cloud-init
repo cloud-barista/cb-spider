@@ -2,7 +2,6 @@
 users:
   - default
   - name: {{username}}
-    groups: sudo
     shell: /bin/bash
     sudo: ['ALL=(ALL) NOPASSWD:ALL']
     ssh-authorized-keys:

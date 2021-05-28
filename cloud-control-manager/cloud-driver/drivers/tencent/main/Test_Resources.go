@@ -182,20 +182,27 @@ func handleSecurity() {
 					VpcIID: irs.IID{SystemId: vpcId},
 					SecurityRules: &[]irs.SecurityRuleInfo{ //보안 정책 설정
 						//CIDR 테스트
+						// {
+						// 	FromPort:   "22",
+						// 	ToPort:     "",
+						// 	IPProtocol: "tcp",
+						// 	Direction:  "inbound",
+						// 	CIDR:       "0.0.0.0/0",
+						// },
 						{
-							FromPort:   "30",
+							FromPort:   "8080",
 							ToPort:     "",
 							IPProtocol: "tcp",
 							Direction:  "inbound",
-							CIDR:       "10.13.1.10/32",
+							CIDR:       "0.0.0.0/0",
 						},
-						{
-							FromPort:   "40",
-							ToPort:     "",
-							IPProtocol: "tcp",
-							Direction:  "outbound",
-							CIDR:       "10.13.1.10/32",
-						},
+						// {
+						// 	FromPort:   "40",
+						// 	ToPort:     "",
+						// 	IPProtocol: "tcp",
+						// 	Direction:  "outbound",
+						// 	CIDR:       "10.13.1.10/32",
+						// },
 						/*
 							{
 								FromPort:   "20",
@@ -625,15 +632,16 @@ func handleVM() {
 
 			case 1:
 				vmReqInfo := irs.VMReqInfo{
-					IId:               irs.IID{NameId: "mcloud-barista-vm-test"},
-					ImageIID:          irs.IID{SystemId: "aliyun_2_1903_x64_20G_alibase_20200324.vhd"},
-					VpcIID:            irs.IID{SystemId: "vpc-6wei16ufuimfcct41o0xh"},
-					SubnetIID:         irs.IID{SystemId: "vsw-6wed4dlmdg2ac1urdfn3p"},
-					SecurityGroupIIDs: []irs.IID{{SystemId: "sg-6we0rxnoai067qbkdkgw"}, {SystemId: "sg-6weeb9xaodr65g7bq10c"}},
-					VMSpecName:        "ecs.t5-lc2m1.nano",
-					KeyPairIID:        irs.IID{SystemId: "CB-KeyPairTest123123"},
+					IId:      irs.IID{NameId: "mcloud-barista-vm-test"},
+					ImageIID: irs.IID{SystemId: "img-22trbn9x"}, //Ubuntu Server 20.04 LTS 64
+					//ImageIID:          irs.IID{SystemId: "img-pi0ii46r"}, //Ubuntu Server 18.04.1 LTS 64
+					VpcIID:            irs.IID{SystemId: "vpc-k5r709q6"},
+					SubnetIID:         irs.IID{SystemId: "subnet-a620oq9t"},
+					SecurityGroupIIDs: []irs.IID{{SystemId: "sg-4a4qaitk"}, {SystemId: "sg-aj1mgiwy"}},
+					VMSpecName:        "S5.SMALL1",
+					KeyPairIID:        irs.IID{SystemId: "skey-oipwukuv"},
 					//VMUserId:          "root", //root만 가능
-					VMUserPasswd: "Cbuser!@#", //대문자 소문자 모두 사용되어야 함. 그리고 숫자나 특수 기호 중 하나가 포함되어야 함.
+					//VMUserPasswd: "Cbuser!@#", //대문자 소문자 모두 사용되어야 함. 그리고 숫자나 특수 기호 중 하나가 포함되어야 함.
 				}
 
 				vmInfo, err := vmHandler.StartVM(vmReqInfo)
@@ -747,10 +755,10 @@ func main() {
 	cblogger.Info("Tencent Cloud Resource Test")
 	//handleVPC() //VPC
 	//handleKeyPair()
-	handleSecurity()
-	//handleImage() //AMI
 	//handleVMSpec()
-	//handleVM()
+	//handleSecurity()
+	//handleImage() //AMI
+	handleVM()
 
 	//handlePublicIP() // PublicIP 생성 후 conf
 	//handleVNic() //Lancard
