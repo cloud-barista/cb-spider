@@ -72,6 +72,7 @@ func RunServer() {
 	}
 
 	//fmt.Printf("\n\n => grpc server started on %s\n\n", spidersrv.Addr)
+	cr.GoServicePort = spidersrv.Addr
 	spiderBanner(cr.HostIPorName + spidersrv.Addr)
 
 	if err := gs.Serve(conn); err != nil {
