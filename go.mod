@@ -58,6 +58,7 @@ require (
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b
 	gotest.tools v1.4.0 // indirect
+	github.com/go-resty/resty/v2 v2.6.0 // indirect
 
 	// Do not delete. These are packages used at building NCP plugin Driver in Container.
 	github.com/NaverCloudPlatform/ncloud-sdk-go-v2 v1.1.7

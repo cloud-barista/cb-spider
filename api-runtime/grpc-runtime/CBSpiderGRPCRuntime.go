@@ -28,11 +28,11 @@ import (
 func RunServer() {
 	logger := logger.NewLogger()
 
-        cbspiderRoot := os.Getenv("CBSPIDER_ROOT")
-        if cbspiderRoot == "" {
-                logger.Error("$CBSPIDER_ROOT is not set!!")
-                os.Exit(1)
-        }
+	cbspiderRoot := os.Getenv("CBSPIDER_ROOT")
+	if cbspiderRoot == "" {
+		logger.Error("$CBSPIDER_ROOT is not set!!")
+		os.Exit(1)
+	}
 	configPath := cbspiderRoot + "/conf/grpc_conf.yaml"
 	gConf, err := configLoad(configPath)
 	if err != nil {
@@ -64,7 +64,7 @@ func RunServer() {
 	pb.RegisterSSHServer(gs, &grpc_service.SSHService{})
 
 	if spidersrv.Reflection == "enable" {
-		if spidersrv.Interceptors.AuthJWT != nil {
+		if spidersrv.Interceptors != nil && spidersrv.Interceptors.AuthJWT != nil {
 			fmt.Printf("\n\n*** you can run reflection when jwt auth interceptor is not used ***\n\n")
 		} else {
 			reflection.Register(gs)
@@ -72,6 +72,7 @@ func RunServer() {
 	}
 
 	//fmt.Printf("\n\n => grpc server started on %s\n\n", spidersrv.Addr)
+	cr.GoServicePort = spidersrv.Addr
 	spiderBanner(cr.HostIPorName + spidersrv.Addr)
 
 	if err := gs.Serve(conn); err != nil {
@@ -80,8 +81,8 @@ func RunServer() {
 }
 
 func spiderBanner(server string) {
-	gRPCServer := "Go   API: grpc://" +  server
-        fmt.Printf("     - %s\n", gRPCServer)
+	gRPCServer := "Go   API: grpc://" + server
+	fmt.Printf("     - %s\n", gRPCServer)
 }
 
 func configLoad(cf string) (config.GrpcConfig, error) {

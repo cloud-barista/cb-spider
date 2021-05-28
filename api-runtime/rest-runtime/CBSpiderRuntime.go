@@ -36,6 +36,7 @@ func init() {
 	cr.MiddleStartTime = currentTime.Format("2006.01.02.15:04:05")
 	cr.ShortStartTime = fmt.Sprintf("T%02d:%02d:%02d", currentTime.Hour(), currentTime.Minute(), currentTime.Second())
 	cr.HostIPorName = getHostIPorName()
+	cr.ServicePort = ":1024"
 }
 
 // REST API Return struct for boolena type
@@ -64,7 +65,6 @@ func getHostIPorName() string {
 		return os.Getenv("LOCALHOST")
 	}
 
-
 	ip, err := pubip.Get()
 	if err != nil {
 		cblog.Error(err)
@@ -85,6 +85,9 @@ func RunServer() {
 		//----------root
 		{"GET", "", aw.SpiderInfo},
 		{"GET", "/", aw.SpiderInfo},
+
+		//----------EndpointInfo
+		{"GET", "/endpointinfo", endpointInfo},
 
 		//----------CloudOS
 		{"GET", "/cloudos", listCloudOS},
@@ -211,9 +214,6 @@ func RunServer() {
 	}
 	//======================================= setup routes
 
-	// rest's service port, now fixed.
-	cr.ServicePort = ":1024"
-
 	// Run API Server
 	ApiServer(routes)
 
@@ -262,6 +262,21 @@ func apiInfo(c echo.Context) error {
 
 	apiInfo := "api info"
 	return c.String(http.StatusOK, apiInfo)
+}
+
+//================ Endpoint Info
+func endpointInfo(c echo.Context) error {
+	cblog.Info("call endpointInfo()")
+
+	endpointInfo := fmt.Sprintf("\n  <CB-Spider> Multi-Cloud Infrastructure Federation Framework\n")
+	adminWebURL := "http://" + cr.HostIPorName + cr.ServicePort + "/spider/adminweb"
+	endpointInfo += fmt.Sprintf("     - AdminWeb: %s\n", adminWebURL)
+	restEndPoint := "http://" + cr.HostIPorName + cr.ServicePort + "/spider"
+	endpointInfo += fmt.Sprintf("     - REST API: %s\n", restEndPoint)
+	gRPCServer := "grpc://" + cr.HostIPorName + cr.GoServicePort
+	endpointInfo += fmt.Sprintf("     - Go   API: %s\n", gRPCServer)
+
+	return c.String(http.StatusOK, endpointInfo)
 }
 
 func spiderBanner() {
