@@ -12,6 +12,8 @@
 #### Load CB-Spider Environment Variables
 source ../setup.env
 
+#echo -e '\n'
+# $CBSPIDER_ROOT/bin/cb-spider info i
+# Use curl until enhanced
+curl http://localhost:1024/spider/endpointinfo
 echo -e '\n'
-
-$CBSPIDER_ROOT/bin/cb-spider info
