@@ -1,12 +1,12 @@
 # latest
 ### API Change
 - 기존 VPC에 Subnet add/delete 제공 API 추가 ([#325](https://github.com/cloud-barista/cb-spider/pull/325) [#326](https://github.com/cloud-barista/cb-spider/pull/326) [#327](https://github.com/cloud-barista/cb-spider/pull/327))
-- VM SSH 접속 정보에 SSHAccessPoint 추가 ([6d4b372](https://github.com/cloud-barista/cb-spider/commit/6d4b3720ac83b9bb50d3fd55d78e469d8a80fdf2#diff-d8a70c72f373d23a135f7dfcd089a1848633be01a9676ebdf2f102caccc0afff) [#338](https://github.com/cloud-barista/cb-spider/pull/338) )
+- VM 정보에 SSH 접속을 위한 SSHAccessPoint 정보 추가 제공 ([6d4b372](https://github.com/cloud-barista/cb-spider/commit/6d4b3720ac83b9bb50d3fd55d78e469d8a80fdf2#diff-d8a70c72f373d23a135f7dfcd089a1848633be01a9676ebdf2f102caccc0afff) [#338](https://github.com/cloud-barista/cb-spider/pull/338) )
 
 
 ### Feature
 - 기존 VPC에 Subnet add/delete 기능 추가 ([#325](https://github.com/cloud-barista/cb-spider/pull/325) [#326](https://github.com/cloud-barista/cb-spider/pull/326) [#327](https://github.com/cloud-barista/cb-spider/pull/327))
-- Cloud-Twin VM 접속 동적 Port 정보 제공을 위하여 VM 정보에 SSHAccessPoint 추가 ([6d4b372](https://github.com/cloud-barista/cb-spider/commit/6d4b3720ac83b9bb50d3fd55d78e469d8a80fdf2#diff-d8a70c72f373d23a135f7dfcd089a1848633be01a9676ebdf2f102caccc0afff) [#338](https://github.com/cloud-barista/cb-spider/pull/338) )
+- Cloud-Twin VM 접속 동적 Port 정보 제공을 위하여 VM 정보에 SSH 접속을 위한 SSHAccessPoint 정보 추가 ([6d4b372](https://github.com/cloud-barista/cb-spider/commit/6d4b3720ac83b9bb50d3fd55d78e469d8a80fdf2#diff-d8a70c72f373d23a135f7dfcd089a1848633be01a9676ebdf2f102caccc0afff) [#338](https://github.com/cloud-barista/cb-spider/pull/338) )
   - ref) https://github.com/cloud-barista/cb-spider/issues/334
 - Azuer Driver static public ip 생성에서 dynamic mode로 개선 ([dd881c2](https://github.com/cloud-barista/cb-spider/commit/dd881c2642286b98c5c1eb9ac6ce63de08378c8e))
 - ↓ **v0.3.8** (2021.04.30.PM10)
@@ -39,6 +39,7 @@
   - ref) https://github.com/cloud-barista/cb-spider/commit/80b8b2151339d7ff31e2cc58935f365160e496bd
   - ref) https://github.com/cloud-barista/cb-spider/commit/144cc274dc3232b47226025dd6e8a24605784136
 - SG Source filter 추가(WIP)
+- 운영 중인 Server endpoint 정보 제공 명령 추가(WIP)
 
 - ↓ **latest** (now)
 
