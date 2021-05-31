@@ -73,14 +73,24 @@ func GetPublicVPCInfo(client *gophercloud.ServiceClient, typeName string) (strin
 		return "", err
 	}
 	// external VPC 필터링
-	var extVpc NetworkWithExt
-	err = networks.ExtractNetworksInto(page, &extVpc)
+	var extVpcList []NetworkWithExt
+	err = networks.ExtractNetworksInto(page, &extVpcList)
 	if err != nil {
 		cblogger.Error("Failed to get vpc list, err=%s", err)
 		getErr := errors.New(fmt.Sprintf("Failed to get vpc list, err=%s", err.Error()))
 		return "", getErr
 	}
-	return extVpc.ID, nil
+	if len(extVpcList) == 0 {
+		cblogger.Error("Failed to get vpc list")
+		return "", errors.New(fmt.Sprintf("Failed to get vpc list, external vpc not exist"))
+	}
+	extVpc := extVpcList[0]
+	if typeName == "ID" {
+		return extVpc.ID, nil
+	} else if typeName == "NAME" {
+		return extVpc.Name, nil
+	}
+	return "", nil
 }
 
 // GetCBVNetId 기본 가상 네트워크(CB-VNet) Id 정보 조회
