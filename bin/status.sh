@@ -12,9 +12,8 @@
 #### Load CB-Spider Environment Variables
 source ../setup.env
 
-echo 
 # slow, but no curl
-$CBSPIDER_ROOT/bin/cb-spider info 2> /dev/null
+#$CBSPIDER_ROOT/bin/cb-spider info 2> /dev/null
 # fast, but need curl
-#curl http://localhost:1024/spider/endpointinfo
+curl http://localhost:1024/spider/endpointinfo
 echo
