@@ -38,8 +38,10 @@
   - 사용자 SG 이름 '-deli-' 입력 시: http.StatusInternalServerError(500 error) error, msg: "-deli- cannot be used in Security Group name!!"
   - ref) https://github.com/cloud-barista/cb-spider/commit/80b8b2151339d7ff31e2cc58935f365160e496bd
   - ref) https://github.com/cloud-barista/cb-spider/commit/144cc274dc3232b47226025dd6e8a24605784136
+- 운영 중인 Server endpoint 정보 제공 명령 추가
+  - ./bin/endpoint-info.sh
 - SG Source filter 추가(WIP)
-- 운영 중인 Server endpoint 정보 제공 명령 추가(WIP)
+
 
 - ↓ **latest** (now)
 
