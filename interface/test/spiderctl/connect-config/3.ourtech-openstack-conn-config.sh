@@ -1,5 +1,5 @@
  # for Cloud Driver Info
-$CBSPIDER_ROOT/interface/spider driver create --config $CBSPIDER_ROOT/interface/grpc_conf.yaml -i json -d \
+$CBSPIDER_ROOT/interface/spiderctl driver create --config $CBSPIDER_ROOT/interface/grpc_conf.yaml -i json -d \
     '{
       "DriverName":"openstack-driver01",
       "ProviderName":"OPENSTACK", 
@@ -7,7 +7,7 @@ $CBSPIDER_ROOT/interface/spider driver create --config $CBSPIDER_ROOT/interface/
     }'
 
  # for Cloud Credential Info
-$CBSPIDER_ROOT/interface/spider credential create --config $CBSPIDER_ROOT/interface/grpc_conf.yaml -i json -d \
+$CBSPIDER_ROOT/interface/spiderctl credential create --config $CBSPIDER_ROOT/interface/grpc_conf.yaml -i json -d \
     '{
       "CredentialName":"openstack-credential01",
       "ProviderName":"OPENSTACK",
@@ -21,7 +21,7 @@ $CBSPIDER_ROOT/interface/spider credential create --config $CBSPIDER_ROOT/interf
     }'
 
  # for Cloud Region Info
-$CBSPIDER_ROOT/interface/spider region create --config $CBSPIDER_ROOT/interface/grpc_conf.yaml -i json -d \
+$CBSPIDER_ROOT/interface/spiderctl region create --config $CBSPIDER_ROOT/interface/grpc_conf.yaml -i json -d \
     '{
       "RegionName":"openstack-region01",
       "ProviderName":"OPENSTACK",
@@ -31,7 +31,7 @@ $CBSPIDER_ROOT/interface/spider region create --config $CBSPIDER_ROOT/interface/
     }' 
 
  # for Cloud Connection Config Info
-$CBSPIDER_ROOT/interface/spider connection create --config $CBSPIDER_ROOT/interface/grpc_conf.yaml -i json -d \
+$CBSPIDER_ROOT/interface/spiderctl connection create --config $CBSPIDER_ROOT/interface/grpc_conf.yaml -i json -d \
     '{
       "ConfigName":"openstack-config01",
       "ProviderName":"OPENSTACK", 
