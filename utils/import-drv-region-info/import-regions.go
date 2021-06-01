@@ -57,7 +57,7 @@ func InsertRegionInfos(resourceGroup string) ([]rim.RegionInfo) {
 	// Set Environment Value of Project Root Path
 	rootPath := os.Getenv("CBSPIDER_ROOT")
         if rootPath == "" {
-                Cblogger.Error("$CBSPIDER_ROOT is not set!!")
+                cblog.Error("$CBSPIDER_ROOT is not set!!")
                 os.Exit(1)
         }
 	regionInfoList := []rim.RegionInfo{}
