@@ -39,3 +39,6 @@ do
 	echo "============== after start VM: '${VM_NAME}'"
 done
 
+echo TerminateVM: Total elapsed time: wait....
+time wait $(jobs -p)
+

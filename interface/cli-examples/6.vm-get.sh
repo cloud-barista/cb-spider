@@ -10,6 +10,7 @@ fi
 
 source ./setup.env $1
 
+VM_NAME=${VM_NAME}-1
 echo "============== before get VM: '${VM_NAME}'"
 time $CLIPATH/spiderctl --config $CLIPATH/grpc_conf.yaml --cname "${CONN_CONFIG}" vm get -n "${VM_NAME}" 2> /dev/null
 echo "============== after get VM: '${VM_NAME}'"
