@@ -4,7 +4,7 @@ echo "## VM Test Scripts for CB-Spider IID Working Version                "
 echo "##   VM: StartVM -> List -> Get -> ListStatus -> GetStatus -> Suspend -> Resume -> Reboot"
 echo "####################################################################"
 
-$CBSPIDER_ROOT/interface/spiderctl vm start --config $CBSPIDER_ROOT/interface/grpc_conf.yaml -i json -d \
+$CBSPIDER_ROOT/interface/spctl vm start --config $CBSPIDER_ROOT/interface/grpc_conf.yaml -i json -d \
     '{ 
       "ConnectionName":"'${CONN_CONFIG}'",
       "ReqInfo": { 
@@ -21,25 +21,25 @@ $CBSPIDER_ROOT/interface/spiderctl vm start --config $CBSPIDER_ROOT/interface/gr
 echo "============== sleep 60 after start VM"
 sleep 60
 
-$CBSPIDER_ROOT/interface/spiderctl vm list --config $CBSPIDER_ROOT/interface/grpc_conf.yaml --cname "${CONN_CONFIG}"
+$CBSPIDER_ROOT/interface/spctl vm list --config $CBSPIDER_ROOT/interface/grpc_conf.yaml --cname "${CONN_CONFIG}"
 
-$CBSPIDER_ROOT/interface/spiderctl vm get --config $CBSPIDER_ROOT/interface/grpc_conf.yaml --cname "${CONN_CONFIG}" -n vm-01
+$CBSPIDER_ROOT/interface/spctl vm get --config $CBSPIDER_ROOT/interface/grpc_conf.yaml --cname "${CONN_CONFIG}" -n vm-01
 
-$CBSPIDER_ROOT/interface/spiderctl vm liststatus --config $CBSPIDER_ROOT/interface/grpc_conf.yaml --cname "${CONN_CONFIG}"
+$CBSPIDER_ROOT/interface/spctl vm liststatus --config $CBSPIDER_ROOT/interface/grpc_conf.yaml --cname "${CONN_CONFIG}"
 
-$CBSPIDER_ROOT/interface/spiderctl vm getstatus --config $CBSPIDER_ROOT/interface/grpc_conf.yaml --cname "${CONN_CONFIG}" -n vm-01
+$CBSPIDER_ROOT/interface/spctl vm getstatus --config $CBSPIDER_ROOT/interface/grpc_conf.yaml --cname "${CONN_CONFIG}" -n vm-01
 
-$CBSPIDER_ROOT/interface/spiderctl vm control --config $CBSPIDER_ROOT/interface/grpc_conf.yaml --cname "${CONN_CONFIG}" -n vm-01 -a suspend
+$CBSPIDER_ROOT/interface/spctl vm control --config $CBSPIDER_ROOT/interface/grpc_conf.yaml --cname "${CONN_CONFIG}" -n vm-01 -a suspend
 
 echo "============== sleep 60 after suspend VM"
 sleep 60
 
-$CBSPIDER_ROOT/interface/spiderctl vm control --config $CBSPIDER_ROOT/interface/grpc_conf.yaml --cname "${CONN_CONFIG}" -n vm-01 -a resume
+$CBSPIDER_ROOT/interface/spctl vm control --config $CBSPIDER_ROOT/interface/grpc_conf.yaml --cname "${CONN_CONFIG}" -n vm-01 -a resume
 
 echo "============== sleep 30 after resume VM"
 sleep 30
 
-$CBSPIDER_ROOT/interface/spiderctl vm control --config $CBSPIDER_ROOT/interface/grpc_conf.yaml --cname "${CONN_CONFIG}" -n vm-01 -a reboot
+$CBSPIDER_ROOT/interface/spctl vm control --config $CBSPIDER_ROOT/interface/grpc_conf.yaml --cname "${CONN_CONFIG}" -n vm-01 -a reboot
 
 echo "============== sleep 60 after reboot VM"
 sleep 60 

@@ -1,7 +1,7 @@
 RESTSERVER=localhost
 
  # for Cloud Driver Info
- $CBSPIDER_ROOT/interface/spiderctl driver create --config $CBSPIDER_ROOT/interface/grpc_conf.yaml -i json -d \
+ $CBSPIDER_ROOT/interface/spctl driver create --config $CBSPIDER_ROOT/interface/grpc_conf.yaml -i json -d \
     '{
       "DriverName":"mock-driver01",
       "ProviderName":"MOCK", 
@@ -10,7 +10,7 @@ RESTSERVER=localhost
 
  # for Cloud Credential Info
 # for Mock
-$CBSPIDER_ROOT/interface/spiderctl credential create --config $CBSPIDER_ROOT/interface/grpc_conf.yaml -i json -d \
+$CBSPIDER_ROOT/interface/spctl credential create --config $CBSPIDER_ROOT/interface/grpc_conf.yaml -i json -d \
     '{
       "CredentialName":"mock-credential01",
       "ProviderName":"MOCK",
@@ -20,7 +20,7 @@ $CBSPIDER_ROOT/interface/spiderctl credential create --config $CBSPIDER_ROOT/int
     }'
 
  # Cloud Region Info
- $CBSPIDER_ROOT/interface/spiderctl region create --config $CBSPIDER_ROOT/interface/grpc_conf.yaml -i json -d \
+ $CBSPIDER_ROOT/interface/spctl region create --config $CBSPIDER_ROOT/interface/grpc_conf.yaml -i json -d \
     '{
       "RegionName":"mock-region01",
       "ProviderName":"MOCK",
@@ -30,7 +30,7 @@ $CBSPIDER_ROOT/interface/spiderctl credential create --config $CBSPIDER_ROOT/int
     }' 
 
  # Cloud Connection Config Info
- $CBSPIDER_ROOT/interface/spiderctl connection create --config $CBSPIDER_ROOT/interface/grpc_conf.yaml -i json -d \
+ $CBSPIDER_ROOT/interface/spctl connection create --config $CBSPIDER_ROOT/interface/grpc_conf.yaml -i json -d \
     '{
       "ConfigName":"mock-config01",
       "ProviderName":"MOCK", 

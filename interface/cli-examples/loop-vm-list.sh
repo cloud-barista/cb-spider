@@ -13,7 +13,7 @@ source ./setup.env $1
 while true
 do
 	echo "============== vm list =============="
-	time $CLIPATH/spiderctl --config $CLIPATH/grpc_conf.yaml --cname "${CONN_CONFIG}" vm list |grep "NameId: powerkim-vm-01"
+	time $CLIPATH/spctl --config $CLIPATH/grpc_conf.yaml --cname "${CONN_CONFIG}" vm list |grep "NameId: powerkim-vm-01"
 	echo
 	sleep 1
 done

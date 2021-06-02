@@ -22,7 +22,7 @@ do
 	VM_NAME=${ORG_VM_NAME}-${num}
 
 	echo "============== before start VM: '${VM_NAME}'"
-	time $CLIPATH/spiderctl --config $CLIPATH/grpc_conf.yaml vm start -i json -d \
+	time $CLIPATH/spctl --config $CLIPATH/grpc_conf.yaml vm start -i json -d \
 	    '{
 	      "ConnectionName":"'${CONN_CONFIG}'",
 	      "ReqInfo": {

@@ -22,7 +22,7 @@ do
 	VM_NAME=${ORG_VM_NAME}-${num}
 
 	echo "============== before terminate VM: '${VM_NAME}'"
-	time $CLIPATH/spiderctl --config $CLIPATH/grpc_conf.yaml --cname "${CONN_CONFIG}" vm terminate -n "${VM_NAME}" 2> /dev/null &
+	time $CLIPATH/spctl --config $CLIPATH/grpc_conf.yaml --cname "${CONN_CONFIG}" vm terminate -n "${VM_NAME}" 2> /dev/null &
 
 	echo "============== after terminate VM: '${VM_NAME}'"
 done

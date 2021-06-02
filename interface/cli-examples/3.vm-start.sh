@@ -12,7 +12,7 @@ source ./setup.env $1
 
 VM_NAME=${VM_NAME}-1
 echo "============== before start VM: '${VM_NAME}'"
-time $CLIPATH/spiderctl --config $CLIPATH/grpc_conf.yaml vm start -i json -d \
+time $CLIPATH/spctl --config $CLIPATH/grpc_conf.yaml vm start -i json -d \
     '{
       "ConnectionName":"'${CONN_CONFIG}'",
       "ReqInfo": {
