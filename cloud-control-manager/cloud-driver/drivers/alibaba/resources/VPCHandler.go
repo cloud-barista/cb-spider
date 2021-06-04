@@ -73,7 +73,11 @@ func (VPCHandler *AlibabaVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.V
 	callogger.Info(call.String(callLogInfo))
 
 	//VPC를 생성하면 Pending 상태라서 Subnet을 추가할 수 없기 때문에 Available로 바뀔 때까지 대기함.
-	VPCHandler.WaitForRun(response.VpcId)
+	err = VPCHandler.WaitForRun(response.VpcId)
+	if err != nil {
+		cblogger.Error(err)
+		return irs.VPCInfo{}, err
+	}
 
 	//==========================
 	// Subnet 생성
@@ -96,7 +100,7 @@ func (VPCHandler *AlibabaVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.V
 		cblogger.Error(errVpc)
 		return irs.VPCInfo{}, errVpc
 	}
-	//retVpcInfo.IId.NameId = vpcReqInfo.IId.NameId // NameId는 요청 받은 값으로 리턴해야 함.
+	retVpcInfo.IId.NameId = vpcReqInfo.IId.NameId // NameId는 요청 받은 값으로 리턴해야 함.
 
 	return retVpcInfo, nil
 }

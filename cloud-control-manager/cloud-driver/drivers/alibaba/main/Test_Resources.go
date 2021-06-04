@@ -28,7 +28,7 @@ var cblogger *logrus.Logger
 func init() {
 	// cblog is a global variable.
 	cblogger = cblog.GetLogger("AlibabaCloud Resource Test")
-	cblog.SetLevel("info")
+	cblog.SetLevel("debug")
 }
 
 /*
@@ -341,7 +341,7 @@ func handleSecurity() {
 
 	securityName := "CB-SecurityTestCidr"
 	securityId := "sg-6wedru4yb4m6qqfvd3sj"
-	vpcId := "vpc-6we8we6do6m72xzzipur1"
+	vpcId := "vpc-0jl4l19l51gn2exrohgci"
 
 	for {
 		fmt.Println("Security Management")
@@ -846,13 +846,16 @@ func handleVM() {
 					IId: irs.IID{NameId: "mcloud-barista-vm-test"},
 					//ImageIID: irs.IID{SystemId: "aliyun_3_x64_20G_alibase_20210425.vhd"},
 					//ImageIID: irs.IID{SystemId: "aliyun_2_1903_x64_20G_alibase_20200324.vhd"},
-					ImageIID:  irs.IID{SystemId: "ubuntu_18_04_x64_20G_alibase_20210318.vhd"},
-					VpcIID:    irs.IID{SystemId: "vpc-6welivp7nl6yw5a2rxj2w"},
-					SubnetIID: irs.IID{SystemId: "vsw-6wedntef8vkfzctdps7dl"},
+					//ImageIID:  irs.IID{SystemId: "ubuntu_18_04_x64_20G_alibase_20210318.vhd"},
+					ImageIID: irs.IID{SystemId: "ubuntu_18_04_x64_20G_alibase_20210420.vhd"},
+					//VpcIID:    irs.IID{SystemId: "vpc-0jl4l19l51gn2exrohgci"},
+					//SubnetIID: irs.IID{SystemId: "vsw-0jlj155cbwhjumtipnm6d"},
+					SubnetIID: irs.IID{SystemId: "vsw-0jlj177cbwhjumtipnm6d"}, //없는 Subnet 테스트
 					//SecurityGroupIIDs: []irs.IID{{SystemId: "sg-6we0rxnoai067qbkdkgw"}, {SystemId: "sg-6weeb9xaodr65g7bq10c"}},
-					SecurityGroupIIDs: []irs.IID{{SystemId: "sg-6we1jpq012lnye7i4np4"}},
-					VMSpecName:        "ecs.t5-lc2m1.nano",
-					KeyPairIID:        irs.IID{SystemId: "CB-KeyPairTest123123"},
+					SecurityGroupIIDs: []irs.IID{{SystemId: "sg-0jlcxdq9lpyi67vzuft1"}},
+					//VMSpecName:        "ecs.t5-lc2m1.nano",
+					VMSpecName: "ecs.g6.large", //cn-wulanchabu 리전
+					KeyPairIID: irs.IID{SystemId: "CB-KeyPairTest123123"},
 					//VMUserId:          "root", //root만 가능
 					//VMUserPasswd: "Cbuser!@#", //대문자 소문자 모두 사용되어야 함. 그리고 숫자나 특수 기호 중 하나가 포함되어야 함.
 				}
@@ -860,6 +863,7 @@ func handleVM() {
 				vmInfo, err := vmHandler.StartVM(vmReqInfo)
 				if err != nil {
 					//panic(err)
+					cblogger.Error("VM 생성 실패 - 실패 이유")
 					cblogger.Error(err)
 				} else {
 					cblogger.Info("VM 생성 완료!!", vmInfo)
@@ -966,12 +970,14 @@ func handleVM() {
 
 func main() {
 	cblogger.Info("Alibaba Cloud Resource Test")
+	cblogger.Debug("Debug mode")
+
 	//handleVPC() //VPC
 	//handleVMSpec()
 	//handleImage() //AMI
+	//handleSecurity()
 	//handleKeyPair()
-	handleSecurity()
-	//handleVM()
+	handleVM()
 
 	//handlePublicIP() // PublicIP 생성 후 conf
 
