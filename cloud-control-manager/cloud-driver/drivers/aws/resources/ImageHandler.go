@@ -19,6 +19,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/ec2"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
+	"github.com/davecgh/go-spew/spew"
 
 	//irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/new-resources"
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
@@ -70,6 +71,10 @@ func (imageHandler *AwsImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 				Name:   aws.String("is-public"),
 				Values: aws.StringSlice([]string{"true"}),
 			},
+			{
+				Name:   aws.String("state"),
+				Values: aws.StringSlice([]string{"available"}),
+			},
 		},
 	}
 
@@ -111,7 +116,19 @@ func (imageHandler *AwsImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 
 	//cnt := 0
 	for _, cur := range result.Images {
-		cblogger.Infof("[%s] AMI 정보 처리", *cur.ImageId)
+		spew.Dump(cur)
+
+		if reflect.ValueOf(cur.State).IsNil() {
+			cblogger.Errorf("===>[%s] AMI는 State 정보가 없음.", *cur.ImageId)
+			continue
+		}
+
+		if reflect.ValueOf(cur.Name).IsNil() {
+			cblogger.Errorf("===>[%s] AMI는 Name 정보가 없음.", *cur.ImageId)
+			continue
+		}
+
+		cblogger.Infof("[%s] - [%s] - [%s] - [%s] AMI 정보 처리", *cur.ImageId, *cur.State, *cur.Name, *cur.UsageOperation)
 		imageInfo := ExtractImageDescribeInfo(cur)
 		imageInfoList = append(imageInfoList, &imageInfo)
 		/*
