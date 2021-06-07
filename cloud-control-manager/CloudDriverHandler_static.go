@@ -21,6 +21,7 @@ import (
 	gcpdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/gcp"
 	mockdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/mock"
 	openstackdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/openstack"
+	tencentdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/tencent"
 
 	// ncpdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/ncp" // NCP
 	// ncpvpcdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/ncpvpc" // NCP-VPC
@@ -143,7 +144,7 @@ func GetCloudConnection(cloudConnectName string) (icon.CloudConnection, error) {
 			PrivateKey:       getValue(crdInfo.KeyValueInfoList, "PrivateKey"),
 			Host:             getValue(crdInfo.KeyValueInfoList, "Host"),
 			APIVersion:       getValue(crdInfo.KeyValueInfoList, "APIVersion"),
-			MockName:       getValue(crdInfo.KeyValueInfoList, "MockName"),
+			MockName:         getValue(crdInfo.KeyValueInfoList, "MockName"),
 		},
 		RegionInfo: idrv.RegionInfo{ // @todo powerkim
 			Region:        regionName,
@@ -170,17 +171,17 @@ func getValue(keyValueInfoList []icbs.KeyValue, key string) string {
 }
 
 func GetProviderNameByConnectionName(cloudConnectName string) (string, error) {
-        cccInfo, err := ccim.GetConnectionConfig(cloudConnectName)
-        if err != nil {
-                return "", err
-        }
+	cccInfo, err := ccim.GetConnectionConfig(cloudConnectName)
+	if err != nil {
+		return "", err
+	}
 
-        rgnInfo, err := rim.GetRegion(cccInfo.RegionName)
-        if err != nil {
-                return "", err
-        }
+	rgnInfo, err := rim.GetRegion(cccInfo.RegionName)
+	if err != nil {
+		return "", err
+	}
 
-        return rgnInfo.ProviderName, nil
+	return rgnInfo.ProviderName, nil
 }
 
 func GetRegionNameByConnectionName(cloudConnectName string) (string, string, error) {
@@ -232,6 +233,9 @@ func GetRegionNameByRegionInfo(rgnInfo *rim.RegionInfo) (string, string, error) 
 		regionName = getValue(rgnInfo.KeyValueInfoList, "Region")
 	case "MOCK":
 		regionName = getValue(rgnInfo.KeyValueInfoList, "Region")
+	case "TENCENT":
+		regionName = getValue(rgnInfo.KeyValueInfoList, "Region")
+		zoneName = getValue(rgnInfo.KeyValueInfoList, "Zone")
 	default:
 		errmsg := rgnInfo.ProviderName + " is not a valid ProviderName!!"
 		return "", "", fmt.Errorf(errmsg)
@@ -307,6 +311,8 @@ func getStaticCloudDriver(cldDrvInfo dim.CloudDriverInfo) (idrv.CloudDriver, err
 		cloudDriver = new(clouditdrv.ClouditDriver)
 	case "DOCKER":
 		cloudDriver = new(dockerdrv.DockerDriver)
+	case "TENCENT":
+		cloudDriver = new(tencentdrv.TencentDriver)
 	// case "NCP": // NCP
 	//  cloudDriver = new(ncpdrv.NcpDriver) // NCP
 	// case "NCPVPC": // NCP-VPC
