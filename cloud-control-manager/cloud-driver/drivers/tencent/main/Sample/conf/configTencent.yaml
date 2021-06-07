@@ -1,0 +1,7 @@
+tencent:
+  # Credential Info
+  tencent_secret_id: AKIDg8******
+  tencent_secret_key: ******
+
+  region: ap-tokyo
+  zone: ap-tokyo-2
