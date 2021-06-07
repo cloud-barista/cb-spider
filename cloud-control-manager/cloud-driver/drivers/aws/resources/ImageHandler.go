@@ -53,6 +53,7 @@ func (imageHandler *AwsImageHandler) CreateImage(imageReqInfo irs.ImageReqInfo) 
 }
 
 //@TODO : 목록이 너무 많기 때문에 amazon 계정으로 공유된 퍼블릭 이미지중 AMI만 조회 함.
+//20210607 - Tumblebug에서 필터할 수 있도록 state는 모든 이미지를 대상으로 하며, 이미지가 너무 많기 때문에 AWS 소유의 이미지만 제공 함.
 func (imageHandler *AwsImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 	cblogger.Debug("Start")
 	var imageInfoList []*irs.ImageInfo
@@ -70,6 +71,12 @@ func (imageHandler *AwsImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 				Name:   aws.String("is-public"),
 				Values: aws.StringSlice([]string{"true"}),
 			},
+			/*
+				{
+					Name:   aws.String("state"),
+					Values: aws.StringSlice([]string{"available"}),
+				},
+			*/
 		},
 	}
 
@@ -93,7 +100,7 @@ func (imageHandler *AwsImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 
 	if err != nil {
 		callLogInfo.ErrorMSG = err.Error()
-		callogger.Info(call.String(callLogInfo))
+		callogger.Error(call.String(callLogInfo))
 
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
@@ -109,19 +116,33 @@ func (imageHandler *AwsImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 	}
 	callogger.Info(call.String(callLogInfo))
 
-	//cnt := 0
+	cnt := 0
 	for _, cur := range result.Images {
-		cblogger.Infof("[%s] AMI 정보 처리", *cur.ImageId)
+		//spew.Dump(cur)
+		if reflect.ValueOf(cur.State).IsNil() {
+			cblogger.Errorf("===>[%s] AMI는 State 정보가 없어서 Skip함.", *cur.ImageId)
+			continue
+		}
+
+		if reflect.ValueOf(cur.Name).IsNil() {
+			cblogger.Infof("===>[%s] AMI는 Name 정보가 없어서 Skip함.", *cur.ImageId)
+			continue
+		}
+
+		cblogger.Debugf("[%s] - [%s] - [%s] AMI 정보 처리", *cur.ImageId, *cur.State, *cur.Name)
+		//cblogger.Infof("[%s] - [%s] - [%s] - [%s] AMI 정보 처리", *cur.ImageId, *cur.State, *cur.Name, *cur.UsageOperation)
+
 		imageInfo := ExtractImageDescribeInfo(cur)
 		imageInfoList = append(imageInfoList, &imageInfo)
+		cnt++
 		/*
-			cnt++
 			if cnt > 20 {
 				break
 			}
 		*/
 	}
 
+	cblogger.Info("%d개의 이미지가 조회됨.", cnt)
 	//spew.Dump(imageInfoList)
 
 	return imageInfoList, nil

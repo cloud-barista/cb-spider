@@ -687,12 +687,10 @@ func handleImage() {
 	if err != nil {
 		panic(err)
 	}
-	//handler := ResourceHandler.(irs2.ImageHandler)
 	handler := ResourceHandler.(irs.ImageHandler)
 
-	//imageReqInfo := irs2.ImageReqInfo{
 	imageReqInfo := irs.ImageReqInfo{
-		IId: irs.IID{NameId: "Test OS Image", SystemId: "ami-047f7b46bd6dd5d84"},
+		IId: irs.IID{NameId: "Test OS Image", SystemId: "ami-0e82959d4ed12de3f"},
 		//Id:   "ami-047f7b46bd6dd5d84",
 		//Name: "Test OS Image",
 	}
@@ -723,8 +721,8 @@ func handleImage() {
 				} else {
 					cblogger.Info("Image 목록 조회 결과")
 					cblogger.Info(result)
-					cblogger.Info("출력 결과 수 : ", len(result))
 					spew.Dump(result)
+					cblogger.Info("출력 결과 수 : ", len(result))
 
 					//조회및 삭제 테스트를 위해 리스트의 첫번째 정보의 ID를 요청ID로 자동 갱신함.
 					if result != nil {
@@ -1123,31 +1121,13 @@ func handleVMSpec() {
 
 func main() {
 	cblogger.Info("AWS Resource Test")
-	/*
-		err := testErr()
-		spew.Dump(err)
-		if err != nil {
-			cblogger.Info("에러 발생")
-			awsErr, ok := err.(awserr.Error)
-			spew.Dump(awsErr)
-			spew.Dump(ok)
-			if ok {
-				if "404" == awsErr.Code() {
-					cblogger.Info("404!!!")
-				} else {
-					cblogger.Info("404 아님")
-				}
-			}
-		}
-	*/
-
 	//handleVPC()
 	//handleKeyPair()
 	//handlePublicIP() // PublicIP 생성 후 conf
-	handleSecurity()
+	//handleSecurity()
 	//handleVM()
 
-	//handleImage() //AMI
+	handleImage() //AMI
 	//handleVNic() //Lancard
 	//handleVMSpec()
 }
@@ -1297,7 +1277,7 @@ func readConfigFile() Config {
 	rootPath := os.Getenv("CBSPIDER_PATH")
 	//rootpath := "D:/Workspace/mcloud-barista-config"
 	// /mnt/d/Workspace/mcloud-barista-config/config/config.yaml
-	cblogger.Debugf("Test Data 설정파일 : [%]", rootPath+"/config/config.yaml")
+	cblogger.Infof("Test Data 설정파일 : [%]", rootPath+"/config/config.yaml")
 
 	data, err := ioutil.ReadFile(rootPath + "/config/config.yaml")
 	//data, err := ioutil.ReadFile("D:/Workspace/mcloud-bar-config/config/config.yaml")
