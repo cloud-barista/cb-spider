@@ -4,7 +4,7 @@ echo "## KeyPair Test Scripts for CB-Spider IID Working Version           "
 echo "##   KeyPair: Create -> List -> Get"
 echo "####################################################################"
 
-$CBSPIDER_ROOT/interface/spider keypair create --config $CBSPIDER_ROOT/interface/grpc_conf.yaml -i json -d \
+$CBSPIDER_ROOT/interface/spctl keypair create --config $CBSPIDER_ROOT/interface/grpc_conf.yaml -i json -d \
     '{ 
       "ConnectionName":"'${CONN_CONFIG}'",
       "ReqInfo": { 
@@ -12,7 +12,7 @@ $CBSPIDER_ROOT/interface/spider keypair create --config $CBSPIDER_ROOT/interface
       } 
     }'
 
-$CBSPIDER_ROOT/interface/spider keypair list --config $CBSPIDER_ROOT/interface/grpc_conf.yaml --cname "${CONN_CONFIG}"
+$CBSPIDER_ROOT/interface/spctl keypair list --config $CBSPIDER_ROOT/interface/grpc_conf.yaml --cname "${CONN_CONFIG}"
 
-$CBSPIDER_ROOT/interface/spider keypair get --config $CBSPIDER_ROOT/interface/grpc_conf.yaml --cname "${CONN_CONFIG}" -n keypair-01
+$CBSPIDER_ROOT/interface/spctl keypair get --config $CBSPIDER_ROOT/interface/grpc_conf.yaml --cname "${CONN_CONFIG}" -n keypair-01
     

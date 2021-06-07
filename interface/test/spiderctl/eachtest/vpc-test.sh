@@ -4,7 +4,7 @@ echo "## VPC Test Scripts for CB-Spider IID Working Version               "
 echo "##   VPC: Create -> Add-Subnet -> List -> Get"
 echo "####################################################################"
 
-$CBSPIDER_ROOT/interface/spider vpc create --config $CBSPIDER_ROOT/interface/grpc_conf.yaml -i json -d \
+$CBSPIDER_ROOT/interface/spctl vpc create --config $CBSPIDER_ROOT/interface/grpc_conf.yaml -i json -d \
     '{ 
       "ConnectionName":"'${CONN_CONFIG}'",
       "ReqInfo": { 
@@ -19,7 +19,7 @@ $CBSPIDER_ROOT/interface/spider vpc create --config $CBSPIDER_ROOT/interface/grp
       } 
     }'
 
-$CBSPIDER_ROOT/interface/spider vpc add-subnet --config $CBSPIDER_ROOT/interface/grpc_conf.yaml -i json -d \
+$CBSPIDER_ROOT/interface/spctl vpc add-subnet --config $CBSPIDER_ROOT/interface/grpc_conf.yaml -i json -d \
 '{ 
   "ConnectionName":"'${CONN_CONFIG}'",
   "VPCName": "vpc-01", 
@@ -29,8 +29,8 @@ $CBSPIDER_ROOT/interface/spider vpc add-subnet --config $CBSPIDER_ROOT/interface
   } 
 }' 
 
-$CBSPIDER_ROOT/interface/spider vpc list --config $CBSPIDER_ROOT/interface/grpc_conf.yaml --cname "${CONN_CONFIG}"
+$CBSPIDER_ROOT/interface/spctl vpc list --config $CBSPIDER_ROOT/interface/grpc_conf.yaml --cname "${CONN_CONFIG}"
 
-$CBSPIDER_ROOT/interface/spider vpc get --config $CBSPIDER_ROOT/interface/grpc_conf.yaml --cname "${CONN_CONFIG}" -n vpc-01
+$CBSPIDER_ROOT/interface/spctl vpc get --config $CBSPIDER_ROOT/interface/grpc_conf.yaml --cname "${CONN_CONFIG}" -n vpc-01
 
 

@@ -4,7 +4,7 @@ echo "## SecurityGroup Test Scripts for CB-Spider IID Working Version - 2020.04.
 echo "##   SecurityGroup: Create -> List -> Get"
 echo "####################################################################"
 
-$CBSPIDER_ROOT/interface/spider security create --config $CBSPIDER_ROOT/interface/grpc_conf.yaml -i json -d \
+$CBSPIDER_ROOT/interface/spctl security create --config $CBSPIDER_ROOT/interface/grpc_conf.yaml -i json -d \
     '{ 
       "ConnectionName":"'${CONN_CONFIG}'",
       "ReqInfo": { 
@@ -22,8 +22,8 @@ $CBSPIDER_ROOT/interface/spider security create --config $CBSPIDER_ROOT/interfac
       } 
     }'
 
-$CBSPIDER_ROOT/interface/spider security list --config $CBSPIDER_ROOT/interface/grpc_conf.yaml --cname "${CONN_CONFIG}"
+$CBSPIDER_ROOT/interface/spctl security list --config $CBSPIDER_ROOT/interface/grpc_conf.yaml --cname "${CONN_CONFIG}"
 
-$CBSPIDER_ROOT/interface/spider security get --config $CBSPIDER_ROOT/interface/grpc_conf.yaml --cname "${CONN_CONFIG}" -n sg-01
+$CBSPIDER_ROOT/interface/spctl security get --config $CBSPIDER_ROOT/interface/grpc_conf.yaml --cname "${CONN_CONFIG}" -n sg-01
        
  

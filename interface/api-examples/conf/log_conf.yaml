@@ -8,7 +8,7 @@ cblog:
   loglevel: error # If loopcheck is true, You can set this online.
 
   ## true | false
-  logfile: true 
+  logfile: false 
 
 ## Config for File Output ##
 logfileinfo:
