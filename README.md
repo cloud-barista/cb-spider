@@ -53,9 +53,9 @@ If you have any difficulties in using CB-Spider, please let us know.
 
 #### [API 규격]
 - 클라우드 인프라 연동 정보 관리: https://cloud-barista.github.io/rest-api/v0.3.0/spider/ccim/
-  - 관리대상: Cloud Driver / Credential / Region:Zone
+  - 관리대상: Cloud Driver / Cloud Credential / Cloud Region:Zone / Cloud Connection
 - 클라우드 인프라 공통 제어 관리: https://cloud-barista.github.io/rest-api/v0.3.0/spider/cctm/
-  - 제어대상: Image / Spec / VPC/Subnet / SecurityGroup / KeyPair / VM
+  - 제어대상: VM Image / VM Spec / VPC/Subnet / SecurityGroup / VM KeyPair / VM
 
 #### [제공 자원] 
 
