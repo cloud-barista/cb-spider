@@ -19,7 +19,6 @@ import (
 	"github.com/aws/aws-sdk-go/service/ec2"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
-	"github.com/davecgh/go-spew/spew"
 
 	//irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/new-resources"
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
@@ -59,9 +58,11 @@ func (imageHandler *AwsImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 	var imageInfoList []*irs.ImageInfo
 	input := &ec2.DescribeImagesInput{
 		//ImageIds: []*string{aws.String("ami-0d097db2fb6e0f05e")},
-		Owners: []*string{
-			aws.String("amazon"), //사용자 계정 번호를 넣으면 사용자의 이미지를 대상으로 조회 함.
-		},
+		/*
+			Owners: []*string{
+				aws.String("amazon"), //사용자 계정 번호를 넣으면 사용자의 이미지를 대상으로 조회 함.
+			},
+		*/
 		Filters: []*ec2.Filter{
 			{
 				Name:   aws.String("image-type"),
@@ -98,7 +99,7 @@ func (imageHandler *AwsImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 
 	if err != nil {
 		callLogInfo.ErrorMSG = err.Error()
-		callogger.Info(call.String(callLogInfo))
+		callogger.Error(call.String(callLogInfo))
 
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
@@ -114,31 +115,33 @@ func (imageHandler *AwsImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 	}
 	callogger.Info(call.String(callLogInfo))
 
-	//cnt := 0
+	cnt := 0
 	for _, cur := range result.Images {
-		spew.Dump(cur)
-
+		//spew.Dump(cur)
 		if reflect.ValueOf(cur.State).IsNil() {
-			cblogger.Errorf("===>[%s] AMI는 State 정보가 없음.", *cur.ImageId)
+			cblogger.Errorf("===>[%s] AMI는 State 정보가 없어서 Skip함.", *cur.ImageId)
 			continue
 		}
 
 		if reflect.ValueOf(cur.Name).IsNil() {
-			cblogger.Errorf("===>[%s] AMI는 Name 정보가 없음.", *cur.ImageId)
+			cblogger.Infof("===>[%s] AMI는 Name 정보가 없어서 Skip함.", *cur.ImageId)
 			continue
 		}
 
-		cblogger.Infof("[%s] - [%s] - [%s] - [%s] AMI 정보 처리", *cur.ImageId, *cur.State, *cur.Name, *cur.UsageOperation)
+		cblogger.Debugf("[%s] - [%s] - [%s] AMI 정보 처리", *cur.ImageId, *cur.State, *cur.Name)
+		//cblogger.Infof("[%s] - [%s] - [%s] - [%s] AMI 정보 처리", *cur.ImageId, *cur.State, *cur.Name, *cur.UsageOperation)
+
 		imageInfo := ExtractImageDescribeInfo(cur)
 		imageInfoList = append(imageInfoList, &imageInfo)
+		cnt++
 		/*
-			cnt++
 			if cnt > 20 {
 				break
 			}
 		*/
 	}
 
+	cblogger.Info("%d개의 이미지가 조회됨.", cnt)
 	//spew.Dump(imageInfoList)
 
 	return imageInfoList, nil
