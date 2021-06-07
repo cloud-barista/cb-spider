@@ -53,16 +53,15 @@ func (imageHandler *AwsImageHandler) CreateImage(imageReqInfo irs.ImageReqInfo) 
 }
 
 //@TODO : 목록이 너무 많기 때문에 amazon 계정으로 공유된 퍼블릭 이미지중 AMI만 조회 함.
+//20210607 - Tumblebug에서 필터할 수 있도록 state는 모든 이미지를 대상으로 하며, 이미지가 너무 많기 때문에 AWS 소유의 이미지만 제공 함.
 func (imageHandler *AwsImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 	cblogger.Debug("Start")
 	var imageInfoList []*irs.ImageInfo
 	input := &ec2.DescribeImagesInput{
 		//ImageIds: []*string{aws.String("ami-0d097db2fb6e0f05e")},
-		/*
-			Owners: []*string{
-				aws.String("amazon"), //사용자 계정 번호를 넣으면 사용자의 이미지를 대상으로 조회 함.
-			},
-		*/
+		Owners: []*string{
+			aws.String("amazon"), //사용자 계정 번호를 넣으면 사용자의 이미지를 대상으로 조회 함.
+		},
 		Filters: []*ec2.Filter{
 			{
 				Name:   aws.String("image-type"),
@@ -72,10 +71,12 @@ func (imageHandler *AwsImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 				Name:   aws.String("is-public"),
 				Values: aws.StringSlice([]string{"true"}),
 			},
-			{
-				Name:   aws.String("state"),
-				Values: aws.StringSlice([]string{"available"}),
-			},
+			/*
+				{
+					Name:   aws.String("state"),
+					Values: aws.StringSlice([]string{"available"}),
+				},
+			*/
 		},
 	}
 
