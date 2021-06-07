@@ -2,6 +2,7 @@ default:
 		@echo -e '\t[CB-Spider] build ./bin/cb-spider....'
 		@go mod download
 		@go build -o bin/cb-spider ./api-runtime
+		@go build -o ./interface/spctl ./interface/cli/spider/spider.go
 dyna plugin plug dynamic:
 		@echo -e '\t[CB-Spider] build ./bin/cb-spider with plugin mode...'
 		@go mod download
