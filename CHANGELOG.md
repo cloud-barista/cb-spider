@@ -40,8 +40,11 @@
   - ref) https://github.com/cloud-barista/cb-spider/commit/144cc274dc3232b47226025dd6e8a24605784136
 - 운영 중인 Server endpoint 정보 제공 명령 추가
   - ./bin/endpoint-info.sh
-- SG Source filter 추가(WIP)
+- SG Source filter 추가
+  - ref) https://github.com/cloud-barista/cb-spider/issues/355
+- ↓ **v0.3.14** (2021.06.07.PM16)
 
+<br>
 
 - ↓ **latest** (now)
 
