@@ -19,7 +19,7 @@ do
 	    "CredentialName":"cloudtwin-cloud-'$num'-credential01",
 	    "ProviderName":"CLOUDTWIN",
 	    "KeyValueInfoList": [
-		{"Key":"IdentityEndpoint", "Value":"http://XX.XX.XX.XX:8080"},
+		{"Key":"IdentityEndpoint", "Value":"http://XX.XX.XX.XX:8192"},
 		{"Key":"DomainName", "Value":"cloud-'$num'"},
 		{"Key":"MockName", "Value":"mock_name01"}
 	]}'
