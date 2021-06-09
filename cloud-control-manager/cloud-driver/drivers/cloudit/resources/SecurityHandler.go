@@ -14,6 +14,8 @@ import (
 
 const (
 	SecurityGroup = "SECURITYGROUP"
+	NULL          = ""
+	DefaultCIDR   = "0.0.0.0/0"
 )
 
 type ClouditSecurityHandler struct {
@@ -80,12 +82,14 @@ func (securityHandler *ClouditSecurityHandler) CreateSecurity(securityReqInfo ir
 	ruleList := make([]securitygroup.SecurityGroupRules, len(*securityReqInfo.SecurityRules))
 	for i, rule := range *securityReqInfo.SecurityRules {
 		var port string
+		if rule.CIDR == NULL {
+			rule.CIDR = DefaultCIDR
+		}
 		if rule.FromPort == rule.ToPort {
 			port = rule.FromPort
 		} else {
 			port = rule.FromPort + "-" + rule.ToPort
 		}
-
 		secRuleInfo := securitygroup.SecurityGroupRules{
 			Name:     fmt.Sprintf("%s-rules-%d", securityReqInfo.IId.NameId, i+1),
 			Type:     rule.Direction,
