@@ -18,6 +18,7 @@ import (
 
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/cloudit/client"
+	"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/cloudit/client/ace/nic"
 	"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/cloudit/client/ace/server"
 	"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/cloudit/client/dna/adaptiveip"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
@@ -148,6 +149,16 @@ func (vmHandler *ClouditVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 		return irs.VMInfo{}, err
 	}
 	vmInfo := vmHandler.mappingServerInfo(*vm)
+
+	vnicList, _ := ListVNic(authHeader, vmHandler.Client, vm.ID)
+	var vnicMac string
+	if vnicList != nil {
+		defaultVnic := (*vnicList)[0]
+		vnicMac = defaultVnic.Mac
+	}
+
+	// VM NIC의 Security Group Attach
+	vmHandler.attachSgToVnic(authHeader, vm.ID, vmHandler.Client, vnicMac, secGroups)
 
 	// SSH 접속 사용자 및 공개키 등록
 	loginUserId := SSHDefaultUser
@@ -617,4 +628,16 @@ func getVmStatus(vmStatus string) irs.VMStatus {
 		resultStatus = "Failed"
 	}
 	return irs.VMStatus(resultStatus)
+}
+
+func (vmHandler *ClouditVMHandler) attachSgToVnic(authHeader map[string]string, vmID string, reqClient *client.RestClient, vnicMac string, sgGroup []server.SecGroupInfo) {
+
+	reqInfo := server.VMReqInfo{
+		Secgroups: sgGroup,
+	}
+	requestOpts := client.RequestOpts{
+		MoreHeaders: authHeader,
+		JSONBody:    reqInfo,
+	}
+	nic.Put(reqClient, vmID, &requestOpts, vnicMac)
 }
