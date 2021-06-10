@@ -44,12 +44,12 @@ type Config struct {
 //환경변수 CBSPIDER_PATH 설정 후 해당 폴더 하위에 /config/configTencent.yaml 파일 생성해야 함.
 func ReadConfigFile() Config {
 	// Set Environment Value of Project Root Path
-	rootPath := os.Getenv("CBSPIDER_PATH")
+	rootPath := os.Getenv("CBSPIDER_ROOT")
 	//rootpath := "D:/Workspace/mcloud-barista-config"
 	// /mnt/d/Workspace/mcloud-barista-config/config/config.yaml
-	cblogger.Debugf("Test Data 설정파일 : [%]", rootPath+"/config/configTencent.yaml")
+	cblogger.Debugf("Test Data 설정파일 : [%]", rootPath+"/conf/configTencent.yaml")
 
-	data, err := ioutil.ReadFile(rootPath + "/config/configTencent.yaml")
+	data, err := ioutil.ReadFile(rootPath + "/conf/configTencent.yaml")
 	if err != nil {
 		panic(err)
 	}
