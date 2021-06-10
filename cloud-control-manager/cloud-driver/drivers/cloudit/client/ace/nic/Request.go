@@ -112,3 +112,12 @@ func Delete(restClient *client.RestClient, serverId string, macAddr string, requ
 	}
 	return nil
 }
+
+// updateNIC
+func Put(restClient *client.RestClient, serverId string, requestOpts *client.RequestOpts, nicMac string) {
+	requestURL := restClient.CreateRequestBaseURL(client.ACE, "servers", serverId, "nic", nicMac, "securitygroup")
+	cblogger.Info(requestURL)
+
+	var result client.Result
+	_, _ = restClient.Put(requestURL, nil, &result.Body, requestOpts)
+}
