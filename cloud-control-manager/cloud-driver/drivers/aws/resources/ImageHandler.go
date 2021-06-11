@@ -163,12 +163,29 @@ func ExtractImageDescribeInfo(image *ec2.Image) irs.ImageInfo {
 	keyValueList := []irs.KeyValue{
 		//{Key: "Name", Value: *image.Name}, //20200723-Name이 없는 이미지 존재 - 예)ami-0008a301
 		{Key: "CreationDate", Value: *image.CreationDate},
-		{Key: "Architecture", Value: *image.Architecture},
+		{Key: "Architecture", Value: *image.Architecture}, //x86_64
 		{Key: "OwnerId", Value: *image.OwnerId},
 		{Key: "ImageType", Value: *image.ImageType},
 		{Key: "ImageLocation", Value: *image.ImageLocation},
 		{Key: "VirtualizationType", Value: *image.VirtualizationType},
 		{Key: "Public", Value: strconv.FormatBool(*image.Public)},
+	}
+
+	//주로 윈도우즈는 Platform 정보가 존재하며 리눅스 계열은 PlatformDetails만 존재하는 듯. - "Linux/UNIX"
+	//윈도우즈 계열은 PlatformDetails에는 "Windows with SQL Server Standard"처럼 SQL정보도 포함되어있음.
+	if !reflect.ValueOf(image.Platform).IsNil() {
+		imageInfo.GuestOS = *image.Platform //Linux/UNIX
+		keyValueList = append(keyValueList, irs.KeyValue{Key: "Platform", Value: *image.Platform})
+	} else {
+		// Platform 정보가 없는 경우 PlatformDetails 정보가 존재하면 PlatformDetails 값을 이용함.
+		if !reflect.ValueOf(image.PlatformDetails).IsNil() {
+			imageInfo.GuestOS = *image.PlatformDetails //Linux/UNIX
+		}
+	}
+
+	// 일부 이미지들은 아래 정보가 없어서 예외 처리 함.
+	if !reflect.ValueOf(image.PlatformDetails).IsNil() {
+		keyValueList = append(keyValueList, irs.KeyValue{Key: "PlatformDetails", Value: *image.PlatformDetails})
 	}
 
 	// 일부 이미지들은 아래 정보가 없어서 예외 처리 함.
