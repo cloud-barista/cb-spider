@@ -119,3 +119,46 @@ func Delete(restClient *client.RestClient, securitygroupId string, requestOpts *
 	}
 	return nil
 }
+
+func ListRulesinSG(restClient *client.RestClient, securitygroupId string, requestOpts *client.RequestOpts) (*[]SecurityGroupRules, error) {
+	requestURL := restClient.CreateRequestBaseURL(client.IAM, "securitygroups", securitygroupId)
+	cblogger.Info(requestURL)
+
+	var result client.Result
+	if _, result.Err = restClient.Get(requestURL, &result.Body, requestOpts); result.Err != nil {
+		return nil, result.Err
+	}
+
+	var securityGroup []SecurityGroupRules
+	if err := result.ExtractInto(&securityGroup); err != nil {
+		return nil, err
+	}
+	return &securityGroup, nil
+}
+
+func AddRule(restClient *client.RestClient, securitygroupId string, requestOpts *client.RequestOpts, rule string) (*SecurityGroupRules, error) {
+	requestURL := restClient.CreateRequestBaseURL(client.IAM, "securitygroups", securitygroupId, rule)
+	cblogger.Info(requestURL)
+
+	var result client.Result
+	if _, result.Err = restClient.Post(requestURL, nil, &result.Body, requestOpts); result.Err != nil {
+		return nil, result.Err
+	}
+
+	var securityGroup SecurityGroupRules
+	if err := result.ExtractInto(&securityGroup); err != nil {
+		return nil, err
+	}
+	return &securityGroup, nil
+}
+
+func DeleteRule(restClient *client.RestClient, securitygroupId string, requestOpts *client.RequestOpts, ruleID string) error {
+	requestURL := restClient.CreateRequestBaseURL(client.IAM, "securitygroups", securitygroupId, ruleID)
+	cblogger.Info(requestURL)
+
+	var result client.Result
+	if _, result.Err = restClient.Delete(requestURL, requestOpts); result.Err != nil {
+		return result.Err
+	}
+	return nil
+}
