@@ -36,7 +36,7 @@ type CredentialInfo struct {
 	TenantId         string // Azure Credential
 	SubscriptionId   string // Azure Credential
 	IdentityEndpoint string // OpenStack Credential
-	Username         string // OpenStack Credential
+	Username         string // OpenStack Credential, Ibm
 	Password         string // OpenStack Credential
 	DomainName       string // OpenStack Credential
 	ProjectID        string // OpenStack Credential
@@ -46,6 +46,7 @@ type CredentialInfo struct {
 	Host             string // Docker
 	APIVersion       string // Docker
 	MockName         string // Mock
+	ApiKey			 string // Ibm
 }
 
 type RegionInfo struct {
