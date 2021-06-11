@@ -98,6 +98,7 @@ tencent:
   ### Europe (Frankfurt)
   #region: eu-frankfurt
   #zone: eu-frankfurt-1
+  #zone: eu-frankfurt-2
 
   ### Europe (Moscow)
   #region: eu-moscow
