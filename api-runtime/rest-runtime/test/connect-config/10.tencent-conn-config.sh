@@ -17,7 +17,7 @@ curl -X POST http://$RESTSERVER:1024/spider/region -H 'Content-Type: application
 
 curl -X POST http://$RESTSERVER:1024/spider/region -H 'Content-Type: application/json' -d '{"RegionName":"tencent-guangzhou-4","ProviderName":"TENCENT", "KeyValueInfoList": [{"Key":"Region", "Value":"ap-guangzhou"}, {"Key":"Zone", "Value":"ap-guangzhou-4"}]}'
 
-curl -X POST http://$RESTSERVER:1024/spider/region -H 'Content-Type: application/json' -d '{"RegionName":"tencent-guangzhou-5","ProviderName":"TENCENT", "KeyValueInfoList": [{"Key":"Region", "Value":"ap-guangzhou"}, {"Key":"Zone", "Value":"ap-guangzhou-5"}]}'
+curl -X POST http://$RESTSERVER:1024/spider/region -H 'Content-Type: application/json' -d '{"RegionName":"tencent-guangzhou-6","ProviderName":"TENCENT", "KeyValueInfoList": [{"Key":"Region", "Value":"ap-guangzhou"}, {"Key":"Zone", "Value":"ap-guangzhou-6"}]}'
 
 # East China (Shanghai) : ap-shanghai
 curl -X POST http://$RESTSERVER:1024/spider/region -H 'Content-Type: application/json' -d '{"RegionName":"tencent-shanghai-1","ProviderName":"TENCENT", "KeyValueInfoList": [{"Key":"Region", "Value":"ap-shanghai"}, {"Key":"Zone", "Value":"ap-shanghai-1"}]}'
@@ -124,7 +124,7 @@ curl -X POST http://$RESTSERVER:1024/spider/connectionconfig -H 'Content-Type: a
 
 curl -X POST http://$RESTSERVER:1024/spider/connectionconfig -H 'Content-Type: application/json' -d '{"ConfigName":"tencent-guangzhou4-config","ProviderName":"TENCENT", "DriverName":"tencent-driver01", "CredentialName":"tencent-credential01", "RegionName":"tencent-guangzhou-4"}'
 
-curl -X POST http://$RESTSERVER:1024/spider/connectionconfig -H 'Content-Type: application/json' -d '{"ConfigName":"tencent-guangzhou5-config","ProviderName":"TENCENT", "DriverName":"tencent-driver01", "CredentialName":"tencent-credential01", "RegionName":"tencent-guangzhou-5"}'
+curl -X POST http://$RESTSERVER:1024/spider/connectionconfig -H 'Content-Type: application/json' -d '{"ConfigName":"tencent-guangzhou5-config","ProviderName":"TENCENT", "DriverName":"tencent-driver01", "CredentialName":"tencent-credential01", "RegionName":"tencent-guangzhou-6"}'
 
 # East China (Shanghai) : ap-shanghai
 curl -X POST http://$RESTSERVER:1024/spider/connectionconfig -H 'Content-Type: application/json' -d '{"ConfigName":"tencent-shanghai1-config","ProviderName":"TENCENT", "DriverName":"tencent-driver01", "CredentialName":"tencent-credential01", "RegionName":"tencent-shanghai-1"}'
