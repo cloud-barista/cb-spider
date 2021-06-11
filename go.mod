@@ -29,6 +29,7 @@ require (
 	github.com/docker/docker v0.0.0-20200309214505-aa6a9891b09c
 	github.com/docker/go-connections v0.4.0
 	github.com/docker/go-units v0.4.0 // indirect
+	github.com/go-resty/resty/v2 v2.6.0
 	github.com/gogo/protobuf v1.3.2
 	github.com/golang/protobuf v1.5.2
 	github.com/gophercloud/gophercloud v0.17.0
@@ -58,14 +59,6 @@ require (
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b
 	gotest.tools v1.4.0 // indirect
-	github.com/go-resty/resty/v2 v2.6.0 // indirect
-
-	// Do not delete. These are packages used at building NCP plugin Driver in Container.
-	github.com/NaverCloudPlatform/ncloud-sdk-go-v2 v1.1.7
-	github.com/appleboy/easyssh-proxy v1.3.9
-	github.com/sfreiberg/simplessh v0.0.0-20180301191542-495cbb862a9c
-	github.com/pkg/sftp v1.13.0 // indirect
-	// Do not delete. These are packages used at building NCP plugin Driver in Container.
 
 )
 
