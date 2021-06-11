@@ -26,10 +26,16 @@ import (
 )
 
 const (
-	VMDefaultUser  = "root"
-	SSHDefaultUser = "cb-user"
-	SSHDefaultPort = 22
-	VM             = "VM"
+	VMDefaultUser         = "root"
+	VMDefaultPassword     = "qwe1212!Q"
+	SSHDefaultUser        = "cb-user"
+	SSHDefaultPort        = 22
+	VM                    = "VM"
+	DefaultSGName         = "ALL"
+	ExtraInboundRuleName  = "extra-inbound"
+	ExtraOutboundRuleName = "extra-outbound"
+	InboundRule           = "inbound"
+	OutboundRule          = "outbound"
 )
 
 type ClouditVMHandler struct {
@@ -74,11 +80,45 @@ func (vmHandler *ClouditVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 	}
 
 	// 보안그룹 정보 조회 (Name)
+	sgHandler := ClouditSecurityHandler{
+		Client:         vmHandler.Client,
+		CredentialInfo: vmHandler.CredentialInfo,
+	}
+
+	// TODO: VNIC Security Group 수정 API 작업
+	//// Default SG 조회
+	//defaultSG, err := sgHandler.getSecurityByName(DefaultSGName)
+	//if err != nil {
+	//	return irs.VMInfo{}, nil
+	//}
+	//defaultSecGroups := make([]server.SecGroupInfo, len(vmReqInfo.SecurityGroupIIDs))
+	//for i, _ := range vmReqInfo.SecurityGroupIIDs {
+	//	defaultSecGroups[i] = server.SecGroupInfo{
+	//		Id: defaultSG.ID,
+	//	}
+	//}
+
+	// VM VNIC에 User Security Group 설정
 	secGroups := make([]server.SecGroupInfo, len(vmReqInfo.SecurityGroupIIDs))
 	for i, s := range vmReqInfo.SecurityGroupIIDs {
 		secGroups[i] = server.SecGroupInfo{
 			Id: s.SystemId,
 		}
+	}
+
+	// 임시 Inbound 규칙 생성
+	_, err = sgHandler.addRuleToSG(ExtraInboundRuleName, secGroups[0].Id, InboundRule)
+	if err != nil {
+		createErr := errors.New(fmt.Sprintf("failed to add extra inbound rule to SG, err : %s", err.Error()))
+		LoggingError(hiscallInfo, createErr)
+		return irs.VMInfo{}, createErr
+	}
+	// 임시 Outbound 규칙 생성
+	_, err = sgHandler.addRuleToSG(ExtraOutboundRuleName, secGroups[0].Id, OutboundRule)
+	if err != nil {
+		createErr := errors.New(fmt.Sprintf("failed to add extra outbound rule to SG, err : %s", err.Error()))
+		LoggingError(hiscallInfo, createErr)
+		return irs.VMInfo{}, createErr
 	}
 
 	// Spec 정보 조회 (Name)
@@ -97,7 +137,7 @@ func (vmHandler *ClouditVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 		SpecId:       *vmSpecId,
 		Name:         vmReqInfo.IId.NameId,
 		HostName:     vmReqInfo.IId.NameId,
-		RootPassword: vmReqInfo.VMUserPasswd,
+		RootPassword: VMDefaultPassword,
 		SubnetAddr:   vpc.Addr,
 		Secgroups:    secGroups,
 	}
@@ -150,16 +190,6 @@ func (vmHandler *ClouditVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 	}
 	vmInfo := vmHandler.mappingServerInfo(*vm)
 
-	vnicList, _ := ListVNic(authHeader, vmHandler.Client, vm.ID)
-	var vnicMac string
-	if vnicList != nil {
-		defaultVnic := (*vnicList)[0]
-		vnicMac = defaultVnic.Mac
-	}
-
-	// VM NIC의 Security Group Attach
-	vmHandler.attachSgToVnic(authHeader, vm.ID, vmHandler.Client, vnicMac, secGroups)
-
 	// SSH 접속 사용자 및 공개키 등록
 	loginUserId := SSHDefaultUser
 	createUserErr := errors.New("Error adding cb-User to new VM")
@@ -169,7 +199,7 @@ func (vmHandler *ClouditVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 	maxConnectionRetryCnt := 30
 	for {
 		cblogger.Info("Trying to connect via root user ...")
-		_, err := RunCommand(vmInfo.PublicIP, SSHDefaultPort, VMDefaultUser, vmReqInfo.VMUserPasswd, "echo test")
+		_, err := RunCommand(vmInfo.PublicIP, SSHDefaultPort, VMDefaultUser, VMDefaultPassword, "echo test")
 		if err == nil {
 			break
 		}
@@ -181,42 +211,76 @@ func (vmHandler *ClouditVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 	}
 
 	// 사용자 등록 및 sudoer 권한 추가
-	_, err = RunCommand(vmInfo.PublicIP, SSHDefaultPort, VMDefaultUser, vmReqInfo.VMUserPasswd, fmt.Sprintf("useradd -s /bin/bash %s -rm", loginUserId))
+	_, err = RunCommand(vmInfo.PublicIP, SSHDefaultPort, VMDefaultUser, VMDefaultPassword, fmt.Sprintf("useradd -s /bin/bash %s -rm", loginUserId))
 	if err != nil {
 		LoggingError(hiscallInfo, err)
 		return irs.VMInfo{}, createUserErr
 	}
-	_, err = RunCommand(vmInfo.PublicIP, SSHDefaultPort, VMDefaultUser, vmReqInfo.VMUserPasswd, fmt.Sprintf("echo \"%s ALL=(root) NOPASSWD:ALL\" >> /etc/sudoers", loginUserId))
+	_, err = RunCommand(vmInfo.PublicIP, SSHDefaultPort, VMDefaultUser, VMDefaultPassword, fmt.Sprintf("echo \"%s ALL=(root) NOPASSWD:ALL\" >> /etc/sudoers", loginUserId))
 	if err != nil {
 		LoggingError(hiscallInfo, err)
 		return irs.VMInfo{}, createUserErr
 	}
 
 	// 공개키 등록
-	_, err = RunCommand(vmInfo.PublicIP, SSHDefaultPort, VMDefaultUser, vmReqInfo.VMUserPasswd, fmt.Sprintf("mkdir -p /home/%s/.ssh", loginUserId))
+	_, err = RunCommand(vmInfo.PublicIP, SSHDefaultPort, VMDefaultUser, VMDefaultPassword, fmt.Sprintf("mkdir -p /home/%s/.ssh", loginUserId))
 	publicKey, err := GetPublicKey(vmHandler.CredentialInfo, vmReqInfo.KeyPairIID.NameId)
 	if err != nil {
 		LoggingError(hiscallInfo, err)
 		return irs.VMInfo{}, createUserErr
 	}
-	_, err = RunCommand(vmInfo.PublicIP, SSHDefaultPort, VMDefaultUser, vmReqInfo.VMUserPasswd, fmt.Sprintf("echo \"%s\" > /home/%s/.ssh/authorized_keys", publicKey, loginUserId))
+	_, err = RunCommand(vmInfo.PublicIP, SSHDefaultPort, VMDefaultUser, VMDefaultPassword, fmt.Sprintf("echo \"%s\" > /home/%s/.ssh/authorized_keys", publicKey, loginUserId))
 
 	// ssh 접속 방법 변경 (sshd_config 파일 변경)
-	_, err = RunCommand(vmInfo.PublicIP, SSHDefaultPort, VMDefaultUser, vmReqInfo.VMUserPasswd, "sed -i 's/PasswordAuthentication yes/PasswordAuthentication no/g' /etc/ssh/sshd_config")
+	_, err = RunCommand(vmInfo.PublicIP, SSHDefaultPort, VMDefaultUser, VMDefaultPassword, "sed -i 's/PasswordAuthentication yes/PasswordAuthentication no/g' /etc/ssh/sshd_config")
 	if err != nil {
 		LoggingError(hiscallInfo, err)
 		return irs.VMInfo{}, createUserErr
 	}
-	_, err = RunCommand(vmInfo.PublicIP, SSHDefaultPort, VMDefaultUser, vmReqInfo.VMUserPasswd, "sed -i 's/#PubkeyAuthentication yes/PubkeyAuthentication yes/g' /etc/ssh/sshd_config")
+	_, err = RunCommand(vmInfo.PublicIP, SSHDefaultPort, VMDefaultUser, VMDefaultPassword, "sed -i 's/#PubkeyAuthentication yes/PubkeyAuthentication yes/g' /etc/ssh/sshd_config")
 	if err != nil {
 		LoggingError(hiscallInfo, err)
 		return irs.VMInfo{}, createUserErr
 	}
-	_, err = RunCommand(vmInfo.PublicIP, SSHDefaultPort, VMDefaultUser, vmReqInfo.VMUserPasswd, "systemctl restart sshd")
+	_, err = RunCommand(vmInfo.PublicIP, SSHDefaultPort, VMDefaultUser, VMDefaultPassword, "systemctl restart sshd")
 	if err != nil {
 		LoggingError(hiscallInfo, err)
 		return irs.VMInfo{}, createUserErr
 	}
+
+	// VM VNIC에 User Security Group Attach
+	userSecGroups := make([]server.SecGroupInfo, len(vmReqInfo.SecurityGroupIIDs))
+	for i, s := range vmReqInfo.SecurityGroupIIDs {
+		userSecGroups[i] = server.SecGroupInfo{
+			Id: s.SystemId,
+		}
+	}
+
+	// SG 임시 규칙 삭제를 위한 Rule ID 조회
+	extraSG, _ := sgHandler.listRulesInSG(secGroups[0].Id)
+	//deleteTargetRuleID := make([]string, 2)
+	var deleteTargetRuleID []string
+
+	for _, v := range *extraSG {
+		if v.Name == ExtraInboundRuleName || v.Name == ExtraOutboundRuleName {
+			deleteTargetRuleID = append(deleteTargetRuleID, v.ID)
+		}
+	}
+
+	// SG 임시 규칙 삭제
+	for _, v := range deleteTargetRuleID {
+		err = sgHandler.deleteRuleInSG(secGroups[0].Id, v)
+		if err != nil {
+			deleteErr := errors.New(fmt.Sprintf("failed to delete extra rules, err : %s", err.Error()))
+			LoggingError(hiscallInfo, deleteErr)
+			return irs.VMInfo{}, deleteErr
+		}
+	}
+	// TODO: VNIC의 SG 설정 API 수정
+	//err = vmHandler.attachSgToVnic(authHeader, vm.ID, vmHandler.Client, vnicMac, defaultSecGroups, userSecGroups)
+	//if err != nil {
+	//	return irs.VMInfo{}, err
+	//}
 
 	return vmInfo, nil
 }
