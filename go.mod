@@ -29,7 +29,6 @@ require (
 	github.com/docker/docker v0.0.0-20200309214505-aa6a9891b09c
 	github.com/docker/go-connections v0.4.0
 	github.com/docker/go-units v0.4.0 // indirect
-	github.com/go-resty/resty/v2 v2.6.0
 	github.com/gogo/protobuf v1.3.2
 	github.com/golang/protobuf v1.5.2
 	github.com/gophercloud/gophercloud v0.17.0
