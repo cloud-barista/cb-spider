@@ -690,7 +690,7 @@ func handleImage() {
 	handler := ResourceHandler.(irs.ImageHandler)
 
 	imageReqInfo := irs.ImageReqInfo{
-		IId: irs.IID{NameId: "Test OS Image", SystemId: "ami-0e82959d4ed12de3f"},
+		IId: irs.IID{NameId: "Test OS Image", SystemId: "ami-005ace3da56246b4c"},
 		//Id:   "ami-047f7b46bd6dd5d84",
 		//Name: "Test OS Image",
 	}

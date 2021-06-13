@@ -17,7 +17,7 @@ curl -X POST http://$RESTSERVER:1024/spider/region -H 'Content-Type: application
 
 curl -X POST http://$RESTSERVER:1024/spider/region -H 'Content-Type: application/json' -d '{"RegionName":"tencent-guangzhou-4","ProviderName":"TENCENT", "KeyValueInfoList": [{"Key":"Region", "Value":"ap-guangzhou"}, {"Key":"Zone", "Value":"ap-guangzhou-4"}]}'
 
-curl -X POST http://$RESTSERVER:1024/spider/region -H 'Content-Type: application/json' -d '{"RegionName":"tencent-guangzhou-5","ProviderName":"TENCENT", "KeyValueInfoList": [{"Key":"Region", "Value":"ap-guangzhou"}, {"Key":"Zone", "Value":"ap-guangzhou-5"}]}'
+curl -X POST http://$RESTSERVER:1024/spider/region -H 'Content-Type: application/json' -d '{"RegionName":"tencent-guangzhou-6","ProviderName":"TENCENT", "KeyValueInfoList": [{"Key":"Region", "Value":"ap-guangzhou"}, {"Key":"Zone", "Value":"ap-guangzhou-6"}]}'
 
 # East China (Shanghai) : ap-shanghai
 curl -X POST http://$RESTSERVER:1024/spider/region -H 'Content-Type: application/json' -d '{"RegionName":"tencent-shanghai-1","ProviderName":"TENCENT", "KeyValueInfoList": [{"Key":"Region", "Value":"ap-shanghai"}, {"Key":"Zone", "Value":"ap-shanghai-1"}]}'
@@ -110,6 +110,8 @@ curl -X POST http://$RESTSERVER:1024/spider/region -H 'Content-Type: application
 # Europe (Frankfurt) : eu-frankfurt
 curl -X POST http://$RESTSERVER:1024/spider/region -H 'Content-Type: application/json' -d '{"RegionName":"tencent-frankfurt-1","ProviderName":"TENCENT", "KeyValueInfoList": [{"Key":"Region", "Value":"eu-frankfurt"}, {"Key":"Zone", "Value":"eu-frankfurt-1"}]}'
 
+curl -X POST http://$RESTSERVER:1024/spider/region -H 'Content-Type: application/json' -d '{"RegionName":"tencent-frankfurt-2","ProviderName":"TENCENT", "KeyValueInfoList": [{"Key":"Region", "Value":"eu-frankfurt"}, {"Key":"Zone", "Value":"eu-frankfurt-2"}]}'
+
 # Europe (Moscow) : eu-moscow
 curl -X POST http://$RESTSERVER:1024/spider/region -H 'Content-Type: application/json' -d '{"RegionName":"tencent-moscow-1","ProviderName":"TENCENT", "KeyValueInfoList": [{"Key":"Region", "Value":"eu-moscow"}, {"Key":"Zone", "Value":"eu-moscow-1"}]}'
 
@@ -124,7 +126,7 @@ curl -X POST http://$RESTSERVER:1024/spider/connectionconfig -H 'Content-Type: a
 
 curl -X POST http://$RESTSERVER:1024/spider/connectionconfig -H 'Content-Type: application/json' -d '{"ConfigName":"tencent-guangzhou4-config","ProviderName":"TENCENT", "DriverName":"tencent-driver01", "CredentialName":"tencent-credential01", "RegionName":"tencent-guangzhou-4"}'
 
-curl -X POST http://$RESTSERVER:1024/spider/connectionconfig -H 'Content-Type: application/json' -d '{"ConfigName":"tencent-guangzhou5-config","ProviderName":"TENCENT", "DriverName":"tencent-driver01", "CredentialName":"tencent-credential01", "RegionName":"tencent-guangzhou-5"}'
+curl -X POST http://$RESTSERVER:1024/spider/connectionconfig -H 'Content-Type: application/json' -d '{"ConfigName":"tencent-guangzhou5-config","ProviderName":"TENCENT", "DriverName":"tencent-driver01", "CredentialName":"tencent-credential01", "RegionName":"tencent-guangzhou-6"}'
 
 # East China (Shanghai) : ap-shanghai
 curl -X POST http://$RESTSERVER:1024/spider/connectionconfig -H 'Content-Type: application/json' -d '{"ConfigName":"tencent-shanghai1-config","ProviderName":"TENCENT", "DriverName":"tencent-driver01", "CredentialName":"tencent-credential01", "RegionName":"tencent-shanghai-1"}'
@@ -213,6 +215,8 @@ curl -X POST http://$RESTSERVER:1024/spider/connectionconfig -H 'Content-Type: a
 
 # Europe (Frankfurt) : eu-frankfurt
 curl -X POST http://$RESTSERVER:1024/spider/connectionconfig -H 'Content-Type: application/json' -d '{"ConfigName":"tencent-frankfurt1-config","ProviderName":"TENCENT", "DriverName":"tencent-driver01", "CredentialName":"tencent-credential01", "RegionName":"tencent-frankfurt-1"}'
+
+curl -X POST http://$RESTSERVER:1024/spider/connectionconfig -H 'Content-Type: application/json' -d '{"ConfigName":"tencent-frankfurt2-config","ProviderName":"TENCENT", "DriverName":"tencent-driver01", "CredentialName":"tencent-credential01", "RegionName":"tencent-frankfurt-2"}'
 
 # Europe (Moscow) : eu-moscow
 curl -X POST http://$RESTSERVER:1024/spider/connectionconfig -H 'Content-Type: application/json' -d '{"ConfigName":"tencent-moscow1-config","ProviderName":"TENCENT", "DriverName":"tencent-driver01", "CredentialName":"tencent-credential01", "RegionName":"tencent-moscow-1"}'
