@@ -22,6 +22,11 @@ import (
 	icon "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/connect"
 	"github.com/davecgh/go-spew/spew"
 )
+import (
+	"time"
+
+	"github.com/aliyun/alibaba-cloud-sdk-go/sdk"
+)
 
 type AlibabaDriver struct{}
 
@@ -94,14 +99,27 @@ func getECSClient(connectionInfo idrv.ConnectionInfo) (*ecs.Client, error) {
 	*/
 
 	// Create a credential object
+	/* BaseCredential는 deprecated 되었음.
 	credential := &credentials.BaseCredential{
 		AccessKeyId:     connectionInfo.CredentialInfo.ClientId,
 		AccessKeySecret: connectionInfo.CredentialInfo.ClientSecret,
 	}
+	*/
 
-	escClient, err := ecs.NewClientWithAccessKey(connectionInfo.RegionInfo.Region, credential.AccessKeyId, credential.AccessKeySecret)
+	credential := &credentials.AccessKeyCredential{
+		AccessKeyId:     connectionInfo.CredentialInfo.ClientId,
+		AccessKeySecret: connectionInfo.CredentialInfo.ClientSecret,
+	}
 
-	//escClient, err := ecs.NewClientWithOptions(connectionInfo.RegionInfo.Region, config, credential)
+	config := sdk.NewConfig()
+	config.Timeout = time.Duration(30) * time.Second //time.Millisecond
+	config.AutoRetry = true
+	config.MaxRetryTime = 5
+	//sdk.Timeout(1000)
+
+	//escClient, err := ecs.NewClientWithAccessKey(connectionInfo.RegionInfo.Region, credential.AccessKeyId, credential.AccessKeySecret)
+
+	escClient, err := ecs.NewClientWithOptions(connectionInfo.RegionInfo.Region, config, credential)
 	if err != nil {
 		fmt.Println("Could not create alibaba's ecs service client", err)
 		spew.Dump(err)
@@ -137,13 +155,26 @@ func getVPCClient(connectionInfo idrv.ConnectionInfo) (*vpc.Client, error) {
 	*/
 
 	// Create a credential object
+	/* BaseCredential는 deprecated 되었음.
 	credential := &credentials.BaseCredential{
 		AccessKeyId:     connectionInfo.CredentialInfo.ClientId,
 		AccessKeySecret: connectionInfo.CredentialInfo.ClientSecret,
 	}
+	*/
 
-	vpcClient, err := vpc.NewClientWithAccessKey(connectionInfo.RegionInfo.Region, credential.AccessKeyId, credential.AccessKeySecret)
-	//vpcClient, err := vpc.NewClientWithOptions(connectionInfo.RegionInfo.Region, config, credential)
+	credential := &credentials.AccessKeyCredential{
+		AccessKeyId:     connectionInfo.CredentialInfo.ClientId,
+		AccessKeySecret: connectionInfo.CredentialInfo.ClientSecret,
+	}
+
+	config := sdk.NewConfig()
+	config.Timeout = time.Duration(30) * time.Second //time.Millisecond
+	config.AutoRetry = true
+	config.MaxRetryTime = 5
+	//sdk.Timeout(1000)
+
+	//vpcClient, err := vpc.NewClientWithAccessKey(connectionInfo.RegionInfo.Region, credential.AccessKeyId, credential.AccessKeySecret)
+	vpcClient, err := vpc.NewClientWithOptions(connectionInfo.RegionInfo.Region, config, credential)
 	if err != nil {
 		fmt.Println("Could not create alibaba's vpc service client", err)
 		return nil, err
