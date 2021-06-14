@@ -14,7 +14,7 @@ max=$2
 ORG_VM_NAME=${VM_NAME}
 
 echo "####################################################################"
-echo "## VM: multiple StartVM($max)"
+echo "## VM: multiple TerminateVM($max)"
 echo "####################################################################"
 for (( num=1; num <= $max; num++ ))
 do
@@ -27,5 +27,5 @@ do
 	echo "============== after terminate VM: '${VM_NAME}'"
 done
 
-echo StartVM: Total elapsed time: wait....
+echo TerminateVM: Total elapsed time: wait....
 time wait $(jobs -p)
