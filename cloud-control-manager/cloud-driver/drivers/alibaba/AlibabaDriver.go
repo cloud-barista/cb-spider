@@ -112,9 +112,9 @@ func getECSClient(connectionInfo idrv.ConnectionInfo) (*ecs.Client, error) {
 	}
 
 	config := sdk.NewConfig()
-	config.Timeout = time.Duration(30) * time.Second //time.Millisecond
+	config.Timeout = time.Duration(15) * time.Second //time.Millisecond
 	config.AutoRetry = true
-	config.MaxRetryTime = 5
+	config.MaxRetryTime = 2
 	//sdk.Timeout(1000)
 
 	//escClient, err := ecs.NewClientWithAccessKey(connectionInfo.RegionInfo.Region, credential.AccessKeyId, credential.AccessKeySecret)
@@ -168,9 +168,9 @@ func getVPCClient(connectionInfo idrv.ConnectionInfo) (*vpc.Client, error) {
 	}
 
 	config := sdk.NewConfig()
-	config.Timeout = time.Duration(30) * time.Second //time.Millisecond
+	config.Timeout = time.Duration(15) * time.Second //time.Millisecond
 	config.AutoRetry = true
-	config.MaxRetryTime = 5
+	config.MaxRetryTime = 2
 	//sdk.Timeout(1000)
 
 	//vpcClient, err := vpc.NewClientWithAccessKey(connectionInfo.RegionInfo.Region, credential.AccessKeyId, credential.AccessKeySecret)
