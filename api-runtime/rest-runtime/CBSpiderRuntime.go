@@ -9,6 +9,7 @@
 package restruntime
 
 import (
+	"crypto/subtle"
 	"fmt"
 	"time"
 
@@ -227,6 +228,23 @@ func ApiServer(routes []route) {
 	e.Use(middleware.CORS())
 	e.Use(middleware.Logger())
 	e.Use(middleware.Recover())
+
+	API_USERNAME := os.Getenv("API_USERNAME")
+	API_PASSWORD := os.Getenv("API_PASSWORD")
+
+	if API_USERNAME != "" && API_PASSWORD != "" {
+		cblog.Info("**** Rest Auth Enabled ****")
+		e.Use(middleware.BasicAuth(func(username, password string, c echo.Context) (bool, error) {
+			// Be careful to use constant time comparison to prevent timing attacks
+			if subtle.ConstantTimeCompare([]byte(username), []byte(API_USERNAME)) == 1 &&
+				subtle.ConstantTimeCompare([]byte(password), []byte(API_PASSWORD)) == 1 {
+				return true, nil
+			}
+			return false, nil
+		}))
+	} else {
+		cblog.Info("**** Rest Auth Disabled ****")
+	}
 
 	for _, route := range routes {
 		// /driver => /spider/driver

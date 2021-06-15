@@ -46,6 +46,18 @@
 
 <br>
 
+- tencent driver 통합 및 시험 환경 추가 등
+- cloudit driver Security Group source CIDR 적용 추가
+- alibaba driver client timeout: 15s*2회 
+  - https://github.com/cloud-barista/cb-spider/issues/409
+  - https://github.com/cloud-barista/cb-spider/pull/411
+- Add REST Auth
+  - https://github.com/cloud-barista/cb-spider/issues/261
+  - https://github.com/cloud-barista/cb-spider/pull/412
+
+
+<br>
+
 - ↓ **latest** (now)
 
 # v0.3.0-espresso (2020.12.11.)
