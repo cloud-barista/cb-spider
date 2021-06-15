@@ -51,6 +51,9 @@
 - alibaba driver client timeout: 15s*2회 
   - https://github.com/cloud-barista/cb-spider/issues/409
   - https://github.com/cloud-barista/cb-spider/pull/411
+- Add REST Auth
+  - https://github.com/cloud-barista/cb-spider/issues/261
+  - https://github.com/cloud-barista/cb-spider/pull/412
 
 
 <br>
