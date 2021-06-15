@@ -552,7 +552,7 @@ func (vmHandler *GCPVMHandler) GetVMStatus(vmID irs.IID) (irs.VMStatus, error) {
 		RegionZone:   vmHandler.Region.Zone,
 		ResourceType: call.VM,
 		ResourceName: vmID.SystemId,
-		CloudOSAPI:   "Get()",
+		CloudOSAPI:   "GetVMStatus()",
 		ElapsedTime:  "",
 		ErrorMSG:     "",
 	}
