@@ -62,8 +62,9 @@ var cloudOSList = []call.CLOUD_OS{
 	call.ALIBABA,
 	call.DOCKER,
 	call.CLOUDTWIN,
-	//call.NCP,
-	//call.NCPVPC,
+	call.TENCENT,
+	call.NCP,
+	call.NCPVPC,
 }
 
 var resTypeList = []call.RES_TYPE{
