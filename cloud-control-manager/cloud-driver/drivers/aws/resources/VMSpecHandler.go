@@ -290,7 +290,7 @@ func (vmSpecHandler *AwsVmSpecHandler) GetVMSpec(Region string, Name string) (ir
 		RegionZone:   vmSpecHandler.Region.Zone,
 		ResourceType: call.VMSPEC,
 		ResourceName: Name,
-		CloudOSAPI:   "CreateVpc()",
+		CloudOSAPI:   "DescribeInstanceTypesRequest()",
 		ElapsedTime:  "",
 		ErrorMSG:     "",
 	}
