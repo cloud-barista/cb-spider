@@ -42,12 +42,13 @@ func handleVMSpec() {
 
 	handler := ResourceHandler.(irs.VMSpecHandler)
 
-	//config := testconf.ReadConfigFile()
+	config := testconf.ReadConfigFile()
 	reqVMSpec := "C2.4XLARGE64" // GPU 1개
 
-	//reqRegion := config.Tencent.Region
-	reqRegion := "ap-tokyo-1"
-	cblogger.Info("reqVMSpec : ", reqVMSpec)
+	reqRegion := config.Tencent.Zone
+
+	cblogger.Info("req Zone : ", reqRegion)
+	cblogger.Info("req VMSpec : ", reqVMSpec)
 
 	for {
 		fmt.Println("")
@@ -77,7 +78,6 @@ func handleVMSpec() {
 					cblogger.Info("VMSpec 목록 조회 결과")
 					spew.Dump(result)
 					cblogger.Info("출력 결과 수 : ", len(result))
-					spew.Dump(result)
 				}
 
 				fmt.Println("Finish ListVMSpec()")
