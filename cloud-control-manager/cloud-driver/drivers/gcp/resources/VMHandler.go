@@ -552,7 +552,7 @@ func (vmHandler *GCPVMHandler) GetVMStatus(vmID irs.IID) (irs.VMStatus, error) {
 		RegionZone:   vmHandler.Region.Zone,
 		ResourceType: call.VM,
 		ResourceName: vmID.SystemId,
-		CloudOSAPI:   "Get()",
+		CloudOSAPI:   "GetVMStatus()",
 		ElapsedTime:  "",
 		ErrorMSG:     "",
 	}
@@ -623,7 +623,7 @@ func (vmHandler *GCPVMHandler) GetVM(vmID irs.IID) (irs.VMInfo, error) {
 		RegionZone:   vmHandler.Region.Zone,
 		ResourceType: call.VM,
 		ResourceName: vmID.SystemId,
-		CloudOSAPI:   "CreateVpc()",
+		CloudOSAPI:   "GetVM()",
 		ElapsedTime:  "",
 		ErrorMSG:     "",
 	}
