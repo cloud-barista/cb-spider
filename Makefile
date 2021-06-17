@@ -26,3 +26,7 @@ cli-dist: cli
 cli:
 		@echo -e '\t[CB-Spider] build ./interface/spctl...'
 		@go build -o ./interface/spctl ./interface/cli/spider/spider.go
+swag swagger:
+		@echo -e '\t[CB-Spider] build Swagger docs'
+		@~/go/bin/swag i -g api-runtime/rest-runtime/CBSpiderRuntime.go -o api-runtime/rest-runtime/docs
+

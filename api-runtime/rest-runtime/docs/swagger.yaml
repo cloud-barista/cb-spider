@@ -1,0 +1,85 @@
+definitions:
+  resources.IID:
+    properties:
+      nameId:
+        description: NameID by user
+        type: string
+      systemId:
+        description: SystemID by CloudOS
+        type: string
+    type: object
+  resources.KeyPairInfo:
+    properties:
+      fingerprint:
+        type: string
+      iid:
+        $ref: '#/definitions/resources.IID'
+        description: '{NameId, SystemId}'
+      keyValueList:
+        items:
+          $ref: '#/definitions/resources.KeyValue'
+        type: array
+      privateKey:
+        type: string
+      publicKey:
+        type: string
+      vmuserID:
+        type: string
+    type: object
+  resources.KeyValue:
+    properties:
+      key:
+        type: string
+      value:
+        type: string
+    type: object
+  restruntime.SimpleMsg:
+    properties:
+      message:
+        example: Any message
+        type: string
+    type: object
+  restruntime.keyPairCreateReq:
+    properties:
+      connectionName:
+        type: string
+      reqInfo:
+        properties:
+          name:
+            type: string
+        type: object
+    type: object
+info:
+  contact: {}
+paths:
+  /keypair:
+    post:
+      consumes:
+      - application/json
+      description: Create SSH Key
+      parameters:
+      - description: Request body to create key
+        in: body
+        name: keyPairCreateReq
+        required: true
+        schema:
+          $ref: '#/definitions/restruntime.keyPairCreateReq'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/resources.KeyPairInfo'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/restruntime.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/restruntime.SimpleMsg'
+      summary: Create SSH Key
+      tags:
+      - '[CCM] Access key management'
+swagger: "2.0"
