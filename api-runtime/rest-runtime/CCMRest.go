@@ -649,16 +649,33 @@ func deleteCSPSecurity(c echo.Context) error {
 	return c.JSON(http.StatusOK, &resultInfo)
 }
 
-//================ KeyPair Handler
+type keyPairCreateReq struct {
+	ConnectionName string
+	ReqInfo        struct {
+		Name string
+	}
+}
+
+// JSON Simple message struct
+type SimpleMsg struct {
+	Message string `json:"message" example:"Any message"`
+}
+
+// createKey godoc
+// @Summary Create SSH Key
+// @Description Create SSH Key
+// @Tags [CCM] Access key management
+// @Accept  json
+// @Produce  json
+// @Param keyPairCreateReq body keyPairCreateReq true "Request body to create key"
+// @Success 200 {object} resources.KeyPairInfo
+// @Failure 404 {object} SimpleMsg
+// @Failure 500 {object} SimpleMsg
+// @Router /keypair [post]
 func createKey(c echo.Context) error {
 	cblog.Info("call createKey()")
 
-	var req struct {
-		ConnectionName string
-		ReqInfo        struct {
-			Name string
-		}
-	}
+	req := keyPairCreateReq{}
 
 	if err := c.Bind(&req); err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
