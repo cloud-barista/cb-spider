@@ -19,6 +19,7 @@ type SecurityReqInfo struct {
 	SecurityRules *[]SecurityRuleInfo
 }
 
+// @definitionAlias cres.SecurityRuleInfo
 type SecurityRuleInfo struct {
 	FromPort   string
 	ToPort     string

@@ -34,6 +34,22 @@ import (
 
 var cblog *logrus.Logger
 
+// @title CB-Spider REST API
+// @version latest
+// @description CB-Spider REST API
+
+// @contact.name API Support
+// @contact.url http://cloud-barista.github.io
+// @contact.email contact-to-cloud-barista@googlegroups.com
+
+// @license.name Apache 2.0
+// @license.url http://www.apache.org/licenses/LICENSE-2.0.html
+
+// @host localhost:1024
+// @BasePath /spider
+
+// @securityDefinitions.basic BasicAuth
+
 func init() {
 	cblog = config.Cblogger
 	currentTime := time.Now()
@@ -57,6 +73,11 @@ type StatusInfo struct {
 type route struct {
 	method, path string
 	function     echo.HandlerFunc
+}
+
+// JSON Simple message struct
+type SimpleMsg struct {
+	Message string `json:"message" example:"Any message"`
 }
 
 func getHostIPorName() string {
