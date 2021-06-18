@@ -18,7 +18,15 @@ var doc = `{
     "info": {
         "description": "{{.Description}}",
         "title": "{{.Title}}",
-        "contact": {},
+        "contact": {
+            "name": "API Support",
+            "url": "http://cloud-barista.github.io",
+            "email": "contact-to-cloud-barista@googlegroups.com"
+        },
+        "license": {
+            "name": "Apache 2.0",
+            "url": "http://www.apache.org/licenses/LICENSE-2.0.html"
+        },
         "version": "{{.Version}}"
     },
     "host": "{{.Host}}",
@@ -44,7 +52,34 @@ var doc = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/restruntime.keyPairCreateReq"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/restruntime.JSONResult"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "ConnectionName": {
+                                            "type": "string"
+                                        },
+                                        "ReqInfo": {
+                                            "allOf": [
+                                                {
+                                                    "$ref": "#/definitions/restruntime.JSONResult"
+                                                },
+                                                {
+                                                    "type": "object",
+                                                    "properties": {
+                                                        "Name": {
+                                                            "type": "string"
+                                                        }
+                                                    }
+                                                }
+                                            ]
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     }
                 ],
@@ -53,6 +88,52 @@ var doc = `{
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/resources.KeyPairInfo"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/restruntime.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/restruntime.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/vpc": {
+            "post": {
+                "description": "Create VPC",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[CCM] VPC management"
+                ],
+                "summary": "Create VPC",
+                "parameters": [
+                    {
+                        "description": "Request body to create VPC",
+                        "name": "vpcCreateReq",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/restruntime.vpcCreateReq"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/resources.VPCInfo"
                         }
                     },
                     "404": {
@@ -123,6 +204,51 @@ var doc = `{
                 }
             }
         },
+        "resources.SubnetInfo": {
+            "type": "object",
+            "properties": {
+                "iid": {
+                    "description": "{NameId, SystemId}",
+                    "$ref": "#/definitions/resources.IID"
+                },
+                "ipv4_CIDR": {
+                    "type": "string"
+                },
+                "keyValueList": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/resources.KeyValue"
+                    }
+                }
+            }
+        },
+        "resources.VPCInfo": {
+            "type": "object",
+            "properties": {
+                "iid": {
+                    "description": "{NameId, SystemId}",
+                    "$ref": "#/definitions/resources.IID"
+                },
+                "ipv4_CIDR": {
+                    "type": "string"
+                },
+                "keyValueList": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/resources.KeyValue"
+                    }
+                },
+                "subnetInfoList": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/resources.SubnetInfo"
+                    }
+                }
+            }
+        },
+        "restruntime.JSONResult": {
+            "type": "object"
+        },
         "restruntime.SimpleMsg": {
             "type": "object",
             "properties": {
@@ -132,7 +258,7 @@ var doc = `{
                 }
             }
         },
-        "restruntime.keyPairCreateReq": {
+        "restruntime.vpcCreateReq": {
             "type": "object",
             "properties": {
                 "connectionName": {
@@ -141,12 +267,34 @@ var doc = `{
                 "reqInfo": {
                     "type": "object",
                     "properties": {
+                        "ipv4_CIDR": {
+                            "type": "string"
+                        },
                         "name": {
                             "type": "string"
+                        },
+                        "subnetInfoList": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "ipv4_CIDR": {
+                                        "type": "string"
+                                    },
+                                    "name": {
+                                        "type": "string"
+                                    }
+                                }
+                            }
                         }
                     }
                 }
             }
+        }
+    },
+    "securityDefinitions": {
+        "BasicAuth": {
+            "type": "basic"
         }
     }
 }`
@@ -162,12 +310,12 @@ type swaggerInfo struct {
 
 // SwaggerInfo holds exported Swagger Info so clients can modify it
 var SwaggerInfo = swaggerInfo{
-	Version:     "",
-	Host:        "",
-	BasePath:    "",
+	Version:     "latest",
+	Host:        "localhost:1024",
+	BasePath:    "/spider",
 	Schemes:     []string{},
-	Title:       "",
-	Description: "",
+	Title:       "CB-Spider REST API",
+	Description: "CB-Spider REST API",
 }
 
 type s struct{}

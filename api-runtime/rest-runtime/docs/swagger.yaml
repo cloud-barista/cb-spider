@@ -1,3 +1,4 @@
+basePath: /spider
 definitions:
   resources.IID:
     properties:
@@ -33,24 +34,75 @@ definitions:
       value:
         type: string
     type: object
+  resources.SubnetInfo:
+    properties:
+      iid:
+        $ref: '#/definitions/resources.IID'
+        description: '{NameId, SystemId}'
+      ipv4_CIDR:
+        type: string
+      keyValueList:
+        items:
+          $ref: '#/definitions/resources.KeyValue'
+        type: array
+    type: object
+  resources.VPCInfo:
+    properties:
+      iid:
+        $ref: '#/definitions/resources.IID'
+        description: '{NameId, SystemId}'
+      ipv4_CIDR:
+        type: string
+      keyValueList:
+        items:
+          $ref: '#/definitions/resources.KeyValue'
+        type: array
+      subnetInfoList:
+        items:
+          $ref: '#/definitions/resources.SubnetInfo'
+        type: array
+    type: object
+  restruntime.JSONResult:
+    type: object
   restruntime.SimpleMsg:
     properties:
       message:
         example: Any message
         type: string
     type: object
-  restruntime.keyPairCreateReq:
+  restruntime.vpcCreateReq:
     properties:
       connectionName:
         type: string
       reqInfo:
         properties:
+          ipv4_CIDR:
+            type: string
           name:
             type: string
+          subnetInfoList:
+            items:
+              properties:
+                ipv4_CIDR:
+                  type: string
+                name:
+                  type: string
+              type: object
+            type: array
         type: object
     type: object
+host: localhost:1024
 info:
-  contact: {}
+  contact:
+    email: contact-to-cloud-barista@googlegroups.com
+    name: API Support
+    url: http://cloud-barista.github.io
+  description: CB-Spider REST API
+  license:
+    name: Apache 2.0
+    url: http://www.apache.org/licenses/LICENSE-2.0.html
+  title: CB-Spider REST API
+  version: latest
 paths:
   /keypair:
     post:
@@ -63,7 +115,19 @@ paths:
         name: keyPairCreateReq
         required: true
         schema:
-          $ref: '#/definitions/restruntime.keyPairCreateReq'
+          allOf:
+          - $ref: '#/definitions/restruntime.JSONResult'
+          - properties:
+              ConnectionName:
+                type: string
+              ReqInfo:
+                allOf:
+                - $ref: '#/definitions/restruntime.JSONResult'
+                - properties:
+                    Name:
+                      type: string
+                  type: object
+            type: object
       produces:
       - application/json
       responses:
@@ -82,4 +146,37 @@ paths:
       summary: Create SSH Key
       tags:
       - '[CCM] Access key management'
+  /vpc:
+    post:
+      consumes:
+      - application/json
+      description: Create VPC
+      parameters:
+      - description: Request body to create VPC
+        in: body
+        name: vpcCreateReq
+        required: true
+        schema:
+          $ref: '#/definitions/restruntime.vpcCreateReq'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/resources.VPCInfo'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/restruntime.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/restruntime.SimpleMsg'
+      summary: Create VPC
+      tags:
+      - '[CCM] VPC management'
+securityDefinitions:
+  BasicAuth:
+    type: basic
 swagger: "2.0"
