@@ -19,6 +19,7 @@ cloudos:
   - ALIBABA
   - DOCKER
   - NCP
+  - TENCENT
 
   - MOCK
   - CLOUDTWIN
