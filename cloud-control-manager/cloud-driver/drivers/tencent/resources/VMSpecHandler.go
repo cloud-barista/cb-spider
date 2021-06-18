@@ -20,7 +20,15 @@ type TencentVmSpecHandler struct {
 
 //@TODO : Region : zone id(Region이 아닌 zone id로 조회해야 함.)
 func (vmSpecHandler *TencentVmSpecHandler) ListVMSpec(Region string) ([]*irs.VMSpecInfo, error) {
-	cblogger.Infof("ListVMSpec(ZoneId:[%s])", Region)
+	//cblogger.Infof("ListVMSpec(ZoneId:[%s])", Region)
+
+	zoneId := vmSpecHandler.Region.Zone
+	//zoneId := Region
+	cblogger.Infof("Session Zone : [%s]", zoneId)
+	if zoneId == "" {
+		cblogger.Error("Connection 정보에 Zone 정보가 없습니다.")
+		return nil, errors.New("Connection 정보에 Zone 정보가 없습니다.")
+	}
 
 	callogger := call.GetLogger("HISCALL")
 	callLogInfo := call.CLOUDLOGSCHEMA{
@@ -37,7 +45,7 @@ func (vmSpecHandler *TencentVmSpecHandler) ListVMSpec(Region string) ([]*irs.VMS
 	request.Filters = []*cvm.Filter{
 		&cvm.Filter{
 			Name:   common.StringPtr("zone"),
-			Values: common.StringPtrs([]string{Region}),
+			Values: common.StringPtrs([]string{zoneId}),
 		},
 	}
 	callLogStart := call.Start()
@@ -69,7 +77,16 @@ func (vmSpecHandler *TencentVmSpecHandler) ListVMSpec(Region string) ([]*irs.VMS
 }
 
 func (vmSpecHandler *TencentVmSpecHandler) GetVMSpec(Region string, Name string) (irs.VMSpecInfo, error) {
-	cblogger.Infof("Start GetVMSpec(ZoneId:[%s], Name:[%s])", Region, Name)
+	//cblogger.Infof("Start GetVMSpec(ZoneId:[%s], Name:[%s])", Region, Name)
+	cblogger.Infof("Spec Name:[%s]", Name)
+
+	zoneId := vmSpecHandler.Region.Zone
+	//zoneId := Region
+	cblogger.Infof("Session Zone : [%s]", zoneId)
+	if zoneId == "" {
+		cblogger.Error("Connection 정보에 Zone 정보가 없습니다.")
+		return irs.VMSpecInfo{}, errors.New("Connection 정보에 Zone 정보가 없습니다.")
+	}
 
 	callogger := call.GetLogger("HISCALL")
 	callLogInfo := call.CLOUDLOGSCHEMA{
@@ -85,8 +102,12 @@ func (vmSpecHandler *TencentVmSpecHandler) GetVMSpec(Region string, Name string)
 	request := cvm.NewDescribeInstanceTypeConfigsRequest()
 	request.Filters = []*cvm.Filter{
 		&cvm.Filter{
-			Name:   common.StringPtr("zone"),
-			Values: common.StringPtrs([]string{Region}),
+			Name:   common.StringPtr("zone"), //존으로 검색
+			Values: common.StringPtrs([]string{zoneId}),
+		},
+		&cvm.Filter{
+			Name:   common.StringPtr("instance-type"), //인스턴스 타입으로 검색
+			Values: common.StringPtrs([]string{Name}),
 		},
 	}
 	callLogStart := call.Start()
@@ -115,7 +136,15 @@ func (vmSpecHandler *TencentVmSpecHandler) GetVMSpec(Region string, Name string)
 }
 
 func (vmSpecHandler *TencentVmSpecHandler) ListOrgVMSpec(Region string) (string, error) {
-	cblogger.Infof("ListOrgVMSpec(ZoneId:[%s])", Region)
+	//cblogger.Infof("ListOrgVMSpec(ZoneId:[%s])", Region)
+
+	zoneId := vmSpecHandler.Region.Zone
+	//zoneId := Region
+	cblogger.Infof("Session Zone : [%s]", zoneId)
+	if zoneId == "" {
+		cblogger.Error("Connection 정보에 Zone 정보가 없습니다.")
+		return "", errors.New("Connection 정보에 Zone 정보가 없습니다.")
+	}
 
 	callogger := call.GetLogger("HISCALL")
 	callLogInfo := call.CLOUDLOGSCHEMA{
@@ -132,7 +161,7 @@ func (vmSpecHandler *TencentVmSpecHandler) ListOrgVMSpec(Region string) (string,
 	request.Filters = []*cvm.Filter{
 		&cvm.Filter{
 			Name:   common.StringPtr("zone"),
-			Values: common.StringPtrs([]string{Region}),
+			Values: common.StringPtrs([]string{zoneId}),
 		},
 	}
 	callLogStart := call.Start()
@@ -161,7 +190,16 @@ func (vmSpecHandler *TencentVmSpecHandler) ListOrgVMSpec(Region string) (string,
 }
 
 func (vmSpecHandler *TencentVmSpecHandler) GetOrgVMSpec(Region string, Name string) (string, error) {
-	cblogger.Infof("Start GetOrgVMSpec(ZoneId:[%s], Name:[%s])", Region, Name)
+	cblogger.Infof("Spec Name:[%s]", Name)
+	//cblogger.Infof("Start GetOrgVMSpec(ZoneId:[%s], Name:[%s])", Region, Name)
+
+	zoneId := vmSpecHandler.Region.Zone
+	//zoneId := Region
+	cblogger.Infof("Session Zone : [%s]", zoneId)
+	if zoneId == "" {
+		cblogger.Error("Connection 정보에 Zone 정보가 없습니다.")
+		return "", errors.New("Connection 정보에 Zone 정보가 없습니다.")
+	}
 
 	callogger := call.GetLogger("HISCALL")
 	callLogInfo := call.CLOUDLOGSCHEMA{
@@ -178,7 +216,11 @@ func (vmSpecHandler *TencentVmSpecHandler) GetOrgVMSpec(Region string, Name stri
 	request.Filters = []*cvm.Filter{
 		&cvm.Filter{
 			Name:   common.StringPtr("zone"),
-			Values: common.StringPtrs([]string{Region}),
+			Values: common.StringPtrs([]string{zoneId}),
+		},
+		&cvm.Filter{
+			Name:   common.StringPtr("instance-type"), //인스턴스 타입으로 검색
+			Values: common.StringPtrs([]string{Name}),
 		},
 	}
 	callLogStart := call.Start()
