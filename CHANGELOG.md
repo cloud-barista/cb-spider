@@ -54,6 +54,15 @@
 - Add REST Auth
   - https://github.com/cloud-barista/cb-spider/issues/261
   - https://github.com/cloud-barista/cb-spider/pull/412
+- Add cli-dist Make option and cli-examples
+  - https://github.com/cloud-barista/cb-spider/commit/c0a902facc468cbf0bf22bdf3182b289484571d2
+  - https://github.com/cloud-barista/cb-spider/commit/c0a902facc468cbf0bf22bdf3182b289484571d2
+- Add Swagger pilot codes
+  - https://github.com/cloud-barista/cb-spider/pull/418
+- Reflect the new cb-store version to the Go Modules
+  - https://github.com/cloud-barista/cb-spider/commit/cd240f330c1b67b4387686cd06e135924c70cbda
+
+- ↓ **v0.3.15** (2021.06.21.PM11)
 
 
 <br>
