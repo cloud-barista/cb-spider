@@ -25,6 +25,7 @@ cli-dist: cli
 		@rm -rf /tmp/spider
 cli:
 		@echo -e '\t[CB-Spider] build ./interface/spctl...'
+		@go mod download
 		@go build -o ./interface/spctl ./interface/cli/spider/spider.go
 swag swagger:
 		@echo -e '\t[CB-Spider] build Swagger docs'
