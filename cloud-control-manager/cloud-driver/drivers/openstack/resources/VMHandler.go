@@ -463,7 +463,8 @@ func (vmHandler *OpenStackVMHandler) AssociatePublicIP(serverID string) (bool, e
 
 	// PublicIP VM 연결
 	curRetryCnt := 0
-	maxRetryCnt := 60
+	//maxRetryCnt := 60
+	maxRetryCnt := 120
 	for {
 		associateOpts := floatingips.AssociateOpts{
 			FloatingIP: publicIP.IP,
