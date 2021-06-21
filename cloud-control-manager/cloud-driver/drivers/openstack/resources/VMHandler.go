@@ -460,14 +460,30 @@ func (vmHandler *OpenStackVMHandler) AssociatePublicIP(serverID string) (bool, e
 	if err != nil {
 		return false, err
 	}
+
 	// PublicIP VM 연결
-	associateOpts := floatingips.AssociateOpts{
-		FloatingIP: publicIP.IP,
+	curRetryCnt := 0
+	maxRetryCnt := 60
+	for {
+		associateOpts := floatingips.AssociateOpts{
+			FloatingIP: publicIP.IP,
+		}
+		err = floatingips.AssociateInstance(vmHandler.Client, serverID, associateOpts).ExtractErr()
+		if err == nil {
+			break
+		} else {
+			fmt.Println(fmt.Sprintf("[%d] err = %s", curRetryCnt, err))
+		}
+
+		time.Sleep(1 * time.Second)
+		curRetryCnt++
+
+		if curRetryCnt > maxRetryCnt {
+			cblogger.Errorf(fmt.Sprintf("failed to associate floating ip to vm, exceeded maximum retry count %d", maxRetryCnt))
+			return false, errors.New(fmt.Sprintf("failed to associate floating ip to vm, exceeded maximum retry count %d", maxRetryCnt))
+		}
 	}
-	err = floatingips.AssociateInstance(vmHandler.Client, serverID, associateOpts).ExtractErr()
-	if err != nil {
-		return false, err
-	}
+
 	return true, nil
 }
 
