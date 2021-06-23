@@ -325,7 +325,7 @@ func (vmHandler *MockVMHandler) ListVM() ([]*irs.VMInfo, error) {
 		return []*irs.VMInfo{}, nil
 	}
 
-	// cloning list of VM Status
+	// cloning list of VM
 	resultList := make([]*irs.VMInfo, len(infoList))
 	copy(resultList, infoList)
 	return resultList, nil
