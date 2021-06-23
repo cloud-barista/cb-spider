@@ -9,29 +9,29 @@
 package mocktest
 
 import (
+	mockdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/mock"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
-	mockdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/mock"
 
-	"testing"
 	_ "fmt"
+	"testing"
 )
 
 var imageHandler irs.ImageHandler
 
 func init() {
-        cred := idrv.CredentialInfo{
-                MockName:      "MockDriver-01",
-        }
-	connInfo := idrv.ConnectionInfo {
-		CredentialInfo: cred, 
-		RegionInfo: idrv.RegionInfo{},
+	cred := idrv.CredentialInfo{
+		MockName: "MockDriver-01",
+	}
+	connInfo := idrv.ConnectionInfo{
+		CredentialInfo: cred,
+		RegionInfo:     idrv.RegionInfo{},
 	}
 	cloudConn, _ := (&mockdrv.MockDriver{}).ConnectCloud(connInfo)
 	imageHandler, _ = cloudConn.CreateImageHandler()
 }
 
-const BUILTIN_IMG_NUM  int = 5
+const BUILTIN_IMG_NUM int = 5
 
 var imageTestInfoList = []string{
 	"mock-user-image-Name01",
@@ -44,8 +44,8 @@ var imageTestInfoList = []string{
 func TestImageCreateList(t *testing.T) {
 	// create
 	for _, info := range imageTestInfoList {
-		reqInfo := irs.ImageReqInfo {
-			IId : irs.IID{info, ""},
+		reqInfo := irs.ImageReqInfo{
+			IId: irs.IID{info, ""},
 		}
 		_, err := imageHandler.CreateImage(reqInfo)
 		if err != nil {
@@ -69,41 +69,40 @@ func TestImageCreateList(t *testing.T) {
 		if imgName != one.IId.NameId {
 			t.Errorf("Image ID %s is not same %s", imgName, one.IId.NameId)
 		}
-//		fmt.Printf("\n\t%#v\n", info)
+		//		fmt.Printf("\n\t%#v\n", info)
 	}
 }
 
 func TestImageDeleteGet(t *testing.T) {
-        // Get & check the Value
-        info, err := imageHandler.GetImage(irs.IID{imageTestInfoList[0], ""})
-        if err != nil {
-                t.Error(err.Error())
-        }
-	if info.IId.SystemId != imageTestInfoList[0]{
+	// Get & check the Value
+	info, err := imageHandler.GetImage(irs.IID{imageTestInfoList[0], ""})
+	if err != nil {
+		t.Error(err.Error())
+	}
+	if info.IId.SystemId != imageTestInfoList[0] {
 		t.Errorf("System ID %s is not same %s", info.IId.SystemId, imageTestInfoList[0])
 	}
 
 	// delete all
 	infoList, err := imageHandler.ListImage()
-        if err != nil {
-                t.Error(err.Error())
-        }
-        for _, imgName := range imageTestInfoList {
-		ret, err := imageHandler.DeleteImage(irs.IID{imgName, ""})
-		if err!=nil {
-                        t.Error(err.Error())
+	if err != nil {
+		t.Error(err.Error())
+	}
+	for _, imgName := range imageTestInfoList {
+		ret, err := imageHandler.DeleteImage(irs.IID{"", imgName})
+		if err != nil {
+			t.Error(err.Error())
 		}
 		if !ret {
-                        t.Errorf("Return is not True!! %s", imgName)
+			t.Errorf("Return is not True!! %s", imgName)
 		}
-        }
+	}
 	// check the result of Delete Op
 	infoList, err = imageHandler.ListImage()
-        if err != nil {
-                t.Error(err.Error())
-        }
-	if len(infoList)>BUILTIN_IMG_NUM { // BUILTIN_IMG_NUM: built-in image (see MockDriver)
+	if err != nil {
+		t.Error(err.Error())
+	}
+	if len(infoList) > BUILTIN_IMG_NUM { // BUILTIN_IMG_NUM: built-in image (see MockDriver)
 		t.Errorf("The number of Infos is not %d. It is %d.", 0, len(infoList))
 	}
 }
-

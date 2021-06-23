@@ -99,7 +99,7 @@ func (vmHandler *MockVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, er
 			return irs.VMInfo{}, fmt.Errorf(errMSG)
 		}
 	}
-	
+
 	// keypair validation
 	keyPairHandler := MockKeyPairHandler{mockName}
 	validatedKeyPairInfo, err := keyPairHandler.GetKey(vmReqInfo.KeyPairIID)
@@ -188,7 +188,7 @@ func (vmHandler *MockVMHandler) ResumeVM(iid irs.IID) (irs.VMStatus, error) {
 
 	statusInfoList, ok := vmStatusInfoMap[mockName]
 	if !ok {
-		
+
 		errMSG := mockName + " vm status does not exist!!"
 		cblogger.Error(errMSG)
 		return "", fmt.Errorf(errMSG)
@@ -263,14 +263,14 @@ func (vmHandler *MockVMHandler) TerminateVM(iid irs.IID) (irs.VMStatus, error) {
 
 	mockName := vmHandler.MockName
 	for idx, info := range infoList {
-		if info.IId.NameId == iid.NameId {
+		if info.IId.SystemId == iid.SystemId {
 			infoList = append(infoList[:idx], infoList[idx+1:]...)
 		}
 	}
 	vmInfoMap[mockName] = infoList
 
 	for idx, info := range statusInfoList {
-		if info.IId.NameId == iid.NameId {
+		if info.IId.SystemId == iid.SystemId {
 			statusInfoList = append(statusInfoList[:idx], statusInfoList[idx+1:]...)
 		}
 	}
@@ -325,7 +325,10 @@ func (vmHandler *MockVMHandler) ListVM() ([]*irs.VMInfo, error) {
 		return []*irs.VMInfo{}, nil
 	}
 
-	return infoList, nil
+	// cloning list of VM Status
+	resultList := make([]*irs.VMInfo, len(infoList))
+	copy(resultList, infoList)
+	return resultList, nil
 }
 
 func (vmHandler *MockVMHandler) GetVM(iid irs.IID) (irs.VMInfo, error) {
