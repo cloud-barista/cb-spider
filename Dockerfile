@@ -37,7 +37,7 @@ RUN rm /bin/sh && ln -s /bin/bash /bin/sh
 
 WORKDIR /root/go/src/github.com/cloud-barista/cb-spider
 
-#COPY --from=builder /go/src/github.com/cloud-barista/cb-spider/cloud-driver-libs/* /root/go/src/github.com/cloud-barista/cb-spider/cloud-driver-libs/
+COPY --from=builder /go/src/github.com/cloud-barista/cb-spider/cloud-driver-libs/* /root/go/src/github.com/cloud-barista/cb-spider/cloud-driver-libs/
 
 COPY --from=builder /go/src/github.com/cloud-barista/cb-spider/conf/* /root/go/src/github.com/cloud-barista/cb-spider/conf/
 
