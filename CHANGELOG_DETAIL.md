@@ -63,8 +63,19 @@
   - https://github.com/cloud-barista/cb-spider/commit/cd240f330c1b67b4387686cd06e135924c70cbda
 
 - ↓ **v0.3.15** (2021.06.21.PM11)
+- ↓ **v0.3.16** (2021.06.24.PM13)
+- ↓ **v0.3.17** (2021.06.24.PM14)
 
+<br>
 
+- Reflect Dockerfile about cb-user materials
+ - ↓ **v0.3.18** (2021.06.24.PM15)
+
+<br>
+
+- Change the path of cloud-init script for OpenStack ([#426](https://github.com/cloud-barista/cb-spider/pull/426))
+- ↓ **v0.3.19** (2021.06.24.PM17)
+- 
 <br>
 
 - ↓ **latest** (now)
