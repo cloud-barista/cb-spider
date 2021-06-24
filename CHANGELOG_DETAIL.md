@@ -69,13 +69,13 @@
 <br>
 
 - Reflect Dockerfile about cb-user materials
- - ↓ **v0.3.18** (2021.06.24.PM15)
+- ↓ **v0.3.18** (2021.06.24.PM15)
 
 <br>
 
 - Change the path of cloud-init script for OpenStack ([#426](https://github.com/cloud-barista/cb-spider/pull/426))
 - ↓ **v0.3.19** (2021.06.24.PM17)
-- 
+ 
 <br>
 
 - ↓ **latest** (now)
