@@ -168,7 +168,7 @@ func (vmHandler *OpenStackVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInf
 
 	// cloud-init 스크립트 설정
 	rootPath := os.Getenv("CBSPIDER_ROOT")
-	fileData, err := ioutil.ReadFile(rootPath + "/cloud-control-manager/cloud-driver/drivers/openstack/cloud-config")
+	fileData, err := ioutil.ReadFile(rootPath + "/cloud-driver-libs/.cloud-init-openstack/cloud-init")
 	if err != nil {
 		LoggingError(hiscallInfo, err)
 		return irs.VMInfo{}, err
