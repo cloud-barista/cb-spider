@@ -176,7 +176,7 @@ func SetupAndRun(cmd *cobra.Command, args []string) {
 		case "create":
 			result, err = ccm.CreateImage(inData)
 		case "list":
-			result, err = ccm.ListImage(connectionName)
+			result, err = ccm.ListImageByParam(connectionName)
 		case "get":
 			result, err = ccm.GetImageByParam(connectionName, imageName)
 		case "delete":
