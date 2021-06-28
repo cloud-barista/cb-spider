@@ -430,12 +430,13 @@ func (vmHandler *TencentVMHandler) GetVM(vmIID irs.IID) (irs.VMInfo, error) {
 
 func (vmHandler *TencentVMHandler) ExtractDescribeInstances(curVm *cvm.Instance) (irs.VMInfo, error) {
 	//cblogger.Info("ExtractDescribeInstances", curVm)
-	spew.Dump(curVm)
+	//spew.Dump(curVm)
 
 	//VM상태와 무관하게 항상 값이 존재하는 항목들만 초기화
 	vmInfo := irs.VMInfo{
 		IId:        irs.IID{SystemId: *curVm.InstanceId},
 		VMSpecName: *curVm.InstanceType,
+		VMUserId:   "cb-user",
 		//KeyPairIId: irs.IID{SystemId: *curVm.},
 	}
 
