@@ -29,7 +29,7 @@ If you have any difficulties in using CB-Spider, please let us know.
 5. [활용 방법](#5-활용-방법)
 6. [API 규격](#6-API-규격)
 7. [특이 사항](#7-특이-사항)
-8. [관련 정보](#8-관련-정보)
+8. [활용 정보](#8-활용-정보)
  
 ***
 
@@ -74,8 +74,6 @@ If you have any difficulties in using CB-Spider, please let us know.
 
 #### 4. VM 계정
 - CB Spider VM User: cb-user
-- 관련 정보
-  - https://github.com/cloud-barista/cb-spider/wiki/CB-Spider-VM-User
 
 
 #### 5. 활용 방법
@@ -90,7 +88,6 @@ If you have any difficulties in using CB-Spider, please let us know.
 #### 7. 특이 사항
 - 개발상태: 초기 주요기능 중심 개발추진 중 / 기술개발용 / 상용활용시 보완필요
 
-***
 
-#### 8. 관련 정보
+#### 8. 활용 정보
 - 위키: https://github.com/cloud-barista/cb-spider/wiki
