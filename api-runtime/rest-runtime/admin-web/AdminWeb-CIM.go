@@ -1355,10 +1355,10 @@ func SpiderInfo(c echo.Context) error {
                                             <font size=2>$$STARTTIME$$</font>
                                     </td>
                                     <td width="220">
-                                            <font size=2>CB-Spider v0.3.0 (Espresso)</font>
+                                            <font size=2>CB-Spider v0.4.0 (CafeMocha)</font>
                                     </td>
                                     <td width="220">
-                                            <font size=2>REST API v0.3.0 (Espresso)</font>
+                                            <font size=2>REST API v0.4.0 (CafeMocha)</font>
                                     </td>
                                 </tr>
 
@@ -1382,18 +1382,8 @@ func SpiderInfo(c echo.Context) error {
                                     </td>
                                     <td width="420">
                                             <font size=2>
-                                            * Cloud Connection Info Mgmt:
-                                                <br>
-                                                &nbsp;&nbsp;&nbsp;&nbsp;<a href='https://cloud-barista.github.io/rest-api/v0.3.0/spider/ccim/' target='_blank'>
-                                                    https://cloud-barista.github.io/rest-api/v0.3.0/spider/ccim/
-                                                </a>
-                                            </font>
-                                            <p>
-                                            <font size=2>
-                                                * Cloud Resource Control Mgmt: 
-                                                <br>
-                                                &nbsp;&nbsp;&nbsp;&nbsp;<a href='https://cloud-barista.github.io/rest-api/v0.3.0/spider/cctm/' target='_blank'>
-                                                    https://cloud-barista.github.io/rest-api/v0.3.0/spider/cctm/
+					    &nbsp;&nbsp;<a href='https://github.com/cloud-barista/cb-spider/wiki/CB-Spider-User-Interface' target='_blank'>
+					    		CB-Spider User Interface
                                                 </a>
                                             </font>
                                     </td>
