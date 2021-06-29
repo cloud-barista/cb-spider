@@ -356,7 +356,7 @@ func (keyPairHandler *TencentKeyPairHandler) CheckKeyPairFolder(keyPairPath stri
 	//키페어 생성 시 폴더가 존재하지 않으면 생성 함.
 	_, errChkDir := os.Stat(keyPairPath)
 	if os.IsNotExist(errChkDir) {
-		cblogger.Errorf("[%s] Path가 존재하지 않아서 생성합니다.", keyPairPath)
+		cblogger.Infof("[%s] Path가 존재하지 않아서 생성합니다.", keyPairPath)
 
 		//errDir := os.MkdirAll(keyPairPath, 0755)
 		errDir := os.MkdirAll(keyPairPath, 0700)
