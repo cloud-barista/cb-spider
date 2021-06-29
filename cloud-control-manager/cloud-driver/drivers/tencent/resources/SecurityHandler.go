@@ -212,13 +212,13 @@ func (securityHandler *TencentSecurityHandler) GetSecurityRuleInfo(securityIID i
 	var securityRuleInfos []irs.SecurityRuleInfo
 	var ingress []irs.SecurityRuleInfo
 	var egress []irs.SecurityRuleInfo
-	ingress, err = securityHandler.ExtractPolicyGroups(response.Response.SecurityGroupPolicySet.Ingress, "ingress")
+	ingress, err = securityHandler.ExtractPolicyGroups(response.Response.SecurityGroupPolicySet.Ingress, "inbound")
 	if err != nil {
 		cblogger.Error(err)
 		return nil, err
 	}
 
-	egress, err = securityHandler.ExtractPolicyGroups(response.Response.SecurityGroupPolicySet.Egress, "egress")
+	egress, err = securityHandler.ExtractPolicyGroups(response.Response.SecurityGroupPolicySet.Egress, "outbound")
 	if err != nil {
 		cblogger.Error(err)
 		return nil, err
@@ -230,11 +230,25 @@ func (securityHandler *TencentSecurityHandler) GetSecurityRuleInfo(securityIID i
 }
 
 //@TODO Port에 콤머가 사용된 정책 처리해야 함.
+//direction : inbound / outbound
 func (securityHandler *TencentSecurityHandler) ExtractPolicyGroups(policyGroups []*vpc.SecurityGroupPolicy, direction string) ([]irs.SecurityRuleInfo, error) {
 	var results []irs.SecurityRuleInfo
 
 	var fromPort string
 	var toPort string
+
+	/*
+		var newDirection string
+		//ingress -> inbound
+		if strings.EqualFold(direction, "ingress") {
+			newDirection = "inbound"
+		} else if strings.EqualFold(direction, "egress") {
+			newDirection = "outbound"
+		} else { //UnKnown
+			newDirection = direction
+		}
+	*/
+
 	for _, curPolicy := range policyGroups {
 		if len(*curPolicy.Port) > 0 {
 
