@@ -39,7 +39,7 @@ type TencentVMHandler struct {
 }
 
 //VM 이름으로 중복 생성을 막아야 해서 VM존재 여부를 체크함.
-func (vmHandler *TencentVMHandler) isExistVM(vmName string) (bool, error) {
+func (vmHandler *TencentVMHandler) isExist(vmName string) (bool, error) {
 	cblogger.Infof("VM조회(Name기반) : %s", vmName)
 	request := cvm.NewDescribeInstancesRequest()
 	request.Filters = []*cvm.Filter{
@@ -77,7 +77,7 @@ func (vmHandler *TencentVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 	//=================================================
 	// 동일 이름 생성 방지 추가(cb-spider 요청 필수 기능)
 	//=================================================
-	isExist, errExist := vmHandler.isExistVM(vmReqInfo.IId.NameId)
+	isExist, errExist := vmHandler.isExist(vmReqInfo.IId.NameId)
 	if errExist != nil {
 		cblogger.Error(errExist)
 		return irs.VMInfo{}, errExist
