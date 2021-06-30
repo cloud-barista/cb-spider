@@ -31,6 +31,18 @@ type TencentVPCHandler struct {
 func (VPCHandler *TencentVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.VPCInfo, error) {
 	cblogger.Info(vpcReqInfo)
 
+	//=================================================
+	// 동일 이름 생성 방지 추가(cb-spider 요청 필수 기능)
+	//=================================================
+	isExist, errExist := VPCHandler.isExist(vpcReqInfo.IId.NameId)
+	if errExist != nil {
+		cblogger.Error(errExist)
+		return irs.VPCInfo{}, errExist
+	}
+	if isExist {
+		return irs.VPCInfo{}, errors.New("A VPC with the name " + vpcReqInfo.IId.NameId + " already exists.")
+	}
+
 	zoneId := VPCHandler.Region.Zone
 	cblogger.Infof("Zone : %s", zoneId)
 	if zoneId == "" {
@@ -175,6 +187,32 @@ func (VPCHandler *TencentVPCHandler) ListVPC() ([]*irs.VPCInfo, error) {
 	cblogger.Debugf("리턴 결과 목록 수 : [%d]", len(vpcInfoList))
 	// spew.Dump(vpcInfoList)
 	return vpcInfoList, nil
+}
+
+// cb-spider 정책상 이름 기반으로 중복 생성을 막아야 함.
+func (VPCHandler *TencentVPCHandler) isExist(chkName string) (bool, error) {
+	cblogger.Debugf("chkName : %s", chkName)
+
+	request := vpc.NewDescribeVpcsRequest()
+	request.Filters = []*vpc.Filter{
+		&vpc.Filter{
+			Name:   common.StringPtr("vpc-name"),
+			Values: common.StringPtrs([]string{chkName}),
+		},
+	}
+
+	response, err := VPCHandler.Client.DescribeVpcs(request)
+	if err != nil {
+		cblogger.Error(err)
+		return false, err
+	}
+
+	if *response.Response.TotalCount < 1 {
+		return false, nil
+	}
+
+	cblogger.Infof("VPC 정보 찾음 - VpcId:[%s] / VpcName:[%s]", *response.Response.VpcSet[0].VpcId, *response.Response.VpcSet[0].VpcName)
+	return true, nil
 }
 
 func (VPCHandler *TencentVPCHandler) GetVPC(vpcIID irs.IID) (irs.VPCInfo, error) {
