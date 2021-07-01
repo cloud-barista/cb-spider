@@ -105,7 +105,7 @@ func (vpcHandler *MockVPCHandler) DeleteVPC(iid irs.IID) (bool, error) {
 
 	mockName := vpcHandler.MockName
 	for idx, info := range infoList {
-		if info.IId.NameId == iid.NameId {
+		if info.IId.SystemId == iid.SystemId {
 			infoList = append(infoList[:idx], infoList[idx+1:]...)
 			vpcInfoMap[mockName] = infoList
 			return true, nil
@@ -148,7 +148,7 @@ func (vpcHandler *MockVPCHandler) RemoveSubnet(iid irs.IID, subnetIID irs.IID) (
 	for _, info := range infoList {
 		if (*info).IId.NameId == iid.NameId {
 			for idx, subInfo := range info.SubnetInfoList {
-				if subInfo.IId.NameId == subnetIID.NameId {
+				if subInfo.IId.SystemId == subnetIID.SystemId {
 					info.SubnetInfoList = append(info.SubnetInfoList[:idx], info.SubnetInfoList[idx+1:]...)
 					return true, nil
 				}
