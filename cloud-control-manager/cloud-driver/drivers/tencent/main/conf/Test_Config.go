@@ -47,8 +47,8 @@ func ReadConfigFile() Config {
 	//rootpath := "D:/Workspace/mcloud-barista-config"
 	// /mnt/d/Workspace/mcloud-barista-config/config/config.yaml
 
-	testFilePath := os.Getenv("CBSPIDER_PATH") + "/config/configTencent.yaml"
-	//testFilePath := os.Getenv("CBSPIDER_ROOT") + "/conf/configTencent.yaml"
+	//testFilePath := os.Getenv("CBSPIDER_PATH") + "/config/configTencent.yaml" //혹시 모를 키 노출 대비 시스템 외부에 존재
+	testFilePath := os.Getenv("CBSPIDER_ROOT") + "/conf/testConfigTencent.yaml"
 
 	cblogger.Debugf("Test Data 설정파일 : [%]", testFilePath)
 
