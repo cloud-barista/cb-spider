@@ -62,7 +62,7 @@ func (securityHandler *TencentSecurityHandler) CreateSecurity(securityReqInfo ir
 		securityGroupPolicy.CidrBlock = common.StringPtr(curPolicy.CIDR)
 		securityGroupPolicy.Action = common.StringPtr("accept")
 
-		if curPolicy.ToPort != "" {
+		if curPolicy.ToPort != "" && curPolicy.ToPort != curPolicy.FromPort {
 			securityGroupPolicy.Port = common.StringPtr(curPolicy.FromPort + "-" + curPolicy.ToPort)
 		} else {
 			securityGroupPolicy.Port = common.StringPtr(curPolicy.FromPort)
