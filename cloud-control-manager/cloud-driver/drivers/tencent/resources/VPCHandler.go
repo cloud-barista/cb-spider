@@ -359,20 +359,22 @@ func (VPCHandler *TencentVPCHandler) ListSubnet(reqVpcId string) ([]irs.SubnetIn
 	return arrSubnetInfoList, nil
 }
 
-func (VPCHandler *TencentVPCHandler) isExistSubnet(reqSubnetId string) (bool, error) {
-	cblogger.Infof("reqSubnetId : [%s]", reqSubnetId)
+// 동일 이름으로 생성되는 것을 막기 위해 중복 체크함.
+// reqSubnetNameId : 서브넷 Name
+func (VPCHandler *TencentVPCHandler) isExistSubnet(reqSubnetNameId string) (bool, error) {
+	cblogger.Infof("reqSubnetNameId : [%s]", reqSubnetNameId)
 
 	request := vpc.NewDescribeSubnetsRequest()
 	request.Filters = []*vpc.Filter{
 		&vpc.Filter{
 			Name:   common.StringPtr("subnet-name"),
-			Values: common.StringPtrs([]string{reqSubnetId}),
+			Values: common.StringPtrs([]string{reqSubnetNameId}),
 		},
 	}
 
 	//spew.Dump(request)
 	response, err := VPCHandler.Client.DescribeSubnets(request)
-	cblogger.Info("서브넷 실행 결과")
+	//cblogger.Debug("서브넷 실행 결과")
 	//spew.Dump(response)
 	if err != nil {
 		cblogger.Error(err)
