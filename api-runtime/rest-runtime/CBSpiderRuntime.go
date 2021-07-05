@@ -26,9 +26,29 @@ import (
 	// REST API (echo)
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
+
+	// echo-swagger middleware
+	_ "github.com/cloud-barista/cb-spider/api-runtime/rest-runtime/docs"
+	echoSwagger "github.com/swaggo/echo-swagger"
 )
 
 var cblog *logrus.Logger
+
+// @title CB-Spider REST API
+// @version latest
+// @description CB-Spider REST API
+
+// @contact.name API Support
+// @contact.url http://cloud-barista.github.io
+// @contact.email contact-to-cloud-barista@googlegroups.com
+
+// @license.name Apache 2.0
+// @license.url http://www.apache.org/licenses/LICENSE-2.0.html
+
+// @host localhost:1024
+// @BasePath /spider
+
+// @securityDefinitions.basic BasicAuth
 
 func init() {
 	cblog = config.Cblogger
@@ -40,7 +60,7 @@ func init() {
 	cr.ServicePort = ":1024"
 }
 
-// REST API Return struct for boolena type
+// REST API Return struct for boolean type
 type BooleanInfo struct {
 	Result string // true or false
 }
@@ -53,6 +73,11 @@ type StatusInfo struct {
 type route struct {
 	method, path string
 	function     echo.HandlerFunc
+}
+
+// JSON Simple message struct
+type SimpleMsg struct {
+	Message string `json:"message" example:"Any message"`
 }
 
 func getHostIPorName() string {
@@ -86,6 +111,9 @@ func RunServer() {
 		//----------root
 		{"GET", "", aw.SpiderInfo},
 		{"GET", "/", aw.SpiderInfo},
+
+		//----------Swagger
+		{"GET", "/swagger/*", echoSwagger.WrapHandler},
 
 		//----------EndpointInfo
 		{"GET", "/endpointinfo", endpointInfo},
@@ -291,6 +319,8 @@ func endpointInfo(c echo.Context) error {
 	endpointInfo += fmt.Sprintf("     - AdminWeb: %s\n", adminWebURL)
 	restEndPoint := "http://" + cr.HostIPorName + cr.ServicePort + "/spider"
 	endpointInfo += fmt.Sprintf("     - REST API: %s\n", restEndPoint)
+	// swaggerURL := "http://" + cr.HostIPorName + cr.ServicePort + "/spider/swagger/index.html"
+	// endpointInfo += fmt.Sprintf("     - Swagger : %s\n", swaggerURL)
 	gRPCServer := "grpc://" + cr.HostIPorName + cr.GoServicePort
 	endpointInfo += fmt.Sprintf("     - Go   API: %s\n", gRPCServer)
 
@@ -307,4 +337,8 @@ func spiderBanner() {
 	// REST API EndPoint
 	restEndPoint := "http://" + cr.HostIPorName + cr.ServicePort + "/spider"
 	fmt.Printf("     - REST API: %s\n", restEndPoint)
+
+	// Swagger
+	// swaggerURL := "http://" + cr.HostIPorName + cr.ServicePort + "/spider/swagger/index.html"
+	// fmt.Printf("     - Swagger : %s\n", swaggerURL)
 }

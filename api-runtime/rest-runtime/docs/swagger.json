@@ -1,0 +1,285 @@
+{
+    "swagger": "2.0",
+    "info": {
+        "description": "CB-Spider REST API",
+        "title": "CB-Spider REST API",
+        "contact": {
+            "name": "API Support",
+            "url": "http://cloud-barista.github.io",
+            "email": "contact-to-cloud-barista@googlegroups.com"
+        },
+        "license": {
+            "name": "Apache 2.0",
+            "url": "http://www.apache.org/licenses/LICENSE-2.0.html"
+        },
+        "version": "latest"
+    },
+    "host": "localhost:1024",
+    "basePath": "/spider",
+    "paths": {
+        "/keypair": {
+            "post": {
+                "description": "Create SSH Key",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[CCM] Access key management"
+                ],
+                "summary": "Create SSH Key",
+                "parameters": [
+                    {
+                        "description": "Request body to create key",
+                        "name": "keyPairCreateReq",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/restruntime.JSONResult"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "ConnectionName": {
+                                            "type": "string"
+                                        },
+                                        "ReqInfo": {
+                                            "allOf": [
+                                                {
+                                                    "$ref": "#/definitions/restruntime.JSONResult"
+                                                },
+                                                {
+                                                    "type": "object",
+                                                    "properties": {
+                                                        "Name": {
+                                                            "type": "string"
+                                                        }
+                                                    }
+                                                }
+                                            ]
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/resources.KeyPairInfo"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/restruntime.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/restruntime.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/vpc": {
+            "post": {
+                "description": "Create VPC",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[CCM] VPC management"
+                ],
+                "summary": "Create VPC",
+                "parameters": [
+                    {
+                        "description": "Request body to create VPC",
+                        "name": "vpcCreateReq",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/restruntime.vpcCreateReq"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/resources.VPCInfo"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/restruntime.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/restruntime.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "definitions": {
+        "resources.IID": {
+            "type": "object",
+            "properties": {
+                "nameId": {
+                    "description": "NameID by user",
+                    "type": "string"
+                },
+                "systemId": {
+                    "description": "SystemID by CloudOS",
+                    "type": "string"
+                }
+            }
+        },
+        "resources.KeyPairInfo": {
+            "type": "object",
+            "properties": {
+                "fingerprint": {
+                    "type": "string"
+                },
+                "iid": {
+                    "description": "{NameId, SystemId}",
+                    "$ref": "#/definitions/resources.IID"
+                },
+                "keyValueList": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/resources.KeyValue"
+                    }
+                },
+                "privateKey": {
+                    "type": "string"
+                },
+                "publicKey": {
+                    "type": "string"
+                },
+                "vmuserID": {
+                    "type": "string"
+                }
+            }
+        },
+        "resources.KeyValue": {
+            "type": "object",
+            "properties": {
+                "key": {
+                    "type": "string"
+                },
+                "value": {
+                    "type": "string"
+                }
+            }
+        },
+        "resources.SubnetInfo": {
+            "type": "object",
+            "properties": {
+                "iid": {
+                    "description": "{NameId, SystemId}",
+                    "$ref": "#/definitions/resources.IID"
+                },
+                "ipv4_CIDR": {
+                    "type": "string"
+                },
+                "keyValueList": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/resources.KeyValue"
+                    }
+                }
+            }
+        },
+        "resources.VPCInfo": {
+            "type": "object",
+            "properties": {
+                "iid": {
+                    "description": "{NameId, SystemId}",
+                    "$ref": "#/definitions/resources.IID"
+                },
+                "ipv4_CIDR": {
+                    "type": "string"
+                },
+                "keyValueList": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/resources.KeyValue"
+                    }
+                },
+                "subnetInfoList": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/resources.SubnetInfo"
+                    }
+                }
+            }
+        },
+        "restruntime.JSONResult": {
+            "type": "object"
+        },
+        "restruntime.SimpleMsg": {
+            "type": "object",
+            "properties": {
+                "message": {
+                    "type": "string",
+                    "example": "Any message"
+                }
+            }
+        },
+        "restruntime.vpcCreateReq": {
+            "type": "object",
+            "properties": {
+                "connectionName": {
+                    "type": "string"
+                },
+                "reqInfo": {
+                    "type": "object",
+                    "properties": {
+                        "ipv4_CIDR": {
+                            "type": "string"
+                        },
+                        "name": {
+                            "type": "string"
+                        },
+                        "subnetInfoList": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "ipv4_CIDR": {
+                                        "type": "string"
+                                    },
+                                    "name": {
+                                        "type": "string"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "securityDefinitions": {
+        "BasicAuth": {
+            "type": "basic"
+        }
+    }
+}

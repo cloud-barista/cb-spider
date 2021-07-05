@@ -225,21 +225,33 @@ func getOrgVMSpec(c echo.Context) error {
 	return c.String(http.StatusOK, result)
 }
 
-//================ VPC Handler
+type vpcCreateReq struct {
+	ConnectionName string
+	ReqInfo        struct {
+		Name           string
+		IPv4_CIDR      string
+		SubnetInfoList []struct {
+			Name      string
+			IPv4_CIDR string
+		}
+	}
+}
+
+// createVPC godoc
+// @Summary Create VPC
+// @Description Create VPC
+// @Tags [CCM] VPC management
+// @Accept  json
+// @Produce  json
+// @Param vpcCreateReq body vpcCreateReq true "Request body to create VPC"
+// @Success 200 {object} resources.VPCInfo
+// @Failure 404 {object} SimpleMsg
+// @Failure 500 {object} SimpleMsg
+// @Router /vpc [post]
 func createVPC(c echo.Context) error {
 	cblog.Info("call createVPC()")
 
-	var req struct {
-		ConnectionName string
-		ReqInfo        struct {
-			Name           string
-			IPv4_CIDR      string
-			SubnetInfoList []struct {
-				Name      string
-				IPv4_CIDR string
-			}
-		}
-	}
+	req := vpcCreateReq{}
 
 	if err := c.Bind(&req); err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
@@ -484,19 +496,31 @@ func removeCSPSubnet(c echo.Context) error {
 	return c.JSON(http.StatusOK, &resultInfo)
 }
 
-//================ SecurityGroup Handler
+type securityGroupCreateReq struct {
+	ConnectionName string
+	ReqInfo        struct {
+		Name          string
+		VPCName       string
+		Direction     string
+		SecurityRules *[]cres.SecurityRuleInfo
+	}
+}
+
+/* // createSecurity godoc
+// @Summary Create Security Group
+// @Description Create Security Group
+// @Tags [CCM] Security Group management
+// @Accept  json
+// @Produce  json
+// @Param securityGroupCreateReq body securityGroupCreateReq true "Request body to create Security Group"
+// @Success 200 {object} resources.SecurityInfo
+// @Failure 404 {object} SimpleMsg
+// @Failure 500 {object} SimpleMsg
+// @Router /securitygroup [post] */
 func createSecurity(c echo.Context) error {
 	cblog.Info("call createSecurity()")
 
-	var req struct {
-		ConnectionName string
-		ReqInfo        struct {
-			Name          string
-			VPCName       string
-			Direction     string
-			SecurityRules *[]cres.SecurityRuleInfo
-		}
-	}
+	req := securityGroupCreateReq{}
 
 	if err := c.Bind(&req); err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
@@ -649,7 +673,31 @@ func deleteCSPSecurity(c echo.Context) error {
 	return c.JSON(http.StatusOK, &resultInfo)
 }
 
-//================ KeyPair Handler
+// type keyPairCreateReq struct {
+// 	ConnectionName string
+// 	ReqInfo        struct {
+// 		Name string
+// 	}
+// }
+
+// JSONResult's data field will be overridden by the specific type
+type JSONResult struct {
+	//Code    int          `json:"code" `
+	//Message string       `json:"message"`
+	//Data    interface{}  `json:"data"`
+}
+
+// createKey godoc
+// @Summary Create SSH Key
+// @Description Create SSH Key
+// @Tags [CCM] Access key management
+// @Accept  json
+// @Produce  json
+// @Param keyPairCreateReq body JSONResult{ConnectionName=string,ReqInfo=JSONResult{Name=string}} true "Request body to create key"
+// @Success 200 {object} resources.KeyPairInfo
+// @Failure 404 {object} SimpleMsg
+// @Failure 500 {object} SimpleMsg
+// @Router /keypair [post]
 func createKey(c echo.Context) error {
 	cblog.Info("call createKey()")
 
