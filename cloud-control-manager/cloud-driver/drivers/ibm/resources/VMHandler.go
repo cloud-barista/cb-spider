@@ -365,7 +365,7 @@ func(vmHandler *IbmVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, erro
 	newmask := "mask[status,id,powerState[name]]"
 	//virtualGuestMask := "mask[id,hostname,users,blockDevices,blockDeviceTemplateGroup,sshKeyCount,sshKeys,softwareComponentCount,softwareComponents[softwareDescription[productItemCount,productItems[itemCategory]],passwords],privateNetworkOnlyFlag,billingItem[orderItem[preset]],fullyQualifiedDomainName,domain,createDate,datacenter,primaryIpAddress,primaryBackendIpAddress,backendNetworkComponents[securityGroupBindings[securityGroup],securityGroupBindingCount],frontendNetworkComponents[primarySubnet,securityGroupBindings[securityGroup],securityGroupBindingCount,networkVlan[primaryRouter[hostname],vlanNumber,id,subnets,networkSpace,name]]]"
 	for{
-		fmt.Println(curRetryCnt)
+		// fmt.Println(curRetryCnt)
 		createVm ,_ := vmHandler.VirtualGuestClient.Id(creatingVmId).Mask(newmask).GetObject()
 		if createVm.Status != nil && *createVm.Status.KeyName == "ACTIVE"{
 			if createVm.PowerState !=nil && *createVm.PowerState.Name == IbmVmStatusRunning {
@@ -411,6 +411,12 @@ func(vmHandler *IbmVMHandler) SuspendVM(vmIID irs.IID) (irs.VMStatus, error){
 			}
 			LoggingInfo(hiscallInfo, start)
 			return irs.Suspending,nil
+		} else {
+			var status irs.VMStatus
+			setVmStatus(&status,&virtualServer)
+			err = errors.New(fmt.Sprintf("not Suspend Instance. Instance Status : %s",status))
+			LoggingError(hiscallInfo, err)
+			return status,err
 		}
 	}
 	err = errors.New("not Found Instance State")
@@ -432,29 +438,30 @@ func(vmHandler *IbmVMHandler) ResumeVM(vmIID irs.IID) (irs.VMStatus, error){
 	if virtualServer.PowerState != nil{
 		start := call.Start()
 		switch *virtualServer.PowerState.Name {
-		case IbmVmStatusHalted :{
-			_, err = vmHandler.VirtualGuestClient.Id(*virtualServer.Id).PowerOn()
-			if err != nil{
+			case IbmVmStatusHalted :{
+				_, err = vmHandler.VirtualGuestClient.Id(*virtualServer.Id).PowerOn()
+				if err != nil{
+					LoggingError(hiscallInfo, err)
+					return irs.Failed, err
+				}
+			}
+			case IbmVmStatusPaused:{
+				_, err = vmHandler.VirtualGuestClient.Id(*virtualServer.Id).Resume()
+				if err != nil{
+					LoggingError(hiscallInfo, err)
+					return irs.Failed, err
+				}
+			}
+			case IbmVmStatusSuspended:{
+				err = errors.New("not Resume this Instance Terminating")
 				LoggingError(hiscallInfo, err)
 				return irs.Failed, err
 			}
-		}
-		case IbmVmStatusPaused:{
-			_, err = vmHandler.VirtualGuestClient.Id(*virtualServer.Id).Resume()
-			if err != nil{
+			default:{
+				err = errors.New("already Instance Running")
 				LoggingError(hiscallInfo, err)
-				return irs.Failed, err
+				return irs.Running, err
 			}
-		}
-		case IbmVmStatusSuspended:{
-			err = errors.New("not Resume this Instance Terminating")
-			LoggingError(hiscallInfo, err)
-			return irs.Failed, err
-		}
-		default:{
-			LoggingInfo(hiscallInfo, start)
-			return irs.Running, nil
-		}
 		}
 		LoggingInfo(hiscallInfo, start)
 		return irs.Resuming,nil
