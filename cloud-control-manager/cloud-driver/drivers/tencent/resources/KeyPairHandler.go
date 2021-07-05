@@ -130,6 +130,18 @@ func ExtractKeyPairDescribeInfo(keyPair *cvm.KeyPair) (irs.KeyPairInfo, error) {
 func (keyPairHandler *TencentKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPairReqInfo) (irs.KeyPairInfo, error) {
 	cblogger.Info(keyPairReqInfo)
 
+	//=================================================
+	// 동일 이름 생성 방지 추가(cb-spider 요청 필수 기능)
+	//=================================================
+	isExist, errExist := keyPairHandler.isExist(keyPairReqInfo.IId.NameId)
+	if errExist != nil {
+		cblogger.Error(errExist)
+		return irs.KeyPairInfo{}, errExist
+	}
+	if isExist {
+		return irs.KeyPairInfo{}, errors.New("A keyPair with the name " + keyPairReqInfo.IId.NameId + " already exists.")
+	}
+
 	keyPairPath := os.Getenv("CBSPIDER_ROOT") + CBKeyPairPath
 	cblogger.Infof("Getenv[CBSPIDER_ROOT] : [%s]", os.Getenv("CBSPIDER_ROOT"))
 	cblogger.Infof("CBKeyPairPath : [%s]", CBKeyPairPath)
@@ -208,6 +220,32 @@ func (keyPairHandler *TencentKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPai
 	}
 
 	return keyPairInfo, nil
+}
+
+// cb-spider 정책상 이름 기반으로 중복 생성을 막아야 함.
+func (keyPairHandler *TencentKeyPairHandler) isExist(chkName string) (bool, error) {
+	cblogger.Debugf("chkName : %s", chkName)
+
+	request := cvm.NewDescribeKeyPairsRequest()
+	request.Filters = []*cvm.Filter{
+		&cvm.Filter{
+			Name:   common.StringPtr("key-name"),
+			Values: common.StringPtrs([]string{chkName}),
+		},
+	}
+
+	response, err := keyPairHandler.Client.DescribeKeyPairs(request)
+	if err != nil {
+		cblogger.Error(err)
+		return false, err
+	}
+
+	if *response.Response.TotalCount < 1 {
+		return false, nil
+	}
+
+	cblogger.Infof("SSH Key 정보 찾음 - KeyId:[%s] / KeyName:[%s]", *response.Response.KeyPairSet[0].KeyId, *response.Response.KeyPairSet[0].KeyName)
+	return true, nil
 }
 
 func (keyPairHandler *TencentKeyPairHandler) GetKey(keyIID irs.IID) (irs.KeyPairInfo, error) {
@@ -356,7 +394,7 @@ func (keyPairHandler *TencentKeyPairHandler) CheckKeyPairFolder(keyPairPath stri
 	//키페어 생성 시 폴더가 존재하지 않으면 생성 함.
 	_, errChkDir := os.Stat(keyPairPath)
 	if os.IsNotExist(errChkDir) {
-		cblogger.Errorf("[%s] Path가 존재하지 않아서 생성합니다.", keyPairPath)
+		cblogger.Infof("[%s] Path가 존재하지 않아서 생성합니다.", keyPairPath)
 
 		//errDir := os.MkdirAll(keyPairPath, 0755)
 		errDir := os.MkdirAll(keyPairPath, 0700)

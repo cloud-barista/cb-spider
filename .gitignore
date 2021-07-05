@@ -39,3 +39,5 @@ interface/spider
 
 cloud-control-manager/cloud-driver/drivers/ncp/*
 cloud-control-manager/cloud-driver/drivers/ncp-plugin/*
+
+conf/testConfig*.yaml

@@ -1,0 +1,7 @@
+tencent:
+  # Credential Info
+  tencent_secret_id: SecretId 정보
+  tencent_secret_key: SecretKey 정보
+
+  region: ap-tokyo
+  zone: ap-tokyo-2

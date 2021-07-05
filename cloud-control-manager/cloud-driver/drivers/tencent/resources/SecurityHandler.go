@@ -37,6 +37,19 @@ Action : ACCEPT or DROP
 */
 func (securityHandler *TencentSecurityHandler) CreateSecurity(securityReqInfo irs.SecurityReqInfo) (irs.SecurityInfo, error) {
 	cblogger.Infof("securityReqInfo : ", securityReqInfo)
+
+	//=================================================
+	// 동일 이름 생성 방지 추가(cb-spider 요청 필수 기능)
+	//=================================================
+	isExist, errExist := securityHandler.isExist(securityReqInfo.IId.NameId)
+	if errExist != nil {
+		cblogger.Error(errExist)
+		return irs.SecurityInfo{}, errExist
+	}
+	if isExist {
+		return irs.SecurityInfo{}, errors.New("A SecurityGroup with the name " + securityReqInfo.IId.NameId + " already exists.")
+	}
+
 	// logger for HisCall
 	callogger := call.GetLogger("HISCALL")
 	callLogInfo := call.CLOUDLOGSCHEMA{
@@ -62,7 +75,7 @@ func (securityHandler *TencentSecurityHandler) CreateSecurity(securityReqInfo ir
 		securityGroupPolicy.CidrBlock = common.StringPtr(curPolicy.CIDR)
 		securityGroupPolicy.Action = common.StringPtr("accept")
 
-		if curPolicy.ToPort != "" {
+		if curPolicy.ToPort != "" && curPolicy.ToPort != curPolicy.FromPort {
 			securityGroupPolicy.Port = common.StringPtr(curPolicy.FromPort + "-" + curPolicy.ToPort)
 		} else {
 			securityGroupPolicy.Port = common.StringPtr(curPolicy.FromPort)
@@ -148,6 +161,32 @@ func (securityHandler *TencentSecurityHandler) ListSecurity() ([]*irs.SecurityIn
 	return results, nil
 }
 
+// cb-spider 정책상 이름 기반으로 중복 생성을 막아야 함.
+func (securityHandler *TencentSecurityHandler) isExist(chkName string) (bool, error) {
+	cblogger.Debugf("chkName : %s", chkName)
+
+	request := vpc.NewDescribeSecurityGroupsRequest()
+	request.Filters = []*vpc.Filter{
+		&vpc.Filter{
+			Name:   common.StringPtr("security-group-name"),
+			Values: common.StringPtrs([]string{chkName}),
+		},
+	}
+
+	response, err := securityHandler.Client.DescribeSecurityGroups(request)
+	if err != nil {
+		cblogger.Error(err)
+		return false, err
+	}
+
+	if *response.Response.TotalCount < 1 {
+		return false, nil
+	}
+
+	cblogger.Infof("보안그룹 정보 찾음 - VpcId:[%s] / VpcName:[%s]", *response.Response.SecurityGroupSet[0].SecurityGroupId, *response.Response.SecurityGroupSet[0].SecurityGroupName)
+	return true, nil
+}
+
 func (securityHandler *TencentSecurityHandler) GetSecurity(securityIID irs.IID) (irs.SecurityInfo, error) {
 	cblogger.Infof("securitySystemId : [%s]", securityIID.SystemId)
 	callogger := call.GetLogger("HISCALL")
@@ -212,13 +251,13 @@ func (securityHandler *TencentSecurityHandler) GetSecurityRuleInfo(securityIID i
 	var securityRuleInfos []irs.SecurityRuleInfo
 	var ingress []irs.SecurityRuleInfo
 	var egress []irs.SecurityRuleInfo
-	ingress, err = securityHandler.ExtractPolicyGroups(response.Response.SecurityGroupPolicySet.Ingress, "ingress")
+	ingress, err = securityHandler.ExtractPolicyGroups(response.Response.SecurityGroupPolicySet.Ingress, "inbound")
 	if err != nil {
 		cblogger.Error(err)
 		return nil, err
 	}
 
-	egress, err = securityHandler.ExtractPolicyGroups(response.Response.SecurityGroupPolicySet.Egress, "egress")
+	egress, err = securityHandler.ExtractPolicyGroups(response.Response.SecurityGroupPolicySet.Egress, "outbound")
 	if err != nil {
 		cblogger.Error(err)
 		return nil, err
@@ -230,11 +269,25 @@ func (securityHandler *TencentSecurityHandler) GetSecurityRuleInfo(securityIID i
 }
 
 //@TODO Port에 콤머가 사용된 정책 처리해야 함.
+//direction : inbound / outbound
 func (securityHandler *TencentSecurityHandler) ExtractPolicyGroups(policyGroups []*vpc.SecurityGroupPolicy, direction string) ([]irs.SecurityRuleInfo, error) {
 	var results []irs.SecurityRuleInfo
 
 	var fromPort string
 	var toPort string
+
+	/*
+		var newDirection string
+		//ingress -> inbound
+		if strings.EqualFold(direction, "ingress") {
+			newDirection = "inbound"
+		} else if strings.EqualFold(direction, "egress") {
+			newDirection = "outbound"
+		} else { //UnKnown
+			newDirection = direction
+		}
+	*/
+
 	for _, curPolicy := range policyGroups {
 		if len(*curPolicy.Port) > 0 {
 

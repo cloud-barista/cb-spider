@@ -11,6 +11,7 @@ package resources
 
 import (
 	"errors"
+	"strings"
 
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
@@ -133,6 +134,11 @@ func ExtractImageDescribeInfo(image *cvm.Image) irs.ImageInfo {
 		IId:     irs.IID{NameId: *image.ImageId, SystemId: *image.ImageId},
 		GuestOS: *image.OsName,
 		Status:  *image.ImageState,
+	}
+
+	//NORMAL -> available
+	if strings.EqualFold(imageInfo.Status, "NORMAL") {
+		imageInfo.Status = "available"
 	}
 
 	//KeyValue 목록 처리
