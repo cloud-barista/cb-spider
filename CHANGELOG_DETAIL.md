@@ -1,4 +1,14 @@
-# latest
+### API Change
+
+### Feature
+- spctl help 출력 개선, control 옵션 삭제 ([#433](https://github.com/cloud-barista/cb-spider/pull/433))
+- Azure Image 목록 수정, version 포함 ([#434](https://github.com/cloud-barista/cb-spider/pull/434))
+ 
+<br>
+
+- ↓ **latest** (now)
+
+# v0.4.0-CafeMocha (2021.06.30.)
 ### API Change
 - 기존 VPC에 Subnet add/delete 제공 API 추가 ([#325](https://github.com/cloud-barista/cb-spider/pull/325) [#326](https://github.com/cloud-barista/cb-spider/pull/326) [#327](https://github.com/cloud-barista/cb-spider/pull/327))
 - VM 정보에 SSH 접속을 위한 SSHAccessPoint 정보 추가 제공 ([6d4b372](https://github.com/cloud-barista/cb-spider/commit/6d4b3720ac83b9bb50d3fd55d78e469d8a80fdf2#diff-d8a70c72f373d23a135f7dfcd089a1848633be01a9676ebdf2f102caccc0afff) [#338](https://github.com/cloud-barista/cb-spider/pull/338) )
@@ -81,9 +91,6 @@
 - Update the AdminWeb API Info Page with 0.4.0
 - Add Test Scripts of AddSubnet and RemoveSubnet API
 
-<br>
-
-- ↓ **latest** (now)
 
 # v0.3.0-espresso (2020.12.11.)
 ### API Change
