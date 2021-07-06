@@ -45,6 +45,7 @@ require (
 	github.com/prometheus/client_golang v1.9.0
 	github.com/sirupsen/logrus v1.8.1
 	github.com/snowzach/rotatefilehook v0.0.0-20180327172521-2f64f265f58c
+	github.com/softlayer/softlayer-go v1.0.3
 	github.com/spf13/cobra v1.1.3
 	github.com/spf13/viper v1.7.1
 	github.com/swaggo/echo-swagger v1.1.0
@@ -62,6 +63,7 @@ require (
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b
 	gotest.tools v1.4.0 // indirect
+// Do not delete. These are packages used at building NCP plugin Driver in Container.
 
 )
 
