@@ -1,4 +1,7 @@
+# latest
+
 ### API Change
+
 
 ### Feature
 - spctl help 출력 개선, control 옵션 삭제 ([#433](https://github.com/cloud-barista/cb-spider/pull/433))
@@ -6,7 +9,7 @@
  
 <br>
 
-- ↓ **latest** (now)
+- ↓ **now**
 
 # v0.4.0-CafeMocha (2021.06.30.)
 ### API Change
