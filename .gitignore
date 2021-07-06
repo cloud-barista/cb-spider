@@ -33,7 +33,7 @@ api-runtime/rest-runtime/log/cblogs.log
 conf/config.yaml
 
 interface/cbadm
-interface/spider
+interface/spctl
 
 .history/
 

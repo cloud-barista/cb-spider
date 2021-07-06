@@ -35,7 +35,7 @@ func NewVMCmd() *cobra.Command {
 
 	//  Adds the commands for application.
 	vmCmd.AddCommand(NewVMStartCmd())
-	vmCmd.AddCommand(NewVMControlCmd())
+	//vmCmd.AddCommand(NewVMControlCmd())
 	vmCmd.AddCommand(NewVMListStatusCmd())
 	vmCmd.AddCommand(NewVMGetStatusCmd())
 	vmCmd.AddCommand(NewVMListCmd())

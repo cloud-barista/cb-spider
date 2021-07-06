@@ -26,7 +26,7 @@ cli-dist: cli
 cli:
 		@echo -e '\t[CB-Spider] build ./interface/spctl...'
 		@go mod download
-		@go build -o ./interface/spctl ./interface/cli/spider/spider.go
+		@go build -ldflags="-X 'github.com/cloud-barista/cb-spider/interface/cli/spider/cmd.Version=v0.4.0' -X 'github.com/cloud-barista/cb-spider/interface/cli/spider/cmd.CommitSHA=`(git rev-parse --short HEAD)`' -X 'github.com/cloud-barista/cb-spider/interface/cli/spider/cmd.User=`(id -u -n)`' -X 'github.com/cloud-barista/cb-spider/interface/cli/spider/cmd.Time=`(date)`'" -o ./interface/spctl ./interface/cli/spider/spider.go
 swag swagger:
 		@echo -e '\t[CB-Spider] build Swagger docs'
 		@~/go/bin/swag i -g api-runtime/rest-runtime/CBSpiderRuntime.go -o api-runtime/rest-runtime/docs
