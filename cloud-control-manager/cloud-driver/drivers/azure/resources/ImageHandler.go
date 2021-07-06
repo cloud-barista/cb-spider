@@ -198,39 +198,40 @@ func (imageHandler *AzureImageHandler) GetImage(imageIID irs.IID) (irs.ImageInfo
 		return irs.ImageInfo{}, formatErr
 	}
 
-	imageVersion := imageArr[3]
-
-	// 해당 이미지 publisher, offer, skus 기준 version 목록 조회 (latest 기준 조회 불가)
-	if strings.EqualFold(imageVersion, "latest") {
-		vmImageList, err := imageHandler.VMImageClient.List(imageHandler.Ctx, imageHandler.Region.Region, imageArr[0], imageArr[1], imageArr[2], "", nil, "name desc")
-		if err != nil {
-			LoggingError(hiscallInfo, err)
-			return irs.ImageInfo{}, err
+	// 해당 이미지 publisher, offer, skus 기준 version 목록 조회 (latest 기준 조회 기능 미활용)
+	/*
+		imageVersion := imageArr[3]
+		if strings.EqualFold(imageVersion, "latest") {
+			vmImageList, err := imageHandler.VMImageClient.List(imageHandler.Ctx, imageHandler.Region.Region, imageArr[0], imageArr[1], imageArr[2], "", to.Int32Ptr(1), "name desc")
+			if err != nil {
+				LoggingError(hiscallInfo, err)
+				return irs.ImageInfo{}, err
+			}
+			if &vmImageList == nil {
+				getErr := errors.New(fmt.Sprintf("could not found image with imageId %s", imageIID.NameId))
+				LoggingError(hiscallInfo, getErr)
+				return irs.ImageInfo{}, getErr
+			}
+			if vmImageList.Value == nil {
+				getErr := errors.New(fmt.Sprintf("could not found image with imageId %s", imageIID.NameId))
+				LoggingError(hiscallInfo, getErr)
+				return irs.ImageInfo{}, getErr
+			}
+			if len(*vmImageList.Value) == 0 {
+				getErr := errors.New(fmt.Sprintf("could not found image with imageId %s", imageIID.NameId))
+				LoggingError(hiscallInfo, getErr)
+				return irs.ImageInfo{}, getErr
+			} else {
+				latestVmImage := (*vmImageList.Value)[0]
+				imageIdArr := strings.Split(*latestVmImage.ID, "/")
+				imageVersion = imageIdArr[len(imageIdArr)-1]
+			}
 		}
-		if &vmImageList == nil {
-			getErr := errors.New(fmt.Sprintf("could not found image with imageId %s", imageIID.NameId))
-			LoggingError(hiscallInfo, getErr)
-			return irs.ImageInfo{}, getErr
-		}
-		if vmImageList.Value == nil {
-			getErr := errors.New(fmt.Sprintf("could not found image with imageId %s", imageIID.NameId))
-			LoggingError(hiscallInfo, getErr)
-			return irs.ImageInfo{}, getErr
-		}
-		if len(*vmImageList.Value) == 0 {
-			getErr := errors.New(fmt.Sprintf("could not found image with imageId %s", imageIID.NameId))
-			LoggingError(hiscallInfo, getErr)
-			return irs.ImageInfo{}, getErr
-		} else {
-			latestVmImage := (*vmImageList.Value)[0]
-			imageIdArr := strings.Split(*latestVmImage.ID, "/")
-			imageVersion = imageIdArr[len(imageIdArr)-1]
-		}
-	}
+	*/
 
 	// 1개의 버전 정보를 기준으로 이미지 정보 조회
 	start := call.Start()
-	vmImage, err := imageHandler.VMImageClient.Get(imageHandler.Ctx, imageHandler.Region.Region, imageArr[0], imageArr[1], imageArr[2], imageVersion)
+	vmImage, err := imageHandler.VMImageClient.Get(imageHandler.Ctx, imageHandler.Region.Region, imageArr[0], imageArr[1], imageArr[2], imageArr[3])
 	if err != nil {
 		LoggingError(hiscallInfo, err)
 		return irs.ImageInfo{}, err
