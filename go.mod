@@ -17,7 +17,6 @@ require (
 	github.com/HdrHistogram/hdrhistogram-go v1.0.1 // indirect
 	github.com/Microsoft/go-winio v0.4.16 // indirect
 	github.com/alecthomas/template v0.0.0-20190718012654-fb15b899a751
-
 	github.com/aliyun/alibaba-cloud-sdk-go v1.61.920
 	github.com/aws/aws-sdk-go v1.37.10
 	github.com/bramvdbogaerde/go-scp v0.0.0-20201229172121-7a6c0268fa67
@@ -64,13 +63,7 @@ require (
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b
 	gotest.tools v1.4.0 // indirect
-
-	// Do not delete. These are packages used at building NCP plugin Driver in Container.
-    github.com/NaverCloudPlatform/ncloud-sdk-go-v2 v1.1.7 // indirect
-   	github.com/appleboy/easyssh-proxy v1.3.9 // indirect
-   	github.com/sfreiberg/simplessh v0.0.0-20180301191542-495cbb862a9c // indirect
-   	github.com/pkg/sftp v1.13.0 // indirect
-	// Do not delete. These are packages used at building NCP plugin Driver in Container.
+// Do not delete. These are packages used at building NCP plugin Driver in Container.
 
 )
 
