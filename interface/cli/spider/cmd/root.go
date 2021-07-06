@@ -10,11 +10,20 @@
 package cmd
 
 import (
+	"fmt"
+
 	"github.com/cloud-barista/cb-spider/api-runtime/grpc-runtime/config"
 	"github.com/spf13/cobra"
 )
 
 // ===== [ Constants and Variables ] =====
+
+var (
+	Version   string = "latest"
+	CommitSHA string = "development build"
+	Time      string = ""
+	User      string = ""
+)
 
 var (
 	configFile string
@@ -55,9 +64,10 @@ var (
 func NewRootCmd() *cobra.Command {
 
 	rootCmd := &cobra.Command{
-		Use:   "spider",
-		Short: "spider is an cb-spider grpc cli tool",
-		Long:  "This is a lightweight cb-spider grpc cli tool for Cloud-Barista",
+		Use:     "spctl",
+		Version: fmt.Sprintf("%s, build %s", Version, CommitSHA),
+		Short:   "spctl is an cb-spider grpc cli tool",
+		Long:    "This is a lightweight cb-spider grpc cli tool for Cloud-Barista Spider",
 	}
 
 	// 옵션 플래그 설정
@@ -69,6 +79,8 @@ func NewRootCmd() *cobra.Command {
 	parser = config.MakeParser()
 
 	//  Adds the commands for application.
+	rootCmd.AddCommand(NewVersionCmd())
+
 	rootCmd.AddCommand(NewOsCmd())
 	rootCmd.AddCommand(NewDriverCmd())
 	rootCmd.AddCommand(NewCredentialCmd())
