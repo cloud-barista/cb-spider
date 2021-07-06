@@ -16,8 +16,8 @@ import (
 
 const (
 	CBDefaultVmUserName string = "cb-user"
-	CBKeyPairPath = "/cloud-driver-libs/.ssh-ibm/"
-	productName = "PUBLIC_CLOUD_SERVER"
+	CBKeyPairPath              = "/cloud-driver-libs/.ssh-ibm/"
+	productName                = "PUBLIC_CLOUD_SERVER"
 	CBCloudInitFilePath string = "/cloud-driver-libs/.cloud-init-ibm/cloud-init"
 )
 

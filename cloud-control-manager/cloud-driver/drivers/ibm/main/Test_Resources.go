@@ -89,6 +89,7 @@ Loop:
 				if list, err := imageHandler.ListImage(); err != nil {
 					cblogger.Error(err)
 				} else {
+					fmt.Sprintf("len : %s",len(list))
 					spew.Dump(list)
 				}
 				cblogger.Info("Finish ListImage()")
@@ -372,20 +373,21 @@ func testVMHandler(config Config) {
 		ImageIID: irs.IID{
 			NameId: config.Ibm.Resources.Vm.ImageName,
 		},
-		VpcIID: irs.IID{
-			NameId: config.Ibm.Resources.Vlan.NameId,
-		},
-		SubnetIID: irs.IID{
-			NameId: config.Ibm.Resources.Vm.Subnet.NameId,
-		},
+		// VPC(VLAN) 정책 결정후 사용 현재 nil 핸들링
+		//VpcIID: irs.IID{
+		//	NameId: config.Ibm.Resources.Vlan.NameId,
+		//},
+		//SubnetIID: irs.IID{
+		//	NameId: config.Ibm.Resources.Vm.Subnet.NameId,
+		//},
 		VMSpecName: config.Ibm.Resources.Vm.VmSpecName,
 		KeyPairIID: irs.IID{
 			NameId: config.Ibm.Resources.KeyPair.NameId,
-			//SystemId: config.Ibm.Resources.Vm.KeyPairSystemId,
+			SystemId: config.Ibm.Resources.KeyPair.SystemId,
 		},
 		SecurityGroupIIDs: []irs.IID{{
 			NameId: config.Ibm.Resources.Security.NameId,
-			//SystemId: config.Ibm.Resources.Vm.SecurityIds[0],
+			SystemId: config.Ibm.Resources.Security.SystemId,
 		}},
 	}
 	var getVm irs.VMInfo

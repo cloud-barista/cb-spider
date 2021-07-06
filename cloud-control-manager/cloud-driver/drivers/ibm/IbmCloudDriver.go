@@ -9,13 +9,14 @@ import (
 	"github.com/softlayer/softlayer-go/session"
 	"time"
 )
+
 const (
 	cspTimeout time.Duration = 6000
 )
 
 type IbmCloudDriver struct{}
 
-func (driver *IbmCloudDriver) GetDriverVersion() string{
+func (driver *IbmCloudDriver) GetDriverVersion() string {
 	return "Ibm DRIVER Version 1.0"
 }
 
@@ -34,7 +35,7 @@ func (IbmCloudDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	return drvCapabilityInfo
 }
 
-func (driver *IbmCloudDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (icon.CloudConnection, error){
+func (driver *IbmCloudDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (icon.CloudConnection, error) {
 
 	ibms.InitLog()
 
@@ -70,7 +71,7 @@ func (driver *IbmCloudDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (
 	if err != nil {
 		return nil, err
 	}
-	ProductOrderClient,err := getProductOrderClient(connectionInfo)
+	ProductOrderClient, err := getProductOrderClient(connectionInfo)
 	if err != nil {
 		return nil, err
 	}
@@ -80,79 +81,79 @@ func (driver *IbmCloudDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (
 	}
 
 	iConn := ibmcon.IbmCloudConnection{
-		CredentialInfo:      connectionInfo.CredentialInfo,
-		Region:              connectionInfo.RegionInfo,
-		AccountClient: AccountClient,
-		VirtualGuestClient: VirtualGuestClient,
-		SecuritySshKeyClient: SecuritySshKeyClient,
-		ProductPackageClient: ProductPackageClient,
-		SecurityGroupClient: SecurityGroupClient,
-		NetworkVlanClient: NetworkVlanClient,
-		NetworkSubnetClient:NetworkSubnetClient,
+		CredentialInfo:           connectionInfo.CredentialInfo,
+		Region:                   connectionInfo.RegionInfo,
+		AccountClient:            AccountClient,
+		VirtualGuestClient:       VirtualGuestClient,
+		SecuritySshKeyClient:     SecuritySshKeyClient,
+		ProductPackageClient:     ProductPackageClient,
+		SecurityGroupClient:      SecurityGroupClient,
+		NetworkVlanClient:        NetworkVlanClient,
+		NetworkSubnetClient:      NetworkSubnetClient,
 		LocationDatacenterClient: LocationDatacenterClient,
-		BillingItemClient: BillingItemClient,
-		ProductOrderClient: ProductOrderClient,
+		BillingItemClient:        BillingItemClient,
+		ProductOrderClient:       ProductOrderClient,
 	}
-	return &iConn,nil
+	return &iConn, nil
 }
 
-func getAccountClient(connectionInfo idrv.ConnectionInfo) (*services.Account, error){
+func getAccountClient(connectionInfo idrv.ConnectionInfo) (*services.Account, error) {
 	sess := session.New(connectionInfo.CredentialInfo.Username, connectionInfo.CredentialInfo.ApiKey)
 	service := services.GetAccountService(sess)
 	return &service, nil
 }
 
-func getVirtualGuestClient(connectionInfo idrv.ConnectionInfo) (*services.Virtual_Guest, error){
+func getVirtualGuestClient(connectionInfo idrv.ConnectionInfo) (*services.Virtual_Guest, error) {
 	sess := session.New(connectionInfo.CredentialInfo.Username, connectionInfo.CredentialInfo.ApiKey)
 	service := services.GetVirtualGuestService(sess)
 	return &service, nil
 }
 
-func getSecuritySshKeyClient(connectionInfo idrv.ConnectionInfo) (*services.Security_Ssh_Key, error){
+func getSecuritySshKeyClient(connectionInfo idrv.ConnectionInfo) (*services.Security_Ssh_Key, error) {
 	sess := session.New(connectionInfo.CredentialInfo.Username, connectionInfo.CredentialInfo.ApiKey)
 	service := services.GetSecuritySshKeyService(sess)
 	return &service, nil
 }
 
-func getSecurityGroupClient(connectionInfo idrv.ConnectionInfo) (*services.Network_SecurityGroup, error){
+func getSecurityGroupClient(connectionInfo idrv.ConnectionInfo) (*services.Network_SecurityGroup, error) {
 	sess := session.New(connectionInfo.CredentialInfo.Username, connectionInfo.CredentialInfo.ApiKey)
 	service := services.GetNetworkSecurityGroupService(sess)
 	return &service, nil
 }
 
-func getProductPackageClient(connectionInfo idrv.ConnectionInfo) (*services.Product_Package, error){
+func getProductPackageClient(connectionInfo idrv.ConnectionInfo) (*services.Product_Package, error) {
 	sess := session.New(connectionInfo.CredentialInfo.Username, connectionInfo.CredentialInfo.ApiKey)
 	service := services.GetProductPackageService(sess)
 	return &service, nil
 }
 
-func getNetworkSubnetClient(connectionInfo idrv.ConnectionInfo) (*services.Network_Subnet, error){
+func getNetworkSubnetClient(connectionInfo idrv.ConnectionInfo) (*services.Network_Subnet, error) {
 	sess := session.New(connectionInfo.CredentialInfo.Username, connectionInfo.CredentialInfo.ApiKey)
-	service :=  services.GetNetworkSubnetService(sess)
+	service := services.GetNetworkSubnetService(sess)
 	return &service, nil
 }
 
-func getNetworkVlanClient(connectionInfo idrv.ConnectionInfo) (*services.Network_Vlan, error){
+func getNetworkVlanClient(connectionInfo idrv.ConnectionInfo) (*services.Network_Vlan, error) {
 	sess := session.New(connectionInfo.CredentialInfo.Username, connectionInfo.CredentialInfo.ApiKey)
-	service :=  services.GetNetworkVlanService(sess)
+	service := services.GetNetworkVlanService(sess)
 	return &service, nil
 }
 
-func getLocationDatacenterClient(connectionInfo idrv.ConnectionInfo) (*services.Location_Datacenter, error){
+func getLocationDatacenterClient(connectionInfo idrv.ConnectionInfo) (*services.Location_Datacenter, error) {
 	sess := session.New(connectionInfo.CredentialInfo.Username, connectionInfo.CredentialInfo.ApiKey)
-	service :=  services.GetLocationDatacenterService(sess)
+	service := services.GetLocationDatacenterService(sess)
 	return &service, nil
 }
 
-func getProductOrderClient(connectionInfo idrv.ConnectionInfo) (*services.Product_Order, error){
+func getProductOrderClient(connectionInfo idrv.ConnectionInfo) (*services.Product_Order, error) {
 	sess := session.New(connectionInfo.CredentialInfo.Username, connectionInfo.CredentialInfo.ApiKey)
-	service :=  services.GetProductOrderService(sess)
+	service := services.GetProductOrderService(sess)
 	return &service, nil
 }
 
-func getBillingItemClient(connectionInfo idrv.ConnectionInfo) (*services.Billing_Item, error){
+func getBillingItemClient(connectionInfo idrv.ConnectionInfo) (*services.Billing_Item, error) {
 	sess := session.New(connectionInfo.CredentialInfo.Username, connectionInfo.CredentialInfo.ApiKey)
-	service :=  services.GetBillingItemService(sess)
+	service := services.GetBillingItemService(sess)
 	return &service, nil
 }
 

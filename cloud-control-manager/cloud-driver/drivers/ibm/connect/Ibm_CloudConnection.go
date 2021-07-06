@@ -18,95 +18,95 @@ func init() {
 }
 
 type IbmCloudConnection struct {
-	CredentialInfo      idrv.CredentialInfo
-	Region              idrv.RegionInfo
-	AccountClient 		*services.Account
-	VirtualGuestClient		*services.Virtual_Guest
-	SecuritySshKeyClient *services.Security_Ssh_Key
-	ProductPackageClient * services.Product_Package
-	SecurityGroupClient *services.Network_SecurityGroup
-	NetworkVlanClient *services.Network_Vlan
-	ProductOrderClient *services.Product_Order
-	NetworkSubnetClient *services.Network_Subnet
-	BillingItemClient *services.Billing_Item
+	CredentialInfo           idrv.CredentialInfo
+	Region                   idrv.RegionInfo
+	AccountClient            *services.Account
+	VirtualGuestClient       *services.Virtual_Guest
+	SecuritySshKeyClient     *services.Security_Ssh_Key
+	ProductPackageClient     *services.Product_Package
+	SecurityGroupClient      *services.Network_SecurityGroup
+	NetworkVlanClient        *services.Network_Vlan
+	ProductOrderClient       *services.Product_Order
+	NetworkSubnetClient      *services.Network_Subnet
+	BillingItemClient        *services.Billing_Item
 	LocationDatacenterClient *services.Location_Datacenter
-
 }
-func(cloudConn *IbmCloudConnection) CreateImageHandler() (irs.ImageHandler, error){
+
+func (cloudConn *IbmCloudConnection) CreateImageHandler() (irs.ImageHandler, error) {
 	cblogger.Info("Ibm Cloud Driver: called CreateImageHandler()!")
 	vmSpecHandler := ibms.IbmImageHandler{
-		CredentialInfo: cloudConn.CredentialInfo,
-		Region: cloudConn.Region,
-		AccountClient: cloudConn.AccountClient,
+		CredentialInfo:       cloudConn.CredentialInfo,
+		Region:               cloudConn.Region,
+		AccountClient:        cloudConn.AccountClient,
 		ProductPackageClient: cloudConn.ProductPackageClient,
 	}
-	return &vmSpecHandler,nil
+	return &vmSpecHandler, nil
 }
 
-func(cloudConn *IbmCloudConnection) CreateVMHandler() (irs.VMHandler, error){
+func (cloudConn *IbmCloudConnection) CreateVMHandler() (irs.VMHandler, error) {
 	cblogger.Info("Ibm Cloud Driver: called CreateVMHandler()!")
 	vmHandler := ibms.IbmVMHandler{
-		CredentialInfo: cloudConn.CredentialInfo,
-		Region: cloudConn.Region,
-		AccountClient: cloudConn.AccountClient,
-		VirtualGuestClient: cloudConn.VirtualGuestClient,
-		ProductPackageClient: cloudConn.ProductPackageClient,
+		CredentialInfo:           cloudConn.CredentialInfo,
+		Region:                   cloudConn.Region,
+		AccountClient:            cloudConn.AccountClient,
+		VirtualGuestClient:       cloudConn.VirtualGuestClient,
+		ProductPackageClient:     cloudConn.ProductPackageClient,
 		LocationDatacenterClient: cloudConn.LocationDatacenterClient,
-		ProductOrderClient: cloudConn.ProductOrderClient,
-		SecuritySshKeyClient: cloudConn.SecuritySshKeyClient,
+		ProductOrderClient:       cloudConn.ProductOrderClient,
+		SecuritySshKeyClient:     cloudConn.SecuritySshKeyClient,
 	}
-	return &vmHandler,nil
+	return &vmHandler, nil
 }
 
-func(cloudConn *IbmCloudConnection) CreateVPCHandler() (irs.VPCHandler, error){
+func (cloudConn *IbmCloudConnection) CreateVPCHandler() (irs.VPCHandler, error) {
 	cblogger.Info("Ibm Cloud Driver: called CreateVPCHandler()!")
 	vpcHandler := ibms.IbmVPCHandler{
-		CredentialInfo: cloudConn.CredentialInfo,
-		Region: cloudConn.Region,
-		AccountClient: cloudConn.AccountClient,
-		NetworkVlanClient: cloudConn.NetworkVlanClient,
-		ProductPackageClient: cloudConn.ProductPackageClient,
-		ProductOrderClient: cloudConn.ProductOrderClient,
-		NetworkSubnetClient: cloudConn.NetworkSubnetClient,
-		BillingItemClient: cloudConn.BillingItemClient,
+		CredentialInfo:           cloudConn.CredentialInfo,
+		Region:                   cloudConn.Region,
+		AccountClient:            cloudConn.AccountClient,
+		NetworkVlanClient:        cloudConn.NetworkVlanClient,
+		ProductPackageClient:     cloudConn.ProductPackageClient,
+		ProductOrderClient:       cloudConn.ProductOrderClient,
+		NetworkSubnetClient:      cloudConn.NetworkSubnetClient,
+		BillingItemClient:        cloudConn.BillingItemClient,
 		LocationDatacenterClient: cloudConn.LocationDatacenterClient,
 	}
-	return &vpcHandler,nil
+	return &vpcHandler, nil
 }
-func(cloudConn *IbmCloudConnection) CreateSecurityHandler() (irs.SecurityHandler, error){
+func (cloudConn *IbmCloudConnection) CreateSecurityHandler() (irs.SecurityHandler, error) {
 	cblogger.Info("Ibm Cloud Driver: called CreateSecurityHandler()!")
 	securityHandler := ibms.IbmSecurityHandler{
-		CredentialInfo: cloudConn.CredentialInfo,
-		Region: cloudConn.Region,
-		SecurityGroupClient : cloudConn.SecurityGroupClient,
-		AccountClient: cloudConn.AccountClient,
+		CredentialInfo:      cloudConn.CredentialInfo,
+		Region:              cloudConn.Region,
+		SecurityGroupClient: cloudConn.SecurityGroupClient,
+		AccountClient:       cloudConn.AccountClient,
 	}
-	return &securityHandler,nil
+	return &securityHandler, nil
 }
-func(cloudConn *IbmCloudConnection) CreateKeyPairHandler() (irs.KeyPairHandler, error){
+func (cloudConn *IbmCloudConnection) CreateKeyPairHandler() (irs.KeyPairHandler, error) {
 	cblogger.Info("Ibm Cloud Driver: called CreateKeyPairHandler()!")
 	keyPairHandler := ibms.IbmKeyPairHandler{
-		CredentialInfo: cloudConn.CredentialInfo,
-		Region: cloudConn.Region,
-		AccountClient: cloudConn.AccountClient,
-		SecuritySshKeyClient : cloudConn.SecuritySshKeyClient,
+		CredentialInfo:       cloudConn.CredentialInfo,
+		Region:               cloudConn.Region,
+		AccountClient:        cloudConn.AccountClient,
+		SecuritySshKeyClient: cloudConn.SecuritySshKeyClient,
 	}
-	return &keyPairHandler,nil
+	return &keyPairHandler, nil
 }
-func(cloudConn *IbmCloudConnection) CreateVMSpecHandler() (irs.VMSpecHandler, error){
+func (cloudConn *IbmCloudConnection) CreateVMSpecHandler() (irs.VMSpecHandler, error) {
 	cblogger.Info("Ibm Cloud Driver: called CreateVMSpecHandler()!")
 	vmSpecHandler := ibms.IbmVmSpecHandler{
-		CredentialInfo: cloudConn.CredentialInfo,
-		Region: cloudConn.Region,
+		CredentialInfo:       cloudConn.CredentialInfo,
+		Region:               cloudConn.Region,
 		ProductPackageClient: cloudConn.ProductPackageClient,
 	}
-	return &vmSpecHandler,nil
+	return &vmSpecHandler, nil
 }
-func(cloudConn *IbmCloudConnection) IsConnected() (bool, error){
+func (cloudConn *IbmCloudConnection) IsConnected() (bool, error) {
 	cblogger.Info("Ibm Cloud Driver: called IsConnected()!")
 	return true, nil
 }
-func(cloudConn *IbmCloudConnection) Close() error{
+func (cloudConn *IbmCloudConnection) Close() error {
 	cblogger.Info("Ibm Cloud Driver: called Close()!")
 	return nil
 }

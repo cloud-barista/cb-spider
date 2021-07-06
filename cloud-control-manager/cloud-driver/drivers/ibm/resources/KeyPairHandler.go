@@ -21,22 +21,22 @@ import (
 )
 
 type IbmKeyPairHandler struct {
-	CredentialInfo idrv.CredentialInfo
-	Region         idrv.RegionInfo
-	AccountClient  *services.Account
+	CredentialInfo       idrv.CredentialInfo
+	Region               idrv.RegionInfo
+	AccountClient        *services.Account
 	SecuritySshKeyClient *services.Security_Ssh_Key
 }
 
-func(keyPairHandler *IbmKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPairReqInfo) (irs.KeyPairInfo, error){
+func (keyPairHandler *IbmKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPairReqInfo) (irs.KeyPairInfo, error) {
 	hiscallInfo := GetCallLogScheme(keyPairHandler.Region, call.VMKEYPAIR, keyPairReqInfo.IId.NameId, "CreateKey()")
 
-	if keyPairReqInfo.IId.NameId == ""{
+	if keyPairReqInfo.IId.NameId == "" {
 		err := errors.New("invalid keyPairReqInfo")
 		LoggingError(hiscallInfo, err)
 		return irs.KeyPairInfo{}, err
 	}
 	exist, err := keyPairHandler.existCheckKeyPairName(keyPairReqInfo.IId.NameId)
-	if exist{
+	if exist {
 		LoggingError(hiscallInfo, err)
 		return irs.KeyPairInfo{}, err
 	}
@@ -98,12 +98,12 @@ func(keyPairHandler *IbmKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPairReqI
 	pubKey := fmt.Sprintf("%s", publicKeyBytes)
 	newKey := datatypes.Security_Ssh_Key{
 		Label: &keyPairReqInfo.IId.NameId,
-		Key: &pubKey,
+		Key:   &pubKey,
 	}
 	result, err := keyPairHandler.SecuritySshKeyClient.CreateObject(&newKey)
-	if err!=nil{
+	if err != nil {
 		LoggingError(hiscallInfo, err)
-		return irs.KeyPairInfo{},err
+		return irs.KeyPairInfo{}, err
 	}
 
 	createKeypairInfo := irs.KeyPairInfo{
@@ -112,18 +112,18 @@ func(keyPairHandler *IbmKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPairReqI
 			SystemId: strconv.Itoa(*result.Id),
 		},
 		Fingerprint: *result.Fingerprint,
-		PublicKey:  *result.Key,
-		PrivateKey: string(privateKeyBytes),
+		PublicKey:   *result.Key,
+		PrivateKey:  string(privateKeyBytes),
 	}
-	LoggingInfo(hiscallInfo,start)
-	return createKeypairInfo,nil
+	LoggingInfo(hiscallInfo, start)
+	return createKeypairInfo, nil
 }
 
-func(keyPairHandler *IbmKeyPairHandler) ListKey() ([]*irs.KeyPairInfo, error){
+func (keyPairHandler *IbmKeyPairHandler) ListKey() ([]*irs.KeyPairInfo, error) {
 	hiscallInfo := GetCallLogScheme(keyPairHandler.Region, call.VMKEYPAIR, "VMKEYPAIR", "ListKey()")
 	start := call.Start()
 	sshKeys, err := keyPairHandler.AccountClient.GetSshKeys()
-	if err!=nil {
+	if err != nil {
 		LoggingError(hiscallInfo, err)
 		return nil, err
 	}
@@ -148,8 +148,8 @@ func(keyPairHandler *IbmKeyPairHandler) ListKey() ([]*irs.KeyPairInfo, error){
 				SystemId: strconv.Itoa(*key.Id),
 			},
 			Fingerprint: *key.Fingerprint,
-			PublicKey:  *key.Key,
-			PrivateKey: string(privateKeyBytes),
+			PublicKey:   *key.Key,
+			PrivateKey:  string(privateKeyBytes),
 		}
 		keyPairInfos = append(keyPairInfos, &keypairInfo)
 	}
@@ -157,19 +157,19 @@ func(keyPairHandler *IbmKeyPairHandler) ListKey() ([]*irs.KeyPairInfo, error){
 	return keyPairInfos, nil
 }
 
-func(keyPairHandler *IbmKeyPairHandler) GetKey(keyIID irs.IID) (irs.KeyPairInfo, error){
+func (keyPairHandler *IbmKeyPairHandler) GetKey(keyIID irs.IID) (irs.KeyPairInfo, error) {
 	hiscallInfo := GetCallLogScheme(keyPairHandler.Region, call.VMKEYPAIR, keyIID.NameId, "GetKey()")
 	var sshKey datatypes.Security_Ssh_Key
 	numSystemId, err := strconv.Atoi(keyIID.SystemId)
 	start := call.Start()
 	if err != nil {
-		if keyIID.NameId != ""{
+		if keyIID.NameId != "" {
 			sshKey, err = keyPairHandler.getterKeyPairByName(keyIID.NameId)
-			if err !=nil {
+			if err != nil {
 				LoggingError(hiscallInfo, err)
 				return irs.KeyPairInfo{}, err
 			}
-		}else{
+		} else {
 			err = errors.New("invalid keyIID")
 			LoggingError(hiscallInfo, err)
 			return irs.KeyPairInfo{}, err
@@ -189,7 +189,7 @@ func(keyPairHandler *IbmKeyPairHandler) GetKey(keyIID irs.IID) (irs.KeyPairInfo,
 	}
 
 	hashString, err := CreateHashString(keyPairHandler.CredentialInfo)
-	if err != nil{
+	if err != nil {
 		LoggingError(hiscallInfo, err)
 		return irs.KeyPairInfo{}, err
 	}
@@ -205,20 +205,20 @@ func(keyPairHandler *IbmKeyPairHandler) GetKey(keyIID irs.IID) (irs.KeyPairInfo,
 			SystemId: strconv.Itoa(*sshKey.Id),
 		},
 		Fingerprint: *sshKey.Fingerprint,
-		PublicKey:  *sshKey.Key,
-		PrivateKey: string(privateKeyBytes),
+		PublicKey:   *sshKey.Key,
+		PrivateKey:  string(privateKeyBytes),
 	}
 	LoggingInfo(hiscallInfo, start)
-	return keypairInfo,nil
+	return keypairInfo, nil
 }
 
-func(keyPairHandler *IbmKeyPairHandler) DeleteKey(keyIID irs.IID) (bool, error){
+func (keyPairHandler *IbmKeyPairHandler) DeleteKey(keyIID irs.IID) (bool, error) {
 	hiscallInfo := GetCallLogScheme(keyPairHandler.Region, call.VMKEYPAIR, keyIID.NameId, "DeleteKey()")
 
 	deleteKey, err := keyPairHandler.existCheckKeyPair(keyIID)
 	if err != nil {
 		LoggingError(hiscallInfo, err)
-		return false,err
+		return false, err
 	}
 	start := call.Start()
 	result, err := keyPairHandler.SecuritySshKeyClient.Id(*deleteKey.Id).DeleteObject()
@@ -231,7 +231,7 @@ func(keyPairHandler *IbmKeyPairHandler) DeleteKey(keyIID irs.IID) (bool, error){
 		err = keyPairHandler.CheckKeyPairFolder(keyPairPath)
 		// 폴더 없음 err != nil => local delete 필요 없음
 		if err != nil {
-			LoggingInfo(hiscallInfo,start)
+			LoggingInfo(hiscallInfo, start)
 			return true, nil
 		}
 		hashString, err := CreateHashString(keyPairHandler.CredentialInfo)
@@ -253,63 +253,63 @@ func(keyPairHandler *IbmKeyPairHandler) DeleteKey(keyIID irs.IID) (bool, error){
 			LoggingError(hiscallInfo, err)
 			return false, err
 		}
-		LoggingInfo(hiscallInfo,start)
+		LoggingInfo(hiscallInfo, start)
 		return true, nil
 	}
 	err = errors.New(fmt.Sprintf("Failed Delete KeyPair"))
 	LoggingError(hiscallInfo, err)
-	return false ,err
+	return false, err
 }
 
-func (keyPairHandler *IbmKeyPairHandler) getterKeyPairByName(KeyName string) (datatypes.Security_Ssh_Key, error){
+func (keyPairHandler *IbmKeyPairHandler) getterKeyPairByName(KeyName string) (datatypes.Security_Ssh_Key, error) {
 	existFilter := filter.Path("sshKeys.label").Eq(KeyName).Build()
 	sshKeys, err := keyPairHandler.AccountClient.Filter(existFilter).GetSshKeys()
-	if err != nil{
+	if err != nil {
 		return datatypes.Security_Ssh_Key{}, err
 	}
 	if len(sshKeys) == 0 {
 		return datatypes.Security_Ssh_Key{}, errors.New(fmt.Sprintf("sshKey with name %s not exist", KeyName))
-	}else{
+	} else {
 		return sshKeys[0], nil
 	}
 }
 
-func (keyPairHandler *IbmKeyPairHandler) existCheckKeyPairName(KeyName string) (bool,error){
+func (keyPairHandler *IbmKeyPairHandler) existCheckKeyPairName(KeyName string) (bool, error) {
 	existFilter := filter.Path("sshKeys.label").Eq(KeyName).Build()
 	sshKeys, err := keyPairHandler.AccountClient.Filter(existFilter).GetSshKeys()
-	if err != nil{
+	if err != nil {
 		return true, err
 	}
 	if len(sshKeys) == 0 {
 		return false, nil
-	}else{
+	} else {
 		return true, errors.New(fmt.Sprintf("sshKey with name %s already exist", KeyName))
 	}
 }
 
-func (keyPairHandler *IbmKeyPairHandler) existCheckKeyPair(keyIId irs.IID) (datatypes.Security_Ssh_Key,error){
-	if keyIId.SystemId == ""{
-		if keyIId.NameId != ""{
+func (keyPairHandler *IbmKeyPairHandler) existCheckKeyPair(keyIId irs.IID) (datatypes.Security_Ssh_Key, error) {
+	if keyIId.SystemId == "" {
+		if keyIId.NameId != "" {
 			existFilter := filter.Path("sshKeys.label").Eq(keyIId.NameId).Build()
 			sshKeys, err := keyPairHandler.AccountClient.Filter(existFilter).GetSshKeys()
-			if err != nil{
+			if err != nil {
 				return datatypes.Security_Ssh_Key{}, err
 			}
 			if len(sshKeys) == 0 {
 				return datatypes.Security_Ssh_Key{}, errors.New(fmt.Sprintf("sshKey with name not exist"))
-			}else{
+			} else {
 				return sshKeys[0], nil
 			}
 		} else {
 			return datatypes.Security_Ssh_Key{}, errors.New("invalid KeyIId")
 		}
-	}else{
+	} else {
 		numSystemId, err := strconv.Atoi(keyIId.SystemId)
-		if err != nil{
+		if err != nil {
 			return datatypes.Security_Ssh_Key{}, err
 		}
 		sshKey, err := keyPairHandler.SecuritySshKeyClient.Id(numSystemId).GetObject()
-		if err != nil{
+		if err != nil {
 			return datatypes.Security_Ssh_Key{}, err
 		}
 		return sshKey, nil
@@ -359,6 +359,7 @@ func generatePrivateKey(bitSize int) (*rsa.PrivateKey, error) {
 	//fmt.Println(privateKey)
 	return privateKey, nil
 }
+
 // 개인키를 RSA에서 PEM 형식으로 인코딩
 func encodePrivateKeyToPEM(privateKey *rsa.PrivateKey) []byte {
 	// Get ASN.1 DER format
@@ -388,4 +389,3 @@ func writeKeyToFile(keyBytes []byte, saveFileTo string) error {
 	log.Printf("Key 저장위치: %s", saveFileTo)
 	return nil
 }
-

@@ -15,18 +15,18 @@ import (
 )
 
 type IbmVPCHandler struct {
-	CredentialInfo idrv.CredentialInfo
-	Region         idrv.RegionInfo
-	AccountClient  *services.Account
-	NetworkVlanClient *services.Network_Vlan
-	ProductPackageClient * services.Product_Package
-	ProductOrderClient *services.Product_Order
-	NetworkSubnetClient *services.Network_Subnet
-	BillingItemClient *services.Billing_Item
+	CredentialInfo           idrv.CredentialInfo
+	Region                   idrv.RegionInfo
+	AccountClient            *services.Account
+	NetworkVlanClient        *services.Network_Vlan
+	ProductPackageClient     *services.Product_Package
+	ProductOrderClient       *services.Product_Order
+	NetworkSubnetClient      *services.Network_Subnet
+	BillingItemClient        *services.Billing_Item
 	LocationDatacenterClient *services.Location_Datacenter
 }
 
-func (vpcHandler *IbmVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.VPCInfo, error){
+func (vpcHandler *IbmVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.VPCInfo, error) {
 	hiscallInfo := GetCallLogScheme(vpcHandler.Region, call.VPCSUBNET, "VPC", "CreateVPC()")
 	var networkVlanPackage datatypes.Product_Package
 	var locationId string
@@ -34,24 +34,24 @@ func (vpcHandler *IbmVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.VPCIn
 	locationFilter := filter.Path("name").Eq(vpcHandler.Region.Region).Build()
 	vlanProductPackageMask := "mask[items,keyName,id]"
 	networkVlanPackages, err := vpcHandler.ProductPackageClient.Filter(vlanProductPackageFilter).Mask(vlanProductPackageMask).GetAllObjects()
-	if err != nil{
+	if err != nil {
 		LoggingError(hiscallInfo, err)
-		return irs.VPCInfo{},err
+		return irs.VPCInfo{}, err
 	}
 	if len(networkVlanPackages) < 1 {
 		err = errors.New("not found NETWORK_VLAN Package")
 		LoggingError(hiscallInfo, err)
-		return irs.VPCInfo{},err
+		return irs.VPCInfo{}, err
 	}
 	networkVlanPackage = networkVlanPackages[0]
 	// 현재 PublicVlan만을 생성 interface 정책 결정시 그에 따른 Private Vlan 생성 로직 추가
 	var publicVlanItemPrice datatypes.Product_Item_Price
 
-	for _,item :=range networkVlanPackage.Items{
-		if strings.Contains(*item.KeyName, "PUBLIC"){
+	for _, item := range networkVlanPackage.Items {
+		if strings.Contains(*item.KeyName, "PUBLIC") {
 			// publicVlanItem = item
-			for _, price :=range item.Prices{
-				if price.LocationGroupId == nil{
+			for _, price := range item.Prices {
+				if price.LocationGroupId == nil {
 					publicVlanItemPrice = price
 					break
 				}
@@ -68,45 +68,44 @@ func (vpcHandler *IbmVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.VPCIn
 		//}
 	}
 	datacenters, err := vpcHandler.LocationDatacenterClient.Filter(locationFilter).GetDatacenters()
-	if err != nil{
+	if err != nil {
 		LoggingError(hiscallInfo, err)
-		return irs.VPCInfo{},err
+		return irs.VPCInfo{}, err
 	}
 	if len(datacenters) < 1 {
 		err = errors.New("not found Location Id")
 		LoggingError(hiscallInfo, err)
-		return irs.VPCInfo{},err
+		return irs.VPCInfo{}, err
 	}
-	locationId =  strconv.Itoa(*datacenters[0].Id)
-	orderTemplate := datatypes.Container_Product_Order_Network_Vlan {
-		Container_Product_Order : datatypes.Container_Product_Order {
-			Prices		   : []datatypes.Product_Item_Price {
-				publicVlanItemPrice,     // Price for the new Public Network Vlan
+	locationId = strconv.Itoa(*datacenters[0].Id)
+	orderTemplate := datatypes.Container_Product_Order_Network_Vlan{
+		Container_Product_Order: datatypes.Container_Product_Order{
+			Prices: []datatypes.Product_Item_Price{
+				publicVlanItemPrice, // Price for the new Public Network Vlan
 			},
-			PackageId	   : sl.Int(*networkVlanPackage.Id),
-			Location	   : &locationId,
-			Quantity	   : sl.Int(1),
+			PackageId: sl.Int(*networkVlanPackage.Id),
+			Location:  &locationId,
+			Quantity:  sl.Int(1),
 		},
 	}
 	// TODO : for placeOrder
 	// preVpcList, err := vpcHandler.ListVPC()
-	if err != nil{
+	if err != nil {
 		LoggingError(hiscallInfo, err)
-		return irs.VPCInfo{},err
+		return irs.VPCInfo{}, err
 	}
 	// TODO : for placeOrder
 	//start := call.Start()
 
 	// TODO VerifyOrder => placeOrder
 	_, err = vpcHandler.ProductOrderClient.VerifyOrder(&orderTemplate)
-	if err != nil{
+	if err != nil {
 		LoggingError(hiscallInfo, err)
-		return irs.VPCInfo{},err
+		return irs.VPCInfo{}, err
 	}
 	//fmt.Println(result)
 	err = errors.New("DryRun Test Success")
-	return irs.VPCInfo{},err
-
+	return irs.VPCInfo{}, err
 
 	// TODO : for placeOrder
 	//if err != nil{
@@ -144,73 +143,73 @@ func (vpcHandler *IbmVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.VPCIn
 	//}
 }
 
-func (vpcHandler *IbmVPCHandler) ListVPC() ([]*irs.VPCInfo, error){
+func (vpcHandler *IbmVPCHandler) ListVPC() ([]*irs.VPCInfo, error) {
 	hiscallInfo := GetCallLogScheme(vpcHandler.Region, call.VPCSUBNET, "VPC", "ListVPC()")
 
 	var vlanInfos []*irs.VPCInfo
 	vlanFilter := filter.Path("networkVlans.primaryRouter.datacenter.name").Eq(vpcHandler.Region.Region).Build()
-	vlanMask:= "mask[primaryRouter[datacenter],id,name,subnets,subnetCount,networkSpace,vlanNumber]"
+	vlanMask := "mask[primaryRouter[datacenter],id,name,subnets,subnetCount,networkSpace,vlanNumber]"
 	start := call.Start()
 	allVlans, err := vpcHandler.AccountClient.Mask(vlanMask).Filter(vlanFilter).GetNetworkVlans()
-	if err != nil{
+	if err != nil {
 		LoggingError(hiscallInfo, err)
-		return nil,err
+		return nil, err
 	}
-	privateVlanId, err :=vpcHandler.getPrivateVlan()
-	if err != nil{
+	privateVlanId, err := vpcHandler.getPrivateVlan()
+	if err != nil {
 		LoggingError(hiscallInfo, err)
-		return nil,err
+		return nil, err
 	}
-	for _, vlan := range allVlans{
+	for _, vlan := range allVlans {
 		if *vlan.NetworkSpace == "PUBLIC" {
 			var vlanInfo = irs.VPCInfo{}
-			vpcHandler.setVlanIId(&vlanInfo,&vlan)
-			vpcHandler.setVlanSubnets(&vlanInfo,&vlan)
-			vpcHandler.setVlanKeyValues(&vlanInfo,privateVlanId)
-			vlanInfos = append(vlanInfos,&vlanInfo)
+			vpcHandler.setVlanIId(&vlanInfo, &vlan)
+			vpcHandler.setVlanSubnets(&vlanInfo, &vlan)
+			vpcHandler.setVlanKeyValues(&vlanInfo, privateVlanId)
+			vlanInfos = append(vlanInfos, &vlanInfo)
 		}
 	}
 	LoggingInfo(hiscallInfo, start)
-	return vlanInfos,nil
+	return vlanInfos, nil
 }
 
-func (vpcHandler *IbmVPCHandler) GetVPC(vpcIID irs.IID) (irs.VPCInfo, error){
+func (vpcHandler *IbmVPCHandler) GetVPC(vpcIID irs.IID) (irs.VPCInfo, error) {
 	hiscallInfo := GetCallLogScheme(vpcHandler.Region, call.VPCSUBNET, vpcIID.NameId, "GetVPC()")
 
 	var vlanInfo = irs.VPCInfo{}
 	var vlan datatypes.Network_Vlan
-	vlanMask:= "mask[primaryRouter[datacenter],id,name,subnets,subnetCount,networkSpace,vlanNumber]"
+	vlanMask := "mask[primaryRouter[datacenter],id,name,subnets,subnetCount,networkSpace,vlanNumber]"
 	start := call.Start()
-	privateVlanId, err :=vpcHandler.getPrivateVlan()
-	if err != nil{
+	privateVlanId, err := vpcHandler.getPrivateVlan()
+	if err != nil {
 		LoggingError(hiscallInfo, err)
-		return vlanInfo,err
+		return vlanInfo, err
 	}
 	vlanId, err := strconv.Atoi(vpcIID.SystemId)
-	if err != nil{
+	if err != nil {
 		vlan, err = vpcHandler.getVlanByName(vpcIID.NameId)
-		if err != nil{
+		if err != nil {
 			LoggingError(hiscallInfo, err)
-			return vlanInfo,err
+			return vlanInfo, err
 		}
 	} else {
 		vlan, err = vpcHandler.NetworkVlanClient.Mask(vlanMask).Id(vlanId).GetObject()
-		if err != nil{
+		if err != nil {
 			LoggingError(hiscallInfo, err)
-			return vlanInfo,err
+			return vlanInfo, err
 		}
 	}
-	vpcHandler.setVlanIId(&vlanInfo,&vlan)
-	vpcHandler.setVlanSubnets(&vlanInfo,&vlan)
-	vpcHandler.setVlanKeyValues(&vlanInfo,privateVlanId)
+	vpcHandler.setVlanIId(&vlanInfo, &vlan)
+	vpcHandler.setVlanSubnets(&vlanInfo, &vlan)
+	vpcHandler.setVlanKeyValues(&vlanInfo, privateVlanId)
 	// setIID, setSubNets, setKeyValue
 	LoggingInfo(hiscallInfo, start)
-	return vlanInfo,nil
+	return vlanInfo, nil
 }
 
-func (vpcHandler *IbmVPCHandler) DeleteVPC(vpcIID irs.IID) (bool, error){
+func (vpcHandler *IbmVPCHandler) DeleteVPC(vpcIID irs.IID) (bool, error) {
 	hiscallInfo := GetCallLogScheme(vpcHandler.Region, call.VPCSUBNET, vpcIID.NameId, "DeleteVPC()")
-	vpcId ,err := strconv.Atoi(vpcIID.SystemId)
+	vpcId, err := strconv.Atoi(vpcIID.SystemId)
 	var vlan datatypes.Network_Vlan
 	// exist Check
 	// NameIdBy
@@ -218,44 +217,44 @@ func (vpcHandler *IbmVPCHandler) DeleteVPC(vpcIID irs.IID) (bool, error){
 		vlan, err = vpcHandler.getVlanByName(vpcIID.NameId)
 		if err != nil {
 			LoggingError(hiscallInfo, err)
-			return false,err
+			return false, err
 		}
 		// systemIdBy
 	} else {
 		vlan, err = vpcHandler.NetworkVlanClient.Id(vpcId).Mask("id").GetObject()
 		if err != nil {
 			LoggingError(hiscallInfo, err)
-			return false,err
+			return false, err
 		}
 	}
-	if vlan.Id == nil{
-		err = errors.New(fmt.Sprintf("Not exist VPC %s",vpcIID.NameId))
+	if vlan.Id == nil {
+		err = errors.New(fmt.Sprintf("Not exist VPC %s", vpcIID.NameId))
 		LoggingError(hiscallInfo, err)
-		return false,err
+		return false, err
 	}
 	billingItem, err := vpcHandler.NetworkVlanClient.Id(*vlan.Id).GetBillingItem()
 	if err != nil {
 		LoggingError(hiscallInfo, err)
-		return false,err
+		return false, err
 	}
 	billingItemId := billingItem.Id
-	if billingItemId == nil{
-		err = errors.New(fmt.Sprintf("cannot delete Vlan %s , automatically assigned and removed by IBM",vpcIID.NameId))
+	if billingItemId == nil {
+		err = errors.New(fmt.Sprintf("cannot delete Vlan %s , automatically assigned and removed by IBM", vpcIID.NameId))
 		LoggingError(hiscallInfo, err)
-		return false,err
+		return false, err
 	}
 	start := call.Start()
 	result, err := vpcHandler.BillingItemClient.Id(*billingItemId).CancelService()
 	if err != nil {
-		return false,err
+		return false, err
 	}
-		LoggingInfo(hiscallInfo, start)
-	return result,nil
+	LoggingInfo(hiscallInfo, start)
+	return result, nil
 	//err = errors.New(fmt.Sprintf("Protect VLan... for Test"))
 	//return false, err
 }
 
-func (vpcHandler *IbmVPCHandler) AddSubnet(vpcIID irs.IID, subnetInfo irs.SubnetInfo) (irs.VPCInfo, error){
+func (vpcHandler *IbmVPCHandler) AddSubnet(vpcIID irs.IID, subnetInfo irs.SubnetInfo) (irs.VPCInfo, error) {
 	hiscallInfo := GetCallLogScheme(vpcHandler.Region, call.VPCSUBNET, subnetInfo.IId.NameId, "AddSubnet()")
 
 	//vlanMask:= "mask[primaryRouter[datacenter],id,name,subnets,subnetCount,networkSpace,vlanNumber]"
@@ -365,10 +364,10 @@ func (vpcHandler *IbmVPCHandler) AddSubnet(vpcIID irs.IID, subnetInfo irs.Subnet
 	//}
 	err := errors.New(fmt.Sprintf("Ibm Not Provide PRIMARY Subnet Add, automatically assigned and removed by IBM"))
 	LoggingError(hiscallInfo, err)
-	return  irs.VPCInfo{}, err
+	return irs.VPCInfo{}, err
 }
 
-func (vpcHandler *IbmVPCHandler) RemoveSubnet(vpcIID irs.IID, subnetIID irs.IID) (bool, error){
+func (vpcHandler *IbmVPCHandler) RemoveSubnet(vpcIID irs.IID, subnetIID irs.IID) (bool, error) {
 	hiscallInfo := GetCallLogScheme(vpcHandler.Region, call.VPCSUBNET, subnetIID.NameId, "AddSubnet()")
 
 	//subnetId ,err := strconv.Atoi(subnetIID.SystemId)
@@ -390,35 +389,35 @@ func (vpcHandler *IbmVPCHandler) RemoveSubnet(vpcIID irs.IID, subnetIID irs.IID)
 	//return result,nil
 	err := errors.New(fmt.Sprintf("Ibm Not Provide PRIMARY Subnet Remove, automatically assigned and removed by IBM"))
 	LoggingError(hiscallInfo, err)
-	return  false, err
+	return false, err
 }
 
-func (vpcHandler *IbmVPCHandler) getPrivateVlan() (string,error){
+func (vpcHandler *IbmVPCHandler) getPrivateVlan() (string, error) {
 	vlanFilter := filter.Path("networkVlans.primaryRouter.datacenter.name").Eq(vpcHandler.Region.Region).Build()
-	vlanMask:= "mask[primaryRouter[datacenter],id,name,subnets,subnetCount,networkSpace,vlanNumber]"
-	vlans, err :=vpcHandler.AccountClient.Mask(vlanMask).Filter(vlanFilter).GetNetworkVlans()
-	if err != nil{
-		return "",err
+	vlanMask := "mask[primaryRouter[datacenter],id,name,subnets,subnetCount,networkSpace,vlanNumber]"
+	vlans, err := vpcHandler.AccountClient.Mask(vlanMask).Filter(vlanFilter).GetNetworkVlans()
+	if err != nil {
+		return "", err
 	}
-	for _, vlan := range vlans{
-		if *vlan.NetworkSpace == "PRIVATE"{
-			return strconv.Itoa(*vlan.Id),nil
+	for _, vlan := range vlans {
+		if *vlan.NetworkSpace == "PRIVATE" {
+			return strconv.Itoa(*vlan.Id), nil
 		}
 	}
-	return "",errors.New("not Exist Private Vlan")
+	return "", errors.New("not Exist Private Vlan")
 }
 
 func (vpcHandler *IbmVPCHandler) existCheckVlan(vlanName string) error {
 	// Vlan Name = *vlan.PrimaryRouter.Hostname +"."+strconv.Itoa(*vlan.VlanNumber)
 	mask := "mask[primaryRouter[hostname,datacenter],vlanNumber]"
 	vlanFilter := filter.Path("networkVlans.primaryRouter.datacenter.name").Eq(vpcHandler.Region.Region).Build()
-	vlans, err:=vpcHandler.AccountClient.Mask(mask).Filter(vlanFilter).GetNetworkVlans()
+	vlans, err := vpcHandler.AccountClient.Mask(mask).Filter(vlanFilter).GetNetworkVlans()
 	if err != nil {
 		return err
 	}
 	if len(vlans) > 0 {
 		for _, vlan := range vlans {
-			name := *vlan.PrimaryRouter.Hostname +"."+strconv.Itoa(*vlan.VlanNumber)
+			name := *vlan.PrimaryRouter.Hostname + "." + strconv.Itoa(*vlan.VlanNumber)
 			if vlanName == name {
 				return errors.New(fmt.Sprintf("VPC with name %s already exist", vlanName))
 			}
@@ -428,37 +427,37 @@ func (vpcHandler *IbmVPCHandler) existCheckVlan(vlanName string) error {
 }
 
 func (vpcHandler *IbmVPCHandler) getVlanByName(vlanName string) (datatypes.Network_Vlan, error) {
-	if vlanName != ""{
+	if vlanName != "" {
 		vlanFilter := filter.Path("networkVlans.primaryRouter.datacenter.name").Eq(vpcHandler.Region.Region).Build()
-		vlanMask:= "mask[primaryRouter[datacenter],id,name,subnets,subnetCount,networkSpace,vlanNumber]"
-		vlans, err:=vpcHandler.AccountClient.Mask(vlanMask).Filter(vlanFilter).GetNetworkVlans()
+		vlanMask := "mask[primaryRouter[datacenter],id,name,subnets,subnetCount,networkSpace,vlanNumber]"
+		vlans, err := vpcHandler.AccountClient.Mask(vlanMask).Filter(vlanFilter).GetNetworkVlans()
 		if err != nil {
-			return datatypes.Network_Vlan{},err
+			return datatypes.Network_Vlan{}, err
 		}
 		if len(vlans) > 0 {
 			for _, vlan := range vlans {
-				name := *vlan.PrimaryRouter.Hostname +"."+strconv.Itoa(*vlan.VlanNumber)
+				name := *vlan.PrimaryRouter.Hostname + "." + strconv.Itoa(*vlan.VlanNumber)
 				if vlanName == name {
 					return vlan, nil
 				}
 			}
 		}
-		return datatypes.Network_Vlan{},errors.New(fmt.Sprintf("VPC with name %s Not exist", vlanName))
+		return datatypes.Network_Vlan{}, errors.New(fmt.Sprintf("VPC with name %s Not exist", vlanName))
 	}
-	return datatypes.Network_Vlan{},errors.New(fmt.Sprintf("VPC name invalid"))
+	return datatypes.Network_Vlan{}, errors.New(fmt.Sprintf("VPC name invalid"))
 }
 
-func (vpcHandler *IbmVPCHandler) setVlanIId(vpcInfo *irs.VPCInfo, vlan *datatypes.Network_Vlan){
+func (vpcHandler *IbmVPCHandler) setVlanIId(vpcInfo *irs.VPCInfo, vlan *datatypes.Network_Vlan) {
 	var vlanIId = irs.IID{}
 	defer func() {
 		recover()
 		vpcInfo.IId = vlanIId
 	}()
-	vlanIId.SystemId =  strconv.Itoa(*vlan.Id)
-	vlanIId.NameId = *vlan.PrimaryRouter.Hostname +"."+strconv.Itoa(*vlan.VlanNumber)
+	vlanIId.SystemId = strconv.Itoa(*vlan.Id)
+	vlanIId.NameId = *vlan.PrimaryRouter.Hostname + "." + strconv.Itoa(*vlan.VlanNumber)
 }
 
-func (vpcHandler *IbmVPCHandler) setVlanKeyValues(vpcInfo *irs.VPCInfo, privateVlanId string)  {
+func (vpcHandler *IbmVPCHandler) setVlanKeyValues(vpcInfo *irs.VPCInfo, privateVlanId string) {
 	var vlanKeyValueList []irs.KeyValue
 	defer func() {
 		recover()
@@ -469,35 +468,34 @@ func (vpcHandler *IbmVPCHandler) setVlanKeyValues(vpcInfo *irs.VPCInfo, privateV
 	//	Value: *vlan.NetworkSpace,
 	//}
 	//vlanKeyValueList = append(vlanKeyValueList,vlanNetworkSpace)
-	if privateVlanId != ""{
+	if privateVlanId != "" {
 		privateVlan := irs.KeyValue{
-			Key: "PrivateVlanId",
+			Key:   "PrivateVlanId",
 			Value: privateVlanId,
 		}
 		vlanKeyValueList = append(vlanKeyValueList, privateVlan)
 	}
 }
 
-func (vpcHandler *IbmVPCHandler) setVlanSubnets(vpcInfo *irs.VPCInfo, vlan *datatypes.Network_Vlan){
+func (vpcHandler *IbmVPCHandler) setVlanSubnets(vpcInfo *irs.VPCInfo, vlan *datatypes.Network_Vlan) {
 	var vlanSubnetInfoList []irs.SubnetInfo
 	defer func() {
 		recover()
 		vpcInfo.SubnetInfoList = vlanSubnetInfoList
 	}()
-	if vlan.SubnetCount != nil && *vlan.SubnetCount > 0{
+	if vlan.SubnetCount != nil && *vlan.SubnetCount > 0 {
 		for _, subnet := range vlan.Subnets {
-			if strings.Contains(*subnet.SubnetType,"PRIMARY"){
-				cidr := *subnet.NetworkIdentifier +"/"+ strconv.Itoa(*subnet.Cidr)
+			if strings.Contains(*subnet.SubnetType, "PRIMARY") {
+				cidr := *subnet.NetworkIdentifier + "/" + strconv.Itoa(*subnet.Cidr)
 				subnetInfo := irs.SubnetInfo{
 					IId: irs.IID{
 						SystemId: strconv.Itoa(*subnet.Id),
-						NameId: cidr,//???
+						NameId:   cidr, //???
 					},
 					IPv4_CIDR: cidr,
 				}
-				vlanSubnetInfoList= append(vlanSubnetInfoList, subnetInfo)
+				vlanSubnetInfoList = append(vlanSubnetInfoList, subnetInfo)
 			}
 		}
 	}
 }
-
