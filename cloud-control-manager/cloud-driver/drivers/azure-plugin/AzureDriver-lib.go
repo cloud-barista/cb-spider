@@ -14,9 +14,9 @@ import (
 	"context"
 	"time"
 
-	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2018-06-01/compute"
-	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2018-04-01/network"
-	"github.com/Azure/azure-sdk-for-go/services/resources/mgmt/2017-05-10/resources"
+	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2021-03-01/compute"
+	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2021-02-01/network"
+	"github.com/Azure/azure-sdk-for-go/services/resources/mgmt/2020-10-01/resources"
 	"github.com/Azure/go-autorest/autorest/azure/auth"
 	"github.com/Azure/go-autorest/autorest/to"
 

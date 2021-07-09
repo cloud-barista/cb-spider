@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2018-06-01/compute"
+	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2021-03-01/compute"
 
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"

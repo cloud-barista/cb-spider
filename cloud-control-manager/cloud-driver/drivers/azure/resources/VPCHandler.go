@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2018-04-01/network"
+	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2021-02-01/network"
 	"github.com/Azure/go-autorest/autorest/to"
 
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
