@@ -17,8 +17,8 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2018-06-01/compute"
-	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2018-04-01/network"
+	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2021-03-01/compute"
+	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2021-02-01/network"
 	"github.com/Azure/go-autorest/autorest/to"
 
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
@@ -47,7 +47,7 @@ func (vmHandler *AzureVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 	hiscallInfo := GetCallLogScheme(vmHandler.Region, call.VM, vmReqInfo.IId.NameId, "StartVM()")
 
 	// Check VM Exists
-	vm, err := vmHandler.Client.Get(vmHandler.Ctx, vmHandler.Region.ResourceGroup, vmReqInfo.IId.NameId, compute.InstanceView)
+	vm, err := vmHandler.Client.Get(vmHandler.Ctx, vmHandler.Region.ResourceGroup, vmReqInfo.IId.NameId, compute.InstanceViewTypesInstanceView)
 	if vm.ID != nil {
 		createErr := errors.New(fmt.Sprintf("virtualMachine with name %s already exist", vmReqInfo.IId.NameId))
 		LoggingError(hiscallInfo, createErr)
@@ -165,7 +165,7 @@ func (vmHandler *AzureVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 		return irs.VMInfo{}, err
 	}
 
-	vm, err = vmHandler.Client.Get(vmHandler.Ctx, vmHandler.Region.ResourceGroup, vmReqInfo.IId.NameId, compute.InstanceView)
+	vm, err = vmHandler.Client.Get(vmHandler.Ctx, vmHandler.Region.ResourceGroup, vmReqInfo.IId.NameId, compute.InstanceViewTypesInstanceView)
 	if err != nil {
 		LoggingError(hiscallInfo, err)
 	}
@@ -179,7 +179,7 @@ func (vmHandler *AzureVMHandler) SuspendVM(vmIID irs.IID) (irs.VMStatus, error) 
 	hiscallInfo := GetCallLogScheme(vmHandler.Region, call.VM, vmIID.NameId, "SuspendVM()")
 
 	start := call.Start()
-	future, err := vmHandler.Client.PowerOff(vmHandler.Ctx, vmHandler.Region.ResourceGroup, vmIID.NameId)
+	future, err := vmHandler.Client.PowerOff(vmHandler.Ctx, vmHandler.Region.ResourceGroup, vmIID.NameId, to.BoolPtr(false))
 	if err != nil {
 		LoggingError(hiscallInfo, err)
 		return irs.Failed, err
@@ -256,7 +256,7 @@ func (vmHandler *AzureVMHandler) TerminateVM(vmIID irs.IID) (irs.VMStatus, error
 		return irs.Failed, err
 	}
 	osDiskName := vmInfo.VMBootDisk
-/* Detach may not be required for dynamic public IP mode. by powerkim. 2021.04.30.
+	/* Detach may not be required for dynamic public IP mode. by powerkim. 2021.04.30.
 	// TODO: nested flow 개선
 	// VNic에서 PublicIP 연결해제
 	vNicDetachStatus, err := DetachVNic(vmHandler, vmInfo)
@@ -264,11 +264,11 @@ func (vmHandler *AzureVMHandler) TerminateVM(vmIID irs.IID) (irs.VMStatus, error
 		LoggingError(hiscallInfo, err)
 		return vNicDetachStatus, err
 	}
-*/
+	*/
 
 	// VM 삭제
 	start := call.Start()
-	future, err := vmHandler.Client.Delete(vmHandler.Ctx, vmHandler.Region.ResourceGroup, vmIID.NameId)
+	future, err := vmHandler.Client.Delete(vmHandler.Ctx, vmHandler.Region.ResourceGroup, vmIID.NameId, to.BoolPtr(false))
 	if err != nil {
 		LoggingError(hiscallInfo, err)
 		return irs.Failed, err
@@ -395,7 +395,7 @@ func (vmHandler *AzureVMHandler) GetVM(vmIID irs.IID) (irs.VMInfo, error) {
 	hiscallInfo := GetCallLogScheme(vmHandler.Region, call.VM, vmIID.NameId, "GetVM()")
 
 	start := call.Start()
-	vm, err := vmHandler.Client.Get(vmHandler.Ctx, vmHandler.Region.ResourceGroup, vmIID.NameId, compute.InstanceView)
+	vm, err := vmHandler.Client.Get(vmHandler.Ctx, vmHandler.Region.ResourceGroup, vmIID.NameId, compute.InstanceViewTypesInstanceView)
 	if err != nil {
 		LoggingError(hiscallInfo, err)
 		return irs.VMInfo{}, err
@@ -582,7 +582,7 @@ func CreatePublicIP(vmHandler *AzureVMHandler, vmReqInfo irs.VMReqInfo) (irs.IID
 			Name: network.PublicIPAddressSkuName("Basic"),
 		},
 		PublicIPAddressPropertiesFormat: &network.PublicIPAddressPropertiesFormat{
-			PublicIPAddressVersion:   network.IPVersion("IPv4"),
+			PublicIPAddressVersion: network.IPVersion("IPv4"),
 			//PublicIPAllocationMethod: network.IPAllocationMethod("Static"),
 			PublicIPAllocationMethod: network.IPAllocationMethod("Dynamic"),
 			IdleTimeoutInMinutes:     to.Int32Ptr(4),
