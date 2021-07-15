@@ -98,7 +98,7 @@ type Config struct {
 		},
 	}
 */
-	resp, err := vmHandler.Client.ContainerCreate(vmHandler.Context, config, hostConfig, nil, "")
+	resp, err := vmHandler.Client.ContainerCreate(vmHandler.Context, config, hostConfig, nil, nil, "")
         if err != nil {
 		cblogger.Error(err)
 		return irs.VMInfo{}, err
