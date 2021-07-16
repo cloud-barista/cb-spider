@@ -12,6 +12,7 @@ import (
 	"crypto/subtle"
 	"fmt"
 	"time"
+	"strings"
 
 	"net/http"
 	"os"
@@ -57,7 +58,7 @@ func init() {
 	cr.MiddleStartTime = currentTime.Format("2006.01.02.15:04:05")
 	cr.ShortStartTime = fmt.Sprintf("T%02d:%02d:%02d", currentTime.Hour(), currentTime.Minute(), currentTime.Second())
 	cr.HostIPorName = getHostIPorName()
-	cr.ServicePort = ":1024"
+	cr.ServicePort = getServicePort()
 }
 
 // REST API Return struct for boolean type
@@ -80,28 +81,59 @@ type SimpleMsg struct {
 	Message string `json:"message" example:"Any message"`
 }
 
+//====== temporary trick for shared public IP Host or VirtualBox VM, etc.
+//====== user can setup spider server's IP manually.
+
+// unset                      # default: like 'curl ifconfig.co':1024
+// LOCALHOST="OFF"            # default: like 'curl ifconfig.co':1024
+// LOCALHOST="ON"             # => localhost:1024 
+// LOCALHOST="1.2.3.4"        # => 1.2.3.4:1024
+// LOCALHOST="1.2.3.4:31024"  # => 1.2.3.4:31024
 func getHostIPorName() string {
-	if os.Getenv("LOCALHOST") == "ON" {
+
+        hostEnv := os.Getenv("LOCALHOST")
+
+	if hostEnv == "ON" {
 		return "localhost"
 	}
 
-	// temporary trick for shared public IP Host or VirtualBox VM, etc.
-	// user can setup spider server's IP manually.
-	if os.Getenv("LOCALHOST") != "OFF" {
-		return os.Getenv("LOCALHOST")
-	}
+        if hostEnv == "" || hostEnv=="OFF" {
+                return getPublicIP()
+        }
 
-	ip, err := pubip.Get()
-	if err != nil {
-		cblog.Error(err)
-		hostName, err := os.Hostname()
-		if err != nil {
-			cblog.Error(err)
-		}
-		return hostName
-	}
+	strs := strings.Split(hostEnv, ":")
+	return strs[0]
+}
 
-	return ip.String()
+func getPublicIP() string {
+        ip, err := pubip.Get()
+        if err != nil {
+                cblog.Error(err)
+                hostName, err := os.Hostname()
+                if err != nil {
+                        cblog.Error(err)
+                }
+                return hostName
+        }
+
+        return ip.String()
+}
+
+func getServicePort() string {
+        servicePort := ":1024"
+
+        hostEnv := os.Getenv("LOCALHOST")
+        if hostEnv == "" || hostEnv=="OFF" || hostEnv=="ON" {
+                return servicePort
+        }
+
+	strs := strings.Split(hostEnv, ":")
+	if len(strs) < 2 {
+		return servicePort
+	}
+	servicePort = ":" + strs[1]
+
+        return servicePort
 }
 
 func RunServer() {
