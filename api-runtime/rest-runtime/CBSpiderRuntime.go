@@ -89,20 +89,31 @@ type SimpleMsg struct {
 // LOCALHOST="ON"             # => localhost:1024 
 // LOCALHOST="1.2.3.4"        # => 1.2.3.4:1024
 // LOCALHOST="1.2.3.4:31024"  # => 1.2.3.4:31024
+// LOCALHOST=":31024"         # => like 'curl ifconfig.co':31024
 func getHostIPorName() string {
 
         hostEnv := os.Getenv("LOCALHOST")
 
-	if hostEnv == "ON" {
-		return "localhost"
-	}
+        if hostEnv == "ON" {
+                return "localhost"
+        }
 
         if hostEnv == "" || hostEnv=="OFF" {
                 return getPublicIP()
         }
 
-	strs := strings.Split(hostEnv, ":")
-	return strs[0]
+        // "1.2.3.4"
+        if !strings.Contains(hostEnv, ":") {
+                return hostEnv
+        }
+
+        strs := strings.Split(hostEnv, ":")
+        fmt.Println(len(strs))
+        if strs[0] =="" {  // ":31024"
+                return getPublicIP()
+        }else {  // "1.2.3.4:31024"
+                return strs[0]
+        }
 }
 
 func getPublicIP() string {
@@ -127,11 +138,14 @@ func getServicePort() string {
                 return servicePort
         }
 
-	strs := strings.Split(hostEnv, ":")
-	if len(strs) < 2 {
-		return servicePort
-	}
-	servicePort = ":" + strs[1]
+        // "1.2.3.4"
+        if !strings.Contains(hostEnv, ":") {
+                return  servicePort
+        }
+
+        // ":31024" or "1.2.3.4:31024"
+        strs := strings.Split(hostEnv, ":")
+        servicePort = ":" + strs[1]
 
         return servicePort
 }
