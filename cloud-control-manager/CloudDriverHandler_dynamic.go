@@ -31,11 +31,9 @@ import (
 	"strings"
 )
 
-var CIM_RESTSERVER = "http://localhost:1024"
 var cblog *logrus.Logger
 
 func init() {
-	//CIM_RESTSERVER = "http://localhost:1024"
 	cblog = config.Cblogger
 }
 
