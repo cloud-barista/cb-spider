@@ -77,7 +77,7 @@ func NewInfoCmd() *cobra.Command {
 		Use: "info",
 		Run: func(cmd *cobra.Command, args []string) {
 			client := resty.New()
-			resp, err := client.R().Get("http://" + cr.HostIPorName + cr.ServicePort + "/spider/endpointinfo")
+			resp, err := client.R().Get("http://" + cr.ServiceIPorName + cr.ServicePort + "/spider/endpointinfo")
 			if err != nil {
 				fmt.Printf("%v\n", err)
 			} else {

@@ -128,7 +128,7 @@ func makePostDriverFunc_js() string {
 
                 }
         `
-        strFunc = strings.ReplaceAll(strFunc, "$$SPIDER_SERVER$$", "http://" + cr.HostIPorName + cr.ServicePort) // cr.ServicePort = ":1024"
+        strFunc = strings.ReplaceAll(strFunc, "$$SPIDER_SERVER$$", "http://" + cr.ServiceIPorName + cr.ServicePort) // cr.ServicePort = ":1024"
         return strFunc
 }
 
@@ -150,7 +150,7 @@ func makeDeleteDriverFunc_js() string {
 			location.reload();
                 }
         `
-        strFunc = strings.ReplaceAll(strFunc, "$$SPIDER_SERVER$$", "http://" + cr.HostIPorName + cr.ServicePort) // cr.ServicePort = ":1024"
+        strFunc = strings.ReplaceAll(strFunc, "$$SPIDER_SERVER$$", "http://" + cr.ServiceIPorName + cr.ServicePort) // cr.ServicePort = ":1024"
         return strFunc
 }
 
@@ -385,7 +385,7 @@ func makePostCredentialFunc_js() string {
 
                 }
         `
-        strFunc = strings.ReplaceAll(strFunc, "$$SPIDER_SERVER$$", "http://" + cr.HostIPorName + cr.ServicePort) // cr.ServicePort = ":1024"
+        strFunc = strings.ReplaceAll(strFunc, "$$SPIDER_SERVER$$", "http://" + cr.ServiceIPorName + cr.ServicePort) // cr.ServicePort = ":1024"
         return strFunc
 }
 
@@ -407,7 +407,7 @@ func makeDeleteCredentialFunc_js() string {
 			location.reload();
                 }
         `
-        strFunc = strings.ReplaceAll(strFunc, "$$SPIDER_SERVER$$", "http://" + cr.HostIPorName + cr.ServicePort) // cr.ServicePort = ":1024"
+        strFunc = strings.ReplaceAll(strFunc, "$$SPIDER_SERVER$$", "http://" + cr.ServiceIPorName + cr.ServicePort) // cr.ServicePort = ":1024"
         return strFunc
 }
 
@@ -666,7 +666,7 @@ func makePostRegionFunc_js() string {
 
                 }
         `
-        strFunc = strings.ReplaceAll(strFunc, "$$SPIDER_SERVER$$", "http://" + cr.HostIPorName + cr.ServicePort) // cr.ServicePort = ":1024"
+        strFunc = strings.ReplaceAll(strFunc, "$$SPIDER_SERVER$$", "http://" + cr.ServiceIPorName + cr.ServicePort) // cr.ServicePort = ":1024"
         return strFunc
 }
 
@@ -688,7 +688,7 @@ func makeDeleteRegionFunc_js() string {
 			location.reload();
                 }
         `
-        strFunc = strings.ReplaceAll(strFunc, "$$SPIDER_SERVER$$", "http://" + cr.HostIPorName + cr.ServicePort) // cr.ServicePort = ":1024"
+        strFunc = strings.ReplaceAll(strFunc, "$$SPIDER_SERVER$$", "http://" + cr.ServiceIPorName + cr.ServicePort) // cr.ServicePort = ":1024"
         return strFunc
 }
 
@@ -1100,7 +1100,7 @@ func makePostConnectionConfigFunc_js() string {
 
                 }
         `
-        strFunc = strings.ReplaceAll(strFunc, "$$SPIDER_SERVER$$", "http://" + cr.HostIPorName + cr.ServicePort) // cr.ServicePort = ":1024"
+        strFunc = strings.ReplaceAll(strFunc, "$$SPIDER_SERVER$$", "http://" + cr.ServiceIPorName + cr.ServicePort) // cr.ServicePort = ":1024"
         return strFunc
 }
 
@@ -1122,7 +1122,7 @@ func makeDeleteConnectionConfigFunc_js() string {
 			location.reload();
                 }
         `
-        strFunc = strings.ReplaceAll(strFunc, "$$SPIDER_SERVER$$", "http://" + cr.HostIPorName + cr.ServicePort) // cr.ServicePort = ":1024"
+        strFunc = strings.ReplaceAll(strFunc, "$$SPIDER_SERVER$$", "http://" + cr.ServiceIPorName + cr.ServicePort) // cr.ServicePort = ":1024"
         return strFunc
 }
 
@@ -1396,7 +1396,7 @@ func SpiderInfo(c echo.Context) error {
                 `
 
         htmlStr = strings.ReplaceAll(htmlStr, "$$STARTTIME$$", cr.StartTime)
-        htmlStr = strings.ReplaceAll(htmlStr, "$$APIENDPOINT$$", "http://" + cr.HostIPorName + cr.ServicePort + "/spider") // cr.ServicePort = ":1024"
+        htmlStr = strings.ReplaceAll(htmlStr, "$$APIENDPOINT$$", "http://" + cr.ServiceIPorName + cr.ServicePort + "/spider") // cr.ServicePort = ":1024"
 
         return c.HTML(http.StatusOK, htmlStr)
 }

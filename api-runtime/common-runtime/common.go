@@ -14,6 +14,17 @@ const SG_DELIMITER string = "-deli-"
 var StartTime string
 var MiddleStartTime string
 var ShortStartTime string
-var HostIPorName string
+
+
+//// CB-Spider Servcie Address Configuration
+////   cf)  https://github.com/cloud-barista/cb-spider/wiki/CB-Spider-Service-Address-Configuration
+// REST and GO SERVER_ADDRESS since v0.4.4
+var ServerIPorName string
+var ServerPort string
+
+// REST SERVICE_ADDRESS for AdminWeb since v0.4.4
+var ServiceIPorName string
 var ServicePort string
+
+// GO Service Port
 var GoServicePort string

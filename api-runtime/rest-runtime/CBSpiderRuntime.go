@@ -57,8 +57,14 @@ func init() {
 	cr.StartTime = currentTime.Format("2006.01.02 15:04:05 Mon")
 	cr.MiddleStartTime = currentTime.Format("2006.01.02.15:04:05")
 	cr.ShortStartTime = fmt.Sprintf("T%02d:%02d:%02d", currentTime.Hour(), currentTime.Minute(), currentTime.Second())
-	cr.HostIPorName = getHostIPorName()
-	cr.ServicePort = getServicePort()
+
+	// REST and GO SERVER_ADDRESS since v0.4.4
+	cr.ServerIPorName = getServerIPorName("SERVER_ADDRESS")
+	cr.ServerPort = getServerPort("SERVER_ADDRESS")
+
+	// REST SERVICE_ADDRESS for AdminWeb since v0.4.4
+	cr.ServiceIPorName = getServiceIPorName("SERVICE_ADDRESS")
+	cr.ServicePort = getServicePort("SERVICE_ADDRESS")
 }
 
 // REST API Return struct for boolean type
@@ -81,28 +87,26 @@ type SimpleMsg struct {
 	Message string `json:"message" example:"Any message"`
 }
 
-//====== temporary trick for shared public IP Host or VirtualBox VM, etc.
-//====== user can setup spider server's IP manually.
 
-// unset                      # default: like 'curl ifconfig.co':1024
-// LOCALHOST="OFF"            # default: like 'curl ifconfig.co':1024
-// LOCALHOST="ON"             # => localhost:1024 
-// LOCALHOST="1.2.3.4"        # => 1.2.3.4:1024
-// LOCALHOST="1.2.3.4:31024"  # => 1.2.3.4:31024
-// LOCALHOST=":31024"         # => like 'curl ifconfig.co':31024
-func getHostIPorName() string {
+//// CB-Spider Servcie Address Configuration
+////   cf)  https://github.com/cloud-barista/cb-spider/wiki/CB-Spider-Service-Address-Configuration
 
-        hostEnv := os.Getenv("LOCALHOST")
+// REST and GO SERVER_ADDRESS since v0.4.4
 
-        if hostEnv == "ON" {
-                return "localhost"
-        }
+// unset                           # default: like 'curl ifconfig.co':1024
+// SERVER_ADDRESS="1.2.3.4:3000"  # => 1.2.3.4:3000
+// SERVER_ADDRESS=":3000"         # => like 'curl ifconfig.co':3000
+// SERVER_ADDRESS="localhost"      # => localhost:1024
+// SERVER_ADDRESS="1.2.3.4:3000"        # => 1.2.3.4::3000
+func getServerIPorName(env string) string {
 
-        if hostEnv == "" || hostEnv=="OFF" {
+        hostEnv := os.Getenv(env) // SERVER_ADDRESS or SERVICE_ADDRESS
+
+        if hostEnv == "" {
                 return getPublicIP()
         }
 
-        // "1.2.3.4"
+        // "1.2.3.4" or "localhost"
         if !strings.Contains(hostEnv, ":") {
                 return hostEnv
         }
@@ -111,7 +115,7 @@ func getHostIPorName() string {
         fmt.Println(len(strs))
         if strs[0] =="" {  // ":31024"
                 return getPublicIP()
-        }else {  // "1.2.3.4:31024"
+	}else {  // "1.2.3.4:31024" or "localhost:31024"
                 return strs[0]
         }
 }
@@ -130,24 +134,43 @@ func getPublicIP() string {
         return ip.String()
 }
 
-func getServicePort() string {
+func getServerPort(env string) string {
+	// default REST Service Port
         servicePort := ":1024"
 
-        hostEnv := os.Getenv("LOCALHOST")
-        if hostEnv == "" || hostEnv=="OFF" || hostEnv=="ON" {
+        hostEnv := os.Getenv(env) // SERVER_ADDRESS or SERVICE_ADDRESS
+        if hostEnv == "" {
                 return servicePort
         }
 
-        // "1.2.3.4"
+        // "1.2.3.4" or "localhost"
         if !strings.Contains(hostEnv, ":") {
                 return  servicePort
         }
 
-        // ":31024" or "1.2.3.4:31024"
+	// ":31024" or "1.2.3.4:31024" or "localhost:31024"
         strs := strings.Split(hostEnv, ":")
         servicePort = ":" + strs[1]
 
         return servicePort
+}
+
+// unset  SERVER_ADDRESS => SERVICE_ADDRESS
+func getServiceIPorName(env string) string {
+        hostEnv := os.Getenv(env)
+	if hostEnv == "" {
+		return cr.ServerIPorName
+	}
+	return getServerIPorName(env)
+}
+
+// unset  SERVER_ADDRESS => SERVICE_ADDRESS
+func getServicePort(env string) string {
+        hostEnv := os.Getenv(env)
+	if hostEnv == "" {
+		return cr.ServerPort
+	}
+	return getServerPort(env)
 }
 
 func RunServer() {
@@ -345,7 +368,7 @@ func ApiServer(routes []route) {
 
 	spiderBanner()
 
-	e.Logger.Fatal(e.Start(cr.ServicePort))
+	e.Logger.Fatal(e.Start(cr.ServerPort))
 }
 
 //================ API Info
@@ -361,13 +384,13 @@ func endpointInfo(c echo.Context) error {
 	cblog.Info("call endpointInfo()")
 
 	endpointInfo := fmt.Sprintf("\n  <CB-Spider> Multi-Cloud Infrastructure Federation Framework\n")
-	adminWebURL := "http://" + cr.HostIPorName + cr.ServicePort + "/spider/adminweb"
+	adminWebURL := "http://" + cr.ServiceIPorName + cr.ServicePort + "/spider/adminweb"
 	endpointInfo += fmt.Sprintf("     - AdminWeb: %s\n", adminWebURL)
-	restEndPoint := "http://" + cr.HostIPorName + cr.ServicePort + "/spider"
+	restEndPoint := "http://" + cr.ServiceIPorName + cr.ServicePort + "/spider"
 	endpointInfo += fmt.Sprintf("     - REST API: %s\n", restEndPoint)
-	// swaggerURL := "http://" + cr.HostIPorName + cr.ServicePort + "/spider/swagger/index.html"
+	// swaggerURL := "http://" + cr.ServiceIPorName + cr.ServicePort + "/spider/swagger/index.html"
 	// endpointInfo += fmt.Sprintf("     - Swagger : %s\n", swaggerURL)
-	gRPCServer := "grpc://" + cr.HostIPorName + cr.GoServicePort
+	gRPCServer := "grpc://" + cr.ServiceIPorName + cr.GoServicePort
 	endpointInfo += fmt.Sprintf("     - Go   API: %s\n", gRPCServer)
 
 	return c.String(http.StatusOK, endpointInfo)
@@ -377,14 +400,14 @@ func spiderBanner() {
 	fmt.Println("\n  <CB-Spider> Multi-Cloud Infrastructure Federation Framework")
 
 	// AdminWeb
-	adminWebURL := "http://" + cr.HostIPorName + cr.ServicePort + "/spider/adminweb"
+	adminWebURL := "http://" + cr.ServiceIPorName + cr.ServicePort + "/spider/adminweb"
 	fmt.Printf("     - AdminWeb: %s\n", adminWebURL)
 
 	// REST API EndPoint
-	restEndPoint := "http://" + cr.HostIPorName + cr.ServicePort + "/spider"
+	restEndPoint := "http://" + cr.ServiceIPorName + cr.ServicePort + "/spider"
 	fmt.Printf("     - REST API: %s\n", restEndPoint)
 
 	// Swagger
-	// swaggerURL := "http://" + cr.HostIPorName + cr.ServicePort + "/spider/swagger/index.html"
+	// swaggerURL := "http://" + cr.ServiceIPorName + cr.ServicePort + "/spider/swagger/index.html"
 	// fmt.Printf("     - Swagger : %s\n", swaggerURL)
 }

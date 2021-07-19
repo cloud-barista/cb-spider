@@ -36,7 +36,7 @@ const ( port = ":4096")
 
 
 func init() {
-        myServerID = cr.HostIPorName + port + "-" +  cr.MiddleStartTime
+        myServerID = cr.ServiceIPorName + port + "-" +  cr.MiddleStartTime
 	childkat.MyServerID = myServerID
 }
 /*
@@ -66,7 +66,7 @@ func RunServer() {
         // Register reflection service on gRPC server.
         reflection.Register(s)
 
-	spiderBanner(cr.HostIPorName + port)
+	spiderBanner(cr.ServiceIPorName + port)
 
 	// register this server status into SpiderHub's registry
 	strY := itsMe()

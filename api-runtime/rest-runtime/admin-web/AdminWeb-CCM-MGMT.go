@@ -108,7 +108,7 @@ func makeDeleteVPCMgmtFunc_js() string {
 			location.reload();
                 }
         `
-        strFunc = strings.ReplaceAll(strFunc, "$$SPIDER_SERVER$$", "http://" + cr.HostIPorName + cr.ServicePort) // cr.ServicePort = ":1024"
+        strFunc = strings.ReplaceAll(strFunc, "$$SPIDER_SERVER$$", "http://" + cr.ServiceIPorName + cr.ServicePort) // cr.ServicePort = ":1024"
         return strFunc
 }
 
@@ -226,7 +226,7 @@ func makeDeleteSecurityGroupMgmtFunc_js() string {
                         location.reload();
                 }
         `
-        strFunc = strings.ReplaceAll(strFunc, "$$SPIDER_SERVER$$", "http://" + cr.HostIPorName + cr.ServicePort) // cr.ServicePort = ":1024"
+        strFunc = strings.ReplaceAll(strFunc, "$$SPIDER_SERVER$$", "http://" + cr.ServiceIPorName + cr.ServicePort) // cr.ServicePort = ":1024"
         return strFunc
 }
 
@@ -344,7 +344,7 @@ func makeDeleteKeyPairMgmtFunc_js() string {
             location.reload();
                 }
         `
-        strFunc = strings.ReplaceAll(strFunc, "$$SPIDER_SERVER$$", "http://" + cr.HostIPorName + cr.ServicePort) // cr.ServicePort = ":1024"
+        strFunc = strings.ReplaceAll(strFunc, "$$SPIDER_SERVER$$", "http://" + cr.ServiceIPorName + cr.ServicePort) // cr.ServicePort = ":1024"
         return strFunc
 }
 
@@ -462,7 +462,7 @@ func makeDeleteVMMgmtFunc_js() string {
             location.reload();
                 }
         `
-        strFunc = strings.ReplaceAll(strFunc, "$$SPIDER_SERVER$$", "http://" + cr.HostIPorName + cr.ServicePort) // cr.ServicePort = ":1024"
+        strFunc = strings.ReplaceAll(strFunc, "$$SPIDER_SERVER$$", "http://" + cr.ServiceIPorName + cr.ServicePort) // cr.ServicePort = ":1024"
         return strFunc
 }
 
