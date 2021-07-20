@@ -21,7 +21,7 @@ require (
 	github.com/bramvdbogaerde/go-scp v1.0.0
 	github.com/chyeh/pubip v0.0.0-20170203095919-b7e679cf541c
 	github.com/cloud-barista/cb-log v0.4.0
-	github.com/cloud-barista/cb-store v0.4.0
+	github.com/cloud-barista/cb-store v0.4.1
 	github.com/containerd/containerd v1.4.3 // indirect
 	github.com/coreos/bbolt v1.3.2 // indirect
 	github.com/davecgh/go-spew v1.1.1
@@ -34,6 +34,7 @@ require (
 	github.com/go-resty/resty/v2 v2.6.0
 	github.com/gogo/protobuf v1.3.2
 	github.com/golang/protobuf v1.5.2
+	github.com/google/uuid v1.3.0 // indirect
 	github.com/gophercloud/gophercloud v0.18.0
 	github.com/gorilla/mux v1.7.3 // indirect
 	github.com/gorilla/websocket v1.4.2 // indirect
@@ -61,10 +62,14 @@ require (
 	github.com/uber/jaeger-client-go v2.29.1+incompatible
 	github.com/uber/jaeger-lib v2.4.0+incompatible // indirect
 	github.com/xiang90/probing v0.0.0-20190116061207-43a291ad63a2 // indirect
+	go.uber.org/atomic v1.9.0 // indirect
+	go.uber.org/zap v1.18.1 // indirect
 	golang.org/x/crypto v0.0.0-20210711020723-a769d52b0f97
-	golang.org/x/net v0.0.0-20210614182718-04defd469f4e
+	golang.org/x/net v0.0.0-20210716203947-853a461950ff
 	golang.org/x/oauth2 v0.0.0-20210628180205-a41e5a781914
+	golang.org/x/sys v0.0.0-20210630005230-0f9fa26af87c // indirect
 	google.golang.org/api v0.50.0
+	google.golang.org/genproto v0.0.0-20210719143636-1d5a45f8e492 // indirect
 	google.golang.org/grpc v1.39.0
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b
