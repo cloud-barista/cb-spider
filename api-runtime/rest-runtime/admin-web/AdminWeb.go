@@ -303,7 +303,7 @@ func makeKeyPairSelect_html(onchangeFunctionName string, strList []string, id st
 
 func getResourceList_JsonByte(resourceName string) ([]byte, error) {
         // cr.ServicePort = ":1024"
-	url := "http://localhost" + cr.ServicePort + "/spider/" + resourceName
+	url := "http://" + cr.ServiceIPorName + cr.ServicePort + "/spider/" + resourceName
 
         // get object list
         res, err := http.Get(url)
@@ -320,7 +320,7 @@ func getResourceList_JsonByte(resourceName string) ([]byte, error) {
 
 func getResourceList_with_Connection_JsonByte(connConfig string, resourceName string) ([]byte, error) {
         // cr.ServicePort = ":1024"
-        url := "http://localhost" + cr.ServicePort + "/spider/" + resourceName
+        url := "http://" + cr.ServiceIPorName + cr.ServicePort + "/spider/" + resourceName
         // get object list
 	var reqBody struct {
 		Value string `json:"ConnectionName"`
@@ -350,7 +350,7 @@ func getResourceList_with_Connection_JsonByte(connConfig string, resourceName st
 
 func getAllResourceList_with_Connection_JsonByte(connConfig string, resourceName string) ([]byte, error) {
         // cr.ServicePort = ":1024"
-        url := "http://localhost" + cr.ServicePort + "/spider/all" + resourceName
+        url := "http://" + cr.ServiceIPorName + cr.ServicePort + "/spider/all" + resourceName
         // get object list
         var reqBody struct {
                 Value string `json:"ConnectionName"`
@@ -380,7 +380,7 @@ func getAllResourceList_with_Connection_JsonByte(connConfig string, resourceName
 
 func getResource_JsonByte(resourceName string, name string) ([]byte, error) {
         // cr.ServicePort = ":1024"
-	url := "http://localhost" + cr.ServicePort + "/spider/" + resourceName + "/" + name
+	url := "http://" + cr.ServiceIPorName + cr.ServicePort + "/spider/" + resourceName + "/" + name
 
         // get object list
         res, err := http.Get(url)
@@ -397,7 +397,7 @@ func getResource_JsonByte(resourceName string, name string) ([]byte, error) {
 
 func getResource_with_Connection_JsonByte(connConfig string, resourceName string, name string) ([]byte, error) {
         // cr.ServicePort = ":1024"
-        url := "http://localhost" + cr.ServicePort + "/spider/" + resourceName + "/" + name
+        url := "http://" + cr.ServiceIPorName + cr.ServicePort + "/spider/" + resourceName + "/" + name
         // get object list
         var reqBody struct {
                 Value string `json:"ConnectionName"`
