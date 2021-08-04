@@ -25,7 +25,6 @@ require (
 	github.com/containerd/containerd v1.4.3 // indirect
 	github.com/coreos/bbolt v1.3.2 // indirect
 	github.com/davecgh/go-spew v1.1.1
-	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/docker/distribution v2.7.1+incompatible // indirect
 	github.com/docker/docker v20.10.7+incompatible
 	github.com/docker/go-connections v0.4.0
@@ -33,6 +32,7 @@ require (
 	github.com/dustin/go-humanize v0.0.0-20171111073723-bb3d318650d4 // indirect
 	github.com/go-resty/resty/v2 v2.6.0
 	github.com/gogo/protobuf v1.3.2
+	github.com/golang-jwt/jwt/v4 v4.0.0
 	github.com/golang/protobuf v1.5.2
 	github.com/google/uuid v1.3.0 // indirect
 	github.com/gophercloud/gophercloud v0.18.0
