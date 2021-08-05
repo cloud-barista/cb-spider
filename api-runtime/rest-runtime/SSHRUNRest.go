@@ -28,8 +28,8 @@ type SSHRUNReqInfo struct {
 }
 
 //================ SSH RUN
-func sshRun(c echo.Context) error {
-	cblog.Info("call sshRun()")
+func SSHRun(c echo.Context) error {
+	cblog.Info("call SSHRun()")
 
 	req := &SSHRUNReqInfo{}
 	if err := c.Bind(req); err != nil {
