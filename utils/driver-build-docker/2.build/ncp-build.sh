@@ -16,14 +16,31 @@
 echo "\$HOME" path is $HOME
 echo "\$CBSPIDER_ROOT" path is $CBSPIDER_ROOT
 
+echo "# cd" $CBSPIDER_ROOT
+cd $CBSPIDER_ROOT
+
+echo "# go get -v github.com/NaverCloudPlatform/ncloud-sdk-go-v2@v1.1.7"
+go get -v github.com/NaverCloudPlatform/ncloud-sdk-go-v2@v1.1.7
+
+echo "# go get -v github.com/appleboy/easyssh-proxy"
+go get -v github.com/appleboy/easyssh-proxy
+
+echo "# go get -v github.com/sfreiberg/simplessh"
+go get -v github.com/sfreiberg/simplessh
+
+cd $HOME
+
+echo "# git clone https://github.com/cloud-barista/ncp.git" $HOME"/ncp;"
 git clone https://github.com/cloud-barista/ncp.git $HOME/ncp;
 
 ln -s $HOME/ncp/ncp $CBSPIDER_ROOT/cloud-control-manager/cloud-driver/drivers;
 ln -s $HOME/ncp/ncp-plugin $CBSPIDER_ROOT/cloud-control-manager/cloud-driver/drivers;
 
+echo "# cd "$CBSPIDER_ROOT"/cloud-control-manager/cloud-driver/drivers/ncp-plugin;"
 cd $CBSPIDER_ROOT/cloud-control-manager/cloud-driver/drivers/ncp-plugin;
+
+echo "# ./build_driver_lib.sh" 
 ./build_driver_lib.sh
 
 rm $CBSPIDER_ROOT/cloud-control-manager/cloud-driver/drivers/ncp;
 rm $CBSPIDER_ROOT/cloud-control-manager/cloud-driver/drivers/ncp-plugin;
-
