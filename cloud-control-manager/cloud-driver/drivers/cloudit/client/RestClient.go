@@ -4,12 +4,13 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	cblog "github.com/cloud-barista/cb-log"
-	"github.com/sirupsen/logrus"
 	"io"
 	"io/ioutil"
 	"net/http"
 	"strings"
+
+	cblog "github.com/cloud-barista/cb-log"
+	"github.com/sirupsen/logrus"
 )
 
 var cblogger *logrus.Logger
@@ -32,25 +33,6 @@ const (
 	ACE ClouditEngine = "ace"
 	DNA ClouditEngine = "dna"
 )
-
-// UserAgent represents a User-Agent header.
-type UserAgent struct {
-	// prepend is the slice of User-Agent strings to prepend to DefaultUserAgent.
-	// All the strings to prepend are accumulated and prepended in the Join method.
-	prepend []string
-}
-
-// Prepend prepends a user-defined string to the default User-Agent string. Users
-// may pass in one or more strings to prepend.
-func (ua *UserAgent) Prepend(s ...string) {
-	ua.prepend = append(s, ua.prepend...)
-}
-
-// Join concatenates all the user-defined User-Agend strings with the default
-func (ua *UserAgent) Join() string {
-	uaSlice := append(ua.prepend, DefaultUserAgent)
-	return strings.Join(uaSlice, " ")
-}
 
 type RestClient struct {
 	// IdentityBase is the base URL used for a particular provider's identity
@@ -75,14 +57,6 @@ type RestClient struct {
 
 	// HTTPClient allows users to interject arbitrary http, https, or other transit behaviors.
 	HTTPClient http.Client
-
-	// UserAgent represents the User-Agent header in the HTTP request.
-	UserAgent UserAgent
-
-	// ReauthFunc is the function used to re-authenticate the user if the request
-	// fails with a 401 HTTP response code. This a needed because there may be multiple
-	// authentication functions for different Identity service versions.
-	ReauthFunc func() error
 }
 
 // AuthenticatedHeaders returns a map of HTTP headers that are common for all
@@ -200,9 +174,6 @@ func (client *RestClient) Request(method, url string, options RequestOpts) (*htt
 		req.Header.Add(k, v)
 	}
 
-	// Set the User-Agent header
-	req.Header.Set("User-Agent", client.UserAgent.Join())
-
 	if options.MoreHeaders != nil {
 		for k, v := range options.MoreHeaders {
 			if v != "" {
@@ -220,25 +191,6 @@ func (client *RestClient) Request(method, url string, options RequestOpts) (*htt
 	resp, err := client.HTTPClient.Do(req)
 	if err != nil {
 		return nil, err
-	}
-
-	if resp.StatusCode == http.StatusUnauthorized {
-		if client.ReauthFunc != nil {
-			err = client.ReauthFunc()
-			if err != nil {
-				return nil, fmt.Errorf("Error trying to re-authenticate: %s", err)
-			}
-			if options.RawBody != nil {
-				options.RawBody.Seek(0, 0)
-			}
-			resp.Body.Close()
-			resp, err = client.Request(method, url, options)
-			if err != nil {
-				return nil, fmt.Errorf("Successfully re-authenticated, but got error executing request: %s", err)
-			}
-
-			return resp, nil
-		}
 	}
 
 	// Allow default OkCodes if none explicitly set
