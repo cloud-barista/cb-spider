@@ -126,8 +126,8 @@ func handleSecurity() {
 	//config := readConfigFile()
 	//VmID := config.Aws.VmID
 
-	securityName := "cb-securitytest-all"
-	securityId := "cb-securitytest-all"
+	securityName := "cb-securitytest1"
+	securityId := "cb-securitytest1"
 	//securityId := "cb-secu-all"
 	//vpcId := "cb-vpc"
 	vpcId := "cb-vpc-load-test"
@@ -172,13 +172,13 @@ func handleSecurity() {
 					VpcIID: irs.IID{SystemId: vpcId},
 					SecurityRules: &[]irs.SecurityRuleInfo{ //보안 정책 설정
 						//CIDR 테스트
-						{
-							FromPort:   "30",
-							ToPort:     "",
-							IPProtocol: "tcp",
-							Direction:  "inbound",
-							CIDR:       "10.13.1.10/32",
-						},
+						//{
+						//	FromPort:   "30",
+						//	ToPort:     "",
+						//	IPProtocol: "tcp",
+						//	Direction:  "inbound",
+						//	CIDR:       "10.13.1.10/32",
+						//},
 						// {
 						// 	FromPort:   "40",
 						// 	ToPort:     "",
@@ -186,6 +186,16 @@ func handleSecurity() {
 						// 	Direction:  "outbound",
 						// 	CIDR:       "10.13.1.10/32,10.13.1.11/32",
 						// },
+
+						{
+							//20-22 Prot로 등록
+							FromPort:   "20",
+							ToPort:     "22",
+							IPProtocol: "tcp",
+							Direction:  "inbound",
+							CIDR:       "0.0.0.0/0",
+						},
+
 						/*
 							{
 								// All Port로 등록
@@ -868,9 +878,9 @@ func handleVM() {
 					},
 					//VpcIID:            irs.IID{SystemId: "cb-vpc"},
 					//SubnetIID:         irs.IID{SystemId: "cb-sub1"},
-					VpcIID: irs.IID{SystemId: "cb-vpc-load-test"},
-					SubnetIID: irs.IID{SystemId: "vpc-loadtest-sub1	"},
-					SecurityGroupIIDs: []irs.IID{{SystemId: "cb-securitytest1"}},
+					VpcIID:            irs.IID{SystemId: "cb-vpc-load-test"},
+					SubnetIID:         irs.IID{SystemId: "vpc-loadtest-sub1"},
+					SecurityGroupIIDs: []irs.IID{{SystemId: "securitytest1"}},
 					VMSpecName:        "f1-micro",
 					KeyPairIID:        irs.IID{SystemId: "cb-keypairtest123123"},
 					VMUserId:          "cb-user",
@@ -990,8 +1000,8 @@ func main() {
 	//handleVPC()
 	//handleVMSpec()
 	//handleImage() //AMI
-	handleKeyPair()
-	//handleSecurity()
+	//handleKeyPair()
+	handleSecurity()
 	//handleVM()
 	//cblogger.Info(filepath.Join("a/b", "\\cloud-driver-libs\\.ssh-gcp\\"))
 	//cblogger.Info(filepath.Join("\\cloud-driver-libs\\.ssh-gcp\\", "/b/c/d"))
