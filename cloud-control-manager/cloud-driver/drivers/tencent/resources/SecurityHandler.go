@@ -220,6 +220,7 @@ func (securityHandler *TencentSecurityHandler) GetSecurity(securityIID irs.IID) 
 
 	if *response.Response.TotalCount > 0 {
 		securityInfo := irs.SecurityInfo{}
+		securityInfo.VpcIID = irs.IID{NameId: "N/A", SystemId: "N/A"}
 		securityInfo.IId = irs.IID{NameId: *response.Response.SecurityGroupSet[0].SecurityGroupName, SystemId: *response.Response.SecurityGroupSet[0].SecurityGroupId}
 
 		securityInfo.SecurityRules, err = securityHandler.GetSecurityRuleInfo(securityIID)
