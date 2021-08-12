@@ -900,9 +900,10 @@ func handleVM() {
 					IId: irs.IID{NameId: "mcloud-barista-iid-vm-test"},
 					//ImageIID:          irs.IID{SystemId: "ami-001b6f8703b50e077"}, //centos-stable-7.2003.13-ebs-202005201235
 					//ImageIID:          irs.IID{SystemId: "ami-059b6d3840b03d6dd"}, //Ubuntu Server 20.04 LTS (HVM)
+					//ImageIID:          irs.IID{SystemId: "ami-09e67e426f25ce0d7"}, //Ubuntu Server 20.04 LTS (HVM) - 버지니아 북부 리전
 					ImageIID:          irs.IID{SystemId: "ami-059b6d3840b03d6dd"}, //Ubuntu Server 20.04 LTS (HVM)
-					SubnetIID:         irs.IID{SystemId: "subnet-0a6ca346752be1ca4"},
-					SecurityGroupIIDs: []irs.IID{{SystemId: "sg-0556ddbff4cab480e"}},
+					SubnetIID:         irs.IID{SystemId: "subnet-05af5eb87ef3f01c2"},
+					SecurityGroupIIDs: []irs.IID{{SystemId: "sg-02421ce44c38e4deb"}},
 					VMSpecName:        "t2.micro",
 					KeyPairIID:        irs.IID{SystemId: "CB-KeyPairTest123123"},
 				}
@@ -1121,10 +1122,10 @@ func handleVMSpec() {
 
 func main() {
 	cblogger.Info("AWS Resource Test")
-	handleVPC()
-	handleKeyPair()
+	//handleVPC()
+	//handleKeyPair()
 	//handlePublicIP() // PublicIP 생성 후 conf
-	handleSecurity()
+	//handleSecurity()
 	handleVM()
 
 	//handleImage() //AMI
