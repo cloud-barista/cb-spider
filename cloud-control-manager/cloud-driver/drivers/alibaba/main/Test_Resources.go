@@ -972,12 +972,12 @@ func main() {
 	cblogger.Info("Alibaba Cloud Resource Test")
 	cblogger.Debug("Debug mode")
 
-	//handleVPC() //VPC
-	//handleVMSpec()
-	//handleImage() //AMI
-	//handleSecurity()
+	handleVPC() //VPC
+	handleVMSpec()
+	handleImage() //AMI
+	handleSecurity()
 	handleKeyPair()
-	//handleVM()
+	handleVM()
 
 	//handlePublicIP() // PublicIP 생성 후 conf
 

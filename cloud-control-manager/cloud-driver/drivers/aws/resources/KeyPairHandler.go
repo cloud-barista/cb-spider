@@ -191,7 +191,7 @@ func (keyPairHandler *AwsKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPairReq
 	}
 
 	// 파일에 public Key를 쓴다
-	err = keypair.SaveKey([]byte(keyPairInfo.PublicKey), savePrivateFileTo)
+	err = keypair.SaveKey([]byte(keyPairInfo.PublicKey), savePublicFileTo)
 	if err != nil {
 		return irs.KeyPairInfo{}, err
 	}
