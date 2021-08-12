@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
+	keypair "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/common"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/davecgh/go-spew/spew"
@@ -208,13 +209,13 @@ func (keyPairHandler *TencentKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPai
 	cblogger.Infof("savePublicFileTo : [%s]", savePublicFileTo)
 
 	// 파일에 private Key를 쓴다
-	err = writeKeyToFile([]byte(keyPairInfo.PrivateKey), savePrivateFileTo)
+	err = keypair.SaveKey([]byte(keyPairInfo.PrivateKey), savePrivateFileTo)
 	if err != nil {
 		return irs.KeyPairInfo{}, err
 	}
 
 	// 파일에 public Key를 쓴다
-	err = writeKeyToFile([]byte(keyPairInfo.PublicKey), savePublicFileTo)
+	err = keypair.SaveKey([]byte(keyPairInfo.PublicKey), savePrivateFileTo)
 	if err != nil {
 		return irs.KeyPairInfo{}, err
 	}
@@ -425,17 +426,6 @@ func makePublicKeyFromPrivateKey(pem string) (string, error) {
 	}
 
 	return string(bytes.TrimRight(ssh.MarshalAuthorizedKey(pub), "\n")), nil
-}
-
-// 파일에 Key를 쓴다
-func writeKeyToFile(keyBytes []byte, saveFileTo string) error {
-	err := ioutil.WriteFile(saveFileTo, keyBytes, 0600)
-	if err != nil {
-		return err
-	}
-
-	log.Printf("Key 저장위치: %s", saveFileTo)
-	return nil
 }
 
 // @TODO - PK 이슈 처리해야 함. (A User / B User / User 하위의 IAM 계정간의 호환성에 이슈가 없어야 하는데 현재는 안 됨.)
