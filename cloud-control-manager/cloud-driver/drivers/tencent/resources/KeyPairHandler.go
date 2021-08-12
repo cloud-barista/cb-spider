@@ -1,9 +1,7 @@
 package resources
 
 import (
-	"bytes"
 	"crypto/md5"
-	"crypto/rsa"
 	"errors"
 	"fmt"
 	"io"
@@ -13,13 +11,13 @@ import (
 	"strings"
 
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
+	keypair "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/common"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/davecgh/go-spew/spew"
 	_ "github.com/davecgh/go-spew/spew"
 	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
 	cvm "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/cvm/v20170312"
-	"golang.org/x/crypto/ssh"
 )
 
 type TencentKeyPairHandler struct {
@@ -208,13 +206,13 @@ func (keyPairHandler *TencentKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPai
 	cblogger.Infof("savePublicFileTo : [%s]", savePublicFileTo)
 
 	// 파일에 private Key를 쓴다
-	err = writeKeyToFile([]byte(keyPairInfo.PrivateKey), savePrivateFileTo)
+	err = keypair.SaveKey([]byte(keyPairInfo.PrivateKey), savePrivateFileTo)
 	if err != nil {
 		return irs.KeyPairInfo{}, err
 	}
 
 	// 파일에 public Key를 쓴다
-	err = writeKeyToFile([]byte(keyPairInfo.PublicKey), savePublicFileTo)
+	err = keypair.SaveKey([]byte(keyPairInfo.PublicKey), savePublicFileTo)
 	if err != nil {
 		return irs.KeyPairInfo{}, err
 	}
@@ -406,35 +404,6 @@ func (keyPairHandler *TencentKeyPairHandler) CheckKeyPairFolder(keyPairPath stri
 			return errDir
 		}
 	}
-	return nil
-}
-
-// ParseKey reads the given RSA private key and create a public one for it.
-func makePublicKeyFromPrivateKey(pem string) (string, error) {
-	key, err := ssh.ParseRawPrivateKey([]byte(pem))
-	if err != nil {
-		return "", err
-	}
-	rsaKey, ok := key.(*rsa.PrivateKey)
-	if !ok {
-		return "", fmt.Errorf("%q is not a RSA key", pem)
-	}
-	pub, err := ssh.NewPublicKey(&rsaKey.PublicKey)
-	if err != nil {
-		return "", err
-	}
-
-	return string(bytes.TrimRight(ssh.MarshalAuthorizedKey(pub), "\n")), nil
-}
-
-// 파일에 Key를 쓴다
-func writeKeyToFile(keyBytes []byte, saveFileTo string) error {
-	err := ioutil.WriteFile(saveFileTo, keyBytes, 0600)
-	if err != nil {
-		return err
-	}
-
-	log.Printf("Key 저장위치: %s", saveFileTo)
 	return nil
 }
 

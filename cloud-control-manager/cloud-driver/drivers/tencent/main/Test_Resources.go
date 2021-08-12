@@ -640,7 +640,7 @@ func handleVM() {
 					SubnetIID:         irs.IID{SystemId: "subnet-ccawa5nz"},
 					SecurityGroupIIDs: []irs.IID{{SystemId: "sg-3baxppe6"}},
 					VMSpecName:        "S5.SMALL1",
-					KeyPairIID:        irs.IID{SystemId: "skey-9mvd64l5"},
+					KeyPairIID:        irs.IID{SystemId: "skey-cjuxapcr"},
 					//VMUserId:          "root", //root만 가능
 					//VMUserPasswd: "Cbuser!@#", //대문자 소문자 모두 사용되어야 함. 그리고 숫자나 특수 기호 중 하나가 포함되어야 함.
 				}
@@ -754,12 +754,12 @@ func handleVM() {
 
 func main() {
 	cblogger.Info("Tencent Cloud Resource Test")
-	handleVPC() //VPC
-	//handleKeyPair()
+	//handleVPC() //VPC
 	//handleVMSpec()
 	//handleSecurity()
 	//handleImage() //AMI
-	//handleVM()
+	handleKeyPair()
+	handleVM()
 
 	//handlePublicIP() // PublicIP 생성 후 conf
 	//handleVNic() //Lancard
