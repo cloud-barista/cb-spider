@@ -341,7 +341,7 @@ func handleSecurity() {
 
 	securityName := "CB-SecurityTestCidr"
 	securityId := "sg-6wedru4yb4m6qqfvd3sj"
-	vpcId := "vpc-0jl4l19l51gn2exrohgci"
+	vpcId := "vpc-6wed2mg4ox4xphl18461h"
 
 	for {
 		fmt.Println("Security Management")
@@ -383,11 +383,11 @@ func handleSecurity() {
 					SecurityRules: &[]irs.SecurityRuleInfo{ //보안 정책 설정
 						//CIDR 테스트
 						{
-							FromPort:   "30",
-							ToPort:     "30",
+							FromPort:   "20",
+							ToPort:     "22",
 							IPProtocol: "tcp",
 							Direction:  "inbound",
-							CIDR:       "10.13.1.10/32",
+							CIDR:       "0.0.0.0/0",
 						},
 						{
 							FromPort:   "40",
@@ -850,9 +850,9 @@ func handleVM() {
 					ImageIID: irs.IID{SystemId: "ubuntu_18_04_x64_20G_alibase_20210420.vhd"},
 					//VpcIID:    irs.IID{SystemId: "vpc-0jl4l19l51gn2exrohgci"},
 					//SubnetIID: irs.IID{SystemId: "vsw-0jlj155cbwhjumtipnm6d"},
-					SubnetIID: irs.IID{SystemId: "vsw-0jlj177cbwhjumtipnm6d"}, //없는 Subnet 테스트
+					SubnetIID: irs.IID{SystemId: "vsw-6we1o1arx7bivz7iu3o9k"}, //없는 Subnet 테스트
 					//SecurityGroupIIDs: []irs.IID{{SystemId: "sg-6we0rxnoai067qbkdkgw"}, {SystemId: "sg-6weeb9xaodr65g7bq10c"}},
-					SecurityGroupIIDs: []irs.IID{{SystemId: "sg-0jlcxdq9lpyi67vzuft1"}},
+					SecurityGroupIIDs: []irs.IID{{SystemId: "sg-6we1dc6xqy9e7zjtzkkk"}},
 					//VMSpecName:        "ecs.t5-lc2m1.nano",
 					VMSpecName: "ecs.g6.large", //cn-wulanchabu 리전
 					KeyPairIID: irs.IID{SystemId: "CB-KeyPairTest123123"},
@@ -973,8 +973,8 @@ func main() {
 	cblogger.Debug("Debug mode")
 
 	handleVPC() //VPC
-	handleVMSpec()
-	handleImage() //AMI
+	//handleVMSpec()
+	//handleImage() //AMI
 	handleSecurity()
 	handleKeyPair()
 	handleVM()
