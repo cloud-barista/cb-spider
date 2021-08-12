@@ -1,9 +1,7 @@
 package resources
 
 import (
-	"bytes"
 	"crypto/md5"
-	"crypto/rsa"
 	"errors"
 	"fmt"
 	"io"
@@ -20,7 +18,6 @@ import (
 	_ "github.com/davecgh/go-spew/spew"
 	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
 	cvm "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/cvm/v20170312"
-	"golang.org/x/crypto/ssh"
 )
 
 type TencentKeyPairHandler struct {
@@ -408,24 +405,6 @@ func (keyPairHandler *TencentKeyPairHandler) CheckKeyPairFolder(keyPairPath stri
 		}
 	}
 	return nil
-}
-
-// ParseKey reads the given RSA private key and create a public one for it.
-func makePublicKeyFromPrivateKey(pem string) (string, error) {
-	key, err := ssh.ParseRawPrivateKey([]byte(pem))
-	if err != nil {
-		return "", err
-	}
-	rsaKey, ok := key.(*rsa.PrivateKey)
-	if !ok {
-		return "", fmt.Errorf("%q is not a RSA key", pem)
-	}
-	pub, err := ssh.NewPublicKey(&rsaKey.PublicKey)
-	if err != nil {
-		return "", err
-	}
-
-	return string(bytes.TrimRight(ssh.MarshalAuthorizedKey(pub), "\n")), nil
 }
 
 // @TODO - PK 이슈 처리해야 함. (A User / B User / User 하위의 IAM 계정간의 호환성에 이슈가 없어야 하는데 현재는 안 됨.)
