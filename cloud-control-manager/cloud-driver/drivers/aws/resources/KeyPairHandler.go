@@ -1,9 +1,7 @@
 package resources
 
 import (
-	"bytes"
 	"crypto/md5"
-	"crypto/rsa"
 	"errors"
 	"fmt"
 	"io"
@@ -20,7 +18,6 @@ import (
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/davecgh/go-spew/spew"
 	_ "github.com/davecgh/go-spew/spew"
-	"golang.org/x/crypto/ssh"
 
 	keypair "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/common"
 )
@@ -147,7 +144,7 @@ func (keyPairHandler *AwsKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPairReq
 	cblogger.Infof("Created key pair %q %s\n%s\n", *result.KeyName, *result.KeyFingerprint, *result.KeyMaterial)
 
 	cblogger.Info("공개키 생성")
-	publicKey, errPub := makePublicKeyFromPrivateKey(*result.KeyMaterial)
+	publicKey, errPub := keypair.MakePublicKeyFromPrivateKey(*result.KeyMaterial)
 	if errPub != nil {
 		cblogger.Error(errPub)
 		return irs.KeyPairInfo{}, err
@@ -410,24 +407,6 @@ func (keyPairHandler *AwsKeyPairHandler) CheckKeyPairFolder(keyPairPath string) 
 		}
 	}
 	return nil
-}
-
-// ParseKey reads the given RSA private key and create a public one for it.
-func makePublicKeyFromPrivateKey(pem string) (string, error) {
-	key, err := ssh.ParseRawPrivateKey([]byte(pem))
-	if err != nil {
-		return "", err
-	}
-	rsaKey, ok := key.(*rsa.PrivateKey)
-	if !ok {
-		return "", fmt.Errorf("%q is not a RSA key", pem)
-	}
-	pub, err := ssh.NewPublicKey(&rsaKey.PublicKey)
-	if err != nil {
-		return "", err
-	}
-
-	return string(bytes.TrimRight(ssh.MarshalAuthorizedKey(pub), "\n")), nil
 }
 
 // @TODO - PK 이슈 처리해야 함. (A User / B User / User 하위의 IAM 계정간의 호환성에 이슈가 없어야 하는데 현재는 안 됨.)
