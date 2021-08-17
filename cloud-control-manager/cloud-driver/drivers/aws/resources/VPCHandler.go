@@ -528,16 +528,16 @@ func ExtractVpcDescribeInfo(vpcInfo *ec2.Vpc) irs.VPCInfo {
 
 	//Name은 Tag의 "Name" 속성에만 저장됨
 	//NameId는 전달할 필요가 없음.
-	/*
-		cblogger.Debug("Name Tag 찾기")
-		for _, t := range vpcInfo.Tags {
-			if *t.Key == "Name" {
-				awsVpcInfo.IId.NameId = *t.Value
-				cblogger.Debug("VPC Name : ", awsVpcInfo.IId.NameId)
-				break
-			}
+	
+	cblogger.Debug("Name Tag 찾기")
+	for _, t := range vpcInfo.Tags {
+		if *t.Key == "Name" {
+			awsVpcInfo.IId.NameId = *t.Value
+			cblogger.Debug("VPC Name : ", awsVpcInfo.IId.NameId)
+			break
 		}
-	*/
+	}
+	
 	return awsVpcInfo
 }
 
