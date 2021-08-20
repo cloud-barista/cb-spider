@@ -17,7 +17,8 @@ type IbmVmSpecHandler struct {
 	VpcService     *vpcv1.VpcV1
 	Ctx            context.Context
 }
-func (vmSpecHandler *IbmVmSpecHandler) ListVMSpec(Region string) ([]*irs.VMSpecInfo, error){
+
+func (vmSpecHandler *IbmVmSpecHandler) ListVMSpec(Region string) ([]*irs.VMSpecInfo, error) {
 	hiscallInfo := GetCallLogScheme(vmSpecHandler.Region, call.VMSPEC, "VMSpec", "ListVMSpec()")
 	start := call.Start()
 
@@ -28,33 +29,33 @@ func (vmSpecHandler *IbmVmSpecHandler) ListVMSpec(Region string) ([]*irs.VMSpecI
 	//}
 	var specList []*irs.VMSpecInfo
 	options := &vpcv1.ListInstanceProfilesOptions{}
-	profiles, _, err := vmSpecHandler.VpcService.ListInstanceProfilesWithContext(vmSpecHandler.Ctx,options)
-	if err != nil{
+	profiles, _, err := vmSpecHandler.VpcService.ListInstanceProfilesWithContext(vmSpecHandler.Ctx, options)
+	if err != nil {
 		LoggingError(hiscallInfo, err)
 		return nil, err
 	}
-	for _, profile := range profiles.Profiles{
+	for _, profile := range profiles.Profiles {
 		vmSpecInfo := irs.VMSpecInfo{
 			Region: vmSpecHandler.Region.Region,
 			Name:   *profile.Name,
 		}
-		specslice := strings.Split(*profile.Name,"-")
+		specslice := strings.Split(*profile.Name, "-")
 		if len(specslice) > 1 {
-			specslice2 := strings.Split(specslice[1],"x")
+			specslice2 := strings.Split(specslice[1], "x")
 			if len(specslice2) > 1 {
 				vmSpecInfo.VCpu = irs.VCpuInfo{Count: specslice2[0]}
 				vmSpecInfo.Mem = specslice2[1] + "GB"
 			}
 		}
-		specList = append(specList,&vmSpecInfo)
+		specList = append(specList, &vmSpecInfo)
 	}
 	LoggingInfo(hiscallInfo, start)
 	return specList, nil
 }
-func (vmSpecHandler *IbmVmSpecHandler) GetVMSpec(Region string, Name string) (irs.VMSpecInfo, error){
+func (vmSpecHandler *IbmVmSpecHandler) GetVMSpec(Region string, Name string) (irs.VMSpecInfo, error) {
 	hiscallInfo := GetCallLogScheme(vmSpecHandler.Region, call.VMSPEC, Name, "GetVMSpec()")
 	start := call.Start()
-	if Name == ""{
+	if Name == "" {
 		err := errors.New("invalid Name")
 		LoggingError(hiscallInfo, err)
 		return irs.VMSpecInfo{}, err
@@ -65,7 +66,7 @@ func (vmSpecHandler *IbmVmSpecHandler) GetVMSpec(Region string, Name string) (ir
 	//	return irs.VMSpecInfo{}, err
 	//}
 	profile, err := getRawSpec(Name, vmSpecHandler.VpcService, vmSpecHandler.Ctx)
-	if err != nil{
+	if err != nil {
 		LoggingError(hiscallInfo, err)
 		return irs.VMSpecInfo{}, err
 	}
@@ -73,9 +74,9 @@ func (vmSpecHandler *IbmVmSpecHandler) GetVMSpec(Region string, Name string) (ir
 		Region: vmSpecHandler.Region.Region,
 		Name:   *profile.Name,
 	}
-	specslice := strings.Split(*profile.Name,"-")
+	specslice := strings.Split(*profile.Name, "-")
 	if len(specslice) > 1 {
-		specslice2 := strings.Split(specslice[1],"x")
+		specslice2 := strings.Split(specslice[1], "x")
 		if len(specslice2) > 1 {
 			vmSpecInfo.VCpu = irs.VCpuInfo{Count: specslice2[0]}
 			vmSpecInfo.Mem = specslice2[1] + "GB"
@@ -95,25 +96,25 @@ func (vmSpecHandler *IbmVmSpecHandler) ListOrgVMSpec(Region string) (string, err
 	//}
 	var specList []*irs.VMSpecInfo
 	options := &vpcv1.ListInstanceProfilesOptions{}
-	profiles, _, err := vmSpecHandler.VpcService.ListInstanceProfilesWithContext(vmSpecHandler.Ctx,options)
-	if err != nil{
+	profiles, _, err := vmSpecHandler.VpcService.ListInstanceProfilesWithContext(vmSpecHandler.Ctx, options)
+	if err != nil {
 		LoggingError(hiscallInfo, err)
 		return "", err
 	}
-	for _, profile := range profiles.Profiles{
+	for _, profile := range profiles.Profiles {
 		vmSpecInfo := irs.VMSpecInfo{
 			Region: vmSpecHandler.Region.Region,
 			Name:   *profile.Name,
 		}
-		specslice := strings.Split(*profile.Name,"-")
+		specslice := strings.Split(*profile.Name, "-")
 		if len(specslice) > 1 {
-			specslice2 := strings.Split(specslice[1],"x")
+			specslice2 := strings.Split(specslice[1], "x")
 			if len(specslice2) > 1 {
 				vmSpecInfo.VCpu = irs.VCpuInfo{Count: specslice2[0]}
 				vmSpecInfo.Mem = specslice2[1] + "GB"
 			}
 		}
-		specList = append(specList,&vmSpecInfo)
+		specList = append(specList, &vmSpecInfo)
 	}
 	jsonBytes, err := json.Marshal(specList)
 	if err != nil {
@@ -127,7 +128,7 @@ func (vmSpecHandler *IbmVmSpecHandler) ListOrgVMSpec(Region string) (string, err
 func (vmSpecHandler *IbmVmSpecHandler) GetOrgVMSpec(Region string, Name string) (string, error) {
 	hiscallInfo := GetCallLogScheme(vmSpecHandler.Region, call.VMSPEC, "OrgVMSpec", "GetOrgVMSpec()")
 	start := call.Start()
-	if Name == ""{
+	if Name == "" {
 		err := errors.New("invalid Name")
 		LoggingError(hiscallInfo, err)
 		return "", err
@@ -138,7 +139,7 @@ func (vmSpecHandler *IbmVmSpecHandler) GetOrgVMSpec(Region string, Name string) 
 	//	return "", err
 	//}
 	profile, err := getRawSpec(Name, vmSpecHandler.VpcService, vmSpecHandler.Ctx)
-	if err != nil{
+	if err != nil {
 		LoggingError(hiscallInfo, err)
 		return "", err
 	}
@@ -146,9 +147,9 @@ func (vmSpecHandler *IbmVmSpecHandler) GetOrgVMSpec(Region string, Name string) 
 		Region: vmSpecHandler.Region.Region,
 		Name:   *profile.Name,
 	}
-	specSlice := strings.Split(*profile.Name,"-")
+	specSlice := strings.Split(*profile.Name, "-")
 	if len(specSlice) > 1 {
-		specSlice2 := strings.Split(specSlice[1],"x")
+		specSlice2 := strings.Split(specSlice[1], "x")
 		if len(specSlice2) > 1 {
 			vmSpecInfo.VCpu = irs.VCpuInfo{Count: specSlice2[0]}
 			vmSpecInfo.Mem = specSlice2[1] + "GB"
@@ -164,10 +165,10 @@ func (vmSpecHandler *IbmVmSpecHandler) GetOrgVMSpec(Region string, Name string) 
 	return jsonString, nil
 }
 
-func getRawSpec(specName string, vpcService *vpcv1.VpcV1,ctx context.Context) (vpcv1.InstanceProfile, error){
+func getRawSpec(specName string, vpcService *vpcv1.VpcV1, ctx context.Context) (vpcv1.InstanceProfile, error) {
 	getInstanceProfileOptions := &vpcv1.GetInstanceProfileOptions{}
 	getInstanceProfileOptions.SetName(specName)
-	profile, _, err :=vpcService.GetInstanceProfileWithContext(ctx,getInstanceProfileOptions)
+	profile, _, err := vpcService.GetInstanceProfileWithContext(ctx, getInstanceProfileOptions)
 	if err != nil {
 		return vpcv1.InstanceProfile{}, err
 	}

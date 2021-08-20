@@ -18,7 +18,7 @@ const (
 	cspTimeout time.Duration = 6000
 )
 
-func (IbmCloudDriver) GetDriverVersion() string  {
+func (IbmCloudDriver) GetDriverVersion() string {
 	return "IBM DRIVER Version 1.0"
 }
 func (IbmCloudDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
@@ -67,7 +67,7 @@ func (driver *IbmCloudDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (
 		if err != nil {
 			return nil, err
 		}
-		endPoint = *region.Endpoint+"/v1"
+		endPoint = *region.Endpoint + "/v1"
 	}
 	vpcService, err := vpcv1.NewVpcV1(&vpcv1.VpcV1Options{
 		Authenticator: &core.IamAuthenticator{
@@ -80,14 +80,14 @@ func (driver *IbmCloudDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (
 	}
 	iConn := connect.IbmCloudConnection{
 		CredentialInfo: connectionInfo.CredentialInfo,
-		Region: connectionInfo.RegionInfo,
-		VpcService: vpcService,
-		Ctx: ctx,
+		Region:         connectionInfo.RegionInfo,
+		VpcService:     vpcService,
+		Ctx:            ctx,
 	}
 	return &iConn, nil
 }
 
-func checkConnectionInfo(connectionInfo idrv.ConnectionInfo) error{
+func checkConnectionInfo(connectionInfo idrv.ConnectionInfo) error {
 	if connectionInfo.CredentialInfo.ApiKey == "" {
 		return errors.New("not exist ApiKey")
 	}

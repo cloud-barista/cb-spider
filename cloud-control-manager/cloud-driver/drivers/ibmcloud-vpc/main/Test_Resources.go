@@ -14,70 +14,69 @@ import (
 	"os"
 )
 
-
-type Config struct{
-	IbmVPC struct{
-		ApiKey			string `yaml:"apiKey"`
-		Region		string `yaml:"region"`
-		Zone            string `yaml:"zone"`
-		Resources struct{
-			Image struct{
-				NameId		string 	`yaml:"nameId"`
+type Config struct {
+	IbmVPC struct {
+		ApiKey    string `yaml:"apiKey"`
+		Region    string `yaml:"region"`
+		Zone      string `yaml:"zone"`
+		Resources struct {
+			Image struct {
+				NameId string `yaml:"nameId"`
 			} `yaml:"image"`
-			Security struct{
-				NameId		string 	`yaml:"nameId"`
-				VpcIID struct{
-					NameId		string 	`yaml:"nameId"`
-				}`yaml:"VpcIID"`
-				Rules 		[]struct{
-					FromPort 	string 	`yaml:"FromPort"`
-					ToPort 		string 	`yaml:"ToPort"`
-					IPProtocol 	string 	`yaml:"IPProtocol"`
-					CIDR 		string 	`yaml:"CIDR"`
-					Direction 	string 	`yaml:"Direction"`
-				}`yaml:"rules"`
+			Security struct {
+				NameId string `yaml:"nameId"`
+				VpcIID struct {
+					NameId string `yaml:"nameId"`
+				} `yaml:"VpcIID"`
+				Rules []struct {
+					FromPort   string `yaml:"FromPort"`
+					ToPort     string `yaml:"ToPort"`
+					IPProtocol string `yaml:"IPProtocol"`
+					CIDR       string `yaml:"CIDR"`
+					Direction  string `yaml:"Direction"`
+				} `yaml:"rules"`
 			} `yaml:"security"`
-			KeyPair struct{
-				NameId		string 	`yaml:"nameId"`
+			KeyPair struct {
+				NameId string `yaml:"nameId"`
 			} `yaml:"keyPair"`
-			VmSpec struct{
-				NameId		string 	`yaml:"nameId"`
+			VmSpec struct {
+				NameId string `yaml:"nameId"`
 			} `yaml:"vmSpec"`
-			VPC struct{
-				NameId		string 	`yaml:"nameId"`
-				IPv4CIDR    string  `yaml:"ipv4CIDR"`
-				Subnets []struct{
-					NameId		string 	`yaml:"nameId"`
-					IPv4CIDR		string 	`yaml:"ipv4CIDR"`
-				}`yaml:"subnets"`
-				AddSubnet struct{
-					NameId		string 	`yaml:"nameId"`
-					IPv4CIDR		string 	`yaml:"ipv4CIDR"`
-				}`yaml:"addSubnet"`
-			}`yaml:"vpc"`
-			Vm struct{
-				IID struct{
-					NameId		string 	`yaml:"nameId"`
-				}`yaml:"IID"`
-				ImageIID struct{
-					NameId		string 	`yaml:"nameId"`
-				}`yaml:"ImageIID"`
-				VmSpecName		string 	`yaml:"VmSpecName"`
-				KeyPairIID struct{
-					NameId		string 	`yaml:"nameId"`
-				}`yaml:"KeyPairIID"`
-				VpcIID struct{
-					NameId		string 	`yaml:"nameId"`
-				}`yaml:"VpcIID"`
-				SubnetIID struct{
-					NameId		string 	`yaml:"nameId"`
-				}`yaml:"SubnetIID"`
-				SecurityGroupIIDs []struct{
-					NameId		string 	`yaml:"nameId"`
-				}`yaml:"SecurityGroupIIDs"`
+			VPC struct {
+				NameId   string `yaml:"nameId"`
+				IPv4CIDR string `yaml:"ipv4CIDR"`
+				Subnets  []struct {
+					NameId   string `yaml:"nameId"`
+					IPv4CIDR string `yaml:"ipv4CIDR"`
+				} `yaml:"subnets"`
+				AddSubnet struct {
+					NameId   string `yaml:"nameId"`
+					IPv4CIDR string `yaml:"ipv4CIDR"`
+				} `yaml:"addSubnet"`
+			} `yaml:"vpc"`
+			Vm struct {
+				IID struct {
+					NameId string `yaml:"nameId"`
+				} `yaml:"IID"`
+				ImageIID struct {
+					NameId string `yaml:"nameId"`
+				} `yaml:"ImageIID"`
+				VmSpecName string `yaml:"VmSpecName"`
+				KeyPairIID struct {
+					NameId string `yaml:"nameId"`
+				} `yaml:"KeyPairIID"`
+				VpcIID struct {
+					NameId string `yaml:"nameId"`
+				} `yaml:"VpcIID"`
+				SubnetIID struct {
+					NameId string `yaml:"nameId"`
+				} `yaml:"SubnetIID"`
+				SecurityGroupIIDs []struct {
+					NameId string `yaml:"nameId"`
+				} `yaml:"SecurityGroupIIDs"`
 			} `yaml:"vm"`
-		}`yaml:"resources"`
-	}`yaml:"ibmvpc"`
+		} `yaml:"resources"`
+	} `yaml:"ibmvpc"`
 }
 
 var cblogger *logrus.Logger
@@ -89,7 +88,7 @@ func init() {
 
 func readConfigFile() Config {
 	// Set Environment Value of Project Root Path
-	rootPath := os.Getenv("CBSPIDER_PATH")
+	rootPath := os.Getenv("CBSPIDER_ROOT")
 	fmt.Println(rootPath)
 	data, err := ioutil.ReadFile(rootPath + "/conf/config.yaml")
 	if err != nil {
@@ -125,7 +124,7 @@ func getResourceHandler(resourceType string, config Config) (interface{}, error)
 		},
 		RegionInfo: idrv.RegionInfo{
 			Region: config.IbmVPC.Region,
-			Zone: config.IbmVPC.Zone,
+			Zone:   config.IbmVPC.Zone,
 		},
 	}
 
@@ -154,7 +153,7 @@ func getResourceHandler(resourceType string, config Config) (interface{}, error)
 	}
 	return resourceHandler, nil
 }
-func testImageHandlerListPrint(){
+func testImageHandlerListPrint() {
 	cblogger.Info("Test ImageHandler")
 	cblogger.Info("0. Print Menu")
 	cblogger.Info("1. ListImage()")
@@ -165,7 +164,7 @@ func testImageHandlerListPrint(){
 }
 
 func testImageHandler(config Config) {
-	resourceHandler, err := getResourceHandler("image",config)
+	resourceHandler, err := getResourceHandler("image", config)
 	if err != nil {
 		cblogger.Error(err)
 		return
@@ -177,49 +176,49 @@ func testImageHandler(config Config) {
 
 	imageIID := irs.IID{NameId: config.IbmVPC.Resources.Image.NameId}
 
-	Loop:
-		for {
-			var commandNum int
-			inputCnt, err := fmt.Scan(&commandNum)
-			if err != nil {
-				cblogger.Error(err)
-			}
+Loop:
+	for {
+		var commandNum int
+		inputCnt, err := fmt.Scan(&commandNum)
+		if err != nil {
+			cblogger.Error(err)
+		}
 
-			if inputCnt == 1 {
-				switch commandNum {
-				case 0:
-					testImageHandlerListPrint()
-				case 1:
-					cblogger.Info("Start ListImage() ...")
-					if list, err := imageHandler.ListImage(); err != nil {
-						cblogger.Error(err)
-					} else {
-						spew.Dump(list)
-					}
-					cblogger.Info("Finish ListImage()")
-				case 2:
-					cblogger.Info("Start GetImage() ...")
-					if imageInfo, err := imageHandler.GetImage(imageIID); err != nil {
-						cblogger.Error(err)
-					} else {
-						spew.Dump(imageInfo)
-					}
-					cblogger.Info("Finish GetImage()")
-				case 3:
-					cblogger.Info("Start CreateImage() ...")
-					cblogger.Info("Finish CreateImage()")
-				case 4:
-					cblogger.Info("Start DeleteImage() ...")
-					cblogger.Info("Finish DeleteImage()")
-				case 5:
-					cblogger.Info("Exit")
-					break Loop
+		if inputCnt == 1 {
+			switch commandNum {
+			case 0:
+				testImageHandlerListPrint()
+			case 1:
+				cblogger.Info("Start ListImage() ...")
+				if list, err := imageHandler.ListImage(); err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(list)
 				}
+				cblogger.Info("Finish ListImage()")
+			case 2:
+				cblogger.Info("Start GetImage() ...")
+				if imageInfo, err := imageHandler.GetImage(imageIID); err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(imageInfo)
+				}
+				cblogger.Info("Finish GetImage()")
+			case 3:
+				cblogger.Info("Start CreateImage() ...")
+				cblogger.Info("Finish CreateImage()")
+			case 4:
+				cblogger.Info("Start DeleteImage() ...")
+				cblogger.Info("Finish DeleteImage()")
+			case 5:
+				cblogger.Info("Exit")
+				break Loop
 			}
 		}
+	}
 }
 
-func testSecurityHandlerListPrint(){
+func testSecurityHandlerListPrint() {
 	cblogger.Info("Test securityHandler")
 	cblogger.Info("0. Print Menu")
 	cblogger.Info("1. ListSecurity()")
@@ -231,7 +230,7 @@ func testSecurityHandlerListPrint(){
 
 //SecurityGroup
 func testSecurityHandler(config Config) {
-	resourceHandler, err := getResourceHandler("security",config)
+	resourceHandler, err := getResourceHandler("security", config)
 	if err != nil {
 		cblogger.Error(err)
 		return
@@ -244,15 +243,15 @@ func testSecurityHandler(config Config) {
 	securityIId := irs.IID{NameId: config.IbmVPC.Resources.Security.NameId}
 	securityRules := config.IbmVPC.Resources.Security.Rules
 	var securityRulesInfos []irs.SecurityRuleInfo
-	for _, securityRule :=range securityRules{
+	for _, securityRule := range securityRules {
 		infos := irs.SecurityRuleInfo{
-			FromPort: securityRule.FromPort,
-			ToPort: securityRule.ToPort,
+			FromPort:   securityRule.FromPort,
+			ToPort:     securityRule.ToPort,
 			IPProtocol: securityRule.IPProtocol,
-			Direction: securityRule.Direction,
-			CIDR: securityRule.CIDR,
+			Direction:  securityRule.Direction,
+			CIDR:       securityRule.CIDR,
 		}
-		securityRulesInfos= append(securityRulesInfos, infos)
+		securityRulesInfos = append(securityRulesInfos, infos)
 	}
 	targetVPCIId := irs.IID{
 		NameId: config.IbmVPC.Resources.Security.VpcIID.NameId,
@@ -288,9 +287,9 @@ Loop:
 			case 3:
 				fmt.Println("Start CreateSecurity() ...")
 				reqInfo := irs.SecurityReqInfo{
-					IId: securityIId,
+					IId:           securityIId,
 					SecurityRules: &securityRulesInfos,
-					VpcIID: targetVPCIId,
+					VpcIID:        targetVPCIId,
 				}
 				security, err := securityHandler.CreateSecurity(reqInfo)
 				if err != nil {
@@ -313,7 +312,7 @@ Loop:
 		}
 	}
 }
-func testKeyPairHandlerListPrint(){
+func testKeyPairHandlerListPrint() {
 	cblogger.Info("Test KeyPairHandler")
 	cblogger.Info("0. Print Menu")
 	cblogger.Info("1. ListKey()")
@@ -323,7 +322,7 @@ func testKeyPairHandlerListPrint(){
 	cblogger.Info("5. Exit")
 }
 func testKeyPairHandler(config Config) {
-	resourceHandler, err := getResourceHandler("keypair",config)
+	resourceHandler, err := getResourceHandler("keypair", config)
 	if err != nil {
 		cblogger.Error(err)
 		return
@@ -334,7 +333,7 @@ func testKeyPairHandler(config Config) {
 	testKeyPairHandlerListPrint()
 
 	keypairIId := irs.IID{
-		NameId:   config.IbmVPC.Resources.KeyPair.NameId,
+		NameId: config.IbmVPC.Resources.KeyPair.NameId,
 	}
 
 Loop:
@@ -391,7 +390,7 @@ Loop:
 	}
 }
 
-func testVMSpecHandlerListPrint(){
+func testVMSpecHandlerListPrint() {
 	cblogger.Info("Test VMSpecHandler")
 	cblogger.Info("0. Print Menu")
 	cblogger.Info("1. ListVMSpec()")
@@ -402,7 +401,7 @@ func testVMSpecHandlerListPrint(){
 }
 
 func testVMSpecHandler(config Config) {
-	resourceHandler, err := getResourceHandler("vmspec",config)
+	resourceHandler, err := getResourceHandler("vmspec", config)
 	if err != nil {
 		cblogger.Error(err)
 		return
@@ -466,7 +465,7 @@ Loop:
 	}
 }
 
-func testVPCHandlerListPrint()  {
+func testVPCHandlerListPrint() {
 	cblogger.Info("Test VPCHandler")
 	cblogger.Info("0. Print Menu")
 	cblogger.Info("1. ListVPC()")
@@ -479,7 +478,7 @@ func testVPCHandlerListPrint()  {
 }
 
 func testVPCHandler(config Config) {
-	resourceHandler, err := getResourceHandler("vpc",config)
+	resourceHandler, err := getResourceHandler("vpc", config)
 	if err != nil {
 		cblogger.Error(err)
 		return
@@ -491,21 +490,21 @@ func testVPCHandler(config Config) {
 
 	vpcIID := irs.IID{NameId: config.IbmVPC.Resources.VPC.NameId}
 
-	subnetLists :=config.IbmVPC.Resources.VPC.Subnets
+	subnetLists := config.IbmVPC.Resources.VPC.Subnets
 	var subnetInfoList []irs.SubnetInfo
-	for _, sb :=range subnetLists{
+	for _, sb := range subnetLists {
 		info := irs.SubnetInfo{
 			IId: irs.IID{
 				NameId: sb.NameId,
 			},
 			IPv4_CIDR: sb.IPv4CIDR,
 		}
-		subnetInfoList= append(subnetInfoList,info)
+		subnetInfoList = append(subnetInfoList, info)
 	}
 
-	VPCReqInfo :=irs.VPCReqInfo{
-		IId: vpcIID,
-		IPv4_CIDR: config.IbmVPC.Resources.VPC.IPv4CIDR,
+	VPCReqInfo := irs.VPCReqInfo{
+		IId:            vpcIID,
+		IPv4_CIDR:      config.IbmVPC.Resources.VPC.IPv4CIDR,
 		SubnetInfoList: subnetInfoList,
 	}
 	addSubnet := config.IbmVPC.Resources.VPC.AddSubnet
@@ -565,7 +564,7 @@ Loop:
 				cblogger.Info("Finish DeleteVPC()")
 			case 5:
 				cblogger.Info("Start AddSubnet() ...")
-				if vpcInfo, err := vpcHandler.AddSubnet(vpcIID,addSubnetInfo); err != nil {
+				if vpcInfo, err := vpcHandler.AddSubnet(vpcIID, addSubnetInfo); err != nil {
 					cblogger.Error(err)
 				} else {
 					spew.Dump(vpcInfo)
@@ -580,10 +579,10 @@ Loop:
 				if vpcInfo.SubnetInfoList != nil && len(vpcInfo.SubnetInfoList) > 0 {
 					firstSubnet := vpcInfo.SubnetInfoList[0]
 					cblogger.Info(fmt.Sprintf("RemoveSubnet : %s %s", firstSubnet.IId.NameId, firstSubnet.IPv4_CIDR))
-					result, err := vpcHandler.RemoveSubnet(vpcIID,firstSubnet.IId)
+					result, err := vpcHandler.RemoveSubnet(vpcIID, firstSubnet.IId)
 					if err != nil {
 						cblogger.Error(err)
-					}else {
+					} else {
 						spew.Dump(result)
 					}
 				} else {
@@ -599,7 +598,7 @@ Loop:
 	}
 }
 
-func testVMHandlerListPrint()  {
+func testVMHandlerListPrint() {
 	cblogger.Info("Test VMSpecHandler")
 	cblogger.Info("0. Print Menu")
 	cblogger.Info("1. ListVM()")
@@ -615,7 +614,7 @@ func testVMHandlerListPrint()  {
 }
 
 func testVMHandler(config Config) {
-	resourceHandler, err := getResourceHandler("vm",config)
+	resourceHandler, err := getResourceHandler("vm", config)
 	if err != nil {
 		cblogger.Error(err)
 		return
@@ -625,10 +624,10 @@ func testVMHandler(config Config) {
 
 	testVMHandlerListPrint()
 
-	configsgIIDs:= config.IbmVPC.Resources.Vm.SecurityGroupIIDs
+	configsgIIDs := config.IbmVPC.Resources.Vm.SecurityGroupIIDs
 	var SecurityGroupIIDs []irs.IID
-	for _,sg :=range configsgIIDs{
-		SecurityGroupIIDs = append(SecurityGroupIIDs,irs.IID{NameId: sg.NameId})
+	for _, sg := range configsgIIDs {
+		SecurityGroupIIDs = append(SecurityGroupIIDs, irs.IID{NameId: sg.NameId})
 	}
 	vmIID := irs.IID{
 		NameId: config.IbmVPC.Resources.Vm.IID.NameId,
@@ -648,7 +647,7 @@ func testVMHandler(config Config) {
 		},
 		VMSpecName: config.IbmVPC.Resources.Vm.VmSpecName,
 		KeyPairIID: irs.IID{
-			NameId:   config.IbmVPC.Resources.KeyPair.NameId,
+			NameId: config.IbmVPC.Resources.KeyPair.NameId,
 		},
 		SecurityGroupIIDs: SecurityGroupIIDs,
 	}
@@ -745,7 +744,7 @@ Loop:
 	}
 }
 
-func main(){
+func main() {
 	showTestHandlerInfo()
 	config := readConfigFile()
 

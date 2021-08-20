@@ -4,7 +4,7 @@ import (
 	"context"
 	"github.com/IBM/vpc-go-sdk/vpcv1"
 	cblog "github.com/cloud-barista/cb-log"
-	ibms "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/ibmcloud-vpc/resources"
+	ibmrs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/ibmcloud-vpc/resources"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/sirupsen/logrus"
@@ -26,7 +26,7 @@ type IbmCloudConnection struct {
 
 func (cloudConn *IbmCloudConnection) CreateImageHandler() (irs.ImageHandler, error) {
 	cblogger.Info("Ibm Cloud Driver: called CreateImageHandler()!")
-	imageHandler := ibms.IbmImageHandler{
+	imageHandler := ibmrs.IbmImageHandler{
 		CredentialInfo: cloudConn.CredentialInfo,
 		Region:         cloudConn.Region,
 		VpcService:     cloudConn.VpcService,
@@ -37,7 +37,7 @@ func (cloudConn *IbmCloudConnection) CreateImageHandler() (irs.ImageHandler, err
 
 func (cloudConn *IbmCloudConnection) CreateVMHandler() (irs.VMHandler, error) {
 	cblogger.Info("Ibm Cloud Driver: called CreateVMHandler()!")
-	vmHandler := ibms.IbmVMHandler{
+	vmHandler := ibmrs.IbmVMHandler{
 		CredentialInfo: cloudConn.CredentialInfo,
 		Region:         cloudConn.Region,
 		VpcService:     cloudConn.VpcService,
@@ -48,7 +48,7 @@ func (cloudConn *IbmCloudConnection) CreateVMHandler() (irs.VMHandler, error) {
 
 func (cloudConn *IbmCloudConnection) CreateVPCHandler() (irs.VPCHandler, error) {
 	cblogger.Info("Ibm Cloud Driver: called CreateVPCHandler()!")
-	vpcHandler := ibms.IbmVPCHandler{
+	vpcHandler := ibmrs.IbmVPCHandler{
 		CredentialInfo: cloudConn.CredentialInfo,
 		Region:         cloudConn.Region,
 		VpcService:     cloudConn.VpcService,
@@ -58,7 +58,7 @@ func (cloudConn *IbmCloudConnection) CreateVPCHandler() (irs.VPCHandler, error) 
 }
 func (cloudConn *IbmCloudConnection) CreateSecurityHandler() (irs.SecurityHandler, error) {
 	cblogger.Info("Ibm Cloud Driver: called CreateSecurityHandler()!")
-	securityHandler := ibms.IbmSecurityHandler{
+	securityHandler := ibmrs.IbmSecurityHandler{
 		CredentialInfo: cloudConn.CredentialInfo,
 		Region:         cloudConn.Region,
 		VpcService:     cloudConn.VpcService,
@@ -68,7 +68,7 @@ func (cloudConn *IbmCloudConnection) CreateSecurityHandler() (irs.SecurityHandle
 }
 func (cloudConn *IbmCloudConnection) CreateKeyPairHandler() (irs.KeyPairHandler, error) {
 	cblogger.Info("Ibm Cloud Driver: called CreateVPCHandler()!")
-	keyPairHandler := ibms.IbmKeyPairHandler{
+	keyPairHandler := ibmrs.IbmKeyPairHandler{
 		CredentialInfo: cloudConn.CredentialInfo,
 		Region:         cloudConn.Region,
 		VpcService:     cloudConn.VpcService,
@@ -78,7 +78,7 @@ func (cloudConn *IbmCloudConnection) CreateKeyPairHandler() (irs.KeyPairHandler,
 }
 func (cloudConn *IbmCloudConnection) CreateVMSpecHandler() (irs.VMSpecHandler, error) {
 	cblogger.Info("Ibm Cloud Driver: called CreateVMSpecHandler()!")
-	vmSpecHandler := ibms.IbmVmSpecHandler{
+	vmSpecHandler := ibmrs.IbmVmSpecHandler{
 		CredentialInfo: cloudConn.CredentialInfo,
 		Region:         cloudConn.Region,
 		VpcService:     cloudConn.VpcService,
