@@ -23,6 +23,7 @@ type IbmVMHandler struct {
 	VpcService     *vpcv1.VpcV1
 	Ctx            context.Context
 }
+
 func (vmHandler *IbmVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, error) {
 	hiscallInfo := GetCallLogScheme(vmHandler.Region, call.VM, vmReqInfo.IId.NameId, "StartVM()")
 	start := call.Start()
@@ -33,54 +34,54 @@ func (vmHandler *IbmVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 		return irs.VMInfo{}, err
 	}
 	// 1-1 Exist Check
-	exist, err := existInstance(vmReqInfo.IId,vmHandler.VpcService,vmHandler.Ctx)
-	if err != nil{
+	exist, err := existInstance(vmReqInfo.IId, vmHandler.VpcService, vmHandler.Ctx)
+	if err != nil {
 		LoggingError(hiscallInfo, err)
 		return irs.VMInfo{}, err
-	}else if exist{
-		err = errors.New(fmt.Sprintf("already exist %s",vmReqInfo.IId.NameId))
+	} else if exist {
+		err = errors.New(fmt.Sprintf("already exist %s", vmReqInfo.IId.NameId))
 		return irs.VMInfo{}, err
 	}
 	// 1-2. Setup Req Resource IID
-	image, err :=  getRawImage(vmReqInfo.ImageIID,vmHandler.VpcService,vmHandler.Ctx)
+	image, err := getRawImage(vmReqInfo.ImageIID, vmHandler.VpcService, vmHandler.Ctx)
 	if err != nil {
 		LoggingError(hiscallInfo, err)
 		return irs.VMInfo{}, err
 	}
-	vpc, err := getRawVPC(vmReqInfo.VpcIID,vmHandler.VpcService,vmHandler.Ctx)
+	vpc, err := getRawVPC(vmReqInfo.VpcIID, vmHandler.VpcService, vmHandler.Ctx)
 	if err != nil {
 		LoggingError(hiscallInfo, err)
 		return irs.VMInfo{}, err
 	}
-	vpcSubnet, err := getVPCRawSubnet(vpc,vmReqInfo.SubnetIID,vmHandler.VpcService,vmHandler.Ctx)
+	vpcSubnet, err := getVPCRawSubnet(vpc, vmReqInfo.SubnetIID, vmHandler.VpcService, vmHandler.Ctx)
 	if err != nil {
 		LoggingError(hiscallInfo, err)
 		return irs.VMInfo{}, err
 	}
-	key, err := getRawKey(vmReqInfo.KeyPairIID,vmHandler.VpcService,vmHandler.Ctx)
+	key, err := getRawKey(vmReqInfo.KeyPairIID, vmHandler.VpcService, vmHandler.Ctx)
 	if err != nil {
 		LoggingError(hiscallInfo, err)
 		return irs.VMInfo{}, err
 	}
-	spec, err := getRawSpec(vmReqInfo.VMSpecName,vmHandler.VpcService,vmHandler.Ctx)
+	spec, err := getRawSpec(vmReqInfo.VMSpecName, vmHandler.VpcService, vmHandler.Ctx)
 	if err != nil {
 		LoggingError(hiscallInfo, err)
 		return irs.VMInfo{}, err
 	}
 	var securityGroups []vpcv1.SecurityGroup
-	if vmReqInfo.SecurityGroupIIDs != nil{
-		for _, SecurityGroupIID := range vmReqInfo.SecurityGroupIIDs{
+	if vmReqInfo.SecurityGroupIIDs != nil {
+		for _, SecurityGroupIID := range vmReqInfo.SecurityGroupIIDs {
 			err := checkSecurityGroupIID(SecurityGroupIID)
-			if err != nil{
+			if err != nil {
 				LoggingError(hiscallInfo, err)
 				return irs.VMInfo{}, err
 			}
-			securityGroup, err := getRawSecurityGroup(SecurityGroupIID,vmHandler.VpcService,vmHandler.Ctx)
-			if err != nil{
+			securityGroup, err := getRawSecurityGroup(SecurityGroupIID, vmHandler.VpcService, vmHandler.Ctx)
+			if err != nil {
 				LoggingError(hiscallInfo, err)
 				return irs.VMInfo{}, err
 			}
-			securityGroups = append(securityGroups,securityGroup)
+			securityGroups = append(securityGroups, securityGroup)
 		}
 	}
 
@@ -125,23 +126,23 @@ func (vmHandler *IbmVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 		UserData: &userData,
 	})
 	createInstance, _, err := vmHandler.VpcService.CreateInstanceWithContext(vmHandler.Ctx, createInstanceOptions)
-	if err != nil{
+	if err != nil {
 		LoggingError(hiscallInfo, err)
 		return irs.VMInfo{}, err
 	}
 
 	// 3.Attach SecurityGroup
-	if securityGroups!=nil && len(securityGroups) > 0 {
-		for _, securityGroup := range securityGroups{
+	if securityGroups != nil && len(securityGroups) > 0 {
+		for _, securityGroup := range securityGroups {
 			options := &vpcv1.AddSecurityGroupNetworkInterfaceOptions{}
 			options.SetSecurityGroupID(*securityGroup.ID)
 			options.SetID(*createInstance.PrimaryNetworkInterface.ID)
-			_,_,err = vmHandler.VpcService.AddSecurityGroupNetworkInterfaceWithContext(vmHandler.Ctx,options)
-			if err != nil{
+			_, _, err = vmHandler.VpcService.AddSecurityGroupNetworkInterfaceWithContext(vmHandler.Ctx, options)
+			if err != nil {
 				//TODO DELETE
-				deleteErr := deleteInstance(*createInstance.ID,vmHandler.VpcService,vmHandler.Ctx)
+				deleteErr := deleteInstance(*createInstance.ID, vmHandler.VpcService, vmHandler.Ctx)
 				if err != nil {
-					if deleteErr!=nil{
+					if deleteErr != nil {
 						newErrText := err.Error() + deleteErr.Error()
 						err = errors.New(newErrText)
 					}
@@ -165,10 +166,10 @@ func (vmHandler *IbmVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 	})
 	floatingIP, _, err := vmHandler.VpcService.CreateFloatingIPWithContext(vmHandler.Ctx, createFloatingIPOptions)
 
-	if err != nil{
-		deleteErr := deleteInstance(*createInstance.ID,vmHandler.VpcService,vmHandler.Ctx)
+	if err != nil {
+		deleteErr := deleteInstance(*createInstance.ID, vmHandler.VpcService, vmHandler.Ctx)
 		if err != nil {
-			if deleteErr!=nil{
+			if deleteErr != nil {
 				newErrText := err.Error() + deleteErr.Error()
 				err = errors.New(newErrText)
 			}
@@ -181,17 +182,17 @@ func (vmHandler *IbmVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 
 	//  4-2. Bind FloatingIP
 	ipBindInfo := IBMIPBindReqInfo{
-		vmID: *createInstance.ID,
-		floatingIPID: *floatingIP.ID,
+		vmID:               *createInstance.ID,
+		floatingIPID:       *floatingIP.ID,
 		NetworkInterfaceID: *createInstance.PrimaryNetworkInterface.ID,
 	}
 
 	_, err = floatingIPBind(ipBindInfo, vmHandler.VpcService, vmHandler.Ctx)
 
-	if err != nil{
-		deleteErr := deleteInstance(*createInstance.ID,vmHandler.VpcService,vmHandler.Ctx)
+	if err != nil {
+		deleteErr := deleteInstance(*createInstance.ID, vmHandler.VpcService, vmHandler.Ctx)
 		if err != nil {
-			if deleteErr!=nil {
+			if deleteErr != nil {
 				newErrText := err.Error() + deleteErr.Error()
 				err = errors.New(newErrText)
 			}
@@ -200,19 +201,19 @@ func (vmHandler *IbmVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 		}
 	}
 	createInstanceIId := irs.IID{
-		NameId: *createInstance.Name,
+		NameId:   *createInstance.Name,
 		SystemId: *createInstance.ID,
 	}
 	// TODO : runnigCheck
 	curRetryCnt := 0
 	maxRetryCnt := 120
-	for{
-		finalInstance, err := getRawInstance(createInstanceIId,vmHandler.VpcService,vmHandler.Ctx)
-		if err != nil{
-			removeFloatingIpsErr := removeFloatingIps(finalInstance,vmHandler.VpcService,vmHandler.Ctx)
+	for {
+		finalInstance, err := getRawInstance(createInstanceIId, vmHandler.VpcService, vmHandler.Ctx)
+		if err != nil {
+			removeFloatingIpsErr := removeFloatingIps(finalInstance, vmHandler.VpcService, vmHandler.Ctx)
 			// 생성 완료후 running 기다리는중 에러.
 			// 제거 로직을 위해 removeFloatingIp
-			if removeFloatingIpsErr != nil{
+			if removeFloatingIpsErr != nil {
 				// 제거 로직을 위해 removeFloatingIp Error => instance에 대한 에러 + removeError + delete error
 				newErrText := err.Error() + removeFloatingIpsErr.Error() + "and failed delete VM"
 				err = errors.New(newErrText)
@@ -220,8 +221,8 @@ func (vmHandler *IbmVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 				return irs.VMInfo{}, err
 			}
 			// 제거 로직을 위해 deleteInstance
-			deleteErr := deleteInstance(*createInstance.ID,vmHandler.VpcService,vmHandler.Ctx)
-			if deleteErr != nil{
+			deleteErr := deleteInstance(*createInstance.ID, vmHandler.VpcService, vmHandler.Ctx)
+			if deleteErr != nil {
 				newErrText := err.Error() + deleteErr.Error()
 				err = errors.New(newErrText)
 				LoggingError(hiscallInfo, err)
@@ -231,13 +232,13 @@ func (vmHandler *IbmVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 			LoggingError(hiscallInfo, err)
 			return irs.VMInfo{}, err
 		}
-		if *finalInstance.Status == "running"{
+		if *finalInstance.Status == "running" {
 			finalInstanceInfo, err := vmHandler.setVmInfo(finalInstance)
-			if err !=nil{
-				removeFloatingIpsErr := removeFloatingIps(finalInstance,vmHandler.VpcService,vmHandler.Ctx)
+			if err != nil {
+				removeFloatingIpsErr := removeFloatingIps(finalInstance, vmHandler.VpcService, vmHandler.Ctx)
 				// 생성 완료후 running 기다리는중 에러.
 				// 제거 로직을 위해 removeFloatingIp
-				if removeFloatingIpsErr != nil{
+				if removeFloatingIpsErr != nil {
 					// 제거 로직을 위해 removeFloatingIp Error => instance에 대한 에러 + removeError + delete error
 					newErrText := err.Error() + removeFloatingIpsErr.Error() + "and failed delete VM"
 					err = errors.New(newErrText)
@@ -245,8 +246,8 @@ func (vmHandler *IbmVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 					return irs.VMInfo{}, err
 				}
 				// 제거 로직을 위해 deleteInstance
-				deleteErr := deleteInstance(*createInstance.ID,vmHandler.VpcService,vmHandler.Ctx)
-				if deleteErr != nil{
+				deleteErr := deleteInstance(*createInstance.ID, vmHandler.VpcService, vmHandler.Ctx)
+				if deleteErr != nil {
 					newErrText := err.Error() + deleteErr.Error()
 					err = errors.New(newErrText)
 					LoggingError(hiscallInfo, err)
@@ -263,10 +264,10 @@ func (vmHandler *IbmVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 		time.Sleep(1 * time.Second)
 		if curRetryCnt > maxRetryCnt {
 			err = errors.New(fmt.Sprintf("failed to create VM, exceeded maximum retry count %d", maxRetryCnt))
-			removeFloatingIpsErr := removeFloatingIps(finalInstance,vmHandler.VpcService,vmHandler.Ctx)
+			removeFloatingIpsErr := removeFloatingIps(finalInstance, vmHandler.VpcService, vmHandler.Ctx)
 			// 생성 완료후 running 기다리는중 에러.
 			// 제거 로직을 위해 removeFloatingIp
-			if removeFloatingIpsErr != nil{
+			if removeFloatingIpsErr != nil {
 				// 제거 로직을 위해 removeFloatingIp Error => instance에 대한 에러 + removeError + delete error
 				newErrText := err.Error() + removeFloatingIpsErr.Error() + "and failed delete VM"
 				err = errors.New(newErrText)
@@ -274,8 +275,8 @@ func (vmHandler *IbmVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 				return irs.VMInfo{}, err
 			}
 			// 제거 로직을 위해 deleteInstance
-			deleteErr := deleteInstance(*createInstance.ID,vmHandler.VpcService,vmHandler.Ctx)
-			if deleteErr != nil{
+			deleteErr := deleteInstance(*createInstance.ID, vmHandler.VpcService, vmHandler.Ctx)
+			if deleteErr != nil {
 				newErrText := err.Error() + deleteErr.Error()
 				err = errors.New(newErrText)
 				LoggingError(hiscallInfo, err)
@@ -287,7 +288,7 @@ func (vmHandler *IbmVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 		}
 	}
 }
-func (vmHandler *IbmVMHandler) SuspendVM(vmIID irs.IID) (irs.VMStatus, error){
+func (vmHandler *IbmVMHandler) SuspendVM(vmIID irs.IID) (irs.VMStatus, error) {
 	hiscallInfo := GetCallLogScheme(vmHandler.Region, call.VM, vmIID.NameId, "SuspendVM()")
 	start := call.Start()
 	err := checkVmIID(vmIID)
@@ -295,7 +296,7 @@ func (vmHandler *IbmVMHandler) SuspendVM(vmIID irs.IID) (irs.VMStatus, error){
 		LoggingError(hiscallInfo, err)
 		return "", err
 	}
-	instance, err := getRawInstance(vmIID,vmHandler.VpcService,vmHandler.Ctx)
+	instance, err := getRawInstance(vmIID, vmHandler.VpcService, vmHandler.Ctx)
 	if err != nil {
 		LoggingError(hiscallInfo, err)
 		return "", err
@@ -309,14 +310,14 @@ func (vmHandler *IbmVMHandler) SuspendVM(vmIID irs.IID) (irs.VMStatus, error){
 	instanceActionOptions.SetInstanceID(*instance.ID)
 	instanceActionOptions.SetType("stop")
 	_, _, err = vmHandler.VpcService.CreateInstanceActionWithContext(vmHandler.Ctx, instanceActionOptions)
-	if err != nil{
+	if err != nil {
 		LoggingError(hiscallInfo, err)
 		return "", err
 	}
 	LoggingInfo(hiscallInfo, start)
 	return irs.Suspending, nil
 }
-func (vmHandler *IbmVMHandler) ResumeVM(vmIID irs.IID) (irs.VMStatus, error){
+func (vmHandler *IbmVMHandler) ResumeVM(vmIID irs.IID) (irs.VMStatus, error) {
 	hiscallInfo := GetCallLogScheme(vmHandler.Region, call.VM, vmIID.NameId, "ResumeVM()")
 	start := call.Start()
 	err := checkVmIID(vmIID)
@@ -324,7 +325,7 @@ func (vmHandler *IbmVMHandler) ResumeVM(vmIID irs.IID) (irs.VMStatus, error){
 		LoggingError(hiscallInfo, err)
 		return "", err
 	}
-	instance, err := getRawInstance(vmIID,vmHandler.VpcService,vmHandler.Ctx)
+	instance, err := getRawInstance(vmIID, vmHandler.VpcService, vmHandler.Ctx)
 	if err != nil {
 		LoggingError(hiscallInfo, err)
 		return "", err
@@ -339,14 +340,14 @@ func (vmHandler *IbmVMHandler) ResumeVM(vmIID irs.IID) (irs.VMStatus, error){
 	instanceActionOptions.SetType("start")
 	instanceActionOptions.SetForce(true)
 	_, _, err = vmHandler.VpcService.CreateInstanceActionWithContext(vmHandler.Ctx, instanceActionOptions)
-	if err != nil{
+	if err != nil {
 		LoggingError(hiscallInfo, err)
 		return "", err
 	}
 	LoggingInfo(hiscallInfo, start)
 	return irs.Resuming, nil
 }
-func (vmHandler *IbmVMHandler) RebootVM(vmIID irs.IID) (irs.VMStatus, error){
+func (vmHandler *IbmVMHandler) RebootVM(vmIID irs.IID) (irs.VMStatus, error) {
 	hiscallInfo := GetCallLogScheme(vmHandler.Region, call.VM, vmIID.NameId, "RebootVM()")
 	start := call.Start()
 	err := checkVmIID(vmIID)
@@ -354,7 +355,7 @@ func (vmHandler *IbmVMHandler) RebootVM(vmIID irs.IID) (irs.VMStatus, error){
 		LoggingError(hiscallInfo, err)
 		return "", err
 	}
-	instance, err := getRawInstance(vmIID,vmHandler.VpcService,vmHandler.Ctx)
+	instance, err := getRawInstance(vmIID, vmHandler.VpcService, vmHandler.Ctx)
 	if err != nil {
 		LoggingError(hiscallInfo, err)
 		return "", err
@@ -369,14 +370,14 @@ func (vmHandler *IbmVMHandler) RebootVM(vmIID irs.IID) (irs.VMStatus, error){
 	instanceActionOptions.SetType("reboot")
 	instanceActionOptions.SetForce(true)
 	_, _, err = vmHandler.VpcService.CreateInstanceActionWithContext(vmHandler.Ctx, instanceActionOptions)
-	if err != nil{
+	if err != nil {
 		LoggingError(hiscallInfo, err)
 		return "", err
 	}
 	LoggingInfo(hiscallInfo, start)
 	return irs.Rebooting, nil
 }
-func (vmHandler *IbmVMHandler) TerminateVM(vmIID irs.IID) (irs.VMStatus, error){
+func (vmHandler *IbmVMHandler) TerminateVM(vmIID irs.IID) (irs.VMStatus, error) {
 	hiscallInfo := GetCallLogScheme(vmHandler.Region, call.VM, vmIID.NameId, "TerminateVM()")
 	start := call.Start()
 	err := checkVmIID(vmIID)
@@ -384,17 +385,17 @@ func (vmHandler *IbmVMHandler) TerminateVM(vmIID irs.IID) (irs.VMStatus, error){
 		LoggingError(hiscallInfo, err)
 		return "", err
 	}
-	instance, err := getRawInstance(vmIID,vmHandler.VpcService,vmHandler.Ctx)
+	instance, err := getRawInstance(vmIID, vmHandler.VpcService, vmHandler.Ctx)
 	if err != nil {
 		LoggingError(hiscallInfo, err)
 		return "", err
 	}
-	err = removeFloatingIps(instance,vmHandler.VpcService,vmHandler.Ctx)
+	err = removeFloatingIps(instance, vmHandler.VpcService, vmHandler.Ctx)
 	if err != nil {
 		LoggingError(hiscallInfo, err)
 		return "", err
 	}
-	err = deleteInstance(*instance.ID,vmHandler.VpcService,vmHandler.Ctx)
+	err = deleteInstance(*instance.ID, vmHandler.VpcService, vmHandler.Ctx)
 	if err != nil {
 		LoggingError(hiscallInfo, err)
 		return "", err
@@ -403,7 +404,7 @@ func (vmHandler *IbmVMHandler) TerminateVM(vmIID irs.IID) (irs.VMStatus, error){
 	return irs.Terminating, nil
 }
 
-func (vmHandler *IbmVMHandler) ListVMStatus() ([]*irs.VMStatusInfo, error){
+func (vmHandler *IbmVMHandler) ListVMStatus() ([]*irs.VMStatusInfo, error) {
 	hiscallInfo := GetCallLogScheme(vmHandler.Region, call.VM, "VMStatus", "ListVMStatus()")
 	start := call.Start()
 	options := &vpcv1.ListInstancesOptions{}
@@ -414,7 +415,7 @@ func (vmHandler *IbmVMHandler) ListVMStatus() ([]*irs.VMStatusInfo, error){
 	}
 	var vmStatusList []*irs.VMStatusInfo
 	for {
-		for _,instance := range instances.Instances{
+		for _, instance := range instances.Instances {
 			vmStatusString, _ := convertInstanceStatus(*instance.Status)
 			VMStatusInfo := irs.VMStatusInfo{
 				IId: irs.IID{
@@ -424,14 +425,14 @@ func (vmHandler *IbmVMHandler) ListVMStatus() ([]*irs.VMStatusInfo, error){
 				VmStatus: vmStatusString,
 			}
 
-			vmStatusList = append(vmStatusList,&VMStatusInfo)
+			vmStatusList = append(vmStatusList, &VMStatusInfo)
 		}
 		nextstr, _ := getVMNextHref(instances.Next)
 		if nextstr != "" {
 			listVpcsOptions2 := &vpcv1.ListInstancesOptions{
 				Start: core.StringPtr(nextstr),
 			}
-			instances, _, err = vmHandler.VpcService.ListInstancesWithContext(vmHandler.Ctx,listVpcsOptions2)
+			instances, _, err = vmHandler.VpcService.ListInstancesWithContext(vmHandler.Ctx, listVpcsOptions2)
 			if err != nil {
 				LoggingError(hiscallInfo, err)
 				return nil, err
@@ -443,7 +444,7 @@ func (vmHandler *IbmVMHandler) ListVMStatus() ([]*irs.VMStatusInfo, error){
 	LoggingInfo(hiscallInfo, start)
 	return vmStatusList, nil
 }
-func (vmHandler *IbmVMHandler) GetVMStatus(vmIID irs.IID) (irs.VMStatus, error){
+func (vmHandler *IbmVMHandler) GetVMStatus(vmIID irs.IID) (irs.VMStatus, error) {
 	hiscallInfo := GetCallLogScheme(vmHandler.Region, call.VM, vmIID.NameId, "GetVMStatus()")
 	start := call.Start()
 	err := checkVmIID(vmIID)
@@ -451,7 +452,7 @@ func (vmHandler *IbmVMHandler) GetVMStatus(vmIID irs.IID) (irs.VMStatus, error){
 		LoggingError(hiscallInfo, err)
 		return "", err
 	}
-	instance, err := getRawInstance(vmIID,vmHandler.VpcService,vmHandler.Ctx)
+	instance, err := getRawInstance(vmIID, vmHandler.VpcService, vmHandler.Ctx)
 	if err != nil {
 		LoggingError(hiscallInfo, err)
 		return "", err
@@ -460,7 +461,7 @@ func (vmHandler *IbmVMHandler) GetVMStatus(vmIID irs.IID) (irs.VMStatus, error){
 	return convertInstanceStatus(*instance.Status)
 }
 
-func (vmHandler *IbmVMHandler) ListVM() ([]*irs.VMInfo, error){
+func (vmHandler *IbmVMHandler) ListVM() ([]*irs.VMInfo, error) {
 	hiscallInfo := GetCallLogScheme(vmHandler.Region, call.VM, "VM", "ListVM()")
 	start := call.Start()
 	options := &vpcv1.ListInstancesOptions{}
@@ -471,20 +472,20 @@ func (vmHandler *IbmVMHandler) ListVM() ([]*irs.VMInfo, error){
 	}
 	var vmList []*irs.VMInfo
 	for {
-		for _,instance := range instances.Instances{
+		for _, instance := range instances.Instances {
 			vmInfo, err := vmHandler.setVmInfo(instance)
-			if err != nil{
+			if err != nil {
 				LoggingError(hiscallInfo, err)
 				return nil, err
 			}
-			vmList = append(vmList,&vmInfo)
+			vmList = append(vmList, &vmInfo)
 		}
 		nextstr, _ := getVMNextHref(instances.Next)
 		if nextstr != "" {
 			listVpcsOptions2 := &vpcv1.ListInstancesOptions{
 				Start: core.StringPtr(nextstr),
 			}
-			instances, _, err = vmHandler.VpcService.ListInstancesWithContext(vmHandler.Ctx,listVpcsOptions2)
+			instances, _, err = vmHandler.VpcService.ListInstancesWithContext(vmHandler.Ctx, listVpcsOptions2)
 			if err != nil {
 				LoggingError(hiscallInfo, err)
 				return nil, err
@@ -498,7 +499,7 @@ func (vmHandler *IbmVMHandler) ListVM() ([]*irs.VMInfo, error){
 	return vmList, nil
 }
 
-func (vmHandler *IbmVMHandler) GetVM(vmIID irs.IID) (irs.VMInfo, error){
+func (vmHandler *IbmVMHandler) GetVM(vmIID irs.IID) (irs.VMInfo, error) {
 	hiscallInfo := GetCallLogScheme(vmHandler.Region, call.VM, vmIID.NameId, "GetVM()")
 	start := call.Start()
 	err := checkVmIID(vmIID)
@@ -506,28 +507,28 @@ func (vmHandler *IbmVMHandler) GetVM(vmIID irs.IID) (irs.VMInfo, error){
 		LoggingError(hiscallInfo, err)
 		return irs.VMInfo{}, err
 	}
-	instance, err := getRawInstance(vmIID,vmHandler.VpcService,vmHandler.Ctx)
+	instance, err := getRawInstance(vmIID, vmHandler.VpcService, vmHandler.Ctx)
 	if err != nil {
 		LoggingError(hiscallInfo, err)
 		return irs.VMInfo{}, err
 	}
 
-	vmInfo, err :=vmHandler.setVmInfo(instance)
+	vmInfo, err := vmHandler.setVmInfo(instance)
 	if err != nil {
 		LoggingError(hiscallInfo, err)
 		return irs.VMInfo{}, err
 	}
 	LoggingInfo(hiscallInfo, start)
-	return vmInfo,nil
+	return vmInfo, nil
 }
 
-type IBMIPBindReqInfo struct{
-	vmID string
-	floatingIPID string
+type IBMIPBindReqInfo struct {
+	vmID               string
+	floatingIPID       string
 	NetworkInterfaceID string
 }
 
-func floatingIPBind(IPBindReqInfo IBMIPBindReqInfo,vpcService *vpcv1.VpcV1, ctx context.Context) (vpcv1.FloatingIP, error) {
+func floatingIPBind(IPBindReqInfo IBMIPBindReqInfo, vpcService *vpcv1.VpcV1, ctx context.Context) (vpcv1.FloatingIP, error) {
 	if IPBindReqInfo.vmID == "" || IPBindReqInfo.floatingIPID == "" || IPBindReqInfo.NetworkInterfaceID == "" {
 		return vpcv1.FloatingIP{}, errors.New("invalid IDs")
 	}
@@ -536,13 +537,13 @@ func floatingIPBind(IPBindReqInfo IBMIPBindReqInfo,vpcService *vpcv1.VpcV1, ctx 
 	addInstanceNetworkInterfaceFloatingIPOptions.SetInstanceID(IPBindReqInfo.vmID)
 	addInstanceNetworkInterfaceFloatingIPOptions.SetNetworkInterfaceID(IPBindReqInfo.NetworkInterfaceID)
 	floatingIP, _, err := vpcService.AddInstanceNetworkInterfaceFloatingIPWithContext(ctx, addInstanceNetworkInterfaceFloatingIPOptions)
-	if err != nil{
+	if err != nil {
 		return vpcv1.FloatingIP{}, err
 	}
 	return *floatingIP, nil
 }
 
-func floatingIPUnBind(IPBindReqInfo IBMIPBindReqInfo,vpcService *vpcv1.VpcV1, ctx context.Context) (bool, error) {
+func floatingIPUnBind(IPBindReqInfo IBMIPBindReqInfo, vpcService *vpcv1.VpcV1, ctx context.Context) (bool, error) {
 	if IPBindReqInfo.vmID == "" || IPBindReqInfo.floatingIPID == "" || IPBindReqInfo.NetworkInterfaceID == "" {
 		return false, errors.New("invalid IDs")
 	}
@@ -555,67 +556,67 @@ func floatingIPUnBind(IPBindReqInfo IBMIPBindReqInfo,vpcService *vpcv1.VpcV1, ct
 		return false, err
 	}
 	deleteFloatingIPOptions := vpcService.NewDeleteFloatingIPOptions(IPBindReqInfo.floatingIPID)
-	_, err = vpcService.DeleteFloatingIPWithContext(ctx,deleteFloatingIPOptions)
-	if err != nil{
+	_, err = vpcService.DeleteFloatingIPWithContext(ctx, deleteFloatingIPOptions)
+	if err != nil {
 		return false, err
 	}
 	return true, nil
 }
 
-func getVMNextHref (next *vpcv1.InstanceCollectionNext) (string, error){
-	if next != nil{
+func getVMNextHref(next *vpcv1.InstanceCollectionNext) (string, error) {
+	if next != nil {
 		href := *next.Href
 		u, err := url.Parse(href)
-		if err != nil{
+		if err != nil {
 			return "", err
 		}
 		paramMap, _ := url.ParseQuery(u.RawQuery)
-		if paramMap != nil  {
+		if paramMap != nil {
 			safe := paramMap["start"]
 			if safe != nil && len(safe) > 0 {
-				return safe[0],nil
+				return safe[0], nil
 			}
 		}
 	}
 	return "", errors.New("NOT NEXT")
 }
 func checkVmIID(vmIID irs.IID) error {
-	if vmIID.SystemId =="" && vmIID.NameId ==""{
+	if vmIID.SystemId == "" && vmIID.NameId == "" {
 		return errors.New("invalid IID")
 	}
 	return nil
 }
 
 func checkVMReqInfo(vmReqInfo irs.VMReqInfo) error {
-	if vmReqInfo.IId.NameId ==""{
+	if vmReqInfo.IId.NameId == "" {
 		return errors.New("invalid VM IID")
 	}
-	if vmReqInfo.ImageIID.NameId == "" &&  vmReqInfo.ImageIID.SystemId == "" {
+	if vmReqInfo.ImageIID.NameId == "" && vmReqInfo.ImageIID.SystemId == "" {
 		return errors.New("invalid VM ImageIID")
 	}
-	if vmReqInfo.VpcIID.NameId =="" && vmReqInfo.VpcIID.SystemId == "" {
+	if vmReqInfo.VpcIID.NameId == "" && vmReqInfo.VpcIID.SystemId == "" {
 		return errors.New("invalid VM VpcIID")
 	}
-	if vmReqInfo.SubnetIID.NameId =="" && vmReqInfo.SubnetIID.SystemId == "" {
+	if vmReqInfo.SubnetIID.NameId == "" && vmReqInfo.SubnetIID.SystemId == "" {
 		return errors.New("invalid VM SubnetIID")
 	}
-	if vmReqInfo.KeyPairIID.NameId =="" && vmReqInfo.KeyPairIID.SystemId == "" {
+	if vmReqInfo.KeyPairIID.NameId == "" && vmReqInfo.KeyPairIID.SystemId == "" {
 		return errors.New("invalid VM KeyPairIID")
 	}
-	if vmReqInfo.VMSpecName =="" {
+	if vmReqInfo.VMSpecName == "" {
 		return errors.New("invalid VM VMSpecName")
 	}
 	return nil
 }
-func existInstance(vmIID irs.IID, vpcService *vpcv1.VpcV1, ctx context.Context)(bool, error){
+func existInstance(vmIID irs.IID, vpcService *vpcv1.VpcV1, ctx context.Context) (bool, error) {
 	options := &vpcv1.ListInstancesOptions{}
 	instances, _, err := vpcService.ListInstancesWithContext(ctx, options)
 	if err != nil {
 		return false, err
 	}
 	for {
-		for _, instance := range instances.Instances{
-			if *instance.Name == vmIID.NameId{
+		for _, instance := range instances.Instances {
+			if *instance.Name == vmIID.NameId {
 				return true, nil
 			}
 		}
@@ -624,7 +625,7 @@ func existInstance(vmIID irs.IID, vpcService *vpcv1.VpcV1, ctx context.Context)(
 			listInstanceOptionsNext := &vpcv1.ListInstancesOptions{
 				Start: core.StringPtr(nextstr),
 			}
-			instances, _, err = vpcService.ListInstancesWithContext(ctx,listInstanceOptionsNext)
+			instances, _, err = vpcService.ListInstancesWithContext(ctx, listInstanceOptionsNext)
 			if err != nil {
 				return false, err
 			}
@@ -634,7 +635,7 @@ func existInstance(vmIID irs.IID, vpcService *vpcv1.VpcV1, ctx context.Context)(
 	}
 	return false, nil
 }
-func getRawInstance(vmIID irs.IID, vpcService *vpcv1.VpcV1, ctx context.Context) (vpcv1.Instance,error){
+func getRawInstance(vmIID irs.IID, vpcService *vpcv1.VpcV1, ctx context.Context) (vpcv1.Instance, error) {
 	if vmIID.SystemId == "" {
 		options := &vpcv1.ListInstancesOptions{}
 		instances, _, err := vpcService.ListInstancesWithContext(ctx, options)
@@ -642,8 +643,8 @@ func getRawInstance(vmIID irs.IID, vpcService *vpcv1.VpcV1, ctx context.Context)
 			return vpcv1.Instance{}, err
 		}
 		for {
-			for _, instance := range instances.Instances{
-				if *instance.Name == vmIID.NameId{
+			for _, instance := range instances.Instances {
+				if *instance.Name == vmIID.NameId {
 					return instance, nil
 				}
 			}
@@ -652,7 +653,7 @@ func getRawInstance(vmIID irs.IID, vpcService *vpcv1.VpcV1, ctx context.Context)
 				listInstanceOptionsNext := &vpcv1.ListInstancesOptions{
 					Start: core.StringPtr(nextstr),
 				}
-				instances, _, err = vpcService.ListInstancesWithContext(ctx,listInstanceOptionsNext)
+				instances, _, err = vpcService.ListInstancesWithContext(ctx, listInstanceOptionsNext)
 				if err != nil {
 					// LoggingError(hiscallInfo, err)
 					return vpcv1.Instance{}, err
@@ -662,62 +663,62 @@ func getRawInstance(vmIID irs.IID, vpcService *vpcv1.VpcV1, ctx context.Context)
 				break
 			}
 		}
-		err = errors.New(fmt.Sprintf("not found VM %s",vmIID.NameId ))
+		err = errors.New(fmt.Sprintf("not found VM %s", vmIID.NameId))
 		return vpcv1.Instance{}, err
 	} else {
 		instanceOptions := &vpcv1.GetInstanceOptions{}
 		instanceOptions.SetID(vmIID.SystemId)
 		instance, _, err := vpcService.GetInstanceWithContext(ctx, instanceOptions)
-		if err != nil{
+		if err != nil {
 			return vpcv1.Instance{}, err
 		}
 		return *instance, nil
 	}
 }
-func getSuspendVMCheck(status string) error{
+func getSuspendVMCheck(status string) error {
 	switch status {
-	case  "running" :
+	case "running":
 		return nil
-	case "pausing", "pending", "stopping",  "resuming", "restarting", "failed", "stopped", "paused", "starting" :
+	case "pausing", "pending", "stopping", "resuming", "restarting", "failed", "stopped", "paused", "starting":
 		status, _ := convertInstanceStatus(status)
-		return errors.New(fmt.Sprintf("can't ReBoot VM when your VM Status is %s",status))
-	case "deleting" :
+		return errors.New(fmt.Sprintf("can't ReBoot VM when your VM Status is %s", status))
+	case "deleting":
 		return errors.New("can't ReBoot VM when your VM Status is Terminating")
 	//case "starting":
 	//	return errors.New("can't ReBoot VM when your VM Status is Creating ")
-	case "" :
+	case "":
 		return errors.New("can't ReBoot VM when your VM Status is NotExist")
 	default:
 		return errors.New("UnKnown STATUS")
 	}
 }
 
-func getResumeVMCheck(status string) error{
+func getResumeVMCheck(status string) error {
 	switch status {
-	case  "stopped", "paused" :
+	case "stopped", "paused":
 		return nil
-	case "pausing", "pending", "stopping", "running", "resuming", "restarting", "failed", "starting" :
+	case "pausing", "pending", "stopping", "running", "resuming", "restarting", "failed", "starting":
 		status, _ := convertInstanceStatus(status)
-		return errors.New(fmt.Sprintf("can't ReBoot VM when your VM Status is %s",status))
-	case "deleting" :
+		return errors.New(fmt.Sprintf("can't ReBoot VM when your VM Status is %s", status))
+	case "deleting":
 		return errors.New("can't ReBoot VM when your VM Status is Terminating")
 	//case "starting":
 	//	return errors.New("can't ReBoot VM when your VM Status is Creating ")
-	case "" :
+	case "":
 		return errors.New("can't ReBoot VM when your VM Status is NotExist")
 	default:
 		return errors.New("UnKnown STATUS")
 	}
 }
-func getRebootCheck(status string) error{
+func getRebootCheck(status string) error {
 	switch status {
-	case "pausing", "pending", "stopping", "running", "resuming", "restarting", "failed", "stopped", "paused", "starting" :
+	case "pausing", "pending", "stopping", "running", "resuming", "restarting", "failed", "stopped", "paused", "starting":
 		return nil
-	case "deleting" :
+	case "deleting":
 		return errors.New("can't ReBoot VM when your VM Status is Terminating")
 	//case "starting":
 	//	return errors.New("can't ReBoot VM when your VM Status is Creating")
-	case "" :
+	case "":
 		return errors.New("can't ReBoot VM when your VM Status is NotExist")
 	default:
 		return errors.New("UnKnown STATUS")
@@ -726,34 +727,34 @@ func getRebootCheck(status string) error{
 
 func convertInstanceStatus(status string) (irs.VMStatus, error) {
 	switch status {
-	case "pausing", "pending", "stopping" :
+	case "pausing", "pending", "stopping":
 		return irs.Suspending, nil
-	case "stopped", "paused" :
+	case "stopped", "paused":
 		return irs.Suspended, nil
-	case "failed" :
+	case "failed":
 		return irs.Failed, nil
-	case "restarting" :
+	case "restarting":
 		return irs.Rebooting, nil
-	case "resuming" :
+	case "resuming":
 		return irs.Resuming, nil
-	case "deleting" :
+	case "deleting":
 		return irs.Terminating, nil
-	case "running" :
+	case "running":
 		return irs.Running, nil
 	// TODO: starting and Creating 구분 못함.
 	case "starting":
 		return irs.Resuming, nil
-	case "" :
+	case "":
 		return irs.NotExist, nil
 	default:
 		return "", errors.New("UnKnown STATUS")
 	}
 }
 
-func deleteInstance(instanceId string, vpcService *vpcv1.VpcV1, ctx context.Context) error{
+func deleteInstance(instanceId string, vpcService *vpcv1.VpcV1, ctx context.Context) error {
 	deleteInstanceOptions := &vpcv1.DeleteInstanceOptions{}
 	deleteInstanceOptions.SetID(instanceId)
-	_, err := vpcService.DeleteInstanceWithContext(ctx,deleteInstanceOptions)
+	_, err := vpcService.DeleteInstanceWithContext(ctx, deleteInstanceOptions)
 	return err
 }
 
@@ -762,17 +763,17 @@ func removeFloatingIps(instance vpcv1.Instance, vpcService *vpcv1.VpcV1, ctx con
 	instanceNetworkInterfaceOptions.SetID(*instance.PrimaryNetworkInterface.ID)
 	instanceNetworkInterfaceOptions.SetInstanceID(*instance.ID)
 	networkInterface, _, err := vpcService.GetInstanceNetworkInterfaceWithContext(ctx, instanceNetworkInterfaceOptions)
-	if err != nil{
+	if err != nil {
 		return err
 	}
 	if networkInterface.FloatingIps != nil {
 		for _, floatingIp := range networkInterface.FloatingIps {
 			ipBindInfo := IBMIPBindReqInfo{
-				vmID: *instance.ID,
-				floatingIPID: *floatingIp.ID,
+				vmID:               *instance.ID,
+				floatingIPID:       *floatingIp.ID,
 				NetworkInterfaceID: *instance.PrimaryNetworkInterface.ID,
 			}
-			_,err :=floatingIPUnBind(ipBindInfo,vpcService,ctx)
+			_, err := floatingIPUnBind(ipBindInfo, vpcService, ctx)
 			if err != nil {
 				return err
 			}
@@ -784,25 +785,25 @@ func removeFloatingIps(instance vpcv1.Instance, vpcService *vpcv1.VpcV1, ctx con
 func (vmHandler *IbmVMHandler) setVmInfo(instance vpcv1.Instance) (irs.VMInfo, error) {
 	vmInfo := irs.VMInfo{
 		IId: irs.IID{
-			NameId: *instance.Name,
+			NameId:   *instance.Name,
 			SystemId: *instance.ID,
 		},
 		StartTime: time.Time(*instance.CreatedAt).Local(),
 		Region: irs.RegionInfo{
 			Region: "",
-			Zone: *instance.Zone.Name,
+			Zone:   *instance.Zone.Name,
 		},
 		VMSpecName: *instance.Profile.Name,
 		VpcIID: irs.IID{
-			NameId: *instance.VPC.Name,
+			NameId:   *instance.VPC.Name,
 			SystemId: *instance.VPC.ID,
 		},
 		SubnetIID: irs.IID{
-			NameId: *instance.PrimaryNetworkInterface.Subnet.Name,
+			NameId:   *instance.PrimaryNetworkInterface.Subnet.Name,
 			SystemId: *instance.PrimaryNetworkInterface.Subnet.ID,
 		},
 		PrivateIP: *instance.PrimaryNetworkInterface.PrimaryIpv4Address,
-		VMUserId: CBDefaultVmUserName,
+		VMUserId:  CBDefaultVmUserName,
 	}
 	// KeyGet
 	instanceInitializationOptions := &vpcv1.GetInstanceInitializationOptions{}
@@ -812,10 +813,10 @@ func (vmHandler *IbmVMHandler) setVmInfo(instance vpcv1.Instance) (irs.VMInfo, e
 		jsonInitDataBytes, err := json.Marshal(initData.Keys[0])
 		if err == nil {
 			var keyRef vpcv1.KeyReferenceInstanceInitializationContextKeyReference
-			err = json.Unmarshal(jsonInitDataBytes,&keyRef)
-			if err == nil && keyRef.ID != nil && keyRef.Name != nil{
+			err = json.Unmarshal(jsonInitDataBytes, &keyRef)
+			if err == nil && keyRef.ID != nil && keyRef.Name != nil {
 				vmInfo.KeyPairIId = irs.IID{
-					NameId: *keyRef.Name,
+					NameId:   *keyRef.Name,
 					SystemId: *keyRef.ID,
 				}
 			}
@@ -836,4 +837,3 @@ func (vmHandler *IbmVMHandler) setVmInfo(instance vpcv1.Instance) (irs.VMInfo, e
 	}
 	return vmInfo, nil
 }
-
