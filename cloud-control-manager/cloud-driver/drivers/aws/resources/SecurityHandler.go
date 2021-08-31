@@ -585,14 +585,14 @@ func loopDeleteSecurityGroup(client *ec2.EC2, input *ec2.DeleteSecurityGroupInpu
 
         var err error
 
-        maxRetryCnt := 10 // retry until 50s
+        maxRetryCnt := 40 // retry until 120s
         for i := 0; i<maxRetryCnt; i++ {
                 _, err = client.DeleteSecurityGroup(input)
                 if err == nil {
                         return nil
                 } 
 		if strings.Contains(err.Error(), "DependencyViolation") {
-                        time.Sleep(time.Second * 5)
+                        time.Sleep(time.Second * 3)
                 } else {
 			return err
 		}
