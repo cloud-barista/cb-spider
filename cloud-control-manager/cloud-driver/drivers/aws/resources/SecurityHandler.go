@@ -21,6 +21,10 @@ import (
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
+
+
+	"strings"
+	"time"
 )
 
 type AwsSecurityHandler struct {
@@ -546,7 +550,10 @@ func (securityHandler *AwsSecurityHandler) DeleteSecurity(securityIID irs.IID) (
 	callLogStart := call.Start()
 
 	// Delete the security group.
-	_, err := securityHandler.Client.DeleteSecurityGroup(&ec2.DeleteSecurityGroupInput{
+	//_, err := securityHandler.Client.DeleteSecurityGroup(&ec2.DeleteSecurityGroupInput{
+	//	GroupId: aws.String(securityID),
+	//})
+	err := loopDeleteSecurityGroup(securityHandler.Client, &ec2.DeleteSecurityGroupInput{
 		GroupId: aws.String(securityID),
 	})
 	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
@@ -571,4 +578,24 @@ func (securityHandler *AwsSecurityHandler) DeleteSecurity(securityIID irs.IID) (
 	cblogger.Infof("Successfully delete security group %q.", securityID)
 
 	return true, nil
+}
+
+// wait to resolve the 'DependencyViolation' error
+func loopDeleteSecurityGroup(client *ec2.EC2, input *ec2.DeleteSecurityGroupInput) error {
+
+        var err error
+
+        maxRetryCnt := 10 // retry until 50s
+        for i := 0; i<maxRetryCnt; i++ {
+                _, err = client.DeleteSecurityGroup(input)
+                if err == nil {
+                        return nil
+                } 
+		if strings.Contains(err.Error(), "DependencyViolation") {
+                        time.Sleep(time.Second * 5)
+                } else {
+			return err
+		}
+        }
+        return err
 }
