@@ -414,7 +414,7 @@ func (vmHandler *AlibabaVMHandler) RebootVM(vmIID irs.IID) (irs.VMStatus, error)
 
 func (vmHandler *AlibabaVMHandler) TerminateVM(vmIID irs.IID) (irs.VMStatus, error) {
 	cblogger.Infof("vmID : [%s]", vmIID.SystemId)
-
+/*
 	cblogger.Infof("VM을 종료하기 위해 Suspend 모드로 실행합니다.")
 	//Terminate하려면 VM이 Running 상태면 안됨.
 	sus, errSus := vmHandler.SuspendVM(vmIID)
@@ -451,10 +451,11 @@ func (vmHandler *AlibabaVMHandler) TerminateVM(vmIID irs.IID) (irs.VMStatus, err
 			break
 		}
 	}
-
+*/
 	request := ecs.CreateDeleteInstanceRequest()
 	request.Scheme = "https"
 	request.InstanceId = vmIID.SystemId
+	request.Force = requests.Boolean("true") 
 
 	// logger for HisCall
 	callogger := call.GetLogger("HISCALL")
@@ -468,18 +469,32 @@ func (vmHandler *AlibabaVMHandler) TerminateVM(vmIID irs.IID) (irs.VMStatus, err
 		ErrorMSG:     "",
 	}
 
-	callLogStart := call.Start()
-	response, err := vmHandler.Client.DeleteInstance(request)
-	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+        maxRetryCnt := 40 // retry until 120s
+        for i := 0; i<maxRetryCnt; i++ {
 
-	if err != nil {
-		callLogInfo.ErrorMSG = err.Error()
-		callogger.Error(call.String(callLogInfo))
-		cblogger.Error(err.Error())
-		return irs.VMStatus("Failed"), err
+		callLogStart := call.Start()
+		response, err := vmHandler.Client.DeleteInstance(request)
+		callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+
+		if err != nil {
+			if strings.Contains(err.Error(), "IncorrectInstanceStatus") {  
+			  // Loop: IncorrectInstanceStatus error
+				callLogInfo.ErrorMSG = err.Error()
+				callogger.Info(call.String(callLogInfo))
+				cblogger.Info(err.Error())
+				time.Sleep(time.Second * 3)
+			} else { // general error
+				callLogInfo.ErrorMSG = err.Error()
+				callogger.Error(call.String(callLogInfo))
+				cblogger.Error(err.Error())
+				return irs.VMStatus("Failed"), err
+			}
+		}else {
+			callogger.Info(call.String(callLogInfo))
+			cblogger.Info(response)
+			break
+		}
 	}
-	callogger.Info(call.String(callLogInfo))
-	cblogger.Info(response)
 	return irs.VMStatus("Terminating"), nil
 }
 
