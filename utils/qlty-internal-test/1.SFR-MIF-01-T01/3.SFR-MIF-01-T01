@@ -1,0 +1,27 @@
+RESTSERVER=localhost
+
+source ../header.sh
+
+
+
+
+
+echo -e "\n============ STEP-3: DELETE"
+
+ # Cloud Connection Config Info
+curl -sX DELETE http://$RESTSERVER:1024/spider/connectionconfig/mock-config01
+
+ # Cloud Region Info
+curl -sX DELETE http://$RESTSERVER:1024/spider/region/mock-region01
+
+ # for Cloud Credential Info
+# for Mock
+curl -sX DELETE http://$RESTSERVER:1024/spider/credential/mock-credential01
+
+ # for Cloud Driver Info
+curl -sX DELETE http://$RESTSERVER:1024/spider/driver/mock-driver01
+
+
+
+
+source ../tailer.sh

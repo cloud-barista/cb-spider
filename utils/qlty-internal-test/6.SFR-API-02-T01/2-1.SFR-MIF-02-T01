@@ -1,0 +1,18 @@
+RESTSERVER=localhost
+
+source ../header.sh
+
+
+
+echo -e "\n============ STEP-2-1: CREATE VPC/SG/KEY/VM-CSP1 (AWS:OHIO)"
+
+export CONN_CONFIG=aws-ohio-config
+export IMAGE_NAME=ami-0bbe28eb2173f6167
+export SPEC_NAME=t3.micro
+
+../create_vpc-vm.sh
+
+
+
+
+source ../tailer.sh

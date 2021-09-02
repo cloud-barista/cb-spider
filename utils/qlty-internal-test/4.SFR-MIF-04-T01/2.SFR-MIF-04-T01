@@ -1,0 +1,16 @@
+RESTSERVER=localhost
+
+source ../header.sh
+
+
+
+echo -e "\n============ STEP-4: CREATE/LIST/DELETE VPC (AWS:OHIO)"
+
+export CONN_CONFIG=aws-ohio-config
+
+../create_list_delete_vpc.sh
+
+
+
+
+source ../tailer.sh

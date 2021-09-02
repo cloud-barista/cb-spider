@@ -1,0 +1,18 @@
+RESTSERVER=localhost
+
+source ../header.sh
+
+
+
+echo -e "\n============ STEP-2-1: CREATE VPC/SG/KEY/VM-CSP1 (Cloud-Twin)"
+
+export CONN_CONFIG=cloudtwin-spider-1
+export IMAGE_NAME=ubuntu18.04-sshd-systemd
+export SPEC_NAME=spec-1
+
+../create_vpc-vm.sh
+
+
+
+
+source ../tailer.sh

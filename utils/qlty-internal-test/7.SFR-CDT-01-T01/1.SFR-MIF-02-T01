@@ -1,0 +1,24 @@
+RESTSERVER=localhost
+
+source ../credentials
+source ../header.sh
+
+
+
+echo -e "\n============ STEP-1: CREATE CONNECT CONFIG-CSP1 (Cloud-Twin)"
+
+ # for Cloud Driver Info
+curl -X POST http://$RESTSERVER:1024/spider/driver -H 'Content-Type: application/json' -d '{"DriverName":"cloudtwin-driver-1","ProviderName":"CLOUDTWIN", "DriverLibFileName":"cloudtwin-driver-v1.0.so"}'
+
+ # for Cloud Credential Info
+curl -X POST http://$RESTSERVER:1024/spider/credential -H 'Content-Type: application/json' -d '{"CredentialName":"cloudtwin-credential-1","ProviderName":"CLOUDTWIN", "KeyValueInfoList": [{"Key":"IdentityEndpoint", "Value":"'${CT1-IdentityEndpoint}'"}, {"Key":"DomainName", "Value":"'${CT1-DomainName}'"}, {"Key":"MockName", "Value":"'${CT1-MockName}'"}]}'
+
+ # Cloud Region Info for Shooter
+curl -X POST http://$RESTSERVER:1024/spider/region -H 'Content-Type: application/json' -d '{"RegionName":"cloudtwin-region-1","ProviderName":"CLOUDTWIN", "KeyValueInfoList": [{"Key":"Region", "Value":"default"}]}'
+
+ # Cloud Connection Config Info for Shooter
+curl -X POST http://$RESTSERVER:1024/spider/connectionconfig -H 'Content-Type: application/json' -d '{"ConfigName":"cloudtwin-spider-1","ProviderName":"CLOUDTWIN", "DriverName":"cloudtwin-driver-1", "CredentialName":"cloudtwin-credential-1", "RegionName":"cloudtwin-region-1"}'
+
+
+
+source ../tailer.sh

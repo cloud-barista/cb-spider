@@ -1,0 +1,24 @@
+RESTSERVER=localhost
+
+source ../header.sh
+
+
+
+
+echo -e "\n============ STEP-3: LIST"
+
+ # for Cloud Driver Info
+curl -sX GET http://$RESTSERVER:1024/spider/driver -H 'Content-Type: application/json'
+
+ # for Cloud Credential Info
+# for Mock
+curl -sX GET http://$RESTSERVER:1024/spider/credential -H 'Content-Type: application/json'
+
+ # Cloud Region Info
+curl -sX GET http://$RESTSERVER:1024/spider/region -H 'Content-Type: application/json'
+
+ # Cloud Connection Config Info
+curl -sX GET http://$RESTSERVER:1024/spider/connectionconfig -H 'Content-Type: application/json'
+
+
+source ../tailer.sh

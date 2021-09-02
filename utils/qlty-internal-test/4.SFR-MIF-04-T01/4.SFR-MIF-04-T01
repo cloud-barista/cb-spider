@@ -1,0 +1,25 @@
+RESTSERVER=localhost
+
+source ../header.sh
+
+
+
+echo -e "\n============ STEP-4: DELETE CONNECT CONFIG (AWS:OHIO)"
+
+ # Cloud Connection Config Info for Shooter
+curl -X DELETE http://$RESTSERVER:1024/spider/connectionconfig/aws-ohio-config
+
+ # Cloud Region Info for Shooter
+curl -X DELETE http://$RESTSERVER:1024/spider/region/aws-ohio
+
+ # for Cloud Credential Info
+curl -X DELETE http://$RESTSERVER:1024/spider/credential/aws-credential01
+
+ # for Cloud Driver Info
+curl -X DELETE http://$RESTSERVER:1024/spider/driver/aws-driver01
+
+
+
+
+
+source ../tailer.sh

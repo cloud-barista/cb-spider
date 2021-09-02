@@ -1,0 +1,25 @@
+RESTSERVER=localhost
+
+source ../header.sh
+
+
+
+
+echo -e "\n============ STEP-3: DELETE CONNECT CONFIG-CSP1 (Cloud-Twin)"
+
+ # Cloud Connection Config Info for Shooter
+curl -X DELETE http://$RESTSERVER:1024/spider/connectionconfig/cloudtwin-spider-1
+
+ # Cloud Region Info for Shooter
+curl -X DELETE http://$RESTSERVER:1024/spider/region/cloudtwin-region-1
+
+ # for Cloud Credential Info
+curl -X DELETE http://$RESTSERVER:1024/spider/credential/cloudtwin-credential-1
+
+ # for Cloud Driver Info
+curl -X DELETE http://$RESTSERVER:1024/spider/driver/cloudtwin-driver-1
+
+
+
+
+source ../tailer.sh

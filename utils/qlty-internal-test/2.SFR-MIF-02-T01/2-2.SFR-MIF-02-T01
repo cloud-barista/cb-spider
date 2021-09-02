@@ -1,0 +1,26 @@
+RESTSERVER=localhost
+
+source ../header.sh
+
+
+
+echo -e "\n============ STEP-2-2: LIST VM-CSP1 (AWS:OHIO)"
+export CONN_CONFIG=aws-ohio-config
+../list_vmstatus.sh
+
+echo -e "\n============ STEP-2-2: DELETE VM-CSP1 (AWS:OHIO)"
+../delete_vm.sh
+
+
+
+echo -e "\n============ STEP-2-2: LIST VM-CSP2 (ALIBABA:TOKYO)"
+export CONN_CONFIG=alibaba-tokyo-config
+../list_vmstatus.sh
+
+echo -e "\n============ STEP-2-2: DELETE VM-CSP2 (ALIBABA:TOKYO)"
+../delete_vm.sh
+
+
+
+
+source ../tailer.sh
