@@ -21,8 +21,8 @@ time $CLIPATH/spctl --config $CLIPATH/grpc_conf.yaml credential create -i json -
       "CredentialName":"aws-credential01", 
       "ProviderName":"AWS",
       "KeyValueInfoList": [
-        {"Key":"ClientId", "Value":"AKIAZH5OR44MET22GVE7"},
-        {"Key":"ClientSecret", "Value":"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"}
+        {"Key":"ClientId", "Value":"xxxxxxxxxxxx"},
+        {"Key":"ClientSecret", "Value":"xxxxxxxxxxxx"}
       ]
     }'
 
