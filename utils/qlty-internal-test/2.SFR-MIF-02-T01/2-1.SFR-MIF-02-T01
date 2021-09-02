@@ -1,0 +1,26 @@
+RESTSERVER=localhost
+
+source ../header.sh
+
+
+
+echo -e "\n============ STEP-2-1: CREATE VPC/SG/KEY/VM-CSP1 (AWS:OHIO)"
+
+export CONN_CONFIG=aws-ohio-config
+export IMAGE_NAME=ami-0bbe28eb2173f6167
+export SPEC_NAME=t3.micro
+
+../create_vpc-vm.sh
+
+
+
+echo -e "\n============ STEP-2-1: CREATE VPC/SG/KEY/VM-CSP2 (ALIBABA:TOKYO)"
+
+export CONN_CONFIG=alibaba-tokyo-config
+export IMAGE_NAME=ubuntu_18_04_x64_20G_alibase_20200220.vhd
+export SPEC_NAME=ecs.t5-lc1m2.small
+
+../create_vpc-vm.sh
+
+
+source ../tailer.sh

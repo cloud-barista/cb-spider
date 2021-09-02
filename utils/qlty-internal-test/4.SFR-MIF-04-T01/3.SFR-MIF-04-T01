@@ -1,0 +1,12 @@
+RESTSERVER=localhost
+
+source ../header.sh
+
+
+
+echo -e "\n============ STEP-3: PRINT CALL LOGS"
+
+tail -n 5 $CBSPIDER_ROOT/log/calllog/calllogs.log
+
+
+source ../tailer.sh

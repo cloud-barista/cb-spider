@@ -1,0 +1,13 @@
+RESTSERVER=localhost
+
+source ../header.sh
+
+
+
+echo -e "\n============ STEP-2-3: DELETE KEY~VPC-CSP1 (Cloud-Twin)"
+export CONN_CONFIG=cloudtwin-spider-1
+../delete_key-vpc.sh
+
+
+
+source ../tailer.sh
