@@ -424,22 +424,30 @@ func getVmStatus(instanceView compute.VirtualMachineInstanceView) irs.VMStatus {
 	}
 
 	// Set VM Status Info
-	var resultStatus string
-	switch powerState {
-	case "starting":
-		resultStatus = "Creating"
-	case "running":
-		resultStatus = "Running"
-	case "stopping":
-		resultStatus = "Suspending"
-	case "stopped":
-		resultStatus = "Suspended"
-	case "deleting":
-		resultStatus = "Terminating"
-	default:
-		resultStatus = "Failed"
+	resultStatus := irs.Failed
+
+	if provisioningState == "creating" {
+		resultStatus = irs.Creating
 	}
-	return irs.VMStatus(resultStatus)
+	if provisioningState == "succeeded" && powerState == "running" {
+		resultStatus = irs.Running
+	}
+	if provisioningState == "updating" && powerState == "stopping" {
+		resultStatus = irs.Suspending
+	}
+	if provisioningState == "succeeded" && powerState == "stopped" {
+		resultStatus = irs.Suspended
+	}
+	if provisioningState == "updating" && powerState == "starting" {
+		resultStatus = irs.Resuming
+	}
+	if provisioningState == "succeeded" && powerState == "starting" {
+		resultStatus = irs.Rebooting
+	}
+	if provisioningState == "deleting" {
+		resultStatus = irs.Terminating
+	}
+	return resultStatus
 }
 
 func (vmHandler *AzureVMHandler) mappingServerInfo(server compute.VirtualMachine) irs.VMInfo {
