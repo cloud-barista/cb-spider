@@ -182,7 +182,7 @@ func (s *CCMService) AddSubnet(ctx context.Context, req *pb.SubnetAddRequest) (*
 	reqSubnetInfo := cres.SubnetInfo{IId: cres.IID{req.Item.Name, ""}, IPv4_CIDR: req.Item.Ipv4Cidr}
 
 	// Call common-runtime API
-	result, err := cmrt.AddSubnet(req.ConnectionName, cm.SUBNET_PREFIX+req.VpcName, req.VpcName, reqSubnetInfo)
+	result, err := cmrt.AddSubnet(req.ConnectionName, rsSubnet, req.VpcName, reqSubnetInfo)
 	if err != nil {
 		return nil, gc.ConvGrpcStatusErr(err, "", "CCMService.AddSubnet()")
 	}
@@ -205,7 +205,7 @@ func (s *CCMService) RemoveSubnet(ctx context.Context, req *pb.SubnetQryRequest)
 	logger.Debug("calling CCMService.RemoveSubnet()")
 
 	// Call common-runtime API
-	result, _, err := cmrt.DeleteResource(req.ConnectionName, cm.SUBNET_PREFIX+req.VpcName, req.SubnetName, req.Force)
+	result, err := cmrt.RemoveSubnet(req.ConnectionName, req.VpcName, req.SubnetName, req.Force)
 	if err != nil {
 		return nil, gc.ConvGrpcStatusErr(err, "", "CCMService.RemoveSubnet()")
 	}
@@ -221,7 +221,7 @@ func (s *CCMService) RemoveCSPSubnet(ctx context.Context, req *pb.CSPSubnetQryRe
 	logger.Debug("calling CCMService.RemoveCSPSubnet()")
 
 	// Call common-runtime API
-	result, _, err := cmrt.DeleteCSPResource(req.ConnectionName, cm.SUBNET_PREFIX+req.VpcName, req.Id)
+	result, err := cmrt.RemoveCSPSubnet(req.ConnectionName, req.VpcName, req.Id)
 	if err != nil {
 		return nil, gc.ConvGrpcStatusErr(err, "", "CCMService.RemoveCSPSubnet()")
 	}

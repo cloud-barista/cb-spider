@@ -125,11 +125,11 @@ func (vmHandler *MockVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, er
 		VMUserId:     vmReqInfo.VMUserId,
 		VMUserPasswd: vmReqInfo.VMUserPasswd,
 
-		NetworkInterface: vmReqInfo.IId.NameId + "_" + mockName + "mockni",
+		NetworkInterface: "mockni0",
 		PublicIP:         "4.3.2.1",
-		PublicDNS:        vmReqInfo.IId.NameId + "." + mockName + ".spider.barista.com",
+		PublicDNS:        vmReqInfo.IId.NameId + ".spider.barista.com",
 		PrivateIP:        "1.2.3.4",
-		PrivateDNS:       vmReqInfo.IId.NameId + "." + mockName + ".spider.barista.com",
+		PrivateDNS:       vmReqInfo.IId.NameId + ".spider.barista.com",
 
 		VMBootDisk:  "/dev/sda1",
 		VMBlockDisk: "/dev/sda1",
@@ -289,10 +289,37 @@ func (vmHandler *MockVMHandler) ListVMStatus() ([]*irs.VMStatusInfo, error) {
 		return []*irs.VMStatusInfo{}, nil
 	}
 	// cloning list of VM Status
-	resultList := make([]*irs.VMStatusInfo, len(infoList))
-	copy(resultList, infoList)
-	return resultList, nil
+	return CloneVMStatusInfoList(infoList), nil
 }
+
+func CloneVMStatusInfoList(srcInfoList []*irs.VMStatusInfo) []*irs.VMStatusInfo {
+        clonedInfoList := []*irs.VMStatusInfo{}
+        for _, srcInfo := range srcInfoList {
+                clonedInfo := CloneVMStatusInfo(*srcInfo)
+                clonedInfoList = append(clonedInfoList, &clonedInfo)
+        }
+        return clonedInfoList
+}
+
+func CloneVMStatusInfo(srcInfo irs.VMStatusInfo) irs.VMStatusInfo {
+        /*
+		type VMStatusInfo struct {
+			IId      IID // {NameId, SystemId}
+			VmStatus VMStatus
+		}
+
+	*/
+	
+	// clone VMStatusInfo
+	clonedInfo := irs.VMStatusInfo {
+		IId:            irs.IID{srcInfo.IId.NameId, srcInfo.IId.SystemId},
+		VmStatus:	srcInfo.VmStatus,
+	}
+
+	return clonedInfo
+}
+
+
 
 func (vmHandler *MockVMHandler) GetVMStatus(iid irs.IID) (irs.VMStatus, error) {
 	cblogger := cblog.GetLogger("CB-SPIDER")
@@ -305,6 +332,7 @@ func (vmHandler *MockVMHandler) GetVMStatus(iid irs.IID) (irs.VMStatus, error) {
 	}
 
 	for _, info := range infoList {
+		fmt.Println("++++++++++ "  + (*info).IId.NameId + "------------" + iid.NameId)
 		if (*info).IId.NameId == iid.NameId {
 			return (*info).VmStatus, nil
 		}
@@ -326,9 +354,85 @@ func (vmHandler *MockVMHandler) ListVM() ([]*irs.VMInfo, error) {
 	}
 
 	// cloning list of VM
-	resultList := make([]*irs.VMInfo, len(infoList))
-	copy(resultList, infoList)
-	return resultList, nil
+	return CloneVMInfoList(infoList), nil
+}
+
+func CloneVMInfoList(srcInfoList []*irs.VMInfo) []*irs.VMInfo {
+        clonedInfoList := []*irs.VMInfo{}
+        for _, srcInfo := range srcInfoList {
+                clonedInfo := CloneVMInfo(*srcInfo)
+                clonedInfoList = append(clonedInfoList, &clonedInfo)
+        }
+        return clonedInfoList
+}
+
+func CloneVMInfo(srcInfo irs.VMInfo) irs.VMInfo {
+        /*
+		type VMInfo struct {
+			IId       IID       // {NameId, SystemId}
+			StartTime time.Time // Timezone: based on cloud-barista server location.
+
+			Region            RegionInfo //  ex) {us-east1, us-east1-c} or {ap-northeast-2}
+			ImageIId          IID
+			VMSpecName        string //  instance type or flavour, etc... ex) t2.micro or f1.micro
+			VpcIID            IID
+			SubnetIID         IID   // AWS, ex) subnet-8c4a53e4
+			SecurityGroupIIds []IID // AWS, ex) sg-0b7452563e1121bb6
+
+			KeyPairIId IID
+
+			VMUserId     string // ex) user1
+			VMUserPasswd string
+
+			NetworkInterface string // ex) eth0
+			PublicIP         string
+			PublicDNS        string
+			PrivateIP        string
+			PrivateDNS       string
+
+			VMBootDisk  string // ex) /dev/sda1
+			VMBlockDisk string // ex)
+
+			SSHAccessPoint string // ex) 10.2.3.2:22, 123.456.789.123:4321
+
+			KeyValueList []KeyValue
+		}
+        */
+
+        // clone VMInfo
+        clonedInfo := irs.VMInfo{
+                IId:            irs.IID{srcInfo.IId.NameId, srcInfo.IId.SystemId},
+                StartTime:      srcInfo.StartTime,
+		Region:		srcInfo.Region,
+                ImageIId:       srcInfo.ImageIId,
+                VMSpecName:     srcInfo.VMSpecName,
+                VpcIID:         irs.IID{srcInfo.VpcIID.NameId, srcInfo.VpcIID.SystemId},
+                SubnetIID:      irs.IID{srcInfo.SubnetIID.NameId, srcInfo.SubnetIID.SystemId},
+		SecurityGroupIIds: cloneIIDArray(srcInfo.SecurityGroupIIds),
+                KeyPairIId:     irs.IID{srcInfo.KeyPairIId.NameId, srcInfo.KeyPairIId.SystemId},
+		VMUserId:       srcInfo.VMUserId,
+		VMUserPasswd:   srcInfo.VMUserPasswd,
+		NetworkInterface:   srcInfo.NetworkInterface,
+		PublicIP:       srcInfo.PublicIP,
+		PublicDNS:      srcInfo.PublicDNS,
+		PrivateIP:      srcInfo.PrivateIP,
+		PrivateDNS:     srcInfo.PrivateDNS,
+		VMBootDisk:     srcInfo.VMBootDisk,
+		VMBlockDisk:    srcInfo.VMBlockDisk,
+		SSHAccessPoint: srcInfo.SSHAccessPoint,
+
+                KeyValueList:   srcInfo.KeyValueList, // now, do not need cloning
+        }
+
+        return clonedInfo
+}
+
+func cloneIIDArray(srcIIDArray []irs.IID) []irs.IID {
+	clonedIIDs := []irs.IID{}
+	for _, iid := range srcIIDArray {
+		clonedIIDs = append(clonedIIDs, irs.IID{iid.NameId, iid.SystemId})
+	}
+	return clonedIIDs
 }
 
 func (vmHandler *MockVMHandler) GetVM(iid irs.IID) (irs.VMInfo, error) {
