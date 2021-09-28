@@ -68,7 +68,7 @@ func makeVPCTRList_html(bgcolor string, height string, fontSize string, infoList
                 `, fontSize)
 
 	strAddSubnet := fmt.Sprintf(`
-                <textarea style="font-size:12px;text-align:center;" name="subnet_text_box" id="subnet_text_box" cols=40>{ "Name": "subnet-xx", "IPv4_CIDR": "192.168.xx.xx/24"}</textarea>
+                <textarea style="font-size:12px;text-align:center;" name="subnet_text_box_$$ADDVPC$$" id="subnet_text_box_$$ADDVPC$$" cols=40>{ "Name": "subnet-xx", "IPv4_CIDR": "192.168.xx.xx/24"}</textarea>
                 <a href="javascript:$$ADDSUBNET$$;">
                         <font size=%s><b>+</b></font>
                 </a>
@@ -98,7 +98,8 @@ func makeVPCTRList_html(bgcolor string, height string, fontSize string, infoList
 
 			strSubnetList += "<br>"
 		}
-		strSubnetList += strings.ReplaceAll(strAddSubnet, "$$ADDSUBNET$$", "postSubnet('"+vpcName+"')")
+		vpcAddSubnet := strings.ReplaceAll(strAddSubnet, "$$ADDVPC$$", vpcName)
+		strSubnetList += strings.ReplaceAll(vpcAddSubnet, "$$ADDSUBNET$$", "postSubnet('"+vpcName+"')")
 		str = strings.ReplaceAll(str, "$$SUBNETINFO$$", strSubnetList)
 
 		// for KeyValueList
@@ -165,7 +166,7 @@ func makePostSubnetFunc_js() string {
                 function postSubnet(vpcName) {
                         var connConfig = parent.frames["top_frame"].document.getElementById("connConfig").innerHTML;
 
-                        var textbox = document.getElementById('subnet_text_box');
+                        var textbox = document.getElementById('subnet_text_box_' + vpcName);
                         sendJson = '{ "ConnectionName" : "' + connConfig + '", "ReqInfo" :  $$SUBNETINFO$$ }'
 
                         sendJson = sendJson.replace("$$SUBNETINFO$$", textbox.value);
