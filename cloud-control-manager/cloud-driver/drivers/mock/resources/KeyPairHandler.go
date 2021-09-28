@@ -47,7 +47,42 @@ func (keyPairHandler *MockKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPairRe
 	infoList = append(infoList, &keyPairInfo)
 	keyPairInfoMap[mockName] = infoList
 
-	return keyPairInfo, nil
+	return CloneKeyPairInfo(keyPairInfo), nil
+}
+
+func CloneKeyPairInfoList(srcInfoList []*irs.KeyPairInfo) []*irs.KeyPairInfo {
+        clonedInfoList := []*irs.KeyPairInfo{}
+        for _, srcInfo := range srcInfoList {
+                clonedInfo := CloneKeyPairInfo(*srcInfo)
+                clonedInfoList = append(clonedInfoList, &clonedInfo)
+        }
+        return clonedInfoList
+}
+
+func CloneKeyPairInfo(srcInfo irs.KeyPairInfo) irs.KeyPairInfo {
+        /*
+		type KeyPairInfo struct {
+			IId   IID       // {NameId, SystemId}
+			Fingerprint string
+			PublicKey   string
+			PrivateKey  string
+			VMUserID      string
+
+			KeyValueList []KeyValue
+		}
+        */
+
+        // clone KeyPairInfo
+        clonedInfo := irs.KeyPairInfo{
+                IId:       	irs.IID{srcInfo.IId.NameId, srcInfo.IId.SystemId},
+		Fingerprint: 	srcInfo.Fingerprint,
+		PublicKey: 	srcInfo.PublicKey, 
+		PrivateKey: 	srcInfo.PrivateKey,
+		VMUserID: 	srcInfo.VMUserID,
+                KeyValueList:  	srcInfo.KeyValueList, // now, do not need cloning
+        }
+
+        return clonedInfo
 }
 
 func (keyPairHandler *MockKeyPairHandler) ListKey() ([]*irs.KeyPairInfo, error) {
@@ -60,9 +95,7 @@ func (keyPairHandler *MockKeyPairHandler) ListKey() ([]*irs.KeyPairInfo, error) 
 		return []*irs.KeyPairInfo{}, nil
 	}
 	// cloning list of KeyPair
-	resultList := make([]*irs.KeyPairInfo, len(infoList))
-	copy(resultList, infoList)
-	return resultList, nil
+	return CloneKeyPairInfoList(infoList), nil
 }
 
 func (keyPairHandler *MockKeyPairHandler) GetKey(iid irs.IID) (irs.KeyPairInfo, error) {

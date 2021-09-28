@@ -14,6 +14,7 @@ package service
 const (
 	rsImage string = "image"
 	rsVPC   string = "vpc"
+	rsSubnet   string = "subnet"
 	rsSG    string = "sg"
 	rsKey   string = "keypair"
 	rsVM    string = "vm"

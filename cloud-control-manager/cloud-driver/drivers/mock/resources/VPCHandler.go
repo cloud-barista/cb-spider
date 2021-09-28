@@ -68,10 +68,73 @@ func (vpcHandler *MockVPCHandler) ListVPC() ([]*irs.VPCInfo, error) {
 	if !ok {
 		return []*irs.VPCInfo{}, nil
 	}
+
 	// cloning list of VPC
-	resultList := make([]*irs.VPCInfo, len(infoList))
-	copy(resultList, infoList)
-	return resultList, nil
+	return CloneVPCInfoList(infoList), nil
+}
+
+func CloneVPCInfoList(srcInfoList []*irs.VPCInfo) ([]*irs.VPCInfo) {
+    clonedInfoList := []*irs.VPCInfo{}
+    for _, srcInfo := range srcInfoList {
+        clonedInfo := CloneVPCInfo(*srcInfo)
+        clonedInfoList = append(clonedInfoList, &clonedInfo)
+    }
+    return clonedInfoList
+}
+
+func CloneVPCInfo(srcInfo irs.VPCInfo) (irs.VPCInfo) {
+    /*
+	type VPCInfo struct {
+		IId   IID       // {NameId, SystemId}
+		IPv4_CIDR string
+		SubnetInfoList []SubnetInfo
+
+		KeyValueList []KeyValue
+	}
+    */
+
+    // clone VPCInfo
+    clonedInfo := irs.VPCInfo {
+        IId: irs.IID{srcInfo.IId.NameId, srcInfo.IId.SystemId},
+        IPv4_CIDR: srcInfo.IPv4_CIDR,
+        SubnetInfoList: CloneSubnetInfoList(srcInfo.SubnetInfoList),
+
+        // Need not clone
+        KeyValueList: srcInfo.KeyValueList,
+    }
+
+    return clonedInfo
+}
+
+func CloneSubnetInfoList(srcInfoList []irs.SubnetInfo) ([]irs.SubnetInfo) {
+    clonedInfoList := []irs.SubnetInfo{}
+    for _, srcInfo := range srcInfoList {
+        clonedInfo := CloneSubnetInfo(srcInfo)
+        clonedInfoList = append(clonedInfoList, clonedInfo)
+    }
+    return clonedInfoList
+}
+
+func CloneSubnetInfo(srcInfo irs.SubnetInfo) (irs.SubnetInfo) {
+    /*
+	type SubnetInfo struct {
+		IId   IID       // {NameId, SystemId}
+		IPv4_CIDR string
+
+		KeyValueList []KeyValue
+	}
+    */
+
+    // clone SubnetInfo
+    clonedInfo := irs.SubnetInfo {
+        IId: irs.IID{srcInfo.IId.NameId, srcInfo.IId.SystemId},
+        IPv4_CIDR: srcInfo.IPv4_CIDR,
+
+        // Need not clone
+        KeyValueList: srcInfo.KeyValueList,
+    }
+
+    return clonedInfo
 }
 
 func (vpcHandler *MockVPCHandler) GetVPC(iid irs.IID) (irs.VPCInfo, error) {
@@ -86,7 +149,7 @@ func (vpcHandler *MockVPCHandler) GetVPC(iid irs.IID) (irs.VPCInfo, error) {
 
 	for _, info := range infoList {
 		if (*info).IId.NameId == iid.NameId {
-			return *info, nil
+			return CloneVPCInfo(*info), nil
 		}
 	}
 
@@ -118,6 +181,7 @@ func (vpcHandler *MockVPCHandler) AddSubnet(iid irs.IID, subnetInfo irs.SubnetIn
 	cblogger := cblog.GetLogger("CB-SPIDER")
 	cblogger.Info("Mock Driver: called AddSubnet()!")
 
+	// infoList: cloned list
 	infoList, err := vpcHandler.ListVPC()
 	if err != nil {
 		cblogger.Error(err)
@@ -128,6 +192,17 @@ func (vpcHandler *MockVPCHandler) AddSubnet(iid irs.IID, subnetInfo irs.SubnetIn
 	for _, info := range infoList {
 		if (*info).IId.NameId == iid.NameId {
 			info.SubnetInfoList = append(info.SubnetInfoList, subnetInfo)
+
+			// don't forget, info is cloned object.
+			// delete VPCInfo from global Map
+			vpcHandler.DeleteVPC(info.IId)
+
+			// insert VPCInfo into global Map
+			mockName := vpcHandler.MockName
+			infoList, _ := vpcInfoMap[mockName]
+			infoList = append(infoList, info)
+			vpcInfoMap[mockName] = infoList
+
 			return *info, nil
 		}
 	}
@@ -150,6 +225,17 @@ func (vpcHandler *MockVPCHandler) RemoveSubnet(iid irs.IID, subnetIID irs.IID) (
 			for idx, subInfo := range info.SubnetInfoList {
 				if subInfo.IId.SystemId == subnetIID.SystemId {
 					info.SubnetInfoList = append(info.SubnetInfoList[:idx], info.SubnetInfoList[idx+1:]...)
+
+					// don't forget, info is cloned object.
+					// delete VPCInfo from global Map
+					vpcHandler.DeleteVPC(info.IId)
+
+					// insert VPCInfo into global Map
+					mockName := vpcHandler.MockName
+					infoList, _ := vpcInfoMap[mockName]
+					infoList = append(infoList, info)
+					vpcInfoMap[mockName] = infoList
+
 					return true, nil
 				}
 			}

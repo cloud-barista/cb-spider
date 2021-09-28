@@ -1,4 +1,4 @@
-// Cloud Driver Info. Manager of CB-Spider.
+// IID(Integrated ID) Manager of CB-Spider.
 // The CB-Spider is a sub-Framework of the Cloud-Barista Multi-Cloud Project.
 // The CB-Spider Mission is to connect all the clouds with a single interface.
 //
@@ -12,10 +12,13 @@ import (
 	"fmt"
 	"sync"
 	"strings"
+	"github.com/rs/xid"
+	"regexp"
 
 	"github.com/sirupsen/logrus"
 	"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/cloud-barista/cb-store/config"
+	ccim "github.com/cloud-barista/cb-spider/cloud-info-manager/connection-config-info-manager"
 )
 
 var cblog *logrus.Logger
@@ -39,7 +42,7 @@ type IIDInfo struct {
 }
 //====================================================================
 
-func (iidRWLock *IIDRWLOCK)IsExistIID(connectionName string, resourceType string, iId resources.IID) (bool, error) {
+func (iidRWLock *IIDRWLOCK)IsExistIID(iidGroup IIDGroup, connectionName string, resourceType string, iId resources.IID) (bool, error) {
         cblog.Debug("check the IID.NameId:" + iId.NameId + " existence")
 
 iidRWLock.rwMutex.RLock()
@@ -48,10 +51,10 @@ defer iidRWLock.rwMutex.RUnlock()
 	// escape: "/" => "%2F"
 	iId.NameId = strings.ReplaceAll(iId.NameId, "/", "%2F")
 
-        return isExist(connectionName, resourceType, iId.NameId)
+        return isExist(iidGroup, connectionName, resourceType, iId.NameId)
 }
 
-func (iidRWLock *IIDRWLOCK)CreateIID(connectionName string, resourceType string, iId resources.IID) (*IIDInfo, error) {
+func (iidRWLock *IIDRWLOCK)CreateIID(iidGroup IIDGroup, connectionName string, resourceType string, iId resources.IID) (*IIDInfo, error) {
 	cblog.Debug("check the IID.NameId:" + iId.NameId + " existence")
 
 iidRWLock.rwMutex.Lock()
@@ -60,7 +63,7 @@ defer iidRWLock.rwMutex.Unlock()
 	// escape: "/" => "%2F"
 	iId.NameId = strings.ReplaceAll(iId.NameId, "/", "%2F")
 
-	ret, err := isExist(connectionName, resourceType, iId.NameId)
+	ret, err := isExist(iidGroup, connectionName, resourceType, iId.NameId)
 	if err != nil {
 		cblog.Error(err)
 		return nil, err
@@ -69,7 +72,7 @@ defer iidRWLock.rwMutex.Unlock()
 		return nil, fmt.Errorf(iId.NameId + " already exists!")
 	}
 
-	iidInfo, err2 := forceCreateIID(connectionName, resourceType, iId)
+	iidInfo, err2 := forceCreateIID(iidGroup, connectionName, resourceType, iId)
 
 	// escape: "%2F" => "/"
 	iidInfo.IId.NameId = strings.ReplaceAll(iidInfo.IId.NameId, "%2F", "/")
@@ -77,7 +80,7 @@ defer iidRWLock.rwMutex.Unlock()
 	return iidInfo, err2
 }
 
-func (iidRWLock *IIDRWLOCK)UpdateIID(connectionName string, resourceType string, iId resources.IID) (*IIDInfo, error) {
+func (iidRWLock *IIDRWLOCK)UpdateIID(iidGroup IIDGroup, connectionName string, resourceType string, iId resources.IID) (*IIDInfo, error) {
         cblog.Debug("check the IID.NameId:" + iId.NameId + " existence")
 
 iidRWLock.rwMutex.Lock()
@@ -86,7 +89,7 @@ defer iidRWLock.rwMutex.Unlock()
 	// escape: "/" => "%2F"
 	iId.NameId = strings.ReplaceAll(iId.NameId, "/", "%2F")
 
-        ret, err := isExist(connectionName, resourceType, iId.NameId)
+        ret, err := isExist(iidGroup, connectionName, resourceType, iId.NameId)
         if err != nil {
                 cblog.Error(err)
                 return nil, err
@@ -95,7 +98,7 @@ defer iidRWLock.rwMutex.Unlock()
                 return nil, fmt.Errorf(iId.NameId + " does not exists!")
         }
 
-        iidInfo, err2 := forceCreateIID(connectionName, resourceType, iId)
+        iidInfo, err2 := forceCreateIID(iidGroup, connectionName, resourceType, iId)
 
         // escape: "%2F" => "/"
         iidInfo.IId.NameId = strings.ReplaceAll(iidInfo.IId.NameId, "%2F", "/")
@@ -106,7 +109,7 @@ defer iidRWLock.rwMutex.Unlock()
 // 1. check params
 // 2. check pre-existing id
 // 3. insert new IIDInfo into cb-store
-func forceCreateIID(connectionName string, resourceType string, iId resources.IID) (*IIDInfo, error) {
+func forceCreateIID(iidGroup IIDGroup, connectionName string, resourceType string, iId resources.IID) (*IIDInfo, error) {
 	cblog.Info("call CreateIID()")
 
 	cblog.Debug("check params")
@@ -117,7 +120,7 @@ func forceCreateIID(connectionName string, resourceType string, iId resources.II
 	}
 
 	cblog.Debug("insert metainfo into store")
-        err = insertInfo(connectionName, resourceType, iId)
+        err = insertInfo(iidGroup, connectionName, resourceType, iId)
         if err != nil {
                 cblog.Error(err)
                 return nil, err
@@ -127,12 +130,12 @@ func forceCreateIID(connectionName string, resourceType string, iId resources.II
 	return iidInfo, nil
 }
 
-func (iidRWLock *IIDRWLOCK)ListIID(connectionName string, resourceType string) ([]*IIDInfo, error) {
+func (iidRWLock *IIDRWLOCK)ListIID(iidGroup IIDGroup, connectionName string, resourceType string) ([]*IIDInfo, error) {
 	cblog.Info("call ListIID()")
 
 iidRWLock.rwMutex.RLock()
 defer iidRWLock.rwMutex.RUnlock()
-        iIDInfoList, err := listInfo(connectionName, resourceType)
+        iIDInfoList, err := listInfo(iidGroup, connectionName, resourceType)
         if err != nil {
                 return nil, err
         }
@@ -145,9 +148,28 @@ defer iidRWLock.rwMutex.RUnlock()
         return iIDInfoList, nil
 }
 
+func (iidRWLock *IIDRWLOCK)ListResourceType(iidGroup IIDGroup, connectionName string) ([]string, error) {
+        cblog.Info("call ListResourceType()")
+
+iidRWLock.rwMutex.RLock()
+defer iidRWLock.rwMutex.RUnlock()
+        resourceTypeList, err := listResourceType(iidGroup, connectionName)
+        if err != nil {
+                return nil, err
+        }
+
+        // escape: "%2F" => "/"
+        for i, rsType := range resourceTypeList {
+                resourceTypeList[i] = strings.ReplaceAll(rsType, "%2F", "/")
+        }
+
+        return resourceTypeList, nil
+}
+
+
 // 1. check params
 // 2. get IIDInfo from cb-store
-func (iidRWLock *IIDRWLOCK)GetIID(connectionName string, resourceType string, iId resources.IID) (*IIDInfo, error) {
+func (iidRWLock *IIDRWLOCK)GetIID(iidGroup IIDGroup, connectionName string, resourceType string, iId resources.IID) (*IIDInfo, error) {
 	cblog.Info("call GetIID()")
 
         cblog.Debug("check params")
@@ -163,7 +185,7 @@ defer iidRWLock.rwMutex.RUnlock()
 	// escape: "/" => "%2F"
 	iId.NameId = strings.ReplaceAll(iId.NameId, "/", "%2F")
 
-	iidInfo, err := getInfo(connectionName, resourceType, iId.NameId)
+	iidInfo, err := getInfo(iidGroup, connectionName, resourceType, iId.NameId)
 	if err != nil {
                 cblog.Error(err)
                 return nil, err
@@ -177,7 +199,7 @@ defer iidRWLock.rwMutex.RUnlock()
 
 // 1. check params
 // 2. find IIDInfo from cb-store
-func (iidRWLock *IIDRWLOCK)FindIID(connectionName string, resourceType string, keyword string) (*IIDInfo, error) {
+func (iidRWLock *IIDRWLOCK)FindIID(iidGroup IIDGroup, connectionName string, resourceType string, keyword string) (*IIDInfo, error) {
         cblog.Info("call FindIID()")
 
         cblog.Debug("check params")
@@ -193,7 +215,7 @@ defer iidRWLock.rwMutex.RUnlock()
 	// escape: "/" => "%2F"
 	keyword = strings.ReplaceAll(keyword, "/", "%2F")
 
-        iIDInfoList, err := listInfo(connectionName, resourceType)
+        iIDInfoList, err := listInfo(iidGroup, connectionName, resourceType)
         if err != nil {
                 return nil, err
         }
@@ -209,7 +231,7 @@ defer iidRWLock.rwMutex.RUnlock()
 
 // 1. check params
 // 2. get IIDInfo from cb-store
-func (iidRWLock *IIDRWLOCK)GetIIDbySystemID(connectionName string, resourceType string, iId resources.IID) (*IIDInfo, error) {
+func (iidRWLock *IIDRWLOCK)GetIIDbySystemID(iidGroup IIDGroup, connectionName string, resourceType string, iId resources.IID) (*IIDInfo, error) {
         cblog.Info("call GetIIDbySystemID()")
 
         cblog.Debug("check params")
@@ -224,7 +246,7 @@ defer iidRWLock.rwMutex.RUnlock()
 	// escape: "/" => "%2F"
 	iId.NameId = strings.ReplaceAll(iId.NameId, "/", "%2F")
 
-        iidInfo, err := getInfoByValue(connectionName, resourceType, iId.SystemId)
+        iidInfo, err := getIIDInfoByValue(iidGroup, connectionName, resourceType, iId.SystemId)
         if err != nil {
                 cblog.Error(err)
                 return nil, err
@@ -237,7 +259,7 @@ defer iidRWLock.rwMutex.RUnlock()
 }
 
 
-func (iidRWLock *IIDRWLOCK)DeleteIID(connectionName string, resourceType string, iId resources.IID) (bool, error) {
+func (iidRWLock *IIDRWLOCK)DeleteIID(iidGroup IIDGroup, connectionName string, resourceType string, iId resources.IID) (bool, error) {
 	cblog.Info("call DeleteIID()")
 
 
@@ -254,7 +276,7 @@ defer iidRWLock.rwMutex.Unlock()
 	// escape: "/" => "%2F"
 	iId.NameId = strings.ReplaceAll(iId.NameId, "/", "%2F")
 
-        result, err := deleteInfo(connectionName, resourceType, iId.NameId)
+        result, err := deleteInfo(iidGroup, connectionName, resourceType, iId.NameId)
         if err != nil {
                 cblog.Error(err)
                 return false, err
@@ -308,5 +330,72 @@ func checkParamsKeyword(connectionName string, resourceType string, keyword *str
                 return fmt.Errorf("Keyword is empty!")
         }
         return nil
+}
+
+//----------------
+
+// generate Spider UUID(SP-XID)
+func New(cloudConnectName string, uid string) (string, error) {
+	guid := xid.New()
+
+	cookedUID := cookUID(uid)
+	// cblog.Info("UID: " + uid + " => cookedUID: " + cookedUID)
+
+	spXID := cookedUID + "-" + guid.String()
+	// cblog.Info("SP-XID: " + spXID)
+
+	return convertDashOrUnderScore(cloudConnectName, spXID)
+}
+
+func convertDashOrUnderScore(cloudConnectName string, spXID string) (string, error) {
+	cccInfo, err := ccim.GetConnectionConfig(cloudConnectName)
+        if err != nil {
+                return "", err
+        }
+
+	var convertedSpXID string
+	// Tencent use '_'
+	if cccInfo.ProviderName == "TENCENT" {
+		convertedSpXID = strings.ReplaceAll(spXID, "-", "_")
+	} else { // other CSP use '-'
+		convertedSpXID = strings.ReplaceAll(spXID, "_", "-")
+	}
+
+	// AWS SecurityGroup: User can not use 'sg-*' format
+	convertedSpXID = strings.ReplaceAll(spXID, "sg-", "sg")
+
+	return convertedSpXID, nil
+}
+
+func cookUID(orgUID string) string {
+        runes := []rune(orgUID)
+        filteredUID := []byte{}
+        for _, char := range runes {
+                // (1) Max length is '9'
+                if len(filteredUID)==9 { // max length: 9
+                        break
+                }
+                var matched bool = false
+                var err error
+                // (2) Check the first character is a lowercase string
+                if len(filteredUID) == 0 {
+                        matched, err = regexp.MatchString("[a-zA-Z]", string(char))
+                // (3) Extract filteredUID([a-zA-Z0-9-_])
+                } else {
+                        matched, err = regexp.MatchString("[a-zA-Z0-9-_]", string(char))
+                }
+                if err != nil {
+                        cblog.Error(err)
+                }
+                if matched {
+                        //fmt.Printf("%s matches\n", string(char))
+                        filteredUID = append(filteredUID, byte(char))
+                }
+        }
+
+        // (4) Coverting UID into lowercase
+        lowercaseUID := strings.ToLower(string(filteredUID))
+
+        return lowercaseUID
 }
 
