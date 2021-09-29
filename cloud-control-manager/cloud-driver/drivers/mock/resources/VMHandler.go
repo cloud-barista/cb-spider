@@ -333,7 +333,6 @@ func (vmHandler *MockVMHandler) GetVMStatus(iid irs.IID) (irs.VMStatus, error) {
 	}
 
 	for _, info := range infoList {
-		fmt.Println("++++++++++ "  + (*info).IId.NameId + "------------" + iid.NameId)
 		if (*info).IId.NameId == iid.NameId {
 			return (*info).VmStatus, nil
 		}
