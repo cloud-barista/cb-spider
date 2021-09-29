@@ -40,8 +40,8 @@ echo "####################################################################"
 echo "## 4. VM: StartVM -> List -> Get -> ListStatus -> GetStatus -> Suspend -> Resume -> Reboot"
 echo "####################################################################"
 curl -sX POST http://localhost:1024/spider/vm -H 'Content-Type: application/json' -d '{ "ConnectionName": "'${CONN_CONFIG}'", "ReqInfo": { "Name": "vm-01", "ImageName": "'${IMAGE_NAME}'", "VPCName": "vpc-01", "SubnetName": "subnet-01", "SecurityGroupNames": [ "sg-01" ], "VMSpecName": "'${SPEC_NAME}'", "KeyPairName": "keypair-01"} }' |json_pp
-echo "============== sleep 5 after start VM"
-sleep 5 
+echo "============== sleep 10 after start VM"
+sleep 10 
 curl -sX GET http://localhost:1024/spider/vm -H 'Content-Type: application/json' -d '{ "ConnectionName": "'${CONN_CONFIG}'"}' |json_pp
 echo "============== after List VM"
 curl -sX GET http://localhost:1024/spider/vm/vm-01 -H 'Content-Type: application/json' -d '{ "ConnectionName": "'${CONN_CONFIG}'"}' |json_pp
@@ -70,8 +70,8 @@ echo "####################################################################"
 echo "## 4. VM: Terminate(Delete)"
 echo "####################################################################"
 curl -sX DELETE http://localhost:1024/spider/vm/vm-01 -H 'Content-Type: application/json' -d '{ "ConnectionName": "'${CONN_CONFIG}'"}' |json_pp
-echo "============== sleep 30 after delete VM"
-sleep 30 
+echo "============== sleep 60 after delete VM"
+sleep 60 
 
 echo "####################################################################"
 echo "## 3. KeyPair: Delete"

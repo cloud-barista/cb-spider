@@ -1,4 +1,3 @@
 export CONN_CONFIG=openstack-config01
 
-
-./all_delete.sh
+./except_vm_delete.sh
