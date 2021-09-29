@@ -64,7 +64,7 @@ type AllResourceList struct {
 //================ Image Handler
 // @todo
 // (1) check exist(NameID)
-// (2) gen SP-UUID and create userIID, driverIID
+// (2) gen SP-XID and create userIID, driverIID
 // (3) create Resource
 // (4) create spiderIID: {UserNameID, "DriverNameID:CSPSystemID"}
 // (5) insert spiderIID
@@ -96,10 +96,10 @@ func CreateImage(connectionName string, rsType string, reqInfo cres.ImageReqInfo
 		return nil, fmt.Errorf(reqInfo.IId.NameId + " already exists!")
 	}
 
-	// (2) gen SP-UUID and create userIID, driverIID
-	//     ex) SP-UUID{"s897c55f27c154f61af581867c4c8b"}
-	//     ex) userIID{"seoul-service", "s897c55f27c154f61af581867c4c8b"}, 
-	//     ex) driverIID{"s897c55f27c154f61af581867c4c8b", ""}
+	// (2) gen SP-XID and create userIID, driverIID
+	//     ex) SP-XID{"vm-01-9m4e2mr0ui3e8a215n4g"}
+	//     ex) userIID{"seoul-service", "vm-01-9m4e2mr0ui3e8a215n4g"}, 
+	//     ex) driverIID{"vm-01-9m4e2mr0ui3e8a215n4g", ""}
 	spiderUUID, err := iidm.New(connectionName, reqInfo.IId.NameId)
 	if err != nil {
                 cblog.Error(err)
@@ -118,8 +118,8 @@ func CreateImage(connectionName string, rsType string, reqInfo cres.ImageReqInfo
 	}
 
 	// (4) create spiderIID: {UserNameID, "DriverNameID:CSPSystemID"}
-	//     ex) driverIID{"s897c55f27c154f61af581867c4c8b", "i-0bc7123b7e5cbf79d"}
-	//     ex) spiderIID{"seoul-service", "s897c55f27c154f61af581867c4c8b:i-0bc7123b7e5cbf79d"}	
+	//     ex) driverIID{"vm-01-9m4e2mr0ui3e8a215n4g", "i-0bc7123b7e5cbf79d"}
+	//     ex) spiderIID{"seoul-service", "vm-01-9m4e2mr0ui3e8a215n4g:i-0bc7123b7e5cbf79d"}	
 	spiderIId := cres.IID{userIId.NameId, info.IId.NameId + ":" + info.IId.SystemId}
 
 	// (5) insert spiderIID
@@ -498,7 +498,7 @@ func GetOrgVMSpec(connectionName string, nameID string) (string, error) {
 
 //================ VPC Handler
 // (1) check exist(NameID)
-// (2) generate SP-UUID and create reqIID, driverIID
+// (2) generate SP-XID and create reqIID, driverIID
 // (3) create Resource
 // (4) create spiderIID: {reqNameID, "driverNameID:driverSystemID"}
 // (5) insert spiderIID
@@ -531,14 +531,14 @@ func CreateVPC(connectionName string, rsType string, reqInfo cres.VPCReqInfo) (*
 		return nil, fmt.Errorf(rsType + "-" + reqInfo.IId.NameId + " already exists!")
 	}
 
-	// (2) generate SP-UUID and create reqIID, driverIID
-	//     ex) SP-UUID {"s897c55f27c154f61af581867c4c8b"}
+	// (2) generate SP-XID and create reqIID, driverIID
+	//     ex) SP-XID {"vm-01-9m4e2mr0ui3e8a215n4g"}
 	//
-	//     create reqIID: {reqNameID, reqSystemID}   # reqSystemID=SP-UUID
-	//         ex) reqIID {"seoul-service", "s897c55f27c154f61af581867c4c8b"} 
+	//     create reqIID: {reqNameID, reqSystemID}   # reqSystemID=SP-XID
+	//         ex) reqIID {"seoul-service", "vm-01-9m4e2mr0ui3e8a215n4g"} 
 	//
-	//     create driverIID: {driverNameID, driverSystemID}   # driverNameID=SP-UUID, driverSystemID=csp's ID
-	//         ex) driverIID {"s897c55f27c154f61af581867c4c8b", "i-0bc7123b7e5cbf79d"}
+	//     create driverIID: {driverNameID, driverSystemID}   # driverNameID=SP-XID, driverSystemID=csp's ID
+	//         ex) driverIID {"vm-01-9m4e2mr0ui3e8a215n4g", "i-0bc7123b7e5cbf79d"}
 	spUUID, err := iidm.New(connectionName, reqInfo.IId.NameId)
 	if err != nil {
                 cblog.Error(err)
@@ -580,7 +580,7 @@ func CreateVPC(connectionName string, rsType string, reqInfo cres.VPCReqInfo) (*
 	}
 
 	// (4) create spiderIID: {reqNameID, driverNameID:driverSystemID}
-	//     ex) spiderIID {"seoul-service", "s897c55f27c154f61af581867c4c8b:i-0bc7123b7e5cbf79d"}
+	//     ex) spiderIID {"seoul-service", "vm-01-9m4e2mr0ui3e8a215n4g:i-0bc7123b7e5cbf79d"}
 	spiderIId := cres.IID{reqIId.NameId, info.IId.NameId + ":" + info.IId.SystemId}
 
 	// (5) insert IID
@@ -931,7 +931,7 @@ func AddSubnet(connectionName string, rsType string, vpcName string, reqInfo cre
 
 //================ SecurityGroup Handler
 // (1) check exist(NameID)
-// (2) generate SP-UUID and create reqIID, driverIID
+// (2) generate SP-XID and create reqIID, driverIID
 // (3) create Resource
 // (4) create spiderIID: {reqNameID, "driverNameID:driverSystemID"}
 // (5) insert spiderIID
@@ -989,14 +989,14 @@ func CreateSecurity(connectionName string, rsType string, reqInfo cres.SecurityR
 		}
 	}
 
-	// (2) generate SP-UUID and create reqIID, driverIID
-	//     ex) SP-UUID {"s897c55f27c154f61af581867c4c8b"}
+	// (2) generate SP-XID and create reqIID, driverIID
+	//     ex) SP-XID {"vm-01-9m4e2mr0ui3e8a215n4g"}
 	//
-	//     create reqIID: {reqNameID, reqSystemID}   # reqSystemID=SP-UUID
-	//         ex) reqIID {"seoul-service", "s897c55f27c154f61af581867c4c8b"} 
+	//     create reqIID: {reqNameID, reqSystemID}   # reqSystemID=SP-XID
+	//         ex) reqIID {"seoul-service", "vm-01-9m4e2mr0ui3e8a215n4g"} 
 	//
-	//     create driverIID: {driverNameID, driverSystemID}   # driverNameID=SP-UUID, driverSystemID=csp's ID
-	//         ex) driverIID {"s897c55f27c154f61af581867c4c8b", "i-0bc7123b7e5cbf79d"}
+	//     create driverIID: {driverNameID, driverSystemID}   # driverNameID=SP-XID, driverSystemID=csp's ID
+	//         ex) driverIID {"vm-01-9m4e2mr0ui3e8a215n4g", "i-0bc7123b7e5cbf79d"}
 	spUUID, err := iidm.New(connectionName, reqInfo.IId.NameId)
 	if err != nil {
                 cblog.Error(err)
@@ -1020,7 +1020,7 @@ func CreateSecurity(connectionName string, rsType string, reqInfo cres.SecurityR
 	info.VpcIID.NameId = reqInfo.VpcIID.NameId
 
 	// (4) create spiderIID: {reqNameID, "driverNameID:driverSystemID"}
-	//     ex) spiderIID {"seoul-service", "s897c55f27c154f61af581867c4c8b:i-0bc7123b7e5cbf79d"}
+	//     ex) spiderIID {"seoul-service", "vm-01-9m4e2mr0ui3e8a215n4g:i-0bc7123b7e5cbf79d"}
 	spiderIId := cres.IID{reqIId.NameId, info.IId.NameId + ":" + info.IId.SystemId}
 
 	// (5) insert spiderIID
@@ -1215,7 +1215,7 @@ func GetSecurity(connectionName string, rsType string, nameID string) (*cres.Sec
 
 //================ KeyPair Handler
 // (1) check exist(NameID)
-// (2) generate SP-UUID and create reqIID, driverIID
+// (2) generate SP-XID and create reqIID, driverIID
 // (3) create Resource
 // (4) create spiderIID: {reqNameID, "driverNameID:driverSystemID"}
 // (5) insert spiderIID
@@ -1248,14 +1248,14 @@ func CreateKey(connectionName string, rsType string, reqInfo cres.KeyPairReqInfo
 		return nil, fmt.Errorf(reqInfo.IId.NameId + " already exists!")
 	}
 
-	// (2) generate SP-UUID and create reqIID, driverIID
-	//     ex) SP-UUID {"s897c55f27c154f61af581867c4c8b"}
+	// (2) generate SP-XID and create reqIID, driverIID
+	//     ex) SP-XID {"vm-01-9m4e2mr0ui3e8a215n4g"}
 	//
-	//     create reqIID: {reqNameID, reqSystemID}   # reqSystemID=SP-UUID
-	//         ex) reqIID {"seoul-service", "s897c55f27c154f61af581867c4c8b"} 
+	//     create reqIID: {reqNameID, reqSystemID}   # reqSystemID=SP-XID
+	//         ex) reqIID {"seoul-service", "vm-01-9m4e2mr0ui3e8a215n4g"} 
 	//
-	//     create driverIID: {driverNameID, driverSystemID}   # driverNameID=SP-UUID, driverSystemID=csp's ID
-	//         ex) driverIID {"s897c55f27c154f61af581867c4c8b", "i-0bc7123b7e5cbf79d"}
+	//     create driverIID: {driverNameID, driverSystemID}   # driverNameID=SP-XID, driverSystemID=csp's ID
+	//         ex) driverIID {"vm-01-9m4e2mr0ui3e8a215n4g", "i-0bc7123b7e5cbf79d"}
 	spUUID, err := iidm.New(connectionName, reqInfo.IId.NameId)
 	if err != nil {
                 cblog.Error(err)
@@ -1276,7 +1276,7 @@ func CreateKey(connectionName string, rsType string, reqInfo cres.KeyPairReqInfo
 	}
 
 	// (4) create spiderIID: {reqNameID, "driverNameID:driverSystemID"}
-	//     ex) spiderIID {"seoul-service", "s897c55f27c154f61af581867c4c8b:i-0bc7123b7e5cbf79d"}
+	//     ex) spiderIID {"seoul-service", "vm-01-9m4e2mr0ui3e8a215n4g:i-0bc7123b7e5cbf79d"}
 	spiderIId := cres.IID{reqIId.NameId, info.IId.NameId + ":" + info.IId.SystemId}
 
 	// (5) insert spiderIID
@@ -1471,7 +1471,7 @@ func cloneReqInfoWithDriverIID(ConnectionName string, reqInfo cres.VMReqInfo) (c
 
 //================ VM Handler
 // (1) check exist(NameID)
-// (2) generate SP-UUID and create reqIID, driverIID
+// (2) generate SP-XID and create reqIID, driverIID
 // (3) clone the reqInfo with DriverIID
 // (4) create Resource
 // (5) create spiderIID: {reqNameID, "driverNameID:driverSystemID"}
@@ -1518,14 +1518,14 @@ func StartVM(connectionName string, rsType string, reqInfo cres.VMReqInfo) (*cre
                 return nil, err
         }
 
-	// (2) generate SP-UUID and create reqIID, driverIID
-	//     ex) SP-UUID {"s897c55f27c154f61af581867c4c8b"}
+	// (2) generate SP-XID and create reqIID, driverIID
+	//     ex) SP-XID {"vm-01-9m4e2mr0ui3e8a215n4g"}
 	//
-	//     create reqIID: {reqNameID, reqSystemID}   # reqSystemID=SP-UUID
-	//         ex) reqIID {"seoul-service", "s897c55f27c154f61af581867c4c8b"} 
+	//     create reqIID: {reqNameID, reqSystemID}   # reqSystemID=SP-XID
+	//         ex) reqIID {"seoul-service", "vm-01-9m4e2mr0ui3e8a215n4g"} 
 	//
-	//     create driverIID: {driverNameID, driverSystemID}   # driverNameID=SP-UUID, driverSystemID=csp's ID
-	//         ex) driverIID {"s897c55f27c154f61af581867c4c8b", "i-0bc7123b7e5cbf79d"}
+	//     create driverIID: {driverNameID, driverSystemID}   # driverNameID=SP-XID, driverSystemID=csp's ID
+	//         ex) driverIID {"vm-01-9m4e2mr0ui3e8a215n4g", "i-0bc7123b7e5cbf79d"}
 	spUUID, err := iidm.New(connectionName, reqInfo.IId.NameId)
 	if err != nil {
                 cblog.Error(err)
@@ -1568,7 +1568,7 @@ func StartVM(connectionName string, rsType string, reqInfo cres.VMReqInfo) (*cre
 
 
 	// (5) create spiderIID: {reqNameID, "driverNameID:driverSystemID"}
-	//     ex) spiderIID {"seoul-service", "s897c55f27c154f61af581867c4c8b:i-0bc7123b7e5cbf79d"}
+	//     ex) spiderIID {"seoul-service", "vm-01-9m4e2mr0ui3e8a215n4g:i-0bc7123b7e5cbf79d"}
 	spiderIId := cres.IID{reqIId.NameId, info.IId.NameId + ":" + info.IId.SystemId}
 
 
