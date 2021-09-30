@@ -29,17 +29,17 @@ $CBSPIDER_ROOT/interface/spctl vm liststatus --config $CBSPIDER_ROOT/interface/g
 
 $CBSPIDER_ROOT/interface/spctl vm getstatus --config $CBSPIDER_ROOT/interface/grpc_conf.yaml --cname "${CONN_CONFIG}" -n vm-01
 
-$CBSPIDER_ROOT/interface/spctl vm control --config $CBSPIDER_ROOT/interface/grpc_conf.yaml --cname "${CONN_CONFIG}" -n vm-01 -a suspend
+$CBSPIDER_ROOT/interface/spctl vm suspend --config $CBSPIDER_ROOT/interface/grpc_conf.yaml --cname "${CONN_CONFIG}" -n vm-01
 
 echo "============== sleep 60 after suspend VM"
 sleep 60
 
-$CBSPIDER_ROOT/interface/spctl vm control --config $CBSPIDER_ROOT/interface/grpc_conf.yaml --cname "${CONN_CONFIG}" -n vm-01 -a resume
+$CBSPIDER_ROOT/interface/spctl vm resume --config $CBSPIDER_ROOT/interface/grpc_conf.yaml --cname "${CONN_CONFIG}" -n vm-01
 
 echo "============== sleep 30 after resume VM"
 sleep 30
 
-$CBSPIDER_ROOT/interface/spctl vm control --config $CBSPIDER_ROOT/interface/grpc_conf.yaml --cname "${CONN_CONFIG}" -n vm-01 -a reboot
+$CBSPIDER_ROOT/interface/spctl vm reboot --config $CBSPIDER_ROOT/interface/grpc_conf.yaml --cname "${CONN_CONFIG}" -n vm-01
 
 echo "============== sleep 60 after reboot VM"
 sleep 60 
