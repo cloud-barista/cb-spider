@@ -248,8 +248,12 @@ func SetupAndRun(cmd *cobra.Command, args []string) {
 		switch cmd.Name() {
 		case "start":
 			result, err = ccm.StartVM(inData)
-		case "control":
-			result, err = ccm.ControlVMByParam(connectionName, vmName, action)
+		case "suspend":
+			result, err = ccm.ControlVMByParam(connectionName, vmName, "suspend")
+		case "resume":
+			result, err = ccm.ControlVMByParam(connectionName, vmName, "resume")
+		case "reboot":
+			result, err = ccm.ControlVMByParam(connectionName, vmName, "reboot")
 		case "liststatus":
 			result, err = ccm.ListVMStatusByParam(connectionName)
 		case "getstatus":
