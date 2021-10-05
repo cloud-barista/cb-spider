@@ -10,7 +10,7 @@
 # by CB-Spider Team, 2021.05.
 
 #### Load CB-Spider Environment Variables
-source ../setup.env
+#source ../setup.env
 
 # slow, but no curl
 #$CBSPIDER_ROOT/bin/cb-spider info 2> /dev/null

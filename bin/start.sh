@@ -10,18 +10,20 @@
 # by CB-Spider Team, 2021.04.
 
 #### Load CB-Spider Environment Variables
-source ../setup.env
+SCRIPT_DIR=`dirname ${BASH_SOURCE[0]-$0}`
+BIN_DIR=`cd $SCRIPT_DIR && pwd`
+source ${BIN_DIR}/../setup.env
 
 ### Set the library type of Cloud Driver pkg.
 # ON is a shared library type.
 # OFF is a static package type.
 export PLUGIN_SW=OFF
 
-./stop.sh &> /dev/null
+${BIN_DIR}/stop.sh &> /dev/null
 
 echo -e '\n'
 echo -e '\t[CB-Spider] Driver Plugin Mode: Static Builtin Mode'
 echo -e '\n'
 
-$CBSPIDER_ROOT/bin/cb-spider &
-echo $! > spider.pid
+$BIN_DIR/cb-spider &
+echo $! > $BIN_DIR/spider.pid
