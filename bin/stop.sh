@@ -9,5 +9,10 @@
 #
 # by CB-Spider Team, 2021.04.
 
-kill -9 `cat spider.pid` &> /dev/null
-rm -rf spider.pid
+#### Load CB-Spider Environment Variables
+SCRIPT_DIR=`dirname ${BASH_SOURCE[0]-$0}`
+BIN_DIR=`cd $SCRIPT_DIR && pwd`
+source ${BIN_DIR}/../setup.env
+
+kill -9 `cat $BIN_DIR/spider.pid` &> /dev/null
+rm -rf $BIN_DIR/spider.pid

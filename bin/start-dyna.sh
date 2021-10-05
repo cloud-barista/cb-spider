@@ -10,7 +10,9 @@
 # by CB-Spider Team, 2021.04.
 
 #### Load CB-Spider Environment Variables
-source ../setup.env
+SCRIPT_DIR=`dirname ${BASH_SOURCE[0]-$0}`
+BIN_DIR=`cd $SCRIPT_DIR && pwd`
+source ${BIN_DIR}/../setup.env
 
 ### Set the library type of Cloud Driver pkg.
 # ON is a shared library driver type.
@@ -23,5 +25,5 @@ echo -e '\n'
 echo -e '\t[CB-Spider] Driver Plugin Mode: Dynamic Plugin Mode'
 echo -e '\n'
 
-$CBSPIDER_ROOT/bin/cb-spider-dyna &
-echo $! > spider.pid
+$BIN_DIR/cb-spider-dyna &
+echo $! > $BIN_DIR/spider.pid
