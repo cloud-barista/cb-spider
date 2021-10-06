@@ -3,6 +3,7 @@ package resources
 import (
 	"errors"
 	"fmt"
+	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"strings"
 	"sync"
 	"time"
@@ -24,6 +25,7 @@ import (
 const (
 	CBVirutalNetworkName = "CB-VNet"
 	DNSNameservers       = "8.8.8.8"
+	ResourceNotFound = "Resource not found"
 )
 
 var once sync.Once
@@ -195,4 +197,11 @@ func GetPortByDeviceID(networkClient *gophercloud.ServiceClient, deviceID string
 		}
 	}
 	return nil, errors.New(fmt.Sprintf("could not found SecurityGroups with name %s ", deviceID))
+}
+
+func CheckIIDValidation(IId irs.IID, )bool{
+	if IId.NameId == "" && IId.SystemId == ""{
+		return false
+	}
+	return true
 }
