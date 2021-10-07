@@ -93,7 +93,7 @@ func GetConnectionConfig(configName string) (*ConnectionConfigInfo, error) {
 	cblog.Info("call GetConnectionConfig()")
 
 	if configName == "" {
-		return nil, fmt.Errorf("ConnectionName is empty!")
+		return nil, fmt.Errorf("ConfigName is empty!")
 	}
 
 	cncInfo, err := getInfo(configName)
@@ -109,7 +109,7 @@ func DeleteConnectionConfig(configName string) (bool, error) {
 	cblog.Info("call DeleteConnectionConfig()")
 
 	if configName == "" {
-		return false, fmt.Errorf("ConnectionName is empty!")
+		return false, fmt.Errorf("ConfigName is empty!")
 	}
 
 	result, err := deleteInfo(configName)
@@ -125,7 +125,7 @@ func DeleteConnectionConfig(configName string) (bool, error) {
 
 func checkParams(configName string, providerName string, driverName string, credentialName string, regionName string) error {
 	if configName == "" {
-		return fmt.Errorf("ConnectionName is empty!")
+		return fmt.Errorf("ConfigName is empty!")
 	}
 	if providerName == "" {
 		return fmt.Errorf("ProviderName is empty!")

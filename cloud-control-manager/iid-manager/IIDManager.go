@@ -289,7 +289,7 @@ defer iidRWLock.rwMutex.Unlock()
 
 func checkParams(connectionName string, resourceType string, iId *resources.IID) error {
         if connectionName == "" {
-                return fmt.Errorf("ConnectionName is empty!")
+                return fmt.Errorf("ConfigName is empty!")
         }
         if resourceType == "" {
                 return fmt.Errorf("ResourceType is empty!")
@@ -305,7 +305,7 @@ func checkParams(connectionName string, resourceType string, iId *resources.IID)
 
 func checkParamsSystemId(connectionName string, resourceType string, iId *resources.IID) error {
         if connectionName == "" {
-                return fmt.Errorf("ConnectionName is empty!")
+                return fmt.Errorf("ConfigName is empty!")
         }
         if resourceType == "" {
                 return fmt.Errorf("ResourceType is empty!")
@@ -321,7 +321,7 @@ func checkParamsSystemId(connectionName string, resourceType string, iId *resour
 
 func checkParamsKeyword(connectionName string, resourceType string, keyword *string) error {
         if connectionName == "" {
-                return fmt.Errorf("ConnectionName is empty!")
+                return fmt.Errorf("ConfigName is empty!")
         }
         if resourceType == "" {
                 return fmt.Errorf("ResourceType is empty!")
