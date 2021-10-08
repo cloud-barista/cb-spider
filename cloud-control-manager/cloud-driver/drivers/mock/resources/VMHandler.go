@@ -68,6 +68,7 @@ func (vmHandler *MockVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, er
 	for _, info := range validatedVPCInfo.SubnetInfoList {
 		if info.IId.NameId == vmReqInfo.SubnetIID.NameId {
 			validatedSubnetInfo = &info
+			break;
 		}
 	}
 	if validatedSubnetInfo == nil {

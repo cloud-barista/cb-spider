@@ -1040,6 +1040,9 @@ func CreateSecurity(connectionName string, rsType string, reqInfo cres.SecurityR
 	//     ex) userIID {"seoul-service", "i-0bc7123b7e5cbf79d"}
 	info.IId = getUserIID(iidInfo.IId)
 
+	// set VPC SystemId
+	info.VpcIID.SystemId = getDriverSystemId(vpcIIDInfo.IId)
+
 	return &info, nil
 }
 
@@ -1534,6 +1537,7 @@ func StartVM(connectionName string, rsType string, reqInfo cres.VMReqInfo) (*cre
 
 	// reqIID
 	reqIId := cres.IID{reqInfo.IId.NameId, spUUID}
+
 	// driverIID
 	driverIId := cres.IID{spUUID, ""}
 	reqInfo.IId = driverIId
@@ -1626,8 +1630,6 @@ func setNameId(ConnectionName string, vmInfo *cres.VMInfo, reqInfo *cres.VMReqIn
 	if reqInfo.SubnetIID.NameId != "" {
 		vmInfo.SubnetIID.NameId = reqInfo.SubnetIID.NameId
 	}
-
-	vmInfo.SecurityGroupIIds = reqInfo.SecurityGroupIIDs
 
 	// set SecurityGroups NameId
 	for i, sgIID := range vmInfo.SecurityGroupIIds {
