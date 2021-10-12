@@ -111,7 +111,7 @@ func testVPCHandler(config Config) {
 	cblogger.Info("4. DeleteVPC()")
 	cblogger.Info("5. Exit")
 
-	vpcId := irs.IID{NameId: "CB-VNet", SystemId: "af8010c9-4769-4545-9770-a31e9bb8b645"}
+	vpcId := irs.IID{NameId: "CB-VNet"}
 
 Loop:
 
