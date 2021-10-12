@@ -16,14 +16,12 @@ import (
 	"github.com/gophercloud/gophercloud/openstack/networking/v2/networks"
 	"github.com/gophercloud/gophercloud/openstack/networking/v2/ports"
 	"github.com/gophercloud/gophercloud/openstack/networking/v2/subnets"
-	"github.com/gophercloud/gophercloud/pagination"
 	"github.com/sirupsen/logrus"
 
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 )
 
 const (
-	CBVirutalNetworkName = "CB-VNet"
 	DNSNameservers       = "8.8.8.8"
 	ResourceNotFound = "Resource not found"
 )
@@ -93,34 +91,6 @@ func GetPublicVPCInfo(client *gophercloud.ServiceClient, typeName string) (strin
 		return extVpc.Name, nil
 	}
 	return "", nil
-}
-
-// GetCBVNetId 기본 가상 네트워크(CB-VNet) Id 정보 조회
-func GetCBVNetId(client *gophercloud.ServiceClient) (string, error) {
-	listOpt := networks.ListOpts{
-		Name: CBVirutalNetworkName,
-	}
-
-	var vNetworkId string
-
-	pager := networks.List(client, listOpt)
-	err := pager.EachPage(func(page pagination.Page) (bool, error) {
-		// Get vNetwork
-		list, err := networks.ExtractNetworks(page)
-		if err != nil {
-			return false, err
-		}
-		// Add to List
-		for _, n := range list {
-			vNetworkId = n.ID
-		}
-		return true, nil
-	})
-	if err != nil {
-		return "", err
-	}
-
-	return vNetworkId, nil
 }
 
 func GetFlavorByName(client *gophercloud.ServiceClient, flavorName string) (string, error) {
