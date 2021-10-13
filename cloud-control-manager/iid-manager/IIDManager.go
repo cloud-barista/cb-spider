@@ -362,7 +362,7 @@ func convertDashOrUnderScore(cloudConnectName string, spXID string) (string, err
 	}
 
 	// AWS SecurityGroup: User can not use 'sg-*' format
-	convertedSpXID = strings.ReplaceAll(spXID, "sg-", "sg")
+	convertedSpXID = strings.ReplaceAll(convertedSpXID, "sg-", "sg")
 
 	return convertedSpXID, nil
 }
