@@ -253,16 +253,6 @@ func CreateVPC(c echo.Context) error {
 	if err := c.Bind(&req); err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
-/*
-	// check the input Name to include the SUBNET: Prefix
-	if strings.HasPrefix(req.ReqInfo.Name, cm.SUBNET_PREFIX) {
-		return echo.NewHTTPError(http.StatusInternalServerError, fmt.Errorf(cm.SUBNET_PREFIX+" cannot be used for VPC name prefix!!"))
-	}
-	// check the input Name to include the SecurityGroup Delimiter
-	if strings.HasPrefix(req.ReqInfo.Name, cm.SG_DELIMITER) {
-		return echo.NewHTTPError(http.StatusInternalServerError, fmt.Errorf(cm.SG_DELIMITER+" cannot be used in VPC name!!"))
-	}
-*/
 
 	// Rest RegInfo => Driver ReqInfo
 	// (1) create SubnetInfo List

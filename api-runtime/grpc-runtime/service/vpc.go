@@ -10,8 +10,6 @@ package service
 
 import (
 	"context"
-	"strings"
-	cm "github.com/cloud-barista/cb-spider/api-runtime/common-runtime"
 	gc "github.com/cloud-barista/cb-spider/api-runtime/grpc-runtime/common"
 	"github.com/cloud-barista/cb-spider/api-runtime/grpc-runtime/logger"
 	pb "github.com/cloud-barista/cb-spider/api-runtime/grpc-runtime/stub/cbspider"
@@ -31,15 +29,6 @@ func (s *CCMService) CreateVPC(ctx context.Context, req *pb.VPCCreateRequest) (*
 	logger := logger.NewLogger()
 
 	logger.Debug("calling CCMService.CreateVPC()")
-
-	// check the input Name to include the SUBNET: Prefix
-	if strings.HasPrefix(req.Item.Name, cm.SUBNET_PREFIX) {
-		return nil, gc.NewGrpcStatusErr(cm.SUBNET_PREFIX+" cannot be used for VPC name prefix!!", "", "CCMService.CreateVPC()")
-	}
-	// check the input Name to include the SecurityGroup Delimiter
-	if strings.HasPrefix(req.Item.Name, cm.SG_DELIMITER) {
-		return nil, gc.NewGrpcStatusErr(cm.SG_DELIMITER+" cannot be used in VPC name!!", "", "CCMService.CreateVPC()")
-	}
 
 	// Grpc RegInfo => Driver ReqInfo
 	// (1) create SubnetInfo List
