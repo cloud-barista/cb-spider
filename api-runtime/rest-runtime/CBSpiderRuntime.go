@@ -228,6 +228,9 @@ func RunServer() {
 		{"GET", "/vmorgspec/:Name", GetOrgVMSpec},
 
 		//----------VPC Handler
+		{"PUT", "/vpc", RegisterVPC},
+		//{"PUT", "/vpc/:Name", UnregisterVPC},
+
 		{"POST", "/vpc", CreateVPC},
 		{"GET", "/vpc", ListVPC},
 		{"GET", "/vpc/:Name", GetVPC},

@@ -222,16 +222,45 @@ func GetOrgVMSpec(c echo.Context) error {
 	return c.String(http.StatusOK, result)
 }
 
-type vpcCreateReq struct {
+type vpcRegisterReq struct {
 	ConnectionName string
 	ReqInfo        struct {
 		Name           string
-		IPv4_CIDR      string
-		SubnetInfoList []struct {
-			Name      string
-			IPv4_CIDR string
-		}
+		CSPId          string
 	}
+}
+
+func RegisterVPC(c echo.Context) error {
+        cblog.Info("call RegisterVPC()")
+
+        req := vpcRegisterReq{}
+
+        if err := c.Bind(&req); err != nil {
+                return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+        }
+
+        // create UserIID
+	userIId := cres.IID{req.ReqInfo.Name, req.ReqInfo.CSPId}
+
+        // Call common-runtime API
+        result, err := cmrt.RegisterResource(req.ConnectionName, rsVPC, userIId)
+        if err != nil {
+                return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+        }
+
+        return c.JSON(http.StatusOK, result)
+}
+
+type vpcCreateReq struct {
+        ConnectionName string
+        ReqInfo        struct {
+                Name           string
+                IPv4_CIDR      string
+                SubnetInfoList []struct {
+                        Name      string
+                        IPv4_CIDR string
+                }
+        }
 }
 
 // createVPC godoc

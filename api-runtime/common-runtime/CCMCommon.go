@@ -497,6 +497,137 @@ func GetOrgVMSpec(connectionName string, nameID string) (string, error) {
 }
 
 //================ VPC Handler
+
+// UserIID{UserID, CSP-ID} => SpiderIID{UserID, SP-XID:CSP-ID}
+// (1) check existence(UserID)
+// (2) generate SP-XID
+// (3) get resource info(CSP-ID)
+// (4) create SpiderIID: {UserID, SP-XID:CSP-ID}
+// (5) insert SpiderIID
+func RegisterResource(connectionName string, rsType string, userIID cres.IID) (*cres.VPCInfo, error) {
+	cblog.Info("call RegisterResource()")
+
+        cldConn, err := ccm.GetCloudConnection(connectionName)
+        if err != nil {
+                cblog.Error(err)
+                return nil, err
+        }
+
+        var handler interface{}
+
+        switch rsType {
+        case rsVPC:
+                handler, err = cldConn.CreateVPCHandler()
+        case rsSG:
+                handler, err = cldConn.CreateSecurityHandler()
+        case rsKey:
+                handler, err = cldConn.CreateKeyPairHandler()
+        case rsVM:
+                handler, err = cldConn.CreateVMHandler()
+        default:
+                return nil, fmt.Errorf(rsType + " is not supported Resource!!")
+        }
+        if err != nil {
+                cblog.Error(err)
+                return nil, err
+        }
+
+        switch rsType {
+        case rsVPC:
+                vpcRWLock.Lock()
+                defer vpcRWLock.Unlock()
+        case rsSG:
+                sgRWLock.Lock()
+                defer sgRWLock.Unlock()
+        case rsKey:
+                keyRWLock.Lock()
+                defer keyRWLock.Unlock()
+        case rsVM:
+                vmRWLock.Lock()
+                defer vmRWLock.Unlock()
+        default:
+                return nil, fmt.Errorf(rsType + " is not supported Resource!!")
+        }
+
+
+        // (1) check existence(UserID)
+        bool_ret, err := iidRWLock.IsExistIID(iidm.IIDSGROUP, connectionName, rsType, userIID)
+        if err != nil {
+                cblog.Error(err)
+                return nil, err
+        }
+	if bool_ret == true {
+                return nil, fmt.Errorf(rsType + "-" + userIID.NameId + " already exists!")
+        }
+
+	// (2) get resource info(CSP-ID)
+	// check existence and get info of this resouce in the CSP
+        getInfo, err := handler.(cres.VPCHandler).GetVPC(userIID)
+        if err != nil {
+                cblog.Error(err)
+                return nil, err
+        }
+
+
+	// (3) generate SP-XID
+        //     ex) SP-XID {"vm-01-9m4e2mr0ui3e8a215n4g"}
+        spUUID, err := iidm.New(connectionName, userIID.NameId)
+        if err != nil {
+                cblog.Error(err)
+                return nil, err
+        }
+
+        // (4) create spiderIID: {UserID, SP-XID:CSP-ID}
+        //     ex) spiderIID {"vpc-01", "vpc-01-9m4e2mr0ui3e8a215n4g:i-0bc7123b7e5cbf79d"}
+        spiderIId := cres.IID{userIID.NameId, spUUID + ":" + userIID.SystemId}
+
+        // (5) insert spiderIID
+        // for VPC
+        _, err = iidRWLock.CreateIID(iidm.IIDSGROUP, connectionName, rsType, spiderIId)
+        if err != nil {
+                cblog.Error(err)
+                return nil, err
+        }
+        // insert subnet's spiderIIDs to metadb and setup subnet IID for return info
+        for count, subnetInfo := range getInfo.SubnetInfoList {
+                // generate subnet's UserID
+                subnetUserId := userIID.NameId + "-subnet-" + strconv.Itoa(count)
+
+                subnetUUID, err := iidm.New(connectionName, subnetUserId)
+                if err != nil {
+                        cblog.Error(err)
+                        return nil, err
+                }
+
+                // insert a subnet SpiderIID to metadb
+		subnetSpiderIId := cres.IID{subnetUserId, subnetUUID + ":" + subnetInfo.IId.SystemId}
+		_, err = iidRWLock.CreateIID(iidm.SUBNETGROUP, connectionName, userIID.NameId, subnetSpiderIId)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+
+		// setup subnet IID for return info
+                subnetInfo.IId = cres.IID{subnetUserId, subnetInfo.IId.SystemId}
+                getInfo.SubnetInfoList[count] = subnetInfo
+        } // end of for _, info
+
+
+	// set up VPC User IID for return info
+        getInfo.IId = userIID
+
+
+	return &getInfo, nil
+}
+
+// CSP default Resources cannot be deleted by user, so just unregister it from Spider.
+// (1) check exist(NameID)
+// (2) create userIID
+func UnregisterResource(connectionName string, rsType string, nameId string) (error) {
+	return nil
+}
+
+
 // (1) check exist(NameID)
 // (2) generate SP-XID and create reqIID, driverIID
 // (3) create Resource
