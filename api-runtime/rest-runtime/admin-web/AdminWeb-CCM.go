@@ -851,7 +851,9 @@ func makeVMTRList_html(connConfig string, bgcolor string, height string, fontSiz
                             <font size=%s>$$NUM$$</font>
                     </td>
                     <td>
-                            <font size=%s>$$VMNAME$$</font>
+														<font size=%s>$$VMNAME$$</font>
+														<br>
+														<font size=%s>$$VMCONTROL$$</font>
                     </td>
                     <td>
                             <font size=%s>$$VMSTATUS$$</font>
@@ -911,6 +913,14 @@ func makeVMTRList_html(connConfig string, bgcolor string, height string, fontSiz
 		str = strings.ReplaceAll(str, "$$VMNAME$$", one.IId.NameId)
 		status := vmStatus(connConfig, one.IId.NameId)
 		str = strings.ReplaceAll(str, "$$VMSTATUS$$", status)
+
+		if cres.VMStatus(status) == cres.Running {
+			str = strings.ReplaceAll(str, "$$VMCONTROL$$", `<span id="vmcontrol-`+one.IId.NameId+`">[<a href="javascript:vmControl('`+one.IId.NameId+`','suspend')">Suspend</a> / <a href="javascript:vmControl('`+one.IId.NameId+`','reboot')">Reboot</a>]</span>`)
+		} else if cres.VMStatus(status) == cres.Suspended {
+			str = strings.ReplaceAll(str, "$$VMCONTROL$$", `<span id="vmcontrol-`+one.IId.NameId+`">[<a href="javascript:vmControl('`+one.IId.NameId+`','resume')">Resume</a>]</span>`)
+		} else {
+			str = strings.ReplaceAll(str, "$$VMCONTROL$$", `[<span style="color:brown">vm control disabed</span>] <br> you can control when Running / Suspended. <br> try refresh page...`)
+		}
 		str = strings.ReplaceAll(str, "$$LASTSTARTTIME$$", one.StartTime.Format("2006.01.02 15:04:05 Mon"))
 
 		// for Image & Spec
@@ -974,6 +984,30 @@ func makeVMTRList_html(connConfig string, bgcolor string, height string, fontSiz
 	}
 
 	return strData
+}
+
+// make the string of javascript function
+func makeVMControlFunc_js() string {
+	//curl -sX GET http://localhost:1024/spider/controlvm/vm-01?action=suspend -H 'Content-Type: application/json' -d '{ "ConnectionName": "'${CONN_CONFIG}'"}'
+
+	strFunc := `
+                function vmControl(vmName, action) {
+                        var connConfig = parent.frames["top_frame"].document.getElementById("connConfig").innerHTML;
+
+												document.getElementById("vmcontrol-" + vmName).innerHTML = '<span style="color:red">Waiting...</span>';
+												setTimeout(function(){
+													var xhr = new XMLHttpRequest();
+													xhr.open("PUT", "$$SPIDER_SERVER$$/spider/controlvm/" + vmName + "?action=" + action, false);
+													xhr.setRequestHeader('Content-Type', 'application/json');
+													sendJson = '{ "ConnectionName": "' + connConfig + '"}'
+													xhr.send(sendJson);
+	
+													location.reload();
+												}, 10);
+                }
+        `
+	strFunc = strings.ReplaceAll(strFunc, "$$SPIDER_SERVER$$", "http://"+cr.ServiceIPorName+cr.ServicePort) // cr.ServicePort = ":1024"
+	return strFunc
 }
 
 // make the string of javascript function
@@ -1096,6 +1130,7 @@ func VM(c echo.Context) error {
 	htmlStr += makeCheckBoxToggleFunc_js()
 	htmlStr += makePostVMFunc_js()
 	htmlStr += makeDeleteVMFunc_js()
+	htmlStr += makeVMControlFunc_js()
 
 	htmlStr += `
                     </script>
