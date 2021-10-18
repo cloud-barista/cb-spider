@@ -282,8 +282,8 @@ func RunServer() {
 		{"GET", "/vmstatus", ListVMStatus},
 		{"GET", "/vmstatus/:Name", GetVMStatus},
 
-		{"GET", "/controlvm/:Name", ControlVM},  // suspend, resume, reboot
-		{"POST", "/controlvm/:Name", ControlVM}, // suspend, resume, reboot
+		{"GET", "/controlvm/:Name", ControlVM}, // suspend, resume, reboot
+		{"PUT", "/controlvm/:Name", ControlVM}, // suspend, resume, reboot
 
 		//-------------------------------------------------------------------//
 		//----------SSH RUN

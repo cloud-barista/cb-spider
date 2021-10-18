@@ -997,7 +997,7 @@ func makeVMControlFunc_js() string {
 												document.getElementById("vmcontrol-" + vmName).innerHTML = '<span style="color:red">Waiting...</span>';
 												setTimeout(function(){
 													var xhr = new XMLHttpRequest();
-													xhr.open("POST", "$$SPIDER_SERVER$$/spider/controlvm/" + vmName + "?action=" + action, false);
+													xhr.open("PUT", "$$SPIDER_SERVER$$/spider/controlvm/" + vmName + "?action=" + action, false);
 													xhr.setRequestHeader('Content-Type', 'application/json');
 													sendJson = '{ "ConnectionName": "' + connConfig + '"}'
 													xhr.send(sendJson);
