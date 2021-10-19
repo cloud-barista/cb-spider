@@ -243,12 +243,39 @@ func RegisterVPC(c echo.Context) error {
 	userIId := cres.IID{req.ReqInfo.Name, req.ReqInfo.CSPId}
 
         // Call common-runtime API
-        result, err := cmrt.RegisterResource(req.ConnectionName, rsVPC, userIId)
+        result, err := cmrt.RegisterVPC(req.ConnectionName, userIId)
         if err != nil {
                 return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
         }
 
         return c.JSON(http.StatusOK, result)
+}
+
+// (1) get args from REST Call
+// (2) call common-runtime API
+// (3) return REST Json Format
+func UnregisterVPC(c echo.Context) error {
+        cblog.Info("call UnregisterVPC()")
+
+        var req struct {
+                ConnectionName string
+        }
+
+        if err := c.Bind(&req); err != nil {
+                return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+        }
+
+        // Call common-runtime API
+        result, err := cmrt.UnregisterResource(req.ConnectionName, rsVPC, c.Param("Name"))
+        if err != nil {
+                return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+        }
+
+        resultInfo := BooleanInfo{
+                Result: strconv.FormatBool(result),
+        }
+
+        return c.JSON(http.StatusOK, &resultInfo)
 }
 
 type vpcCreateReq struct {
@@ -513,6 +540,64 @@ func RemoveCSPSubnet(c echo.Context) error {
 	return c.JSON(http.StatusOK, &resultInfo)
 }
 
+
+type securityGroupRegisterReq struct {
+        ConnectionName string
+        ReqInfo        struct {
+                VPCName           string
+                Name           string
+                CSPId          string
+        }
+}
+
+func RegisterSecurity(c echo.Context) error {
+        cblog.Info("call RegisterSecurity()")
+
+        req := securityGroupRegisterReq{}
+
+        if err := c.Bind(&req); err != nil {
+                return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+        }
+
+        // create UserIID
+        userIId := cres.IID{req.ReqInfo.Name, req.ReqInfo.CSPId}
+
+        // Call common-runtime API
+        result, err := cmrt.RegisterSecurity(req.ConnectionName, req.ReqInfo.VPCName, userIId)
+        if err != nil {
+                return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+        }
+
+        return c.JSON(http.StatusOK, result)
+}
+
+// (1) get args from REST Call
+// (2) call common-runtime API
+// (3) return REST Json Format
+func UnregisterSecurity(c echo.Context) error {
+        cblog.Info("call UnregisterSecurity()")
+
+        var req struct {
+                ConnectionName string
+        }
+
+        if err := c.Bind(&req); err != nil {
+                return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+        }
+
+        // Call common-runtime API
+        result, err := cmrt.UnregisterResource(req.ConnectionName, rsSG, c.Param("Name"))
+        if err != nil {
+                return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+        }
+
+        resultInfo := BooleanInfo{
+                Result: strconv.FormatBool(result),
+        }
+
+        return c.JSON(http.StatusOK, &resultInfo)
+}
+
 type securityGroupCreateReq struct {
 	ConnectionName string
 	ReqInfo        struct {
@@ -682,6 +767,63 @@ func DeleteCSPSecurity(c echo.Context) error {
 
 	return c.JSON(http.StatusOK, &resultInfo)
 }
+
+type keyRegisterReq struct {
+        ConnectionName string
+        ReqInfo        struct {
+                Name           string
+                CSPId          string
+        }
+}
+
+func RegisterKey(c echo.Context) error {
+        cblog.Info("call RegisterKey()")
+
+        req := keyRegisterReq{}
+
+        if err := c.Bind(&req); err != nil {
+                return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+        }
+
+        // create UserIID
+        userIId := cres.IID{req.ReqInfo.Name, req.ReqInfo.CSPId}
+
+        // Call common-runtime API
+        result, err := cmrt.RegisterKey(req.ConnectionName, userIId)
+        if err != nil {
+                return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+        }
+
+        return c.JSON(http.StatusOK, result)
+}
+
+// (1) get args from REST Call
+// (2) call common-runtime API
+// (3) return REST Json Format
+func UnregisterKey(c echo.Context) error {
+        cblog.Info("call UnregisterKey()")
+
+        var req struct {
+                ConnectionName string
+        }
+
+        if err := c.Bind(&req); err != nil {
+                return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+        }
+
+        // Call common-runtime API
+        result, err := cmrt.UnregisterResource(req.ConnectionName, rsKey, c.Param("Name"))
+        if err != nil {
+                return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+        }
+
+        resultInfo := BooleanInfo{
+                Result: strconv.FormatBool(result),
+        }
+
+        return c.JSON(http.StatusOK, &resultInfo)
+}
+
 
 // type keyPairCreateReq struct {
 // 	ConnectionName string
@@ -1119,6 +1261,64 @@ func deletePublicIP(c echo.Context) error {
 ****************************/
 
 //================ VM Handler
+
+type vmRegisterReq struct {
+        ConnectionName string
+        ReqInfo        struct {
+                Name           string
+                CSPId          string
+        }
+}
+
+func RegisterVM(c echo.Context) error {
+        cblog.Info("call RegisterVM()")
+
+        req := vmRegisterReq{}
+
+        if err := c.Bind(&req); err != nil {
+                return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+        }
+
+        // create UserIID
+        userIId := cres.IID{req.ReqInfo.Name, req.ReqInfo.CSPId}
+
+        // Call common-runtime API
+        result, err := cmrt.RegisterVM(req.ConnectionName, userIId)
+        if err != nil {
+                return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+        }
+
+        return c.JSON(http.StatusOK, result)
+}
+
+// (1) get args from REST Call
+// (2) call common-runtime API
+// (3) return REST Json Format
+func UnregisterVM(c echo.Context) error {
+        cblog.Info("call UnregisterVM()")
+
+        var req struct {
+                ConnectionName string
+        }
+
+        if err := c.Bind(&req); err != nil {
+                return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+        }
+
+        // Call common-runtime API
+        result, err := cmrt.UnregisterResource(req.ConnectionName, rsVM, c.Param("Name"))
+        if err != nil {
+                return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+        }
+
+        resultInfo := BooleanInfo{
+                Result: strconv.FormatBool(result),
+        }
+
+        return c.JSON(http.StatusOK, &resultInfo)
+}
+
+
 // (1) check exist(NameID)
 // (2) create Resource
 // (3) insert IID

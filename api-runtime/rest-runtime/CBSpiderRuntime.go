@@ -228,8 +228,8 @@ func RunServer() {
 		{"GET", "/vmorgspec/:Name", GetOrgVMSpec},
 
 		//----------VPC Handler
-		{"PUT", "/vpc", RegisterVPC},
-		//{"PUT", "/vpc/:Name", UnregisterVPC},
+		{"POST", "/regvpc", RegisterVPC},
+		{"DELETE", "/regvpc/:Name", UnregisterVPC},
 
 		{"POST", "/vpc", CreateVPC},
 		{"GET", "/vpc", ListVPC},
@@ -244,6 +244,9 @@ func RunServer() {
 		{"DELETE", "/cspvpc/:Id", DeleteCSPVPC},
 
 		//----------SecurityGroup Handler
+		{"POST", "/regsecuritygroup", RegisterSecurity},
+		{"DELETE", "/regsecuritygroup/:Name", UnregisterSecurity},
+
 		{"POST", "/securitygroup", CreateSecurity},
 		{"GET", "/securitygroup", ListSecurity},
 		{"GET", "/securitygroup/:Name", GetSecurity},
@@ -253,6 +256,9 @@ func RunServer() {
 		{"DELETE", "/cspsecuritygroup/:Id", DeleteCSPSecurity},
 
 		//----------KeyPair Handler
+		{"POST", "/regkeypair", RegisterKey},
+		{"DELETE", "/regkeypair/:Name", UnregisterKey},
+
 		{"POST", "/keypair", CreateKey},
 		{"GET", "/keypair", ListKey},
 		{"GET", "/keypair/:Name", GetKey},
@@ -274,6 +280,9 @@ func RunServer() {
 			{"DELETE", "/publicip/:PublicIPId", deletePublicIP},
 		*/
 		//----------VM Handler
+		{"POST", "/regvm", RegisterVM},
+		{"DELETE", "/regvm/:Name", UnregisterVM},
+
 		{"POST", "/vm", StartVM},
 		{"GET", "/vm", ListVM},
 		{"GET", "/vm/:Name", GetVM},
@@ -286,6 +295,7 @@ func RunServer() {
 		{"GET", "/vmstatus/:Name", GetVMStatus},
 
 		{"GET", "/controlvm/:Name", ControlVM}, // suspend, resume, reboot
+		// only for AdminWeb
 		{"PUT", "/controlvm/:Name", ControlVM}, // suspend, resume, reboot
 
 		//-------------------------------------------------------------------//

@@ -73,6 +73,11 @@ defer iidRWLock.rwMutex.Unlock()
 	}
 
 	iidInfo, err2 := forceCreateIID(iidGroup, connectionName, resourceType, iId)
+	if err2 != nil {
+		cblog.Error(err2)
+		return nil, err2
+	}
+
 
 	// escape: "%2F" => "/"
 	iidInfo.IId.NameId = strings.ReplaceAll(iidInfo.IId.NameId, "%2F", "/")
@@ -99,6 +104,10 @@ defer iidRWLock.rwMutex.Unlock()
         }
 
         iidInfo, err2 := forceCreateIID(iidGroup, connectionName, resourceType, iId)
+	if err2 != nil {
+		cblog.Error(err2)
+		return nil, err2
+	}
 
         // escape: "%2F" => "/"
         iidInfo.IId.NameId = strings.ReplaceAll(iidInfo.IId.NameId, "%2F", "/")
