@@ -1216,8 +1216,8 @@ func VM(c echo.Context) error {
 		sgName = `["sg-01"]`
 		vmUser = "root"
 	case "OPENSTACK":
-		imageName = "Ubuntu16.04_2"
-		specName = "nano.1"
+		imageName = "ubuntu18.04"
+		specName = "DS-TEST"
 		subnetName = "subnet-01"
 		sgName = `["sg-01"]`
 		vmUser = "ubuntu"
