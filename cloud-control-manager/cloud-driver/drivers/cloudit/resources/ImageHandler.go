@@ -59,6 +59,7 @@ func (imageHandler *ClouditImageHandler) CreateImage(imageReqInfo irs.ImageReqIn
 	start := call.Start()
 	image, err := image.Create(imageHandler.Client, &createOpts)
 	if err != nil {
+		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
 		return irs.ImageInfo{}, err
 	}
@@ -82,6 +83,7 @@ func (imageHandler *ClouditImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 	start := call.Start()
 	imageList, err := image.List(imageHandler.Client, &requestOpts)
 	if err != nil {
+		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
 		return nil, err
 	}
@@ -102,6 +104,7 @@ func (imageHandler *ClouditImageHandler) GetImage(imageIID irs.IID) (irs.ImageIn
 	start := call.Start()
 	imageInfo, err := imageHandler.getImageByName(imageIID.NameId)
 	if err != nil {
+		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
 		return irs.ImageInfo{}, err
 	}
@@ -124,6 +127,7 @@ func (imageHandler *ClouditImageHandler) DeleteImage(imageIID irs.IID) (bool, er
 	start := call.Start()
 	err := image.Delete(imageHandler.Client, imageIID.SystemId, &requestOpts)
 	if err != nil {
+		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
 		return false, err
 	}

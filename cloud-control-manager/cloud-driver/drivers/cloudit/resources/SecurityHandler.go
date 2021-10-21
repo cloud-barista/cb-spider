@@ -68,6 +68,7 @@ func (securityHandler *ClouditSecurityHandler) CreateSecurity(securityReqInfo ir
 	securityInfo, _ := securityHandler.getSecurityByName(securityReqInfo.IId.NameId)
 	if securityInfo != nil {
 		createErr := errors.New(fmt.Sprintf("SecurityGroup with name %s already exist", securityReqInfo.IId.NameId))
+		cblogger.Error(createErr.Error())
 		LoggingError(hiscallInfo, createErr)
 		return irs.SecurityInfo{}, createErr
 	}
@@ -110,6 +111,7 @@ func (securityHandler *ClouditSecurityHandler) CreateSecurity(securityReqInfo ir
 	start := call.Start()
 	securityGroup, err := securitygroup.Create(securityHandler.Client, &createOpts)
 	if err != nil {
+		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
 		return irs.SecurityInfo{}, err
 	}
@@ -133,6 +135,7 @@ func (securityHandler *ClouditSecurityHandler) ListSecurity() ([]*irs.SecurityIn
 	start := call.Start()
 	securityList, err := securitygroup.List(securityHandler.Client, &requestOpts)
 	if err != nil {
+		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
 		return nil, err
 	}
@@ -165,6 +168,7 @@ func (securityHandler *ClouditSecurityHandler) GetSecurity(securityIID irs.IID) 
 	start := call.Start()
 	securityInfo, err := securityHandler.getSecurityByName(securityIID.NameId)
 	if err != nil {
+		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
 		return irs.SecurityInfo{}, err
 	}
@@ -180,6 +184,7 @@ func (securityHandler *ClouditSecurityHandler) GetSecurity(securityIID irs.IID) 
 	// SecurityGroup Rule 정보 가져오기
 	sgRules, err := securitygroup.ListRule(securityHandler.Client, securityInfo.ID, &requestOpts)
 	if err != nil {
+		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
 		return irs.SecurityInfo{}, err
 	}
@@ -198,6 +203,7 @@ func (securityHandler *ClouditSecurityHandler) DeleteSecurity(securityIID irs.II
 	// 이름 기준 보안그룹 조회
 	securityInfo, err := securityHandler.getSecurityByName(securityIID.NameId)
 	if err != nil {
+		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
 		return false, err
 	}
@@ -213,6 +219,7 @@ func (securityHandler *ClouditSecurityHandler) DeleteSecurity(securityIID irs.II
 	start := call.Start()
 	err = securitygroup.Delete(securityHandler.Client, securityInfo.ID, &requestOpts)
 	if err != nil {
+		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
 		return false, err
 	}

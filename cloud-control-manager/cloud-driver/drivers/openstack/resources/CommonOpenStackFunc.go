@@ -39,7 +39,6 @@ func InitLog() {
 }
 
 func LoggingError(hiscallInfo call.CLOUDLOGSCHEMA, err error) {
-	cblogger.Error(err.Error())
 	hiscallInfo.ErrorMSG = err.Error()
 	calllogger.Info(call.String(hiscallInfo))
 }

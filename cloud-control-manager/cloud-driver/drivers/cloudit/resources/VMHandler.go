@@ -51,6 +51,7 @@ func (vmHandler *ClouditVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 	vmId, _ := vmHandler.getVmIdByName(vmReqInfo.IId.NameId)
 	if vmId != "" {
 		createErr := errors.New(fmt.Sprintf("VirtualMachine with name %s already exist", vmReqInfo.IId.NameId))
+		cblogger.Error(createErr.Error())
 		LoggingError(hiscallInfo, createErr)
 		return irs.VMInfo{}, createErr
 	}
@@ -63,6 +64,7 @@ func (vmHandler *ClouditVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 	image, err := imageHandler.GetImage(vmReqInfo.ImageIID)
 	if err != nil {
 		createErr := errors.New(fmt.Sprintf("failed to get image, err : %s", err.Error()))
+		cblogger.Error(createErr.Error())
 		LoggingError(hiscallInfo, createErr)
 		return irs.VMInfo{}, createErr
 	}
@@ -75,6 +77,7 @@ func (vmHandler *ClouditVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 	vpc, err := vpcHandler.GetSubnet(vmReqInfo.SubnetIID)
 	if err != nil {
 		createErr := errors.New(fmt.Sprintf("failed to get virtual network, err : %s", err.Error()))
+		cblogger.Error(createErr.Error())
 		LoggingError(hiscallInfo, createErr)
 		return irs.VMInfo{}, createErr
 	}
@@ -110,6 +113,7 @@ func (vmHandler *ClouditVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 	_, err = sgHandler.addRuleToSG(ExtraInboundRuleName, secGroups[0].Id, InboundRule)
 	if err != nil {
 		createErr := errors.New(fmt.Sprintf("failed to add extra inbound rule to SG, err : %s", err.Error()))
+		cblogger.Error(createErr.Error())
 		LoggingError(hiscallInfo, createErr)
 		return irs.VMInfo{}, createErr
 	}
@@ -117,6 +121,7 @@ func (vmHandler *ClouditVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 	_, err = sgHandler.addRuleToSG(ExtraOutboundRuleName, secGroups[0].Id, OutboundRule)
 	if err != nil {
 		createErr := errors.New(fmt.Sprintf("failed to add extra outbound rule to SG, err : %s", err.Error()))
+		cblogger.Error(createErr.Error())
 		LoggingError(hiscallInfo, createErr)
 		return irs.VMInfo{}, createErr
 	}
@@ -125,6 +130,7 @@ func (vmHandler *ClouditVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 	vmSpecId, err := GetVMSpecByName(vmHandler.Client.AuthenticatedHeaders(), vmHandler.Client, vmReqInfo.VMSpecName)
 	if err != nil {
 		createErr := errors.New(fmt.Sprintf("failed to get vm spec, err : %s", err.Error()))
+		cblogger.Error(createErr.Error())
 		LoggingError(hiscallInfo, createErr)
 		return irs.VMInfo{}, createErr
 	}
@@ -151,6 +157,7 @@ func (vmHandler *ClouditVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 	start := call.Start()
 	creatingVm, err := server.Start(vmHandler.Client, &requestOpts)
 	if err != nil {
+		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
 		return irs.VMInfo{}, err
 	}
@@ -163,6 +170,7 @@ func (vmHandler *ClouditVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 		// Check VM Deploy Status
 		vmInfo, err := server.Get(vmHandler.Client, creatingVm.ID, &requestOpts)
 		if err != nil {
+			cblogger.Error(err.Error())
 			LoggingError(hiscallInfo, err)
 			return irs.VMInfo{}, err
 		}
@@ -170,6 +178,7 @@ func (vmHandler *ClouditVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 		if vmInfo.PrivateIp != "" && getVmStatus(vmInfo.State) == irs.Running {
 			ok, err := vmHandler.AssociatePublicIP(creatingVm.Name, vmInfo.PrivateIp)
 			if !ok {
+				cblogger.Error(err.Error())
 				LoggingError(hiscallInfo, err)
 				return irs.VMInfo{}, err
 			}
@@ -185,6 +194,7 @@ func (vmHandler *ClouditVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 
 	vm, err := server.Get(vmHandler.Client, creatingVm.ID, &requestOpts)
 	if err != nil {
+		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
 		return irs.VMInfo{}, err
 	}
@@ -213,11 +223,13 @@ func (vmHandler *ClouditVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 	// 사용자 등록 및 sudoer 권한 추가
 	_, err = RunCommand(vmInfo.PublicIP, SSHDefaultPort, VMDefaultUser, VMDefaultPassword, fmt.Sprintf("useradd -s /bin/bash %s -rm", loginUserId))
 	if err != nil {
+		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
 		return irs.VMInfo{}, createUserErr
 	}
 	_, err = RunCommand(vmInfo.PublicIP, SSHDefaultPort, VMDefaultUser, VMDefaultPassword, fmt.Sprintf("echo \"%s ALL=(root) NOPASSWD:ALL\" >> /etc/sudoers", loginUserId))
 	if err != nil {
+		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
 		return irs.VMInfo{}, createUserErr
 	}
@@ -226,6 +238,7 @@ func (vmHandler *ClouditVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 	_, err = RunCommand(vmInfo.PublicIP, SSHDefaultPort, VMDefaultUser, VMDefaultPassword, fmt.Sprintf("mkdir -p /home/%s/.ssh", loginUserId))
 	publicKey, err := GetPublicKey(vmHandler.CredentialInfo, vmReqInfo.KeyPairIID.NameId)
 	if err != nil {
+		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
 		return irs.VMInfo{}, createUserErr
 	}
@@ -234,16 +247,19 @@ func (vmHandler *ClouditVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 	// ssh 접속 방법 변경 (sshd_config 파일 변경)
 	_, err = RunCommand(vmInfo.PublicIP, SSHDefaultPort, VMDefaultUser, VMDefaultPassword, "sed -i 's/PasswordAuthentication yes/PasswordAuthentication no/g' /etc/ssh/sshd_config")
 	if err != nil {
+		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
 		return irs.VMInfo{}, createUserErr
 	}
 	_, err = RunCommand(vmInfo.PublicIP, SSHDefaultPort, VMDefaultUser, VMDefaultPassword, "sed -i 's/#PubkeyAuthentication yes/PubkeyAuthentication yes/g' /etc/ssh/sshd_config")
 	if err != nil {
+		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
 		return irs.VMInfo{}, createUserErr
 	}
 	_, err = RunCommand(vmInfo.PublicIP, SSHDefaultPort, VMDefaultUser, VMDefaultPassword, "systemctl restart sshd")
 	if err != nil {
+		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
 		return irs.VMInfo{}, createUserErr
 	}
@@ -272,6 +288,7 @@ func (vmHandler *ClouditVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 		err = sgHandler.deleteRuleInSG(secGroups[0].Id, v)
 		if err != nil {
 			deleteErr := errors.New(fmt.Sprintf("failed to delete extra rules, err : %s", err.Error()))
+			cblogger.Error(deleteErr.Error())
 			LoggingError(hiscallInfo, deleteErr)
 			return irs.VMInfo{}, deleteErr
 		}
@@ -299,6 +316,7 @@ func (vmHandler *ClouditVMHandler) SuspendVM(vmIID irs.IID) (irs.VMStatus, error
 	start := call.Start()
 	err := server.Suspend(vmHandler.Client, vmIID.SystemId, &requestOpts)
 	if err != nil {
+		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
 		return irs.Failed, err
 	}
@@ -307,6 +325,7 @@ func (vmHandler *ClouditVMHandler) SuspendVM(vmIID irs.IID) (irs.VMStatus, error
 	// VM 상태 정보 반환
 	vmStatus, err := vmHandler.GetVMStatus(vmIID)
 	if err != nil {
+		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
 		return irs.Failed, err
 	}
@@ -327,6 +346,7 @@ func (vmHandler *ClouditVMHandler) ResumeVM(vmIID irs.IID) (irs.VMStatus, error)
 	start := call.Start()
 	err := server.Resume(vmHandler.Client, vmIID.SystemId, &requestOpts)
 	if err != nil {
+		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
 		return irs.Failed, err
 	}
@@ -335,6 +355,7 @@ func (vmHandler *ClouditVMHandler) ResumeVM(vmIID irs.IID) (irs.VMStatus, error)
 	// VM 상태 정보 반환
 	vmStatus, err := vmHandler.GetVMStatus(vmIID)
 	if err != nil {
+		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
 		return irs.Failed, err
 	}
@@ -355,6 +376,7 @@ func (vmHandler *ClouditVMHandler) RebootVM(vmIID irs.IID) (irs.VMStatus, error)
 	start := call.Start()
 	err := server.Reboot(vmHandler.Client, vmIID.SystemId, &requestOpts)
 	if err != nil {
+		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
 		return irs.Failed, err
 	}
@@ -363,6 +385,7 @@ func (vmHandler *ClouditVMHandler) RebootVM(vmIID irs.IID) (irs.VMStatus, error)
 	// VM 상태 정보 반환
 	vmStatus, err := vmHandler.GetVMStatus(vmIID)
 	if err != nil {
+		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
 		return irs.Failed, err
 	}
@@ -383,6 +406,7 @@ func (vmHandler *ClouditVMHandler) TerminateVM(vmIID irs.IID) (irs.VMStatus, err
 	// VM 정보 조회
 	vmInfo, err := vmHandler.GetVM(vmIID)
 	if err != nil {
+		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
 		return irs.Failed, err
 	}
@@ -390,6 +414,7 @@ func (vmHandler *ClouditVMHandler) TerminateVM(vmIID irs.IID) (irs.VMStatus, err
 	// 연결된 PublicIP 반환
 	if vmInfo.PublicIP != "" {
 		if ok, err := vmHandler.DisassociatePublicIP(vmInfo.PublicIP); !ok {
+			cblogger.Error(err.Error())
 			LoggingError(hiscallInfo, err)
 			return irs.Failed, err
 		}
@@ -398,6 +423,7 @@ func (vmHandler *ClouditVMHandler) TerminateVM(vmIID irs.IID) (irs.VMStatus, err
 
 	start := call.Start()
 	if err := server.Terminate(vmHandler.Client, vmInfo.IId.SystemId, &requestOpts); err != nil {
+		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
 		return irs.Failed, err
 	}
@@ -421,6 +447,7 @@ func (vmHandler *ClouditVMHandler) ListVMStatus() ([]*irs.VMStatusInfo, error) {
 	start := call.Start()
 	vmList, err := server.List(vmHandler.Client, &requestOpts)
 	if err != nil {
+		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
 		return []*irs.VMStatusInfo{}, err
 	}
@@ -453,6 +480,7 @@ func (vmHandler *ClouditVMHandler) GetVMStatus(vmIID irs.IID) (irs.VMStatus, err
 
 	vmSystemID, err := vmHandler.getVmIdByName(vmIID.NameId)
 	if err != nil {
+		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
 		return irs.Failed, err
 	}
@@ -460,6 +488,7 @@ func (vmHandler *ClouditVMHandler) GetVMStatus(vmIID irs.IID) (irs.VMStatus, err
 	start := call.Start()
 	vm, err := server.Get(vmHandler.Client, vmSystemID, &requestOpts)
 	if err != nil {
+		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
 		return irs.Failed, err
 	}
@@ -484,6 +513,7 @@ func (vmHandler *ClouditVMHandler) ListVM() ([]*irs.VMInfo, error) {
 	start := call.Start()
 	vmList, err := server.List(vmHandler.Client, &requestOpts)
 	if err != nil {
+		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
 		return []*irs.VMInfo{}, err
 	}
@@ -511,6 +541,7 @@ func (vmHandler *ClouditVMHandler) GetVM(vmIID irs.IID) (irs.VMInfo, error) {
 	start := call.Start()
 	vm, err := server.Get(vmHandler.Client, vmIID.SystemId, &requestOpts)
 	if err != nil {
+		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
 		return irs.VMInfo{}, err
 	}

@@ -84,12 +84,14 @@ func (securityHandler *OpenStackSecurityHandler) CreateSecurity(securityReqInfo 
 	// Check SecurityGroup Exists
 	secGroupList, err := securityHandler.ListSecurity()
 	if err != nil {
+		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
 		return irs.SecurityInfo{}, err
 	}
 	for _, sg := range secGroupList {
 		if sg.IId.NameId == securityReqInfo.IId.NameId {
 			createErr := errors.New(fmt.Sprintf("Security Group with name %s already exist", securityReqInfo.IId.NameId))
+			cblogger.Error(createErr.Error())
 			LoggingError(hiscallInfo, createErr)
 			return irs.SecurityInfo{}, createErr
 		}
@@ -104,6 +106,7 @@ func (securityHandler *OpenStackSecurityHandler) CreateSecurity(securityReqInfo 
 	start := call.Start()
 	group, err := secgroups.Create(securityHandler.Client, createOpts).Extract()
 	if err != nil {
+		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
 		return irs.SecurityInfo{}, err
 	}
@@ -145,6 +148,7 @@ func (securityHandler *OpenStackSecurityHandler) CreateSecurity(securityReqInfo 
 
 		_, err := rules.Create(securityHandler.NetworkClient, createRuleOpts).Extract()
 		if err != nil {
+			cblogger.Error(err.Error())
 			LoggingError(hiscallInfo, err)
 			return irs.SecurityInfo{}, err
 		}
@@ -153,6 +157,7 @@ func (securityHandler *OpenStackSecurityHandler) CreateSecurity(securityReqInfo 
 	// 생성된 SecurityGroup 정보 리턴
 	securityInfo, err := securityHandler.GetSecurity(irs.IID{SystemId: group.ID})
 	if err != nil {
+		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
 		return irs.SecurityInfo{}, err
 	}
@@ -167,6 +172,7 @@ func (securityHandler *OpenStackSecurityHandler) ListSecurity() ([]*irs.Security
 	start := call.Start()
 	pager, err := secgroups.List(securityHandler.Client).AllPages()
 	if err != nil {
+		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
 		return nil, err
 	}
@@ -174,6 +180,7 @@ func (securityHandler *OpenStackSecurityHandler) ListSecurity() ([]*irs.Security
 
 	security, err := secgroups.ExtractSecurityGroups(pager)
 	if err != nil {
+		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
 		return nil, err
 	}
@@ -194,6 +201,7 @@ func (securityHandler *OpenStackSecurityHandler) GetSecurity(securityIID irs.IID
 	start := call.Start()
 	securityGroup, err := secgroups.Get(securityHandler.Client, securityIID.SystemId).Extract()
 	if err != nil {
+		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
 		return irs.SecurityInfo{}, err
 	}
@@ -210,6 +218,7 @@ func (securityHandler *OpenStackSecurityHandler) DeleteSecurity(securityIID irs.
 	start := call.Start()
 	result := secgroups.Delete(securityHandler.Client, securityIID.SystemId)
 	if result.Err != nil {
+		cblogger.Error(result.Err.Error())
 		LoggingError(hiscallInfo, result.Err)
 		return false, result.Err
 	}

@@ -41,6 +41,7 @@ func (keyPairHandler *OpenStackKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyP
 	start := call.Start()
 	keyPair, err := keypairs.Create(keyPairHandler.Client, create0pts).Extract()
 	if err != nil {
+		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
 		return irs.KeyPairInfo{}, err
 	}
@@ -59,6 +60,7 @@ func (keyPairHandler *OpenStackKeyPairHandler) ListKey() ([]*irs.KeyPairInfo, er
 	start := call.Start()
 	pager, err := keypairs.List(keyPairHandler.Client).AllPages()
 	if err != nil {
+		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
 		return nil, err
 	}
@@ -66,6 +68,7 @@ func (keyPairHandler *OpenStackKeyPairHandler) ListKey() ([]*irs.KeyPairInfo, er
 
 	keypair, err := keypairs.ExtractKeyPairs(pager)
 	if err != nil {
+		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
 		return nil, err
 	}
@@ -85,6 +88,7 @@ func (keyPairHandler *OpenStackKeyPairHandler) GetKey(keyIID irs.IID) (irs.KeyPa
 	start := call.Start()
 	keyPair, err := keypairs.Get(keyPairHandler.Client, keyIID.NameId).Extract()
 	if err != nil {
+		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
 		return irs.KeyPairInfo{}, err
 	}
@@ -101,6 +105,7 @@ func (keyPairHandler *OpenStackKeyPairHandler) DeleteKey(keyIID irs.IID) (bool, 
 	start := call.Start()
 	err := keypairs.Delete(keyPairHandler.Client, keyIID.NameId).ExtractErr()
 	if err != nil {
+		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
 		return false, err
 	}

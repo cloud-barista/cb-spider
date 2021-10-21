@@ -42,23 +42,27 @@ func (vpcHandler *IbmVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.VPCIn
 	start := call.Start()
 	err := checkValidVpcReqInfo(vpcReqInfo)
 	if err != nil {
+		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
 		return irs.VPCInfo{}, err
 	}
 
 	if vpcHandler.Region.Zone == "" {
 		err = errors.New("not exist Zone")
+		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
 		return irs.VPCInfo{}, err
 	}
 
 	exist, err := existVpc(vpcReqInfo.IId, vpcHandler.VpcService, vpcHandler.Ctx)
 	if err != nil {
+		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
 		return irs.VPCInfo{}, err
 	}
 	if exist {
 		err = errors.New(fmt.Sprintf("already exist VPC %s", vpcReqInfo.IId.NameId))
+		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
 		return irs.VPCInfo{}, err
 	}
@@ -69,6 +73,7 @@ func (vpcHandler *IbmVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.VPCIn
 	createVPCOptions.SetName(vpcReqInfo.IId.NameId)
 	vpc, _, err := vpcHandler.VpcService.CreateVPCWithContext(vpcHandler.Ctx, createVPCOptions)
 	if err != nil {
+		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
 		return irs.VPCInfo{}, err
 	}
@@ -87,6 +92,7 @@ func (vpcHandler *IbmVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.VPCIn
 	_, _, err = vpcHandler.VpcService.CreateVPCAddressPrefixWithContext(vpcHandler.Ctx, createVPCAddressPrefixOptions)
 	// createVPCAddressPrefix error
 	if err != nil {
+		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
 		_, delErr := vpcHandler.DeleteVPC(newVpcIId)
 		if delErr != nil {
@@ -103,6 +109,7 @@ func (vpcHandler *IbmVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.VPCIn
 				if delErr != nil {
 					err = errors.New(err.Error() + delErr.Error())
 				}
+				cblogger.Error(err.Error())
 				LoggingError(hiscallInfo, err)
 				return irs.VPCInfo{}, err
 			}
@@ -114,6 +121,7 @@ func (vpcHandler *IbmVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.VPCIn
 		if delErr != nil {
 			err = errors.New(err.Error() + delErr.Error())
 		}
+		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
 		return irs.VPCInfo{}, err
 	}
@@ -127,6 +135,7 @@ func (vpcHandler *IbmVPCHandler) ListVPC() ([]*irs.VPCInfo, error) {
 	start := call.Start()
 	vpcs, _, err := vpcHandler.VpcService.ListVpcsWithContext(vpcHandler.Ctx, listVpcsOptions)
 	if err != nil {
+		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
 		return nil, err
 	}
@@ -147,6 +156,7 @@ func (vpcHandler *IbmVPCHandler) ListVPC() ([]*irs.VPCInfo, error) {
 			}
 			vpcs, _, err = vpcHandler.VpcService.ListVpcsWithContext(vpcHandler.Ctx, listVpcsOptions2)
 			if err != nil {
+				cblogger.Error(err.Error())
 				LoggingError(hiscallInfo, err)
 				return nil, err
 				//break
@@ -163,11 +173,13 @@ func (vpcHandler *IbmVPCHandler) GetVPC(vpcIID irs.IID) (irs.VPCInfo, error) {
 	start := call.Start()
 	vpc, err := getRawVPC(vpcIID, vpcHandler.VpcService, vpcHandler.Ctx)
 	if err != nil {
+		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
 		return irs.VPCInfo{}, err
 	}
 	vpcInfo, err := setVPCInfo(vpc, vpcHandler.VpcService, vpcHandler.Ctx)
 	if err != nil {
+		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
 		return irs.VPCInfo{}, err
 	}
@@ -179,6 +191,7 @@ func (vpcHandler *IbmVPCHandler) DeleteVPC(vpcIID irs.IID) (bool, error) {
 	start := call.Start()
 	vpc, err := getRawVPC(vpcIID, vpcHandler.VpcService, vpcHandler.Ctx)
 	if err != nil {
+		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
 		return false, err
 	}
@@ -186,6 +199,7 @@ func (vpcHandler *IbmVPCHandler) DeleteVPC(vpcIID irs.IID) (bool, error) {
 	// Remove all Subnet
 	rawSubnets, err := getVPCRawSubnets(vpc, vpcHandler.VpcService, vpcHandler.Ctx)
 	if err != nil {
+		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
 		return false, err
 	}
@@ -195,6 +209,7 @@ func (vpcHandler *IbmVPCHandler) DeleteVPC(vpcIID irs.IID) (bool, error) {
 			options.SetID(*subnet.ID)
 			_, err := vpcHandler.VpcService.DeleteSubnetWithContext(vpcHandler.Ctx, options)
 			if err != nil {
+				cblogger.Error(err.Error())
 				LoggingError(hiscallInfo, err)
 				return false, err
 			}
@@ -206,6 +221,7 @@ func (vpcHandler *IbmVPCHandler) DeleteVPC(vpcIID irs.IID) (bool, error) {
 	for {
 		rawDeleteSubnets, err := getVPCRawSubnets(vpc, vpcHandler.VpcService, vpcHandler.Ctx)
 		if err != nil {
+			cblogger.Error(err.Error())
 			LoggingError(hiscallInfo, err)
 			return false, err
 		}
@@ -216,6 +232,7 @@ func (vpcHandler *IbmVPCHandler) DeleteVPC(vpcIID irs.IID) (bool, error) {
 		time.Sleep(1 * time.Second)
 		if curRetryCnt > maxRetryCnt {
 			err = errors.New("failed delete VPC - subnets delete TimeOut")
+			cblogger.Error(err.Error())
 			LoggingError(hiscallInfo, err)
 			return false, err
 		}
@@ -225,6 +242,7 @@ func (vpcHandler *IbmVPCHandler) DeleteVPC(vpcIID irs.IID) (bool, error) {
 	deleteVpcOptions.SetID(*vpc.ID)
 	_, err = vpcHandler.VpcService.DeleteVPCWithContext(vpcHandler.Ctx, deleteVpcOptions)
 	if err != nil {
+		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
 		return false, err
 	}
@@ -236,22 +254,26 @@ func (vpcHandler *IbmVPCHandler) AddSubnet(vpcIID irs.IID, subnetInfo irs.Subnet
 	start := call.Start()
 	vpc, err := getRawVPC(vpcIID, vpcHandler.VpcService, vpcHandler.Ctx)
 	if err != nil {
+		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
 		return irs.VPCInfo{}, err
 	}
 	err = attachSubnet(vpc, subnetInfo, vpcHandler.VpcService, vpcHandler.Ctx)
 	if err != nil {
+		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
 		return irs.VPCInfo{}, err
 	}
 	LoggingInfo(hiscallInfo, start)
 	vpc, err = getRawVPC(vpcIID, vpcHandler.VpcService, vpcHandler.Ctx)
 	if err != nil {
+		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
 		return irs.VPCInfo{}, err
 	}
 	vpcInfo, err := setVPCInfo(vpc, vpcHandler.VpcService, vpcHandler.Ctx)
 	if err != nil {
+		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
 		return irs.VPCInfo{}, err
 	}
@@ -265,6 +287,7 @@ func (vpcHandler *IbmVPCHandler) RemoveSubnet(vpcIID irs.IID, subnetIID irs.IID)
 		options.SetID(subnetIID.SystemId)
 		_, err := vpcHandler.VpcService.DeleteSubnetWithContext(vpcHandler.Ctx, options)
 		if err != nil {
+			cblogger.Error(err.Error())
 			LoggingError(hiscallInfo, err)
 			return false, err
 		}
@@ -273,6 +296,7 @@ func (vpcHandler *IbmVPCHandler) RemoveSubnet(vpcIID irs.IID, subnetIID irs.IID)
 	}
 	vpc, err := getRawVPC(vpcIID, vpcHandler.VpcService, vpcHandler.Ctx)
 	if err != nil {
+		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
 		return false, err
 	}
@@ -284,6 +308,7 @@ func (vpcHandler *IbmVPCHandler) RemoveSubnet(vpcIID irs.IID, subnetIID irs.IID)
 				options.SetID(*subnet.ID)
 				_, err := vpcHandler.VpcService.DeleteSubnetWithContext(vpcHandler.Ctx, options)
 				if err != nil {
+					cblogger.Error(err.Error())
 					LoggingError(hiscallInfo, err)
 					return false, err
 				}
@@ -293,6 +318,7 @@ func (vpcHandler *IbmVPCHandler) RemoveSubnet(vpcIID irs.IID, subnetIID irs.IID)
 		}
 	}
 	err = errors.New("not found subnet")
+	cblogger.Error(err.Error())
 	LoggingError(hiscallInfo, err)
 	return false, err
 
