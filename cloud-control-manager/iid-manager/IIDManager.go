@@ -345,26 +345,30 @@ func checkParamsKeyword(connectionName string, resourceType string, keyword *str
 
 // generate Spider UUID(SP-XID)
 func New(cloudConnectName string, uid string) (string, error) {
-	guid := xid.New()
-
-	cookedUID := cookUID(uid)
-	// cblog.Info("UID: " + uid + " => cookedUID: " + cookedUID)
-
-	spXID := cookedUID + "-" + guid.String()
-	// cblog.Info("SP-XID: " + spXID)
-
-	return convertDashOrUnderScore(cloudConnectName, spXID)
-}
-
-func convertDashOrUnderScore(cloudConnectName string, spXID string) (string, error) {
-	cccInfo, err := ccim.GetConnectionConfig(cloudConnectName)
+        cccInfo, err := ccim.GetConnectionConfig(cloudConnectName)
         if err != nil {
                 return "", err
         }
 
+	maxLength := 9 // default length
+	if cccInfo.ProviderName == "TENCENT" { 
+		maxLength = 4 // TENCENT maxLen(VMKey)=25, #4+#1+#20 <= {UID}-{XID}
+	}
+	cookedUID := cookUID(uid, maxLength)
+	// cblog.Info("UID: " + uid + " => cookedUID: " + cookedUID)
+
+
+	guid := xid.New()
+	spXID := cookedUID + "-" + guid.String()
+	// cblog.Info("SP-XID: " + spXID)
+
+	return convertDashOrUnderScore(cccInfo.ProviderName, spXID)
+}
+
+func convertDashOrUnderScore(providerName string, spXID string) (string, error) {
 	var convertedSpXID string
 	// Tencent use '_'
-	if cccInfo.ProviderName == "TENCENT" {
+	if providerName == "TENCENT" {
 		convertedSpXID = strings.ReplaceAll(spXID, "-", "_")
 	} else { // other CSP use '-'
 		convertedSpXID = strings.ReplaceAll(spXID, "_", "-")
@@ -376,12 +380,12 @@ func convertDashOrUnderScore(cloudConnectName string, spXID string) (string, err
 	return convertedSpXID, nil
 }
 
-func cookUID(orgUID string) string {
+func cookUID(orgUID string, maxLength int) string {
         runes := []rune(orgUID)
         filteredUID := []byte{}
         for _, char := range runes {
-                // (1) Max length is '9'
-                if len(filteredUID)==9 { // max length: 9
+                // (1) Max length is '9' or 4(TENCENT)
+                if len(filteredUID)==maxLength { // max length: 9 or 4(TENCENT)
                         break
                 }
                 var matched bool = false
