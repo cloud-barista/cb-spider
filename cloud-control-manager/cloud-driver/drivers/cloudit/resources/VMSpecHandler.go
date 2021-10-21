@@ -60,6 +60,7 @@ func (vmSpecHandler *ClouditVMSpecHandler) ListVMSpec(Region string) ([]*irs.VMS
 	list, err := specs.List(vmSpecHandler.Client, &requestOpts)
 	if err != nil {
 		getError := errors.New(fmt.Sprintf("failed to get VM spec list, err : %s", err.Error()))
+		cblogger.Error(getError.Error())
 		LoggingError(hiscallInfo, getError)
 		return nil, getError
 	}
@@ -80,6 +81,7 @@ func (vmSpecHandler *ClouditVMSpecHandler) GetVMSpec(Region string, Name string)
 	specInfo, err := vmSpecHandler.GetVMSpecByName(Region, Name)
 	if err != nil {
 		notFoundErr := errors.New(fmt.Sprintf("failed to get VM spec, err : %s", err.Error()))
+		cblogger.Error(notFoundErr.Error())
 		LoggingError(hiscallInfo, notFoundErr)
 		return irs.VMSpecInfo{}, notFoundErr
 	}
@@ -103,6 +105,7 @@ func (vmSpecHandler *ClouditVMSpecHandler) ListOrgVMSpec(Region string) (string,
 	list, err := specs.List(vmSpecHandler.Client, &requestOpts)
 	if err != nil {
 		getErr := errors.New(fmt.Sprintf("failed to get VM spec list, err : %s", err.Error()))
+		cblogger.Error(getErr.Error())
 		LoggingError(hiscallInfo, getErr)
 		return "", getErr
 	}
@@ -114,6 +117,7 @@ func (vmSpecHandler *ClouditVMSpecHandler) ListOrgVMSpec(Region string) (string,
 	jsonResult.Result = *list
 	jsonBytes, err := json.Marshal(jsonResult)
 	if err != nil {
+		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
 		return "", err
 	}
@@ -131,6 +135,7 @@ func (vmSpecHandler *ClouditVMSpecHandler) GetOrgVMSpec(Region string, Name stri
 	specInfo, err := vmSpecHandler.GetVMSpecByName(Region, Name)
 	if err != nil {
 		notFoundErr := errors.New(fmt.Sprintf("failed to get VM spec, err : %s", err.Error()))
+		cblogger.Error(notFoundErr.Error())
 		LoggingError(hiscallInfo, notFoundErr)
 		return "", notFoundErr
 	}
@@ -138,6 +143,7 @@ func (vmSpecHandler *ClouditVMSpecHandler) GetOrgVMSpec(Region string, Name stri
 
 	jsonBytes, err := json.Marshal(specInfo)
 	if err != nil {
+		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
 		return "", err
 	}

@@ -75,6 +75,7 @@ func (imageHandler *OpenStackImageHandler) CreateImage(imageReqInfo irs.ImageReq
 	imageFilePath := fmt.Sprintf("%s/image/%s.iso", rootPath, reqInfo.Name)
 	if _, err := os.Stat(imageFilePath); os.IsNotExist(err) {
 		createErr := errors.New(fmt.Sprintf("Image files in path %s not exist", imageFilePath))
+		cblogger.Error(createErr.Error())
 		LoggingError(hiscallInfo, createErr)
 		return irs.ImageInfo{}, createErr
 	}
@@ -83,6 +84,7 @@ func (imageHandler *OpenStackImageHandler) CreateImage(imageReqInfo irs.ImageReq
 	start := call.Start()
 	image, err := imgsvc.Create(imageHandler.ImageClient, createOpts).Extract()
 	if err != nil {
+		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
 		return irs.ImageInfo{}, err
 	}
@@ -91,11 +93,13 @@ func (imageHandler *OpenStackImageHandler) CreateImage(imageReqInfo irs.ImageReq
 	// Upload Image file
 	imageBytes, err := ioutil.ReadFile(imageFilePath)
 	if err != nil {
+		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
 		return irs.ImageInfo{}, err
 	}
 	result := imagedata.Upload(imageHandler.ImageClient, image.ID, bytes.NewReader(imageBytes))
 	if result.Err != nil {
+		cblogger.Error(result.Err.Error())
 		LoggingError(hiscallInfo, err)
 		return irs.ImageInfo{}, err
 	}
@@ -122,6 +126,7 @@ func (imageHandler *OpenStackImageHandler) ListImage() ([]*irs.ImageInfo, error)
 	start := call.Start()
 	pager, err := images.ListDetail(imageHandler.Client, images.ListOpts{}).AllPages()
 	if err != nil {
+		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
 		return nil, err
 	}
@@ -129,6 +134,7 @@ func (imageHandler *OpenStackImageHandler) ListImage() ([]*irs.ImageInfo, error)
 
 	imageList, err := images.ExtractImages(pager)
 	if err != nil {
+		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
 		return nil, err
 	}
@@ -147,12 +153,14 @@ func (imageHandler *OpenStackImageHandler) GetImage(imageIID irs.IID) (irs.Image
 
 	imageId, err := imageHandler.IDFromName(imageHandler.Client, imageIID.NameId)
 	if err != nil {
+		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
 		return irs.ImageInfo{}, err
 	}
 	start := call.Start()
 	image, err := images.Get(imageHandler.Client, imageId).Extract()
 	if err != nil {
+		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
 		return irs.ImageInfo{}, err
 	}
@@ -168,12 +176,14 @@ func (imageHandler *OpenStackImageHandler) DeleteImage(imageIID irs.IID) (bool, 
 
 	imageId, err := imageHandler.IDFromName(imageHandler.Client, imageIID.NameId)
 	if err != nil {
+		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
 		return false, err
 	}
 	start := call.Start()
 	err = images.Delete(imageHandler.Client, imageId).ExtractErr()
 	if err != nil {
+		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
 		return false, err
 	}

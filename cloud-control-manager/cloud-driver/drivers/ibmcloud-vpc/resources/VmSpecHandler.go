@@ -31,6 +31,7 @@ func (vmSpecHandler *IbmVmSpecHandler) ListVMSpec(Region string) ([]*irs.VMSpecI
 	options := &vpcv1.ListInstanceProfilesOptions{}
 	profiles, _, err := vmSpecHandler.VpcService.ListInstanceProfilesWithContext(vmSpecHandler.Ctx, options)
 	if err != nil {
+		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
 		return nil, err
 	}
@@ -57,6 +58,7 @@ func (vmSpecHandler *IbmVmSpecHandler) GetVMSpec(Region string, Name string) (ir
 	start := call.Start()
 	if Name == "" {
 		err := errors.New("invalid Name")
+		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
 		return irs.VMSpecInfo{}, err
 	}
@@ -67,6 +69,7 @@ func (vmSpecHandler *IbmVmSpecHandler) GetVMSpec(Region string, Name string) (ir
 	//}
 	profile, err := getRawSpec(Name, vmSpecHandler.VpcService, vmSpecHandler.Ctx)
 	if err != nil {
+		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
 		return irs.VMSpecInfo{}, err
 	}
@@ -98,6 +101,7 @@ func (vmSpecHandler *IbmVmSpecHandler) ListOrgVMSpec(Region string) (string, err
 	options := &vpcv1.ListInstanceProfilesOptions{}
 	profiles, _, err := vmSpecHandler.VpcService.ListInstanceProfilesWithContext(vmSpecHandler.Ctx, options)
 	if err != nil {
+		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
 		return "", err
 	}
@@ -118,6 +122,7 @@ func (vmSpecHandler *IbmVmSpecHandler) ListOrgVMSpec(Region string) (string, err
 	}
 	jsonBytes, err := json.Marshal(specList)
 	if err != nil {
+		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
 		return "", err
 	}
@@ -130,6 +135,7 @@ func (vmSpecHandler *IbmVmSpecHandler) GetOrgVMSpec(Region string, Name string) 
 	start := call.Start()
 	if Name == "" {
 		err := errors.New("invalid Name")
+		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
 		return "", err
 	}
@@ -140,6 +146,7 @@ func (vmSpecHandler *IbmVmSpecHandler) GetOrgVMSpec(Region string, Name string) 
 	//}
 	profile, err := getRawSpec(Name, vmSpecHandler.VpcService, vmSpecHandler.Ctx)
 	if err != nil {
+		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
 		return "", err
 	}
@@ -157,6 +164,7 @@ func (vmSpecHandler *IbmVmSpecHandler) GetOrgVMSpec(Region string, Name string) 
 	}
 	jsonBytes, err := json.Marshal(vmSpecInfo)
 	if err != nil {
+		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
 		return "", err
 	}

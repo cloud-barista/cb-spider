@@ -24,6 +24,7 @@ func (imageHandler *IbmImageHandler) CreateImage(imageReqInfo irs.ImageReqInfo) 
 	hiscallInfo := GetCallLogScheme(imageHandler.Region, call.VMIMAGE, imageReqInfo.IId.NameId, "CreateImage()")
 	// start := call.Start()
 	err := errors.New(fmt.Sprintf("CreateImage Function Not Offer"))
+	cblogger.Error(err.Error())
 	LoggingError(hiscallInfo, err)
 	return irs.ImageInfo{}, errors.New(fmt.Sprintf("CreateImage Function Not Offer"))
 }
@@ -35,6 +36,7 @@ func (imageHandler *IbmImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 	images, _, err := imageHandler.VpcService.ListImagesWithContext(imageHandler.Ctx, ListImagesOptions)
 
 	if err != nil {
+		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
 		return nil, err
 	}
@@ -57,6 +59,7 @@ func (imageHandler *IbmImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 			}
 			images, _, err = imageHandler.VpcService.ListImagesWithContext(imageHandler.Ctx, ListImagesOptions2)
 			if err != nil {
+				cblogger.Error(err.Error())
 				LoggingError(hiscallInfo, err)
 				return nil, err
 
@@ -73,16 +76,19 @@ func (imageHandler *IbmImageHandler) GetImage(imageIID irs.IID) (irs.ImageInfo, 
 
 	err := checkImageInfoIID(imageIID)
 	if err != nil {
+		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
 		return irs.ImageInfo{}, err
 	}
 	image, err := getRawImage(imageIID, imageHandler.VpcService, imageHandler.Ctx)
 	if err != nil {
+		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
 		return irs.ImageInfo{}, err
 	}
 	imageInfo, err := setImageInfo(&image)
 	if err != nil {
+		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
 		return irs.ImageInfo{}, err
 	}
@@ -93,6 +99,7 @@ func (imageHandler *IbmImageHandler) DeleteImage(imageIID irs.IID) (bool, error)
 	hiscallInfo := GetCallLogScheme(imageHandler.Region, call.VMIMAGE, imageIID.NameId, "DeleteImage()")
 	// start := call.Start()
 	err := errors.New(fmt.Sprintf("DeleteImage Function Not Offer"))
+	cblogger.Error(err.Error())
 	LoggingError(hiscallInfo, err)
 	return false, err
 }

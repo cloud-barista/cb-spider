@@ -28,20 +28,24 @@ func (securityHandler *IbmSecurityHandler) CreateSecurity(securityReqInfo irs.Se
 	// req 체크
 	err := checkSecurityReqInfo(securityReqInfo)
 	if err != nil {
+		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
 		return irs.SecurityInfo{}, err
 	}
 	exist, err := existSecurityGroup(securityReqInfo.IId, securityHandler.VpcService, securityHandler.Ctx)
 	if err != nil {
+		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
 		return irs.SecurityInfo{}, err
 	} else if exist {
 		err = errors.New(fmt.Sprintf("already exist %s", securityReqInfo.IId.NameId))
+		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
 		return irs.SecurityInfo{}, err
 	}
 	vpc, err := getRawVPC(securityReqInfo.VpcIID, securityHandler.VpcService, securityHandler.Ctx)
 	if err != nil {
+		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
 		return irs.SecurityInfo{}, err
 	}
@@ -52,6 +56,7 @@ func (securityHandler *IbmSecurityHandler) CreateSecurity(securityReqInfo irs.Se
 	options.SetName(securityReqInfo.IId.NameId)
 	securityGroup, _, err := securityHandler.VpcService.CreateSecurityGroupWithContext(securityHandler.Ctx, options)
 	if err != nil {
+		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
 		return irs.SecurityInfo{}, err
 	}
@@ -81,6 +86,7 @@ func (securityHandler *IbmSecurityHandler) CreateSecurity(securityReqInfo irs.Se
 					if deleteError != nil {
 						err = errors.New(err.Error() + deleteError.Error())
 					}
+					cblogger.Error(err.Error())
 					LoggingError(hiscallInfo, err)
 					return irs.SecurityInfo{}, err
 				}
@@ -103,6 +109,7 @@ func (securityHandler *IbmSecurityHandler) CreateSecurity(securityReqInfo irs.Se
 					if deleteError != nil {
 						err = errors.New(err.Error() + deleteError.Error())
 					}
+					cblogger.Error(err.Error())
 					LoggingError(hiscallInfo, err)
 					return irs.SecurityInfo{}, err
 				}
@@ -119,6 +126,7 @@ func (securityHandler *IbmSecurityHandler) CreateSecurity(securityReqInfo irs.Se
 		if deleteError != nil {
 			err = errors.New(err.Error() + deleteError.Error())
 		}
+		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
 		return irs.SecurityInfo{}, err
 	}
@@ -130,6 +138,7 @@ func (securityHandler *IbmSecurityHandler) CreateSecurity(securityReqInfo irs.Se
 		if deleteError != nil {
 			err = errors.New(err.Error() + deleteError.Error())
 		}
+		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
 		return irs.SecurityInfo{}, err
 	}
@@ -143,6 +152,7 @@ func (securityHandler *IbmSecurityHandler) ListSecurity() ([]*irs.SecurityInfo, 
 	options := &vpcv1.ListSecurityGroupsOptions{}
 	securityGroups, _, err := securityHandler.VpcService.ListSecurityGroupsWithContext(securityHandler.Ctx, options)
 	if err != nil {
+		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
 		return nil, err
 	}
@@ -151,6 +161,7 @@ func (securityHandler *IbmSecurityHandler) ListSecurity() ([]*irs.SecurityInfo, 
 		for _, securityGroup := range securityGroups.SecurityGroups {
 			securityInfo, err := setSecurityGroupInfo(securityGroup)
 			if err != nil {
+				cblogger.Error(err.Error())
 				LoggingError(hiscallInfo, err)
 				return nil, err
 			}
@@ -163,6 +174,7 @@ func (securityHandler *IbmSecurityHandler) ListSecurity() ([]*irs.SecurityInfo, 
 			}
 			securityGroups, _, err = securityHandler.VpcService.ListSecurityGroupsWithContext(securityHandler.Ctx, options2)
 			if err != nil {
+				cblogger.Error(err.Error())
 				LoggingError(hiscallInfo, err)
 				return nil, err
 			}
@@ -180,16 +192,19 @@ func (securityHandler *IbmSecurityHandler) GetSecurity(securityIID irs.IID) (irs
 
 	err := checkSecurityGroupIID(securityIID)
 	if err != nil {
+		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
 		return irs.SecurityInfo{}, err
 	}
 	securityGroup, err := getRawSecurityGroup(securityIID, securityHandler.VpcService, securityHandler.Ctx)
 	if err != nil {
+		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
 		return irs.SecurityInfo{}, err
 	}
 	securityGroupInfo, err := setSecurityGroupInfo(securityGroup)
 	if err != nil {
+		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
 		return irs.SecurityInfo{}, err
 	}
@@ -204,11 +219,13 @@ func (securityHandler *IbmSecurityHandler) DeleteSecurity(securityIID irs.IID) (
 	err := checkSecurityGroupIID(securityIID)
 
 	if err != nil {
+		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
 		return false, err
 	}
 	securityGroup, err := getRawSecurityGroup(securityIID, securityHandler.VpcService, securityHandler.Ctx)
 	if err != nil {
+		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
 		return false, err
 	}
@@ -216,6 +233,7 @@ func (securityHandler *IbmSecurityHandler) DeleteSecurity(securityIID irs.IID) (
 	options.SetID(*securityGroup.ID)
 	res, err := securityHandler.VpcService.DeleteSecurityGroupWithContext(securityHandler.Ctx, options)
 	if err != nil {
+		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
 		return false, err
 	}
@@ -224,6 +242,7 @@ func (securityHandler *IbmSecurityHandler) DeleteSecurity(securityIID irs.IID) (
 		return true, nil
 	} else {
 		err = errors.New(res.String())
+		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
 		return false, err
 	}

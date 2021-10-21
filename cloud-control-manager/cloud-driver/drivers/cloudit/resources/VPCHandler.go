@@ -54,6 +54,7 @@ func (vpcHandler *ClouditVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.V
 	for i, vpcSubnet := range vpcReqInfo.SubnetInfoList {
 		result, err := vpcHandler.CreateSubnet(vpcSubnet)
 		if err != nil {
+			cblogger.Error(err.Error())
 			LoggingError(hiscallInfo, err)
 			return irs.VPCInfo{}, err
 		}
@@ -72,6 +73,7 @@ func (vpcHandler *ClouditVPCHandler) ListVPC() ([]*irs.VPCInfo, error) {
 	start := call.Start()
 	subnetList, err := vpcHandler.ListSubnet()
 	if err != nil {
+		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
 		return nil, err
 	}
@@ -89,6 +91,7 @@ func (vpcHandler *ClouditVPCHandler) GetVPC(vpcIID irs.IID) (irs.VPCInfo, error)
 	start := call.Start()
 	vpcInfo, err := vpcHandler.ListVPC()
 	if err != nil {
+		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
 		return irs.VPCInfo{}, err
 	}
@@ -103,6 +106,7 @@ func (vpcHandler *ClouditVPCHandler) DeleteVPC(vpcIID irs.IID) (bool, error) {
 
 	vpcInfo, err := vpcHandler.GetVPC(vpcIID)
 	if err != nil {
+		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
 		return false, err
 	}
@@ -111,6 +115,7 @@ func (vpcHandler *ClouditVPCHandler) DeleteVPC(vpcIID irs.IID) (bool, error) {
 	for _, subnetInfo := range vpcInfo.SubnetInfoList {
 		subnetList, err := vpcHandler.ListSubnet()
 		if err != nil {
+			cblogger.Error(err.Error())
 			LoggingError(hiscallInfo, err)
 			return false, err
 		}
@@ -269,6 +274,7 @@ func (vpcHandler *ClouditVPCHandler) AddSubnet(vpcIID irs.IID, subnetInfo irs.Su
 	checkSubnet, _ := vpcHandler.getSubnetByName(subnetInfo.IId.NameId)
 	if checkSubnet != nil {
 		createErr := errors.New(fmt.Sprintf("virtualNetwork with name %s already exist", subnetInfo.IId.NameId))
+		cblogger.Error(createErr.Error())
 		LoggingError(hiscallInfo, createErr)
 		return irs.VPCInfo{}, createErr
 	}
@@ -283,11 +289,13 @@ func (vpcHandler *ClouditVPCHandler) AddSubnet(vpcIID irs.IID, subnetInfo irs.Su
 		MoreHeaders: authHeader,
 	}
 	if creatableSubnetList, err := subnet.ListCreatableSubnet(vpcHandler.Client, &requestOpts); err != nil {
+		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
 		return irs.VPCInfo{}, err
 	} else {
 		if len(*creatableSubnetList) == 0 {
 			allocateErr := errors.New("there is no PublicIPs to allocate")
+			cblogger.Error(allocateErr.Error())
 			LoggingError(hiscallInfo, allocateErr)
 			return irs.VPCInfo{}, allocateErr
 		} else {
@@ -310,6 +318,7 @@ func (vpcHandler *ClouditVPCHandler) AddSubnet(vpcIID irs.IID, subnetInfo irs.Su
 	start := call.Start()
 	_, err := subnet.Create(vpcHandler.Client, &createOpts)
 	if err != nil {
+		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
 		return irs.VPCInfo{}, err
 	}
@@ -317,6 +326,7 @@ func (vpcHandler *ClouditVPCHandler) AddSubnet(vpcIID irs.IID, subnetInfo irs.Su
 
 	result, err := vpcHandler.GetVPC(vpcIID)
 	if err != nil {
+		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
 		return irs.VPCInfo{}, err
 	}
@@ -330,6 +340,7 @@ func (vpcHandler *ClouditVPCHandler) RemoveSubnet(vpcIID irs.IID, subnetIID irs.
 
 	subnetInfo, err := vpcHandler.getSubnetByName(subnetIID.NameId)
 	if err != nil {
+		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
 		return false, err
 	}
@@ -344,6 +355,7 @@ func (vpcHandler *ClouditVPCHandler) RemoveSubnet(vpcIID irs.IID, subnetIID irs.
 	start := call.Start()
 	err = subnet.Delete(vpcHandler.Client, subnetInfo.Addr, &requestOpts)
 	if err != nil {
+		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
 		return false, err
 	}

@@ -41,6 +41,7 @@ func (vmSpecHandler *OpenStackVMSpecHandler) ListVMSpec(Region string) ([]*irs.V
 	start := call.Start()
 	pager, err := flavors.ListDetail(vmSpecHandler.Client, flavors.ListOpts{}).AllPages()
 	if err != nil {
+		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
 		return nil, err
 	}
@@ -48,6 +49,7 @@ func (vmSpecHandler *OpenStackVMSpecHandler) ListVMSpec(Region string) ([]*irs.V
 
 	list, err := flavors.ExtractFlavors(pager)
 	if err != nil {
+		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
 		return nil, err
 	}
@@ -65,6 +67,7 @@ func (vmSpecHandler *OpenStackVMSpecHandler) GetVMSpec(Region string, Name strin
 
 	vmSpecId, err := vmSpecHandler.getIDFromName(vmSpecHandler.Client, Name)
 	if err != nil {
+		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
 		return irs.VMSpecInfo{}, err
 	}
@@ -72,6 +75,7 @@ func (vmSpecHandler *OpenStackVMSpecHandler) GetVMSpec(Region string, Name strin
 	start := call.Start()
 	vmSpec, err := flavors.Get(vmSpecHandler.Client, vmSpecId).Extract()
 	if err != nil {
+		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
 		return irs.VMSpecInfo{}, err
 	}
@@ -88,6 +92,7 @@ func (vmSpecHandler *OpenStackVMSpecHandler) ListOrgVMSpec(Region string) (strin
 	start := call.Start()
 	pager, err := flavors.ListDetail(vmSpecHandler.Client, flavors.ListOpts{}).AllPages()
 	if err != nil {
+		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
 		return "", err
 	}
@@ -95,6 +100,7 @@ func (vmSpecHandler *OpenStackVMSpecHandler) ListOrgVMSpec(Region string) (strin
 
 	list, err := flavors.ExtractFlavors(pager)
 	if err != nil {
+		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
 		return "", err
 	}
@@ -105,6 +111,7 @@ func (vmSpecHandler *OpenStackVMSpecHandler) ListOrgVMSpec(Region string) (strin
 	jsonResult.Result = list
 	jsonBytes, err := json.Marshal(jsonResult)
 	if err != nil {
+		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
 		return "", err
 	}
@@ -120,6 +127,7 @@ func (vmSpecHandler *OpenStackVMSpecHandler) GetOrgVMSpec(Region string, Name st
 
 	vmSpecId, err := vmSpecHandler.getIDFromName(vmSpecHandler.Client, Name)
 	if err != nil {
+		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
 		return "", err
 	}
@@ -127,6 +135,7 @@ func (vmSpecHandler *OpenStackVMSpecHandler) GetOrgVMSpec(Region string, Name st
 	start := call.Start()
 	vmSpec, err := flavors.Get(vmSpecHandler.Client, vmSpecId).Extract()
 	if err != nil {
+		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
 		return "", err
 	}
@@ -134,6 +143,7 @@ func (vmSpecHandler *OpenStackVMSpecHandler) GetOrgVMSpec(Region string, Name st
 
 	jsonBytes, err := json.Marshal(vmSpec)
 	if err != nil {
+		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
 		return "", err
 	}
