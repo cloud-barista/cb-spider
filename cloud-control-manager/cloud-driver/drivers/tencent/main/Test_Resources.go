@@ -755,11 +755,11 @@ func handleVM() {
 func main() {
 	cblogger.Info("Tencent Cloud Resource Test")
 	//handleVPC() //VPC
-	//handleVMSpec()
+	handleVMSpec()
 	//handleSecurity()
 	//handleImage() //AMI
-	handleKeyPair()
-	handleVM()
+	//handleKeyPair()
+	//handleVM()
 
 	//handlePublicIP() // PublicIP 생성 후 conf
 	//handleVNic() //Lancard
