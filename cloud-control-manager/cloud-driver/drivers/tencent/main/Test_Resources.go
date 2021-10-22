@@ -139,7 +139,7 @@ func handleSecurity() {
 	//config := readConfigFile()
 	//VmID := config.Aws.VmID
 
-	securityName := "CB-SecurityTest"
+	securityName := "CB-SecurityTestAll"
 	securityId := "sg-6wedru4yb4m6qqfvd3sj"
 	vpcId := "vpc-6wei16ufuimfcct41o0xh"
 
@@ -190,12 +190,21 @@ func handleSecurity() {
 						// 	CIDR:       "0.0.0.0/0",
 						// },
 						{
+							FromPort:   "20",
+							ToPort:     "-",
+							IPProtocol: "tcp",
+							Direction:  "inbound",
+							CIDR:       "0.0.0.0/0",
+						},
+
+						{
 							FromPort:   "8080",
 							ToPort:     "",
 							IPProtocol: "tcp",
 							Direction:  "inbound",
 							CIDR:       "0.0.0.0/0",
 						},
+
 						// {
 						// 	FromPort:   "40",
 						// 	ToPort:     "",
@@ -755,8 +764,8 @@ func handleVM() {
 func main() {
 	cblogger.Info("Tencent Cloud Resource Test")
 	//handleVPC() //VPC
-	handleVMSpec()
-	//handleSecurity()
+	//handleVMSpec()
+	handleSecurity()
 	//handleImage() //AMI
 	//handleKeyPair()
 	//handleVM()
