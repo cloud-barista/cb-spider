@@ -10,7 +10,7 @@ package regioninfomanager
 
 import (
 	"fmt"
-
+	"strings"
 	"github.com/cloud-barista/cb-store/config"
 	icbs "github.com/cloud-barista/cb-store/interfaces"
 	"github.com/sirupsen/logrus"
@@ -47,6 +47,8 @@ func RegisterRegion(regionName string, providerName string, keyValueInfoList []i
 		return nil, err
 
 	}
+
+	providerName = strings.ToUpper(strings.Trim(providerName, " "))
 
 	cblog.Debug("insert metainfo into store")
 

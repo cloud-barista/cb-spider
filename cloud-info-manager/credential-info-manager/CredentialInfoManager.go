@@ -10,7 +10,7 @@ package credentialinfomanager
 
 import (
 	"fmt"
-
+	"strings"
 	"github.com/cloud-barista/cb-store/config"
 	icbs "github.com/cloud-barista/cb-store/interfaces"
 	"github.com/sirupsen/logrus"
@@ -55,6 +55,8 @@ func RegisterCredential(credentialName string, providerName string, keyValueInfo
 		return nil, err
 
 	}
+
+	providerName = strings.ToUpper(strings.Trim(providerName, " "))
 
 	cblog.Debug("insert metainfo into store")
 

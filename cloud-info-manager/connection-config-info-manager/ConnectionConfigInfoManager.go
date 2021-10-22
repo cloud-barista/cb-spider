@@ -10,7 +10,7 @@ package connectionconfiginfomanager
 
 import (
 	"fmt"
-
+	"strings"
 	"github.com/cloud-barista/cb-store/config"
 	"github.com/sirupsen/logrus"
 )
@@ -49,6 +49,8 @@ func CreateConnectionConfig(configName string, providerName string, driverName s
 		return nil, err
 
 	}
+
+	providerName = strings.ToUpper(strings.Trim(providerName, " "))
 
 	// check the existence of the key to be inserted
 	tmpcncInfo, err := getInfo(configName)
