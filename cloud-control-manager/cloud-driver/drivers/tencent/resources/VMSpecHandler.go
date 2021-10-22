@@ -268,7 +268,7 @@ func ExtractVMSpecInfo(instanceTypeInfo *cvm.InstanceTypeConfig) irs.VMSpecInfo 
 
 	//Memory 정보 처리
 	if !reflect.ValueOf(instanceTypeInfo.Memory).IsNil() {
-		vmSpecInfo.Mem = strconv.FormatInt(*instanceTypeInfo.Memory, 10)
+		vmSpecInfo.Mem = strconv.FormatInt(*instanceTypeInfo.Memory*1024, 10) // GB->MB로 변환
 	}
 
 	//VCPU 정보 처리 - Count

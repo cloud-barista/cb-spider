@@ -75,7 +75,10 @@ func (securityHandler *TencentSecurityHandler) CreateSecurity(securityReqInfo ir
 		securityGroupPolicy.CidrBlock = common.StringPtr(curPolicy.CIDR)
 		securityGroupPolicy.Action = common.StringPtr("accept")
 
-		if curPolicy.ToPort != "" && curPolicy.ToPort != curPolicy.FromPort {
+		// 포트 번호에 "-"가 오면 모든 포트로 설정
+		if curPolicy.FromPort == "-" || curPolicy.ToPort == "-" {
+			securityGroupPolicy.Port = common.StringPtr("ALL")
+		} else if curPolicy.ToPort != "" && curPolicy.ToPort != curPolicy.FromPort {
 			securityGroupPolicy.Port = common.StringPtr(curPolicy.FromPort + "-" + curPolicy.ToPort)
 		} else {
 			securityGroupPolicy.Port = common.StringPtr(curPolicy.FromPort)
