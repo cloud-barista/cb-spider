@@ -39,7 +39,7 @@ var imgRWLock = new(sync.RWMutex)
 var vpcRWLock = new(sync.RWMutex)
 var sgRWLock = new(sync.RWMutex)
 var keyRWLock = new(sync.RWMutex)
-var vmRWLock = new(sync.RWMutex)
+//var vmRWLock = new(sync.RWMutex)
 
 // definition of IIDManager RWLock
 var iidRWLock = new(iidm.IIDRWLOCK)
@@ -612,9 +612,9 @@ func UnregisterResource(connectionName string, rsType string, nameId string) (bo
         case rsKey:
                 keyRWLock.Lock()
                 defer keyRWLock.Unlock()
-        case rsVM:
-                vmRWLock.Lock()
-                defer vmRWLock.Unlock()
+        //case rsVM:
+        //        vmRWLock.Lock()
+        //        defer vmRWLock.Unlock()
         default:
                 return false, fmt.Errorf(rsType + " is not supported Resource!!")
         }
@@ -1872,8 +1872,8 @@ func RegisterVM(connectionName string, userIID cres.IID) (*cres.VMInfo, error) {
                 return nil, err
         }
 
-        vmRWLock.Lock()
-        defer vmRWLock.Unlock()
+        //vmRWLock.Lock()
+        //defer vmRWLock.Unlock()
 
         // (1) check existence(UserID)
 	bool_ret, err := iidRWLock.IsExistIID(iidm.IIDSGROUP, connectionName, rsType, userIID)
@@ -2122,8 +2122,8 @@ func ListVM(connectionName string, rsType string) ([]*cres.VMInfo, error) {
 		return nil, err
 	}
 
-	vmRWLock.RLock()
-	defer vmRWLock.RUnlock()
+	//vmRWLock.RLock()
+	//defer vmRWLock.RUnlock()
 	// (1) get IID:list
 	iidInfoList, err := iidRWLock.ListIID(iidm.IIDSGROUP, connectionName, rsType)
 	if err != nil {
@@ -2255,8 +2255,8 @@ func GetVM(connectionName string, rsType string, nameID string) (*cres.VMInfo, e
 		return nil, err
 	}
 
-	vmRWLock.RLock()
-	defer vmRWLock.RUnlock()
+	//vmRWLock.RLock()
+	//defer vmRWLock.RUnlock()
 	// (1) get IID(NameId)
 	iidInfo, err := iidRWLock.GetIID(iidm.IIDSGROUP, connectionName, rsType, cres.IID{nameID, ""})
 	if err != nil {
@@ -2314,8 +2314,8 @@ func ListVMStatus(connectionName string, rsType string) ([]*cres.VMStatusInfo, e
 		return nil, err
 	}
 
-	vmRWLock.RLock()
-	defer vmRWLock.RUnlock()
+	//vmRWLock.RLock()
+	//defer vmRWLock.RUnlock()
 	// (1) get IID:list
 	iidInfoList, err := iidRWLock.ListIID(iidm.IIDSGROUP, connectionName, rsType)
 	if err != nil {
@@ -2377,8 +2377,8 @@ func GetVMStatus(connectionName string, rsType string, nameID string) (cres.VMSt
 		return "", err
 	}
 
-	vmRWLock.RLock()
-	defer vmRWLock.RUnlock()
+	//vmRWLock.RLock()
+	//defer vmRWLock.RUnlock()
 	// (1) get IID(NameId)
 	iidInfo, err := iidRWLock.GetIID(iidm.IIDSGROUP, connectionName, rsType, cres.IID{nameID, ""})
 	if err != nil {
@@ -2413,8 +2413,8 @@ func ControlVM(connectionName string, rsType string, nameID string, action strin
 		return "", err
 	}
 
-	vmRWLock.RLock()
-	defer vmRWLock.RUnlock()
+	//vmRWLock.RLock()
+	//defer vmRWLock.RUnlock()
 	// (1) get IID(NameId)
 	iidInfo, err := iidRWLock.GetIID(iidm.IIDSGROUP, connectionName, rsType, cres.IID{nameID, ""})
 	if err != nil {
@@ -2489,9 +2489,9 @@ func ListAllResource(connectionName string, rsType string) (AllResourceList, err
 	case rsKey:
 		keyRWLock.RLock()
 		defer keyRWLock.RUnlock()
-	case rsVM:
-		vmRWLock.RLock()
-		defer vmRWLock.RUnlock()
+	//case rsVM:
+	//	vmRWLock.RLock()
+	//	defer vmRWLock.RUnlock()
 	default:
 		return AllResourceList{}, fmt.Errorf(rsType + " is not supported Resource!!")
 	}
@@ -2695,9 +2695,9 @@ func DeleteResource(connectionName string, rsType string, nameID string, force s
 	case rsKey:
 		keyRWLock.Lock()
 		defer keyRWLock.Unlock()
-	case rsVM:
-		vmRWLock.Lock()
-		defer vmRWLock.Unlock()
+	//case rsVM:
+	//	vmRWLock.Lock()
+	//	defer vmRWLock.Unlock()
 	default:
 		return false, "", fmt.Errorf(rsType + " is not supported Resource!!")
 	}
