@@ -54,7 +54,7 @@ const (
 	// page size for control pages
 	CBPageSize = 100
 
-	CBKeyPairPath       = "/cloud-driver-libs/.ssh-aliyun/"
+	CBKeyPairPath       = "/meta_db/.ssh-aliyun/"
 	CBCloudInitFilePath = "/cloud-driver-libs/.cloud-init-aliyun/cloud-init"
 )
 

@@ -25,7 +25,7 @@ import (
 
 const (
 	CBVMUser      = "cb-user"
-	CBKeyPairPath = "/cloud-driver-libs/.ssh-cloudit/"
+	CBKeyPairPath = "/meta_db/.ssh-cloudit/"
 )
 
 var once sync.Once

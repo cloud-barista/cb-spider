@@ -22,7 +22,7 @@ const (
 	CBVnetDefaultCidr    = "130.0.0.0/16"
 	CBVMUser             = "cb-user"
 	// by powerkim, 2019.10.30
-	CBKeyPairPath = "/cloud-driver-libs/.ssh-azure/"
+	CBKeyPairPath = "/meta_db/.ssh-azure/"
 )
 
 var once sync.Once
