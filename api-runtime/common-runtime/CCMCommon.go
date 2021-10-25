@@ -612,7 +612,7 @@ func UnregisterResource(connectionName string, rsType string, nameId string) (bo
         case rsKey:
                 keyRWLock.Lock()
                 defer keyRWLock.Unlock()
-        //case rsVM:
+        case rsVM:
         //        vmRWLock.Lock()
         //        defer vmRWLock.Unlock()
         default:
@@ -2489,7 +2489,7 @@ func ListAllResource(connectionName string, rsType string) (AllResourceList, err
 	case rsKey:
 		keyRWLock.RLock()
 		defer keyRWLock.RUnlock()
-	//case rsVM:
+	case rsVM:
 	//	vmRWLock.RLock()
 	//	defer vmRWLock.RUnlock()
 	default:
@@ -2695,7 +2695,7 @@ func DeleteResource(connectionName string, rsType string, nameID string, force s
 	case rsKey:
 		keyRWLock.Lock()
 		defer keyRWLock.Unlock()
-	//case rsVM:
+	case rsVM:
 	//	vmRWLock.Lock()
 	//	defer vmRWLock.Unlock()
 	default:
