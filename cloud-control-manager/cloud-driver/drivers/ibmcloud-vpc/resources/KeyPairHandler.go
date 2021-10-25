@@ -10,9 +10,7 @@ import (
 	keypair "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/common"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
-	"io/ioutil"
 	"net/url"
-	"os"
 )
 
 type IbmKeyPairHandler struct {
@@ -47,42 +45,9 @@ func (keyPairHandler *IbmKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPairReq
 		return irs.KeyPairInfo{}, err
 	}
 	start := call.Start()
-	keyPairPath := os.Getenv("CBSPIDER_ROOT") + CBKeyPairPath
-	if err := checkKeyPairFolder(keyPairPath); err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return irs.KeyPairInfo{}, err
-	}
-	hashString, err := CreateHashString(keyPairHandler.CredentialInfo)
-	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return irs.KeyPairInfo{}, err
-	}
-	savePrivateFileTo := keyPairPath + hashString + "--" + keyPairReqInfo.IId.NameId
-	savePublicFileTo := keyPairPath + hashString + "--" + keyPairReqInfo.IId.NameId + ".pub"
 
-	if _, err := os.Stat(savePrivateFileTo); err == nil {
-		errMsg := fmt.Sprintf("KeyPair with name %s already exist", keyPairReqInfo.IId.NameId)
-		createErr := errors.New(errMsg)
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, createErr)
-		return irs.KeyPairInfo{}, createErr
-	}
 	privateKey, publicKey, err := keypair.GenKeyPair()
 
-	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return irs.KeyPairInfo{}, err
-	}
-	err = keypair.SaveKey(privateKey, savePrivateFileTo)
-	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return irs.KeyPairInfo{}, err
-	}
-	err = keypair.SaveKey(publicKey, savePublicFileTo)
 	if err != nil {
 		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
@@ -98,15 +63,11 @@ func (keyPairHandler *IbmKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPairReq
 		LoggingError(hiscallInfo, err)
 		return irs.KeyPairInfo{}, err
 	}
-
-	createKeypairInfo := irs.KeyPairInfo{
-		IId: irs.IID{
-			NameId:   *key.Name,
-			SystemId: *key.ID,
-		},
-		Fingerprint: *key.Fingerprint,
-		PublicKey:   *key.PublicKey,
-		PrivateKey:  string(privateKey),
+	createKeypairInfo, err := setKeyInfo(*key, string(privateKey))
+	if err != nil {
+		cblogger.Error(err.Error())
+		LoggingError(hiscallInfo, err)
+		return irs.KeyPairInfo{}, err
 	}
 	LoggingInfo(hiscallInfo, start)
 	return createKeypairInfo, nil
@@ -125,7 +86,7 @@ func (keyPairHandler *IbmKeyPairHandler) ListKey() ([]*irs.KeyPairInfo, error) {
 	var ListKeys []*irs.KeyPairInfo
 	for {
 		for _, key := range keys.Keys {
-			keyInfo, err := setKeyInfo(key, keyPairHandler.CredentialInfo)
+			keyInfo, err := setKeyInfo(key, "")
 			if err != nil {
 				cblogger.Error(err.Error())
 				LoggingError(hiscallInfo, err)
@@ -162,7 +123,7 @@ func (keyPairHandler *IbmKeyPairHandler) GetKey(keyIID irs.IID) (irs.KeyPairInfo
 		LoggingError(hiscallInfo, err)
 		return irs.KeyPairInfo{}, err
 	}
-	keyInfo, err := setKeyInfo(key, keyPairHandler.CredentialInfo)
+	keyInfo, err := setKeyInfo(key, "")
 	if err != nil {
 		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
@@ -184,49 +145,14 @@ func (keyPairHandler *IbmKeyPairHandler) DeleteKey(keyIID irs.IID) (bool, error)
 
 	deleteKeyOptions := &vpcv1.DeleteKeyOptions{}
 	deleteKeyOptions.SetID(*key.ID)
-	response, err := keyPairHandler.VpcService.DeleteKeyWithContext(keyPairHandler.Ctx, deleteKeyOptions)
+	_, err = keyPairHandler.VpcService.DeleteKeyWithContext(keyPairHandler.Ctx, deleteKeyOptions)
 	if err != nil {
 		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
 		return false, err
 	}
-	if response.StatusCode == 204 {
-		keyPairPath := os.Getenv("CBSPIDER_ROOT") + CBKeyPairPath
-		err = checkKeyPairFolder(keyPairPath)
-		// 폴더 없음 err != nil => local delete 필요 없음
-		if err != nil {
-			LoggingInfo(hiscallInfo, start)
-			return true, nil
-		}
-		hashString, err := CreateHashString(keyPairHandler.CredentialInfo)
-		if err != nil {
-			cblogger.Error(err.Error())
-			LoggingError(hiscallInfo, err)
-			return false, err
-		}
-
-		privateKeyPath := keyPairPath + hashString + "--" + *key.Name
-		publicKeyPath := keyPairPath + hashString + "--" + *key.Name + ".pub"
-
-		err = os.Remove(privateKeyPath)
-		if err != nil {
-			cblogger.Error(err.Error())
-			LoggingError(hiscallInfo, err)
-			return false, err
-		}
-		err = os.Remove(publicKeyPath)
-		if err != nil {
-			cblogger.Error(err.Error())
-			LoggingError(hiscallInfo, err)
-			return false, err
-		}
-		LoggingInfo(hiscallInfo, start)
-		return true, nil
-	} else {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return false, err
-	}
+	LoggingInfo(hiscallInfo, start)
+	return true, nil
 }
 
 func (keyPairHandler *IbmKeyPairHandler) existKey(keyIID irs.IID) (bool, error) {
@@ -261,24 +187,7 @@ func (keyPairHandler *IbmKeyPairHandler) existKey(keyIID irs.IID) (bool, error) 
 	}
 }
 
-func setKeyInfo(key vpcv1.Key, credentialInfo idrv.CredentialInfo) (irs.KeyPairInfo, error) {
-	keyPairPath := os.Getenv("CBSPIDER_ROOT") + CBKeyPairPath
-	if err := checkKeyPairFolder(keyPairPath); err != nil {
-		// LoggingError(hiscallInfo, err)
-		return irs.KeyPairInfo{}, err
-	}
-	hashString, err := CreateHashString(credentialInfo)
-	if err != nil {
-		//LoggingError(hiscallInfo, err)
-		return irs.KeyPairInfo{}, err
-	}
-	privateKeyPath := keyPairPath + hashString + "--" + *key.Name
-
-	privateKeyBytes, err := ioutil.ReadFile(privateKeyPath)
-
-	if err != nil {
-		return irs.KeyPairInfo{}, err
-	}
+func setKeyInfo(key vpcv1.Key, privateKey string) (irs.KeyPairInfo, error) {
 	keypairInfo := irs.KeyPairInfo{
 		IId: irs.IID{
 			NameId:   *key.Name,
@@ -286,7 +195,7 @@ func setKeyInfo(key vpcv1.Key, credentialInfo idrv.CredentialInfo) (irs.KeyPairI
 		},
 		Fingerprint: *key.Fingerprint,
 		PublicKey:   *key.PublicKey,
-		PrivateKey:  string(privateKeyBytes),
+		PrivateKey:  privateKey,
 	}
 	return keypairInfo, nil
 }
@@ -360,14 +269,4 @@ func getKeyNextHref(next *vpcv1.KeyCollectionNext) (string, error) {
 		}
 	}
 	return "", errors.New("NOT NEXT")
-}
-
-func checkKeyPairFolder(folderPath string) error {
-	// Check KeyPair Folder Exists
-	if _, err := os.Stat(folderPath); os.IsNotExist(err) {
-		if err := os.MkdirAll(folderPath, 0700); err != nil {
-			return err
-		}
-	}
-	return nil
 }
