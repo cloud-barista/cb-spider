@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"github.com/IBM/vpc-go-sdk/vpcv1"
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
@@ -22,18 +23,14 @@ func (vmSpecHandler *IbmVmSpecHandler) ListVMSpec(Region string) ([]*irs.VMSpecI
 	hiscallInfo := GetCallLogScheme(vmSpecHandler.Region, call.VMSPEC, "VMSpec", "ListVMSpec()")
 	start := call.Start()
 
-	//if Region != vmHandler.Region.Region{
-	//	err := errors.New("region Invalid. Unable to support VMSpec in other regions")
-	//	LoggingError(hiscallInfo, err)
-	//	return nil, err
-	//}
 	var specList []*irs.VMSpecInfo
 	options := &vpcv1.ListInstanceProfilesOptions{}
 	profiles, _, err := vmSpecHandler.VpcService.ListInstanceProfilesWithContext(vmSpecHandler.Ctx, options)
 	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return nil, err
+		getErr := errors.New(fmt.Sprintf("Failed to Get VMSpecList. err = %s", err.Error()))
+		cblogger.Error(getErr.Error())
+		LoggingError(hiscallInfo, getErr)
+		return nil, getErr
 	}
 	for _, profile := range profiles.Profiles {
 		vmSpecInfo := irs.VMSpecInfo{
@@ -57,21 +54,18 @@ func (vmSpecHandler *IbmVmSpecHandler) GetVMSpec(Region string, Name string) (ir
 	hiscallInfo := GetCallLogScheme(vmSpecHandler.Region, call.VMSPEC, Name, "GetVMSpec()")
 	start := call.Start()
 	if Name == "" {
-		err := errors.New("invalid Name")
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return irs.VMSpecInfo{}, err
+		getErr := errors.New(fmt.Sprintf("Failed to Get VMSpec. err = invalid Name"))
+		cblogger.Error(getErr.Error())
+		LoggingError(hiscallInfo, getErr)
+		return irs.VMSpecInfo{}, getErr
 	}
-	//if Region != vmHandler.Region.Region{
-	//	err := errors.New("region Invalid. Unable to support VMSpec in other regions")
-	//	LoggingError(hiscallInfo, err)
-	//	return irs.VMSpecInfo{}, err
-	//}
+
 	profile, err := getRawSpec(Name, vmSpecHandler.VpcService, vmSpecHandler.Ctx)
 	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return irs.VMSpecInfo{}, err
+		getErr := errors.New(fmt.Sprintf("Failed to Get VMSpec. err = %s", err.Error()))
+		cblogger.Error(getErr.Error())
+		LoggingError(hiscallInfo, getErr)
+		return irs.VMSpecInfo{}, getErr
 	}
 	vmSpecInfo := irs.VMSpecInfo{
 		Region: vmSpecHandler.Region.Region,
@@ -92,18 +86,15 @@ func (vmSpecHandler *IbmVmSpecHandler) GetVMSpec(Region string, Name string) (ir
 func (vmSpecHandler *IbmVmSpecHandler) ListOrgVMSpec(Region string) (string, error) {
 	hiscallInfo := GetCallLogScheme(vmSpecHandler.Region, call.VMSPEC, "OrgVMSpec", "ListOrgVMSpec()")
 	start := call.Start()
-	//if Region != vmHandler.Region.Region{
-	//	err := errors.New("region Invalid. Unable to support VMSpec in other regions")
-	//	LoggingError(hiscallInfo, err)
-	//	return "", err
-	//}
+
 	var specList []*irs.VMSpecInfo
 	options := &vpcv1.ListInstanceProfilesOptions{}
 	profiles, _, err := vmSpecHandler.VpcService.ListInstanceProfilesWithContext(vmSpecHandler.Ctx, options)
 	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return "", err
+		getErr := errors.New(fmt.Sprintf("Failed to Get OrgVMSpecList. err = %s", err.Error()))
+		cblogger.Error(getErr.Error())
+		LoggingError(hiscallInfo, getErr)
+		return "", getErr
 	}
 	for _, profile := range profiles.Profiles {
 		vmSpecInfo := irs.VMSpecInfo{
@@ -122,9 +113,10 @@ func (vmSpecHandler *IbmVmSpecHandler) ListOrgVMSpec(Region string) (string, err
 	}
 	jsonBytes, err := json.Marshal(specList)
 	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return "", err
+		getErr := errors.New(fmt.Sprintf("Failed to Get OrgVMSpecList. err = %s", err.Error()))
+		cblogger.Error(getErr.Error())
+		LoggingError(hiscallInfo, getErr)
+		return "", getErr
 	}
 	jsonString := string(jsonBytes)
 	LoggingInfo(hiscallInfo, start)
@@ -134,21 +126,17 @@ func (vmSpecHandler *IbmVmSpecHandler) GetOrgVMSpec(Region string, Name string) 
 	hiscallInfo := GetCallLogScheme(vmSpecHandler.Region, call.VMSPEC, "OrgVMSpec", "GetOrgVMSpec()")
 	start := call.Start()
 	if Name == "" {
-		err := errors.New("invalid Name")
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return "", err
+		getErr := errors.New(fmt.Sprintf("Failed to Get OrgVMSpec. err = invalid Name"))
+		cblogger.Error(getErr.Error())
+		LoggingError(hiscallInfo, getErr)
+		return "", getErr
 	}
-	//if Region != vmHandler.Region.Region{
-	//	err := errors.New("region Invalid. Unable to support VMSpec in other regions")
-	//	LoggingError(hiscallInfo, err)
-	//	return "", err
-	//}
 	profile, err := getRawSpec(Name, vmSpecHandler.VpcService, vmSpecHandler.Ctx)
 	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return "", err
+		getErr := errors.New(fmt.Sprintf("Failed to Get OrgVMSpec. err = %s", err.Error()))
+		cblogger.Error(getErr.Error())
+		LoggingError(hiscallInfo, getErr)
+		return "", getErr
 	}
 	vmSpecInfo := irs.VMSpecInfo{
 		Region: vmSpecHandler.Region.Region,
@@ -164,9 +152,10 @@ func (vmSpecHandler *IbmVmSpecHandler) GetOrgVMSpec(Region string, Name string) 
 	}
 	jsonBytes, err := json.Marshal(vmSpecInfo)
 	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return "", err
+		getErr := errors.New(fmt.Sprintf("Failed to Get OrgVMSpec. err = %s", err.Error()))
+		cblogger.Error(getErr.Error())
+		LoggingError(hiscallInfo, getErr)
+		return "", getErr
 	}
 	jsonString := string(jsonBytes)
 	LoggingInfo(hiscallInfo, start)

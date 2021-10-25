@@ -22,24 +22,30 @@ type IbmImageHandler struct {
 
 func (imageHandler *IbmImageHandler) CreateImage(imageReqInfo irs.ImageReqInfo) (irs.ImageInfo, error) {
 	hiscallInfo := GetCallLogScheme(imageHandler.Region, call.VMIMAGE, imageReqInfo.IId.NameId, "CreateImage()")
-	// start := call.Start()
-	err := errors.New(fmt.Sprintf("CreateImage Function Not Offer"))
-	cblogger.Error(err.Error())
-	LoggingError(hiscallInfo, err)
-	return irs.ImageInfo{}, errors.New(fmt.Sprintf("CreateImage Function Not Offer"))
+
+	createErr := errors.New(fmt.Sprintf("Failed to Create Image. err = CreateImage Function Not Offer"))
+	cblogger.Error(createErr.Error())
+	LoggingError(hiscallInfo, createErr)
+
+	return irs.ImageInfo{}, createErr
 }
+
 func (imageHandler *IbmImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 	hiscallInfo := GetCallLogScheme(imageHandler.Region, call.VMIMAGE, "IMAGE", "ListImage()")
-	// start := call.Start()
+
+	start := call.Start()
+
 	ListImagesOptions := &vpcv1.ListImagesOptions{}
 	ListImagesOptions.SetVisibility("public")
 	images, _, err := imageHandler.VpcService.ListImagesWithContext(imageHandler.Ctx, ListImagesOptions)
 
 	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return nil, err
+		getErr := errors.New(fmt.Sprintf("Failed to Get ImageList. err = %s", err.Error()))
+		cblogger.Error(getErr.Error())
+		LoggingError(hiscallInfo, getErr)
+		return nil, getErr
 	}
+
 	var imageList []*irs.ImageInfo
 	for {
 		for _, image := range images.Images {
@@ -59,15 +65,16 @@ func (imageHandler *IbmImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 			}
 			images, _, err = imageHandler.VpcService.ListImagesWithContext(imageHandler.Ctx, ListImagesOptions2)
 			if err != nil {
-				cblogger.Error(err.Error())
-				LoggingError(hiscallInfo, err)
-				return nil, err
-
+				getErr := errors.New(fmt.Sprintf("Failed to Get ImageList. err = %s", err.Error()))
+				cblogger.Error(getErr.Error())
+				LoggingError(hiscallInfo, getErr)
+				return nil, getErr
 			}
 		} else {
 			break
 		}
 	}
+	LoggingInfo(hiscallInfo, start)
 	return imageList, nil
 }
 func (imageHandler *IbmImageHandler) GetImage(imageIID irs.IID) (irs.ImageInfo, error) {
@@ -76,32 +83,41 @@ func (imageHandler *IbmImageHandler) GetImage(imageIID irs.IID) (irs.ImageInfo, 
 
 	err := checkImageInfoIID(imageIID)
 	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return irs.ImageInfo{}, err
+		getErr := errors.New(fmt.Sprintf("Failed to Get Image. err = %s", err.Error()))
+		cblogger.Error(getErr.Error())
+		LoggingError(hiscallInfo, getErr)
+		return irs.ImageInfo{}, getErr
 	}
+
 	image, err := getRawImage(imageIID, imageHandler.VpcService, imageHandler.Ctx)
+
 	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return irs.ImageInfo{}, err
+		getErr := errors.New(fmt.Sprintf("Failed to Get Image. err = %s", err.Error()))
+		cblogger.Error(getErr.Error())
+		LoggingError(hiscallInfo, getErr)
+		return irs.ImageInfo{}, getErr
 	}
+
 	imageInfo, err := setImageInfo(&image)
+
 	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return irs.ImageInfo{}, err
+		getErr := errors.New(fmt.Sprintf("Failed to Get Image. err = %s", err.Error()))
+		cblogger.Error(getErr.Error())
+		LoggingError(hiscallInfo, getErr)
+		return irs.ImageInfo{}, getErr
 	}
+
 	LoggingInfo(hiscallInfo, start)
 	return imageInfo, nil
 }
 func (imageHandler *IbmImageHandler) DeleteImage(imageIID irs.IID) (bool, error) {
 	hiscallInfo := GetCallLogScheme(imageHandler.Region, call.VMIMAGE, imageIID.NameId, "DeleteImage()")
-	// start := call.Start()
-	err := errors.New(fmt.Sprintf("DeleteImage Function Not Offer"))
-	cblogger.Error(err.Error())
-	LoggingError(hiscallInfo, err)
-	return false, err
+
+	createErr := errors.New(fmt.Sprintf("Failed to Delete Image. err = DeleteImage Function Not Offer"))
+	cblogger.Error(createErr.Error())
+	LoggingError(hiscallInfo, createErr)
+
+	return false, createErr
 }
 
 func checkImageInfoIID(imageIID irs.IID) error {

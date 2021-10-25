@@ -26,32 +26,36 @@ func (keyPairHandler *IbmKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPairReq
 	//IID확인
 	err := checkValidKeyReqInfo(keyPairReqInfo)
 	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return irs.KeyPairInfo{}, err
+		createErr := errors.New(fmt.Sprintf("Failed to Create Key. err = %s", err.Error()))
+		cblogger.Error(createErr.Error())
+		LoggingError(hiscallInfo, createErr)
+		return irs.KeyPairInfo{}, createErr
 	}
 	//존재여부 확인
 	exist, err := keyPairHandler.existKey(keyPairReqInfo.IId)
 	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return irs.KeyPairInfo{}, err
+		createErr := errors.New(fmt.Sprintf("Failed to Create Key. err = %s", err.Error()))
+		cblogger.Error(createErr.Error())
+		LoggingError(hiscallInfo, createErr)
+		return irs.KeyPairInfo{}, createErr
 	}
 
 	if exist {
-		err = errors.New(fmt.Sprintf("already exist VPC %s", keyPairReqInfo.IId.NameId))
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return irs.KeyPairInfo{}, err
+		createErr := errors.New(fmt.Sprintf("Failed to Create Key. err = The Key already exists"))
+		cblogger.Error(createErr.Error())
+		LoggingError(hiscallInfo, createErr)
+		return irs.KeyPairInfo{}, createErr
 	}
+
 	start := call.Start()
 
 	privateKey, publicKey, err := keypair.GenKeyPair()
 
 	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return irs.KeyPairInfo{}, err
+		createErr := errors.New(fmt.Sprintf("Failed to Create Key. err = %s", err.Error()))
+		cblogger.Error(createErr.Error())
+		LoggingError(hiscallInfo, createErr)
+		return irs.KeyPairInfo{}, createErr
 	}
 
 	options := &vpcv1.CreateKeyOptions{}
@@ -59,15 +63,17 @@ func (keyPairHandler *IbmKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPairReq
 	options.SetPublicKey(string(publicKey))
 	key, _, err := keyPairHandler.VpcService.CreateKeyWithContext(keyPairHandler.Ctx, options)
 	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return irs.KeyPairInfo{}, err
+		createErr := errors.New(fmt.Sprintf("Failed to Create Key. err = %s", err.Error()))
+		cblogger.Error(createErr.Error())
+		LoggingError(hiscallInfo, createErr)
+		return irs.KeyPairInfo{}, createErr
 	}
 	createKeypairInfo, err := setKeyInfo(*key, string(privateKey))
 	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return irs.KeyPairInfo{}, err
+		createErr := errors.New(fmt.Sprintf("Failed to Create Key. err = %s", err.Error()))
+		cblogger.Error(createErr.Error())
+		LoggingError(hiscallInfo, createErr)
+		return irs.KeyPairInfo{}, createErr
 	}
 	LoggingInfo(hiscallInfo, start)
 	return createKeypairInfo, nil
@@ -79,9 +85,10 @@ func (keyPairHandler *IbmKeyPairHandler) ListKey() ([]*irs.KeyPairInfo, error) {
 	listKeysOptions := &vpcv1.ListKeysOptions{}
 	keys, _, err := keyPairHandler.VpcService.ListKeysWithContext(keyPairHandler.Ctx, listKeysOptions)
 	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return nil, err
+		getErr := errors.New(fmt.Sprintf("Failed to Get KeyList err = %s", err.Error()))
+		cblogger.Error(getErr.Error())
+		LoggingError(hiscallInfo, getErr)
+		return nil, getErr
 	}
 	var ListKeys []*irs.KeyPairInfo
 	for {
@@ -101,9 +108,10 @@ func (keyPairHandler *IbmKeyPairHandler) ListKey() ([]*irs.KeyPairInfo, error) {
 			}
 			keys, _, err = keyPairHandler.VpcService.ListKeysWithContext(keyPairHandler.Ctx, listKeysOptions)
 			if err != nil {
-				cblogger.Error(err.Error())
-				LoggingError(hiscallInfo, err)
-				return nil, err
+				getErr := errors.New(fmt.Sprintf("Failed to Get KeyList err = %s", err.Error()))
+				cblogger.Error(getErr.Error())
+				LoggingError(hiscallInfo, getErr)
+				return nil, getErr
 				//break
 			}
 		} else {
@@ -119,15 +127,17 @@ func (keyPairHandler *IbmKeyPairHandler) GetKey(keyIID irs.IID) (irs.KeyPairInfo
 	start := call.Start()
 	key, err := getRawKey(keyIID, keyPairHandler.VpcService, keyPairHandler.Ctx)
 	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return irs.KeyPairInfo{}, err
+		getErr := errors.New(fmt.Sprintf("Failed to Get Key err = %s", err.Error()))
+		cblogger.Error(getErr.Error())
+		LoggingError(hiscallInfo, getErr)
+		return irs.KeyPairInfo{}, getErr
 	}
 	keyInfo, err := setKeyInfo(key, "")
 	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return irs.KeyPairInfo{}, err
+		getErr := errors.New(fmt.Sprintf("Failed to Get Key err = %s", err.Error()))
+		cblogger.Error(getErr.Error())
+		LoggingError(hiscallInfo, getErr)
+		return irs.KeyPairInfo{}, getErr
 	}
 	LoggingInfo(hiscallInfo, start)
 	return keyInfo, nil
@@ -136,20 +146,40 @@ func (keyPairHandler *IbmKeyPairHandler) GetKey(keyIID irs.IID) (irs.KeyPairInfo
 func (keyPairHandler *IbmKeyPairHandler) DeleteKey(keyIID irs.IID) (bool, error) {
 	hiscallInfo := GetCallLogScheme(keyPairHandler.Region, call.VMKEYPAIR, keyIID.NameId, "DeleteKey()")
 	start := call.Start()
-	key, err := getRawKey(keyIID, keyPairHandler.VpcService, keyPairHandler.Ctx)
+
+	//존재여부 확인
+	exist, err := keyPairHandler.existKey(keyIID)
 	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return false, err
+		delErr := errors.New(fmt.Sprintf("Failed to Delete Key. err = %s", err))
+		cblogger.Error(delErr.Error())
+		LoggingError(hiscallInfo, delErr)
+		return false, delErr
+	}
+
+	if !exist {
+		delErr := errors.New(fmt.Sprintf("Failed to Delete Key. err = The Key is not found"))
+		cblogger.Error(delErr.Error())
+		LoggingError(hiscallInfo, delErr)
+		return false, delErr
+	}
+
+	key, err := getRawKey(keyIID, keyPairHandler.VpcService, keyPairHandler.Ctx)
+
+	if err != nil {
+		delErr := errors.New(fmt.Sprintf("Failed to Delete Key. err = %s", err))
+		cblogger.Error(delErr.Error())
+		LoggingError(hiscallInfo, delErr)
+		return false, delErr
 	}
 
 	deleteKeyOptions := &vpcv1.DeleteKeyOptions{}
 	deleteKeyOptions.SetID(*key.ID)
 	_, err = keyPairHandler.VpcService.DeleteKeyWithContext(keyPairHandler.Ctx, deleteKeyOptions)
 	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return false, err
+		delErr := errors.New(fmt.Sprintf("Failed to Delete Key. err = %s", err))
+		cblogger.Error(delErr.Error())
+		LoggingError(hiscallInfo, delErr)
+		return false, delErr
 	}
 	LoggingInfo(hiscallInfo, start)
 	return true, nil

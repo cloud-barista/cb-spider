@@ -30,67 +30,76 @@ func (vmHandler *IbmVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 	// 1.Check VMReqInfo
 	err := checkVMReqInfo(vmReqInfo)
 	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return irs.VMInfo{}, err
+		createErr := errors.New(fmt.Sprintf("Failed to Create VM. err = %s", err.Error()))
+		cblogger.Error(createErr.Error())
+		LoggingError(hiscallInfo, createErr)
+		return irs.VMInfo{}, createErr
 	}
 	// 1-1 Exist Check
 	exist, err := existInstance(vmReqInfo.IId, vmHandler.VpcService, vmHandler.Ctx)
 	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return irs.VMInfo{}, err
+		createErr := errors.New(fmt.Sprintf("Failed to Create VM. err = %s", err.Error()))
+		cblogger.Error(createErr.Error())
+		LoggingError(hiscallInfo, createErr)
+		return irs.VMInfo{}, createErr
 	} else if exist {
-		err = errors.New(fmt.Sprintf("already exist %s", vmReqInfo.IId.NameId))
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return irs.VMInfo{}, err
+		createErr := errors.New(fmt.Sprintf("Failed to Create VM. err = The VM name %s already exists", vmReqInfo.IId.NameId))
+		cblogger.Error(createErr.Error())
+		LoggingError(hiscallInfo, createErr)
+		return irs.VMInfo{}, createErr
 	}
 	// 1-2. Setup Req Resource IID
 	image, err := getRawImage(vmReqInfo.ImageIID, vmHandler.VpcService, vmHandler.Ctx)
 	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return irs.VMInfo{}, err
+		createErr := errors.New(fmt.Sprintf("Failed to Create VM. err = %s", err.Error()))
+		cblogger.Error(createErr.Error())
+		LoggingError(hiscallInfo, createErr)
+		return irs.VMInfo{}, createErr
 	}
 	vpc, err := getRawVPC(vmReqInfo.VpcIID, vmHandler.VpcService, vmHandler.Ctx)
 	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return irs.VMInfo{}, err
+		createErr := errors.New(fmt.Sprintf("Failed to Create VM. err = %s", err.Error()))
+		cblogger.Error(createErr.Error())
+		LoggingError(hiscallInfo, createErr)
+		return irs.VMInfo{}, createErr
 	}
 	vpcSubnet, err := getVPCRawSubnet(vpc, vmReqInfo.SubnetIID, vmHandler.VpcService, vmHandler.Ctx)
 	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return irs.VMInfo{}, err
+		createErr := errors.New(fmt.Sprintf("Failed to Create VM. err = %s", err.Error()))
+		cblogger.Error(createErr.Error())
+		LoggingError(hiscallInfo, createErr)
+		return irs.VMInfo{}, createErr
 	}
 	key, err := getRawKey(vmReqInfo.KeyPairIID, vmHandler.VpcService, vmHandler.Ctx)
 	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return irs.VMInfo{}, err
+		createErr := errors.New(fmt.Sprintf("Failed to Create VM. err = %s", err.Error()))
+		cblogger.Error(createErr.Error())
+		LoggingError(hiscallInfo, createErr)
+		return irs.VMInfo{}, createErr
 	}
 	spec, err := getRawSpec(vmReqInfo.VMSpecName, vmHandler.VpcService, vmHandler.Ctx)
 	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return irs.VMInfo{}, err
+		createErr := errors.New(fmt.Sprintf("Failed to Create VM. err = %s", err.Error()))
+		cblogger.Error(createErr.Error())
+		LoggingError(hiscallInfo, createErr)
+		return irs.VMInfo{}, createErr
 	}
 	var securityGroups []vpcv1.SecurityGroup
 	if vmReqInfo.SecurityGroupIIDs != nil {
 		for _, SecurityGroupIID := range vmReqInfo.SecurityGroupIIDs {
 			err := checkSecurityGroupIID(SecurityGroupIID)
 			if err != nil {
-				cblogger.Error(err.Error())
-				LoggingError(hiscallInfo, err)
-				return irs.VMInfo{}, err
+				createErr := errors.New(fmt.Sprintf("Failed to Create VM. err = %s", err.Error()))
+				cblogger.Error(createErr.Error())
+				LoggingError(hiscallInfo, createErr)
+				return irs.VMInfo{}, createErr
 			}
 			securityGroup, err := getRawSecurityGroup(SecurityGroupIID, vmHandler.VpcService, vmHandler.Ctx)
 			if err != nil {
-				cblogger.Error(err.Error())
-				LoggingError(hiscallInfo, err)
-				return irs.VMInfo{}, err
+				createErr := errors.New(fmt.Sprintf("Failed to Create VM. err = %s", err.Error()))
+				cblogger.Error(createErr.Error())
+				LoggingError(hiscallInfo, createErr)
+				return irs.VMInfo{}, createErr
 			}
 			securityGroups = append(securityGroups, securityGroup)
 		}
@@ -100,9 +109,10 @@ func (vmHandler *IbmVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 	rootPath := os.Getenv("CBSPIDER_ROOT")
 	fileDataCloudInit, err := ioutil.ReadFile(rootPath + CBCloudInitFilePath)
 	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return irs.VMInfo{}, err
+		createErr := errors.New(fmt.Sprintf("Failed to Create VM. err = %s", err.Error()))
+		cblogger.Error(createErr.Error())
+		LoggingError(hiscallInfo, createErr)
+		return irs.VMInfo{}, createErr
 	}
 	userData := string(fileDataCloudInit)
 	userData = strings.ReplaceAll(userData, "{{username}}", CBDefaultVmUserName)
@@ -138,9 +148,10 @@ func (vmHandler *IbmVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 	})
 	createInstance, _, err := vmHandler.VpcService.CreateInstanceWithContext(vmHandler.Ctx, createInstanceOptions)
 	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return irs.VMInfo{}, err
+		createErr := errors.New(fmt.Sprintf("Failed to Create VM. err = %s", err.Error()))
+		cblogger.Error(createErr.Error())
+		LoggingError(hiscallInfo, createErr)
+		return irs.VMInfo{}, createErr
 	}
 
 	// 3.Attach SecurityGroup
@@ -158,9 +169,10 @@ func (vmHandler *IbmVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 						newErrText := err.Error() + deleteErr.Error()
 						err = errors.New(newErrText)
 					}
-					cblogger.Error(err.Error())
-					LoggingError(hiscallInfo, err)
-					return irs.VMInfo{}, err
+					createErr := errors.New(fmt.Sprintf("Failed to Create VM. err = %s", err.Error()))
+					cblogger.Error(createErr.Error())
+					LoggingError(hiscallInfo, createErr)
+					return irs.VMInfo{}, createErr
 				}
 			}
 		}
@@ -186,13 +198,15 @@ func (vmHandler *IbmVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 				newErrText := err.Error() + deleteErr.Error()
 				err = errors.New(newErrText)
 			}
-			cblogger.Error(err.Error())
-			LoggingError(hiscallInfo, err)
-			return irs.VMInfo{}, err
+			createErr := errors.New(fmt.Sprintf("Failed to Create VM. err = %s", err.Error()))
+			cblogger.Error(createErr.Error())
+			LoggingError(hiscallInfo, createErr)
+			return irs.VMInfo{}, createErr
 		}
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return irs.VMInfo{}, err
+		createErr := errors.New(fmt.Sprintf("Failed to Create VM. err = %s", err.Error()))
+		cblogger.Error(createErr.Error())
+		LoggingError(hiscallInfo, createErr)
+		return irs.VMInfo{}, createErr
 	}
 
 	//  4-2. Bind FloatingIP
@@ -211,9 +225,10 @@ func (vmHandler *IbmVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 				newErrText := err.Error() + deleteErr.Error()
 				err = errors.New(newErrText)
 			}
-			cblogger.Error(err.Error())
-			LoggingError(hiscallInfo, err)
-			return irs.VMInfo{}, err
+			createErr := errors.New(fmt.Sprintf("Failed to Create VM. err = %s", err.Error()))
+			cblogger.Error(createErr.Error())
+			LoggingError(hiscallInfo, createErr)
+			return irs.VMInfo{}, createErr
 		}
 	}
 	createInstanceIId := irs.IID{
@@ -233,23 +248,26 @@ func (vmHandler *IbmVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 				// 제거 로직을 위해 removeFloatingIp Error => instance에 대한 에러 + removeError + delete error
 				newErrText := err.Error() + removeFloatingIpsErr.Error() + "and failed delete VM"
 				err = errors.New(newErrText)
-				cblogger.Error(err.Error())
-				LoggingError(hiscallInfo, err)
-				return irs.VMInfo{}, err
+				createErr := errors.New(fmt.Sprintf("Failed to Create VM. err = %s", err.Error()))
+				cblogger.Error(createErr.Error())
+				LoggingError(hiscallInfo, createErr)
+				return irs.VMInfo{}, createErr
 			}
 			// 제거 로직을 위해 deleteInstance
 			deleteErr := deleteInstance(*createInstance.ID, vmHandler.VpcService, vmHandler.Ctx)
 			if deleteErr != nil {
 				newErrText := err.Error() + deleteErr.Error()
 				err = errors.New(newErrText)
-				cblogger.Error(err.Error())
-				LoggingError(hiscallInfo, err)
-				return irs.VMInfo{}, err
+				createErr := errors.New(fmt.Sprintf("Failed to Create VM. err = %s", err.Error()))
+				cblogger.Error(createErr.Error())
+				LoggingError(hiscallInfo, createErr)
+				return irs.VMInfo{}, createErr
 			}
 			err = errors.New("failed to create VM")
-			cblogger.Error(err.Error())
-			LoggingError(hiscallInfo, err)
-			return irs.VMInfo{}, err
+			createErr := errors.New(fmt.Sprintf("Failed to Create VM. err = %s", err.Error()))
+			cblogger.Error(createErr.Error())
+			LoggingError(hiscallInfo, createErr)
+			return irs.VMInfo{}, createErr
 		}
 		if *finalInstance.Status == "running" {
 			finalInstanceInfo, err := vmHandler.setVmInfo(finalInstance)
@@ -261,23 +279,26 @@ func (vmHandler *IbmVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 					// 제거 로직을 위해 removeFloatingIp Error => instance에 대한 에러 + removeError + delete error
 					newErrText := err.Error() + removeFloatingIpsErr.Error() + "and failed delete VM"
 					err = errors.New(newErrText)
-					cblogger.Error(err.Error())
-					LoggingError(hiscallInfo, err)
-					return irs.VMInfo{}, err
+					createErr := errors.New(fmt.Sprintf("Failed to Create VM. err = %s", err.Error()))
+					cblogger.Error(createErr.Error())
+					LoggingError(hiscallInfo, createErr)
+					return irs.VMInfo{}, createErr
 				}
 				// 제거 로직을 위해 deleteInstance
 				deleteErr := deleteInstance(*createInstance.ID, vmHandler.VpcService, vmHandler.Ctx)
 				if deleteErr != nil {
 					newErrText := err.Error() + deleteErr.Error()
 					err = errors.New(newErrText)
-					cblogger.Error(err.Error())
-					LoggingError(hiscallInfo, err)
-					return irs.VMInfo{}, err
+					createErr := errors.New(fmt.Sprintf("Failed to Create VM. err = %s", err.Error()))
+					cblogger.Error(createErr.Error())
+					LoggingError(hiscallInfo, createErr)
+					return irs.VMInfo{}, createErr
 				}
 				err = errors.New("failed to create VM")
-				cblogger.Error(err.Error())
-				LoggingError(hiscallInfo, err)
-				return irs.VMInfo{}, err
+				createErr := errors.New(fmt.Sprintf("Failed to Create VM. err = %s", err.Error()))
+				cblogger.Error(createErr.Error())
+				LoggingError(hiscallInfo, createErr)
+				return irs.VMInfo{}, createErr
 			}
 			LoggingInfo(hiscallInfo, start)
 			return finalInstanceInfo, nil
@@ -293,23 +314,26 @@ func (vmHandler *IbmVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 				// 제거 로직을 위해 removeFloatingIp Error => instance에 대한 에러 + removeError + delete error
 				newErrText := err.Error() + removeFloatingIpsErr.Error() + "and failed delete VM"
 				err = errors.New(newErrText)
-				cblogger.Error(err.Error())
-				LoggingError(hiscallInfo, err)
-				return irs.VMInfo{}, err
+				createErr := errors.New(fmt.Sprintf("Failed to Create VM. err = %s", err.Error()))
+				cblogger.Error(createErr.Error())
+				LoggingError(hiscallInfo, createErr)
+				return irs.VMInfo{}, createErr
 			}
 			// 제거 로직을 위해 deleteInstance
 			deleteErr := deleteInstance(*createInstance.ID, vmHandler.VpcService, vmHandler.Ctx)
 			if deleteErr != nil {
 				newErrText := err.Error() + deleteErr.Error()
 				err = errors.New(newErrText)
-				cblogger.Error(err.Error())
-				LoggingError(hiscallInfo, err)
-				return irs.VMInfo{}, err
+				createErr := errors.New(fmt.Sprintf("Failed to Create VM. err = %s", err.Error()))
+				cblogger.Error(createErr.Error())
+				LoggingError(hiscallInfo, createErr)
+				return irs.VMInfo{}, createErr
 			}
 			err = errors.New("failed to create VM")
-			cblogger.Error(err.Error())
-			LoggingError(hiscallInfo, err)
-			return irs.VMInfo{}, err
+			createErr := errors.New(fmt.Sprintf("Failed to Create VM. err = %s", err.Error()))
+			cblogger.Error(createErr.Error())
+			LoggingError(hiscallInfo, createErr)
+			return irs.VMInfo{}, createErr
 		}
 	}
 }
@@ -318,30 +342,34 @@ func (vmHandler *IbmVMHandler) SuspendVM(vmIID irs.IID) (irs.VMStatus, error) {
 	start := call.Start()
 	err := checkVmIID(vmIID)
 	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return "", err
+		getErr := errors.New(fmt.Sprintf("Failed to SuspendVM. err = %s", err.Error()))
+		cblogger.Error(getErr.Error())
+		LoggingError(hiscallInfo, getErr)
+		return irs.Failed, getErr
 	}
 	instance, err := getRawInstance(vmIID, vmHandler.VpcService, vmHandler.Ctx)
 	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return "", err
+		getErr := errors.New(fmt.Sprintf("Failed to SuspendVM. err = %s", err.Error()))
+		cblogger.Error(getErr.Error())
+		LoggingError(hiscallInfo, getErr)
+		return irs.Failed, getErr
 	}
 	err = getSuspendVMCheck(*instance.Status)
 	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return "", err
+		getErr := errors.New(fmt.Sprintf("Failed to SuspendVM. err = %s", err.Error()))
+		cblogger.Error(getErr.Error())
+		LoggingError(hiscallInfo, getErr)
+		return irs.Failed, getErr
 	}
 	instanceActionOptions := &vpcv1.CreateInstanceActionOptions{}
 	instanceActionOptions.SetInstanceID(*instance.ID)
 	instanceActionOptions.SetType("stop")
 	_, _, err = vmHandler.VpcService.CreateInstanceActionWithContext(vmHandler.Ctx, instanceActionOptions)
 	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return "", err
+		getErr := errors.New(fmt.Sprintf("Failed to SuspendVM. err = %s", err.Error()))
+		cblogger.Error(getErr.Error())
+		LoggingError(hiscallInfo, getErr)
+		return irs.Failed, getErr
 	}
 	LoggingInfo(hiscallInfo, start)
 	return irs.Suspending, nil
@@ -351,21 +379,24 @@ func (vmHandler *IbmVMHandler) ResumeVM(vmIID irs.IID) (irs.VMStatus, error) {
 	start := call.Start()
 	err := checkVmIID(vmIID)
 	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return "", err
+		getErr := errors.New(fmt.Sprintf("Failed to ResumeVM. err = %s", err.Error()))
+		cblogger.Error(getErr.Error())
+		LoggingError(hiscallInfo, getErr)
+		return irs.Failed, getErr
 	}
 	instance, err := getRawInstance(vmIID, vmHandler.VpcService, vmHandler.Ctx)
 	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return "", err
+		getErr := errors.New(fmt.Sprintf("Failed to ResumeVM. err = %s", err.Error()))
+		cblogger.Error(getErr.Error())
+		LoggingError(hiscallInfo, getErr)
+		return irs.Failed, getErr
 	}
 	err = getResumeVMCheck(*instance.Status)
 	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return "", err
+		getErr := errors.New(fmt.Sprintf("Failed to ResumeVM. err = %s", err.Error()))
+		cblogger.Error(getErr.Error())
+		LoggingError(hiscallInfo, getErr)
+		return irs.Failed, getErr
 	}
 	instanceActionOptions := &vpcv1.CreateInstanceActionOptions{}
 	instanceActionOptions.SetInstanceID(*instance.ID)
@@ -373,9 +404,10 @@ func (vmHandler *IbmVMHandler) ResumeVM(vmIID irs.IID) (irs.VMStatus, error) {
 	instanceActionOptions.SetForce(true)
 	_, _, err = vmHandler.VpcService.CreateInstanceActionWithContext(vmHandler.Ctx, instanceActionOptions)
 	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return "", err
+		getErr := errors.New(fmt.Sprintf("Failed to ResumeVM. err = %s", err.Error()))
+		cblogger.Error(getErr.Error())
+		LoggingError(hiscallInfo, getErr)
+		return irs.Failed, getErr
 	}
 	LoggingInfo(hiscallInfo, start)
 	return irs.Resuming, nil
@@ -385,21 +417,24 @@ func (vmHandler *IbmVMHandler) RebootVM(vmIID irs.IID) (irs.VMStatus, error) {
 	start := call.Start()
 	err := checkVmIID(vmIID)
 	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return "", err
+		getErr := errors.New(fmt.Sprintf("Failed to RebootVM. err = %s", err.Error()))
+		cblogger.Error(getErr.Error())
+		LoggingError(hiscallInfo, getErr)
+		return irs.Failed, getErr
 	}
 	instance, err := getRawInstance(vmIID, vmHandler.VpcService, vmHandler.Ctx)
 	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return "", err
+		getErr := errors.New(fmt.Sprintf("Failed to RebootVM. err = %s", err.Error()))
+		cblogger.Error(getErr.Error())
+		LoggingError(hiscallInfo, getErr)
+		return irs.Failed, getErr
 	}
 	err = getRebootCheck(*instance.Status)
 	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return "", err
+		getErr := errors.New(fmt.Sprintf("Failed to RebootVM. err = %s", err.Error()))
+		cblogger.Error(getErr.Error())
+		LoggingError(hiscallInfo, getErr)
+		return irs.Failed, getErr
 	}
 	instanceActionOptions := &vpcv1.CreateInstanceActionOptions{}
 	instanceActionOptions.SetInstanceID(*instance.ID)
@@ -407,9 +442,10 @@ func (vmHandler *IbmVMHandler) RebootVM(vmIID irs.IID) (irs.VMStatus, error) {
 	instanceActionOptions.SetForce(true)
 	_, _, err = vmHandler.VpcService.CreateInstanceActionWithContext(vmHandler.Ctx, instanceActionOptions)
 	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return "", err
+		getErr := errors.New(fmt.Sprintf("Failed to RebootVM. err = %s", err.Error()))
+		cblogger.Error(getErr.Error())
+		LoggingError(hiscallInfo, getErr)
+		return irs.Failed, getErr
 	}
 	LoggingInfo(hiscallInfo, start)
 	return irs.Rebooting, nil
@@ -419,27 +455,31 @@ func (vmHandler *IbmVMHandler) TerminateVM(vmIID irs.IID) (irs.VMStatus, error) 
 	start := call.Start()
 	err := checkVmIID(vmIID)
 	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return "", err
+		TerminateErr := errors.New(fmt.Sprintf("Failed to Terminate VM err = %s", err.Error()))
+		cblogger.Error(TerminateErr.Error())
+		LoggingError(hiscallInfo, TerminateErr)
+		return irs.Failed, TerminateErr
 	}
 	instance, err := getRawInstance(vmIID, vmHandler.VpcService, vmHandler.Ctx)
 	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return "", err
+		TerminateErr := errors.New(fmt.Sprintf("Failed to Terminate VM err = %s", err.Error()))
+		cblogger.Error(TerminateErr.Error())
+		LoggingError(hiscallInfo, TerminateErr)
+		return irs.Failed, TerminateErr
 	}
 	err = removeFloatingIps(instance, vmHandler.VpcService, vmHandler.Ctx)
 	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return "", err
+		TerminateErr := errors.New(fmt.Sprintf("Failed to Terminate VM err = %s", err.Error()))
+		cblogger.Error(TerminateErr.Error())
+		LoggingError(hiscallInfo, TerminateErr)
+		return irs.Failed, TerminateErr
 	}
 	err = deleteInstance(*instance.ID, vmHandler.VpcService, vmHandler.Ctx)
 	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return "", err
+		TerminateErr := errors.New(fmt.Sprintf("Failed to Terminate VM err = %s", err.Error()))
+		cblogger.Error(TerminateErr.Error())
+		LoggingError(hiscallInfo, TerminateErr)
+		return irs.Failed, TerminateErr
 	}
 	LoggingInfo(hiscallInfo, start)
 	return irs.Terminating, nil
@@ -451,9 +491,10 @@ func (vmHandler *IbmVMHandler) ListVMStatus() ([]*irs.VMStatusInfo, error) {
 	options := &vpcv1.ListInstancesOptions{}
 	instances, _, err := vmHandler.VpcService.ListInstancesWithContext(vmHandler.Ctx, options)
 	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return nil, err
+		getErr := errors.New(fmt.Sprintf("Failed to Get ListVMStatus. err = %s", err.Error()))
+		cblogger.Error(getErr.Error())
+		LoggingError(hiscallInfo, getErr)
+		return nil, getErr
 	}
 	var vmStatusList []*irs.VMStatusInfo
 	for {
@@ -476,9 +517,10 @@ func (vmHandler *IbmVMHandler) ListVMStatus() ([]*irs.VMStatusInfo, error) {
 			}
 			instances, _, err = vmHandler.VpcService.ListInstancesWithContext(vmHandler.Ctx, listVpcsOptions2)
 			if err != nil {
-				cblogger.Error(err.Error())
-				LoggingError(hiscallInfo, err)
-				return nil, err
+				getErr := errors.New(fmt.Sprintf("Failed to Get ListVMStatus. err = %s", err.Error()))
+				cblogger.Error(getErr.Error())
+				LoggingError(hiscallInfo, getErr)
+				return nil, getErr
 			}
 		} else {
 			break
@@ -492,15 +534,17 @@ func (vmHandler *IbmVMHandler) GetVMStatus(vmIID irs.IID) (irs.VMStatus, error) 
 	start := call.Start()
 	err := checkVmIID(vmIID)
 	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return "", err
+		getErr := errors.New(fmt.Sprintf("Failed to Get VMStatus. err = %s", err.Error()))
+		cblogger.Error(getErr.Error())
+		LoggingError(hiscallInfo, getErr)
+		return "", getErr
 	}
 	instance, err := getRawInstance(vmIID, vmHandler.VpcService, vmHandler.Ctx)
 	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return "", err
+		getErr := errors.New(fmt.Sprintf("Failed to Get VMStatus. err = %s", err.Error()))
+		cblogger.Error(getErr.Error())
+		LoggingError(hiscallInfo, getErr)
+		return "", getErr
 	}
 	LoggingInfo(hiscallInfo, start)
 	return convertInstanceStatus(*instance.Status)
@@ -512,18 +556,20 @@ func (vmHandler *IbmVMHandler) ListVM() ([]*irs.VMInfo, error) {
 	options := &vpcv1.ListInstancesOptions{}
 	instances, _, err := vmHandler.VpcService.ListInstancesWithContext(vmHandler.Ctx, options)
 	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return nil, err
+		getErr := errors.New(fmt.Sprintf("Failed to Get VMList. err = %s", err.Error()))
+		cblogger.Error(getErr.Error())
+		LoggingError(hiscallInfo, getErr)
+		return nil, getErr
 	}
 	var vmList []*irs.VMInfo
 	for {
 		for _, instance := range instances.Instances {
 			vmInfo, err := vmHandler.setVmInfo(instance)
 			if err != nil {
-				cblogger.Error(err.Error())
-				LoggingError(hiscallInfo, err)
-				return nil, err
+				getErr := errors.New(fmt.Sprintf("Failed to Get VMList. err = %s", err.Error()))
+				cblogger.Error(getErr.Error())
+				LoggingError(hiscallInfo, getErr)
+				return nil, getErr
 			}
 			vmList = append(vmList, &vmInfo)
 		}
@@ -534,9 +580,10 @@ func (vmHandler *IbmVMHandler) ListVM() ([]*irs.VMInfo, error) {
 			}
 			instances, _, err = vmHandler.VpcService.ListInstancesWithContext(vmHandler.Ctx, listVpcsOptions2)
 			if err != nil {
-				cblogger.Error(err.Error())
-				LoggingError(hiscallInfo, err)
-				return nil, err
+				getErr := errors.New(fmt.Sprintf("Failed to Get VMList. err = %s", err.Error()))
+				cblogger.Error(getErr.Error())
+				LoggingError(hiscallInfo, getErr)
+				return nil, getErr
 				//break
 			}
 		} else {
@@ -552,22 +599,25 @@ func (vmHandler *IbmVMHandler) GetVM(vmIID irs.IID) (irs.VMInfo, error) {
 	start := call.Start()
 	err := checkVmIID(vmIID)
 	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return irs.VMInfo{}, err
+		getErr := errors.New(fmt.Sprintf("Failed to Get VM. err = %s", err.Error()))
+		cblogger.Error(getErr.Error())
+		LoggingError(hiscallInfo, getErr)
+		return irs.VMInfo{}, getErr
 	}
 	instance, err := getRawInstance(vmIID, vmHandler.VpcService, vmHandler.Ctx)
 	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return irs.VMInfo{}, err
+		getErr := errors.New(fmt.Sprintf("Failed to Get VM. err = %s", err.Error()))
+		cblogger.Error(getErr.Error())
+		LoggingError(hiscallInfo, getErr)
+		return irs.VMInfo{}, getErr
 	}
 
 	vmInfo, err := vmHandler.setVmInfo(instance)
 	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return irs.VMInfo{}, err
+		getErr := errors.New(fmt.Sprintf("Failed to Get VM. err = %s", err.Error()))
+		cblogger.Error(getErr.Error())
+		LoggingError(hiscallInfo, getErr)
+		return irs.VMInfo{}, getErr
 	}
 	LoggingInfo(hiscallInfo, start)
 	return vmInfo, nil

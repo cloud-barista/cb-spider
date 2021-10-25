@@ -28,26 +28,29 @@ func (securityHandler *IbmSecurityHandler) CreateSecurity(securityReqInfo irs.Se
 	// req 체크
 	err := checkSecurityReqInfo(securityReqInfo)
 	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return irs.SecurityInfo{}, err
+		createErr := errors.New(fmt.Sprintf("Failed to Create Security. err = %s", err.Error()))
+		cblogger.Error(createErr.Error())
+		LoggingError(hiscallInfo, createErr)
+		return irs.SecurityInfo{}, createErr
 	}
 	exist, err := existSecurityGroup(securityReqInfo.IId, securityHandler.VpcService, securityHandler.Ctx)
 	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return irs.SecurityInfo{}, err
+		createErr := errors.New(fmt.Sprintf("Failed to Create Security. err = %s", err.Error()))
+		cblogger.Error(createErr.Error())
+		LoggingError(hiscallInfo, createErr)
+		return irs.SecurityInfo{}, createErr
 	} else if exist {
-		err = errors.New(fmt.Sprintf("already exist %s", securityReqInfo.IId.NameId))
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return irs.SecurityInfo{}, err
+		createErr := errors.New(fmt.Sprintf("Failed to Create Security. err = The Security name %s already exists", securityReqInfo.IId.NameId))
+		cblogger.Error(createErr.Error())
+		LoggingError(hiscallInfo, createErr)
+		return irs.SecurityInfo{}, createErr
 	}
 	vpc, err := getRawVPC(securityReqInfo.VpcIID, securityHandler.VpcService, securityHandler.Ctx)
 	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return irs.SecurityInfo{}, err
+		createErr := errors.New(fmt.Sprintf("Failed to Create Security. err = %s", err.Error()))
+		cblogger.Error(createErr.Error())
+		LoggingError(hiscallInfo, createErr)
+		return irs.SecurityInfo{}, createErr
 	}
 	options := &vpcv1.CreateSecurityGroupOptions{}
 	options.SetVPC(&vpcv1.VPCIdentity{
@@ -56,9 +59,10 @@ func (securityHandler *IbmSecurityHandler) CreateSecurity(securityReqInfo irs.Se
 	options.SetName(securityReqInfo.IId.NameId)
 	securityGroup, _, err := securityHandler.VpcService.CreateSecurityGroupWithContext(securityHandler.Ctx, options)
 	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return irs.SecurityInfo{}, err
+		createErr := errors.New(fmt.Sprintf("Failed to Create Security. err = %s", err.Error()))
+		cblogger.Error(createErr.Error())
+		LoggingError(hiscallInfo, createErr)
+		return irs.SecurityInfo{}, createErr
 	}
 
 	if securityReqInfo.SecurityRules != nil {
@@ -86,9 +90,10 @@ func (securityHandler *IbmSecurityHandler) CreateSecurity(securityReqInfo irs.Se
 					if deleteError != nil {
 						err = errors.New(err.Error() + deleteError.Error())
 					}
-					cblogger.Error(err.Error())
-					LoggingError(hiscallInfo, err)
-					return irs.SecurityInfo{}, err
+					createErr := errors.New(fmt.Sprintf("Failed to Create Security. err = %s", err.Error()))
+					cblogger.Error(createErr.Error())
+					LoggingError(hiscallInfo, createErr)
+					return irs.SecurityInfo{}, createErr
 				}
 			} else {
 				ruleOptions := &vpcv1.CreateSecurityGroupRuleOptions{}
@@ -109,9 +114,10 @@ func (securityHandler *IbmSecurityHandler) CreateSecurity(securityReqInfo irs.Se
 					if deleteError != nil {
 						err = errors.New(err.Error() + deleteError.Error())
 					}
-					cblogger.Error(err.Error())
-					LoggingError(hiscallInfo, err)
-					return irs.SecurityInfo{}, err
+					createErr := errors.New(fmt.Sprintf("Failed to Create Security. err = %s", err.Error()))
+					cblogger.Error(createErr.Error())
+					LoggingError(hiscallInfo, createErr)
+					return irs.SecurityInfo{}, createErr
 				}
 			}
 
@@ -126,9 +132,10 @@ func (securityHandler *IbmSecurityHandler) CreateSecurity(securityReqInfo irs.Se
 		if deleteError != nil {
 			err = errors.New(err.Error() + deleteError.Error())
 		}
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return irs.SecurityInfo{}, err
+		createErr := errors.New(fmt.Sprintf("Failed to Create Security. err = %s", err.Error()))
+		cblogger.Error(createErr.Error())
+		LoggingError(hiscallInfo, createErr)
+		return irs.SecurityInfo{}, createErr
 	}
 	securityGroupInfo, err := setSecurityGroupInfo(rawSecurityGroup)
 	if err != nil {
@@ -138,9 +145,10 @@ func (securityHandler *IbmSecurityHandler) CreateSecurity(securityReqInfo irs.Se
 		if deleteError != nil {
 			err = errors.New(err.Error() + deleteError.Error())
 		}
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return irs.SecurityInfo{}, err
+		createErr := errors.New(fmt.Sprintf("Failed to Create Security. err = %s", err.Error()))
+		cblogger.Error(createErr.Error())
+		LoggingError(hiscallInfo, createErr)
+		return irs.SecurityInfo{}, createErr
 	}
 	LoggingInfo(hiscallInfo, start)
 	return securityGroupInfo, nil
@@ -152,18 +160,20 @@ func (securityHandler *IbmSecurityHandler) ListSecurity() ([]*irs.SecurityInfo, 
 	options := &vpcv1.ListSecurityGroupsOptions{}
 	securityGroups, _, err := securityHandler.VpcService.ListSecurityGroupsWithContext(securityHandler.Ctx, options)
 	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return nil, err
+		getErr := errors.New(fmt.Sprintf("Failed to Get SecurityList. err = %s", err.Error()))
+		cblogger.Error(getErr.Error())
+		LoggingError(hiscallInfo, getErr)
+		return nil, getErr
 	}
 	var securityGroupList []*irs.SecurityInfo
 	for {
 		for _, securityGroup := range securityGroups.SecurityGroups {
 			securityInfo, err := setSecurityGroupInfo(securityGroup)
 			if err != nil {
-				cblogger.Error(err.Error())
-				LoggingError(hiscallInfo, err)
-				return nil, err
+				getErr := errors.New(fmt.Sprintf("Failed to Get SecurityList. err = %s", err.Error()))
+				cblogger.Error(getErr.Error())
+				LoggingError(hiscallInfo, getErr)
+				return nil, getErr
 			}
 			securityGroupList = append(securityGroupList, &securityInfo)
 		}
@@ -174,9 +184,10 @@ func (securityHandler *IbmSecurityHandler) ListSecurity() ([]*irs.SecurityInfo, 
 			}
 			securityGroups, _, err = securityHandler.VpcService.ListSecurityGroupsWithContext(securityHandler.Ctx, options2)
 			if err != nil {
-				cblogger.Error(err.Error())
-				LoggingError(hiscallInfo, err)
-				return nil, err
+				getErr := errors.New(fmt.Sprintf("Failed to Get SecurityList. err = %s", err.Error()))
+				cblogger.Error(getErr.Error())
+				LoggingError(hiscallInfo, getErr)
+				return nil, getErr
 			}
 		} else {
 			break
@@ -192,21 +203,24 @@ func (securityHandler *IbmSecurityHandler) GetSecurity(securityIID irs.IID) (irs
 
 	err := checkSecurityGroupIID(securityIID)
 	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return irs.SecurityInfo{}, err
+		getErr := errors.New(fmt.Sprintf("Failed to Get Security. err = %s", err.Error()))
+		cblogger.Error(getErr.Error())
+		LoggingError(hiscallInfo, getErr)
+		return irs.SecurityInfo{}, getErr
 	}
 	securityGroup, err := getRawSecurityGroup(securityIID, securityHandler.VpcService, securityHandler.Ctx)
 	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return irs.SecurityInfo{}, err
+		getErr := errors.New(fmt.Sprintf("Failed to Get Security. err = %s", err.Error()))
+		cblogger.Error(getErr.Error())
+		LoggingError(hiscallInfo, getErr)
+		return irs.SecurityInfo{}, getErr
 	}
 	securityGroupInfo, err := setSecurityGroupInfo(securityGroup)
 	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return irs.SecurityInfo{}, err
+		getErr := errors.New(fmt.Sprintf("Failed to Get Security. err = %s", err.Error()))
+		cblogger.Error(getErr.Error())
+		LoggingError(hiscallInfo, getErr)
+		return irs.SecurityInfo{}, getErr
 	}
 	LoggingInfo(hiscallInfo, start)
 	return securityGroupInfo, nil
@@ -219,32 +233,35 @@ func (securityHandler *IbmSecurityHandler) DeleteSecurity(securityIID irs.IID) (
 	err := checkSecurityGroupIID(securityIID)
 
 	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return false, err
+		delErr := errors.New(fmt.Sprintf("Failed to Delete Security. err = %s", err.Error()))
+		cblogger.Error(delErr.Error())
+		LoggingError(hiscallInfo, delErr)
+		return false, delErr
 	}
 	securityGroup, err := getRawSecurityGroup(securityIID, securityHandler.VpcService, securityHandler.Ctx)
 	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return false, err
+		delErr := errors.New(fmt.Sprintf("Failed to Delete Security. err = %s", err.Error()))
+		cblogger.Error(delErr.Error())
+		LoggingError(hiscallInfo, delErr)
+		return false, delErr
 	}
 	options := &vpcv1.DeleteSecurityGroupOptions{}
 	options.SetID(*securityGroup.ID)
 	res, err := securityHandler.VpcService.DeleteSecurityGroupWithContext(securityHandler.Ctx, options)
 	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return false, err
+		delErr := errors.New(fmt.Sprintf("Failed to Delete Security. err = %s", err.Error()))
+		cblogger.Error(delErr.Error())
+		LoggingError(hiscallInfo, delErr)
+		return false, delErr
 	}
 	if res.StatusCode == 204 {
 		LoggingInfo(hiscallInfo, start)
 		return true, nil
 	} else {
-		err = errors.New(res.String())
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return false, err
+		delErr := errors.New(fmt.Sprintf("Failed to Delete Security. err = %s", err.Error()))
+		cblogger.Error(delErr.Error())
+		LoggingError(hiscallInfo, delErr)
+		return false, delErr
 	}
 }
 
