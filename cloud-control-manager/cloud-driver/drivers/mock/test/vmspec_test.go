@@ -9,12 +9,11 @@
 package mocktest
 
 import (
+	_ "fmt"
+	mockdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/mock"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
-	mockdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/mock"
-
 	"testing"
-	_ "fmt"
 )
 
 var vmSpecHandler irs.VMSpecHandler
@@ -33,7 +32,7 @@ func init() {
 
 
 func TestVMSpecListGet(t *testing.T) {
-	regionTest(t, "default")
+	regionTest(t, "common-region")
 }
 
 func regionTest(t *testing.T, mockRegion string) {

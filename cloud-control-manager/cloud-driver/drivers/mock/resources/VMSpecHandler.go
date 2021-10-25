@@ -23,7 +23,7 @@ type MockVMSpecHandler struct {
 	MockName string
 }
 
-var PrepareVMSpecInfoList []*irs.VMSpecInfo
+var prepareVMSpecInfoList []*irs.VMSpecInfo
 
 func init() {
 	vmSpecInfoMap = make(map[string][]*irs.VMSpecInfo)
@@ -36,16 +36,16 @@ func PrepareVMSpec(mockName string) {
         cblogger.Info("Mock Driver: called prepare()!")
 
         if vmSpecInfoMap[mockName] != nil {
-                return
-        }
+        	return
+		}
 
-        PrepareVMSpecInfoList = []*irs.VMSpecInfo{
-                {"default", "mock-vmspec-01", irs.VCpuInfo{"4", "2.7"}, "32768", []irs.GpuInfo{{"2", "NVIDIA", "V100", "16384MB"}}, nil},
-                {"default", "mock-vmspec-02", irs.VCpuInfo{"4", "3.2"}, "32768", []irs.GpuInfo{{"1", "NVIDIA", "V100", "16384MB"}}, nil},
-                {"default", "mock-vmspec-03", irs.VCpuInfo{"8", "2.7"}, "62464", nil, nil},
-                {"default", "mock-vmspec-04", irs.VCpuInfo{"8", "2.7"}, "1024", nil, nil},
+		prepareVMSpecInfoList = []*irs.VMSpecInfo{
+                {"common-region", "mock-vmspec-01", irs.VCpuInfo{"4", "2.7"}, "32768", []irs.GpuInfo{{"2", "NVIDIA", "V100", "16384MB"}}, nil},
+                {"common-region", "mock-vmspec-02", irs.VCpuInfo{"4", "3.2"}, "32768", []irs.GpuInfo{{"1", "NVIDIA", "V100", "16384MB"}}, nil},
+                {"common-region", "mock-vmspec-03", irs.VCpuInfo{"8", "2.7"}, "62464", nil, nil},
+                {"common-region", "mock-vmspec-04", irs.VCpuInfo{"8", "2.7"}, "1024", nil, nil},
         }
-        vmSpecInfoMap[mockName] = PrepareVMSpecInfoList
+		vmSpecInfoMap[mockName] = prepareVMSpecInfoList
 }
 
 func (vmSpecHandler *MockVMSpecHandler) ListVMSpec(Region string) ([]*irs.VMSpecInfo, error) {
@@ -58,15 +58,10 @@ func (vmSpecHandler *MockVMSpecHandler) ListVMSpec(Region string) ([]*irs.VMSpec
 	if !ok {
 		return []*irs.VMSpecInfo{}, nil
 	}
-	var list []*irs.VMSpecInfo
-	for _, info := range infoList {
-		if info.Region == Region {
-			list = append(list, info)
-		}
-	}
+
 	// cloning list of VMSpec
-	resultList := make([]*irs.VMSpecInfo, len(list))
-	copy(resultList, list)
+	resultList := make([]*irs.VMSpecInfo, len(infoList))
+	copy(resultList, infoList)
 	return resultList, nil
 }
 
