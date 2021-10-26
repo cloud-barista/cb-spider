@@ -643,13 +643,13 @@ func handleVM() {
 				vmReqInfo := irs.VMReqInfo{
 					IId: irs.IID{NameId: "mcloud-barista-vm-test"},
 					//IId:      irs.IID{NameId: "bill-test"},
-					ImageIID: irs.IID{SystemId: "img-22trbn9x"}, //Ubuntu Server 20.04 LTS 64
-					//ImageIID:          irs.IID{SystemId: "img-pi0ii46r"}, //Ubuntu Server 18.04.1 LTS 64
+					//ImageIID: irs.IID{SystemId: "img-22trbn9x"}, //Ubuntu Server 20.04 LTS 64
+					ImageIID:          irs.IID{SystemId: "img-pi0ii46r"}, //Ubuntu Server 18.04.1 LTS 64
 					VpcIID:            irs.IID{SystemId: "vpc-2u04wg7k"},
 					SubnetIID:         irs.IID{SystemId: "subnet-ccawa5nz"},
 					SecurityGroupIIDs: []irs.IID{{SystemId: "sg-3baxppe6"}},
 					VMSpecName:        "S5.SMALL1",
-					KeyPairIID:        irs.IID{SystemId: "skey-cjuxapcr"},
+					KeyPairIID:        irs.IID{SystemId: "skey-lk66iuyh"}, //cb_user_test
 					//VMUserId:          "root", //root만 가능
 					//VMUserPasswd: "Cbuser!@#", //대문자 소문자 모두 사용되어야 함. 그리고 숫자나 특수 기호 중 하나가 포함되어야 함.
 				}
@@ -765,10 +765,10 @@ func main() {
 	cblogger.Info("Tencent Cloud Resource Test")
 	//handleVPC() //VPC
 	//handleVMSpec()
-	handleSecurity()
+	//handleSecurity()
 	//handleImage() //AMI
 	//handleKeyPair()
-	//handleVM()
+	handleVM()
 
 	//handlePublicIP() // PublicIP 생성 후 conf
 	//handleVNic() //Lancard
