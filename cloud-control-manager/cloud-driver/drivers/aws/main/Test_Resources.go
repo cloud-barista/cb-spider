@@ -1124,10 +1124,10 @@ func handleVMSpec() {
 func main() {
 	cblogger.Info("AWS Resource Test")
 	//handleVPC()
-	//handleKeyPair()
+	handleKeyPair()
 	//handlePublicIP() // PublicIP 생성 후 conf
 	//handleSecurity()
-	handleVM()
+	//handleVM()
 
 	//handleImage() //AMI
 	//handleVNic() //Lancard
