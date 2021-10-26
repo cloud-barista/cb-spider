@@ -1,20 +1,17 @@
 package resources
 
 import (
-	"crypto/md5"
 	"fmt"
 	cblog "github.com/cloud-barista/cb-log"
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	"github.com/sirupsen/logrus"
-	"io"
 	"sync"
 	"time"
 )
 
 const (
 	CBDefaultVmUserName string = "cb-user"
-	CBKeyPairPath              = "/meta_db/.ssh-ibm/"
 	CBCloudInitFilePath string = "/cloud-driver-libs/.cloud-init-ibm/cloud-init"
 )
 
@@ -49,14 +46,4 @@ func GetCallLogScheme(region idrv.RegionInfo, resourceType call.RES_TYPE, resour
 		ResourceName: resourceName,
 		CloudOSAPI:   apiName,
 	}
-}
-
-func CreateHashString(credentialInfo idrv.CredentialInfo) (string, error) {
-	keyString := credentialInfo.Username + credentialInfo.ApiKey
-	hasher := md5.New()
-	_, err := io.WriteString(hasher, keyString)
-	if err != nil {
-		return "", err
-	}
-	return fmt.Sprintf("%x", hasher.Sum(nil)), nil
 }
