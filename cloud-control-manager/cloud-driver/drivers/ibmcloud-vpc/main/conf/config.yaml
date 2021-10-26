@@ -1,0 +1,48 @@
+## Config for Ibm ##
+# Test : create => get
+ibmvpc:
+  apiKey: TBD
+  region: us-south
+  zone: us-south-1
+  resources:
+    image:
+      nameId: ibm-ubuntu-16-04-5-minimal-amd64-1
+    security:
+      nameId: mcb-test-sg
+      VpcIID:
+        nameId: mcb-test-vpc
+      rules:
+        - FromPort: "22"
+          ToPort: "22"
+          IPProtocol: "tcp"
+          CIDR: "0.0.0.0/0"
+          Direction: "inbound"
+    keyPair:
+      nameId: mcb-test-key
+    vmSpec:
+      nameId: bx2-2x8
+    vpc:
+      nameId:  mcb-test-vpc
+      ipv4CIDR: 10.240.0.0/16
+      subnets :
+        - nameId: mcb-test-vpc-subnet1
+          ipv4CIDR: 10.240.0.0/24
+        - nameId: mcb-test-vpc-subnet2
+          ipv4CIDR: 10.240.1.0/24
+      addSubnet:
+        nameId: mcb-test-vpc-subnet3
+        ipv4CIDR: 10.240.2.0/24
+    vm:
+      IID:
+        nameId: mcb-test-vm
+      ImageIID:
+        nameId: ibm-ubuntu-16-04-5-minimal-amd64-1
+      VmSpecName: bx2-2x8
+      KeyPairIID:
+        nameId: mcb-test-key
+      VpcIID:
+        nameId:  mcb-test-vpc
+      SubnetIID:
+        nameId:  mcb-test-vpc-subnet1
+      SecurityGroupIIDs:
+        - nameId:  mcb-test-sg

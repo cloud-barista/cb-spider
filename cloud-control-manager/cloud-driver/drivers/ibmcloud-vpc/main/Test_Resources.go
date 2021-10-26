@@ -90,7 +90,7 @@ func readConfigFile() Config {
 	// Set Environment Value of Project Root Path
 	rootPath := os.Getenv("CBSPIDER_ROOT")
 	fmt.Println(rootPath)
-	data, err := ioutil.ReadFile(rootPath + "/conf/config.yaml")
+	data, err := ioutil.ReadFile(rootPath + "/cloud-control-manager/cloud-driver/drivers/ibmcloud-vpc/main/conf/config.yaml")
 	if err != nil {
 		cblogger.Error(err)
 	}
