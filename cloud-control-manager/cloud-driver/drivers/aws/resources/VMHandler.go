@@ -84,11 +84,13 @@ func (vmHandler *AwsVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 	}
 	cblogger.Info(keypairHandler)
 
+	/* 이슈 #480에 의해 제거
 	keyPairInfo, errKeyPair := keypairHandler.GetKey(vmReqInfo.KeyPairIID)
 	if errKeyPair != nil {
 		cblogger.Error(errKeyPair)
 		return irs.VMInfo{}, errKeyPair
 	}
+	*/
 
 	//=============================
 	// 보안그룹 처리 - SystemId 기반
@@ -148,8 +150,8 @@ func (vmHandler *AwsVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 		return irs.VMInfo{}, err
 	}
 	userData := string(fileDataCloudInit)
-	userData = strings.ReplaceAll(userData, "{{username}}", CBDefaultVmUserName)
-	userData = strings.ReplaceAll(userData, "{{public_key}}", keyPairInfo.PublicKey)
+	//userData = strings.ReplaceAll(userData, "{{username}}", CBDefaultVmUserName)
+	//userData = strings.ReplaceAll(userData, "{{public_key}}", keyPairInfo.PublicKey)
 	userDataBase64 := aws.String(base64.StdEncoding.EncodeToString([]byte(userData)))
 	cblogger.Debugf("cloud-init data : [%s]", userDataBase64)
 
