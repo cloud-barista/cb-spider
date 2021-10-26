@@ -850,12 +850,12 @@ func handleVM() {
 					ImageIID: irs.IID{SystemId: "ubuntu_18_04_x64_20G_alibase_20210420.vhd"},
 					//VpcIID:    irs.IID{SystemId: "vpc-0jl4l19l51gn2exrohgci"},
 					//SubnetIID: irs.IID{SystemId: "vsw-0jlj155cbwhjumtipnm6d"},
-					SubnetIID: irs.IID{SystemId: "vsw-6we1o1arx7bivz7iu3o9k"}, //없는 Subnet 테스트
+					SubnetIID: irs.IID{SystemId: "vsw-6we8tac8w7dzqbxbyhj9o"}, //없는 Subnet 테스트
 					//SecurityGroupIIDs: []irs.IID{{SystemId: "sg-6we0rxnoai067qbkdkgw"}, {SystemId: "sg-6weeb9xaodr65g7bq10c"}},
-					SecurityGroupIIDs: []irs.IID{{SystemId: "sg-6we1dc6xqy9e7zjtzkkk"}},
+					SecurityGroupIIDs: []irs.IID{{SystemId: "sg-6we7156yw8c8xbzi9f7v"}},
 					//VMSpecName:        "ecs.t5-lc2m1.nano",
 					VMSpecName: "ecs.g6.large", //cn-wulanchabu 리전
-					KeyPairIID: irs.IID{SystemId: "CB-KeyPairTest123123"},
+					KeyPairIID: irs.IID{SystemId: "cb-japan"},
 					//VMUserId:          "root", //root만 가능
 					//VMUserPasswd: "Cbuser!@#", //대문자 소문자 모두 사용되어야 함. 그리고 숫자나 특수 기호 중 하나가 포함되어야 함.
 				}
@@ -972,11 +972,11 @@ func main() {
 	cblogger.Info("Alibaba Cloud Resource Test")
 	cblogger.Debug("Debug mode")
 
-	handleVPC() //VPC
+	//handleVPC() //VPC
 	//handleVMSpec()
 	//handleImage() //AMI
-	handleSecurity()
-	handleKeyPair()
+	//handleSecurity()
+	//handleKeyPair()
 	handleVM()
 
 	//handlePublicIP() // PublicIP 생성 후 conf

@@ -42,9 +42,10 @@ func init() {
 // @TODO : root 계정의 비번만 설정 가능한 데 다른 계정이 요청되었을 경우 예외 처리할 것인지.. 아니면 비번을 설정할 것인지 확인 필요.
 // @TODO : PublicIp 요금제 방식과 대역폭 설정 방법 논의 필요
 func (vmHandler *AlibabaVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, error) {
-	//cblogger.Info(vmReqInfo)
-	spew.Dump(vmReqInfo)
+	cblogger.Debug(vmReqInfo)
+	//spew.Dump(vmReqInfo)
 
+	/* 2021-10-26 이슈 #480에 의해 제거
 	// 2021-04-28 cbuser 추가에 따른 Local KeyPair만 VM 생성 가능하도록 강제
 	//=============================
 	// KeyPair의 PublicKey 정보 처리
@@ -62,6 +63,7 @@ func (vmHandler *AlibabaVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 		cblogger.Error(errKeyPair)
 		return irs.VMInfo{}, errKeyPair
 	}
+	*/
 
 	//=============================
 	// UserData생성 처리
@@ -103,27 +105,27 @@ func (vmHandler *AlibabaVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 		return irs.VMInfo{}, err
 	}
 	userData := string(fileDataCloudInit)
-	userData = strings.ReplaceAll(userData, "{{username}}", CBDefaultVmUserName)
-	userData = strings.ReplaceAll(userData, "{{public_key}}", keyPairInfo.PublicKey)
+	//userData = strings.ReplaceAll(userData, "{{username}}", CBDefaultVmUserName)
+	//userData = strings.ReplaceAll(userData, "{{public_key}}", keyPairInfo.PublicKey)
 	userDataBase64 := base64.StdEncoding.EncodeToString([]byte(userData))
 	cblogger.Debugf("cloud-init data : [%s]", userDataBase64)
 
 	//=============================
 	// 보안그룹 처리 - SystemId 기반
 	//=============================
-	cblogger.Info("SystemId 기반으로 처리하기 위해 IID 기반의 보안그룹 배열을 SystemId 기반 보안그룹 배열로 조회및 변환함.")
+	cblogger.Debug("SystemId 기반으로 처리하기 위해 IID 기반의 보안그룹 배열을 SystemId 기반 보안그룹 배열로 조회및 변환함.")
 	var newSecurityGroupIds []string
 	//var firstSecurityGroupId string
 
 	for _, sgId := range vmReqInfo.SecurityGroupIIDs {
-		cblogger.Infof("보안그룹 변환 : [%s]", sgId)
+		cblogger.Debugf("보안그룹 변환 : [%s]", sgId)
 		newSecurityGroupIds = append(newSecurityGroupIds, sgId.SystemId)
 		//firstSecurityGroupId = sgId.SystemId
 		//break
 	}
 
-	cblogger.Info("보안그룹 변환 완료")
-	cblogger.Info(newSecurityGroupIds)
+	cblogger.Debug("보안그룹 변환 완료")
+	cblogger.Debug(newSecurityGroupIds)
 
 	//request := ecs.CreateCreateInstanceRequest()	// CreateInstance는 PublicIp가 자동으로 할당되지 않음.
 	request := ecs.CreateRunInstancesRequest() // RunInstances는 PublicIp가 자동으로 할당됨.
@@ -159,8 +161,8 @@ func (vmHandler *AlibabaVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 	//=============================
 	// VM생성 처리
 	//=============================
-	cblogger.Info("Create EC2 Instance")
-	cblogger.Info(request)
+	cblogger.Debug("Create EC2 Instance")
+	cblogger.Debug(request)
 
 	// logger for HisCall
 	callogger := call.GetLogger("HISCALL")
@@ -414,48 +416,48 @@ func (vmHandler *AlibabaVMHandler) RebootVM(vmIID irs.IID) (irs.VMStatus, error)
 
 func (vmHandler *AlibabaVMHandler) TerminateVM(vmIID irs.IID) (irs.VMStatus, error) {
 	cblogger.Infof("vmID : [%s]", vmIID.SystemId)
-/*
-	cblogger.Infof("VM을 종료하기 위해 Suspend 모드로 실행합니다.")
-	//Terminate하려면 VM이 Running 상태면 안됨.
-	sus, errSus := vmHandler.SuspendVM(vmIID)
-	if errSus != nil {
-		cblogger.Error(errSus.Error())
-		return irs.VMStatus("Failed"), errSus
-	}
-
-	if sus != "Suspending" {
-		cblogger.Errorf("[%s] VM의 Suspend 모드 실행 결과[%s]가 Suspending이 아닙니다.", vmIID.SystemId, sus)
-		return irs.VMStatus("Failed"), errors.New(vmIID.SystemId + " VM의 Suspend 모드 실행 결과 가 Suspending이 아닙니다.")
-	}
-
-	//===================================
-	// Suspending 되도록 3초 정도 대기 함.
-	//===================================
-	curRetryCnt := 0
-	maxRetryCnt := 60
-	for {
-		curStatus, errStatus := vmHandler.GetVMStatus(vmIID)
-		if errStatus != nil {
-			cblogger.Error(errStatus.Error())
+	/*
+		cblogger.Infof("VM을 종료하기 위해 Suspend 모드로 실행합니다.")
+		//Terminate하려면 VM이 Running 상태면 안됨.
+		sus, errSus := vmHandler.SuspendVM(vmIID)
+		if errSus != nil {
+			cblogger.Error(errSus.Error())
+			return irs.VMStatus("Failed"), errSus
 		}
 
-		cblogger.Info("===>VM Status : ", curStatus)
-		if curStatus != irs.VMStatus("Suspended") {
-			curRetryCnt++
-			cblogger.Error("VM 상태가 Suspended가 아니라서 1초간 대기후 조회합니다.")
-			time.Sleep(time.Second * 1)
-			if curRetryCnt > maxRetryCnt {
-				cblogger.Error("장시간 대기해도 VM의 Status 값이 Suspended로 변경되지 않아서 강제로 중단합니다.")
+		if sus != "Suspending" {
+			cblogger.Errorf("[%s] VM의 Suspend 모드 실행 결과[%s]가 Suspending이 아닙니다.", vmIID.SystemId, sus)
+			return irs.VMStatus("Failed"), errors.New(vmIID.SystemId + " VM의 Suspend 모드 실행 결과 가 Suspending이 아닙니다.")
+		}
+
+		//===================================
+		// Suspending 되도록 3초 정도 대기 함.
+		//===================================
+		curRetryCnt := 0
+		maxRetryCnt := 60
+		for {
+			curStatus, errStatus := vmHandler.GetVMStatus(vmIID)
+			if errStatus != nil {
+				cblogger.Error(errStatus.Error())
 			}
-		} else {
-			break
+
+			cblogger.Info("===>VM Status : ", curStatus)
+			if curStatus != irs.VMStatus("Suspended") {
+				curRetryCnt++
+				cblogger.Error("VM 상태가 Suspended가 아니라서 1초간 대기후 조회합니다.")
+				time.Sleep(time.Second * 1)
+				if curRetryCnt > maxRetryCnt {
+					cblogger.Error("장시간 대기해도 VM의 Status 값이 Suspended로 변경되지 않아서 강제로 중단합니다.")
+				}
+			} else {
+				break
+			}
 		}
-	}
-*/
+	*/
 	request := ecs.CreateDeleteInstanceRequest()
 	request.Scheme = "https"
 	request.InstanceId = vmIID.SystemId
-	request.Force = requests.Boolean("true") 
+	request.Force = requests.Boolean("true")
 
 	// logger for HisCall
 	callogger := call.GetLogger("HISCALL")
@@ -469,16 +471,16 @@ func (vmHandler *AlibabaVMHandler) TerminateVM(vmIID irs.IID) (irs.VMStatus, err
 		ErrorMSG:     "",
 	}
 
-        maxRetryCnt := 40 // retry until 120s
-        for i := 0; i<maxRetryCnt; i++ {
+	maxRetryCnt := 40 // retry until 120s
+	for i := 0; i < maxRetryCnt; i++ {
 
 		callLogStart := call.Start()
 		response, err := vmHandler.Client.DeleteInstance(request)
 		callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 
 		if err != nil {
-			if strings.Contains(err.Error(), "IncorrectInstanceStatus") {  
-			  // Loop: IncorrectInstanceStatus error
+			if strings.Contains(err.Error(), "IncorrectInstanceStatus") {
+				// Loop: IncorrectInstanceStatus error
 				callLogInfo.ErrorMSG = err.Error()
 				callogger.Info(call.String(callLogInfo))
 				cblogger.Info(err.Error())
@@ -489,7 +491,7 @@ func (vmHandler *AlibabaVMHandler) TerminateVM(vmIID irs.IID) (irs.VMStatus, err
 				cblogger.Error(err.Error())
 				return irs.VMStatus("Failed"), err
 			}
-		}else {
+		} else {
 			callogger.Info(call.String(callLogInfo))
 			cblogger.Info(response)
 			break
