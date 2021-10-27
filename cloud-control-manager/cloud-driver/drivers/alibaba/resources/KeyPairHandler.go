@@ -12,14 +12,11 @@ package resources
 
 import (
 	"errors"
-	"io/ioutil"
 	"os"
-	"strings"
 
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/ecs"
 
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
-	keypair "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/common"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/davecgh/go-spew/spew"
@@ -29,15 +26,6 @@ type AlibabaKeyPairHandler struct {
 	Region idrv.RegionInfo
 	Client *ecs.Client
 }
-
-/*
-// @TODO: KeyPairInfo 리소스 프로퍼티 정의 필요
-type KeyPairInfo struct {
-	Name        string
-	Fingerprint string
-	KeyMaterial string //RSA PRIVATE KEY
-}
-*/
 
 func (keyPairHandler *AlibabaKeyPairHandler) ListKey() ([]*irs.KeyPairInfo, error) {
 	cblogger.Debug("Start ListKey()")
@@ -80,7 +68,8 @@ func (keyPairHandler *AlibabaKeyPairHandler) ListKey() ([]*irs.KeyPairInfo, erro
 		keyPairInfo, errKeyPair := ExtractKeyPairDescribeInfo(&pair)
 
 		if errKeyPair != nil {
-			cblogger.Infof("[%s] KeyPair는 Local에서 관리하는 대상이 아니기 때문에 Skip합니다.", *&pair.KeyPairName)
+			// 2021-10-27 이슈#480에 의해 Local Key 로직 제거
+			//cblogger.Infof("[%s] KeyPair는 Local에서 관리하는 대상이 아니기 때문에 Skip합니다.", *&pair.KeyPairName)
 			cblogger.Info(errKeyPair.Error())
 		} else {
 			keyPairList = append(keyPairList, &keyPairInfo)
@@ -92,9 +81,11 @@ func (keyPairHandler *AlibabaKeyPairHandler) ListKey() ([]*irs.KeyPairInfo, erro
 	return keyPairList, nil
 }
 
+// 2021-10-27 이슈#480에 의해 Local Key 로직 제거
 func (keyPairHandler *AlibabaKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPairReqInfo) (irs.KeyPairInfo, error) {
 	cblogger.Info("Start CreateKey() : ", keyPairReqInfo)
 
+	/* 2021-10-27 이슈#480에 의해 Local Key 로직 제거
 	keyPairPath := os.Getenv("CBSPIDER_ROOT") + CBKeyPairPath
 	cblogger.Infof("Getenv[CBSPIDER_ROOT] : [%s]", os.Getenv("CBSPIDER_ROOT"))
 	cblogger.Infof("CBKeyPairPath : [%s]", CBKeyPairPath)
@@ -104,7 +95,7 @@ func (keyPairHandler *AlibabaKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPai
 		cblogger.Error(err)
 		return irs.KeyPairInfo{}, err
 	}
-
+	*/
 	request := ecs.CreateCreateKeyPairRequest()
 	request.Scheme = "https"
 
@@ -139,6 +130,7 @@ func (keyPairHandler *AlibabaKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPai
 	cblogger.Infof("Created key pair %q %s\n%s\n", result.KeyPairName, result.KeyPairFingerPrint, result.PrivateKeyBody)
 	spew.Dump(result)
 
+	/* 2021-10-27 이슈#480에 의해 Local Key 로직 제거
 	cblogger.Info("공개키 생성")
 	publicKey, errPub := keypair.MakePublicKeyFromPrivateKey(result.PrivateKeyBody)
 	if errPub != nil {
@@ -148,17 +140,18 @@ func (keyPairHandler *AlibabaKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPai
 
 	cblogger.Infof("Public Key")
 	spew.Dump(publicKey)
-
+	*/
 	keyPairInfo := irs.KeyPairInfo{
 		IId:         irs.IID{NameId: result.KeyPairName, SystemId: result.KeyPairName},
 		Fingerprint: result.KeyPairFingerPrint,
 		PrivateKey:  result.PrivateKeyBody,
-		PublicKey:   publicKey,
+		//PublicKey:   publicKey,
 		KeyValueList: []irs.KeyValue{
 			{Key: "KeyMaterial", Value: result.PrivateKeyBody},
 		},
 	}
 
+	/* 2021-10-27 이슈#480에 의해 Local Key 로직 제거
 	hashString := strings.ReplaceAll(keyPairInfo.Fingerprint, ":", "") // 필요한 경우 리전 정보 추가하면 될 듯. 나중에 키 이름과 리전으로 암복호화를 진행하면 될 것같음.
 	savePrivateFileTo := keyPairPath + hashString + ".pem"
 	savePublicFileTo := keyPairPath + hashString + ".pub"
@@ -177,15 +170,17 @@ func (keyPairHandler *AlibabaKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPai
 	if err != nil {
 		return irs.KeyPairInfo{}, err
 	}
-
+	*/
 	return keyPairInfo, nil
 }
 
+// 2021-10-27 이슈#480에 의해 Local Key 로직 제거
 // 혼선을 피하기 위해 keyPairID 대신 keyPairName으로 변경 함.
 func (keyPairHandler *AlibabaKeyPairHandler) GetKey(keyIID irs.IID) (irs.KeyPairInfo, error) {
 	//keyPairID := keyPairName
 	cblogger.Infof("GetKey(keyPairName) : [%s]", keyIID.SystemId)
 
+	/* 2021-10-27 이슈#480에 의해 Local Key 로직 제거
 	keyPairPath := os.Getenv("CBSPIDER_ROOT") + CBKeyPairPath
 	cblogger.Infof("Getenv[CBSPIDER_ROOT] : [%s]", os.Getenv("CBSPIDER_ROOT"))
 	cblogger.Infof("CBKeyPairPath : [%s]", CBKeyPairPath)
@@ -195,6 +190,7 @@ func (keyPairHandler *AlibabaKeyPairHandler) GetKey(keyIID irs.IID) (irs.KeyPair
 		cblogger.Error(err)
 		return irs.KeyPairInfo{}, err
 	}
+	*/
 
 	request := ecs.CreateDescribeKeyPairsRequest()
 	request.Scheme = "https"
@@ -240,6 +236,7 @@ func (keyPairHandler *AlibabaKeyPairHandler) GetKey(keyIID irs.IID) (irs.KeyPair
 	return keyPairInfo, nil
 }
 
+// 2021-10-27 이슈#480에 의해 Local Key 로직 제거
 // KeyPair 정보를 추출함
 func ExtractKeyPairDescribeInfo(keyPair *ecs.KeyPair) (irs.KeyPairInfo, error) {
 	spew.Dump(keyPair)
@@ -249,6 +246,7 @@ func ExtractKeyPairDescribeInfo(keyPair *ecs.KeyPair) (irs.KeyPairInfo, error) {
 		Fingerprint: keyPair.KeyPairFingerPrint,
 	}
 
+	/* 2021-10-27 이슈#480에 의해 Local Key 로직 제거
 	// Local Keyfile 처리
 	keyPairPath := os.Getenv("CBSPIDER_ROOT") + CBKeyPairPath
 	hashString := strings.ReplaceAll(keyPairInfo.Fingerprint, ":", "") // 필요한 경우 리전 정보 추가하면 될 듯. 나중에 키 이름과 리전으로 암복호화를 진행하면 될 것같음.
@@ -274,7 +272,7 @@ func ExtractKeyPairDescribeInfo(keyPair *ecs.KeyPair) (irs.KeyPairInfo, error) {
 
 	keyPairInfo.PublicKey = string(publicKeyBytes)
 	keyPairInfo.PrivateKey = string(privateKeyBytes)
-
+	*/
 	keyValueList := []irs.KeyValue{
 		//{Key: "ResourceGroupId", Value: keyPair.ResourceGroupId},
 		{Key: "CreationTime", Value: keyPair.CreationTime},
@@ -285,12 +283,13 @@ func ExtractKeyPairDescribeInfo(keyPair *ecs.KeyPair) (irs.KeyPairInfo, error) {
 	return keyPairInfo, nil
 }
 
+// 2021-10-27 이슈#480에 의해 Local Key 로직 제거
 func (keyPairHandler *AlibabaKeyPairHandler) DeleteKey(keyIID irs.IID) (bool, error) {
 	cblogger.Infof("DeleteKey(KeyPairName) : [%s]", keyIID.SystemId)
 	// Delete the key pair by name
 
 	//없는 키도 무조건 성공하기 때문에 미리 조회함.
-	keyPairInfo, errKey := keyPairHandler.GetKey(keyIID)
+	_, errKey := keyPairHandler.GetKey(keyIID)
 	if errKey != nil {
 		cblogger.Errorf("[%s] KeyPair Delete fail", keyIID.SystemId)
 		cblogger.Error(errKey)
@@ -331,6 +330,7 @@ func (keyPairHandler *AlibabaKeyPairHandler) DeleteKey(keyIID irs.IID) (bool, er
 	cblogger.Info(result)
 	cblogger.Infof("Successfully deleted %q Alibaba Cloud key pair\n", keyIID.SystemId)
 
+	/* 2021-10-27 이슈#480에 의해 Local Key 로직 제거
 	//====================
 	// Local Keyfile 처리
 	//====================
@@ -352,7 +352,7 @@ func (keyPairHandler *AlibabaKeyPairHandler) DeleteKey(keyIID irs.IID) (bool, er
 	if err != nil {
 		return false, err
 	}
-
+	*/
 	return true, nil
 }
 

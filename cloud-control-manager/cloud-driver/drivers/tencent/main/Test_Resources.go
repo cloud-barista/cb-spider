@@ -767,8 +767,8 @@ func main() {
 	//handleVMSpec()
 	//handleSecurity()
 	//handleImage() //AMI
-	//handleKeyPair()
-	handleVM()
+	handleKeyPair()
+	//handleVM()
 
 	//handlePublicIP() // PublicIP 생성 후 conf
 	//handleVNic() //Lancard

@@ -1,17 +1,9 @@
 package resources
 
 import (
-	"crypto/md5"
 	"errors"
-	"fmt"
-	"io"
-	"io/ioutil"
-	"log"
-	"os"
-	"strings"
 
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
-	keypair "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/common"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/davecgh/go-spew/spew"
@@ -61,7 +53,8 @@ func (keyPairHandler *TencentKeyPairHandler) ListKey() ([]*irs.KeyPairInfo, erro
 	for _, pair := range response.Response.KeyPairSet {
 		keyPairInfo, errKeyPair := ExtractKeyPairDescribeInfo(pair)
 		if errKeyPair != nil {
-			cblogger.Infof("[%s] KeyPair는 Local에서 관리하는 대상이 아니기 때문에 Skip합니다.", *pair.KeyName)
+			// 2021-10-27 이슈#480에 의해 Local Key 로직 제거
+			//cblogger.Infof("[%s] KeyPair는 Local에서 관리하는 대상이 아니기 때문에 Skip합니다.", *pair.KeyName)
 			cblogger.Info(errKeyPair.Error())
 			//return nil, errKeyPair
 		} else {
@@ -72,6 +65,7 @@ func (keyPairHandler *TencentKeyPairHandler) ListKey() ([]*irs.KeyPairInfo, erro
 	return keyPairList, nil
 }
 
+// 2021-10-27 이슈#480에 의해 Local Key 로직 제거
 //KeyPair 정보를 추출함
 func ExtractKeyPairDescribeInfo(keyPair *cvm.KeyPair) (irs.KeyPairInfo, error) {
 	spew.Dump(keyPair)
@@ -87,6 +81,7 @@ func ExtractKeyPairDescribeInfo(keyPair *cvm.KeyPair) (irs.KeyPairInfo, error) {
 	// }
 	//조회 용도
 
+	/* 2021-10-27 이슈#480에 의해 Local Key 로직 제거
 	// Local Keyfile 처리
 	keyPairPath := os.Getenv("CBSPIDER_ROOT") + CBKeyPairPath
 	hashString := strings.ReplaceAll(*keyPair.KeyId, ":", "") // 필요한 경우 리전 정보 추가하면 될 듯. 나중에 키 이름과 리전으로 암복호화를 진행하면 될 것같음.
@@ -113,7 +108,7 @@ func ExtractKeyPairDescribeInfo(keyPair *cvm.KeyPair) (irs.KeyPairInfo, error) {
 
 	keyPairInfo.PublicKey = string(publicKeyBytes)
 	keyPairInfo.PrivateKey = string(privateKeyBytes)
-
+	*/
 	keyValueList := []irs.KeyValue{
 		{Key: "KeyId", Value: *keyPair.KeyId},
 		//{Key: "KeyMaterial", Value: *keyPair.KeyMaterial},
@@ -124,6 +119,7 @@ func ExtractKeyPairDescribeInfo(keyPair *cvm.KeyPair) (irs.KeyPairInfo, error) {
 	return keyPairInfo, nil
 }
 
+// 2021-10-27 이슈#480에 의해 Local Key 로직 제거
 //KeyPair 생성시 이름은 알파벳, 숫자 또는 밑줄 "_"만 지원
 func (keyPairHandler *TencentKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPairReqInfo) (irs.KeyPairInfo, error) {
 	cblogger.Info(keyPairReqInfo)
@@ -140,6 +136,7 @@ func (keyPairHandler *TencentKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPai
 		return irs.KeyPairInfo{}, errors.New("A keyPair with the name " + keyPairReqInfo.IId.NameId + " already exists.")
 	}
 
+	/* 2021-10-27 이슈#480에 의해 Local Key 로직 제거
 	keyPairPath := os.Getenv("CBSPIDER_ROOT") + CBKeyPairPath
 	cblogger.Infof("Getenv[CBSPIDER_ROOT] : [%s]", os.Getenv("CBSPIDER_ROOT"))
 	cblogger.Infof("CBKeyPairPath : [%s]", CBKeyPairPath)
@@ -149,6 +146,7 @@ func (keyPairHandler *TencentKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPai
 		cblogger.Error(err)
 		return irs.KeyPairInfo{}, err
 	}
+	*/
 
 	// logger for HisCall
 	callogger := call.GetLogger("HISCALL")
@@ -195,6 +193,7 @@ func (keyPairHandler *TencentKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPai
 
 	//spew.Dump(keyPairInfo)
 
+	/* 2021-10-27 이슈#480에 의해 Local Key 로직 제거
 	//=============================
 	// 키 페어를 로컬 파일에 기록 함.
 	//=============================
@@ -216,7 +215,7 @@ func (keyPairHandler *TencentKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPai
 	if err != nil {
 		return irs.KeyPairInfo{}, err
 	}
-
+	*/
 	return keyPairInfo, nil
 }
 
@@ -246,10 +245,12 @@ func (keyPairHandler *TencentKeyPairHandler) isExist(chkName string) (bool, erro
 	return true, nil
 }
 
+// 2021-10-27 이슈#480에 의해 Local Key 로직 제거
 func (keyPairHandler *TencentKeyPairHandler) GetKey(keyIID irs.IID) (irs.KeyPairInfo, error) {
 	//keyPairID := keyName
 	cblogger.Infof("keyName : [%s]", keyIID.SystemId)
 
+	/* 2021-10-27 이슈#480에 의해 Local Key 로직 제거
 	keyPairPath := os.Getenv("CBSPIDER_ROOT") + CBKeyPairPath
 	cblogger.Infof("Getenv[CBSPIDER_ROOT] : [%s]", os.Getenv("CBSPIDER_ROOT"))
 	cblogger.Infof("CBKeyPairPath : [%s]", CBKeyPairPath)
@@ -259,6 +260,7 @@ func (keyPairHandler *TencentKeyPairHandler) GetKey(keyIID irs.IID) (irs.KeyPair
 		cblogger.Error(err)
 		return irs.KeyPairInfo{}, err
 	}
+	*/
 
 	// logger for HisCall
 	callogger := call.GetLogger("HISCALL")
@@ -304,6 +306,7 @@ func (keyPairHandler *TencentKeyPairHandler) GetKey(keyIID irs.IID) (irs.KeyPair
 	}
 }
 
+/* 2021-10-27 이슈#480에 의해 Local Key 로직 제거
 //Tencent의 경우 FingerPrint같은 고유 값을 조회할 수 없기 때문에 KeyId를 로컬 파일의 고유 키 값으로 이용함.
 func (keyPairHandler *TencentKeyPairHandler) GetLocalKeyId(keyIID irs.IID) (string, error) {
 	//삭제할 Local Keyfile을 찾기 위해 조회
@@ -321,14 +324,18 @@ func (keyPairHandler *TencentKeyPairHandler) GetLocalKeyId(keyIID irs.IID) (stri
 		return "", errors.New("InvalidKeyPair.NotFound: The KeyPair " + keyIID.SystemId + " does not exist")
 	}
 }
+*/
 
+// 2021-10-27 이슈#480에 의해 Local Key 로직 제거
 func (keyPairHandler *TencentKeyPairHandler) DeleteKey(keyIID irs.IID) (bool, error) {
 	cblogger.Infof("삭제 요청된 키페어 : [%s]", keyIID.SystemId)
 
+	/* 2021-10-27 이슈#480에 의해 Local Key 로직 제거
 	keyPairId, errGet := keyPairHandler.GetLocalKeyId(keyIID)
 	if errGet != nil {
 		return false, errGet
 	}
+	*/
 
 	// logger for HisCall
 	callogger := call.GetLogger("HISCALL")
@@ -360,6 +367,7 @@ func (keyPairHandler *TencentKeyPairHandler) DeleteKey(keyIID irs.IID) (bool, er
 	cblogger.Debug(response.ToJsonString())
 	callogger.Info(call.String(callLogInfo))
 
+	/* 2021-10-27 이슈#480에 의해 Local Key 로직 제거
 	//====================
 	// Local Keyfile 처리
 	//====================
@@ -381,10 +389,12 @@ func (keyPairHandler *TencentKeyPairHandler) DeleteKey(keyIID irs.IID) (bool, er
 	if err != nil {
 		return false, err
 	}
+	*/
 
 	return true, nil
 }
 
+/* 2021-10-27 이슈#480에 의해 Local Key 로직 제거
 //=================================
 // 공개 키 변환 및 키 정보 로컬 보관 로직 추가
 //=================================
@@ -422,3 +432,4 @@ func CreateHashString(credentialInfo idrv.CredentialInfo, Region idrv.RegionInfo
 	}
 	return fmt.Sprintf("%x", hasher.Sum(nil)), nil
 }
+*/
