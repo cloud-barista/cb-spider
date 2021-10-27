@@ -54,8 +54,9 @@ const (
 	// page size for control pages
 	CBPageSize = 100
 
-	CBKeyPairPath       = "/meta_db/.ssh-aliyun/"
-	CBCloudInitFilePath = "/cloud-driver-libs/.cloud-init-aliyun/cloud-init"
+	CBKeyPairPath = "/meta_db/.ssh-aliyun/"
+	//CBCloudInitFilePath = "/cloud-driver-libs/.cloud-init-aliyun/cloud-init"
+	CBCloudInitFilePath = "/cloud-driver-libs/.cloud-init-common/cloud-init"
 )
 
 type AlibabaCBNetworkInfo struct {

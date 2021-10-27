@@ -27,9 +27,10 @@ import (
 const CBDefaultVNetName string = "CB-VNet"          // CB Default Virtual Network Name
 const CBDefaultSubnetName string = "CB-VNet-Subnet" // CB Default Subnet Name
 const CBDefaultCidrBlock string = "192.168.0.0/16"  // CB Default CidrBlock
-const CBKeyPairPath string = "/meta_db/.ssh-aws/"
-const CBCloudInitFilePath string = "/cloud-driver-libs/.cloud-init-aws/cloud-init"
+//const CBKeyPairPath string = "/meta_db/.ssh-aws/" // 이슈 #480에 의한 로컬 키 관리 제거
 
+//const CBCloudInitFilePath string = "/cloud-driver-libs/.cloud-init-aws/cloud-init"
+const CBCloudInitFilePath string = "/cloud-driver-libs/.cloud-init-common/cloud-init"
 const CBDefaultVmUserName string = "cb-user" // default VM User Name
 
 const CUSTOM_ERR_CODE_TOOMANY string = "600"  //awserr.New("600", "n개 이상의 xxxx 정보가 존재합니다.", nil)

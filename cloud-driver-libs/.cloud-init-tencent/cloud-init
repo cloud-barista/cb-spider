@@ -1,8 +1,7 @@
-#cloud-config
-users:
-  - default
-  - name: {{username}}
-    shell: /bin/bash
-    sudo: ['ALL=(ALL) NOPASSWD:ALL']
-    ssh-authorized-keys:
-      - {{public_key}}
+#!/bin/bash
+#### add Cloud-Barista user
+useradd -s /bin/bash cb-user -rm -G sudo;
+mkdir /home/cb-user/.ssh; 
+curl -s http://169.254.0.23/latest/meta-data/public-keys/0/openssh-key > /home/cb-user/.ssh/authorized_keys;
+chown -R cb-user:cb-user /home/cb-user;
+echo "cb-user ALL=(ALL:ALL) NOPASSWD: ALL" >> /etc/sudoers;

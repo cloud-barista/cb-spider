@@ -72,6 +72,7 @@ func (vmHandler *AwsVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 	baseName := vmReqInfo.IId.NameId //"mcloud-barista-VMHandlerTest"
 	subnetID := vmReqInfo.SubnetIID.SystemId
 
+	/* 2021-10-26 이슈 #480에 의해 제거
 	// 2021-04-28 cbuser 추가에 따른 Local KeyPair만 VM 생성 가능하도록 강제
 	//=============================
 	// KeyPair의 PublicKey 정보 처리
@@ -89,6 +90,7 @@ func (vmHandler *AwsVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 		cblogger.Error(errKeyPair)
 		return irs.VMInfo{}, errKeyPair
 	}
+	*/
 
 	//=============================
 	// 보안그룹 처리 - SystemId 기반
@@ -148,8 +150,8 @@ func (vmHandler *AwsVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 		return irs.VMInfo{}, err
 	}
 	userData := string(fileDataCloudInit)
-	userData = strings.ReplaceAll(userData, "{{username}}", CBDefaultVmUserName)
-	userData = strings.ReplaceAll(userData, "{{public_key}}", keyPairInfo.PublicKey)
+	//userData = strings.ReplaceAll(userData, "{{username}}", CBDefaultVmUserName)
+	//userData = strings.ReplaceAll(userData, "{{public_key}}", keyPairInfo.PublicKey)
 	userDataBase64 := aws.String(base64.StdEncoding.EncodeToString([]byte(userData)))
 	cblogger.Debugf("cloud-init data : [%s]", userDataBase64)
 
