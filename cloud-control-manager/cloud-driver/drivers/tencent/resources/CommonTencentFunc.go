@@ -28,7 +28,8 @@ const CBDefaultVNetName string = "CB-VNet"          // CB Default Virtual Networ
 const CBDefaultSubnetName string = "CB-VNet-Subnet" // CB Default Subnet Name
 const CBDefaultCidrBlock string = "192.168.0.0/16"  // CB Default CidrBlock
 
-const CBKeyPairPath string = "/meta_db/.ssh-tencent/"
+// 2021-10-27 이슈#480에 의해 Local Key 로직 제거
+//const CBKeyPairPath string = "/meta_db/.ssh-tencent/"
 const CBCloudInitFilePath string = "/cloud-driver-libs/.cloud-init-tencent/cloud-init"
 const CBDefaultVmUserName string = "cb-user" // default VM User Name
 
