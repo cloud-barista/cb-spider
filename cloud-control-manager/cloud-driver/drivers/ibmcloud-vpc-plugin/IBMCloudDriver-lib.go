@@ -1,4 +1,4 @@
-package ibmcloudvpc
+package main
 
 import (
 	"context"
