@@ -11,7 +11,6 @@
 package docker
 
 import (
-	"C"
 	"github.com/sirupsen/logrus"
         cblog "github.com/cloud-barista/cb-log"
 	"context"
@@ -78,4 +77,3 @@ func (driver *DockerDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (ic
 	return &iConn, nil
 }
 
-var CloudDriver DockerDriver

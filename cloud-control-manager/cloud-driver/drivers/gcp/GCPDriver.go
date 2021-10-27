@@ -11,8 +11,6 @@
 package gcp
 
 import (
-	"C"
-
 	"context"
 	"encoding/json"
 	"fmt"
@@ -120,4 +118,3 @@ func getVMClient(credential idrv.CredentialInfo) (context.Context, *compute.Serv
 	return ctx, vmClient, nil
 }
 
-var CloudDriver GCPDriver

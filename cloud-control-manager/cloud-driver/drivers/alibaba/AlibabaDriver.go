@@ -11,7 +11,6 @@
 package alibaba
 
 import (
-	"C"
 	"fmt"
 
 	"github.com/aliyun/alibaba-cloud-sdk-go/sdk/auth/credentials"
@@ -183,4 +182,3 @@ func getVPCClient(connectionInfo idrv.ConnectionInfo) (*vpc.Client, error) {
 	return vpcClient, nil
 }
 
-var CloudDriver AlibabaDriver

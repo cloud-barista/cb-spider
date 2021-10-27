@@ -8,13 +8,9 @@
 //
 // by CB-Spider Team, 2019.06.
 
-//package main
-
 package aws
 
 import (
-	"C"
-
 	acon "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/aws/connect"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 
@@ -130,4 +126,3 @@ func (AwsDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (icon.CloudCon
 	return iConn, nil // return type: (icon.CloudConnection, error)
 }
 */
-var CloudDriver AwsDriver

@@ -11,7 +11,6 @@
 package mock
 
 import (
-	"C"
 
 	cblog "github.com/cloud-barista/cb-log"
 	"github.com/sirupsen/logrus"
@@ -71,4 +70,3 @@ func (driver *MockDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (icon
 	return &iConn, nil
 }
 
-var CloudDriver MockDriver

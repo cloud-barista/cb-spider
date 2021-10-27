@@ -311,4 +311,3 @@ func getVmSpecClient(credential idrv.CredentialInfo) (context.Context, *compute.
 	return ctx, &vmSpecClient, nil
 }
 
-var CloudDriver AzureDriver

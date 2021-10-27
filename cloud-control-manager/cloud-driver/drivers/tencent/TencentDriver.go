@@ -8,8 +8,6 @@
 //
 // by CB-Spider Team, 2019.06.
 
-//package main
-
 package tencent
 
 import (
@@ -173,4 +171,3 @@ func (TencentDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (icon.Clou
 	return iConn, nil // return type: (icon.CloudConnection, error)
 }
 */
-var CloudDriver TencentDriver
