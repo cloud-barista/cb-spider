@@ -17,8 +17,9 @@ cloudos:
   - OPENSTACK
   - CLOUDIT
   - ALIBABA
-  - DOCKER
+  - TENCENT
 
   - MOCK
+  - DOCKER
   - CLOUDTWIN
   - IBM
