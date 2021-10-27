@@ -12,209 +12,24 @@ package clouddriverhandler
 
 import (
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
-	icbs "github.com/cloud-barista/cb-store/interfaces"
+	// icbs "github.com/cloud-barista/cb-store/interfaces"
 
 	"github.com/cloud-barista/cb-store/config"
 	"github.com/sirupsen/logrus"
 
-	icon "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/connect"
-	ccim "github.com/cloud-barista/cb-spider/cloud-info-manager/connection-config-info-manager"
-	cim "github.com/cloud-barista/cb-spider/cloud-info-manager/credential-info-manager"
 	dim "github.com/cloud-barista/cb-spider/cloud-info-manager/driver-info-manager"
-	rim "github.com/cloud-barista/cb-spider/cloud-info-manager/region-info-manager"
 
 	//"encoding/json"
 	"fmt"
 	//"net/http"
 	"os"
 	"plugin"
-	"strings"
 )
 
 var cblog *logrus.Logger
 
 func init() {
 	cblog = config.Cblogger
-}
-
-/*
-func ListCloudDriver() []string {
-	var cloudDriverList []string
-	// @todo get list from storage
-	return cloudDriverList
-}
-*/
-
-// 1. get the ConnectionConfig Info
-// 2. get the driver info
-// 3. load driver library
-// 4. get CloudDriver
-func GetCloudDriver(cloudConnectName string) (idrv.CloudDriver, error) {
-	cccInfo, err := ccim.GetConnectionConfig(cloudConnectName)
-	if err != nil {
-		return nil, err
-	}
-
-	cldDrvInfo, err := dim.GetCloudDriver(cccInfo.DriverName)
-	if err != nil {
-		return nil, err
-	}
-
-	return getCloudDriver(*cldDrvInfo)
-}
-
-// 1. get credential info
-// 2. get region info
-// 3. get CloudConneciton
-func GetCloudConnection(cloudConnectName string) (icon.CloudConnection, error) {
-	cccInfo, err := ccim.GetConnectionConfig(cloudConnectName)
-	if err != nil {
-		return nil, err
-	}
-
-	cldDrvInfo, err := dim.GetCloudDriver(cccInfo.DriverName)
-	if err != nil {
-		return nil, err
-	}
-
-	var cldDriver idrv.CloudDriver
-	cldDriver, err = getCloudDriver(*cldDrvInfo)
-	if err != nil {
-		return nil, err
-	}
-
-	crdInfo, err := cim.GetCredentialDecrypt(cccInfo.CredentialName)
-	if err != nil {
-		return nil, err
-	}
-
-	rgnInfo, err := rim.GetRegion(cccInfo.RegionName)
-	if err != nil {
-		return nil, err
-	}
-
-	//cblog.Info(cldDriver)
-	//cblog.Info(crdInfo)
-	//cblog.Info(rgnInfo)
-
-	regionName, zoneName, err := GetRegionNameByRegionInfo(rgnInfo)
-	if err != nil {
-		return nil, err
-	}
-
-	connectionInfo := idrv.ConnectionInfo{ // @todo powerkim
-		CredentialInfo: idrv.CredentialInfo{
-			ClientId:         getValue(crdInfo.KeyValueInfoList, "ClientId"),
-			ClientSecret:     getValue(crdInfo.KeyValueInfoList, "ClientSecret"),
-			TenantId:         getValue(crdInfo.KeyValueInfoList, "TenantId"),
-			SubscriptionId:   getValue(crdInfo.KeyValueInfoList, "SubscriptionId"),
-			IdentityEndpoint: getValue(crdInfo.KeyValueInfoList, "IdentityEndpoint"),
-			Username:         getValue(crdInfo.KeyValueInfoList, "Username"),
-			Password:         getValue(crdInfo.KeyValueInfoList, "Password"),
-			DomainName:       getValue(crdInfo.KeyValueInfoList, "DomainName"),
-			ProjectID:        getValue(crdInfo.KeyValueInfoList, "ProjectID"),
-			AuthToken:        getValue(crdInfo.KeyValueInfoList, "AuthToken"),
-			ClientEmail:      getValue(crdInfo.KeyValueInfoList, "ClientEmail"),
-			PrivateKey:       getValue(crdInfo.KeyValueInfoList, "PrivateKey"),
-			Host:             getValue(crdInfo.KeyValueInfoList, "Host"),
-			APIVersion:       getValue(crdInfo.KeyValueInfoList, "APIVersion"),
-		},
-		RegionInfo: idrv.RegionInfo{ // @todo powerkim
-			Region:        regionName,
-			Zone:          zoneName,
-			ResourceGroup: getValue(rgnInfo.KeyValueInfoList, "ResourceGroup"),
-		},
-	}
-
-	cldConnection, err := cldDriver.ConnectCloud(connectionInfo)
-	if err != nil {
-		return nil, err
-	}
-
-	return cldConnection, nil
-}
-
-func getValue(keyValueInfoList []icbs.KeyValue, key string) string {
-	for _, kv := range keyValueInfoList {
-		if kv.Key == key {
-			return kv.Value
-		}
-	}
-	return "Not set"
-}
-
-func GetProviderNameByConnectionName(cloudConnectName string) (string, error) {
-        cccInfo, err := ccim.GetConnectionConfig(cloudConnectName)
-        if err != nil {
-                return "", err
-        }
-
-        rgnInfo, err := rim.GetRegion(cccInfo.RegionName)
-        if err != nil {
-                return "", err
-        }
-
-        return rgnInfo.ProviderName, nil
-}
-
-func GetRegionNameByConnectionName(cloudConnectName string) (string, string, error) {
-	cccInfo, err := ccim.GetConnectionConfig(cloudConnectName)
-	if err != nil {
-		return "", "", err
-	}
-
-	rgnInfo, err := rim.GetRegion(cccInfo.RegionName)
-	if err != nil {
-		return "", "", err
-	}
-
-	return GetRegionNameByRegionInfo(rgnInfo)
-}
-
-func GetRegionNameByRegionInfo(rgnInfo *rim.RegionInfo) (string, string, error) {
-
-	// @todo should move KeyValueList into XXXDriver.go, powerkim
-	var regionName string
-	var zoneName string
-	switch strings.ToUpper(rgnInfo.ProviderName) {
-	case "AZURE":
-		regionName = getValue(rgnInfo.KeyValueInfoList, "location")
-	case "AWS":
-		regionName = getValue(rgnInfo.KeyValueInfoList, "Region")
-		zoneName = getValue(rgnInfo.KeyValueInfoList, "Zone")
-	case "ALIBABA":
-		regionName = getValue(rgnInfo.KeyValueInfoList, "Region")
-		zoneName = getValue(rgnInfo.KeyValueInfoList, "Zone")
-	case "GCP":
-		regionName = getValue(rgnInfo.KeyValueInfoList, "Region")
-		zoneName = getValue(rgnInfo.KeyValueInfoList, "Zone")
-	case "OPENSTACK":
-		regionName = getValue(rgnInfo.KeyValueInfoList, "Region")
-	case "CLOUDIT":
-		// Cloudit do not use Region, But set default @todo 2019.10.28. by powerkim.
-		regionName = getValue(rgnInfo.KeyValueInfoList, "Region")
-	case "DOCKER":
-		// docker do not use Region, But set default @todo 2020.05.06. by powerkim.
-		regionName = getValue(rgnInfo.KeyValueInfoList, "Region")
-	case "NCP": // NCP
-		regionName = getValue(rgnInfo.KeyValueInfoList, "Region") // NCP
-		zoneName = getValue(rgnInfo.KeyValueInfoList, "Zone")     // NCP
-	case "NCPVPC": // NCP-VPC
-		regionName = getValue(rgnInfo.KeyValueInfoList, "Region") // NCP-VPC
-		zoneName = getValue(rgnInfo.KeyValueInfoList, "Zone")     // NCP-VPC
-	case "CLOUDTWIN":
-		regionName = getValue(rgnInfo.KeyValueInfoList, "Region")
-	case "MOCK":
-		regionName = getValue(rgnInfo.KeyValueInfoList, "Region")
-	case "TENCENT":
-		regionName = getValue(rgnInfo.KeyValueInfoList, "Region")
-		zoneName = getValue(rgnInfo.KeyValueInfoList, "Zone")
-	default:
-		errmsg := rgnInfo.ProviderName + " is not a valid ProviderName!!"
-		return "", "", fmt.Errorf(errmsg)
-	}
-
-	return regionName, zoneName, nil
 }
 
 func getCloudDriver(cldDrvInfo dim.CloudDriverInfo) (idrv.CloudDriver, error) {
@@ -256,6 +71,7 @@ func getCloudDriver(cldDrvInfo dim.CloudDriverInfo) (idrv.CloudDriver, error) {
 
 	cloudDriver, ok := driver.(idrv.CloudDriver)
 	if !ok {
+		cblog.Error(ok)
 		cblog.Error("Not CloudDriver interface!!")
 		return nil, err
 	}
