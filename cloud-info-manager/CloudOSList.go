@@ -12,14 +12,11 @@ import (
 	"sort"
 )
 
-
 var cblog *logrus.Logger
 
 func init() {
         cblog = config.Cblogger
 }
-
-
 
 type CloudOSList struct {
 	Name []string `yaml:"cloudos"`
@@ -60,11 +57,6 @@ func ListCloudOS() []string {
 
 	sort.Strings(cloudosList.Name)
 	cblog.Info(cloudosList)
-
-/*	for _, cloudos := range cloudosList.Name{
-		fmt.Printf("\n%s", cloudos)
-	}
-*/
 
 	return cloudosList.Name
 }
