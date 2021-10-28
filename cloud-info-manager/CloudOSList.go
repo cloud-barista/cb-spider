@@ -29,7 +29,7 @@ func readYaml() CloudOSList {
                 cblog.Error("$CBSPIDER_ROOT is not set!!")
                 os.Exit(1)
         }
-	data, err := ioutil.ReadFile(rootPath + "/conf/cloudos.yaml")
+	data, err := ioutil.ReadFile(rootPath + "/cloud-driver-libs/cloudos.yaml")
 	if err != nil {
 		cblog.Error(err)
 		panic(err)

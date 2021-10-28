@@ -31,7 +31,7 @@ type CLOUD_OS string
 type RES_TYPE string
 
 const (
-	//=========== CloudOS (ref: cb-spider/conf/cloudos.yaml)
+	//=========== CloudOS (ref: cb-spider/cloud-driver-libs/cloudos.yaml)
 	AWS       CLOUD_OS = "AWS"
 	GCP       CLOUD_OS = "GCP"
 	AZURE     CLOUD_OS = "AZURE"
