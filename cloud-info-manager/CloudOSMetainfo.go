@@ -1,20 +1,11 @@
 package cloudos
 
 import (
-        "github.com/sirupsen/logrus"
-        "github.com/cloud-barista/cb-store/config"
-
 	"gopkg.in/yaml.v3"
 	"io/ioutil"
 	"os"
 	"fmt"
 )
-
-var cblog *logrus.Logger
-
-func init() {
-        cblog = config.Cblogger
-}
 
 type CloudOSMetaInfo struct {
      Region     string
