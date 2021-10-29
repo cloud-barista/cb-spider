@@ -213,6 +213,10 @@ func SetupAndRun(cmd *cobra.Command, args []string) {
 			result, err = ccm.RemoveSubnetByParam(connectionName, vpcName, subnetName, force)
 		case "removecsp-subnet":
 			result, err = ccm.RemoveCSPSubnetByParam(connectionName, vpcName, cspID)
+		case "register":
+			result, err = ccm.RegisterVPC(inData)
+		case "unregister":
+			result, err = ccm.UnregisterVPCByParam(connectionName, vpcName)
 		}
 	case "security":
 		switch cmd.Name() {
@@ -228,6 +232,10 @@ func SetupAndRun(cmd *cobra.Command, args []string) {
 			result, err = ccm.ListAllSecurityByParam(connectionName)
 		case "deletecsp":
 			result, err = ccm.DeleteCSPSecurityByParam(connectionName, cspID)
+		case "register":
+			result, err = ccm.RegisterSecurity(inData)
+		case "unregister":
+			result, err = ccm.UnregisterSecurityByParam(connectionName, securityName)
 		}
 	case "keypair":
 		switch cmd.Name() {
@@ -243,6 +251,10 @@ func SetupAndRun(cmd *cobra.Command, args []string) {
 			result, err = ccm.ListAllKeyByParam(connectionName)
 		case "deletecsp":
 			result, err = ccm.DeleteCSPKeyByParam(connectionName, cspID)
+		case "register":
+			result, err = ccm.RegisterKey(inData)
+		case "unregister":
+			result, err = ccm.UnregisterKeyByParam(connectionName, keypairName)
 		}
 	case "vm":
 		switch cmd.Name() {
@@ -268,6 +280,10 @@ func SetupAndRun(cmd *cobra.Command, args []string) {
 			result, err = ccm.ListAllVMByParam(connectionName)
 		case "terminatecsp":
 			result, err = ccm.TerminateCSPVMByParam(connectionName, cspID)
+		case "register":
+			result, err = ccm.RegisterVM(inData)
+		case "unregister":
+			result, err = ccm.UnregisterVMByParam(connectionName, vmName)
 		}
 	case "ssh":
 		switch cmd.Name() {

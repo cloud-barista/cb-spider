@@ -228,6 +228,47 @@ func (s *CCMService) TerminateCSPVM(ctx context.Context, req *pb.CSPVMQryRequest
 	return resp, nil
 }
 
+// RegisterVM - VM 등록
+func (s *CCMService) RegisterVM(ctx context.Context, req *pb.VMRegisterRequest) (*pb.VMInfoResponse, error) {
+	logger := logger.NewLogger()
+
+	logger.Debug("calling CCMService.RegisterVM()")
+
+	userIId := cres.IID{req.Item.Name, req.Item.CspId}
+
+	// Call common-runtime API
+	result, err := cmrt.RegisterVM(req.ConnectionName, userIId)
+	if err != nil {
+		return nil, gc.ConvGrpcStatusErr(err, "", "CCMService.RegisterVM()")
+	}
+
+	// CCM 객체에서 GRPC 메시지로 복사
+	var grpcObj pb.VMInfo
+	err = gc.CopySrcToDest(result, &grpcObj)
+	if err != nil {
+		return nil, gc.ConvGrpcStatusErr(err, "", "CCMService.RegisterVM()")
+	}
+
+	resp := &pb.VMInfoResponse{Item: &grpcObj}
+	return resp, nil
+}
+
+// UnregisterVM - VM 제거
+func (s *CCMService) UnregisterVM(ctx context.Context, req *pb.VMUnregiserQryRequest) (*pb.BooleanResponse, error) {
+	logger := logger.NewLogger()
+
+	logger.Debug("calling CCMService.UnregisterVM()")
+
+	// Call common-runtime API
+	result, err := cmrt.UnregisterResource(req.ConnectionName, rsVM, req.Name)
+	if err != nil {
+		return nil, gc.ConvGrpcStatusErr(err, "", "CCMService.UnregisterVM()")
+	}
+
+	resp := &pb.BooleanResponse{Result: result}
+	return resp, nil
+}
+
 // ===== [ Private Functions ] =====
 
 // ===== [ Public Functions ] =====

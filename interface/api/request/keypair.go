@@ -186,6 +186,60 @@ func (r *CCMRequest) DeleteCSPKey() (string, error) {
 	return gc.ConvertToOutput(r.OutType, &resp)
 }
 
+// RegisterKey - KeyPair 등록
+func (r *CCMRequest) RegisterKey() (string, error) {
+	// 입력데이터 검사
+	if r.InData == "" {
+		return "", errors.New("input data required")
+	}
+
+	// 입력데이터 언마샬링
+	var item pb.KeyPairRegisterRequest
+	err := gc.ConvertToMessage(r.InType, r.InData, &item)
+	if err != nil {
+		return "", err
+	}
+
+	// 서버에 요청
+	ctx, cancel := context.WithTimeout(context.Background(), r.Timeout)
+	defer cancel()
+
+	resp, err2 := r.Client.RegisterKey(ctx, &item)
+	if err2 != nil {
+		return "", err2
+	}
+
+	// 결과값 마샬링
+	return gc.ConvertToOutput(r.OutType, &resp.Item)
+}
+
+// UnregisterKey - KeyPair 제거
+func (r *CCMRequest) UnregisterKey() (string, error) {
+	// 입력데이터 검사
+	if r.InData == "" {
+		return "", errors.New("input data required")
+	}
+
+	// 입력데이터 언마샬링
+	var item pb.KeyPairUnregiserQryRequest
+	err := gc.ConvertToMessage(r.InType, r.InData, &item)
+	if err != nil {
+		return "", err
+	}
+
+	// 서버에 요청
+	ctx, cancel := context.WithTimeout(context.Background(), r.Timeout)
+	defer cancel()
+
+	resp, err2 := r.Client.UnregisterKey(ctx, &item)
+	if err2 != nil {
+		return "", err2
+	}
+
+	// 결과값 마샬링
+	return gc.ConvertToOutput(r.OutType, &resp)
+}
+
 // ===== [ Private Functions ] =====
 
 // ===== [ Public Functions ] =====

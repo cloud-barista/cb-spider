@@ -267,6 +267,60 @@ func (r *CCMRequest) RemoveCSPSubnet() (string, error) {
 	return gc.ConvertToOutput(r.OutType, &resp)
 }
 
+// RegisterVPC - VPC 등록
+func (r *CCMRequest) RegisterVPC() (string, error) {
+	// 입력데이터 검사
+	if r.InData == "" {
+		return "", errors.New("input data required")
+	}
+
+	// 입력데이터 언마샬링
+	var item pb.VPCRegisterRequest
+	err := gc.ConvertToMessage(r.InType, r.InData, &item)
+	if err != nil {
+		return "", err
+	}
+
+	// 서버에 요청
+	ctx, cancel := context.WithTimeout(context.Background(), r.Timeout)
+	defer cancel()
+
+	resp, err2 := r.Client.RegisterVPC(ctx, &item)
+	if err2 != nil {
+		return "", err2
+	}
+
+	// 결과값 마샬링
+	return gc.ConvertToOutput(r.OutType, &resp.Item)
+}
+
+// UnregisterVPC - VPC 제거
+func (r *CCMRequest) UnregisterVPC() (string, error) {
+	// 입력데이터 검사
+	if r.InData == "" {
+		return "", errors.New("input data required")
+	}
+
+	// 입력데이터 언마샬링
+	var item pb.VPCUnregiserQryRequest
+	err := gc.ConvertToMessage(r.InType, r.InData, &item)
+	if err != nil {
+		return "", err
+	}
+
+	// 서버에 요청
+	ctx, cancel := context.WithTimeout(context.Background(), r.Timeout)
+	defer cancel()
+
+	resp, err2 := r.Client.UnregisterVPC(ctx, &item)
+	if err2 != nil {
+		return "", err2
+	}
+
+	// 결과값 마샬링
+	return gc.ConvertToOutput(r.OutType, &resp)
+}
+
 // ===== [ Private Functions ] =====
 
 // ===== [ Public Functions ] =====

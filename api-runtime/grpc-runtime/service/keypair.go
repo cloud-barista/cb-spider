@@ -153,6 +153,47 @@ func (s *CCMService) DeleteCSPKey(ctx context.Context, req *pb.CSPKeyPairQryRequ
 	return resp, nil
 }
 
+// RegisterKey - KeyPair 등록
+func (s *CCMService) RegisterKey(ctx context.Context, req *pb.KeyPairRegisterRequest) (*pb.KeyPairInfoResponse, error) {
+	logger := logger.NewLogger()
+
+	logger.Debug("calling CCMService.RegisterKey()")
+
+	userIId := cres.IID{req.Item.Name, req.Item.CspId}
+
+	// Call common-runtime API
+	result, err := cmrt.RegisterKey(req.ConnectionName, userIId)
+	if err != nil {
+		return nil, gc.ConvGrpcStatusErr(err, "", "CCMService.RegisterKey()")
+	}
+
+	// CCM 객체에서 GRPC 메시지로 복사
+	var grpcObj pb.KeyPairInfo
+	err = gc.CopySrcToDest(result, &grpcObj)
+	if err != nil {
+		return nil, gc.ConvGrpcStatusErr(err, "", "CCMService.RegisterKey()")
+	}
+
+	resp := &pb.KeyPairInfoResponse{Item: &grpcObj}
+	return resp, nil
+}
+
+// UnregisterKey - KeyPair 제거
+func (s *CCMService) UnregisterKey(ctx context.Context, req *pb.KeyPairUnregiserQryRequest) (*pb.BooleanResponse, error) {
+	logger := logger.NewLogger()
+
+	logger.Debug("calling CCMService.UnregisterKey()")
+
+	// Call common-runtime API
+	result, err := cmrt.UnregisterResource(req.ConnectionName, rsKey, req.Name)
+	if err != nil {
+		return nil, gc.ConvGrpcStatusErr(err, "", "CCMService.UnregisterKey()")
+	}
+
+	resp := &pb.BooleanResponse{Result: result}
+	return resp, nil
+}
+
 // ===== [ Private Functions ] =====
 
 // ===== [ Public Functions ] =====

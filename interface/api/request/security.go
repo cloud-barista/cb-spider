@@ -186,6 +186,60 @@ func (r *CCMRequest) DeleteCSPSecurity() (string, error) {
 	return gc.ConvertToOutput(r.OutType, &resp)
 }
 
+// RegisterSecurity - Security 등록
+func (r *CCMRequest) RegisterSecurity() (string, error) {
+	// 입력데이터 검사
+	if r.InData == "" {
+		return "", errors.New("input data required")
+	}
+
+	// 입력데이터 언마샬링
+	var item pb.SecurityRegisterRequest
+	err := gc.ConvertToMessage(r.InType, r.InData, &item)
+	if err != nil {
+		return "", err
+	}
+
+	// 서버에 요청
+	ctx, cancel := context.WithTimeout(context.Background(), r.Timeout)
+	defer cancel()
+
+	resp, err2 := r.Client.RegisterSecurity(ctx, &item)
+	if err2 != nil {
+		return "", err2
+	}
+
+	// 결과값 마샬링
+	return gc.ConvertToOutput(r.OutType, &resp.Item)
+}
+
+// UnregisterSecurity - Security 제거
+func (r *CCMRequest) UnregisterSecurity() (string, error) {
+	// 입력데이터 검사
+	if r.InData == "" {
+		return "", errors.New("input data required")
+	}
+
+	// 입력데이터 언마샬링
+	var item pb.SecurityUnregiserQryRequest
+	err := gc.ConvertToMessage(r.InType, r.InData, &item)
+	if err != nil {
+		return "", err
+	}
+
+	// 서버에 요청
+	ctx, cancel := context.WithTimeout(context.Background(), r.Timeout)
+	defer cancel()
+
+	resp, err2 := r.Client.UnregisterSecurity(ctx, &item)
+	if err2 != nil {
+		return "", err2
+	}
+
+	// 결과값 마샬링
+	return gc.ConvertToOutput(r.OutType, &resp)
+}
+
 // ===== [ Private Functions ] =====
 
 // ===== [ Public Functions ] =====

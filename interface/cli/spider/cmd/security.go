@@ -40,6 +40,8 @@ func NewSecurityCmd() *cobra.Command {
 	securityCmd.AddCommand(NewSecurityDeleteCmd())
 	securityCmd.AddCommand(NewSecurityListAllCmd())
 	securityCmd.AddCommand(NewSecurityDeleteCSPCmd())
+	securityCmd.AddCommand(NewSecurityRegisterCmd())
+	securityCmd.AddCommand(NewSecurityUnregisterCmd())
 
 	return securityCmd
 }
@@ -209,4 +211,61 @@ func NewSecurityDeleteCSPCmd() *cobra.Command {
 	deleteCSPCmd.PersistentFlags().StringVarP(&cspID, "id", "", "", "csp id")
 
 	return deleteCSPCmd
+}
+
+// NewSecurityRegisterCmd - Security Register 등록 기능을 수행하는 Cobra Command 생성
+func NewSecurityRegisterCmd() *cobra.Command {
+
+	registerCmd := &cobra.Command{
+		Use:   "register",
+		Short: "This is register command for security",
+		Long:  "This is register command for security",
+		Run: func(cmd *cobra.Command, args []string) {
+			logger := logger.NewLogger()
+			readInDataFromFile()
+			if inData == "" {
+				logger.Error("failed to validate --indata parameter")
+				return
+			}
+			logger.Debug("--indata parameter value : \n", inData)
+			logger.Debug("--infile parameter value : ", inFile)
+
+			SetupAndRun(cmd, args)
+		},
+	}
+
+	registerCmd.PersistentFlags().StringVarP(&inData, "indata", "d", "", "input string data")
+	registerCmd.PersistentFlags().StringVarP(&inFile, "infile", "f", "", "input file path")
+
+	return registerCmd
+}
+
+// NewSecurityUnregisterCmd - Security Register 제거 기능을 수행하는 Cobra Command 생성
+func NewSecurityUnregisterCmd() *cobra.Command {
+
+	unregisterCmd := &cobra.Command{
+		Use:   "unregister",
+		Short: "This is unregister command for security",
+		Long:  "This is unregister command for security",
+		Run: func(cmd *cobra.Command, args []string) {
+			logger := logger.NewLogger()
+			if connectionName == "" {
+				logger.Error("failed to validate --cname parameter")
+				return
+			}
+			if securityName == "" {
+				logger.Error("failed to validate --name parameter")
+				return
+			}
+			logger.Debug("--cname parameter value : ", connectionName)
+			logger.Debug("--name parameter value : ", securityName)
+
+			SetupAndRun(cmd, args)
+		},
+	}
+
+	unregisterCmd.PersistentFlags().StringVarP(&connectionName, "cname", "", "", "connection name")
+	unregisterCmd.PersistentFlags().StringVarP(&securityName, "name", "n", "", "security name")
+
+	return unregisterCmd
 }
