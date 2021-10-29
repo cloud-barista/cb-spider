@@ -44,6 +44,7 @@ const (
 	MOCK      CLOUD_OS = "MOCK"
 	TENCENT   CLOUD_OS = "TENCENT"
 	IBM       CLOUD_OS = "IBM"
+	KTCLOUD   CLOUD_OS = "KTCLOUD"
 
 	//=========== ResourceType
 	VMIMAGE       RES_TYPE = "VMIMAGE"

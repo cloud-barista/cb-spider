@@ -65,6 +65,8 @@ var cloudOSList = []call.CLOUD_OS{
 	call.TENCENT,
 	call.NCP,
 	call.NCPVPC,
+	call.KTCLOUD,
+	call.IBM,
 }
 
 var resTypeList = []call.RES_TYPE{

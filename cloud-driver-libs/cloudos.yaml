@@ -18,8 +18,9 @@ cloudos:
   - CLOUDIT
   - ALIBABA
   - TENCENT
-
   - MOCK
   - DOCKER
   - CLOUDTWIN
   - IBM
+  - NCP
+  - KTCLOUD

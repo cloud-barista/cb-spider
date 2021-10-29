@@ -22,6 +22,7 @@ import (
 	mockdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/mock"
 	openstackdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/openstack"
 	tencentdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/tencent"
+	ibmvpcdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/ibmcloud-vpc"
 
 	// ncpdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/ncp" // NCP
 	// ncpvpcdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/ncpvpc" // NCP-VPC
@@ -70,6 +71,8 @@ func getCloudDriver(cldDrvInfo dim.CloudDriverInfo) (idrv.CloudDriver, error) {
 	//  cloudDriver = new(ncpvpcdrv.NcpVpcDriver) // NCP-VPC
 	case "MOCK":
 		cloudDriver = new(mockdrv.MockDriver)
+	case "IBM":
+		cloudDriver = new(ibmvpcdrv.IbmCloudDriver)
 
 	default:
 		errmsg := cldDrvInfo.ProviderName + " is not supported static Cloud Driver!!"
