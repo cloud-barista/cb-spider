@@ -265,6 +265,60 @@ func (r *CCMRequest) TerminateCSPVM() (string, error) {
 	return gc.ConvertToOutput(r.OutType, &resp)
 }
 
+// RegisterVM - VM 등록
+func (r *CCMRequest) RegisterVM() (string, error) {
+	// 입력데이터 검사
+	if r.InData == "" {
+		return "", errors.New("input data required")
+	}
+
+	// 입력데이터 언마샬링
+	var item pb.VMRegisterRequest
+	err := gc.ConvertToMessage(r.InType, r.InData, &item)
+	if err != nil {
+		return "", err
+	}
+
+	// 서버에 요청
+	ctx, cancel := context.WithTimeout(context.Background(), r.Timeout)
+	defer cancel()
+
+	resp, err2 := r.Client.RegisterVM(ctx, &item)
+	if err2 != nil {
+		return "", err2
+	}
+
+	// 결과값 마샬링
+	return gc.ConvertToOutput(r.OutType, &resp.Item)
+}
+
+// UnregisterVM - VM 제거
+func (r *CCMRequest) UnregisterVM() (string, error) {
+	// 입력데이터 검사
+	if r.InData == "" {
+		return "", errors.New("input data required")
+	}
+
+	// 입력데이터 언마샬링
+	var item pb.VMUnregiserQryRequest
+	err := gc.ConvertToMessage(r.InType, r.InData, &item)
+	if err != nil {
+		return "", err
+	}
+
+	// 서버에 요청
+	ctx, cancel := context.WithTimeout(context.Background(), r.Timeout)
+	defer cancel()
+
+	resp, err2 := r.Client.UnregisterVM(ctx, &item)
+	if err2 != nil {
+		return "", err2
+	}
+
+	// 결과값 마샬링
+	return gc.ConvertToOutput(r.OutType, &resp)
+}
+
 // ===== [ Private Functions ] =====
 
 // ===== [ Public Functions ] =====

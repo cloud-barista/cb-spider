@@ -45,6 +45,8 @@ func NewVMCmd() *cobra.Command {
 	vmCmd.AddCommand(NewVMTerminateCmd())
 	vmCmd.AddCommand(NewVMListAllCmd())
 	vmCmd.AddCommand(NewVMTerminateCSPCmd())
+	vmCmd.AddCommand(NewVMRegisterCmd())
+	vmCmd.AddCommand(NewVMUnregisterCmd())
 
 	return vmCmd
 }
@@ -358,4 +360,61 @@ func NewVMTerminateCSPCmd() *cobra.Command {
 	terminateCSPCmd.PersistentFlags().StringVarP(&cspID, "id", "", "", "csp id")
 
 	return terminateCSPCmd
+}
+
+// NewVMRegisterCmd - VM Register 등록 기능을 수행하는 Cobra Command 생성
+func NewVMRegisterCmd() *cobra.Command {
+
+	registerCmd := &cobra.Command{
+		Use:   "register",
+		Short: "This is register command for vm",
+		Long:  "This is register command for vm",
+		Run: func(cmd *cobra.Command, args []string) {
+			logger := logger.NewLogger()
+			readInDataFromFile()
+			if inData == "" {
+				logger.Error("failed to validate --indata parameter")
+				return
+			}
+			logger.Debug("--indata parameter value : \n", inData)
+			logger.Debug("--infile parameter value : ", inFile)
+
+			SetupAndRun(cmd, args)
+		},
+	}
+
+	registerCmd.PersistentFlags().StringVarP(&inData, "indata", "d", "", "input string data")
+	registerCmd.PersistentFlags().StringVarP(&inFile, "infile", "f", "", "input file path")
+
+	return registerCmd
+}
+
+// NewVMUnregisterCmd - VM Register 제거 기능을 수행하는 Cobra Command 생성
+func NewVMUnregisterCmd() *cobra.Command {
+
+	unregisterCmd := &cobra.Command{
+		Use:   "unregister",
+		Short: "This is unregister command for vm",
+		Long:  "This is unregister command for vm",
+		Run: func(cmd *cobra.Command, args []string) {
+			logger := logger.NewLogger()
+			if connectionName == "" {
+				logger.Error("failed to validate --cname parameter")
+				return
+			}
+			if vmName == "" {
+				logger.Error("failed to validate --name parameter")
+				return
+			}
+			logger.Debug("--cname parameter value : ", connectionName)
+			logger.Debug("--name parameter value : ", vmName)
+
+			SetupAndRun(cmd, args)
+		},
+	}
+
+	unregisterCmd.PersistentFlags().StringVarP(&connectionName, "cname", "", "", "connection name")
+	unregisterCmd.PersistentFlags().StringVarP(&vmName, "name", "n", "", "vm name")
+
+	return unregisterCmd
 }

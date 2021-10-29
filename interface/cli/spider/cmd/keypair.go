@@ -40,6 +40,8 @@ func NewKeyPairCmd() *cobra.Command {
 	keyPairCmd.AddCommand(NewKeyPairDeleteCmd())
 	keyPairCmd.AddCommand(NewKeyPairListAllCmd())
 	keyPairCmd.AddCommand(NewKeyPairDeleteCSPCmd())
+	keyPairCmd.AddCommand(NewKeyPairRegisterCmd())
+	keyPairCmd.AddCommand(NewKeyPairUnregisterCmd())
 
 	return keyPairCmd
 }
@@ -209,4 +211,61 @@ func NewKeyPairDeleteCSPCmd() *cobra.Command {
 	deleteCSPCmd.PersistentFlags().StringVarP(&cspID, "id", "", "", "csp id")
 
 	return deleteCSPCmd
+}
+
+// NewKeyPairRegisterCmd - KeyPair Register 등록 기능을 수행하는 Cobra Command 생성
+func NewKeyPairRegisterCmd() *cobra.Command {
+
+	registerCmd := &cobra.Command{
+		Use:   "register",
+		Short: "This is register command for keypair",
+		Long:  "This is register command for keypair",
+		Run: func(cmd *cobra.Command, args []string) {
+			logger := logger.NewLogger()
+			readInDataFromFile()
+			if inData == "" {
+				logger.Error("failed to validate --indata parameter")
+				return
+			}
+			logger.Debug("--indata parameter value : \n", inData)
+			logger.Debug("--infile parameter value : ", inFile)
+
+			SetupAndRun(cmd, args)
+		},
+	}
+
+	registerCmd.PersistentFlags().StringVarP(&inData, "indata", "d", "", "input string data")
+	registerCmd.PersistentFlags().StringVarP(&inFile, "infile", "f", "", "input file path")
+
+	return registerCmd
+}
+
+// NewKeyPairUnregisterCmd - KeyPair Register 제거 기능을 수행하는 Cobra Command 생성
+func NewKeyPairUnregisterCmd() *cobra.Command {
+
+	unregisterCmd := &cobra.Command{
+		Use:   "unregister",
+		Short: "This is unregister command for keypair",
+		Long:  "This is unregister command for keypair",
+		Run: func(cmd *cobra.Command, args []string) {
+			logger := logger.NewLogger()
+			if connectionName == "" {
+				logger.Error("failed to validate --cname parameter")
+				return
+			}
+			if keypairName == "" {
+				logger.Error("failed to validate --name parameter")
+				return
+			}
+			logger.Debug("--cname parameter value : ", connectionName)
+			logger.Debug("--name parameter value : ", keypairName)
+
+			SetupAndRun(cmd, args)
+		},
+	}
+
+	unregisterCmd.PersistentFlags().StringVarP(&connectionName, "cname", "", "", "connection name")
+	unregisterCmd.PersistentFlags().StringVarP(&keypairName, "name", "n", "", "keypair name")
+
+	return unregisterCmd
 }

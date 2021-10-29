@@ -64,6 +64,18 @@ type VPCInfo struct {
 	SubnetInfoList *[]SubnetInfo `yaml:"SubnetInfoList" json:"SubnetInfoList"`
 }
 
+// VPCRegisterReq - VPC Register 정보 생성 요청 구조 정의
+type VPCRegisterReq struct {
+	ConnectionName string          `yaml:"ConnectionName" json:"ConnectionName"`
+	ReqInfo        VPCRegisterInfo `yaml:"ReqInfo" json:"ReqInfo"`
+}
+
+// VPCRegisterInfo - VPC Register 정보 구조 정의
+type VPCRegisterInfo struct {
+	Name  string `yaml:"Name" json:"Name"`
+	CSPId string `yaml:"CSPId" json:"CSPId"`
+}
+
 // SubnetInfo - Subnet 정보 구조 정의
 type SubnetInfo struct {
 	Name      string `yaml:"Name" json:"Name"`
@@ -99,6 +111,19 @@ type SecurityRuleInfo struct {
 	CIDR       string `yaml:"CIDR" json:"CIDR"`
 }
 
+// SecurityRegisterReq - Security Register 정보 생성 요청 구조 정의
+type SecurityRegisterReq struct {
+	ConnectionName string               `yaml:"ConnectionName" json:"ConnectionName"`
+	ReqInfo        SecurityRegisterInfo `yaml:"ReqInfo" json:"ReqInfo"`
+}
+
+// SecurityRegisterInfo - Security Register 정보 구조 정의
+type SecurityRegisterInfo struct {
+	VPCName string `yaml:"VPCName" json:"VPCName"`
+	Name    string `yaml:"Name" json:"Name"`
+	CSPId   string `yaml:"CSPId" json:"CSPId"`
+}
+
 // KeyReq - Key Pair 정보 생성 요청 구조 정의
 type KeyReq struct {
 	ConnectionName string  `yaml:"ConnectionName" json:"ConnectionName"`
@@ -108,6 +133,18 @@ type KeyReq struct {
 // KeyInfo - Key 정보 구조 정의
 type KeyInfo struct {
 	Name string `yaml:"Name" json:"Name"`
+}
+
+// KeyRegisterReq - Key Register 정보 생성 요청 구조 정의
+type KeyRegisterReq struct {
+	ConnectionName string          `yaml:"ConnectionName" json:"ConnectionName"`
+	ReqInfo        KeyRegisterInfo `yaml:"ReqInfo" json:"ReqInfo"`
+}
+
+// KeyRegisterInfo - Key Register 정보 구조 정의
+type KeyRegisterInfo struct {
+	Name  string `yaml:"Name" json:"Name"`
+	CSPId string `yaml:"CSPId" json:"CSPId"`
 }
 
 // VMReq - VM 정보 생성 요청 구조 정의
@@ -128,6 +165,18 @@ type VMInfo struct {
 
 	VMUserId     string `yaml:"VMUserId" json:"VMUserId"`
 	VMUserPasswd string `yaml:"VMUserPasswd" json:"VMUserPasswd"`
+}
+
+// VMRegisterReq - VM Register 정보 생성 요청 구조 정의
+type VMRegisterReq struct {
+	ConnectionName string         `yaml:"ConnectionName" json:"ConnectionName"`
+	ReqInfo        VMRegisterInfo `yaml:"ReqInfo" json:"ReqInfo"`
+}
+
+// VMRegisterInfo - VM Register 정보 구조 정의
+type VMRegisterInfo struct {
+	Name  string `yaml:"Name" json:"Name"`
+	CSPId string `yaml:"CSPId" json:"CSPId"`
 }
 
 // SSHRUNReq - SSH 실행 요청 구조 정의
@@ -808,6 +857,60 @@ func (ccm *CCMApi) RemoveCSPSubnetByParam(connectionName string, vpcName string,
 	return result, err
 }
 
+// RegisterVPC - VPC 등록
+func (ccm *CCMApi) RegisterVPC(doc string) (string, error) {
+	if ccm.requestCCM == nil {
+		return "", errors.New("The Open() function must be called")
+	}
+
+	ccm.requestCCM.InData = doc
+	return ccm.requestCCM.RegisterVPC()
+}
+
+// RegisterVPCByParam - VPC 등록
+func (ccm *CCMApi) RegisterVPCByParam(req *VPCRegisterReq) (string, error) {
+	if ccm.requestCCM == nil {
+		return "", errors.New("The Open() function must be called")
+	}
+
+	holdType, _ := ccm.GetInType()
+	ccm.SetInType("json")
+	j, err := json.Marshal(req)
+	if err != nil {
+		return "", err
+	}
+	ccm.requestCCM.InData = string(j)
+	result, err := ccm.requestCCM.RegisterVPC()
+	ccm.SetInType(holdType)
+
+	return result, err
+}
+
+// UnregisterVPC - VPC 제거
+func (ccm *CCMApi) UnregisterVPC(doc string) (string, error) {
+	if ccm.requestCCM == nil {
+		return "", errors.New("The Open() function must be called")
+	}
+
+	ccm.requestCCM.InData = doc
+	return ccm.requestCCM.UnregisterVPC()
+}
+
+// UnregisterVPCByParam - VPC 제거
+func (ccm *CCMApi) UnregisterVPCByParam(connectionName string, name string) (string, error) {
+	if ccm.requestCCM == nil {
+		return "", errors.New("The Open() function must be called")
+	}
+
+	holdType, _ := ccm.GetInType()
+	ccm.SetInType("json")
+	ccm.requestCCM.InData = `{"ConnectionName":"` + connectionName + `", "Name":"` + name + `"}`
+	result, err := ccm.requestCCM.UnregisterVPC()
+	ccm.SetInType(holdType)
+
+	return result, err
+}
+
 // CreateSecurity - Security 생성
 func (ccm *CCMApi) CreateSecurity(doc string) (string, error) {
 	if ccm.requestCCM == nil {
@@ -962,6 +1065,60 @@ func (ccm *CCMApi) DeleteCSPSecurityByParam(connectionName string, id string) (s
 	return result, err
 }
 
+// RegisterSecurity - Security 등록
+func (ccm *CCMApi) RegisterSecurity(doc string) (string, error) {
+	if ccm.requestCCM == nil {
+		return "", errors.New("The Open() function must be called")
+	}
+
+	ccm.requestCCM.InData = doc
+	return ccm.requestCCM.RegisterSecurity()
+}
+
+// RegisterSecurityByParam - Security 등록
+func (ccm *CCMApi) RegisterSecurityByParam(req *SecurityRegisterReq) (string, error) {
+	if ccm.requestCCM == nil {
+		return "", errors.New("The Open() function must be called")
+	}
+
+	holdType, _ := ccm.GetInType()
+	ccm.SetInType("json")
+	j, err := json.Marshal(req)
+	if err != nil {
+		return "", err
+	}
+	ccm.requestCCM.InData = string(j)
+	result, err := ccm.requestCCM.RegisterSecurity()
+	ccm.SetInType(holdType)
+
+	return result, err
+}
+
+// UnregisterSecurity - Security 제거
+func (ccm *CCMApi) UnregisterSecurity(doc string) (string, error) {
+	if ccm.requestCCM == nil {
+		return "", errors.New("The Open() function must be called")
+	}
+
+	ccm.requestCCM.InData = doc
+	return ccm.requestCCM.UnregisterSecurity()
+}
+
+// UnregisterSecurityByParam - Security 제거
+func (ccm *CCMApi) UnregisterSecurityByParam(connectionName string, name string) (string, error) {
+	if ccm.requestCCM == nil {
+		return "", errors.New("The Open() function must be called")
+	}
+
+	holdType, _ := ccm.GetInType()
+	ccm.SetInType("json")
+	ccm.requestCCM.InData = `{"ConnectionName":"` + connectionName + `", "Name":"` + name + `"}`
+	result, err := ccm.requestCCM.UnregisterSecurity()
+	ccm.SetInType(holdType)
+
+	return result, err
+}
+
 // CreateKey - Key Pair 생성
 func (ccm *CCMApi) CreateKey(doc string) (string, error) {
 	if ccm.requestCCM == nil {
@@ -1111,6 +1268,60 @@ func (ccm *CCMApi) DeleteCSPKeyByParam(connectionName string, id string) (string
 	ccm.SetInType("json")
 	ccm.requestCCM.InData = `{"ConnectionName":"` + connectionName + `", "Id":"` + id + `"}`
 	result, err := ccm.requestCCM.DeleteCSPKey()
+	ccm.SetInType(holdType)
+
+	return result, err
+}
+
+// RegisterKey - KeyPair 등록
+func (ccm *CCMApi) RegisterKey(doc string) (string, error) {
+	if ccm.requestCCM == nil {
+		return "", errors.New("The Open() function must be called")
+	}
+
+	ccm.requestCCM.InData = doc
+	return ccm.requestCCM.RegisterKey()
+}
+
+// RegisterKeyByParam - KeyPair 등록
+func (ccm *CCMApi) RegisterKeyByParam(req *KeyRegisterReq) (string, error) {
+	if ccm.requestCCM == nil {
+		return "", errors.New("The Open() function must be called")
+	}
+
+	holdType, _ := ccm.GetInType()
+	ccm.SetInType("json")
+	j, err := json.Marshal(req)
+	if err != nil {
+		return "", err
+	}
+	ccm.requestCCM.InData = string(j)
+	result, err := ccm.requestCCM.RegisterKey()
+	ccm.SetInType(holdType)
+
+	return result, err
+}
+
+// UnregisterKey - KeyPair 제거
+func (ccm *CCMApi) UnregisterKey(doc string) (string, error) {
+	if ccm.requestCCM == nil {
+		return "", errors.New("The Open() function must be called")
+	}
+
+	ccm.requestCCM.InData = doc
+	return ccm.requestCCM.UnregisterKey()
+}
+
+// UnregisterKeyByParam - KeyPair 제거
+func (ccm *CCMApi) UnregisterKeyByParam(connectionName string, name string) (string, error) {
+	if ccm.requestCCM == nil {
+		return "", errors.New("The Open() function must be called")
+	}
+
+	holdType, _ := ccm.GetInType()
+	ccm.SetInType("json")
+	ccm.requestCCM.InData = `{"ConnectionName":"` + connectionName + `", "Name":"` + name + `"}`
+	result, err := ccm.requestCCM.UnregisterKey()
 	ccm.SetInType(holdType)
 
 	return result, err
@@ -1340,6 +1551,60 @@ func (ccm *CCMApi) TerminateCSPVMByParam(connectionName string, id string) (stri
 	ccm.SetInType("json")
 	ccm.requestCCM.InData = `{"ConnectionName":"` + connectionName + `", "Id":"` + id + `"}`
 	result, err := ccm.requestCCM.TerminateCSPVM()
+	ccm.SetInType(holdType)
+
+	return result, err
+}
+
+// RegisterVM - VM 등록
+func (ccm *CCMApi) RegisterVM(doc string) (string, error) {
+	if ccm.requestCCM == nil {
+		return "", errors.New("The Open() function must be called")
+	}
+
+	ccm.requestCCM.InData = doc
+	return ccm.requestCCM.RegisterVM()
+}
+
+// RegisterVMByParam - VM 등록
+func (ccm *CCMApi) RegisterVMByParam(req *VMRegisterReq) (string, error) {
+	if ccm.requestCCM == nil {
+		return "", errors.New("The Open() function must be called")
+	}
+
+	holdType, _ := ccm.GetInType()
+	ccm.SetInType("json")
+	j, err := json.Marshal(req)
+	if err != nil {
+		return "", err
+	}
+	ccm.requestCCM.InData = string(j)
+	result, err := ccm.requestCCM.RegisterVM()
+	ccm.SetInType(holdType)
+
+	return result, err
+}
+
+// UnregisterVM - VM 제거
+func (ccm *CCMApi) UnregisterVM(doc string) (string, error) {
+	if ccm.requestCCM == nil {
+		return "", errors.New("The Open() function must be called")
+	}
+
+	ccm.requestCCM.InData = doc
+	return ccm.requestCCM.UnregisterVM()
+}
+
+// UnregisterVMByParam - VM 제거
+func (ccm *CCMApi) UnregisterVMByParam(connectionName string, name string) (string, error) {
+	if ccm.requestCCM == nil {
+		return "", errors.New("The Open() function must be called")
+	}
+
+	holdType, _ := ccm.GetInType()
+	ccm.SetInType("json")
+	ccm.requestCCM.InData = `{"ConnectionName":"` + connectionName + `", "Name":"` + name + `"}`
+	result, err := ccm.requestCCM.UnregisterVM()
 	ccm.SetInType(holdType)
 
 	return result, err

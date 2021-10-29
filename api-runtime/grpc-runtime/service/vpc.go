@@ -10,6 +10,7 @@ package service
 
 import (
 	"context"
+
 	gc "github.com/cloud-barista/cb-spider/api-runtime/grpc-runtime/common"
 	"github.com/cloud-barista/cb-spider/api-runtime/grpc-runtime/logger"
 	pb "github.com/cloud-barista/cb-spider/api-runtime/grpc-runtime/stub/cbspider"
@@ -213,6 +214,47 @@ func (s *CCMService) RemoveCSPSubnet(ctx context.Context, req *pb.CSPSubnetQryRe
 	result, err := cmrt.RemoveCSPSubnet(req.ConnectionName, req.VpcName, req.Id)
 	if err != nil {
 		return nil, gc.ConvGrpcStatusErr(err, "", "CCMService.RemoveCSPSubnet()")
+	}
+
+	resp := &pb.BooleanResponse{Result: result}
+	return resp, nil
+}
+
+// RegisterVPC - VPC 등록
+func (s *CCMService) RegisterVPC(ctx context.Context, req *pb.VPCRegisterRequest) (*pb.VPCInfoResponse, error) {
+	logger := logger.NewLogger()
+
+	logger.Debug("calling CCMService.RegisterVPC()")
+
+	userIId := cres.IID{req.Item.Name, req.Item.CspId}
+
+	// Call common-runtime API
+	result, err := cmrt.RegisterVPC(req.ConnectionName, userIId)
+	if err != nil {
+		return nil, gc.ConvGrpcStatusErr(err, "", "CCMService.RegisterVPC()")
+	}
+
+	// CCM 객체에서 GRPC 메시지로 복사
+	var grpcObj pb.VPCInfo
+	err = gc.CopySrcToDest(result, &grpcObj)
+	if err != nil {
+		return nil, gc.ConvGrpcStatusErr(err, "", "CCMService.RegisterVPC()")
+	}
+
+	resp := &pb.VPCInfoResponse{Item: &grpcObj}
+	return resp, nil
+}
+
+// UnregisterVPC - VPC 제거
+func (s *CCMService) UnregisterVPC(ctx context.Context, req *pb.VPCUnregiserQryRequest) (*pb.BooleanResponse, error) {
+	logger := logger.NewLogger()
+
+	logger.Debug("calling CCMService.UnregisterVPC()")
+
+	// Call common-runtime API
+	result, err := cmrt.UnregisterResource(req.ConnectionName, rsVPC, req.Name)
+	if err != nil {
+		return nil, gc.ConvGrpcStatusErr(err, "", "CCMService.UnregisterVPC()")
 	}
 
 	resp := &pb.BooleanResponse{Result: result}

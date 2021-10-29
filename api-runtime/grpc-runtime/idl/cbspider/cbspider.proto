@@ -210,6 +210,8 @@ service CCM {
 	rpc AddSubnet (SubnetAddRequest) returns (VPCInfoResponse) {}
 	rpc RemoveSubnet (SubnetQryRequest) returns (BooleanResponse) {}
 	rpc RemoveCSPSubnet (CSPSubnetQryRequest) returns (BooleanResponse) {}
+	rpc RegisterVPC (VPCRegisterRequest) returns (VPCInfoResponse) {}
+	rpc UnregisterVPC (VPCUnregiserQryRequest) returns (BooleanResponse) {}
 
 	rpc CreateSecurity (SecurityCreateRequest) returns (SecurityInfoResponse) {}
 	rpc ListSecurity (SecurityAllQryRequest) returns (ListSecurityInfoResponse) {}
@@ -217,6 +219,8 @@ service CCM {
 	rpc DeleteSecurity (SecurityQryRequest) returns (BooleanResponse) {}
 	rpc ListAllSecurity (SecurityAllQryRequest) returns (AllResourceInfoResponse) {}
 	rpc DeleteCSPSecurity (CSPSecurityQryRequest) returns (BooleanResponse) {}
+	rpc RegisterSecurity (SecurityRegisterRequest) returns (SecurityInfoResponse) {}
+	rpc UnregisterSecurity (SecurityUnregiserQryRequest) returns (BooleanResponse) {}
 
 	rpc CreateKey (KeyPairCreateRequest) returns (KeyPairInfoResponse) {}
 	rpc ListKey (KeyPairAllQryRequest) returns (ListKeyPairInfoResponse) {}
@@ -224,6 +228,8 @@ service CCM {
 	rpc DeleteKey (KeyPairQryRequest) returns (BooleanResponse) {}
 	rpc ListAllKey (KeyPairAllQryRequest) returns (AllResourceInfoResponse) {}
 	rpc DeleteCSPKey (CSPKeyPairQryRequest) returns (BooleanResponse) {}
+	rpc RegisterKey (KeyPairRegisterRequest) returns (KeyPairInfoResponse) {}
+	rpc UnregisterKey (KeyPairUnregiserQryRequest) returns (BooleanResponse) {}
 
 	rpc StartVM (VMCreateRequest) returns (VMInfoResponse) {}
 	rpc ControlVM (VMActionRequest) returns (StatusResponse) {}
@@ -234,7 +240,8 @@ service CCM {
 	rpc TerminateVM (VMQryRequest) returns (StatusResponse) {}
 	rpc ListAllVM (VMAllQryRequest) returns (AllResourceInfoResponse) {}
 	rpc TerminateCSPVM (CSPVMQryRequest) returns (StatusResponse) {}
-	
+	rpc RegisterVM (VMRegisterRequest) returns (VMInfoResponse) {}
+	rpc UnregisterVM (VMUnregiserQryRequest) returns (BooleanResponse) {}
 }
 
 //////////////////////////////////
@@ -374,6 +381,17 @@ message SubnetCreateInfo {
 	string ipv4_cidr = 2 [json_name="IPv4_CIDR", (gogoproto.jsontag) = "IPv4_CIDR", (gogoproto.moretags) = "yaml:\"IPv4_CIDR\""];        
 }
 
+message VPCRegisterRequest {
+	string connection_name = 1 [json_name="ConnectionName", (gogoproto.jsontag) = "ConnectionName", (gogoproto.moretags) = "yaml:\"ConnectionName\""];     
+	VPCRegisterInfo item = 2 [json_name="ReqInfo", (gogoproto.jsontag) = "ReqInfo", (gogoproto.moretags) = "yaml:\"ReqInfo\""];     
+}
+
+message VPCRegisterInfo {
+	string name = 1 [json_name="Name", (gogoproto.jsontag) = "Name", (gogoproto.moretags) = "yaml:\"Name\""];  
+	string csp_id = 2 [json_name="CSPId", (gogoproto.jsontag) = "CSPId", (gogoproto.moretags) = "yaml:\"CSPId\""];        
+}
+
+
 message VPCAllQryRequest {
 	string connection_name = 1 [json_name="ConnectionName", (gogoproto.jsontag) = "ConnectionName", (gogoproto.moretags) = "yaml:\"ConnectionName\""];  
 }
@@ -406,6 +424,11 @@ message CSPSubnetQryRequest {
 	string connection_name = 1 [json_name="ConnectionName", (gogoproto.jsontag) = "ConnectionName", (gogoproto.moretags) = "yaml:\"ConnectionName\""];  
 	string vpc_name = 2 [json_name="VPCName", (gogoproto.jsontag) = "VPCName", (gogoproto.moretags) = "yaml:\"VPCName\""];
 	string id = 3 [json_name="Id", (gogoproto.jsontag) = "Id", (gogoproto.moretags) = "yaml:\"Id\""];
+}
+
+message VPCUnregiserQryRequest {
+	string connection_name = 1 [json_name="ConnectionName", (gogoproto.jsontag) = "ConnectionName", (gogoproto.moretags) = "yaml:\"ConnectionName\""];  
+	string name = 2 [json_name="Name", (gogoproto.jsontag) = "Name", (gogoproto.moretags) = "yaml:\"Name\""];
 }
 
 //////////////////////////////////
@@ -449,6 +472,18 @@ message SecurityCreateInfo {
 	repeated SecurityRuleInfo security_rules = 4 [json_name="SecurityRules", (gogoproto.jsontag) = "SecurityRules", (gogoproto.moretags) = "yaml:\"SecurityRules\""]; 
 }
 
+message SecurityRegisterRequest {
+	string connection_name = 1 [json_name="ConnectionName", (gogoproto.jsontag) = "ConnectionName", (gogoproto.moretags) = "yaml:\"ConnectionName\""];     
+	SecurityRegisterInfo item = 2 [json_name="ReqInfo", (gogoproto.jsontag) = "ReqInfo", (gogoproto.moretags) = "yaml:\"ReqInfo\""];     
+}
+
+message SecurityRegisterInfo {
+	string vpc_name = 1 [json_name="VPCName", (gogoproto.jsontag) = "VPCName", (gogoproto.moretags) = "yaml:\"VPCName\""];  
+	string name = 2 [json_name="Name", (gogoproto.jsontag) = "Name", (gogoproto.moretags) = "yaml:\"Name\""]; 
+	string csp_id = 3 [json_name="CSPId", (gogoproto.jsontag) = "CSPId", (gogoproto.moretags) = "yaml:\"CSPId\""];        
+}
+
+
 message SecurityAllQryRequest {
 	string connection_name = 1 [json_name="ConnectionName", (gogoproto.jsontag) = "ConnectionName", (gogoproto.moretags) = "yaml:\"ConnectionName\""];  
 }
@@ -462,6 +497,11 @@ message SecurityQryRequest {
 message CSPSecurityQryRequest {
 	string connection_name = 1 [json_name="ConnectionName", (gogoproto.jsontag) = "ConnectionName", (gogoproto.moretags) = "yaml:\"ConnectionName\""];  
 	string id = 2 [json_name="Id", (gogoproto.jsontag) = "Id", (gogoproto.moretags) = "yaml:\"Id\""];
+}
+
+message SecurityUnregiserQryRequest {
+	string connection_name = 1 [json_name="ConnectionName", (gogoproto.jsontag) = "ConnectionName", (gogoproto.moretags) = "yaml:\"ConnectionName\""];  
+	string name = 2 [json_name="Name", (gogoproto.jsontag) = "Name", (gogoproto.moretags) = "yaml:\"Name\""];
 }
 
 //////////////////////////////////
@@ -495,6 +535,16 @@ message KeyPairCreateInfo {
 	string name = 1 [json_name="Name", (gogoproto.jsontag) = "Name", (gogoproto.moretags) = "yaml:\"Name\""]; 
 }
 
+message KeyPairRegisterRequest {
+	string connection_name = 1 [json_name="ConnectionName", (gogoproto.jsontag) = "ConnectionName", (gogoproto.moretags) = "yaml:\"ConnectionName\""];     
+	KeyPairRegisterInfo item = 2 [json_name="ReqInfo", (gogoproto.jsontag) = "ReqInfo", (gogoproto.moretags) = "yaml:\"ReqInfo\""];     
+}
+
+message KeyPairRegisterInfo {
+	string name = 1 [json_name="Name", (gogoproto.jsontag) = "Name", (gogoproto.moretags) = "yaml:\"Name\""];  
+	string csp_id = 2 [json_name="CSPId", (gogoproto.jsontag) = "CSPId", (gogoproto.moretags) = "yaml:\"CSPId\""];        
+}
+
 message KeyPairAllQryRequest {
 	string connection_name = 1 [json_name="ConnectionName", (gogoproto.jsontag) = "ConnectionName", (gogoproto.moretags) = "yaml:\"ConnectionName\""];   
 }
@@ -508,6 +558,11 @@ message KeyPairQryRequest {
 message CSPKeyPairQryRequest {
 	string connection_name = 1 [json_name="ConnectionName", (gogoproto.jsontag) = "ConnectionName", (gogoproto.moretags) = "yaml:\"ConnectionName\""];  
 	string id = 2 [json_name="Id", (gogoproto.jsontag) = "Id", (gogoproto.moretags) = "yaml:\"Id\""];
+}
+
+message KeyPairUnregiserQryRequest {
+	string connection_name = 1 [json_name="ConnectionName", (gogoproto.jsontag) = "ConnectionName", (gogoproto.moretags) = "yaml:\"ConnectionName\""];  
+	string name = 2 [json_name="Name", (gogoproto.jsontag) = "Name", (gogoproto.moretags) = "yaml:\"Name\""];
 }
 
 //////////////////////////////////
@@ -585,6 +640,16 @@ message VMCreateInfo {
 	string vm_user_passwd = 9 [json_name="VMUserPasswd", (gogoproto.jsontag) = "VMUserPasswd", (gogoproto.moretags) = "yaml:\"VMUserPasswd\""]; 
 }
 
+message VMRegisterRequest {
+	string connection_name = 1 [json_name="ConnectionName", (gogoproto.jsontag) = "ConnectionName", (gogoproto.moretags) = "yaml:\"ConnectionName\""];     
+	VMRegisterInfo item = 2 [json_name="ReqInfo", (gogoproto.jsontag) = "ReqInfo", (gogoproto.moretags) = "yaml:\"ReqInfo\""];     
+}
+
+message VMRegisterInfo {
+	string name = 1 [json_name="Name", (gogoproto.jsontag) = "Name", (gogoproto.moretags) = "yaml:\"Name\""];  
+	string csp_id = 2 [json_name="CSPId", (gogoproto.jsontag) = "CSPId", (gogoproto.moretags) = "yaml:\"CSPId\""];        
+}
+
 message VMAllQryRequest {
 	string connection_name = 1 [json_name="ConnectionName", (gogoproto.jsontag) = "ConnectionName", (gogoproto.moretags) = "yaml:\"ConnectionName\""];   
 }
@@ -604,6 +669,11 @@ message VMActionRequest {
 	string connection_name = 1 [json_name="ConnectionName", (gogoproto.jsontag) = "ConnectionName", (gogoproto.moretags) = "yaml:\"ConnectionName\""];   
 	string name = 2 [json_name="Name", (gogoproto.jsontag) = "Name", (gogoproto.moretags) = "yaml:\"Name\""];
 	string action = 3 [json_name="action", (gogoproto.jsontag) = "action", (gogoproto.moretags) = "yaml:\"action\""]; 
+}
+
+message VMUnregiserQryRequest {
+	string connection_name = 1 [json_name="ConnectionName", (gogoproto.jsontag) = "ConnectionName", (gogoproto.moretags) = "yaml:\"ConnectionName\""];  
+	string name = 2 [json_name="Name", (gogoproto.jsontag) = "Name", (gogoproto.moretags) = "yaml:\"Name\""];
 }
 
 //////////////////////////////////
