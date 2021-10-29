@@ -94,6 +94,7 @@ func GetCloudConnection(cloudConnectName string) (icon.CloudConnection, error) {
                         Host:             getValue(crdInfo.KeyValueInfoList, "Host"),
                         APIVersion:       getValue(crdInfo.KeyValueInfoList, "APIVersion"),
                         MockName:         getValue(crdInfo.KeyValueInfoList, "MockName"),
+                        ApiKey:           getValue(crdInfo.KeyValueInfoList, "ApiKey"),
                 },
                 RegionInfo: idrv.RegionInfo{ // @todo powerkim
                         Region:        regionName,
@@ -174,6 +175,12 @@ func getRegionNameByRegionInfo(rgnInfo *rim.RegionInfo) (string, string, error) 
         case "MOCK":
                 regionName = getValue(rgnInfo.KeyValueInfoList, "Region")
         case "TENCENT":
+                regionName = getValue(rgnInfo.KeyValueInfoList, "Region")
+                zoneName = getValue(rgnInfo.KeyValueInfoList, "Zone")
+        case "IBM":
+                regionName = getValue(rgnInfo.KeyValueInfoList, "Region")
+                zoneName = getValue(rgnInfo.KeyValueInfoList, "Zone")
+        case "KTCLOUD":
                 regionName = getValue(rgnInfo.KeyValueInfoList, "Region")
                 zoneName = getValue(rgnInfo.KeyValueInfoList, "Zone")
         default:
