@@ -30,9 +30,9 @@ TENCENT:
   region: Region Zone
   credential: ClientId ClientSecret
 
-IBM: # @todo update
+IBM:
   region: Region Zone
-  credential: ClientId ClientSecret
+  credential: ApiKey
 
 #------
 
