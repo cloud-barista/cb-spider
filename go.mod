@@ -3,9 +3,9 @@ module github.com/cloud-barista/cb-spider
 go 1.16
 
 replace (
+	github.com/dgrijalva/jwt-go => github.com/golang-jwt/jwt v3.2.1+incompatible
 	google.golang.org/api => google.golang.org/api v0.15.0
 	google.golang.org/grpc => google.golang.org/grpc v1.26.0
-
 )
 
 require (
@@ -29,6 +29,7 @@ require (
 	github.com/docker/go-connections v0.4.0
 	github.com/go-resty/resty/v2 v2.6.0
 	github.com/gogo/protobuf v1.3.2
+	github.com/golang-jwt/jwt v3.2.2+incompatible // indirect
 	github.com/golang-jwt/jwt/v4 v4.0.0
 	github.com/golang/protobuf v1.5.2
 	github.com/google/uuid v1.3.0 // indirect
