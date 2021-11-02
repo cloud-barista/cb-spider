@@ -3,5 +3,99 @@ tencent:
   tencent_secret_id: SecretId 정보
   tencent_secret_key: SecretKey 정보
 
-  region: ap-tokyo
-  zone: ap-tokyo-2
+### Tencent cloud Region & Zone list
+  ### South China (Guangzhou)
+  region: ap-guangzhou
+  zone: ap-guangzhou-3
+  #zone: ap-guangzhou-4
+  #zone: ap-guangzhou-6
+  #zone: ap-guangzhou-7
+
+  ### East China (Shanghai)
+  #region: ap-shanghai
+  #zone: ap-shanghai-2
+  #zone: ap-shanghai-3
+  #zone: ap-shanghai-4
+  #zone: ap-shanghai-5
+
+  ### East China (Nanjing)
+  #region: ap-nanjing
+  #zone: ap-nanjing-1
+  #zone: ap-nanjing-2
+  #zone: ap-nanjing-3
+
+  ### North China (Beijing)
+  #region: ap-beijing
+  #zone: ap-beijing-2
+  #zone: ap-beijing-3
+  #zone: ap-beijing-4
+  #zone: ap-beijing-5
+  #zone: ap-beijing-6
+  #zone: ap-beijing-7
+
+  ### Southwest China (Chengdu)
+  #region: ap-chengdu
+  #zone: ap-chengdu-1
+  #zone: ap-chengdu-2
+
+  ### Southwest China (Chongqing)
+  #region: ap-chongqing
+  #zone: ap-chongqing-1
+  
+  ### Hong Kong/Macao/Taiwan (Hong Kong, China)
+  #region: ap-hongkong
+  #zone: ap-hongkong-2
+  #zone: ap-hongkong-3
+
+  ### Southeast Asia Pacific (Singapore)
+  #region: ap-singapore
+  #zone: ap-singapore-1
+  #zone: ap-singapore-2
+  #zone: ap-singapore-3
+
+  ### Southeast Asia Pacific (Bangkok)
+  #region: ap-bangkok
+  #zone: ap-bangkok-1
+  #zone: ap-bangkok-2
+
+  ### Southeast Asia Pacific (Jakarta)
+  #region: ap-jakarta
+  #zone: ap-jakarta-1
+
+  ### South Asia Pacific (Mumbai)
+  #region: ap-mumbai
+  #region: ap-mumbai-1
+  #region: ap-mumbai-2
+
+  ### Northeast Asia Pacific (Seoul)
+  #region: ap-seoul
+  #zone: ap-seoul-1
+  #zone: ap-seoul-2
+
+  ### Northeast Asia Pacific (Tokyo)
+  #region: ap-tokyo
+  #zone: ap-tokyo-1
+  #zone: ap-tokyo-2
+
+  ### Western U.S. (Silicon Valley)
+  #region: na-siliconvalley
+  #zone: na-siliconvalley-1
+  #zone: na-siliconvalley-2
+
+  ### Eastern U.S. (Virginia)
+  #region: na-ashburn
+  #zone: na-ashburn-1
+  #zone: na-ashburn-2
+
+  ### North America (Toronto)
+  #region: na-toronto
+  #zone: na-toronto-1
+
+  ### Europe (Frankfurt)
+  #region: eu-frankfurt
+  #zone: eu-frankfurt-1
+  #zone: eu-frankfurt-2
+  
+  ### Europe (Moscow)
+  #region: eu-moscow
+  #zone: eu-moscow-1
