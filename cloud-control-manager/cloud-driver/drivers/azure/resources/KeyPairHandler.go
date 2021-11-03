@@ -1,16 +1,16 @@
 package resources
 
 import (
+	"context"
 	"errors"
 	"fmt"
-	"io/ioutil"
-	"os"
-	"strings"
+	"github.com/Azure/go-autorest/autorest/to"
 
+	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2021-03-01/compute"
+	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
+	keypair "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/common"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
-
-	keypair "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/common"
 )
 
 const (
@@ -20,170 +20,212 @@ const (
 type AzureKeyPairHandler struct {
 	CredentialInfo idrv.CredentialInfo
 	Region         idrv.RegionInfo
+	Ctx            context.Context
+	Client         *compute.SSHPublicKeysClient
 }
 
-func (keyPairHandler *AzureKeyPairHandler) CheckKeyPairFolder(folderPath string) error {
-	// Check KeyPair Folder Exists
-	if _, err := os.Stat(folderPath); os.IsNotExist(err) {
-		if err := os.MkdirAll(folderPath, 0700); err != nil {
-			return err
-		}
+func (keyPairHandler *AzureKeyPairHandler) setterKey(key compute.SSHPublicKeyResource, privateKey string) (*irs.KeyPairInfo, error) {
+	if key.Name == nil || key.ID == nil || key.PublicKey == nil {
+		return nil, errors.New(fmt.Sprintf("Invalid Key Resource"))
 	}
-	return nil
+	keypairInfo := irs.KeyPairInfo{
+		IId: irs.IID{
+			NameId:   *key.Name,
+			SystemId: *key.ID,
+		},
+		PublicKey:  *key.PublicKey,
+		PrivateKey: privateKey,
+	}
+	return &keypairInfo, nil
 }
 
 func (keyPairHandler *AzureKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPairReqInfo) (irs.KeyPairInfo, error) {
-
-	keyPairPath := os.Getenv("CBSPIDER_ROOT") + CBKeyPairPath
-	if err := keyPairHandler.CheckKeyPairFolder(keyPairPath); err != nil {
-		cblogger.Error(err)
-		return irs.KeyPairInfo{}, err
-	}
-	hashString, err := CreateHashString(keyPairHandler.CredentialInfo)
+	hiscallInfo := GetCallLogScheme(keyPairHandler.Region, call.VMKEYPAIR, keyPairReqInfo.IId.NameId, "CreateKey()")
+	// 0. Check keyPairReqInfo
+	err := checkKeyPairReqInfo(keyPairReqInfo)
 	if err != nil {
-		cblogger.Error(err)
-		return irs.KeyPairInfo{}, err
-	}
-
-	savePrivateFileTo := keyPairPath + hashString + "--" + keyPairReqInfo.IId.NameId
-	savePublicFileTo := keyPairPath + hashString + "--" + keyPairReqInfo.IId.NameId + ".pub"
-
-	// Check KeyPair Exists
-	if _, err := os.Stat(savePrivateFileTo); err == nil {
-		errMsg := fmt.Sprintf("KeyPair with name %s already exist", keyPairReqInfo.IId.NameId)
-		createErr := errors.New(errMsg)
+		createErr := errors.New(fmt.Sprintf("Failed to Create Key. err = %s", err.Error()))
 		cblogger.Error(createErr.Error())
+		LoggingError(hiscallInfo, createErr)
 		return irs.KeyPairInfo{}, createErr
 	}
 
+	// 1. Check Exist
+	exist, err := CheckExistKey(keyPairReqInfo.IId, keyPairHandler.Region.ResourceGroup, keyPairHandler.Client, keyPairHandler.Ctx)
+	if err != nil {
+		createErr := errors.New(fmt.Sprintf("Failed to Create Key. err = %s", err.Error()))
+		cblogger.Error(createErr.Error())
+		LoggingError(hiscallInfo, createErr)
+		return irs.KeyPairInfo{}, createErr
+	}
+
+	if exist {
+		createErr := errors.New(fmt.Sprintf("Failed to Create Key. err = The Key already exist"))
+		cblogger.Error(createErr.Error())
+		LoggingError(hiscallInfo, createErr)
+		return irs.KeyPairInfo{}, createErr
+	}
+	// 2. Create KeyPairData
 	privateKey, publicKey, err := keypair.GenKeyPair()
-	if err != nil {
-		cblogger.Error(err)
-		return irs.KeyPairInfo{}, err
-	}
 
-	err = keypair.SaveKey(privateKey, savePrivateFileTo)
-	if err != nil {
-		cblogger.Error(err)
-		return irs.KeyPairInfo{}, err
-	}
-
-	err = keypair.SaveKey([]byte(publicKey), savePublicFileTo)
-	if err != nil {
-		cblogger.Error(err)
-		return irs.KeyPairInfo{}, err
-	}
-
-	keyPairInfo := irs.KeyPairInfo{
-		IId: irs.IID{
-			NameId:   keyPairReqInfo.IId.NameId,
-			SystemId: keyPairReqInfo.IId.NameId,
+	// 3. Set KeyPairData & keyPairReqInfo
+	createOpt := compute.SSHPublicKeyResource{
+		Location: to.StringPtr(keyPairHandler.Region.Region),
+		SSHPublicKeyResourceProperties: &compute.SSHPublicKeyResourceProperties{
+			PublicKey: to.StringPtr(string(publicKey)),
 		},
-		PublicKey:  string(publicKey),
-		PrivateKey: string(privateKey),
 	}
-	return keyPairInfo, nil
+
+	start := call.Start()
+	// 4. Create KeyPair(Azure SSH Resource)
+	keyResult, err := keyPairHandler.Client.Create(keyPairHandler.Ctx, keyPairHandler.Region.ResourceGroup, keyPairReqInfo.IId.NameId, createOpt)
+	if err != nil {
+		createErr := errors.New(fmt.Sprintf("Failed to Create Key. err = %s", err.Error()))
+		cblogger.Error(createErr.Error())
+		LoggingError(hiscallInfo, createErr)
+		return irs.KeyPairInfo{}, createErr
+	}
+	// 5. Set keyPairInfo
+	keyPairInfo, err := keyPairHandler.setterKey(keyResult, string(privateKey))
+	if err != nil {
+		createErr := errors.New(fmt.Sprintf("Failed to Create Key. err = %s", err.Error()))
+		cblogger.Error(createErr.Error())
+		LoggingError(hiscallInfo, createErr)
+		return irs.KeyPairInfo{}, createErr
+	}
+	LoggingInfo(hiscallInfo, start)
+	return *keyPairInfo, nil
 }
 
 func (keyPairHandler *AzureKeyPairHandler) ListKey() ([]*irs.KeyPairInfo, error) {
+	hiscallInfo := GetCallLogScheme(keyPairHandler.Region, call.VMKEYPAIR, KeyPair, "ListKey()")
+	start := call.Start()
 
-	keyPairPath := os.Getenv("CBSPIDER_ROOT") + CBKeyPairPath
-	if err := keyPairHandler.CheckKeyPairFolder(keyPairPath); err != nil {
-		cblogger.Error(err)
-		return nil, err
-	}
-	hashString, err := CreateHashString(keyPairHandler.CredentialInfo)
+	// 0. Get List Resource
+	listResult, err := keyPairHandler.Client.ListByResourceGroup(keyPairHandler.Ctx, keyPairHandler.Region.ResourceGroup)
 	if err != nil {
-		cblogger.Error(err)
-		return nil, err
+		getErr := errors.New(fmt.Sprintf("Failed to Get KeyList. err = %s", err.Error()))
+		cblogger.Error(getErr.Error())
+		LoggingError(hiscallInfo, getErr)
+		return nil, getErr
 	}
-
-	var keyPairInfoList []*irs.KeyPairInfo
-
-	files, err := ioutil.ReadDir(keyPairPath)
-	if err != nil {
-		cblogger.Error(err)
-		return nil, err
-	}
-
-	for _, f := range files {
-		if strings.Contains(f.Name(), ".pub") {
-			continue
+	// 0. Set List Resource
+	var keyInfoList []*irs.KeyPairInfo
+	for _, key := range listResult.Values() {
+		keyInfo, err := keyPairHandler.setterKey(key, "")
+		if err != nil {
+			getErr := errors.New(fmt.Sprintf("Failed to Get KeyList. err = %s", err.Error()))
+			cblogger.Error(getErr.Error())
+			LoggingError(hiscallInfo, getErr)
+			return nil, getErr
 		}
-		if strings.Contains(f.Name(), hashString) {
-			fileNameArr := strings.Split(f.Name(), "--")
-			keypairInfo, err := keyPairHandler.GetKey(irs.IID{NameId: fileNameArr[1]})
-			if err != nil {
-				return nil, err
-			}
-			keyPairInfoList = append(keyPairInfoList, &keypairInfo)
-		}
+		keyInfoList = append(keyInfoList, keyInfo)
 	}
 
-	return keyPairInfoList, nil
+	LoggingInfo(hiscallInfo, start)
+
+	return keyInfoList, nil
 }
 
 func (keyPairHandler *AzureKeyPairHandler) GetKey(keyIID irs.IID) (irs.KeyPairInfo, error) {
-
-	keyPairPath := os.Getenv("CBSPIDER_ROOT") + CBKeyPairPath
-	if err := keyPairHandler.CheckKeyPairFolder(keyPairPath); err != nil {
-		cblogger.Error(err)
-		return irs.KeyPairInfo{}, err
+	hiscallInfo := GetCallLogScheme(keyPairHandler.Region, call.VMKEYPAIR, keyIID.NameId, "GetKey()")
+	start := call.Start()
+	// 0. Check keyPairInfo
+	if iidCheck := CheckIIDValidation(keyIID); !iidCheck {
+		getErr := errors.New(fmt.Sprintf("Failed to Get Key. err = InValid IID"))
+		cblogger.Error(getErr.Error())
+		LoggingError(hiscallInfo, getErr)
+		return irs.KeyPairInfo{}, getErr
 	}
-	hashString, err := CreateHashString(keyPairHandler.CredentialInfo)
-
-	privateKeyPath := keyPairPath + hashString + "--" + keyIID.NameId
-	publicKeyPath := keyPairPath + hashString + "--" + keyIID.NameId + ".pub"
-
-	// Private Key, Public Key 파일 정보 가져오기
-	privateKeyBytes, err := ioutil.ReadFile(privateKeyPath)
+	// 1. Get Resource
+	key, err := GetRawKey(keyIID, keyPairHandler.Region.ResourceGroup, keyPairHandler.Client, keyPairHandler.Ctx)
 	if err != nil {
-		cblogger.Error(err)
-		return irs.KeyPairInfo{}, err
+		getErr := errors.New(fmt.Sprintf("Failed to Get Key. err = %s", err.Error()))
+		cblogger.Error(getErr.Error())
+		LoggingError(hiscallInfo, getErr)
+		return irs.KeyPairInfo{}, getErr
 	}
-	publicKeyBytes, err := ioutil.ReadFile(publicKeyPath)
+	// 2. Set Resource
+	keyPairInfo, err := keyPairHandler.setterKey(key, "")
 	if err != nil {
-		cblogger.Error(err)
-		return irs.KeyPairInfo{}, err
+		getErr := errors.New(fmt.Sprintf("Failed to Get Key. err = %s", err.Error()))
+		cblogger.Error(getErr.Error())
+		LoggingError(hiscallInfo, getErr)
+		return irs.KeyPairInfo{}, getErr
 	}
-
-	keypairInfo := irs.KeyPairInfo{
-		IId: irs.IID{
-			NameId:   keyIID.NameId,
-			SystemId: keyIID.NameId,
-		},
-		PublicKey:  string(publicKeyBytes),
-		PrivateKey: string(privateKeyBytes),
-	}
-	return keypairInfo, nil
+	LoggingInfo(hiscallInfo, start)
+	return *keyPairInfo, nil
 }
 
 func (keyPairHandler *AzureKeyPairHandler) DeleteKey(keyIID irs.IID) (bool, error) {
-
-	keyPairPath := os.Getenv("CBSPIDER_ROOT") + CBKeyPairPath
-	if err := keyPairHandler.CheckKeyPairFolder(keyPairPath); err != nil {
-		return false, err
+	hiscallInfo := GetCallLogScheme(keyPairHandler.Region, call.VMKEYPAIR, keyIID.NameId, "DeleteKey()")
+	// 0. Check keyPairInfo
+	if iidCheck := CheckIIDValidation(keyIID); !iidCheck {
+		delErr := errors.New(fmt.Sprintf("Failed to Delete Key err = InValid IID"))
+		cblogger.Error(delErr.Error())
+		LoggingError(hiscallInfo, delErr)
+		return false, delErr
 	}
-	hashString, err := CreateHashString(keyPairHandler.CredentialInfo)
+	// 1. Check Exist
+	exist, err := CheckExistKey(keyIID, keyPairHandler.Region.ResourceGroup, keyPairHandler.Client, keyPairHandler.Ctx)
 	if err != nil {
-		cblogger.Error(err)
-		return false, err
+		delErr := errors.New(fmt.Sprintf("Failed to Delete Key. err = %s", err.Error()))
+		cblogger.Error(delErr.Error())
+		LoggingError(hiscallInfo, delErr)
+		return false, delErr
 	}
 
-	privateKeyPath := keyPairPath + hashString + "--" + keyIID.NameId
-	publicKeyPath := keyPairPath + hashString + "--" + keyIID.NameId + ".pub"
+	if !exist {
+		delErr := errors.New(fmt.Sprintf("Failed to Delete Key. err = The Key not exist"))
+		cblogger.Error(delErr.Error())
+		LoggingError(hiscallInfo, delErr)
+		return false, delErr
+	}
 
-	// Private Key, Public Key 삭제
-	err = os.Remove(privateKeyPath)
+	start := call.Start()
+	// 2. Delete Resource
+	_, err = keyPairHandler.Client.Delete(keyPairHandler.Ctx, keyPairHandler.Region.ResourceGroup, keyIID.NameId)
+
 	if err != nil {
-		cblogger.Error(err)
-		return false, err
+		delErr := errors.New(fmt.Sprintf("Failed to Delete Key. err = %s", err.Error()))
+		cblogger.Error(delErr.Error())
+		LoggingError(hiscallInfo, delErr)
+		return false, delErr
 	}
-	err = os.Remove(publicKeyPath)
-	if err != nil {
-		cblogger.Error(err)
-		return false, err
-	}
-
+	LoggingInfo(hiscallInfo, start)
 	return true, nil
+}
+func CheckExistKey(keypairIId irs.IID, resourceGroup string, client *compute.SSHPublicKeysClient, ctx context.Context) (bool, error) {
+	keyList, err := client.ListByResourceGroup(ctx, resourceGroup)
+	if err != nil {
+		return false, err
+	}
+	for _, keyValue := range keyList.Values() {
+		if keypairIId.SystemId != "" && keypairIId.SystemId == *keyValue.ID {
+			return true, nil
+		}
+		if keypairIId.NameId != "" && keypairIId.NameId == *keyValue.Name {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+func GetRawKey(keypairIId irs.IID, resourceGroup string, client *compute.SSHPublicKeysClient, ctx context.Context) (compute.SSHPublicKeyResource, error) {
+	if keypairIId.NameId == "" {
+		convertedNameId, err := GetSshKeyNameById(keypairIId.SystemId)
+		if err != nil {
+			return compute.SSHPublicKeyResource{}, err
+		}
+		return client.Get(ctx, resourceGroup, convertedNameId)
+	} else {
+		return client.Get(ctx, resourceGroup, keypairIId.NameId)
+	}
+}
+
+func checkKeyPairReqInfo(keyPairReqInfo irs.KeyPairReqInfo) error {
+	if keyPairReqInfo.IId.NameId == "" {
+		return errors.New("invalid Key IID")
+	}
+	return nil
 }
