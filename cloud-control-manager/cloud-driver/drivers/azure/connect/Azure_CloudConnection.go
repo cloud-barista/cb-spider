@@ -43,6 +43,7 @@ type AzureCloudConnection struct {
 	SubnetClient        *network.SubnetsClient
 	DiskClient          *compute.DisksClient
 	VmSpecClient        *compute.VirtualMachineSizesClient
+	SshKeyClient        *compute.SSHPublicKeysClient
 }
 
 func (cloudConn *AzureCloudConnection) CreateImageHandler() (irs.ImageHandler, error) {
@@ -71,7 +72,7 @@ func (cloudConn *AzureCloudConnection) CreateSecurityHandler() (irs.SecurityHand
 
 func (cloudConn *AzureCloudConnection) CreateKeyPairHandler() (irs.KeyPairHandler, error) {
 	cblogger.Info("Azure Cloud Driver: called CreateKeyPairHandler()!")
-	keypairHandler := azrs.AzureKeyPairHandler{cloudConn.CredentialInfo, cloudConn.Region}
+	keypairHandler := azrs.AzureKeyPairHandler{cloudConn.CredentialInfo, cloudConn.Region, cloudConn.Ctx, cloudConn.SshKeyClient}
 	return &keypairHandler, nil
 }
 
@@ -98,6 +99,7 @@ func (cloudConn *AzureCloudConnection) CreateVMHandler() (irs.VMHandler, error) 
 		NicClient:      cloudConn.VNicClient,
 		PublicIPClient: cloudConn.PublicIPClient,
 		DiskClient:     cloudConn.DiskClient,
+		SshKeyClient:   cloudConn.SshKeyClient,
 	}
 	return &vmHandler, nil
 }

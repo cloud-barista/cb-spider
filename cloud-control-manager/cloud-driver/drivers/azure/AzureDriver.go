@@ -110,6 +110,10 @@ func (driver *AzureDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (ico
 	if err != nil {
 		return nil, err
 	}
+	Ctx, sshKeyClient, err := getSshKeyClient(connectionInfo.CredentialInfo)
+	if err != nil {
+		return nil, err
+	}
 
 	iConn := azcon.AzureCloudConnection{
 		CredentialInfo:      connectionInfo.CredentialInfo,
@@ -126,6 +130,7 @@ func (driver *AzureDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (ico
 		VMImageClient:       VMImageClient,
 		DiskClient:          DiskClient,
 		VmSpecClient:        VmSpecClient,
+		SshKeyClient:        sshKeyClient,
 	}
 	return &iConn, nil
 }
@@ -269,6 +274,20 @@ func getSubnetClient(credential idrv.CredentialInfo) (context.Context, *network.
 	return ctx, &subnetClient, nil
 }
 
+func getSshKeyClient(credential idrv.CredentialInfo) (context.Context, *compute.SSHPublicKeysClient, error) {
+	config := auth.NewClientCredentialsConfig(credential.ClientId, credential.ClientSecret, credential.TenantId)
+	authorizer, err := config.Authorizer()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	sshClientClient := compute.NewSSHPublicKeysClient(credential.SubscriptionId)
+	sshClientClient.Authorizer = authorizer
+	ctx, _ := context.WithTimeout(context.Background(), cspTimeout*time.Second)
+
+	return ctx, &sshClientClient, nil
+}
+
 func getVMImageClient(credential idrv.CredentialInfo) (context.Context, *compute.VirtualMachineImagesClient, error) {
 	config := auth.NewClientCredentialsConfig(credential.ClientId, credential.ClientSecret, credential.TenantId)
 	authorizer, err := config.Authorizer()
@@ -310,4 +329,3 @@ func getVmSpecClient(credential idrv.CredentialInfo) (context.Context, *compute.
 
 	return ctx, &vmSpecClient, nil
 }
-

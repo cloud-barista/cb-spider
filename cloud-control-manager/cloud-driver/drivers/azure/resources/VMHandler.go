@@ -40,6 +40,7 @@ type AzureVMHandler struct {
 	NicClient      *network.InterfacesClient
 	PublicIPClient *network.PublicIPAddressesClient
 	DiskClient     *compute.DisksClient
+	SshKeyClient   *compute.SSHPublicKeysClient
 }
 
 func (vmHandler *AzureVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, error) {
@@ -128,12 +129,13 @@ func (vmHandler *AzureVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 
 	// KeyPair 설정
 	if vmReqInfo.KeyPairIID.NameId != "" {
-		publicKey, err := GetPublicKey(vmHandler.CredentialInfo, vmReqInfo.KeyPairIID.NameId)
+		key, err := GetRawKey(vmReqInfo.KeyPairIID, vmHandler.Region.ResourceGroup, vmHandler.SshKeyClient, vmHandler.Ctx)
 		if err != nil {
 			cblogger.Error(err.Error())
 			LoggingError(hiscallInfo, err)
 			return irs.VMInfo{}, err
 		}
+		publicKey := *key.PublicKey
 		vmOpts.OsProfile.LinuxConfiguration = &compute.LinuxConfiguration{
 			SSH: &compute.SSHConfiguration{
 				PublicKeys: &[]compute.SSHPublicKey{
@@ -144,14 +146,13 @@ func (vmHandler *AzureVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 				},
 			},
 		}
-	} else {
-		vmOpts.OsProfile.AdminPassword = to.StringPtr(vmReqInfo.VMUserPasswd)
-	}
-
-	// VM 정보 태깅 설정
-	if vmReqInfo.KeyPairIID.NameId != "" {
 		vmOpts.Tags = map[string]*string{
 			"keypair":  to.StringPtr(vmReqInfo.KeyPairIID.NameId),
+			"publicip": to.StringPtr(publicIPIId.NameId),
+		}
+	} else {
+		vmOpts.OsProfile.AdminPassword = to.StringPtr(vmReqInfo.VMUserPasswd)
+		vmOpts.Tags = map[string]*string{
 			"publicip": to.StringPtr(publicIPIId.NameId),
 		}
 	}
@@ -583,10 +584,10 @@ func (vmHandler *AzureVMHandler) mappingServerInfo(server compute.VirtualMachine
 	// Get Keypair
 	tagList := server.Tags
 	for key, val := range tagList {
-		if key == "keypair" {
-			vmInfo.KeyPairIId = irs.IID{NameId: *val, SystemId: *val}
+		if key == "keypair" && val != nil {
+			vmInfo.KeyPairIId = irs.IID{NameId: *val, SystemId: GetSshKeyIdByName(vmHandler.CredentialInfo, vmHandler.Region, *val)}
 		}
-		if key == "publicip" {
+		if key == "publicip" && val != nil {
 			vmInfo.KeyValueList = []irs.KeyValue{
 				{Key: "publicip", Value: *val},
 			}

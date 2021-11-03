@@ -1,11 +1,10 @@
 package resources
 
 import (
-	"crypto/md5"
+	"errors"
 	"fmt"
-	"io"
-	"io/ioutil"
-	"os"
+	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
+	"strings"
 	"sync"
 	"time"
 
@@ -21,8 +20,6 @@ const (
 	CBVirutalNetworkName = "CB-VNet"
 	CBVnetDefaultCidr    = "130.0.0.0/16"
 	CBVMUser             = "cb-user"
-	// by powerkim, 2019.10.30
-	CBKeyPairPath = "/meta_db/.ssh-azure/"
 )
 
 var once sync.Once
@@ -90,49 +87,6 @@ func GetCallLogScheme(region idrv.RegionInfo, resourceType call.RES_TYPE, resour
 	return &subnetCIDR, nil
 }*/
 
-// KeyPair 해시 생성 함수
-func CreateHashString(credentialInfo idrv.CredentialInfo) (string, error) {
-	keyString := credentialInfo.ClientId + credentialInfo.ClientSecret + credentialInfo.TenantId + credentialInfo.SubscriptionId
-	hasher := md5.New()
-	_, err := io.WriteString(hasher, keyString)
-	if err != nil {
-		return "", err
-	}
-	return fmt.Sprintf("%x", hasher.Sum(nil)), nil
-}
-
-// Public KeyPair 정보 가져오기
-func GetPublicKey(credentialInfo idrv.CredentialInfo, keyPairName string) (string, error) {
-	keyPairPath := os.Getenv("CBSPIDER_ROOT") + CBKeyPairPath
-	hashString, err := CreateHashString(credentialInfo)
-	if err != nil {
-		return "", err
-	}
-
-	publicKeyPath := keyPairPath + hashString + "--" + keyPairName + ".pub"
-	publicKeyBytes, err := ioutil.ReadFile(publicKeyPath)
-	if err != nil {
-		return "", err
-	}
-	return string(publicKeyBytes), nil
-}
-
-// Private KeyPair 정보 가져오기
-/*func GetPrivateKey(credentialInfo idrv.CredentialInfo, keyPairName string) (string, error) {
-	keyPairPath := os.Getenv("CBSPIDER_ROOT") + CBKeyPairPath
-	hashString, err := CreateHashString(credentialInfo)
-	if err != nil {
-		return "", err
-	}
-
-	privateKeyPath := keyPairPath + hashString + "--" + keyPairName + ".ppk"
-	privateKeyBytes, err := ioutil.ReadFile(privateKeyPath)
-	if err != nil {
-		return "", err
-	}
-	return string(privateKeyBytes), nil
-}*/
-
 func GetVNicIdByName(credentialInfo idrv.CredentialInfo, regionInfo idrv.RegionInfo, vNicName string) string {
 	return fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/networkInterfaces/%s", credentialInfo.SubscriptionId, regionInfo.ResourceGroup, vNicName)
 }
@@ -142,6 +96,27 @@ func GetPublicIPIdByName(credentialInfo idrv.CredentialInfo, regionInfo idrv.Reg
 }
 
 func GetSecGroupIdByName(credentialInfo idrv.CredentialInfo, regionInfo idrv.RegionInfo, secGroupName string) string {
-	//   "SecurityGroupIds": ["/subscriptions/cb592624-b77b-4a8f-bb13-0e5a48cae40f/resourceGroups/CB-GROUP/providers/Microsoft.Network/networkSecurityGroups/CB-SecGroup"],
 	return fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/networkSecurityGroups/%s", credentialInfo.SubscriptionId, regionInfo.ResourceGroup, secGroupName)
+}
+
+func GetSshKeyIdByName(credentialInfo idrv.CredentialInfo, regionInfo idrv.RegionInfo, keyName string) string{
+	return fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Compute/sshPublicKeys/%s", credentialInfo.SubscriptionId, regionInfo.ResourceGroup, keyName)
+}
+
+func GetSshKeyNameById(sshId string) (string, error){
+	slice := strings.Split(sshId, "/")
+	sliceLen := len(slice)
+	for index,item := range slice{
+		if item == "sshPublicKeys" && sliceLen > index + 1 {
+			return slice[index + 1], nil
+		}
+	}
+	return "", errors.New(fmt.Sprintf("Invalid ResourceName"))
+}
+
+func CheckIIDValidation(IId irs.IID) bool {
+	if IId.NameId == "" && IId.SystemId == "" {
+		return false
+	}
+	return true
 }
