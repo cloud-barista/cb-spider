@@ -1,5 +1,6 @@
 package resources
 
+//20211104 개선안 I에 의해 Region 파라메터 대신 세션의 Region 정보로 대체함.
 import (
 	"errors"
 	"reflect"
@@ -78,8 +79,9 @@ func ExtractVMSpecInfo(Region string, instanceTypeInfo ecs.InstanceType) irs.VMS
 	return vmSpecInfo
 }
 
-func (vmSpecHandler *AlibabaVmSpecHandler) ListVMSpec(Region string) ([]*irs.VMSpecInfo, error) {
-	cblogger.Infof("Start ListVMSpec(Region:[%s])", Region)
+func (vmSpecHandler *AlibabaVmSpecHandler) ListVMSpec(RegionDel string) ([]*irs.VMSpecInfo, error) {
+	Region := vmSpecHandler.Region.Region
+	cblogger.Infof("Start ListVMSpec(Session Region:[%s])", Region)
 	var vMSpecInfoList []*irs.VMSpecInfo
 
 	request := ecs.CreateDescribeInstanceTypesRequest()
@@ -90,7 +92,7 @@ func (vmSpecHandler *AlibabaVmSpecHandler) ListVMSpec(Region string) ([]*irs.VMS
 	callogger := call.GetLogger("HISCALL")
 	callLogInfo := call.CLOUDLOGSCHEMA{
 		CloudOS:      call.ALIBABA,
-		RegionZone:   vmSpecHandler.Region.Zone,
+		RegionZone:   Region,
 		ResourceType: call.VMSPEC,
 		ResourceName: "ListVMSpec()",
 		CloudOSAPI:   "DescribeInstanceTypes()",
@@ -123,8 +125,9 @@ func (vmSpecHandler *AlibabaVmSpecHandler) ListVMSpec(Region string) ([]*irs.VMS
 	return vMSpecInfoList, nil
 }
 
-func (vmSpecHandler *AlibabaVmSpecHandler) GetVMSpec(Region string, Name string) (irs.VMSpecInfo, error) {
-	cblogger.Infof("Start GetVMSpec(Region:[%s], Name:[%s])", Region, Name)
+func (vmSpecHandler *AlibabaVmSpecHandler) GetVMSpec(RegionDel string, Name string) (irs.VMSpecInfo, error) {
+	Region := vmSpecHandler.Region.Region
+	cblogger.Infof("Start GetVMSpec(Session Region:[%s], Name:[%s])", Region, Name)
 
 	request := ecs.CreateDescribeInstanceTypesRequest()
 	request.Scheme = "https"
@@ -135,7 +138,7 @@ func (vmSpecHandler *AlibabaVmSpecHandler) GetVMSpec(Region string, Name string)
 	callogger := call.GetLogger("HISCALL")
 	callLogInfo := call.CLOUDLOGSCHEMA{
 		CloudOS:      call.ALIBABA,
-		RegionZone:   vmSpecHandler.Region.Zone,
+		RegionZone:   Region,
 		ResourceType: call.VMSPEC,
 		ResourceName: "Region:" + Region + "/ Name:" + Name,
 		CloudOSAPI:   "DescribeInstanceTypes()",
@@ -181,8 +184,9 @@ func (vmSpecHandler *AlibabaVmSpecHandler) GetVMSpec(Region string, Name string)
 }
 
 // Alibaba Cloud의 정보 그대로를 가공 없이 JSON으로 리턴 함.
-func (vmSpecHandler *AlibabaVmSpecHandler) ListOrgVMSpec(Region string) (string, error) {
-	cblogger.Infof("Start ListOrgVMSpec(Region:[%s])", Region)
+func (vmSpecHandler *AlibabaVmSpecHandler) ListOrgVMSpec(RegionDel string) (string, error) {
+	Region := vmSpecHandler.Region.Region
+	cblogger.Infof("Start ListOrgVMSpec(Session Region:[%s])", Region)
 
 	request := ecs.CreateDescribeInstanceTypesRequest()
 	request.Scheme = "https"
@@ -192,7 +196,7 @@ func (vmSpecHandler *AlibabaVmSpecHandler) ListOrgVMSpec(Region string) (string,
 	callogger := call.GetLogger("HISCALL")
 	callLogInfo := call.CLOUDLOGSCHEMA{
 		CloudOS:      call.ALIBABA,
-		RegionZone:   vmSpecHandler.Region.Zone,
+		RegionZone:   Region,
 		ResourceType: call.VMSPEC,
 		ResourceName: "ListOrgVMSpec()",
 		CloudOSAPI:   "DescribeInstanceTypes()",
@@ -223,8 +227,9 @@ func (vmSpecHandler *AlibabaVmSpecHandler) ListOrgVMSpec(Region string) (string,
 }
 
 // AWS의 정보 그대로를 가공 없이 JSON으로 리턴 함.
-func (vmSpecHandler *AlibabaVmSpecHandler) GetOrgVMSpec(Region string, Name string) (string, error) {
-	cblogger.Infof("Start GetOrgVMSpec(Region:[%s], Name:[%s])", Region, Name)
+func (vmSpecHandler *AlibabaVmSpecHandler) GetOrgVMSpec(RegionDel string, Name string) (string, error) {
+	Region := vmSpecHandler.Region.Region
+	cblogger.Infof("Start GetOrgVMSpec(Session Region:[%s], Name:[%s])", Region, Name)
 	request := ecs.CreateDescribeInstanceTypesRequest()
 	request.Scheme = "https"
 	request.RegionId = Region
@@ -233,7 +238,7 @@ func (vmSpecHandler *AlibabaVmSpecHandler) GetOrgVMSpec(Region string, Name stri
 	callogger := call.GetLogger("HISCALL")
 	callLogInfo := call.CLOUDLOGSCHEMA{
 		CloudOS:      call.ALIBABA,
-		RegionZone:   vmSpecHandler.Region.Zone,
+		RegionZone:   Region,
 		ResourceType: call.VMSPEC,
 		ResourceName: "Region:" + Region + "/ Name:" + Name,
 		CloudOSAPI:   "DescribeInstanceTypes()",

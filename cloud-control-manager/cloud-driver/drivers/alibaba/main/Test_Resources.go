@@ -28,7 +28,7 @@ var cblogger *logrus.Logger
 func init() {
 	// cblog is a global variable.
 	cblogger = cblog.GetLogger("AlibabaCloud Resource Test")
-	cblog.SetLevel("debug")
+	cblog.SetLevel("info")
 }
 
 /*
@@ -973,10 +973,10 @@ func main() {
 	cblogger.Debug("Debug mode")
 
 	//handleVPC() //VPC
-	//handleVMSpec()
+	handleVMSpec()
 	//handleImage() //AMI
 	//handleSecurity()
-	handleKeyPair()
+	//handleKeyPair()
 	//handleVM()
 
 	//handlePublicIP() // PublicIP 생성 후 conf
