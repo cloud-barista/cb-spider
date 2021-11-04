@@ -26,6 +26,9 @@ type VMReqInfo struct {
 	VMSpecName string
 	KeyPairIID IID
 
+	RootDiskType string  // "SSD(gp2)", "Premium SSD", ...
+        RootDiskSize string  // "default", "50", "1000" (GB)
+
 	VMUserId     string
 	VMUserPasswd string
 }
@@ -73,6 +76,13 @@ type VMInfo struct {
 
 	KeyPairIId IID
 
+	RootDiskType	string  // "SSD(gp2)", "Premium SSD", ...
+        RootDiskSize	string  // "default", "50", "1000" (GB)
+	RootDeviceName	string // "/dev/sda1", ...
+	VMBootDisk  	string // Deprecated soon
+
+	VMBlockDisk string // ex)
+
 	VMUserId     string // ex) user1
 	VMUserPasswd string
 
@@ -82,8 +92,6 @@ type VMInfo struct {
 	PrivateIP        string
 	PrivateDNS       string
 
-	VMBootDisk  string // ex) /dev/sda1
-	VMBlockDisk string // ex)
 
 	SSHAccessPoint string // ex) 10.2.3.2:22, 123.456.789.123:4321
 
