@@ -41,7 +41,7 @@ func (vmSpecHandler *AzureVmSpecHandler) ListVMSpec(Region string) ([]*irs.VMSpe
 	hiscallInfo := GetCallLogScheme(vmSpecHandler.Region, call.VMSPEC, VMSpec, "ListVMSpec()")
 
 	start := call.Start()
-	result, err := vmSpecHandler.Client.List(vmSpecHandler.Ctx, Region)
+	result, err := vmSpecHandler.Client.List(vmSpecHandler.Ctx, vmSpecHandler.Region.Region)
 	if err != nil {
 		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
@@ -51,7 +51,7 @@ func (vmSpecHandler *AzureVmSpecHandler) ListVMSpec(Region string) ([]*irs.VMSpe
 
 	vmSpecList := make([]*irs.VMSpecInfo, len(*result.Value))
 	for i, spec := range *result.Value {
-		vmSpecList[i] = setterVmSpec(Region, spec)
+		vmSpecList[i] = setterVmSpec(vmSpecHandler.Region.Region, spec)
 	}
 	return vmSpecList, nil
 }
@@ -61,7 +61,7 @@ func (vmSpecHandler *AzureVmSpecHandler) GetVMSpec(Region string, Name string) (
 	hiscallInfo := GetCallLogScheme(vmSpecHandler.Region, call.VMSPEC, Name, "GetVMSpec()")
 
 	start := call.Start()
-	result, err := vmSpecHandler.Client.List(vmSpecHandler.Ctx, Region)
+	result, err := vmSpecHandler.Client.List(vmSpecHandler.Ctx, vmSpecHandler.Region.Region)
 	if err != nil {
 		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
@@ -71,7 +71,7 @@ func (vmSpecHandler *AzureVmSpecHandler) GetVMSpec(Region string, Name string) (
 	for _, spec := range *result.Value {
 		if Name == *spec.Name {
 			LoggingInfo(hiscallInfo, start)
-			vmSpecInfo := setterVmSpec(Region, spec)
+			vmSpecInfo := setterVmSpec(vmSpecHandler.Region.Region, spec)
 			return *vmSpecInfo, nil
 		}
 	}
@@ -87,7 +87,7 @@ func (vmSpecHandler *AzureVmSpecHandler) ListOrgVMSpec(Region string) (string, e
 	hiscallInfo := GetCallLogScheme(vmSpecHandler.Region, call.VMSPEC, VMSpec, "ListOrgVMSpec()")
 
 	start := call.Start()
-	result, err := vmSpecHandler.Client.List(vmSpecHandler.Ctx, Region)
+	result, err := vmSpecHandler.Client.List(vmSpecHandler.Ctx, vmSpecHandler.Region.Region)
 	if err != nil {
 		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
@@ -115,7 +115,7 @@ func (vmSpecHandler *AzureVmSpecHandler) GetOrgVMSpec(Region string, Name string
 	hiscallInfo := GetCallLogScheme(vmSpecHandler.Region, call.VMSPEC, Name, "GetOrgVMSpec()")
 
 	start := call.Start()
-	result, err := vmSpecHandler.Client.List(vmSpecHandler.Ctx, Region)
+	result, err := vmSpecHandler.Client.List(vmSpecHandler.Ctx, vmSpecHandler.Region.Region)
 	if err != nil {
 		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
