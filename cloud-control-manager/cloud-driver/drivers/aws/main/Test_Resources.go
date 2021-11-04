@@ -1124,14 +1124,14 @@ func handleVMSpec() {
 func main() {
 	cblogger.Info("AWS Resource Test")
 	//handleVPC()
-	handleKeyPair()
+	//handleKeyPair()
 	//handlePublicIP() // PublicIP 생성 후 conf
 	//handleSecurity()
 	//handleVM()
 
 	//handleImage() //AMI
 	//handleVNic() //Lancard
-	//handleVMSpec()
+	handleVMSpec()
 }
 
 //handlerType : resources폴더의 xxxHandler.go에서 Handler이전까지의 문자열

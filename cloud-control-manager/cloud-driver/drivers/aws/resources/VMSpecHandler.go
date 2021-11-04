@@ -1,5 +1,6 @@
 package resources
 
+//20211104 개선안 I에 의해 Region 파라메터 사용 로직 제거 - AWS는 Region이 아닌 Zone 기반으로 검색되며 Region은 로그용으로만 사용하고 있어서 세션 정보로 대체함.
 import (
 	"errors"
 	"reflect"
@@ -163,7 +164,7 @@ func (vmSpecHandler *AwsVmSpecHandler) ListVMSpecAZ(ZoneName string) (map[string
 }
 
 func (vmSpecHandler *AwsVmSpecHandler) ListVMSpec(Region string) ([]*irs.VMSpecInfo, error) {
-	cblogger.Infof("Start ListVMSpec(Region:[%s])", Region)
+	cblogger.Infof("Start ListVMSpec(Region:[%s] / Zone:[%s])", vmSpecHandler.Region.Region, vmSpecHandler.Region.Zone)
 
 	zoneId := vmSpecHandler.Region.Zone
 	cblogger.Infof("Request Zone : [%s]", zoneId)
@@ -244,7 +245,7 @@ func (vmSpecHandler *AwsVmSpecHandler) ListVMSpec(Region string) ([]*irs.VMSpecI
 					continue
 				}
 
-				vMSpecInfo := ExtractVMSpecInfo(Region, curInstance)
+				vMSpecInfo := ExtractVMSpecInfo(vmSpecHandler.Region.Region, curInstance)
 				vMSpecInfoList = append(vMSpecInfoList, &vMSpecInfo)
 			}
 
@@ -263,13 +264,13 @@ func (vmSpecHandler *AwsVmSpecHandler) ListVMSpec(Region string) ([]*irs.VMSpecI
 	//spew.Dump(vMSpecInfoList)
 
 	//cblogger.Infof("===> Total Check Spec Count : [%d]", totCnt)
-	cblogger.Infof("==>[%s] AZ에서는 [%s]리전의 [%d] 스펙 중 [%d]개의 스펙을 사용할 수 있음.", zoneId, Region, totCnt, len(vMSpecInfoList))
+	cblogger.Infof("==>[%s] AZ에서는 [%s]리전의 [%d] 스펙 중 [%d]개의 스펙을 사용할 수 있음.", zoneId, vmSpecHandler.Region.Region, totCnt, len(vMSpecInfoList))
 
 	return vMSpecInfoList, nil
 }
 
 func (vmSpecHandler *AwsVmSpecHandler) GetVMSpec(Region string, Name string) (irs.VMSpecInfo, error) {
-	cblogger.Infof("Start GetVMSpec(Region:[%s], Name:[%s])", Region, Name)
+	cblogger.Infof("Start GetVMSpec(Region:[%s], Name:[%s])", vmSpecHandler.Region.Region, Name)
 
 	//https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribeInstanceTypes.html
 	input := &ec2.DescribeInstanceTypesInput{
@@ -314,7 +315,7 @@ func (vmSpecHandler *AwsVmSpecHandler) GetVMSpec(Region string, Name string) (ir
 		return irs.VMSpecInfo{}, errors.New(Name + "에 해당하는 Spec 정보를 찾을 수 없습니다.")
 	}
 
-	vMSpecInfo := ExtractVMSpecInfo(Region, resp.InstanceTypes[0])
+	vMSpecInfo := ExtractVMSpecInfo(vmSpecHandler.Region.Region, resp.InstanceTypes[0])
 
 	/*
 		//KeyValue 목록 처리
@@ -330,7 +331,7 @@ func (vmSpecHandler *AwsVmSpecHandler) GetVMSpec(Region string, Name string) (ir
 
 // AWS의 정보 그대로를 가공 없이 JSON으로 리턴 함.
 func (vmSpecHandler *AwsVmSpecHandler) ListOrgVMSpec(Region string) (string, error) {
-	cblogger.Infof("Start ListOrgVMSpec(Region:[%s])", Region)
+	cblogger.Infof("Start ListOrgVMSpec(Region:[%s])", vmSpecHandler.Region.Region)
 
 	zoneId := vmSpecHandler.Region.Zone
 	cblogger.Infof("Zone : %s", zoneId)
@@ -420,7 +421,7 @@ func (vmSpecHandler *AwsVmSpecHandler) ListOrgVMSpec(Region string) (string, err
 	callogger.Info(call.String(callLogInfo))
 	//spew.Dump(vMSpecInfoList)
 
-	cblogger.Infof("==>[%s] AZ에서는 [%s]리전의 [%d] 스펙 중 [%d]개의 스펙을 사용할 수 있음.", zoneId, Region, totCnt, len(resp.InstanceTypes))
+	cblogger.Infof("==>[%s] AZ에서는 [%s]리전의 [%d] 스펙 중 [%d]개의 스펙을 사용할 수 있음.", zoneId, vmSpecHandler.Region.Region, totCnt, len(resp.InstanceTypes))
 
 	//jsonString, errJson := ConvertJsonString(resp.InstanceTypes[0])
 	jsonString, errJson := ConvertJsonString(resp)
@@ -432,7 +433,7 @@ func (vmSpecHandler *AwsVmSpecHandler) ListOrgVMSpec(Region string) (string, err
 
 // AWS의 정보 그대로를 가공 없이 JSON으로 리턴 함.
 func (vmSpecHandler *AwsVmSpecHandler) ListOrgVMSpecOld(Region string) (string, error) {
-	cblogger.Infof("Start ListOrgVMSpec(Region:[%s])", Region)
+	cblogger.Infof("Start ListOrgVMSpec(Region:[%s])", vmSpecHandler.Region.Region)
 
 	input := &ec2.DescribeInstanceTypesInput{
 		//MaxResults: aws.Int64(5),
@@ -458,7 +459,7 @@ func (vmSpecHandler *AwsVmSpecHandler) ListOrgVMSpecOld(Region string) (string, 
 
 // AWS의 정보 그대로를 가공 없이 JSON으로 리턴 함.
 func (vmSpecHandler *AwsVmSpecHandler) GetOrgVMSpec(Region string, Name string) (string, error) {
-	cblogger.Infof("Start GetOrgVMSpec(Region:[%s], Name:[%s])", Region, Name)
+	cblogger.Infof("Start GetOrgVMSpec(Region:[%s], Name:[%s])", vmSpecHandler.Region.Region, Name)
 
 	input := &ec2.DescribeInstanceTypesInput{
 		InstanceTypes: []*string{
