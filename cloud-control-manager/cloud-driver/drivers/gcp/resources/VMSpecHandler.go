@@ -102,7 +102,7 @@ func (vmSpecHandler *GCPVMSpecHandler) GetVMSpec(Region string, Name string) (ir
 	callogger.Info(call.String(callLogInfo))
 
 	vmSpecInfo := irs.VMSpecInfo{
-		Region: Region,
+		Region: vmSpecHandler.Region.Region,
 		Name:   Name,
 		VCpu: irs.VCpuInfo{
 			Count: strconv.FormatInt(info.GuestCpus, 10),
