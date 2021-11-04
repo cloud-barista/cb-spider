@@ -40,5 +40,4 @@ interface/spctl
 cloud-control-manager/cloud-driver/drivers/ncp/*
 cloud-control-manager/cloud-driver/drivers/ncp-plugin/*
 
-conf/testConfig*.yaml
-conf/testConfigTencent.yaml
+cloud-control-manager/cloud-driver/drivers/tencent/main/conf/testConfigTencent.yaml
