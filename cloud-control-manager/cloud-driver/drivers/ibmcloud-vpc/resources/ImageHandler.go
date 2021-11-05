@@ -128,49 +128,24 @@ func checkImageInfoIID(imageIID irs.IID) error {
 }
 
 func getRawImage(imageIID irs.IID, vpcService *vpcv1.VpcV1, ctx context.Context) (vpcv1.Image, error) {
+	imageId := imageIID.SystemId
 	if imageIID.SystemId == "" {
-		ListImagesOptions := &vpcv1.ListImagesOptions{}
-		ListImagesOptions.SetVisibility("public")
-		images, _, err := vpcService.ListImagesWithContext(ctx, ListImagesOptions)
-		if err != nil {
-			return vpcv1.Image{}, err
-		}
-		for {
-			for _, image := range images.Images {
-				if *image.Name == imageIID.NameId {
-					return image, nil
-				}
-			}
-			nextstr, _ := getImageNextHref(images.Next)
-			if nextstr != "" {
-				ListImagesOptions2 := &vpcv1.ListImagesOptions{
-					Start: core.StringPtr(nextstr),
-				}
-				images, _, err = vpcService.ListImagesWithContext(ctx, ListImagesOptions2)
-				if err != nil {
-					return vpcv1.Image{}, err
-				}
-			} else {
-				break
-			}
-		}
-		return vpcv1.Image{}, errors.New(fmt.Sprintf("not found %s", imageIID.NameId))
-	} else {
-		options := &vpcv1.GetImageOptions{}
-		options.SetID(imageIID.SystemId)
-		image, _, err := vpcService.GetImageWithContext(ctx, options)
-		if err != nil {
-			return vpcv1.Image{}, err
-		}
-		return *image, nil
+		imageId = imageIID.NameId
 	}
+	options := &vpcv1.GetImageOptions{}
+	options.SetID(imageId)
+	image, _, err := vpcService.GetImageWithContext(ctx, options)
+	if err != nil {
+		return vpcv1.Image{}, err
+	}
+	return *image, nil
 }
 
 func setImageInfo(image *vpcv1.Image) (irs.ImageInfo, error) {
 	if image != nil {
 		imageInfo := irs.ImageInfo{
 			IId: irs.IID{
-				NameId:   *image.Name,
+				NameId:   *image.ID,
 				SystemId: *image.ID,
 			},
 			GuestOS: *image.OperatingSystem.DisplayName,
