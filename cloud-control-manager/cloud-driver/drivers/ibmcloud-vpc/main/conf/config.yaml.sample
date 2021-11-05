@@ -6,7 +6,7 @@ ibmvpc:
   zone: us-south-1
   resources:
     image:
-      nameId: ibm-ubuntu-18-04-5-minimal-amd64-1
+      nameId: r006-9de77234-3189-42f8-982d-f2266477cfe0
       systemId: r006-9de77234-3189-42f8-982d-f2266477cfe0
     security:
       nameId: mcb-test-sg
@@ -42,7 +42,7 @@ ibmvpc:
         nameId: mcb-test-vm
         systemId:
       ImageIID:
-        nameId: ibm-ubuntu-18-04-5-minimal-amd64-1
+        nameId: r006-9de77234-3189-42f8-982d-f2266477cfe0
         systemId: r006-9de77234-3189-42f8-982d-f2266477cfe0
       VmSpecName: bx2-2x8
       KeyPairIID:
