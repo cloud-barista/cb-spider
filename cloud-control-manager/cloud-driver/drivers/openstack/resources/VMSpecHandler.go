@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	"strconv"
 
 	"github.com/gophercloud/gophercloud"
@@ -18,6 +19,7 @@ const (
 )
 
 type OpenStackVMSpecHandler struct {
+	Region idrv.RegionInfo
 	Client *gophercloud.ServiceClient
 }
 
@@ -56,7 +58,7 @@ func (vmSpecHandler *OpenStackVMSpecHandler) ListVMSpec(Region string) ([]*irs.V
 
 	vmSpecList := make([]*irs.VMSpecInfo, len(list))
 	for i, spec := range list {
-		vmSpecList[i] = setterVMSpec(Region, spec)
+		vmSpecList[i] = setterVMSpec(vmSpecHandler.Region.Region, spec)
 	}
 	return vmSpecList, nil
 }
@@ -81,7 +83,7 @@ func (vmSpecHandler *OpenStackVMSpecHandler) GetVMSpec(Region string, Name strin
 	}
 	LoggingInfo(hiscallInfo, start)
 
-	vmSpecInfo := setterVMSpec(Region, *vmSpec)
+	vmSpecInfo := setterVMSpec(vmSpecHandler.Region.Region, *vmSpec)
 	return *vmSpecInfo, nil
 }
 

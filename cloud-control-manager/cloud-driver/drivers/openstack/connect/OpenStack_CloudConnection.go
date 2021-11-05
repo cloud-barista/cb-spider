@@ -68,7 +68,7 @@ func (cloudConn *OpenStackCloudConnection) CreateVMHandler() (irs.VMHandler, err
 
 func (cloudConn *OpenStackCloudConnection) CreateVMSpecHandler() (irs.VMSpecHandler, error) {
 	cblogger.Info("OpenStack Cloud Driver: called CreateVMSpecHandler()!")
-	vmSpecHandler := osrs.OpenStackVMSpecHandler{Client: cloudConn.Client}
+	vmSpecHandler := osrs.OpenStackVMSpecHandler{Region: cloudConn.Region, Client: cloudConn.Client}
 	return &vmSpecHandler, nil
 }
 
