@@ -14,7 +14,7 @@ type VMSpecInfo struct {
 	Region string
 	Name   string
 	VCpu   VCpuInfo
-	Mem    string
+	Mem    string // MB
 	Gpu    []GpuInfo
 
 	KeyValueList []KeyValue
@@ -29,7 +29,7 @@ type GpuInfo struct {
 	Count string
 	Mfr   string
 	Model string
-	Mem   string
+	Mem   string // MB
 }
 
 type VMSpecHandler interface {
