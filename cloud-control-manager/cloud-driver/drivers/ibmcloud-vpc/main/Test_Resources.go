@@ -22,11 +22,14 @@ type Config struct {
 		Resources struct {
 			Image struct {
 				NameId string `yaml:"nameId"`
+				SystemId string `yaml:"systemId"`
 			} `yaml:"image"`
 			Security struct {
 				NameId string `yaml:"nameId"`
+				SystemId string `yaml:"systemId"`
 				VpcIID struct {
 					NameId string `yaml:"nameId"`
+					SystemId string `yaml:"systemId"`
 				} `yaml:"VpcIID"`
 				Rules []struct {
 					FromPort   string `yaml:"FromPort"`
@@ -38,12 +41,14 @@ type Config struct {
 			} `yaml:"security"`
 			KeyPair struct {
 				NameId string `yaml:"nameId"`
+				SystemId string `yaml:"systemId"`
 			} `yaml:"keyPair"`
 			VmSpec struct {
 				NameId string `yaml:"nameId"`
 			} `yaml:"vmSpec"`
 			VPC struct {
 				NameId   string `yaml:"nameId"`
+				SystemId string `yaml:"systemId"`
 				IPv4CIDR string `yaml:"ipv4CIDR"`
 				Subnets  []struct {
 					NameId   string `yaml:"nameId"`
@@ -57,22 +62,28 @@ type Config struct {
 			Vm struct {
 				IID struct {
 					NameId string `yaml:"nameId"`
+					SystemId string `yaml:"systemId"`
 				} `yaml:"IID"`
 				ImageIID struct {
 					NameId string `yaml:"nameId"`
+					SystemId string `yaml:"systemId"`
 				} `yaml:"ImageIID"`
 				VmSpecName string `yaml:"VmSpecName"`
 				KeyPairIID struct {
 					NameId string `yaml:"nameId"`
+					SystemId string `yaml:"systemId"`
 				} `yaml:"KeyPairIID"`
 				VpcIID struct {
 					NameId string `yaml:"nameId"`
+					SystemId string `yaml:"systemId"`
 				} `yaml:"VpcIID"`
 				SubnetIID struct {
 					NameId string `yaml:"nameId"`
+					SystemId string `yaml:"systemId"`
 				} `yaml:"SubnetIID"`
 				SecurityGroupIIDs []struct {
 					NameId string `yaml:"nameId"`
+					SystemId string `yaml:"systemId"`
 				} `yaml:"SecurityGroupIIDs"`
 			} `yaml:"vm"`
 		} `yaml:"resources"`
@@ -90,7 +101,7 @@ func readConfigFile() Config {
 	// Set Environment Value of Project Root Path
 	rootPath := os.Getenv("CBSPIDER_ROOT")
 	fmt.Println(rootPath)
-	data, err := ioutil.ReadFile(rootPath + "/cloud-control-manager/cloud-driver/drivers/ibmcloud-vpc/main/conf/config.yaml")
+	data, err := ioutil.ReadFile(rootPath + "/cloud-control-manager/cloud-driver/drivers/ibmcloud-vpc/main/conf/config.yaml.sample")
 	if err != nil {
 		cblogger.Error(err)
 	}

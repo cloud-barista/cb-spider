@@ -6,11 +6,14 @@ ibmvpc:
   zone: us-south-1
   resources:
     image:
-      nameId: ibm-ubuntu-16-04-5-minimal-amd64-1
+      nameId: ibm-ubuntu-18-04-5-minimal-amd64-1
+      systemId: r006-9de77234-3189-42f8-982d-f2266477cfe0
     security:
       nameId: mcb-test-sg
+      systemId:
       VpcIID:
         nameId: mcb-test-vpc
+        systemId:
       rules:
         - FromPort: "22"
           ToPort: "22"
@@ -19,10 +22,12 @@ ibmvpc:
           Direction: "inbound"
     keyPair:
       nameId: mcb-test-key
+      systemId:
     vmSpec:
       nameId: bx2-2x8
     vpc:
       nameId:  mcb-test-vpc
+      systemId:
       ipv4CIDR: 10.240.0.0/16
       subnets :
         - nameId: mcb-test-vpc-subnet1
@@ -35,14 +40,20 @@ ibmvpc:
     vm:
       IID:
         nameId: mcb-test-vm
+        systemId:
       ImageIID:
-        nameId: ibm-ubuntu-16-04-5-minimal-amd64-1
+        nameId: ibm-ubuntu-18-04-5-minimal-amd64-1
+        systemId: r006-9de77234-3189-42f8-982d-f2266477cfe0
       VmSpecName: bx2-2x8
       KeyPairIID:
         nameId: mcb-test-key
+        systemId:
       VpcIID:
         nameId:  mcb-test-vpc
+        systemId:
       SubnetIID:
         nameId:  mcb-test-vpc-subnet1
+        systemId:
       SecurityGroupIIDs:
         - nameId:  mcb-test-sg
+          systemId:
