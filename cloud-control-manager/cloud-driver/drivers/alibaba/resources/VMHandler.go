@@ -156,6 +156,29 @@ func (vmHandler *AlibabaVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 	//PayByBandwidth : 대역폭 사용료는 구독 기반이고 ECS 인스턴스 사용료에 포함 됨.
 	request.InternetChargeType = "PayByBandwidth"           //Public Ip요금 방식을 1시간 단위(PayByBandwidth) 요금으로 설정 / PayByTraffic(기본값) : 1GB단위 시간당 트래픽 요금 청구
 	request.InternetMaxBandwidthOut = requests.Integer("5") // 0보다 크면 Public IP가 할당 됨 - 최대 아웃 바운드 공용 대역폭 단위 : Mbit / s 유효한 값 : 0 ~ 100
+
+	//=============================
+	// Root Disk Type 변경
+	//=============================
+	if vmReqInfo.RootDiskType == "" {
+		//디스크 정보가 없으면 건드리지 않음.
+	} else {
+		request.SystemDiskCategory = vmReqInfo.RootDiskType
+	}
+
+	//=============================
+	// Root Disk Size 변경
+	//=============================
+	if vmReqInfo.RootDiskSize == "" {
+		//디스크 정보가 없으면 건드리지 않음.
+	} else {
+		if strings.EqualFold(vmReqInfo.RootDiskSize, "default") {
+			request.SystemDiskSize = "40"
+		} else {
+			request.SystemDiskSize = vmReqInfo.RootDiskSize
+		}
+	}
+
 	spew.Dump(request)
 
 	//=============================

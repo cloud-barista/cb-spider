@@ -25,6 +25,8 @@ OPENSTACK:
 ALIBABA:
   region: Region Zone
   credential: ClientId ClientSecret
+  rookdisktype: cloud/cloud_efficiency/cloud_ssd/cloud_essd
+
 
 TENCENT:
   region: Region Zone
