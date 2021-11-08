@@ -62,7 +62,7 @@ echo "####################################################################"
 
 sleep 1 
 echo "## 2. SecurityGroup: Create"
-curl -sX POST http://localhost:1024/spider/securitygroup -H 'Content-Type: application/json' -d '{ "ConnectionName": "'${CONN_CONFIG}'", "ReqInfo": { "Name": "ibmvpc-sg-01", "VPCName": "ibmvpc-vpc-01", "SecurityRules": [ {"FromPort": "22", "ToPort" : "22", "IPProtocol" : "tcp", "Direction" : "inbound"} ] } }' |json_pp
+curl -sX POST http://localhost:1024/spider/securitygroup -H 'Content-Type: application/json' -d '{ "ConnectionName": "'${CONN_CONFIG}'", "ReqInfo": { "Name": "ibmvpc-sg-01", "VPCName": "ibmvpc-vpc-01", "SecurityRules": [ {"FromPort": "1", "ToPort" : "65535", "IPProtocol" : "tcp", "Direction" : "inbound", "CIDR": "0.0.0.0/0"}, {"FromPort": "5555", "ToPort" : "5555", "IPProtocol" : "udp", "Direction" : "inbound", "CIDR": "0.0.0.0/0"}, {"FromPort": "-1", "ToPort" : "-1", "IPProtocol" : "icmp", "Direction" : "inbound", "CIDR": "0.0.0.0/0"} ] } }' |json_pp
 
 sleep 5 
 echo "## 2. SecurityGroup: List"
@@ -126,8 +126,8 @@ sleep 10
 echo "## 4. VM: Suspend"
 curl -sX GET http://localhost:1024/spider/controlvm/ibmvpc-vm-01?action=suspend -H 'Content-Type: application/json' -d '{ "ConnectionName": "'${CONN_CONFIG}'"}' |json_pp
 
-echo "============== sleep 30sec after suspend VM"
-sleep 30 
+echo "============== sleep 40sec after suspend VM"
+sleep 40 
 echo "## 4. VM: Resume"
 curl -sX GET http://localhost:1024/spider/controlvm/ibmvpc-vm-01?action=resume -H 'Content-Type: application/json' -d '{ "ConnectionName": "'${CONN_CONFIG}'"}' |json_pp
 
@@ -149,9 +149,8 @@ echo "## 4. VM: Terminate(Delete) "
 echo "####################################################################"
 curl -sX DELETE http://localhost:1024/spider/vm/ibmvpc-vm-01 -H 'Content-Type: application/json' -d '{ "ConnectionName": "'${CONN_CONFIG}'"}' |json_pp
 
-echo "============== sleep 50sec after delete VM"
-sleep 50
-
+echo "============== sleep 40sec after terminate VM"
+sleep 40
 
 echo "####################################################################"
 echo "## 3. KeyPair: Delete"
