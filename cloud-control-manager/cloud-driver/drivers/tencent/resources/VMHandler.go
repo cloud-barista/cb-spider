@@ -145,7 +145,7 @@ func (vmHandler *TencentVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 	cblogger.Debug("SystemId 기반으로 처리하기 위해 IID 기반의 보안그룹 배열을 SystemId 기반 보안그룹 배열로 조회및 변환함.")
 	var newSecurityGroupIds []string
 	for _, curSecurityGroup := range vmReqInfo.SecurityGroupIIDs {
-		cblogger.Infof("보안그룹 변환 : [%s]", curSecurityGroup)
+		cblogger.Debugf("보안그룹 변환 : [%s]", curSecurityGroup)
 		newSecurityGroupIds = append(newSecurityGroupIds, curSecurityGroup.SystemId)
 	}
 
@@ -163,8 +163,39 @@ func (vmHandler *TencentVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 	//=============================
 	// SystemDisk 처리
 	//=============================
+	/* 이슈 #348에 의해 RootDisk 기능 지원하면서 기존 로직 제거
 	request.SystemDisk = &cvm.SystemDisk{
 		DiskType: common.StringPtr("CLOUD_PREMIUM"),
+	}
+	*/
+
+	diskType := "CLOUD_PREMIUM"     // 특정 인스턴스 생성이 안되기에 기본 값을 CLOUD_PREMIUM으로 셋팅 (이슈 #348에 의해 이젠 필요 없을 듯)
+	diskSize := common.Int64Ptr(50) // 기본 사이즈는 50GB
+
+	//=============================
+	// Root Disk Type 변경
+	//=============================
+	if vmReqInfo.RootDiskType != "" {
+		diskType = vmReqInfo.RootDiskType
+	}
+
+	//=============================
+	// Root Disk Size 변경
+	//=============================
+	if vmReqInfo.RootDiskSize != "" {
+		if !strings.EqualFold(vmReqInfo.RootDiskSize, "default") {
+			iDiskSize, err := strconv.ParseInt(vmReqInfo.RootDiskSize, 10, 64)
+			if err != nil {
+				cblogger.Error(err)
+				return irs.VMInfo{}, err
+			}
+			diskSize = common.Int64Ptr(iDiskSize)
+		}
+	}
+
+	request.SystemDisk = &cvm.SystemDisk{
+		DiskType: common.StringPtr(diskType),
+		DiskSize: diskSize,
 	}
 
 	//=============================

@@ -652,6 +652,8 @@ func handleVM() {
 					KeyPairIID:        irs.IID{SystemId: "skey-lk66iuyh"}, //cb_user_test
 					//VMUserId:          "root", //root만 가능
 					//VMUserPasswd: "Cbuser!@#", //대문자 소문자 모두 사용되어야 함. 그리고 숫자나 특수 기호 중 하나가 포함되어야 함.
+					RootDiskType: "CLOUD_PREMIUM", //LOCAL_BASIC/LOCAL_SSD/CLOUD_BASIC/CLOUD_SSD/CLOUD_PREMIUM
+					RootDiskSize: "30",
 				}
 
 				vmInfo, err := vmHandler.StartVM(vmReqInfo)
@@ -767,8 +769,8 @@ func main() {
 	//handleVMSpec()
 	//handleSecurity()
 	//handleImage() //AMI
-	handleKeyPair()
-	//handleVM()
+	//handleKeyPair()
+	handleVM()
 
 	//handlePublicIP() // PublicIP 생성 후 conf
 	//handleVNic() //Lancard
