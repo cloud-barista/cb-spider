@@ -56,7 +56,9 @@ func RegisterCredential(credentialName string, providerName string, keyValueInfo
 
 	}
 
-	providerName = strings.ToUpper(strings.Trim(providerName, " "))
+	// trim user inputs
+        credentialName = strings.TrimSpace(credentialName)
+	providerName = strings.ToUpper(strings.TrimSpace(providerName))
 
 	cblog.Debug("insert metainfo into store")
 
@@ -232,5 +234,6 @@ func checkParams(credentialName string, providerName string, keyValueInfoList []
 			return fmt.Errorf("Key is empty!")
 		}
 	}
+
 	return nil
 }

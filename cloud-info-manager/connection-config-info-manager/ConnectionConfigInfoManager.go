@@ -50,7 +50,12 @@ func CreateConnectionConfig(configName string, providerName string, driverName s
 
 	}
 
-	providerName = strings.ToUpper(strings.Trim(providerName, " "))
+	// trim user inputs
+	configName = strings.TrimSpace(configName)
+	providerName = strings.ToUpper(strings.TrimSpace(providerName))
+	driverName = strings.TrimSpace(driverName)
+	credentialName = strings.TrimSpace(credentialName)
+	regionName = strings.TrimSpace(regionName)
 
 	// check the existence of the key to be inserted
 	tmpcncInfo, err := getInfo(configName)
@@ -141,5 +146,6 @@ func checkParams(configName string, providerName string, driverName string, cred
 	if regionName == "" {
 		return fmt.Errorf("RegionName is empty!")
 	}
+
 	return nil
 }
