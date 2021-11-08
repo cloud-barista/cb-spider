@@ -20,10 +20,10 @@ export IMAGE_NAME=r014-dc446598-a1b5-41c3-a1d6-add3afaf264e
 # export IMAGE_NAME=r038-e92647cf-8be9-438a-b94c-251cc86bc99a
 
 # export CONN_CONFIG=ibmvpc-br-sao-1-config
-# export IMAGE_NAME=r026-a8c25ce6-0ca1-43e9-9b41-411c6217b8b8
+# export IMAGE_NAME=r042-92d1cd12-f014-4b9a-abf8-c5ca6494a9e5
 
 # export CONN_CONFIG=ibmvpc-us-south-1-config
-# export IMAGE_NAME=r006-ed3f775f-ad7e-4e37-ae62-7199b4988b00
+# export IMAGE_NAME=r006-9de77234-3189-42f8-982d-f2266477cfe0
 
 # export CONN_CONFIG=ibmvpc-au-syd-1-config
 # export IMAGE_NAME=r026-a8c25ce6-0ca1-43e9-9b41-411c6217b8b8
