@@ -24,18 +24,31 @@ func EmptyCheckAndTrim(inputName string, inputValue string) (string, error) {
         return strings.TrimSpace(inputValue), nil
 }
 
-func ValidateStruct(is interface{}, nilPermissionList []string) error {
+func ValidateStruct(is interface{}, emptyPermissionList []string) error {
+	var retErr error
+
 	inValue := reflect.ValueOf(is)
 	if inValue.Kind() == reflect.Ptr {
 		inValue = inValue.Elem() // When Input is ptr of Struct, Get the element.
+		if inValue.Kind() == reflect.Slice { //  When ptr of Array, ex) SecurityRules *[]SecurityRuleInfo
+			for j := 0; j < inValue.Len(); j++ {
+                                err := ValidateStruct(inValue.Index(j).Interface(), emptyPermissionList)
+                                if retErr != nil {
+                                        retErr = fmt.Errorf("%v\n%v", retErr, err)
+                                }else {
+                                        retErr = err
+                                }
+                        }
+
+		}
 	}
 
-	var retErr error
+
 	for i := 0; i < inValue.NumField(); i++ {
 		fv := inValue.Field(i)
 		switch fv.Kind() {
 		case reflect.Struct, reflect.Ptr:
-			err := ValidateStruct(fv.Interface(), nilPermissionList)
+			err := ValidateStruct(fv.Interface(), emptyPermissionList)
 			if err != nil {
 				if retErr != nil {
 					retErr = fmt.Errorf("%v\n%v", retErr, err)
@@ -45,7 +58,7 @@ func ValidateStruct(is interface{}, nilPermissionList []string) error {
 			}
 		case reflect.Slice:
 			for j := 0; j < fv.Len(); j++ {
-				err := ValidateStruct(fv.Index(j).Interface(), nilPermissionList)
+				err := ValidateStruct(fv.Index(j).Interface(), emptyPermissionList)
 				if retErr != nil {
 					retErr = fmt.Errorf("%v\n%v", retErr, err)
 				}else {
@@ -58,7 +71,7 @@ func ValidateStruct(is interface{}, nilPermissionList []string) error {
 			//fmt.Println("-----------: " + argNameType)
 			argNameType := fmt.Sprintf("%v:%v", inValue.Type(), inValue.Type().Field(i).Name)
 			if inValue.Field(i).Interface() == "" {
-				err := checkNilPermission(argNameType, nilPermissionList)
+				err := checkNilPermission(argNameType, emptyPermissionList)
 				if err != nil {
 					if retErr != nil {
 						retErr = fmt.Errorf("%v\n%v", retErr, err)
@@ -69,16 +82,17 @@ func ValidateStruct(is interface{}, nilPermissionList []string) error {
 			}
 
 		default:
-			fmt.Println("=========== other type: ", inValue.Field(i).Kind())
+			cblog.Info("=========== Currently, Unhandling Type: ", inValue.Field(i).Kind())
+			//fmt.Println("=========== other type: ", inValue.Field(i).Kind())
 		}
 	}
 	return retErr
 }
 
 // Check the arguments that can be used as empty.
-func checkNilPermission(argTypeName string, nilPermissionList []string) error {
+func checkNilPermission(argTypeName string, emptyPermissionList []string) error {
 
-	for _, permittedArgTypeName := range(nilPermissionList) {
+	for _, permittedArgTypeName := range(emptyPermissionList) {
 		if permittedArgTypeName == argTypeName {
 			return nil
 		}

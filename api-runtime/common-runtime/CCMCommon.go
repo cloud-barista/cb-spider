@@ -78,6 +78,16 @@ func CreateImage(connectionName string, rsType string, reqInfo cres.ImageReqInfo
                 return nil, err
         }
 
+	emptyPermissionList := []string{
+                "resources.IID:SystemId",
+        }
+
+        err = ValidateStruct(reqInfo, emptyPermissionList)
+        if err != nil {
+                cblog.Error(err)
+                return nil, err
+        }
+
 	cldConn, err := ccm.GetCloudConnection(connectionName)
 	if err != nil {
 		cblog.Error(err)
@@ -614,6 +624,15 @@ func RegisterVPC(connectionName string, userIID cres.IID) (*cres.VPCInfo, error)
                 return nil, err
         }
 
+	emptyPermissionList := []string{
+        }
+
+        err = ValidateStruct(userIID, emptyPermissionList)
+        if err != nil {
+                cblog.Error(err)
+                return nil, err
+        }
+
         rsType := rsVPC
 
         cldConn, err := ccm.GetCloudConnection(connectionName)
@@ -835,6 +854,19 @@ func CreateVPC(connectionName string, rsType string, reqInfo cres.VPCReqInfo) (*
 
 	// check empty and trim user inputs
         connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)
+        if err != nil {
+		cblog.Error(err)
+                return nil, err
+        }
+
+	emptyPermissionList := []string{
+		"resources.IID:SystemId",
+		"resources.VPCReqInfo:IPv4_CIDR", // because can be unused in some VPC
+		"resources.KeyValue:Key",         // because unusing key-value list
+		"resources.KeyValue:Value",       // because unusing key-value list
+	}
+
+	err = ValidateStruct(reqInfo, emptyPermissionList)
         if err != nil {
 		cblog.Error(err)
                 return nil, err
@@ -1321,6 +1353,15 @@ func RegisterSecurity(connectionName string, vpcUserID string, userIID cres.IID)
                 return nil, err
         }
 
+	emptyPermissionList := []string{
+        }
+
+        err = ValidateStruct(userIID, emptyPermissionList)
+        if err != nil {
+                cblog.Error(err)
+                return nil, err
+        }
+
         rsType := rsSG
 
         cldConn, err := ccm.GetCloudConnection(connectionName)
@@ -1428,6 +1469,19 @@ func CreateSecurity(connectionName string, rsType string, reqInfo cres.SecurityR
                 return nil, err
         }
 
+	/*
+        emptyPermissionList := []string{
+                "resources.IID:SystemId",
+                "resources.SecurityReqInfo:Direction", // because can be unused in some CSP
+                "resources.SecurityRuleInfo:CIDR",     // because can be set without soruce CIDR
+        }
+
+        err = ValidateStruct(reqInfo, emptyPermissionList)
+        if err != nil {
+                cblog.Error(err)
+                return nil, err
+        }
+*/
 	//+++++++++++++++++++++++++++++++++++++++++++
 	// set VPC's SystemId
 	vpcIIDInfo, err := iidRWLock.GetIID(iidm.IIDSGROUP, connectionName, rsVPC, reqInfo.VpcIID)
@@ -1748,6 +1802,15 @@ func RegisterKey(connectionName string, userIID cres.IID) (*cres.KeyPairInfo, er
                 return nil, err
         }
 
+	emptyPermissionList := []string{
+        }
+
+        err = ValidateStruct(userIID, emptyPermissionList)
+        if err != nil {
+                cblog.Error(err)
+                return nil, err
+        }
+
         rsType := rsKey
 
         cldConn, err := ccm.GetCloudConnection(connectionName)
@@ -1818,6 +1881,16 @@ func CreateKey(connectionName string, rsType string, reqInfo cres.KeyPairReqInfo
         connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)
         if err != nil {
 		cblog.Error(err)
+                return nil, err
+        }
+
+	emptyPermissionList := []string{
+                "resources.IID:SystemId",
+        }
+
+        err = ValidateStruct(reqInfo, emptyPermissionList)
+        if err != nil {
+                cblog.Error(err)
                 return nil, err
         }
 
@@ -2104,6 +2177,15 @@ func RegisterVM(connectionName string, userIID cres.IID) (*cres.VMInfo, error) {
                 return nil, err
         }
 
+	emptyPermissionList := []string{
+        }
+
+        err = ValidateStruct(userIID, emptyPermissionList)
+        if err != nil {
+                cblog.Error(err)
+                return nil, err
+        }
+
         rsType := rsVM
 
         cldConn, err := ccm.GetCloudConnection(connectionName)
@@ -2188,6 +2270,20 @@ func StartVM(connectionName string, rsType string, reqInfo cres.VMReqInfo) (*cre
         connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)
         if err != nil {
 		cblog.Error(err)
+                return nil, err
+        }
+
+	emptyPermissionList := []string{
+                "resources.IID:SystemId",
+                "resources.VMReqInfo:RootDiskType", // because can be set without disk type
+                "resources.VMReqInfo:RootDiskSize", // because can be set without disk type
+                "resources.VMReqInfo:VMUserId",     // because can be set without disk type
+                "resources.VMReqInfo:VMUserPasswd",     // because can be set without disk type
+        }
+
+        err = ValidateStruct(reqInfo, emptyPermissionList)
+        if err != nil {
+                cblog.Error(err)
                 return nil, err
         }
 
