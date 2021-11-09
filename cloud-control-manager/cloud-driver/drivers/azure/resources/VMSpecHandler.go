@@ -36,7 +36,7 @@ func setterVmSpec(region string, vmSpec compute.VirtualMachineSize) *irs.VMSpecI
 	return vmSpecInfo
 }
 
-func (vmSpecHandler *AzureVmSpecHandler) ListVMSpec(Region string) ([]*irs.VMSpecInfo, error) {
+func (vmSpecHandler *AzureVmSpecHandler) ListVMSpec() ([]*irs.VMSpecInfo, error) {
 	// log HisCall
 	hiscallInfo := GetCallLogScheme(vmSpecHandler.Region, call.VMSPEC, VMSpec, "ListVMSpec()")
 
@@ -56,7 +56,7 @@ func (vmSpecHandler *AzureVmSpecHandler) ListVMSpec(Region string) ([]*irs.VMSpe
 	return vmSpecList, nil
 }
 
-func (vmSpecHandler *AzureVmSpecHandler) GetVMSpec(Region string, Name string) (irs.VMSpecInfo, error) {
+func (vmSpecHandler *AzureVmSpecHandler) GetVMSpec(Name string) (irs.VMSpecInfo, error) {
 	// log HisCall
 	hiscallInfo := GetCallLogScheme(vmSpecHandler.Region, call.VMSPEC, Name, "GetVMSpec()")
 
@@ -82,7 +82,7 @@ func (vmSpecHandler *AzureVmSpecHandler) GetVMSpec(Region string, Name string) (
 	return irs.VMSpecInfo{}, getErr
 }
 
-func (vmSpecHandler *AzureVmSpecHandler) ListOrgVMSpec(Region string) (string, error) {
+func (vmSpecHandler *AzureVmSpecHandler) ListOrgVMSpec() (string, error) {
 	// log HisCall
 	hiscallInfo := GetCallLogScheme(vmSpecHandler.Region, call.VMSPEC, VMSpec, "ListOrgVMSpec()")
 
@@ -110,7 +110,7 @@ func (vmSpecHandler *AzureVmSpecHandler) ListOrgVMSpec(Region string) (string, e
 	return jsonString, nil
 }
 
-func (vmSpecHandler *AzureVmSpecHandler) GetOrgVMSpec(Region string, Name string) (string, error) {
+func (vmSpecHandler *AzureVmSpecHandler) GetOrgVMSpec(Name string) (string, error) {
 	// log HisCall
 	hiscallInfo := GetCallLogScheme(vmSpecHandler.Region, call.VMSPEC, Name, "GetOrgVMSpec()")
 

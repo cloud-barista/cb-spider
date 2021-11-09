@@ -36,7 +36,7 @@ func setterVMSpec(region string, vmSpec flavors.Flavor) *irs.VMSpecInfo {
 	return vmSpecInfo
 }
 
-func (vmSpecHandler *OpenStackVMSpecHandler) ListVMSpec(Region string) ([]*irs.VMSpecInfo, error) {
+func (vmSpecHandler *OpenStackVMSpecHandler) ListVMSpec() ([]*irs.VMSpecInfo, error) {
 	// log HisCall
 	hiscallInfo := GetCallLogScheme(vmSpecHandler.Client.IdentityEndpoint, call.VMSPEC, VMSpec, "ListVMSpec()")
 
@@ -63,7 +63,7 @@ func (vmSpecHandler *OpenStackVMSpecHandler) ListVMSpec(Region string) ([]*irs.V
 	return vmSpecList, nil
 }
 
-func (vmSpecHandler *OpenStackVMSpecHandler) GetVMSpec(Region string, Name string) (irs.VMSpecInfo, error) {
+func (vmSpecHandler *OpenStackVMSpecHandler) GetVMSpec(Name string) (irs.VMSpecInfo, error) {
 	// log HisCall
 	hiscallInfo := GetCallLogScheme(vmSpecHandler.Client.IdentityEndpoint, call.VMSPEC, Name, "GetVMSpec()")
 
@@ -87,7 +87,7 @@ func (vmSpecHandler *OpenStackVMSpecHandler) GetVMSpec(Region string, Name strin
 	return *vmSpecInfo, nil
 }
 
-func (vmSpecHandler *OpenStackVMSpecHandler) ListOrgVMSpec(Region string) (string, error) {
+func (vmSpecHandler *OpenStackVMSpecHandler) ListOrgVMSpec() (string, error) {
 	// log HisCall
 	hiscallInfo := GetCallLogScheme(vmSpecHandler.Client.IdentityEndpoint, call.VMSPEC, VMSpec, "ListOrgVMSpec()")
 
@@ -123,7 +123,7 @@ func (vmSpecHandler *OpenStackVMSpecHandler) ListOrgVMSpec(Region string) (strin
 	return jsonString, nil
 }
 
-func (vmSpecHandler *OpenStackVMSpecHandler) GetOrgVMSpec(Region string, Name string) (string, error) {
+func (vmSpecHandler *OpenStackVMSpecHandler) GetOrgVMSpec(Name string) (string, error) {
 	// log HisCall
 	hiscallInfo := GetCallLogScheme(vmSpecHandler.Client.IdentityEndpoint, call.VMSPEC, Name, "GetOrgVMSpec()")
 

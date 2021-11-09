@@ -20,7 +20,7 @@ type IbmVmSpecHandler struct {
 	Ctx            context.Context
 }
 
-func (vmSpecHandler *IbmVmSpecHandler) ListVMSpec(Region string) ([]*irs.VMSpecInfo, error) {
+func (vmSpecHandler *IbmVmSpecHandler) ListVMSpec() ([]*irs.VMSpecInfo, error) {
 	hiscallInfo := GetCallLogScheme(vmSpecHandler.Region, call.VMSPEC, "VMSpec", "ListVMSpec()")
 	start := call.Start()
 
@@ -47,7 +47,7 @@ func (vmSpecHandler *IbmVmSpecHandler) ListVMSpec(Region string) ([]*irs.VMSpecI
 	LoggingInfo(hiscallInfo, start)
 	return specList, nil
 }
-func (vmSpecHandler *IbmVmSpecHandler) GetVMSpec(Region string, Name string) (irs.VMSpecInfo, error) {
+func (vmSpecHandler *IbmVmSpecHandler) GetVMSpec(Name string) (irs.VMSpecInfo, error) {
 	hiscallInfo := GetCallLogScheme(vmSpecHandler.Region, call.VMSPEC, Name, "GetVMSpec()")
 	start := call.Start()
 	if Name == "" {
@@ -75,7 +75,7 @@ func (vmSpecHandler *IbmVmSpecHandler) GetVMSpec(Region string, Name string) (ir
 	return vmSpecInfo, nil
 }
 
-func (vmSpecHandler *IbmVmSpecHandler) ListOrgVMSpec(Region string) (string, error) {
+func (vmSpecHandler *IbmVmSpecHandler) ListOrgVMSpec() (string, error) {
 	hiscallInfo := GetCallLogScheme(vmSpecHandler.Region, call.VMSPEC, "OrgVMSpec", "ListOrgVMSpec()")
 	start := call.Start()
 
@@ -109,7 +109,7 @@ func (vmSpecHandler *IbmVmSpecHandler) ListOrgVMSpec(Region string) (string, err
 	LoggingInfo(hiscallInfo, start)
 	return jsonString, nil
 }
-func (vmSpecHandler *IbmVmSpecHandler) GetOrgVMSpec(Region string, Name string) (string, error) {
+func (vmSpecHandler *IbmVmSpecHandler) GetOrgVMSpec(Name string) (string, error) {
 	hiscallInfo := GetCallLogScheme(vmSpecHandler.Region, call.VMSPEC, "OrgVMSpec", "GetOrgVMSpec()")
 	start := call.Start()
 	if Name == "" {

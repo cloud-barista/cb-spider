@@ -79,7 +79,7 @@ func ExtractVMSpecInfo(Region string, instanceTypeInfo ecs.InstanceType) irs.VMS
 	return vmSpecInfo
 }
 
-func (vmSpecHandler *AlibabaVmSpecHandler) ListVMSpec(RegionDel string) ([]*irs.VMSpecInfo, error) {
+func (vmSpecHandler *AlibabaVmSpecHandler) ListVMSpec() ([]*irs.VMSpecInfo, error) {
 	Region := vmSpecHandler.Region.Region
 	cblogger.Infof("Start ListVMSpec(Session Region:[%s])", Region)
 	var vMSpecInfoList []*irs.VMSpecInfo
@@ -125,7 +125,7 @@ func (vmSpecHandler *AlibabaVmSpecHandler) ListVMSpec(RegionDel string) ([]*irs.
 	return vMSpecInfoList, nil
 }
 
-func (vmSpecHandler *AlibabaVmSpecHandler) GetVMSpec(RegionDel string, Name string) (irs.VMSpecInfo, error) {
+func (vmSpecHandler *AlibabaVmSpecHandler) GetVMSpec(Name string) (irs.VMSpecInfo, error) {
 	Region := vmSpecHandler.Region.Region
 	cblogger.Infof("Start GetVMSpec(Session Region:[%s], Name:[%s])", Region, Name)
 
@@ -184,7 +184,7 @@ func (vmSpecHandler *AlibabaVmSpecHandler) GetVMSpec(RegionDel string, Name stri
 }
 
 // Alibaba Cloud의 정보 그대로를 가공 없이 JSON으로 리턴 함.
-func (vmSpecHandler *AlibabaVmSpecHandler) ListOrgVMSpec(RegionDel string) (string, error) {
+func (vmSpecHandler *AlibabaVmSpecHandler) ListOrgVMSpec() (string, error) {
 	Region := vmSpecHandler.Region.Region
 	cblogger.Infof("Start ListOrgVMSpec(Session Region:[%s])", Region)
 
@@ -227,7 +227,7 @@ func (vmSpecHandler *AlibabaVmSpecHandler) ListOrgVMSpec(RegionDel string) (stri
 }
 
 // AWS의 정보 그대로를 가공 없이 JSON으로 리턴 함.
-func (vmSpecHandler *AlibabaVmSpecHandler) GetOrgVMSpec(RegionDel string, Name string) (string, error) {
+func (vmSpecHandler *AlibabaVmSpecHandler) GetOrgVMSpec(Name string) (string, error) {
 	Region := vmSpecHandler.Region.Region
 	cblogger.Infof("Start GetOrgVMSpec(Session Region:[%s], Name:[%s])", Region, Name)
 	request := ecs.CreateDescribeInstanceTypesRequest()

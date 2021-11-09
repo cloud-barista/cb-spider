@@ -163,7 +163,7 @@ func (vmSpecHandler *AwsVmSpecHandler) ListVMSpecAZ(ZoneName string) (map[string
 	return mapVmSpecIds, nil
 }
 
-func (vmSpecHandler *AwsVmSpecHandler) ListVMSpec(Region string) ([]*irs.VMSpecInfo, error) {
+func (vmSpecHandler *AwsVmSpecHandler) ListVMSpec() ([]*irs.VMSpecInfo, error) {
 	cblogger.Infof("Start ListVMSpec(Region:[%s] / Zone:[%s])", vmSpecHandler.Region.Region, vmSpecHandler.Region.Zone)
 
 	zoneId := vmSpecHandler.Region.Zone
@@ -269,7 +269,7 @@ func (vmSpecHandler *AwsVmSpecHandler) ListVMSpec(Region string) ([]*irs.VMSpecI
 	return vMSpecInfoList, nil
 }
 
-func (vmSpecHandler *AwsVmSpecHandler) GetVMSpec(Region string, Name string) (irs.VMSpecInfo, error) {
+func (vmSpecHandler *AwsVmSpecHandler) GetVMSpec(Name string) (irs.VMSpecInfo, error) {
 	cblogger.Infof("Start GetVMSpec(Region:[%s], Name:[%s])", vmSpecHandler.Region.Region, Name)
 
 	//https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribeInstanceTypes.html
@@ -330,7 +330,7 @@ func (vmSpecHandler *AwsVmSpecHandler) GetVMSpec(Region string, Name string) (ir
 }
 
 // AWS의 정보 그대로를 가공 없이 JSON으로 리턴 함.
-func (vmSpecHandler *AwsVmSpecHandler) ListOrgVMSpec(Region string) (string, error) {
+func (vmSpecHandler *AwsVmSpecHandler) ListOrgVMSpec() (string, error) {
 	cblogger.Infof("Start ListOrgVMSpec(Region:[%s])", vmSpecHandler.Region.Region)
 
 	zoneId := vmSpecHandler.Region.Zone
@@ -432,7 +432,7 @@ func (vmSpecHandler *AwsVmSpecHandler) ListOrgVMSpec(Region string) (string, err
 }
 
 // AWS의 정보 그대로를 가공 없이 JSON으로 리턴 함.
-func (vmSpecHandler *AwsVmSpecHandler) ListOrgVMSpecOld(Region string) (string, error) {
+func (vmSpecHandler *AwsVmSpecHandler) ListOrgVMSpecOld() (string, error) {
 	cblogger.Infof("Start ListOrgVMSpec(Region:[%s])", vmSpecHandler.Region.Region)
 
 	input := &ec2.DescribeInstanceTypesInput{
@@ -458,7 +458,7 @@ func (vmSpecHandler *AwsVmSpecHandler) ListOrgVMSpecOld(Region string) (string, 
 }
 
 // AWS의 정보 그대로를 가공 없이 JSON으로 리턴 함.
-func (vmSpecHandler *AwsVmSpecHandler) GetOrgVMSpec(Region string, Name string) (string, error) {
+func (vmSpecHandler *AwsVmSpecHandler) GetOrgVMSpec(Name string) (string, error) {
 	cblogger.Infof("Start GetOrgVMSpec(Region:[%s], Name:[%s])", vmSpecHandler.Region.Region, Name)
 
 	input := &ec2.DescribeInstanceTypesInput{

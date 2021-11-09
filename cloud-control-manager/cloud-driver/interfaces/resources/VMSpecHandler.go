@@ -34,10 +34,9 @@ type GpuInfo struct {
 
 type VMSpecHandler interface {
 
-	// Region: AWS=Region, GCP=Zone, Azure=Location
-	ListVMSpec(Region string) ([]*VMSpecInfo, error)
-	GetVMSpec(Region string, Name string) (VMSpecInfo, error)
+	ListVMSpec() ([]*VMSpecInfo, error)
+	GetVMSpec(Name string) (VMSpecInfo, error)
 
-	ListOrgVMSpec(Region string) (string, error)             // return string: json format
-	GetOrgVMSpec(Region string, Name string) (string, error) // return string: json format
+	ListOrgVMSpec() (string, error)             // return string: json format
+	GetOrgVMSpec(Name string) (string, error) // return string: json format
 }

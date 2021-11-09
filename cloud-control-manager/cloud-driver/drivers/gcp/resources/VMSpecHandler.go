@@ -30,7 +30,7 @@ type GCPVMSpecHandler struct {
 	Credential idrv.CredentialInfo
 }
 
-func (vmSpecHandler *GCPVMSpecHandler) ListVMSpec(Region string) ([]*irs.VMSpecInfo, error) {
+func (vmSpecHandler *GCPVMSpecHandler) ListVMSpec() ([]*irs.VMSpecInfo, error) {
 
 	projectID := vmSpecHandler.Credential.ProjectID
 	zone := vmSpecHandler.Region.Zone
@@ -72,7 +72,7 @@ func (vmSpecHandler *GCPVMSpecHandler) ListVMSpec(Region string) ([]*irs.VMSpecI
 	return vmSpecInfo, nil
 }
 
-func (vmSpecHandler *GCPVMSpecHandler) GetVMSpec(Region string, Name string) (irs.VMSpecInfo, error) {
+func (vmSpecHandler *GCPVMSpecHandler) GetVMSpec(Name string) (irs.VMSpecInfo, error) {
 	// default info
 	projectID := vmSpecHandler.Credential.ProjectID
 	zone := vmSpecHandler.Region.Zone
@@ -122,7 +122,7 @@ func (vmSpecHandler *GCPVMSpecHandler) GetVMSpec(Region string, Name string) (ir
 	return vmSpecInfo, nil
 }
 
-func (vmSpecHandler *GCPVMSpecHandler) ListOrgVMSpec(Region string) (string, error) {
+func (vmSpecHandler *GCPVMSpecHandler) ListOrgVMSpec() (string, error) {
 	projectID := vmSpecHandler.Credential.ProjectID
 	zone := vmSpecHandler.Region.Zone
 
@@ -153,7 +153,7 @@ func (vmSpecHandler *GCPVMSpecHandler) ListOrgVMSpec(Region string) (string, err
 	return string(j), err
 }
 
-func (vmSpecHandler *GCPVMSpecHandler) GetOrgVMSpec(Region string, Name string) (string, error) {
+func (vmSpecHandler *GCPVMSpecHandler) GetOrgVMSpec(Name string) (string, error) {
 	projectID := vmSpecHandler.Credential.ProjectID
 	zone := vmSpecHandler.Region.Zone
 

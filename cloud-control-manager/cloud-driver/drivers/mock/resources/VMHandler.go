@@ -49,7 +49,7 @@ func (vmHandler *MockVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, er
 
 	// spec validation
 	vmSpecHandler := MockVMSpecHandler{mockName}
-	validatedSpecInfo, err := vmSpecHandler.GetVMSpec(vmHandler.Region.Region, vmReqInfo.VMSpecName)
+	validatedSpecInfo, err := vmSpecHandler.GetVMSpec(vmReqInfo.VMSpecName)
 	if err != nil {
 		cblogger.Error(err)
 		return irs.VMInfo{}, err

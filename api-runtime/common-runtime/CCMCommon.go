@@ -460,19 +460,13 @@ func ListVMSpec(connectionName string) ([]*cres.VMSpecInfo, error) {
 		return nil, err
 	}
 
-	regionName, _, err := ccm.GetRegionNameByConnectionName(connectionName)
-	if err != nil {
-		cblog.Error(err)
-		return nil, err
-	}
-
 	handler, err := cldConn.CreateVMSpecHandler()
 	if err != nil {
 		cblog.Error(err)
 		return nil, err
 	}
 
-	infoList, err := handler.ListVMSpec(regionName)
+	infoList, err := handler.ListVMSpec()
 	if err != nil {
 		cblog.Error(err)
 		return nil, err
@@ -507,18 +501,12 @@ func GetVMSpec(connectionName string, nameID string) (*cres.VMSpecInfo, error) {
 		return nil, err
 	}
 
-	regionName, _, err := ccm.GetRegionNameByConnectionName(connectionName)
-	if err != nil {
-		cblog.Error(err)
-		return nil, err
-	}
-
 	handler, err := cldConn.CreateVMSpecHandler()
 	if err != nil {
 		cblog.Error(err)
 		return nil, err
 	}
-	info, err := handler.GetVMSpec(regionName, nameID)
+	info, err := handler.GetVMSpec(nameID)
 	if err != nil {
 		cblog.Error(err)
 		return nil, err
@@ -543,19 +531,13 @@ func ListOrgVMSpec(connectionName string) (string, error) {
 		return "", err
 	}
 
-	regionName, _, err := ccm.GetRegionNameByConnectionName(connectionName)
-	if err != nil {
-		cblog.Error(err)
-		return "", err
-	}
-
 	handler, err := cldConn.CreateVMSpecHandler()
 	if err != nil {
 		cblog.Error(err)
 		return "", err
 	}
 
-	infoList, err := handler.ListOrgVMSpec(regionName)
+	infoList, err := handler.ListOrgVMSpec()
 	if err != nil {
 		cblog.Error(err)
 		return "", err
@@ -586,18 +568,12 @@ func GetOrgVMSpec(connectionName string, nameID string) (string, error) {
 		return "", err
 	}
 
-	regionName, _, err := ccm.GetRegionNameByConnectionName(connectionName)
-	if err != nil {
-		cblog.Error(err)
-		return "", err
-	}
-
 	handler, err := cldConn.CreateVMSpecHandler()
 	if err != nil {
 		cblog.Error(err)
 		return "", err
 	}
-	info, err := handler.GetOrgVMSpec(regionName, nameID)
+	info, err := handler.GetOrgVMSpec(nameID)
 	if err != nil {
 		cblog.Error(err)
 		return "", err
