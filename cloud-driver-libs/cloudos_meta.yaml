@@ -13,7 +13,8 @@ AWS:
 GCP:
   region: Region Zone
   credential: PrivateKey ProjectID ClientEmail
-
+  rookdisktype: pd-standard/pd-balanced/pd-ssd/pd-extreme
+  
 AZURE:
   region: location ResourceGroup
   credential: ClientId ClientSecret TenantId SubscriptionId

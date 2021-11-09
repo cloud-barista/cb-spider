@@ -884,6 +884,11 @@ func handleVM() {
 					VMSpecName:        "f1-micro",
 					KeyPairIID:        irs.IID{SystemId: "cb-keypairtest123123"},
 					VMUserId:          "cb-user",
+
+					//RootDiskType: "pd-ssd",      //pd-standard/pd-balanced/pd-ssd/pd-extreme
+					RootDiskType: "pd-balanced", //pd-standard/pd-balanced/pd-ssd/pd-extreme
+					//RootDiskSize: "12",     //최소 10GB 이상이어야 함.
+					RootDiskSize: "default", //10GB
 				}
 
 				vmInfo, err := vmHandler.StartVM(vmReqInfo)
@@ -998,11 +1003,11 @@ func handleVM() {
 func main() {
 	cblogger.Info("GCP Resource Test")
 	//handleVPC()
-	handleVMSpec()
+	//handleVMSpec()
 	//handleImage() //AMI
 	//handleKeyPair()
 	//handleSecurity()
-	//handleVM()
+	handleVM()
 	//cblogger.Info(filepath.Join("a/b", "\\cloud-driver-libs\\.ssh-gcp\\"))
 	//cblogger.Info(filepath.Join("\\cloud-driver-libs\\.ssh-gcp\\", "/b/c/d"))
 }
