@@ -653,7 +653,9 @@ func handleVM() {
 					//VMUserId:          "root", //root만 가능
 					//VMUserPasswd: "Cbuser!@#", //대문자 소문자 모두 사용되어야 함. 그리고 숫자나 특수 기호 중 하나가 포함되어야 함.
 					RootDiskType: "CLOUD_PREMIUM", //LOCAL_BASIC/LOCAL_SSD/CLOUD_BASIC/CLOUD_SSD/CLOUD_PREMIUM
-					RootDiskSize: "30",
+					//RootDiskType: "CLOUD_SSD", //LOCAL_BASIC/LOCAL_SSD/CLOUD_BASIC/CLOUD_SSD/CLOUD_PREMIUM
+					//RootDiskSize: "60", //Image Size 보다 작으면 에러 남
+					RootDiskSize: "Default", //Image Size 보다 작으면 에러 남
 				}
 
 				vmInfo, err := vmHandler.StartVM(vmReqInfo)

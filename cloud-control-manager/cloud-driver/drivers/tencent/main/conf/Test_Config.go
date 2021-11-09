@@ -12,7 +12,6 @@ package TencentTestConfig
 
 import (
 	"io/ioutil"
-	"os"
 
 	tdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/tencent"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
@@ -44,10 +43,8 @@ type Config struct {
 //환경변수 CBSPIDER_PATH 설정 후 해당 폴더 하위에 /config/configTencent.yaml 파일 생성해야 함.
 func ReadConfigFile() Config {
 	// Set Environment Value of Project Root Path
-	//rootpath := "D:/Workspace/mcloud-barista-config"
 	// /mnt/d/Workspace/mcloud-barista-config/config/config.yaml
-
-	//testFilePath := os.Getenv("CBSPIDER_PATH") + "/config/configTencent.yaml" //혹시 모를 키 노출 대비 시스템 외부에 존재
+	//testFilePath := os.Getenv("CBSPIDER_PATH") + "/config/configTencent.yaml" //혹시 모를 키 노출 대비 시스템 외부에 존재(개발용용)
 	testFilePath := "./conf/testConfigTencent.yaml"
 
 	cblogger.Debugf("Test Data 설정파일 : [%]", testFilePath)
