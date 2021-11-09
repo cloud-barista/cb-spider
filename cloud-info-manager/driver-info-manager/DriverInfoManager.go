@@ -54,7 +54,12 @@ func RegisterCloudDriver(driverName string, providerName string, driverLibFileNa
 		return nil, err
 	}
 
-	providerName = strings.ToUpper(strings.Trim(providerName, " "))
+	// trim user inputs
+        driverName = strings.TrimSpace(driverName)
+        providerName = strings.ToUpper(strings.TrimSpace(providerName))
+        driverLibFileName = strings.TrimSpace(driverLibFileName)
+
+
 	cblog.Debug("insert metainfo into store")
 
 	err = insertInfo(driverName, providerName, driverLibFileName)

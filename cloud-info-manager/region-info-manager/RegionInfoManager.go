@@ -48,7 +48,9 @@ func RegisterRegion(regionName string, providerName string, keyValueInfoList []i
 
 	}
 
-	providerName = strings.ToUpper(strings.Trim(providerName, " "))
+        // trim user inputs
+        regionName = strings.TrimSpace(regionName)
+	providerName = strings.ToUpper(strings.TrimSpace(providerName))
 
 	cblog.Debug("insert metainfo into store")
 
@@ -121,5 +123,6 @@ func checkParams(regionName string, providerName string, keyValueInfoList []icbs
 			return fmt.Errorf("Key is empty!")
 		}
 	}
+
 	return nil
 }

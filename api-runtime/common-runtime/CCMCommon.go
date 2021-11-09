@@ -71,6 +71,23 @@ type AllResourceList struct {
 func CreateImage(connectionName string, rsType string, reqInfo cres.ImageReqInfo) (*cres.ImageInfo, error) {
 	cblog.Info("call CreateImage()")
 
+	// check empty and trim user inputs
+	connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)
+	if err != nil {
+		cblog.Error(err)
+                return nil, err
+        }
+
+	emptyPermissionList := []string{
+                "resources.IID:SystemId",
+        }
+
+        err = ValidateStruct(reqInfo, emptyPermissionList)
+        if err != nil {
+                cblog.Error(err)
+                return nil, err
+        }
+
 	cldConn, err := ccm.GetCloudConnection(connectionName)
 	if err != nil {
 		cblog.Error(err)
@@ -144,6 +161,13 @@ func CreateImage(connectionName string, rsType string, reqInfo cres.ImageReqInfo
 func ListImage(connectionName string, rsType string) ([]*cres.ImageInfo, error) {
 	cblog.Info("call ListImage()")
 
+	// check empty and trim user inputs
+	connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)
+	if err != nil {
+		cblog.Error(err)
+                return nil, err
+        }
+
 	cldConn, err := ccm.GetCloudConnection(connectionName)
 	if err != nil {
 		cblog.Error(err)
@@ -174,6 +198,13 @@ func ListImage(connectionName string, rsType string) ([]*cres.ImageInfo, error) 
 // (3) filtering CSP-list by spiderIID-list
 func ListRegisterImage(connectionName string, rsType string) ([]*cres.ImageInfo, error) {
 	cblog.Info("call ListImage()")
+
+	// check empty and trim user inputs
+	connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)
+	if err != nil {
+		cblog.Error(err)
+                return nil, err
+        }
 
 	cldConn, err := ccm.GetCloudConnection(connectionName)
 	if err != nil {
@@ -238,6 +269,19 @@ func ListRegisterImage(connectionName string, rsType string) ([]*cres.ImageInfo,
 func GetImage(connectionName string, rsType string, nameID string) (*cres.ImageInfo, error) {
 	cblog.Info("call GetImage()")
 
+	// check empty and trim user inputs
+	connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)
+	if err != nil {
+		cblog.Error(err)
+                return nil, err
+        }
+
+	nameID, err = EmptyCheckAndTrim("nameID", nameID)
+	if err != nil {
+		cblog.Error(err)
+                return nil, err
+        }
+
 	cldConn, err := ccm.GetCloudConnection(connectionName)
 	if err != nil {
 		cblog.Error(err)
@@ -266,6 +310,19 @@ func GetImage(connectionName string, rsType string, nameID string) (*cres.ImageI
 // (4) set ResourceInfo(IID.NameId)
 func GetRegisterImage(connectionName string, rsType string, nameID string) (*cres.ImageInfo, error) {
 	cblog.Info("call GetImage()")
+
+	// check empty and trim user inputs
+        connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)
+        if err != nil {
+		cblog.Error(err)
+                return nil, err
+        }
+
+        nameID, err = EmptyCheckAndTrim("nameID", nameID)
+        if err != nil {
+		cblog.Error(err)
+                return nil, err
+        }
 
 	cldConn, err := ccm.GetCloudConnection(connectionName)
 	if err != nil {
@@ -313,6 +370,19 @@ func GetRegisterImage(connectionName string, rsType string, nameID string) (*cre
 // (4) delete spiderIID
 func DeleteImage(connectionName string, rsType string, nameID string) (bool, error) {
 	cblog.Info("call DeleteImage()")
+
+	// check empty and trim user inputs
+        connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)
+        if err != nil {
+		cblog.Error(err)
+                return false, err
+        }
+
+        nameID, err = EmptyCheckAndTrim("nameID", nameID)
+        if err != nil {
+		cblog.Error(err)
+                return false, err
+        }
 
 	cldConn, err := ccm.GetCloudConnection(connectionName)
 	if err != nil {
@@ -377,6 +447,13 @@ func DeleteImage(connectionName string, rsType string, nameID string) (bool, err
 func ListVMSpec(connectionName string) ([]*cres.VMSpecInfo, error) {
 	cblog.Info("call ListVMSpec()")
 
+	// check empty and trim user inputs
+        connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)
+        if err != nil {
+		cblog.Error(err)
+                return nil, err
+        }
+
 	cldConn, err := ccm.GetCloudConnection(connectionName)
 	if err != nil {
 		cblog.Error(err)
@@ -411,6 +488,19 @@ func ListVMSpec(connectionName string) ([]*cres.VMSpecInfo, error) {
 func GetVMSpec(connectionName string, nameID string) (*cres.VMSpecInfo, error) {
 	cblog.Info("call GetVMSpec()")
 
+	// check empty and trim user inputs
+        connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)
+        if err != nil {
+		cblog.Error(err)
+                return nil, err
+        }
+
+        nameID, err = EmptyCheckAndTrim("nameID", nameID)
+        if err != nil {
+		cblog.Error(err)
+                return nil, err
+        }
+
 	cldConn, err := ccm.GetCloudConnection(connectionName)
 	if err != nil {
 		cblog.Error(err)
@@ -439,6 +529,13 @@ func GetVMSpec(connectionName string, nameID string) (*cres.VMSpecInfo, error) {
 
 func ListOrgVMSpec(connectionName string) (string, error) {
 	cblog.Info("call ListOrgVMSpec()")
+
+	// check empty and trim user inputs
+        connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)
+        if err != nil {
+		cblog.Error(err)
+                return "", err
+        }
 
 	cldConn, err := ccm.GetCloudConnection(connectionName)
 	if err != nil {
@@ -469,6 +566,19 @@ func ListOrgVMSpec(connectionName string) (string, error) {
 
 func GetOrgVMSpec(connectionName string, nameID string) (string, error) {
 	cblog.Info("call GetOrgVMSpec()")
+
+	// check empty and trim user inputs
+        connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)
+        if err != nil {
+		cblog.Error(err)
+                return "", err
+        }
+
+        nameID, err = EmptyCheckAndTrim("nameID", nameID)
+        if err != nil {
+		cblog.Error(err)
+                return "", err
+        }
 
 	cldConn, err := ccm.GetCloudConnection(connectionName)
 	if err != nil {
@@ -506,6 +616,23 @@ func GetOrgVMSpec(connectionName string, nameID string) (string, error) {
 // (4) insert spiderIID
 func RegisterVPC(connectionName string, userIID cres.IID) (*cres.VPCInfo, error) {
         cblog.Info("call RegisterVPC()")
+
+	// check empty and trim user inputs
+        connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)
+        if err != nil {
+		cblog.Error(err)
+                return nil, err
+        }
+
+	emptyPermissionList := []string{
+        }
+
+        err = ValidateStruct(userIID, emptyPermissionList)
+        if err != nil {
+                cblog.Error(err)
+                return nil, err
+        }
+
         rsType := rsVPC
 
         cldConn, err := ccm.GetCloudConnection(connectionName)
@@ -601,6 +728,20 @@ func getMSShortID(inID string) string {
 // (1) check exist(NameID)
 // (2) delete SpiderIID
 func UnregisterResource(connectionName string, rsType string, nameId string) (bool, error) {
+        cblog.Info("call UnregisterResource()")
+
+	// check empty and trim user inputs
+        connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)
+        if err != nil {
+		cblog.Error(err)
+                return false, err
+        }
+
+        nameId, err = EmptyCheckAndTrim("nameId", nameId)
+        if err != nil {
+		cblog.Error(err)
+                return false, err
+        }
 
 	switch rsType {
         case rsVPC:
@@ -710,6 +851,26 @@ func UnregisterResource(connectionName string, rsType string, nameId string) (bo
 // (6) create userIID
 func CreateVPC(connectionName string, rsType string, reqInfo cres.VPCReqInfo) (*cres.VPCInfo, error) {
 	cblog.Info("call CreateVPC()")
+
+	// check empty and trim user inputs
+        connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)
+        if err != nil {
+		cblog.Error(err)
+                return nil, err
+        }
+
+	emptyPermissionList := []string{
+		"resources.IID:SystemId",
+		"resources.VPCReqInfo:IPv4_CIDR", // because can be unused in some VPC
+		"resources.KeyValue:Key",         // because unusing key-value list
+		"resources.KeyValue:Value",       // because unusing key-value list
+	}
+
+	err = ValidateStruct(reqInfo, emptyPermissionList)
+        if err != nil {
+		cblog.Error(err)
+                return nil, err
+        }
 
 	cldConn, err := ccm.GetCloudConnection(connectionName)
 	if err != nil {
@@ -877,6 +1038,13 @@ func getReqNameId(reqIIdList []cres.IID, driverNameId string) string {
 func ListVPC(connectionName string, rsType string) ([]*cres.VPCInfo, error) {
 	cblog.Info("call ListVPC()")
 
+	// check empty and trim user inputs
+        connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)
+        if err != nil {
+		cblog.Error(err)
+                return nil, err
+        }
+
 	cldConn, err := ccm.GetCloudConnection(connectionName)
 	if err != nil {
 		cblog.Error(err)
@@ -982,6 +1150,19 @@ func getUserIID(spiderIId cres.IID) cres.IID {
 func GetVPC(connectionName string, rsType string, nameID string) (*cres.VPCInfo, error) {
 	cblog.Info("call GetVPC()")
 
+	// check empty and trim user inputs
+        connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)
+        if err != nil {
+		cblog.Error(err)
+                return nil, err
+        }
+
+        nameID, err = EmptyCheckAndTrim("nameID", nameID)
+        if err != nil {
+		cblog.Error(err)
+                return nil, err
+        }
+
 	cldConn, err := ccm.GetCloudConnection(connectionName)
 	if err != nil {
 		cblog.Error(err)
@@ -1036,6 +1217,19 @@ func GetVPC(connectionName string, rsType string, nameID string) (*cres.VPCInfo,
 // (3) insert IID
 func AddSubnet(connectionName string, rsType string, vpcName string, reqInfo cres.SubnetInfo) (*cres.VPCInfo, error) {
 	cblog.Info("call AddSubnet()")
+
+	// check empty and trim user inputs
+        connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)
+        if err != nil {
+		cblog.Error(err)
+                return nil, err
+        }
+
+        vpcName, err = EmptyCheckAndTrim("vpcName", vpcName)
+        if err != nil {
+		cblog.Error(err)
+                return nil, err
+        }
 
 	cldConn, err := ccm.GetCloudConnection(connectionName)
 	if err != nil {
@@ -1145,6 +1339,29 @@ func AddSubnet(connectionName string, rsType string, vpcName string, reqInfo cre
 // (4) insert spiderIID
 func RegisterSecurity(connectionName string, vpcUserID string, userIID cres.IID) (*cres.SecurityInfo, error) {
         cblog.Info("call RegisterSecurity()")
+
+	// check empty and trim user inputs
+        connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)
+        if err != nil {
+		cblog.Error(err)
+                return nil, err
+        }
+
+        vpcUserID, err = EmptyCheckAndTrim("vpcUserID", vpcUserID)
+        if err != nil {
+		cblog.Error(err)
+                return nil, err
+        }
+
+	emptyPermissionList := []string{
+        }
+
+        err = ValidateStruct(userIID, emptyPermissionList)
+        if err != nil {
+                cblog.Error(err)
+                return nil, err
+        }
+
         rsType := rsSG
 
         cldConn, err := ccm.GetCloudConnection(connectionName)
@@ -1245,6 +1462,26 @@ func RegisterSecurity(connectionName string, vpcUserID string, userIID cres.IID)
 func CreateSecurity(connectionName string, rsType string, reqInfo cres.SecurityReqInfo) (*cres.SecurityInfo, error) {
 	cblog.Info("call CreateSecurity()")
 
+	// check empty and trim user inputs
+        connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)
+        if err != nil {
+		cblog.Error(err)
+                return nil, err
+        }
+
+	/*
+        emptyPermissionList := []string{
+                "resources.IID:SystemId",
+                "resources.SecurityReqInfo:Direction", // because can be unused in some CSP
+                "resources.SecurityRuleInfo:CIDR",     // because can be set without soruce CIDR
+        }
+
+        err = ValidateStruct(reqInfo, emptyPermissionList)
+        if err != nil {
+                cblog.Error(err)
+                return nil, err
+        }
+*/
 	//+++++++++++++++++++++++++++++++++++++++++++
 	// set VPC's SystemId
 	vpcIIDInfo, err := iidRWLock.GetIID(iidm.IIDSGROUP, connectionName, rsVPC, reqInfo.VpcIID)
@@ -1358,6 +1595,13 @@ func CreateSecurity(connectionName string, rsType string, reqInfo cres.SecurityR
 // (4) set userIID
 func ListSecurity(connectionName string, rsType string) ([]*cres.SecurityInfo, error) {
 	cblog.Info("call ListSecurity()")
+
+	// check empty and trim user inputs
+        connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)
+        if err != nil {
+		cblog.Error(err)
+                return nil, err
+        }
 
 	cldConn, err := ccm.GetCloudConnection(connectionName)
 	if err != nil {
@@ -1473,6 +1717,19 @@ func uniqueNameList(vpcNameList []string) []string {
 func GetSecurity(connectionName string, rsType string, nameID string) (*cres.SecurityInfo, error) {
 	cblog.Info("call GetSecurity()")
 
+	// check empty and trim user inputs
+        connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)
+        if err != nil {
+		cblog.Error(err)
+                return nil, err
+        }
+
+        nameID, err = EmptyCheckAndTrim("nameID", nameID)
+        if err != nil {
+		cblog.Error(err)
+                return nil, err
+        }
+
 	cldConn, err := ccm.GetCloudConnection(connectionName)
 	if err != nil {
 		cblog.Error(err)
@@ -1537,6 +1794,23 @@ func GetSecurity(connectionName string, rsType string, nameID string) (*cres.Sec
 // (4) insert spiderIID
 func RegisterKey(connectionName string, userIID cres.IID) (*cres.KeyPairInfo, error) {
         cblog.Info("call RegisterKey()")
+
+	// check empty and trim user inputs
+        connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)
+        if err != nil {
+		cblog.Error(err)
+                return nil, err
+        }
+
+	emptyPermissionList := []string{
+        }
+
+        err = ValidateStruct(userIID, emptyPermissionList)
+        if err != nil {
+                cblog.Error(err)
+                return nil, err
+        }
+
         rsType := rsKey
 
         cldConn, err := ccm.GetCloudConnection(connectionName)
@@ -1602,6 +1876,23 @@ func RegisterKey(connectionName string, userIID cres.IID) (*cres.KeyPairInfo, er
 // (6) create userIID
 func CreateKey(connectionName string, rsType string, reqInfo cres.KeyPairReqInfo) (*cres.KeyPairInfo, error) {
 	cblog.Info("call CreateKey()")
+
+	// check empty and trim user inputs
+        connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)
+        if err != nil {
+		cblog.Error(err)
+                return nil, err
+        }
+
+	emptyPermissionList := []string{
+                "resources.IID:SystemId",
+        }
+
+        err = ValidateStruct(reqInfo, emptyPermissionList)
+        if err != nil {
+                cblog.Error(err)
+                return nil, err
+        }
 
 	cldConn, err := ccm.GetCloudConnection(connectionName)
 	if err != nil {
@@ -1686,6 +1977,13 @@ func CreateKey(connectionName string, rsType string, reqInfo cres.KeyPairReqInfo
 func ListKey(connectionName string, rsType string) ([]*cres.KeyPairInfo, error) {
 	cblog.Info("call ListKey()")
 
+	// check empty and trim user inputs
+        connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)
+        if err != nil {
+		cblog.Error(err)
+                return nil, err
+        }
+
 	cldConn, err := ccm.GetCloudConnection(connectionName)
 	if err != nil {
 		cblog.Error(err)
@@ -1749,6 +2047,19 @@ func ListKey(connectionName string, rsType string) ([]*cres.KeyPairInfo, error) 
 // (3) set ResourceInfo(IID.NameId)
 func GetKey(connectionName string, rsType string, nameID string) (*cres.KeyPairInfo, error) {
 	cblog.Info("call GetKey()")
+
+	// check empty and trim user inputs
+        connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)
+        if err != nil {
+		cblog.Error(err)
+                return nil, err
+        }
+
+        nameID, err = EmptyCheckAndTrim("nameID", nameID)
+        if err != nil {
+		cblog.Error(err)
+                return nil, err
+        }
 
 	cldConn, err := ccm.GetCloudConnection(connectionName)
 	if err != nil {
@@ -1858,6 +2169,23 @@ func cloneReqInfoWithDriverIID(ConnectionName string, reqInfo cres.VMReqInfo) (c
 // (4) insert spiderIID
 func RegisterVM(connectionName string, userIID cres.IID) (*cres.VMInfo, error) {
         cblog.Info("call RegisterVM()")
+
+	// check empty and trim user inputs
+        connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)
+        if err != nil {
+		cblog.Error(err)
+                return nil, err
+        }
+
+	emptyPermissionList := []string{
+        }
+
+        err = ValidateStruct(userIID, emptyPermissionList)
+        if err != nil {
+                cblog.Error(err)
+                return nil, err
+        }
+
         rsType := rsVM
 
         cldConn, err := ccm.GetCloudConnection(connectionName)
@@ -1938,6 +2266,26 @@ func RegisterVM(connectionName string, userIID cres.IID) (*cres.VMInfo, error) {
 func StartVM(connectionName string, rsType string, reqInfo cres.VMReqInfo) (*cres.VMInfo, error) {
 	cblog.Info("call StartVM()")
 
+	// check empty and trim user inputs
+        connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)
+        if err != nil {
+		cblog.Error(err)
+                return nil, err
+        }
+
+	emptyPermissionList := []string{
+                "resources.IID:SystemId",
+                "resources.VMReqInfo:RootDiskType", // because can be set without disk type
+                "resources.VMReqInfo:RootDiskSize", // because can be set without disk type
+                "resources.VMReqInfo:VMUserId",     // because can be set without disk type
+                "resources.VMReqInfo:VMUserPasswd",     // because can be set without disk type
+        }
+
+        err = ValidateStruct(reqInfo, emptyPermissionList)
+        if err != nil {
+                cblog.Error(err)
+                return nil, err
+        }
 
 	cldConn, err := ccm.GetCloudConnection(connectionName)
 	if err != nil {
@@ -2110,6 +2458,13 @@ func setNameId(ConnectionName string, vmInfo *cres.VMInfo, reqInfo *cres.VMReqIn
 func ListVM(connectionName string, rsType string) ([]*cres.VMInfo, error) {
 	cblog.Info("call ListVM()")
 
+	// check empty and trim user inputs
+        connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)
+        if err != nil {
+		cblog.Error(err)
+                return nil, err
+        }
+
 	cldConn, err := ccm.GetCloudConnection(connectionName)
 	if err != nil {
 		cblog.Error(err)
@@ -2243,6 +2598,19 @@ func getSetNameId(ConnectionName string, vmInfo *cres.VMInfo) error {
 func GetVM(connectionName string, rsType string, nameID string) (*cres.VMInfo, error) {
 	cblog.Info("call GetVM()")
 
+	// check empty and trim user inputs
+        connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)
+        if err != nil {
+		cblog.Error(err)
+                return nil, err
+        }
+
+        nameID, err = EmptyCheckAndTrim("nameID", nameID)
+        if err != nil {
+		cblog.Error(err)
+                return nil, err
+        }
+
 	cldConn, err := ccm.GetCloudConnection(connectionName)
 	if err != nil {
 		cblog.Error(err)
@@ -2301,6 +2669,13 @@ func GetVM(connectionName string, rsType string, nameID string) (*cres.VMInfo, e
 // (3) filtering CSP-VMStatuslist by IID-list
 func ListVMStatus(connectionName string, rsType string) ([]*cres.VMStatusInfo, error) {
 	cblog.Info("call ListVMStatus()")
+
+	// check empty and trim user inputs
+        connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)
+        if err != nil {
+		cblog.Error(err)
+                return nil, err
+        }
 
 	cldConn, err := ccm.GetCloudConnection(connectionName)
 	if err != nil {
@@ -2364,6 +2739,19 @@ func ListVMStatus(connectionName string, rsType string) ([]*cres.VMStatusInfo, e
 // (2) get CSP:VMStatus(SystemId)
 func GetVMStatus(connectionName string, rsType string, nameID string) (cres.VMStatus, error) {
 	cblog.Info("call GetVMStatus()")
+
+	// check empty and trim user inputs
+        connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)
+        if err != nil {
+		cblog.Error(err)
+                return "", err
+        }
+
+        nameID, err = EmptyCheckAndTrim("nameID", nameID)
+        if err != nil {
+		cblog.Error(err)
+                return "", err
+        }
 
 	cldConn, err := ccm.GetCloudConnection(connectionName)
 	if err != nil {
@@ -2453,6 +2841,13 @@ func ControlVM(connectionName string, rsType string, nameID string, action strin
 // (4) make MappedList, OnlySpiderList, OnlyCSPList
 func ListAllResource(connectionName string, rsType string) (AllResourceList, error) {
 	cblog.Info("call ListAllResource()")
+
+	// check empty and trim user inputs
+        connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)
+        if err != nil {
+                return AllResourceList{}, err
+		cblog.Error(err)
+        }
 
 	cldConn, err := ccm.GetCloudConnection(connectionName)
 	if err != nil {
@@ -2659,6 +3054,19 @@ func getUserIIDList(iidInfoList []*iidm.IIDInfo) []*cres.IID {
 // (3) delete IID
 func DeleteResource(connectionName string, rsType string, nameID string, force string) (bool, cres.VMStatus, error) {
 	cblog.Info("call DeleteResource()")
+
+	// check empty and trim user inputs
+        connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)
+        if err != nil {
+                return false, "", err
+		cblog.Error(err)
+        }
+
+        nameID, err = EmptyCheckAndTrim("nameID", nameID)
+        if err != nil {
+                return false, "", err
+		cblog.Error(err)
+        }
 
 	cldConn, err := ccm.GetCloudConnection(connectionName)
 	if err != nil {
@@ -2872,6 +3280,31 @@ func DeleteResource(connectionName string, rsType string, nameID string, force s
 func RemoveSubnet(connectionName string, vpcName string, nameID string, force string) (bool, error) {
 	cblog.Info("call RemoveSubnet()")
 
+	// check empty and trim user inputs
+        connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)
+        if err != nil {
+                return false, err
+		cblog.Error(err)
+        }
+
+        vpcName, err = EmptyCheckAndTrim("vpcName", vpcName)
+        if err != nil {
+                return false, err
+		cblog.Error(err)
+        }
+
+        nameID, err = EmptyCheckAndTrim("nameID", nameID)
+        if err != nil {
+                return false, err
+		cblog.Error(err)
+        }
+
+        force, err = EmptyCheckAndTrim("force", force)
+        if err != nil {
+                return false, err
+		cblog.Error(err)
+        }
+
 	cldConn, err := ccm.GetCloudConnection(connectionName)
 	if err != nil {
 		cblog.Error(err)
@@ -2934,6 +3367,19 @@ func RemoveSubnet(connectionName string, vpcName string, nameID string, force st
 // delete CSP's Resource(SystemId)
 func DeleteCSPResource(connectionName string, rsType string, systemID string) (bool, cres.VMStatus, error) {
 	cblog.Info("call DeleteCSPResource()")
+
+	// check empty and trim user inputs
+        connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)
+        if err != nil {
+                return false, "", err
+		cblog.Error(err)
+        }
+
+        systemID, err = EmptyCheckAndTrim("systemID", systemID)
+        if err != nil {
+                return false, "", err
+		cblog.Error(err)
+        }
 
 	cldConn, err := ccm.GetCloudConnection(connectionName)
 	if err != nil {
@@ -3010,7 +3456,26 @@ func DeleteCSPResource(connectionName string, rsType string, systemID string) (b
 
 // remove CSP's Subnet(SystemId)
 func RemoveCSPSubnet(connectionName string, vpcName string, systemID string) (bool, error) {
-        cblog.Info("call DeleteCSPResource()")
+        cblog.Info("call DeleteCSPSubnet()")
+
+	// check empty and trim user inputs
+        connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)
+        if err != nil {
+                return false, err
+		cblog.Error(err)
+        }
+
+        vpcName, err = EmptyCheckAndTrim("vpcName", vpcName)
+        if err != nil {
+                return false, err
+		cblog.Error(err)
+        }
+
+        systemID, err = EmptyCheckAndTrim("systemID", systemID)
+        if err != nil {
+                return false, err
+		cblog.Error(err)
+        }
 
         cldConn, err := ccm.GetCloudConnection(connectionName)
         if err != nil {
