@@ -16,6 +16,7 @@ import (
 	"errors"
 	_ "errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -34,6 +35,8 @@ type GCPVMHandler struct {
 	Credential idrv.CredentialInfo
 }
 
+//https://cloud.google.com/compute/docs/reference/rest/v1/instances
+//https://cloud.google.com/compute/docs/disks#disk-types
 func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, error) {
 	// Set VM Create Information
 	// GCP 는 reqinfo에 ProjectID를 받아야 함.
@@ -108,7 +111,7 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 		return irs.VMInfo{}, errKeypair
 	}
 
-	cblogger.Info("keypairInfo 정보")
+	cblogger.Debug("keypairInfo 정보")
 	spew.Dump(keypairInfo)
 
 	/*
@@ -186,8 +189,37 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 		},
 	}
 
+	//이슈 #348에 의해 RootDisk 및 사이즈 변경 기능 지원
+	//=============================
+	// Root Disk Type 변경
+	//=============================
+	if vmReqInfo.RootDiskType == "" {
+		//디스크 정보가 없으면 건드리지 않음.
+	} else {
+		//https://cloud.google.com/compute/docs/disks#disk-types
+		instance.Disks[0].InitializeParams.DiskType = prefix + "/zones/" + zone + "/diskTypes/" + vmReqInfo.RootDiskType
+	}
+
+	//=============================
+	// Root Disk Size 변경
+	//=============================
+	if vmReqInfo.RootDiskSize == "" {
+		//디스크 정보가 없으면 건드리지 않음.
+	} else {
+		if strings.EqualFold(vmReqInfo.RootDiskSize, "default") {
+			instance.Disks[0].InitializeParams.DiskSizeGb = 10
+		} else {
+			iDiskSize, err := strconv.ParseInt(vmReqInfo.RootDiskSize, 10, 64)
+			if err != nil {
+				cblogger.Error(err)
+				return irs.VMInfo{}, err
+			}
+			instance.Disks[0].InitializeParams.DiskSizeGb = iDiskSize
+		}
+	}
+
 	cblogger.Info("VM 생성 시작")
-	cblogger.Info(instance)
+	cblogger.Debug(instance)
 	spew.Dump(instance)
 	// logger for HisCall
 	callogger := call.GetLogger("HISCALL")
