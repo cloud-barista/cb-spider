@@ -10,13 +10,11 @@ package main
 
 import (
 	"fmt"
-	"os"
 	"sync"
 	"time"
 
 	cr "github.com/cloud-barista/cb-spider/api-runtime/common-runtime"
 	grpcruntime "github.com/cloud-barista/cb-spider/api-runtime/grpc-runtime"
-	meerkatruntime "github.com/cloud-barista/cb-spider/api-runtime/meerkat-runtime"
 	restruntime "github.com/cloud-barista/cb-spider/api-runtime/rest-runtime"
 
 	"github.com/go-resty/resty/v2"
@@ -50,16 +48,6 @@ func NewRootCmd() *cobra.Command {
 				grpcruntime.RunServer()
 				wg.Done()
 			}()
-
-			if os.Getenv("MEERKAT") == "ON" {
-				time.Sleep(time.Millisecond * 10)
-				wg.Add(1)
-
-				go func() {
-					meerkatruntime.RunServer()
-					wg.Done()
-				}()
-			}
 
 			wg.Wait()
 
