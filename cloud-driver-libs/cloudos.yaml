@@ -4,6 +4,7 @@
 #
 #      * Cloud-Barista: https://github.com/cloud-barista
 #
+# by CB-Spider Team, 2021.11.
 # by CB-Spider Team, 2020.11.
 # by CB-Spider Team, 2020.03.
 
@@ -12,15 +13,17 @@
 
 cloudos:
   - AWS
-  - GCP
   - AZURE
-  - OPENSTACK
-  - CLOUDIT
+  - GCP
   - ALIBABA
   - TENCENT
-  - MOCK
-  - DOCKER
-  - CLOUDTWIN
   - IBM
+  - OPENSTACK
+  - CLOUDIT
   - NCP
   - KTCLOUD
+#---
+  - DOCKER
+#---
+  - MOCK
+  - CLOUDTWIN

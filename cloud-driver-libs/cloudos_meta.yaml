@@ -7,58 +7,56 @@
 ### Meta info of CloudOS
 
 AWS:
-  region: Region Zone
-  credential: ClientId ClientSecret
-
-GCP:
-  region: Region Zone
-  credential: PrivateKey ProjectID ClientEmail
-  rookdisktype: pd-standard/pd-balanced/pd-ssd/pd-extreme
+  region: Region / Zone
+  credential: ClientId / ClientSecret
 
 AZURE:
-  region: location ResourceGroup
-  credential: ClientId ClientSecret TenantId SubscriptionId
+  region: location / ResourceGroup
+  credential: ClientId / ClientSecret / TenantId / SubscriptionId
+
+GCP:
+  region: Region / Zone
+  credential: PrivateKey / ProjectID / ClientEmail
+  rookdisktype: pd-standard / pd-balanced / pd-ssd / pd-extreme
+
+ALIBABA:
+  region: Region / Zone
+  credential: ClientId / ClientSecret
+  rookdisktype: cloud_efficiency / cloud / cloud_ssd / cloud_essd
+
+TENCENT:
+  region: Region / Zone
+  credential: ClientId / ClientSecret
+  rookdisktype: CLOUD_PREMIUM / LOCAL_BASIC / LOCAL_SSD / CLOUD_BASIC / CLOUD_SSD
+
+IBM:
+  region: Region / Zone
+  credential: ApiKey
 
 OPENSTACK:
   region: Region
-  credential: IdentityEndpoint Username Password DomainName ProjectID
+  credential: IdentityEndpoint / Username / Password / DomainName / ProjectID
 
-ALIBABA:
-  region: Region Zone
-  credential: ClientId ClientSecret
-  rookdisktype: cloud_efficiency/cloud/cloud_ssd/cloud_essd
-
-
-TENCENT:
-  region: Region Zone
-  credential: ClientId ClientSecret
-  rookdisktype: CLOUD_PREMIUM/LOCAL_BASIC/LOCAL_SSD/CLOUD_BASIC/CLOUD_SSD
-
-IBM:
-  region: Region Zone
-  credential: ApiKey
-
-#------
 
 CLOUDIT:
   region: Region
-  credential: IdentityEndpoint AuthToken Username Password TenantId
+  credential: IdentityEndpoint / AuthToken / Username / Password / TenantId
 
 NCP: 
-  region: Region Zone
-  credential: ClientId ClientSecret
+  region: Region / Zone
+  credential: ClientId / ClientSecret
 
 KT:
-  region: Region Zone
-  credential: ClientId ClientSecret
+  region: Region / Zone
+  credential: ClientId / ClientSecret
 
-#------
+#---
 
 DOCKER:
   region: Region
-  credential: Host APIVersion
+  credential: Host / APIVersion
 
-#------
+#---
 
 MOCK:
   region: Region
@@ -66,4 +64,4 @@ MOCK:
 
 CLOUDTWIN:
   region: Region
-  credential: IdentityEndpoint DomainName MockName
+  credential: IdentityEndpoint / DomainName / MockName
