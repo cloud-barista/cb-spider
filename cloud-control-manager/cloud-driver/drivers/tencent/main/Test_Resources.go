@@ -42,12 +42,12 @@ func handleVMSpec() {
 
 	handler := ResourceHandler.(irs.VMSpecHandler)
 
-	config := testconf.ReadConfigFile()
+	//config := testconf.ReadConfigFile()
 	reqVMSpec := "C2.4XLARGE64" // GPU 1개
 
-	reqZone := config.Tencent.Zone
+	//reqZone := config.Tencent.Zone
 
-	cblogger.Info("reqZone : ", reqZone)
+	//cblogger.Info("reqZone : ", reqZone)
 	cblogger.Info("reqVMSpec : ", reqVMSpec)
 
 	for {
@@ -71,7 +71,7 @@ func handleVMSpec() {
 			switch commandNum {
 			case 1:
 				fmt.Println("Start ListVMSpec() ...")
-				result, err := handler.ListVMSpec(reqZone)
+				result, err := handler.ListVMSpec()
 				if err != nil {
 					cblogger.Error("VMSpec 목록 조회 실패 : ", err)
 				} else {
@@ -84,7 +84,7 @@ func handleVMSpec() {
 
 			case 2:
 				fmt.Println("Start GetVMSpec() ...")
-				result, err := handler.GetVMSpec(reqZone, reqVMSpec)
+				result, err := handler.GetVMSpec(reqVMSpec)
 				if err != nil {
 					cblogger.Error(reqVMSpec, " VMSpec 정보 조회 실패 : ", err)
 				} else {
@@ -95,7 +95,7 @@ func handleVMSpec() {
 
 			case 3:
 				fmt.Println("Start ListOrgVMSpec() ...")
-				result, err := handler.ListOrgVMSpec(reqZone)
+				result, err := handler.ListOrgVMSpec()
 				if err != nil {
 					cblogger.Error("VMSpec 목록 조회 실패 : ", err)
 				} else {
@@ -108,7 +108,7 @@ func handleVMSpec() {
 
 			case 4:
 				fmt.Println("Start GetOrgVMSpec() ...")
-				result, err := handler.GetOrgVMSpec(reqZone, reqVMSpec)
+				result, err := handler.GetOrgVMSpec(reqVMSpec)
 				if err != nil {
 					cblogger.Error(reqVMSpec, " VMSpec 정보 조회 실패 : ", err)
 				} else {
@@ -768,11 +768,11 @@ func handleVM() {
 func main() {
 	cblogger.Info("Tencent Cloud Resource Test")
 	//handleVPC() //VPC
-	//handleVMSpec()
+	handleVMSpec()
 	//handleSecurity()
 	//handleImage() //AMI
 	//handleKeyPair()
-	handleVM()
+	//handleVM()
 
 	//handlePublicIP() // PublicIP 생성 후 conf
 	//handleVNic() //Lancard

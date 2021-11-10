@@ -738,10 +738,10 @@ func handleVMSpec() {
 	handler := ResourceHandler.(irs.VMSpecHandler)
 	//region := "asia-northeast1"
 
-	zone := "asia-northeast1-b"
+	//zone := "asia-northeast1-b"
 	machinename := ""
 
-	cblogger.Info("zone : ", zone)
+	//cblogger.Info("zone : ", zone)
 
 	for {
 		fmt.Println("")
@@ -764,7 +764,7 @@ func handleVMSpec() {
 			switch commandNum {
 			case 1:
 				fmt.Println("Start ListVMSpec() ...")
-				result, err := handler.ListVMSpec(zone)
+				result, err := handler.ListVMSpec()
 				if err != nil {
 					cblogger.Error("ListVMSpec 목록 조회 실패 : ", err)
 				} else {
@@ -780,7 +780,7 @@ func handleVMSpec() {
 
 			case 2:
 				fmt.Println("Start GetVMSpec() ...")
-				result, err := handler.GetVMSpec(zone, machinename)
+				result, err := handler.GetVMSpec(machinename)
 				if err != nil {
 					cblogger.Error(machinename, " GetVMSpec 정보 조회 실패 : ", err)
 				} else {
@@ -791,7 +791,7 @@ func handleVMSpec() {
 
 			case 3:
 				fmt.Println("Start ListOrgVMSpec() ...")
-				result, err := handler.ListOrgVMSpec(zone)
+				result, err := handler.ListOrgVMSpec()
 				if err != nil {
 					cblogger.Error("ListOrgVMSpec 목록 조회 실패 : ", err)
 				} else {
@@ -803,7 +803,7 @@ func handleVMSpec() {
 
 			case 4:
 				fmt.Println("Start GetOrgVMSpec() ...")
-				result, err := handler.GetOrgVMSpec(zone, machinename)
+				result, err := handler.GetOrgVMSpec(machinename)
 				if err != nil {
 					cblogger.Error(machinename, " GetOrgVMSpec 정보 조회 실패 : ", err)
 				} else {
@@ -1003,11 +1003,11 @@ func handleVM() {
 func main() {
 	cblogger.Info("GCP Resource Test")
 	//handleVPC()
-	//handleVMSpec()
+	handleVMSpec()
 	//handleImage() //AMI
 	//handleKeyPair()
 	//handleSecurity()
-	handleVM()
+	//handleVM()
 	//cblogger.Info(filepath.Join("a/b", "\\cloud-driver-libs\\.ssh-gcp\\"))
 	//cblogger.Info(filepath.Join("\\cloud-driver-libs\\.ssh-gcp\\", "/b/c/d"))
 }
