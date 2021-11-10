@@ -152,14 +152,14 @@ func handleVMSpec() {
 
 	handler := ResourceHandler.(irs.VMSpecHandler)
 
-	config := testconf.ReadConfigFile()
+	//config := testconf.ReadConfigFile()
 	//reqVMSpec := config.Ali.VMSpec
 	//reqVMSpec := "ecs.g6.large"	// GPU가 없음
 	reqVMSpec := "ecs.vgn5i-m8.4xlarge" // GPU 1개
 	//reqVMSpec := "ecs.gn6i-c24g1.24xlarge" // GPU 4개
 
-	reqRegion := config.Ali.Region
-	reqRegion = "us-east-1"
+	//reqRegion := config.Ali.Region
+	//reqRegion = "us-east-1"
 	cblogger.Info("reqVMSpec : ", reqVMSpec)
 
 	for {
@@ -183,7 +183,7 @@ func handleVMSpec() {
 			switch commandNum {
 			case 1:
 				fmt.Println("Start ListVMSpec() ...")
-				result, err := handler.ListVMSpec(reqRegion)
+				result, err := handler.ListVMSpec()
 				if err != nil {
 					cblogger.Error("VMSpec 목록 조회 실패 : ", err)
 				} else {
@@ -195,7 +195,7 @@ func handleVMSpec() {
 
 			case 2:
 				fmt.Println("Start GetVMSpec() ...")
-				result, err := handler.GetVMSpec(reqRegion, reqVMSpec)
+				result, err := handler.GetVMSpec(reqVMSpec)
 				if err != nil {
 					cblogger.Error(reqVMSpec, " VMSpec 정보 조회 실패 : ", err)
 				} else {
@@ -206,7 +206,7 @@ func handleVMSpec() {
 
 			case 3:
 				fmt.Println("Start ListOrgVMSpec() ...")
-				result, err := handler.ListOrgVMSpec(reqRegion)
+				result, err := handler.ListOrgVMSpec()
 				if err != nil {
 					cblogger.Error("VMSpec 목록 조회 실패 : ", err)
 				} else {
@@ -219,7 +219,7 @@ func handleVMSpec() {
 
 			case 4:
 				fmt.Println("Start GetOrgVMSpec() ...")
-				result, err := handler.GetOrgVMSpec(reqRegion, reqVMSpec)
+				result, err := handler.GetOrgVMSpec(reqVMSpec)
 				if err != nil {
 					cblogger.Error(reqVMSpec, " VMSpec 정보 조회 실패 : ", err)
 				} else {
@@ -979,11 +979,11 @@ func main() {
 	cblogger.Debug("Debug mode")
 
 	//handleVPC() //VPC
-	//handleVMSpec()
+	handleVMSpec()
 	//handleImage() //AMI
 	//handleSecurity()
 	//handleKeyPair()
-	handleVM()
+	//handleVM()
 
 	//handlePublicIP() // PublicIP 생성 후 conf
 
