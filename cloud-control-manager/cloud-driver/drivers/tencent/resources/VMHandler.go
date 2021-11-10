@@ -160,42 +160,38 @@ func (vmHandler *TencentVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 		Zone: common.StringPtr(vmHandler.Region.Zone),
 	}
 
-	//=============================
-	// SystemDisk 처리
-	//=============================
 	/* 이슈 #348에 의해 RootDisk 기능 지원하면서 기존 로직 제거
 	request.SystemDisk = &cvm.SystemDisk{
-		DiskType: common.StringPtr("CLOUD_PREMIUM"),
+		DiskType: common.StringPtr("CLOUD_PREMIUM"), //일부 인스턴스의 경우 기본 스토리지가 없는 스펙이 있어서 강제로 CLOUD_PREMIUM 지정
 	}
 	*/
 
-	diskType := "CLOUD_PREMIUM"     // 특정 인스턴스 생성이 안되기에 기본 값을 CLOUD_PREMIUM으로 셋팅 (이슈 #348에 의해 이젠 필요 없을 듯)
-	diskSize := common.Int64Ptr(50) // 기본 사이즈는 50GB
-
 	//=============================
-	// Root Disk Type 변경
+	// SystemDisk 처리 - 이슈 #348에 의해 RootDisk 기능 지원
 	//=============================
-	if vmReqInfo.RootDiskType != "" {
-		diskType = vmReqInfo.RootDiskType
-	}
-
-	//=============================
-	// Root Disk Size 변경
-	//=============================
-	if vmReqInfo.RootDiskSize != "" {
-		if !strings.EqualFold(vmReqInfo.RootDiskSize, "default") {
-			iDiskSize, err := strconv.ParseInt(vmReqInfo.RootDiskSize, 10, 64)
-			if err != nil {
-				cblogger.Error(err)
-				return irs.VMInfo{}, err
-			}
-			diskSize = common.Int64Ptr(iDiskSize)
+	if vmReqInfo.RootDiskType != "" || vmReqInfo.RootDiskSize != "" {
+		request.SystemDisk = &cvm.SystemDisk{}
+		//=============================
+		// Root Disk Type 변경
+		//=============================
+		if vmReqInfo.RootDiskType != "" {
+			request.SystemDisk.DiskType = common.StringPtr(vmReqInfo.RootDiskType)
 		}
-	}
 
-	request.SystemDisk = &cvm.SystemDisk{
-		DiskType: common.StringPtr(diskType),
-		DiskSize: diskSize,
+		//=============================
+		// Root Disk Size 변경
+		//=============================
+		if vmReqInfo.RootDiskSize != "" {
+			if !strings.EqualFold(vmReqInfo.RootDiskSize, "default") {
+				iDiskSize, err := strconv.ParseInt(vmReqInfo.RootDiskSize, 10, 64)
+				if err != nil {
+					cblogger.Error(err)
+					return irs.VMInfo{}, err
+				}
+
+				request.SystemDisk.DiskSize = common.Int64Ptr(iDiskSize)
+			}
+		}
 	}
 
 	//=============================
