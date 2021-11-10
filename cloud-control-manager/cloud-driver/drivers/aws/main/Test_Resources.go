@@ -907,6 +907,11 @@ func handleVM() {
 					SecurityGroupIIDs: []irs.IID{{SystemId: "sg-03685021f07b3ccd3"}},
 					VMSpecName:        "t2.micro",
 					KeyPairIID:        irs.IID{SystemId: "japan-test"},
+
+					//RootDiskType: "pd-ssd",      //standard/io1/io2/gp2/sc1/st1/gp3
+					//RootDiskType: "pd-balanced", //pd-standard/pd-balanced/pd-ssd/pd-extreme
+					RootDiskSize: "15", //최소 10GB 이상이어야 함.
+					//RootDiskSize: "default", //10GB
 				}
 
 				vmInfo, err := vmHandler.StartVM(vmReqInfo)
@@ -1027,14 +1032,14 @@ func handleVMSpec() {
 
 	handler := ResourceHandler.(irs.VMSpecHandler)
 
-	config := readConfigFile()
+	//config := readConfigFile()
 	//reqVMSpec := config.Aws.VMSpec
 	//reqVMSpec := "t2.small"	// GPU가 없음
 	//reqVMSpec := "p3.2xlarge" // GPU 1개
 	reqVMSpec := "p3.8xlarge" // GPU 4개
 
-	reqRegion := config.Aws.Region
-	reqRegion = "us-east-1"
+	//reqRegion := config.Aws.Region
+	//reqRegion = "us-east-1"
 	cblogger.Info("reqVMSpec : ", reqVMSpec)
 
 	for {
@@ -1058,7 +1063,7 @@ func handleVMSpec() {
 			switch commandNum {
 			case 1:
 				fmt.Println("Start ListVMSpec() ...")
-				result, err := handler.ListVMSpec(reqRegion)
+				result, err := handler.ListVMSpec()
 				if err != nil {
 					cblogger.Error("VMSpec 목록 조회 실패 : ", err)
 				} else {
@@ -1072,7 +1077,7 @@ func handleVMSpec() {
 
 			case 2:
 				fmt.Println("Start GetVMSpec() ...")
-				result, err := handler.GetVMSpec(reqRegion, reqVMSpec)
+				result, err := handler.GetVMSpec(reqVMSpec)
 				if err != nil {
 					cblogger.Error(reqVMSpec, " VMSpec 정보 조회 실패 : ", err)
 				} else {
@@ -1084,7 +1089,7 @@ func handleVMSpec() {
 
 			case 3:
 				fmt.Println("Start ListOrgVMSpec() ...")
-				result, err := handler.ListOrgVMSpec(reqRegion)
+				result, err := handler.ListOrgVMSpec()
 				if err != nil {
 					cblogger.Error("VMSpec Org 목록 조회 실패 : ", err)
 				} else {
@@ -1102,7 +1107,7 @@ func handleVMSpec() {
 
 			case 4:
 				fmt.Println("Start GetOrgVMSpec() ...")
-				result, err := handler.GetOrgVMSpec(reqRegion, reqVMSpec)
+				result, err := handler.GetOrgVMSpec(reqVMSpec)
 				if err != nil {
 					cblogger.Error(reqVMSpec, " VMSpec Org 정보 조회 실패 : ", err)
 				} else {
