@@ -46,7 +46,7 @@ NCP:
   region: Region / Zone
   credential: ClientId / ClientSecret
 
-KT:
+KTCLOUD:
   region: Region / Zone
   credential: ClientId / ClientSecret
 
