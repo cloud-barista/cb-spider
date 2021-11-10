@@ -1336,6 +1336,9 @@ func StartVM(c echo.Context) error {
 			VMSpecName         string
 			KeyPairName        string
 
+			RootDiskType       string
+			RootDiskSize       string
+
 			VMUserId     string
 			VMUserPasswd string
 		}
@@ -1366,6 +1369,9 @@ func StartVM(c echo.Context) error {
 
 		VMSpecName: req.ReqInfo.VMSpecName,
 		KeyPairIID: cres.IID{req.ReqInfo.KeyPairName, ""},
+
+		RootDiskType: req.ReqInfo.RootDiskType,
+		RootDiskSize: req.ReqInfo.RootDiskSize,
 
 		VMUserId:     req.ReqInfo.VMUserId,
 		VMUserPasswd: req.ReqInfo.VMUserPasswd,

@@ -27,6 +27,7 @@ require (
 	github.com/davecgh/go-spew v1.1.1
 	github.com/docker/docker v20.10.7+incompatible
 	github.com/docker/go-connections v0.4.0
+	github.com/fsnotify/fsnotify v1.4.9 // indirect
 	github.com/go-resty/resty/v2 v2.6.0
 	github.com/gogo/protobuf v1.3.2
 	github.com/golang-jwt/jwt v3.2.2+incompatible // indirect

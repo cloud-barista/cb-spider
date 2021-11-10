@@ -26,8 +26,8 @@ type VMReqInfo struct {
 	VMSpecName string
 	KeyPairIID IID
 
-	RootDiskType string  // "SSD(gp2)", "Premium SSD", ...
-        RootDiskSize string  // "default", "50", "1000" (GB)
+	RootDiskType string  // "", "SSD(gp2)", "Premium SSD", ...
+        RootDiskSize string  // "", "default", "50", "1000" (GB)
 
 	VMUserId     string
 	VMUserPasswd string

@@ -15,6 +15,7 @@ import (
 	"sync"
 	"time"
 
+	cim "github.com/cloud-barista/cb-spider/cloud-info-manager"
 	ccm "github.com/cloud-barista/cb-spider/cloud-control-manager"
 	cres "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	iidm "github.com/cloud-barista/cb-spider/cloud-control-manager/iid-manager"
@@ -2085,6 +2086,9 @@ func cloneReqInfoWithDriverIID(ConnectionName string, reqInfo cres.VMReqInfo) (c
 		VMSpecName:       reqInfo.VMSpecName,
 		//KeyPairIID:       cres.IID{reqInfo.KeyPairIID.NameId, reqInfo.KeyPairIID.SystemId},
 
+		RootDiskType:	  reqInfo.RootDiskType, 
+		RootDiskSize:	  reqInfo.RootDiskSize,
+
 		VMUserId:         reqInfo.VMUserId,
 		VMUserPasswd:	  reqInfo.VMUserPasswd,
 	}
@@ -2252,9 +2256,9 @@ func StartVM(connectionName string, rsType string, reqInfo cres.VMReqInfo) (*cre
 	emptyPermissionList := []string{
                 "resources.IID:SystemId",
                 "resources.VMReqInfo:RootDiskType", // because can be set without disk type
-                "resources.VMReqInfo:RootDiskSize", // because can be set without disk type
-                "resources.VMReqInfo:VMUserId",     // because can be set without disk type
-                "resources.VMReqInfo:VMUserPasswd",     // because can be set without disk type
+                "resources.VMReqInfo:RootDiskSize", // because can be set without disk size
+                "resources.VMReqInfo:VMUserId",     // because can be set without VM User
+                "resources.VMReqInfo:VMUserPasswd", // because can be set without VM PW
         }
 
         err = ValidateStruct(reqInfo, emptyPermissionList)
@@ -2299,6 +2303,15 @@ func StartVM(connectionName string, rsType string, reqInfo cres.VMReqInfo) (*cre
                 cblog.Error(err)
                 return nil, err
         }
+
+	// Translate user's root disk setting info into driver's root disk setting info.
+	err = translateRootDiskSetupInfo(providerName, &reqInfo) 
+        if err != nil {
+                cblog.Error(err)
+                return nil, err
+        }
+
+
 
 	// (2) generate SP-XID and create reqIID, driverIID
 	//     ex) SP-XID {"vm-01-9m4e2mr0ui3e8a215n4g"}
@@ -2390,6 +2403,66 @@ func StartVM(connectionName string, rsType string, reqInfo cres.VMReqInfo) (*cre
 	}
 
 	return &info, nil
+}
+
+func translateRootDiskSetupInfo(providerName string, reqInfo *cres.VMReqInfo) error {
+
+	// get Provider's Meta Info
+	cloudOSMetaInfo, err := cim.GetCloudOSMetaInfo(providerName)
+	if err != nil {
+		cblog.Error(err)
+		return err
+	}
+
+	// for Root Disk Type
+	switch strings.ToUpper(reqInfo.RootDiskType) {
+	case "", "DEFAULT": // bypass
+		reqInfo.RootDiskType = ""
+	default: // TYPE1, TYPE2, TYPE3, ... or "pd-balanced", check validation, bypass
+	        // TYPE2, ...
+		if strings.Contains(strings.ToUpper(reqInfo.RootDiskType), "TYPE") {
+			strType := strings.ToUpper(reqInfo.RootDiskType)
+			typeNum, _ := strconv.Atoi(strings.Replace(strType, "TYPE", "", -1)) // "TYPE2" => "2" => 2
+			typeMax := len(cloudOSMetaInfo.RootDiskType)
+			if typeNum > typeMax {
+				typeNum = typeMax
+			}
+			reqInfo.RootDiskType = cloudOSMetaInfo.RootDiskType[typeNum-1]
+		} else if !validateRootDiskType(reqInfo.RootDiskType, cloudOSMetaInfo.RootDiskType) {
+                        errMSG :=reqInfo.RootDiskType + " is not a valid Root Disk Type of " + providerName + "!"
+                        cblog.Error(errMSG)
+                        return fmt.Errorf(errMSG)
+                }
+	}
+
+
+	// for Root Disk Size
+	switch strings.ToUpper(reqInfo.RootDiskSize) {
+        case "", "DEFAULT": // bypass
+                reqInfo.RootDiskSize = ""
+        default: // "100", bypass
+		err := validateRootDiskSize(reqInfo.RootDiskSize)
+		if err != nil {
+                        errMSG :=reqInfo.RootDiskSize + " is not a valid Root Disk Size: " + err.Error() + "!"
+                        cblog.Error(errMSG)
+                        return fmt.Errorf(errMSG)
+                }
+        }
+	return nil
+}
+
+func validateRootDiskType(diskType string, diskTypeList []string) bool {
+	for _, v := range diskTypeList {
+		if diskType == v {
+			return true
+		}
+	}
+	return false
+}
+
+func validateRootDiskSize(strSize string) error {
+	_, err := strconv.Atoi(strSize)
+	return err
 }
 
 func setNameId(ConnectionName string, vmInfo *cres.VMInfo, reqInfo *cres.VMReqInfo) error {
