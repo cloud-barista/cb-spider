@@ -13,14 +13,15 @@ import (
 	"os"
 )
 
-var cblogger *logrus.Logger
+// duplicateName
+var res_cblogger *logrus.Logger
 
 func init() {
 	// cblog is a global variable.
-	cblogger = cblog.GetLogger("CB-SPIDER")
+	res_cblogger = cblog.GetLogger("CB-SPIDER")
 }
 
-func testImageHandler(config Config) {
+func testImageHandler(config ResourceConfig) {
 
 	var imageHandler irs.ImageHandler
 	if resourceHandler, err := getResourceHandler("image"); err != nil {
@@ -97,7 +98,7 @@ Loop:
 
 /*
 //AdaptiveIP
-func testPublicIPHanlder(config Config) {
+func testPublicIPHanlder(config ResourceConfig) {
 	resourceHandler, err := getResourceHandler("publicip")
 	if err != nil {
 		fmt.Println(err)
@@ -162,7 +163,7 @@ Loop:
 }
 */
 //SecurityGroup
-func testSecurityHandler(config Config) {
+func testSecurityHandler(config ResourceConfig) {
 	resourceHandler, err := getResourceHandler("security")
 	if err != nil {
 		fmt.Println(err)
@@ -249,7 +250,7 @@ Loop:
 }
 
 //Subnet
-func testVPCHandler(config Config) {
+func testVPCHandler(config ResourceConfig) {
 	resourceHandler, err := getResourceHandler("vpc")
 	if err != nil {
 		fmt.Println(err)
@@ -407,7 +408,7 @@ Loop:
 	}
 }
 */
-func testVmSpecHandler(config Config) {
+func testVmSpecHandler(config ResourceConfig) {
 	resourceHandler, err := getResourceHandler("vmspec")
 	if err != nil {
 		fmt.Println(err)
@@ -421,7 +422,6 @@ func testVmSpecHandler(config Config) {
 	fmt.Println("4. GetOrgVmSpec()")
 	fmt.Println("9. Exit")
 
-	region := config.Cloudit.TenantID
 	vmSpecName := "large-4"
 
 Loop:
@@ -436,7 +436,7 @@ Loop:
 			switch commandNum {
 			case 1:
 				fmt.Println("Start ListVmSpec() ...")
-				if list, err := vmSpecHandler.ListVMSpec(region); err != nil {
+				if list, err := vmSpecHandler.ListVMSpec(); err != nil {
 					fmt.Println(err)
 				} else {
 					spew.Dump(list)
@@ -444,7 +444,7 @@ Loop:
 				fmt.Println("Finish ListVmSpec()")
 			case 2:
 				fmt.Println("Start GetVmSpec() ...")
-				if vmSpec, err := vmSpecHandler.GetVMSpec(region, vmSpecName); err != nil {
+				if vmSpec, err := vmSpecHandler.GetVMSpec( vmSpecName); err != nil {
 					fmt.Println(err)
 				} else {
 					spew.Dump(vmSpec)
@@ -452,7 +452,7 @@ Loop:
 				fmt.Println("Finish GetVmSpec()")
 			case 3:
 				fmt.Println("Start ListOrgVmSpec() ...")
-				if listStr, err := vmSpecHandler.ListOrgVMSpec(region); err != nil {
+				if listStr, err := vmSpecHandler.ListOrgVMSpec(); err != nil {
 					fmt.Println(err)
 				} else {
 					fmt.Println(listStr)
@@ -460,7 +460,7 @@ Loop:
 				fmt.Println("Finish ListOrgVmSpec()")
 			case 4:
 				fmt.Println("Start GetOrgVmSpec() ...")
-				if vmSpecStr, err := vmSpecHandler.GetOrgVMSpec(region, vmSpecName); err != nil {
+				if vmSpecStr, err := vmSpecHandler.GetOrgVMSpec(vmSpecName); err != nil {
 					fmt.Println(err)
 				} else {
 					fmt.Println(vmSpecStr)
@@ -474,20 +474,20 @@ Loop:
 	}
 }
 
-func testKeypairHandler(config Config) {
+func testKeypairHandler(config ResourceConfig) {
 	resourceHandler, err := getResourceHandler("keypair")
 	if err != nil {
-		cblogger.Error(err)
+		res_cblogger.Error(err)
 	}
 
 	keypairHandler := resourceHandler.(irs.KeyPairHandler)
 
-	cblogger.Info("Test KeypairHandler")
-	cblogger.Info("1. ListKeyPair()")
-	cblogger.Info("2. GetKeyPair()")
-	cblogger.Info("3. CreateKeyPair()")
-	cblogger.Info("4. DeleteKeyPair()")
-	cblogger.Info("5. Exit Program")
+	res_cblogger.Info("Test KeypairHandler")
+	res_cblogger.Info("1. ListKeyPair()")
+	res_cblogger.Info("2. GetKeyPair()")
+	res_cblogger.Info("3. CreateKeyPair()")
+	res_cblogger.Info("4. DeleteKeyPair()")
+	res_cblogger.Info("5. Exit Program")
 
 	iid := irs.IID{
 		NameId:   "CB-Keypair",
@@ -499,46 +499,46 @@ Loop:
 		var commandNum int
 		inputCnt, err := fmt.Scan(&commandNum)
 		if err != nil {
-			cblogger.Error(err)
+			res_cblogger.Error(err)
 		}
 
 		if inputCnt == 1 {
 			switch commandNum {
 			case 1:
-				cblogger.Info("Start ListKeyPair() ...")
+				res_cblogger.Info("Start ListKeyPair() ...")
 				if list, err := keypairHandler.ListKey(); err != nil {
-					cblogger.Error(err)
+					res_cblogger.Error(err)
 				} else {
 					spew.Dump(list)
 				}
-				cblogger.Info("Finish ListKeyPair()")
+				res_cblogger.Info("Finish ListKeyPair()")
 			case 2:
-				cblogger.Info("Start GetKeyPair() ...")
+				res_cblogger.Info("Start GetKeyPair() ...")
 				if vNicInfo, err := keypairHandler.GetKey(iid); err != nil {
-					cblogger.Error(err)
+					res_cblogger.Error(err)
 				} else {
 					spew.Dump(vNicInfo)
 				}
-				cblogger.Info("Finish GetKeyPair()")
+				res_cblogger.Info("Finish GetKeyPair()")
 			case 3:
-				cblogger.Info("Start CreateKeyPair() ...")
+				res_cblogger.Info("Start CreateKeyPair() ...")
 				reqInfo := irs.KeyPairReqInfo{
 					IId: iid,
 				}
 				if vNicInfo, err := keypairHandler.CreateKey(reqInfo); err != nil {
-					cblogger.Error(err)
+					res_cblogger.Error(err)
 				} else {
 					spew.Dump(vNicInfo)
 				}
-				cblogger.Info("Finish CreateKeyPair()")
+				res_cblogger.Info("Finish CreateKeyPair()")
 			case 4:
-				cblogger.Info("Start DeleteKeyPair() ...")
+				res_cblogger.Info("Start DeleteKeyPair() ...")
 				if ok, err := keypairHandler.DeleteKey(iid); !ok {
-					cblogger.Error(err)
+					res_cblogger.Error(err)
 				}
-				cblogger.Info("Finish DeleteKeyPair()")
+				res_cblogger.Info("Finish DeleteKeyPair()")
 			case 5:
-				cblogger.Info("Exit Program")
+				res_cblogger.Info("Exit Program")
 				break Loop
 			}
 		}
@@ -605,7 +605,7 @@ func showTestHandlerInfo() {
 func main() {
 
 	showTestHandlerInfo()      // ResourceHandler 테스트 정보 출력
-	config := readConfigFile() // config.yaml 파일 로드
+	config := readResourceConfigFile() // config.yaml 파일 로드
 
 Loop:
 
@@ -646,8 +646,8 @@ Loop:
 		}
 	}
 }
-
-type Config struct {
+// duplicateName
+type ResourceConfig struct {
 	Cloudit struct {
 		IdentityEndpoint string `yaml:"identity_endpoint"`
 		Username         string `yaml:"user_id"`
@@ -681,7 +681,8 @@ type Config struct {
 	} `yaml:"cloudit"`
 }
 
-func readConfigFile() Config {
+// duplicateName
+func readResourceConfigFile() ResourceConfig {
 	// Set Environment Value of Project Root Path4
 	rootPath := os.Getenv("CBSPIDER_ROOT")
 	data, err := ioutil.ReadFile(rootPath + "/conf/config.yaml")
@@ -689,7 +690,7 @@ func readConfigFile() Config {
 		fmt.Println(err)
 	}
 
-	var config Config
+	var config ResourceConfig
 	err = yaml.Unmarshal(data, &config)
 	if err != nil {
 		fmt.Println(err)

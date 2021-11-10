@@ -559,13 +559,11 @@ Loop:
 			cblogger.Error(err)
 		}
 
-		region := config.Azure.Location
-
 		if inputCnt == 1 {
 			switch commandNum {
 			case 1:
 				cblogger.Info("Start ListVmSpec() ...")
-				if list, err := vmSpecHandler.ListVMSpec(region); err != nil {
+				if list, err := vmSpecHandler.ListVMSpec(); err != nil {
 					cblogger.Error(err)
 				} else {
 					spew.Dump(list)
@@ -573,7 +571,7 @@ Loop:
 				cblogger.Info("Finish ListVmSpec()")
 			case 2:
 				cblogger.Info("Start GetVmSpec() ...")
-				if vmSpec, err := vmSpecHandler.GetVMSpec(region, vmSpecName); err != nil {
+				if vmSpec, err := vmSpecHandler.GetVMSpec(vmSpecName); err != nil {
 					cblogger.Error(err)
 				} else {
 					spew.Dump(vmSpec)
@@ -581,7 +579,7 @@ Loop:
 				cblogger.Info("Finish GetVmSpec()")
 			case 3:
 				cblogger.Info("Start ListOrgVmSpec() ...")
-				if listStr, err := vmSpecHandler.ListOrgVMSpec(region); err != nil {
+				if listStr, err := vmSpecHandler.ListOrgVMSpec(); err != nil {
 					cblogger.Error(err)
 				} else {
 					fmt.Println(listStr)
@@ -589,7 +587,7 @@ Loop:
 				cblogger.Info("Finish ListOrgVmSpec()")
 			case 4:
 				cblogger.Info("Start GetOrgVmSpec() ...")
-				if vmSpecStr, err := vmSpecHandler.GetOrgVMSpec(region, vmSpecName); err != nil {
+				if vmSpecStr, err := vmSpecHandler.GetOrgVMSpec(vmSpecName); err != nil {
 					cblogger.Error(err)
 				} else {
 					fmt.Println(vmSpecStr)
