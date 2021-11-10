@@ -13,6 +13,7 @@ import (
 	"io/ioutil"
 	"os"
 	"reflect"
+	"strconv"
 	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -191,7 +192,52 @@ func (vmHandler *AwsVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 		//ec2.InstanceNetworkInterfaceSpecification
 		UserData: userDataBase64,
 	}
-	cblogger.Info(input)
+
+	//=============================
+	// SystemDisk 처리 - 이슈 #348에 의해 RootDisk 기능 지원
+	//=============================
+	if vmReqInfo.RootDiskType != "" || vmReqInfo.RootDiskSize != "" {
+		blockDeviceMappings := []*ec2.BlockDeviceMapping{
+			{
+				DeviceName: aws.String("/dev/sda1"),
+				//DeviceName: aws.String("/dev/sdh"),
+				Ebs: &ec2.EbsBlockDevice{
+					//RootDeviceName
+					//VolumeType: aws.String(diskType),
+					//VolumeSize: diskSize,
+				},
+			},
+		}
+		input.SetBlockDeviceMappings(blockDeviceMappings)
+
+		//=============================
+		// Root Disk Type 변경
+		//=============================
+		if vmReqInfo.RootDiskType != "" {
+			//diskType = vmReqInfo.RootDiskType
+			input.BlockDeviceMappings[0].Ebs.VolumeType = aws.String(vmReqInfo.RootDiskType)
+		}
+
+		//=============================
+		// Root Disk Size 변경
+		//=============================
+		if vmReqInfo.RootDiskSize != "" {
+			if strings.EqualFold(vmReqInfo.RootDiskSize, "default") {
+				input.BlockDeviceMappings[0].Ebs.VolumeSize = aws.Int64(8)
+			} else {
+				iDiskSize, err := strconv.ParseInt(vmReqInfo.RootDiskSize, 10, 64)
+				if err != nil {
+					cblogger.Error(err)
+					return irs.VMInfo{}, err
+				}
+				//diskSize = aws.Int64(iDiskSize)
+				//input.BlockDeviceMappings[0].Ebs.VolumeSize = diskSize
+				input.BlockDeviceMappings[0].Ebs.VolumeSize = aws.Int64(iDiskSize)
+			}
+		}
+	}
+
+	cblogger.Debug(input)
 
 	// logger for HisCall
 	callogger := call.GetLogger("HISCALL")

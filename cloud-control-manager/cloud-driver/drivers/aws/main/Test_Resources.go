@@ -908,10 +908,11 @@ func handleVM() {
 					VMSpecName:        "t2.micro",
 					KeyPairIID:        irs.IID{SystemId: "japan-test"},
 
-					//RootDiskType: "pd-ssd",      //standard/io1/io2/gp2/sc1/st1/gp3
-					//RootDiskType: "pd-balanced", //pd-standard/pd-balanced/pd-ssd/pd-extreme
-					RootDiskSize: "15", //최소 10GB 이상이어야 함.
-					//RootDiskSize: "default", //10GB
+					RootDiskType: "standard", //gp2/standard/io1/io2/sc1/st1/gp3
+					//RootDiskType: "gp2", //gp2/standard/io1/io2/sc1/st1/gp3
+					//RootDiskType: "gp3", //gp2/standard/io1/io2/sc1/st1/gp3
+					RootDiskSize: "60", //최소 8GB 이상이어야 함.
+					//RootDiskSize: "Default", //8GB
 				}
 
 				vmInfo, err := vmHandler.StartVM(vmReqInfo)
@@ -921,6 +922,7 @@ func handleVM() {
 				} else {
 					cblogger.Info("VM 생성 완료!!", vmInfo)
 					spew.Dump(vmInfo)
+					VmID = vmInfo.IId
 				}
 				//cblogger.Info(vm)
 
@@ -1132,11 +1134,11 @@ func main() {
 	//handleKeyPair()
 	//handlePublicIP() // PublicIP 생성 후 conf
 	//handleSecurity()
-	//handleVM()
+	handleVM()
 
 	//handleImage() //AMI
 	//handleVNic() //Lancard
-	handleVMSpec()
+	//handleVMSpec()
 }
 
 //handlerType : resources폴더의 xxxHandler.go에서 Handler이전까지의 문자열
