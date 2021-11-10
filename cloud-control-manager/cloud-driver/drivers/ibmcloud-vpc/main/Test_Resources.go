@@ -21,14 +21,14 @@ type Config struct {
 		Zone      string `yaml:"zone"`
 		Resources struct {
 			Image struct {
-				NameId string `yaml:"nameId"`
+				NameId   string `yaml:"nameId"`
 				SystemId string `yaml:"systemId"`
 			} `yaml:"image"`
 			Security struct {
-				NameId string `yaml:"nameId"`
+				NameId   string `yaml:"nameId"`
 				SystemId string `yaml:"systemId"`
-				VpcIID struct {
-					NameId string `yaml:"nameId"`
+				VpcIID   struct {
+					NameId   string `yaml:"nameId"`
 					SystemId string `yaml:"systemId"`
 				} `yaml:"VpcIID"`
 				Rules []struct {
@@ -40,7 +40,7 @@ type Config struct {
 				} `yaml:"rules"`
 			} `yaml:"security"`
 			KeyPair struct {
-				NameId string `yaml:"nameId"`
+				NameId   string `yaml:"nameId"`
 				SystemId string `yaml:"systemId"`
 			} `yaml:"keyPair"`
 			VmSpec struct {
@@ -61,28 +61,28 @@ type Config struct {
 			} `yaml:"vpc"`
 			Vm struct {
 				IID struct {
-					NameId string `yaml:"nameId"`
+					NameId   string `yaml:"nameId"`
 					SystemId string `yaml:"systemId"`
 				} `yaml:"IID"`
 				ImageIID struct {
-					NameId string `yaml:"nameId"`
+					NameId   string `yaml:"nameId"`
 					SystemId string `yaml:"systemId"`
 				} `yaml:"ImageIID"`
 				VmSpecName string `yaml:"VmSpecName"`
 				KeyPairIID struct {
-					NameId string `yaml:"nameId"`
+					NameId   string `yaml:"nameId"`
 					SystemId string `yaml:"systemId"`
 				} `yaml:"KeyPairIID"`
 				VpcIID struct {
-					NameId string `yaml:"nameId"`
+					NameId   string `yaml:"nameId"`
 					SystemId string `yaml:"systemId"`
 				} `yaml:"VpcIID"`
 				SubnetIID struct {
-					NameId string `yaml:"nameId"`
+					NameId   string `yaml:"nameId"`
 					SystemId string `yaml:"systemId"`
 				} `yaml:"SubnetIID"`
 				SecurityGroupIIDs []struct {
-					NameId string `yaml:"nameId"`
+					NameId   string `yaml:"nameId"`
 					SystemId string `yaml:"systemId"`
 				} `yaml:"SecurityGroupIIDs"`
 			} `yaml:"vm"`
@@ -430,15 +430,13 @@ Loop:
 			cblogger.Error(err)
 		}
 
-		region := config.IbmVPC.Region
-
 		if inputCnt == 1 {
 			switch commandNum {
 			case 0:
 				testVMSpecHandlerListPrint()
 			case 1:
 				cblogger.Info("Start ListVMSpec() ...")
-				if list, err := vmSpecHandler.ListVMSpec(region); err != nil {
+				if list, err := vmSpecHandler.ListVMSpec(); err != nil {
 					cblogger.Error(err)
 				} else {
 					spew.Dump(list)
@@ -446,7 +444,7 @@ Loop:
 				cblogger.Info("Finish ListVMSpec()")
 			case 2:
 				cblogger.Info("Start GetVMSpec() ...")
-				if vmSpecInfo, err := vmSpecHandler.GetVMSpec(region, config.IbmVPC.Resources.VmSpec.NameId); err != nil {
+				if vmSpecInfo, err := vmSpecHandler.GetVMSpec(config.IbmVPC.Resources.VmSpec.NameId); err != nil {
 					cblogger.Error(err)
 				} else {
 					spew.Dump(vmSpecInfo)
@@ -454,7 +452,7 @@ Loop:
 				cblogger.Info("Finish GetVMSpec()")
 			case 3:
 				cblogger.Info("Start ListOrgVMSpec() ...")
-				if listStr, err := vmSpecHandler.ListOrgVMSpec(region); err != nil {
+				if listStr, err := vmSpecHandler.ListOrgVMSpec(); err != nil {
 					cblogger.Error(err)
 				} else {
 					fmt.Println(listStr)
@@ -462,7 +460,7 @@ Loop:
 				cblogger.Info("Finish ListOrgVMSpec()")
 			case 4:
 				cblogger.Info("Start GetOrgVMSpec() ...")
-				if vmSpecStr, err := vmSpecHandler.GetOrgVMSpec(region, config.IbmVPC.Resources.VmSpec.NameId); err != nil {
+				if vmSpecStr, err := vmSpecHandler.GetOrgVMSpec(config.IbmVPC.Resources.VmSpec.NameId); err != nil {
 					cblogger.Error(err)
 				} else {
 					fmt.Println(vmSpecStr)
