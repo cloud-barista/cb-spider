@@ -9,7 +9,7 @@ import (
 	"os"
 	_ "fmt"
 	"strings"
-	"sort"
+	_ "sort"
 )
 
 var cblog *logrus.Logger
@@ -55,7 +55,7 @@ func ListCloudOS() []string {
 		cloudosList.Name[n] = strings.ToUpper(cloudos)
 	}
 
-	sort.Strings(cloudosList.Name)
+	//sort.Strings(cloudosList.Name)
 	cblog.Info(cloudosList)
 
 	return cloudosList.Name
