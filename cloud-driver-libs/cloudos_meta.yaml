@@ -9,7 +9,8 @@
 AWS:
   region: Region / Zone
   credential: ClientId / ClientSecret
-  rootdisktype: standard / io1 / io2 / gp2 / sc1 / st1 / gp3
+  # rootdisktype: standard / io1 / io2 / gp2 / sc1 / st1 / gp3
+  rootdisktype: standard / gp2 / gp3
 
 AZURE:
   region: location / ResourceGroup
