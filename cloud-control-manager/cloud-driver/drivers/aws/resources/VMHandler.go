@@ -333,6 +333,9 @@ func (vmHandler *AwsVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 	//newVmInfo, _ := vmHandler.GetVM(newVmId)
 	newVmInfo, _ := vmHandler.GetVM(irs.IID{SystemId: newVmId})
 	newVmInfo.IId.NameId = vmReqInfo.IId.NameId // Tag 정보가 없을 수 있기 때문에 요청 받은 NameId를 전달 함.
+	//newVmInfo.RootDiskType = vmReqInfo.RootDiskType
+	newVmInfo.RootDiskSize = vmReqInfo.RootDiskSize // 조회시 사이즈는 나중에 블럭 디바이스 조회하는 기능 넣고 추가해야할 듯
+	//newVmInfo.RootDeviceName = newVmInfo.VMBootDisk
 
 	/*
 		//빠른 생성을 위해 Running 상태를 대기하지 않고 최소한의 정보만 리턴 함.
@@ -737,6 +740,17 @@ func (vmHandler *AwsVMHandler) ExtractDescribeInstances(reservation *ec2.Reserva
 		if !reflect.ValueOf(reservation.Instances[0].BlockDeviceMappings[0].DeviceName).IsNil() {
 			vmInfo.VMBlockDisk = *reservation.Instances[0].BlockDeviceMappings[0].DeviceName
 		}
+
+		if !reflect.ValueOf(reservation.Instances[0].BlockDeviceMappings[0].Ebs).IsNil() {
+
+			volumeInfo, err := vmHandler.GetVolumInfo(*reservation.Instances[0].BlockDeviceMappings[0].Ebs.VolumeId)
+			if err != nil {
+			} else {
+				vmInfo.RootDiskSize = strconv.FormatInt(*volumeInfo.Size, 10)
+				vmInfo.RootDiskType = *volumeInfo.VolumeType
+			}
+		}
+
 	}
 
 	if !reflect.ValueOf(reservation.Instances[0].Placement.AvailabilityZone).IsNil() {
@@ -792,8 +806,16 @@ func (vmHandler *AwsVMHandler) ExtractDescribeInstances(reservation *ec2.Reserva
 	}
 
 	if !reflect.ValueOf(reservation.Instances[0].RootDeviceName).IsNil() {
-		vmInfo.VMBootDisk = *reservation.Instances[0].RootDeviceName
+		//vmInfo.VMBootDisk = *reservation.Instances[0].RootDeviceName
+		vmInfo.RootDeviceName = *reservation.Instances[0].RootDeviceName
 	}
+
+	/*
+		if !reflect.ValueOf(reservation.Instances[0].RootDeviceType).IsNil() {
+			//vmInfo.VMBootDisk = *reservation.Instances[0].RootDeviceName
+			vmInfo.RootDiskType = *reservation.Instances[0].RootDeviceType
+		}
+	*/
 
 	if !reflect.ValueOf(reservation.Instances[0].KeyName).IsNil() {
 		keyValueList = append(keyValueList, irs.KeyValue{Key: "KeyName", Value: *reservation.Instances[0].KeyName})
@@ -811,6 +833,55 @@ func (vmHandler *AwsVMHandler) ExtractDescribeInstances(reservation *ec2.Reserva
 
 	vmInfo.KeyValueList = keyValueList
 	return vmInfo
+}
+
+//볼륨 정보 조회
+func (vmHandler *AwsVMHandler) GetVolumInfo(volumeId string) (*ec2.Volume, error) {
+	cblogger.Infof("volumeId : [%s]", volumeId)
+
+	input := &ec2.DescribeVolumesInput{
+		VolumeIds: []*string{
+			aws.String(volumeId),
+		},
+	}
+	/*
+		input.Filters = ([]*ec2.Filter{
+			&ec2.Filter{
+				Name: aws.String("tag:volume-id"),
+				Values: []*string{
+					aws.String(volumeId),
+				},
+			},
+		})
+	*/
+	cblogger.Info(input)
+
+	result, err := vmHandler.Client.DescribeVolumes(input)
+	cblogger.Info(result)
+	if err != nil {
+		if aerr, ok := err.(awserr.Error); ok {
+			switch aerr.Code() {
+			default:
+				cblogger.Error(aerr.Error())
+			}
+		} else {
+			// Print the error, cast err to awserr.Error to get the Code and Message from an error.
+			cblogger.Error(err.Error())
+		}
+		return nil, err
+	}
+
+	//cblogger.Info(result)
+	cblogger.Infof("조회된 볼륨 수 : [%d]", len(result.Volumes))
+	if len(result.Volumes) > 1 {
+		return nil, awserr.New("700", "1개 이상의 Volume 정보가 존재합니다.", nil)
+	} else if len(result.Volumes) == 0 {
+		cblogger.Errorf("[%s]와 일치하는 볼륨 정보가 존재하지 않습니다.", volumeId)
+		return nil, awserr.New("404", "["+volumeId+"] 볼륨 정보가 존재하지 않습니다.", nil)
+	}
+
+	cblogger.Info("VolumeInfo", result.Volumes)
+	return result.Volumes[0], nil
 }
 
 func ExtractVmName(Tags []*ec2.Tag) string {
