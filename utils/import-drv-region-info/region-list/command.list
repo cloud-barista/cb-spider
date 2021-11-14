@@ -3,6 +3,9 @@ $aws ec2 describe-regions > aws-regions-list.json
 
 ## AZURE - last update: 2020.05.15
 $az account list-locations > azure-regions-list.json
+## AZURE - last update: 2021.11.12
+$az account list-locations --query "sort_by([?metadata.regionType=='Physical'].{Name:name}, &Name)" -o table
+
 
 ## GCP - last update: 2020.05.15
 $gcloud compute zones list --project powerkimhub --format=json > gcp-regions-list.json
