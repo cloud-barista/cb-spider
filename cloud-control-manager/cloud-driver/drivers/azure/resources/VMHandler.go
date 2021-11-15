@@ -114,18 +114,11 @@ func (vmHandler *AzureVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 	if vmImage == ""{
 		vmImage = vmReqInfo.ImageIID.NameId
 	}
-	storageType := getVMDiskTypeInitType(vmReqInfo.RootDiskType)
 	// Image 설정
 	if strings.Contains(vmImage, ":") {
 		imageArr := strings.Split(vmImage, ":")
 		// URN 기반 퍼블릭 이미지 설정
 		vmOpts.StorageProfile = &compute.StorageProfile{
-			OsDisk: &compute.OSDisk{
-				CreateOption: compute.DiskCreateOptionTypesFromImage,
-				ManagedDisk: &compute.ManagedDiskParameters{
-					StorageAccountType: storageType,
-				},
-			},
 			ImageReference: &compute.ImageReference{
 				Publisher: to.StringPtr(imageArr[0]),
 				Offer:     to.StringPtr(imageArr[1]),
@@ -138,6 +131,15 @@ func (vmHandler *AzureVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 		vmOpts.StorageProfile = &compute.StorageProfile{
 			ImageReference: &compute.ImageReference{
 				ID: to.StringPtr(vmImage),
+			},
+		}
+	}
+	if vmReqInfo.RootDiskType != "" {
+		storageType := getVMDiskTypeInitType(vmReqInfo.RootDiskType)
+		vmOpts.StorageProfile.OsDisk = &compute.OSDisk{
+			CreateOption: compute.DiskCreateOptionTypesFromImage,
+			ManagedDisk: &compute.ManagedDiskParameters{
+				StorageAccountType: storageType,
 			},
 		}
 	}
