@@ -52,6 +52,9 @@ func (s *CCMService) StartVM(ctx context.Context, req *pb.VMCreateRequest) (*pb.
 		VMSpecName: req.Item.VmSpecName,
 		KeyPairIID: cres.IID{NameId: req.Item.KeyPairName, SystemId: ""},
 
+		RootDiskType: req.Item.RootDiskType,
+		RootDiskSize: req.Item.RootDiskSize,
+
 		VMUserId:     req.Item.VmUserId,
 		VMUserPasswd: req.Item.VmUserPasswd,
 	}

@@ -163,6 +163,9 @@ type VMInfo struct {
 	VMSpecName         string   `yaml:"VMSpecName" json:"VMSpecName"`
 	KeyPairName        string   `yaml:"KeyPairName" json:"KeyPairName"`
 
+	RootDiskType string `yaml:"RootDiskType" json:"RootDiskType"`
+	RootDiskSize string `yaml:"RootDiskSize" json:"RootDiskSize"`
+
 	VMUserId     string `yaml:"VMUserId" json:"VMUserId"`
 	VMUserPasswd string `yaml:"VMUserPasswd" json:"VMUserPasswd"`
 }

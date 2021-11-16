@@ -609,12 +609,16 @@ message VMInfo {
 	string private_ip = 15 [json_name="PrivateIP", (gogoproto.jsontag) = "PrivateIP", (gogoproto.moretags) = "yaml:\"PrivateIP\""];
 	string private_dns = 16 [json_name="PrivateDNS", (gogoproto.jsontag) = "PrivateDNS", (gogoproto.moretags) = "yaml:\"PrivateDNS\""];
 
-	string vm_boot_disk = 17 [json_name="VMBootDisk", (gogoproto.jsontag) = "VMBootDisk", (gogoproto.moretags) = "yaml:\"VMBootDisk\""];
-	string vm_block_disk = 18 [json_name="VMBlockDisk", (gogoproto.jsontag) = "VMBlockDisk", (gogoproto.moretags) = "yaml:\"VMBlockDisk\""];
+	string root_disk_type = 17 [json_name="RootDiskType", (gogoproto.jsontag) = "RootDiskType", (gogoproto.moretags) = "yaml:\"RootDiskType\""];
+	string root_disk_size = 18 [json_name="RootDiskSize", (gogoproto.jsontag) = "RootDiskSize", (gogoproto.moretags) = "yaml:\"RootDiskSize\""];
+	string root_device_name = 19 [json_name="RootDeviceName", (gogoproto.jsontag) = "RootDeviceName", (gogoproto.moretags) = "yaml:\"RootDeviceName\""];
 
-	string ssh_access_point = 19 [json_name="SSHAccessPoint", (gogoproto.jsontag) = "SSHAccessPoint", (gogoproto.moretags) = "yaml:\"SSHAccessPoint\""];
+	string vm_boot_disk = 20 [json_name="VMBootDisk", (gogoproto.jsontag) = "VMBootDisk", (gogoproto.moretags) = "yaml:\"VMBootDisk\""];
+	string vm_block_disk = 21 [json_name="VMBlockDisk", (gogoproto.jsontag) = "VMBlockDisk", (gogoproto.moretags) = "yaml:\"VMBlockDisk\""];
 
-	repeated KeyValue key_value_list = 20 [json_name="KeyValueList", (gogoproto.jsontag) = "KeyValueList", (gogoproto.moretags) = "yaml:\"KeyValueList\""];
+	string ssh_access_point = 22 [json_name="SSHAccessPoint", (gogoproto.jsontag) = "SSHAccessPoint", (gogoproto.moretags) = "yaml:\"SSHAccessPoint\""];
+
+	repeated KeyValue key_value_list = 23 [json_name="KeyValueList", (gogoproto.jsontag) = "KeyValueList", (gogoproto.moretags) = "yaml:\"KeyValueList\""];
 }
 
 message VMRegionInfo {
@@ -636,8 +640,11 @@ message VMCreateInfo {
 	string vm_spec_name = 6 [json_name="VMSpecName", (gogoproto.jsontag) = "VMSpecName", (gogoproto.moretags) = "yaml:\"VMSpecName\""]; 
 	string key_pair_name = 7 [json_name="KeyPairName", (gogoproto.jsontag) = "KeyPairName", (gogoproto.moretags) = "yaml:\"KeyPairName\""]; 
 
-	string vm_user_id = 8 [json_name="VMUserId", (gogoproto.jsontag) = "VMUserId", (gogoproto.moretags) = "yaml:\"VMUserId\""]; 
-	string vm_user_passwd = 9 [json_name="VMUserPasswd", (gogoproto.jsontag) = "VMUserPasswd", (gogoproto.moretags) = "yaml:\"VMUserPasswd\""]; 
+	string root_disk_type = 8 [json_name="RootDiskType", (gogoproto.jsontag) = "RootDiskType", (gogoproto.moretags) = "yaml:\"RootDiskType\""]; 
+	string root_disk_size = 9 [json_name="RootDiskSize", (gogoproto.jsontag) = "RootDiskSize", (gogoproto.moretags) = "yaml:\"RootDiskSize\""]; 
+
+	string vm_user_id = 10 [json_name="VMUserId", (gogoproto.jsontag) = "VMUserId", (gogoproto.moretags) = "yaml:\"VMUserId\""]; 
+	string vm_user_passwd = 11 [json_name="VMUserPasswd", (gogoproto.jsontag) = "VMUserPasswd", (gogoproto.moretags) = "yaml:\"VMUserPasswd\""]; 
 }
 
 message VMRegisterRequest {
