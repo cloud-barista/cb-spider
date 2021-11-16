@@ -35,9 +35,6 @@ type CredentialInfo struct {
 	CredentialName   string          // ex) "credential01"
 	ProviderName     string          // ex) "AWS"
 	KeyValueInfoList []icbs.KeyValue // ex) { {ClientId, XXX},
-	//	 {ClientSecret, XXX},
-	//	 {TenantId, XXX},
-	//	 {SubscriptionId, XXX} }
 }
 
 //====================================================================
