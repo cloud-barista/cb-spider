@@ -13,6 +13,8 @@ import (
 	"strings"
 	"github.com/cloud-barista/cb-store/config"
 	icbs "github.com/cloud-barista/cb-store/interfaces"
+	cim "github.com/cloud-barista/cb-spider/cloud-info-manager"
+
 	"github.com/sirupsen/logrus"
 
 	"crypto/aes"
@@ -33,9 +35,6 @@ type CredentialInfo struct {
 	CredentialName   string          // ex) "credential01"
 	ProviderName     string          // ex) "AWS"
 	KeyValueInfoList []icbs.KeyValue // ex) { {ClientId, XXX},
-	//	 {ClientSecret, XXX},
-	//	 {TenantId, XXX},
-	//	 {SubscriptionId, XXX} }
 }
 
 //====================================================================
@@ -229,11 +228,23 @@ func checkParams(credentialName string, providerName string, keyValueInfoList []
 	if providerName == "" {
 		return fmt.Errorf("ProviderName is empty!")
 	}
-	for _, kv := range keyValueInfoList {
-		if kv.Key == "" { // Value can be empty.
-			return fmt.Errorf("Key is empty!")
-		}
-	}
+	if keyValueInfoList == nil {
+                return fmt.Errorf("KeyValue List is nil!")
+        }
+
+	// get Provider's Meta Info
+        cloudOSMetaInfo, err := cim.GetCloudOSMetaInfo(providerName)
+        if err != nil {
+                cblog.Error(err)
+                return err
+        }
+
+        // validate the KeyValueList of Credential Input
+        err = cim.ValidateKeyValueList(keyValueInfoList, cloudOSMetaInfo.Credential)
+        if err != nil {
+                cblog.Error(err)
+                return err
+        }
 
 	return nil
 }

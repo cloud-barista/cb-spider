@@ -13,6 +13,8 @@ import (
 	"strings"
 	"github.com/cloud-barista/cb-store/config"
 	icbs "github.com/cloud-barista/cb-store/interfaces"
+	cim "github.com/cloud-barista/cb-spider/cloud-info-manager"
+
 	"github.com/sirupsen/logrus"
 )
 
@@ -118,11 +120,23 @@ func checkParams(regionName string, providerName string, keyValueInfoList []icbs
 	if providerName == "" {
 		return fmt.Errorf("ProviderName is empty!")
 	}
-	for _, kv := range keyValueInfoList {
-		if kv.Key == "" { // Value can be empty.
-			return fmt.Errorf("Key is empty!")
-		}
+	if keyValueInfoList == nil {
+		return fmt.Errorf("KeyValue List is nil!")
 	}
+
+	// get Provider's Meta Info
+        cloudOSMetaInfo, err := cim.GetCloudOSMetaInfo(providerName)
+        if err != nil {
+                cblog.Error(err)
+                return err
+        }
+
+	// validate the KeyValueList of Region Input
+	err = cim.ValidateKeyValueList(keyValueInfoList, cloudOSMetaInfo.Region)
+        if err != nil {
+                cblog.Error(err)
+                return err
+        }
 
 	return nil
 }

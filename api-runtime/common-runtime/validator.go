@@ -11,8 +11,6 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
-	//icbs "github.com/cloud-barista/cb-store/interfaces"
-	//ccm "github.com/cloud-barista/cb-spider/cloud-control-manager"
 )
 
 func EmptyCheckAndTrim(inputName string, inputValue string) (string, error) {
@@ -99,69 +97,6 @@ func checkNilPermission(argTypeName string, emptyPermissionList []string) error 
 	}
 	return fmt.Errorf("%v's input value is empty!", argTypeName)
 }
-
-/*
-// (1) Extract and sort the list of keys from inKeyValue,
-// (2) Get the list of keys from driver, and sort it.
-// (3) compare them.
-func ValidateKeyValue(inKeyValueList []icbs.KeyValue, keyList []string, notNullNameList []string) error {
-
-	ccm.GetCloudDriver(
-	// (1) Extract the list of keys from inKeyValue and sort it.
-	for  _, kv := range inKeyValueList {
-		for _, key := range keyList {
-			if kv.Key == key {
-				keyList = keyList.remove(key)
-			}
-		}
-	}
-	// (2) Get the list of keys from driver, and sort it.
-
-	// (3) compare them.
-	return nil
-}
-
-
-func getCloudDriver(providerName string) , error) {
-        cblog.Info("CloudDriverHandler: called getStaticCloudDriver() - " + cldDrvInfo.DriverName)
-
-        var cloudDriver idrv.CloudDriver
-
-        // select driver
-        switch cldDrvInfo.ProviderName {
-        case "AWS":
-                cloudDriver = new(awsdrv.AwsDriver)
-        case "AZURE":
-                cloudDriver = new(azuredrv.AzureDriver)
-        case "GCP":
-                cloudDriver = new(gcpdrv.GCPDriver)
-        case "ALIBABA":
-                cloudDriver = new(alibabadrv.AlibabaDriver)
-        case "OPENSTACK":
-                cloudDriver = new(openstackdrv.OpenStackDriver)
-        case "CLOUDIT":
-                cloudDriver = new(clouditdrv.ClouditDriver)
-        case "DOCKER":
-                cloudDriver = new(dockerdrv.DockerDriver)
-        case "TENCENT":
-                cloudDriver = new(tencentdrv.TencentDriver)
-        // case "NCP": // NCP
-        //  cloudDriver = new(ncpdrv.NcpDriver) // NCP
-        // case "NCPVPC": // NCP-VPC
-        //  cloudDriver = new(ncpvpcdrv.NcpVpcDriver) // NCP-VPC
-        case "MOCK":
-                cloudDriver = new(mockdrv.MockDriver)
-
-        default:
-                errmsg := cldDrvInfo.ProviderName + " is not supported static Cloud Driver!!"
-                return cloudDriver, fmt.Errorf(errmsg)
-        }
-
-        return cloudDriver, nil
-}
-
-*/
-
 
 //----------- utility
 
