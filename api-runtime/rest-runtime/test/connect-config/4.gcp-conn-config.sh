@@ -9,5 +9,5 @@ curl -X POST "http://$RESTSERVER:1024/spider/credential" -H 'Content-Type: appli
 curl -X POST "http://$RESTSERVER:1024/spider/region" -H 'Content-Type: application/json' -d '{"RegionName":"gcp-ohio-region","ProviderName":"GCP", "KeyValueInfoList": [{"Key":"Region", "Value":"us-central1"},{"Key":"Zone", "Value":"us-central1-a"}]}'
 
  # for Cloud Connection Config Info
-curl -X POST "http://$RESTSERVER:1024/spider/connectionconfig" -H 'Content-Type: application/json' -d '{"ConfigName":"gcp-ohio-config","ProviderName":"GCP", "DriverName":"gcp-driver01", "CredentialName":"gcp-credential01", "RegionName":"gcp-ohio-region"}'
+curl -X POST "http://$RESTSERVER:1024/spider/connectionconfig" -H 'Content-Type: application/json' -d '{"ConfigName":"gcp-iowa-config","ProviderName":"GCP", "DriverName":"gcp-driver01", "CredentialName":"gcp-credential01", "RegionName":"gcp-ohio-region"}'
 
