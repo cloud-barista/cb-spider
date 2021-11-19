@@ -720,8 +720,9 @@ func handleImage() {
 					cblogger.Infof(" Image 목록 조회 실패 : ", err)
 				} else {
 					cblogger.Info("Image 목록 조회 결과")
-					cblogger.Info(result)
-					spew.Dump(result)
+					cblogger.Debug(result)
+					cblogger.Infof("로그 레벨 : [%s]", cblog.GetLevel())
+					//spew.Dump(result)
 					cblogger.Info("출력 결과 수 : ", len(result))
 
 					//조회및 삭제 테스트를 위해 리스트의 첫번째 정보의 ID를 요청ID로 자동 갱신함.
@@ -1134,9 +1135,9 @@ func main() {
 	//handleKeyPair()
 	//handlePublicIP() // PublicIP 생성 후 conf
 	//handleSecurity()
-	handleVM()
+	//handleVM()
 
-	//handleImage() //AMI
+	handleImage() //AMI
 	//handleVNic() //Lancard
 	//handleVMSpec()
 }
