@@ -32,8 +32,23 @@ func ListCloudOS(c echo.Context) error {
 	var jsonResult struct {
 		Result []string `json:"cloudos"`
 	}
+	if infoList == nil {
+		infoList = []string{}
+	}
 	jsonResult.Result = infoList
 	return c.JSON(http.StatusOK, &jsonResult)
+}
+
+//================ CloudOS Metainfo
+func GetCloudOSMetaInfo(c echo.Context) error {
+        cblog.Info("call GetCloudOSMetaInfo()")
+
+	cldMetainfo, err := im.GetCloudOSMetaInfo(c.Param("CloudOSName"))
+        if err != nil {
+                return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+        }
+
+        return c.JSON(http.StatusOK, &cldMetainfo)
 }
 
 //================ CloudDriver Handler

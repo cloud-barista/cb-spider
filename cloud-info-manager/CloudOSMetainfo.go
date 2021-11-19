@@ -4,6 +4,7 @@ import (
 	"gopkg.in/yaml.v3"
 	"io/ioutil"
 	"os"
+	"sync"
 	"strings"
 	"fmt"
 	"github.com/fsnotify/fsnotify"
@@ -22,13 +23,24 @@ type YamlMetaInfo struct {
      RootDiskType string
 }
 
+
+
 // global variable to prevent file opereations
 var metaInfo map[string]CloudOSMetaInfo
 
+// Lock for metaInfo
+var rwMutex sync.RWMutex
+
 func GetCloudOSMetaInfo(cloudOS string) (CloudOSMetaInfo, error) {
+
+	cloudOS = strings.ToUpper(cloudOS)
+
+rwMutex.Lock()
 	if metaInfo != nil {
+rwMutex.Unlock()
 		return metaInfo[cloudOS], nil
 	}
+rwMutex.Unlock()
 
 	confFileName, err := getConfigFileName()
 	if err != nil {
@@ -40,7 +52,15 @@ func GetCloudOSMetaInfo(cloudOS string) (CloudOSMetaInfo, error) {
 
 	go setFSNotify(confFileName)
 
-	return metaInfo[cloudOS], nil
+rwMutex.Lock()
+	mInfo := metaInfo[cloudOS]
+	ret := CloudOSMetaInfo{
+		Region : cloneSlice(mInfo.Region),
+		Credential : cloneSlice(mInfo.Credential),
+		RootDiskType : cloneSlice(mInfo.RootDiskType),
+	}
+rwMutex.Unlock()
+	return ret, nil
 }
 
 func getConfigFileName() (string, error){
@@ -55,6 +75,8 @@ func getConfigFileName() (string, error){
 }
 
 func readMetaYaml(confFileName string) error {
+rwMutex.Lock()
+
 	if metaInfo == nil {
 		metaInfo = make(map[string]CloudOSMetaInfo)
 	} else { // clear map
@@ -62,6 +84,7 @@ func readMetaYaml(confFileName string) error {
 			delete(metaInfo, k)
 		}
 	}
+rwMutex.Unlock()
 
         data, err := ioutil.ReadFile(confFileName)
         if err != nil {
@@ -75,12 +98,16 @@ func readMetaYaml(confFileName string) error {
                 cblog.Error(err)
                 return err
         }
+
+rwMutex.Lock()
 	convertAndSetMetaInfo(yamlMetaInfo)
+rwMutex.Unlock()
 	return nil
 }
 
 // map[string]YamlMetaInfo => map[string]CloudOSMetaInfo
 func convertAndSetMetaInfo(yamlMetaInfo map[string]YamlMetaInfo)  {
+
 	for k, v := range yamlMetaInfo {
 		cloudOSMetaInfo := CloudOSMetaInfo {
 			Region: splitAndTrim(v.Region),

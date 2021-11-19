@@ -1,4 +1,4 @@
-export CONN_CONFIG=gcp-ohio-config
+export CONN_CONFIG=gcp-iowa-config
 
 export VPC_NAME=vpc-01
 

@@ -15,6 +15,7 @@ AWS:
 AZURE:
   region: location / ResourceGroup
   credential: ClientId / ClientSecret / TenantId / SubscriptionId
+  rootdisktype: PremiumSSD / StandardSSD / StandardHHD
 
 GCP:
   region: Region / Zone

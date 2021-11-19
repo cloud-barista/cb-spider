@@ -189,6 +189,9 @@ func RunServer() {
 		//----------CloudOS
 		{"GET", "/cloudos", ListCloudOS},
 
+		//----------CloudOSMetaInfo
+		{"GET", "/cloudos/metainfo/:CloudOSName", GetCloudOSMetaInfo},
+
 		//----------CloudDriverInfo
 		{"POST", "/driver", RegisterCloudDriver},
 		{"GET", "/driver", ListCloudDriver},

@@ -15,6 +15,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"strconv"
 	"strings"
 
 	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2021-03-01/compute"
@@ -29,6 +30,9 @@ import (
 const (
 	ProvisioningStateCode string = "ProvisioningState/succeeded"
 	VM                           = "VM"
+	PremiumSSD                   = "PremiumSSD"
+	StandardSSD                  = "StandardSSD"
+	StandardHHD                  = "StandardHHD"
 )
 
 type AzureVMHandler struct {
@@ -105,24 +109,37 @@ func (vmHandler *AzureVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 			},
 		},
 	}
-
+	// TODO : disksize
+	vmImage := vmReqInfo.ImageIID.SystemId
+	if vmImage == ""{
+		vmImage = vmReqInfo.ImageIID.NameId
+	}
 	// Image 설정
-	if strings.Contains(vmReqInfo.ImageIID.SystemId, ":") {
-		imageArr := strings.Split(vmReqInfo.ImageIID.SystemId, ":")
+	if strings.Contains(vmImage, ":") {
+		imageArr := strings.Split(vmImage, ":")
 		// URN 기반 퍼블릭 이미지 설정
 		vmOpts.StorageProfile = &compute.StorageProfile{
 			ImageReference: &compute.ImageReference{
-				Publisher: &imageArr[0],
-				Offer:     &imageArr[1],
-				Sku:       &imageArr[2],
-				Version:   &imageArr[3],
+				Publisher: to.StringPtr(imageArr[0]),
+				Offer:     to.StringPtr(imageArr[1]),
+				Sku:       to.StringPtr(imageArr[2]),
+				Version:   to.StringPtr(imageArr[3]),
 			},
 		}
 	} else {
 		// 사용자 프라이빗 이미지 설정
 		vmOpts.StorageProfile = &compute.StorageProfile{
 			ImageReference: &compute.ImageReference{
-				ID: &vmReqInfo.ImageIID.NameId,
+				ID: to.StringPtr(vmImage),
+			},
+		}
+	}
+	if vmReqInfo.RootDiskType != "" {
+		storageType := getVMDiskTypeInitType(vmReqInfo.RootDiskType)
+		vmOpts.StorageProfile.OsDisk = &compute.OSDisk{
+			CreateOption: compute.DiskCreateOptionTypesFromImage,
+			ManagedDisk: &compute.ManagedDiskParameters{
+				StorageAccountType: storageType,
 			},
 		}
 	}
@@ -570,6 +587,12 @@ func (vmHandler *AzureVMHandler) mappingServerInfo(server compute.VirtualMachine
 	if server.VirtualMachineProperties.StorageProfile.OsDisk.Name != nil {
 		vmInfo.VMBootDisk = *server.VirtualMachineProperties.StorageProfile.OsDisk.Name
 	}
+	if server.VirtualMachineProperties.StorageProfile.OsDisk.DiskSizeGB != nil {
+		vmInfo.RootDiskSize = strconv.Itoa(int(*server.VirtualMachineProperties.StorageProfile.OsDisk.DiskSizeGB))
+	}
+	if server.VirtualMachineProperties.StorageProfile.OsDisk.ManagedDisk != nil{
+		vmInfo.RootDiskType = getVMDiskInfoType(server.VirtualMachineProperties.StorageProfile.OsDisk.ManagedDisk.StorageAccountType)
+	}
 
 	// Get StartTime
 	if server.VirtualMachineProperties.InstanceView != nil {
@@ -782,6 +805,32 @@ func DeleteVNic(vmHandler *AzureVMHandler, vmInfo irs.VMInfo) (irs.VMStatus, err
 	}
 
 	return irs.Terminating, nil
+}
+
+func getVMDiskTypeInitType(diskType string) compute.StorageAccountTypes {
+	switch diskType {
+	case PremiumSSD :
+		return compute.StorageAccountTypesPremiumLRS
+	case StandardSSD :
+		return compute.StorageAccountTypesStandardSSDLRS
+	case StandardHHD :
+		return compute.StorageAccountTypesStandardLRS
+	default:
+		return compute.StorageAccountTypesPremiumLRS
+	}
+}
+
+func getVMDiskInfoType(diskType compute.StorageAccountTypes) string {
+	switch diskType {
+	case compute.StorageAccountTypesPremiumLRS :
+		return PremiumSSD
+	case compute.StorageAccountTypesStandardSSDLRS :
+		return 	StandardSSD
+	case compute.StorageAccountTypesStandardLRS :
+		return StandardHHD
+	default:
+		return string(diskType)
+	}
 }
 
 // VM 삭제 시 VM Disk 자동 삭제 (nested flow 적용)

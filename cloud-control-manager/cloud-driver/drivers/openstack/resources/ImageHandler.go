@@ -39,7 +39,7 @@ func setterImage(image images.Image) *irs.ImageInfo {
 	for key, val := range image.Metadata {
 		metadata := irs.KeyValue{
 			Key:   key,
-			Value: val.(string),
+			Value: fmt.Sprintf("%v", val),
 		}
 		metadataList = append(metadataList, metadata)
 	}

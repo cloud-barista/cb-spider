@@ -4,6 +4,7 @@ go 1.16
 
 replace (
 	github.com/dgrijalva/jwt-go => github.com/golang-jwt/jwt v3.2.1+incompatible
+	github.com/opencontainers/image-spec => github.com/opencontainers/image-spec v1.0.2
 	google.golang.org/api => google.golang.org/api v0.15.0
 	google.golang.org/grpc => google.golang.org/grpc v1.26.0
 )
@@ -23,11 +24,11 @@ require (
 	github.com/chyeh/pubip v0.0.0-20170203095919-b7e679cf541c
 	github.com/cloud-barista/cb-log v0.4.0
 	github.com/cloud-barista/cb-store v0.4.1
-	github.com/containerd/containerd v1.5.7 // indirect
+	github.com/containerd/containerd v1.5.8 // indirect
 	github.com/davecgh/go-spew v1.1.1
 	github.com/docker/docker v20.10.7+incompatible
 	github.com/docker/go-connections v0.4.0
-	github.com/fsnotify/fsnotify v1.4.9 // indirect
+	github.com/fsnotify/fsnotify v1.4.9
 	github.com/go-resty/resty/v2 v2.6.0
 	github.com/gogo/protobuf v1.3.2
 	github.com/golang-jwt/jwt v3.2.2+incompatible // indirect
