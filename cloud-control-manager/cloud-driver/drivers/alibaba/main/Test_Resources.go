@@ -758,9 +758,12 @@ func handleImage() {
 					cblogger.Infof(" Image 목록 조회 실패 : ", err)
 				} else {
 					cblogger.Info("Image 목록 조회 결과")
-					cblogger.Info(result)
+					cblogger.Debug(result)
 					cblogger.Info("출력 결과 수 : ", len(result))
-					spew.Dump(result)
+
+					if cblogger.Level.String() == "debug" {
+						spew.Dump(result)
+					}
 
 					//조회및 삭제 테스트를 위해 리스트의 첫번째 정보의 ID를 요청ID로 자동 갱신함.
 					if result != nil {
@@ -979,8 +982,8 @@ func main() {
 	cblogger.Debug("Debug mode")
 
 	//handleVPC() //VPC
-	handleVMSpec()
-	//handleImage() //AMI
+	//handleVMSpec()
+	handleImage() //AMI
 	//handleSecurity()
 	//handleKeyPair()
 	//handleVM()
