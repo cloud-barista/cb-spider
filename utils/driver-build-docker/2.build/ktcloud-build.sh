@@ -11,7 +11,6 @@
 #
 # by CB-Spider Team, 2021.05.
 
-
 # You have to run in driver build container.
 echo "\$HOME" path is $HOME
 echo "\$CBSPIDER_ROOT" path is $CBSPIDER_ROOT
@@ -22,12 +21,6 @@ cd $CBSPIDER_ROOT
 echo "# github.com/cloud-barista/ktcloud-sdk-go@latest"
 # GOPRIVATE=github.com/cloud-barista go get -v github.com/cloud-barista/ktcloud-sdk-go@latest
 env GIT_TERMINAL_PROMPT=1 GOPRIVATE=github.com/cloud-barista go get -v github.com/cloud-barista/ktcloud-sdk-go@latest
-
-echo "# go get -v github.com/appleboy/easyssh-proxy"
-go get -v github.com/appleboy/easyssh-proxy
-
-echo "# go get -v github.com/sfreiberg/simplessh"
-go get -v github.com/sfreiberg/simplessh
 
 cd $HOME
 
