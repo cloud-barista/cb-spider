@@ -35,6 +35,26 @@ const (
 	rsVM  string = "vm"
 )
 
+func RsTypeString(rsType string) string {
+	switch rsType {
+	case rsImage:
+		return "VM Image"
+	case rsVPC:
+		return "VPC"
+	case rsSubnet:
+		return "Subnet"
+	case rsSG:
+		return "Security Group"
+	case rsKey:
+		return "VM KeyPair"
+	case rsVM:
+		return "VM"
+        default:
+                return rsType + " is not supported Resource!!"
+
+	}
+}
+
 // definition of RWLock for each Resource Ops
 var imgRWLock = new(sync.RWMutex)
 var vpcRWLock = new(sync.RWMutex)
@@ -766,7 +786,7 @@ func UnregisterResource(connectionName string, rsType string, nameId string) (bo
 	} // end of switch
 
 	if isExist == false {
-		return false, fmt.Errorf(rsType + "-" + nameId + " does not exist!")
+		return false, fmt.Errorf("The %s '%s' does not exist!", RsTypeString(rsType), nameId)
 	}
 
 	// (2) delete the IID from Metadb
@@ -1363,7 +1383,7 @@ func RegisterSecurity(connectionName string, vpcUserID string, userIID cres.IID)
                 return nil, err
         }
         if bool_ret == false {
-                return nil, fmt.Errorf(rsVPC + "-" + vpcUserID + " does not exist!")
+                return nil, fmt.Errorf("The %s '%s' does not exist!", RsTypeString(rsVPC), vpcUserID)
         }
 
         // (1) check existence(UserID)
@@ -1737,7 +1757,7 @@ func GetSecurity(connectionName string, rsType string, nameID string) (*cres.Sec
 		}
 	}
 	if bool_ret == false {
-                return nil, fmt.Errorf(rsType + "-" + nameID + " does not exist!")
+                return nil, fmt.Errorf("The %s '%s' does not exist!", RsTypeString(rsType), nameID)
         }
 
 	// (2) get resource(SystemId)
