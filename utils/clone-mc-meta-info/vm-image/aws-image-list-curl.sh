@@ -1,6 +1,7 @@
 #!/bin/bash
 
 #REGIONS=( aws-seoul-config )
+#REGIONS=( aws-ohio-config AWS:US-EAST-2:US-EAST-2A )
 REGIONS=( aws-seoul-config aws-tokyo-config aws-ohio-config aws-oregon-config aws-paris-config )
 
 function listImage() {

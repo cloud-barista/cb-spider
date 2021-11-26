@@ -11,14 +11,12 @@ H24=86400 # 24 Hour
 
 
 CNT=10
-SLEEP=$M10
+SLEEP=$H12
 
 function loop() {
         for (( i=0; i < $CNT; i++ ))
         do
-                echo  ============ List Image ${REGION} ... ============
-
-		./aws-image-list-curl.sh
+		./azure-image-list-curl.sh
 
                 sleep $SLEEP
         done
