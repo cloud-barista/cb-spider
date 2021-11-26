@@ -22,8 +22,11 @@ cloudos:
   - CLOUDIT
   - NCP
   - KTCLOUD
-#---
+#--- PoC
   - DOCKER
-#---
+#--- Emulation
   - MOCK
   - CLOUDTWIN
+#--- Experimental
+  - MINI
+

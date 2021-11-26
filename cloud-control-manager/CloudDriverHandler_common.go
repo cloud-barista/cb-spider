@@ -147,42 +147,11 @@ func getRegionNameByRegionInfo(rgnInfo *rim.RegionInfo) (string, string, error) 
         switch strings.ToUpper(rgnInfo.ProviderName) {
         case "AZURE":
                 regionName = getValue(rgnInfo.KeyValueInfoList, "location")
-        case "AWS":
+        case "AWS", "ALIBABA", "GCP", "TENCENT", "IBM", "NCP", "NCPVPC", "KTCLOUD" :
                 regionName = getValue(rgnInfo.KeyValueInfoList, "Region")
                 zoneName = getValue(rgnInfo.KeyValueInfoList, "Zone")
-        case "ALIBABA":
+        case "OPENSTACK", "CLOUDIT", "DOCKER", "CLOUDTWIN", "MOCK", "MINI":
                 regionName = getValue(rgnInfo.KeyValueInfoList, "Region")
-                zoneName = getValue(rgnInfo.KeyValueInfoList, "Zone")
-        case "GCP":
-                regionName = getValue(rgnInfo.KeyValueInfoList, "Region")
-                zoneName = getValue(rgnInfo.KeyValueInfoList, "Zone")
-        case "OPENSTACK":
-                regionName = getValue(rgnInfo.KeyValueInfoList, "Region")
-        case "CLOUDIT":
-                // Cloudit do not use Region, But set default @todo 2019.10.28. by powerkim.
-                regionName = getValue(rgnInfo.KeyValueInfoList, "Region")
-        case "DOCKER":
-                // docker do not use Region, But set default @todo 2020.05.06. by powerkim.
-                regionName = getValue(rgnInfo.KeyValueInfoList, "Region")
-        case "NCP": // NCP
-                regionName = getValue(rgnInfo.KeyValueInfoList, "Region") // NCP
-                zoneName = getValue(rgnInfo.KeyValueInfoList, "Zone")     // NCP
-        case "NCPVPC": // NCP-VPC
-                regionName = getValue(rgnInfo.KeyValueInfoList, "Region") // NCP-VPC
-                zoneName = getValue(rgnInfo.KeyValueInfoList, "Zone")     // NCP-VPC
-        case "CLOUDTWIN":
-                regionName = getValue(rgnInfo.KeyValueInfoList, "Region")
-        case "MOCK":
-                regionName = getValue(rgnInfo.KeyValueInfoList, "Region")
-        case "TENCENT":
-                regionName = getValue(rgnInfo.KeyValueInfoList, "Region")
-                zoneName = getValue(rgnInfo.KeyValueInfoList, "Zone")
-        case "IBM":
-                regionName = getValue(rgnInfo.KeyValueInfoList, "Region")
-                zoneName = getValue(rgnInfo.KeyValueInfoList, "Zone")
-        case "KTCLOUD":
-                regionName = getValue(rgnInfo.KeyValueInfoList, "Region")
-                zoneName = getValue(rgnInfo.KeyValueInfoList, "Zone")
         default:
                 errmsg := rgnInfo.ProviderName + " is not a valid ProviderName!!"
                 return "", "", fmt.Errorf(errmsg)

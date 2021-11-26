@@ -42,3 +42,6 @@ cloud-control-manager/cloud-driver/drivers/ncp/*
 cloud-control-manager/cloud-driver/drivers/ncp-plugin/*
 
 cloud-control-manager/cloud-driver/drivers/tencent/main/conf/testConfigTencent.yaml
+
+utils/clone-mc-meta-info/vm-image/data/*
+utils/clone-mc-meta-info/vm-image/test/*
