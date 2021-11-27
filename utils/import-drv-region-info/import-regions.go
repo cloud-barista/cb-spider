@@ -35,6 +35,7 @@ func main() {
 		fmt.Println("================================================================")
 		fmt.Println("    You can use this tool with Azure's Resource Group Name!!")
 		fmt.Println("    Usage: import_regions.sh CB-GROUP-POWERKIM")
+		fmt.Println("    Usage: import_regions.sh cb-group-wip")
 		fmt.Println("================================================================")
 		return
 	}
@@ -76,8 +77,10 @@ func InsertRegionInfos(resourceGroup string) ([]rim.RegionInfo) {
 
 		var oneRegionInfoList []rim.RegionInfo 
 		switch cloudos {
-			case "AWS", "CLOUDIT", "OPENSTACK", "DOCKER":
+			case "AWS" :
 				oneRegionInfoList = awsLoader(cloudos, regionFile)
+			case "CLOUDIT", "OPENSTACK", "DOCKER":
+				oneRegionInfoList = regionLoader(cloudos, regionFile)
 			case "AZURE":
 				oneRegionInfoList = azureLoader(cloudos, regionFile, resourceGroup)
 			case "GCP":
@@ -106,7 +109,7 @@ func InsertRegionInfos(resourceGroup string) ([]rim.RegionInfo) {
 }
 
 
-// for AWS, Cloudit, OpenStack, Docker
+// for AWS
 func awsLoader(cloudos string, regionFile *os.File) []rim.RegionInfo {
 
 	type OrgRegions struct {
@@ -122,13 +125,38 @@ func awsLoader(cloudos string, regionFile *os.File) []rim.RegionInfo {
 
 	regionInfoList := []rim.RegionInfo{}
 	for _, region := range orgRegions.Regions {
-		keyValueList := []icbs.KeyValue{ {"Region", region.RegionName} }
+		keyValueList := []icbs.KeyValue{ {"Region", region.RegionName}, {"Zone", region.RegionName + "a"} }
 		regionInfo := rim.RegionInfo{strings.ToLower(cloudos) + "-" + region.RegionName, 
 						strings.ToUpper(cloudos), keyValueList}
 		regionInfoList = append(regionInfoList, regionInfo)
 	}
 
 	return regionInfoList
+}
+
+// for Cloudit, OpenStack, Docker
+func regionLoader(cloudos string, regionFile *os.File) []rim.RegionInfo {
+
+        type OrgRegions struct {
+                Regions [] struct {
+                        RegionName string       `json:"RegionName"`
+                }
+        }
+
+        byteValue, _ := ioutil.ReadAll(regionFile)
+
+        var orgRegions OrgRegions
+        json.Unmarshal(byteValue, &orgRegions)
+
+        regionInfoList := []rim.RegionInfo{}
+        for _, region := range orgRegions.Regions {
+                keyValueList := []icbs.KeyValue{ {"Region", region.RegionName} }
+                regionInfo := rim.RegionInfo{strings.ToLower(cloudos) + "-" + region.RegionName,
+                                                strings.ToUpper(cloudos), keyValueList}
+                regionInfoList = append(regionInfoList, regionInfo)
+        }
+
+        return regionInfoList
 }
 
 func azureLoader(cloudos string, regionFile *os.File, resourceGroup string) []rim.RegionInfo {
