@@ -9,6 +9,7 @@
 package main
 
 import (
+	_ "runtime"
 	"fmt"
 	"sync"
 	"time"
@@ -17,12 +18,16 @@ import (
 	cr "github.com/cloud-barista/cb-spider/api-runtime/common-runtime"
 	grpcruntime "github.com/cloud-barista/cb-spider/api-runtime/grpc-runtime"
 	restruntime "github.com/cloud-barista/cb-spider/api-runtime/rest-runtime"
+	mini "github.com/cloud-barista/cb-spider/spider-mini/mini"
 
 	"github.com/go-resty/resty/v2"
 	"github.com/spf13/cobra"
 )
 
 func main() {
+	// use multi-Core
+        // runtime.GOMAXPROCS(runtime.NumCPU())
+
 	rootCmd := NewRootCmd()
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Printf("cb-spider terminated with error: %v\n", err)
@@ -51,15 +56,15 @@ func NewRootCmd() *cobra.Command {
 			}()
 
 			if os.Getenv("EXPERIMENTAL_MINI") == "ON" {
-/*
+
                                 time.Sleep(time.Millisecond * 5)
                                 wg.Add(1)
 
                                 go func() {
-                                        // miniRuntime.RunServer()
+                                        mini.RunServer()
                                         wg.Done()
                                 }()
-*/
+
                         }
 
 

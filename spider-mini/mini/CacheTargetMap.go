@@ -15,8 +15,8 @@ import (
 
 type METAINFOTYPE string
 const (
-        IMAGEINFO METAINFOTYPE = "Image Info"
-        SPECINFO METAINFOTYPE = "Spec Info"
+        IMAGEINFO METAINFOTYPE = "imageinfo"
+        SPECINFO METAINFOTYPE = "specinfo"
 )
 
 type CacheTargetInfo struct {

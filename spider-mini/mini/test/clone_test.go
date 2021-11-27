@@ -18,14 +18,14 @@ import (
 func TestClone(t *testing.T) {
 
 	cloneName := "test-devstack-openstack-imageinfo"
-	//connectName := "imageinfo:openstack:devstack"
 	connectName := "imageinfo:aws:seoul"
+	//connectName := "imageinfo:openstack:devstack"
 
         mini.Add(cloneName, connectName, mini.IMAGEINFO)
 
 	mini.Cloner()
 
-        mini.Del(cloneName)
+        //mini.Del(cloneName)
 
 	fmt.Println("============> : ", mini.Count())
 }
