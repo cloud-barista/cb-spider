@@ -83,7 +83,7 @@ func CreateConnectionConfig(configName string, providerName string, driverName s
 	cncInfo := &ConnectionConfigInfo{configName, providerName, driverName, credentialName, regionName}
 
 	/* import Cycle
-	if os.Getenv("EXPERIMENTAL_MINI") == "ON" {
+	if os.Getenv("EXPERIMENTAL_MINI_CLONE") == "ON" {
 		// Notify the CloneNCacheManager about the new Region inserted,
 		// and then the CloneNCacheManager schedules it immediately  
 		mini.InsertNewCloneNCache(configName)

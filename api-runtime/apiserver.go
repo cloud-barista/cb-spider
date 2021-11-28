@@ -55,7 +55,7 @@ func NewRootCmd() *cobra.Command {
 				wg.Done()
 			}()
 
-			if os.Getenv("EXPERIMENTAL_MINI") == "ON" {
+			if os.Getenv("EXPERIMENTAL_MINI_CLONE") == "ON" {
 
                                 time.Sleep(time.Millisecond * 5)
                                 wg.Add(1)

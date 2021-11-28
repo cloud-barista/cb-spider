@@ -10,10 +10,13 @@ package commonruntime
 
 import (
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
+	"github.com/go-redis/redis"
+	"encoding/json"
 
 	cim "github.com/cloud-barista/cb-spider/cloud-info-manager"
 	ccm "github.com/cloud-barista/cb-spider/cloud-control-manager"
@@ -189,6 +192,12 @@ func ListImage(connectionName string, rsType string) ([]*cres.ImageInfo, error) 
                 return nil, err
         }
 
+	if os.Getenv("EXPERIMENTAL_MINI_CACHE_SERVICE") == "ON" {
+		if strings.HasPrefix(connectionName, "mini:imageinfo") {
+			return listImageFromCache(connectionName)
+		}
+        }
+
 	cldConn, err := ccm.GetCloudConnection(connectionName)
 	if err != nil {
 		cblog.Error(err)
@@ -213,6 +222,32 @@ func ListImage(connectionName string, rsType string) ([]*cres.ImageInfo, error) 
 
 	return infoList, nil
 }
+
+
+func listImageFromCache(connectName string) ([]*cres.ImageInfo, error) {
+	cblog.Info("call listImageFromCache()")
+
+        client := redis.NewClient(&redis.Options{
+                Addr: "localhost:6379",
+                Password: "",
+                DB: 0,
+        })
+
+        //result, err := client.Get("imageinfo:aws:ohio").Result()
+        result, err := client.Get(connectName).Result()
+        if err != nil {
+                cblog.Error(err)
+                return nil, err
+        }
+
+        var jsonResult struct {
+                Result []*cres.ImageInfo `json:"image"`
+        }
+        json.Unmarshal([]byte(result), &jsonResult)
+
+        return jsonResult.Result, nil
+}
+
 
 // (1) get spiderIID:list
 // (2) get CSP:list
