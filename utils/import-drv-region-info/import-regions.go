@@ -126,7 +126,7 @@ func awsLoader(cloudos string, regionFile *os.File) []rim.RegionInfo {
 	regionInfoList := []rim.RegionInfo{}
 	for _, region := range orgRegions.Regions {
 		keyValueList := []icbs.KeyValue{ {"Region", region.RegionName}, {"Zone", region.RegionName + "a"} }
-		regionInfo := rim.RegionInfo{strings.ToLower(cloudos) + "-" + region.RegionName, 
+		regionInfo := rim.RegionInfo{strings.ToLower(cloudos) + ":" + region.RegionName + ":" + region.RegionName + "a", 
 						strings.ToUpper(cloudos), keyValueList}
 		regionInfoList = append(regionInfoList, regionInfo)
 	}
@@ -151,7 +151,7 @@ func regionLoader(cloudos string, regionFile *os.File) []rim.RegionInfo {
         regionInfoList := []rim.RegionInfo{}
         for _, region := range orgRegions.Regions {
                 keyValueList := []icbs.KeyValue{ {"Region", region.RegionName} }
-                regionInfo := rim.RegionInfo{strings.ToLower(cloudos) + "-" + region.RegionName,
+                regionInfo := rim.RegionInfo{strings.ToLower(cloudos) + ":" + region.RegionName,
                                                 strings.ToUpper(cloudos), keyValueList}
                 regionInfoList = append(regionInfoList, regionInfo)
         }
@@ -175,7 +175,7 @@ func azureLoader(cloudos string, regionFile *os.File, resourceGroup string) []ri
         for _, region := range orgRegions {
 
                 keyValueList := []icbs.KeyValue{ {"location", region.Name}, {"ResourceGroup", resourceGroup} }
-                regionInfo := rim.RegionInfo{strings.ToLower(cloudos) + "-" + region.Name,
+		regionInfo := rim.RegionInfo{strings.ToLower(cloudos) + ":" + region.Name + ":" + resourceGroup,
                                                 strings.ToUpper(cloudos), keyValueList}
                 regionInfoList = append(regionInfoList, regionInfo)
         }
@@ -201,7 +201,7 @@ func alibabaLoader(cloudos string, regionFile *os.File) []rim.RegionInfo {
         regionInfoList := []rim.RegionInfo{}
         for _, region := range orgRegions.Regions.Region {
                 keyValueList := []icbs.KeyValue{ {"Region", region.RegionId} , {"Zone", region.RegionId + "a"}}
-                regionInfo := rim.RegionInfo{strings.ToLower(cloudos) + "-" + region.RegionId,
+		regionInfo := rim.RegionInfo{strings.ToLower(cloudos) + ":" + region.RegionId + ":" + region.RegionId + "a",
                                                 strings.ToUpper(cloudos), keyValueList}
                 regionInfoList = append(regionInfoList, regionInfo)
         }
@@ -225,7 +225,7 @@ func gcpLoader(cloudos string, regionFile *os.File) []rim.RegionInfo {
 
 		runes := []rune(region.Name)
                 keyValueList := []icbs.KeyValue{ {"Region", string(runes[0:len(region.Name)-2])}, {"Zone", region.Name} }
-                regionInfo := rim.RegionInfo{strings.ToLower(cloudos) + "-" + region.Name,
+		regionInfo := rim.RegionInfo{strings.ToLower(cloudos) + ":" + string(runes[0:len(region.Name)-2]) + ":" + region.Name,
                                                 strings.ToUpper(cloudos), keyValueList}
                 regionInfoList = append(regionInfoList, regionInfo)
         }
