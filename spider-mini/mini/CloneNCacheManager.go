@@ -134,16 +134,22 @@ func Cloner(wg *sync.WaitGroup) error {
 			return nil
 		}
 
+		cblog.Info("\n====================== Cloning: ", cacheTargetInfo)
+
 		byteImageList, err := getImageListFromCSP(cacheTargetInfo.connectName)
 		if err != err {
 			cblog.Error(err)
-			return err
+			cblog.Error("\n====================== Can not cache: ", cacheTargetInfo)
+			Del(cacheTargetInfo.cloneName)
+			continue
 		}
 
 		err = insertImageInfoListToDB(cacheTargetInfo.connectName, byteImageList)
 		if err != err {
 			cblog.Error(err)
-			return err
+			cblog.Error("\n====================== Can not cache: ", cacheTargetInfo)
+			Del(cacheTargetInfo.cloneName)
+			continue
 		}
 
 		cblog.Info("\n====================== Cached: ", cacheTargetInfo)
