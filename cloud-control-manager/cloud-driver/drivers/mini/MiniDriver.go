@@ -60,6 +60,7 @@ func (driver *MiniDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (icon
 	iConn := minicon.MiniConnection{
 		IdentityEndpoint: connectionInfo.CredentialInfo.IdentityEndpoint,
 		AuthToken: connectionInfo.CredentialInfo.AuthToken,
+		ConnectionName: connectionInfo.CredentialInfo.ConnectionName,
 	}
 
 	return &iConn, nil

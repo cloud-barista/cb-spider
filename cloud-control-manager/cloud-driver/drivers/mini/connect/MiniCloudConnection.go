@@ -34,7 +34,13 @@ type MiniConnection struct {
 
 func (cloudConn *MiniConnection) CreateImageHandler() (irs.ImageHandler, error) {
 	cblogger.Info("Mini Driver: called CreateImageHandler()!")
-	handler := minirs.MiniImageHandler{cloudConn.IdentityEndpoint, cloudConn.AuthToken, cloudConn.ConnectionName}
+	handler := minirs.MiniImageHandler{
+		MiniAddr : cloudConn.IdentityEndpoint, 
+		AuthToken:	cloudConn.AuthToken, 
+		ConnectionName:	cloudConn.ConnectionName,
+		}
+
+
 	return &handler, nil
 }
 
