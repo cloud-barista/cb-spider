@@ -29,11 +29,12 @@ func init() {
 type MiniConnection struct {
 	IdentityEndpoint string
 	AuthToken string
+	ConnectionName string
 }
 
 func (cloudConn *MiniConnection) CreateImageHandler() (irs.ImageHandler, error) {
 	cblogger.Info("Mini Driver: called CreateImageHandler()!")
-	handler := minirs.MiniImageHandler{cloudConn.IdentityEndpoint}
+	handler := minirs.MiniImageHandler{cloudConn.IdentityEndpoint, cloudConn.AuthToken, cloudConn.ConnectionName}
 	return &handler, nil
 }
 

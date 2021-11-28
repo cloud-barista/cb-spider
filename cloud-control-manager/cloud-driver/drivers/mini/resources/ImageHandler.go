@@ -23,19 +23,18 @@ import (
 	"github.com/go-redis/redis"
 )
 
-var imgInfoMap map[string][]*irs.ImageInfo
 
 type MiniImageHandler struct {
 	MiniAddr string
+	AuthToken string
+	ConnectionName string
 }
 
 func init() {
-	// cblog is a global variable.
-	imgInfoMap = make(map[string][]*irs.ImageInfo)
 }
 
 
-func (imageHandler *MiniImageHandler) ListImage2() ([]*irs.ImageInfo, error) {
+func (imageHandler *MiniImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 	cblogger := cblog.GetLogger("CB-SPIDER")
 	cblogger.Info("Mini Driver: called ListImage()!")
 
@@ -49,7 +48,7 @@ func (imageHandler *MiniImageHandler) ListImage2() ([]*irs.ImageInfo, error) {
         if err != nil {
                 cblogger.Error(err)
         }
-        err = crh.SetTimeout(90 * time.Second)
+        err = crh.SetTimeout(1800 * time.Second)
         if err != nil {
                 cblogger.Error(err)
         }
@@ -64,10 +63,9 @@ func (imageHandler *MiniImageHandler) ListImage2() ([]*irs.ImageInfo, error) {
         defer crh.Close()
 
         // 5. get ImageList
-	//connName := "AWS:US-EAST-2:US-EAST-2A"
-	connName := "aws-ohio-config"
+	//connName := "aws-ohio-config"
 	//result, err := crh.ListImageInfo(connName)
-	result, err := crh.ListImageByParam(connName)
+	result, err := crh.ListImageByParam(imageHandler.ConnectionName)
         if err != nil {
                 cblogger.Error(err)
 		return nil, err
@@ -80,7 +78,7 @@ func (imageHandler *MiniImageHandler) ListImage2() ([]*irs.ImageInfo, error) {
 	return jsonResult.Result, nil
 }
 
-func (imageHandler *MiniImageHandler) ListImage() ([]*irs.ImageInfo, error) {
+func (imageHandler *MiniImageHandler) ListImage2() ([]*irs.ImageInfo, error) {
         cblogger := cblog.GetLogger("CB-SPIDER")
         cblogger.Info("Mini Driver: called ListImage()!")
 
