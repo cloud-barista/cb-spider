@@ -53,13 +53,13 @@ KTCLOUD:
   region: Region / Zone
   credential: ClientId / ClientSecret
 
-#---
+#--- PoC
 
 DOCKER:
   region: Region
   credential: Host / APIVersion
 
-#---
+#--- Emulation
 
 MOCK:
   region: Region
@@ -68,5 +68,11 @@ MOCK:
 CLOUDTWIN:
   region: Region
   credential: IdentityEndpoint / DomainName / MockName
+
+#--- Experimental
+
+MINI:
+  region: Region
+  credential: IdentityEndpoint / AuthToken
 
 

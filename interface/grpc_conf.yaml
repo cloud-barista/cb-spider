@@ -2,7 +2,7 @@ version: 1
 grpc:
   spidercli:
     server_addr: 127.0.0.1:2048
-    timeout: 600s
+    timeout: 1800s
     #tls:
     #  tls_ca: $CBSPIDER_ROOT/certs/ca.crt
     #    interceptors:

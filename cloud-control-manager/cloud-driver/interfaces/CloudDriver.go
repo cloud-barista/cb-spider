@@ -46,7 +46,8 @@ type CredentialInfo struct {
 	Host             string // Docker
 	APIVersion       string // Docker
 	MockName         string // Mock
-	ApiKey			 string // Ibm
+	ApiKey		 string // Ibm
+	ConnectionName   string // MINI
 }
 
 type RegionInfo struct {

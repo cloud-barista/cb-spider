@@ -10,10 +10,13 @@ package commonruntime
 
 import (
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
+	"github.com/go-redis/redis"
+	"encoding/json"
 
 	cim "github.com/cloud-barista/cb-spider/cloud-info-manager"
 	ccm "github.com/cloud-barista/cb-spider/cloud-control-manager"
@@ -34,6 +37,26 @@ const (
 	rsKey string = "keypair"
 	rsVM  string = "vm"
 )
+
+func RsTypeString(rsType string) string {
+	switch rsType {
+	case rsImage:
+		return "VM Image"
+	case rsVPC:
+		return "VPC"
+	case rsSubnet:
+		return "Subnet"
+	case rsSG:
+		return "Security Group"
+	case rsKey:
+		return "VM KeyPair"
+	case rsVM:
+		return "VM"
+        default:
+                return rsType + " is not supported Resource!!"
+
+	}
+}
 
 // definition of RWLock for each Resource Ops
 var imgRWLock = new(sync.RWMutex)
@@ -169,6 +192,12 @@ func ListImage(connectionName string, rsType string) ([]*cres.ImageInfo, error) 
                 return nil, err
         }
 
+	if os.Getenv("EXPERIMENTAL_MINI_CACHE_SERVICE") == "ON" {
+		if strings.HasPrefix(connectionName, "mini:imageinfo") {
+			return listImageFromCache(connectionName)
+		}
+        }
+
 	cldConn, err := ccm.GetCloudConnection(connectionName)
 	if err != nil {
 		cblog.Error(err)
@@ -193,6 +222,32 @@ func ListImage(connectionName string, rsType string) ([]*cres.ImageInfo, error) 
 
 	return infoList, nil
 }
+
+
+func listImageFromCache(connectName string) ([]*cres.ImageInfo, error) {
+	cblog.Info("call listImageFromCache()")
+
+        client := redis.NewClient(&redis.Options{
+                Addr: "localhost:6379",
+                Password: "",
+                DB: 0,
+        })
+
+        //result, err := client.Get("imageinfo:aws:ohio").Result()
+        result, err := client.Get(connectName).Result()
+        if err != nil {
+                cblog.Error(err)
+                return nil, err
+        }
+
+        var jsonResult struct {
+                Result []*cres.ImageInfo `json:"image"`
+        }
+        json.Unmarshal([]byte(result), &jsonResult)
+
+        return jsonResult.Result, nil
+}
+
 
 // (1) get spiderIID:list
 // (2) get CSP:list
@@ -766,7 +821,7 @@ func UnregisterResource(connectionName string, rsType string, nameId string) (bo
 	} // end of switch
 
 	if isExist == false {
-		return false, fmt.Errorf(rsType + "-" + nameId + " does not exist!")
+		return false, fmt.Errorf("The %s '%s' does not exist!", RsTypeString(rsType), nameId)
 	}
 
 	// (2) delete the IID from Metadb
@@ -1363,7 +1418,7 @@ func RegisterSecurity(connectionName string, vpcUserID string, userIID cres.IID)
                 return nil, err
         }
         if bool_ret == false {
-                return nil, fmt.Errorf(rsVPC + "-" + vpcUserID + " does not exist!")
+                return nil, fmt.Errorf("The %s '%s' does not exist!", RsTypeString(rsVPC), vpcUserID)
         }
 
         // (1) check existence(UserID)
@@ -1737,7 +1792,7 @@ func GetSecurity(connectionName string, rsType string, nameID string) (*cres.Sec
 		}
 	}
 	if bool_ret == false {
-                return nil, fmt.Errorf(rsType + "-" + nameID + " does not exist!")
+                return nil, fmt.Errorf("The %s '%s' does not exist!", RsTypeString(rsType), nameID)
         }
 
 	// (2) get resource(SystemId)

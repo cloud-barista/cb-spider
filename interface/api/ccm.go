@@ -20,6 +20,8 @@ import (
 	pb "github.com/cloud-barista/cb-spider/api-runtime/grpc-runtime/stub/cbspider"
 	"github.com/cloud-barista/cb-spider/interface/api/request"
 
+	cres "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
+
 	"google.golang.org/grpc"
 )
 
@@ -460,6 +462,28 @@ func (ccm *CCMApi) ListImage(doc string) (string, error) {
 
 	ccm.requestCCM.InData = doc
 	return ccm.requestCCM.ListImage()
+}
+
+// for Mini, by powerkim. 2021.11.
+func (ccm *CCMApi) ListImageInfo(connectionName string) ([]*cres.ImageInfo, error) {
+	if ccm.requestCCM == nil {
+                return nil, errors.New("The Open() function must be called")
+        }
+
+        holdType, _ := ccm.GetInType()
+        ccm.SetInType("json")
+        ccm.requestCCM.InData = `{"ConnectionName":"` + connectionName + `"}`
+        result, err := ccm.requestCCM.ListImageInfo()
+        ccm.SetInType(holdType)
+
+	var imageInfoList []*cres.ImageInfo
+	imageInfoList = make([]*cres.ImageInfo, len(result.Items))
+	err = gc.CopySrcToDest(result.Items, imageInfoList)
+	if err != nil {
+                return nil, gc.ConvGrpcStatusErr(err, "", "CCMApi.ListImageInfo()")
+        }
+
+        return imageInfoList, err
 }
 
 // ListImageByParam - Image 목록

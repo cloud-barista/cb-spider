@@ -77,6 +77,24 @@ func (r *CCMRequest) ListImage() (string, error) {
 	return gc.ConvertToOutput(r.OutType, &resp)
 }
 
+// for Mini, by powerkim. 2021.11.
+func (r *CCMRequest) ListImageInfo() (*pb.ListImageInfoResponse, error) {
+        if r.InData == "" {
+                return nil, errors.New("input data required")
+        }
+
+        var item pb.ImageAllQryRequest
+        err := gc.ConvertToMessage(r.InType, r.InData, &item)
+        if err != nil {
+                return nil, err
+        }
+
+        ctx, cancel := context.WithTimeout(context.Background(), r.Timeout)
+        defer cancel()
+
+        return r.Client.ListImage(ctx, &item)
+}
+
 // GetImage - Image 조회
 func (r *CCMRequest) GetImage() (string, error) {
 	// 입력데이터 검사
