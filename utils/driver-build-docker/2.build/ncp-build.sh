@@ -11,7 +11,6 @@
 #
 # by CB-Spider Team, 2021.05.
 
-
 # You have to run in driver build container.
 echo "\$HOME" path is $HOME
 echo "\$CBSPIDER_ROOT" path is $CBSPIDER_ROOT
@@ -19,14 +18,10 @@ echo "\$CBSPIDER_ROOT" path is $CBSPIDER_ROOT
 echo "# cd" $CBSPIDER_ROOT
 cd $CBSPIDER_ROOT
 
+env GIT_TERMINAL_PROMPT=1 GOPRIVATE=github.com/cloud-barista
+
 echo "# go get -v github.com/NaverCloudPlatform/ncloud-sdk-go-v2@v1.1.7"
 go get -v github.com/NaverCloudPlatform/ncloud-sdk-go-v2@v1.1.7
-
-echo "# go get -v github.com/appleboy/easyssh-proxy"
-go get -v github.com/appleboy/easyssh-proxy
-
-echo "# go get -v github.com/sfreiberg/simplessh"
-go get -v github.com/sfreiberg/simplessh
 
 cd $HOME
 
