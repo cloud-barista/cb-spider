@@ -18,10 +18,8 @@ echo "\$CBSPIDER_ROOT" path is $CBSPIDER_ROOT
 echo "# cd" $CBSPIDER_ROOT
 cd $CBSPIDER_ROOT
 
-env GIT_TERMINAL_PROMPT=1 GOPRIVATE=github.com/cloud-barista
-
-echo "# go get -v github.com/cloud-barista/ktcloud-sdk-go@latest"
-go get -v github.com/cloud-barista/ktcloud-sdk-go@latest
+echo "# env GIT_TERMINAL_PROMPT=1 GOPRIVATE=github.com/cloud-barista go get -v github.com/cloud-barista/ktcloud-sdk-go@latest"
+env GIT_TERMINAL_PROMPT=1 GOPRIVATE=github.com/cloud-barista go get -v github.com/cloud-barista/ktcloud-sdk-go@latest
 
 cd $HOME
 

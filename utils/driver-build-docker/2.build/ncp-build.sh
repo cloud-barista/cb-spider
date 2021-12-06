@@ -18,8 +18,6 @@ echo "\$CBSPIDER_ROOT" path is $CBSPIDER_ROOT
 echo "# cd" $CBSPIDER_ROOT
 cd $CBSPIDER_ROOT
 
-env GIT_TERMINAL_PROMPT=1 GOPRIVATE=github.com/cloud-barista
-
 echo "# go get -v github.com/NaverCloudPlatform/ncloud-sdk-go-v2@v1.1.7"
 go get -v github.com/NaverCloudPlatform/ncloud-sdk-go-v2@v1.1.7
 
