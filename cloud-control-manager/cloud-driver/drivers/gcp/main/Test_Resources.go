@@ -1003,9 +1003,9 @@ func handleVM() {
 func main() {
 	cblogger.Info("GCP Resource Test")
 	//handleVPC()
-	handleVMSpec()
+	//handleVMSpec()
 	//handleImage() //AMI
-	//handleKeyPair()
+	handleKeyPair()
 	//handleSecurity()
 	//handleVM()
 	//cblogger.Info(filepath.Join("a/b", "\\cloud-driver-libs\\.ssh-gcp\\"))

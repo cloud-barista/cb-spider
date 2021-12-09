@@ -14,7 +14,6 @@ package resources
 import (
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"strings"
 
@@ -32,67 +31,70 @@ func (keyPairHandler *GCPKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPairReq
 	keyPairName := strings.ToLower(keyPairReqInfo.IId.NameId)
 	cblogger.Infof("keyPairName [%s] --> [%s]", keyPairReqInfo.IId.NameId, keyPairName)
 
-	//projectId := keyPairHandler.CredentialInfo.ProjectID
-	keyPairPath := os.Getenv("CBSPIDER_ROOT") + CBKeyPairPath
-	cblogger.Infof("Getenv[CBSPIDER_ROOT] : [%s]", os.Getenv("CBSPIDER_ROOT"))
-	cblogger.Infof("CBKeyPairPath : [%s]", CBKeyPairPath)
-	cblogger.Infof("Final keyPairPath : [%s]", keyPairPath)
-
-	//키페어 생성 시 폴더가 존재하지 않으면 생성 함.
-	_, errChkDir := os.Stat(keyPairPath)
-	if os.IsNotExist(errChkDir) {
-		cblogger.Errorf("[%s] Path가 존재하지 않아서 생성합니다.", keyPairPath)
-
-		errDir := os.MkdirAll(keyPairPath, 0755)
-		//errDir := os.MkdirAll(keyPairPath, os.ModePerm) // os.ModePerm : 0777	//os.ModeDir
-		if errDir != nil {
-			//log.Fatal(err)
-			cblogger.Errorf("[%s] Path가 생성 실패", keyPairPath)
-			cblogger.Error(errDir)
-			return irs.KeyPairInfo{}, errDir
-		}
-	}
-
 	hashString, err := CreateHashString(keyPairHandler.CredentialInfo)
 	if err != nil {
 		cblogger.Error(err)
 		return irs.KeyPairInfo{}, err
 	}
 
-	savePrivateFileTo := keyPairPath + hashString + "--" + keyPairName
-	savePublicFileTo := keyPairPath + hashString + "--" + keyPairName + ".pub"
+	//중복 체크
+	keyValue, err := keypair.GetKey(CBKeyPairProvider, hashString, keyPairName)
+	cblogger.Debug(keyValue)
+	if err != nil {
+		if strings.Contains(err.Error(), "does not exist!") {
 
-	// Check KeyPair Exists
-	if _, err := os.Stat(savePrivateFileTo); err == nil {
+		} else {
+			cblogger.Error(err)
+			return irs.KeyPairInfo{}, err
+		}
+	} else {
 		errMsg := fmt.Sprintf("KeyPair with name %s already exist", keyPairName)
 		createErr := errors.New(errMsg)
 		cblogger.Error(err)
 		return irs.KeyPairInfo{}, createErr
 	}
 
+	/*
+		//20211209 공통 모듈 기반으로 변경(공개키는 저장되지 않음)
+		privateKeyBytes, publicKeyBytes, err := keypair.GenKeyPair()
+		publicKeyString := string(publicKeyBytes)
+		publicKeyString = strings.TrimSpace(publicKeyString) + " " + "cb-user"
+		// projectId 대신에 cb-user 고정
+		fmt.Println("publicKeyString : ", publicKeyString)
+		if err != nil {
+			cblogger.Error(err)
+			return irs.KeyPairInfo{}, err
+		}
+
+		// 파일에 private Key를 쓴다
+		err = keypair.SaveKey(privateKeyBytes, savePrivateFileTo)
+		if err != nil {
+			cblogger.Error(err)
+			return irs.KeyPairInfo{}, err
+		}
+
+		// 파일에 public Key를 쓴다
+		err = keypair.SaveKey([]byte(publicKeyString), savePublicFileTo)
+		if err != nil {
+			cblogger.Error(err)
+			return irs.KeyPairInfo{}, err
+		}
+	*/
+
 	privateKeyBytes, publicKeyBytes, err := keypair.GenKeyPair()
+	if err != nil {
+		cblogger.Error(err)
+		return irs.KeyPairInfo{}, err
+	}
+
+	err = keypair.AddKey(CBKeyPairProvider, hashString, keyPairName, string(privateKeyBytes))
+	if err != nil {
+		cblogger.Error(err)
+		return irs.KeyPairInfo{}, err
+	}
+
 	publicKeyString := string(publicKeyBytes)
-	// projectId 대신에 cb-user 고정
 	publicKeyString = strings.TrimSpace(publicKeyString) + " " + "cb-user"
-	fmt.Println("publicKeyString : ", publicKeyString)
-	if err != nil {
-		cblogger.Error(err)
-		return irs.KeyPairInfo{}, err
-	}
-
-	// 파일에 private Key를 쓴다
-	err = keypair.SaveKey(privateKeyBytes, savePrivateFileTo)
-	if err != nil {
-		cblogger.Error(err)
-		return irs.KeyPairInfo{}, err
-	}
-
-	// 파일에 public Key를 쓴다
-	err = keypair.SaveKey([]byte(publicKeyString), savePublicFileTo)
-	if err != nil {
-		cblogger.Error(err)
-		return irs.KeyPairInfo{}, err
-	}
 
 	keyPairInfo := irs.KeyPairInfo{
 		IId: irs.IID{
@@ -106,11 +108,6 @@ func (keyPairHandler *GCPKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPairReq
 }
 
 func (keyPairHandler *GCPKeyPairHandler) ListKey() ([]*irs.KeyPairInfo, error) {
-	keyPairPath := os.Getenv("CBSPIDER_ROOT") + CBKeyPairPath
-	cblogger.Infof("Getenv[CBSPIDER_ROOT] : [%s]", os.Getenv("CBSPIDER_ROOT"))
-	cblogger.Infof("CBKeyPairPath : [%s]", CBKeyPairPath)
-	cblogger.Infof("Final keyPairPath : [%s]", keyPairPath)
-
 	hashString, err := CreateHashString(keyPairHandler.CredentialInfo)
 	if err != nil {
 		cblogger.Error("Fail CreateHashString")
@@ -119,31 +116,20 @@ func (keyPairHandler *GCPKeyPairHandler) ListKey() ([]*irs.KeyPairInfo, error) {
 	}
 
 	var keyPairInfoList []*irs.KeyPairInfo
-
-	files, err := ioutil.ReadDir(keyPairPath)
+	keyValueList, err := keypair.ListKey(CBKeyPairProvider, hashString)
 	if err != nil {
-		//cblogger.Error("Fail ReadDir(keyPairPath)")
-		//cblogger.Error(err)
-		//return nil, err
-
-		//키페어 폴더가 없는 경우 생성된 키가 없는 것으로 변경
-		return nil, nil
+		cblogger.Error(err)
+		return nil, err
 	}
 
-	for _, f := range files {
-		if strings.Contains(f.Name(), ".pub") {
-			continue
+	for _, keyValue := range keyValueList {
+		keypairInfo, err := keyPairHandler.GetKey(irs.IID{SystemId: keyValue.Key})
+		if err != nil {
+			cblogger.Error("Fail GetKey")
+			cblogger.Error(err)
+			return nil, err
 		}
-		if strings.Contains(f.Name(), hashString) {
-			fileNameArr := strings.Split(f.Name(), "--")
-			keypairInfo, err := keyPairHandler.GetKey(irs.IID{SystemId: fileNameArr[1]})
-			if err != nil {
-				cblogger.Error("Fail GetKey")
-				cblogger.Error(err)
-				return nil, err
-			}
-			keyPairInfoList = append(keyPairInfoList, &keypairInfo)
-		}
+		keyPairInfoList = append(keyPairInfoList, &keypairInfo)
 	}
 
 	return keyPairInfoList, nil
@@ -154,11 +140,6 @@ func (keyPairHandler *GCPKeyPairHandler) GetKey(keyIID irs.IID) (irs.KeyPairInfo
 	keyPairName := strings.ToLower(keyIID.SystemId)
 	cblogger.Infof("keyPairName 소문자로 치환 : [%s]", keyPairName)
 
-	keyPairPath := os.Getenv("CBSPIDER_ROOT") + CBKeyPairPath
-	cblogger.Infof("Getenv[CBSPIDER_ROOT] : [%s]", os.Getenv("CBSPIDER_ROOT"))
-	cblogger.Infof("CBKeyPairPath : [%s]", CBKeyPairPath)
-	cblogger.Infof("Final keyPairPath : [%s]", keyPairPath)
-
 	hashString, err := CreateHashString(keyPairHandler.CredentialInfo)
 	if err != nil {
 		cblogger.Error("Fail CreateHashString")
@@ -166,22 +147,8 @@ func (keyPairHandler *GCPKeyPairHandler) GetKey(keyIID irs.IID) (irs.KeyPairInfo
 		return irs.KeyPairInfo{}, err
 	}
 
-	privateKeyPath := keyPairPath + hashString + "--" + keyPairName
-	publicKeyPath := keyPairPath + hashString + "--" + keyPairName + ".pub"
-
-	//키 페어 존재 여부 체크
-	if _, err := os.Stat(privateKeyPath); err != nil {
-		cblogger.Error(err)
-		return irs.KeyPairInfo{}, errors.New("Not Found : [" + keyIID.SystemId + "] KeyPair Not Found.")
-	}
-
-	// Private Key, Public Key 파일 정보 가져오기
-	privateKeyBytes, err := ioutil.ReadFile(privateKeyPath)
-	if err != nil {
-		cblogger.Error(err)
-		return irs.KeyPairInfo{}, err
-	}
-	publicKeyBytes, err := ioutil.ReadFile(publicKeyPath)
+	keyValue, err := keypair.GetKey(CBKeyPairProvider, hashString, keyPairName)
+	cblogger.Debug(keyValue)
 	if err != nil {
 		cblogger.Error(err)
 		return irs.KeyPairInfo{}, err
@@ -192,8 +159,8 @@ func (keyPairHandler *GCPKeyPairHandler) GetKey(keyIID irs.IID) (irs.KeyPairInfo
 			NameId:   keyPairName,
 			SystemId: keyPairName,
 		},
-		PublicKey:  string(publicKeyBytes),
-		PrivateKey: string(privateKeyBytes),
+		PublicKey:  "",
+		PrivateKey: keyValue.Value,
 	}
 	return keypairInfo, nil
 }
