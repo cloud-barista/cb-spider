@@ -1,3 +1,20 @@
+# v0.5.0-Affogato (2021.12.16.)
+
+### API Change
+
+- Add Register and Unregister API ([v0.4.12](https://github.com/cloud-barista/cb-spider/releases/tag/v0.4.12) [#502](https://github.com/cloud-barista/cb-spider/pull/502))
+
+
+### Feature
+- Add a common Validator and apply it to user's input arguments ([#394 (comment)](https://github.com/cloud-barista/cb-spider/issues/394#issuecomment-963167074))
+- Enhance the SSH Key management and insertion method of cb-user into VM ([#480](https://github.com/cloud-barista/cb-spider/issues/480) [#508](https://github.com/cloud-barista/cb-spider/pull/508) [v0.4.14](https://github.com/cloud-barista/cb-spider/releases/tag/v0.4.14))
+- Add vm control button for AdminWeb ( [#483](https://github.com/cloud-barista/cb-spider/pull/483) )
+- Enhance IID(Integrated ID) with IID2 ([v0.4.11](https://github.com/cloud-barista/cb-spider/releases/tag/v0.4.11))
+- Add 'SERVER_ADDRESS' configuration to run in firewall or Kubernetes env. ([v0.4.4](https://github.com/cloud-barista/cb-spider/releases/tag/v0.4.4))
+- Update the version info AdminWeb and spctl with 0.5.0
+
+***
+
 # v0.4.0-CafeMocha (2021.06.30.)
 
 ### API Change

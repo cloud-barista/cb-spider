@@ -3,6 +3,7 @@ module github.com/cloud-barista/cb-spider
 go 1.16
 
 replace (
+	github.com/coreos/bbolt => go.etcd.io/bbolt v1.3.3
 	github.com/dgrijalva/jwt-go => github.com/golang-jwt/jwt v3.2.1+incompatible
 	github.com/opencontainers/image-spec => github.com/opencontainers/image-spec v1.0.2
 	google.golang.org/api => google.golang.org/api v0.15.0
@@ -22,8 +23,8 @@ require (
 	github.com/aws/aws-sdk-go v1.39.4
 	github.com/bramvdbogaerde/go-scp v1.0.0
 	github.com/chyeh/pubip v0.0.0-20170203095919-b7e679cf541c
-	github.com/cloud-barista/cb-log v0.4.0
-	github.com/cloud-barista/cb-store v0.4.1
+	github.com/cloud-barista/cb-log v0.5.0
+	github.com/cloud-barista/cb-store v0.5.0
 	github.com/containerd/containerd v1.5.8 // indirect
 	github.com/davecgh/go-spew v1.1.1
 	github.com/docker/docker v20.10.7+incompatible
@@ -35,7 +36,6 @@ require (
 	github.com/golang-jwt/jwt v3.2.2+incompatible // indirect
 	github.com/golang-jwt/jwt/v4 v4.0.0
 	github.com/golang/protobuf v1.5.2
-	github.com/google/uuid v1.3.0 // indirect
 	github.com/gophercloud/gophercloud v0.18.0
 	github.com/gorilla/mux v1.7.3 // indirect
 	github.com/grpc-ecosystem/go-grpc-middleware v1.3.0
@@ -57,15 +57,10 @@ require (
 	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/vpc v1.0.206
 	github.com/uber/jaeger-client-go v2.29.1+incompatible
 	github.com/uber/jaeger-lib v2.4.0+incompatible // indirect
-	go.uber.org/atomic v1.9.0 // indirect
-	go.uber.org/zap v1.18.1 // indirect
 	golang.org/x/crypto v0.0.0-20210711020723-a769d52b0f97
-	golang.org/x/net v0.0.0-20210716203947-853a461950ff // indirect
 	golang.org/x/oauth2 v0.0.0-20210628180205-a41e5a781914
-	golang.org/x/sys v0.0.0-20210630005230-0f9fa26af87c // indirect
 	google.golang.org/api v0.50.0
-	google.golang.org/genproto v0.0.0-20210719143636-1d5a45f8e492 // indirect
-	google.golang.org/grpc v1.39.0
+	google.golang.org/grpc v1.42.0
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b
 

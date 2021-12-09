@@ -10,7 +10,7 @@ The CB-Spider Mission is to connect all the clouds with a single interface.
 
 ```
 [NOTE]
-CB-Spider is currently under development. (the latest version is 0.4.0 cafemocha)
+CB-Spider is currently under development. (the latest version is 0.5.0 affogato)
 So, we do not recommend using the current release in production.
 Please note that the functionalities of CB-Spider are not stable and secure yet.
 If you have any difficulties in using CB-Spider, please let us know.
@@ -60,6 +60,8 @@ If you have any difficulties in using CB-Spider, please let us know.
   | Azure         | O          | O          | O          | O          | O          | O          |
   | GCP           | O          | O          | O          | O          | O          | O          |
   | Alibaba       | O          | O          | O          | O          | O          | O          |
+  | Tencent       | O          | O          | O          | O          | O          | O          |
+  | IBM           | O          | O          | O          | O          | O          | O          |
   | OpenStack     | O          | O          | O          | O          | O          | O          |
   | Cloudit       | O          | O          | O(💬)          | O          | O          | O          |
   | Docker        | O          | -          | -          | -          | -          | O          |
@@ -69,8 +71,6 @@ If you have any difficulties in using CB-Spider, please let us know.
         - Subnet: 단일 VPC에 Subnet 추가/삭제 가능
         - VPC 및 Subnet CIDR: 사용자의 설정값과 무관하게, CSP 내부에서 유휴 CIDR 할당 후 반납
     
-- #### 시험 결과: https://github.com/cloud-barista/cb-spider/wiki/Test-Reports-of-v0.4.0-cafemocha
-
 
 #### 4. VM 계정
 - CB Spider VM User: cb-user

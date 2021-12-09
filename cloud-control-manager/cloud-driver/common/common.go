@@ -4,6 +4,7 @@
 //
 //      * Cloud-Barista: https://github.com/cloud-barista
 //
+// by CB-Spider Team, 2021.12.
 // by CB-Spider Team, 2021.08.
 
 package common
@@ -15,9 +16,13 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
+	"sync"
+	"io"
 	"io/ioutil"
+	"crypto/md5"
 
 	"golang.org/x/crypto/ssh"
+	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 )
 
 // generate a KeyPair with 4KB length
@@ -56,6 +61,83 @@ func GenKeyPair() ([]byte, []byte, error) {
 	publicKeyBytes := ssh.MarshalAuthorizedKey(publicKey)
 
 	return privateKeyBytes, publicKeyBytes, nil
+}
+
+
+// Lock to store and read private key
+var rwMutex sync.RWMutex
+
+// ex) 
+//	privateKey, publicKey, err := GenKeyPair()
+//
+//	srcList[0] = credentialInfo.IdentityEndpoint
+//	srcList[1] = credentialInfo.AuthToken
+//	srcList[2] = credentialInfo.TenantId
+// 	strHash, err := GenHash(srcList)
+//
+//      AddKey("CLOUDIT", strHash, keyPairReqInfo.IId.NameId, privateKey)
+func AddKey(providerName string, hashString string, keyPairNameId string, privateKey string) error {
+
+	rwMutex.Lock()
+	defer rwMutex.Unlock()
+
+	err := insertInfo(providerName, hashString, keyPairNameId, privateKey)
+        if err != nil {
+                 return err
+        }
+	return nil	
+}
+
+// return: []KeyValue{Key:KeyPairNameId, Value:PrivateKey}
+func ListKey(providerName string, hashString string) ([]*irs.KeyValue, error) {
+
+	rwMutex.Lock()
+	defer rwMutex.Unlock()
+
+	keyValueList, err := listInfo(providerName, hashString)
+        if err != nil {
+                return nil, err
+        }
+
+        return keyValueList, nil
+}
+
+// return: KeyValue{Key:KeyPairNameId, Value:PrivateKey}
+func GetKey(providerName string, hashString string, keyPairNameId string) (*irs.KeyValue, error) {
+
+	rwMutex.Lock()
+	defer rwMutex.Unlock()
+
+	keyValue, err := getInfo(providerName, hashString, keyPairNameId)
+        if err != nil {
+                return nil, err
+        }
+        return keyValue, nil
+}
+
+func DelKey(providerName string, hashString string, keyPairNameId string) error {
+
+	rwMutex.Lock()
+	defer rwMutex.Unlock()
+
+	_, err := deleteInfo(providerName, hashString, keyPairNameId)
+        if err != nil {
+                return err
+        }
+        return nil
+}
+
+func GenHash(sourceList []string) (string, error) {
+	var keyString  string
+	for _, str := range sourceList {
+		keyString += str
+	}
+        hasher := md5.New()
+        _, err := io.WriteString(hasher, keyString)
+        if err != nil {
+                return "", err
+        }
+        return fmt.Sprintf("%x", hasher.Sum(nil)), nil
 }
 
 // save a key to a file
