@@ -14,7 +14,6 @@ package resources
 import (
 	"errors"
 	"fmt"
-	"os"
 	"strings"
 
 	keypair "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/common"
@@ -170,11 +169,6 @@ func (keyPairHandler *GCPKeyPairHandler) DeleteKey(keyIID irs.IID) (bool, error)
 	keyPairName := strings.ToLower(keyIID.SystemId)
 	cblogger.Infof("keyPairName 소문자로 치환 : [%s]", keyPairName)
 
-	keyPairPath := os.Getenv("CBSPIDER_ROOT") + CBKeyPairPath
-	cblogger.Infof("Getenv[CBSPIDER_ROOT] : [%s]", os.Getenv("CBSPIDER_ROOT"))
-	cblogger.Infof("CBKeyPairPath : [%s]", CBKeyPairPath)
-	cblogger.Infof("Final keyPairPath : [%s]", keyPairPath)
-
 	hashString, err := CreateHashString(keyPairHandler.CredentialInfo)
 	if err != nil {
 		cblogger.Error("Fail CreateHashString")
@@ -182,22 +176,13 @@ func (keyPairHandler *GCPKeyPairHandler) DeleteKey(keyIID irs.IID) (bool, error)
 		return false, err
 	}
 
-	privateKeyPath := keyPairPath + hashString + "--" + keyPairName
-	publicKeyPath := keyPairPath + hashString + "--" + keyPairName + ".pub"
-
 	//키 페어 존재 여부 체크
-	if _, err := os.Stat(privateKeyPath); err != nil {
+	if _, err := keyPairHandler.GetKey(keyIID); err != nil {
 		cblogger.Error(err)
 		return false, errors.New("Not Found : [" + keyIID.SystemId + "] KeyPair Not Found.")
 	}
 
-	// Private Key, Public Key 삭제
-	err = os.Remove(privateKeyPath)
-	if err != nil {
-		cblogger.Error(err)
-		return false, err
-	}
-	err = os.Remove(publicKeyPath)
+	err = keypair.DelKey(CBKeyPairProvider, hashString, keyPairName)
 	if err != nil {
 		cblogger.Error(err)
 		return false, err

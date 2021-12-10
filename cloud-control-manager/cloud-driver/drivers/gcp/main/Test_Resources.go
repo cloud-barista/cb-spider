@@ -880,7 +880,7 @@ func handleVM() {
 					//SubnetIID:         irs.IID{SystemId: "cb-sub1"},
 					VpcIID:            irs.IID{SystemId: "cb-vpc-load-test"},
 					SubnetIID:         irs.IID{SystemId: "vpc-loadtest-sub1"},
-					SecurityGroupIIDs: []irs.IID{{SystemId: "securitytest1"}},
+					SecurityGroupIIDs: []irs.IID{{SystemId: "cb-securitytest1"}},
 					VMSpecName:        "f1-micro",
 					KeyPairIID:        irs.IID{SystemId: "cb-keypairtest123123"},
 					VMUserId:          "cb-user",
@@ -1005,9 +1005,9 @@ func main() {
 	//handleVPC()
 	//handleVMSpec()
 	//handleImage() //AMI
-	handleKeyPair()
+	//handleKeyPair()
 	//handleSecurity()
-	//handleVM()
+	handleVM()
 	//cblogger.Info(filepath.Join("a/b", "\\cloud-driver-libs\\.ssh-gcp\\"))
 	//cblogger.Info(filepath.Join("\\cloud-driver-libs\\.ssh-gcp\\", "/b/c/d"))
 }
