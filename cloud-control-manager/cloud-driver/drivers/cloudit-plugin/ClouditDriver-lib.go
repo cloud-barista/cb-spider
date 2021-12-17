@@ -53,7 +53,7 @@ func (driver *ClouditDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (i
 func getServiceClient(connInfo idrv.ConnectionInfo) (*client.RestClient, error) {
 	restClient := client.RestClient{
 		IdentityBase:   connInfo.CredentialInfo.IdentityEndpoint,
-		ClouditVersion: "v4.0",
+		ClouditVersion: "v5.0",
 		TenantID:       connInfo.CredentialInfo.TenantId,
 	}
 	return &restClient, nil
