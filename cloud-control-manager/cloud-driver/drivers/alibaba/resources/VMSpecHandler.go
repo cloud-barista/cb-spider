@@ -14,7 +14,6 @@ import (
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 )
 
-//https://docs.aws.amazon.com/sdk-for-go/api/service/ec2/#EC2.DescribeInstanceTypes
 type AlibabaVmSpecHandler struct {
 	Region idrv.RegionInfo
 	Client *ecs.Client
@@ -226,7 +225,6 @@ func (vmSpecHandler *AlibabaVmSpecHandler) ListOrgVMSpec() (string, error) {
 	return jsonString, errJson
 }
 
-// AWS의 정보 그대로를 가공 없이 JSON으로 리턴 함.
 func (vmSpecHandler *AlibabaVmSpecHandler) GetOrgVMSpec(Name string) (string, error) {
 	Region := vmSpecHandler.Region.Region
 	cblogger.Infof("Start GetOrgVMSpec(Session Region:[%s], Name:[%s])", Region, Name)
