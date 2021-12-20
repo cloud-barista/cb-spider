@@ -26,7 +26,8 @@ const (
 	CBVMUser = "cscservice"
 	//CBKeyPairPath = "/cloud-control-manager/cloud-driver/driver-libs/.ssh-gcp/"
 	// by powerkim, 2019.10.30
-	CBKeyPairPath = "/meta_db/.ssh-gcp/"
+	CBKeyPairPath     = "/meta_db/.ssh-gcp/"
+	CBKeyPairProvider = "GCP"
 )
 
 const CBDefaultVNetName string = "cb-vnet"   // CB Default Virtual Network Name

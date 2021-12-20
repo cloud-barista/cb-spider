@@ -20,6 +20,7 @@ import (
 	"strings"
 	"time"
 
+	keypair "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/common"
 	compute "google.golang.org/api/compute/v1"
 
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
@@ -105,12 +106,20 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 	keypairHandler := GCPKeyPairHandler{
 		vmHandler.Credential, vmHandler.Region}
 	keypairInfo, errKeypair := keypairHandler.GetKey(vmReqInfo.KeyPairIID)
-	pubKey := "cb-user:" + keypairInfo.PublicKey
 	if errKeypair != nil {
 		cblogger.Error(errKeypair)
 		return irs.VMInfo{}, errKeypair
 	}
 
+	cblogger.Debug("공개키 생성")
+	publicKey, errPub := keypair.MakePublicKeyFromPrivateKey(keypairInfo.PrivateKey)
+	if errPub != nil {
+		cblogger.Error(errPub)
+		return irs.VMInfo{}, errPub
+	}
+
+	//pubKey := "cb-user:" + keypairInfo.PublicKey
+	pubKey := "cb-user:" + strings.TrimSpace(publicKey) + " " + "cb-user"
 	cblogger.Debug("keypairInfo 정보")
 	spew.Dump(keypairInfo)
 

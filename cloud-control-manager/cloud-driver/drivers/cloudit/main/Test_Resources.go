@@ -2,6 +2,9 @@ package main
 
 import (
 	"fmt"
+	"io/ioutil"
+	"os"
+
 	cblog "github.com/cloud-barista/cb-log"
 	cidrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/cloudit"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
@@ -9,8 +12,6 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	"github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v3"
-	"io/ioutil"
-	"os"
 )
 
 // duplicateName
@@ -549,7 +550,7 @@ func getResourceHandler(resourceType string) (interface{}, error) {
 	var cloudDriver idrv.CloudDriver
 	cloudDriver = new(cidrv.ClouditDriver)
 
-	config := readConfigFile()
+	config := readResourceConfigFile()
 	connectionInfo := idrv.ConnectionInfo{
 		CredentialInfo: idrv.CredentialInfo{
 			IdentityEndpoint: config.Cloudit.IdentityEndpoint,
