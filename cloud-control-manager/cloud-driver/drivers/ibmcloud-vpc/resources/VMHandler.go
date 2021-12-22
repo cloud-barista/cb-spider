@@ -891,7 +891,7 @@ func (vmHandler *IbmVMHandler) setVmInfo(instance vpcv1.Instance) (irs.VMInfo, e
 		},
 		StartTime: time.Time(*instance.CreatedAt).Local(),
 		Region: irs.RegionInfo{
-			Region: "",
+			Region: vmHandler.Region.Region,
 			Zone:   *instance.Zone.Name,
 		},
 		VMSpecName: *instance.Profile.Name,
