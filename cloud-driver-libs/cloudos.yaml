@@ -21,7 +21,9 @@ cloudos:
   - OPENSTACK
   - CLOUDIT
   - NCP
+  - NCPVPC
   - KTCLOUD
+  - NHNCLOUD
 #--- PoC
   - DOCKER
 #--- Emulation

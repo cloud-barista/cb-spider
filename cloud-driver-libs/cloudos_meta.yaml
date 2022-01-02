@@ -40,7 +40,6 @@ OPENSTACK:
   region: Region
   credential: IdentityEndpoint / Username / Password / DomainName / ProjectID
 
-
 CLOUDIT:
   region: Region
   credential: IdentityEndpoint / AuthToken / Username / Password / TenantId
@@ -48,10 +47,18 @@ CLOUDIT:
 NCP: 
   region: Region / Zone
   credential: ClientId / ClientSecret
+  
+NCPVPC: 
+  region: Region / Zone
+  credential: ClientId / ClientSecret
 
 KTCLOUD:
   region: Region / Zone
   credential: ClientId / ClientSecret
+  
+NHNCLOUD:
+  region: Region
+  credential: IdentityEndpoint / Username / Password / DomainName / TenantId
 
 #--- PoC
 
