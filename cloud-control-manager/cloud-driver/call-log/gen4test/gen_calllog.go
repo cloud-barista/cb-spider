@@ -55,18 +55,20 @@ func ListVPC() error {
 
 var cloudOSList = []call.CLOUD_OS{
 	call.AWS,
-	call.GCP,
 	call.AZURE,
+	call.GCP,
+	call.ALIBABA,
+	call.TENCENT,
+	call.IBM,
 	call.OPENSTACK,
 	call.CLOUDIT,
-	call.ALIBABA,
-	call.DOCKER,
-	call.CLOUDTWIN,
-	call.TENCENT,
 	call.NCP,
 	call.NCPVPC,
 	call.KTCLOUD,
-	call.IBM,
+	call.NHNCLOUD,
+	call.DOCKER,
+	call.MOCK,
+	call.CLOUDTWIN,
 }
 
 var resTypeList = []call.RES_TYPE{
