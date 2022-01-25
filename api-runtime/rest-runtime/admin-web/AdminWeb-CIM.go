@@ -337,8 +337,9 @@ func makeCredentialTRList_html(bgcolor string, height string, fontSize string, i
                 str = strings.ReplaceAll(str, "$$S1$$", one.ProviderName)
 		strKeyList := ""
                 for _, kv := range one.KeyValueInfoList {
-                        strKeyList += kv.Key + ":xxxx, "
+                        strKeyList += kv.Key + ":" + kv.Value + ", "
                 }
+		strKeyList = strings.TrimSuffix(strKeyList, ", ")
                 str = strings.ReplaceAll(str, "$$S2$$", strKeyList)
                 str = strings.ReplaceAll(str, "$$S3$$", one.CredentialName)
                 strData += str
