@@ -72,7 +72,13 @@ func RegisterCredential(credentialName string, providerName string, keyValueInfo
 		return nil, err
 	}
 
-	crdInfo := &CredentialInfo{credentialName, providerName, keyValueInfoList}
+	// Hide credential data for security
+        kvList := []icbs.KeyValue{}
+        for _, kv := range keyValueInfoList {
+                kv.Value = "Hidden for security."
+                kvList = append(kvList, kv)
+        }
+	crdInfo := &CredentialInfo{credentialName, providerName, kvList}
 	return crdInfo, nil
 }
 
