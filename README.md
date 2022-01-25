@@ -64,7 +64,7 @@ If you have any difficulties in using CB-Spider, please let us know.
   | IBM           | O          | O          | O          | O          | O          | O          |
   | OpenStack     | O          | O          | O          | O          | O          | O          |
   | Cloudit       | O          | O          | O(💬)          | O          | O          | O          |
-  | Docker        | O          | -          | -          | -          | -          | O          |
+  | Docker (PoC)  | O          | -          | -          | -          | -          | O          |
 
     💬 특이사항: 
         - VPC: 단일 VPC 생성 제공 (두개 이상 VPC 생성 요청시 동작을 보장할 수 없음)
