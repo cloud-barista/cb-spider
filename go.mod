@@ -25,7 +25,7 @@ require (
 	github.com/chyeh/pubip v0.0.0-20170203095919-b7e679cf541c
 	github.com/cloud-barista/cb-log v0.5.0
 	github.com/cloud-barista/cb-store v0.5.0
-	github.com/containerd/containerd v1.5.8 // indirect
+	github.com/containerd/containerd v1.5.9 // indirect
 	github.com/davecgh/go-spew v1.1.1
 	github.com/docker/docker v20.10.7+incompatible
 	github.com/docker/go-connections v0.4.0

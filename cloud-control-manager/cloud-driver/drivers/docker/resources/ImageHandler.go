@@ -139,7 +139,9 @@ func (imageHandler *DockerImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 			return []*irs.ImageInfo{}, err
 		}
 
-                listImages[i] = &irs.ImageInfo{irs.IID{"", image.ID}, osName, "", nil } 
+                //listImages[i] = &irs.ImageInfo{irs.IID{"", image.ID}, osName, "", nil } 
+		// To avoid empty validator, Using CSPID for NameID by powerkim, 2022.01.25.
+                listImages[i] = &irs.ImageInfo{irs.IID{image.ID, image.ID}, osName, "", nil } 
         }
 
 	return listImages, nil

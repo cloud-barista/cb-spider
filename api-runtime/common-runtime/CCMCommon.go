@@ -2337,14 +2337,17 @@ func StartVM(connectionName string, rsType string, reqInfo cres.VMReqInfo) (*cre
 	// vmRWLock.Lock() @todo undo this until supporting async call. by powerkim, 2020.05.10
 	// defer vmRWLock.Unlock() @todo undo this until supporting async call. by powerkim, 2020.05.10
 	// (1) check exist(NameID)
-	bool_ret, err := iidRWLock.IsExistIID(iidm.IIDSGROUP, connectionName, rsType, reqInfo.IId)
-	if err != nil {
-		cblog.Error(err)
-		return nil, err
-	}
+	dockerTest := os.Getenv("DOCKER_POC_TEST") // For docker poc tests, this is currently the best method.
+	if dockerTest == "" || dockerTest == "OFF" {
+		bool_ret, err := iidRWLock.IsExistIID(iidm.IIDSGROUP, connectionName, rsType, reqInfo.IId)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
 
-	if bool_ret == true {
-		return nil, fmt.Errorf(rsType + "-" + reqInfo.IId.NameId + " already exists!")
+		if bool_ret == true {
+			return nil, fmt.Errorf(rsType + "-" + reqInfo.IId.NameId + " already exists!")
+		}
 	}
 
 	providerName, err := ccm.GetProviderNameByConnectionName(connectionName)
@@ -2390,10 +2393,15 @@ func StartVM(connectionName string, rsType string, reqInfo cres.VMReqInfo) (*cre
 	reqInfo.IId = driverIId
 
 	// (3) clone the reqInfo with DriverIID
-	reqInfoForDriver, err := cloneReqInfoWithDriverIID(connectionName, reqInfo)
-	if err != nil {
-		cblog.Error(err)
-		return nil, err
+	var reqInfoForDriver cres.VMReqInfo
+	if dockerTest == "ON" {
+		reqInfoForDriver = reqInfo
+	}else {
+		reqInfoForDriver, err = cloneReqInfoWithDriverIID(connectionName, reqInfo)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
 	}
 
 	callInfo := call.CLOUDLOGSCHEMA {
