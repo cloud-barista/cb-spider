@@ -72,6 +72,11 @@ func ListImage(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
+	// To support for Get-Query Param Type API
+        if req.ConnectionName == "" {
+                req.ConnectionName = c.QueryParam("ConnectionName")
+        }
+
 	// Call common-runtime API
 	result, err := cmrt.ListImage(req.ConnectionName, rsImage)
 	if err != nil {
@@ -96,6 +101,11 @@ func GetImage(c echo.Context) error {
 	if err := c.Bind(&req); err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
+
+	// To support for Get-Query Param Type API
+        if req.ConnectionName == "" {
+                req.ConnectionName = c.QueryParam("ConnectionName")
+        }
 
 	// Call common-runtime API
 	encodededImageName := c.Param("Name")
@@ -149,6 +159,11 @@ func ListVMSpec(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
+	// To support for Get-Query Param Type API
+        if req.ConnectionName == "" {
+                req.ConnectionName = c.QueryParam("ConnectionName")
+        }
+
 	// Call common-runtime API
 	result, err := cmrt.ListVMSpec(req.ConnectionName)
 	if err != nil {
@@ -173,6 +188,11 @@ func GetVMSpec(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
+	// To support for Get-Query Param Type API
+        if req.ConnectionName == "" {
+                req.ConnectionName = c.QueryParam("ConnectionName")
+        }
+
 	// Call common-runtime API
 	result, err := cmrt.GetVMSpec(req.ConnectionName, c.Param("Name"))
 	if err != nil {
@@ -193,6 +213,11 @@ func ListOrgVMSpec(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
+	// To support for Get-Query Param Type API
+        if req.ConnectionName == "" {
+                req.ConnectionName = c.QueryParam("ConnectionName")
+        }
+
 	// Call common-runtime API
 	result, err := cmrt.ListOrgVMSpec(req.ConnectionName)
 	if err != nil {
@@ -212,6 +237,11 @@ func GetOrgVMSpec(c echo.Context) error {
 	if err := c.Bind(&req); err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
+
+	// To support for Get-Query Param Type API
+        if req.ConnectionName == "" {
+                req.ConnectionName = c.QueryParam("ConnectionName")
+        }
 
 	// Call common-runtime API
 	result, err := cmrt.GetOrgVMSpec(req.ConnectionName, c.Param("Name"))
@@ -344,6 +374,11 @@ func ListVPC(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
+	// To support for Get-Query Param Type API
+        if req.ConnectionName == "" {
+                req.ConnectionName = c.QueryParam("ConnectionName")
+        }
+
 	// Call common-runtime API
 	result, err := cmrt.ListVPC(req.ConnectionName, rsVPC)
 	if err != nil {
@@ -373,6 +408,11 @@ func ListAllVPC(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
+	// To support for Get-Query Param Type API
+        if req.ConnectionName == "" {
+                req.ConnectionName = c.QueryParam("ConnectionName")
+        }
+
 	// Call common-runtime API
 	allResourceList, err := cmrt.ListAllResource(req.ConnectionName, rsVPC)
 	if err != nil {
@@ -392,6 +432,11 @@ func GetVPC(c echo.Context) error {
 	if err := c.Bind(&req); err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
+
+	// To support for Get-Query Param Type API
+        if req.ConnectionName == "" {
+                req.ConnectionName = c.QueryParam("ConnectionName")
+        }
 
 	// Call common-runtime API
 	result, err := cmrt.GetVPC(req.ConnectionName, rsVPC, c.Param("Name"))
@@ -657,6 +702,11 @@ func ListSecurity(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
+	// To support for Get-Query Param Type API
+        if req.ConnectionName == "" {
+                req.ConnectionName = c.QueryParam("ConnectionName")
+        }
+
 	// Call common-runtime API
 	result, err := cmrt.ListSecurity(req.ConnectionName, rsSG)
 	if err != nil {
@@ -685,6 +735,11 @@ func ListAllSecurity(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
+	// To support for Get-Query Param Type API
+        if req.ConnectionName == "" {
+                req.ConnectionName = c.QueryParam("ConnectionName")
+        }
+
 	// Call common-runtime API
 	allResourceList, err := cmrt.ListAllResource(req.ConnectionName, rsSG)
 	if err != nil {
@@ -704,6 +759,11 @@ func GetSecurity(c echo.Context) error {
 	if err := c.Bind(&req); err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
+
+	// To support for Get-Query Param Type API
+        if req.ConnectionName == "" {
+                req.ConnectionName = c.QueryParam("ConnectionName")
+        }
 
 	// Call common-runtime API
 	result, err := cmrt.GetSecurity(req.ConnectionName, rsSG, c.Param("Name"))
@@ -889,6 +949,11 @@ func ListKey(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
+	// To support for Get-Query Param Type API
+        if req.ConnectionName == "" {
+                req.ConnectionName = c.QueryParam("ConnectionName")
+        }
+
 	// Call common-runtime API
 	result, err := cmrt.ListKey(req.ConnectionName, rsKey)
 	if err != nil {
@@ -917,6 +982,11 @@ func ListAllKey(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
+	// To support for Get-Query Param Type API
+        if req.ConnectionName == "" {
+                req.ConnectionName = c.QueryParam("ConnectionName")
+        }
+
 	// Call common-runtime API
 	allResourceList, err := cmrt.ListAllResource(req.ConnectionName, rsKey)
 	if err != nil {
@@ -935,6 +1005,11 @@ func GetKey(c echo.Context) error {
 
 	if err := c.Bind(&req); err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	// To support for Get-Query Param Type API
+	if req.ConnectionName == "" {
+		req.ConnectionName = c.QueryParam("ConnectionName")
 	}
 
 	// Call common-runtime API
@@ -1397,6 +1472,11 @@ func ListVM(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
+	// To support for Get-Query Param Type API
+        if req.ConnectionName == "" {
+                req.ConnectionName = c.QueryParam("ConnectionName")
+        }
+
 	// Call common-runtime API
 	result, err := cmrt.ListVM(req.ConnectionName, rsVM)
 	if err != nil {
@@ -1426,6 +1506,11 @@ func ListAllVM(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
+	// To support for Get-Query Param Type API
+        if req.ConnectionName == "" {
+                req.ConnectionName = c.QueryParam("ConnectionName")
+        }
+
 	// Call common-runtime API
 	allResourceList, err := cmrt.ListAllResource(req.ConnectionName, rsVM)
 	if err != nil {
@@ -1445,6 +1530,11 @@ func GetVM(c echo.Context) error {
 	if err := c.Bind(&req); err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
+
+	// To support for Get-Query Param Type API
+        if req.ConnectionName == "" {
+                req.ConnectionName = c.QueryParam("ConnectionName")
+        }
 
 	// Call common-runtime API
 	result, err := cmrt.GetVM(req.ConnectionName, rsVM, c.Param("Name"))
@@ -1520,6 +1610,11 @@ func ListVMStatus(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
+	// To support for Get-Query Param Type API
+        if req.ConnectionName == "" {
+                req.ConnectionName = c.QueryParam("ConnectionName")
+        }
+
 	// Call common-runtime API
 	result, err := cmrt.ListVMStatus(req.ConnectionName, rsVM)
 	if err != nil {
@@ -1545,6 +1640,11 @@ func GetVMStatus(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
+	// To support for Get-Query Param Type API
+        if req.ConnectionName == "" {
+                req.ConnectionName = c.QueryParam("ConnectionName")
+        }
+
 	// Call common-runtime API
 	result, err := cmrt.GetVMStatus(req.ConnectionName, rsVM, c.Param("Name"))
 	if err != nil {
@@ -1568,6 +1668,11 @@ func ControlVM(c echo.Context) error {
 	if err := c.Bind(&req); err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
+
+	// To support for Get-Query Param Type API
+        if req.ConnectionName == "" {
+                req.ConnectionName = c.QueryParam("ConnectionName")
+        }
 
 	// Call common-runtime API
 	result, err := cmrt.ControlVM(req.ConnectionName, rsVM, c.Param("Name"), c.QueryParam("action"))
