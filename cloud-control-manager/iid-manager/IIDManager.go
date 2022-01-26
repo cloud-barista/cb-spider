@@ -351,9 +351,14 @@ func New(cloudConnectName string, uid string) (string, error) {
         }
 
 	maxLength := 9 // default length
-	if cccInfo.ProviderName == "TENCENT" { 
+
+	switch cccInfo.ProviderName {
+	case "AWS" :
+		 maxLength = 234 // AWS maxLen(VMKey)=255, #234+#1+#20 <= {UID}-{XID}
+	case "TENCENT" :
 		maxLength = 4 // TENCENT maxLen(VMKey)=25, #4+#1+#20 <= {UID}-{XID}
 	}
+
 	cookedUID := cookUID(uid, maxLength)
 	// cblog.Info("UID: " + uid + " => cookedUID: " + cookedUID)
 
