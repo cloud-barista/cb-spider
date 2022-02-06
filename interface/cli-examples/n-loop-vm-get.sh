@@ -20,7 +20,7 @@ do
 
 		VM_NAME=${ORG_VM_NAME}-${num}
 
-		time $CLIPATH/spctl --config $CLIPATH/grpc_conf.yaml --cname "${CONN_CONFIG}" vm get -n "${VM_NAME}" 2> /dev/null |grep vm
+		time $CLIPATH/spctl --config $CLIPATH/spctl.conf --cname "${CONN_CONFIG}" vm get -n "${VM_NAME}" 2> /dev/null |grep vm
 		#sleep 1
 	done
 	echo

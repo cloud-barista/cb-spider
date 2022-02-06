@@ -237,7 +237,7 @@ func CIM_With_Config_Test() {
 	cim := api.NewCloudInfoManager()
 
 	// 2. Setup env. with a config file
-	err := cim.SetConfigPath("./conf/grpc_conf.yaml")
+	err := cim.SetConfigPath("./conf/server.conf")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -277,7 +277,7 @@ func CIM_Create_Info_Test(csp int) {
 	cim := api.NewCloudInfoManager()
 
 	// 2. Setup env. with a config file
-	err := cim.SetConfigPath("./conf/grpc_conf.yaml")
+	err := cim.SetConfigPath("./conf/server.conf")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -369,7 +369,7 @@ func CIM_IOFormat_Test() {
 	cim := api.NewCloudInfoManager()
 
 	// 2. Setup env. with a config file
-	err := cim.SetConfigPath("./conf/grpc_conf.yaml")
+	err := cim.SetConfigPath("./conf/server.conf")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -503,7 +503,7 @@ func CRH_Create_Test(csp int) {
 	crh := api.NewCloudResourceHandler()
 
 	// 2. Setup env. with a config file
-	err := crh.SetConfigPath("./conf/grpc_conf.yaml")
+	err := crh.SetConfigPath("./conf/server.conf")
 	if err != nil {
 		log.Fatal(err)
 	}

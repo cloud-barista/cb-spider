@@ -106,7 +106,7 @@ func ConfigCIMApiTest() {
 
 	cim := api.NewCloudInfoManager()
 
-	err := cim.SetConfigPath("../../grpc_conf.yaml")
+	err := cim.SetConfigPath("../../spctl.conf")
 	if err != nil {
 		logger.Fatal(err)
 	}
@@ -135,7 +135,7 @@ func DocTypeCIMApiTest() {
 
 	cim := api.NewCloudInfoManager()
 
-	err := cim.SetConfigPath("../../grpc_conf.yaml")
+	err := cim.SetConfigPath("../../spctl.conf")
 	if err != nil {
 		logger.Fatal(err)
 	}
@@ -219,7 +219,7 @@ func CreateCIMApiTest() {
 
 	cim := api.NewCloudInfoManager()
 
-	err := cim.SetConfigPath("../../grpc_conf.yaml")
+	err := cim.SetConfigPath("../../spctl.conf")
 	if err != nil {
 		logger.Fatal(err)
 	}
@@ -347,7 +347,7 @@ func CreateCCMApiTest() {
 
 	ccm := api.NewCloudResourceHandler()
 
-	err := ccm.SetConfigPath("../../grpc_conf.yaml")
+	err := ccm.SetConfigPath("../../spctl.conf")
 	if err != nil {
 		logger.Fatal(err)
 	}

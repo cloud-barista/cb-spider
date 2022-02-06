@@ -71,7 +71,7 @@ func NewRootCmd() *cobra.Command {
 	}
 
 	// 옵션 플래그 설정
-	rootCmd.PersistentFlags().StringVarP(&configFile, "config", "c", "./grpc_conf.yaml", "config file")
+	rootCmd.PersistentFlags().StringVarP(&configFile, "config", "c", "./spctl.conf", "config file")
 	rootCmd.PersistentFlags().StringVarP(&inType, "input", "i", "yaml", "input format (json/yaml)")
 	rootCmd.PersistentFlags().StringVarP(&outType, "output", "o", "yaml", "output format (json/yaml)")
 

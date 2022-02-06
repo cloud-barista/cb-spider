@@ -13,7 +13,7 @@ source ./setup.env $1
 while true
 do
 	echo "============== vm list =============="
-	time $CLIPATH/spctl --config $CLIPATH/grpc_conf.yaml --cname "${CONN_CONFIG}" vm list |grep "vm"
+	time $CLIPATH/spctl --config $CLIPATH/spctl.conf --cname "${CONN_CONFIG}" vm list |grep "vm"
 	echo
 	sleep 1
 done

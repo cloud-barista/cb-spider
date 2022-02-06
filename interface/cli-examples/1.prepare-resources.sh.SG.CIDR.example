@@ -11,7 +11,7 @@ fi
 source ./setup.env $1
 
 echo "============== before create VPC/Subnet: '${VPC_NAME}'"
-time $CLIPATH/spctl --config $CLIPATH/grpc_conf.yaml vpc create -i json -d \
+time $CLIPATH/spctl --config $CLIPATH/spctl.conf vpc create -i json -d \
     '{
       "ConnectionName":"'${CONN_CONFIG}'",
       "ReqInfo": {
@@ -30,7 +30,7 @@ echo "============== after create VPC/Subnet: '${VPC_NAME}'"
 
 
 echo "============== before create SecurityGroup: '${SG_NAME}'"
-time $CLIPATH/spctl --config $CLIPATH/grpc_conf.yaml security create -i json -d \
+time $CLIPATH/spctl --config $CLIPATH/spctl.conf security create -i json -d \
     '{
       "ConnectionName":"'${CONN_CONFIG}'",
       "ReqInfo": {
@@ -51,7 +51,7 @@ echo "============== after create SecurityGroup: '${SG_NAME}'"
 
 
 echo "============== before create KeyPair: '${KEYPAIR_NAME}'"
-time $CLIPATH/spctl --config $CLIPATH/grpc_conf.yaml keypair create -i json -d \
+time $CLIPATH/spctl --config $CLIPATH/spctl.conf keypair create -i json -d \
     '{
       "ConnectionName":"'${CONN_CONFIG}'",
       "ReqInfo": {

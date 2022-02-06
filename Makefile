@@ -18,7 +18,7 @@ clean clear:
 cli-dist dist-cli: cli
 		@echo -e '\t[CB-Spider] tar spctl... to dist'
 		@mkdir -p /tmp/spider/dist/conf 
-		@cp ./interface/spctl ./interface/grpc_conf.yaml /tmp/spider/dist 1> /dev/null
+		@cp ./interface/spctl ./interface/spctl.conf /tmp/spider/dist 1> /dev/null
 		@cp ./conf/log_conf.yaml /tmp/spider/dist/conf 1> /dev/null
 		@mkdir -p ./dist
 		@tar -zcvf ./dist/spctl-`(date +%Y.%m.%d.%H)`.tar.gz -C /tmp/spider/dist ./ 1> /dev/null

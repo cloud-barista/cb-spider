@@ -8,7 +8,7 @@ echo -e "\n============ STEP-1: CREATE CONNECT CONFIG (AWS:OHIO)"
 source ./setup.env
 
 # for Cloud Driver Info
-time $CLIPATH/spctl --config $CLIPATH/grpc_conf.yaml driver create -i json -d \
+time $CLIPATH/spctl --config $CLIPATH/spctl.conf driver create -i json -d \
     '{
       "DriverName":"aws-driver01",
       "ProviderName":"AWS",
@@ -16,7 +16,7 @@ time $CLIPATH/spctl --config $CLIPATH/grpc_conf.yaml driver create -i json -d \
     }'
 
  # for Cloud Credential Info
-time $CLIPATH/spctl --config $CLIPATH/grpc_conf.yaml credential create -i json -d \
+time $CLIPATH/spctl --config $CLIPATH/spctl.conf credential create -i json -d \
     '{
       "CredentialName":"aws-credential01", 
       "ProviderName":"AWS",
@@ -27,7 +27,7 @@ time $CLIPATH/spctl --config $CLIPATH/grpc_conf.yaml credential create -i json -
     }'
 
  # for Cloud Region Info
-time $CLIPATH/spctl --config $CLIPATH/grpc_conf.yaml region create -i json -d \
+time $CLIPATH/spctl --config $CLIPATH/spctl.conf region create -i json -d \
     '{
       "RegionName":"aws-ohio",
       "ProviderName":"AWS",
@@ -38,7 +38,7 @@ time $CLIPATH/spctl --config $CLIPATH/grpc_conf.yaml region create -i json -d \
     }'
 
  # for Cloud Connection Config Info
-time $CLIPATH/spctl --config $CLIPATH/grpc_conf.yaml connection create -i json -d \
+time $CLIPATH/spctl --config $CLIPATH/spctl.conf connection create -i json -d \
     '{
       "ConfigName":"aws-ohio-config",
       "ProviderName":"AWS",

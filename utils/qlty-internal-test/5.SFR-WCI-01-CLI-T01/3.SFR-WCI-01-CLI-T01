@@ -10,16 +10,16 @@ echo -e "\n============ STEP-3: DELETE CONNECT CONFIG (AWS:OHIO)"
 source ./setup.env
 
 # for Cloud Driver Info
-time $CLIPATH/spctl --config $CLIPATH/grpc_conf.yaml driver delete -n aws-driver01
+time $CLIPATH/spctl --config $CLIPATH/spctl.conf driver delete -n aws-driver01
 
  # for Cloud Credential Info
-time $CLIPATH/spctl --config $CLIPATH/grpc_conf.yaml credential delete -n aws-credential01
+time $CLIPATH/spctl --config $CLIPATH/spctl.conf credential delete -n aws-credential01
 
  # for Cloud Region Info
-time $CLIPATH/spctl --config $CLIPATH/grpc_conf.yaml region delete -n aws-ohio
+time $CLIPATH/spctl --config $CLIPATH/spctl.conf region delete -n aws-ohio
 
  # for Cloud Connection Config Info
-time $CLIPATH/spctl --config $CLIPATH/grpc_conf.yaml connection delete -n aws-ohio-config
+time $CLIPATH/spctl --config $CLIPATH/spctl.conf connection delete -n aws-ohio-config
 
 
 

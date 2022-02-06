@@ -12,7 +12,7 @@ export CONN_CONFIG=aws-ohio-config
 echo -e "\n============ STEP-2: CREATE/LIST/DELETE VPC (AWS:OHIO)"
 
 echo "============== create VPC/Subnet: '${VPC_NAME}'"
-time $CLIPATH/spctl --config $CLIPATH/grpc_conf.yaml vpc create -i json -d \
+time $CLIPATH/spctl --config $CLIPATH/spctl.conf vpc create -i json -d \
     '{
       "ConnectionName":"'${CONN_CONFIG}'",
       "ReqInfo": {
@@ -30,11 +30,11 @@ time $CLIPATH/spctl --config $CLIPATH/grpc_conf.yaml vpc create -i json -d \
 
 
 echo "============== get VPC/Subnet: '${VPC_NAME}'"
-time $CLIPATH/spctl --config $CLIPATH/grpc_conf.yaml vpc get --cname "${CONN_CONFIG}" -n "${VPC_NAME}" 2> /dev/null
+time $CLIPATH/spctl --config $CLIPATH/spctl.conf vpc get --cname "${CONN_CONFIG}" -n "${VPC_NAME}" 2> /dev/null
 
 
 echo "============== delete VPC/Subnet: '${VPC_NAME}'"
-time $CLIPATH/spctl --config $CLIPATH/grpc_conf.yaml vpc delete --cname "${CONN_CONFIG}" -n "${VPC_NAME}" --force false 2> /dev/null
+time $CLIPATH/spctl --config $CLIPATH/spctl.conf vpc delete --cname "${CONN_CONFIG}" -n "${VPC_NAME}" --force false 2> /dev/null
 
 
 
