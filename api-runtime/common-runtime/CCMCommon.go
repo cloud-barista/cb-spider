@@ -141,7 +141,7 @@ func CreateImage(connectionName string, rsType string, reqInfo cres.ImageReqInfo
 	//     ex) SP-XID{"vm-01-9m4e2mr0ui3e8a215n4g"}
 	//     ex) userIID{"seoul-service", "vm-01-9m4e2mr0ui3e8a215n4g"}, 
 	//     ex) driverIID{"vm-01-9m4e2mr0ui3e8a215n4g", ""}
-	spiderUUID, err := iidm.New(connectionName, reqInfo.IId.NameId)
+	spiderUUID, err := iidm.New(connectionName, rsType, reqInfo.IId.NameId)
 	if err != nil {
                 cblog.Error(err)
                 return nil, err
@@ -937,7 +937,7 @@ func CreateVPC(connectionName string, rsType string, reqInfo cres.VPCReqInfo) (*
 	//
 	//     create driverIID: {driverNameID, driverSystemID}   # driverNameID=SP-XID, driverSystemID=csp's ID
 	//         ex) driverIID {"vm-01-9m4e2mr0ui3e8a215n4g", "i-0bc7123b7e5cbf79d"}
-	spUUID, err := iidm.New(connectionName, reqInfo.IId.NameId)
+	spUUID, err := iidm.New(connectionName, rsType, reqInfo.IId.NameId)
 	if err != nil {
                 cblog.Error(err)
                 return nil, err
@@ -953,7 +953,7 @@ func CreateVPC(connectionName string, rsType string, reqInfo cres.VPCReqInfo) (*
 	subnetReqIIdList := []cres.IID{}
 	subnetInfoList := []cres.SubnetInfo{}
 	for _, info := range reqInfo.SubnetInfoList {
-		subnetUUID, err := iidm.New(connectionName, info.IId.NameId)
+		subnetUUID, err := iidm.New(connectionName, rsType, info.IId.NameId)
 		if err != nil {
 			cblog.Error(err)
 			return nil, err
@@ -1294,7 +1294,7 @@ func AddSubnet(connectionName string, rsType string, vpcName string, reqInfo cre
 		return nil, err
 	}
 
-	subnetUUID, err := iidm.New(connectionName, reqInfo.IId.NameId)
+	subnetUUID, err := iidm.New(connectionName, rsType, reqInfo.IId.NameId)
 	if err != nil {
                 cblog.Error(err)
                 return nil, err
@@ -1572,7 +1572,7 @@ func CreateSecurity(connectionName string, rsType string, reqInfo cres.SecurityR
 	//
 	//     create driverIID: {driverNameID, driverSystemID}   # driverNameID=SP-XID, driverSystemID=csp's ID
 	//         ex) driverIID {"vm-01-9m4e2mr0ui3e8a215n4g", "i-0bc7123b7e5cbf79d"}
-	spUUID, err := iidm.New(connectionName, reqInfo.IId.NameId)
+	spUUID, err := iidm.New(connectionName, rsType, reqInfo.IId.NameId)
 	if err != nil {
                 cblog.Error(err)
                 return nil, err
@@ -1959,7 +1959,7 @@ func CreateKey(connectionName string, rsType string, reqInfo cres.KeyPairReqInfo
 	//
 	//     create driverIID: {driverNameID, driverSystemID}   # driverNameID=SP-XID, driverSystemID=csp's ID
 	//         ex) driverIID {"vm-01-9m4e2mr0ui3e8a215n4g", "i-0bc7123b7e5cbf79d"}
-	spUUID, err := iidm.New(connectionName, reqInfo.IId.NameId)
+	spUUID, err := iidm.New(connectionName, rsType, reqInfo.IId.NameId)
 	if err != nil {
                 cblog.Error(err)
                 return nil, err
@@ -2379,7 +2379,7 @@ func StartVM(connectionName string, rsType string, reqInfo cres.VMReqInfo) (*cre
 	//
 	//     create driverIID: {driverNameID, driverSystemID}   # driverNameID=SP-XID, driverSystemID=csp's ID
 	//         ex) driverIID {"vm-01-9m4e2mr0ui3e8a215n4g", "i-0bc7123b7e5cbf79d"}
-	spUUID, err := iidm.New(connectionName, reqInfo.IId.NameId)
+	spUUID, err := iidm.New(connectionName, rsType, reqInfo.IId.NameId)
 	if err != nil {
                 cblog.Error(err)
                 return nil, err

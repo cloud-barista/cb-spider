@@ -12,12 +12,14 @@ import (
 	"fmt"
 	"sync"
 	"strings"
+	"strconv"
 	"github.com/rs/xid"
 	"regexp"
 
 	"github.com/sirupsen/logrus"
 	"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/cloud-barista/cb-store/config"
+	cim "github.com/cloud-barista/cb-spider/cloud-info-manager"
 	ccim "github.com/cloud-barista/cb-spider/cloud-info-manager/connection-config-info-manager"
 )
 
@@ -344,19 +346,24 @@ func checkParamsKeyword(connectionName string, resourceType string, keyword *str
 //----------------
 
 // generate Spider UUID(SP-XID)
-func New(cloudConnectName string, uid string) (string, error) {
+func New(cloudConnectName string, rsType string, uid string) (string, error) {
         cccInfo, err := ccim.GetConnectionConfig(cloudConnectName)
         if err != nil {
                 return "", err
         }
 
-	maxLength := 9 // default length
+	// default length: 9 + 21 => 30 (NCP's ID Length, the shortest)
+	//   ex) AWS maxLen(VMID)=255, #234 + #1 + #20 <== "{UID}-{XID}", {XID} = #20
+	maxLength := 9
 
-	switch cccInfo.ProviderName {
-	case "AWS" :
-		 maxLength = 234 // AWS maxLen(VMKey)=255, #234+#1+#20 <= {UID}-{XID}
-	case "TENCENT" :
-		maxLength = 4 // TENCENT maxLen(VMKey)=25, #4+#1+#20 <= {UID}-{XID}
+	rsMaxLength := getIdMaxLength(cccInfo.ProviderName, rsType)
+
+	if rsMaxLength > 0 && rsMaxLength <= 21 {
+		return "", fmt.Errorf("The Minimum ID Length must be greater than 21!")
+	}
+
+	if rsMaxLength > 21 {
+		maxLength = rsMaxLength - 21
 	}
 
 	cookedUID := cookUID(uid, maxLength)
@@ -368,6 +375,49 @@ func New(cloudConnectName string, uid string) (string, error) {
 	// cblog.Info("SP-XID: " + spXID)
 
 	return convertDashOrUnderScore(cccInfo.ProviderName, spXID)
+}
+
+func getIdMaxLength(providerName string, rsType string) int {
+	// get Provider's Meta Info
+        cloudOSMetaInfo, err := cim.GetCloudOSMetaInfo(providerName)
+        if err != nil {
+                cblog.Error(err)
+                return 0
+        }
+
+	if len(cloudOSMetaInfo.IdMaxLength) <= 1 {
+		return 0
+	}
+
+	/*----- ref) cloud-driver-libs/cloudos_meta.yaml
+	  # idmaxlength: VPC / Subnet / SecurityGroup / KeyPair / VM
+	    idmaxlength: 255 / 256 / 255 / 255 / 255
+	-----*/
+	idx := getIDXNumber(rsType)
+	if idx == -1 {
+		return 0
+	}
+	strMaxLength := cloudOSMetaInfo.IdMaxLength[idx]
+	maxLength, _ := strconv.Atoi(strMaxLength)
+
+	return maxLength
+}
+
+func getIDXNumber(rsType string) int {
+	switch (rsType) {
+	case "vpc": 
+		return 0
+	case "subnet": 
+		return 1
+	case "sg": 
+		return 2
+	case "keypair": 
+		return 3
+	case "vm": 
+		return 4
+	default: 
+		return -1
+	}
 }
 
 func convertDashOrUnderScore(providerName string, spXID string) (string, error) {

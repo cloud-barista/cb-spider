@@ -14,6 +14,7 @@ type CloudOSMetaInfo struct {
      Region     []string
      Credential []string
      RootDiskType []string
+     IdMaxLength []string
 }
 
 // struct for unmarshal
@@ -21,6 +22,7 @@ type YamlMetaInfo struct {
      Region     string
      Credential string
      RootDiskType string
+     IdMaxLength string
 }
 
 
@@ -58,6 +60,7 @@ rwMutex.Lock()
 		Region : cloneSlice(mInfo.Region),
 		Credential : cloneSlice(mInfo.Credential),
 		RootDiskType : cloneSlice(mInfo.RootDiskType),
+		IdMaxLength : cloneSlice(mInfo.IdMaxLength),
 	}
 rwMutex.Unlock()
 	return ret, nil
@@ -113,6 +116,7 @@ func convertAndSetMetaInfo(yamlMetaInfo map[string]YamlMetaInfo)  {
 			Region: splitAndTrim(v.Region),
 			Credential: splitAndTrim(v.Credential),
 			RootDiskType: splitAndTrim(v.RootDiskType),
+			IdMaxLength: splitAndTrim(v.IdMaxLength),
 		}
 		metaInfo[k] = cloudOSMetaInfo
 	}
