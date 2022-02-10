@@ -1190,7 +1190,7 @@ func VM(c echo.Context) error {
 		specName = "t2.micro"
 		subnetName = "subnet-01"
 		sgName = `["sg-01"]`
-		vmUser = "ec2-user"
+		vmUser = "cb-user"
 	case "AZURE":
 		imageName = "Canonical:UbuntuServer:18.04-LTS:latest"
 		specName = "Standard_B1ls"
@@ -1208,25 +1208,45 @@ func VM(c echo.Context) error {
 		specName = "ecs.t5-lc1m2.small"
 		subnetName = "subnet-01"
 		sgName = `["sg-01"]`
-		vmUser = "root"
+		vmUser = "cb-user"
+	case "TENCENT":
+		imageName = "img-pi0ii46r"
+		specName = "S3.SMALL1"
+		subnetName = "subnet-01"
+		sgName = `["sg-01"]`
+		vmUser = "cb-user"
+	case "IBM":
+		imageName = "r014-dc446598-a1b5-41c3-a1d6-add3afaf264e"
+		specName = "bx2-2x8"
+		subnetName = "subnet-01"
+		sgName = `["sg-01"]`
+		vmUser = "cb-user"
+
 	case "CLOUDIT":
 		imageName = "CentOS-7"
 		specName = "small-2"
 		subnetName = "subnet-01"
 		sgName = `["sg-01"]`
-		vmUser = "root"
+		vmUser = "cb-user"
 	case "OPENSTACK":
 		imageName = "ubuntu18.04"
 		specName = "DS-Demo"
 		subnetName = "subnet-01"
 		sgName = `["sg-01"]`
-		vmUser = "ubuntu"
+		vmUser = "cb-user"
+	case "NCP":
+		imageName = "SPSW0LINUX000130"
+		specName = "SPSVRHICPU000001"
+		subnetName = "subnet-01"
+		sgName = `["sg-01"]`
+		vmUser = "cb-user"
+
 	case "DOCKER":
 		imageName = "nginx:latest"
-		subnetName = ""
-		sgName = `[]`
-		specName = ""
-		vmUser = ""
+		specName = "NA"
+		subnetName = "NA"
+		sgName = `["NA"]`
+		vmUser = "cb-user"
 	case "MOCK":
 		imageName = "mock-vmimage-01"
 		subnetName = "subnet-01"
@@ -1244,7 +1264,7 @@ func VM(c echo.Context) error {
 		specName = "t2.micro"
 		subnetName = "subnet-01"
 		sgName = `["sg-01"]`
-		vmUser = "ec2-user"
+		vmUser = "cb-user"
 	}
 
 	htmlStr += `
