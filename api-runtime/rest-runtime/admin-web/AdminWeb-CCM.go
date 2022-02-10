@@ -1236,7 +1236,19 @@ func VM(c echo.Context) error {
 		vmUser = "cb-user"
 	case "NCP":
 		imageName = "SPSW0LINUX000130"
-		specName = "SPSVRHICPU000001"
+		specName = "SPSVRHICPUSSD002"
+		subnetName = "subnet-01"
+		sgName = `["sg-01"]`
+		vmUser = "cb-user"
+	case "KTCLOUD":
+		imageName = "97ef0091-fdf7-44e9-be79-c99dc9b1a0ad"
+		specName = "d3530ad2-462b-43ad-97d5-e1087b952b7d#87c0a6f6-c684-4fbe-a393-d8412bcf788d_disk100GB"
+		subnetName = "subnet-01"
+		sgName = `["sg-01"]`
+		vmUser = "cb-user"
+	case "NHNCLOUD":
+		imageName = "5396655e-166a-4875-80d2-ed8613aa054f"
+		specName = "m2.c4m8"
 		subnetName = "subnet-01"
 		sgName = `["sg-01"]`
 		vmUser = "cb-user"
