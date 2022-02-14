@@ -10,6 +10,7 @@ AWS:
   region: Region / Zone
   credential: ClientId / ClientSecret
   # rootdisktype: standard / io1 / io2 / gp2 / sc1 / st1 / gp3
+  # issues: https://github.com/cloud-barista/cb-spider/pull/523#issuecomment-965363272
   rootdisktype: standard / gp2 / gp3
   # idmaxlength: VPC / Subnet / SecurityGroup / KeyPair / VM
   idmaxlength: 255 / 256 / 255 / 255 / 255
@@ -17,6 +18,7 @@ AWS:
 AZURE:
   region: location / ResourceGroup
   credential: ClientId / ClientSecret / TenantId / SubscriptionId
+  # type issues: https://github.com/cloud-barista/cb-spider/pull/529#issue-1051678985
   rootdisktype: PremiumSSD / StandardSSD / StandardHHD
   # idmaxlength: VPC / Subnet / SecurityGroup / KeyPair / VM
   idmaxlength: 64 / 80 / 64 / 80 / 64
