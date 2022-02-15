@@ -5,6 +5,7 @@ go 1.16
 replace (
 	github.com/coreos/bbolt => go.etcd.io/bbolt v1.3.3
 	github.com/dgrijalva/jwt-go => github.com/golang-jwt/jwt v3.2.1+incompatible
+	github.com/docker/distribution => github.com/docker/distribution v2.8.0+incompatible
 	github.com/opencontainers/image-spec => github.com/opencontainers/image-spec v1.0.2
 	google.golang.org/api => google.golang.org/api v0.15.0
 	google.golang.org/grpc => google.golang.org/grpc v1.26.0
