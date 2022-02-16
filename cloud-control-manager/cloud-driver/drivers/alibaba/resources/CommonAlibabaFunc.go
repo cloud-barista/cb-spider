@@ -49,10 +49,10 @@ const (
 
 	CBPageOn = true
 	// page number for control pages
-	CBPageNumber = 1
+	CBPageNumber = 1 // 페이지 시작은 1부터 시작되기 때문에 삭제 예정
 
 	// page size for control pages
-	CBPageSize = 100
+	CBPageSize = 100 //오브젝트(예: 이미지 / 키페어 / ...) 마다 지정 개수가 달라서 삭제 예정
 
 	CBKeyPairPath = "/meta_db/.ssh-aliyun/"
 	//CBCloudInitFilePath = "/cloud-driver-libs/.cloud-init-aliyun/cloud-init"

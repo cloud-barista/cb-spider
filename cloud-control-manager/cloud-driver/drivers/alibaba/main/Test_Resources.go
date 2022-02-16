@@ -524,6 +524,7 @@ func handleKeyPair() {
 					if result != nil {
 						keyPairName = result[0].IId.SystemId // 조회 및 삭제를 위해 생성된 ID로 변경
 					}
+					cblogger.Info("키 페어 수 : ", len(result))
 				}
 
 			case 2:
@@ -983,9 +984,9 @@ func main() {
 
 	//handleVPC() //VPC
 	//handleVMSpec()
-	handleImage() //AMI
+	//handleImage() //AMI
 	//handleSecurity()
-	//handleKeyPair()
+	handleKeyPair()
 	//handleVM()
 
 	//handlePublicIP() // PublicIP 생성 후 conf

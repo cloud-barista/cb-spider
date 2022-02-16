@@ -14,6 +14,7 @@ import (
 	"errors"
 	"os"
 
+	"github.com/aliyun/alibaba-cloud-sdk-go/sdk/requests"
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/ecs"
 
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
@@ -31,10 +32,12 @@ func (keyPairHandler *AlibabaKeyPairHandler) ListKey() ([]*irs.KeyPairInfo, erro
 	cblogger.Debug("Start ListKey()")
 	var keyPairList []*irs.KeyPairInfo
 	//spew.Dump(keyPairHandler)
-	cblogger.Info(keyPairHandler)
+	cblogger.Debug(keyPairHandler)
 
 	request := ecs.CreateDescribeKeyPairsRequest()
 	request.Scheme = "https"
+	request.PageNumber = requests.NewInteger(1)
+	request.PageSize = requests.NewInteger(50) // 키 페어는 최대 50개까지 지정 가능
 
 	// logger for HisCall
 	callogger := call.GetLogger("HISCALL")
@@ -49,34 +52,46 @@ func (keyPairHandler *AlibabaKeyPairHandler) ListKey() ([]*irs.KeyPairInfo, erro
 	}
 
 	callLogStart := call.Start()
-	//  Returns a list of key pairs
-	result, err := keyPairHandler.Client.DescribeKeyPairs(request)
-	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 
-	if err != nil {
-		callLogInfo.ErrorMSG = err.Error()
-		callogger.Error(call.String(callLogInfo))
+	var totalCount = 0
+	curPage := 1
+	for {
+		//  Returns a list of key pairs
+		result, err := keyPairHandler.Client.DescribeKeyPairs(request)
+		callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 
-		cblogger.Errorf("Unable to get key pairs, %v", err)
-		return keyPairList, err
-	}
-	callogger.Info(call.String(callLogInfo))
-	cblogger.Info(result)
+		if err != nil {
+			callLogInfo.ErrorMSG = err.Error()
+			callogger.Error(call.String(callLogInfo))
 
-	//cblogger.Debugf("Key Pairs:")
-	for _, pair := range result.KeyPairs.KeyPair {
-		keyPairInfo, errKeyPair := ExtractKeyPairDescribeInfo(&pair)
-
-		if errKeyPair != nil {
-			// 2021-10-27 이슈#480에 의해 Local Key 로직 제거
-			//cblogger.Infof("[%s] KeyPair는 Local에서 관리하는 대상이 아니기 때문에 Skip합니다.", *&pair.KeyPairName)
-			cblogger.Info(errKeyPair.Error())
-		} else {
-			keyPairList = append(keyPairList, &keyPairInfo)
+			cblogger.Errorf("Unable to get key pairs, %v", err)
+			return keyPairList, err
 		}
-	}
+		callogger.Info(call.String(callLogInfo))
+		cblogger.Debug(result)
 
-	cblogger.Info(keyPairList)
+		//cblogger.Debugf("Key Pairs:")
+		for _, pair := range result.KeyPairs.KeyPair {
+			keyPairInfo, errKeyPair := ExtractKeyPairDescribeInfo(&pair)
+
+			if errKeyPair != nil {
+				// 2021-10-27 이슈#480에 의해 Local Key 로직 제거
+				//cblogger.Infof("[%s] KeyPair는 Local에서 관리하는 대상이 아니기 때문에 Skip합니다.", *&pair.KeyPairName)
+				cblogger.Error(errKeyPair.Error())
+			} else {
+				keyPairList = append(keyPairList, &keyPairInfo)
+			}
+		}
+
+		totalCount = len(keyPairList)
+		cblogger.Infof("CSP 전체 키페어 갯수 : [%d] - 현재 페이지:[%d] - 누적 결과 개수:[%d]", result.TotalCount, curPage, totalCount)
+		if totalCount >= result.TotalCount {
+			break
+		}
+		curPage++
+		request.PageNumber = requests.NewInteger(curPage)
+	}
+	cblogger.Debug(keyPairList)
 	//spew.Dump(keyPairList)
 	return keyPairList, nil
 }
