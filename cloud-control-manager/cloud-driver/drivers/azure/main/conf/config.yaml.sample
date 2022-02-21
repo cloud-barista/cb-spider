@@ -1,0 +1,51 @@
+azure:
+  tenant_id: TBD
+  client_id: TBD
+  client_secret: TBD
+  subscription_id: TBD
+  location: TBD
+  group_name: CB-GROUP
+  resources:
+    image:
+      nameId: Canonical:UbuntuServer:18.04-LTS:18.04.201804262
+    security:
+      nameId: mcb-test-sg
+      VpcIID:
+        nameId: mcb-test-vpc
+      rules:
+        - FromPort: "22"
+          ToPort: "22"
+          IPProtocol: "tcp"
+          CIDR: "0.0.0.0/0"
+          Direction: "inbound"
+    keyPair:
+      nameId: mcb-test-key
+    vmSpec:
+      nameId: Standard_B1ls
+    vpc:
+      nameId:  mcb-test-vpc
+      ipv4CIDR: 10.1.0.0/16
+      subnets:
+        - nameId: mcb-test-vpc-subnet1
+          ipv4CIDR: 10.1.0.0/24
+        - nameId: mcb-test-vpc-subnet2
+          ipv4CIDR: 10.1.1.0/24
+      addSubnet:
+        nameId: mcb-test-vpc-subnet3
+        ipv4CIDR: 10.1.2.0/24
+    vm:
+      IID:
+        nameId: mcb-test-vm
+      ImageIID:
+        nameId: Canonical:UbuntuServer:18.04-LTS:18.04.201804262
+      VmSpecName: Standard_B1ls
+      KeyPairIID:
+        nameId: mcb-test-key
+      VpcIID:
+        nameId:  mcb-test-vpc
+      SubnetIID:
+        nameId:  mcb-test-vpc-subnet1
+      SecurityGroupIIDs:
+        - nameId:  mcb-test-sg
+      RootDiskSize: default
+      RootDiskType: PremiumSSD
