@@ -3,6 +3,8 @@ package resources
 import (
 	"errors"
 	"fmt"
+	"net"
+	"strconv"
 	"strings"
 
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
@@ -15,7 +17,7 @@ import (
 const (
 	defaultVPCName    = "Default-VPC"
 	defaultVPCCIDR    = "10.0.0.0/16"
-	defaultSubnetName = "Default Network"
+	defaultSubnetCIDR = "10.0.0.0/22"
 	VPC               = "VPC"
 )
 
@@ -46,17 +48,43 @@ func (vpcHandler *ClouditVPCHandler) setterVPC(subnets []subnet.SubnetInfo) *irs
 
 func (vpcHandler *ClouditVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.VPCInfo, error) {
 	// log HisCall
-	hiscallInfo := GetCallLogScheme(vpcHandler.Client.IdentityEndpoint, call.VPCSUBNET, VPC, "CreateVPC()")
+	hiscallInfo := GetCallLogScheme(ClouditRegion, call.VPCSUBNET, VPC, "CreateVPC()")
 
 	// Create Subnet
 	start := call.Start()
-	subnetList := make([]subnet.SubnetInfo, len(vpcReqInfo.SubnetInfoList))
+	var createSubnetList []irs.SubnetInfo
+	for _, vpcSubnet := range vpcReqInfo.SubnetInfoList {
+		if err := checkSubnetCIDR(vpcSubnet.IPv4_CIDR); err != nil {
+			createErr := errors.New(fmt.Sprintf("Failed to Create VPC err = %s", err.Error()))
+			cblogger.Error(createErr.Error())
+			LoggingError(hiscallInfo, createErr)
+			return irs.VPCInfo{}, createErr
+		}
+		if !strings.EqualFold(vpcSubnet.IPv4_CIDR, defaultSubnetCIDR) {
+			exist, err := vpcHandler.checkExistSubnet(vpcSubnet.IPv4_CIDR)
+			if exist {
+				createErr := errors.New(fmt.Sprintf("Failed to Create VPC err = Subnet IPv4_CIDR %s already exist", vpcSubnet.IPv4_CIDR))
+				cblogger.Error(createErr.Error())
+				LoggingError(hiscallInfo, createErr)
+				return irs.VPCInfo{}, createErr
+			}
+			if err != nil {
+				createErr := errors.New(fmt.Sprintf("Failed to Create VPC err = %s", err.Error()))
+				cblogger.Error(createErr.Error())
+				LoggingError(hiscallInfo, createErr)
+				return irs.VPCInfo{}, createErr
+			}
+			createSubnetList = append(createSubnetList, vpcSubnet)
+		}
+	}
+	subnetList := make([]subnet.SubnetInfo, len(createSubnetList))
 	for i, vpcSubnet := range vpcReqInfo.SubnetInfoList {
 		result, err := vpcHandler.CreateSubnet(vpcSubnet)
 		if err != nil {
-			cblogger.Error(err.Error())
-			LoggingError(hiscallInfo, err)
-			return irs.VPCInfo{}, err
+			createErr := errors.New(fmt.Sprintf("Failed to Create VPC err = %s", err.Error()))
+			cblogger.Error(createErr.Error())
+			LoggingError(hiscallInfo, createErr)
+			return irs.VPCInfo{}, createErr
 		}
 		subnetList[i] = result
 	}
@@ -68,14 +96,15 @@ func (vpcHandler *ClouditVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.V
 
 func (vpcHandler *ClouditVPCHandler) ListVPC() ([]*irs.VPCInfo, error) {
 	// log HisCall
-	hiscallInfo := GetCallLogScheme(vpcHandler.Client.IdentityEndpoint, call.VPCSUBNET, VPC, "ListVPC()")
+	hiscallInfo := GetCallLogScheme(ClouditRegion, call.VPCSUBNET, VPC, "ListVPC()")
 
 	start := call.Start()
 	subnetList, err := vpcHandler.ListSubnet()
 	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return nil, err
+		getErr := errors.New(fmt.Sprintf("Failed to Get VPCList err = %s", err.Error()))
+		cblogger.Error(getErr.Error())
+		LoggingError(hiscallInfo, getErr)
+		return nil, getErr
 	}
 	LoggingInfo(hiscallInfo, start)
 
@@ -87,17 +116,20 @@ func (vpcHandler *ClouditVPCHandler) ListVPC() ([]*irs.VPCInfo, error) {
 func (vpcHandler *ClouditVPCHandler) GetVPC(vpcIID irs.IID) (irs.VPCInfo, error) {
 	// log HisCall
 	hiscallInfo := GetCallLogScheme(vpcHandler.Client.IdentityEndpoint, call.VPCSUBNET, vpcIID.NameId, "GetVPC()")
-
 	start := call.Start()
-	vpcInfo, err := vpcHandler.ListVPC()
+
+	subnetList, err := vpcHandler.ListSubnet()
 	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return irs.VPCInfo{}, err
+		getErr := errors.New(fmt.Sprintf("Failed to Get VPC err = %s", err.Error()))
+		cblogger.Error(getErr.Error())
+		LoggingError(hiscallInfo, getErr)
+		return irs.VPCInfo{}, getErr
 	}
 	LoggingInfo(hiscallInfo, start)
 
-	return *vpcInfo[0], err
+	vpcInfo := vpcHandler.setterVPC(subnetList)
+
+	return *vpcInfo, err
 }
 
 func (vpcHandler *ClouditVPCHandler) DeleteVPC(vpcIID irs.IID) (bool, error) {
@@ -149,7 +181,7 @@ func (vpcHandler *ClouditVPCHandler) CreateSubnet(subnetReqInfo irs.SubnetInfo) 
 	// 서브넷 이름 중복 체크
 	checkSubnet, _ := vpcHandler.getSubnetByName(subnetReqInfo.IId.NameId)
 	if checkSubnet != nil {
-		errMsg := fmt.Sprintf("virtualNetwork with name %s already exist", subnetReqInfo.IId.NameId)
+		errMsg := fmt.Sprintf("subnet with name %s already exist", subnetReqInfo.IId.NameId)
 		createErr := errors.New(errMsg)
 		return subnet.SubnetInfo{}, createErr
 	}
@@ -157,28 +189,14 @@ func (vpcHandler *ClouditVPCHandler) CreateSubnet(subnetReqInfo irs.SubnetInfo) 
 	vpcHandler.Client.TokenID = vpcHandler.CredentialInfo.AuthToken
 	authHeader := vpcHandler.Client.AuthenticatedHeaders()
 
-	var creatableSubnet subnet.SubnetInfo
-
-	// 1. 사용 가능한 Subnet 목록 가져오기
-	requestOpts := client.RequestOpts{
-		MoreHeaders: authHeader,
-	}
-	if creatableSubnetList, err := subnet.ListCreatableSubnet(vpcHandler.Client, &requestOpts); err != nil {
-		return subnet.SubnetInfo{}, err
-	} else {
-		if len(*creatableSubnetList) == 0 {
-			allocateErr := errors.New("there is no PublicIPs to allocate")
-			return subnet.SubnetInfo{}, allocateErr
-		} else {
-			creatableSubnet = (*creatableSubnetList)[0]
-		}
-	}
+	cidrArrays := strings.Split(subnetReqInfo.IPv4_CIDR, "/")
 
 	// 2. Subnet 생성
 	reqInfo := subnet.VNetworkReqInfo{
-		Name:   subnetReqInfo.IId.NameId,
-		Addr:   creatableSubnet.Addr,
-		Prefix: creatableSubnet.Prefix,
+		Name:       subnetReqInfo.IId.NameId,
+		Addr:       cidrArrays[0],
+		Prefix:     cidrArrays[1],
+		Protection: 0,
 	}
 
 	createOpts := client.RequestOpts{
@@ -269,11 +287,32 @@ func (vpcHandler *ClouditVPCHandler) getSubnetByName(subnetName string) (*subnet
 
 func (vpcHandler *ClouditVPCHandler) AddSubnet(vpcIID irs.IID, subnetInfo irs.SubnetInfo) (irs.VPCInfo, error) {
 	// log HisCall
-	hiscallInfo := GetCallLogScheme(vpcHandler.Client.IdentityEndpoint, call.VPCSUBNET, vpcIID.NameId, "AddSubnet()")
+	hiscallInfo := GetCallLogScheme(ClouditRegion, call.VPCSUBNET, vpcIID.NameId, "AddSubnet()")
 
 	checkSubnet, _ := vpcHandler.getSubnetByName(subnetInfo.IId.NameId)
 	if checkSubnet != nil {
-		createErr := errors.New(fmt.Sprintf("virtualNetwork with name %s already exist", subnetInfo.IId.NameId))
+		createErr := errors.New(fmt.Sprintf("Failed to Add Subnet err = Subnet with name %s already exist", subnetInfo.IId.NameId))
+		cblogger.Error(createErr.Error())
+		LoggingError(hiscallInfo, createErr)
+		return irs.VPCInfo{}, createErr
+	}
+	exist, err := vpcHandler.checkExistSubnet(subnetInfo.IPv4_CIDR)
+
+	if exist {
+		createErr := errors.New(fmt.Sprintf("Failed to Add Subnet err = Subnet IPv4_CIDR %s already exist", subnetInfo.IPv4_CIDR))
+		cblogger.Error(createErr.Error())
+		LoggingError(hiscallInfo, createErr)
+		return irs.VPCInfo{}, createErr
+	}
+	if err != nil {
+		createErr := errors.New(fmt.Sprintf("Failed to Add Subnet err = %s", err))
+		cblogger.Error(createErr.Error())
+		LoggingError(hiscallInfo, createErr)
+		return irs.VPCInfo{}, createErr
+	}
+	cidrArrays := strings.Split(subnetInfo.IPv4_CIDR, "/")
+	if strings.EqualFold(cidrArrays[0], strings.Split(defaultSubnetCIDR, "/")[0]) {
+		createErr := errors.New(fmt.Sprintf("Failed to Add Subnet err = 10.0.0.0/22 is created as a default subnet"))
 		cblogger.Error(createErr.Error())
 		LoggingError(hiscallInfo, createErr)
 		return irs.VPCInfo{}, createErr
@@ -282,32 +321,12 @@ func (vpcHandler *ClouditVPCHandler) AddSubnet(vpcIID irs.IID, subnetInfo irs.Su
 	vpcHandler.Client.TokenID = vpcHandler.CredentialInfo.AuthToken
 	authHeader := vpcHandler.Client.AuthenticatedHeaders()
 
-	var creatableSubnet subnet.SubnetInfo
-
-	// 1. 사용 가능한 Subnet 목록 가져오기
-	requestOpts := client.RequestOpts{
-		MoreHeaders: authHeader,
-	}
-	if creatableSubnetList, err := subnet.ListCreatableSubnet(vpcHandler.Client, &requestOpts); err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return irs.VPCInfo{}, err
-	} else {
-		if len(*creatableSubnetList) == 0 {
-			allocateErr := errors.New("there is no PublicIPs to allocate")
-			cblogger.Error(allocateErr.Error())
-			LoggingError(hiscallInfo, allocateErr)
-			return irs.VPCInfo{}, allocateErr
-		} else {
-			creatableSubnet = (*creatableSubnetList)[0]
-		}
-	}
-
 	// 2. Subnet 생성
 	reqInfo := subnet.VNetworkReqInfo{
-		Name:   subnetInfo.IId.NameId,
-		Addr:   creatableSubnet.Addr,
-		Prefix: creatableSubnet.Prefix,
+		Name:       subnetInfo.IId.NameId,
+		Addr:       cidrArrays[0],
+		Prefix:     cidrArrays[1],
+		Protection: 0,
 	}
 
 	createOpts := client.RequestOpts{
@@ -316,32 +335,36 @@ func (vpcHandler *ClouditVPCHandler) AddSubnet(vpcIID irs.IID, subnetInfo irs.Su
 	}
 
 	start := call.Start()
-	_, err := subnet.Create(vpcHandler.Client, &createOpts)
+	_, err = subnet.Create(vpcHandler.Client, &createOpts)
 	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return irs.VPCInfo{}, err
+		createErr := errors.New(fmt.Sprintf("Failed to Add Subnet err = %s", err))
+		cblogger.Error(createErr.Error())
+		LoggingError(hiscallInfo, createErr)
+		return irs.VPCInfo{}, createErr
 	}
-	LoggingInfo(hiscallInfo, start)
 
 	result, err := vpcHandler.GetVPC(vpcIID)
 	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return irs.VPCInfo{}, err
+		createErr := errors.New(fmt.Sprintf("Failed to Add Subnet err = %s", err))
+		cblogger.Error(createErr.Error())
+		LoggingError(hiscallInfo, createErr)
+		return irs.VPCInfo{}, createErr
 	}
+
+	LoggingInfo(hiscallInfo, start)
 
 	return result, nil
 }
 
 func (vpcHandler *ClouditVPCHandler) RemoveSubnet(vpcIID irs.IID, subnetIID irs.IID) (bool, error) {
 	// log HisCall
-	hiscallInfo := GetCallLogScheme(vpcHandler.Client.IdentityEndpoint, call.VPCSUBNET, subnetIID.NameId, "RemoveSubnet()")
+	hiscallInfo := GetCallLogScheme(ClouditRegion, call.VPCSUBNET, subnetIID.NameId, "RemoveSubnet()")
 
 	subnetInfo, err := vpcHandler.getSubnetByName(subnetIID.NameId)
 	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
+		createErr := errors.New(fmt.Sprintf("Failed to Remove Subnet err = %s", err))
+		cblogger.Error(createErr.Error())
+		LoggingError(hiscallInfo, createErr)
 		return false, err
 	}
 
@@ -355,11 +378,58 @@ func (vpcHandler *ClouditVPCHandler) RemoveSubnet(vpcIID irs.IID, subnetIID irs.
 	start := call.Start()
 	err = subnet.Delete(vpcHandler.Client, subnetInfo.Addr, &requestOpts)
 	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
+		createErr := errors.New(fmt.Sprintf("Failed to Remove Subnet err = %s", err))
+		cblogger.Error(createErr.Error())
+		LoggingError(hiscallInfo, createErr)
 		return false, err
 	}
 	LoggingInfo(hiscallInfo, start)
 
 	return true, nil
+}
+
+func checkSubnetCIDR(cidr string) error {
+	cidrArrays := strings.Split(cidr, "/")
+	defaultVPCAddrstrings := strings.Split(strings.Split(defaultVPCCIDR, "/")[0], ".")
+	cidrAddrStrings := strings.Split(cidrArrays[0], ".")
+	if len(cidrArrays) != 2 {
+		return errors.New("invalid IPv4_CIDR")
+	}
+	// addr Checked
+	if net.ParseIP(cidrArrays[0]) == nil {
+		return errors.New("invalid IPv4_CIDR")
+	} else {
+		defaultVPCAddrRange := fmt.Sprintf("%s.%s", defaultVPCAddrstrings[0], defaultVPCAddrstrings[1])
+		checkedCidrAddrRange := fmt.Sprintf("%s.%s", cidrAddrStrings[0], cidrAddrStrings[1])
+		num, err := strconv.Atoi(cidrAddrStrings[2])
+		num2, err := strconv.Atoi(cidrAddrStrings[3])
+		if err != nil {
+			return errors.New("invalid IPv4_CIDR, Cloudit provides subnets in units of 22 blocks, starting from 10.0.0.0 addresses to 10.0.252.0")
+		}
+		if num%4 != 0 || num > 248 || num2 != 0 || !strings.EqualFold(defaultVPCAddrRange, checkedCidrAddrRange) {
+			return errors.New("invalid IPv4_CIDR, Cloudit provides subnets in units of 22 blocks, starting from 10.0.0.0 addresses to 10.0.252.0")
+		}
+	}
+	// block Checked
+	if cidrArrays[1] != "22" {
+		return errors.New("invalid IPv4_CIDR, Cloudit provides subnets in units of 22 blocks, starting from 10.0.0.0 addresses to 10.0.252.0")
+	}
+	return nil
+}
+
+func (vpcHandler *ClouditVPCHandler) checkExistSubnet(cidr string) (bool, error) {
+	if err := checkSubnetCIDR(cidr); err != nil {
+		return false, err
+	}
+	subnetList, err := vpcHandler.ListSubnet()
+	if err != nil {
+		return false, err
+	}
+	cidrArrays := strings.Split(cidr, "/")
+	for _, subnetItem := range subnetList {
+		if strings.EqualFold(subnetItem.Addr, cidrArrays[0]) {
+			return true, errors.New("already Exist Subnet IPv4_CIDR")
+		}
+	}
+	return false, nil
 }
