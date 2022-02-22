@@ -48,3 +48,5 @@ utils/clone-mc-meta-info/vm-image/test/*
 utils/clone-mc-meta-info/vm-image/az-data/*
 
 cloud-control-manager/cloud-driver/drivers/azure/main/conf/config.yaml
+
+cloud-control-manager/cloud-driver/drivers/cloudit/main/conf/config.yaml
