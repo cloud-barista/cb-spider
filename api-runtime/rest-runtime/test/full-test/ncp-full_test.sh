@@ -45,7 +45,7 @@ echo "## 1. VPC: Create -> List -> Get"
 echo "####################################################################"
 sleep 1 
 echo "## 1. VPC: Create"
-curl -sX POST http://localhost:1024/spider/vpc -H 'Content-Type: application/json' -d '{ "ConnectionName": "'${CONN_CONFIG}'", "ReqInfo": { "Name": "ncp-vpc-01", "IPv4_CIDR": "172.16.0.0/12", "SubnetInfoList": [ { "Name": "ncp-subnet-01", "IPv4_CIDR": "172.16.0.0/24"}, { "Name": "ncp-subnet-02", "IPv4_CIDR": "172.16.1.0/24"} ] } }' |json_pp
+curl -sX POST http://localhost:1024/spider/vpc -H 'Content-Type: application/json' -d '{ "ConnectionName": "'${CONN_CONFIG}'", "ReqInfo": { "Name": "ncp-vpc-01", "IPv4_CIDR": "10.0.0.0/16", "SubnetInfoList": [ { "Name": "ncp-subnet-01", "IPv4_CIDR": "10.0.0.0/24"}, { "Name": "ncp-subnet-02", "IPv4_CIDR": "10.0.0.0/24"} ] } }' |json_pp
 
 sleep 5 
 echo "## 1. VPC: List"
@@ -105,7 +105,7 @@ echo "####################################################################"
 
 sleep 1
 echo "## 4. VM: StartVM"
-curl -sX POST http://localhost:1024/spider/vm -H 'Content-Type: application/json' -d '{ "ConnectionName": "'${CONN_CONFIG}'", "ReqInfo": { "Name": "ncp-vm-01", "ImageName": "'${IMAGE_NAME}'", "VPCName": "ncp-vpc-01", "SubnetName": "ncp-subnet-01", "SecurityGroupNames": [ "default", "ncp-sg01" ], "VMSpecName": "'${SPEC_NAME}'", "KeyPairName": "ncp-key-01"} }' |json_pp
+curl -sX POST http://localhost:1024/spider/vm -H 'Content-Type: application/json' -d '{ "ConnectionName": "'${CONN_CONFIG}'", "ReqInfo": { "Name": "ncp-vm-01", "ImageName": "'${IMAGE_NAME}'", "VPCName": "ncp-vpc-01", "SubnetName": "ncp-subnet-01", "SecurityGroupNames": [ "default1", "default2" ], "VMSpecName": "'${SPEC_NAME}'", "KeyPairName": "ncp-key-01"} }' |json_pp
 
 echo "============== sleep 50sec after start VM"
 
