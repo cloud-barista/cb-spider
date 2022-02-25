@@ -62,8 +62,27 @@ func Connect(region string) *ec2.EC2 {
 //키페어 이름(예:mcloud-barista)은 아래 URL에 나오는 목록 중 "키페어 이름"의 값을 적으면 됨.
 //https://ap-northeast-2.console.aws.amazon.com/ec2/v2/home?region=ap-northeast-2#KeyPairs:sort=keyName
 func (vmHandler *AwsVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, error) {
-	cblogger.Info(vmReqInfo)
-	spew.Dump(vmReqInfo)
+	cblogger.Debug(vmReqInfo)
+	if cblogger.Level.String() == "debug" {
+		spew.Dump(vmReqInfo)
+	}
+
+	//===============================
+	// Root Disk Size 검증 - 이슈#536
+	//===============================
+	if vmReqInfo.RootDiskSize != "" {
+		if strings.EqualFold(vmReqInfo.RootDiskSize, "default") {
+		} else {
+			iChkDiskSize, err := strconv.ParseInt(vmReqInfo.RootDiskSize, 10, 64)
+			if err != nil {
+				cblogger.Error(err)
+				return irs.VMInfo{}, err
+			}
+			if iChkDiskSize < 8 {
+				return irs.VMInfo{}, awserr.New(CUSTOM_ERR_CODE_BAD_REQUEST, "Root Disk Size must be at least the default size (8 GB).", nil)
+			}
+		}
+	}
 
 	imageID := vmReqInfo.ImageIID.SystemId
 	instanceType := vmReqInfo.VMSpecName // "t2.micro"
@@ -96,16 +115,16 @@ func (vmHandler *AwsVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 	//=============================
 	// 보안그룹 처리 - SystemId 기반
 	//=============================
-	cblogger.Info("SystemId 기반으로 처리하기 위해 IID 기반의 보안그룹 배열을 SystemId 기반 보안그룹 배열로 조회및 변환함.")
+	cblogger.Debug("SystemId 기반으로 처리하기 위해 IID 기반의 보안그룹 배열을 SystemId 기반 보안그룹 배열로 조회및 변환함.")
 	var newSecurityGroupIds []string
 
 	for _, sgName := range vmReqInfo.SecurityGroupIIDs {
-		cblogger.Infof("보안그룹 변환 : [%s]", sgName)
+		cblogger.Debugf("보안그룹 변환 : [%s]", sgName)
 		newSecurityGroupIds = append(newSecurityGroupIds, sgName.SystemId)
 	}
 
-	cblogger.Info("보안그룹 변환 완료")
-	cblogger.Info(newSecurityGroupIds)
+	cblogger.Debug("보안그룹 변환 완료")
+	cblogger.Debug(newSecurityGroupIds)
 
 	/* 2020-04-08 EIP 로직 제거
 	//=============================
@@ -159,7 +178,7 @@ func (vmHandler *AwsVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 	//=============================
 	// VM생성 처리
 	//=============================
-	cblogger.Info("Create EC2 Instance")
+	cblogger.Debug("Create EC2 Instance")
 	input := &ec2.RunInstancesInput{
 		ImageId:      aws.String(imageID),
 		InstanceType: aws.String(instanceType),
@@ -254,7 +273,7 @@ func (vmHandler *AwsVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 	// Specify the details of the instance that you want to create.
 	runResult, err := vmHandler.Client.RunInstances(input)
 	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
-	cblogger.Info(runResult)
+	cblogger.Debug(runResult)
 	if err != nil {
 		callLogInfo.ErrorMSG = err.Error()
 		callogger.Info(call.String(callLogInfo))
@@ -297,9 +316,9 @@ func (vmHandler *AwsVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 
 	//2021-05-11 EIP 할당 로직이 제거되었으며 빠른 생성을 위해 Running 상태가 될때까지 대기하지 않음.
 	//2021-05-11 WaitForRun을 호출하지 않아도 GetVM() 호출 시 에러가 발생하지 않는 것은 확인했음. (우선은 정책이 최종 확정이 아니라서 WaitForRun을 사용하도록 원복함.)
-	cblogger.Info("VM의 최신 정보 획득을 위해 EC2가 Running 상태가 될때까지 대기")
+	cblogger.Debug("VM의 최신 정보 획득을 위해 EC2가 Running 상태가 될때까지 대기")
 	WaitForRun(vmHandler.Client, newVmId)
-	cblogger.Info("EC2 Running 상태 완료 : ", runResult.Instances[0].State.Name)
+	cblogger.Debug("EC2 Running 상태 완료 : ", runResult.Instances[0].State.Name)
 
 	/* 2020-04-08 EIP 로직 제거
 	//EC2에 EIP 할당 (펜딩 상태에서는 EIP 할당 불가)
@@ -705,7 +724,7 @@ func (vmHandler *AwsVMHandler) ExtractDescribeInstances(reservation *ec2.Reserva
 		IId:        irs.IID{"", *reservation.Instances[0].InstanceId},
 		ImageIId:   irs.IID{*reservation.Instances[0].ImageId, *reservation.Instances[0].ImageId},
 		VMSpecName: *reservation.Instances[0].InstanceType,
-		KeyPairIId: irs.IID{*reservation.Instances[0].KeyName, *reservation.Instances[0].KeyName},
+		//KeyPairIId: irs.IID{*reservation.Instances[0].KeyName, *reservation.Instances[0].KeyName},	//AWS에 키페어 없이 VM 생성하는 기능이 추가됨.
 		//GuestUserID:    "",
 		//AdditionalInfo: "State:" + *reservation.Instances[0].State.Name,
 	}
@@ -725,6 +744,11 @@ func (vmHandler *AwsVMHandler) ExtractDescribeInstances(reservation *ec2.Reserva
 
 	//vmInfo.PublicIP = *reservation.Instances[0].NetworkInterfaces[0].Association.PublicIp
 	//vmInfo.PublicDNS = *reservation.Instances[0].NetworkInterfaces[0].Association.PublicDnsName
+
+	//AWS에 키페어 없이 VM 생성하는 기능이 추가됨. - 이슈#573
+	if !reflect.ValueOf(reservation.Instances[0].KeyName).IsNil() {
+		vmInfo.KeyPairIId = irs.IID{*reservation.Instances[0].KeyName, *reservation.Instances[0].KeyName}
+	}
 
 	// 특정 항목(예:EIP)은 VM 상태와 무관하게 동작하므로 VM 상태와 무관하게 Nil처리로 모든 필드를 처리 함.
 	if !reflect.ValueOf(reservation.Instances[0].PublicIpAddress).IsNil() {
