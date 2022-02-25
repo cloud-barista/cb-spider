@@ -724,7 +724,7 @@ func (vmHandler *AwsVMHandler) ExtractDescribeInstances(reservation *ec2.Reserva
 		IId:        irs.IID{"", *reservation.Instances[0].InstanceId},
 		ImageIId:   irs.IID{*reservation.Instances[0].ImageId, *reservation.Instances[0].ImageId},
 		VMSpecName: *reservation.Instances[0].InstanceType,
-		KeyPairIId: irs.IID{*reservation.Instances[0].KeyName, *reservation.Instances[0].KeyName},
+		//KeyPairIId: irs.IID{*reservation.Instances[0].KeyName, *reservation.Instances[0].KeyName},	//AWS에 키페어 없이 VM 생성하는 기능이 추가됨.
 		//GuestUserID:    "",
 		//AdditionalInfo: "State:" + *reservation.Instances[0].State.Name,
 	}
@@ -744,6 +744,11 @@ func (vmHandler *AwsVMHandler) ExtractDescribeInstances(reservation *ec2.Reserva
 
 	//vmInfo.PublicIP = *reservation.Instances[0].NetworkInterfaces[0].Association.PublicIp
 	//vmInfo.PublicDNS = *reservation.Instances[0].NetworkInterfaces[0].Association.PublicDnsName
+
+	//AWS에 키페어 없이 VM 생성하는 기능이 추가됨. - 이슈#573
+	if !reflect.ValueOf(reservation.Instances[0].KeyName).IsNil() {
+		vmInfo.KeyPairIId = irs.IID{*reservation.Instances[0].KeyName, *reservation.Instances[0].KeyName}
+	}
 
 	// 특정 항목(예:EIP)은 VM 상태와 무관하게 동작하므로 VM 상태와 무관하게 Nil처리로 모든 필드를 처리 함.
 	if !reflect.ValueOf(reservation.Instances[0].PublicIpAddress).IsNil() {
