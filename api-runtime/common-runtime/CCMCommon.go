@@ -3411,12 +3411,6 @@ func RemoveSubnet(connectionName string, vpcName string, nameID string, force st
 		cblog.Error(err)
         }
 
-        force, err = EmptyCheckAndTrim("force", force)
-        if err != nil {
-                return false, err
-		cblog.Error(err)
-        }
-
 	cldConn, err := ccm.GetCloudConnection(connectionName)
 	if err != nil {
 		cblog.Error(err)
