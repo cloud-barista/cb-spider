@@ -18,8 +18,8 @@ echo "\$CBSPIDER_ROOT" path is $CBSPIDER_ROOT
 echo "# cd" $CBSPIDER_ROOT
 cd $CBSPIDER_ROOT
 
-echo "# go get -v github.com/NaverCloudPlatform/ncloud-sdk-go-v2@v1.1.7"
-go get -v github.com/NaverCloudPlatform/ncloud-sdk-go-v2@v1.1.7
+echo "# go get -v github.com/NaverCloudPlatform/ncloud-sdk-go-v2@v1.4.1"
+go get -v github.com/NaverCloudPlatform/ncloud-sdk-go-v2@v1.4.1
 
 cd $HOME
 

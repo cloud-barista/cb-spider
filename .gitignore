@@ -46,3 +46,5 @@ cloud-control-manager/cloud-driver/drivers/tencent/main/conf/testConfigTencent.y
 utils/clone-mc-meta-info/vm-image/data/*
 utils/clone-mc-meta-info/vm-image/test/*
 utils/clone-mc-meta-info/vm-image/az-data/*
+
+cloud-control-manager/cloud-driver/drivers/azure/main/conf/config.yaml
