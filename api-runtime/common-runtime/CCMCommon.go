@@ -3208,14 +3208,14 @@ func DeleteResource(connectionName string, rsType string, nameID string, force s
 	// check empty and trim user inputs
         connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)
         if err != nil {
-                return false, "", err
 		cblog.Error(err)
+                return false, "", err
         }
 
         nameID, err = EmptyCheckAndTrim("nameID", nameID)
         if err != nil {
-                return false, "", err
 		cblog.Error(err)
+                return false, "", err
         }
 
 	cldConn, err := ccm.GetCloudConnection(connectionName)
@@ -3236,7 +3236,8 @@ func DeleteResource(connectionName string, rsType string, nameID string, force s
 	case rsVM:
 		handler, err = cldConn.CreateVMHandler()
 	default:
-		return false, "", fmt.Errorf(rsType + " is not supported Resource!!")
+		err := fmt.Errorf(rsType + " is not supported Resource!!")
+		return false, "", err
 	}
 	if err != nil {
 		cblog.Error(err)
@@ -3257,7 +3258,8 @@ func DeleteResource(connectionName string, rsType string, nameID string, force s
 	//	vmRWLock.Lock()
 	//	defer vmRWLock.Unlock()
 	default:
-		return false, "", fmt.Errorf(rsType + " is not supported Resource!!")
+		err := fmt.Errorf(rsType + " is not supported Resource!!")
+		return false, "", err
 	}
 
 	// (1) get spiderIID for creating driverIID
@@ -3348,7 +3350,8 @@ func DeleteResource(connectionName string, rsType string, nameID string, force s
 
 
 	default:
-		return false, "", fmt.Errorf(rsType + " is not supported Resource!!")
+		err := fmt.Errorf(rsType + " is not supported Resource!!")
+		return false, "", err
 	}
 
 	if force != "true" {
