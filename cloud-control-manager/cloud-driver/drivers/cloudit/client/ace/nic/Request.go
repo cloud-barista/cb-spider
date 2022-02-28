@@ -1,8 +1,11 @@
 package nic
 
 import (
+	"errors"
+	"fmt"
 	cblog "github.com/cloud-barista/cb-log"
 	"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/cloudit/client"
+	"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/cloudit/client/ace/server"
 	"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/cloudit/client/iam/securitygroup"
 	"github.com/sirupsen/logrus"
 )
@@ -120,4 +123,30 @@ func Put(restClient *client.RestClient, serverId string, requestOpts *client.Req
 
 	var result client.Result
 	_, _ = restClient.Put(requestURL, nil, &result.Body, requestOpts)
+}
+
+type SecurityGroupIDs struct {
+	Secgroups    []server.SecGroupInfo `json:"secgroups" required:"false"`
+}
+
+// updateNIC
+func ChangeSecurityGroup(restClient *client.RestClient, serverId string, requestOpts *client.RequestOpts, nicMac string, sgIds []string) error{
+	requestURL := restClient.CreateRequestBaseURL(client.ACE, "servers", serverId, "nic", nicMac, "securitygroup")
+	cblogger.Info(requestURL)
+	segids := make([]server.SecGroupInfo, len(sgIds))
+	for i,id := range sgIds{
+		segids[i] = server.SecGroupInfo{Id:id}
+	}
+	JSONBody := SecurityGroupIDs{
+		Secgroups: segids,
+	}
+	var result client.Result
+	res, err := restClient.Put(requestURL, JSONBody, &result.Body, requestOpts)
+	if res.StatusCode != 200 {
+		if err != nil{
+			return errors.New(fmt.Sprintf("Failed change SecurityGroup err = %s",err.Error()))
+		}
+		return errors.New(fmt.Sprintf("Failed change SecurityGroup"))
+	}
+	return nil
 }

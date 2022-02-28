@@ -26,7 +26,7 @@ type VMReqInfo struct {
 	RootPassword string         `json:"rootPassword" required:"true"`
 	SubnetAddr   string         `json:"subnetAddr" required:"true"`
 	Secgroups    []SecGroupInfo `json:"secgroups" required:"true"`
-	Description  int            `json:"description" required:"false"`
+	Description  string            `json:"description" required:"false"`
 	Protection   int            `json:"protection" required:"false"`
 }
 
