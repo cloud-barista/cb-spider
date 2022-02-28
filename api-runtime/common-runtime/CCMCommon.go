@@ -1815,7 +1815,7 @@ func GetSecurity(connectionName string, rsType string, nameID string) (*cres.Sec
 	if bool_ret == false {
 		err := fmt.Errorf("The %s '%s' does not exist!", RsTypeString(rsType), nameID)
 		cblog.Error(err)
-                return nil, fmt.Errorf("The %s '%s' does not exist!", RsTypeString(rsType), nameID)
+                return nil, err
         }
 
 	// (2) get resource(SystemId)
@@ -3271,11 +3271,19 @@ func DeleteResource(connectionName string, rsType string, nameID string, force s
 			cblog.Error(err)
 			return false, "", err
 		}
+		var bool_ret = false
 		for _, OneIIdInfo := range iidInfoList {
 			if OneIIdInfo.IId.NameId == nameID {
 				iidInfo = OneIIdInfo
+				bool_ret = true
+				break;
 			}
 		}
+		if bool_ret == false {
+                err := fmt.Errorf("[" + connectionName + ":" + RsTypeString(rsType) +  ":" + nameID + "] does not exist!")
+                cblog.Error(err)
+                return false, "", err
+        }
 
 	default:
 		iidInfo, err = iidRWLock.GetIID(iidm.IIDSGROUP, connectionName, rsType, cres.IID{nameID, ""})
