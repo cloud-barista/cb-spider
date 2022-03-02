@@ -690,7 +690,7 @@ func handleImage() {
 	handler := ResourceHandler.(irs.ImageHandler)
 
 	imageReqInfo := irs.ImageReqInfo{
-		IId: irs.IID{NameId: "Test OS Image", SystemId: "ami-005ace3da56246b4c"},
+		IId: irs.IID{NameId: "Test OS Image", SystemId: "ami-0c068f008ea2bdaa1"},
 		//Id:   "ami-047f7b46bd6dd5d84",
 		//Name: "Test OS Image",
 	}
@@ -912,7 +912,8 @@ func handleVM() {
 					RootDiskType: "standard", //gp2/standard/io1/io2/sc1/st1/gp3
 					//RootDiskType: "gp2", //gp2/standard/io1/io2/sc1/st1/gp3
 					//RootDiskType: "gp3", //gp2/standard/io1/io2/sc1/st1/gp3
-					RootDiskSize: "60", //최소 8GB 이상이어야 함.
+					//RootDiskSize: "60", //최소 8GB 이상이어야 함.
+					RootDiskSize: "1", //최소 8GB 이상이어야 함.
 					//RootDiskSize: "Default", //8GB
 				}
 

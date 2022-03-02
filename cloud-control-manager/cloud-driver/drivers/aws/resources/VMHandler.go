@@ -58,6 +58,41 @@ func Connect(region string) *ec2.EC2 {
 	return svc
 }
 
+// VM생성 시 사용할 루트 디스크의 최소 볼륨 사이즈 정보를 조회함
+// -1 : 정보 조회 실패
+func (vmHandler *AwsVMHandler) GetDiskInfo(ImageSystemId string) int64 {
+	cblogger.Debugf("ImageID : [%s]", ImageSystemId)
+
+	input := &ec2.DescribeImagesInput{
+		ImageIds: []*string{
+			aws.String(ImageSystemId),
+		},
+	}
+
+	result, err := vmHandler.Client.DescribeImages(input)
+	cblogger.Debug(result)
+
+	if err != nil {
+		if aerr, ok := err.(awserr.Error); ok {
+			switch aerr.Code() {
+			default:
+				cblogger.Error(aerr.Error())
+			}
+		} else {
+			cblogger.Error(err.Error())
+		}
+		return -1
+	}
+
+	if len(result.Images) > 0 {
+		isize := aws.Int64(*result.Images[0].BlockDeviceMappings[0].Ebs.VolumeSize)
+		return *isize
+	} else {
+		cblogger.Error("요청된 Image 정보를 찾을 수 없습니다.")
+		return -1 // errors.New("조회된 Image 정보가 없습니다.")
+	}
+}
+
 //1개의 VM만 생성되도록 수정 (MinCount / MaxCount 이용 안 함)
 //키페어 이름(예:mcloud-barista)은 아래 URL에 나오는 목록 중 "키페어 이름"의 값을 적으면 됨.
 //https://ap-northeast-2.console.aws.amazon.com/ec2/v2/home?region=ap-northeast-2#KeyPairs:sort=keyName
@@ -71,17 +106,34 @@ func (vmHandler *AwsVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 	// Root Disk Size 검증 - 이슈#536
 	//===============================
 	if vmReqInfo.RootDiskSize != "" {
+		//이미지의 볼륨 사이즈를 조회함.
+		imageVolumeSize := vmHandler.GetDiskInfo(vmReqInfo.ImageIID.SystemId)
+		if imageVolumeSize < 0 {
+			return irs.VMInfo{}, awserr.New(CUSTOM_ERR_CODE_BAD_REQUEST, "요청된 이미지의 기본 볼륨 사이즈 정보를 조회할 수 없습니다.", nil)
+		}
+
 		if strings.EqualFold(vmReqInfo.RootDiskSize, "default") {
+			//default로 전달 받은 경우 이미지의 볼륨 사이즈로 설정 함.
+			vmReqInfo.RootDiskSize = strconv.FormatInt(imageVolumeSize, 10)
 		} else {
 			iChkDiskSize, err := strconv.ParseInt(vmReqInfo.RootDiskSize, 10, 64)
 			if err != nil {
 				cblogger.Error(err)
 				return irs.VMInfo{}, err
 			}
-			if iChkDiskSize < 8 {
-				return irs.VMInfo{}, awserr.New(CUSTOM_ERR_CODE_BAD_REQUEST, "Root Disk Size must be at least the default size (8 GB).", nil)
+
+			if iChkDiskSize < imageVolumeSize {
+				cblogger.Errorf("루트볼륨은 %dGB보다 커야 합니다.", imageVolumeSize)
+				return irs.VMInfo{}, awserr.New(CUSTOM_ERR_CODE_BAD_REQUEST, "Root Disk Size must be at least the default size ("+strconv.FormatInt(imageVolumeSize, 10)+" GB).", nil)
 			}
+
+			//if iChkDiskSize < 8 {
+			//}
 		}
+	}
+
+	if 1 == 1 {
+		return irs.VMInfo{}, nil
 	}
 
 	imageID := vmReqInfo.ImageIID.SystemId
