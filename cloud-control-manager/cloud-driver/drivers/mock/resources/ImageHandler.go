@@ -41,11 +41,11 @@ func PrepareVMImage(mockName string) {
 	}
 
 	PrepareImageInfoList = []*irs.ImageInfo{
-		{irs.IID{"mock-vmimage-01", "mock-vmimage-01"}, "TestGuestOS", "TestStatus", nil},
-		{irs.IID{"mock-vmimage-02", "mock-vmimage-02"}, "TestGuestOS", "TestStatus", nil},
-		{irs.IID{"mock-vmimage-03", "mock-vmimage-03"}, "TestGuestOS", "TestStatus", nil},
-		{irs.IID{"mock-vmimage-04", "mock-vmimage-04"}, "TestGuestOS", "TestStatus", nil},
-		{irs.IID{"mock-vmimage-05", "mock-vmimage-05"}, "TestGuestOS", "TestStatus", nil},
+		{irs.IID{"mock-vmimage-01", "mock-vmimage-01"}, "TestGuestOS", "AVAILABLE", nil},
+		{irs.IID{"mock-vmimage-02", "mock-vmimage-02"}, "TestGuestOS", "AVAILABLE", nil},
+		{irs.IID{"mock-vmimage-03", "mock-vmimage-03"}, "TestGuestOS", "AVAILABLE", nil},
+		{irs.IID{"mock-vmimage-04", "mock-vmimage-04"}, "TestGuestOS", "AVAILABLE", nil},
+		{irs.IID{"mock-vmimage-05", "mock-vmimage-05"}, "TestGuestOS", "AVAILABLE", nil},
 	}
 	imgInfoMap[mockName] = PrepareImageInfoList
 }
