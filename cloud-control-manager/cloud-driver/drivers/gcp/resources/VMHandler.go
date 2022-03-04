@@ -19,9 +19,12 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"log"
+	"regexp"
 
 	keypair "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/common"
 	compute "google.golang.org/api/compute/v1"
+	"golang.org/x/oauth2/google"
 
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
@@ -202,9 +205,32 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 	//=============================
 	// Root Disk Type 변경
 	//=============================
+	
+	ctx := context.Background()
+
+	c, err := google.DefaultClient(ctx, compute.CloudPlatformScope)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	computeService, err := compute.New(c)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	var validDiskSize = ""
 	if vmReqInfo.RootDiskType == "" {
 		//디스크 정보가 없으면 건드리지 않음.
 	} else {
+
+		resp, err := computeService.DiskTypes.Get(projectID, zone, vmReqInfo.RootDiskType).Context(ctx).Do()
+        if err != nil {
+			fmt.Println("Disk Type Error!!")
+            return irs.VMInfo{}, err
+        }
+        // TODO: Change code below to process the `resp` object:
+        fmt.Printf("valid disk size: %#v\n", resp.ValidDiskSize)
+		validDiskSize = resp.ValidDiskSize
 		//https://cloud.google.com/compute/docs/disks#disk-types
 		instance.Disks[0].InitializeParams.DiskType = prefix + "/zones/" + zone + "/diskTypes/" + vmReqInfo.RootDiskType
 	}
@@ -212,17 +238,53 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 	//=============================
 	// Root Disk Size 변경
 	//=============================
+	// TODO: Change code below to process the `resp` object:
 	if vmReqInfo.RootDiskSize == "" {
 		//디스크 정보가 없으면 건드리지 않음.
-	} else {
+	} else {   
 		if strings.EqualFold(vmReqInfo.RootDiskSize, "default") {
 			instance.Disks[0].InitializeParams.DiskSizeGb = 10
 		} else {
+			imageResp, err := computeService.Images.Get("ubuntu-os-cloud", "ubuntu-1804-bionic-v20200521").Context(ctx).Do()
+			if err != nil {
+				log.Fatal(err)
+			}
+			imageSize := imageResp.DiskSizeGb
+			re := regexp.MustCompile("GB-?")
+			split := re.Split(validDiskSize, -1)
+			diskMinSize, err := strconv.ParseInt(split[0], 10, 64)
+			if err != nil {
+				cblogger.Error(err)
+				return irs.VMInfo{}, err
+			}
+
+			diskMaxSize, err := strconv.ParseInt(split[1], 10, 64)
+			if err != nil {
+				cblogger.Error(err)
+				return irs.VMInfo{}, err
+			}
+
 			iDiskSize, err := strconv.ParseInt(vmReqInfo.RootDiskSize, 10, 64)
 			if err != nil {
 				cblogger.Error(err)
 				return irs.VMInfo{}, err
 			}
+
+			if iDiskSize < imageSize {
+				fmt.Println("Disk Size Error!!: ", iDiskSize)
+				return irs.VMInfo{}, errors.New("Requested disk size cannot be smaller than the image size, invalid")
+			}
+
+			if iDiskSize < diskMinSize {
+				fmt.Println("Disk Size Error!!: ", iDiskSize)
+				return irs.VMInfo{}, errors.New("Requested disk size cannot be smaller than the minimum disk size, invalid")
+			}
+
+			if iDiskSize > diskMaxSize {
+				fmt.Println("Disk Size Error!!: ", iDiskSize)
+				return irs.VMInfo{}, errors.New("Requested disk size cannot be larger than the maximum disk size, invalid")
+			}
+
 			instance.Disks[0].InitializeParams.DiskSizeGb = iDiskSize
 		}
 	}
