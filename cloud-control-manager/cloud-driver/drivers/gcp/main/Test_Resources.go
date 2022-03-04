@@ -861,7 +861,7 @@ func handleVM() {
 
 			case 1:
 				vmReqInfo := irs.VMReqInfo{
-					IId: irs.IID{NameId: "mcloud-barista-vm-test"},
+					IId: irs.IID{NameId: "mcloud-barista-vm-test4"},
 					ImageIID: irs.IID{
 						NameId: "Test",
 						//SystemId: "ubuntu-minimal-1804-bionic-v20200415",
@@ -878,17 +878,17 @@ func handleVM() {
 					},
 					//VpcIID:            irs.IID{SystemId: "cb-vpc"},
 					//SubnetIID:         irs.IID{SystemId: "cb-sub1"},
-					VpcIID:            irs.IID{SystemId: "cb-vpc-load-test"},
-					SubnetIID:         irs.IID{SystemId: "vpc-loadtest-sub1"},
-					SecurityGroupIIDs: []irs.IID{{SystemId: "cb-securitytest1"}},
+					VpcIID:            irs.IID{SystemId: "vpc-01-c8auddust8fenijpilug"},
+					SubnetIID:         irs.IID{SystemId: "subnet-01-c8auddust8fenijpilv0"},
+					SecurityGroupIIDs: []irs.IID{{SystemId: "sg01-c8audk6st8fenijpilvg"}},
 					VMSpecName:        "f1-micro",
 					KeyPairIID:        irs.IID{SystemId: "cb-keypairtest123123"},
 					VMUserId:          "cb-user",
 
 					//RootDiskType: "pd-ssd",      //pd-standard/pd-balanced/pd-ssd/pd-extreme
-					RootDiskType: "pd-balanced", //pd-standard/pd-balanced/pd-ssd/pd-extreme
+					RootDiskType: "pd-extreme", //pd-standard/pd-balanced/pd-ssd/pd-extreme
 					//RootDiskSize: "12",     //최소 10GB 이상이어야 함.
-					RootDiskSize: "default", //10GB
+					RootDiskSize: "10", //10GB
 				}
 
 				vmInfo, err := vmHandler.StartVM(vmReqInfo)
