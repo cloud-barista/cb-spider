@@ -861,7 +861,7 @@ func handleVM() {
 
 			case 1:
 				vmReqInfo := irs.VMReqInfo{
-					IId: irs.IID{NameId: "mcloud-barista-vm-test4"},
+					IId: irs.IID{NameId: "mcloud-barista-vm-test1"},
 					ImageIID: irs.IID{
 						NameId: "Test",
 						//SystemId: "ubuntu-minimal-1804-bionic-v20200415",
@@ -886,9 +886,9 @@ func handleVM() {
 					VMUserId:          "cb-user",
 
 					//RootDiskType: "pd-ssd",      //pd-standard/pd-balanced/pd-ssd/pd-extreme
-					RootDiskType: "pd-standard", //pd-standard/pd-balanced/pd-ssd/pd-extreme
+					RootDiskType: "", //pd-standard/pd-balanced/pd-ssd/pd-extreme
 					//RootDiskSize: "12",     //최소 10GB 이상이어야 함.
-					RootDiskSize: "", //10GB
+					RootDiskSize: "default", //10GB
 				}
 
 				vmInfo, err := vmHandler.StartVM(vmReqInfo)
