@@ -209,7 +209,7 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 	ctx := context.Background()
 
 	//var validDiskSize = ""
-	if vmReqInfo.RootDiskType == "" {
+	if vmReqInfo.RootDiskType == "" || strings.EqualFold(vmReqInfo.RootDiskType, "default") {
 		//디스크 정보가 없으면 건드리지 않음.
 	} else {
 		//https://cloud.google.com/compute/docs/disks#disk-types
