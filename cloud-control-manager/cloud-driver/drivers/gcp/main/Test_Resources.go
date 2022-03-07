@@ -886,9 +886,9 @@ func handleVM() {
 					VMUserId:          "cb-user",
 
 					//RootDiskType: "pd-ssd",      //pd-standard/pd-balanced/pd-ssd/pd-extreme
-					RootDiskType: "pd-extreme", //pd-standard/pd-balanced/pd-ssd/pd-extreme
+					RootDiskType: "pd-standard", //pd-standard/pd-balanced/pd-ssd/pd-extreme
 					//RootDiskSize: "12",     //최소 10GB 이상이어야 함.
-					RootDiskSize: "10", //10GB
+					RootDiskSize: "", //10GB
 				}
 
 				vmInfo, err := vmHandler.StartVM(vmReqInfo)
