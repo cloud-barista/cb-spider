@@ -15,7 +15,10 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"fmt"
+	"regexp"
 
+	cim "github.com/cloud-barista/cb-spider/cloud-info-manager"
 	cblog "github.com/cloud-barista/cb-log"
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
@@ -188,6 +191,45 @@ func (vmHandler *TencentVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 					cblogger.Error(err)
 					return irs.VMInfo{}, err
 				}
+
+				cloudOSMetaInfo, err := cim.GetCloudOSMetaInfo("TENCENT")
+				arrDiskSizeOfType := cloudOSMetaInfo.RootDiskSize
+
+				fmt.Println("arrDiskSizeOfType: ", arrDiskSizeOfType);
+
+				var idx = 0 // CLOUD_PREMIUM
+				if strings.EqualFold(vmReqInfo.RootDiskType, "CLOUD_SSD") {
+					idx = 1 // CLOUD_SSD
+				}
+
+				//valid disk size 정의
+				re := regexp.MustCompile("-") // 50-16000
+				diskSizeArr := re.Split(arrDiskSizeOfType[idx], -1)
+				diskMinSize, err := strconv.ParseInt(diskSizeArr[0], 10, 64)
+				if err != nil {
+					cblogger.Error(err)
+					return irs.VMInfo{}, err
+				}
+
+				diskMaxSize, err := strconv.ParseInt(diskSizeArr[1], 10, 64)
+				if err != nil {
+					cblogger.Error(err)
+					return irs.VMInfo{}, err
+				}
+
+				if iDiskSize < diskMinSize {
+					fmt.Println("Disk Size Error!!: ", iDiskSize)
+					return irs.VMInfo{}, errors.New("Requested disk size cannot be smaller than the minimum disk size, invalid")
+				}
+		
+				if iDiskSize > diskMaxSize {
+					fmt.Println("Disk Size Error!!: ", iDiskSize)
+					return irs.VMInfo{}, errors.New("Requested disk size cannot be larger than the maximum disk size, invalid")
+				}
+
+				
+				
+				
 
 				request.SystemDisk.DiskSize = common.Int64Ptr(iDiskSize)
 			}
