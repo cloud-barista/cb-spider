@@ -16,7 +16,7 @@ import (
 	"strings"
 	"time"
 	"fmt"
-	"regexp"
+	//"regexp"
 
 	cim "github.com/cloud-barista/cb-spider/cloud-info-manager"
 	cblog "github.com/cloud-barista/cb-log"
@@ -197,39 +197,63 @@ func (vmHandler *TencentVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 
 				fmt.Println("arrDiskSizeOfType: ", arrDiskSizeOfType);
 
-				var idx = 0 // CLOUD_PREMIUM
-				if strings.EqualFold(vmReqInfo.RootDiskType, "CLOUD_SSD") {
-					idx = 1 // CLOUD_SSD
+				type diskSize struct {
+					diskType string
+					diskMinSize int64
+					diskMaxSize int64
+					unit string
 				}
 
-				//valid disk size 정의
-				re := regexp.MustCompile("-") // 50-16000
-				diskSizeArr := re.Split(arrDiskSizeOfType[idx], -1)
-				diskMinSize, err := strconv.ParseInt(diskSizeArr[0], 10, 64)
-				if err != nil {
-					cblogger.Error(err)
-					return irs.VMInfo{}, err
+				diskSizeValue := diskSize{}
+				
+				for idx, _ := range arrDiskSizeOfType {
+					diskSizeArr := strings.Split(arrDiskSizeOfType[idx], "|")
+					fmt.Println("diskSizeArr: ", diskSizeArr)
+					
+					if strings.EqualFold(vmReqInfo.RootDiskType, diskSizeArr[0]) {
+						diskSizeValue.diskType = diskSizeArr[0]
+						diskSizeValue.unit = diskSizeArr[3]
+						diskSizeValue.diskMinSize, err = strconv.ParseInt(diskSizeArr[1], 10, 64)
+						if err != nil {
+							cblogger.Error(err)
+							return irs.VMInfo{}, err
+						}
+
+						diskSizeValue.diskMaxSize, err = strconv.ParseInt(diskSizeArr[2], 10, 64)
+						if err != nil {
+							cblogger.Error(err)
+							return irs.VMInfo{}, err
+						}
+					}
 				}
 
-				diskMaxSize, err := strconv.ParseInt(diskSizeArr[1], 10, 64)
-				if err != nil {
-					cblogger.Error(err)
-					return irs.VMInfo{}, err
-				}
-
-				if iDiskSize < diskMinSize {
+				
+				if iDiskSize < diskSizeValue.diskMinSize {
 					fmt.Println("Disk Size Error!!: ", iDiskSize)
 					return irs.VMInfo{}, errors.New("Requested disk size cannot be smaller than the minimum disk size, invalid")
 				}
 		
-				if iDiskSize > diskMaxSize {
+				if iDiskSize > diskSizeValue.diskMaxSize {
 					fmt.Println("Disk Size Error!!: ", iDiskSize)
 					return irs.VMInfo{}, errors.New("Requested disk size cannot be larger than the maximum disk size, invalid")
 				}
 
-				
-				
-				
+				imageRequest := cvm.NewDescribeImagesRequest()
+        
+				imageRequest.ImageIds = common.StringPtrs([]string{"img-22trbn9x"})
+
+				response, err := vmHandler.Client.DescribeImages(imageRequest)
+				if err != nil {
+					cblogger.Error(err)
+					return irs.VMInfo{}, err
+				}
+				imageSize := *response.Response.ImageSet[0].ImageSize
+				fmt.Println("image : ", imageSize)
+
+				if iDiskSize < imageSize {
+					fmt.Println("Disk Size Error!!: ", iDiskSize)
+					return irs.VMInfo{}, errors.New("Requested disk size cannot be smaller than the image size, invalid")
+				}
 
 				request.SystemDisk.DiskSize = common.Int64Ptr(iDiskSize)
 			}
@@ -603,6 +627,7 @@ func (vmHandler *TencentVMHandler) ExtractDescribeInstances(curVm *cvm.Instance)
 	if !reflect.ValueOf(curVm.SystemDisk).IsNil() {
 		if !reflect.ValueOf(curVm.SystemDisk.DiskType).IsNil() {
 			keyValueList = append(keyValueList, irs.KeyValue{Key: "SystemDiskType", Value: *curVm.SystemDisk.DiskType})
+			vmInfo.RootDiskType = *curVm.SystemDisk.DiskType
 		}
 		if !reflect.ValueOf(curVm.SystemDisk.DiskId).IsNil() {
 			keyValueList = append(keyValueList, irs.KeyValue{Key: "SystemDiskId", Value: *curVm.SystemDisk.DiskId})
@@ -610,6 +635,7 @@ func (vmHandler *TencentVMHandler) ExtractDescribeInstances(curVm *cvm.Instance)
 		}
 		if !reflect.ValueOf(curVm.SystemDisk.DiskSize).IsNil() {
 			keyValueList = append(keyValueList, irs.KeyValue{Key: "SystemDiskSize", Value: strconv.FormatInt(*curVm.SystemDisk.DiskSize, 10)})
+			vmInfo.RootDiskSize = strconv.FormatInt(*curVm.SystemDisk.DiskSize, 10)
 		}
 	}
 

@@ -641,7 +641,7 @@ func handleVM() {
 
 			case 1:
 				vmReqInfo := irs.VMReqInfo{
-					IId: irs.IID{NameId: "mcloud-barista-vm-test"},
+					IId: irs.IID{NameId: "mcloud-barista-vm-test1"},
 					//IId:      irs.IID{NameId: "bill-test"},
 					//ImageIID: irs.IID{SystemId: "img-22trbn9x"}, //Ubuntu Server 20.04 LTS 64
 					ImageIID:          irs.IID{SystemId: "img-22trbn9x"}, //Ubuntu Server 18.04.1 LTS 64
@@ -653,8 +653,8 @@ func handleVM() {
 					//VMUserId:          "root", //root만 가능
 					//VMUserPasswd: "Cbuser!@#", //대문자 소문자 모두 사용되어야 함. 그리고 숫자나 특수 기호 중 하나가 포함되어야 함.
 					//RootDiskType: "CLOUD_PREMIUM", //LOCAL_BASIC/LOCAL_SSD/CLOUD_BASIC/CLOUD_SSD/CLOUD_PREMIUM
-					RootDiskType: "CLOUD_SSD", //LOCAL_BASIC/LOCAL_SSD/CLOUD_BASIC/CLOUD_SSD/CLOUD_PREMIUM
-					RootDiskSize: "40",        //Image Size 보다 작으면 에러 남
+					RootDiskType: "", //LOCAL_BASIC/LOCAL_SSD/CLOUD_BASIC/CLOUD_SSD/CLOUD_PREMIUM
+					RootDiskSize: "",        //Image Size 보다 작으면 에러 남
 					//RootDiskSize: "Default", //Image Size 보다 작으면 에러 남
 				}
 
