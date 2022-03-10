@@ -85,8 +85,18 @@ func (vmHandler *AwsVMHandler) GetDiskInfo(ImageSystemId string) (int64, error) 
 	}
 
 	if len(result.Images) > 0 {
-		isize := aws.Int64(*result.Images[0].BlockDeviceMappings[0].Ebs.VolumeSize)
-		return *isize, nil
+		if !reflect.ValueOf(result.Images[0].BlockDeviceMappings).IsNil() {
+			if !reflect.ValueOf(result.Images[0].BlockDeviceMappings[0].Ebs).IsNil() {
+				isize := aws.Int64(*result.Images[0].BlockDeviceMappings[0].Ebs.VolumeSize)
+				return *isize, nil
+			} else {
+				cblogger.Error("BlockDeviceMappings에서 Ebs 정보를 찾을 수 없습니다.")
+				return -1, errors.New("BlockDeviceMappings에서 Ebs 정보를 찾을 수 없습니다.")
+			}
+		} else {
+			cblogger.Error("BlockDeviceMappings 정보를 찾을 수 없습니다.")
+			return -1, errors.New("BlockDeviceMappings 정보를 찾을 수 없습니다.")
+		}
 	} else {
 		cblogger.Error("요청된 Image 정보[" + ImageSystemId + "]를 찾을 수 없습니다.")
 		return -1, errors.New("요청된 Image 정보[" + ImageSystemId + "]를 찾을 수 없습니다.")
