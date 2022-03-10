@@ -791,12 +791,16 @@ func (vmHandler *GCPVMHandler) GetVM(vmID irs.IID) (irs.VMInfo, error) {
 func (vmHandler *GCPVMHandler) mappingServerInfo(server *compute.Instance) irs.VMInfo {
 	cblogger.Info("================맵핑=====================================")
 	spew.Dump(server)
+	fmt.Println("server: ", server)
 
 	//var gcpHanler *GCPVMHandler
 	vpcArr := strings.Split(server.NetworkInterfaces[0].Network, "/")
 	subnetArr := strings.Split(server.NetworkInterfaces[0].Subnetwork, "/")
 	vpcName := vpcArr[len(vpcArr)-1]
 	subnetName := subnetArr[len(subnetArr)-1]
+	diskInfo := vmHandler.getDiskInfo(server.Disks[0].Source)
+	diskTypeArr := strings.Split(diskInfo.Type, "/")
+	diskType := diskTypeArr[len(diskTypeArr)-1]
 
 	type IIDBox struct {
 		Items []irs.IID
@@ -841,6 +845,9 @@ func (vmHandler *GCPVMHandler) mappingServerInfo(server *compute.Instance) irs.V
 			NameId:   subnetName,
 			SystemId: subnetName,
 		},
+		RootDiskType: diskType,
+		RootDiskSize: strconv.FormatInt(diskInfo.SizeGb, 10),
+		RootDeviceName: server.Disks[0].DeviceName,
 		KeyValueList: []irs.KeyValue{
 			{"SubNetwork", server.NetworkInterfaces[0].Subnetwork},
 			{"AccessConfigName", server.NetworkInterfaces[0].AccessConfigs[0].Name},
@@ -918,6 +925,29 @@ func (vmHandler *GCPVMHandler) getImageInfo(diskname string) irs.IID {
 		}
 	*/
 	return iId
+}
+
+
+func (vmHandler *GCPVMHandler) getDiskInfo(diskname string) *compute.Disk {
+	projectID := vmHandler.Credential.ProjectID
+	zone := vmHandler.Region.Zone
+	dArr := strings.Split(diskname, "/")
+	var result string
+	if dArr != nil {
+		result = dArr[len(dArr)-1]
+	}
+	cblogger.Infof("result : [%s]", result)
+
+	info, err := vmHandler.Client.Disks.Get(projectID, zone, result).Do()
+
+	cblogger.Infof("********************************** Disk 정보 ****************")
+	spew.Dump(info)
+	if err != nil {
+		cblogger.Error(err)
+		return info
+	}
+
+	return info
 }
 
 // func (vmHandler *GCPVMHandler) getKeyPairInfo(diskname string) irs.IID {

@@ -861,7 +861,7 @@ func handleVM() {
 
 			case 1:
 				vmReqInfo := irs.VMReqInfo{
-					IId: irs.IID{NameId: "mcloud-barista-vm-test4"},
+					IId: irs.IID{NameId: "mcloud-barista-vm-test"},
 					ImageIID: irs.IID{
 						NameId: "Test",
 						//SystemId: "ubuntu-minimal-1804-bionic-v20200415",
