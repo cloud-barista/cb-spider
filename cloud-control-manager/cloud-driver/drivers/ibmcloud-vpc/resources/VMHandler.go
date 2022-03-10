@@ -905,6 +905,8 @@ func (vmHandler *IbmVMHandler) setVmInfo(instance vpcv1.Instance) (irs.VMInfo, e
 		},
 		PrivateIP: *instance.PrimaryNetworkInterface.PrimaryIpv4Address,
 		VMUserId:  CBDefaultVmUserName,
+		RootDeviceName: "Not visible in IBMCloud-VPC",
+		VMBlockDisk: "Not visible in IBMCloud-VPC",
 	}
 	// KeyGet
 	instanceInitializationOptions := &vpcv1.GetInstanceInitializationOptions{}
