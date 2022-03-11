@@ -238,7 +238,7 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 
 		var diskType = ""
 
-		if vmReqInfo.RootDiskType == "" {
+		if vmReqInfo.RootDiskType == "" || strings.EqualFold(vmReqInfo.RootDiskType, "default"){
 			cloudOSMetaInfo, err := cim.GetCloudOSMetaInfo("GCP")
 			if err != nil {
 				cblogger.Error(err)
