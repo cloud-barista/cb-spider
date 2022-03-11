@@ -851,21 +851,21 @@ func handleVM() {
 					//ImageIID: irs.IID{SystemId: "aliyun_3_x64_20G_alibase_20210425.vhd"},
 					//ImageIID: irs.IID{SystemId: "aliyun_2_1903_x64_20G_alibase_20200324.vhd"},
 					//ImageIID:  irs.IID{SystemId: "ubuntu_18_04_x64_20G_alibase_20210318.vhd"},
-					ImageIID: irs.IID{SystemId: "ubuntu_18_04_x64_20G_alibase_20210420.vhd"},
+					ImageIID: irs.IID{SystemId: "rockylinux_8_5_x64_20G_alibase_20220214.vhd"},
 					//VpcIID:    irs.IID{SystemId: "vpc-0jl4l19l51gn2exrohgci"},
 					//SubnetIID: irs.IID{SystemId: "vsw-0jlj155cbwhjumtipnm6d"},
-					SubnetIID: irs.IID{SystemId: "vsw-6we8tac8w7dzqbxbyhj9o"}, //Tokyo Zone B
+					SubnetIID: irs.IID{SystemId: "vsw-6wesdkf4hjcd6qrljo9lu"}, //Tokyo Zone B
 					//SecurityGroupIIDs: []irs.IID{{SystemId: "sg-6we0rxnoai067qbkdkgw"}, {SystemId: "sg-6weeb9xaodr65g7bq10c"}},
-					SecurityGroupIIDs: []irs.IID{{SystemId: "sg-6we7156yw8c8xbzi9f7v"}},
+					SecurityGroupIIDs: []irs.IID{{SystemId: "sg-6we7yovy307nthflzds4"}},
 					//VMSpecName:        "ecs.t5-lc2m1.nano",
 					//VMSpecName: "ecs.g6.large", //cn-wulanchabu 리전
-					VMSpecName: "ecs.t5-lc2m1.nano", //도쿄리전
-					KeyPairIID: irs.IID{SystemId: "cb-japan"},
+					VMSpecName: "ecs.t6-c2m1.large", //도쿄리전
+					KeyPairIID: irs.IID{SystemId: "noh55-ali-tokyo1-c8c6717m20rmrk38f0c0"},
 					//VMUserId:          "root", //root만 가능
 					//VMUserPasswd: "Cbuser!@#", //대문자 소문자 모두 사용되어야 함. 그리고 숫자나 특수 기호 중 하나가 포함되어야 함.
 
-					RootDiskType: "cloud_efficiency", //cloud / cloud_efficiency / cloud_ssd / cloud_essd
-					RootDiskSize: "default",
+					RootDiskType: "default", //cloud / cloud_efficiency / cloud_ssd / cloud_essd
+					RootDiskSize: "22",
 					//RootDiskType: "cloud_ssd", //cloud / cloud_efficiency / cloud_ssd / cloud_essd
 					//RootDiskSize: "22",
 				}
@@ -986,8 +986,8 @@ func main() {
 	//handleVMSpec()
 	//handleImage() //AMI
 	//handleSecurity()
-	handleKeyPair()
-	//handleVM()
+	//handleKeyPair()
+	handleVM()
 
 	//handlePublicIP() // PublicIP 생성 후 conf
 
