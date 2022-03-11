@@ -205,42 +205,62 @@ func (vmHandler *TencentVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 				}
 
 				diskSizeValue := diskSize{}
-				
-				for idx, _ := range arrDiskSizeOfType {
-					diskSizeArr := strings.Split(arrDiskSizeOfType[idx], "|")
-					fmt.Println("diskSizeArr: ", diskSizeArr)
-					
-					if strings.EqualFold(vmReqInfo.RootDiskType, diskSizeArr[0]) {
-						diskSizeValue.diskType = diskSizeArr[0]
-						diskSizeValue.unit = diskSizeArr[3]
-						diskSizeValue.diskMinSize, err = strconv.ParseInt(diskSizeArr[1], 10, 64)
-						if err != nil {
-							cblogger.Error(err)
-							return irs.VMInfo{}, err
-						}
 
-						diskSizeValue.diskMaxSize, err = strconv.ParseInt(diskSizeArr[2], 10, 64)
-						if err != nil {
-							cblogger.Error(err)
-							return irs.VMInfo{}, err
+				if vmReqInfo.RootDiskType == "" || strings.EqualFold(vmReqInfo.RootDiskType, "default") {
+					diskSizeArr := strings.Split(arrDiskSizeOfType[0], "|")
+					diskSizeValue.diskType = diskSizeArr[0]
+					diskSizeValue.unit = diskSizeArr[3]
+					diskSizeValue.diskMinSize, err = strconv.ParseInt(diskSizeArr[1], 10, 64)
+					if err != nil {
+						cblogger.Error(err)
+						return irs.VMInfo{}, err
+					}
+
+					diskSizeValue.diskMaxSize, err = strconv.ParseInt(diskSizeArr[2], 10, 64)
+					if err != nil {
+						cblogger.Error(err)
+						return irs.VMInfo{}, err
+					}
+				} else {
+
+					for idx, _ := range arrDiskSizeOfType {
+						diskSizeArr := strings.Split(arrDiskSizeOfType[idx], "|")
+						fmt.Println("diskSizeArr: ", diskSizeArr)
+						
+						if strings.EqualFold(vmReqInfo.RootDiskType, diskSizeArr[0]) {
+							diskSizeValue.diskType = diskSizeArr[0]
+							diskSizeValue.unit = diskSizeArr[3]
+							diskSizeValue.diskMinSize, err = strconv.ParseInt(diskSizeArr[1], 10, 64)
+							if err != nil {
+								cblogger.Error(err)
+								return irs.VMInfo{}, err
+							}
+	
+							diskSizeValue.diskMaxSize, err = strconv.ParseInt(diskSizeArr[2], 10, 64)
+							if err != nil {
+								cblogger.Error(err)
+								return irs.VMInfo{}, err
+							}
 						}
 					}
 				}
+				
+				
 
 				
 				if iDiskSize < diskSizeValue.diskMinSize {
-					fmt.Println("Disk Size Error!!: ", iDiskSize)
+					fmt.Println("Disk Size Error!!: ", iDiskSize, diskSizeValue.diskMinSize, diskSizeValue.diskMaxSize)
 					return irs.VMInfo{}, errors.New("Requested disk size cannot be smaller than the minimum disk size, invalid")
 				}
 		
 				if iDiskSize > diskSizeValue.diskMaxSize {
-					fmt.Println("Disk Size Error!!: ", iDiskSize)
+					fmt.Println("Disk Size Error!!: ", iDiskSize, diskSizeValue.diskMinSize, diskSizeValue.diskMaxSize)
 					return irs.VMInfo{}, errors.New("Requested disk size cannot be larger than the maximum disk size, invalid")
 				}
 
 				imageRequest := cvm.NewDescribeImagesRequest()
         
-				imageRequest.ImageIds = common.StringPtrs([]string{"img-22trbn9x"})
+				imageRequest.ImageIds = common.StringPtrs([]string{vmReqInfo.ImageIID.SystemId})
 
 				response, err := vmHandler.Client.DescribeImages(imageRequest)
 				if err != nil {
@@ -251,7 +271,7 @@ func (vmHandler *TencentVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 				fmt.Println("image : ", imageSize)
 
 				if iDiskSize < imageSize {
-					fmt.Println("Disk Size Error!!: ", iDiskSize)
+					fmt.Println("Disk Size Error!!: ", iDiskSize, imageSize)
 					return irs.VMInfo{}, errors.New("Requested disk size cannot be smaller than the image size, invalid")
 				}
 
