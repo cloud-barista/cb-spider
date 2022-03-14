@@ -17,7 +17,11 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"strings"
 
+	"golang.org/x/net/context"
+	"golang.org/x/oauth2/google"
+	"google.golang.org/api/compute/v1"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 )
@@ -99,4 +103,49 @@ func GetPublicKey(credentialInfo idrv.CredentialInfo, keyPairName string) (strin
 		return "", err
 	}
 	return string(publicKeyBytes), nil
+}
+
+
+func GetProjectQuotas(projectId string) []*compute.Quota {
+
+	ctx := context.Background()
+
+	c, err := google.DefaultClient(ctx, compute.CloudPlatformScope)
+	if err != nil {
+		cblogger.Error(err)
+	}
+
+	computeService, err := compute.New(c)
+	if err != nil {
+		cblogger.Error(err)
+	}
+
+	quotaResp, err := computeService.Projects.Get(projectId).Context(ctx).Do()
+	if err != nil {
+		cblogger.Error(err)
+	}
+
+	fmt.Printf("%#v\n", quotaResp.Quotas)
+
+	return quotaResp.Quotas
+}
+
+
+func GetProjectQuotaByMetric(projectId string, metricName string) *compute.Quota {
+
+	quotas := GetProjectQuotas(projectId)
+
+	if len(quotas) > 0 {
+		for _, quota := range quotas {
+
+			if strings.EqualFold(quota.Metric, metricName) {
+				fmt.Printf("%#v\n", quota.Metric)
+				return quota
+			}
+		}
+
+		return nil
+	}
+
+	return nil
 }
