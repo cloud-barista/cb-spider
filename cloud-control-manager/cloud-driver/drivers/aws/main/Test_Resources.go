@@ -690,7 +690,8 @@ func handleImage() {
 	handler := ResourceHandler.(irs.ImageHandler)
 
 	imageReqInfo := irs.ImageReqInfo{
-		IId: irs.IID{NameId: "Test OS Image", SystemId: "ami-005ace3da56246b4c"},
+		//IId: irs.IID{NameId: "Test OS Image", SystemId: "ami-0c068f008ea2bdaa1"}, //Microsoft Windows Server 2019
+		IId: irs.IID{NameId: "Test OS Image", SystemId: "ami-088da9557aae42f39"}, //Ubuntu Server 20.04 LTS (HVM), SSD Volume Type 64비트 x86
 		//Id:   "ami-047f7b46bd6dd5d84",
 		//Name: "Test OS Image",
 	}
@@ -898,21 +899,22 @@ func handleVM() {
 
 			case 1:
 				vmReqInfo := irs.VMReqInfo{
-					IId: irs.IID{NameId: "mcloud-barista-cb-user-test"},
+					IId: irs.IID{NameId: "mcloud-barista-cb-user-test-rootsize"},
 					//ImageIID:          irs.IID{SystemId: "ami-001b6f8703b50e077"}, //centos-stable-7.2003.13-ebs-202005201235
 					//ImageIID:          irs.IID{SystemId: "ami-059b6d3840b03d6dd"}, //Ubuntu Server 20.04 LTS (HVM)
 					//ImageIID:          irs.IID{SystemId: "ami-09e67e426f25ce0d7"}, //Ubuntu Server 20.04 LTS (HVM) - 버지니아 북부 리전
 					//ImageIID:          irs.IID{SystemId: "ami-059b6d3840b03d6dd"}, //Ubuntu Server 20.04 LTS (HVM)
 					ImageIID:          irs.IID{SystemId: "ami-0fe22bffdec36361c"}, //Ubuntu Server 18.04 LTS (HVM) - Japan 리전
 					SubnetIID:         irs.IID{SystemId: "subnet-0a6ca346752be1ca4"},
-					SecurityGroupIIDs: []irs.IID{{SystemId: "sg-03685021f07b3ccd3"}},
+					SecurityGroupIIDs: []irs.IID{{SystemId: "sg-08c76d376b6e4e4ae"}},
 					VMSpecName:        "t2.micro",
 					KeyPairIID:        irs.IID{SystemId: "japan-test"},
 
 					RootDiskType: "standard", //gp2/standard/io1/io2/sc1/st1/gp3
 					//RootDiskType: "gp2", //gp2/standard/io1/io2/sc1/st1/gp3
 					//RootDiskType: "gp3", //gp2/standard/io1/io2/sc1/st1/gp3
-					RootDiskSize: "60", //최소 8GB 이상이어야 함.
+					//RootDiskSize: "60", //최소 8GB 이상이어야 함.
+					//RootDiskSize: "1", //최소 8GB 이상이어야 함.
 					//RootDiskSize: "Default", //8GB
 				}
 
