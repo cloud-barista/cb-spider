@@ -738,6 +738,8 @@ func (vmHandler *ClouditVMHandler) mappingServerInfo(server server.ServerInfo) i
 		PrivateIP:      server.PrivateIp,
 		SSHAccessPoint: fmt.Sprintf("%s:%d", server.AdaptiveIp, SSHDefaultPort),
 		RootDiskSize:   strconv.Itoa(server.VolumeSize),
+		RootDeviceName: "Not visible in Cloudit",
+		VMBlockDisk: "Not visible in Cloudit",
 	}
 	if server.CreatedAt != "" {
 		timeArr := strings.Split(server.CreatedAt, " ")

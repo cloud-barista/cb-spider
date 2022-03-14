@@ -764,6 +764,8 @@ func (vmHandler *AzureVMHandler) mappingServerInfo(server compute.VirtualMachine
 			Region: *server.Location,
 		},
 		VMSpecName: string(server.VirtualMachineProperties.HardwareProfile.VMSize),
+		RootDeviceName: "Not visible in Azure",
+		VMBlockDisk: "Not visible in Azure",
 	}
 
 	// Set VM Zone
