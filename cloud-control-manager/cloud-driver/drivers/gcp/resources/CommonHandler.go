@@ -105,7 +105,7 @@ func GetPublicKey(credentialInfo idrv.CredentialInfo, keyPairName string) (strin
 	return string(publicKeyBytes), nil
 }
 
-
+//Quota Info(전체)
 func GetProjectQuotas(projectId string) []*compute.Quota {
 
 	ctx := context.Background()
@@ -115,6 +115,7 @@ func GetProjectQuotas(projectId string) []*compute.Quota {
 		cblogger.Error(err)
 	}
 
+	// TODO : compute service는 client를 이용하는 것으로 바꿀 것
 	computeService, err := compute.New(c)
 	if err != nil {
 		cblogger.Error(err)
@@ -130,7 +131,7 @@ func GetProjectQuotas(projectId string) []*compute.Quota {
 	return quotaResp.Quotas
 }
 
-
+//Quota Info(해당 metric만)
 func GetProjectQuotaByMetric(projectId string, metricName string) *compute.Quota {
 
 	quotas := GetProjectQuotas(projectId)
