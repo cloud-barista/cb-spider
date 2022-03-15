@@ -61,3 +61,6 @@ cloudit:
         SubnetIID:
           nameId: mcb-test-vpc-subnet3
         IPv4_CIDR: 10.0.16.0/22
+      RemoveSubnet:
+        SubnetIID:
+          nameId: mcb-test-vpc-subnet0

@@ -27,6 +27,7 @@ const (
 	CBVMUser      = "cb-user"
 	CBKeyPairPath = "/meta_db/.ssh-cloudit/"
 	ClouditRegion = "ClouditRegion"
+	ClouditVPCREGISTER = "VPC-REGISTER"
 )
 
 var once sync.Once
@@ -104,6 +105,16 @@ func ListVNic(authHeader map[string]string, reqClient *client.RestClient, vmId s
 // KeyPair 해시 생성 함수
 func CreateHashString(credentialInfo idrv.CredentialInfo) (string, error) {
 	keyString := credentialInfo.IdentityEndpoint + credentialInfo.AuthToken + credentialInfo.TenantId
+	hasher := md5.New()
+	_, err := io.WriteString(hasher, keyString)
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("%x", hasher.Sum(nil)), nil
+}
+
+func CreateVPCHashString(credentialInfo idrv.CredentialInfo) (string, error) {
+	keyString := credentialInfo.IdentityEndpoint + credentialInfo.AuthToken + credentialInfo.TenantId + ClouditVPCREGISTER
 	hasher := md5.New()
 	_, err := io.WriteString(hasher, keyString)
 	if err != nil {
