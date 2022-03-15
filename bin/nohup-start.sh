@@ -25,5 +25,5 @@ echo -e '\n'
 echo -e '\t[CB-Spider] Driver Plugin Mode: Static Builtin Mode'
 echo -e '\n'
 
-nohup $BIN_DIR/cb-spider > spider-nohup.out &
+nohup $BIN_DIR/cb-spider > spider-nohup.out 2>&1  &
 echo $! > $BIN_DIR/spider.pid
