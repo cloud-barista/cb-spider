@@ -105,6 +105,12 @@ func testVPCHandler(config ResourceConfig) {
 		},
 		IPv4_CIDR: addSubnet.IPv4_CIDR,
 	}
+	removeSubnet := config.Cloudit.Resources.VpcIID.RemoveSubnet
+	removeSubnetInfo := irs.SubnetInfo{
+		IId: irs.IID{
+			NameId: removeSubnet.SubnetIID.NameId,
+		},
+	}
 	//deleteVpcid := irs.IID{
 	//	NameId: "bcr02a.tok02.774",
 	//}
@@ -163,21 +169,10 @@ Loop:
 				res_cblogger.Info("Finish AddSubnet()")
 			case 6:
 				res_cblogger.Info("Start RemoveSubnet() ...")
-				vpcInfo, err := vpcHandler.GetVPC(vpcIID)
-				if err != nil {
+				if vpcInfo, err := vpcHandler.RemoveSubnet(vpcIID, removeSubnetInfo.IId); err != nil {
 					res_cblogger.Error(err)
-				}
-				if vpcInfo.SubnetInfoList != nil && len(vpcInfo.SubnetInfoList) > 0 {
-					firstSubnet := vpcInfo.SubnetInfoList[0]
-					res_cblogger.Info(fmt.Sprintf("RemoveSubnet : %s %s", firstSubnet.IId.NameId, firstSubnet.IPv4_CIDR))
-					result, err := vpcHandler.RemoveSubnet(vpcIID, firstSubnet.IId)
-					if err != nil {
-						res_cblogger.Error(err)
-					} else {
-						spew.Dump(result)
-					}
 				} else {
-					res_cblogger.Error("not exist subnet")
+					spew.Dump(vpcInfo)
 				}
 				res_cblogger.Info("Finish RemoveSubnet()")
 			case 7:
@@ -746,6 +741,12 @@ type ResourceConfig struct {
 					} `yaml:"SubnetIID"`
 					IPv4_CIDR string `yaml:"IPv4_CIDR"`
 				} `yaml:"AddSubnet"`
+				RemoveSubnet struct {
+					SubnetIID struct {
+						NameId   string `yaml:"nameId"`
+						SystemId string `yaml:"systemId"`
+					} `yaml:"SubnetIID"`
+				} `yaml:"RemoveSubnet"`
 			} `yaml:"VpcIID"`
 			SecurityGroup struct {
 				NameId   string `yaml:"nameId"`
