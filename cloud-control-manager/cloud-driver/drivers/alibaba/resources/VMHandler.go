@@ -12,7 +12,10 @@ import (
 	"os"
 	"strings"
 	"time"
+	"fmt"
+	"strconv"
 
+	cim "github.com/cloud-barista/cb-spider/cloud-info-manager"
 	"github.com/aliyun/alibaba-cloud-sdk-go/sdk/requests"
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/ecs"
 	cblog "github.com/cloud-barista/cb-log"
@@ -170,102 +173,99 @@ func (vmHandler *AlibabaVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 	//=============================
 	// Root Disk Size 변경
 	//=============================
-	if vmReqInfo.RootDiskSize == "" {
+	if vmReqInfo.RootDiskSize == "" || strings.EqualFold(vmReqInfo.RootDiskSize, "default") {
 		//디스크 정보가 없으면 건드리지 않음.
 	} else {
-		if strings.EqualFold(vmReqInfo.RootDiskSize, "default") {
-			request.SystemDiskSize = "40"
-		} else {
+		
+		iDiskSize, err := strconv.ParseInt(vmReqInfo.RootDiskSize, 10, 64)
+		if err != nil {
+			cblogger.Error(err)
+			return irs.VMInfo{}, err
+		}
 
-			iDiskSize, err := strconv.ParseInt(vmReqInfo.RootDiskSize, 10, 64)
+		cloudOSMetaInfo, err := cim.GetCloudOSMetaInfo("ALIBABA")
+		arrDiskSizeOfType := cloudOSMetaInfo.RootDiskSize
+
+		fmt.Println("arrDiskSizeOfType: ", arrDiskSizeOfType);
+
+		type diskSize struct {
+			diskType string
+			diskMinSize int64
+			diskMaxSize int64
+			unit string
+		}
+
+		diskSizeValue := diskSize{}
+
+		if vmReqInfo.RootDiskType == "" || strings.EqualFold(vmReqInfo.RootDiskType, "default") {
+			diskSizeArr := strings.Split(arrDiskSizeOfType[0], "|")
+			diskSizeValue.diskType = diskSizeArr[0]
+			diskSizeValue.unit = diskSizeArr[3]
+			diskSizeValue.diskMinSize, err = strconv.ParseInt(diskSizeArr[1], 10, 64)
 			if err != nil {
 				cblogger.Error(err)
 				return irs.VMInfo{}, err
 			}
 
-			cloudOSMetaInfo, err := cim.GetCloudOSMetaInfo("ALIBABA")
-			arrDiskSizeOfType := cloudOSMetaInfo.RootDiskSize
-
-			fmt.Println("arrDiskSizeOfType: ", arrDiskSizeOfType);
-
-			type diskSize struct {
-				diskType string
-				diskMinSize int64
-				diskMaxSize int64
-				unit string
+			diskSizeValue.diskMaxSize, err = strconv.ParseInt(diskSizeArr[2], 10, 64)
+			if err != nil {
+				cblogger.Error(err)
+				return irs.VMInfo{}, err
 			}
+		} else {
 
-			diskSizeValue := diskSize{}
+			for idx, _ := range arrDiskSizeOfType {
+				diskSizeArr := strings.Split(arrDiskSizeOfType[idx], "|")
+				fmt.Println("diskSizeArr: ", diskSizeArr)
+				
+				if strings.EqualFold(vmReqInfo.RootDiskType, diskSizeArr[0]) {
+					diskSizeValue.diskType = diskSizeArr[0]
+					diskSizeValue.unit = diskSizeArr[3]
+					diskSizeValue.diskMinSize, err = strconv.ParseInt(diskSizeArr[1], 10, 64)
+					if err != nil {
+						cblogger.Error(err)
+						return irs.VMInfo{}, err
+					}
 
-			if vmReqInfo.RootDiskType == "" || strings.EqualFold(vmReqInfo.RootDiskType, "default") {
-				diskSizeArr := strings.Split(arrDiskSizeOfType[0], "|")
-				diskSizeValue.diskType = diskSizeArr[0]
-				diskSizeValue.unit = diskSizeArr[3]
-				diskSizeValue.diskMinSize, err = strconv.ParseInt(diskSizeArr[1], 10, 64)
-				if err != nil {
-					cblogger.Error(err)
-					return irs.VMInfo{}, err
-				}
-
-				diskSizeValue.diskMaxSize, err = strconv.ParseInt(diskSizeArr[2], 10, 64)
-				if err != nil {
-					cblogger.Error(err)
-					return irs.VMInfo{}, err
-				}
-			} else {
-
-				for idx, _ := range arrDiskSizeOfType {
-					diskSizeArr := strings.Split(arrDiskSizeOfType[idx], "|")
-					fmt.Println("diskSizeArr: ", diskSizeArr)
-					
-					if strings.EqualFold(vmReqInfo.RootDiskType, diskSizeArr[0]) {
-						diskSizeValue.diskType = diskSizeArr[0]
-						diskSizeValue.unit = diskSizeArr[3]
-						diskSizeValue.diskMinSize, err = strconv.ParseInt(diskSizeArr[1], 10, 64)
-						if err != nil {
-							cblogger.Error(err)
-							return irs.VMInfo{}, err
-						}
-
-						diskSizeValue.diskMaxSize, err = strconv.ParseInt(diskSizeArr[2], 10, 64)
-						if err != nil {
-							cblogger.Error(err)
-							return irs.VMInfo{}, err
-						}
+					diskSizeValue.diskMaxSize, err = strconv.ParseInt(diskSizeArr[2], 10, 64)
+					if err != nil {
+						cblogger.Error(err)
+						return irs.VMInfo{}, err
 					}
 				}
 			}
-
-			if iDiskSize < diskSizeValue.diskMinSize {
-				fmt.Println("Disk Size Error!!: ", iDiskSize, diskSizeValue.diskMinSize, diskSizeValue.diskMaxSize)
-				return irs.VMInfo{}, errors.New("Requested disk size cannot be smaller than the minimum disk size, invalid")
-			}
-	
-			if iDiskSize > diskSizeValue.diskMaxSize {
-				fmt.Println("Disk Size Error!!: ", iDiskSize, diskSizeValue.diskMinSize, diskSizeValue.diskMaxSize)
-				return irs.VMInfo{}, errors.New("Requested disk size cannot be larger than the maximum disk size, invalid")
-			}
-
-			// 이미지 사이즈와 비교
-			imageRequest := ecs.CreateDescribeImagesRequest()
-			imageRequest.Scheme = "https"
-
-			imageRequest.ImageId = vmReqInfo.ImageIID.SystemId
-
-			response, err := vmHandler.Client.DescribeImages(imageRequest)
-			if err != nil {
-				cblogger.Error(err)
-				return irs.VMInfo{}, err
-			}
-			imageSize := int64(response.Images.Image[0].Size)
-
-			if iDiskSize < imageSize {
-				fmt.Println("Disk Size Error!!: ", iDiskSize)
-				return irs.VMInfo{}, errors.New("Requested disk size cannot be smaller than the image disk size, invalid")
-			}
-
-			request.SystemDiskSize = vmReqInfo.RootDiskSize
 		}
+
+		if iDiskSize < diskSizeValue.diskMinSize {
+			fmt.Println("Disk Size Error!!: ", iDiskSize, diskSizeValue.diskMinSize, diskSizeValue.diskMaxSize)
+			return irs.VMInfo{}, errors.New("Requested disk size cannot be smaller than the minimum disk size, invalid")
+		}
+
+		if iDiskSize > diskSizeValue.diskMaxSize {
+			fmt.Println("Disk Size Error!!: ", iDiskSize, diskSizeValue.diskMinSize, diskSizeValue.diskMaxSize)
+			return irs.VMInfo{}, errors.New("Requested disk size cannot be larger than the maximum disk size, invalid")
+		}
+
+		// 이미지 사이즈와 비교
+		imageRequest := ecs.CreateDescribeImagesRequest()
+		imageRequest.Scheme = "https"
+
+		imageRequest.ImageId = vmReqInfo.ImageIID.SystemId
+
+		response, err := vmHandler.Client.DescribeImages(imageRequest)
+		if err != nil {
+			cblogger.Error(err)
+			return irs.VMInfo{}, err
+		}
+		imageSize := int64(response.Images.Image[0].Size)
+
+		if iDiskSize < imageSize {
+			fmt.Println("Disk Size Error!!: ", iDiskSize)
+			return irs.VMInfo{}, errors.New("Requested disk size cannot be smaller than the image disk size, invalid")
+		}
+
+		request.SystemDiskSize = vmReqInfo.RootDiskSize
+		
 	}
 
 	spew.Dump(request)

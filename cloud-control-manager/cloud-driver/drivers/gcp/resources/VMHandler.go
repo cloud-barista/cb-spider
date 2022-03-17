@@ -19,7 +19,10 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"log"
+	"regexp"
 
+	cim "github.com/cloud-barista/cb-spider/cloud-info-manager"
 	keypair "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/common"
 	compute "google.golang.org/api/compute/v1"
 

@@ -15,7 +15,10 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"fmt"
+	//"regexp"
 
+	cim "github.com/cloud-barista/cb-spider/cloud-info-manager"
 	cblog "github.com/cloud-barista/cb-log"
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
