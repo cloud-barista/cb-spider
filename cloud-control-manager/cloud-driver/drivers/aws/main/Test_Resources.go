@@ -1133,7 +1133,7 @@ func handleVMSpec() {
 
 func main() {
 	cblogger.Info("AWS Resource Test")
-	//handleVPC()
+	handleVPC()
 	//handleKeyPair()
 	//handlePublicIP() // PublicIP 생성 후 conf
 	//handleSecurity()
@@ -1289,9 +1289,11 @@ func readConfigFile() Config {
 	rootPath := os.Getenv("CBSPIDER_PATH")
 	//rootpath := "D:/Workspace/mcloud-barista-config"
 	// /mnt/d/Workspace/mcloud-barista-config/config/config.yaml
-	cblogger.Infof("Test Data 설정파일 : [%]", rootPath+"/config/config.yaml")
+	// cblogger.Infof("Test Data 설정파일 : [%]", rootPath+"/config/config.yaml")
+	cblogger.Infof("Test Data 설정파일 : [%]", rootPath+"Sample/config/config.yaml")
 
-	data, err := ioutil.ReadFile(rootPath + "/config/config.yaml")
+	// data, err := ioutil.ReadFile(rootPath + "/config/config.yaml")
+	data, err := ioutil.ReadFile(rootPath + "Sample/config/config.yaml")
 	//data, err := ioutil.ReadFile("D:/Workspace/mcloud-bar-config/config/config.yaml")
 	if err != nil {
 		panic(err)
