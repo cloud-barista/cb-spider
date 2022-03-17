@@ -62,12 +62,12 @@ func setterSecGroup(secGroup securitygroup.SecurityGroupInfo) *irs.SecurityInfo 
 
 func (securityHandler *ClouditSecurityHandler) CreateSecurity(securityReqInfo irs.SecurityReqInfo) (irs.SecurityInfo, error) {
 	// log HisCall
-	hiscallInfo := GetCallLogScheme(securityHandler.Client.IdentityEndpoint, call.SECURITYGROUP, securityReqInfo.IId.NameId, "CreateSecurity()")
+	hiscallInfo := GetCallLogScheme(ClouditRegion, call.SECURITYGROUP, securityReqInfo.IId.NameId, "CreateSecurity()")
 
 	// 보안그룹 이름 중복 체크
 	securityInfo, _ := securityHandler.getSecurityByName(securityReqInfo.IId.NameId)
 	if securityInfo != nil {
-		createErr := errors.New(fmt.Sprintf("SecurityGroup with name %s already exist", securityReqInfo.IId.NameId))
+		createErr := errors.New(fmt.Sprintf("Failed to Create Security. err = SecurityGroup with name %s already exist", securityReqInfo.IId.NameId))
 		cblogger.Error(createErr.Error())
 		LoggingError(hiscallInfo, createErr)
 		return irs.SecurityInfo{}, createErr
@@ -111,9 +111,10 @@ func (securityHandler *ClouditSecurityHandler) CreateSecurity(securityReqInfo ir
 	start := call.Start()
 	securityGroup, err := securitygroup.Create(securityHandler.Client, &createOpts)
 	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return irs.SecurityInfo{}, err
+		createErr := errors.New(fmt.Sprintf("Failed to Create Security. err = %s", err.Error()))
+		cblogger.Error(createErr.Error())
+		LoggingError(hiscallInfo, createErr)
+		return irs.SecurityInfo{}, createErr
 	}
 	LoggingInfo(hiscallInfo, start)
 
@@ -123,7 +124,7 @@ func (securityHandler *ClouditSecurityHandler) CreateSecurity(securityReqInfo ir
 
 func (securityHandler *ClouditSecurityHandler) ListSecurity() ([]*irs.SecurityInfo, error) {
 	// log HisCall
-	hiscallInfo := GetCallLogScheme(securityHandler.Client.IdentityEndpoint, call.SECURITYGROUP, SecurityGroup, "ListSecurity()")
+	hiscallInfo := GetCallLogScheme(ClouditRegion, call.SECURITYGROUP, SecurityGroup, "ListSecurity()")
 
 	securityHandler.Client.TokenID = securityHandler.CredentialInfo.AuthToken
 	authHeader := securityHandler.Client.AuthenticatedHeaders()
@@ -135,9 +136,10 @@ func (securityHandler *ClouditSecurityHandler) ListSecurity() ([]*irs.SecurityIn
 	start := call.Start()
 	securityList, err := securitygroup.List(securityHandler.Client, &requestOpts)
 	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return nil, err
+		getErr := errors.New(fmt.Sprintf("Failed to Get SecurityList. err = %s", err.Error()))
+		cblogger.Error(getErr.Error())
+		LoggingError(hiscallInfo, getErr)
+		return nil, getErr
 	}
 	LoggingInfo(hiscallInfo, start)
 
@@ -145,8 +147,10 @@ func (securityHandler *ClouditSecurityHandler) ListSecurity() ([]*irs.SecurityIn
 	for i, sg := range *securityList {
 		sgRules, err := securitygroup.ListRule(securityHandler.Client, sg.ID, &requestOpts)
 		if err != nil {
-			cblogger.Error(err)
-			continue
+			getErr := errors.New(fmt.Sprintf("Failed to Get SecurityList. err = %s", err.Error()))
+			cblogger.Error(getErr.Error())
+			LoggingError(hiscallInfo, getErr)
+			return nil, getErr
 		}
 		(*securityList)[i].Rules = *sgRules
 		(*securityList)[i].RulesCount = len(*sgRules)
@@ -162,15 +166,16 @@ func (securityHandler *ClouditSecurityHandler) ListSecurity() ([]*irs.SecurityIn
 
 func (securityHandler *ClouditSecurityHandler) GetSecurity(securityIID irs.IID) (irs.SecurityInfo, error) {
 	// log HisCall
-	hiscallInfo := GetCallLogScheme(securityHandler.Client.IdentityEndpoint, call.SECURITYGROUP, securityIID.NameId, "GetSecurity()")
+	hiscallInfo := GetCallLogScheme(ClouditRegion, call.SECURITYGROUP, securityIID.NameId, "GetSecurity()")
 
 	// 이름 기준 보안그룹 조회
 	start := call.Start()
 	securityInfo, err := securityHandler.getSecurityByName(securityIID.NameId)
 	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return irs.SecurityInfo{}, err
+		getErr := errors.New(fmt.Sprintf("Failed to Get Security. err = %s", err.Error()))
+		cblogger.Error(getErr.Error())
+		LoggingError(hiscallInfo, getErr)
+		return irs.SecurityInfo{}, getErr
 	}
 	LoggingInfo(hiscallInfo, start)
 
@@ -184,9 +189,10 @@ func (securityHandler *ClouditSecurityHandler) GetSecurity(securityIID irs.IID) 
 	// SecurityGroup Rule 정보 가져오기
 	sgRules, err := securitygroup.ListRule(securityHandler.Client, securityInfo.ID, &requestOpts)
 	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return irs.SecurityInfo{}, err
+		getErr := errors.New(fmt.Sprintf("Failed to Get Security. err = %s", err.Error()))
+		cblogger.Error(getErr.Error())
+		LoggingError(hiscallInfo, getErr)
+		return irs.SecurityInfo{}, getErr
 	}
 
 	(*securityInfo).Rules = *sgRules
@@ -198,14 +204,15 @@ func (securityHandler *ClouditSecurityHandler) GetSecurity(securityIID irs.IID) 
 
 func (securityHandler *ClouditSecurityHandler) DeleteSecurity(securityIID irs.IID) (bool, error) {
 	// log HisCall
-	hiscallInfo := GetCallLogScheme(securityHandler.Client.IdentityEndpoint, call.SECURITYGROUP, securityIID.NameId, "DeleteSecurity()")
+	hiscallInfo := GetCallLogScheme(ClouditRegion, call.SECURITYGROUP, securityIID.NameId, "DeleteSecurity()")
 
 	// 이름 기준 보안그룹 조회
 	securityInfo, err := securityHandler.getSecurityByName(securityIID.NameId)
 	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return false, err
+		delErr := errors.New(fmt.Sprintf("Failed to Delete Security. err = %s", err.Error()))
+		cblogger.Error(delErr.Error())
+		LoggingError(hiscallInfo, delErr)
+		return false, delErr
 	}
 
 	securityHandler.Client.TokenID = securityHandler.CredentialInfo.AuthToken
@@ -219,9 +226,10 @@ func (securityHandler *ClouditSecurityHandler) DeleteSecurity(securityIID irs.II
 	start := call.Start()
 	err = securitygroup.Delete(securityHandler.Client, securityInfo.ID, &requestOpts)
 	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return false, err
+		delErr := errors.New(fmt.Sprintf("Failed to Delete Security. err = %s", err.Error()))
+		cblogger.Error(delErr.Error())
+		LoggingError(hiscallInfo, delErr)
+		return false, delErr
 	}
 	LoggingInfo(hiscallInfo, start)
 

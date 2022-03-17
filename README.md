@@ -86,7 +86,7 @@ If you have any difficulties in using CB-Spider, please let us know.
 
 
 #### 7. 특이 사항
-- 개발상태: 초기 주요기능 중심 개발추진 중 / 기술개발용 / 상용활용시 보완필요
+- 개발상태: 주요기능 중심 개발추진 중 / 기술개발용 / 상용활용시 보완필요
 
 
 #### 8. 활용 정보

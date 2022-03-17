@@ -55,6 +55,24 @@ curl -sX POST http://localhost:1024/spider/vm -H 'Content-Type: application/json
         }' |json_pp
 
 #### RootDiskType / RootDiskSize
+#### default / 12 
+curl -sX POST http://localhost:1024/spider/vm -H 'Content-Type: application/json' -d \
+        '{
+                "ConnectionName": "'${CONN_CONFIG}'",
+                "ReqInfo": {
+                        "Name": "vm-01-default-12GB",
+                        "ImageName": "'${IMAGE_NAME}'",
+                        "VPCName": "vpc-01",
+                        "SubnetName": "subnet-01",
+                        "SecurityGroupNames": [ "sg-01" ],
+                        "VMSpecName": "'${SPEC_NAME}'",
+                        "RootDiskType": "default",
+                        "RootDiskSize": "12",
+                        "KeyPairName": "keypair-01"
+                }
+        }' |json_pp
+
+#### RootDiskType / RootDiskSize
 #### default / 32
 curl -sX POST http://localhost:1024/spider/vm -H 'Content-Type: application/json' -d \
         '{

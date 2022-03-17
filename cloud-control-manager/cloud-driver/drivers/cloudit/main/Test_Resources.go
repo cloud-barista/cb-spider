@@ -2,15 +2,15 @@ package main
 
 import (
 	"fmt"
-	"io/ioutil"
-	"os"
-
 	cblog "github.com/cloud-barista/cb-log"
 	cidrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/cloudit"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/sirupsen/logrus"
+	"io/ioutil"
+	"os"
+
 	"gopkg.in/yaml.v3"
 )
 
@@ -22,535 +22,10 @@ func init() {
 	res_cblogger = cblog.GetLogger("CB-SPIDER")
 }
 
-func testImageHandler(config ResourceConfig) {
-
-	var imageHandler irs.ImageHandler
-	if resourceHandler, err := getResourceHandler("image"); err != nil {
-		panic(err)
-	} else {
-		imageHandler = resourceHandler.(irs.ImageHandler)
-	}
-
-	fmt.Println("Test ImageHandler")
-	fmt.Println("1. ListImage()")
-	fmt.Println("2. GetImage()")
-	fmt.Println("3. CreateImage()")
-	fmt.Println("4. DeleteImage()")
-	fmt.Println("5. Exit")
-
-	//var imageId string
-	imageId := irs.IID{
-		NameId:   "CentOS-7",
-		SystemId: "a846af3b-5d80-4182-b38e-5501ad9f78f4",
-	}
-
-Loop:
-	for {
-		var commandNum int
-		inputCnt, err := fmt.Scan(&commandNum)
-		if err != nil {
-			fmt.Println(err)
-		}
-
-		if inputCnt == 1 {
-			switch commandNum {
-			case 1:
-				fmt.Println("Start ListImage() ...")
-				if imageList, err := imageHandler.ListImage(); err != nil {
-					fmt.Println(err)
-				} else {
-					spew.Dump(imageList)
-				}
-				fmt.Println("Finish ListImage()")
-			case 2:
-				fmt.Println("Start GetImage() ...")
-				if imageInfo, err := imageHandler.GetImage(imageId); err != nil {
-					fmt.Println(err)
-				} else {
-					spew.Dump(imageInfo)
-				}
-				fmt.Println("Finish GetImage()")
-			case 3:
-				fmt.Println("Start CreateImage() ...")
-				reqInfo := irs.ImageReqInfo{
-					IId: irs.IID{
-						NameId: config.Cloudit.Resource.Image.Name,
-					},
-				}
-				if image, err := imageHandler.CreateImage(reqInfo); err != nil {
-					fmt.Println(err)
-				} else {
-					imageId = image.IId
-				}
-				fmt.Println("Finish CreateImage()")
-			case 4:
-				fmt.Println("Start DeleteImage() ...")
-				if ok, err := imageHandler.DeleteImage(imageId); !ok {
-					fmt.Println(err)
-				}
-				fmt.Println("Finish DeleteImage()")
-			case 5:
-				fmt.Println("Exit")
-				break Loop
-			}
-		}
-	}
-}
-
-/*
-//AdaptiveIP
-func testPublicIPHanlder(config ResourceConfig) {
-	resourceHandler, err := getResourceHandler("publicip")
-	if err != nil {
-		fmt.Println(err)
-	}
-
-	publicIPHandler := resourceHandler.(irs.PublicIPHandler)
-
-	fmt.Println("Test PublicIPHandler")
-	fmt.Println("1. ListPublicIP()")
-	fmt.Println("2. GetPublicIP()")
-	fmt.Println("3. CreatePublicIP()")
-	fmt.Println("4. DeletePublicIP()")
-	fmt.Println("5. Exit")
-
-	var publicIPId string
-
-Loop:
-	for {
-		var commandNum int
-		inputCnt, err := fmt.Scan(&commandNum)
-		if err != nil {
-			fmt.Println(err)
-		}
-
-		if inputCnt == 1 {
-			switch commandNum {
-			case 1:
-				fmt.Println("Start ListPublicIP() ...")
-				if publicList, err := publicIPHandler.ListPublicIP(); err != nil {
-					fmt.Println(err)
-				} else {
-					spew.Dump(publicList)
-				}
-				fmt.Println("Finish ListPublicIP()")
-			case 2:
-				fmt.Println("Start GetPublicIP() ...")
-				if _, err := publicIPHandler.GetPublicIP(publicIPId); err != nil {
-					fmt.Println(err)
-				}
-				fmt.Println("Finish GetPublicIP()")
-			case 3:
-				fmt.Println("Start CreatePublicIP() ...")
-				reqInfo := irs.PublicIPReqInfo{Name: config.Cloudit.Resource.PublicIP.Name}
-				if publicIP, err := publicIPHandler.CreatePublicIP(reqInfo); err != nil {
-					fmt.Println(err)
-				} else {
-					publicIPId = publicIP.Name
-				}
-				fmt.Println("Finish CreatePublicIP()")
-			case 4:
-				fmt.Println("Start DeletePublicIP() ...")
-				if ok, err := publicIPHandler.DeletePublicIP(publicIPId); !ok {
-					fmt.Println(err)
-				}
-				fmt.Println("Finish DeletePublicIP()")
-			case 5:
-				fmt.Println("Exit")
-				break Loop
-			}
-		}
-	}
-}
-*/
-//SecurityGroup
-func testSecurityHandler(config ResourceConfig) {
-	resourceHandler, err := getResourceHandler("security")
-	if err != nil {
-		fmt.Println(err)
-	}
-
-	securityHandler := resourceHandler.(irs.SecurityHandler)
-
-	fmt.Println("Test securityHandler")
-	fmt.Println("1. ListSecurity()")
-	fmt.Println("2. GetSecurity()")
-	fmt.Println("3. CreateSecurity()")
-	fmt.Println("4. DeleteSecurity()")
-	fmt.Println("5. Exit")
-
-	securityGroupId := irs.IID{
-		NameId: config.Cloudit.Resource.Security.Name,
-	}
-
-Loop:
-	for {
-		var commandNum int
-		inputCnt, err := fmt.Scan(&commandNum)
-		if err != nil {
-			fmt.Println(err)
-		}
-
-		if inputCnt == 1 {
-			switch commandNum {
-			case 1:
-				fmt.Println("Start ListSecurity() ...")
-				if securityList, err := securityHandler.ListSecurity(); err != nil {
-					fmt.Println(err)
-				} else {
-					spew.Dump(securityList)
-				}
-				fmt.Println("Finish ListSecurity()")
-			case 2:
-				fmt.Println("Start GetSecurity() ...")
-				if secGroupInfo, err := securityHandler.GetSecurity(securityGroupId); err != nil {
-					fmt.Println(err)
-				} else {
-					spew.Dump(secGroupInfo)
-				}
-				fmt.Println("Finish GetSecurity()")
-			case 3:
-				fmt.Println("Start CreateSecurity() ...")
-				reqInfo := irs.SecurityReqInfo{
-					IId: irs.IID{
-						NameId: config.Cloudit.Resource.Security.Name,
-					},
-					SecurityRules: &[]irs.SecurityRuleInfo{
-						{
-							FromPort:   "22",
-							ToPort:     "22",
-							IPProtocol: "TCP",
-							Direction:  "inbound",
-						},
-						{
-							FromPort:   "0",
-							ToPort:     "0",
-							IPProtocol: "TCP",
-							Direction:  "outbound",
-						},
-					},
-				}
-				security, err := securityHandler.CreateSecurity(reqInfo)
-				if err != nil {
-					fmt.Println(err)
-				}
-				securityGroupId = security.IId
-				fmt.Println("Finish CreateSecurity()")
-			case 4:
-				fmt.Println("Start DeleteSecurity() ...")
-				if ok, err := securityHandler.DeleteSecurity(securityGroupId); !ok {
-					fmt.Println(err)
-				}
-				fmt.Println("Finish DeleteSecurity()")
-			case 5:
-				fmt.Println("Exit")
-				break Loop
-			}
-		}
-	}
-}
-
-//Subnet
-func testVPCHandler(config ResourceConfig) {
-	resourceHandler, err := getResourceHandler("vpc")
-	if err != nil {
-		fmt.Println(err)
-	}
-
-	vpcHandler := resourceHandler.(irs.VPCHandler)
-
-	fmt.Println("Test testVPCHandler")
-	fmt.Println("1. ListVPC()")
-	fmt.Println("2. GetVPC()")
-	fmt.Println("3. CreateVPC()")
-	fmt.Println("4. DeleteVPC()")
-	fmt.Println("5. Exit")
-
-	vpcId := irs.IID{NameId: "Default-VPC", SystemId: "Default-VPC"}
-
-Loop:
-	for {
-		var commandNum int
-		inputCnt, err := fmt.Scan(&commandNum)
-		if err != nil {
-			fmt.Println(err)
-		}
-
-		if inputCnt == 1 {
-			switch commandNum {
-			case 1:
-				fmt.Println("Start ListVPC() ...")
-				if subnetList, err := vpcHandler.ListVPC(); err != nil {
-					fmt.Println(err)
-				} else {
-					spew.Dump(subnetList)
-				}
-				fmt.Println("Finish ListVPC()")
-			case 2:
-				fmt.Println("Start GetVPC() ...")
-				if subnetList, err := vpcHandler.GetVPC(vpcId); err != nil {
-					fmt.Println(err)
-				} else {
-					spew.Dump(subnetList)
-				}
-				fmt.Println("Finish GetVPC()")
-			case 3:
-				fmt.Println("Start CreateVPC() ...")
-				reqInfo := irs.VPCReqInfo{
-					IId: vpcId,
-					SubnetInfoList: []irs.SubnetInfo{
-						{
-							IId: irs.IID{
-								NameId: vpcId.NameId + "-subnet-1",
-							},
-						},
-						{
-							IId: irs.IID{
-								NameId: vpcId.NameId + "-subnet-2",
-							},
-						},
-					},
-				}
-
-				vpcInfo, err := vpcHandler.CreateVPC(reqInfo)
-				if err != nil {
-					fmt.Println(err)
-				}
-
-				vpcId = vpcInfo.IId
-				spew.Dump(vpcInfo)
-				fmt.Println("Finish CreateVPC()")
-
-			case 4:
-				fmt.Println("Start DeleteVPC() ...")
-				if ok, err := vpcHandler.DeleteVPC(vpcId); !ok {
-					fmt.Println(err)
-				}
-				fmt.Println("Finish DeleteVPC()")
-			case 5:
-				fmt.Println("Exit")
-				break Loop
-			}
-		}
-	}
-}
-
-/*
-func testVNicHandler(config Config) {
-	resourceHandler, err := getResourceHandler("vnic")
-	if err != nil {
-		fmt.Println(err)
-	}
-
-	vNicHandler := resourceHandler.(irs.VNicHandler)
-
-	fmt.Println("Test vNetworkHandler")
-	fmt.Println("1. ListVNic()")
-	fmt.Println("2. GetVNic()")
-	fmt.Println("3. CreateVNic()")
-	fmt.Println("4. DeleteVNic()")
-	fmt.Println("5. Exit")
-
-	nicId := config.Cloudit.Resource.VNic.Mac
-
-Loop:
-	for {
-		var commandNum int
-		inputCnt, err := fmt.Scan(&commandNum)
-		if err != nil {
-			fmt.Println(err)
-		}
-
-		if inputCnt == 1 {
-			switch commandNum {
-			case 1:
-				fmt.Println("Start ListVNic() ...")
-				if vNicList, err := vNicHandler.ListVNic(); err != nil {
-					fmt.Println(err)
-				} else {
-					spew.Dump(vNicList)
-				}
-				fmt.Println("Finish ListVNic()")
-			case 2:
-				fmt.Println("Start GetVNic() ...")
-				if _, err := vNicHandler.GetVNic(nicId); err != nil {
-					fmt.Println(err)
-				}
-				fmt.Println("Finish GetVNic()")
-			case 3:
-				fmt.Println("Start CreateVNic() ...")
-				//reqInfo := nic.VNicReqInfo{
-				//	SubnetAddr: "10.0.8.0",
-				//	VmId:       "025e5edc-54ad-4b98-9292-6eeca4c36a6d",
-				//	Type:       "INTERNAL",
-				//	Secgroups: []securitygroup.SecurityGroupRules{
-				//		{
-				//			ID: "b2be62e7-fd29-43ff-b008-08ae736e092a",
-				//		},
-				//	},
-				//	IP: "",
-				//}
-				reqInfo := irs.VNicReqInfo{}
-				if _, err := vNicHandler.CreateVNic(reqInfo); err != nil {
-					fmt.Println(err)
-				}
-				fmt.Println("Finish CreateVNic()")
-			case 4:
-				fmt.Println("Start DeleteVNic() ...")
-				if ok, err := vNicHandler.DeleteVNic(nicId); !ok {
-					fmt.Println(err)
-				}
-				fmt.Println("Finish DeleteVNic()")
-			case 5:
-				fmt.Println("Exit")
-				break Loop
-			}
-		}
-	}
-}
-*/
-func testVmSpecHandler(config ResourceConfig) {
-	resourceHandler, err := getResourceHandler("vmspec")
-	if err != nil {
-		fmt.Println(err)
-	}
-	vmSpecHandler := resourceHandler.(irs.VMSpecHandler)
-
-	fmt.Println("Test VmSpecHandler")
-	fmt.Println("1. ListVmSpec()")
-	fmt.Println("2. GetVmSpec()")
-	fmt.Println("3. ListOrgVmSpec()")
-	fmt.Println("4. GetOrgVmSpec()")
-	fmt.Println("9. Exit")
-
-	vmSpecName := "large-4"
-
-Loop:
-	for {
-		var commandNum int
-		inputCnt, err := fmt.Scan(&commandNum)
-		if err != nil {
-			fmt.Println(err)
-		}
-
-		if inputCnt == 1 {
-			switch commandNum {
-			case 1:
-				fmt.Println("Start ListVmSpec() ...")
-				if list, err := vmSpecHandler.ListVMSpec(); err != nil {
-					fmt.Println(err)
-				} else {
-					spew.Dump(list)
-				}
-				fmt.Println("Finish ListVmSpec()")
-			case 2:
-				fmt.Println("Start GetVmSpec() ...")
-				if vmSpec, err := vmSpecHandler.GetVMSpec(vmSpecName); err != nil {
-					fmt.Println(err)
-				} else {
-					spew.Dump(vmSpec)
-				}
-				fmt.Println("Finish GetVmSpec()")
-			case 3:
-				fmt.Println("Start ListOrgVmSpec() ...")
-				if listStr, err := vmSpecHandler.ListOrgVMSpec(); err != nil {
-					fmt.Println(err)
-				} else {
-					fmt.Println(listStr)
-				}
-				fmt.Println("Finish ListOrgVmSpec()")
-			case 4:
-				fmt.Println("Start GetOrgVmSpec() ...")
-				if vmSpecStr, err := vmSpecHandler.GetOrgVMSpec(vmSpecName); err != nil {
-					fmt.Println(err)
-				} else {
-					fmt.Println(vmSpecStr)
-				}
-				fmt.Println("Finish GetOrgVmSpec()")
-			case 9:
-				fmt.Println("Exit")
-				break Loop
-			}
-		}
-	}
-}
-
-func testKeypairHandler(config ResourceConfig) {
-	resourceHandler, err := getResourceHandler("keypair")
-	if err != nil {
-		res_cblogger.Error(err)
-	}
-
-	keypairHandler := resourceHandler.(irs.KeyPairHandler)
-
-	res_cblogger.Info("Test KeypairHandler")
-	res_cblogger.Info("1. ListKeyPair()")
-	res_cblogger.Info("2. GetKeyPair()")
-	res_cblogger.Info("3. CreateKeyPair()")
-	res_cblogger.Info("4. DeleteKeyPair()")
-	res_cblogger.Info("5. Exit Program")
-
-	iid := irs.IID{
-		NameId:   "CB-Keypair",
-		SystemId: "CB-Keypair",
-	}
-
-Loop:
-	for {
-		var commandNum int
-		inputCnt, err := fmt.Scan(&commandNum)
-		if err != nil {
-			res_cblogger.Error(err)
-		}
-
-		if inputCnt == 1 {
-			switch commandNum {
-			case 1:
-				res_cblogger.Info("Start ListKeyPair() ...")
-				if list, err := keypairHandler.ListKey(); err != nil {
-					res_cblogger.Error(err)
-				} else {
-					spew.Dump(list)
-				}
-				res_cblogger.Info("Finish ListKeyPair()")
-			case 2:
-				res_cblogger.Info("Start GetKeyPair() ...")
-				if vNicInfo, err := keypairHandler.GetKey(iid); err != nil {
-					res_cblogger.Error(err)
-				} else {
-					spew.Dump(vNicInfo)
-				}
-				res_cblogger.Info("Finish GetKeyPair()")
-			case 3:
-				res_cblogger.Info("Start CreateKeyPair() ...")
-				reqInfo := irs.KeyPairReqInfo{
-					IId: iid,
-				}
-				if vNicInfo, err := keypairHandler.CreateKey(reqInfo); err != nil {
-					res_cblogger.Error(err)
-				} else {
-					spew.Dump(vNicInfo)
-				}
-				res_cblogger.Info("Finish CreateKeyPair()")
-			case 4:
-				res_cblogger.Info("Start DeleteKeyPair() ...")
-				if ok, err := keypairHandler.DeleteKey(iid); !ok {
-					res_cblogger.Error(err)
-				}
-				res_cblogger.Info("Finish DeleteKeyPair()")
-			case 5:
-				res_cblogger.Info("Exit Program")
-				break Loop
-			}
-		}
-	}
-}
-
-func getResourceHandler(resourceType string) (interface{}, error) {
+func getResourceHandler(resourceType string, config ResourceConfig) (interface{}, error) {
 	var cloudDriver idrv.CloudDriver
 	cloudDriver = new(cidrv.ClouditDriver)
 
-	config := readResourceConfigFile()
 	connectionInfo := idrv.ConnectionInfo{
 		CredentialInfo: idrv.CredentialInfo{
 			IdentityEndpoint: config.Cloudit.IdentityEndpoint,
@@ -564,50 +39,606 @@ func getResourceHandler(resourceType string) (interface{}, error) {
 	cloudConnection, _ := cloudDriver.ConnectCloud(connectionInfo)
 
 	var resourceHandler interface{}
-	var err error
 
 	switch resourceType {
 	case "image":
-		resourceHandler, err = cloudConnection.CreateImageHandler()
-	case "keypair":
-		resourceHandler, err = cloudConnection.CreateKeyPairHandler()
-	//case "publicip":
-	//	resourceHandler, err = cloudConnection.CreatePublicIPHandler()
+		resourceHandler, _ = cloudConnection.CreateImageHandler()
 	case "security":
-		resourceHandler, err = cloudConnection.CreateSecurityHandler()
+		resourceHandler, _ = cloudConnection.CreateSecurityHandler()
 	case "vpc":
-		resourceHandler, err = cloudConnection.CreateVPCHandler()
-	//case "vnic":
-	//	resourceHandler, err = cloudConnection.CreateVNicHandler()
+		resourceHandler, _ = cloudConnection.CreateVPCHandler()
+	case "keypair":
+		resourceHandler, _ = cloudConnection.CreateKeyPairHandler()
 	case "vmspec":
-		resourceHandler, err = cloudConnection.CreateVMSpecHandler()
-	}
-
-	if err != nil {
-		return nil, err
+		resourceHandler, _ = cloudConnection.CreateVMSpecHandler()
+	case "vm":
+		resourceHandler, _ = cloudConnection.CreateVMHandler()
 	}
 	return resourceHandler, nil
 }
 
+func testVPCHandlerListPrint() {
+	res_cblogger.Info("Test VPCHandler")
+	res_cblogger.Info("0. Print Menu")
+	res_cblogger.Info("1. ListVPC()")
+	res_cblogger.Info("2. GetVPC()")
+	res_cblogger.Info("3. CreateVPC()")
+	res_cblogger.Info("4. DeleteVPC()")
+	res_cblogger.Info("5. AddSubnet()")
+	res_cblogger.Info("6. RemoveSubnet()")
+	res_cblogger.Info("7. Exit")
+}
+
+func testVPCHandler(config ResourceConfig) {
+	resourceHandler, err := getResourceHandler("vpc", config)
+	if err != nil {
+		res_cblogger.Error(err)
+		return
+	}
+
+	vpcHandler := resourceHandler.(irs.VPCHandler)
+
+	testVPCHandlerListPrint()
+
+	vpcIID := irs.IID{NameId: config.Cloudit.Resources.VpcIID.NameId}
+
+	subnetLists := config.Cloudit.Resources.VpcIID.Subnets
+	var subnetInfoList []irs.SubnetInfo
+	for _, sb := range subnetLists {
+		info := irs.SubnetInfo{
+			IId: irs.IID{
+				NameId: sb.SubnetIID.NameId,
+			},
+			IPv4_CIDR: sb.IPv4_CIDR,
+		}
+		subnetInfoList = append(subnetInfoList, info)
+	}
+
+	VPCReqInfo := irs.VPCReqInfo{
+		IId:            vpcIID,
+		SubnetInfoList: subnetInfoList,
+	}
+	addSubnet := config.Cloudit.Resources.VpcIID.AddSubnet
+	addSubnetInfo := irs.SubnetInfo{
+		IId: irs.IID{
+			NameId: addSubnet.SubnetIID.NameId,
+		},
+		IPv4_CIDR: addSubnet.IPv4_CIDR,
+	}
+	removeSubnet := config.Cloudit.Resources.VpcIID.RemoveSubnet
+	removeSubnetInfo := irs.SubnetInfo{
+		IId: irs.IID{
+			NameId: removeSubnet.SubnetIID.NameId,
+		},
+	}
+	//deleteVpcid := irs.IID{
+	//	NameId: "bcr02a.tok02.774",
+	//}
+Loop:
+
+	for {
+		var commandNum int
+		inputCnt, err := fmt.Scan(&commandNum)
+		if err != nil {
+			res_cblogger.Error(err)
+		}
+
+		if inputCnt == 1 {
+			switch commandNum {
+			case 0:
+				testVPCHandlerListPrint()
+			case 1:
+				res_cblogger.Info("Start ListVPC() ...")
+				if list, err := vpcHandler.ListVPC(); err != nil {
+					res_cblogger.Error(err)
+				} else {
+					spew.Dump(list)
+				}
+				res_cblogger.Info("Finish ListVPC()")
+			case 2:
+				res_cblogger.Info("Start GetVPC() ...")
+				if vpcInfo, err := vpcHandler.GetVPC(vpcIID); err != nil {
+					res_cblogger.Error(err)
+				} else {
+					spew.Dump(vpcInfo)
+				}
+				res_cblogger.Info("Finish GetVPC()")
+			case 3:
+				res_cblogger.Info("Start CreateVPC() ...")
+				if vpcInfo, err := vpcHandler.CreateVPC(VPCReqInfo); err != nil {
+					res_cblogger.Error(err)
+				} else {
+					spew.Dump(vpcInfo)
+				}
+				res_cblogger.Info("Finish CreateVPC()")
+			case 4:
+				res_cblogger.Info("Start DeleteVPC() ...")
+				if result, err := vpcHandler.DeleteVPC(vpcIID); err != nil {
+					res_cblogger.Error(err)
+				} else {
+					spew.Dump(result)
+				}
+				res_cblogger.Info("Finish DeleteVPC()")
+			case 5:
+				res_cblogger.Info("Start AddSubnet() ...")
+				if vpcInfo, err := vpcHandler.AddSubnet(vpcIID, addSubnetInfo); err != nil {
+					res_cblogger.Error(err)
+				} else {
+					spew.Dump(vpcInfo)
+				}
+				res_cblogger.Info("Finish AddSubnet()")
+			case 6:
+				res_cblogger.Info("Start RemoveSubnet() ...")
+				if vpcInfo, err := vpcHandler.RemoveSubnet(vpcIID, removeSubnetInfo.IId); err != nil {
+					res_cblogger.Error(err)
+				} else {
+					spew.Dump(vpcInfo)
+				}
+				res_cblogger.Info("Finish RemoveSubnet()")
+			case 7:
+				res_cblogger.Info("Exit")
+				break Loop
+			}
+		}
+	}
+}
+
+func testImageHandlerListPrint() {
+	res_cblogger.Info("Test ImageHandler")
+	res_cblogger.Info("0. Print Menu")
+	res_cblogger.Info("1. ListImage()")
+	res_cblogger.Info("2. GetImage()")
+	res_cblogger.Info("3. CreateImage()")
+	res_cblogger.Info("4. DeleteImage()")
+	res_cblogger.Info("5. Exit")
+}
+
+func testimageHandler(config ResourceConfig) {
+	resourceHandler, err := getResourceHandler("image", config)
+	if err != nil {
+		res_cblogger.Error(err)
+		return
+	}
+
+	imageHandler := resourceHandler.(irs.ImageHandler)
+
+	testImageHandlerListPrint()
+
+	imageIID := irs.IID{NameId: config.Cloudit.Resources.ImageIID.NameId, SystemId: config.Cloudit.Resources.ImageIID.SystemId}
+
+Loop:
+	for {
+		var commandNum int
+		inputCnt, err := fmt.Scan(&commandNum)
+		if err != nil {
+			res_cblogger.Error(err)
+		}
+
+		if inputCnt == 1 {
+			switch commandNum {
+			case 0:
+				testImageHandlerListPrint()
+			case 1:
+				res_cblogger.Info("Start ListImage() ...")
+				if list, err := imageHandler.ListImage(); err != nil {
+					res_cblogger.Error(err)
+				} else {
+					spew.Dump(list)
+				}
+				res_cblogger.Info("Finish ListImage()")
+			case 2:
+				res_cblogger.Info("Start GetImage() ...")
+				if imageInfo, err := imageHandler.GetImage(imageIID); err != nil {
+					res_cblogger.Error(err)
+				} else {
+					spew.Dump(imageInfo)
+				}
+				res_cblogger.Info("Finish GetImage()")
+			case 3:
+				res_cblogger.Info("Start CreateImage() ...")
+				res_cblogger.Info("Finish CreateImage()")
+			case 4:
+				res_cblogger.Info("Start DeleteImage() ...")
+				res_cblogger.Info("Finish DeleteImage()")
+			case 5:
+				res_cblogger.Info("Exit")
+				break Loop
+			}
+		}
+	}
+}
+
+func testVMSpecHandlerListPrint() {
+	res_cblogger.Info("Test VMSpecHandler")
+	res_cblogger.Info("0. Print Menu")
+	res_cblogger.Info("1. ListVMSpec()")
+	res_cblogger.Info("2. GetVMSpec()")
+	res_cblogger.Info("3. ListOrgVMSpec()")
+	res_cblogger.Info("4. GetOrgVMSpec()")
+	res_cblogger.Info("5. Exit")
+}
+
+func testvmspecHandler(config ResourceConfig) {
+	resourceHandler, err := getResourceHandler("vmspec", config)
+	if err != nil {
+		res_cblogger.Error(err)
+		return
+	}
+
+	vmSpecHandler := resourceHandler.(irs.VMSpecHandler)
+
+	testVMSpecHandlerListPrint()
+
+Loop:
+	for {
+		var commandNum int
+		inputCnt, err := fmt.Scan(&commandNum)
+		if err != nil {
+			res_cblogger.Error(err)
+		}
+
+		if inputCnt == 1 {
+			switch commandNum {
+			case 0:
+				testVMSpecHandlerListPrint()
+			case 1:
+				res_cblogger.Info("Start ListVMSpec() ...")
+				if list, err := vmSpecHandler.ListVMSpec(); err != nil {
+					res_cblogger.Error(err)
+				} else {
+					spew.Dump(list)
+				}
+				res_cblogger.Info("Finish ListVMSpec()")
+			case 2:
+				res_cblogger.Info("Start GetVMSpec() ...")
+				if vmSpecInfo, err := vmSpecHandler.GetVMSpec(config.Cloudit.Resources.VmSpecName); err != nil {
+					res_cblogger.Error(err)
+				} else {
+					spew.Dump(vmSpecInfo)
+				}
+				res_cblogger.Info("Finish GetVMSpec()")
+			case 3:
+				res_cblogger.Info("Start ListOrgVMSpec() ...")
+				if listStr, err := vmSpecHandler.ListOrgVMSpec(); err != nil {
+					res_cblogger.Error(err)
+				} else {
+					fmt.Println(listStr)
+				}
+				res_cblogger.Info("Finish ListOrgVMSpec()")
+			case 4:
+				res_cblogger.Info("Start GetOrgVMSpec() ...")
+				if vmSpecStr, err := vmSpecHandler.GetOrgVMSpec(config.Cloudit.Resources.VmSpecName); err != nil {
+					res_cblogger.Error(err)
+				} else {
+					fmt.Println(vmSpecStr)
+				}
+				res_cblogger.Info("Finish GetOrgVMSpec()")
+			case 5:
+				res_cblogger.Info("Exit")
+				break Loop
+			}
+		}
+	}
+}
+
+func testSecurityHandlerListPrint() {
+	res_cblogger.Info("Test securityHandler")
+	res_cblogger.Info("0. Print Menu")
+	res_cblogger.Info("1. ListSecurity()")
+	res_cblogger.Info("2. GetSecurity()")
+	res_cblogger.Info("3. CreateSecurity()")
+	res_cblogger.Info("4. DeleteSecurity()")
+	res_cblogger.Info("5. Exit")
+}
+
+func testsecurityGroupHandler(config ResourceConfig) {
+	handler, _ := getResourceHandler("security", config)
+	securityHandler := handler.(irs.SecurityHandler)
+	testSecurityHandlerListPrint()
+	securityIId := irs.IID{NameId: config.Cloudit.Resources.SecurityGroup.NameId}
+	securityRules := config.Cloudit.Resources.SecurityGroup.Rules
+	var securityRulesInfos []irs.SecurityRuleInfo
+	for _, securityRule := range securityRules {
+		infos := irs.SecurityRuleInfo{
+			FromPort:   securityRule.FromPort,
+			ToPort:     securityRule.ToPort,
+			IPProtocol: securityRule.IPProtocol,
+			Direction:  securityRule.Direction,
+			CIDR:       securityRule.CIDR,
+		}
+		securityRulesInfos = append(securityRulesInfos, infos)
+	}
+Loop:
+	for {
+		var commandNum int
+		inputCnt, err := fmt.Scan(&commandNum)
+		if err != nil {
+			fmt.Println(err)
+		}
+
+		if inputCnt == 1 {
+			switch commandNum {
+			case 0:
+				testSecurityHandlerListPrint()
+			case 1:
+				fmt.Println("Start ListSecurity() ...")
+				if securityList, err := securityHandler.ListSecurity(); err != nil {
+					fmt.Println(err)
+				} else {
+					spew.Dump(securityList)
+				}
+				fmt.Println("Finish ListSecurity()")
+			case 2:
+				fmt.Println("Start GetSecurity() ...")
+				if secGroupInfo, err := securityHandler.GetSecurity(securityIId); err != nil {
+					fmt.Println(err)
+				} else {
+					spew.Dump(secGroupInfo)
+				}
+				fmt.Println("Finish GetSecurity()")
+			case 3:
+				fmt.Println("Start CreateSecurity() ...")
+				reqInfo := irs.SecurityReqInfo{
+					IId:           securityIId,
+					SecurityRules: &securityRulesInfos,
+				}
+				security, err := securityHandler.CreateSecurity(reqInfo)
+				if err != nil {
+					fmt.Println(err)
+				} else {
+					spew.Dump(security)
+				}
+				//securityGroupId = security.IId
+				fmt.Println("Finish CreateSecurity()")
+			case 4:
+				fmt.Println("Start DeleteSecurity() ...")
+				if ok, err := securityHandler.DeleteSecurity(securityIId); !ok {
+					fmt.Println(err)
+				}
+				fmt.Println("Finish DeleteSecurity()")
+			case 5:
+				fmt.Println("Exit")
+				break Loop
+			}
+		}
+	}
+}
+
+func testKeyPairHandlerListPrint() {
+	res_cblogger.Info("Test KeyPairHandler")
+	res_cblogger.Info("0. Print Menu")
+	res_cblogger.Info("1. ListKey()")
+	res_cblogger.Info("2. GetKey()")
+	res_cblogger.Info("3. CreateKey()")
+	res_cblogger.Info("4. DeleteKey()")
+	res_cblogger.Info("5. Exit")
+}
+
+func testKeypairHandler(config ResourceConfig) {
+	handler, _ := getResourceHandler("keypair", config)
+	keyPairHandler := handler.(irs.KeyPairHandler)
+	testKeyPairHandlerListPrint()
+
+	keypairIId := irs.IID{
+		NameId:   config.Cloudit.Resources.KeyPairIID.NameId,
+		SystemId: config.Cloudit.Resources.KeyPairIID.SystemId,
+	}
+
+Loop:
+	for {
+		var commandNum int
+		inputCnt, err := fmt.Scan(&commandNum)
+		if err != nil {
+			res_cblogger.Error(err)
+		}
+
+		if inputCnt == 1 {
+			switch commandNum {
+			case 0:
+				testKeyPairHandlerListPrint()
+			case 1:
+				res_cblogger.Info("Start ListKey() ...")
+				if keyPairList, err := keyPairHandler.ListKey(); err != nil {
+					res_cblogger.Error(err)
+				} else {
+					spew.Dump(keyPairList)
+				}
+				res_cblogger.Info("Finish ListKey()")
+			case 2:
+				res_cblogger.Info("Start GetKey() ...")
+				if keyPairInfo, err := keyPairHandler.GetKey(keypairIId); err != nil {
+					res_cblogger.Error(err)
+				} else {
+					spew.Dump(keyPairInfo)
+				}
+				res_cblogger.Info("Finish GetKey()")
+			case 3:
+				res_cblogger.Info("Start CreateKey() ...")
+				reqInfo := irs.KeyPairReqInfo{
+					IId: keypairIId,
+				}
+				if keyInfo, err := keyPairHandler.CreateKey(reqInfo); err != nil {
+					res_cblogger.Error(err)
+				} else {
+					keypairIId = keyInfo.IId
+					spew.Dump(keyInfo)
+				}
+				res_cblogger.Info("Finish CreateKey()")
+			case 4:
+				res_cblogger.Info("Start DeleteKey() ...")
+				if ok, err := keyPairHandler.DeleteKey(keypairIId); !ok {
+					res_cblogger.Error(err)
+				}
+				res_cblogger.Info("Finish DeleteKey()")
+			case 5:
+				res_cblogger.Info("Exit")
+				break Loop
+			}
+		}
+	}
+}
+
+func testVMHandlerListPrint() {
+	res_cblogger.Info("Test VMSpecHandler")
+	res_cblogger.Info("0. Print Menu")
+	res_cblogger.Info("1. ListVM()")
+	res_cblogger.Info("2. GetVM()")
+	res_cblogger.Info("3. ListVMStatus()")
+	res_cblogger.Info("4. GetVMStatus()")
+	res_cblogger.Info("5. StartVM()")
+	res_cblogger.Info("6. RebootVM()")
+	res_cblogger.Info("7. SuspendVM()")
+	res_cblogger.Info("8. ResumeVM()")
+	res_cblogger.Info("9. TerminateVM()")
+	res_cblogger.Info("10. Exit")
+}
+
+func testVmHandler(config ResourceConfig) {
+	handler, _ := getResourceHandler("vm", config)
+	testVMHandlerListPrint()
+
+	vmHandler := handler.(irs.VMHandler)
+
+	configsgIIDs := config.Cloudit.VM.SecurityGroupIIDs
+	var SecurityGroupIIDs []irs.IID
+	for _, sg := range configsgIIDs {
+		SecurityGroupIIDs = append(SecurityGroupIIDs, irs.IID{NameId: sg.NameId, SystemId: sg.SystemId})
+	}
+	vmIID := irs.IID{
+		NameId:   config.Cloudit.VM.IID.NameId,
+		SystemId: config.Cloudit.VM.IID.SystemId,
+	}
+	vmReqInfo := irs.VMReqInfo{
+		IId: irs.IID{
+			NameId: config.Cloudit.VM.IID.NameId,
+		},
+		ImageIID: irs.IID{
+			NameId: config.Cloudit.VM.ImageIID.NameId,
+		},
+		VpcIID: irs.IID{
+			NameId: config.Cloudit.VM.VpcIID.NameId,
+		},
+		SubnetIID: irs.IID{
+			NameId: config.Cloudit.VM.SubnetIID.NameId,
+		},
+		VMSpecName: config.Cloudit.VM.VmSpecName,
+		KeyPairIID: irs.IID{
+			NameId: config.Cloudit.VM.KeyPairIID.NameId,
+		},
+		SecurityGroupIIDs: SecurityGroupIIDs,
+	}
+
+Loop:
+	for {
+		var commandNum int
+		inputCnt, err := fmt.Scan(&commandNum)
+		if err != nil {
+			res_cblogger.Error(err)
+		}
+
+		if inputCnt == 1 {
+			switch commandNum {
+			case 0:
+				testVMHandlerListPrint()
+			case 1:
+				res_cblogger.Info("Start ListVM() ...")
+				if list, err := vmHandler.ListVM(); err != nil {
+					res_cblogger.Error(err)
+				} else {
+					spew.Dump(list)
+				}
+				res_cblogger.Info("Finish ListVM()")
+			case 2:
+				res_cblogger.Info("Start GetVM() ...")
+				if vm, err := vmHandler.GetVM(vmIID); err != nil {
+					res_cblogger.Error(err)
+				} else {
+					spew.Dump(vm)
+				}
+				res_cblogger.Info("Finish GetVM()")
+			case 3:
+				res_cblogger.Info("Start ListVMStatus() ...")
+				if statusList, err := vmHandler.ListVMStatus(); err != nil {
+					res_cblogger.Error(err)
+				} else {
+					spew.Dump(statusList)
+				}
+				res_cblogger.Info("Finish ListVMStatus()")
+			case 4:
+				res_cblogger.Info("Start GetVMStatus() ...")
+				if vmStatus, err := vmHandler.GetVMStatus(vmIID); err != nil {
+					res_cblogger.Error(err)
+				} else {
+					spew.Dump(vmStatus)
+				}
+				res_cblogger.Info("Finish GetVMStatus()")
+			case 5:
+				res_cblogger.Info("Start StartVM() ...")
+				if vm, err := vmHandler.StartVM(vmReqInfo); err != nil {
+					res_cblogger.Error(err)
+				} else {
+					vmIID.SystemId = vm.IId.SystemId
+					spew.Dump(vm)
+				}
+				res_cblogger.Info("Finish StartVM()")
+			case 6:
+				res_cblogger.Info("Start RebootVM() ...")
+				if vmStatus, err := vmHandler.RebootVM(vmIID); err != nil {
+					res_cblogger.Error(err)
+				} else {
+					spew.Dump(vmStatus)
+				}
+				res_cblogger.Info("Finish RebootVM()")
+			case 7:
+				res_cblogger.Info("Start SuspendVM() ...")
+				if vmStatus, err := vmHandler.SuspendVM(vmIID); err != nil {
+					res_cblogger.Error(err)
+				} else {
+					spew.Dump(vmStatus)
+				}
+				res_cblogger.Info("Finish SuspendVM()")
+			case 8:
+				res_cblogger.Info("Start ResumeVM() ...")
+				if vmStatus, err := vmHandler.ResumeVM(vmIID); err != nil {
+					res_cblogger.Error(err)
+				} else {
+					spew.Dump(vmStatus)
+				}
+				res_cblogger.Info("Finish ResumeVM()")
+			case 9:
+				res_cblogger.Info("Start TerminateVM() ...")
+				if vmStatus, err := vmHandler.TerminateVM(vmIID); err != nil {
+					res_cblogger.Error(err)
+				} else {
+					spew.Dump(vmStatus)
+				}
+				res_cblogger.Info("Finish TerminateVM()")
+			case 10:
+				res_cblogger.Info("Exit")
+				break Loop
+			}
+		}
+	}
+}
+
 func showTestHandlerInfo() {
-	fmt.Println("==========================================================")
-	fmt.Println("[Test ResourceHandler]")
-	fmt.Println("1. ImageHandler")
-	fmt.Println("2. PublicIPHandler x")
-	fmt.Println("3. SecurityHandler")
-	fmt.Println("4. VPCHandler")
-	fmt.Println("5. VNicHandler x")
-	fmt.Println("6. VMSpecHandler")
-	fmt.Println("7. KeyPairHandler")
-	fmt.Println("8. Exit")
-	fmt.Println("==========================================================")
+	res_cblogger.Info("==========================================================")
+	res_cblogger.Info("[Test ResourceHandler]")
+	res_cblogger.Info("1. ImageHandler")
+	res_cblogger.Info("2. SecurityHandler")
+	res_cblogger.Info("3. VPCHandler")
+	res_cblogger.Info("4. KeyPairHandler")
+	res_cblogger.Info("5. VmSpecHandler")
+	res_cblogger.Info("6. VmHandler")
+	res_cblogger.Info("7. Exit")
+	res_cblogger.Info("==========================================================")
 }
 
 func main() {
 
-	showTestHandlerInfo()              // ResourceHandler 테스트 정보 출력
+	// showTestHandlerInfo()              // ResourceHandler 테스트 정보 출력
 	config := readResourceConfigFile() // config.yaml 파일 로드
-
+	showTestHandlerInfo()
 Loop:
 
 	for {
@@ -620,27 +651,25 @@ Loop:
 		if inputCnt == 1 {
 			switch commandNum {
 			case 1:
-				testImageHandler(config)
+				testimageHandler(config)
 				showTestHandlerInfo()
 			case 2:
-				//testPublicIPHanlder(config)
-				//showTestHandlerInfo()
-			case 3:
-				testSecurityHandler(config)
+				testsecurityGroupHandler(config)
 				showTestHandlerInfo()
-			case 4:
+			case 3:
+				fmt.Println("vpc")
 				testVPCHandler(config)
 				showTestHandlerInfo()
-			case 5:
-				//testVNicHandler(config)
-				//showTestHandlerInfo()
-			case 6:
-				testVmSpecHandler(config)
-				showTestHandlerInfo()
-			case 7:
+			case 4:
 				testKeypairHandler(config)
 				showTestHandlerInfo()
-			case 8:
+			case 5:
+				testvmspecHandler(config)
+				showTestHandlerInfo()
+			case 6:
+				testVmHandler(config)
+				showTestHandlerInfo()
+			case 7:
 				fmt.Println("Exit Test ResourceHandler Program")
 				break Loop
 			}
@@ -651,35 +680,86 @@ Loop:
 // duplicateName
 type ResourceConfig struct {
 	Cloudit struct {
-		IdentityEndpoint string `yaml:"identity_endpoint"`
 		Username         string `yaml:"user_id"`
 		Password         string `yaml:"password"`
+		IdentityEndpoint string `yaml:"identity_endpoint"`
+		AuthToken        string `yaml:"auth_token"`
 		TenantID         string `yaml:"tenant_id"`
 		ServerId         string `yaml:"server_id"`
-		AuthToken        string `yaml:"auth_token"`
-
-		Resource struct {
-			Image struct {
-				Name string `yaml:"name"`
-			} `yaml:"image"`
-
-			PublicIP struct {
-				Name string `yaml:"name"`
-			} `yaml:"public_ip"`
-
-			Security struct {
-				Name string `yaml:"name"`
-			} `yaml:"security_group"`
-
-			VirtualNetwork struct {
-				Name string `yaml:"name"`
-			} `yaml:"vnet_info"`
-
-			VNic struct {
-				VMID string `yaml:"vm_id"`
-				Mac  string `yaml:"mac"`
-			} `yaml:"vnic_info"`
-		} `yaml:"resource"`
+		VM               struct {
+			IID struct {
+				NameId   string `yaml:"nameId"`
+				SystemId string `yaml:"systemId"`
+			} `yaml:"IID"`
+			ImageIID struct {
+				NameId   string `yaml:"nameId"`
+				SystemId string `yaml:"systemId"`
+			} `yaml:"ImageIID"`
+			VmSpecName string `yaml:"VmSpecName"`
+			KeyPairIID struct {
+				NameId   string `yaml:"nameId"`
+				SystemId string `yaml:"systemId"`
+			} `yaml:"KeyPairIID"`
+			VpcIID struct {
+				NameId   string `yaml:"nameId"`
+				SystemId string `yaml:"systemId"`
+			} `yaml:"VpcIID"`
+			SubnetIID struct {
+				NameId   string `yaml:"nameId"`
+				SystemId string `yaml:"systemId"`
+			} `yaml:"SubnetIID"`
+			SecurityGroupIIDs []struct {
+				NameId   string `yaml:"nameId"`
+				SystemId string `yaml:"systemId"`
+			} `yaml:"SecurityGroupIIDs"`
+			VMUserPasswd string `yaml:"VMUserPasswd"`
+		} `yaml:"vm"`
+		Resources struct {
+			ImageIID struct {
+				NameId   string `yaml:"nameId"`
+				SystemId string `yaml:"systemId"`
+			} `yaml:"ImageIID"`
+			VmSpecName string `yaml:"VmSpecName"`
+			KeyPairIID struct {
+				NameId   string `yaml:"nameId"`
+				SystemId string `yaml:"systemId"`
+			} `yaml:"KeyPairIID"`
+			VpcIID struct {
+				NameId   string `yaml:"nameId"`
+				SystemId string `yaml:"systemId"`
+				Subnets  []struct {
+					SubnetIID struct {
+						NameId   string `yaml:"nameId"`
+						SystemId string `yaml:"systemId"`
+					} `yaml:"SubnetIID"`
+					IPv4_CIDR string `yaml:"IPv4_CIDR"`
+				} `yaml:"Subnets"`
+				AddSubnet struct {
+					SubnetIID struct {
+						NameId   string `yaml:"nameId"`
+						SystemId string `yaml:"systemId"`
+					} `yaml:"SubnetIID"`
+					IPv4_CIDR string `yaml:"IPv4_CIDR"`
+				} `yaml:"AddSubnet"`
+				RemoveSubnet struct {
+					SubnetIID struct {
+						NameId   string `yaml:"nameId"`
+						SystemId string `yaml:"systemId"`
+					} `yaml:"SubnetIID"`
+				} `yaml:"RemoveSubnet"`
+			} `yaml:"VpcIID"`
+			SecurityGroup struct {
+				NameId   string `yaml:"nameId"`
+				SystemId string `yaml:"systemId"`
+				Rules    []struct {
+					FromPort   string `yaml:"FromPort"`
+					ToPort     string `yaml:"ToPort"`
+					IPProtocol string `yaml:"IPProtocol"`
+					CIDR       string `yaml:"CIDR"`
+					Direction  string `yaml:"Direction"`
+				} `yaml:"rules"`
+			} `yaml:"SecurityGroup"`
+		} `yaml:"resources"`
 	} `yaml:"cloudit"`
 }
 
@@ -687,7 +767,7 @@ type ResourceConfig struct {
 func readResourceConfigFile() ResourceConfig {
 	// Set Environment Value of Project Root Path4
 	rootPath := os.Getenv("CBSPIDER_ROOT")
-	data, err := ioutil.ReadFile(rootPath + "/conf/config.yaml")
+	data, err := ioutil.ReadFile(rootPath + "/cloud-control-manager/cloud-driver/drivers/cloudit/main/conf/config.yaml")
 	if err != nil {
 		fmt.Println(err)
 	}

@@ -68,7 +68,7 @@ func makeVPCTRList_html(bgcolor string, height string, fontSize string, infoList
                 `, fontSize)
 
 	strAddSubnet := fmt.Sprintf(`
-                <textarea style="font-size:12px;text-align:center;" name="subnet_text_box_$$ADDVPC$$" id="subnet_text_box_$$ADDVPC$$" cols=40>{ "Name": "subnet-xx", "IPv4_CIDR": "192.168.xx.xx/24"}</textarea>
+                <textarea style="font-size:12px;text-align:center;" name="subnet_text_box_$$ADDVPC$$" id="subnet_text_box_$$ADDVPC$$" cols=40>{ "Name": "subnet-02-add", "IPv4_CIDR": "10.0.12.0/22"}</textarea>
                 <a href="javascript:$$ADDSUBNET$$;">
                         <font size=%s><b>+</b></font>
                 </a>
@@ -313,10 +313,10 @@ func VPC(c echo.Context) error {
                                 <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="1" value="vpc-01">
                             </td>
                             <td>
-                                <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="2" value="192.168.0.0/16">
+                                <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="2" value="10.0.0.0/16">
                             </td>
                             <td>
-                                <textarea style="font-size:12px;text-align:center;" name="text_box" id="3" cols=50>[ { "Name": "subnet-01", "IPv4_CIDR": "192.168.1.0/24"} ]</textarea>
+                                <textarea style="font-size:12px;text-align:center;" name="text_box" id="3" cols=50>[ { "Name": "subnet-01", "IPv4_CIDR": "10.0.8.0/22"} ]</textarea>
                             </td>
                             <td>
                                 <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="4" disabled value="N/A">
@@ -1223,7 +1223,7 @@ func VM(c echo.Context) error {
 		vmUser = "cb-user"
 
 	case "CLOUDIT":
-		imageName = "CentOS-7"
+		imageName = "Ubuntu 18.04"
 		specName = "small-2"
 		subnetName = "subnet-01"
 		sgName = `["sg-01"]`
@@ -1242,7 +1242,7 @@ func VM(c echo.Context) error {
 		vmUser = "cb-user"
 	case "KTCLOUD":
 		imageName = "97ef0091-fdf7-44e9-be79-c99dc9b1a0ad"
-		specName = "d3530ad2-462b-43ad-97d5-e1087b952b7d#87c0a6f6-c684-4fbe-a393-d8412bcf788d_disk100GB"
+		specName = "d3530ad2-462b-43ad-97d5-e1087b952b7d!87c0a6f6-c684-4fbe-a393-d8412bcf788d_disk100GB"
 		subnetName = "subnet-01"
 		sgName = `["sg-01"]`
 		vmUser = "cb-user"

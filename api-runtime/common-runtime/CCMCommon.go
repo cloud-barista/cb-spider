@@ -134,7 +134,9 @@ func CreateImage(connectionName string, rsType string, reqInfo cres.ImageReqInfo
 	}
 
 	if bool_ret == true {
-		return nil, fmt.Errorf(reqInfo.IId.NameId + " already exists!")
+		err := fmt.Errorf(rsType + "-" + reqInfo.IId.NameId + " already exists!")
+		cblog.Error(err)
+		return nil, err
 	}
 
 	// (2) gen SP-XID and create userIID, driverIID
@@ -173,6 +175,7 @@ func CreateImage(connectionName string, rsType string, reqInfo cres.ImageReqInfo
 			cblog.Error(err2)
 			return nil, err2
 		}
+		cblog.Error(err)
 		return nil, err
 	}
 
@@ -296,7 +299,9 @@ func ListRegisterImage(connectionName string, rsType string) ([]*cres.ImageInfo,
 		return nil, err
 	}
 	if infoList == nil { // if iidInfoList not null, then infoList has any list.
-		return nil, fmt.Errorf("<IID-CSP mismatch> " + rsType + " IID List has " + strconv.Itoa(len(iidInfoList)) + ", but " + connectionName + " Resource list has nothing!")
+		err := fmt.Errorf("<IID-CSP mismatch> " + rsType + " IID List has " + strconv.Itoa(len(iidInfoList)) + ", but " + connectionName + " Resource list has nothing!")
+		cblog.Error(err)
+		return nil, err
 	}
 
 	// (3) filtering CSP-list by spiderIID-list
@@ -689,7 +694,9 @@ func RegisterVPC(connectionName string, userIID cres.IID) (*cres.VPCInfo, error)
                 return nil, err
         }
         if bool_ret == true {
-                return nil, fmt.Errorf(rsType + "-" + userIID.NameId + " already exists!")
+		err := fmt.Errorf(rsType + "-" + userIID.NameId + " already exists!")
+		cblog.Error(err)
+                return nil, err
         }
 
         // (2) get resource info(CSP-ID)
@@ -926,7 +933,9 @@ func CreateVPC(connectionName string, rsType string, reqInfo cres.VPCReqInfo) (*
 	}
 
 	if bool_ret == true {
-		return nil, fmt.Errorf(rsType + "-" + reqInfo.IId.NameId + " already exists!")
+		err :=  fmt.Errorf(rsType + "-" + reqInfo.IId.NameId + " already exists!")
+                cblog.Error(err)
+                return nil, err
 	}
 
 	// (2) generate SP-XID and create reqIID, driverIID
@@ -992,6 +1001,7 @@ func CreateVPC(connectionName string, rsType string, reqInfo cres.VPCReqInfo) (*
 			cblog.Error(err2)
 			return nil, fmt.Errorf(err.Error() + ", " + err2.Error())
 		}
+		cblog.Error(err)
 		return nil, err
 	}
 	// for Subnet list
@@ -1030,6 +1040,7 @@ func CreateVPC(connectionName string, rsType string, reqInfo cres.VPCReqInfo) (*
 					return nil, err
 				}
 			}
+			cblog.Error(err)
 			return nil, err
 		}
 	}
@@ -1111,7 +1122,9 @@ func ListVPC(connectionName string, rsType string) ([]*cres.VPCInfo, error) {
 		return nil, err
 	}
 	if infoList == nil { // if iidInfoList not null, then infoList has any list.
-		return nil, fmt.Errorf("<IID-CSP mismatch> " + rsType + " IID List has " + strconv.Itoa(len(iidInfoList)) + ", but " + connectionName + " Resource list has nothing!")
+		err := fmt.Errorf("<IID-CSP mismatch> " + rsType + " IID List has " + strconv.Itoa(len(iidInfoList)) + ", but " + connectionName + " Resource list has nothing!")
+		cblog.Error(err)
+		return nil, err
 	}
 
 	// (3) filtering CSP-list by IID-list
@@ -1285,7 +1298,9 @@ func AddSubnet(connectionName string, rsType string, vpcName string, reqInfo cre
 	}
 
 	if bool_ret == true {
-		return nil, fmt.Errorf(rsType + "-" + reqInfo.IId.NameId + " already exists!")
+		err := fmt.Errorf(rsType + "-" + reqInfo.IId.NameId + " already exists!")
+		cblog.Error(err)
+		return nil, err
 	}
 	// (2) create Resource
 	iidVPCInfo, err := iidRWLock.GetIID(iidm.IIDSGROUP, connectionName, rsVPC, cres.IID{vpcName, ""})
@@ -1333,6 +1348,7 @@ func AddSubnet(connectionName string, rsType string, vpcName string, reqInfo cre
 					cblog.Error(err3)
 					return nil, fmt.Errorf(err.Error() + ", " + err3.Error())
 				}
+				cblog.Error(err)
 				return nil, err
 			}
 		}
@@ -1418,7 +1434,9 @@ func RegisterSecurity(connectionName string, vpcUserID string, userIID cres.IID)
                 return nil, err
         }
         if bool_ret == false {
-                return nil, fmt.Errorf("The %s '%s' does not exist!", RsTypeString(rsVPC), vpcUserID)
+		err := fmt.Errorf("The %s '%s' does not exist!", RsTypeString(rsVPC), vpcUserID)
+		cblog.Error(err)
+                return nil, err
         }
 
         // (1) check existence(UserID)
@@ -1608,6 +1626,7 @@ func CreateSecurity(connectionName string, rsType string, reqInfo cres.SecurityR
 			cblog.Error(err2)
 			return nil, fmt.Errorf(err.Error() + ", " + err2.Error())
 		}
+		cblog.Error(err)
 		return nil, err
 	}
 
@@ -1670,7 +1689,9 @@ func ListSecurity(connectionName string, rsType string) ([]*cres.SecurityInfo, e
 		return nil, err
 	}
 	if infoList == nil { // if iidInfoList not null, then infoList has any list.
-		return nil, fmt.Errorf("<IID-CSP mismatch> " + rsType + " IID List has " + strconv.Itoa(len(iidInfoList)) + ", but " + connectionName + " Resource list has nothing!")
+		err := fmt.Errorf("<IID-CSP mismatch> " + rsType + " IID List has " + strconv.Itoa(len(iidInfoList)) + ", but " + connectionName + " Resource list has nothing!")
+		cblog.Error(err)
+		return nil, err
 	}
 
 	// (3) filtering CSP-list by IID-list
@@ -1792,7 +1813,9 @@ func GetSecurity(connectionName string, rsType string, nameID string) (*cres.Sec
 		}
 	}
 	if bool_ret == false {
-                return nil, fmt.Errorf("The %s '%s' does not exist!", RsTypeString(rsType), nameID)
+		err := fmt.Errorf("The %s '%s' does not exist!", RsTypeString(rsType), nameID)
+		cblog.Error(err)
+                return nil, err
         }
 
 	// (2) get resource(SystemId)
@@ -1867,7 +1890,9 @@ func RegisterKey(connectionName string, userIID cres.IID) (*cres.KeyPairInfo, er
                 return nil, err
         }
         if bool_ret == true {
-                return nil, fmt.Errorf(rsType + "-" + userIID.NameId + " already exists!")
+		err := fmt.Errorf(rsType + "-" + userIID.NameId + " already exists!")
+		cblog.Error(err)
+                return nil, err
         }
 
         // (2) get resource info(CSP-ID)
@@ -1948,7 +1973,9 @@ func CreateKey(connectionName string, rsType string, reqInfo cres.KeyPairReqInfo
 	}
 
 	if bool_ret == true {
-		return nil, fmt.Errorf(reqInfo.IId.NameId + " already exists!")
+		err := fmt.Errorf(reqInfo.IId.NameId + " already exists!")
+		cblog.Error(err)
+		return nil, err
 	}
 
 	// (2) generate SP-XID and create reqIID, driverIID
@@ -1992,6 +2019,7 @@ func CreateKey(connectionName string, rsType string, reqInfo cres.KeyPairReqInfo
 			cblog.Error(err2)
 			return nil, fmt.Errorf(err.Error() + ", " + err2.Error())
 		}
+		cblog.Error(err)
 		return nil, err
 	}
 
@@ -2050,7 +2078,9 @@ func ListKey(connectionName string, rsType string) ([]*cres.KeyPairInfo, error) 
 		return nil, err
 	}
 	if infoList == nil { // if iidInfoList not null, then infoList has any list.
-		return nil, fmt.Errorf("<IID-CSP mismatch> " + rsType + " IID List has " + strconv.Itoa(len(iidInfoList)) + ", but " + connectionName + " Resource list has nothing!")
+		err := fmt.Errorf("<IID-CSP mismatch> " + rsType + " IID List has " + strconv.Itoa(len(iidInfoList)) + ", but " + connectionName + " Resource list has nothing!")
+		cblog.Error(err)
+		return nil, err
 	}
 
 	// (3) filtering CSP-list by IID-list
@@ -2245,7 +2275,9 @@ func RegisterVM(connectionName string, userIID cres.IID) (*cres.VMInfo, error) {
                 return nil, err
         }
         if bool_ret == true {
-                return nil, fmt.Errorf(rsType + "-" + userIID.NameId + " already exists!")
+		err := fmt.Errorf(rsType + "-" + userIID.NameId + " already exists!")
+		cblog.Error(err)
+                return nil, err
         }
 
         // (2) get resource info(CSP-ID)
@@ -2346,7 +2378,9 @@ func StartVM(connectionName string, rsType string, reqInfo cres.VMReqInfo) (*cre
 		}
 
 		if bool_ret == true {
-			return nil, fmt.Errorf(rsType + "-" + reqInfo.IId.NameId + " already exists!")
+			err := fmt.Errorf(rsType + "-" + reqInfo.IId.NameId + " already exists!")
+			cblog.Error(err)
+			return nil, err
 		}
 	}
 
@@ -2442,6 +2476,7 @@ func StartVM(connectionName string, rsType string, reqInfo cres.VMReqInfo) (*cre
 			cblog.Error(err2)
 			return nil, fmt.Errorf(err.Error() + ", " + err2.Error())
 		}
+		cblog.Error(err)
 		return nil, err
 	}
 
@@ -2611,7 +2646,9 @@ func ListVM(connectionName string, rsType string) ([]*cres.VMInfo, error) {
 		return nil, err
 	}
 	if infoList == nil { // if iidInfoList not null, then infoList has any list.
-		return nil, fmt.Errorf("<IID-CSP mismatch> " + rsType + " IID List has " + strconv.Itoa(len(iidInfoList)) + ", but " + connectionName + " Resource list has nothing!")
+		err := fmt.Errorf("<IID-CSP mismatch> " + rsType + " IID List has " + strconv.Itoa(len(iidInfoList)) + ", but " + connectionName + " Resource list has nothing!") 
+		cblog.Error(err)
+		return nil, err
 	}
 
 	// (3) filtering CSP-list by IID-list
@@ -2620,7 +2657,6 @@ func ListVM(connectionName string, rsType string) ([]*cres.VMInfo, error) {
 		exist := false
 		for _, info := range infoList {
 			if getDriverSystemId(iidInfo.IId) == info.IId.SystemId {
-
 				// set ResourceInfo
 				info.IId = getUserIID(iidInfo.IId)
 
@@ -2823,7 +2859,9 @@ func ListVMStatus(connectionName string, rsType string) ([]*cres.VMStatusInfo, e
 		return nil, err
 	}
 	if infoList == nil { // if iidInfoList not null, then infoList has any list.
-		return nil, fmt.Errorf("<IID-CSP mismatch> " + rsType + " IID List has " + strconv.Itoa(len(iidInfoList)) + ", but " + connectionName + " Resource list has nothing!")
+		err := fmt.Errorf("<IID-CSP mismatch> " + rsType + " IID List has " + strconv.Itoa(len(iidInfoList)) + ", but " + connectionName + " Resource list has nothing!")
+		cblog.Error(err)
+		return nil, err
 	}
 
 	// (3) filtering CSP-VMStatuslist by IID-list
@@ -3170,14 +3208,14 @@ func DeleteResource(connectionName string, rsType string, nameID string, force s
 	// check empty and trim user inputs
         connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)
         if err != nil {
-                return false, "", err
 		cblog.Error(err)
+                return false, "", err
         }
 
         nameID, err = EmptyCheckAndTrim("nameID", nameID)
         if err != nil {
-                return false, "", err
 		cblog.Error(err)
+                return false, "", err
         }
 
 	cldConn, err := ccm.GetCloudConnection(connectionName)
@@ -3198,7 +3236,8 @@ func DeleteResource(connectionName string, rsType string, nameID string, force s
 	case rsVM:
 		handler, err = cldConn.CreateVMHandler()
 	default:
-		return false, "", fmt.Errorf(rsType + " is not supported Resource!!")
+		err := fmt.Errorf(rsType + " is not supported Resource!!")
+		return false, "", err
 	}
 	if err != nil {
 		cblog.Error(err)
@@ -3219,7 +3258,8 @@ func DeleteResource(connectionName string, rsType string, nameID string, force s
 	//	vmRWLock.Lock()
 	//	defer vmRWLock.Unlock()
 	default:
-		return false, "", fmt.Errorf(rsType + " is not supported Resource!!")
+		err := fmt.Errorf(rsType + " is not supported Resource!!")
+		return false, "", err
 	}
 
 	// (1) get spiderIID for creating driverIID
@@ -3231,11 +3271,19 @@ func DeleteResource(connectionName string, rsType string, nameID string, force s
 			cblog.Error(err)
 			return false, "", err
 		}
+		var bool_ret = false
 		for _, OneIIdInfo := range iidInfoList {
 			if OneIIdInfo.IId.NameId == nameID {
 				iidInfo = OneIIdInfo
+				bool_ret = true
+				break;
 			}
 		}
+		if bool_ret == false {
+                err := fmt.Errorf("[" + connectionName + ":" + RsTypeString(rsType) +  ":" + nameID + "] does not exist!")
+                cblog.Error(err)
+                return false, "", err
+        }
 
 	default:
 		iidInfo, err = iidRWLock.GetIID(iidm.IIDSGROUP, connectionName, rsType, cres.IID{nameID, ""})
@@ -3310,7 +3358,8 @@ func DeleteResource(connectionName string, rsType string, nameID string, force s
 
 
 	default:
-		return false, "", fmt.Errorf(rsType + " is not supported Resource!!")
+		err := fmt.Errorf(rsType + " is not supported Resource!!")
+		return false, "", err
 	}
 
 	if force != "true" {
@@ -3406,12 +3455,6 @@ func RemoveSubnet(connectionName string, vpcName string, nameID string, force st
         }
 
         nameID, err = EmptyCheckAndTrim("nameID", nameID)
-        if err != nil {
-                return false, err
-		cblog.Error(err)
-        }
-
-        force, err = EmptyCheckAndTrim("force", force)
         if err != nil {
                 return false, err
 		cblog.Error(err)

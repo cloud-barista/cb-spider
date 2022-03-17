@@ -13,6 +13,7 @@ import (
 	"io/ioutil"
 	"net/url"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -681,6 +682,23 @@ func getVMNextHref(next *vpcv1.InstanceCollectionNext) (string, error) {
 	}
 	return "", errors.New("NOT NEXT")
 }
+func getVolumeNextHref(next *vpcv1.VolumeCollectionNext) (string, error) {
+	if next != nil {
+		href := *next.Href
+		u, err := url.Parse(href)
+		if err != nil {
+			return "", err
+		}
+		paramMap, _ := url.ParseQuery(u.RawQuery)
+		if paramMap != nil {
+			safe := paramMap["start"]
+			if safe != nil && len(safe) > 0 {
+				return safe[0], nil
+			}
+		}
+	}
+	return "", errors.New("NOT NEXT")
+}
 func checkVmIID(vmIID irs.IID) error {
 	if vmIID.SystemId == "" && vmIID.NameId == "" {
 		return errors.New("invalid IID")
@@ -736,6 +754,46 @@ func existInstance(vmIID irs.IID, vpcService *vpcv1.VpcV1, ctx context.Context) 
 	}
 	return false, nil
 }
+
+func getRawVolume(volumeIId irs.IID, vpcService *vpcv1.VpcV1, ctx context.Context) (vpcv1.Volume, error) {
+	if volumeIId.SystemId == "" {
+		options := &vpcv1.ListVolumesOptions{}
+		volumes, _, err := vpcService.ListVolumesWithContext(ctx, options)
+		if err != nil {
+			return vpcv1.Volume{}, err
+		}
+		for {
+			for _, volume := range volumes.Volumes {
+				if *volume.Name == volumeIId.NameId {
+					return volume, nil
+				}
+			}
+			nextstr, _ := getVolumeNextHref(volumes.Next)
+			if nextstr != "" {
+				listVolumeOptionsNext := &vpcv1.ListVolumesOptions{
+					Start: core.StringPtr(nextstr),
+				}
+				volumes, _, err = vpcService.ListVolumesWithContext(ctx, listVolumeOptionsNext)
+				if err != nil {
+					return vpcv1.Volume{}, err
+				}
+			} else {
+				break
+			}
+		}
+		err = errors.New(fmt.Sprintf("not found Volume %s", volumeIId.NameId))
+		return vpcv1.Volume{}, err
+	} else {
+		options := &vpcv1.GetVolumeOptions{}
+		options.SetID(volumeIId.SystemId)
+		volume, _, err := vpcService.GetVolumeWithContext(ctx, options)
+		if err != nil {
+			return vpcv1.Volume{}, err
+		}
+		return *volume, err
+	}
+}
+
 func getRawInstance(vmIID irs.IID, vpcService *vpcv1.VpcV1, ctx context.Context) (vpcv1.Instance, error) {
 	if vmIID.SystemId == "" {
 		options := &vpcv1.ListInstancesOptions{}
@@ -903,8 +961,10 @@ func (vmHandler *IbmVMHandler) setVmInfo(instance vpcv1.Instance) (irs.VMInfo, e
 			NameId:   *instance.PrimaryNetworkInterface.Subnet.Name,
 			SystemId: *instance.PrimaryNetworkInterface.Subnet.ID,
 		},
-		PrivateIP: *instance.PrimaryNetworkInterface.PrimaryIpv4Address,
-		VMUserId:  CBDefaultVmUserName,
+		PrivateIP:      *instance.PrimaryNetworkInterface.PrimaryIpv4Address,
+		VMUserId:       CBDefaultVmUserName,
+		RootDeviceName: "Not visible in IBMCloud-VPC",
+		VMBlockDisk:    "Not visible in IBMCloud-VPC",
 	}
 	// KeyGet
 	instanceInitializationOptions := &vpcv1.GetInstanceInitializationOptions{}
@@ -935,6 +995,11 @@ func (vmHandler *IbmVMHandler) setVmInfo(instance vpcv1.Instance) (irs.VMInfo, e
 			vmInfo.PublicIP = *networkInterface.FloatingIps[0].Address
 			vmInfo.SSHAccessPoint = vmInfo.PublicIP + ":22"
 		}
+	}
+	volumeIId := irs.IID{SystemId: *instance.BootVolumeAttachment.Volume.ID}
+	rawVolume, err := getRawVolume(volumeIId, vmHandler.VpcService, vmHandler.Ctx)
+	if err == nil {
+		vmInfo.RootDiskSize = strconv.Itoa(int(*rawVolume.Capacity))
 	}
 	return vmInfo, nil
 }
