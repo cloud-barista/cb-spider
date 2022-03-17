@@ -60,7 +60,6 @@ func (vmHandler *AlibabaVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 		Client: vmHandler.Client,
 	}
 	cblogger.Info(keypairHandler)
-
 	keyPairInfo, errKeyPair := keypairHandler.GetKey(vmReqInfo.KeyPairIID)
 	if errKeyPair != nil {
 		cblogger.Error(errKeyPair)
@@ -160,7 +159,6 @@ func (vmHandler *AlibabaVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 	request.InternetChargeType = "PayByBandwidth"           //Public Ip요금 방식을 1시간 단위(PayByBandwidth) 요금으로 설정 / PayByTraffic(기본값) : 1GB단위 시간당 트래픽 요금 청구
 	request.InternetMaxBandwidthOut = requests.Integer("5") // 0보다 크면 Public IP가 할당 됨 - 최대 아웃 바운드 공용 대역폭 단위 : Mbit / s 유효한 값 : 0 ~ 100
 
-	
 	//=============================
 	// Root Disk Type 변경
 	//=============================
@@ -269,7 +267,6 @@ func (vmHandler *AlibabaVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 	}
 
 	spew.Dump(request)
-
 
 	//=============================
 	// VM생성 처리
@@ -537,12 +534,10 @@ func (vmHandler *AlibabaVMHandler) TerminateVM(vmIID irs.IID) (irs.VMStatus, err
 			cblogger.Error(errSus.Error())
 			return irs.VMStatus("Failed"), errSus
 		}
-
 		if sus != "Suspending" {
 			cblogger.Errorf("[%s] VM의 Suspend 모드 실행 결과[%s]가 Suspending이 아닙니다.", vmIID.SystemId, sus)
 			return irs.VMStatus("Failed"), errors.New(vmIID.SystemId + " VM의 Suspend 모드 실행 결과 가 Suspending이 아닙니다.")
 		}
-
 		//===================================
 		// Suspending 되도록 3초 정도 대기 함.
 		//===================================
@@ -553,7 +548,6 @@ func (vmHandler *AlibabaVMHandler) TerminateVM(vmIID irs.IID) (irs.VMStatus, err
 			if errStatus != nil {
 				cblogger.Error(errStatus.Error())
 			}
-
 			cblogger.Info("===>VM Status : ", curStatus)
 			if curStatus != irs.VMStatus("Suspended") {
 				curRetryCnt++
@@ -659,6 +653,7 @@ func (vmHandler *AlibabaVMHandler) GetVM(vmIID irs.IID) (irs.VMInfo, error) {
 //func (vmHandler *AlibabaVMHandler) ExtractDescribeInstances() irs.VMInfo {
 func (vmHandler *AlibabaVMHandler) ExtractDescribeInstances(instancInfo *ecs.Instance) irs.VMInfo {
 	cblogger.Info(instancInfo)
+	diskInfo := vmHandler.getDiskInfo(instancInfo.InstanceId)
 
 	//time.Parse(layout, str)
 	vmInfo := irs.VMInfo{
@@ -677,6 +672,9 @@ func (vmHandler *AlibabaVMHandler) ExtractDescribeInstances(instancInfo *ecs.Ins
 		//PrivateIP
 		//PrivateIP: instancInfo.VpcAttributes.PrivateIpAddress.IpAddress[0],
 		//PrivateDNS
+		RootDiskType: diskInfo.Category,
+		RootDiskSize: strconv.Itoa(diskInfo.Size),
+		RootDeviceName: diskInfo.Device,
 
 		//VMBootDisk  string // ex) /dev/sda1
 		//VMBlockDisk string // ex)
@@ -857,33 +855,26 @@ func (vmHandler *AlibabaVMHandler) GetVMStatus(vmIID irs.IID) (irs.VMStatus, err
 const (
         Creating VMStatus = “Creating" // from launch to running
         Running VMStatus = “Running"
-
         Suspending VMStatus = “Suspending" // from running to suspended
         Suspended  VMStatus = “Suspended"
         Resuming VMStatus = “Resuming" // from suspended to running
-
         Rebooting VMStatus = “Rebooting" // from running to running
-
         Terminating VMStatus = “Terminating" // from running, suspended to terminated
         Terminated  VMStatus = “Terminated“
         NotExist  VMStatus = “NotExist“  // VM does not exist
-
         Failed  VMStatus = “Failed“
 )
-
 <최종 상태>
 Running(동작 상태): MCIS가 동작 상태
 Suspended(중지 상태): MCIS가 중지된 상태
 Failed(실패 상태): MCIS가 오류로 인해 중단된 상태
 Terminated(종료 상태): MCIS가 종료된 상태
-
 <전이 상태>
 Creating(생성 진행 상태): MCIS가 생성되는 중간 상태
 Suspending(중지 진행 상태): MCIS를 일시 중지하기 위한 중간 상태
 Resuming(재개 진행 상태): MCIS를 다시 실행하기 위한 중간 상태
 Rebooting(재시작 진행 상태): MCIS를 재부팅하는 상태
 Terminating(종료 진행 상태): MCIS의 종료를 실행하고 있는 중간 상태
-
 */
 func (vmHandler *AlibabaVMHandler) ConvertVMStatusString(vmStatus string) (irs.VMStatus, error) {
 	var resultStatus string
@@ -956,3 +947,19 @@ func (vmHandler *AlibabaVMHandler) ListVMStatus() ([]*irs.VMStatusInfo, error) {
 
 	return vmInfoList, nil
 }
+
+func (vmHandler *AlibabaVMHandler) getDiskInfo(instanceId string) ecs.Disk {
+
+	diskRequest := ecs.CreateDescribeDisksRequest()
+	diskRequest.Scheme = "https"
+
+	diskRequest.InstanceId = instanceId
+
+	response, err := vmHandler.Client.DescribeDisks(diskRequest)
+	if err != nil {
+		fmt.Print(err.Error())
+	}
+	fmt.Println("response: ", response)
+
+	return response.Disks.Disk[0]
+} 
