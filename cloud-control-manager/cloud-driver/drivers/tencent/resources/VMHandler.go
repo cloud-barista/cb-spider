@@ -169,6 +169,7 @@ func (vmHandler *TencentVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 	}
 	*/
 
+	
 	//=============================
 	// SystemDisk 처리 - 이슈 #348에 의해 RootDisk 기능 지원
 	//=============================
@@ -280,7 +281,7 @@ func (vmHandler *TencentVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 		}
 	}
 
-	
+
 	//=============================
 	// UserData생성 처리(File기반)
 	//=============================

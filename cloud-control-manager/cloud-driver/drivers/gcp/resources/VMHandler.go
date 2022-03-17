@@ -202,6 +202,7 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 		},
 	}
 
+	
 	//이슈 #348에 의해 RootDisk 및 사이즈 변경 기능 지원
 	//=============================
 	// Root Disk Type 변경
