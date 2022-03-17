@@ -280,6 +280,7 @@ func (vmHandler *TencentVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 		}
 	}
 
+	
 	//=============================
 	// UserData생성 처리(File기반)
 	//=============================

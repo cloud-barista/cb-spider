@@ -927,6 +927,7 @@ func (vmHandler *GCPVMHandler) getImageInfo(diskname string) irs.IID {
 	return iId
 }
 
+
 // getVM에서 DiskSize, DiskType이 넘어오지 않아 Disk정보를 조회
 func (vmHandler *GCPVMHandler) getDiskInfo(diskname string) *compute.Disk {
 	projectID := vmHandler.Credential.ProjectID
