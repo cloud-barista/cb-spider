@@ -17,11 +17,7 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
-	"strings"
 
-	"golang.org/x/net/context"
-	"golang.org/x/oauth2/google"
-	"google.golang.org/api/compute/v1"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 )
@@ -103,50 +99,4 @@ func GetPublicKey(credentialInfo idrv.CredentialInfo, keyPairName string) (strin
 		return "", err
 	}
 	return string(publicKeyBytes), nil
-}
-
-//Quota Info(전체)
-func GetProjectQuotas(projectId string) []*compute.Quota {
-
-	ctx := context.Background()
-
-	c, err := google.DefaultClient(ctx, compute.CloudPlatformScope)
-	if err != nil {
-		cblogger.Error(err)
-	}
-
-	// TODO : compute service는 client를 이용하는 것으로 바꿀 것
-	computeService, err := compute.New(c)
-	if err != nil {
-		cblogger.Error(err)
-	}
-
-	quotaResp, err := computeService.Projects.Get(projectId).Context(ctx).Do()
-	if err != nil {
-		cblogger.Error(err)
-	}
-
-	fmt.Printf("%#v\n", quotaResp.Quotas)
-
-	return quotaResp.Quotas
-}
-
-//Quota Info(해당 metric만)
-func GetProjectQuotaByMetric(projectId string, metricName string) *compute.Quota {
-
-	quotas := GetProjectQuotas(projectId)
-
-	if len(quotas) > 0 {
-		for _, quota := range quotas {
-
-			if strings.EqualFold(quota.Metric, metricName) {
-				fmt.Printf("%#v\n", quota.Metric)
-				return quota
-			}
-		}
-
-		return nil
-	}
-
-	return nil
 }

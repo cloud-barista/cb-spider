@@ -20,8 +20,6 @@ import (
 	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/servicequotas"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 )
@@ -363,56 +361,4 @@ func ConvertKeyValueList(v interface{}) ([]irs.KeyValue, error) {
 	//keyValueList = append(keyValueList, irs.KeyValue{"test", typeToString([]float32{3.14, 1.53, 2.0000000000000})})
 
 	return keyValueList, nil
-}
-
-// Service에 따른 Quota 리스트 구하기
-func ListServiceQuotas(region string, serviceCode string) []*servicequotas.ServiceQuota {
-	sess, err := session.NewSession(&aws.Config{
-		Region:      aws.String(region),
-	})
-	if err != nil {
-		cblogger.Error(err)
-	}
-
-	serviceQuotas := servicequotas.New(sess)
-
-	quota, err := serviceQuotas.ListServiceQuotas(&servicequotas.ListServiceQuotasInput{
-		ServiceCode: aws.String(serviceCode),
-	})
-	if err != nil {
-		cblogger.Error(err)
-	}
-
-	return quota.Quotas
-}
-
-// 특정 Quota 구하기
-func GetServiceQuota(region string, serviceCode string) *servicequotas.ServiceQuota {
-
-	quotaInfo := ListServiceQuotas(region, serviceCode)
-
-	sess, err := session.NewSession(&aws.Config{
-		Credentials: nil,
-		Region:      aws.String(region),
-	})
-	if err != nil {
-		cblogger.Error(err)
-	}
-
-	serviceQuotas := servicequotas.New(sess)
-
-	quota, err := serviceQuotas.GetServiceQuota(&servicequotas.GetServiceQuotaInput{
-		ServiceCode: aws.String(serviceCode),
-		QuotaCode: aws.String(*quotaInfo[0].QuotaCode),
-	})
-	if err != nil {
-		cblogger.Error(err)
-	}
-
-	fmt.Println(quota)
-    if quota.Quota.GlobalQuota != aws.Bool(false) {
-      fmt.Printf("Quota in Common: %v\nValue: %v\n---\n", *quota.Quota.QuotaName, *quota.Quota.Value)
-    }
-
-	return quota.Quota
 }

@@ -14,7 +14,6 @@ import (
 	"errors"
 	"reflect"
 	"strconv"
-	"fmt"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
@@ -416,9 +415,6 @@ func (VPCHandler *AwsVPCHandler) ListVPC() ([]*irs.VPCInfo, error) {
 		ErrorMSG:     "",
 	}
 	callLogStart := call.Start()
-
-	quota := GetServiceQuota(VPCHandler.Region.Region, "vpc")
-	fmt.Printf("Quota: %v\nValue: %v\n---\n", *quota.QuotaName, *quota.Value)
 
 	result, err := VPCHandler.Client.DescribeVpcs(&ec2.DescribeVpcsInput{})
 	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)

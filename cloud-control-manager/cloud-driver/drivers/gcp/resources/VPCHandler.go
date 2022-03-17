@@ -16,7 +16,6 @@ import (
 	"errors"
 	"strconv"
 	"strings"
-	"fmt"
 
 	compute "google.golang.org/api/compute/v1"
 
@@ -59,11 +58,6 @@ func (vVPCHandler *GCPVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.VPCI
 	projectID := vVPCHandler.Credential.ProjectID
 	region := vVPCHandler.Region.Region
 	name := vpcReqInfo.IId.NameId
-
-	quotaInfo := GetProjectQuotaByMetric(projectID, "NETWORKS")
-	fmt.Println("quota result: ", quotaInfo)
-	fmt.Println("quota limit: ", quotaInfo.Limit)
-	fmt.Println("quota usage: ", quotaInfo.Usage)
 
 	autoCreateSubnetworks := false // VPC에 서브넷을 자동으로 생성하지 않도록 함.
 
