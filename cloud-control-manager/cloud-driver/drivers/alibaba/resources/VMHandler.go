@@ -12,7 +12,10 @@ import (
 	"os"
 	"strings"
 	"time"
+	"fmt"
+	"strconv"
 
+	cim "github.com/cloud-barista/cb-spider/cloud-info-manager"
 	"github.com/aliyun/alibaba-cloud-sdk-go/sdk/requests"
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/ecs"
 	cblog "github.com/cloud-barista/cb-log"
@@ -157,10 +160,11 @@ func (vmHandler *AlibabaVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 	request.InternetChargeType = "PayByBandwidth"           //Public Ip요금 방식을 1시간 단위(PayByBandwidth) 요금으로 설정 / PayByTraffic(기본값) : 1GB단위 시간당 트래픽 요금 청구
 	request.InternetMaxBandwidthOut = requests.Integer("5") // 0보다 크면 Public IP가 할당 됨 - 최대 아웃 바운드 공용 대역폭 단위 : Mbit / s 유효한 값 : 0 ~ 100
 
+	
 	//=============================
 	// Root Disk Type 변경
 	//=============================
-	if vmReqInfo.RootDiskType == "" {
+	if vmReqInfo.RootDiskType == "" || strings.EqualFold(vmReqInfo.RootDiskType, "default") {
 		//디스크 정보가 없으면 건드리지 않음.
 	} else {
 		request.SystemDiskCategory = vmReqInfo.RootDiskType
@@ -169,17 +173,103 @@ func (vmHandler *AlibabaVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 	//=============================
 	// Root Disk Size 변경
 	//=============================
-	if vmReqInfo.RootDiskSize == "" {
+	if vmReqInfo.RootDiskSize == "" || strings.EqualFold(vmReqInfo.RootDiskSize, "default") {
 		//디스크 정보가 없으면 건드리지 않음.
 	} else {
-		if strings.EqualFold(vmReqInfo.RootDiskSize, "default") {
-			request.SystemDiskSize = "40"
-		} else {
-			request.SystemDiskSize = vmReqInfo.RootDiskSize
+		
+		iDiskSize, err := strconv.ParseInt(vmReqInfo.RootDiskSize, 10, 64)
+		if err != nil {
+			cblogger.Error(err)
+			return irs.VMInfo{}, err
 		}
+
+		cloudOSMetaInfo, err := cim.GetCloudOSMetaInfo("ALIBABA")
+		arrDiskSizeOfType := cloudOSMetaInfo.RootDiskSize
+
+		fmt.Println("arrDiskSizeOfType: ", arrDiskSizeOfType);
+
+		type diskSize struct {
+			diskType string
+			diskMinSize int64
+			diskMaxSize int64
+			unit string
+		}
+
+		diskSizeValue := diskSize{}
+
+		if vmReqInfo.RootDiskType == "" || strings.EqualFold(vmReqInfo.RootDiskType, "default") {
+			diskSizeArr := strings.Split(arrDiskSizeOfType[0], "|")
+			diskSizeValue.diskType = diskSizeArr[0]
+			diskSizeValue.unit = diskSizeArr[3]
+			diskSizeValue.diskMinSize, err = strconv.ParseInt(diskSizeArr[1], 10, 64)
+			if err != nil {
+				cblogger.Error(err)
+				return irs.VMInfo{}, err
+			}
+
+			diskSizeValue.diskMaxSize, err = strconv.ParseInt(diskSizeArr[2], 10, 64)
+			if err != nil {
+				cblogger.Error(err)
+				return irs.VMInfo{}, err
+			}
+		} else {
+
+			for idx, _ := range arrDiskSizeOfType {
+				diskSizeArr := strings.Split(arrDiskSizeOfType[idx], "|")
+				fmt.Println("diskSizeArr: ", diskSizeArr)
+				
+				if strings.EqualFold(vmReqInfo.RootDiskType, diskSizeArr[0]) {
+					diskSizeValue.diskType = diskSizeArr[0]
+					diskSizeValue.unit = diskSizeArr[3]
+					diskSizeValue.diskMinSize, err = strconv.ParseInt(diskSizeArr[1], 10, 64)
+					if err != nil {
+						cblogger.Error(err)
+						return irs.VMInfo{}, err
+					}
+
+					diskSizeValue.diskMaxSize, err = strconv.ParseInt(diskSizeArr[2], 10, 64)
+					if err != nil {
+						cblogger.Error(err)
+						return irs.VMInfo{}, err
+					}
+				}
+			}
+		}
+
+		if iDiskSize < diskSizeValue.diskMinSize {
+			fmt.Println("Disk Size Error!!: ", iDiskSize, diskSizeValue.diskMinSize, diskSizeValue.diskMaxSize)
+			return irs.VMInfo{}, errors.New("Requested disk size cannot be smaller than the minimum disk size, invalid")
+		}
+
+		if iDiskSize > diskSizeValue.diskMaxSize {
+			fmt.Println("Disk Size Error!!: ", iDiskSize, diskSizeValue.diskMinSize, diskSizeValue.diskMaxSize)
+			return irs.VMInfo{}, errors.New("Requested disk size cannot be larger than the maximum disk size, invalid")
+		}
+
+		// 이미지 사이즈와 비교
+		imageRequest := ecs.CreateDescribeImagesRequest()
+		imageRequest.Scheme = "https"
+
+		imageRequest.ImageId = vmReqInfo.ImageIID.SystemId
+
+		response, err := vmHandler.Client.DescribeImages(imageRequest)
+		if err != nil {
+			cblogger.Error(err)
+			return irs.VMInfo{}, err
+		}
+		imageSize := int64(response.Images.Image[0].Size)
+
+		if iDiskSize < imageSize {
+			fmt.Println("Disk Size Error!!: ", iDiskSize)
+			return irs.VMInfo{}, errors.New("Requested disk size cannot be smaller than the image disk size, invalid")
+		}
+
+		request.SystemDiskSize = vmReqInfo.RootDiskSize
+		
 	}
 
 	spew.Dump(request)
+
 
 	//=============================
 	// VM생성 처리
