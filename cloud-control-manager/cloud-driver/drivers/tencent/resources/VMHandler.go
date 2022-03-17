@@ -101,7 +101,6 @@ func (vmHandler *TencentVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 		Client: vmHandler.Client,
 	}
 	cblogger.Info(keypairHandler)
-
 	keyPairInfo, errKeyPair := keypairHandler.GetKey(vmReqInfo.KeyPairIID)
 	if errKeyPair != nil {
 		cblogger.Error(errKeyPair)
@@ -169,7 +168,6 @@ func (vmHandler *TencentVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 	}
 	*/
 
-	
 	//=============================
 	// SystemDisk 처리 - 이슈 #348에 의해 RootDisk 기능 지원
 	//=============================
@@ -281,8 +279,6 @@ func (vmHandler *TencentVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 		}
 	}
 
-
-
 	//=============================
 	// UserData생성 처리(File기반)
 	//=============================
@@ -363,7 +359,6 @@ func (vmHandler *TencentVMHandler) SuspendVM(vmIID irs.IID) (irs.VMStatus, error
 
 	/*
 		Instance shutdown mode. Valid values:
-
 		SOFT_FIRST: perform a soft shutdown first, and force shut down the instance if the soft shutdown fails
 		HARD: force shut down the instance directly
 		SOFT: soft shutdown only
@@ -373,7 +368,6 @@ func (vmHandler *TencentVMHandler) SuspendVM(vmIID irs.IID) (irs.VMStatus, error
 
 	/*
 		Billing method of a pay-as-you-go instance after shutdown. Valid values:
-
 		KEEP_CHARGING: billing continues after shutdown
 		STOP_CHARGING: billing stops after shutdown
 		Default value: KEEP_CHARGING. This parameter is only valid for some pay-as-you-go instances using cloud disks. For more information, see No charges when shut down for pay-as-you-go instances.
@@ -650,13 +644,16 @@ func (vmHandler *TencentVMHandler) ExtractDescribeInstances(curVm *cvm.Instance)
 	if !reflect.ValueOf(curVm.SystemDisk).IsNil() {
 		if !reflect.ValueOf(curVm.SystemDisk.DiskType).IsNil() {
 			keyValueList = append(keyValueList, irs.KeyValue{Key: "SystemDiskType", Value: *curVm.SystemDisk.DiskType})
+			vmInfo.RootDiskType = *curVm.SystemDisk.DiskType
 		}
 		if !reflect.ValueOf(curVm.SystemDisk.DiskId).IsNil() {
 			keyValueList = append(keyValueList, irs.KeyValue{Key: "SystemDiskId", Value: *curVm.SystemDisk.DiskId})
 			vmInfo.VMBootDisk = *curVm.SystemDisk.DiskId
+			vmInfo.RootDeviceName = *curVm.SystemDisk.DiskId
 		}
 		if !reflect.ValueOf(curVm.SystemDisk.DiskSize).IsNil() {
 			keyValueList = append(keyValueList, irs.KeyValue{Key: "SystemDiskSize", Value: strconv.FormatInt(*curVm.SystemDisk.DiskSize, 10)})
+			vmInfo.RootDiskSize = strconv.FormatInt(*curVm.SystemDisk.DiskSize, 10)
 		}
 	}
 

@@ -25,6 +25,7 @@ import (
 	cim "github.com/cloud-barista/cb-spider/cloud-info-manager"
 	keypair "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/common"
 	compute "google.golang.org/api/compute/v1"
+	// "golang.org/x/oauth2/google"
 
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
@@ -62,12 +63,10 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 	//이미지 URL처리
 	cblogger.Infof("[%s] Image Name에 해당하는 Image Url 정보를 조회합니다.", vmReqInfo.ImageIID.SystemId)
 	imageHandler := GCPImageHandler{Credential: vmHandler.Credential, Region: vmHandler.Region, Client: vmHandler.Client}
-
 	imageInfo, errImage := imageHandler.FindImageInfo(vmReqInfo.ImageIID.SystemId)
 	if errImage != nil {
 		return irs.VMInfo{}, nil
 	}
-
 	cblogger.Infof("ImageName: [%s] ---> ImageUrl : [%s]", vmReqInfo.ImageIID.SystemId, imageInfo.ImageUrl)
 	imageURL = imageInfo.ImageUrl
 	*/
@@ -201,7 +200,6 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 		},
 	}
 
-	
 	//이슈 #348에 의해 RootDisk 및 사이즈 변경 기능 지원
 	//=============================
 	// Root Disk Type 변경
@@ -340,7 +338,6 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 			cblogger.Error(err)
 			return irs.VMInfo{}, err
 		}
-
 		cblogger.Info("Insert vm to marshal Json : ", string(js))
 		cblogger.Infof("Got compute.Operation, err: %#v, %v", op, err)
 	*/
@@ -360,9 +357,9 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 	if errVmInfo != nil {
 		cblogger.Errorf("[%s] VM을 생성했지만 정보 조회는 실패 함.", vmName)
 		cblogger.Error(errVmInfo)
+
 		return irs.VMInfo{}, errVmInfo
 	}
-
 	//ImageIId의 NameId는 사용자가 요청한 값으로 리턴
 	vmInfo.ImageIId.NameId = vmReqInfo.ImageIID.NameId
 	return vmInfo, nil
@@ -375,13 +372,11 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 	}
 	//vmInfo := vmHandler.mappingServerInfo(vm)
 	var securityTag []irs.IID
-
 	for _, item := range vm.Tags.Items {
 		iId := irs.IID{
 			NameId:   item,
 			SystemId: item,
 		}
-
 		securityTag = append(securityTag, iId)
 	}
 	//var vpcHandler *GCPVPCHandler
@@ -416,7 +411,6 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 			{"DiskName", vm.Disks[0].Source},
 		},
 	}
-
 	return vmInfo, nil
 	*/
 }
@@ -791,12 +785,16 @@ func (vmHandler *GCPVMHandler) GetVM(vmID irs.IID) (irs.VMInfo, error) {
 func (vmHandler *GCPVMHandler) mappingServerInfo(server *compute.Instance) irs.VMInfo {
 	cblogger.Info("================맵핑=====================================")
 	spew.Dump(server)
+	fmt.Println("server: ", server)
 
 	//var gcpHanler *GCPVMHandler
 	vpcArr := strings.Split(server.NetworkInterfaces[0].Network, "/")
 	subnetArr := strings.Split(server.NetworkInterfaces[0].Subnetwork, "/")
 	vpcName := vpcArr[len(vpcArr)-1]
 	subnetName := subnetArr[len(subnetArr)-1]
+	diskInfo := vmHandler.getDiskInfo(server.Disks[0].Source)
+	diskTypeArr := strings.Split(diskInfo.Type, "/")
+	diskType := diskTypeArr[len(diskTypeArr)-1]
 
 	type IIDBox struct {
 		Items []irs.IID
@@ -841,6 +839,9 @@ func (vmHandler *GCPVMHandler) mappingServerInfo(server *compute.Instance) irs.V
 			NameId:   subnetName,
 			SystemId: subnetName,
 		},
+		RootDiskType: diskType,
+		RootDiskSize: strconv.FormatInt(diskInfo.SizeGb, 10),
+		RootDeviceName: server.Disks[0].DeviceName,
 		KeyValueList: []irs.KeyValue{
 			{"SubNetwork", server.NetworkInterfaces[0].Subnetwork},
 			{"AccessConfigName", server.NetworkInterfaces[0].AccessConfigs[0].Name},
@@ -919,7 +920,6 @@ func (vmHandler *GCPVMHandler) getImageInfo(diskname string) irs.IID {
 	*/
 	return iId
 }
-
 
 // getVM에서 DiskSize, DiskType이 넘어오지 않아 Disk정보를 조회
 func (vmHandler *GCPVMHandler) getDiskInfo(diskname string) *compute.Disk {
