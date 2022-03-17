@@ -16,14 +16,14 @@ import (
 	"errors"
 	_ "errors"
 	"fmt"
+	"log"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
-	"log"
-	"regexp"
 
-	cim "github.com/cloud-barista/cb-spider/cloud-info-manager"
 	keypair "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/common"
+	cim "github.com/cloud-barista/cb-spider/cloud-info-manager"
 	compute "google.golang.org/api/compute/v1"
 	// "golang.org/x/oauth2/google"
 
@@ -219,14 +219,14 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 	//=============================
 	// if vmReqInfo.RootDiskSize == "" {
 	// 	//디스크 정보가 없으면 건드리지 않음.
-	// } 
+	// }
 
 	//=============================
 	// Root Disk Size 변경
 	//=============================
 	if vmReqInfo.RootDiskSize == "" || strings.EqualFold(vmReqInfo.RootDiskSize, "default") {
 		//instance.Disks[0].InitializeParams.DiskSizeGb = diskSize.minSize
-	} else { 
+	} else {
 
 		iDiskSize, err := strconv.ParseInt(vmReqInfo.RootDiskSize, 10, 64)
 		if err != nil {
@@ -236,8 +236,8 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 
 		var diskType = ""
 
-		if vmReqInfo.RootDiskType == "" || strings.EqualFold(vmReqInfo.RootDiskType, "default"){
-			cloudOSMetaInfo, err := cim.GetCloudOSMetaInfo("GCP")
+		if vmReqInfo.RootDiskType == "" || strings.EqualFold(vmReqInfo.RootDiskType, "default") {
+			cloudOSMetaInfo, err := cim.GetCloudOSMetaInfo("GCP") // cloudos_meta 에 DiskType, min, max 값 정의 되어있음.
 			if err != nil {
 				cblogger.Error(err)
 				return irs.VMInfo{}, err
@@ -249,16 +249,15 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 
 		// RootDiskType을 조회하여 diskSize의 min, max, default값 추출 한 뒤 입력된 diskSize가 있으면 비교시 사용
 		diskSizeResp, err := vmHandler.Client.DiskTypes.Get(projectID, zone, diskType).Context(ctx).Do()
-        if err != nil {
-			fmt.Println("Disk Type Error!!")
-            return irs.VMInfo{}, err
-        }
-        
-		
-        fmt.Printf("valid disk size: %#v\n", diskSizeResp.ValidDiskSize)
+		if err != nil {
+			fmt.Println("Invalid Disk Type Error!!")
+			return irs.VMInfo{}, err
+		}
+
+		fmt.Printf("valid disk size: %#v\n", diskSizeResp.ValidDiskSize)
 
 		//valid disk size 정의
-		re := regexp.MustCompile("GB-?") // 10GB-65536GB
+		re := regexp.MustCompile("GB-?") //ex) 10GB-65536GB
 		diskSizeArr := re.Split(diskSizeResp.ValidDiskSize, -1)
 		diskMinSize, err := strconv.ParseInt(diskSizeArr[0], 10, 64)
 		if err != nil {
@@ -276,16 +275,18 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 
 		if iDiskSize < diskMinSize {
 			fmt.Println("Disk Size Error!!: ", iDiskSize)
-			return irs.VMInfo{}, errors.New("Requested disk size cannot be smaller than the minimum disk size, invalid")
+			//return irs.VMInfo{}, errors.New("Requested disk size cannot be smaller than the minimum disk size, invalid")
+			return irs.VMInfo{}, errors.New("Root Disk Size must be at least the default size (" + strconv.FormatInt(diskMinSize, 10) + " GB).")
 		}
 
 		if iDiskSize > diskMaxSize {
 			fmt.Println("Disk Size Error!!: ", iDiskSize)
-			return irs.VMInfo{}, errors.New("Requested disk size cannot be larger than the maximum disk size, invalid")
+			//return irs.VMInfo{}, errors.New("Requested disk size cannot be larger than the maximum disk size, invalid")
+			return irs.VMInfo{}, errors.New("Root Disk Size must be smaller than the maximum size (" + strconv.FormatInt(diskMaxSize, 10) + " GB).")
 		}
-		
+
 		imageUrlArr := strings.Split(imageURL, "/")
-		
+
 		// 이미지 사이즈 추출
 		imageResp, err := vmHandler.Client.Images.Get(imageUrlArr[6], imageUrlArr[9]).Context(ctx).Do()
 		if err != nil {
@@ -295,11 +296,12 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 
 		if iDiskSize < imageSize {
 			fmt.Println("Disk Size Error!!: ", iDiskSize)
-			return irs.VMInfo{}, errors.New("Requested disk size cannot be smaller than the image size, invalid")
+			//return irs.VMInfo{}, errors.New("Requested disk size cannot be smaller than the image size, invalid")
+			return irs.VMInfo{}, errors.New("Root Disk Size must be larger then the image size (" + strconv.FormatInt(imageSize, 10) + " GB).")
 		}
 
 		instance.Disks[0].InitializeParams.DiskSizeGb = iDiskSize
-		
+
 	}
 
 	cblogger.Info("VM 생성 시작")
@@ -839,8 +841,8 @@ func (vmHandler *GCPVMHandler) mappingServerInfo(server *compute.Instance) irs.V
 			NameId:   subnetName,
 			SystemId: subnetName,
 		},
-		RootDiskType: diskType,
-		RootDiskSize: strconv.FormatInt(diskInfo.SizeGb, 10),
+		RootDiskType:   diskType,
+		RootDiskSize:   strconv.FormatInt(diskInfo.SizeGb, 10),
 		RootDeviceName: server.Disks[0].DeviceName,
 		KeyValueList: []irs.KeyValue{
 			{"SubNetwork", server.NetworkInterfaces[0].Subnetwork},
