@@ -696,11 +696,12 @@ func (vmHandler *OpenStackVMHandler) mappingServerInfo(server servers.Server) ir
 	// Volume Disk 조회
 	pages, _ := volumes.List(vmHandler.VolumeClient, volumes.ListOpts{}).AllPages()
 	volList, _ := volumes.ExtractVolumes(pages)
-
 	for _, vol := range volList {
 		for _, attach := range vol.Attachments {
 			if attach.ServerID == vmInfo.IId.SystemId {
 				vmInfo.VMBlockDisk = attach.Device
+				vmInfo.RootDeviceName = attach.Device
+				break
 			}
 		}
 	}

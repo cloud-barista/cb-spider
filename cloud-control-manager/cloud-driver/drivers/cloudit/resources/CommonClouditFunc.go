@@ -3,8 +3,8 @@ package resources
 import (
 	"crypto/md5"
 	"fmt"
+	keypair "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/common"
 	"io"
-	"io/ioutil"
 	"os"
 	"strings"
 	"sync"
@@ -26,6 +26,8 @@ import (
 const (
 	CBVMUser      = "cb-user"
 	CBKeyPairPath = "/meta_db/.ssh-cloudit/"
+	ClouditRegion = "ClouditRegion"
+	ClouditVPCREGISTER = "VPC-REGISTER"
 )
 
 var once sync.Once
@@ -111,20 +113,29 @@ func CreateHashString(credentialInfo idrv.CredentialInfo) (string, error) {
 	return fmt.Sprintf("%x", hasher.Sum(nil)), nil
 }
 
+func CreateVPCHashString(credentialInfo idrv.CredentialInfo) (string, error) {
+	keyString := credentialInfo.IdentityEndpoint + credentialInfo.AuthToken + credentialInfo.TenantId + ClouditVPCREGISTER
+	hasher := md5.New()
+	_, err := io.WriteString(hasher, keyString)
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("%x", hasher.Sum(nil)), nil
+}
+
 // Public KeyPair 정보 가져오기
 func GetPublicKey(credentialInfo idrv.CredentialInfo, keyPairName string) (string, error) {
-	keyPairPath := os.Getenv("CBSPIDER_ROOT") + CBKeyPairPath
 	hashString, err := CreateHashString(credentialInfo)
 	if err != nil {
 		return "", err
 	}
+	keyValue, err := keypair.GetKey(KeyPairProvider, hashString, keyPairName)
 
-	publicKeyPath := keyPairPath + hashString + "--" + keyPairName + ".pub"
-	publicKeyBytes, err := ioutil.ReadFile(publicKeyPath)
 	if err != nil {
+		cblogger.Error(err)
 		return "", err
 	}
-	return string(publicKeyBytes), nil
+	return keypair.MakePublicKeyFromPrivateKey(keyValue.Value)
 }
 
 func GetSSHClient(serverIp string, serverPort int, username string, password string) (scp.Client, error) {

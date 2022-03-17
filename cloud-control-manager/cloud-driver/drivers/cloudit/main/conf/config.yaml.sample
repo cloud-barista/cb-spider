@@ -1,0 +1,66 @@
+cloudit:
+  # Cloudit Credential Info
+  user_id: #TBD
+  password: #TBD
+  identity_endpoint: #TBD
+  auth_token: #TBD
+  tenant_id: #TBD
+  ant_id: #TBD
+  server_id: #TBD
+
+  vm:
+    IID:
+      nameId: mcb-test-vm
+      systemId:
+    ImageIID:
+      nameId: Ubuntu 18.04
+      systemId: ee441331-0872-49c3-886c-1873a6e32e09
+    VmSpecName: micro-1
+    KeyPairIID:
+      nameId: CB-Keypair
+      systemId:
+    VpcIID:
+      nameId:
+      systemId:
+    SubnetIID:
+      nameId: Default Network
+      systemId:
+    SecurityGroupIIDs:
+      - nameId: ALL
+        systemId: 7e000821-4de0-4bfd-864c-eef4f0d19ee1
+    VMUserPasswd: qwe1212!Q
+  # Cloudit Resource Create Info
+  resources:
+    ImageIID:
+      nameId: Ubuntu 18.04
+      systemId: ee441331-0872-49c3-886c-1873a6e32e09
+    SecurityGroup:
+      nameId: mcb-test-sg
+      systemId:
+      rules:
+        - FromPort: "22"
+          ToPort: "22"
+          IPProtocol: "tcp"
+          CIDR: "0.0.0.0/0"
+          Direction: "inbound"
+    KeyPairIID:
+      nameId: CB-Keypair
+      systemId: CB-Keypair
+    vmSpecName: micro-1
+    VpcIID:
+      nameId: Default-VPC
+      systemId: Default-VPC
+      Subnets:
+        - SubnetIID:
+            nameId: mcb-test-vpc-subnet1
+          IPv4_CIDR: 10.0.8.0/22
+        - SubnetIID:
+            nameId: mcb-test-vpc-subnet2
+          IPv4_CIDR: 10.0.12.0/22
+      AddSubnet:
+        SubnetIID:
+          nameId: mcb-test-vpc-subnet3
+        IPv4_CIDR: 10.0.16.0/22
+      RemoveSubnet:
+        SubnetIID:
+          nameId: mcb-test-vpc-subnet0
