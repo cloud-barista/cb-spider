@@ -43,9 +43,14 @@ sleep 5
 echo "####################################################################"
 echo "## 1. VPC: Create -> List -> Get"
 echo "####################################################################"
+
 sleep 1 
 echo "## 1. VPC: Create"
-curl -sX POST http://localhost:1024/spider/vpc -H 'Content-Type: application/json' -d '{ "ConnectionName": "'${CONN_CONFIG}'", "ReqInfo": { "Name": "nhn-vpc-1", "IPv4_CIDR": "172.16.0.0/12", "SubnetInfoList": [ { "Name": "subnet-1", "IPv4_CIDR": "172.16.0.0/24"}, { "Name": "subnet-2", "IPv4_CIDR": "172.16.1.0/24"} ] } }' |json_pp
+curl -sX POST http://localhost:1024/spider/vpc -H 'Content-Type: application/json' -d '{ "ConnectionName": "'${CONN_CONFIG}'", "ReqInfo": { "Name": "nhn-vpc-1", "IPv4_CIDR": "10.0.0.0/12", "SubnetInfoList": [ { "Name": "subnet-1", "IPv4_CIDR": "10.0.1.0/24"}, { "Name": "subnet-2", "IPv4_CIDR": "10.0.0.0/24"} ] } }' |json_pp
+
+sleep 1 
+echo "## 1. VPC: Create"
+curl -sX POST http://localhost:1024/spider/vpc -H 'Content-Type: application/json' -d '{ "ConnectionName": "'${CONN_CONFIG}'", "ReqInfo": { "Name": "nhn-vpc-2", "IPv4_CIDR": "172.16.0.0/16", "SubnetInfoList": [ { "Name": "subnet-3", "IPv4_CIDR": "172.16.0.0/28"}, { "Name": "subnet-4", "IPv4_CIDR": "172.16.1.0/28"} ] } }' |json_pp
 
 sleep 5 
 echo "## 1. VPC: List"
@@ -63,6 +68,8 @@ echo "####################################################################"
 sleep 1 
 echo "## 2. SecurityGroup: Create"
 curl -sX POST http://localhost:1024/spider/securitygroup -H 'Content-Type: application/json' -d '{ "ConnectionName": "'${CONN_CONFIG}'", "ReqInfo": { "Name": "nhn-sg-01", "VPCName": "nhn-vpc-1", "SecurityRules": [ {"FromPort": "22", "ToPort" : "22", "IPProtocol" : "tcp", "Direction" : "inbound", "CIDR": "0.0.0.0/0"} ] } }' |json_pp
+
+echo "####################################################################"
 
 curl -sX POST http://localhost:1024/spider/securitygroup -H 'Content-Type: application/json' -d '{ "ConnectionName": "'${CONN_CONFIG}'", "ReqInfo": { "Name": "nhn-sg-02", "VPCName": "nhn-vpc-1", "SecurityRules": [ {"FromPort": "1", "ToPort" : "65535", "IPProtocol" : "tcp", "Direction" : "inbound", "CIDR": "0.0.0.0/0"}, {"FromPort": "-1", "ToPort" : "-1", "IPProtocol" : "udp", "Direction" : "inbound", "CIDR": "0.0.0.0/0"}, {"FromPort": "-1", "ToPort" : "-1", "IPProtocol" : "icmp", "Direction" : "inbound", "CIDR": "0.0.0.0/0"} ] } }' |json_pp
 
@@ -134,8 +141,8 @@ sleep 40
 echo "## 4. VM: Resume"
 curl -sX GET http://localhost:1024/spider/controlvm/nhn-vm-01?action=resume -H 'Content-Type: application/json' -d '{ "ConnectionName": "'${CONN_CONFIG}'"}' |json_pp
 
-echo "============== sleep 10sec after resume VM"
-sleep 10
+echo "============== sleep 40sec after resume VM"
+sleep 40
 echo "## 4. VM: Reboot"
 curl -sX GET http://localhost:1024/spider/controlvm/nhn-vm-01?action=reboot -H 'Content-Type: application/json' -d '{ "ConnectionName": "'${CONN_CONFIG}'"}' |json_pp
 
@@ -167,11 +174,17 @@ echo "## 2. SecurityGroup: Delete"
 echo "####################################################################"
 curl -sX DELETE http://localhost:1024/spider/securitygroup/nhn-sg-01 -H 'Content-Type: application/json' -d '{ "ConnectionName": "'${CONN_CONFIG}'"}' |json_pp
 
+echo "####################################################################"
+curl -sX DELETE http://localhost:1024/spider/securitygroup/nhn-sg-02 -H 'Content-Type: application/json' -d '{ "ConnectionName": "'${CONN_CONFIG}'"}' |json_pp
+
 sleep 5
 
 echo "####################################################################"
 echo "## 1. VPC: Delete"
 echo "####################################################################"
 curl -sX DELETE http://localhost:1024/spider/vpc/nhn-vpc-1 -H 'Content-Type: application/json' -d '{ "ConnectionName": "'${CONN_CONFIG}'"}' |json_pp
+
+echo "####################################################################"
+curl -sX DELETE http://localhost:1024/spider/vpc/nhn-vpc-2 -H 'Content-Type: application/json' -d '{ "ConnectionName": "'${CONN_CONFIG}'"}' |json_pp
 
 echo "#### Full Test Process - Finished ###"
