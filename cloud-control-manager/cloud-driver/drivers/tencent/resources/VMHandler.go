@@ -9,17 +9,20 @@ package resources
 import (
 	"encoding/base64"
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"reflect"
 	"strconv"
 	"strings"
 	"time"
+	//"regexp"
 
 	cblog "github.com/cloud-barista/cb-log"
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
+	cim "github.com/cloud-barista/cb-spider/cloud-info-manager"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/sirupsen/logrus"
 	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
@@ -98,7 +101,6 @@ func (vmHandler *TencentVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 		Client: vmHandler.Client,
 	}
 	cblogger.Info(keypairHandler)
-
 	keyPairInfo, errKeyPair := keypairHandler.GetKey(vmReqInfo.KeyPairIID)
 	if errKeyPair != nil {
 		cblogger.Error(errKeyPair)
@@ -169,15 +171,80 @@ func (vmHandler *TencentVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 	//=============================
 	// SystemDisk 처리 - 이슈 #348에 의해 RootDisk 기능 지원
 	//=============================
+	cblogger.Debug("RootDiskType check ", vmReqInfo.RootDiskType)
+	cblogger.Debug("RootDiskSize check ", vmReqInfo.RootDiskSize)
 	if vmReqInfo.RootDiskType != "" || vmReqInfo.RootDiskSize != "" {
 		request.SystemDisk = &cvm.SystemDisk{}
 		//=============================
 		// Root Disk Type 변경
 		//=============================
-		if vmReqInfo.RootDiskType != "" {
-			request.SystemDisk.DiskType = common.StringPtr(vmReqInfo.RootDiskType)
+		cloudOSMetaInfo, err := cim.GetCloudOSMetaInfo("TENCENT") // cloudos_meta 에 DiskType, min, max 값 정의 되어있음.
+		arrDiskSizeOfType := cloudOSMetaInfo.RootDiskSize
+
+		fmt.Println("arrDiskSizeOfType: ", arrDiskSizeOfType)
+
+		type diskSize struct {
+			diskType    string
+			diskMinSize int64
+			diskMaxSize int64
+			unit        string
 		}
 
+		diskSizeValue := diskSize{}
+
+		if vmReqInfo.RootDiskType == "" || strings.EqualFold(vmReqInfo.RootDiskType, "default") {
+			cblogger.Debug("RootDiskType is default ")
+			diskSizeArr := strings.Split(arrDiskSizeOfType[0], "|")
+			diskSizeValue.diskType = diskSizeArr[0]
+			diskSizeValue.unit = diskSizeArr[3]
+			diskSizeValue.diskMinSize, err = strconv.ParseInt(diskSizeArr[1], 10, 64)
+			if err != nil {
+				cblogger.Error(err)
+				return irs.VMInfo{}, err
+			}
+
+			diskSizeValue.diskMaxSize, err = strconv.ParseInt(diskSizeArr[2], 10, 64)
+			if err != nil {
+				cblogger.Error(err)
+				return irs.VMInfo{}, err
+			}
+
+			// default에도 DiskType 넣어야 하나?
+			//request.SystemDisk.DiskType = common.StringPtr(vmReqInfo.RootDiskType)
+
+		} else {
+			isExists := false
+			for idx, _ := range arrDiskSizeOfType {
+				diskSizeArr := strings.Split(arrDiskSizeOfType[idx], "|")
+				fmt.Println("diskSizeArr: ", diskSizeArr)
+
+				if strings.EqualFold(vmReqInfo.RootDiskType, diskSizeArr[0]) {
+					diskSizeValue.diskType = diskSizeArr[0]
+					diskSizeValue.unit = diskSizeArr[3]
+					diskSizeValue.diskMinSize, err = strconv.ParseInt(diskSizeArr[1], 10, 64)
+					if err != nil {
+						cblogger.Error(err)
+						return irs.VMInfo{}, err
+					}
+
+					diskSizeValue.diskMaxSize, err = strconv.ParseInt(diskSizeArr[2], 10, 64)
+					if err != nil {
+						cblogger.Error(err)
+						return irs.VMInfo{}, err
+					}
+
+					isExists = true
+				}
+				cblogger.Debug("RootDiskSize isExists "+strconv.FormatInt(int64(idx), 10), isExists)
+			}
+			cblogger.Debug("RootDiskSize isExists ", isExists)
+			if !isExists {
+				return irs.VMInfo{}, errors.New("Invalid Root Disk Type : " + vmReqInfo.RootDiskType)
+			}
+
+			request.SystemDisk.DiskType = common.StringPtr(vmReqInfo.RootDiskType)
+		}
+		cblogger.Debug("request.SystemDisk.DiskType ", request.SystemDisk.DiskType)
 		//=============================
 		// Root Disk Size 변경
 		//=============================
@@ -189,8 +256,39 @@ func (vmHandler *TencentVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 					return irs.VMInfo{}, err
 				}
 
+				if iDiskSize < diskSizeValue.diskMinSize {
+					fmt.Println("Disk Size Error!!: ", iDiskSize, diskSizeValue.diskMinSize, diskSizeValue.diskMaxSize)
+					//return irs.VMInfo{}, errors.New("Requested disk size cannot be smaller than the minimum disk size, invalid")
+					return irs.VMInfo{}, errors.New("Root Disk Size must be at least the default size (" + strconv.FormatInt(diskSizeValue.diskMinSize, 10) + " GB).")
+				}
+
+				if iDiskSize > diskSizeValue.diskMaxSize {
+					fmt.Println("Disk Size Error!!: ", iDiskSize, diskSizeValue.diskMinSize, diskSizeValue.diskMaxSize)
+					//return irs.VMInfo{}, errors.New("Requested disk size cannot be larger than the maximum disk size, invalid")
+					return irs.VMInfo{}, errors.New("Root Disk Size must be smaller than the maximum size (" + strconv.FormatInt(diskSizeValue.diskMaxSize, 10) + " GB).")
+				}
+
+				imageRequest := cvm.NewDescribeImagesRequest()
+
+				imageRequest.ImageIds = common.StringPtrs([]string{vmReqInfo.ImageIID.SystemId})
+
+				response, err := vmHandler.Client.DescribeImages(imageRequest)
+				if err != nil {
+					cblogger.Error(err)
+					return irs.VMInfo{}, err
+				}
+				imageSize := *response.Response.ImageSet[0].ImageSize
+				fmt.Println("image : ", imageSize)
+
+				if iDiskSize < imageSize {
+					fmt.Println("Disk Size Error!!: ", iDiskSize, imageSize)
+					//return irs.VMInfo{}, errors.New("Requested disk size cannot be smaller than the image size, invalid")
+					return irs.VMInfo{}, errors.New("Root Disk Size must be larger then the image size (" + strconv.FormatInt(imageSize, 10) + " GB).")
+				}
+
 				request.SystemDisk.DiskSize = common.Int64Ptr(iDiskSize)
 			}
+			cblogger.Debug("request.SystemDisk.DiskSize ", request.SystemDisk.DiskSize)
 		}
 	}
 
@@ -274,7 +372,6 @@ func (vmHandler *TencentVMHandler) SuspendVM(vmIID irs.IID) (irs.VMStatus, error
 
 	/*
 		Instance shutdown mode. Valid values:
-
 		SOFT_FIRST: perform a soft shutdown first, and force shut down the instance if the soft shutdown fails
 		HARD: force shut down the instance directly
 		SOFT: soft shutdown only
@@ -284,7 +381,6 @@ func (vmHandler *TencentVMHandler) SuspendVM(vmIID irs.IID) (irs.VMStatus, error
 
 	/*
 		Billing method of a pay-as-you-go instance after shutdown. Valid values:
-
 		KEEP_CHARGING: billing continues after shutdown
 		STOP_CHARGING: billing stops after shutdown
 		Default value: KEEP_CHARGING. This parameter is only valid for some pay-as-you-go instances using cloud disks. For more information, see No charges when shut down for pay-as-you-go instances.
@@ -561,13 +657,16 @@ func (vmHandler *TencentVMHandler) ExtractDescribeInstances(curVm *cvm.Instance)
 	if !reflect.ValueOf(curVm.SystemDisk).IsNil() {
 		if !reflect.ValueOf(curVm.SystemDisk.DiskType).IsNil() {
 			keyValueList = append(keyValueList, irs.KeyValue{Key: "SystemDiskType", Value: *curVm.SystemDisk.DiskType})
+			vmInfo.RootDiskType = *curVm.SystemDisk.DiskType
 		}
 		if !reflect.ValueOf(curVm.SystemDisk.DiskId).IsNil() {
 			keyValueList = append(keyValueList, irs.KeyValue{Key: "SystemDiskId", Value: *curVm.SystemDisk.DiskId})
 			vmInfo.VMBootDisk = *curVm.SystemDisk.DiskId
+			vmInfo.RootDeviceName = *curVm.SystemDisk.DiskId
 		}
 		if !reflect.ValueOf(curVm.SystemDisk.DiskSize).IsNil() {
 			keyValueList = append(keyValueList, irs.KeyValue{Key: "SystemDiskSize", Value: strconv.FormatInt(*curVm.SystemDisk.DiskSize, 10)})
+			vmInfo.RootDiskSize = strconv.FormatInt(*curVm.SystemDisk.DiskSize, 10)
 		}
 	}
 
