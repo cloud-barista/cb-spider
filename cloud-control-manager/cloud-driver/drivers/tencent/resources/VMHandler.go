@@ -1,7 +1,6 @@
 // Proof of Concepts for the Cloud-Barista Multi-Cloud Project.
 //      * Cloud-Barista: https://github.com/cloud-barista
 //
-// EC2 Hander (AWS SDK GO Version 1.16.26, Thanks AWS.)
 //
 // by CB-Spider Team, 2019.03.
 package resources
