@@ -12,7 +12,6 @@ import (
 	cvm "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/cvm/v20170312"
 )
 
-//https://docs.aws.amazon.com/sdk-for-go/api/service/ec2/#EC2.DescribeInstanceTypes
 type TencentVmSpecHandler struct {
 	Region idrv.RegionInfo
 	Client *cvm.Client

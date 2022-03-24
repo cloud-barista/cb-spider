@@ -136,9 +136,6 @@ func handleSecurity() {
 	}
 	handler := ResourceHandler.(irs.SecurityHandler)
 
-	//config := readConfigFile()
-	//VmID := config.Aws.VmID
-
 	securityName := "CB-SecurityTestAll"
 	securityId := "sg-6wedru4yb4m6qqfvd3sj"
 	vpcId := "vpc-6wei16ufuimfcct41o0xh"
@@ -308,7 +305,6 @@ func handleKeyPair() {
 	//KeyPair 생성은 알파벳, 숫자 또는 밑줄 "_"만 지원
 	keyPairName := "CB_KeyPairTest123123"
 	keyPairId := ""
-	//keyPairName := config.Aws.KeyName
 
 	for {
 		fmt.Println("KeyPair Management")
