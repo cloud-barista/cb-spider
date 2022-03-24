@@ -962,7 +962,7 @@ func CreateVPC(connectionName string, rsType string, reqInfo cres.VPCReqInfo) (*
 	subnetReqIIdList := []cres.IID{}
 	subnetInfoList := []cres.SubnetInfo{}
 	for _, info := range reqInfo.SubnetInfoList {
-		subnetUUID, err := iidm.New(connectionName, rsType, info.IId.NameId)
+		subnetUUID, err := iidm.New(connectionName, rsSubnet, info.IId.NameId)
 		if err != nil {
 			cblog.Error(err)
 			return nil, err
