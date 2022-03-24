@@ -67,7 +67,8 @@ If you have any difficulties in using CB-Spider, please let us know.
   | Docker (PoC)  | O          | -          | -          | -          | -          | O          |
 
     💬 특이사항: 
-        - VPC: 단일 VPC 생성 제공 (두개 이상 VPC 생성 요청시 동작을 보장할 수 없음)
+        - VPC: 단일 VPC 생성 제공 (두개 이상 VPC 생성 불가)
+          - VPC CIDR: 제공하지 않음(설정 무의미)
         - Subnet: 단일 VPC에 제한된 CIDR 대역의 Subnet 추가/삭제 가능
           - Subnet CIDR 가능 대역: 10.0.8.0/22, 10.0.12.0/22, 10.0.16.0/22, ... 등
             - 이미 사용 중인 CIDR 요청시 오류 메시지에 사용 가능한 CIDR 목록 반환
