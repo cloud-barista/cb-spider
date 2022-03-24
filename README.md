@@ -68,9 +68,9 @@ If you have any difficulties in using CB-Spider, please let us know.
 
     💬 특이사항: 
         - VPC: 단일 VPC 생성 제공 (두개 이상 VPC 생성 요청시 동작을 보장할 수 없음)
-        - Subnet: 단일 VPC에 Subnet 추가/삭제 가능
-        - VPC 및 Subnet CIDR: 사용자의 설정값과 무관하게, CSP 내부에서 유휴 CIDR 할당 후 반납
-    
+        - Subnet: 단일 VPC에 제한된 CIDR 대역의 Subnet 추가/삭제 가능
+          - Subnet CIDR 가능 대역: 10.0.8.0/22, 10.0.12.0/22, 10.0.16.0/22, ... 등
+            - 이미 사용 중인 CIDR 요청시 오류 메시지에 사용 가능한 CIDR 목록 반환
 
 #### 4. VM 계정
 - CB Spider VM User: cb-user
