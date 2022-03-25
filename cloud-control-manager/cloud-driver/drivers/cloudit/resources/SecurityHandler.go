@@ -93,7 +93,7 @@ func (securityHandler *ClouditSecurityHandler) CreateSecurity(securityReqInfo ir
 			port = rule.FromPort + "-" + rule.ToPort
 		}
 		secRuleInfo := securitygroup.SecurityGroupRules{
-			Name:     fmt.Sprintf("%s-rules-%d", securityReqInfo.IId.NameId, i+1),
+			Name:     fmt.Sprintf("%s-rules-%d", rule.Direction, i+1),
 			Type:     rule.Direction,
 			Port:     port,
 			Target:   rule.CIDR,
