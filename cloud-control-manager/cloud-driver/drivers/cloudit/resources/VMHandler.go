@@ -675,7 +675,7 @@ func (vmHandler *ClouditVMHandler) AssociatePublicIP(vmName string, vmIp string)
 	// 2. PublicIP 생성 및 할당
 	reqInfo := adaptiveip.PublicIPReqInfo{
 		IP:        availableIP.IP,
-		Name:      vmName + "-PublicIP",
+		Name:      vmName,
 		PrivateIP: vmIp,
 	}
 
