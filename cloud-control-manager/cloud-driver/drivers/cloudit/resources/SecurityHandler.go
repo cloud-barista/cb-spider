@@ -24,16 +24,12 @@ type ClouditSecurityHandler struct {
 	Client         *client.RestClient
 }
 
-func setterSecGroup(secGroup securitygroup.SecurityGroupInfo) *irs.SecurityInfo {
+func (securityHandler *ClouditSecurityHandler) setterSecGroup(secGroup securitygroup.SecurityGroupInfo) (irs.SecurityInfo, error) {
 
-	secInfo := &irs.SecurityInfo{
+	secInfo := irs.SecurityInfo{
 		IId: irs.IID{
 			NameId:   secGroup.Name,
 			SystemId: secGroup.ID,
-		},
-		VpcIID: irs.IID{
-			NameId:   defaultVPCName,
-			SystemId: defaultVPCName,
 		},
 		SecurityRules: nil,
 	}
@@ -56,8 +52,16 @@ func setterSecGroup(secGroup securitygroup.SecurityGroupInfo) *irs.SecurityInfo 
 		secRuleArr[i] = secRuleInfo
 	}
 	secInfo.SecurityRules = &secRuleArr
-
-	return secInfo
+	VPCHandler := ClouditVPCHandler{
+		Client:         securityHandler.Client,
+		CredentialInfo: securityHandler.CredentialInfo,
+	}
+	defaultvpc, err := VPCHandler.GetDefaultVPC()
+	if err != nil {
+		return irs.SecurityInfo{}, errors.New(fmt.Sprintf("Failed Get DefaultVPC err= %s", err.Error()))
+	}
+	secInfo.VpcIID = defaultvpc.IId
+	return secInfo, nil
 }
 
 func (securityHandler *ClouditSecurityHandler) CreateSecurity(securityReqInfo irs.SecurityReqInfo) (irs.SecurityInfo, error) {
@@ -118,8 +122,14 @@ func (securityHandler *ClouditSecurityHandler) CreateSecurity(securityReqInfo ir
 	}
 	LoggingInfo(hiscallInfo, start)
 
-	secGroupInfo := setterSecGroup(*securityGroup)
-	return *secGroupInfo, nil
+	secGroupInfo, err := securityHandler.setterSecGroup(*securityGroup)
+	if err != nil {
+		createErr := errors.New(fmt.Sprintf("Failed to Create Security. err = %s", err.Error()))
+		cblogger.Error(createErr.Error())
+		LoggingError(hiscallInfo, createErr)
+		return irs.SecurityInfo{}, createErr
+	}
+	return secGroupInfo, nil
 }
 
 func (securityHandler *ClouditSecurityHandler) ListSecurity() ([]*irs.SecurityInfo, error) {
@@ -158,8 +168,14 @@ func (securityHandler *ClouditSecurityHandler) ListSecurity() ([]*irs.SecurityIn
 
 	resultList := make([]*irs.SecurityInfo, len(*securityList))
 	for i, security := range *securityList {
-		secInfo := setterSecGroup(security)
-		resultList[i] = secInfo
+		secInfo, err := securityHandler.setterSecGroup(security)
+		if err != nil {
+			getErr := errors.New(fmt.Sprintf("Failed to Get SecurityList. err = %s", err.Error()))
+			cblogger.Error(getErr.Error())
+			LoggingError(hiscallInfo, getErr)
+			return nil, getErr
+		}
+		resultList[i] = &secInfo
 	}
 	return resultList, nil
 }
@@ -197,9 +213,14 @@ func (securityHandler *ClouditSecurityHandler) GetSecurity(securityIID irs.IID) 
 
 	(*securityInfo).Rules = *sgRules
 	(*securityInfo).RulesCount = len(*sgRules)
-	secGroupInfo := setterSecGroup(*securityInfo)
-
-	return *secGroupInfo, nil
+	secGroupInfo, err := securityHandler.setterSecGroup(*securityInfo)
+	if err != nil {
+		getErr := errors.New(fmt.Sprintf("Failed to Get Security. err = %s", err.Error()))
+		cblogger.Error(getErr.Error())
+		LoggingError(hiscallInfo, getErr)
+		return irs.SecurityInfo{}, getErr
+	}
+	return secGroupInfo, nil
 }
 
 func (securityHandler *ClouditSecurityHandler) DeleteSecurity(securityIID irs.IID) (bool, error) {

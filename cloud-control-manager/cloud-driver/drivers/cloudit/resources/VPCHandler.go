@@ -15,7 +15,6 @@ import (
 )
 
 const (
-	defaultVPCName = "Default-VPC"
 	defaultVPCCIDR = "10.0.0.0/16"
 	VPC            = "VPC"
 	VPCProvider    = "CloudITVPC"
@@ -641,6 +640,36 @@ func (vpcHandler *ClouditVPCHandler) creatableSubnetCIDRList() ([]string, error)
 		creatableSubnetCIDRList[i] = fmt.Sprintf("%s/%s", creatableSubnetAddr, "22")
 	}
 	return creatableSubnetCIDRList, nil
+}
+func (vpcHandler *ClouditVPCHandler) GetDefaultVPC() (irs.VPCInfo, error) {
+	hashString, err := CreateVPCHashString(vpcHandler.CredentialInfo)
+	if err != nil {
+		return irs.VPCInfo{},err
+	}
+
+	key, err := keypair.GetKey(VPCProvider, hashString, ClouditVPCREGISTER)
+	if err != nil {
+		return irs.VPCInfo{},err
+	}
+	vpcName, subnetNames, err := disassembleVPCRegisterValue(key.Value)
+	if err != nil {
+		return irs.VPCInfo{},err
+	}
+	var subnetList []subnet.SubnetInfo
+	for _, subnetName := range subnetNames {
+		subnetinfo, err := vpcHandler.GetSubnet(irs.IID{NameId: subnetName})
+		if err != nil {
+			continue
+		}
+		subnetList = append(subnetList, subnetinfo)
+	}
+
+	err = keypair.AddKey(VPCProvider, hashString, ClouditVPCREGISTER, assembleVPCRegisterValue(vpcName, getSubnetNames(subnetList)))
+	if err != nil {
+		return irs.VPCInfo{},err
+	}
+	vpcInfo := vpcHandler.setterVPC(subnetList, vpcName)
+	return *vpcInfo, nil
 }
 
 func (vpcHandler *ClouditVPCHandler) checkCreatableSubnetCIDR(checkCIDR string) error {
