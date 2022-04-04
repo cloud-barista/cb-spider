@@ -88,7 +88,7 @@ func (securityHandler *AzureSecurityHandler) CreateSecurity(securityReqInfo irs.
 	for idx, rule := range *securityReqInfo.SecurityRules {
 		priorityNum = int32(300 + idx*100)
 		sgRuleInfo := network.SecurityRule{
-			Name: to.StringPtr(fmt.Sprintf("%s-rules-%d", securityReqInfo.IId.NameId, idx+1)),
+			Name: to.StringPtr(fmt.Sprintf("%s-rules-%d", rule.Direction, idx+1)),
 			SecurityRulePropertiesFormat: &network.SecurityRulePropertiesFormat{
 				SourceAddressPrefix:      &rule.CIDR,
 				DestinationAddressPrefix: to.StringPtr("*"),
