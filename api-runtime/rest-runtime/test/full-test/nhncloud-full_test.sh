@@ -46,11 +46,14 @@ echo "####################################################################"
 
 sleep 1 
 echo "## 1. VPC: Create"
-curl -sX POST http://localhost:1024/spider/vpc -H 'Content-Type: application/json' -d '{ "ConnectionName": "'${CONN_CONFIG}'", "ReqInfo": { "Name": "nhn-vpc-1", "IPv4_CIDR": "10.0.0.0/12", "SubnetInfoList": [ { "Name": "subnet-1", "IPv4_CIDR": "10.0.1.0/24"}, { "Name": "subnet-2", "IPv4_CIDR": "10.0.0.0/24"} ] } }' |json_pp
+curl -sX POST http://localhost:1024/spider/vpc -H 'Content-Type: application/json' -d '{ "ConnectionName": "'${CONN_CONFIG}'", "ReqInfo": { "Name": "nhn-vpc-1", "IPv4_CIDR": "192.168.0.0/16", "SubnetInfoList": [ { "Name": "nhn-subnet-1", "IPv4_CIDR": "192.168.0.0/24"} ] } }' |json_pp
 
-sleep 1 
-echo "## 1. VPC: Create"
-curl -sX POST http://localhost:1024/spider/vpc -H 'Content-Type: application/json' -d '{ "ConnectionName": "'${CONN_CONFIG}'", "ReqInfo": { "Name": "nhn-vpc-2", "IPv4_CIDR": "172.16.0.0/16", "SubnetInfoList": [ { "Name": "subnet-3", "IPv4_CIDR": "172.16.0.0/28"}, { "Name": "subnet-4", "IPv4_CIDR": "172.16.1.0/28"} ] } }' |json_pp
+# sleep 1 
+# echo "## 1. VPC: Create"
+# curl -sX POST http://localhost:1024/spider/vpc -H 'Content-Type: application/json' -d '{ "ConnectionName": "'${CONN_CONFIG}'", "ReqInfo": { "Name": "nhn-vpc-2", "IPv4_CIDR": "172.16.0.0/16", "SubnetInfoList": [ { "Name": "subnet-3", "IPv4_CIDR": "172.16.0.0/28"}, { "Name": "subnet-4", "IPv4_CIDR": "172.16.1.0/28"} ] } }' |json_pp
+
+# sleep 1 
+# curl -sX POST http://localhost:1024/spider/vpc -H 'Content-Type: application/json' -d '{ "ConnectionName": "'${CONN_CONFIG}'", "ReqInfo": { "Name": "nhn-vpc-3", "IPv4_CIDR": "10.0.0.0/12", "SubnetInfoList": [ { "Name": "subnet-5", "IPv4_CIDR": "10.0.1.0/24"}, { "Name": "subnet-6", "IPv4_CIDR": "10.0.0.0/24"} ] } }' |json_pp
 
 sleep 5 
 echo "## 1. VPC: List"
@@ -70,6 +73,7 @@ echo "## 2. SecurityGroup: Create"
 curl -sX POST http://localhost:1024/spider/securitygroup -H 'Content-Type: application/json' -d '{ "ConnectionName": "'${CONN_CONFIG}'", "ReqInfo": { "Name": "nhn-sg-01", "VPCName": "nhn-vpc-1", "SecurityRules": [ {"FromPort": "22", "ToPort" : "22", "IPProtocol" : "tcp", "Direction" : "inbound", "CIDR": "0.0.0.0/0"} ] } }' |json_pp
 
 echo "####################################################################"
+sleep 1 
 
 curl -sX POST http://localhost:1024/spider/securitygroup -H 'Content-Type: application/json' -d '{ "ConnectionName": "'${CONN_CONFIG}'", "ReqInfo": { "Name": "nhn-sg-02", "VPCName": "nhn-vpc-1", "SecurityRules": [ {"FromPort": "1", "ToPort" : "65535", "IPProtocol" : "tcp", "Direction" : "inbound", "CIDR": "0.0.0.0/0"}, {"FromPort": "-1", "ToPort" : "-1", "IPProtocol" : "udp", "Direction" : "inbound", "CIDR": "0.0.0.0/0"}, {"FromPort": "-1", "ToPort" : "-1", "IPProtocol" : "icmp", "Direction" : "inbound", "CIDR": "0.0.0.0/0"} ] } }' |json_pp
 
@@ -107,7 +111,7 @@ echo "####################################################################"
 
 sleep 1
 echo "## 4. VM: StartVM"
-curl -sX POST http://localhost:1024/spider/vm -H 'Content-Type: application/json' -d '{ "ConnectionName": "'${CONN_CONFIG}'", "ReqInfo": { "Name": "nhn-vm-01", "ImageName": "'${IMAGE_NAME}'", "VPCName": "nhn-vpc-1", "SubnetName": "subnet-1", "SecurityGroupNames": [ "nhn-sg-01" ], "VMSpecName": "'${SPEC_NAME}'", "KeyPairName": "nhn-key-01"} }' |json_pp
+curl -sX POST http://localhost:1024/spider/vm -H 'Content-Type: application/json' -d '{ "ConnectionName": "'${CONN_CONFIG}'", "ReqInfo": { "Name": "nhn-vm-01", "ImageName": "'${IMAGE_NAME}'", "VPCName": "nhn-vpc-1", "SubnetName": "nhn-subnet-1", "SecurityGroupNames": [ "nhn-sg-02" ], "VMSpecName": "'${SPEC_NAME}'", "KeyPairName": "nhn-key-01", "RootDiskType": "General_SSD", "RootDiskSize": "170" } }' |json_pp
 
 echo "============== sleep 50sec after start VM"
 
@@ -183,8 +187,5 @@ echo "####################################################################"
 echo "## 1. VPC: Delete"
 echo "####################################################################"
 curl -sX DELETE http://localhost:1024/spider/vpc/nhn-vpc-1 -H 'Content-Type: application/json' -d '{ "ConnectionName": "'${CONN_CONFIG}'"}' |json_pp
-
-echo "####################################################################"
-curl -sX DELETE http://localhost:1024/spider/vpc/nhn-vpc-2 -H 'Content-Type: application/json' -d '{ "ConnectionName": "'${CONN_CONFIG}'"}' |json_pp
 
 echo "#### Full Test Process - Finished ###"
