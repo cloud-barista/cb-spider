@@ -84,7 +84,7 @@ KTCLOUD:
 NHNCLOUD:
   region: Region
   credential: IdentityEndpoint / Username / Password / DomainName / TenantId
-  rootdisktype: General_HDD, General_SSD
+  rootdisktype: General_HDD / General_SSD
   # idmaxlength: VPC / Subnet / SecurityGroup / KeyPair / VM
   idmaxlength: 0 / 0 / 255 / 255 / 255 
 
