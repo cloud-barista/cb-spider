@@ -40,6 +40,33 @@ func init() {
 	cblogger = cblog.GetLogger("CB-SPIDER")
 }
 
+// VM생성 시 사용할 루트 디스크의 최소 볼륨 사이즈 정보를 조회함
+// -1 : 정보 조회 실패
+func (vmHandler *AlibabaVMHandler) GetDiskInfo(ImageSystemId string) (int64, error) {
+	cblogger.Debugf("ImageID : [%s]", ImageSystemId)
+
+	imageRequest := ecs.CreateDescribeImagesRequest()
+	imageRequest.Scheme = "https"
+
+	imageRequest.ImageId = ImageSystemId
+
+	response, err := vmHandler.Client.DescribeImages(imageRequest)
+	if err != nil {
+		cblogger.Error(err)
+		return -1, err
+	}
+
+	if len(response.Images.Image) > 0 {
+		fmt.Println(response.Images.Image[0].Size)
+		imageSize := int64(response.Images.Image[0].Size)
+		return imageSize, nil
+
+	} else {
+		cblogger.Error("요청된 Image 정보[" + ImageSystemId + "]를 찾을 수 없습니다.")
+		return -1, errors.New("요청된 Image 정보[" + ImageSystemId + "]를 찾을 수 없습니다.")
+	}
+}
+
 // 참고 : VM 생성 시 인증 방식은 KeyPair 또는 ID&PWD 방식이 가능하지만 계정은 모두 root  - 비번 조회 기능은 없음
 //        비밀번호는 8-30자로서 대문자, 소문자, 숫자 및/또는 특수 문자가 포함되어야 합니다.
 // @TODO : root 계정의 비번만 설정 가능한 데 다른 계정이 요청되었을 경우 예외 처리할 것인지.. 아니면 비번을 설정할 것인지 확인 필요.
@@ -244,22 +271,19 @@ func (vmHandler *AlibabaVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 			return irs.VMInfo{}, errors.New("Requested disk size cannot be larger than the maximum disk size, invalid")
 		}
 
-		// 이미지 사이즈와 비교
-		imageRequest := ecs.CreateDescribeImagesRequest()
-		imageRequest.Scheme = "https"
-
-		imageRequest.ImageId = vmReqInfo.ImageIID.SystemId
-
-		response, err := vmHandler.Client.DescribeImages(imageRequest)
+		imageSize, err := vmHandler.GetDiskInfo(vmReqInfo.ImageIID.SystemId)
 		if err != nil {
 			cblogger.Error(err)
 			return irs.VMInfo{}, err
 		}
-		imageSize := int64(response.Images.Image[0].Size)
 
-		if iDiskSize < imageSize {
-			fmt.Println("Disk Size Error!!: ", iDiskSize)
-			return irs.VMInfo{}, errors.New("Requested disk size cannot be smaller than the image disk size, invalid")
+		if imageSize < 0 {
+			return irs.VMInfo{}, errors.New("요청된 이미지의 기본 사이즈 정보를 조회할 수 없습니다.")
+		} else {
+			if iDiskSize < imageSize {
+				fmt.Println("Disk Size Error!!: ", iDiskSize)
+				return irs.VMInfo{}, errors.New("Requested disk size cannot be smaller than the image disk size, invalid")
+			}
 		}
 
 		request.SystemDiskSize = vmReqInfo.RootDiskSize
