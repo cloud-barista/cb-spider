@@ -168,7 +168,7 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 				Boot:       true,
 				Type:       "PERSISTENT",
 				InitializeParams: &compute.AttachedDiskInitializeParams{
-					DiskName:    vmName + "-" + zone, //disk name 도 매번 바뀌어야 하는 값
+					//DiskName:    vmName, //disk name 도 매번 바뀌어야 하는 값, 루트 디스크 이름은 특별히 지정하지 않는 경우 vm이름으로 생성됨
 					SourceImage: imageURL,
 				},
 			},
