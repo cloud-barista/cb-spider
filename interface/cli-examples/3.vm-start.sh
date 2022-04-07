@@ -2,7 +2,7 @@
 
 if [ "$1" = "" ]; then
 	echo
-	echo -e 'usage: '$0' aws|gcp|alibaba|azure|openstack|cloudit|tencent|nhncloud'
+	echo -e 'usage: '$0' mock|aws|azure|gcp|alibaba|tencent|ibm|openstack|cloudit|ncp|nhncloud'
 	echo -e '\n\tex) '$0' aws'
 	echo
 	exit 0;
@@ -43,4 +43,6 @@ time $CLIPATH/spctl --config $CLIPATH/spctl.conf vm start -i json -d \
     }" 2> /dev/null
 
 echo "============== after start VM: '${VM_NAME}'"
+
+echo -e "\n\n"
 
