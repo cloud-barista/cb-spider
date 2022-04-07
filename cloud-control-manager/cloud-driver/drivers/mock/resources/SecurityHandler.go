@@ -139,3 +139,12 @@ func (securityHandler *MockSecurityHandler) DeleteSecurity(iid irs.IID) (bool, e
 	}
 	return false, nil
 }
+
+
+func (securityHandler *MockSecurityHandler) AddRules(sgIID irs.IID, securityRules *[]irs.SecurityRuleInfo) (irs.SecurityInfo, error) {
+        return irs.SecurityInfo{}, fmt.Errorf("Coming Soon!")
+}
+
+func (securityHandler *MockSecurityHandler) RemoveRules(sgIID irs.IID, securityRules *[]irs.SecurityRuleInfo) (bool, error) {
+        return false, fmt.Errorf("Coming Soon!")
+}

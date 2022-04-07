@@ -225,3 +225,11 @@ func (securityHandler *OpenStackSecurityHandler) DeleteSecurity(securityIID irs.
 	LoggingInfo(hiscallInfo, start)
 	return true, nil
 }
+
+func (securityHandler *OpenStackSecurityHandler) AddRules(sgIID irs.IID, securityRules *[]irs.SecurityRuleInfo) (irs.SecurityInfo, error) {
+        return irs.SecurityInfo{}, fmt.Errorf("Coming Soon!")
+}
+
+func (securityHandler *OpenStackSecurityHandler) RemoveRules(sgIID irs.IID, securityRules *[]irs.SecurityRuleInfo) (bool, error) {
+        return false, fmt.Errorf("Coming Soon!")
+}

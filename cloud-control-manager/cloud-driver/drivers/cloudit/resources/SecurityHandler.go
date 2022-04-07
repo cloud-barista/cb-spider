@@ -339,3 +339,11 @@ func (securityHandler *ClouditSecurityHandler) deleteRuleInSG(securityGroupID, r
 	}
 	return nil
 }
+
+func (securityHandler *ClouditSecurityHandler) AddRules(sgIID irs.IID, securityRules *[]irs.SecurityRuleInfo) (irs.SecurityInfo, error) {
+	return irs.SecurityInfo{}, errors.New("Coming Soon!")
+}
+
+func (securityHandler *ClouditSecurityHandler) RemoveRules(sgIID irs.IID, securityRules *[]irs.SecurityRuleInfo) (bool, error) {
+	return false, errors.New("Coming Soon!")
+}

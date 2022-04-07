@@ -44,6 +44,6 @@ type SecurityHandler interface {
 	GetSecurity(securityIID IID) (SecurityInfo, error)
 	DeleteSecurity(securityIID IID) (bool, error)
 
-	//AddRules(sgIID IID, securityRules *[]SecurityRuleInfo) (SecurityInfo, error)
-	//RemoveRules(sgIID IID, securityRules *[]SecurityRuleInfo) (bool, error)
+	AddRules(sgIID IID, securityRules *[]SecurityRuleInfo) (SecurityInfo, error)
+	RemoveRules(sgIID IID, securityRules *[]SecurityRuleInfo) (bool, error)
 }

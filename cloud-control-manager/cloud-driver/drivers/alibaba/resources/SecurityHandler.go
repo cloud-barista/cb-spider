@@ -358,3 +358,11 @@ func (securityHandler *AlibabaSecurityHandler) DeleteSecurity(securityIID irs.II
 	cblogger.Infof("Successfully delete security group %q.", securityIID.SystemId)
 	return true, nil
 }
+
+func (securityHandler *AlibabaSecurityHandler) AddRules(sgIID irs.IID, securityRules *[]irs.SecurityRuleInfo) (irs.SecurityInfo, error) {
+        return irs.SecurityInfo{}, errors.New("Coming Soon!")
+}
+
+func (securityHandler *AlibabaSecurityHandler) RemoveRules(sgIID irs.IID, securityRules *[]irs.SecurityRuleInfo) (bool, error) {
+        return false, errors.New("Coming Soon!")
+}

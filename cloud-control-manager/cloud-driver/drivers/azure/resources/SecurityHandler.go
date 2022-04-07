@@ -203,3 +203,11 @@ func (securityHandler *AzureSecurityHandler) DeleteSecurity(securityIID irs.IID)
 	LoggingInfo(hiscallInfo, start)
 	return true, nil
 }
+
+func (securityHandler *AzureSecurityHandler) AddRules(sgIID irs.IID, securityRules *[]irs.SecurityRuleInfo) (irs.SecurityInfo, error) {
+        return irs.SecurityInfo{}, fmt.Errorf("Coming Soon!")
+}
+
+func (securityHandler *AzureSecurityHandler) RemoveRules(sgIID irs.IID, securityRules *[]irs.SecurityRuleInfo) (bool, error) {
+        return false, fmt.Errorf("Coming Soon!")
+}
