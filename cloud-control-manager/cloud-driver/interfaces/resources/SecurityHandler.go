@@ -15,16 +15,16 @@ type SecurityReqInfo struct {
 	IId IID // {NameId, SystemId}
 
 	VpcIID        IID    // {NameId, SystemId}
-	Direction     string // @todo used??
+	//Direction     string // To be deprecated
 	SecurityRules *[]SecurityRuleInfo
 }
 
 // @definitionAlias cres.SecurityRuleInfo
 type SecurityRuleInfo struct {
+	Direction  string
+	IPProtocol string
 	FromPort   string
 	ToPort     string
-	IPProtocol string
-	Direction  string
 	CIDR       string
 }
 
@@ -32,7 +32,7 @@ type SecurityInfo struct {
 	IId IID // {NameId, SystemId}
 
 	VpcIID        IID    // {NameId, SystemId}
-	Direction     string // @todo userd??
+	//Direction     string // @todo userd??
 	SecurityRules *[]SecurityRuleInfo
 
 	KeyValueList []KeyValue
@@ -43,4 +43,7 @@ type SecurityHandler interface {
 	ListSecurity() ([]*SecurityInfo, error)
 	GetSecurity(securityIID IID) (SecurityInfo, error)
 	DeleteSecurity(securityIID IID) (bool, error)
+
+	//AddRules(sgIID IID, securityRules *[]SecurityRuleInfo) (SecurityInfo, error)
+	//RemoveRules(sgIID IID, securityRules *[]SecurityRuleInfo) (bool, error)
 }

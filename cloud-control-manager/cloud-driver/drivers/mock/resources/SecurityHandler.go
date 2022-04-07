@@ -40,7 +40,7 @@ func (securityHandler *MockSecurityHandler) CreateSecurity(securityReqInfo irs.S
 	// (1) create securityInfo object
 	securityInfo := irs.SecurityInfo{securityReqInfo.IId,
 		securityReqInfo.VpcIID,
-		securityReqInfo.Direction,
+		// deprecated; securityReqInfo.Direction,
 		securityReqInfo.SecurityRules,
 		nil}
 
@@ -76,7 +76,7 @@ func CloneSecurityInfo(srcInfo irs.SecurityInfo) irs.SecurityInfo {
 	clonedInfo := irs.SecurityInfo{
 		IId:       irs.IID{srcInfo.IId.NameId, srcInfo.IId.SystemId},
 		VpcIID:    irs.IID{srcInfo.VpcIID.NameId, srcInfo.VpcIID.SystemId},
-		Direction: srcInfo.Direction,
+		// deprecated; Direction: srcInfo.Direction,
 
 		// Need not clone
 		SecurityRules: srcInfo.SecurityRules,

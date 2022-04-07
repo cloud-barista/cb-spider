@@ -678,7 +678,7 @@ func CreateSecurity(c echo.Context) error {
 		//IId:           cres.IID{req.ReqInfo.VPCName + cm.SG_DELIMITER + req.ReqInfo.Name, ""},
 		IId:           cres.IID{req.ReqInfo.Name, req.ReqInfo.Name}, // for NCP: fixed NameID => SystemID, Driver: (1)search systemID with fixed NameID (2)replace fixed NameID into SysemID
 		VpcIID:        cres.IID{req.ReqInfo.VPCName, ""},
-		Direction:     req.ReqInfo.Direction,
+		// deprecated; Direction:     req.ReqInfo.Direction,
 		SecurityRules: req.ReqInfo.SecurityRules,
 	}
 

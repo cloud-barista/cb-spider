@@ -129,7 +129,8 @@ func (securityHandler *GCPSecurityHandler) CreateSecurity(securityReqInfo irs.Se
 		commonDirection = "EGRESS"
 	} else {
 		// cblogger.Errorf("!!!!!!!!! SecurityReqInfo.Direction 정보[%s]가 없어서 INGRESS로 처리합니다.", securityReqInfo.Direction)
-		return irs.SecurityInfo{}, errors.New("invalid value - The direction[" + securityReqInfo.Direction + "] information is unknown")
+		// Direction deprecated; return irs.SecurityInfo{}, errors.New("invalid value - The direction[" + securityReqInfo.Direction + "] information is unknown")
+		return irs.SecurityInfo{}, errors.New("invalid value - The direction[" + "securityReqInfo.Direction" + "] information is unknown")
 	}
 
 	prefix := "https://www.googleapis.com/compute/v1/projects/" + projectID
