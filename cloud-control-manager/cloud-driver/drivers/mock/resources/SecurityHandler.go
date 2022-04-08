@@ -142,9 +142,73 @@ func (securityHandler *MockSecurityHandler) DeleteSecurity(iid irs.IID) (bool, e
 
 
 func (securityHandler *MockSecurityHandler) AddRules(sgIID irs.IID, securityRules *[]irs.SecurityRuleInfo) (irs.SecurityInfo, error) {
-        return irs.SecurityInfo{}, fmt.Errorf("Coming Soon!")
+        cblogger := cblog.GetLogger("CB-SPIDER")
+        cblogger.Info("Mock Driver: called AddRules()!")
+
+        // info: cloned
+        info, err := securityHandler.GetSecurity(sgIID)
+        if err != nil {
+                cblogger.Error(err)
+                return irs.SecurityInfo{}, err
+        }
+
+	*info.SecurityRules = append(*info.SecurityRules, *securityRules...)
+
+        return CloneSecurityInfo(info), nil
 }
 
 func (securityHandler *MockSecurityHandler) RemoveRules(sgIID irs.IID, securityRules *[]irs.SecurityRuleInfo) (bool, error) {
-        return false, fmt.Errorf("Coming Soon!")
+        cblogger := cblog.GetLogger("CB-SPIDER")
+        cblogger.Info("Mock Driver: called RemoveRules()!")
+
+        // info: cloned
+        info, err := securityHandler.GetSecurity(sgIID)
+        if err != nil {
+                cblogger.Error(err)
+		return false, err
+        }
+	for _, reqRuleInfo := range *securityRules {
+		for idx, ruleInfo := range *info.SecurityRules {
+			if isEqualRule(&ruleInfo, &reqRuleInfo) {
+				*info.SecurityRules = removeRule(info.SecurityRules, idx)
+			}
+		}
+	}
+
+        return true, nil
 }
+
+func isEqualRule(a *irs.SecurityRuleInfo, b *irs.SecurityRuleInfo) bool {
+	/*------------------------------
+	type SecurityRuleInfo struct {
+		Direction  string
+		IPProtocol string
+		FromPort   string
+		ToPort     string
+		CIDR       string
+	}
+	-------------------------------*/
+
+	if a.Direction != b.Direction {
+		return false
+	}
+	if a.IPProtocol != b.IPProtocol {
+		return false
+	}
+	if a.FromPort != b.FromPort {
+		return false
+	}
+	if a.ToPort != b.ToPort {
+		return false
+	}
+	if a.CIDR != b.CIDR {
+		return false
+	}
+
+	return true
+}
+
+func removeRule(list *[]irs.SecurityRuleInfo, idx int) []irs.SecurityRuleInfo {
+	return append((*list)[:idx], (*list)[idx+1:]...)
+}
+
