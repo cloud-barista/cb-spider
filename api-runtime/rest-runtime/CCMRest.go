@@ -562,7 +562,7 @@ func RemoveSubnet(c echo.Context) error {
 // (2) call common-runtime API
 // (3) return REST Json Format
 func RemoveCSPSubnet(c echo.Context) error {
-	cblog.Info("call DeleteCSPVPC()")
+	cblog.Info("call RemoveCSPSubnet()")
 
 	var req struct {
 		ConnectionName string
@@ -827,6 +827,84 @@ func DeleteCSPSecurity(c echo.Context) error {
 
 	return c.JSON(http.StatusOK, &resultInfo)
 }
+
+type ruleControlReq struct {
+	ConnectionName string
+	ReqInfo        struct {
+		RuleInfoList []struct {
+			Direction       string
+			IPProtocol      string
+			FromPort        string
+			ToPort          string
+			CIDR            string
+		}
+	}
+}
+// (1) get rules info from REST Call
+// (2) call common-runtime API
+// (3) return REST Json Format
+func AddRules(c echo.Context) error {
+        cblog.Info("call AddRules()")
+
+        req := ruleControlReq{}
+
+        if err := c.Bind(&req); err != nil {
+                return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+        }
+
+        // Rest RegInfo => Driver ReqInfo
+        // create RuleInfo List
+        reqRuleInfoList := []cres.SecurityRuleInfo{}
+        for _, info := range req.ReqInfo.RuleInfoList {
+                ruleInfo := cres.SecurityRuleInfo{Direction: info.Direction,
+			IPProtocol: info.IPProtocol, FromPort: info.FromPort, ToPort: info.ToPort, CIDR: info.CIDR}
+                reqRuleInfoList = append(reqRuleInfoList, ruleInfo)
+        }
+
+        // Call common-runtime API
+        result, err := cmrt.AddRules(req.ConnectionName, c.Param("SGName"), reqRuleInfoList)
+        if err != nil {
+                return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+        }
+
+        return c.JSON(http.StatusOK, result)
+}
+
+// (1) get rules info from REST Call
+// (2) call common-runtime API
+// (3) return REST Json Format
+func RemoveRules(c echo.Context) error {
+        cblog.Info("call RemoveRules()")
+
+        req := ruleControlReq{}
+
+        if err := c.Bind(&req); err != nil {
+                return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+        }
+
+        // Rest RegInfo => Driver ReqInfo
+        // create RuleInfo List
+        reqRuleInfoList := []cres.SecurityRuleInfo{}
+        for _, info := range req.ReqInfo.RuleInfoList {
+                ruleInfo := cres.SecurityRuleInfo{Direction: info.Direction,
+                        IPProtocol: info.IPProtocol, FromPort: info.FromPort, ToPort: info.ToPort, CIDR: info.CIDR}
+                reqRuleInfoList = append(reqRuleInfoList, ruleInfo)
+        }
+
+        // Call common-runtime API
+	// no force option
+        result, err := cmrt.RemoveRules(req.ConnectionName, c.Param("SGName"), reqRuleInfoList)
+        if err != nil {
+                return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+        }
+
+        resultInfo := BooleanInfo{
+                Result: strconv.FormatBool(result),
+        }
+
+        return c.JSON(http.StatusOK, &resultInfo)
+}
+
 
 type keyRegisterReq struct {
         ConnectionName string
