@@ -599,3 +599,11 @@ func loopDeleteSecurityGroup(client *ec2.EC2, input *ec2.DeleteSecurityGroupInpu
         }
         return err
 }
+
+func (securityHandler *AwsSecurityHandler) AddRules(sgIID irs.IID, securityRules *[]irs.SecurityRuleInfo) (irs.SecurityInfo, error) {
+        return irs.SecurityInfo{}, errors.New("Coming Soon!")
+}
+
+func (securityHandler *AwsSecurityHandler) RemoveRules(sgIID irs.IID, securityRules *[]irs.SecurityRuleInfo) (bool, error) {
+        return false, errors.New("Coming Soon!")
+}

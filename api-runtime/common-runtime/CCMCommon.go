@@ -962,7 +962,7 @@ func CreateVPC(connectionName string, rsType string, reqInfo cres.VPCReqInfo) (*
 	subnetReqIIdList := []cres.IID{}
 	subnetInfoList := []cres.SubnetInfo{}
 	for _, info := range reqInfo.SubnetInfoList {
-		subnetUUID, err := iidm.New(connectionName, rsType, info.IId.NameId)
+		subnetUUID, err := iidm.New(connectionName, rsSubnet, info.IId.NameId)
 		if err != nil {
 			cblog.Error(err)
 			return nil, err
@@ -1554,6 +1554,11 @@ func CreateSecurity(connectionName string, rsType string, reqInfo cres.SecurityR
 		return nil, err
 	}
 
+        // Direction: to lower
+        // IPProtocol: to upper
+        // no CIDR: "0.0.0.0/0"
+        transformArgs(reqInfo.SecurityRules)
+
 	sgRWLock.Lock()
 	defer sgRWLock.Unlock()
 	// (1) check exist(NameID)
@@ -1573,13 +1578,6 @@ func CreateSecurity(connectionName string, rsType string, reqInfo cres.SecurityR
 		err :=  fmt.Errorf(rsType + "-" + reqInfo.IId.NameId + " already exists!")
 		cblog.Error(err)
 		return nil, err
-	}
-
-	// if no CIDR in input rules, set default ("0.0.0.0/0")
-	for n, _ := range *reqInfo.SecurityRules {
-		if (*reqInfo.SecurityRules)[n].CIDR == "" {
-			(*reqInfo.SecurityRules)[n].CIDR = "0.0.0.0/0"
-		}
 	}
 
 	// (2) generate SP-XID and create reqIID, driverIID
@@ -1638,6 +1636,19 @@ func CreateSecurity(connectionName string, rsType string, reqInfo cres.SecurityR
 	info.VpcIID.SystemId = getDriverSystemId(vpcIIDInfo.IId)
 
 	return &info, nil
+}
+
+func transformArgs(ruleList *[]cres.SecurityRuleInfo) {
+        for n, _ := range *ruleList {
+		// Direction: to lower => inbound | outbound
+		(*ruleList)[n].Direction = strings.ToLower((*ruleList)[n].Direction)
+		// IPProtocol: to upper => ALL | TCP | UDP | ICMP
+		(*ruleList)[n].IPProtocol = strings.ToUpper((*ruleList)[n].IPProtocol)
+		// no CIDR, set default ("0.0.0.0/0")
+                if (*ruleList)[n].CIDR == "" {
+                        (*ruleList)[n].CIDR = "0.0.0.0/0"
+                }
+        }
 }
 
 // (1) get IID:list
@@ -1838,6 +1849,147 @@ func GetSecurity(connectionName string, rsType string, nameID string) (*cres.Sec
 	info.VpcIID = getUserIID(vpcIIDInfo.IId)
 
 	return &info, nil
+}
+
+// (1) check exist(NameID)
+// (2) add Rules
+func AddRules(connectionName string, sgName string, reqInfoList []cres.SecurityRuleInfo) (*cres.SecurityInfo, error) {
+        cblog.Info("call AddRules()")
+
+        // check empty and trim user inputs
+        connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)
+        if err != nil {
+                cblog.Error(err)
+                return nil, err
+        }
+
+        sgName, err = EmptyCheckAndTrim("sgName", sgName)
+        if err != nil {
+                cblog.Error(err)
+                return nil, err
+        }
+
+        cldConn, err := ccm.GetCloudConnection(connectionName)
+        if err != nil {
+                cblog.Error(err)
+                return nil, err
+        }
+
+        handler, err := cldConn.CreateSecurityHandler()
+        if err != nil {
+                cblog.Error(err)
+                return nil, err
+        }
+
+        // Direction: to lower
+        // IPProtocol: to upper
+        // no CIDR: "0.0.0.0/0"
+        transformArgs(&reqInfoList)
+
+        sgRWLock.Lock()
+        defer sgRWLock.Unlock()
+        // (1) check exist(sgName)
+        iidInfoList, err := getAllSGIIDInfoList(connectionName)
+        if err != nil {
+                cblog.Error(err)
+                return nil, err
+        }
+        var iidInfo *iidm.IIDInfo
+        var bool_ret = false
+        for _, OneIIdInfo := range iidInfoList {
+                if OneIIdInfo.IId.NameId == sgName {
+                        iidInfo = OneIIdInfo
+                        bool_ret = true
+                        break;
+                }
+        }
+        if bool_ret == false {
+                err := fmt.Errorf("The %s '%s' does not exist!", RsTypeString(rsSG), sgName)
+                cblog.Error(err)
+                return nil, err
+        }
+
+        // (2) add Rules
+        // driverIID for driver
+        info, err := handler.AddRules(getDriverIID(iidInfo.IId), &reqInfoList)
+        if err != nil {
+                cblog.Error(err)
+                return nil, err
+        }
+
+        // (3) set ResourceInfo(userIID)
+        info.IId = getUserIID(iidInfo.IId)
+
+        return &info, nil
+}
+
+// (1) check exist(NameID)
+// (2) remove Rules
+func RemoveRules(connectionName string, sgName string, reqRuleInfoList []cres.SecurityRuleInfo) (bool, error) {
+        cblog.Info("call RemoveRules()")
+
+        // check empty and trim user inputs
+        connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)
+        if err != nil {
+                cblog.Error(err)
+                return false, err
+        }
+
+        sgName, err = EmptyCheckAndTrim("sgName", sgName)
+        if err != nil {
+                cblog.Error(err)
+                return false, err
+        }
+
+        cldConn, err := ccm.GetCloudConnection(connectionName)
+        if err != nil {
+                cblog.Error(err)
+                return false, err
+        }
+
+        handler, err := cldConn.CreateSecurityHandler()
+        if err != nil {
+                cblog.Error(err)
+                return false, err
+        }
+
+        // Direction: to lower
+        // IPProtocol: to upper
+        // no CIDR: "0.0.0.0/0"
+        transformArgs(&reqRuleInfoList)
+
+        sgRWLock.Lock()
+        defer sgRWLock.Unlock()
+        // (1) check exist(sgName)
+        iidInfoList, err := getAllSGIIDInfoList(connectionName)
+        if err != nil {
+                cblog.Error(err)
+                return false, err
+        }
+        var iidInfo *iidm.IIDInfo
+        var bool_ret = false
+        for _, OneIIdInfo := range iidInfoList {
+                if OneIIdInfo.IId.NameId == sgName {
+                        iidInfo = OneIIdInfo
+                        bool_ret = true
+                        break;
+                }
+        }
+        if bool_ret == false {
+                err := fmt.Errorf("The %s '%s' does not exist!", RsTypeString(rsSG), sgName)
+                cblog.Error(err)
+                return false, err
+        }
+
+        // (2) remove Rules
+        // driverIID for driver
+        result, err := handler.RemoveRules(getDriverIID(iidInfo.IId), &reqRuleInfoList)
+        if err != nil {
+                cblog.Error(err)
+                return false, err
+        }
+
+        return result, nil
 }
 
 //================ KeyPair Handler

@@ -355,3 +355,11 @@ func (securityHandler *TencentSecurityHandler) DeleteSecurity(securityIID irs.II
 
 	return true, nil
 }
+
+func (securityHandler *TencentSecurityHandler) AddRules(sgIID irs.IID, securityRules *[]irs.SecurityRuleInfo) (irs.SecurityInfo, error) {
+        return irs.SecurityInfo{}, errors.New("Coming Soon!")
+}
+
+func (securityHandler *TencentSecurityHandler) RemoveRules(sgIID irs.IID, securityRules *[]irs.SecurityRuleInfo) (bool, error) {
+        return false, errors.New("Coming Soon!")
+}

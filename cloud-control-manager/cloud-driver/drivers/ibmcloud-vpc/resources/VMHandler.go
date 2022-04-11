@@ -11,6 +11,7 @@ import (
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"io/ioutil"
+	"math/rand"
 	"net/url"
 	"os"
 	"strconv"
@@ -36,6 +37,7 @@ func (vmHandler *IbmVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 		LoggingError(hiscallInfo, createErr)
 		return irs.VMInfo{}, createErr
 	}
+
 	// 1-1 Exist Check
 	exist, err := existInstance(vmReqInfo.IId, vmHandler.VpcService, vmHandler.Ctx)
 	if err != nil {
@@ -182,7 +184,19 @@ func (vmHandler *IbmVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 	// 4.Attach FloatingIP
 
 	// 4-1. Create FloatingIP
-	floatingIPName := *createInstance.Name + "-floatingip-" + *createInstance.Zone.Name
+	rand.Seed(time.Now().UnixNano())
+	floatingIPName :=  *createInstance.Zone.Name + "-floatingip-" + strconv.FormatInt(rand.Int63n(10000000), 10)
+    floatingIPExist, err := vmHandler.checkFloatingIPName(floatingIPName)
+    if err != nil || floatingIPExist {
+		createErr := errors.New(fmt.Sprintf("Failed to Create VM. err = Faild Generator FloatingIP Name"))
+		deleteErr := deleteInstance(*createInstance.ID, vmHandler.VpcService, vmHandler.Ctx)
+		if deleteErr != nil {
+			createErr = errors.New(fmt.Sprintf("%s, %s ",createErr.Error(),deleteErr.Error()))
+		}
+		cblogger.Error(createErr.Error())
+		LoggingError(hiscallInfo, createErr)
+		return irs.VMInfo{}, createErr
+	}
 	createFloatingIPOptions := &vpcv1.CreateFloatingIPOptions{}
 	createFloatingIPOptions.SetFloatingIPPrototype(&vpcv1.FloatingIPPrototype{
 		Name: &floatingIPName,
@@ -190,6 +204,7 @@ func (vmHandler *IbmVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 			Name: createInstance.Zone.Name,
 		},
 	})
+
 	floatingIP, _, err := vmHandler.VpcService.CreateFloatingIPWithContext(vmHandler.Ctx, createFloatingIPOptions)
 
 	if err != nil {
@@ -665,6 +680,24 @@ func floatingIPUnBind(IPBindReqInfo IBMIPBindReqInfo, vpcService *vpcv1.VpcV1, c
 	return true, nil
 }
 
+func getFloatIPsNextHref(next *vpcv1.FloatingIPCollectionNext) (string, error) {
+	if next != nil {
+		href := *next.Href
+		u, err := url.Parse(href)
+		if err != nil {
+			return "", err
+		}
+		paramMap, _ := url.ParseQuery(u.RawQuery)
+		if paramMap != nil {
+			safe := paramMap["start"]
+			if safe != nil && len(safe) > 0 {
+				return safe[0], nil
+			}
+		}
+	}
+	return "", errors.New("NOT NEXT")
+}
+
 func getVMNextHref(next *vpcv1.InstanceCollectionNext) (string, error) {
 	if next != nil {
 		href := *next.Href
@@ -1002,4 +1035,32 @@ func (vmHandler *IbmVMHandler) setVmInfo(instance vpcv1.Instance) (irs.VMInfo, e
 		vmInfo.RootDiskSize = strconv.Itoa(int(*rawVolume.Capacity))
 	}
 	return vmInfo, nil
+}
+
+func (vmHandler *IbmVMHandler) checkFloatingIPName (floatingIPName string) (exist bool, err error){
+	options := &vpcv1.ListFloatingIpsOptions{}
+	floatingIPs,_,err :=vmHandler.VpcService.ListFloatingIpsWithContext(vmHandler.Ctx, options)
+	if err != nil {
+		return false, err
+	}
+	for {
+		for _, floatingIP := range floatingIPs.FloatingIps {
+			if *floatingIP.Name == floatingIPName {
+				return true, nil
+			}
+		}
+		nextstr, _ := getFloatIPsNextHref(floatingIPs.Next)
+		if nextstr != "" {
+			listFloatingNext := &vpcv1.ListFloatingIpsOptions{
+				Start: core.StringPtr(nextstr),
+			}
+			floatingIPs, _, err = vmHandler.VpcService.ListFloatingIpsWithContext(vmHandler.Ctx, listFloatingNext)
+			if err != nil {
+				return false, err
+			}
+		} else {
+			break
+		}
+	}
+	return false, nil
 }

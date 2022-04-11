@@ -2,7 +2,7 @@
 
 if [ "$1" = "" ]; then
 	echo
-	echo -e 'usage: '$0' aws|gcp|alibaba|azure|openstack|cloudit'
+	echo -e 'usage: '$0' mock|aws|azure|gcp|alibaba|tencent|ibm|openstack|cloudit|ncp|nhncloud'
 	echo -e '\n\tex) '$0' aws'
 	echo
 	exit 0;
@@ -14,4 +14,6 @@ VM_NAME=${VM_NAME}-1
 echo "============== before terminate VM: '${VM_NAME}'"
 time $CLIPATH/spctl --config $CLIPATH/spctl.conf --cname "${CONN_CONFIG}" vm terminate -n "${VM_NAME}" 2> /dev/null
 echo "============== after terminate VM: '${VM_NAME}'"
+
+echo -e "\n\n"
 

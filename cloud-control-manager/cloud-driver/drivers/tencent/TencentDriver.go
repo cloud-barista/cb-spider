@@ -78,9 +78,8 @@ func getVmClient(connectionInfo idrv.ConnectionInfo) (*cvm.Client, error) {
 	client, err := cvm.NewClient(credential, connectionInfo.RegionInfo.Region, cpf)
 
 	if err != nil {
-		cblogger.Error("Could not create aws New Session")
+		cblogger.Error("Could not create New Session")
 		cblogger.Error(err)
-		// fmt.Println("Could not create aws New Session", err)
 		return nil, err
 	}
 
@@ -110,9 +109,8 @@ func getVpcClient(connectionInfo idrv.ConnectionInfo) (*vpc.Client, error) {
 	client, err := vpc.NewClient(credential, connectionInfo.RegionInfo.Region, cpf)
 
 	if err != nil {
-		cblogger.Error("Could not create aws New Session")
+		cblogger.Error("Could not create New Session")
 		cblogger.Error(err)
-		// fmt.Println("Could not create aws New Session", err)
 		return nil, err
 	}
 

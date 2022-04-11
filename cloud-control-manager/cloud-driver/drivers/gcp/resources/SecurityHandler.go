@@ -129,7 +129,8 @@ func (securityHandler *GCPSecurityHandler) CreateSecurity(securityReqInfo irs.Se
 		commonDirection = "EGRESS"
 	} else {
 		// cblogger.Errorf("!!!!!!!!! SecurityReqInfo.Direction 정보[%s]가 없어서 INGRESS로 처리합니다.", securityReqInfo.Direction)
-		return irs.SecurityInfo{}, errors.New("invalid value - The direction[" + securityReqInfo.Direction + "] information is unknown")
+		// Direction deprecated; return irs.SecurityInfo{}, errors.New("invalid value - The direction[" + securityReqInfo.Direction + "] information is unknown")
+		return irs.SecurityInfo{}, errors.New("invalid value - The direction[" + "securityReqInfo.Direction" + "] information is unknown")
 	}
 
 	prefix := "https://www.googleapis.com/compute/v1/projects/" + projectID
@@ -342,4 +343,12 @@ func (securityHandler *GCPSecurityHandler) DeleteSecurity(securityIID irs.IID) (
 	callogger.Info(call.String(callLogInfo))
 	fmt.Println(res)
 	return true, nil
+}
+
+func (securityHandler *GCPSecurityHandler) AddRules(sgIID irs.IID, securityRules *[]irs.SecurityRuleInfo) (irs.SecurityInfo, error) {
+        return irs.SecurityInfo{}, fmt.Errorf("Coming Soon!")
+}
+
+func (securityHandler *GCPSecurityHandler) RemoveRules(sgIID irs.IID, securityRules *[]irs.SecurityRuleInfo) (bool, error) {
+        return false, fmt.Errorf("Coming Soon!")
 }

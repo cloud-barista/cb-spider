@@ -446,3 +446,11 @@ func checkSecurityReqInfo(securityReqInfo irs.SecurityReqInfo) error {
 	}
 	return nil
 }
+
+func (securityHandler *IbmSecurityHandler) AddRules(sgIID irs.IID, securityRules *[]irs.SecurityRuleInfo) (irs.SecurityInfo, error) {
+        return irs.SecurityInfo{}, fmt.Errorf("Coming Soon!")
+}
+
+func (securityHandler *IbmSecurityHandler) RemoveRules(sgIID irs.IID, securityRules *[]irs.SecurityRuleInfo) (bool, error) {
+        return false, fmt.Errorf("Coming Soon!")
+}

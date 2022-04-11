@@ -14,11 +14,15 @@ import (
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"testing"
+	cblog "github.com/cloud-barista/cb-log"
 )
 
 var vmSpecHandler irs.VMSpecHandler
 
 func init() {
+        // make the log level lower to print clearly
+        cblog.SetLevel("error")
+
         cred := idrv.CredentialInfo{
                 MockName:      "MockDriver-01",
         }
@@ -37,7 +41,7 @@ func TestVMSpecListGet(t *testing.T) {
 
 func regionTest(t *testing.T, mockRegion string) {
         // check the list size and values
-        infoList, err := vmSpecHandler.ListVMSpec(mockRegion)
+        infoList, err := vmSpecHandler.ListVMSpec()
         if err != nil {
                 t.Error(err.Error())
         }

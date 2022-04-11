@@ -19,8 +19,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/ec2"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 )
 
@@ -44,8 +42,8 @@ type TencentCBNetworkInfo struct {
 	SubnetId   string
 }
 
-const CUSTOM_ERR_CODE_TOOMANY string = "600"  //awserr.New("600", "n개 이상의 xxxx 정보가 존재합니다.", nil)
-const CUSTOM_ERR_CODE_NOTFOUND string = "404" //awserr.New("404", "XXX 정보가 존재하지 않습니다.", nil)
+const CUSTOM_ERR_CODE_TOOMANY string = "600"  //"n개 이상의 xxxx 정보가 존재합니다."
+const CUSTOM_ERR_CODE_NOTFOUND string = "404" //"XXX 정보가 존재하지 않습니다."
 
 //VPC
 func GetCBDefaultVNetName() string {
@@ -59,28 +57,6 @@ func GetCBDefaultSubnetName() string {
 
 func GetCBDefaultCidrBlock() string {
 	return CBDefaultCidrBlock
-}
-
-//Name Tag 설정
-func SetNameTag(Client *ec2.EC2, Id string, value string) bool {
-	// Tag에 Name 설정
-	cblogger.Infof("Name Tage 설정 - ResourceId : [%s]  Value : [%s] ", Id, value)
-	_, errtag := Client.CreateTags(&ec2.CreateTagsInput{
-		Resources: []*string{&Id},
-		Tags: []*ec2.Tag{
-			{
-				Key:   aws.String("Name"),
-				Value: aws.String(value),
-			},
-		},
-	})
-	if errtag != nil {
-		cblogger.Error("Name Tag 설정 실패 : ")
-		cblogger.Error(errtag)
-		return false
-	}
-
-	return true
 }
 
 func JSONMarshal(t interface{}) ([]byte, error) {
