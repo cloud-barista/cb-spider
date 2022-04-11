@@ -49,6 +49,7 @@ func (vmHandler *AlibabaVMHandler) GetDiskInfo(ImageSystemId string) (int64, err
 	imageRequest.Scheme = "https"
 
 	imageRequest.ImageId = ImageSystemId
+	imageRequest.ShowExpired = requests.NewBoolean(true)
 
 	response, err := vmHandler.Client.DescribeImages(imageRequest)
 	if err != nil {
