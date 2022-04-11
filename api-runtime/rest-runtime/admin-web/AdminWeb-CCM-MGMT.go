@@ -171,11 +171,20 @@ func VPCMgmt(c echo.Context) error {
 
         // (4) make TR list with info list
         // (4-1) get info list 
+
+		// client logging
+		htmlStr += genLoggingAllGETURL(connConfig, "vpc")
+
                 resBody, err := getAllResourceList_with_Connection_JsonByte(connConfig, "vpc")
                 if err != nil {
                         cblog.Error(err)
+			// client logging
+			htmlStr += genLoggingResult(err.Error())
                         return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
                 }
+
+		// client logging
+		htmlStr += genLoggingResult(string(resBody[:len(resBody)-1]))
                 
                 var info cr.AllResourceList
                 
@@ -195,6 +204,25 @@ func VPCMgmt(c echo.Context) error {
 //fmt.Println(htmlStr)
         return c.HTML(http.StatusOK, htmlStr)
 }
+
+func genLoggingAllGETURL(connConfig string, rsType string) string {
+        /* return example
+        <script type="text/javascript">
+                parent.frames["log_frame"].Log("GET> http://localhost:1024/spider/allvpc");
+        </script>
+        */
+
+        url := "http://" + "localhost" + cr.ServerPort + "/spider/all" + rsType + " -H 'Content-Type: application/json' -d '{\\\"ConnectionName\\\": \\\"" + connConfig + "\\\"}'"
+        htmlStr := `
+                <script type="text/javascript">
+                `
+        htmlStr += `    parent.frames["log_frame"].Log("GET> ` +  url + `");`
+        htmlStr += `
+                </script>
+                `
+        return htmlStr
+}
+
 
 //====================================== Security Group
 
@@ -289,11 +317,20 @@ func SecurityGroupMgmt(c echo.Context) error {
 
         // (4) make TR list with info list
         // (4-1) get info list
+
+		// client logging
+		htmlStr += genLoggingAllGETURL(connConfig, "securitygroup")
+
                 resBody, err := getAllResourceList_with_Connection_JsonByte(connConfig, "securitygroup")
                 if err != nil {
                         cblog.Error(err)
+			// client logging
+			htmlStr += genLoggingResult(err.Error())
                         return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
                 }
+
+		// client logging
+		htmlStr += genLoggingResult(string(resBody[:len(resBody)-1]))
 
                 var info cr.AllResourceList
 
@@ -407,12 +444,21 @@ func KeyPairMgmt(c echo.Context) error {
 
         // (4) make TR list with info list
         // (4-1) get info list 
+
+		// client logging
+		htmlStr += genLoggingAllGETURL(connConfig, "keypair")
+
                 resBody, err := getAllResourceList_with_Connection_JsonByte(connConfig, "keypair")
                 if err != nil {
                         cblog.Error(err)
+			// client logging
+			htmlStr += genLoggingResult(err.Error())
                         return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
                 }
                 
+		// client logging
+		htmlStr += genLoggingResult(string(resBody[:len(resBody)-1]))
+
                 var info cr.AllResourceList
                 
                 json.Unmarshal(resBody, &info)
@@ -525,11 +571,20 @@ func VMMgmt(c echo.Context) error {
 
         // (4) make TR list with info list
         // (4-1) get info list
+
+		// client logging
+		htmlStr += genLoggingAllGETURL(connConfig, "vm")
+
                 resBody, err := getAllResourceList_with_Connection_JsonByte(connConfig, "vm")
                 if err != nil {
                         cblog.Error(err)
+			// client logging
+			htmlStr += genLoggingResult(err.Error())
                         return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
                 }
+
+		// client logging
+		htmlStr += genLoggingResult(string(resBody[:len(resBody)-1]))
 
                 var info cr.AllResourceList
 

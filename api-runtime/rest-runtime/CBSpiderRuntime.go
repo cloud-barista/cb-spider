@@ -312,6 +312,8 @@ func RunServer() {
 		//----------AdminWeb Handler
 		{"GET", "/adminweb", aw.Frame},
 		{"GET", "/adminweb/top", aw.Top},
+		{"GET", "/adminweb/log", aw.Log},
+
 		{"GET", "/adminweb/driver", aw.Driver},
 		{"GET", "/adminweb/credential", aw.Credential},
 		{"GET", "/adminweb/region", aw.Region},

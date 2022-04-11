@@ -116,15 +116,22 @@ func makePostDriverFunc_js() string {
                                 }
                         }
                         var xhr = new XMLHttpRequest();
-                        xhr.open("POST", "$$SPIDER_SERVER$$/spider/driver", true);
+                        xhr.open("POST", "$$SPIDER_SERVER$$/spider/driver", false);
                         xhr.setRequestHeader('Content-Type', 'application/json');
                         //xhr.send(JSON.stringify({ "DriverName": driverName, "ProviderName": providerName, "DriverLibFileName": driverLibFileName}));
 			//xhr.send(JSON.stringify(sendJson));
+
+			// client logging
+			parent.frames["log_frame"].Log("POST> " + "$$SPIDER_SERVER$$/spider/driver -d " + sendJson);
+
 			xhr.send(sendJson);
 
-                        setTimeout(function(){
+			// client logging
+			parent.frames["log_frame"].Log("   => " + xhr.response);
+
+                        //setTimeout(function(){ // when async call
                                 location.reload();
-                        }, 400);
+                        //}, 400);
 
                 }
         `
@@ -144,7 +151,14 @@ func makeDeleteDriverFunc_js() string {
                                         var xhr = new XMLHttpRequest();
                                         xhr.open("DELETE", "$$SPIDER_SERVER$$/spider/driver/" + checkboxes[i].value, false);
                                         xhr.setRequestHeader('Content-Type', 'application/json');
+
+                                        // client logging
+                                        parent.frames["log_frame"].Log("DELETE> " + "$$SPIDER_SERVER$$/spider/driver/" + checkboxes[i].value);
+
                                         xhr.send(null);
+
+                                        // client logging
+                                        parent.frames["log_frame"].Log("   => " + xhr.response);
                                 }
                         }
 			location.reload();
@@ -374,15 +388,22 @@ func makePostCredentialFunc_js() string {
                                 }
                         }
                         var xhr = new XMLHttpRequest();
-                        xhr.open("POST", "$$SPIDER_SERVER$$/spider/credential", true);
+                        xhr.open("POST", "$$SPIDER_SERVER$$/spider/credential", false);
                         xhr.setRequestHeader('Content-Type', 'application/json');
                         //xhr.send(JSON.stringify({ "CredentialName": credentialName, "ProviderName": providerName, "KeyValueInfoList": credentialInfo}));
                         //xhr.send(JSON.stringify(sendJson));
+
+			// client logging
+			parent.frames["log_frame"].Log("POST> " + "$$SPIDER_SERVER$$/spider/credential -d " + sendJson);
+
                         xhr.send(sendJson);
 
-                        setTimeout(function(){
+			// client logging
+			parent.frames["log_frame"].Log("   => " + xhr.response);
+
+                        // setTimeout(function(){ // when async call
                                 location.reload();
-                        }, 400);
+                        // }, 400);
 
                 }
         `
@@ -402,7 +423,14 @@ func makeDeleteCredentialFunc_js() string {
                                         var xhr = new XMLHttpRequest();
                                         xhr.open("DELETE", "$$SPIDER_SERVER$$/spider/credential/" + checkboxes[i].value, false);
                                         xhr.setRequestHeader('Content-Type', 'application/json');
+
+                                        // client logging
+                                        parent.frames["log_frame"].Log("DELETE> " + "$$SPIDER_SERVER$$/spider/credential/" + checkboxes[i].value);
+
                                         xhr.send(null);
+
+                                        // client logging
+                                        parent.frames["log_frame"].Log("   => " + xhr.response);
                                 }
                         }
 			location.reload();
@@ -655,15 +683,22 @@ func makePostRegionFunc_js() string {
                                 }
                         }
                         var xhr = new XMLHttpRequest();
-                        xhr.open("POST", "$$SPIDER_SERVER$$/spider/region", true);
+                        xhr.open("POST", "$$SPIDER_SERVER$$/spider/region", false);
                         xhr.setRequestHeader('Content-Type', 'application/json');
                         //xhr.send(JSON.stringify({ "RegionName": regionName, "ProviderName": providerName, "KeyValueInfoList": regionInfo}));
                         //xhr.send(JSON.stringify(sendJson));
+
+			// client logging
+			parent.frames["log_frame"].Log("POST> " + "$$SPIDER_SERVER$$/spider/region -d " + sendJson);
+
                         xhr.send(sendJson);
 
-                        setTimeout(function(){
+			// client logging
+			parent.frames["log_frame"].Log("   => " + xhr.response);
+
+                        // setTimeout(function(){ // when async call
                                 location.reload();
-                        }, 400);
+                        // }, 400);
 
                 }
         `
@@ -683,7 +718,14 @@ func makeDeleteRegionFunc_js() string {
                                         var xhr = new XMLHttpRequest();
                                         xhr.open("DELETE", "$$SPIDER_SERVER$$/spider/region/" + checkboxes[i].value, false);
                                         xhr.setRequestHeader('Content-Type', 'application/json');
+
+                                        // client logging
+                                        parent.frames["log_frame"].Log("DELETE> " + "$$SPIDER_SERVER$$/spider/region/" + checkboxes[i].value);
+
                                         xhr.send(null);
+
+                                        // client logging
+                                        parent.frames["log_frame"].Log("   => " + xhr.response);
                                 }
                         }
 			location.reload();
@@ -1091,13 +1133,20 @@ func makePostConnectionConfigFunc_js() string {
                                 }
                         }
                         var xhr = new XMLHttpRequest();
-                        xhr.open("POST", "$$SPIDER_SERVER$$/spider/connectionconfig", true);
+                        xhr.open("POST", "$$SPIDER_SERVER$$/spider/connectionconfig", false);
                         xhr.setRequestHeader('Content-Type', 'application/json');
+
+			// client logging
+			parent.frames["log_frame"].Log("POST> " + "$$SPIDER_SERVER$$/spider/connectionconfig -d " + sendJson);
+
                         xhr.send(sendJson);
 
-                        setTimeout(function(){
+			// client logging
+			parent.frames["log_frame"].Log("   => " + xhr.response);
+
+                        // setTimeout(function(){ // when async call
                                 location.reload();
-                        }, 400);
+                        // }, 400);
 
                 }
         `
@@ -1117,7 +1166,14 @@ func makeDeleteConnectionConfigFunc_js() string {
                                         var xhr = new XMLHttpRequest();
                                         xhr.open("DELETE", "$$SPIDER_SERVER$$/spider/connectionconfig/" + checkboxes[i].value, false);
                                         xhr.setRequestHeader('Content-Type', 'application/json');
+
+                                        // client logging
+                                        parent.frames["log_frame"].Log("DELETE> " + "$$SPIDER_SERVER$$/spider/connectionconfig/" + checkboxes[i].value);
+
                                         xhr.send(null);
+
+                                        // client logging
+                                        parent.frames["log_frame"].Log("   => " + xhr.response);
                                 }
                         }
 			location.reload();

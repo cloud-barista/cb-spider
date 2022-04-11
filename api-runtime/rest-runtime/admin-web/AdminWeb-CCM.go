@@ -147,7 +147,14 @@ func makePostVPCFunc_js() string {
                         var xhr = new XMLHttpRequest();
                         xhr.open("POST", "$$SPIDER_SERVER$$/spider/vpc", false);
                         xhr.setRequestHeader('Content-Type', 'application/json');
+
+			// client logging
+			parent.frames["log_frame"].Log("POST> " + "$$SPIDER_SERVER$$/spider/vpc -H 'Content-Type: application/json' -d '" + sendJson + "'");
+
                         xhr.send(sendJson);
+
+			// client logging
+                        parent.frames["log_frame"].Log("   ==> " + xhr.response);
 
 			location.reload();
                 }
@@ -174,7 +181,14 @@ func makePostSubnetFunc_js() string {
                         var xhr = new XMLHttpRequest();
                         xhr.open("POST", "$$SPIDER_SERVER$$/spider/vpc/" + vpcName + "/subnet", false);
                         xhr.setRequestHeader('Content-Type', 'application/json');
+
+			 // client logging
+			parent.frames["log_frame"].Log("POST> " + "$$SPIDER_SERVER$$/spider/vpc/" + vpcName + "/subnet" + " -H 'Content-Type: application/json' -d '" + sendJson + "'");
+
                         xhr.send(sendJson);
+
+			// client logging
+			parent.frames["log_frame"].Log("   => " + xhr.response);
 
                         location.reload();
                 }
@@ -194,10 +208,17 @@ func makeDeleteVPCFunc_js() string {
                         for (var i = 0; i < checkboxes.length; i++) { // @todo make parallel executions
                                 if (checkboxes[i].checked) {
                                         var xhr = new XMLHttpRequest();
-                                        xhr.open("DELETE", "$$SPIDER_SERVER$$/spider/vpc/" + checkboxes[i].value, false);
+                                        xhr.open("DELETE", "$$SPIDER_SERVER$$/spider/vpc/" + checkboxes[i].value, false); // synch
                                         xhr.setRequestHeader('Content-Type', 'application/json');
 					sendJson = '{ "ConnectionName": "' + connConfig + '"}'
+
+					// client logging
+					parent.frames["log_frame"].Log("DELETE> " + "$$SPIDER_SERVER$$/spider/vpc/" + checkboxes[i].value +" -H 'Content-Type: application/json' -d '" + sendJson + "'");
+
                                         xhr.send(sendJson);
+
+					// client logging
+					parent.frames["log_frame"].Log("   => " + xhr.response);
                                 }
                         }
 			location.reload();
@@ -219,7 +240,14 @@ func makeDeleteSubnetFunc_js() string {
                         xhr.open("DELETE", "$$SPIDER_SERVER$$/spider/vpc/" + vpcName + "/subnet/" + subnetName, false);
                         xhr.setRequestHeader('Content-Type', 'application/json');
                         sendJson = '{ "ConnectionName": "' + connConfig + '"}'
+
+			 // client logging
+			parent.frames["log_frame"].Log("DELETE> " + "$$SPIDER_SERVER$$/spider/vpc/" + vpcName + "/subnet/" + subnetName + " -H 'Content-Type: application/json' -d '" + sendJson + "'");
+
                         xhr.send(sendJson);
+
+			// client logging
+			parent.frames["log_frame"].Log("   => " + xhr.response);
 
                         location.reload();
                 }
@@ -289,11 +317,20 @@ func VPC(c echo.Context) error {
 
 	// (4) make TR list with info list
 	// (4-1) get info list
+
+	// client logging
+	htmlStr += genLoggingGETURL(connConfig, "vpc")
+
 	resBody, err := getResourceList_with_Connection_JsonByte(connConfig, "vpc")
 	if err != nil {
 		cblog.Error(err)
+		// client logging
+		htmlStr += genLoggingResult(err.Error())
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
+	// client logging
+	htmlStr += genLoggingResult(string(resBody[:len(resBody)-1]))
+
 	var info struct {
 		ResultList []*cres.VPCInfo `json:"vpc"`
 	}
@@ -338,6 +375,54 @@ func VPC(c echo.Context) error {
 
 	//fmt.Println(htmlStr)
 	return c.HTML(http.StatusOK, htmlStr)
+}
+
+func genLoggingGETURL(connConfig string, rsType string) string {
+	/* return example
+	<script type="text/javascript">
+		parent.frames["log_frame"].Log("GET> http://localhost:1024/spider/vpc -d { "ConnectionName": "aws-ohio-config"}   ");
+	</script>
+	*/
+
+        url := "http://" + "localhost" + cr.ServerPort + "/spider/" + rsType + " -H 'Content-Type: application/json' -d '{\\\"ConnectionName\\\": \\\"" + connConfig  + "\\\"}'"
+        htmlStr := `
+                <script type="text/javascript">
+                `
+        htmlStr += `    parent.frames["log_frame"].Log("GET> ` +  url + `");`
+        htmlStr += `
+                </script>
+                `
+	return htmlStr
+}
+
+func genLoggingResult(response string) string {
+
+        htmlStr := `
+                <script type="text/javascript">
+                `
+        htmlStr += `    parent.frames["log_frame"].Log("   ==> ` + strings.ReplaceAll(response, "\"", "\\\"") + `");`
+        htmlStr += `
+                </script>
+                `
+        return htmlStr
+}
+
+func genLoggingOneGETURL(connConfig string, rsType string, name string) string {
+        /* return example
+        <script type="text/javascript">
+                parent.frames["log_frame"].Log("GET> http://localhost:1024/spider/vpc/vpc-01 -d { "ConnectionName": "aws-ohio-config"}  ");
+        </script>
+        */
+
+        url := "http://" + "localhost" + cr.ServerPort + "/spider/" + rsType + "/" + name + " -H 'Content-Type: application/json' -d '{\\\"ConnectionName\\\": \\\"" + connConfig  + "\\\"}'"
+        htmlStr := `
+                <script type="text/javascript">
+                `
+        htmlStr += `    parent.frames["log_frame"].Log("GET> ` +  url + `");`
+        htmlStr += `
+                </script>
+                `
+        return htmlStr
 }
 
 //====================================== Security Group
@@ -442,7 +527,16 @@ func makePostSecurityGroupFunc_js() string {
                         var xhr = new XMLHttpRequest();
                         xhr.open("POST", "$$SPIDER_SERVER$$/spider/securitygroup", false);
                         xhr.setRequestHeader('Content-Type', 'application/json');
+
+			// client logging
+			parent.frames["log_frame"].Log("POST> " + "$$SPIDER_SERVER$$/spider/securitygroup -H 'Content-Type: application/json' -d '" + sendJson + "'");
+
                         xhr.send(sendJson);
+
+			// client logging
+			parent.frames["log_frame"].Log("   ==> " + xhr.response);
+
+
 
             location.reload();
                 }
@@ -464,8 +558,15 @@ func makeDeleteSecurityGroupFunc_js() string {
                                         var xhr = new XMLHttpRequest();
                                         xhr.open("DELETE", "$$SPIDER_SERVER$$/spider/securitygroup/" + checkboxes[i].value, false);
                                         xhr.setRequestHeader('Content-Type', 'application/json');
-                    sendJson = '{ "ConnectionName": "' + connConfig + '"}'
+					sendJson = '{ "ConnectionName": "' + connConfig + '"}'
+
+					// client logging
+					parent.frames["log_frame"].Log("DELETE> " + "$$SPIDER_SERVER$$/spider/securitygroup/" + checkboxes[i].value + " -H 'Content-Type: application/json' -d '" + sendJson + "'");
+
                                         xhr.send(sendJson);
+
+					// client logging
+					parent.frames["log_frame"].Log("   ==> " + xhr.response);
                                 }
                         }
             location.reload();
@@ -534,11 +635,21 @@ func SecurityGroup(c echo.Context) error {
 
 	// (4) make TR list with info list
 	// (4-1) get info list
+
+	// client logging
+	htmlStr += genLoggingGETURL(connConfig, "securitygroup")
+
 	resBody, err := getResourceList_with_Connection_JsonByte(connConfig, "securitygroup")
 	if err != nil {
 		cblog.Error(err)
+		// client logging
+                htmlStr += genLoggingResult(err.Error())
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
+
+	// client logging
+	htmlStr += genLoggingResult(string(resBody[:len(resBody)-1]))
+
 	var info struct {
 		ResultList []*cres.SecurityInfo `json:"securitygroup"`
 	}
@@ -685,7 +796,14 @@ func makePostKeyPairFunc_js() string {
                         var xhr = new XMLHttpRequest();
                         xhr.open("POST", "$$SPIDER_SERVER$$/spider/keypair", false);
                         xhr.setRequestHeader('Content-Type', 'application/json');
+
+			// client logging
+			parent.frames["log_frame"].Log("POST> " + "$$SPIDER_SERVER$$/spider/keypair -H 'Content-Type: application/json' -d '" + sendJson + "'");
+
                         xhr.send(sendJson);
+
+			// client logging
+			parent.frames["log_frame"].Log("   ==> " + xhr.response);
 
             location.reload();
                 }
@@ -708,8 +826,15 @@ func makeDeleteKeyPairFunc_js() string {
                                         var xhr = new XMLHttpRequest();
                                         xhr.open("DELETE", "$$SPIDER_SERVER$$/spider/keypair/" + checkboxes[i].value, false);
                                         xhr.setRequestHeader('Content-Type', 'application/json');
-                    sendJson = '{ "ConnectionName": "' + connConfig + '"}'
+					sendJson = '{ "ConnectionName": "' + connConfig + '"}'
+
+					// client logging
+					parent.frames["log_frame"].Log("DELETE> " + "$$SPIDER_SERVER$$/spider/keypair/" + checkboxes[i].value + " -H 'Content-Type: application/json' -d '" + sendJson + "'");
+
                                         xhr.send(sendJson);
+
+					// client logging
+					parent.frames["log_frame"].Log("   ==> " + xhr.response);
                                 }
                         }
             location.reload();
@@ -778,11 +903,21 @@ func KeyPair(c echo.Context) error {
 
 	// (4) make TR list with info list
 	// (4-1) get info list
+
+	// client logging
+	htmlStr += genLoggingGETURL(connConfig, "keypair")
+
 	resBody, err := getResourceList_with_Connection_JsonByte(connConfig, "keypair")
 	if err != nil {
 		cblog.Error(err)
+		// client logging
+                htmlStr += genLoggingResult(err.Error())
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
+
+	// client logging
+	htmlStr += genLoggingResult(string(resBody[:len(resBody)-1]))
+
 	var info struct {
 		ResultList []*cres.KeyPairInfo `json:"keypair"`
 	}
@@ -934,11 +1069,18 @@ func makeVMTRList_html(connConfig string, bgcolor string, height string, fontSiz
 		// for security rules info
 		strSRList := ""
 		for _, one := range one.SecurityGroupIIds {
+
+			// client logging
+			strSRList += genLoggingOneGETURL(connConfig, "securitygroup", one.NameId)
+
 			resBody, err := getResource_with_Connection_JsonByte(connConfig, "securitygroup", one.NameId)
 			if err != nil {
 				cblog.Error(err)
 				break
 			}
+			// client logging
+			strSRList += genLoggingResult(string(resBody[:len(resBody)-1]))
+
 			var secInfo cres.SecurityInfo
 			json.Unmarshal(resBody, &secInfo)
 
@@ -988,22 +1130,29 @@ func makeVMTRList_html(connConfig string, bgcolor string, height string, fontSiz
 
 // make the string of javascript function
 func makeVMControlFunc_js() string {
-	//curl -sX GET http://localhost:1024/spider/controlvm/vm-01?action=suspend -H 'Content-Type: application/json' -d '{ "ConnectionName": "'${CONN_CONFIG}'"}'
+	//curl -sX PUT http://localhost:1024/spider/controlvm/vm-01?action=suspend -H 'Content-Type: application/json' -d '{ "ConnectionName": "'${CONN_CONFIG}'"}'
 
 	strFunc := `
                 function vmControl(vmName, action) {
                         var connConfig = parent.frames["top_frame"].document.getElementById("connConfig").innerHTML;
 
-												document.getElementById("vmcontrol-" + vmName).innerHTML = '<span style="color:red">Waiting...</span>';
-												setTimeout(function(){
-													var xhr = new XMLHttpRequest();
-													xhr.open("PUT", "$$SPIDER_SERVER$$/spider/controlvm/" + vmName + "?action=" + action, false);
-													xhr.setRequestHeader('Content-Type', 'application/json');
-													sendJson = '{ "ConnectionName": "' + connConfig + '"}'
-													xhr.send(sendJson);
-	
-													location.reload();
-												}, 10);
+			document.getElementById("vmcontrol-" + vmName).innerHTML = '<span style="color:red">Waiting...</span>';
+			setTimeout(function(){
+				var xhr = new XMLHttpRequest();
+				xhr.open("PUT", "$$SPIDER_SERVER$$/spider/controlvm/" + vmName + "?action=" + action, false);
+				xhr.setRequestHeader('Content-Type', 'application/json');
+				sendJson = '{ "ConnectionName": "' + connConfig + '"}'
+
+				// client logging
+				parent.frames["log_frame"].Log("PUT> " + "$$SPIDER_SERVER$$/spider/controlvm/" + vmName + "?action=" + action + " -H 'Content-Type: application/json' -d '" + sendJson + "'");
+
+				xhr.send(sendJson);
+
+				// client logging
+				parent.frames["log_frame"].Log("   ==> " + xhr.response);
+
+				location.reload();
+			}, 10);
                 }
         `
 	strFunc = strings.ReplaceAll(strFunc, "$$SPIDER_SERVER$$", "http://"+cr.ServiceIPorName+cr.ServicePort) // cr.ServicePort = ":1024"
@@ -1063,9 +1212,16 @@ func makePostVMFunc_js() string {
                         var xhr = new XMLHttpRequest();
                         xhr.open("POST", "$$SPIDER_SERVER$$/spider/vm", false);
                         xhr.setRequestHeader('Content-Type', 'application/json');
+
+			// client logging
+			parent.frames["log_frame"].Log("POST> " + "$$SPIDER_SERVER$$/spider/vm -H 'Content-Type: application/json' -d '" + sendJson + "'");
+
                         xhr.send(sendJson);
 
-            location.reload();
+			// client logging
+			parent.frames["log_frame"].Log("   ==> " + xhr.response);
+
+			location.reload();
                 }
         `
 	strFunc = strings.ReplaceAll(strFunc, "$$SPIDER_SERVER$$", "http://"+cr.ServiceIPorName+cr.ServicePort) // cr.ServicePort = ":1024"
@@ -1085,8 +1241,15 @@ func makeDeleteVMFunc_js() string {
                                         var xhr = new XMLHttpRequest();
                                         xhr.open("DELETE", "$$SPIDER_SERVER$$/spider/vm/" + checkboxes[i].value, false);
                                         xhr.setRequestHeader('Content-Type', 'application/json');
-                    sendJson = '{ "ConnectionName": "' + connConfig + '"}'
+					sendJson = '{ "ConnectionName": "' + connConfig + '"}'
+
+					// client logging
+					parent.frames["log_frame"].Log("DELETE> " + "$$SPIDER_SERVER$$/spider/vm/" + checkboxes[i].value + " -H 'Content-Type: application/json' -d '" + sendJson + "'");
+
                                         xhr.send(sendJson);
+
+					// client logging
+					parent.frames["log_frame"].Log("   ==> " + xhr.response);
                                 }
                         }
             location.reload();
@@ -1160,11 +1323,21 @@ func VM(c echo.Context) error {
 
 	// (4) make TR list with info list
 	// (4-1) get info list
+
+	// client logging
+	htmlStr += genLoggingGETURL(connConfig, "vm")
+
 	resBody, err := getResourceList_with_Connection_JsonByte(connConfig, "vm")
 	if err != nil {
 		cblog.Error(err)
+		// client logging
+                htmlStr += genLoggingResult(err.Error())
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
+
+	// client logging
+	htmlStr += genLoggingResult(string(resBody[:len(resBody)-1]))
+
 	var info struct {
 		ResultList []*cres.VMInfo `json:"vm"`
 	}
@@ -1459,11 +1632,21 @@ func VMImage(c echo.Context) error {
 
 	// (4) make TR list with info list
 	// (4-1) get info list
+
+	// client logging
+	htmlStr += genLoggingGETURL(connConfig, "vmimage")
+
 	resBody, err := getResourceList_with_Connection_JsonByte(connConfig, "vmimage")
 	if err != nil {
 		cblog.Error(err)
+		// client logging
+                htmlStr += genLoggingResult(err.Error())
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
+
+	// client logging
+	htmlStr += genLoggingResult(string(resBody[:len(resBody)-1]))
+
 	var info struct {
 		ResultList []*cres.ImageInfo `json:"image"`
 	}
@@ -1605,11 +1788,21 @@ func VMSpec(c echo.Context) error {
 
 	// (4) make TR list with info list
 	// (4-1) get info list
+
+	// client logging
+	htmlStr += genLoggingGETURL(connConfig, "vmspec")
+
 	resBody, err := getResourceList_with_Connection_JsonByte(connConfig, "vmspec")
 	if err != nil {
 		cblog.Error(err)
+		// client logging
+                htmlStr += genLoggingResult(err.Error())
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
+
+	// client logging
+	htmlStr += genLoggingResult(string(resBody[:len(resBody)-1]))
+
 	var info struct {
 		ResultList []*cres.VMSpecInfo `json:"vmspec"`
 	}

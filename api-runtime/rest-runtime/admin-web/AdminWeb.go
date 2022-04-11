@@ -124,8 +124,9 @@ func Frame(c echo.Context) error {
  <!--   <frameset rows="66,*" frameborder="Yes" border=1"> -->
     <frameset rows="100,*" frameborder="Yes" border=1">
         <frame src="adminweb/top" name="top_frame" scrolling="auto" noresize marginwidth="0" marginheight="0"/>
-        <frameset frameborder="Yes" border=1">
+        <frameset rows="*,130" frameborder="Yes" border=1">
             <frame src="adminweb/driver" name="main_frame" scrolling="auto" noresize marginwidth="5" marginheight="0"/> 
+            <frame src="adminweb/log" name="log_frame" scrolling="auto" noresize marginwidth="5" marginheight="4"/> 
         </frameset>
     </frameset>
     <noframes>
@@ -256,6 +257,79 @@ func Top(c echo.Context) error {
 
     </table>
 </body>
+</html>
+	`
+
+	
+	htmlStr = strings.ReplaceAll(htmlStr, "$$TIME$$", cr.ShortStartTime)
+	return c.HTML(http.StatusOK, htmlStr)
+}
+
+//================ Log
+func Log(c echo.Context) error {
+	cblog.Info("call Log()")
+
+	htmlStr :=  ` 
+<html>
+	<head>
+		<style>
+			.footer {
+			   position: fixed;
+			   left: 2%;
+			   bmeottom:8 0;
+			   width: 96%;
+			   background-color:lightgray;
+			   color: white;
+			   text-align: center;
+			}
+			.clearbutton {
+			   position: fixed;
+			   left: 0%;
+			}
+
+		</style>
+		<script>
+			function init() {
+				var logObject = document.getElementById('printLog');
+				logObject.style.width = "100%"; // 800;
+				logObject.style.height = "120";
+			}
+						
+			function main() {
+				Log("# Spider Client Log...");
+			}
+
+			function Log(s) {
+				var logObject = document.getElementById('printLog');
+				var curTime = "[" + new Date().toLocaleTimeString() + "] ";
+				logObject.value += (curTime + s + '\n');
+
+				if(logObject.selectionStart == logObject.selectionEnd) {
+					logObject.scrollTop = logObject.scrollHeight;
+				}
+			}
+
+			function clearLog() {
+				var logObject = document.getElementById('printLog');
+				var curTime = "[" + new Date().toLocaleTimeString() + "] ";
+				var s = "# Spider Client Log..."
+				logObject.value = (curTime + s + '\n');
+			}
+		</script>
+	</head>
+
+	<body>
+		<button class="clearbutton" onclick="clearLog()">X</button>
+
+		<div class="footer">
+			<textarea id='printLog' disabled="true" style="overflow:scroll;resize:none;" wrap="off"></textarea>
+		</div>
+		<script>
+			init();
+			main();
+		</script>
+
+	</body>
 </html>
 	`
 
