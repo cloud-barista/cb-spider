@@ -42,7 +42,6 @@ func init() {
 
 // 주어진 이미지 id에 대한 이미지 사이즈 조회
 // -1 : 정보 조회 실패
-// to-do : storage가 추가되면 function 이름 변경
 func (vmHandler *AlibabaVMHandler) GetImageSize(ImageSystemId string) (int64, error) {
 	cblogger.Debugf("ImageID : [%s]", ImageSystemId)
 
@@ -50,7 +49,7 @@ func (vmHandler *AlibabaVMHandler) GetImageSize(ImageSystemId string) (int64, er
 	imageRequest.Scheme = "https"
 
 	imageRequest.ImageId = ImageSystemId
-	imageRequest.ShowExpired = requests.NewBoolean(true)
+	imageRequest.ShowExpired = requests.NewBoolean(true) //default는 false, false일 때는 최신 이미지 정보만 조회됨, true일 때는 오래된 이미지도 조회
 
 	response, err := vmHandler.Client.DescribeImages(imageRequest)
 	if err != nil {
