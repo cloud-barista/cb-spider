@@ -2,7 +2,7 @@
 
 if [ "$1" = "" ]; then
 	echo
-	echo -e 'usage: '$0' aws|gcp|alibaba|azure|openstack|cloudit'
+	echo -e 'usage: '$0' mock|aws|azure|gcp|alibaba|tencent|ibm|openstack|cloudit|ncp|nhncloud'
 	echo -e '\n\tex) '$0' aws'
 	echo
 	exit 0;
@@ -28,6 +28,7 @@ time $CLIPATH/spctl --config $CLIPATH/spctl.conf vpc create -i json -d \
 
 echo "============== after create VPC/Subnet: '${VPC_NAME}'"
 
+echo "\n\n"
 
 echo "============== before create SecurityGroup: '${SG_NAME}'"
 time $CLIPATH/spctl --config $CLIPATH/spctl.conf security create -i json -d \
@@ -48,6 +49,7 @@ time $CLIPATH/spctl --config $CLIPATH/spctl.conf security create -i json -d \
     }' 2> /dev/null
 echo "============== after create SecurityGroup: '${SG_NAME}'"
 
+echo "\n\n"
 
 echo "============== before create KeyPair: '${KEYPAIR_NAME}'"
 time $CLIPATH/spctl --config $CLIPATH/spctl.conf keypair create -i json -d \
@@ -58,4 +60,6 @@ time $CLIPATH/spctl --config $CLIPATH/spctl.conf keypair create -i json -d \
       }
     }' 2> /dev/null
 echo "============== after create KeyPair: '${KEYPAIR_NAME}'"
+
+echo "\n\n"
 

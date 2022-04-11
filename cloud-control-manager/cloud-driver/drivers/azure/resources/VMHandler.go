@@ -14,6 +14,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math/rand"
 	"reflect"
 	"strconv"
 	"strings"
@@ -120,7 +121,7 @@ func (vmHandler *AzureVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 				VMSize: compute.VirtualMachineSizeTypes(vmReqInfo.VMSpecName),
 			},
 			OsProfile: &compute.OSProfile{
-				ComputerName:  &vmReqInfo.IId.NameId,
+				ComputerName: to.StringPtr(CBVMUser),
 				AdminUsername: to.StringPtr(CBVMUser),
 			},
 			NetworkProfile: &compute.NetworkProfile{
@@ -1160,13 +1161,13 @@ func GetRawVM(vmIID irs.IID, resourceGroup string, client *compute.VirtualMachin
 }
 
 func generatePublicIPName(vmName string) string {
-	nanos := time.Now().UnixNano()
-	return fmt.Sprintf("%s-%s-PublicIP", vmName, strconv.FormatInt(nanos, 10))
+	rand.Seed(time.Now().UnixNano())
+	return fmt.Sprintf("%s-%s-PublicIP", vmName, strconv.FormatInt(rand.Int63n(100000), 10))
 }
 
 func generateVNicName(vmName string) string {
-	nanos := time.Now().UnixNano()
-	return fmt.Sprintf("%s-%s-VNic", vmName, strconv.FormatInt(nanos, 10))
+	rand.Seed(time.Now().UnixNano())
+	return fmt.Sprintf("%s-%s-VNic", vmName, strconv.FormatInt(rand.Int63n(100000), 10))
 }
 
 func resizeVMOsDisk(RootDiskSize string, vmReqIId irs.IID, resourceGroup string, client *compute.VirtualMachinesClient, diskClient *compute.DisksClient, ctx context.Context) (bool, error) {

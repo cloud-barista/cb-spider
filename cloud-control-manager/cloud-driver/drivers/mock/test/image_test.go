@@ -15,11 +15,15 @@ import (
 
 	_ "fmt"
 	"testing"
+        cblog "github.com/cloud-barista/cb-log"
 )
 
 var imageHandler irs.ImageHandler
 
 func init() {
+        // make the log level lower to print clearly
+        cblog.SetLevel("error")
+
 	cred := idrv.CredentialInfo{
 		MockName: "MockDriver-01",
 	}

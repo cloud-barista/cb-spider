@@ -528,7 +528,7 @@ func ExtractVpcDescribeInfo(vpcInfo *ec2.Vpc) irs.VPCInfo {
 
 	//Name은 Tag의 "Name" 속성에만 저장됨
 	//NameId는 전달할 필요가 없음.
-	
+
 	cblogger.Debug("Name Tag 찾기")
 	for _, t := range vpcInfo.Tags {
 		if *t.Key == "Name" {
@@ -537,7 +537,7 @@ func ExtractVpcDescribeInfo(vpcInfo *ec2.Vpc) irs.VPCInfo {
 			break
 		}
 	}
-	
+
 	return awsVpcInfo
 }
 
@@ -563,8 +563,8 @@ func (VPCHandler *AwsVPCHandler) DeleteSubnet(subnetIID irs.IID) (bool, error) {
 
 	_, err := VPCHandler.Client.DeleteSubnet(input)
 	callLogInfo.ElapsedTime = call.Elapsed(start)
-	cblogger.Info(err)
 	if err != nil {
+		cblogger.Error(err) //#577
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
 			default:

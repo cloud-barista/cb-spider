@@ -111,12 +111,12 @@ curl -sX POST http://localhost:1024/spider/vm -H 'Content-Type: application/json
 
 
 #### RootDiskType / RootDiskSize
-#### pd-extreme / 24
+#### pd-extreme / 520 (min:500GB)
 curl -sX POST http://localhost:1024/spider/vm -H 'Content-Type: application/json' -d \
         '{
                 "ConnectionName": "'${CONN_CONFIG}'",
                 "ReqInfo": {
-                        "Name": "vm-01-pd-extreme-24GB",
+                        "Name": "vm-01-pd-extreme-520GB",
                         "ImageName": "'${IMAGE_NAME}'",
                         "VPCName": "vpc-01",
                         "SubnetName": "subnet-01",
@@ -124,7 +124,7 @@ curl -sX POST http://localhost:1024/spider/vm -H 'Content-Type: application/json
                         "VMSpecName": "'${SPEC_NAME}'",
                         "KeyPairName": "keypair-01",
                         "RootDiskType": "pd-extreme",
-                        "RootDiskSize": "24"
+                        "RootDiskSize": "520"
                 }
         }' |json_pp
 

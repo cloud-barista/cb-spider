@@ -446,10 +446,9 @@ message ListSecurityInfoResponse {
 message SecurityInfo {
 	IID iid = 1 [json_name="IId", (gogoproto.jsontag) = "IId", (gogoproto.moretags) = "yaml:\"IId\""];
 	IID vpc_iid = 2 [json_name="VpcIID", (gogoproto.jsontag) = "VpcIID", (gogoproto.moretags) = "yaml:\"VpcIID\""];
-	string direction = 3 [json_name="Direction", (gogoproto.jsontag) = "Direction", (gogoproto.moretags) = "yaml:\"Direction\""];    
-	repeated SecurityRuleInfo security_rules = 4 [json_name="SecurityRules", (gogoproto.jsontag) = "SecurityRules", (gogoproto.moretags) = "yaml:\"SecurityRules\""];
+	repeated SecurityRuleInfo security_rules = 3 [json_name="SecurityRules", (gogoproto.jsontag) = "SecurityRules", (gogoproto.moretags) = "yaml:\"SecurityRules\""];
 
-	repeated KeyValue key_value_list = 5 [json_name="KeyValueList", (gogoproto.jsontag) = "KeyValueList", (gogoproto.moretags) = "yaml:\"KeyValueList\""];
+	repeated KeyValue key_value_list = 4 [json_name="KeyValueList", (gogoproto.jsontag) = "KeyValueList", (gogoproto.moretags) = "yaml:\"KeyValueList\""];
 }
 
 message SecurityRuleInfo {
@@ -468,8 +467,7 @@ message SecurityCreateRequest {
 message SecurityCreateInfo {
 	string name = 1 [json_name="Name", (gogoproto.jsontag) = "Name", (gogoproto.moretags) = "yaml:\"Name\""]; 
 	string vpc_name = 2 [json_name="VPCName", (gogoproto.jsontag) = "VPCName", (gogoproto.moretags) = "yaml:\"VPCName\""]; 
-	string direction = 3 [json_name="Direction", (gogoproto.jsontag) = "Direction", (gogoproto.moretags) = "yaml:\"Direction\""];     
-	repeated SecurityRuleInfo security_rules = 4 [json_name="SecurityRules", (gogoproto.jsontag) = "SecurityRules", (gogoproto.moretags) = "yaml:\"SecurityRules\""]; 
+	repeated SecurityRuleInfo security_rules = 3 [json_name="SecurityRules", (gogoproto.jsontag) = "SecurityRules", (gogoproto.moretags) = "yaml:\"SecurityRules\""]; 
 }
 
 message SecurityRegisterRequest {

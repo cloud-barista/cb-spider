@@ -254,6 +254,10 @@ func RunServer() {
 		{"GET", "/securitygroup", ListSecurity},
 		{"GET", "/securitygroup/:Name", GetSecurity},
 		{"DELETE", "/securitygroup/:Name", DeleteSecurity},
+		//-- for rule
+		{"POST", "/securitygroup/:SGName/rules", AddRules},
+		{"DELETE", "/securitygroup/:SGName/rules", RemoveRules}, // no force option
+		// no CSP Option, {"DELETE", "/securitygroup/:SGName/csprules", RemoveCSPRules},
 		//-- for management
 		{"GET", "/allsecuritygroup", ListAllSecurity},
 		{"DELETE", "/cspsecuritygroup/:Id", DeleteCSPSecurity},

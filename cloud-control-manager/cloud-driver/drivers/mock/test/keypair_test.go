@@ -16,11 +16,15 @@ import (
 
 	"testing"
 	_ "fmt"
+	cblog "github.com/cloud-barista/cb-log"
 )
 
 var keyPairHandler irs.KeyPairHandler
 
 func init() {
+        // make the log level lower to print clearly
+        cblog.SetLevel("error")
+
         cred := idrv.CredentialInfo{
                 MockName:      "MockDriver-01",
         }

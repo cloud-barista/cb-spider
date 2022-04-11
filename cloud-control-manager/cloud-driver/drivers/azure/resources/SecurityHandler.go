@@ -88,7 +88,7 @@ func (securityHandler *AzureSecurityHandler) CreateSecurity(securityReqInfo irs.
 	for idx, rule := range *securityReqInfo.SecurityRules {
 		priorityNum = int32(300 + idx*100)
 		sgRuleInfo := network.SecurityRule{
-			Name: to.StringPtr(fmt.Sprintf("%s-rules-%d", securityReqInfo.IId.NameId, idx+1)),
+			Name: to.StringPtr(fmt.Sprintf("%s-rules-%d", rule.Direction, idx+1)),
 			SecurityRulePropertiesFormat: &network.SecurityRulePropertiesFormat{
 				SourceAddressPrefix:      &rule.CIDR,
 				DestinationAddressPrefix: to.StringPtr("*"),
@@ -202,4 +202,12 @@ func (securityHandler *AzureSecurityHandler) DeleteSecurity(securityIID irs.IID)
 	}
 	LoggingInfo(hiscallInfo, start)
 	return true, nil
+}
+
+func (securityHandler *AzureSecurityHandler) AddRules(sgIID irs.IID, securityRules *[]irs.SecurityRuleInfo) (irs.SecurityInfo, error) {
+        return irs.SecurityInfo{}, fmt.Errorf("Coming Soon!")
+}
+
+func (securityHandler *AzureSecurityHandler) RemoveRules(sgIID irs.IID, securityRules *[]irs.SecurityRuleInfo) (bool, error) {
+        return false, fmt.Errorf("Coming Soon!")
 }
