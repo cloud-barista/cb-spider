@@ -40,9 +40,10 @@ func init() {
 	cblogger = cblog.GetLogger("CB-SPIDER")
 }
 
-// VM생성 시 사용할 루트 디스크의 최소 볼륨 사이즈 정보를 조회함
+// 주어진 이미지 id에 대한 이미지 사이즈 조회
 // -1 : 정보 조회 실패
-func (vmHandler *AlibabaVMHandler) GetDiskInfo(ImageSystemId string) (int64, error) {
+// to-do : storage가 추가되면 function 이름 변경
+func (vmHandler *AlibabaVMHandler) GetImageSize(ImageSystemId string) (int64, error) {
 	cblogger.Debugf("ImageID : [%s]", ImageSystemId)
 
 	imageRequest := ecs.CreateDescribeImagesRequest()
@@ -272,7 +273,7 @@ func (vmHandler *AlibabaVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 			return irs.VMInfo{}, errors.New("Requested disk size cannot be larger than the maximum disk size, invalid")
 		}
 
-		imageSize, err := vmHandler.GetDiskInfo(vmReqInfo.ImageIID.SystemId)
+		imageSize, err := vmHandler.GetImageSize(vmReqInfo.ImageIID.SystemId)
 		if err != nil {
 			cblogger.Error(err)
 			return irs.VMInfo{}, err
