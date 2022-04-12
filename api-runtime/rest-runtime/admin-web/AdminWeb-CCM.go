@@ -149,7 +149,7 @@ func makePostVPCFunc_js() string {
                         xhr.setRequestHeader('Content-Type', 'application/json');
 
 			// client logging
-			parent.frames["log_frame"].Log("POST> " + "$$SPIDER_SERVER$$/spider/vpc -H 'Content-Type: application/json' -d '" + sendJson + "'");
+			parent.frames["log_frame"].Log("curl -sX POST " + "$$SPIDER_SERVER$$/spider/vpc -H 'Content-Type: application/json' -d '" + sendJson + "'");
 
                         xhr.send(sendJson);
 
@@ -183,7 +183,7 @@ func makePostSubnetFunc_js() string {
                         xhr.setRequestHeader('Content-Type', 'application/json');
 
 			 // client logging
-			parent.frames["log_frame"].Log("POST> " + "$$SPIDER_SERVER$$/spider/vpc/" + vpcName + "/subnet" + " -H 'Content-Type: application/json' -d '" + sendJson + "'");
+			parent.frames["log_frame"].Log("curl -sX POST " + "$$SPIDER_SERVER$$/spider/vpc/" + vpcName + "/subnet" + " -H 'Content-Type: application/json' -d '" + sendJson + "'");
 
                         xhr.send(sendJson);
 
@@ -213,7 +213,7 @@ func makeDeleteVPCFunc_js() string {
 					sendJson = '{ "ConnectionName": "' + connConfig + '"}'
 
 					// client logging
-					parent.frames["log_frame"].Log("DELETE> " + "$$SPIDER_SERVER$$/spider/vpc/" + checkboxes[i].value +" -H 'Content-Type: application/json' -d '" + sendJson + "'");
+					parent.frames["log_frame"].Log("curl -sX DELETE " + "$$SPIDER_SERVER$$/spider/vpc/" + checkboxes[i].value +" -H 'Content-Type: application/json' -d '" + sendJson + "'");
 
                                         xhr.send(sendJson);
 
@@ -242,7 +242,7 @@ func makeDeleteSubnetFunc_js() string {
                         sendJson = '{ "ConnectionName": "' + connConfig + '"}'
 
 			 // client logging
-			parent.frames["log_frame"].Log("DELETE> " + "$$SPIDER_SERVER$$/spider/vpc/" + vpcName + "/subnet/" + subnetName + " -H 'Content-Type: application/json' -d '" + sendJson + "'");
+			parent.frames["log_frame"].Log("curl -sX DELETE " + "$$SPIDER_SERVER$$/spider/vpc/" + vpcName + "/subnet/" + subnetName + " -H 'Content-Type: application/json' -d '" + sendJson + "'");
 
                         xhr.send(sendJson);
 
@@ -380,7 +380,7 @@ func VPC(c echo.Context) error {
 func genLoggingGETURL(connConfig string, rsType string) string {
 	/* return example
 	<script type="text/javascript">
-		parent.frames["log_frame"].Log("GET> http://localhost:1024/spider/vpc -d { "ConnectionName": "aws-ohio-config"}   ");
+		parent.frames["log_frame"].Log("curl -sX GET http://localhost:1024/spider/vpc -H 'Content-Type: application/json' -d '{"ConnectionName": "aws-ohio-config"}'   ");
 	</script>
 	*/
 
@@ -388,7 +388,7 @@ func genLoggingGETURL(connConfig string, rsType string) string {
         htmlStr := `
                 <script type="text/javascript">
                 `
-        htmlStr += `    parent.frames["log_frame"].Log("GET> ` +  url + `");`
+        htmlStr += `    parent.frames["log_frame"].Log("curl -sX GET ` +  url + `");`
         htmlStr += `
                 </script>
                 `
@@ -410,7 +410,7 @@ func genLoggingResult(response string) string {
 func genLoggingOneGETURL(connConfig string, rsType string, name string) string {
         /* return example
         <script type="text/javascript">
-                parent.frames["log_frame"].Log("GET> http://localhost:1024/spider/vpc/vpc-01 -d { "ConnectionName": "aws-ohio-config"}  ");
+                parent.frames["log_frame"].Log("curl -sX GET http://localhost:1024/spider/vpc/vpc-01 -H 'Content-Type: application/json' -d '{ "ConnectionName": "aws-ohio-config"}'  ");
         </script>
         */
 
@@ -418,7 +418,7 @@ func genLoggingOneGETURL(connConfig string, rsType string, name string) string {
         htmlStr := `
                 <script type="text/javascript">
                 `
-        htmlStr += `    parent.frames["log_frame"].Log("GET> ` +  url + `");`
+        htmlStr += `    parent.frames["log_frame"].Log("curl -sX GET ` +  url + `");`
         htmlStr += `
                 </script>
                 `
@@ -529,7 +529,7 @@ func makePostSecurityGroupFunc_js() string {
                         xhr.setRequestHeader('Content-Type', 'application/json');
 
 			// client logging
-			parent.frames["log_frame"].Log("POST> " + "$$SPIDER_SERVER$$/spider/securitygroup -H 'Content-Type: application/json' -d '" + sendJson + "'");
+			parent.frames["log_frame"].Log("curl -sX POST " + "$$SPIDER_SERVER$$/spider/securitygroup -H 'Content-Type: application/json' -d '" + sendJson + "'");
 
                         xhr.send(sendJson);
 
@@ -561,7 +561,7 @@ func makeDeleteSecurityGroupFunc_js() string {
 					sendJson = '{ "ConnectionName": "' + connConfig + '"}'
 
 					// client logging
-					parent.frames["log_frame"].Log("DELETE> " + "$$SPIDER_SERVER$$/spider/securitygroup/" + checkboxes[i].value + " -H 'Content-Type: application/json' -d '" + sendJson + "'");
+					parent.frames["log_frame"].Log("curl -sX DELETE " + "$$SPIDER_SERVER$$/spider/securitygroup/" + checkboxes[i].value + " -H 'Content-Type: application/json' -d '" + sendJson + "'");
 
                                         xhr.send(sendJson);
 
@@ -798,7 +798,7 @@ func makePostKeyPairFunc_js() string {
                         xhr.setRequestHeader('Content-Type', 'application/json');
 
 			// client logging
-			parent.frames["log_frame"].Log("POST> " + "$$SPIDER_SERVER$$/spider/keypair -H 'Content-Type: application/json' -d '" + sendJson + "'");
+			parent.frames["log_frame"].Log("curl -sX POST " + "$$SPIDER_SERVER$$/spider/keypair -H 'Content-Type: application/json' -d '" + sendJson + "'");
 
                         xhr.send(sendJson);
 
@@ -829,7 +829,7 @@ func makeDeleteKeyPairFunc_js() string {
 					sendJson = '{ "ConnectionName": "' + connConfig + '"}'
 
 					// client logging
-					parent.frames["log_frame"].Log("DELETE> " + "$$SPIDER_SERVER$$/spider/keypair/" + checkboxes[i].value + " -H 'Content-Type: application/json' -d '" + sendJson + "'");
+					parent.frames["log_frame"].Log("curl -sX DELETE " + "$$SPIDER_SERVER$$/spider/keypair/" + checkboxes[i].value + " -H 'Content-Type: application/json' -d '" + sendJson + "'");
 
                                         xhr.send(sendJson);
 
@@ -1214,7 +1214,7 @@ func makePostVMFunc_js() string {
                         xhr.setRequestHeader('Content-Type', 'application/json');
 
 			// client logging
-			parent.frames["log_frame"].Log("POST> " + "$$SPIDER_SERVER$$/spider/vm -H 'Content-Type: application/json' -d '" + sendJson + "'");
+			parent.frames["log_frame"].Log("curl -sX POST " + "$$SPIDER_SERVER$$/spider/vm -H 'Content-Type: application/json' -d '" + sendJson + "'");
 
                         xhr.send(sendJson);
 
@@ -1244,7 +1244,7 @@ func makeDeleteVMFunc_js() string {
 					sendJson = '{ "ConnectionName": "' + connConfig + '"}'
 
 					// client logging
-					parent.frames["log_frame"].Log("DELETE> " + "$$SPIDER_SERVER$$/spider/vm/" + checkboxes[i].value + " -H 'Content-Type: application/json' -d '" + sendJson + "'");
+					parent.frames["log_frame"].Log("curl -sX DELETE " + "$$SPIDER_SERVER$$/spider/vm/" + checkboxes[i].value + " -H 'Content-Type: application/json' -d '" + sendJson + "'");
 
                                         xhr.send(sendJson);
 

@@ -88,21 +88,31 @@ func makeDeleteVPCMgmtFunc_js() string {
 // curl -sX DELETE http://localhost:1024/spider/cspvpc/vpc-0b0d0d30794eab379 -H 'Content-Type: application/json' -d '{ "ConnectionName": "aws-ohio-config"}' |json_pp
 
         strFunc := `
-                function deleteVPCMgmt() {
-                        var connConfig = parent.frames["top_frame"].document.getElementById("connConfig").innerHTML;
+                function deleteVPCMgmt() { var connConfig = parent.frames["top_frame"].document.getElementById("connConfig").innerHTML;
                         var checkboxes = document.getElementsByName('check_box');
+			sendJson = '{ "ConnectionName": "' + connConfig + '"}'
                         for (var i = 0; i < checkboxes.length; i++) { // @todo make parallel executions
                                 if (checkboxes[i].checked) {
                                         var xhr = new XMLHttpRequest();
                                         if(checkboxes[i].value.includes("::NAMEID::")) { // MappedList & OnlySpiderList
                                             xhr.open("DELETE", "$$SPIDER_SERVER$$/spider/vpc/" + checkboxes[i].value.replace("::NAMEID::", "") + "?force=true", false);
+
+						// client logging
+						parent.frames["log_frame"].Log("curl -sX DELETE " + "$$SPIDER_SERVER$$/spider/vpc/" + checkboxes[i].value.replace("::NAMEID::", "") + "?force=true" +" -H 'Content-Type: application/json' -d '" + sendJson + "'");
+
                                         }else { // OnlyCSPList
                                             xhr.open("DELETE", "$$SPIDER_SERVER$$/spider/cspvpc/" + checkboxes[i].value, false);
+						// client logging
+						parent.frames["log_frame"].Log("curl -sX DELETE " + "$$SPIDER_SERVER$$/spider/cspvpc/" + checkboxes[i].value +" -H 'Content-Type: application/json' -d '" + sendJson + "'");
                                         }
 
                                         xhr.setRequestHeader('Content-Type', 'application/json');
-					sendJson = '{ "ConnectionName": "' + connConfig + '"}'
+
+
                                         xhr.send(sendJson);
+
+                                        // client logging
+                                        parent.frames["log_frame"].Log("   => " + xhr.response);
                                 }
                         }
 			location.reload();
@@ -208,7 +218,7 @@ func VPCMgmt(c echo.Context) error {
 func genLoggingAllGETURL(connConfig string, rsType string) string {
         /* return example
         <script type="text/javascript">
-                parent.frames["log_frame"].Log("GET> http://localhost:1024/spider/allvpc");
+                parent.frames["log_frame"].Log("curl -sX GET http://localhost:1024/spider/allvpc");
         </script>
         */
 
@@ -216,7 +226,7 @@ func genLoggingAllGETURL(connConfig string, rsType string) string {
         htmlStr := `
                 <script type="text/javascript">
                 `
-        htmlStr += `    parent.frames["log_frame"].Log("GET> ` +  url + `");`
+        htmlStr += `    parent.frames["log_frame"].Log("curl -sX GET ` +  url + `");`
         htmlStr += `
                 </script>
                 `
@@ -237,18 +247,27 @@ func makeDeleteSecurityGroupMgmtFunc_js() string {
                 function deleteSecurityGroupMgmt() {
                         var connConfig = parent.frames["top_frame"].document.getElementById("connConfig").innerHTML;
                         var checkboxes = document.getElementsByName('check_box');
+			sendJson = '{ "ConnectionName": "' + connConfig + '"}'
                         for (var i = 0; i < checkboxes.length; i++) { // @todo make parallel executions
                                 if (checkboxes[i].checked) {
                                         var xhr = new XMLHttpRequest();
                                         if(checkboxes[i].value.includes("::NAMEID::")) { // if MappedList & OnlySpiderList
                                             xhr.open("DELETE", "$$SPIDER_SERVER$$/spider/securitygroup/" + checkboxes[i].value.replace("::NAMEID::", "") + "?force=true", false);
+
+                                                // client logging
+                                                parent.frames["log_frame"].Log("curl -sX DELETE " + "$$SPIDER_SERVER$$/spider/securitygroup/" + checkboxes[i].value.replace("::NAMEID::", "") + "?force=true" +" -H 'Content-Type: application/json' -d '" + sendJson + "'");
                                         }else { // OnlyCSPList
                                             xhr.open("DELETE", "$$SPIDER_SERVER$$/spider/cspsecuritygroup/" + checkboxes[i].value, false);
+
+                                                // client logging
+                                                parent.frames["log_frame"].Log("curl -sX DELETE " + "$$SPIDER_SERVER$$/spider/cspsecuritygroup/" + checkboxes[i].value +" -H 'Content-Type: application/json' -d '" + sendJson + "'");
                                         }
 
                                         xhr.setRequestHeader('Content-Type', 'application/json');
-                                        sendJson = '{ "ConnectionName": "' + connConfig + '"}'
                                         xhr.send(sendJson);
+
+                                        // client logging
+                                        parent.frames["log_frame"].Log("   => " + xhr.response);
                                 }
                         }
                         location.reload();
@@ -364,18 +383,29 @@ func makeDeleteKeyPairMgmtFunc_js() string {
                 function deleteKeyPairMgmt() {
                         var connConfig = parent.frames["top_frame"].document.getElementById("connConfig").innerHTML;
                         var checkboxes = document.getElementsByName('check_box');
+			sendJson = '{ "ConnectionName": "' + connConfig + '"}'
                         for (var i = 0; i < checkboxes.length; i++) { // @todo make parallel executions
                                 if (checkboxes[i].checked) {
                                         var xhr = new XMLHttpRequest();
                                         if(checkboxes[i].value.includes("::NAMEID::")) { // MappedList & OnlySpiderList
                                             xhr.open("DELETE", "$$SPIDER_SERVER$$/spider/keypair/" + checkboxes[i].value.replace("::NAMEID::", "") + "?force=true", false);
+
+                                                // client logging
+                                                parent.frames["log_frame"].Log("curl -sX DELETE " + "$$SPIDER_SERVER$$/spider/keypair/" + checkboxes[i].value.replace("::NAMEID::", "") + "?force=true" +" -H 'Content-Type: application/json' -d '" + sendJson + "'");
+
                                         }else { // OnlyCSPList
                                             xhr.open("DELETE", "$$SPIDER_SERVER$$/spider/cspkeypair/" + checkboxes[i].value, false);
+
+                                                // client logging
+                                                parent.frames["log_frame"].Log("curl -sX DELETE " + "$$SPIDER_SERVER$$/spider/cspkeypair/" + checkboxes[i].value +" -H 'Content-Type: application/json' -d '" + sendJson + "'");
                                         }
 
                                         xhr.setRequestHeader('Content-Type', 'application/json');
-                    sendJson = '{ "ConnectionName": "' + connConfig + '"}'
+
                                         xhr.send(sendJson);
+
+                                        // client logging
+                                        parent.frames["log_frame"].Log("   => " + xhr.response);
                                 }
                         }
             location.reload();
@@ -491,18 +521,28 @@ func makeDeleteVMMgmtFunc_js() string {
                 function deleteVMMgmt() {
                         var connConfig = parent.frames["top_frame"].document.getElementById("connConfig").innerHTML;
                         var checkboxes = document.getElementsByName('check_box');
+			sendJson = '{ "ConnectionName": "' + connConfig + '"}'
                         for (var i = 0; i < checkboxes.length; i++) { // @todo make parallel executions
                                 if (checkboxes[i].checked) {
                                         var xhr = new XMLHttpRequest();
                                         if(checkboxes[i].value.includes("::NAMEID::")) { // MappedList & OnlySpiderList
                                             xhr.open("DELETE", "$$SPIDER_SERVER$$/spider/vm/" + checkboxes[i].value.replace("::NAMEID::", "") + "?force=true", false);
+
+                                                // client logging
+                                                parent.frames["log_frame"].Log("curl -sX DELETE " + "$$SPIDER_SERVER$$/spider/vm/" + checkboxes[i].value.replace("::NAMEID::", "") + "?force=true" +" -H 'Content-Type: application/json' -d '" + sendJson + "'");
                                         }else { // OnlyCSPList
                                             xhr.open("DELETE", "$$SPIDER_SERVER$$/spider/cspvm/" + checkboxes[i].value, false);
+
+                                                // client logging
+                                                parent.frames["log_frame"].Log("curl -sX DELETE " + "$$SPIDER_SERVER$$/spider/cspvm/" + checkboxes[i].value +" -H 'Content-Type: application/json' -d '" + sendJson + "'");
                                         }
 
                                         xhr.setRequestHeader('Content-Type', 'application/json');
-                    sendJson = '{ "ConnectionName": "' + connConfig + '"}'
+
                                         xhr.send(sendJson);
+
+                                        // client logging
+                                        parent.frames["log_frame"].Log("   => " + xhr.response);
                                 }
                         }
             location.reload();

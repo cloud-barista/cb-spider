@@ -122,7 +122,7 @@ func makePostDriverFunc_js() string {
 			//xhr.send(JSON.stringify(sendJson));
 
 			// client logging
-			parent.frames["log_frame"].Log("POST> " + "$$SPIDER_SERVER$$/spider/driver -d " + sendJson);
+			parent.frames["log_frame"].Log("curl -sX POST " + "$$SPIDER_SERVER$$/spider/driver -H 'Content-Type: application/json' -d '" + sendJson + "'");
 
 			xhr.send(sendJson);
 
@@ -153,7 +153,7 @@ func makeDeleteDriverFunc_js() string {
                                         xhr.setRequestHeader('Content-Type', 'application/json');
 
                                         // client logging
-                                        parent.frames["log_frame"].Log("DELETE> " + "$$SPIDER_SERVER$$/spider/driver/" + checkboxes[i].value);
+                                        parent.frames["log_frame"].Log("curl -sX DELETE " + "$$SPIDER_SERVER$$/spider/driver/" + checkboxes[i].value + " -H 'Content-Type: application/json'" );
 
                                         xhr.send(null);
 
@@ -212,11 +212,20 @@ func Driver(c echo.Context) error {
 
 	// (4) make TR list with info list
         // (4-1) get info list @todo if empty list
+
+		// client logging
+		htmlStr += genLoggingGETResURL("driver")
+
 		resBody, err := getResourceList_JsonByte("driver")
 		if err != nil {
 			cblog.Error(err)
+			// client logging
+			htmlStr += genLoggingGETResURL(err.Error())
 			return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 		}
+		// client logging
+		htmlStr += genLoggingResult(string(resBody[:len(resBody)-1]))
+
 		var info struct {
 			ResultList []*dim.CloudDriverInfo `json:"driver"`
 		}
@@ -265,6 +274,24 @@ func Driver(c echo.Context) error {
 
 //fmt.Println(htmlStr)
 	return c.HTML(http.StatusOK, htmlStr)
+}
+
+func genLoggingGETResURL(rsType string) string {
+        /* return example
+        <script type="text/javascript">
+                parent.frames["log_frame"].Log("curl -sX GET http://localhost:1024/spider/driver -H 'Content-Type: application/json' ");
+        </script>
+        */
+
+        url := "http://" + "localhost" + cr.ServerPort + "/spider/" + rsType + " -H 'Content-Type: application/json' "
+        htmlStr := `
+                <script type="text/javascript">
+                `
+        htmlStr += `    parent.frames["log_frame"].Log("curl -sX GET ` +  url + `");`
+        htmlStr += `
+                </script>
+                `
+        return htmlStr
 }
 
 // make the string of javascript function
@@ -394,7 +421,7 @@ func makePostCredentialFunc_js() string {
                         //xhr.send(JSON.stringify(sendJson));
 
 			// client logging
-			parent.frames["log_frame"].Log("POST> " + "$$SPIDER_SERVER$$/spider/credential -d " + sendJson);
+			parent.frames["log_frame"].Log("curl -sX POST " + "$$SPIDER_SERVER$$/spider/credential -H 'Content-Type: application/json' -d '" + sendJson + "'");
 
                         xhr.send(sendJson);
 
@@ -425,7 +452,7 @@ func makeDeleteCredentialFunc_js() string {
                                         xhr.setRequestHeader('Content-Type', 'application/json');
 
                                         // client logging
-                                        parent.frames["log_frame"].Log("DELETE> " + "$$SPIDER_SERVER$$/spider/credential/" + checkboxes[i].value);
+                                        parent.frames["log_frame"].Log("curl -sX DELETE " + "$$SPIDER_SERVER$$/spider/credential/" + checkboxes[i].value + " -H 'Content-Type: application/json'" );
 
                                         xhr.send(null);
 
@@ -483,11 +510,20 @@ func Credential(c echo.Context) error {
 
         // (4) make TR list with info list
         // (4-1) get info list @todo if empty list
+
+		// client logging
+		htmlStr += genLoggingGETResURL("credential")
+
                 resBody, err := getResourceList_JsonByte("credential")
                 if err != nil {
                         cblog.Error(err)
+			// client logging
+			htmlStr += genLoggingGETResURL(err.Error())
                         return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
                 }
+		// client logging
+		htmlStr += genLoggingResult(string(resBody[:len(resBody)-1]))
+
                 var info struct {
                         ResultList []*cim.CredentialInfo `json:"credential"`
                 }
@@ -689,7 +725,7 @@ func makePostRegionFunc_js() string {
                         //xhr.send(JSON.stringify(sendJson));
 
 			// client logging
-			parent.frames["log_frame"].Log("POST> " + "$$SPIDER_SERVER$$/spider/region -d " + sendJson);
+			parent.frames["log_frame"].Log("curl -sX POST " + "$$SPIDER_SERVER$$/spider/region -H 'Content-Type: application/json' -d '" + sendJson + "'");
 
                         xhr.send(sendJson);
 
@@ -720,7 +756,7 @@ func makeDeleteRegionFunc_js() string {
                                         xhr.setRequestHeader('Content-Type', 'application/json');
 
                                         // client logging
-                                        parent.frames["log_frame"].Log("DELETE> " + "$$SPIDER_SERVER$$/spider/region/" + checkboxes[i].value);
+                                        parent.frames["log_frame"].Log("curl -sX DELETE " + "$$SPIDER_SERVER$$/spider/region/" + checkboxes[i].value + " -H 'Content-Type: application/json'" );
 
                                         xhr.send(null);
 
@@ -778,11 +814,20 @@ func Region(c echo.Context) error {
 
         // (4) make TR list with info list
         // (4-1) get info list @todo if empty list
+
+		// client logging
+		htmlStr += genLoggingGETResURL("region")
+
                 resBody, err := getResourceList_JsonByte("region")
                 if err != nil {
                         cblog.Error(err)
+			// client logging
+			htmlStr += genLoggingGETResURL(err.Error())
                         return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
                 }
+		// client logging
+		htmlStr += genLoggingResult(string(resBody[:len(resBody)-1]))
+
                 var info struct {
                         ResultList []*rim.RegionInfo `json:"region"`
                 }
@@ -1137,7 +1182,7 @@ func makePostConnectionConfigFunc_js() string {
                         xhr.setRequestHeader('Content-Type', 'application/json');
 
 			// client logging
-			parent.frames["log_frame"].Log("POST> " + "$$SPIDER_SERVER$$/spider/connectionconfig -d " + sendJson);
+			parent.frames["log_frame"].Log("curl -sX POST " + "$$SPIDER_SERVER$$/spider/connectionconfig -H 'Content-Type: application/json' -d '" + sendJson + "'");
 
                         xhr.send(sendJson);
 
@@ -1168,7 +1213,7 @@ func makeDeleteConnectionConfigFunc_js() string {
                                         xhr.setRequestHeader('Content-Type', 'application/json');
 
                                         // client logging
-                                        parent.frames["log_frame"].Log("DELETE> " + "$$SPIDER_SERVER$$/spider/connectionconfig/" + checkboxes[i].value);
+                                        parent.frames["log_frame"].Log("curl -sX DELETE " + "$$SPIDER_SERVER$$/spider/connectionconfig/" + checkboxes[i].value + " -H 'Content-Type: application/json'" );
 
                                         xhr.send(null);
 
@@ -1277,11 +1322,20 @@ func Connectionconfig(c echo.Context) error {
 
         // (4) make TR list with info list
         // (4-1) get info list @todo if empty list
+
+		// client logging
+		htmlStr += genLoggingGETResURL("connectionconfig")
+
                 resBody, err := getResourceList_JsonByte("connectionconfig")
                 if err != nil {
                         cblog.Error(err)
+			// client logging
+			htmlStr += genLoggingGETResURL(err.Error())
                         return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
                 }
+		// client logging
+		htmlStr += genLoggingResult(string(resBody[:len(resBody)-1]))
+
                 var info struct {
                         ResultList []*ccim.ConnectionConfigInfo `json:"connectionconfig"`
                 }
