@@ -804,6 +804,19 @@ func makePostKeyPairFunc_js() string {
 
 			// client logging
 			parent.frames["log_frame"].Log("   ==> " + xhr.response);
+			var jsonVal = JSON.parse(xhr.response)
+
+//---------------- download this private key 
+		  var keyFileName = jsonVal.IId.NameId + ".pem";
+		  var keyValue = jsonVal.PrivateKey.trim();
+                  var tempElement = document.createElement('a');
+                  //tempElement.setAttribute('href','data:text/plain;charset=utf-8, ' + encodeURIComponent(keyValue));
+                  tempElement.setAttribute('href','data:text/plain;charset=utf-8,' + encodeURIComponent(keyValue));
+                  tempElement.setAttribute('download', keyFileName);
+                  document.body.appendChild(tempElement);
+                  tempElement.click();
+                  document.body.removeChild(tempElement);
+//---------------- download this private key 
 
             location.reload();
                 }
