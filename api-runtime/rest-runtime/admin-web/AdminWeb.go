@@ -124,9 +124,9 @@ func Frame(c echo.Context) error {
  <!--   <frameset rows="66,*" frameborder="Yes" border=1"> -->
     <frameset rows="100,*" frameborder="Yes" border=1">
         <frame src="adminweb/top" name="top_frame" scrolling="auto" noresize marginwidth="0" marginheight="0"/>
-        <frameset rows="*,130" frameborder="Yes" border=1">
-            <frame src="adminweb/driver" name="main_frame" scrolling="auto" noresize marginwidth="5" marginheight="0"/> 
-            <frame src="adminweb/log" name="log_frame" scrolling="auto" noresize marginwidth="5" marginheight="4"/> 
+        <frameset rows="*,130" frameborder="Yes" border=2">
+            <frame src="adminweb/driver" id="main_frame" name="main_frame" scrolling="auto" /> 
+            <frame src="adminweb/log" id="log_frame" name="log_frame" scrolling="auto" /> 
         </frameset>
     </frameset>
     <noframes>
@@ -292,7 +292,8 @@ func Log(c echo.Context) error {
 			function init() {
 				var logObject = document.getElementById('printLog');
 				logObject.style.width = "100%"; // 800;
-				logObject.style.height = "120";
+				var height = parent.document.getElementById("log_frame").scrollHeight;
+				logObject.style.height = height-15;
 			}
 						
 			function main() {
@@ -315,10 +316,15 @@ func Log(c echo.Context) error {
 				var s = "# Spider Client Log..."
 				logObject.value = (curTime + s + '\n');
 			}
+
+			function resizeLogArea() {
+				init()
+			}
+
 		</script>
 	</head>
 
-	<body>
+	<body onresize="resizeLogArea()">
 		<button class="clearbutton" onclick="clearLog()">X</button>
 
 		<div class="footer">
