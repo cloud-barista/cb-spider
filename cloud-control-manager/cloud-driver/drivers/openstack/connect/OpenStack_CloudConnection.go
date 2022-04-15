@@ -44,7 +44,7 @@ func (cloudConn *OpenStackCloudConnection) CreateImageHandler() (irs.ImageHandle
 
 func (cloudConn *OpenStackCloudConnection) CreateVPCHandler() (irs.VPCHandler, error) {
 	cblogger.Info("OpenStack Cloud Driver: called CreateVPCHandler()!")
-	vpcHandler := osrs.OpenStackVPCHandler{Client: cloudConn.NetworkClient}
+	vpcHandler := osrs.OpenStackVPCHandler{Client: cloudConn.NetworkClient, VMClient: cloudConn.Client}
 	return &vpcHandler, nil
 }
 
