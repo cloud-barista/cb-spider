@@ -29,8 +29,8 @@ do
 	if [ "$result"=="Status: Running" ];then
 		echo -e "# run tcp server and udp server on the VM"
 		P_IP=`../common/./6.vm-get.sh aws |grep PublicIP |awk '{print $2}'`
-		ssh -f -i ${KEYPAIR_NAME}.pem -o StrictHostKeyChecking=no cb-user@$P_IP "sudo nc -vktl 1000" 2> /dev/null
-		ssh -f -i ${KEYPAIR_NAME}.pem -o StrictHostKeyChecking=no cb-user@$P_IP "sudo nc -vkul 2000" 2> /dev/null		
+		ssh -f -i ${KEYPAIR_NAME}.pem -o StrictHostKeyChecking=no cb-user@$P_IP "sudo nc -vktl 1000" 
+		ssh -f -i ${KEYPAIR_NAME}.pem -o StrictHostKeyChecking=no cb-user@$P_IP "sudo nc -vkul 2000"
 
 		#                   CSP I:TCP-01 I:TCP-02 I:UDP-01 I:ICMP-01 | O:TCP-01 O:TCP-02 O:UDP-01 O:ICMP-01
 		#./io-traffic-test.sh $1    $2      $3        $4       $5           $6       $7       $8      $9
@@ -41,7 +41,7 @@ do
 
 
 		# to release local calling processe
-		ssh -f -i ${KEYPAIR_NAME}.pem -o StrictHostKeyChecking=no cb-user@$P_IP "sudo killall nc" 2> /dev/null
+		ssh -f -i ${KEYPAIR_NAME}.pem -o StrictHostKeyChecking=no cb-user@$P_IP "sudo killall nc"
 
 		exit 0;
 	else
