@@ -27,20 +27,30 @@ do
 	ret=`../common/6.vm-get-status.sh $1`
 	result=`echo -e "$ret" | grep Status`
 	if [ "$result"=="Status: Running" ];then
-		echo -e "# run tcp server and udp server on the VM"
+		echo -e "# run tcp server and udp server on the target VM"
 		P_IP=`../common/./6.vm-get.sh aws |grep PublicIP |awk '{print $2}'`
 		ssh -f -i ${KEYPAIR_NAME}.pem -o StrictHostKeyChecking=no cb-user@$P_IP "sudo nc -vktl 1000" 
 		ssh -f -i ${KEYPAIR_NAME}.pem -o StrictHostKeyChecking=no cb-user@$P_IP "sudo nc -vkul 2000"
+
+		echo -e "# run tcp server and udp server on the client(this node)"
+		sudo nc -vktl 1000&
+		sudo nc -vkul 2000&
+
+		# wait for loading
+		sleep 2
 
 		#                   CSP I:TCP-01 I:TCP-02 I:UDP-01 I:ICMP-01 | O:TCP-01 O:TCP-02 O:UDP-01 O:ICMP-01
 		#./io-traffic-test.sh $1    $2      $3        $4       $5           $6       $7       $8      $9
 		./io-traffic-test.sh $1    pass    pass      pass    pass          pass     pass     pass    pass
 
+
 		# print the end mesg of test results
 		$(test_result_tailer)
 
+		echo -e "# clear nc processes on the client(this node)"
+		sudo killall nc 2> /dev/null
 
-		# to release local calling processe
+		echo -e "# clear nc processes on the target VM to release local calling process"
 		ssh -f -i ${KEYPAIR_NAME}.pem -o StrictHostKeyChecking=no cb-user@$P_IP "sudo killall nc"
 
 		exit 0;
