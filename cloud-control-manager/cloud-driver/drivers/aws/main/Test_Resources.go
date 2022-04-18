@@ -33,7 +33,8 @@ var cblogger *logrus.Logger
 func init() {
 	// cblog is a global variable.
 	cblogger = cblog.GetLogger("AWS Resource Test")
-	cblog.SetLevel("info")
+	//cblog.SetLevel("info")
+	cblog.SetLevel("debug")
 }
 
 func handleSecurity() {
@@ -48,9 +49,9 @@ func handleSecurity() {
 	//config := readConfigFile()
 	//VmID := config.Aws.VmID
 
-	securityName := "CB-SecurityTest1"
+	securityName := "CB-SecurityAddTest1"
 	securityId := "sg-0d6a2bb960481ce68"
-	vpcId := "vpc-0c4d36a3ac3924419"
+	vpcId := "vpc-c0479cab"
 
 	for {
 		fmt.Println("Security Management")
@@ -59,6 +60,8 @@ func handleSecurity() {
 		fmt.Println("2. Security Create")
 		fmt.Println("3. Security Get")
 		fmt.Println("4. Security Delete")
+		fmt.Println("5. Security Add Rules")
+		fmt.Println("6. Security Delete Rules")
 
 		var commandNum int
 		inputCnt, err := fmt.Scan(&commandNum)
@@ -190,6 +193,82 @@ func handleSecurity() {
 					cblogger.Infof(securityId, " Security 삭제 실패 : ", err)
 				} else {
 					cblogger.Infof("[%s] Security 삭제 결과 : [%s]", securityId, result)
+				}
+
+			case 5:
+				cblogger.Infof("[%s] Security 그룹 룰 추가 테스트", securityId)
+				result, err := handler.AddRules(irs.IID{SystemId: securityId}, &[]irs.SecurityRuleInfo{
+					{
+						FromPort:   "80",
+						ToPort:     "80",
+						IPProtocol: "tcp",
+						Direction:  "inbound",
+						CIDR:       "10.13.1.10/32",
+					},
+					{
+						FromPort:   "8080",
+						ToPort:     "8080",
+						IPProtocol: "tcp",
+						Direction:  "inbound",
+						CIDR:       "10.13.1.10/32",
+					},
+					{
+						FromPort:   "81",
+						ToPort:     "81",
+						IPProtocol: "tcp",
+						Direction:  "outbound",
+						CIDR:       "10.13.1.10/32",
+					},
+					{
+						FromPort:   "82",
+						ToPort:     "82",
+						IPProtocol: "tcp",
+						Direction:  "outbound",
+						CIDR:       "10.13.1.10/32",
+					},
+				})
+				if err != nil {
+					cblogger.Infof(securityId, " Security 그룹 룰 추가 실패 : ", err)
+				} else {
+					cblogger.Infof("[%s] Security 그룹 룰 추가 결과 : [%s]", securityId, result)
+				}
+
+			case 6:
+				cblogger.Infof("[%s] Security 그룹 룰 제거 테스트", securityId)
+				result, err := handler.RemoveRules(irs.IID{SystemId: securityId}, &[]irs.SecurityRuleInfo{
+					{
+						FromPort:   "80",
+						ToPort:     "80",
+						IPProtocol: "tcp",
+						Direction:  "inbound",
+						CIDR:       "10.13.1.10/32",
+					},
+					{
+						FromPort:   "8080",
+						ToPort:     "8080",
+						IPProtocol: "tcp",
+						Direction:  "inbound",
+						CIDR:       "10.13.1.10/32",
+					},
+					{
+						FromPort:   "81",
+						ToPort:     "81",
+						IPProtocol: "tcp",
+						Direction:  "outbound",
+						CIDR:       "10.13.1.10/32",
+					},
+					{
+						FromPort:   "82",
+						ToPort:     "82",
+						IPProtocol: "tcp",
+						Direction:  "outbound",
+						CIDR:       "10.13.1.10/32",
+					},
+				})
+				if err != nil {
+					cblogger.Infof(securityId, " Security 그룹 룰 제거 실패 : ", err)
+				} else {
+					cblogger.Infof("[%s] Security 그룹 룰 제거 결과 : [%s]", securityId, result)
 				}
 			}
 		}
@@ -1136,8 +1215,8 @@ func main() {
 	//handleVPC()
 	//handleKeyPair()
 	//handlePublicIP() // PublicIP 생성 후 conf
-	//handleSecurity()
-	handleVM()
+	handleSecurity()
+	//handleVM()
 
 	//handleImage() //AMI
 	//handleVNic() //Lancard

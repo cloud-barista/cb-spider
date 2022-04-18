@@ -22,7 +22,6 @@ import (
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 
-
 	"strings"
 	"time"
 )
@@ -36,7 +35,7 @@ type AwsSecurityHandler struct {
 //@TODO : 존재하는 보안 그룹에 정책 추가하는 기능 필요
 //VPC 생략 시 활성화된 세션의 기본 VPC를 이용 함.
 func (securityHandler *AwsSecurityHandler) CreateSecurity(securityReqInfo irs.SecurityReqInfo) (irs.SecurityInfo, error) {
-	cblogger.Infof("securityReqInfo : ", securityReqInfo)
+	cblogger.Debugf("securityReqInfo : ", securityReqInfo)
 	//spew.Dump(securityReqInfo)
 
 	/*
@@ -100,138 +99,147 @@ func (securityHandler *AwsSecurityHandler) CreateSecurity(securityReqInfo irs.Se
 	cblogger.Debug(createRes)
 	//spew.Dump(createRes)
 
-	//newGroupId = *createRes.GroupId
-
-	cblogger.Debug("인바운드 보안 정책 처리")
-	//Ingress 처리
-	var ipPermissions []*ec2.IpPermission
-	for _, ip := range *securityReqInfo.SecurityRules {
-		//for _, ip := range securityReqInfo.IPPermissions {
-		if ip.Direction != "inbound" {
-			cblogger.Debug("==> inbound가 아닌 보안 그룹 Skip : ", ip.Direction)
-			continue
-		}
-
-		// cblogger.Debug("===>변환중")
-		// spew.Dump(ip)
-		ipPermission := new(ec2.IpPermission)
-		ipPermission.SetIpProtocol(ip.IPProtocol)
-
-		if ip.FromPort != "" {
-			if n, err := strconv.ParseInt(ip.FromPort, 10, 64); err == nil {
-				ipPermission.SetFromPort(n)
-			} else {
-				cblogger.Error(ip.FromPort, "은 숫자가 아님!!")
-				return irs.SecurityInfo{}, err
-			}
-		} else {
-			//ipPermission.SetFromPort(0)
-		}
-
-		if ip.ToPort != "" {
-			if n, err := strconv.ParseInt(ip.ToPort, 10, 64); err == nil {
-				ipPermission.SetToPort(n)
-			} else {
-				cblogger.Error(ip.ToPort, "은 숫자가 아님!!")
-				return irs.SecurityInfo{}, err
-			}
-		} else {
-			//ipPermission.SetToPort(0)
-		}
-
-		ipPermission.SetIpRanges([]*ec2.IpRange{
-			(&ec2.IpRange{}).
-				SetCidrIp(ip.CIDR),
-			//SetCidrIp("0.0.0.0/0"),
-		})
-		// cblogger.Debug("===>변환완료")
-		// spew.Dump(ipPermission)
-
-		ipPermissions = append(ipPermissions, ipPermission)
+	//보안 그룹에 룰을 추가 함.
+	_, err = securityHandler.ProcessAddRules(createRes.GroupId, securityReqInfo.SecurityRules)
+	if err != nil {
+		cblogger.Error(err)
+		return irs.SecurityInfo{}, err
 	}
 
-	//인바운드 정책이 있는 경우에만 처리
-	if len(ipPermissions) > 0 {
-		cblogger.Debug("===>적용할 최종 인바운드 정책")
-		cblogger.Debug(ipPermissions)
-		// spew.Dump(ipPermissions)
+	/*****
+		//newGroupId = *createRes.GroupId
 
-		// Add permissions to the security group
-		_, err = securityHandler.Client.AuthorizeSecurityGroupIngress(&ec2.AuthorizeSecurityGroupIngressInput{
-			//GroupName:     aws.String(securityReqInfo.Name),
-			GroupId:       createRes.GroupId,
-			IpPermissions: ipPermissions,
-		})
-		if err != nil {
-			cblogger.Errorf("Unable to set security group %q ingress, %v", securityReqInfo.IId.NameId, err)
-			return irs.SecurityInfo{}, err
-		}
+		cblogger.Debug("인바운드 보안 정책 처리")
+		//Ingress 처리
+		var ipPermissions []*ec2.IpPermission
+		for _, ip := range *securityReqInfo.SecurityRules {
+			//for _, ip := range securityReqInfo.IPPermissions {
+			if ip.Direction != "inbound" {
+				cblogger.Debug("==> inbound가 아닌 보안 그룹 Skip : ", ip.Direction)
+				continue
+			}
 
-		cblogger.Info("Successfully set security group ingress")
-	}
+			// cblogger.Debug("===>변환중")
+			// spew.Dump(ip)
+			ipPermission := new(ec2.IpPermission)
+			ipPermission.SetIpProtocol(ip.IPProtocol)
 
-	cblogger.Debug("아웃바운드 보안 정책 처리")
-	//Egress 처리
-	var ipPermissionsEgress []*ec2.IpPermission
-	//for _, ip := range securityReqInfo.IPPermissionsEgress {
-	for _, ip := range *securityReqInfo.SecurityRules {
-		if ip.Direction != "outbound" {
-			cblogger.Debug("==> outbound가 아닌 보안 그룹 Skip : ", ip.Direction)
-			continue
-		}
-
-		ipPermission := new(ec2.IpPermission)
-		ipPermission.SetIpProtocol(ip.IPProtocol)
-		//ipPermission.SetFromPort(ip.FromPort)
-		//ipPermission.SetToPort(ip.ToPort)
-		if ip.FromPort != "" {
-			if n, err := strconv.ParseInt(ip.FromPort, 10, 64); err == nil {
-				ipPermission.SetFromPort(n)
+			if ip.FromPort != "" {
+				if n, err := strconv.ParseInt(ip.FromPort, 10, 64); err == nil {
+					ipPermission.SetFromPort(n)
+				} else {
+					cblogger.Error(ip.FromPort, "은 숫자가 아님!!")
+					return irs.SecurityInfo{}, err
+				}
 			} else {
-				cblogger.Error(ip.FromPort, "은 숫자가 아님!!")
+				//ipPermission.SetFromPort(0)
+			}
+
+			if ip.ToPort != "" {
+				if n, err := strconv.ParseInt(ip.ToPort, 10, 64); err == nil {
+					ipPermission.SetToPort(n)
+				} else {
+					cblogger.Error(ip.ToPort, "은 숫자가 아님!!")
+					return irs.SecurityInfo{}, err
+				}
+			} else {
+				//ipPermission.SetToPort(0)
+			}
+
+			ipPermission.SetIpRanges([]*ec2.IpRange{
+				(&ec2.IpRange{}).
+					SetCidrIp(ip.CIDR),
+				//SetCidrIp("0.0.0.0/0"),
+			})
+			// cblogger.Debug("===>변환완료")
+			// spew.Dump(ipPermission)
+
+			ipPermissions = append(ipPermissions, ipPermission)
+		}
+
+		//인바운드 정책이 있는 경우에만 처리
+		if len(ipPermissions) > 0 {
+			cblogger.Debug("===>적용할 최종 인바운드 정책")
+			cblogger.Debug(ipPermissions)
+			// spew.Dump(ipPermissions)
+
+			// Add permissions to the security group
+			_, err = securityHandler.Client.AuthorizeSecurityGroupIngress(&ec2.AuthorizeSecurityGroupIngressInput{
+				//GroupName:     aws.String(securityReqInfo.Name),
+				GroupId:       createRes.GroupId,
+				IpPermissions: ipPermissions,
+			})
+			if err != nil {
+				cblogger.Errorf("Unable to set security group %q ingress, %v", securityReqInfo.IId.NameId, err)
 				return irs.SecurityInfo{}, err
 			}
-		} else {
-			//ipPermission.SetFromPort(0)
+
+			cblogger.Info("Successfully set security group ingress")
 		}
 
-		if ip.ToPort != "" {
-			if n, err := strconv.ParseInt(ip.ToPort, 10, 64); err == nil {
-				ipPermission.SetToPort(n)
+		cblogger.Debug("아웃바운드 보안 정책 처리")
+		//Egress 처리
+		var ipPermissionsEgress []*ec2.IpPermission
+		//for _, ip := range securityReqInfo.IPPermissionsEgress {
+		for _, ip := range *securityReqInfo.SecurityRules {
+			if ip.Direction != "outbound" {
+				cblogger.Debug("==> outbound가 아닌 보안 그룹 Skip : ", ip.Direction)
+				continue
+			}
+
+			ipPermission := new(ec2.IpPermission)
+			ipPermission.SetIpProtocol(ip.IPProtocol)
+			//ipPermission.SetFromPort(ip.FromPort)
+			//ipPermission.SetToPort(ip.ToPort)
+			if ip.FromPort != "" {
+				if n, err := strconv.ParseInt(ip.FromPort, 10, 64); err == nil {
+					ipPermission.SetFromPort(n)
+				} else {
+					cblogger.Error(ip.FromPort, "은 숫자가 아님!!")
+					return irs.SecurityInfo{}, err
+				}
 			} else {
-				cblogger.Error(ip.ToPort, "은 숫자가 아님!!")
+				//ipPermission.SetFromPort(0)
+			}
+
+			if ip.ToPort != "" {
+				if n, err := strconv.ParseInt(ip.ToPort, 10, 64); err == nil {
+					ipPermission.SetToPort(n)
+				} else {
+					cblogger.Error(ip.ToPort, "은 숫자가 아님!!")
+					return irs.SecurityInfo{}, err
+				}
+			} else {
+				//ipPermission.SetToPort(0)
+			}
+
+			ipPermission.SetIpRanges([]*ec2.IpRange{
+				(&ec2.IpRange{}).
+					SetCidrIp(ip.CIDR),
+				//SetCidrIp("0.0.0.0/0"),
+			})
+			//ipPermissions = append(ipPermissions, ipPermission)
+			ipPermissionsEgress = append(ipPermissionsEgress, ipPermission)
+		}
+
+		//아웃바운드 정책이 있는 경우에만 처리
+		if len(ipPermissionsEgress) > 0 {
+			cblogger.Debug("===>적용할 최종 아웃바운드 정책")
+			cblogger.Debug(ipPermissionsEgress)
+
+			// Add permissions to the security group
+			_, err = securityHandler.Client.AuthorizeSecurityGroupEgress(&ec2.AuthorizeSecurityGroupEgressInput{
+				GroupId:       createRes.GroupId,
+				IpPermissions: ipPermissionsEgress,
+			})
+			if err != nil {
+				cblogger.Errorf("Unable to set security group %q egress, %v", securityReqInfo.IId.NameId, err)
 				return irs.SecurityInfo{}, err
 			}
-		} else {
-			//ipPermission.SetToPort(0)
+
+			cblogger.Info("Successfully set security group egress")
 		}
-
-		ipPermission.SetIpRanges([]*ec2.IpRange{
-			(&ec2.IpRange{}).
-				SetCidrIp(ip.CIDR),
-			//SetCidrIp("0.0.0.0/0"),
-		})
-		//ipPermissions = append(ipPermissions, ipPermission)
-		ipPermissionsEgress = append(ipPermissionsEgress, ipPermission)
-	}
-
-	//아웃바운드 정책이 있는 경우에만 처리
-	if len(ipPermissionsEgress) > 0 {
-		cblogger.Debug("===>적용할 최종 아웃바운드 정책")
-		cblogger.Debug(ipPermissionsEgress)
-
-		// Add permissions to the security group
-		_, err = securityHandler.Client.AuthorizeSecurityGroupEgress(&ec2.AuthorizeSecurityGroupEgressInput{
-			GroupId:       createRes.GroupId,
-			IpPermissions: ipPermissionsEgress,
-		})
-		if err != nil {
-			cblogger.Errorf("Unable to set security group %q egress, %v", securityReqInfo.IId.NameId, err)
-			return irs.SecurityInfo{}, err
-		}
-
-		cblogger.Info("Successfully set security group egress")
-	}
+	***/
 
 	cblogger.Debug("Name Tag 처리")
 	//======================
@@ -583,27 +591,338 @@ func (securityHandler *AwsSecurityHandler) DeleteSecurity(securityIID irs.IID) (
 // wait to resolve the 'DependencyViolation' error
 func loopDeleteSecurityGroup(client *ec2.EC2, input *ec2.DeleteSecurityGroupInput) error {
 
-        var err error
+	var err error
 
-        maxRetryCnt := 40 // retry until 120s
-        for i := 0; i<maxRetryCnt; i++ {
-                _, err = client.DeleteSecurityGroup(input)
-                if err == nil {
-                        return nil
-                } 
+	maxRetryCnt := 40 // retry until 120s
+	for i := 0; i < maxRetryCnt; i++ {
+		_, err = client.DeleteSecurityGroup(input)
+		if err == nil {
+			return nil
+		}
 		if strings.Contains(err.Error(), "DependencyViolation") {
-                        time.Sleep(time.Second * 3)
-                } else {
+			time.Sleep(time.Second * 3)
+		} else {
 			return err
 		}
-        }
-        return err
+	}
+	return err
 }
 
 func (securityHandler *AwsSecurityHandler) AddRules(sgIID irs.IID, securityRules *[]irs.SecurityRuleInfo) (irs.SecurityInfo, error) {
-        return irs.SecurityInfo{}, errors.New("Coming Soon!")
+	cblogger.Debugf("AddRules : SecurityNameId : [%s]", sgIID.SystemId)
+	// 존재하는 보안 그룹인지 확인
+	ruleInfo, err := securityHandler.GetSecurity(sgIID)
+	if err != nil {
+		cblogger.Error(err)
+		return irs.SecurityInfo{}, err
+	}
+	cblogger.Debug("GetSecurity Result : ", ruleInfo)
+
+	//보안 그룹에 룰 추가 처리
+	securityInfo, err := securityHandler.ProcessAddRules(&sgIID.SystemId, securityRules)
+	if err != nil {
+		cblogger.Error(err)
+		return irs.SecurityInfo{}, err
+	}
+
+	//최종 정보 리턴
+	return securityInfo, nil
+
+	//return securityHandler.GetSecurity(sgIID)
+}
+
+func (securityHandler *AwsSecurityHandler) ProcessAddRules(newGroupId *string, securityRules *[]irs.SecurityRuleInfo) (irs.SecurityInfo, error) {
+	var err error
+
+	cblogger.Debug("인바운드 보안 정책 처리")
+	//Ingress 처리
+	var ipPermissions []*ec2.IpPermission
+	for _, ip := range *securityRules {
+		//for _, ip := range securityReqInfo.IPPermissions {
+		if ip.Direction != "inbound" {
+			cblogger.Debug("==> inbound가 아닌 보안 그룹 Skip : ", ip.Direction)
+			continue
+		}
+
+		// cblogger.Debug("===>변환중")
+		// spew.Dump(ip)
+		ipPermission := new(ec2.IpPermission)
+		ipPermission.SetIpProtocol(ip.IPProtocol)
+
+		if ip.FromPort != "" {
+			if n, err := strconv.ParseInt(ip.FromPort, 10, 64); err == nil {
+				ipPermission.SetFromPort(n)
+			} else {
+				cblogger.Error(ip.FromPort, "은 숫자가 아님!!")
+				return irs.SecurityInfo{}, err
+			}
+		} else {
+			//ipPermission.SetFromPort(0)
+		}
+
+		if ip.ToPort != "" {
+			if n, err := strconv.ParseInt(ip.ToPort, 10, 64); err == nil {
+				ipPermission.SetToPort(n)
+			} else {
+				cblogger.Error(ip.ToPort, "은 숫자가 아님!!")
+				return irs.SecurityInfo{}, err
+			}
+		} else {
+			//ipPermission.SetToPort(0)
+		}
+
+		ipPermission.SetIpRanges([]*ec2.IpRange{
+			(&ec2.IpRange{}).
+				SetCidrIp(ip.CIDR),
+			//SetCidrIp("0.0.0.0/0"),
+		})
+		// cblogger.Debug("===>변환완료")
+		// spew.Dump(ipPermission)
+
+		ipPermissions = append(ipPermissions, ipPermission)
+	}
+
+	//인바운드 정책이 있는 경우에만 처리
+	if len(ipPermissions) > 0 {
+		cblogger.Debug("===>적용할 최종 인바운드 정책")
+		cblogger.Debug(ipPermissions)
+		// spew.Dump(ipPermissions)
+
+		// Add permissions to the security group
+		_, err = securityHandler.Client.AuthorizeSecurityGroupIngress(&ec2.AuthorizeSecurityGroupIngressInput{
+			//GroupName:     aws.String(securityReqInfo.Name),
+			GroupId:       newGroupId, //createRes.GroupId,
+			IpPermissions: ipPermissions,
+		})
+		if err != nil {
+			cblogger.Errorf("Unable to set security group %q ingress, %v", *newGroupId, err)
+			return irs.SecurityInfo{}, err
+		}
+
+		cblogger.Info("Successfully set security group ingress")
+	}
+
+	cblogger.Debug("아웃바운드 보안 정책 처리")
+	//Egress 처리
+	var ipPermissionsEgress []*ec2.IpPermission
+	//for _, ip := range securityReqInfo.IPPermissionsEgress {
+	for _, ip := range *securityRules {
+		if ip.Direction != "outbound" {
+			cblogger.Debug("==> outbound가 아닌 보안 그룹 Skip : ", ip.Direction)
+			continue
+		}
+
+		ipPermission := new(ec2.IpPermission)
+		ipPermission.SetIpProtocol(ip.IPProtocol)
+		//ipPermission.SetFromPort(ip.FromPort)
+		//ipPermission.SetToPort(ip.ToPort)
+		if ip.FromPort != "" {
+			if n, err := strconv.ParseInt(ip.FromPort, 10, 64); err == nil {
+				ipPermission.SetFromPort(n)
+			} else {
+				cblogger.Error(ip.FromPort, "은 숫자가 아님!!")
+				return irs.SecurityInfo{}, err
+			}
+		} else {
+			//ipPermission.SetFromPort(0)
+		}
+
+		if ip.ToPort != "" {
+			if n, err := strconv.ParseInt(ip.ToPort, 10, 64); err == nil {
+				ipPermission.SetToPort(n)
+			} else {
+				cblogger.Error(ip.ToPort, "은 숫자가 아님!!")
+				return irs.SecurityInfo{}, err
+			}
+		} else {
+			//ipPermission.SetToPort(0)
+		}
+
+		ipPermission.SetIpRanges([]*ec2.IpRange{
+			(&ec2.IpRange{}).
+				SetCidrIp(ip.CIDR),
+			//SetCidrIp("0.0.0.0/0"),
+		})
+		//ipPermissions = append(ipPermissions, ipPermission)
+		ipPermissionsEgress = append(ipPermissionsEgress, ipPermission)
+	}
+
+	//아웃바운드 정책이 있는 경우에만 처리
+	if len(ipPermissionsEgress) > 0 {
+		cblogger.Debug("===>적용할 최종 아웃바운드 정책")
+		cblogger.Debug(ipPermissionsEgress)
+
+		// Add permissions to the security group
+		_, err = securityHandler.Client.AuthorizeSecurityGroupEgress(&ec2.AuthorizeSecurityGroupEgressInput{
+			GroupId:       newGroupId, //createRes.GroupId,
+			IpPermissions: ipPermissionsEgress,
+		})
+		if err != nil {
+			cblogger.Errorf("Unable to set security group %q egress, %v", *newGroupId, err)
+			return irs.SecurityInfo{}, err
+		}
+
+		cblogger.Info("Successfully set security group egress")
+	}
+
+	return securityHandler.GetSecurity(irs.IID{SystemId: *newGroupId})
 }
 
 func (securityHandler *AwsSecurityHandler) RemoveRules(sgIID irs.IID, securityRules *[]irs.SecurityRuleInfo) (bool, error) {
-        return false, errors.New("Coming Soon!")
+	cblogger.Debugf("RemoveRules : SecurityNameId : [%s]", sgIID.SystemId)
+
+	// 존재하는 보안 그룹인지 확인
+	ruleInfo, err := securityHandler.GetSecurity(sgIID)
+	if err != nil {
+		cblogger.Error(err)
+		return false, err
+	}
+	cblogger.Debug("GetSecurity Result : ", ruleInfo)
+
+	//보안 그룹의 룰 삭제 처리
+	_, err = securityHandler.ProcessRemoveRules(&sgIID.SystemId, securityRules)
+	if err != nil {
+		cblogger.Error(err)
+		return false, err
+	}
+
+	//최종 정보 리턴
+	return true, nil
+}
+
+func (securityHandler *AwsSecurityHandler) ProcessRemoveRules(newGroupId *string, securityRules *[]irs.SecurityRuleInfo) (irs.SecurityInfo, error) {
+	var err error
+
+	cblogger.Debug("인바운드 보안 정책 처리")
+	//Ingress 처리
+	var ipPermissions []*ec2.IpPermission
+	for _, ip := range *securityRules {
+		//for _, ip := range securityReqInfo.IPPermissions {
+		if ip.Direction != "inbound" {
+			cblogger.Debug("==> inbound가 아닌 보안 그룹 Skip : ", ip.Direction)
+			continue
+		}
+
+		// cblogger.Debug("===>변환중")
+		// spew.Dump(ip)
+		ipPermission := new(ec2.IpPermission)
+		ipPermission.SetIpProtocol(ip.IPProtocol)
+
+		if ip.FromPort != "" {
+			if n, err := strconv.ParseInt(ip.FromPort, 10, 64); err == nil {
+				ipPermission.SetFromPort(n)
+			} else {
+				cblogger.Error(ip.FromPort, "은 숫자가 아님!!")
+				return irs.SecurityInfo{}, err
+			}
+		} else {
+			//ipPermission.SetFromPort(0)
+		}
+
+		if ip.ToPort != "" {
+			if n, err := strconv.ParseInt(ip.ToPort, 10, 64); err == nil {
+				ipPermission.SetToPort(n)
+			} else {
+				cblogger.Error(ip.ToPort, "은 숫자가 아님!!")
+				return irs.SecurityInfo{}, err
+			}
+		} else {
+			//ipPermission.SetToPort(0)
+		}
+
+		ipPermission.SetIpRanges([]*ec2.IpRange{
+			(&ec2.IpRange{}).
+				SetCidrIp(ip.CIDR),
+			//SetCidrIp("0.0.0.0/0"),
+		})
+		// cblogger.Debug("===>변환완료")
+		// spew.Dump(ipPermission)
+
+		ipPermissions = append(ipPermissions, ipPermission)
+	}
+
+	//인바운드 정책이 있는 경우에만 처리
+	if len(ipPermissions) > 0 {
+		cblogger.Debug("===>적용할 최종 인바운드 정책")
+		cblogger.Debug(ipPermissions)
+		// spew.Dump(ipPermissions)
+
+		// Add permissions to the security group
+		_, err = securityHandler.Client.RevokeSecurityGroupIngress(&ec2.RevokeSecurityGroupIngressInput{
+			//GroupName:     aws.String(securityReqInfo.Name),
+			GroupId:       newGroupId, //createRes.GroupId,
+			IpPermissions: ipPermissions,
+		})
+		if err != nil {
+			cblogger.Errorf("Unable to set security group %q ingress, %v", *newGroupId, err)
+			return irs.SecurityInfo{}, err
+		}
+
+		cblogger.Info("Successfully set security group ingress")
+	}
+
+	cblogger.Debug("아웃바운드 보안 정책 처리")
+	//Egress 처리
+	var ipPermissionsEgress []*ec2.IpPermission
+	//for _, ip := range securityReqInfo.IPPermissionsEgress {
+	for _, ip := range *securityRules {
+		if ip.Direction != "outbound" {
+			cblogger.Debug("==> outbound가 아닌 보안 그룹 Skip : ", ip.Direction)
+			continue
+		}
+
+		ipPermission := new(ec2.IpPermission)
+		ipPermission.SetIpProtocol(ip.IPProtocol)
+		//ipPermission.SetFromPort(ip.FromPort)
+		//ipPermission.SetToPort(ip.ToPort)
+		if ip.FromPort != "" {
+			if n, err := strconv.ParseInt(ip.FromPort, 10, 64); err == nil {
+				ipPermission.SetFromPort(n)
+			} else {
+				cblogger.Error(ip.FromPort, "은 숫자가 아님!!")
+				return irs.SecurityInfo{}, err
+			}
+		} else {
+			//ipPermission.SetFromPort(0)
+		}
+
+		if ip.ToPort != "" {
+			if n, err := strconv.ParseInt(ip.ToPort, 10, 64); err == nil {
+				ipPermission.SetToPort(n)
+			} else {
+				cblogger.Error(ip.ToPort, "은 숫자가 아님!!")
+				return irs.SecurityInfo{}, err
+			}
+		} else {
+			//ipPermission.SetToPort(0)
+		}
+
+		ipPermission.SetIpRanges([]*ec2.IpRange{
+			(&ec2.IpRange{}).
+				SetCidrIp(ip.CIDR),
+			//SetCidrIp("0.0.0.0/0"),
+		})
+		//ipPermissions = append(ipPermissions, ipPermission)
+		ipPermissionsEgress = append(ipPermissionsEgress, ipPermission)
+	}
+
+	//아웃바운드 정책이 있는 경우에만 처리
+	if len(ipPermissionsEgress) > 0 {
+		cblogger.Debug("===>적용할 최종 아웃바운드 정책")
+		cblogger.Debug(ipPermissionsEgress)
+
+		// Add permissions to the security group
+		_, err = securityHandler.Client.RevokeSecurityGroupEgress(&ec2.RevokeSecurityGroupEgressInput{
+			GroupId:       newGroupId, //createRes.GroupId,
+			IpPermissions: ipPermissionsEgress,
+		})
+		if err != nil {
+			cblogger.Errorf("Unable to set security group %q egress, %v", *newGroupId, err)
+			return irs.SecurityInfo{}, err
+		}
+
+		cblogger.Info("Successfully set security group egress")
+	}
+
+	return securityHandler.GetSecurity(irs.IID{SystemId: *newGroupId})
 }
