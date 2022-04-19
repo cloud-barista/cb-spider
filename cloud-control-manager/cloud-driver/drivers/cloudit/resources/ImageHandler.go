@@ -109,13 +109,14 @@ func (imageHandler *ClouditImageHandler) GetImage(imageIID irs.IID) (irs.ImageIn
 	hiscallInfo := GetCallLogScheme(ClouditRegion, call.VMIMAGE, imageIID.NameId, "GetImage()")
 
 	start := call.Start()
-	imageInfo, err := imageHandler.getImageByName(imageIID.NameId)
+	rawImage, err := imageHandler.getRawImage(imageIID)
 	if err != nil {
 		getErr := errors.New(fmt.Sprintf("Failed to Get Image. err = %s", err.Error()))
 		cblogger.Error(getErr.Error())
 		LoggingError(hiscallInfo, getErr)
 		return irs.ImageInfo{}, getErr
 	}
+	imageInfo := setterImage(*rawImage)
 	LoggingInfo(hiscallInfo, start)
 
 	return *imageInfo, nil
@@ -152,30 +153,32 @@ func (imageHandler *ClouditImageHandler) DeleteImage(imageIID irs.IID) (bool, er
 	return false, createErr
 }
 
-func (imageHandler *ClouditImageHandler) getImageByName(imageName string) (*irs.ImageInfo, error) {
+func (imageHandler *ClouditImageHandler) getRawImage(imageIId irs.IID) (*image.ImageInfo, error) {
+	if imageIId.SystemId == "" && imageIId.NameId == ""{
+		return nil, errors.New("invalid IID")
+	}
 	imageHandler.Client.TokenID = imageHandler.CredentialInfo.AuthToken
 	authHeader := imageHandler.Client.AuthenticatedHeaders()
 
 	requestOpts := client.RequestOpts{
 		MoreHeaders: authHeader,
 	}
-
 	imageList, err := image.List(imageHandler.Client, &requestOpts)
 	if err != nil {
 		return nil, err
 	}
-
-	var imageInfo *irs.ImageInfo
-	for _, image := range *imageList {
-		if strings.EqualFold(image.Name, imageName) {
-			imageInfo = setterImage(image)
-			break
+	if imageIId.SystemId == ""{
+		for _, rawImage := range *imageList {
+			if strings.EqualFold(imageIId.NameId, rawImage.Name) {
+				return &rawImage, nil
+			}
+		}
+	}else {
+		for _, rawImage := range *imageList {
+			if strings.EqualFold(imageIId.SystemId, rawImage.ID) {
+				return &rawImage, nil
+			}
 		}
 	}
-
-	if imageInfo == nil {
-		err := errors.New(fmt.Sprintf("failed to find image with name %s", imageName))
-		return nil, err
-	}
-	return imageInfo, nil
+	return nil, errors.New("not found image")
 }
