@@ -346,9 +346,349 @@ func (securityHandler *GCPSecurityHandler) DeleteSecurity(securityIID irs.IID) (
 }
 
 func (securityHandler *GCPSecurityHandler) AddRules(sgIID irs.IID, securityRules *[]irs.SecurityRuleInfo) (irs.SecurityInfo, error) {
-        return irs.SecurityInfo{}, fmt.Errorf("Coming Soon!")
+	cblogger.Info(*securityRules)
+
+	projectID := securityHandler.Credential.ProjectID
+
+	security, err := securityHandler.Client.Firewalls.Get(projectID, sgIID.SystemId).Do()
+	vpcArr := strings.Split(security.Network, "/")
+	vpcName := vpcArr[len(vpcArr)-1]
+
+	if len(*securityRules) < 1 {
+		return irs.SecurityInfo{}, errors.New("invalid value - The SecurityRules policy to add is empty")
+	}
+
+	//GCP의 경우 1개의 보안그룹에 Inbound나 Outbound를 1개만 지정할 수 있으며 CIDR도 1개의 보안그룹에 1개만 공통으로 지정됨.
+	//즉, 1개의 보안 정책에 다중 포트를 선언하는 형태라서  irs.SecurityReqInfo의 정보를 사용할 것인지
+	// irs.SecurityReqInfo의 *[]SecurityRuleInfo 배열의 첫 번째 값을 사용할 것인지 미정이라 공통 변수를 만들어서 처리함.
+	commonPolicy := *securityRules
+	commonDirection := commonPolicy[0].Direction
+	commonCidr := strings.Split(commonPolicy[0].CIDR, ",")
+
+	if len(commonCidr[0]) < 2 {
+		return irs.SecurityInfo{}, errors.New("invalid value - The CIDR is empty")
+	}
+
+	
+	// @TODO: SecurityGroup 생성 요청 파라미터 정의 필요
+	ports := *securityRules
+	existedRules := security.Allowed
+	var firewallAllowed []*compute.FirewallAllowed
+
+	for _,rule := range existedRules {
+		firewallAllowed = append(firewallAllowed, rule)
+	}
+
+	//다른 드라이버와의 통일을 위해 All은 -1로 처리함.
+	//GCP는 포트 번호를 적지 않으면 All임.
+	//GCP 방화벽 정책
+	//https://cloud.google.com/vpc/docs/firewalls?hl=ko&_ga=2.238147008.-1577666838.1589162755#protocols_and_ports
+	for _, item := range ports {
+		var port string
+		fp := item.FromPort
+		tp := item.ToPort
+
+		//GCP는 1개의 정책에 1가지 Direction만 지정 가능하기 때문에 Inbound와 Outbound 모두 지정되었을 경우 에러 처리함.
+		if !strings.EqualFold(item.Direction, commonDirection) {
+			return irs.SecurityInfo{}, errors.New("invalid value - GCP can only use one Direction for one security policy")
+		}
+
+		// CB Rule에 의해 Port 번호에 -1이 기입된 경우 GCP Rule에 맞게 치환함.
+		if fp == "-1" || tp == "-1" {
+			if (fp == "-1" && tp == "-1") || (fp == "-1" && tp == "") || (fp == "" && tp == "-1") {
+				port = ""
+			} else if fp == "-1" {
+				port = tp
+			} else {
+				port = fp
+			}
+		} else {
+			//둘 다 있는 경우
+			if tp != "" && fp != "" {
+				port = fp + "-" + tp
+				//From Port가 없는 경우
+			} else if tp != "" && fp == "" {
+				port = tp
+				//To Port가 없는 경우
+			} else if tp == "" && fp != "" {
+				port = fp
+			} else {
+				port = ""
+			}
+		}
+
+		if port == "" {
+			firewallAllowed = append(firewallAllowed, &compute.FirewallAllowed{
+				IPProtocol: item.IPProtocol,
+			})
+		} else {
+			firewallAllowed = append(firewallAllowed, &compute.FirewallAllowed{
+				IPProtocol: item.IPProtocol,
+				Ports: []string{
+					port,
+				},
+			})
+		}
+	}
+
+	if strings.EqualFold(commonDirection, "inbound") || strings.EqualFold(commonDirection, "INGRESS") {
+		commonDirection = "INGRESS"
+	} else if strings.EqualFold(commonDirection, "outbound") || strings.EqualFold(commonDirection, "EGRESS") {
+		commonDirection = "EGRESS"
+	} else {
+		// cblogger.Errorf("!!!!!!!!! SecurityReqInfo.Direction 정보[%s]가 없어서 INGRESS로 처리합니다.", securityReqInfo.Direction)
+		// Direction deprecated; return irs.SecurityInfo{}, errors.New("invalid value - The direction[" + securityReqInfo.Direction + "] information is unknown")
+		return irs.SecurityInfo{}, errors.New("invalid value - The direction[" + commonDirection + "] information is unknown")
+	}
+
+	if !strings.EqualFold(security.Direction, commonDirection) {
+		return irs.SecurityInfo{}, errors.New("invalid value - GCP can only use one Direction for one security policy")
+	}
+
+	prefix := "https://www.googleapis.com/compute/v1/projects/" + projectID
+	//networkURL := prefix + "/global/networks/" + securityReqInfo.VpcIID.NameId
+	networkURL := prefix + "/global/networks/" + vpcName
+
+	fireWall := &compute.Firewall{
+		Allowed:   firewallAllowed,
+		Direction: commonDirection, //INGRESS(inbound), EGRESS(outbound)
+		// SourceRanges: []string{
+		// 	// "0.0.0.0/0",
+		// 	commonCidr,
+		// },
+		//Name: security.Name,
+		//TargetTags: []string{
+			//security.Name,
+		//},
+		Network: networkURL,
+	}
+
+	//CIDR 처리
+	if strings.EqualFold(commonDirection, "INGRESS") {
+		//fireWall.SourceRanges = []string{commonCidr}
+		fireWall.SourceRanges = commonCidr
+	} else {
+		//fireWall.DestinationRanges = []string{commonCidr}
+		fireWall.DestinationRanges = commonCidr
+	}
+
+	cblogger.Info("생성할 방화벽 정책")
+	cblogger.Debug(fireWall)
+	//spew.Dump(fireWall)
+
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.GCP,
+		RegionZone:   securityHandler.Region.Zone,
+		ResourceType: call.SECURITYGROUP,
+		ResourceName: security.Name,
+		CloudOSAPI:   "Firewalls.Update()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+	callLogStart := call.Start()
+
+	res, err := securityHandler.Client.Firewalls.Update(projectID, sgIID.SystemId, fireWall).Do()
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+	if err != nil {
+		callLogInfo.ErrorMSG = err.Error()
+		callogger.Error(call.String(callLogInfo))
+		cblogger.Error(err)
+		return irs.SecurityInfo{}, err
+	}
+	callogger.Info(call.String(callLogInfo))
+	fmt.Println("create result : ", res)
+	time.Sleep(time.Second * 3)
+	//secInfo, _ := securityHandler.GetSecurity(securityReqInfo.IId)
+	secInfo, _ := securityHandler.GetSecurity(irs.IID{SystemId: sgIID.SystemId})
+	return secInfo, nil
+	//return irs.SecurityInfo{}, fmt.Errorf("Coming Soon!")
 }
 
 func (securityHandler *GCPSecurityHandler) RemoveRules(sgIID irs.IID, securityRules *[]irs.SecurityRuleInfo) (bool, error) {
-        return false, fmt.Errorf("Coming Soon!")
+	cblogger.Info(*securityRules)
+
+	projectID := securityHandler.Credential.ProjectID
+
+	security, err := securityHandler.Client.Firewalls.Get(projectID, sgIID.SystemId).Do()
+	vpcArr := strings.Split(security.Network, "/")
+	vpcName := vpcArr[len(vpcArr)-1]
+
+	if len(*securityRules) < 1 {
+		return false, errors.New("invalid value - The SecurityRules policy to delete is empty")
+	}
+
+	//GCP의 경우 1개의 보안그룹에 Inbound나 Outbound를 1개만 지정할 수 있으며 CIDR도 1개의 보안그룹에 1개만 공통으로 지정됨.
+	//즉, 1개의 보안 정책에 다중 포트를 선언하는 형태라서  irs.SecurityReqInfo의 정보를 사용할 것인지
+	// irs.SecurityReqInfo의 *[]SecurityRuleInfo 배열의 첫 번째 값을 사용할 것인지 미정이라 공통 변수를 만들어서 처리함.
+	commonPolicy := security
+	commonDirection := commonPolicy.Direction
+	commonCidr := commonPolicy.SourceRanges
+	if strings.EqualFold(commonPolicy.Direction, "EGRESS") {
+		commonCidr = security.DestinationRanges
+	}
+
+	if len(commonCidr[0]) < 2 {
+		return false, errors.New("invalid value - The CIDR is empty")
+	}
+
+	
+	// @TODO: SecurityGroup 생성 요청 파라미터 정의 필요
+	ports := *securityRules
+	existedAllowed := security.Allowed
+	var firewallAllowed []*compute.FirewallAllowed
+	var newFirewallAllowed []*compute.FirewallAllowed
+
+	//다른 드라이버와의 통일을 위해 All은 -1로 처리함.
+	//GCP는 포트 번호를 적지 않으면 All임.
+	//GCP 방화벽 정책
+	//https://cloud.google.com/vpc/docs/firewalls?hl=ko&_ga=2.238147008.-1577666838.1589162755#protocols_and_ports
+	for _, item := range ports {
+		var port string
+		fp := item.FromPort
+		tp := item.ToPort
+
+		// CB Rule에 의해 Port 번호에 -1이 기입된 경우 GCP Rule에 맞게 치환함.
+		if fp == "-1" || tp == "-1" {
+			if (fp == "-1" && tp == "-1") || (fp == "-1" && tp == "") || (fp == "" && tp == "-1") {
+				port = ""
+			} else if fp == "-1" {
+				port = tp
+			} else {
+				port = fp
+			}
+		} else {
+			//둘 다 있는 경우
+			if tp != "" && fp != "" {
+				port = fp + "-" + tp
+				if tp == fp {
+					port = tp
+				}
+				//From Port가 없는 경우
+			} else if tp != "" && fp == "" {
+				port = tp
+				//To Port가 없는 경우
+			} else if tp == "" && fp != "" {
+				port = fp
+			} else {
+				port = ""
+			}
+		}
+
+		if strings.EqualFold(item.Direction, "inbound") || strings.EqualFold(item.Direction, "INGRESS") {
+			item.Direction = "INGRESS"
+		} else if strings.EqualFold(item.Direction, "outbound") || strings.EqualFold(item.Direction, "EGRESS") {
+			item.Direction = "EGRESS"
+		} else {
+			// cblogger.Errorf("!!!!!!!!! SecurityReqInfo.Direction 정보[%s]가 없어서 INGRESS로 처리합니다.", securityReqInfo.Direction)
+			// Direction deprecated; return irs.SecurityInfo{}, errors.New("invalid value - The direction[" + securityReqInfo.Direction + "] information is unknown")
+			return false, errors.New("invalid value - The direction[" + item.Direction + "] information is unknown")
+		}
+
+		if strings.EqualFold(commonDirection, item.Direction) && strings.EqualFold(commonCidr[0], item.CIDR) { 
+			if port == "" {
+				firewallAllowed = append(firewallAllowed, &compute.FirewallAllowed{
+					IPProtocol: item.IPProtocol,
+				})
+			} else {
+				firewallAllowed = append(firewallAllowed, &compute.FirewallAllowed{
+					IPProtocol: item.IPProtocol,
+					Ports: []string{
+						port,
+					},
+				})
+			}
+		}
+	}
+
+
+	// 삭제할 rule을 제외시킨 새로운 firewallAllowed 생성, firewallAllowed == 삭제하려는 rule의 모음
+	for _, rule := range existedAllowed {
+		count := 0
+		for _, deleteRule := range firewallAllowed {
+			if len(deleteRule.Ports) == 0 && strings.EqualFold(rule.IPProtocol, deleteRule.IPProtocol) { // port값이 없는 경우
+				break
+			} else if strings.EqualFold(rule.IPProtocol, deleteRule.IPProtocol) && strings.EqualFold(rule.Ports[0], deleteRule.Ports[0]) {
+				break
+			}
+			count++
+		}
+
+		if len(firewallAllowed)!= 0 && count < len(firewallAllowed) { // 삭제하려는 rule이 존재하는 경우
+			continue
+		}
+
+		newFirewallAllowed = append(newFirewallAllowed, &compute.FirewallAllowed{
+			IPProtocol: rule.IPProtocol,
+			Ports: rule.Ports,
+		})
+
+	}
+
+	if len(newFirewallAllowed) == 0 {
+		return false, errors.New("invalid value - Must specify at least one rule")
+	}
+
+	prefix := "https://www.googleapis.com/compute/v1/projects/" + projectID
+	//networkURL := prefix + "/global/networks/" + securityReqInfo.VpcIID.NameId
+	networkURL := prefix + "/global/networks/" + vpcName
+
+	fireWall := &compute.Firewall{
+		Allowed:   newFirewallAllowed,
+		Direction: commonDirection, //INGRESS(inbound), EGRESS(outbound)
+		// SourceRanges: []string{
+		// 	// "0.0.0.0/0",
+		// 	commonCidr,
+		// },
+		//Name: security.Name,
+		//TargetTags: []string{
+			//security.Name,
+		//},
+		Network: networkURL,
+	}
+
+	//CIDR 처리
+	if strings.EqualFold(commonDirection, "INGRESS") {
+		//fireWall.SourceRanges = []string{commonCidr}
+		fireWall.SourceRanges = commonCidr
+	} else {
+		//fireWall.DestinationRanges = []string{commonCidr}
+		fireWall.DestinationRanges = commonCidr
+	}
+
+	cblogger.Info("생성할 방화벽 정책")
+	cblogger.Debug(fireWall)
+	//spew.Dump(fireWall)
+
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.GCP,
+		RegionZone:   securityHandler.Region.Zone,
+		ResourceType: call.SECURITYGROUP,
+		ResourceName: security.Name,
+		CloudOSAPI:   "Firewalls.Update()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+	callLogStart := call.Start()
+
+	res, err := securityHandler.Client.Firewalls.Update(projectID, sgIID.SystemId, fireWall).Do()
+	cblogger.Info(res)
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+	if err != nil {
+		callLogInfo.ErrorMSG = err.Error()
+		callogger.Error(call.String(callLogInfo))
+		cblogger.Error(err)
+		return false, err
+	}
+	callogger.Info(call.String(callLogInfo))
+	//fmt.Println("create result : ", res)
+	time.Sleep(time.Second * 3)
+	//secInfo, _ := securityHandler.GetSecurity(securityReqInfo.IId)
+	secInfo, _ := securityHandler.GetSecurity(irs.IID{SystemId: sgIID.SystemId})
+	cblogger.Info(secInfo)
+	return true, nil
+	//return irs.SecurityInfo{}, fmt.Errorf("Coming Soon!")
 }
