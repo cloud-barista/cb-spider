@@ -211,64 +211,18 @@ func (vpcHandler *OpenStackVPCHandler) ListVPC() ([]*irs.VPCInfo, error) {
 func (vpcHandler *OpenStackVPCHandler) GetVPC(vpcIID irs.IID) (irs.VPCInfo, error) {
 	// log HisCall
 	hiscallInfo := GetCallLogScheme(vpcHandler.Client.IdentityEndpoint, call.VPCSUBNET, vpcIID.NameId, "GetVPC()")
-	var vpc NetworkWithExt
+	//var vpc NetworkWithExt
 	start := call.Start()
-
-	if iidCheck := CheckIIDValidation(vpcIID); !iidCheck {
-		getErr := errors.New(fmt.Sprintf("Failed to Get VPC err = InValid IID"))
+	vpc, err := vpcHandler.getRawVPC(vpcIID)
+	if err != nil {
+		getErr := errors.New(fmt.Sprintf("Failed to Get VPC with Id %s, err=%s", vpcIID.SystemId, err.Error()))
 		cblogger.Error(getErr.Error())
 		LoggingError(hiscallInfo, getErr)
 		return irs.VPCInfo{}, getErr
 	}
-	if vpcIID.SystemId == "" {
-		listOpts := external.ListOptsExt{
-			ListOptsBuilder: networks.ListOpts{
-				Name: vpcIID.NameId,
-			},
-		}
-		page, err := networks.List(vpcHandler.Client, listOpts).AllPages()
-		if err != nil {
-			getErr := errors.New(fmt.Sprintf("Failed to Get VPC with Id %s, err=%s", vpcIID.SystemId, err.Error()))
-			cblogger.Error(getErr.Error())
-			LoggingError(hiscallInfo, getErr)
-			return irs.VPCInfo{}, getErr
-		}
-		LoggingInfo(hiscallInfo, start)
-
-		var vpcList []NetworkWithExt
-		err = networks.ExtractNetworksInto(page, &vpcList)
-		if err != nil {
-			getErr := errors.New(fmt.Sprintf("Failed to Get VPC with Id %s, err=%s", vpcIID.SystemId, err.Error()))
-			cblogger.Error(getErr.Error())
-			LoggingError(hiscallInfo, getErr)
-			return irs.VPCInfo{}, getErr
-		}
-
-		for _, vpc := range vpcList {
-			if vpc.Name == vpcIID.NameId {
-				vpcInfo := vpcHandler.setterVPC(vpc)
-				return *vpcInfo, nil
-			}
-		}
-		notExistVpcErr := errors.New(fmt.Sprintf("Failed to Get VPC with Id %s, not Exist VPC", vpcIID.SystemId))
-		getErr := errors.New(fmt.Sprintf("Failed to Get VPC with Id %s, err=%s", vpcIID.SystemId, notExistVpcErr))
-		cblogger.Error(getErr.Error())
-		LoggingError(hiscallInfo, getErr)
-		return irs.VPCInfo{}, getErr
-	} else {
-		err := networks.Get(vpcHandler.Client, vpcIID.SystemId).ExtractInto(&vpc)
-		if err != nil {
-			getErr := errors.New(fmt.Sprintf("Failed to Get VPC with Id %s, err=%s", vpcIID.SystemId, err.Error()))
-			cblogger.Error(getErr.Error())
-			LoggingError(hiscallInfo, getErr)
-			return irs.VPCInfo{}, getErr
-		}
-		LoggingInfo(hiscallInfo, start)
-
-		vpcInfo := vpcHandler.setterVPC(vpc)
-		return *vpcInfo, nil
-	}
-
+	vpcInfo := vpcHandler.setterVPC(*vpc)
+	LoggingInfo(hiscallInfo, start)
+	return *vpcInfo, nil
 }
 
 func (vpcHandler *OpenStackVPCHandler) DeleteVPC(vpcIID irs.IID) (bool, error) {
@@ -538,4 +492,41 @@ func (vpcHandler *OpenStackVPCHandler) vpcCleaner(vpcIId irs.IID) error {
 		return nil
 	}
 	return errors.New("unexpected error")
+}
+
+func (vpcHandler *OpenStackVPCHandler) getRawVPC(vpcIID irs.IID) (*NetworkWithExt, error) {
+	if !CheckIIDValidation(vpcIID) {
+		return nil, errors.New("invalid IID")
+	}
+	var vpc NetworkWithExt
+	if vpcIID.SystemId == "" {
+		listOpts := external.ListOptsExt{
+			ListOptsBuilder: networks.ListOpts{
+				Name: vpcIID.NameId,
+			},
+		}
+		page, err := networks.List(vpcHandler.Client, listOpts).AllPages()
+		if err != nil {
+			return nil, err
+		}
+
+		var vpcList []NetworkWithExt
+		err = networks.ExtractNetworksInto(page, &vpcList)
+		if err != nil {
+			return nil, err
+		}
+
+		for _, vpc := range vpcList {
+			if vpc.Name == vpcIID.NameId {
+				return &vpc, nil
+			}
+		}
+		return nil, errors.New("not found vpc")
+	} else {
+		err := networks.Get(vpcHandler.Client, vpcIID.SystemId).ExtractInto(&vpc)
+		if err != nil {
+			return nil, err
+		}
+		return &vpc, nil
+	}
 }

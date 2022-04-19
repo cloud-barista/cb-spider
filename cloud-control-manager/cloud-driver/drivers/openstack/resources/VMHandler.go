@@ -94,7 +94,40 @@ func (vmHandler *OpenStackVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (startvm i
 		return irs.VMInfo{}, createErr
 	}
 	// Private IP 할당 서브넷 매핑
-	fixedIp, err := vmHandler.availableFixedIP(vmReqInfo.SubnetIID)
+	// Private IP 할당 서브넷 매핑 - vpc 및 서브넷 확인
+	vpcHandler := OpenStackVPCHandler{
+		Client: vmHandler.NetworkClient,
+		VMClient: vmHandler.Client,
+	}
+	rawVpc, err := vpcHandler.getRawVPC(vmReqInfo.VpcIID)
+	if err != nil {
+		createErr := errors.New(fmt.Sprintf("Failed to startVM err %s", err))
+		cblogger.Error(createErr.Error())
+		LoggingError(hiscallInfo, createErr)
+		return irs.VMInfo{}, createErr
+	}
+	fixedIPSubnet := irs.IID{}
+	for _, rawsubnetId := range rawVpc.Subnets{
+		subnet, err := subnets.Get(vpcHandler.Client, rawsubnetId).Extract()
+		if err != nil {
+			createErr := errors.New(fmt.Sprintf("Failed to startVM err %s", err))
+			cblogger.Error(createErr.Error())
+			LoggingError(hiscallInfo, createErr)
+			return irs.VMInfo{}, createErr
+		}
+		if subnet.ID == vmReqInfo.SubnetIID.SystemId || subnet.Name == vmReqInfo.SubnetIID.NameId {
+			fixedIPSubnet.SystemId = subnet.ID
+			fixedIPSubnet.NameId = subnet.Name
+			break
+		}
+	}
+	if fixedIPSubnet.SystemId == "" {
+		createErr := errors.New(fmt.Sprintf("Failed to startVM err not found subnet"))
+		cblogger.Error(createErr.Error())
+		LoggingError(hiscallInfo, createErr)
+		return irs.VMInfo{}, createErr
+	}
+	fixedIp, err := vmHandler.availableFixedIP(fixedIPSubnet)
 	if err != nil {
 		createErr := errors.New(fmt.Sprintf("Failed to startVM err %s", err))
 		cblogger.Error(createErr.Error())
@@ -110,7 +143,7 @@ func (vmHandler *OpenStackVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (startvm i
 			"imagekey": image.IId.NameId,
 		},
 		Networks: []servers.Network{
-			{UUID: vmReqInfo.VpcIID.SystemId, FixedIP: fixedIp},
+			{UUID: rawVpc.ID, FixedIP: fixedIp},
 		},
 	}
 
@@ -118,25 +151,34 @@ func (vmHandler *OpenStackVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (startvm i
 		createVolumeFlag = false
 		serverCreateOpts.ImageRef = image.IId.SystemId
 	}
+	segHandler := OpenStackSecurityHandler{
+		Client: vmHandler.Client,
+		NetworkClient: vmHandler.NetworkClient,
+	}
 
 	sgIdArr := make([]string, len(vmReqInfo.SecurityGroupIIDs))
 	for i, sg := range vmReqInfo.SecurityGroupIIDs {
-		sgIdArr[i] = sg.SystemId
+		SecurityGroup,err := segHandler.getRawSecurity(sg)
+		if err != nil {
+			createErr := errors.New(fmt.Sprintf("Failed to startVM err %s", err))
+			cblogger.Error(createErr.Error())
+			LoggingError(hiscallInfo, createErr)
+			return irs.VMInfo{}, createErr
+		}
+		sgIdArr[i] = SecurityGroup.ID
 	}
 	serverCreateOpts.SecurityGroups = sgIdArr
 
 	// Add KeyPair
-	createOpts := keypairs.CreateOptsExt{
-		KeyName: vmReqInfo.KeyPairIID.NameId,
-	}
-
-	// KeyPair 정보 가져오기
-	keyPair, err := keypairs.Get(vmHandler.Client, vmReqInfo.KeyPairIID.NameId).Extract()
+	keyPair, err := GetRawKey(vmHandler.Client,vmReqInfo.KeyPairIID)
 	if err != nil {
-		createErr := errors.New(fmt.Sprintf("Failed to startVM err = failed to get keypair, err : %s", err))
+		createErr := errors.New(fmt.Sprintf("Failed to startVM err %s", err))
 		cblogger.Error(createErr.Error())
 		LoggingError(hiscallInfo, createErr)
 		return irs.VMInfo{}, createErr
+	}
+	createOpts := keypairs.CreateOptsExt{
+		KeyName: keyPair.Name,
 	}
 
 	// cloud-init 스크립트 설정
@@ -200,7 +242,6 @@ func (vmHandler *OpenStackVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (startvm i
 			}
 		}
 	}()
-	LoggingInfo(hiscallInfo, start)
 
 	var serverResult *servers.Server
 	var serverInfo irs.VMInfo
@@ -249,7 +290,7 @@ func (vmHandler *OpenStackVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (startvm i
 			return irs.VMInfo{}, createErr
 		}
 	}
-
+	LoggingInfo(hiscallInfo, start)
 	return serverInfo, nil
 }
 
@@ -436,7 +477,7 @@ func (vmHandler *OpenStackVMHandler) GetVM(vmIID irs.IID) (irs.VMInfo, error) {
 	}*/
 
 	start := call.Start()
-	serverResult, err := servers.Get(vmHandler.Client, vmIID.SystemId).Extract()
+	serverResult, err := vmHandler.getRawVM(vmIID)
 	if err != nil {
 		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
@@ -538,9 +579,9 @@ func (vmHandler *OpenStackVMHandler) mappingServerInfo(server servers.Server) ir
 			imageInfo := irs.IID{
 				NameId: value,
 			}
-			imageId, err := imageHandler.IDFromName(vmHandler.Client, value)
+			image, err := imageHandler.getRawImage(imageInfo)
 			if err == nil {
-				imageInfo.SystemId = imageId
+				imageInfo.SystemId = image.ID
 			}
 			vmInfo.ImageIId = imageInfo
 		}
@@ -764,5 +805,29 @@ func (vmHandler *OpenStackVMHandler) vmCleaner(vmIId irs.IID) error {
 		if curRetryCnt > maxRetryCnt {
 			return errors.New(fmt.Sprintf("Success to Terminate. but Failed to confirm Terminate VM err = exceeded maximum retry count %d", maxRetryCnt))
 		}
+	}
+}
+
+func (vmHandler *OpenStackVMHandler) getRawVM(vmIId irs.IID) (*servers.Server, error) {
+	if !CheckIIDValidation(vmIId) {
+		return nil, errors.New("invalid IID")
+	}
+	if vmIId.SystemId == "" {
+		pager, err := servers.List(vmHandler.Client, nil).AllPages()
+		if err != nil {
+			return nil, err
+		}
+		rawServers, err := servers.ExtractServers(pager)
+		if err != nil {
+			return nil, err
+		}
+		for _, vm := range rawServers {
+			if vm.Name == vmIId.NameId {
+				return &vm, nil
+			}
+		}
+		return nil, errors.New("not found vm")
+	} else {
+		return servers.Get(vmHandler.Client, vmIId.SystemId).Extract()
 	}
 }
