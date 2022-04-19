@@ -39,6 +39,20 @@ type Config struct {
 					CIDR       string `yaml:"CIDR"`
 					Direction  string `yaml:"Direction"`
 				} `yaml:"rules"`
+				AddRules []struct {
+					FromPort   string `yaml:"FromPort"`
+					ToPort     string `yaml:"ToPort"`
+					IPProtocol string `yaml:"IPProtocol"`
+					CIDR       string `yaml:"CIDR"`
+					Direction  string `yaml:"Direction"`
+				} `yaml:"addRules"`
+				RemoveRules []struct {
+					FromPort   string `yaml:"FromPort"`
+					ToPort     string `yaml:"ToPort"`
+					IPProtocol string `yaml:"IPProtocol"`
+					CIDR       string `yaml:"CIDR"`
+					Direction  string `yaml:"Direction"`
+				} `yaml:"removeRules"`
 			} `yaml:"security"`
 			KeyPair struct {
 				NameId string `yaml:"nameId"`
@@ -234,7 +248,9 @@ func testSecurityHandlerListPrint() {
 	cblogger.Info("2. GetSecurity()")
 	cblogger.Info("3. CreateSecurity()")
 	cblogger.Info("4. DeleteSecurity()")
-	cblogger.Info("5. Exit")
+	cblogger.Info("5. AddRules()")
+	cblogger.Info("6. RemoveRules()")
+	cblogger.Info("7. Exit")
 }
 
 //SecurityGroup
@@ -264,6 +280,30 @@ func testSecurityHandler(config Config) {
 	}
 	targetVPCIId := irs.IID{
 		NameId: config.Azure.Resources.Security.VpcIID.NameId,
+	}
+	securityAddRules := config.Azure.Resources.Security.AddRules
+	var securityAddRulesInfos []irs.SecurityRuleInfo
+	for _, securityRule := range securityAddRules {
+		infos := irs.SecurityRuleInfo{
+			FromPort:   securityRule.FromPort,
+			ToPort:     securityRule.ToPort,
+			IPProtocol: securityRule.IPProtocol,
+			Direction:  securityRule.Direction,
+			CIDR:       securityRule.CIDR,
+		}
+		securityAddRulesInfos = append(securityAddRulesInfos, infos)
+	}
+	securityRemoveRules := config.Azure.Resources.Security.RemoveRules
+	var securityRemoveRulesInfos []irs.SecurityRuleInfo
+	for _, securityRule := range securityRemoveRules {
+		infos := irs.SecurityRuleInfo{
+			FromPort:   securityRule.FromPort,
+			ToPort:     securityRule.ToPort,
+			IPProtocol: securityRule.IPProtocol,
+			Direction:  securityRule.Direction,
+			CIDR:       securityRule.CIDR,
+		}
+		securityRemoveRulesInfos = append(securityRemoveRulesInfos, infos)
 	}
 Loop:
 	for {
@@ -315,6 +355,21 @@ Loop:
 				}
 				fmt.Println("Finish DeleteSecurity()")
 			case 5:
+				fmt.Println("Start AddRules() ...")
+				security, err := securityHandler.AddRules(securityIId, &securityAddRulesInfos)
+				if err != nil {
+					fmt.Println(err)
+				} else {
+					spew.Dump(security)
+				}
+				fmt.Println("Finish AddRules()")
+			case 6:
+				fmt.Println("Start RemoveRules() ...")
+				if ok, err := securityHandler.RemoveRules(securityIId, &securityRemoveRulesInfos); !ok {
+					fmt.Println(err)
+				}
+				fmt.Println("Finish RemoveRules()")
+			case 7:
 				fmt.Println("Exit")
 				break Loop
 			}

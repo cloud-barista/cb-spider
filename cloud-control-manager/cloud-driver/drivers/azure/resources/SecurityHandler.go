@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2021-02-01/network"
@@ -36,31 +37,14 @@ func (securityHandler *AzureSecurityHandler) setterSec(securityGroup network.Sec
 
 	var securityRuleArr []irs.SecurityRuleInfo
 	for _, sgRule := range *securityGroup.SecurityRules {
-
-		var fromPort string
-		var toPort string
-
-		if strings.Contains(*sgRule.SourcePortRange, "-") {
-			sourcePortArr := strings.Split(*sgRule.SourcePortRange, "-")
-			fromPort = sourcePortArr[0]
-			toPort = sourcePortArr[1]
-		} else {
-			fromPort = *sgRule.SourcePortRange
-			toPort = *sgRule.DestinationPortRange
-		}
-
+		protocols := convertRuleProtocolAZToCB(fmt.Sprint(sgRule.Protocol))
+		fromPort, toPort := convertRulePortRangeAZToCB(*sgRule.SourcePortRange, protocols)
 		ruleInfo := irs.SecurityRuleInfo{
-			IPProtocol: strings.ToLower(fmt.Sprint(sgRule.Protocol)),
-			Direction:  fmt.Sprint(sgRule.Direction),
+			IPProtocol: protocols,
+			Direction:  strings.ToLower(fmt.Sprint(sgRule.Direction)),
 			CIDR:       *sgRule.SourceAddressPrefix,
-		}
-
-		if strings.ToLower(fmt.Sprint(sgRule.Protocol)) == ICMP {
-			ruleInfo.FromPort = "-1"
-			ruleInfo.ToPort = "-1"
-		} else {
-			ruleInfo.FromPort = fromPort
-			ruleInfo.ToPort = toPort
+			FromPort:   fromPort,
+			ToPort:     toPort,
 		}
 
 		securityRuleArr = append(securityRuleArr, ruleInfo)
@@ -83,37 +67,17 @@ func (securityHandler *AzureSecurityHandler) CreateSecurity(securityReqInfo irs.
 		return irs.SecurityInfo{}, createErr
 	}
 
-	var sgRuleList []network.SecurityRule
-	var priorityNum int32
-	for idx, rule := range *securityReqInfo.SecurityRules {
-		priorityNum = int32(300 + idx*100)
-		sgRuleInfo := network.SecurityRule{
-			Name: to.StringPtr(fmt.Sprintf("%s-rules-%d", rule.Direction, idx+1)),
-			SecurityRulePropertiesFormat: &network.SecurityRulePropertiesFormat{
-				SourceAddressPrefix:      &rule.CIDR,
-				DestinationAddressPrefix: to.StringPtr("*"),
-				DestinationPortRange:     to.StringPtr("*"),
-				Protocol:                 network.SecurityRuleProtocol(strings.ToUpper(rule.IPProtocol)),
-				Access:                   network.SecurityRuleAccess("Allow"),
-				Priority:                 to.Int32Ptr(priorityNum),
-				Direction:                network.SecurityRuleDirection(rule.Direction),
-			},
-		}
+	sgRuleList, err := convertRuleInfoCBToAZ(*securityReqInfo.SecurityRules)
 
-		if strings.ToLower(rule.IPProtocol) == ICMP || (rule.FromPort == "*" && rule.ToPort == "*") {
-			sgRuleInfo.SourcePortRange = to.StringPtr("*")
-		} else if rule.FromPort == rule.ToPort {
-			sgRuleInfo.SourcePortRange = to.StringPtr(rule.FromPort)
-		} else {
-			sgRuleInfo.SourcePortRange = to.StringPtr(rule.FromPort + "-" + rule.ToPort)
-		}
-
-		sgRuleList = append(sgRuleList, sgRuleInfo)
+	if err != nil {
+		cblogger.Error(err.Error())
+		LoggingError(hiscallInfo, err)
+		return irs.SecurityInfo{}, err
 	}
 
 	createOpts := network.SecurityGroup{
 		SecurityGroupPropertiesFormat: &network.SecurityGroupPropertiesFormat{
-			SecurityRules: &sgRuleList,
+			SecurityRules: sgRuleList,
 		},
 		Location: &securityHandler.Region.Region,
 	}
@@ -171,7 +135,7 @@ func (securityHandler *AzureSecurityHandler) GetSecurity(securityIID irs.IID) (i
 	hiscallInfo := GetCallLogScheme(securityHandler.Region, call.SECURITYGROUP, securityIID.NameId, "GetSecurity()")
 
 	start := call.Start()
-	security, err := securityHandler.Client.Get(securityHandler.Ctx, securityHandler.Region.ResourceGroup, securityIID.NameId, "")
+	rawSecurityGroup, err := securityHandler.getRawSecurityGroup(securityIID)
 	if err != nil {
 		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
@@ -179,7 +143,7 @@ func (securityHandler *AzureSecurityHandler) GetSecurity(securityIID irs.IID) (i
 	}
 	LoggingInfo(hiscallInfo, start)
 
-	securityInfo := securityHandler.setterSec(security)
+	securityInfo := securityHandler.setterSec(*rawSecurityGroup)
 	return *securityInfo, nil
 }
 
@@ -205,9 +169,263 @@ func (securityHandler *AzureSecurityHandler) DeleteSecurity(securityIID irs.IID)
 }
 
 func (securityHandler *AzureSecurityHandler) AddRules(sgIID irs.IID, securityRules *[]irs.SecurityRuleInfo) (irs.SecurityInfo, error) {
-        return irs.SecurityInfo{}, fmt.Errorf("Coming Soon!")
+	hiscallInfo := GetCallLogScheme(securityHandler.Region, call.SECURITYGROUP, sgIID.NameId, "AddRules()")
+
+	start := call.Start()
+	security, err := securityHandler.getRawSecurityGroup(sgIID)
+	if err != nil {
+		cblogger.Error(err.Error())
+		LoggingError(hiscallInfo, err)
+		return irs.SecurityInfo{}, err
+	}
+
+	securityInfo := securityHandler.setterSec(*security)
+
+	var updateRules []irs.SecurityRuleInfo
+	for _, baseRule := range *securityInfo.SecurityRules {
+		updateRules = append(updateRules, baseRule)
+	}
+
+	for _, newRule := range *securityRules {
+		chk := true
+		for _, baseRule := range *securityInfo.SecurityRules {
+			if equalsRule(newRule, baseRule) {
+				chk = false
+				break
+			}
+		}
+		if chk {
+			updateRules = append(updateRules, newRule)
+		}
+	}
+
+	addSGRuleList, err := convertRuleInfoCBToAZ(updateRules)
+
+	if err != nil {
+		cblogger.Error(err.Error())
+		LoggingError(hiscallInfo, err)
+		return irs.SecurityInfo{}, err
+	}
+
+	updateOpts := network.SecurityGroup{
+		SecurityGroupPropertiesFormat: &network.SecurityGroupPropertiesFormat{
+			SecurityRules: addSGRuleList,
+		},
+		Location: &securityHandler.Region.Region,
+	}
+
+	future, err := securityHandler.Client.CreateOrUpdate(securityHandler.Ctx, securityHandler.Region.ResourceGroup, sgIID.NameId, updateOpts)
+	if err != nil {
+		cblogger.Error(err.Error())
+		LoggingError(hiscallInfo, err)
+		return irs.SecurityInfo{}, err
+	}
+
+	err = future.WaitForCompletionRef(securityHandler.Ctx, securityHandler.Client.Client)
+	if err != nil {
+		cblogger.Error(err.Error())
+		LoggingError(hiscallInfo, err)
+		return irs.SecurityInfo{}, err
+	}
+
+	// 변된 SecurityGroup 정보 리턴
+	updatedSecurity, err := securityHandler.getRawSecurityGroup(sgIID)
+	if err != nil {
+		cblogger.Error(err.Error())
+		LoggingError(hiscallInfo, err)
+		return irs.SecurityInfo{}, err
+	}
+
+	updatedSecurityInfo := securityHandler.setterSec(*updatedSecurity)
+	LoggingInfo(hiscallInfo, start)
+
+	return *updatedSecurityInfo, nil
 }
 
 func (securityHandler *AzureSecurityHandler) RemoveRules(sgIID irs.IID, securityRules *[]irs.SecurityRuleInfo) (bool, error) {
-        return false, fmt.Errorf("Coming Soon!")
+	hiscallInfo := GetCallLogScheme(securityHandler.Region, call.SECURITYGROUP, sgIID.NameId, "RemoveRules()")
+
+	start := call.Start()
+
+	security, err := securityHandler.getRawSecurityGroup(sgIID)
+
+	if err != nil {
+		cblogger.Error(err.Error())
+		LoggingError(hiscallInfo, err)
+		return false, err
+	}
+	securityInfo := securityHandler.setterSec(*security)
+
+	var updateRules []irs.SecurityRuleInfo
+
+	for _, baseRule := range *securityInfo.SecurityRules {
+		chk := true
+		for _, delRule := range *securityRules {
+			if equalsRule(baseRule, delRule) {
+				chk = false
+				break
+			}
+		}
+		if chk {
+			updateRules = append(updateRules, baseRule)
+		}
+	}
+
+	addSGRuleList, err := convertRuleInfoCBToAZ(updateRules)
+
+	if err != nil {
+		cblogger.Error(err.Error())
+		LoggingError(hiscallInfo, err)
+		return false, err
+	}
+
+	updateOpts := network.SecurityGroup{
+		SecurityGroupPropertiesFormat: &network.SecurityGroupPropertiesFormat{
+			SecurityRules: addSGRuleList,
+		},
+		Location: &securityHandler.Region.Region,
+	}
+
+	future, err := securityHandler.Client.CreateOrUpdate(securityHandler.Ctx, securityHandler.Region.ResourceGroup, sgIID.NameId, updateOpts)
+	if err != nil {
+		cblogger.Error(err.Error())
+		LoggingError(hiscallInfo, err)
+		return false, err
+	}
+
+	err = future.WaitForCompletionRef(securityHandler.Ctx, securityHandler.Client.Client)
+	if err != nil {
+		cblogger.Error(err.Error())
+		LoggingError(hiscallInfo, err)
+		return false, err
+	}
+
+	LoggingInfo(hiscallInfo, start)
+
+	return true, nil
+}
+
+func (securityHandler *AzureSecurityHandler) getRawSecurityGroup(sgIID irs.IID) (*network.SecurityGroup, error) {
+	if sgIID.SystemId == "" && sgIID.NameId == "" {
+		return nil, errors.New("invalid IID")
+	}
+	if sgIID.NameId == "" {
+		result, err := securityHandler.Client.List(securityHandler.Ctx, securityHandler.Region.ResourceGroup)
+		if err != nil {
+			return nil, err
+		}
+		for _, sg := range result.Values() {
+			if *sg.ID == sgIID.SystemId {
+				return &sg, nil
+			}
+		}
+		return nil, errors.New("not found SecurityGroup")
+	} else {
+		security, err := securityHandler.Client.Get(securityHandler.Ctx, securityHandler.Region.ResourceGroup, sgIID.NameId, "")
+		return &security, err
+	}
+}
+
+func convertRuleProtocolAZToCB(protocol string) string {
+	switch strings.ToUpper(protocol) {
+	case "*":
+		return strings.ToLower("all")
+	default:
+		return strings.ToLower(protocol)
+	}
+}
+
+func convertRuleProtocolCBToAZ(protocol string) (string, error) {
+	switch strings.ToUpper(protocol) {
+	case "ALL":
+		return strings.ToUpper("*"), nil
+	case "ICMP", "TCP", "UDP":
+		return strings.ToUpper(protocol), nil
+	}
+	return "", errors.New("invalid Rule Protocol")
+}
+
+func convertRulePortRangeAZToCB(portRange string, protocol string) (from string, to string) {
+	if strings.ToUpper(protocol) == "ICMP" {
+		return "-1", "-1"
+	}
+	portRangeArr := strings.Split(portRange, "-")
+	if len(portRangeArr) != 2 {
+		if len(portRangeArr) == 1 && portRange != "*" {
+			return portRangeArr[0], portRangeArr[0]
+		}
+		return "1", "65535"
+	}
+	return portRangeArr[0], portRangeArr[1]
+}
+
+func equalsRule(pre irs.SecurityRuleInfo, post irs.SecurityRuleInfo) bool {
+	if pre.ToPort == "-1" || pre.FromPort == "-1" {
+		pre.FromPort = "1"
+		pre.ToPort = "65535"
+	}
+	if post.ToPort == "-1" || post.FromPort == "-1" {
+		post.FromPort = "1"
+		post.ToPort = "65535"
+	}
+	return strings.ToLower(fmt.Sprintf("%#v", pre)) == strings.ToLower(fmt.Sprintf("%#v", post))
+}
+
+func convertRulePortRangeCBToAZ(from string, to string, protocol string) (string, error) {
+	if strings.ToUpper(protocol) == "ICMP" {
+		return "*", nil
+	}
+	if from == "" || to == "" {
+		return "", errors.New("invalid Rule PortRange")
+	}
+	fromInt, err := strconv.Atoi(from)
+	if err != nil {
+		return "", errors.New("invalid Rule PortRange")
+	}
+	toInt, err := strconv.Atoi(to)
+	if err != nil {
+		return "", errors.New("invalid Rule PortRange")
+	}
+	if fromInt == -1 || toInt == -1 {
+		return "*", nil
+	}
+	if fromInt > 65535 || fromInt < -1 || toInt > 65535 || toInt < -1 {
+		return "", errors.New("invalid Rule PortRange")
+	}
+	if fromInt == toInt {
+		return strconv.Itoa(fromInt), nil
+	} else {
+		return fmt.Sprintf("%d-%d", fromInt, toInt), nil
+	}
+}
+
+func convertRuleInfoCBToAZ(rules []irs.SecurityRuleInfo) (*[]network.SecurityRule, error) {
+	var azureSGRuleList []network.SecurityRule
+	var priorityNum int32
+	for idx, rule := range rules {
+		protocol, err := convertRuleProtocolCBToAZ(rule.IPProtocol)
+		if err != nil {
+			return nil, err
+		}
+		portRange, err := convertRulePortRangeCBToAZ(rule.FromPort, rule.ToPort, rule.IPProtocol)
+		if err != nil {
+			return nil, err
+		}
+		priorityNum = int32(300 + idx*100)
+		sgRuleInfo := network.SecurityRule{
+			Name: to.StringPtr(fmt.Sprintf("%s-rules-%d", rule.Direction, idx+1)),
+			SecurityRulePropertiesFormat: &network.SecurityRulePropertiesFormat{
+				SourceAddressPrefix:      &rule.CIDR,
+				SourcePortRange:          to.StringPtr(portRange),
+				DestinationAddressPrefix: to.StringPtr("*"),
+				DestinationPortRange:     to.StringPtr("*"),
+				Protocol:                 network.SecurityRuleProtocol(protocol),
+				Access:                   network.SecurityRuleAccess("Allow"),
+				Priority:                 to.Int32Ptr(priorityNum),
+				Direction:                network.SecurityRuleDirection(rule.Direction),
+			},
+		}
+		azureSGRuleList = append(azureSGRuleList, sgRuleInfo)
+	}
+	return &azureSGRuleList, nil
 }
