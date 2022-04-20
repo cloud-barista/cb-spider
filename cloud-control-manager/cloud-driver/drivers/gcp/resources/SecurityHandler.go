@@ -128,9 +128,7 @@ func (securityHandler *GCPSecurityHandler) CreateSecurity(securityReqInfo irs.Se
 	} else if strings.EqualFold(commonDirection, "outbound") || strings.EqualFold(commonDirection, "EGRESS") {
 		commonDirection = "EGRESS"
 	} else {
-		// cblogger.Errorf("!!!!!!!!! SecurityReqInfo.Direction 정보[%s]가 없어서 INGRESS로 처리합니다.", securityReqInfo.Direction)
-		// Direction deprecated; return irs.SecurityInfo{}, errors.New("invalid value - The direction[" + securityReqInfo.Direction + "] information is unknown")
-		return irs.SecurityInfo{}, errors.New("invalid value - The direction[" + "securityReqInfo.Direction" + "] information is unknown")
+		return irs.SecurityInfo{}, errors.New("invalid value - The direction[" + commonDirection + "] information is unknown")
 	}
 
 	prefix := "https://www.googleapis.com/compute/v1/projects/" + projectID
@@ -436,8 +434,6 @@ func (securityHandler *GCPSecurityHandler) AddRules(sgIID irs.IID, securityRules
 	} else if strings.EqualFold(commonDirection, "outbound") || strings.EqualFold(commonDirection, "EGRESS") {
 		commonDirection = "EGRESS"
 	} else {
-		// cblogger.Errorf("!!!!!!!!! SecurityReqInfo.Direction 정보[%s]가 없어서 INGRESS로 처리합니다.", securityReqInfo.Direction)
-		// Direction deprecated; return irs.SecurityInfo{}, errors.New("invalid value - The direction[" + securityReqInfo.Direction + "] information is unknown")
 		return irs.SecurityInfo{}, errors.New("invalid value - The direction[" + commonDirection + "] information is unknown")
 	}
 
@@ -581,8 +577,6 @@ func (securityHandler *GCPSecurityHandler) RemoveRules(sgIID irs.IID, securityRu
 		} else if strings.EqualFold(item.Direction, "outbound") || strings.EqualFold(item.Direction, "EGRESS") {
 			item.Direction = "EGRESS"
 		} else {
-			// cblogger.Errorf("!!!!!!!!! SecurityReqInfo.Direction 정보[%s]가 없어서 INGRESS로 처리합니다.", securityReqInfo.Direction)
-			// Direction deprecated; return irs.SecurityInfo{}, errors.New("invalid value - The direction[" + securityReqInfo.Direction + "] information is unknown")
 			return false, errors.New("invalid value - The direction[" + item.Direction + "] information is unknown")
 		}
 
