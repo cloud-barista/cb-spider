@@ -356,10 +356,147 @@ func (securityHandler *TencentSecurityHandler) DeleteSecurity(securityIID irs.II
 	return true, nil
 }
 
-func (securityHandler *TencentSecurityHandler) AddRules(sgIID irs.IID, securityRules *[]irs.SecurityRuleInfo) (irs.SecurityInfo, error) {
-        return irs.SecurityInfo{}, errors.New("Coming Soon!")
+// SecurityGroupRule추가
+// 추가 후 SecurityGroup return
+func (securityHandler *TencentSecurityHandler) AddRules(securityIID irs.IID, securityRules *[]irs.SecurityRuleInfo) (irs.SecurityInfo, error) {
+	////////
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.TENCENT,
+		RegionZone:   securityHandler.Region.Zone,
+		ResourceType: call.SECURITYGROUP,
+		ResourceName: "AddRules()",
+		CloudOSAPI:   "CreateSecurityGroupPolicies()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+
+	if len(*securityRules) < 1 {
+		return irs.SecurityInfo{}, errors.New("invalid value - The SecurityRules to add is empty")
+	}
+
+	securityGroupPolicySet := &vpc.SecurityGroupPolicySet{}
+	commonPolicy := *securityRules
+	commonDirection := commonPolicy[0].Direction
+	for _, curPolicy := range *securityRules {
+	
+		if !strings.EqualFold(curPolicy.Direction, commonDirection) {
+			return irs.SecurityInfo{}, errors.New("invalid - The parameter `Egress and Ingress` cannot be imported at the same time in the request.")
+		}
+		
+
+		securityGroupPolicy := new(vpc.SecurityGroupPolicy)
+		securityGroupPolicy.Protocol = common.StringPtr(curPolicy.IPProtocol)
+		//securityGroupPolicy.CidrBlock = common.StringPtr("0.0.0.0/0")
+		securityGroupPolicy.CidrBlock = common.StringPtr(curPolicy.CIDR)
+		securityGroupPolicy.Action = common.StringPtr("accept") // 하드코딩으로 Set되고 있음.
+
+		// 포트 번호에 "-"가 오면 모든 포트로 설정
+		if curPolicy.FromPort == "-1" || curPolicy.ToPort == "-1" {
+			securityGroupPolicy.Port = common.StringPtr("ALL")
+		} else if curPolicy.ToPort != "" && curPolicy.ToPort != curPolicy.FromPort {
+			securityGroupPolicy.Port = common.StringPtr(curPolicy.FromPort + "-" + curPolicy.ToPort)
+		} else {
+			securityGroupPolicy.Port = common.StringPtr(curPolicy.FromPort)
+		}
+
+		if strings.EqualFold(curPolicy.Direction, "inbound") {
+			securityGroupPolicySet.Ingress = append(securityGroupPolicySet.Ingress, securityGroupPolicy)
+		} else {
+			securityGroupPolicySet.Egress = append(securityGroupPolicySet.Egress, securityGroupPolicy)
+		}
+	}
+
+	request := vpc.NewCreateSecurityGroupPoliciesRequest()
+	request.SecurityGroupId = common.StringPtr(securityIID.SystemId)
+	request.SecurityGroupPolicySet = securityGroupPolicySet
+
+	callLogStart := call.Start()
+	response, err := securityHandler.Client.CreateSecurityGroupPolicies(request)
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+
+	if err != nil {
+		callLogInfo.ErrorMSG = err.Error()
+		callogger.Error(call.String(callLogInfo))
+
+		cblogger.Error(err)
+		return irs.SecurityInfo{}, err
+	}
+	//spew.Dump(response)
+	cblogger.Debug(response.ToJsonString())
+	callogger.Info(call.String(callLogInfo))
+
+	securityInfo, errSecurity := securityHandler.GetSecurity(securityIID)
+	if errSecurity != nil {
+		cblogger.Error(errSecurity)
+		return irs.SecurityInfo{}, errSecurity
+	}
+	return securityInfo, errSecurity
 }
 
-func (securityHandler *TencentSecurityHandler) RemoveRules(sgIID irs.IID, securityRules *[]irs.SecurityRuleInfo) (bool, error) {
-        return false, errors.New("Coming Soon!")
+func (securityHandler *TencentSecurityHandler) RemoveRules(securityIID irs.IID, securityRules *[]irs.SecurityRuleInfo) (bool, error) {
+	////////
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.TENCENT,
+		RegionZone:   securityHandler.Region.Zone,
+		ResourceType: call.SECURITYGROUP,
+		ResourceName: "RemoveRules()",
+		CloudOSAPI:   "DeleteSecurityGroupPolicies()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+
+	securityGroupPolicySet := &vpc.SecurityGroupPolicySet{}
+	for _, curPolicy := range *securityRules {
+		securityGroupPolicy := new(vpc.SecurityGroupPolicy)
+		securityGroupPolicy.Protocol = common.StringPtr(curPolicy.IPProtocol)
+		//securityGroupPolicy.CidrBlock = common.StringPtr("0.0.0.0/0")
+		securityGroupPolicy.CidrBlock = common.StringPtr(curPolicy.CIDR)
+		securityGroupPolicy.Action = common.StringPtr("accept") // 하드코딩으로 Set되고 있음.
+
+		// 포트 번호에 "-"가 오면 모든 포트로 설정
+		if curPolicy.FromPort == "-1" || curPolicy.ToPort == "-1" {
+			securityGroupPolicy.Port = common.StringPtr("ALL")
+		} else if curPolicy.ToPort != "" && curPolicy.ToPort != curPolicy.FromPort {
+			securityGroupPolicy.Port = common.StringPtr(curPolicy.FromPort + "-" + curPolicy.ToPort)
+		} else {
+			securityGroupPolicy.Port = common.StringPtr(curPolicy.FromPort)
+		}
+
+		if strings.EqualFold(curPolicy.Direction, "inbound") {
+			securityGroupPolicySet.Ingress = append(securityGroupPolicySet.Ingress, securityGroupPolicy)
+		} else {
+			securityGroupPolicySet.Egress = append(securityGroupPolicySet.Egress, securityGroupPolicy)
+		}
+	}
+
+	request := vpc.NewDeleteSecurityGroupPoliciesRequest()
+	request.SecurityGroupId = common.StringPtr(securityIID.SystemId)
+	request.SecurityGroupPolicySet = securityGroupPolicySet
+
+	callLogStart := call.Start()
+	response, err := securityHandler.Client.DeleteSecurityGroupPolicies(request)
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+
+	if err != nil {
+		callLogInfo.ErrorMSG = err.Error()
+		callogger.Error(call.String(callLogInfo))
+
+		cblogger.Error(err)
+		return false, err
+	}
+	//spew.Dump(response)
+	cblogger.Debug(response.ToJsonString())
+	callogger.Info(call.String(callLogInfo))
+
+	securityInfo, errSecurity := securityHandler.GetSecurity(securityIID)
+	cblogger.Debug(securityInfo)
+	if errSecurity != nil {
+		cblogger.Error(errSecurity)
+		return false, errSecurity
+	}
+	return true, nil
 }
