@@ -101,13 +101,17 @@ func (securityHandler *AlibabaSecurityHandler) CreateSecurity(securityReqInfo ir
 //  - function name 변경 : AuthorizeSecurityRules to AddRules
 //func (securityHandler *AlibabaSecurityHandler) AuthorizeSecurityRules(securityGroupId string, vpcId string, securityRuleInfos *[]irs.SecurityRuleInfo) (*[]irs.SecurityRuleInfo, error) {
 //func (securityHandler *AlibabaSecurityHandler) AuthorizeSecurityRules(securityGroupId string, securityRuleInfos *[]irs.SecurityRuleInfo) (*[]irs.SecurityRuleInfo, error) {
-func (securityHandler *AlibabaSecurityHandler) AddRules(securityIID irs.IID, securityRuleInfos *[]irs.SecurityRuleInfo) (irs.SecurityInfo, error) {
+func (securityHandler *AlibabaSecurityHandler) AddRules(securityIID irs.IID, securityRules *[]irs.SecurityRuleInfo) (irs.SecurityInfo, error) {
 	securityGroupId := securityIID.SystemId
-	cblogger.Infof("securityGroupId : [%s]  / securityRuleInfos : [%v]", securityGroupId, securityRuleInfos)
+	cblogger.Infof("securityGroupId : [%s]  / securityRuleInfos : [%v]", securityGroupId, securityRules)
 	//cblogger.Info("AuthorizeSecurityRules ", securityRuleInfos)
-	spew.Dump(securityRuleInfos)
+	spew.Dump(securityRules)
 
-	for _, curRule := range *securityRuleInfos {
+	if len(*securityRules) < 1 {
+		return irs.SecurityInfo{}, errors.New("invalid value - The SecurityRules to add is empty")
+	}
+
+	for _, curRule := range *securityRules {
 		if strings.EqualFold(curRule.Direction, "inbound") {
 			request := ecs.CreateAuthorizeSecurityGroupRequest()
 			request.Scheme = "https"

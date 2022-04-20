@@ -372,9 +372,20 @@ func (securityHandler *TencentSecurityHandler) AddRules(securityIID irs.IID, sec
 		ErrorMSG:     "",
 	}
 
+	if len(*securityRules) < 1 {
+		return irs.SecurityInfo{}, errors.New("invalid value - The SecurityRules to add is empty")
+	}
+
 	securityGroupPolicySet := &vpc.SecurityGroupPolicySet{}
-	prevDirection := ""
+	commonPolicy := *securityRules
+	commonDirection := commonPolicy[0].Direction
 	for _, curPolicy := range *securityRules {
+	
+		if !strings.EqualFold(curPolicy.Direction, commonDirection) {
+			return irs.SecurityInfo{}, errors.New("invalid - The parameter `Egress and Ingress` cannot be imported at the same time in the request.")
+		}
+		
+
 		securityGroupPolicy := new(vpc.SecurityGroupPolicy)
 		securityGroupPolicy.Protocol = common.StringPtr(curPolicy.IPProtocol)
 		//securityGroupPolicy.CidrBlock = common.StringPtr("0.0.0.0/0")
@@ -388,14 +399,6 @@ func (securityHandler *TencentSecurityHandler) AddRules(securityIID irs.IID, sec
 			securityGroupPolicy.Port = common.StringPtr(curPolicy.FromPort + "-" + curPolicy.ToPort)
 		} else {
 			securityGroupPolicy.Port = common.StringPtr(curPolicy.FromPort)
-		}
-
-		if prevDirection == "" {
-			prevDirection = curPolicy.Direction
-		} else {
-			if !strings.EqualFold(curPolicy.Direction, prevDirection) {
-				return irs.SecurityInfo{}, errors.New("invalid - The parameter `Egress and Ingress` cannot be imported at the same time in the request.")
-			}
 		}
 
 		if strings.EqualFold(curPolicy.Direction, "inbound") {
