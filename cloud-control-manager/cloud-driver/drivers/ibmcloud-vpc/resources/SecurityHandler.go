@@ -12,6 +12,7 @@ import (
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"net/url"
 	"strconv"
+	"strings"
 )
 
 type IbmSecurityHandler struct {
@@ -64,63 +65,29 @@ func (securityHandler *IbmSecurityHandler) CreateSecurity(securityReqInfo irs.Se
 		LoggingError(hiscallInfo, createErr)
 		return irs.SecurityInfo{}, createErr
 	}
-
-	if securityReqInfo.SecurityRules != nil {
-		for _, securityRule := range *securityReqInfo.SecurityRules {
-			if securityRule.IPProtocol == "tcp" || securityRule.IPProtocol == "udp" {
-				portMinInt, _ := strconv.ParseInt(securityRule.FromPort, 10, 64)
-				portMaxInt, _ := strconv.ParseInt(securityRule.ToPort, 10, 64)
-				ruleOptions := &vpcv1.CreateSecurityGroupRuleOptions{}
-				ruleOptions.SetSecurityGroupID(*securityGroup.ID)
-				ruleOptions.SetSecurityGroupRulePrototype(&vpcv1.SecurityGroupRulePrototype{
-					Direction: core.StringPtr(securityRule.Direction),
-					Protocol:  core.StringPtr(securityRule.IPProtocol),
-					PortMax:   core.Int64Ptr(portMaxInt),
-					PortMin:   core.Int64Ptr(portMinInt),
-					IPVersion: core.StringPtr("ipv4"),
-					Remote: &vpcv1.SecurityGroupRuleRemotePrototype{
-						CIDRBlock: &securityRule.CIDR,
-					},
-				})
-				_, _, err := securityHandler.VpcService.CreateSecurityGroupRuleWithContext(securityHandler.Ctx, ruleOptions)
-				if err != nil {
-					options := &vpcv1.DeleteSecurityGroupOptions{}
-					options.SetID(*securityGroup.ID)
-					_, deleteError := securityHandler.VpcService.DeleteSecurityGroupWithContext(securityHandler.Ctx, options)
-					if deleteError != nil {
-						err = errors.New(err.Error() + deleteError.Error())
-					}
-					createErr := errors.New(fmt.Sprintf("Failed to Create Security. err = %s", err.Error()))
-					cblogger.Error(createErr.Error())
-					LoggingError(hiscallInfo, createErr)
-					return irs.SecurityInfo{}, createErr
-				}
-			} else {
-				ruleOptions := &vpcv1.CreateSecurityGroupRuleOptions{}
-				ruleOptions.SetSecurityGroupID(*securityGroup.ID)
-				ruleOptions.SetSecurityGroupRulePrototype(&vpcv1.SecurityGroupRulePrototype{
-					Direction: core.StringPtr(securityRule.Direction),
-					Protocol:  core.StringPtr(securityRule.IPProtocol),
-					IPVersion: core.StringPtr("ipv4"),
-					Remote: &vpcv1.SecurityGroupRuleRemotePrototype{
-						CIDRBlock: &securityRule.CIDR,
-					},
-				})
-				_, _, err := securityHandler.VpcService.CreateSecurityGroupRuleWithContext(securityHandler.Ctx, ruleOptions)
-				if err != nil {
-					options := &vpcv1.DeleteSecurityGroupOptions{}
-					options.SetID(*securityGroup.ID)
-					_, deleteError := securityHandler.VpcService.DeleteSecurityGroupWithContext(securityHandler.Ctx, options)
-					if deleteError != nil {
-						err = errors.New(err.Error() + deleteError.Error())
-					}
-					createErr := errors.New(fmt.Sprintf("Failed to Create Security. err = %s", err.Error()))
-					cblogger.Error(createErr.Error())
-					LoggingError(hiscallInfo, createErr)
-					return irs.SecurityInfo{}, createErr
-				}
+	securityGroupRulePrototypes, err := convertCBRuleInfoToIbmRule(*securityReqInfo.SecurityRules)
+	if err != nil {
+		createErr := errors.New(fmt.Sprintf("Failed to Create Security. err = %s", err.Error()))
+		cblogger.Error(createErr.Error())
+		LoggingError(hiscallInfo, createErr)
+		return irs.SecurityInfo{}, createErr
+	}
+	for _, sgPrototype := range *securityGroupRulePrototypes {
+		ruleOptions := &vpcv1.CreateSecurityGroupRuleOptions{}
+		ruleOptions.SetSecurityGroupID(*securityGroup.ID)
+		ruleOptions.SetSecurityGroupRulePrototype(&sgPrototype)
+		_, _, err := securityHandler.VpcService.CreateSecurityGroupRuleWithContext(securityHandler.Ctx, ruleOptions)
+		if err != nil {
+			options := &vpcv1.DeleteSecurityGroupOptions{}
+			options.SetID(*securityGroup.ID)
+			_, deleteError := securityHandler.VpcService.DeleteSecurityGroupWithContext(securityHandler.Ctx, options)
+			if deleteError != nil {
+				err = errors.New(err.Error() + deleteError.Error())
 			}
-
+			createErr := errors.New(fmt.Sprintf("Failed to Create Security. err = %s", err.Error()))
+			cblogger.Error(createErr.Error())
+			LoggingError(hiscallInfo, createErr)
+			return irs.SecurityInfo{}, createErr
 		}
 	}
 
@@ -358,55 +325,11 @@ func setSecurityGroupInfo(securityGroup vpcv1.SecurityGroup) (irs.SecurityInfo, 
 func setRule(securityGroup vpcv1.SecurityGroup) ([]irs.SecurityRuleInfo, error) {
 	var ruleList []irs.SecurityRuleInfo
 	for _, rule := range securityGroup.Rules {
-		jsonRuleBytes, err := json.Marshal(rule)
+		ruleInfo, err := convertIbmRuleToCBRuleInfo(rule)
 		if err != nil {
 			return nil, err
 		}
-		jsonRuleMap := make(map[string]json.RawMessage)
-		unmarshalErr := json.Unmarshal(jsonRuleBytes, &jsonRuleMap)
-		if unmarshalErr != nil {
-			return nil, err
-		}
-		remoteJson := jsonRuleMap["remote"]
-		var remote vpcv1.SecurityGroupRuleRemote
-		unmarshalErr = json.Unmarshal(remoteJson, &remote)
-		if unmarshalErr != nil {
-			return nil, err
-		}
-		if remote.Name != nil && *remote.Name == *securityGroup.Name {
-			continue
-		}
-		var ruleProtocolAll vpcv1.SecurityGroupRulePrototypeSecurityGroupRuleProtocolAll
-		_ = json.Unmarshal(jsonRuleBytes, &ruleProtocolAll)
-
-		if *ruleProtocolAll.Protocol == "tcp" || *ruleProtocolAll.Protocol == "udp" {
-			var ruleProtocolTcpudp vpcv1.SecurityGroupRulePrototypeSecurityGroupRuleProtocolTcpudp
-			_ = json.Unmarshal(jsonRuleBytes, &ruleProtocolTcpudp)
-			ruleInfo := irs.SecurityRuleInfo{
-				IPProtocol: *ruleProtocolTcpudp.Protocol,
-				Direction:  *ruleProtocolTcpudp.Direction,
-				FromPort:   strconv.FormatInt(*ruleProtocolTcpudp.PortMin, 10),
-				ToPort:     strconv.FormatInt(*ruleProtocolTcpudp.PortMax, 10),
-				CIDR:       *remote.CIDRBlock,
-			}
-			ruleList = append(ruleList, ruleInfo)
-		} else if *ruleProtocolAll.Protocol == "icmp" {
-			var ruleProtocolIcmp vpcv1.SecurityGroupRulePrototypeSecurityGroupRuleProtocolIcmp
-			_ = json.Unmarshal(jsonRuleBytes, &ruleProtocolIcmp)
-			ruleInfo := irs.SecurityRuleInfo{
-				IPProtocol: *ruleProtocolIcmp.Protocol,
-				Direction:  *ruleProtocolIcmp.Direction,
-				CIDR:       *remote.CIDRBlock,
-			}
-			ruleList = append(ruleList, ruleInfo)
-		} else {
-			ruleInfo := irs.SecurityRuleInfo{
-				IPProtocol: *ruleProtocolAll.Protocol,
-				Direction:  *ruleProtocolAll.Direction,
-				CIDR:       *remote.CIDRBlock,
-			}
-			ruleList = append(ruleList, ruleInfo)
-		}
+		ruleList = append(ruleList, *ruleInfo)
 	}
 	return ruleList, nil
 }
@@ -448,9 +371,302 @@ func checkSecurityReqInfo(securityReqInfo irs.SecurityReqInfo) error {
 }
 
 func (securityHandler *IbmSecurityHandler) AddRules(sgIID irs.IID, securityRules *[]irs.SecurityRuleInfo) (irs.SecurityInfo, error) {
-        return irs.SecurityInfo{}, fmt.Errorf("Coming Soon!")
+	hiscallInfo := GetCallLogScheme(securityHandler.Region, call.SECURITYGROUP, sgIID.NameId, "GetSecurity()")
+	start := call.Start()
+
+	err := checkSecurityGroupIID(sgIID)
+	if err != nil {
+		getErr := errors.New(fmt.Sprintf("Failed to Add SecurityGroup Rules. err = %s", err.Error()))
+		cblogger.Error(getErr.Error())
+		LoggingError(hiscallInfo, getErr)
+		return irs.SecurityInfo{}, getErr
+	}
+	securityGroup, err := getRawSecurityGroup(sgIID, securityHandler.VpcService, securityHandler.Ctx)
+	if err != nil {
+		getErr := errors.New(fmt.Sprintf("Failed to Add SecurityGroup Rules. err = %s", err.Error()))
+		cblogger.Error(getErr.Error())
+		LoggingError(hiscallInfo, getErr)
+		return irs.SecurityInfo{}, getErr
+	}
+	securityGroupInfo, err := setSecurityGroupInfo(securityGroup)
+	if err != nil {
+		getErr := errors.New(fmt.Sprintf("Failed to Add SecurityGroup Rules. err = %s", err.Error()))
+		cblogger.Error(getErr.Error())
+		LoggingError(hiscallInfo, getErr)
+		return irs.SecurityInfo{}, getErr
+	}
+	var updateRules []irs.SecurityRuleInfo
+	// 추가될 Rule 판단
+	for _, newRule := range *securityRules {
+		chk := true
+		for _, baseRule := range *securityGroupInfo.SecurityRules {
+			if equalsRule(newRule, baseRule) {
+				chk = false
+				break
+			}
+		}
+		if chk {
+			updateRules = append(updateRules, newRule)
+		}
+	}
+	securityGroupRulePrototypes, err := convertCBRuleInfoToIbmRule(updateRules)
+	if err != nil {
+		createErr := errors.New(fmt.Sprintf("Failed to Add SecurityGroup Rules. err = %s", err.Error()))
+		cblogger.Error(createErr.Error())
+		LoggingError(hiscallInfo, createErr)
+		return irs.SecurityInfo{}, createErr
+	}
+	for _, sgPrototype := range *securityGroupRulePrototypes {
+		ruleOptions := &vpcv1.CreateSecurityGroupRuleOptions{}
+		ruleOptions.SetSecurityGroupID(*securityGroup.ID)
+		ruleOptions.SetSecurityGroupRulePrototype(&sgPrototype)
+		_, _, err := securityHandler.VpcService.CreateSecurityGroupRuleWithContext(securityHandler.Ctx, ruleOptions)
+		if err != nil {
+			createErr := errors.New(fmt.Sprintf("Failed to Add SecurityGroup Rules. err = %s", err.Error()))
+			cblogger.Error(createErr.Error())
+			LoggingError(hiscallInfo, createErr)
+			return irs.SecurityInfo{}, createErr
+		}
+	}
+
+	newSecurityGroup, err := getRawSecurityGroup(sgIID, securityHandler.VpcService, securityHandler.Ctx)
+	if err != nil {
+		getErr := errors.New(fmt.Sprintf("Failed to Add SecurityGroup Rules. err = %s", err.Error()))
+		cblogger.Error(getErr.Error())
+		LoggingError(hiscallInfo, getErr)
+		return irs.SecurityInfo{}, getErr
+	}
+	newSecurityGroupInfo, err := setSecurityGroupInfo(newSecurityGroup)
+	if err != nil {
+		getErr := errors.New(fmt.Sprintf("Failed to Add SecurityGroup Rules. err = %s", err.Error()))
+		cblogger.Error(getErr.Error())
+		LoggingError(hiscallInfo, getErr)
+		return irs.SecurityInfo{}, getErr
+	}
+	LoggingInfo(hiscallInfo, start)
+	return newSecurityGroupInfo, nil
 }
 
 func (securityHandler *IbmSecurityHandler) RemoveRules(sgIID irs.IID, securityRules *[]irs.SecurityRuleInfo) (bool, error) {
-        return false, fmt.Errorf("Coming Soon!")
+	hiscallInfo := GetCallLogScheme(securityHandler.Region, call.SECURITYGROUP, sgIID.NameId, "RemoveRules()")
+	start := call.Start()
+
+	err := checkSecurityGroupIID(sgIID)
+	if err != nil {
+		getErr := errors.New(fmt.Sprintf("Failed to Remove SecurityGroup Rules. err = %s", err.Error()))
+		cblogger.Error(getErr.Error())
+		LoggingError(hiscallInfo, getErr)
+		return false, getErr
+	}
+	securityGroup, err := getRawSecurityGroup(sgIID, securityHandler.VpcService, securityHandler.Ctx)
+	if err != nil {
+		getErr := errors.New(fmt.Sprintf("Failed to Remove SecurityGroup Rules. err = %s", err.Error()))
+		cblogger.Error(getErr.Error())
+		LoggingError(hiscallInfo, getErr)
+		return false, getErr
+	}
+
+	ruleWithIds, err := getRuleInfoWithId(&securityGroup.Rules)
+	if err != nil {
+		getErr := errors.New(fmt.Sprintf("Failed to Remove SecurityGroup Rules. err = %s", err.Error()))
+		cblogger.Error(getErr.Error())
+		LoggingError(hiscallInfo, getErr)
+		return false, getErr
+	}
+	var deleteRuleIds []string
+
+	for _, baseRuleWithId := range *ruleWithIds {
+		for _, delRule := range *securityRules {
+			if equalsRule(baseRuleWithId.RuleInfo, delRule) {
+				deleteRuleIds = append(deleteRuleIds, baseRuleWithId.Id)
+				break
+			}
+		}
+	}
+	for _, deleteRuleId := range deleteRuleIds {
+		options := &vpcv1.DeleteSecurityGroupRuleOptions{}
+		options.SetSecurityGroupID(*securityGroup.ID)
+		options.SetID(deleteRuleId)
+		_, err := securityHandler.VpcService.DeleteSecurityGroupRule(options)
+		if err != nil {
+			getErr := errors.New(fmt.Sprintf("Failed to Remove SecurityGroup Rules. err = %s", err.Error()))
+			cblogger.Error(getErr.Error())
+			LoggingError(hiscallInfo, getErr)
+			return false, getErr
+		}
+	}
+	LoggingInfo(hiscallInfo, start)
+	return true, nil
+}
+
+type securityRuleInfoWithId struct {
+	Id       string
+	RuleInfo irs.SecurityRuleInfo
+}
+
+func equalsRule(pre irs.SecurityRuleInfo, post irs.SecurityRuleInfo) bool {
+	if pre.ToPort == "-1" || pre.FromPort == "-1" {
+		pre.FromPort = "1"
+		pre.ToPort = "65535"
+	}
+	if post.ToPort == "-1" || post.FromPort == "-1" {
+		post.FromPort = "1"
+		post.ToPort = "65535"
+	}
+	return strings.ToLower(fmt.Sprintf("%#v", pre)) == strings.ToLower(fmt.Sprintf("%#v", post))
+}
+
+func getRuleInfoWithId(rawRules *[]vpcv1.SecurityGroupRuleIntf) (*[]securityRuleInfoWithId, error) {
+	var arr []securityRuleInfoWithId
+	for _, rule := range *rawRules {
+		jsonRuleBytes, err := json.Marshal(rule)
+		if err != nil {
+			return nil, err
+		}
+		var ru vpcv1.SecurityGroupRule
+		_ = json.Unmarshal(jsonRuleBytes, &ru)
+		if ru.ID == nil {
+			return nil, errors.New("securityGroup Rule marshal failed")
+		}
+		ruleInfo, err := convertIbmRuleToCBRuleInfo(rule)
+		if err != nil {
+			return nil, err
+		}
+		arr = append(arr, securityRuleInfoWithId{Id: *ru.ID, RuleInfo: *ruleInfo})
+	}
+	return &arr, nil
+}
+
+func convertIbmRuleToCBRuleInfo(rule vpcv1.SecurityGroupRuleIntf) (*irs.SecurityRuleInfo, error) {
+	jsonRuleBytes, err := json.Marshal(rule)
+	if err != nil {
+		return nil, err
+	}
+	jsonRuleMap := make(map[string]json.RawMessage)
+	unmarshalErr := json.Unmarshal(jsonRuleBytes, &jsonRuleMap)
+	if unmarshalErr != nil {
+		return nil, err
+	}
+	remoteJson := jsonRuleMap["remote"]
+
+	var remote vpcv1.SecurityGroupRuleRemote
+	unmarshalErr = json.Unmarshal(remoteJson, &remote)
+	if unmarshalErr != nil {
+		return nil, err
+	}
+	var ruleProtocolAll vpcv1.SecurityGroupRulePrototypeSecurityGroupRuleProtocolAll
+	_ = json.Unmarshal(jsonRuleBytes, &ruleProtocolAll)
+	protocol := convertRuleProtocolIBMToCB(*ruleProtocolAll.Protocol)
+	if protocol == "tcp" || protocol == "udp" {
+		var ruleProtocolTcpUdp vpcv1.SecurityGroupRulePrototypeSecurityGroupRuleProtocolTcpudp
+		_ = json.Unmarshal(jsonRuleBytes, &ruleProtocolTcpUdp)
+		from, to := convertRulePortRangeIBMToCB(*ruleProtocolTcpUdp.PortMin, *ruleProtocolTcpUdp.PortMax)
+		ruleInfo := irs.SecurityRuleInfo{
+			IPProtocol: protocol,
+			Direction:  *ruleProtocolTcpUdp.Direction,
+			FromPort:   from,
+			ToPort:     to,
+			CIDR:       *remote.CIDRBlock,
+		}
+		return &ruleInfo, nil
+	} else if protocol == "icmp" {
+		var ruleProtocolIcmp vpcv1.SecurityGroupRulePrototypeSecurityGroupRuleProtocolIcmp
+		_ = json.Unmarshal(jsonRuleBytes, &ruleProtocolIcmp)
+		ruleInfo := irs.SecurityRuleInfo{
+			IPProtocol: protocol,
+			Direction:  *ruleProtocolIcmp.Direction,
+			CIDR:       *remote.CIDRBlock,
+			FromPort:   "-1",
+			ToPort:     "-1",
+		}
+		return &ruleInfo, nil
+	} else {
+		ruleInfo := irs.SecurityRuleInfo{
+			IPProtocol: protocol,
+			Direction:  *ruleProtocolAll.Direction,
+			CIDR:       *remote.CIDRBlock,
+			FromPort:   "-1",
+			ToPort:     "-1",
+		}
+		return &ruleInfo, nil
+	}
+}
+
+func convertRuleProtocolIBMToCB(protocol string) string {
+	return strings.ToLower(protocol)
+}
+
+func convertRuleProtocolCBToIBM(protocol string) (string, error) {
+	switch strings.ToUpper(protocol) {
+	case "ALL":
+		return strings.ToLower(protocol), nil
+	case "ICMP", "TCP", "UDP":
+		return strings.ToLower(protocol), nil
+	}
+	return "", errors.New("invalid Rule Protocol")
+}
+
+func convertRulePortRangeIBMToCB(min int64, max int64) (from string, to string) {
+	return strconv.FormatInt(min, 10), strconv.FormatInt(max, 10)
+}
+
+func convertRulePortRangeCBToIBM(from string, to string) (min int64, max int64, err error) {
+	if from == "" || to == "" {
+		return 0, 0, errors.New("invalid Rule PortRange")
+	}
+	fromInt, err := strconv.ParseInt(from, 10, 64)
+	if err != nil {
+		return 0, 0, errors.New("invalid Rule PortRange")
+	}
+	toInt, err := strconv.ParseInt(to, 10, 64)
+	if err != nil {
+		return 0, 0, errors.New("invalid Rule PortRange")
+	}
+	if fromInt == -1 || toInt == -1 {
+		return int64(1), int64(65535), nil
+	}
+	if fromInt > 65535 || fromInt < -1 || toInt > 65535 || toInt < -1 {
+		return 0, 0, errors.New("invalid Rule PortRange")
+	}
+	if fromInt == toInt {
+		return fromInt, fromInt, nil
+	} else {
+		return fromInt, toInt, nil
+	}
+}
+
+func convertCBRuleInfoToIbmRule(rules []irs.SecurityRuleInfo) (*[]vpcv1.SecurityGroupRulePrototype, error) {
+	var IbmSGRuleList []vpcv1.SecurityGroupRulePrototype
+	for _, securityRule := range rules {
+		protocol, err := convertRuleProtocolCBToIBM(securityRule.IPProtocol)
+		if err != nil {
+			return nil, err
+		}
+		if protocol == "tcp" || protocol == "udp" {
+			portMin, portMax, err := convertRulePortRangeCBToIBM(securityRule.FromPort, securityRule.ToPort)
+			if err != nil {
+				return nil, err
+			}
+			IbmSGRuleList = append(IbmSGRuleList, vpcv1.SecurityGroupRulePrototype{
+				Direction: core.StringPtr(securityRule.Direction),
+				Protocol:  core.StringPtr(securityRule.IPProtocol),
+				PortMax:   core.Int64Ptr(portMax),
+				PortMin:   core.Int64Ptr(portMin),
+				IPVersion: core.StringPtr("ipv4"),
+				Remote: &vpcv1.SecurityGroupRuleRemotePrototype{
+					CIDRBlock: &securityRule.CIDR,
+				},
+			})
+		} else {
+			IbmSGRuleList = append(IbmSGRuleList, vpcv1.SecurityGroupRulePrototype{
+				Direction: core.StringPtr(securityRule.Direction),
+				Protocol:  core.StringPtr(securityRule.IPProtocol),
+				IPVersion: core.StringPtr("ipv4"),
+				Remote: &vpcv1.SecurityGroupRuleRemotePrototype{
+					CIDRBlock: &securityRule.CIDR,
+				},
+			})
+		}
+	}
+	return &IbmSGRuleList, nil
 }

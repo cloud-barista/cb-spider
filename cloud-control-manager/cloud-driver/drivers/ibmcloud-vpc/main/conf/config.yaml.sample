@@ -20,6 +20,18 @@ ibmvpc:
           IPProtocol: "tcp"
           CIDR: "0.0.0.0/0"
           Direction: "inbound"
+      addRules:
+        - FromPort: "66"
+          ToPort: "88"
+          IPProtocol: "tcp"
+          CIDR: "0.0.0.0/0"
+          Direction: "inbound"
+      removeRules:
+        - FromPort: "66"
+          ToPort: "88"
+          IPProtocol: "tcp"
+          CIDR: "0.0.0.0/0"
+          Direction: "inbound"
     keyPair:
       nameId: mcb-test-key
       systemId:
