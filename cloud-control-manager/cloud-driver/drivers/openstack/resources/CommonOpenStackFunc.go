@@ -22,7 +22,7 @@ import (
 )
 
 const (
-	DNSNameservers       = "8.8.8.8"
+	DNSNameservers   = "8.8.8.8"
 	ResourceNotFound = "Resource not found"
 )
 
@@ -168,8 +168,8 @@ func GetPortByDeviceID(networkClient *gophercloud.ServiceClient, deviceID string
 	return nil, errors.New(fmt.Sprintf("could not found SecurityGroups with name %s ", deviceID))
 }
 
-func CheckIIDValidation(IId irs.IID, )bool{
-	if IId.NameId == "" && IId.SystemId == ""{
+func CheckIIDValidation(IId irs.IID) bool {
+	if IId.NameId == "" && IId.SystemId == "" {
 		return false
 	}
 	return true

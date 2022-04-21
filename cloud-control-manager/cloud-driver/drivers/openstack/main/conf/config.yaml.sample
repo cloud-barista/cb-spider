@@ -1,0 +1,73 @@
+openstack:
+  identity_endpoint: TBD
+  project_id: TBD
+  domain_name: TBD
+  username: TBD
+  password: TBD
+  region: RegionOne
+  resources:
+    image:
+      nameId: ubuntu 18.04 LTS
+      systemId:
+    security:
+      nameId: mcb-test-security
+      systemId:
+      VpcIID:
+        nameId: mcb-test-vpc
+        systemId:
+      rules:
+        - FromPort: "22"
+          ToPort: "22"
+          IPProtocol: "tcp"
+          CIDR: "0.0.0.0/0"
+          Direction: "inbound"
+      addRules:
+        - FromPort: "66"
+          ToPort: "88"
+          IPProtocol: "tcp"
+          CIDR: "0.0.0.0/0"
+          Direction: "inbound"
+      removeRules:
+        - FromPort: "66"
+          ToPort: "88"
+          IPProtocol: "tcp"
+          CIDR: "0.0.0.0/0"
+          Direction: "inbound"
+    keyPair:
+      nameId: mcb-test-key
+      systemId:
+    vmSpec:
+      nameId: m1.small
+      systemId:
+    vpc:
+      nameId:  mcb-test-vpc
+      systemId:
+      ipv4CIDR: 180.0.0.0/16
+      subnets:
+        - nameId: mcb-test-vpc-subnet1
+          ipv4CIDR: 180.0.40.0/24
+        - nameId: mcb-test-vpc-subnet2
+          ipv4CIDR: 180.0.30.0/24
+      addSubnet:
+        nameId: mcb-test-vpc-subnet3
+        ipv4CIDR: 180.0.50.0/24
+    vm:
+      IID:
+        nameId: mcb-test-vm
+        systemId:
+      ImageIID:
+        nameId: ubuntu-16.04.7-server-amd64
+        systemId:
+      VmSpecName: m1.small
+      KeyPairIID:
+        nameId: mcb-test-key
+        systemId:
+      VpcIID:
+        nameId: mcb-test-vpc
+        systemId:
+      SubnetIID:
+        nameId: mcb-test-vpc-subnet1
+        systemId:
+      SecurityGroupIIDs:
+        - nameId: mcb-test-security
+          systemId:

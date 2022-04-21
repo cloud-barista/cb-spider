@@ -151,14 +151,8 @@ func (imageHandler *OpenStackImageHandler) GetImage(imageIID irs.IID) (irs.Image
 	// log HisCall
 	hiscallInfo := GetCallLogScheme(imageHandler.Client.IdentityEndpoint, call.VMIMAGE, imageIID.NameId, "GetImage()")
 
-	imageId, err := imageHandler.IDFromName(imageHandler.Client, imageIID.NameId)
-	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return irs.ImageInfo{}, err
-	}
 	start := call.Start()
-	image, err := images.Get(imageHandler.Client, imageId).Extract()
+	image, err := imageHandler.getRawImage(imageIID)
 	if err != nil {
 		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
@@ -174,14 +168,14 @@ func (imageHandler *OpenStackImageHandler) DeleteImage(imageIID irs.IID) (bool, 
 	// log HisCall
 	hiscallInfo := GetCallLogScheme(imageHandler.Client.IdentityEndpoint, call.VMIMAGE, imageIID.NameId, "DeleteImage()")
 
-	imageId, err := imageHandler.IDFromName(imageHandler.Client, imageIID.NameId)
+	image, err := imageHandler.getRawImage(imageIID)
 	if err != nil {
 		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
 		return false, err
 	}
 	start := call.Start()
-	err = images.Delete(imageHandler.Client, imageId).ExtractErr()
+	err = images.Delete(imageHandler.Client, image.ID).ExtractErr()
 	if err != nil {
 		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
@@ -190,21 +184,28 @@ func (imageHandler *OpenStackImageHandler) DeleteImage(imageIID irs.IID) (bool, 
 	LoggingInfo(hiscallInfo, start)
 	return true, nil
 }
+func (imageHandler *OpenStackImageHandler) getRawImage(imageIId irs.IID) (*images.Image, error) {
+	if !CheckIIDValidation(imageIId) {
+		return nil, errors.New("invalid IID")
+	}
+	if imageIId.SystemId == "" {
+		pager, err := images.ListDetail(imageHandler.Client, images.ListOpts{Name: imageIId.NameId}).AllPages()
+		if err != nil {
+			return nil, err
+		}
+		imageList, err := images.ExtractImages(pager)
+		if err != nil {
+			return nil, err
+		}
 
-func (imageHandler *OpenStackImageHandler) IDFromName(serviceClient *gophercloud.ServiceClient, imageName string) (string, error) {
-	pager, err := images.ListDetail(serviceClient, images.ListOpts{Name: imageName}).AllPages()
-	if err != nil {
-		return "", err
+		if len(imageList) > 1 {
+			return nil, errors.New(fmt.Sprintf("found multiple images with name %s", imageIId.NameId))
+		} else if len(imageList) == 0 {
+			return nil, errors.New(fmt.Sprintf("could not found image with name %s", imageIId.NameId))
+		}
+		return &imageList[0], nil
+	} else {
+		return images.Get(imageHandler.Client, imageIId.SystemId).Extract()
 	}
-	imageList, err := images.ExtractImages(pager)
-	if err != nil {
-		return "", err
-	}
-
-	if len(imageList) > 1 {
-		return "", errors.New(fmt.Sprintf("found multiple images with name %s", imageName))
-	} else if len(imageList) == 0 {
-		return "", errors.New(fmt.Sprintf("could not found image with name %s", imageName))
-	}
-	return imageList[0].ID, nil
 }
+
