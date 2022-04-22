@@ -148,7 +148,7 @@ func (vpcHandler *AzureVPCHandler) GetVPC(vpcIID irs.IID) (irs.VPCInfo, error) {
 	hiscallInfo := GetCallLogScheme(vpcHandler.Region, call.VPCSUBNET, vpcIID.NameId, "GetVPC()")
 
 	start := call.Start()
-	vpc, err := vpcHandler.Client.Get(vpcHandler.Ctx, vpcHandler.Region.ResourceGroup, vpcIID.NameId, "")
+	vpc, err := vpcHandler.getRawVPC(vpcIID)
 	if err != nil {
 		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
@@ -156,7 +156,7 @@ func (vpcHandler *AzureVPCHandler) GetVPC(vpcIID irs.IID) (irs.VPCInfo, error) {
 	}
 	LoggingInfo(hiscallInfo, start)
 
-	vpcInfo := vpcHandler.setterVPC(vpc)
+	vpcInfo := vpcHandler.setterVPC(*vpc)
 	return *vpcInfo, nil
 }
 
@@ -186,9 +186,9 @@ func (vpcHandler *AzureVPCHandler) AddSubnet(vpcIID irs.IID, subnetInfo irs.Subn
 	// log HisCall
 	hiscallInfo := GetCallLogScheme(vpcHandler.Region, call.VPCSUBNET, subnetInfo.IId.NameId, "AddSubnet()")
 
-	vpc, _ := vpcHandler.Client.Get(vpcHandler.Ctx, vpcHandler.Region.ResourceGroup, vpcIID.NameId, "")
-	if vpc.ID == nil {
-		createErr := errors.New(fmt.Sprintf("vpc with name %s not exist", vpcIID.NameId))
+	vpc, err := vpcHandler.getRawVPC(vpcIID)
+	if err != nil {
+		createErr := errors.New(fmt.Sprintf("failed to create subnet with name %s, err = %s", subnetInfo.IId.NameId, err.Error()))
 		cblogger.Error(createErr.Error())
 		LoggingError(hiscallInfo, createErr)
 		return irs.VPCInfo{}, createErr
@@ -242,4 +242,24 @@ func (vpcHandler *AzureVPCHandler) RemoveSubnet(vpcIID irs.IID, subnetIID irs.II
 	}
 	LoggingInfo(hiscallInfo, start)
 	return true, nil
+}
+func (vpcHandler *AzureVPCHandler) getRawVPC(vpcIID irs.IID) (*network.VirtualNetwork, error) {
+	if vpcIID.SystemId == "" && vpcIID.NameId == "" {
+		return nil, errors.New("invalid IID")
+	}
+	if vpcIID.NameId == "" {
+		result, err := vpcHandler.Client.List(vpcHandler.Ctx, vpcHandler.Region.ResourceGroup)
+		if err != nil {
+			return nil, err
+		}
+		for _, vpc := range result.Values() {
+			if *vpc.ID == vpcIID.SystemId {
+				return &vpc, nil
+			}
+		}
+		return nil, errors.New("not found SecurityGroup")
+	} else {
+		vpc, err := vpcHandler.Client.Get(vpcHandler.Ctx, vpcHandler.Region.ResourceGroup, vpcIID.NameId, "")
+		return &vpc, err
+	}
 }
