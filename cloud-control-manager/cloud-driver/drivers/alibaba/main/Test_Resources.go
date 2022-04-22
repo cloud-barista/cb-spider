@@ -339,9 +339,10 @@ func handleSecurity() {
 	//config := readConfigFile()
 	//VmID := config.Aws.VmID
 
-	securityName := "CB-SecurityTestCidr"
-	securityId := "sg-6wedru4yb4m6qqfvd3sj"
-	vpcId := "vpc-6wed2mg4ox4xphl18461h"
+	//securityName := "CB-SecurityTestCidr"
+	securityName := "sg10"
+	securityId := "sg-6we0jr4qremmfu2wyd8q"
+	vpcId := "vpc-6weuepknbuvs90y6k1ss2"
 
 	for {
 		fmt.Println("Security Management")
@@ -350,6 +351,8 @@ func handleSecurity() {
 		fmt.Println("2. Security Create")
 		fmt.Println("3. Security Get")
 		fmt.Println("4. Security Delete")
+		fmt.Println("5. Rule Add")
+		fmt.Println("6. Rule Remove")
 
 		var commandNum int
 		inputCnt, err := fmt.Scan(&commandNum)
@@ -382,7 +385,7 @@ func handleSecurity() {
 					VpcIID: irs.IID{SystemId: vpcId},
 					SecurityRules: &[]irs.SecurityRuleInfo{ //보안 정책 설정
 						//CIDR 테스트
-						{
+						/*{
 							FromPort:   "20",
 							ToPort:     "22",
 							IPProtocol: "tcp",
@@ -395,7 +398,7 @@ func handleSecurity() {
 							IPProtocol: "tcp",
 							Direction:  "outbound",
 							CIDR:       "10.13.1.10/32",
-						},
+						},*/
 						/*
 							{
 								FromPort:   "20",
@@ -442,8 +445,15 @@ func handleSecurity() {
 								//ToPort:     "9999",
 								IPProtocol: "-1", // 모두 허용 (포트 정보 없음)
 								Direction:  "inbound",
+							},*/
+							{
+								FromPort:   "-1",
+								ToPort:     "-1",
+								IPProtocol: "all",
+								Direction:  "outbound",
+								CIDR:       "0.0.0.0/0",
 							},
-						*/
+						
 					},
 				}
 
@@ -473,6 +483,343 @@ func handleSecurity() {
 					cblogger.Infof(securityId, " Security 삭제 실패 : ", err)
 				} else {
 					cblogger.Infof("[%s] Security 삭제 결과 : [%s]", securityId, result)
+				}
+			case 5:
+				cblogger.Infof("[%s] Rule 추가 테스트", securityId)
+				securityRules := &[]irs.SecurityRuleInfo{
+				
+						/*{
+							//20-22 Prot로 등록
+							FromPort:   "20",
+							ToPort:     "21",
+							IPProtocol: "tcp",
+							Direction:  "inbound",
+							CIDR:       "0.0.0.0/0",
+						},*/
+						/*{
+							//20-22 Prot로 등록
+							FromPort:   "20",
+							ToPort:     "21",
+							IPProtocol: "tcp",
+							Direction:  "outbound",
+							CIDR:       "0.0.0.0/0",
+						},*/
+						/*{
+							// 8080 Port로 등록
+							FromPort:   "8080",
+							ToPort:     "8080", //FromPort나 ToPort중 하나에 -1이 입력될 경우 -1이 입력된 경우 -1을 공백으로 처리
+							IPProtocol: "tcp",
+							Direction:  "inbound",
+							CIDR:       "0.0.0.0/0",
+						},*/
+						/*{ // 1323 Prot로 등록
+							FromPort:   "1323", //FromPort나 ToPort중 하나에 -1이 입력될 경우 -1이 입력된 경우 -1을 공백으로 처리
+							ToPort:     "1323",
+							IPProtocol: "tcp",
+							Direction:  "inbound",
+							CIDR:       "0.0.0.0/0",
+						},*/
+						/*{
+							// All Port로 등록
+							FromPort:   "",
+							ToPort:     "",
+							IPProtocol: "icmp", //icmp는 포트 정보가 없음
+							Direction:  "inbound",
+						},*/
+						/*{
+							//20-22 Prot로 등록
+							FromPort:   "20",
+							ToPort:     "22",
+							IPProtocol: "tcp",
+							Direction:  "inbound",
+						},*/
+						/*{
+							// 80 Port로 등록
+							FromPort:   "80",
+							ToPort:     "80",
+							IPProtocol: "tcp",
+							Direction:  "inbound",
+							CIDR:       "0.0.0.0/0",
+						},*/
+						/*{ // 모든 프로토콜 모든 포트로 등록
+							//FromPort:   "",
+							//ToPort:     "",
+							IPProtocol: "all", // 모두 허용 (포트 정보 없음)
+							Direction:  "inbound",
+							CIDR:       "0.0.0.0/0",
+						},*/
+						/*{
+							FromPort:   "443",
+							ToPort:     "443",
+							IPProtocol: "tcp",
+							Direction:  "outbound",
+							CIDR:       "0.0.0.0/0",
+						},*/
+						/*{
+							FromPort:   "8443",
+							ToPort:     "9999",
+							IPProtocol: "tcp",
+							Direction:  "outbound",
+						},*/
+						/*{
+						//20-22 Prot로 등록
+						FromPort:   "22",
+						ToPort:     "22",
+						IPProtocol: "tcp",
+						Direction:  "outbound",
+						CIDR:       "0.0.0.0/0",
+					},*/
+					/*{
+						//20-22 Prot로 등록
+						FromPort:   "1000",
+						ToPort:     "1000",
+						IPProtocol: "tcp",
+						Direction:  "outbound",
+						CIDR:       "0.0.0.0/0",
+					},*/
+					/*{
+						//20-22 Prot로 등록
+						FromPort:   "1",
+						ToPort:     "65535",
+						IPProtocol: "udp",
+						Direction:  "outbound",
+						CIDR:       "0.0.0.0/0",
+					},*/
+					/*{
+						//20-22 Prot로 등록
+						FromPort:   "-1",
+						ToPort:     "-1",
+						IPProtocol: "icmp",
+						Direction:  "outbound",
+						CIDR:       "0.0.0.0/0",
+					},*/
+					/*{
+						//20-22 Prot로 등록
+						FromPort:   "-1",
+						ToPort:     "-1",
+						IPProtocol: "all",
+						Direction:  "outbound",
+						CIDR:       "0.0.0.0/0",
+					},*/
+					/*{
+						//20-22 Prot로 등록
+						FromPort:   "22",
+						ToPort:     "22",
+						IPProtocol: "tcp",
+						Direction:  "outbound",
+						CIDR:       "0.0.0.0/0",
+					},*/
+					/*{
+						//20-22 Prot로 등록
+						FromPort:   "1000",
+						ToPort:     "1000",
+						IPProtocol: "tcp",
+						Direction:  "outbound",
+						CIDR:       "0.0.0.0/0",
+					},*/
+					/*{
+						//20-22 Prot로 등록
+						FromPort:   "1",
+						ToPort:     "65535",
+						IPProtocol: "udp",
+						Direction:  "outbound",
+						CIDR:       "0.0.0.0/0",
+					},*/
+					/*{
+						//20-22 Prot로 등록
+						FromPort:   "22",
+						ToPort:     "22",
+						IPProtocol: "tcp",
+						Direction:  "inbound",
+						CIDR:       "0.0.0.0/0",
+					},*/
+					/*{
+						//20-22 Prot로 등록
+						FromPort:   "1000",
+						ToPort:     "1000",
+						IPProtocol: "tcp",
+						Direction:  "inbound",
+						CIDR:       "4.5.6.7/32",
+					},*/
+					/*{
+						//20-22 Prot로 등록
+						FromPort:   "1",
+						ToPort:     "65535",
+						IPProtocol: "udp",
+						Direction:  "inbound",
+						CIDR:       "0.0.0.0/0",
+					},
+					{
+						//20-22 Prot로 등록
+						FromPort:   "-1",
+						ToPort:     "-1",
+						IPProtocol: "icmp",
+						Direction:  "inbound",
+						CIDR:       "0.0.0.0/0",
+					},*/
+					{
+						//20-22 Prot로 등록
+						FromPort:   "22",
+						ToPort:     "22",
+						IPProtocol: "tcp",
+						Direction:  "outbound",
+						CIDR:       "0.0.0.0/0",
+					},
+					{
+						//20-22 Prot로 등록
+						FromPort:   "1000",
+						ToPort:     "1000",
+						IPProtocol: "tcp",
+						Direction:  "outbound",
+						CIDR:       "0.0.0.0/0",
+					},
+					{
+						//20-22 Prot로 등록
+						FromPort:   "1",
+						ToPort:     "65535",
+						IPProtocol: "udp",
+						Direction:  "outbound",
+						CIDR:       "0.0.0.0/0",
+					},
+					{
+						//20-22 Prot로 등록
+						FromPort:   "-1",
+						ToPort:     "-1",
+						IPProtocol: "icmp",
+						Direction:  "outbound",
+						CIDR:       "0.0.0.0/0",
+					},
+						
+				
+					
+				}
+
+				result, err := handler.AddRules(irs.IID{SystemId: securityId}, securityRules)
+				if err != nil {
+					cblogger.Infof(securityId, " Rule 추가 실패 : ", err)
+				} else {
+					cblogger.Infof("[%s] Rule 추가 결과 : [%v]", securityId, result)
+					spew.Dump(result)
+				}
+			case 6:
+				cblogger.Infof("[%s] Rule 삭제 테스트", securityId)
+				securityRules := &[]irs.SecurityRuleInfo{
+					/*{
+							//20-22 Prot로 등록
+							FromPort:   "20",
+							ToPort:     "21",
+							IPProtocol: "tcp",
+							Direction:  "inbound",
+							CIDR:       "0.0.0.0/0",
+					},*/
+					/*{
+							//20-22 Prot로 등록
+							FromPort:   "20",
+							ToPort:     "21",
+							IPProtocol: "tcp",
+							Direction:  "outbound",
+							CIDR:       "0.0.0.0/0",
+					},*/
+					/*{
+						FromPort:   "40",
+						ToPort:     "40",
+						IPProtocol: "tcp",
+						Direction:  "outbound",
+						CIDR:       "10.13.1.10/32",
+					},*/
+					/*{
+						//20-22 Prot로 등록
+						FromPort:   "20",
+						ToPort:     "22",
+						IPProtocol: "tcp",
+						Direction:  "inbound",
+						CIDR:       "0.0.0.0/0",
+					},*/
+					/*{
+						//20-22 Prot로 등록
+						FromPort:   "20",
+						ToPort:     "21",
+						IPProtocol: "udp",
+						Direction:  "inbound",
+						CIDR:       "0.0.0.0/0",
+					},*/
+					/*{
+						// 8080 Port로 등록
+						FromPort:   "8080",
+						ToPort:     "8080", //FromPort나 ToPort중 하나에 -1이 입력될 경우 -1이 입력된 경우 -1을 공백으로 처리
+						IPProtocol: "tcp",
+						Direction:  "inbound",
+						CIDR:       "0.0.0.0/0",
+					},*/
+					/*{ // 1323 Prot로 등록
+						FromPort:   "1323", //FromPort나 ToPort중 하나에 -1이 입력될 경우 -1이 입력된 경우 -1을 공백으로 처리
+						ToPort:     "1323",
+						IPProtocol: "tcp",
+						Direction:  "inbound",
+						CIDR:       "0.0.0.0/0",
+					},*/
+					/*{
+						// All Port로 등록
+						FromPort:   "",
+						ToPort:     "",
+						IPProtocol: "icmp", //icmp는 포트 정보가 없음
+						Direction:  "inbound",
+						CIDR:       "0.0.0.0/0",
+					},*/
+					/*{ // 모든 프로토콜 모든 포트로 등록
+						//FromPort:   "",
+						//ToPort:     "",
+						IPProtocol: "all", // 모두 허용 (포트 정보 없음)
+						Direction:  "inbound",
+						CIDR:       "0.0.0.0/0",
+					},*/
+					{
+						//20-22 Prot로 등록
+						FromPort:   "22",
+						ToPort:     "22",
+						IPProtocol: "tcp",
+						Direction:  "outbound",
+						CIDR:       "0.0.0.0/0",
+					},
+					{
+						//20-22 Prot로 등록
+						FromPort:   "1000",
+						ToPort:     "1000",
+						IPProtocol: "tcp",
+						Direction:  "outbound",
+						CIDR:       "0.0.0.0/0",
+					},
+					{
+						//20-22 Prot로 등록
+						FromPort:   "1",
+						ToPort:     "65535",
+						IPProtocol: "udp",
+						Direction:  "outbound",
+						CIDR:       "0.0.0.0/0",
+					},
+					{
+						//20-22 Prot로 등록
+						FromPort:   "-1",
+						ToPort:     "-1",
+						IPProtocol: "icmp",
+						Direction:  "outbound",
+						CIDR:       "0.0.0.0/0",
+					},
+					/*{
+						//20-22 Prot로 등록
+						FromPort:   "-1",
+						ToPort:     "-1",
+						IPProtocol: "all",
+						Direction:  "outbound",
+						CIDR:       "0.0.0.0/0",
+					},*/
+				}
+
+				result, err := handler.RemoveRules(irs.IID{SystemId: securityId}, securityRules)
+				if err != nil {
+					cblogger.Infof(securityId, " Rule 삭제 실패 : ", err)
+				} else {
+					cblogger.Infof("[%s] Rule 삭제 결과 : [%v]", securityId, result)
 				}
 			}
 		}
@@ -985,8 +1332,8 @@ func main() {
 	//handleVPC() //VPC
 	//handleVMSpec()
 	//handleImage() //AMI
-	//handleSecurity()
-	handleKeyPair()
+	handleSecurity()
+	//handleKeyPair()
 	//handleVM()
 
 	//handlePublicIP() // PublicIP 생성 후 conf
