@@ -16,13 +16,15 @@ echo -e "###########################################################"
 source ../common/setup.env $1
 source setup.env $1
 
-../common/7.vm-terminate.sh $1
+./99.clear_vm.sh $1
 
 for (( num=1; num <= 3; num++ ))
 do
 	../common/8.clear-resources.sh $1
 	sleep 1
 done
+
 rm ./${KEYPAIR_NAME}.pem
+
 echo -e "\n\n"
 
