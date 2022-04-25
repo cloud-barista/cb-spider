@@ -65,9 +65,9 @@ echo -e "#---------------------- $1:I:TCP-01: VM($P_IP:22) <-- Client"
 ret=`$I_TCP_CMD1 2>&1 | grep succeeded`
 
 if [ "$ret" ];then
-	$(test_result "$I_TCP_01_EXP" "pass")
+	test_result "$I_TCP_01_EXP" "pass"
 else
-	$(test_result "$I_TCP_01_EXP" "fail")
+	test_result "$I_TCP_01_EXP" "fail"
 fi
 #----------------------
 
@@ -75,22 +75,22 @@ echo -e "#---------------------- $1:I:TCP-02: VM($P_IP:1000) <-- Client"
 ret=`$I_TCP_CMD2 2>&1 | grep succeeded`
 
 if [ "$ret" ];then
-        $(test_result "$I_TCP_02_EXP" "pass")
+        test_result "$I_TCP_02_EXP" "pass"
 else
-        $(test_result "$I_TCP_02_EXP" "fail")
+        test_result "$I_TCP_02_EXP" "fail"
 fi
 #----------------------
 
 echo -e "#---------------------- $1:I:UDP-01: VM($P_IP:2000) <-- Client"
 if [ "$I_UDP_01_EXP" == "skip" ];then
-        $(test_result "skip" "skip")
+        test_result "skip" "skip"
 else
 	ret=`$I_UDP_CMD1 2>&1 | grep succeeded`
 
 	if [ "$ret" ];then
-		$(test_result "$I_UDP_01_EXP" "pass")
+		test_result "$I_UDP_01_EXP" "pass"
 	else
-		$(test_result "$I_UDP_01_EXP" "fail")
+		test_result "$I_UDP_01_EXP" "fail"
 	fi
 fi
 #----------------------
@@ -99,9 +99,9 @@ echo -e "#---------------------- $1:I:ICMP-01: VM($P_IP:ping) <-- Client"
 ret=`$I_ICMP_CMD1 2>&1 | grep icmp_seq`
 
 if [ "$ret" ];then
-        $(test_result "$I_ICMP_01_EXP" "pass")
+        test_result "$I_ICMP_01_EXP" "pass"
 else
-        $(test_result "$I_ICMP_01_EXP" "fail")
+        test_result "$I_ICMP_01_EXP" "fail"
 fi
 #----------------------
 
@@ -115,14 +115,14 @@ $(test_splitter)
 echo -e "#---------------------- $1:O:TCP-01: VM --> Client($CLIENT1_IP:22)"
 
 if [ "$O_TCP_01_EXP" == "skip" ];then
-        $(test_result "skip" "skip")
+        test_result "skip" "skip"
 else
 	ret=`$O_TCP_CMD1 2>&1 | grep succeeded`
 
 	if [ "$ret" ];then
-		$(test_result "$O_TCP_01_EXP" "pass")
+		test_result "$O_TCP_01_EXP" "pass"
 	else
-		$(test_result "$O_TCP_01_EXP" "fail")
+		test_result "$O_TCP_01_EXP" "fail"
 	fi
 fi
 #----------------------
@@ -130,14 +130,14 @@ fi
 echo -e "#---------------------- $1:O:TCP-02: VM --> Client($CLIENT1_IP:1000)"
 
 if [ "$O_TCP_02_EXP" == "skip" ];then
-        $(test_result "skip" "skip")
+        test_result "skip" "skip"
 else
 	ret=`$O_TCP_CMD2 2>&1 | grep succeeded`
 
 	if [ "$ret" ];then
-		$(test_result "$O_TCP_02_EXP" "pass")
+		test_result "$O_TCP_02_EXP" "pass"
 	else
-		$(test_result "$O_TCP_02_EXP" "fail")
+		test_result "$O_TCP_02_EXP" "fail"
 	fi
 fi
 #----------------------
@@ -145,14 +145,14 @@ fi
 echo -e "#---------------------- $1:O:UDP-01: VM --> Client($CLIENT1_IP:2000)"
 
 if [ "$O_UDP_01_EXP" == "skip" ];then
-        $(test_result "skip" "skip")
+        test_result "skip" "skip"
 else
 	ret=`$O_UDP_CMD1 2>&1 | grep succeeded`
 
 	if [ "$ret" ];then
-		$(test_result "$O_UDP_01_EXP" "pass")
+		test_result "$O_UDP_01_EXP" "pass"
 	else
-		$(test_result "$O_UDP_01_EXP" "fail")
+		test_result "$O_UDP_01_EXP" "fail"
 	fi
 fi
 #----------------------
@@ -160,14 +160,14 @@ fi
 echo -e "#---------------------- $1:O:ICMP-01: VM --> Client($CLIENT1_IP:ping)"
 
 if [ "$O_ICMP_01_EXP" == "skip" ];then
-        $(test_result "skip" "skip")
+        test_result "skip" "skip"
 else
 	ret=`$O_ICMP_CMD1 2>&1 | grep icmp_seq`
 
 	if [ "$ret" ];then
-		$(test_result "$O_ICMP_01_EXP" "pass")
+		test_result "$O_ICMP_01_EXP" "pass"
 	else
-		$(test_result "$O_ICMP_01_EXP" "fail")
+		test_result "$O_ICMP_01_EXP" "fail"
 	fi
 fi
 #----------------------

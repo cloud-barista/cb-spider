@@ -58,6 +58,14 @@ do
                 sudo nc -vktl 1000&
                 sudo nc -vkul 2000&
 
+		sleep 1
+
+		echo -e "\n\n"
+		echo -e "###########################################################"
+		echo -e "# Prepared All Resources for testing... "
+		echo -e "###########################################################"
+		echo -e "\n\n"
+
 		exit 0;
         else
                 echo -e "# Wait VM Status until Running..."
