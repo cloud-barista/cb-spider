@@ -28,7 +28,13 @@ do
         result=`echo -e "$ret" | grep Status`
         if [ "$result" == "Status: Running" ];then
                 echo -e "# run tcp server and udp server on the target VM"
-                P_IP=`../common/./6.vm-get.sh aws |grep PublicIP |awk '{print $2}'`
+                P_IP=`../common/./6.vm-get.sh $1 |grep PublicIP: |awk '{print $2}'`
+		if [ "$P_IP" ];then
+			echo ""
+		else
+			echo -e ">>>>>>>>>>>>>>> VM's Public IP NULL!! <<<<<<<<<<<<<<<<"
+			exit 0;
+		fi
 #---- waiting 22 port readiness
                 for (( i=1; i <= 40; i++ ))
                 do

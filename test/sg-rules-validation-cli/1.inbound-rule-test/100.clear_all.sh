@@ -24,7 +24,7 @@ do
 	sleep 1
 done
 
-rm ./${KEYPAIR_NAME}.pem
+rm -f ./${KEYPAIR_NAME}.pem
 
 echo -e "\n\n"
 

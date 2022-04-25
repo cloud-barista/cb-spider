@@ -9,7 +9,7 @@ if [ "$1" = "" ]; then
 fi
 
 echo -e "#############################################"
-echo -e "# start vm => run tcp server & udp server "
+echo -e "# TEST: $0 "
 echo -e "#############################################"
 
 source ../common/setup.env $1
