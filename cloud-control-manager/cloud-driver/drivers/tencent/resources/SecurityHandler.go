@@ -376,14 +376,15 @@ func (securityHandler *TencentSecurityHandler) AddRules(securityIID irs.IID, sec
 		return irs.SecurityInfo{}, errors.New("invalid value - The SecurityRules to add is empty")
 	}
 
-	securityGroupPolicySet := &vpc.SecurityGroupPolicySet{}
-	commonPolicy := *securityRules
-	commonDirection := commonPolicy[0].Direction
+	securityGroupPolicyIngressSet := &vpc.SecurityGroupPolicySet{}
+	securityGroupPolicyEgressSet := &vpc.SecurityGroupPolicySet{}
+
+	// rule 생성 시에는 ingress와 egress가 동시에 생성되지 않기 때문에 ingress, egress 따로 호촐함
 	for _, curPolicy := range *securityRules {
 	
-		if !strings.EqualFold(curPolicy.Direction, commonDirection) {
-			return irs.SecurityInfo{}, errors.New("invalid - The parameter `Egress and Ingress` cannot be imported at the same time in the request.")
-		}
+		// if !strings.EqualFold(curPolicy.Direction, commonDirection) {
+		// 	return irs.SecurityInfo{}, errors.New("invalid - The parameter `Egress and Ingress` cannot be imported at the same time in the request.")
+		// }
 		
 
 		securityGroupPolicy := new(vpc.SecurityGroupPolicy)
@@ -402,30 +403,56 @@ func (securityHandler *TencentSecurityHandler) AddRules(securityIID irs.IID, sec
 		}
 
 		if strings.EqualFold(curPolicy.Direction, "inbound") {
-			securityGroupPolicySet.Ingress = append(securityGroupPolicySet.Ingress, securityGroupPolicy)
+			securityGroupPolicyIngressSet.Ingress = append(securityGroupPolicyIngressSet.Ingress, securityGroupPolicy)
 		} else {
-			securityGroupPolicySet.Egress = append(securityGroupPolicySet.Egress, securityGroupPolicy)
+			securityGroupPolicyEgressSet.Egress = append(securityGroupPolicyEgressSet.Egress, securityGroupPolicy)
 		}
 	}
 
-	request := vpc.NewCreateSecurityGroupPoliciesRequest()
-	request.SecurityGroupId = common.StringPtr(securityIID.SystemId)
-	request.SecurityGroupPolicySet = securityGroupPolicySet
 
-	callLogStart := call.Start()
-	response, err := securityHandler.Client.CreateSecurityGroupPolicies(request)
-	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+	// Ingress request
+	if len(securityGroupPolicyIngressSet.Ingress) > 0 {
+		ingressRequest := vpc.NewCreateSecurityGroupPoliciesRequest()
+		ingressRequest.SecurityGroupId = common.StringPtr(securityIID.SystemId)
+		ingressRequest.SecurityGroupPolicySet = securityGroupPolicyIngressSet
 
-	if err != nil {
-		callLogInfo.ErrorMSG = err.Error()
-		callogger.Error(call.String(callLogInfo))
+		callLogStart := call.Start()
+		ingressResponse, err := securityHandler.Client.CreateSecurityGroupPolicies(ingressRequest)
+		callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 
-		cblogger.Error(err)
-		return irs.SecurityInfo{}, err
+		if err != nil {
+			callLogInfo.ErrorMSG = err.Error()
+			callogger.Error(call.String(callLogInfo))
+
+			cblogger.Error(err)
+			return irs.SecurityInfo{}, err
+		}
+		//spew.Dump(response)
+		cblogger.Debug(ingressResponse.ToJsonString())
+		callogger.Info(call.String(callLogInfo))
 	}
-	//spew.Dump(response)
-	cblogger.Debug(response.ToJsonString())
-	callogger.Info(call.String(callLogInfo))
+
+	// Egress request
+	if len(securityGroupPolicyEgressSet.Egress) > 0 {
+		egressRequest := vpc.NewCreateSecurityGroupPoliciesRequest()
+		egressRequest.SecurityGroupId = common.StringPtr(securityIID.SystemId)
+		egressRequest.SecurityGroupPolicySet = securityGroupPolicyEgressSet
+
+		callLogStart := call.Start()
+		egressResponse, err := securityHandler.Client.CreateSecurityGroupPolicies(egressRequest)
+		callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+
+		if err != nil {
+			callLogInfo.ErrorMSG = err.Error()
+			callogger.Error(call.String(callLogInfo))
+
+			cblogger.Error(err)
+			return irs.SecurityInfo{}, err
+		}
+		//spew.Dump(response)
+		cblogger.Debug(egressResponse.ToJsonString())
+		callogger.Info(call.String(callLogInfo))
+	}
 
 	securityInfo, errSecurity := securityHandler.GetSecurity(securityIID)
 	if errSecurity != nil {
