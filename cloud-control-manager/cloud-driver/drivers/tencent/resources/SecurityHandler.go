@@ -358,6 +358,8 @@ func (securityHandler *TencentSecurityHandler) DeleteSecurity(securityIID irs.II
 
 // SecurityGroupRule추가
 // 추가 후 SecurityGroup return
+// CreateSecurityGroupPolicies inbound, outbound 동시 호출 불가 > 각각 호출
+// ModifySecurityGroupPolicies Version을 0으로 set하면 초기화(모든 룰 사라짐), 설정하지 않으면 모두 삭제 후 insert(기존 값 사라짐, 넘어온 값만 사용)
 func (securityHandler *TencentSecurityHandler) AddRules(securityIID irs.IID, securityRules *[]irs.SecurityRuleInfo) (irs.SecurityInfo, error) {
 	////////
 	// logger for HisCall
@@ -462,6 +464,8 @@ func (securityHandler *TencentSecurityHandler) AddRules(securityIID irs.IID, sec
 	return securityInfo, errSecurity
 }
 
+
+// DeleteSecurityGroupPolicies inbound, outbound 동시 호출 불가 > 각각 호출
 func (securityHandler *TencentSecurityHandler) RemoveRules(securityIID irs.IID, securityRules *[]irs.SecurityRuleInfo) (bool, error) {
 	////////
 	// logger for HisCall
@@ -476,7 +480,9 @@ func (securityHandler *TencentSecurityHandler) RemoveRules(securityIID irs.IID, 
 		ErrorMSG:     "",
 	}
 
-	securityGroupPolicySet := &vpc.SecurityGroupPolicySet{}
+	securityGroupPolicyIngressSet := &vpc.SecurityGroupPolicySet{}
+	securityGroupPolicyEgressSet := &vpc.SecurityGroupPolicySet{}
+
 	for _, curPolicy := range *securityRules {
 		securityGroupPolicy := new(vpc.SecurityGroupPolicy)
 		securityGroupPolicy.Protocol = common.StringPtr(curPolicy.IPProtocol)
@@ -494,30 +500,53 @@ func (securityHandler *TencentSecurityHandler) RemoveRules(securityIID irs.IID, 
 		}
 
 		if strings.EqualFold(curPolicy.Direction, "inbound") {
-			securityGroupPolicySet.Ingress = append(securityGroupPolicySet.Ingress, securityGroupPolicy)
+			securityGroupPolicyIngressSet.Ingress = append(securityGroupPolicyIngressSet.Ingress, securityGroupPolicy)
 		} else {
-			securityGroupPolicySet.Egress = append(securityGroupPolicySet.Egress, securityGroupPolicy)
+			securityGroupPolicyEgressSet.Egress = append(securityGroupPolicyEgressSet.Egress, securityGroupPolicy)
 		}
 	}
 
-	request := vpc.NewDeleteSecurityGroupPoliciesRequest()
-	request.SecurityGroupId = common.StringPtr(securityIID.SystemId)
-	request.SecurityGroupPolicySet = securityGroupPolicySet
+	if len(securityGroupPolicyIngressSet.Ingress) > 0 {
+		ingressRequest := vpc.NewDeleteSecurityGroupPoliciesRequest()
+		ingressRequest.SecurityGroupId = common.StringPtr(securityIID.SystemId)
+		ingressRequest.SecurityGroupPolicySet = securityGroupPolicyIngressSet
 
-	callLogStart := call.Start()
-	response, err := securityHandler.Client.DeleteSecurityGroupPolicies(request)
-	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+		callLogStart := call.Start()
+		ingressResponse, err := securityHandler.Client.DeleteSecurityGroupPolicies(ingressRequest)
+		callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 
-	if err != nil {
-		callLogInfo.ErrorMSG = err.Error()
-		callogger.Error(call.String(callLogInfo))
+		if err != nil {
+			callLogInfo.ErrorMSG = err.Error()
+			callogger.Error(call.String(callLogInfo))
 
-		cblogger.Error(err)
-		return false, err
+			cblogger.Error(err)
+			return false, err
+		}
+		//spew.Dump(response)
+		cblogger.Debug(ingressResponse.ToJsonString())
+		callogger.Info(call.String(callLogInfo))
 	}
-	//spew.Dump(response)
-	cblogger.Debug(response.ToJsonString())
-	callogger.Info(call.String(callLogInfo))
+
+	if len(securityGroupPolicyEgressSet.Egress) > 0 {
+		egressRequest := vpc.NewDeleteSecurityGroupPoliciesRequest()
+		egressRequest.SecurityGroupId = common.StringPtr(securityIID.SystemId)
+		egressRequest.SecurityGroupPolicySet = securityGroupPolicyEgressSet
+
+		callLogStart := call.Start()
+		egressResponse, err := securityHandler.Client.DeleteSecurityGroupPolicies(egressRequest)
+		callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+
+		if err != nil {
+			callLogInfo.ErrorMSG = err.Error()
+			callogger.Error(call.String(callLogInfo))
+
+			cblogger.Error(err)
+			return false, err
+		}
+		//spew.Dump(response)
+		cblogger.Debug(egressResponse.ToJsonString())
+		callogger.Info(call.String(callLogInfo))
+	}
 
 	securityInfo, errSecurity := securityHandler.GetSecurity(securityIID)
 	cblogger.Debug(securityInfo)
