@@ -328,7 +328,9 @@ func testSecurityHandlerListPrint() {
 	res_cblogger.Info("2. GetSecurity()")
 	res_cblogger.Info("3. CreateSecurity()")
 	res_cblogger.Info("4. DeleteSecurity()")
-	res_cblogger.Info("5. Exit")
+	res_cblogger.Info("5. AddRules()")
+	res_cblogger.Info("6. RemoveRules()")
+	res_cblogger.Info("7. Exit")
 }
 
 func testsecurityGroupHandler(config ResourceConfig) {
@@ -347,6 +349,30 @@ func testsecurityGroupHandler(config ResourceConfig) {
 			CIDR:       securityRule.CIDR,
 		}
 		securityRulesInfos = append(securityRulesInfos, infos)
+	}
+	securityAddRules := config.Cloudit.Resources.SecurityGroup.AddRules
+	var securityAddRulesInfos []irs.SecurityRuleInfo
+	for _, securityRule := range securityAddRules {
+		infos := irs.SecurityRuleInfo{
+			FromPort:   securityRule.FromPort,
+			ToPort:     securityRule.ToPort,
+			IPProtocol: securityRule.IPProtocol,
+			Direction:  securityRule.Direction,
+			CIDR:       securityRule.CIDR,
+		}
+		securityAddRulesInfos = append(securityAddRulesInfos, infos)
+	}
+	securityRemoveRules := config.Cloudit.Resources.SecurityGroup.RemoveRules
+	var securityRemoveRulesInfos []irs.SecurityRuleInfo
+	for _, securityRule := range securityRemoveRules {
+		infos := irs.SecurityRuleInfo{
+			FromPort:   securityRule.FromPort,
+			ToPort:     securityRule.ToPort,
+			IPProtocol: securityRule.IPProtocol,
+			Direction:  securityRule.Direction,
+			CIDR:       securityRule.CIDR,
+		}
+		securityRemoveRulesInfos = append(securityRemoveRulesInfos, infos)
 	}
 Loop:
 	for {
@@ -397,6 +423,21 @@ Loop:
 				}
 				fmt.Println("Finish DeleteSecurity()")
 			case 5:
+				fmt.Println("Start AddRules() ...")
+				security, err := securityHandler.AddRules(securityIId, &securityAddRulesInfos)
+				if err != nil {
+					fmt.Println(err)
+				} else {
+					spew.Dump(security)
+				}
+				fmt.Println("Finish AddRules()")
+			case 6:
+				fmt.Println("Start RemoveRules() ...")
+				if ok, err := securityHandler.RemoveRules(securityIId, &securityRemoveRulesInfos); !ok {
+					fmt.Println(err)
+				}
+				fmt.Println("Finish RemoveRules()")
+			case 7:
 				fmt.Println("Exit")
 				break Loop
 			}
@@ -758,6 +799,20 @@ type ResourceConfig struct {
 					CIDR       string `yaml:"CIDR"`
 					Direction  string `yaml:"Direction"`
 				} `yaml:"rules"`
+				AddRules []struct {
+					FromPort   string `yaml:"FromPort"`
+					ToPort     string `yaml:"ToPort"`
+					IPProtocol string `yaml:"IPProtocol"`
+					CIDR       string `yaml:"CIDR"`
+					Direction  string `yaml:"Direction"`
+				} `yaml:"addRules"`
+				RemoveRules []struct {
+					FromPort   string `yaml:"FromPort"`
+					ToPort     string `yaml:"ToPort"`
+					IPProtocol string `yaml:"IPProtocol"`
+					CIDR       string `yaml:"CIDR"`
+					Direction  string `yaml:"Direction"`
+				} `yaml:"removeRules"`
 			} `yaml:"SecurityGroup"`
 		} `yaml:"resources"`
 	} `yaml:"cloudit"`
