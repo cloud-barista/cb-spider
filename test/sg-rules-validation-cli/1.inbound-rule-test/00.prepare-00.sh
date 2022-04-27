@@ -9,17 +9,20 @@ if [ "$1" = "" ]; then
 fi
 
 echo -e "###########################################################"
-echo -e "# create: VPC/Subnet => SG01 => Keypair(save private key)"
+echo -e "# 1.create: VPC/Subnet => SG01 => Keypair(save private key) => Start VM "
+echo -e "# 2.run: TCP Server and UDP Server"
 echo -e "###########################################################"
 
 source ../common/setup.env $1
 source setup.env $1
 
 
+### 1.create: VPC/Subnet => SG01 => Keypair(save private key) => Start VM 
 ../common/1.prepare-resources.sh $1
-
 ../common/3.vm-start.sh $1
 
+
+### 2.run: TCP Server and UDP Server
 echo -e "# check VM status until 'Running'"
 
 for (( num=1; num <= 60; num++ ))
