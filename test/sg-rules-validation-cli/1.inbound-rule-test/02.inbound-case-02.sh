@@ -35,7 +35,7 @@ curl -sX DELETE http://localhost:1024/spider/securitygroup/${SG_NAME}/rules -H '
 
 echo "============== after RemoveRules: '${SG_NAME}' --- inbound:ALL/-1/-1"
 
-sleep 2
+sleep 5
 
 # print the table header of test results
 $(test_result_header $1)
