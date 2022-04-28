@@ -10,6 +10,7 @@ fi
 
 echo -e "###########################################################"
 echo -e "# Terminate VM "
+echo -e "# Delete SG "
 echo -e "###########################################################"
 
 source ../common/setup.env $1
@@ -36,10 +37,25 @@ do
         fi
 done
 
-echo -e "\n\n"
+
+echo -e "# Try to delete test Security Group"
+for (( i=1; i <= 30; i++ ))
+do
+	ret=`../common/7.sg-delete.sh $1`
+	echo -e "$ret"
+
+	result=`echo -e "$ret" |grep "does not exist"`
+	if [ "$result" ];then
+		break;
+	else
+		sleep 2
+	fi
+done
+
 
 echo -e "###########################################################"
 echo -e "# Terminated VM "
+echo -e "# Deleted SG "
 echo -e "###########################################################"
 
 echo -e "\n\n"
