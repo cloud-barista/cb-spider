@@ -24,7 +24,7 @@ type ClouditImageHandler struct {
 func setterImage(image image.ImageInfo) *irs.ImageInfo {
 	imageInfo := &irs.ImageInfo{
 		IId: irs.IID{
-			NameId:   image.Name,
+			NameId:   image.ID,
 			SystemId: image.ID,
 		},
 		GuestOS: image.OS,
@@ -169,7 +169,7 @@ func (imageHandler *ClouditImageHandler) getRawImage(imageIId irs.IID) (*image.I
 	}
 	if imageIId.SystemId == ""{
 		for _, rawImage := range *imageList {
-			if strings.EqualFold(imageIId.NameId, rawImage.Name) {
+			if strings.EqualFold(imageIId.NameId, rawImage.ID) {
 				return &rawImage, nil
 			}
 		}
