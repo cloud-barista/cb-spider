@@ -35,7 +35,11 @@ curl -sX POST http://localhost:1024/spider/securitygroup/${SG_NAME}/rules -H 'Co
 
 echo "============== after AddRules: '${SG_NAME}' --- inbound:ICMP/-1/-1"
 
-sleep 5
+if [ "$SLEEP" ]; then
+        sleep $SLEEP
+else
+        sleep 5
+fi
 
 # print the table header of test results
 $(test_result_header $1)
