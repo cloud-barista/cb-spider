@@ -1397,7 +1397,7 @@ func VM(c echo.Context) error {
 		vmUser = "cb-user"
 	case "TENCENT":
 		imageName = "img-pi0ii46r"
-		specName = "S3.SMALL1"
+		specName = "S3.MEDIUM8"
 		subnetName = "subnet-01"
 		sgName = `["sg-01"]`
 		vmUser = "cb-user"
