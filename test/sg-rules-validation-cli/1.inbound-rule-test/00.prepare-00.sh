@@ -56,6 +56,13 @@ do
                         if [ "$ret2" ];then
                                 sleep 1;
                         else
+                                continue;
+                        fi
+
+                        ret3=`ssh -i ${KEYPAIR_NAME}.pem -o StrictHostKeyChecking=no cb-user@$P_IP "hostname" 2>&1 | grep denied`
+                        if [ "$ret3" ];then
+                                sleep 1;
+                        else
                                 break;
                         fi
                 done
