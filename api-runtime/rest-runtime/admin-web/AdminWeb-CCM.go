@@ -808,7 +808,7 @@ func makePostKeyPairFunc_js() string {
 
 //---------------- download this private key 
 		  var keyFileName = jsonVal.IId.NameId + ".pem";
-		  var keyValue = jsonVal.PrivateKey.trim();
+		  var keyValue = jsonVal.PrivateKey;
                   var tempElement = document.createElement('a');
                   //tempElement.setAttribute('href','data:text/plain;charset=utf-8, ' + encodeURIComponent(keyValue));
                   tempElement.setAttribute('href','data:text/plain;charset=utf-8,' + encodeURIComponent(keyValue));
@@ -1390,7 +1390,7 @@ func VM(c echo.Context) error {
 		sgName = `["sg-01"]`
 		vmUser = "cb-user"
 	case "ALIBABA":
-		imageName = "ubuntu_18_04_x64_20G_alibase_20200220.vhd"
+		imageName = "ubuntu_18_04_x64_20G_alibase_20220322.vhd"
 		specName = "ecs.t5-lc1m2.small"
 		subnetName = "subnet-01"
 		sgName = `["sg-01"]`
