@@ -18,12 +18,6 @@ source setup.env $1
 
 ./99.clear_vm.sh $1
 
-for (( num=1; num <= 3; num++ ))
-do
-	../common/8.clear-resources.sh $1
-	sleep 1
-done
-
 echo -e "# Try to delete test key"
 for (( i=1; i <= 30; i++ ))
 do
