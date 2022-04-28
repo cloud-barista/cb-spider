@@ -38,7 +38,7 @@ func (securityHandler *AzureSecurityHandler) setterSec(securityGroup network.Sec
 	var securityRuleArr []irs.SecurityRuleInfo
 	for _, sgRule := range *securityGroup.SecurityRules {
 		protocols := convertRuleProtocolAZToCB(fmt.Sprint(sgRule.Protocol))
-		fromPort, toPort := convertRulePortRangeAZToCB(*sgRule.SourcePortRange, protocols)
+		fromPort, toPort := convertRulePortRangeAZToCB(*sgRule.DestinationPortRange, protocols)
 		ruleInfo := irs.SecurityRuleInfo{
 			IPProtocol: protocols,
 			Direction:  strings.ToLower(fmt.Sprint(sgRule.Direction)),
@@ -416,9 +416,9 @@ func convertRuleInfoCBToAZ(rules []irs.SecurityRuleInfo) (*[]network.SecurityRul
 			Name: to.StringPtr(fmt.Sprintf("%s-rules-%d", rule.Direction, idx+1)),
 			SecurityRulePropertiesFormat: &network.SecurityRulePropertiesFormat{
 				SourceAddressPrefix:      &rule.CIDR,
-				SourcePortRange:          to.StringPtr(portRange),
+				SourcePortRange:          to.StringPtr("*"),
 				DestinationAddressPrefix: to.StringPtr("*"),
-				DestinationPortRange:     to.StringPtr("*"),
+				DestinationPortRange:     to.StringPtr(portRange),
 				Protocol:                 network.SecurityRuleProtocol(protocol),
 				Access:                   network.SecurityRuleAccess("Allow"),
 				Priority:                 to.Int32Ptr(priorityNum),
