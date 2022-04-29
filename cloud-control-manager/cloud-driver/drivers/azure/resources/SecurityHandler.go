@@ -415,7 +415,7 @@ func convertRuleInfoCBToAZ(rules []irs.SecurityRuleInfo) (*[]network.SecurityRul
 		sgRuleInfo := network.SecurityRule{
 			Name: to.StringPtr(fmt.Sprintf("%s-rules-%d", rule.Direction, idx+1)),
 			SecurityRulePropertiesFormat: &network.SecurityRulePropertiesFormat{
-				SourceAddressPrefix:      &rule.CIDR,
+				SourceAddressPrefix:      to.StringPtr(rule.CIDR),
 				SourcePortRange:          to.StringPtr("*"),
 				DestinationAddressPrefix: to.StringPtr("*"),
 				DestinationPortRange:     to.StringPtr(portRange),
