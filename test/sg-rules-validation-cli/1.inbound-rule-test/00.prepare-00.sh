@@ -55,8 +55,9 @@ do
                         ret2=`ssh -i ${KEYPAIR_NAME}.pem -o StrictHostKeyChecking=no cb-user@$P_IP "hostname" 2>&1 | grep closed`
                         if [ "$ret2" ];then
                                 sleep 1;
-                        else
                                 continue;
+                        else
+                                echo "";
                         fi
 
                         ret3=`ssh -i ${KEYPAIR_NAME}.pem -o StrictHostKeyChecking=no cb-user@$P_IP "hostname" 2>&1 | grep denied`
@@ -69,6 +70,9 @@ do
 
                 ssh -f -i ${KEYPAIR_NAME}.pem -o StrictHostKeyChecking=no cb-user@$P_IP "sudo nc -vktl 1000"
                 ssh -f -i ${KEYPAIR_NAME}.pem -o StrictHostKeyChecking=no cb-user@$P_IP "sudo nc -vkul 2000"
+
+		echo -e "# clear nc processes on the client(this node)"
+		sudo killall nc 2> /dev/null
 
                 echo -e "# run tcp server and udp server on the client(this node)"
                 sudo nc -vktl 1000&
