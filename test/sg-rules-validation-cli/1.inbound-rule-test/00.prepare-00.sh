@@ -33,9 +33,9 @@ do
                 echo -e "# run tcp server and udp server on the target VM"
                 P_IP=`../common/./6.vm-get.sh $1 |grep PublicIP: |awk '{print $2}'`
 		if [ "$P_IP" ];then
-			echo ""
+			ssh-keygen -f "$HOME/.ssh/known_hosts" -R "$P_IP" 1> /dev/null 2> /dev/null;
 		else
-			echo -e ">>>>>>>>>>>>>>> VM's Public IP NULL!! <<<<<<<<<<<<<<<<"
+			echo -e ">>>>>>>>>>>>>>> VM's Public IP is NULL!! <<<<<<<<<<<<<<<<"
 			exit 0;
 		fi
 #---- waiting 22 port readiness

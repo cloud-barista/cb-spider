@@ -19,6 +19,7 @@ echo -e "# clear nc processes on the client(this node)"
 sudo killall nc 2> /dev/null
 
 echo -e "# clear nc processes on the target VM to release local calling process"
+P_IP=`../common/./6.vm-get.sh $1 |grep PublicIP: |awk '{print $2}'`
 ssh -f -i ${KEYPAIR_NAME}.pem -o StrictHostKeyChecking=no cb-user@$P_IP "sudo killall nc"
 
 
@@ -30,6 +31,7 @@ do
 
         result=`echo -e "$ret" |grep "does not exist"`
         if [ "$result" ];then
+		ssh-keygen -f "$HOME/.ssh/known_hosts" -R "$P_IP" 1> /dev/null 2> /dev/null;
                 break;
         else
                 sleep 2
