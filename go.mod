@@ -20,6 +20,7 @@ require (
 	github.com/IBM/go-sdk-core/v5 v5.5.1
 	github.com/IBM/vpc-go-sdk v0.8.0
 	github.com/Microsoft/go-winio v0.5.2 // indirect
+	github.com/NaverCloudPlatform/ncloud-sdk-go-v2 v1.4.4 // indirect
 	github.com/alecthomas/template v0.0.0-20190718012654-fb15b899a751
 	github.com/aliyun/alibaba-cloud-sdk-go v1.61.1181
 	github.com/aws/aws-sdk-go v1.39.4
@@ -27,6 +28,7 @@ require (
 	github.com/chyeh/pubip v0.0.0-20170203095919-b7e679cf541c
 	github.com/cloud-barista/cb-log v0.5.0
 	github.com/cloud-barista/cb-store v0.5.0
+	github.com/cloud-barista/nhncloud-sdk-for-drv v0.0.0-20220127055541-afbafa12d4ff // indirect
 	github.com/containerd/containerd v1.6.1 // indirect
 	github.com/davecgh/go-spew v1.1.1
 	github.com/docker/docker v20.10.7+incompatible
@@ -57,7 +59,7 @@ require (
 	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/vpc v1.0.206
 	github.com/uber/jaeger-client-go v2.29.1+incompatible
 	github.com/uber/jaeger-lib v2.4.0+incompatible // indirect
-	golang.org/x/crypto v0.0.0-20210817164053-32db794688a5
+	golang.org/x/crypto v0.0.0-20220126234351-aa10faf2a1f8
 	golang.org/x/oauth2 v0.0.0-20210819190943-2bc19b11175f
 	google.golang.org/api v0.50.0
 	google.golang.org/grpc v1.43.0
