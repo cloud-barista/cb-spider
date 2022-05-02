@@ -71,11 +71,13 @@ NCP:
   region: Region / Zone
   credential: ClientId / ClientSecret
   # idmaxlength: VPC / Subnet / SecurityGroup / KeyPair / VM
-  idmaxlength: 0 / 0 / 0 / 30 / 30 
+  idmaxlength: 0 / 0 / 0 / 30 / 30
   
 NCPVPC: 
   region: Region / Zone
   credential: ClientId / ClientSecret
+  # idmaxlength: VPC / Subnet / SecurityGroup / KeyPair / VM
+  idmaxlength: 30 / 30 / 30 / 30 / 30
 
 KTCLOUD:
   region: Region / Zone
@@ -86,7 +88,7 @@ NHNCLOUD:
   credential: IdentityEndpoint / Username / Password / DomainName / TenantId
   rootdisktype: General_HDD / General_SSD
   # idmaxlength: VPC / Subnet / SecurityGroup / KeyPair / VM
-  idmaxlength: 0 / 0 / 255 / 255 / 255 
+  idmaxlength: 0 / 0 / 255 / 255 / 255
 
 #--- PoC
 
