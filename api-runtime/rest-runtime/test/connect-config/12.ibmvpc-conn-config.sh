@@ -1,7 +1,7 @@
 RESTSERVER=localhost
 
  # Cloud Driver Info
-curl -X POST http://$RESTSERVER:1024/spider/driver -H 'Content-Type: application/json' -d '{"DriverName":"ibmvpc-driver01","ProviderName":"IBM", "DriverLibFileName":"ibmvpc-driver-v1.0.so"}'
+curl -X POST http://$RESTSERVER:1024/spider/driver -H 'Content-Type: application/json' -d '{"DriverName":"ibmvpc-driver01","ProviderName":"IBM", "DriverLibFileName":"ibm-driver-v1.0.so"}'
 
  # Cloud Credential Info
 curl -X POST http://$RESTSERVER:1024/spider/credential -H 'Content-Type: application/json' -d '{"CredentialName":"ibmvpc-credential01","ProviderName":"IBM", "KeyValueInfoList": [{"Key":"ApiKey", "Value":"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"}]}'
