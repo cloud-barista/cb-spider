@@ -20,6 +20,7 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
 	vpc "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/vpc/v20170312"
+	cblog "github.com/cloud-barista/cb-log"
 )
 
 type TencentSecurityHandler struct {
@@ -41,7 +42,7 @@ Action : ACCEPT or DROP
 // 1번의 request는 한반향만 가능(두가지 동시에 불가)
 func (securityHandler *TencentSecurityHandler) CreateSecurity(securityReqInfo irs.SecurityReqInfo) (irs.SecurityInfo, error) {
 	cblogger.Infof("securityReqInfo : ", securityReqInfo)
-
+	cblog.SetLevel("debug")
 	//=================================================
 	// 동일 이름 생성 방지 추가(cb-spider 요청 필수 기능)
 	//=================================================
@@ -55,7 +56,7 @@ func (securityHandler *TencentSecurityHandler) CreateSecurity(securityReqInfo ir
 	}
 
 	// logger for HisCall
-	callogger := call.GetLogger("HISCALL"./)
+	callogger := call.GetLogger("HISCALL")
 	callLogInfo := call.CLOUDLOGSCHEMA{
 		CloudOS:      call.TENCENT,
 		RegionZone:   securityHandler.Region.Zone,
