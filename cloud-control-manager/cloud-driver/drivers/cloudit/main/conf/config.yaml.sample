@@ -13,7 +13,7 @@ cloudit:
       nameId: mcb-test-vm
       systemId:
     ImageIID:
-      nameId: Ubuntu 18.04
+      nameId: ee441331-0872-49c3-886c-1873a6e32e09
       systemId: ee441331-0872-49c3-886c-1873a6e32e09
     VmSpecName: micro-1
     KeyPairIID:

@@ -228,7 +228,7 @@ func (vmHandler *ClouditVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (startVM irs
 
 	// SSH 접속까지 시도
 	curConnectionCnt := 0
-	maxConnectionRetryCnt := 30
+	maxConnectionRetryCnt := 120
 	for {
 		cblogger.Info("Trying to connect via root user ...")
 		_, err := RunCommand(vm.AdaptiveIp, SSHDefaultPort, VMDefaultUser, VMDefaultPassword, "echo test")
