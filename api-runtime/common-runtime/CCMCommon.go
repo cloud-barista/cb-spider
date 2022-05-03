@@ -1468,6 +1468,10 @@ func RegisterSecurity(connectionName string, vpcUserID string, userIID cres.IID)
                 cblog.Error(err)
                 return nil, err
         }
+        // Direction: to lower
+        // IPProtocol: to upper
+        // no CIDR: "0.0.0.0/0"
+        transformArgs(getInfo.SecurityRules)
 
         // (3) create spiderIID: {UserID, SP-XID:CSP-ID}
         //     ex) spiderIID {"vpc-01", "vpc-01-9m4e2mr0ui3e8a215n4g:i-0bc7123b7e5cbf79d"}
@@ -1531,7 +1535,8 @@ func CreateSecurity(connectionName string, rsType string, reqInfo cres.SecurityR
                 cblog.Error(err)
                 return nil, err
         }
-*/
+	*/
+
 	//+++++++++++++++++++++++++++++++++++++++++++
 	// set VPC's SystemId
 	vpcIIDInfo, err := iidRWLock.GetIID(iidm.IIDSGROUP, connectionName, rsVPC, reqInfo.VpcIID)
@@ -1606,6 +1611,10 @@ func CreateSecurity(connectionName string, rsType string, reqInfo cres.SecurityR
 		cblog.Error(err)
 		return nil, err
 	}
+        // Direction: to lower
+        // IPProtocol: to upper
+        // no CIDR: "0.0.0.0/0"
+        transformArgs(info.SecurityRules)
 
 	// set VPC NameId
 	info.VpcIID.NameId = reqInfo.VpcIID.NameId
@@ -1711,6 +1720,11 @@ func ListSecurity(connectionName string, rsType string) ([]*cres.SecurityInfo, e
 		exist := false
 		for _, info := range infoList {
 			if getDriverSystemId(iidInfo.IId) == info.IId.SystemId {
+
+				// Direction: to lower
+				// IPProtocol: to upper
+				// no CIDR: "0.0.0.0/0"
+				transformArgs(info.SecurityRules)
 
 				// (4) set userIID
 				info.IId = getUserIID(iidInfo.IId)
@@ -1916,6 +1930,10 @@ func AddRules(connectionName string, sgName string, reqInfoList []cres.SecurityR
                 cblog.Error(err)
                 return nil, err
         }
+        // Direction: to lower
+        // IPProtocol: to upper
+        // no CIDR: "0.0.0.0/0"
+        transformArgs(info.SecurityRules)
 
         // (3) set ResourceInfo(userIID)
         info.IId = getUserIID(iidInfo.IId)
