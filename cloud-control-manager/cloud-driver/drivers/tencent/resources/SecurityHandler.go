@@ -20,6 +20,7 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
 	vpc "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/vpc/v20170312"
+	cblog "github.com/cloud-barista/cb-log"
 )
 
 type TencentSecurityHandler struct {
@@ -35,9 +36,13 @@ type TencentSecurityHandler struct {
 Port: A single port number, or a port range in the format of “8000-8010”. The Port field is accepted only if the value of the Protocol field is TCP or UDP. Otherwise Protocol and Port are mutually exclusive.
 Action : ACCEPT or DROP
 */
+// Tencent의 경우 : If no rules are set, all traffic is rejected by default
+// CB Spider의 outbound default는 All Open이므로 기본 Egress는 모두 open : CreateSecurityGroupWithPolicies
+// 사용자의 policy를 추가로 적용 : CreateSecurityGroupPolicies
+// 1번의 request는 한반향만 가능(두가지 동시에 불가)
 func (securityHandler *TencentSecurityHandler) CreateSecurity(securityReqInfo irs.SecurityReqInfo) (irs.SecurityInfo, error) {
 	cblogger.Infof("securityReqInfo : ", securityReqInfo)
-
+	cblog.SetLevel("debug")
 	//=================================================
 	// 동일 이름 생성 방지 추가(cb-spider 요청 필수 기능)
 	//=================================================
@@ -62,12 +67,43 @@ func (securityHandler *TencentSecurityHandler) CreateSecurity(securityReqInfo ir
 		ErrorMSG:     "",
 	}
 
-	request := vpc.NewCreateSecurityGroupWithPoliciesRequest()
-	request.GroupName = common.StringPtr(securityReqInfo.IId.NameId)
-	request.GroupDescription = common.StringPtr(securityReqInfo.IId.NameId) //설명 없으면 에러
+	defaultEgressRequest := vpc.NewCreateSecurityGroupWithPoliciesRequest()
+	defaultEgressRequest.GroupName = common.StringPtr(securityReqInfo.IId.NameId)
+	defaultEgressRequest.GroupDescription = common.StringPtr(securityReqInfo.IId.NameId) //설명 없으면 에러
+
+	// default outbound는 All open 인데 tencent는 All block이므로 포트 열어 줌.
+	egressSecurityGroupPolicySet := &vpc.SecurityGroupPolicySet{}
+	egressSecurityGroupPolicy := new(vpc.SecurityGroupPolicy)
+	egressSecurityGroupPolicy.Protocol = common.StringPtr("ALL")
+	egressSecurityGroupPolicy.CidrBlock = common.StringPtr("0.0.0.0/0") // TODO : 넣어줘야 할 지 확인
+	egressSecurityGroupPolicy.Action = common.StringPtr("accept")
+	egressSecurityGroupPolicy.Port = common.StringPtr("ALL")
+	egressSecurityGroupPolicySet.Egress = append(egressSecurityGroupPolicySet.Egress, egressSecurityGroupPolicy)
+
+	defaultEgressRequest.SecurityGroupPolicySet = egressSecurityGroupPolicySet
+
+	callLogStart := call.Start()
+	defaultEgressResponse, err := securityHandler.Client.CreateSecurityGroupWithPolicies(defaultEgressRequest)
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+
+	if err != nil {
+		callLogInfo.ErrorMSG = err.Error()
+		callogger.Error(call.String(callLogInfo))
+
+		cblogger.Error(err)
+		spew.Dump(defaultEgressRequest)
+		return irs.SecurityInfo{}, err
+	}
+	
+	//spew.Dump(defaultEgressResponse)
+	cblogger.Debug(defaultEgressResponse.ToJsonString())
+	callogger.Info(call.String(callLogInfo))
 
 	cblogger.Debug("보안 정책 처리")
 	securityGroupPolicySet := &vpc.SecurityGroupPolicySet{}
+	request := vpc.NewCreateSecurityGroupPoliciesRequest()
+	request.SecurityGroupId = common.StringPtr(*defaultEgressResponse.Response.SecurityGroup.SecurityGroupId)
+
 	for _, curPolicy := range *securityReqInfo.SecurityRules {
 		securityGroupPolicy := new(vpc.SecurityGroupPolicy)
 		securityGroupPolicy.Protocol = common.StringPtr(curPolicy.IPProtocol)
@@ -93,8 +129,10 @@ func (securityHandler *TencentSecurityHandler) CreateSecurity(securityReqInfo ir
 
 	request.SecurityGroupPolicySet = securityGroupPolicySet
 
-	callLogStart := call.Start()
-	response, err := securityHandler.Client.CreateSecurityGroupWithPolicies(request)
+	//callLogStart := call.Start()
+	//response, err := securityHandler.Client.CreateSecurityGroupWithPolicies(request)
+
+	response, err := securityHandler.Client.CreateSecurityGroupPolicies(request)
 	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 
 	if err != nil {
@@ -109,7 +147,7 @@ func (securityHandler *TencentSecurityHandler) CreateSecurity(securityReqInfo ir
 	cblogger.Debug(response.ToJsonString())
 	callogger.Info(call.String(callLogInfo))
 
-	securityInfo, errSecurity := securityHandler.GetSecurity(irs.IID{SystemId: *response.Response.SecurityGroup.SecurityGroupId})
+	securityInfo, errSecurity := securityHandler.GetSecurity(irs.IID{SystemId: *defaultEgressResponse.Response.SecurityGroup.SecurityGroupId})
 	if errSecurity != nil {
 		cblogger.Error(errSecurity)
 		return irs.SecurityInfo{}, errSecurity
