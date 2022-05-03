@@ -127,6 +127,9 @@ func (securityHandler *TencentSecurityHandler) CreateSecurity(securityReqInfo ir
 		}
 	}
 
+
+	
+
 	request.SecurityGroupPolicySet = securityGroupPolicySet
 
 	//callLogStart := call.Start()
