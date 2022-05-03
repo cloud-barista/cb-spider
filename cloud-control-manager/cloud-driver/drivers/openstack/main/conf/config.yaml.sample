@@ -7,8 +7,8 @@ openstack:
   region: RegionOne
   resources:
     image:
-      nameId: ubuntu 18.04 LTS
-      systemId:
+      nameId: 37d7ad6c-e3e0-4a46-a288-963d182f05c7
+      systemId: 37d7ad6c-e3e0-4a46-a288-963d182f05c7
     security:
       nameId: mcb-test-security
       systemId:

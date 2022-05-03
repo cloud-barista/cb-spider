@@ -28,7 +28,7 @@ type OpenStackImageHandler struct {
 func setterImage(image images.Image) *irs.ImageInfo {
 	imageInfo := &irs.ImageInfo{
 		IId: irs.IID{
-			NameId:   image.Name,
+			NameId:   image.ID,
 			SystemId: image.ID,
 		},
 		Status: image.Status,
@@ -188,24 +188,6 @@ func (imageHandler *OpenStackImageHandler) getRawImage(imageIId irs.IID) (*image
 	if !CheckIIDValidation(imageIId) {
 		return nil, errors.New("invalid IID")
 	}
-	if imageIId.SystemId == "" {
-		pager, err := images.ListDetail(imageHandler.Client, images.ListOpts{Name: imageIId.NameId}).AllPages()
-		if err != nil {
-			return nil, err
-		}
-		imageList, err := images.ExtractImages(pager)
-		if err != nil {
-			return nil, err
-		}
-
-		if len(imageList) > 1 {
-			return nil, errors.New(fmt.Sprintf("found multiple images with name %s", imageIId.NameId))
-		} else if len(imageList) == 0 {
-			return nil, errors.New(fmt.Sprintf("could not found image with name %s", imageIId.NameId))
-		}
-		return &imageList[0], nil
-	} else {
-		return images.Get(imageHandler.Client, imageIId.SystemId).Extract()
-	}
+	return images.Get(imageHandler.Client, imageIId.SystemId).Extract()
 }
 
