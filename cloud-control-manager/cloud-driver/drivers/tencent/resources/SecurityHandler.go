@@ -13,6 +13,7 @@ package resources
 import (
 	"errors"
 	"strings"
+	"encoding/json"
 
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
@@ -27,6 +28,13 @@ type TencentSecurityHandler struct {
 	Region idrv.RegionInfo
 	Client *vpc.Client
 }
+
+type RuleAction string
+
+const (
+	Add RuleAction = "Add"
+	Remove RuleAction = "Remove"
+)
 
 //https://intl.cloud.tencent.com/document/product/213/34272
 //https://intl.cloud.tencent.com/ko/document/api/215/36083
@@ -126,6 +134,9 @@ func (securityHandler *TencentSecurityHandler) CreateSecurity(securityReqInfo ir
 			securityGroupPolicySet.Egress = append(securityGroupPolicySet.Egress, securityGroupPolicy)
 		}
 	}
+
+
+
 
 	request.SecurityGroupPolicySet = securityGroupPolicySet
 
@@ -398,7 +409,7 @@ func (securityHandler *TencentSecurityHandler) DeleteSecurity(securityIID irs.II
 // 추가 후 SecurityGroup return
 // CreateSecurityGroupPolicies inbound, outbound 동시 호출 불가 > 각각 호출
 // ModifySecurityGroupPolicies Version을 0으로 set하면 초기화(모든 룰 사라짐), 설정하지 않으면 모두 삭제 후 insert(기존 값 사라짐, 넘어온 값만 사용)
-func (securityHandler *TencentSecurityHandler) AddRules(securityIID irs.IID, securityRules *[]irs.SecurityRuleInfo) (irs.SecurityInfo, error) {
+func (securityHandler *TencentSecurityHandler) AddRules(securityIID irs.IID, reqSecurityRules *[]irs.SecurityRuleInfo) (irs.SecurityInfo, error) {
 	////////
 	// logger for HisCall
 	callogger := call.GetLogger("HISCALL")
@@ -412,15 +423,34 @@ func (securityHandler *TencentSecurityHandler) AddRules(securityIID irs.IID, sec
 		ErrorMSG:     "",
 	}
 
-	if len(*securityRules) < 1 {
+	if len(*reqSecurityRules) < 1 {
 		return irs.SecurityInfo{}, errors.New("invalid value - The SecurityRules to add is empty")
+	}
+
+	presentRules, presentRulesErr := securityHandler.GetSecurityRuleInfo(securityIID)
+	if presentRulesErr != nil {
+		cblogger.Error(presentRulesErr)
+		return irs.SecurityInfo{}, presentRulesErr
+	}
+
+	checkResult := sameRulesCheck(presentRules, reqSecurityRules, Add)
+	if checkResult != nil {
+		errorMsg := ""
+		for _, rule := range *checkResult {
+			jsonRule, err := json.Marshal(rule)
+			if err != nil {
+				cblogger.Error(err)
+			}
+			errorMsg += string(jsonRule)
+		}
+		return irs.SecurityInfo{}, errors.New("invalid value - "+ errorMsg +" already exists!")
 	}
 
 	securityGroupPolicyIngressSet := &vpc.SecurityGroupPolicySet{}
 	securityGroupPolicyEgressSet := &vpc.SecurityGroupPolicySet{}
 
 	// rule 생성 시에는 ingress와 egress가 동시에 생성되지 않기 때문에 ingress, egress 따로 호촐함
-	for _, curPolicy := range *securityRules {
+	for _, curPolicy := range *reqSecurityRules {
 	
 		// if !strings.EqualFold(curPolicy.Direction, commonDirection) {
 		// 	return irs.SecurityInfo{}, errors.New("invalid - The parameter `Egress and Ingress` cannot be imported at the same time in the request.")
@@ -504,7 +534,7 @@ func (securityHandler *TencentSecurityHandler) AddRules(securityIID irs.IID, sec
 
 
 // DeleteSecurityGroupPolicies inbound, outbound 동시 호출 불가 > 각각 호출
-func (securityHandler *TencentSecurityHandler) RemoveRules(securityIID irs.IID, securityRules *[]irs.SecurityRuleInfo) (bool, error) {
+func (securityHandler *TencentSecurityHandler) RemoveRules(securityIID irs.IID, reqSecurityRules *[]irs.SecurityRuleInfo) (bool, error) {
 	////////
 	// logger for HisCall
 	callogger := call.GetLogger("HISCALL")
@@ -518,10 +548,29 @@ func (securityHandler *TencentSecurityHandler) RemoveRules(securityIID irs.IID, 
 		ErrorMSG:     "",
 	}
 
+	presentRules, presentRulesErr := securityHandler.GetSecurityRuleInfo(securityIID)
+	if presentRulesErr != nil {
+		cblogger.Error(presentRulesErr)
+		return false, presentRulesErr
+	}
+
+	checkResult := sameRulesCheck(presentRules, reqSecurityRules, Remove)
+	if checkResult != nil {
+		errorMsg := ""
+		for _, rule := range *checkResult {
+			jsonRule, err := json.Marshal(rule)
+			if err != nil {
+				cblogger.Error(err)
+			}
+			errorMsg += string(jsonRule)
+		}
+		return false, errors.New("invalid value - "+ errorMsg +" does not exist!")
+	}
+
 	securityGroupPolicyIngressSet := &vpc.SecurityGroupPolicySet{}
 	securityGroupPolicyEgressSet := &vpc.SecurityGroupPolicySet{}
 
-	for _, curPolicy := range *securityRules {
+	for _, curPolicy := range *reqSecurityRules {
 		securityGroupPolicy := new(vpc.SecurityGroupPolicy)
 		securityGroupPolicy.Protocol = common.StringPtr(curPolicy.IPProtocol)
 		//securityGroupPolicy.CidrBlock = common.StringPtr("0.0.0.0/0")
@@ -594,3 +643,68 @@ func (securityHandler *TencentSecurityHandler) RemoveRules(securityIID irs.IID, 
 	}
 	return true, nil
 }
+
+// 동일한 rule이 있는지 체크
+// RuleAction이 Add면 중복인 rule 리턴, Remove면 없는 rule 리턴
+func sameRulesCheck(presentSecurityRules *[]irs.SecurityRuleInfo, reqSecurityRules *[]irs.SecurityRuleInfo, action RuleAction) (*[]irs.SecurityRuleInfo) {
+	var checkResult []irs.SecurityRuleInfo
+	for _, reqRule := range *reqSecurityRules {
+		hasFound := false
+		reqRulePort := ""
+		if reqRule.FromPort == "" {
+			reqRulePort = reqRule.ToPort
+		} else if reqRule.ToPort == "" {
+			reqRulePort = reqRule.FromPort
+		} else if reqRule.FromPort == reqRule.ToPort {
+			reqRulePort = reqRule.FromPort
+		} else {
+			reqRulePort = reqRule.FromPort + "-" + reqRule.ToPort
+		}
+
+		for _, present := range *presentSecurityRules {
+			presentPort := ""
+			if present.FromPort == "" {
+				presentPort = present.ToPort
+			} else if present.ToPort == "" {
+				presentPort = present.FromPort
+			} else if present.FromPort == present.ToPort {
+				presentPort = present.FromPort
+			} else {
+				presentPort = present.FromPort + "-" + present.ToPort
+			}
+
+			if !strings.EqualFold(reqRule.Direction, present.Direction) {
+				continue
+			}
+			if !strings.EqualFold(reqRule.IPProtocol, present.IPProtocol) {
+				continue
+			}
+			if !strings.EqualFold(reqRulePort, presentPort) {
+				continue
+			}
+			if !strings.EqualFold(reqRule.CIDR, present.CIDR) {
+				continue
+			}
+
+			if action == Add {
+				cblogger.Info("add")
+				checkResult = append(checkResult, reqRule)
+			}
+			hasFound = true
+			break
+		}
+
+		// Remove일때는 못 찾아야 append
+		if action == Remove && !hasFound {
+			checkResult = append(checkResult, reqRule)
+		}
+	}
+
+	if len(checkResult) > 0 {
+		return &checkResult
+	}
+
+	return nil
+}
+
+
