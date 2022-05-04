@@ -13,6 +13,7 @@ package resources
 import (
 	"errors"
 	"strings"
+	"encoding/json"
 
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/ecs"
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
@@ -25,6 +26,13 @@ type AlibabaSecurityHandler struct {
 	Region idrv.RegionInfo
 	Client *ecs.Client
 }
+
+type RuleAction string
+
+const (
+	Add RuleAction = "Add"
+	Remove RuleAction = "Remove"
+)
 
 func (securityHandler *AlibabaSecurityHandler) CreateSecurity(securityReqInfo irs.SecurityReqInfo) (irs.SecurityInfo, error) {
 	cblogger.Infof("securityReqInfo : ", securityReqInfo)
@@ -101,17 +109,37 @@ func (securityHandler *AlibabaSecurityHandler) CreateSecurity(securityReqInfo ir
 //  - function name 변경 : AuthorizeSecurityRules to AddRules
 //func (securityHandler *AlibabaSecurityHandler) AuthorizeSecurityRules(securityGroupId string, vpcId string, securityRuleInfos *[]irs.SecurityRuleInfo) (*[]irs.SecurityRuleInfo, error) {
 //func (securityHandler *AlibabaSecurityHandler) AuthorizeSecurityRules(securityGroupId string, securityRuleInfos *[]irs.SecurityRuleInfo) (*[]irs.SecurityRuleInfo, error) {
-func (securityHandler *AlibabaSecurityHandler) AddRules(securityIID irs.IID, securityRules *[]irs.SecurityRuleInfo) (irs.SecurityInfo, error) {
+func (securityHandler *AlibabaSecurityHandler) AddRules(securityIID irs.IID, reqSecurityRules *[]irs.SecurityRuleInfo) (irs.SecurityInfo, error) {
 	securityGroupId := securityIID.SystemId
-	cblogger.Infof("securityGroupId : [%s]  / securityRuleInfos : [%v]", securityGroupId, securityRules)
+	cblogger.Infof("securityGroupId : [%s]  / securityRuleInfos : [%v]", securityGroupId, reqSecurityRules)
 	//cblogger.Info("AuthorizeSecurityRules ", securityRuleInfos)
-	spew.Dump(securityRules)
+	spew.Dump(reqSecurityRules)
 
-	if len(*securityRules) < 1 {
+	if len(*reqSecurityRules) < 1 {
 		return irs.SecurityInfo{}, errors.New("invalid value - The SecurityRules to add is empty")
 	}
 
-	for _, curRule := range *securityRules {
+	presentRules, presentRulesErr := securityHandler.ExtractSecurityRuleInfo(securityGroupId)
+	if presentRulesErr != nil {
+		cblogger.Error(presentRulesErr)
+		return irs.SecurityInfo{}, presentRulesErr
+	}
+
+	checkResult := sameRulesCheck(&presentRules, reqSecurityRules, Add)
+	cblogger.Infof("checkResult: [%v]", checkResult)
+	if checkResult != nil {
+		errorMsg := ""
+		for _, rule := range *checkResult {
+			jsonRule, err := json.Marshal(rule)
+			if err != nil {
+				cblogger.Error(err)
+			}
+			errorMsg += string(jsonRule)
+		}
+		return irs.SecurityInfo{}, errors.New("invalid value - "+ errorMsg +" already exists!")
+	}
+
+	for _, curRule := range *reqSecurityRules {
 		if strings.EqualFold(curRule.Direction, "inbound") {
 			request := ecs.CreateAuthorizeSecurityGroupRequest()
 			request.Scheme = "https"
@@ -159,15 +187,37 @@ func (securityHandler *AlibabaSecurityHandler) AddRules(securityIID irs.IID, sec
 
 // If the security group rule to be deleted does not exist, the RevokeSecurityGroup operation succeeds but no rule is deleted.
 //func (securityHandler *AlibabaSecurityHandler) RevokeSecurityRules(securityGroupId string, securityRuleInfos *[]irs.SecurityRuleInfo) (*[]irs.SecurityRuleInfo, error) {
-func (securityHandler *AlibabaSecurityHandler) RemoveRules(securityIID irs.IID, securityRuleInfos *[]irs.SecurityRuleInfo) (bool, error) {
+func (securityHandler *AlibabaSecurityHandler) RemoveRules(securityIID irs.IID, reqSecurityRules *[]irs.SecurityRuleInfo) (bool, error) {
 	securityGroupId := securityIID.SystemId
-	cblogger.Infof("securityGroupId : [%s]  / securityRuleInfos : [%v]", securityGroupId, securityRuleInfos)
-	spew.Dump(securityRuleInfos)
+	cblogger.Infof("securityGroupId : [%s]  / securityRuleInfos : [%v]", securityGroupId, reqSecurityRules)
+	spew.Dump(reqSecurityRules)
+
+	presentRules, presentRulesErr := securityHandler.ExtractSecurityRuleInfo(securityGroupId)
+	if presentRulesErr != nil {
+		cblogger.Error(presentRulesErr)
+		return false, presentRulesErr
+	}
+
+	checkResult := sameRulesCheck(&presentRules, reqSecurityRules, Remove)
+	cblogger.Infof("checkResult: [%v]", checkResult)
+	if checkResult != nil {
+		errorMsg := ""
+		for _, rule := range *checkResult {
+			jsonRule, err := json.Marshal(rule)
+			if err != nil {
+				cblogger.Error(err)
+			}
+			errorMsg += string(jsonRule)
+		}
+		return false, errors.New("invalid value - "+ errorMsg +" does not exist!")
+	}
+
+
 	// "cidr": "string",
 	// "fromPort": "string",
 	// "ipprotocol": "string",
 	// "toPort": "string"
-	for _, curRule := range *securityRuleInfos {
+	for _, curRule := range *reqSecurityRules {
 		if strings.EqualFold(curRule.Direction, "inbound") {
 			// 3가지 case중 1번 사용.
 			// SourceGroupId : The ID of the source security group
@@ -443,4 +493,73 @@ func (securityHandler *AlibabaSecurityHandler) DeleteSecurity(securityIID irs.II
 	cblogger.Info(response)
 	cblogger.Infof("Successfully delete security group %q.", securityIID.SystemId)
 	return true, nil
+}
+
+// 동일한 rule이 있는지 체크
+// RuleAction이 Add면 중복인 rule 리턴, Remove면 없는 rule 리턴
+func sameRulesCheck(presentSecurityRules *[]irs.SecurityRuleInfo, reqSecurityRules *[]irs.SecurityRuleInfo, action RuleAction) (*[]irs.SecurityRuleInfo) {
+	var checkResult []irs.SecurityRuleInfo
+	cblogger.Infof("presentSecurityRules: [%v] / reqSecurityRules: [%v]", presentSecurityRules, reqSecurityRules)
+	for _, reqRule := range *reqSecurityRules {
+		hasFound := false
+		reqRulePort := ""
+		if reqRule.FromPort == "" {
+			reqRulePort = reqRule.ToPort
+		} else if reqRule.ToPort == "" {
+			reqRulePort = reqRule.FromPort
+		} else if reqRule.FromPort == reqRule.ToPort {
+			reqRulePort = reqRule.FromPort
+		} else {
+			reqRulePort = reqRule.FromPort + "-" + reqRule.ToPort
+		}
+
+		if strings.EqualFold(reqRule.Direction, "inbound") {
+			reqRule.Direction = "ingress"
+		} else if strings.EqualFold(reqRule.Direction, "outbound") {
+			reqRule.Direction = "egress"
+		}
+
+		for _, present := range *presentSecurityRules {
+			presentPort := ""
+			if present.FromPort == "" {
+				presentPort = present.ToPort
+			} else if present.ToPort == "" {
+				presentPort = present.FromPort
+			} else if present.FromPort == present.ToPort {
+				presentPort = present.FromPort
+			} else {
+				presentPort = present.FromPort + "-" + present.ToPort
+			}
+
+			if !strings.EqualFold(reqRule.Direction, present.Direction) {
+				continue
+			}
+			if !strings.EqualFold(reqRule.IPProtocol, present.IPProtocol) {
+				continue
+			}
+			if !strings.EqualFold(reqRulePort, presentPort) {
+				continue
+			}
+			if !strings.EqualFold(reqRule.CIDR, present.CIDR) {
+				continue
+			}
+
+			if action == Add {
+				checkResult = append(checkResult, reqRule)
+			}
+			hasFound = true
+			break
+		}
+
+		// Remove일때는 못 찾아야 append
+		if action == Remove && !hasFound {
+			checkResult = append(checkResult, reqRule)
+		}
+	}
+
+	if len(checkResult) > 0 {
+		return &checkResult
+	}
+
+	return nil
 }
