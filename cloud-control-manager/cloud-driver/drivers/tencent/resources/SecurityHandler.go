@@ -13,6 +13,7 @@ package resources
 import (
 	"errors"
 	"strings"
+	"encoding/json"
 
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
@@ -20,12 +21,20 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
 	vpc "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/vpc/v20170312"
+	cblog "github.com/cloud-barista/cb-log"
 )
 
 type TencentSecurityHandler struct {
 	Region idrv.RegionInfo
 	Client *vpc.Client
 }
+
+type RuleAction string
+
+const (
+	Add RuleAction = "Add"
+	Remove RuleAction = "Remove"
+)
 
 //https://intl.cloud.tencent.com/document/product/213/34272
 //https://intl.cloud.tencent.com/ko/document/api/215/36083
@@ -35,9 +44,13 @@ type TencentSecurityHandler struct {
 Port: A single port number, or a port range in the format of “8000-8010”. The Port field is accepted only if the value of the Protocol field is TCP or UDP. Otherwise Protocol and Port are mutually exclusive.
 Action : ACCEPT or DROP
 */
+// Tencent의 경우 : If no rules are set, all traffic is rejected by default
+// CB Spider의 outbound default는 All Open이므로 기본 Egress는 모두 open : CreateSecurityGroupWithPolicies
+// 사용자의 policy를 추가로 적용 : CreateSecurityGroupPolicies
+// 1번의 request는 한반향만 가능(두가지 동시에 불가)
 func (securityHandler *TencentSecurityHandler) CreateSecurity(securityReqInfo irs.SecurityReqInfo) (irs.SecurityInfo, error) {
 	cblogger.Infof("securityReqInfo : ", securityReqInfo)
-
+	cblog.SetLevel("debug")
 	//=================================================
 	// 동일 이름 생성 방지 추가(cb-spider 요청 필수 기능)
 	//=================================================
@@ -62,12 +75,43 @@ func (securityHandler *TencentSecurityHandler) CreateSecurity(securityReqInfo ir
 		ErrorMSG:     "",
 	}
 
-	request := vpc.NewCreateSecurityGroupWithPoliciesRequest()
-	request.GroupName = common.StringPtr(securityReqInfo.IId.NameId)
-	request.GroupDescription = common.StringPtr(securityReqInfo.IId.NameId) //설명 없으면 에러
+	defaultEgressRequest := vpc.NewCreateSecurityGroupWithPoliciesRequest()
+	defaultEgressRequest.GroupName = common.StringPtr(securityReqInfo.IId.NameId)
+	defaultEgressRequest.GroupDescription = common.StringPtr(securityReqInfo.IId.NameId) //설명 없으면 에러
+
+	// default outbound는 All open 인데 tencent는 All block이므로 포트 열어 줌.
+	egressSecurityGroupPolicySet := &vpc.SecurityGroupPolicySet{}
+	egressSecurityGroupPolicy := new(vpc.SecurityGroupPolicy)
+	egressSecurityGroupPolicy.Protocol = common.StringPtr("ALL")
+	egressSecurityGroupPolicy.CidrBlock = common.StringPtr("0.0.0.0/0") // TODO : 넣어줘야 할 지 확인
+	egressSecurityGroupPolicy.Action = common.StringPtr("accept")
+	egressSecurityGroupPolicy.Port = common.StringPtr("ALL")
+	egressSecurityGroupPolicySet.Egress = append(egressSecurityGroupPolicySet.Egress, egressSecurityGroupPolicy)
+
+	defaultEgressRequest.SecurityGroupPolicySet = egressSecurityGroupPolicySet
+
+	callLogStart := call.Start()
+	defaultEgressResponse, err := securityHandler.Client.CreateSecurityGroupWithPolicies(defaultEgressRequest)
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+
+	if err != nil {
+		callLogInfo.ErrorMSG = err.Error()
+		callogger.Error(call.String(callLogInfo))
+
+		cblogger.Error(err)
+		spew.Dump(defaultEgressRequest)
+		return irs.SecurityInfo{}, err
+	}
+	
+	//spew.Dump(defaultEgressResponse)
+	cblogger.Debug(defaultEgressResponse.ToJsonString())
+	callogger.Info(call.String(callLogInfo))
 
 	cblogger.Debug("보안 정책 처리")
 	securityGroupPolicySet := &vpc.SecurityGroupPolicySet{}
+	request := vpc.NewCreateSecurityGroupPoliciesRequest()
+	request.SecurityGroupId = common.StringPtr(*defaultEgressResponse.Response.SecurityGroup.SecurityGroupId)
+
 	for _, curPolicy := range *securityReqInfo.SecurityRules {
 		securityGroupPolicy := new(vpc.SecurityGroupPolicy)
 		securityGroupPolicy.Protocol = common.StringPtr(curPolicy.IPProtocol)
@@ -91,10 +135,15 @@ func (securityHandler *TencentSecurityHandler) CreateSecurity(securityReqInfo ir
 		}
 	}
 
+
+
+
 	request.SecurityGroupPolicySet = securityGroupPolicySet
 
-	callLogStart := call.Start()
-	response, err := securityHandler.Client.CreateSecurityGroupWithPolicies(request)
+	//callLogStart := call.Start()
+	//response, err := securityHandler.Client.CreateSecurityGroupWithPolicies(request)
+
+	response, err := securityHandler.Client.CreateSecurityGroupPolicies(request)
 	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 
 	if err != nil {
@@ -109,7 +158,7 @@ func (securityHandler *TencentSecurityHandler) CreateSecurity(securityReqInfo ir
 	cblogger.Debug(response.ToJsonString())
 	callogger.Info(call.String(callLogInfo))
 
-	securityInfo, errSecurity := securityHandler.GetSecurity(irs.IID{SystemId: *response.Response.SecurityGroup.SecurityGroupId})
+	securityInfo, errSecurity := securityHandler.GetSecurity(irs.IID{SystemId: *defaultEgressResponse.Response.SecurityGroup.SecurityGroupId})
 	if errSecurity != nil {
 		cblogger.Error(errSecurity)
 		return irs.SecurityInfo{}, errSecurity
@@ -360,7 +409,7 @@ func (securityHandler *TencentSecurityHandler) DeleteSecurity(securityIID irs.II
 // 추가 후 SecurityGroup return
 // CreateSecurityGroupPolicies inbound, outbound 동시 호출 불가 > 각각 호출
 // ModifySecurityGroupPolicies Version을 0으로 set하면 초기화(모든 룰 사라짐), 설정하지 않으면 모두 삭제 후 insert(기존 값 사라짐, 넘어온 값만 사용)
-func (securityHandler *TencentSecurityHandler) AddRules(securityIID irs.IID, securityRules *[]irs.SecurityRuleInfo) (irs.SecurityInfo, error) {
+func (securityHandler *TencentSecurityHandler) AddRules(securityIID irs.IID, reqSecurityRules *[]irs.SecurityRuleInfo) (irs.SecurityInfo, error) {
 	////////
 	// logger for HisCall
 	callogger := call.GetLogger("HISCALL")
@@ -374,15 +423,34 @@ func (securityHandler *TencentSecurityHandler) AddRules(securityIID irs.IID, sec
 		ErrorMSG:     "",
 	}
 
-	if len(*securityRules) < 1 {
+	if len(*reqSecurityRules) < 1 {
 		return irs.SecurityInfo{}, errors.New("invalid value - The SecurityRules to add is empty")
+	}
+
+	presentRules, presentRulesErr := securityHandler.GetSecurityRuleInfo(securityIID)
+	if presentRulesErr != nil {
+		cblogger.Error(presentRulesErr)
+		return irs.SecurityInfo{}, presentRulesErr
+	}
+
+	checkResult := sameRulesCheck(presentRules, reqSecurityRules, Add)
+	if checkResult != nil {
+		errorMsg := ""
+		for _, rule := range *checkResult {
+			jsonRule, err := json.Marshal(rule)
+			if err != nil {
+				cblogger.Error(err)
+			}
+			errorMsg += string(jsonRule)
+		}
+		return irs.SecurityInfo{}, errors.New("invalid value - "+ errorMsg +" already exists!")
 	}
 
 	securityGroupPolicyIngressSet := &vpc.SecurityGroupPolicySet{}
 	securityGroupPolicyEgressSet := &vpc.SecurityGroupPolicySet{}
 
 	// rule 생성 시에는 ingress와 egress가 동시에 생성되지 않기 때문에 ingress, egress 따로 호촐함
-	for _, curPolicy := range *securityRules {
+	for _, curPolicy := range *reqSecurityRules {
 	
 		// if !strings.EqualFold(curPolicy.Direction, commonDirection) {
 		// 	return irs.SecurityInfo{}, errors.New("invalid - The parameter `Egress and Ingress` cannot be imported at the same time in the request.")
@@ -466,7 +534,7 @@ func (securityHandler *TencentSecurityHandler) AddRules(securityIID irs.IID, sec
 
 
 // DeleteSecurityGroupPolicies inbound, outbound 동시 호출 불가 > 각각 호출
-func (securityHandler *TencentSecurityHandler) RemoveRules(securityIID irs.IID, securityRules *[]irs.SecurityRuleInfo) (bool, error) {
+func (securityHandler *TencentSecurityHandler) RemoveRules(securityIID irs.IID, reqSecurityRules *[]irs.SecurityRuleInfo) (bool, error) {
 	////////
 	// logger for HisCall
 	callogger := call.GetLogger("HISCALL")
@@ -480,10 +548,29 @@ func (securityHandler *TencentSecurityHandler) RemoveRules(securityIID irs.IID, 
 		ErrorMSG:     "",
 	}
 
+	presentRules, presentRulesErr := securityHandler.GetSecurityRuleInfo(securityIID)
+	if presentRulesErr != nil {
+		cblogger.Error(presentRulesErr)
+		return false, presentRulesErr
+	}
+
+	checkResult := sameRulesCheck(presentRules, reqSecurityRules, Remove)
+	if checkResult != nil {
+		errorMsg := ""
+		for _, rule := range *checkResult {
+			jsonRule, err := json.Marshal(rule)
+			if err != nil {
+				cblogger.Error(err)
+			}
+			errorMsg += string(jsonRule)
+		}
+		return false, errors.New("invalid value - "+ errorMsg +" does not exist!")
+	}
+
 	securityGroupPolicyIngressSet := &vpc.SecurityGroupPolicySet{}
 	securityGroupPolicyEgressSet := &vpc.SecurityGroupPolicySet{}
 
-	for _, curPolicy := range *securityRules {
+	for _, curPolicy := range *reqSecurityRules {
 		securityGroupPolicy := new(vpc.SecurityGroupPolicy)
 		securityGroupPolicy.Protocol = common.StringPtr(curPolicy.IPProtocol)
 		//securityGroupPolicy.CidrBlock = common.StringPtr("0.0.0.0/0")
@@ -556,3 +643,68 @@ func (securityHandler *TencentSecurityHandler) RemoveRules(securityIID irs.IID, 
 	}
 	return true, nil
 }
+
+// 동일한 rule이 있는지 체크
+// RuleAction이 Add면 중복인 rule 리턴, Remove면 없는 rule 리턴
+func sameRulesCheck(presentSecurityRules *[]irs.SecurityRuleInfo, reqSecurityRules *[]irs.SecurityRuleInfo, action RuleAction) (*[]irs.SecurityRuleInfo) {
+	var checkResult []irs.SecurityRuleInfo
+	for _, reqRule := range *reqSecurityRules {
+		hasFound := false
+		reqRulePort := ""
+		if reqRule.FromPort == "" {
+			reqRulePort = reqRule.ToPort
+		} else if reqRule.ToPort == "" {
+			reqRulePort = reqRule.FromPort
+		} else if reqRule.FromPort == reqRule.ToPort {
+			reqRulePort = reqRule.FromPort
+		} else {
+			reqRulePort = reqRule.FromPort + "-" + reqRule.ToPort
+		}
+
+		for _, present := range *presentSecurityRules {
+			presentPort := ""
+			if present.FromPort == "" {
+				presentPort = present.ToPort
+			} else if present.ToPort == "" {
+				presentPort = present.FromPort
+			} else if present.FromPort == present.ToPort {
+				presentPort = present.FromPort
+			} else {
+				presentPort = present.FromPort + "-" + present.ToPort
+			}
+
+			if !strings.EqualFold(reqRule.Direction, present.Direction) {
+				continue
+			}
+			if !strings.EqualFold(reqRule.IPProtocol, present.IPProtocol) {
+				continue
+			}
+			if !strings.EqualFold(reqRulePort, presentPort) {
+				continue
+			}
+			if !strings.EqualFold(reqRule.CIDR, present.CIDR) {
+				continue
+			}
+
+			if action == Add {
+				cblogger.Info("add")
+				checkResult = append(checkResult, reqRule)
+			}
+			hasFound = true
+			break
+		}
+
+		// Remove일때는 못 찾아야 append
+		if action == Remove && !hasFound {
+			checkResult = append(checkResult, reqRule)
+		}
+	}
+
+	if len(checkResult) > 0 {
+		return &checkResult
+	}
+
+	return nil
+}
+
+
