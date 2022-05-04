@@ -2059,6 +2059,7 @@ func RegisterKey(connectionName string, userIID cres.IID) (*cres.KeyPairInfo, er
 
         // set up KeyPair User IID for return info
         getInfo.IId = userIID
+	hideSecretInfo(&getInfo)
 
         return &getInfo, nil
 }
@@ -2220,11 +2221,17 @@ func ListKey(connectionName string, rsType string) ([]*cres.KeyPairInfo, error) 
 		}
 
 		info.IId.NameId = iidInfo.IId.NameId
+		hideSecretInfo(&info)
 
 		infoList2 = append(infoList2, &info)
 	}
 
 	return infoList2, nil
+}
+
+func hideSecretInfo(info *cres.KeyPairInfo) {
+	info.PublicKey = "Hidden for security."
+	info.PrivateKey = "Hidden for security."
 }
 
 // (1) get IID(NameId)
@@ -2276,6 +2283,7 @@ func GetKey(connectionName string, rsType string, nameID string) (*cres.KeyPairI
 
 	// (3) set ResourceInfo(IID.NameId)
 	info.IId.NameId = iidInfo.IId.NameId
+	hideSecretInfo(&info)
 
 	return &info, nil
 }
@@ -3189,12 +3197,6 @@ func ListAllResource(connectionName string, rsType string) (AllResourceList, err
 		}
 		if infoList != nil {
 			for _, info := range infoList {
-
-				// Direction: to lower
-				// IPProtocol: to upper
-				// no CIDR: "0.0.0.0/0"
-				transformArgs(info.SecurityRules)
-
 				iidCSPList = append(iidCSPList, &info.IId)
 			}
 		}
