@@ -38,7 +38,7 @@ echo "============== after AddRules: '${SG_NAME}' --- inbound:UDP/1/65535"
 if [ "$SLEEP" ]; then
         sleep $SLEEP
 else
-        sleep 5
+        sleep 7
 fi
 
 # print the table header of test results
