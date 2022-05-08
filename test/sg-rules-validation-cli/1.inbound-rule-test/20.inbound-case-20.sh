@@ -9,13 +9,14 @@ if [ "$1" = "" ]; then
 fi
 
 echo -e "#############################################"
-echo -e "# start vm => run tcp server & udp server "
+echo -e "# TEST: $0 "
 echo -e "#############################################"
 
 source ../common/setup.env $1
 source setup.env $1
 
 echo "============== before RemoveRules: '${SG_NAME}' --- inbound:TCP/1000/1000"
+
 #### @todo Change this command with spctl
 curl -sX DELETE http://localhost:1024/spider/securitygroup/${SG_NAME}/rules -H 'Content-Type: application/json' -d \
         '{
@@ -34,6 +35,10 @@ curl -sX DELETE http://localhost:1024/spider/securitygroup/${SG_NAME}/rules -H '
         }' |json_pp
 
 echo "============== after RemoveRules: '${SG_NAME}' --- inbound:TCP/1000/1000"
+
+# Get SG info two times to give a slice time to csp
+curl -sX GET http://localhost:1024/spider/securitygroup/SG-Rules-Test-SG01 -H 'Content-Type: application/json' -d '{ "ConnectionName": "'${CONN_CONFIG}'" }' 1> /dev/null 2>/dev/null
+curl -sX GET http://localhost:1024/spider/securitygroup/SG-Rules-Test-SG01 -H 'Content-Type: application/json' -d '{ "ConnectionName": "'${CONN_CONFIG}'" }' 1> /dev/null 2>/dev/null
 
 
 C_IP=`curl ifconfig.co`
@@ -59,7 +64,11 @@ curl -sX POST http://localhost:1024/spider/securitygroup/${SG_NAME}/rules -H 'Co
 
 echo "============== after AddRules: '${SG_NAME}' --- inbound:TCP/1000/1000/${C_IP}/32"
 
-sleep 2
+if [ "$SLEEP" ]; then
+        sleep $SLEEP
+else
+        sleep 5
+fi
 
 # print the table header of test results
 $(test_result_header $1)

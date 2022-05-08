@@ -557,6 +557,10 @@ func convertIbmRuleToCBRuleInfo(rule vpcv1.SecurityGroupRuleIntf) (*irs.Security
 	var ruleProtocolAll vpcv1.SecurityGroupRulePrototypeSecurityGroupRuleProtocolAll
 	_ = json.Unmarshal(jsonRuleBytes, &ruleProtocolAll)
 	protocol := convertRuleProtocolIBMToCB(*ruleProtocolAll.Protocol)
+	cidr := "0.0.0.0/0"
+	if remote.CIDRBlock != nil {
+		cidr = *remote.CIDRBlock
+	}
 	if protocol == "tcp" || protocol == "udp" {
 		var ruleProtocolTcpUdp vpcv1.SecurityGroupRulePrototypeSecurityGroupRuleProtocolTcpudp
 		_ = json.Unmarshal(jsonRuleBytes, &ruleProtocolTcpUdp)
@@ -566,7 +570,7 @@ func convertIbmRuleToCBRuleInfo(rule vpcv1.SecurityGroupRuleIntf) (*irs.Security
 			Direction:  *ruleProtocolTcpUdp.Direction,
 			FromPort:   from,
 			ToPort:     to,
-			CIDR:       *remote.CIDRBlock,
+			CIDR:       cidr,
 		}
 		return &ruleInfo, nil
 	} else if protocol == "icmp" {
@@ -575,7 +579,7 @@ func convertIbmRuleToCBRuleInfo(rule vpcv1.SecurityGroupRuleIntf) (*irs.Security
 		ruleInfo := irs.SecurityRuleInfo{
 			IPProtocol: protocol,
 			Direction:  *ruleProtocolIcmp.Direction,
-			CIDR:       *remote.CIDRBlock,
+			CIDR:       cidr,
 			FromPort:   "-1",
 			ToPort:     "-1",
 		}
@@ -584,7 +588,7 @@ func convertIbmRuleToCBRuleInfo(rule vpcv1.SecurityGroupRuleIntf) (*irs.Security
 		ruleInfo := irs.SecurityRuleInfo{
 			IPProtocol: protocol,
 			Direction:  *ruleProtocolAll.Direction,
-			CIDR:       *remote.CIDRBlock,
+			CIDR:       cidr,
 			FromPort:   "-1",
 			ToPort:     "-1",
 		}
@@ -648,8 +652,8 @@ func convertCBRuleInfoToIbmRule(rules []irs.SecurityRuleInfo) (*[]vpcv1.Security
 				return nil, err
 			}
 			IbmSGRuleList = append(IbmSGRuleList, vpcv1.SecurityGroupRulePrototype{
-				Direction: core.StringPtr(securityRule.Direction),
-				Protocol:  core.StringPtr(securityRule.IPProtocol),
+				Direction: core.StringPtr(strings.ToLower(securityRule.Direction)),
+				Protocol:  core.StringPtr(protocol),
 				PortMax:   core.Int64Ptr(portMax),
 				PortMin:   core.Int64Ptr(portMin),
 				IPVersion: core.StringPtr("ipv4"),
@@ -659,8 +663,8 @@ func convertCBRuleInfoToIbmRule(rules []irs.SecurityRuleInfo) (*[]vpcv1.Security
 			})
 		} else {
 			IbmSGRuleList = append(IbmSGRuleList, vpcv1.SecurityGroupRulePrototype{
-				Direction: core.StringPtr(securityRule.Direction),
-				Protocol:  core.StringPtr(securityRule.IPProtocol),
+				Direction: core.StringPtr(strings.ToLower(securityRule.Direction)),
+				Protocol:  core.StringPtr(protocol),
 				IPVersion: core.StringPtr("ipv4"),
 				Remote: &vpcv1.SecurityGroupRuleRemotePrototype{
 					CIDRBlock: &securityRule.CIDR,

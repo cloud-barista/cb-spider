@@ -9,17 +9,20 @@ if [ "$1" = "" ]; then
 fi
 
 echo -e "###########################################################"
-echo -e "# create: VPC/Subnet => SG01 => Keypair(save private key)"
+echo -e "# 1.create: VPC/Subnet => SG01 => Keypair(save private key) => Start VM "
+echo -e "# 2.run: TCP Server and UDP Server"
 echo -e "###########################################################"
 
 source ../common/setup.env $1
 source setup.env $1
 
 
+### 1.create: VPC/Subnet => SG01 => Keypair(save private key) => Start VM 
 ../common/1.prepare-resources.sh $1
-
 ../common/3.vm-start.sh $1
 
+
+### 2.run: TCP Server and UDP Server
 echo -e "# check VM status until 'Running'"
 
 for (( num=1; num <= 60; num++ ))
@@ -28,7 +31,13 @@ do
         result=`echo -e "$ret" | grep Status`
         if [ "$result" == "Status: Running" ];then
                 echo -e "# run tcp server and udp server on the target VM"
-                P_IP=`../common/./6.vm-get.sh aws |grep PublicIP |awk '{print $2}'`
+                P_IP=`../common/./6.vm-get.sh $1 |grep PublicIP: |awk '{print $2}'`
+		if [ "$P_IP" ];then
+			ssh-keygen -f "$HOME/.ssh/known_hosts" -R "$P_IP" 1> /dev/null 2> /dev/null;
+		else
+			echo -e ">>>>>>>>>>>>>>> VM's Public IP is NULL!! <<<<<<<<<<<<<<<<"
+			exit 0;
+		fi
 #---- waiting 22 port readiness
                 for (( i=1; i <= 40; i++ ))
                 do
@@ -46,6 +55,14 @@ do
                         ret2=`ssh -i ${KEYPAIR_NAME}.pem -o StrictHostKeyChecking=no cb-user@$P_IP "hostname" 2>&1 | grep closed`
                         if [ "$ret2" ];then
                                 sleep 1;
+                                continue;
+                        else
+                                echo "";
+                        fi
+
+                        ret3=`ssh -i ${KEYPAIR_NAME}.pem -o StrictHostKeyChecking=no cb-user@$P_IP "hostname" 2>&1 | grep denied`
+                        if [ "$ret3" ];then
+                                sleep 1;
                         else
                                 break;
                         fi
@@ -53,6 +70,9 @@ do
 
                 ssh -f -i ${KEYPAIR_NAME}.pem -o StrictHostKeyChecking=no cb-user@$P_IP "sudo nc -vktl 1000"
                 ssh -f -i ${KEYPAIR_NAME}.pem -o StrictHostKeyChecking=no cb-user@$P_IP "sudo nc -vkul 2000"
+
+		echo -e "# clear nc processes on the client(this node)"
+		sudo killall nc 2> /dev/null
 
                 echo -e "# run tcp server and udp server on the client(this node)"
                 sudo nc -vktl 1000&

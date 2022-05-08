@@ -54,18 +54,25 @@ echo "============== after create SecurityGroup: '${SG_NAME}'"
 echo -e "\n\n"
 
 echo "============== before create KeyPair: '${KEYPAIR_NAME}'"
-$CLIPATH/spctl --config $CLIPATH/spctl.conf keypair create -i json -d \
+ret=`$CLIPATH/spctl --config $CLIPATH/spctl.conf keypair create -i json -o json -d \
     '{
       "ConnectionName":"'${CONN_CONFIG}'",
       "ReqInfo": {
         "Name": "'${KEYPAIR_NAME}'"
       }
-    }' -o json | grep PrivateKey | sed 's/  "PrivateKey": "//g' | sed 's/",//g' | sed 's/\\n/\n/g' > ${KEYPAIR_NAME}.pem
+    }'`
 
+echo -e "$ret"
 
-chmod 600 ${KEYPAIR_NAME}.pem
+result=`echo -e "$ret" | grep already`
+if [ "$result" ];then
+	echo "You already have the private Key."
+else
+	echo "$ret" | grep PrivateKey | sed 's/  "PrivateKey": "//g' | sed 's/",//g' | sed 's/\\n/\n/g' > ${KEYPAIR_NAME}.pem
+	chmod 600 ${KEYPAIR_NAME}.pem
+fi
+
 
 echo "============== after create KeyPair: '${KEYPAIR_NAME}'"
 
 echo -e "\n\n"
-
