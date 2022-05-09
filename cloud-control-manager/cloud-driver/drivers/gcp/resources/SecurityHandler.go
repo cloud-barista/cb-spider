@@ -239,14 +239,14 @@ func (securityHandler *GCPSecurityHandler) CreateSecurity(securityReqInfo irs.Se
 
 	projectID := securityHandler.Credential.ProjectID
 
-	// default firewall 추가 : default로 1개 있어야 함.
-	defaultSecurityRuleInfo := irs.SecurityRuleInfo{
-		FromPort:   "0",
+	// default firewall 추가 : default로 inbound 1개(-basic), outbound 1개(-o-001)
+	basicSecurityRuleInfo := irs.SecurityRuleInfo{
+		FromPort:   "",
 		IPProtocol: "TCP",
-		Direction:  "EGRESS",
+		Direction:  "INGRESS",
 		CIDR:       "0.0.0.0/0",
 	}
-	defaultFireWall := setNewFirewall(defaultSecurityRuleInfo, projectID, securityReqInfo.VpcIID.SystemId, securityReqInfo.IId.NameId, "basic", 0)
+	basicFireWall := setNewFirewall(basicSecurityRuleInfo, projectID, securityReqInfo.VpcIID.SystemId, securityReqInfo.IId.NameId, "basic", 0)
 	////	fireWall := &compute.Firewall{
 	////		Allowed:   firewallAllowed,
 	////		Direction: commonDirection, //INGRESS(inbound), EGRESS(outbound)
@@ -266,7 +266,19 @@ func (securityHandler *GCPSecurityHandler) CreateSecurity(securityReqInfo irs.Se
 	//
 
 	// default firewallInsert
-	_, err := securityHandler.firewallInsert(defaultFireWall)
+	_, err := securityHandler.firewallInsert(basicFireWall)
+	if err != nil {
+		return irs.SecurityInfo{}, err
+	}
+
+	defaultOutboundSecurityRuleInfo := irs.SecurityRuleInfo{
+		FromPort:   "",
+		IPProtocol: "TCP",
+		Direction:  "EGRESS",
+		CIDR:       "0.0.0.0/0",
+	}
+	defaultOutboundFireWall := setNewFirewall(defaultOutboundSecurityRuleInfo, projectID, securityReqInfo.VpcIID.SystemId, securityReqInfo.IId.NameId, "-o-", 1)
+	_, err = securityHandler.firewallInsert(defaultOutboundFireWall)
 	if err != nil {
 		return irs.SecurityInfo{}, err
 	}
@@ -1905,7 +1917,7 @@ func sameRuleCheck(searchedSecurityRules *[]irs.SecurityRuleInfo, requestedSecur
 
 // Tag로 묶인 firewall의 max sequence 추출
 func maxFirewallSequence(firewallList []compute.FirewallList, direction string) int {
-	maxSequence := 1
+	maxSequence := 0
 
 	namingRule := ""
 	for _, firewallInfo := range firewallList {
@@ -1914,7 +1926,7 @@ func maxFirewallSequence(firewallList []compute.FirewallList, direction string) 
 
 			if strings.EqualFold(direction, "INGRESS") || strings.EqualFold(direction, "inbound") {
 				namingRule = "-i-"
-			} else if strings.EqualFold(direction, "EGRESS") || strings.EqualFold(direction, "outbount") {
+			} else if strings.EqualFold(direction, "EGRESS") || strings.EqualFold(direction, "outbound") {
 				namingRule = "-o-"
 			} else {
 				continue
