@@ -313,19 +313,34 @@ func makeOnchangeCredentialProviderFunc_js() string {
 		  case "ALIBABA":
 			credentialInfo = '[{"Key":"ClientId", "Value":"XXXXXX"}, {"Key":"ClientSecret", "Value":"XXXXXX"}]'
 		    break;
-		  case "CLOUDIT":
-			credentialInfo = '[{"Key":"IdentityEndpoint", "Value":"http://xxx.xxx.co.kr:9090"}, {"Key":"AuthToken", "Value":"xxxx"}, {"Key":"Username", "Value":"xxxx"}, {"Key":"Password", "Value":"xxxx"}, {"Key":"TenantId", "Value":"tnt0009"}]'
+		  case "TENCENT":
+			credentialInfo = '[{"Key":"ClientId", "Value":"XXXXXX"}, {"Key":"ClientSecret", "Value":"XXXXXX"}]'
+		    break;
+		  case "IBM":
+			credentialInfo = '[{"Key":"ApiKey", "Value":"XXXXXX"}]'
 		    break;
 		  case "OPENSTACK":
 			credentialInfo = '[{"Key":"IdentityEndpoint", "Value":"http://123.456.789.123:5000/v3"}, {"Key":"Username", "Value":"etri"}, {"Key":"Password", "Value":"xxxx"}, {"Key":"DomainName", "Value":"default"}, {"Key":"ProjectID", "Value":"xxxx"}]'
+		    break;
+		  case "CLOUDIT":
+			credentialInfo = '[{"Key":"IdentityEndpoint", "Value":"http://xxx.xxx.co.kr:9090"}, {"Key":"AuthToken", "Value":"xxxx"}, {"Key":"Username", "Value":"xxxx"}, {"Key":"Password", "Value":"xxxx"}, {"Key":"TenantId", "Value":"tnt0009"}]'
 		    break;
 		  case "DOCKER":
 			credentialInfo = '[{"Key":"Host", "Value":"http://123.456.789.123:1004"}, {"Key":"APIVersion", "Value":"v1.38"}]'
 		    break;
 
+
+		  case "NCPVPC":
+			credentialInfo = '[{"Key":"ClientId", "Value":"XXXXXXXXXXXXXXXXXXX"}, {"Key":"ClientSecret", "Value":"XXXXXXXXXXXXXXXXXXXXXXXXXXX"}]'
+		    break;
 		  case "NCP":
 			credentialInfo = '[{"Key":"ClientId", "Value":"XXXXXXXXXXXXXXXXXXX"}, {"Key":"ClientSecret", "Value":"XXXXXXXXXXXXXXXXXXXXXXXXXXX"}]'
 		    break;
+		  case "NHNCLOUD":
+			credentialInfo = '[{"Key":"IdentityEndpoint", "Value":"https://api-identity.infrastructure.cloud.toast.com"}, {"Key":"Username", "Value":"XXXXX@XXXXXXXXXXXXXXXX"}, {"Key":"Password", "Value":"XXXXXXXXXXXXXXXXXX"}, {"Key":"DomainName", "Value":"default"}, {"Key":"TenantId", "Value":"XXXXXXXXXXXXXXXXX"}]'
+		    break;
+
+
 		  case "MOCK":
 			credentialInfo = '[{"Key":"MockName", "Value":"mock_name00"}]'
 		    break;
@@ -601,15 +616,25 @@ func makeOnchangeRegionProviderFunc_js() string {
             region = 'ap-northeast-1'
             zone = 'ap-northeast-1a'             
             break;
-          case "CLOUDIT":
-            regionInfo = '[{"Key":"Region", "Value":"default"}]'
-            region = 'default'
-            zone = ''            
+          case "TENCENT":
+            regionInfo = '[{"Key":"Region", "Value":"ap-beijing"}, {"Key":"Zone", "Value":"ap-beijing-3"}]'
+            region = 'ap-beijing'
+            zone = 'ap-beijing-3'             
+            break;
+          case "IBM":
+            regionInfo = '[{"Key":"Region", "Value":"us-south"}, {"Key":"Zone", "Value":"us-south-1"}]'
+            region = 'us-south'
+            zone = 'us-south-1'             
             break;
           case "OPENSTACK":
             regionInfo = '[{"Key":"Region", "Value":"RegionOne"}]'
             region = 'RegionOne'
             zone = 'RegionOne'            
+            break;
+          case "CLOUDIT":
+            regionInfo = '[{"Key":"Region", "Value":"default"}]'
+            region = 'default'
+            zone = ''            
             break;
           case "DOCKER":
             regionInfo = '[{"Key":"Region", "Value":"default"}]'
@@ -617,9 +642,19 @@ func makeOnchangeRegionProviderFunc_js() string {
             zone = ''             
             break;
 
+          case "NCPVPC":
+            regionInfo = '[{"Key":"Region", "Value":"KR"}, {"Key":"Zone", "Value":"KR-1"}]'
+            region = 'KR'
+            zone = 'KR-1'             
+            break;
           case "NCP":
             regionInfo = '[{"Key":"region", "Value":"KR"}]'
             region = 'KR'
+            zone = ''             
+            break;
+          case "NHNCLOUD":
+            regionInfo = '[{"Key":"Region", "Value":"KR1"}]'
+            region = 'KR1'
             zone = ''             
             break;
 
@@ -919,26 +954,48 @@ func makeOnchangeConnectionConfigProviderFunc_js() string {
 	    credentialNameList = document.getElementsByName('credentialName-ALIBABA');
 	    regionNameList = document.getElementsByName('regionName-ALIBABA');
             break;
-          case "CLOUDIT":
-	    driverNameList = document.getElementsByName('driverName-CLOUDIT');
-	    credentialNameList = document.getElementsByName('credentialName-CLOUDIT');
-	    regionNameList = document.getElementsByName('regionName-CLOUDIT');
+          case "TENCENT":
+	    driverNameList = document.getElementsByName('driverName-TENCENT');
+	    credentialNameList = document.getElementsByName('credentialName-TENCENT');
+	    regionNameList = document.getElementsByName('regionName-TENCENT');
+            break;
+          case "IBM":
+	    driverNameList = document.getElementsByName('driverName-IBM');
+	    credentialNameList = document.getElementsByName('credentialName-IBM');
+	    regionNameList = document.getElementsByName('regionName-IBM');
             break;
           case "OPENSTACK":
 	    driverNameList = document.getElementsByName('driverName-OPENSTACK');
 	    credentialNameList = document.getElementsByName('credentialName-OPENSTACK');
 	    regionNameList = document.getElementsByName('regionName-OPENSTACK');
             break;
+          case "CLOUDIT":
+	    driverNameList = document.getElementsByName('driverName-CLOUDIT');
+	    credentialNameList = document.getElementsByName('credentialName-CLOUDIT');
+	    regionNameList = document.getElementsByName('regionName-CLOUDIT');
+            break;
           case "DOCKER":
 	    driverNameList = document.getElementsByName('driverName-DOCKER');
 	    credentialNameList = document.getElementsByName('credentialName-DOCKER');
 	    regionNameList = document.getElementsByName('regionName-DOCKER');
+            break;
+
+          case "NCPVPC":
+	    driverNameList = document.getElementsByName('driverName-NCPVPC');
+	    credentialNameList = document.getElementsByName('credentialName-NCPVPC');
+	    regionNameList = document.getElementsByName('regionName-NCPVPC');
             break;
           case "NCP":
 	    driverNameList = document.getElementsByName('driverName-NCP');
 	    credentialNameList = document.getElementsByName('credentialName-NCP');
 	    regionNameList = document.getElementsByName('regionName-NCP');
             break;
+          case "NHNCLOUD":
+	    driverNameList = document.getElementsByName('driverName-NHNCLOUD');
+	    credentialNameList = document.getElementsByName('credentialName-NHNCLOUD');
+	    regionNameList = document.getElementsByName('regionName-NHNCLOUD');
+            break;
+
           case "MOCK":
 	    driverNameList = document.getElementsByName('driverName-MOCK');
 	    credentialNameList = document.getElementsByName('credentialName-MOCK');

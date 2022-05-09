@@ -1075,9 +1075,8 @@ func getReqNameId(reqIIdList []cres.IID, driverNameId string) string {
 }
 
 // (1) get IID:list
-// (2) get CSP:list
-// (3) filtering CSP-list by IID-list
-// (4) set userIID
+// (2) get VPCInfo:list
+// (3) set userIID, and...
 func ListVPC(connectionName string, rsType string) ([]*cres.VPCInfo, error) {
 	cblog.Info("call ListVPC()")
 
@@ -1115,54 +1114,37 @@ func ListVPC(connectionName string, rsType string) ([]*cres.VPCInfo, error) {
 		return infoList, nil
 	}
 
-	// (2) get CSP:list
-	infoList, err = handler.ListVPC()
-	if err != nil {
-		cblog.Error(err)
-		return nil, err
-	}
-	if infoList == nil { // if iidInfoList not null, then infoList has any list.
-		err := fmt.Errorf("<IID-CSP mismatch> " + rsType + " IID List has " + strconv.Itoa(len(iidInfoList)) + ", but " + connectionName + " Resource list has nothing!")
-		cblog.Error(err)
-		return nil, err
-	}
-
-	// (3) filtering CSP-list by IID-list
+	// (2) Get VPCInfo-list with IID-list
 	resultInfoList := []*cres.VPCInfo{}
 	for _, iidInfo := range iidInfoList {
-		exist := false
-		for _, info := range infoList {
-			if getDriverSystemId(iidInfo.IId) == info.IId.SystemId {
 
-				// (4) set UserIID{reqNameID, driverSystemID}				
-				// for VPC				
-				info.IId = getUserIID(iidInfo.IId)
+		// get resource(driverIID)
+		info, err := handler.GetVPC(getDriverIID(iidInfo.IId))
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+		// (3) set ResourceInfo(userIID)
+		info.IId = getUserIID(iidInfo.IId)
 
-				// for Subnet list
-				// set userIID for SubnetInfo List
-				// create new SubnetInfo List
-				subnetInfoList := []cres.SubnetInfo{}
-				for _, subnetInfo := range info.SubnetInfoList {					
-					subnetIIDInfo, err := iidRWLock.GetIIDbySystemID(iidm.SUBNETGROUP, connectionName, iidInfo.IId.NameId, subnetInfo.IId) // VPC iidInfo.IId.NameId => rsType
-					if err != nil {
-						cblog.Error(err)
-						return nil, err
-					}
-					if subnetIIDInfo.IId.NameId != "" { // insert only this user created.						
-						subnetInfo.IId = getUserIID(subnetIIDInfo.IId)
-						subnetInfoList = append(subnetInfoList, subnetInfo)
-					}
-				}
-				info.SubnetInfoList = subnetInfoList
-
-				resultInfoList = append(resultInfoList, info)
-				exist = true
+		// set NameId for SubnetInfo List
+		// create new SubnetInfo List
+		subnetInfoList := []cres.SubnetInfo{}
+		for _, subnetInfo := range info.SubnetInfoList {
+			subnetIIDInfo, err := iidRWLock.GetIIDbySystemID(iidm.SUBNETGROUP, connectionName, info.IId.NameId, subnetInfo.IId) // VPC info.IId.NameId => rsType
+			if err != nil {
+				cblog.Error(err)
+				return nil, err
+			}
+			if subnetIIDInfo.IId.NameId != "" { // insert only this user created.
+				subnetInfo.IId = getUserIID(subnetIIDInfo.IId)
+				subnetInfoList = append(subnetInfoList, subnetInfo)
 			}
 		}
-		if exist == false {
-			cblog.Info("<IID-CSP mismatch> " + rsType + "-" + iidInfo.IId.NameId + ":" + iidInfo.IId.SystemId + " exsits. but " + connectionName + " does not have!")
-			//return nil, fmt.Errorf("<IID-CSP mismatch> " + rsType + "-" + iidInfo.IId.NameId + ":" + iidInfo.IId.SystemId + " exsits. but " + connectionName + " does not have!")
-		}
+		info.SubnetInfoList = subnetInfoList
+
+
+		resultInfoList = append(resultInfoList, &info)
 	}
 
 	return resultInfoList, nil
@@ -1463,15 +1445,19 @@ func RegisterSecurity(connectionName string, vpcUserID string, userIID cres.IID)
         // (2) get resource info(CSP-ID)
         // check existence and get info of this resouce in the CSP
 	// Do not user NamieId, because Azure driver use it like SystemId
-        getInfo, err := handler.GetSecurity( cres.IID{userIID.SystemId, userIID.SystemId} )
+        getInfo, err := handler.GetSecurity( cres.IID{getMSShortID(userIID.SystemId), userIID.SystemId} )
         if err != nil {
                 cblog.Error(err)
                 return nil, err
         }
+        // Direction: to lower
+        // IPProtocol: to upper
+        // no CIDR: "0.0.0.0/0"
+        transformArgs(getInfo.SecurityRules)
 
         // (3) create spiderIID: {UserID, SP-XID:CSP-ID}
         //     ex) spiderIID {"vpc-01", "vpc-01-9m4e2mr0ui3e8a215n4g:i-0bc7123b7e5cbf79d"}
-	// Do not user NamieId, because Azure driver use it like SystemId
+	// Do not user NameId, because Azure driver use it like SystemId
 	systemId := getMSShortID(getInfo.IId.SystemId)
         spiderIId := cres.IID{userIID.NameId, systemId + ":" + getInfo.IId.SystemId}
 
@@ -1519,7 +1505,7 @@ func CreateSecurity(connectionName string, rsType string, reqInfo cres.SecurityR
                 return nil, err
         }
 
-	/*
+	/* Currently, Validator does not support the struct has a point of Array such as SecurityReqInfo
         emptyPermissionList := []string{
                 "resources.IID:SystemId",
                 "resources.SecurityReqInfo:Direction", // because can be unused in some CSP
@@ -1531,7 +1517,8 @@ func CreateSecurity(connectionName string, rsType string, reqInfo cres.SecurityR
                 cblog.Error(err)
                 return nil, err
         }
-*/
+	*/
+
 	//+++++++++++++++++++++++++++++++++++++++++++
 	// set VPC's SystemId
 	vpcIIDInfo, err := iidRWLock.GetIID(iidm.IIDSGROUP, connectionName, rsVPC, reqInfo.VpcIID)
@@ -1606,6 +1593,10 @@ func CreateSecurity(connectionName string, rsType string, reqInfo cres.SecurityR
 		cblog.Error(err)
 		return nil, err
 	}
+        // Direction: to lower
+        // IPProtocol: to upper
+        // no CIDR: "0.0.0.0/0"
+        transformArgs(info.SecurityRules)
 
 	// set VPC NameId
 	info.VpcIID.NameId = reqInfo.VpcIID.NameId
@@ -1652,9 +1643,8 @@ func transformArgs(ruleList *[]cres.SecurityRuleInfo) {
 }
 
 // (1) get IID:list
-// (2) get CSP:list
-// (3) filtering CSP-list by IID-list
-// (4) set userIID
+// (2) get SecurityInfo:list
+// (3) set userIID, and ...
 func ListSecurity(connectionName string, rsType string) ([]*cres.SecurityInfo, error) {
 	cblog.Info("call ListSecurity()")
 
@@ -1693,45 +1683,34 @@ func ListSecurity(connectionName string, rsType string) ([]*cres.SecurityInfo, e
 		return infoList, nil
 	}
 
-	// (2) get CSP:list
-	infoList, err = handler.ListSecurity()
-	if err != nil {
-		cblog.Error(err)
-		return nil, err
-	}
-	if infoList == nil { // if iidInfoList not null, then infoList has any list.
-		err := fmt.Errorf("<IID-CSP mismatch> " + rsType + " IID List has " + strconv.Itoa(len(iidInfoList)) + ", but " + connectionName + " Resource list has nothing!")
-		cblog.Error(err)
-		return nil, err
-	}
-
-	// (3) filtering CSP-list by IID-list
+	// (2) Get SecurityInfo-list with IID-list
 	infoList2 := []*cres.SecurityInfo{}
 	for _, iidInfo := range iidInfoList {
-		exist := false
-		for _, info := range infoList {
-			if getDriverSystemId(iidInfo.IId) == info.IId.SystemId {
 
-				// (4) set userIID
-				info.IId = getUserIID(iidInfo.IId)
-
-				// set VPC SystemId
-				vpcIIDInfo, err := iidRWLock.GetIID(iidm.IIDSGROUP, connectionName, rsVPC, cres.IID{iidInfo.ResourceType /*vpcName*/, ""})
-				if err != nil {
-					cblog.Error(err)
-					return nil, err
-				}
-				// set userIID
-				info.VpcIID = getUserIID(vpcIIDInfo.IId)
-
-				infoList2 = append(infoList2, info)
-				exist = true
-			}
+		// get resource(SystemId)
+		info, err := handler.GetSecurity(getDriverIID(iidInfo.IId))
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
 		}
-		if exist == false {
-			cblog.Info("<IID-CSP mismatch> " + rsType + "-" + iidInfo.IId.NameId + ":" + iidInfo.IId.SystemId + " exsits. but " + connectionName + " does not have!")
-			//return nil, fmt.Errorf("<IID-CSP mismatch> " + rsType + "-" + iidInfo.IId.NameId + ":" + iidInfo.IId.SystemId + " exsits. but " + connectionName + " does not have!")
+		// Direction: to lower
+		// IPProtocol: to upper
+		// no CIDR: "0.0.0.0/0"
+		transformArgs(info.SecurityRules)
+
+		// (3) set ResourceInfo(IID.NameId)
+		// set ResourceInfo
+		info.IId = getUserIID(iidInfo.IId)
+
+		// set VPC SystemId
+		vpcIIDInfo, err := iidRWLock.GetIID(iidm.IIDSGROUP, connectionName, rsVPC, cres.IID{iidInfo.ResourceType/*vpcName*/, ""})
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
 		}
+		info.VpcIID = getUserIID(vpcIIDInfo.IId)
+
+		infoList2 = append(infoList2, &info)
 	}
 
 	return infoList2, nil
@@ -1835,6 +1814,10 @@ func GetSecurity(connectionName string, rsType string, nameID string) (*cres.Sec
 		cblog.Error(err)
 		return nil, err
 	}
+        // Direction: to lower
+        // IPProtocol: to upper
+        // no CIDR: "0.0.0.0/0"
+        transformArgs(info.SecurityRules)
 
 	// (3) set ResourceInfo(IID.NameId)
 	// set ResourceInfo
@@ -1916,6 +1899,10 @@ func AddRules(connectionName string, sgName string, reqInfoList []cres.SecurityR
                 cblog.Error(err)
                 return nil, err
         }
+        // Direction: to lower
+        // IPProtocol: to upper
+        // no CIDR: "0.0.0.0/0"
+        transformArgs(info.SecurityRules)
 
         // (3) set ResourceInfo(userIID)
         info.IId = getUserIID(iidInfo.IId)
@@ -2072,6 +2059,7 @@ func RegisterKey(connectionName string, userIID cres.IID) (*cres.KeyPairInfo, er
 
         // set up KeyPair User IID for return info
         getInfo.IId = userIID
+	hideSecretInfo(&getInfo)
 
         return &getInfo, nil
 }
@@ -2183,9 +2171,7 @@ func CreateKey(connectionName string, rsType string, reqInfo cres.KeyPairReqInfo
 }
 
 // (1) get IID:list
-// (2) get CSP:list
-// (3) filtering CSP-list by IID-list
-// (4) set userIID
+// (2) get KeyInfo:list
 func ListKey(connectionName string, rsType string) ([]*cres.KeyPairInfo, error) {
 	cblog.Info("call ListKey()")
 
@@ -2223,37 +2209,29 @@ func ListKey(connectionName string, rsType string) ([]*cres.KeyPairInfo, error) 
 		return infoList, nil
 	}
 
-	// (2) get CSP:list
-	infoList, err = handler.ListKey()
-	if err != nil {
-		cblog.Error(err)
-		return nil, err
-	}
-	if infoList == nil { // if iidInfoList not null, then infoList has any list.
-		err := fmt.Errorf("<IID-CSP mismatch> " + rsType + " IID List has " + strconv.Itoa(len(iidInfoList)) + ", but " + connectionName + " Resource list has nothing!")
-		cblog.Error(err)
-		return nil, err
-	}
-
-	// (3) filtering CSP-list by IID-list
+	// (2) get KeyInfo:list
 	infoList2 := []*cres.KeyPairInfo{}
 	for _, iidInfo := range iidInfoList {
-		exist := false
-		for _, info := range infoList {
-			if getDriverSystemId(iidInfo.IId) == info.IId.SystemId {
-				// (4) set userIID
-				info.IId = getUserIID(iidInfo.IId)
-				infoList2 = append(infoList2, info)
-				exist = true
-			}
+
+		// (2) get resource(SystemId)
+		info, err := handler.GetKey(getDriverIID(iidInfo.IId))
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
 		}
-		if exist == false {
-			cblog.Info("<IID-CSP mismatch> " + rsType + "-" + iidInfo.IId.NameId + ":" + iidInfo.IId.SystemId + " exsits. but " + connectionName + " does not have!")
-			//return nil, fmt.Errorf("<IID-CSP mismatch> " + rsType + "-" + iidInfo.IId.NameId + ":" + iidInfo.IId.SystemId + " exsits. but " + connectionName + " does not have!")
-		}
+
+		info.IId.NameId = iidInfo.IId.NameId
+		hideSecretInfo(&info)
+
+		infoList2 = append(infoList2, &info)
 	}
 
 	return infoList2, nil
+}
+
+func hideSecretInfo(info *cres.KeyPairInfo) {
+	info.PublicKey = "Hidden for security."
+	info.PrivateKey = "Hidden for security."
 }
 
 // (1) get IID(NameId)
@@ -2305,6 +2283,7 @@ func GetKey(connectionName string, rsType string, nameID string) (*cres.KeyPairI
 
 	// (3) set ResourceInfo(IID.NameId)
 	info.IId.NameId = iidInfo.IId.NameId
+	hideSecretInfo(&info)
 
 	return &info, nil
 }
@@ -2752,8 +2731,7 @@ func setNameId(ConnectionName string, vmInfo *cres.VMInfo, reqInfo *cres.VMReqIn
 }
 
 // (1) get IID:list
-// (2) get CSP:list
-// (3) filtering CSP-list by IID-list
+// (2) get VMInfo:list
 func ListVM(connectionName string, rsType string) ([]*cres.VMInfo, error) {
 	cblog.Info("call ListVM()")
 
@@ -2791,53 +2769,41 @@ func ListVM(connectionName string, rsType string) ([]*cres.VMInfo, error) {
 		return infoList, nil
 	}
 
-	// (2) get CSP:list
-	infoList, err = handler.ListVM()
-	if err != nil {
-		cblog.Error(err)
-		return nil, err
-	}
-	if infoList == nil { // if iidInfoList not null, then infoList has any list.
-		err := fmt.Errorf("<IID-CSP mismatch> " + rsType + " IID List has " + strconv.Itoa(len(iidInfoList)) + ", but " + connectionName + " Resource list has nothing!") 
-		cblog.Error(err)
-		return nil, err
-	}
-
-	// (3) filtering CSP-list by IID-list
+	// (2) get VMInfo:list
 	infoList2 := []*cres.VMInfo{}
 	for _, iidInfo := range iidInfoList {
-		exist := false
-		for _, info := range infoList {
-			if getDriverSystemId(iidInfo.IId) == info.IId.SystemId {
-				// set ResourceInfo
-				info.IId = getUserIID(iidInfo.IId)
 
-				err = getSetNameId(connectionName, info)
-				if err != nil {
-					cblog.Error(err)
-					return nil, err
-				}
-/*
-				// set sg NameId from VPCNameId-SecurityGroupNameId
-				// IID.NameID format => {VPC NameID} + SG_DELIMITER + {SG NameID}
-				for i, sgIID := range info.SecurityGroupIIds {
-					vpc_sg_nameid := strings.Split(sgIID.NameId, SG_DELIMITER)
-					info.SecurityGroupIIds[i].NameId = vpc_sg_nameid[1]
-				}
-*/
-				// current: Assume 22 port, except Cloud-Twin, by powerkim, 2021.03.24.
-				if info.SSHAccessPoint == "" {
-					info.SSHAccessPoint = info.PublicIP + ":22"
-				}
+		// (2) get resource(SystemId)
+		info, err := handler.GetVM(getDriverIID(iidInfo.IId))
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
 
-				infoList2 = append(infoList2, info)
-				exist = true
-			}
+		// (3) set ResourceInfo(IID.NameId)
+		// set ResourceInfo
+		info.IId = getUserIID(iidInfo.IId)
+
+		err = getSetNameId(connectionName, &info)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
 		}
-		if exist == false {
-			cblog.Info("<IID-CSP mismatch> " + rsType + "-" + iidInfo.IId.NameId + ":" + iidInfo.IId.SystemId + " exsits. but " + connectionName + " does not have!")
-			//return nil, fmt.Errorf("<IID-CSP mismatch> " + rsType + "-" + iidInfo.IId.NameId + ":" + iidInfo.IId.SystemId + " exsits. but " + connectionName + " does not have!")
+	/*
+		// set sg NameId from VPCNameId-SecurityGroupNameId
+		// IID.NameID format => {VPC NameID} + SG_DELIMITER + {SG NameID}
+		for i, sgIID := range info.SecurityGroupIIds {
+			vpc_sg_nameid := strings.Split(sgIID.NameId, SG_DELIMITER)
+			info.SecurityGroupIIds[i].NameId = vpc_sg_nameid[1]
 		}
+	*/
+		// current: Assume 22 port, except Cloud-Twin, by powerkim, 2021.03.24.
+		if info.SSHAccessPoint == "" {
+			info.SSHAccessPoint = info.PublicIP + ":22"
+		}
+
+
+		infoList2 = append(infoList2, &info)
 	}
 
 	return infoList2, nil
@@ -2965,8 +2931,7 @@ func GetVM(connectionName string, rsType string, nameID string) (*cres.VMInfo, e
 }
 
 // (1) get IID:list
-// (2) get CSP:VMStatuslist
-// (3) filtering CSP-VMStatuslist by IID-list
+// (2) get VMStatusInfo:list
 func ListVMStatus(connectionName string, rsType string) ([]*cres.VMStatusInfo, error) {
 	cblog.Info("call ListVMStatus()")
 
@@ -3004,34 +2969,26 @@ func ListVMStatus(connectionName string, rsType string) ([]*cres.VMStatusInfo, e
 		return infoList, nil
 	}
 
-	// (2) get CSP:VMStatuslist
-	infoList, err = handler.ListVMStatus()
-	if err != nil {
-		cblog.Error(err)
-		return nil, err
-	}
-	if infoList == nil { // if iidInfoList not null, then infoList has any list.
-		err := fmt.Errorf("<IID-CSP mismatch> " + rsType + " IID List has " + strconv.Itoa(len(iidInfoList)) + ", but " + connectionName + " Resource list has nothing!")
-		cblog.Error(err)
-		return nil, err
-	}
-
-	// (3) filtering CSP-VMStatuslist by IID-list
+	// (2) get VMStatusInfo List with iidInoList
 	infoList2 := []*cres.VMStatusInfo{}
 	for _, iidInfo := range iidInfoList {
-		exist := false
-		for _, info := range infoList {
-			if getDriverSystemId(iidInfo.IId) == info.IId.SystemId {
-				// set ResourceInfo
-				info.IId = getUserIID(iidInfo.IId)
-				infoList2 = append(infoList2, info)
-				exist = true
-			}
+
+		// 1. get VM IID.SystemId
+		vmInfo, err := handler.GetVM(getDriverIID(iidInfo.IId))
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
 		}
-		if exist == false {
-			cblog.Info("<IID-CSP mismatch> " + rsType + "-" + iidInfo.IId.NameId + ":" + iidInfo.IId.SystemId + " exsits. but " + connectionName + " does not have!")
-			//return nil, fmt.Errorf("<IID-CSP mismatch> " + rsType + "-" + iidInfo.IId.NameId + ":" + iidInfo.IId.SystemId + " exsits. but " + connectionName + " does not have!")
+		vmInfo.IId = getUserIID(iidInfo.IId)
+
+		// 2. get CSP:VMStatus(SystemId)
+		statusInfo, err := handler.GetVMStatus(getDriverIID(iidInfo.IId)) // type of info => string
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
 		}
+
+		infoList2 = append(infoList2, &cres.VMStatusInfo{vmInfo.IId, statusInfo})
 	}
 
 	return infoList2, nil
@@ -3134,6 +3091,105 @@ func ControlVM(connectionName string, rsType string, nameID string, action strin
 	}
 
 	return info, nil
+}
+
+func GetSGOwnerVPC(connectionName string, cspID string) (owerVPC cres.IID, err error) {
+	cblog.Info("call GetSecurityGroupOwner()")
+
+        // check empty and trim user inputs
+        connectionName, err = EmptyCheckAndTrim("connectionName", connectionName)
+        if err != nil {
+                cblog.Error(err)
+                return cres.IID{}, err
+        }
+
+        cspID, err = EmptyCheckAndTrim("cspID", cspID)
+        if err != nil {
+                cblog.Error(err)
+                return cres.IID{}, err
+        }
+
+        rsType := rsSG
+
+        cldConn, err := ccm.GetCloudConnection(connectionName)
+        if err != nil {
+                cblog.Error(err)
+                return cres.IID{}, err
+        }
+
+        handler, err := cldConn.CreateSecurityHandler()
+        if err != nil {
+                cblog.Error(err)
+                return cres.IID{}, err
+        }
+
+sgRWLock.RLock()
+vpcRWLock.RLock()
+
+        // (1) check existence(cspID)
+        iidInfoList, err := getAllSGIIDInfoList(connectionName)
+        if err != nil {
+vpcRWLock.RUnlock()
+sgRWLock.RUnlock()
+                cblog.Error(err)
+                return cres.IID{}, err
+        }
+        var isExist bool=false
+	var nameId string
+        for _, OneIIdInfo := range iidInfoList {
+                if getDriverSystemId(OneIIdInfo.IId) == cspID {
+			nameId = OneIIdInfo.IId.NameId
+                        isExist = true
+                        break
+                }
+        }
+        if isExist == true {
+vpcRWLock.RUnlock()
+sgRWLock.RUnlock()
+                err :=  fmt.Errorf(rsType + "-" + cspID + " already exists with " + nameId + "!")
+                cblog.Error(err)
+                return cres.IID{}, err
+        }
+
+        // (2) get resource info(CSP-ID)
+        // check existence and get info of this resouce in the CSP
+        // Do not user NameId, because Azure driver use it like SystemId
+        getInfo, err := handler.GetSecurity( cres.IID{getMSShortID(cspID), cspID} )
+        if err != nil {
+vpcRWLock.RUnlock()
+sgRWLock.RUnlock()
+                cblog.Error(err)
+                return cres.IID{}, err
+        }
+
+        // (3) get VPC IID:list
+        vpcIIDInfoList, err := iidRWLock.ListIID(iidm.IIDSGROUP, connectionName, rsVPC)
+        if err != nil {
+vpcRWLock.RUnlock()
+sgRWLock.RUnlock()
+                cblog.Error(err)
+                return cres.IID{}, err
+        }
+vpcRWLock.RUnlock()
+sgRWLock.RUnlock()
+
+	//--------
+        //-------- ex) spiderIID {"vpc-01", "vpc-01-9m4e2mr0ui3e8a215n4g:i-0bc7123b7e5cbf79d"}
+	//--------
+        // Do not user NameId, because Azure driver use it like SystemId
+        vpcCSPID := getMSShortID(getInfo.VpcIID.SystemId)
+        if vpcIIDInfoList == nil || len(vpcIIDInfoList) <= 0 {
+                return cres.IID{"", vpcCSPID}, nil
+        }
+
+	// (4) check existence in the MetaDB
+	for _, one := range vpcIIDInfoList {
+		if getDriverSystemId(one.IId) == vpcCSPID {
+			return cres.IID{one.IId.NameId, vpcCSPID}, nil
+		}
+	}
+
+	return cres.IID{"", vpcCSPID}, nil
 }
 
 // list all Resources for management

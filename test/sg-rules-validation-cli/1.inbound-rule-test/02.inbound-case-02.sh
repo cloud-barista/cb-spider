@@ -9,7 +9,7 @@ if [ "$1" = "" ]; then
 fi
 
 echo -e "#############################################"
-echo -e "# start vm => run tcp server & udp server "
+echo -e "# TEST: $0 "
 echo -e "#############################################"
 
 source ../common/setup.env $1
@@ -35,7 +35,11 @@ curl -sX DELETE http://localhost:1024/spider/securitygroup/${SG_NAME}/rules -H '
 
 echo "============== after RemoveRules: '${SG_NAME}' --- inbound:ALL/-1/-1"
 
-sleep 2
+if [ "$SLEEP" ]; then
+        sleep $SLEEP
+else
+        sleep 7
+fi
 
 # print the table header of test results
 $(test_result_header $1)

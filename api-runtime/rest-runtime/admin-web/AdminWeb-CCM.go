@@ -472,13 +472,15 @@ func makeSecurityGroupTRList_html(bgcolor string, height string, fontSize string
 
 		// for security rules info
 		strSRList := ""
-		for _, one := range *one.SecurityRules {
-			strSRList += "FromPort:" + one.FromPort + ", "
-			strSRList += "ToPort:" + one.ToPort + ", "
-			strSRList += "IPProtocol:" + one.IPProtocol + ", "
-			strSRList += "Direction:" + one.Direction + ", "
-			strSRList += "CIDR:" + one.CIDR + ", "
-			strSRList += "}<br>"
+		if one.SecurityRules != nil {
+			for _, one := range *one.SecurityRules {
+				strSRList += "FromPort:" + one.FromPort + ", "
+				strSRList += "ToPort:" + one.ToPort + ", "
+				strSRList += "IPProtocol:" + one.IPProtocol + ", "
+				strSRList += "Direction:" + one.Direction + ", "
+				strSRList += "CIDR:" + one.CIDR + ", "
+				strSRList += "}<br>"
+			}
 		}
 		str = strings.ReplaceAll(str, "$$SECURITYRULES$$", strSRList)
 
@@ -808,7 +810,7 @@ func makePostKeyPairFunc_js() string {
 
 //---------------- download this private key 
 		  var keyFileName = jsonVal.IId.NameId + ".pem";
-		  var keyValue = jsonVal.PrivateKey.trim();
+		  var keyValue = jsonVal.PrivateKey;
                   var tempElement = document.createElement('a');
                   //tempElement.setAttribute('href','data:text/plain;charset=utf-8, ' + encodeURIComponent(keyValue));
                   tempElement.setAttribute('href','data:text/plain;charset=utf-8,' + encodeURIComponent(keyValue));
@@ -1098,13 +1100,15 @@ func makeVMTRList_html(connConfig string, bgcolor string, height string, fontSiz
 			json.Unmarshal(resBody, &secInfo)
 
 			strSRList += "["
-			for _, secRuleInfo := range *secInfo.SecurityRules {
-				strSRList += "{FromPort:" + secRuleInfo.FromPort + ", "
-				strSRList += "ToPort:" + secRuleInfo.ToPort + ", "
-				strSRList += "IPProtocol:" + secRuleInfo.IPProtocol + ", "
-				strSRList += "Direction:" + secRuleInfo.Direction + ", "
-				strSRList += "CIDR:" + secRuleInfo.CIDR
-				strSRList += "},<br>"
+			if secInfo.SecurityRules != nil {
+				for _, secRuleInfo := range *secInfo.SecurityRules {
+					strSRList += "{FromPort:" + secRuleInfo.FromPort + ", "
+					strSRList += "ToPort:" + secRuleInfo.ToPort + ", "
+					strSRList += "IPProtocol:" + secRuleInfo.IPProtocol + ", "
+					strSRList += "Direction:" + secRuleInfo.Direction + ", "
+					strSRList += "CIDR:" + secRuleInfo.CIDR
+					strSRList += "},<br>"
+				}
 			}
 			strSRList += "]"
 		}
@@ -1390,14 +1394,14 @@ func VM(c echo.Context) error {
 		sgName = `["sg-01"]`
 		vmUser = "cb-user"
 	case "ALIBABA":
-		imageName = "ubuntu_18_04_x64_20G_alibase_20200220.vhd"
+		imageName = "ubuntu_18_04_x64_20G_alibase_20220322.vhd"
 		specName = "ecs.t5-lc1m2.small"
 		subnetName = "subnet-01"
 		sgName = `["sg-01"]`
 		vmUser = "cb-user"
 	case "TENCENT":
 		imageName = "img-pi0ii46r"
-		specName = "S3.SMALL1"
+		specName = "S3.MEDIUM8"
 		subnetName = "subnet-01"
 		sgName = `["sg-01"]`
 		vmUser = "cb-user"

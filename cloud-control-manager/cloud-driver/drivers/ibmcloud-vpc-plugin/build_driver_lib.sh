@@ -2,7 +2,7 @@
 source ../../../../setup.env
 
 DRIVERLIB_PATH=$CBSPIDER_ROOT/cloud-driver-libs
-DRIVERFILENAME=ibmvpc-driver-v1.0
+DRIVERFILENAME=ibm-driver-v1.0
 
 function build() {
     rm -rf $DRIVERLIB_PATH/${DRIVERFILENAME}.so
