@@ -38,7 +38,7 @@ echo "============== after RemoveRules: '${SG_NAME}' --- inbound:ALL/-1/-1"
 if [ "$SLEEP" ]; then
         sleep $SLEEP
 else
-        sleep 5
+        sleep 7
 fi
 
 # print the table header of test results

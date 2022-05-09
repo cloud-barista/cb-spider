@@ -472,13 +472,15 @@ func makeSecurityGroupTRList_html(bgcolor string, height string, fontSize string
 
 		// for security rules info
 		strSRList := ""
-		for _, one := range *one.SecurityRules {
-			strSRList += "FromPort:" + one.FromPort + ", "
-			strSRList += "ToPort:" + one.ToPort + ", "
-			strSRList += "IPProtocol:" + one.IPProtocol + ", "
-			strSRList += "Direction:" + one.Direction + ", "
-			strSRList += "CIDR:" + one.CIDR + ", "
-			strSRList += "}<br>"
+		if one.SecurityRules != nil {
+			for _, one := range *one.SecurityRules {
+				strSRList += "FromPort:" + one.FromPort + ", "
+				strSRList += "ToPort:" + one.ToPort + ", "
+				strSRList += "IPProtocol:" + one.IPProtocol + ", "
+				strSRList += "Direction:" + one.Direction + ", "
+				strSRList += "CIDR:" + one.CIDR + ", "
+				strSRList += "}<br>"
+			}
 		}
 		str = strings.ReplaceAll(str, "$$SECURITYRULES$$", strSRList)
 
@@ -1098,13 +1100,15 @@ func makeVMTRList_html(connConfig string, bgcolor string, height string, fontSiz
 			json.Unmarshal(resBody, &secInfo)
 
 			strSRList += "["
-			for _, secRuleInfo := range *secInfo.SecurityRules {
-				strSRList += "{FromPort:" + secRuleInfo.FromPort + ", "
-				strSRList += "ToPort:" + secRuleInfo.ToPort + ", "
-				strSRList += "IPProtocol:" + secRuleInfo.IPProtocol + ", "
-				strSRList += "Direction:" + secRuleInfo.Direction + ", "
-				strSRList += "CIDR:" + secRuleInfo.CIDR
-				strSRList += "},<br>"
+			if secInfo.SecurityRules != nil {
+				for _, secRuleInfo := range *secInfo.SecurityRules {
+					strSRList += "{FromPort:" + secRuleInfo.FromPort + ", "
+					strSRList += "ToPort:" + secRuleInfo.ToPort + ", "
+					strSRList += "IPProtocol:" + secRuleInfo.IPProtocol + ", "
+					strSRList += "Direction:" + secRuleInfo.Direction + ", "
+					strSRList += "CIDR:" + secRuleInfo.CIDR
+					strSRList += "},<br>"
+				}
 			}
 			strSRList += "]"
 		}

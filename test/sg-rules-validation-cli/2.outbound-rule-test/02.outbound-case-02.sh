@@ -15,17 +15,17 @@ echo -e "#############################################"
 source ../common/setup.env $1
 source setup.env $1
 
-echo "============== before AddRules: '${SG_NAME}' --- inbound:ICMP/-1/-1"
+echo "============== before RemoveRules: '${SG_NAME}' --- outbound:ALL/-1/-1"
 #### @todo Change this command with spctl
-curl -sX POST http://localhost:1024/spider/securitygroup/${SG_NAME}/rules -H 'Content-Type: application/json' -d \
+curl -sX DELETE http://localhost:1024/spider/securitygroup/${SG_NAME}/rules -H 'Content-Type: application/json' -d \
         '{
                 "ConnectionName": "'${CONN_CONFIG}'",
                 "ReqInfo": {
                 "RuleInfoList" :
                         [
                                 {
-                                        "Direction": "inbound",
-                                        "IPProtocol": "ICMP",
+                                        "Direction": "outbound",
+                                        "IPProtocol": "ALL",
                                         "FromPort": "-1",
                                         "ToPort": "-1"
                                 }
@@ -33,7 +33,7 @@ curl -sX POST http://localhost:1024/spider/securitygroup/${SG_NAME}/rules -H 'Co
                 }
         }' |json_pp
 
-echo "============== after AddRules: '${SG_NAME}' --- inbound:ICMP/-1/-1"
+echo "============== after RemoveRules: '${SG_NAME}' --- outbound:ALL/-1/-1"
 
 if [ "$SLEEP" ]; then
         sleep $SLEEP
@@ -47,7 +47,7 @@ $(test_result_header $1)
 
 #                   CSP I:TCP-01 I:TCP-02 I:UDP-01 I:ICMP-01 | O:TCP-01 O:TCP-02 O:UDP-01 O:ICMP-01
 #./io-traffic-test.sh $1    $2      $3        $4       $5           $6       $7       $8      $9
-./io-traffic-test.sh $1    pass    pass      pass     pass         pass     pass     pass    pass
+./io-traffic-test.sh $1    pass    fail      skip   fail         fail     fail     skip    fail
 
 # print the end mesg of test results
 $(test_result_tailer)
