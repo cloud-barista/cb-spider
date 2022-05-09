@@ -247,6 +247,7 @@ func RunServer() {
 		{"DELETE", "/cspvpc/:Id", DeleteCSPVPC},
 
 		//----------SecurityGroup Handler
+		{"GET", "/getsecuritygroupowner", GetSGOwnerVPC},
 		{"POST", "/regsecuritygroup", RegisterSecurity},
 		{"DELETE", "/regsecuritygroup/:Name", UnregisterSecurity},
 

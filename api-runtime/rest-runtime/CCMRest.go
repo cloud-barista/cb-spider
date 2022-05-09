@@ -585,6 +585,28 @@ func RemoveCSPSubnet(c echo.Context) error {
 	return c.JSON(http.StatusOK, &resultInfo)
 }
 
+func GetSGOwnerVPC(c echo.Context) error {
+        cblog.Info("call GetSGOwnerVPC()")
+
+        var req struct {
+                ConnectionName string
+		ReqInfo        struct {
+			CSPId          string
+		}
+        }
+
+        if err := c.Bind(&req); err != nil {
+                return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+        }
+
+        // Call common-runtime API
+        result, err := cmrt.GetSGOwnerVPC(req.ConnectionName, req.ReqInfo.CSPId)
+        if err != nil {
+                return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+        }
+
+        return c.JSON(http.StatusOK, result)
+}
 
 type securityGroupRegisterReq struct {
         ConnectionName string
