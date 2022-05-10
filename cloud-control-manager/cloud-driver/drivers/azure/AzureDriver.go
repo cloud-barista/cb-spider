@@ -82,6 +82,10 @@ func (driver *AzureDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (ico
 	if err != nil {
 		return nil, err
 	}
+	Ctx, sgRuleClient, err := getSecurityGroupRuleClient(connectionInfo.CredentialInfo)
+	if err != nil {
+		return nil, err
+	}
 	Ctx, vNicClient, err := getVNicClient(connectionInfo.CredentialInfo)
 	if err != nil {
 		return nil, err
@@ -116,21 +120,22 @@ func (driver *AzureDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (ico
 	}
 
 	iConn := azcon.AzureCloudConnection{
-		CredentialInfo:      connectionInfo.CredentialInfo,
-		Region:              connectionInfo.RegionInfo,
-		Ctx:                 Ctx,
-		VMClient:            VMClient,
-		ImageClient:         imageClient,
-		PublicIPClient:      publicIPClient,
-		SecurityGroupClient: sgClient,
-		VNetClient:          VNetClient,
-		VNicClient:          vNicClient,
-		IPConfigClient:      IPConfigClient,
-		SubnetClient:        SubnetClient,
-		VMImageClient:       VMImageClient,
-		DiskClient:          DiskClient,
-		VmSpecClient:        VmSpecClient,
-		SshKeyClient:        sshKeyClient,
+		CredentialInfo:          connectionInfo.CredentialInfo,
+		Region:                  connectionInfo.RegionInfo,
+		Ctx:                     Ctx,
+		VMClient:                VMClient,
+		ImageClient:             imageClient,
+		PublicIPClient:          publicIPClient,
+		SecurityGroupClient:     sgClient,
+		SecurityGroupRuleClient: sgRuleClient,
+		VNetClient:              VNetClient,
+		VNicClient:              vNicClient,
+		IPConfigClient:          IPConfigClient,
+		SubnetClient:            SubnetClient,
+		VMImageClient:           VMImageClient,
+		DiskClient:              DiskClient,
+		VmSpecClient:            VmSpecClient,
+		SshKeyClient:            sshKeyClient,
 	}
 	return &iConn, nil
 }
@@ -212,6 +217,20 @@ func getSecurityGroupClient(credential idrv.CredentialInfo) (context.Context, *n
 	}
 
 	sgClient := network.NewSecurityGroupsClient(credential.SubscriptionId)
+	sgClient.Authorizer = authorizer
+	ctx, _ := context.WithTimeout(context.Background(), cspTimeout*time.Second)
+
+	return ctx, &sgClient, nil
+}
+
+func getSecurityGroupRuleClient(credential idrv.CredentialInfo) (context.Context, *network.SecurityRulesClient, error) {
+	config := auth.NewClientCredentialsConfig(credential.ClientId, credential.ClientSecret, credential.TenantId)
+	authorizer, err := config.Authorizer()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	sgClient := network.NewSecurityRulesClient(credential.SubscriptionId)
 	sgClient.Authorizer = authorizer
 	ctx, _ := context.WithTimeout(context.Background(), cspTimeout*time.Second)
 

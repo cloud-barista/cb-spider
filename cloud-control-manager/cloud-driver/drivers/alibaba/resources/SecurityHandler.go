@@ -47,6 +47,7 @@ func (securityHandler *AlibabaSecurityHandler) CreateSecurity(securityReqInfo ir
 	request.Description = securityReqInfo.IId.NameId
 	request.SecurityGroupName = securityReqInfo.IId.NameId
 	request.VpcId = securityReqInfo.VpcIID.SystemId
+	request.SecurityGroupType = "enterprise"
 	cblogger.Debugf("보안 그룹 생성 요청 정보", request)
 
 	// logger for HisCall
@@ -80,7 +81,25 @@ func (securityHandler *AlibabaSecurityHandler) CreateSecurity(securityReqInfo ir
 	//=======================================
 	// 보안 정책 추가
 	//=======================================
-	cblogger.Infof("보안 그룹[%s]에 인바운드/아웃바운드 보안 정책 처리", createRes.SecurityGroupId)
+	defaultRuleRequest := ecs.CreateAuthorizeSecurityGroupEgressRequest()
+	defaultRuleRequest.Scheme = "https"
+	defaultRuleRequest.IpProtocol = "all"
+	defaultRuleRequest.PortRange = "-1/-1"
+	defaultRuleRequest.SecurityGroupId = createRes.SecurityGroupId
+	defaultRuleRequest.DestCidrIp = "0.0.0.0/0"
+	defaultRuleRequest.Priority = "100"
+
+	cblogger.Infof("[%s] [%s] outbound rule Request", defaultRuleRequest.IpProtocol, defaultRuleRequest.PortRange)
+	spew.Dump(request)
+	response, err := securityHandler.Client.AuthorizeSecurityGroupEgress(defaultRuleRequest)
+	if err != nil {
+		cblogger.Errorf("Unable to create security group[%s] outbound rule - [%s] [%s] AuthorizeSecurityGroup Request", defaultRuleRequest.SecurityGroupId, defaultRuleRequest.IpProtocol, defaultRuleRequest.PortRange)
+		cblogger.Error(err)
+		return irs.SecurityInfo{}, err
+	}
+	cblogger.Infof("[%s] [%s] AuthorizeSecurityGroup Request success - RequestId:[%s]", defaultRuleRequest.IpProtocol, defaultRuleRequest.PortRange, response)
+	
+	cblogger.Infof("보안 그룹[%s]에 인바운드/아웃바운드 보안 정책 처리", defaultRuleRequest.SecurityGroupId)
 	return securityHandler.AddRules(irs.IID{SystemId: createRes.SecurityGroupId}, securityReqInfo.SecurityRules)
 
 	//createRuleRes, errRule := securityHandler.AuthorizeSecurityRules(createRes.SecurityGroupId, securityReqInfo.VpcIID.SystemId, securityReqInfo.SecurityRules)

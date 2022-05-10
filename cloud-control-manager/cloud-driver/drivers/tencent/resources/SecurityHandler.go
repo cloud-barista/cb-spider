@@ -328,7 +328,7 @@ func (securityHandler *TencentSecurityHandler) ExtractPolicyGroups(policyGroups 
 
 	var fromPort string
 	var toPort string
-
+	
 	/*
 		var newDirection string
 		//ingress -> inbound
@@ -353,6 +353,11 @@ func (securityHandler *TencentSecurityHandler) ExtractPolicyGroups(policyGroups 
 					toPort = portRange[len(portRange)-1]
 				} else {
 					toPort = ""
+				}
+
+				if strings.EqualFold(fromPort, "ALL") {
+					fromPort = "-1"
+					toPort = "-1"
 				}
 
 				securityRuleInfo := irs.SecurityRuleInfo{
