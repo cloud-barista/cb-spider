@@ -33,6 +33,11 @@ type GCPSecurityHandler struct {
 	Credential idrv.CredentialInfo
 }
 
+const (
+	Const_SecurityRule_Add    = "add"
+	Const_SecurityRule_Remove = "remove"
+)
+
 //+ 공통이슈개발방안
 //. spider 는 rule 간의 priority 제공안함
 //. 동일한 rule의 중복 정의를 제공하지 않음
@@ -240,80 +245,42 @@ func (securityHandler *GCPSecurityHandler) CreateSecurity(securityReqInfo irs.Se
 	projectID := securityHandler.Credential.ProjectID
 
 	// default firewall 추가 : default로 inbound 1개(-basic), outbound 1개(-o-001)
-	basicSecurityRuleInfo := irs.SecurityRuleInfo{
-		FromPort:   "",
-		IPProtocol: "TCP",
-		Direction:  "INGRESS",
-		CIDR:       "0.0.0.0/0",
-	}
-	basicFireWall := setNewFirewall(basicSecurityRuleInfo, projectID, securityReqInfo.VpcIID.SystemId, securityReqInfo.IId.NameId, "basic", 0)
-	////	fireWall := &compute.Firewall{
-	////		Allowed:   firewallAllowed,
-	////		Direction: commonDirection, //INGRESS(inbound), EGRESS(outbound)
-	////		// SourceRanges: []string{
-	////		// 	// "0.0.0.0/0",
-	////		// 	commonCidr,
-	////		// },
-	////		Name: securityReqInfo.IId.NameId,
-	////		TargetTags: []string{
-	////			securityReqInfo.IId.NameId,
-	////		},
-	////		Network: networkURL,
-	////	}
-	//cblogger.Info("생성할 기본 방화벽 정책")
-	//cblogger.Debug(defaultFireWall)
-	//spew.Dump(fireWall)
+	cblogger.Info("기본inbound ")
+	//basicSecurityRuleInfo := irs.SecurityRuleInfo{
+	//	FromPort:   "",
+	//	IPProtocol: "TCP",
+	//	Direction:  "INGRESS",
+	//	CIDR:       "0.0.0.0/0",
+	//}
+	//basicFireWall := setNewFirewall(basicSecurityRuleInfo, projectID, securityReqInfo.VpcIID.SystemId, securityReqInfo.IId.NameId, "basic", 0)
 	//
+	//// default firewallInsert
+	//_, err := securityHandler.firewallInsert(basicFireWall)
+	//if err != nil {
+	//	cblogger.Debug(err)
+	//	return irs.SecurityInfo{}, err
+	//}
+	//cblogger.Debug(basicFireWall)
 
-	// default firewallInsert
-	_, err := securityHandler.firewallInsert(basicFireWall)
-	if err != nil {
-		return irs.SecurityInfo{}, err
-	}
-
+	cblogger.Info("기본outbound ")
 	defaultOutboundSecurityRuleInfo := irs.SecurityRuleInfo{
-		FromPort:   "",
-		IPProtocol: "TCP",
+		FromPort:   "", // 지정하지 않으면 전체임.
+		IPProtocol: "ALL",
 		Direction:  "EGRESS",
 		CIDR:       "0.0.0.0/0",
 	}
 	defaultOutboundFireWall := setNewFirewall(defaultOutboundSecurityRuleInfo, projectID, securityReqInfo.VpcIID.SystemId, securityReqInfo.IId.NameId, "-o-", 1)
-	_, err = securityHandler.firewallInsert(defaultOutboundFireWall)
+	_, err := securityHandler.firewallInsert(defaultOutboundFireWall)
 	if err != nil {
+		cblogger.Debug(err)
 		return irs.SecurityInfo{}, err
 	}
-	////// logger for HisCall
-	//callogger := call.GetLogger("HISCALL")
-	//callLogInfo := call.CLOUDLOGSCHEMA{
-	//	CloudOS:      call.GCP,
-	//	RegionZone:   securityHandler.Region.Zone,
-	//	ResourceType: call.SECURITYGROUP,
-	//	ResourceName: securityReqInfo.IId.NameId,
-	//	CloudOSAPI:   "Firewalls.Insert()",
-	//	ElapsedTime:  "",
-	//	ErrorMSG:     "",
-	//}
-	//callLogStart := call.Start()
-	//
-	//defaultRes, defaultErr := securityHandler.Client.Firewalls.Insert(projectID, &defaultFireWall).Do()
-	//
-	//callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
-	//if defaultErr != nil {
-	//	callLogInfo.ErrorMSG = defaultErr.Error()
-	//	callogger.Error(call.String(callLogInfo))
-	//	cblogger.Error(defaultErr)
-	//	return irs.SecurityInfo{}, defaultErr
-	//}
-	//callogger.Info(call.String(callLogInfo))
-	//fmt.Println("create default firewall rule result : ", defaultRes)
-	//time.Sleep(time.Second * 3) // TODO : 매 호출마다 3초씩 기다리지 말고 CH를 이용하여 req가 모두 완료될 때까지 기다린 후 처리.
+	cblogger.Debug(defaultOutboundFireWall)
 
 	reqSecurityRules := *securityReqInfo.SecurityRules
 	reqEgressCount := 1
 	reqIngressCount := 1
-	//var waitGroup sync.WaitGroup
-	//waitGroup.Add(len(reqSecurityRules))
-	//ch := make(chan string)
+
 	for itemIndex, item := range reqSecurityRules {
 		firewallDirection := item.Direction
 		firewallType := ""
@@ -340,66 +307,14 @@ func (securityHandler *GCPSecurityHandler) CreateSecurity(securityReqInfo irs.Se
 			return irs.SecurityInfo{}, err
 		}
 
-		//// logger for HisCall
-		//callogger := call.GetLogger("HISCALL")
-		//callLogInfo := call.CLOUDLOGSCHEMA{
-		//	CloudOS:      call.GCP,
-		//	RegionZone:   securityHandler.Region.Zone,
-		//	ResourceType: call.SECURITYGROUP,
-		//	ResourceName: securityReqInfo.IId.NameId,
-		//	CloudOSAPI:   "Firewalls.Insert()",
-		//	ElapsedTime:  "",
-		//	ErrorMSG:     "",
-		//}
-		//callLogStart := call.Start()
-		//
-		//res, err := securityHandler.Client.Firewalls.Insert(projectID, &fireWall).Do()
-		//callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
-		//if err != nil {
-		//	callLogInfo.ErrorMSG = err.Error()
-		//	callogger.Error(call.String(callLogInfo))
-		//	cblogger.Error(err)
-		//	return irs.SecurityInfo{}, err
-		//}
-		//callogger.Info(call.String(callLogInfo))
-		////fmt.Println("create result : ", res)
-		////fmt.Println("res.Id : ", res.Id, res.Status)
-		////fmt.Println("Name : ", res.Name, res.Region)
-		////fmt.Println("ClientOperationId : ", res.ClientOperationId, ": ", res.TargetId)
-		////operation, err := securityHandler.Client.GlobalOperations.Get(projectID, res.Name).Do() // vpc는 Region, firewall은 Global
-		////fmt.Println("operation", operation)
-		////time.Sleep(time.Second * 3) // TODO : 매 호출마다 3초씩 기다리지 말고 CH를 이용하여 req가 모두 완료될 때까지 기다린 후 처리.
-		////operation2, err := securityHandler.Client.GlobalOperations.Get(projectID, res.Name).Do()
-		////fmt.Println("operation2", operation2)
-		////time.Sleep(time.Second * 3) // TODO : 매 호출마다 3초씩 기다리지 말고 CH를 이용하여 req가 모두 완료될 때까지 기다린 후 처리.
-		////
-		//
-		//// 우선 WaitUntilComplete을 사용하고 추후 waitgroup, channel 등 사용으로 변경할 것
-		//errWait := vNetworkHandler.WaitUntilComplete(res.Name, true)
-		//if errWait != nil {
-		//	cblogger.Errorf("SecurityGroup create 완료 대기 실패")
-		//	cblogger.Error(errWait)
-		//	return irs.SecurityInfo{}, errWait
-		//}
-
-		//getOperationsStatus(*securityHandler, projectID, res.Name, "global")
-		//waitGroup.Add(1)
-		//go func() {
-		//	//defer waitGroup.Done()
-		//	fmt.Println("getOperationsStatus 호출 전 ", itemIndex)
-		//	getOperationsStatus(ch, *securityHandler, projectID, res.Name, "global")
-		//	fmt.Println("getOperationsStatus 호출 후  ", itemIndex)
-		//	//waitGroup.Done()
-		//}()
-		//close(ch)
 	}
-	//waitGroup.Wait()
-	//chMessage := <-ch
-	//fmt.Println(":: ", chMessage, " :: ")
 
 	// TODO : TAG를 이용해서 해당 security를 모두 가져오도록 보완 필요.
-	securityInfo, _ := securityHandler.GetSecurity(irs.IID{SystemId: securityReqInfo.IId.NameId})
+	securityInfo, err := securityHandler.GetSecurity(irs.IID{SystemId: securityReqInfo.IId.NameId})
 	//securityInfo, _ := securityHandler.GetSecurityByTag(irs.IID{SystemId: securityReqInfo.IId.NameId})
+	if err != nil {
+		return irs.SecurityInfo{}, err
+	}
 
 	// tag기반으로 security를 묶어서 가져와야 함.
 	return securityInfo, nil
@@ -463,21 +378,6 @@ func setNewFirewall(ruleInfo irs.SecurityRuleInfo, projectID string, vpcSystemId
 		firewallName = securityGroupName + "-basic"
 		firewallDirection = "INGRESS"
 	}
-	//	fireWall := &compute.Firewall{
-	//		Allowed:   firewallAllowed,
-	//		Direction: commonDirection, //INGRESS(inbound), EGRESS(outbound)
-	//		// SourceRanges: []string{
-	//		// 	// "0.0.0.0/0",
-	//		// 	commonCidr,
-	//		// },
-	//		Name: securityReqInfo.IId.NameId,
-	//		TargetTags: []string{
-	//			securityReqInfo.IId.NameId,
-	//		},
-	//		Network: networkURL,
-	//	}
-
-	fmt.Println("firewallName : ", firewallName)
 
 	fireWall := compute.Firewall{
 		Name:      firewallName,
@@ -536,32 +436,7 @@ func lpad(sequence string, pad string, plength int) string {
 }
 
 func (securityHandler *GCPSecurityHandler) ListSecurity() ([]*irs.SecurityInfo, error) {
-	////result, err := securityHandler.Client.ListAll(securityHandler.Ctx)
-	//projectID := securityHandler.Credential.ProjectID
-	//// logger for HisCall
-	//callogger := call.GetLogger("HISCALL")
-	//callLogInfo := call.CLOUDLOGSCHEMA{
-	//	CloudOS:      call.GCP,
-	//	RegionZone:   securityHandler.Region.Zone,
-	//	ResourceType: call.SECURITYGROUP,
-	//	ResourceName: "",
-	//	CloudOSAPI:   "Firewalls.List()",
-	//	ElapsedTime:  "",
-	//	ErrorMSG:     "",
-	//}
-	//callLogStart := call.Start()
-	//
-	//result, err := securityHandler.Client.Firewalls.List(projectID).Do()
-	//callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
-	//if err != nil {
-	//	callLogInfo.ErrorMSG = err.Error()
-	//	callogger.Info(call.String(callLogInfo))
-	//	cblogger.Error(err)
-	//	return nil, err
-	//}
-	//callogger.Info(call.String(callLogInfo))
-	//
-	//firewallList := extractFirewallList(*result) // 그룹으로 묶기
+
 	firewallList, err := securityHandler.firewallList("")
 	if err != nil {
 		cblogger.Error(err)
@@ -578,77 +453,16 @@ func (securityHandler *GCPSecurityHandler) ListSecurity() ([]*irs.SecurityInfo, 
 	}
 	fmt.Println("securityInfoList = ", securityInfoList)
 
-	//var securityInfoList []*irs.SecurityInfo
-	//for key, val := range securityGroupNameMap {
-	//	fmt.Println(key, val)
-	//	var elementType = "tag"
-	//	extractResult := extractFirewallList(*result, key, elementType) // tag로 찾기
-	//
-	//	firewallItems := result.Items
-	//	fmt.Println("firewallItems length = ", len(firewallItems))
-	//	if len(firewallItems) > 0 {
-	//	} else { // tag에서 못찾았으면 이름에서 찾기
-	//		elementType = "name"
-	//		extractResult = extractFirewallList(*result, key, elementType) // 아름으로 찾기
-	//	}
-	//	securityInfo, err := convertFromFirewallToSecurityInfo(extractResult, key, elementType)
-	//	if err != nil {
-	//		//
-	//	}
-	//	securityInfoList = append(securityInfoList, &securityInfo)
-	//}
-
-	//for _, item := range result.Items {
-	//	name := item.Name
-	//	//systemId := strconv.FormatUint(item.Id, 10)
-	//	//secInfo, _ := securityHandler.GetSecurity(irs.IID{NameId: name, SystemId: systemId})
-	//	secInfo, _ := securityHandler.GetSecurity(irs.IID{SystemId: name}) // => Extract 로 바꿔야
-	//
-	//	securityInfo = append(securityInfo, &secInfo)
-	//}
-
 	return securityInfoList, nil
 }
 
 // TAG를 이용해서 해당 security(firewall)를 모두 가와야 하기 때문에
 // 해당 project의 모든 list에서 해당 하는 TAG를 추출
 func (securityHandler *GCPSecurityHandler) GetSecurity(securityIID irs.IID) (irs.SecurityInfo, error) {
-	// list sequrity로 목록을 가져온 후 Tag로 다시 추출
-	//projectID := securityHandler.Credential.ProjectID
-	//securityGroupTag := securityIID.SystemId
-	//
-	//callogger := call.GetLogger("HISCALL")
-	//callLogInfo := call.CLOUDLOGSCHEMA{
-	//	CloudOS:      call.GCP,
-	//	RegionZone:   securityHandler.Region.Zone,
-	//	ResourceType: call.SECURITYGROUP,
-	//	ResourceName: "",
-	//	CloudOSAPI:   "Firewalls.List()",
-	//	ElapsedTime:  "",
-	//	ErrorMSG:     "",
-	//}
-	//callLogStart := call.Start()
-	//
-	//// TODO : filter기능으로 해당 Tag만 가져올 수 있도록 보완 필요
-	////req1 := securityHandler.Client.Firewalls.List(projectID)
-	////req1.Filter("TargetTags:" + securityGroupTag)//Invalid value for field 'filter': 'TargetTags:sgtestaa'. Invalid list filter expression., invalid)
-	////fmt.Println("firewall TargetTags : ", securityGroupTag)
-	////result, err := req1.Do()
-	//result, err := securityHandler.Client.Firewalls.List(projectID).Do()
-	//
-	//callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
-	//if err != nil {
-	//	callLogInfo.ErrorMSG = err.Error()
-	//	callogger.Info(call.String(callLogInfo))
-	//	cblogger.Error(err)
-	//	return irs.SecurityInfo{}, err
-	//}
-	//
 
 	securityGroupTag := securityIID.SystemId
 
 	//// Inbound는 sourceTag에서 outbound는 targetTag에서 추출.
-	//firewallList := extractFirewallList(*result) // tag group으로 묶은 배열 추출
 	firewallList, err := securityHandler.firewallList(securityGroupTag)
 	if err != nil {
 		cblogger.Error(err)
@@ -687,13 +501,6 @@ func (securityHandler *GCPSecurityHandler) GetSecurity(securityIID irs.IID) (irs
 	fmt.Println("securityInfo : ", securityInfo)
 	return securityInfo, nil
 }
-
-//func (securityHandler *GCPSecurityHandler) GetSecurity(securityIID irs.IID) (irs.SecurityInfo, error) {
-//	securityInfo, _ := GetSecurityByTag(securityIID)
-//
-//	// tag기반으로 security를 묶어서 가져와야 함.
-//	return securityInfo, nil
-//}
 
 //func (securityHandler *GCPSecurityHandler) GetSecurity(securityIID irs.IID) (irs.SecurityInfo, error) {
 //	projectID := securityHandler.Credential.ProjectID
@@ -801,29 +608,6 @@ func (securityHandler *GCPSecurityHandler) DeleteSecurity(securityIID irs.IID) (
 		}
 	}
 	return true, nil
-
-	//callogger := call.GetLogger("HISCALL")
-	//callLogInfo := call.CLOUDLOGSCHEMA{
-	//	CloudOS:      call.GCP,
-	//	RegionZone:   securityHandler.Region.Zone,
-	//	ResourceType: call.SECURITYGROUP,
-	//	ResourceName: securityIID.SystemId,
-	//	CloudOSAPI:   "DeleteSecurity()",
-	//	ElapsedTime:  "",
-	//	ErrorMSG:     "",
-	//}
-	//callLogStart := call.Start()
-	//res, err := securityHandler.Client.Firewalls.Delete(projectID, securityIID.SystemId).Do()
-	//callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
-	//if err != nil {
-	//	callLogInfo.ErrorMSG = err.Error()
-	//	callogger.Info(call.String(callLogInfo))
-	//	cblogger.Error(err)
-	//	return false, err
-	//}
-	//callogger.Info(call.String(callLogInfo))
-	//fmt.Println(res)
-	//return true, nil
 }
 
 //func (securityHandler *GCPSecurityHandler) DeleteSecurity(securityIID irs.IID) (bool, error) {
@@ -861,7 +645,6 @@ func (securityHandler *GCPSecurityHandler) AddRules(sgIID irs.IID, securityRules
 	securityGroupTag := sgIID.SystemId
 
 	// 기존에 존재하는지
-	//searchSecurityInfo, err := securityHandler.GetSecurity(sgIID)
 	firewallList, err := securityHandler.firewallList(securityGroupTag)
 	if err != nil {
 		cblogger.Error(err)
@@ -886,18 +669,19 @@ func (securityHandler *GCPSecurityHandler) AddRules(sgIID irs.IID, securityRules
 	searchSecurityInfo.SecurityRules = &tempSecurityRules
 
 	// 동일한 rule이 존재하면 존재하는 목록 return
-	sameRuleList := sameRuleCheck(searchSecurityInfo.SecurityRules, securityRules, Const_Add)
+	sameRuleList := sameRuleCheck(searchSecurityInfo.SecurityRules, securityRules, Const_SecurityRule_Add)
 	if len(*sameRuleList) > 0 {
 		return irs.SecurityInfo{}, errors.New("Same SecurityRule is exists")
 	}
 
-	// TODO : 존재하는 item의 max Sequence 찾아와야 함
-	//reqEgressCount := 1
-	//reqIngressCount := 1
+	// 존재하는 item의 max Sequence 찾아와야 함
+
+	reqIngressCount := maxFirewallSequence(firewallList, "inbound")
 	reqEgressCount := maxFirewallSequence(firewallList, "outbound")
-	reqIngressCount := maxFirewallSequence(firewallList, "outbound")
-	reqEgressCount++
+
 	reqIngressCount++
+	reqEgressCount++
+
 	for _, item := range *securityRules {
 		firewallDirection := item.Direction
 		firewallType := ""
@@ -921,173 +705,8 @@ func (securityHandler *GCPSecurityHandler) AddRules(sgIID irs.IID, securityRules
 			return irs.SecurityInfo{}, err
 		}
 
-		//cblogger.Info("생성할 방화벽 정책 ", firewallDirection, reqEgressCount, reqIngressCount)
-		//cblogger.Debug(fireWall)
-		////spew.Dump(fireWall)
-		//
-		//// logger for HisCall
-		//callogger := call.GetLogger("HISCALL")
-		//callLogInfo := call.CLOUDLOGSCHEMA{
-		//	CloudOS:      call.GCP,
-		//	RegionZone:   securityHandler.Region.Zone,
-		//	ResourceType: call.SECURITYGROUP,
-		//	ResourceName: securityGroupTag,
-		//	CloudOSAPI:   "Firewalls.Insert()",
-		//	ElapsedTime:  "",
-		//	ErrorMSG:     "",
-		//}
-		//callLogStart := call.Start()
-		//
-		//res, err := securityHandler.Client.Firewalls.Insert(projectID, &fireWall).Do()
-		//callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
-		//if err != nil {
-		//	callLogInfo.ErrorMSG = err.Error()
-		//	callogger.Error(call.String(callLogInfo))
-		//	cblogger.Error(err)
-		//	return irs.SecurityInfo{}, err
-		//}
-		//callogger.Info(call.String(callLogInfo))
-		//fmt.Println("create result : ", res)
-		//operation := securityHandler.Client.GlobalOperations.Get(projectID, res.ClientOperationId)
-		//fmt.Println("operation", operation)
-		//time.Sleep(time.Second * 3) // TODO : 매 호출마다 3초씩 기다리지 말고 CH를 이용하여 req가 모두 완료될 때까지 기다린 후 처리.
-		//operation2 := securityHandler.Client.GlobalOperations.Get(projectID, res.ClientOperationId)
-		//fmt.Println("operation", operation2)
 	}
 	return securityHandler.GetSecurity(sgIID)
-
-	//// @TODO: SecurityGroup 생성 요청 파라미터 정의 필요
-	//ports := *securityRules
-	//existedRules := security.Allowed
-	//var firewallAllowed []*compute.FirewallAllowed
-	//
-	//for _, rule := range existedRules {
-	//	firewallAllowed = append(firewallAllowed, rule)
-	//}
-	//
-	////다른 드라이버와의 통일을 위해 All은 -1로 처리함.
-	////GCP는 포트 번호를 적지 않으면 All임.
-	////GCP 방화벽 정책
-	////https://cloud.google.com/vpc/docs/firewalls?hl=ko&_ga=2.238147008.-1577666838.1589162755#protocols_and_ports
-	//for _, item := range ports {
-	//	var port string
-	//	fp := item.FromPort
-	//	tp := item.ToPort
-	//
-	//	//GCP는 1개의 정책에 1가지 Direction만 지정 가능하기 때문에 Inbound와 Outbound 모두 지정되었을 경우 에러 처리함.
-	//	if !strings.EqualFold(item.Direction, commonDirection) {
-	//		return irs.SecurityInfo{}, errors.New("invalid value - GCP can only use one Direction for one security policy")
-	//	}
-	//
-	//	// CB Rule에 의해 Port 번호에 -1이 기입된 경우 GCP Rule에 맞게 치환함.
-	//	if fp == "-1" || tp == "-1" {
-	//		if (fp == "-1" && tp == "-1") || (fp == "-1" && tp == "") || (fp == "" && tp == "-1") {
-	//			port = ""
-	//		} else if fp == "-1" {
-	//			port = tp
-	//		} else {
-	//			port = fp
-	//		}
-	//	} else {
-	//		//둘 다 있는 경우
-	//		if tp != "" && fp != "" {
-	//			port = fp + "-" + tp
-	//			//From Port가 없는 경우
-	//		} else if tp != "" && fp == "" {
-	//			port = tp
-	//			//To Port가 없는 경우
-	//		} else if tp == "" && fp != "" {
-	//			port = fp
-	//		} else {
-	//			port = ""
-	//		}
-	//	}
-	//
-	//	if port == "" {
-	//		firewallAllowed = append(firewallAllowed, &compute.FirewallAllowed{
-	//			IPProtocol: item.IPProtocol,
-	//		})
-	//	} else {
-	//		firewallAllowed = append(firewallAllowed, &compute.FirewallAllowed{
-	//			IPProtocol: item.IPProtocol,
-	//			Ports: []string{
-	//				port,
-	//			},
-	//		})
-	//	}
-	//}
-	//
-	//if strings.EqualFold(commonDirection, "inbound") || strings.EqualFold(commonDirection, "INGRESS") {
-	//	commonDirection = "INGRESS"
-	//} else if strings.EqualFold(commonDirection, "outbound") || strings.EqualFold(commonDirection, "EGRESS") {
-	//	commonDirection = "EGRESS"
-	//} else {
-	//	return irs.SecurityInfo{}, errors.New("invalid value - The direction[" + commonDirection + "] information is unknown")
-	//}
-	//
-	//if !strings.EqualFold(security.Direction, commonDirection) {
-	//	return irs.SecurityInfo{}, errors.New("invalid value - GCP can only use one Direction for one security policy")
-	//}
-
-	//prefix := "https://www.googleapis.com/compute/v1/projects/" + projectID
-	////networkURL := prefix + "/global/networks/" + securityReqInfo.VpcIID.NameId
-	//networkURL := prefix + "/global/networks/" + vpcName
-	//
-	//fireWall := &compute.Firewall{
-	//	Allowed:   firewallAllowed,
-	//	Direction: commonDirection, //INGRESS(inbound), EGRESS(outbound)
-	//	// SourceRanges: []string{
-	//	// 	// "0.0.0.0/0",
-	//	// 	commonCidr,
-	//	// },
-	//	//Name: security.Name,
-	//	//TargetTags: []string{
-	//	//security.Name,
-	//	//},
-	//	Network: networkURL,
-	//}
-	//
-	////CIDR 처리
-	//if strings.EqualFold(commonDirection, "INGRESS") {
-	//	//fireWall.SourceRanges = []string{commonCidr}
-	//	fireWall.SourceRanges = commonCidr
-	//} else {
-	//	//fireWall.DestinationRanges = []string{commonCidr}
-	//	fireWall.DestinationRanges = commonCidr
-	//}
-	//
-	//cblogger.Info("생성할 방화벽 정책")
-	//cblogger.Debug(fireWall)
-	////spew.Dump(fireWall)
-	//
-	//// logger for HisCall
-	//callogger := call.GetLogger("HISCALL")
-	//callLogInfo := call.CLOUDLOGSCHEMA{
-	//	CloudOS:      call.GCP,
-	//	RegionZone:   securityHandler.Region.Zone,
-	//	ResourceType: call.SECURITYGROUP,
-	//	ResourceName: security.Name,
-	//	CloudOSAPI:   "Firewalls.Update()",
-	//	ElapsedTime:  "",
-	//	ErrorMSG:     "",
-	//}
-	//callLogStart := call.Start()
-	//
-	//res, err := securityHandler.Client.Firewalls.Update(projectID, sgIID.SystemId, fireWall).Do()
-	//callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
-	//if err != nil {
-	//	callLogInfo.ErrorMSG = err.Error()
-	//	callogger.Error(call.String(callLogInfo))
-	//	cblogger.Error(err)
-	//	return irs.SecurityInfo{}, err
-	//}
-	//callogger.Info(call.String(callLogInfo))
-	//fmt.Println("create result : ", res)
-	//time.Sleep(time.Second * 3)
-	////secInfo, _ := securityHandler.GetSecurity(securityReqInfo.IId)
-	//secInfo, _ := securityHandler.GetSecurity(irs.IID{SystemId: sgIID.SystemId})
-	//return secInfo, nil
-	//return irs.SecurityInfo{}, fmt.Errorf("Coming Soon!")
 }
 
 //func (securityHandler *GCPSecurityHandler) AddRules(sgIID irs.IID, securityRules *[]irs.SecurityRuleInfo) (irs.SecurityInfo, error) {
@@ -1252,44 +871,8 @@ func (securityHandler *GCPSecurityHandler) AddRules(sgIID irs.IID, securityRules
 func (securityHandler *GCPSecurityHandler) RemoveRules(sgIID irs.IID, securityRules *[]irs.SecurityRuleInfo) (bool, error) {
 	cblogger.Info(*securityRules)
 
-	//projectID := securityHandler.Credential.ProjectID
 	securityGroupTag := sgIID.SystemId
 
-	// 기존에 존재하는지 : deprecated. 단일 securityGroup에서 tag로 바뀌면서 tag조회로 변경
-	//searchSecurityInfo, err := securityHandler.GetSecurity(sgIID)
-	//if err != nil {
-	//	// 해당 securityGroup이 존재하지 않음.
-	//	return false, errors.New("SecurityGroup is not exists")
-	//}
-
-	// 존재하는 목록에서 resourceId를 추출해야 하는데.... securityInfo에는 resourceID가 없음. 따라서 목록 조회한 후 직접추출
-	//callogger := call.GetLogger("HISCALL")
-	//callLogInfo := call.CLOUDLOGSCHEMA{
-	//	CloudOS:      call.GCP,
-	//	RegionZone:   securityHandler.Region.Zone,
-	//	ResourceType: call.SECURITYGROUP,
-	//	ResourceName: "",
-	//	CloudOSAPI:   "Firewalls.List()",
-	//	ElapsedTime:  "",
-	//	ErrorMSG:     "",
-	//}
-	//callLogStart := call.Start()
-	//
-	//result, err := securityHandler.Client.Firewalls.List(projectID).Do()
-	//callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
-	//if err != nil {
-	//	callLogInfo.ErrorMSG = err.Error()
-	//	callogger.Info(call.String(callLogInfo))
-	//	cblogger.Error(err)
-	//	return false, err
-	//}
-	//callogger.Info(call.String(callLogInfo))
-	//
-	//var securityInfo irs.SecurityInfo
-	//var firewallInfo compute.FirewallList
-	//firewallList := extractFirewallList(*result, securityGroupTag) // tag group으로 추출
-
-	//var firewallInfo compute.FirewallList
 	firewallList, err := securityHandler.firewallList(securityGroupTag)
 	if err != nil {
 		return false, err
@@ -1312,14 +895,12 @@ func (securityHandler *GCPSecurityHandler) RemoveRules(sgIID irs.IID, securityRu
 	searchSecurityInfo.SecurityRules = &tempSecurityRules
 
 	// 동일한 rule이 존재하지 않으면 지울 수 없으므로 존재하는 않는 요청 목록 return
-	sameRuleList := sameRuleCheck(searchSecurityInfo.SecurityRules, securityRules, Const_Remove)
+	sameRuleList := sameRuleCheck(searchSecurityInfo.SecurityRules, securityRules, Const_SecurityRule_Remove)
 	if len(*sameRuleList) == 0 {
 		return false, errors.New("Same SecurityRule is not exists")
 	}
 
-	//fmt.Println("securityInfo.securityrule size- : ", len(*securityInfo.SecurityRules))
 	for _, securityRule := range *securityRules {
-		//for ruleIndex, securityRule := range *securityInfo.SecurityRules {
 		// firewall 삭제를 위한 resource ID 추출
 		resourceId := ""
 		for _, firewallInfo := range firewallList {
@@ -1357,10 +938,13 @@ func (securityHandler *GCPSecurityHandler) RemoveRules(sgIID irs.IID, securityRu
 					}
 
 					ipProtocol = firewallRule.IPProtocol
-
-					fmt.Println("firewalrulel.ipProtocol- : ", ipProtocol)
-
 				} // end of firewall rule
+
+				securityFromPort := securityRule.FromPort
+				securityToPort := securityRule.ToPort
+				if strings.EqualFold(securityFromPort, securityToPort) && !strings.EqualFold(securityFromPort, "-1") && !strings.EqualFold(securityToPort, "-1") {
+					securityToPort = ""
+				}
 
 				fmt.Println("Direction : ", item.Direction, " : ", direction, " : ", securityRule.Direction)
 				fmt.Println("Cidr : ", cidr, " : ", securityRule.CIDR)
@@ -1369,7 +953,7 @@ func (securityHandler *GCPSecurityHandler) RemoveRules(sgIID irs.IID, securityRu
 				fmt.Println("toport : ", toPort, " : ", securityRule.ToPort)
 				fmt.Println("ipProtocol : ", ipProtocol, " : ", securityRule.IPProtocol)
 				// 조건이 동일한 resource ID
-				if strings.EqualFold(direction, securityRule.Direction) && strings.EqualFold(cidr, securityRule.CIDR) && strings.EqualFold(fromPort, securityRule.FromPort) && strings.EqualFold(toPort, securityRule.ToPort) && strings.EqualFold(ipProtocol, securityRule.IPProtocol) {
+				if strings.EqualFold(direction, securityRule.Direction) && strings.EqualFold(cidr, securityRule.CIDR) && strings.EqualFold(fromPort, securityFromPort) && strings.EqualFold(toPort, securityToPort) && strings.EqualFold(ipProtocol, securityRule.IPProtocol) {
 					resourceId = item.Name
 					break
 				}
@@ -1386,48 +970,6 @@ func (securityHandler *GCPSecurityHandler) RemoveRules(sgIID irs.IID, securityRu
 			if err != nil {
 				return false, err
 			}
-			//callLogInfo = call.CLOUDLOGSCHEMA{
-			//	CloudOS:      call.GCP,
-			//	RegionZone:   securityHandler.Region.Zone,
-			//	ResourceType: call.SECURITYGROUP,
-			//	ResourceName: securityGroupTag,
-			//	CloudOSAPI:   "Firewalls.Delete()",
-			//	ElapsedTime:  "",
-			//	ErrorMSG:     "",
-			//}
-			//fmt.Println("resourceId : ", resourceId, ruleIndex)
-			//// 해당 firewall의 resourceID 로 Delete 호출 : 싹지우는 것 같은데???
-			//res, err := securityHandler.Client.Firewalls.Delete(projectID, resourceId).Do()
-			//
-			//callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
-			//if err != nil {
-			//	callLogInfo.ErrorMSG = err.Error()
-			//	callogger.Error(call.String(callLogInfo))
-			//	cblogger.Error(err)
-			//	return false, err
-			//}
-			//callogger.Info(call.String(callLogInfo))
-			//fmt.Println("remove result : ", resourceId, res)
-			//
-			//operation := securityHandler.Client.GlobalOperations.Get(projectID, res.ClientOperationId)
-			//fmt.Println("operation", operation)
-			//time.Sleep(time.Second * 3) // TODO : 매 호출마다 3초씩 기다리지 말고 CH를 이용하여 req가 모두 완료될 때까지 기다린 후 처리.
-			//operation2 := securityHandler.Client.GlobalOperations.Get(projectID, res.ClientOperationId)
-			//fmt.Println("operation", operation2)
-			//
-			////if err = op.Wait(ctx); err != nil {
-			////	return fmt.Errorf("unable to wait for the operation: %v", err)
-			////}
-			////operation := securityHandler.Client.GlobalOperations.Get(projectID, res.ClientOperationId)
-			////operation.status : DONE, PENDING, RUNNING (enum)
-			//
-			////// chan
-			////var waitGroup sync.WaitGroup
-			////ch := make(chan int)
-			////waitGroup.Add(ruleIndex)
-			//
-			//time.Sleep(time.Second * 3)
-			// TODO : 호출결과 받을 떄까지 ch로 제어하도록 보완할 것.
 		}
 	}
 	// TODO : 호출결과가 모두 성공일 때 true를 return하도록 변경
@@ -1897,7 +1439,7 @@ func sameRuleCheck(searchedSecurityRules *[]irs.SecurityRuleInfo, requestedSecur
 			}
 
 			// add일 때는 존재하는게 있으면 안됨.
-			if hasFound && action == Const_Add {
+			if hasFound && action == Const_SecurityRule_Add {
 				cblogger.Info("add")
 				checkResult = append(checkResult, reqRule)
 				hasFound = false // 초기화
@@ -1906,7 +1448,7 @@ func sameRuleCheck(searchedSecurityRules *[]irs.SecurityRuleInfo, requestedSecur
 		}
 
 		// remove일 때는 없으면 안됨(존재해야 함)
-		if !hasFound && action == Const_Remove {
+		if !hasFound && action == Const_SecurityRule_Remove {
 			cblogger.Info("remove")
 			checkResult = append(checkResult, reqRule)
 		}
@@ -1933,24 +1475,18 @@ func maxFirewallSequence(firewallList []compute.FirewallList, direction string) 
 			}
 			str := item.Name[len(item.Name)-6:]
 			if strings.Index(str, namingRule) == 0 {
-				curSequence, _ := strconv.Atoi(str[:3])
+				curSequence, _ := strconv.Atoi(str[3:]) // 끝 세자리
 				if curSequence > maxSequence {
 					maxSequence = curSequence
 				}
 				fmt.Println("str : ", str)
 				fmt.Println("curSequence : ", curSequence)
-
 			}
 		}
 	}
 
 	return maxSequence
 }
-
-const (
-	Const_Add    = "add"
-	Const_Remove = "remove"
-)
 
 // firewall insert를 create, add 등에서 여러번 사용하므로 공통으로 처리
 // securityGroup = spider 명칭, firewall  = GCP 명칭
