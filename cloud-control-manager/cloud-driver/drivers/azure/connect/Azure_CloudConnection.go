@@ -29,21 +29,22 @@ func init() {
 }
 
 type AzureCloudConnection struct {
-	CredentialInfo      idrv.CredentialInfo
-	Region              idrv.RegionInfo
-	Ctx                 context.Context
-	VMClient            *compute.VirtualMachinesClient
-	ImageClient         *compute.ImagesClient
-	VMImageClient       *compute.VirtualMachineImagesClient
-	PublicIPClient      *network.PublicIPAddressesClient
-	SecurityGroupClient *network.SecurityGroupsClient
-	VNetClient          *network.VirtualNetworksClient
-	VNicClient          *network.InterfacesClient
-	IPConfigClient      *network.InterfaceIPConfigurationsClient
-	SubnetClient        *network.SubnetsClient
-	DiskClient          *compute.DisksClient
-	VmSpecClient        *compute.VirtualMachineSizesClient
-	SshKeyClient        *compute.SSHPublicKeysClient
+	CredentialInfo          idrv.CredentialInfo
+	Region                  idrv.RegionInfo
+	Ctx                     context.Context
+	VMClient                *compute.VirtualMachinesClient
+	ImageClient             *compute.ImagesClient
+	VMImageClient           *compute.VirtualMachineImagesClient
+	PublicIPClient          *network.PublicIPAddressesClient
+	SecurityGroupClient     *network.SecurityGroupsClient
+	SecurityGroupRuleClient *network.SecurityRulesClient
+	VNetClient              *network.VirtualNetworksClient
+	VNicClient              *network.InterfacesClient
+	IPConfigClient          *network.InterfaceIPConfigurationsClient
+	SubnetClient            *network.SubnetsClient
+	DiskClient              *compute.DisksClient
+	VmSpecClient            *compute.VirtualMachineSizesClient
+	SshKeyClient            *compute.SSHPublicKeysClient
 }
 
 func (cloudConn *AzureCloudConnection) CreateImageHandler() (irs.ImageHandler, error) {
@@ -66,7 +67,7 @@ func (cloudConn *AzureCloudConnection) CreateVPCHandler() (irs.VPCHandler, error
 
 func (cloudConn *AzureCloudConnection) CreateSecurityHandler() (irs.SecurityHandler, error) {
 	cblogger.Info("Azure Cloud Driver: called CreateSecurityHandler()!")
-	sgHandler := azrs.AzureSecurityHandler{cloudConn.Region, cloudConn.Ctx, cloudConn.SecurityGroupClient}
+	sgHandler := azrs.AzureSecurityHandler{cloudConn.Region, cloudConn.Ctx, cloudConn.SecurityGroupClient, cloudConn.SecurityGroupRuleClient}
 	return &sgHandler, nil
 }
 
