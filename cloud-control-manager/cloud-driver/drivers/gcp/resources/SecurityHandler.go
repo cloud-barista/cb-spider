@@ -36,6 +36,9 @@ type GCPSecurityHandler struct {
 const (
 	Const_SecurityRule_Add    = "add"
 	Const_SecurityRule_Remove = "remove"
+
+	Const_Firewall_Allow = true
+	Const_Firewall_Deny  = false
 )
 
 //+ 공통이슈개발방안
@@ -219,6 +222,14 @@ const (
 //	return secInfo, nil
 //}
 // securityGroup = GCP 의 Tag
+
+/*
+  SecurityGroup 생성. GCP는 firewall 추가 시 tag = securityGroupName
+  .GCP 기본 정책이 outbound에 대해 all allow이므로
+    - 우선순위가 가장 낮은(65535) all deny  outbound rule 추가
+    - 우선순위 = 100 인 all allow outbound rule 추가
+  .사용자의 요청에서 outbound all open 이 있는 경우. default로 생성하므로 skip
+*/
 func (securityHandler *GCPSecurityHandler) CreateSecurity(securityReqInfo irs.SecurityReqInfo) (irs.SecurityInfo, error) {
 	cblogger.Info(securityReqInfo)
 
@@ -245,53 +256,76 @@ func (securityHandler *GCPSecurityHandler) CreateSecurity(securityReqInfo irs.Se
 	projectID := securityHandler.Credential.ProjectID
 
 	// default firewall 추가 : default로 inbound 1개(-basic), outbound 1개(-o-001)
-	cblogger.Info("기본inbound ")
-	//basicSecurityRuleInfo := irs.SecurityRuleInfo{
-	//	FromPort:   "",
-	//	IPProtocol: "TCP",
-	//	Direction:  "INGRESS",
+	reqEgressCount := 1
+	reqIngressCount := 1
+
+	cblogger.Info("기본outbound deny 추가")
+	_, err := securityHandler.insertDefaultOutboundPolicy(projectID, securityReqInfo.VpcIID.SystemId, securityReqInfo.IId.NameId, reqEgressCount)
+	if err != nil {
+
+	}
+	//defaultOutboundDenySecurityRuleInfo := irs.SecurityRuleInfo{
+	//	FromPort:   "", // 지정하지 않으면 전체임.
+	//	IPProtocol: "ALL",
+	//	Direction:  "EGRESS",
 	//	CIDR:       "0.0.0.0/0",
 	//}
-	//basicFireWall := setNewFirewall(basicSecurityRuleInfo, projectID, securityReqInfo.VpcIID.SystemId, securityReqInfo.IId.NameId, "basic", 0)
-	//
-	//// default firewallInsert
-	//_, err := securityHandler.firewallInsert(basicFireWall)
+	//defaultOutboundDenyFireWall := setNewFirewall(defaultOutboundDenySecurityRuleInfo, projectID, securityReqInfo.VpcIID.SystemId, securityReqInfo.IId.NameId, "-o-", reqEgressCount, Const_Firewall_Deny)
+	//defaultOutboundDenyFireWall.Priority = 65535 // defaultFirewall의 우선순위는 가장 낮게: ALL Deny
+	//_, err := securityHandler.firewallInsert(defaultOutboundDenyFireWall)
 	//if err != nil {
 	//	cblogger.Debug(err)
 	//	return irs.SecurityInfo{}, err
 	//}
-	//cblogger.Debug(basicFireWall)
+	//cblogger.Debug(defaultOutboundDenyFireWall)
 
-	cblogger.Info("기본outbound ")
-	defaultOutboundSecurityRuleInfo := irs.SecurityRuleInfo{
+	cblogger.Info("기본outbound allow 추가")
+	reqEgressCount++ // count 증가
+
+	defaultOutboundAllowSecurityRuleInfo := irs.SecurityRuleInfo{
 		FromPort:   "", // 지정하지 않으면 전체임.
 		IPProtocol: "ALL",
 		Direction:  "EGRESS",
 		CIDR:       "0.0.0.0/0",
 	}
-	defaultOutboundFireWall := setNewFirewall(defaultOutboundSecurityRuleInfo, projectID, securityReqInfo.VpcIID.SystemId, securityReqInfo.IId.NameId, "-o-", 1)
-	_, err := securityHandler.firewallInsert(defaultOutboundFireWall)
+	defaultOutboundAllowFireWall := setNewFirewall(defaultOutboundAllowSecurityRuleInfo, projectID, securityReqInfo.VpcIID.SystemId, securityReqInfo.IId.NameId, "-o-", reqEgressCount, Const_Firewall_Allow)
+	defaultOutboundAllowFireWall.Priority = 1000 // defaultFirewall의 우선순위는 가장 낮게: ALL Deny
+	_, err = securityHandler.firewallInsert(defaultOutboundAllowFireWall)
 	if err != nil {
 		cblogger.Debug(err)
 		return irs.SecurityInfo{}, err
 	}
-	cblogger.Debug(defaultOutboundFireWall)
+	cblogger.Debug(defaultOutboundAllowFireWall)
+	reqEgressCount++ // count 증가
 
 	reqSecurityRules := *securityReqInfo.SecurityRules
-	reqEgressCount := 1
-	reqIngressCount := 1
 
 	for itemIndex, item := range reqSecurityRules {
+		firewallFromPort := item.FromPort
+		firewallToPort := item.ToPort
+		firewallIPProtocol := item.IPProtocol
 		firewallDirection := item.Direction
+		firewallCIDR := item.CIDR
 		firewallType := ""
+
+		// SecurityGroup 생성 시. outbound에대한 allow/deny all을 정의하기 떄문에 동일한 요청이 있으면 skip
+		//FromPort:   "-1",
+		//ToPort:     "-1",
+		//IPProtocol: "all",
+		//Direction:  "outbound",
+		//CIDR:       "0.0.0.0/0",
+		if strings.EqualFold(firewallFromPort, "-1") && strings.EqualFold(firewallToPort, "-1") && strings.EqualFold(firewallIPProtocol, "all") && strings.EqualFold(firewallDirection, "outbound") && strings.EqualFold(firewallCIDR, "0.0.0.0/0") {
+			continue
+		}
+
 		var fireWall compute.Firewall
 		if strings.EqualFold(firewallDirection, "INGRESS") || strings.EqualFold(firewallDirection, "inbound") {
 			firewallType = "-i-"
-			fireWall = setNewFirewall(item, projectID, securityReqInfo.VpcIID.SystemId, securityReqInfo.IId.NameId, firewallType, reqIngressCount)
+			fireWall = setNewFirewall(item, projectID, securityReqInfo.VpcIID.SystemId, securityReqInfo.IId.NameId, firewallType, reqIngressCount, Const_Firewall_Allow)
 			reqIngressCount++
 		} else if strings.EqualFold(firewallDirection, "EGRESS") || strings.EqualFold(firewallDirection, "outbound") {
 			firewallType = "-o-"
-			fireWall = setNewFirewall(item, projectID, securityReqInfo.VpcIID.SystemId, securityReqInfo.IId.NameId, firewallType, reqEgressCount)
+			fireWall = setNewFirewall(item, projectID, securityReqInfo.VpcIID.SystemId, securityReqInfo.IId.NameId, firewallType, reqEgressCount, Const_Firewall_Allow)
 			reqEgressCount++
 		} else {
 			// direction 이 없는데.... continue
@@ -309,7 +343,6 @@ func (securityHandler *GCPSecurityHandler) CreateSecurity(securityReqInfo irs.Se
 
 	}
 
-	// TODO : TAG를 이용해서 해당 security를 모두 가져오도록 보완 필요.
 	securityInfo, err := securityHandler.GetSecurity(irs.IID{SystemId: securityReqInfo.IId.NameId})
 	//securityInfo, _ := securityHandler.GetSecurityByTag(irs.IID{SystemId: securityReqInfo.IId.NameId})
 	if err != nil {
@@ -339,21 +372,38 @@ func (securityHandler GCPSecurityHandler) getOperationsStatus(ch chan string, pr
 
 // firewall rule 설정.
 // direction, port 마다 1개의 firewall로.
-func setNewFirewall(ruleInfo irs.SecurityRuleInfo, projectID string, vpcSystemId string, securityGroupName string, firewallType string, sequence int) compute.Firewall {
+func setNewFirewall(ruleInfo irs.SecurityRuleInfo, projectID string, vpcSystemId string, securityGroupName string, firewallType string, sequence int, isAllow bool) compute.Firewall {
 
 	port := setFromPortToPort(ruleInfo.FromPort, ruleInfo.ToPort)
 	var firewallAllowed []*compute.FirewallAllowed
-	if port == "" {
-		firewallAllowed = append(firewallAllowed, &compute.FirewallAllowed{
-			IPProtocol: ruleInfo.IPProtocol,
-		})
+	var firewallDenied []*compute.FirewallDenied
+
+	if isAllow {
+		if port == "" {
+			firewallAllowed = append(firewallAllowed, &compute.FirewallAllowed{
+				IPProtocol: ruleInfo.IPProtocol,
+			})
+		} else {
+			firewallAllowed = append(firewallAllowed, &compute.FirewallAllowed{
+				IPProtocol: ruleInfo.IPProtocol,
+				Ports: []string{
+					port,
+				},
+			})
+		}
 	} else {
-		firewallAllowed = append(firewallAllowed, &compute.FirewallAllowed{
-			IPProtocol: ruleInfo.IPProtocol,
-			Ports: []string{
-				port,
-			},
-		})
+		if port == "" {
+			firewallDenied = append(firewallDenied, &compute.FirewallDenied{
+				IPProtocol: ruleInfo.IPProtocol,
+			})
+		} else {
+			firewallDenied = append(firewallDenied, &compute.FirewallDenied{
+				IPProtocol: ruleInfo.IPProtocol,
+				Ports: []string{
+					port,
+				},
+			})
+		}
 	}
 
 	cidr := ruleInfo.CIDR
@@ -382,6 +432,7 @@ func setNewFirewall(ruleInfo irs.SecurityRuleInfo, projectID string, vpcSystemId
 	fireWall := compute.Firewall{
 		Name:      firewallName,
 		Allowed:   firewallAllowed,
+		Denied:    firewallDenied,
 		Direction: firewallDirection,
 		Network:   networkURL,
 		TargetTags: []string{
@@ -588,9 +639,12 @@ func (securityHandler *GCPSecurityHandler) GetSecurity(securityIID irs.IID) (irs
 //}
 
 // 해당 Tag를 가진 firewall 삭제
+// 모든 rule이 삭제 되었을 때, outbound가 ALL Deny가 되어야 하므로  기본Rule 추가
 func (securityHandler *GCPSecurityHandler) DeleteSecurity(securityIID irs.IID) (bool, error) {
-	//projectID := securityHandler.Credential.ProjectID
+	projectID := securityHandler.Credential.ProjectID
 	securityGroupTag := securityIID.SystemId
+	var vpcIID irs.IID
+
 	fmt.Println("Delete Security ", securityGroupTag)
 	// 해당 Tag를 가진 목록 조회
 	firewallList, err := securityHandler.firewallList(securityGroupTag)
@@ -598,8 +652,17 @@ func (securityHandler *GCPSecurityHandler) DeleteSecurity(securityIID irs.IID) (
 		cblogger.Error(err)
 		return false, err
 	}
+
 	fmt.Println("Delete Security 삭제 대상 ", len(firewallList))
-	for _, firewallInfo := range firewallList {
+	for index, firewallInfo := range firewallList {
+		if index == 0 {
+			tempSecurityInfo, err := convertFromFirewallToSecurityInfo(firewallInfo) // securityInfo로 변환. securityInfo에 이름이 있어서 해당 이름 사용
+			if err != nil {
+				//500  convert Error
+				return false, err
+			}
+			vpcIID = tempSecurityInfo.VpcIID
+		}
 		fmt.Println("Delete Security 삭제 대상item ", len(firewallInfo.Items))
 		securityHandler.firewallDelete(securityGroupTag, "", firewallInfo)
 		if err != nil {
@@ -607,6 +670,33 @@ func (securityHandler *GCPSecurityHandler) DeleteSecurity(securityIID irs.IID) (
 			return false, err
 		}
 	}
+
+	// 전체 삭제 후 all deny 추가
+	_, err = securityHandler.insertDefaultOutboundPolicy(projectID, vpcIID.SystemId, securityIID.NameId, 1)
+	if err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+// GCP의 outbound는 ALL Allow 이기 때문에 ALL Deny rule 추가. 우선순위=65535로 낮게.
+func (securityHandler *GCPSecurityHandler) insertDefaultOutboundPolicy(projectID string, vpcID string, securityID string, egressCount int) (bool, error) {
+
+	cblogger.Info("기본outbound ")
+	defaultOutboundDenySecurityRuleInfo := irs.SecurityRuleInfo{
+		FromPort:   "", // 지정하지 않으면 전체임.
+		IPProtocol: "ALL",
+		Direction:  "EGRESS",
+		CIDR:       "0.0.0.0/0",
+	}
+	defaultOutboundDenyFireWall := setNewFirewall(defaultOutboundDenySecurityRuleInfo, projectID, vpcID, securityID, "-o-", egressCount, Const_Firewall_Deny)
+	defaultOutboundDenyFireWall.Priority = 65535 // defaultFirewall의 우선순위는 가장 낮게: ALL Deny
+	_, err := securityHandler.firewallInsert(defaultOutboundDenyFireWall)
+	if err != nil {
+		cblogger.Debug(err)
+		return false, err
+	}
+	cblogger.Debug(defaultOutboundDenyFireWall)
 	return true, nil
 }
 
@@ -688,11 +778,11 @@ func (securityHandler *GCPSecurityHandler) AddRules(sgIID irs.IID, securityRules
 		var fireWall compute.Firewall
 		if strings.EqualFold(firewallDirection, "INGRESS") || strings.EqualFold(firewallDirection, "inbound") {
 			firewallType = "-i-"
-			fireWall = setNewFirewall(item, projectID, searchSecurityInfo.VpcIID.SystemId, securityGroupTag, firewallType, reqIngressCount)
+			fireWall = setNewFirewall(item, projectID, searchSecurityInfo.VpcIID.SystemId, securityGroupTag, firewallType, reqIngressCount, Const_Firewall_Allow)
 			reqIngressCount++
 		} else if strings.EqualFold(firewallDirection, "EGRESS") || strings.EqualFold(firewallDirection, "outbound") {
 			firewallType = "-o-"
-			fireWall = setNewFirewall(item, projectID, searchSecurityInfo.VpcIID.SystemId, securityGroupTag, firewallType, reqEgressCount)
+			fireWall = setNewFirewall(item, projectID, searchSecurityInfo.VpcIID.SystemId, securityGroupTag, firewallType, reqEgressCount, Const_Firewall_Allow)
 			reqEgressCount++
 		} else {
 			// direction 이 없는데.... continue
@@ -868,6 +958,7 @@ func (securityHandler *GCPSecurityHandler) AddRules(sgIID irs.IID, securityRules
 //}
 
 // 요청받은 Security 그룹안의 SecurityRule이 동일한 firewall 삭제
+// 추가가 allow만 가능 하므로 삭제도 allow만 가능
 func (securityHandler *GCPSecurityHandler) RemoveRules(sgIID irs.IID, securityRules *[]irs.SecurityRuleInfo) (bool, error) {
 	cblogger.Info(*securityRules)
 
@@ -891,6 +982,8 @@ func (securityHandler *GCPSecurityHandler) RemoveRules(sgIID irs.IID, securityRu
 			tempSecurityRules = append(tempSecurityRules, ruleInfo)
 		}
 		searchSecurityInfo.VpcIID = tempSecurityInfo.VpcIID
+
+		// TODO : 기본정책인 deny all 이 존재하는지 check, 없으면 추가시킴.
 	}
 	searchSecurityInfo.SecurityRules = &tempSecurityRules
 
@@ -966,13 +1059,12 @@ func (securityHandler *GCPSecurityHandler) RemoveRules(sgIID irs.IID, securityRu
 			}
 
 			// 삭제 호출
-			_, err := securityHandler.firewallDelete(securityGroupTag, resourceId, firewallInfo) // TODO : group 전체를 지우고 있음. 1개만 지울 수 있게 보완 필요
+			_, err := securityHandler.firewallDelete(securityGroupTag, resourceId, firewallInfo)
 			if err != nil {
 				return false, err
 			}
 		}
 	}
-	// TODO : 호출결과가 모두 성공일 때 true를 return하도록 변경
 	return true, nil
 }
 
@@ -1555,7 +1647,6 @@ func (securityHandler *GCPSecurityHandler) firewallDelete(securityGroupTag strin
 		}
 		callLogStart := call.Start()
 
-		// 해당 firewall의 resourceID 로 Delete 호출 : 싹지우는 것 같은데???
 		res, err := securityHandler.Client.Firewalls.Delete(projectID, resourceID).Do()
 		if err != nil {
 			return false, err
