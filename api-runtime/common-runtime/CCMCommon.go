@@ -1907,6 +1907,14 @@ func AddRules(connectionName string, sgName string, reqInfoList []cres.SecurityR
         // (3) set ResourceInfo(userIID)
         info.IId = getUserIID(iidInfo.IId)
 
+        // set VPC SystemId
+        vpcIIDInfo, err := iidRWLock.GetIID(iidm.IIDSGROUP, connectionName, rsVPC, cres.IID{iidInfo.ResourceType/*vpcName*/, ""})
+        if err != nil {
+                cblog.Error(err)
+                return nil, err
+        }
+        info.VpcIID = getUserIID(vpcIIDInfo.IId)
+
         return &info, nil
 }
 
