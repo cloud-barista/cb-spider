@@ -66,6 +66,7 @@ func (securityHandler *IbmSecurityHandler) CreateSecurity(securityReqInfo irs.Se
 		return irs.SecurityInfo{}, createErr
 	}
 	securityGroupRulePrototypes, err := convertCBRuleInfoToIbmRule(*securityReqInfo.SecurityRules)
+	_ = addDefaultOutBoundRule(*securityReqInfo.SecurityRules, securityGroupRulePrototypes)
 	if err != nil {
 		createErr := errors.New(fmt.Sprintf("Failed to Create Security. err = %s", err.Error()))
 		cblogger.Error(createErr.Error())
@@ -325,7 +326,7 @@ func setSecurityGroupInfo(securityGroup vpcv1.SecurityGroup) (irs.SecurityInfo, 
 func setRule(securityGroup vpcv1.SecurityGroup) ([]irs.SecurityRuleInfo, error) {
 	var ruleList []irs.SecurityRuleInfo
 	for _, rule := range securityGroup.Rules {
-		ruleInfo, err := convertIbmRuleToCBRuleInfo(rule)
+		ruleInfo, err := ConvertIbmRuleToCBRuleInfo(rule)
 		if err != nil {
 			return nil, err
 		}
@@ -398,16 +399,21 @@ func (securityHandler *IbmSecurityHandler) AddRules(sgIID irs.IID, securityRules
 	var updateRules []irs.SecurityRuleInfo
 	// 추가될 Rule 판단
 	for _, newRule := range *securityRules {
-		chk := true
+		existCheck := false
 		for _, baseRule := range *securityGroupInfo.SecurityRules {
 			if equalsRule(newRule, baseRule) {
-				chk = false
+				existCheck = true
 				break
 			}
 		}
-		if chk {
-			updateRules = append(updateRules, newRule)
+		if existCheck {
+			b, err := json.Marshal(newRule)
+			err = errors.New(fmt.Sprintf("Failed to Add SecurityGroup Rules. err already Exist Rule : %s", string(b)))
+			cblogger.Error(err.Error())
+			LoggingError(hiscallInfo, err)
+			return irs.SecurityInfo{}, err
 		}
+		updateRules = append(updateRules, newRule)
 	}
 	securityGroupRulePrototypes, err := convertCBRuleInfoToIbmRule(updateRules)
 	if err != nil {
@@ -475,19 +481,29 @@ func (securityHandler *IbmSecurityHandler) RemoveRules(sgIID irs.IID, securityRu
 	}
 	var deleteRuleIds []string
 
-	for _, baseRuleWithId := range *ruleWithIds {
-		for _, delRule := range *securityRules {
+	for _, delRule := range *securityRules {
+		existCheck := false
+		for _, baseRuleWithId := range *ruleWithIds {
 			if equalsRule(baseRuleWithId.RuleInfo, delRule) {
+				existCheck = true
 				deleteRuleIds = append(deleteRuleIds, baseRuleWithId.Id)
 				break
 			}
 		}
+		if !existCheck {
+			b, err := json.Marshal(delRule)
+			err = errors.New(fmt.Sprintf("Failed to Remove SecurityGroup Rules. err = not Exist Rule : %s", string(b)))
+			cblogger.Error(err.Error())
+			LoggingError(hiscallInfo, err)
+			return false, err
+		}
 	}
+
 	for _, deleteRuleId := range deleteRuleIds {
 		options := &vpcv1.DeleteSecurityGroupRuleOptions{}
 		options.SetSecurityGroupID(*securityGroup.ID)
 		options.SetID(deleteRuleId)
-		_, err := securityHandler.VpcService.DeleteSecurityGroupRule(options)
+		_, err := securityHandler.VpcService.DeleteSecurityGroupRuleWithContext(securityHandler.Ctx, options)
 		if err != nil {
 			getErr := errors.New(fmt.Sprintf("Failed to Remove SecurityGroup Rules. err = %s", err.Error()))
 			cblogger.Error(getErr.Error())
@@ -528,7 +544,7 @@ func getRuleInfoWithId(rawRules *[]vpcv1.SecurityGroupRuleIntf) (*[]securityRule
 		if ru.ID == nil {
 			return nil, errors.New("securityGroup Rule marshal failed")
 		}
-		ruleInfo, err := convertIbmRuleToCBRuleInfo(rule)
+		ruleInfo, err := ConvertIbmRuleToCBRuleInfo(rule)
 		if err != nil {
 			return nil, err
 		}
@@ -537,7 +553,7 @@ func getRuleInfoWithId(rawRules *[]vpcv1.SecurityGroupRuleIntf) (*[]securityRule
 	return &arr, nil
 }
 
-func convertIbmRuleToCBRuleInfo(rule vpcv1.SecurityGroupRuleIntf) (*irs.SecurityRuleInfo, error) {
+func ConvertIbmRuleToCBRuleInfo(rule vpcv1.SecurityGroupRuleIntf) (*irs.SecurityRuleInfo, error) {
 	jsonRuleBytes, err := json.Marshal(rule)
 	if err != nil {
 		return nil, err
@@ -594,6 +610,42 @@ func convertIbmRuleToCBRuleInfo(rule vpcv1.SecurityGroupRuleIntf) (*irs.Security
 		}
 		return &ruleInfo, nil
 	}
+}
+
+func ModifyVPCDefaultRule(rules []vpcv1.SecurityGroupRuleIntf, sgIId irs.IID, vpcService *vpcv1.VpcV1, ctx context.Context) error {
+	for _, rule := range rules {
+		jsonRuleBytes, err := json.Marshal(rule)
+		if err != nil {
+			return err
+		}
+		jsonRuleMap := make(map[string]json.RawMessage)
+		unmarshalErr := json.Unmarshal(jsonRuleBytes, &jsonRuleMap)
+		if unmarshalErr != nil {
+			return err
+		}
+		remoteJson := jsonRuleMap["remote"]
+
+		var remote vpcv1.SecurityGroupRuleRemote
+		unmarshalErr = json.Unmarshal(remoteJson, &remote)
+		if unmarshalErr != nil {
+			return err
+		}
+		if remote.Name != nil && *remote.Name == sgIId.NameId {
+			continue
+		}
+		var ruleProtocolAll vpcv1.SecurityGroupRule
+		_ = json.Unmarshal(jsonRuleBytes, &ruleProtocolAll)
+		if ruleProtocolAll.ID != nil && *ruleProtocolAll.ID != "" {
+			options := &vpcv1.DeleteSecurityGroupRuleOptions{}
+			options.SetSecurityGroupID(sgIId.SystemId)
+			options.SetID(*ruleProtocolAll.ID)
+			_, err = vpcService.DeleteSecurityGroupRuleWithContext(ctx, options)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 func convertRuleProtocolIBMToCB(protocol string) string {
@@ -673,4 +725,30 @@ func convertCBRuleInfoToIbmRule(rules []irs.SecurityRuleInfo) (*[]vpcv1.Security
 		}
 	}
 	return &IbmSGRuleList, nil
+}
+func addDefaultOutBoundRule(baseRuleInfos []irs.SecurityRuleInfo, addRules *[]vpcv1.SecurityGroupRulePrototype) error {
+	defaultRuleInfo := irs.SecurityRuleInfo{
+		CIDR:       "0.0.0.0/0",
+		IPProtocol: "all",
+		FromPort:   "-1",
+		ToPort:     "-1",
+		Direction:  "outbound",
+	}
+	addCheck := true
+	for _, rule := range baseRuleInfos {
+		if equalsRule(rule, defaultRuleInfo) {
+			addCheck = false
+		}
+	}
+	if addCheck {
+		*addRules = append(*addRules, vpcv1.SecurityGroupRulePrototype{
+			Direction: core.StringPtr(strings.ToLower(defaultRuleInfo.Direction)),
+			Protocol:  core.StringPtr(defaultRuleInfo.IPProtocol),
+			IPVersion: core.StringPtr("ipv4"),
+			Remote: &vpcv1.SecurityGroupRuleRemotePrototype{
+				CIDRBlock: &defaultRuleInfo.CIDR,
+			},
+		})
+	}
+	return nil
 }
