@@ -638,12 +638,12 @@ func (securityHandler *GCPSecurityHandler) GetSecurity(securityIID irs.IID) (irs
 //	return securityInfo, nil
 //}
 
-// 해당 Tag를 가진 firewall 삭제
-// 모든 rule이 삭제 되었을 때, outbound가 ALL Deny가 되어야 하므로  기본Rule 추가
+// SecurityGroup 삭제 (해당 Tag를 가진 firewall 삭제)
+// TODO : 모든 rule이 삭제 되었을 때, outbound가 ALL Deny가 되어야 하므로  기본Rule 추가 -> remove rule에 적용할 필요가 있을 듯.
 func (securityHandler *GCPSecurityHandler) DeleteSecurity(securityIID irs.IID) (bool, error) {
-	projectID := securityHandler.Credential.ProjectID
+	//projectID := securityHandler.Credential.ProjectID
 	securityGroupTag := securityIID.SystemId
-	var vpcIID irs.IID
+	//var vpcIID irs.IID
 
 	fmt.Println("Delete Security ", securityGroupTag)
 	// 해당 Tag를 가진 목록 조회
@@ -655,15 +655,15 @@ func (securityHandler *GCPSecurityHandler) DeleteSecurity(securityIID irs.IID) (
 
 	fmt.Println("Delete Security 삭제 대상 ", len(firewallList))
 	for index, firewallInfo := range firewallList {
-		if index == 0 {
-			tempSecurityInfo, err := convertFromFirewallToSecurityInfo(firewallInfo) // securityInfo로 변환. securityInfo에 이름이 있어서 해당 이름 사용
-			if err != nil {
-				//500  convert Error
-				return false, err
-			}
-			vpcIID = tempSecurityInfo.VpcIID
-		}
-		fmt.Println("Delete Security 삭제 대상item ", len(firewallInfo.Items))
+		//if index == 0 {
+		//	tempSecurityInfo, err := convertFromFirewallToSecurityInfo(firewallInfo) // securityInfo로 변환. securityInfo에 이름이 있어서 해당 이름 사용
+		//	if err != nil {
+		//		//500  convert Error
+		//		return false, err
+		//	}
+		//	vpcIID = tempSecurityInfo.VpcIID
+		//}
+		fmt.Println("Delete Security 삭제 대상item ", len(firewallInfo.Items), " index = ", index)
 		securityHandler.firewallDelete(securityGroupTag, "", firewallInfo)
 		if err != nil {
 			//500  convert Error
@@ -671,11 +671,11 @@ func (securityHandler *GCPSecurityHandler) DeleteSecurity(securityIID irs.IID) (
 		}
 	}
 
-	// 전체 삭제 후 all deny 추가
-	_, err = securityHandler.insertDefaultOutboundPolicy(projectID, vpcIID.SystemId, securityIID.NameId, 1)
-	if err != nil {
-		return false, err
-	}
+	//// 전체 삭제 후 all deny 추가 : securityGroup을 삭제하는 로직이라 추가할 필요 없음.
+	//_, err = securityHandler.insertDefaultOutboundPolicy(projectID, vpcIID.SystemId, securityIID.NameId, 1)
+	//if err != nil {
+	//	return false, err
+	//}
 	return true, nil
 }
 
