@@ -120,6 +120,35 @@ func (vpcHandler *IbmVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.VPCIn
 			}
 		}
 	}
+	//// default SecurityGroup modify
+	options := &vpcv1.GetSecurityGroupOptions{}
+	options.SetID(*vpc.DefaultSecurityGroup.ID)
+	sg, _, err := vpcHandler.VpcService.GetSecurityGroupWithContext(vpcHandler.Ctx, options)
+
+	if err != nil {
+		_, delErr := vpcHandler.DeleteVPC(newVpcIId)
+		if delErr != nil {
+			err = errors.New(err.Error() + delErr.Error())
+		}
+		createErr := errors.New(fmt.Sprintf("Failed to Create VPC err = %s", err.Error()))
+		cblogger.Error(createErr.Error())
+		LoggingError(hiscallInfo, createErr)
+		return irs.VPCInfo{}, createErr
+	}
+
+	err = ModifyVPCDefaultRule(sg.Rules, irs.IID{NameId: *sg.Name, SystemId: *sg.ID}, vpcHandler.VpcService, vpcHandler.Ctx)
+
+	if err != nil {
+		_, delErr := vpcHandler.DeleteVPC(newVpcIId)
+		if delErr != nil {
+			err = errors.New(err.Error() + delErr.Error())
+		}
+		createErr := errors.New(fmt.Sprintf("Failed to Create VPC err = %s", err.Error()))
+		cblogger.Error(createErr.Error())
+		LoggingError(hiscallInfo, createErr)
+		return irs.VPCInfo{}, createErr
+	}
+
 	vpcInfo, err := setVPCInfo(*vpc, vpcHandler.VpcService, vpcHandler.Ctx)
 	if err != nil {
 		_, delErr := vpcHandler.DeleteVPC(newVpcIId)
@@ -181,6 +210,15 @@ func (vpcHandler *IbmVPCHandler) GetVPC(vpcIID irs.IID) (irs.VPCInfo, error) {
 	hiscallInfo := GetCallLogScheme(vpcHandler.Region, call.VPCSUBNET, "VPC", "GetVPC()")
 	start := call.Start()
 	vpc, err := getRawVPC(vpcIID, vpcHandler.VpcService, vpcHandler.Ctx)
+
+	// default SecurityGroup modify
+
+	options := &vpcv1.GetSecurityGroupOptions{}
+	options.SetID(*vpc.DefaultSecurityGroup.ID)
+	sg, _, err := vpcHandler.VpcService.GetSecurityGroupWithContext(vpcHandler.Ctx, options)
+
+	err = ModifyVPCDefaultRule(sg.Rules, irs.IID{NameId: *sg.Name, SystemId: *sg.ID}, vpcHandler.VpcService, vpcHandler.Ctx)
+
 	if err != nil {
 		getErr := errors.New(fmt.Sprintf("Failed to Get VPC err = %s", err.Error()))
 		cblogger.Error(getErr.Error())
