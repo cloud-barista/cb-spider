@@ -272,7 +272,7 @@ func (securityHandler *TencentSecurityHandler) GetSecurity(securityIID irs.IID) 
 
 	if *response.Response.TotalCount > 0 {
 		securityInfo := irs.SecurityInfo{}
-		securityInfo.VpcIID = irs.IID{NameId: "N/A", SystemId: "N/A"}
+		securityInfo.VpcIID = irs.IID{NameId: "", SystemId: ""}
 		securityInfo.IId = irs.IID{NameId: *response.Response.SecurityGroupSet[0].SecurityGroupName, SystemId: *response.Response.SecurityGroupSet[0].SecurityGroupId}
 
 		securityInfo.SecurityRules, err = securityHandler.GetSecurityRuleInfo(securityIID)
@@ -352,7 +352,7 @@ func (securityHandler *TencentSecurityHandler) ExtractPolicyGroups(policyGroups 
 				if len(portRange) > 1 {
 					toPort = portRange[len(portRange)-1]
 				} else {
-					toPort = ""
+					toPort = fromPort
 				}
 
 				if strings.EqualFold(fromPort, "ALL") {
