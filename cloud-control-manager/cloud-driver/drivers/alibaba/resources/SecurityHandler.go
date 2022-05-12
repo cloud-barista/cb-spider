@@ -453,13 +453,13 @@ func (securityHandler *AlibabaSecurityHandler) ExtractSecurityRuleInfo(securityG
 	*/
 	var curSecurityRuleInfo irs.SecurityRuleInfo
 	for _, curPermission := range response.Permissions.Permission {
-		curSecurityRuleInfo.Direction = curPermission.Direction
+		// curSecurityRuleInfo.Direction = curPermission.Direction
 
 		if strings.EqualFold(curPermission.Direction, "ingress") {
-			// curSecurityRuleInfo.Direction = "inbound"
+			curSecurityRuleInfo.Direction = "inbound"
 			curSecurityRuleInfo.CIDR = curPermission.SourceCidrIp
 		} else if strings.EqualFold(curPermission.Direction, "egress") {
-			// curSecurityRuleInfo.Direction = "outbound"
+			curSecurityRuleInfo.Direction = "outbound"
 			curSecurityRuleInfo.CIDR = curPermission.DestCidrIp
 		}
 
@@ -530,12 +530,6 @@ func sameRulesCheck(presentSecurityRules *[]irs.SecurityRuleInfo, reqSecurityRul
 			reqRulePort = reqRule.FromPort
 		} else {
 			reqRulePort = reqRule.FromPort + "-" + reqRule.ToPort
-		}
-
-		if strings.EqualFold(reqRule.Direction, "inbound") {
-			reqRule.Direction = "ingress"
-		} else if strings.EqualFold(reqRule.Direction, "outbound") {
-			reqRule.Direction = "egress"
 		}
 
 		for _, present := range *presentSecurityRules {
