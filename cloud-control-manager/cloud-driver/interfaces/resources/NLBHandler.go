@@ -10,6 +10,8 @@
 
 package resources
 
+import "time"
+
 type NLBReqInfo struct {
 	IId		IID // {NameId, SystemId}
 	VpcIID		IID    // {NameId, SystemId}
@@ -57,6 +59,7 @@ type HealthyInfo struct {
 
 type NLBInfo struct {
         IId		IID	// {NameId, SystemId}
+	CreatedTime	time.Time
         VpcIID		IID	// {NameId, SystemId}
 
 	//------ Frontend
