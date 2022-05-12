@@ -1,8 +1,10 @@
 package resources
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
 	"strconv"
 	"strings"
 
@@ -49,10 +51,8 @@ func (securityHandler *OpenStackSecurityHandler) setterSeg(secGroup secgroups.Se
 	// 보안그룹 룰 정보 등록
 	var secRuleList []irs.SecurityRuleInfo
 	for _, rule := range secList {
-		if rule.EtherType == string(rules.EtherType4) {
-			ruleInfo := convertOpenStackRuleToCBRuleInfo(&rule)
-			secRuleList = append(secRuleList, ruleInfo)
-		}
+		ruleInfo := convertOpenStackRuleToCBRuleInfo(&rule)
+		secRuleList = append(secRuleList, ruleInfo)
 	}
 	secInfo.SecurityRules = &secRuleList
 
@@ -223,16 +223,21 @@ func (securityHandler *OpenStackSecurityHandler) AddRules(sgIID irs.IID, securit
 
 	var updateRules []irs.SecurityRuleInfo
 	for _, newRule := range *securityRules {
-		chk := true
+		existCheck := false
 		for _, baseRule := range *securityInfo.SecurityRules {
 			if equalsRule(newRule, baseRule) {
-				chk = false
+				existCheck = true
 				break
 			}
 		}
-		if chk {
-			updateRules = append(updateRules, newRule)
+		if existCheck {
+			b, err := json.Marshal(newRule)
+			err = errors.New(fmt.Sprintf("Failed to Add SecurityGroup Rules. err already Exist Rule : %s", string(b)))
+			cblogger.Error(err.Error())
+			LoggingError(hiscallInfo, err)
+			return irs.SecurityInfo{}, err
 		}
+		updateRules = append(updateRules, newRule)
 	}
 	createRuleOpts, err := convertCBRuleInfosToOpenStackRules(securityGroup.ID, &updateRules)
 	if err != nil {
@@ -267,10 +272,14 @@ func (securityHandler *OpenStackSecurityHandler) RemoveRules(sgIID irs.IID, secu
 	hiscallInfo := GetCallLogScheme(securityHandler.Client.IdentityEndpoint, call.SECURITYGROUP, sgIID.NameId, "AddRules()")
 
 	start := call.Start()
-
-	listOpts := rules.ListOpts{
-		SecGroupID: sgIID.SystemId,
+	rawseg, err := securityHandler.getRawSecurity(sgIID)
+	if err != nil {
+		return false, err
 	}
+	listOpts := rules.ListOpts{
+		SecGroupID: rawseg.ID,
+	}
+
 	pager, err := rules.List(securityHandler.NetworkClient, listOpts).AllPages()
 	if err != nil {
 		return false, err
@@ -284,12 +293,22 @@ func (securityHandler *OpenStackSecurityHandler) RemoveRules(sgIID irs.IID, secu
 	if err != nil {
 		return false, err
 	}
-	for _, newRule := range *securityRules {
+
+	for _, delRule := range *securityRules {
+		existCheck := false
 		for _, baseRuleWithId := range *ruleWithIds {
-			if equalsRule(newRule, baseRuleWithId.RuleInfo) {
+			if equalsRule(delRule, baseRuleWithId.RuleInfo) {
+				existCheck = true
 				deleteRuleIds = append(deleteRuleIds, baseRuleWithId.Id)
 				break
 			}
+		}
+		if !existCheck {
+			b, err := json.Marshal(delRule)
+			err = errors.New(fmt.Sprintf("Failed to Remove SecurityGroup Rules. err = not Exist Rule : %s", string(b)))
+			cblogger.Error(err.Error())
+			LoggingError(hiscallInfo, err)
+			return false, err
 		}
 	}
 	for _, deleteRuleId := range deleteRuleIds {
@@ -310,18 +329,28 @@ func convertRuleProtocolOPToCB(protocol string) string {
 	}
 }
 
-func convertRuleProtocolCBToOP(protocol string) (string, error) {
+func convertRuleProtocolCBToOP(protocol string) (rules.RuleProtocol, error) {
 	switch strings.ToUpper(protocol) {
 	case "ALL":
 		return "", nil
 	case "ICMP", "TCP", "UDP":
-		return strings.ToLower(protocol), nil
+		return rules.RuleProtocol(strings.ToLower(protocol)), nil
 	}
 	return "", errors.New("invalid Rule Protocol. The rule protocol of OpenStack must be specified accurately tcp, udp, icmp")
 }
 
+func convertRuleDirectionCBToOP(direction string) (rules.RuleDirection, error) {
+	if strings.EqualFold(strings.ToLower(direction), Inbound) {
+		return rules.DirIngress, nil
+	}
+	if strings.EqualFold(strings.ToLower(direction), Outbound) {
+		return rules.DirEgress, nil
+	}
+	return "", errors.New("invalid Rule Direction. The rule Direction of OpenStack must be specified accurately inbound, outbound")
+}
+
 func convertRulePortRangeOPToCB(min int, max int, protocol string) (from string, to string) {
-	if strings.ToLower(protocol) == ICMP {
+	if strings.ToLower(protocol) == ICMP || strings.ToLower(protocol) == "" {
 		return "-1", "-1"
 	} else {
 		if min == 0 && max == 0 {
@@ -371,24 +400,25 @@ func equalsRule(pre irs.SecurityRuleInfo, post irs.SecurityRuleInfo) bool {
 func convertCBRuleInfosToOpenStackRules(sgId string, sgRules *[]irs.SecurityRuleInfo) (*[]rules.CreateOpts, error) {
 	openStackRuleCreateOpts := make([]rules.CreateOpts, len(*sgRules))
 	for i, rule := range *sgRules {
-		var direction string
-		if strings.EqualFold(strings.ToLower(rule.Direction), Inbound) {
-			direction = string(rules.DirIngress)
-		} else {
-			direction = string(rules.DirEgress)
+		direction, err := convertRuleDirectionCBToOP(rule.Direction)
+		if err != nil {
+			return nil, err
 		}
-
 		var createRuleOpts rules.CreateOpts
 		protocol, err := convertRuleProtocolCBToOP(rule.IPProtocol)
 		if err != nil {
 			return nil, err
 		}
+		etherType, err := checkIPAddressType(rule.CIDR)
+		if err != nil {
+			return nil, err
+		}
 		if strings.ToLower(rule.IPProtocol) == ICMP {
 			createRuleOpts = rules.CreateOpts{
-				Direction:      rules.RuleDirection(direction),
-				EtherType:      rules.EtherType4,
+				Direction:      direction,
+				EtherType:      etherType,
 				SecGroupID:     sgId,
-				Protocol:       rules.RuleProtocol(protocol),
+				Protocol:       protocol,
 				RemoteIPPrefix: rule.CIDR,
 			}
 		} else {
@@ -397,12 +427,12 @@ func convertCBRuleInfosToOpenStackRules(sgId string, sgRules *[]irs.SecurityRule
 				return nil, err
 			}
 			createRuleOpts = rules.CreateOpts{
-				Direction:      rules.RuleDirection(direction),
-				EtherType:      rules.EtherType4,
+				Direction:      direction,
+				EtherType:      etherType,
 				SecGroupID:     sgId,
 				PortRangeMin:   min,
 				PortRangeMax:   max,
-				Protocol:       rules.RuleProtocol(protocol),
+				Protocol:       protocol,
 				RemoteIPPrefix: rule.CIDR,
 			}
 		}
@@ -423,9 +453,13 @@ func convertOpenStackRuleToCBRuleInfo(rawRules *rules.SecGroupRule) irs.Security
 	} else {
 		direction = Outbound
 	}
+	// EtherType 6=> ::/0 4=> 0.0.0.0/0
 	cidr := rawRules.RemoteIPPrefix
 	if cidr == "" {
 		cidr = "0.0.0.0/0"
+		if rules.RuleEtherType(rawRules.EtherType) == rules.EtherType6 {
+			cidr = "::/0"
+		}
 	}
 	ruleInfo := irs.SecurityRuleInfo{
 		Direction:  direction,
@@ -448,23 +482,20 @@ func convertOpenStackRuleToCBRuleInfo(rawRules *rules.SecGroupRule) irs.Security
 func getRuleInfoWithIds(rawRules *[]rules.SecGroupRule) (*[]securityRuleInfoWithId, error) {
 	var secRuleArrIds []securityRuleInfoWithId
 	for _, rawRule := range *rawRules {
-		if rawRule.EtherType == string(rules.EtherType4) {
-			ruleInfo := convertOpenStackRuleToCBRuleInfo(&rawRule)
-			secRuleArrIds = append(secRuleArrIds, securityRuleInfoWithId{
-				Id:       rawRule.ID,
-				RuleInfo: ruleInfo,
-			})
-		}
+		ruleInfo := convertOpenStackRuleToCBRuleInfo(&rawRule)
+		secRuleArrIds = append(secRuleArrIds, securityRuleInfoWithId{
+			Id:       rawRule.ID,
+			RuleInfo: ruleInfo,
+		})
 	}
 	return &secRuleArrIds, nil
 }
-
 
 func (securityHandler *OpenStackSecurityHandler) getRawSecurity(securityIID irs.IID) (*secgroups.SecurityGroup, error) {
 	if securityIID.SystemId == "" && securityIID.NameId == "" {
 		return nil, errors.New("invalid IID")
 	}
-	if securityIID.SystemId != ""{
+	if securityIID.SystemId != "" {
 		return secgroups.Get(securityHandler.Client, securityIID.SystemId).Extract()
 	} else {
 		pager, err := secgroups.List(securityHandler.Client).AllPages()
@@ -473,7 +504,7 @@ func (securityHandler *OpenStackSecurityHandler) getRawSecurity(securityIID irs.
 		}
 		rawSecurityGroups, err := secgroups.ExtractSecurityGroups(pager)
 		for _, rawSeg := range rawSecurityGroups {
-			if  securityIID.NameId == rawSeg.Name {
+			if securityIID.NameId == rawSeg.Name {
 				return &rawSeg, nil
 			}
 		}
@@ -481,3 +512,23 @@ func (securityHandler *OpenStackSecurityHandler) getRawSecurity(securityIID irs.
 	}
 }
 
+func checkIPAddressType(cidr string) (rules.RuleEtherType, error) {
+	cidrSplits := strings.Split(cidr, "/")
+
+	if len(cidrSplits) != 2 {
+		return "", errors.New(fmt.Sprintf("Invalid CIDR Address: %s\n", cidr))
+	}
+	ip := cidrSplits[0]
+	if net.ParseIP(ip) == nil {
+		return "", errors.New(fmt.Sprintf("Invalid CIDR Address: %s\n", cidr))
+	}
+	for i := 0; i < len(ip); i++ {
+		switch ip[i] {
+		case '.':
+			return rules.EtherType4, nil
+		case ':':
+			return rules.EtherType6, nil
+		}
+	}
+	return "", errors.New(fmt.Sprintf("Invalid CIDR Address: %s\n", cidr))
+}
