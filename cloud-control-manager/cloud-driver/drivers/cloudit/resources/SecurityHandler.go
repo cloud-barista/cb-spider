@@ -1,6 +1,7 @@
 package resources
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math/rand"
@@ -42,14 +43,6 @@ func (securityHandler *ClouditSecurityHandler) setterSecGroup(secGroup securityg
 		secRuleArr[i] = convertRuleInfoCloudItToCB(sgRule)
 	}
 	secInfo.SecurityRules = &secRuleArr
-	VPCHandler := ClouditVPCHandler{
-		Client:         securityHandler.Client,
-		CredentialInfo: securityHandler.CredentialInfo,
-	}
-	defaultVPC, err := VPCHandler.GetDefaultVPC()
-	if err == nil {
-		secInfo.VpcIID = defaultVPC.IId
-	}
 	return secInfo, nil
 }
 
@@ -85,6 +78,15 @@ func (securityHandler *ClouditSecurityHandler) CreateSecurity(securityReqInfo ir
 		}
 		ruleList[i] = createRule
 	}
+	err := addDefaultOutBoundRule(*securityReqInfo.SecurityRules, &ruleList)
+
+	if err != nil {
+		createErr := errors.New(fmt.Sprintf("Failed to Create Security. err = %s", err.Error()))
+		cblogger.Error(createErr.Error())
+		LoggingError(hiscallInfo, createErr)
+		return irs.SecurityInfo{}, createErr
+	}
+
 	reqInfo.Rules = ruleList
 
 	createOpts := client.RequestOpts{
@@ -295,17 +297,23 @@ func (securityHandler *ClouditSecurityHandler) AddRules(sgIID irs.IID, securityR
 	}
 
 	var updateRules []irs.SecurityRuleInfo
+
 	for _, newRule := range *securityRules {
-		chk := true
+		existCheck := false
 		for _, baseRule := range *secGroupInfo.SecurityRules {
 			if equalsRule(newRule, baseRule) {
-				chk = false
+				existCheck = true
 				break
 			}
 		}
-		if chk {
-			updateRules = append(updateRules, newRule)
+		if existCheck {
+			b, _ := json.Marshal(newRule)
+			getErr := errors.New(fmt.Sprintf("Failed to Add SecurityGroup Rules. err already Exist Rule : %s", string(b)))
+			cblogger.Error(getErr.Error())
+			LoggingError(hiscallInfo, getErr)
+			return irs.SecurityInfo{}, getErr
 		}
+		updateRules = append(updateRules, newRule)
 	}
 	ruleList := make([]securitygroup.SecurityGroupRules, len(updateRules))
 	for i, rule := range updateRules {
@@ -392,12 +400,21 @@ func (securityHandler *ClouditSecurityHandler) RemoveRules(sgIID irs.IID, securi
 
 	var deleteRuleIds []string
 
-	for _, newRule := range *securityRules {
+	for _, delRule := range *securityRules {
+		existCheck := false
 		for _, baseRuleWithId := range *ruleWithIds {
-			if equalsRule(newRule, baseRuleWithId.RuleInfo) {
+			if equalsRule(delRule, baseRuleWithId.RuleInfo) {
+				existCheck = true
 				deleteRuleIds = append(deleteRuleIds, baseRuleWithId.Id)
 				break
 			}
+		}
+		if !existCheck {
+			b, err := json.Marshal(delRule)
+			err = errors.New(fmt.Sprintf("Failed to Remove SecurityGroup Rules. err = not Exist Rule : %s", string(b)))
+			cblogger.Error(err.Error())
+			LoggingError(hiscallInfo, err)
+			return false, err
 		}
 	}
 	for _, ruleId := range deleteRuleIds {
@@ -416,7 +433,7 @@ func (securityHandler *ClouditSecurityHandler) RemoveRules(sgIID irs.IID, securi
 }
 
 func (securityHandler *ClouditSecurityHandler) getRawSecurityGroup(sgIID irs.IID) (*securitygroup.SecurityGroupInfo, error) {
-	if sgIID.SystemId == "" && sgIID.NameId == ""{
+	if sgIID.SystemId == "" && sgIID.NameId == "" {
 		return nil, errors.New("invalid IID")
 	}
 	securityHandler.Client.TokenID = securityHandler.CredentialInfo.AuthToken
@@ -431,14 +448,14 @@ func (securityHandler *ClouditSecurityHandler) getRawSecurityGroup(sgIID irs.IID
 	}
 	if sgIID.SystemId == "" {
 		for _, s := range *securityList {
-			if strings.EqualFold(s.Name,sgIID.NameId) {
-				return &s,nil
+			if strings.EqualFold(s.Name, sgIID.NameId) {
+				return &s, nil
 			}
 		}
-	}else{
+	} else {
 		for _, s := range *securityList {
-			if strings.EqualFold(s.ID,sgIID.SystemId) {
-				return &s,nil
+			if strings.EqualFold(s.ID, sgIID.SystemId) {
+				return &s, nil
 			}
 		}
 	}
@@ -476,10 +493,13 @@ func convertRuleProtocolCBToCloudIt(protocol string) (string, error) {
 	return "", errors.New("invalid Rule Protocol CloudIt only offers tcp, udp. ")
 }
 
-func convertRulePortRangeCloudItToCB(portRange string) (from string, to string) {
+func convertRulePortRangeCloudItToCB(portRange string, protocol string) (from string, to string) {
 	portRangeArr := strings.Split(portRange, "-")
+	if strings.ToUpper(protocol) == "ALL" {
+		return "-1", "-1"
+	}
 	if len(portRangeArr) != 2 {
-		if len(portRangeArr) == 1 && portRange != "*" {
+		if len(portRangeArr) == 1 && portRange != "0" {
 			return portRangeArr[0], portRangeArr[0]
 		}
 		return "1", "65535"
@@ -514,7 +534,7 @@ func convertRulePortRangeCBToCloudIt(from string, to string) (string, error) {
 
 func convertRuleInfoCloudItToCB(sgRule securitygroup.SecurityGroupRules) irs.SecurityRuleInfo {
 	protocol := convertRuleProtocolCloudItToCB(sgRule.Protocol)
-	fromPort, toPort := convertRulePortRangeCloudItToCB(sgRule.Port)
+	fromPort, toPort := convertRulePortRangeCloudItToCB(sgRule.Port, protocol)
 	return irs.SecurityRuleInfo{
 		IPProtocol: protocol,
 		Direction:  sgRule.Type,
@@ -561,4 +581,26 @@ func getRuleInfoWithIds(rawRules *[]securitygroup.SecurityGroupRules) (*[]securi
 	return &secRuleArrIds, nil
 }
 
-
+func addDefaultOutBoundRule(baseRuleInfos []irs.SecurityRuleInfo, addRules *[]securitygroup.SecurityGroupRules) error {
+	defaultRuleInfo := irs.SecurityRuleInfo{
+		CIDR:       "0.0.0.0/0",
+		IPProtocol: "all",
+		FromPort:   "-1",
+		ToPort:     "-1",
+		Direction:  "outbound",
+	}
+	addCheck := true
+	for _, rule := range baseRuleInfos {
+		if equalsRule(rule, defaultRuleInfo) {
+			addCheck = false
+		}
+	}
+	if addCheck {
+		createRule, err := convertRuleInfoCBToCloudIt(defaultRuleInfo)
+		if err != nil {
+			return err
+		}
+		*addRules = append(*addRules, createRule)
+	}
+	return nil
+}
