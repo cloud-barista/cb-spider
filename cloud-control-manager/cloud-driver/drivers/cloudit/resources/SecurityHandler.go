@@ -43,14 +43,6 @@ func (securityHandler *ClouditSecurityHandler) setterSecGroup(secGroup securityg
 		secRuleArr[i] = convertRuleInfoCloudItToCB(sgRule)
 	}
 	secInfo.SecurityRules = &secRuleArr
-	VPCHandler := ClouditVPCHandler{
-		Client:         securityHandler.Client,
-		CredentialInfo: securityHandler.CredentialInfo,
-	}
-	defaultVPC, err := VPCHandler.GetDefaultVPC()
-	if err == nil {
-		secInfo.VpcIID = defaultVPC.IId
-	}
 	return secInfo, nil
 }
 
