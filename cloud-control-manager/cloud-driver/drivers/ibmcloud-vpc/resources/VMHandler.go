@@ -185,13 +185,13 @@ func (vmHandler *IbmVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 
 	// 4-1. Create FloatingIP
 	rand.Seed(time.Now().UnixNano())
-	floatingIPName :=  *createInstance.Zone.Name + "-floatingip-" + strconv.FormatInt(rand.Int63n(10000000), 10)
-    floatingIPExist, err := vmHandler.checkFloatingIPName(floatingIPName)
-    if err != nil || floatingIPExist {
+	floatingIPName := *createInstance.Zone.Name + "-floatingip-" + strconv.FormatInt(rand.Int63n(10000000), 10)
+	floatingIPExist, err := vmHandler.checkFloatingIPName(floatingIPName)
+	if err != nil || floatingIPExist {
 		createErr := errors.New(fmt.Sprintf("Failed to Create VM. err = Faild Generator FloatingIP Name"))
 		deleteErr := deleteInstance(*createInstance.ID, vmHandler.VpcService, vmHandler.Ctx)
 		if deleteErr != nil {
-			createErr = errors.New(fmt.Sprintf("%s, %s ",createErr.Error(),deleteErr.Error()))
+			createErr = errors.New(fmt.Sprintf("%s, %s ", createErr.Error(), deleteErr.Error()))
 		}
 		cblogger.Error(createErr.Error())
 		LoggingError(hiscallInfo, createErr)
@@ -1023,12 +1023,29 @@ func (vmHandler *IbmVMHandler) setVmInfo(instance vpcv1.Instance) (irs.VMInfo, e
 	networkInterface, _, err := vmHandler.VpcService.GetInstanceNetworkInterfaceWithContext(vmHandler.Ctx, instanceNetworkInterfaceOptions)
 	// TODO : DNS
 	if err == nil {
+		// SET IP
 		vmInfo.NetworkInterface = *networkInterface.Name
 		if networkInterface.FloatingIps != nil && len(networkInterface.FloatingIps) > 0 {
 			vmInfo.PublicIP = *networkInterface.FloatingIps[0].Address
 			vmInfo.SSHAccessPoint = vmInfo.PublicIP + ":22"
 		}
+		// SET SG
+		getVpcOptions := &vpcv1.GetVPCOptions{}
+		getVpcOptions.SetID(*instance.VPC.ID)
+		vpc, _, _ := vmHandler.VpcService.GetVPCWithContext(vmHandler.Ctx, getVpcOptions)
+		var sgIIds []irs.IID
+		if vpc != nil && vpc.DefaultSecurityGroup != nil {
+			defaultSGId := *vpc.DefaultSecurityGroup.ID
+			vmSecurityGroups := networkInterface.SecurityGroups
+			for _, seg := range vmSecurityGroups {
+				if defaultSGId != *seg.ID {
+					sgIIds = append(sgIIds, irs.IID{NameId: *seg.Name, SystemId: *seg.ID})
+				}
+			}
+		}
+		vmInfo.SecurityGroupIIds = sgIIds
 	}
+
 	volumeIId := irs.IID{SystemId: *instance.BootVolumeAttachment.Volume.ID}
 	rawVolume, err := getRawVolume(volumeIId, vmHandler.VpcService, vmHandler.Ctx)
 	if err == nil {
@@ -1037,9 +1054,9 @@ func (vmHandler *IbmVMHandler) setVmInfo(instance vpcv1.Instance) (irs.VMInfo, e
 	return vmInfo, nil
 }
 
-func (vmHandler *IbmVMHandler) checkFloatingIPName (floatingIPName string) (exist bool, err error){
+func (vmHandler *IbmVMHandler) checkFloatingIPName(floatingIPName string) (exist bool, err error) {
 	options := &vpcv1.ListFloatingIpsOptions{}
-	floatingIPs,_,err :=vmHandler.VpcService.ListFloatingIpsWithContext(vmHandler.Ctx, options)
+	floatingIPs, _, err := vmHandler.VpcService.ListFloatingIpsWithContext(vmHandler.Ctx, options)
 	if err != nil {
 		return false, err
 	}
