@@ -39,6 +39,12 @@ const (
 
 	Const_Firewall_Allow = true
 	Const_Firewall_Deny  = false
+
+	Const_GCP_Direction_INGRESS = "INGRESS"
+	Const_GCP_Direction_EGRESS  = "EGRESS"
+
+	Const_Spider_Direction_INBOUND  = "inbound"
+	Const_Spider_Direction_OUTBOUND = "outbound"
 )
 
 //+ 공통이슈개발방안
@@ -288,7 +294,7 @@ func (securityHandler *GCPSecurityHandler) CreateSecurity(securityReqInfo irs.Se
 		Direction:  "EGRESS",
 		CIDR:       "0.0.0.0/0",
 	}
-	defaultOutboundAllowFireWall := setNewFirewall(defaultOutboundAllowSecurityRuleInfo, projectID, securityReqInfo.VpcIID.SystemId, securityReqInfo.IId.NameId, "-o-", reqEgressCount, Const_Firewall_Allow)
+	defaultOutboundAllowFireWall := setNewFirewall(defaultOutboundAllowSecurityRuleInfo, projectID, securityReqInfo.VpcIID.SystemId, securityReqInfo.IId.NameId, reqEgressCount, Const_Firewall_Allow)
 	defaultOutboundAllowFireWall.Priority = 1000 // defaultFirewall의 우선순위는 가장 낮게: ALL Deny
 	_, err = securityHandler.firewallInsert(defaultOutboundAllowFireWall)
 	if err != nil {
@@ -304,9 +310,9 @@ func (securityHandler *GCPSecurityHandler) CreateSecurity(securityReqInfo irs.Se
 		firewallFromPort := item.FromPort
 		firewallToPort := item.ToPort
 		firewallIPProtocol := item.IPProtocol
-		firewallDirection := item.Direction
 		firewallCIDR := item.CIDR
-		firewallType := ""
+
+		firewallDirection := switchDirectionSpiderAndGCP(item.Direction, "GCP") // GCP로 날 릴 때에는 "GCP", SPIDER에서 사용할 때에는 "SPIDER"
 
 		// SecurityGroup 생성 시. outbound에대한 allow/deny all을 정의하기 떄문에 동일한 요청이 있으면 skip
 		//FromPort:   "-1",
@@ -314,18 +320,24 @@ func (securityHandler *GCPSecurityHandler) CreateSecurity(securityReqInfo irs.Se
 		//IPProtocol: "all",
 		//Direction:  "outbound",
 		//CIDR:       "0.0.0.0/0",
-		if strings.EqualFold(firewallFromPort, "-1") && strings.EqualFold(firewallToPort, "-1") && strings.EqualFold(firewallIPProtocol, "all") && strings.EqualFold(firewallDirection, "outbound") && strings.EqualFold(firewallCIDR, "0.0.0.0/0") {
+		//fmt.Println("default firewallFromPort : ", firewallFromPort)
+		//fmt.Println("default firewallToPort : ", firewallToPort)
+		//fmt.Println("default firewallIPProtocol : ", firewallIPProtocol)
+		//fmt.Println("default firewallDirection : ", firewallDirection)
+		//fmt.Println("default firewallCIDR : ", firewallCIDR)
+
+		// outbound all open는 생성시 자동으로 추가하므로 사용자 요청이 있으면 skip한다.
+		if strings.EqualFold(firewallFromPort, "-1") && strings.EqualFold(firewallToPort, "-1") && strings.EqualFold(firewallIPProtocol, "all") && strings.EqualFold(firewallDirection, Const_GCP_Direction_EGRESS) && strings.EqualFold(firewallCIDR, "0.0.0.0/0") {
+			cblogger.Info("outbound all opened rule is already exists. continue")
 			continue
 		}
 
 		var fireWall compute.Firewall
-		if strings.EqualFold(firewallDirection, "INGRESS") || strings.EqualFold(firewallDirection, "inbound") {
-			firewallType = "-i-"
-			fireWall = setNewFirewall(item, projectID, securityReqInfo.VpcIID.SystemId, securityReqInfo.IId.NameId, firewallType, reqIngressCount, Const_Firewall_Allow)
+		if strings.EqualFold(firewallDirection, Const_GCP_Direction_INGRESS) {
+			fireWall = setNewFirewall(item, projectID, securityReqInfo.VpcIID.SystemId, securityReqInfo.IId.NameId, reqIngressCount, Const_Firewall_Allow)
 			reqIngressCount++
-		} else if strings.EqualFold(firewallDirection, "EGRESS") || strings.EqualFold(firewallDirection, "outbound") {
-			firewallType = "-o-"
-			fireWall = setNewFirewall(item, projectID, securityReqInfo.VpcIID.SystemId, securityReqInfo.IId.NameId, firewallType, reqEgressCount, Const_Firewall_Allow)
+		} else if strings.EqualFold(firewallDirection, Const_GCP_Direction_EGRESS) {
+			fireWall = setNewFirewall(item, projectID, securityReqInfo.VpcIID.SystemId, securityReqInfo.IId.NameId, reqEgressCount, Const_Firewall_Allow)
 			reqEgressCount++
 		} else {
 			// direction 이 없는데.... continue
@@ -372,7 +384,7 @@ func (securityHandler GCPSecurityHandler) getOperationsStatus(ch chan string, pr
 
 // firewall rule 설정.
 // direction, port 마다 1개의 firewall로.
-func setNewFirewall(ruleInfo irs.SecurityRuleInfo, projectID string, vpcSystemId string, securityGroupName string, firewallType string, sequence int, isAllow bool) compute.Firewall {
+func setNewFirewall(ruleInfo irs.SecurityRuleInfo, projectID string, vpcSystemId string, securityGroupName string, sequence int, isAllow bool) compute.Firewall {
 
 	port := setFromPortToPort(ruleInfo.FromPort, ruleInfo.ToPort)
 	var firewallAllowed []*compute.FirewallAllowed
@@ -407,27 +419,35 @@ func setNewFirewall(ruleInfo irs.SecurityRuleInfo, projectID string, vpcSystemId
 	}
 
 	cidr := ruleInfo.CIDR
-	firewallDirection := ruleInfo.Direction
+	firewallDirection := switchDirectionSpiderAndGCP(ruleInfo.Direction, "GCP") // GCP로 날 릴 때에는 "GCP", SPIDER에서 사용할 때에는 "SPIDER"
+
 	prefix := "https://www.googleapis.com/compute/v1/projects/" + projectID
 	networkURL := prefix + "/global/networks/" + vpcSystemId
 
 	// default = -basic, inbound = -i-xxx, outbount = -o-xxx
 	firewallName := ""
-
-	if strings.EqualFold(firewallType, "-i-") {
+	if strings.EqualFold(firewallDirection, Const_GCP_Direction_INGRESS) {
 		sequenceStr := lpad(strconv.Itoa(sequence), "0", 3)
 		firewallName = securityGroupName + "-i-" + sequenceStr
-		//firewallName = securityGroupName + "-" + sequenceStr + "-i"
-		firewallDirection = "INGRESS"
-	} else if strings.EqualFold(firewallType, "-o-") {
-		fmt.Println("create sequence : ", sequence, strconv.Itoa(sequence))
+	} else if strings.EqualFold(firewallDirection, Const_GCP_Direction_EGRESS) {
 		sequenceStr := lpad(strconv.Itoa(sequence), "0", 3)
 		firewallName = securityGroupName + "-o-" + sequenceStr
-		firewallDirection = "EGRESS"
-	} else {
-		firewallName = securityGroupName + "-basic"
-		firewallDirection = "INGRESS"
 	}
+
+	//if strings.EqualFold(firewallType, "-i-") {
+	//	sequenceStr := lpad(strconv.Itoa(sequence), "0", 3)
+	//	firewallName = securityGroupName + "-i-" + sequenceStr
+	//	firewallDirection = "INGRESS"
+	//
+	//} else if strings.EqualFold(firewallType, "-o-") {
+	//	fmt.Println("create sequence : ", sequence, strconv.Itoa(sequence))
+	//	sequenceStr := lpad(strconv.Itoa(sequence), "0", 3)
+	//	firewallName = securityGroupName + "-o-" + sequenceStr
+	//	firewallDirection = "EGRESS"
+	//} else {
+	//	firewallName = securityGroupName + "-basic"
+	//	firewallDirection = "INGRESS"
+	//}
 
 	fireWall := compute.Firewall{
 		Name:      firewallName,
@@ -441,9 +461,9 @@ func setNewFirewall(ruleInfo irs.SecurityRuleInfo, projectID string, vpcSystemId
 	}
 
 	//CIDR 처리 : ingress=>sourceRanges, egress=>destination  둘 중 하나만 선택 가능
-	if strings.EqualFold(firewallDirection, "INGRESS") || strings.EqualFold(firewallDirection, "inbound") {
+	if strings.EqualFold(firewallDirection, Const_GCP_Direction_INGRESS) {
 		fireWall.SourceRanges = []string{cidr}
-	} else {
+	} else if strings.EqualFold(firewallDirection, Const_GCP_Direction_EGRESS) {
 		fireWall.DestinationRanges = []string{cidr}
 	}
 
@@ -639,7 +659,6 @@ func (securityHandler *GCPSecurityHandler) GetSecurity(securityIID irs.IID) (irs
 //}
 
 // SecurityGroup 삭제 (해당 Tag를 가진 firewall 삭제)
-// TODO : 모든 rule이 삭제 되었을 때, outbound가 ALL Deny가 되어야 하므로  기본Rule 추가 -> remove rule에 적용할 필요가 있을 듯.
 func (securityHandler *GCPSecurityHandler) DeleteSecurity(securityIID irs.IID) (bool, error) {
 	//projectID := securityHandler.Credential.ProjectID
 	securityGroupTag := securityIID.SystemId
@@ -689,7 +708,7 @@ func (securityHandler *GCPSecurityHandler) insertDefaultOutboundPolicy(projectID
 		Direction:  "EGRESS",
 		CIDR:       "0.0.0.0/0",
 	}
-	defaultOutboundDenyFireWall := setNewFirewall(defaultOutboundDenySecurityRuleInfo, projectID, vpcID, securityID, "-o-", egressCount, Const_Firewall_Deny)
+	defaultOutboundDenyFireWall := setNewFirewall(defaultOutboundDenySecurityRuleInfo, projectID, vpcID, securityID, egressCount, Const_Firewall_Deny)
 	defaultOutboundDenyFireWall.Priority = 65535 // defaultFirewall의 우선순위는 가장 낮게: ALL Deny
 	_, err := securityHandler.firewallInsert(defaultOutboundDenyFireWall)
 	if err != nil {
@@ -733,6 +752,8 @@ func (securityHandler *GCPSecurityHandler) AddRules(sgIID irs.IID, securityRules
 
 	projectID := securityHandler.Credential.ProjectID
 	securityGroupTag := sgIID.SystemId
+	vpcId := ""
+	existsAllDenyOutbound := false
 
 	// 기존에 존재하는지
 	firewallList, err := securityHandler.firewallList(securityGroupTag)
@@ -754,7 +775,28 @@ func (securityHandler *GCPSecurityHandler) AddRules(sgIID irs.IID, securityRules
 		for _, ruleInfo := range *tempSecurityInfo.SecurityRules {
 			tempSecurityRules = append(tempSecurityRules, ruleInfo)
 		}
+
+		// 기본정책인 deny all 이 존재하는지 check, 없으면 추가시킴.
+		if !existsAllDenyOutbound { // 찾아서 true인 경우는 다시 찾을 필요 없음.
+			for _, firewallItem := range firewallInfo.Items {
+				cidr := strings.Join(firewallItem.DestinationRanges, ", ")
+				if strings.Index(cidr, "0.0.0.0/0") == -1 {
+					continue
+				}
+				if strings.EqualFold(firewallItem.Direction, Const_GCP_Direction_INGRESS) { // Egress만 체크
+					continue
+				}
+
+				for _, firewallDeny := range firewallItem.Denied {
+					if strings.EqualFold(firewallDeny.IPProtocol, "all") && len(firewallDeny.Ports) == 0 {
+						existsAllDenyOutbound = true
+						break
+					}
+				}
+			}
+		}
 		searchSecurityInfo.VpcIID = tempSecurityInfo.VpcIID
+		vpcId = tempSecurityInfo.VpcIID.SystemId
 	}
 	searchSecurityInfo.SecurityRules = &tempSecurityRules
 
@@ -765,24 +807,21 @@ func (securityHandler *GCPSecurityHandler) AddRules(sgIID irs.IID, securityRules
 	}
 
 	// 존재하는 item의 max Sequence 찾아와야 함
-
-	reqIngressCount := maxFirewallSequence(firewallList, "inbound")
-	reqEgressCount := maxFirewallSequence(firewallList, "outbound")
+	reqIngressCount := maxFirewallSequence(firewallList, Const_GCP_Direction_INGRESS)
+	reqEgressCount := maxFirewallSequence(firewallList, Const_GCP_Direction_EGRESS)
 
 	reqIngressCount++
 	reqEgressCount++
 
 	for _, item := range *securityRules {
-		firewallDirection := item.Direction
-		firewallType := ""
+		firewallDirection := switchDirectionSpiderAndGCP(item.Direction, "GCP") // GCP로 날 릴 때에는 "GCP", SPIDER에서 사용할 때에는 "SPIDER"
+
 		var fireWall compute.Firewall
-		if strings.EqualFold(firewallDirection, "INGRESS") || strings.EqualFold(firewallDirection, "inbound") {
-			firewallType = "-i-"
-			fireWall = setNewFirewall(item, projectID, searchSecurityInfo.VpcIID.SystemId, securityGroupTag, firewallType, reqIngressCount, Const_Firewall_Allow)
+		if strings.EqualFold(firewallDirection, Const_GCP_Direction_INGRESS) {
+			fireWall = setNewFirewall(item, projectID, searchSecurityInfo.VpcIID.SystemId, securityGroupTag, reqIngressCount, Const_Firewall_Allow)
 			reqIngressCount++
-		} else if strings.EqualFold(firewallDirection, "EGRESS") || strings.EqualFold(firewallDirection, "outbound") {
-			firewallType = "-o-"
-			fireWall = setNewFirewall(item, projectID, searchSecurityInfo.VpcIID.SystemId, securityGroupTag, firewallType, reqEgressCount, Const_Firewall_Allow)
+		} else if strings.EqualFold(firewallDirection, Const_GCP_Direction_EGRESS) {
+			fireWall = setNewFirewall(item, projectID, searchSecurityInfo.VpcIID.SystemId, securityGroupTag, reqEgressCount, Const_Firewall_Allow)
 			reqEgressCount++
 		} else {
 			// direction 이 없는데.... continue
@@ -794,7 +833,15 @@ func (securityHandler *GCPSecurityHandler) AddRules(sgIID irs.IID, securityRules
 		if err != nil {
 			return irs.SecurityInfo{}, err
 		}
+	}
 
+	// All Deny Outboun가  없으면 추가한다.
+	fmt.Println("existsAllDenyOutbound ----------------- ", existsAllDenyOutbound)
+	if !existsAllDenyOutbound {
+		cblogger.Info("default outbound all deny is not exists, create one")
+		maxEgessCount := maxFirewallSequence(firewallList, Const_GCP_Direction_EGRESS)
+		maxEgessCount++
+		_, err = securityHandler.insertDefaultOutboundPolicy(projectID, vpcId, securityGroupTag, maxEgessCount)
 	}
 	return securityHandler.GetSecurity(sgIID)
 }
@@ -962,7 +1009,10 @@ func (securityHandler *GCPSecurityHandler) AddRules(sgIID irs.IID, securityRules
 func (securityHandler *GCPSecurityHandler) RemoveRules(sgIID irs.IID, securityRules *[]irs.SecurityRuleInfo) (bool, error) {
 	cblogger.Info(*securityRules)
 
+	projectID := securityHandler.Credential.ProjectID
 	securityGroupTag := sgIID.SystemId
+	existsAllDenyOutbound := false
+	vpcId := ""
 
 	firewallList, err := securityHandler.firewallList(securityGroupTag)
 	if err != nil {
@@ -982,8 +1032,27 @@ func (securityHandler *GCPSecurityHandler) RemoveRules(sgIID irs.IID, securityRu
 			tempSecurityRules = append(tempSecurityRules, ruleInfo)
 		}
 		searchSecurityInfo.VpcIID = tempSecurityInfo.VpcIID
+		vpcId = tempSecurityInfo.VpcIID.SystemId
 
-		// TODO : 기본정책인 deny all 이 존재하는지 check, 없으면 추가시킴.
+		// 기본정책인 deny all 이 존재하는지 check, 없으면 추가시킴.
+		if !existsAllDenyOutbound { // 찾아서 true인 경우는 다시 찾을 필요 없음.
+			for _, firewallItem := range firewallInfo.Items {
+				cidr := strings.Join(firewallItem.DestinationRanges, ", ")
+				if strings.Index(cidr, "0.0.0.0/0") == -1 {
+					continue
+				}
+				if strings.EqualFold(firewallItem.Direction, Const_GCP_Direction_INGRESS) { // Egress만 체크
+					continue
+				}
+
+				for _, firewallDeny := range firewallItem.Denied {
+					if strings.EqualFold(firewallDeny.IPProtocol, "all") && len(firewallDeny.Ports) == 0 {
+						existsAllDenyOutbound = true
+						break
+					}
+				}
+			}
+		}
 	}
 	searchSecurityInfo.SecurityRules = &tempSecurityRules
 
@@ -1002,15 +1071,13 @@ func (securityHandler *GCPSecurityHandler) RemoveRules(sgIID irs.IID, securityRu
 				var fromPort string
 				var toPort string
 				var ipProtocol string
-				direction := ""
-				cidr := ""
 
-				if strings.EqualFold(item.Direction, "EGRESS") {
+				cidr := ""
+				spiderDirection := switchDirectionSpiderAndGCP(item.Direction, "SPIDER") // GCP로 날 릴 때에는 "GCP", SPIDER에서 사용할 때에는 "SPIDER"
+				if strings.EqualFold(spiderDirection, Const_Spider_Direction_OUTBOUND) {
 					cidr = strings.Join(item.DestinationRanges, ", ")
-					direction = "outbound"
 				} else {
 					cidr = strings.Join(item.SourceRanges, ", ")
-					direction = "inbound"
 				}
 
 				for _, firewallRule := range item.Allowed {
@@ -1039,14 +1106,14 @@ func (securityHandler *GCPSecurityHandler) RemoveRules(sgIID irs.IID, securityRu
 					securityToPort = ""
 				}
 
-				fmt.Println("Direction : ", item.Direction, " : ", direction, " : ", securityRule.Direction)
+				fmt.Println("Direction : ", item.Direction, " : ", spiderDirection, " : ", securityRule.Direction)
 				fmt.Println("Cidr : ", cidr, " : ", securityRule.CIDR)
 				fmt.Println("portArr : ", portArr)
 				fmt.Println("fromport : ", fromPort, " : ", securityRule.FromPort)
 				fmt.Println("toport : ", toPort, " : ", securityRule.ToPort)
 				fmt.Println("ipProtocol : ", ipProtocol, " : ", securityRule.IPProtocol)
 				// 조건이 동일한 resource ID
-				if strings.EqualFold(direction, securityRule.Direction) && strings.EqualFold(cidr, securityRule.CIDR) && strings.EqualFold(fromPort, securityFromPort) && strings.EqualFold(toPort, securityToPort) && strings.EqualFold(ipProtocol, securityRule.IPProtocol) {
+				if strings.EqualFold(spiderDirection, securityRule.Direction) && strings.EqualFold(cidr, securityRule.CIDR) && strings.EqualFold(fromPort, securityFromPort) && strings.EqualFold(toPort, securityToPort) && strings.EqualFold(ipProtocol, securityRule.IPProtocol) {
 					resourceId = item.Name
 					break
 				}
@@ -1064,6 +1131,15 @@ func (securityHandler *GCPSecurityHandler) RemoveRules(sgIID irs.IID, securityRu
 				return false, err
 			}
 		}
+	}
+
+	// All Deny Outboun가  없으면 추가한다.
+	fmt.Println("existsAllDenyOutbound ----------------- ", existsAllDenyOutbound)
+	if !existsAllDenyOutbound {
+		cblogger.Info("default outbound all deny is not exists, create one")
+		maxEgessCount := maxFirewallSequence(firewallList, Const_GCP_Direction_EGRESS)
+		maxEgessCount++
+		_, err = securityHandler.insertDefaultOutboundPolicy(projectID, vpcId, securityGroupTag, maxEgessCount)
 	}
 	return true, nil
 }
@@ -1424,8 +1500,10 @@ func convertFromFirewallToSecurityInfo(firewallList compute.FirewallList) (irs.S
 		//
 		//NullFields []string `json:"-"`
 
+		spiderDirection := switchDirectionSpiderAndGCP(item.Direction, "SPIDER") // GCP로 날 릴 때에는 "GCP", SPIDER에서 사용할 때에는 "SPIDER"
 		cidr := ""
-		if strings.EqualFold(item.Direction, "INGRESS") {
+
+		if strings.EqualFold(spiderDirection, Const_Spider_Direction_INBOUND) {
 			cidr = strings.Join(item.SourceRanges, ", ")
 		} else {
 			cidr = strings.Join(item.DestinationRanges, ", ")
@@ -1459,7 +1537,7 @@ func convertFromFirewallToSecurityInfo(firewallList compute.FirewallList) (irs.S
 				FromPort:   fromPort,
 				ToPort:     toPort,
 				IPProtocol: ipProtocol,
-				Direction:  item.Direction,
+				Direction:  spiderDirection,
 				CIDR:       cidr,
 			}
 			securityRules = append(securityRules, ruleInfo)
@@ -1493,6 +1571,28 @@ func convertFromFirewallToSecurityInfo(firewallList compute.FirewallList) (irs.S
 	} // end of result.items
 	fmt.Println("securityInfo : ", securityInfo)
 	return securityInfo, nil
+}
+
+// Spider에서 온 값은 GCP로 변경 ( "INGRESS", GCP ) => inbound 로 return
+// GCP에서 온 값은 Spider로 변경 ( "inbound", SPIDER) => INGRESS 로 return
+//
+func switchDirectionSpiderAndGCP(direction string, targetType string) string {
+	returnDirection := direction
+	// gcp로 변경을 하는 경우 return = INGRESS, EGESS
+	if strings.EqualFold(targetType, "GCP") {
+		if strings.EqualFold(direction, Const_Spider_Direction_INBOUND) { //"inbound"
+			returnDirection = Const_GCP_Direction_INGRESS // INGRESS
+		} else {
+			returnDirection = Const_GCP_Direction_EGRESS
+		}
+	} else if strings.EqualFold(targetType, "SPIDER") {
+		if strings.EqualFold(direction, Const_GCP_Direction_INGRESS) {
+			returnDirection = Const_Spider_Direction_INBOUND
+		} else {
+			returnDirection = Const_Spider_Direction_OUTBOUND
+		}
+	}
+	return returnDirection
 }
 
 // 동일한 rule이 있는지 check
@@ -1550,7 +1650,7 @@ func sameRuleCheck(searchedSecurityRules *[]irs.SecurityRuleInfo, requestedSecur
 }
 
 // Tag로 묶인 firewall의 max sequence 추출
-func maxFirewallSequence(firewallList []compute.FirewallList, direction string) int {
+func maxFirewallSequence(firewallList []compute.FirewallList, gcpDirection string) int {
 	maxSequence := 0
 
 	namingRule := ""
@@ -1558,9 +1658,9 @@ func maxFirewallSequence(firewallList []compute.FirewallList, direction string) 
 		for _, item := range firewallInfo.Items {
 			// naming rule
 
-			if strings.EqualFold(direction, "INGRESS") || strings.EqualFold(direction, "inbound") {
+			if strings.EqualFold(gcpDirection, Const_GCP_Direction_INGRESS) {
 				namingRule = "-i-"
-			} else if strings.EqualFold(direction, "EGRESS") || strings.EqualFold(direction, "outbound") {
+			} else if strings.EqualFold(gcpDirection, Const_GCP_Direction_EGRESS) {
 				namingRule = "-o-"
 			} else {
 				continue
