@@ -10,9 +10,23 @@ function run() {
         do
                 echo  ============ test ${CSP} ... ============
 
+		if [ "${CSP}" = "azure" ]; then
+			export SLEEP=60
+		fi
+		if [ "${CSP}" = "gcp" ]; then
+			export SLEEP=60
+		fi
+
 		./00.prepare-00.sh ${CSP}
 		./all.inbound-case-all.sh ${CSP}
 		./100.clear_all.sh ${CSP}
+
+                if [ "${CSP}" = "azure" ]; then
+                        unset SLEEP
+                fi
+                if [ "${CSP}" = "gcp" ]; then
+                        unset SLEEP
+                fi
 
                 num=`expr $num + 1`
 
