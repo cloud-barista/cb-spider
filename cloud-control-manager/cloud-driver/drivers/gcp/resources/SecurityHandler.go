@@ -45,6 +45,12 @@ const (
 
 	Const_Spider_Direction_INBOUND  = "inbound"
 	Const_Spider_Direction_OUTBOUND = "outbound"
+
+	Const_IPPROTOCOL_ALL  = "ALL"
+	Const_IPPROTOCOL_TCP  = "TCP"
+	Const_IPPROTOCOL_UDP  = "UDP"
+	Const_IPPROTOCOL_ICMP = "ICMP"
+	Const_IPPROTOCOL_ETC  = "ETC"
 )
 
 //+ 공통이슈개발방안
@@ -239,6 +245,9 @@ const (
 func (securityHandler *GCPSecurityHandler) CreateSecurity(securityReqInfo irs.SecurityReqInfo) (irs.SecurityInfo, error) {
 	cblogger.Info(securityReqInfo)
 
+	var addFilewallList []compute.Firewall // 추가할 firewall 목록
+	var errorFirewallList []string         // 에러발생시 error 항목을 담을 목록
+
 	vNetworkHandler := GCPVPCHandler{
 		Client:     securityHandler.Client,
 		Region:     securityHandler.Region,
@@ -290,11 +299,14 @@ func (securityHandler *GCPSecurityHandler) CreateSecurity(securityReqInfo irs.Se
 
 	defaultOutboundAllowSecurityRuleInfo := irs.SecurityRuleInfo{
 		FromPort:   "", // 지정하지 않으면 전체임.
-		IPProtocol: "ALL",
-		Direction:  "EGRESS",
+		IPProtocol: Const_IPPROTOCOL_ALL,
+		Direction:  Const_GCP_Direction_EGRESS,
 		CIDR:       "0.0.0.0/0",
 	}
-	defaultOutboundAllowFireWall := setNewFirewall(defaultOutboundAllowSecurityRuleInfo, projectID, securityReqInfo.VpcIID.SystemId, securityReqInfo.IId.NameId, reqEgressCount, Const_Firewall_Allow)
+	defaultOutboundAllowFireWall, err := setNewFirewall(defaultOutboundAllowSecurityRuleInfo, projectID, securityReqInfo.VpcIID.SystemId, securityReqInfo.IId.NameId, reqEgressCount, Const_Firewall_Allow)
+	if err != nil {
+		return irs.SecurityInfo{}, err
+	}
 	defaultOutboundAllowFireWall.Priority = 1000 // defaultFirewall의 우선순위는 가장 낮게: ALL Deny
 	_, err = securityHandler.firewallInsert(defaultOutboundAllowFireWall)
 	if err != nil {
@@ -329,18 +341,26 @@ func (securityHandler *GCPSecurityHandler) CreateSecurity(securityReqInfo irs.Se
 		// outbound all open는 생성시 자동으로 추가하므로 사용자 요청이 있으면 skip한다.
 		if strings.EqualFold(firewallFromPort, "-1") && strings.EqualFold(firewallToPort, "-1") && strings.EqualFold(firewallIPProtocol, "all") && strings.EqualFold(firewallDirection, Const_GCP_Direction_EGRESS) && strings.EqualFold(firewallCIDR, "0.0.0.0/0") {
 			cblogger.Info("outbound all opened rule is already exists. continue")
+			errorFirewallList = append(errorFirewallList, "outbound all opened rule is already exists. continue")
 			continue
 		}
 
 		var fireWall compute.Firewall
 		if strings.EqualFold(firewallDirection, Const_GCP_Direction_INGRESS) {
-			fireWall = setNewFirewall(item, projectID, securityReqInfo.VpcIID.SystemId, securityReqInfo.IId.NameId, reqIngressCount, Const_Firewall_Allow)
+			fireWall, err = setNewFirewall(item, projectID, securityReqInfo.VpcIID.SystemId, securityReqInfo.IId.NameId, reqIngressCount, Const_Firewall_Allow)
+			if err != nil {
+				errorFirewallList = append(errorFirewallList, err.Error())
+			}
 			reqIngressCount++
 		} else if strings.EqualFold(firewallDirection, Const_GCP_Direction_EGRESS) {
-			fireWall = setNewFirewall(item, projectID, securityReqInfo.VpcIID.SystemId, securityReqInfo.IId.NameId, reqEgressCount, Const_Firewall_Allow)
+			fireWall, err = setNewFirewall(item, projectID, securityReqInfo.VpcIID.SystemId, securityReqInfo.IId.NameId, reqEgressCount, Const_Firewall_Allow)
+			if err != nil {
+				errorFirewallList = append(errorFirewallList, err.Error())
+			}
 			reqEgressCount++
 		} else {
 			// direction 이 없는데.... continue
+			errorFirewallList = append(errorFirewallList, "there no direction")
 			continue
 		}
 
@@ -348,11 +368,20 @@ func (securityHandler *GCPSecurityHandler) CreateSecurity(securityReqInfo irs.Se
 		cblogger.Debug(fireWall)
 		//spew.Dump(fireWall)
 
-		_, err := securityHandler.firewallInsert(fireWall)
-		if err != nil {
-			return irs.SecurityInfo{}, err
-		}
+		addFilewallList = append(addFilewallList, fireWall)
 
+	}
+
+	if len(errorFirewallList) > 0 {
+		return irs.SecurityInfo{}, errors.New(strings.Join(errorFirewallList, ","))
+	}
+
+	for _, addFirewall := range addFilewallList {
+		_, err := securityHandler.firewallInsert(addFirewall)
+		if err != nil {
+			errorFirewallList = append(errorFirewallList, err.Error())
+			return irs.SecurityInfo{}, errors.New(strings.Join(errorFirewallList, ","))
+		}
 	}
 
 	securityInfo, err := securityHandler.GetSecurity(irs.IID{SystemId: securityReqInfo.IId.NameId})
@@ -384,9 +413,13 @@ func (securityHandler GCPSecurityHandler) getOperationsStatus(ch chan string, pr
 
 // firewall rule 설정.
 // direction, port 마다 1개의 firewall로.
-func setNewFirewall(ruleInfo irs.SecurityRuleInfo, projectID string, vpcSystemId string, securityGroupName string, sequence int, isAllow bool) compute.Firewall {
+func setNewFirewall(ruleInfo irs.SecurityRuleInfo, projectID string, vpcSystemId string, securityGroupName string, sequence int, isAllow bool) (compute.Firewall, error) {
 
-	port := setFromPortToPort(ruleInfo.FromPort, ruleInfo.ToPort)
+	port, err := setFromPortToPort(ruleInfo.IPProtocol, ruleInfo.FromPort, ruleInfo.ToPort)
+	if err != nil {
+		return compute.Firewall{}, err
+	}
+
 	var firewallAllowed []*compute.FirewallAllowed
 	var firewallDenied []*compute.FirewallDenied
 
@@ -468,35 +501,89 @@ func setNewFirewall(ruleInfo irs.SecurityRuleInfo, projectID string, vpcSystemId
 	}
 
 	fmt.Println("firewallset : ", fireWall)
-	return fireWall
+	return fireWall, nil
 }
 
-func setFromPortToPort(fp string, tp string) string {
-	var port string
-	if fp == "-1" || tp == "-1" {
-		if (fp == "-1" && tp == "-1") || (fp == "-1" && tp == "") || (fp == "" && tp == "-1") {
-			port = ""
-		} else if fp == "-1" {
-			port = tp
-		} else {
-			port = fp
+// ipProtocol에 따른 port 값 set.
+// all : from=-1, to=-1
+// tcp : from= 1~65535, to=1~65535
+// udp : from= 1~65535, to=1~65535  (GCP는 미지정 시 전체로 가능하나 Spider는 1~65535 로 쓰기로 함 )
+// icmp : from=-1, to=-1
+
+func setFromPortToPort(ipProtocol string, fromPort string, toPort string) (string, error) {
+	returnPort := ""
+	if strings.EqualFold(ipProtocol, "all") || strings.EqualFold(ipProtocol, "icmp") {
+		returnPort = ""
+	} else if strings.EqualFold(ipProtocol, "tcp") || strings.EqualFold(ipProtocol, "udp") {
+		// fromPort, toPort 는 1 ~ 65535
+		fp, err := strconv.ParseInt(fromPort, 0, 64)
+		if err != nil {
+			return "", err
 		}
-	} else {
-		//둘 다 있는 경우
-		if tp != "" && fp != "" {
-			port = fp + "-" + tp
-			//From Port가 없는 경우
-		} else if tp != "" && fp == "" {
-			port = tp
-			//To Port가 없는 경우
-		} else if tp == "" && fp != "" {
-			port = fp
+		if fp < 1 || fp > 65535 {
+			return "", errors.New("invalid value - port range : 1~65535 but fromPort is " + fromPort + ". ")
+		}
+
+		tp, err := strconv.ParseInt(toPort, 0, 64)
+		if err != nil {
+			return "", err
+		}
+		if tp < 1 || tp > 65535 {
+			return "", errors.New("invalid value - port range : 1~65535 but toPort is " + toPort + ". ")
+		}
+
+		if fromPort == "-1" || toPort == "-1" {
+			if (fromPort == "-1" && toPort == "-1") || (fromPort == "-1" && toPort == "") || (fromPort == "" && toPort == "-1") {
+				returnPort = ""
+			} else if fromPort == "-1" {
+				returnPort = toPort
+			} else {
+				returnPort = fromPort
+			}
 		} else {
-			port = ""
+			//둘 다 있는 경우
+			if toPort != "" && fromPort != "" {
+				returnPort = fromPort + "-" + toPort
+				//From Port가 없는 경우
+			} else if toPort != "" && fromPort == "" {
+				returnPort = toPort
+				//To Port가 없는 경우
+			} else if toPort == "" && fromPort != "" {
+				returnPort = fromPort
+			} else {
+				returnPort = ""
+			}
 		}
 	}
-	return port
+	return returnPort, nil
 }
+
+//func setFromPortToPort(fp string, tp string) string {
+//	var port string
+//	if fp == "-1" || tp == "-1" {
+//		if (fp == "-1" && tp == "-1") || (fp == "-1" && tp == "") || (fp == "" && tp == "-1") {
+//			port = ""
+//		} else if fp == "-1" {
+//			port = tp
+//		} else {
+//			port = fp
+//		}
+//	} else {
+//		//둘 다 있는 경우
+//		if tp != "" && fp != "" {
+//			port = fp + "-" + tp
+//			//From Port가 없는 경우
+//		} else if tp != "" && fp == "" {
+//			port = tp
+//			//To Port가 없는 경우
+//		} else if tp == "" && fp != "" {
+//			port = fp
+//		} else {
+//			port = ""
+//		}
+//	}
+//	return port
+//}
 
 // string 원본, 앞에 붙일 값, 전체 길이
 func lpad(sequence string, pad string, plength int) string {
@@ -708,9 +795,12 @@ func (securityHandler *GCPSecurityHandler) insertDefaultOutboundPolicy(projectID
 		Direction:  "EGRESS",
 		CIDR:       "0.0.0.0/0",
 	}
-	defaultOutboundDenyFireWall := setNewFirewall(defaultOutboundDenySecurityRuleInfo, projectID, vpcID, securityID, egressCount, Const_Firewall_Deny)
+	defaultOutboundDenyFireWall, err := setNewFirewall(defaultOutboundDenySecurityRuleInfo, projectID, vpcID, securityID, egressCount, Const_Firewall_Deny)
+	if err != nil {
+		return false, err
+	}
 	defaultOutboundDenyFireWall.Priority = 65535 // defaultFirewall의 우선순위는 가장 낮게: ALL Deny
-	_, err := securityHandler.firewallInsert(defaultOutboundDenyFireWall)
+	_, err = securityHandler.firewallInsert(defaultOutboundDenyFireWall)
 	if err != nil {
 		cblogger.Debug(err)
 		return false, err
@@ -754,6 +844,9 @@ func (securityHandler *GCPSecurityHandler) AddRules(sgIID irs.IID, securityRules
 	securityGroupTag := sgIID.SystemId
 	vpcId := ""
 	existsAllDenyOutbound := false
+
+	var addFilewallList []compute.Firewall // 추가할 firewall 목록
+	var errorFirewallList []string         // 에러발생시 error 항목을 담을 목록
 
 	// 기존에 존재하는지
 	firewallList, err := securityHandler.firewallList(securityGroupTag)
@@ -818,20 +911,36 @@ func (securityHandler *GCPSecurityHandler) AddRules(sgIID irs.IID, securityRules
 
 		var fireWall compute.Firewall
 		if strings.EqualFold(firewallDirection, Const_GCP_Direction_INGRESS) {
-			fireWall = setNewFirewall(item, projectID, searchSecurityInfo.VpcIID.SystemId, securityGroupTag, reqIngressCount, Const_Firewall_Allow)
+			fireWall, err = setNewFirewall(item, projectID, searchSecurityInfo.VpcIID.SystemId, securityGroupTag, reqIngressCount, Const_Firewall_Allow)
+			if err != nil {
+				errorFirewallList = append(errorFirewallList, err.Error())
+			}
 			reqIngressCount++
 		} else if strings.EqualFold(firewallDirection, Const_GCP_Direction_EGRESS) {
-			fireWall = setNewFirewall(item, projectID, searchSecurityInfo.VpcIID.SystemId, securityGroupTag, reqEgressCount, Const_Firewall_Allow)
+			fireWall, err = setNewFirewall(item, projectID, searchSecurityInfo.VpcIID.SystemId, securityGroupTag, reqEgressCount, Const_Firewall_Allow)
+			if err != nil {
+				errorFirewallList = append(errorFirewallList, err.Error())
+			}
 			reqEgressCount++
 		} else {
 			// direction 이 없는데.... continue
 			fmt.Println("no direction : ", firewallDirection)
+			errorFirewallList = append(errorFirewallList, "there is no direction ")
 			continue
 		}
 
-		_, err := securityHandler.firewallInsert(fireWall)
+		addFilewallList = append(addFilewallList, fireWall)
+	}
+
+	if len(errorFirewallList) > 0 {
+		return irs.SecurityInfo{}, errors.New(strings.Join(errorFirewallList, ","))
+	}
+
+	for _, addFirewall := range addFilewallList {
+		_, err := securityHandler.firewallInsert(addFirewall)
 		if err != nil {
-			return irs.SecurityInfo{}, err
+			errorFirewallList = append(errorFirewallList, err.Error())
+			return irs.SecurityInfo{}, errors.New(strings.Join(errorFirewallList, ","))
 		}
 	}
 
@@ -1516,22 +1625,43 @@ func convertFromFirewallToSecurityInfo(firewallList compute.FirewallList) (irs.S
 		var ipProtocol string
 
 		for _, firewallRule := range item.Allowed {
-			if ports := firewallRule.Ports; ports != nil {
-				portArr = strings.Split(firewallRule.Ports[0], "-")
-				fromPort = portArr[0]
-				if len(portArr) > 1 {
-					toPort = portArr[len(portArr)-1]
-				} else {
-					toPort = ""
-				}
-
-			} else {
-				fromPort = ""
-				toPort = ""
-			}
-
 			ipProtocol = firewallRule.IPProtocol
 			fmt.Println("ipProtocol : ", ipProtocol)
+			if strings.EqualFold(ipProtocol, "all") || strings.EqualFold(ipProtocol, "icmp") {
+				fromPort = "-1"
+				toPort = "-1"
+			} else if strings.EqualFold(ipProtocol, "tcp") || strings.EqualFold(ipProtocol, "udp") {
+				if ports := firewallRule.Ports; ports != nil {
+					portArr = strings.Split(firewallRule.Ports[0], "-")
+					// fromPort, toPort 는 1 ~ 65535
+					fromPort = portArr[0]
+					if len(portArr) > 1 {
+						toPort = portArr[1]
+					} else {
+						toPort = fromPort
+					}
+					//} else {
+					//	fromPort = "-1"
+					//	toPort = "-1"
+				}
+			} else {
+				fromPort = "-1"
+				toPort = "-1"
+			}
+			//if ports := firewallRule.Ports; ports != nil {
+			//	portArr = strings.Split(firewallRule.Ports[0], "-")
+			//	fromPort = portArr[0]
+			//	if len(portArr) > 1 {
+			//		toPort = portArr[len(portArr)-1]
+			//	} else {
+			//		toPort = ""
+			//	}
+			//
+			//} else {
+			//	fromPort = ""
+			//	toPort = ""
+			//}
+			//
 
 			ruleInfo := irs.SecurityRuleInfo{
 				FromPort:   fromPort,
@@ -1604,15 +1734,49 @@ func sameRuleCheck(searchedSecurityRules *[]irs.SecurityRuleInfo, requestedSecur
 	for _, reqRule := range *requestedSecurityRules {
 		hasFound := false
 		reqRulePort := ""
-		if reqRule.FromPort == "" {
-			reqRulePort = reqRule.ToPort
-		} else if reqRule.ToPort == "" {
-			reqRulePort = reqRule.FromPort
-		} else if reqRule.FromPort == reqRule.ToPort {
-			reqRulePort = reqRule.FromPort
+
+		//////// 작업 할 것
+		fromPort := reqRule.FromPort
+		toPort := reqRule.ToPort
+
+		// 둘 다 없으면 -1
+		// 둘중의 하나만 있으면 똑같이
+		// 둘다 있으면
+		//		작은지 체크, 큰지 체크
+
+		if strings.EqualFold(fromPort, "") && strings.EqualFold(toPort, "") {
+			// reqRulePort 값이 없으면 전체
+			fromPort = "-1"
+			toPort = "-1"
+			reqRulePort = fromPort
+		} else if strings.EqualFold(fromPort, "") || strings.EqualFold(toPort, "") {
+			if fromPort == "" {
+				reqRulePort = toPort
+			} else if toPort == "" {
+				reqRulePort = fromPort
+			} else if fromPort == toPort {
+				reqRulePort = fromPort
+			} else {
+				reqRulePort = fromPort + "-" + toPort
+			}
+		} else if strings.EqualFold(fromPort, "-1") || strings.EqualFold(toPort, "-1") {
+			reqRulePort = fromPort
+		} else if fromPort == toPort {
+			reqRulePort = fromPort
 		} else {
-			reqRulePort = reqRule.FromPort + "-" + reqRule.ToPort
+			reqRulePort = fromPort + "-" + toPort
 		}
+
+		//
+		//if reqRule.FromPort == "" {
+		//	reqRulePort = reqRule.ToPort
+		//} else if reqRule.ToPort == "" {
+		//	reqRulePort = reqRule.FromPort
+		//} else if reqRule.FromPort == reqRule.ToPort {
+		//	reqRulePort = reqRule.FromPort
+		//} else {
+		//	reqRulePort = reqRule.FromPort + "-" + reqRule.ToPort
+		//}
 
 		for _, searchedRule := range *searchedSecurityRules {
 			searchedRulePort := ""
@@ -1626,6 +1790,8 @@ func sameRuleCheck(searchedSecurityRules *[]irs.SecurityRuleInfo, requestedSecur
 				searchedRulePort = searchedRule.FromPort + "-" + searchedRule.ToPort
 			}
 
+			fmt.Println("aaa : ", reqRulePort, ":"+fromPort+" : "+toPort)
+			fmt.Println("bbb : ", searchedRulePort, ":"+searchedRule.FromPort+" : "+searchedRule.ToPort)
 			if strings.EqualFold(reqRule.Direction, searchedRule.Direction) && strings.EqualFold(reqRule.IPProtocol, searchedRule.IPProtocol) && strings.EqualFold(reqRulePort, searchedRulePort) && strings.EqualFold(reqRule.CIDR, searchedRule.CIDR) {
 				hasFound = true
 			}
