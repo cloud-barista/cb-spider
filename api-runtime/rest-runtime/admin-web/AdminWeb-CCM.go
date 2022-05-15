@@ -1406,7 +1406,7 @@ func VM(c echo.Context) error {
 		sgName = `["sg-01"]`
 		vmUser = "cb-user"
 	case "IBM":
-		imageName = "r014-dc446598-a1b5-41c3-a1d6-add3afaf264e"
+		imageName = "r014-a044e2f5-dfe1-416c-8990-5dc895352728"
 		specName = "bx2-2x8"
 		subnetName = "subnet-01"
 		sgName = `["sg-01"]`

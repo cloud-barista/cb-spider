@@ -2,7 +2,7 @@
 # VM Spec : vCPU: 2, Mem: 8GB
 
 export CONN_CONFIG=ibmvpc-us-east-1-config
-export IMAGE_NAME=r014-dc446598-a1b5-41c3-a1d6-add3afaf264e
+export IMAGE_NAME=r014-a044e2f5-dfe1-416c-8990-5dc895352728
 
 # export CONN_CONFIG=ibmvpc-jp-tok-1-config
 # export IMAGE_NAME=r022-61fdadec-6b03-4bd2-bfca-62cd16f5673f
