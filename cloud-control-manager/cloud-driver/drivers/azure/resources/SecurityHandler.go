@@ -390,7 +390,7 @@ func convertRuleProtocolCBToAZ(protocol string) (string, error) {
 }
 
 func convertRulePortRangeAZToCB(portRange string, protocol string) (from string, to string) {
-	if strings.ToUpper(protocol) == "ICMP" {
+	if strings.ToUpper(protocol) == "ICMP" || strings.ToUpper(protocol) == "ALL" {
 		return "-1", "-1"
 	}
 	portRangeArr := strings.Split(portRange, "-")
@@ -433,6 +433,13 @@ func convertRuleDirectionAZToCB(direction network.SecurityRuleDirection) (string
 		return "outbound", nil
 	}
 	return "", errors.New("invalid rule Direction")
+}
+
+func convertRuleCIDRAZToCB(cidr string) string {
+	if cidr == "*" {
+		return "0.0.0.0/0"
+	}
+	return cidr
 }
 
 func convertRulePortRangeCBToAZ(from string, to string, protocol string) (string, error) {
@@ -504,10 +511,15 @@ func addCBDefaultRule(azureSGRuleList *[]network.SecurityRule) (*[]network.Secur
 	}
 	protocols := convertRuleProtocolAZToCB(fmt.Sprint(cbDefaultAllowSGRule.Protocol))
 	fromPort, toPort := convertRulePortRangeAZToCB(*cbDefaultAllowSGRule.DestinationPortRange, protocols)
+	direction, err := convertRuleDirectionAZToCB(cbDefaultAllowSGRule.Direction)
+	if err != nil {
+		return nil, err
+	}
+	cidr := convertRuleCIDRAZToCB(*cbDefaultAllowSGRule.SourceAddressPrefix)
 	cbDefaultAllowSGRuleInfo := irs.SecurityRuleInfo{
 		IPProtocol: protocols,
-		Direction:  strings.ToLower(fmt.Sprint(cbDefaultAllowSGRule.Direction)),
-		CIDR:       *cbDefaultAllowSGRule.SourceAddressPrefix,
+		Direction:  direction,
+		CIDR:       cidr,
 		FromPort:   fromPort,
 		ToPort:     toPort,
 	}
@@ -515,10 +527,15 @@ func addCBDefaultRule(azureSGRuleList *[]network.SecurityRule) (*[]network.Secur
 		if sgRule.Access == network.SecurityRuleAccessAllow {
 			protocols := convertRuleProtocolAZToCB(fmt.Sprint(sgRule.Protocol))
 			fromPort, toPort := convertRulePortRangeAZToCB(*sgRule.DestinationPortRange, protocols)
+			direction, err := convertRuleDirectionAZToCB(sgRule.Direction)
+			if err != nil {
+				return nil, err
+			}
+			cidr := convertRuleCIDRAZToCB(*sgRule.SourceAddressPrefix)
 			ruleInfo := irs.SecurityRuleInfo{
 				IPProtocol: protocols,
-				Direction:  strings.ToLower(fmt.Sprint(sgRule.Direction)),
-				CIDR:       *sgRule.SourceAddressPrefix,
+				Direction:  direction,
+				CIDR:       cidr,
 				FromPort:   fromPort,
 				ToPort:     toPort,
 			}
@@ -543,11 +560,12 @@ func convertRuleInfoAZToCB(rawRule network.SecurityRule) (irs.SecurityRuleInfo, 
 	if err != nil {
 		return irs.SecurityRuleInfo{}, err
 	}
+	cidr := convertRuleCIDRAZToCB(*rawRule.SourceAddressPrefix)
 	if rawRule.Direction == network.SecurityRuleDirectionInbound {
 		RuleInfo := irs.SecurityRuleInfo{
 			IPProtocol: protocols,
 			Direction:  direction,
-			CIDR:       *rawRule.SourceAddressPrefix,
+			CIDR:       cidr,
 			FromPort:   fromPort,
 			ToPort:     toPort,
 		}
@@ -556,7 +574,7 @@ func convertRuleInfoAZToCB(rawRule network.SecurityRule) (irs.SecurityRuleInfo, 
 		RuleInfo := irs.SecurityRuleInfo{
 			IPProtocol: protocols,
 			Direction:  direction,
-			CIDR:       *rawRule.DestinationAddressPrefix,
+			CIDR:       cidr,
 			FromPort:   fromPort,
 			ToPort:     toPort,
 		}
