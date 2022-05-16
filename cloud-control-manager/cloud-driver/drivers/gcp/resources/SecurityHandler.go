@@ -340,8 +340,8 @@ func (securityHandler *GCPSecurityHandler) CreateSecurity(securityReqInfo irs.Se
 
 		// outbound all open는 생성시 자동으로 추가하므로 사용자 요청이 있으면 skip한다.
 		if strings.EqualFold(firewallFromPort, "-1") && strings.EqualFold(firewallToPort, "-1") && strings.EqualFold(firewallIPProtocol, "all") && strings.EqualFold(firewallDirection, Const_GCP_Direction_EGRESS) && strings.EqualFold(firewallCIDR, "0.0.0.0/0") {
-			cblogger.Info("outbound all opened rule is already exists. continue")
-			errorFirewallList = append(errorFirewallList, "outbound all opened rule is already exists. continue")
+			cblogger.Info("outbound all opened rule already exists. continue")
+			errorFirewallList = append(errorFirewallList, "outbound all opened rule already exists. continue")
 			continue
 		}
 
@@ -896,7 +896,7 @@ func (securityHandler *GCPSecurityHandler) AddRules(sgIID irs.IID, securityRules
 	// 동일한 rule이 존재하면 존재하는 목록 return
 	sameRuleList := sameRuleCheck(searchSecurityInfo.SecurityRules, securityRules, Const_SecurityRule_Add)
 	if len(*sameRuleList) > 0 {
-		return irs.SecurityInfo{}, errors.New("Same SecurityRule is exists")
+		return irs.SecurityInfo{}, errors.New("Same SecurityRule exists")
 	}
 
 	// 존재하는 item의 max Sequence 찾아와야 함
@@ -947,7 +947,7 @@ func (securityHandler *GCPSecurityHandler) AddRules(sgIID irs.IID, securityRules
 	// All Deny Outboun가  없으면 추가한다.
 	fmt.Println("existsAllDenyOutbound ----------------- ", existsAllDenyOutbound)
 	if !existsAllDenyOutbound {
-		cblogger.Info("default outbound all deny is not exists, create one")
+		cblogger.Info("default outbound all deny does not exist, create one")
 		maxEgessCount := maxFirewallSequence(firewallList, Const_GCP_Direction_EGRESS)
 		maxEgessCount++
 		_, err = securityHandler.insertDefaultOutboundPolicy(projectID, vpcId, securityGroupTag, maxEgessCount)
@@ -1167,8 +1167,8 @@ func (securityHandler *GCPSecurityHandler) RemoveRules(sgIID irs.IID, securityRu
 
 	// 동일한 rule이 존재하지 않으면 지울 수 없으므로 존재하는 않는 요청 목록 return
 	sameRuleList := sameRuleCheck(searchSecurityInfo.SecurityRules, securityRules, Const_SecurityRule_Remove)
-	if len(*sameRuleList) == 0 {
-		return false, errors.New("Same SecurityRule is not exists")
+	if len(*sameRuleList) > 0 {
+		return false, errors.New("Same SecurityRule does not exist")
 	}
 
 	for _, securityRule := range *securityRules {
@@ -1215,14 +1215,18 @@ func (securityHandler *GCPSecurityHandler) RemoveRules(sgIID irs.IID, securityRu
 					securityToPort = ""
 				}
 
-				fmt.Println("Direction : ", item.Direction, " : ", spiderDirection, " : ", securityRule.Direction)
-				fmt.Println("Cidr : ", cidr, " : ", securityRule.CIDR)
-				fmt.Println("portArr : ", portArr)
-				fmt.Println("fromport : ", fromPort, " : ", securityRule.FromPort)
-				fmt.Println("toport : ", toPort, " : ", securityRule.ToPort)
-				fmt.Println("ipProtocol : ", ipProtocol, " : ", securityRule.IPProtocol)
+				if !strings.EqualFold(spiderDirection, securityRule.Direction) {
+					continue
+				}
+				if !strings.EqualFold(cidr, securityRule.CIDR) {
+					continue
+				}
+				if !strings.EqualFold(ipProtocol, securityRule.IPProtocol) {
+					continue
+				}
+
 				// 조건이 동일한 resource ID
-				if strings.EqualFold(spiderDirection, securityRule.Direction) && strings.EqualFold(cidr, securityRule.CIDR) && strings.EqualFold(fromPort, securityFromPort) && strings.EqualFold(toPort, securityToPort) && strings.EqualFold(ipProtocol, securityRule.IPProtocol) {
+				if strings.EqualFold(fromPort, securityFromPort) && strings.EqualFold(toPort, securityToPort) {
 					resourceId = item.Name
 					break
 				}
@@ -1245,7 +1249,7 @@ func (securityHandler *GCPSecurityHandler) RemoveRules(sgIID irs.IID, securityRu
 	// All Deny Outboun가  없으면 추가한다.
 	fmt.Println("existsAllDenyOutbound ----------------- ", existsAllDenyOutbound)
 	if !existsAllDenyOutbound {
-		cblogger.Info("default outbound all deny is not exists, create one")
+		cblogger.Info("default outbound all deny does not exist, create one")
 		maxEgessCount := maxFirewallSequence(firewallList, Const_GCP_Direction_EGRESS)
 		maxEgessCount++
 		_, err = securityHandler.insertDefaultOutboundPolicy(projectID, vpcId, securityGroupTag, maxEgessCount)
@@ -1477,8 +1481,8 @@ func getTagFromTags(itemName string, tags []string) string {
 }
 
 // tag는 여러개일 수 있으므로 tag에 해당 이름이 있는지 찾기
-func isExistsNameInTags(name string, tags []string) bool {
-	//fmt.Println("isExistsNameInTags : ", name, tags)
+func existsNameInTags(name string, tags []string) bool {
+	//fmt.Println("existsNameInTags : ", name, tags)
 	for _, tag := range tags {
 		if strings.EqualFold(tag, name) {
 			return true
@@ -1527,12 +1531,12 @@ func extractFirewallList(firewallList compute.FirewallList, reqTag string) []com
 		//fmt.Println("returnFirewallItemList before length  : ", len(returnFirewallItemList))
 		for _, item := range firewallList.Items {
 			//fmt.Println("get security list result : ", sgKey, item)
-			if isExistsNameInTags(sgKey, item.SourceTags) {
+			if existsNameInTags(sgKey, item.SourceTags) {
 				//fmt.Println("SourceTags : ", sgKey, item.SourceTags)
 				returnFirewallItemList = append(returnFirewallItemList, item)
 				continue
 			}
-			if isExistsNameInTags(sgKey, item.TargetTags) {
+			if existsNameInTags(sgKey, item.TargetTags) {
 				//fmt.Println("TargetTags : ", sgKey, item.TargetTags)
 				returnFirewallItemList = append(returnFirewallItemList, item)
 				continue
@@ -1790,27 +1794,38 @@ func sameRuleCheck(searchedSecurityRules *[]irs.SecurityRuleInfo, requestedSecur
 				searchedRulePort = searchedRule.FromPort + "-" + searchedRule.ToPort
 			}
 
+			if !strings.EqualFold(reqRule.Direction, searchedRule.Direction) {
+				continue
+			}
+			if !strings.EqualFold(reqRule.IPProtocol, searchedRule.IPProtocol) {
+				continue
+			}
+			if !strings.EqualFold(reqRulePort, searchedRulePort) {
+				continue
+			}
+			if !strings.EqualFold(reqRule.CIDR, searchedRule.CIDR) {
+				continue
+			}
 			fmt.Println("aaa : ", reqRulePort, ":"+fromPort+" : "+toPort)
 			fmt.Println("bbb : ", searchedRulePort, ":"+searchedRule.FromPort+" : "+searchedRule.ToPort)
-			if strings.EqualFold(reqRule.Direction, searchedRule.Direction) && strings.EqualFold(reqRule.IPProtocol, searchedRule.IPProtocol) && strings.EqualFold(reqRulePort, searchedRulePort) && strings.EqualFold(reqRule.CIDR, searchedRule.CIDR) {
-				hasFound = true
-			}
+			fmt.Println("Direction : ", reqRule.Direction, ":"+searchedRule.Direction)
+			fmt.Println("IPProtocol : ", reqRule.IPProtocol, ":"+searchedRule.IPProtocol)
+			fmt.Println("CIDR : ", reqRule.CIDR, ":"+searchedRule.CIDR)
 
 			// add일 때는 존재하는게 있으면 안됨.
-			if hasFound && action == Const_SecurityRule_Add {
+			if action == Const_SecurityRule_Add {
 				cblogger.Info("add")
 				checkResult = append(checkResult, reqRule)
-				hasFound = false // 초기화
-				break            // 찾았으면 searchedRule에서는 더 찾지 않아도 됨.
 			}
+			hasFound = true
+			break
 		}
-
+		cblogger.Info(action, hasFound)
 		// remove일 때는 없으면 안됨(존재해야 함)
 		if !hasFound && action == Const_SecurityRule_Remove {
 			cblogger.Info("remove")
 			checkResult = append(checkResult, reqRule)
 		}
-		hasFound = false // 초기화
 	}
 	return &checkResult
 }
