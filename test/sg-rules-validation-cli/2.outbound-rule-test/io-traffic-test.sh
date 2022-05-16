@@ -22,10 +22,10 @@ I_TCP_CMD2="nc -w3 -zvt ${P_IP} 1000"
 I_UDP_CMD1="nc -w3 -zvu ${P_IP} 2000"
 I_ICMP_CMD1="ping -w3 -c3 ${P_IP}"
 #---
-O_TCP_CMD1="ssh -i ${KEYPAIR_NAME}.pem -o StrictHostKeyChecking=no -o ConnectTimeout=5 cb-user@$P_IP nc -w3 -zvt ${CLIENT1_IP} 22"
-O_TCP_CMD2="ssh -i ${KEYPAIR_NAME}.pem -o StrictHostKeyChecking=no -o ConnectTimeout=5 cb-user@$P_IP nc -w3 -zvt ${CLIENT1_IP} 1000"
-O_UDP_CMD1="ssh -i ${KEYPAIR_NAME}.pem -o StrictHostKeyChecking=no -o ConnectTimeout=5 cb-user@$P_IP nc -w3 -zvu ${CLIENT1_IP} 2000"
-O_ICMP_CMD1="ssh -i ${KEYPAIR_NAME}.pem -o StrictHostKeyChecking=no -o ConnectTimeout=5 cb-user@$P_IP ping -w3 -c3 ${CLIENT1_IP}"
+O_TCP_CMD1="ssh -i ${KEYPAIR_NAME}.pem -o StrictHostKeyChecking=no -o ConnectTimeout=10 cb-user@$P_IP nc -w3 -zvt ${CLIENT1_IP} 22"
+O_TCP_CMD2="ssh -i ${KEYPAIR_NAME}.pem -o StrictHostKeyChecking=no -o ConnectTimeout=10 cb-user@$P_IP nc -w3 -zvt ${CLIENT1_IP} 1000"
+O_UDP_CMD1="ssh -i ${KEYPAIR_NAME}.pem -o StrictHostKeyChecking=no -o ConnectTimeout=10 cb-user@$P_IP nc -w3 -zvu ${CLIENT1_IP} 2000"
+O_ICMP_CMD1="ssh -i ${KEYPAIR_NAME}.pem -o StrictHostKeyChecking=no -o ConnectTimeout=10 cb-user@$P_IP ping -w3 -c3 ${CLIENT1_IP}"
 
 
 

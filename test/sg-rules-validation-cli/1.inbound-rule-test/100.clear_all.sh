@@ -19,7 +19,7 @@ source setup.env $1
 ./99.clear_vm.sh $1
 
 echo -e "# Try to delete test key"
-for (( i=1; i <= 30; i++ ))
+for (( i=1; i <= 120; i++ ))
 do
         ret=`../common/7.key-delete.sh $1`
         echo -e "$ret"
@@ -34,7 +34,7 @@ done
 
 
 echo -e "# Try to delete test Security Group"
-for (( i=1; i <= 30; i++ ))
+for (( i=1; i <= 120; i++ ))
 do
         ret=`../common/7.sg-delete.sh $1`
         echo -e "$ret"
@@ -48,7 +48,7 @@ do
 done
 
 echo -e "# Try to delete test VPC/Subnet"
-for (( i=1; i <= 30; i++ ))
+for (( i=1; i <= 120; i++ ))
 do
         ret=`../common/7.vpc-delete.sh $1`
         echo -e "$ret"

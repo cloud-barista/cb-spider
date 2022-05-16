@@ -2,7 +2,7 @@
 
 
 CSPLIST=( aws azure gcp alibaba tencent ibm openstack cloudit )
-CSPLIST=( aws azure gcp alibaba tencent ibm )
+CSPLIST=( aws azure alibaba tencent )
 
 function run() {
         num=0
@@ -11,10 +11,7 @@ function run() {
                 echo  ============ test ${CSP} ... ============
 
 		if [ "${CSP}" = "azure" ]; then
-			export SLEEP=60
-		fi
-		if [ "${CSP}" = "gcp" ]; then
-			export SLEEP=60
+			export SLEEP=80
 		fi
 
 		./00.prepare-00.sh ${CSP}
@@ -22,9 +19,6 @@ function run() {
 		./100.clear_all.sh ${CSP}
 
                 if [ "${CSP}" = "azure" ]; then
-                        unset SLEEP
-                fi
-                if [ "${CSP}" = "gcp" ]; then
                         unset SLEEP
                 fi
 
