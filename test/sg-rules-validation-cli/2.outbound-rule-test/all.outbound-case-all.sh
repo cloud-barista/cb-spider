@@ -8,6 +8,9 @@ if [ "$1" = "" ]; then
         exit 0;
 fi
 
+if [ "${CSP}" = "azure" ]; then
+        export SLEEP=80
+fi
 
 source ../common/setup.env $1
 source setup.env $1
@@ -98,3 +101,7 @@ echo -e "###########################################################"
 echo -e "# Finished All Test Cases... "
 echo -e "###########################################################"
 echo -e "\n\n"
+
+if [ "${CSP}" = "azure" ]; then
+        unset SLEEP
+fi

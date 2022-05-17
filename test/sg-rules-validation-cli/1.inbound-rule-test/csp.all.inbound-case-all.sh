@@ -2,7 +2,7 @@
 
 
 CSPLIST=( aws azure gcp alibaba tencent ibm openstack cloudit )
-CSPLIST=( aws azure alibaba tencent )
+CSPLIST=( aws azure gcp alibaba ibm )
 
 function run() {
         num=0
