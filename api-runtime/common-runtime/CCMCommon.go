@@ -3949,7 +3949,7 @@ func DeleteCSPResource(connectionName string, rsType string, systemID string) (b
 		return false, "", err
 	}
 
-	iid := cres.IID{"", systemID}
+	iid := cres.IID{getMSShortID(systemID), getMSShortID(systemID)}
 
 	// delete CSP's Resource(SystemId)	
 	result := false
