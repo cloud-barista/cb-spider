@@ -1361,6 +1361,105 @@ func AddSubnet(connectionName string, rsType string, vpcName string, reqInfo cre
 
 //================ SecurityGroup Handler
 
+func GetSGOwnerVPC(connectionName string, cspID string) (owerVPC cres.IID, err error) {
+        cblog.Info("call GetSecurityGroupOwner()")
+
+        // check empty and trim user inputs
+        connectionName, err = EmptyCheckAndTrim("connectionName", connectionName)
+        if err != nil {
+                cblog.Error(err)
+                return cres.IID{}, err
+        }
+
+        cspID, err = EmptyCheckAndTrim("cspID", cspID)
+        if err != nil {
+                cblog.Error(err)
+                return cres.IID{}, err
+        }
+
+        rsType := rsSG
+
+        cldConn, err := ccm.GetCloudConnection(connectionName)
+        if err != nil {
+                cblog.Error(err)
+                return cres.IID{}, err
+        }
+
+        handler, err := cldConn.CreateSecurityHandler()
+        if err != nil {
+                cblog.Error(err)
+                return cres.IID{}, err
+        }
+
+sgRWLock.RLock()
+vpcRWLock.RLock()
+
+        // (1) check existence(cspID)
+        iidInfoList, err := getAllSGIIDInfoList(connectionName)
+        if err != nil {
+vpcRWLock.RUnlock()
+sgRWLock.RUnlock()
+                cblog.Error(err)
+                return cres.IID{}, err
+        }
+        var isExist bool=false
+        var nameId string
+        for _, OneIIdInfo := range iidInfoList {
+                if getMSShortID(getDriverSystemId(OneIIdInfo.IId)) == cspID {
+                        nameId = OneIIdInfo.IId.NameId
+                        isExist = true
+                        break
+                }
+        }
+        if isExist == true {
+vpcRWLock.RUnlock()
+sgRWLock.RUnlock()
+                err :=  fmt.Errorf(rsType + "-" + cspID + " already exists with " + nameId + "!")
+                cblog.Error(err)
+                return cres.IID{}, err
+        }
+
+        // (2) get resource info(CSP-ID)
+        // check existence and get info of this resouce in the CSP
+        // Do not user NameId, because Azure driver use it like SystemId
+        getInfo, err := handler.GetSecurity( cres.IID{getMSShortID(cspID), cspID} )
+        if err != nil {
+vpcRWLock.RUnlock()
+sgRWLock.RUnlock()
+                cblog.Error(err)
+                return cres.IID{}, err
+        }
+
+        // (3) get VPC IID:list
+        vpcIIDInfoList, err := iidRWLock.ListIID(iidm.IIDSGROUP, connectionName, rsVPC)
+        if err != nil {
+vpcRWLock.RUnlock()
+sgRWLock.RUnlock()
+                cblog.Error(err)
+                return cres.IID{}, err
+        }
+vpcRWLock.RUnlock()
+sgRWLock.RUnlock()
+
+        //--------
+        //-------- ex) spiderIID {"vpc-01", "vpc-01-9m4e2mr0ui3e8a215n4g:i-0bc7123b7e5cbf79d"}
+        //--------
+        // Do not user NameId, because Azure driver use it like SystemId
+        vpcCSPID := getMSShortID(getInfo.VpcIID.SystemId)
+        if vpcIIDInfoList == nil || len(vpcIIDInfoList) <= 0 {
+                return cres.IID{"", vpcCSPID}, nil
+        }
+
+        // (4) check existence in the MetaDB
+        for _, one := range vpcIIDInfoList {
+                if getMSShortID(getDriverSystemId(one.IId)) == vpcCSPID {
+                        return cres.IID{one.IId.NameId, vpcCSPID}, nil
+                }
+        }
+
+        return cres.IID{"", vpcCSPID}, nil
+}
+
 // UserIID{UserID, CSP-ID} => SpiderIID{UserID, SP-XID:CSP-ID}
 // (0) check VPC existence(VPC UserID)
 // (1) check existence(UserID)
@@ -2366,6 +2465,178 @@ func cloneReqInfoWithDriverIID(ConnectionName string, reqInfo cres.VMReqInfo) (c
 
 //================ VM Handler
 
+type VMUsingResources struct {
+        Resources struct {
+                VPC	*cres.IID  `json:"VPC"`
+                SGList	[]*cres.IID `json:"SGList"`
+                VMKey	*cres.IID  `json:"VMKey"`
+        }
+}
+
+func GetVMUsingRS(connectionName string, cspID string) (VMUsingResources, error) {
+        cblog.Info("call GetVMUsingRS()")
+
+        // check empty and trim user inputs
+        connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)
+        if err != nil {
+                cblog.Error(err)
+                return VMUsingResources{}, err
+        }
+
+        cspID, err = EmptyCheckAndTrim("cspID", cspID)
+        if err != nil {
+                cblog.Error(err)
+                return VMUsingResources{}, err
+        }
+
+        rsType := rsVM
+
+        cldConn, err := ccm.GetCloudConnection(connectionName)
+        if err != nil {
+                cblog.Error(err)
+                return VMUsingResources{}, err
+        }
+
+        handler, err := cldConn.CreateVMHandler()
+        if err != nil {
+                cblog.Error(err)
+                return VMUsingResources{}, err
+        }
+
+//vmRWLock.RLock()
+//defer vmRWLock.RUnlock()
+vpcRWLock.RLock()
+defer vpcRWLock.RUnlock()
+sgRWLock.RLock()
+defer sgRWLock.RUnlock()
+keyRWLock.RLock()
+defer keyRWLock.RUnlock()
+
+        // (1) check existence(cspID)
+        iidInfoList, err := iidRWLock.ListIID(iidm.IIDSGROUP, connectionName, rsVM)
+        if err != nil {
+                cblog.Error(err)
+                return VMUsingResources{}, err
+        }
+        var isExist bool=false
+        var nameId string
+        for _, OneIIdInfo := range iidInfoList {
+                if getDriverSystemId(OneIIdInfo.IId) == cspID {
+                        nameId = OneIIdInfo.IId.NameId
+                        isExist = true
+                        break
+                }
+        }
+        if isExist == true {
+                err :=  fmt.Errorf(rsType + "-" + cspID + " already exists with " + nameId + "!")
+                cblog.Error(err)
+                return VMUsingResources{}, err
+        }
+
+        // (2) get resource info(CSP-ID)
+        // check existence and get info of this resouce in the CSP
+        // Do not user NameId, because Azure driver use it like SystemId
+        getInfo, err := handler.GetVM( cres.IID{getMSShortID(cspID), cspID} )
+        if err != nil {
+                cblog.Error(err)
+                return VMUsingResources{}, err
+        }
+
+
+	////////////////////////////////////////////
+	// (3) Get using IIDs of (a) VPC, (b) SG, (c) Key
+	////////////////////////////////////////////
+
+        //// ---(a) Get Using a VPC IID
+
+        // get VPC IID:list
+        vpcIIDInfoList, err := iidRWLock.ListIID(iidm.IIDSGROUP, connectionName, rsVPC)
+        if err != nil {
+                cblog.Error(err)
+                return VMUsingResources{}, err
+        }
+
+        // ex) spiderIID {"vpc-01", "vpc-01-9m4e2mr0ui3e8a215n4g:i-0bc7123b7e5cbf79d"}
+        // Do not use NameId, because Azure driver use it like SystemId
+        vpcCSPID := getMSShortID(getInfo.VpcIID.SystemId)
+
+	vpcIID := cres.IID{"", vpcCSPID}
+
+        // check existence in the MetaDB
+        for _, one := range vpcIIDInfoList {
+                if getMSShortID(getDriverSystemId(one.IId)) == vpcCSPID {
+                        vpcIID = cres.IID{one.IId.NameId, vpcCSPID}
+                }
+        }
+
+        //// ---(b) Get Using SG IID List
+
+        // get SG IID:list
+        sgIIDInfoList, err := getAllSGIIDInfoList(connectionName)
+        if err != nil {
+                cblog.Error(err)
+                return VMUsingResources{}, err
+        }
+
+        // ex) spiderIID {"vpc-01", "vpc-01-9m4e2mr0ui3e8a215n4g:i-0bc7123b7e5cbf79d"}
+        // Do not use NameId, because Azure driver use it like SystemId
+        var sgCSPIDList []*string
+	for _, one := range getInfo.SecurityGroupIIds {
+		sgCSPID := getMSShortID(one.SystemId)
+		sgCSPIDList = append(sgCSPIDList, &sgCSPID)
+	}
+
+        var sgIIDList []*cres.IID
+
+        // check existence in the MetaDB
+	for _, cspID := range sgCSPIDList {
+		has := false
+		for _, one := range sgIIDInfoList {
+			if getMSShortID(getDriverSystemId(one.IId)) == *cspID {
+				sgIID := cres.IID{one.IId.NameId, *cspID}
+				sgIIDList = append(sgIIDList, &sgIID) // mapped SG
+				has = true;
+				break;
+			}
+		}
+		if !has {
+			sgIIDList = append(sgIIDList, &cres.IID{"", *cspID}) // unmapped SG
+		}
+	}
+
+
+        //// ---(c) Get Using Key IID List
+
+        // get Key IID:list
+        keyIIDInfoList, err := iidRWLock.ListIID(iidm.IIDSGROUP, connectionName, rsKey)
+        if err != nil {
+                cblog.Error(err)
+                return VMUsingResources{}, err
+        }
+
+        // ex) spiderIID {"vpc-01", "vpc-01-9m4e2mr0ui3e8a215n4g:i-0bc7123b7e5cbf79d"}
+        // Do not use NameId, because Azure driver use it like SystemId
+        keyCSPID := getMSShortID(getInfo.KeyPairIId.SystemId)
+
+        keyIID := cres.IID{"", keyCSPID}
+
+        // check existence in the MetaDB
+        for _, one := range keyIIDInfoList {
+                if getMSShortID(getDriverSystemId(one.IId)) == keyCSPID {
+                        keyIID = cres.IID{one.IId.NameId, keyCSPID}
+                }
+        }
+
+
+	var vmUsingRS VMUsingResources
+	vmUsingRS.Resources.VPC = &vpcIID
+	vmUsingRS.Resources.SGList = sgIIDList
+	vmUsingRS.Resources.VMKey = &keyIID
+
+        return vmUsingRS, nil
+}
+
+
 // UserIID{UserID, CSP-ID} => SpiderIID{UserID, SP-XID:CSP-ID}
 // (1) check existence(UserID)
 // (2) get resource info(CSP-ID)
@@ -3101,105 +3372,6 @@ func ControlVM(connectionName string, rsType string, nameID string, action strin
 	return info, nil
 }
 
-func GetSGOwnerVPC(connectionName string, cspID string) (owerVPC cres.IID, err error) {
-	cblog.Info("call GetSecurityGroupOwner()")
-
-        // check empty and trim user inputs
-        connectionName, err = EmptyCheckAndTrim("connectionName", connectionName)
-        if err != nil {
-                cblog.Error(err)
-                return cres.IID{}, err
-        }
-
-        cspID, err = EmptyCheckAndTrim("cspID", cspID)
-        if err != nil {
-                cblog.Error(err)
-                return cres.IID{}, err
-        }
-
-        rsType := rsSG
-
-        cldConn, err := ccm.GetCloudConnection(connectionName)
-        if err != nil {
-                cblog.Error(err)
-                return cres.IID{}, err
-        }
-
-        handler, err := cldConn.CreateSecurityHandler()
-        if err != nil {
-                cblog.Error(err)
-                return cres.IID{}, err
-        }
-
-sgRWLock.RLock()
-vpcRWLock.RLock()
-
-        // (1) check existence(cspID)
-        iidInfoList, err := getAllSGIIDInfoList(connectionName)
-        if err != nil {
-vpcRWLock.RUnlock()
-sgRWLock.RUnlock()
-                cblog.Error(err)
-                return cres.IID{}, err
-        }
-        var isExist bool=false
-	var nameId string
-        for _, OneIIdInfo := range iidInfoList {
-                if getDriverSystemId(OneIIdInfo.IId) == cspID {
-			nameId = OneIIdInfo.IId.NameId
-                        isExist = true
-                        break
-                }
-        }
-        if isExist == true {
-vpcRWLock.RUnlock()
-sgRWLock.RUnlock()
-                err :=  fmt.Errorf(rsType + "-" + cspID + " already exists with " + nameId + "!")
-                cblog.Error(err)
-                return cres.IID{}, err
-        }
-
-        // (2) get resource info(CSP-ID)
-        // check existence and get info of this resouce in the CSP
-        // Do not user NameId, because Azure driver use it like SystemId
-        getInfo, err := handler.GetSecurity( cres.IID{getMSShortID(cspID), cspID} )
-        if err != nil {
-vpcRWLock.RUnlock()
-sgRWLock.RUnlock()
-                cblog.Error(err)
-                return cres.IID{}, err
-        }
-
-        // (3) get VPC IID:list
-        vpcIIDInfoList, err := iidRWLock.ListIID(iidm.IIDSGROUP, connectionName, rsVPC)
-        if err != nil {
-vpcRWLock.RUnlock()
-sgRWLock.RUnlock()
-                cblog.Error(err)
-                return cres.IID{}, err
-        }
-vpcRWLock.RUnlock()
-sgRWLock.RUnlock()
-
-	//--------
-        //-------- ex) spiderIID {"vpc-01", "vpc-01-9m4e2mr0ui3e8a215n4g:i-0bc7123b7e5cbf79d"}
-	//--------
-        // Do not user NameId, because Azure driver use it like SystemId
-        vpcCSPID := getMSShortID(getInfo.VpcIID.SystemId)
-        if vpcIIDInfoList == nil || len(vpcIIDInfoList) <= 0 {
-                return cres.IID{"", vpcCSPID}, nil
-        }
-
-	// (4) check existence in the MetaDB
-	for _, one := range vpcIIDInfoList {
-		if getDriverSystemId(one.IId) == vpcCSPID {
-			return cres.IID{one.IId.NameId, vpcCSPID}, nil
-		}
-	}
-
-	return cres.IID{"", vpcCSPID}, nil
-}
-
 // list all Resources for management
 // (1) get IID:list
 // (2) get CSP:list
@@ -3777,7 +3949,7 @@ func DeleteCSPResource(connectionName string, rsType string, systemID string) (b
 		return false, "", err
 	}
 
-	iid := cres.IID{"", systemID}
+	iid := cres.IID{getMSShortID(systemID), getMSShortID(systemID)}
 
 	// delete CSP's Resource(SystemId)	
 	result := false

@@ -1437,6 +1437,30 @@ func deletePublicIP(c echo.Context) error {
 
 //================ VM Handler
 
+
+func GetVMUsingRS(c echo.Context) error {
+        cblog.Info("call GetVMUsingRS()")
+
+        var req struct {
+                ConnectionName string
+                ReqInfo        struct {
+                        CSPId          string
+                }
+        }
+
+        if err := c.Bind(&req); err != nil {
+                return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+        }
+
+        // Call common-runtime API
+        result, err := cmrt.GetVMUsingRS(req.ConnectionName, req.ReqInfo.CSPId)
+        if err != nil {
+                return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+        }
+
+        return c.JSON(http.StatusOK, result)
+}
+
 type vmRegisterReq struct {
         ConnectionName string
         ReqInfo        struct {

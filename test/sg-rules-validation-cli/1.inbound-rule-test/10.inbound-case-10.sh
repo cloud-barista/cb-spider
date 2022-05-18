@@ -56,7 +56,7 @@ echo "============== after RemoveRules: '${SG_NAME}' --- inbound:TCP/22/22, inbo
 if [ "$SLEEP" ]; then
         sleep $SLEEP
 else
-        sleep 7
+        sleep 10
 fi
 
 # print the table header of test results

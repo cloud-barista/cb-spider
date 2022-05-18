@@ -24,6 +24,7 @@ import (
 	//"net/http"
 	"os"
 	"plugin"
+	"sync"
 )
 
 var cblog *logrus.Logger
@@ -31,6 +32,9 @@ var cblog *logrus.Logger
 func init() {
 	cblog = config.Cblogger
 }
+
+// definition of RWLock to avoid 'plugin already loaded' panic
+var pluginRWLock = new(sync.RWMutex)
 
 func getCloudDriver(cldDrvInfo dim.CloudDriverInfo) (idrv.CloudDriver, error) {
 	// $CBSPIDER_ROOT/cloud-driver-libs/*
@@ -53,13 +57,17 @@ func getCloudDriver(cldDrvInfo dim.CloudDriverInfo) (idrv.CloudDriver, error) {
 	        A plugin is only initialized once, and cannot be closed.
 	        ref) https://golang.org/pkg/plugin/
 	-----------------*/
-
+// RWLock to avoid 'plugin already loaded' panic
+pluginRWLock.Lock()
 	//var plug *plugin.Plugin
 	plug, err := plugin.Open(driverPath)
 	if err != nil {
+   pluginRWLock.Unlock()
 		cblog.Errorf("plugin.Open: %v\n", err)
 		return nil, err
 	}
+pluginRWLock.Unlock()
+
 	//      fmt.Printf("plug: %#v\n\n", plug)
 
 	//driver, err := plug.Lookup(cccInfo.DriverName)

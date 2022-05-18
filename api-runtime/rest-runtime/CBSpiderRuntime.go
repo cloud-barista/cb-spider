@@ -288,6 +288,7 @@ func RunServer() {
 			{"DELETE", "/publicip/:PublicIPId", deletePublicIP},
 		*/
 		//----------VM Handler
+		{"GET", "/getvmusingresources", GetVMUsingRS},
 		{"POST", "/regvm", RegisterVM},
 		{"DELETE", "/regvm/:Name", UnregisterVM},
 

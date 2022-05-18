@@ -56,7 +56,7 @@ echo "============== after AddRules: '${SG_NAME}' --- outbound:TCP/22/22, outbou
 if [ "$SLEEP" ]; then
         sleep $SLEEP
 else
-        sleep 7
+        sleep 10
 fi
 
 # print the table header of test results
