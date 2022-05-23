@@ -925,6 +925,7 @@ func CreateVPC(connectionName string, rsType string, reqInfo cres.VPCReqInfo) (*
 
 	vpcRWLock.Lock()
 	defer vpcRWLock.Unlock()
+
 	// (1) check exist(NameID)
 	bool_ret, err := iidRWLock.IsExistIID(iidm.IIDSGROUP, connectionName, rsType, reqInfo.IId)
 	if err != nil {
@@ -937,6 +938,25 @@ func CreateVPC(connectionName string, rsType string, reqInfo cres.VPCReqInfo) (*
                 cblog.Error(err)
                 return nil, err
 	}
+
+        // check the Cloud Connection has the VPC already, when the CSP supports only 1 VPC.
+        drv, err := ccm.GetCloudDriver(connectionName)
+	if err != nil {
+                cblog.Error(err)
+                return nil, err
+	}
+        if (drv.GetDriverCapability().SINGLE_VPC == true) {
+                list_ret, err := iidRWLock.ListIID(iidm.IIDSGROUP, connectionName, rsType)
+                if err != nil {
+                        cblog.Error(err)
+                        return nil, err
+                }
+                if list_ret != nil && len(list_ret) > 0 {
+                        err :=  fmt.Errorf(rsType + "-" + connectionName + " can have only 1 VPC, but already have a VPC " + list_ret[0].IId.NameId)
+                        cblog.Error(err)
+                        return nil, err
+                }
+        }
 
 	// (2) generate SP-XID and create reqIID, driverIID
 	//     ex) SP-XID {"vm-01-9m4e2mr0ui3e8a215n4g"}
