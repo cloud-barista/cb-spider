@@ -12,38 +12,47 @@ package resources
 
 import "time"
 
-type NLBReqInfo struct {
-	IId		IID // {NameId, SystemId}
-	VpcIID		IID    // {NameId, SystemId}
+//-------- Info Structure
+type NLBInfo struct {
+	IId		IID 	// {NameId, SystemId}
+	VpcIID		IID	// {NameId, SystemId}
+
+	Type		string	// PUBLIC(V) | INTERNAL
+	Scope		string	// REGION(V) | GLOBAL
 
 	//------ Frontend
-	Listeners	*[]ListenerInfo
+	Listener	ListenerInfo
 
 	//------ Backend
-	ServiceGroup	ServiceGroupInfo
-	ServiceVMs	*[]IID
+	VMGroup		VMGroupInfo
 	HealthChecker	HealthCheckerInfo
-}
 
-type ListenerInfo struct {
-	Protocol	string // TCP|UDP
-	Port		string // 1-65535
-
-	CspID		string // Optional, May be Used by Driver.
+	CreatedTime	time.Time
 	KeyValueList []KeyValue
 }
 
-type ServiceGroupInfo struct {
-        Protocol        string // TCP|UDP|HTTP|HTTPS
-        Port            string // 1-65535
+type ListenerInfo struct {
+	Protocol	string	// TCP|UDP
+	IP		string	// Auto Generated and attached
+	Port		string	// 1-65535
+	DNSName		string	// Optional, Auto Generated and attached
 
-	CspID		string // Optional, May be Used by Driver.
+	CspID		string	// Optional, May be Used by Driver.
+	KeyValueList []KeyValue
+}
+
+type VMGroupInfo struct {
+        Protocol        string	// TCP|UDP|HTTP|HTTPS
+        Port            string	// 1-65535
+	VMs		*[]IID
+
+	CspID		string	// Optional, May be Used by Driver.
         KeyValueList []KeyValue
 }
 
 type HealthCheckerInfo struct {
 	Protocol	string	// TCP|HTTP|HTTPS
-	Port		string	// Service Port or 1-65535
+	Port		string	// Listener Port or 1-65535
 	Interval	int	// secs, Interval time between health checks.
 	Timeout		int	// secs, Waiting time to decide an unhealthy VM when no response.
 	Threshold	int	// num, The number of continuous health checks to change the VM status.
@@ -51,47 +60,28 @@ type HealthCheckerInfo struct {
         KeyValueList	[]KeyValue
 }
 
-type HealthyInfo struct {
-	AllServiceVMs	*[]IID
+type HealthInfo struct {
+	AllVMs		*[]IID
 	HealthyVMs	*[]IID
 	UnHealthyVMs	*[]IID
 }
 
-type NLBInfo struct {
-        IId		IID	// {NameId, SystemId}
-	CreatedTime	time.Time
-        VpcIID		IID	// {NameId, SystemId}
-
-	//------ Frontend
-	FrontendIP	string	// Auto Generated and attached
-	FrontendDNSName	string	// Optional, Auto Generated and attached
-	Listeners	*[]ListenerInfo
-
-	//------ Backend
-	ServiceGroup	ServiceGroupInfo
-	ServiceVMs	*[]IID
-	HealthChecker	HealthCheckerInfo
-
-        KeyValueList	[]KeyValue
-}
-
-
+//-------- API
 type NLBHandler interface {
 
 	//------ NLB Management
-	CreateNLB(nlbReqInfo NLBReqInfo) (NLBInfo, error)
-	ListNLB() ([]*NLBInfo, error)
-	GetNLB(nlbIID IID) (NLBInfo, error)
-	DeleteNLB(nlbIID IID) (bool, error)
+	CreateNLB(nlbReqInfo NLBInfo) (NLBInfo, error)
+	//ListNLB() ([]*NLBInfo, error)
+	//GetNLB(nlbIID IID) (NLBInfo, error)
+	//DeleteNLB(nlbIID IID) (bool, error)
 
 	//------ Frontend Control
-	AddListeners(nlbIID IID, listeners *[]ListenerInfo) (NLBInfo, error)
-	RemoveListeners(nlbIID IID, listeners *[]ListenerInfo) (bool, error)
+	//ChangeListener(nlbIID IID, listener ListenerInfo) (NLBInfo, error)
 
 	//------ Backend Control
-	ChangeServiceGroupInfo(nlbIID IID, serviceGroup ServiceGroupInfo) (error)
-	AddServiceVMs(nlbIID IID, vmIIDs *[]IID) (NLBInfo, error)
-	RemoveServiceVMs(nlbIID IID, vmIIDs *[]IID) (bool, error)
-	GetServiceVMStatus(nlbIID IID) (HealthyInfo, error)
-	ChangeHealthCheckerInfo(nlbIID IID, healthChecker HealthCheckerInfo) (error)
+	//ChangeVMGroupInfo(nlbIID IID, vmGroup VMGroupInfo) (error)
+	//AddVMs(nlbIID IID, vmIIDs *[]IID) (NLBInfo, error)
+	//RemoveVMs(nlbIID IID, vmIIDs *[]IID) (bool, error)
+	//GetVMGroupHealthInfo(nlbIID IID) (HealthInfo, error)
+	//ChangeHealthCheckerInfo(nlbIID IID, healthChecker HealthCheckerInfo) (error)
 }
