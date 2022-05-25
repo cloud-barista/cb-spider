@@ -308,6 +308,8 @@ func RunServer() {
 		{"PUT", "/controlvm/:Name", ControlVM}, // suspend, resume, reboot
 
 		//-------------------------------------------------------------------//
+		//----------SPLock Info
+		{"GET", "/splockinfo", GetAllSPLockInfo},
 		//----------SSH RUN
 		{"POST", "/sshrun", SSHRun},
 
