@@ -39,24 +39,23 @@ func New() *SPLOCK {
 }
 
 func (spLock *SPLOCK)Lock(conn string, id string) {
-	spLock.mutex.Lock()
-	defer spLock.mutex.Unlock()
-
+spLock.mutex.Lock()
 	lockValue := spLock.lockMap[LockKey{conn, id}]
 	if lockValue == nil {
 		spLock.lockMap[LockKey{conn, id}] = &LockValue{}
 		lockValue = spLock.lockMap[LockKey{conn, id}]
 	}
+spLock.mutex.Unlock()
 
-	lockValue.lock.Lock()
 	lockValue.count++
+	lockValue.lock.Lock()
 }
 
 func (spLock *SPLOCK)Unlock(conn string, id string) {
-        spLock.mutex.Lock()
-        defer spLock.mutex.Unlock()
-
+spLock.mutex.Lock()
         lockValue := spLock.lockMap[LockKey{conn, id}]
+spLock.mutex.Unlock()
+
         lockValue.lock.Unlock()
         lockValue.count--
 
@@ -66,24 +65,24 @@ func (spLock *SPLOCK)Unlock(conn string, id string) {
 }
 
 func (spLock *SPLOCK)RLock(conn string, id string) {
-        spLock.mutex.Lock()
-        defer spLock.mutex.Unlock()
+spLock.mutex.Lock()
 
         lockValue := spLock.lockMap[LockKey{conn, id}]
         if lockValue == nil {
                 spLock.lockMap[LockKey{conn, id}] = &LockValue{}
                 lockValue = spLock.lockMap[LockKey{conn, id}]
         }
+spLock.mutex.Unlock()
 
-        lockValue.lock.RLock()
         lockValue.count++
+        lockValue.lock.RLock()
 }
 
 func (spLock *SPLOCK)RUnlock(conn string, id string) {
-        spLock.mutex.Lock()
-        defer spLock.mutex.Unlock()
-
+spLock.mutex.Lock()
         lockValue := spLock.lockMap[LockKey{conn, id}]
+spLock.mutex.Unlock()
+
         lockValue.lock.RUnlock()
         lockValue.count--
 
