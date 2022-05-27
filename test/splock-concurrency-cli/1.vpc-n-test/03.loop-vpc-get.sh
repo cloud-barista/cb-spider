@@ -29,14 +29,18 @@ echo -e "###########################################################"
 echo -e "\n\n"
 
 
-for (( num=1; num <= $2; num++ ))
+while true
 do
-	# ex) ../common/2.vpc-get.sh aws 10
-	../common/2.vpc-get.sh $1 $num &
-	#if [ `expr $num % 10` = 0 ]; then # tencent RequestLimitExceeded = 10/sec
-	#	sleep 3
-	#fi
-	echo -e "\n\n"
+	for (( num=1; num <= $2; num++ ))
+	do
+		# ex) ../common/2.vpc-get.sh aws 10
+		../common/2.vpc-get.sh $1 $num &
+		#if [ `expr $num % 10` = 0 ]; then # tencent RequestLimitExceeded = 10/sec
+		#	sleep 3
+		#fi
+		echo -e "\n\n"
+	done
+	sleep 2
 done
 
 echo -e "\n\n"

@@ -37,7 +37,7 @@ do
 	#if [ `expr $num % 10` = 0 ]; then # tencent RequestLimitExceeded = 10/sec
 	#	sleep 3
 	#fi
-	sleep 1
+	sleep 2
 	echo -e "\n\n"
 done
 
