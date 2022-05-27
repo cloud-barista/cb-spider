@@ -9,7 +9,7 @@
 package main
 
 import (
-	_ "runtime"
+	"runtime"
 	"fmt"
 	"sync"
 	"time"
@@ -26,7 +26,7 @@ import (
 
 func main() {
 	// use multi-Core
-        // runtime.GOMAXPROCS(runtime.NumCPU())
+        runtime.GOMAXPROCS(runtime.NumCPU())
 
 	rootCmd := NewRootCmd()
 	if err := rootCmd.Execute(); err != nil {
