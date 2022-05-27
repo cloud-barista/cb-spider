@@ -15,8 +15,9 @@ import (
 )
 
 type DriverCapabilityInfo struct {
-	ImageHandler      bool // support: true, do not support: false
-	VPCHandler        bool // support: true, do not support: false
+	NLBHandler   bool // support: true, do not support: false
+	ImageHandler bool // support: true, do not support: false
+	VPCHandler   bool // support: true, do not support: false
 	//VNetworkHandler bool // support: true, do not support: false
 	SecurityHandler bool // support: true, do not support: false
 	KeyPairHandler  bool // support: true, do not support: false
@@ -27,7 +28,7 @@ type DriverCapabilityInfo struct {
 
 	FIXED_SUBNET_CIDR bool // support: true, do not support: false
 	VPC_CIDR          bool // support: true, do not support: false
-	SINGLE_VPC	bool // support: true, do not support: false
+	SINGLE_VPC        bool // support: true, do not support: false
 }
 
 type CredentialInfo struct {
@@ -48,7 +49,7 @@ type CredentialInfo struct {
 	Host             string // Docker
 	APIVersion       string // Docker
 	MockName         string // Mock
-	ApiKey		 string // Ibm
+	ApiKey           string // Ibm
 	ConnectionName   string // MINI
 }
 
