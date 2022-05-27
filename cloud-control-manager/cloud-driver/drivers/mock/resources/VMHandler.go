@@ -12,6 +12,7 @@ package resources
 
 import (
 	"fmt"
+	"sync"
 	"time"
 
 	cblog "github.com/cloud-barista/cb-log"
@@ -31,6 +32,8 @@ func init() {
 	vmInfoMap = make(map[string][]*irs.VMInfo)
 	vmStatusInfoMap = make(map[string][]*irs.VMStatusInfo)
 }
+
+var vmMapLock = new(sync.RWMutex)
 
 func (vmHandler *MockVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, error) {
 	cblogger := cblog.GetLogger("CB-SPIDER")
@@ -138,6 +141,9 @@ func (vmHandler *MockVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, er
 		KeyValueList: nil,
 	}
 
+vmMapLock.Lock()
+defer vmMapLock.Unlock()
+
 	infoList, _ := vmInfoMap[mockName]
 	infoList = append(infoList, &vmInfo)
 	vmInfoMap[mockName] = infoList
@@ -157,6 +163,9 @@ func (vmHandler *MockVMHandler) SuspendVM(iid irs.IID) (irs.VMStatus, error) {
 	cblogger.Info("Mock Driver: called SuspendVM()!")
 
 	mockName := vmHandler.MockName
+
+vmMapLock.Lock()
+defer vmMapLock.Unlock()
 
 	statusInfoList, ok := vmStatusInfoMap[mockName]
 	if !ok {
@@ -187,6 +196,9 @@ func (vmHandler *MockVMHandler) ResumeVM(iid irs.IID) (irs.VMStatus, error) {
 
 	mockName := vmHandler.MockName
 
+vmMapLock.Lock()
+defer vmMapLock.Unlock()
+
 	statusInfoList, ok := vmStatusInfoMap[mockName]
 	if !ok {
 
@@ -216,6 +228,9 @@ func (vmHandler *MockVMHandler) RebootVM(iid irs.IID) (irs.VMStatus, error) {
 	cblogger.Info("Mock Driver: called RebootVM()!")
 
 	mockName := vmHandler.MockName
+
+vmMapLock.Lock()
+defer vmMapLock.Unlock()
 
 	statusInfoList, ok := vmStatusInfoMap[mockName]
 	if !ok {
@@ -250,19 +265,23 @@ func (vmHandler *MockVMHandler) TerminateVM(iid irs.IID) (irs.VMStatus, error) {
 	cblogger := cblog.GetLogger("CB-SPIDER")
 	cblogger.Info("Mock Driver: called TerminateVM()!")
 
-	infoList, err := vmHandler.ListVM()
-	if err != nil {
-		cblogger.Error(err)
-		return "", err
-	}
+        mockName := vmHandler.MockName
 
-	statusInfoList, err := vmHandler.ListVMStatus()
-	if err != nil {
-		cblogger.Error(err)
-		return "", err
-	}
+vmMapLock.Lock()
+defer vmMapLock.Unlock()
 
-	mockName := vmHandler.MockName
+        infoList, ok := vmInfoMap[mockName]
+        if !ok {
+		errMSG := iid.NameId + " vm iid does not exist!!"
+                return "", fmt.Errorf(errMSG)
+        }
+
+        statusInfoList, ok := vmStatusInfoMap[mockName]
+        if !ok {
+		errMSG := iid.NameId + " vm iid does not exist!!"
+                return "", fmt.Errorf(errMSG)
+        }
+
 	for idx, info := range infoList {
 		if info.IId.SystemId == iid.SystemId {
 			infoList = append(infoList[:idx], infoList[idx+1:]...)
@@ -285,6 +304,10 @@ func (vmHandler *MockVMHandler) ListVMStatus() ([]*irs.VMStatusInfo, error) {
 	cblogger.Info("Mock Driver: called ListVMStatus()!")
 
 	mockName := vmHandler.MockName
+
+vmMapLock.RLock()
+defer vmMapLock.RUnlock()
+
 	infoList, ok := vmStatusInfoMap[mockName]
 	if !ok {
 		return []*irs.VMStatusInfo{}, nil
@@ -326,11 +349,17 @@ func (vmHandler *MockVMHandler) GetVMStatus(iid irs.IID) (irs.VMStatus, error) {
 	cblogger := cblog.GetLogger("CB-SPIDER")
 	cblogger.Info("Mock Driver: called GetVMStatus()!")
 
-	infoList, err := vmHandler.ListVMStatus()
-	if err != nil {
-		cblogger.Error(err)
-		return "", err
-	}
+	mockName := vmHandler.MockName
+
+vmMapLock.RLock()
+defer vmMapLock.RUnlock()
+
+        infoList, ok := vmStatusInfoMap[mockName]
+        if !ok {
+		errMSG := iid.NameId + " vm iid does not exist!!"
+                return "", fmt.Errorf(errMSG)
+        }
+
 
 	for _, info := range infoList {
 		if (*info).IId.NameId == iid.NameId {
@@ -348,6 +377,10 @@ func (vmHandler *MockVMHandler) ListVM() ([]*irs.VMInfo, error) {
 	cblogger.Info("Mock Driver: called ListVM()!")
 
 	mockName := vmHandler.MockName
+
+vmMapLock.RLock()
+defer vmMapLock.RUnlock()
+
 	infoList, ok := vmInfoMap[mockName]
 	if !ok {
 		return []*irs.VMInfo{}, nil
@@ -439,16 +472,21 @@ func (vmHandler *MockVMHandler) GetVM(iid irs.IID) (irs.VMInfo, error) {
 	cblogger := cblog.GetLogger("CB-SPIDER")
 	cblogger.Info("Mock Driver: called GetVM()!")
 
-	infoList, err := vmHandler.ListVM()
-	if err != nil {
-		cblogger.Error(err)
-		return irs.VMInfo{}, err
-	}
+        mockName := vmHandler.MockName
 
-	// infoList is already cloned in ListVM()
+vmMapLock.RLock()
+defer vmMapLock.RUnlock()
+
+        infoList, ok := vmInfoMap[mockName]
+        if !ok {
+		errMSG := iid.NameId + " vm iid does not exist!!"
+		cblogger.Error(errMSG)
+		return irs.VMInfo{}, fmt.Errorf(errMSG)
+        }
+
 	for _, info := range infoList {
 		if (*info).IId.NameId == iid.NameId {
-			return *info, nil
+			return CloneVMInfo(*info), nil
 		}
 	}
 
