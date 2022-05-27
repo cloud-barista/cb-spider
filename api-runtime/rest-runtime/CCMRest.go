@@ -1810,3 +1810,18 @@ func ControlVM(c echo.Context) error {
 
 	return c.JSON(http.StatusOK, &resultInfo)
 }
+
+func GetAllSPLockInfo(c echo.Context) error {
+        cblog.Info("call GetAllSPLockInfo()")
+
+        infoList := cmrt.GetAllSPLockInfo()
+
+        var jsonResult struct {
+                Result []string `json:"splockinfo"`
+        }
+        if infoList == nil {
+                infoList = []string{}
+        }
+        jsonResult.Result = infoList
+        return c.JSON(http.StatusOK, &jsonResult)
+}
