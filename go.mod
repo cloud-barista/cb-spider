@@ -9,6 +9,7 @@ replace (
 	github.com/opencontainers/image-spec => github.com/opencontainers/image-spec v1.0.2
 	google.golang.org/api => google.golang.org/api v0.15.0
 	google.golang.org/grpc => google.golang.org/grpc v1.26.0
+	gopkg.in/yaml.v3 => gopkg.in/yaml.v3 v3.0.0
 )
 
 require (
