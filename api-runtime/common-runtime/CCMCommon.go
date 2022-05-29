@@ -17,7 +17,7 @@ import (
 	"github.com/go-redis/redis"
 	"encoding/json"
 
-	"github.com/cloud-barista/cb-spider/api-runtime/common-runtime/splock"
+	"github.com/cloud-barista/cb-spider/api-runtime/common-runtime/sp-lock"
 	cim "github.com/cloud-barista/cb-spider/cloud-info-manager"
 	ccm "github.com/cloud-barista/cb-spider/cloud-control-manager"
 	cres "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
