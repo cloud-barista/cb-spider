@@ -142,13 +142,20 @@ func (vmHandler *AzureVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 	if vmImage == "" {
 		vmImage = vmReqInfo.ImageIID.NameId
 	}
-	storageType := getVMDiskTypeInitType(vmReqInfo.RootDiskType)
+
+	var managedDisk = new(compute.ManagedDiskParameters)
+	if vmReqInfo.RootDiskType != "" && strings.ToLower(vmReqInfo.RootDiskType) != "default" {
+		storageType := getVMDiskTypeInitType(vmReqInfo.RootDiskType)
+		managedDisk.StorageAccountType = storageType
+	}
+	//storageType := getVMDiskTypeInitType(vmReqInfo.RootDiskType)
 	vmOpts.StorageProfile = &compute.StorageProfile{
 		OsDisk: &compute.OSDisk{
 			CreateOption: compute.DiskCreateOptionTypesFromImage,
-			ManagedDisk: &compute.ManagedDiskParameters{
-				StorageAccountType: storageType,
-			},
+			//ManagedDisk: &compute.ManagedDiskParameters{
+			//	StorageAccountType: storageType,
+			//},
+			ManagedDisk: managedDisk,
 			DeleteOption: compute.DiskDeleteOptionTypesDelete,
 		},
 	}
