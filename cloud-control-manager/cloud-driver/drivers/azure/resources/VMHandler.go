@@ -144,7 +144,7 @@ func (vmHandler *AzureVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 	}
 
 	var managedDisk = new(compute.ManagedDiskParameters)
-	if vmReqInfo.RootDiskType != "" && vmReqInfo.RootDiskType != "default" {
+	if vmReqInfo.RootDiskType != "" && strings.ToLower(vmReqInfo.RootDiskType) != "default" {
 		storageType := getVMDiskTypeInitType(vmReqInfo.RootDiskType)
 		managedDisk.StorageAccountType = storageType
 	}
