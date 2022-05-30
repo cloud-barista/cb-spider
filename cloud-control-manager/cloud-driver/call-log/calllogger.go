@@ -49,6 +49,7 @@ const (
 	CLOUDTWIN CLOUD_OS = "CLOUDTWIN"
 
 	//=========== ResourceType
+	NLB           RES_TYPE = "NETWORKLOADBALANCER"
 	VMIMAGE       RES_TYPE = "VMIMAGE"
 	VMSPEC        RES_TYPE = "VMSPEC"
 	VPCSUBNET     RES_TYPE = "VPC/SUBNET"

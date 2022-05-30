@@ -9,7 +9,7 @@ if [ "$1" = "" ]; then
 fi
 
 # common setup.env path
-SETUP_PATH=$CBSPIDER_ROOT/test/vm-cb-user-validation-cli/common
+SETUP_PATH=$CBSPIDER_ROOT/test/splock-concurrency-cli/common
 source $SETUP_PATH/setup.env $1
 
 echo "============== before delete KeyPair: '${KEYPAIR_NAME}'"
