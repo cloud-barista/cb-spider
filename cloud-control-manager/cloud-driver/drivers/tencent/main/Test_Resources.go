@@ -1084,12 +1084,17 @@ func handleNLB() {
 
 	nlbReqInfo := irs.NLBInfo{
 		IId:              irs.IID{NameId: "New-CB-NLB"},
-		VpcIID:           irs.IID{SystemId: "vpc-f3teez1l"},
+		VpcIID:           irs.IID{SystemId: "vpc-i614yona"},
 		Listener:         irs.ListenerInfo{Protocol: "TCP", Port: "80"},
 		HealthChecker:    irs.HealthCheckerInfo{Protocol: "TCP", Port: "80", Interval: 5, Timeout: 2, Threshold: 3},
+		VMGroup:          irs.VMGroupInfo{
+							Protocol: "TCP",
+							Port:     "80",
+							VMs:      &[]irs.IID{{SystemId:"ins-5tf50w2x"},{SystemId:"ins-lqds5b1h"}},
+						},
 	}
 
-	//reqNLBId := irs.IID{SystemId: "lb-6so2fdhg"}
+	reqNLBId := irs.IID{SystemId: "lb-5a7y3de5"}
 
 	for {
 		fmt.Println("Handler Management")
@@ -1113,24 +1118,14 @@ func handleNLB() {
 				return
 
 			case 1:
-				// result, err := handler.ListVPC()
-				// if err != nil {
-				// 	cblogger.Infof(" VPC 목록 조회 실패 : ", err)
-				// } else {
-				// 	cblogger.Info("VPC 목록 조회 결과")
-				// 	//cblogger.Info(result)
-				// 	spew.Dump(result)
-
-				// 	// 내부적으로 1개만 존재함.
-				// 	//조회및 삭제 테스트를 위해 리스트의 첫번째 서브넷 ID를 요청ID로 자동 갱신함.
-				// 	if result != nil {
-				// 		reqVpcId = result[0].IId    // 조회 및 삭제를 위해 생성된 ID로 변경
-				// 		subnetReqVpcInfo = reqVpcId //Subnet 추가/삭제 테스트용
-				// 		if len(result[0].SubnetInfoList) > 0 {
-				// 			reqSubnetId = result[0].SubnetInfoList[0].IId // 조회 및 삭제를 위해 생성된 ID로 변경
-				// 		}
-				// 	}
-				// }
+				result, err := handler.ListNLB()
+				if err != nil {
+					cblogger.Infof(" NLB 목록 조회 실패 : ", err)
+				} else {
+					cblogger.Info("NLB 목록 조회 결과")
+					//cblogger.Info(result)
+					spew.Dump(result)
+				}
 
 			case 2:
 				cblogger.Infof("[%s] NLB 생성 테스트", nlbReqInfo.IId.NameId)
@@ -1145,23 +1140,23 @@ func handleNLB() {
 				}
 
 			case 3:
-				// cblogger.Infof("[%s] VPC 조회 테스트", reqVpcId)
-				// result, err := handler.GetVPC(reqVpcId)
-				// if err != nil {
-				// 	cblogger.Infof("[%s] VPC 조회 실패 : ", reqVpcId, err)
-				// } else {
-				// 	cblogger.Infof("[%s] VPC 조회 결과 : [%s]", reqVpcId, result)
-				// 	spew.Dump(result)
-				// }
+				cblogger.Infof("[%s] NLB 조회 테스트", reqNLBId)
+				result, err := handler.GetNLB(reqNLBId)
+				if err != nil {
+					cblogger.Infof("[%s] NLB 조회 실패 : ", reqNLBId, err)
+				} else {
+					cblogger.Infof("[%s] NLB 조회 결과 : [%s]", reqNLBId, result)
+					spew.Dump(result)
+				}
 
 			case 4:
-				// cblogger.Infof("[%s] VPC 삭제 테스트", reqVpcId)
-				// result, err := handler.DeleteVPC(reqVpcId)
-				// if err != nil {
-				// 	cblogger.Infof("[%s] VPC 삭제 실패 : ", reqVpcId, err)
-				// } else {
-				// 	cblogger.Infof("[%s] VPC 삭제 결과 : [%s]", reqVpcId, result)
-				// }
+				cblogger.Infof("[%s] NLB 삭제 테스트", reqNLBId)
+				result, err := handler.DeleteNLB(reqNLBId)
+				if err != nil {
+					cblogger.Infof("[%s] NLB 삭제 실패 : ", reqNLBId, err)
+				} else {
+					cblogger.Infof("[%s] NLB 삭제 결과 : [%s]", reqNLBId, result)
+				}
 
 			case 5:
 				// cblogger.Infof("[%s] Subnet 추가 테스트", vpcReqInfo.IId.NameId)

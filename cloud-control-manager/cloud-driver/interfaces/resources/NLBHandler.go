@@ -71,17 +71,17 @@ type NLBHandler interface {
 
 	//------ NLB Management
 	CreateNLB(nlbReqInfo NLBInfo) (NLBInfo, error)
-	//ListNLB() ([]*NLBInfo, error)
-	//GetNLB(nlbIID IID) (NLBInfo, error)
-	//DeleteNLB(nlbIID IID) (bool, error)
+	ListNLB() ([]*NLBInfo, error)
+	GetNLB(nlbIID IID) (NLBInfo, error)
+	DeleteNLB(nlbIID IID) (bool, error)
 
 	//------ Frontend Control
-	//ChangeListener(nlbIID IID, listener ListenerInfo) (NLBInfo, error)
+	ChangeListener(nlbIID IID, listener ListenerInfo) (NLBInfo, error)
 
 	//------ Backend Control
-	//ChangeVMGroupInfo(nlbIID IID, vmGroup VMGroupInfo) (error)
-	//AddVMs(nlbIID IID, vmIIDs *[]IID) (NLBInfo, error)
-	//RemoveVMs(nlbIID IID, vmIIDs *[]IID) (bool, error)
-	//GetVMGroupHealthInfo(nlbIID IID) (HealthInfo, error)
-	//ChangeHealthCheckerInfo(nlbIID IID, healthChecker HealthCheckerInfo) (error)
+	ChangeVMGroupInfo(nlbIID IID, vmGroup VMGroupInfo) (error)
+	AddVMs(nlbIID IID, vmIIDs *[]IID) (NLBInfo, error)
+	RemoveVMs(nlbIID IID, vmIIDs *[]IID) (bool, error)
+	GetVMGroupHealthInfo(nlbIID IID) (HealthInfo, error)
+	ChangeHealthCheckerInfo(nlbIID IID, healthChecker HealthCheckerInfo) (error)
 }
