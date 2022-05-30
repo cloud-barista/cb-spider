@@ -7,7 +7,8 @@ replace (
 	github.com/dgrijalva/jwt-go => github.com/golang-jwt/jwt v3.2.1+incompatible
 	github.com/docker/distribution => github.com/docker/distribution v2.8.0+incompatible
 	github.com/opencontainers/image-spec => github.com/opencontainers/image-spec v1.0.2
-	google.golang.org/api => google.golang.org/api v0.19.0
+	//google.golang.org/api => google.golang.org/api v0.19.0
+	google.golang.org/api => google.golang.org/api v0.16.0
 	google.golang.org/grpc => google.golang.org/grpc v1.26.0
 	gopkg.in/yaml.v3 => gopkg.in/yaml.v3 v3.0.0
 )
@@ -32,6 +33,7 @@ require (
 	github.com/davecgh/go-spew v1.1.1
 	github.com/docker/docker v20.10.7+incompatible
 	github.com/docker/go-connections v0.4.0
+	github.com/etcd-io/etcd v3.3.27+incompatible // indirect
 	github.com/fsnotify/fsnotify v1.4.9
 	github.com/go-redis/redis v6.15.9+incompatible
 	github.com/go-resty/resty/v2 v2.6.0
