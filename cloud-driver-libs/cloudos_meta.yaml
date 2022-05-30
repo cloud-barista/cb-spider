@@ -28,7 +28,8 @@ GCP:
   credential: PrivateKey / ProjectID / ClientEmail
   rootdisktype: pd-standard / pd-balanced / pd-ssd / pd-extreme
   # idmaxlength: VPC / Subnet / SecurityGroup / KeyPair / VM
-  idmaxlength: 63 / 63 / 63 / 0 / 63
+  #idmaxlength: 63 / 63 / 63 / 0 / 63
+  idmaxlength: 63 / 63 / 57 / 0 / 63
 
 ALIBABA:
   region: Region / Zone

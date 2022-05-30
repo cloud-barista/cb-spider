@@ -12,11 +12,13 @@ fi
 SETUP_PATH=$CBSPIDER_ROOT/test/splock-concurrency-cli/common
 source $SETUP_PATH/setup.env $1
 
-SG_NAME=${SG_NAME}-$2
 
-echo "============== before delete SecurityGroup: '${SG_NAME}'"
-$CLIPATH/spctl --config $CLIPATH/spctl.conf security delete --cname "${CONN_CONFIG}" -n "${SG_NAME}" 2> /dev/null
-echo "============== after delete SecurityGroup: '${SG_NAME}'"
+echo "============== before list SecurityGroup"
+
+$CLIPATH/spctl --config $CLIPATH/spctl.conf security list --cname "${CONN_CONFIG}" 2> /dev/null
+
+echo "============== after list SecurityGroup"
+
 
 echo -e "\n\n"
 
