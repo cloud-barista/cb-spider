@@ -39,7 +39,7 @@ do
 		#fi
 		echo -e "\n\n"
 	done
-	sleep 7
+	sleep 10
 done
 
 echo -e "\n\n"
