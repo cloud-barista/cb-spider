@@ -363,7 +363,7 @@ func (securityHandler *AwsSecurityHandler) GetSecurity(securityIID irs.IID) (irs
 		},
 	})
 	*/
-	cblogger.Info(input)
+	cblogger.Debug(input)
 
 	// logger for HisCall
 	callogger := call.GetLogger("HISCALL")
@@ -380,8 +380,8 @@ func (securityHandler *AwsSecurityHandler) GetSecurity(securityIID irs.IID) (irs
 
 	result, err := securityHandler.Client.DescribeSecurityGroups(input)
 	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
-	cblogger.Info("result : ", result)
-	cblogger.Info("err : ", err)
+	cblogger.Debug("result : ", result)
+	cblogger.Debug("err : ", err)
 	if err != nil {
 		callLogInfo.ErrorMSG = err.Error()
 		callogger.Info(call.String(callLogInfo))
@@ -464,7 +464,14 @@ func ExtractIpPermissionCommon(ip *ec2.IpPermission, securityRuleInfo *irs.Secur
 		securityRuleInfo.ToPort = strconv.FormatInt(*ip.ToPort, 10)
 	}
 
+	//이슈 #642 처리 - cb보안 그룹 출력 규칙
+	//https://github.com/cloud-barista/cb-spider/wiki/Security-Group-Rules-and-Driver-API
 	securityRuleInfo.IPProtocol = *ip.IpProtocol
+	if securityRuleInfo.IPProtocol == "-1" {
+		securityRuleInfo.IPProtocol = "ALL"
+		securityRuleInfo.FromPort = "-1"
+		securityRuleInfo.ToPort = "-1"
+	}
 }
 
 func ExtractIpPermissions(ipPermissions []*ec2.IpPermission, direction string) []irs.SecurityRuleInfo {
