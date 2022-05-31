@@ -96,10 +96,13 @@ func listInfo(iidGroup IIDGroup, connectionName string, resourceType string) ([]
                 return nil, err
         }
 
-        iidInfoList := make([]*IIDInfo, len(keyValueList))
-        for count, kv := range keyValueList {
-                iidInfo := &IIDInfo{connectionName, resourceType, resources.IID{utils.GetNodeValue(kv.Key, 5), kv.Value} }
-                iidInfoList[count] = iidInfo
+	iidInfoList := []*IIDInfo{}
+        for _, kv := range keyValueList {
+		// Don't forget, GetList() based on prefix. ex) If SG, rsType: vpc-1, vpc-10
+		if utils.GetNodeValue(kv.Key, 4) == resourceType {
+			iidInfo := &IIDInfo{connectionName, resourceType, resources.IID{utils.GetNodeValue(kv.Key, 5), kv.Value} }
+			iidInfoList = append(iidInfoList, iidInfo)
+		}
         }
 
         return iidInfoList, nil
@@ -119,10 +122,6 @@ func getInfo(iidGroup IIDGroup, connectionName string, resourceType string, name
         if err != nil {
                 return nil, err
         }
-
-//	if len(keyValueList) < 1 {
-//		return nil, fmt.Errorf("[" + connectionName + ":" + resourceType +  ":" + nameId + "] does not exist!")
-//	}
 
         for _, kv := range keyValueList {
 		// keyValueList should have ~/nameId/... or ~/nameId-01/..., 
@@ -151,13 +150,16 @@ func getIIDInfoByValue(iidGroup IIDGroup, connectionName string, resourceType st
         }
 
         for _, kv := range keyValueList {
-                // keyValueList should have ~/nameId/... or ~/nameId-01/...,
-                // so we have to check the sameness of nameId.
-                //if kv.Value == systemId {  changed, because kv.Value is spiderIID
-                if strings.Contains(kv.Value, systemId) {
-			iidInfo := &IIDInfo{connectionName, resourceType, resources.IID{utils.GetNodeValue(kv.Key, 5), kv.Value} } // kv.Value => sp-uuid:csp-iid
-                        return iidInfo, nil
-                }
+		// Don't forget, GetList() based on prefix. ex) If SG, rsType: vpc-1, vpc-10
+		if utils.GetNodeValue(kv.Key, 4) == resourceType {
+			// keyValueList should have ~/nameId/... or ~/nameId-01/...,
+			// so we have to check the sameness of nameId.
+			//if kv.Value == systemId {  changed, because kv.Value is spiderIID
+			if strings.Contains(kv.Value, systemId) {
+				iidInfo := &IIDInfo{connectionName, resourceType, resources.IID{utils.GetNodeValue(kv.Key, 5), kv.Value} } // kv.Value => sp-uuid:csp-iid
+				return iidInfo, nil
+			}
+		}
         }
 
         return &IIDInfo{}, nil
