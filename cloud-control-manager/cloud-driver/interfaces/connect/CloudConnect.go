@@ -26,6 +26,7 @@ type CloudConnection interface {
 	CreateVMHandler() (irs.VMHandler, error)
 
 	CreateVMSpecHandler() (irs.VMSpecHandler, error)
+	CreateNLBHandler() (irs.NLBHandler, error)
 
 	IsConnected() (bool, error)
 	Close() error
