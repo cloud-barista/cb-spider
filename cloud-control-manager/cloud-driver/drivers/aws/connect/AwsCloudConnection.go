@@ -22,6 +22,7 @@ import (
 
 	//ec2drv "github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/ec2"
+	"github.com/aws/aws-sdk-go/service/elbv2"
 )
 
 //type AwsCloudConnection struct{}
@@ -37,6 +38,9 @@ type AwsCloudConnection struct {
 	//PublicIPClient *ec2.EC2
 	SecurityClient *ec2.EC2
 	VmSpecClient   *ec2.EC2
+
+	//NLBClient *elb.ELB
+	NLBClient *elbv2.ELBV2
 }
 
 var cblogger *logrus.Logger
@@ -44,6 +48,14 @@ var cblogger *logrus.Logger
 func init() {
 	// cblog is a global variable.
 	cblogger = cblog.GetLogger("CB-SPIDER")
+}
+
+func (cloudConn *AwsCloudConnection) IsConnected() (bool, error) {
+	return true, nil
+}
+
+func (cloudConn *AwsCloudConnection) Close() error {
+	return nil
 }
 
 func (cloudConn *AwsCloudConnection) CreateKeyPairHandler() (irs.KeyPairHandler, error) {
@@ -60,13 +72,6 @@ func (cloudConn *AwsCloudConnection) CreateVMHandler() (irs.VMHandler, error) {
 
 	vmHandler := ars.AwsVMHandler{cloudConn.Region, cloudConn.VMClient}
 	return &vmHandler, nil
-}
-
-func (cloudConn *AwsCloudConnection) IsConnected() (bool, error) {
-	return true, nil
-}
-func (cloudConn *AwsCloudConnection) Close() error {
-	return nil
 }
 
 func (cloudConn *AwsCloudConnection) CreateVPCHandler() (irs.VPCHandler, error) {
@@ -110,5 +115,11 @@ func (cloudConn *AwsCloudConnection) CreatePublicIPHandler() (irs.PublicIPHandle
 func (cloudConn *AwsCloudConnection) CreateVMSpecHandler() (irs.VMSpecHandler, error) {
 	cblogger.Info("Start")
 	handler := ars.AwsVmSpecHandler{cloudConn.Region, cloudConn.VmSpecClient}
+	return &handler, nil
+}
+
+func (cloudConn *AwsCloudConnection) CreateNLBHandler() (irs.NLBHandler, error) {
+	cblogger.Info("Start")
+	handler := ars.AwsNLBHandler{cloudConn.Region, cloudConn.NLBClient}
 	return &handler, nil
 }

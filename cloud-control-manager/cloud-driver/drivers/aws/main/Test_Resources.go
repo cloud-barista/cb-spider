@@ -1210,17 +1210,125 @@ func handleVMSpec() {
 	}
 }
 
+// Test NLB
+func handleNLB() {
+	cblogger.Debug("Start NLBHandler Resource Test")
+
+	ResourceHandler, err := getResourceHandler("NLB")
+	if err != nil {
+		panic(err)
+	}
+	handler := ResourceHandler.(irs.NLBHandler)
+
+	nlbReqInfo := irs.NLBInfo{
+		IId:    irs.IID{NameId: "cb-nlb-test01"},
+		VpcIID: irs.IID{SystemId: "vpc-0c4d36a3ac3924419"},
+		Type:   "PUBLIC",
+		Scope:  "REGION",
+
+		Listener: irs.ListenerInfo{
+			Protocol: "TCP",
+			//IP: "",
+			Port: "1234",
+		},
+
+		VMGroup: irs.VMGroupInfo{
+			Protocol: "TCP",  //TCP|UDP|HTTP|HTTPS
+			Port:     "1234", //1-65535
+			VMs:      &[]irs.IID{},
+		},
+
+		HealthChecker: irs.HealthCheckerInfo{
+			Protocol:  "TCP",  // TCP|HTTP|HTTPS
+			Port:      "1234", // Listener Port or 1-65535
+			Interval:  0,      // secs, Interval time between health checks.
+			Timeout:   0,      // secs, Waiting time to decide an unhealthy VM when no response.
+			Threshold: 0,      // num, The number of continuous health checks to change the VM status
+		},
+	}
+
+	for {
+		fmt.Println("NLBHandler Management")
+		fmt.Println("0. Quit")
+		fmt.Println("1. NLB List")
+		fmt.Println("2. NLB Create")
+		fmt.Println("3. NLB Get")
+		fmt.Println("4. NLB Delete")
+
+		var commandNum int
+		inputCnt, err := fmt.Scan(&commandNum)
+		if err != nil {
+			panic(err)
+		}
+
+		if inputCnt == 1 {
+			switch commandNum {
+			case 0:
+				return
+
+			case 1:
+				result, err := handler.ListNLB()
+				if err != nil {
+					cblogger.Infof(" NLB 목록 조회 실패 : ", err)
+				} else {
+					cblogger.Info("NLB 목록 조회 결과")
+					cblogger.Debug(result)
+					cblogger.Infof("로그 레벨 : [%s]", cblog.GetLevel())
+					//spew.Dump(result)
+					cblogger.Info("출력 결과 수 : ", len(result))
+
+					//조회및 삭제 테스트를 위해 리스트의 첫번째 정보의 ID를 요청ID로 자동 갱신함.
+					if result != nil {
+						nlbReqInfo.IId = result[0].IId // 조회 및 삭제를 위해 생성된 ID로 변경
+					}
+				}
+
+			case 2:
+				cblogger.Infof("[%s] NLB 생성 테스트", nlbReqInfo.IId.NameId)
+				result, err := handler.CreateNLB(nlbReqInfo)
+				if err != nil {
+					cblogger.Infof(nlbReqInfo.IId.NameId, " NLB 생성 실패 : ", err)
+				} else {
+					cblogger.Infof("NLB 생성 결과 : ", result)
+					nlbReqInfo.IId = result.IId // 조회 및 삭제를 위해 생성된 ID로 변경
+					spew.Dump(result)
+				}
+
+			case 3:
+				cblogger.Infof("[%s] NLB 조회 테스트", nlbReqInfo.IId)
+				result, err := handler.GetNLB(nlbReqInfo.IId)
+				if err != nil {
+					cblogger.Infof("[%s] NLB 조회 실패 : ", nlbReqInfo.IId.NameId, err)
+				} else {
+					cblogger.Infof("[%s] NLB 조회 결과 : [%s]", nlbReqInfo.IId.NameId, result)
+					spew.Dump(result)
+				}
+
+			case 4:
+				cblogger.Infof("[%s] NLB 삭제 테스트", nlbReqInfo.IId.NameId)
+				result, err := handler.DeleteNLB(nlbReqInfo.IId)
+				if err != nil {
+					cblogger.Infof("[%s] NLB 삭제 실패 : ", nlbReqInfo.IId.NameId, err)
+				} else {
+					cblogger.Infof("[%s] NLB 삭제 결과 : [%s]", nlbReqInfo.IId.NameId, result)
+				}
+			}
+		}
+	}
+}
+
 func main() {
 	cblogger.Info("AWS Resource Test")
 	//handleVPC()
 	//handleKeyPair()
 	//handlePublicIP() // PublicIP 생성 후 conf
-	handleSecurity()
+	//handleSecurity()
 	//handleVM()
 
 	//handleImage() //AMI
 	//handleVNic() //Lancard
 	//handleVMSpec()
+	handleNLB()
 }
 
 //handlerType : resources폴더의 xxxHandler.go에서 Handler이전까지의 문자열
@@ -1264,6 +1372,8 @@ func getResourceHandler(handlerType string) (interface{}, error) {
 		resourceHandler, err = cloudConnection.CreateVMHandler()
 	case "VMSpec":
 		resourceHandler, err = cloudConnection.CreateVMSpecHandler()
+	case "NLB":
+		resourceHandler, err = cloudConnection.CreateNLBHandler()
 	}
 
 	if err != nil {
