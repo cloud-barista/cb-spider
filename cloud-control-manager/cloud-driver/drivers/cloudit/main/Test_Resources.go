@@ -567,6 +567,8 @@ func testVmHandler(config ResourceConfig) {
 			NameId: config.Cloudit.VM.KeyPairIID.NameId,
 		},
 		SecurityGroupIIDs: SecurityGroupIIDs,
+		RootDiskSize: "",
+		RootDiskType: "",
 	}
 
 Loop:
