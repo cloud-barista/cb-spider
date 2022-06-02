@@ -714,6 +714,8 @@ func testVMHandler(config Config) {
 			NameId: config.IbmVPC.Resources.KeyPair.NameId,
 		},
 		SecurityGroupIIDs: SecurityGroupIIDs,
+		RootDiskSize: "",
+		RootDiskType: "",
 	}
 
 Loop:
