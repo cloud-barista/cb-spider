@@ -22,10 +22,10 @@ I_TCP_CMD2="nc -w3 -zvt ${P_IP} 1000"
 I_UDP_CMD1="nc -w3 -zvu ${P_IP} 2000"
 I_ICMP_CMD1="ping -w3 -c3 ${P_IP}"
 #---
-O_TCP_CMD1="ssh -i ${KEYPAIR_NAME}.pem -o StrictHostKeyChecking=no -o ConnectTimeout=5 cb-user@$P_IP nc -w3 -zvt ${CLIENT1_IP} 22"
-O_TCP_CMD2="ssh -i ${KEYPAIR_NAME}.pem -o StrictHostKeyChecking=no -o ConnectTimeout=5 cb-user@$P_IP nc -w3 -zvt ${CLIENT1_IP} 1000"
-O_UDP_CMD1="ssh -i ${KEYPAIR_NAME}.pem -o StrictHostKeyChecking=no -o ConnectTimeout=5 cb-user@$P_IP nc -w3 -zvu ${CLIENT1_IP} 2000"
-O_ICMP_CMD1="ssh -i ${KEYPAIR_NAME}.pem -o StrictHostKeyChecking=no -o ConnectTimeout=5 cb-user@$P_IP ping -w3 -c3 ${CLIENT1_IP}"
+O_TCP_CMD1="ssh -i ${KEYPAIR_NAME}.pem -o StrictHostKeyChecking=no -o ConnectTimeout=10 cb-user@$P_IP nc -w3 -zvt ${CLIENT1_IP} 22"
+O_TCP_CMD2="ssh -i ${KEYPAIR_NAME}.pem -o StrictHostKeyChecking=no -o ConnectTimeout=10 cb-user@$P_IP nc -w3 -zvt ${CLIENT1_IP} 1000"
+O_UDP_CMD1="ssh -i ${KEYPAIR_NAME}.pem -o StrictHostKeyChecking=no -o ConnectTimeout=10 cb-user@$P_IP nc -w3 -zvu ${CLIENT1_IP} 2000"
+O_ICMP_CMD1="ssh -i ${KEYPAIR_NAME}.pem -o StrictHostKeyChecking=no -o ConnectTimeout=10 cb-user@$P_IP ping -w3 -c3 ${CLIENT1_IP}"
 
 
 
@@ -62,6 +62,7 @@ echo -e "#================================== INBOUND TEST"
 $(new_test)
 
 echo -e "#---------------------- $1:I:TCP-01: VM($P_IP:22) <-- Client"
+$I_TCP_CMD1 2>&1
 ret=`$I_TCP_CMD1 2>&1 | grep succeeded`
 
 if [ "$ret" ];then
@@ -72,6 +73,7 @@ fi
 #----------------------
 
 echo -e "#---------------------- $1:I:TCP-02: VM($P_IP:1000) <-- Client"
+$I_TCP_CMD2 2>&1
 ret=`$I_TCP_CMD2 2>&1 | grep succeeded`
 
 if [ "$ret" ];then
@@ -85,6 +87,7 @@ echo -e "#---------------------- $1:I:UDP-01: VM($P_IP:2000) <-- Client"
 if [ "$I_UDP_01_EXP" == "skip" ];then
         test_result "skip" "skip"
 else
+	$I_UDP_CMD1 2>&1
 	ret=`$I_UDP_CMD1 2>&1 | grep succeeded`
 
 	if [ "$ret" ];then
@@ -96,6 +99,7 @@ fi
 #----------------------
 
 echo -e "#---------------------- $1:I:ICMP-01: VM($P_IP:ping) <-- Client"
+$I_ICMP_CMD1 2>&1
 ret=`$I_ICMP_CMD1 2>&1 | grep icmp_seq`
 
 if [ "$ret" ];then
@@ -117,6 +121,7 @@ echo -e "#---------------------- $1:O:TCP-01: VM --> Client($CLIENT1_IP:22)"
 if [ "$O_TCP_01_EXP" == "skip" ];then
         test_result "skip" "skip"
 else
+	$O_TCP_CMD1 2>&1
 	ret=`$O_TCP_CMD1 2>&1 | grep succeeded`
 
 	if [ "$ret" ];then
@@ -132,6 +137,7 @@ echo -e "#---------------------- $1:O:TCP-02: VM --> Client($CLIENT1_IP:1000)"
 if [ "$O_TCP_02_EXP" == "skip" ];then
         test_result "skip" "skip"
 else
+	$O_TCP_CMD2 2>&1
 	ret=`$O_TCP_CMD2 2>&1 | grep succeeded`
 
 	if [ "$ret" ];then
@@ -147,6 +153,7 @@ echo -e "#---------------------- $1:O:UDP-01: VM --> Client($CLIENT1_IP:2000)"
 if [ "$O_UDP_01_EXP" == "skip" ];then
         test_result "skip" "skip"
 else
+	$O_UDP_CMD1 2>&1
 	ret=`$O_UDP_CMD1 2>&1 | grep succeeded`
 
 	if [ "$ret" ];then
@@ -162,6 +169,7 @@ echo -e "#---------------------- $1:O:ICMP-01: VM --> Client($CLIENT1_IP:ping)"
 if [ "$O_ICMP_01_EXP" == "skip" ];then
         test_result "skip" "skip"
 else
+	$O_ICMP_CMD1 2>&1
 	ret=`$O_ICMP_CMD1 2>&1 | grep icmp_seq`
 
 	if [ "$ret" ];then

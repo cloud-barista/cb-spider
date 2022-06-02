@@ -25,7 +25,7 @@ source setup.env $1
 ### 2.run: TCP Server and UDP Server
 echo -e "# check VM status until 'Running'"
 
-for (( num=1; num <= 60; num++ ))
+for (( num=1; num <= 120; num++ ))
 do
         ret=`../common/6.vm-get-status.sh $1`
         result=`echo -e "$ret" | grep Status`
@@ -39,22 +39,24 @@ do
 			exit 0;
 		fi
 #---- waiting 22 port readiness
-                for (( i=1; i <= 40; i++ ))
+                for (( i=1; i <= 120; i++ ))
                 do
                         ret1=`nc -zv $P_IP 22 2>&1 | grep succeeded`
                         if [ "$ret1" ];then
                                 break;
                         else
+                                echo "Trial $i: waiting 22 port readiness";
                                 sleep 1;
                         fi
                 done
 
 #---- waiting ssh service readiness
-                for (( i=1; i <= 40; i++ ))
+                for (( i=1; i <= 120; i++ ))
                 do
                         ret2=`ssh -i ${KEYPAIR_NAME}.pem -o StrictHostKeyChecking=no cb-user@$P_IP "hostname" 2>&1 | grep closed`
                         if [ "$ret2" ];then
                                 sleep 1;
+                                echo "Trial $i: ssh closed => waiting ssh service readiness";
                                 continue;
                         else
                                 echo "";
@@ -62,6 +64,7 @@ do
 
                         ret3=`ssh -i ${KEYPAIR_NAME}.pem -o StrictHostKeyChecking=no cb-user@$P_IP "hostname" 2>&1 | grep denied`
                         if [ "$ret3" ];then
+                                echo "Trial $i: ssh denied => waiting ssh service readiness";
                                 sleep 1;
                         else
                                 break;

@@ -523,6 +523,7 @@ func addCBDefaultRule(azureSGRuleList *[]network.SecurityRule) (*[]network.Secur
 		FromPort:   fromPort,
 		ToPort:     toPort,
 	}
+	addAllowDefaultRule := false
 	for _, sgRule := range *azureSGRuleList {
 		if sgRule.Access == network.SecurityRuleAccessAllow {
 			protocols := convertRuleProtocolAZToCB(fmt.Sprint(sgRule.Protocol))
@@ -539,10 +540,13 @@ func addCBDefaultRule(azureSGRuleList *[]network.SecurityRule) (*[]network.Secur
 				FromPort:   fromPort,
 				ToPort:     toPort,
 			}
-			if !equalsRule(ruleInfo, cbDefaultAllowSGRuleInfo) {
-				addCBDefaultRuleList = append(addCBDefaultRuleList, cbDefaultAllowSGRule)
+			if equalsRule(ruleInfo, cbDefaultAllowSGRuleInfo) {
+				addAllowDefaultRule = true
 			}
 		}
+	}
+	if !addAllowDefaultRule {
+		addCBDefaultRuleList = append(addCBDefaultRuleList, cbDefaultAllowSGRule)
 	}
 
 	return &addCBDefaultRuleList, nil

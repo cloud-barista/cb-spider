@@ -278,6 +278,10 @@ func (vmHandler *AwsVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 	//=============================
 	// SystemDisk 처리 - 이슈 #348에 의해 RootDisk 기능 지원
 	//=============================
+	//이슈#660 반영
+	if strings.EqualFold(vmReqInfo.RootDiskType, "default") {
+		vmReqInfo.RootDiskType = ""
+	}
 	if vmReqInfo.RootDiskType != "" || vmReqInfo.RootDiskSize != "" {
 		blockDeviceMappings := []*ec2.BlockDeviceMapping{
 			{

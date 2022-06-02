@@ -25,7 +25,7 @@ ssh -f -i ${KEYPAIR_NAME}.pem -o StrictHostKeyChecking=no cb-user@$P_IP "sudo ki
 
 
 echo -e "# Try to terminate test VM"
-for (( i=1; i <= 30; i++ ))
+for (( i=1; i <= 120; i++ ))
 do
         ret=`../common/7.vm-terminate.sh $1`
         echo -e "$ret"
@@ -41,7 +41,7 @@ done
 
 
 echo -e "# Try to delete test Security Group"
-for (( i=1; i <= 30; i++ ))
+for (( i=1; i <= 120; i++ ))
 do
 	ret=`../common/7.sg-delete.sh $1`
 	echo -e "$ret"

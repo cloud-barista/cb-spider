@@ -13,11 +13,11 @@ import (
 	"os"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 	"github.com/go-redis/redis"
 	"encoding/json"
 
+	"github.com/cloud-barista/cb-spider/api-runtime/common-runtime/sp-lock"
 	cim "github.com/cloud-barista/cb-spider/cloud-info-manager"
 	ccm "github.com/cloud-barista/cb-spider/cloud-control-manager"
 	cres "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
@@ -58,12 +58,12 @@ func RsTypeString(rsType string) string {
 	}
 }
 
-// definition of RWLock for each Resource Ops
-var imgRWLock = new(sync.RWMutex)
-var vpcRWLock = new(sync.RWMutex)
-var sgRWLock = new(sync.RWMutex)
-var keyRWLock = new(sync.RWMutex)
-//var vmRWLock = new(sync.RWMutex)
+// definition of SPLock for each Resource Ops
+var imgSPLock = splock.New()
+var vpcSPLock = splock.New()
+var sgSPLock = splock.New()
+var keySPLock = splock.New()
+var vmSPLock = splock.New()
 
 // definition of IIDManager RWLock
 var iidRWLock = new(iidm.IIDRWLOCK)
@@ -83,6 +83,17 @@ type AllResourceList struct {
 		OnlySpiderList []*cres.IID `json:"OnlySpiderList"`
 		OnlyCSPList    []*cres.IID `json:"OnlyCSPList"`
 	}
+}
+
+func GetAllSPLockInfo() []string {
+	var results []string
+
+	results = append(results, vpcSPLock.GetSPLockMapStatus("VPC SPLock"))
+	results = append(results, sgSPLock.GetSPLockMapStatus("SG SPLock"))
+	results = append(results, keySPLock.GetSPLockMapStatus("Key SPLock"))
+	results = append(results, vmSPLock.GetSPLockMapStatus("VM SPLock"))
+
+	return results
 }
 
 //================ Image Handler
@@ -124,8 +135,8 @@ func CreateImage(connectionName string, rsType string, reqInfo cres.ImageReqInfo
 		return nil, err
 	}
 
-	imgRWLock.Lock()
-	defer imgRWLock.Unlock()
+	imgSPLock.Lock(connectionName, reqInfo.IId.NameId)
+	defer imgSPLock.Unlock(connectionName, reqInfo.IId.NameId)
 	// (1) check exist(NameID)
 	bool_ret, err := iidRWLock.IsExistIID(iidm.IIDSGROUP, connectionName, rsType, reqInfo.IId)
 	if err != nil {
@@ -255,8 +266,9 @@ func listImageFromCache(connectName string) ([]*cres.ImageInfo, error) {
 // (1) get spiderIID:list
 // (2) get CSP:list
 // (3) filtering CSP-list by spiderIID-list
+// Currently this API is not used. @TODO
 func ListRegisterImage(connectionName string, rsType string) ([]*cres.ImageInfo, error) {
-	cblog.Info("call ListImage()")
+	cblog.Info("call ListRegisterImage()")
 
 	// check empty and trim user inputs
 	connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)
@@ -277,8 +289,9 @@ func ListRegisterImage(connectionName string, rsType string) ([]*cres.ImageInfo,
 		return nil, err
 	}
 
-	imgRWLock.RLock()
-	defer imgRWLock.RUnlock()
+	// Currently this API is not used. @TODO
+	//imgSPLock.RLock(connectionName, reqInfo.IId.NameId)
+	//defer imgSPLock.RUnlock(connectionName, reqInfo.IId.NameId)
 	// (1) get spiderIID:list
 	iidInfoList, err := iidRWLock.ListIID(iidm.IIDSGROUP, connectionName, rsType)
 	if err != nil {
@@ -369,6 +382,7 @@ func GetImage(connectionName string, rsType string, nameID string) (*cres.ImageI
 // (2) extract driverIID from spiderIID
 // (3) get resource(SystemId)
 // (4) set ResourceInfo(IID.NameId)
+// Currently this API is not used. @TODO
 func GetRegisterImage(connectionName string, rsType string, nameID string) (*cres.ImageInfo, error) {
 	cblog.Info("call GetImage()")
 
@@ -397,8 +411,8 @@ func GetRegisterImage(connectionName string, rsType string, nameID string) (*cre
 		return nil, err
 	}
 
-	imgRWLock.RLock()
-	defer imgRWLock.RUnlock()
+	imgSPLock.RLock(connectionName, nameID)
+	defer imgSPLock.RUnlock(connectionName, nameID)
 	// (1) get spiderIID(NameId)
 	iidInfo, err := iidRWLock.GetIID(iidm.IIDSGROUP, connectionName, rsType, cres.IID{nameID, ""})
 	if err != nil {
@@ -429,6 +443,7 @@ func GetRegisterImage(connectionName string, rsType string, nameID string) (*cre
 // (2) extract driverIID from spiderIID
 // (3) delete Resource(SystemId)
 // (4) delete spiderIID
+// Currently this API is not used. @TODO
 func DeleteImage(connectionName string, rsType string, nameID string) (bool, error) {
 	cblog.Info("call DeleteImage()")
 
@@ -457,8 +472,8 @@ func DeleteImage(connectionName string, rsType string, nameID string) (bool, err
 		return false, err
 	}
 
-	imgRWLock.Lock()
-	defer imgRWLock.Unlock()
+	imgSPLock.Lock(connectionName, nameID)
+	defer imgSPLock.Unlock(connectionName, nameID)
 	// (1) get spiderIID(NameId)
 	iidInfo, err := iidRWLock.GetIID(iidm.IIDSGROUP, connectionName, rsType, cres.IID{nameID, ""})
 	if err != nil {
@@ -684,8 +699,8 @@ func RegisterVPC(connectionName string, userIID cres.IID) (*cres.VPCInfo, error)
                 return nil, err
         }
 
-        vpcRWLock.Lock()
-        defer vpcRWLock.Unlock()
+        vpcSPLock.Lock(connectionName, userIID.NameId)
+        defer vpcSPLock.Unlock(connectionName, userIID.NameId)
 
         // (1) check existence(UserID)
         bool_ret, err := iidRWLock.IsExistIID(iidm.IIDSGROUP, connectionName, rsType, userIID)
@@ -784,17 +799,17 @@ func UnregisterResource(connectionName string, rsType string, nameId string) (bo
 
 	switch rsType {
         case rsVPC:
-                vpcRWLock.Lock()
-                defer vpcRWLock.Unlock()
+                vpcSPLock.Lock(connectionName, nameId)
+                defer vpcSPLock.Unlock(connectionName, nameId)
         case rsSG:
-                sgRWLock.Lock()
-                defer sgRWLock.Unlock()
+                sgSPLock.Lock(connectionName, nameId)
+                defer sgSPLock.Unlock(connectionName, nameId)
         case rsKey:
-                keyRWLock.Lock()
-                defer keyRWLock.Unlock()
+                keySPLock.Lock(connectionName, nameId)
+                defer keySPLock.Unlock(connectionName, nameId)
         case rsVM:
-        //        vmRWLock.Lock()
-        //        defer vmRWLock.Unlock()
+                vmSPLock.Lock(connectionName, nameId)
+                defer vmSPLock.Unlock(connectionName, nameId)
         default:
                 return false, fmt.Errorf(rsType + " is not supported Resource!!")
         }
@@ -923,8 +938,9 @@ func CreateVPC(connectionName string, rsType string, reqInfo cres.VPCReqInfo) (*
 		return nil, err
 	}
 
-	vpcRWLock.Lock()
-	defer vpcRWLock.Unlock()
+	vpcSPLock.Lock(connectionName, reqInfo.IId.NameId)
+	defer vpcSPLock.Unlock(connectionName, reqInfo.IId.NameId)
+
 	// (1) check exist(NameID)
 	bool_ret, err := iidRWLock.IsExistIID(iidm.IIDSGROUP, connectionName, rsType, reqInfo.IId)
 	if err != nil {
@@ -937,6 +953,25 @@ func CreateVPC(connectionName string, rsType string, reqInfo cres.VPCReqInfo) (*
                 cblog.Error(err)
                 return nil, err
 	}
+
+        // check the Cloud Connection has the VPC already, when the CSP supports only 1 VPC.
+        drv, err := ccm.GetCloudDriver(connectionName)
+	if err != nil {
+                cblog.Error(err)
+                return nil, err
+	}
+        if (drv.GetDriverCapability().SINGLE_VPC == true) {
+                list_ret, err := iidRWLock.ListIID(iidm.IIDSGROUP, connectionName, rsType)
+                if err != nil {
+                        cblog.Error(err)
+                        return nil, err
+                }
+                if list_ret != nil && len(list_ret) > 0 {
+                        err :=  fmt.Errorf(rsType + "-" + connectionName + " can have only 1 VPC, but already have a VPC " + list_ret[0].IId.NameId)
+                        cblog.Error(err)
+                        return nil, err
+                }
+        }
 
 	// (2) generate SP-XID and create reqIID, driverIID
 	//     ex) SP-XID {"vm-01-9m4e2mr0ui3e8a215n4g"}
@@ -1099,8 +1134,6 @@ func ListVPC(connectionName string, rsType string) ([]*cres.VPCInfo, error) {
 		return nil, err
 	}
 
-	vpcRWLock.RLock()
-	defer vpcRWLock.RUnlock()
 	// (1) get IID:list
 	iidInfoList, err := iidRWLock.ListIID(iidm.IIDSGROUP, connectionName, rsType)
 	if err != nil {
@@ -1118,9 +1151,16 @@ func ListVPC(connectionName string, rsType string) ([]*cres.VPCInfo, error) {
 	resultInfoList := []*cres.VPCInfo{}
 	for _, iidInfo := range iidInfoList {
 
+vpcSPLock.RLock(connectionName, iidInfo.IId.NameId)
+
 		// get resource(driverIID)
 		info, err := handler.GetVPC(getDriverIID(iidInfo.IId))
 		if err != nil {
+vpcSPLock.RUnlock(connectionName, iidInfo.IId.NameId)
+			if checkNotFoundError(err) {
+				cblog.Info(err)
+				continue
+			}
 			cblog.Error(err)
 			return nil, err
 		}
@@ -1133,6 +1173,7 @@ func ListVPC(connectionName string, rsType string) ([]*cres.VPCInfo, error) {
 		for _, subnetInfo := range info.SubnetInfoList {
 			subnetIIDInfo, err := iidRWLock.GetIIDbySystemID(iidm.SUBNETGROUP, connectionName, info.IId.NameId, subnetInfo.IId) // VPC info.IId.NameId => rsType
 			if err != nil {
+vpcSPLock.RUnlock(connectionName, iidInfo.IId.NameId)
 				cblog.Error(err)
 				return nil, err
 			}
@@ -1141,6 +1182,8 @@ func ListVPC(connectionName string, rsType string) ([]*cres.VPCInfo, error) {
 				subnetInfoList = append(subnetInfoList, subnetInfo)
 			}
 		}
+vpcSPLock.RUnlock(connectionName, iidInfo.IId.NameId)
+
 		info.SubnetInfoList = subnetInfoList
 
 
@@ -1150,6 +1193,13 @@ func ListVPC(connectionName string, rsType string) ([]*cres.VPCInfo, error) {
 	return resultInfoList, nil
 }
 
+func checkNotFoundError(err error) bool {
+	msg := err.Error()
+	msg = strings.ReplaceAll(msg, " ", "")
+	msg = strings.ToLower(msg)
+
+	return strings.Contains(msg, "notfound") || strings.Contains(msg, "notexist") 
+}
 
 // Get driverSystemId from SpiderIID
 func getDriverSystemId(spiderIId cres.IID) string {
@@ -1202,8 +1252,8 @@ func GetVPC(connectionName string, rsType string, nameID string) (*cres.VPCInfo,
 		return nil, err
 	}
 
-	vpcRWLock.RLock()
-	defer vpcRWLock.RUnlock()
+	vpcSPLock.RLock(connectionName, nameID)
+	defer vpcSPLock.RUnlock(connectionName, nameID)
 	// (1) get spiderIID(NameId)
 	iidInfo, err := iidRWLock.GetIID(iidm.IIDSGROUP, connectionName, rsType, cres.IID{nameID, ""})
 	if err != nil {
@@ -1270,8 +1320,8 @@ func AddSubnet(connectionName string, rsType string, vpcName string, reqInfo cre
 		return nil, err
 	}
 
-	vpcRWLock.Lock()
-	defer vpcRWLock.Unlock()
+	vpcSPLock.Lock(connectionName, vpcName)
+	defer vpcSPLock.Unlock(connectionName, vpcName)
 	// (1) check exist(NameID)
 	bool_ret, err := iidRWLock.IsExistIID(iidm.SUBNETGROUP, connectionName, vpcName, reqInfo.IId)
 	if err != nil {
@@ -1361,6 +1411,106 @@ func AddSubnet(connectionName string, rsType string, vpcName string, reqInfo cre
 
 //================ SecurityGroup Handler
 
+func GetSGOwnerVPC(connectionName string, cspID string) (owerVPC cres.IID, err error) {
+        cblog.Info("call GetSecurityGroupOwner()")
+
+        // check empty and trim user inputs
+        connectionName, err = EmptyCheckAndTrim("connectionName", connectionName)
+        if err != nil {
+                cblog.Error(err)
+                return cres.IID{}, err
+        }
+
+        cspID, err = EmptyCheckAndTrim("cspID", cspID)
+        if err != nil {
+                cblog.Error(err)
+                return cres.IID{}, err
+        }
+
+        rsType := rsSG
+
+        cldConn, err := ccm.GetCloudConnection(connectionName)
+        if err != nil {
+                cblog.Error(err)
+                return cres.IID{}, err
+        }
+
+        handler, err := cldConn.CreateSecurityHandler()
+        if err != nil {
+                cblog.Error(err)
+                return cres.IID{}, err
+        }
+
+// Except Management API
+//sgSPLock.RLock()
+//vpcSPLock.RLock()
+
+        // (1) check existence(cspID)
+        iidInfoList, err := getAllSGIIDInfoList(connectionName)
+        if err != nil {
+//vpcSPLock.RUnlock()
+//sgSPLock.RUnlock()
+                cblog.Error(err)
+                return cres.IID{}, err
+        }
+        var isExist bool=false
+        var nameId string
+        for _, OneIIdInfo := range iidInfoList {
+                if getMSShortID(getDriverSystemId(OneIIdInfo.IId)) == cspID {
+                        nameId = OneIIdInfo.IId.NameId
+                        isExist = true
+                        break
+                }
+        }
+        if isExist == true {
+//vpcSPLock.RUnlock()
+//sgSPLock.RUnlock()
+                err :=  fmt.Errorf(rsType + "-" + cspID + " already exists with " + nameId + "!")
+                cblog.Error(err)
+                return cres.IID{}, err
+        }
+
+        // (2) get resource info(CSP-ID)
+        // check existence and get info of this resouce in the CSP
+        // Do not user NameId, because Azure driver use it like SystemId
+        getInfo, err := handler.GetSecurity( cres.IID{getMSShortID(cspID), cspID} )
+        if err != nil {
+//vpcSPLock.RUnlock()
+//sgSPLock.RUnlock()
+                cblog.Error(err)
+                return cres.IID{}, err
+        }
+
+        // (3) get VPC IID:list
+        vpcIIDInfoList, err := iidRWLock.ListIID(iidm.IIDSGROUP, connectionName, rsVPC)
+        if err != nil {
+//vpcSPLock.RUnlock()
+//sgSPLock.RUnlock()
+                cblog.Error(err)
+                return cres.IID{}, err
+        }
+//vpcSPLock.RUnlock()
+//sgSPLock.RUnlock()
+
+        //--------
+        //-------- ex) spiderIID {"vpc-01", "vpc-01-9m4e2mr0ui3e8a215n4g:i-0bc7123b7e5cbf79d"}
+        //--------
+        // Do not user NameId, because Azure driver use it like SystemId
+        vpcCSPID := getMSShortID(getInfo.VpcIID.SystemId)
+        if vpcIIDInfoList == nil || len(vpcIIDInfoList) <= 0 {
+                return cres.IID{"", vpcCSPID}, nil
+        }
+
+        // (4) check existence in the MetaDB
+        for _, one := range vpcIIDInfoList {
+                if getMSShortID(getDriverSystemId(one.IId)) == vpcCSPID {
+                        return cres.IID{one.IId.NameId, vpcCSPID}, nil
+                }
+        }
+
+        return cres.IID{"", vpcCSPID}, nil
+}
+
 // UserIID{UserID, CSP-ID} => SpiderIID{UserID, SP-XID:CSP-ID}
 // (0) check VPC existence(VPC UserID)
 // (1) check existence(UserID)
@@ -1406,8 +1556,10 @@ func RegisterSecurity(connectionName string, vpcUserID string, userIID cres.IID)
                 return nil, err
         }
 
-        sgRWLock.Lock()
-        defer sgRWLock.Unlock()
+        vpcSPLock.Lock(connectionName, vpcUserID)
+        defer vpcSPLock.Unlock(connectionName, vpcUserID)
+        sgSPLock.Lock(connectionName, userIID.NameId)
+        defer sgSPLock.Unlock(connectionName, userIID.NameId)
 
         // (0) check VPC existence(VPC UserID)
         bool_ret, err := iidRWLock.IsExistIID(iidm.IIDSGROUP, connectionName, rsVPC, cres.IID{vpcUserID, ""})
@@ -1519,6 +1671,10 @@ func CreateSecurity(connectionName string, rsType string, reqInfo cres.SecurityR
         }
 	*/
 
+
+	vpcSPLock.Lock(connectionName, reqInfo.VpcIID.NameId)
+	defer vpcSPLock.Unlock(connectionName, reqInfo.VpcIID.NameId)
+
 	//+++++++++++++++++++++++++++++++++++++++++++
 	// set VPC's SystemId
 	vpcIIDInfo, err := iidRWLock.GetIID(iidm.IIDSGROUP, connectionName, rsVPC, reqInfo.VpcIID)
@@ -1546,8 +1702,8 @@ func CreateSecurity(connectionName string, rsType string, reqInfo cres.SecurityR
         // no CIDR: "0.0.0.0/0"
         transformArgs(reqInfo.SecurityRules)
 
-	sgRWLock.Lock()
-	defer sgRWLock.Unlock()
+	sgSPLock.Lock(connectionName, reqInfo.IId.NameId)
+	defer sgSPLock.Unlock(connectionName, reqInfo.IId.NameId)
 	// (1) check exist(NameID)
 	iidInfoList, err := getAllSGIIDInfoList(connectionName)
 	if err != nil {
@@ -1667,8 +1823,6 @@ func ListSecurity(connectionName string, rsType string) ([]*cres.SecurityInfo, e
 		return nil, err
 	}
 
-	sgRWLock.RLock()
-	defer sgRWLock.RUnlock()
 
 	// (1) get IID:list
 	iidInfoList, err := getAllSGIIDInfoList(connectionName)
@@ -1687,12 +1841,20 @@ func ListSecurity(connectionName string, rsType string) ([]*cres.SecurityInfo, e
 	infoList2 := []*cres.SecurityInfo{}
 	for _, iidInfo := range iidInfoList {
 
+sgSPLock.RLock(connectionName, iidInfo.IId.NameId)
+
 		// get resource(SystemId)
 		info, err := handler.GetSecurity(getDriverIID(iidInfo.IId))
 		if err != nil {
+sgSPLock.RUnlock(connectionName, iidInfo.IId.NameId)
+			if checkNotFoundError(err) {
+				cblog.Info(err)
+				continue
+			}
 			cblog.Error(err)
 			return nil, err
 		}
+sgSPLock.RUnlock(connectionName, iidInfo.IId.NameId)
 		// Direction: to lower
 		// IPProtocol: to upper
 		// no CIDR: "0.0.0.0/0"
@@ -1785,8 +1947,9 @@ func GetSecurity(connectionName string, rsType string, nameID string) (*cres.Sec
 		return nil, err
 	}
 
-	sgRWLock.RLock()
-	defer sgRWLock.RUnlock()
+	sgSPLock.RLock(connectionName, nameID)
+	defer sgSPLock.RUnlock(connectionName, nameID)
+
 	// (1) get IID(NameId)
 	iidInfoList, err := getAllSGIIDInfoList(connectionName)
 	if err != nil {
@@ -1869,8 +2032,9 @@ func AddRules(connectionName string, sgName string, reqInfoList []cres.SecurityR
         // no CIDR: "0.0.0.0/0"
         transformArgs(&reqInfoList)
 
-        sgRWLock.Lock()
-        defer sgRWLock.Unlock()
+        sgSPLock.Lock(connectionName, sgName)
+        defer sgSPLock.Unlock(connectionName, sgName)
+
         // (1) check exist(sgName)
         iidInfoList, err := getAllSGIIDInfoList(connectionName)
         if err != nil {
@@ -1953,8 +2117,9 @@ func RemoveRules(connectionName string, sgName string, reqRuleInfoList []cres.Se
         // no CIDR: "0.0.0.0/0"
         transformArgs(&reqRuleInfoList)
 
-        sgRWLock.Lock()
-        defer sgRWLock.Unlock()
+        sgSPLock.Lock(connectionName, sgName)
+        defer sgSPLock.Unlock(connectionName, sgName)
+
         // (1) check exist(sgName)
         iidInfoList, err := getAllSGIIDInfoList(connectionName)
         if err != nil {
@@ -2027,8 +2192,8 @@ func RegisterKey(connectionName string, userIID cres.IID) (*cres.KeyPairInfo, er
                 return nil, err
         }
 
-        keyRWLock.Lock()
-        defer keyRWLock.Unlock()
+        keySPLock.Lock(connectionName, userIID.NameId)
+        defer keySPLock.Unlock(connectionName, userIID.NameId)
 
         // (1) check existence(UserID)
 	bool_ret, err := iidRWLock.IsExistIID(iidm.IIDSGROUP, connectionName, rsType, userIID)
@@ -2111,8 +2276,9 @@ func CreateKey(connectionName string, rsType string, reqInfo cres.KeyPairReqInfo
 		return nil, err
 	}
 
-	keyRWLock.Lock()
-	defer keyRWLock.Unlock()
+	keySPLock.Lock(connectionName, reqInfo.IId.NameId)
+	defer keySPLock.Unlock(connectionName, reqInfo.IId.NameId)
+
 	// (1) check exist(NameID)
 	bool_ret, err := iidRWLock.IsExistIID(iidm.IIDSGROUP, connectionName, rsType, reqInfo.IId)
 	if err != nil {
@@ -2202,8 +2368,6 @@ func ListKey(connectionName string, rsType string) ([]*cres.KeyPairInfo, error) 
 		return nil, err
 	}
 
-	keyRWLock.RLock()
-	defer keyRWLock.RUnlock()
 	// (1) get IID:list
 	iidInfoList, err := iidRWLock.ListIID(iidm.IIDSGROUP, connectionName, rsType)
 	if err != nil {
@@ -2221,12 +2385,20 @@ func ListKey(connectionName string, rsType string) ([]*cres.KeyPairInfo, error) 
 	infoList2 := []*cres.KeyPairInfo{}
 	for _, iidInfo := range iidInfoList {
 
+keySPLock.RLock(connectionName, iidInfo.IId.NameId)
+
 		// (2) get resource(SystemId)
 		info, err := handler.GetKey(getDriverIID(iidInfo.IId))
 		if err != nil {
+keySPLock.RUnlock(connectionName, iidInfo.IId.NameId)
+			if checkNotFoundError(err) {
+				cblog.Info(err)
+				continue
+			}
 			cblog.Error(err)
 			return nil, err
 		}
+keySPLock.RUnlock(connectionName, iidInfo.IId.NameId)
 
 		info.IId.NameId = iidInfo.IId.NameId
 		hideSecretInfo(&info)
@@ -2273,8 +2445,9 @@ func GetKey(connectionName string, rsType string, nameID string) (*cres.KeyPairI
 		return nil, err
 	}
 
-	keyRWLock.RLock()
-	defer keyRWLock.RUnlock()
+	keySPLock.RLock(connectionName, nameID)
+	defer keySPLock.RUnlock(connectionName, nameID)
+
 	// (1) get IID(NameId)
 	iidInfo, err := iidRWLock.GetIID(iidm.IIDSGROUP, connectionName, rsType, cres.IID{nameID, ""})
 	if err != nil {
@@ -2366,6 +2539,179 @@ func cloneReqInfoWithDriverIID(ConnectionName string, reqInfo cres.VMReqInfo) (c
 
 //================ VM Handler
 
+type VMUsingResources struct {
+        Resources struct {
+                VPC	*cres.IID  `json:"VPC"`
+                SGList	[]*cres.IID `json:"SGList"`
+                VMKey	*cres.IID  `json:"VMKey"`
+        }
+}
+
+func GetVMUsingRS(connectionName string, cspID string) (VMUsingResources, error) {
+        cblog.Info("call GetVMUsingRS()")
+
+        // check empty and trim user inputs
+        connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)
+        if err != nil {
+                cblog.Error(err)
+                return VMUsingResources{}, err
+        }
+
+        cspID, err = EmptyCheckAndTrim("cspID", cspID)
+        if err != nil {
+                cblog.Error(err)
+                return VMUsingResources{}, err
+        }
+
+        rsType := rsVM
+
+        cldConn, err := ccm.GetCloudConnection(connectionName)
+        if err != nil {
+                cblog.Error(err)
+                return VMUsingResources{}, err
+        }
+
+        handler, err := cldConn.CreateVMHandler()
+        if err != nil {
+                cblog.Error(err)
+                return VMUsingResources{}, err
+        }
+
+// Except Management API
+//vmSPLock.RLock()
+//defer vmSPLock.RUnlock()
+//vpcSPLock.RLock()
+//defer vpcSPLock.RUnlock()
+//sgSPLock.RLock()
+//defer sgSPLock.RUnlock()
+//keySPLock.RLock()
+//defer keySPLock.RUnlock()
+
+        // (1) check existence(cspID)
+        iidInfoList, err := iidRWLock.ListIID(iidm.IIDSGROUP, connectionName, rsVM)
+        if err != nil {
+                cblog.Error(err)
+                return VMUsingResources{}, err
+        }
+        var isExist bool=false
+        var nameId string
+        for _, OneIIdInfo := range iidInfoList {
+                if getDriverSystemId(OneIIdInfo.IId) == cspID {
+                        nameId = OneIIdInfo.IId.NameId
+                        isExist = true
+                        break
+                }
+        }
+        if isExist == true {
+                err :=  fmt.Errorf(rsType + "-" + cspID + " already exists with " + nameId + "!")
+                cblog.Error(err)
+                return VMUsingResources{}, err
+        }
+
+        // (2) get resource info(CSP-ID)
+        // check existence and get info of this resouce in the CSP
+        // Do not user NameId, because Azure driver use it like SystemId
+        getInfo, err := handler.GetVM( cres.IID{getMSShortID(cspID), cspID} )
+        if err != nil {
+                cblog.Error(err)
+                return VMUsingResources{}, err
+        }
+
+
+	////////////////////////////////////////////
+	// (3) Get using IIDs of (a) VPC, (b) SG, (c) Key
+	////////////////////////////////////////////
+
+        //// ---(a) Get Using a VPC IID
+
+        // get VPC IID:list
+        vpcIIDInfoList, err := iidRWLock.ListIID(iidm.IIDSGROUP, connectionName, rsVPC)
+        if err != nil {
+                cblog.Error(err)
+                return VMUsingResources{}, err
+        }
+
+        // ex) spiderIID {"vpc-01", "vpc-01-9m4e2mr0ui3e8a215n4g:i-0bc7123b7e5cbf79d"}
+        // Do not use NameId, because Azure driver use it like SystemId
+        vpcCSPID := getMSShortID(getInfo.VpcIID.SystemId)
+
+	vpcIID := cres.IID{"", vpcCSPID}
+
+        // check existence in the MetaDB
+        for _, one := range vpcIIDInfoList {
+                if getMSShortID(getDriverSystemId(one.IId)) == vpcCSPID {
+                        vpcIID = cres.IID{one.IId.NameId, vpcCSPID}
+                }
+        }
+
+        //// ---(b) Get Using SG IID List
+
+        // get SG IID:list
+        sgIIDInfoList, err := getAllSGIIDInfoList(connectionName)
+        if err != nil {
+                cblog.Error(err)
+                return VMUsingResources{}, err
+        }
+
+        // ex) spiderIID {"vpc-01", "vpc-01-9m4e2mr0ui3e8a215n4g:i-0bc7123b7e5cbf79d"}
+        // Do not use NameId, because Azure driver use it like SystemId
+        var sgCSPIDList []*string
+	for _, one := range getInfo.SecurityGroupIIds {
+		sgCSPID := getMSShortID(one.SystemId)
+		sgCSPIDList = append(sgCSPIDList, &sgCSPID)
+	}
+
+        var sgIIDList []*cres.IID
+
+        // check existence in the MetaDB
+	for _, cspID := range sgCSPIDList {
+		has := false
+		for _, one := range sgIIDInfoList {
+			if getMSShortID(getDriverSystemId(one.IId)) == *cspID {
+				sgIID := cres.IID{one.IId.NameId, *cspID}
+				sgIIDList = append(sgIIDList, &sgIID) // mapped SG
+				has = true;
+				break;
+			}
+		}
+		if !has {
+			sgIIDList = append(sgIIDList, &cres.IID{"", *cspID}) // unmapped SG
+		}
+	}
+
+
+        //// ---(c) Get Using Key IID List
+
+        // get Key IID:list
+        keyIIDInfoList, err := iidRWLock.ListIID(iidm.IIDSGROUP, connectionName, rsKey)
+        if err != nil {
+                cblog.Error(err)
+                return VMUsingResources{}, err
+        }
+
+        // ex) spiderIID {"vpc-01", "vpc-01-9m4e2mr0ui3e8a215n4g:i-0bc7123b7e5cbf79d"}
+        // Do not use NameId, because Azure driver use it like SystemId
+        keyCSPID := getMSShortID(getInfo.KeyPairIId.SystemId)
+
+        keyIID := cres.IID{"", keyCSPID}
+
+        // check existence in the MetaDB
+        for _, one := range keyIIDInfoList {
+                if getMSShortID(getDriverSystemId(one.IId)) == keyCSPID {
+                        keyIID = cres.IID{one.IId.NameId, keyCSPID}
+                }
+        }
+
+
+	var vmUsingRS VMUsingResources
+	vmUsingRS.Resources.VPC = &vpcIID
+	vmUsingRS.Resources.SGList = sgIIDList
+	vmUsingRS.Resources.VMKey = &keyIID
+
+        return vmUsingRS, nil
+}
+
+
 // UserIID{UserID, CSP-ID} => SpiderIID{UserID, SP-XID:CSP-ID}
 // (1) check existence(UserID)
 // (2) get resource info(CSP-ID)
@@ -2404,8 +2750,8 @@ func RegisterVM(connectionName string, userIID cres.IID) (*cres.VMInfo, error) {
                 return nil, err
         }
 
-        //vmRWLock.Lock()
-        //defer vmRWLock.Unlock()
+        vmSPLock.Lock(connectionName, userIID.NameId)
+        defer vmSPLock.Unlock(connectionName, userIID.NameId)
 
         // (1) check existence(UserID)
 	bool_ret, err := iidRWLock.IsExistIID(iidm.IIDSGROUP, connectionName, rsType, userIID)
@@ -2505,8 +2851,9 @@ func StartVM(connectionName string, rsType string, reqInfo cres.VMReqInfo) (*cre
 		return nil, err
 	}
 
-	// vmRWLock.Lock() @todo undo this until supporting async call. by powerkim, 2020.05.10
-	// defer vmRWLock.Unlock() @todo undo this until supporting async call. by powerkim, 2020.05.10
+	vmSPLock.Lock(connectionName, reqInfo.IId.NameId)
+	defer vmSPLock.Unlock(connectionName, reqInfo.IId.NameId)
+
 	// (1) check exist(NameID)
 	dockerTest := os.Getenv("DOCKER_POC_TEST") // For docker poc tests, this is currently the best method.
 	if dockerTest == "" || dockerTest == "OFF" {
@@ -2762,8 +3109,6 @@ func ListVM(connectionName string, rsType string) ([]*cres.VMInfo, error) {
 		return nil, err
 	}
 
-	//vmRWLock.RLock()
-	//defer vmRWLock.RUnlock()
 	// (1) get IID:list
 	iidInfoList, err := iidRWLock.ListIID(iidm.IIDSGROUP, connectionName, rsType)
 	if err != nil {
@@ -2781,12 +3126,20 @@ func ListVM(connectionName string, rsType string) ([]*cres.VMInfo, error) {
 	infoList2 := []*cres.VMInfo{}
 	for _, iidInfo := range iidInfoList {
 
+vmSPLock.RLock(connectionName, iidInfo.IId.NameId)
+
 		// (2) get resource(SystemId)
 		info, err := handler.GetVM(getDriverIID(iidInfo.IId))
 		if err != nil {
+vmSPLock.RUnlock(connectionName, iidInfo.IId.NameId)
+			if checkNotFoundError(err) {
+				cblog.Info(err)
+				continue
+			}
 			cblog.Error(err)
 			return nil, err
 		}
+vmSPLock.RUnlock(connectionName, iidInfo.IId.NameId)
 
 		// (3) set ResourceInfo(IID.NameId)
 		// set ResourceInfo
@@ -2897,8 +3250,9 @@ func GetVM(connectionName string, rsType string, nameID string) (*cres.VMInfo, e
 		return nil, err
 	}
 
-	//vmRWLock.RLock()
-	//defer vmRWLock.RUnlock()
+	vmSPLock.RLock(connectionName, nameID)
+	defer vmSPLock.RUnlock(connectionName, nameID)
+
 	// (1) get IID(NameId)
 	iidInfo, err := iidRWLock.GetIID(iidm.IIDSGROUP, connectionName, rsType, cres.IID{nameID, ""})
 	if err != nil {
@@ -2962,8 +3316,6 @@ func ListVMStatus(connectionName string, rsType string) ([]*cres.VMStatusInfo, e
 		return nil, err
 	}
 
-	//vmRWLock.RLock()
-	//defer vmRWLock.RUnlock()
 	// (1) get IID:list
 	iidInfoList, err := iidRWLock.ListIID(iidm.IIDSGROUP, connectionName, rsType)
 	if err != nil {
@@ -2981,9 +3333,16 @@ func ListVMStatus(connectionName string, rsType string) ([]*cres.VMStatusInfo, e
 	infoList2 := []*cres.VMStatusInfo{}
 	for _, iidInfo := range iidInfoList {
 
+vmSPLock.RLock(connectionName, iidInfo.IId.NameId)
+
 		// 1. get VM IID.SystemId
 		vmInfo, err := handler.GetVM(getDriverIID(iidInfo.IId))
 		if err != nil {
+vmSPLock.RUnlock(connectionName, iidInfo.IId.NameId)
+			if checkNotFoundError(err) {
+				cblog.Info(err)
+				continue
+			}
 			cblog.Error(err)
 			return nil, err
 		}
@@ -2992,9 +3351,15 @@ func ListVMStatus(connectionName string, rsType string) ([]*cres.VMStatusInfo, e
 		// 2. get CSP:VMStatus(SystemId)
 		statusInfo, err := handler.GetVMStatus(getDriverIID(iidInfo.IId)) // type of info => string
 		if err != nil {
+vmSPLock.RUnlock(connectionName, iidInfo.IId.NameId)
+			if checkNotFoundError(err) {
+				cblog.Info(err)
+				continue
+			}
 			cblog.Error(err)
 			return nil, err
 		}
+vmSPLock.RUnlock(connectionName, iidInfo.IId.NameId)
 
 		infoList2 = append(infoList2, &cres.VMStatusInfo{vmInfo.IId, statusInfo})
 	}
@@ -3032,8 +3397,9 @@ func GetVMStatus(connectionName string, rsType string, nameID string) (cres.VMSt
 		return "", err
 	}
 
-	//vmRWLock.RLock()
-	//defer vmRWLock.RUnlock()
+	vmSPLock.RLock(connectionName, nameID)
+	defer vmSPLock.RUnlock(connectionName, nameID)
+
 	// (1) get IID(NameId)
 	iidInfo, err := iidRWLock.GetIID(iidm.IIDSGROUP, connectionName, rsType, cres.IID{nameID, ""})
 	if err != nil {
@@ -3068,8 +3434,9 @@ func ControlVM(connectionName string, rsType string, nameID string, action strin
 		return "", err
 	}
 
-	//vmRWLock.RLock()
-	//defer vmRWLock.RUnlock()
+	vmSPLock.RLock(connectionName, nameID)
+	defer vmSPLock.RUnlock(connectionName, nameID)
+
 	// (1) get IID(NameId)
 	iidInfo, err := iidRWLock.GetIID(iidm.IIDSGROUP, connectionName, rsType, cres.IID{nameID, ""})
 	if err != nil {
@@ -3099,105 +3466,6 @@ func ControlVM(connectionName string, rsType string, nameID string, action strin
 	}
 
 	return info, nil
-}
-
-func GetSGOwnerVPC(connectionName string, cspID string) (owerVPC cres.IID, err error) {
-	cblog.Info("call GetSecurityGroupOwner()")
-
-        // check empty and trim user inputs
-        connectionName, err = EmptyCheckAndTrim("connectionName", connectionName)
-        if err != nil {
-                cblog.Error(err)
-                return cres.IID{}, err
-        }
-
-        cspID, err = EmptyCheckAndTrim("cspID", cspID)
-        if err != nil {
-                cblog.Error(err)
-                return cres.IID{}, err
-        }
-
-        rsType := rsSG
-
-        cldConn, err := ccm.GetCloudConnection(connectionName)
-        if err != nil {
-                cblog.Error(err)
-                return cres.IID{}, err
-        }
-
-        handler, err := cldConn.CreateSecurityHandler()
-        if err != nil {
-                cblog.Error(err)
-                return cres.IID{}, err
-        }
-
-sgRWLock.RLock()
-vpcRWLock.RLock()
-
-        // (1) check existence(cspID)
-        iidInfoList, err := getAllSGIIDInfoList(connectionName)
-        if err != nil {
-vpcRWLock.RUnlock()
-sgRWLock.RUnlock()
-                cblog.Error(err)
-                return cres.IID{}, err
-        }
-        var isExist bool=false
-	var nameId string
-        for _, OneIIdInfo := range iidInfoList {
-                if getDriverSystemId(OneIIdInfo.IId) == cspID {
-			nameId = OneIIdInfo.IId.NameId
-                        isExist = true
-                        break
-                }
-        }
-        if isExist == true {
-vpcRWLock.RUnlock()
-sgRWLock.RUnlock()
-                err :=  fmt.Errorf(rsType + "-" + cspID + " already exists with " + nameId + "!")
-                cblog.Error(err)
-                return cres.IID{}, err
-        }
-
-        // (2) get resource info(CSP-ID)
-        // check existence and get info of this resouce in the CSP
-        // Do not user NameId, because Azure driver use it like SystemId
-        getInfo, err := handler.GetSecurity( cres.IID{getMSShortID(cspID), cspID} )
-        if err != nil {
-vpcRWLock.RUnlock()
-sgRWLock.RUnlock()
-                cblog.Error(err)
-                return cres.IID{}, err
-        }
-
-        // (3) get VPC IID:list
-        vpcIIDInfoList, err := iidRWLock.ListIID(iidm.IIDSGROUP, connectionName, rsVPC)
-        if err != nil {
-vpcRWLock.RUnlock()
-sgRWLock.RUnlock()
-                cblog.Error(err)
-                return cres.IID{}, err
-        }
-vpcRWLock.RUnlock()
-sgRWLock.RUnlock()
-
-	//--------
-        //-------- ex) spiderIID {"vpc-01", "vpc-01-9m4e2mr0ui3e8a215n4g:i-0bc7123b7e5cbf79d"}
-	//--------
-        // Do not user NameId, because Azure driver use it like SystemId
-        vpcCSPID := getMSShortID(getInfo.VpcIID.SystemId)
-        if vpcIIDInfoList == nil || len(vpcIIDInfoList) <= 0 {
-                return cres.IID{"", vpcCSPID}, nil
-        }
-
-	// (4) check existence in the MetaDB
-	for _, one := range vpcIIDInfoList {
-		if getDriverSystemId(one.IId) == vpcCSPID {
-			return cres.IID{one.IId.NameId, vpcCSPID}, nil
-		}
-	}
-
-	return cres.IID{"", vpcCSPID}, nil
 }
 
 // list all Resources for management
@@ -3239,23 +3507,6 @@ func ListAllResource(connectionName string, rsType string) (AllResourceList, err
 	}
 
 	var allResList AllResourceList
-
-	switch rsType {
-	case rsVPC:
-		vpcRWLock.RLock()
-		defer vpcRWLock.RUnlock()
-	case rsSG:
-		sgRWLock.RLock()
-		defer sgRWLock.RUnlock()
-	case rsKey:
-		keyRWLock.RLock()
-		defer keyRWLock.RUnlock()
-	case rsVM:
-	//	vmRWLock.RLock()
-	//	defer vmRWLock.RUnlock()
-	default:
-		return AllResourceList{}, fmt.Errorf(rsType + " is not supported Resource!!")
-	}
 
 	// (1) get IID:list
 	iidInfoList := []*iidm.IIDInfo{}
@@ -3462,17 +3713,17 @@ func DeleteResource(connectionName string, rsType string, nameID string, force s
 
 	switch rsType {
 	case rsVPC:
-		vpcRWLock.Lock()
-		defer vpcRWLock.Unlock()
+		vpcSPLock.Lock(connectionName, nameID)
+		defer vpcSPLock.Unlock(connectionName, nameID)
 	case rsSG:
-		sgRWLock.Lock()
-		defer sgRWLock.Unlock()
+		sgSPLock.Lock(connectionName, nameID)
+		defer sgSPLock.Unlock(connectionName, nameID)
 	case rsKey:
-		keyRWLock.Lock()
-		defer keyRWLock.Unlock()
+		keySPLock.Lock(connectionName, nameID)
+		defer keySPLock.Unlock(connectionName, nameID)
 	case rsVM:
-	//	vmRWLock.Lock()
-	//	defer vmRWLock.Unlock()
+		vmSPLock.Lock(connectionName, nameID)
+		defer vmSPLock.Unlock(connectionName, nameID)
 	default:
 		err := fmt.Errorf(rsType + " is not supported Resource!!")
 		return false, "", err
@@ -3688,8 +3939,8 @@ func RemoveSubnet(connectionName string, vpcName string, nameID string, force st
 		return false, err
 	}
 
-	vpcRWLock.Lock()
-	defer vpcRWLock.Unlock()
+	vpcSPLock.Lock(connectionName, vpcName)
+	defer vpcSPLock.Unlock(connectionName, vpcName)
 
 	// (1) get spiderIID for creating driverIID
 	iidInfo, err := iidRWLock.GetIID(iidm.SUBNETGROUP, connectionName, vpcName, cres.IID{nameID, ""})
@@ -3777,7 +4028,7 @@ func DeleteCSPResource(connectionName string, rsType string, systemID string) (b
 		return false, "", err
 	}
 
-	iid := cres.IID{"", systemID}
+	iid := cres.IID{getMSShortID(systemID), getMSShortID(systemID)}
 
 	// delete CSP's Resource(SystemId)	
 	result := false

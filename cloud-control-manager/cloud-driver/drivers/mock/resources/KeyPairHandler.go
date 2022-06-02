@@ -12,6 +12,7 @@ package resources
 
 import (
 	"fmt"
+	"sync"
 
 	cblog "github.com/cloud-barista/cb-log"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
@@ -29,6 +30,8 @@ func init() {
 	keyPairInfoMap = make(map[string][]*irs.KeyPairInfo)
 }
 
+var keyMapLock = new(sync.RWMutex)
+
 // (1) create keyPairInfo object
 // (2) insert keyPairInfo into global Map
 func (keyPairHandler *MockKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPairReqInfo) (irs.KeyPairInfo, error) {
@@ -43,6 +46,8 @@ func (keyPairHandler *MockKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPairRe
 		"XXXXFingerprint", "XXXXPublicKey", "XXXXPrivateKey", "cb-user", nil}
 
 	// (2) insert KeyPairInfo into global Map
+keyMapLock.Lock()
+defer keyMapLock.Unlock()
 	infoList, _ := keyPairInfoMap[mockName]
 	infoList = append(infoList, &keyPairInfo)
 	keyPairInfoMap[mockName] = infoList
@@ -90,6 +95,8 @@ func (keyPairHandler *MockKeyPairHandler) ListKey() ([]*irs.KeyPairInfo, error) 
 	cblogger.Info("Mock Driver: called ListKey()!")
 
 	mockName := keyPairHandler.MockName
+keyMapLock.RLock()
+defer keyMapLock.RUnlock()
 	infoList, ok := keyPairInfoMap[mockName]
 	if !ok {
 		return []*irs.KeyPairInfo{}, nil
@@ -102,32 +109,37 @@ func (keyPairHandler *MockKeyPairHandler) GetKey(iid irs.IID) (irs.KeyPairInfo, 
 	cblogger := cblog.GetLogger("CB-SPIDER")
 	cblogger.Info("Mock Driver: called GetKey()!")
 
-	infoList, err := keyPairHandler.ListKey()
-	if err != nil {
-		cblogger.Error(err)
-		return irs.KeyPairInfo{}, err
-	}
+	mockName := keyPairHandler.MockName
+keyMapLock.RLock()
+defer keyMapLock.RUnlock()
+        infoList, ok := keyPairInfoMap[mockName]
+        if !ok {
+		return irs.KeyPairInfo{}, fmt.Errorf("%s Keypair does not exist!!", iid.NameId)
+        }
 
 	for _, info := range infoList {
 		if (*info).IId.NameId == iid.NameId {
-			return *info, nil
+			return CloneKeyPairInfo(*info), nil
 		}
 	}
 
-	return irs.KeyPairInfo{}, fmt.Errorf("%s keypair does not exist!!", iid.NameId)
+	return irs.KeyPairInfo{}, fmt.Errorf("%s Keypair does not exist!!", iid.NameId)
 }
 
 func (keyPairHandler *MockKeyPairHandler) DeleteKey(iid irs.IID) (bool, error) {
 	cblogger := cblog.GetLogger("CB-SPIDER")
 	cblogger.Info("Mock Driver: called DeleteKey()!")
 
-	infoList, err := keyPairHandler.ListKey()
-	if err != nil {
-		cblogger.Error(err)
-		return false, err
-	}
+        mockName := keyPairHandler.MockName
 
-	mockName := keyPairHandler.MockName
+keyMapLock.Lock()
+defer keyMapLock.Unlock()
+
+        infoList, ok := keyPairInfoMap[mockName]
+        if !ok {
+                return false, fmt.Errorf("%s Keypair does not exist!!", iid.NameId)
+        }
+
 	for idx, info := range infoList {
 		if info.IId.SystemId == iid.SystemId {
 			infoList = append(infoList[:idx], infoList[idx+1:]...)

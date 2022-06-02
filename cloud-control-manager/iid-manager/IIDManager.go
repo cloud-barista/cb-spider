@@ -352,6 +352,11 @@ func New(cloudConnectName string, rsType string, uid string) (string, error) {
                 return "", err
         }
 
+	// ref) https://github.com/cloud-barista/cb-spider/issues/655
+	if cccInfo.ProviderName == "NCP" && rsType == "sg" {
+		return uid, nil
+	}
+
 	// default length: 9 + 21 => 30 (NCP's ID Length, the shortest)
 	//   ex) AWS maxLen(VMID)=255, #234 + #1 + #20 <== "{UID}-{XID}", {XID} = #20
 	maxLength := 9
