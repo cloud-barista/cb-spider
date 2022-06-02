@@ -21,11 +21,11 @@ import (
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
-	cim "github.com/cloud-barista/cb-spider/cloud-info-manager"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/sirupsen/logrus"
 	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
 	cvm "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/cvm/v20170312"
+	//lighthouse "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/lighthouse/v20200324"
 )
 
 var cblogger *logrus.Logger
@@ -39,6 +39,37 @@ type TencentVMHandler struct {
 	Region idrv.RegionInfo
 	Client *cvm.Client
 }
+
+//type TencentCbsHandler struct {
+//	Region idrv.RegionInfo
+//	Client *cbs.Client
+//}
+
+// LightHouse 사용을 위한 handler : TODO : region의 disk정보를 가져올 수 있으므로 사용방안 찾기
+//type TencentDiskHandler struct {
+//	Region idrv.RegionInfo
+//	Client *lighthouse.Client
+//}
+
+//type DiskInfo struct {
+//	Zone           string
+//	DiskType       string
+//	DiskMinSize    int64
+//	DiskMaxSize    int64
+//	DiskStepSize   int64
+//	DiskSalesState string
+//}
+
+// Cloud Block Storage(cbs) Disk Info
+//type CbsDiskInfo struct {
+//	DiskType        string
+//	DiskState       string
+//	InstanceIdList  []string
+//	DiskName        string
+//	DiskId          string
+//	SnapshotSize    uint64
+//	SnapshotAbility bool
+//}
 
 //VM 이름으로 중복 생성을 막아야 해서 VM존재 여부를 체크함.
 func (vmHandler *TencentVMHandler) isExist(vmName string) (bool, error) {
@@ -166,129 +197,122 @@ func (vmHandler *TencentVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 		DiskType: common.StringPtr("CLOUD_PREMIUM"), //일부 인스턴스의 경우 기본 스토리지가 없는 스펙이 있어서 강제로 CLOUD_PREMIUM 지정
 	}
 	*/
+	request.SystemDisk = &cvm.SystemDisk{}
 
 	//=============================
 	// SystemDisk 처리 - 이슈 #348에 의해 RootDisk 기능 지원
 	//=============================
-	cblogger.Debug("RootDiskType check ", vmReqInfo.RootDiskType)
-	cblogger.Debug("RootDiskSize check ", vmReqInfo.RootDiskSize)
+	//이슈#660 반영
+	if strings.EqualFold(vmReqInfo.RootDiskType, "default") {
+		vmReqInfo.RootDiskType = ""
+	}
+
 	if vmReqInfo.RootDiskType != "" || vmReqInfo.RootDiskSize != "" {
 		request.SystemDisk = &cvm.SystemDisk{}
-		//=============================
-		// Root Disk Type 변경
-		//=============================
-		cloudOSMetaInfo, err := cim.GetCloudOSMetaInfo("TENCENT") // cloudos_meta 에 DiskType, min, max 값 정의 되어있음.
-		arrDiskSizeOfType := cloudOSMetaInfo.RootDiskSize
+	}
+	//	request.SystemDisk.DiskType = common.StringPtr(vmReqInfo.RootDiskType)
+	//=============================
+	// Root Disk Type 변경
+	//=============================
 
-		fmt.Println("arrDiskSizeOfType: ", arrDiskSizeOfType)
+	//cloudOSMetaInfo, err := cim.GetCloudOSMetaInfo("TENCENT") // cloudos_meta 에 DiskType, min, max 값 정의 되어있음.
+	//arrDiskSizeOfType := cloudOSMetaInfo.RootDiskSize
+	//
+	//fmt.Println("arrDiskSizeOfType: ", arrDiskSizeOfType)
+	//
 
-		type diskSize struct {
-			diskType    string
-			diskMinSize int64
-			diskMaxSize int64
-			unit        string
-		}
+	//if vmReqInfo.RootDiskType == "" || strings.EqualFold(vmReqInfo.RootDiskType, "default") {
+	//	cblogger.Debug("RootDiskType is default ")
+	//	diskSizeArr := strings.Split(arrDiskSizeOfType[0], "|")
+	//	diskSizeValue.diskType = diskSizeArr[0]
+	//	diskSizeValue.unit = diskSizeArr[3]
+	//	diskSizeValue.diskMinSize, err = strconv.ParseInt(diskSizeArr[1], 10, 64)
+	//	if err != nil {
+	//		cblogger.Error(err)
+	//		return irs.VMInfo{}, err
+	//	}
+	//
+	//	diskSizeValue.diskMaxSize, err = strconv.ParseInt(diskSizeArr[2], 10, 64)
+	//	if err != nil {
+	//		cblogger.Error(err)
+	//		return irs.VMInfo{}, err
+	//	}
+	//
+	//	// default에도 DiskType 넣어야 하나?
+	//	//request.SystemDisk.DiskType = common.StringPtr(vmReqInfo.RootDiskType)
+	//
+	//} else {
+	if !strings.EqualFold(vmReqInfo.RootDiskType, "") {
+		//	isExists := false
+		//	for idx, _ := range arrDiskSizeOfType {
+		//		diskSizeArr := strings.Split(arrDiskSizeOfType[idx], "|")
+		//		fmt.Println("diskSizeArr: ", diskSizeArr)
+		//
+		//		if strings.EqualFold(vmReqInfo.RootDiskType, diskSizeArr[0]) {
+		//			diskSizeValue.diskType = diskSizeArr[0]
+		//			diskSizeValue.unit = diskSizeArr[3]
+		//			diskSizeValue.diskMinSize, err = strconv.ParseInt(diskSizeArr[1], 10, 64)
+		//			if err != nil {
+		//				cblogger.Error(err)
+		//				return irs.VMInfo{}, err
+		//			}
+		//
+		//			diskSizeValue.diskMaxSize, err = strconv.ParseInt(diskSizeArr[2], 10, 64)
+		//			if err != nil {
+		//				cblogger.Error(err)
+		//				return irs.VMInfo{}, err
+		//			}
+		//
+		//			isExists = true
+		//		}
+		//		cblogger.Debug("RootDiskSize isExists "+strconv.FormatInt(int64(idx), 10), isExists)
+		//	}
+		//	cblogger.Debug("RootDiskSize isExists ", isExists)
+		//	if !isExists {
+		//		return irs.VMInfo{}, errors.New("Invalid Root Disk Type : " + vmReqInfo.RootDiskType)
+		//	}
+		//
+		request.SystemDisk.DiskType = common.StringPtr(vmReqInfo.RootDiskType)
+	}
 
-		diskSizeValue := diskSize{}
+	//}
 
-		if vmReqInfo.RootDiskType == "" || strings.EqualFold(vmReqInfo.RootDiskType, "default") {
-			cblogger.Debug("RootDiskType is default ")
-			diskSizeArr := strings.Split(arrDiskSizeOfType[0], "|")
-			diskSizeValue.diskType = diskSizeArr[0]
-			diskSizeValue.unit = diskSizeArr[3]
-			diskSizeValue.diskMinSize, err = strconv.ParseInt(diskSizeArr[1], 10, 64)
-			if err != nil {
-				cblogger.Error(err)
-				return irs.VMInfo{}, err
-			}
-
-			diskSizeValue.diskMaxSize, err = strconv.ParseInt(diskSizeArr[2], 10, 64)
-			if err != nil {
-				cblogger.Error(err)
-				return irs.VMInfo{}, err
-			}
-
-			// default에도 DiskType 넣어야 하나?
-			//request.SystemDisk.DiskType = common.StringPtr(vmReqInfo.RootDiskType)
-
+	//=============================
+	// Root Disk Size 변경
+	//=============================
+	if vmReqInfo.RootDiskSize != "" {
+		if strings.EqualFold(vmReqInfo.RootDiskSize, "default") {
 		} else {
-			isExists := false
-			for idx, _ := range arrDiskSizeOfType {
-				diskSizeArr := strings.Split(arrDiskSizeOfType[idx], "|")
-				fmt.Println("diskSizeArr: ", diskSizeArr)
-
-				if strings.EqualFold(vmReqInfo.RootDiskType, diskSizeArr[0]) {
-					diskSizeValue.diskType = diskSizeArr[0]
-					diskSizeValue.unit = diskSizeArr[3]
-					diskSizeValue.diskMinSize, err = strconv.ParseInt(diskSizeArr[1], 10, 64)
-					if err != nil {
-						cblogger.Error(err)
-						return irs.VMInfo{}, err
-					}
-
-					diskSizeValue.diskMaxSize, err = strconv.ParseInt(diskSizeArr[2], 10, 64)
-					if err != nil {
-						cblogger.Error(err)
-						return irs.VMInfo{}, err
-					}
-
-					isExists = true
-				}
-				cblogger.Debug("RootDiskSize isExists "+strconv.FormatInt(int64(idx), 10), isExists)
-			}
-			cblogger.Debug("RootDiskSize isExists ", isExists)
-			if !isExists {
-				return irs.VMInfo{}, errors.New("Invalid Root Disk Type : " + vmReqInfo.RootDiskType)
+			rootDiskSize, err := strconv.ParseInt(vmReqInfo.RootDiskSize, 10, 64)
+			if err != nil {
+				cblogger.Error(err)
+				return irs.VMInfo{}, err
 			}
 
-			request.SystemDisk.DiskType = common.StringPtr(vmReqInfo.RootDiskType)
-		}
-		cblogger.Debug("request.SystemDisk.DiskType ", request.SystemDisk.DiskType)
-		//=============================
-		// Root Disk Size 변경
-		//=============================
-		if vmReqInfo.RootDiskSize != "" {
-			if !strings.EqualFold(vmReqInfo.RootDiskSize, "default") {
-				iDiskSize, err := strconv.ParseInt(vmReqInfo.RootDiskSize, 10, 64)
-				if err != nil {
-					cblogger.Error(err)
-					return irs.VMInfo{}, err
-				}
+			imageRequest := cvm.NewDescribeImagesRequest()
 
-				if iDiskSize < diskSizeValue.diskMinSize {
-					fmt.Println("Disk Size Error!!: ", iDiskSize, diskSizeValue.diskMinSize, diskSizeValue.diskMaxSize)
-					//return irs.VMInfo{}, errors.New("Requested disk size cannot be smaller than the minimum disk size, invalid")
-					return irs.VMInfo{}, errors.New("Root Disk Size must be at least the default size (" + strconv.FormatInt(diskSizeValue.diskMinSize, 10) + " GB).")
-				}
+			imageRequest.ImageIds = common.StringPtrs([]string{vmReqInfo.ImageIID.SystemId})
 
-				if iDiskSize > diskSizeValue.diskMaxSize {
-					fmt.Println("Disk Size Error!!: ", iDiskSize, diskSizeValue.diskMinSize, diskSizeValue.diskMaxSize)
-					//return irs.VMInfo{}, errors.New("Requested disk size cannot be larger than the maximum disk size, invalid")
-					return irs.VMInfo{}, errors.New("Root Disk Size must be smaller than the maximum size (" + strconv.FormatInt(diskSizeValue.diskMaxSize, 10) + " GB).")
-				}
-
-				imageRequest := cvm.NewDescribeImagesRequest()
-
-				imageRequest.ImageIds = common.StringPtrs([]string{vmReqInfo.ImageIID.SystemId})
-
-				response, err := vmHandler.Client.DescribeImages(imageRequest)
-				if err != nil {
-					cblogger.Error(err)
-					return irs.VMInfo{}, err
-				}
-				imageSize := *response.Response.ImageSet[0].ImageSize
-				fmt.Println("image : ", imageSize)
-
-				if iDiskSize < imageSize {
-					fmt.Println("Disk Size Error!!: ", iDiskSize, imageSize)
-					//return irs.VMInfo{}, errors.New("Requested disk size cannot be smaller than the image size, invalid")
-					return irs.VMInfo{}, errors.New("Root Disk Size must be larger then the image size (" + strconv.FormatInt(imageSize, 10) + " GB).")
-				}
-
-				request.SystemDisk.DiskSize = common.Int64Ptr(iDiskSize)
+			response, err := vmHandler.Client.DescribeImages(imageRequest)
+			if err != nil {
+				cblogger.Error(err)
+				return irs.VMInfo{}, err
 			}
+			imageSize := *response.Response.ImageSet[0].ImageSize
+			fmt.Println("image : ", imageSize)
+
+			if rootDiskSize < imageSize {
+				fmt.Println("Disk Size Error!!: ", rootDiskSize, imageSize)
+				return irs.VMInfo{}, errors.New("Root Disk Size must be larger then the image size (" + strconv.FormatInt(imageSize, 10) + " GB).")
+			}
+
+			fmt.Println("rootDiskSize : ", rootDiskSize)
+			fmt.Println("rootDiskSize : ", common.Int64Ptr(rootDiskSize))
+
+			request.SystemDisk.DiskSize = common.Int64Ptr(rootDiskSize)
 			cblogger.Debug("request.SystemDisk.DiskSize ", request.SystemDisk.DiskSize)
 		}
+
 	}
 
 	//=============================
@@ -881,3 +905,188 @@ func (vmHandler *TencentVMHandler) WaitForRun(vmIID irs.IID) (irs.VMStatus, erro
 
 	return irs.VMStatus(waitStatus), nil
 }
+
+//DescribeDiskConfigs : Querying disk configuration
+/*
+해당 zone에 사용가능한 disk type 및 size 목록
+Region 	Yes 	String 	Common parameter. For more information, please see the list of regions supported by the product.
+Filters.N 	No 	Array of Filter 	Filter list.
+zone
+Filter by availability zone.
+Type: String
+Required: no
+
+Lighthouse API가 있으나 ClientInterface 부분 처리 방법 필요
+사용 방법 예시)
+	var validDiskMin int64
+	var validDiskMax int64
+	diskHandler := TencentDiskHandler{Client: (*lighthouse.Client)(vmHandler.Client)}
+	if vmReqInfo.RootDiskType != "" {
+		request.SystemDisk.DiskType = common.StringPtr(vmReqInfo.RootDiskType)
+
+		diskInfoList, err := diskHandler.DescribeDiskConfigs()
+		if err != nil {
+			cblogger.Debug("there is no available disk ")
+		}
+		for _, diskInfo := range diskInfoList {
+			if strings.EqualFold(vmReqInfo.RootDiskType, diskInfo.DiskType) && strings.EqualFold(diskInfo.DiskSalesState, "AVAILABLE") {
+				validDiskMin = diskInfo.DiskMinSize
+				validDiskMax = diskInfo.DiskMaxSize
+			} else {
+				return irs.VMInfo{}, errors.New("Invalid Root Disk Type : " + vmReqInfo.RootDiskType + ", " + diskInfo.DiskSalesState)
+			}
+		}
+	}
+	cblogger.Debug("request.SystemDisk.DiskType ", request.SystemDisk.DiskType)
+
+  다음 error로 주석 했음.  undefined: "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common".CredentialIface
+*/
+//func (diskHandler *TencentDiskHandler) DescribeDiskConfigs() ([]*DiskInfo, error) {
+//	cblogger.Debug("Start")
+//
+//	callogger := call.GetLogger("HISCALL")
+//	callLogInfo := call.CLOUDLOGSCHEMA{
+//		CloudOS:      call.TENCENT,
+//		RegionZone:   diskHandler.Region.Zone,
+//		ResourceType: call.VM,
+//		ResourceName: "DescribeDiskConfigs()",
+//		CloudOSAPI:   "DescribeInstancesStatus()",
+//		ElapsedTime:  "",
+//		ErrorMSG:     "",
+//	}
+//
+//	request := lighthouse.NewDescribeDiskConfigsRequest()
+//
+//	callLogStart := call.Start()
+//	response, err := diskHandler.Client.DescribeDiskConfigs(request)
+//	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+//
+//	if err != nil {
+//		callLogInfo.ErrorMSG = err.Error()
+//		callogger.Error(call.String(callLogInfo))
+//
+//		cblogger.Error(err)
+//		return nil, err
+//	}
+//	//spew.Dump(response)
+//	callogger.Info(call.String(callLogInfo))
+//	cblogger.Debug(response.ToJsonString())
+//
+//	//var vmStatusList []*irs.VMStatusInfo
+//	var diskInfoList []*DiskInfo
+//	for _, diskConfig := range response.Response.DiskConfigSet {
+//
+//		diskInfo := DiskInfo{
+//			Zone:           *diskConfig.Zone,
+//			DiskType:       *diskConfig.DiskType,
+//			DiskMaxSize:    *diskConfig.MaxDiskSize,
+//			DiskMinSize:    *diskConfig.MinDiskSize,
+//			DiskStepSize:   *diskConfig.MinDiskSize,
+//			DiskSalesState: *diskConfig.DiskSalesState,
+//		}
+//		diskInfoList = append(diskInfoList, &diskInfo)
+//	}
+//
+//	return diskInfoList, nil
+//}
+
+// TODO : cloud storage block Interface에 추가되면 사용할 것
+//func (cbsHandler *TencentCbsHandler) DescribeDisks() ([]*CbsDiskInfo, error) {
+//	cblogger.Debug("Start")
+//
+//	callogger := call.GetLogger("HISCALL")
+//	callLogInfo := call.CLOUDLOGSCHEMA{
+//		CloudOS:      call.TENCENT,
+//		RegionZone:   cbsHandler.Region.Zone,
+//		ResourceType: call.VM,
+//		ResourceName: "DescribeDisks()",
+//		CloudOSAPI:   "DescribeDisks()",
+//		ElapsedTime:  "",
+//		ErrorMSG:     "",
+//	}
+//
+//	request := cbs.NewDescribeDisksRequest()
+//	request.Limit = common.Uint64Ptr(100)
+//
+//	callLogStart := call.Start()
+//	response, err := cbsHandler.Client.DescribeDisks(request)
+//	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+//
+//	if err != nil {
+//		callLogInfo.ErrorMSG = err.Error()
+//		callogger.Error(call.String(callLogInfo))
+//
+//		cblogger.Error(err)
+//		return nil, err
+//	}
+//	//spew.Dump(response)
+//	callogger.Info(call.String(callLogInfo))
+//	cblogger.Debug(response.ToJsonString())
+//	//
+//	//Response *struct {
+//	//	TotalCount *uint64 `json:"TotalCount,omitempty" name:"TotalCount"`
+//	//	DiskSet    []*Disk `json:"DiskSet,omitempty" name:"DiskSet"`
+//	//	RequestId  *string `json:"RequestId,omitempty" name:"RequestId"`
+//	//} `json:"Response"`
+//	//var vmStatusList []*irs.VMStatusInfo
+//
+//	//type Disk struct {
+//	//	DeleteWithInstance    *bool      `json:"DeleteWithInstance,omitempty" name:"DeleteWithInstance"`
+//	//	RenewFlag             *string    `json:"RenewFlag,omitempty" name:"RenewFlag"`
+//	//	DiskType              *string    `json:"DiskType,omitempty" name:"DiskType"`
+//	//	DiskState             *string    `json:"DiskState,omitempty" name:"DiskState"`
+//	//	SnapshotCount         *int64     `json:"SnapshotCount,omitempty" name:"SnapshotCount"`
+//	//	AutoRenewFlagError    *bool      `json:"AutoRenewFlagError,omitempty" name:"AutoRenewFlagError"`
+//	//	Rollbacking           *bool      `json:"Rollbacking,omitempty" name:"Rollbacking"`
+//	//	InstanceIdList        []*string  `json:"InstanceIdList,omitempty" name:"InstanceIdList"`
+//	//	Encrypt               *bool      `json:"Encrypt,omitempty" name:"Encrypt"`
+//	//	DiskName              *string    `json:"DiskName,omitempty" name:"DiskName"`
+//	//	BackupDisk            *bool      `json:"BackupDisk,omitempty" name:"BackupDisk"`
+//	//	Tags                  []*Tag     `json:"Tags,omitempty" name:"Tags"`
+//	//	InstanceId            *string    `json:"InstanceId,omitempty" name:"InstanceId"`
+//	//	AttachMode            *string    `json:"AttachMode,omitempty" name:"AttachMode"`
+//	//	AutoSnapshotPolicyIds []*string  `json:"AutoSnapshotPolicyIds,omitempty" name:"AutoSnapshotPolicyIds"`
+//	//	ThroughputPerformance *uint64    `json:"ThroughputPerformance,omitempty" name:"ThroughputPerformance"`
+//	//	Migrating             *bool      `json:"Migrating,omitempty" name:"Migrating"`
+//	//	DiskId                *string    `json:"DiskId,omitempty" name:"DiskId"`
+//	//	SnapshotSize          *uint64    `json:"SnapshotSize,omitempty" name:"SnapshotSize"`
+//	//	Placement             *Placement `json:"Placement,omitempty" name:"Placement"`
+//	//	IsReturnable          *bool      `json:"IsReturnable,omitempty" name:"IsReturnable"`
+//	//	DeadlineTime          *string    `json:"DeadlineTime,omitempty" name:"DeadlineTime"`
+//	//	Attached              *bool      `json:"Attached,omitempty" name:"Attached"`
+//	//	DiskSize              *uint64    `json:"DiskSize,omitempty" name:"DiskSize"`
+//	//	MigratePercent        *uint64    `json:"MigratePercent,omitempty" name:"MigratePercent"`
+//	//	DiskUsage             *string    `json:"DiskUsage,omitempty" name:"DiskUsage"`
+//	//	DiskChargeType        *string    `json:"DiskChargeType,omitempty" name:"DiskChargeType"`
+//	//	Portable              *bool      `json:"Portable,omitempty" name:"Portable"`
+//	//	SnapshotAbility       *bool      `json:"SnapshotAbility,omitempty" name:"SnapshotAbility"`
+//	//	DeadlineError         *bool      `json:"DeadlineError,omitempty" name:"DeadlineError"`
+//	//	RollbackPercent       *uint64    `json:"RollbackPercent,omitempty" name:"RollbackPercent"`
+//	//	DifferDaysOfDeadline  *int64     `json:"DifferDaysOfDeadline,omitempty" name:"DifferDaysOfDeadline"`
+//	//	ReturnFailCode        *int64     `json:"ReturnFailCode,omitempty" name:"ReturnFailCode"`
+//	//	Shareable             *bool      `json:"Shareable,omitempty" name:"Shareable"`
+//	//	CreateTime            *string    `json:"CreateTime,omitempty" name:"CreateTime"`
+//	//}
+//	var diskInfoList []*CbsDiskInfo
+//	for _, disk := range response.Response.DiskSet {
+//		//	DiskType              *string    `json:"DiskType,omitempty" name:"DiskType"`
+//		//	DiskState             *string    `json:"DiskState,omitempty" name:"DiskState"`
+//		//	InstanceIdList        []*string  `json:"InstanceIdList,omitempty" name:"InstanceIdList"`
+//		//	DiskName              *string    `json:"DiskName,omitempty" name:"DiskName"`
+//		//	DiskId                *string    `json:"DiskId,omitempty" name:"DiskId"`
+//		//	SnapshotSize          *uint64    `json:"SnapshotSize,omitempty" name:"SnapshotSize"`
+//		//	SnapshotAbility       *bool      `json:"SnapshotAbility,omitempty" name:"SnapshotAbility"`
+//		diskInfo := CbsDiskInfo{
+//			DiskType:  *disk.DiskType,
+//			DiskState: *disk.DiskState,
+//			//InstanceIdList:  *disk.InstanceIdList,
+//			DiskName:        *disk.DiskName,
+//			DiskId:          *disk.DiskId,
+//			SnapshotSize:    *disk.SnapshotSize,
+//			SnapshotAbility: *disk.SnapshotAbility,
+//		}
+//		diskInfoList = append(diskInfoList, &diskInfo)
+//	}
+//
+//	return diskInfoList, nil
+//}
