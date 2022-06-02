@@ -203,7 +203,7 @@ func (vmHandler *AlibabaVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 		//디스크 정보가 없으면 건드리지 않음.
 	} else {
 
-		iDiskSize, err := strconv.ParseInt(vmReqInfo.RootDiskSize, 10, 64)
+		rootDiskSize, err := strconv.ParseInt(vmReqInfo.RootDiskSize, 10, 64)
 		if err != nil {
 			cblogger.Error(err)
 			return irs.VMInfo{}, err
@@ -223,22 +223,23 @@ func (vmHandler *AlibabaVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 		}
 
 		diskSizeValue := diskSize{}
-		// DiskType이 없으면 첫번째값을 사용
+		// DiskType default 도 건드리지 않음
 		if vmReqInfo.RootDiskType == "" || strings.EqualFold(vmReqInfo.RootDiskType, "default") {
-			diskSizeArr := strings.Split(arrDiskSizeOfType[0], "|")
-			diskSizeValue.diskType = diskSizeArr[0]
-			diskSizeValue.unit = diskSizeArr[3]
-			diskSizeValue.diskMinSize, err = strconv.ParseInt(diskSizeArr[1], 10, 64)
-			if err != nil {
-				cblogger.Error(err)
-				return irs.VMInfo{}, err
-			}
 
-			diskSizeValue.diskMaxSize, err = strconv.ParseInt(diskSizeArr[2], 10, 64)
-			if err != nil {
-				cblogger.Error(err)
-				return irs.VMInfo{}, err
-			}
+			//diskSizeArr := strings.Split(arrDiskSizeOfType[0], "|")
+			//diskSizeValue.diskType = diskSizeArr[0]
+			//diskSizeValue.unit = diskSizeArr[3]
+			//diskSizeValue.diskMinSize, err = strconv.ParseInt(diskSizeArr[1], 10, 64)
+			//if err != nil {
+			//	cblogger.Error(err)
+			//	return irs.VMInfo{}, err
+			//}
+			//
+			//diskSizeValue.diskMaxSize, err = strconv.ParseInt(diskSizeArr[2], 10, 64)
+			//if err != nil {
+			//	cblogger.Error(err)
+			//	return irs.VMInfo{}, err
+			//}
 		} else {
 			// diskType이 있으면 type에 맞는 min, max, default 값 사용
 			isExists := false
@@ -266,18 +267,18 @@ func (vmHandler *AlibabaVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 			if !isExists {
 				return irs.VMInfo{}, errors.New("Invalid Root Disk Type : " + vmReqInfo.RootDiskType)
 			}
-		}
 
-		if iDiskSize < diskSizeValue.diskMinSize {
-			fmt.Println("Disk Size Error!!: ", iDiskSize, diskSizeValue.diskMinSize, diskSizeValue.diskMaxSize)
-			//return irs.VMInfo{}, errors.New("Requested disk size cannot be smaller than the minimum disk size, invalid")
-			return irs.VMInfo{}, errors.New("Root Disk Size must be at least the default size (" + strconv.FormatInt(diskSizeValue.diskMinSize, 10) + " GB).")
-		}
+			if rootDiskSize < diskSizeValue.diskMinSize {
+				fmt.Println("Disk Size Error!!: ", rootDiskSize, diskSizeValue.diskMinSize, diskSizeValue.diskMaxSize)
+				//return irs.VMInfo{}, errors.New("Requested disk size cannot be smaller than the minimum disk size, invalid")
+				return irs.VMInfo{}, errors.New("Root Disk Size must be at least the default size (" + strconv.FormatInt(diskSizeValue.diskMinSize, 10) + " GB).")
+			}
 
-		if iDiskSize > diskSizeValue.diskMaxSize {
-			fmt.Println("Disk Size Error!!: ", iDiskSize, diskSizeValue.diskMinSize, diskSizeValue.diskMaxSize)
-			//return irs.VMInfo{}, errors.New("Requested disk size cannot be larger than the maximum disk size, invalid")
-			return irs.VMInfo{}, errors.New("Root Disk Size must be smaller than the maximum size (" + strconv.FormatInt(diskSizeValue.diskMaxSize, 10) + " GB).")
+			if rootDiskSize > diskSizeValue.diskMaxSize {
+				fmt.Println("Disk Size Error!!: ", rootDiskSize, diskSizeValue.diskMinSize, diskSizeValue.diskMaxSize)
+				//return irs.VMInfo{}, errors.New("Requested disk size cannot be larger than the maximum disk size, invalid")
+				return irs.VMInfo{}, errors.New("Root Disk Size must be smaller than the maximum size (" + strconv.FormatInt(diskSizeValue.diskMaxSize, 10) + " GB).")
+			}
 		}
 
 		imageSize, err := vmHandler.GetImageSize(vmReqInfo.ImageIID.SystemId)
@@ -286,16 +287,14 @@ func (vmHandler *AlibabaVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 			return irs.VMInfo{}, err
 		}
 
-
 		if imageSize < 0 {
 			return irs.VMInfo{}, errors.New("요청된 이미지의 기본 사이즈 정보를 조회할 수 없습니다.")
 		} else {
-			if iDiskSize < imageSize {
-				fmt.Println("Disk Size Error!!: ", iDiskSize)
+			if rootDiskSize < imageSize {
+				fmt.Println("Disk Size Error!!: ", rootDiskSize)
 				return irs.VMInfo{}, errors.New("Root Disk Size must be larger then the image size (" + strconv.FormatInt(imageSize, 10) + " GB).")
 			}
 
-		
 		}
 
 		request.SystemDiskSize = vmReqInfo.RootDiskSize
