@@ -51,6 +51,13 @@ type OpenStackVMHandler struct {
 func (vmHandler *OpenStackVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (startvm irs.VMInfo, createErr error) {
 	// log HisCall
 	hiscallInfo := GetCallLogScheme(vmHandler.Client.IdentityEndpoint, call.VM, vmReqInfo.IId.NameId, "StartVM()")
+	err := notSupportRootDiskCustom(vmReqInfo)
+	if err != nil {
+		createErr := errors.New(fmt.Sprintf("Failed to startVM err = %s", err.Error()))
+		cblogger.Error(createErr.Error())
+		LoggingError(hiscallInfo, createErr)
+		return irs.VMInfo{}, createErr
+	}
 	// 가상서버 이름 중복 체크
 	pager, err := servers.List(vmHandler.Client, servers.ListOpts{Name: vmReqInfo.IId.NameId}).AllPages()
 	if err != nil {
@@ -96,7 +103,7 @@ func (vmHandler *OpenStackVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (startvm i
 	// Private IP 할당 서브넷 매핑
 	// Private IP 할당 서브넷 매핑 - vpc 및 서브넷 확인
 	vpcHandler := OpenStackVPCHandler{
-		Client: vmHandler.NetworkClient,
+		Client:   vmHandler.NetworkClient,
 		VMClient: vmHandler.Client,
 	}
 	rawVpc, err := vpcHandler.getRawVPC(vmReqInfo.VpcIID)
@@ -107,7 +114,7 @@ func (vmHandler *OpenStackVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (startvm i
 		return irs.VMInfo{}, createErr
 	}
 	fixedIPSubnet := irs.IID{}
-	for _, rawsubnetId := range rawVpc.Subnets{
+	for _, rawsubnetId := range rawVpc.Subnets {
 		subnet, err := subnets.Get(vpcHandler.Client, rawsubnetId).Extract()
 		if err != nil {
 			createErr := errors.New(fmt.Sprintf("Failed to startVM err %s", err))
@@ -152,13 +159,13 @@ func (vmHandler *OpenStackVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (startvm i
 		serverCreateOpts.ImageRef = image.IId.SystemId
 	}
 	segHandler := OpenStackSecurityHandler{
-		Client: vmHandler.Client,
+		Client:        vmHandler.Client,
 		NetworkClient: vmHandler.NetworkClient,
 	}
 
 	sgIdArr := make([]string, len(vmReqInfo.SecurityGroupIIDs))
 	for i, sg := range vmReqInfo.SecurityGroupIIDs {
-		SecurityGroup,err := segHandler.getRawSecurity(sg)
+		SecurityGroup, err := segHandler.getRawSecurity(sg)
 		if err != nil {
 			createErr := errors.New(fmt.Sprintf("Failed to startVM err %s", err))
 			cblogger.Error(createErr.Error())
@@ -170,7 +177,7 @@ func (vmHandler *OpenStackVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (startvm i
 	serverCreateOpts.SecurityGroups = sgIdArr
 
 	// Add KeyPair
-	keyPair, err := GetRawKey(vmHandler.Client,vmReqInfo.KeyPairIID)
+	keyPair, err := GetRawKey(vmHandler.Client, vmReqInfo.KeyPairIID)
 	if err != nil {
 		createErr := errors.New(fmt.Sprintf("Failed to startVM err %s", err))
 		cblogger.Error(createErr.Error())
@@ -830,4 +837,11 @@ func (vmHandler *OpenStackVMHandler) getRawVM(vmIId irs.IID) (*servers.Server, e
 	} else {
 		return servers.Get(vmHandler.Client, vmIId.SystemId).Extract()
 	}
+}
+
+func notSupportRootDiskCustom(vmReqInfo irs.VMReqInfo) error {
+	if vmReqInfo.RootDiskType != "" && strings.ToLower(vmReqInfo.RootDiskType) != "default" {
+		return errors.New("OPENSTACK_CANNOT_CHANGE_ROOTDISKTYPE")
+	}
+	return nil
 }

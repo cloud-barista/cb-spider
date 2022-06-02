@@ -57,6 +57,7 @@ type HealthCheckerInfo struct {
 	Timeout		int	// secs, Waiting time to decide an unhealthy VM when no response.
 	Threshold	int	// num, The number of continuous health checks to change the VM status.
 
+	CspID		string	// Optional, May be Used by Driver.
         KeyValueList	[]KeyValue
 }
 
