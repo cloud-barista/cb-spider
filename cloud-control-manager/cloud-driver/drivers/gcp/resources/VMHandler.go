@@ -23,7 +23,7 @@ import (
 	"time"
 
 	keypair "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/common"
-	cim "github.com/cloud-barista/cb-spider/cloud-info-manager"
+	//cim "github.com/cloud-barista/cb-spider/cloud-info-manager"
 	compute "google.golang.org/api/compute/v1"
 	// "golang.org/x/oauth2/google"
 
