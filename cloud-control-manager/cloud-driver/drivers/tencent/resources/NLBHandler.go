@@ -1,18 +1,19 @@
 package resources
 
 import (
+	"errors"
 	"fmt"
 	"strconv"
 	"time"
-	"errors"
 
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
+
 	//"github.com/davecgh/go-spew/spew"
 
-	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
 	clb "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/clb/v20180317"
+	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
 )
 
 type TencentNLBHandler struct {
@@ -21,11 +22,17 @@ type TencentNLBHandler struct {
 }
 
 const (
-	LoadBalancerSet_Status_Creating  int = 0
-	LoadBalancerSet_Status_Running int = 1
+	LoadBalancerSet_Status_Creating uint64 = 0
+	LoadBalancerSet_Status_Running  uint64 = 1
 )
 
-func (NLBHandler *TencentNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (irs.NLBInfo, error) { 
+const (
+	Request_Status_Succeeded int64 = 0
+	Request_Status_Failed    int64 = 1
+	Request_Status_Progress  int64 = 2
+)
+
+func (NLBHandler *TencentNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (irs.NLBInfo, error) {
 	callogger := call.GetLogger("HISCALL")
 	callLogInfo := call.CLOUDLOGSCHEMA{
 		CloudOS:      call.TENCENT,
@@ -36,6 +43,8 @@ func (NLBHandler *TencentNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (irs.NLBI
 		ElapsedTime:  "",
 		ErrorMSG:     "",
 	}
+
+	nlbResult := irs.NLBInfo{}
 
 	// NLB 생성
 	nlbRequest := clb.NewCreateLoadBalancerRequest()
@@ -59,10 +68,9 @@ func (NLBHandler *TencentNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (irs.NLBI
 		return irs.NLBInfo{}, statusErr
 	}
 
-
 	// Listener 생성
 	if curStatus == "Running" {
-		
+
 		listenerPort, portErr := strconv.ParseInt(nlbReqInfo.Listener.Port, 10, 64)
 		if portErr != nil {
 			return irs.NLBInfo{}, portErr
@@ -76,14 +84,14 @@ func (NLBHandler *TencentNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (irs.NLBI
 		listenerRequest := clb.NewCreateListenerRequest()
 
 		listenerRequest.LoadBalancerId = common.StringPtr(newNLBId)
-		listenerRequest.Ports = common.Int64Ptrs([]int64{ listenerPort })
+		listenerRequest.Ports = common.Int64Ptrs([]int64{listenerPort})
 		listenerRequest.Protocol = common.StringPtr(nlbReqInfo.Listener.Protocol)
-		listenerRequest.HealthCheck = &clb.HealthCheck {
-			TimeOut: common.Int64Ptr(int64(nlbReqInfo.HealthChecker.Timeout)),
+		listenerRequest.HealthCheck = &clb.HealthCheck{
+			TimeOut:      common.Int64Ptr(int64(nlbReqInfo.HealthChecker.Timeout)),
 			IntervalTime: common.Int64Ptr(int64(nlbReqInfo.HealthChecker.Interval)),
-			HealthNum: common.Int64Ptr(int64(nlbReqInfo.HealthChecker.Threshold)),
-			CheckPort: common.Int64Ptr(healthPort),
-			CheckType: common.StringPtr(nlbReqInfo.HealthChecker.Protocol),
+			HealthNum:    common.Int64Ptr(int64(nlbReqInfo.HealthChecker.Threshold)),
+			CheckPort:    common.Int64Ptr(healthPort),
+			CheckType:    common.StringPtr(nlbReqInfo.HealthChecker.Protocol),
 		}
 
 		listenerResponse, listenerErr := NLBHandler.Client.CreateListener(listenerRequest)
@@ -100,7 +108,7 @@ func (NLBHandler *TencentNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (irs.NLBI
 		}
 
 		// Listener가 생성되길 기다림
-	    listStatus, listStatErr := NLBHandler.WaitForDone(newNLBId, newListenerId)
+		listStatus, listStatErr := NLBHandler.WaitForDone(*listenerResponse.Response.RequestId)
 		if listStatErr != nil {
 			return irs.NLBInfo{}, listStatErr
 		}
@@ -108,14 +116,14 @@ func (NLBHandler *TencentNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (irs.NLBI
 		// VM 연결
 		if listStatus == "Done" {
 			targetRequest := clb.NewRegisterTargetsRequest()
-			
+
 			targetRequest.LoadBalancerId = common.StringPtr(newNLBId)
 			targetRequest.ListenerId = common.StringPtr(newListenerId)
-			targetRequest.Targets = []*clb.Target {}
+			targetRequest.Targets = []*clb.Target{}
 			for _, target := range *nlbReqInfo.VMGroup.VMs {
-				targetRequest.Targets = append(targetRequest.Targets, &clb.Target {
+				targetRequest.Targets = append(targetRequest.Targets, &clb.Target{
 					InstanceId: common.StringPtr(target.SystemId),
-					Port: common.Int64Ptr(backendPort),
+					Port:       common.Int64Ptr(backendPort),
 				})
 			}
 
@@ -126,27 +134,32 @@ func (NLBHandler *TencentNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (irs.NLBI
 				return irs.NLBInfo{}, targetErr
 			}
 			fmt.Printf("%s", targetResponse.ToJsonString())
+
+			// VM 연결되길 기다림
+			targetStatus, targetStatErr := NLBHandler.WaitForDone(*targetResponse.Response.RequestId)
+			if targetStatErr != nil {
+				return irs.NLBInfo{}, targetStatErr
+			}
+
+			if targetStatus == "Done" {
+				nlbInfo, nlbInfoErr := NLBHandler.GetNLB(irs.IID{SystemId: newNLBId})
+				if nlbInfoErr != nil {
+					return irs.NLBInfo{}, nlbInfoErr
+				}
+
+				nlbResult = nlbInfo
+			}
 		}
-		
 	}
-	
 
 	callogger.Info(call.String(callLogInfo))
-	
+
 	fmt.Printf("%s", nlbResponse.ToJsonString())
 
-	
-
-	nlbInfo, nlbInfoErr := NLBHandler.GetNLB(irs.IID{SystemId: newNLBId})
-	if nlbInfoErr != nil {
-		return irs.NLBInfo{}, nlbInfoErr
-	}
-
-	return nlbInfo, nlbInfoErr
+	return nlbResult, nil
 }
 
-
-func (NLBHandler *TencentNLBHandler) ListNLB() ([]*irs.NLBInfo, error) { 
+func (NLBHandler *TencentNLBHandler) ListNLB() ([]*irs.NLBInfo, error) {
 	cblogger.Info("Start")
 
 	// logger for HisCall
@@ -167,7 +180,7 @@ func (NLBHandler *TencentNLBHandler) ListNLB() ([]*irs.NLBInfo, error) {
 	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 
 	cblogger.Debug(response.ToJsonString())
-	
+
 	if err != nil {
 		callLogInfo.ErrorMSG = err.Error()
 		callogger.Error(call.String(callLogInfo))
@@ -183,7 +196,7 @@ func (NLBHandler *TencentNLBHandler) ListNLB() ([]*irs.NLBInfo, error) {
 		for _, curNLB := range response.Response.LoadBalancerSet {
 			cblogger.Debugf("[%s] NLB 정보 조회 - [%s]", *curNLB.LoadBalancerId, *curNLB.LoadBalancerName)
 			nlbInfo, nlbErr := NLBHandler.GetNLB(irs.IID{SystemId: *curNLB.LoadBalancerId})
-			
+
 			if nlbErr != nil {
 				cblogger.Error(nlbErr)
 				return nil, nlbErr
@@ -193,7 +206,7 @@ func (NLBHandler *TencentNLBHandler) ListNLB() ([]*irs.NLBInfo, error) {
 	}
 
 	cblogger.Debugf("리턴 결과 목록 수 : [%d]", len(nlbInfoList))
-	
+
 	return nlbInfoList, nil
 }
 
@@ -213,7 +226,7 @@ func (NLBHandler *TencentNLBHandler) GetNLB(nlbIID irs.IID) (irs.NLBInfo, error)
 	}
 
 	request := clb.NewDescribeLoadBalancersRequest()
-	request.LoadBalancerIds = common.StringPtrs([]string{ nlbIID.SystemId })
+	request.LoadBalancerIds = common.StringPtrs([]string{nlbIID.SystemId})
 	callLogStart := call.Start()
 	response, err := NLBHandler.Client.DescribeLoadBalancers(request)
 	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
@@ -242,12 +255,11 @@ func (NLBHandler *TencentNLBHandler) GetNLB(nlbIID irs.IID) (irs.NLBInfo, error)
 }
 
 func ExtractNLBDescribeInfo(nlbInfo *clb.LoadBalancer) irs.NLBInfo {
-	
-	resNLBInfo := irs.NLBInfo{
-		
-		IId:       irs.IID{SystemId: *nlbInfo.LoadBalancerId, NameId: *nlbInfo.LoadBalancerName},
-	    VpcIID:    irs.IID{SystemId: *nlbInfo.VpcId},
 
+	resNLBInfo := irs.NLBInfo{
+
+		IId:    irs.IID{SystemId: *nlbInfo.LoadBalancerId, NameId: *nlbInfo.LoadBalancerName},
+		VpcIID: irs.IID{SystemId: *nlbInfo.VpcId},
 	}
 
 	return resNLBInfo
@@ -284,7 +296,7 @@ func (NLBHandler *TencentNLBHandler) ExtractListenerInfo(nlbIID irs.IID) irs.Lis
 
 	resListenerInfo := irs.ListenerInfo{
 		Protocol: *response.Response.Listeners[0].Protocol,
-		Port: strconv.FormatInt(*response.Response.Listeners[0].Port,10),
+		Port:     strconv.FormatInt(*response.Response.Listeners[0].Port, 10),
 	}
 
 	return resListenerInfo
@@ -321,11 +333,11 @@ func (NLBHandler *TencentNLBHandler) ExtractVMGroupInfo(nlbIID irs.IID) irs.VMGr
 
 	resVmInfo := irs.VMGroupInfo{
 		Protocol: "TCP",
-		Port: strconv.FormatInt(*response.Response.Listeners[0].Targets[0].Port,10),
+		Port:     strconv.FormatInt(*response.Response.Listeners[0].Targets[0].Port, 10),
 	}
 
 	vms := []irs.IID{}
-	for _, target := range response.Response.Listeners[0].Targets{
+	for _, target := range response.Response.Listeners[0].Targets {
 		vms = append(vms, irs.IID{SystemId: *target.InstanceId})
 	}
 
@@ -364,10 +376,10 @@ func (NLBHandler *TencentNLBHandler) ExtractHealthCheckerInfo(nlbIID irs.IID) ir
 	callogger.Info(call.String(callLogInfo))
 
 	resHealthCheckerInfo := irs.HealthCheckerInfo{
-		Protocol: *response.Response.Listeners[0].HealthCheck.CheckType,
-		Port: strconv.FormatInt(*response.Response.Listeners[0].HealthCheck.CheckPort,10),
-		Interval: int(*response.Response.Listeners[0].HealthCheck.IntervalTime),
-		Timeout: int(*response.Response.Listeners[0].HealthCheck.TimeOut),
+		Protocol:  *response.Response.Listeners[0].HealthCheck.CheckType,
+		Port:      strconv.FormatInt(*response.Response.Listeners[0].HealthCheck.CheckPort, 10),
+		Interval:  int(*response.Response.Listeners[0].HealthCheck.IntervalTime),
+		Timeout:   int(*response.Response.Listeners[0].HealthCheck.TimeOut),
 		Threshold: int(*response.Response.Listeners[0].HealthCheck.HealthNum),
 	}
 
@@ -416,6 +428,43 @@ func (NLBHandler *TencentNLBHandler) ChangeVMGroupInfo(nlbIID irs.IID, vmGroup i
 }
 
 func (NLBHandler *TencentNLBHandler) AddVMs(nlbIID irs.IID, vmIIDs *[]irs.IID) (irs.VMGroupInfo, error) {
+
+	newNLBId := nlbIID.SystemId
+
+	request := clb.NewDescribeListenersRequest()
+	request.LoadBalancerId = common.StringPtr(newNLBId)
+	response, err := NLBHandler.Client.DescribeListeners(request)
+	if err != nil {
+		return irs.VMGroupInfo{}, err
+	}
+
+	newListenerId := *response.Response.Listeners[0].ListenerId
+	vmGroupInfo := NLBHandler.ExtractVMGroupInfo(nlbIID)
+	backendPort, backendErr := strconv.ParseInt(vmGroupInfo.Port, 10, 64)
+	if backendErr != nil {
+		return irs.VMGroupInfo{}, backendErr
+	}
+
+	targetRequest := clb.NewRegisterTargetsRequest()
+
+	targetRequest.LoadBalancerId = common.StringPtr(newNLBId)
+	targetRequest.ListenerId = common.StringPtr(newListenerId)
+	targetRequest.Targets = []*clb.Target{}
+	for _, target := range *vmIIDs {
+		targetRequest.Targets = append(targetRequest.Targets, &clb.Target{
+			InstanceId: common.StringPtr(target.SystemId),
+			Port:       common.Int64Ptr(backendPort),
+		})
+	}
+
+	cblogger.Debug(targetRequest.ToJsonString())
+
+	targetResponse, targetErr := NLBHandler.Client.RegisterTargets(targetRequest)
+	if targetErr != nil {
+		return irs.VMGroupInfo{}, targetErr
+	}
+	fmt.Printf("%s", targetResponse.ToJsonString())
+
 	return irs.VMGroupInfo{}, nil
 }
 
@@ -455,11 +504,11 @@ func (NLBHandler *TencentNLBHandler) GetVMGroupHealthInfo(nlbIID irs.IID) (irs.H
 	unHealthyVMs := []irs.IID{}
 
 	for _, vm := range vmGroup {
-		allVMs = append(allVMs, irs.IID{SystemId:*vm.TargetId})
+		allVMs = append(allVMs, irs.IID{SystemId: *vm.TargetId})
 		if *vm.HealthStatus {
-			healthyVMs = append(healthyVMs, irs.IID{SystemId:*vm.TargetId})
+			healthyVMs = append(healthyVMs, irs.IID{SystemId: *vm.TargetId})
 		} else {
-			unHealthyVMs = append(unHealthyVMs, irs.IID{SystemId:*vm.TargetId})
+			unHealthyVMs = append(unHealthyVMs, irs.IID{SystemId: *vm.TargetId})
 		}
 	}
 
@@ -483,9 +532,9 @@ func (NLBHandler *TencentNLBHandler) WaitForRun(nlbIID irs.IID) (string, error) 
 	maxRetryCnt := 120
 	for {
 		request := clb.NewDescribeLoadBalancersRequest()
-        
-        request.LoadBalancerIds = common.StringPtrs([]string{ nlbIID.SystemId })
-        response, errStatus := NLBHandler.Client.DescribeLoadBalancers(request)
+
+		request.LoadBalancerIds = common.StringPtrs([]string{nlbIID.SystemId})
+		response, errStatus := NLBHandler.Client.DescribeLoadBalancers(request)
 		if errStatus != nil {
 			cblogger.Error(errStatus.Error())
 		}
@@ -494,7 +543,7 @@ func (NLBHandler *TencentNLBHandler) WaitForRun(nlbIID irs.IID) (string, error) 
 
 		cblogger.Info("===>NLB Status : ", curStatus)
 
-		if curStatus == LoadBalancerSet_Status_Running { 
+		if curStatus == LoadBalancerSet_Status_Running {
 			cblogger.Infof("===>NLB 상태가 [%d]라서 대기를 중단합니다.", curStatus)
 			break
 		}
@@ -511,39 +560,37 @@ func (NLBHandler *TencentNLBHandler) WaitForRun(nlbIID irs.IID) (string, error) 
 	return waitStatus, nil
 }
 
-
-func (NLBHandler *TencentNLBHandler) WaitForDone(nlbId string, listenerId string) (string, error) {
+func (NLBHandler *TencentNLBHandler) WaitForDone(requestId string) (string, error) {
 
 	waitStatus := "Done"
 
 	curRetryCnt := 0
 	maxRetryCnt := 120
 	for {
-		request := clb.NewDescribeListenersRequest()
-        
-        request.LoadBalancerId = common.StringPtr(nlbId)
-        request.ListenerIds = common.StringPtrs([]string{ listenerId })
+		request := clb.NewDescribeTaskStatusRequest()
 
-        response, err := NLBHandler.Client.DescribeListeners(request)
+		request.TaskId = common.StringPtr(requestId)
+
+		response, err := NLBHandler.Client.DescribeTaskStatus(request)
 		if err != nil {
 			cblogger.Error(err.Error())
 		}
 
-		listenerInfo := response.Response.Listeners
+		requestStatus := *response.Response.Status
 
-		cblogger.Info("===>listener info : ", listenerInfo)
+		cblogger.Info("===>request status : ", requestStatus)
 
-		if len(listenerInfo) > 0 { 
-			cblogger.Infof("===>listener 상태가 [%s]라서 대기를 중단합니다.", waitStatus)
+		if requestStatus == Request_Status_Succeeded {
+			cblogger.Infof("===>request 상태가 [%s]라서 대기를 중단합니다.", waitStatus)
 			break
 		}
 
 		curRetryCnt++
-		cblogger.Errorf("listener 상태가 [%s]이 아니라서 1초 대기후 조회합니다.", waitStatus)
+		cblogger.Errorf("request 상태가 [%s]이 아니라서 1초 대기후 조회합니다.", waitStatus)
 		time.Sleep(time.Second * 1)
 		if curRetryCnt > maxRetryCnt {
-			cblogger.Errorf("장시간(%d 초) 대기해도 listener Status 값이 [%s]으로 변경되지 않아서 강제로 중단합니다.", maxRetryCnt, waitStatus)
-			return "Failed", errors.New("장시간 기다렸으나 생성된 listener 상태가 [" + waitStatus + "]으로 바뀌지 않아서 중단 합니다.")
+			cblogger.Errorf("장시간(%d 초) 대기해도 request Status 값이 [%s]으로 변경되지 않아서 강제로 중단합니다.", maxRetryCnt, waitStatus)
+			return "Failed", errors.New("장시간 기다렸으나 생성된 request 상태가 [" + waitStatus + "]으로 바뀌지 않아서 중단 합니다.")
 		}
 	}
 
