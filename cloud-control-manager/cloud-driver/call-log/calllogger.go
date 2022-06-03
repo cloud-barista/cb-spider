@@ -56,7 +56,6 @@ const (
 	SECURITYGROUP RES_TYPE = "SECURITYGROUP"
 	VMKEYPAIR     RES_TYPE = "VMKEYPAIR"
 	VM            RES_TYPE = "VM"
-	NLB           RES_TYPE = "NLB"
 )
 
 type CALLLogger struct {

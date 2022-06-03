@@ -1094,7 +1094,7 @@ func handleNLB() {
 						},
 	}
 
-	reqNLBId := irs.IID{SystemId: "lb-5a7y3de5"}
+	reqNLBId := irs.IID{SystemId: "lb-b2tpjn2h"}
 
 	for {
 		fmt.Println("Handler Management")
@@ -1103,8 +1103,9 @@ func handleNLB() {
 		fmt.Println("2. NLB Create")
 		fmt.Println("3. NLB Get")
 		fmt.Println("4. NLB Delete")
-		fmt.Println("5. Add")
-		fmt.Println("6. Delete")
+		fmt.Println("5. VM Add")
+		fmt.Println("6. VM Delete")
+		fmt.Println("7. VM Health Get")
 
 		var commandNum int
 		inputCnt, err := fmt.Scan(&commandNum)
@@ -1177,6 +1178,14 @@ func handleNLB() {
 				// } else {
 				// 	cblogger.Infof("[%s] Subnet 삭제 결과 : [%s]", reqSubnetId.SystemId, result)
 				// }
+			case 7:
+				cblogger.Infof("[%s] NLB VM Health 조회 테스트", reqNLBId)
+				result, err := handler.GetVMGroupHealthInfo(reqNLBId)
+				if err != nil {
+					cblogger.Infof("[%s] NLB VM Health 조회 실패 : ", reqNLBId.SystemId, err)
+				} else {
+					cblogger.Infof("[%s] NLB VM Health 조회 결과 : [%s]", reqNLBId.SystemId, result)
+				}
 			}
 		}
 	}

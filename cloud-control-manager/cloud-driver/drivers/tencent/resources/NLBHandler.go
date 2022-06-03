@@ -20,6 +20,11 @@ type TencentNLBHandler struct {
 	Client *clb.Client
 }
 
+const (
+	LoadBalancerSet_Status_Creating  int = 0
+	LoadBalancerSet_Status_Running int = 1
+)
+
 func (NLBHandler *TencentNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (irs.NLBInfo, error) { 
 	callogger := call.GetLogger("HISCALL")
 	callLogInfo := call.CLOUDLOGSCHEMA{
@@ -130,7 +135,14 @@ func (NLBHandler *TencentNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (irs.NLBI
 	
 	fmt.Printf("%s", nlbResponse.ToJsonString())
 
-	return irs.NLBInfo{}, nlbErr
+	
+
+	nlbInfo, nlbInfoErr := NLBHandler.GetNLB(irs.IID{SystemId: newNLBId})
+	if nlbInfoErr != nil {
+		return irs.NLBInfo{}, nlbInfoErr
+	}
+
+	return nlbInfo, nlbInfoErr
 }
 
 
@@ -395,16 +407,16 @@ func (NLBHandler *TencentNLBHandler) DeleteNLB(nlbIID irs.IID) (bool, error) {
 	return true, nil
 }
 
-func (NLBHandler *TencentNLBHandler) ChangeListener(nlbIID irs.IID, listener irs.ListenerInfo) (irs.NLBInfo, error) {
-	return irs.NLBInfo{}, nil
+func (NLBHandler *TencentNLBHandler) ChangeListener(nlbIID irs.IID, listener irs.ListenerInfo) (irs.ListenerInfo, error) {
+	return irs.ListenerInfo{}, nil
 }
 
-func (NLBHandler *TencentNLBHandler) ChangeVMGroupInfo(nlbIID irs.IID, vmGroup irs.VMGroupInfo) error {
-	return nil
+func (NLBHandler *TencentNLBHandler) ChangeVMGroupInfo(nlbIID irs.IID, vmGroup irs.VMGroupInfo) (irs.VMGroupInfo, error) {
+	return irs.VMGroupInfo{}, nil
 }
 
-func (NLBHandler *TencentNLBHandler) AddVMs(nlbIID irs.IID, vmIIDs *[]irs.IID) (irs.NLBInfo, error) {
-	return irs.NLBInfo{}, nil
+func (NLBHandler *TencentNLBHandler) AddVMs(nlbIID irs.IID, vmIIDs *[]irs.IID) (irs.VMGroupInfo, error) {
+	return irs.VMGroupInfo{}, nil
 }
 
 func (NLBHandler *TencentNLBHandler) RemoveVMs(nlbIID irs.IID, vmIIDs *[]irs.IID) (bool, error) {
@@ -412,11 +424,55 @@ func (NLBHandler *TencentNLBHandler) RemoveVMs(nlbIID irs.IID, vmIIDs *[]irs.IID
 }
 
 func (NLBHandler *TencentNLBHandler) GetVMGroupHealthInfo(nlbIID irs.IID) (irs.HealthInfo, error) {
-	return irs.HealthInfo{}, nil
+	cblogger.Info("NLB IID : ", nlbIID.SystemId)
+
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.TENCENT,
+		RegionZone:   NLBHandler.Region.Zone,
+		ResourceType: call.NLB,
+		ResourceName: "GetVMGroupHealthInfo",
+		CloudOSAPI:   "DescribeTargetHealth()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+
+	request := clb.NewDescribeTargetHealthRequest()
+	request.LoadBalancerIds = common.StringPtrs([]string{nlbIID.SystemId})
+	response, err := NLBHandler.Client.DescribeTargetHealth(request)
+	if err != nil {
+		cblogger.Errorf("An API error has returned: %s", err.Error())
+		callLogInfo.ErrorMSG = err.Error()
+		callogger.Error(call.String(callLogInfo))
+		return irs.HealthInfo{}, err
+	}
+
+	vmGroup := response.Response.LoadBalancers[0].Listeners[0].Rules[0].Targets
+
+	allVMs := []irs.IID{}
+	healthyVMs := []irs.IID{}
+	unHealthyVMs := []irs.IID{}
+
+	for _, vm := range vmGroup {
+		allVMs = append(allVMs, irs.IID{SystemId:*vm.TargetId})
+		if *vm.HealthStatus {
+			healthyVMs = append(healthyVMs, irs.IID{SystemId:*vm.TargetId})
+		} else {
+			unHealthyVMs = append(unHealthyVMs, irs.IID{SystemId:*vm.TargetId})
+		}
+	}
+
+	healthInfo := irs.HealthInfo{}
+	healthInfo.AllVMs = &allVMs
+	healthInfo.HealthyVMs = &healthyVMs
+	healthInfo.UnHealthyVMs = &unHealthyVMs
+
+	return healthInfo, nil
 }
 
-func (NLBHandler *TencentNLBHandler) ChangeHealthCheckerInfo(nlbIID irs.IID, healthChecker irs.HealthCheckerInfo) error {
-	return nil
+func (NLBHandler *TencentNLBHandler) ChangeHealthCheckerInfo(nlbIID irs.IID, healthChecker irs.HealthCheckerInfo) (irs.HealthCheckerInfo, error) {
+	return irs.HealthCheckerInfo{}, nil
 }
 
 func (NLBHandler *TencentNLBHandler) WaitForRun(nlbIID irs.IID) (string, error) {
@@ -438,7 +494,7 @@ func (NLBHandler *TencentNLBHandler) WaitForRun(nlbIID irs.IID) (string, error) 
 
 		cblogger.Info("===>NLB Status : ", curStatus)
 
-		if curStatus == 1 { 
+		if curStatus == LoadBalancerSet_Status_Running { 
 			cblogger.Infof("===>NLB 상태가 [%d]라서 대기를 중단합니다.", curStatus)
 			break
 		}
