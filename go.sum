@@ -180,8 +180,8 @@ github.com/cilium/ebpf v0.6.2/go.mod h1:4tRaxcgiL706VnOzHOdBlY8IEAIdxINsQBcU4xJJ
 github.com/cilium/ebpf v0.7.0/go.mod h1:/oI2+1shJiTGAMgl6/RgJr36Eo1jzrRcAWbcXO2usCA=
 github.com/cloud-barista/cb-log v0.5.0 h1:WoUnXtNNNTA7wRgQa6sFNs57O3mLAOrh4aDHC4cU0CI=
 github.com/cloud-barista/cb-log v0.5.0/go.mod h1:C0KNV97sw8IoLSlNuSiCGDQIuS/wXJaZWV/6MOwc20c=
-github.com/cloud-barista/cb-store v0.5.0 h1:1pqgmon1CQWQvjalm23K15G23qhP9hMoy9AUb8tn7bs=
-github.com/cloud-barista/cb-store v0.5.0/go.mod h1:EhuQfTQRoLPE6jCMMRGbM4OEIZv+Zk2Zf6wxsJ5GyEM=
+github.com/cloud-barista/cb-store v0.5.1 h1:+jJrRx422Ip/eraWK8fNZG6jQrYXovR5/Aw94nn/ejY=
+github.com/cloud-barista/cb-store v0.5.1/go.mod h1:w1HBM1jZOdkpnNfCDwog3YOZlrSYOJLoZeWxQpLuCUk=
 github.com/cockroachdb/datadriven v0.0.0-20190809214429-80d97fb3cbaa/go.mod h1:zn76sxSg3SzpJ0PPJaLDCu+Bu0Lg3sKTORVIj19EIF8=
 github.com/cockroachdb/datadriven v0.0.0-20200714090401-bf6692d28da5/go.mod h1:h6jFvWxBdQXxjopDMZyH2UVceIRfR84bdzbkoKrsWNo=
 github.com/cockroachdb/errors v1.2.4/go.mod h1:rQD95gz6FARkaKkQXUksEje/d9a6wBJoCr5oaCLELYA=
