@@ -34,10 +34,10 @@ GCP:
 ALIBABA:
   region: Region / Zone
   credential: ClientId / ClientSecret
-  #rootdisktype: cloud_efficiency / cloud / cloud_ssd / cloud_essd
-  rootdisktype: cloud_efficiency / cloud / cloud_ssd
-  #rootdisksize: cloud_efficiency|20|32768|GB / cloud|5|2000|GB / cloud_ssd|20|32768|GB / cloud_essd|20|32768|GB
-  rootdisksize: cloud_efficiency|20|32768|GB / cloud|5|2000|GB / cloud_ssd|20|32768|GB
+  rootdisktype: cloud_essd / cloud_efficiency / cloud / cloud_ssd
+  #rootdisktype: cloud_efficiency / cloud / cloud_ssd
+  rootdisksize: cloud_essd|20|32768|GB / cloud_efficiency|20|32768|GB / cloud|5|2000|GB / cloud_ssd|20|32768|GB
+  #rootdisksize: cloud_efficiency|20|32768|GB / cloud|5|2000|GB / cloud_ssd|20|32768|GB
   # idmaxlength: VPC / Subnet / SecurityGroup / KeyPair / VM
   idmaxlength: 128 / 128 / 128 / 128 / 128 
 

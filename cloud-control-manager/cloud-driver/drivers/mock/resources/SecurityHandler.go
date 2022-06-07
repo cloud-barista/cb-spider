@@ -166,10 +166,25 @@ defer sgMapLock.Unlock()
                 return irs.SecurityInfo{}, fmt.Errorf("%s SecurityGroup does not exist!!", sgIID.NameId)
         }
 
+	// check if all input rules exist
+        for _, info := range infoList {
+                if info.IId.NameId == sgIID.NameId {
+                        for _, reqRuleInfo := range *securityRules {
+                                for _, ruleInfo := range *info.SecurityRules {
+                                        if isEqualRule(&ruleInfo, &reqRuleInfo) {
+                                                errMSG := fmt.Sprintf("%s SecurityGroup already has this rule: %v!!", sgIID.NameId, reqRuleInfo)
+                                                errMSG += fmt.Sprintf(" #### %s SecurityGroup has %v!!", sgIID.NameId, *info.SecurityRules)
+                                                return irs.SecurityInfo{}, fmt.Errorf(errMSG)
+                                        }
+                                }
+                        }
+                }
+        }
+
+	// Add all rules
         for _, info := range infoList {
                 if info.IId.NameId == sgIID.NameId {
 			*info.SecurityRules = append(*info.SecurityRules, *securityRules...)
-
                         return CloneSecurityInfo(*info), nil
                 }
         }
@@ -188,6 +203,25 @@ defer sgMapLock.Unlock()
         infoList, ok := securityInfoMap[mockName]
         if !ok {
                 return false, fmt.Errorf("%s SecurityGroup does not exist!!", sgIID.NameId)
+        }
+
+        // check if all input rules do not exist
+        for _, info := range infoList {
+                if info.IId.NameId == sgIID.NameId {
+                        for _, reqRuleInfo := range *securityRules {
+				existFlag := false
+                                for _, ruleInfo := range *info.SecurityRules {
+                                        if isEqualRule(&ruleInfo, &reqRuleInfo) {
+						existFlag = true
+                                        }
+                                }
+				if !existFlag {
+                                                errMSG := fmt.Sprintf("%s SecurityGroup does not have this rule: %v!!", sgIID.NameId, reqRuleInfo)
+                                                errMSG += fmt.Sprintf(" #### %s SecurityGroup has %v!!", sgIID.NameId, *info.SecurityRules)
+                                                return false, fmt.Errorf(errMSG)
+				}
+                        }
+                }
         }
 
         for _, info := range infoList {

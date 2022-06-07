@@ -14,9 +14,17 @@ source $SETUP_PATH/setup.env $1
 
 KEYPAIR_NAME=${KEYPAIR_NAME}-$2
 
-echo "============== before delete KeyPair: '${KEYPAIR_NAME}'"
-$CLIPATH/spctl --config $CLIPATH/spctl.conf keypair delete --cname "${CONN_CONFIG}" -n "${KEYPAIR_NAME}" 2> /dev/null
-echo "============== after delete KeyPair: '${KEYPAIR_NAME}'"
+echo "============== before create KeyPair: '${KEYPAIR_NAME}'"
+
+$CLIPATH/spctl --config $CLIPATH/spctl.conf keypair create -i json -o json -d \
+    '{
+      "ConnectionName":"'${CONN_CONFIG}'",
+      "ReqInfo": {
+        "Name": "'${KEYPAIR_NAME}'"
+      }
+    }' 2> /dev/null
+
+echo "============== after create KeyPair: '${KEYPAIR_NAME}'"
 
 echo -e "\n\n"
 
