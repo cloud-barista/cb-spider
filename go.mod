@@ -7,8 +7,10 @@ replace (
 	github.com/dgrijalva/jwt-go => github.com/golang-jwt/jwt v3.2.1+incompatible
 	github.com/docker/distribution => github.com/docker/distribution v2.8.0+incompatible
 	github.com/opencontainers/image-spec => github.com/opencontainers/image-spec v1.0.2
-	google.golang.org/api => google.golang.org/api v0.15.0
+	//google.golang.org/api => google.golang.org/api v0.19.0
+	google.golang.org/api => google.golang.org/api v0.16.0
 	google.golang.org/grpc => google.golang.org/grpc v1.26.0
+	gopkg.in/yaml.v3 => gopkg.in/yaml.v3 v3.0.0
 )
 
 require (
@@ -26,7 +28,7 @@ require (
 	github.com/bramvdbogaerde/go-scp v1.0.0
 	github.com/chyeh/pubip v0.0.0-20170203095919-b7e679cf541c
 	github.com/cloud-barista/cb-log v0.5.0
-	github.com/cloud-barista/cb-store v0.5.0
+	github.com/cloud-barista/cb-store v0.5.2
 	github.com/containerd/containerd v1.6.1 // indirect
 	github.com/davecgh/go-spew v1.1.1
 	github.com/docker/docker v20.10.7+incompatible
@@ -58,9 +60,9 @@ require (
 	github.com/uber/jaeger-client-go v2.29.1+incompatible
 	github.com/uber/jaeger-lib v2.4.0+incompatible // indirect
 	golang.org/x/crypto v0.0.0-20210817164053-32db794688a5
-	golang.org/x/oauth2 v0.0.0-20210819190943-2bc19b11175f
-	google.golang.org/api v0.50.0
-	google.golang.org/grpc v1.43.0
+	golang.org/x/oauth2 v0.0.0-20220411215720-9780585627b5
+	google.golang.org/api v0.81.0
+	google.golang.org/grpc v1.46.2
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b
 

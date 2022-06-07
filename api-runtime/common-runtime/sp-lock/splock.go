@@ -17,7 +17,7 @@ import (
 
 //====================================================================
 type SPLOCK struct {
-        mutex	sync.Mutex	// lock for handling lockMap
+        rwMutex	sync.RWMutex	// lock for handling lockMap
 	lockMap	map[LockKey]*LockValue
 }
 
@@ -39,56 +39,54 @@ func New() *SPLOCK {
 }
 
 func (spLock *SPLOCK)Lock(conn string, id string) {
-spLock.mutex.Lock()
+spLock.rwMutex.Lock()
 	lockValue := spLock.lockMap[LockKey{conn, id}]
 	if lockValue == nil {
 		spLock.lockMap[LockKey{conn, id}] = &LockValue{}
 		lockValue = spLock.lockMap[LockKey{conn, id}]
 	}
-spLock.mutex.Unlock()
-
 	lockValue.count++
+spLock.rwMutex.Unlock()
+
 	lockValue.lock.Lock()
 }
 
 func (spLock *SPLOCK)Unlock(conn string, id string) {
-spLock.mutex.Lock()
+spLock.rwMutex.Lock()
         lockValue := spLock.lockMap[LockKey{conn, id}]
-spLock.mutex.Unlock()
-
-        lockValue.lock.Unlock()
         lockValue.count--
-
 	if lockValue.count == 0 {
 		delete(spLock.lockMap, LockKey{conn, id})
 	}
+spLock.rwMutex.Unlock()
+
+        lockValue.lock.Unlock()
 }
 
 func (spLock *SPLOCK)RLock(conn string, id string) {
-spLock.mutex.Lock()
+spLock.rwMutex.Lock()
 
         lockValue := spLock.lockMap[LockKey{conn, id}]
         if lockValue == nil {
                 spLock.lockMap[LockKey{conn, id}] = &LockValue{}
                 lockValue = spLock.lockMap[LockKey{conn, id}]
         }
-spLock.mutex.Unlock()
-
         lockValue.count++
+spLock.rwMutex.Unlock()
+
         lockValue.lock.RLock()
 }
 
 func (spLock *SPLOCK)RUnlock(conn string, id string) {
-spLock.mutex.Lock()
+spLock.rwMutex.Lock()
         lockValue := spLock.lockMap[LockKey{conn, id}]
-spLock.mutex.Unlock()
-
-        lockValue.lock.RUnlock()
         lockValue.count--
-
         if lockValue.count == 0 {
                 delete(spLock.lockMap, LockKey{conn, id})
         }
+spLock.rwMutex.Unlock()
+
+        lockValue.lock.RUnlock()
 }
 
 func (spLock *SPLOCK)GetSPLockMapStatus(lockName string) string {
@@ -96,10 +94,12 @@ func (spLock *SPLOCK)GetSPLockMapStatus(lockName string) string {
 	var buff bytes.Buffer
 	buff.WriteString("<" + lockName + "> ")
 
+spLock.rwMutex.RLock()
 	for k, v := range spLock.lockMap {
 		buff.WriteString(fmt.Sprintf("(%s:%s, %p:%d) ", k.connectionName, k.resourceId, &v.lock, v.count))
 		//buff.WriteString("(" + k.connectionName + ":" + k.resourceId + ", " + v.lock.String() + ":" + v.count.String() + ")")
 	}
+spLock.rwMutex.RUnlock()
 	return buff.String()
 }
 

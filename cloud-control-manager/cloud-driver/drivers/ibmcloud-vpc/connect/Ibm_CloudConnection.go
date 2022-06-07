@@ -86,6 +86,18 @@ func (cloudConn *IbmCloudConnection) CreateVMSpecHandler() (irs.VMSpecHandler, e
 	}
 	return &vmSpecHandler, nil
 }
+
+func (cloudConn *IbmCloudConnection) CreateNLBHandler() (irs.NLBHandler, error) {
+	cblogger.Info("Ibm Cloud Driver: called CreateNLBHandler()!")
+	nlbHandler := ibmrs.IbmNLBHandler{
+		CredentialInfo: cloudConn.CredentialInfo,
+		Region:         cloudConn.Region,
+		VpcService:     cloudConn.VpcService,
+		Ctx:            cloudConn.Ctx,
+	}
+	return &nlbHandler, nil
+}
+
 func (cloudConn *IbmCloudConnection) IsConnected() (bool, error) {
 	cblogger.Info("Ibm Cloud Driver: called IsConnected()!")
 	return true, nil

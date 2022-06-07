@@ -138,7 +138,8 @@ func showTestHandlerInfo() {
 	cblogger.Info("4. KeyPairHandler")
 	cblogger.Info("5. VmSpecHandler")
 	cblogger.Info("6. VmHandler")
-	cblogger.Info("7. Exit")
+	cblogger.Info("7. NLBHandler")
+	cblogger.Info("8. Exit")
 	cblogger.Info("==========================================================")
 }
 
@@ -175,6 +176,10 @@ func getResourceHandler(resourceType string, config Config) (interface{}, error)
 		resourceHandler, err = ibmCon.CreateVMSpecHandler()
 	case "vm":
 		resourceHandler, err = ibmCon.CreateVMHandler()
+	// TODO interface Change
+	case "nlb":
+		return nil, errors.New("not support")
+		//	resourceHandler, err = ibmCon.CreateNLBHandler()
 	}
 	return resourceHandler, nil
 }
@@ -714,6 +719,8 @@ func testVMHandler(config Config) {
 			NameId: config.IbmVPC.Resources.KeyPair.NameId,
 		},
 		SecurityGroupIIDs: SecurityGroupIIDs,
+		RootDiskSize: "",
+		RootDiskType: "",
 	}
 
 Loop:
@@ -808,6 +815,185 @@ Loop:
 	}
 }
 
+
+func testNLBHandlerListPrint() {
+	cblogger.Info("Test NLBHandler")
+	cblogger.Info("0. Print Menu")
+	cblogger.Info("1. ListNLB()")
+	cblogger.Info("2. GetNLB()")
+	cblogger.Info("3. CreateNLB()")
+	cblogger.Info("4. DeleteNLB()")
+	cblogger.Info("5. ChangeListener()")
+	cblogger.Info("6. ChangeVMGroupInfo()")
+	cblogger.Info("7. AddVMs()")
+	cblogger.Info("8. RemoveVMs()")
+	cblogger.Info("9. GetVMGroupHealthInfo()")
+	cblogger.Info("10. ChangeHealthCheckerInfo()")
+	cblogger.Info("11. Exit")
+}
+
+func testNLBHandler(config Config) {
+	resourceHandler, err := getResourceHandler("nlb", config)
+	if err != nil {
+		cblogger.Error(err)
+		return
+	}
+
+	nlbHandler := resourceHandler.(irs.NLBHandler)
+
+	testNLBHandlerListPrint()
+
+	nlbIId := irs.IID{
+		NameId: "nlb-tester-0527-2",
+	}
+	nlbCreateReqInfo := irs.NLBInfo{
+		IId: irs.IID{
+			NameId: "nlb-tester-0527-2",
+		},
+		VpcIID: irs.IID{
+			NameId: "nlb-tester-vpc",
+		},
+		Listener: irs.ListenerInfo{
+			Protocol: "TCP",
+			Port:     "8080",
+		},
+		VMGroup: irs.VMGroupInfo{
+			Port:     "8080",
+			Protocol: "TCP",
+			VMs: &[]irs.IID{
+				{NameId: "nlb-tester-vm-03"},
+			},
+		},
+		HealthChecker: irs.HealthCheckerInfo{
+			Protocol:  "TCP",
+			Port:      "8080",
+			Interval:  10,
+			Timeout:   5,
+			Threshold: 10,
+		},
+	}
+	updateListener := irs.ListenerInfo{
+		Protocol: "TCP",
+		Port:     "8087",
+	}
+	updateVMGroups := irs.VMGroupInfo{
+		Protocol: "TCP",
+		Port:     "8087",
+	}
+	addVMs := []irs.IID{
+		{NameId: "nlb-tester-vm-02"},
+	}
+	removeVMs := []irs.IID{
+		{NameId: "nlb-tester-vm-03"},
+	}
+
+	updateHealthCheckerInfo := irs.HealthCheckerInfo{
+		Protocol:  "HTTP",
+		Port:      "8087",
+		Interval:  11,
+		Threshold: 4,
+		Timeout: 5,
+	}
+Loop:
+	for {
+		var commandNum int
+		inputCnt, err := fmt.Scan(&commandNum)
+		if err != nil {
+			cblogger.Error(err)
+		}
+
+		if inputCnt == 1 {
+			switch commandNum {
+			case 0:
+				testNLBHandlerListPrint()
+			case 1:
+				cblogger.Info("Start ListNLB() ...")
+				if list, err := nlbHandler.ListNLB(); err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(list)
+				}
+				cblogger.Info("Finish ListNLB()")
+			case 2:
+				cblogger.Info("Start GetNLB() ...")
+				if vm, err := nlbHandler.GetNLB(nlbIId); err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(vm)
+				}
+				cblogger.Info("Finish GetNLB()")
+			case 3:
+				cblogger.Info("Start CreateNLB() ...")
+				if createInfo, err := nlbHandler.CreateNLB(nlbCreateReqInfo); err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(createInfo)
+				}
+				cblogger.Info("Finish CreateNLB()")
+			case 4:
+				cblogger.Info("Start DeleteNLB() ...")
+				if vmStatus, err := nlbHandler.DeleteNLB(nlbIId); err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(vmStatus)
+				}
+				cblogger.Info("Finish DeleteNLB()")
+			case 5:
+				cblogger.Info("Start ChangeListener() ...")
+				if nlbInfo, err := nlbHandler.ChangeListener(nlbIId, updateListener); err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(nlbInfo)
+				}
+				cblogger.Info("Finish ChangeListener()")
+			case 6:
+				cblogger.Info("Start ChangeVMGroupInfo() ...")
+				if info, err := nlbHandler.ChangeVMGroupInfo(nlbIId, updateVMGroups); err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(info)
+				}
+				cblogger.Info("Finish ChangeVMGroupInfo()")
+			case 7:
+				cblogger.Info("Start AddVMs() ...")
+				if info, err := nlbHandler.AddVMs(nlbIId, &addVMs); err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(info)
+				}
+				cblogger.Info("Finish AddVMs()")
+			case 8:
+				cblogger.Info("Start RemoveVMs() ...")
+				if result, err := nlbHandler.RemoveVMs(nlbIId, &removeVMs); err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(result)
+				}
+				cblogger.Info("Finish RemoveVMs()")
+			case 9:
+				cblogger.Info("Start GetVMGroupHealthInfo() ...")
+				if result, err := nlbHandler.GetVMGroupHealthInfo(nlbIId); err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(result)
+				}
+				cblogger.Info("Finish GetVMGroupHealthInfo()")
+			case 10:
+				cblogger.Info("Start ChangeHealthCheckerInfo() ...")
+				if info,err := nlbHandler.ChangeHealthCheckerInfo(nlbIId, updateHealthCheckerInfo); err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(info)
+				}
+				cblogger.Info("Finish ChangeHealthCheckerInfo()")
+			case 11:
+				cblogger.Info("Exit")
+				break Loop
+			}
+		}
+	}
+}
+
 func main() {
 	showTestHandlerInfo()
 	config := readConfigFile()
@@ -841,7 +1027,11 @@ Loop:
 			case 6:
 				testVMHandler(config)
 				showTestHandlerInfo()
+
 			case 7:
+				testNLBHandler(config)
+				showTestHandlerInfo()
+			case 8:
 				cblogger.Info("Exit Test ResourceHandler Program")
 				break Loop
 			}

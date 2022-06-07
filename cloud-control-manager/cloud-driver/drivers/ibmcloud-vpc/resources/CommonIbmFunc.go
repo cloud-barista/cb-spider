@@ -6,6 +6,8 @@ import (
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	"github.com/sirupsen/logrus"
+	"math/rand"
+	"strconv"
 	"sync"
 	"time"
 )
@@ -46,4 +48,9 @@ func GetCallLogScheme(region idrv.RegionInfo, resourceType call.RES_TYPE, resour
 		ResourceName: resourceName,
 		CloudOSAPI:   apiName,
 	}
+}
+
+func generateRandName(prefix string) string {
+	rand.Seed(time.Now().UnixNano())
+	return fmt.Sprintf("%s-%s", prefix, strconv.FormatInt(rand.Int63n(1000000), 10))
 }

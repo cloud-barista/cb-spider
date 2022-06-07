@@ -9,9 +9,10 @@ if [ "$1" = "" ]; then
 fi
 
 # common setup.env path
-SETUP_PATH=$CBSPIDER_ROOT/test/vm-cb-user-validation-cli/common
+SETUP_PATH=$CBSPIDER_ROOT/test/splock-concurrency-cli/common
 source $SETUP_PATH/setup.env $1
 
+SG_NAME=${SG_NAME}-$2
 
 echo "============== before delete SecurityGroup: '${SG_NAME}'"
 $CLIPATH/spctl --config $CLIPATH/spctl.conf security delete --cname "${CONN_CONFIG}" -n "${SG_NAME}" 2> /dev/null

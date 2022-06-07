@@ -29,6 +29,7 @@ type IbmVMHandler struct {
 func (vmHandler *IbmVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, error) {
 	hiscallInfo := GetCallLogScheme(vmHandler.Region, call.VM, vmReqInfo.IId.NameId, "StartVM()")
 	start := call.Start()
+
 	// 1.Check VMReqInfo
 	err := checkVMReqInfo(vmReqInfo)
 	if err != nil {
@@ -740,6 +741,10 @@ func checkVmIID(vmIID irs.IID) error {
 }
 
 func checkVMReqInfo(vmReqInfo irs.VMReqInfo) error {
+	err := notSupportRootDiskCustom(vmReqInfo)
+	if err != nil {
+		return err
+	}
 	if vmReqInfo.IId.NameId == "" {
 		return errors.New("invalid VM IID")
 	}
@@ -1080,4 +1085,14 @@ func (vmHandler *IbmVMHandler) checkFloatingIPName(floatingIPName string) (exist
 		}
 	}
 	return false, nil
+}
+
+func notSupportRootDiskCustom(vmReqInfo irs.VMReqInfo) error {
+	if vmReqInfo.RootDiskType != "" && strings.ToLower(vmReqInfo.RootDiskType) != "default" {
+		return errors.New("IBM-VPC_CANNOT_CHANGE_ROOTDISKTYPE")
+	}
+	if vmReqInfo.RootDiskSize != "" && strings.ToLower(vmReqInfo.RootDiskSize) != "default" {
+		return errors.New("IBM-VPC_CANNOT_CHANGE_ROOTDISKSIZE")
+	}
+	return nil
 }

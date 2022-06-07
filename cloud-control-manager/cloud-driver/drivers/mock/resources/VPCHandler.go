@@ -12,6 +12,7 @@ package resources
 
 import (
 	"fmt"
+	"sync"
 
 	cblog "github.com/cloud-barista/cb-log"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
@@ -28,6 +29,8 @@ func init() {
 	// cblog is a global variable.
 	vpcInfoMap = make(map[string][]*irs.VPCInfo)
 }
+
+var vpcMapLock = new(sync.RWMutex)
 
 // (1) create vpcInfo object
 // (2) insert vpcInfo into global Map
@@ -52,11 +55,13 @@ func (vpcHandler *MockVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.VPCI
 		nil}
 
 	// (2) insert VPCInfo into global Map
+vpcMapLock.Lock()
+defer vpcMapLock.Unlock()
 	infoList, _ := vpcInfoMap[mockName]
 	infoList = append(infoList, &vpcInfo)
 	vpcInfoMap[mockName] = infoList
 
-	return vpcInfo, nil
+	return CloneVPCInfo(vpcInfo), nil
 }
 
 func (vpcHandler *MockVPCHandler) ListVPC() ([]*irs.VPCInfo, error) {
@@ -64,6 +69,8 @@ func (vpcHandler *MockVPCHandler) ListVPC() ([]*irs.VPCInfo, error) {
 	cblogger.Info("Mock Driver: called ListVPC()!")
 
 	mockName := vpcHandler.MockName
+vpcMapLock.RLock()
+defer vpcMapLock.RUnlock()
 	infoList, ok := vpcInfoMap[mockName]
 	if !ok {
 		return []*irs.VPCInfo{}, nil
@@ -141,11 +148,13 @@ func (vpcHandler *MockVPCHandler) GetVPC(iid irs.IID) (irs.VPCInfo, error) {
 	cblogger := cblog.GetLogger("CB-SPIDER")
 	cblogger.Info("Mock Driver: called GetVPC()!")
 
-	infoList, err := vpcHandler.ListVPC()
-	if err != nil {
-		cblogger.Error(err)
-		return irs.VPCInfo{}, err
-	}
+vpcMapLock.RLock()
+defer vpcMapLock.RUnlock()
+        mockName := vpcHandler.MockName
+        infoList, ok := vpcInfoMap[mockName]
+        if !ok {
+		return irs.VPCInfo{}, fmt.Errorf("%s VPC does not exist!!", iid.NameId)
+        }
 
 	for _, info := range infoList {
 		if (*info).IId.NameId == iid.NameId {
@@ -153,20 +162,22 @@ func (vpcHandler *MockVPCHandler) GetVPC(iid irs.IID) (irs.VPCInfo, error) {
 		}
 	}
 
-	return irs.VPCInfo{}, fmt.Errorf("%s VPCGroup does not exist!!", iid.NameId)
+	return irs.VPCInfo{}, fmt.Errorf("%s VPC does not exist!!", iid.NameId)
 }
 
 func (vpcHandler *MockVPCHandler) DeleteVPC(iid irs.IID) (bool, error) {
 	cblogger := cblog.GetLogger("CB-SPIDER")
 	cblogger.Info("Mock Driver: called DeleteVPC()!")
 
-	infoList, err := vpcHandler.ListVPC()
-	if err != nil {
-		cblogger.Error(err)
-		return false, err
-	}
+vpcMapLock.Lock()
+defer vpcMapLock.Unlock()
 
-	mockName := vpcHandler.MockName
+        mockName := vpcHandler.MockName
+        infoList, ok := vpcInfoMap[mockName]
+        if !ok {
+		return false, fmt.Errorf("%s VPC does not exist!!", iid.NameId)
+        }
+
 	for idx, info := range infoList {
 		if info.IId.SystemId == iid.SystemId {
 			infoList = append(infoList[:idx], infoList[idx+1:]...)
@@ -181,60 +192,45 @@ func (vpcHandler *MockVPCHandler) AddSubnet(iid irs.IID, subnetInfo irs.SubnetIn
 	cblogger := cblog.GetLogger("CB-SPIDER")
 	cblogger.Info("Mock Driver: called AddSubnet()!")
 
-	// infoList: cloned list
-	infoList, err := vpcHandler.ListVPC()
-	if err != nil {
-		cblogger.Error(err)
-		return irs.VPCInfo{}, err
-	}
+vpcMapLock.Lock()
+defer vpcMapLock.Unlock()
+
+        mockName := vpcHandler.MockName
+        infoList, ok := vpcInfoMap[mockName]
+        if !ok {
+		return irs.VPCInfo{}, fmt.Errorf("%s VPC does not exist!!", iid.NameId)
+        }
 
 	subnetInfo.IId.SystemId = subnetInfo.IId.NameId
 	for _, info := range infoList {
 		if (*info).IId.NameId == iid.NameId {
 			info.SubnetInfoList = append(info.SubnetInfoList, subnetInfo)
 
-			// don't forget, info is cloned object.
-			// delete VPCInfo from global Map
-			vpcHandler.DeleteVPC(info.IId)
-
-			// insert VPCInfo into global Map
-			mockName := vpcHandler.MockName
-			infoList, _ := vpcInfoMap[mockName]
-			infoList = append(infoList, info)
-			vpcInfoMap[mockName] = infoList
-
-			return *info, nil
+			return CloneVPCInfo(*info), nil
 		}
 	}
 
-	return irs.VPCInfo{}, fmt.Errorf("%s VPCGroup does not exist!!", iid.NameId)
+	return irs.VPCInfo{}, fmt.Errorf("%s VPC does not exist!!", iid.NameId)
 }
 
 func (vpcHandler *MockVPCHandler) RemoveSubnet(iid irs.IID, subnetIID irs.IID) (bool, error) {
 	cblogger := cblog.GetLogger("CB-SPIDER")
 	cblogger.Info("Mock Driver: called RemoveSubnet()!")
 
-	infoList, err := vpcHandler.ListVPC()
-	if err != nil {
-		cblogger.Error(err)
-		return false, err
-	}
+vpcMapLock.Lock()
+defer vpcMapLock.Unlock()
+
+        mockName := vpcHandler.MockName
+        infoList, ok := vpcInfoMap[mockName]
+        if !ok {
+		return false, fmt.Errorf("%s VPC does not exist!!", iid.NameId)
+        }
 
 	for _, info := range infoList {
 		if (*info).IId.NameId == iid.NameId {
 			for idx, subInfo := range info.SubnetInfoList {
 				if subInfo.IId.SystemId == subnetIID.SystemId {
 					info.SubnetInfoList = append(info.SubnetInfoList[:idx], info.SubnetInfoList[idx+1:]...)
-
-					// don't forget, info is cloned object.
-					// delete VPCInfo from global Map
-					vpcHandler.DeleteVPC(info.IId)
-
-					// insert VPCInfo into global Map
-					mockName := vpcHandler.MockName
-					infoList, _ := vpcInfoMap[mockName]
-					infoList = append(infoList, info)
-					vpcInfoMap[mockName] = infoList
 
 					return true, nil
 				}
