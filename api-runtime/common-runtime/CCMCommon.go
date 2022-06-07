@@ -1198,7 +1198,7 @@ func checkNotFoundError(err error) bool {
 	msg = strings.ReplaceAll(msg, " ", "")
 	msg = strings.ToLower(msg)
 
-	return strings.Contains(msg, "notfound") || strings.Contains(msg, "notexist") 
+	return strings.Contains(msg, "notfound") || strings.Contains(msg, "notexist") || strings.Contains(msg, "failedtofind") || strings.Contains(msg, "failedtogetthevm")
 }
 
 // Get driverSystemId from SpiderIID

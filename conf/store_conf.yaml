@@ -2,14 +2,17 @@
 
 # server type: NUTSDB | ETCD
 # NUTSDB: embedded Key-Value Store on Local Filesystem
-storetype: NUTSDB
 #storetype: ETCD
+storetype: NUTSDB
 
 nutsdb:
   dbpath: "$CBSTORE_ROOT/meta_db/dat"
-  segmentsize: 1048576  # 1048576 1024*1024 (1MB)
+  #segmentsize: 1048576  # 1048576 1024*1024 (1MB)
   #segmentsize: 10485760  # 10485760 10*1024*1024 (10MB)
+  segmentsize: 8388608  # 8388608 8*1024*1024 (8MB)
+  #segmentsize: 104857600  # 104857600 100*1024*1024 (100MB)
 
 etcd:
   # etcd server, when ETCD typpe
-  etcdserverport: "129.254.175.43:2379"
+  #etcdserverport: "129.254.175.43:2379"
+  etcdserverport: "localhost:2379"

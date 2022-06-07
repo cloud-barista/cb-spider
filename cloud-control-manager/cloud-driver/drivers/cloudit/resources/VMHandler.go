@@ -44,11 +44,18 @@ func (vmHandler *ClouditVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (startVM irs
 	// log HisCall
 	hiscallInfo := GetCallLogScheme(ClouditRegion, call.VM, VM, "StartVM()")
 
+	err := notSupportRootDiskCustom(vmReqInfo)
+	if err != nil {
+		createErr := errors.New(fmt.Sprintf("Failed to Create VM. err = %s", err.Error()))
+		cblogger.Error(createErr.Error())
+		LoggingError(hiscallInfo, createErr)
+		return irs.VMInfo{}, createErr
+	}
 	// 가상서버 이름 중복 체크
 	exist, err := vmHandler.getExistVmName(vmReqInfo.IId.NameId)
 	if exist {
 		createErr := errors.New(fmt.Sprintf("Failed to Create VM. err = %s already exist", vmReqInfo.IId.NameId))
-		if err != nil{
+		if err != nil {
 			createErr := errors.New(fmt.Sprintf("Failed to Create VM. err = %s", err.Error()))
 			cblogger.Error(createErr.Error())
 			LoggingError(hiscallInfo, createErr)
@@ -77,7 +84,7 @@ func (vmHandler *ClouditVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (startVM irs
 		Client:         vmHandler.Client,
 		CredentialInfo: vmHandler.CredentialInfo,
 	}
-    vpcInfo ,err := vpcHandler.GetVPC(vmReqInfo.VpcIID)
+	vpcInfo, err := vpcHandler.GetVPC(vmReqInfo.VpcIID)
 	if err != nil {
 		createErr := errors.New(fmt.Sprintf("Failed to Create VM. err = Failed to get VPC, %s", err.Error()))
 		cblogger.Error(createErr.Error())
@@ -99,7 +106,7 @@ func (vmHandler *ClouditVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (startVM irs
 		}
 	}
 	if !subnetCheck {
-		createErr := errors.New(fmt.Sprintf("Failed to Create VM. err = subnet: '%s' cannot be found in VPC: '%s'",vmReqInfo.SubnetIID.NameId, vpcInfo.IId.NameId))
+		createErr := errors.New(fmt.Sprintf("Failed to Create VM. err = subnet: '%s' cannot be found in VPC: '%s'", vmReqInfo.SubnetIID.NameId, vpcInfo.IId.NameId))
 		cblogger.Error(createErr.Error())
 		LoggingError(hiscallInfo, createErr)
 		return irs.VMInfo{}, createErr
@@ -165,15 +172,15 @@ func (vmHandler *ClouditVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (startVM irs
 		return irs.VMInfo{}, createErr
 	}
 	LoggingInfo(hiscallInfo, start)
-    cleanVMIID := irs.IID{
+	cleanVMIID := irs.IID{
 		NameId: creatingVm.Name, SystemId: creatingVm.ID,
 	}
 
 	var createErr error
-    defer func(){
-    	if createError != nil{
+	defer func() {
+		if createError != nil {
 			cleanerErr := vmHandler.vmCleaner(cleanVMIID)
-			if cleanerErr != nil{
+			if cleanerErr != nil {
 				createError = errors.New(fmt.Sprintf("%s and Failed to rollback err = %s", createError.Error(), cleanerErr.Error()))
 			}
 		}
@@ -341,7 +348,7 @@ func (vmHandler *ClouditVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (startVM irs
 		LoggingError(hiscallInfo, createErr)
 		return irs.VMInfo{}, createErr
 	}
-	vmInfo,err := vmHandler.mappingServerInfo(*vm)
+	vmInfo, err := vmHandler.mappingServerInfo(*vm)
 	if err != nil {
 		createErr = errors.New(fmt.Sprintf("Failed to Create VM. err = %s", err.Error()))
 		cblogger.Error(createErr.Error())
@@ -627,7 +634,7 @@ func (vmHandler *ClouditVMHandler) GetVM(vmIID irs.IID) (irs.VMInfo, error) {
 		return irs.VMInfo{}, getErr
 	}
 	LoggingInfo(hiscallInfo, start)
-	vmInfo,err := vmHandler.mappingServerInfo(*vm)
+	vmInfo, err := vmHandler.mappingServerInfo(*vm)
 	if err != nil {
 		getErr := errors.New(fmt.Sprintf("Failed to Get VM. err = %s", err.Error()))
 		cblogger.Error(getErr.Error())
@@ -636,7 +643,7 @@ func (vmHandler *ClouditVMHandler) GetVM(vmIID irs.IID) (irs.VMInfo, error) {
 	}
 	return vmInfo, nil
 }
-func (vmHandler *ClouditVMHandler) vmCleaner(vmIID irs.IID) error{
+func (vmHandler *ClouditVMHandler) vmCleaner(vmIID irs.IID) error {
 	vmHandler.Client.TokenID = vmHandler.CredentialInfo.AuthToken
 	authHeader := vmHandler.Client.AuthenticatedHeaders()
 
@@ -649,7 +656,7 @@ func (vmHandler *ClouditVMHandler) vmCleaner(vmIID irs.IID) error{
 		return cleanErr
 	}
 	// DisassociatePublicIP
-	if rawVm.AdaptiveIp != ""{
+	if rawVm.AdaptiveIp != "" {
 		if ok, err := vmHandler.DisassociatePublicIP(rawVm.AdaptiveIp); !ok {
 			TerminateErr := errors.New(fmt.Sprintf("Failed DisassociatePublicIP"))
 			if err != nil {
@@ -674,7 +681,7 @@ func (vmHandler *ClouditVMHandler) vmCleaner(vmIID irs.IID) error{
 		if err == nil {
 			terminateChk := true
 			for _, checkVm := range *checkVMList {
-				if checkVm.ID == rawVm.ID{
+				if checkVm.ID == rawVm.ID {
 					terminateChk = false
 				}
 			}
@@ -754,7 +761,7 @@ func (vmHandler *ClouditVMHandler) DisassociatePublicIP(publicIP string) (bool, 
 	}
 }
 
-func (vmHandler *ClouditVMHandler) mappingServerInfo(server server.ServerInfo) (irs.VMInfo, error ){
+func (vmHandler *ClouditVMHandler) mappingServerInfo(server server.ServerInfo) (irs.VMInfo, error) {
 	// Get Default VM Info
 
 	vmInfo := irs.VMInfo{
@@ -781,7 +788,7 @@ func (vmHandler *ClouditVMHandler) mappingServerInfo(server server.ServerInfo) (
 		SSHAccessPoint: fmt.Sprintf("%s:%d", server.AdaptiveIp, SSHDefaultPort),
 		RootDiskSize:   strconv.Itoa(server.VolumeSize),
 		RootDeviceName: "Not visible in Cloudit",
-		VMBlockDisk: "Not visible in Cloudit",
+		VMBlockDisk:    "Not visible in Cloudit",
 	}
 	if server.CreatedAt != "" {
 		timeArr := strings.Split(server.CreatedAt, " ")
@@ -827,11 +834,11 @@ func (vmHandler *ClouditVMHandler) mappingServerInfo(server server.ServerInfo) (
 		}
 		vmInfo.SecurityGroupIIds = segGroupList
 	}
-	return vmInfo ,nil
+	return vmInfo, nil
 }
 
-func (vmHandler *ClouditVMHandler) getExistVmName(name string)(bool, error) {
-	if name == ""{
+func (vmHandler *ClouditVMHandler) getExistVmName(name string) (bool, error) {
+	if name == "" {
 		return true, errors.New("invalid vmName")
 	}
 	vmHandler.Client.TokenID = vmHandler.CredentialInfo.AuthToken
@@ -851,8 +858,8 @@ func (vmHandler *ClouditVMHandler) getExistVmName(name string)(bool, error) {
 	return false, nil
 }
 
-func (vmHandler *ClouditVMHandler) getRawVm(vmIID irs.IID)(*server.ServerInfo, error) {
-	if vmIID.SystemId == "" && vmIID.NameId == ""{
+func (vmHandler *ClouditVMHandler) getRawVm(vmIID irs.IID) (*server.ServerInfo, error) {
+	if vmIID.SystemId == "" && vmIID.NameId == "" {
 		return nil, errors.New("invalid IID")
 	}
 	vmHandler.Client.TokenID = vmHandler.CredentialInfo.AuthToken
@@ -860,7 +867,7 @@ func (vmHandler *ClouditVMHandler) getRawVm(vmIID irs.IID)(*server.ServerInfo, e
 	requestOpts := client.RequestOpts{
 		MoreHeaders: authHeader,
 	}
-	if vmIID.SystemId == ""{
+	if vmIID.SystemId == "" {
 		vmList, err := server.List(vmHandler.Client, &requestOpts)
 		if err != nil {
 			return nil, err
@@ -870,7 +877,7 @@ func (vmHandler *ClouditVMHandler) getRawVm(vmIID irs.IID)(*server.ServerInfo, e
 				return &rawvm, nil
 			}
 		}
-	}else {
+	} else {
 		return server.Get(vmHandler.Client, vmIID.SystemId, &requestOpts)
 	}
 	return nil, errors.New("not found vm")
@@ -912,4 +919,14 @@ func (vmHandler *ClouditVMHandler) attachSgToVnic(authHeader map[string]string, 
 		JSONBody:    reqInfo,
 	}
 	nic.Put(reqClient, vmID, &requestOpts, vnicMac)
+}
+
+func notSupportRootDiskCustom(vmReqInfo irs.VMReqInfo) error {
+	if vmReqInfo.RootDiskType != "" && strings.ToLower(vmReqInfo.RootDiskType) != "default" {
+		return errors.New("CLOUDIT_CANNOT_CHANGE_ROOTDISKTYPE")
+	}
+	if vmReqInfo.RootDiskSize != "" && strings.ToLower(vmReqInfo.RootDiskSize) != "default" {
+		return errors.New("CLOUDIT_CANNOT_CHANGE_ROOTDISKSIZE")
+	}
+	return nil
 }
