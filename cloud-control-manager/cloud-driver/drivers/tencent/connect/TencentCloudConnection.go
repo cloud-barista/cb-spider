@@ -21,6 +21,8 @@ import (
 	//"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/profile"
 	cvm "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/cvm/v20170312"
 	vpc "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/vpc/v20170312"
+
+	"errors"
 )
 
 type TencentCloudConnection struct {
@@ -108,3 +110,8 @@ func (cloudConn *TencentCloudConnection) CreatePublicIPHandler() (irs.PublicIPHa
 	return &handler, nil
 }
 */
+
+func (cloudConn *TencentCloudConnection) CreateNLBHandler() (irs.NLBHandler, error) {
+        return nil, errors.New("Tencent Cloud Driver NLB: WIP")
+}
+
