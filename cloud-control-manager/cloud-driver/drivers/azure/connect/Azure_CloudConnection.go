@@ -14,6 +14,7 @@ import (
 	"context"
 	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2021-03-01/compute"
 	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2021-02-01/network"
+	"github.com/Azure/azure-sdk-for-go/profiles/2020-09-01/monitor/mgmt/insights"
 	cblog "github.com/cloud-barista/cb-log"
 	azrs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/azure/resources"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
@@ -29,22 +30,26 @@ func init() {
 }
 
 type AzureCloudConnection struct {
-	CredentialInfo          idrv.CredentialInfo
-	Region                  idrv.RegionInfo
-	Ctx                     context.Context
-	VMClient                *compute.VirtualMachinesClient
-	ImageClient             *compute.ImagesClient
-	VMImageClient           *compute.VirtualMachineImagesClient
-	PublicIPClient          *network.PublicIPAddressesClient
-	SecurityGroupClient     *network.SecurityGroupsClient
-	SecurityGroupRuleClient *network.SecurityRulesClient
-	VNetClient              *network.VirtualNetworksClient
-	VNicClient              *network.InterfacesClient
-	IPConfigClient          *network.InterfaceIPConfigurationsClient
-	SubnetClient            *network.SubnetsClient
-	DiskClient              *compute.DisksClient
-	VmSpecClient            *compute.VirtualMachineSizesClient
-	SshKeyClient            *compute.SSHPublicKeysClient
+	CredentialInfo               idrv.CredentialInfo
+	Region                       idrv.RegionInfo
+	Ctx                          context.Context
+	VMClient                     *compute.VirtualMachinesClient
+	ImageClient                  *compute.ImagesClient
+	VMImageClient                *compute.VirtualMachineImagesClient
+	PublicIPClient               *network.PublicIPAddressesClient
+	SecurityGroupClient          *network.SecurityGroupsClient
+	SecurityGroupRuleClient      *network.SecurityRulesClient
+	VNetClient                   *network.VirtualNetworksClient
+	VNicClient                   *network.InterfacesClient
+	IPConfigClient               *network.InterfaceIPConfigurationsClient
+	SubnetClient                 *network.SubnetsClient
+	DiskClient                   *compute.DisksClient
+	VmSpecClient                 *compute.VirtualMachineSizesClient
+	SshKeyClient                 *compute.SSHPublicKeysClient
+	NLBClient                    *network.LoadBalancersClient
+	NLBBackendAddressPoolsClient *network.LoadBalancerBackendAddressPoolsClient
+	NLBLoadBalancingRulesClient  *network.LoadBalancerLoadBalancingRulesClient
+	MetricClient				 *insights.MetricsClient
 }
 
 func (cloudConn *AzureCloudConnection) CreateImageHandler() (irs.ImageHandler, error) {
@@ -109,6 +114,25 @@ func (cloudConn *AzureCloudConnection) CreateVMSpecHandler() (irs.VMSpecHandler,
 	cblogger.Info("Azure Cloud Driver: called CreateVMSpecHandler()!")
 	vmSpecHandler := azrs.AzureVmSpecHandler{cloudConn.Region, cloudConn.Ctx, cloudConn.VmSpecClient}
 	return &vmSpecHandler, nil
+}
+
+func (cloudConn *AzureCloudConnection) CreateNLBHandler() (irs.NLBHandler, error) {
+	cblogger.Info("Azure Cloud Driver: called CreateNLBHandler()!")
+	nlbHandler := azrs.AzureNLBHandler{
+		CredentialInfo:               cloudConn.CredentialInfo,
+		Region:                       cloudConn.Region,
+		Ctx:                          cloudConn.Ctx,
+		NLBClient:                    cloudConn.NLBClient,
+		NLBBackendAddressPoolsClient: cloudConn.NLBBackendAddressPoolsClient,
+		VNicClient:                   cloudConn.VNicClient,
+		PublicIPClient:               cloudConn.PublicIPClient,
+		VMClient:                     cloudConn.VMClient,
+		SubnetClient:                 cloudConn.SubnetClient,
+		IPConfigClient:               cloudConn.IPConfigClient,
+		NLBLoadBalancingRulesClient:  cloudConn.NLBLoadBalancingRulesClient,
+		MetricClient:				cloudConn.MetricClient,
+	}
+	return &nlbHandler, nil
 }
 
 func (cloudConn *AzureCloudConnection) IsConnected() (bool, error) {
