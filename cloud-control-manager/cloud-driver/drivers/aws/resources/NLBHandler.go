@@ -4,7 +4,6 @@ package resources
 
 import (
 	"errors"
-	"fmt"
 	"strconv"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -23,6 +22,23 @@ type AwsNLBHandler struct {
 	Region idrv.RegionInfo
 	//Client *elb.ELB
 	Client *elbv2.ELBV2 //elbV2
+}
+
+type TargetGroupInfo struct {
+	VMGroup       irs.VMGroupInfo
+	HealthChecker irs.HealthCheckerInfo
+	/*
+		IId		IID 	// {NameId, SystemId}
+		VpcIID		IID	// {NameId, SystemId}
+
+		Type		string	// PUBLIC(V) | INTERNAL
+		Scope		string	// REGION(V) | GLOBAL
+
+		//------ Frontend
+		Listener	ListenerInfo
+
+		//------ Backend
+	*/
 }
 
 func (NLBHandler *AwsNLBHandler) CreateListener(nlbReqInfo irs.NLBInfo) (*elbv2.CreateListenerOutput, error) {
@@ -104,7 +120,9 @@ func (NLBHandler *AwsNLBHandler) CreateListener(nlbReqInfo irs.NLBInfo) (*elbv2.
 	}
 
 	cblogger.Debug("Listener 생성 결과")
-	spew.Dump(result)
+	if cblogger.Level.String() == "debug" {
+		spew.Dump(result)
+	}
 
 	return result, nil
 }
@@ -180,7 +198,9 @@ func (NLBHandler *AwsNLBHandler) CreateTargetGroup(nlbReqInfo irs.NLBInfo) (*elb
 	}
 
 	cblogger.Debug("TargetGroup 생성 결과")
-	spew.Dump(result)
+	if cblogger.Level.String() == "debug" {
+		spew.Dump(result)
+	}
 
 	return result, nil
 }
@@ -265,27 +285,43 @@ func (NLBHandler *AwsNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (irs.NLBInfo,
 	callogger.Info(call.String(callLogInfo))
 
 	cblogger.Debug("NLB 생성 결과")
-	spew.Dump(result)
+	if cblogger.Level.String() == "debug" {
+		spew.Dump(result)
+	}
+
 	nlbReqInfo.IId.SystemId = *result.LoadBalancers[0].LoadBalancerArn //리스너 생성을 위해 Req에 ARN 정보를 셋팅함.
 
-	//타겟그룹 생성
+	//================
+	// 타겟그룹 생성
+	//================
 	targetGroup, errTargetGroup := NLBHandler.CreateTargetGroup(nlbReqInfo)
 	if errTargetGroup != nil {
 		cblogger.Error(errTargetGroup.Error())
 		return irs.NLBInfo{}, err
 	}
-	spew.Dump(targetGroup)
+
+	if cblogger.Level.String() == "debug" {
+		spew.Dump(targetGroup)
+	}
+
 	nlbReqInfo.VMGroup.CspID = *targetGroup.TargetGroups[0].TargetGroupArn //리스너 생성을 위해 Req에 ARN 정보를 셋팅함.
 
-	//타겟그룹 생성
+	//================
+	// 리스너 생성
+	//================
 	listener, errListener := NLBHandler.CreateListener(nlbReqInfo)
 	if errListener != nil {
 		cblogger.Error(errListener.Error())
 		return irs.NLBInfo{}, err
 	}
-	spew.Dump(listener)
 
-	//가장 최신 정보로 정보를 갱신 함.
+	if cblogger.Level.String() == "debug" {
+		spew.Dump(listener)
+	}
+
+	//================================
+	// 가장 최신 정보로 정보를 갱신 함.
+	//================================
 	nlbInfo, errNLBInfo := NLBHandler.GetNLB(nlbReqInfo.IId)
 	if errNLBInfo != nil {
 		cblogger.Error(errNLBInfo.Error())
@@ -322,7 +358,9 @@ func (NLBHandler *AwsNLBHandler) ListNLB() ([]*irs.NLBInfo, error) {
 	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 
 	cblogger.Debug(result)
-	spew.Dump(result)
+	if cblogger.Level.String() == "debug" {
+		spew.Dump(result)
+	}
 
 	if err != nil {
 		callLogInfo.ErrorMSG = err.Error()
@@ -331,14 +369,14 @@ func (NLBHandler *AwsNLBHandler) ListNLB() ([]*irs.NLBInfo, error) {
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
 			case elbv2.ErrCodeLoadBalancerNotFoundException:
-				fmt.Println(elbv2.ErrCodeLoadBalancerNotFoundException, aerr.Error())
+				cblogger.Error(elbv2.ErrCodeLoadBalancerNotFoundException, aerr.Error())
 			default:
-				fmt.Println(aerr.Error())
+				cblogger.Error(aerr.Error())
 			}
 		} else {
 			// Print the error, cast err to awserr.Error to get the Code and
 			// Message from an error.
-			fmt.Println(err.Error())
+			cblogger.Error(err.Error())
 		}
 		return nil, err
 	}
@@ -382,7 +420,10 @@ func (NLBHandler *AwsNLBHandler) GetNLB(nlbIID irs.IID) (irs.NLBInfo, error) {
 	result, err := NLBHandler.Client.DescribeLoadBalancers(input)
 	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 	cblogger.Debug(result)
-	spew.Dump(result)
+	if cblogger.Level.String() == "debug" {
+		spew.Dump(result)
+	}
+
 	if err != nil {
 		callLogInfo.ErrorMSG = err.Error()
 		callogger.Info(call.String(callLogInfo))
@@ -390,14 +431,14 @@ func (NLBHandler *AwsNLBHandler) GetNLB(nlbIID irs.IID) (irs.NLBInfo, error) {
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
 			case elbv2.ErrCodeLoadBalancerNotFoundException:
-				fmt.Println(elbv2.ErrCodeLoadBalancerNotFoundException, aerr.Error())
+				cblogger.Error(elbv2.ErrCodeLoadBalancerNotFoundException, aerr.Error())
 			default:
-				fmt.Println(aerr.Error())
+				cblogger.Error(aerr.Error())
 			}
 		} else {
 			// Print the error, cast err to awserr.Error to get the Code and
 			// Message from an error.
-			fmt.Println(err.Error())
+			cblogger.Error(err.Error())
 		}
 		return irs.NLBInfo{}, err
 	}
@@ -414,35 +455,224 @@ func (NLBHandler *AwsNLBHandler) GetNLB(nlbIID irs.IID) (irs.NLBInfo, error) {
 	}
 }
 
+func (NLBHandler *AwsNLBHandler) ExtractListenerInfo(nlbIID irs.IID) (irs.ListenerInfo, error) {
+	inputListener := &elbv2.DescribeListenersInput{
+		LoadBalancerArn: aws.String(nlbIID.SystemId),
+	}
+
+	resListener, err := NLBHandler.Client.DescribeListeners(inputListener)
+	if err != nil {
+		if aerr, ok := err.(awserr.Error); ok {
+			switch aerr.Code() {
+			case elbv2.ErrCodeListenerNotFoundException:
+				cblogger.Error(elbv2.ErrCodeListenerNotFoundException, aerr.Error())
+			case elbv2.ErrCodeLoadBalancerNotFoundException:
+				cblogger.Error(elbv2.ErrCodeLoadBalancerNotFoundException, aerr.Error())
+			case elbv2.ErrCodeUnsupportedProtocolException:
+				cblogger.Error(elbv2.ErrCodeUnsupportedProtocolException, aerr.Error())
+			default:
+				cblogger.Error(aerr.Error())
+			}
+		} else {
+			// Print the error, cast err to awserr.Error to get the Code and
+			// Message from an error.
+			cblogger.Error(err.Error())
+		}
+		return irs.ListenerInfo{}, err
+	}
+
+	cblogger.Debug(resListener)
+	if cblogger.Level.String() == "debug" {
+		spew.Dump(resListener)
+	}
+
+	if len(resListener.Listeners) > 0 {
+		retListenerInfo := irs.ListenerInfo{
+			CspID:    *resListener.Listeners[0].ListenerArn,
+			Protocol: *resListener.Listeners[0].Protocol, // TCP|UDP
+			//IP       string // Auto Generated and attached
+			//DNSName  string // Optional, Auto Generated and attached
+		}
+		retListenerInfo.Port = strconv.FormatInt(*resListener.Listeners[0].Port, 10)
+
+		//Key Value 처리
+		keyValueList, _ := ConvertKeyValueList(resListener.Listeners[0])
+		retListenerInfo.KeyValueList = keyValueList
+
+		return retListenerInfo, nil
+	} else {
+		return irs.ListenerInfo{}, nil
+	}
+}
+
+func (NLBHandler *AwsNLBHandler) ExtractVMGroupInfo(nlbIID irs.IID) (TargetGroupInfo, error) {
+	targetGroupInfo := TargetGroupInfo{}
+	input := &elbv2.DescribeTargetGroupsInput{
+		LoadBalancerArn: aws.String(nlbIID.SystemId),
+	}
+
+	result, err := NLBHandler.Client.DescribeTargetGroups(input)
+	if err != nil {
+		if aerr, ok := err.(awserr.Error); ok {
+			switch aerr.Code() {
+			case elbv2.ErrCodeLoadBalancerNotFoundException:
+				cblogger.Error(elbv2.ErrCodeLoadBalancerNotFoundException, aerr.Error())
+			case elbv2.ErrCodeTargetGroupNotFoundException:
+				cblogger.Error(elbv2.ErrCodeTargetGroupNotFoundException, aerr.Error())
+			default:
+				cblogger.Error(aerr.Error())
+			}
+		} else {
+			// Print the error, cast err to awserr.Error to get the Code and
+			// Message from an error.
+			cblogger.Error(err.Error())
+		}
+		return TargetGroupInfo{}, err
+	}
+	cblogger.Debug(result)
+	if cblogger.Level.String() == "debug" {
+		spew.Dump(result)
+	}
+
+	if len(result.TargetGroups) > 0 {
+		retVMGroupInfo := irs.VMGroupInfo{
+			CspID:    *result.TargetGroups[0].TargetGroupArn,
+			Protocol: *result.TargetGroups[0].Protocol, // TCP|UDP
+			//VMs[]
+		}
+		retVMGroupInfo.Port = strconv.FormatInt(*result.TargetGroups[0].Port, 10)
+		targetGroupInfo.VMGroup = retVMGroupInfo
+
+		//=================================
+		//HealthCheckerInfo 정보도 함께 처리
+		//=================================
+		targetGroupInfo.HealthChecker = irs.HealthCheckerInfo{
+			CspID:     *result.TargetGroups[0].TargetGroupArn,
+			Protocol:  *result.TargetGroups[0].Protocol,
+			Interval:  int(*result.TargetGroups[0].HealthCheckIntervalSeconds),
+			Timeout:   int(*result.TargetGroups[0].HealthCheckTimeoutSeconds),
+			Threshold: int(*result.TargetGroups[0].HealthyThresholdCount),
+		}
+		targetGroupInfo.HealthChecker.Port = strconv.FormatInt(*result.TargetGroups[0].Port, 10)
+
+		//Key Value 처리
+		keyValueList, _ := ConvertKeyValueList(result.TargetGroups[0])
+		targetGroupInfo.VMGroup.KeyValueList = keyValueList
+
+		return targetGroupInfo, nil
+	} else {
+		return TargetGroupInfo{}, nil
+	}
+}
+
+func (NLBHandler *AwsNLBHandler) ExtractHealthCheckerInfo(targetGroupArn string) (irs.HealthCheckerInfo, error) {
+	input := &elbv2.DescribeTargetHealthInput{
+		//TargetGroupArn : aws.String(nlbIID.SystemId),
+		TargetGroupArn: aws.String(targetGroupArn),
+	}
+
+	result, err := NLBHandler.Client.DescribeTargetHealth(input)
+	if err != nil {
+		if aerr, ok := err.(awserr.Error); ok {
+			switch aerr.Code() {
+			case elbv2.ErrCodeInvalidTargetException:
+				cblogger.Error(elbv2.ErrCodeInvalidTargetException, aerr.Error())
+			case elbv2.ErrCodeTargetGroupNotFoundException:
+				cblogger.Error(elbv2.ErrCodeTargetGroupNotFoundException, aerr.Error())
+			case elbv2.ErrCodeHealthUnavailableException:
+				cblogger.Error(elbv2.ErrCodeHealthUnavailableException, aerr.Error())
+			default:
+				cblogger.Error(aerr.Error())
+			}
+		} else {
+			// Print the error, cast err to awserr.Error to get the Code and
+			// Message from an error.
+			cblogger.Error(err.Error())
+		}
+		return irs.HealthCheckerInfo{}, err
+	}
+
+	cblogger.Debug(result)
+	if cblogger.Level.String() == "debug" {
+		spew.Dump(result)
+	}
+
+	if len(result.TargetHealthDescriptions) > 0 {
+		retHealthCheckerInfo := irs.HealthCheckerInfo{
+			//Protocol: *result.TargetHealthDescriptions[0].Target.
+			Port: *result.TargetHealthDescriptions[0].HealthCheckPort,
+			//Interval: 정보 없음
+			//Timeout: 정보 없음
+			//Threshold: 정보 없음
+			//VMs[]: 정보 없음
+		}
+		//retHealthCheckerInfo.Port = strconv.FormatInt(*result.TargetHealthDescriptions[0].Target.Port, 10)
+		return retHealthCheckerInfo, nil
+	} else {
+		return irs.HealthCheckerInfo{}, nil
+	}
+}
+
 func (NLBHandler *AwsNLBHandler) ExtractNLBInfo(nlbReqInfo *elbv2.LoadBalancer) (irs.NLBInfo, error) {
 	retNLBInfo := irs.NLBInfo{
-		IId:    irs.IID{NameId: *nlbReqInfo.LoadBalancerName, SystemId: *nlbReqInfo.LoadBalancerArn},
-		VpcIID: irs.IID{SystemId: *nlbReqInfo.VpcId},
-		Type:   "PUBLIC",
-		Scope:  "REGION",
-
-		/*
-				Listener: irs.ListenerInfo{
-					Protocol: "TCP",
-					//IP: "",
-					Port: "1234",
-				},
-
-			VMGroup: irs.VMGroupInfo{
-				Protocol: "TCP",  //TCP|UDP|HTTP|HTTPS
-				Port:     "1234", //1-65535
-				VMs:      &[]irs.IID{},
-			},
-
-			HealthChecker: irs.HealthCheckerInfo{
-				Protocol:  "TCP",  // TCP|HTTP|HTTPS
-				Port:      "1234", // Listener Port or 1-65535
-				Interval:  0,      // secs, Interval time between health checks.
-				Timeout:   0,      // secs, Waiting time to decide an unhealthy VM when no response.
-				Threshold: 0,      // num, The number of continuous health checks to change the VM status
-			},
-		*/
+		IId:         irs.IID{NameId: *nlbReqInfo.LoadBalancerName, SystemId: *nlbReqInfo.LoadBalancerArn},
+		VpcIID:      irs.IID{SystemId: *nlbReqInfo.VpcId},
+		Type:        "PUBLIC",
+		Scope:       "REGION",
+		CreatedTime: *nlbReqInfo.CreatedTime,
 	}
+
+	/*
+		//AZ 정보 등 누락되는 정보가 많아서 KeyValueList는 일일이 직접 대입 대신에 ConvertKeyValueList() 유틸 함수를 사용함.
+		keyValueList := []irs.KeyValue{
+			//{Key: "LoadBalancerArn", Value: *nlbReqInfo.LoadBalancerArn},
+		}
+		if !reflect.ValueOf(nlbReqInfo.State).IsNil() {
+			keyValueList = append(keyValueList, irs.KeyValue{Key: "State", Value: *nlbReqInfo.State.Code}) //Code: "provisioning"
+		}
+
+		if !reflect.ValueOf(nlbReqInfo.LoadBalancerArn).IsNil() {
+			keyValueList = append(keyValueList, irs.KeyValue{Key: "LoadBalancerArn", Value: *nlbReqInfo.LoadBalancerArn})
+		}
+	*/
+
+	keyValueList, _ := ConvertKeyValueList(nlbReqInfo)
+	retNLBInfo.KeyValueList = keyValueList
+
+	//==================
+	// 리스너 처리
+	//==================
+	retListenerInfo, errListener := NLBHandler.ExtractListenerInfo(retNLBInfo.IId)
+	if errListener != nil {
+		cblogger.Error(errListener.Error())
+		return irs.NLBInfo{}, errListener
+	}
+	retListenerInfo.DNSName = *nlbReqInfo.DNSName
+	retNLBInfo.Listener = retListenerInfo
+
+	//==================
+	// VM Group 처리
+	//==================
+	retTargetGroupInfo, errVMGroupInfo := NLBHandler.ExtractVMGroupInfo(retNLBInfo.IId)
+	if errVMGroupInfo != nil {
+		cblogger.Error(errVMGroupInfo.Error())
+		return irs.NLBInfo{}, errVMGroupInfo
+	}
+	retNLBInfo.VMGroup = retTargetGroupInfo.VMGroup
+	retNLBInfo.HealthChecker = retTargetGroupInfo.HealthChecker
+
+	/*
+		//==================
+		// HealthChecker 처리
+		//==================
+		retHealthCheckerInfo, errHealthCheckerInfo := NLBHandler.ExtractHealthCheckerInfo(retVMGroupInfo.CspID)
+		if errHealthCheckerInfo != nil {
+			cblogger.Error(errHealthCheckerInfo.Error())
+			return irs.NLBInfo{}, errHealthCheckerInfo
+		}
+		retNLBInfo.HealthChecker = retHealthCheckerInfo
+	*/
+
 	return retNLBInfo, nil
 }
 
@@ -451,17 +681,74 @@ func (NLBHandler *AwsNLBHandler) DeleteNLB(nlbIID irs.IID) (bool, error) {
 }
 
 //------ Frontend Control
-func (NLBHandler *AwsNLBHandler) ChangeListener(nlbIID irs.IID, listener irs.ListenerInfo) (irs.NLBInfo, error) {
-	return irs.NLBInfo{}, nil
+func (NLBHandler *AwsNLBHandler) ChangeListener(nlbIID irs.IID, listener irs.ListenerInfo) (irs.ListenerInfo, error) {
+	return irs.ListenerInfo{}, nil
 }
 
 //------ Backend Control
-func (NLBHandler *AwsNLBHandler) ChangeVMGroupInfo(nlbIID irs.IID, vmGroup irs.VMGroupInfo) error {
-	return nil
+func (NLBHandler *AwsNLBHandler) ChangeVMGroupInfo(nlbIID irs.IID, vmGroup irs.VMGroupInfo) (irs.VMGroupInfo, error) {
+	return irs.VMGroupInfo{}, nil
 }
 
-func (NLBHandler *AwsNLBHandler) AddVMs(nlbIID irs.IID, vmIIDs *[]irs.IID) (irs.NLBInfo, error) {
-	return irs.NLBInfo{}, nil
+func (NLBHandler *AwsNLBHandler) AddVMs(nlbIID irs.IID, vmIIDs *[]irs.IID) (irs.VMGroupInfo, error) {
+	//포트 정보를 조회하기 위해 VM그룹 정보를 조회 함.
+	retTargetGroupInfo, errVMGroupInfo := NLBHandler.ExtractVMGroupInfo(nlbIID)
+	if errVMGroupInfo != nil {
+		cblogger.Error(errVMGroupInfo.Error())
+		return irs.VMGroupInfo{}, errVMGroupInfo
+	}
+
+	targetPort, _ := strconv.ParseInt(retTargetGroupInfo.VMGroup.Port, 10, 64)
+	iTagetPort := aws.Int64(targetPort)
+
+	input := &elbv2.RegisterTargetsInput{
+		TargetGroupArn: aws.String(nlbIID.SystemId),
+
+		Targets: []*elbv2.TargetDescription{
+			{
+				//Id: aws.String("i-008778f60fd7ae3fa"),
+				//Port: aws.Int64(1234),
+				//Port: iTagetPort,
+			},
+		},
+	}
+
+	//targetList := []elbv2.TargetDescription{}
+	for _, curVM := range *vmIIDs {
+		//targetList = append(targetList, elbv2.TargetDescription{Id: aws.String(curVM.SystemId), Port: iTagetPort})
+		input.Targets = append(input.Targets, &elbv2.TargetDescription{Id: aws.String(curVM.SystemId), Port: iTagetPort})
+	}
+
+	//input.Targets = &targetList
+
+	result, err := NLBHandler.Client.RegisterTargets(input)
+	if err != nil {
+		if aerr, ok := err.(awserr.Error); ok {
+			switch aerr.Code() {
+			case elbv2.ErrCodeTargetGroupNotFoundException:
+				cblogger.Error(elbv2.ErrCodeTargetGroupNotFoundException, aerr.Error())
+			case elbv2.ErrCodeTooManyTargetsException:
+				cblogger.Error(elbv2.ErrCodeTooManyTargetsException, aerr.Error())
+			case elbv2.ErrCodeInvalidTargetException:
+				cblogger.Error(elbv2.ErrCodeInvalidTargetException, aerr.Error())
+			case elbv2.ErrCodeTooManyRegistrationsForTargetIdException:
+				cblogger.Error(elbv2.ErrCodeTooManyRegistrationsForTargetIdException, aerr.Error())
+			default:
+				cblogger.Error(aerr.Error())
+			}
+		} else {
+			// Print the error, cast err to awserr.Error to get the Code and
+			// Message from an error.
+			cblogger.Error(err.Error())
+		}
+		return irs.VMGroupInfo{}, err
+	}
+	cblogger.Debug(result)
+	if cblogger.Level.String() == "debug" {
+		spew.Dump(result)
+	}
+
+	return irs.VMGroupInfo{}, nil
 }
 
 func (NLBHandler *AwsNLBHandler) RemoveVMs(nlbIID irs.IID, vmIIDs *[]irs.IID) (bool, error) {
@@ -472,6 +759,6 @@ func (NLBHandler *AwsNLBHandler) GetVMGroupHealthInfo(nlbIID irs.IID) (irs.Healt
 	return irs.HealthInfo{}, nil
 }
 
-func (NLBHandler *AwsNLBHandler) ChangeHealthCheckerInfo(nlbIID irs.IID, healthChecker irs.HealthCheckerInfo) error {
-	return nil
+func (NLBHandler *AwsNLBHandler) ChangeHealthCheckerInfo(nlbIID irs.IID, healthChecker irs.HealthCheckerInfo) (irs.HealthCheckerInfo, error) {
+	return irs.HealthCheckerInfo{}, nil
 }

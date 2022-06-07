@@ -1241,9 +1241,9 @@ func handleNLB() {
 		HealthChecker: irs.HealthCheckerInfo{
 			Protocol:  "TCP",  // TCP|HTTP|HTTPS
 			Port:      "1234", // Listener Port or 1-65535
-			Interval:  0,      // secs, Interval time between health checks.
-			Timeout:   0,      // secs, Waiting time to decide an unhealthy VM when no response.
-			Threshold: 0,      // num, The number of continuous health checks to change the VM status
+			Interval:  60,     // secs, Interval time between health checks.
+			Timeout:   5,      // secs, Waiting time to decide an unhealthy VM when no response.
+			Threshold: 10,     // num, The number of continuous health checks to change the VM status
 		},
 	}
 
