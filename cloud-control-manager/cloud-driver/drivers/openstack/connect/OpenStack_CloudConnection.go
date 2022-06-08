@@ -18,6 +18,8 @@ import (
 	osrs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/openstack/resources"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
+
+	"errors"
 )
 
 var cblogger *logrus.Logger
@@ -70,6 +72,10 @@ func (cloudConn *OpenStackCloudConnection) CreateVMSpecHandler() (irs.VMSpecHand
 	cblogger.Info("OpenStack Cloud Driver: called CreateVMSpecHandler()!")
 	vmSpecHandler := osrs.OpenStackVMSpecHandler{Region: cloudConn.Region, Client: cloudConn.Client}
 	return &vmSpecHandler, nil
+}
+
+func (cloudConn *OpenStackCloudConnection) CreateNLBHandler() (irs.NLBHandler, error) {
+        return nil, errors.New("OpenStack Cloud Driver NLB: WIP")
 }
 
 func (cloudConn *OpenStackCloudConnection) IsConnected() (bool, error) {
