@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
@@ -32,6 +33,11 @@ const (
 	Request_Status_Progress  int64 = 2
 )
 
+const (
+	Request_Status_Running string = "Running"
+	Request_Status_Done    string = "Done"
+)
+
 func (NLBHandler *TencentNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (irs.NLBInfo, error) {
 	callogger := call.GetLogger("HISCALL")
 	callLogInfo := call.CLOUDLOGSCHEMA{
@@ -50,7 +56,11 @@ func (NLBHandler *TencentNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (irs.NLBI
 	nlbRequest := clb.NewCreateLoadBalancerRequest()
 
 	nlbRequest.LoadBalancerName = common.StringPtr(nlbReqInfo.IId.NameId)
-	nlbRequest.LoadBalancerType = common.StringPtr("OPEN")
+	if strings.EqualFold(nlbReqInfo.Type, "") || strings.EqualFold(nlbReqInfo.Type, "PUBLIC") {
+		nlbRequest.LoadBalancerType = common.StringPtr("OPEN")
+	} else {
+		nlbRequest.LoadBalancerType = common.StringPtr("INTERNAL")
+	}
 	nlbRequest.VpcId = common.StringPtr(nlbReqInfo.VpcIID.SystemId)
 
 	nlbResponse, nlbErr := NLBHandler.Client.CreateLoadBalancer(nlbRequest)
@@ -69,7 +79,7 @@ func (NLBHandler *TencentNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (irs.NLBI
 	}
 
 	// Listener 생성
-	if curStatus == "Running" {
+	if curStatus == Request_Status_Running {
 
 		listenerPort, portErr := strconv.ParseInt(nlbReqInfo.Listener.Port, 10, 64)
 		if portErr != nil {
@@ -114,7 +124,7 @@ func (NLBHandler *TencentNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (irs.NLBI
 		}
 
 		// VM 연결
-		if listStatus == "Done" {
+		if listStatus == Request_Status_Done {
 			targetRequest := clb.NewRegisterTargetsRequest()
 
 			targetRequest.LoadBalancerId = common.StringPtr(newNLBId)
@@ -141,7 +151,7 @@ func (NLBHandler *TencentNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (irs.NLBI
 				return irs.NLBInfo{}, targetStatErr
 			}
 
-			if targetStatus == "Done" {
+			if targetStatus == Request_Status_Done {
 				nlbInfo, nlbInfoErr := NLBHandler.GetNLB(irs.IID{SystemId: newNLBId})
 				if nlbInfoErr != nil {
 					return irs.NLBInfo{}, nlbInfoErr
@@ -245,9 +255,21 @@ func (NLBHandler *TencentNLBHandler) GetNLB(nlbIID irs.IID) (irs.NLBInfo, error)
 	}
 
 	nlbInfo := ExtractNLBDescribeInfo(response.Response.LoadBalancerSet[0])
-	nlbInfo.Listener = NLBHandler.ExtractListenerInfo(nlbIID)
-	nlbInfo.VMGroup = NLBHandler.ExtractVMGroupInfo(nlbIID)
-	nlbInfo.HealthChecker = NLBHandler.ExtractHealthCheckerInfo(nlbIID)
+	listener, listenerErr := NLBHandler.ExtractListenerInfo(nlbIID)
+	if listenerErr != nil {
+		return irs.NLBInfo{}, listenerErr
+	}
+	healthChecker, healthCheckerErr := NLBHandler.ExtractHealthCheckerInfo(nlbIID)
+	if healthCheckerErr != nil {
+		return irs.NLBInfo{}, healthCheckerErr
+	}
+	vmGroup, vmGroupErr := NLBHandler.ExtractVMGroupInfo(nlbIID)
+	if vmGroupErr != nil {
+		return irs.NLBInfo{}, vmGroupErr
+	}
+	nlbInfo.Listener = listener
+	nlbInfo.HealthChecker = healthChecker
+	nlbInfo.VMGroup = vmGroup
 
 	cblogger.Debug(nlbInfo)
 
@@ -256,80 +278,71 @@ func (NLBHandler *TencentNLBHandler) GetNLB(nlbIID irs.IID) (irs.NLBInfo, error)
 
 func ExtractNLBDescribeInfo(nlbInfo *clb.LoadBalancer) irs.NLBInfo {
 
+	createTime, _ := time.Parse("2006-01-02 15:04:05", *nlbInfo.CreateTime)
+	nlbType := ""
+	if strings.EqualFold(*nlbInfo.LoadBalancerType, "OPEN") {
+		nlbType = "PUBLIC"
+	} else {
+		nlbType = "INTERNAL"
+	}
+
 	resNLBInfo := irs.NLBInfo{
 
-		IId:    irs.IID{SystemId: *nlbInfo.LoadBalancerId, NameId: *nlbInfo.LoadBalancerName},
-		VpcIID: irs.IID{SystemId: *nlbInfo.VpcId},
+		IId:         irs.IID{SystemId: *nlbInfo.LoadBalancerId, NameId: *nlbInfo.LoadBalancerName},
+		VpcIID:      irs.IID{SystemId: *nlbInfo.VpcId},
+		CreatedTime: createTime,
+		Type:        nlbType,
+		Scope:       "REGION",
 	}
 
 	return resNLBInfo
 }
 
-func (NLBHandler *TencentNLBHandler) ExtractListenerInfo(nlbIID irs.IID) irs.ListenerInfo {
+func (NLBHandler *TencentNLBHandler) ExtractListenerInfo(nlbIID irs.IID) (irs.ListenerInfo, error) {
 	cblogger.Info("NLB IID : ", nlbIID.SystemId)
-
-	// logger for HisCall
-	callogger := call.GetLogger("HISCALL")
-	callLogInfo := call.CLOUDLOGSCHEMA{
-		CloudOS:      call.TENCENT,
-		RegionZone:   NLBHandler.Region.Zone,
-		ResourceType: call.NLB,
-		ResourceName: "GetNLB",
-		CloudOSAPI:   "DescribeListeners()",
-		ElapsedTime:  "",
-		ErrorMSG:     "",
-	}
 
 	request := clb.NewDescribeListenersRequest()
 	request.LoadBalancerId = common.StringPtr(nlbIID.SystemId)
-	callLogStart := call.Start()
 	response, err := NLBHandler.Client.DescribeListeners(request)
-	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
-
 	if err != nil {
 		cblogger.Errorf("An API error has returned: %s", err.Error())
-		callLogInfo.ErrorMSG = err.Error()
-		callogger.Error(call.String(callLogInfo))
-		return irs.ListenerInfo{}
+		return irs.ListenerInfo{}, err
 	}
-	callogger.Info(call.String(callLogInfo))
 
 	resListenerInfo := irs.ListenerInfo{
 		Protocol: *response.Response.Listeners[0].Protocol,
 		Port:     strconv.FormatInt(*response.Response.Listeners[0].Port, 10),
 	}
 
-	return resListenerInfo
+	ipRequest := clb.NewDescribeLoadBalancersRequest()
+	ipRequest.LoadBalancerIds = common.StringPtrs([]string{nlbIID.SystemId})
+	ipResponse, ipErr := NLBHandler.Client.DescribeLoadBalancers(ipRequest)
+	if ipErr != nil {
+		cblogger.Errorf("An API error has returned: %s", err.Error())
+		return irs.ListenerInfo{}, ipErr
+	}
+	resListenerInfo.IP = *ipResponse.Response.LoadBalancerSet[0].LoadBalancerVips[0]
+
+	return resListenerInfo, nil
 }
 
-func (NLBHandler *TencentNLBHandler) ExtractVMGroupInfo(nlbIID irs.IID) irs.VMGroupInfo {
+func (NLBHandler *TencentNLBHandler) ExtractVMGroupInfo(nlbIID irs.IID) (irs.VMGroupInfo, error) {
 	cblogger.Info("NLB IID : ", nlbIID.SystemId)
-
-	// logger for HisCall
-	callogger := call.GetLogger("HISCALL")
-	callLogInfo := call.CLOUDLOGSCHEMA{
-		CloudOS:      call.TENCENT,
-		RegionZone:   NLBHandler.Region.Zone,
-		ResourceType: call.NLB,
-		ResourceName: "GetNLB",
-		CloudOSAPI:   "DescribeTargets()",
-		ElapsedTime:  "",
-		ErrorMSG:     "",
-	}
 
 	request := clb.NewDescribeTargetsRequest()
 	request.LoadBalancerId = common.StringPtr(nlbIID.SystemId)
-	callLogStart := call.Start()
 	response, err := NLBHandler.Client.DescribeTargets(request)
-	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 
 	if err != nil {
 		cblogger.Errorf("An API error has returned: %s", err.Error())
-		callLogInfo.ErrorMSG = err.Error()
-		callogger.Error(call.String(callLogInfo))
-		return irs.VMGroupInfo{}
+		return irs.VMGroupInfo{}, err
 	}
-	callogger.Info(call.String(callLogInfo))
+
+	cblogger.Debug(response.Response.Listeners[0].Targets)
+
+	if len(response.Response.Listeners[0].Targets) == 0 {
+		return irs.VMGroupInfo{}, errors.New("Target VM does not exist!")
+	}
 
 	resVmInfo := irs.VMGroupInfo{
 		Protocol: "TCP",
@@ -343,37 +356,20 @@ func (NLBHandler *TencentNLBHandler) ExtractVMGroupInfo(nlbIID irs.IID) irs.VMGr
 
 	resVmInfo.VMs = &vms
 
-	return resVmInfo
+	return resVmInfo, nil
 }
 
-func (NLBHandler *TencentNLBHandler) ExtractHealthCheckerInfo(nlbIID irs.IID) irs.HealthCheckerInfo {
+func (NLBHandler *TencentNLBHandler) ExtractHealthCheckerInfo(nlbIID irs.IID) (irs.HealthCheckerInfo, error) {
 	cblogger.Info("NLB IID : ", nlbIID.SystemId)
-
-	// logger for HisCall
-	callogger := call.GetLogger("HISCALL")
-	callLogInfo := call.CLOUDLOGSCHEMA{
-		CloudOS:      call.TENCENT,
-		RegionZone:   NLBHandler.Region.Zone,
-		ResourceType: call.NLB,
-		ResourceName: "GetNLB",
-		CloudOSAPI:   "DescribeListeners()",
-		ElapsedTime:  "",
-		ErrorMSG:     "",
-	}
 
 	request := clb.NewDescribeListenersRequest()
 	request.LoadBalancerId = common.StringPtr(nlbIID.SystemId)
-	callLogStart := call.Start()
 	response, err := NLBHandler.Client.DescribeListeners(request)
-	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 
 	if err != nil {
 		cblogger.Errorf("An API error has returned: %s", err.Error())
-		callLogInfo.ErrorMSG = err.Error()
-		callogger.Error(call.String(callLogInfo))
-		return irs.HealthCheckerInfo{}
+		return irs.HealthCheckerInfo{}, err
 	}
-	callogger.Info(call.String(callLogInfo))
 
 	resHealthCheckerInfo := irs.HealthCheckerInfo{
 		Protocol:  *response.Response.Listeners[0].HealthCheck.CheckType,
@@ -383,7 +379,7 @@ func (NLBHandler *TencentNLBHandler) ExtractHealthCheckerInfo(nlbIID irs.IID) ir
 		Threshold: int(*response.Response.Listeners[0].HealthCheck.HealthNum),
 	}
 
-	return resHealthCheckerInfo
+	return resHealthCheckerInfo, nil
 }
 
 func (NLBHandler *TencentNLBHandler) DeleteNLB(nlbIID irs.IID) (bool, error) {
@@ -420,16 +416,30 @@ func (NLBHandler *TencentNLBHandler) DeleteNLB(nlbIID irs.IID) (bool, error) {
 }
 
 func (NLBHandler *TencentNLBHandler) ChangeListener(nlbIID irs.IID, listener irs.ListenerInfo) (irs.ListenerInfo, error) {
+	cblogger.Info("TENCENT_CANNOT_CHANGE_LISTENER")
 	return irs.ListenerInfo{}, nil
 }
 
 func (NLBHandler *TencentNLBHandler) ChangeVMGroupInfo(nlbIID irs.IID, vmGroup irs.VMGroupInfo) (irs.VMGroupInfo, error) {
-	return irs.VMGroupInfo{}, nil
-}
-
-func (NLBHandler *TencentNLBHandler) AddVMs(nlbIID irs.IID, vmIIDs *[]irs.IID) (irs.VMGroupInfo, error) {
+	vmGroupInfo, vmGroupInfoErr := NLBHandler.ExtractVMGroupInfo(nlbIID)
+	if vmGroupInfoErr != nil {
+		return irs.VMGroupInfo{}, vmGroupInfoErr
+	}
 
 	newNLBId := nlbIID.SystemId
+	vmGroupInfoResult := irs.VMGroupInfo{}
+
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.TENCENT,
+		RegionZone:   NLBHandler.Region.Zone,
+		ResourceType: call.NLB,
+		ResourceName: "ChangeVMGroupInfo",
+		CloudOSAPI:   "ModifyTargetPort()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
 
 	request := clb.NewDescribeListenersRequest()
 	request.LoadBalancerId = common.StringPtr(newNLBId)
@@ -439,10 +449,88 @@ func (NLBHandler *TencentNLBHandler) AddVMs(nlbIID irs.IID, vmIIDs *[]irs.IID) (
 	}
 
 	newListenerId := *response.Response.Listeners[0].ListenerId
-	vmGroupInfo := NLBHandler.ExtractVMGroupInfo(nlbIID)
-	backendPort, backendErr := strconv.ParseInt(vmGroupInfo.Port, 10, 64)
-	if backendErr != nil {
-		return irs.VMGroupInfo{}, backendErr
+	port, portErr := strconv.ParseInt(vmGroupInfo.Port, 10, 64)
+	if portErr != nil {
+		return irs.VMGroupInfo{}, portErr
+	}
+	newPort, newPortErr := strconv.ParseInt(vmGroup.Port, 10, 64)
+	if newPortErr != nil {
+		return irs.VMGroupInfo{}, newPortErr
+	}
+
+	modifyTargetRequest := clb.NewModifyTargetPortRequest()
+
+	modifyTargetRequest.LoadBalancerId = common.StringPtr(newNLBId)
+	modifyTargetRequest.ListenerId = common.StringPtr(newListenerId)
+	modifyTargetRequest.Targets = []*clb.Target{}
+	for _, target := range *vmGroupInfo.VMs {
+		modifyTargetRequest.Targets = append(modifyTargetRequest.Targets, &clb.Target{
+			InstanceId: common.StringPtr(target.SystemId),
+			Port:       common.Int64Ptr(port),
+		})
+	}
+
+	modifyTargetRequest.NewPort = common.Int64Ptr(newPort)
+
+	modifyTargetResponse, modifyTargetErr := NLBHandler.Client.ModifyTargetPort(modifyTargetRequest)
+	if modifyTargetErr != nil {
+		return irs.VMGroupInfo{}, modifyTargetErr
+	}
+
+	callogger.Info(call.String(callLogInfo))
+
+	targetStatus, targetStatErr := NLBHandler.WaitForDone(*modifyTargetResponse.Response.RequestId)
+	if targetStatErr != nil {
+		return irs.VMGroupInfo{}, targetStatErr
+	}
+
+	if targetStatus == Request_Status_Done {
+		result, resultErr := NLBHandler.ExtractVMGroupInfo(nlbIID)
+		if resultErr != nil {
+			return irs.VMGroupInfo{}, resultErr
+		}
+		vmGroupInfoResult = result
+	}
+
+	return vmGroupInfoResult, nil
+}
+
+func (NLBHandler *TencentNLBHandler) AddVMs(nlbIID irs.IID, vmIIDs *[]irs.IID) (irs.VMGroupInfo, error) {
+
+	newNLBId := nlbIID.SystemId
+	vmGroupInfoResult := irs.VMGroupInfo{}
+
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.TENCENT,
+		RegionZone:   NLBHandler.Region.Zone,
+		ResourceType: call.NLB,
+		ResourceName: "AddVMs",
+		CloudOSAPI:   "RegisterTargets()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+
+	request := clb.NewDescribeListenersRequest()
+	request.LoadBalancerId = common.StringPtr(newNLBId)
+	response, err := NLBHandler.Client.DescribeListeners(request)
+	if err != nil {
+		return irs.VMGroupInfo{}, err
+	}
+
+	newListenerId := *response.Response.Listeners[0].ListenerId
+	backendPort := int64(0)
+	vmGroupInfo, vmGroupInfoErr := NLBHandler.ExtractVMGroupInfo(nlbIID)
+	if vmGroupInfoErr != nil {
+		backendPort = *response.Response.Listeners[0].Port
+	} else {
+		port, portErr := strconv.ParseInt(vmGroupInfo.Port, 10, 64)
+		if portErr != nil {
+			return irs.VMGroupInfo{}, portErr
+		}
+		backendPort = port
+
 	}
 
 	targetRequest := clb.NewRegisterTargetsRequest()
@@ -465,11 +553,85 @@ func (NLBHandler *TencentNLBHandler) AddVMs(nlbIID irs.IID, vmIIDs *[]irs.IID) (
 	}
 	fmt.Printf("%s", targetResponse.ToJsonString())
 
-	return irs.VMGroupInfo{}, nil
+	callogger.Info(call.String(callLogInfo))
+
+	// VM 연결되길 기다림
+	targetStatus, targetStatErr := NLBHandler.WaitForDone(*targetResponse.Response.RequestId)
+	if targetStatErr != nil {
+		return irs.VMGroupInfo{}, targetStatErr
+	}
+
+	if targetStatus == Request_Status_Done {
+		vmGroupInfo, vmGroupInfoErr := NLBHandler.ExtractVMGroupInfo(nlbIID)
+		if vmGroupInfoErr != nil {
+			return irs.VMGroupInfo{}, vmGroupInfoErr
+		}
+		vmGroupInfoResult = vmGroupInfo
+	}
+
+	return vmGroupInfoResult, nil
 }
 
 func (NLBHandler *TencentNLBHandler) RemoveVMs(nlbIID irs.IID, vmIIDs *[]irs.IID) (bool, error) {
-	return false, nil
+	newNLBId := nlbIID.SystemId
+	//vmGroupInfoResult := irs.VMGroupInfo{}
+
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.TENCENT,
+		RegionZone:   NLBHandler.Region.Zone,
+		ResourceType: call.NLB,
+		ResourceName: "RemoveVMs",
+		CloudOSAPI:   "DeregisterTargets()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+
+	request := clb.NewDescribeListenersRequest()
+	request.LoadBalancerId = common.StringPtr(newNLBId)
+	response, err := NLBHandler.Client.DescribeListeners(request)
+	if err != nil {
+		return false, err
+	}
+
+	newListenerId := *response.Response.Listeners[0].ListenerId
+	backendPort := int64(0)
+	vmGroupInfo, vmGroupInfoErr := NLBHandler.ExtractVMGroupInfo(nlbIID)
+	if vmGroupInfoErr != nil {
+		return false, vmGroupInfoErr
+	} else {
+		port, portErr := strconv.ParseInt(vmGroupInfo.Port, 10, 64)
+		if portErr != nil {
+			return false, portErr
+		}
+		backendPort = port
+
+	}
+
+	targetRequest := clb.NewDeregisterTargetsRequest()
+
+	targetRequest.LoadBalancerId = common.StringPtr(newNLBId)
+	targetRequest.ListenerId = common.StringPtr(newListenerId)
+	targetRequest.Targets = []*clb.Target{}
+	for _, target := range *vmIIDs {
+		targetRequest.Targets = append(targetRequest.Targets, &clb.Target{
+			InstanceId: common.StringPtr(target.SystemId),
+			Port:       common.Int64Ptr(backendPort),
+		})
+	}
+
+	cblogger.Debug(targetRequest.ToJsonString())
+
+	targetResponse, targetErr := NLBHandler.Client.DeregisterTargets(targetRequest)
+	if targetErr != nil {
+		return false, targetErr
+	}
+	fmt.Printf("%s", targetResponse.ToJsonString())
+
+	callogger.Info(call.String(callLogInfo))
+
+	return true, nil
 }
 
 func (NLBHandler *TencentNLBHandler) GetVMGroupHealthInfo(nlbIID irs.IID) (irs.HealthInfo, error) {
@@ -497,6 +659,8 @@ func (NLBHandler *TencentNLBHandler) GetVMGroupHealthInfo(nlbIID irs.IID) (irs.H
 		return irs.HealthInfo{}, err
 	}
 
+	callogger.Info(call.String(callLogInfo))
+
 	vmGroup := response.Response.LoadBalancers[0].Listeners[0].Rules[0].Targets
 
 	allVMs := []irs.IID{}
@@ -521,7 +685,66 @@ func (NLBHandler *TencentNLBHandler) GetVMGroupHealthInfo(nlbIID irs.IID) (irs.H
 }
 
 func (NLBHandler *TencentNLBHandler) ChangeHealthCheckerInfo(nlbIID irs.IID, healthChecker irs.HealthCheckerInfo) (irs.HealthCheckerInfo, error) {
-	return irs.HealthCheckerInfo{}, nil
+	newNLBId := nlbIID.SystemId
+	healthCheckerResult := irs.HealthCheckerInfo{}
+
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.TENCENT,
+		RegionZone:   NLBHandler.Region.Zone,
+		ResourceType: call.NLB,
+		ResourceName: "ChangeHealthCheckerInfo",
+		CloudOSAPI:   "ModifyListener()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+
+	request := clb.NewDescribeListenersRequest()
+	request.LoadBalancerId = common.StringPtr(newNLBId)
+	response, err := NLBHandler.Client.DescribeListeners(request)
+	if err != nil {
+		return irs.HealthCheckerInfo{}, err
+	}
+
+	newListenerId := *response.Response.Listeners[0].ListenerId
+
+	healthPort, healthPortErr := strconv.ParseInt(healthChecker.Port, 10, 64)
+	if healthPortErr != nil {
+		return irs.HealthCheckerInfo{}, healthPortErr
+	}
+
+	changeHealthCheckerRequest := clb.NewModifyListenerRequest()
+
+	changeHealthCheckerRequest.LoadBalancerId = common.StringPtr(newNLBId)
+	changeHealthCheckerRequest.ListenerId = common.StringPtr(newListenerId)
+	changeHealthCheckerRequest.HealthCheck = &clb.HealthCheck{
+		TimeOut:      common.Int64Ptr(int64(healthChecker.Timeout)),
+		IntervalTime: common.Int64Ptr(int64(healthChecker.Interval)),
+		HealthNum:    common.Int64Ptr(int64(healthChecker.Threshold)),
+		CheckPort:    common.Int64Ptr(healthPort),
+		CheckType:    common.StringPtr(healthChecker.Protocol),
+	}
+
+	changeHealthCheckerResponse, err := NLBHandler.Client.ModifyListener(changeHealthCheckerRequest)
+
+	callogger.Info(call.String(callLogInfo))
+
+	// VM 연결되길 기다림
+	changeStatus, changeStatErr := NLBHandler.WaitForDone(*changeHealthCheckerResponse.Response.RequestId)
+	if changeStatErr != nil {
+		return irs.HealthCheckerInfo{}, changeStatErr
+	}
+
+	if changeStatus == Request_Status_Done {
+		healthCheckerInfo, healthErr := NLBHandler.ExtractHealthCheckerInfo(nlbIID)
+		if healthErr != nil {
+			return irs.HealthCheckerInfo{}, healthErr
+		}
+		healthCheckerResult = healthCheckerInfo
+	}
+
+	return healthCheckerResult, nil
 }
 
 func (NLBHandler *TencentNLBHandler) WaitForRun(nlbIID irs.IID) (string, error) {
