@@ -1233,9 +1233,9 @@ func handleNLB() {
 		},
 
 		VMGroup: irs.VMGroupInfo{
-			Protocol: "TCP",  //TCP|UDP|HTTP|HTTPS
-			Port:     "1234", //1-65535
-			VMs:      &[]irs.IID{},
+			Protocol: "TCP", //TCP|UDP|HTTP|HTTPS
+			Port:     "80",  //1-65535
+			VMs:      &[]irs.IID{irs.IID{SystemId: "i-008778f60fd7ae3fa"}, irs.IID{SystemId: "i-0cba8efe123ab0b42"}},
 		},
 
 		HealthChecker: irs.HealthCheckerInfo{
@@ -1254,6 +1254,13 @@ func handleNLB() {
 		fmt.Println("2. NLB Create")
 		fmt.Println("3. NLB Get")
 		fmt.Println("4. NLB Delete")
+
+		fmt.Println("5. ChangeListener")
+		fmt.Println("6. ChangeVMGroupInfo")
+		fmt.Println("7. AddVMs")
+		fmt.Println("8. RemoveVMs")
+		fmt.Println("9. GetVMGroupHealthInfo")
+		fmt.Println("10. ChangeHealthCheckerInfo")
 
 		var commandNum int
 		inputCnt, err := fmt.Scan(&commandNum)
@@ -1312,6 +1319,17 @@ func handleNLB() {
 				} else {
 					cblogger.Infof("[%s] NLB 삭제 결과 : [%s]", nlbReqInfo.IId.NameId, result)
 				}
+
+			case 9:
+				cblogger.Infof("[%s] GetVMGroupHealthInfo 테스트", nlbReqInfo.IId)
+				result, err := handler.GetVMGroupHealthInfo(nlbReqInfo.IId)
+				if err != nil {
+					cblogger.Infof("[%s] GetVMGroupHealthInfo 실패 : ", nlbReqInfo.IId.NameId, err)
+				} else {
+					cblogger.Infof("[%s] GetVMGroupHealthInfo 결과 : [%s]", nlbReqInfo.IId.NameId, result)
+					spew.Dump(result)
+				}
+
 			}
 		}
 	}

@@ -5,6 +5,7 @@ package resources
 import (
 	"errors"
 	"strconv"
+	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
@@ -555,9 +556,20 @@ func (NLBHandler *AwsNLBHandler) ExtractVMGroupInfo(nlbIID irs.IID) (TargetGroup
 		}
 		targetGroupInfo.HealthChecker.Port = strconv.FormatInt(*result.TargetGroups[0].Port, 10)
 
+		//================
 		//Key Value 처리
+		//================
 		keyValueList, _ := ConvertKeyValueList(result.TargetGroups[0])
 		targetGroupInfo.VMGroup.KeyValueList = keyValueList
+
+		//================
+		//VM 정보 처리
+		//================
+		targetHealthInfo, errHealthInfo := NLBHandler.ExtractVMGroupHealthInfo(*result.TargetGroups[0].TargetGroupArn)
+		if err != nil {
+			return TargetGroupInfo{}, errHealthInfo
+		}
+		targetGroupInfo.VMGroup.VMs = targetHealthInfo.AllVMs
 
 		return targetGroupInfo, nil
 	} else {
@@ -690,19 +702,22 @@ func (NLBHandler *AwsNLBHandler) ChangeVMGroupInfo(nlbIID irs.IID, vmGroup irs.V
 	return irs.VMGroupInfo{}, nil
 }
 
+// @TODO : VM 추가 시 NLB에 등록되지 않은 서브넷의 경우 추가 및 검증 로직 필요
+// @TODO : 이미 등록된 AZ의 다른 서브넷을 사용하는 Instance 처리 필요
 func (NLBHandler *AwsNLBHandler) AddVMs(nlbIID irs.IID, vmIIDs *[]irs.IID) (irs.VMGroupInfo, error) {
-	//포트 정보를 조회하기 위해 VM그룹 정보를 조회 함.
+	//TargetGroup ARN및 사용할 Port 정보를 조회하기 위해 VM그룹 정보를 조회 함.
 	retTargetGroupInfo, errVMGroupInfo := NLBHandler.ExtractVMGroupInfo(nlbIID)
 	if errVMGroupInfo != nil {
 		cblogger.Error(errVMGroupInfo.Error())
 		return irs.VMGroupInfo{}, errVMGroupInfo
 	}
 
+	// Port 정보 추출
 	targetPort, _ := strconv.ParseInt(retTargetGroupInfo.VMGroup.Port, 10, 64)
 	iTagetPort := aws.Int64(targetPort)
 
 	input := &elbv2.RegisterTargetsInput{
-		TargetGroupArn: aws.String(nlbIID.SystemId),
+		TargetGroupArn: aws.String(retTargetGroupInfo.VMGroup.CspID),
 
 		Targets: []*elbv2.TargetDescription{
 			{
@@ -713,6 +728,7 @@ func (NLBHandler *AwsNLBHandler) AddVMs(nlbIID irs.IID, vmIIDs *[]irs.IID) (irs.
 		},
 	}
 
+	// 추가할 VM 인스턴스 처리
 	//targetList := []elbv2.TargetDescription{}
 	for _, curVM := range *vmIIDs {
 		//targetList = append(targetList, elbv2.TargetDescription{Id: aws.String(curVM.SystemId), Port: iTagetPort})
@@ -720,7 +736,6 @@ func (NLBHandler *AwsNLBHandler) AddVMs(nlbIID irs.IID, vmIIDs *[]irs.IID) (irs.
 	}
 
 	//input.Targets = &targetList
-
 	result, err := NLBHandler.Client.RegisterTargets(input)
 	if err != nil {
 		if aerr, ok := err.(awserr.Error); ok {
@@ -748,15 +763,136 @@ func (NLBHandler *AwsNLBHandler) AddVMs(nlbIID irs.IID, vmIIDs *[]irs.IID) (irs.
 		spew.Dump(result)
 	}
 
-	return irs.VMGroupInfo{}, nil
+	//최신 정보 전달을 위해 다시 호출함.
+	retTargetGroupInfo, errVMGroupInfo = NLBHandler.ExtractVMGroupInfo(nlbIID)
+	if errVMGroupInfo != nil {
+		cblogger.Error(errVMGroupInfo.Error())
+		return irs.VMGroupInfo{}, errVMGroupInfo
+	}
+
+	return retTargetGroupInfo.VMGroup, nil
 }
 
 func (NLBHandler *AwsNLBHandler) RemoveVMs(nlbIID irs.IID, vmIIDs *[]irs.IID) (bool, error) {
+	//TargetGroup ARN을 조회하기 위해 VM그룹 정보를 조회 함.
+	retTargetGroupInfo, errVMGroupInfo := NLBHandler.ExtractVMGroupInfo(nlbIID)
+	if errVMGroupInfo != nil {
+		cblogger.Error(errVMGroupInfo.Error())
+		return false, errVMGroupInfo
+	}
+
+	input := &elbv2.DeregisterTargetsInput{
+		TargetGroupArn: aws.String(retTargetGroupInfo.VMGroup.CspID),
+		Targets: []*elbv2.TargetDescription{
+			{
+				//Id: aws.String("i-008778f60fd7ae3fa"),
+			},
+		},
+	}
+
+	// 삭제할 VM 인스턴스 처리
+	for _, curVM := range *vmIIDs {
+		input.Targets = append(input.Targets, &elbv2.TargetDescription{Id: aws.String(curVM.SystemId)})
+	}
+
+	result, err := NLBHandler.Client.DeregisterTargets(input)
+	if err != nil {
+		if aerr, ok := err.(awserr.Error); ok {
+			switch aerr.Code() {
+			case elbv2.ErrCodeTargetGroupNotFoundException:
+				cblogger.Error(elbv2.ErrCodeTargetGroupNotFoundException, aerr.Error())
+			case elbv2.ErrCodeInvalidTargetException:
+				cblogger.Error(elbv2.ErrCodeInvalidTargetException, aerr.Error())
+			default:
+				cblogger.Error(aerr.Error())
+			}
+		} else {
+			// Print the error, cast err to awserr.Error to get the Code and Message from an error.
+			cblogger.Error(err.Error())
+		}
+		return false, err
+	}
+
+	cblogger.Debug(result)
+	if cblogger.Level.String() == "debug" {
+		spew.Dump(result)
+	}
+
 	return false, nil
 }
 
+//ExtractVMGroupInfo에서 GetVMGroupHealthInfo를 호출하는 형태로 사용되면 발생할 무한 루프 방지를 위해 별도의 함수로 분리 함.
+func (NLBHandler *AwsNLBHandler) ExtractVMGroupHealthInfo(targetGroupArn string) (irs.HealthInfo, error) {
+	input := &elbv2.DescribeTargetHealthInput{
+		TargetGroupArn: aws.String(targetGroupArn),
+	}
+
+	result, err := NLBHandler.Client.DescribeTargetHealth(input)
+	if err != nil {
+		if aerr, ok := err.(awserr.Error); ok {
+			switch aerr.Code() {
+			case elbv2.ErrCodeInvalidTargetException:
+				cblogger.Error(elbv2.ErrCodeInvalidTargetException, aerr.Error())
+			case elbv2.ErrCodeTargetGroupNotFoundException:
+				cblogger.Error(elbv2.ErrCodeTargetGroupNotFoundException, aerr.Error())
+			case elbv2.ErrCodeHealthUnavailableException:
+				cblogger.Error(elbv2.ErrCodeHealthUnavailableException, aerr.Error())
+			default:
+				cblogger.Error(aerr.Error())
+			}
+		} else {
+			// Print the error, cast err to awserr.Error to get the Code and
+			// Message from an error.
+			cblogger.Error(err.Error())
+		}
+		return irs.HealthInfo{}, err
+	}
+
+	cblogger.Debug(result)
+	if cblogger.Level.String() == "debug" {
+		spew.Dump(result)
+	}
+
+	retHealthInfo := irs.HealthInfo{}
+	allVMs := []irs.IID{}
+	healthyVMs := []irs.IID{}
+	unHealthyVMs := []irs.IID{}
+	for _, cur := range result.TargetHealthDescriptions {
+		allVMs = append(allVMs, irs.IID{SystemId: *cur.Target.Id})
+		cblogger.Debug(cur.TargetHealth.State)
+
+		if strings.EqualFold(*cur.TargetHealth.State, "healthy") {
+			healthyVMs = append(healthyVMs, irs.IID{SystemId: *cur.Target.Id})
+		} else if strings.EqualFold(*cur.TargetHealth.State, "unhealthy") {
+			unHealthyVMs = append(unHealthyVMs, irs.IID{SystemId: *cur.Target.Id})
+		} else if strings.EqualFold(*cur.TargetHealth.State, "initial") {
+			cblogger.Infof("[%s] Instance는 initial 상태라서 Skip함.", *cur.Target.Id)
+			continue
+		} else {
+			cblogger.Errorf("미정의 VM Health 상태[%s]", cur.TargetHealth.State)
+		}
+	}
+
+	retHealthInfo.AllVMs = &allVMs
+	retHealthInfo.HealthyVMs = &healthyVMs
+	retHealthInfo.UnHealthyVMs = &unHealthyVMs
+	return retHealthInfo, nil
+}
+
 func (NLBHandler *AwsNLBHandler) GetVMGroupHealthInfo(nlbIID irs.IID) (irs.HealthInfo, error) {
-	return irs.HealthInfo{}, nil
+	//TargetGroup ARN을 조회하기 위해 VM그룹 정보를 조회 함.
+	retTargetGroupInfo, errVMGroupInfo := NLBHandler.ExtractVMGroupInfo(nlbIID)
+	if errVMGroupInfo != nil {
+		cblogger.Error(errVMGroupInfo.Error())
+		return irs.HealthInfo{}, errVMGroupInfo
+	}
+
+	result, err := NLBHandler.ExtractVMGroupHealthInfo(retTargetGroupInfo.VMGroup.CspID)
+	if err != nil {
+		return irs.HealthInfo{}, err
+	}
+
+	return result, nil
 }
 
 func (NLBHandler *AwsNLBHandler) ChangeHealthCheckerInfo(nlbIID irs.IID, healthChecker irs.HealthCheckerInfo) (irs.HealthCheckerInfo, error) {
