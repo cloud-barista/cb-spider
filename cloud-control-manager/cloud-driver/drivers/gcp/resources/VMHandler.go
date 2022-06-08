@@ -23,7 +23,7 @@ import (
 	"time"
 
 	keypair "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/common"
-	cim "github.com/cloud-barista/cb-spider/cloud-info-manager"
+	//cim "github.com/cloud-barista/cb-spider/cloud-info-manager"
 	compute "google.golang.org/api/compute/v1"
 	// "golang.org/x/oauth2/google"
 
@@ -237,58 +237,59 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 		var diskType = ""
 
 		if vmReqInfo.RootDiskType == "" || strings.EqualFold(vmReqInfo.RootDiskType, "default") {
-			cloudOSMetaInfo, err := cim.GetCloudOSMetaInfo("GCP") // cloudos_meta 에 DiskType, min, max 값 정의 되어있음.
+			// cloudOSMetaInfo, err := cim.GetCloudOSMetaInfo("GCP") // cloudos_meta 에 DiskType, min, max 값 정의 되어있음.
+			// if err != nil {
+			// 	cblogger.Error(err)
+			// 	return irs.VMInfo{}, err
+			// }
+			// diskType = cloudOSMetaInfo.RootDiskType[0]
+		} else {
+			diskType = vmReqInfo.RootDiskType
+		
+
+			// RootDiskType을 조회하여 diskSize의 min, max, default값 추출 한 뒤 입력된 diskSize가 있으면 비교시 사용
+			diskSizeResp, err := vmHandler.Client.DiskTypes.Get(projectID, zone, diskType).Context(ctx).Do()
+			if err != nil {
+				fmt.Println("Invalid Disk Type Error!!")
+				return irs.VMInfo{}, err
+			}
+
+			fmt.Printf("valid disk size: %#v\n", diskSizeResp.ValidDiskSize)
+
+			//valid disk size 정의
+			re := regexp.MustCompile("GB-?") //ex) 10GB-65536GB
+			diskSizeArr := re.Split(diskSizeResp.ValidDiskSize, -1)
+			diskMinSize, err := strconv.ParseInt(diskSizeArr[0], 10, 64)
 			if err != nil {
 				cblogger.Error(err)
 				return irs.VMInfo{}, err
 			}
-			diskType = cloudOSMetaInfo.RootDiskType[0]
-		} else {
-			diskType = vmReqInfo.RootDiskType
-		}
 
-		// RootDiskType을 조회하여 diskSize의 min, max, default값 추출 한 뒤 입력된 diskSize가 있으면 비교시 사용
-		diskSizeResp, err := vmHandler.Client.DiskTypes.Get(projectID, zone, diskType).Context(ctx).Do()
-		if err != nil {
-			fmt.Println("Invalid Disk Type Error!!")
-			return irs.VMInfo{}, err
-		}
+			diskMaxSize, err := strconv.ParseInt(diskSizeArr[1], 10, 64)
+			if err != nil {
+				cblogger.Error(err)
+				return irs.VMInfo{}, err
+			}
 
-		fmt.Printf("valid disk size: %#v\n", diskSizeResp.ValidDiskSize)
+			// diskUnit := "GB" // 기본 단위는 GB
 
-		//valid disk size 정의
-		re := regexp.MustCompile("GB-?") //ex) 10GB-65536GB
-		diskSizeArr := re.Split(diskSizeResp.ValidDiskSize, -1)
-		diskMinSize, err := strconv.ParseInt(diskSizeArr[0], 10, 64)
-		if err != nil {
-			cblogger.Error(err)
-			return irs.VMInfo{}, err
-		}
+			if iDiskSize < diskMinSize {
+				fmt.Println("Disk Size Error!!: ", iDiskSize)
+				//return irs.VMInfo{}, errors.New("Requested disk size cannot be smaller than the minimum disk size, invalid")
+				return irs.VMInfo{}, errors.New("Root Disk Size must be at least the default size (" + strconv.FormatInt(diskMinSize, 10) + " GB).")
+			}
 
-		diskMaxSize, err := strconv.ParseInt(diskSizeArr[1], 10, 64)
-		if err != nil {
-			cblogger.Error(err)
-			return irs.VMInfo{}, err
-		}
-
-		// diskUnit := "GB" // 기본 단위는 GB
-
-		if iDiskSize < diskMinSize {
-			fmt.Println("Disk Size Error!!: ", iDiskSize)
-			//return irs.VMInfo{}, errors.New("Requested disk size cannot be smaller than the minimum disk size, invalid")
-			return irs.VMInfo{}, errors.New("Root Disk Size must be at least the default size (" + strconv.FormatInt(diskMinSize, 10) + " GB).")
-		}
-
-		if iDiskSize > diskMaxSize {
-			fmt.Println("Disk Size Error!!: ", iDiskSize)
-			//return irs.VMInfo{}, errors.New("Requested disk size cannot be larger than the maximum disk size, invalid")
-			return irs.VMInfo{}, errors.New("Root Disk Size must be smaller than the maximum size (" + strconv.FormatInt(diskMaxSize, 10) + " GB).")
+			if iDiskSize > diskMaxSize {
+				fmt.Println("Disk Size Error!!: ", iDiskSize)
+				//return irs.VMInfo{}, errors.New("Requested disk size cannot be larger than the maximum disk size, invalid")
+				return irs.VMInfo{}, errors.New("Root Disk Size must be smaller than the maximum size (" + strconv.FormatInt(diskMaxSize, 10) + " GB).")
+			}
 		}
 
 		imageUrlArr := strings.Split(imageURL, "/")
 
 		// 이미지 사이즈 추출
-		imageResp, err := vmHandler.Client.Images.Get(imageUrlArr[6], imageUrlArr[9]).Context(ctx).Do()
+		imageResp, err := vmHandler.Client.Images.Get(imageUrlArr[6], imageUrlArr[9]).Context(ctx).Do() // 수정 필요
 		if err != nil {
 			log.Fatal(err)
 		}

@@ -292,168 +292,167 @@ func handleSecurity() {
 			case 5:
 				cblogger.Infof("[%s] Rule 추가 테스트", securityId)
 				securityRules := &[]irs.SecurityRuleInfo{
-				
-						{
-							//20-22 Prot로 등록
-							FromPort:   "-1",
-							ToPort:     "-1",
-							IPProtocol: "tcp",
-							Direction:  "inbound",
-							CIDR:       "0.0.0.0/0",
-						},
-						// {
-						// 	//20-22 Prot로 등록
-						// 	FromPort:   "22",
-						// 	ToPort:     "22",
-						// 	IPProtocol: "tcp",
-						// 	Direction:  "inbound",
-						// 	CIDR:       "0.0.0.0/0",
-						// },
-						// {
-						// 	FromPort:   "88",
-						// 	ToPort:     "90",
-						// 	IPProtocol: "tcp",
-						// 	Direction:  "inbound",
-						// 	CIDR:       "0.0.0.0/0",
-						// },
-						/*{
-							FromPort:   "3000",
-							ToPort:     "3000",
-							IPProtocol: "udp",
-							Direction:  "inbound",
-							CIDR:       "0.0.0.0/0",
-						},
-						{
-							FromPort:   "3000",
-							ToPort:     "3000",
-							IPProtocol: "udp",
-							Direction:  "inbound",
-							CIDR:       "0.0.0.0/0",
-						},*/
-						// {
-						// 	FromPort:   "1000",
-						// 	ToPort:     "",
-						// 	IPProtocol: "udp",
-						// 	Direction:  "inbound",
-						// 	CIDR:       "0.0.0.0/0",
-						// },
-						/*{
-							// 8080 Port로 등록
-							FromPort:   "8080",
-							ToPort:     "-1", //FromPort나 ToPort중 하나에 -1이 입력될 경우 -1이 입력된 경우 -1을 공백으로 처리
-							IPProtocol: "tcp",
-							Direction:  "inbound",
-							CIDR:       "0.0.0.0/0",
-						},*/
-						/*{ // 1323 Prot로 등록
-							FromPort:   "-1", //FromPort나 ToPort중 하나에 -1이 입력될 경우 -1이 입력된 경우 -1을 공백으로 처리
-							ToPort:     "1323",
-							IPProtocol: "tcp",
-							Direction:  "inbound",
-							CIDR:       "0.0.0.0/0",
-						},*/
-						/*{
-							// All Port로 등록
-							FromPort:   "",
-							ToPort:     "",
-							IPProtocol: "icmp", //icmp는 포트 정보가 없음
-							Direction:  "inbound",
-							CIDR:       "0.0.0.0/0",
-						},*/
-						/*{
-							//20-22 Prot로 등록
-							FromPort:   "20",
-							ToPort:     "22",
-							IPProtocol: "tcp",
-							Direction:  "inbound",
-						},*/
-						/*{
-							// 80 Port로 등록
-							FromPort:   "80",
-							ToPort:     "80",
-							IPProtocol: "tcp",
-							Direction:  "inbound",
-							CIDR:       "0.0.0.0/0",
-						},*/
-						/*{
-							FromPort:   "-1",
-							ToPort:     "-1",
-							IPProtocol: "all",
-							Direction:  "inbound",
-							CIDR:       "0.0.0.0/0",
-						},*/
-						/*{
-							FromPort:   "443",
-							ToPort:     "443",
-							IPProtocol: "tcp",
-							Direction:  "outbound",
-							CIDR:       "0.0.0.0/0",
-						},*/
-						/*{
-							FromPort:   "8443",
-							ToPort:     "9999",
-							IPProtocol: "tcp",
-							Direction:  "outbound",
-						},*/
-						// {
-						// 	FromPort:   "22",
-						// 	ToPort:     "22",
-						// 	IPProtocol: "tcp",
-						// 	Direction:  "inbound",
-						// 	CIDR:       "0.0.0.0/0",
-						// },
-						// {
-						// 	FromPort:   "1000",
-						// 	ToPort:     "1000",
-						// 	IPProtocol: "tcp",
-						// 	Direction:  "inbound",
-						// 	CIDR:       "0.0.0.0/0",
-						// },
-						// {
-						// 	FromPort:   "1",
-						// 	ToPort:     "65535",
-						// 	IPProtocol: "udp",
-						// 	Direction:  "inbound",
-						// 	CIDR:       "0.0.0.0/0",
-						// },
-						// {
-						// 	FromPort:   "-1",
-						// 	ToPort:     "-1",
-						// 	IPProtocol: "icmp",
-						// 	Direction:  "inbound",
-						// 	CIDR:       "0.0.0.0/0",
-						// },
-						// {
-						// 	FromPort:   "22",
-						// 	ToPort:     "22",
-						// 	IPProtocol: "tcp",
-						// 	Direction:  "outbound",
-						// 	CIDR:       "0.0.0.0/0",
-						// },
-						// {
-						// 	FromPort:   "1000",
-						// 	ToPort:     "1000",
-						// 	IPProtocol: "tcp",
-						// 	Direction:  "outbound",
-						// 	CIDR:       "0.0.0.0/0",
-						// },
-						// {
-						// 	FromPort:   "1",
-						// 	ToPort:     "65535",
-						// 	IPProtocol: "udp",
-						// 	Direction:  "outbound",
-						// 	CIDR:       "0.0.0.0/0",
-						// },
-						// {
-						// 	FromPort:   "-1",
-						// 	ToPort:     "-1",
-						// 	IPProtocol: "icmp",
-						// 	Direction:  "outbound",
-						// 	CIDR:       "0.0.0.0/0",
-						// },
-						
-				
-					
+
+
+					{
+						//20-22 Prot로 등록
+						FromPort:   "-1",
+						ToPort:     "-1",
+						IPProtocol: "tcp",
+						Direction:  "inbound",
+						CIDR:       "0.0.0.0/0",
+					},
+					// {
+					// 	//20-22 Prot로 등록
+					// 	FromPort:   "22",
+					// 	ToPort:     "22",
+					// 	IPProtocol: "tcp",
+					// 	Direction:  "inbound",
+					// 	CIDR:       "0.0.0.0/0",
+					// },
+					// {
+					// 	FromPort:   "88",
+					// 	ToPort:     "90",
+					// 	IPProtocol: "tcp",
+					// 	Direction:  "inbound",
+					// 	CIDR:       "0.0.0.0/0",
+					// },
+					/*{
+						FromPort:   "3000",
+						ToPort:     "3000",
+						IPProtocol: "udp",
+						Direction:  "inbound",
+						CIDR:       "0.0.0.0/0",
+					},
+					{
+						FromPort:   "3000",
+						ToPort:     "3000",
+						IPProtocol: "udp",
+						Direction:  "inbound",
+						CIDR:       "0.0.0.0/0",
+					},*/
+					// {
+					// 	FromPort:   "1000",
+					// 	ToPort:     "",
+					// 	IPProtocol: "udp",
+					// 	Direction:  "inbound",
+					// 	CIDR:       "0.0.0.0/0",
+					// },
+					/*{
+						// 8080 Port로 등록
+						FromPort:   "8080",
+						ToPort:     "-1", //FromPort나 ToPort중 하나에 -1이 입력될 경우 -1이 입력된 경우 -1을 공백으로 처리
+						IPProtocol: "tcp",
+						Direction:  "inbound",
+						CIDR:       "0.0.0.0/0",
+					},*/
+					/*{ // 1323 Prot로 등록
+						FromPort:   "-1", //FromPort나 ToPort중 하나에 -1이 입력될 경우 -1이 입력된 경우 -1을 공백으로 처리
+						ToPort:     "1323",
+						IPProtocol: "tcp",
+						Direction:  "inbound",
+						CIDR:       "0.0.0.0/0",
+					},*/
+					/*{
+						// All Port로 등록
+						FromPort:   "",
+						ToPort:     "",
+						IPProtocol: "icmp", //icmp는 포트 정보가 없음
+						Direction:  "inbound",
+						CIDR:       "0.0.0.0/0",
+					},*/
+					/*{
+						//20-22 Prot로 등록
+						FromPort:   "20",
+						ToPort:     "22",
+						IPProtocol: "tcp",
+						Direction:  "inbound",
+					},*/
+					/*{
+						// 80 Port로 등록
+						FromPort:   "80",
+						ToPort:     "80",
+						IPProtocol: "tcp",
+						Direction:  "inbound",
+						CIDR:       "0.0.0.0/0",
+					},*/
+					/*{
+						FromPort:   "-1",
+						ToPort:     "-1",
+						IPProtocol: "all",
+						Direction:  "inbound",
+						CIDR:       "0.0.0.0/0",
+					},*/
+					/*{
+						FromPort:   "443",
+						ToPort:     "443",
+						IPProtocol: "tcp",
+						Direction:  "outbound",
+						CIDR:       "0.0.0.0/0",
+					},*/
+					/*{
+						FromPort:   "8443",
+						ToPort:     "9999",
+						IPProtocol: "tcp",
+						Direction:  "outbound",
+					},*/
+					// {
+					// 	FromPort:   "22",
+					// 	ToPort:     "22",
+					// 	IPProtocol: "tcp",
+					// 	Direction:  "inbound",
+					// 	CIDR:       "0.0.0.0/0",
+					// },
+					// {
+					// 	FromPort:   "1000",
+					// 	ToPort:     "1000",
+					// 	IPProtocol: "tcp",
+					// 	Direction:  "inbound",
+					// 	CIDR:       "0.0.0.0/0",
+					// },
+					// {
+					// 	FromPort:   "1",
+					// 	ToPort:     "65535",
+					// 	IPProtocol: "udp",
+					// 	Direction:  "inbound",
+					// 	CIDR:       "0.0.0.0/0",
+					// },
+					// {
+					// 	FromPort:   "-1",
+					// 	ToPort:     "-1",
+					// 	IPProtocol: "icmp",
+					// 	Direction:  "inbound",
+					// 	CIDR:       "0.0.0.0/0",
+					// },
+					// {
+					// 	FromPort:   "22",
+					// 	ToPort:     "22",
+					// 	IPProtocol: "tcp",
+					// 	Direction:  "outbound",
+					// 	CIDR:       "0.0.0.0/0",
+					// },
+					// {
+					// 	FromPort:   "1000",
+					// 	ToPort:     "1000",
+					// 	IPProtocol: "tcp",
+					// 	Direction:  "outbound",
+					// 	CIDR:       "0.0.0.0/0",
+					// },
+					// {
+					// 	FromPort:   "1",
+					// 	ToPort:     "65535",
+					// 	IPProtocol: "udp",
+					// 	Direction:  "outbound",
+					// 	CIDR:       "0.0.0.0/0",
+					// },
+					// {
+					// 	FromPort:   "-1",
+					// 	ToPort:     "-1",
+					// 	IPProtocol: "icmp",
+					// 	Direction:  "outbound",
+					// 	CIDR:       "0.0.0.0/0",
+					// },
+
 				}
 
 				result, err := handler.AddRules(irs.IID{SystemId: securityId}, securityRules)
@@ -1083,18 +1082,21 @@ func handleNLB() {
 	handler := ResourceHandler.(irs.NLBHandler)
 
 	nlbReqInfo := irs.NLBInfo{
-		IId:              irs.IID{NameId: "New-CB-NLB"},
-		VpcIID:           irs.IID{SystemId: "vpc-i614yona"},
-		Listener:         irs.ListenerInfo{Protocol: "TCP", Port: "80"},
-		HealthChecker:    irs.HealthCheckerInfo{Protocol: "TCP", Port: "80", Interval: 5, Timeout: 2, Threshold: 3},
-		VMGroup:          irs.VMGroupInfo{
-							Protocol: "TCP",
-							Port:     "80",
-							VMs:      &[]irs.IID{{SystemId:"ins-5tf50w2x"},{SystemId:"ins-lqds5b1h"}},
-						},
+
+		IId:           irs.IID{NameId: "New-CB-NLB"},
+		VpcIID:        irs.IID{SystemId: "vpc-i614yona"},
+		Type:          "PUBLIC",
+		Listener:      irs.ListenerInfo{Protocol: "TCP", Port: "80"},
+		HealthChecker: irs.HealthCheckerInfo{Protocol: "TCP", Port: "80", Interval: 5, Timeout: 2, Threshold: 3},
+		VMGroup: irs.VMGroupInfo{
+			Protocol: "TCP",
+			Port:     "80",
+			VMs:      &[]irs.IID{{SystemId: "ins-5tf50w2x"}, {SystemId: "ins-lqds5b1h"}},
+		},
 	}
 
-	reqNLBId := irs.IID{SystemId: "lb-b2tpjn2h"}
+	reqNLBId := irs.IID{SystemId: "lb-bncjy6tp"}
+
 
 	for {
 		fmt.Println("Handler Management")
@@ -1106,6 +1108,10 @@ func handleNLB() {
 		fmt.Println("5. VM Add")
 		fmt.Println("6. VM Delete")
 		fmt.Println("7. VM Health Get")
+		fmt.Println("8. Listener Change")
+		fmt.Println("9. VM Group Change")
+		fmt.Println("10. Health Checker Change")
+
 
 		var commandNum int
 		inputCnt, err := fmt.Scan(&commandNum)
@@ -1160,24 +1166,24 @@ func handleNLB() {
 				}
 
 			case 5:
-				// cblogger.Infof("[%s] Subnet 추가 테스트", vpcReqInfo.IId.NameId)
-				// result, err := handler.AddSubnet(subnetReqVpcInfo, subnetReqInfo)
-				// if err != nil {
-				// 	cblogger.Infof(reqSubnetId.NameId, " Subnet 추가 실패 : ", err)
-				// } else {
-				// 	cblogger.Infof("Subnet 추가 결과 : ", result)
-				// 	reqSubnetId = result.SubnetInfoList[0].IId // 조회 및 삭제를 위해 생성된 ID로 변경
-				// 	spew.Dump(result)
-				// }
+				cblogger.Infof("[%s] VM 추가 테스트", reqNLBId)
+				result, err := handler.AddVMs(reqNLBId, &[]irs.IID{{SystemId: "ins-lqds5b1h"}})
+				if err != nil {
+					cblogger.Infof("VM 추가 실패 : ", err)
+				} else {
+					cblogger.Infof("VM 추가 결과 : ", result)
+					//reqSubnetId = result.SubnetInfoList[0].IId // 조회 및 삭제를 위해 생성된 ID로 변경
+					spew.Dump(result)
+				}
 
 			case 6:
-				// cblogger.Infof("[%s] Subnet 삭제 테스트", reqSubnetId.SystemId)
-				// result, err := handler.RemoveSubnet(subnetReqVpcInfo, reqSubnetId)
-				// if err != nil {
-				// 	cblogger.Infof("[%s] Subnet 삭제 실패 : ", reqSubnetId.SystemId, err)
-				// } else {
-				// 	cblogger.Infof("[%s] Subnet 삭제 결과 : [%s]", reqSubnetId.SystemId, result)
-				// }
+				cblogger.Infof("[%s] VM 삭제 테스트", reqNLBId.SystemId)
+				result, err := handler.RemoveVMs(reqNLBId, &[]irs.IID{{SystemId: "ins-lqds5b1h"}})
+				if err != nil {
+					cblogger.Infof("VM 삭제 실패 : ", err)
+				} else {
+					cblogger.Infof("VM 삭제 결과 : [%s]", result)
+				}
 			case 7:
 				cblogger.Infof("[%s] NLB VM Health 조회 테스트", reqNLBId)
 				result, err := handler.GetVMGroupHealthInfo(reqNLBId)
@@ -1185,6 +1191,43 @@ func handleNLB() {
 					cblogger.Infof("[%s] NLB VM Health 조회 실패 : ", reqNLBId.SystemId, err)
 				} else {
 					cblogger.Infof("[%s] NLB VM Health 조회 결과 : [%s]", reqNLBId.SystemId, result)
+					spew.Dump(result)
+				}
+			case 8:
+				cblogger.Infof("[%s] NLB Listener 변경 테스트", reqNLBId)
+				result, err := handler.ChangeListener(reqNLBId, irs.ListenerInfo{})
+				if err != nil {
+					cblogger.Infof("[%s] NLB Listener 변경 실패 : ", reqNLBId.SystemId, err)
+				} else {
+					cblogger.Infof("[%s] NLB Listener 변경 결과 : [%s]", reqNLBId.SystemId, result)
+					spew.Dump(result)
+				}
+			case 9:
+				cblogger.Infof("[%s] NLB VM Group 변경 테스트", reqNLBId)
+				result, err := handler.ChangeVMGroupInfo(reqNLBId, irs.VMGroupInfo{
+					Protocol: "TCP",
+					Port:     "8080",
+				})
+				if err != nil {
+					cblogger.Infof("[%s] NLB VM Group 변경 실패 : ", reqNLBId.SystemId, err)
+				} else {
+					cblogger.Infof("[%s] NLB VM Group 변경 결과 : [%s]", reqNLBId.SystemId, result)
+					spew.Dump(result)
+				}
+			case 10:
+				cblogger.Infof("[%s] NLB Health Checker 변경 테스트", reqNLBId)
+				result, err := handler.ChangeHealthCheckerInfo(reqNLBId, irs.HealthCheckerInfo{
+					Protocol:  "TCP",
+					Port:      "8080",
+					Interval:  10,
+					Timeout:   3,
+					Threshold: 5,
+				})
+				if err != nil {
+					cblogger.Infof("[%s] NLB Health Checker 변경 실패 : ", reqNLBId.SystemId, err)
+				} else {
+					cblogger.Infof("[%s] NLB Health Checker 변경 결과 : [%s]", reqNLBId.SystemId, result)
+					spew.Dump(result)
 				}
 			}
 		}

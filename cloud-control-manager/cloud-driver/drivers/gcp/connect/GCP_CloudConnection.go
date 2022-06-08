@@ -19,6 +19,8 @@ import (
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/sirupsen/logrus"
 	compute "google.golang.org/api/compute/v1"
+
+	"errors"
 )
 
 var cblogger *logrus.Logger
@@ -103,4 +105,8 @@ func (GCPCloudConnection) IsConnected() (bool, error) {
 }
 func (GCPCloudConnection) Close() error {
 	return nil
+}
+
+func (cloudConn *GCPCloudConnection) CreateNLBHandler() (irs.NLBHandler, error) {
+        return nil, errors.New("GCP Cloud Driver NLB: WIP")
 }

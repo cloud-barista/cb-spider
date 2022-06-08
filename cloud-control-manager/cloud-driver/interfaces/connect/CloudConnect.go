@@ -16,17 +16,15 @@ import (
 
 type CloudConnection interface {
 	CreateImageHandler() (irs.ImageHandler, error)
-	//CreateVNetworkHandler() (irs.VNetworkHandler, error)
+	CreateVMSpecHandler() (irs.VMSpecHandler, error)
+
 	CreateVPCHandler() (irs.VPCHandler, error)
 	CreateNLBHandler() (irs.NLBHandler, error)
 	CreateSecurityHandler() (irs.SecurityHandler, error)
 	CreateKeyPairHandler() (irs.KeyPairHandler, error)
-	//CreateVNicHandler() (irs.VNicHandler, error)
-	//CreatePublicIPHandler() (irs.PublicIPHandler, error)
-
 	CreateVMHandler() (irs.VMHandler, error)
 
-	CreateVMSpecHandler() (irs.VMSpecHandler, error)
+	CreateNLBHandler() (irs.NLBHandler, error)
 
 	IsConnected() (bool, error)
 	Close() error
