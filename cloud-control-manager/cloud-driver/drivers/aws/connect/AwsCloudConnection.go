@@ -22,6 +22,8 @@ import (
 
 	//ec2drv "github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/ec2"
+
+	"errors"
 )
 
 //type AwsCloudConnection struct{}
@@ -111,4 +113,8 @@ func (cloudConn *AwsCloudConnection) CreateVMSpecHandler() (irs.VMSpecHandler, e
 	cblogger.Info("Start")
 	handler := ars.AwsVmSpecHandler{cloudConn.Region, cloudConn.VmSpecClient}
 	return &handler, nil
+}
+
+func (cloudConn *AwsCloudConnection) CreateNLBHandler() (irs.NLBHandler, error) {
+	return nil, errors.New("AWS Cloud Driver NLB: WIP")
 }
