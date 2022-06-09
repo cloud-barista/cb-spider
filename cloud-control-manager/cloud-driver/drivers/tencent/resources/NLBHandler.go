@@ -434,9 +434,7 @@ func (NLBHandler *TencentNLBHandler) DeleteNLB(nlbIID irs.IID) (bool, error) {
 
 func (NLBHandler *TencentNLBHandler) ChangeListener(nlbIID irs.IID, listener irs.ListenerInfo) (irs.ListenerInfo, error) {
 
-	cblogger.Info("TENCENT_CANNOT_CHANGE_LISTENER")
-
-	return irs.ListenerInfo{}, nil
+	return irs.ListenerInfo{}, errors.New("TENCENT_CANNOT_CHANGE_LISTENER")
 }
 
 func (NLBHandler *TencentNLBHandler) ChangeVMGroupInfo(nlbIID irs.IID, vmGroup irs.VMGroupInfo) (irs.VMGroupInfo, error) {
