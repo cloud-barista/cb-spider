@@ -474,6 +474,9 @@ func (nlbHandler *GCPNLBHandler) ListNLB() ([]*irs.NLBInfo, error) {
 	cblogger.Info("Targetpool end: ")
 	printToJson(nlbMap)
 
+	for _, nlbInfo := range nlbMap {
+		nlbInfoList = append(nlbInfoList, &nlbInfo)
+	}
 	return nlbInfoList, nil
 }
 
