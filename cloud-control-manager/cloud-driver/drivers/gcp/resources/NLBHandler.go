@@ -650,108 +650,99 @@ func (nlbHandler *GCPNLBHandler) DeleteNLB(nlbIID irs.IID) (bool, error) {
 //------ Frontend Control
 
 /*
-	Listener 정보 변경
-	수정 가능한 항목은 Protocol, IP, Port, DNSName(현재 버전에서는 사용x. 향후 사용가능)
-	: patch function이 있으나 현재는 NetworkTier만 수정가능하여 해당 function사용 못함
+	Listener 정보 변경 -> 수정기능이 없으므로 Error return
 
-	부하 분산기를 전환하려면 다음 단계를 따르세요.
+		수정 가능한 항목은 Protocol, IP, Port, DNSName(현재 버전에서는 사용x. 향후 사용가능)
+		: patch function이 있으나 현재는 NetworkTier만 수정가능하여 해당 function사용 못함
 
-    프리미엄 등급 IP 주소를 사용하는 새로운 부하 분산기 전달 규칙을 만듭니다.
-    현재 표준 등급 IP 주소에서 새로운 프리미엄 등급 IP 주소로 트래픽을 천천히 마이그레이션하려면 DNS를 사용합니다.
-    마이그레이션이 완료되면 표준 등급 IP 주소 및 이와 연결된 리전 부하 분산기를 해제할 수 있습니다.
-	여러 부하 분산기가 동일한 백엔드를 가리키도록 할 수 있으므로 백엔드를 변경할 필요는 없습니다.
+		부하 분산기를 전환하려면 다음 단계를 따르세요.
 
-	(참고) patch 사용하려던 로직
-	if !strings.EqualFold(listener.Protocol, "") {
-		patchRegionForwardingRule.IPProtocol = listener.Protocol
-	}
+		프리미엄 등급 IP 주소를 사용하는 새로운 부하 분산기 전달 규칙을 만듭니다.
+		현재 표준 등급 IP 주소에서 새로운 프리미엄 등급 IP 주소로 트래픽을 천천히 마이그레이션하려면 DNS를 사용합니다.
+		마이그레이션이 완료되면 표준 등급 IP 주소 및 이와 연결된 리전 부하 분산기를 해제할 수 있습니다.
+		여러 부하 분산기가 동일한 백엔드를 가리키도록 할 수 있으므로 백엔드를 변경할 필요는 없습니다.
 
-	if !strings.EqualFold(listener.IP, "") {
-		patchRegionForwardingRule.IPAddress = listener.IP
-	}
+		(참고) patch 사용하려던 로직
+		if !strings.EqualFold(listener.Protocol, "") {
+			patchRegionForwardingRule.IPProtocol = listener.Protocol
+		}
 
-	if !strings.EqualFold(listener.Port, "") {
-		patchRegionForwardingRule.PortRange = listener.Port
-	}
+		if !strings.EqualFold(listener.IP, "") {
+			patchRegionForwardingRule.IPAddress = listener.IP
+		}
 
-	patchRegionForwardingRule.NetworkTier = "STANDARD"
-	//networkTier :
-	//	. If this field is not specified, it is assumed to be PREMIUM.
-	//	. If IPAddress is specified, this value must be equal to the networkTier of the Address.
-	//	- Region forwording rule : PREMIUM and STANDARD
-	//	- Global forwording rule : PREMIUM only
+		if !strings.EqualFold(listener.Port, "") {
+			patchRegionForwardingRule.PortRange = listener.Port
+		}
 
-	nlbHandler.patchRegionForwardingRules(regionID, forwardingRuleName, &patchRegionForwardingRule)
+		patchRegionForwardingRule.NetworkTier = "STANDARD"
+		//networkTier :
+		//	. If this field is not specified, it is assumed to be PREMIUM.
+		//	. If IPAddress is specified, this value must be equal to the networkTier of the Address.
+		//	- Region forwording rule : PREMIUM and STANDARD
+		//	- Global forwording rule : PREMIUM only
+
+		nlbHandler.patchRegionForwardingRules(regionID, forwardingRuleName, &patchRegionForwardingRule)
 
 */
 func (nlbHandler *GCPNLBHandler) ChangeListener(nlbIID irs.IID, listener irs.ListenerInfo) (irs.ListenerInfo, error) {
 
-	// forwardingRule => regionForwardingRule
-	//type ListenerInfo struct {
-	//	Protocol	string	// TCP|UDP
-	//	IP		string	// Auto Generated and attached
-	//	Port		string	// 1-65535
-	//	DNSName		string	// Optional, Auto Generated and attached
+	return irs.ListenerInfo{}, errors.New("GCP_CANNOT_CHANGE_LISTENER")
+
+	//regionID := nlbHandler.Region.Region
+	//targetPoolName := nlbIID.NameId
+	////targetPoolUrl := nlbIID.SystemId
 	//
-	//	CspID		string	// Optional, May be Used by Driver.
-	//	KeyValueList []KeyValue
+	//// targetPool url이 forwarding rule에 필요하여 targetPool 조회
+	//targetPool, err := nlbHandler.getTargetPool(regionID, targetPoolName)
+	//if err != nil {
+	//	cblogger.Info("cannot find Backend Service : ", targetPoolName)
+	//	return irs.ListenerInfo{}, errors.New("cannot find Backend Service")
 	//}
-	// 수정 가능한 항목은 Protocol, IP, Port, DNSName
-
-	regionID := nlbHandler.Region.Region
-	targetPoolName := nlbIID.NameId
-	//targetPoolUrl := nlbIID.SystemId
-
-	// targetPool url이 forwarding rule에 필요하여 targetPool 조회
-	targetPool, err := nlbHandler.getTargetPool(regionID, targetPoolName)
-	if err != nil {
-		cblogger.Info("cannot find Backend Service : ", targetPoolName)
-		return irs.ListenerInfo{}, errors.New("cannot find Backend Service")
-	}
-
-	// 기존 forwardingRule 삭제
-	err = nlbHandler.deleteRegionForwardingRule(regionID, targetPoolName)
-	if err != nil {
-		return irs.ListenerInfo{}, err
-	}
-
-	// 새로운 forwarding Rule 등록
-	regRegionForwardingRule := convertNlbInfoToForwardingRule(listener, targetPool)
-
-	callogger := call.GetLogger("HISCALL")
-	callLogInfo := call.CLOUDLOGSCHEMA{
-		CloudOS:      call.GCP,
-		RegionZone:   nlbHandler.Region.Zone,
-		ResourceType: call.NLB,
-		ResourceName: targetPoolName,
-		CloudOSAPI:   "ChangeListener()",
-		ElapsedTime:  "",
-		ErrorMSG:     "",
-	}
-	callLogStart := call.Start()
-	err = nlbHandler.insertRegionForwardingRules(regionID, &regRegionForwardingRule)
-	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
-	if err != nil {
-		// 등록 실패
-		callLogInfo.ErrorMSG = err.Error()
-		callogger.Info(call.String(callLogInfo))
-		cblogger.Error(err)
-		return irs.ListenerInfo{}, err
-	}
-
-	forwardingRule, err := nlbHandler.getRegionForwardingRules(regionID, targetPoolName)
-
-	// set ListenerInfo
-	listenerInfo := irs.ListenerInfo{
-		Protocol: forwardingRule.IPProtocol,
-		IP:       forwardingRule.IPAddress,
-		Port:     forwardingRule.PortRange,
-		//DNSName:  forwardingRule., // 향후 사용할 때 Adderess에서 가져올 듯
-		CspID: forwardingRule.Name, // forwarding rule name 전체
-		//KeyValueList:
-	}
-
-	return listenerInfo, nil
+	//
+	//// 기존 forwardingRule 삭제
+	//err = nlbHandler.deleteRegionForwardingRule(regionID, targetPoolName)
+	//if err != nil {
+	//	return irs.ListenerInfo{}, err
+	//}
+	//
+	//// 새로운 forwarding Rule 등록
+	//regRegionForwardingRule := convertNlbInfoToForwardingRule(listener, targetPool)
+	//
+	//callogger := call.GetLogger("HISCALL")
+	//callLogInfo := call.CLOUDLOGSCHEMA{
+	//	CloudOS:      call.GCP,
+	//	RegionZone:   nlbHandler.Region.Zone,
+	//	ResourceType: call.NLB,
+	//	ResourceName: targetPoolName,
+	//	CloudOSAPI:   "ChangeListener()",
+	//	ElapsedTime:  "",
+	//	ErrorMSG:     "",
+	//}
+	//callLogStart := call.Start()
+	//err = nlbHandler.insertRegionForwardingRules(regionID, &regRegionForwardingRule)
+	//callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+	//if err != nil {
+	//	// 등록 실패
+	//	callLogInfo.ErrorMSG = err.Error()
+	//	callogger.Info(call.String(callLogInfo))
+	//	cblogger.Error(err)
+	//	return irs.ListenerInfo{}, err
+	//}
+	//
+	//forwardingRule, err := nlbHandler.getRegionForwardingRules(regionID, targetPoolName)
+	//
+	//// set ListenerInfo
+	//listenerInfo := irs.ListenerInfo{
+	//	Protocol: forwardingRule.IPProtocol,
+	//	IP:       forwardingRule.IPAddress,
+	//	Port:     forwardingRule.PortRange,
+	//	//DNSName:  forwardingRule., // 향후 사용할 때 Adderess에서 가져올 듯
+	//	CspID: forwardingRule.Name, // forwarding rule name 전체
+	//	//KeyValueList:
+	//}
+	//
+	//return listenerInfo, nil
 }
 
 /*
