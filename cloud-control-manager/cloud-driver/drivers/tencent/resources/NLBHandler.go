@@ -35,12 +35,10 @@ const (
 	Request_Status_Progress  int64 = 2
 )
 
-
 const (
 	Request_Status_Running string = "Running"
 	Request_Status_Done    string = "Done"
 )
-
 
 func (NLBHandler *TencentNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (irs.NLBInfo, error) {
 	callogger := call.GetLogger("HISCALL")
@@ -87,6 +85,7 @@ func (NLBHandler *TencentNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (irs.NLBI
 	// Listener 생성
 	if curStatus == Request_Status_Running {
 
+		listenerRequest := clb.NewCreateListenerRequest()
 
 		listenerPort, portErr := strconv.ParseInt(nlbReqInfo.Listener.Port, 10, 64)
 		if portErr != nil {
@@ -98,8 +97,6 @@ func (NLBHandler *TencentNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (irs.NLBI
 			return irs.NLBInfo{}, healthErr
 		}
 
-		listenerRequest := clb.NewCreateListenerRequest()
-
 		listenerRequest.LoadBalancerId = common.StringPtr(newNLBId)
 		listenerRequest.Ports = common.Int64Ptrs([]int64{listenerPort})
 		listenerRequest.Protocol = common.StringPtr(nlbReqInfo.Listener.Protocol)
@@ -109,6 +106,15 @@ func (NLBHandler *TencentNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (irs.NLBI
 			HealthNum:    common.Int64Ptr(int64(nlbReqInfo.HealthChecker.Threshold)),
 			CheckPort:    common.Int64Ptr(healthPort),
 			CheckType:    common.StringPtr(nlbReqInfo.HealthChecker.Protocol),
+		}
+
+		if strings.EqualFold(nlbReqInfo.Listener.Protocol, "UDP") {
+			listenerRequest.HealthCheck.CheckType = common.StringPtr("CUSTOM")
+			listenerRequest.HealthCheck.ContextType = common.StringPtr("TEXT")
+		}
+
+		if strings.EqualFold(nlbReqInfo.HealthChecker.Protocol, "HTTP") {
+			listenerRequest.HealthCheck.HttpCheckDomain = common.StringPtr("")
 		}
 
 		listenerResponse, listenerErr := NLBHandler.Client.CreateListener(listenerRequest)
@@ -158,7 +164,6 @@ func (NLBHandler *TencentNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (irs.NLBI
 			if targetStatErr != nil {
 				return irs.NLBInfo{}, targetStatErr
 			}
-
 
 			if targetStatus == Request_Status_Done {
 
@@ -282,14 +287,12 @@ func (NLBHandler *TencentNLBHandler) GetNLB(nlbIID irs.IID) (irs.NLBInfo, error)
 	nlbInfo.HealthChecker = healthChecker
 	nlbInfo.VMGroup = vmGroup
 
-
 	cblogger.Debug(nlbInfo)
 
 	return nlbInfo, nil
 }
 
 func ExtractNLBDescribeInfo(nlbInfo *clb.LoadBalancer) irs.NLBInfo {
-
 
 	createTime, _ := time.Parse("2006-01-02 15:04:05", *nlbInfo.CreateTime)
 	nlbType := ""
@@ -306,12 +309,10 @@ func ExtractNLBDescribeInfo(nlbInfo *clb.LoadBalancer) irs.NLBInfo {
 		CreatedTime: createTime,
 		Type:        nlbType,
 		Scope:       "REGION",
-
 	}
 
 	return resNLBInfo
 }
-
 
 func (NLBHandler *TencentNLBHandler) ExtractListenerInfo(nlbIID irs.IID) (irs.ListenerInfo, error) {
 	cblogger.Info("NLB IID : ", nlbIID.SystemId)
@@ -324,12 +325,10 @@ func (NLBHandler *TencentNLBHandler) ExtractListenerInfo(nlbIID irs.IID) (irs.Li
 		return irs.ListenerInfo{}, err
 	}
 
-
 	resListenerInfo := irs.ListenerInfo{
 		Protocol: *response.Response.Listeners[0].Protocol,
 		Port:     strconv.FormatInt(*response.Response.Listeners[0].Port, 10),
 	}
-
 
 	ipRequest := clb.NewDescribeLoadBalancersRequest()
 	ipRequest.LoadBalancerIds = common.StringPtrs([]string{nlbIID.SystemId})
@@ -361,7 +360,6 @@ func (NLBHandler *TencentNLBHandler) ExtractVMGroupInfo(nlbIID irs.IID) (irs.VMG
 		return irs.VMGroupInfo{}, errors.New("Target VM does not exist!")
 	}
 
-
 	resVmInfo := irs.VMGroupInfo{
 		Protocol: "TCP",
 		Port:     strconv.FormatInt(*response.Response.Listeners[0].Targets[0].Port, 10),
@@ -373,7 +371,6 @@ func (NLBHandler *TencentNLBHandler) ExtractVMGroupInfo(nlbIID irs.IID) (irs.VMG
 	}
 
 	resVmInfo.VMs = &vms
-
 
 	return resVmInfo, nil
 }
@@ -390,7 +387,6 @@ func (NLBHandler *TencentNLBHandler) ExtractHealthCheckerInfo(nlbIID irs.IID) (i
 		return irs.HealthCheckerInfo{}, err
 	}
 
-
 	resHealthCheckerInfo := irs.HealthCheckerInfo{
 		Protocol:  *response.Response.Listeners[0].HealthCheck.CheckType,
 		Port:      strconv.FormatInt(*response.Response.Listeners[0].HealthCheck.CheckPort, 10),
@@ -398,7 +394,6 @@ func (NLBHandler *TencentNLBHandler) ExtractHealthCheckerInfo(nlbIID irs.IID) (i
 		Timeout:   int(*response.Response.Listeners[0].HealthCheck.TimeOut),
 		Threshold: int(*response.Response.Listeners[0].HealthCheck.HealthNum),
 	}
-
 
 	return resHealthCheckerInfo, nil
 
@@ -539,7 +534,6 @@ func (NLBHandler *TencentNLBHandler) AddVMs(nlbIID irs.IID, vmIIDs *[]irs.IID) (
 		ErrorMSG:     "",
 	}
 
-
 	request := clb.NewDescribeListenersRequest()
 	request.LoadBalancerId = common.StringPtr(newNLBId)
 	response, err := NLBHandler.Client.DescribeListeners(request)
@@ -559,7 +553,6 @@ func (NLBHandler *TencentNLBHandler) AddVMs(nlbIID irs.IID, vmIIDs *[]irs.IID) (
 			return irs.VMGroupInfo{}, portErr
 		}
 		backendPort = port
-
 
 	}
 
@@ -582,7 +575,6 @@ func (NLBHandler *TencentNLBHandler) AddVMs(nlbIID irs.IID, vmIIDs *[]irs.IID) (
 		return irs.VMGroupInfo{}, targetErr
 	}
 	fmt.Printf("%s", targetResponse.ToJsonString())
-
 
 	callogger.Info(call.String(callLogInfo))
 
@@ -691,9 +683,7 @@ func (NLBHandler *TencentNLBHandler) GetVMGroupHealthInfo(nlbIID irs.IID) (irs.H
 		return irs.HealthInfo{}, err
 	}
 
-
 	callogger.Info(call.String(callLogInfo))
-
 
 	vmGroup := response.Response.LoadBalancers[0].Listeners[0].Rules[0].Targets
 
@@ -761,7 +751,20 @@ func (NLBHandler *TencentNLBHandler) ChangeHealthCheckerInfo(nlbIID irs.IID, hea
 		CheckType:    common.StringPtr(healthChecker.Protocol),
 	}
 
+	if strings.EqualFold(*response.Response.Listeners[0].Protocol, "UDP") {
+		changeHealthCheckerRequest.HealthCheck.CheckType = common.StringPtr("CUSTOM")
+		changeHealthCheckerRequest.HealthCheck.ContextType = common.StringPtr("TEXT")
+	}
+
+	if strings.EqualFold(healthChecker.Protocol, "HTTP") {
+		changeHealthCheckerRequest.HealthCheck.HttpCheckDomain = common.StringPtr("")
+		changeHealthCheckerRequest.HealthCheck.HttpVersion = common.StringPtr("HTTP/1.1")
+	}
+
 	changeHealthCheckerResponse, err := NLBHandler.Client.ModifyListener(changeHealthCheckerRequest)
+	if err != nil {
+		return irs.HealthCheckerInfo{}, err
+	}
 
 	callogger.Info(call.String(callLogInfo))
 
