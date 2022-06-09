@@ -366,6 +366,10 @@ func (vmHandler *TencentVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 
 	vmInfo, errVmInfo := vmHandler.GetVM(newVmIID)
 	vmInfo.IId.NameId = vmReqInfo.IId.NameId
+	if vmInfo.KeyPairIId.SystemId == "" {
+		vmInfo.KeyPairIId.SystemId = vmReqInfo.KeyPairIID.SystemId // keypairIID가 없으면 채워 넣음, VM 생성 직후에는 안 들어올 수 있음
+	}
+	cblogger.Debug(vmInfo)
 	return vmInfo, errVmInfo
 }
 
@@ -619,6 +623,8 @@ func (vmHandler *TencentVMHandler) ExtractDescribeInstances(curVm *cvm.Instance)
 			vmInfo.StartTime = t
 		}
 	}
+
+	cblogger.Debug(curVm.LoginSettings)
 
 	if !reflect.ValueOf(curVm.LoginSettings).IsNil() {
 		if !reflect.ValueOf(curVm.LoginSettings.KeyIds).IsNil() {

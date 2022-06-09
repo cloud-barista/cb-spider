@@ -19,16 +19,15 @@ import (
 	//"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
 	//"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/errors"
 	//"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/profile"
+	clb "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/clb/v20180317"
 	cvm "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/cvm/v20170312"
 	vpc "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/vpc/v20170312"
-
-	"errors"
 )
 
 type TencentCloudConnection struct {
 	Region         idrv.RegionInfo
 	VNetworkClient *vpc.Client
-
+	NLBClient      *clb.Client
 	VMClient       *cvm.Client
 	KeyPairClient  *cvm.Client
 	ImageClient    *cvm.Client
@@ -75,6 +74,13 @@ func (cloudConn *TencentCloudConnection) CreateVPCHandler() (irs.VPCHandler, err
 	return &handler, nil
 }
 
+func (cloudConn *TencentCloudConnection) CreateNLBHandler() (irs.NLBHandler, error) {
+	cblogger.Info("Start")
+	handler := trs.TencentNLBHandler{cloudConn.Region, cloudConn.NLBClient}
+
+	return &handler, nil
+}
+
 func (cloudConn *TencentCloudConnection) CreateImageHandler() (irs.ImageHandler, error) {
 	cblogger.Info("Start")
 	handler := trs.TencentImageHandler{cloudConn.Region, cloudConn.ImageClient}
@@ -110,8 +116,3 @@ func (cloudConn *TencentCloudConnection) CreatePublicIPHandler() (irs.PublicIPHa
 	return &handler, nil
 }
 */
-
-func (cloudConn *TencentCloudConnection) CreateNLBHandler() (irs.NLBHandler, error) {
-        return nil, errors.New("Tencent Cloud Driver NLB: WIP")
-}
-
