@@ -1029,72 +1029,130 @@ func (NLBHandler *AwsNLBHandler) DeleteNLB(nlbIID irs.IID) (bool, error) {
 }
 
 //------ Frontend Control
+// Protocol 하고 Port 정보만 변경 가능
 func (NLBHandler *AwsNLBHandler) ChangeListener(nlbIID irs.IID, listener irs.ListenerInfo) (irs.ListenerInfo, error) {
 	if nlbIID.SystemId == "" {
 		cblogger.Error("IID 값이 Null임.")
 		return irs.ListenerInfo{}, awserr.New(CUSTOM_ERR_CODE_BAD_REQUEST, "nlbIID.systemId value of the input parameter is empty.", nil)
 	}
-	/*
-		input := &elbv2.ModifyListenerInput{
+
+	//리스너의 ARN 값을 조회함.
+	listenerInfo, errListener := NLBHandler.ExtractListenerInfo(nlbIID)
+	if errListener != nil {
+		cblogger.Error(errListener.Error())
+		return irs.ListenerInfo{}, errListener
+	}
+
+	if listenerInfo.CspID == "" {
+		cblogger.Error("NLB와 연결된 리스너의 ARN 값을 찾을 수 없음")
+		return irs.ListenerInfo{}, awserr.New(CUSTOM_ERR_CODE_BAD_REQUEST, "Listener associated with NLB does not exist.", nil)
+	}
+
+	input := &elbv2.ModifyListenerInput{
+		/*
 			DefaultActions: []*elbv2.Action{
 				{
-					TargetGroupArn: aws.String("arn:aws:elasticloadbalancing:us-west-2:123456789012:targetgroup/my-new-targets/2453ed029918f21f"),
+					TargetGroupArn: aws.String(""),	//cb-spider는 타겟그룹 변경 기능이 없음.
 					Type:           aws.String("forward"),
 				},
 			},
-			ListenerArn: aws.String("arn:aws:elasticloadbalancing:us-west-2:123456789012:listener/app/my-load-balancer/50dc6c495c0c9188/f2f7dc8efc522ab2"),
-		}
+		*/
+		ListenerArn: aws.String(listenerInfo.CspID),
+		//Protocol: aws.String(nlbReqInfo.Listener.Protocol), // AWS NLB : TCP, TLS, UDP, or TCP_UDP
+	}
 
-		result, err := NLBHandler.Client.ModifyListener(input)
-		if err != nil {
-			if aerr, ok := err.(awserr.Error); ok {
-				switch aerr.Code() {
-				case elbv2.ErrCodeDuplicateListenerException:
-					cblogger.Error(elbv2.ErrCodeDuplicateListenerException, aerr.Error())
-				case elbv2.ErrCodeTooManyListenersException:
-					cblogger.Error(elbv2.ErrCodeTooManyListenersException, aerr.Error())
-				case elbv2.ErrCodeTooManyCertificatesException:
-					cblogger.Error(elbv2.ErrCodeTooManyCertificatesException, aerr.Error())
-				case elbv2.ErrCodeListenerNotFoundException:
-					cblogger.Error(elbv2.ErrCodeListenerNotFoundException, aerr.Error())
-				case elbv2.ErrCodeTargetGroupNotFoundException:
-					cblogger.Error(elbv2.ErrCodeTargetGroupNotFoundException, aerr.Error())
-				case elbv2.ErrCodeTargetGroupAssociationLimitException:
-					cblogger.Error(elbv2.ErrCodeTargetGroupAssociationLimitException, aerr.Error())
-				case elbv2.ErrCodeIncompatibleProtocolsException:
-					cblogger.Error(elbv2.ErrCodeIncompatibleProtocolsException, aerr.Error())
-				case elbv2.ErrCodeSSLPolicyNotFoundException:
-					cblogger.Error(elbv2.ErrCodeSSLPolicyNotFoundException, aerr.Error())
-				case elbv2.ErrCodeCertificateNotFoundException:
-					cblogger.Error(elbv2.ErrCodeCertificateNotFoundException, aerr.Error())
-				case elbv2.ErrCodeInvalidConfigurationRequestException:
-					cblogger.Error(elbv2.ErrCodeInvalidConfigurationRequestException, aerr.Error())
-				case elbv2.ErrCodeUnsupportedProtocolException:
-					cblogger.Error(elbv2.ErrCodeUnsupportedProtocolException, aerr.Error())
-				case elbv2.ErrCodeTooManyRegistrationsForTargetIdException:
-					cblogger.Error(elbv2.ErrCodeTooManyRegistrationsForTargetIdException, aerr.Error())
-				case elbv2.ErrCodeTooManyTargetsException:
-					cblogger.Error(elbv2.ErrCodeTooManyTargetsException, aerr.Error())
-				case elbv2.ErrCodeTooManyActionsException:
-					cblogger.Error(elbv2.ErrCodeTooManyActionsException, aerr.Error())
-				case elbv2.ErrCodeInvalidLoadBalancerActionException:
-					cblogger.Error(elbv2.ErrCodeInvalidLoadBalancerActionException, aerr.Error())
-				case elbv2.ErrCodeTooManyUniqueTargetGroupsPerLoadBalancerException:
-					cblogger.Error(elbv2.ErrCodeTooManyUniqueTargetGroupsPerLoadBalancerException, aerr.Error())
-				case elbv2.ErrCodeALPNPolicyNotSupportedException:
-					cblogger.Error(elbv2.ErrCodeALPNPolicyNotSupportedException, aerr.Error())
-				default:
-					cblogger.Error(aerr.Error())
-				}
-			} else {
-				// Print the error, cast err to awserr.Error to get the Code and
-				// Message from an error.
-				cblogger.Error(err.Error())
-			}
+	//리스너 프로토콜 변경
+	if listener.Protocol != "" {
+		input.Protocol = aws.String(listener.Protocol)
+	}
+
+	//리스너 포트 변경
+	if listener.Port != "" {
+		if n, err := strconv.ParseInt(listener.Port, 10, 64); err == nil {
+			input.SetPort(n)
+		} else {
+			cblogger.Error(listener.Port, "은 숫자가 아님!!")
 			return irs.ListenerInfo{}, err
 		}
+	}
+
+	cblogger.Info("리스너 정보 변경 시작")
+	cblogger.Info(input)
+
+	result, err := NLBHandler.Client.ModifyListener(input)
+	if err != nil {
+		if aerr, ok := err.(awserr.Error); ok {
+			switch aerr.Code() {
+			case elbv2.ErrCodeDuplicateListenerException:
+				cblogger.Error(elbv2.ErrCodeDuplicateListenerException, aerr.Error())
+			case elbv2.ErrCodeTooManyListenersException:
+				cblogger.Error(elbv2.ErrCodeTooManyListenersException, aerr.Error())
+			case elbv2.ErrCodeTooManyCertificatesException:
+				cblogger.Error(elbv2.ErrCodeTooManyCertificatesException, aerr.Error())
+			case elbv2.ErrCodeListenerNotFoundException:
+				cblogger.Error(elbv2.ErrCodeListenerNotFoundException, aerr.Error())
+			case elbv2.ErrCodeTargetGroupNotFoundException:
+				cblogger.Error(elbv2.ErrCodeTargetGroupNotFoundException, aerr.Error())
+			case elbv2.ErrCodeTargetGroupAssociationLimitException:
+				cblogger.Error(elbv2.ErrCodeTargetGroupAssociationLimitException, aerr.Error())
+			case elbv2.ErrCodeIncompatibleProtocolsException:
+				cblogger.Error(elbv2.ErrCodeIncompatibleProtocolsException, aerr.Error())
+			case elbv2.ErrCodeSSLPolicyNotFoundException:
+				cblogger.Error(elbv2.ErrCodeSSLPolicyNotFoundException, aerr.Error())
+			case elbv2.ErrCodeCertificateNotFoundException:
+				cblogger.Error(elbv2.ErrCodeCertificateNotFoundException, aerr.Error())
+			case elbv2.ErrCodeInvalidConfigurationRequestException:
+				cblogger.Error(elbv2.ErrCodeInvalidConfigurationRequestException, aerr.Error())
+			case elbv2.ErrCodeUnsupportedProtocolException:
+				cblogger.Error(elbv2.ErrCodeUnsupportedProtocolException, aerr.Error())
+			case elbv2.ErrCodeTooManyRegistrationsForTargetIdException:
+				cblogger.Error(elbv2.ErrCodeTooManyRegistrationsForTargetIdException, aerr.Error())
+			case elbv2.ErrCodeTooManyTargetsException:
+				cblogger.Error(elbv2.ErrCodeTooManyTargetsException, aerr.Error())
+			case elbv2.ErrCodeTooManyActionsException:
+				cblogger.Error(elbv2.ErrCodeTooManyActionsException, aerr.Error())
+			case elbv2.ErrCodeInvalidLoadBalancerActionException:
+				cblogger.Error(elbv2.ErrCodeInvalidLoadBalancerActionException, aerr.Error())
+			case elbv2.ErrCodeTooManyUniqueTargetGroupsPerLoadBalancerException:
+				cblogger.Error(elbv2.ErrCodeTooManyUniqueTargetGroupsPerLoadBalancerException, aerr.Error())
+			case elbv2.ErrCodeALPNPolicyNotSupportedException:
+				cblogger.Error(elbv2.ErrCodeALPNPolicyNotSupportedException, aerr.Error())
+			default:
+				cblogger.Error(aerr.Error())
+			}
+		} else {
+			// Print the error, cast err to awserr.Error to get the Code and
+			// Message from an error.
+			cblogger.Error(err.Error())
+		}
+
+		return irs.ListenerInfo{}, err
+	}
+
+	cblogger.Infof("리스너 정보 변경 완료")
+	cblogger.Debug(result)
+	if cblogger.Level.String() == "debug" {
+		spew.Dump(result)
+	}
+
+	//변경된 최종 리스너 정보를 리턴 함.
+	/*
+		listenerInfo, errListener = NLBHandler.ExtractListenerInfo(nlbIID)
+		if errListener != nil {
+			cblogger.Error(errListener.Error())
+			return irs.ListenerInfo{}, errListener
+		}
+		return listenerInfo, nil
 	*/
-	return irs.ListenerInfo{}, nil
+
+	//ListenerInfo의 DNS 등의 정보 때문에 NLB 정보 조회후 리턴 함.
+	nlbInfo, errNLBInfo := NLBHandler.GetNLB(nlbIID)
+	if errNLBInfo != nil {
+		cblogger.Error(errNLBInfo.Error())
+		return irs.ListenerInfo{}, errNLBInfo
+	}
+	return nlbInfo.Listener, nil
+
 }
 
 //------ Backend Control

@@ -1328,6 +1328,23 @@ func handleNLB() {
 					cblogger.Infof("[%s] NLB 삭제 결과 : [%s]", nlbReqInfo.IId.NameId, result)
 				}
 
+			case 5:
+				cblogger.Infof("[%s] 리스너 변경 테스트", nlbReqInfo.IId)
+				reqListenerInfo := irs.ListenerInfo{
+					Protocol: "TCP", // AWS NLB : TCP, TLS, UDP, or TCP_UDP
+					//IP: "",
+					Port: "80",
+				}
+				result, err := handler.ChangeListener(nlbReqInfo.IId, reqListenerInfo)
+				if err != nil {
+					cblogger.Infof("[%s] 리스너 변경 실패 : ", nlbReqInfo.IId.NameId, err)
+				} else {
+					cblogger.Infof("[%s] 리스너 변경 결과 : [%s]", nlbReqInfo.IId.NameId, result)
+					if cblogger.Level.String() == "debug" {
+						spew.Dump(result)
+					}
+				}
+
 			case 7:
 				cblogger.Infof("[%s] AddVMs 테스트", nlbReqInfo.IId.NameId)
 				cblogger.Info(reqAddVMs)
