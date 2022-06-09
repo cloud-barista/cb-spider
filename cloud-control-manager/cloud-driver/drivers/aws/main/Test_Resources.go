@@ -1227,25 +1227,28 @@ func handleNLB() {
 		Scope:  "REGION",
 
 		Listener: irs.ListenerInfo{
-			Protocol: "TCP",
+			Protocol: "TCP", // AWS NLB : TCP, TLS, UDP, or TCP_UDP
 			//IP: "",
-			Port: "1234",
+			Port: "22",
 		},
 
 		VMGroup: irs.VMGroupInfo{
 			Protocol: "TCP", //TCP|UDP|HTTP|HTTPS
-			Port:     "80",  //1-65535
-			VMs:      &[]irs.IID{irs.IID{SystemId: "i-008778f60fd7ae3fa"}, irs.IID{SystemId: "i-0cba8efe123ab0b42"}},
+			Port:     "22",  //1-65535
+			VMs:      &[]irs.IID{irs.IID{SystemId: "i-0dcbcbeadbb14212f"}, irs.IID{SystemId: "i-0cba8efe123ab0b42"}},
 		},
 
 		HealthChecker: irs.HealthCheckerInfo{
-			Protocol:  "TCP",  // TCP|HTTP|HTTPS
-			Port:      "1234", // Listener Port or 1-65535
-			Interval:  60,     // secs, Interval time between health checks.
-			Timeout:   5,      // secs, Waiting time to decide an unhealthy VM when no response.
-			Threshold: 10,     // num, The number of continuous health checks to change the VM status
+			Protocol:  "TCP", // TCP|HTTP|HTTPS
+			Port:      "22",  // Listener Port or 1-65535
+			Interval:  30,    // TCP는 10이나 30만 가능 - secs, Interval time between health checks.
+			Timeout:   0,     // TCP는 타임 아웃 설정 불가 - secs, Waiting time to decide an unhealthy VM when no response.
+			Threshold: 10,    // num, The number of continuous health checks to change the VM status
 		},
-	}
+	} // nlbReqInfo
+
+	reqAddVMs := &[]irs.IID{irs.IID{SystemId: "i-0dcbcbeadbb14212f"}}
+	reqRemoveVMs := &[]irs.IID{irs.IID{SystemId: "i-0dcbcbeadbb14212f"}}
 
 	for {
 		fmt.Println("NLBHandler Management")
@@ -1298,7 +1301,9 @@ func handleNLB() {
 				} else {
 					cblogger.Infof("NLB 생성 결과 : ", result)
 					nlbReqInfo.IId = result.IId // 조회 및 삭제를 위해 생성된 ID로 변경
-					spew.Dump(result)
+					if cblogger.Level.String() == "debug" {
+						spew.Dump(result)
+					}
 				}
 
 			case 3:
@@ -1308,7 +1313,9 @@ func handleNLB() {
 					cblogger.Infof("[%s] NLB 조회 실패 : ", nlbReqInfo.IId.NameId, err)
 				} else {
 					cblogger.Infof("[%s] NLB 조회 결과 : [%s]", nlbReqInfo.IId.NameId, result)
-					spew.Dump(result)
+					if cblogger.Level.String() == "debug" {
+						spew.Dump(result)
+					}
 				}
 
 			case 4:
@@ -1317,7 +1324,30 @@ func handleNLB() {
 				if err != nil {
 					cblogger.Infof("[%s] NLB 삭제 실패 : ", nlbReqInfo.IId.NameId, err)
 				} else {
+					cblogger.Info("성공")
 					cblogger.Infof("[%s] NLB 삭제 결과 : [%s]", nlbReqInfo.IId.NameId, result)
+				}
+
+			case 7:
+				cblogger.Infof("[%s] AddVMs 테스트", nlbReqInfo.IId.NameId)
+				cblogger.Info(reqAddVMs)
+				result, err := handler.AddVMs(nlbReqInfo.IId, reqAddVMs)
+				if err != nil {
+					cblogger.Infof("[%s] AddVMs 실패 : ", nlbReqInfo.IId.NameId, err)
+				} else {
+					cblogger.Info("성공")
+					cblogger.Infof("[%s] AddVMs 결과 : [%s]", nlbReqInfo.IId.NameId, result)
+				}
+
+			case 8:
+				cblogger.Infof("[%s] RemoveVMs 테스트", nlbReqInfo.IId.NameId)
+				cblogger.Info(reqRemoveVMs)
+				result, err := handler.RemoveVMs(nlbReqInfo.IId, reqRemoveVMs)
+				if err != nil {
+					cblogger.Infof("[%s] RemoveVMs 실패 : ", nlbReqInfo.IId.NameId, err)
+				} else {
+					cblogger.Info("성공")
+					cblogger.Infof("[%s] RemoveVMs 결과 : [%s]", nlbReqInfo.IId.NameId, result)
 				}
 
 			case 9:
@@ -1327,7 +1357,9 @@ func handleNLB() {
 					cblogger.Infof("[%s] GetVMGroupHealthInfo 실패 : ", nlbReqInfo.IId.NameId, err)
 				} else {
 					cblogger.Infof("[%s] GetVMGroupHealthInfo 결과 : [%s]", nlbReqInfo.IId.NameId, result)
-					spew.Dump(result)
+					if cblogger.Level.String() == "debug" {
+						spew.Dump(result)
+					}
 				}
 
 			}

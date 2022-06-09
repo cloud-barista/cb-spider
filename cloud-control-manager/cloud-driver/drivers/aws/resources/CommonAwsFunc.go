@@ -24,6 +24,7 @@ import (
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 )
 
+const KEY_VALUE_CONVERT_DEBUG_INFO bool = false     // JSON 및 Key Value객체 Convert시(ConvertToString, ConvertKeyValueList) Debug 로그 정보 출력 여부(Debug 모드로 개발 할 때 불필요한 정보를 줄이기 위해 추가)
 const CBDefaultVNetName string = "CB-VNet"          // CB Default Virtual Network Name
 const CBDefaultSubnetName string = "CB-VNet-Subnet" // CB Default Subnet Name
 const CBDefaultCidrBlock string = "192.168.0.0/16"  // CB Default CidrBlock
@@ -292,13 +293,17 @@ func ConvertJsonString(v interface{}) (string, error) {
 //CB-KeyValue 등을 위해 String 타입으로 변환
 func ConvertToString(value interface{}) (string, error) {
 	if value == nil {
-		cblogger.Debugf("Nil Value")
+		if KEY_VALUE_CONVERT_DEBUG_INFO {
+			cblogger.Debugf("Nil Value")
+		}
 		return "", errors.New("Nil. Value")
 	}
 
 	var result string
 	t := reflect.ValueOf(value)
-	cblogger.Debug("==>ValueOf : ", t)
+	if KEY_VALUE_CONVERT_DEBUG_INFO {
+		cblogger.Debug("==>ValueOf : ", t)
+	}
 
 	switch value.(type) {
 	case float32:
@@ -308,7 +313,9 @@ func ConvertToString(value interface{}) (string, error) {
 		//strconv.FormatFloat(instanceTypeInfo.MemorySize, 'f', 0, 64)
 
 	default:
-		cblogger.Debug("--> default type:", reflect.ValueOf(value).Type())
+		if KEY_VALUE_CONVERT_DEBUG_INFO {
+			cblogger.Debug("--> default type:", reflect.ValueOf(value).Type())
+		}
 		result = fmt.Sprint(value)
 	}
 
@@ -331,7 +338,9 @@ func ConvertKeyValueList(v interface{}) ([]irs.KeyValue, error) {
 	json.Unmarshal(jsonBytes, &i)
 
 	for k, v := range i {
-		cblogger.Debugf("K:[%s]====>", k)
+		if KEY_VALUE_CONVERT_DEBUG_INFO {
+			cblogger.Debugf("K:[%s]====>", k)
+		}
 		/*
 			cblogger.Infof("v:[%s]====>", reflect.ValueOf(v))
 
@@ -343,8 +352,7 @@ func ConvertKeyValueList(v interface{}) ([]irs.KeyValue, error) {
 		//value := fmt.Sprint(v)
 		value, errString := ConvertToString(v)
 		if errString != nil {
-			//cblogger.Errorf("Key[%s]의 값은 변환 불가 - [%s]", k, errString)
-			cblogger.Debugf("Key[%s]의 값은 변환 불가 - [%s]", k, errString) //요구에 의해서 Error에서 Warn으로 낮춤
+			//cblogger.Debugf("Key[%s]의 값은 변환 불가 - [%s]", k, errString) //요구에 의해서 Error에서 Warn으로 낮춤
 			continue
 		}
 		keyValueList = append(keyValueList, irs.KeyValue{k, value})

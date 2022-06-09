@@ -59,8 +59,6 @@ func (cloudConn *AwsCloudConnection) Close() error {
 }
 
 func (cloudConn *AwsCloudConnection) CreateKeyPairHandler() (irs.KeyPairHandler, error) {
-	cblogger.Info("Start CreateKeyPairHandler()")
-
 	keyPairHandler := ars.AwsKeyPairHandler{cloudConn.CredentialInfo, cloudConn.Region, cloudConn.KeyPairClient}
 	//keyPairHandler := ars.AwsKeyPairHandler{cloudConn.Region, cloudConn.KeyPairClient}
 
@@ -68,14 +66,11 @@ func (cloudConn *AwsCloudConnection) CreateKeyPairHandler() (irs.KeyPairHandler,
 }
 
 func (cloudConn *AwsCloudConnection) CreateVMHandler() (irs.VMHandler, error) {
-	cblogger.Info("Start CreateVMHandler()")
-
 	vmHandler := ars.AwsVMHandler{cloudConn.Region, cloudConn.VMClient}
 	return &vmHandler, nil
 }
 
 func (cloudConn *AwsCloudConnection) CreateVPCHandler() (irs.VPCHandler, error) {
-	cblogger.Info("Start")
 	handler := ars.AwsVPCHandler{cloudConn.Region, cloudConn.VNetworkClient}
 
 	return &handler, nil
@@ -83,14 +78,12 @@ func (cloudConn *AwsCloudConnection) CreateVPCHandler() (irs.VPCHandler, error) 
 
 //func (cloudConn *AwsCloudConnection) CreateImageHandler() (irs2.ImageHandler, error) {
 func (cloudConn *AwsCloudConnection) CreateImageHandler() (irs.ImageHandler, error) {
-	cblogger.Info("Start")
 	handler := ars.AwsImageHandler{cloudConn.Region, cloudConn.ImageClient}
 
 	return &handler, nil
 }
 
 func (cloudConn *AwsCloudConnection) CreateSecurityHandler() (irs.SecurityHandler, error) {
-	cblogger.Info("Start")
 	handler := ars.AwsSecurityHandler{cloudConn.Region, cloudConn.SecurityClient}
 
 	return &handler, nil
@@ -113,13 +106,11 @@ func (cloudConn *AwsCloudConnection) CreatePublicIPHandler() (irs.PublicIPHandle
 */
 
 func (cloudConn *AwsCloudConnection) CreateVMSpecHandler() (irs.VMSpecHandler, error) {
-	cblogger.Info("Start")
 	handler := ars.AwsVmSpecHandler{cloudConn.Region, cloudConn.VmSpecClient}
 	return &handler, nil
 }
 
 func (cloudConn *AwsCloudConnection) CreateNLBHandler() (irs.NLBHandler, error) {
-	cblogger.Info("Start")
-	handler := ars.AwsNLBHandler{cloudConn.Region, cloudConn.NLBClient}
+	handler := ars.AwsNLBHandler{cloudConn.Region, cloudConn.NLBClient, cloudConn.VMClient}
 	return &handler, nil
 }
