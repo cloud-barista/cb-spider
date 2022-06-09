@@ -4,7 +4,9 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+
 	"strings"
+
 	"time"
 
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
@@ -33,10 +35,12 @@ const (
 	Request_Status_Progress  int64 = 2
 )
 
+
 const (
 	Request_Status_Running string = "Running"
 	Request_Status_Done    string = "Done"
 )
+
 
 func (NLBHandler *TencentNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (irs.NLBInfo, error) {
 	callogger := call.GetLogger("HISCALL")
@@ -56,11 +60,13 @@ func (NLBHandler *TencentNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (irs.NLBI
 	nlbRequest := clb.NewCreateLoadBalancerRequest()
 
 	nlbRequest.LoadBalancerName = common.StringPtr(nlbReqInfo.IId.NameId)
+
 	if strings.EqualFold(nlbReqInfo.Type, "") || strings.EqualFold(nlbReqInfo.Type, "PUBLIC") {
 		nlbRequest.LoadBalancerType = common.StringPtr("OPEN")
 	} else {
 		nlbRequest.LoadBalancerType = common.StringPtr("INTERNAL")
 	}
+
 	nlbRequest.VpcId = common.StringPtr(nlbReqInfo.VpcIID.SystemId)
 
 	nlbResponse, nlbErr := NLBHandler.Client.CreateLoadBalancer(nlbRequest)
@@ -80,6 +86,7 @@ func (NLBHandler *TencentNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (irs.NLBI
 
 	// Listener 생성
 	if curStatus == Request_Status_Running {
+
 
 		listenerPort, portErr := strconv.ParseInt(nlbReqInfo.Listener.Port, 10, 64)
 		if portErr != nil {
@@ -125,6 +132,7 @@ func (NLBHandler *TencentNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (irs.NLBI
 
 		// VM 연결
 		if listStatus == Request_Status_Done {
+
 			targetRequest := clb.NewRegisterTargetsRequest()
 
 			targetRequest.LoadBalancerId = common.StringPtr(newNLBId)
@@ -151,7 +159,9 @@ func (NLBHandler *TencentNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (irs.NLBI
 				return irs.NLBInfo{}, targetStatErr
 			}
 
+
 			if targetStatus == Request_Status_Done {
+
 				nlbInfo, nlbInfoErr := NLBHandler.GetNLB(irs.IID{SystemId: newNLBId})
 				if nlbInfoErr != nil {
 					return irs.NLBInfo{}, nlbInfoErr
@@ -255,6 +265,7 @@ func (NLBHandler *TencentNLBHandler) GetNLB(nlbIID irs.IID) (irs.NLBInfo, error)
 	}
 
 	nlbInfo := ExtractNLBDescribeInfo(response.Response.LoadBalancerSet[0])
+
 	listener, listenerErr := NLBHandler.ExtractListenerInfo(nlbIID)
 	if listenerErr != nil {
 		return irs.NLBInfo{}, listenerErr
@@ -271,12 +282,14 @@ func (NLBHandler *TencentNLBHandler) GetNLB(nlbIID irs.IID) (irs.NLBInfo, error)
 	nlbInfo.HealthChecker = healthChecker
 	nlbInfo.VMGroup = vmGroup
 
+
 	cblogger.Debug(nlbInfo)
 
 	return nlbInfo, nil
 }
 
 func ExtractNLBDescribeInfo(nlbInfo *clb.LoadBalancer) irs.NLBInfo {
+
 
 	createTime, _ := time.Parse("2006-01-02 15:04:05", *nlbInfo.CreateTime)
 	nlbType := ""
@@ -293,10 +306,12 @@ func ExtractNLBDescribeInfo(nlbInfo *clb.LoadBalancer) irs.NLBInfo {
 		CreatedTime: createTime,
 		Type:        nlbType,
 		Scope:       "REGION",
+
 	}
 
 	return resNLBInfo
 }
+
 
 func (NLBHandler *TencentNLBHandler) ExtractListenerInfo(nlbIID irs.IID) (irs.ListenerInfo, error) {
 	cblogger.Info("NLB IID : ", nlbIID.SystemId)
@@ -309,10 +324,12 @@ func (NLBHandler *TencentNLBHandler) ExtractListenerInfo(nlbIID irs.IID) (irs.Li
 		return irs.ListenerInfo{}, err
 	}
 
+
 	resListenerInfo := irs.ListenerInfo{
 		Protocol: *response.Response.Listeners[0].Protocol,
 		Port:     strconv.FormatInt(*response.Response.Listeners[0].Port, 10),
 	}
+
 
 	ipRequest := clb.NewDescribeLoadBalancersRequest()
 	ipRequest.LoadBalancerIds = common.StringPtrs([]string{nlbIID.SystemId})
@@ -344,6 +361,7 @@ func (NLBHandler *TencentNLBHandler) ExtractVMGroupInfo(nlbIID irs.IID) (irs.VMG
 		return irs.VMGroupInfo{}, errors.New("Target VM does not exist!")
 	}
 
+
 	resVmInfo := irs.VMGroupInfo{
 		Protocol: "TCP",
 		Port:     strconv.FormatInt(*response.Response.Listeners[0].Targets[0].Port, 10),
@@ -355,6 +373,7 @@ func (NLBHandler *TencentNLBHandler) ExtractVMGroupInfo(nlbIID irs.IID) (irs.VMG
 	}
 
 	resVmInfo.VMs = &vms
+
 
 	return resVmInfo, nil
 }
@@ -371,6 +390,7 @@ func (NLBHandler *TencentNLBHandler) ExtractHealthCheckerInfo(nlbIID irs.IID) (i
 		return irs.HealthCheckerInfo{}, err
 	}
 
+
 	resHealthCheckerInfo := irs.HealthCheckerInfo{
 		Protocol:  *response.Response.Listeners[0].HealthCheck.CheckType,
 		Port:      strconv.FormatInt(*response.Response.Listeners[0].HealthCheck.CheckPort, 10),
@@ -379,7 +399,9 @@ func (NLBHandler *TencentNLBHandler) ExtractHealthCheckerInfo(nlbIID irs.IID) (i
 		Threshold: int(*response.Response.Listeners[0].HealthCheck.HealthNum),
 	}
 
+
 	return resHealthCheckerInfo, nil
+
 }
 
 func (NLBHandler *TencentNLBHandler) DeleteNLB(nlbIID irs.IID) (bool, error) {
@@ -416,11 +438,14 @@ func (NLBHandler *TencentNLBHandler) DeleteNLB(nlbIID irs.IID) (bool, error) {
 }
 
 func (NLBHandler *TencentNLBHandler) ChangeListener(nlbIID irs.IID, listener irs.ListenerInfo) (irs.ListenerInfo, error) {
+
 	cblogger.Info("TENCENT_CANNOT_CHANGE_LISTENER")
+
 	return irs.ListenerInfo{}, nil
 }
 
 func (NLBHandler *TencentNLBHandler) ChangeVMGroupInfo(nlbIID irs.IID, vmGroup irs.VMGroupInfo) (irs.VMGroupInfo, error) {
+
 	vmGroupInfo, vmGroupInfoErr := NLBHandler.ExtractVMGroupInfo(nlbIID)
 	if vmGroupInfoErr != nil {
 		return irs.VMGroupInfo{}, vmGroupInfoErr
@@ -493,11 +518,13 @@ func (NLBHandler *TencentNLBHandler) ChangeVMGroupInfo(nlbIID irs.IID, vmGroup i
 	}
 
 	return vmGroupInfoResult, nil
+
 }
 
 func (NLBHandler *TencentNLBHandler) AddVMs(nlbIID irs.IID, vmIIDs *[]irs.IID) (irs.VMGroupInfo, error) {
 
 	newNLBId := nlbIID.SystemId
+
 	vmGroupInfoResult := irs.VMGroupInfo{}
 
 	// logger for HisCall
@@ -512,6 +539,7 @@ func (NLBHandler *TencentNLBHandler) AddVMs(nlbIID irs.IID, vmIIDs *[]irs.IID) (
 		ErrorMSG:     "",
 	}
 
+
 	request := clb.NewDescribeListenersRequest()
 	request.LoadBalancerId = common.StringPtr(newNLBId)
 	response, err := NLBHandler.Client.DescribeListeners(request)
@@ -520,6 +548,7 @@ func (NLBHandler *TencentNLBHandler) AddVMs(nlbIID irs.IID, vmIIDs *[]irs.IID) (
 	}
 
 	newListenerId := *response.Response.Listeners[0].ListenerId
+
 	backendPort := int64(0)
 	vmGroupInfo, vmGroupInfoErr := NLBHandler.ExtractVMGroupInfo(nlbIID)
 	if vmGroupInfoErr != nil {
@@ -530,6 +559,7 @@ func (NLBHandler *TencentNLBHandler) AddVMs(nlbIID irs.IID, vmIIDs *[]irs.IID) (
 			return irs.VMGroupInfo{}, portErr
 		}
 		backendPort = port
+
 
 	}
 
@@ -552,6 +582,7 @@ func (NLBHandler *TencentNLBHandler) AddVMs(nlbIID irs.IID, vmIIDs *[]irs.IID) (
 		return irs.VMGroupInfo{}, targetErr
 	}
 	fmt.Printf("%s", targetResponse.ToJsonString())
+
 
 	callogger.Info(call.String(callLogInfo))
 
@@ -632,6 +663,7 @@ func (NLBHandler *TencentNLBHandler) RemoveVMs(nlbIID irs.IID, vmIIDs *[]irs.IID
 	callogger.Info(call.String(callLogInfo))
 
 	return true, nil
+
 }
 
 func (NLBHandler *TencentNLBHandler) GetVMGroupHealthInfo(nlbIID irs.IID) (irs.HealthInfo, error) {
@@ -659,7 +691,9 @@ func (NLBHandler *TencentNLBHandler) GetVMGroupHealthInfo(nlbIID irs.IID) (irs.H
 		return irs.HealthInfo{}, err
 	}
 
+
 	callogger.Info(call.String(callLogInfo))
+
 
 	vmGroup := response.Response.LoadBalancers[0].Listeners[0].Rules[0].Targets
 
@@ -685,6 +719,7 @@ func (NLBHandler *TencentNLBHandler) GetVMGroupHealthInfo(nlbIID irs.IID) (irs.H
 }
 
 func (NLBHandler *TencentNLBHandler) ChangeHealthCheckerInfo(nlbIID irs.IID, healthChecker irs.HealthCheckerInfo) (irs.HealthCheckerInfo, error) {
+
 	newNLBId := nlbIID.SystemId
 	healthCheckerResult := irs.HealthCheckerInfo{}
 
@@ -745,6 +780,7 @@ func (NLBHandler *TencentNLBHandler) ChangeHealthCheckerInfo(nlbIID irs.IID, hea
 	}
 
 	return healthCheckerResult, nil
+
 }
 
 func (NLBHandler *TencentNLBHandler) WaitForRun(nlbIID irs.IID) (string, error) {

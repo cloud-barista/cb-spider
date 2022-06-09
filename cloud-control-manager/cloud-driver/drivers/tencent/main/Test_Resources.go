@@ -293,6 +293,7 @@ func handleSecurity() {
 				cblogger.Infof("[%s] Rule 추가 테스트", securityId)
 				securityRules := &[]irs.SecurityRuleInfo{
 
+
 					{
 						//20-22 Prot로 등록
 						FromPort:   "-1",
@@ -1070,6 +1071,7 @@ func handleVM() {
 	}
 }
 
+
 func handleNLB() {
 	cblogger.Debug("Start NLB Resource Test")
 	ResourceHandler, err := testconf.GetResourceHandler("NLB")
@@ -1080,6 +1082,7 @@ func handleNLB() {
 	handler := ResourceHandler.(irs.NLBHandler)
 
 	nlbReqInfo := irs.NLBInfo{
+
 		IId:           irs.IID{NameId: "New-CB-NLB"},
 		VpcIID:        irs.IID{SystemId: "vpc-i614yona"},
 		Type:          "PUBLIC",
@@ -1094,6 +1097,7 @@ func handleNLB() {
 
 	reqNLBId := irs.IID{SystemId: "lb-bncjy6tp"}
 
+
 	for {
 		fmt.Println("Handler Management")
 		fmt.Println("0. Quit")
@@ -1107,6 +1111,7 @@ func handleNLB() {
 		fmt.Println("8. Listener Change")
 		fmt.Println("9. VM Group Change")
 		fmt.Println("10. Health Checker Change")
+
 
 		var commandNum int
 		inputCnt, err := fmt.Scan(&commandNum)
