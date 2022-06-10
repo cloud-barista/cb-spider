@@ -633,6 +633,10 @@ func (NLBHandler *AwsNLBHandler) ListNLB() ([]*irs.NLBInfo, error) {
 
 	var results []*irs.NLBInfo
 	for _, curNLB := range result.LoadBalancers {
+		if !strings.EqualFold(*curNLB.Type, "network") {
+			cblogger.Infof("%s load balancer는 관리 대상이 아니라서 Skip함!!! - [%s]", *curNLB.Type, *curNLB.LoadBalancerName)
+			continue
+		}
 		nlbInfo, errNLBInfo := NLBHandler.GetNLB(irs.IID{SystemId: *curNLB.LoadBalancerArn})
 		if errNLBInfo != nil {
 			cblogger.Error(errNLBInfo.Error())
