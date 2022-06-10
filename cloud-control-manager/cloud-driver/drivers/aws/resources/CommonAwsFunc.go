@@ -34,9 +34,11 @@ const CBDefaultCidrBlock string = "192.168.0.0/16"  // CB Default CidrBlock
 const CBCloudInitFilePath string = "/cloud-driver-libs/.cloud-init-common/cloud-init"
 const CBDefaultVmUserName string = "cb-user" // default VM User Name
 
-const CUSTOM_ERR_CODE_TOOMANY string = "600"     //awserr.New("600", "n개 이상의 xxxx 정보가 존재합니다.", nil)
-const CUSTOM_ERR_CODE_NOTFOUND string = "404"    //awserr.New("404", "XXX 정보가 존재하지 않습니다.", nil)
-const CUSTOM_ERR_CODE_BAD_REQUEST string = "400" //awserr.New("400", "요청 정보가 잘 못 되었습니다.", nil)
+const CUSTOM_ERR_CODE_TOOMANY string = "600"            //awserr.New("600", "n개 이상의 xxxx 정보가 존재합니다.", nil)
+const CUSTOM_ERR_CODE_BAD_REQUEST string = "400"        //awserr.New("400", "요청 정보가 잘 못 되었습니다.", nil)
+const CUSTOM_ERR_CODE_NOTFOUND string = "404"           //awserr.New("404", "XXX 정보가 존재하지 않습니다.", nil)
+const CUSTOM_ERR_CODE_METHOD_NOT_ALLOWED string = "405" //awserr.New("405", "지원되지 않는 기능입니다.", nil)
+const CUSTOM_ERR_CODE_NOT_IMPLEMENTED string = "501"    //awserr.New("501", "기능이 구현되어 있지 않습니다.", nil)
 
 type AwsCBNetworkInfo struct {
 	VpcName   string

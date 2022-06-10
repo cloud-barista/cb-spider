@@ -1235,7 +1235,7 @@ func handleNLB() {
 		VMGroup: irs.VMGroupInfo{
 			Protocol: "TCP", //TCP|UDP|HTTP|HTTPS
 			Port:     "22",  //1-65535
-			VMs:      &[]irs.IID{irs.IID{SystemId: "i-0dcbcbeadbb14212f"}, irs.IID{SystemId: "i-0cba8efe123ab0b42"}},
+			VMs:      &[]irs.IID{irs.IID{SystemId: "i-0dcbcbeadbb14212f"}, irs.IID{SystemId: "i-0cba8efe123ab0b42"}, irs.IID{SystemId: "i-010c858cbe5b6fe93"}},
 		},
 
 		HealthChecker: irs.HealthCheckerInfo{
@@ -1299,7 +1299,7 @@ func handleNLB() {
 				if err != nil {
 					cblogger.Infof(nlbReqInfo.IId.NameId, " NLB 생성 실패 : ", err)
 				} else {
-					cblogger.Infof("NLB 생성 결과 : ", result)
+					cblogger.Infof("NLB 생성 성공 : ", result)
 					nlbReqInfo.IId = result.IId // 조회 및 삭제를 위해 생성된 ID로 변경
 					if cblogger.Level.String() == "debug" {
 						spew.Dump(result)
@@ -1312,7 +1312,7 @@ func handleNLB() {
 				if err != nil {
 					cblogger.Infof("[%s] NLB 조회 실패 : ", nlbReqInfo.IId.NameId, err)
 				} else {
-					cblogger.Infof("[%s] NLB 조회 결과 : [%s]", nlbReqInfo.IId.NameId, result)
+					cblogger.Infof("[%s] NLB 조회 성공 : [%s]", nlbReqInfo.IId.NameId, result)
 					if cblogger.Level.String() == "debug" {
 						spew.Dump(result)
 					}
@@ -1325,7 +1325,7 @@ func handleNLB() {
 					cblogger.Infof("[%s] NLB 삭제 실패 : ", nlbReqInfo.IId.NameId, err)
 				} else {
 					cblogger.Info("성공")
-					cblogger.Infof("[%s] NLB 삭제 결과 : [%s]", nlbReqInfo.IId.NameId, result)
+					cblogger.Infof("[%s] NLB 삭제 성공 : [%s]", nlbReqInfo.IId.NameId, result)
 				}
 
 			case 5:
@@ -1339,7 +1339,7 @@ func handleNLB() {
 				if err != nil {
 					cblogger.Infof("[%s] 리스너 변경 실패 : ", nlbReqInfo.IId.NameId, err)
 				} else {
-					cblogger.Infof("[%s] 리스너 변경 결과 : [%s]", nlbReqInfo.IId.NameId, result)
+					cblogger.Infof("[%s] 리스너 변경 성공 : [%s]", nlbReqInfo.IId.NameId, result)
 					if cblogger.Level.String() == "debug" {
 						spew.Dump(result)
 					}
@@ -1353,7 +1353,7 @@ func handleNLB() {
 					cblogger.Infof("[%s] AddVMs 실패 : ", nlbReqInfo.IId.NameId, err)
 				} else {
 					cblogger.Info("성공")
-					cblogger.Infof("[%s] AddVMs 결과 : [%s]", nlbReqInfo.IId.NameId, result)
+					cblogger.Infof("[%s] AddVMs 성공 : [%s]", nlbReqInfo.IId.NameId, result)
 				}
 
 			case 8:
@@ -1364,7 +1364,7 @@ func handleNLB() {
 					cblogger.Infof("[%s] RemoveVMs 실패 : ", nlbReqInfo.IId.NameId, err)
 				} else {
 					cblogger.Info("성공")
-					cblogger.Infof("[%s] RemoveVMs 결과 : [%s]", nlbReqInfo.IId.NameId, result)
+					cblogger.Infof("[%s] RemoveVMs 성공 : [%s]", nlbReqInfo.IId.NameId, result)
 				}
 
 			case 9:
@@ -1373,12 +1373,43 @@ func handleNLB() {
 				if err != nil {
 					cblogger.Infof("[%s] GetVMGroupHealthInfo 실패 : ", nlbReqInfo.IId.NameId, err)
 				} else {
-					cblogger.Infof("[%s] GetVMGroupHealthInfo 결과 : [%s]", nlbReqInfo.IId.NameId, result)
+					cblogger.Infof("[%s] GetVMGroupHealthInfo 성공 : [%s]", nlbReqInfo.IId.NameId, result)
 					if cblogger.Level.String() == "debug" {
 						spew.Dump(result)
 					}
 				}
 
+			case 6:
+				cblogger.Infof("[%s] NLB VM Group 변경 테스트", nlbReqInfo.IId.NameId)
+				result, err := handler.ChangeVMGroupInfo(nlbReqInfo.IId, irs.VMGroupInfo{
+					Protocol: "TCP",
+					Port:     "8080",
+				})
+				if err != nil {
+					cblogger.Infof("[%s] NLB VM Group 변경 실패 : ", nlbReqInfo.IId.NameId, err)
+				} else {
+					cblogger.Infof("[%s] NLB VM Group 변경 성공 : [%s]", nlbReqInfo.IId.NameId, result)
+					if cblogger.Level.String() == "debug" {
+						spew.Dump(result)
+					}
+				}
+			case 10:
+				cblogger.Infof("[%s] NLB Health Checker 변경 테스트", nlbReqInfo.IId.NameId)
+				result, err := handler.ChangeHealthCheckerInfo(nlbReqInfo.IId, irs.HealthCheckerInfo{
+					Protocol: "TCP",
+					Port:     "22",
+					//Interval: 10, //미지원
+					//Timeout:   3,	//미지원
+					Threshold: 5,
+				})
+				if err != nil {
+					cblogger.Infof("[%s] NLB Health Checker 변경 실패 : ", nlbReqInfo.IId.NameId, err)
+				} else {
+					cblogger.Infof("[%s] NLB Health Checker 변경 성공 : [%s]", nlbReqInfo.IId.NameId, result)
+					if cblogger.Level.String() == "debug" {
+						spew.Dump(result)
+					}
+				}
 			}
 		}
 	}

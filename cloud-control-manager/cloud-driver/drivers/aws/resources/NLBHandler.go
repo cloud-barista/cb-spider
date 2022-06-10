@@ -215,6 +215,68 @@ func (NLBHandler *AwsNLBHandler) CreateTargetGroup(nlbReqInfo irs.NLBInfo) (*elb
 	return result, nil
 }
 
+// NLB에서 사용할 서브넷 정보를 추출함.
+func (NLBHandler *AwsNLBHandler) ExtractNlbSubnets(vpcId string) ([]*string, error) {
+	//VPCHandler의 경우 리턴 정보가 부족해서 이 곳에 새로 구현 함.
+	input := &ec2.DescribeSubnetsInput{
+		Filters: []*ec2.Filter{
+			{
+				Name: aws.String("vpc-id"),
+				Values: []*string{
+					aws.String(vpcId),
+				},
+			},
+		},
+	}
+
+	//spew.Dump(input)
+	result, err := NLBHandler.VMClient.DescribeSubnets(input)
+	if err != nil {
+		if aerr, ok := err.(awserr.Error); ok {
+			switch aerr.Code() {
+			default:
+				cblogger.Error(aerr.Error())
+			}
+		} else {
+			// Print the error, cast err to awserr.Error to get the Code and
+			// Message from an error.
+			cblogger.Error(err.Error())
+		}
+		return nil, err
+	}
+
+	if cblogger.Level.String() == "debug" {
+		spew.Dump(result)
+	}
+
+	//서브넷 정보 추출
+	mapZone := map[string]string{} //AZ별 1개의 서브넷만 사용 가능하기 때문에 중복을 제거 함. (형식) mapZone["AZ"]="서브넷"
+	cblogger.Debug("사용 가능한 Subnet 목록 조회")
+	for _, curSubnet := range result.Subnets {
+		cblogger.Debugf("[%s] AZ [%s] Subnet", *curSubnet.AvailabilityZone, *curSubnet.SubnetId)
+		mapZone[*curSubnet.AvailabilityZone] = *curSubnet.SubnetId
+	}
+
+	//최종 사용할 서브넷 목록만 추출함.
+	cblogger.Info("NLB에 사용하기 위해 최종 선택된 Subnet 목록")
+	subnetList := []*string{}
+	for key, val := range mapZone {
+		cblogger.Infof("AZ[%s] Subnet[%s]", key, val)
+		subnetList = append(subnetList, aws.String(val))
+	}
+
+	return subnetList, nil
+}
+
+// NLB는 AZ별 1개의 서브넷만 선택 가능한데 NLB 생성 요청 정보에는 Subnet 정보가 없어서
+// 성능을 위해 가급적 등록할 VM이 속한 AZ별 Subnet을 추출하려 했으나...
+// NLB에 VM을 추가하는 AddVMS 처리시에 등록되지 않은 AZ를 추가로 처리해야 하기 때문에 현재는 이 함수의 로직을 잠시 보류하고...
+// NLB 생성시 전달 받은 VPC에 존재하는 AZ별 서브넷 1개를 랜덤으로 선택하는 방안으로 대체함.(ExtractNlbSubnets)
+//
+// 성능 등을 감안할 때 ExtractVmSubnets 방식이 좋을 수 있기에 현재 로직은 보관해 놓지만...
+// AZ 정보를 조회하는 로직은 아직 구현하지 않은 상태라서 선택된 전체 VM중 1개의 Subnet만 선택되기에 바로 사용하면 안 됨.
+//
+// TODO : 서브넷의 AZ 이름을 조회해서 "az" KEY대신 실제 AZ 이름으로 처리해야 함. / 필요한 경우 VM정보 조회 시 페이징 로직도 구현해야 함.
 func (NLBHandler *AwsNLBHandler) ExtractVmSubnets(VMs *[]irs.IID) ([]*string, error) {
 	cblogger.Debug(VMs)
 	if len(*VMs) == 0 {
@@ -247,12 +309,19 @@ func (NLBHandler *AwsNLBHandler) ExtractVmSubnets(VMs *[]irs.IID) ([]*string, er
 	}
 
 	//VM의 서브넷 정보 추출
-	subnetList := []*string{}
+	mapZone := map[string]string{} //AZ별 1개의 서브넷만 사용 가능하기 때문에 중복을 제거 함. mapZone["AZ"]="서브넷"
 	for _, i := range result.Reservations {
 		for _, vm := range i.Instances {
 			cblogger.Debugf("[%s] EC2 Subnet : [%s]", *vm.InstanceId, *vm.SubnetId)
-			subnetList = append(subnetList, vm.SubnetId)
+			mapZone["az"] = *vm.SubnetId // @TODO 서브넷의 AZ 이름을 조회해서 "az" KEY대신 실제 AZ 이름으로 처리해야 함.
 		}
+	}
+
+	//최종 사용할 서브넷 목록만 추출함.
+	subnetList := []*string{}
+	for key, val := range mapZone {
+		cblogger.Debug("AZ[%s] Subnet[%s]", key, val)
+		subnetList = append(subnetList, aws.String(val))
 	}
 
 	/*
@@ -271,22 +340,20 @@ func (NLBHandler *AwsNLBHandler) ExtractVmSubnets(VMs *[]irs.IID) ([]*string, er
 	return subnetList, nil
 }
 
-//&elbv2.CreateTargetGroupInput
-func (NLBHandler *AwsNLBHandler) CheckCreateValidation(nlbReqInfo irs.NLBInfo) error {
-	//&elbv2.CreateTargetGroupInput
-	if nlbReqInfo.HealthChecker.Interval > 0 {
+func (NLBHandler *AwsNLBHandler) CheckHealthCheckerValidation(reqHealthCheckerInfo irs.HealthCheckerInfo) error {
+	if reqHealthCheckerInfo.Interval > 0 {
 		//TCP, TLS, UDP, or TCP_UDP의 경우 Health check interval은 10이나 30만 가능함.
 		// The approximate amount of time, in seconds, between health checks of an individual target.
 		// If the target group protocol is TCP, TLS, UDP, or TCP_UDP, the supported values are 10 and 30 seconds.
 		// If the target group protocol is HTTP or HTTPS, the default is 30 seconds.
 		// If the target group protocol is GENEVE, the default is 10 seconds.
 		// If the target type is lambda, the default is 35 seconds
-		if strings.EqualFold(nlbReqInfo.HealthChecker.Protocol, "TCP") || strings.EqualFold(nlbReqInfo.HealthChecker.Protocol, "TLS") || strings.EqualFold(nlbReqInfo.HealthChecker.Protocol, "UDP") || strings.EqualFold(nlbReqInfo.HealthChecker.Protocol, "TCP_UDP") {
+		if strings.EqualFold(reqHealthCheckerInfo.Protocol, "TCP") || strings.EqualFold(reqHealthCheckerInfo.Protocol, "TLS") || strings.EqualFold(reqHealthCheckerInfo.Protocol, "UDP") || strings.EqualFold(reqHealthCheckerInfo.Protocol, "TCP_UDP") {
 			//헬스 체크 인터벌 값 검증
-			if nlbReqInfo.HealthChecker.Interval == 10 || nlbReqInfo.HealthChecker.Interval == 30 {
-				cblogger.Debugf("===================> 헬스 체크 인터벌 값 검증 : 통과 : [%d]", nlbReqInfo.HealthChecker.Interval)
+			if reqHealthCheckerInfo.Interval == 10 || reqHealthCheckerInfo.Interval == 30 {
+				cblogger.Debugf("===================> 헬스 체크 인터벌 값 검증 : 통과 : [%d]", reqHealthCheckerInfo.Interval)
 			} else {
-				cblogger.Errorf("===================> 헬스 체크 인터벌 값 검증 : 실패 - 입력 값 : [%d]", nlbReqInfo.HealthChecker.Interval)
+				cblogger.Errorf("===================> 헬스 체크 인터벌 값 검증 : 실패 - 입력 값 : [%d]", reqHealthCheckerInfo.Interval)
 				cblogger.Error("TCP 프로토콜의 헬스 체크 인터벌은 10 또는 30만 가능 함.")
 				return awserr.New(CUSTOM_ERR_CODE_BAD_REQUEST, "The health check interval for TCP protocol can only be 10 or 30.", nil)
 			}
@@ -300,16 +367,24 @@ func (NLBHandler *AwsNLBHandler) CheckCreateValidation(nlbReqInfo irs.NLBInfo) e
 	// For target groups with a protocol of HTTP, HTTPS, or GENEVE, the default is 5 seconds.
 	// For target groups with a protocol of TCP or TLS, this value must be 6 seconds for HTTP health checks and 10 seconds for TCP and HTTPS health checks.
 	// If the target type is lambda, the default is 30 seconds.
-	if nlbReqInfo.HealthChecker.Timeout > 0 {
-		if strings.EqualFold(nlbReqInfo.HealthChecker.Protocol, "TCP") {
+	if reqHealthCheckerInfo.Timeout > 0 {
+		if strings.EqualFold(reqHealthCheckerInfo.Protocol, "TCP") {
 			cblogger.Errorf("===================> TCP 프로토콜은 헬스 체크 타임아웃 값 설정을 지원하지 않음")
 			return awserr.New(CUSTOM_ERR_CODE_BAD_REQUEST, "Custom health check timeouts are not supported for health checks for target groups with the TCP protocol.", nil)
 		} else {
-			cblogger.Debugf("===================> 헬스 체크 타임아웃 값 검증 : 통과 : [%d](TCP프로토콜 아님)", nlbReqInfo.HealthChecker.Timeout)
+			cblogger.Debugf("===================> 헬스 체크 타임아웃 값 검증 : 통과 : [%d](TCP프로토콜 아님)", reqHealthCheckerInfo.Timeout)
 		}
 	}
 
 	return nil
+}
+
+//&elbv2.CreateTargetGroupInput
+func (NLBHandler *AwsNLBHandler) CheckCreateValidation(nlbReqInfo irs.NLBInfo) error {
+	//&elbv2.CreateTargetGroupInput
+
+	return NLBHandler.CheckHealthCheckerValidation(nlbReqInfo.HealthChecker)
+	//return nil
 }
 
 //------ NLB Management
@@ -328,7 +403,9 @@ func (NLBHandler *AwsNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (irs.NLBInfo,
 	//==================
 	//서브넷 정보 추출
 	//==================
-	vmSubnets, errVmInfo := NLBHandler.ExtractVmSubnets(nlbReqInfo.VMGroup.VMs)
+
+	//vmSubnets, errVmInfo := NLBHandler.ExtractVmSubnets(nlbReqInfo.VMGroup.VMs)
+	vmSubnets, errVmInfo := NLBHandler.ExtractNlbSubnets(nlbReqInfo.VpcIID.SystemId)
 	if errVmInfo != nil {
 		cblogger.Error(errVmInfo)
 		return irs.NLBInfo{}, errVmInfo
@@ -736,12 +813,12 @@ func (NLBHandler *AwsNLBHandler) ExtractVMGroupInfo(nlbIID irs.IID) (TargetGroup
 		//=================================
 		targetGroupInfo.HealthChecker = irs.HealthCheckerInfo{
 			CspID:     *result.TargetGroups[0].TargetGroupArn,
-			Protocol:  *result.TargetGroups[0].Protocol,
+			Protocol:  *result.TargetGroups[0].HealthCheckProtocol,
+			Port:      *result.TargetGroups[0].HealthCheckPort,
 			Interval:  int(*result.TargetGroups[0].HealthCheckIntervalSeconds),
 			Timeout:   int(*result.TargetGroups[0].HealthCheckTimeoutSeconds),
 			Threshold: int(*result.TargetGroups[0].HealthyThresholdCount),
 		}
-		targetGroupInfo.HealthChecker.Port = strconv.FormatInt(*result.TargetGroups[0].Port, 10)
 
 		//================
 		//Key Value 처리
@@ -749,9 +826,9 @@ func (NLBHandler *AwsNLBHandler) ExtractVMGroupInfo(nlbIID irs.IID) (TargetGroup
 		keyValueList, _ := ConvertKeyValueList(result.TargetGroups[0])
 		targetGroupInfo.VMGroup.KeyValueList = keyValueList
 
-		//================
-		//VM 정보 처리
-		//================
+		//=========================
+		// 헬스 상태별 VM 목록 처리
+		//=========================
 		targetHealthInfo, errHealthInfo := NLBHandler.ExtractVMGroupHealthInfo(*result.TargetGroups[0].TargetGroupArn)
 		if err != nil {
 			return TargetGroupInfo{}, errHealthInfo
@@ -764,7 +841,9 @@ func (NLBHandler *AwsNLBHandler) ExtractVMGroupInfo(nlbIID irs.IID) (TargetGroup
 	}
 }
 
-func (NLBHandler *AwsNLBHandler) ExtractHealthCheckerInfo(targetGroupArn string) (irs.HealthCheckerInfo, error) {
+// 타겟 그룹에 있는 인스턴스들의 헬스 상태 목록 조회 - 현재 바리스타에서 미사용
+// "인스턴스 / 포트 / 헬스 상태"의 배열
+func (NLBHandler *AwsNLBHandler) ExtractHealthCheckerInfo(targetGroupArn string) ([]*elbv2.TargetHealthDescription, error) {
 	input := &elbv2.DescribeTargetHealthInput{
 		//TargetGroupArn : aws.String(nlbIID.SystemId),
 		TargetGroupArn: aws.String(targetGroupArn),
@@ -788,7 +867,7 @@ func (NLBHandler *AwsNLBHandler) ExtractHealthCheckerInfo(targetGroupArn string)
 			// Message from an error.
 			cblogger.Error(err.Error())
 		}
-		return irs.HealthCheckerInfo{}, err
+		return nil, err
 	}
 
 	cblogger.Debug(result)
@@ -796,20 +875,7 @@ func (NLBHandler *AwsNLBHandler) ExtractHealthCheckerInfo(targetGroupArn string)
 		spew.Dump(result)
 	}
 
-	if len(result.TargetHealthDescriptions) > 0 {
-		retHealthCheckerInfo := irs.HealthCheckerInfo{
-			//Protocol: *result.TargetHealthDescriptions[0].Target.
-			Port: *result.TargetHealthDescriptions[0].HealthCheckPort,
-			//Interval: 정보 없음
-			//Timeout: 정보 없음
-			//Threshold: 정보 없음
-			//VMs[]: 정보 없음
-		}
-		//retHealthCheckerInfo.Port = strconv.FormatInt(*result.TargetHealthDescriptions[0].Target.Port, 10)
-		return retHealthCheckerInfo, nil
-	} else {
-		return irs.HealthCheckerInfo{}, nil
-	}
+	return result.TargetHealthDescriptions, nil
 }
 
 func (NLBHandler *AwsNLBHandler) ExtractNLBInfo(nlbReqInfo *elbv2.LoadBalancer) (irs.NLBInfo, error) {
@@ -862,18 +928,6 @@ func (NLBHandler *AwsNLBHandler) ExtractNLBInfo(nlbReqInfo *elbv2.LoadBalancer) 
 	}
 	retListenerInfo.DNSName = *nlbReqInfo.DNSName
 	retNLBInfo.Listener = retListenerInfo
-
-	/*
-		//==================
-		// HealthChecker 처리
-		//==================
-		retHealthCheckerInfo, errHealthCheckerInfo := NLBHandler.ExtractHealthCheckerInfo(retVMGroupInfo.CspID)
-		if errHealthCheckerInfo != nil {
-			cblogger.Error(errHealthCheckerInfo.Error())
-			return irs.NLBInfo{}, errHealthCheckerInfo
-		}
-		retNLBInfo.HealthChecker = retHealthCheckerInfo
-	*/
 
 	return retNLBInfo, nil
 }
@@ -1157,12 +1211,7 @@ func (NLBHandler *AwsNLBHandler) ChangeListener(nlbIID irs.IID, listener irs.Lis
 
 //------ Backend Control
 func (NLBHandler *AwsNLBHandler) ChangeVMGroupInfo(nlbIID irs.IID, vmGroup irs.VMGroupInfo) (irs.VMGroupInfo, error) {
-	if nlbIID.SystemId == "" {
-		cblogger.Error("IID 값이 Null임.")
-		return irs.VMGroupInfo{}, awserr.New(CUSTOM_ERR_CODE_BAD_REQUEST, "nlbIID.systemId value of the input parameter is empty.", nil)
-	}
-
-	return irs.VMGroupInfo{}, nil
+	return irs.VMGroupInfo{}, awserr.New(CUSTOM_ERR_CODE_METHOD_NOT_ALLOWED, "Changing VMGroup information is not supported.", nil)
 }
 
 // @TODO : VM 추가 시 NLB에 등록되지 않은 서브넷의 경우 추가 및 검증 로직 필요
@@ -1427,5 +1476,99 @@ func (NLBHandler *AwsNLBHandler) ChangeHealthCheckerInfo(nlbIID irs.IID, healthC
 		return irs.HealthCheckerInfo{}, awserr.New(CUSTOM_ERR_CODE_BAD_REQUEST, "nlbIID.systemId value of the input parameter is empty.", nil)
 	}
 
-	return irs.HealthCheckerInfo{}, nil
+	//입력 파라메터 값을 검증 함.
+	errCheckValidaton := NLBHandler.CheckHealthCheckerValidation(healthChecker)
+	if errCheckValidaton != nil {
+		return irs.HealthCheckerInfo{}, errCheckValidaton
+	}
+
+	//TCP의 경우 인터벌은 생성 후 변경 불가
+	if healthChecker.Interval > 0 {
+		if strings.EqualFold(healthChecker.Protocol, "TCP") {
+			cblogger.Errorf("===================> TCP 프로토콜은 인터벌 값 변경을 지원하지 않음")
+			return irs.HealthCheckerInfo{}, awserr.New(CUSTOM_ERR_CODE_BAD_REQUEST, "You cannot change the health check interval for a target group with the TCP protocol.", nil)
+		}
+	}
+
+	//TargetGroup ARN을 조회하기 위해 VM그룹 정보를 조회 함.
+	retTargetGroupInfo, errVMGroupInfo := NLBHandler.ExtractVMGroupInfo(nlbIID)
+	if errVMGroupInfo != nil {
+		cblogger.Error(errVMGroupInfo.Error())
+		return irs.HealthCheckerInfo{}, errVMGroupInfo
+	}
+
+	input := &elbv2.ModifyTargetGroupInput{
+		//HealthCheckPort:     aws.String("443"),
+		//HealthCheckProtocol: aws.String("HTTPS"),
+		TargetGroupArn: aws.String(retTargetGroupInfo.VMGroup.CspID),
+	}
+
+	// NLB의 경우 프로토콜 변경 불가
+	if healthChecker.Protocol != "" {
+		input.HealthCheckProtocol = aws.String(healthChecker.Protocol)
+	}
+
+	if healthChecker.Port != "" {
+		input.HealthCheckPort = aws.String(healthChecker.Port)
+	}
+
+	//============
+	//헬스체크
+	//============
+	// 인터벌 설정
+	// Health check interval '60' not supported for target groups with the TCP protocol. Must be one of the following values '[10, 30]'.
+	if healthChecker.Interval > 0 {
+		input.HealthCheckIntervalSeconds = aws.Int64(int64(healthChecker.Interval))
+	}
+
+	// 타임아웃 설정 - TCP는 타임아웃 설정 기능 미지원. (HTTP는 설정 가능 하지만 NLB라서 TCP 외에는 셋팅 불가)
+	if healthChecker.Timeout > 0 {
+		input.HealthCheckTimeoutSeconds = aws.Int64(int64(healthChecker.Timeout))
+	}
+
+	// Threshold 설정
+	if healthChecker.Threshold > 0 {
+		input.HealthyThresholdCount = aws.Int64(int64(healthChecker.Threshold))
+
+		//TCP는 HealthyThresholdCount와 UnhealthyThresholdCount 값을 동일하게 설정해야 함.
+		if strings.EqualFold(healthChecker.Protocol, "TCP") {
+			input.UnhealthyThresholdCount = aws.Int64(int64(healthChecker.Threshold))
+		}
+	}
+
+	result, err := NLBHandler.Client.ModifyTargetGroup(input)
+	if err != nil {
+		if aerr, ok := err.(awserr.Error); ok {
+			switch aerr.Code() {
+			case elbv2.ErrCodeTargetGroupNotFoundException:
+				cblogger.Error(elbv2.ErrCodeTargetGroupNotFoundException, aerr.Error())
+			case elbv2.ErrCodeInvalidConfigurationRequestException:
+				cblogger.Error(elbv2.ErrCodeInvalidConfigurationRequestException, aerr.Error())
+			default:
+				cblogger.Error(aerr.Error())
+			}
+		} else {
+			// Print the error, cast err to awserr.Error to get the Code and
+			// Message from an error.
+			cblogger.Error(err.Error())
+		}
+		return irs.HealthCheckerInfo{}, err
+	}
+
+	cblogger.Info("Health 정보 변경 완료")
+	cblogger.Debug(result)
+	if cblogger.Level.String() == "debug" {
+		spew.Dump(result)
+	}
+
+	//최신 정보 조회
+	//최종 반영까지 시간이 걸리기 때문에 이전 정보를 수신할 확률이 높음.
+	retTargetGroupInfo, errVMGroupInfo = NLBHandler.ExtractVMGroupInfo(nlbIID)
+	if errVMGroupInfo != nil {
+		cblogger.Error(errVMGroupInfo.Error())
+		//return irs.HealthCheckerInfo{}, errVMGroupInfo
+		//정보 변경은 성공했기 때문에 굳이 정보 조회 실패의 경우 굳이 에러를 리턴하지 않음.
+	}
+
+	return retTargetGroupInfo.HealthChecker, nil
 }
