@@ -18,8 +18,6 @@ import (
 	osrs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/openstack/resources"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
-
-	"errors"
 )
 
 var cblogger *logrus.Logger
@@ -31,11 +29,13 @@ func init() {
 
 // OpenStackCloudConnection modified by powerkim, 2019.07.29
 type OpenStackCloudConnection struct {
-	Region        idrv.RegionInfo
-	Client        *gophercloud.ServiceClient
-	ImageClient   *gophercloud.ServiceClient
-	NetworkClient *gophercloud.ServiceClient
-	VolumeClient  *gophercloud.ServiceClient
+	CredentialInfo idrv.CredentialInfo
+	Region         idrv.RegionInfo
+	Client         *gophercloud.ServiceClient
+	ImageClient    *gophercloud.ServiceClient
+	NetworkClient  *gophercloud.ServiceClient
+	VolumeClient   *gophercloud.ServiceClient
+	NLBClient      *gophercloud.ServiceClient
 }
 
 func (cloudConn *OpenStackCloudConnection) CreateImageHandler() (irs.ImageHandler, error) {
@@ -75,7 +75,9 @@ func (cloudConn *OpenStackCloudConnection) CreateVMSpecHandler() (irs.VMSpecHand
 }
 
 func (cloudConn *OpenStackCloudConnection) CreateNLBHandler() (irs.NLBHandler, error) {
-        return nil, errors.New("OpenStack Cloud Driver NLB: WIP")
+	cblogger.Info("OpenStack Cloud Driver: called CreateNLBHandler()!")
+	nlbHandler := osrs.OpenStackNLBHandler{CredentialInfo: cloudConn.CredentialInfo, Region: cloudConn.Region, VMClient: cloudConn.Client, NetworkClient: cloudConn.NetworkClient, NLBClient: cloudConn.NLBClient}
+	return &nlbHandler, nil
 }
 
 func (cloudConn *OpenStackCloudConnection) IsConnected() (bool, error) {
