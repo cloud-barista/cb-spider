@@ -7,6 +7,7 @@
 // This is a Cloud Driver Example for PoC Test.
 //
 // by CB-Spider Team, 2019.06.
+// https://docs.aws.amazon.com/sdk-for-go/api/service/elbv2
 
 package aws
 
@@ -18,21 +19,20 @@ import (
 	//icon "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/connect/AwsNewIfCloudConnect"
 	//icon "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/connect/connect"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/ec2"
-)
-import (
 	"fmt"
 
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
+	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/ec2"
+	"github.com/aws/aws-sdk-go/service/elbv2"
 )
 
 type AwsDriver struct {
 }
 
 func (AwsDriver) GetDriverVersion() string {
-	return "TEST AWS DRIVER Version 1.0"
+	return "AWS DRIVER Version 1.0"
 }
 
 func (AwsDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
@@ -46,6 +46,7 @@ func (AwsDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	drvCapabilityInfo.PublicIPHandler = false
 	drvCapabilityInfo.VMHandler = true
 	drvCapabilityInfo.VMSpecHandler = true
+	drvCapabilityInfo.NLBHandler = true
 
 	return drvCapabilityInfo
 }
@@ -79,6 +80,37 @@ func getVMClient(connectionInfo idrv.ConnectionInfo) (*ec2.EC2, error) {
 	return svc, nil
 }
 
+//로드밸런서 처리를 위한 ELB 클라이언트 획득
+func getNLBClient(connectionInfo idrv.ConnectionInfo) (*elbv2.ELBV2, error) {
+	//func getNLBClient(connectionInfo idrv.ConnectionInfo) (*elb.ELB, error) {
+
+	// setup Region
+	fmt.Println("AwsDriver : getVMClient() - Region : [" + connectionInfo.RegionInfo.Region + "]")
+	fmt.Println("AwsDriver : getVMClient() - Zone : [" + connectionInfo.RegionInfo.Zone + "]")
+	//fmt.Println("전달 받은 커넥션 정보")
+	//spew.Dump(connectionInfo)
+
+	sess, err := session.NewSession(&aws.Config{
+		Region: aws.String(connectionInfo.RegionInfo.Region),
+		//Region:      aws.String("ap-northeast-2"),
+		Credentials: credentials.NewStaticCredentials(connectionInfo.CredentialInfo.ClientId, connectionInfo.CredentialInfo.ClientSecret, "")},
+	)
+	if err != nil {
+		fmt.Println("Could not create aws New Session", err)
+		return nil, err
+	}
+
+	//svc := elb.New(sess)
+	// Create ELBv2 service client
+	svc := elbv2.New(sess)
+	if err != nil {
+		fmt.Println("Could not create ELBv2 service client", err)
+		return nil, err
+	}
+
+	return svc, nil
+}
+
 func (driver *AwsDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (icon.CloudConnection, error) {
 	// 1. get info of credential and region for Test A Cloud from connectionInfo.
 	// 2. create a client object(or service  object) of Test A Cloud with credential info.
@@ -91,6 +123,7 @@ func (driver *AwsDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (icon.
 	// sample code, do not user like this^^
 	//var iConn icon.CloudConnection
 	vmClient, err := getVMClient(connectionInfo)
+	nlbClient, err := getNLBClient(connectionInfo)
 	//vmClient, err := getVMClient(connectionInfo.RegionInfo)
 	if err != nil {
 		return nil, err
@@ -109,6 +142,7 @@ func (driver *AwsDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (icon.
 		//PublicIPClient: vmClient,
 		SecurityClient: vmClient,
 		VmSpecClient:   vmClient,
+		NLBClient:      nlbClient,
 	}
 
 	return &iConn, nil // return type: (icon.CloudConnection, error)
