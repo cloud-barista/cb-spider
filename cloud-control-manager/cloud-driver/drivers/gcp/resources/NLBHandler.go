@@ -10,6 +10,7 @@ import (
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/davecgh/go-spew/spew"
 	compute "google.golang.org/api/compute/v1"
+	"google.golang.org/api/googleapi"
 	"strconv"
 	"strings"
 	"time"
@@ -238,6 +239,8 @@ const (
 
 	SCOPE_REGION = "REGION"
 	SCOPE_GLOBAL = "GLOBAL"
+
+	ErrorCode_NotFound = 404
 )
 
 /*
@@ -260,6 +263,12 @@ func (nlbHandler *GCPNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (irs.NLBInfo,
 	nlbName := nlbReqInfo.IId.NameId
 	cblogger.Info("start ", projectID)
 
+	//// validation check area
+	err := nlbHandler.validateCreateNLB(nlbReqInfo)
+	if err != nil {
+		return irs.NLBInfo{}, err
+	}
+
 	// logger for HisCall
 	callogger := call.GetLogger("HISCALL")
 	callLogInfo := call.CLOUDLOGSCHEMA{
@@ -272,14 +281,15 @@ func (nlbHandler *GCPNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (irs.NLBInfo,
 		ErrorMSG:     "",
 	}
 	callLogStart := call.Start()
-	// backend service 없음.
+
+	// backend service == target pool
 	// region forwarding rule, targetpool, targetpool안의 instance에서 사용하는 healthchecker
 
 	cblogger.Info("backend TargetPool 생성 ")
 
 	// 새로운 health checker 등록
 	healthCheckerInfo := nlbReqInfo.HealthChecker
-	err := nlbHandler.insertHealthCheck(regionID, nlbName, &healthCheckerInfo)
+	err = nlbHandler.insertHealthCheck(regionID, nlbName, &healthCheckerInfo)
 	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 	if err != nil {
 		callLogInfo.ErrorMSG = err.Error()
@@ -580,73 +590,103 @@ forwardingRule err  :  googleapi: Error 400: The resource 'projects/yhnoh-335705
 	일부삭제 : remove, 전체 삭제 : delete
 */
 func (nlbHandler *GCPNLBHandler) DeleteNLB(nlbIID irs.IID) (bool, error) {
+	deleteResultMap := make(map[string]error) // 삭제가 정상이면 error == nil
+
 	//projectID := nlbHandler.Credential.ProjectID
 	regionID := nlbHandler.Region.Region
 
 	allDeleted := false
+	//validationMap["TARGETPOOL"] = targetPoolErr
+	//validationMap["FORWARDINGRULE"] = healthCheckErr
+	//validationMap["HEALTHCHECKER"] = forwardingRuleErr
+	validationMap, err := nlbHandler.validateDeleteNLB(nlbIID)
+	if err != nil {
+		return false, err
+	}
+
+	targetPoolName := nlbIID.NameId
+	//targetPoolUrl := nlbIID.SystemId
+
+	// case1 : 정상인 경우 : 셋다 지우는 경우
+	// case2 : 비정상인 경우
 
 	// frontend
+	if validationMap["FORWARDINGRULE"] == nil { // 문제가 있으면 err 값이 들어 있음.
+		forwardingRuleDeleteResult, err := nlbHandler.deleteRegionForwardingRules(regionID, nlbIID)
+		if err != nil {
+			cblogger.Info("DeleteNLB forwardingRule ", forwardingRuleDeleteResult, err)
+			deleteResultMap["FORWARDINGRULE"] = err
+		}
+	}
 
 	// forwarding rule을 모두 조회하여 target이 nlbIID.SystemId 인 forwarding rule 모두 조회
 	// (사용자가 추가 했을 수도 있으므로)
 	// for loop로 돌면서 forwarding rule 이름으로 삭제
-	targetPoolName := nlbIID.NameId
-	targetPoolUrl := nlbIID.SystemId
 
-	forwardingRuleList, err := nlbHandler.listRegionForwardingRules(regionID, "", targetPoolUrl)
-	if err != nil {
-		cblogger.Info("DeleteNLB forwardingRule  err: ", err)
-		return false, err
-	}
+	//forwardingRuleList, err := nlbHandler.listRegionForwardingRules(regionID, "", targetPoolUrl)
+	//if err != nil {
+	//	cblogger.Info("DeleteNLB forwardingRule  err: ", err)
+	//	return false, err
+	//}
+	//
+	//deleteCount := 0
+	//itemLength := len(forwardingRuleList.Items)
+	//for idx, forwardingRule := range forwardingRuleList.Items {
+	//	err := nlbHandler.deleteRegionForwardingRule(regionID, forwardingRule.Name)
+	//	if err != nil {
+	//		cblogger.Info("DeleteNLB forwardingRule  err: ", err)
+	//		return false, err
+	//	}
+	//	cblogger.Info("DeleteNLB forwardingRule  delete: index= ", idx, " / ", itemLength)
+	//	deleteCount++
+	//}
+	//if deleteCount > 0 && deleteCount == itemLength {
+	//	cblogger.Info("DeleteNLB forwardingRule  deleted: ", deleteCount, " / ", itemLength)
+	//} else {
+	//	// 삭제 중 오류가 있다는 것인데 중간에 error나면 return하고 있어서...
+	//}
 
-	deleteCount := 0
-	itemLength := len(forwardingRuleList.Items)
-	for idx, forwardingRule := range forwardingRuleList.Items {
-		err := nlbHandler.deleteRegionForwardingRule(regionID, forwardingRule.Name)
+	// health checker
+	allDeleted = true
+	if validationMap["HEALTHCHECKER"] == nil { // 문제가 있으면 err 값이 들어 있음.
+		err = nlbHandler.removeHealthCheck(regionID, targetPoolName)
 		if err != nil {
-			cblogger.Info("DeleteNLB forwardingRule  err: ", err)
-			return false, err
+			cblogger.Info("DeleteNLB removeHealthCheck  err: ", err)
+			deleteResultMap["HEALTHCHECKER"] = err
+			//return false, err
 		}
-		cblogger.Info("DeleteNLB forwardingRule  delete: index= ", idx, " / ", itemLength)
-		deleteCount++
-	}
-	if deleteCount > 0 && deleteCount == itemLength {
-		cblogger.Info("DeleteNLB forwardingRule  deleted: ", deleteCount, " / ", itemLength)
-	} else {
-		// 삭제 중 오류가 있다는 것인데 중간에 error나면 return하고 있어서...
 	}
 
 	// backend
-	callogger := call.GetLogger("HISCALL")
-	callLogInfo := call.CLOUDLOGSCHEMA{
-		CloudOS:      call.GCP,
-		RegionZone:   nlbHandler.Region.Zone,
-		ResourceType: call.NLB,
-		ResourceName: targetPoolName,
-		CloudOSAPI:   "DeleteNLB()",
-		ElapsedTime:  "",
-		ErrorMSG:     "",
-	}
-	callLogStart := call.Start()
-	err = nlbHandler.removeTargetPool(regionID, targetPoolName)
-	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
-	if err != nil {
-		cblogger.Info("DeleteNLB targetPool  err: ", err)
-		callLogInfo.ErrorMSG = err.Error()
-		callogger.Info(call.String(callLogInfo))
-		cblogger.Error(err)
-		return false, err
-	}
-
-	// health checker
-
-	allDeleted = true
-	err = nlbHandler.removeHealthCheck(regionID, targetPoolName)
-	if err != nil {
-		cblogger.Info("DeleteNLB targetPool  err: ", err)
-		return false, err
+	if validationMap["TARGETPOOL"] == nil { // 문제가 있으면 err 값이 들어 있음.
+		callogger := call.GetLogger("HISCALL")
+		callLogInfo := call.CLOUDLOGSCHEMA{
+			CloudOS:      call.GCP,
+			RegionZone:   nlbHandler.Region.Zone,
+			ResourceType: call.NLB,
+			ResourceName: targetPoolName,
+			CloudOSAPI:   "DeleteNLB()",
+			ElapsedTime:  "",
+			ErrorMSG:     "",
+		}
+		callLogStart := call.Start()
+		err = nlbHandler.removeTargetPool(regionID, targetPoolName)
+		callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+		if err != nil {
+			cblogger.Info("DeleteNLB removeTargetPool  err: ", err)
+			callLogInfo.ErrorMSG = err.Error()
+			callogger.Info(call.String(callLogInfo))
+			cblogger.Error(err)
+			deleteResultMap["TARGETPOOL"] = err
+			//return false, err
+		}
 	}
 
+	if deleteResultMap == nil {
+		allDeleted = true
+	} else {
+		// TODO : 일부 삭제중 오류가 발생함...
+	}
 	return allDeleted, nil
 }
 
@@ -951,327 +991,289 @@ func (nlbHandler *GCPNLBHandler) ChangeHealthCheckerInfo(nlbIID irs.IID, healthC
 // regionHealthCheck     -> regionHealthCheck
 // targetPools           -> ... : AddVms, RemoveVms
 
-// instance template 등록
-func (nlbHandler *GCPNLBHandler) insertInstanceTemplate(instanceTemplateReq compute.InstanceTemplate) error {
-	//POST https://compute.googleapis.com/compute/v1/projects/PROJECT_ID/global/instanceTemplates
-	//{
-	//	"name": "INSTANCE_TEMPLATE_NAME",
-	//	"sourceInstance": "zones/SOURCE_INSTANCE_ZONE/instances/SOURCE_INSTANCE",
-	//	"sourceInstanceParams": {
-	//		"diskConfigs": [
-	//			{
-	//			"deviceName": "SOURCE_DISK",
-	//			"instantiateFrom": "INSTANTIATE_OPTIONS",
-	//			"autoDelete": false
-	//			}
-	//		]
-	//	}
-	//}
+// instance template 등록 : 미사용
+//func (nlbHandler *GCPNLBHandler) insertInstanceTemplate(instanceTemplateReq compute.InstanceTemplate) error {
+//	//POST https://compute.googleapis.com/compute/v1/projects/PROJECT_ID/global/instanceTemplates
+//	//{
+//	//	"name": "INSTANCE_TEMPLATE_NAME",
+//	//	"sourceInstance": "zones/SOURCE_INSTANCE_ZONE/instances/SOURCE_INSTANCE",
+//	//	"sourceInstanceParams": {
+//	//		"diskConfigs": [
+//	//			{
+//	//			"deviceName": "SOURCE_DISK",
+//	//			"instantiateFrom": "INSTANTIATE_OPTIONS",
+//	//			"autoDelete": false
+//	//			}
+//	//		]
+//	//	}
+//	//}
+//
+//	// path param
+//	projectID := nlbHandler.Credential.ProjectID
+//
+//	//instanceTemplate := compute.InstanceTemplate{}
+//	req, err := nlbHandler.Client.InstanceTemplates.Insert(projectID, &instanceTemplateReq).Do()
+//	if err != nil {
+//
+//	}
+//
+//	err = WaitUntilComplete(nlbHandler.Client, projectID, "", req.Name, true)
+//	if err != nil {
+//
+//	}
+//
+//	id := req.Id
+//	name := req.Name
+//	cblogger.Info("id = ", id, " : name = ", name)
+//	instanceTemplate, err := nlbHandler.getInstanceTemplate(name)
+//	if err != nil {
+//		//return nil, err
+//	}
+//
+//	cblogger.Info("instanceTemplate ", instanceTemplate)
+//	return nil
+//	//if err != nil {
+//	//	return irs.VPCInfo{}, err
+//	//}
+//	//errWait := vVPCHandler.WaitUntilComplete(req.Name, true)
+//
+//	//compute.NewInstanceTemplatesService()
+//	//result, err := nlbHandler.Client.
+//	//fireWall := compute.Firewall{
+//	//	Name:      firewallName,
+//	//	Allowed:   firewallAllowed,
+//	//	Denied:    firewallDenied,
+//	//	Direction: firewallDirection,
+//	//	Network:   networkURL,
+//	//	TargetTags: []string{
+//	//		securityGroupName,
+//	//	},
+//	//}
+//	//type InstanceTemplatesInsertCall struct {
+//	//	s                *Service
+//	//	project          string
+//	//	instancetemplate *InstanceTemplate
+//	//	urlParams_       gensupport.URLParams
+//	//	ctx_             context.Context
+//	//	header_          http.Header
+//	//}
+//}
 
-	// path param
-	projectID := nlbHandler.Credential.ProjectID
+// instanceTemplate 조회 : 미사용
+//func (nlbHandler *GCPNLBHandler) getInstanceTemplate(resourceId string) (*compute.InstanceTemplate, error) {
+//	projectID := nlbHandler.Credential.ProjectID
+//
+//	instanceTemplateInfo, err := nlbHandler.Client.InstanceTemplates.Get(projectID, resourceId).Do()
+//	if err != nil {
+//		return &compute.InstanceTemplate{}, err
+//	}
+//
+//	//
+//	cblogger.Info(instanceTemplateInfo)
+//	return instanceTemplateInfo, nil
+//}
 
-	//instanceTemplate := compute.InstanceTemplate{}
-	req, err := nlbHandler.Client.InstanceTemplates.Insert(projectID, &instanceTemplateReq).Do()
-	if err != nil {
-
-	}
-
-	err = WaitUntilComplete(nlbHandler.Client, projectID, "", req.Name, true)
-	if err != nil {
-
-	}
-
-	id := req.Id
-	name := req.Name
-	cblogger.Info("id = ", id, " : name = ", name)
-	instanceTemplate, err := nlbHandler.getInstanceTemplate(name)
-	if err != nil {
-		//return nil, err
-	}
-
-	cblogger.Info("instanceTemplate ", instanceTemplate)
-	return nil
-	//if err != nil {
-	//	return irs.VPCInfo{}, err
-	//}
-	//errWait := vVPCHandler.WaitUntilComplete(req.Name, true)
-
-	//compute.NewInstanceTemplatesService()
-	//result, err := nlbHandler.Client.
-	//fireWall := compute.Firewall{
-	//	Name:      firewallName,
-	//	Allowed:   firewallAllowed,
-	//	Denied:    firewallDenied,
-	//	Direction: firewallDirection,
-	//	Network:   networkURL,
-	//	TargetTags: []string{
-	//		securityGroupName,
-	//	},
-	//}
-	//type InstanceTemplatesInsertCall struct {
-	//	s                *Service
-	//	project          string
-	//	instancetemplate *InstanceTemplate
-	//	urlParams_       gensupport.URLParams
-	//	ctx_             context.Context
-	//	header_          http.Header
-	//}
-}
-
-// instanceTemplate 조회
-func (nlbHandler *GCPNLBHandler) getInstanceTemplate(resourceId string) (*compute.InstanceTemplate, error) {
-	projectID := nlbHandler.Credential.ProjectID
-
-	instanceTemplateInfo, err := nlbHandler.Client.InstanceTemplates.Get(projectID, resourceId).Do()
-	if err != nil {
-		return &compute.InstanceTemplate{}, err
-	}
-
-	//
-	cblogger.Info(instanceTemplateInfo)
-	return instanceTemplateInfo, nil
-}
-
-// instanceTemplate 목록 조회
+// instanceTemplate 목록 조회 : 미사용
 // InstanceTemplateList 객체를 넘기고 사용은 InstanceTemplateList.Item에서 꺼내서 사용
-func (nlbHandler *GCPNLBHandler) listInstanceTemplate(filter string) (*compute.InstanceTemplateList, error) {
-	projectID := nlbHandler.Credential.ProjectID
+//func (nlbHandler *GCPNLBHandler) listInstanceTemplate(filter string) (*compute.InstanceTemplateList, error) {
+//	projectID := nlbHandler.Credential.ProjectID
+//
+//	fmt.Printf(filter)
+//	//if strings.EqualFold(filter, "") {
+//	//	req := nlbHandler.Client.InstanceTemplates.List(projectID)
+//	//	//req.Filter()
+//	//	if err := req.Pages(nlbHandler.Ctx, func(page *compute.InstanceTemplateList) error {
+//	//		for _, instanceTemplate := range page.Items {
+//	//			fmt.Printf("%#v\n", instanceTemplate)
+//	//		}
+//	//		return nil
+//	//	}); err != nil {
+//	//		//log.Fatal(err)
+//	//	}
+//	//}
+//	result, err := nlbHandler.Client.InstanceTemplates.List(projectID).Do()
+//	if err != nil {
+//		return nil, err
+//	}
+//
+//	//
+//
+//	cblogger.Info(result)
+//	cblogger.Info(" len ", len(result.Items))
+//	return result, nil
+//}
 
-	fmt.Printf(filter)
-	//if strings.EqualFold(filter, "") {
-	//	req := nlbHandler.Client.InstanceTemplates.List(projectID)
-	//	//req.Filter()
-	//	if err := req.Pages(nlbHandler.Ctx, func(page *compute.InstanceTemplateList) error {
-	//		for _, instanceTemplate := range page.Items {
-	//			fmt.Printf("%#v\n", instanceTemplate)
-	//		}
-	//		return nil
-	//	}); err != nil {
-	//		//log.Fatal(err)
-	//	}
-	//}
-	result, err := nlbHandler.Client.InstanceTemplates.List(projectID).Do()
-	if err != nil {
-		return nil, err
-	}
+// Region instance group 등록 : 미사용
+//func (nlbHandler *GCPNLBHandler) insertRegionInstanceGroup(regionID string, reqInstanceGroupManager compute.InstanceGroupManager) (*compute.InstanceGroupManager, error) {
+//	// path param
+//	projectID := nlbHandler.Credential.ProjectID
+//
+//	req, err := nlbHandler.Client.RegionInstanceGroupManagers.Insert(projectID, regionID, &reqInstanceGroupManager).Do()
+//	if err != nil {
+//
+//	}
+//
+//	err = WaitUntilComplete(nlbHandler.Client, projectID, regionID, req.Name, true)
+//	if err != nil {
+//
+//	}
+//
+//	id := req.Id
+//	name := req.Name
+//	cblogger.Info("id = ", id, " : name = ", name)
+//	result, err := nlbHandler.getRegionInstanceGroupManager(regionID, name)
+//	if err != nil {
+//		//return nil, err
+//	}
+//
+//	cblogger.Info("RegionInstanceGroup ", result)
+//	return result, nil
+//}
 
-	//
+// Region InstanceGroup 조회 : 미사용
+//func (nlbHandler *GCPNLBHandler) getRegionInstanceGroupManager(regionID string, resourceId string) (*compute.InstanceGroupManager, error) {
+//	projectID := nlbHandler.Credential.ProjectID
+//
+//	result, err := nlbHandler.Client.RegionInstanceGroupManagers.Get(projectID, regionID, resourceId).Do()
+//	if err != nil {
+//		return &compute.InstanceGroupManager{}, err
+//	}
+//
+//	//
+//	cblogger.Info(result)
+//	return result, nil
+//}
 
-	cblogger.Info(result)
-	cblogger.Info(" len ", len(result.Items))
-	return result, nil
-}
-
-// Region instance group 등록
-func (nlbHandler *GCPNLBHandler) insertRegionInstanceGroup(regionID string, reqInstanceGroupManager compute.InstanceGroupManager) (*compute.InstanceGroupManager, error) {
-	// path param
-	projectID := nlbHandler.Credential.ProjectID
-
-	req, err := nlbHandler.Client.RegionInstanceGroupManagers.Insert(projectID, regionID, &reqInstanceGroupManager).Do()
-	if err != nil {
-
-	}
-
-	err = WaitUntilComplete(nlbHandler.Client, projectID, regionID, req.Name, true)
-	if err != nil {
-
-	}
-
-	id := req.Id
-	name := req.Name
-	cblogger.Info("id = ", id, " : name = ", name)
-	result, err := nlbHandler.getRegionInstanceGroupManager(regionID, name)
-	if err != nil {
-		//return nil, err
-	}
-
-	cblogger.Info("RegionInstanceGroup ", result)
-	return result, nil
-}
-
-// Region InstanceGroup 조회
-func (nlbHandler *GCPNLBHandler) getRegionInstanceGroupManager(regionID string, resourceId string) (*compute.InstanceGroupManager, error) {
-	projectID := nlbHandler.Credential.ProjectID
-
-	result, err := nlbHandler.Client.RegionInstanceGroupManagers.Get(projectID, regionID, resourceId).Do()
-	if err != nil {
-		return &compute.InstanceGroupManager{}, err
-	}
-
-	//
-	cblogger.Info(result)
-	return result, nil
-}
-
-// Region InstanceGroup 목록 조회
+// Region InstanceGroup 목록 조회 : 미사용
 // InstanceGroupList 객체를 넘기고 사용은 InstanceGroupList.Item에서 꺼내서 사용
 // return 객체가 RegionInstanceGroupManagerList 임. 다른것들은 Region 구분 없는 객체로 return
-func (nlbHandler *GCPNLBHandler) listRegionInstanceGroupManager(regionID string, filter string) (*compute.RegionInstanceGroupManagerList, error) {
-	projectID := nlbHandler.Credential.ProjectID
-
-	fmt.Printf(filter)
-	result, err := nlbHandler.Client.RegionInstanceGroupManagers.List(projectID, regionID).Do()
-	if err != nil {
-		return nil, err
-	}
-
-	//
-
-	cblogger.Info(result)
-	cblogger.Info(" len ", len(result.Items))
-	return result, nil
-}
+//func (nlbHandler *GCPNLBHandler) listRegionInstanceGroupManager(regionID string, filter string) (*compute.RegionInstanceGroupManagerList, error) {
+//	projectID := nlbHandler.Credential.ProjectID
+//
+//	fmt.Printf(filter)
+//	result, err := nlbHandler.Client.RegionInstanceGroupManagers.List(projectID, regionID).Do()
+//	if err != nil {
+//		return nil, err
+//	}
+//
+//	//
+//
+//	cblogger.Info(result)
+//	cblogger.Info(" len ", len(result.Items))
+//	return result, nil
+//}
 
 // regionInstanceGroups는 이기종 또는 직접관리하는 경우 사용 but, get, list, listInstances, setNamedPoers  만 있음. insert없음
-// InstanceGroup 조회
-func (nlbHandler *GCPNLBHandler) getRegionInstanceGroup(regionID string, resourceId string) (*compute.InstanceGroup, error) {
-	projectID := nlbHandler.Credential.ProjectID
+// InstanceGroup 조회 : 미사용
+//func (nlbHandler *GCPNLBHandler) getRegionInstanceGroup(regionID string, resourceId string) (*compute.InstanceGroup, error) {
+//	projectID := nlbHandler.Credential.ProjectID
+//
+//	result, err := nlbHandler.Client.RegionInstanceGroups.Get(projectID, regionID, resourceId).Do()
+//	if err != nil {
+//		return &compute.InstanceGroup{}, err
+//	}
+//
+//	//
+//	cblogger.Info(result)
+//	return result, nil
+//}
 
-	result, err := nlbHandler.Client.RegionInstanceGroups.Get(projectID, regionID, resourceId).Do()
-	if err != nil {
-		return &compute.InstanceGroup{}, err
-	}
-
-	//
-	cblogger.Info(result)
-	return result, nil
-}
-
+// InstanceGroup 목록 조회 : 미사용
 // regionInstanceGroups는 이기종 또는 직접관리하는 경우 사용 but, get, list, listInstances, setNamedPoers  만 있음. insert없음
 // RegionInstanceGroupList 객체를 넘기고 사용은 RegionInstanceGroupList.Item에서 꺼내서 사용
-func (nlbHandler *GCPNLBHandler) listRegionInstanceGroups(regionID string, filter string) (*compute.RegionInstanceGroupList, error) {
-	projectID := nlbHandler.Credential.ProjectID
+//func (nlbHandler *GCPNLBHandler) listRegionInstanceGroups(regionID string, filter string) (*compute.RegionInstanceGroupList, error) {
+//	projectID := nlbHandler.Credential.ProjectID
+//
+//	fmt.Printf(filter)
+//	result, err := nlbHandler.Client.RegionInstanceGroups.List(projectID, regionID).Do()
+//	if err != nil {
+//		return nil, err
+//	}
+//
+//	//
+//
+//	cblogger.Info(result)
+//	cblogger.Info(" len ", len(result.Items))
+//	return result, nil
+//}
 
-	fmt.Printf(filter)
-	result, err := nlbHandler.Client.RegionInstanceGroups.List(projectID, regionID).Do()
-	if err != nil {
-		return nil, err
-	}
-
-	//
-
-	cblogger.Info(result)
-	cblogger.Info(" len ", len(result.Items))
-	return result, nil
-}
-
-// 호출하는 api가 listInstances 여서 listInstances + RegionInstanceGroups
+// 호출하는 api가 listInstances 여서 listInstances + RegionInstanceGroups : 미사용
 // RegionInstanceGroupsListInstances 객체를 넘기고 사용은 RegionInstanceGroupsListInstances.Item에서 꺼내서 사용
-func (nlbHandler *GCPNLBHandler) listInstancesRegionInstanceGroups(regionID string, regionInstanceGroupName string, reqListInstance compute.RegionInstanceGroupsListInstancesRequest) (*compute.RegionInstanceGroupsListInstances, error) {
-	projectID := nlbHandler.Credential.ProjectID
+//func (nlbHandler *GCPNLBHandler) listInstancesRegionInstanceGroups(regionID string, regionInstanceGroupName string, reqListInstance compute.RegionInstanceGroupsListInstancesRequest) (*compute.RegionInstanceGroupsListInstances, error) {
+//	projectID := nlbHandler.Credential.ProjectID
+//
+//	fmt.Printf(regionInstanceGroupName)
+//	result, err := nlbHandler.Client.RegionInstanceGroups.ListInstances(projectID, regionID, regionInstanceGroupName, &reqListInstance).Do()
+//	if err != nil {
+//		return nil, err
+//	}
+//
+//	//
+//
+//	cblogger.Info(result)
+//	cblogger.Info(" len ", len(result.Items))
+//	return result, nil
+//}
 
-	fmt.Printf(regionInstanceGroupName)
-	result, err := nlbHandler.Client.RegionInstanceGroups.ListInstances(projectID, regionID, regionInstanceGroupName, &reqListInstance).Do()
-	if err != nil {
-		return nil, err
-	}
+// global instance group 등록 : 미사용
+//func (nlbHandler *GCPNLBHandler) insertGlobalInstanceGroup(zoneID string, reqInstanceGroup compute.InstanceGroup) error {
+//	// path param
+//	projectID := nlbHandler.Credential.ProjectID
+//
+//	//instanceTemplate := compute.InstanceTemplate{}
+//	req, err := nlbHandler.Client.InstanceGroups.Insert(projectID, zoneID, &reqInstanceGroup).Do()
+//	if err != nil {
+//
+//	}
+//
+//	err = WaitUntilComplete(nlbHandler.Client, projectID, "", req.Name, true)
+//	if err != nil {
+//
+//	}
+//
+//	id := req.Id
+//	name := req.Name
+//	cblogger.Info("id = ", id, " : name = ", name)
+//	instanceTemplate, err := nlbHandler.getInstanceTemplate(name)
+//	if err != nil {
+//		//return nil, err
+//	}
+//
+//	cblogger.Info("instanceTemplate ", instanceTemplate)
+//	return nil
+//}
 
-	//
+// global InstanceGroup 조회 : 미사용
+//func (nlbHandler *GCPNLBHandler) getGlobalInstanceGroup(zoneID string, instanceGroupName string) (*compute.InstanceGroup, error) {
+//	projectID := nlbHandler.Credential.ProjectID
+//
+//	instanceGroupInfo, err := nlbHandler.Client.InstanceGroups.Get(projectID, zoneID, instanceGroupName).Do()
+//	if err != nil {
+//		return &compute.InstanceGroup{}, err
+//	}
+//
+//	//
+//	cblogger.Info(instanceGroupInfo)
+//	return instanceGroupInfo, nil
+//}
 
-	cblogger.Info(result)
-	cblogger.Info(" len ", len(result.Items))
-	return result, nil
-}
+// global InstanceGroup 목록 조회 : 미사용
+// In용tanceGroupList 객체를 넘기고 사용은 InstanceGroupList.Item에서 꺼내서 사용
+//func (nlbHandler *GCPNLBHandler) listGlobalInstanceGroup(zoneID string, filter string) (*compute.InstanceGroupList, error) {
+//	projectID := nlbHandler.Credential.ProjectID
+//
+//	fmt.Printf(filter)
+//	result, err := nlbHandler.Client.InstanceGroups.List(projectID, zoneID).Do()
+//	if err != nil {
+//		return nil, err
+//	}
+//
+//	cblogger.Info(result)
+//	cblogger.Info(" len ", len(result.Items))
+//	return result, nil
+//}
 
-// global instance group 등록
-func (nlbHandler *GCPNLBHandler) insertGlobalInstanceGroup(zoneID string, reqInstanceGroup compute.InstanceGroup) error {
-	// path param
-	projectID := nlbHandler.Credential.ProjectID
-
-	//instanceTemplate := compute.InstanceTemplate{}
-	req, err := nlbHandler.Client.InstanceGroups.Insert(projectID, zoneID, &reqInstanceGroup).Do()
-	if err != nil {
-
-	}
-
-	err = WaitUntilComplete(nlbHandler.Client, projectID, "", req.Name, true)
-	if err != nil {
-
-	}
-
-	id := req.Id
-	name := req.Name
-	cblogger.Info("id = ", id, " : name = ", name)
-	instanceTemplate, err := nlbHandler.getInstanceTemplate(name)
-	if err != nil {
-		//return nil, err
-	}
-
-	cblogger.Info("instanceTemplate ", instanceTemplate)
-	return nil
-	//if err != nil {
-	//	return irs.VPCInfo{}, err
-	//}
-	//errWait := vVPCHandler.WaitUntilComplete(req.Name, true)
-
-	//compute.NewInstanceTemplatesService()
-	//result, err := nlbHandler.Client.
-	//fireWall := compute.Firewall{
-	//	Name:      firewallName,
-	//	Allowed:   firewallAllowed,
-	//	Denied:    firewallDenied,
-	//	Direction: firewallDirection,
-	//	Network:   networkURL,
-	//	TargetTags: []string{
-	//		securityGroupName,
-	//	},
-	//}
-	//type InstanceTemplatesInsertCall struct {
-	//	s                *Service
-	//	project          string
-	//	instancetemplate *InstanceTemplate
-	//	urlParams_       gensupport.URLParams
-	//	ctx_             context.Context
-	//	header_          http.Header
-	//}
-}
-
-// global InstanceGroup 조회
-func (nlbHandler *GCPNLBHandler) getGlobalInstanceGroup(zoneID string, instanceGroupName string) (*compute.InstanceGroup, error) {
-	projectID := nlbHandler.Credential.ProjectID
-
-	instanceGroupInfo, err := nlbHandler.Client.InstanceGroups.Get(projectID, zoneID, instanceGroupName).Do()
-	if err != nil {
-		return &compute.InstanceGroup{}, err
-	}
-
-	//
-	cblogger.Info(instanceGroupInfo)
-	return instanceGroupInfo, nil
-}
-
-// global InstanceGroup 목록 조회
-// InstanceGroupList 객체를 넘기고 사용은 InstanceGroupList.Item에서 꺼내서 사용
-func (nlbHandler *GCPNLBHandler) listGlobalInstanceGroup(zoneID string, filter string) (*compute.InstanceGroupList, error) {
-	projectID := nlbHandler.Credential.ProjectID
-
-	fmt.Printf(filter)
-	//if strings.EqualFold(filter, "") {
-	//	req := nlbHandler.Client.InstanceTemplates.List(projectID)
-	//	//req.Filter()
-	//	if err := req.Pages(nlbHandler.Ctx, func(page *compute.InstanceTemplateList) error {
-	//		for _, instanceTemplate := range page.Items {
-	//			fmt.Printf("%#v\n", instanceTemplate)
-	//		}
-	//		return nil
-	//	}); err != nil {
-	//		//log.Fatal(err)
-	//	}
-	//}
-	result, err := nlbHandler.Client.InstanceGroups.List(projectID, zoneID).Do()
-	if err != nil {
-		return nil, err
-	}
-
-	//
-
-	cblogger.Info(result)
-	cblogger.Info(" len ", len(result.Items))
-	return result, nil
-}
-
-// Address 등록 : LB의 시작점
+// Address 등록
 func (nlbHandler *GCPNLBHandler) insertRegionAddresses(regionID string, reqAddress compute.Address) error {
 	// path param
 	projectID := nlbHandler.Credential.ProjectID
@@ -1440,8 +1442,6 @@ func (nlbHandler *GCPNLBHandler) listGlobalAddresses(filter string) (*compute.Ad
 }
 
 // Region ForwardingRule 등록
-// 생성한 forwarding rule turn이 필요한가?
-//func (nlbHandler *GCPNLBHandler) insertRegionForwardingRules(regionID string, reqRegionForwardingRule *compute.ForwardingRule) (*compute.ForwardingRule, error) {
 func (nlbHandler *GCPNLBHandler) insertRegionForwardingRules(regionID string, reqRegionForwardingRule *compute.ForwardingRule) error {
 	// path param
 	projectID := nlbHandler.Credential.ProjectID
@@ -1464,6 +1464,7 @@ func (nlbHandler *GCPNLBHandler) insertRegionForwardingRules(regionID string, re
 }
 
 //deleteRegionForwardingRule
+// 특정 forwarding rule만 삭제
 func (nlbHandler *GCPNLBHandler) deleteRegionForwardingRule(regionID string, forwardingRuleName string) error {
 	// path param
 	projectID := nlbHandler.Credential.ProjectID
@@ -1479,8 +1480,30 @@ func (nlbHandler *GCPNLBHandler) deleteRegionForwardingRule(regionID string, for
 		cblogger.Info("WaitUntilComplete ", err)
 		return err
 	}
-
 	return nil
+}
+
+// nlb에 종속 된 forwarding rule 모두 삭제 : nlb 삭제시 사용
+// return : 삭제 총 갯수 / 전체 갯수, error
+func (nlbHandler *GCPNLBHandler) deleteRegionForwardingRules(regionID string, nlbIID irs.IID) (string, error) {
+	// path param
+	targetPoolUrl := nlbIID.SystemId
+
+	forwardingRuleList, err := nlbHandler.listRegionForwardingRules(regionID, "", targetPoolUrl)
+	if err != nil {
+		cblogger.Info("DeleteNLB forwardingRule  err: ", err)
+		return "", err
+	}
+	deleteCount := 0
+	itemLength := len(forwardingRuleList.Items)
+	for _, forwardingRule := range forwardingRuleList.Items {
+		err := nlbHandler.deleteRegionForwardingRule(regionID, forwardingRule.Name)
+		if err != nil {
+			cblogger.Info("deleteRegionForwardingRule ", err)
+			return "", err
+		}
+	}
+	return strconv.Itoa(deleteCount) + "/" + strconv.Itoa(itemLength), nil
 }
 
 // Region ForwardingRule patch
@@ -1495,20 +1518,7 @@ func (nlbHandler *GCPNLBHandler) patchRegionForwardingRules(regionID string, for
 		cblogger.Info("patchRegionForwardingRules ", err)
 		return &compute.ForwardingRule{}, err
 	}
-	//// 삭제 후 insert
-	//delReq, delErr := nlbHandler.Client.ForwardingRules.Delete(projectID, region, forwardingRuleName).Do()
-	//if delErr != nil {
-	//	return &compute.ForwardingRule{}, delErr
-	//}
-	//delErr = WaitUntilComplete(nlbHandler.Client, projectID, region, delreq.Name, true)
-	//if delErr != nil {
-	//	return &compute.ForwardingRule{}, delErr
-	//}
-	//
-	//req, err := nlbHandler.Client.ForwardingRules.Insert(projectID, region, patchRegionForwardingRule).Do()
-	//if err != nil {
-	//	return &compute.ForwardingRule{}, err
-	//}
+
 	printToJson(req)
 	err = WaitUntilComplete(nlbHandler.Client, projectID, regionID, req.Name, false)
 	if err != nil {
@@ -1580,7 +1590,7 @@ func (nlbHandler *GCPNLBHandler) insertGlobalForwardingRules(regionID string, re
 	//reqForwardingRule := &compute.ForwardingRule{}
 	req, err := nlbHandler.Client.GlobalForwardingRules.Insert(projectID, reqGlobalForwardingRule).Do()
 	if err != nil {
-
+		return &compute.ForwardingRule{}, err
 	}
 
 	err = WaitUntilComplete(nlbHandler.Client, projectID, regionID, req.Name, true)
@@ -1622,16 +1632,6 @@ func (nlbHandler *GCPNLBHandler) listGlobalForwardingRules(filter string) (*comp
 	// path param
 	projectID := nlbHandler.Credential.ProjectID
 
-	//req := nlbHandler.Client.ForwardingRules.List(projectID, region)
-	//if err := req.Pages(nlbHandler.Ctx, func(page *compute.ForwardingRuleList) error {
-	//	for _, forwardingRule := range page.Items {
-	//		fmt.Printf("%#v\n", forwardingRule)
-	//	}
-	//	return nil
-	//}); err != nil {
-	//	return nil, err
-	//}
-
 	resp, err := nlbHandler.Client.GlobalForwardingRules.List(projectID).Do()
 	if err != nil {
 		return nil, err
@@ -1641,7 +1641,6 @@ func (nlbHandler *GCPNLBHandler) listGlobalForwardingRules(filter string) (*comp
 	}
 
 	return resp, nil
-
 }
 
 // Region BackendService 등록
@@ -1764,9 +1763,7 @@ func (nlbHandler *GCPNLBHandler) getGlobalBackendServices(backendServiceName str
 		cblogger.Info(item)
 		//if strings.EqualFold(item.Group,   // instance group or network endpoint group(NEG)
 	}
-	//// item.group // instance group or network endpoint group
-	//cblogger.Info(backServices)
-	//return backServices, nil
+
 	return resp, nil
 }
 
@@ -1790,245 +1787,95 @@ func (nlbHandler *GCPNLBHandler) listGlobalBackendServices(filter string) (*comp
 	return resp, nil
 }
 
-func (nlbHandler *GCPNLBHandler) insertRegionHealthChecks(region string, healthCheckerInfo irs.HealthCheckerInfo) {
-	// path param
-	projectID := nlbHandler.Credential.ProjectID
+// RegionalHealthCheck 등록 : 미사용
+//func (nlbHandler *GCPNLBHandler) insertRegionHealthChecks(region string, healthCheckerInfo irs.HealthCheckerInfo) {
+//	// path param
+//	projectID := nlbHandler.Credential.ProjectID
+//
+//	// queryParam
+//	// 4개 중 1개 : TCP, SSL, HTTP, HTTP2
+//	//tcpHealthCheck := &compute.TCPHealthCheck{
+//	//	Port:              80, // default value:80, 1~65535
+//	//	PortName:          "", // InstanceGroup#NamedPort#name
+//	//	PortSpecification: "", //USE_FIXED_PORT, USE_NAMED_PORT, USE_SERVING_PORT
+//	//	Request:           "", // default value is empty
+//	//	Response:          "", // default value is empty
+//	//	ProxyHeader:       "", // NONE, PROXY_V1
+//	//}
+//	//sslHealthCheck := &compute.SSLHealthCheck{
+//	//	Port:              443, // default value is 443n 1~65535
+//	//	PortName:          "",  // InstanceGroup#NamedPort#name
+//	//	PortSpecification: "",  //USE_FIXED_PORT, USE_NAMED_PORT, USE_SERVING_PORT
+//	//	Request:           "",  // default value is empty
+//	//	Response:          "",  // default value is empty
+//	//	ProxyHeader:       "",  // NONE, PROXY_V1
+//	//}
+//	//httpHealthCheck := &compute.HTTPHealthCheck{
+//	//	Port:              80, // default value:80, 1~65535
+//	//	PortName:          "", // InstanceGroup#NamedPort#name
+//	//	PortSpecification: "", //USE_FIXED_PORT, USE_NAMED_PORT, USE_SERVING_PORT
+//	//	Host:              "", // default value is empty. IP
+//	//	RequestPath:       "", // default value is "/"
+//	//	Response:          "", // default value is empty
+//	//	ProxyHeader:       "", // NONE, PROXY_V1
+//	//}
+//	//
+//	//http2HealthCheck := &compute.HTTP2HealthCheck{
+//	//	Port:              443, // default value is 443n 1~65535
+//	//	PortName:          "",  // InstanceGroup#NamedPort#name
+//	//	PortSpecification: "",  //USE_FIXED_PORT, USE_NAMED_PORT, USE_SERVING_PORT
+//	//	Host:              "",  // default value is empty
+//	//	RequestPath:       "",  // default value is "/"
+//	//	Response:          "",  // default value is empty
+//	//	ProxyHeader:       "",  // default value is NONE,  NONE, PROXY_V1
+//	//}
+//
+//	//healthCheckPort :=	&
+//	regionHealthCheck := &compute.HealthCheck{
+//
+//	}
+//
+//	// requestBody
+//	nlbHandler.Client.RegionHealthChecks.Insert(projectID, region, regionHealthCheck)
+//
+//}
 
-	// queryParam
-	// 4개 중 1개 : TCP, SSL, HTTP, HTTP2
-	tcpHealthCheck := &compute.TCPHealthCheck{
-		Port:              80, // default value:80, 1~65535
-		PortName:          "", // InstanceGroup#NamedPort#name
-		PortSpecification: "", //USE_FIXED_PORT, USE_NAMED_PORT, USE_SERVING_PORT
-		Request:           "", // default value is empty
-		Response:          "", // default value is empty
-		ProxyHeader:       "", // NONE, PROXY_V1
-	}
-	sslHealthCheck := &compute.SSLHealthCheck{
-		Port:              443, // default value is 443n 1~65535
-		PortName:          "",  // InstanceGroup#NamedPort#name
-		PortSpecification: "",  //USE_FIXED_PORT, USE_NAMED_PORT, USE_SERVING_PORT
-		Request:           "",  // default value is empty
-		Response:          "",  // default value is empty
-		ProxyHeader:       "",  // NONE, PROXY_V1
-	}
-	httpHealthCheck := &compute.HTTPHealthCheck{
-		Port:              80, // default value:80, 1~65535
-		PortName:          "", // InstanceGroup#NamedPort#name
-		PortSpecification: "", //USE_FIXED_PORT, USE_NAMED_PORT, USE_SERVING_PORT
-		Host:              "", // default value is empty. IP
-		RequestPath:       "", // default value is "/"
-		Response:          "", // default value is empty
-		ProxyHeader:       "", // NONE, PROXY_V1
-	}
-
-	http2HealthCheck := &compute.HTTP2HealthCheck{
-		Port:              443, // default value is 443n 1~65535
-		PortName:          "",  // InstanceGroup#NamedPort#name
-		PortSpecification: "",  //USE_FIXED_PORT, USE_NAMED_PORT, USE_SERVING_PORT
-		Host:              "",  // default value is empty
-		RequestPath:       "",  // default value is "/"
-		Response:          "",  // default value is empty
-		ProxyHeader:       "",  // default value is NONE,  NONE, PROXY_V1
-	}
-
-	//healthCheckPort :=	&
-	regionHealthCheck := &compute.HealthCheck{
-		//////
-		//CheckIntervalSec int64 `json:"checkIntervalSec,omitempty"`
-		//CreationTimestamp string `json:"creationTimestamp,omitempty"`
-		//Description string `json:"description,omitempty"`
-		//HealthyThreshold int64 `json:"healthyThreshold,omitempty"`
-		//Http2HealthCheck *HTTP2HealthCheck `json:"http2HealthCheck,omitempty"`
-		//HttpHealthCheck *HTTPHealthCheck `json:"httpHealthCheck,omitempty"`
-		//HttpsHealthCheck *HTTPSHealthCheck `json:"httpsHealthCheck,omitempty"`
-		//Id uint64 `json:"id,omitempty,string"`
-		//Kind string `json:"kind,omitempty"`
-		//Name string `json:"name,omitempty"`
-		//Region string `json:"region,omitempty"`
-		//SelfLink string `json:"selfLink,omitempty"`
-		//SslHealthCheck *SSLHealthCheck `json:"sslHealthCheck,omitempty"`
-		//TcpHealthCheck *TCPHealthCheck `json:"tcpHealthCheck,omitempty"`
-		//TimeoutSec int64 `json:"timeoutSec,omitempty"`
-		//Type string `json:"type,omitempty"`
-		//UnhealthyThreshold int64 `json:"unhealthyThreshold,omitempty"`
-		//googleapi.ServerResponse `json:"-"`
-		//ForceSendFields []string `json:"-"`
-		//NullFields []string `json:"-"`
-		///////
-		Kind: "", // type of resource
-		//Id: //output only
-		//CreationTimestamp: //  output only
-		Name:               "", //
-		Description:        "",
-		CheckIntervalSec:   10,
-		TimeoutSec:         10,
-		UnhealthyThreshold: 3,  // default value:2
-		HealthyThreshold:   3,  // default value:2
-		Type:               "", // enum : TCP, SSL,HTTP, HTTPS, HTTP2
-
-		TcpHealthCheck:   tcpHealthCheck,
-		SslHealthCheck:   sslHealthCheck,
-		HttpHealthCheck:  httpHealthCheck,
-		Http2HealthCheck: http2HealthCheck,
-
-		//HttpHealthCheck: { //&compute.HTTPHealthCheck
-		//	Port:              80,
-		//	PortName:          "", // 해당 객체에는 Name으로 정의되어 있음.
-		//	PortSpecification: "", //USE_FIXED_PORT, USE_NAMED_PORT, USE_SERVING_PORT
-		//	RequestPath:       "",
-		//	Response:          "",
-		//	ProxyHeader:       "", // NONE, PROXY_V1
-		//},
-		//HttpsHealthCheck: { //&compute.HttpsHealthCheck
-		//	Port:              80,
-		//	PortName:          "",
-		//	PortSpecification: "", //USE_FIXED_PORT, USE_NAMED_PORT, USE_SERVING_PORT
-		//	RequestPath:       "",
-		//	Response:          "",
-		//	ProxyHeader:       "", // NONE, PROXY_V1
-		//},
-		//Http2HealthCheck: { //&compute.HTTP2HealthCheck
-		//	Port:              80,
-		//	PortName:          "",
-		//	PortSpecification: "", //USE_FIXED_PORT, USE_NAMED_PORT, USE_SERVING_PORT
-		//	Host:              "",
-		//	RequestPath:       "",
-		//	Response:          "",
-		//	ProxyHeader:       "", // NONE, PROXY_V1
-		//},
-		//GrpcHealthCheck: { //&compute.   // grpcHealthcheck 없음
-		//	Port:              80,
-		//	PortName:          "",
-		//	PortSpecification: "", //USE_FIXED_PORT, USE_NAMED_PORT, USE_SERVING_PORT
-		//	GrpcServiceName:   "",
-		//},
-		//SelfLink: //output only
-		//Region: //output only
-
-		//LogConfig: {
-		//	Enable: false,
-		//},
-	}
-
-	// requestBody
-	nlbHandler.Client.RegionHealthChecks.Insert(projectID, region, regionHealthCheck)
-	//{
-	//	"kind": string,
-	//	"id": string,
-	//	"creationTimestamp": string,
-	//	"name": string,
-	//	"description": string,
-	//	"checkIntervalSec": integer,
-	//	"timeoutSec": integer,
-	//	"unhealthyThreshold": integer,
-	//	"healthyThreshold": integer,
-	//	"type": enum,
-	//	"tcpHealthCheck": {
-	//	"port": integer,
-	//		"portName": string,
-	//		"portSpecification": enum,
-	//		"request": string,
-	//		"response": string,
-	//		"proxyHeader": enum
-	//},
-	//	"sslHealthCheck": {
-	//	"port": integer,
-	//		"portName": string,
-	//		"portSpecification": enum,
-	//		"request": string,
-	//		"response": string,
-	//		"proxyHeader": enum
-	//},
-	//	"httpHealthCheck": {
-	//	"port": integer,
-	//		"portName": string,
-	//		"portSpecification": enum,
-	//		"host": string,
-	//		"requestPath": string,
-	//		"proxyHeader": enum,
-	//		"response": string
-	//},
-	//	"httpsHealthCheck": {
-	//	"port": integer,
-	//		"portName": string,
-	//		"portSpecification": enum,
-	//		"host": string,
-	//		"requestPath": string,
-	//		"proxyHeader": enum,
-	//		"response": string
-	//},
-	//	"http2HealthCheck": {
-	//	"port": integer,
-	//		"portName": string,
-	//		"portSpecification": enum,
-	//		"host": string,
-	//		"requestPath": string,
-	//		"proxyHeader": enum,
-	//		"response": string
-	//},
-	//	"grpcHealthCheck": {
-	//	"port": integer,
-	//		"portName": string,
-	//		"portSpecification": enum,
-	//		"grpcServiceName": string
-	//},
-	//	"selfLink": string,
-	//	"region": string,
-	//	"logConfig": {
-	//	"enable": boolean
-	//}
-	//}
-	// 다른 handler data 호출 시
-	//vNetworkHandler := GCPVPCHandler{
-	//	Client:     securityHandler.Client,
-	//	Region:     securityHandler.Region,
-	//	Ctx:        securityHandler.Ctx,
-	//	Credential: securityHandler.Credential,
-	//}
-	//vNetInfo, errVnet := vNetworkHandler.GetVPC(securityReqInfo.VpcIID)
-	//spew.Dump(vNetInfo)
-	//if errVnet != nil {
-	//	cblogger.Error(errVnet)
-	//	return irs.SecurityInfo{}, errVnet
-	//}
-}
-
+// RegionHealthCheck 조회 : 미사용
 // Inteal Http(S) load balancer : region health check => compute.v1.regionHealthCheck
 // Traffic Director : global health check => compute.v1.HealthCheck
-func (nlbHandler *GCPNLBHandler) getRegionHealthChecks(region string, regionHealthCheckName string) (*compute.HealthCheck, error) {
-
-	// path param
-	projectID := nlbHandler.Credential.ProjectID
-
-	resp, err := nlbHandler.Client.RegionHealthChecks.Get(projectID, region, regionHealthCheckName).Do()
-	if err != nil {
-		return nil, err
-	}
-	return resp, nil
-}
+//func (nlbHandler *GCPNLBHandler) getRegionHealthChecks(region string, regionHealthCheckName string) (*compute.HealthCheck, error) {
+//
+//	// path param
+//	projectID := nlbHandler.Credential.ProjectID
+//
+//	resp, err := nlbHandler.Client.RegionHealthChecks.Get(projectID, region, regionHealthCheckName).Do()
+//	if err != nil {
+//		return nil, err
+//	}
+//	return resp, nil
+//}
 
 // Global BackendService 목록 조회
 // HealthCheckList 객체를 넘기고 사용은 HealthCheckList.Item에서 꺼내서 사용
-func (nlbHandler *GCPNLBHandler) listRegionHealthChecks(region string, filter string) (*compute.HealthCheckList, error) {
+//func (nlbHandler *GCPNLBHandler) listRegionHealthChecks(region string, filter string) (*compute.HealthCheckList, error) {
+//
+//	// path param
+//	projectID := nlbHandler.Credential.ProjectID
+//
+//	resp, err := nlbHandler.Client.RegionHealthChecks.List(projectID, region).Do()
+//	if err != nil {
+//		return nil, err
+//	}
+//
+//	for _, item := range resp.Items {
+//		cblogger.Info(item)
+//	}
+//
+//	return resp, nil
+//
+//}
 
-	// path param
-	projectID := nlbHandler.Credential.ProjectID
-
-	resp, err := nlbHandler.Client.RegionHealthChecks.List(projectID, region).Do()
-	if err != nil {
-		return nil, err
-	}
-
-	for _, item := range resp.Items {
-		cblogger.Info(item)
-	}
-
-	return resp, nil
-
-}
-
-// GlobalHealthChecker Insert
+// HttpHealthChecker Insert
 // cspId는 url형태임( url끝에 healthChecker Name 있음) . 생성시에는 url이 없으므로 name을 그대로 사용
 // httpHealthcheck insert : LB의 healthcheck는 이거 사용
 func (nlbHandler *GCPNLBHandler) insertHttpHealthChecks(healthCheckType string, healthCheckerInfo irs.HealthCheckerInfo) (*compute.HttpHealthCheck, error) {
@@ -2061,7 +1908,8 @@ func (nlbHandler *GCPNLBHandler) insertHttpHealthChecks(healthCheckType string, 
 		CheckIntervalSec: checkIntervalSec,
 		TimeoutSec:       timeoutSec,
 		//UnhealthyThreshold : A so-far healthy instance will be marked unhealthy after this many consecutive failures. The default value is 2.
-		HealthyThreshold: healthyThreshold,
+		UnhealthyThreshold: healthyThreshold,
+		HealthyThreshold:   healthyThreshold,
 
 		//RequestPath, string `json:"requestPath,omitempty"`
 	}
@@ -2091,6 +1939,7 @@ func (nlbHandler *GCPNLBHandler) insertHttpHealthChecks(healthCheckType string, 
 	return nil, nil
 }
 
+// HttpHealthcheck 조회
 func (nlbHandler *GCPNLBHandler) getHttpHealthChecks(healthCheckName string) (*compute.HttpHealthCheck, error) {
 	// path param
 	projectID := nlbHandler.Credential.ProjectID
@@ -2103,6 +1952,7 @@ func (nlbHandler *GCPNLBHandler) getHttpHealthChecks(healthCheckName string) (*c
 	return resp, nil
 }
 
+// HttpHealthcheck 목록 조회
 // HttpHealthCheckList 객체를 넘기고 사용은 HealthCheckList.Item에서 꺼내서 사용
 func (nlbHandler *GCPNLBHandler) listHttpHealthChecks(filter string) (*compute.HttpHealthCheckList, error) {
 	// path param
@@ -2120,6 +1970,7 @@ func (nlbHandler *GCPNLBHandler) listHttpHealthChecks(filter string) (*compute.H
 	return resp, nil
 }
 
+// TargetPool Insert
 // Target pools are used for network TCP/UDP load balancing. A target pool references member instances, an associated legacy HttpHealthCheck resource, and, optionally, a backup target poo
 // 넘어온 값으로 덮었는지. update가 되는지 확인
 // AddVMs, RemoveVMs 에서 사용 예정
@@ -2150,6 +2001,7 @@ func (nlbHandler *GCPNLBHandler) insertTargetPool(regionID string, reqTargetPool
 	return result, nil
 }
 
+// TargetPool 조회
 // Target pools are used for network TCP/UDP load balancing. A target pool references member instances, an associated legacy HttpHealthCheck resource, and, optionally, a backup target poo
 func (nlbHandler *GCPNLBHandler) getTargetPool(regionID string, targetPoolName string) (*compute.TargetPool, error) {
 
@@ -2163,6 +2015,7 @@ func (nlbHandler *GCPNLBHandler) getTargetPool(regionID string, targetPoolName s
 	return resp, nil
 }
 
+// TargetPool 목록 조회
 // Target pools are used for network TCP/UDP load balancing. A target pool references member instances, an associated legacy HttpHealthCheck resource, and, optionally, a backup target poo
 func (nlbHandler *GCPNLBHandler) listTargetPools(regionID string, filter string) (*compute.TargetPoolList, error) {
 
@@ -2179,7 +2032,6 @@ func (nlbHandler *GCPNLBHandler) listTargetPools(regionID string, filter string)
 	}
 
 	return resp, nil
-
 }
 
 // nlbHandler.Client.TargetPools.AggregatedList(projectID) : 해당 project의 모든 region 에 대해 region별  target pool 목록
@@ -2218,7 +2070,7 @@ func (nlbHandler *GCPNLBHandler) insertHealthCheck(regionID string, targetPoolNa
 	// path param
 	projectID := nlbHandler.Credential.ProjectID
 
-	cblogger.Info("Port ", healthCheckerInfo.Port)
+	printToJson(healthCheckerInfo)
 	port, err := strconv.ParseInt(healthCheckerInfo.Port, 10, 64)
 	if err != nil {
 		return err
@@ -2226,19 +2078,19 @@ func (nlbHandler *GCPNLBHandler) insertHealthCheck(regionID string, targetPoolNa
 	// queryParam
 	reqHealthCheck := compute.HttpHealthCheck{}
 	reqHealthCheck.Name = targetPoolName
-	cblogger.Info("Threshold ", healthCheckerInfo.Threshold)
 	reqHealthCheck.HealthyThreshold = int64(healthCheckerInfo.Threshold)
-	cblogger.Info("Threshold ", healthCheckerInfo.Threshold)
 	reqHealthCheck.UnhealthyThreshold = int64(healthCheckerInfo.Threshold)
-	cblogger.Info("Interval ", healthCheckerInfo.Interval)
 	reqHealthCheck.CheckIntervalSec = int64(healthCheckerInfo.Interval)
-	cblogger.Info("Timeout ", healthCheckerInfo.Timeout)
+	reqHealthCheck.TimeoutSec = int64(healthCheckerInfo.Timeout)
 	reqHealthCheck.Port = port
 	//reqHealthCheck.RequestPath = healthChecker.
 	reqHealthCheck.TimeoutSec = int64(healthCheckerInfo.Timeout)
-
+	printToJson(reqHealthCheck)
 	// requestBody
 	req, err := nlbHandler.Client.HttpHealthChecks.Insert(projectID, &reqHealthCheck).Do()
+	if err != nil {
+		return err
+	}
 	printToJson(req)
 	err = WaitUntilComplete(nlbHandler.Client, projectID, regionID, req.Name, true)
 	if err != nil {
@@ -2256,33 +2108,50 @@ func (nlbHandler *GCPNLBHandler) insertHealthCheck(regionID string, targetPoolNa
 	patch 가 맞는지, update 가 맞는지 확인 필요
 Updates a HttpHealthCheck resource in the specified project using the data included in the request.
 This method supports PATCH semantics and uses the JSON merge patch format and processing rules.
+
+	default 설정 : targetPoolName = healthCheckerName
+	healthCheckInfo.CspID = healthChecker의 URL
+		- URL의 마지막이 healthCheckerName임.
+
+port : default 80, (0은 수정안함)
+checkIntervalSec : default 5, (0은 수정안함)
+timeoutSec : default 5 . checkIntervalSec보다 커야 함. 같아도 됨. (0은 수정안함)
+unhealthyThreshold : default 2. (0은 수정안함)
+healthThreshold : default 2. (0은 수정안함)
 */
 func (nlbHandler *GCPNLBHandler) patchHealthCheck(regionID string, targetPoolName string, healthCheckerInfo *irs.HealthCheckerInfo) error {
 	// path param
 	projectID := nlbHandler.Credential.ProjectID
 
 	// queryParam
-	cblogger.Info("Port ", healthCheckerInfo.Port)
+	printToJson(healthCheckerInfo)
 	port, err := strconv.ParseInt(healthCheckerInfo.Port, 10, 64)
 	if err != nil {
 		return err
 	}
 	// queryParam
 	reqHealthCheck := compute.HttpHealthCheck{}
-	reqHealthCheck.Name = targetPoolName
-	cblogger.Info("targetPoolName ", targetPoolName)
-	reqHealthCheck.HealthyThreshold = int64(healthCheckerInfo.Threshold)
-	cblogger.Info("Threshold ", healthCheckerInfo.Threshold)
-	reqHealthCheck.UnhealthyThreshold = int64(healthCheckerInfo.Threshold)
-	cblogger.Info("UnhealthyThreshold ", healthCheckerInfo.Threshold)
-	reqHealthCheck.CheckIntervalSec = int64(healthCheckerInfo.Interval)
-	cblogger.Info("CheckIntervalSec ", healthCheckerInfo.Interval)
-	reqHealthCheck.Port = port
-	//reqHealthCheck.RequestPath = healthChecker.
-	reqHealthCheck.TimeoutSec = int64(healthCheckerInfo.Timeout)
 
+	healthCheckerUrl := healthCheckerInfo.CspID
+	if strings.EqualFold(healthCheckerUrl, "") {
+		reqHealthCheck.Name = targetPoolName
+	} else {
+		healthCheckNameIndex := strings.LastIndex(healthCheckerUrl, "/")
+		realHealthCheckName := healthCheckerUrl[(healthCheckNameIndex + 1):]
+		reqHealthCheck.Name = realHealthCheckName
+	}
+
+	reqHealthCheck.HealthyThreshold = int64(healthCheckerInfo.Threshold)
+	reqHealthCheck.UnhealthyThreshold = int64(healthCheckerInfo.Threshold)
+	reqHealthCheck.CheckIntervalSec = int64(healthCheckerInfo.Interval)
+	reqHealthCheck.TimeoutSec = int64(healthCheckerInfo.Timeout)
+	reqHealthCheck.Port = port
+	printToJson(reqHealthCheck)
 	// requestBody
 	req, err := nlbHandler.Client.HttpHealthChecks.Patch(projectID, targetPoolName, &reqHealthCheck).Do()
+	if err != nil {
+		return err
+	}
 	printToJson(req)
 	if !strings.EqualFold(req.Status, "DONE") {
 		err = WaitUntilComplete(nlbHandler.Client, projectID, regionID, req.Name, true)
@@ -2291,25 +2160,12 @@ func (nlbHandler *GCPNLBHandler) patchHealthCheck(regionID string, targetPoolNam
 		}
 	} // 이미 있는 경우 : Invalid value for field 'resource.healthCheck': 'https://www.googleapis.com/compute/v1/projects/yhnoh-335705/global/httpHealthChecks/test-lb-seoul-healthchecker'. Target pools have a healthCheck limit of 1
 
-	//id := req.Id
-	//name := req.Name
-	//cblogger.Info("id = ", id, " : name = ", name)
-	//
-	//for _, item := range reqHealthCheck.HealthChecks {
-	//	cblogger.Info("item = ", item)
-	//}
-	//cblogger.Info("addTargetPoolHealthCheck ")
-	//targrtPool, err := nlbHandler.getTargetPool(regionID, targetPoolName)
-	//if err != nil {
-	//	cblogger.Info("get targetpool err ", err)
-	//}
-	//printToJson(targrtPool)
 	return nil
 }
 
 /*
 	등록된 healthchecker 삭제
-	health checker는 독립적임. HttpHealthChecks의
+	health checker는 독립적임.
 */
 func (nlbHandler *GCPNLBHandler) removeHealthCheck(regionID string, targetPoolName string) error {
 	// path param
@@ -2356,24 +2212,13 @@ func (nlbHandler *GCPNLBHandler) addTargetPoolHealthCheck(regionID string, targe
 		}
 	} // 이미 있는 경우 : Invalid value for field 'resource.healthCheck': 'https://www.googleapis.com/compute/v1/projects/yhnoh-335705/global/httpHealthChecks/test-lb-seoul-healthchecker'. Target pools have a healthCheck limit of 1
 
-	//id := req.Id
-	//name := req.Name
-	//cblogger.Info("id = ", id, " : name = ", name)
-	//
-	//for _, item := range reqHealthCheck.HealthChecks {
-	//	cblogger.Info("item = ", item)
-	//}
-	//cblogger.Info("addTargetPoolHealthCheck ")
-	//targrtPool, err := nlbHandler.getTargetPool(regionID, targetPoolName)
-	//if err != nil {
-	//	cblogger.Info("get targetpool err ", err)
-	//}
-	//printToJson(targrtPool)
 	return nil
 }
 
 /*
- TargetPool에 등록되어 있는 health checker 제거
+ TargetPool에 등록되어 있는 health checker 제거(링크만 제거)
+	TargetPool에 healthChecker는 없을 수도 있음. 없어도 오류가 아님.
+	실제 healthCheck는 살아있음. httpHealthCheck 제거는 nlbHandler.removeHealthCheck
 */
 func (nlbHandler *GCPNLBHandler) removeTargetPoolHealthCheck(regionID string, targetPoolName string, healthCheckerName string) error {
 	// path param
@@ -2814,4 +2659,183 @@ func (nlbHandler *GCPNLBHandler) getVPCInfoFromVM(zoneID string, vmID irs.IID) (
 	//subnetName := subnetArr[len(subnetArr)-1]
 	vpcIID := irs.IID{NameId: vpcName, SystemId: vpcUrl}
 	return vpcIID, nil
+}
+
+/*
+// CreateNLB validation check
+	nlb이름이 같은 resource가 있는지 check
+*/
+func (nlbHandler *GCPNLBHandler) validateCreateNLB(nlbReqInfo irs.NLBInfo) error {
+	//// validation check area
+	cblogger.Info("validateCreateNLB")
+	regionID := nlbHandler.Region.Region
+
+	nlbName := nlbReqInfo.IId.NameId
+
+	// targetPool
+	_, err := nlbHandler.getTargetPool(regionID, nlbName) // 없으면 error
+	if err != nil {
+		is404, checkErr := checkErrorCode(ErrorCode_NotFound, err) // 404 : not found면 pass
+		if !is404 || !checkErr {                                   // 하나라도 false 면 error return
+			cblogger.Info("existsTargetPoolChecks : ", err)
+			return err
+		}
+
+	} else {
+		// 이미 있으므로 Error
+		return errors.New("Load Balancer already exists ")
+	}
+
+	// healthCheck
+	_, err = nlbHandler.getHttpHealthChecks(nlbName)
+	if err != nil {
+		is404, checkErr := checkErrorCode(ErrorCode_NotFound, err) // 404 : not found면 pass
+		if !is404 || !checkErr {                                   // 하나라도 false 면 error return
+			cblogger.Info("existsHealthChecks : ", err)
+			return err
+		}
+	} else {
+		// 이미 있으므로 Error
+		return errors.New("Load Balancer health checker already exists ")
+	}
+
+	// forwarding rule
+	_, err = nlbHandler.getRegionForwardingRules(regionID, nlbName)
+	if err != nil {
+		is404, checkErr := checkErrorCode(ErrorCode_NotFound, err) // 404 : not found면 pass
+		if !is404 || !checkErr {                                   // 하나라도 false 면 error return
+			cblogger.Info("existsListener : ", err)
+			return err
+		}
+	} else {
+		// 이미 있으므로 Error
+		return errors.New("Load Balancer listener already exists ")
+	}
+
+	checkIntervalSec := int64(nlbReqInfo.HealthChecker.Interval)
+	if err != nil {
+		return err
+	}
+	timeoutSec := int64(nlbReqInfo.HealthChecker.Timeout)
+	if err != nil {
+		return err
+	}
+
+	if checkIntervalSec < timeoutSec {
+		return errors.New("The healthchecker's TimeoutSec should be less than IntervalSec ")
+	}
+
+	return nil
+}
+
+/*
+// DeleteNLB validation check
+	체크하면서 validation이 실패하면 errors.New("message ")로 map에 추가
+
+	삭제 전 대상 resource가 없는지 checkeck. 셋 다 있으면 OK.
+	없으면 없는 항목 return
+	모두 없으면 error
+*/
+func (nlbHandler *GCPNLBHandler) validateDeleteNLB(nlbIID irs.IID) (map[string]error, error) {
+	//// validation check area
+
+	validationMap := make(map[string]error)
+
+	cblogger.Info("validateDeleteNLB")
+	regionID := nlbHandler.Region.Region
+
+	nlbName := nlbIID.NameId
+
+	//existTargetPool := false
+	//existForwardingRule := false
+	//existHealthChecker := false
+
+	// targetPool
+	_, targetPoolErr := nlbHandler.getTargetPool(regionID, nlbName) // 없으면 not found error
+	validationMap["TARGETPOOL"] = targetPoolErr
+	//if targetPoolErr != nil {
+	//
+	//	// notFound 든 뭐든 따질 필요 없이 Error면 Error이네.
+	//	//is404, checkErr := checkErrorCode(ErrorCode_NotFound, targetPoolErr) // 404 : not found면 안됨
+	//	//if is404 && checkErr {
+	//	//	cblogger.Info("existsListener : ", targetPoolErr)
+	//	//}
+	//	//cblogger.Info("TargetPool not found : ", targetPoolErr)
+	//	// 없네?
+	//} else {
+	//	existTargetPool = true
+	//}
+
+	// healthCheck
+	_, healthCheckErr := nlbHandler.getHttpHealthChecks(nlbName)
+	validationMap["FORWARDINGRULE"] = healthCheckErr
+	//if healthCheckErr != nil {
+	//	cblogger.Info("HealthChecks not found : ", healthCheckErr)
+	//} else {
+	//	existHealthChecker = true
+	//}
+
+	// forwarding rule
+	_, forwardingRuleErr := nlbHandler.getRegionForwardingRules(regionID, nlbName)
+	validationMap["HEALTHCHECKER"] = forwardingRuleErr
+	//if forwardingRuleErr != nil {
+	//	cblogger.Info("Listener not found : ", forwardingRuleErr)
+	//} else {
+	//	existForwardingRule = true
+	//}
+
+	//for key, errResult := range validationMap {
+	//	fmt.Println(key, errResult)
+	//	if errResult != nil {
+	//		if strings.EqualFold("TARGETPOOL", key){
+	//
+	//		}
+	//		if strings.EqualFold("TARGETPOOL", key){
+	//
+	//		}
+	//		if strings.EqualFold("TARGETPOOL", key){
+	//
+	//		}
+	//	}
+	//}
+	return validationMap, nil
+}
+
+/*
+	예상하는 ErrorCode면 true, 아니면 false
+	return param1 : 같은지 비교
+	return param2 : Error 변환 에러 여부
+
+		if err != nil {
+				if ee, ok := err.(*googleapi.Error); ok {
+						fmt.Printf("Error Code %v", ee.Code)
+						fmt.Printf("Error Message %v", ee.Message)
+						fmt.Printf("Error Details %v", ee.Details)
+						fmt.Printf("Error Body %v", ee.Body)
+				}
+		}
+
+	같으면 true, true
+	다르면 false, true
+	예외면 false, false
+*/
+func checkErrorCode(expectErrorCode int, err error) (bool, bool) {
+	var errorCode int
+	err = errors.New("TestTest ")
+	//var errorMessage string
+	errorDetail, ok := err.(*googleapi.Error) // casting이 정상이면 ok=true, 비정상이면 ok=false
+	fmt.Printf("errorDetail", errorDetail)
+	fmt.Printf("ok", ok)
+	if ok {
+		fmt.Printf("Error Code %v", errorDetail.Code)
+		fmt.Printf("Error Message %v", errorDetail.Message)
+		errorCode = errorDetail.Code
+		//errorMessage = errorDetail.Message
+	}
+
+	if errorCode == expectErrorCode {
+		return true, false
+	}
+
+	return false, ok
 }
