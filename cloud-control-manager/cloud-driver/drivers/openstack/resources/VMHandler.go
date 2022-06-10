@@ -91,7 +91,6 @@ func (vmHandler *OpenStackVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (startvm i
 		LoggingError(hiscallInfo, createErr)
 		return irs.VMInfo{}, createErr
 	}
-
 	// Flavor 정보 조회 (Name)
 	vmSpecId, err := GetFlavorByName(vmHandler.Client, vmReqInfo.VMSpecName)
 	if err != nil {
@@ -157,6 +156,13 @@ func (vmHandler *OpenStackVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (startvm i
 	if vmReqInfo.RootDiskSize == "" || vmReqInfo.RootDiskSize == "default" {
 		createVolumeFlag = false
 		serverCreateOpts.ImageRef = image.IId.SystemId
+	} else {
+		if vmHandler.VolumeClient == nil{
+			createErr := errors.New(fmt.Sprintf("Failed to startVM err = this Openstack cannot provide VolumeClient. RootDiskSize cannot be changed"))
+			cblogger.Error(createErr.Error())
+			LoggingError(hiscallInfo, createErr)
+			return irs.VMInfo{}, createErr
+		}
 	}
 	segHandler := OpenStackSecurityHandler{
 		Client:        vmHandler.Client,
@@ -596,13 +602,16 @@ func (vmHandler *OpenStackVMHandler) mappingServerInfo(server servers.Server) ir
 	// VM DiskSize Custom
 	if len(server.AttachedVolumes) != 0 {
 		for _, volume := range server.AttachedVolumes {
-			rawVolume, _ := volumes.Get(vmHandler.VolumeClient, volume.ID).Extract()
-			if rawVolume.Bootable == "true" {
-				vmInfo.RootDiskSize = strconv.Itoa(rawVolume.Size)
+			if vmHandler.VolumeClient != nil {
+				rawVolume, err := volumes.Get(vmHandler.VolumeClient, volume.ID).Extract()
+				if err == nil{
+					if rawVolume.Bootable == "true" {
+						vmInfo.RootDiskSize = strconv.Itoa(rawVolume.Size)
+					}
+				}
 			}
 		}
 	}
-
 	// VM Flavor 정보 설정
 	flavorId := server.Flavor["id"].(string)
 	flavor, _ := flavors.Get(vmHandler.Client, flavorId).Extract()
@@ -663,16 +672,17 @@ func (vmHandler *OpenStackVMHandler) mappingServerInfo(server servers.Server) ir
 		// Network Interface 정보 설정
 		vmInfo.NetworkInterface = port.ID
 	}
-
-	// Volume Disk 조회
-	pages, _ := volumes.List(vmHandler.VolumeClient, volumes.ListOpts{}).AllPages()
-	volList, _ := volumes.ExtractVolumes(pages)
-	for _, vol := range volList {
-		for _, attach := range vol.Attachments {
-			if attach.ServerID == vmInfo.IId.SystemId {
-				vmInfo.VMBlockDisk = attach.Device
-				vmInfo.RootDeviceName = attach.Device
-				break
+	if vmHandler.VolumeClient != nil {
+		// Volume Disk 조회
+		pages, _ := volumes.List(vmHandler.VolumeClient, volumes.ListOpts{}).AllPages()
+		volList, _ := volumes.ExtractVolumes(pages)
+		for _, vol := range volList {
+			for _, attach := range vol.Attachments {
+				if attach.ServerID == vmInfo.IId.SystemId {
+					vmInfo.VMBlockDisk = attach.Device
+					vmInfo.RootDeviceName = attach.Device
+					break
+				}
 			}
 		}
 	}

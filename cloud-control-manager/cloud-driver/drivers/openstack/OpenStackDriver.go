@@ -37,6 +37,7 @@ func (OpenStackDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	drvCapabilityInfo.PublicIPHandler = false
 	drvCapabilityInfo.VMHandler = true
 	drvCapabilityInfo.VMSpecHandler = true
+	drvCapabilityInfo.NLBHandler = true
 
 	return drvCapabilityInfo
 }
@@ -63,12 +64,11 @@ func (driver *OpenStackDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) 
 	if err != nil {
 		return nil, err
 	}
-	VolumeClient, err := getVolumeClient(connectionInfo)
-	if err != nil {
-		return nil, err
-	}
+	VolumeClient, _ := getVolumeClient(connectionInfo)
 
-	iConn := oscon.OpenStackCloudConnection{Region: connectionInfo.RegionInfo, Client: Client, ImageClient: ImageClient, NetworkClient: NetworkClient, VolumeClient: VolumeClient}
+	NLBClient, _ := getNLBClient(connectionInfo)
+
+	iConn := oscon.OpenStackCloudConnection{CredentialInfo: connectionInfo.CredentialInfo, Region: connectionInfo.RegionInfo, Client: Client, ImageClient: ImageClient, NetworkClient: NetworkClient, VolumeClient: VolumeClient, NLBClient: NLBClient}
 
 	return &iConn, nil
 }
@@ -164,8 +164,38 @@ func getVolumeClient(connInfo idrv.ConnectionInfo) (*gophercloud.ServiceClient, 
 		Region: connInfo.RegionInfo.Region,
 	})
 	if err != nil {
-		return nil, err
+		client, err = openstack.NewBlockStorageV3(provider, gophercloud.EndpointOpts{
+			Region: connInfo.RegionInfo.Region,
+		})
+		if err != nil {
+			return nil, err
+		}
 	}
 	return client, err
 }
 
+func getNLBClient(connInfo idrv.ConnectionInfo) (*gophercloud.ServiceClient, error) {
+
+	authOpts := gophercloud.AuthOptions{
+		IdentityEndpoint: connInfo.CredentialInfo.IdentityEndpoint,
+		Username:         connInfo.CredentialInfo.Username,
+		Password:         connInfo.CredentialInfo.Password,
+		DomainName:       connInfo.CredentialInfo.DomainName,
+		TenantID:         connInfo.CredentialInfo.ProjectID,
+	}
+
+	provider, err := openstack.AuthenticatedClient(authOpts)
+	if err != nil {
+		return nil, err
+	}
+
+	client, err := openstack.NewLoadBalancerV2(provider, gophercloud.EndpointOpts{
+		Name:   "octavia",
+		Region: connInfo.RegionInfo.Region,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return client, err
+}

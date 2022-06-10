@@ -98,6 +98,12 @@ func (cloudConn *GCPCloudConnection) CreateVMSpecHandler() (irs.VMSpecHandler, e
 	return &vmSpecHandler, nil
 }
 
+func (cloudConn *GCPCloudConnection) CreateNLBHandler() (irs.NLBHandler, error) {
+	cblogger.Info("GCP Cloud Driver: called CreateLoadBalancerHandler()!")
+	nlbHandler := gcprs.GCPNLBHandler{Region: cloudConn.Region, Ctx: cloudConn.Ctx, Client: cloudConn.VMClient, Credential: cloudConn.Credential}
+	return &nlbHandler, nil
+}
+
 func (GCPCloudConnection) IsConnected() (bool, error) {
 	return true, nil
 }

@@ -12,7 +12,6 @@ package main
 
 import (
 	"fmt"
-
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/sirupsen/logrus"
@@ -303,124 +302,120 @@ func handleSecurity() {
 			case 5:
 				cblogger.Infof("[%s] Rule 추가 테스트", securityId)
 				securityRules := &[]irs.SecurityRuleInfo{
-				
-						/*{
-							//20-22 Prot로 등록
-							FromPort:   "20",
-							ToPort:     "21",
-							IPProtocol: "tcp",
-							Direction:  "inbound",
-							CIDR:       "0.0.0.0/0",
-						},*/
-						/*{
-							//20-22 Prot로 등록
-							FromPort:   "20",
-							ToPort:     "21",
-							IPProtocol: "tcp",
-							Direction:  "outbound",
-							CIDR:       "0.0.0.0/0",
-						},*/
-						/*{
-							//20-22 Prot로 등록
-							FromPort:   "-1",
-							ToPort:     "-1",
-							IPProtocol: "icmp",
-							Direction:  "inbound",
-							CIDR:       "0.0.0.0/0",
-						},*/
-						/*{
-							// 8080 Port로 등록
-							FromPort:   "8080",
-							ToPort:     "", //FromPort나 ToPort중 하나에 -1이 입력될 경우 -1이 입력된 경우 -1을 공백으로 처리
-							IPProtocol: "tcp",
-							Direction:  "inbound",
-							CIDR:       "0.0.0.0/0",
-						},*/
-						/*{ // 1323 Prot로 등록
-							FromPort:   "", //FromPort나 ToPort중 하나에 -1이 입력될 경우 -1이 입력된 경우 -1을 공백으로 처리
-							ToPort:     "1323",
-							IPProtocol: "tcp",
-							Direction:  "inbound",
-							CIDR:       "0.0.0.0/0",
-						},*/
-						/*{
-							// All Port로 등록
-							FromPort:   "",
-							ToPort:     "",
-							IPProtocol: "icmp", //icmp는 포트 정보가 없음
-							Direction:  "inbound",
-						},*/
-						/*{
-							//20-22 Prot로 등록
-							FromPort:   "20",
-							ToPort:     "22",
-							IPProtocol: "tcp",
-							Direction:  "inbound",
-						},*/
-						/*{
-							// 80 Port로 등록
-							FromPort:   "80",
-							ToPort:     "80",
-							IPProtocol: "tcp",
-							Direction:  "inbound",
-							CIDR:       "0.0.0.0/0",
-						},*/
-						/*{ // 모든 프로토콜 모든 포트로 등록
-							//FromPort:   "",
-							//ToPort:     "",
-							IPProtocol: "all", // 모두 허용 (포트 정보 없음)
-							Direction:  "inbound",
-							CIDR:       "0.0.0.0/0",
-						},*/
-						/*{
-							FromPort:   "443",
-							ToPort:     "443",
-							IPProtocol: "tcp",
-							Direction:  "outbound",
-							CIDR:       "0.0.0.0/0",
-						},*/
-						/*{
-							FromPort:   "8443",
-							ToPort:     "9999",
-							IPProtocol: "tcp",
-							Direction:  "outbound",
-						},*/
-						{
-							//20-22 Prot로 등록
-							FromPort:   "22",
-							ToPort:     "22",
-							IPProtocol: "tcp",
-							Direction:  "outbound",
-							CIDR:       "0.0.0.0/0",
-						},
-						{
-							//20-22 Prot로 등록
-							FromPort:   "1000",
-							ToPort:     "1000",
-							IPProtocol: "tcp",
-							Direction:  "outbound",
-							CIDR:       "0.0.0.0/0",
-						},
-						{
-							//20-22 Prot로 등록
-							FromPort:   "1",
-							ToPort:     "65535",
-							IPProtocol: "udp",
-							Direction:  "outbound",
-							CIDR:       "0.0.0.0/0",
-						},
-						{
-							//20-22 Prot로 등록
-							FromPort:   "-1",
-							ToPort:     "-1",
-							IPProtocol: "icmp",
-							Direction:  "outbound",
-							CIDR:       "0.0.0.0/0",
-						},
-						
-						
-				
-					
+
+					/*{
+						//20-22 Prot로 등록
+						FromPort:   "20",
+						ToPort:     "21",
+						IPProtocol: "tcp",
+						Direction:  "inbound",
+						CIDR:       "0.0.0.0/0",
+					},*/
+					/*{
+						//20-22 Prot로 등록
+						FromPort:   "20",
+						ToPort:     "21",
+						IPProtocol: "tcp",
+						Direction:  "outbound",
+						CIDR:       "0.0.0.0/0",
+					},*/
+					/*{
+						//20-22 Prot로 등록
+						FromPort:   "-1",
+						ToPort:     "-1",
+						IPProtocol: "icmp",
+						Direction:  "inbound",
+						CIDR:       "0.0.0.0/0",
+					},*/
+					/*{
+						// 8080 Port로 등록
+						FromPort:   "8080",
+						ToPort:     "", //FromPort나 ToPort중 하나에 -1이 입력될 경우 -1이 입력된 경우 -1을 공백으로 처리
+						IPProtocol: "tcp",
+						Direction:  "inbound",
+						CIDR:       "0.0.0.0/0",
+					},*/
+					/*{ // 1323 Prot로 등록
+						FromPort:   "", //FromPort나 ToPort중 하나에 -1이 입력될 경우 -1이 입력된 경우 -1을 공백으로 처리
+						ToPort:     "1323",
+						IPProtocol: "tcp",
+						Direction:  "inbound",
+						CIDR:       "0.0.0.0/0",
+					},*/
+					/*{
+						// All Port로 등록
+						FromPort:   "",
+						ToPort:     "",
+						IPProtocol: "icmp", //icmp는 포트 정보가 없음
+						Direction:  "inbound",
+					},*/
+					/*{
+						//20-22 Prot로 등록
+						FromPort:   "20",
+						ToPort:     "22",
+						IPProtocol: "tcp",
+						Direction:  "inbound",
+					},*/
+					/*{
+						// 80 Port로 등록
+						FromPort:   "80",
+						ToPort:     "80",
+						IPProtocol: "tcp",
+						Direction:  "inbound",
+						CIDR:       "0.0.0.0/0",
+					},*/
+					/*{ // 모든 프로토콜 모든 포트로 등록
+						//FromPort:   "",
+						//ToPort:     "",
+						IPProtocol: "all", // 모두 허용 (포트 정보 없음)
+						Direction:  "inbound",
+						CIDR:       "0.0.0.0/0",
+					},*/
+					/*{
+						FromPort:   "443",
+						ToPort:     "443",
+						IPProtocol: "tcp",
+						Direction:  "outbound",
+						CIDR:       "0.0.0.0/0",
+					},*/
+					/*{
+						FromPort:   "8443",
+						ToPort:     "9999",
+						IPProtocol: "tcp",
+						Direction:  "outbound",
+					},*/
+					{
+						//20-22 Prot로 등록
+						FromPort:   "22",
+						ToPort:     "22",
+						IPProtocol: "tcp",
+						Direction:  "outbound",
+						CIDR:       "0.0.0.0/0",
+					},
+					{
+						//20-22 Prot로 등록
+						FromPort:   "1000",
+						ToPort:     "1000",
+						IPProtocol: "tcp",
+						Direction:  "outbound",
+						CIDR:       "0.0.0.0/0",
+					},
+					{
+						//20-22 Prot로 등록
+						FromPort:   "1",
+						ToPort:     "65535",
+						IPProtocol: "udp",
+						Direction:  "outbound",
+						CIDR:       "0.0.0.0/0",
+					},
+					{
+						//20-22 Prot로 등록
+						FromPort:   "-1",
+						ToPort:     "-1",
+						IPProtocol: "icmp",
+						Direction:  "outbound",
+						CIDR:       "0.0.0.0/0",
+					},
 				}
 
 				result, err := handler.AddRules(irs.IID{SystemId: securityId}, securityRules)
@@ -1237,6 +1232,362 @@ func handleVM() {
 	}
 }
 
+func handleLoadBalancer() {
+	cblogger.Debug("Start LoadBalancer Test")
+
+	ResourceHandler, err := testconf.GetResourceHandler("LB")
+	if err != nil {
+		panic(err)
+	}
+	nlbHandler := ResourceHandler.(irs.NLBHandler)
+
+	//config := readConfigFile()
+	//VmID := irs.IID{NameId: config.Aws.BaseName, SystemId: config.Aws.VmID}
+	//VmID := irs.IID{SystemId: "mcloud-barista-vm-test"}
+
+	for {
+		fmt.Println("LoadBalancer Management")
+		fmt.Println("0. Quit")
+		fmt.Println("1. CreateNLB TCP")
+		fmt.Println("2. ListNLB")
+		fmt.Println("3. GetNLB")
+		fmt.Println("4. DeleteNLB")
+		fmt.Println("5. ChangeListener")
+		fmt.Println("6. ChangeVMGroupInfo")
+
+		fmt.Println("7. AddVMs")
+		fmt.Println("8. RemoveVMs")
+		fmt.Println("9. GetVMGroupHealthInfo")
+		fmt.Println("10. ChangeHealthCheckerInfo")
+
+		fmt.Println("11. CreateNLB UDP")
+		fmt.Println("12. ListNLB")
+		fmt.Println("13. GetNLB")
+		fmt.Println("14. DeleteNLB")
+		fmt.Println("15. ChangeListener")
+		fmt.Println("16. ChangeVMGroupInfo")
+
+		fmt.Println("17. AddVMs")
+		fmt.Println("18. RemoveVMs")
+		fmt.Println("19. GetVMGroupHealthInfo")
+		fmt.Println("20. ChangeHealthCheckerInfo")
+
+		var commandNum int
+		inputCnt, err := fmt.Scan(&commandNum)
+		if err != nil {
+			panic(err)
+		}
+		////------ NLB Management
+		//CreateNLB(nlbReqInfo NLBReqInfo) (NLBInfo, error)
+		//ListNLB() ([]*NLBInfo, error)
+		//GetNLB(nlbIID IID) (NLBInfo, error)
+		//DeleteNLB(nlbIID IID) (bool, error)
+		//
+		////------ Frontend Control
+		//AddListeners(nlbIID IID, listeners *[]ListenerInfo) (NLBInfo, error)
+		//RemoveListeners(nlbIID IID, listeners *[]ListenerInfo) (bool, error)
+		//
+		////------ Backend Control
+		//ChangeServiceGroupInfo(nlbIID IID, serviceGroup ServiceGroupInfo) (error)
+		//AddServiceVMs(nlbIID IID, vmIIDs *[]IID) (NLBInfo, error)
+		//RemoveServiceVMs(nlbIID IID, vmIIDs *[]IID) (bool, error)
+		//GetServiceVMStatus(nlbIID IID) (HealthyInfo, error)
+		//ChangeHealthCheckerInfo(nlbIID IID, healthChecker HealthCheckerInfo) (error)
+
+		nlbName := "lb-tcptest-be-03"
+
+		if inputCnt == 1 {
+			switch commandNum {
+			case 0: // quit
+				return
+
+			case 1: // lb create
+				nlbReqInfo := irs.NLBInfo{}
+				nlbReqInfo.IId.NameId = nlbName // targetpool = forwordingrule
+				nlbReqInfo.Listener.Protocol = "TCP"
+				nlbReqInfo.Listener.IP = "" //?
+				nlbReqInfo.Listener.Port = "80"
+
+				// 등록시 새로운 healthcker 추가. health checker = nlb name
+				healthCheckerInfo := irs.HealthCheckerInfo{}
+				healthCheckerInfo.Protocol = "HTTP"
+				healthCheckerInfo.Port = "80"
+				healthCheckerInfo.Interval = 30
+				healthCheckerInfo.Timeout = 20
+				healthCheckerInfo.Threshold = 5
+				nlbReqInfo.HealthChecker = healthCheckerInfo
+
+				instanceIIDs := []irs.IID{}
+				instanceIIDs = append(instanceIIDs, irs.IID{NameId: "lb-tcptest-instance-01", SystemId: "https://www.googleapis.com/compute/v1/projects/[projectID]/zones/[regionID]-b/instances/lb-tcptest-instance-01"})
+				instanceIIDs = append(instanceIIDs, irs.IID{NameId: "lb-tcptest-instance-02", SystemId: "https://www.googleapis.com/compute/v1/projects/[projectID]/zones/[regionID]-c/instances/lb-tcptest-instance-02"})
+				nlbReqInfo.VMGroup.VMs = &instanceIIDs
+
+				result, err := nlbHandler.CreateNLB(nlbReqInfo)
+				if err != nil {
+					cblogger.Infof(" Loadbalancer 등록 실패 : ", err)
+				} else {
+					cblogger.Infof(" Loadbalancer 등록 결과 : ", result)
+
+				}
+			case 2: // lb list
+				result, err := nlbHandler.ListNLB()
+				if err != nil {
+					cblogger.Infof(" Loadbalancer 목록 조회 실패 : ", err)
+				} else {
+					cblogger.Infof(" Loadbalancer 목록 조회 결과 : ")
+					cblogger.Infof("전체 목록 수 : [%d]", len(result))
+				}
+
+			case 3: // lb info
+				nlbName = "lb-test-instances"
+				//nlbIID := irs.IID{NameId: "lb-test-seoul-03", SystemId: "lb-test-seoul-fe03"}
+				nlbIID := irs.IID{NameId: nlbName, SystemId: "https://www.googleapis.com/compute/v1/projects/[projectID]/regions/[regionID]/targetPools/" + nlbName}
+				result, err := nlbHandler.GetNLB(nlbIID)
+				if err != nil {
+					cblogger.Infof(" Loadbalancer 조회 실패 : ", err)
+				} else {
+					cblogger.Infof(" Loadbalancer 조회 결과 : ")
+					cblogger.Infof("result ", result)
+				}
+			case 4: // delete
+				//nlbReqInfo := irs.NLBInfo{}
+				//nlbReqInfo.IId.NameId = "lb-tcptest-be-01"     // targetpool
+				//nlbReqInfo.Listener.CspID = "lb-tcptest-fe-01" // forwordingrule
+				nlbIID := irs.IID{NameId: nlbName, SystemId: "https://www.googleapis.com/compute/v1/projects/[projectID]/regions/[regionID]/targetPools/" + nlbName}
+				result, err := nlbHandler.DeleteNLB(nlbIID)
+				if err != nil {
+					cblogger.Infof(" Loadbalancer 삭제 실패 : ", err)
+				} else {
+					cblogger.Infof(" Loadbalancer 삭제 결과 : ")
+					cblogger.Infof("result ", result)
+				}
+			case 5: // change listener
+				nlbIID := irs.IID{NameId: nlbName, SystemId: "https://www.googleapis.com/compute/v1/projects/[projectID]/regions/[regionID]/targetPools/" + nlbName}
+				// IP : 34.64.120.4 -> 34.64.52.190
+				// Port : 80 -> 90
+				//listener := irs.ListenerInfo{IP: "34.64.52.190", Port: "90"}
+				listener := irs.ListenerInfo{Port: "90"}
+				result, err := nlbHandler.ChangeListener(nlbIID, listener)
+				if err != nil {
+					cblogger.Infof(" Loadbalancer 수정 실패 : ", err)
+				} else {
+					cblogger.Infof(" Loadbalancer 수정 결과 : ")
+					cblogger.Infof("result ", result)
+				}
+			case 6: // ChangeVMGroupInfo
+				// protocol, port변경이나, GCP는 없음.
+
+			case 7: // AddVMs
+				nlbIID := irs.IID{NameId: nlbName, SystemId: "https://www.googleapis.com/compute/v1/projects/[projectID]/regions/[regionID]/targetPools/" + nlbName}
+				addVmID := "lb-tcptest-instance-03"
+				vmIID := irs.IID{NameId: addVmID, SystemId: "https://www.googleapis.com/compute/v1/projects/[projectID]/zones/[regionID]-b/instances/" + addVmID}
+				vmIIDs := []irs.IID{vmIID}
+				result, err := nlbHandler.AddVMs(nlbIID, &vmIIDs)
+				//AddVMs(nlbIID IID, vmIIDs *[]IID) (VMGroupInfo, error)
+				if err != nil {
+					cblogger.Infof(" Loadbalancer instance 추가 실패 : ", err)
+				} else {
+					cblogger.Infof(" Loadbalancer instance 추가 결과 : ")
+					cblogger.Infof("result ", result)
+				}
+			//
+			case 8: // RemoveVMs
+				//nlbIID := irs.IID{NameId: "lb-tcptest-be-01", SystemId: "https://www.googleapis.com/compute/v1/projects/[projectID]/regions/[regionID]/targetPools/lb-tcptest-be-01"} //lb-tcptest-be-01
+				//vmIID := irs.IID{NameId: "lb-tcptest-instance-03", SystemId: "https://www.googleapis.com/compute/v1/projects/[projectID]/zones/[regionID]-b/instances/lb-tcptest-instance-03"}
+				nlbIID := irs.IID{NameId: nlbName, SystemId: "https://www.googleapis.com/compute/v1/projects/[projectID]/regions/[regionID]/targetPools/" + nlbName}
+				addVmID := "lb-tcptest-instance-03"
+				vmIID := irs.IID{NameId: addVmID, SystemId: "https://www.googleapis.com/compute/v1/projects/[projectID]/zones/[regionID]-b/instances/" + addVmID}
+				vmIIDs := []irs.IID{vmIID}
+				result, err := nlbHandler.RemoveVMs(nlbIID, &vmIIDs)
+				//AddVMs(nlbIID IID, vmIIDs *[]IID) (VMGroupInfo, error)
+				if err != nil {
+					cblogger.Infof(" Loadbalancer instance 삭제 실패 : ", err)
+				} else {
+					cblogger.Infof(" Loadbalancer instance 삭제 결과 : ")
+					cblogger.Infof("result ", result)
+				}
+			case 9: // GetVMGroupHealthInfo
+				//nlbIID := irs.IID{NameId: "lb-tcptest-be-01", SystemId: "https://www.googleapis.com/compute/v1/projects/[projectID]/regions/[regionID]/targetPools/lb-tcptest-be-01"} //lb-tcptest-be-01
+				nlbIID := irs.IID{NameId: nlbName, SystemId: "https://www.googleapis.com/compute/v1/projects/[projectID]/regions/[regionID]/targetPools/" + nlbName}
+				result, err := nlbHandler.GetVMGroupHealthInfo(nlbIID)
+				if err != nil {
+					cblogger.Infof(" Loadbalancer health 조회 실패 : ", err)
+				} else {
+					cblogger.Infof(" Loadbalancer health 조회 결과 : ")
+					cblogger.Infof("result ", result)
+				}
+			case 10: // ChangeHealthCheckerInfo
+				//nlbIID := irs.IID{NameId: "lb-tcptest-be-01", SystemId: "https://www.googleapis.com/compute/v1/projects/[projectID]/regions/[regionID]/targetPools/lb-tcptest-be-01"} //lb-tcptest-be-01
+				nlbIID := irs.IID{NameId: nlbName, SystemId: "https://www.googleapis.com/compute/v1/projects/[projectID]/regions/[regionID]/targetPools/" + nlbName}
+				healthCheckerInfo := irs.HealthCheckerInfo{}
+				//,"HealthChecker":{"Protocol":"HTTP","Port":"80","Interval":5,"Timeout":5,"Threshold":2
+				//,"CspID":"https://www.googleapis.com/compute/v1/projects/[projectID]/global/httpHealthChecks/test-lb-seoul-healthchecker2"
+				healthCheckerInfo.CspID = "https://www.googleapis.com/compute/v1/projects/[projectID]/global/httpHealthChecks/lb-tcptest-be-01"
+				healthCheckerInfo.Protocol = "HTTP"
+				healthCheckerInfo.Port = "82"
+				healthCheckerInfo.Interval = 31
+				healthCheckerInfo.Timeout = 29
+				healthCheckerInfo.Threshold = 7
+
+				result, err := nlbHandler.ChangeHealthCheckerInfo(nlbIID, healthCheckerInfo)
+				if err != nil {
+					cblogger.Infof(" Loadbalancer health 변경 실패 : ", err)
+				} else {
+					cblogger.Infof(" Loadbalancer health 변경 결과 : ")
+					cblogger.Infof("result ", result)
+				}
+				/////////// ------ 11 부터는 UDP Test ///////////////
+			case 11: // udp lb create
+				nlbName = "lb-udptest-01"
+
+				nlbReqInfo := irs.NLBInfo{}
+				nlbReqInfo.IId.NameId = nlbName // targetpool = forwordingrule
+				nlbReqInfo.Listener.Protocol = "UDP"
+				nlbReqInfo.Listener.IP = "" //?
+				nlbReqInfo.Listener.Port = "80"
+
+				// 등록시 새로운 healthcker 추가. health checker = nlb name
+				healthCheckerInfo := irs.HealthCheckerInfo{}
+				healthCheckerInfo.Protocol = "HTTP"
+				healthCheckerInfo.Port = "80"
+				healthCheckerInfo.Interval = 30
+				healthCheckerInfo.Timeout = 20
+				healthCheckerInfo.Threshold = 5
+				nlbReqInfo.HealthChecker = healthCheckerInfo
+
+				instanceIIDs := []irs.IID{}
+				instanceIIDs = append(instanceIIDs, irs.IID{NameId: "lb-tcptest-instance-01", SystemId: "https://www.googleapis.com/compute/v1/projects/[projectID]/zones/[regionID]-b/instances/lb-tcptest-instance-01"})
+				instanceIIDs = append(instanceIIDs, irs.IID{NameId: "lb-tcptest-instance-02", SystemId: "https://www.googleapis.com/compute/v1/projects/[projectID]/zones/[regionID]-c/instances/lb-tcptest-instance-02"})
+				nlbReqInfo.VMGroup.VMs = &instanceIIDs
+
+				result, err := nlbHandler.CreateNLB(nlbReqInfo)
+				if err != nil {
+					cblogger.Infof(" Loadbalancer 등록 실패 : ", err)
+				} else {
+					cblogger.Infof(" Loadbalancer 등록 결과 : ", result)
+
+				}
+			case 12: // lb list
+				nlbName = "lb-udptest-01"
+
+				result, err := nlbHandler.ListNLB()
+				if err != nil {
+					cblogger.Infof(" Loadbalancer 목록 조회 실패 : ", err)
+				} else {
+					cblogger.Infof(" Loadbalancer 목록 조회 결과 : ")
+					cblogger.Infof("전체 목록 수 : [%d]", len(result))
+				}
+
+			case 13: // lb info
+				nlbName = "lb-udptest-01"
+				//nlbIID := irs.IID{NameId: "lb-test-seoul-03", SystemId: "lb-test-seoul-fe03"}
+				nlbIID := irs.IID{NameId: nlbName, SystemId: "https://www.googleapis.com/compute/v1/projects/[projectID]/regions/[regionID]/targetPools/" + nlbName}
+				result, err := nlbHandler.GetNLB(nlbIID)
+				if err != nil {
+					cblogger.Infof(" Loadbalancer 조회 실패 : ", err)
+				} else {
+					cblogger.Infof(" Loadbalancer 조회 결과 : ")
+					cblogger.Infof("result ", result)
+				}
+			case 14: // delete
+				nlbName = "lb-udptest-01"
+				//nlbReqInfo := irs.NLBInfo{}
+				//nlbReqInfo.IId.NameId = "lb-tcptest-be-01"     // targetpool
+				//nlbReqInfo.Listener.CspID = "lb-tcptest-fe-01" // forwordingrule
+				nlbIID := irs.IID{NameId: nlbName, SystemId: "https://www.googleapis.com/compute/v1/projects/[projectID]/regions/[regionID]/targetPools/" + nlbName}
+				result, err := nlbHandler.DeleteNLB(nlbIID)
+				if err != nil {
+					cblogger.Infof(" Loadbalancer 삭제 실패 : ", err)
+				} else {
+					cblogger.Infof(" Loadbalancer 삭제 결과 : ")
+					cblogger.Infof("result ", result)
+				}
+			case 15: // change listener
+				nlbName = "lb-udptest-01"
+				nlbIID := irs.IID{NameId: nlbName, SystemId: "https://www.googleapis.com/compute/v1/projects/[projectID]/regions/[regionID]/targetPools/" + nlbName}
+				// IP : 34.64.120.4 -> 34.64.52.190
+				// Port : 80 -> 90
+				//listener := irs.ListenerInfo{IP: "34.64.52.190", Port: "90"}
+				listener := irs.ListenerInfo{Port: "90"}
+				result, err := nlbHandler.ChangeListener(nlbIID, listener)
+				if err != nil {
+					cblogger.Infof(" Loadbalancer 수정 실패 : ", err)
+				} else {
+					cblogger.Infof(" Loadbalancer 수정 결과 : ")
+					cblogger.Infof("result ", result)
+				}
+			case 16: // ChangeVMGroupInfo
+				// protocol, port변경이나, GCP는 없음.
+
+			case 17: // AddVMs
+				nlbName = "lb-udptest-01"
+				nlbIID := irs.IID{NameId: nlbName, SystemId: "https://www.googleapis.com/compute/v1/projects/[projectID]/regions/[regionID]/targetPools/" + nlbName}
+				addVmID := "lb-tcptest-instance-03"
+				vmIID := irs.IID{NameId: addVmID, SystemId: "https://www.googleapis.com/compute/v1/projects/[projectID]/zones/[regionID]-b/instances/" + addVmID}
+				vmIIDs := []irs.IID{vmIID}
+				result, err := nlbHandler.AddVMs(nlbIID, &vmIIDs)
+				//AddVMs(nlbIID IID, vmIIDs *[]IID) (VMGroupInfo, error)
+				if err != nil {
+					cblogger.Infof(" Loadbalancer instance 추가 실패 : ", err)
+				} else {
+					cblogger.Infof(" Loadbalancer instance 추가 결과 : ")
+					cblogger.Infof("result ", result)
+				}
+			//
+			case 18: // RemoveVMs
+				nlbName = "lb-udptest-01"
+				//nlbIID := irs.IID{NameId: "lb-tcptest-be-01", SystemId: "https://www.googleapis.com/compute/v1/projects/[projectID]/regions/[regionID]/targetPools/lb-tcptest-be-01"} //lb-tcptest-be-01
+				//vmIID := irs.IID{NameId: "lb-tcptest-instance-03", SystemId: "https://www.googleapis.com/compute/v1/projects/[projectID]/zones/[regionID]-b/instances/lb-tcptest-instance-03"}
+				nlbIID := irs.IID{NameId: nlbName, SystemId: "https://www.googleapis.com/compute/v1/projects/[projectID]/regions/[regionID]/targetPools/" + nlbName}
+				addVmID := "lb-tcptest-instance-03"
+				vmIID := irs.IID{NameId: addVmID, SystemId: "https://www.googleapis.com/compute/v1/projects/[projectID]/zones/[regionID]-b/instances/" + addVmID}
+				vmIIDs := []irs.IID{vmIID}
+				result, err := nlbHandler.RemoveVMs(nlbIID, &vmIIDs)
+				//AddVMs(nlbIID IID, vmIIDs *[]IID) (VMGroupInfo, error)
+				if err != nil {
+					cblogger.Infof(" Loadbalancer instance 삭제 실패 : ", err)
+				} else {
+					cblogger.Infof(" Loadbalancer instance 삭제 결과 : ")
+					cblogger.Infof("result ", result)
+				}
+			case 19: // GetVMGroupHealthInfo
+				nlbName = "lb-udptest-01"
+				//nlbIID := irs.IID{NameId: "lb-tcptest-be-01", SystemId: "https://www.googleapis.com/compute/v1/projects/[projectID]/regions/[regionID]/targetPools/lb-tcptest-be-01"} //lb-tcptest-be-01
+				nlbIID := irs.IID{NameId: nlbName, SystemId: "https://www.googleapis.com/compute/v1/projects/[projectID]/regions/[regionID]/targetPools/" + nlbName}
+				result, err := nlbHandler.GetVMGroupHealthInfo(nlbIID)
+				if err != nil {
+					cblogger.Infof(" Loadbalancer health 조회 실패 : ", err)
+				} else {
+					cblogger.Infof(" Loadbalancer health 조회 결과 : ")
+					cblogger.Infof("result ", result)
+				}
+			case 20: // ChangeHealthCheckerInfo
+				nlbName = "lb-udptest-01"
+				//nlbIID := irs.IID{NameId: "lb-tcptest-be-01", SystemId: "https://www.googleapis.com/compute/v1/projects/[projectID]/regions/[regionID]/targetPools/lb-tcptest-be-01"} //lb-tcptest-be-01
+				nlbIID := irs.IID{NameId: nlbName, SystemId: "https://www.googleapis.com/compute/v1/projects/[projectID]/regions/[regionID]/targetPools/" + nlbName}
+				healthCheckerInfo := irs.HealthCheckerInfo{}
+				//,"HealthChecker":{"Protocol":"HTTP","Port":"80","Interval":5,"Timeout":5,"Threshold":2
+				//,"CspID":"https://www.googleapis.com/compute/v1/projects/[projectID]/global/httpHealthChecks/test-lb-seoul-healthchecker2"
+				healthCheckerInfo.CspID = "https://www.googleapis.com/compute/v1/projects/[projectID]/global/httpHealthChecks/lb-tcptest-be-01"
+				healthCheckerInfo.Protocol = "HTTP"
+				healthCheckerInfo.Port = "82"
+				healthCheckerInfo.Interval = 31
+				healthCheckerInfo.Timeout = 29
+				healthCheckerInfo.Threshold = 7
+
+				result, err := nlbHandler.ChangeHealthCheckerInfo(nlbIID, healthCheckerInfo)
+				if err != nil {
+					cblogger.Infof(" Loadbalancer health 변경 실패 : ", err)
+				} else {
+					cblogger.Infof(" Loadbalancer health 변경 결과 : ")
+					cblogger.Infof("result ", result)
+				}
+
+			}
+		}
+	}
+}
+
 //import "path/filepath"
 
 func main() {
@@ -1245,8 +1596,9 @@ func main() {
 	//handleVMSpec()
 	//handleImage() //AMI
 	//handleKeyPair()
-	handleSecurity()
+	//handleSecurity()
 	//handleVM()
+	handleLoadBalancer()
 	//cblogger.Info(filepath.Join("a/b", "\\cloud-driver-libs\\.ssh-gcp\\"))
 	//cblogger.Info(filepath.Join("\\cloud-driver-libs\\.ssh-gcp\\", "/b/c/d"))
 }

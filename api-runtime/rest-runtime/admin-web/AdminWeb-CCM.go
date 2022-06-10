@@ -1084,7 +1084,7 @@ func makeVMTRList_html(connConfig string, bgcolor string, height string, fontSiz
 		// for security rules info
 		strSRList := ""
 		for _, one := range one.SecurityGroupIIds {
-
+/* mask for list performance
 			// client logging
 			strSRList += genLoggingOneGETURL(connConfig, "securitygroup", one.NameId)
 
@@ -1111,7 +1111,11 @@ func makeVMTRList_html(connConfig string, bgcolor string, height string, fontSiz
 				}
 			}
 			strSRList += "]"
+*/
+
+			strSRList += one.NameId + "," 
 		}
+		strSRList = strings.TrimSuffix(strSRList, ",")
 		str = strings.ReplaceAll(str, "$$SECURITYGROUP$$", strSRList)
 
 		// for Network Interface & PublicIP & PrivateIP

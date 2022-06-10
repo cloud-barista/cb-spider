@@ -79,6 +79,12 @@ func (cloudConn *ClouditCloudConnection) CreateVMSpecHandler() (irs.VMSpecHandle
 	return &vmSpecHandler, nil
 }
 
+func (cloudConn *ClouditCloudConnection) CreateNLBHandler() (irs.NLBHandler, error) {
+	cblogger.Info("Cloudit Cloud Driver: called CreateNLBHandler()!")
+	nlbHandler := cirs.ClouditNLBHandler{CredentialInfo: cloudConn.CredentialInfo, Client: &cloudConn.Client}
+	return &nlbHandler, nil
+}
+
 func (ClouditCloudConnection) IsConnected() (bool, error) {
 	return true, nil
 }

@@ -11,6 +11,8 @@ package commonruntime
 import (
 	"fmt"
 	"os"
+	"sync"
+	"errors"
 	"strconv"
 	"strings"
 	"time"
@@ -1109,6 +1111,11 @@ func getReqNameId(reqIIdList []cres.IID, driverNameId string) string {
 	return ""
 }
 
+type ResultVPCInfo struct {
+        vpcInfo  cres.VPCInfo
+        err     error
+}
+
 // (1) get IID:list
 // (2) get VPCInfo:list
 // (3) set userIID, and...
@@ -1148,50 +1155,90 @@ func ListVPC(connectionName string, rsType string) ([]*cres.VPCInfo, error) {
 	}
 
 	// (2) Get VPCInfo-list with IID-list
+	wg := new(sync.WaitGroup)
 	resultInfoList := []*cres.VPCInfo{}
-	for _, iidInfo := range iidInfoList {
+        var retChanInfos []chan ResultVPCInfo
+        for i:=0 ; i<len(iidInfoList); i++ {
+                retChanInfos = append(retChanInfos, make(chan ResultVPCInfo))
+        }
 
-vpcSPLock.RLock(connectionName, iidInfo.IId.NameId)
+        for idx, iidInfo := range iidInfoList {
 
-		// get resource(driverIID)
-		info, err := handler.GetVPC(getDriverIID(iidInfo.IId))
-		if err != nil {
-vpcSPLock.RUnlock(connectionName, iidInfo.IId.NameId)
-			if checkNotFoundError(err) {
-				cblog.Info(err)
-				continue
-			}
-			cblog.Error(err)
-			return nil, err
-		}
-		// (3) set ResourceInfo(userIID)
-		info.IId = getUserIID(iidInfo.IId)
+                wg.Add(1)
 
-		// set NameId for SubnetInfo List
-		// create new SubnetInfo List
-		subnetInfoList := []cres.SubnetInfo{}
-		for _, subnetInfo := range info.SubnetInfoList {
-			subnetIIDInfo, err := iidRWLock.GetIIDbySystemID(iidm.SUBNETGROUP, connectionName, info.IId.NameId, subnetInfo.IId) // VPC info.IId.NameId => rsType
-			if err != nil {
-vpcSPLock.RUnlock(connectionName, iidInfo.IId.NameId)
-				cblog.Error(err)
-				return nil, err
-			}
-			if subnetIIDInfo.IId.NameId != "" { // insert only this user created.
-				subnetInfo.IId = getUserIID(subnetIIDInfo.IId)
-				subnetInfoList = append(subnetInfoList, subnetInfo)
-			}
-		}
-vpcSPLock.RUnlock(connectionName, iidInfo.IId.NameId)
+                go getVPCInfo(connectionName, handler, iidInfo.IId, retChanInfos[idx])
 
-		info.SubnetInfoList = subnetInfoList
+                wg.Done()
 
+        }
+        wg.Wait()
 
-		resultInfoList = append(resultInfoList, &info)
-	}
+        var errList []string
+        for idx, retChanInfo := range retChanInfos {
+                chanInfo := <-retChanInfo
 
-	return resultInfoList, nil
+                if chanInfo.err  != nil {
+                        if checkNotFoundError(chanInfo.err) {
+                                cblog.Info(chanInfo.err) } else {
+                                errList = append(errList, connectionName + ":VPC:" + iidInfoList[idx].IId.NameId + " # " + chanInfo.err.Error())
+                        }
+                } else {
+                        resultInfoList = append(resultInfoList, &chanInfo.vpcInfo)
+                }
+
+                close(retChanInfo)
+        }
+
+        if len(errList) > 0 {
+                cblog.Error(strings.Join(errList, "\n"))
+                return nil, errors.New(strings.Join(errList, "\n"))
+        }
+
+        return resultInfoList, nil
 }
+
+
+func getVPCInfo(connectionName string, handler cres.VPCHandler, iid cres.IID, retInfo chan ResultVPCInfo) {
+
+vpcSPLock.RLock(connectionName, iid.NameId)
+        // get resource(SystemId)
+        info, err := handler.GetVPC(getDriverIID(iid))
+        if err != nil {
+vpcSPLock.RUnlock(connectionName, iid.NameId)
+                cblog.Error(err)
+                retInfo <- ResultVPCInfo{cres.VPCInfo{}, err}
+                return
+        }
+
+        // set ResourceInfo(IID.NameId)
+        info.IId = getUserIID(iid)
+
+
+	// set NameId for SubnetInfo List
+	// create new SubnetInfo List
+	subnetInfoList := []cres.SubnetInfo{}
+	for _, subnetInfo := range info.SubnetInfoList {
+		// VPC info.IId.NameId => rsType
+		subnetIIDInfo, err := iidRWLock.GetIIDbySystemID(iidm.SUBNETGROUP, connectionName, iid.NameId, subnetInfo.IId) 
+		if err != nil {
+vpcSPLock.RUnlock(connectionName, iid.NameId)
+			cblog.Error(err)
+			retInfo <- ResultVPCInfo{cres.VPCInfo{}, err}
+			return
+		}
+		if subnetIIDInfo.IId.NameId != "" { // insert only this user created.
+			subnetInfo.IId = getUserIID(subnetIIDInfo.IId)
+			subnetInfoList = append(subnetInfoList, subnetInfo)
+		}
+	}
+vpcSPLock.RUnlock(connectionName, iid.NameId)
+
+	info.SubnetInfoList = subnetInfoList
+
+
+        retInfo <- ResultVPCInfo{info, nil}
+}
+
 
 func checkNotFoundError(err error) bool {
 	msg := err.Error()
@@ -3085,6 +3132,11 @@ func setNameId(ConnectionName string, vmInfo *cres.VMInfo, reqInfo *cres.VMReqIn
 	return nil
 }
 
+type ResultVMInfo struct {
+	vmInfo 	cres.VMInfo
+	err	error
+}
+
 // (1) get IID:list
 // (2) get VMInfo:list
 func ListVM(connectionName string, rsType string) ([]*cres.VMInfo, error) {
@@ -3123,52 +3175,80 @@ func ListVM(connectionName string, rsType string) ([]*cres.VMInfo, error) {
 	}
 
 	// (2) get VMInfo:list
+	wg := new(sync.WaitGroup)
 	infoList2 := []*cres.VMInfo{}
-	for _, iidInfo := range iidInfoList {
+	var retChanInfos []chan ResultVMInfo
+	for i:=0 ; i<len(iidInfoList); i++ {
+		retChanInfos = append(retChanInfos, make(chan ResultVMInfo))
+	}
 
-vmSPLock.RLock(connectionName, iidInfo.IId.NameId)
+	for idx, iidInfo := range iidInfoList {
 
-		// (2) get resource(SystemId)
-		info, err := handler.GetVM(getDriverIID(iidInfo.IId))
-		if err != nil {
-vmSPLock.RUnlock(connectionName, iidInfo.IId.NameId)
-			if checkNotFoundError(err) {
-				cblog.Info(err)
-				continue
+		wg.Add(1)
+
+		go getVMInfo(connectionName, handler, iidInfo.IId, retChanInfos[idx])
+
+		wg.Done()
+
+	}
+	wg.Wait()
+
+	var errList []string
+	for idx, retChanInfo := range retChanInfos {
+		chanInfo := <-retChanInfo
+
+		if chanInfo.err  != nil {
+			if checkNotFoundError(chanInfo.err) {
+				cblog.Info(chanInfo.err) } else {
+				errList = append(errList, connectionName + ":VM:" + iidInfoList[idx].IId.NameId + " # " + chanInfo.err.Error())
 			}
-			cblog.Error(err)
-			return nil, err
-		}
-vmSPLock.RUnlock(connectionName, iidInfo.IId.NameId)
-
-		// (3) set ResourceInfo(IID.NameId)
-		// set ResourceInfo
-		info.IId = getUserIID(iidInfo.IId)
-
-		err = getSetNameId(connectionName, &info)
-		if err != nil {
-			cblog.Error(err)
-			return nil, err
-		}
-	/*
-		// set sg NameId from VPCNameId-SecurityGroupNameId
-		// IID.NameID format => {VPC NameID} + SG_DELIMITER + {SG NameID}
-		for i, sgIID := range info.SecurityGroupIIds {
-			vpc_sg_nameid := strings.Split(sgIID.NameId, SG_DELIMITER)
-			info.SecurityGroupIIds[i].NameId = vpc_sg_nameid[1]
-		}
-	*/
-		// current: Assume 22 port, except Cloud-Twin, by powerkim, 2021.03.24.
-		if info.SSHAccessPoint == "" {
-			info.SSHAccessPoint = info.PublicIP + ":22"
+		} else {
+			infoList2 = append(infoList2, &chanInfo.vmInfo)
 		}
 
+		close(retChanInfo)
+	}
 
-		infoList2 = append(infoList2, &info)
+	if len(errList) > 0 {
+		cblog.Error(strings.Join(errList, "\n"))
+		return nil, errors.New(strings.Join(errList, "\n"))
 	}
 
 	return infoList2, nil
 }
+
+func getVMInfo(connectionName string, handler cres.VMHandler, iid cres.IID, retInfo chan ResultVMInfo) { 
+
+vmSPLock.RLock(connectionName, iid.NameId)
+	// get resource(SystemId)
+	info, err := handler.GetVM(getDriverIID(iid))
+	if err != nil {
+vmSPLock.RUnlock(connectionName, iid.NameId)
+		cblog.Error(err)
+		retInfo <- ResultVMInfo{cres.VMInfo{}, err}
+		return 
+	}
+
+	// set ResourceInfo(IID.NameId)
+	info.IId = getUserIID(iid)
+
+	err = getSetNameId(connectionName, &info)
+	if err != nil {
+vmSPLock.RUnlock(connectionName, iid.NameId)
+		cblog.Error(err)
+		retInfo <- ResultVMInfo{cres.VMInfo{}, err}
+		return 
+	}
+vmSPLock.RUnlock(connectionName, iid.NameId)
+
+	// current: Assume 22 port, except Cloud-Twin, by powerkim, 2021.03.24.
+	if info.SSHAccessPoint == "" {
+		info.SSHAccessPoint = info.PublicIP + ":22"
+	}
+
+	retInfo <- ResultVMInfo{info, nil}
+}
+
 
 func getSetNameId(ConnectionName string, vmInfo *cres.VMInfo) error {
 
@@ -3467,6 +3547,7 @@ func ControlVM(connectionName string, rsType string, nameID string, action strin
 
 	return info, nil
 }
+
 
 // list all Resources for management
 // (1) get IID:list

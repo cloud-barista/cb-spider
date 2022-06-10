@@ -29,11 +29,13 @@ func init() {
 
 // OpenStackCloudConnection modified by powerkim, 2019.07.29
 type OpenStackCloudConnection struct {
-	Region        idrv.RegionInfo
-	Client        *gophercloud.ServiceClient
-	ImageClient   *gophercloud.ServiceClient
-	NetworkClient *gophercloud.ServiceClient
-	VolumeClient  *gophercloud.ServiceClient
+	CredentialInfo idrv.CredentialInfo
+	Region         idrv.RegionInfo
+	Client         *gophercloud.ServiceClient
+	ImageClient    *gophercloud.ServiceClient
+	NetworkClient  *gophercloud.ServiceClient
+	VolumeClient   *gophercloud.ServiceClient
+	NLBClient      *gophercloud.ServiceClient
 }
 
 func (cloudConn *OpenStackCloudConnection) CreateImageHandler() (irs.ImageHandler, error) {
@@ -70,6 +72,12 @@ func (cloudConn *OpenStackCloudConnection) CreateVMSpecHandler() (irs.VMSpecHand
 	cblogger.Info("OpenStack Cloud Driver: called CreateVMSpecHandler()!")
 	vmSpecHandler := osrs.OpenStackVMSpecHandler{Region: cloudConn.Region, Client: cloudConn.Client}
 	return &vmSpecHandler, nil
+}
+
+func (cloudConn *OpenStackCloudConnection) CreateNLBHandler() (irs.NLBHandler, error) {
+	cblogger.Info("OpenStack Cloud Driver: called CreateNLBHandler()!")
+	nlbHandler := osrs.OpenStackNLBHandler{CredentialInfo: cloudConn.CredentialInfo, Region: cloudConn.Region, VMClient: cloudConn.Client, NetworkClient: cloudConn.NetworkClient, NLBClient: cloudConn.NLBClient}
+	return &nlbHandler, nil
 }
 
 func (cloudConn *OpenStackCloudConnection) IsConnected() (bool, error) {

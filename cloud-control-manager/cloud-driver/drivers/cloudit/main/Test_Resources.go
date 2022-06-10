@@ -53,6 +53,8 @@ func getResourceHandler(resourceType string, config ResourceConfig) (interface{}
 		resourceHandler, _ = cloudConnection.CreateVMSpecHandler()
 	case "vm":
 		resourceHandler, _ = cloudConnection.CreateVMHandler()
+	case "nlb":
+		resourceHandler, _ = cloudConnection.CreateNLBHandler()
 	}
 	return resourceHandler, nil
 }
@@ -554,7 +556,8 @@ func testVmHandler(config ResourceConfig) {
 			NameId: config.Cloudit.VM.IID.NameId,
 		},
 		ImageIID: irs.IID{
-			NameId: config.Cloudit.VM.ImageIID.NameId,
+			NameId:   config.Cloudit.VM.ImageIID.NameId,
+			SystemId: config.Cloudit.VM.ImageIID.SystemId,
 		},
 		VpcIID: irs.IID{
 			NameId: config.Cloudit.VM.VpcIID.NameId,
@@ -567,8 +570,8 @@ func testVmHandler(config ResourceConfig) {
 			NameId: config.Cloudit.VM.KeyPairIID.NameId,
 		},
 		SecurityGroupIIDs: SecurityGroupIIDs,
-		RootDiskSize: "",
-		RootDiskType: "",
+		RootDiskSize:      "",
+		RootDiskType:      "",
 	}
 
 Loop:
@@ -664,6 +667,193 @@ Loop:
 	}
 }
 
+func testNLBHandlerListPrint() {
+	res_cblogger.Info("Test NLBHandler")
+	res_cblogger.Info("0. Print Menu")
+	res_cblogger.Info("1. ListNLB()")
+	res_cblogger.Info("2. GetNLB()")
+	res_cblogger.Info("3. CreateNLB()")
+	res_cblogger.Info("4. DeleteNLB()")
+	res_cblogger.Info("5. ChangeListener()")
+	res_cblogger.Info("6. ChangeVMGroupInfo()")
+	res_cblogger.Info("7. AddVMs()")
+	res_cblogger.Info("8. RemoveVMs()")
+	res_cblogger.Info("9. GetVMGroupHealthInfo()")
+	res_cblogger.Info("10. ChangeHealthCheckerInfo()")
+	res_cblogger.Info("11. Exit")
+}
+
+func testNLBHandler(config ResourceConfig) {
+	resourceHandler, err := getResourceHandler("nlb", config)
+	if err != nil {
+		res_cblogger.Error(err)
+		return
+	}
+
+	nlbHandler := resourceHandler.(irs.NLBHandler)
+
+	testNLBHandlerListPrint()
+	confignlb := config.Cloudit.NLB
+
+	vms := make([]irs.IID, len(confignlb.VMGroup.VMs))
+	for i, vm := range confignlb.VMGroup.VMs {
+		vms[i] = irs.IID{NameId: vm.NameId}
+	}
+	addvms := make([]irs.IID, len(confignlb.AddVMs))
+	for i, vm := range confignlb.AddVMs {
+		addvms[i] = irs.IID{NameId: vm.NameId}
+	}
+	removevms := make([]irs.IID, len(confignlb.RemoveVMs))
+	for i, vm := range confignlb.RemoveVMs {
+		removevms[i] = irs.IID{NameId: vm.NameId}
+	}
+	nlbIId := irs.IID{
+		NameId: confignlb.IID.NameId,
+	}
+	nlbCreateReqInfo := irs.NLBInfo{
+		IId: irs.IID{
+			NameId: confignlb.IID.NameId,
+		},
+		//VpcIID: irs.IID{
+		//	NameId: "nlb-tester-vpc",
+		//},
+		Type:  "PUBLIC",
+		Scope: "REGION",
+		Listener: irs.ListenerInfo{
+			Protocol: confignlb.Listener.Protocol,
+			Port:     confignlb.Listener.Port,
+		},
+		VMGroup: irs.VMGroupInfo{
+			Port:     confignlb.VMGroup.Port,
+			Protocol: confignlb.VMGroup.Protocol,
+			VMs:      &vms,
+		},
+		HealthChecker: irs.HealthCheckerInfo{
+			Protocol:  confignlb.HealthChecker.Protocol,
+			Port:      confignlb.HealthChecker.Port,
+			Interval:  confignlb.HealthChecker.Interval,
+			Timeout:   confignlb.HealthChecker.Timeout,
+			Threshold: confignlb.HealthChecker.Threshold,
+		},
+	}
+	updateListener := irs.ListenerInfo{
+		Protocol: confignlb.UpdateListener.Protocol,
+		Port:     confignlb.UpdateListener.Port,
+	}
+	updateVMGroups := irs.VMGroupInfo{
+		Protocol: confignlb.UpdateVMGroup.Protocol,
+		Port:     confignlb.UpdateVMGroup.Port,
+	}
+	addVMs := addvms
+	removeVMs := removevms
+
+	updateHealthCheckerInfo := irs.HealthCheckerInfo{
+		Protocol:  confignlb.UpdateHealthChecker.Protocol,
+		Port:      confignlb.UpdateHealthChecker.Port,
+		Interval:  confignlb.UpdateHealthChecker.Interval,
+		Threshold: confignlb.UpdateHealthChecker.Threshold,
+		Timeout:   confignlb.UpdateHealthChecker.Timeout,
+	}
+Loop:
+	for {
+		var commandNum int
+		inputCnt, err := fmt.Scan(&commandNum)
+		if err != nil {
+			res_cblogger.Error(err)
+		}
+
+		if inputCnt == 1 {
+			switch commandNum {
+			case 0:
+				testNLBHandlerListPrint()
+			case 1:
+				res_cblogger.Info("Start ListNLB() ...")
+				if list, err := nlbHandler.ListNLB(); err != nil {
+					res_cblogger.Error(err)
+				} else {
+					spew.Dump(list)
+				}
+				res_cblogger.Info("Finish ListNLB()")
+			case 2:
+				res_cblogger.Info("Start GetNLB() ...")
+				if vm, err := nlbHandler.GetNLB(nlbIId); err != nil {
+					res_cblogger.Error(err)
+				} else {
+					spew.Dump(vm)
+				}
+				res_cblogger.Info("Finish GetNLB()")
+			case 3:
+				res_cblogger.Info("Start CreateNLB() ...")
+				if createInfo, err := nlbHandler.CreateNLB(nlbCreateReqInfo); err != nil {
+					res_cblogger.Error(err)
+				} else {
+					spew.Dump(createInfo)
+				}
+				res_cblogger.Info("Finish CreateNLB()")
+			case 4:
+				res_cblogger.Info("Start DeleteNLB() ...")
+				if vmStatus, err := nlbHandler.DeleteNLB(nlbIId); err != nil {
+					res_cblogger.Error(err)
+				} else {
+					spew.Dump(vmStatus)
+				}
+				res_cblogger.Info("Finish DeleteNLB()")
+			case 5:
+				res_cblogger.Info("Start ChangeListener() ...")
+				if nlbInfo, err := nlbHandler.ChangeListener(nlbIId, updateListener); err != nil {
+					res_cblogger.Error(err)
+				} else {
+					spew.Dump(nlbInfo)
+				}
+				res_cblogger.Info("Finish ChangeListener()")
+			case 6:
+				res_cblogger.Info("Start ChangeVMGroupInfo() ...")
+				if info, err := nlbHandler.ChangeVMGroupInfo(nlbIId, updateVMGroups); err != nil {
+					res_cblogger.Error(err)
+				} else {
+					spew.Dump(info)
+				}
+				res_cblogger.Info("Finish ChangeVMGroupInfo()")
+			case 7:
+				res_cblogger.Info("Start AddVMs() ...")
+				if info, err := nlbHandler.AddVMs(nlbIId, &addVMs); err != nil {
+					res_cblogger.Error(err)
+				} else {
+					spew.Dump(info)
+				}
+				res_cblogger.Info("Finish AddVMs()")
+			case 8:
+				res_cblogger.Info("Start RemoveVMs() ...")
+				if result, err := nlbHandler.RemoveVMs(nlbIId, &removeVMs); err != nil {
+					res_cblogger.Error(err)
+				} else {
+					spew.Dump(result)
+				}
+				res_cblogger.Info("Finish RemoveVMs()")
+			case 9:
+				res_cblogger.Info("Start GetVMGroupHealthInfo() ...")
+				if result, err := nlbHandler.GetVMGroupHealthInfo(nlbIId); err != nil {
+					res_cblogger.Error(err)
+				} else {
+					spew.Dump(result)
+				}
+				res_cblogger.Info("Finish GetVMGroupHealthInfo()")
+			case 10:
+				res_cblogger.Info("Start ChangeHealthCheckerInfo() ...")
+				if info, err := nlbHandler.ChangeHealthCheckerInfo(nlbIId, updateHealthCheckerInfo); err != nil {
+					res_cblogger.Error(err)
+				} else {
+					spew.Dump(info)
+				}
+				res_cblogger.Info("Finish ChangeHealthCheckerInfo()")
+			case 11:
+				res_cblogger.Info("Exit")
+				break Loop
+			}
+		}
+	}
+}
+
 func showTestHandlerInfo() {
 	res_cblogger.Info("==========================================================")
 	res_cblogger.Info("[Test ResourceHandler]")
@@ -673,7 +863,8 @@ func showTestHandlerInfo() {
 	res_cblogger.Info("4. KeyPairHandler")
 	res_cblogger.Info("5. VmSpecHandler")
 	res_cblogger.Info("6. VmHandler")
-	res_cblogger.Info("7. Exit")
+	res_cblogger.Info("7. NLBHandler")
+	res_cblogger.Info("8. Exit")
 	res_cblogger.Info("==========================================================")
 }
 
@@ -713,6 +904,9 @@ Loop:
 				testVmHandler(config)
 				showTestHandlerInfo()
 			case 7:
+				testNLBHandler(config)
+				showTestHandlerInfo()
+			case 8:
 				fmt.Println("Exit Test ResourceHandler Program")
 				break Loop
 			}
@@ -817,6 +1011,58 @@ type ResourceConfig struct {
 				} `yaml:"removeRules"`
 			} `yaml:"SecurityGroup"`
 		} `yaml:"resources"`
+		NLB struct {
+			IID struct {
+				NameId   string `yaml:"nameId"`
+				SystemId string `yaml:"systemId"`
+			} `yaml:"IID"`
+			VpcIID struct {
+				NameId   string `yaml:"nameId"`
+				SystemId string `yaml:"systemId"`
+			} `yaml:"VpcIID"`
+			Listener struct {
+				Protocol string `yaml:"Protocol"`
+				Port     string `yaml:"Port"`
+			} `yaml:"Listener"`
+			VMGroup struct {
+				Protocol string `yaml:"Protocol"`
+				Port     string `yaml:"Port"`
+				VMs      []struct {
+					NameId   string `yaml:"nameId"`
+					SystemId string `yaml:"systemId"`
+				} `yaml:"VMs"`
+			} `yaml:"VMGroup"`
+			HealthChecker struct {
+				Protocol  string `yaml:"Protocol"`
+				Port      string `yaml:"Port"`
+				Interval  int    `yaml:"Interval"`
+				Timeout   int    `yaml:"Timeout"`
+				Threshold int    `yaml:"Threshold"`
+			} `yaml:"HealthChecker"`
+			UpdateListener struct {
+				Protocol string `yaml:"Protocol"`
+				Port     string `yaml:"Port"`
+			} `yaml:"UpdateListener"`
+			UpdateVMGroup struct {
+				Protocol string `yaml:"Protocol"`
+				Port     string `yaml:"Port"`
+			} `yaml:"UpdateVMGroup"`
+			UpdateHealthChecker struct {
+				Protocol  string `yaml:"Protocol"`
+				Port      string `yaml:"Port"`
+				Interval  int    `yaml:"Interval"`
+				Timeout   int    `yaml:"Timeout"`
+				Threshold int    `yaml:"Threshold"`
+			} `yaml:"UpdateHealthChecker"`
+			AddVMs []struct {
+				NameId   string `yaml:"nameId"`
+				SystemId string `yaml:"systemId"`
+			} `yaml:"AddVMs"`
+			RemoveVMs []struct {
+				NameId   string `yaml:"nameId"`
+				SystemId string `yaml:"systemId"`
+			} `yaml:"RemoveVMs"`
+		} `yaml:"nlb"`
 	} `yaml:"cloudit"`
 }
 

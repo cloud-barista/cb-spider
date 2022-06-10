@@ -18,6 +18,7 @@ type CloudConnection interface {
 	CreateImageHandler() (irs.ImageHandler, error)
 	//CreateVNetworkHandler() (irs.VNetworkHandler, error)
 	CreateVPCHandler() (irs.VPCHandler, error)
+
 	CreateSecurityHandler() (irs.SecurityHandler, error)
 	CreateKeyPairHandler() (irs.KeyPairHandler, error)
 	//CreateVNicHandler() (irs.VNicHandler, error)

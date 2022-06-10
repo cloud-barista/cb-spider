@@ -19,6 +19,7 @@ import (
 	//"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
 	//"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/errors"
 	//"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/profile"
+	clb "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/clb/v20180317"
 	cvm "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/cvm/v20170312"
 	vpc "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/vpc/v20170312"
 )
@@ -26,7 +27,7 @@ import (
 type TencentCloudConnection struct {
 	Region         idrv.RegionInfo
 	VNetworkClient *vpc.Client
-
+	NLBClient      *clb.Client
 	VMClient       *cvm.Client
 	KeyPairClient  *cvm.Client
 	ImageClient    *cvm.Client
@@ -69,6 +70,13 @@ func (cloudConn *TencentCloudConnection) Close() error {
 func (cloudConn *TencentCloudConnection) CreateVPCHandler() (irs.VPCHandler, error) {
 	cblogger.Info("Start")
 	handler := trs.TencentVPCHandler{cloudConn.Region, cloudConn.VNetworkClient}
+
+	return &handler, nil
+}
+
+func (cloudConn *TencentCloudConnection) CreateNLBHandler() (irs.NLBHandler, error) {
+	cblogger.Info("Start")
+	handler := trs.TencentNLBHandler{cloudConn.Region, cloudConn.NLBClient}
 
 	return &handler, nil
 }
