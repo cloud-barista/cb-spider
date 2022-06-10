@@ -22,8 +22,7 @@ import (
 
 	//ec2drv "github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/ec2"
-
-	"errors"
+	"github.com/aws/aws-sdk-go/service/elbv2"
 )
 
 //type AwsCloudConnection struct{}
@@ -39,6 +38,9 @@ type AwsCloudConnection struct {
 	//PublicIPClient *ec2.EC2
 	SecurityClient *ec2.EC2
 	VmSpecClient   *ec2.EC2
+
+	//NLBClient *elb.ELB
+	NLBClient *elbv2.ELBV2
 }
 
 var cblogger *logrus.Logger
@@ -48,9 +50,15 @@ func init() {
 	cblogger = cblog.GetLogger("CB-SPIDER")
 }
 
-func (cloudConn *AwsCloudConnection) CreateKeyPairHandler() (irs.KeyPairHandler, error) {
-	cblogger.Info("Start CreateKeyPairHandler()")
+func (cloudConn *AwsCloudConnection) IsConnected() (bool, error) {
+	return true, nil
+}
 
+func (cloudConn *AwsCloudConnection) Close() error {
+	return nil
+}
+
+func (cloudConn *AwsCloudConnection) CreateKeyPairHandler() (irs.KeyPairHandler, error) {
 	keyPairHandler := ars.AwsKeyPairHandler{cloudConn.CredentialInfo, cloudConn.Region, cloudConn.KeyPairClient}
 	//keyPairHandler := ars.AwsKeyPairHandler{cloudConn.Region, cloudConn.KeyPairClient}
 
@@ -58,21 +66,11 @@ func (cloudConn *AwsCloudConnection) CreateKeyPairHandler() (irs.KeyPairHandler,
 }
 
 func (cloudConn *AwsCloudConnection) CreateVMHandler() (irs.VMHandler, error) {
-	cblogger.Info("Start CreateVMHandler()")
-
 	vmHandler := ars.AwsVMHandler{cloudConn.Region, cloudConn.VMClient}
 	return &vmHandler, nil
 }
 
-func (cloudConn *AwsCloudConnection) IsConnected() (bool, error) {
-	return true, nil
-}
-func (cloudConn *AwsCloudConnection) Close() error {
-	return nil
-}
-
 func (cloudConn *AwsCloudConnection) CreateVPCHandler() (irs.VPCHandler, error) {
-	cblogger.Info("Start")
 	handler := ars.AwsVPCHandler{cloudConn.Region, cloudConn.VNetworkClient}
 
 	return &handler, nil
@@ -80,14 +78,12 @@ func (cloudConn *AwsCloudConnection) CreateVPCHandler() (irs.VPCHandler, error) 
 
 //func (cloudConn *AwsCloudConnection) CreateImageHandler() (irs2.ImageHandler, error) {
 func (cloudConn *AwsCloudConnection) CreateImageHandler() (irs.ImageHandler, error) {
-	cblogger.Info("Start")
 	handler := ars.AwsImageHandler{cloudConn.Region, cloudConn.ImageClient}
 
 	return &handler, nil
 }
 
 func (cloudConn *AwsCloudConnection) CreateSecurityHandler() (irs.SecurityHandler, error) {
-	cblogger.Info("Start")
 	handler := ars.AwsSecurityHandler{cloudConn.Region, cloudConn.SecurityClient}
 
 	return &handler, nil
@@ -110,11 +106,11 @@ func (cloudConn *AwsCloudConnection) CreatePublicIPHandler() (irs.PublicIPHandle
 */
 
 func (cloudConn *AwsCloudConnection) CreateVMSpecHandler() (irs.VMSpecHandler, error) {
-	cblogger.Info("Start")
 	handler := ars.AwsVmSpecHandler{cloudConn.Region, cloudConn.VmSpecClient}
 	return &handler, nil
 }
 
 func (cloudConn *AwsCloudConnection) CreateNLBHandler() (irs.NLBHandler, error) {
-	return nil, errors.New("AWS Cloud Driver NLB: WIP")
+	handler := ars.AwsNLBHandler{cloudConn.Region, cloudConn.NLBClient, cloudConn.VMClient}
+	return &handler, nil
 }
