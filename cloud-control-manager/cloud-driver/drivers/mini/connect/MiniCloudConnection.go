@@ -89,7 +89,3 @@ func (cloudConn *MiniConnection) Close() error {
 	cblogger.Info("Mini Driver: called Close()!")
 	return nil
 }
-
-func (cloudConn *MiniConnection) CreateNLBHandler() (irs.NLBHandler, error) {
-        return nil, errors.New("Mini Driver: not implemented")
-}

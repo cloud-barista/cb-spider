@@ -18,8 +18,6 @@ import (
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/sirupsen/logrus"
-
-	"errors"
 )
 
 var cblogger *logrus.Logger
@@ -89,8 +87,3 @@ func (cloudConn *DockerCloudConnection) Close() error {
         cblogger.Info("Docker Cloud Driver: called Close()!")
 	return cloudConn.Client.Close()
 }
-
-func (cloudConn *DockerCloudConnection) CreateNLBHandler() (irs.NLBHandler, error) {
-        return nil, errors.New("Docker Cloud Driver NLB: WIP")
-}
-

@@ -4,8 +4,6 @@ import (
 	"errors"
 	"fmt"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
-	"math/rand"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -19,7 +17,7 @@ import (
 
 const (
 	CBResourceGroupName  = "CB-GROUP"
-	CBVirtualNetworkName = "CB-VNet"
+	CBVirutalNetworkName = "CB-VNet"
 	CBVnetDefaultCidr    = "130.0.0.0/16"
 	CBVMUser             = "cb-user"
 )
@@ -89,54 +87,28 @@ func GetCallLogScheme(region idrv.RegionInfo, resourceType call.RES_TYPE, resour
 	return &subnetCIDR, nil
 }*/
 
-func GetResourceNameById(id string) string {
-	idArr := strings.Split(id, "/")
-	if len(idArr) < 2 {
-		return ""
-	}
-	return idArr[len(idArr)-1]
+func GetVNicIdByName(credentialInfo idrv.CredentialInfo, regionInfo idrv.RegionInfo, vNicName string) string {
+	return fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/networkInterfaces/%s", credentialInfo.SubscriptionId, regionInfo.ResourceGroup, vNicName)
 }
 
-type AzureResourceCategory string
-
-type AzureResourceKind string
-
-const (
-	AzureNetworkCategory AzureResourceCategory = "Microsoft.Network"
-	AzureComputeCategory AzureResourceCategory = "Microsoft.Compute"
-
-	AzureVirtualNetworks          AzureResourceKind = "virtualNetworks"
-	AzureSSHPublicKeys            AzureResourceKind = "sshPublicKeys"
-	AzureSecurityGroups           AzureResourceKind = "networkSecurityGroups"
-	AzurePublicIPAddresses        AzureResourceKind = "publicIPAddresses"
-	AzureFrontendIPConfigurations AzureResourceKind = "frontendIPConfigurations"
-	AzureLoadBalancers            AzureResourceKind = "loadBalancers"
-	AzureNetworkInterfaces        AzureResourceKind = "networkInterfaces"
-)
-
-func generateRandName(prefix string) string {
-	rand.Seed(time.Now().UnixNano())
-	return fmt.Sprintf("%s-%s", prefix, strconv.FormatInt(rand.Int63n(1000000), 10))
-}
-
-func GetNetworksResourceIdByName(credentialInfo idrv.CredentialInfo, regionInfo idrv.RegionInfo, resourceKind AzureResourceKind, name string) string {
-	return fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/%s/%s/%s", credentialInfo.SubscriptionId, regionInfo.ResourceGroup, AzureNetworkCategory, resourceKind, name)
+func GetPublicIPIdByName(credentialInfo idrv.CredentialInfo, regionInfo idrv.RegionInfo, publicIPName string) string {
+	return fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/publicIPAddresses/%s", credentialInfo.SubscriptionId, regionInfo.ResourceGroup, publicIPName)
 }
 
 func GetSecGroupIdByName(credentialInfo idrv.CredentialInfo, regionInfo idrv.RegionInfo, secGroupName string) string {
-	return fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/%s/%s/%s", credentialInfo.SubscriptionId, regionInfo.ResourceGroup, AzureNetworkCategory, AzureSecurityGroups, secGroupName)
+	return fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/networkSecurityGroups/%s", credentialInfo.SubscriptionId, regionInfo.ResourceGroup, secGroupName)
 }
 
-func GetSshKeyIdByName(credentialInfo idrv.CredentialInfo, regionInfo idrv.RegionInfo, keyName string) string {
-	return fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/%s/%s/%s", credentialInfo.SubscriptionId, regionInfo.ResourceGroup, AzureNetworkCategory, AzureSSHPublicKeys, keyName)
+func GetSshKeyIdByName(credentialInfo idrv.CredentialInfo, regionInfo idrv.RegionInfo, keyName string) string{
+	return fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Compute/sshPublicKeys/%s", credentialInfo.SubscriptionId, regionInfo.ResourceGroup, keyName)
 }
 
-func GetSshKeyNameById(sshId string) (string, error) {
+func GetSshKeyNameById(sshId string) (string, error){
 	slice := strings.Split(sshId, "/")
 	sliceLen := len(slice)
-	for index, item := range slice {
-		if item == "sshPublicKeys" && sliceLen > index+1 {
-			return slice[index+1], nil
+	for index,item := range slice{
+		if item == "sshPublicKeys" && sliceLen > index + 1 {
+			return slice[index + 1], nil
 		}
 	}
 	return "", errors.New(fmt.Sprintf("Invalid ResourceName"))
