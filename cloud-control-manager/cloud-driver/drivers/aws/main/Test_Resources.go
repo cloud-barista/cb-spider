@@ -1210,17 +1210,223 @@ func handleVMSpec() {
 	}
 }
 
+// Test NLB
+func handleNLB() {
+	cblogger.Debug("Start NLBHandler Resource Test")
+
+	ResourceHandler, err := getResourceHandler("NLB")
+	if err != nil {
+		panic(err)
+	}
+	handler := ResourceHandler.(irs.NLBHandler)
+
+	nlbReqInfo := irs.NLBInfo{
+		IId:    irs.IID{NameId: "cb-nlb-test01"},
+		VpcIID: irs.IID{SystemId: "vpc-0c4d36a3ac3924419"},
+		Type:   "PUBLIC",
+		Scope:  "REGION",
+
+		Listener: irs.ListenerInfo{
+			Protocol: "TCP", // AWS NLB : TCP, TLS, UDP, or TCP_UDP
+			//IP: "",
+			Port: "22",
+		},
+
+		VMGroup: irs.VMGroupInfo{
+			Protocol: "TCP", //TCP|UDP|HTTP|HTTPS
+			Port:     "22",  //1-65535
+			VMs:      &[]irs.IID{irs.IID{SystemId: "i-0dcbcbeadbb14212f"}, irs.IID{SystemId: "i-0cba8efe123ab0b42"}, irs.IID{SystemId: "i-010c858cbe5b6fe93"}},
+		},
+
+		HealthChecker: irs.HealthCheckerInfo{
+			Protocol:  "TCP", // TCP|HTTP|HTTPS
+			Port:      "22",  // Listener Port or 1-65535
+			Interval:  30,    // TCP는 10이나 30만 가능 - secs, Interval time between health checks.
+			Timeout:   0,     // TCP는 타임 아웃 설정 불가 - secs, Waiting time to decide an unhealthy VM when no response.
+			Threshold: 10,    // num, The number of continuous health checks to change the VM status
+		},
+	} // nlbReqInfo
+
+	reqAddVMs := &[]irs.IID{irs.IID{SystemId: "i-0dcbcbeadbb14212f"}}
+	reqRemoveVMs := &[]irs.IID{irs.IID{SystemId: "i-0dcbcbeadbb14212f"}}
+
+	for {
+		fmt.Println("NLBHandler Management")
+		fmt.Println("0. Quit")
+		fmt.Println("1. NLB List")
+		fmt.Println("2. NLB Create")
+		fmt.Println("3. NLB Get")
+		fmt.Println("4. NLB Delete")
+
+		fmt.Println("5. ChangeListener")
+		fmt.Println("6. ChangeVMGroupInfo")
+		fmt.Println("7. AddVMs")
+		fmt.Println("8. RemoveVMs")
+		fmt.Println("9. GetVMGroupHealthInfo")
+		fmt.Println("10. ChangeHealthCheckerInfo")
+
+		var commandNum int
+		inputCnt, err := fmt.Scan(&commandNum)
+		if err != nil {
+			panic(err)
+		}
+
+		if inputCnt == 1 {
+			switch commandNum {
+			case 0:
+				return
+
+			case 1:
+				result, err := handler.ListNLB()
+				if err != nil {
+					cblogger.Infof(" NLB 목록 조회 실패 : ", err)
+				} else {
+					cblogger.Info("NLB 목록 조회 결과")
+					cblogger.Debug(result)
+					cblogger.Infof("로그 레벨 : [%s]", cblog.GetLevel())
+					//spew.Dump(result)
+					cblogger.Info("출력 결과 수 : ", len(result))
+
+					//조회및 삭제 테스트를 위해 리스트의 첫번째 정보의 ID를 요청ID로 자동 갱신함.
+					if result != nil {
+						nlbReqInfo.IId = result[0].IId // 조회 및 삭제를 위해 생성된 ID로 변경
+					}
+				}
+
+			case 2:
+				cblogger.Infof("[%s] NLB 생성 테스트", nlbReqInfo.IId.NameId)
+				result, err := handler.CreateNLB(nlbReqInfo)
+				if err != nil {
+					cblogger.Infof(nlbReqInfo.IId.NameId, " NLB 생성 실패 : ", err)
+				} else {
+					cblogger.Infof("NLB 생성 성공 : ", result)
+					nlbReqInfo.IId = result.IId // 조회 및 삭제를 위해 생성된 ID로 변경
+					if cblogger.Level.String() == "debug" {
+						spew.Dump(result)
+					}
+				}
+
+			case 3:
+				cblogger.Infof("[%s] NLB 조회 테스트", nlbReqInfo.IId)
+				result, err := handler.GetNLB(nlbReqInfo.IId)
+				if err != nil {
+					cblogger.Infof("[%s] NLB 조회 실패 : ", nlbReqInfo.IId.NameId, err)
+				} else {
+					cblogger.Infof("[%s] NLB 조회 성공 : [%s]", nlbReqInfo.IId.NameId, result)
+					if cblogger.Level.String() == "debug" {
+						spew.Dump(result)
+					}
+				}
+
+			case 4:
+				cblogger.Infof("[%s] NLB 삭제 테스트", nlbReqInfo.IId.NameId)
+				result, err := handler.DeleteNLB(nlbReqInfo.IId)
+				if err != nil {
+					cblogger.Infof("[%s] NLB 삭제 실패 : ", nlbReqInfo.IId.NameId, err)
+				} else {
+					cblogger.Info("성공")
+					cblogger.Infof("[%s] NLB 삭제 성공 : [%s]", nlbReqInfo.IId.NameId, result)
+				}
+
+			case 5:
+				cblogger.Infof("[%s] 리스너 변경 테스트", nlbReqInfo.IId)
+				reqListenerInfo := irs.ListenerInfo{
+					Protocol: "TCP", // AWS NLB : TCP, TLS, UDP, or TCP_UDP
+					//IP: "",
+					Port: "80",
+				}
+				result, err := handler.ChangeListener(nlbReqInfo.IId, reqListenerInfo)
+				if err != nil {
+					cblogger.Infof("[%s] 리스너 변경 실패 : ", nlbReqInfo.IId.NameId, err)
+				} else {
+					cblogger.Infof("[%s] 리스너 변경 성공 : [%s]", nlbReqInfo.IId.NameId, result)
+					if cblogger.Level.String() == "debug" {
+						spew.Dump(result)
+					}
+				}
+
+			case 7:
+				cblogger.Infof("[%s] AddVMs 테스트", nlbReqInfo.IId.NameId)
+				cblogger.Info(reqAddVMs)
+				result, err := handler.AddVMs(nlbReqInfo.IId, reqAddVMs)
+				if err != nil {
+					cblogger.Infof("[%s] AddVMs 실패 : ", nlbReqInfo.IId.NameId, err)
+				} else {
+					cblogger.Info("성공")
+					cblogger.Infof("[%s] AddVMs 성공 : [%s]", nlbReqInfo.IId.NameId, result)
+				}
+
+			case 8:
+				cblogger.Infof("[%s] RemoveVMs 테스트", nlbReqInfo.IId.NameId)
+				cblogger.Info(reqRemoveVMs)
+				result, err := handler.RemoveVMs(nlbReqInfo.IId, reqRemoveVMs)
+				if err != nil {
+					cblogger.Infof("[%s] RemoveVMs 실패 : ", nlbReqInfo.IId.NameId, err)
+				} else {
+					cblogger.Info("성공")
+					cblogger.Infof("[%s] RemoveVMs 성공 : [%s]", nlbReqInfo.IId.NameId, result)
+				}
+
+			case 9:
+				cblogger.Infof("[%s] GetVMGroupHealthInfo 테스트", nlbReqInfo.IId)
+				result, err := handler.GetVMGroupHealthInfo(nlbReqInfo.IId)
+				if err != nil {
+					cblogger.Infof("[%s] GetVMGroupHealthInfo 실패 : ", nlbReqInfo.IId.NameId, err)
+				} else {
+					cblogger.Infof("[%s] GetVMGroupHealthInfo 성공 : [%s]", nlbReqInfo.IId.NameId, result)
+					if cblogger.Level.String() == "debug" {
+						spew.Dump(result)
+					}
+				}
+
+			case 6:
+				cblogger.Infof("[%s] NLB VM Group 변경 테스트", nlbReqInfo.IId.NameId)
+				result, err := handler.ChangeVMGroupInfo(nlbReqInfo.IId, irs.VMGroupInfo{
+					Protocol: "TCP",
+					Port:     "8080",
+				})
+				if err != nil {
+					cblogger.Infof("[%s] NLB VM Group 변경 실패 : ", nlbReqInfo.IId.NameId, err)
+				} else {
+					cblogger.Infof("[%s] NLB VM Group 변경 성공 : [%s]", nlbReqInfo.IId.NameId, result)
+					if cblogger.Level.String() == "debug" {
+						spew.Dump(result)
+					}
+				}
+			case 10:
+				cblogger.Infof("[%s] NLB Health Checker 변경 테스트", nlbReqInfo.IId.NameId)
+				result, err := handler.ChangeHealthCheckerInfo(nlbReqInfo.IId, irs.HealthCheckerInfo{
+					Protocol: "TCP",
+					Port:     "22",
+					//Interval: 10, //미지원
+					//Timeout:   3,	//미지원
+					Threshold: 5,
+				})
+				if err != nil {
+					cblogger.Infof("[%s] NLB Health Checker 변경 실패 : ", nlbReqInfo.IId.NameId, err)
+				} else {
+					cblogger.Infof("[%s] NLB Health Checker 변경 성공 : [%s]", nlbReqInfo.IId.NameId, result)
+					if cblogger.Level.String() == "debug" {
+						spew.Dump(result)
+					}
+				}
+			}
+		}
+	}
+}
+
 func main() {
 	cblogger.Info("AWS Resource Test")
 	//handleVPC()
 	//handleKeyPair()
 	//handlePublicIP() // PublicIP 생성 후 conf
-	handleSecurity()
+	//handleSecurity()
 	//handleVM()
 
 	//handleImage() //AMI
 	//handleVNic() //Lancard
 	//handleVMSpec()
+	handleNLB()
 }
 
 //handlerType : resources폴더의 xxxHandler.go에서 Handler이전까지의 문자열
@@ -1264,6 +1470,8 @@ func getResourceHandler(handlerType string) (interface{}, error) {
 		resourceHandler, err = cloudConnection.CreateVMHandler()
 	case "VMSpec":
 		resourceHandler, err = cloudConnection.CreateVMSpecHandler()
+	case "NLB":
+		resourceHandler, err = cloudConnection.CreateNLBHandler()
 	}
 
 	if err != nil {
