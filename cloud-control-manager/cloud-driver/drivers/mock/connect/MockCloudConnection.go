@@ -17,7 +17,6 @@ import (
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/sirupsen/logrus"
 
-	"errors"
 )
 
 var cblogger *logrus.Logger
@@ -69,7 +68,9 @@ func (cloudConn *MockConnection) CreateVMSpecHandler() (irs.VMSpecHandler, error
 }
 
 func (cloudConn *MockConnection) CreateNLBHandler() (irs.NLBHandler, error) {
-        return nil, errors.New("Mock Cloud Driver NLB: WIP")
+	cblogger.Info("Mock Driver: called CreateNLBHandler()!")
+	handler := mkrs.MockNLBHandler{cloudConn.MockName}
+	return &handler, nil
 }
 
 func (cloudConn *MockConnection) IsConnected() (bool, error) {

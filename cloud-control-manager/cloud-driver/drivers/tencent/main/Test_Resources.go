@@ -293,7 +293,6 @@ func handleSecurity() {
 				cblogger.Infof("[%s] Rule 추가 테스트", securityId)
 				securityRules := &[]irs.SecurityRuleInfo{
 
-
 					{
 						//20-22 Prot로 등록
 						FromPort:   "-1",
@@ -1071,7 +1070,6 @@ func handleVM() {
 	}
 }
 
-
 func handleNLB() {
 	cblogger.Debug("Start NLB Resource Test")
 	ResourceHandler, err := testconf.GetResourceHandler("NLB")
@@ -1087,7 +1085,7 @@ func handleNLB() {
 		VpcIID:        irs.IID{SystemId: "vpc-i614yona"},
 		Type:          "PUBLIC",
 		Listener:      irs.ListenerInfo{Protocol: "TCP", Port: "80"},
-		HealthChecker: irs.HealthCheckerInfo{Protocol: "TCP", Port: "80", Interval: 5, Timeout: 2, Threshold: 3},
+		HealthChecker: irs.HealthCheckerInfo{Protocol: "HTTP", Port: "80", Interval: 5, Timeout: 2, Threshold: 3},
 		VMGroup: irs.VMGroupInfo{
 			Protocol: "TCP",
 			Port:     "80",
@@ -1095,8 +1093,7 @@ func handleNLB() {
 		},
 	}
 
-	reqNLBId := irs.IID{SystemId: "lb-bncjy6tp"}
-
+	reqNLBId := irs.IID{SystemId: "lb-ecyd4pb5"}
 
 	for {
 		fmt.Println("Handler Management")
@@ -1111,7 +1108,6 @@ func handleNLB() {
 		fmt.Println("8. Listener Change")
 		fmt.Println("9. VM Group Change")
 		fmt.Println("10. Health Checker Change")
-
 
 		var commandNum int
 		inputCnt, err := fmt.Scan(&commandNum)
@@ -1217,8 +1213,8 @@ func handleNLB() {
 			case 10:
 				cblogger.Infof("[%s] NLB Health Checker 변경 테스트", reqNLBId)
 				result, err := handler.ChangeHealthCheckerInfo(reqNLBId, irs.HealthCheckerInfo{
-					Protocol:  "TCP",
-					Port:      "8080",
+					Protocol:  "HTTP",
+					Port:      "80",
 					Interval:  10,
 					Timeout:   3,
 					Threshold: 5,

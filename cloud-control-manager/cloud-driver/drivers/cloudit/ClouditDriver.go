@@ -24,8 +24,9 @@ func (ClouditDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
     drvCapabilityInfo.VNicHandler = false
     drvCapabilityInfo.PublicIPHandler = false
     drvCapabilityInfo.VMHandler = true
+    drvCapabilityInfo.NLBHandler = true
 
-    drvCapabilityInfo.SINGLE_VPC = true 
+    drvCapabilityInfo.SINGLE_VPC = true
 
     return drvCapabilityInfo
 }

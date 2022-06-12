@@ -7,7 +7,6 @@ cloudit:
   tenant_id: #TBD
   ant_id: #TBD
   server_id: #TBD
-
   vm:
     IID:
       nameId: mcb-test-vm
@@ -76,3 +75,53 @@ cloudit:
       RemoveSubnet:
         SubnetIID:
           nameId: mcb-test-vpc-subnet0
+  nlb:
+    IID:
+      nameId: nlb-tester-tcp
+      systemId:
+    VpcIID:
+      nameId: nlb-tester-vpc
+      systemId:
+    Type: PUBLIC
+    Scope: REGION
+    Listener:
+      Protocol: tcp
+      # IP:
+      Port: 8080
+      # DNSName:
+    VMGroup:
+      Protocol: tcp
+      Port: 8080
+      VMs:
+        - nameId: nlb-tester-vm-03
+          systemId:
+        - nameId: nlb-tester-vm-04
+          systemId:
+    HealthChecker:
+      Protocol: tcp
+      Port: 8080
+      Interval: 10
+      Timeout: 5
+      Threshold: 2
+    UpdateListener:
+      Protocol: tcp
+      Port: 8080
+    UpdateVMGroup:
+      Protocol: tcp
+      Port: 8087
+    UpdateHealthChecker:
+      Protocol: tcp
+      Port: 8087
+      Interval: 10
+      Timeout: 5
+      Threshold: 2
+    AddVMs:
+      - nameId: nlb-tester-vm-03
+        systemId:
+      - nameId: nlb-tester-vm-04
+        systemId:
+    RemoveVMs:
+      - nameId: nlb-tester-vm-04
+        systemId:
+      - nameId: nlb-tester-vm-03
+        systemId:
