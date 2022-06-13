@@ -41,6 +41,16 @@ const (
 )
 
 func (NLBHandler *TencentNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (irs.NLBInfo, error) {
+	// NLB 이름 중복 체크
+	isExist, errExist := NLBHandler.isExist(nlbReqInfo.IId.NameId)
+	if errExist != nil {
+		cblogger.Error(errExist)
+		return irs.NLBInfo{}, errExist
+	}
+	if isExist {
+		return irs.NLBInfo{}, errors.New("A NLB with the name " + nlbReqInfo.IId.NameId + " already exists.")
+	}
+
 	callogger := call.GetLogger("HISCALL")
 	callLogInfo := call.CLOUDLOGSCHEMA{
 		CloudOS:      call.TENCENT,
@@ -86,27 +96,38 @@ func (NLBHandler *TencentNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (irs.NLBI
 	if curStatus == Request_Status_Running {
 
 		listenerRequest := clb.NewCreateListenerRequest()
+		listenerRequest.HealthCheck = &clb.HealthCheck{}
 
 		listenerPort, portErr := strconv.ParseInt(nlbReqInfo.Listener.Port, 10, 64)
 		if portErr != nil {
 			return irs.NLBInfo{}, portErr
 		}
 
-		healthPort, healthErr := strconv.ParseInt(nlbReqInfo.HealthChecker.Port, 10, 64)
-		if healthErr != nil {
-			return irs.NLBInfo{}, healthErr
+		// health Checker 값이 있을 때만 setting
+		if !strings.EqualFold(nlbReqInfo.HealthChecker.Port, "") {
+			healthPort, healthErr := strconv.ParseInt(nlbReqInfo.HealthChecker.Port, 10, 64)
+			if healthErr != nil {
+				return irs.NLBInfo{}, healthErr
+			}
+			listenerRequest.HealthCheck.CheckPort = common.Int64Ptr(healthPort)
+		}
+
+		if nlbReqInfo.HealthChecker.Timeout > 0 {
+			listenerRequest.HealthCheck.TimeOut = common.Int64Ptr(int64(nlbReqInfo.HealthChecker.Timeout))
+		}
+		if nlbReqInfo.HealthChecker.Interval > 0 {
+			listenerRequest.HealthCheck.IntervalTime = common.Int64Ptr(int64(nlbReqInfo.HealthChecker.Interval))
+		}
+		if nlbReqInfo.HealthChecker.Threshold > 0 {
+			listenerRequest.HealthCheck.HealthNum = common.Int64Ptr(int64(nlbReqInfo.HealthChecker.Threshold))
+		}
+		if !strings.EqualFold(nlbReqInfo.HealthChecker.Protocol, "") {
+			listenerRequest.HealthCheck.CheckType = common.StringPtr(nlbReqInfo.HealthChecker.Protocol)
 		}
 
 		listenerRequest.LoadBalancerId = common.StringPtr(newNLBId)
 		listenerRequest.Ports = common.Int64Ptrs([]int64{listenerPort})
 		listenerRequest.Protocol = common.StringPtr(nlbReqInfo.Listener.Protocol)
-		listenerRequest.HealthCheck = &clb.HealthCheck{
-			TimeOut:      common.Int64Ptr(int64(nlbReqInfo.HealthChecker.Timeout)),
-			IntervalTime: common.Int64Ptr(int64(nlbReqInfo.HealthChecker.Interval)),
-			HealthNum:    common.Int64Ptr(int64(nlbReqInfo.HealthChecker.Threshold)),
-			CheckPort:    common.Int64Ptr(healthPort),
-			CheckType:    common.StringPtr(nlbReqInfo.HealthChecker.Protocol),
-		}
 
 		if strings.EqualFold(nlbReqInfo.Listener.Protocol, "UDP") {
 			listenerRequest.HealthCheck.CheckType = common.StringPtr("CUSTOM")
@@ -119,6 +140,10 @@ func (NLBHandler *TencentNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (irs.NLBI
 
 		listenerResponse, listenerErr := NLBHandler.Client.CreateListener(listenerRequest)
 		if listenerErr != nil {
+			_, err := NLBHandler.DeleteNLB(irs.IID{SystemId: newNLBId})
+			if err != nil {
+				return irs.NLBInfo{}, err
+			}
 			return irs.NLBInfo{}, listenerErr
 		}
 
@@ -155,6 +180,10 @@ func (NLBHandler *TencentNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (irs.NLBI
 
 			targetResponse, targetErr := NLBHandler.Client.RegisterTargets(targetRequest)
 			if targetErr != nil {
+				_, err := NLBHandler.DeleteNLB(irs.IID{SystemId: newNLBId})
+				if err != nil {
+					return irs.NLBInfo{}, err
+				}
 				return irs.NLBInfo{}, targetErr
 			}
 			fmt.Printf("%s", targetResponse.ToJsonString())
@@ -182,6 +211,26 @@ func (NLBHandler *TencentNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (irs.NLBI
 	fmt.Printf("%s", nlbResponse.ToJsonString())
 
 	return nlbResult, nil
+}
+
+func (NLBHandler *TencentNLBHandler) isExist(chkName string) (bool, error) {
+	cblogger.Debugf("chkName : %s", chkName)
+
+	request := clb.NewDescribeLoadBalancersRequest()
+	request.LoadBalancerName = common.StringPtr(chkName)
+
+	response, err := NLBHandler.Client.DescribeLoadBalancers(request)
+	if err != nil {
+		cblogger.Error(err)
+		return false, err
+	}
+
+	if *response.Response.TotalCount < 1 {
+		return false, nil
+	}
+
+	cblogger.Infof("NLB 정보 찾음 - NLBId:[%s] / NLBName:[%s]", *response.Response.LoadBalancerSet[0].LoadBalancerId, *response.Response.LoadBalancerSet[0].LoadBalancerName)
+	return true, nil
 }
 
 func (NLBHandler *TencentNLBHandler) ListNLB() ([]*irs.NLBInfo, error) {
@@ -386,6 +435,8 @@ func (NLBHandler *TencentNLBHandler) ExtractHealthCheckerInfo(nlbIID irs.IID) (i
 		cblogger.Errorf("An API error has returned: %s", err.Error())
 		return irs.HealthCheckerInfo{}, err
 	}
+
+	cblogger.Debug(response.ToJsonString())
 
 	resHealthCheckerInfo := irs.HealthCheckerInfo{
 		Protocol:  *response.Response.Listeners[0].HealthCheck.CheckType,
@@ -784,6 +835,7 @@ func (NLBHandler *TencentNLBHandler) ChangeHealthCheckerInfo(nlbIID irs.IID, hea
 
 }
 
+//CLB instance status (creating, running)
 func (NLBHandler *TencentNLBHandler) WaitForRun(nlbIID irs.IID) (string, error) {
 
 	waitStatus := "Running"
@@ -809,7 +861,7 @@ func (NLBHandler *TencentNLBHandler) WaitForRun(nlbIID irs.IID) (string, error) 
 		}
 
 		curRetryCnt++
-		cblogger.Errorf("NLB 상태가 [%s]이 아니라서 1초 대기후 조회합니다.", waitStatus)
+		cblogger.Infof("NLB 상태가 [%s]이 아니라서 1초 대기후 조회합니다.", waitStatus)
 		time.Sleep(time.Second * 1)
 		if curRetryCnt > maxRetryCnt {
 			cblogger.Errorf("장시간(%d 초) 대기해도 NLB Status 값이 [%s]으로 변경되지 않아서 강제로 중단합니다.", maxRetryCnt, waitStatus)
@@ -820,6 +872,7 @@ func (NLBHandler *TencentNLBHandler) WaitForRun(nlbIID irs.IID) (string, error) 
 	return waitStatus, nil
 }
 
+//Current status of a task (succeeded==Done, failed, in progress)
 func (NLBHandler *TencentNLBHandler) WaitForDone(requestId string) (string, error) {
 
 	waitStatus := "Done"
@@ -846,7 +899,7 @@ func (NLBHandler *TencentNLBHandler) WaitForDone(requestId string) (string, erro
 		}
 
 		curRetryCnt++
-		cblogger.Errorf("request 상태가 [%s]이 아니라서 1초 대기후 조회합니다.", waitStatus)
+		cblogger.Infof("request 상태가 [%s]이 아니라서 1초 대기후 조회합니다.", waitStatus)
 		time.Sleep(time.Second * 1)
 		if curRetryCnt > maxRetryCnt {
 			cblogger.Errorf("장시간(%d 초) 대기해도 request Status 값이 [%s]으로 변경되지 않아서 강제로 중단합니다.", maxRetryCnt, waitStatus)
