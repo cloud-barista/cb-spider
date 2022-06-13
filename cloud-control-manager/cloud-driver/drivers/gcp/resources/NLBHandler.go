@@ -1489,7 +1489,7 @@ func (nlbHandler *GCPNLBHandler) deleteRegionForwardingRule(regionID string, for
 func (nlbHandler *GCPNLBHandler) deleteRegionForwardingRules(regionID string, nlbIID irs.IID) (string, error) {
 	// path param
 	targetPoolUrl := nlbIID.SystemId
-	targetPoolUrl = "https://www.googleapis.com/compute/v1/projects/yhnoh-335705/regions/asia-northeast3/targetPools/fe8080"
+
 	forwardingRuleList, err := nlbHandler.listRegionForwardingRules(regionID, "", targetPoolUrl)
 	if err != nil {
 		cblogger.Info("DeleteNLB forwardingRule  err: ", err)
