@@ -263,10 +263,19 @@ func (nlbHandler *GCPNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (irs.NLBInfo,
 	nlbName := nlbReqInfo.IId.NameId
 	cblogger.Info("start ", projectID)
 
+	resultMap := make(map[string]string) // 에러 발생 시 자원 회수용
+
 	//// validation check area
 	err := nlbHandler.validateCreateNLB(nlbReqInfo)
 	if err != nil {
-		return irs.NLBInfo{}, err
+		// 404면 없는게 맞으므로 진행
+		is404, checkErr := checkErrorCode(ErrorCode_NotFound, err) // 404 : not found면 pass
+		if is404 && checkErr {                                     // 하나라도 false 면 error return
+			cblogger.Info("existsTargetPoolChecks : ", err)
+		} else {
+			cblogger.Info("validateCreateNLB ", err)
+			return irs.NLBInfo{}, err
+		}
 	}
 
 	// logger for HisCall
@@ -295,8 +304,9 @@ func (nlbHandler *GCPNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (irs.NLBInfo,
 		callLogInfo.ErrorMSG = err.Error()
 		callogger.Info(call.String(callLogInfo))
 		cblogger.Error(err)
-		return irs.NLBInfo{}, err
+		return irs.NLBInfo{}, err // 첫 단계에서 에러 발생. return error
 	}
+	resultMap["HEALTHCHECKER"] = healthCheckerInfo.CspID //TargetLink
 	cblogger.Info("insertTargetPoolHealthCheck -----")
 	printToJson(healthCheckerInfo)
 	nlbReqInfo.HealthChecker.CspID = healthCheckerInfo.CspID
@@ -307,9 +317,13 @@ func (nlbHandler *GCPNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (irs.NLBInfo,
 	targetPool, err := nlbHandler.insertTargetPool(regionID, newTargetPool)
 	if err != nil {
 		cblogger.Info("targetPoolList  err: ", err)
-		return irs.NLBInfo{}, err
+		// 이전 step 자원 회수 후 return
+		resultMsg := nlbHandler.rollbackCreatedNlbResources(regionID, resultMap)
+		resultMsg += resultMsg + "(2) TargetPool " + err.Error()
+		//return irs.NLBInfo{}, err
+		return irs.NLBInfo{}, errors.New(resultMsg)
 	}
-
+	resultMap["TARGETPOOL"] = targetPool.SelfLink
 	printToJson(targetPool)
 	cblogger.Info("backend TargetPool 생성 완료 ")
 
@@ -319,7 +333,11 @@ func (nlbHandler *GCPNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (irs.NLBInfo,
 	err = nlbHandler.insertRegionForwardingRules(regionID, &newForwardingRule)
 	if err != nil {
 		cblogger.Info("forwardingRule err  : ", err)
-		return irs.NLBInfo{}, err
+		// 이전 step 자원 회수 후 return
+		resultMsg := nlbHandler.rollbackCreatedNlbResources(regionID, resultMap)
+		resultMsg += resultMsg + "(3) Forwarding Rule " + err.Error()
+		//return irs.NLBInfo{}, err
+		return irs.NLBInfo{}, errors.New(resultMsg)
 	}
 	cblogger.Info("forwardingRule result  : ")
 
@@ -330,7 +348,8 @@ func (nlbHandler *GCPNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (irs.NLBInfo,
 	}
 	nlbInfo, err := nlbHandler.GetNLB(nlbIID)
 	if err != nil {
-		return irs.NLBInfo{}, err
+		resultMsg := "Successfully created NLB, but " + err.Error()
+		return irs.NLBInfo{}, errors.New(resultMsg)
 	}
 	//
 	//cblogger.Info("Targetpool end: ")
@@ -576,117 +595,99 @@ func (nlbHandler *GCPNLBHandler) GetNLB(nlbIID irs.IID) (irs.NLBInfo, error) {
 }
 
 /*
-// NLB 삭제. healthchecker는 삭제하지 않음.
-// delete 는 forwardingRule -> targetPool순으로 삭제
+// NLB 삭제.
+// delete 는 forwardingRule -> targetPool순으로 삭제. (healthchecker는 어디에 있어도 상관없음.)
 // targetPool을 먼저 삭제하면 Error 400: The target_pool resource 'xxx' is already being used by 'yyy', resourceInUseByAnotherResource
-// 두 개가 transaction으로 묶이지 않기 때문에
-// frontend는 삭제되고 targetPool이 어떤이유에서 삭제가 되지 않았을 때,
-// 다음 시도에서 삭제할 방법 찾아야 함.( frontend에서 오류 발생시 (404) -> targetpool 삭제 )
+// 두 개가 transaction으로 묶이지 않기 때문에 비정상적인 상태로 존재 가능
+// 이 경우에 다시 삭제 요청이 들어 왔을 때 기존에 지워진 것은 skip하고 있는 것만 삭제
 
-	ex) CreateNLB에서 TargetPool 생성직후 forwardingRule생성을 호출하면 "not ready"로 에러 발생 -> 리소스 회수로직이 필요할까?
-        이 때, DeleteNLB로는 삭제 불가...
-forwardingRule err  :  googleapi: Error 400: The resource 'projects/yhnoh-335705/regions/asia-northeast3/targetPools/lb-tcptest-be-01' is not ready, resourceNotReady
+// ex) frontend는 삭제되고 targetPool이 어떤이유에서 삭제가 되지 않았을 때,
+// 다음 시도에서 삭제
 
-	일부삭제 : remove, 전체 삭제 : delete
+	삭제 시도 시 404 Error인 경우는 이미 지워진 것일 수 있음.
+
+	3가지 resource가 모두 없으면 404 Error
+    1가지라도 있어서 삭제하면 삭제처리.
 */
 func (nlbHandler *GCPNLBHandler) DeleteNLB(nlbIID irs.IID) (bool, error) {
 	deleteResultMap := make(map[string]error) // 삭제가 정상이면 error == nil
 
 	//projectID := nlbHandler.Credential.ProjectID
 	regionID := nlbHandler.Region.Region
+	targetPoolName := nlbIID.NameId
 
 	allDeleted := false
-	//validationMap["TARGETPOOL"] = targetPoolErr
-	//validationMap["FORWARDINGRULE"] = healthCheckErr
-	//validationMap["HEALTHCHECKER"] = forwardingRuleErr
-	validationMap, err := nlbHandler.validateDeleteNLB(nlbIID)
+
+	forwardingRuleDeleteResult, err := nlbHandler.deleteRegionForwardingRules(regionID, nlbIID)
 	if err != nil {
-		return false, err
+		cblogger.Info("DeleteNLB forwardingRule ", forwardingRuleDeleteResult, err)
+		deleteResultMap["FORWARDINGRULE"] = err
 	}
-
-	targetPoolName := nlbIID.NameId
-	//targetPoolUrl := nlbIID.SystemId
-
-	// case1 : 정상인 경우 : 셋다 지우는 경우
-	// case2 : 비정상인 경우
-
-	// frontend
-	if validationMap["FORWARDINGRULE"] == nil { // 문제가 있으면 err 값이 들어 있음.
-		forwardingRuleDeleteResult, err := nlbHandler.deleteRegionForwardingRules(regionID, nlbIID)
-		if err != nil {
-			cblogger.Info("DeleteNLB forwardingRule ", forwardingRuleDeleteResult, err)
-			deleteResultMap["FORWARDINGRULE"] = err
-		}
-	}
-
-	// forwarding rule을 모두 조회하여 target이 nlbIID.SystemId 인 forwarding rule 모두 조회
-	// (사용자가 추가 했을 수도 있으므로)
-	// for loop로 돌면서 forwarding rule 이름으로 삭제
-
-	//forwardingRuleList, err := nlbHandler.listRegionForwardingRules(regionID, "", targetPoolUrl)
-	//if err != nil {
-	//	cblogger.Info("DeleteNLB forwardingRule  err: ", err)
-	//	return false, err
-	//}
-	//
-	//deleteCount := 0
-	//itemLength := len(forwardingRuleList.Items)
-	//for idx, forwardingRule := range forwardingRuleList.Items {
-	//	err := nlbHandler.deleteRegionForwardingRule(regionID, forwardingRule.Name)
-	//	if err != nil {
-	//		cblogger.Info("DeleteNLB forwardingRule  err: ", err)
-	//		return false, err
-	//	}
-	//	cblogger.Info("DeleteNLB forwardingRule  delete: index= ", idx, " / ", itemLength)
-	//	deleteCount++
-	//}
-	//if deleteCount > 0 && deleteCount == itemLength {
-	//	cblogger.Info("DeleteNLB forwardingRule  deleted: ", deleteCount, " / ", itemLength)
-	//} else {
-	//	// 삭제 중 오류가 있다는 것인데 중간에 error나면 return하고 있어서...
-	//}
+	cblogger.Info("DeleteNLB forwardingRuleDeleteResult ", forwardingRuleDeleteResult)
 
 	// health checker
-	allDeleted = true
-	if validationMap["HEALTHCHECKER"] == nil { // 문제가 있으면 err 값이 들어 있음.
-		err = nlbHandler.removeHealthCheck(regionID, targetPoolName)
-		if err != nil {
-			cblogger.Info("DeleteNLB removeHealthCheck  err: ", err)
-			deleteResultMap["HEALTHCHECKER"] = err
-			//return false, err
-		}
+	err = nlbHandler.removeHttpHealthCheck(targetPoolName, "")
+	if err != nil {
+		cblogger.Info("DeleteNLB removeHealthCheck  err: ", err)
+		deleteResultMap["HEALTHCHECKER"] = err
+		//return false, err
 	}
 
 	// backend
-	if validationMap["TARGETPOOL"] == nil { // 문제가 있으면 err 값이 들어 있음.
-		callogger := call.GetLogger("HISCALL")
-		callLogInfo := call.CLOUDLOGSCHEMA{
-			CloudOS:      call.GCP,
-			RegionZone:   nlbHandler.Region.Zone,
-			ResourceType: call.NLB,
-			ResourceName: targetPoolName,
-			CloudOSAPI:   "DeleteNLB()",
-			ElapsedTime:  "",
-			ErrorMSG:     "",
-		}
-		callLogStart := call.Start()
-		err = nlbHandler.removeTargetPool(regionID, targetPoolName)
-		callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
-		if err != nil {
-			cblogger.Info("DeleteNLB removeTargetPool  err: ", err)
-			callLogInfo.ErrorMSG = err.Error()
-			callogger.Info(call.String(callLogInfo))
-			cblogger.Error(err)
-			deleteResultMap["TARGETPOOL"] = err
-			//return false, err
+
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.GCP,
+		RegionZone:   nlbHandler.Region.Zone,
+		ResourceType: call.NLB,
+		ResourceName: targetPoolName,
+		CloudOSAPI:   "DeleteNLB()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+	callLogStart := call.Start()
+	err = nlbHandler.removeTargetPool(regionID, targetPoolName)
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+	if err != nil {
+		cblogger.Info("DeleteNLB removeTargetPool  err: ", err)
+		callLogInfo.ErrorMSG = err.Error()
+		callogger.Info(call.String(callLogInfo))
+		cblogger.Error(err)
+		deleteResultMap["TARGETPOOL"] = err
+		//return false, err
+	}
+
+	// 삭제 결과 return
+	returnMsg := ""
+	resourceIdx := 1
+
+	resourceCountTotal := 0
+	resourceCount404 := 0
+	for errKey, errMsg := range deleteResultMap {
+		if errMsg != nil {
+			isValidCode, isValidErrorFormat := checkErrorCode(ErrorCode_NotFound, errMsg)
+			cblogger.Info("DeleteNLB removeHealthCheck  checkErrorCode: ", errKey, isValidCode)
+			if !isValidCode && isValidErrorFormat {
+				returnMsg += "(" + strconv.Itoa(resourceIdx) + ") " + errKey + " " + errMsg.Error()
+				resourceIdx++
+			} else {
+				// 404 면 이미 지워진 것일 수 있음
+				resourceCount404++
+			}
+			resourceCountTotal++
 		}
 	}
 
-	if deleteResultMap == nil {
-		allDeleted = true
-	} else {
-		// TODO : 일부 삭제중 오류가 발생함...
+	if resourceCountTotal == resourceCount404 {
+		return allDeleted, errors.New("The resource NLB " + targetPoolName + " was not found")
 	}
+	if resourceIdx == 1 { // error 없으면
+		allDeleted = true
+		return allDeleted, nil
+	} else {
+		return allDeleted, errors.New(returnMsg)
+	}
+
 	return allDeleted, nil
 }
 
@@ -1488,7 +1489,7 @@ func (nlbHandler *GCPNLBHandler) deleteRegionForwardingRule(regionID string, for
 func (nlbHandler *GCPNLBHandler) deleteRegionForwardingRules(regionID string, nlbIID irs.IID) (string, error) {
 	// path param
 	targetPoolUrl := nlbIID.SystemId
-
+	targetPoolUrl = "https://www.googleapis.com/compute/v1/projects/yhnoh-335705/regions/asia-northeast3/targetPools/fe8080"
 	forwardingRuleList, err := nlbHandler.listRegionForwardingRules(regionID, "", targetPoolUrl)
 	if err != nil {
 		cblogger.Info("DeleteNLB forwardingRule  err: ", err)
@@ -1496,6 +1497,9 @@ func (nlbHandler *GCPNLBHandler) deleteRegionForwardingRules(regionID string, nl
 	}
 	deleteCount := 0
 	itemLength := len(forwardingRuleList.Items)
+	if itemLength == 0 {
+		return "", errors.New("Error 404: The Forwarding Rule resource of " + targetPoolUrl + " was not found")
+	}
 	for _, forwardingRule := range forwardingRuleList.Items {
 		err := nlbHandler.deleteRegionForwardingRule(regionID, forwardingRule.Name)
 		if err != nil {
@@ -2166,20 +2170,48 @@ func (nlbHandler *GCPNLBHandler) patchHealthCheck(regionID string, targetPoolNam
 /*
 	등록된 healthchecker 삭제
 	health checker는 독립적임.
+
+	health checker Url 이 있으면 해당값이 제일 정확하므로 url에서 이름을 추충하여 사용
 */
-func (nlbHandler *GCPNLBHandler) removeHealthCheck(regionID string, targetPoolName string) error {
+func (nlbHandler *GCPNLBHandler) removeHttpHealthCheck(targetPoolName string, healthCheckUrl string) error {
 	// path param
 	projectID := nlbHandler.Credential.ProjectID
+	regionID := nlbHandler.Region.Region
 
+	// TargetPool 조회하여 그 안에 있는 값 사용
+	// TargetPool이 없으면 targetPool이름으로 삭제 시도
+	targetPool, err := nlbHandler.getTargetPool(regionID, targetPoolName)
+	if err != nil {
+		cblogger.Info("targetPoolList  list: ", err)
+	}
 	// queryParam
 
 	// requestBody
-	req, err := nlbHandler.Client.HttpHealthChecks.Delete(projectID, targetPoolName).Do()
-	err = WaitUntilComplete(nlbHandler.Client, projectID, regionID, req.Name, true)
-	if err != nil {
-		return err
+	healthCheckerName := targetPoolName
+	if targetPool != nil {
+		healthCheckIIDs := targetPool.HealthChecks
+		for _, healthCheckUrl := range healthCheckIIDs {
+			healthCheckerIndex := strings.LastIndex(healthCheckUrl, "/")
+			healthCheckerName = healthCheckUrl[(healthCheckerIndex + 1):]
+			req, err := nlbHandler.Client.HttpHealthChecks.Delete(projectID, healthCheckerName).Do()
+			if err != nil {
+				return err
+			}
+			err = WaitUntilComplete(nlbHandler.Client, projectID, "", req.Name, true)
+			if err != nil {
+				return err
+			}
+		}
+	} else {
+		req, err := nlbHandler.Client.HttpHealthChecks.Delete(projectID, healthCheckerName).Do()
+		if err != nil {
+			return err
+		}
+		err = WaitUntilComplete(nlbHandler.Client, projectID, "", req.Name, true)
+		if err != nil {
+			return err
+		}
 	}
-
 	return nil
 }
 
@@ -2798,10 +2830,29 @@ func (nlbHandler *GCPNLBHandler) validateDeleteNLB(nlbIID irs.IID) (map[string]e
 	//		}
 	//	}
 	//}
+
+	// 셋 다 없으면 없는 resource 삭제 요청임.
+	countMap := 0
+	count404 := 0
+	for validKey, validErr := range validationMap {
+		cblogger.Info("validMap "+validKey, validErr)
+		isValidCode, isValidErrorFormat := checkErrorCode(ErrorCode_NotFound, validErr)
+		cblogger.Info("validMap isValidCode ", isValidCode, isValidErrorFormat)
+		if isValidCode && isValidErrorFormat {
+			count404++
+		}
+		countMap++
+	}
+	cblogger.Info(countMap, count404)
+	if countMap == count404 {
+		cblogger.Info("all not found : ")
+		return nil, nil
+	}
 	return validationMap, nil
 }
 
 /*
+	GCP의 Error는 String이기 때문에 안에 있는 Code, Message를 겍체로 변환한 후 비교하는 function
 	예상하는 ErrorCode면 true, 아니면 false
 	return param1 : 같은지 비교
 	return param2 : Error 변환 에러 여부
@@ -2815,13 +2866,15 @@ func (nlbHandler *GCPNLBHandler) validateDeleteNLB(nlbIID irs.IID) (map[string]e
 				}
 		}
 
+	return 결과 : 비교결과, 비교성공 여부.   비교성공여부가 false면 error자체가 GCP의 에러가 아님.
 	같으면 true, true
 	다르면 false, true
 	예외면 false, false
 */
 func checkErrorCode(expectErrorCode int, err error) (bool, bool) {
 	var errorCode int
-	err = errors.New("TestTest ")
+	//err = errors.New("TestTest ")
+
 	//var errorMessage string
 	errorDetail, ok := err.(*googleapi.Error) // casting이 정상이면 ok=true, 비정상이면 ok=false
 	fmt.Printf("errorDetail", errorDetail)
@@ -2833,9 +2886,56 @@ func checkErrorCode(expectErrorCode int, err error) (bool, bool) {
 		//errorMessage = errorDetail.Message
 	}
 
-	if errorCode == expectErrorCode {
-		return true, false
+	return errorCode == expectErrorCode, ok
+}
+
+/*
+	에러 발생 시 자원 회수(삭제)용
+	map에 해당 자원의 경로가 들어 있음.
+	healthChecker = url
+	targetPool = url
+
+	오류 메시지 예시
+	(1) XXX deleted
+	(2) YYY deleted
+	(3) ~~~~~ error.... (= CSP 반환 메시지)
+*/
+func (nlbHandler *GCPNLBHandler) rollbackCreatedNlbResources(regionID string, resourceMap map[string]string) string {
+	rollbackResult := ""
+
+	// health checker
+	if strings.EqualFold(resourceMap["HEALTHCHECKER"], "") {
+		healthCheckerUrl := resourceMap["HEALTHCHECKER"]
+		healthCheckerIndex := strings.LastIndex(healthCheckerUrl, "/")
+		healthCheckerName := healthCheckerUrl[(healthCheckerIndex + 1):]
+
+		err := nlbHandler.removeHttpHealthCheck(healthCheckerName, healthCheckerUrl)
+		if err != nil {
+			cblogger.Info("rollbackCreatedNlbResources removeHealthCheck  err: ", err)
+			rollbackResult = "(1) HealthChecker delete error : " + err.Error()
+			//return false, err
+		} else {
+			rollbackResult = "(1) HealthChecker deleted"
+		}
 	}
 
-	return false, ok
+	// backend
+	if strings.EqualFold(resourceMap["TARGETPOOL"], "") {
+		targetPoolUrl := resourceMap["TARGETPOOL"]
+		targetPoolIndex := strings.LastIndex(targetPoolUrl, "/")
+		targetPoolName := targetPoolUrl[(targetPoolIndex + 1):]
+		err := nlbHandler.removeTargetPool(regionID, targetPoolName)
+		if err != nil {
+			cblogger.Info("rollbackCreatedNlbResources removeTargetPool  err: ", err)
+			cblogger.Error(err)
+			rollbackResult = "(2) Targetpool delete error : " + err.Error()
+			//return false, err
+		} else {
+			rollbackResult = "(2) Targetpool deleted"
+		}
+	}
+
+	// forwarding rule 이 마지막이라. 굳이 삭제로직 태울 필요 없음.
+
+	return rollbackResult
 }
