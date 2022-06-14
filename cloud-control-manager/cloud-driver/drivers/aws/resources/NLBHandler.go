@@ -391,7 +391,19 @@ func (NLBHandler *AwsNLBHandler) CheckCreateValidation(nlbReqInfo irs.NLBInfo) e
 func (NLBHandler *AwsNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (irs.NLBInfo, error) {
 	cblogger.Debug(nlbReqInfo)
 
-	// 동일 네임 NLB가 이미 존재하는지 체크 해야 함. (현재 API는 에러가 발생하는 경우도 있지만 대부분 에러 없이 Skip됨)
+	//================================
+	// 동일 네임 NLB가 이미 존재하는지 체크
+	//================================
+	isExist, errNLBInfo := NLBHandler.IsExistNLB(nlbReqInfo.IId.NameId)
+	if errNLBInfo != nil {
+		cblogger.Error(errNLBInfo.Error())
+		return irs.NLBInfo{}, errNLBInfo
+	}
+
+	//신규 생성이 아닌 경우
+	if isExist {
+		return irs.NLBInfo{}, awserr.New(CUSTOM_ERR_CODE_BAD_REQUEST, "An NLB with the same name already exists.", nil)
+	}
 
 	//최대한 삭제 로직을 태우지 않기 위해 NLB 생성에 문제가 없는지 사전에 검증한다.
 	errValidation := NLBHandler.CheckCreateValidation(nlbReqInfo)
@@ -647,6 +659,32 @@ func (NLBHandler *AwsNLBHandler) ListNLB() ([]*irs.NLBInfo, error) {
 	}
 
 	return results, nil
+}
+
+//NLB 생성전에 NLB가 이미 존재하는지 체크 함.
+func (NLBHandler *AwsNLBHandler) IsExistNLB(nlbName string) (bool, error) {
+
+	input := &elbv2.DescribeLoadBalancersInput{
+		Names: []*string{
+			aws.String(nlbName),
+		},
+	}
+
+	result, err := NLBHandler.Client.DescribeLoadBalancers(input)
+	if err != nil {
+		if aerr, ok := err.(awserr.Error); ok {
+			switch aerr.Code() {
+			case elbv2.ErrCodeLoadBalancerNotFoundException:
+				return false, nil
+			}
+		}
+		return false, err
+	}
+
+	if len(result.LoadBalancers) > 0 {
+		return true, nil
+	}
+	return false, nil
 }
 
 func (NLBHandler *AwsNLBHandler) GetNLB(nlbIID irs.IID) (irs.NLBInfo, error) {
