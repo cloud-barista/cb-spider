@@ -383,6 +383,16 @@ func (NLBHandler *AwsNLBHandler) CheckHealthCheckerValidation(reqHealthCheckerIn
 func (NLBHandler *AwsNLBHandler) CheckCreateValidation(nlbReqInfo irs.NLBInfo) error {
 	//&elbv2.CreateTargetGroupInput
 
+	// NLB 단독으로 대표 IP를 지정할 수 없으며 VPC의 AZ별 1개의 서브넷마다 EIP를 지정해야 하는데 현재의 CB는 AZ별 Subnet 정보를 전달 받지 않기 때문에 IP를 할당할 수 없음.
+	if nlbReqInfo.Listener.IP != "" {
+		return awserr.New(CUSTOM_ERR_CODE_BAD_REQUEST, "The current version of cb-spider does not support the function to set IP to the AWS listener.", nil)
+	}
+
+	//DNS 설정을 위해서는 Route53을 이용해야 함.
+	if nlbReqInfo.Listener.DNSName != "" {
+		return awserr.New(CUSTOM_ERR_CODE_BAD_REQUEST, "The current version of cb-spider does not support the function to set DNSName to the AWS listener.", nil)
+	}
+
 	return NLBHandler.CheckHealthCheckerValidation(nlbReqInfo.HealthChecker)
 	//return nil
 }
