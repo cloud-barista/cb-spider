@@ -229,10 +229,8 @@ defer sgMapLock.Unlock()
                         for idx, ruleInfo := range *info.SecurityRules {
 				for _, reqRuleInfo := range *securityRules {
 					if isEqualRule(&ruleInfo, &reqRuleInfo) {
-						//*info.SecurityRules = append(*info.SecurityRules[:idx], *info.SecurityRules[idx+1:]...)
 						*info.SecurityRules = removeRule(info.SecurityRules, idx)
-
-						return true, nil
+						//return true, nil
 					}
 				}
 			}

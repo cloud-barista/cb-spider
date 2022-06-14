@@ -13,13 +13,16 @@ package resources
 
 import (
 	"crypto/md5"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
+	"time"
 
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
+	compute "google.golang.org/api/compute/v1"
 )
 
 const (
@@ -99,4 +102,43 @@ func GetPublicKey(credentialInfo idrv.CredentialInfo, keyPairName string) (strin
 		return "", err
 	}
 	return string(publicKeyBytes), nil
+}
+
+// Operation 이 완료 될 때까지 기다림.
+func WaitUntilComplete(client *compute.Service, project string, region string, resourceId string, isGlobalAction bool) error {
+	before_time := time.Now()
+	max_time := 300 //최대 300초간 체크
+
+	var opSatus *compute.Operation
+	var err error
+
+	for {
+		if isGlobalAction {
+			opSatus, err = client.GlobalOperations.Get(project, resourceId).Do()
+		} else {
+			opSatus, err = client.RegionOperations.Get(project, region, resourceId).Do()
+		}
+		if err != nil {
+			return err
+		}
+		cblogger.Infof("==> 상태 : 진행율 : [%d] / [%s]", opSatus.Progress, opSatus.Status)
+
+		//PENDING, RUNNING, or DONE.
+		if (opSatus.Status == "RUNNING" || opSatus.Status == "DONE") && opSatus.Progress >= 100 {
+			//if opSatus.Status == "RUNNING" || opSatus.Status == "DONE" {
+			//if opSatus.Status == "DONE" {
+			cblogger.Info("Wait을 종료합니다.", resourceId, ":", opSatus.Status)
+			return nil
+		}
+
+		time.Sleep(time.Second * 1)
+		after_time := time.Now()
+		diff := after_time.Sub(before_time)
+		if int(diff.Seconds()) > max_time {
+			cblogger.Errorf("[%d]초 동안 리소스[%s]의 상태가 완료되지 않아서 Wait을 강제로 종료함.", max_time, resourceId)
+			return errors.New("장시간 요청 작업이 완료되지 않아서 Wait을 강제로 종료함.)")
+		}
+	}
+
+	return nil
 }

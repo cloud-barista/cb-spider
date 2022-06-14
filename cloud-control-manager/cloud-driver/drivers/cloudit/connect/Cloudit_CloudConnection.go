@@ -17,8 +17,6 @@ import (
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/sirupsen/logrus"
-
-	"errors"
 )
 
 var cblogger *logrus.Logger
@@ -82,9 +80,10 @@ func (cloudConn *ClouditCloudConnection) CreateVMSpecHandler() (irs.VMSpecHandle
 }
 
 func (cloudConn *ClouditCloudConnection) CreateNLBHandler() (irs.NLBHandler, error) {
-	return nil, errors.New("Cloudit Cloud Driver NLB: WIP")
+	cblogger.Info("Cloudit Cloud Driver: called CreateNLBHandler()!")
+	nlbHandler := cirs.ClouditNLBHandler{CredentialInfo: cloudConn.CredentialInfo, Client: &cloudConn.Client}
+	return &nlbHandler, nil
 }
-
 
 func (ClouditCloudConnection) IsConnected() (bool, error) {
 	return true, nil

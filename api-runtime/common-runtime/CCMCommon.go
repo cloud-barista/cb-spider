@@ -11,6 +11,8 @@ package commonruntime
 import (
 	"fmt"
 	"os"
+	"sync"
+	"errors"
 	"strconv"
 	"strings"
 	"time"
@@ -36,6 +38,7 @@ const (
 	rsSG  string = "sg"
 	rsKey string = "keypair"
 	rsVM  string = "vm"
+	rsNLB  string = "nlb"
 )
 
 func RsTypeString(rsType string) string {
@@ -52,6 +55,8 @@ func RsTypeString(rsType string) string {
 		return "VM KeyPair"
 	case rsVM:
 		return "VM"
+	case rsNLB:
+		return "nlb"
         default:
                 return rsType + " is not supported Resource!!"
 
@@ -64,6 +69,7 @@ var vpcSPLock = splock.New()
 var sgSPLock = splock.New()
 var keySPLock = splock.New()
 var vmSPLock = splock.New()
+var nlbSPLock = splock.New()
 
 // definition of IIDManager RWLock
 var iidRWLock = new(iidm.IIDRWLOCK)
@@ -810,6 +816,9 @@ func UnregisterResource(connectionName string, rsType string, nameId string) (bo
         case rsVM:
                 vmSPLock.Lock(connectionName, nameId)
                 defer vmSPLock.Unlock(connectionName, nameId)
+        case rsNLB:
+                nlbSPLock.Lock(connectionName, nameId)
+                defer nlbSPLock.Unlock(connectionName, nameId)
         default:
                 return false, fmt.Errorf(rsType + " is not supported Resource!!")
         }
@@ -832,6 +841,19 @@ func UnregisterResource(connectionName string, rsType string, nameId string) (bo
 				break
 			}
 		}
+        case rsNLB:
+                iidInfoList, err := getAllNLBIIDInfoList(connectionName)
+                if err != nil {
+                        cblog.Error(err)
+                        return false, err
+                }
+                for _, OneIIdInfo := range iidInfoList {
+                        if OneIIdInfo.IId.NameId == nameId {
+                                vpcName = OneIIdInfo.ResourceType/*vpcName*/  // ---------- Don't forget
+                                isExist = true
+                                break
+                        }
+                }
 	default:
 		// (1) check exist(NameID)
 		var err error
@@ -883,7 +905,12 @@ func UnregisterResource(connectionName string, rsType string, nameId string) (bo
 			return false, err
 		}
 
-
+        case rsNLB:
+                _, err := iidRWLock.DeleteIID(iidm.NLBGROUP, connectionName, vpcName/*rsType*/, cres.IID{nameId, ""})
+                if err != nil {
+                        cblog.Error(err)
+                        return false, err
+                }
 
 	default: // other resources(key, vm, ...)
 		_, err := iidRWLock.DeleteIID(iidm.IIDSGROUP, connectionName, rsType, cres.IID{nameId, ""})
@@ -1109,6 +1136,11 @@ func getReqNameId(reqIIdList []cres.IID, driverNameId string) string {
 	return ""
 }
 
+type ResultVPCInfo struct {
+        vpcInfo  cres.VPCInfo
+        err     error
+}
+
 // (1) get IID:list
 // (2) get VPCInfo:list
 // (3) set userIID, and...
@@ -1148,50 +1180,90 @@ func ListVPC(connectionName string, rsType string) ([]*cres.VPCInfo, error) {
 	}
 
 	// (2) Get VPCInfo-list with IID-list
+	wg := new(sync.WaitGroup)
 	resultInfoList := []*cres.VPCInfo{}
-	for _, iidInfo := range iidInfoList {
+        var retChanInfos []chan ResultVPCInfo
+        for i:=0 ; i<len(iidInfoList); i++ {
+                retChanInfos = append(retChanInfos, make(chan ResultVPCInfo))
+        }
 
-vpcSPLock.RLock(connectionName, iidInfo.IId.NameId)
+        for idx, iidInfo := range iidInfoList {
 
-		// get resource(driverIID)
-		info, err := handler.GetVPC(getDriverIID(iidInfo.IId))
-		if err != nil {
-vpcSPLock.RUnlock(connectionName, iidInfo.IId.NameId)
-			if checkNotFoundError(err) {
-				cblog.Info(err)
-				continue
-			}
-			cblog.Error(err)
-			return nil, err
-		}
-		// (3) set ResourceInfo(userIID)
-		info.IId = getUserIID(iidInfo.IId)
+                wg.Add(1)
 
-		// set NameId for SubnetInfo List
-		// create new SubnetInfo List
-		subnetInfoList := []cres.SubnetInfo{}
-		for _, subnetInfo := range info.SubnetInfoList {
-			subnetIIDInfo, err := iidRWLock.GetIIDbySystemID(iidm.SUBNETGROUP, connectionName, info.IId.NameId, subnetInfo.IId) // VPC info.IId.NameId => rsType
-			if err != nil {
-vpcSPLock.RUnlock(connectionName, iidInfo.IId.NameId)
-				cblog.Error(err)
-				return nil, err
-			}
-			if subnetIIDInfo.IId.NameId != "" { // insert only this user created.
-				subnetInfo.IId = getUserIID(subnetIIDInfo.IId)
-				subnetInfoList = append(subnetInfoList, subnetInfo)
-			}
-		}
-vpcSPLock.RUnlock(connectionName, iidInfo.IId.NameId)
+                go getVPCInfo(connectionName, handler, iidInfo.IId, retChanInfos[idx])
 
-		info.SubnetInfoList = subnetInfoList
+                wg.Done()
 
+        }
+        wg.Wait()
 
-		resultInfoList = append(resultInfoList, &info)
-	}
+        var errList []string
+        for idx, retChanInfo := range retChanInfos {
+                chanInfo := <-retChanInfo
 
-	return resultInfoList, nil
+                if chanInfo.err  != nil {
+                        if checkNotFoundError(chanInfo.err) {
+                                cblog.Info(chanInfo.err) } else {
+                                errList = append(errList, connectionName + ":VPC:" + iidInfoList[idx].IId.NameId + " # " + chanInfo.err.Error())
+                        }
+                } else {
+                        resultInfoList = append(resultInfoList, &chanInfo.vpcInfo)
+                }
+
+                close(retChanInfo)
+        }
+
+        if len(errList) > 0 {
+                cblog.Error(strings.Join(errList, "\n"))
+                return nil, errors.New(strings.Join(errList, "\n"))
+        }
+
+        return resultInfoList, nil
 }
+
+
+func getVPCInfo(connectionName string, handler cres.VPCHandler, iid cres.IID, retInfo chan ResultVPCInfo) {
+
+vpcSPLock.RLock(connectionName, iid.NameId)
+        // get resource(SystemId)
+        info, err := handler.GetVPC(getDriverIID(iid))
+        if err != nil {
+vpcSPLock.RUnlock(connectionName, iid.NameId)
+                cblog.Error(err)
+                retInfo <- ResultVPCInfo{cres.VPCInfo{}, err}
+                return
+        }
+
+        // set ResourceInfo(IID.NameId)
+        info.IId = getUserIID(iid)
+
+
+	// set NameId for SubnetInfo List
+	// create new SubnetInfo List
+	subnetInfoList := []cres.SubnetInfo{}
+	for _, subnetInfo := range info.SubnetInfoList {
+		// VPC info.IId.NameId => rsType
+		subnetIIDInfo, err := iidRWLock.GetIIDbySystemID(iidm.SUBNETGROUP, connectionName, iid.NameId, subnetInfo.IId) 
+		if err != nil {
+vpcSPLock.RUnlock(connectionName, iid.NameId)
+			cblog.Error(err)
+			retInfo <- ResultVPCInfo{cres.VPCInfo{}, err}
+			return
+		}
+		if subnetIIDInfo.IId.NameId != "" { // insert only this user created.
+			subnetInfo.IId = getUserIID(subnetIIDInfo.IId)
+			subnetInfoList = append(subnetInfoList, subnetInfo)
+		}
+	}
+vpcSPLock.RUnlock(connectionName, iid.NameId)
+
+	info.SubnetInfoList = subnetInfoList
+
+
+        retInfo <- ResultVPCInfo{info, nil}
+}
+
 
 func checkNotFoundError(err error) bool {
 	msg := err.Error()
@@ -1412,7 +1484,7 @@ func AddSubnet(connectionName string, rsType string, vpcName string, reqInfo cre
 //================ SecurityGroup Handler
 
 func GetSGOwnerVPC(connectionName string, cspID string) (owerVPC cres.IID, err error) {
-        cblog.Info("call GetSecurityGroupOwner()")
+        cblog.Info("call etSGOwnerVPC()")
 
         // check empty and trim user inputs
         connectionName, err = EmptyCheckAndTrim("connectionName", connectionName)
@@ -1510,6 +1582,7 @@ func GetSGOwnerVPC(connectionName string, cspID string) (owerVPC cres.IID, err e
 
         return cres.IID{"", vpcCSPID}, nil
 }
+
 
 // UserIID{UserID, CSP-ID} => SpiderIID{UserID, SP-XID:CSP-ID}
 // (0) check VPC existence(VPC UserID)
@@ -3085,6 +3158,11 @@ func setNameId(ConnectionName string, vmInfo *cres.VMInfo, reqInfo *cres.VMReqIn
 	return nil
 }
 
+type ResultVMInfo struct {
+	vmInfo 	cres.VMInfo
+	err	error
+}
+
 // (1) get IID:list
 // (2) get VMInfo:list
 func ListVM(connectionName string, rsType string) ([]*cres.VMInfo, error) {
@@ -3123,52 +3201,80 @@ func ListVM(connectionName string, rsType string) ([]*cres.VMInfo, error) {
 	}
 
 	// (2) get VMInfo:list
+	wg := new(sync.WaitGroup)
 	infoList2 := []*cres.VMInfo{}
-	for _, iidInfo := range iidInfoList {
+	var retChanInfos []chan ResultVMInfo
+	for i:=0 ; i<len(iidInfoList); i++ {
+		retChanInfos = append(retChanInfos, make(chan ResultVMInfo))
+	}
 
-vmSPLock.RLock(connectionName, iidInfo.IId.NameId)
+	for idx, iidInfo := range iidInfoList {
 
-		// (2) get resource(SystemId)
-		info, err := handler.GetVM(getDriverIID(iidInfo.IId))
-		if err != nil {
-vmSPLock.RUnlock(connectionName, iidInfo.IId.NameId)
-			if checkNotFoundError(err) {
-				cblog.Info(err)
-				continue
+		wg.Add(1)
+
+		go getVMInfo(connectionName, handler, iidInfo.IId, retChanInfos[idx])
+
+		wg.Done()
+
+	}
+	wg.Wait()
+
+	var errList []string
+	for idx, retChanInfo := range retChanInfos {
+		chanInfo := <-retChanInfo
+
+		if chanInfo.err  != nil {
+			if checkNotFoundError(chanInfo.err) {
+				cblog.Info(chanInfo.err) } else {
+				errList = append(errList, connectionName + ":VM:" + iidInfoList[idx].IId.NameId + " # " + chanInfo.err.Error())
 			}
-			cblog.Error(err)
-			return nil, err
-		}
-vmSPLock.RUnlock(connectionName, iidInfo.IId.NameId)
-
-		// (3) set ResourceInfo(IID.NameId)
-		// set ResourceInfo
-		info.IId = getUserIID(iidInfo.IId)
-
-		err = getSetNameId(connectionName, &info)
-		if err != nil {
-			cblog.Error(err)
-			return nil, err
-		}
-	/*
-		// set sg NameId from VPCNameId-SecurityGroupNameId
-		// IID.NameID format => {VPC NameID} + SG_DELIMITER + {SG NameID}
-		for i, sgIID := range info.SecurityGroupIIds {
-			vpc_sg_nameid := strings.Split(sgIID.NameId, SG_DELIMITER)
-			info.SecurityGroupIIds[i].NameId = vpc_sg_nameid[1]
-		}
-	*/
-		// current: Assume 22 port, except Cloud-Twin, by powerkim, 2021.03.24.
-		if info.SSHAccessPoint == "" {
-			info.SSHAccessPoint = info.PublicIP + ":22"
+		} else {
+			infoList2 = append(infoList2, &chanInfo.vmInfo)
 		}
 
+		close(retChanInfo)
+	}
 
-		infoList2 = append(infoList2, &info)
+	if len(errList) > 0 {
+		cblog.Error(strings.Join(errList, "\n"))
+		return nil, errors.New(strings.Join(errList, "\n"))
 	}
 
 	return infoList2, nil
 }
+
+func getVMInfo(connectionName string, handler cres.VMHandler, iid cres.IID, retInfo chan ResultVMInfo) { 
+
+vmSPLock.RLock(connectionName, iid.NameId)
+	// get resource(SystemId)
+	info, err := handler.GetVM(getDriverIID(iid))
+	if err != nil {
+vmSPLock.RUnlock(connectionName, iid.NameId)
+		cblog.Error(err)
+		retInfo <- ResultVMInfo{cres.VMInfo{}, err}
+		return 
+	}
+
+	// set ResourceInfo(IID.NameId)
+	info.IId = getUserIID(iid)
+
+	err = getSetNameId(connectionName, &info)
+	if err != nil {
+vmSPLock.RUnlock(connectionName, iid.NameId)
+		cblog.Error(err)
+		retInfo <- ResultVMInfo{cres.VMInfo{}, err}
+		return 
+	}
+vmSPLock.RUnlock(connectionName, iid.NameId)
+
+	// current: Assume 22 port, except Cloud-Twin, by powerkim, 2021.03.24.
+	if info.SSHAccessPoint == "" {
+		info.SSHAccessPoint = info.PublicIP + ":22"
+	}
+
+	retInfo <- ResultVMInfo{info, nil}
+}
+
 
 func getSetNameId(ConnectionName string, vmInfo *cres.VMInfo) error {
 
@@ -3468,6 +3574,7 @@ func ControlVM(connectionName string, rsType string, nameID string, action strin
 	return info, nil
 }
 
+
 // list all Resources for management
 // (1) get IID:list
 // (2) get CSP:list
@@ -3499,6 +3606,8 @@ func ListAllResource(connectionName string, rsType string) (AllResourceList, err
 		handler, err = cldConn.CreateKeyPairHandler()
 	case rsVM:
 		handler, err = cldConn.CreateVMHandler()
+	case rsNLB:
+		handler, err = cldConn.CreateNLBHandler()
 	default:
 		return AllResourceList{}, fmt.Errorf(rsType + " is not supported Resource!!")
 	}
@@ -3517,6 +3626,12 @@ func ListAllResource(connectionName string, rsType string) (AllResourceList, err
 			cblog.Error(err)
 			return AllResourceList{}, err
 		}
+        case rsNLB:
+                iidInfoList, err = getAllNLBIIDInfoList(connectionName)
+                if err != nil {
+                        cblog.Error(err)
+                        return AllResourceList{}, err
+                }
 
 	default:
 		iidInfoList, err = iidRWLock.ListIID(iidm.IIDSGROUP, connectionName, rsType)
@@ -3580,6 +3695,17 @@ func ListAllResource(connectionName string, rsType string) (AllResourceList, err
 				iidCSPList = append(iidCSPList, &info.IId)
 			}
 		}
+        case rsNLB:
+                infoList, err := handler.(cres.NLBHandler).ListNLB()
+                if err != nil {
+                        cblog.Error(err)
+                        return AllResourceList{}, err
+                }
+                if infoList != nil {
+                        for _, info := range infoList {
+                                iidCSPList = append(iidCSPList, &info.IId)
+                        }
+                }
 	default:
 		return AllResourceList{}, fmt.Errorf(rsType + " is not supported Resource!!")
 	}
@@ -3702,6 +3828,8 @@ func DeleteResource(connectionName string, rsType string, nameID string, force s
 		handler, err = cldConn.CreateKeyPairHandler()
 	case rsVM:
 		handler, err = cldConn.CreateVMHandler()
+	case rsNLB:
+		handler, err = cldConn.CreateNLBHandler()
 	default:
 		err := fmt.Errorf(rsType + " is not supported Resource!!")
 		return false, "", err
@@ -3724,6 +3852,9 @@ func DeleteResource(connectionName string, rsType string, nameID string, force s
 	case rsVM:
 		vmSPLock.Lock(connectionName, nameID)
 		defer vmSPLock.Unlock(connectionName, nameID)
+	case rsNLB:
+		nlbSPLock.Lock(connectionName, nameID)
+		defer nlbSPLock.Unlock(connectionName, nameID)
 	default:
 		err := fmt.Errorf(rsType + " is not supported Resource!!")
 		return false, "", err
@@ -3747,10 +3878,30 @@ func DeleteResource(connectionName string, rsType string, nameID string, force s
 			}
 		}
 		if bool_ret == false {
-                err := fmt.Errorf("[" + connectionName + ":" + RsTypeString(rsType) +  ":" + nameID + "] does not exist!")
-                cblog.Error(err)
+			err := fmt.Errorf("[" + connectionName + ":" + RsTypeString(rsType) +  ":" + nameID + "] does not exist!")
+			cblog.Error(err)
                 return false, "", err
-        }
+		}
+
+        case rsNLB:
+                iidInfoList, err := getAllNLBIIDInfoList(connectionName)
+                if err != nil {
+                        cblog.Error(err)
+                        return false, "", err
+                }
+                var bool_ret = false
+                for _, OneIIdInfo := range iidInfoList {
+                        if OneIIdInfo.IId.NameId == nameID {
+                                iidInfo = OneIIdInfo
+                                bool_ret = true
+                                break;
+                        }
+                }
+                if bool_ret == false {
+			err := fmt.Errorf("[" + connectionName + ":" + RsTypeString(rsType) +  ":" + nameID + "] does not exist!")
+			cblog.Error(err)
+                return false, "", err
+                }
 
 	default:
 		iidInfo, err = iidRWLock.GetIID(iidm.IIDSGROUP, connectionName, rsType, cres.IID{nameID, ""})
@@ -3822,7 +3973,14 @@ func DeleteResource(connectionName string, rsType string, nameID string, force s
 			}
 		}
 		callogger.Info(call.String(callInfo))
-
+        case rsNLB:
+                result, err = handler.(cres.NLBHandler).DeleteNLB(driverIId)
+                if err != nil {
+                        cblog.Error(err)
+                        if force != "true" {
+                                return false, "", err
+                        }
+                }
 
 	default:
 		err := fmt.Errorf(rsType + " is not supported Resource!!")
@@ -3867,7 +4025,6 @@ func DeleteResource(connectionName string, rsType string, nameID string, force s
                                 }
                         }
                 }
-
                 // @todo Should we also delete the SG list of this VPC ?
 
         case rsSG:
@@ -3887,6 +4044,14 @@ func DeleteResource(connectionName string, rsType string, nameID string, force s
                         }
                 }
 		return result, vmStatus, nil
+        case rsNLB:
+                _, err = iidRWLock.DeleteIID(iidm.NLBGROUP, connectionName, iidInfo.ResourceType/*vpcName*/, cres.IID{nameID, ""})
+                if err != nil {
+                        cblog.Error(err)
+                        if force != "true" {
+                                return false, "", err
+                        }
+                }
         default: // ex) KeyPair
 		_, err = iidRWLock.DeleteIID(iidm.IIDSGROUP, connectionName, rsType, iidInfo.IId)
 		if err != nil {
@@ -4020,6 +4185,8 @@ func DeleteCSPResource(connectionName string, rsType string, systemID string) (b
 		handler, err = cldConn.CreateKeyPairHandler()
 	case rsVM:
 		handler, err = cldConn.CreateVMHandler()
+	case rsNLB:
+		handler, err = cldConn.CreateNLBHandler()
 	default:
 		return false, "", fmt.Errorf(rsType + " is not supported Resource!!")
 	}
@@ -4057,6 +4224,12 @@ func DeleteCSPResource(connectionName string, rsType string, systemID string) (b
 		if err != nil {
 			cblog.Error(err)
 			return false, vmStatus, err
+		}
+	case rsNLB:
+		result, err = handler.(cres.NLBHandler).DeleteNLB(iid)
+		if err != nil {
+			cblog.Error(err)
+			return false, "", err
 		}
 	default:
 		return false, "", fmt.Errorf(rsType + " is not supported Resource!!")
@@ -4129,5 +4302,1184 @@ func RemoveCSPSubnet(connectionName string, vpcName string, systemID string) (bo
 
 
 	return result, nil
+}
+
+
+//================ NLB Handler
+
+func GetNLBOwnerVPC(connectionName string, cspID string) (owerVPC cres.IID, err error) {
+        cblog.Info("call GetNLBOwnerVPC()")
+
+        // check empty and trim user inputs
+        connectionName, err = EmptyCheckAndTrim("connectionName", connectionName)
+        if err != nil {
+                cblog.Error(err)
+                return cres.IID{}, err
+        }
+
+        cspID, err = EmptyCheckAndTrim("cspID", cspID)
+        if err != nil {
+                cblog.Error(err)
+                return cres.IID{}, err
+        }
+
+        rsType := rsNLB
+
+        cldConn, err := ccm.GetCloudConnection(connectionName)
+        if err != nil {
+                cblog.Error(err)
+                return cres.IID{}, err
+        }
+
+        handler, err := cldConn.CreateNLBHandler()
+        if err != nil {
+                cblog.Error(err)
+                return cres.IID{}, err
+        }
+
+// Except Management API
+//nlbSPLock.RLock()
+//vpcSPLock.RLock()
+
+        // (1) check existence(cspID)
+        iidInfoList, err := getAllNLBIIDInfoList(connectionName)
+        if err != nil {
+//vpcSPLock.RUnlock()
+//nlbSPLock.RUnlock()
+                cblog.Error(err)
+                return cres.IID{}, err
+        }
+        var isExist bool=false
+        var nameId string
+        for _, OneIIdInfo := range iidInfoList {
+                if getMSShortID(getDriverSystemId(OneIIdInfo.IId)) == cspID {
+                        nameId = OneIIdInfo.IId.NameId
+                        isExist = true
+                        break
+                }
+        }
+        if isExist == true {
+//vpcSPLock.RUnlock()
+//nlbSPLock.RUnlock()
+                err :=  fmt.Errorf(rsType + "-" + cspID + " already exists with " + nameId + "!")
+                cblog.Error(err)
+                return cres.IID{}, err
+        }
+
+        // (2) get resource info(CSP-ID)
+        // check existence and get info of this resouce in the CSP
+        // Do not user NameId, because Azure driver use it like SystemId
+        getInfo, err := handler.GetNLB( cres.IID{getMSShortID(cspID), cspID} )
+        if err != nil {
+//vpcSPLock.RUnlock()
+//nlbSPLock.RUnlock()
+                cblog.Error(err)
+                return cres.IID{}, err
+        }
+
+        // (3) get VPC IID:list
+        vpcIIDInfoList, err := iidRWLock.ListIID(iidm.IIDSGROUP, connectionName, rsVPC)
+        if err != nil {
+//vpcSPLock.RUnlock()
+//nlbSPLock.RUnlock()
+                cblog.Error(err)
+                return cres.IID{}, err
+        }
+//vpcSPLock.RUnlock()
+//nlbSPLock.RUnlock()
+
+        //--------
+        //-------- ex) spiderIID {"vpc-01", "vpc-01-9m4e2mr0ui3e8a215n4g:i-0bc7123b7e5cbf79d"}
+        //--------
+        // Do not user NameId, because Azure driver use it like SystemId
+        vpcCSPID := getMSShortID(getInfo.VpcIID.SystemId)
+        if vpcIIDInfoList == nil || len(vpcIIDInfoList) <= 0 {
+                return cres.IID{"", vpcCSPID}, nil
+        }
+
+        // (4) check existence in the MetaDB
+        for _, one := range vpcIIDInfoList {
+                if getMSShortID(getDriverSystemId(one.IId)) == vpcCSPID {
+                        return cres.IID{one.IId.NameId, vpcCSPID}, nil
+                }
+        }
+
+        return cres.IID{"", vpcCSPID}, nil
+}
+
+// UserIID{UserID, CSP-ID} => SpiderIID{UserID, SP-XID:CSP-ID}
+// (0) check VPC existence(VPC UserID)
+// (1) check existence(UserID)
+// (2) get resource info(CSP-ID)
+// (3) create spiderIID: {UserID, SP-XID:CSP-ID}
+// (4) insert spiderIID
+func RegisterNLB(connectionName string, vpcUserID string, userIID cres.IID) (*cres.NLBInfo, error) {
+        cblog.Info("call RegisterNLB()")
+
+	// check empty and trim user inputs
+        connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)
+        if err != nil {
+		cblog.Error(err)
+                return nil, err
+        }
+
+        vpcUserID, err = EmptyCheckAndTrim("vpcUserID", vpcUserID)
+        if err != nil {
+		cblog.Error(err)
+                return nil, err
+        }
+
+	emptyPermissionList := []string{
+        }
+
+        err = ValidateStruct(userIID, emptyPermissionList)
+        if err != nil {
+                cblog.Error(err)
+                return nil, err
+        }
+
+        rsType := rsNLB
+
+        cldConn, err := ccm.GetCloudConnection(connectionName)
+        if err != nil {
+                cblog.Error(err)
+                return nil, err
+        }
+
+	handler, err := cldConn.CreateNLBHandler()
+        if err != nil {
+                cblog.Error(err)
+                return nil, err
+        }
+
+        vpcSPLock.Lock(connectionName, vpcUserID)
+        defer vpcSPLock.Unlock(connectionName, vpcUserID)
+        nlbSPLock.Lock(connectionName, userIID.NameId)
+        defer nlbSPLock.Unlock(connectionName, userIID.NameId)
+
+        // (0) check VPC existence(VPC UserID)
+        bool_ret, err := iidRWLock.IsExistIID(iidm.IIDSGROUP, connectionName, rsVPC, cres.IID{vpcUserID, ""})
+        if err != nil {
+                cblog.Error(err)
+                return nil, err
+        }
+        if bool_ret == false {
+		err := fmt.Errorf("The %s '%s' does not exist!", RsTypeString(rsVPC), vpcUserID)
+		cblog.Error(err)
+                return nil, err
+        }
+
+        // (1) check existence(UserID)
+        iidInfoList, err := getAllNLBIIDInfoList(connectionName)
+        if err != nil {
+                cblog.Error(err)
+                return nil, err
+        }
+        var isExist bool=false
+        for _, OneIIdInfo := range iidInfoList {
+                if OneIIdInfo.IId.NameId == userIID.NameId {
+                        isExist = true
+			break
+                }
+        }
+
+        if isExist == true {
+                err :=  fmt.Errorf(rsType + "-" + userIID.NameId + " already exists!")
+                cblog.Error(err)
+                return nil, err
+        }
+
+
+        // (2) get resource info(CSP-ID)
+        // check existence and get info of this resouce in the CSP
+	// Do not user NamieId, because Azure driver use it like SystemId
+        getInfo, err := handler.GetNLB( cres.IID{getMSShortID(userIID.SystemId), userIID.SystemId} )
+        if err != nil {
+                cblog.Error(err)
+                return nil, err
+        }
+
+        // Protocol: to upper
+        transformArgsToUpper(&getInfo)
+
+        // (3) create spiderIID: {UserID, SP-XID:CSP-ID}
+        //     ex) spiderIID {"vpc-01", "vpc-01-9m4e2mr0ui3e8a215n4g:i-0bc7123b7e5cbf79d"}
+	// Do not user NameId, because Azure driver use it like SystemId
+	systemId := getMSShortID(getInfo.IId.SystemId)
+        spiderIId := cres.IID{userIID.NameId, systemId + ":" + getInfo.IId.SystemId}
+
+
+        // (4) insert spiderIID
+        // insert NLB SpiderIID to metadb
+	_, err = iidRWLock.CreateIID(iidm.NLBGROUP, connectionName, vpcUserID, spiderIId)
+        if err != nil {
+                cblog.Error(err)
+                return nil, err
+        }
+
+        // set up NLB User IID for return info
+        getInfo.IId = userIID
+
+        // set up VPC UserIID for return info
+        iidInfo, err := iidRWLock.GetIID(iidm.IIDSGROUP, connectionName, rsVPC, cres.IID{vpcUserID, ""})
+        if err != nil {
+                cblog.Error(err)
+                return nil, err
+        }
+        getInfo.VpcIID = getUserIID(iidInfo.IId)
+        if err != nil {
+                cblog.Error(err)
+                return nil, err
+        }
+
+
+        return &getInfo, nil
+}
+
+// (1) check exist(NameID)
+// (2) generate SP-XID and create reqIID, driverIID
+// (3) create Resource
+// (4) create spiderIID: {reqNameID, "driverNameID:driverSystemID"}
+// (5) insert spiderIID
+// (6) create userIID
+func CreateNLB(connectionName string, rsType string, reqInfo cres.NLBInfo) (*cres.NLBInfo, error) {
+	cblog.Info("call CreateNLB()")
+
+	// check empty and trim user inputs
+        connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)
+        if err != nil {
+		cblog.Error(err)
+                return nil, err
+        }
+
+	// @todo
+	/* Currently, Validator does not support the struct has a point of Array such as SecurityReqInfo
+        emptyPermissionList := []string{
+                "resources.IID:SystemId",
+                "resources.SecurityReqInfo:Direction", // because can be unused in some CSP
+                "resources.SecurityRuleInfo:CIDR",     // because can be set without soruce CIDR
+        }
+
+        err = ValidateStruct(reqInfo, emptyPermissionList)
+        if err != nil {
+                cblog.Error(err)
+                return nil, err
+        }
+	*/
+
+
+vpcSPLock.Lock(connectionName, reqInfo.VpcIID.NameId)
+defer vpcSPLock.Unlock(connectionName, reqInfo.VpcIID.NameId)
+
+	//+++++++++++++++++++++++++++++++++++++++++++
+	// set VPC's SystemId
+	vpcIIDInfo, err := iidRWLock.GetIID(iidm.IIDSGROUP, connectionName, rsVPC, reqInfo.VpcIID)
+	if err != nil {
+		cblog.Error(err)
+		return nil, err
+	}
+	reqInfo.VpcIID.SystemId = getDriverSystemId(vpcIIDInfo.IId)
+	//+++++++++++++++++++++++++++++++++++++++++++
+
+	cldConn, err := ccm.GetCloudConnection(connectionName)
+	if err != nil {
+		cblog.Error(err)
+		return nil, err
+	}
+
+	handler, err := cldConn.CreateNLBHandler()
+	if err != nil {
+		cblog.Error(err)
+		return nil, err
+	}
+
+        // Protocol: to upper
+        transformArgsToUpper(&reqInfo)
+
+nlbSPLock.Lock(connectionName, reqInfo.IId.NameId)
+defer nlbSPLock.Unlock(connectionName, reqInfo.IId.NameId)
+
+	// (1) check exist(NameID)
+	iidInfoList, err := getAllNLBIIDInfoList(connectionName)
+	if err != nil {
+		cblog.Error(err)
+		return nil, err
+	}
+	var isExist bool=false
+	for _, OneIIdInfo := range iidInfoList {
+		if OneIIdInfo.IId.NameId == reqInfo.IId.NameId {
+			isExist = true
+		}
+	}
+
+	if isExist == true {
+		err :=  fmt.Errorf(rsType + "-" + reqInfo.IId.NameId + " already exists!")
+		cblog.Error(err)
+		return nil, err
+	}
+
+	// (2) generate SP-XID and create reqIID, driverIID
+	//     ex) SP-XID {"vm-01-9m4e2mr0ui3e8a215n4g"}
+	//
+	//     create reqIID: {reqNameID, reqSystemID}   # reqSystemID=SP-XID
+	//         ex) reqIID {"seoul-service", "vm-01-9m4e2mr0ui3e8a215n4g"} 
+	//
+	//     create driverIID: {driverNameID, driverSystemID}   # driverNameID=SP-XID, driverSystemID=csp's ID
+	//         ex) driverIID {"vm-01-9m4e2mr0ui3e8a215n4g", "i-0bc7123b7e5cbf79d"}
+	spUUID, err := iidm.New(connectionName, rsType, reqInfo.IId.NameId)
+	if err != nil {
+                cblog.Error(err)
+                return nil, err
+        }
+
+	// reqIID
+	reqIId := cres.IID{reqInfo.IId.NameId, spUUID}
+	// driverIID
+	driverIId := cres.IID{spUUID, ""}
+	reqInfo.IId = driverIId
+
+	// (3) create Resource
+	info, err := handler.CreateNLB(reqInfo)
+	if err != nil {
+		cblog.Error(err)
+		return nil, err
+	}
+        // Protocol: to upper
+        transformArgsToUpper(&info)
+
+	// set VPC NameId
+	info.VpcIID.NameId = reqInfo.VpcIID.NameId
+
+	// (4) create spiderIID: {reqNameID, "driverNameID:driverSystemID"}
+	//     ex) spiderIID {"seoul-service", "vm-01-9m4e2mr0ui3e8a215n4g:i-0bc7123b7e5cbf79d"}
+	spiderIId := cres.IID{reqIId.NameId, info.IId.NameId + ":" + info.IId.SystemId}
+
+	// (5) insert spiderIID
+	iidInfo, err := iidRWLock.CreateIID(iidm.NLBGROUP, connectionName, reqInfo.VpcIID.NameId, spiderIId)  // reqIId.NameId => rsType
+	if err != nil {
+		cblog.Error(err)
+		// rollback
+		_, err2 := handler.DeleteNLB(info.IId)
+		if err2 != nil {
+			cblog.Error(err2)
+			return nil, fmt.Errorf(err.Error() + ", " + err2.Error())
+		}
+		cblog.Error(err)
+		return nil, err
+	}
+
+	// (6) create userIID: {reqNameID, driverSystemID}
+	//     ex) userIID {"seoul-service", "i-0bc7123b7e5cbf79d"}
+	info.IId = getUserIID(iidInfo.IId)
+
+	// set VPC SystemId
+	info.VpcIID.SystemId = getDriverSystemId(vpcIIDInfo.IId)
+
+	return &info, nil
+}
+
+func transformArgsToUpper(nlbInfo *cres.NLBInfo) {
+	nlbInfo.Type = strings.ToUpper(nlbInfo.Type)
+	nlbInfo.Scope = strings.ToUpper(nlbInfo.Scope)
+
+	// ListnerInfo
+	nlbInfo.Listener.Protocol = strings.ToUpper(nlbInfo.Listener.Protocol)
+	// VMGroupInfo
+	nlbInfo.VMGroup.Protocol = strings.ToUpper(nlbInfo.VMGroup.Protocol)
+	// HealthCheckerInfo
+	nlbInfo.HealthChecker.Protocol = strings.ToUpper(nlbInfo.HealthChecker.Protocol)
+}
+
+// (1) get IID:list
+// (2) get NLBInfo:list
+// (3) set userIID, and ...
+func ListNLB(connectionName string, rsType string) ([]*cres.NLBInfo, error) {
+	cblog.Info("call ListNLB()")
+
+	// check empty and trim user inputs
+        connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)
+        if err != nil {
+		cblog.Error(err)
+                return nil, err
+        }
+
+	cldConn, err := ccm.GetCloudConnection(connectionName)
+	if err != nil {
+		cblog.Error(err)
+		return nil, err
+	}
+
+	handler, err := cldConn.CreateNLBHandler()
+	if err != nil {
+		cblog.Error(err)
+		return nil, err
+	}
+
+
+	// (1) get IID:list
+	iidInfoList, err := getAllNLBIIDInfoList(connectionName)
+	if err != nil {
+		cblog.Error(err)
+		return nil, err
+	}
+
+	var infoList []*cres.NLBInfo
+	if iidInfoList == nil || len(iidInfoList) <= 0 {
+		infoList = []*cres.NLBInfo{}
+		return infoList, nil
+	}
+
+	// (2) Get NLBInfo-list with IID-list
+	infoList2 := []*cres.NLBInfo{}
+	for _, iidInfo := range iidInfoList {
+
+nlbSPLock.RLock(connectionName, iidInfo.IId.NameId)
+
+		// get resource(SystemId)
+		info, err := handler.GetNLB(getDriverIID(iidInfo.IId))
+		if err != nil {
+nlbSPLock.RUnlock(connectionName, iidInfo.IId.NameId)
+			if checkNotFoundError(err) {
+				cblog.Info(err)
+				continue
+			}
+			cblog.Error(err)
+			return nil, err
+		}
+nlbSPLock.RUnlock(connectionName, iidInfo.IId.NameId)
+
+		// Protocol: to upper
+		transformArgsToUpper(&info)
+
+		// (3) set ResourceInfo(IID.NameId)
+		// set ResourceInfo
+		info.IId = getUserIID(iidInfo.IId)
+
+		// set VPC SystemId
+		vpcIIDInfo, err := iidRWLock.GetIID(iidm.IIDSGROUP, connectionName, rsVPC, cres.IID{iidInfo.ResourceType/*vpcName*/, ""})
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+		info.VpcIID = getUserIID(vpcIIDInfo.IId)
+
+		infoList2 = append(infoList2, &info)
+	}
+
+	return infoList2, nil
+}
+
+// Get All IID:list of NLB
+// (1) Get VPC's Name List
+// (2) Create All NLB's IIDInfo List
+func getAllNLBIIDInfoList(connectionName string) ([]*iidm.IIDInfo, error) {
+
+        // (1) Get VPC's Name List
+        // format) /resource-info-spaces/{iidGroup}/{connectionName}/{resourceType}/{resourceName} [{resourceID}]
+        vpcNameList, err := iidRWLock.ListResourceType(iidm.NLBGROUP, connectionName)
+        if err != nil {
+                cblog.Error(err)
+                return nil, err
+        }
+	vpcNameList = uniqueNameList(vpcNameList)
+        // (2) Create All NLB's IIDInfo List
+        iidInfoList := []*iidm.IIDInfo{}
+        for _, vpcName := range vpcNameList {
+                iidInfoListForOneVPC, err := iidRWLock.ListIID(iidm.NLBGROUP, connectionName, vpcName)
+                if err != nil {
+                        cblog.Error(err)
+                        return nil, err
+                }
+                iidInfoList = append(iidInfoList, iidInfoListForOneVPC...)
+        }
+        return iidInfoList, nil
+}
+
+// (1) get IID(NameId)
+// (2) get resource(SystemId)
+// (3) set ResourceInfo(IID.NameId)
+func GetNLB(connectionName string, rsType string, nameID string) (*cres.NLBInfo, error) {
+	cblog.Info("call GetNLB()")
+
+	// check empty and trim user inputs
+        connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)
+        if err != nil {
+		cblog.Error(err)
+                return nil, err
+        }
+
+        nameID, err = EmptyCheckAndTrim("nameID", nameID)
+        if err != nil {
+		cblog.Error(err)
+                return nil, err
+        }
+
+	cldConn, err := ccm.GetCloudConnection(connectionName)
+	if err != nil {
+		cblog.Error(err)
+		return nil, err
+	}
+
+	handler, err := cldConn.CreateNLBHandler()
+	if err != nil {
+		cblog.Error(err)
+		return nil, err
+	}
+
+nlbSPLock.RLock(connectionName, nameID)
+defer nlbSPLock.RUnlock(connectionName, nameID)
+
+	// (1) get IID(NameId)
+	iidInfoList, err := getAllNLBIIDInfoList(connectionName)
+	if err != nil {
+		cblog.Error(err)
+		return nil, err
+	}
+	var iidInfo *iidm.IIDInfo
+	var bool_ret = false
+	for _, OneIIdInfo := range iidInfoList {
+		if OneIIdInfo.IId.NameId == nameID {
+			iidInfo = OneIIdInfo
+			bool_ret = true
+			break;
+		}
+	}
+	if bool_ret == false {
+		err := fmt.Errorf("The %s '%s' does not exist!", RsTypeString(rsType), nameID)
+		cblog.Error(err)
+                return nil, err
+        }
+
+	// (2) get resource(SystemId)
+	info, err := handler.GetNLB(getDriverIID(iidInfo.IId))
+	if err != nil {
+		cblog.Error(err)
+		return nil, err
+	}
+        // Protocol: to upper
+        transformArgsToUpper(&info)
+
+	// (3) set ResourceInfo(IID.NameId)
+	// set ResourceInfo
+	info.IId = getUserIID(iidInfo.IId)
+
+	// set VPC SystemId
+	vpcIIDInfo, err := iidRWLock.GetIID(iidm.IIDSGROUP, connectionName, rsVPC, cres.IID{iidInfo.ResourceType/*vpcName*/, ""})
+	if err != nil {
+		cblog.Error(err)
+		return nil, err
+	}
+	info.VpcIID = getUserIID(vpcIIDInfo.IId)
+
+	return &info, nil
+}
+
+// (1) check exist(NameID)
+// (2) add VMs
+// (3) Get NLBInfo
+// (4) Set ResoureInfo
+func AddVMs(connectionName string, nlbName string, vmNames []string) (*cres.NLBInfo, error) {
+        cblog.Info("call AddVMs()")
+
+        // check empty and trim user inputs
+        connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)
+        if err != nil {
+                cblog.Error(err)
+                return nil, err
+        }
+
+        nlbName, err = EmptyCheckAndTrim("nlbName", nlbName)
+        if err != nil {
+                cblog.Error(err)
+                return nil, err
+        }
+
+        cldConn, err := ccm.GetCloudConnection(connectionName)
+        if err != nil {
+                cblog.Error(err)
+                return nil, err
+        }
+
+        handler, err := cldConn.CreateNLBHandler()
+        if err != nil {
+                cblog.Error(err)
+                return nil, err
+        }
+
+nlbSPLock.Lock(connectionName, nlbName)
+defer nlbSPLock.Unlock(connectionName, nlbName)
+
+        // (1) check exist(nlbName)
+        iidInfoList, err := getAllNLBIIDInfoList(connectionName)
+        if err != nil {
+                cblog.Error(err)
+                return nil, err
+        }
+        var iidInfo *iidm.IIDInfo
+        var bool_ret = false
+        for _, OneIIdInfo := range iidInfoList {
+                if OneIIdInfo.IId.NameId == nlbName {
+                        iidInfo = OneIIdInfo
+                        bool_ret = true
+                        break;
+                }
+        }
+        if bool_ret == false {
+                err := fmt.Errorf("The %s '%s' does not exist!", RsTypeString(rsNLB), nlbName)
+                cblog.Error(err)
+                return nil, err
+        }
+
+        // (2) add VMs
+        // driverIID for driver
+	var vmIIDs []cres.IID
+	for _, one := range vmNames {
+		vmIIDs = append(vmIIDs, cres.IID{one, ""})
+	}
+        _, err = handler.AddVMs(getDriverIID(iidInfo.IId), &vmIIDs) 
+        if err != nil {
+                cblog.Error(err)
+                return nil, err
+        }
+
+	// (3) Get NLBInfo
+	info, err := handler.GetNLB(getDriverIID(iidInfo.IId))
+        if err != nil {
+                cblog.Error(err)
+                return nil, err
+        }
+
+        // Protocol: to upper
+        transformArgsToUpper(&info)
+
+        // (4) set ResourceInfo(userIID)
+        info.IId = getUserIID(iidInfo.IId)
+
+        // set VPC SystemId
+        vpcIIDInfo, err := iidRWLock.GetIID(iidm.IIDSGROUP, connectionName, rsVPC, cres.IID{iidInfo.ResourceType/*vpcName*/, ""})
+        if err != nil {
+                cblog.Error(err)
+                return nil, err
+        }
+        info.VpcIID = getUserIID(vpcIIDInfo.IId)
+
+        return &info, nil
+}
+
+// (1) check exist(NameID)
+// (2) remove VMs
+func RemoveVMs(connectionName string, nlbName string, vmNames []string) (bool, error) {
+        cblog.Info("call RemoveVMs()")
+
+        // check empty and trim user inputs
+        connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)
+        if err != nil {
+                cblog.Error(err)
+                return false, err
+        }
+
+        nlbName, err = EmptyCheckAndTrim("nlbName", nlbName)
+        if err != nil {
+                cblog.Error(err)
+                return false, err
+        }
+
+        cldConn, err := ccm.GetCloudConnection(connectionName)
+        if err != nil {
+                cblog.Error(err)
+                return false, err
+        }
+
+        handler, err := cldConn.CreateNLBHandler()
+        if err != nil {
+                cblog.Error(err)
+                return false, err
+        }
+
+nlbSPLock.Lock(connectionName, nlbName)
+defer nlbSPLock.Unlock(connectionName, nlbName)
+
+        // (1) check exist(nlbName)
+        iidInfoList, err := getAllNLBIIDInfoList(connectionName)
+        if err != nil {
+                cblog.Error(err)
+                return false, err
+        }
+        var iidInfo *iidm.IIDInfo
+        var bool_ret = false
+        for _, OneIIdInfo := range iidInfoList {
+                if OneIIdInfo.IId.NameId == nlbName {
+                        iidInfo = OneIIdInfo
+                        bool_ret = true
+                        break;
+                }
+        }
+        if bool_ret == false {
+                err := fmt.Errorf("The %s '%s' does not exist!", RsTypeString(rsNLB), nlbName)
+                cblog.Error(err)
+                return false, err
+        }
+
+        // (2) remove VMs
+        // driverIID for driver
+        var vmIIDs []cres.IID
+        for _, one := range vmNames {
+                vmIIDs = append(vmIIDs, cres.IID{one, ""})
+        }
+        result, err := handler.RemoveVMs(getDriverIID(iidInfo.IId), &vmIIDs)
+        if err != nil {
+                cblog.Error(err)
+                return false, err
+        }
+
+        return result, nil
+}
+
+// (1) check exist(NameID)
+// (2) change listener
+// (3) Get NLBInfo
+// (4) Set ResoureInfo
+func ChangeListener(connectionName string, nlbName string, listener cres.ListenerInfo) (*cres.NLBInfo, error) {
+        cblog.Info("call ChangeListener()")
+
+        // check empty and trim user inputs
+        connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)
+        if err != nil {
+                cblog.Error(err)
+                return nil, err
+        }
+        nlbName, err = EmptyCheckAndTrim("nlbName", nlbName)
+        if err != nil {
+                cblog.Error(err)
+                return nil, err
+        }
+
+        emptyPermissionList := []string{
+                "resources.IID:SystemId",
+                "resources.ListenerInfo:CspID", // because can be unused in some CSP
+        }
+        err = ValidateStruct(listener, emptyPermissionList)
+        if err != nil {
+                cblog.Error(err)
+                return nil, err
+        }
+
+        cldConn, err := ccm.GetCloudConnection(connectionName)
+        if err != nil {
+                cblog.Error(err)
+                return nil, err
+        }
+
+        handler, err := cldConn.CreateNLBHandler()
+        if err != nil {
+                cblog.Error(err)
+                return nil, err
+        }
+
+nlbSPLock.Lock(connectionName, nlbName)
+defer nlbSPLock.Unlock(connectionName, nlbName)
+
+        // (1) check exist(nlbName)
+        iidInfoList, err := getAllNLBIIDInfoList(connectionName)
+        if err != nil {
+                cblog.Error(err)
+                return nil, err
+        }
+        var iidInfo *iidm.IIDInfo
+        var bool_ret = false
+        for _, OneIIdInfo := range iidInfoList {
+                if OneIIdInfo.IId.NameId == nlbName {
+                        iidInfo = OneIIdInfo
+                        bool_ret = true
+                        break;
+                }
+        }
+        if bool_ret == false {
+                err := fmt.Errorf("The %s '%s' does not exist!", RsTypeString(rsNLB), nlbName)
+                cblog.Error(err)
+                return nil, err
+        }
+
+        // (2) change listener
+        // driverIID for driver
+        _, err = handler.ChangeListener(getDriverIID(iidInfo.IId), listener)
+        if err != nil {
+                cblog.Error(err)
+                return nil, err
+        }
+
+	// (3) Get NLBInfo
+        info, err := handler.GetNLB(getDriverIID(iidInfo.IId))
+        if err != nil {
+                cblog.Error(err)
+                return nil, err
+        }
+
+        // Protocol: to upper
+        transformArgsToUpper(&info)
+
+        // (4) set ResourceInfo(userIID)
+        info.IId = getUserIID(iidInfo.IId)
+
+        // set VPC SystemId
+        vpcIIDInfo, err := iidRWLock.GetIID(iidm.IIDSGROUP, connectionName, rsVPC, cres.IID{iidInfo.ResourceType/*vpcName*/, ""})
+        if err != nil {
+                cblog.Error(err)
+                return nil, err
+        }
+        info.VpcIID = getUserIID(vpcIIDInfo.IId)
+
+        return &info, nil
+}
+
+// (1) check exist(NameID)
+// (2) change VMGroup
+// (3) Get NLBInfo
+// (4) Set ResoureInfo
+func ChangeVMGroup(connectionName string, nlbName string, vmGroup cres.VMGroupInfo) (*cres.NLBInfo, error) {
+        cblog.Info("call ChangeVMGroup()")
+
+        // check empty and trim user inputs
+        connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)
+        if err != nil {
+                cblog.Error(err)
+                return nil, err
+        }
+        nlbName, err = EmptyCheckAndTrim("nlbName", nlbName)
+        if err != nil {
+                cblog.Error(err)
+                return nil, err
+        }
+
+        // @todo
+        /* Currently, Validator does not support the struct has a point of Array such as SecurityReqInfo
+        emptyPermissionList := []string{
+                "resources.IID:SystemId",
+                "resources.ListenerInfo:CspID", // because can be unused in some CSP
+        }
+        err = ValidateStruct(listener, emptyPermissionList)
+        if err != nil {
+                cblog.Error(err)
+                return nil, err
+        }
+	*/
+
+        cldConn, err := ccm.GetCloudConnection(connectionName)
+        if err != nil {
+                cblog.Error(err)
+                return nil, err
+        }
+
+        handler, err := cldConn.CreateNLBHandler()
+        if err != nil {
+                cblog.Error(err)
+                return nil, err
+        }
+
+nlbSPLock.Lock(connectionName, nlbName)
+defer nlbSPLock.Unlock(connectionName, nlbName)
+
+        // (1) check exist(nlbName)
+        iidInfoList, err := getAllNLBIIDInfoList(connectionName)
+        if err != nil {
+                cblog.Error(err)
+                return nil, err
+        }
+        var iidInfo *iidm.IIDInfo
+        var bool_ret = false
+        for _, OneIIdInfo := range iidInfoList {
+                if OneIIdInfo.IId.NameId == nlbName {
+                        iidInfo = OneIIdInfo
+                        bool_ret = true
+                        break;
+                }
+        }
+        if bool_ret == false {
+                err := fmt.Errorf("The %s '%s' does not exist!", RsTypeString(rsNLB), nlbName)
+                cblog.Error(err)
+                return nil, err
+        }
+
+        // (2) change VMGroup
+        // driverIID for driver
+        _, err = handler.ChangeVMGroupInfo(getDriverIID(iidInfo.IId), vmGroup)
+        if err != nil {
+                cblog.Error(err)
+                return nil, err
+        }
+
+        // (3) Get NLBInfo
+        info, err := handler.GetNLB(getDriverIID(iidInfo.IId))
+        if err != nil {
+                cblog.Error(err)
+                return nil, err
+        }
+
+        // Protocol: to upper
+        transformArgsToUpper(&info)
+
+        // (4) set ResourceInfo(userIID)
+        info.IId = getUserIID(iidInfo.IId)
+
+        // set VPC SystemId
+        vpcIIDInfo, err := iidRWLock.GetIID(iidm.IIDSGROUP, connectionName, rsVPC, cres.IID{iidInfo.ResourceType/*vpcName*/, ""})
+        if err != nil {
+                cblog.Error(err)
+                return nil, err
+        }
+        info.VpcIID = getUserIID(vpcIIDInfo.IId)
+
+        return &info, nil
+}
+
+// (1) check exist(NameID)
+// (2) change HealthCheckerInfo
+// (3) Get NLBInfo
+// (4) Set ResoureInfo
+func ChangeHealthChecker(connectionName string, nlbName string, healthChecker cres.HealthCheckerInfo) (*cres.NLBInfo, error) {
+        cblog.Info("call ChangeHealthChecker()")
+
+        // check empty and trim user inputs
+        connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)
+        if err != nil {
+                cblog.Error(err)
+                return nil, err
+        }
+        nlbName, err = EmptyCheckAndTrim("nlbName", nlbName)
+        if err != nil {
+                cblog.Error(err)
+                return nil, err
+        }
+
+        emptyPermissionList := []string{
+                "resources.IID:SystemId",
+                "resources.ListenerInfo:CspID", // because can be unused in some CSP
+        }
+        err = ValidateStruct(healthChecker, emptyPermissionList)
+        if err != nil {
+                cblog.Error(err)
+                return nil, err
+        }
+
+        cldConn, err := ccm.GetCloudConnection(connectionName)
+        if err != nil {
+                cblog.Error(err)
+                return nil, err
+        }
+
+        handler, err := cldConn.CreateNLBHandler()
+        if err != nil {
+                cblog.Error(err)
+                return nil, err
+        }
+
+nlbSPLock.Lock(connectionName, nlbName)
+defer nlbSPLock.Unlock(connectionName, nlbName)
+
+        // (1) check exist(nlbName)
+        iidInfoList, err := getAllNLBIIDInfoList(connectionName)
+        if err != nil {
+                cblog.Error(err)
+                return nil, err
+        }
+        var iidInfo *iidm.IIDInfo
+        var bool_ret = false
+        for _, OneIIdInfo := range iidInfoList {
+                if OneIIdInfo.IId.NameId == nlbName {
+                        iidInfo = OneIIdInfo
+                        bool_ret = true
+                        break;
+                }
+        }
+        if bool_ret == false {
+                err := fmt.Errorf("The %s '%s' does not exist!", RsTypeString(rsNLB), nlbName)
+                cblog.Error(err)
+                return nil, err
+        }
+
+        // (2) change VMGroup
+        // driverIID for driver
+        _, err = handler.ChangeHealthCheckerInfo(getDriverIID(iidInfo.IId), healthChecker)
+        if err != nil {
+                cblog.Error(err)
+                return nil, err
+        }
+
+        // (3) Get NLBInfo
+        info, err := handler.GetNLB(getDriverIID(iidInfo.IId))
+        if err != nil {
+                cblog.Error(err)
+                return nil, err
+        }
+
+        // Protocol: to upper
+        transformArgsToUpper(&info)
+
+        // (4) set ResourceInfo(userIID)
+        info.IId = getUserIID(iidInfo.IId)
+
+        // set VPC SystemId
+        vpcIIDInfo, err := iidRWLock.GetIID(iidm.IIDSGROUP, connectionName, rsVPC, cres.IID{iidInfo.ResourceType/*vpcName*/, ""})
+        if err != nil {
+                cblog.Error(err)
+                return nil, err
+        }
+        info.VpcIID = getUserIID(vpcIIDInfo.IId)
+
+        return &info, nil
+}
+
+// (1) check exist(NameID)
+// (2) Get HealthInfo
+// (3) Get NLBInfo
+// (4) Set ResoureInfo
+func GetVMGroupHealthInfo(connectionName string, nlbName string) (*cres.HealthInfo, error) {
+        cblog.Info("call GetVMGroupHealthInfo()")
+
+        // check empty and trim user inputs
+        connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)
+        if err != nil {
+                cblog.Error(err)
+                return nil, err
+        }
+        nlbName, err = EmptyCheckAndTrim("nlbName", nlbName)
+        if err != nil {
+                cblog.Error(err)
+                return nil, err
+        }
+
+        // @todo
+        /* Currently, Validator does not support the struct has a point of Array such as SecurityReqInfo
+        emptyPermissionList := []string{
+                "resources.IID:SystemId",
+                "resources.ListenerInfo:CspID", // because can be unused in some CSP
+        }
+        err = ValidateStruct(healthChecker, emptyPermissionList)
+        if err != nil {
+                cblog.Error(err)
+                return nil, err
+        }
+	*/
+
+        cldConn, err := ccm.GetCloudConnection(connectionName)
+        if err != nil {
+                cblog.Error(err)
+                return nil, err
+        }
+
+        handler, err := cldConn.CreateNLBHandler()
+        if err != nil {
+                cblog.Error(err)
+                return nil, err
+        }
+
+nlbSPLock.Lock(connectionName, nlbName)
+defer nlbSPLock.Unlock(connectionName, nlbName)
+
+        // (1) check exist(nlbName)
+        iidInfoList, err := getAllNLBIIDInfoList(connectionName)
+        if err != nil {
+                cblog.Error(err)
+                return nil, err
+        }
+        var iidInfo *iidm.IIDInfo
+        var bool_ret = false
+        for _, OneIIdInfo := range iidInfoList {
+                if OneIIdInfo.IId.NameId == nlbName {
+                        iidInfo = OneIIdInfo
+                        bool_ret = true
+                        break;
+                }
+        }
+        if bool_ret == false {
+                err := fmt.Errorf("The %s '%s' does not exist!", RsTypeString(rsNLB), nlbName)
+                cblog.Error(err)
+                return nil, err
+        }
+
+        // (2) change VMGroup
+        // driverIID for driver
+        healthInfo, err := handler.GetVMGroupHealthInfo(getDriverIID(iidInfo.IId))
+        if err != nil {
+                cblog.Error(err)
+                return nil, err
+        }
+
+
+	// (3) set VM User IID with driver SystemId
+	err = setVMUserIIDwithSystemId(connectionName, nlbName, &healthInfo)
+	if err != nil {
+		cblog.Error(err)
+		return nil, err
+	}
+
+	// (4) 
+        return &healthInfo, nil
+}
+
+func setVMUserIIDwithSystemId(connectionName string, nlbName string, healthInfo *cres.HealthInfo) error {
+	// Get VM SpiderIID All List 
+	iidInfoList, err := iidRWLock.ListIID(iidm.IIDSGROUP, connectionName, rsVM)
+        if err != nil {
+                cblog.Error(err)
+                return err
+        }
+
+	var errList []string
+	vmIIDList := healthInfo.AllVMs	
+	for _, vm := range *vmIIDList {
+		foundFlag := false
+		// 1. Get SpiderIID with SystemId
+		for _, iidInfo := range iidInfoList {
+			if vm.SystemId == getDriverSystemId(iidInfo.IId) {
+				foundFlag = true
+				// 2. Get UserIID with SpiderIID
+				vm = getUserIID(iidInfo.IId)
+			}
+		}
+		if !foundFlag {
+			errList = append(errList, connectionName + ":CSP-VM:" + vm.SystemId + " is not owned by CB-Spider!")
+		}
+	}
+
+        vmIIDList = healthInfo.HealthyVMs
+        for _, vm := range *vmIIDList {
+		foundFlag := false
+                // 1. Get SpiderIID with SystemId
+                for _, iidInfo := range iidInfoList {
+                        if vm.SystemId == getDriverSystemId(iidInfo.IId) {
+				foundFlag = true
+                                // 2. Get UserIID with SpiderIID
+                                vm = getUserIID(iidInfo.IId)
+                        }
+                }
+		if !foundFlag {
+			errList = append(errList, connectionName + ":CSP-VM:" + vm.SystemId + " is not owned by CB-Spider!")
+		}
+        }
+
+        vmIIDList = healthInfo.UnHealthyVMs
+        for _, vm := range *vmIIDList {
+		foundFlag := false
+                // 1. Get SpiderIID with SystemId
+                for _, iidInfo := range iidInfoList {
+                        if vm.SystemId == getDriverSystemId(iidInfo.IId) {
+				foundFlag = true
+                                // 2. Get UserIID with SpiderIID
+                                vm = getUserIID(iidInfo.IId)
+                        }
+                }
+		if !foundFlag {
+			errList = append(errList, connectionName + ":CSP-VM:" + vm.SystemId + " is not owned by CB-Spider!")
+		}
+        }
+
+	// check error existence
+	if len(errList) > 0 {
+                cblog.Error(strings.Join(errList, "\n"))
+                return errors.New(strings.Join(errList, "\n"))
+	}
+
+	return nil
 }
 
