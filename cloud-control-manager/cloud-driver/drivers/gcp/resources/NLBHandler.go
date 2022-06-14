@@ -241,6 +241,15 @@ const (
 	SCOPE_GLOBAL = "GLOBAL"
 
 	ErrorCode_NotFound = 404
+
+	RequestStatus_DONE string = "DONE"
+
+	StringSeperator_Slash string = "/"
+	String_Empty          string = ""
+
+	NLB_Component_HEALTHCHECKER  string = "HEALTHCHECKER"
+	NLB_Component_TARGETPOOL     string = "TARGETPOOL"
+	NLB_Component_FORWARDINGRULE string = "FORWARDINGRULE"
 )
 
 /*
@@ -306,7 +315,7 @@ func (nlbHandler *GCPNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (irs.NLBInfo,
 		cblogger.Error(err)
 		return irs.NLBInfo{}, err // 첫 단계에서 에러 발생. return error
 	}
-	resultMap["HEALTHCHECKER"] = healthCheckerInfo.CspID //TargetLink
+	resultMap[NLB_Component_HEALTHCHECKER] = healthCheckerInfo.CspID //TargetLink
 	cblogger.Info("insertTargetPoolHealthCheck -----")
 	printToJson(healthCheckerInfo)
 	nlbReqInfo.HealthChecker.CspID = healthCheckerInfo.CspID
@@ -323,7 +332,7 @@ func (nlbHandler *GCPNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (irs.NLBInfo,
 		//return irs.NLBInfo{}, err
 		return irs.NLBInfo{}, errors.New(resultMsg)
 	}
-	resultMap["TARGETPOOL"] = targetPool.SelfLink
+	resultMap[NLB_Component_TARGETPOOL] = targetPool.SelfLink
 	printToJson(targetPool)
 	cblogger.Info("backend TargetPool 생성 완료 ")
 
@@ -416,7 +425,7 @@ func (nlbHandler *GCPNLBHandler) ListNLB() ([]*irs.NLBInfo, error) {
 	}
 	callLogStart := call.Start()
 	cblogger.Info("region forwardingRules start: ", regionID)
-	regionForwardingRuleList, err := nlbHandler.listRegionForwardingRules(regionID, "", "")
+	regionForwardingRuleList, err := nlbHandler.listRegionForwardingRules(regionID, String_Empty, String_Empty)
 	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 	if err != nil {
 		cblogger.Info("regionForwardingRule  list: ", err)
@@ -429,7 +438,7 @@ func (nlbHandler *GCPNLBHandler) ListNLB() ([]*irs.NLBInfo, error) {
 		if len(regionForwardingRuleList.Items) > 0 {
 			for _, forwardingRule := range regionForwardingRuleList.Items {
 				targetPoolUrl := forwardingRule.Target
-				targetLbIndex := strings.LastIndex(targetPoolUrl, "/")
+				targetLbIndex := strings.LastIndex(targetPoolUrl, StringSeperator_Slash)
 				targetLbValue := forwardingRule.Target[(targetLbIndex + 1):]
 
 				// targetlink에서 lb 추출
@@ -451,7 +460,7 @@ func (nlbHandler *GCPNLBHandler) ListNLB() ([]*irs.NLBInfo, error) {
 
 					newNlbInfo = irs.NLBInfo{
 						IId:         irs.IID{NameId: targetLbValue, SystemId: targetPoolUrl}, // NameId :Lb Name, poolName, SystemId : targetPool Url
-						VpcIID:      irs.IID{NameId: "", SystemId: ""},                       // VpcIID 는 Pool 안의 instance에 있는 값
+						VpcIID:      irs.IID{NameId: String_Empty, SystemId: String_Empty},   // VpcIID 는 Pool 안의 instance에 있는 값
 						Type:        loadBalancerType,                                        // PUBLIC/INTERNAL : extenel -> PUBLIC으로 변경하는 로직 적용해야함.
 						Scope:       SCOPE_REGION,
 						Listener:    listenerInfo,
@@ -472,7 +481,7 @@ func (nlbHandler *GCPNLBHandler) ListNLB() ([]*irs.NLBInfo, error) {
 
 	cblogger.Info("Targetpool start: ")
 
-	targetPoolList, err := nlbHandler.listTargetPools(regionID, "")
+	targetPoolList, err := nlbHandler.listTargetPools(regionID, String_Empty)
 	if err != nil {
 		cblogger.Info("targetPoolList  list: ", err)
 		return nil, err
@@ -562,8 +571,8 @@ func (nlbHandler *GCPNLBHandler) GetNLB(nlbIID irs.IID) (irs.NLBInfo, error) {
 
 		nlbInfo = irs.NLBInfo{
 			IId:         nlbIID,
-			VpcIID:      irs.IID{NameId: "", SystemId: ""}, // VpcIID 는 Pool 안의 instance에 있는 값
-			Type:        loadBalancerType,                  // PUBLIC/INTERNAL : extenel -> PUBLIC으로 변경하는 로직 적용해야함.
+			VpcIID:      irs.IID{NameId: String_Empty, SystemId: String_Empty}, // VpcIID 는 Pool 안의 instance에 있는 값
+			Type:        loadBalancerType,                                      // PUBLIC/INTERNAL : extenel -> PUBLIC으로 변경하는 로직 적용해야함.
 			Scope:       SCOPE_REGION,
 			Listener:    listenerInfo,
 			CreatedTime: createdTime, //RFC3339 "creationTimestamp":"2022-05-24T01:20:40.334-07:00"
@@ -621,15 +630,15 @@ func (nlbHandler *GCPNLBHandler) DeleteNLB(nlbIID irs.IID) (bool, error) {
 	forwardingRuleDeleteResult, err := nlbHandler.deleteRegionForwardingRules(regionID, nlbIID)
 	if err != nil {
 		cblogger.Info("DeleteNLB forwardingRule ", forwardingRuleDeleteResult, err)
-		deleteResultMap["FORWARDINGRULE"] = err
+		deleteResultMap[NLB_Component_FORWARDINGRULE] = err
 	}
 	cblogger.Info("DeleteNLB forwardingRuleDeleteResult ", forwardingRuleDeleteResult)
 
 	// health checker
-	err = nlbHandler.removeHttpHealthCheck(targetPoolName, "")
+	err = nlbHandler.removeHttpHealthCheck(targetPoolName, String_Empty)
 	if err != nil {
 		cblogger.Info("DeleteNLB removeHealthCheck  err: ", err)
-		deleteResultMap["HEALTHCHECKER"] = err
+		deleteResultMap[NLB_Component_HEALTHCHECKER] = err
 		//return false, err
 	}
 
@@ -653,12 +662,12 @@ func (nlbHandler *GCPNLBHandler) DeleteNLB(nlbIID irs.IID) (bool, error) {
 		callLogInfo.ErrorMSG = err.Error()
 		callogger.Info(call.String(callLogInfo))
 		cblogger.Error(err)
-		deleteResultMap["TARGETPOOL"] = err
+		deleteResultMap[NLB_Component_TARGETPOOL] = err
 		//return false, err
 	}
 
 	// 삭제 결과 return
-	returnMsg := ""
+	returnMsg := String_Empty
 	resourceIdx := 1
 
 	resourceCountTotal := 0
@@ -1285,7 +1294,7 @@ func (nlbHandler *GCPNLBHandler) insertRegionAddresses(regionID string, reqAddre
 
 	}
 
-	err = WaitUntilComplete(nlbHandler.Client, projectID, "", req.Name, true)
+	err = WaitUntilComplete(nlbHandler.Client, projectID, String_Empty, req.Name, true)
 	if err != nil {
 		return err
 	}
@@ -1312,7 +1321,7 @@ func (nlbHandler *GCPNLBHandler) removeRegionAddresses(regionID string, addressN
 
 	}
 
-	err = WaitUntilComplete(nlbHandler.Client, projectID, "", req.Name, true)
+	err = WaitUntilComplete(nlbHandler.Client, projectID, String_Empty, req.Name, true)
 	if err != nil {
 		return err
 	}
@@ -1377,7 +1386,7 @@ func (nlbHandler *GCPNLBHandler) insertGlobalAddresses(reqAddress compute.Addres
 
 	}
 
-	err = WaitUntilComplete(nlbHandler.Client, projectID, "", req.Name, true)
+	err = WaitUntilComplete(nlbHandler.Client, projectID, String_Empty, req.Name, true)
 	if err != nil {
 		return err
 	}
@@ -1404,7 +1413,7 @@ func (nlbHandler *GCPNLBHandler) removeGlobalAddresses(addressName string) error
 		return err
 	}
 
-	err = WaitUntilComplete(nlbHandler.Client, projectID, "", req.Name, true)
+	err = WaitUntilComplete(nlbHandler.Client, projectID, String_Empty, req.Name, true)
 	if err != nil {
 		return err
 	}
@@ -1490,24 +1499,24 @@ func (nlbHandler *GCPNLBHandler) deleteRegionForwardingRules(regionID string, nl
 	// path param
 	targetPoolUrl := nlbIID.SystemId
 
-	forwardingRuleList, err := nlbHandler.listRegionForwardingRules(regionID, "", targetPoolUrl)
+	forwardingRuleList, err := nlbHandler.listRegionForwardingRules(regionID, String_Empty, targetPoolUrl)
 	if err != nil {
 		cblogger.Info("DeleteNLB forwardingRule  err: ", err)
-		return "", err
+		return String_Empty, err
 	}
 	deleteCount := 0
 	itemLength := len(forwardingRuleList.Items)
 	if itemLength == 0 {
-		return "", errors.New("Error 404: The Forwarding Rule resource of " + targetPoolUrl + " was not found")
+		return String_Empty, errors.New("Error 404: The Forwarding Rule resource of " + targetPoolUrl + " was not found")
 	}
 	for _, forwardingRule := range forwardingRuleList.Items {
 		err := nlbHandler.deleteRegionForwardingRule(regionID, forwardingRule.Name)
 		if err != nil {
 			cblogger.Info("deleteRegionForwardingRule ", err)
-			return "", err
+			return String_Empty, err
 		}
 	}
-	return strconv.Itoa(deleteCount) + "/" + strconv.Itoa(itemLength), nil
+	return strconv.Itoa(deleteCount) + StringSeperator_Slash + strconv.Itoa(itemLength), nil
 }
 
 // Region ForwardingRule patch
@@ -1568,7 +1577,7 @@ func (nlbHandler *GCPNLBHandler) listRegionForwardingRules(regionID string, filt
 	if err != nil {
 		return nil, err
 	}
-	if !strings.EqualFold(targetPoolUrl, "") {
+	if !strings.EqualFold(targetPoolUrl, String_Empty) {
 		responseForwardingRule := compute.ForwardingRuleList{}
 		forwardingRuleList := []*compute.ForwardingRule{}
 		for _, item := range resp.Items {
@@ -1659,7 +1668,7 @@ func (nlbHandler *GCPNLBHandler) insertRegionBackendServices(regionID string, re
 
 	}
 
-	err = WaitUntilComplete(nlbHandler.Client, projectID, "", req.Name, true)
+	err = WaitUntilComplete(nlbHandler.Client, projectID, String_Empty, req.Name, true)
 	if err != nil {
 		return &compute.BackendService{}, err
 	}
@@ -1732,7 +1741,7 @@ func (nlbHandler *GCPNLBHandler) insertGlobalBackendServices(reqBackendService c
 
 	}
 
-	err = WaitUntilComplete(nlbHandler.Client, projectID, "", req.Name, true)
+	err = WaitUntilComplete(nlbHandler.Client, projectID, String_Empty, req.Name, true)
 	if err != nil {
 		return &compute.BackendService{}, err
 	}
@@ -1924,7 +1933,7 @@ func (nlbHandler *GCPNLBHandler) insertHttpHealthChecks(healthCheckType string, 
 		return &compute.HttpHealthCheck{}, err
 	}
 
-	err = WaitUntilComplete(nlbHandler.Client, projectID, "", req.Name, true)
+	err = WaitUntilComplete(nlbHandler.Client, projectID, String_Empty, req.Name, true)
 	if err != nil {
 		//	return &compute.ForwardingRule{}, err
 		return &compute.HttpHealthCheck{}, err
@@ -2137,10 +2146,10 @@ func (nlbHandler *GCPNLBHandler) patchHealthCheck(regionID string, targetPoolNam
 	reqHealthCheck := compute.HttpHealthCheck{}
 
 	healthCheckerUrl := healthCheckerInfo.CspID
-	if strings.EqualFold(healthCheckerUrl, "") {
+	if strings.EqualFold(healthCheckerUrl, String_Empty) {
 		reqHealthCheck.Name = targetPoolName
 	} else {
-		healthCheckNameIndex := strings.LastIndex(healthCheckerUrl, "/")
+		healthCheckNameIndex := strings.LastIndex(healthCheckerUrl, StringSeperator_Slash)
 		realHealthCheckName := healthCheckerUrl[(healthCheckNameIndex + 1):]
 		reqHealthCheck.Name = realHealthCheckName
 	}
@@ -2157,7 +2166,7 @@ func (nlbHandler *GCPNLBHandler) patchHealthCheck(regionID string, targetPoolNam
 		return err
 	}
 	printToJson(req)
-	if !strings.EqualFold(req.Status, "DONE") {
+	if !strings.EqualFold(req.Status, RequestStatus_DONE) {
 		err = WaitUntilComplete(nlbHandler.Client, projectID, regionID, req.Name, true)
 		if err != nil {
 			return err
@@ -2191,13 +2200,13 @@ func (nlbHandler *GCPNLBHandler) removeHttpHealthCheck(targetPoolName string, he
 	if targetPool != nil {
 		healthCheckIIDs := targetPool.HealthChecks
 		for _, healthCheckUrl := range healthCheckIIDs {
-			healthCheckerIndex := strings.LastIndex(healthCheckUrl, "/")
+			healthCheckerIndex := strings.LastIndex(healthCheckUrl, StringSeperator_Slash)
 			healthCheckerName = healthCheckUrl[(healthCheckerIndex + 1):]
 			req, err := nlbHandler.Client.HttpHealthChecks.Delete(projectID, healthCheckerName).Do()
 			if err != nil {
 				return err
 			}
-			err = WaitUntilComplete(nlbHandler.Client, projectID, "", req.Name, true)
+			err = WaitUntilComplete(nlbHandler.Client, projectID, String_Empty, req.Name, true)
 			if err != nil {
 				return err
 			}
@@ -2207,7 +2216,7 @@ func (nlbHandler *GCPNLBHandler) removeHttpHealthCheck(targetPoolName string, he
 		if err != nil {
 			return err
 		}
-		err = WaitUntilComplete(nlbHandler.Client, projectID, "", req.Name, true)
+		err = WaitUntilComplete(nlbHandler.Client, projectID, String_Empty, req.Name, true)
 		if err != nil {
 			return err
 		}
@@ -2237,7 +2246,7 @@ func (nlbHandler *GCPNLBHandler) addTargetPoolHealthCheck(regionID string, targe
 	// requestBody
 	req, err := nlbHandler.Client.TargetPools.AddHealthCheck(projectID, regionID, targetPoolName, &reqHealthCheck).Do()
 	printToJson(req)
-	if !strings.EqualFold(req.Status, "DONE") {
+	if !strings.EqualFold(req.Status, RequestStatus_DONE) {
 		err = WaitUntilComplete(nlbHandler.Client, projectID, regionID, req.Name, true)
 		if err != nil {
 			return err
@@ -2266,7 +2275,7 @@ func (nlbHandler *GCPNLBHandler) removeTargetPoolHealthCheck(regionID string, ta
 	// requestBody
 	req, err := nlbHandler.Client.TargetPools.RemoveHealthCheck(projectID, regionID, targetPoolName, &reqHealthCheck).Do()
 	printToJson(req)
-	if !strings.EqualFold(req.Status, "DONE") {
+	if !strings.EqualFold(req.Status, RequestStatus_DONE) {
 		err = WaitUntilComplete(nlbHandler.Client, projectID, regionID, req.Name, true)
 		if err != nil {
 			return err
@@ -2535,7 +2544,7 @@ func (nlbHandler *GCPNLBHandler) convertTargetPoolToNLBInfo(targetPool *compute.
 
 	// vpc 정보 추출
 	for _, instanceUrl := range targetPool.Instances {
-		targetPoolInstanceArr := strings.Split(instanceUrl, "/")
+		targetPoolInstanceArr := strings.Split(instanceUrl, StringSeperator_Slash)
 		targetPoolInstanceValue := targetPoolInstanceArr[len(targetPoolInstanceArr)-1]
 
 		vpcInstanceName := targetPoolInstanceValue
@@ -2587,7 +2596,7 @@ func extractVmGroup(targetPool *compute.TargetPool) irs.VMGroupInfo {
 		instanceIIDs := []irs.IID{}
 
 		for _, instanceUrl := range targetPool.Instances {
-			targetPoolInstanceIndex := strings.LastIndex(instanceUrl, "/")
+			targetPoolInstanceIndex := strings.LastIndex(instanceUrl, StringSeperator_Slash)
 			targetPoolInstanceValue := instanceUrl[(targetPoolInstanceIndex + 1):]
 
 			//instanceIID := irs.IID{SystemId: instanceId}
@@ -2621,7 +2630,7 @@ func (nlbHandler *GCPNLBHandler) extractHealthChecker(regionID string, targetPoo
 		// health checker에 대한 ID는 가지고 있으나 내용은 갖고 있지 않아 정보 조회 필요.
 		for _, healthChecker := range targetPool.HealthChecks {
 			printToJson(healthChecker)
-			targetHealthCheckerIndex := strings.LastIndex(healthChecker, "/")
+			targetHealthCheckerIndex := strings.LastIndex(healthChecker, StringSeperator_Slash)
 			targetHealthCheckerValue := healthChecker[(targetHealthCheckerIndex + 1):]
 
 			//cblogger.Info("GlobalHttpHealthChecks start: ", regionID, " : "+targetHealthCheckerValue)
@@ -2685,8 +2694,8 @@ func (nlbHandler *GCPNLBHandler) getVPCInfoFromVM(zoneID string, vmID irs.IID) (
 	//Subnetwork: (string) (len=110) "https://www.googleapis.com/compute/v1/projects/[projectID]/regions/[regionID]/subnetworks/[subnetName]",
 	vpcUrl := vm.NetworkInterfaces[0].Network
 	//subnetUrl := vm.NetworkInterfaces[0].Subnetwork
-	vpcArr := strings.Split(vpcUrl, "/")
-	//subnetArr := strings.Split(subnetUrl, "/")
+	vpcArr := strings.Split(vpcUrl, StringSeperator_Slash)
+	//subnetArr := strings.Split(subnetUrl, StringSeperator_Slash)
 	vpcName := vpcArr[len(vpcArr)-1]
 	//subnetName := subnetArr[len(subnetArr)-1]
 	vpcIID := irs.IID{NameId: vpcName, SystemId: vpcUrl}
@@ -2784,7 +2793,7 @@ func (nlbHandler *GCPNLBHandler) validateDeleteNLB(nlbIID irs.IID) (map[string]e
 
 	// targetPool
 	_, targetPoolErr := nlbHandler.getTargetPool(regionID, nlbName) // 없으면 not found error
-	validationMap["TARGETPOOL"] = targetPoolErr
+	validationMap[NLB_Component_TARGETPOOL] = targetPoolErr
 	//if targetPoolErr != nil {
 	//
 	//	// notFound 든 뭐든 따질 필요 없이 Error면 Error이네.
@@ -2800,7 +2809,7 @@ func (nlbHandler *GCPNLBHandler) validateDeleteNLB(nlbIID irs.IID) (map[string]e
 
 	// healthCheck
 	_, healthCheckErr := nlbHandler.getHttpHealthChecks(nlbName)
-	validationMap["FORWARDINGRULE"] = healthCheckErr
+	validationMap[NLB_Component_FORWARDINGRULE] = healthCheckErr
 	//if healthCheckErr != nil {
 	//	cblogger.Info("HealthChecks not found : ", healthCheckErr)
 	//} else {
@@ -2809,7 +2818,7 @@ func (nlbHandler *GCPNLBHandler) validateDeleteNLB(nlbIID irs.IID) (map[string]e
 
 	// forwarding rule
 	_, forwardingRuleErr := nlbHandler.getRegionForwardingRules(regionID, nlbName)
-	validationMap["HEALTHCHECKER"] = forwardingRuleErr
+	validationMap[NLB_Component_HEALTHCHECKER] = forwardingRuleErr
 	//if forwardingRuleErr != nil {
 	//	cblogger.Info("Listener not found : ", forwardingRuleErr)
 	//} else {
@@ -2819,13 +2828,13 @@ func (nlbHandler *GCPNLBHandler) validateDeleteNLB(nlbIID irs.IID) (map[string]e
 	//for key, errResult := range validationMap {
 	//	fmt.Println(key, errResult)
 	//	if errResult != nil {
-	//		if strings.EqualFold("TARGETPOOL", key){
+	//		if strings.EqualFold(NLB_Component_TARGETPOOL, key){
 	//
 	//		}
-	//		if strings.EqualFold("TARGETPOOL", key){
+	//		if strings.EqualFold(NLB_Component_TARGETPOOL, key){
 	//
 	//		}
-	//		if strings.EqualFold("TARGETPOOL", key){
+	//		if strings.EqualFold(NLB_Component_TARGETPOOL, key){
 	//
 	//		}
 	//	}
@@ -2901,12 +2910,12 @@ func checkErrorCode(expectErrorCode int, err error) (bool, bool) {
 	(3) ~~~~~ error.... (= CSP 반환 메시지)
 */
 func (nlbHandler *GCPNLBHandler) rollbackCreatedNlbResources(regionID string, resourceMap map[string]string) string {
-	rollbackResult := ""
+	rollbackResult := String_Empty
 
 	// health checker
-	if strings.EqualFold(resourceMap["HEALTHCHECKER"], "") {
-		healthCheckerUrl := resourceMap["HEALTHCHECKER"]
-		healthCheckerIndex := strings.LastIndex(healthCheckerUrl, "/")
+	if strings.EqualFold(resourceMap[NLB_Component_HEALTHCHECKER], String_Empty) {
+		healthCheckerUrl := resourceMap[NLB_Component_HEALTHCHECKER]
+		healthCheckerIndex := strings.LastIndex(healthCheckerUrl, StringSeperator_Slash)
 		healthCheckerName := healthCheckerUrl[(healthCheckerIndex + 1):]
 
 		err := nlbHandler.removeHttpHealthCheck(healthCheckerName, healthCheckerUrl)
@@ -2920,9 +2929,9 @@ func (nlbHandler *GCPNLBHandler) rollbackCreatedNlbResources(regionID string, re
 	}
 
 	// backend
-	if strings.EqualFold(resourceMap["TARGETPOOL"], "") {
-		targetPoolUrl := resourceMap["TARGETPOOL"]
-		targetPoolIndex := strings.LastIndex(targetPoolUrl, "/")
+	if strings.EqualFold(resourceMap[NLB_Component_TARGETPOOL], String_Empty) {
+		targetPoolUrl := resourceMap[NLB_Component_TARGETPOOL]
+		targetPoolIndex := strings.LastIndex(targetPoolUrl, StringSeperator_Slash)
 		targetPoolName := targetPoolUrl[(targetPoolIndex + 1):]
 		err := nlbHandler.removeTargetPool(regionID, targetPoolName)
 		if err != nil {
