@@ -50,7 +50,7 @@ func (keyPairHandler *AwsKeyPairHandler) ListKey() ([]*irs.KeyPairInfo, error) {
 	callLogInfo := call.CLOUDLOGSCHEMA{
 		CloudOS:      call.AWS,
 		RegionZone:   keyPairHandler.Region.Zone,
-		ResourceType: call.SECURITYGROUP,
+		ResourceType: call.VMKEYPAIR,
 		ResourceName: "ListKey()",
 		CloudOSAPI:   "DescribeKeyPairs()",
 		ElapsedTime:  "",
@@ -113,7 +113,7 @@ func (keyPairHandler *AwsKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPairReq
 	callLogInfo := call.CLOUDLOGSCHEMA{
 		CloudOS:      call.AWS,
 		RegionZone:   keyPairHandler.Region.Zone,
-		ResourceType: call.SECURITYGROUP,
+		ResourceType: call.VMKEYPAIR,
 		ResourceName: keyPairReqInfo.IId.NameId,
 		CloudOSAPI:   "CreateKeyPair()",
 		ElapsedTime:  "",
@@ -230,7 +230,7 @@ func (keyPairHandler *AwsKeyPairHandler) GetKey(keyIID irs.IID) (irs.KeyPairInfo
 	callLogInfo := call.CLOUDLOGSCHEMA{
 		CloudOS:      call.AWS,
 		RegionZone:   keyPairHandler.Region.Zone,
-		ResourceType: call.SECURITYGROUP,
+		ResourceType: call.VMKEYPAIR,
 		ResourceName: keyIID.SystemId,
 		CloudOSAPI:   "DescribeKeyPairs()",
 		ElapsedTime:  "",
@@ -341,7 +341,7 @@ func (keyPairHandler *AwsKeyPairHandler) DeleteKey(keyIID irs.IID) (bool, error)
 	callLogInfo := call.CLOUDLOGSCHEMA{
 		CloudOS:      call.AWS,
 		RegionZone:   keyPairHandler.Region.Zone,
-		ResourceType: call.SECURITYGROUP,
+		ResourceType: call.VMKEYPAIR,
 		ResourceName: keyIID.SystemId,
 		CloudOSAPI:   "DeleteKeyPair()",
 		ElapsedTime:  "",
