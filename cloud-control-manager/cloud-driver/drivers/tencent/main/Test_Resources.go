@@ -1081,11 +1081,11 @@ func handleNLB() {
 
 	nlbReqInfo := irs.NLBInfo{
 
-		IId:           irs.IID{NameId: "New-CB-NLB01"},
+		IId:           irs.IID{NameId: "New-CB-NLB03"},
 		VpcIID:        irs.IID{SystemId: "vpc-i614yona"},
 		Type:          "PUBLIC",
 		Listener:      irs.ListenerInfo{Protocol: "TCP", Port: "80"},
-		HealthChecker: irs.HealthCheckerInfo{},
+		HealthChecker: irs.HealthCheckerInfo{Port: "1234"},
 		VMGroup: irs.VMGroupInfo{
 			Protocol: "TCP",
 			Port:     "80",
@@ -1093,7 +1093,7 @@ func handleNLB() {
 		},
 	}
 
-	reqNLBId := irs.IID{SystemId: "lb-3ymzhmaz"}
+	reqNLBId := irs.IID{SystemId: "lb-qfipv1il"}
 
 	for {
 		fmt.Println("Handler Management")
