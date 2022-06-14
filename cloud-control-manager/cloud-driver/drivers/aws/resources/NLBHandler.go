@@ -434,9 +434,11 @@ func (NLBHandler *AwsNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (irs.NLBInfo,
 	}
 
 	input := &elbv2.CreateLoadBalancerInput{
-		Name:    aws.String(nlbReqInfo.IId.NameId),
-		Type:    aws.String("network"), //NLB 생성
-		Subnets: vmSubnets,
+		Name: aws.String(nlbReqInfo.IId.NameId),
+		Type: aws.String("network"), //NLB 생성
+		//Subnets: vmSubnets,             // E-IP 할당 없이 AWS자체 IP 할당 기능 사용 시
+		//SubnetMappings: []*elbv2.SubnetMapping{},	// 사용자가 요청한 EIP를 할당 하고 싶은 경우 Subnets 대신 EIP의 할당ID와 함께 SubnetMappings을 이용하면 됨.
+
 		//Scheme: aws.String("internal"),	// private IP 이용
 		//Scheme: aws.String("Internet-facing"),	//Default - 퍼블릭 서브넷 필요(public subnet)
 		/*
@@ -447,6 +449,21 @@ func (NLBHandler *AwsNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (irs.NLBInfo,
 				//aws.String("subnet-0cf7417f83fd0fd47"), //New-CB-Subnet-NLB-1d1
 			},
 		*/
+	}
+
+	if nlbReqInfo.Listener.IP == "" {
+		input.Subnets = vmSubnets
+	} else {
+		// NLB 단독으로 대표 IP를 지정할 수 없으며 VPC의 AZ별 1개의 서브넷마다 EIP를 지정해야 하는데
+		// 현재의 CB는 AZ별 Subnet 정보를 전달 받지 않기 때문에 고정 IP를 할당할 수 없음.
+		return irs.NLBInfo{}, awserr.New(CUSTOM_ERR_CODE_BAD_REQUEST, "The current version of cb-spider does not support the function to set IP to the AWS listener.", nil)
+
+		/*
+			1. EIP를 지정하고 싶은 서브넷 1개 (또는 EIP당 서브넷 1개씩)을 선정 함.
+			2. 셋팅할 EIP의 할당ID를 조회 함.
+			3. SubnetMappings 정보를 채움.
+		*/
+		//input.SubnetMappings = []*elbv2.SubnetMapping{{AllocationId: aws.String(""), SubnetId: aws.String("")}}
 	}
 
 	// logger for HisCall
@@ -930,30 +947,30 @@ func (NLBHandler *AwsNLBHandler) ExtractHealthCheckerInfo(targetGroupArn string)
 	return result.TargetHealthDescriptions, nil
 }
 
-func (NLBHandler *AwsNLBHandler) ExtractNLBInfo(nlbReqInfo *elbv2.LoadBalancer) (irs.NLBInfo, error) {
+func (NLBHandler *AwsNLBHandler) ExtractNLBInfo(nlbResInfo *elbv2.LoadBalancer) (irs.NLBInfo, error) {
 	retNLBInfo := irs.NLBInfo{
-		IId:         irs.IID{NameId: *nlbReqInfo.LoadBalancerName, SystemId: *nlbReqInfo.LoadBalancerArn},
-		VpcIID:      irs.IID{SystemId: *nlbReqInfo.VpcId},
+		IId:         irs.IID{NameId: *nlbResInfo.LoadBalancerName, SystemId: *nlbResInfo.LoadBalancerArn},
+		VpcIID:      irs.IID{SystemId: *nlbResInfo.VpcId},
 		Type:        "PUBLIC",
 		Scope:       "REGION",
-		CreatedTime: *nlbReqInfo.CreatedTime,
+		CreatedTime: *nlbResInfo.CreatedTime,
 	}
 
 	/*
 		//AZ 정보 등 누락되는 정보가 많아서 KeyValueList는 일일이 직접 대입 대신에 ConvertKeyValueList() 유틸 함수를 사용함.
 		keyValueList := []irs.KeyValue{
-			//{Key: "LoadBalancerArn", Value: *nlbReqInfo.LoadBalancerArn},
+			//{Key: "LoadBalancerArn", Value: *nlbResInfo.LoadBalancerArn},
 		}
-		if !reflect.ValueOf(nlbReqInfo.State).IsNil() {
-			keyValueList = append(keyValueList, irs.KeyValue{Key: "State", Value: *nlbReqInfo.State.Code}) //Code: "provisioning"
+		if !reflect.ValueOf(nlbResInfo.State).IsNil() {
+			keyValueList = append(keyValueList, irs.KeyValue{Key: "State", Value: *nlbResInfo.State.Code}) //Code: "provisioning"
 		}
 
-		if !reflect.ValueOf(nlbReqInfo.LoadBalancerArn).IsNil() {
-			keyValueList = append(keyValueList, irs.KeyValue{Key: "LoadBalancerArn", Value: *nlbReqInfo.LoadBalancerArn})
+		if !reflect.ValueOf(nlbResInfo.LoadBalancerArn).IsNil() {
+			keyValueList = append(keyValueList, irs.KeyValue{Key: "LoadBalancerArn", Value: *nlbResInfo.LoadBalancerArn})
 		}
 	*/
 
-	keyValueList, _ := ConvertKeyValueList(nlbReqInfo)
+	keyValueList, _ := ConvertKeyValueList(nlbResInfo)
 	retNLBInfo.KeyValueList = keyValueList
 
 	//==================
@@ -978,8 +995,29 @@ func (NLBHandler *AwsNLBHandler) ExtractNLBInfo(nlbReqInfo *elbv2.LoadBalancer) 
 		cblogger.Error(errListener.Error())
 		return irs.NLBInfo{}, errListener
 	}
-	retListenerInfo.DNSName = *nlbReqInfo.DNSName
+
+	// 리스너 정보가 존재하면 NLB의 DNS 정보를 리스너에 셋팅해줌.
+	if retListenerInfo.Port != "" {
+		retListenerInfo.DNSName = *nlbResInfo.DNSName
+	}
 	retNLBInfo.Listener = retListenerInfo
+
+	//=================
+	// IP 정보 추출
+	//=================
+	// NLB의 AZ별 고정IP 주소가 할당된 경우 추출해서 리스너의 IP에 세팅 함.
+	eips := ""
+	for _, curSubnet := range nlbResInfo.AvailabilityZones {
+		cblogger.Debug(curSubnet)
+		if len(curSubnet.LoadBalancerAddresses) > 0 {
+			if eips == "" {
+				eips = *curSubnet.LoadBalancerAddresses[0].IpAddress
+			} else {
+				eips = eips + "," + *curSubnet.LoadBalancerAddresses[0].IpAddress
+			}
+		}
+	}
+	retNLBInfo.Listener.IP = eips
 
 	return retNLBInfo, nil
 }
