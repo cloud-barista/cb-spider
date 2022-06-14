@@ -17,14 +17,17 @@ import (
 
 	clb "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/clb/v20180317"
 	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
+	tencentvpc "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/vpc/v20170312"
 )
 
 type TencentNLBHandler struct {
-	Region idrv.RegionInfo
-	Client *clb.Client
+	Region    idrv.RegionInfo
+	Client    *clb.Client
+	VpcClient *tencentvpc.Client
 }
 
 const (
+	//
 	LoadBalancerSet_Status_Creating uint64 = 0
 	LoadBalancerSet_Status_Running  uint64 = 1
 
@@ -126,6 +129,7 @@ func (NLBHandler *TencentNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (irs.NLBI
 		listenerRequest.LoadBalancerId = common.StringPtr(newNLBId)
 		listenerRequest.Ports = common.Int64Ptrs([]int64{listenerPort})
 		listenerRequest.Protocol = common.StringPtr(listenerProtocol)
+		listenerRequest.ListenerNames = common.StringPtrs([]string{nlbReqInfo.IId.NameId})
 
 		// health Checker port 값이 있을 때만 setting
 		if !strings.EqualFold(nlbReqInfo.HealthChecker.Port, "") {
@@ -330,8 +334,10 @@ func (NLBHandler *TencentNLBHandler) GetNLB(nlbIID irs.IID) (irs.NLBInfo, error)
 		return irs.NLBInfo{}, errors.New("Notfound: '" + nlbIID.SystemId + "' NLB Not found")
 	}
 
-	nlbInfo := ExtractNLBDescribeInfo(response.Response.LoadBalancerSet[0])
-
+	nlbInfo, nlbErr := NLBHandler.ExtractNLBDescribeInfo(response.Response.LoadBalancerSet[0])
+	if nlbErr != nil {
+		return irs.NLBInfo{}, nlbErr
+	}
 	listener, listenerErr := NLBHandler.ExtractListenerInfo(nlbIID)
 	if listenerErr != nil {
 		return irs.NLBInfo{}, listenerErr
@@ -351,135 +357,6 @@ func (NLBHandler *TencentNLBHandler) GetNLB(nlbIID irs.IID) (irs.NLBInfo, error)
 	cblogger.Debug(nlbInfo)
 
 	return nlbInfo, nil
-}
-
-/*
-	조회한 결과에서 Spider의 NLBInfo 값으로 변환
-*/
-func ExtractNLBDescribeInfo(nlbInfo *clb.LoadBalancer) irs.NLBInfo {
-
-	createTime, _ := time.Parse("2006-01-02 15:04:05", *nlbInfo.CreateTime)
-	nlbType := ""
-	if strings.EqualFold(*nlbInfo.LoadBalancerType, Tencent_LoadBalancerType_Open) {
-		nlbType = Spider_LoadBalancerType_PUBLIC
-	} else {
-		nlbType = Spider_LoadBalancerType_INTERNAL
-	}
-
-	resNLBInfo := irs.NLBInfo{
-
-		IId:         irs.IID{SystemId: *nlbInfo.LoadBalancerId, NameId: *nlbInfo.LoadBalancerName},
-		VpcIID:      irs.IID{SystemId: *nlbInfo.VpcId},
-		CreatedTime: createTime,
-		Type:        nlbType,
-		Scope:       "REGION",
-	}
-
-	return resNLBInfo
-}
-
-/*
-	NLB Name으로 Listener를 조회하여 NLBInfo.Listener 값으로 변환
-	NLB 를 조회하여 Listener에 사용할 IP인 VIP 추출
-*/
-func (NLBHandler *TencentNLBHandler) ExtractListenerInfo(nlbIID irs.IID) (irs.ListenerInfo, error) {
-	cblogger.Info("NLB IID : ", nlbIID.SystemId)
-
-	// Listener정보 조회
-	request := clb.NewDescribeListenersRequest()
-	request.LoadBalancerId = common.StringPtr(nlbIID.SystemId)
-	response, err := NLBHandler.Client.DescribeListeners(request)
-	if err != nil {
-		cblogger.Errorf("An API error has returned: %s", err.Error())
-		return irs.ListenerInfo{}, err
-	}
-
-	// protocol port set
-	resListenerInfo := irs.ListenerInfo{
-		Protocol: *response.Response.Listeners[0].Protocol,
-		Port:     strconv.FormatInt(*response.Response.Listeners[0].Port, 10),
-	}
-
-	// vip 정보 조회 : listener IP
-	ipRequest := clb.NewDescribeLoadBalancersRequest()
-	ipRequest.LoadBalancerIds = common.StringPtrs([]string{nlbIID.SystemId})
-	ipResponse, ipErr := NLBHandler.Client.DescribeLoadBalancers(ipRequest)
-	if ipErr != nil {
-		cblogger.Errorf("An API error has returned: %s", err.Error())
-		return irs.ListenerInfo{}, ipErr
-	}
-	resListenerInfo.IP = *ipResponse.Response.LoadBalancerSet[0].LoadBalancerVips[0]
-
-	return resListenerInfo, nil
-}
-
-/*
-	VM Group 정보 조회
-*/
-func (NLBHandler *TencentNLBHandler) ExtractVMGroupInfo(nlbIID irs.IID) (irs.VMGroupInfo, error) {
-	cblogger.Info("NLB IID : ", nlbIID.SystemId)
-
-	request := clb.NewDescribeTargetsRequest()
-	request.LoadBalancerId = common.StringPtr(nlbIID.SystemId)
-	response, err := NLBHandler.Client.DescribeTargets(request)
-
-	if err != nil {
-		cblogger.Errorf("An API error has returned: %s", err.Error())
-		return irs.VMGroupInfo{}, err
-	}
-
-	cblogger.Debug(response.Response.Listeners[0].Targets)
-
-	if len(response.Response.Listeners[0].Targets) == 0 {
-		return irs.VMGroupInfo{}, errors.New("Target VM does not exist!")
-	}
-
-	resVmInfo := irs.VMGroupInfo{
-		Protocol: Protocol_TCP,
-		Port:     strconv.FormatInt(*response.Response.Listeners[0].Targets[0].Port, 10),
-	}
-
-	vms := []irs.IID{}
-	for _, target := range response.Response.Listeners[0].Targets {
-		vms = append(vms, irs.IID{SystemId: *target.InstanceId})
-	}
-
-	resVmInfo.VMs = &vms
-
-	return resVmInfo, nil
-}
-
-func (NLBHandler *TencentNLBHandler) ExtractHealthCheckerInfo(nlbIID irs.IID) (irs.HealthCheckerInfo, error) {
-	cblogger.Info("NLB IID : ", nlbIID.SystemId)
-
-	request := clb.NewDescribeListenersRequest()
-	request.LoadBalancerId = common.StringPtr(nlbIID.SystemId)
-	response, err := NLBHandler.Client.DescribeListeners(request)
-
-	if err != nil {
-		cblogger.Errorf("An API error has returned: %s", err.Error())
-		return irs.HealthCheckerInfo{}, err
-	}
-
-	cblogger.Debug(response.ToJsonString())
-
-	tencentHealthCheck := response.Response.Listeners[0].HealthCheck
-
-	resHealthCheckerInfo := irs.HealthCheckerInfo{
-		Protocol:  *tencentHealthCheck.CheckType,
-		Interval:  int(*tencentHealthCheck.IntervalTime),
-		Timeout:   int(*tencentHealthCheck.TimeOut),
-		Threshold: int(*tencentHealthCheck.HealthNum),
-	}
-
-	// checkPort는 ommitEmpty로 값이 없으면 안들어 옴
-	if tencentHealthCheck.CheckPort != nil {
-		resHealthCheckerInfo.Port = strconv.FormatInt(*tencentHealthCheck.CheckPort, 10)
-	}
-	cblogger.Debug("after")
-
-	return resHealthCheckerInfo, nil
-
 }
 
 func (NLBHandler *TencentNLBHandler) DeleteNLB(nlbIID irs.IID) (bool, error) {
@@ -792,7 +669,6 @@ func (NLBHandler *TencentNLBHandler) GetVMGroupHealthInfo(nlbIID irs.IID) (irs.H
 func (NLBHandler *TencentNLBHandler) ChangeHealthCheckerInfo(nlbIID irs.IID, healthChecker irs.HealthCheckerInfo) (irs.HealthCheckerInfo, error) {
 
 	newNLBId := nlbIID.SystemId
-	healthCheckerResult := irs.HealthCheckerInfo{}
 
 	// logger for HisCall
 	callogger := call.GetLogger("HISCALL")
@@ -814,30 +690,51 @@ func (NLBHandler *TencentNLBHandler) ChangeHealthCheckerInfo(nlbIID irs.IID, hea
 	}
 
 	newListenerId := *response.Response.Listeners[0].ListenerId
-
-	healthPort, healthPortErr := strconv.ParseInt(healthChecker.Port, 10, 64)
-	if healthPortErr != nil {
-		return irs.HealthCheckerInfo{}, healthPortErr
+	listenerProtocol := *response.Response.Listeners[0].Protocol
+	healthCheckerProtocol := healthChecker.Protocol
+	healthCheckerTimeOut := int64(healthChecker.Timeout)
+	healthCheckerInterval := int64(healthChecker.Interval)
+	healthCheckerThreshold := int64(healthChecker.Threshold)
+	if healthCheckerTimeOut > 0 && healthCheckerInterval > 0 && healthCheckerTimeOut > healthCheckerInterval {
+		return irs.HealthCheckerInfo{}, errors.New("HealthCheck.IntervalTime should not be less than HealthCheck.TimeOut")
 	}
 
 	changeHealthCheckerRequest := clb.NewModifyListenerRequest()
 
+	changeHealthCheckerRequest.HealthCheck = &clb.HealthCheck{}
 	changeHealthCheckerRequest.LoadBalancerId = common.StringPtr(newNLBId)
 	changeHealthCheckerRequest.ListenerId = common.StringPtr(newListenerId)
-	changeHealthCheckerRequest.HealthCheck = &clb.HealthCheck{
-		TimeOut:      common.Int64Ptr(int64(healthChecker.Timeout)),
-		IntervalTime: common.Int64Ptr(int64(healthChecker.Interval)),
-		HealthNum:    common.Int64Ptr(int64(healthChecker.Threshold)),
-		CheckPort:    common.Int64Ptr(healthPort),
-		CheckType:    common.StringPtr(healthChecker.Protocol),
+
+	// health Checker port 값이 있을 때만 setting
+	if !strings.EqualFold(healthChecker.Port, "") {
+		healthPort, healthErr := strconv.ParseInt(healthChecker.Port, 10, 64)
+		if healthErr != nil {
+			return irs.HealthCheckerInfo{}, healthErr
+		}
+		changeHealthCheckerRequest.HealthCheck.CheckPort = common.Int64Ptr(healthPort)
 	}
 
-	if strings.EqualFold(*response.Response.Listeners[0].Protocol, "UDP") {
+	if healthCheckerTimeOut > 0 {
+		changeHealthCheckerRequest.HealthCheck.TimeOut = common.Int64Ptr(healthCheckerTimeOut)
+	}
+	if healthCheckerInterval > 0 {
+		changeHealthCheckerRequest.HealthCheck.IntervalTime = common.Int64Ptr(healthCheckerInterval)
+	}
+	if healthCheckerThreshold > 0 {
+		changeHealthCheckerRequest.HealthCheck.HealthNum = common.Int64Ptr(healthCheckerThreshold)
+	}
+	if !strings.EqualFold(healthCheckerProtocol, "") {
+		changeHealthCheckerRequest.HealthCheck.CheckType = common.StringPtr(healthCheckerProtocol)
+	}
+
+	// Listener의 protocol이 UDP일 때 HealthChecker의 CheckType, ContextType은 고정
+	if strings.EqualFold(listenerProtocol, "UDP") {
 		changeHealthCheckerRequest.HealthCheck.CheckType = common.StringPtr("CUSTOM")
 		changeHealthCheckerRequest.HealthCheck.ContextType = common.StringPtr("TEXT")
 	}
 
-	if strings.EqualFold(healthChecker.Protocol, "HTTP") {
+	// HealthChecker protocol이 HTTP일 때 Domain,Version Set
+	if strings.EqualFold(healthCheckerProtocol, "HTTP") {
 		changeHealthCheckerRequest.HealthCheck.HttpCheckDomain = common.StringPtr("")
 		changeHealthCheckerRequest.HealthCheck.HttpVersion = common.StringPtr("HTTP/1.1")
 	}
@@ -849,18 +746,16 @@ func (NLBHandler *TencentNLBHandler) ChangeHealthCheckerInfo(nlbIID irs.IID, hea
 
 	callogger.Info(call.String(callLogInfo))
 
-	// VM 연결되길 기다림
+	// Listener 변경을 기다림
 	changeStatus, changeStatErr := NLBHandler.WaitForDone(*changeHealthCheckerResponse.Response.RequestId)
 	if changeStatErr != nil {
 		return irs.HealthCheckerInfo{}, changeStatErr
 	}
+	cblogger.Debug(changeStatus)
 
-	if changeStatus == Request_Status_Done {
-		healthCheckerInfo, healthErr := NLBHandler.ExtractHealthCheckerInfo(nlbIID)
-		if healthErr != nil {
-			return irs.HealthCheckerInfo{}, healthErr
-		}
-		healthCheckerResult = healthCheckerInfo
+	healthCheckerResult, healthErr := NLBHandler.ExtractHealthCheckerInfo(nlbIID)
+	if healthErr != nil {
+		return irs.HealthCheckerInfo{}, healthErr
 	}
 
 	return healthCheckerResult, nil
@@ -964,4 +859,167 @@ func (NLBHandler *TencentNLBHandler) nlbExist(chkName string) (bool, error) {
 
 	cblogger.Infof("NLB 정보 찾음 - NLBId:[%s] / NLBName:[%s]", *response.Response.LoadBalancerSet[0].LoadBalancerId, *response.Response.LoadBalancerSet[0].LoadBalancerName)
 	return true, nil
+}
+
+/*
+	조회한 결과에서 Spider의 NLBInfo 값으로 변환
+*/
+func (NLBHandler *TencentNLBHandler) ExtractNLBDescribeInfo(nlbInfo *clb.LoadBalancer) (irs.NLBInfo, error) {
+
+	// vpc name 구하기
+	VPCHandler := TencentVPCHandler{
+		Region: NLBHandler.Region,
+		Client: NLBHandler.VpcClient,
+	}
+	cblogger.Debug(VPCHandler)
+
+	retVpcInfo, errVpcInfo := VPCHandler.GetVPC(irs.IID{SystemId: *nlbInfo.VpcId})
+	if errVpcInfo != nil {
+		cblogger.Error(errVpcInfo)
+		return irs.NLBInfo{}, errVpcInfo
+	}
+
+	cblogger.Debug(retVpcInfo)
+
+	vpcId := retVpcInfo.IId.SystemId
+	vpcName := retVpcInfo.IId.NameId
+
+	// 생성 시간 정보 포맷 변환
+	createTime, _ := time.Parse("2006-01-02 15:04:05", *nlbInfo.CreateTime)
+
+	// NLB Type을 NLBInfo에 맞는 값으로 변환
+	nlbType := ""
+	if strings.EqualFold(*nlbInfo.LoadBalancerType, Tencent_LoadBalancerType_Open) {
+		nlbType = Spider_LoadBalancerType_PUBLIC
+	} else {
+		nlbType = Spider_LoadBalancerType_INTERNAL
+	}
+
+	// NLBInfo 채워넣기
+	resNLBInfo := irs.NLBInfo{
+
+		IId:         irs.IID{SystemId: *nlbInfo.LoadBalancerId, NameId: *nlbInfo.LoadBalancerName},
+		VpcIID:      irs.IID{SystemId: vpcId, NameId: vpcName},
+		CreatedTime: createTime,
+		Type:        nlbType,
+		Scope:       "REGION",
+	}
+
+	return resNLBInfo, nil
+}
+
+func GetResourceHandler(s string) {
+	panic("unimplemented")
+}
+
+/*
+	NLB Name으로 Listener를 조회하여 NLBInfo.Listener 값으로 변환
+	NLB 를 조회하여 Listener에 사용할 IP인 VIP 추출
+*/
+func (NLBHandler *TencentNLBHandler) ExtractListenerInfo(nlbIID irs.IID) (irs.ListenerInfo, error) {
+	cblogger.Info("NLB IID : ", nlbIID.SystemId)
+
+	// Listener정보 조회
+	request := clb.NewDescribeListenersRequest()
+	request.LoadBalancerId = common.StringPtr(nlbIID.SystemId)
+	response, err := NLBHandler.Client.DescribeListeners(request)
+	if err != nil {
+		cblogger.Errorf("An API error has returned: %s", err.Error())
+		return irs.ListenerInfo{}, err
+	}
+
+	// protocol port set
+	resListenerInfo := irs.ListenerInfo{
+		Protocol: *response.Response.Listeners[0].Protocol,
+		Port:     strconv.FormatInt(*response.Response.Listeners[0].Port, 10),
+	}
+
+	// vip 정보 조회 : listener IP
+	ipRequest := clb.NewDescribeLoadBalancersRequest()
+	ipRequest.LoadBalancerIds = common.StringPtrs([]string{nlbIID.SystemId})
+	ipResponse, ipErr := NLBHandler.Client.DescribeLoadBalancers(ipRequest)
+	if ipErr != nil {
+		cblogger.Errorf("An API error has returned: %s", err.Error())
+		return irs.ListenerInfo{}, ipErr
+	}
+	resListenerInfo.IP = *ipResponse.Response.LoadBalancerSet[0].LoadBalancerVips[0]
+
+	return resListenerInfo, nil
+}
+
+/*
+	VM Group 정보 조회
+*/
+func (NLBHandler *TencentNLBHandler) ExtractVMGroupInfo(nlbIID irs.IID) (irs.VMGroupInfo, error) {
+	cblogger.Info("NLB IID : ", nlbIID.SystemId)
+
+	request := clb.NewDescribeTargetsRequest()
+	request.LoadBalancerId = common.StringPtr(nlbIID.SystemId)
+	response, err := NLBHandler.Client.DescribeTargets(request)
+
+	if err != nil {
+		cblogger.Errorf("An API error has returned: %s", err.Error())
+		return irs.VMGroupInfo{}, err
+	}
+
+	cblogger.Debug(response.Response.Listeners[0].Targets)
+
+	if len(response.Response.Listeners[0].Targets) == 0 {
+		return irs.VMGroupInfo{}, errors.New("Target VM does not exist!")
+	}
+
+	// https://intl.cloud.tencent.com/ko/document/product/214/6151
+	// If you use a layer-4 listener (i.e., layer-4 protocol forwarding),
+	// the CLB instance will establish a TCP connection with the real server on the listening port,
+	// and directly forward requests to the real server.
+	// TCP, UDP Listener일 때 Real Server Protocol을 TCP로 설정
+	resVmInfo := irs.VMGroupInfo{
+		Protocol: Protocol_TCP,
+		Port:     strconv.FormatInt(*response.Response.Listeners[0].Targets[0].Port, 10),
+	}
+
+	vms := []irs.IID{}
+	for _, target := range response.Response.Listeners[0].Targets {
+		vms = append(vms, irs.IID{SystemId: *target.InstanceId, NameId: *target.InstanceName})
+	}
+
+	resVmInfo.VMs = &vms
+
+	return resVmInfo, nil
+}
+
+/*
+	Health Checker 정보 조회
+*/
+func (NLBHandler *TencentNLBHandler) ExtractHealthCheckerInfo(nlbIID irs.IID) (irs.HealthCheckerInfo, error) {
+	cblogger.Info("NLB IID : ", nlbIID.SystemId)
+
+	request := clb.NewDescribeListenersRequest()
+	request.LoadBalancerId = common.StringPtr(nlbIID.SystemId)
+	response, err := NLBHandler.Client.DescribeListeners(request)
+
+	if err != nil {
+		cblogger.Errorf("An API error has returned: %s", err.Error())
+		return irs.HealthCheckerInfo{}, err
+	}
+
+	cblogger.Debug(response.ToJsonString())
+
+	tencentHealthCheck := response.Response.Listeners[0].HealthCheck
+
+	resHealthCheckerInfo := irs.HealthCheckerInfo{
+		Protocol:  *tencentHealthCheck.CheckType,
+		Interval:  int(*tencentHealthCheck.IntervalTime),
+		Timeout:   int(*tencentHealthCheck.TimeOut),
+		Threshold: int(*tencentHealthCheck.HealthNum),
+	}
+
+	// checkPort는 ommitEmpty로 값이 없으면 안들어 옴
+	if tencentHealthCheck.CheckPort != nil {
+		resHealthCheckerInfo.Port = strconv.FormatInt(*tencentHealthCheck.CheckPort, 10)
+	}
+	cblogger.Debug("after")
+
+	return resHealthCheckerInfo, nil
+
 }
