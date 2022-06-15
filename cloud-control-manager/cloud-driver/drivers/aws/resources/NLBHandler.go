@@ -1142,8 +1142,25 @@ func (NLBHandler *AwsNLBHandler) DeleteNLB(nlbIID irs.IID) (bool, error) {
 		LoadBalancerArn: aws.String(nlbInfo.IId.SystemId),
 	}
 
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.AWS,
+		RegionZone:   NLBHandler.Region.Zone,
+		ResourceType: call.NLB,
+		ResourceName: nlbIID.NameId,
+		CloudOSAPI:   "DeleteLoadBalancer()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+	callLogStart := call.Start()
+
 	result, err := NLBHandler.Client.DeleteLoadBalancer(input)
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 	if err != nil {
+		callLogInfo.ErrorMSG = err.Error()
+		callogger.Info(call.String(callLogInfo))
+
 		cblogger.Errorf("NLB[%s] 삭제 실패", nlbIID.SystemId)
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
@@ -1163,6 +1180,8 @@ func (NLBHandler *AwsNLBHandler) DeleteNLB(nlbIID irs.IID) (bool, error) {
 		}
 		return false, err
 	}
+	callogger.Info(call.String(callLogInfo))
+
 	cblogger.Infof("NLB[%s] 삭제 완료", nlbIID.SystemId)
 	cblogger.Debug(result)
 	if cblogger.Level.String() == "debug" {
@@ -1223,8 +1242,24 @@ func (NLBHandler *AwsNLBHandler) ChangeListener(nlbIID irs.IID, listener irs.Lis
 	cblogger.Info("리스너 정보 변경 시작")
 	cblogger.Info(input)
 
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.AWS,
+		RegionZone:   NLBHandler.Region.Zone,
+		ResourceType: call.NLB,
+		ResourceName: nlbIID.NameId,
+		CloudOSAPI:   "ModifyListener()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+	callLogStart := call.Start()
+
 	result, err := NLBHandler.Client.ModifyListener(input)
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 	if err != nil {
+		callLogInfo.ErrorMSG = err.Error()
+		callogger.Info(call.String(callLogInfo))
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
 			case elbv2.ErrCodeDuplicateListenerException:
@@ -1269,6 +1304,7 @@ func (NLBHandler *AwsNLBHandler) ChangeListener(nlbIID irs.IID, listener irs.Lis
 			// Message from an error.
 			cblogger.Error(err.Error())
 		}
+		callogger.Info(call.String(callLogInfo))
 
 		return irs.ListenerInfo{}, err
 	}
@@ -1301,6 +1337,21 @@ func (NLBHandler *AwsNLBHandler) ChangeListener(nlbIID irs.IID, listener irs.Lis
 
 //------ Backend Control
 func (NLBHandler *AwsNLBHandler) ChangeVMGroupInfo(nlbIID irs.IID, vmGroup irs.VMGroupInfo) (irs.VMGroupInfo, error) {
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.AWS,
+		RegionZone:   NLBHandler.Region.Zone,
+		ResourceType: call.NLB,
+		ResourceName: nlbIID.NameId,
+		CloudOSAPI:   "ChangeVMGroupInfo()",
+		ElapsedTime:  "",
+		ErrorMSG:     "Changing VMGroup information is not supported",
+	}
+	callLogStart := call.Start()
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+	callogger.Info(call.String(callLogInfo))
+
 	return irs.VMGroupInfo{}, awserr.New(CUSTOM_ERR_CODE_METHOD_NOT_ALLOWED, "Changing VMGroup information is not supported.", nil)
 }
 
@@ -1356,9 +1407,25 @@ func (NLBHandler *AwsNLBHandler) AddVMs(nlbIID irs.IID, vmIIDs *[]irs.IID) (irs.
 		spew.Dump(input)
 	}
 
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.AWS,
+		RegionZone:   NLBHandler.Region.Zone,
+		ResourceType: call.NLB,
+		ResourceName: nlbIID.NameId,
+		CloudOSAPI:   "RegisterTargets()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+	callLogStart := call.Start()
+
 	//input.Targets = &targetList
 	result, err := NLBHandler.Client.RegisterTargets(input)
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 	if err != nil {
+		callLogInfo.ErrorMSG = err.Error()
+		callogger.Info(call.String(callLogInfo))
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
 			case elbv2.ErrCodeTargetGroupNotFoundException:
@@ -1379,6 +1446,7 @@ func (NLBHandler *AwsNLBHandler) AddVMs(nlbIID irs.IID, vmIIDs *[]irs.IID) (irs.
 		}
 		return irs.VMGroupInfo{}, err
 	}
+	callogger.Info(call.String(callLogInfo))
 
 	cblogger.Infof("VM 그룹(%s)에 인스턴스 추가 완료", retTargetGroupInfo.VMGroup.CspID)
 	cblogger.Debug(result)
@@ -1437,8 +1505,24 @@ func (NLBHandler *AwsNLBHandler) RemoveVMs(nlbIID irs.IID, vmIIDs *[]irs.IID) (b
 		spew.Dump(input)
 	}
 
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.AWS,
+		RegionZone:   NLBHandler.Region.Zone,
+		ResourceType: call.NLB,
+		ResourceName: nlbIID.NameId,
+		CloudOSAPI:   "DeregisterTargets()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+	callLogStart := call.Start()
+
 	result, err := NLBHandler.Client.DeregisterTargets(input)
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 	if err != nil {
+		callLogInfo.ErrorMSG = err.Error()
+		callogger.Info(call.String(callLogInfo))
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
 			case elbv2.ErrCodeTargetGroupNotFoundException:
@@ -1454,6 +1538,7 @@ func (NLBHandler *AwsNLBHandler) RemoveVMs(nlbIID irs.IID, vmIIDs *[]irs.IID) (b
 		}
 		return false, err
 	}
+	callogger.Info(call.String(callLogInfo))
 
 	cblogger.Infof("VM 그룹(%s)에서 인스턴스 삭제 성공", retTargetGroupInfo.VMGroup.CspID)
 	cblogger.Debug(result)
@@ -1542,20 +1627,27 @@ func (NLBHandler *AwsNLBHandler) GetVMGroupHealthInfo(nlbIID irs.IID) (irs.Healt
 		return irs.HealthInfo{}, errVMGroupInfo
 	}
 
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.AWS,
+		RegionZone:   NLBHandler.Region.Zone,
+		ResourceType: call.NLB,
+		ResourceName: nlbIID.NameId,
+		CloudOSAPI:   "DescribeTargetHealth()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+	callLogStart := call.Start()
+
 	result, err := NLBHandler.ExtractVMGroupHealthInfo(retTargetGroupInfo.VMGroup.CspID)
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 	if err != nil {
+		callLogInfo.ErrorMSG = err.Error()
+		callogger.Info(call.String(callLogInfo))
 		return irs.HealthInfo{}, err
 	}
-
-	// @TODO : 삭제할 것
-	//==================
-	//서브넷 정보 추출
-	//==================
-	_, errVmInfo := NLBHandler.ExtractVmSubnets(retTargetGroupInfo.VMGroup.VMs)
-	if errVmInfo != nil {
-		cblogger.Error(errVmInfo)
-		return irs.HealthInfo{}, errVmInfo
-	}
+	callogger.Info(call.String(callLogInfo))
 
 	return result, nil
 }
@@ -1626,8 +1718,24 @@ func (NLBHandler *AwsNLBHandler) ChangeHealthCheckerInfo(nlbIID irs.IID, healthC
 		}
 	}
 
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.AWS,
+		RegionZone:   NLBHandler.Region.Zone,
+		ResourceType: call.NLB,
+		ResourceName: nlbIID.NameId,
+		CloudOSAPI:   "ModifyTargetGroup()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+	callLogStart := call.Start()
+
 	result, err := NLBHandler.Client.ModifyTargetGroup(input)
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 	if err != nil {
+		callLogInfo.ErrorMSG = err.Error()
+		callogger.Info(call.String(callLogInfo))
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
 			case elbv2.ErrCodeTargetGroupNotFoundException:
@@ -1644,6 +1752,7 @@ func (NLBHandler *AwsNLBHandler) ChangeHealthCheckerInfo(nlbIID irs.IID, healthC
 		}
 		return irs.HealthCheckerInfo{}, err
 	}
+	callogger.Info(call.String(callLogInfo))
 
 	cblogger.Info("Health 정보 변경 완료")
 	cblogger.Debug(result)
