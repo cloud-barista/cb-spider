@@ -3443,19 +3443,6 @@ func ListVMStatus(connectionName string, rsType string) ([]*cres.VMStatusInfo, e
 vmSPLock.RLock(connectionName, iidInfo.IId.NameId)
 */
 
-		// 1. get VM IID.SystemId
-		vmInfo, err := handler.GetVM(getDriverIID(iidInfo.IId))
-		if err != nil {
-//vmSPLock.RUnlock(connectionName, iidInfo.IId.NameId)
-			if checkNotFoundError(err) {
-				cblog.Info(err)
-				continue
-			}
-			cblog.Error(err)
-			return nil, err
-		}
-		vmInfo.IId = getUserIID(iidInfo.IId)
-
 		// 2. get CSP:VMStatus(SystemId)
 		statusInfo, err := handler.GetVMStatus(getDriverIID(iidInfo.IId)) // type of info => string
 		if err != nil {
@@ -3469,7 +3456,7 @@ vmSPLock.RLock(connectionName, iidInfo.IId.NameId)
 		}
 //vmSPLock.RUnlock(connectionName, iidInfo.IId.NameId)
 
-		infoList2 = append(infoList2, &cres.VMStatusInfo{vmInfo.IId, statusInfo})
+		infoList2 = append(infoList2, &cres.VMStatusInfo{getUserIID(iidInfo.IId), statusInfo})
 	}
 
 	return infoList2, nil
