@@ -1484,7 +1484,7 @@ func AddSubnet(connectionName string, rsType string, vpcName string, reqInfo cre
 //================ SecurityGroup Handler
 
 func GetSGOwnerVPC(connectionName string, cspID string) (owerVPC cres.IID, err error) {
-        cblog.Info("call etSGOwnerVPC()")
+        cblog.Info("call GetSGOwnerVPC()")
 
         // check empty and trim user inputs
         connectionName, err = EmptyCheckAndTrim("connectionName", connectionName)
@@ -4532,8 +4532,7 @@ func RegisterNLB(connectionName string, vpcUserID string, userIID cres.IID) (*cr
 // (4) create spiderIID: {reqNameID, "driverNameID:driverSystemID"}
 // (5) insert spiderIID
 // (6) create userIID
-func CreateNLB(connectionName string, rsType string, reqInfo cres.NLBInfo) (*cres.NLBInfo, error) {
-	cblog.Info("call CreateNLB()")
+func CreateNLB(connectionName string, rsType string, reqInfo cres.NLBInfo) (*cres.NLBInfo, error) { cblog.Info("call CreateNLB()")
 
 	// check empty and trim user inputs
         connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)
@@ -4570,6 +4569,17 @@ defer vpcSPLock.Unlock(connectionName, reqInfo.VpcIID.NameId)
 	}
 	reqInfo.VpcIID.SystemId = getDriverSystemId(vpcIIDInfo.IId)
 	//+++++++++++++++++++++++++++++++++++++++++++
+
+	vmList := reqInfo.VMGroup.VMs
+	for _, vmIID := range *vmList { 
+		vmIIDInfo, err := iidRWLock.GetIID(iidm.IIDSGROUP, connectionName, rsVM, vmIID)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+		vmIID.SystemId = getDriverSystemId(vmIIDInfo.IId)
+	}
+        //+++++++++++++++++++++++++++++++++++++++++++
 
 	cldConn, err := ccm.GetCloudConnection(connectionName)
 	if err != nil {
@@ -4665,7 +4675,27 @@ defer nlbSPLock.Unlock(connectionName, reqInfo.IId.NameId)
 	// set VPC SystemId
 	info.VpcIID.SystemId = getDriverSystemId(vpcIIDInfo.IId)
 
+        // set VM's SystemId
+	err = setVMGroupSystemId(connectionName, info.VMGroup.VMs)
+	if err != nil {
+		cblog.Error(err)
+		return nil, err
+	}
+
 	return &info, nil
+}
+
+func setVMGroupSystemId(connectionName string, vmList *[]cres.IID) error {
+        // set VM's SystemId
+        for idx, vmIID := range *vmList {
+                vmIIDInfo, err := iidRWLock.GetIID(iidm.IIDSGROUP, connectionName, rsVM, vmIID)
+                if err != nil {
+                        cblog.Error(err)
+                        return err
+                }
+                (*vmList)[idx] = getUserIID(vmIIDInfo.IId)
+        }
+	return nil
 }
 
 func transformArgsToUpper(nlbInfo *cres.NLBInfo) {
@@ -4752,6 +4782,13 @@ nlbSPLock.RUnlock(connectionName, iidInfo.IId.NameId)
 			return nil, err
 		}
 		info.VpcIID = getUserIID(vpcIIDInfo.IId)
+
+		// set VM's SystemId
+		err = setVMGroupSystemId(connectionName, info.VMGroup.VMs)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
 
 		infoList2 = append(infoList2, &info)
 	}
@@ -4861,15 +4898,22 @@ defer nlbSPLock.RUnlock(connectionName, nameID)
 	}
 	info.VpcIID = getUserIID(vpcIIDInfo.IId)
 
+	// set VM's SystemId
+        err = setVMGroupSystemId(connectionName, info.VMGroup.VMs)
+        if err != nil {
+                cblog.Error(err)
+                return nil, err
+        }
+
 	return &info, nil
 }
 
-// (1) check exist(NameID)
+// (1) check exist(NameID) and VMs
 // (2) add VMs
 // (3) Get NLBInfo
 // (4) Set ResoureInfo
-func AddVMs(connectionName string, nlbName string, vmNames []string) (*cres.NLBInfo, error) {
-        cblog.Info("call AddVMs()")
+func AddNLBVMs(connectionName string, nlbName string, vmNames []string) (*cres.NLBInfo, error) {
+        cblog.Info("call AddNLBVMs()")
 
         // check empty and trim user inputs
         connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)
@@ -4924,6 +4968,18 @@ defer nlbSPLock.Unlock(connectionName, nlbName)
         // driverIID for driver
 	var vmIIDs []cres.IID
 	for _, one := range vmNames {
+		// check vm existence
+		bool_ret, err := iidRWLock.IsExistIID(iidm.IIDSGROUP, connectionName, rsVM, cres.IID{one, ""})
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+		if bool_ret == false {
+			err := fmt.Errorf("The %s '%s' does not exist!", RsTypeString(rsVM), one)
+			cblog.Error(err)
+			return nil, err
+		}
+
 		vmIIDs = append(vmIIDs, cres.IID{one, ""})
 	}
         _, err = handler.AddVMs(getDriverIID(iidInfo.IId), &vmIIDs) 
@@ -4953,13 +5009,20 @@ defer nlbSPLock.Unlock(connectionName, nlbName)
         }
         info.VpcIID = getUserIID(vpcIIDInfo.IId)
 
+	// set VM's SystemId
+        err = setVMGroupSystemId(connectionName, info.VMGroup.VMs)
+        if err != nil {
+                cblog.Error(err)
+                return nil, err
+        }
+
         return &info, nil
 }
 
 // (1) check exist(NameID)
 // (2) remove VMs
-func RemoveVMs(connectionName string, nlbName string, vmNames []string) (bool, error) {
-        cblog.Info("call RemoveVMs()")
+func RemoveNLBVMs(connectionName string, nlbName string, vmNames []string) (bool, error) {
+        cblog.Info("call RemoveNLBVMs()")
 
         // check empty and trim user inputs
         connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)
@@ -5046,6 +5109,8 @@ func ChangeListener(connectionName string, nlbName string, listener cres.Listene
 
         emptyPermissionList := []string{
                 "resources.IID:SystemId",
+                "resources.ListenerInfo:IP", 
+                "resources.ListenerInfo:DNSName", 
                 "resources.ListenerInfo:CspID", // because can be unused in some CSP
         }
         err = ValidateStruct(listener, emptyPermissionList)
@@ -5118,6 +5183,13 @@ defer nlbSPLock.Unlock(connectionName, nlbName)
                 return nil, err
         }
         info.VpcIID = getUserIID(vpcIIDInfo.IId)
+
+	// set VM's SystemId
+        err = setVMGroupSystemId(connectionName, info.VMGroup.VMs)
+        if err != nil {
+                cblog.Error(err)
+                return nil, err
+        }
 
         return &info, nil
 }
@@ -5211,6 +5283,13 @@ defer nlbSPLock.Unlock(connectionName, nlbName)
         // (4) set ResourceInfo(userIID)
         info.IId = getUserIID(iidInfo.IId)
 
+	// set VM's SystemId
+        err = setVMGroupSystemId(connectionName, info.VMGroup.VMs)
+        if err != nil {
+                cblog.Error(err)
+                return nil, err
+        }
+
         // set VPC SystemId
         vpcIIDInfo, err := iidRWLock.GetIID(iidm.IIDSGROUP, connectionName, rsVPC, cres.IID{iidInfo.ResourceType/*vpcName*/, ""})
         if err != nil {
@@ -5243,7 +5322,7 @@ func ChangeHealthChecker(connectionName string, nlbName string, healthChecker cr
 
         emptyPermissionList := []string{
                 "resources.IID:SystemId",
-                "resources.ListenerInfo:CspID", // because can be unused in some CSP
+                "resources.HealthCheckerInfo:CspID", // because can be unused in some CSP
         }
         err = ValidateStruct(healthChecker, emptyPermissionList)
         if err != nil {
@@ -5315,6 +5394,13 @@ defer nlbSPLock.Unlock(connectionName, nlbName)
                 return nil, err
         }
         info.VpcIID = getUserIID(vpcIIDInfo.IId)
+
+	// set VM's SystemId
+        err = setVMGroupSystemId(connectionName, info.VMGroup.VMs)
+        if err != nil {
+                cblog.Error(err)
+                return nil, err
+        }
 
         return &info, nil
 }

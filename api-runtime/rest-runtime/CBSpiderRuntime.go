@@ -307,6 +307,26 @@ func RunServer() {
 		// only for AdminWeb
 		{"PUT", "/controlvm/:Name", ControlVM}, // suspend, resume, reboot
 
+                //----------NLB Handler
+                {"GET", "/getnlbowner", GetNLBOwnerVPC},
+                {"POST", "/regnlb", RegisterNLB},
+                {"DELETE", "/regnlb/:Name", UnregisterNLB},
+
+                {"POST", "/nlb", CreateNLB},
+                {"GET", "/nlb", ListNLB},
+                {"GET", "/nlb/:Name", GetNLB},
+                {"DELETE", "/nlb/:Name", DeleteNLB},
+                //-- for vm
+                {"POST", "/nlb/:Name/vms", AddNLBVMs},
+                {"DELETE", "/nlb/:Name/vms", RemoveNLBVMs}, // no force option
+                {"PUT", "/nlb/:Name/listener", ChangeListener},
+                {"PUT", "/nlb/:Name/vmgroup", ChangeVMGroup},
+                {"PUT", "/nlb/:Name/healthchecker", ChangeHealthChecker},
+
+                //-- for management
+                {"GET", "/allnlb", ListAllNLB},
+                {"DELETE", "/cspnlb/:Id", DeleteCSPNLB},
+
 		//-------------------------------------------------------------------//
 		//----------SPLock Info
 		{"GET", "/splockinfo", GetAllSPLockInfo},

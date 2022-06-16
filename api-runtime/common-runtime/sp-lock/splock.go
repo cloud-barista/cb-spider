@@ -97,7 +97,6 @@ func (spLock *SPLOCK)GetSPLockMapStatus(lockName string) string {
 spLock.rwMutex.RLock()
 	for k, v := range spLock.lockMap {
 		buff.WriteString(fmt.Sprintf("(%s:%s, %p:%d) ", k.connectionName, k.resourceId, &v.lock, v.count))
-		//buff.WriteString("(" + k.connectionName + ":" + k.resourceId + ", " + v.lock.String() + ":" + v.count.String() + ")")
 	}
 spLock.rwMutex.RUnlock()
 	return buff.String()
