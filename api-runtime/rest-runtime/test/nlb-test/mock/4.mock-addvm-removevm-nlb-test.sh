@@ -1,3 +1,3 @@
 source mock.env
 
-../addvm-removevm-nlb-test.sh
+../common/addvm-removevm-nlb-test.sh

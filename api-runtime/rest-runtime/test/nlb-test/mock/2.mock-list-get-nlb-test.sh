@@ -1,3 +1,3 @@
 source mock.env
 
-../list-get-nlb-test.sh
+../common/list-get-nlb-test.sh

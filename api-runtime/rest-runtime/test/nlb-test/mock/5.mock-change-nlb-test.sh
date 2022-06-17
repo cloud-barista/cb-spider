@@ -1,3 +1,3 @@
 source mock.env
 
-../change-nlb-test.sh
+../common/change-nlb-test.sh

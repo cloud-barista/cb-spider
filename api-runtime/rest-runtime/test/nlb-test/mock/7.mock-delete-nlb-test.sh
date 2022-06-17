@@ -1,3 +1,3 @@
 source mock.env
 
-../delete-nlb-test.sh
+../common/delete-nlb-test.sh

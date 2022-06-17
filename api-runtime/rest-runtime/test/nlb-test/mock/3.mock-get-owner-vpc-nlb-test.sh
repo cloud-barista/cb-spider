@@ -8,4 +8,4 @@ nlbinfo=`curl -sX GET http://localhost:1024/spider/nlb/spider-nlb-01 -H 'Content
 cspid=`echo -e "$nlbinfo" |grep SystemId |grep nl |sed -e 's/"SystemId" : "//g' | sed -e 's/",//g' | sed -e 's/"//g'`
 
 
-../getownervpc-nlb-test.sh $cspid
+../common/getownervpc-nlb-test.sh $cspid

@@ -1,3 +1,3 @@
 source mock.env
 
-../gethealth-nlb-test.sh
+../common/gethealth-nlb-test.sh
