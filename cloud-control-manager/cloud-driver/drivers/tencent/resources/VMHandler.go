@@ -15,6 +15,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
 	//"regexp"
 
 	cblog "github.com/cloud-barista/cb-log"
@@ -71,31 +72,6 @@ type TencentVMHandler struct {
 //	SnapshotAbility bool
 //}
 
-//VM 이름으로 중복 생성을 막아야 해서 VM존재 여부를 체크함.
-func (vmHandler *TencentVMHandler) isExist(vmName string) (bool, error) {
-	cblogger.Infof("VM조회(Name기반) : %s", vmName)
-	request := cvm.NewDescribeInstancesRequest()
-	request.Filters = []*cvm.Filter{
-		&cvm.Filter{
-			Name:   common.StringPtr("instance-name"),
-			Values: common.StringPtrs([]string{vmName}),
-		},
-	}
-
-	response, err := vmHandler.Client.DescribeInstances(request)
-	if err != nil {
-		cblogger.Error(err)
-		return false, err
-	}
-
-	if *response.Response.TotalCount < 1 {
-		return false, nil
-	}
-
-	cblogger.Infof("VM 정보 찾음 - VmId:[%s] / VmName:[%s]", *response.Response.InstanceSet[0].InstanceId, *response.Response.InstanceSet[0].InstanceName)
-	return true, nil
-}
-
 // VM생성 시 Zone이 필수라서 Credential의 Zone에만 생성함.
 func (vmHandler *TencentVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, error) {
 	cblogger.Info(vmReqInfo)
@@ -110,12 +86,12 @@ func (vmHandler *TencentVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 	//=================================================
 	// 동일 이름 생성 방지 추가(cb-spider 요청 필수 기능)
 	//=================================================
-	isExist, errExist := vmHandler.isExist(vmReqInfo.IId.NameId)
+	vmExist, errExist := vmHandler.vmExist(vmReqInfo.IId.NameId)
 	if errExist != nil {
 		cblogger.Error(errExist)
 		return irs.VMInfo{}, errExist
 	}
-	if isExist {
+	if vmExist {
 		return irs.VMInfo{}, errors.New("A VM with the name " + vmReqInfo.IId.NameId + " already exists.")
 	}
 
@@ -901,7 +877,7 @@ func (vmHandler *TencentVMHandler) WaitForRun(vmIID irs.IID) (irs.VMStatus, erro
 
 		//if curStatus != irs.VMStatus(waitStatus) {
 		curRetryCnt++
-		cblogger.Errorf("VM 상태가 [%s]이 아니라서 1초 대기후 조회합니다.", waitStatus)
+		cblogger.Infof("VM 상태가 [%s]이 아니라서 1초 대기후 조회합니다.", waitStatus)
 		time.Sleep(time.Second * 1)
 		if curRetryCnt > maxRetryCnt {
 			cblogger.Errorf("장시간(%d 초) 대기해도 VM의 Status 값이 [%s]으로 변경되지 않아서 강제로 중단합니다.", maxRetryCnt, waitStatus)
@@ -910,6 +886,31 @@ func (vmHandler *TencentVMHandler) WaitForRun(vmIID irs.IID) (irs.VMStatus, erro
 	}
 
 	return irs.VMStatus(waitStatus), nil
+}
+
+//VM 이름으로 중복 생성을 막아야 해서 VM존재 여부를 체크함.
+func (vmHandler *TencentVMHandler) vmExist(vmName string) (bool, error) {
+	cblogger.Infof("VM조회(Name기반) : %s", vmName)
+	request := cvm.NewDescribeInstancesRequest()
+	request.Filters = []*cvm.Filter{
+		&cvm.Filter{
+			Name:   common.StringPtr("instance-name"),
+			Values: common.StringPtrs([]string{vmName}),
+		},
+	}
+
+	response, err := vmHandler.Client.DescribeInstances(request)
+	if err != nil {
+		cblogger.Error(err)
+		return false, err
+	}
+
+	if *response.Response.TotalCount < 1 {
+		return false, nil
+	}
+
+	cblogger.Infof("VM 정보 찾음 - VmId:[%s] / VmName:[%s]", *response.Response.InstanceSet[0].InstanceId, *response.Response.InstanceSet[0].InstanceName)
+	return true, nil
 }
 
 //DescribeDiskConfigs : Querying disk configuration
