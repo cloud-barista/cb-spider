@@ -383,6 +383,16 @@ func (NLBHandler *AwsNLBHandler) CheckHealthCheckerValidation(reqHealthCheckerIn
 func (NLBHandler *AwsNLBHandler) CheckCreateValidation(nlbReqInfo irs.NLBInfo) error {
 	//&elbv2.CreateTargetGroupInput
 
+	// NLB 단독으로 대표 IP를 지정할 수 없으며 VPC의 AZ별 1개의 서브넷마다 EIP를 지정해야 하는데 현재의 CB는 AZ별 Subnet 정보를 전달 받지 않기 때문에 IP를 할당할 수 없음.
+	if nlbReqInfo.Listener.IP != "" {
+		return awserr.New(CUSTOM_ERR_CODE_BAD_REQUEST, "The current version of cb-spider does not support the function to set IP to the AWS listener.", nil)
+	}
+
+	//DNS 설정을 위해서는 Route53을 이용해야 함.
+	if nlbReqInfo.Listener.DNSName != "" {
+		return awserr.New(CUSTOM_ERR_CODE_BAD_REQUEST, "The current version of cb-spider does not support the function to set DNSName to the AWS listener.", nil)
+	}
+
 	return NLBHandler.CheckHealthCheckerValidation(nlbReqInfo.HealthChecker)
 	//return nil
 }
@@ -391,7 +401,19 @@ func (NLBHandler *AwsNLBHandler) CheckCreateValidation(nlbReqInfo irs.NLBInfo) e
 func (NLBHandler *AwsNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (irs.NLBInfo, error) {
 	cblogger.Debug(nlbReqInfo)
 
-	// 동일 네임 NLB가 이미 존재하는지 체크 해야 함. (현재 API는 에러가 발생하는 경우도 있지만 대부분 에러 없이 Skip됨)
+	//================================
+	// 동일 네임 NLB가 이미 존재하는지 체크
+	//================================
+	isExist, errNLBInfo := NLBHandler.IsExistNLB(nlbReqInfo.IId.NameId)
+	if errNLBInfo != nil {
+		cblogger.Error(errNLBInfo.Error())
+		return irs.NLBInfo{}, errNLBInfo
+	}
+
+	//신규 생성이 아닌 경우
+	if isExist {
+		return irs.NLBInfo{}, awserr.New(CUSTOM_ERR_CODE_BAD_REQUEST, "An NLB with the same name already exists.", nil)
+	}
 
 	//최대한 삭제 로직을 태우지 않기 위해 NLB 생성에 문제가 없는지 사전에 검증한다.
 	errValidation := NLBHandler.CheckCreateValidation(nlbReqInfo)
@@ -412,9 +434,11 @@ func (NLBHandler *AwsNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (irs.NLBInfo,
 	}
 
 	input := &elbv2.CreateLoadBalancerInput{
-		Name:    aws.String(nlbReqInfo.IId.NameId),
-		Type:    aws.String("network"), //NLB 생성
-		Subnets: vmSubnets,
+		Name: aws.String(nlbReqInfo.IId.NameId),
+		Type: aws.String("network"), //NLB 생성
+		//Subnets: vmSubnets,             // E-IP 할당 없이 AWS자체 IP 할당 기능 사용 시
+		//SubnetMappings: []*elbv2.SubnetMapping{},	// 사용자가 요청한 EIP를 할당 하고 싶은 경우 Subnets 대신 EIP의 할당ID와 함께 SubnetMappings을 이용하면 됨.
+
 		//Scheme: aws.String("internal"),	// private IP 이용
 		//Scheme: aws.String("Internet-facing"),	//Default - 퍼블릭 서브넷 필요(public subnet)
 		/*
@@ -425,6 +449,21 @@ func (NLBHandler *AwsNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (irs.NLBInfo,
 				//aws.String("subnet-0cf7417f83fd0fd47"), //New-CB-Subnet-NLB-1d1
 			},
 		*/
+	}
+
+	if nlbReqInfo.Listener.IP == "" {
+		input.Subnets = vmSubnets
+	} else {
+		// NLB 단독으로 대표 IP를 지정할 수 없으며 VPC의 AZ별 1개의 서브넷마다 EIP를 지정해야 하는데
+		// 현재의 CB는 AZ별 Subnet 정보를 전달 받지 않기 때문에 고정 IP를 할당할 수 없음.
+		return irs.NLBInfo{}, awserr.New(CUSTOM_ERR_CODE_BAD_REQUEST, "The current version of cb-spider does not support the function to set IP to the AWS listener.", nil)
+
+		/*
+			1. EIP를 지정하고 싶은 서브넷 1개 (또는 EIP당 서브넷 1개씩)을 선정 함.
+			2. 셋팅할 EIP의 할당ID를 조회 함.
+			3. SubnetMappings 정보를 채움.
+		*/
+		//input.SubnetMappings = []*elbv2.SubnetMapping{{AllocationId: aws.String(""), SubnetId: aws.String("")}}
 	}
 
 	// logger for HisCall
@@ -647,6 +686,32 @@ func (NLBHandler *AwsNLBHandler) ListNLB() ([]*irs.NLBInfo, error) {
 	}
 
 	return results, nil
+}
+
+//NLB 생성전에 NLB가 이미 존재하는지 체크 함.
+func (NLBHandler *AwsNLBHandler) IsExistNLB(nlbName string) (bool, error) {
+
+	input := &elbv2.DescribeLoadBalancersInput{
+		Names: []*string{
+			aws.String(nlbName),
+		},
+	}
+
+	result, err := NLBHandler.Client.DescribeLoadBalancers(input)
+	if err != nil {
+		if aerr, ok := err.(awserr.Error); ok {
+			switch aerr.Code() {
+			case elbv2.ErrCodeLoadBalancerNotFoundException:
+				return false, nil
+			}
+		}
+		return false, err
+	}
+
+	if len(result.LoadBalancers) > 0 {
+		return true, nil
+	}
+	return false, nil
 }
 
 func (NLBHandler *AwsNLBHandler) GetNLB(nlbIID irs.IID) (irs.NLBInfo, error) {
@@ -882,30 +947,30 @@ func (NLBHandler *AwsNLBHandler) ExtractHealthCheckerInfo(targetGroupArn string)
 	return result.TargetHealthDescriptions, nil
 }
 
-func (NLBHandler *AwsNLBHandler) ExtractNLBInfo(nlbReqInfo *elbv2.LoadBalancer) (irs.NLBInfo, error) {
+func (NLBHandler *AwsNLBHandler) ExtractNLBInfo(nlbResInfo *elbv2.LoadBalancer) (irs.NLBInfo, error) {
 	retNLBInfo := irs.NLBInfo{
-		IId:         irs.IID{NameId: *nlbReqInfo.LoadBalancerName, SystemId: *nlbReqInfo.LoadBalancerArn},
-		VpcIID:      irs.IID{SystemId: *nlbReqInfo.VpcId},
+		IId:         irs.IID{NameId: *nlbResInfo.LoadBalancerName, SystemId: *nlbResInfo.LoadBalancerArn},
+		VpcIID:      irs.IID{SystemId: *nlbResInfo.VpcId},
 		Type:        "PUBLIC",
 		Scope:       "REGION",
-		CreatedTime: *nlbReqInfo.CreatedTime,
+		CreatedTime: *nlbResInfo.CreatedTime,
 	}
 
 	/*
 		//AZ 정보 등 누락되는 정보가 많아서 KeyValueList는 일일이 직접 대입 대신에 ConvertKeyValueList() 유틸 함수를 사용함.
 		keyValueList := []irs.KeyValue{
-			//{Key: "LoadBalancerArn", Value: *nlbReqInfo.LoadBalancerArn},
+			//{Key: "LoadBalancerArn", Value: *nlbResInfo.LoadBalancerArn},
 		}
-		if !reflect.ValueOf(nlbReqInfo.State).IsNil() {
-			keyValueList = append(keyValueList, irs.KeyValue{Key: "State", Value: *nlbReqInfo.State.Code}) //Code: "provisioning"
+		if !reflect.ValueOf(nlbResInfo.State).IsNil() {
+			keyValueList = append(keyValueList, irs.KeyValue{Key: "State", Value: *nlbResInfo.State.Code}) //Code: "provisioning"
 		}
 
-		if !reflect.ValueOf(nlbReqInfo.LoadBalancerArn).IsNil() {
-			keyValueList = append(keyValueList, irs.KeyValue{Key: "LoadBalancerArn", Value: *nlbReqInfo.LoadBalancerArn})
+		if !reflect.ValueOf(nlbResInfo.LoadBalancerArn).IsNil() {
+			keyValueList = append(keyValueList, irs.KeyValue{Key: "LoadBalancerArn", Value: *nlbResInfo.LoadBalancerArn})
 		}
 	*/
 
-	keyValueList, _ := ConvertKeyValueList(nlbReqInfo)
+	keyValueList, _ := ConvertKeyValueList(nlbResInfo)
 	retNLBInfo.KeyValueList = keyValueList
 
 	//==================
@@ -930,8 +995,29 @@ func (NLBHandler *AwsNLBHandler) ExtractNLBInfo(nlbReqInfo *elbv2.LoadBalancer) 
 		cblogger.Error(errListener.Error())
 		return irs.NLBInfo{}, errListener
 	}
-	retListenerInfo.DNSName = *nlbReqInfo.DNSName
+
+	// 리스너 정보가 존재하면 NLB의 DNS 정보를 리스너에 셋팅해줌.
+	if retListenerInfo.Port != "" {
+		retListenerInfo.DNSName = *nlbResInfo.DNSName
+	}
 	retNLBInfo.Listener = retListenerInfo
+
+	//=================
+	// IP 정보 추출
+	//=================
+	// NLB의 AZ별 고정IP 주소가 할당된 경우 추출해서 리스너의 IP에 세팅 함.
+	eips := ""
+	for _, curSubnet := range nlbResInfo.AvailabilityZones {
+		cblogger.Debug(curSubnet)
+		if len(curSubnet.LoadBalancerAddresses) > 0 {
+			if eips == "" {
+				eips = *curSubnet.LoadBalancerAddresses[0].IpAddress
+			} else {
+				eips = eips + "," + *curSubnet.LoadBalancerAddresses[0].IpAddress
+			}
+		}
+	}
+	retNLBInfo.Listener.IP = eips
 
 	return retNLBInfo, nil
 }
@@ -1056,8 +1142,25 @@ func (NLBHandler *AwsNLBHandler) DeleteNLB(nlbIID irs.IID) (bool, error) {
 		LoadBalancerArn: aws.String(nlbInfo.IId.SystemId),
 	}
 
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.AWS,
+		RegionZone:   NLBHandler.Region.Zone,
+		ResourceType: call.NLB,
+		ResourceName: nlbIID.NameId,
+		CloudOSAPI:   "DeleteLoadBalancer()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+	callLogStart := call.Start()
+
 	result, err := NLBHandler.Client.DeleteLoadBalancer(input)
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 	if err != nil {
+		callLogInfo.ErrorMSG = err.Error()
+		callogger.Info(call.String(callLogInfo))
+
 		cblogger.Errorf("NLB[%s] 삭제 실패", nlbIID.SystemId)
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
@@ -1077,6 +1180,8 @@ func (NLBHandler *AwsNLBHandler) DeleteNLB(nlbIID irs.IID) (bool, error) {
 		}
 		return false, err
 	}
+	callogger.Info(call.String(callLogInfo))
+
 	cblogger.Infof("NLB[%s] 삭제 완료", nlbIID.SystemId)
 	cblogger.Debug(result)
 	if cblogger.Level.String() == "debug" {
@@ -1137,8 +1242,24 @@ func (NLBHandler *AwsNLBHandler) ChangeListener(nlbIID irs.IID, listener irs.Lis
 	cblogger.Info("리스너 정보 변경 시작")
 	cblogger.Info(input)
 
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.AWS,
+		RegionZone:   NLBHandler.Region.Zone,
+		ResourceType: call.NLB,
+		ResourceName: nlbIID.NameId,
+		CloudOSAPI:   "ModifyListener()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+	callLogStart := call.Start()
+
 	result, err := NLBHandler.Client.ModifyListener(input)
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 	if err != nil {
+		callLogInfo.ErrorMSG = err.Error()
+		callogger.Info(call.String(callLogInfo))
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
 			case elbv2.ErrCodeDuplicateListenerException:
@@ -1183,6 +1304,7 @@ func (NLBHandler *AwsNLBHandler) ChangeListener(nlbIID irs.IID, listener irs.Lis
 			// Message from an error.
 			cblogger.Error(err.Error())
 		}
+		callogger.Info(call.String(callLogInfo))
 
 		return irs.ListenerInfo{}, err
 	}
@@ -1215,6 +1337,21 @@ func (NLBHandler *AwsNLBHandler) ChangeListener(nlbIID irs.IID, listener irs.Lis
 
 //------ Backend Control
 func (NLBHandler *AwsNLBHandler) ChangeVMGroupInfo(nlbIID irs.IID, vmGroup irs.VMGroupInfo) (irs.VMGroupInfo, error) {
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.AWS,
+		RegionZone:   NLBHandler.Region.Zone,
+		ResourceType: call.NLB,
+		ResourceName: nlbIID.NameId,
+		CloudOSAPI:   "ChangeVMGroupInfo()",
+		ElapsedTime:  "",
+		ErrorMSG:     "Changing VMGroup information is not supported",
+	}
+	callLogStart := call.Start()
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+	callogger.Info(call.String(callLogInfo))
+
 	return irs.VMGroupInfo{}, awserr.New(CUSTOM_ERR_CODE_METHOD_NOT_ALLOWED, "Changing VMGroup information is not supported.", nil)
 }
 
@@ -1270,9 +1407,25 @@ func (NLBHandler *AwsNLBHandler) AddVMs(nlbIID irs.IID, vmIIDs *[]irs.IID) (irs.
 		spew.Dump(input)
 	}
 
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.AWS,
+		RegionZone:   NLBHandler.Region.Zone,
+		ResourceType: call.NLB,
+		ResourceName: nlbIID.NameId,
+		CloudOSAPI:   "RegisterTargets()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+	callLogStart := call.Start()
+
 	//input.Targets = &targetList
 	result, err := NLBHandler.Client.RegisterTargets(input)
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 	if err != nil {
+		callLogInfo.ErrorMSG = err.Error()
+		callogger.Info(call.String(callLogInfo))
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
 			case elbv2.ErrCodeTargetGroupNotFoundException:
@@ -1293,6 +1446,7 @@ func (NLBHandler *AwsNLBHandler) AddVMs(nlbIID irs.IID, vmIIDs *[]irs.IID) (irs.
 		}
 		return irs.VMGroupInfo{}, err
 	}
+	callogger.Info(call.String(callLogInfo))
 
 	cblogger.Infof("VM 그룹(%s)에 인스턴스 추가 완료", retTargetGroupInfo.VMGroup.CspID)
 	cblogger.Debug(result)
@@ -1351,8 +1505,24 @@ func (NLBHandler *AwsNLBHandler) RemoveVMs(nlbIID irs.IID, vmIIDs *[]irs.IID) (b
 		spew.Dump(input)
 	}
 
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.AWS,
+		RegionZone:   NLBHandler.Region.Zone,
+		ResourceType: call.NLB,
+		ResourceName: nlbIID.NameId,
+		CloudOSAPI:   "DeregisterTargets()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+	callLogStart := call.Start()
+
 	result, err := NLBHandler.Client.DeregisterTargets(input)
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 	if err != nil {
+		callLogInfo.ErrorMSG = err.Error()
+		callogger.Info(call.String(callLogInfo))
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
 			case elbv2.ErrCodeTargetGroupNotFoundException:
@@ -1368,6 +1538,7 @@ func (NLBHandler *AwsNLBHandler) RemoveVMs(nlbIID irs.IID, vmIIDs *[]irs.IID) (b
 		}
 		return false, err
 	}
+	callogger.Info(call.String(callLogInfo))
 
 	cblogger.Infof("VM 그룹(%s)에서 인스턴스 삭제 성공", retTargetGroupInfo.VMGroup.CspID)
 	cblogger.Debug(result)
@@ -1456,20 +1627,27 @@ func (NLBHandler *AwsNLBHandler) GetVMGroupHealthInfo(nlbIID irs.IID) (irs.Healt
 		return irs.HealthInfo{}, errVMGroupInfo
 	}
 
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.AWS,
+		RegionZone:   NLBHandler.Region.Zone,
+		ResourceType: call.NLB,
+		ResourceName: nlbIID.NameId,
+		CloudOSAPI:   "DescribeTargetHealth()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+	callLogStart := call.Start()
+
 	result, err := NLBHandler.ExtractVMGroupHealthInfo(retTargetGroupInfo.VMGroup.CspID)
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 	if err != nil {
+		callLogInfo.ErrorMSG = err.Error()
+		callogger.Info(call.String(callLogInfo))
 		return irs.HealthInfo{}, err
 	}
-
-	// @TODO : 삭제할 것
-	//==================
-	//서브넷 정보 추출
-	//==================
-	_, errVmInfo := NLBHandler.ExtractVmSubnets(retTargetGroupInfo.VMGroup.VMs)
-	if errVmInfo != nil {
-		cblogger.Error(errVmInfo)
-		return irs.HealthInfo{}, errVmInfo
-	}
+	callogger.Info(call.String(callLogInfo))
 
 	return result, nil
 }
@@ -1540,8 +1718,24 @@ func (NLBHandler *AwsNLBHandler) ChangeHealthCheckerInfo(nlbIID irs.IID, healthC
 		}
 	}
 
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.AWS,
+		RegionZone:   NLBHandler.Region.Zone,
+		ResourceType: call.NLB,
+		ResourceName: nlbIID.NameId,
+		CloudOSAPI:   "ModifyTargetGroup()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+	callLogStart := call.Start()
+
 	result, err := NLBHandler.Client.ModifyTargetGroup(input)
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 	if err != nil {
+		callLogInfo.ErrorMSG = err.Error()
+		callogger.Info(call.String(callLogInfo))
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
 			case elbv2.ErrCodeTargetGroupNotFoundException:
@@ -1558,6 +1752,7 @@ func (NLBHandler *AwsNLBHandler) ChangeHealthCheckerInfo(nlbIID irs.IID, healthC
 		}
 		return irs.HealthCheckerInfo{}, err
 	}
+	callogger.Info(call.String(callLogInfo))
 
 	cblogger.Info("Health 정보 변경 완료")
 	cblogger.Debug(result)
