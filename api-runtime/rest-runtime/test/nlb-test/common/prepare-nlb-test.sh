@@ -17,6 +17,10 @@ curl -sX POST http://localhost:1024/spider/vpc -H 'Content-Type: application/jso
 	       	} 
 	}' |json_pp
 
+if [ "$SLEEP" ]; then
+        sleep $SLEEP
+fi
+
 
 echo "#####---------- CreateSG ----------####"
 curl -sX POST http://localhost:1024/spider/securitygroup -H 'Content-Type: application/json' -d \
@@ -29,12 +33,20 @@ curl -sX POST http://localhost:1024/spider/securitygroup -H 'Content-Type: appli
 		} 
 	}' |json_pp
 
+if [ "$SLEEP" ]; then
+        sleep $SLEEP
+fi
+
 echo "#####---------- CreateKey ----------####"
 curl -sX POST http://localhost:1024/spider/keypair -H 'Content-Type: application/json' -d \
 	'{ 
 		"ConnectionName": "'${CONN_CONFIG}'", 
 		"ReqInfo": { "Name": "keypair-01" } 
 	}' |json_pp
+
+if [ "$SLEEP" ]; then
+        sleep $SLEEP
+fi
 
 echo "#####---------- StartVM:vm-01 ----------####"
 curl -sX POST http://localhost:1024/spider/vm -H 'Content-Type: application/json' -d \
@@ -50,6 +62,10 @@ curl -sX POST http://localhost:1024/spider/vm -H 'Content-Type: application/json
 			"KeyPairName": "keypair-01"
 		} 
 	}' |json_pp
+
+if [ "$SLEEP" ]; then
+        sleep $SLEEP
+fi
 
 echo "#####---------- StartVM:vm-02 ----------####"
 curl -sX POST http://localhost:1024/spider/vm -H 'Content-Type: application/json' -d \

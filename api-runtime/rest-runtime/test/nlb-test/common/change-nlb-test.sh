@@ -41,6 +41,10 @@ curl -sX PUT http://localhost:1024/spider/nlb/spider-nlb-01/healthchecker -H 'Co
         }' | json_pp
 
 
+if [ "$SLEEP" ]; then
+        sleep $SLEEP
+fi
+
 echo "#####---------- GetNLB ----------####"
 curl -sX GET http://localhost:1024/spider/nlb/spider-nlb-01 -H 'Content-Type: application/json' -d \
 	'{ 

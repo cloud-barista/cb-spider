@@ -2194,6 +2194,36 @@ func ChangeHealthChecker(c echo.Context) error {
         return c.JSON(http.StatusOK, result)
 }
 
+func GetVMGroupHealthInfo(c echo.Context) error {
+        cblog.Info("call GetVMGroupHealthInfo()")
+
+        var req struct {
+                ConnectionName string
+        }
+
+        if err := c.Bind(&req); err != nil {
+                return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+        }
+
+        // To support for Get-Query Param Type API
+        if req.ConnectionName == "" {
+                req.ConnectionName = c.QueryParam("ConnectionName")
+        }
+
+        // Call common-runtime API
+        result, err := cmrt.GetVMGroupHealthInfo(req.ConnectionName, c.Param("Name"))
+        if err != nil {
+                return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+        }
+
+        var jsonResult struct {
+                Result cres.HealthInfo `json:"healthinfo"`
+        }
+        jsonResult.Result = *result
+
+        return c.JSON(http.StatusOK, &jsonResult)
+}
+
 // (1) get args from REST Call
 // (2) call common-runtime API
 // (3) return REST Json Format

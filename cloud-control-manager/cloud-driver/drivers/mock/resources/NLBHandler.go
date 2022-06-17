@@ -432,6 +432,33 @@ func CloneHealthCheckerInfo(srcInfo irs.HealthCheckerInfo) irs.HealthCheckerInfo
 }
 
 func (nlbHandler *MockNLBHandler) GetVMGroupHealthInfo(nlbIID irs.IID) (irs.HealthInfo, error) {
-	return irs.HealthInfo{}, fmt.Errorf("Not implemented yet!")
+        cblogger := cblog.GetLogger("CB-SPIDER")
+        cblogger.Info("Mock Driver: called GetVMGroupHealthInfo()!")
+
+nlbMapLock.RLock()
+defer nlbMapLock.RUnlock()
+
+        mockName := nlbHandler.MockName
+        infoList, ok := nlbInfoMap[mockName]
+        if !ok {
+                return irs.HealthInfo{}, fmt.Errorf("%s NLB does not exist!!", nlbIID.NameId)
+        }
+
+	healthInfo := irs.HealthInfo{ &[]irs.IID{}, &[]irs.IID{}, &[]irs.IID{}}
+        for _, info := range infoList {
+                if info.IId.NameId == nlbIID.NameId {
+                        for idx, vm := range *info.VMGroup.VMs {
+				*healthInfo.AllVMs = append(*healthInfo.AllVMs, vm)
+				if (idx+1) == len(*info.VMGroup.VMs) {
+					*healthInfo.UnHealthyVMs = append (*healthInfo.UnHealthyVMs, vm)
+				}else {
+					*healthInfo.HealthyVMs = append (*healthInfo.HealthyVMs, vm)
+				}
+			}
+                        return healthInfo, nil
+                }
+        }
+
+        return irs.HealthInfo{}, fmt.Errorf("%s NLB VMGroup does not have VMs!!", nlbIID.NameId)
 }
 

@@ -322,6 +322,7 @@ func RunServer() {
                 {"PUT", "/nlb/:Name/listener", ChangeListener},
                 {"PUT", "/nlb/:Name/vmgroup", ChangeVMGroup},
                 {"PUT", "/nlb/:Name/healthchecker", ChangeHealthChecker},
+                {"GET", "/nlb/:Name/health", GetVMGroupHealthInfo},
 
                 //-- for management
                 {"GET", "/allnlb", ListAllNLB},
