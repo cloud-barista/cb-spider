@@ -1698,7 +1698,7 @@ func makeNLBTRList_html(bgcolor string, height string, fontSize string, infoList
 		}
 		strKeyList = strings.TrimRight(strKeyList, ", ")
 		strListener := ""
-		strListener += "==> " + one.Listener.IP + ":" + one.Listener.Port + "<br>"
+		strListener += "==> <b>" + one.Listener.IP + ":" + one.Listener.Port + "</b> <br>"
 		if one.Listener.DNSName != "" {
 			strListener += "==> " + one.Listener.DNSName + "<br>"
 		}
@@ -1728,7 +1728,7 @@ func makeNLBTRList_html(bgcolor string, height string, fontSize string, infoList
 		}
 		strVMList = strings.TrimRight(strVMList, ", ")
 		strVMGroup := ""
-		strVMGroup += "==> " + one.VMGroup.Port + "<br>"
+		strVMGroup += "==> <b>" + one.VMGroup.Port + "</b> <br>"
 		strVMGroup += "------------------------<br>"
 		strVMGroup += "[ " + strVMList + " ]" + "<br>"
 		strVMGroup += "------------------------<br>"
@@ -1752,7 +1752,7 @@ func makeNLBTRList_html(bgcolor string, height string, fontSize string, infoList
 		}
 		strKeyList = strings.TrimRight(strKeyList, ", ")
 		strHealthChecker := ""
-		strHealthChecker += "<==" + one.HealthChecker.Port + "<br>"
+		strHealthChecker += "<== <b>" + one.HealthChecker.Port + "</b> <br>"
 		strHealthChecker += "------------------------<br>"
 		strHealthChecker += "Interval:   " + strconv.Itoa(one.HealthChecker.Interval) + "<br>"
 		strHealthChecker += "Timeout:    " + strconv.Itoa(one.HealthChecker.Timeout) + "<br>"
