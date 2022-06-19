@@ -527,7 +527,7 @@ func makeActionTR_html(colspan string, f5_href string,  delete_href string, font
 			</a>
 			&nbsp;
 			<a href="javascript:%s;">
-			    <font size=%s><b>&nbsp;X</b></font>
+			    <font color=red size=%s><b>&nbsp;X</b></font>
 			</a>
 			&nbsp;
 		    </td>

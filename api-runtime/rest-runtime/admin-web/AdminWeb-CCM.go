@@ -63,14 +63,14 @@ func makeVPCTRList_html(bgcolor string, height string, fontSize string, infoList
 
 	strRemoveSubnet := fmt.Sprintf(`
                 <a href="javascript:$$REMOVESUBNET$$;">
-                        <font size=%s><b>&nbsp;X</b></font>
+                        <font color=red size=%s><b>&nbsp;X</b></font>
                 </a>
                 `, fontSize)
 
 	strAddSubnet := fmt.Sprintf(`
                 <textarea style="font-size:12px;text-align:center;" name="subnet_text_box_$$ADDVPC$$" id="subnet_text_box_$$ADDVPC$$" cols=40>{ "Name": "subnet-02-add", "IPv4_CIDR": "10.0.12.0/22"}</textarea>
                 <a href="javascript:$$ADDSUBNET$$;">
-                        <font size=%s><b>+</b></font>
+                        <font size=%s><mark><b>+</b></mark></font>
                 </a>
 								`, fontSize)
 
@@ -380,7 +380,7 @@ func VPC(c echo.Context) error {
                             </td>                            
                             <td>
                                 <a href="javascript:postVPC()">
-                                    <font size=3><b>+</b></font>
+                                    <font size=4><mark><b>+</b></mark></font>
                                 </a>
                             </td>
                         </tr>
@@ -726,7 +726,7 @@ func SecurityGroup(c echo.Context) error {
                             </td>
                             <td>
                                 <a href="javascript:postSecurityGroup()">
-                                    <font size=3><b>+</b></font>
+                                    <font size=4><mark><b>+</b></mark></font>
                                 </a>
                             </td>
                         </tr>
@@ -1020,7 +1020,7 @@ func KeyPair(c echo.Context) error {
                             </td>
                             <td>
                                 <a href="javascript:postKeyPair()">
-                                    <font size=3><b>+</b></font>
+                                    <font size=4><mark><b>+</b></mark></font>
                                 </a>
                             </td>
                         </tr>
@@ -1190,9 +1190,9 @@ func makeVMTRList_html(connConfig string, bgcolor string, height string, fontSiz
 		str = strings.ReplaceAll(str, "$$BLOCKDISK$$", one.VMBlockDisk)
 
 		// for SSH AccessPoint & Access Key & Access User
-		str = strings.ReplaceAll(str, "$$SSHACCESSPOINT$$", one.SSHAccessPoint)
-		str = strings.ReplaceAll(str, "$$ACCESSKEY$$", one.KeyPairIId.NameId)
-		str = strings.ReplaceAll(str, "$$ACCESSUSER$$", one.VMUserId)
+		str = strings.ReplaceAll(str, "$$SSHACCESSPOINT$$", "<mark>" + one.SSHAccessPoint + "</mark>")
+		str = strings.ReplaceAll(str, "$$ACCESSKEY$$", "<mark>" + one.KeyPairIId.NameId + "</mark>")
+		str = strings.ReplaceAll(str, "$$ACCESSUSER$$", "<mark>" + one.VMUserId + "</mark>")
 
 		// for KeyValueList
 		strKeyList := ""
@@ -1594,16 +1594,16 @@ func VM(c echo.Context) error {
 
 	htmlStr += `
 				<br>
-                                <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="12" value="$$VMUSER$$">
+                                <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="12" value="$$VMUSER$$" disabled>
 				<br>
-                                <input style="font-size:12px;text-align:center;" type="password" name="text_box" id="13" value="">
+                                <input style="font-size:12px;text-align:center;" type="password" name="text_box" id="13" value="" disabled>
                             </td>
                             <td style="vertical-align:top">
                                 <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="14" disabled value="N/A">
                             </td>
                             <td>
                                 <a href="javascript:postVM()">
-                                    <font size=3><b>+</b></font>
+                                    <font size=4><mark><b>+</b></mark></font>
                                 </a>
                             </td>
                         </tr>
@@ -1698,18 +1698,20 @@ func makeNLBTRList_html(bgcolor string, height string, fontSize string, infoList
 		}
 		strKeyList = strings.TrimRight(strKeyList, ", ")
 		strListener := ""
-		strListener += "==> <b>" + one.Listener.IP + ":" + one.Listener.Port + "</b> <br>"
+		strListener += "<mark> <b> ==> " + one.Listener.IP + ":" + one.Listener.Port + "</b> </mark> <br>"
 		if one.Listener.DNSName != "" {
-			strListener += "==> " + one.Listener.DNSName + "<br>"
+			strListener += "==> <mark> <b>" + one.Listener.DNSName + "</b> </mark> <br>"
 		}
 		strListener += "------------------------<br>"
 		//if one.Listener.CspID != "" {
 		//	strListener += "CspID:" + one.Listener.CspID + ", "
-		//}			
+		//}
+		/* complicated to see 
 		if strKeyList != "" {
 			strListener += "(etc) " + strKeyList + "<br>"
 			strListener += "------------------------<br>"
 		}
+		*/
 		strListener += one.Listener.Protocol	
 		strListener += "<br>"
 		
@@ -1728,17 +1730,19 @@ func makeNLBTRList_html(bgcolor string, height string, fontSize string, infoList
 		}
 		strVMList = strings.TrimRight(strVMList, ", ")
 		strVMGroup := ""
-		strVMGroup += "==> <b>" + one.VMGroup.Port + "</b> <br>"
+		strVMGroup += "<mark> <b> ==> " + one.VMGroup.Port + "</b> </mark> <br>"
 		strVMGroup += "------------------------<br>"
-		strVMGroup += "[ " + strVMList + " ]" + "<br>"
+		strVMGroup += "<mark> [ " + strVMList + " ] </mark>" + "<br>"
 		strVMGroup += "------------------------<br>"
 		//if one.VMGroup.CspID != "" {
 		//	strVMGroup += "CspID:" + one.VMGroup.CspID + ", "
 		//}
+		/* complicated to see 
 		if strKeyList != "" {
 			strVMGroup += "(etc) " + strKeyList + "<br>"
 			strVMGroup += "------------------------<br>"
 		}
+		*/
 		strVMGroup += one.VMGroup.Protocol
 		strVMGroup += "<br>"
 		
@@ -1752,7 +1756,7 @@ func makeNLBTRList_html(bgcolor string, height string, fontSize string, infoList
 		}
 		strKeyList = strings.TrimRight(strKeyList, ", ")
 		strHealthChecker := ""
-		strHealthChecker += "<== <b>" + one.HealthChecker.Port + "</b> <br>"
+		strHealthChecker += "<mark> <b> <== " + one.HealthChecker.Port + "</b> </mark> <br>"
 		strHealthChecker += "------------------------<br>"
 		strHealthChecker += "Interval:   " + strconv.Itoa(one.HealthChecker.Interval) + "<br>"
 		strHealthChecker += "Timeout:    " + strconv.Itoa(one.HealthChecker.Timeout) + "<br>"
@@ -1761,10 +1765,12 @@ func makeNLBTRList_html(bgcolor string, height string, fontSize string, infoList
 		//if one.HealthChecker.CspID != "" {
 		//	strHealthChecker += "CspID:" + one.HealthChecker.CspID + ", "
 		//}
+		/* complicated to see 
 		if strKeyList != "" {
 			strHealthChecker += "(etc) " + strKeyList + "<br>"
 			strHealthChecker += "------------------------<br>"
 		}
+		*/
 		strHealthChecker += one.HealthChecker.Protocol
 		strHealthChecker += "<br>"
 		
@@ -2123,7 +2129,7 @@ func NLB(c echo.Context) error {
                             </td>
                             <td>
                                 <a href="javascript:postNLB()">
-                                    <font size=3><b>+</b></font>
+                                    <font size=4><mark><b>+</b></mark></font>
                                 </a>
                             </td>
                         </tr>
