@@ -1698,9 +1698,9 @@ func makeNLBTRList_html(bgcolor string, height string, fontSize string, infoList
 		}
 		strKeyList = strings.TrimRight(strKeyList, ", ")
 		strListener := ""
-		strListener += "<mark> <b> ==> " + one.Listener.IP + ":" + one.Listener.Port + "</b> </mark> <br>"
+		strListener += "<mark> <b> ==> " + one.Listener.IP + " : " + one.Listener.Port + "</b> </mark> <br>"
 		if one.Listener.DNSName != "" {
-			strListener += "==> <mark> <b>" + one.Listener.DNSName + "</b> </mark> <br>"
+			strListener += "==> <mark> <b>" + one.Listener.DNSName + " : " + one.Listener.Port + "</b> </mark> <br>"
 		}
 		strListener += "------------------------<br>"
 		//if one.Listener.CspID != "" {
