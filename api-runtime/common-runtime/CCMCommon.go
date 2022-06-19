@@ -4684,32 +4684,7 @@ defer nlbSPLock.Unlock(connectionName, reqInfo.IId.NameId)
 	//     ex) userIID {"seoul-service", "i-0bc7123b7e5cbf79d"}
 	info.IId = getUserIID(iidInfo.IId)
 
-	// set VPC SystemId
-	// ################ info.VpcIID.SystemId = getDriverSystemId(vpcIIDInfo.IId)
-
-        // set VM's SystemId
-/*
-	err = setVMGroupSystemId(connectionName, info.VMGroup.VMs)
-	if err != nil {
-		cblog.Error(err)
-		return nil, err
-	}
-*/
-
 	return &info, nil
-}
-
-func setVMGroupNameId(connectionName string, vmList *[]cres.IID) error {
-        // set VM's NameId
-        for idx, vmIID := range *vmList {
-                vmIIDInfo, err := iidRWLock.GetIID(iidm.IIDSGROUP, connectionName, rsVM, vmIID)
-                if err != nil {
-                        cblog.Error(err)
-                        return err
-                }
-                (*vmList)[idx] = getUserIID(vmIIDInfo.IId)
-        }
-        return nil
 }
 
 func setVMGroupSystemId(connectionName string, vmList *[]cres.IID) error {
@@ -4920,7 +4895,7 @@ defer nlbSPLock.RUnlock(connectionName, nameID)
 	// set ResourceInfo
 	info.IId = getUserIID(iidInfo.IId)
 
-	// set VPC SystemId
+	// set VPC UserIID
 	vpcIIDInfo, err := iidRWLock.GetIID(iidm.IIDSGROUP, connectionName, rsVPC, cres.IID{iidInfo.ResourceType/*vpcName*/, ""})
 	if err != nil {
 		cblog.Error(err)
@@ -4928,12 +4903,15 @@ defer nlbSPLock.RUnlock(connectionName, nameID)
 	}
 	info.VpcIID = getUserIID(vpcIIDInfo.IId)
 
-	// set VM's SystemId
-        err = setVMGroupSystemId(connectionName, info.VMGroup.VMs)
-        if err != nil {
-                cblog.Error(err)
-                return nil, err
-        }
+	// set VM's UserIID
+	for idx, vmIID := range *info.VMGroup.VMs {
+		vmIIDInfo, err := iidRWLock.GetIIDbySystemID(iidm.IIDSGROUP, connectionName, rsVM, vmIID)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+		(*info.VMGroup.VMs)[idx].NameId = vmIIDInfo.IId.NameId
+	}
 
 	return &info, nil
 }
@@ -5031,7 +5009,7 @@ defer nlbSPLock.Unlock(connectionName, nlbName)
         // (4) set ResourceInfo(userIID)
         info.IId = getUserIID(iidInfo.IId)
 
-        // set VPC SystemId
+        // set VPC UserIID
         vpcIIDInfo, err := iidRWLock.GetIID(iidm.IIDSGROUP, connectionName, rsVPC, cres.IID{iidInfo.ResourceType/*vpcName*/, ""})
         if err != nil {
                 cblog.Error(err)
@@ -5039,11 +5017,14 @@ defer nlbSPLock.Unlock(connectionName, nlbName)
         }
         info.VpcIID = getUserIID(vpcIIDInfo.IId)
 
-	// set VM's SystemId
-        err = setVMGroupSystemId(connectionName, info.VMGroup.VMs)
-        if err != nil {
-                cblog.Error(err)
-                return nil, err
+        // set VM's UserIID
+        for idx, vmIID := range *info.VMGroup.VMs {
+                vmIIDInfo, err := iidRWLock.GetIIDbySystemID(iidm.IIDSGROUP, connectionName, rsVM, vmIID)
+                if err != nil {
+                        cblog.Error(err)
+                        return nil, err
+                }
+                (*info.VMGroup.VMs)[idx].NameId = vmIIDInfo.IId.NameId
         }
 
         return &info, nil
@@ -5206,7 +5187,7 @@ defer nlbSPLock.Unlock(connectionName, nlbName)
         // (4) set ResourceInfo(userIID)
         info.IId = getUserIID(iidInfo.IId)
 
-        // set VPC SystemId
+        // set VPC UserIID
         vpcIIDInfo, err := iidRWLock.GetIID(iidm.IIDSGROUP, connectionName, rsVPC, cres.IID{iidInfo.ResourceType/*vpcName*/, ""})
         if err != nil {
                 cblog.Error(err)
@@ -5214,11 +5195,14 @@ defer nlbSPLock.Unlock(connectionName, nlbName)
         }
         info.VpcIID = getUserIID(vpcIIDInfo.IId)
 
-	// set VM's SystemId
-        err = setVMGroupSystemId(connectionName, info.VMGroup.VMs)
-        if err != nil {
-                cblog.Error(err)
-                return nil, err
+        // set VM's UserIID
+        for idx, vmIID := range *info.VMGroup.VMs {
+                vmIIDInfo, err := iidRWLock.GetIIDbySystemID(iidm.IIDSGROUP, connectionName, rsVM, vmIID)
+                if err != nil {
+                        cblog.Error(err)
+                        return nil, err
+                }
+                (*info.VMGroup.VMs)[idx].NameId = vmIIDInfo.IId.NameId
         }
 
         return &info, nil
@@ -5313,11 +5297,14 @@ defer nlbSPLock.Unlock(connectionName, nlbName)
         // (4) set ResourceInfo(userIID)
         info.IId = getUserIID(iidInfo.IId)
 
-	// set VM's SystemId
-        err = setVMGroupSystemId(connectionName, info.VMGroup.VMs)
-        if err != nil {
-                cblog.Error(err)
-                return nil, err
+        // set VM's UserIID
+        for idx, vmIID := range *info.VMGroup.VMs {
+                vmIIDInfo, err := iidRWLock.GetIIDbySystemID(iidm.IIDSGROUP, connectionName, rsVM, vmIID)
+                if err != nil {
+                        cblog.Error(err)
+                        return nil, err
+                }
+                (*info.VMGroup.VMs)[idx].NameId = vmIIDInfo.IId.NameId
         }
 
         // set VPC SystemId
@@ -5417,7 +5404,7 @@ defer nlbSPLock.Unlock(connectionName, nlbName)
         // (4) set ResourceInfo(userIID)
         info.IId = getUserIID(iidInfo.IId)
 
-        // set VPC SystemId
+        // set VPC UserIID
         vpcIIDInfo, err := iidRWLock.GetIID(iidm.IIDSGROUP, connectionName, rsVPC, cres.IID{iidInfo.ResourceType/*vpcName*/, ""})
         if err != nil {
                 cblog.Error(err)
@@ -5425,11 +5412,14 @@ defer nlbSPLock.Unlock(connectionName, nlbName)
         }
         info.VpcIID = getUserIID(vpcIIDInfo.IId)
 
-	// set VM's SystemId
-        err = setVMGroupSystemId(connectionName, info.VMGroup.VMs)
-        if err != nil {
-                cblog.Error(err)
-                return nil, err
+        // set VM's UserIID
+        for idx, vmIID := range *info.VMGroup.VMs {
+                vmIIDInfo, err := iidRWLock.GetIIDbySystemID(iidm.IIDSGROUP, connectionName, rsVM, vmIID)
+                if err != nil {
+                        cblog.Error(err)
+                        return nil, err
+                }
+                (*info.VMGroup.VMs)[idx].NameId = vmIIDInfo.IId.NameId
         }
 
         return &info, nil
@@ -5524,24 +5514,18 @@ defer nlbSPLock.Unlock(connectionName, nlbName)
 }
 
 func setVMUserIIDwithSystemId(connectionName string, nlbName string, healthInfo *cres.HealthInfo) error {
-	// Get VM SpiderIID All List 
-	iidInfoList, err := iidRWLock.ListIID(iidm.IIDSGROUP, connectionName, rsVM)
-        if err != nil {
-                cblog.Error(err)
-                return err
-        }
-
 	var errList []string
 	vmIIDList := healthInfo.AllVMs	
-	for _, vm := range *vmIIDList {
+	for idx, vm := range *vmIIDList {
 		foundFlag := false
-		// 1. Get SpiderIID with SystemId
-		for _, iidInfo := range iidInfoList {
-			if vm.SystemId == getDriverSystemId(iidInfo.IId) {
-				foundFlag = true
-				// 2. Get UserIID with SpiderIID
-				vm = getUserIID(iidInfo.IId)
-			}
+		vmIIDInfo, err := iidRWLock.GetIIDbySystemID(iidm.IIDSGROUP, connectionName, rsVM, vm)
+		if err != nil {
+			cblog.Error(err)
+			return err
+		}
+		if vm.SystemId == getDriverSystemId(vmIIDInfo.IId) {
+			foundFlag = true
+			(*vmIIDList)[idx].NameId = vmIIDInfo.IId.NameId
 		}
 		if !foundFlag {
 			errList = append(errList, connectionName + ":CSP-VM:" + vm.SystemId + " is not owned by CB-Spider!")
@@ -5549,15 +5533,16 @@ func setVMUserIIDwithSystemId(connectionName string, nlbName string, healthInfo 
 	}
 
         vmIIDList = healthInfo.HealthyVMs
-        for _, vm := range *vmIIDList {
+        for idx, vm := range *vmIIDList {
 		foundFlag := false
-                // 1. Get SpiderIID with SystemId
-                for _, iidInfo := range iidInfoList {
-                        if vm.SystemId == getDriverSystemId(iidInfo.IId) {
-				foundFlag = true
-                                // 2. Get UserIID with SpiderIID
-                                vm = getUserIID(iidInfo.IId)
-                        }
+                vmIIDInfo, err := iidRWLock.GetIIDbySystemID(iidm.IIDSGROUP, connectionName, rsVM, vm)
+                if err != nil {
+                        cblog.Error(err)
+                        return err
+                }
+                if vm.SystemId == getDriverSystemId(vmIIDInfo.IId) {
+                        foundFlag = true
+                        (*vmIIDList)[idx].NameId = vmIIDInfo.IId.NameId
                 }
 		if !foundFlag {
 			errList = append(errList, connectionName + ":CSP-VM:" + vm.SystemId + " is not owned by CB-Spider!")
@@ -5565,15 +5550,16 @@ func setVMUserIIDwithSystemId(connectionName string, nlbName string, healthInfo 
         }
 
         vmIIDList = healthInfo.UnHealthyVMs
-        for _, vm := range *vmIIDList {
+        for idx, vm := range *vmIIDList {
 		foundFlag := false
-                // 1. Get SpiderIID with SystemId
-                for _, iidInfo := range iidInfoList {
-                        if vm.SystemId == getDriverSystemId(iidInfo.IId) {
-				foundFlag = true
-                                // 2. Get UserIID with SpiderIID
-                                vm = getUserIID(iidInfo.IId)
-                        }
+                vmIIDInfo, err := iidRWLock.GetIIDbySystemID(iidm.IIDSGROUP, connectionName, rsVM, vm)
+                if err != nil {
+                        cblog.Error(err)
+                        return err
+                }
+                if vm.SystemId == getDriverSystemId(vmIIDInfo.IId) {
+                        foundFlag = true
+                        (*vmIIDList)[idx].NameId = vmIIDInfo.IId.NameId
                 }
 		if !foundFlag {
 			errList = append(errList, connectionName + ":CSP-VM:" + vm.SystemId + " is not owned by CB-Spider!")
