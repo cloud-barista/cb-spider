@@ -353,6 +353,8 @@ func RunServer() {
 		{"GET", "/adminweb/keypairmgmt/:ConnectConfig", aw.KeyPairMgmt},
 		{"GET", "/adminweb/vm/:ConnectConfig", aw.VM},
 		{"GET", "/adminweb/vmmgmt/:ConnectConfig", aw.VMMgmt},
+		{"GET", "/adminweb/nlb/:ConnectConfig", aw.NLB},
+		{"GET", "/adminweb/nlbmgmt/:ConnectConfig", aw.NLBMgmt},
 
 		{"GET", "/adminweb/vmimage/:ConnectConfig", aw.VMImage},
 		{"GET", "/adminweb/vmspec/:ConnectConfig", aw.VMSpec},
