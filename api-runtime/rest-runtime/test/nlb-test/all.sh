@@ -1,37 +1,37 @@
-./0.mock-prepare-nlb-test.sh
+./0.prepare-nlb-test.sh $1
 
 if [ "$SLEEP" ]; then
         sleep $SLEEP
 fi
 
-./1.mock-create-nlb-test.sh
+./1.create-nlb-test.sh $1
 
 if [ "$SLEEP" ]; then
         sleep $SLEEP
 fi
 
-./2.mock-list-get-nlb-test.sh
+./2.list-get-nlb-test.sh $1
 
 if [ "$SLEEP" ]; then
         sleep $SLEEP
 fi
 
-./3.mock-get-owner-vpc-nlb-test.sh
+./3.get-owner-vpc-nlb-test.sh $1
 
 if [ "$SLEEP" ]; then
         sleep $SLEEP
 fi
 
-./4.mock-addvm-removevm-nlb-test.sh
+./4.addvm-removevm-nlb-test.sh $1
 
 if [ "$SLEEP" ]; then
         sleep $SLEEP
 fi
 
-./5.mock-change-nlb-test.sh
+./5.change-nlb-test.sh $1
 
 if [ "$SLEEP" ]; then
         sleep $SLEEP
 fi
 
-./6.mock-gethealth-nlb-test.sh
+./6.gethealth-nlb-test.sh $1
