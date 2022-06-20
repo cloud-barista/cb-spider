@@ -1698,22 +1698,26 @@ func makeNLBTRList_html(bgcolor string, height string, fontSize string, infoList
 		}
 		strKeyList = strings.TrimRight(strKeyList, ", ")
 		strListener := ""
-		strListener += "<mark> <b> ==> " + one.Listener.IP + " : " + one.Listener.Port + "</b> </mark> <br>"
+		strListener += "<b> => <mark>" + one.Listener.IP + ":" + one.Listener.Port + "</b> </mark> <br>"
 		if one.Listener.DNSName != "" {
-			strListener += "==> <mark> <b>" + one.Listener.DNSName + " : " + one.Listener.Port + "</b> </mark> <br>"
+			strListener += "=> <mark> <b>" + one.Listener.DNSName + ":" + one.Listener.Port + "</b> </mark> <br>"
 		}
-		strListener += "------------------------<br>"
+		strListener += "--------------------------------<br>"
 		//if one.Listener.CspID != "" {
 		//	strListener += "CspID:" + one.Listener.CspID + ", "
 		//}
 		/* complicated to see 
 		if strKeyList != "" {
 			strListener += "(etc) " + strKeyList + "<br>"
-			strListener += "------------------------<br>"
+			strListener += "--------------------------------<br>"
 		}
 		*/
-		strListener += one.Listener.Protocol	
-		strListener += "<br>"
+		strListener += one.Listener.Protocol + "<br>"
+                strListener += "--------------------------------<br>"
+                strListener += `
+                        <input disabled='true' type='button' style="font-size:11px;color:gray" onclick="javascript:setListener('` + one.IId.NameId + `');" value='edit'/>
+                        <br>
+			`
 		
 		str = strings.ReplaceAll(str, "$$LISTENER$$", strListener)
 
@@ -1730,21 +1734,27 @@ func makeNLBTRList_html(bgcolor string, height string, fontSize string, infoList
 		}
 		strVMList = strings.TrimRight(strVMList, ", ")
 		strVMGroup := ""
-		strVMGroup += "<mark> <b> ==> " + one.VMGroup.Port + "</b> </mark> <br>"
-		strVMGroup += "------------------------<br>"
+		strVMGroup += "<b> => <mark>" + one.VMGroup.Port + "</b> </mark> <br>"
+		strVMGroup += "--------------------------------<br>"
 		strVMGroup += "<mark> [ " + strVMList + " ] </mark>" + "<br>"
-		strVMGroup += "------------------------<br>"
+		strVMGroup += "--------------------------------<br>"
 		//if one.VMGroup.CspID != "" {
 		//	strVMGroup += "CspID:" + one.VMGroup.CspID + ", "
 		//}
 		/* complicated to see 
 		if strKeyList != "" {
 			strVMGroup += "(etc) " + strKeyList + "<br>"
-			strVMGroup += "------------------------<br>"
+			strVMGroup += "--------------------------------<br>"
 		}
 		*/
-		strVMGroup += one.VMGroup.Protocol
-		strVMGroup += "<br>"
+		strVMGroup += one.VMGroup.Protocol + "<br>"
+		strVMGroup += "--------------------------------<br>"
+		strVMGroup += `
+			<input disabled='true' type='button' style="font-size:11px;color:gray" onclick="javascript:setVMGroup('` + one.IId.NameId + `');" value='edit'/>
+			<input disabled='true' type='button' style="font-size:11px;color:gray" onclick="javascript:addVMs('` + one.IId.NameId + `');" value='+'/>
+			<input disabled='true' type='button' style="font-size:11px;color:gray" onclick="javascript:removeVMs('` + one.IId.NameId + `');" value='-'/>
+			<br>
+			`
 		
 		str = strings.ReplaceAll(str, "$$VMGROUP$$", strVMGroup)
 
@@ -1755,13 +1765,21 @@ func makeNLBTRList_html(bgcolor string, height string, fontSize string, infoList
 			strKeyList += kv.Key + ":" + kv.Value + ", "
 		}
 		strKeyList = strings.TrimRight(strKeyList, ", ")
+
 		strHealthChecker := ""
-		strHealthChecker += "<mark> <b> <== " + one.HealthChecker.Port + "</b> </mark> <br>"
-		strHealthChecker += "------------------------<br>"
+/* 
+		strHealthChecker := `
+			<div class="displayStatus">
+				<textarea id='displayStatus' hidden disabled="true" style="overflow:scroll;" wrap="off"></textarea>
+			</div>
+		`
+*/
+		strHealthChecker += "<b> <= <mark>" + one.HealthChecker.Port + "</b> </mark><br>"
+		strHealthChecker += "--------------------------------<br>"
 		strHealthChecker += "Interval:   " + strconv.Itoa(one.HealthChecker.Interval) + "<br>"
 		strHealthChecker += "Timeout:    " + strconv.Itoa(one.HealthChecker.Timeout) + "<br>"
 		strHealthChecker += "Threshold:  " + strconv.Itoa(one.HealthChecker.Threshold) + "<br>"
-		strHealthChecker += "------------------------<br>"
+		strHealthChecker += "--------------------------------<br>"
 		//if one.HealthChecker.CspID != "" {
 		//	strHealthChecker += "CspID:" + one.HealthChecker.CspID + ", "
 		//}
@@ -1771,8 +1789,18 @@ func makeNLBTRList_html(bgcolor string, height string, fontSize string, infoList
 			strHealthChecker += "------------------------<br>"
 		}
 		*/
-		strHealthChecker += one.HealthChecker.Protocol
-		strHealthChecker += "<br>"
+		strHealthChecker += one.HealthChecker.Protocol + "<br>"
+		strHealthChecker += "--------------------------------<br>"
+/*
+		strHealthChecker += `
+			<a href="javascript:healthStatus('` + one.IId.NameId + `');">
+			    <font color=blue size=2><b><div class='displayText'>Status</div></b></font>
+			</a><br>`
+*/
+		strHealthChecker += `
+			<input disabled='true' type='button' style="font-size:11px;color:gray" onclick="javascript:setHealthChecker('` + one.IId.NameId + `');" value='edit'/>
+			<input type='button' style="font-size:11px;color:blue" onclick="javascript:healthStatus('` + one.IId.NameId + `');" value='Status'/>
+			<br>`
 		
 		str = strings.ReplaceAll(str, "$$HEALTHCHECKER$$", strHealthChecker)
 
@@ -1954,6 +1982,60 @@ func makeDeleteNLBFunc_js() string {
 	return strFunc
 }
 
+// make the string of javascript function
+func makeGetHealthStatusNLBFunc_js() string {
+	// curl -sX GET http://localhost:1024/spider/nlb/spider-nlb-01/health -H 'Content-Type: application/json' -d \
+        // '{
+        //        "ConnectionName": "'${CONN_CONFIG}'"
+        // }'
+
+        strFunc := `
+		function convertHealthyInfo(org) {
+			const obj = JSON.parse(org);
+			var healthinfo = obj.healthinfo		
+			var all = healthinfo.AllVMs		
+			var text = "[All VMs]\n"
+			for (let i=0; i< all.length; i++) {
+				text += "\t" + all[i].NameId + "\n";
+			}
+			text += "\n"	
+			text += "[Healty VMs]\n"
+			var healthy = healthinfo.HealthyVMs		
+			for (let i=0; i< healthy.length; i++) {
+				text += "\t" + healthy[i].NameId + "\n";
+			}
+			text += "\n"	
+			text += "[UnHealty VMs]\n"
+			var unHealthy = healthinfo.UnHealthyVMs		
+			for (let i=0; i< unHealthy.length; i++) {
+				text += "\t" + unHealthy[i].NameId + "\n";
+			}
+
+			return text
+		}
+
+                function healthStatus(nlbName) {
+                        var connConfig = parent.frames["top_frame"].document.getElementById("connConfig").innerHTML;
+			var xhr = new XMLHttpRequest();
+			xhr.open("GET", "$$SPIDER_SERVER$$/spider/nlb/" + nlbName + "/health?ConnectionName=" + connConfig, false);
+
+			// client logging
+			parent.frames["log_frame"].Log("curl -sX GET " + "$$SPIDER_SERVER$$/spider/nlb/" + nlbName + "/health?ConnectionName=" + connConfig);
+
+			xhr.send();
+
+			// client logging
+			parent.frames["log_frame"].Log("   ==> " + xhr.response);
+
+			var healthy = convertHealthyInfo(xhr.response);
+			alert(healthy);
+		}
+
+        `
+        strFunc = strings.ReplaceAll(strFunc, "$$SPIDER_SERVER$$", "http://"+cr.ServiceIPorName+cr.ServicePort) // cr.ServicePort = ":1024"
+        return strFunc
+}
+
 func NLB(c echo.Context) error {
 	cblog.Info("call NLB()")
 
@@ -2006,6 +2088,7 @@ func NLB(c echo.Context) error {
 	htmlStr += makeCheckBoxToggleFunc_js()
 	htmlStr += makePostNLBFunc_js()
 	htmlStr += makeDeleteNLBFunc_js()
+	htmlStr += makeGetHealthStatusNLBFunc_js()
 
 	htmlStr += `
                     </script>
@@ -2090,7 +2173,7 @@ func NLB(c echo.Context) error {
                             </td>
                             <td>
                                 <!--Port:--> ==> <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="6" maxlength="5" size="5" value="22">
-				<br>------------------------<br>
+				<br>--------------------------------<br>
                                 <!--Protocol:-->
 					<select style="font-size:12px;text-align:center;"  name="text_box" id="5">
 						<option value="TCP">TCP</option>
@@ -2099,9 +2182,9 @@ func NLB(c echo.Context) error {
                             </td>
                             <td>
                                 <!--Port:--> ==> <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="8" maxlength="5" size="5" value="22">
-				<br>------------------------<br>
+				<br>--------------------------------<br>
                                 <!--VM:--> <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="9" value="[ &quot;vm-01&quot;, &quot;vm-02&quot; ]">
-				<br>------------------------<br>
+				<br>--------------------------------<br>
                                 <!--Protocol:-->
 					<select style="font-size:12px;text-align:center;"  name="text_box" id="7" >
 						<option value="TCP">TCP</option>
@@ -2112,11 +2195,11 @@ func NLB(c echo.Context) error {
                             </td>
                             <td>
                                 <!--Port:--> <== <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="11" maxlength="5" size="5" value="22">
-				<br>------------------------<br>
+				<br>--------------------------------<br>
                                 Interval: <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="12" maxlength="5" size="5" value="10">
                                 <br> Timeout: <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="13" maxlength="5" size="5" value="10">
                                 <br> Threshold: <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="14" maxlength="5" size="5" value="3">
-				<br>------------------------<br>
+				<br>--------------------------------<br>
                                 <!--Protocol:-->
 					<select style="font-size:12px;text-align:center;"  name="text_box" id="10" >
 						<option value="TCP">TCP</option>
