@@ -1999,13 +1999,13 @@ func makeGetHealthStatusNLBFunc_js() string {
 				text += "\t" + all[i].NameId + "\n";
 			}
 			text += "\n"	
-			text += "[Healty VMs]\n"
+			text += "[Healthy VMs]\n"
 			var healthy = healthinfo.HealthyVMs		
 			for (let i=0; i< healthy.length; i++) {
 				text += "\t" + healthy[i].NameId + "\n";
 			}
 			text += "\n"	
-			text += "[UnHealty VMs]\n"
+			text += "[UnHealthy VMs]\n"
 			var unHealthy = healthinfo.UnHealthyVMs		
 			for (let i=0; i< unHealthy.length; i++) {
 				text += "\t" + unHealthy[i].NameId + "\n";
@@ -2172,7 +2172,7 @@ func NLB(c echo.Context) error {
 				</select>
                             </td>
                             <td>
-                                <!--Port:--> ==> <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="6" maxlength="5" size="5" value="22">
+                                <!--Port:--> => <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="6" maxlength="5" size="5" value="22">
 				<br>--------------------------------<br>
                                 <!--Protocol:-->
 					<select style="font-size:12px;text-align:center;"  name="text_box" id="5">
@@ -2181,7 +2181,7 @@ func NLB(c echo.Context) error {
 					</select>
                             </td>
                             <td>
-                                <!--Port:--> ==> <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="8" maxlength="5" size="5" value="22">
+                                <!--Port:--> => <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="8" maxlength="5" size="5" value="22">
 				<br>--------------------------------<br>
                                 <!--VM:--> <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="9" value="[ &quot;vm-01&quot;, &quot;vm-02&quot; ]">
 				<br>--------------------------------<br>
@@ -2194,7 +2194,7 @@ func NLB(c echo.Context) error {
 					</select>
                             </td>
                             <td>
-                                <!--Port:--> <== <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="11" maxlength="5" size="5" value="22">
+                                <!--Port:--> <= <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="11" maxlength="5" size="5" value="22">
 				<br>--------------------------------<br>
                                 Interval: <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="12" maxlength="5" size="5" value="10">
                                 <br> Timeout: <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="13" maxlength="5" size="5" value="10">
