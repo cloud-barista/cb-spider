@@ -10,7 +10,7 @@ package cmd
 
 import (
 	"github.com/spf13/cobra"
-
+	"fmt"
 	"github.com/cloud-barista/cb-spider/api-runtime/grpc-runtime/logger"
 )
 
@@ -42,6 +42,7 @@ func NewSecurityCmd() *cobra.Command {
 	securityCmd.AddCommand(NewSecurityDeleteCSPCmd())
 	securityCmd.AddCommand(NewSecurityRegisterCmd())
 	securityCmd.AddCommand(NewSecurityUnregisterCmd())
+	securityCmd.AddCommand(ExSecurityCmd())
 
 	return securityCmd
 }
@@ -268,4 +269,38 @@ func NewSecurityUnregisterCmd() *cobra.Command {
 	unregisterCmd.PersistentFlags().StringVarP(&securityName, "name", "n", "", "security name")
 
 	return unregisterCmd
+}
+
+func ExSecurityCmd() *cobra.Command {
+        exSecurityCmd := &cobra.Command{
+                Use:   "ex",
+                Short: "example to create security",
+                Long: "example to create securityvm",
+                Run: func(cmd *cobra.Command, args []string) {
+                        excmd := `
+spctl security create -d \
+    '{
+      "ConnectionName":"aws-ohio-config",
+      "ReqInfo": {
+        "Name": "spider-sg-01",
+
+        "VPCName": "spider-vpc-01",
+
+        "SecurityRules": [
+          {
+            "Direction" : "inbound",
+            "IPProtocol" : "all",
+            "FromPort": "-1",
+            "ToPort" : "-1"
+          }
+        ]
+      }
+    }'
+
+`
+                        fmt.Printf(excmd)
+                },
+        }
+
+        return exSecurityCmd
 }

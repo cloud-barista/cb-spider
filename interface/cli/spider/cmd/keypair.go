@@ -10,7 +10,7 @@ package cmd
 
 import (
 	"github.com/spf13/cobra"
-
+	"fmt"
 	"github.com/cloud-barista/cb-spider/api-runtime/grpc-runtime/logger"
 )
 
@@ -42,6 +42,7 @@ func NewKeyPairCmd() *cobra.Command {
 	keyPairCmd.AddCommand(NewKeyPairDeleteCSPCmd())
 	keyPairCmd.AddCommand(NewKeyPairRegisterCmd())
 	keyPairCmd.AddCommand(NewKeyPairUnregisterCmd())
+	keyPairCmd.AddCommand(ExKeyPairCmd())
 
 	return keyPairCmd
 }
@@ -268,4 +269,27 @@ func NewKeyPairUnregisterCmd() *cobra.Command {
 	unregisterCmd.PersistentFlags().StringVarP(&keypairName, "name", "n", "", "keypair name")
 
 	return unregisterCmd
+}
+
+func ExKeyPairCmd() *cobra.Command {
+        exKeyPairCmd := &cobra.Command{
+                Use:   "ex",
+                Short: "example to create KeyPair",
+                Long: "example to create KeyPair",
+                Run: func(cmd *cobra.Command, args []string) {
+                        excmd := `
+pctl keypair create -d \
+    '{
+      "ConnectionName":"aws-ohio-config",
+      "ReqInfo": {
+        "Name": "spider-key-01"
+      }
+    }'
+
+`
+                        fmt.Printf(excmd)
+                },
+        }
+
+        return exKeyPairCmd
 }
