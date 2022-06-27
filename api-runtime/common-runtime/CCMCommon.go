@@ -3569,9 +3569,57 @@ func ControlVM(connectionName string, rsType string, nameID string, action strin
 		return "", err
 	}
 
-	return info, nil
-}
+        switch strings.ToLower(action) {
+        case "suspend":
+                if info == cres.Suspended {
+			return info, nil
+		}
+        case "resume":
+                if info == cres.Running {
+			return info, nil
+		}
+        case "reboot":
+                if info == cres.Running {
+			return info, nil
+		}
+        default:
+                return "", fmt.Errorf(action + " is not a valid action!!")
 
+        }
+
+	// Check Sync Called
+	waiter := NewWaiter(1, 120) // (sleep, timeout)
+
+	for { 
+		status, err := handler.GetVMStatus(vmIID) 
+		if err != nil {
+			cblog.Error(err)
+			return "", err
+		}
+
+		switch strings.ToLower(action) {
+		case "suspend":
+			if status == cres.Suspended {
+				return status, nil
+			}
+		case "resume":
+			if status == cres.Running {
+				return status, nil
+			}
+		case "reboot":
+			if status == cres.Running {
+				return status, nil
+			}
+		default:
+			return "", fmt.Errorf(action + " is not a valid action!!")
+
+		}
+
+		if !waiter.Wait() {
+			return "", fmt.Errorf("Failed to " + action + " VM %s. (Timeout=%s)", vmIID.NameId, waiter.Timeout) 
+		}
+	}
+}
 
 // list all Resources for management
 // (1) get IID:list
@@ -3962,14 +4010,49 @@ func DeleteResource(connectionName string, rsType string, nameID string, force s
 		}
 		start := call.Start()
 		vmStatus, err = handler.(cres.VMHandler).TerminateVM(driverIId)
-		callInfo.ElapsedTime = call.Elapsed(start)
-		if err != nil {
-			cblog.Error(err)
-			callInfo.ErrorMSG = err.Error()
-			if force != "true" {
-				return false, vmStatus, err
+                if err != nil {
+                        cblog.Error(err)
+                        callInfo.ErrorMSG = err.Error()
+                        if force != "true" {
+				callogger.Info(call.String(callInfo))
+                                return false, vmStatus, err
+                        }
+                }
+
+		if vmStatus == cres.Terminated {
+			callInfo.ElapsedTime = call.Elapsed(start)
+			callogger.Info(call.String(callInfo))
+			break
+		}
+
+		// Check Sync Called
+		waiter := NewWaiter(1, 120) // (sleep, timeout)
+
+		for {
+			vmStatus, err = handler.(cres.VMHandler).GetVMStatus(driverIId)
+			if err != nil {
+				cblog.Error(err)
+				callInfo.ErrorMSG = err.Error()
+				if force != "true" {
+					callogger.Info(call.String(callInfo))
+					return false, vmStatus, err
+				}
+			}
+			if vmStatus == cres.Terminated {
+				break
+			}
+
+			if !waiter.Wait() {
+				if force != "true" {
+					err := fmt.Errorf("Failed to terminate VM %s. (Timeout=%s)", driverIId.NameId, waiter.Timeout)
+					callInfo.ErrorMSG = err.Error()
+					callogger.Info(call.String(callInfo))
+					return false, vmStatus, err
+				}
 			}
 		}
+
+		callInfo.ElapsedTime = call.Elapsed(start)
 		callogger.Info(call.String(callInfo))
         case rsNLB:
                 result, err = handler.(cres.NLBHandler).DeleteNLB(driverIId)
