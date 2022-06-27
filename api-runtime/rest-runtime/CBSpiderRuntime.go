@@ -194,6 +194,7 @@ func RunServer() {
 
 		//----------CloudDriverInfo
 		{"POST", "/driver", RegisterCloudDriver},
+		{"POST", "/driver/upload", UploadCloudDriver},
 		{"GET", "/driver", ListCloudDriver},
 		{"GET", "/driver/:DriverName", GetCloudDriver},
 		{"DELETE", "/driver/:DriverName", UnRegisterCloudDriver},
