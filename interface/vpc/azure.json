@@ -1,0 +1,13 @@
+    {
+      "ConnectionName":"azure-northeu-config",
+      "ReqInfo": {
+        "Name": "latte-vpc-01",
+        "IPv4_CIDR": "192.168.0.0/16",
+        "SubnetInfoList": [
+          {
+            "Name": "latte-subnet-01",
+            "IPv4_CIDR": "192.168.0.0/24"
+          }
+        ]
+      }
+    }
