@@ -24,6 +24,7 @@ import (
 	ccm "github.com/cloud-barista/cb-spider/cloud-control-manager"
 	cres "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	iidm "github.com/cloud-barista/cb-spider/cloud-control-manager/iid-manager"
+	"github.com/cloud-barista/cb-spider/cloud-control-manager/vm-ssh"
 	"github.com/cloud-barista/cb-store/config"
 	"github.com/sirupsen/logrus"
 
@@ -3018,13 +3019,51 @@ func StartVM(connectionName string, rsType string, reqInfo cres.VMReqInfo) (*cre
 
 	// (4) create Resource
 	info, err := handler.StartVM(reqInfoForDriver)
-	callInfo.ElapsedTime = call.Elapsed(start)
 	if err != nil {
 		cblog.Error(err)
 		callInfo.ErrorMSG = err.Error()
+		callogger.Info(call.String(callInfo))
 		return nil, err
 	}
+
+	// Check Sync Called and Make sure cb-user prepared -----------------
+	waiter := NewWaiter(2, 120) // (sleep, timeout)
+
+	for {
+		// (1) Get public IP of new VM
+		vmInfo, err := handler.GetVM(info.IId)
+		if err != nil {
+			cblog.Error(err)
+			if checkNotFoundError(err) { // VM is not created yet.
+				continue
+			}
+			callInfo.ErrorMSG = err.Error()
+			callogger.Info(call.String(callInfo))
+
+			handler.TerminateVM(info.IId)
+
+			return nil, err
+		}
+		if vmInfo.PublicIP == "" {
+			continue
+		}
+
+		// (2) Check ssh daemon of new VM
+		if checkSSH(vmInfo.PublicIP+":22") {
+			break
+		}
+
+		if !waiter.Wait() {
+			handler.TerminateVM(info.IId)
+                        return nil, fmt.Errorf("[%s] Failed to Start VM %s. (Timeout=%v)", connectionName, reqIId.NameId, waiter.Timeout)
+                }
+	}
+
+	callInfo.ElapsedTime = call.Elapsed(start)
 	callogger.Info(call.String(callInfo))
+
+	// End : Check Sync Called and Make sure cb-user prepared -----------------
+
 
 
 	// (5) create spiderIID: {reqNameID, "driverNameID:driverSystemID"}
@@ -3038,7 +3077,7 @@ func StartVM(connectionName string, rsType string, reqInfo cres.VMReqInfo) (*cre
 	if err != nil {
 		cblog.Error(err)
 		// rollback
-		_, err2 := handler.TerminateVM(iidInfo.IId) // @todo check validation
+		_, err2 := handler.TerminateVM(info.IId) // @todo check validation
 		if err2 != nil {
 			cblog.Error(err2)
 			return nil, fmt.Errorf(err.Error() + ", " + err2.Error())
@@ -3068,6 +3107,61 @@ func StartVM(connectionName string, rsType string, reqInfo cres.VMReqInfo) (*cre
 	}
 
 	return &info, nil
+}
+
+func checkSSH(serverPort string) bool {
+
+        dummyKey  := []byte(`
+-----BEGIN RSA PRIVATE KEY-----
+MIIEoQIBAAKCAQEArVNOLwMIp5VmZ4VPZotcoCHdEzimKalAsz+ccLfvAA1Y2ELH
+VwihRvkrqukUlkC7B3ASSCtgxIt5ZqfAKy9JvlT+Po/XHfaIpu9KM/XsZSdsF2jS
+zv3TCSvod2f09Bx7ebowLVRzyJe4UG+0OuM10Sk9dXRXL+viizyyPp1Ie2+FN32i
+KVTG9jVd21kWUYxT7eKuqH78Jt5Ezmsqs4ArND5qM3B2BWQ9GiyOcOl6NfyA4+RH
+wv8eYRJkkjv5q7R675U+EWLe7ktpmboOgl/I5hV1Oj/SQ3F90RqUcLrRz9XTsRKl
+nKY2KG/2Q3ZYabf9TpZ/DeHNLus5n4STzFmukQIBIwKCAQEAqF+Nx0TGlCq7P/3Y
+GnjAYQr0BAslEoco6KQxkhHDmaaQ0hT8KKlMNlEjGw5Og1TS8UhMRhuCkwsleapF
+pksxsZRksc2PJGvVNHNsp4EuyKnz+XvFeJ7NAZheKtoD5dKGk4GrJLhwebf04GyD
+MeQIZMj539AaLo1funV58667cJaekV7/uvnX49MdAmZdrUteMMO42RzFOgA5JC8o
+30DfxR+nABRAq+nopYBxqFAYSa+Eis0KSd2Gm5w2uuaGBqM1Nqw/EcS41aIFGAvL
+gSsAP6ot2W9trWQWGkVvmprFQ64LQ5xwJHf74Ig+t2XjIQ6dkJH6DQjU1nUMMklq
+60WagwKBgQDcuFx2GgxbED4Ruv7S/R5ysZuaVpw03S0rKcC3k8lE5xCmrM0E1Q6Z
+U2h52ZO4WmXQuTCMh8PIsWKLg7BzacTWd91xGKWE3tD3wXK334fRwVa3ARKgaaH6
+Rs1h+a0U8js5T//mf/NYYPKbltWrtXTcuwFt6XG2RWDzn1sPbf8h4wKBgQDJB5m7
+ZWVY8+lE2h4QEvql6/YSRTYaYM788FvJDLfh1RS1u0NMu5mOo+0JAKj0JlLzBTsD
+drktAHDsAtp0wqH8v2/mZnLYBmK35SwjQ4YNecvLQsIEtmD0USPWKrm1kGdwqohL
+q90AJB5HSjBC5Q5vUZVij32WKuSbU+z/t3TH+wKBgBLrOyAQ3HzVgam/ki9XhkRY
+XctmgmruYvUSNRcMqtoFLVAdcKikjDkHJjZUemBCQz3GuwS7LgnjUZbuB89g1luG
+nfPASLOeEelZuWA3uy88dSWhAZi4mNrwIDuZDtXo4IFBXxPB0weTR/61KEHq+2Ng
+fHcio1jEHkDEhCXk21qtAoGAROypvJfK+e06CPpTczm1Ba/8mIzCF6wptc7AYjA/
+C5mDcYIIchRvKZdJ9HVBPcP/Lr/2+d+P8iwJdX1SNqkhmHwmXZ931QmA7pe3XIwt
+9f3feOOwPCFF0BvRxcWBgBRAuOoC2B2q23oZAn/WCE6ImzHqEynh6lfZWdOhtsKO
+cHMCgYBmdhIjJnWbqU5oHVQHN7sVCiRAScAUyTqlUCqB/qSpweZfR+aQ72thnx7C
+0j+fdgy90is7ARo9Jam6jFtHwa9JXqH+g24Gdxk+smBeUgiZu63ZG/Z70L4okr4K
+6BQlL1pZI4zGbG4H34TPraxvJVdVKVSLAXPur1pqgbJzD2nFUg==
+-----END RSA PRIVATE KEY-----
+`)
+
+        sshInfo := sshrun.SSHInfo{
+                UserName: "cb-user",
+                PrivateKey: dummyKey,
+                ServerPort: serverPort,
+                Timeout: 3, // 3 sec
+        }
+
+	cmd := "whoami"
+
+	// ssh: handshake failed: 
+	// ssh: unable to authenticate, attempted methods [none publickey], no supported methods remain
+	expectedErrMSG := "handshake failed"
+
+        _, err := sshrun.SSHRun(sshInfo, cmd)
+	if strings.Contains(err.Error(), expectedErrMSG) {
+		// Can't check cb-user without Private Key.
+		// Temparorily Waiting until the cb-user prepared in new VM - @todo
+		time.Sleep(time.Duration(15) * time.Second)
+		return true
+	}
+	return false
 }
 
 func translateRootDiskSetupInfo(providerName string, reqInfo *cres.VMReqInfo) error {
@@ -3588,7 +3682,7 @@ func ControlVM(connectionName string, rsType string, nameID string, action strin
         }
 
 	// Check Sync Called
-	waiter := NewWaiter(1, 120) // (sleep, timeout)
+	waiter := NewWaiter(2, 120) // (sleep, timeout)
 
 	for { 
 		status, err := handler.GetVMStatus(vmIID) 
@@ -3616,7 +3710,7 @@ func ControlVM(connectionName string, rsType string, nameID string, action strin
 		}
 
 		if !waiter.Wait() {
-			return "", fmt.Errorf("Failed to " + action + " VM %s. (Timeout=%s)", vmIID.NameId, waiter.Timeout) 
+			return "", fmt.Errorf("[%s] Failed to " + action + " VM %s. (Timeout=%v)", connectionName, vmIID.NameId, waiter.Timeout) 
 		}
 	}
 }
@@ -4012,42 +4106,53 @@ func DeleteResource(connectionName string, rsType string, nameID string, force s
 		vmStatus, err = handler.(cres.VMHandler).TerminateVM(driverIId)
                 if err != nil {
                         cblog.Error(err)
-                        callInfo.ErrorMSG = err.Error()
                         if force != "true" {
+				callInfo.ErrorMSG = err.Error()
 				callogger.Info(call.String(callInfo))
                                 return false, vmStatus, err
-                        }
+                        }else {
+				break
+			}
                 }
 
 		if vmStatus == cres.Terminated {
-			callInfo.ElapsedTime = call.Elapsed(start)
-			callogger.Info(call.String(callInfo))
 			break
 		}
 
 		// Check Sync Called
-		waiter := NewWaiter(1, 120) // (sleep, timeout)
+		waiter := NewWaiter(2, 120) // (sleep, timeout)
 
 		for {
-			vmStatus, err = handler.(cres.VMHandler).GetVMStatus(driverIId)
+			status, err := handler.(cres.VMHandler).GetVMStatus(driverIId)
+			if status == cres.NotExist { // alibaba returns NotExist with err==nil
+				err = fmt.Errorf("Not Found %s", driverIId.SystemId)
+			}
 			if err != nil {
 				cblog.Error(err)
-				callInfo.ErrorMSG = err.Error()
+				if checkNotFoundError(err) { // VM can be deleted after terminate.
+					break
+				}
 				if force != "true" {
+					callInfo.ErrorMSG = err.Error()
 					callogger.Info(call.String(callInfo))
-					return false, vmStatus, err
+					return false, status, err
+				}else {
+					break
 				}
 			}
-			if vmStatus == cres.Terminated {
+			if status == cres.Terminated {
+				vmStatus = status
 				break
 			}
 
 			if !waiter.Wait() {
+				err := fmt.Errorf("[%s] Failed to terminate VM %s. (Timeout=%v)", connectionName, driverIId.NameId, waiter.Timeout)
 				if force != "true" {
-					err := fmt.Errorf("Failed to terminate VM %s. (Timeout=%s)", driverIId.NameId, waiter.Timeout)
 					callInfo.ErrorMSG = err.Error()
 					callogger.Info(call.String(callInfo))
-					return false, vmStatus, err
+					return false, status, err
+				}else {
+					break
 				}
 			}
 		}

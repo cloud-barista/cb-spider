@@ -18,6 +18,7 @@ echo -e "###########################################################"
 echo -e "\n\n"
 
 ../common/7.key-delete.sh $1
+rm -f ./${KEYPAIR_NAME}.pem
 
 #### Check sync called
 ret=`../common/2.key-get.sh $1 2>&1 | grep NameId`
