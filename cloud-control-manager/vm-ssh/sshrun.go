@@ -14,6 +14,7 @@ import (
 
 
 	"io"
+	"time"
 	"github.com/bramvdbogaerde/go-scp"
 	"github.com/bramvdbogaerde/go-scp/auth"
 	"golang.org/x/crypto/ssh"
@@ -34,13 +35,14 @@ type SSHInfo struct {
                                 //              MIIEoQIBAAKCAQEArVNOLwMIp5VmZ4VPZotcoCHdEzimKalAsz+ccLfvAA1Y2ELH
                                 //              ...`)
         ServerPort      string  // ex) "node12:22"
+	Timeout		int	// ex) 3 (= 3sec)
 }
 //====================================================================
 
 func Connect(sshInfo SSHInfo) (scp.Client, error) {
 	cblog.Info("call Connect()")
 
-        clientConfig, _ := getClientConfig(sshInfo.UserName, sshInfo.PrivateKey, ssh.InsecureIgnoreHostKey())
+        clientConfig, _ := getClientConfig(sshInfo.UserName, sshInfo.PrivateKey, ssh.InsecureIgnoreHostKey(), sshInfo.Timeout)
         client := scp.NewClient(sshInfo.ServerPort, &clientConfig)
         err := client.Connect()
         return client, err
@@ -63,7 +65,7 @@ func ConnectKeyPath(sshKeyPathInfo SSHKeyPathInfo) (scp.Client, error) {
         return client, err
 }
 
-func getClientConfig(username string, privateKey []byte, keyCallBack ssh.HostKeyCallback) (ssh.ClientConfig, error) {
+func getClientConfig(username string, privateKey []byte, keyCallBack ssh.HostKeyCallback, timeout int) (ssh.ClientConfig, error) {
 
 	signer, err := ssh.ParsePrivateKey(privateKey)
 	if err != nil {
@@ -77,6 +79,10 @@ func getClientConfig(username string, privateKey []byte, keyCallBack ssh.HostKey
                 },
                 HostKeyCallback: keyCallBack,
         }
+	if timeout > 0 {
+		clientConfig.Timeout = time.Second * time.Duration(timeout)
+	}
+
 	return clientConfig, nil
 }
 
