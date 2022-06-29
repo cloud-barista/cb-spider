@@ -21,13 +21,22 @@ echo -e "\n\n"
 ../common/3-2.vm-resume.sh $1 
 
 #### Check sync called
-ret=`../common/2.vm-getstatus.sh $1 2>&1 | grep Running`
+for i in {1..20}
+do
+	ret=`../common/2.vm-getstatus.sh $1 2>&1 | grep Running`
 
-if [ "$ret" ];then
-        echo -e "\n-------------------------------------------------------------- $0 $1 : pass"
-else
-        echo -e "\n-------------------------------------------------------------- $0 $1 : fail"
-fi
+        if [ "$ret" ];then
+                echo -e "\n-------------------------------------------------------------- $0 $1 : pass"
+                exit 0
+        else
+                echo -e "\n-------------------------------------------------------------- $0 $1 : one more try"
+                sleep 2
+        fi
+done
+
+echo -e "\n-------------------------------------------------------------- $0 $1 : fail"
+
+
 
 echo -e "\n\n"
 

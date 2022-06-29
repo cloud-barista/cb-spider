@@ -24,21 +24,26 @@ echo -e "\n\n"
 P_IP=`../common/./6.vm-get.sh $1 |grep PublicIP: |awk '{print $2}'`
 ssh-keygen -f "/home/ubuntu/.ssh/known_hosts" -R $P_IP 2> /dev/null
 
-SSH_CMD="ssh -i ../3.key-test/${KEYPAIR_NAME}.pem -o StrictHostKeyChecking=no -o ConnectTimeout=10 cb-user@$P_IP whoami"
+SSH_CMD="ssh -i ../3.key-test/${KEYPAIR_NAME}.pem -o StrictHostKeyChecking=no -o ConnectTimeout=3 cb-user@$P_IP whoami"
 
 ### for debug
 #$SSH_CMD
 
+
 #### Check SSH Call by cb-user
-ret=`$SSH_CMD 2>&1 | grep cb-user`
-#echo $SSH_CMD
-echo 
-echo $ret
-echo 
-if [ "$ret" = "cb-user"  ];then
-        echo -e "\n-------------------------------------------------------------- $0 $1 : pass"
-else
-        echo -e "\n-------------------------------------------------------------- $0 $1 : fail"
-fi
+for i in {1..20}
+do
+	ret=`$SSH_CMD 2>&1 | grep cb-user`
+
+	if [ "$ret" = "cb-user"  ];then
+		echo -e "\n-------------------------------------------------------------- $0 $1 : pass"
+		exit 0
+	else
+		echo -e "\n-------------------------------------------------------------- $0 $1 : one more try"
+		sleep 2
+	fi
+done
+
+echo -e "\n-------------------------------------------------------------- $0 $1 : fail"
 
 echo -e "\n\n"

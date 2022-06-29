@@ -3027,10 +3027,15 @@ func StartVM(connectionName string, rsType string, reqInfo cres.VMReqInfo) (*cre
 	}
 
 	// Check Sync Called and Make sure cb-user prepared -----------------
-	waiter := NewWaiter(2, 120) // (sleep, timeout)
+	// --- <step-1> Get PublicIP of new VM
+	var checkError struct {
+		Flag bool
+		MSG string
+	}
 
+	waiter := NewWaiter(5, 240) // (sleep, timeout)
+	var publicIP string
 	for {
-		// (1) Get public IP of new VM
 		vmInfo, err := handler.GetVM(info.IId)
 		if err != nil {
 			cblog.Error(err)
@@ -3040,23 +3045,37 @@ func StartVM(connectionName string, rsType string, reqInfo cres.VMReqInfo) (*cre
 			callInfo.ErrorMSG = err.Error()
 			callogger.Info(call.String(callInfo))
 
-			handler.TerminateVM(info.IId)
+			//handler.TerminateVM(info.IId)
 
 			return nil, err
 		}
-		if vmInfo.PublicIP == "" {
-			continue
-		}
-
-		// (2) Check ssh daemon of new VM
-		if checkSSH(vmInfo.PublicIP+":22") {
+		if vmInfo.PublicIP != "" {
+			publicIP = vmInfo.PublicIP
 			break
 		}
 
 		if !waiter.Wait() {
-			handler.TerminateVM(info.IId)
-                        return nil, fmt.Errorf("[%s] Failed to Start VM %s. (Timeout=%v)", connectionName, reqIId.NameId, waiter.Timeout)
+			//handler.TerminateVM(info.IId)
+			checkError.Flag = true
+			checkError.MSG = fmt.Sprintf("[%s] Failed to Start VM %s when getting PublicIP. (Timeout=%v)", connectionName, reqIId.NameId, waiter.Timeout)
                 }
+	}
+
+	if !checkError.Flag {
+		// --- <step-2> Check SSHD Daemon of new VM
+		waiter2 := NewWaiter(2, 120) // (sleep, timeout) 
+
+		for {
+			if checkSSH(publicIP+":22") {
+				break
+			}
+
+			if !waiter2.Wait() {
+				//handler.TerminateVM(info.IId)
+				checkError.Flag = true
+				checkError.MSG = fmt.Sprintf("[%s] Failed to Start VM %s when checking SSHD Daemon. (Timeout=%v)", connectionName, reqIId.NameId, waiter2.Timeout)
+			}
+		}
 	}
 
 	callInfo.ElapsedTime = call.Elapsed(start)
@@ -3106,7 +3125,11 @@ func StartVM(connectionName string, rsType string, reqInfo cres.VMReqInfo) (*cre
 		info.SSHAccessPoint = info.PublicIP + ":22"
 	}
 
-	return &info, nil
+	if checkError.Flag {
+		return &info, fmt.Errorf(checkError.MSG)
+	} else {
+		return &info, nil
+	}
 }
 
 func checkSSH(serverPort string) bool {
@@ -3156,9 +3179,7 @@ cHMCgYBmdhIjJnWbqU5oHVQHN7sVCiRAScAUyTqlUCqB/qSpweZfR+aQ72thnx7C
 
         _, err := sshrun.SSHRun(sshInfo, cmd)
 	if strings.Contains(err.Error(), expectedErrMSG) {
-		// Can't check cb-user without Private Key.
-		// Temparorily Waiting until the cb-user prepared in new VM - @todo
-		time.Sleep(time.Duration(15) * time.Second)
+		// Note: Can't check cb-user without Private Key.
 		return true
 	}
 	return false
@@ -3663,56 +3684,7 @@ func ControlVM(connectionName string, rsType string, nameID string, action strin
 		return "", err
 	}
 
-        switch strings.ToLower(action) {
-        case "suspend":
-                if info == cres.Suspended {
-			return info, nil
-		}
-        case "resume":
-                if info == cres.Running {
-			return info, nil
-		}
-        case "reboot":
-                if info == cres.Running {
-			return info, nil
-		}
-        default:
-                return "", fmt.Errorf(action + " is not a valid action!!")
-
-        }
-
-	// Check Sync Called
-	waiter := NewWaiter(2, 120) // (sleep, timeout)
-
-	for { 
-		status, err := handler.GetVMStatus(vmIID) 
-		if err != nil {
-			cblog.Error(err)
-			return "", err
-		}
-
-		switch strings.ToLower(action) {
-		case "suspend":
-			if status == cres.Suspended {
-				return status, nil
-			}
-		case "resume":
-			if status == cres.Running {
-				return status, nil
-			}
-		case "reboot":
-			if status == cres.Running {
-				return status, nil
-			}
-		default:
-			return "", fmt.Errorf(action + " is not a valid action!!")
-
-		}
-
-		if !waiter.Wait() {
-			return "", fmt.Errorf("[%s] Failed to " + action + " VM %s. (Timeout=%v)", connectionName, vmIID.NameId, waiter.Timeout) 
-		}
-	}
+	return info, nil
 }
 
 // list all Resources for management
@@ -4120,7 +4092,7 @@ func DeleteResource(connectionName string, rsType string, nameID string, force s
 		}
 
 		// Check Sync Called
-		waiter := NewWaiter(2, 120) // (sleep, timeout)
+		waiter := NewWaiter(5, 240) // (sleep, timeout)
 
 		for {
 			status, err := handler.(cres.VMHandler).GetVMStatus(driverIId)
