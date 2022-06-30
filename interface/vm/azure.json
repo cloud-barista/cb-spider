@@ -1,0 +1,14 @@
+    {
+      "ConnectionName":"azure-northeu-config",
+      "ReqInfo": {
+        "Name": "latte-vm-01",
+
+        "ImageName": "Canonical:UbuntuServer:18.04-LTS:latest",
+        "VMSpecName": "Standard_B1ls",
+
+        "VPCName": "latte-vpc-01",
+        "SubnetName": "latte-subnet-01",
+        "SecurityGroupNames": [ "latte-sg-01" ],
+        "KeyPairName": "latte-key-01"
+      }
+    }

@@ -1812,6 +1812,28 @@ func ControlVM(c echo.Context) error {
 	return c.JSON(http.StatusOK, &resultInfo)
 }
 
+func GetNLBOwnerVPC(c echo.Context) error {
+        cblog.Info("call GetNLBOwnerVPC()")
+
+        var req struct {
+                ConnectionName string
+                ReqInfo        struct {
+                        CSPId          string
+                }
+        }
+
+        if err := c.Bind(&req); err != nil {
+                return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+        }
+
+        // Call common-runtime API
+        result, err := cmrt.GetNLBOwnerVPC(req.ConnectionName, req.ReqInfo.CSPId)
+        if err != nil {
+                return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+        }
+
+        return c.JSON(http.StatusOK, result)
+}
 
 type NLBRegisterReq struct {
         ConnectionName string
@@ -1882,9 +1904,24 @@ type NLBReq struct {
 		Listener        cres.ListenerInfo
 
 		//------ Backend
-		VMGroup         cres.VMGroupInfo
-		HealthChecker   cres.HealthCheckerInfo
+		VMGroup         VMGroupReq
+		HealthChecker   HealthCheckerReq  // for int mapping with string
         }
+}
+// for int mapping with string
+type HealthCheckerReq struct {
+	Protocol        string  // TCP|HTTP|HTTPS
+	Port            string  // Listener Port or 1-65535
+	Interval        string     // secs, Interval time between health checks.
+	Timeout         string     // secs, Waiting time to decide an unhealthy VM when no response.
+	Threshold       string     // num, The number of continuous health checks to change the VM status.
+}
+
+// for VM IID mapping
+type VMGroupReq struct {
+        Protocol        string  // TCP|HTTP|HTTPS
+        Port            string  // Listener Port or 1-65535
+        VMs        	[]string
 }
 
 func CreateNLB(c echo.Context) error {
@@ -1903,8 +1940,8 @@ func CreateNLB(c echo.Context) error {
                 Type:        	req.ReqInfo.Type,
                 Scope:        	req.ReqInfo.Scope,
                 Listener: 	req.ReqInfo.Listener,
-                VMGroup: 	req.ReqInfo.VMGroup,
-                HealthChecker: 	req.ReqInfo.HealthChecker,
+                VMGroup: 	convertVMGroupInfo(req.ReqInfo.VMGroup),
+                HealthChecker: 	convertHealthCheckerInfo(req.ReqInfo.HealthChecker),
         }
 
         // Call common-runtime API
@@ -1914,6 +1951,21 @@ func CreateNLB(c echo.Context) error {
         }
 
         return c.JSON(http.StatusOK, result)
+}
+
+func convertVMGroupInfo(vgInfo VMGroupReq) cres.VMGroupInfo {
+	vmIIDList := []cres.IID{}
+	for _, vm := range vgInfo.VMs {
+		vmIIDList = append(vmIIDList, cres.IID{vm, ""})	
+	}
+	return cres.VMGroupInfo{vgInfo.Protocol, vgInfo.Port, &vmIIDList, "", nil}
+}
+
+func convertHealthCheckerInfo(hcInfo HealthCheckerReq) cres.HealthCheckerInfo {
+	interval, _ := strconv.Atoi(hcInfo.Interval)
+	timeout, _ := strconv.Atoi(hcInfo.Timeout)
+	threshold, _ := strconv.Atoi(hcInfo.Threshold)
+        return cres.HealthCheckerInfo{hcInfo.Protocol, hcInfo.Port, interval, timeout, threshold, "", nil}
 }
 
 func ListNLB(c echo.Context) error {
@@ -1997,6 +2049,179 @@ func GetNLB(c echo.Context) error {
         }
 
         return c.JSON(http.StatusOK, result)
+}
+
+func AddNLBVMs(c echo.Context) error {
+        cblog.Info("call AddNLBVMs()")
+
+        var req struct {
+                ConnectionName string
+                ReqInfo        struct {
+                        VMs      []string
+                }
+        }
+
+        if err := c.Bind(&req); err != nil {
+                return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+        }
+
+        // Call common-runtime API
+        result, err := cmrt.AddNLBVMs(req.ConnectionName, c.Param("Name"), req.ReqInfo.VMs)
+        if err != nil {
+                return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+        }
+
+        return c.JSON(http.StatusOK, result)
+}
+
+func RemoveNLBVMs(c echo.Context) error {
+        cblog.Info("call RemoveNLBVMs()")
+
+        var req struct {
+                ConnectionName string
+                ReqInfo        struct {
+                        VMs      []string
+                }
+        }
+
+        if err := c.Bind(&req); err != nil {
+                return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+        }
+
+        // Call common-runtime API
+        result, err := cmrt.RemoveNLBVMs(req.ConnectionName, c.Param("Name"), req.ReqInfo.VMs)
+        if err != nil {
+                return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+        }
+
+        return c.JSON(http.StatusOK, result)
+}
+
+func ChangeListener(c echo.Context) error {
+        cblog.Info("call ChangeListener()")
+
+        var req struct {
+                ConnectionName string
+                ReqInfo        struct {
+                        Protocol      	string
+                        Port		string
+                }
+        }
+
+        if err := c.Bind(&req); err != nil {
+                return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+        }
+
+        reqInfo := cres.ListenerInfo{
+                Protocol:       req.ReqInfo.Protocol,
+                Port:       	req.ReqInfo.Port,
+        }
+
+        // Call common-runtime API
+        result, err := cmrt.ChangeListener(req.ConnectionName, c.Param("Name"), reqInfo)
+        if err != nil {
+                return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+        }
+
+        return c.JSON(http.StatusOK, result)
+}
+
+func ChangeVMGroup(c echo.Context) error {
+        cblog.Info("call ChangeVMGroup()")
+
+        var req struct {
+                ConnectionName string
+                ReqInfo        struct {
+                        Protocol      string
+                        Port          string
+                }
+        }
+
+        if err := c.Bind(&req); err != nil {
+                return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+        }
+
+        reqInfo := cres.VMGroupInfo{
+                Protocol:       req.ReqInfo.Protocol,
+                Port:       	req.ReqInfo.Port,
+	}
+
+        // Call common-runtime API
+        result, err := cmrt.ChangeVMGroup(req.ConnectionName, c.Param("Name"), reqInfo)
+        if err != nil {
+                return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+        }
+
+        return c.JSON(http.StatusOK, result)
+}
+
+func ChangeHealthChecker(c echo.Context) error {
+        cblog.Info("call ChangeHealthChecker()")
+
+        var req struct {
+                ConnectionName string
+                ReqInfo        struct {
+                        Protocol      string
+                        Port          string
+                        Interval      string
+                        Timeout       string
+                        Threshold     string
+                }
+        }
+
+        if err := c.Bind(&req); err != nil {
+                return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+        }
+
+	interval, err := strconv.Atoi(req.ReqInfo.Interval)
+	timeout, err := strconv.Atoi(req.ReqInfo.Timeout)
+	threshold, err := strconv.Atoi(req.ReqInfo.Threshold)
+
+        reqInfo := cres.HealthCheckerInfo{
+                Protocol:       req.ReqInfo.Protocol,
+                Port:           req.ReqInfo.Port,
+                Interval:       interval,
+                Timeout:       	timeout,
+                Threshold:      threshold,
+        }
+
+        // Call common-runtime API
+        result, err := cmrt.ChangeHealthChecker(req.ConnectionName, c.Param("Name"), reqInfo)
+        if err != nil {
+                return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+        }
+
+        return c.JSON(http.StatusOK, result)
+}
+
+func GetVMGroupHealthInfo(c echo.Context) error {
+        cblog.Info("call GetVMGroupHealthInfo()")
+
+        var req struct {
+                ConnectionName string
+        }
+
+        if err := c.Bind(&req); err != nil {
+                return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+        }
+
+        // To support for Get-Query Param Type API
+        if req.ConnectionName == "" {
+                req.ConnectionName = c.QueryParam("ConnectionName")
+        }
+
+        // Call common-runtime API
+        result, err := cmrt.GetVMGroupHealthInfo(req.ConnectionName, c.Param("Name"))
+        if err != nil {
+                return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+        }
+
+        var jsonResult struct {
+                Result cres.HealthInfo `json:"healthinfo"`
+        }
+        jsonResult.Result = *result
+
+        return c.JSON(http.StatusOK, &jsonResult)
 }
 
 // (1) get args from REST Call

@@ -1081,11 +1081,11 @@ func handleNLB() {
 
 	nlbReqInfo := irs.NLBInfo{
 
-		IId:           irs.IID{NameId: "New-CB-NLB"},
+		IId:           irs.IID{NameId: "New-CB-NLB03"},
 		VpcIID:        irs.IID{SystemId: "vpc-i614yona"},
 		Type:          "PUBLIC",
 		Listener:      irs.ListenerInfo{Protocol: "TCP", Port: "80"},
-		HealthChecker: irs.HealthCheckerInfo{Protocol: "HTTP", Port: "80", Interval: 5, Timeout: 2, Threshold: 3},
+		HealthChecker: irs.HealthCheckerInfo{Port: "1234"},
 		VMGroup: irs.VMGroupInfo{
 			Protocol: "TCP",
 			Port:     "80",
@@ -1093,7 +1093,7 @@ func handleNLB() {
 		},
 	}
 
-	reqNLBId := irs.IID{SystemId: "lb-ecyd4pb5"}
+	reqNLBId := irs.IID{SystemId: "lb-qfipv1il"}
 
 	for {
 		fmt.Println("Handler Management")
@@ -1201,8 +1201,8 @@ func handleNLB() {
 			case 9:
 				cblogger.Infof("[%s] NLB VM Group 변경 테스트", reqNLBId)
 				result, err := handler.ChangeVMGroupInfo(reqNLBId, irs.VMGroupInfo{
-					Protocol: "TCP",
-					Port:     "8080",
+					//Protocol: "TCP",
+					Port: "8080",
 				})
 				if err != nil {
 					cblogger.Infof("[%s] NLB VM Group 변경 실패 : ", reqNLBId.SystemId, err)
@@ -1216,7 +1216,7 @@ func handleNLB() {
 					Protocol:  "HTTP",
 					Port:      "80",
 					Interval:  10,
-					Timeout:   3,
+					Timeout:   5,
 					Threshold: 5,
 				})
 				if err != nil {

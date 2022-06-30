@@ -10,6 +10,7 @@ package cmd
 
 import (
 	"github.com/spf13/cobra"
+	"fmt"
 
 	"github.com/cloud-barista/cb-spider/api-runtime/grpc-runtime/logger"
 )
@@ -45,6 +46,7 @@ func NewVPCCmd() *cobra.Command {
 	vpcCmd.AddCommand(NewSubnetRemoveCSPCmd())
 	vpcCmd.AddCommand(NewVPCRegisterCmd())
 	vpcCmd.AddCommand(NewVPCUnregisterCmd())
+	vpcCmd.AddCommand(ExVPCCmd())
 
 	return vpcCmd
 }
@@ -372,4 +374,37 @@ func NewVPCUnregisterCmd() *cobra.Command {
 	unregisterCmd.PersistentFlags().StringVarP(&vpcName, "name", "n", "", "vpc name")
 
 	return unregisterCmd
+}
+
+func ExVPCCmd() *cobra.Command {
+        exVPCCmd := &cobra.Command{
+                Use:   "ex",
+                Short: "example to create vpc",
+                Long: "example to create vpc",
+                Run: func(cmd *cobra.Command, args []string) {
+                        excmd := `
+spctl vpc create -d \
+    '{
+      "ConnectionName":"aws-ohio-config",
+      "ReqInfo": {
+        "Name": "spider-vpc-01",
+
+        "IPv4_CIDR": "192.168.0.0/16",
+
+        "SubnetInfoList": [
+          {
+            "Name": "spider-subnet-01",
+            "IPv4_CIDR": "192.168.0.0/24"
+          }
+        ]
+      }
+    }'
+
+`
+                        fmt.Printf(excmd)
+
+                },
+        }
+
+        return exVPCCmd
 }

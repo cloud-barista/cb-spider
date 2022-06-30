@@ -29,7 +29,6 @@ echo -e "###########################################################"
 echo -e "\n\n"
 
 
-#for (( num=1; num <= $2; num++ ))
 while true
 do
 	# ex) ../common/3.vpc-list.sh aws

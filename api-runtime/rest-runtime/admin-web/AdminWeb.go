@@ -242,6 +242,16 @@ func Top(c echo.Context) error {
                     <font size=2>[mgmt]</font>
                 </a>
             </td>
+            <td width="140">
+                <!-- NLB Management -->
+                <a href="nlb/region not set" target="main_frame" id="nlbHref">
+                    <font size=2>3.NLB</font>
+                </a>
+                &nbsp;
+                <a href="nlbmgmt/region not set" target="main_frame" id="nlbmgmtHref">
+                    <font size=2>[mgmt]</font>
+                </a>
+            </td>
             <td width="230">
                 <!-- Image Management -->
                 <a href="vmimage/region not set" target="main_frame" id="vmimageHref">
@@ -517,7 +527,7 @@ func makeActionTR_html(colspan string, f5_href string,  delete_href string, font
 			</a>
 			&nbsp;
 			<a href="javascript:%s;">
-			    <font size=%s><b>&nbsp;X</b></font>
+			    <font color=red size=%s><b>&nbsp;X</b></font>
 			</a>
 			&nbsp;
 		    </td>

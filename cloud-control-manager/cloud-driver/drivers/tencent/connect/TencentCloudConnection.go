@@ -76,7 +76,7 @@ func (cloudConn *TencentCloudConnection) CreateVPCHandler() (irs.VPCHandler, err
 
 func (cloudConn *TencentCloudConnection) CreateNLBHandler() (irs.NLBHandler, error) {
 	cblogger.Info("Start")
-	handler := trs.TencentNLBHandler{cloudConn.Region, cloudConn.NLBClient}
+	handler := trs.TencentNLBHandler{cloudConn.Region, cloudConn.NLBClient, cloudConn.VNetworkClient}
 
 	return &handler, nil
 }
