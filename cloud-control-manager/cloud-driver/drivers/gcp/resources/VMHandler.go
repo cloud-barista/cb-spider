@@ -514,26 +514,47 @@ func (vmHandler *GCPVMHandler) RebootVM(vmID irs.IID) (irs.VMStatus, error) {
 		ErrorMSG:     "",
 	}
 	callLogStart := call.Start()
-	operation, err := vmHandler.Client.Instances.Reset(projectID, zone, vmID.SystemId).Context(ctx).Do()
 
+	status, err := vmHandler.GetVMStatus(vmID)
 	if err != nil {
-		callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
-		callLogInfo.ErrorMSG = err.Error()
-		callogger.Info(call.String(callLogInfo))
-		callogger.Info(operation)
+		callogger.Info(err)
 		return irs.VMStatus("Failed"), err
 	}
+	// running 상태일 때는 reset
+	if status == "Running" {
+		callogger.Info("vm의 상태가 running이므로 reset 호춯")
+		operation, err := vmHandler.Client.Instances.Reset(projectID, zone, vmID.SystemId).Context(ctx).Do()
+
+		if err != nil {
+			callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+			callLogInfo.ErrorMSG = err.Error()
+			callogger.Info(call.String(callLogInfo))
+			callogger.Info(operation)
+			return irs.VMStatus("Failed"), err
+		}
+	} else if status == "Suspended" {
+		callogger.Info("vm의 상태가 Suspended이므로 ResumeVM 호춯")
+		_, err := vmHandler.ResumeVM(vmID)
+		if err != nil {
+			return irs.VMStatus("Failed"), err
+		}
+	} else {
+		// running/suspended 이외에는 비정상
+		return irs.VMStatus("Failed"), errors.New(string("VM의 상태가 [" + status + "] 입니다."))
+	}
+	//callogger.Info(vmID)
+	//callogger.Info(status)
 
 	//operationType := 3 // operationZone := 3
 	//err = WaitOperationComplete(vmHandler.Client, projectID, region, zone, operation.Name, operationType)
 
-	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
-	if err != nil {
-		callLogInfo.ErrorMSG = err.Error()
-		callogger.Info(call.String(callLogInfo))
-		return irs.VMStatus("Failed"), err // stop 자체는 에러가 없으므로 wait 오류는 기록만.
-	}
-	callogger.Info(call.String(callLogInfo))
+	//callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+	//if err != nil {
+	//	callLogInfo.ErrorMSG = err.Error()
+	//	callogger.Info(call.String(callLogInfo))
+	//	return irs.VMStatus("Failed"), err // stop 자체는 에러가 없으므로 wait 오류는 기록만.
+	//}
+	//callogger.Info(call.String(callLogInfo))
 
 	return irs.VMStatus("Rebooting"), nil
 }
