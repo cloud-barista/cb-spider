@@ -917,6 +917,8 @@ func (vmHandler *AlibabaVMHandler) ConvertVMStatusString(vmStatus string) (irs.V
 
 	if strings.EqualFold(vmStatus, "Pending") {
 		resultStatus = "Creating"
+	} else if strings.EqualFold(vmStatus, "Starting") {
+		resultStatus = "Resuming" // Resume 요청을 받아서 재기동되는 단계는 Resuming으로 맵핑함.
 	} else if strings.EqualFold(vmStatus, "Running") {
 		resultStatus = "Running"
 	} else if strings.EqualFold(vmStatus, "Stopping") {
