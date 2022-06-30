@@ -19,8 +19,11 @@ import (
 
 	// REST API (echo)
 	"net/http"
-
 	"github.com/labstack/echo/v4"
+
+	"os"
+	"io"
+	"fmt"
 )
 
 //================ List of support CloudOS
@@ -112,6 +115,34 @@ func UnRegisterCloudDriver(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, &resultInfo)
+}
+
+func UploadCloudDriver(c echo.Context) error {
+        // Source
+        file, err := c.FormFile("file")
+        if err != nil {
+                return err
+        }
+        src, err := file.Open()
+        if err != nil {
+                return err
+        }
+        defer src.Close()
+
+        // Destination
+	cbspiderRoot := os.Getenv("CBSPIDER_ROOT")
+        dst, err := os.Create(cbspiderRoot + "/cloud-driver-libs/" + file.Filename)
+        if err != nil {
+                return err
+        }
+        defer dst.Close()
+
+        // Copy
+        if _, err = io.Copy(dst, src); err != nil {
+                return err
+        }
+
+        return c.HTML(http.StatusOK, fmt.Sprintf("<p>File %s uploaded successfully.</p>", file.Filename))
 }
 
 //================ Credential Handler

@@ -1128,6 +1128,11 @@ func makeSetupConnectionConfigFunc_js() string {
                         a = parent.frames["top_frame"].document.getElementById("vmmgmtHref");
                         a.href = "vmmgmt/" + configName
 
+                        // for nlb 
+                        a = parent.frames["top_frame"].document.getElementById("nlbHref");
+                        a.href = "nlb/" + configName
+                        a = parent.frames["top_frame"].document.getElementById("nlbmgmtHref");
+                        a.href = "nlbmgmt/" + configName
 
 		    // for VMImage
 		    a = parent.frames["top_frame"].document.getElementById("vmimageHref");

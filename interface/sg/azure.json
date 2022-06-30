@@ -1,0 +1,15 @@
+{
+      "ConnectionName":"azure-northeu-config",
+      "ReqInfo": {
+        "Name": "latte-sg-01",
+        "VPCName": "latte-vpc-01",
+        "SecurityRules": [
+          {
+            "Direction" : "inbound",
+            "IPProtocol" : "all",
+            "FromPort": "-1",
+            "ToPort" : "-1"
+          }
+        ]
+      }
+}

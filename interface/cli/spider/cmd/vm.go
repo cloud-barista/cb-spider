@@ -10,6 +10,7 @@ package cmd
 
 import (
 	"github.com/spf13/cobra"
+	"fmt"
 
 	"github.com/cloud-barista/cb-spider/api-runtime/grpc-runtime/logger"
 )
@@ -47,6 +48,8 @@ func NewVMCmd() *cobra.Command {
 	vmCmd.AddCommand(NewVMTerminateCSPCmd())
 	vmCmd.AddCommand(NewVMRegisterCmd())
 	vmCmd.AddCommand(NewVMUnregisterCmd())
+
+	vmCmd.AddCommand(ExVMCmd())
 
 	return vmCmd
 }
@@ -360,6 +363,37 @@ func NewVMTerminateCSPCmd() *cobra.Command {
 	terminateCSPCmd.PersistentFlags().StringVarP(&cspID, "id", "", "", "csp id")
 
 	return terminateCSPCmd
+}
+
+func ExVMCmd() *cobra.Command {
+	exVMCmd := &cobra.Command{
+		Use:   "ex",
+                Short: "example to start vm",
+                Long: "example to start vm",
+                Run: func(cmd *cobra.Command, args []string) {
+			excmd := `
+spctl vm start -d \
+    '{
+      "ConnectionName":"aws-ohio-config",
+      "ReqInfo": {
+        "Name": "spider-vm-01",
+        
+        "ImageName": "ami-0bbe28eb2173f6167",
+        "VMSpecName": "t2.micro",
+
+        "VPCName": "spider-vpc-01",
+        "SubnetName": "spider-subnet-01",
+        "SecurityGroupNames": [ "spider-sg-01" ],
+        "KeyPairName": "spider-key-01"
+      }
+    }'
+
+`
+                        fmt.Printf(excmd)
+                },
+	}
+
+	return exVMCmd
 }
 
 // NewVMRegisterCmd - VM Register 등록 기능을 수행하는 Cobra Command 생성

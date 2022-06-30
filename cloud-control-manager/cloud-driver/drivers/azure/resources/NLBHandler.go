@@ -170,7 +170,15 @@ func (nlbHandler *AzureNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (createNLB 
 		// Update BackEndPool
 		privateIPs := make([]string, len(*nlbReqInfo.VMGroup.VMs))
 		for i, vmIId := range *nlbReqInfo.VMGroup.VMs {
-			vm, err := GetRawVM(vmIId, nlbHandler.Region.ResourceGroup, nlbHandler.VMClient, nlbHandler.Ctx)
+			convertedIID, err := ConvertVMIID(vmIId, nlbHandler.CredentialInfo, nlbHandler.Region)
+			if err != nil {
+				getErr := errors.New(fmt.Sprintf("Failed to Get VM. err = %s", err))
+				cblogger.Error(getErr.Error())
+				LoggingError(hiscallInfo, getErr)
+				return irs.NLBInfo{}, getErr
+			}
+			//vm, err := GetRawVM(vmIId, nlbHandler.Region.ResourceGroup, nlbHandler.VMClient, nlbHandler.Ctx)
+			vm, err := GetRawVM(convertedIID, nlbHandler.Region.ResourceGroup, nlbHandler.VMClient, nlbHandler.Ctx)
 			if err != nil {
 				createError = errors.New(fmt.Sprintf("Failed to Create NLB. err = %s", err.Error()))
 				cblogger.Error(createError)
