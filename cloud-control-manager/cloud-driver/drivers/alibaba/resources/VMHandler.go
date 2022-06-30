@@ -473,6 +473,15 @@ func (vmHandler *AlibabaVMHandler) ResumeVM(vmIID irs.IID) (irs.VMStatus, error)
 	}
 
 	callLogStart := call.Start()
+
+	curStatus, errStatus := vmHandler.GetVMStatus(vmIID)
+	if errStatus != nil {
+		cblogger.Error(errStatus.Error())
+	}
+
+	if curStatus != "Suspended" {
+		return irs.VMStatus("Failed"), errors.New(string("vm 상태가 Suspended 가 아닙니다." + curStatus))
+	}
 	response, err := vmHandler.Client.StartInstance(request)
 	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 
