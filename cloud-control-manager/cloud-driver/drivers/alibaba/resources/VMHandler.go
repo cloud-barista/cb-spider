@@ -473,6 +473,15 @@ func (vmHandler *AlibabaVMHandler) ResumeVM(vmIID irs.IID) (irs.VMStatus, error)
 	}
 
 	callLogStart := call.Start()
+
+	curStatus, errStatus := vmHandler.GetVMStatus(vmIID)
+	if errStatus != nil {
+		cblogger.Error(errStatus.Error())
+	}
+
+	if curStatus != "Suspended" {
+		return irs.VMStatus("Failed"), errors.New(string("vm 상태가 Suspended 가 아닙니다." + curStatus))
+	}
 	response, err := vmHandler.Client.StartInstance(request)
 	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 
@@ -917,6 +926,8 @@ func (vmHandler *AlibabaVMHandler) ConvertVMStatusString(vmStatus string) (irs.V
 
 	if strings.EqualFold(vmStatus, "Pending") {
 		resultStatus = "Creating"
+	} else if strings.EqualFold(vmStatus, "Starting") {
+		resultStatus = "Resuming" // Resume 요청을 받아서 재기동되는 단계는 Resuming으로 맵핑함.
 	} else if strings.EqualFold(vmStatus, "Running") {
 		resultStatus = "Running"
 	} else if strings.EqualFold(vmStatus, "Stopping") {

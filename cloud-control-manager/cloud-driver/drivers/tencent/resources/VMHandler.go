@@ -423,6 +423,15 @@ func (vmHandler *TencentVMHandler) ResumeVM(vmIID irs.IID) (irs.VMStatus, error)
 		ErrorMSG:     "",
 	}
 
+	curStatus, errStatus := vmHandler.GetVMStatus(vmIID)
+	if errStatus != nil {
+		cblogger.Error(errStatus.Error())
+	}
+	cblogger.Debug(curStatus)
+	if curStatus != "Suspended" {
+		return irs.VMStatus("Failed"), errors.New(string("vm 상태가 Suspended 가 아닙니다." + curStatus))
+	}
+
 	request := cvm.NewStartInstancesRequest()
 	request.InstanceIds = common.StringPtrs([]string{vmIID.SystemId})
 
@@ -458,23 +467,41 @@ func (vmHandler *TencentVMHandler) RebootVM(vmIID irs.IID) (irs.VMStatus, error)
 		ErrorMSG:     "",
 	}
 
-	request := cvm.NewRebootInstancesRequest()
-	request.InstanceIds = common.StringPtrs([]string{vmIID.SystemId})
-
-	callLogStart := call.Start()
-	response, err := vmHandler.Client.RebootInstances(request)
-	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
-
-	if err != nil {
-		callLogInfo.ErrorMSG = err.Error()
-		callogger.Error(call.String(callLogInfo))
-
-		cblogger.Error(err)
-		return irs.VMStatus("Failed"), err
+	curStatus, errStatus := vmHandler.GetVMStatus(vmIID)
+	if errStatus != nil {
+		cblogger.Error(errStatus.Error())
 	}
-	//spew.Dump(response)
-	callogger.Info(call.String(callLogInfo))
-	cblogger.Debug(response.ToJsonString())
+	cblogger.Debug(curStatus)
+	if curStatus == "Running" {
+		request := cvm.NewRebootInstancesRequest()
+		request.InstanceIds = common.StringPtrs([]string{vmIID.SystemId})
+
+		callLogStart := call.Start()
+		response, err := vmHandler.Client.RebootInstances(request)
+		callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+
+		if err != nil {
+			callLogInfo.ErrorMSG = err.Error()
+			callogger.Error(call.String(callLogInfo))
+
+			cblogger.Error(err)
+			return irs.VMStatus("Failed"), err
+		}
+		//spew.Dump(response)
+		callogger.Info(call.String(callLogInfo))
+		cblogger.Debug(response.ToJsonString())
+	} else if curStatus == "Suspended" {
+		_, err := vmHandler.ResumeVM(vmIID)
+		if err != nil {
+			callLogInfo.ErrorMSG = err.Error()
+			callogger.Error(call.String(callLogInfo))
+
+			cblogger.Error(err)
+			return irs.VMStatus("Failed"), err
+		}
+	} else {
+		return irs.VMStatus("Failed"), errors.New(string(curStatus + "상태인 경우에는 Reboot할 수 없습니다."))
+	}
 
 	return irs.VMStatus("Rebooting"), nil
 }
@@ -819,6 +846,9 @@ func (vmHandler *TencentVMHandler) ListVMStatus() ([]*irs.VMStatusInfo, error) {
 	return vmStatusList, nil
 }
 
+//
+// tencent life cycle
+// https://intl.cloud.tencent.com/document/product/213/4856?lang=en&pg=
 func ConvertVMStatusString(vmStatus string) (irs.VMStatus, error) {
 	var resultStatus string
 	cblogger.Infof("vmStatus : [%s]", vmStatus)

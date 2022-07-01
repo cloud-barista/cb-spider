@@ -245,7 +245,6 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 			// diskType = cloudOSMetaInfo.RootDiskType[0]
 		} else {
 			diskType = vmReqInfo.RootDiskType
-		
 
 			// RootDiskType을 조회하여 diskSize의 min, max, default값 추출 한 뒤 입력된 diskSize가 있으면 비교시 사용
 			diskSizeResp, err := vmHandler.Client.DiskTypes.Get(projectID, zone, diskType).Context(ctx).Do()
@@ -418,47 +417,11 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 	*/
 }
 
-// VM 정보를 조회할 수 있을 때까지 최대 30초간 대기
-func (vmHandler *GCPVMHandler) WaitForRun(vmIID irs.IID) (irs.VMStatus, error) {
-	cblogger.Info("======> 생성된 VM의 최종 정보 확인을 위해 Running 될 때까지 대기함.")
-
-	waitStatus := "Running"
-
-	//===================================
-	// Suspending 되도록 3초 정도 대기 함.
-	//===================================
-	curRetryCnt := 0
-	maxRetryCnt := 120
-	for {
-		curStatus, errStatus := vmHandler.GetVMStatus(vmIID)
-		if errStatus != nil {
-			cblogger.Error(errStatus.Error())
-		}
-
-		cblogger.Info("===>VM Status : ", curStatus)
-		if curStatus == irs.VMStatus(waitStatus) { //|| curStatus == irs.VMStatus("Running") {
-			cblogger.Infof("===>VM 상태가 [%s]라서 대기를 중단합니다.", curStatus)
-			break
-		}
-
-		//if curStatus != irs.VMStatus(waitStatus) {
-		curRetryCnt++
-		cblogger.Errorf("VM 상태가 [%s]이 아니라서 1초 대기후 조회합니다.", waitStatus)
-		time.Sleep(time.Second * 1)
-		if curRetryCnt > maxRetryCnt {
-			cblogger.Errorf("장시간(%d 초) 대기해도 VM의 Status 값이 [%s]으로 변경되지 않아서 강제로 중단합니다.", maxRetryCnt, waitStatus)
-			return irs.VMStatus("Failed"), errors.New("장시간 기다렸으나 생성된 VM의 상태가 [" + waitStatus + "]으로 바뀌지 않아서 중단 합니다.")
-		}
-	}
-
-	return irs.VMStatus(waitStatus), nil
-}
-
 // stop이라고 보면 될듯
 func (vmHandler *GCPVMHandler) SuspendVM(vmID irs.IID) (irs.VMStatus, error) {
 	projectID := vmHandler.Credential.ProjectID
 	zone := vmHandler.Region.Zone
-	ctx := vmHandler.Ctx
+	//ctx := vmHandler.Ctx
 
 	// logger for HisCall
 	callogger := call.GetLogger("HISCALL")
@@ -472,7 +435,8 @@ func (vmHandler *GCPVMHandler) SuspendVM(vmID irs.IID) (irs.VMStatus, error) {
 		ErrorMSG:     "",
 	}
 	callLogStart := call.Start()
-	inst, err := vmHandler.Client.Instances.Stop(projectID, zone, vmID.SystemId).Context(ctx).Do()
+	//inst, err := vmHandler.Client.Instances.Stop(projectID, zone, vmID.SystemId).Context(ctx).Do()
+	inst, err := vmHandler.GCPInstanceStop(projectID, zone, vmID.SystemId)
 	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 	spew.Dump(inst)
 	if err != nil {
@@ -485,6 +449,16 @@ func (vmHandler *GCPVMHandler) SuspendVM(vmID irs.IID) (irs.VMStatus, error) {
 
 	fmt.Println("instance stop status :", inst.Status)
 	return irs.VMStatus("Suspending"), nil
+}
+
+// GCP Instance Stop
+// Spider 의 suspendVM와 reboot에서 공통으로 사용하기 위해 별도로 뺌
+// suspend/resume/reboot는 async 인데 다른 function에서 사용하려면 해당 operation이 종료됐는지 체크 필요
+// 호출하는 function에 operaion을 전달하여 종료여부 판단이 필요하면 사용
+func (vmHandler *GCPVMHandler) GCPInstanceStop(projectID string, zoneID string, gpcInstanceID string) (*compute.Operation, error) {
+	ctx := vmHandler.Ctx
+	inst, err := vmHandler.Client.Instances.Stop(projectID, zoneID, gpcInstanceID).Context(ctx).Do()
+	return inst, err
 }
 
 func (vmHandler *GCPVMHandler) ResumeVM(vmID irs.IID) (irs.VMStatus, error) {
@@ -520,7 +494,13 @@ func (vmHandler *GCPVMHandler) ResumeVM(vmID irs.IID) (irs.VMStatus, error) {
 	return irs.VMStatus("Resuming"), nil
 }
 
+// reboot vm : using reset function
+// Suspend/Resume/Reboot 는 async 이므로 바로 return
 func (vmHandler *GCPVMHandler) RebootVM(vmID irs.IID) (irs.VMStatus, error) {
+	projectID := vmHandler.Credential.ProjectID
+	//region := vmHandler.Region.Region
+	zone := vmHandler.Region.Zone
+	ctx := vmHandler.Ctx
 
 	// logger for HisCall
 	callogger := call.GetLogger("HISCALL")
@@ -534,22 +514,97 @@ func (vmHandler *GCPVMHandler) RebootVM(vmID irs.IID) (irs.VMStatus, error) {
 		ErrorMSG:     "",
 	}
 	callLogStart := call.Start()
-	_, err := vmHandler.SuspendVM(vmID)
-	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+
+	status, err := vmHandler.GetVMStatus(vmID)
 	if err != nil {
-		callLogInfo.ErrorMSG = err.Error()
-		callogger.Info(call.String(callLogInfo))
+		callogger.Info(err)
 		return irs.VMStatus("Failed"), err
 	}
-	callogger.Info(call.String(callLogInfo))
+	// running 상태일 때는 reset
+	if status == "Running" {
+		callogger.Info("vm의 상태가 running이므로 reset 호춯")
+		operation, err := vmHandler.Client.Instances.Reset(projectID, zone, vmID.SystemId).Context(ctx).Do()
 
-	_, err2 := vmHandler.ResumeVM(vmID)
-	if err2 != nil {
-		return irs.VMStatus("Failed"), err2
+		if err != nil {
+			callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+			callLogInfo.ErrorMSG = err.Error()
+			callogger.Info(call.String(callLogInfo))
+			callogger.Info(operation)
+			return irs.VMStatus("Failed"), err
+		}
+	} else if status == "Suspended" {
+		callogger.Info("vm의 상태가 Suspended이므로 ResumeVM 호춯")
+		_, err := vmHandler.ResumeVM(vmID)
+		if err != nil {
+			return irs.VMStatus("Failed"), err
+		}
+	} else {
+		// running/suspended 이외에는 비정상
+		return irs.VMStatus("Failed"), errors.New(string("VM의 상태가 [" + status + "] 입니다."))
 	}
+	//callogger.Info(vmID)
+	//callogger.Info(status)
+
+	//operationType := 3 // operationZone := 3
+	//err = WaitOperationComplete(vmHandler.Client, projectID, region, zone, operation.Name, operationType)
+
+	//callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+	//if err != nil {
+	//	callLogInfo.ErrorMSG = err.Error()
+	//	callogger.Info(call.String(callLogInfo))
+	//	return irs.VMStatus("Failed"), err // stop 자체는 에러가 없으므로 wait 오류는 기록만.
+	//}
+	//callogger.Info(call.String(callLogInfo))
 
 	return irs.VMStatus("Rebooting"), nil
 }
+
+// reboot : suspend -> resome
+//func (vmHandler *GCPVMHandler) RebootVM(vmID irs.IID) (irs.VMStatus, error) {
+//	projectID := vmHandler.Credential.ProjectID
+//	region := vmHandler.Region.Region
+//	zone := vmHandler.Region.Zone
+//
+//	// logger for HisCall
+//	callogger := call.GetLogger("HISCALL")
+//	callLogInfo := call.CLOUDLOGSCHEMA{
+//		CloudOS:      call.GCP,
+//		RegionZone:   vmHandler.Region.Zone,
+//		ResourceType: call.VM,
+//		ResourceName: vmID.SystemId,
+//		CloudOSAPI:   "SuspendVM()",
+//		ElapsedTime:  "",
+//		ErrorMSG:     "",
+//	}
+//	callLogStart := call.Start()
+//	//_, err := vmHandler.SuspendVM(vmID)
+//	operation, err := vmHandler.GCPInstanceStop(projectID, zone, vmID.SystemId)
+//
+//	if err != nil {
+//		callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+//		callLogInfo.ErrorMSG = err.Error()
+//		callogger.Info(call.String(callLogInfo))
+//		return irs.VMStatus("Failed"), err
+//	}
+//
+//	operationZone := 3
+//	err = WaitOperationComplete(vmHandler.Client, projectID, region, zone, operation.Name, operationZone)
+//
+//	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+//	if err != nil {
+//		callLogInfo.ErrorMSG = err.Error()
+//		callogger.Info(call.String(callLogInfo))
+//		//return irs.VMStatus("Failed"), err	// stop 자체는 에러가 없으므로 wait 오류는 기록만.
+//	}
+//	callogger.Info(call.String(callLogInfo))
+//
+//	_, err2 := vmHandler.ResumeVM(vmID)
+//	if err2 != nil {
+//		return irs.VMStatus("Failed"), err2
+//	}
+//
+//	return irs.VMStatus("Rebooting"), nil
+//}
 
 func (vmHandler *GCPVMHandler) TerminateVM(vmID irs.IID) (irs.VMStatus, error) {
 	projectID := vmHandler.Credential.ProjectID
@@ -965,3 +1020,39 @@ func (vmHandler *GCPVMHandler) getDiskInfo(diskname string) *compute.Disk {
 
 // 	return result
 // }
+
+// VM 정보를 조회할 수 있을 때까지 최대 30초간 대기
+func (vmHandler *GCPVMHandler) WaitForRun(vmIID irs.IID) (irs.VMStatus, error) {
+	cblogger.Info("======> 생성된 VM의 최종 정보 확인을 위해 Running 될 때까지 대기함.")
+
+	waitStatus := "Running"
+
+	//===================================
+	// Suspending 되도록 3초 정도 대기 함.
+	//===================================
+	curRetryCnt := 0
+	maxRetryCnt := 120
+	for {
+		curStatus, errStatus := vmHandler.GetVMStatus(vmIID)
+		if errStatus != nil {
+			cblogger.Error(errStatus.Error())
+		}
+
+		cblogger.Info("===>VM Status : ", curStatus)
+		if curStatus == irs.VMStatus(waitStatus) { //|| curStatus == irs.VMStatus("Running") {
+			cblogger.Infof("===>VM 상태가 [%s]라서 대기를 중단합니다.", curStatus)
+			break
+		}
+
+		//if curStatus != irs.VMStatus(waitStatus) {
+		curRetryCnt++
+		cblogger.Errorf("VM 상태가 [%s]이 아니라서 1초 대기후 조회합니다.", waitStatus)
+		time.Sleep(time.Second * 1)
+		if curRetryCnt > maxRetryCnt {
+			cblogger.Errorf("장시간(%d 초) 대기해도 VM의 Status 값이 [%s]으로 변경되지 않아서 강제로 중단합니다.", maxRetryCnt, waitStatus)
+			return irs.VMStatus("Failed"), errors.New("장시간 기다렸으나 생성된 VM의 상태가 [" + waitStatus + "]으로 바뀌지 않아서 중단 합니다.")
+		}
+	}
+
+	return irs.VMStatus(waitStatus), nil
+}
