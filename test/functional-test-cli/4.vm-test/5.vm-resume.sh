@@ -21,7 +21,7 @@ echo -e "\n\n"
 ../common/3-2.vm-resume.sh $1 
 
 #### Check sync called
-for i in {1..20}
+for i in {1..30}
 do
 	ret=`../common/2.vm-getstatus.sh $1 2>&1 | grep Running`
 

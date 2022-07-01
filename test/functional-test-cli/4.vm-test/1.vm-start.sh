@@ -31,7 +31,7 @@ SSH_CMD="ssh -i ../3.key-test/${KEYPAIR_NAME}.pem -o StrictHostKeyChecking=no -o
 
 
 #### Check SSH Call by cb-user
-for i in {1..20}
+for i in {1..30}
 do
 	ret=`$SSH_CMD 2>&1 | grep cb-user`
 
