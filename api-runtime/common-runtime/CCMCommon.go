@@ -4100,10 +4100,13 @@ func DeleteResource(connectionName string, rsType string, nameID string, force s
 				err = fmt.Errorf("Not Found %s", driverIId.SystemId)
 			}
 			if err != nil {
-				cblog.Error(err)
 				if checkNotFoundError(err) { // VM can be deleted after terminate.
 					break
 				}
+				if status == cres.Failed { // tencent returns Failed with "Not Found Status error msg" in Korean
+					break
+				}
+				cblog.Error(err)
 				if force != "true" {
 					callInfo.ErrorMSG = err.Error()
 					callogger.Info(call.String(callInfo))
