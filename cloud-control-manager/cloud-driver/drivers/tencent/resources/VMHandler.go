@@ -856,6 +856,8 @@ func ConvertVMStatusString(vmStatus string) (irs.VMStatus, error) {
 	if strings.EqualFold(vmStatus, "pending") {
 		//resultStatus = "Creating"	// VM 생성 시점의 Pending은 CB에서는 조회가 안되기 때문에 일단 처리하지 않음.
 		resultStatus = "Resuming" // Resume 요청을 받아서 재기동되는 단계에도 Pending이 있기 때문에 Pending은 Resuming으로 맵핑함.
+	} else if strings.EqualFold(vmStatus, "starting") {
+		resultStatus = "Resuming"
 	} else if strings.EqualFold(vmStatus, "running") {
 		resultStatus = "Running"
 	} else if strings.EqualFold(vmStatus, "stopping") {
@@ -868,6 +870,10 @@ func ConvertVMStatusString(vmStatus string) (irs.VMStatus, error) {
 		resultStatus = "Rebooting"
 	} else if strings.EqualFold(vmStatus, "shutting-down") {
 		resultStatus = "Terminating"
+	} else if strings.EqualFold(vmStatus, "terminating") {
+		resultStatus = "Terminating"
+	} else if strings.EqualFold(vmStatus, "shut-down") {
+		resultStatus = "Terminated"
 	} else if strings.EqualFold(vmStatus, "Terminated") {
 		resultStatus = "Terminated"
 	} else {
