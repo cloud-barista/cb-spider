@@ -15,7 +15,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
 	//"regexp"
 
 	cblog "github.com/cloud-barista/cb-log"
@@ -72,6 +71,31 @@ type TencentVMHandler struct {
 //	SnapshotAbility bool
 //}
 
+//VM 이름으로 중복 생성을 막아야 해서 VM존재 여부를 체크함.
+func (vmHandler *TencentVMHandler) isExist(vmName string) (bool, error) {
+	cblogger.Infof("VM조회(Name기반) : %s", vmName)
+	request := cvm.NewDescribeInstancesRequest()
+	request.Filters = []*cvm.Filter{
+		&cvm.Filter{
+			Name:   common.StringPtr("instance-name"),
+			Values: common.StringPtrs([]string{vmName}),
+		},
+	}
+
+	response, err := vmHandler.Client.DescribeInstances(request)
+	if err != nil {
+		cblogger.Error(err)
+		return false, err
+	}
+
+	if *response.Response.TotalCount < 1 {
+		return false, nil
+	}
+
+	cblogger.Infof("VM 정보 찾음 - VmId:[%s] / VmName:[%s]", *response.Response.InstanceSet[0].InstanceId, *response.Response.InstanceSet[0].InstanceName)
+	return true, nil
+}
+
 // VM생성 시 Zone이 필수라서 Credential의 Zone에만 생성함.
 func (vmHandler *TencentVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, error) {
 	cblogger.Info(vmReqInfo)
@@ -86,12 +110,12 @@ func (vmHandler *TencentVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 	//=================================================
 	// 동일 이름 생성 방지 추가(cb-spider 요청 필수 기능)
 	//=================================================
-	vmExist, errExist := vmHandler.vmExist(vmReqInfo.IId.NameId)
+	isExist, errExist := vmHandler.isExist(vmReqInfo.IId.NameId)
 	if errExist != nil {
 		cblogger.Error(errExist)
 		return irs.VMInfo{}, errExist
 	}
-	if vmExist {
+	if isExist {
 		return irs.VMInfo{}, errors.New("A VM with the name " + vmReqInfo.IId.NameId + " already exists.")
 	}
 
@@ -856,6 +880,8 @@ func ConvertVMStatusString(vmStatus string) (irs.VMStatus, error) {
 	if strings.EqualFold(vmStatus, "pending") {
 		//resultStatus = "Creating"	// VM 생성 시점의 Pending은 CB에서는 조회가 안되기 때문에 일단 처리하지 않음.
 		resultStatus = "Resuming" // Resume 요청을 받아서 재기동되는 단계에도 Pending이 있기 때문에 Pending은 Resuming으로 맵핑함.
+	} else if strings.EqualFold(vmStatus, "starting") {
+		resultStatus = "Resuming"
 	} else if strings.EqualFold(vmStatus, "running") {
 		resultStatus = "Running"
 	} else if strings.EqualFold(vmStatus, "stopping") {
@@ -868,6 +894,10 @@ func ConvertVMStatusString(vmStatus string) (irs.VMStatus, error) {
 		resultStatus = "Rebooting"
 	} else if strings.EqualFold(vmStatus, "shutting-down") {
 		resultStatus = "Terminating"
+	} else if strings.EqualFold(vmStatus, "terminating") {
+		resultStatus = "Terminating"
+	} else if strings.EqualFold(vmStatus, "shut-down") {
+		resultStatus = "Terminated"
 	} else if strings.EqualFold(vmStatus, "Terminated") {
 		resultStatus = "Terminated"
 	} else {
@@ -907,7 +937,7 @@ func (vmHandler *TencentVMHandler) WaitForRun(vmIID irs.IID) (irs.VMStatus, erro
 
 		//if curStatus != irs.VMStatus(waitStatus) {
 		curRetryCnt++
-		cblogger.Infof("VM 상태가 [%s]이 아니라서 1초 대기후 조회합니다.", waitStatus)
+		cblogger.Errorf("VM 상태가 [%s]이 아니라서 1초 대기후 조회합니다.", waitStatus)
 		time.Sleep(time.Second * 1)
 		if curRetryCnt > maxRetryCnt {
 			cblogger.Errorf("장시간(%d 초) 대기해도 VM의 Status 값이 [%s]으로 변경되지 않아서 강제로 중단합니다.", maxRetryCnt, waitStatus)
@@ -916,31 +946,6 @@ func (vmHandler *TencentVMHandler) WaitForRun(vmIID irs.IID) (irs.VMStatus, erro
 	}
 
 	return irs.VMStatus(waitStatus), nil
-}
-
-//VM 이름으로 중복 생성을 막아야 해서 VM존재 여부를 체크함.
-func (vmHandler *TencentVMHandler) vmExist(vmName string) (bool, error) {
-	cblogger.Infof("VM조회(Name기반) : %s", vmName)
-	request := cvm.NewDescribeInstancesRequest()
-	request.Filters = []*cvm.Filter{
-		&cvm.Filter{
-			Name:   common.StringPtr("instance-name"),
-			Values: common.StringPtrs([]string{vmName}),
-		},
-	}
-
-	response, err := vmHandler.Client.DescribeInstances(request)
-	if err != nil {
-		cblogger.Error(err)
-		return false, err
-	}
-
-	if *response.Response.TotalCount < 1 {
-		return false, nil
-	}
-
-	cblogger.Infof("VM 정보 찾음 - VmId:[%s] / VmName:[%s]", *response.Response.InstanceSet[0].InstanceId, *response.Response.InstanceSet[0].InstanceName)
-	return true, nil
 }
 
 //DescribeDiskConfigs : Querying disk configuration
