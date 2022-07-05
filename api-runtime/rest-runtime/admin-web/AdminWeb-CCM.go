@@ -483,6 +483,21 @@ func makeSecurityGroupTRList_html(bgcolor string, height string, fontSize string
                 </tr>
                 `, bgcolor, height, fontSize, fontSize, fontSize, fontSize, fontSize)
 
+
+        strRemoveRule := fmt.Sprintf(`
+                <a href="javascript:$$REMOVERULE$$;">
+                        <font color=red size=%s><b>&nbsp;X</b></font>
+                </a>
+                `, fontSize)
+
+	strAddRule := fmt.Sprintf(`
+	<textarea style="font-size:12px;text-align:center;" name="security_text_box_$$ADDSG$$" id="security_text_box_$$ADDSG$$" cols=40>{"FromPort": "1", "ToPort" : "65535", "IPProtocol" : "udp", "Direction" : "inbound", "CIDR" : "0.0.0.0/0" }</textarea>
+                <a href="javascript:$$ADDRULE$$;">
+                        <font size=%s><mark><b>+</b></mark></font>
+                </a>
+                                                                `, fontSize)
+
+
 	strData := ""
 	// set data and make TR list
 	for i, one := range infoList {
@@ -490,18 +505,27 @@ func makeSecurityGroupTRList_html(bgcolor string, height string, fontSize string
 		str = strings.ReplaceAll(str, "$$VPCNAME$$", one.VpcIID.NameId)
 		str = strings.ReplaceAll(str, "$$SGNAME$$", one.IId.NameId)
 
+		sgName := one.IId.NameId
+
 		// for security rules info
 		strSRList := ""
 		if one.SecurityRules != nil {
-			for _, one := range *one.SecurityRules {
-				strSRList += "FromPort:" + one.FromPort + ", "
-				strSRList += "ToPort:" + one.ToPort + ", "
-				strSRList += "IPProtocol:" + one.IPProtocol + ", "
-				strSRList += "Direction:" + one.Direction + ", "
-				strSRList += "CIDR:" + one.CIDR + ", "
-				strSRList += "}<br>"
+			for _, rule := range *one.SecurityRules {
+				oneSR := fmt.Sprintf("{ \"FromPort\" : \"%s\", \"ToPort\" : \"%s\", \"IPProtocol\" : \"%s\", \"Direction\" : \"%s\", \"CIDR\" : \"%s\" }", 
+						rule.FromPort, rule.ToPort, rule.IPProtocol, rule.Direction, rule.CIDR)
+
+				strSRList += oneSR
+				strDelete := "deleteRule('"+sgName+"', '"+rule.FromPort+"', '"+rule.ToPort+"', '"+rule.IPProtocol+"', '"+rule.Direction+"', '"+rule.CIDR+"')"
+				strSRList += strings.ReplaceAll(strRemoveRule, "$$REMOVERULE$$", strDelete)
+
+				strSRList += "<br>"
+
 			}
 		}
+
+                SGAddRule := strings.ReplaceAll(strAddRule, "$$ADDSG$$", sgName)
+                strSRList += strings.ReplaceAll(SGAddRule, "$$ADDRULE$$", "postRule('"+sgName+"')")
+
 		str = strings.ReplaceAll(str, "$$SECURITYRULES$$", strSRList)
 
 		// for KeyValueList
@@ -599,6 +623,118 @@ func makeDeleteSecurityGroupFunc_js() string {
 	return strFunc
 }
 
+// make the string of javascript function
+func makeDeleteRuleFunc_js() string {
+	/* 
+	curl -sX DELETE http://localhost:1024/spider/securitygroup/${SG_NAME}/rules -H 'Content-Type: application/json' -d \
+        '{
+                "ConnectionName": "'${CONN_CONFIG}'",
+                "ReqInfo": {
+                "RuleInfoList" :
+                        [
+                                {
+                                        "Direction": "inbound",
+                                        "IPProtocol": "ALL",
+                                        "FromPort": "-1",
+                                        "ToPort": "-1",
+                                        "CIDR" : "0.0.0.0/0"
+                                }
+                        ]
+                }
+        }'
+	*/
+
+        strFunc := `
+                function deleteRule(sgName, fromPort, toPort, protocol, direction, cidr) {
+
+                        var connConfig = parent.frames["top_frame"].document.getElementById("connConfig").innerHTML;
+
+                        var xhr = new XMLHttpRequest();
+                        xhr.open("DELETE", "$$SPIDER_SERVER$$/spider/securitygroup/" + sgName + "/rules", false);
+                        xhr.setRequestHeader('Content-Type', 'application/json');
+                        sendJson = '{ "ConnectionName": "' + connConfig + '",'
+                        sendJson += ' "ReqInfo": {'
+                        sendJson += ' "RuleInfoList" : '
+                        sendJson += '       [  '
+			sendJson += '         { "FromPort": "' + fromPort + '", '
+			sendJson += '           "ToPort": "' + toPort + '", '
+			sendJson += '           "IPProtocol": "' + protocol + '", '
+			sendJson += '           "Direction": "' + direction + '", '
+			sendJson += '           "CIDR": "' + cidr + '"'
+			sendJson += '         }'
+                        sendJson += '       ]  '
+                        sendJson += '   } '
+                        sendJson += '}'
+
+                         // client logging
+                        parent.frames["log_frame"].Log("curl -sX DELETE " + "$$SPIDER_SERVER$$/spider/securitygroup/" + sgName + "/rules" + " -H 'Content-Type: application/json' -d '" + sendJson + "'");
+
+                        xhr.send(sendJson);
+
+                        // client logging
+                        parent.frames["log_frame"].Log("   => " + xhr.response);
+
+                        location.reload();
+                }
+        `
+        strFunc = strings.ReplaceAll(strFunc, "$$SPIDER_SERVER$$", "http://"+cr.ServiceIPorName+cr.ServicePort) // cr.ServicePort = ":1024"
+        return strFunc
+}
+
+// make the string of javascript function
+func makePostRuleFunc_js() string {
+        /*
+        curl -sX POST http://localhost:1024/spider/securitygroup/${SG_NAME}/rules -H 'Content-Type: application/json' -d \
+        '{
+                "ConnectionName": "'${CONN_CONFIG}'",
+                "ReqInfo": {
+                "RuleInfoList" :
+                        [
+                                {
+                                        "Direction": "inbound",
+                                        "IPProtocol": "ALL",
+                                        "FromPort": "-1",
+                                        "ToPort": "-1",
+                                        "CIDR" : "0.0.0.0/0"
+                                }
+                        ]
+                }
+        }'
+        */
+
+        strFunc := `
+                function postRule(sgName, rule) {
+                        var connConfig = parent.frames["top_frame"].document.getElementById("connConfig").innerHTML;
+                        var textbox = document.getElementById('security_text_box_' + sgName);
+
+                        var xhr = new XMLHttpRequest();
+                        xhr.open("POST", "$$SPIDER_SERVER$$/spider/securitygroup/" + sgName + "/rules", false);
+                        xhr.setRequestHeader('Content-Type', 'application/json');
+                        sendJson = '{ "ConnectionName": "' + connConfig + '",'
+                        sendJson += ' "ReqInfo": {'
+                        sendJson += ' "RuleInfoList" : '
+                        sendJson += '       [  '
+                        sendJson += textbox.value
+                        sendJson += '       ]  '
+                        sendJson += '   } '
+                        sendJson += '}'
+
+
+                         // client logging
+                        parent.frames["log_frame"].Log("curl -sX POST " + "$$SPIDER_SERVER$$/spider/securitygroup/" + sgName + "/rules" + " -H 'Content-Type: application/json' -d '" + sendJson + "'");
+
+                        xhr.send(sendJson);
+
+                        // client logging
+                        parent.frames["log_frame"].Log("   => " + xhr.response);
+
+                        location.reload();
+                }
+        `
+        strFunc = strings.ReplaceAll(strFunc, "$$SPIDER_SERVER$$", "http://"+cr.ServiceIPorName+cr.ServicePort) // cr.ServicePort = ":1024"
+        return strFunc
+}
+
 func SecurityGroup(c echo.Context) error {
 	cblog.Info("call SecurityGroup()")
 
@@ -651,6 +787,8 @@ func SecurityGroup(c echo.Context) error {
 	htmlStr += makeCheckBoxToggleFunc_js()
 	htmlStr += makePostSecurityGroupFunc_js()
 	htmlStr += makeDeleteSecurityGroupFunc_js()
+	htmlStr += makePostRuleFunc_js()
+	htmlStr += makeDeleteRuleFunc_js()
 
 	htmlStr += `
                     </script>
