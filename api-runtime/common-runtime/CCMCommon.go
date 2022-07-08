@@ -3058,10 +3058,11 @@ func StartVM(connectionName string, rsType string, reqInfo cres.VMReqInfo) (*cre
 			//handler.TerminateVM(info.IId)
 			checkError.Flag = true
 			checkError.MSG = fmt.Sprintf("[%s] Failed to Start VM %s when getting PublicIP. (Timeout=%v)", connectionName, reqIId.NameId, waiter.Timeout)
+			break
                 }
 	}
 
-	if !checkError.Flag {
+	if !checkError.Flag  && providerName != "MOCK" {
 		// --- <step-2> Check SSHD Daemon of new VM
 		waiter2 := NewWaiter(2, 120) // (sleep, timeout) 
 
@@ -3074,6 +3075,7 @@ func StartVM(connectionName string, rsType string, reqInfo cres.VMReqInfo) (*cre
 				//handler.TerminateVM(info.IId)
 				checkError.Flag = true
 				checkError.MSG = fmt.Sprintf("[%s] Failed to Start VM %s when checking SSHD Daemon. (Timeout=%v)", connectionName, reqIId.NameId, waiter2.Timeout)
+				break
 			}
 		}
 	}
