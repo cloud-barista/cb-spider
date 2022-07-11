@@ -362,12 +362,12 @@ func (NLBHandler *AlibabaNLBHandler) DeleteNLB(nlbIID irs.IID) (bool, error) {
 	향후 필요시 삭제 후 추가 하는 방법 고려.
 */
 func (NLBHandler *AlibabaNLBHandler) ChangeListener(nlbIID irs.IID, listener irs.ListenerInfo) (irs.ListenerInfo, error) {
-	return irs.ListenerInfo{}, errors.New("Alibaba listener cannot be changed")
+	return irs.ListenerInfo{}, errors.New("ALIBABA_CANNOT_CHANGE_LISTENER")
 }
 
 //------ Backend Control
 func (NLBHandler *AlibabaNLBHandler) ChangeVMGroupInfo(nlbIID irs.IID, vmGroup irs.VMGroupInfo) (irs.VMGroupInfo, error) {
-	return irs.VMGroupInfo{}, errors.New("Alibaba VmgroupInfo cannot be changed")
+	return irs.VMGroupInfo{}, errors.New("ALIBABA_CANNOT_CHANGE_VMGROUP")
 }
 
 /*
