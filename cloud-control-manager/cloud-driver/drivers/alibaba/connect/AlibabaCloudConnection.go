@@ -12,6 +12,7 @@ package connect
 
 import (
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/ecs"
+	"github.com/aliyun/alibaba-cloud-sdk-go/services/slb"
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/vpc"
 
 	cblog "github.com/cloud-barista/cb-log"
@@ -19,8 +20,6 @@ import (
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/sirupsen/logrus"
-
-	"errors"
 )
 
 var cblogger *logrus.Logger
@@ -43,6 +42,7 @@ type AlibabaCloudConnection struct {
 	//VNicClient          *ecs.Client
 	SubnetClient *vpc.Client
 	VmSpecClient *ecs.Client
+	NLBClient    *slb.Client
 }
 
 /*
@@ -105,6 +105,12 @@ func (cloudConn *AlibabaCloudConnection) CreateVMSpecHandler() (irs.VMSpecHandle
 	return &handler, nil
 }
 
+func (cloudConn *AlibabaCloudConnection) CreateNLBHandler() (irs.NLBHandler, error) {
+	cblogger.Info("Start")
+	handler := alirs.AlibabaNLBHandler{cloudConn.Region, cloudConn.NLBClient, cloudConn.VMClient, cloudConn.VpcClient}
+	return &handler, nil
+}
+
 func (AlibabaCloudConnection) IsConnected() (bool, error) {
 	return true, nil
 }
@@ -112,8 +118,3 @@ func (AlibabaCloudConnection) IsConnected() (bool, error) {
 func (AlibabaCloudConnection) Close() error {
 	return nil
 }
-
-func (cloudConn *AlibabaCloudConnection) CreateNLBHandler() (irs.NLBHandler, error) {
-        return nil, errors.New("Alibaba Cloud Driver NLB: WIP")
-}
-
