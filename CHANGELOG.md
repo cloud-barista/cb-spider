@@ -1,3 +1,26 @@
+# v0.6.0 (Cafe Latte, 2022.07.08.)
+
+### API Change
+
+- Add AddRules and RemoveRules API to change the rules of SecurityGroup ([v0.5.5](https://github.com/cloud-barista/cb-spider/releases/tag/v0.5.5))
+
+
+### Feature
+- Support Security Group Rules Specs and VM Access Validation Test ([v0.5.5](https://github.com/cloud-barista/cb-spider/releases/tag/v0.5.5))
+- [CB-Spider Network Load Balancer Specification and Driver API Definition](https://github.com/cloud-barista/cb-spider/wiki/Network-Load-Balancer-and-Driver-API)
+  - Add initial NLB Driver of AWS, GCP, Azure, Alibaba, Tencent, IBM, OPenStack, Cloudit, Mock
+  - Support REST Runtime and API of NLB
+  - Add AdminWeb Pages of NLB
+  - Currently in Alpha Testing
+- AdminWeb Enhancements
+  - [Add Log windows to show API call status](https://github.com/cloud-barista/cb-spider/wiki/%5BAdminWeb%5D-API-Call-Log-Page-Guide)
+  - Download the private key after creating VM KeyPair
+- Add new Locking mechanism 'sp-lock' and Concurrent Tests ([v0.5.9](https://github.com/cloud-barista/cb-spider/releases/tag/v0.5.9))
+- Enhance the VM Lifecycle Control 
+
+
+***
+
 # v0.5.0 (Affogato, 2021.12.16.)
 
 ### API Change

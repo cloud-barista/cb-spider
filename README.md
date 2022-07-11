@@ -10,11 +10,12 @@ The CB-Spider Mission is to connect all the clouds with a single interface.
 
 ```
 [NOTE]
-CB-Spider is currently under development. (The latest version is v0.5.0 (Affogato))
-So, we do not recommend using the current release in production.
-Please note that the functionalities of CB-Spider are not stable and secure yet.
-If you have any difficulties in using CB-Spider, please let us know.
-(Open an issue or Join the cloud-barista Slack)
+CB-Spider is currently under development. (not v1.0 yet)
+We welcome any new suggestions, issues, opinions, and contributors !
+Please note that the functionalities of Cloud-Barista are not stable and secure yet.
+Be careful if you plan to use the current release in production.
+If you have any difficulties in using Cloud-Barista, please let us know.
+(Open an issue or Join the Cloud-Barista Slack)
 ```
 ***
 ### ▶ **[Quick Guide](https://github.com/cloud-barista/cb-spider/wiki/Quick-Start-Guide)**
@@ -57,13 +58,13 @@ If you have any difficulties in using CB-Spider, please let us know.
   | Provider(CloudOS) | VM Image List/Get | VM Spec List/Get| VPC/Subnet | Security Group | VM KeyPair| VM   | Network LB  |
   |:-------------:|:-------------:|:-------------:|:-------------:|:-------------:|:-------------:|:-------------:|:-------------:|
   | AWS           | O          | O          | O          | O          | O          | O          | O          |
-  | Azure         | O          | O          | O          | O          | O          | O          | Test       |
-  | GCP           | O          | O          | O          | O          | O          | O          | Test       |
-  | Alibaba       | O          | O          | O          | O          | O          | O          | Test       |
+  | Azure         | O          | O          | O          | O          | O          | O          | ∝-Test       |
+  | GCP           | O          | O          | O          | O          | O          | O          | ∝-Test       |
+  | Alibaba       | O          | O          | O          | O          | O          | O          | ∝-Test       |
   | Tencent       | O          | O          | O          | O          | O          | O          | O          |
-  | IBM           | O          | O          | O          | O          | O          | O          | Test       |
-  | OpenStack     | O          | O          | O          | O          | O          | O          | Test       |
-  | Cloudit       | O          | O          | O(💬)          | O          | O          | O          | Test       |
+  | IBM           | O          | O          | O          | O          | O          | O          | ∝-Test       |
+  | OpenStack     | O          | O          | O          | O          | O          | O          | ∝-Test       |
+  | Cloudit       | O          | O          | O(💬)          | O          | O          | O          | ∝-Test       |
   | Docker (PoC)  | O          | -          | -          | -          | -          | O          | -          |
 
     💬 특이사항: 

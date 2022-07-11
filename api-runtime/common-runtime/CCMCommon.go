@@ -3058,10 +3058,11 @@ func StartVM(connectionName string, rsType string, reqInfo cres.VMReqInfo) (*cre
 			//handler.TerminateVM(info.IId)
 			checkError.Flag = true
 			checkError.MSG = fmt.Sprintf("[%s] Failed to Start VM %s when getting PublicIP. (Timeout=%v)", connectionName, reqIId.NameId, waiter.Timeout)
+			break
                 }
 	}
 
-	if !checkError.Flag {
+	if !checkError.Flag  && providerName != "MOCK" {
 		// --- <step-2> Check SSHD Daemon of new VM
 		waiter2 := NewWaiter(2, 120) // (sleep, timeout) 
 
@@ -3074,6 +3075,7 @@ func StartVM(connectionName string, rsType string, reqInfo cres.VMReqInfo) (*cre
 				//handler.TerminateVM(info.IId)
 				checkError.Flag = true
 				checkError.MSG = fmt.Sprintf("[%s] Failed to Start VM %s when checking SSHD Daemon. (Timeout=%v)", connectionName, reqIId.NameId, waiter2.Timeout)
+				break
 			}
 		}
 	}
@@ -4100,10 +4102,13 @@ func DeleteResource(connectionName string, rsType string, nameID string, force s
 				err = fmt.Errorf("Not Found %s", driverIId.SystemId)
 			}
 			if err != nil {
-				cblog.Error(err)
 				if checkNotFoundError(err) { // VM can be deleted after terminate.
 					break
 				}
+				if status == cres.Failed { // tencent returns Failed with "Not Found Status error msg" in Korean
+					break
+				}
+				cblog.Error(err)
 				if force != "true" {
 					callInfo.ErrorMSG = err.Error()
 					callogger.Info(call.String(callInfo))
