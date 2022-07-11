@@ -1,5 +1,5 @@
 export GATEWAY_HOST=1.2.3.4
 export CONN_CONFIG=aws-ohio-config
-export IMAGE_NAME=ami-0bbe28eb2173f6167
+export IMAGE_NAME=ami-090717c950a5c34d3
 
 ./gateway-image-get-test.sh
