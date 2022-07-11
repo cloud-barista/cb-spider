@@ -12,6 +12,7 @@ package alibaba
 
 import (
 	"fmt"
+	"github.com/aliyun/alibaba-cloud-sdk-go/services/slb"
 
 	"github.com/aliyun/alibaba-cloud-sdk-go/sdk/auth/credentials"
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/ecs"
@@ -64,6 +65,11 @@ func (driver *AlibabaDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (i
 		return nil, err
 	}
 
+	NLBClient, err := getNLBClient(connectionInfo)
+	if err != nil {
+		return nil, err
+	}
+
 	iConn := alicon.AlibabaCloudConnection{
 		Region:        connectionInfo.RegionInfo,
 		VMClient:      ECSClient,
@@ -76,6 +82,7 @@ func (driver *AlibabaDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (i
 		//VNicClient:          ECSClient,
 		//SubnetClient: VPCClient,
 		VmSpecClient: ECSClient,
+		NLBClient:    NLBClient,
 	}
 	return &iConn, nil
 }
@@ -182,3 +189,27 @@ func getVPCClient(connectionInfo idrv.ConnectionInfo) (*vpc.Client, error) {
 	return vpcClient, nil
 }
 
+func getNLBClient(connectionInfo idrv.ConnectionInfo) (*slb.Client, error) {
+
+	// Region Info
+	fmt.Println("AlibabaDriver : getNLBClient() - Region : [" + connectionInfo.RegionInfo.Region + "]")
+
+	credential := &credentials.AccessKeyCredential{
+		AccessKeyId:     connectionInfo.CredentialInfo.ClientId,
+		AccessKeySecret: connectionInfo.CredentialInfo.ClientSecret,
+	}
+
+	config := sdk.NewConfig()
+	config.Timeout = time.Duration(15) * time.Second //time.Millisecond
+	config.AutoRetry = true
+	config.MaxRetryTime = 2
+	//sdk.Timeout(1000)
+
+	nlbClient, err := slb.NewClientWithOptions(connectionInfo.RegionInfo.Region, config, credential)
+	if err != nil {
+		fmt.Println("Could not create alibaba's server loadbalancer service client", err)
+		return nil, err
+	}
+
+	return nlbClient, nil
+}
