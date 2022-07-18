@@ -31,6 +31,8 @@ import (
 	// echo-swagger middleware
 	_ "github.com/cloud-barista/cb-spider/api-runtime/rest-runtime/docs"
 	echoSwagger "github.com/swaggo/echo-swagger"
+
+	"github.com/natefinch/lumberjack"
 )
 
 var cblog *logrus.Logger
@@ -376,6 +378,16 @@ func ApiServer(routes []route) {
 	e.Use(middleware.Logger())
 	e.Use(middleware.Recover())
 
+        cbspiderRoot := os.Getenv("CBSPIDER_ROOT")
+
+	// for HTTP Access Log
+	e.Logger.SetOutput(&lumberjack.Logger{
+	    Filename:   cbspiderRoot+"/log/http-access.log",
+	    MaxSize:    10,  // megabytes
+	    MaxBackups: 10,  // number of backups
+	    MaxAge:     31,  // days
+	})
+
 	API_USERNAME := os.Getenv("API_USERNAME")
 	API_PASSWORD := os.Getenv("API_PASSWORD")
 
@@ -410,7 +422,6 @@ func ApiServer(routes []route) {
 	}
 
 	// for spider logo
-	cbspiderRoot := os.Getenv("CBSPIDER_ROOT")
 	e.File("/spider/adminweb/images/logo.png", cbspiderRoot+"/api-runtime/rest-runtime/admin-web/images/cb-spider-circle-logo.png")
 
 	e.HideBanner = true
