@@ -321,15 +321,22 @@ func (nlbHandler *GCPNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (irs.NLBInfo,
 	nlbReqInfo.HealthChecker.CspID = healthCheckerInfo.CspID
 
 	// targetPool 안에 healthCheckID가 들어 감.
-	newTargetPool := convertNlbInfoToTargetPool(&nlbReqInfo)
+	newTargetPool, err := nlbHandler.convertNlbInfoToTargetPool(&nlbReqInfo)
+	if err != nil {
+		cblogger.Info("targetPoolList convert err: ", err)
+		// 이전 step 자원 회수 후 return
+		resultMsg := nlbHandler.rollbackCreatedNlbResources(regionID, resultMap)
+		resultMsg += resultMsg + "(2) TargetPool " + err.Error()
+		return irs.NLBInfo{}, errors.New(resultMsg)
+	}
 	printToJson(newTargetPool)
+
 	targetPool, err := nlbHandler.insertTargetPool(regionID, newTargetPool)
 	if err != nil {
 		cblogger.Info("targetPoolList  err: ", err)
 		// 이전 step 자원 회수 후 return
 		resultMsg := nlbHandler.rollbackCreatedNlbResources(regionID, resultMap)
 		resultMsg += resultMsg + "(2) TargetPool " + err.Error()
-		//return irs.NLBInfo{}, err
 		return irs.NLBInfo{}, errors.New(resultMsg)
 	}
 	resultMap[NLB_Component_TARGETPOOL] = targetPool.SelfLink
@@ -2504,23 +2511,37 @@ func convertNlbInfoToForwardingRule(nlbListener irs.ListenerInfo, targetPool *co
 	//					"https://www.googleapis.com/compute/v1/projects/myproject/zones/asia-northeast3-a/instances/test-lb-seoul-01"
 	//					]
 */
-func convertNlbInfoToTargetPool(nlbInfo *irs.NLBInfo) compute.TargetPool {
+func (nlbHandler *GCPNLBHandler) convertNlbInfoToTargetPool(nlbInfo *irs.NLBInfo) (compute.TargetPool, error) {
 	vmList := nlbInfo.VMGroup.VMs
 
-	instances := []string{}
+	projectID := nlbHandler.Credential.ProjectID
+	//regionID := nlbHandler.Region.Region
+	zoneID := nlbHandler.Region.Zone
+
+	instancesUrl := []string{}
 	for _, instance := range *vmList {
-		instances = append(instances, instance.SystemId) // URL
-		printToJson(instance)
+		// get instance url from instance id
+		//instanceUrl := "https://www.googleapis.com/compute/v1/projects/" + projectID + "/zones/" + zoneID + "/instances/" + instance.SystemId
+		//instancesUrl = append(instancesUrl, instanceUrl) // URL
+
+		vm, err := nlbHandler.Client.Instances.Get(projectID, zoneID, instance.SystemId).Do()
+		if err != nil {
+			cblogger.Error(err)
+			return compute.TargetPool{}, err
+		}
+		instancesUrl = append(instancesUrl, vm.SelfLink) // URL
+
+		printToJson(instancesUrl)
 	}
 
 	healthChecks := []string{nlbInfo.HealthChecker.CspID} // url
 
 	targetPool := compute.TargetPool{
 		Name:         nlbInfo.IId.NameId,
-		Instances:    instances,
+		Instances:    instancesUrl,
 		HealthChecks: healthChecks,
 	}
-	return targetPool
+	return targetPool, nil
 }
 
 /*
