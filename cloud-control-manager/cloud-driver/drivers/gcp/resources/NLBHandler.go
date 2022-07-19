@@ -263,6 +263,9 @@ const (
 	//	targetPoolName = forwardingRule name 이므로 적당. 단, front-end 와 back-end가 1:1 이어야 함.
 	// 방법 3. nameId = targetPoolUrl, systemId = forwardingRule name
 	// 방법 4. nameId = targetPoolName, systemId = forwardingRule
+
+	// url 형태가 필요한 resource에 대하여. 조회시에는 끝의 id만 , 실제 사용시에는 id를 바탕으로 url을 만들어 사용
+	// url set이 가능한 parma은 cspID임.
 */
 func (nlbHandler *GCPNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (irs.NLBInfo, error) {
 	cblogger.Info("CreateNLB")
@@ -359,8 +362,8 @@ func (nlbHandler *GCPNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (irs.NLBInfo,
 
 	//IId:         irs.IID{NameId: targetLbValue, SystemId: targetForwardingRuleValue}, // NameId = Lb Name, SystemId = forwardingRule name
 	nlbIID := irs.IID{
-		NameId:   nlbName,             // lb Name = targetPool name
-		SystemId: targetPool.SelfLink, // targetPool url
+		NameId:   nlbName,         // lb Name != targetPool name
+		SystemId: targetPool.Name, // targetPool
 	}
 	nlbInfo, err := nlbHandler.GetNLB(nlbIID)
 	if err != nil {
@@ -506,12 +509,11 @@ func (nlbHandler *GCPNLBHandler) ListNLB() ([]*irs.NLBInfo, error) {
 			cblogger.Info("targetPool.Name does not exist in nlbMap ", targetPool.Name)
 			continue
 		}
-
 		err = nlbHandler.convertTargetPoolToNLBInfo(targetPool, &newNlbInfo)
+
 		if err != nil {
 			return nil, err
 		}
-
 		nlbMap[targetPool.Name] = newNlbInfo
 	}
 	//printToJson(targetPoolList)
@@ -520,6 +522,7 @@ func (nlbHandler *GCPNLBHandler) ListNLB() ([]*irs.NLBInfo, error) {
 	printToJson(nlbMap)
 
 	for _, nlbInfo := range nlbMap {
+		cblogger.Info(nlbInfo)
 		nlbInfoList = append(nlbInfoList, &nlbInfo)
 	}
 	return nlbInfoList, nil
@@ -538,7 +541,7 @@ func (nlbHandler *GCPNLBHandler) GetNLB(nlbIID irs.IID) (irs.NLBInfo, error) {
 
 	// region forwarding rule 는 target pool 과 lb이름으로 엮임.
 	// map에 nb이름으로 nbInfo를 넣고 해당 값들 추가해서 조합
-	targetPoolName := nlbIID.NameId
+	nlbID := nlbIID.NameId
 
 	// forwardingRule 조회
 
@@ -548,13 +551,13 @@ func (nlbHandler *GCPNLBHandler) GetNLB(nlbIID irs.IID) (irs.NLBInfo, error) {
 		CloudOS:      call.GCP,
 		RegionZone:   nlbHandler.Region.Zone,
 		ResourceType: call.NLB,
-		ResourceName: targetPoolName,
+		ResourceName: nlbID,
 		CloudOSAPI:   "GetNLB()",
 		ElapsedTime:  "",
 		ErrorMSG:     "",
 	}
 	callLogStart := call.Start()
-	regionForwardingRule, err := nlbHandler.getRegionForwardingRules(regionID, targetPoolName)
+	regionForwardingRule, err := nlbHandler.getRegionForwardingRules(regionID, nlbID)
 	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 	if err != nil {
 		cblogger.Info("regionForwardingRule  list: ", err)
@@ -593,12 +596,13 @@ func (nlbHandler *GCPNLBHandler) GetNLB(nlbIID irs.IID) (irs.NLBInfo, error) {
 
 	cblogger.Info("Targetpool start: ")
 
-	targetPool, err := nlbHandler.getTargetPool(regionID, targetPoolName)
+	targetPool, err := nlbHandler.getTargetPool(regionID, nlbID)
 	if err != nil {
 		cblogger.Info("targetPoolList  list: ", err)
 		return irs.NLBInfo{}, err
 	}
 
+	// vms, health checker, vpc,
 	err = nlbHandler.convertTargetPoolToNLBInfo(targetPool, &nlbInfo)
 	if err != nil {
 		return irs.NLBInfo{}, err
@@ -816,7 +820,7 @@ func (nlbHandler *GCPNLBHandler) ChangeVMGroupInfo(nlbIID irs.IID, vmGroup irs.V
 
 /*
 	targetPool에 vm 추가
-    필요한 parameter는 instanceUrl이며 vmIID.SystemID에 들어있음.
+    필요한 parameter는 instanceUrl이며 vmIID.SystemID에서 vm을 조회하여 사용해야 함.
 	수정 후 해당 vmGroupInfo(instance 들) return
 */
 func (nlbHandler *GCPNLBHandler) AddVMs(nlbIID irs.IID, vmIIDs *[]irs.IID) (irs.VMGroupInfo, error) {
@@ -916,14 +920,16 @@ func (nlbHandler *GCPNLBHandler) GetVMGroupHealthInfo(nlbIID irs.IID) (irs.Healt
 		cblogger.Info("targetPoolList  list: ", err)
 	}
 
-	vmGroup := extractVmGroup(targetPool)
+	//vmGroup := extractVmGroup(targetPool)
 
 	allVmIIDs := []irs.IID{}
 	healthyVmIIDs := []irs.IID{}
 	unHealthyVmIIDs := []irs.IID{}
 
-	for _, instance := range *vmGroup.VMs {
-		instanceUrl := instance.SystemId
+	for _, instanceUrl := range targetPool.Instances {
+		//for _, instance := range *vmGroup.VMs {
+		//instanceUrl := instance.SystemId
+
 		instanceHealthStatusList, err := nlbHandler.getTargetPoolHealth(regionID, targetPoolName, instanceUrl)
 		if err != nil {
 			cblogger.Info("targetPool HealthList  list: ", err)
@@ -932,15 +938,18 @@ func (nlbHandler *GCPNLBHandler) GetVMGroupHealthInfo(nlbIID irs.IID) (irs.Healt
 
 		healthStatusInfo := instanceHealthStatusList.HealthStatus
 
-		allVmIIDs = append(allVmIIDs, instance)
+		targetPoolInstanceArr := strings.Split(instanceUrl, StringSeperator_Slash)
+		instanceID := targetPoolInstanceArr[len(targetPoolInstanceArr)-1]
+		instanceIID := irs.IID{SystemId: instanceID}
+		allVmIIDs = append(allVmIIDs, instanceIID)
 
 		// healthStatus 가 배열형태이고 0번째만 취함.
 		if strings.EqualFold(healthStatusInfo[0].HealthState, HealthState_UNHEALTHY) {
-			unHealthyVmIIDs = append(unHealthyVmIIDs, instance)
+			unHealthyVmIIDs = append(unHealthyVmIIDs, instanceIID)
 		}
 
 		if strings.EqualFold(healthStatusInfo[0].HealthState, HealthState_HEALTHY) {
-			healthyVmIIDs = append(healthyVmIIDs, instance)
+			healthyVmIIDs = append(healthyVmIIDs, instanceIID)
 		}
 	}
 
@@ -1564,7 +1573,6 @@ func (nlbHandler *GCPNLBHandler) getRegionForwardingRules(regionID string, regio
 	// path param
 	projectID := nlbHandler.Credential.ProjectID
 	//region := nlbHandler.Region.Region
-
 	regionForwardingRule, err := nlbHandler.Client.ForwardingRules.Get(projectID, regionID, regionForwardingRuleName).Do()
 	if err != nil {
 		return nil, err
@@ -1575,20 +1583,28 @@ func (nlbHandler *GCPNLBHandler) getRegionForwardingRules(regionID string, regio
 // Region ForwardingRule 목록 조회
 // FordingRuleList 객체를 넘기고 사용은 fordingRuleList.Item에서 꺼내서 사용
 // 특정 targetPoolName을 넘겨주면 해당 targetPool내 forwardingRule목록을 넘김
-func (nlbHandler *GCPNLBHandler) listRegionForwardingRules(regionID string, filter string, targetPoolUrl string) (*compute.ForwardingRuleList, error) {
+func (nlbHandler *GCPNLBHandler) listRegionForwardingRules(regionID string, filter string, forwardingRuleName string) (*compute.ForwardingRuleList, error) {
 
 	// path param
 	projectID := nlbHandler.Credential.ProjectID
 
 	resp, err := nlbHandler.Client.ForwardingRules.List(projectID, regionID).Do()
 	if err != nil {
+		cblogger.Info(err)
 		return nil, err
 	}
-	if !strings.EqualFold(targetPoolUrl, String_Empty) {
+
+	if !strings.EqualFold(forwardingRuleName, String_Empty) {
+		cblogger.Info("listRegionForwardingRules")
+
 		responseForwardingRule := compute.ForwardingRuleList{}
 		forwardingRuleList := []*compute.ForwardingRule{}
 		for _, item := range resp.Items {
-			if strings.EqualFold(item.Target, targetPoolUrl) {
+			forwardingRuleUrlArr := strings.Split(item.SelfLink, StringSeperator_Slash)
+
+			itemForwardingRule := forwardingRuleUrlArr[len(forwardingRuleUrlArr)-1]
+
+			if strings.EqualFold(itemForwardingRule, forwardingRuleName) {
 				forwardingRuleList = append(forwardingRuleList, item)
 				cblogger.Info(item)
 			}
@@ -2046,7 +2062,7 @@ func (nlbHandler *GCPNLBHandler) listTargetPools(regionID string, filter string)
 	if err != nil {
 		return &compute.TargetPoolList{}, err
 	}
-
+	printToJson(resp)
 	for _, item := range resp.Items {
 		cblogger.Info(item)
 	}
@@ -2300,13 +2316,20 @@ func (nlbHandler *GCPNLBHandler) removeTargetPoolHealthCheck(regionID string, ta
 func (nlbHandler *GCPNLBHandler) addTargetPoolInstance(regionID string, targetPoolName string, instanceIIDs *[]irs.IID) error {
 	// path param
 	projectID := nlbHandler.Credential.ProjectID
+	zoneID := nlbHandler.Region.Zone
+
+	// TODO : 해당 region 아래의 모든 zone을 검색하여 조회해야 할 듯. 특정 zone으로만 조회해서는 vm을 제대로 찾을 수 없음.
 
 	if instanceIIDs != nil {
 		// queryParam
 		instanceRequest := compute.TargetPoolsAddInstanceRequest{}
 		instanceReferenceList := []*compute.InstanceReference{}
 		for _, instance := range *instanceIIDs {
-			instanceUrl := instance.SystemId
+			//instanceUrl := instance.SystemId
+			instanceUrl, err := nlbHandler.getVmUrl(zoneID, instance)
+			if err != nil {
+				return err
+			}
 			instanceReference := &compute.InstanceReference{Instance: instanceUrl}
 			instanceReferenceList = append(instanceReferenceList, instanceReference)
 		}
@@ -2497,6 +2520,7 @@ func convertNlbInfoToForwardingRule(nlbListener irs.ListenerInfo, targetPool *co
 //
 	NLB 생성을 위해 요청받은 nlbInfo 정보를 gcp의 TargetPool에 맞게 변경
 	FailoverRatio : 설정 시 backupPool도 설정해야 함.
+	vmID 는 url형태가 아니므로 vm을 조회하여 selflink를 set
 	Instances[] : resource URLs
 	HealthChecks[] : resource URLs
 
@@ -2566,11 +2590,10 @@ func (nlbHandler *GCPNLBHandler) convertTargetPoolToNLBInfo(targetPool *compute.
 	// vpc 정보 추출
 	for _, instanceUrl := range targetPool.Instances {
 		targetPoolInstanceArr := strings.Split(instanceUrl, StringSeperator_Slash)
-		targetPoolInstanceValue := targetPoolInstanceArr[len(targetPoolInstanceArr)-1]
 
-		vpcInstanceName := targetPoolInstanceValue
-		vpcInstanceZone := targetPoolInstanceArr[len(targetPoolInstanceArr)-3]
-		vpcIID, err := nlbHandler.getVPCInfoFromVM(vpcInstanceZone, irs.IID{SystemId: vpcInstanceName})
+		instanceName := targetPoolInstanceArr[len(targetPoolInstanceArr)-1]
+		instanceZone := targetPoolInstanceArr[len(targetPoolInstanceArr)-3]
+		vpcIID, err := nlbHandler.getVPCInfoFromVM(instanceZone, irs.IID{SystemId: instanceName})
 		if err != nil {
 			return err
 		}
@@ -2620,8 +2643,8 @@ func extractVmGroup(targetPool *compute.TargetPool) irs.VMGroupInfo {
 			targetPoolInstanceIndex := strings.LastIndex(instanceUrl, StringSeperator_Slash)
 			targetPoolInstanceValue := instanceUrl[(targetPoolInstanceIndex + 1):]
 
-			//instanceIID := irs.IID{SystemId: instanceId}
-			instanceIID := irs.IID{NameId: targetPoolInstanceValue, SystemId: instanceUrl}
+			instanceIID := irs.IID{SystemId: targetPoolInstanceValue}
+			//instanceIID := irs.IID{NameId: targetPoolInstanceValue, SystemId: instanceUrl}
 			instanceIIDs = append(instanceIIDs, instanceIID)
 		}
 
@@ -2710,17 +2733,59 @@ func (nlbHandler *GCPNLBHandler) getVPCInfoFromVM(zoneID string, vmID irs.IID) (
 	callogger.Info(call.String(callLogInfo))
 	spew.Dump(vm)
 
-	//Network: (string) (len=87) "https://www.googleapis.com/compute/v1/projects/[projectID]/global/networks/[vpcName]",
-	//NetworkIP: (string) (len=8) "10.0.0.6",
-	//Subnetwork: (string) (len=110) "https://www.googleapis.com/compute/v1/projects/[projectID]/regions/[regionID]/subnetworks/[subnetName]",
+	////Network: (string) (len=87) "https://www.googleapis.com/compute/v1/projects/[projectID]/global/networks/[vpcName]",
+	////NetworkIP: (string) (len=8) "10.0.0.6",
+	////Subnetwork: (string) (len=110) "https://www.googleapis.com/compute/v1/projects/[projectID]/regions/[regionID]/subnetworks/[subnetName]",
 	vpcUrl := vm.NetworkInterfaces[0].Network
-	//subnetUrl := vm.NetworkInterfaces[0].Subnetwork
+	////subnetUrl := vm.NetworkInterfaces[0].Subnetwork
 	vpcArr := strings.Split(vpcUrl, StringSeperator_Slash)
-	//subnetArr := strings.Split(subnetUrl, StringSeperator_Slash)
+	////subnetArr := strings.Split(subnetUrl, StringSeperator_Slash)
 	vpcName := vpcArr[len(vpcArr)-1]
-	//subnetName := subnetArr[len(subnetArr)-1]
-	vpcIID := irs.IID{NameId: vpcName, SystemId: vpcUrl}
+	////subnetName := subnetArr[len(subnetArr)-1]
+	//vpcIID := irs.IID{NameId: vpcName, SystemId: vpcUrl}
+	vpcIID := irs.IID{NameId: vpcName, SystemId: vpcName}
+
+	//infoVPC, err := nlbHandler.Client.Networks.Get(projectID, vm.Name).Do()
+	//if err != nil {
+	//	cblogger.Error(err)
+	//	return irs.IID{}, err
+	//}
+	//return irs.IID{NameId: infoVPC.Name, SystemId: infoVPC.Name	}
+
 	return vpcIID, nil
+}
+
+/*
+	vm의 url 조회
+	zone은 다를 수 있으므로 VMHandler의 GetVM을 사용하지 않고 zone을 parameter로 받는 function을 따로 만듬
+*/
+func (nlbHandler *GCPNLBHandler) getVmUrl(zoneID string, vmID irs.IID) (string, error) {
+	projectID := nlbHandler.Credential.ProjectID
+
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.GCP,
+		RegionZone:   zoneID,
+		ResourceType: call.NLB,
+		ResourceName: vmID.SystemId,
+		CloudOSAPI:   "getVM()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+	callLogStart := call.Start()
+	vm, err := nlbHandler.Client.Instances.Get(projectID, zoneID, vmID.SystemId).Do()
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+	if err != nil {
+		callLogInfo.ErrorMSG = err.Error()
+		callogger.Info(call.String(callLogInfo))
+		cblogger.Error(err)
+		return "", err
+	}
+	callogger.Info(call.String(callLogInfo))
+	spew.Dump(vm)
+
+	return vm.SelfLink, nil
 }
 
 /*
