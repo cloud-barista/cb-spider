@@ -1632,7 +1632,7 @@ func VM(c echo.Context) error {
 		vmUser = "cb-user"
 
 	case "CLOUDIT":
-		imageName = "Ubuntu 18.04"
+		imageName = "ee441331-0872-49c3-886c-1873a6e32e09"
 		specName = "small-2"
 		subnetName = "subnet-01"
 		sgName = `["sg-01"]`
