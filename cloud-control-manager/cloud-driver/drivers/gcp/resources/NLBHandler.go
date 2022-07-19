@@ -820,7 +820,7 @@ func (nlbHandler *GCPNLBHandler) ChangeVMGroupInfo(nlbIID irs.IID, vmGroup irs.V
 
 /*
 	targetPool에 vm 추가
-    필요한 parameter는 instanceUrl이며 vmIID.SystemID에 들어있음.
+    필요한 parameter는 instanceUrl이며 vmIID.SystemID에서 vm을 조회하여 사용해야 함.
 	수정 후 해당 vmGroupInfo(instance 들) return
 */
 func (nlbHandler *GCPNLBHandler) AddVMs(nlbIID irs.IID, vmIIDs *[]irs.IID) (irs.VMGroupInfo, error) {
@@ -1595,11 +1595,16 @@ func (nlbHandler *GCPNLBHandler) listRegionForwardingRules(regionID string, filt
 	}
 
 	if !strings.EqualFold(forwardingRuleName, String_Empty) {
-		cblogger.Info("targetTargetFull")
+		cblogger.Info("listRegionForwardingRules")
+
 		responseForwardingRule := compute.ForwardingRuleList{}
 		forwardingRuleList := []*compute.ForwardingRule{}
 		for _, item := range resp.Items {
-			if strings.EqualFold(item.Target, forwardingRuleName) {
+			forwardingRuleUrlArr := strings.Split(item.SelfLink, StringSeperator_Slash)
+
+			itemForwardingRule := forwardingRuleUrlArr[len(forwardingRuleUrlArr)-1]
+
+			if strings.EqualFold(itemForwardingRule, forwardingRuleName) {
 				forwardingRuleList = append(forwardingRuleList, item)
 				cblogger.Info(item)
 			}
@@ -2311,13 +2316,20 @@ func (nlbHandler *GCPNLBHandler) removeTargetPoolHealthCheck(regionID string, ta
 func (nlbHandler *GCPNLBHandler) addTargetPoolInstance(regionID string, targetPoolName string, instanceIIDs *[]irs.IID) error {
 	// path param
 	projectID := nlbHandler.Credential.ProjectID
+	zoneID := nlbHandler.Region.Zone
+
+	// TODO : 해당 region 아래의 모든 zone을 검색하여 조회해야 할 듯. 특정 zone으로만 조회해서는 vm을 제대로 찾을 수 없음.
 
 	if instanceIIDs != nil {
 		// queryParam
 		instanceRequest := compute.TargetPoolsAddInstanceRequest{}
 		instanceReferenceList := []*compute.InstanceReference{}
 		for _, instance := range *instanceIIDs {
-			instanceUrl := instance.SystemId
+			//instanceUrl := instance.SystemId
+			instanceUrl, err := nlbHandler.getVmUrl(zoneID, instance)
+			if err != nil {
+				return err
+			}
 			instanceReference := &compute.InstanceReference{Instance: instanceUrl}
 			instanceReferenceList = append(instanceReferenceList, instanceReference)
 		}
@@ -2741,7 +2753,39 @@ func (nlbHandler *GCPNLBHandler) getVPCInfoFromVM(zoneID string, vmID irs.IID) (
 	//return irs.IID{NameId: infoVPC.Name, SystemId: infoVPC.Name	}
 
 	return vpcIID, nil
+}
 
+/*
+	vm의 url 조회
+	zone은 다를 수 있으므로 VMHandler의 GetVM을 사용하지 않고 zone을 parameter로 받는 function을 따로 만듬
+*/
+func (nlbHandler *GCPNLBHandler) getVmUrl(zoneID string, vmID irs.IID) (string, error) {
+	projectID := nlbHandler.Credential.ProjectID
+
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.GCP,
+		RegionZone:   zoneID,
+		ResourceType: call.NLB,
+		ResourceName: vmID.SystemId,
+		CloudOSAPI:   "getVM()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+	callLogStart := call.Start()
+	vm, err := nlbHandler.Client.Instances.Get(projectID, zoneID, vmID.SystemId).Do()
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+	if err != nil {
+		callLogInfo.ErrorMSG = err.Error()
+		callogger.Info(call.String(callLogInfo))
+		cblogger.Error(err)
+		return "", err
+	}
+	callogger.Info(call.String(callLogInfo))
+	spew.Dump(vm)
+
+	return vm.SelfLink, nil
 }
 
 /*
