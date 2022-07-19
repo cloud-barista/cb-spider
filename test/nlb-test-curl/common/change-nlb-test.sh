@@ -12,8 +12,8 @@ curl -sX PUT http://localhost:1024/spider/nlb/spider-nlb-01/listener -H 'Content
 	'{
 		"ConnectionName": "'${CONN_CONFIG}'", 
 		"ReqInfo": {
-			"Protocol" : "UDP",
-			"Port" : "81"
+			"Protocol" : "TCP",
+			"Port" : "22"
 		}
 	}' | json_pp
 
@@ -22,8 +22,8 @@ curl -sX PUT http://localhost:1024/spider/nlb/spider-nlb-01/vmgroup -H 'Content-
         '{
                 "ConnectionName": "'${CONN_CONFIG}'",
                 "ReqInfo": {
-                        "Protocol" : "UDP",
-                        "Port" : "81"
+                        "Protocol" : "TCP",
+                        "Port" : "22"
                 }
         }' | json_pp
 
@@ -32,8 +32,8 @@ curl -sX PUT http://localhost:1024/spider/nlb/spider-nlb-01/healthchecker -H 'Co
         '{
                 "ConnectionName": "'${CONN_CONFIG}'",
                 "ReqInfo": {
-                        "Protocol" : "HTTP",
-                        "Port" : "81",
+                        "Protocol" : "TCP",
+                        "Port" : "22",
                         "Interval" : "11",
                         "Timeout" : "11",
                         "Threshold" : "4"

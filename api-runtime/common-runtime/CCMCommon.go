@@ -4740,7 +4740,7 @@ defer vpcSPLock.Unlock(connectionName, reqInfo.VpcIID.NameId)
 		cblog.Error(err)
 		return nil, err
 	}
-	reqInfo.VpcIID.SystemId = getDriverSystemId(vpcIIDInfo.IId)
+	reqInfo.VpcIID = getDriverIID(vpcIIDInfo.IId)
 	//+++++++++++++++++++++++++++++++++++++++++++
 
 	vmList := reqInfo.VMGroup.VMs
@@ -4750,8 +4750,7 @@ defer vpcSPLock.Unlock(connectionName, reqInfo.VpcIID.NameId)
 			cblog.Error(err)
 			return nil, err
 		}
-		//vmIID.SystemId = getDriverSystemId(vmIIDInfo.IId)
-		(*vmList)[idx].SystemId = getDriverSystemId(vmIIDInfo.IId)
+		(*vmList)[idx] = getDriverIID(vmIIDInfo.IId)
 	}
         //+++++++++++++++++++++++++++++++++++++++++++
 
@@ -4822,7 +4821,7 @@ defer nlbSPLock.Unlock(connectionName, reqInfo.IId.NameId)
         transformArgsToUpper(&info)
 
 	// set VPC NameId
-	info.VpcIID.NameId = reqInfo.VpcIID.NameId
+	info.VpcIID.NameId = vpcIIDInfo.IId.NameId
 
 	// set VM's IID with NameId
 	info.VMGroup.VMs = reqInfo.VMGroup.VMs
@@ -4832,7 +4831,7 @@ defer nlbSPLock.Unlock(connectionName, reqInfo.IId.NameId)
 	spiderIId := cres.IID{reqIId.NameId, info.IId.NameId + ":" + info.IId.SystemId}
 
 	// (5) insert spiderIID
-	iidInfo, err := iidRWLock.CreateIID(iidm.NLBGROUP, connectionName, reqInfo.VpcIID.NameId, spiderIId)  // reqIId.NameId => rsType
+	iidInfo, err := iidRWLock.CreateIID(iidm.NLBGROUP, connectionName, vpcIIDInfo.IId.NameId, spiderIId)  // reqIId.NameId => rsType
 	if err != nil {
 		cblog.Error(err)
 		// rollback
@@ -5153,7 +5152,14 @@ defer nlbSPLock.Unlock(connectionName, nlbName)
 			return nil, err
 		}
 
-		vmIIDs = append(vmIIDs, cres.IID{one, ""})
+		vmIIDInfo, err := iidRWLock.GetIID(iidm.IIDSGROUP, connectionName, rsVM, cres.IID{one, ""})
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+		vmIID := getDriverIID(vmIIDInfo.IId)
+
+		vmIIDs = append(vmIIDs, vmIID)
 	}
         _, err = handler.AddVMs(getDriverIID(iidInfo.IId), &vmIIDs) 
         if err != nil {
@@ -5253,8 +5259,17 @@ defer nlbSPLock.Unlock(connectionName, nlbName)
         // driverIID for driver
         var vmIIDs []cres.IID
         for _, one := range vmNames {
-                vmIIDs = append(vmIIDs, cres.IID{one, ""})
+
+                vmIIDInfo, err := iidRWLock.GetIID(iidm.IIDSGROUP, connectionName, rsVM, cres.IID{one, ""})
+                if err != nil {
+                        cblog.Error(err)
+                        return false, err
+                }
+                vmIID := getDriverIID(vmIIDInfo.IId)
+
+                vmIIDs = append(vmIIDs, vmIID)
         }
+
         result, err := handler.RemoveVMs(getDriverIID(iidInfo.IId), &vmIIDs)
         if err != nil {
                 cblog.Error(err)
