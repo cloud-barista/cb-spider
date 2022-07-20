@@ -2097,6 +2097,9 @@ func RemoveNLBVMs(c echo.Context) error {
         return c.JSON(http.StatusOK, result)
 }
 
+//---------------------------------------------------//
+// @todo  To support or not will be decided later.   //
+//---------------------------------------------------//
 func ChangeListener(c echo.Context) error {
         cblog.Info("call ChangeListener()")
 
@@ -2126,6 +2129,9 @@ func ChangeListener(c echo.Context) error {
         return c.JSON(http.StatusOK, result)
 }
 
+//---------------------------------------------------//
+// @todo  To support or not will be decided later.   //
+//---------------------------------------------------//
 func ChangeVMGroup(c echo.Context) error {
         cblog.Info("call ChangeVMGroup()")
 
@@ -2155,6 +2161,9 @@ func ChangeVMGroup(c echo.Context) error {
         return c.JSON(http.StatusOK, result)
 }
 
+//---------------------------------------------------//
+// @todo  To support or not will be decided later.   //
+//---------------------------------------------------//
 func ChangeHealthChecker(c echo.Context) error {
         cblog.Info("call ChangeHealthChecker()")
 

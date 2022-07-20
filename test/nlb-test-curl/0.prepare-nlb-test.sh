@@ -11,4 +11,4 @@ fi
 source $1/setup.env
 
 # Create: VPC/Subnet => SG => Key => VM1, VM2
-./common/prepare-nlb-test.sh
+./common/prepare-nlb-test.sh $1

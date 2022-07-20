@@ -38,15 +38,41 @@ if [ "$SLEEP" ]; then
 fi
 
 echo "#####---------- CreateKey ----------####"
-curl -sX POST http://localhost:1024/spider/keypair -H 'Content-Type: application/json' -d \
-	'{ 
-		"ConnectionName": "'${CONN_CONFIG}'", 
-		"ReqInfo": { "Name": "keypair-01" } 
-	}' |json_pp
+#curl -sX POST http://localhost:1024/spider/keypair -H 'Content-Type: application/json' -d \
+#	'{ 
+#		"ConnectionName": "'${CONN_CONFIG}'", 
+#		"ReqInfo": { "Name": "keypair-01" } 
+#	}' |json_pp
+#
+
+
+CLIPATH=$CBSPIDER_ROOT/interface
+KEYPAIR_NAME=$1-keypair-01
+
+ret=`$CLIPATH/spctl --config $CLIPATH/spctl.conf keypair create -i json -o json -d \
+    '{
+      "ConnectionName":"'${CONN_CONFIG}'",
+      "ReqInfo": {
+        "Name": "'${KEYPAIR_NAME}'"
+      }
+    }'`
+
+echo -e "$ret"
+
+result=`echo -e "$ret" | grep already`
+if [ "$result" ];then
+        echo "You already have the private Key."
+else
+        echo "$ret" | grep PrivateKey | sed 's/  "PrivateKey": "//g' | sed 's/",//g' | sed 's/\\n/\n/g' > ${KEYPAIR_NAME}.pem
+        chmod 600 ${KEYPAIR_NAME}.pem
+fi
+
+echo -e "\n\n"
 
 if [ "$SLEEP" ]; then
         sleep $SLEEP
 fi
+
 
 echo "#####---------- StartVM:vm-01 ----------####"
 curl -sX POST http://localhost:1024/spider/vm -H 'Content-Type: application/json' -d \
@@ -59,7 +85,7 @@ curl -sX POST http://localhost:1024/spider/vm -H 'Content-Type: application/json
 			"VPCName": "vpc-01", 
 			"SubnetName": "subnet-01", 
 			"SecurityGroupNames": [ "sg-01" ], 
-			"KeyPairName": "keypair-01"
+			"KeyPairName": "'${KEYPAIR_NAME}'"
 		} 
 	}' |json_pp
 
@@ -78,7 +104,7 @@ curl -sX POST http://localhost:1024/spider/vm -H 'Content-Type: application/json
                         "VPCName": "vpc-01",
                         "SubnetName": "subnet-01",
                         "SecurityGroupNames": [ "sg-01" ],
-                        "KeyPairName": "keypair-01"
+                        "KeyPairName": "'${KEYPAIR_NAME}'"
                 }
         }' |json_pp
 
