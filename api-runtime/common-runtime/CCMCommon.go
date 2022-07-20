@@ -5279,6 +5279,10 @@ defer nlbSPLock.Unlock(connectionName, nlbName)
         return result, nil
 }
 
+
+//---------------------------------------------------//
+// @todo  To support or not will be decided later.   //
+//---------------------------------------------------//
 // (1) check exist(NameID)
 // (2) change listener
 // (3) Get NLBInfo
@@ -5388,6 +5392,9 @@ defer nlbSPLock.Unlock(connectionName, nlbName)
         return &info, nil
 }
 
+//---------------------------------------------------//
+// @todo  To support or not will be decided later.   //
+//---------------------------------------------------//
 // (1) check exist(NameID)
 // (2) change VMGroup
 // (3) Get NLBInfo
@@ -5498,6 +5505,9 @@ defer nlbSPLock.Unlock(connectionName, nlbName)
         return &info, nil
 }
 
+//---------------------------------------------------//
+// @todo  To support or not will be decided later.   //
+//---------------------------------------------------//
 // (1) check exist(NameID)
 // (2) change HealthCheckerInfo
 // (3) Get NLBInfo
