@@ -2359,13 +2359,17 @@ func (nlbHandler *GCPNLBHandler) addTargetPoolInstance(regionID string, targetPo
 func (nlbHandler *GCPNLBHandler) removeTargetPoolInstances(regionID string, targetPoolName string, deleteInstanceIIDs *[]irs.IID) error {
 	// path param
 	projectID := nlbHandler.Credential.ProjectID
+	zoneID := nlbHandler.Region.Zone
 
 	if deleteInstanceIIDs != nil {
-		// queryParam
 		instanceRequest := compute.TargetPoolsRemoveInstanceRequest{}
 		instanceReferenceList := []*compute.InstanceReference{}
 		for _, instance := range *deleteInstanceIIDs {
-			instanceUrl := instance.SystemId
+			//instanceUrl := instance.SystemId
+			instanceUrl, err := nlbHandler.getVmUrl(zoneID, instance)
+			if err != nil {
+				return err
+			}
 			instanceReference := &compute.InstanceReference{Instance: instanceUrl}
 			instanceReferenceList = append(instanceReferenceList, instanceReference)
 		}
