@@ -29,10 +29,15 @@ if [ "$SLEEP" ]; then
 fi
 
 echo "#####---------- DeleteKey ----------####"
-curl -sX DELETE http://localhost:1024/spider/keypair/keypair-01 -H 'Content-Type: application/json' -d \
+
+KEYPAIR_NAME=$1-keypair-01
+
+curl -sX DELETE http://localhost:1024/spider/keypair/$KEYPAIR_NAME -H 'Content-Type: application/json' -d \
         '{
                 "ConnectionName": "'${CONN_CONFIG}'"
         }' |json_pp
+
+rm -f ./${KEYPAIR_NAME}.pem
 
 if [ "$SLEEP" ]; then
         sleep $SLEEP

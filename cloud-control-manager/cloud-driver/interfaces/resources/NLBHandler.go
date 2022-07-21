@@ -76,13 +76,22 @@ type NLBHandler interface {
 	GetNLB(nlbIID IID) (NLBInfo, error)
 	DeleteNLB(nlbIID IID) (bool, error)
 
-	//------ Frontend Control
-	ChangeListener(nlbIID IID, listener ListenerInfo) (ListenerInfo, error)
-
-	//------ Backend Control
-	ChangeVMGroupInfo(nlbIID IID, vmGroup VMGroupInfo) (VMGroupInfo, error)
+	GetVMGroupHealthInfo(nlbIID IID) (HealthInfo, error)
 	AddVMs(nlbIID IID, vmIIDs *[]IID) (VMGroupInfo, error)
 	RemoveVMs(nlbIID IID, vmIIDs *[]IID) (bool, error)
-	GetVMGroupHealthInfo(nlbIID IID) (HealthInfo, error)
+
+
+//---------------------------------------------------//
+// @todo  To support or not will be decided later.   //
+//---------------------------------------------------//
+
+	//------ Frontend Control
+	ChangeListener(nlbIID IID, listener ListenerInfo) (ListenerInfo, error)
+	//------ Backend Control
+	ChangeVMGroupInfo(nlbIID IID, vmGroup VMGroupInfo) (VMGroupInfo, error)
 	ChangeHealthCheckerInfo(nlbIID IID, healthChecker HealthCheckerInfo) (HealthCheckerInfo, error)
+
+//---------------------------------------------------//
+// @todo  To support or not will be decided later.   //
+//---------------------------------------------------//
 }

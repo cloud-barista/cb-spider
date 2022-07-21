@@ -1382,7 +1382,7 @@ func makePostVMFunc_js() string {
 
 	// curl -sX POST http://localhost:1024/spider/vm -H 'Content-Type: application/json'
 	//  -d '{ "ConnectionName": "'${CONN_CONFIG}'",
-	//  "ReqInfo": { "Name": "vm-01", "ImageName": "ami-090717c950a5c34d3", "VPCName": "vpc-01",
+	//  "ReqInfo": { "Name": "vm-01", "ImageName": "ami-00978328f54e31526", "VPCName": "vpc-01",
 	//  "SubnetName": "subnet-01", "SecurityGroupNames": [ "sg-01" ], "VMSpecName": "t2.micro", "KeyPairName": "keypair-01"} }'
 
 	strFunc := `
@@ -1595,7 +1595,7 @@ func VM(c echo.Context) error {
 	vmUser := "" // AWS:ec2-user, Azure&GCP:cb-user, Alibaba&Cloudit:root, OpenStack: ubuntu
 	switch providerName {
 	case "AWS":
-		imageName = "ami-090717c950a5c34d3"
+		imageName = "ami-00978328f54e31526"
 		specName = "t2.micro"
 		subnetName = "subnet-01"
 		sgName = `["sg-01"]`
@@ -1632,7 +1632,7 @@ func VM(c echo.Context) error {
 		vmUser = "cb-user"
 
 	case "CLOUDIT":
-		imageName = "Ubuntu 18.04"
+		imageName = "ee441331-0872-49c3-886c-1873a6e32e09"
 		specName = "small-2"
 		subnetName = "subnet-01"
 		sgName = `["sg-01"]`
@@ -1681,7 +1681,7 @@ func VM(c echo.Context) error {
 		specName = "spec-1"
 		vmUser = "cb-user"
 	default:
-		imageName = "ami-090717c950a5c34d3"
+		imageName = "ami-00978328f54e31526"
 		specName = "t2.micro"
 		subnetName = "subnet-01"
 		sgName = `["sg-01"]`

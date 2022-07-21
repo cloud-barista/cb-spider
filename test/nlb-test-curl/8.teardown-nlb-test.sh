@@ -10,4 +10,4 @@ fi
 
 source $1/setup.env
 
-./common/teardown-nlb-test.sh
+./common/teardown-nlb-test.sh $1
