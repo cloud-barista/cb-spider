@@ -813,6 +813,58 @@ func (vmHandler *GCPVMHandler) GetVM(vmID irs.IID) (irs.VMInfo, error) {
 	return vmInfo, nil
 }
 
+/*
+	GCP에서 instance 조회는 Project, ZONE 이 필수임.
+	경우에 따라서 Zone 없이 VM ID만으로 조회하느 기능이 필요하여
+	전체 목록에서 id를 filter해서 가져옴.
+	vmID는 project에서 unique
+*/
+func (vmHandler *GCPVMHandler) GetVmById(vmID irs.IID) (irs.VMInfo, error) {
+	projectID := vmHandler.Credential.ProjectID
+
+	vmInfo := irs.VMInfo{}
+
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.GCP,
+		RegionZone:   vmHandler.Region.Zone,
+		ResourceType: call.VM,
+		ResourceName: vmID.SystemId,
+		CloudOSAPI:   "GetVM()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+	callLogStart := call.Start()
+	instanceListByzone, err := vmHandler.Client.Instances.AggregatedList(projectID).Filter("name=" + vmID.SystemId).Do()
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+	if err != nil {
+		callLogInfo.ErrorMSG = err.Error()
+		callogger.Info(call.String(callLogInfo))
+		cblogger.Error(err)
+		return irs.VMInfo{}, err
+	}
+	callogger.Info(call.String(callLogInfo))
+	foundVm := false
+	for _, item := range instanceListByzone.Items {
+		if foundVm {
+			break // 찾았으면 더 돌 필요 없음.
+		}
+		if item.Instances != nil {
+			for _, instance := range item.Instances {
+				if strings.EqualFold(vmID.SystemId, instance.Name) {
+					spew.Dump(instance)
+					vmInfo = vmHandler.mappingServerInfo(instance)
+					foundVm = true
+					break
+				}
+			}
+		}
+	}
+
+	return vmInfo, nil
+}
+
 // func getVmStatus(vl *compute.Service) string {
 // 	var powerState, provisioningState string
 
@@ -906,6 +958,9 @@ func (vmHandler *GCPVMHandler) mappingServerInfo(server *compute.Instance) irs.V
 			{"NetworkTier", server.NetworkInterfaces[0].AccessConfigs[0].NetworkTier},
 			{"DiskDeviceName", server.Disks[0].DeviceName},
 			{"DiskName", server.Disks[0].Source},
+
+			{"Kind", server.Kind},
+			{"ZoneUrl", server.Zone},
 		},
 	}
 
