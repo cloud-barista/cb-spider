@@ -469,9 +469,10 @@ func (nlbHandler *GCPNLBHandler) ListNLB() ([]*irs.NLBInfo, error) {
 					}
 
 					newNlbInfo = irs.NLBInfo{
-						IId:         irs.IID{NameId: targetLbValue, SystemId: targetPoolUrl}, // NameId :Lb Name, poolName, SystemId : targetPool Url
-						VpcIID:      irs.IID{NameId: String_Empty, SystemId: String_Empty},   // VpcIID 는 Pool 안의 instance에 있는 값
-						Type:        loadBalancerType,                                        // PUBLIC/INTERNAL : extenel -> PUBLIC으로 변경하는 로직 적용해야함.
+						//IId:         irs.IID{NameId: targetLbValue, SystemId: targetPoolUrl}, // NameId :Lb Name, poolName, SystemId : targetPool Url
+						IId:         irs.IID{NameId: targetLbValue, SystemId: targetLbValue},
+						VpcIID:      irs.IID{NameId: String_Empty, SystemId: String_Empty}, // VpcIID 는 Pool 안의 instance에 있는 값
+						Type:        loadBalancerType,                                      // PUBLIC/INTERNAL : extenel -> PUBLIC으로 변경하는 로직 적용해야함.
 						Scope:       SCOPE_REGION,
 						Listener:    listenerInfo,
 						CreatedTime: createdTime, //RFC3339 "creationTimestamp":"2022-05-24T01:20:40.334-07:00"
@@ -1513,9 +1514,10 @@ func (nlbHandler *GCPNLBHandler) deleteRegionForwardingRule(regionID string, for
 // return : 삭제 총 갯수 / 전체 갯수, error
 func (nlbHandler *GCPNLBHandler) deleteRegionForwardingRules(regionID string, nlbIID irs.IID) (string, error) {
 	// path param
-	targetPoolUrl := nlbIID.SystemId
+	//targetPoolUrl := nlbIID.SystemId
+	targetPoolId := nlbIID.SystemId
 
-	forwardingRuleList, err := nlbHandler.listRegionForwardingRules(regionID, String_Empty, targetPoolUrl)
+	forwardingRuleList, err := nlbHandler.listRegionForwardingRules(regionID, String_Empty, targetPoolId)
 	if err != nil {
 		cblogger.Info("DeleteNLB forwardingRule  err: ", err)
 		return String_Empty, err
@@ -1523,7 +1525,7 @@ func (nlbHandler *GCPNLBHandler) deleteRegionForwardingRules(regionID string, nl
 	deleteCount := 0
 	itemLength := len(forwardingRuleList.Items)
 	if itemLength == 0 {
-		return String_Empty, errors.New("Error 404: The Forwarding Rule resource of " + targetPoolUrl + " was not found")
+		return String_Empty, errors.New("Error 404: The Forwarding Rule resource of " + targetPoolId + " was not found")
 	}
 	for _, forwardingRule := range forwardingRuleList.Items {
 		err := nlbHandler.deleteRegionForwardingRule(regionID, forwardingRule.Name)
