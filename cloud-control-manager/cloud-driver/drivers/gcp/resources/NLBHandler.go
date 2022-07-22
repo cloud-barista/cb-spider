@@ -446,6 +446,7 @@ func (nlbHandler *GCPNLBHandler) ListNLB() ([]*irs.NLBInfo, error) {
 		return nil, err
 	}
 
+
 	if regionForwardingRuleList != nil {
 		for _, forwardingRule := range regionForwardingRuleList.Items {
 			targetPoolUrl := forwardingRule.Target
