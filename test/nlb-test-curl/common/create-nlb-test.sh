@@ -45,6 +45,7 @@ curl -sX POST http://localhost:1024/spider/nlb -H 'Content-Type: application/jso
 	       			"Interval" : "'${INTERVAL}'", 	       
 	       			"Timeout" : "'${TIMEOUT}'", 	       
 	       			"Threshold" : "'${THRESHOLD}'" 
+
 			}
 		}
 	}' | json_pp
