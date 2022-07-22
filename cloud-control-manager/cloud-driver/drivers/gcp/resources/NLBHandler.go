@@ -245,6 +245,7 @@ const (
 	RequestStatus_DONE string = "DONE"
 
 	StringSeperator_Slash string = "/"
+	StringSeperator_Hypen string = "-"
 	String_Empty          string = ""
 
 	NLB_Component_HEALTHCHECKER  string = "HEALTHCHECKER"
@@ -402,7 +403,7 @@ func (nlbHandler *GCPNLBHandler) ListNLB() ([]*irs.NLBInfo, error) {
 	//projectID := nlbHandler.Credential.ProjectID
 	regionID := nlbHandler.Region.Region
 
-	nlbMap := make(map[string]irs.NLBInfo)
+	//nlbMap := make(map[string]irs.NLBInfo)
 
 	// 외부 dns주소가 있는 경우 region/global에서 해당 주소를 가져온다.
 	//cblogger.Info("region address start: ", regionID)
@@ -444,152 +445,193 @@ func (nlbHandler *GCPNLBHandler) ListNLB() ([]*irs.NLBInfo, error) {
 		cblogger.Error(err)
 		return nil, err
 	}
-	if regionForwardingRuleList != nil { // dial tcp: lookup compute.googleapis.com: no such host 일 때, 	panic: runtime error: invalid memory address or nil pointer dereference
-		if len(regionForwardingRuleList.Items) > 0 {
-			for _, forwardingRule := range regionForwardingRuleList.Items {
-				targetPoolUrl := forwardingRule.Target
-				targetLbIndex := strings.LastIndex(targetPoolUrl, StringSeperator_Slash)
-				targetLbValue := forwardingRule.Target[(targetLbIndex + 1):]
 
-				// targetlink에서 lb 추출
-				//targetNlbInfo := nlbMap[targetLbValue]
-				newNlbInfo, exists := nlbMap[targetLbValue]
-				if exists {
-					// spider는 1개의 listener(forwardingrule)만 사용하므로 skip
-				} else {
-					listenerInfo := convertRegionForwardingRuleToNlbListener(forwardingRule)
-
-					createdTime, _ := time.Parse(
-						time.RFC3339,
-						forwardingRule.CreationTimestamp) // RFC3339형태이므로 해당 시간으로 다시 생성
-
-					loadBalancerType := forwardingRule.LoadBalancingScheme
-					if strings.EqualFold(loadBalancerType, GCP_ForwardingRuleScheme_EXTERNAL) { // PUBLIC/INTERNAL : extenel -> PUBLIC으로 변경
-						loadBalancerType = SPIDER_LoadBalancerType_PUBLIC
-					}
-
-					newNlbInfo = irs.NLBInfo{
-						IId:         irs.IID{NameId: targetLbValue, SystemId: targetPoolUrl}, // NameId :Lb Name, poolName, SystemId : targetPool Url
-						VpcIID:      irs.IID{NameId: String_Empty, SystemId: String_Empty},   // VpcIID 는 Pool 안의 instance에 있는 값
-						Type:        loadBalancerType,                                        // PUBLIC/INTERNAL : extenel -> PUBLIC으로 변경하는 로직 적용해야함.
-						Scope:       SCOPE_REGION,
-						Listener:    listenerInfo,
-						CreatedTime: createdTime, //RFC3339 "creationTimestamp":"2022-05-24T01:20:40.334-07:00"
-						//KeyValueList  []KeyValue
-					}
-
-					newNlbInfo.VMGroup.Protocol = forwardingRule.IPProtocol
-					newNlbInfo.VMGroup.Port = forwardingRule.PortRange
-				}
-				nlbMap[targetLbValue] = newNlbInfo
-				printToJson(forwardingRule)
+	if regionForwardingRuleList != nil {
+		for _, forwardingRule := range regionForwardingRuleList.Items {
+			targetPoolUrl := forwardingRule.Target
+			targetLbIndex := strings.LastIndex(targetPoolUrl, StringSeperator_Slash)
+			targetLbValue := forwardingRule.Target[(targetLbIndex + 1):]
+			nlbInfo, err := nlbHandler.GetNLB(irs.IID{NameId: "", SystemId: targetLbValue})
+			if err != nil {
+				// 에러가 났어도 다음 nlb 조회
+				cblogger.Info("getNLB error. targetPoolUrl = " + targetPoolUrl)
+				cblogger.Error(err)
+			} else {
+				nlbInfoList = append(nlbInfoList, &nlbInfo)
 			}
 		}
 	}
-	cblogger.Info("regionForwardingRule end: ")
-	cblogger.Info("nlbMap end: ", nlbMap)
 
-	cblogger.Info("Targetpool start: ")
-
-	targetPoolList, err := nlbHandler.listTargetPools(regionID, String_Empty)
-	if err != nil {
-		cblogger.Info("targetPoolList  list: ", err)
-		return nil, err
-	}
-	printToJson(targetPoolList)
-
-	//vpcInstanceName := "" // vpc를 갸져올 instance 이름
-	//vpcInstanceZone := "" // vpc를 가져올 instance zone
-
-	for _, targetPool := range targetPoolList.Items {
-		//printToJson(targetPool)
-		newNlbInfo, exists := nlbMap[targetPool.Name] // lb name
-		if !exists {
-			// 없으면 안됨.
-			cblogger.Info("targetPool.Name does not exist in nlbMap ", targetPool.Name)
-			continue
-		}
-		err = nlbHandler.convertTargetPoolToNLBInfo(targetPool, &newNlbInfo)
-
-		if err != nil {
-			return nil, err
-		}
-		nlbMap[targetPool.Name] = newNlbInfo
-	}
+	//if regionForwardingRuleList != nil { // dial tcp: lookup compute.googleapis.com: no such host 일 때, 	panic: runtime error: invalid memory address or nil pointer dereference
+	//	if len(regionForwardingRuleList.Items) > 0 {
+	//		for _, forwardingRule := range regionForwardingRuleList.Items {
+	//			targetPoolUrl := forwardingRule.Target
+	//			targetLbIndex := strings.LastIndex(targetPoolUrl, StringSeperator_Slash)
+	//			targetLbValue := forwardingRule.Target[(targetLbIndex + 1):]
+	//
+	//			// targetlink에서 lb 추출
+	//			//targetNlbInfo := nlbMap[targetLbValue]
+	//			newNlbInfo, exists := nlbMap[targetLbValue]
+	//			if exists {
+	//				// spider는 1개의 listener(forwardingrule)만 사용하므로 skip
+	//			} else {
+	//				listenerInfo := convertRegionForwardingRuleToNlbListener(forwardingRule)
+	//
+	//				createdTime, _ := time.Parse(
+	//					time.RFC3339,
+	//					forwardingRule.CreationTimestamp) // RFC3339형태이므로 해당 시간으로 다시 생성
+	//
+	//				loadBalancerType := forwardingRule.LoadBalancingScheme
+	//				if strings.EqualFold(loadBalancerType, GCP_ForwardingRuleScheme_EXTERNAL) { // PUBLIC/INTERNAL : extenel -> PUBLIC으로 변경
+	//					loadBalancerType = SPIDER_LoadBalancerType_PUBLIC
+	//				}
+	//
+	//				newNlbInfo = irs.NLBInfo{
+	//					//IId:         irs.IID{NameId: targetLbValue, SystemId: targetPoolUrl}, // NameId :Lb Name, poolName, SystemId : targetPool Url
+	//					IId:         irs.IID{NameId: targetLbValue, SystemId: targetLbValue},
+	//					VpcIID:      irs.IID{NameId: String_Empty, SystemId: String_Empty}, // VpcIID 는 Pool 안의 instance에 있는 값
+	//					Type:        loadBalancerType,                                      // PUBLIC/INTERNAL : extenel -> PUBLIC으로 변경하는 로직 적용해야함.
+	//					Scope:       SCOPE_REGION,
+	//					Listener:    listenerInfo,
+	//					CreatedTime: createdTime, //RFC3339 "creationTimestamp":"2022-05-24T01:20:40.334-07:00"
+	//					//KeyValueList  []KeyValue
+	//				}
+	//
+	//				newNlbInfo.VMGroup.Protocol = forwardingRule.IPProtocol
+	//				newNlbInfo.VMGroup.Port = forwardingRule.PortRange
+	//			}
+	//			nlbMap[targetLbValue] = newNlbInfo
+	//			printToJson(forwardingRule)
+	//		}
+	//	}
+	//}
+	//cblogger.Info("regionForwardingRule end: ")
+	//cblogger.Info("nlbMap end: ", nlbMap)
+	//
+	//cblogger.Info("Targetpool start: ")
+	//
+	//targetPoolList, err := nlbHandler.listTargetPools(regionID, String_Empty)
+	//if err != nil {
+	//	cblogger.Info("targetPoolList  list: ", err)
+	//	return nil, err
+	//}
 	//printToJson(targetPoolList)
-
-	cblogger.Info("Targetpool end: ")
-	printToJson(nlbMap)
-
-	for _, nlbInfo := range nlbMap {
-		cblogger.Info(nlbInfo)
-		nlbInfoList = append(nlbInfoList, &nlbInfo)
-	}
+	//
+	////vpcInstanceName := "" // vpc를 갸져올 instance 이름
+	////vpcInstanceZone := "" // vpc를 가져올 instance zone
+	//
+	//for _, targetPool := range targetPoolList.Items {
+	//	//printToJson(targetPool)
+	//	newNlbInfo, exists := nlbMap[targetPool.Name] // lb name
+	//	if !exists {
+	//		// 없으면 안됨.
+	//		cblogger.Info("targetPool.Name does not exist in nlbMap ", targetPool.Name)
+	//		continue
+	//	}
+	//	err = nlbHandler.convertTargetPoolToNLBInfo(targetPool, &newNlbInfo)
+	//
+	//	if err != nil {
+	//		return nil, err
+	//	}
+	//	nlbMap[targetPool.Name] = newNlbInfo
+	//}
+	////printToJson(targetPoolList)
+	//
+	//cblogger.Info("Targetpool end: ")
+	//printToJson(nlbMap)
+	//
+	//for _, nlbInfo := range nlbMap {
+	//	cblogger.Info(nlbInfo)
+	//	nlbInfoList = append(nlbInfoList, &nlbInfo)
+	//}
 	return nlbInfoList, nil
 }
 
 // Load balancer 조회
 // nlbIID 에서 NameId = lbName, targetPoolName, forwardingRuleName
 func (nlbHandler *GCPNLBHandler) GetNLB(nlbIID irs.IID) (irs.NLBInfo, error) {
-	var nlbInfo irs.NLBInfo
+	nlbInfo := irs.NLBInfo{}
 
 	projectID := nlbHandler.Credential.ProjectID
 	regionID := nlbHandler.Region.Region
 
 	cblogger.Info("projectID: ", projectID)
 	cblogger.Info("regionID: ", regionID)
-
+	printToJson(nlbInfo)
 	// region forwarding rule 는 target pool 과 lb이름으로 엮임.
 	// map에 nb이름으로 nbInfo를 넣고 해당 값들 추가해서 조합
-	nlbID := nlbIID.NameId
+	//nlbID := nlbIID.NameId
+	nlbID := nlbIID.SystemId
 
 	// forwardingRule 조회
-
-	cblogger.Info("region forwardingRules start: ", regionID)
-	callogger := call.GetLogger("HISCALL")
-	callLogInfo := call.CLOUDLOGSCHEMA{
-		CloudOS:      call.GCP,
-		RegionZone:   nlbHandler.Region.Zone,
-		ResourceType: call.NLB,
-		ResourceName: nlbID,
-		CloudOSAPI:   "GetNLB()",
-		ElapsedTime:  "",
-		ErrorMSG:     "",
-	}
-	callLogStart := call.Start()
-	regionForwardingRule, err := nlbHandler.getRegionForwardingRules(regionID, nlbID)
-	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+	listenerInfo, err := nlbHandler.getListenerByNlbSystemID(nlbIID)
 	if err != nil {
-		cblogger.Info("regionForwardingRule  list: ", err)
-		callLogInfo.ErrorMSG = err.Error()
-		callogger.Info(call.String(callLogInfo))
 		cblogger.Error(err)
 		return irs.NLBInfo{}, err
 	}
-	if regionForwardingRule != nil { // dial tcp: lookup compute.googleapis.com: no such host 일 때, 	panic: runtime error: invalid memory address or nil pointer dereference
 
-		listenerInfo := convertRegionForwardingRuleToNlbListener(regionForwardingRule)
+	nlbInfo.IId = nlbIID
+	nlbInfo.VpcIID = irs.IID{NameId: String_Empty, SystemId: String_Empty} // VpcIID 는 Pool 안의 instance에 있는 값
+	nlbInfo.Scope = SCOPE_REGION
+	nlbInfo.Listener = listenerInfo
 
-		createdTime, _ := time.Parse(
-			time.RFC3339,
-			regionForwardingRule.CreationTimestamp) // RFC3339형태이므로 해당 시간으로 다시 생성
-
-		loadBalancerType := regionForwardingRule.LoadBalancingScheme
-		if strings.EqualFold(loadBalancerType, GCP_ForwardingRuleScheme_EXTERNAL) {
-			loadBalancerType = SPIDER_LoadBalancerType_PUBLIC
+	for _, keyValue := range listenerInfo.KeyValueList {
+		if strings.EqualFold(keyValue.Key, "createdTime") {
+			createdTime, _ := time.Parse(
+				time.RFC3339,
+				keyValue.Value) // RFC3339형태이므로 해당 시간으로 다시 생성
+			nlbInfo.CreatedTime = createdTime //RFC3339 "creationTimestamp":"2022-05-24T01:20:40.334-07:00"
 		}
-
-		nlbInfo = irs.NLBInfo{
-			IId:         nlbIID,
-			VpcIID:      irs.IID{NameId: String_Empty, SystemId: String_Empty}, // VpcIID 는 Pool 안의 instance에 있는 값
-			Type:        loadBalancerType,                                      // PUBLIC/INTERNAL : extenel -> PUBLIC으로 변경하는 로직 적용해야함.
-			Scope:       SCOPE_REGION,
-			Listener:    listenerInfo,
-			CreatedTime: createdTime, //RFC3339 "creationTimestamp":"2022-05-24T01:20:40.334-07:00"
-			//KeyValueList  []KeyValue
+		if strings.EqualFold(keyValue.Key, "loadBalancerType") {
+			nlbInfo.Type = keyValue.Value
 		}
-		printToJson(regionForwardingRule)
 	}
+
+	//cblogger.Info("region forwardingRules start: ", regionID)
+	//callogger := call.GetLogger("HISCALL")
+	//callLogInfo := call.CLOUDLOGSCHEMA{
+	//	CloudOS:      call.GCP,
+	//	RegionZone:   nlbHandler.Region.Zone,
+	//	ResourceType: call.NLB,
+	//	ResourceName: nlbID,
+	//	CloudOSAPI:   "GetNLB()",
+	//	ElapsedTime:  "",
+	//	ErrorMSG:     "",
+	//}
+	//callLogStart := call.Start()
+	//regionForwardingRule, err := nlbHandler.getRegionForwardingRules(regionID, nlbID)
+	//callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+	//if err != nil {
+	//	cblogger.Info("regionForwardingRule  list: ", err)
+	//	callLogInfo.ErrorMSG = err.Error()
+	//	callogger.Info(call.String(callLogInfo))
+	//	cblogger.Error(err)
+	//	return irs.NLBInfo{}, err
+	//}
+	//if regionForwardingRule != nil { // dial tcp: lookup compute.googleapis.com: no such host 일 때, 	panic: runtime error: invalid memory address or nil pointer dereference
+	//
+	//	listenerInfo := convertRegionForwardingRuleToNlbListener(regionForwardingRule)
+	//
+	//	createdTime, _ := time.Parse(
+	//		time.RFC3339,
+	//		regionForwardingRule.CreationTimestamp) // RFC3339형태이므로 해당 시간으로 다시 생성
+	//
+	//	loadBalancerType := regionForwardingRule.LoadBalancingScheme
+	//	if strings.EqualFold(loadBalancerType, GCP_ForwardingRuleScheme_EXTERNAL) {
+	//		loadBalancerType = SPIDER_LoadBalancerType_PUBLIC
+	//	}
+	//
+	//	nlbInfo = irs.NLBInfo{
+	//		IId:         nlbIID,
+	//		VpcIID:      irs.IID{NameId: String_Empty, SystemId: String_Empty}, // VpcIID 는 Pool 안의 instance에 있는 값
+	//		Type:        loadBalancerType,                                      // PUBLIC/INTERNAL : extenel -> PUBLIC으로 변경하는 로직 적용해야함.
+	//		Scope:       SCOPE_REGION,
+	//		Listener:    listenerInfo,
+	//		CreatedTime: createdTime, //RFC3339 "creationTimestamp":"2022-05-24T01:20:40.334-07:00"
+	//		//KeyValueList  []KeyValue
+	//	}
+	//	printToJson(regionForwardingRule)
+	//}
 
 	//cblogger.Info("forwardingRules result size  : ", len(regionForwardingRuleList.Items))
 	cblogger.Info("regionForwardingRule end: ")
@@ -609,6 +651,9 @@ func (nlbHandler *GCPNLBHandler) GetNLB(nlbIID irs.IID) (irs.NLBInfo, error) {
 	}
 
 	cblogger.Info("Targetpool end: ")
+
+	nlbInfo.VMGroup.Protocol = listenerInfo.Protocol
+	nlbInfo.VMGroup.Port = listenerInfo.Port
 	printToJson(nlbInfo)
 
 	return nlbInfo, nil
@@ -634,7 +679,7 @@ func (nlbHandler *GCPNLBHandler) DeleteNLB(nlbIID irs.IID) (bool, error) {
 
 	//projectID := nlbHandler.Credential.ProjectID
 	regionID := nlbHandler.Region.Region
-	targetPoolName := nlbIID.NameId
+	targetPoolName := nlbIID.SystemId
 
 	allDeleted := false
 
@@ -854,9 +899,20 @@ func (nlbHandler *GCPNLBHandler) AddVMs(nlbIID irs.IID, vmIIDs *[]irs.IID) (irs.
 		return irs.VMGroupInfo{}, err
 	}
 
-	vmGroup := extractVmGroup(targetPool)
-	printToJson(vmGroup)
-	return vmGroup, nil
+	nlbInfo := irs.NLBInfo{}
+
+	// protocol, port는 listener 에 있는 값으로 set
+	listenerInfo, err := nlbHandler.getListenerByNlbSystemID(nlbIID)
+	nlbInfo.VMGroup.Protocol = listenerInfo.Protocol
+	nlbInfo.VMGroup.Port = listenerInfo.Port
+	err = nlbHandler.convertTargetPoolToNLBInfo(targetPool, &nlbInfo)
+	if err != nil {
+		return irs.VMGroupInfo{}, err
+	}
+	//vmGroup := extractVmGroup(targetPool)
+	//printToJson(vmGroup)
+	//return vmGroup, nil
+	return nlbInfo.VMGroup, nil
 }
 
 /*
@@ -1513,9 +1569,10 @@ func (nlbHandler *GCPNLBHandler) deleteRegionForwardingRule(regionID string, for
 // return : 삭제 총 갯수 / 전체 갯수, error
 func (nlbHandler *GCPNLBHandler) deleteRegionForwardingRules(regionID string, nlbIID irs.IID) (string, error) {
 	// path param
-	targetPoolUrl := nlbIID.SystemId
+	//targetPoolUrl := nlbIID.SystemId
+	targetPoolId := nlbIID.SystemId
 
-	forwardingRuleList, err := nlbHandler.listRegionForwardingRules(regionID, String_Empty, targetPoolUrl)
+	forwardingRuleList, err := nlbHandler.listRegionForwardingRules(regionID, String_Empty, targetPoolId)
 	if err != nil {
 		cblogger.Info("DeleteNLB forwardingRule  err: ", err)
 		return String_Empty, err
@@ -1523,7 +1580,7 @@ func (nlbHandler *GCPNLBHandler) deleteRegionForwardingRules(regionID string, nl
 	deleteCount := 0
 	itemLength := len(forwardingRuleList.Items)
 	if itemLength == 0 {
-		return String_Empty, errors.New("Error 404: The Forwarding Rule resource of " + targetPoolUrl + " was not found")
+		return String_Empty, errors.New("Error 404: The Forwarding Rule resource of " + targetPoolId + " was not found")
 	}
 	for _, forwardingRule := range forwardingRuleList.Items {
 		err := nlbHandler.deleteRegionForwardingRule(regionID, forwardingRule.Name)
@@ -2046,6 +2103,7 @@ func (nlbHandler *GCPNLBHandler) getTargetPool(regionID string, targetPoolName s
 
 	resp, err := nlbHandler.Client.TargetPools.Get(projectID, regionID, targetPoolName).Do()
 	if err != nil {
+		cblogger.Error("TargetPools.Get ", err)
 		return nil, err
 	}
 	return resp, nil
@@ -2060,6 +2118,7 @@ func (nlbHandler *GCPNLBHandler) listTargetPools(regionID string, filter string)
 
 	resp, err := nlbHandler.Client.TargetPools.List(projectID, regionID).Do()
 	if err != nil {
+		cblogger.Error("TargetPools.List ", err)
 		return &compute.TargetPoolList{}, err
 	}
 	printToJson(resp)
@@ -2091,6 +2150,7 @@ func (nlbHandler *GCPNLBHandler) getTargetPoolHealth(regionID string, targetPool
 	// requestBody
 	resp, err := nlbHandler.Client.TargetPools.GetHealth(projectID, regionID, targetPoolName, instanceReference).Do()
 	if err != nil {
+		cblogger.Error("TargetPools.GetHealth ", err)
 		return nil, err
 	}
 	return resp, nil
@@ -2214,7 +2274,7 @@ func (nlbHandler *GCPNLBHandler) removeHttpHealthCheck(targetPoolName string, he
 	// TargetPool이 없으면 targetPool이름으로 삭제 시도
 	targetPool, err := nlbHandler.getTargetPool(regionID, targetPoolName)
 	if err != nil {
-		cblogger.Info("targetPoolList  list: ", err)
+		cblogger.Info("targetPoolList  list for removeHttpHealthCheck: ", err)
 	}
 	// queryParam
 
@@ -2222,25 +2282,32 @@ func (nlbHandler *GCPNLBHandler) removeHttpHealthCheck(targetPoolName string, he
 	healthCheckerName := targetPoolName
 	if targetPool != nil {
 		healthCheckIIDs := targetPool.HealthChecks
+		cblogger.Info("removeHttpHealthCheck : ", healthCheckIIDs)
 		for _, healthCheckUrl := range healthCheckIIDs {
 			healthCheckerIndex := strings.LastIndex(healthCheckUrl, StringSeperator_Slash)
 			healthCheckerName = healthCheckUrl[(healthCheckerIndex + 1):]
+			cblogger.Info("removeHttpHealthCheck by targetPool ", healthCheckerName)
 			req, err := nlbHandler.Client.HttpHealthChecks.Delete(projectID, healthCheckerName).Do()
 			if err != nil {
+				cblogger.Info("HttpHealthChecks.Delete : ", err)
 				return err
 			}
 			err = WaitUntilComplete(nlbHandler.Client, projectID, String_Empty, req.Name, true)
 			if err != nil {
+				cblogger.Info("HttpHealthChecks.Delete WaitUntilComplete : ", err)
 				return err
 			}
 		}
 	} else {
+		cblogger.Info("removeHttpHealthCheck by ", healthCheckerName)
 		req, err := nlbHandler.Client.HttpHealthChecks.Delete(projectID, healthCheckerName).Do()
 		if err != nil {
+			cblogger.Info("2HttpHealthChecks.Delete : ", err)
 			return err
 		}
 		err = WaitUntilComplete(nlbHandler.Client, projectID, String_Empty, req.Name, true)
 		if err != nil {
+			cblogger.Info("HttpHealthChecks.Delete WaitUntilComplete : ", err)
 			return err
 		}
 	}
@@ -2422,12 +2489,14 @@ func (nlbHandler *GCPNLBHandler) removeTargetPool(regionID string, targetPoolNam
 	// requestBody
 	res, err := nlbHandler.Client.TargetPools.Delete(projectID, regionID, targetPoolName).Do()
 	if err != nil {
+		cblogger.Error(err)
 		return err
 	}
 
 	printToJson(res)
 	err = WaitUntilComplete(nlbHandler.Client, projectID, regionID, res.Name, false)
 	if err != nil {
+		cblogger.Error(err)
 		return err
 	}
 	cblogger.Info("Done")
@@ -2581,7 +2650,7 @@ func (nlbHandler *GCPNLBHandler) convertTargetPoolToNLBInfo(targetPool *compute.
 	regionID := nlbHandler.Region.Region
 
 	// VM Group 정보 추출
-	nlbInfo.VMGroup = extractVmGroup(targetPool)
+	nlbInfo.VMGroup = extractVmGroup(targetPool, nlbInfo)
 
 	// health checker 정보 추출
 	// health checker에 대한 ID는 가지고 있으나 내용은 갖고 있지 않아 정보 조회 필요.
@@ -2608,16 +2677,72 @@ func (nlbHandler *GCPNLBHandler) convertTargetPoolToNLBInfo(targetPool *compute.
 	return nil
 }
 
+/*
+	forwarding rule의 Port가 Range 이나 Spider에서는 1개만 사용하므로 첫번째 값만 사용
+*/
 func convertRegionForwardingRuleToNlbListener(forwardingRule *compute.ForwardingRule) irs.ListenerInfo {
+	portRange := forwardingRule.PortRange
+	portArr := strings.Split(portRange, StringSeperator_Hypen)
 	listenerInfo := irs.ListenerInfo{
 		Protocol: forwardingRule.IPProtocol,
 		IP:       forwardingRule.IPAddress,
-		Port:     forwardingRule.PortRange,
+		Port:     portArr[0],
 		//DNSName:  forwardingRule., // 향후 사용할 때 Adderess에서 가져올 듯
 		CspID: forwardingRule.Name, // forwarding rule name 전체
 		//KeyValueList:
 	}
 	return listenerInfo
+}
+
+// Listener 만 조회
+func (nlbHandler *GCPNLBHandler) getListenerByNlbSystemID(nlbIID irs.IID) (irs.ListenerInfo, error) {
+	listenerInfo := irs.ListenerInfo{}
+	regionID := nlbHandler.Region.Region
+
+	// region forwarding rule 는 target pool 과 lb이름으로 엮임.
+	// map에 nb이름으로 nbInfo를 넣고 해당 값들 추가해서 조합
+	//nlbID := nlbIID.NameId
+	nlbID := nlbIID.SystemId
+	// forwardingRule 조회
+
+	cblogger.Info("region forwardingRules start: ", regionID)
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.GCP,
+		RegionZone:   nlbHandler.Region.Zone,
+		ResourceType: call.NLB,
+		ResourceName: nlbID,
+		CloudOSAPI:   "GetNLB()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+	callLogStart := call.Start()
+	regionForwardingRule, err := nlbHandler.getRegionForwardingRules(regionID, nlbID)
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+	if err != nil {
+		cblogger.Info("regionForwardingRule  list: ", err)
+		callLogInfo.ErrorMSG = err.Error()
+		callogger.Info(call.String(callLogInfo))
+		cblogger.Error(err)
+		return irs.ListenerInfo{}, err
+	}
+	if regionForwardingRule != nil { // dial tcp: lookup compute.googleapis.com: no such host 일 때, 	panic: runtime error: invalid memory address or nil pointer dereference
+		listenerInfo = convertRegionForwardingRuleToNlbListener(regionForwardingRule)
+
+		loadBalancerType := regionForwardingRule.LoadBalancingScheme
+		if strings.EqualFold(loadBalancerType, GCP_ForwardingRuleScheme_EXTERNAL) {
+			loadBalancerType = SPIDER_LoadBalancerType_PUBLIC
+		}
+
+		createTimeKeyValue := irs.KeyValue{Key: "createdTime", Value: regionForwardingRule.CreationTimestamp}
+		loadBalancerTypeKeyValue := irs.KeyValue{Key: "loadBalancerType", Value: loadBalancerType}
+		keyValueList := []irs.KeyValue{}
+		keyValueList = append(keyValueList, createTimeKeyValue)
+		keyValueList = append(keyValueList, loadBalancerTypeKeyValue)
+		listenerInfo.KeyValueList = keyValueList
+	}
+
+	return listenerInfo, nil
 }
 
 /*
@@ -2630,8 +2755,9 @@ func convertRegionForwardingRuleToNlbListener(forwardingRule *compute.Forwarding
 	//targetPoolIndex := strings.LastIndex(targetPool.SelfLink, "/")
 	//targetPoolValue := targetPool.SelfLink[(targetPoolIndex + 1):]
 */
-func extractVmGroup(targetPool *compute.TargetPool) irs.VMGroupInfo {
-	vmGroup := irs.VMGroupInfo{}
+func extractVmGroup(targetPool *compute.TargetPool, nlbInfo *irs.NLBInfo) irs.VMGroupInfo {
+	//vmGroup := irs.VMGroupInfo{}
+	vmGroup := nlbInfo.VMGroup
 
 	//targetPool, err := nlbHandler.getTargetPool(regionID, targetPoolName)
 	//if err != nil {
@@ -2734,8 +2860,8 @@ func (nlbHandler *GCPNLBHandler) getVPCInfoFromVM(zoneID string, vmID irs.IID) (
 		cblogger.Error(err)
 		return irs.IID{}, err
 	}
-	callogger.Info(call.String(callLogInfo))
-	spew.Dump(vm)
+	//callogger.Info(call.String(callLogInfo))
+	//spew.Dump(vm)
 
 	////Network: (string) (len=87) "https://www.googleapis.com/compute/v1/projects/[projectID]/global/networks/[vpcName]",
 	////NetworkIP: (string) (len=8) "10.0.0.6",
