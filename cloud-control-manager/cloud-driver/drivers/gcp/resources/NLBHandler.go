@@ -690,14 +690,6 @@ func (nlbHandler *GCPNLBHandler) DeleteNLB(nlbIID irs.IID) (bool, error) {
 	}
 	cblogger.Info("DeleteNLB forwardingRuleDeleteResult ", forwardingRuleDeleteResult)
 
-	// health checker
-	err = nlbHandler.removeHttpHealthCheck(targetPoolName, String_Empty)
-	if err != nil {
-		cblogger.Info("DeleteNLB removeHealthCheck  err: ", err)
-		deleteResultMap[NLB_Component_HEALTHCHECKER] = err
-		//return false, err
-	}
-
 	// backend
 
 	callogger := call.GetLogger("HISCALL")
@@ -722,6 +714,14 @@ func (nlbHandler *GCPNLBHandler) DeleteNLB(nlbIID irs.IID) (bool, error) {
 		//return false, err
 	}
 
+	// health checker
+	err = nlbHandler.removeHttpHealthCheck(targetPoolName, String_Empty)
+	if err != nil {
+		cblogger.Info("DeleteNLB removeHttpHealthCheck  err: ", err)
+		deleteResultMap[NLB_Component_HEALTHCHECKER] = err
+		//return false, err
+	}
+
 	// 삭제 결과 return
 	returnMsg := String_Empty
 	resourceIdx := 1
@@ -731,7 +731,7 @@ func (nlbHandler *GCPNLBHandler) DeleteNLB(nlbIID irs.IID) (bool, error) {
 	for errKey, errMsg := range deleteResultMap {
 		if errMsg != nil {
 			isValidCode, isValidErrorFormat := checkErrorCode(ErrorCode_NotFound, errMsg)
-			cblogger.Info("DeleteNLB removeHealthCheck  checkErrorCode: ", errKey, isValidCode)
+			cblogger.Info("DeleteNLB checkErrorCode: ", errKey, errMsg, isValidCode, isValidErrorFormat)
 			if !isValidCode && isValidErrorFormat {
 				returnMsg += "(" + strconv.Itoa(resourceIdx) + ") " + errKey + " " + errMsg.Error()
 				resourceIdx++
@@ -743,7 +743,7 @@ func (nlbHandler *GCPNLBHandler) DeleteNLB(nlbIID irs.IID) (bool, error) {
 		}
 	}
 
-	if resourceCountTotal == resourceCount404 {
+	if resourceCountTotal > 0 && resourceCountTotal == resourceCount404 {
 		return allDeleted, errors.New("The resource NLB " + targetPoolName + " was not found")
 	}
 	if resourceIdx == 1 { // error 없으면
@@ -2311,6 +2311,31 @@ func (nlbHandler *GCPNLBHandler) removeHttpHealthCheck(targetPoolName string, he
 			return err
 		}
 	}
+	return nil
+}
+
+/*
+	NLB 삭제시 Healthchecker는 GLOBAL이므로 링크만 제거 됨.
+	spider의 nln는 1nlb = 1 healthchecker이므로 생성과 삭제를 같이 함.
+	nlbname = targetpoolname = healthcheckername
+*/
+func (nlbHandler *GCPNLBHandler) removeGlobalHealthCheck(healthCheckerName string) error {
+	// path param
+	projectID := nlbHandler.Credential.ProjectID
+
+	// requestBody
+	cblogger.Info("removeGlobalHealthCheck by ", healthCheckerName)
+	req, err := nlbHandler.Client.HealthChecks.Delete(projectID, healthCheckerName).Do()
+	if err != nil {
+		cblogger.Info("removeGlobalHealthCheck.Delete : ", err)
+		return err
+	}
+	err = WaitUntilComplete(nlbHandler.Client, projectID, String_Empty, req.Name, true)
+	if err != nil {
+		cblogger.Info("removeGlobalHealthCheck.Delete WaitUntilComplete : ", err)
+		return err
+	}
+
 	return nil
 }
 
