@@ -10,4 +10,17 @@ fi
 
 source $1/setup.env
 
-./common/addvm-removevm-nlb-test.sh
+PRTL1=TCP
+PORT1=22
+
+PRTL2=TCP
+PORT2=22
+
+PRTL3=TCP
+PORT3=22
+
+INTERVAL=10
+TIMETOUT=-1
+THRESHOLD=3
+
+./common/create-nlb-test.sh $PRTL1 $PORT1 $PRTL2 $PORT2 $PRTL3 $PORT3 $INTERVAL $TIMEOUT $THRESHOLD
