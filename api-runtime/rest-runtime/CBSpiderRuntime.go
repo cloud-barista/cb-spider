@@ -188,6 +188,9 @@ func RunServer() {
 		//----------EndpointInfo
 		{"GET", "/endpointinfo", EndpointInfo},
 
+		//----------EndpointInfo
+		{"GET", "/healthcheck", EndpointInfo},
+
 		//----------CloudOS
 		{"GET", "/cloudos", ListCloudOS},
 
