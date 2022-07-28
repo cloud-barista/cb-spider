@@ -29,7 +29,8 @@ curl -sX POST http://localhost:1024/spider/securitygroup -H 'Content-Type: appli
 		"ReqInfo": { 
 			"Name": "sg-01", 
 			"VPCName": "vpc-01", 
-			"SecurityRules": [ {"FromPort": "1", "ToPort" : "65535", "IPProtocol" : "tcp", "Direction" : "inbound"} ] 
+			"SecurityRules": [ {"FromPort": "1", "ToPort" : "65535", "IPProtocol" : "tcp", "Direction" : "inbound"},
+		       			   {"FromPort": "1", "ToPort" : "65535", "IPProtocol" : "udp", "Direction" : "inbound"}	] 
 		} 
 	}' |json_pp
 

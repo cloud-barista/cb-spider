@@ -22,15 +22,14 @@ vminfo=`curl -sX GET http://localhost:1024/spider/vm/$2 -H 'Content-Type: applic
 	'{
                 "ConnectionName": "'${CONN_CONFIG}'"
         }' |json_pp`
+
 public_ip=`echo -e "$vminfo" |grep \"PublicIP\" |sed -e 's/"PublicIP" : "//g' | sed -e 's/",//g' | sed -e 's/"//g' | sed -e 's/ //g'`
 
 ssh-keygen -f "/home/ubuntu/.ssh/known_hosts" -R $public_ip
 
-#### install nginx
-ssh -i $1-keypair-01.pem -o StrictHostKeyChecking=no cb-user@$public_ip "sudo apt-get update"
-ssh -i $1-keypair-01.pem -o StrictHostKeyChecking=no cb-user@$public_ip "sudo apt-get install -y nginx"
+#### start udp daemon
+ssh -f -i $1-keypair-01.pem -o StrictHostKeyChecking=no cb-user@$public_ip "sudo apt install -y nmap"
+sleep 1
+#ssh -f -i $1-keypair-01.pem -o StrictHostKeyChecking=no cb-user@$public_ip "sudo ncat -e /bin/hostname -vkul 100"
+ssh -f -i $1-keypair-01.pem -o StrictHostKeyChecking=no cb-user@$public_ip "sudo ncat -e '/usr/bin/curl -s ifconfig.co' -vkul 100"
 
-
-### setup index.html with public ip
-
-ssh -i $1-keypair-01.pem -o StrictHostKeyChecking=no cb-user@$public_ip "sudo sed -i 's/nginx\!/'"${public_ip}"'/g' /var/www/html/index.nginx-debian.html"

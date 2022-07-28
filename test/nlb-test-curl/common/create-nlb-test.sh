@@ -17,7 +17,7 @@ PRTL3=$5
 PORT3=$6
 
 INTERVAL=$7
-TIMETOUT=$8
+TIMEOUT=$8
 THRESHOLD=$9
 
 echo "#####---------- CreateNLB ----------####"

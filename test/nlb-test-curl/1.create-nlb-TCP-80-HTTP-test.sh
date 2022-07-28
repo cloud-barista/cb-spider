@@ -3,7 +3,7 @@
 if [ "$1" = "" ]; then
         echo
         echo -e 'usage: '$0' mock|aws|azure|gcp|alibaba|tencent|ibm|openstack|cloudit|ncp|nhncloud'
-        echo -e '\n\tex) '$0' aws'
+        echo -e '\n\tex) '$0' aws' 
         echo
         exit 0;
 fi
@@ -11,13 +11,13 @@ fi
 source $1/setup.env
 
 PRTL1=TCP
-PORT1=23
+PORT1=80
 
 PRTL2=TCP
-PORT2=22
+PORT2=80
 
-PRTL3=TCP
-PORT3=22
+PRTL3=HTTP
+PORT3=80
 
 INTERVAL=10
 TIMEOUT=9
