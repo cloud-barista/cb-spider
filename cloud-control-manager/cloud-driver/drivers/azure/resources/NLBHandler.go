@@ -618,7 +618,7 @@ func (nlbHandler *AzureNLBHandler) RemoveVMs(nlbIID irs.IID, vmIIDs *[]irs.IID) 
 
 		backendPoolName := *cbOnlyOneBackendPool.Name
 
-		addPrivateIPs := make([]string, len(*vmIIDs))
+		removPrivateIPs := make([]string, len(*vmIIDs))
 		for i, vmIId := range *vmIIDs {
 			vm, err := GetRawVM(vmIId, nlbHandler.Region.ResourceGroup, nlbHandler.VMClient, nlbHandler.Ctx)
 			if err != nil {
@@ -633,7 +633,7 @@ func (nlbHandler *AzureNLBHandler) RemoveVMs(nlbIID irs.IID, vmIIDs *[]irs.IID) 
 				LoggingError(hiscallInfo, removeErr)
 				return false, removeErr
 			}
-			addPrivateIPs[i] = ip
+			removPrivateIPs[i] = ip
 		}
 
 		pool, err := nlbHandler.NLBBackendAddressPoolsClient.Get(nlbHandler.Ctx, nlbHandler.Region.ResourceGroup, nlbIID.NameId, backendPoolName)
@@ -654,7 +654,7 @@ func (nlbHandler *AzureNLBHandler) RemoveVMs(nlbIID irs.IID, vmIIDs *[]irs.IID) 
 		}
 		currentVMPrivateIPs := make([]string, len(currentVMIIds))
 
-		for i, vmIId := range *vmIIDs {
+		for i, vmIId := range currentVMIIds {
 			vm, err := GetRawVM(vmIId, nlbHandler.Region.ResourceGroup, nlbHandler.VMClient, nlbHandler.Ctx)
 			if err != nil {
 				removeErr := errors.New(fmt.Sprintf("Failed to RemoveVMs NLB. err = %s", err.Error()))
@@ -670,7 +670,6 @@ func (nlbHandler *AzureNLBHandler) RemoveVMs(nlbIID irs.IID, vmIIDs *[]irs.IID) 
 				return false, removeErr
 			}
 			currentVMPrivateIPs[i] = ip
-
 		}
 
 		vpcIId, err := nlbHandler.getVPCIIDByLoadBalancerBackendAddresses(*cbOnlyOneBackendPool.LoadBalancerBackendAddresses)
@@ -683,12 +682,12 @@ func (nlbHandler *AzureNLBHandler) RemoveVMs(nlbIID irs.IID, vmIIDs *[]irs.IID) 
 		for _, currentIP := range currentVMPrivateIPs {
 			chk := false
 			addIPSet := ""
-			for _, addIP := range addPrivateIPs {
-				if strings.EqualFold(addIP, currentIP) {
+			for _, removeIP := range removPrivateIPs {
+				if strings.EqualFold(removeIP, currentIP) {
 					chk = true
 					break
 				}
-				addIPSet = addIP
+				addIPSet = currentIP
 			}
 			if !chk {
 				LoadBalancerBackendAddress, err := nlbHandler.getLoadBalancerBackendAddress(backendPoolName, vpcIId.SystemId, addIPSet)
