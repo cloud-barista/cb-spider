@@ -112,8 +112,8 @@ func (nlbHandler *IbmNLBHandler) DeleteNLB(nlbIID irs.IID) (bool, error) {
 	hiscallInfo := GetCallLogScheme(nlbHandler.Region, "NETWORKLOADBALANCE", nlbIID.NameId, "DeleteNLB()")
 	start := call.Start()
 
-	_,err := nlbHandler.cleanerNLB(nlbIID)
-	if err != nil{
+	_, err := nlbHandler.cleanerNLB(nlbIID)
+	if err != nil {
 		delErr := errors.New(fmt.Sprintf("Failed to Delete NLB. err = %s", err.Error()))
 		cblogger.Error(delErr.Error())
 		LoggingError(hiscallInfo, delErr)
@@ -242,7 +242,7 @@ func (nlbHandler *IbmNLBHandler) ChangeVMGroupInfo(nlbIID irs.IID, vmGroup irs.V
 		return irs.VMGroupInfo{}, changeErr
 	}
 
-	vmGroupPort, err := nlbHandler.getPoolPort(updateNLBId,updatePoolId)
+	vmGroupPort, err := nlbHandler.getPoolPort(updateNLBId, updatePoolId)
 
 	if err != nil {
 		changeErr := errors.New(fmt.Sprintf("Failed to Change VMGroupInfo. err = %s", err.Error()))
@@ -575,7 +575,7 @@ func (nlbHandler *IbmNLBHandler) GetVMGroupHealthInfo(nlbIID irs.IID) (irs.Healt
 		LoggingError(hiscallInfo, changeErr)
 		return irs.HealthInfo{}, changeErr
 	}
-	info,err:=nlbHandler.getHealthInfoByMembers(members.Members)
+	info, err := nlbHandler.getHealthInfoByMembers(members.Members)
 	if err != nil {
 		changeErr := errors.New(fmt.Sprintf("Failed to Get VMGroupHealthInfo. err = %s", err.Error()))
 		cblogger.Error(changeErr.Error())
@@ -985,7 +985,7 @@ func convertCBHealthToIbmHealth(healthChecker irs.HealthCheckerInfo) (vpcv1.Load
 	}
 
 	HealthPort64 := int64(HealthPort)
-	opts:= vpcv1.LoadBalancerPoolHealthMonitorPrototype{
+	opts := vpcv1.LoadBalancerPoolHealthMonitorPrototype{
 		Type:       core.StringPtr(HealthProtocol),
 		Delay:      core.Int64Ptr(HealthDelay),
 		MaxRetries: core.Int64Ptr(HealthMaxRetries),
@@ -1080,7 +1080,7 @@ func (nlbHandler *IbmNLBHandler) createNLB(nlbReqInfo irs.NLBInfo) (vpcv1.LoadBa
 	if err != nil {
 		return vpcv1.LoadBalancer{}, err
 	}
-	_,err = nlbHandler.checkUpdatableNLB(*nlb.ID)
+	_, err = nlbHandler.checkUpdatableNLB(*nlb.ID)
 	if err != nil {
 		return vpcv1.LoadBalancer{}, err
 	}
@@ -1260,7 +1260,7 @@ func (nlbHandler *IbmNLBHandler) getRawNLBList() (*[]vpcv1.LoadBalancer, error) 
 	return &list, nil
 }
 
-func (nlbHandler *IbmNLBHandler) cleanerNLB(nlbIID irs.IID) (bool, error){
+func (nlbHandler *IbmNLBHandler) cleanerNLB(nlbIID irs.IID) (bool, error) {
 	// Exist?
 	exist, err := nlbHandler.existNLBByName(nlbIID.NameId)
 	if err != nil {
@@ -1280,7 +1280,7 @@ func (nlbHandler *IbmNLBHandler) cleanerNLB(nlbIID irs.IID) (bool, error){
 	if err != nil {
 		return false, err
 	}
-	_,err = nlbHandler.waitDeletedNLB(nlbId)
+	_, err = nlbHandler.waitDeletedNLB(nlbId)
 	if err != nil {
 		return false, err
 	}
@@ -1314,10 +1314,10 @@ func (nlbHandler *IbmNLBHandler) waitDeletedNLB(nlbId string) (bool, error) {
 
 func (nlbHandler *IbmNLBHandler) getHealthInfoByMembers(members []vpcv1.LoadBalancerPoolMember) (irs.HealthInfo, error) {
 	var allVMS *[]vpcv1.Instance
-	var healthyVMs []irs.IID
-	var unHealthyVMs []irs.IID
+	healthyVMs := make([]irs.IID, 0)
+	unHealthyVMs := make([]irs.IID, 0)
 	vmIIDs := make([]irs.IID, len(members))
-	for i, member := range members{
+	for i, member := range members {
 		memberTarget, err := getMemberTarget(member)
 		if err != nil {
 			return irs.HealthInfo{}, err
@@ -1330,7 +1330,7 @@ func (nlbHandler *IbmNLBHandler) getHealthInfoByMembers(members []vpcv1.LoadBala
 			if err != nil {
 				return irs.HealthInfo{}, err
 			}
-			vmIIDs[i] =irs.IID{
+			vmIIDs[i] = irs.IID{
 				NameId:   *rawVM.Name,
 				SystemId: *rawVM.ID,
 			}
@@ -1352,7 +1352,7 @@ func (nlbHandler *IbmNLBHandler) getHealthInfoByMembers(members []vpcv1.LoadBala
 		}
 		if checkVmGroupHealth(*member.Health) {
 			healthyVMs = append(healthyVMs, vmIIDs[i])
-		}else{
+		} else {
 			unHealthyVMs = append(unHealthyVMs, vmIIDs[i])
 		}
 	}
@@ -1363,7 +1363,7 @@ func (nlbHandler *IbmNLBHandler) getHealthInfoByMembers(members []vpcv1.LoadBala
 	}, nil
 }
 
-func (nlbHandler *IbmNLBHandler) getPoolPort(nlbId string, poolId string)(int, error){
+func (nlbHandler *IbmNLBHandler) getPoolPort(nlbId string, poolId string) (int, error) {
 	poolOption := vpcv1.GetLoadBalancerPoolOptions{}
 	poolOption.SetLoadBalancerID(nlbId)
 	poolOption.SetID(poolId)
@@ -1390,11 +1390,10 @@ func (nlbHandler *IbmNLBHandler) getPoolPort(nlbId string, poolId string)(int, e
 	return vmGroupPort, nil
 }
 
-
 func (nlbHandler *IbmNLBHandler) getAllVMIIDsByMembers(members []vpcv1.LoadBalancerPoolMember) ([]irs.IID, error) {
 	var allVMS *[]vpcv1.Instance
 	vmIIDs := make([]irs.IID, len(members))
-	for i, member := range members{
+	for i, member := range members {
 		memberTarget, err := getMemberTarget(member)
 		if err != nil {
 			return nil, err
@@ -1407,7 +1406,7 @@ func (nlbHandler *IbmNLBHandler) getAllVMIIDsByMembers(members []vpcv1.LoadBalan
 			if err != nil {
 				return nil, err
 			}
-			vmIIDs[i] =irs.IID{
+			vmIIDs[i] = irs.IID{
 				NameId:   *rawVM.Name,
 				SystemId: *rawVM.ID,
 			}
