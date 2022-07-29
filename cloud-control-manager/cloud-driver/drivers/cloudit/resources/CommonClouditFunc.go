@@ -24,9 +24,9 @@ import (
 )
 
 const (
-	CBVMUser      = "cb-user"
-	CBKeyPairPath = "/meta_db/.ssh-cloudit/"
-	ClouditRegion = "ClouditRegion"
+	CBVMUser           = "cb-user"
+	CBKeyPairPath      = "/meta_db/.ssh-cloudit/"
+	ClouditRegion      = "ClouditRegion"
 	ClouditVPCREGISTER = "VPC-REGISTER"
 )
 

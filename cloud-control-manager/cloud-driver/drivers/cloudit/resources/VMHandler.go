@@ -452,10 +452,36 @@ func (vmHandler *ClouditVMHandler) ResumeVM(vmIID irs.IID) (irs.VMStatus, error)
 	maxRetryCnt := 120
 	for {
 		// Check VM Deploy Status
-		vmStatus, _ := vmHandler.GetVMStatus(vmIID)
-		if vmStatus == irs.Running {
+		rawVm, _ := vmHandler.getRawVm(vmIID)
+		status := getVmStatus(rawVm.State)
+		if status == irs.Running {
+			break
+		}
+
+		time.Sleep(1 * time.Second)
+		curRetryCnt++
+		if curRetryCnt > maxRetryCnt {
+			createErr := errors.New(fmt.Sprintf("Failed to ResumeVM. err = exceeded maximum retry count %d", maxRetryCnt))
+			cblogger.Error(createErr.Error())
+			LoggingError(hiscallInfo, createErr)
+			return irs.Failed, createErr
+		}
+	}
+
+	serverIP := rawVm.AdaptiveIp
+	if serverIP == "" {
+		createErr := errors.New(fmt.Sprintf("Failed to ResumeVM. err = exceeded maximum retry count %d", maxRetryCnt))
+		cblogger.Error(createErr.Error())
+		LoggingError(hiscallInfo, createErr)
+		return irs.Failed, createErr
+	}
+	curRetryCnt = 0
+	for {
+		_, commandError := RunCommand(serverIP, 22, "dumy", "", "")
+		errStr := commandError.Error()
+		if strings.Contains(errStr, "ssh") {
 			LoggingInfo(hiscallInfo, start)
-			return vmStatus, nil
+			return irs.Running, nil
 		}
 		time.Sleep(1 * time.Second)
 		curRetryCnt++
@@ -511,7 +537,50 @@ func (vmHandler *ClouditVMHandler) RebootVM(vmIID irs.IID) (irs.VMStatus, error)
 		LoggingError(hiscallInfo, getErr)
 		return irs.Failed, getErr
 	}
-	return vmStatus, nil
+	curRetryCnt := 0
+	maxRetryCnt := 120
+	for {
+		rawVm, _ := vmHandler.getRawVm(vmIID)
+		status := getVmStatus(rawVm.State)
+		// Check VM Deploy Status
+		if status == irs.Running {
+			break
+		}
+		time.Sleep(1 * time.Second)
+		curRetryCnt++
+		if curRetryCnt > maxRetryCnt {
+			createErr := errors.New(fmt.Sprintf("Failed to RebootVM. err = exceeded maximum retry count %d", maxRetryCnt))
+			cblogger.Error(createErr.Error())
+			LoggingError(hiscallInfo, createErr)
+			return irs.Failed, createErr
+		}
+	}
+
+	serverIP := rawVm.AdaptiveIp
+	if serverIP == "" {
+		createErr := errors.New(fmt.Sprintf("Failed to RebootVM. err = exceeded maximum retry count %d", maxRetryCnt))
+		cblogger.Error(createErr.Error())
+		LoggingError(hiscallInfo, createErr)
+		return irs.Failed, createErr
+	}
+	curRetryCnt = 0
+	for {
+		_, commandError := RunCommand(serverIP, 22, "dumy", "", "")
+		errStr := commandError.Error()
+		if strings.Contains(errStr, "ssh") {
+			LoggingInfo(hiscallInfo, start)
+			return irs.Running, nil
+		}
+		time.Sleep(1 * time.Second)
+		curRetryCnt++
+		if curRetryCnt > maxRetryCnt {
+			createErr := errors.New(fmt.Sprintf("Failed to RebootVM. err = exceeded maximum retry count %d", maxRetryCnt))
+			cblogger.Error(createErr.Error())
+			LoggingError(hiscallInfo, createErr)
+			return irs.Failed, createErr
+		}
+	}
+	// return vmStatus, nil
 }
 
 func (vmHandler *ClouditVMHandler) TerminateVM(vmIID irs.IID) (irs.VMStatus, error) {
