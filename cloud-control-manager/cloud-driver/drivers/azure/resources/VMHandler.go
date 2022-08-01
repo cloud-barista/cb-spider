@@ -121,7 +121,7 @@ func (vmHandler *AzureVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 				VMSize: compute.VirtualMachineSizeTypes(vmReqInfo.VMSpecName),
 			},
 			OsProfile: &compute.OSProfile{
-				ComputerName: to.StringPtr(CBVMUser),
+				ComputerName:  to.StringPtr(vmReqInfo.IId.NameId),
 				AdminUsername: to.StringPtr(CBVMUser),
 			},
 			NetworkProfile: &compute.NetworkProfile{
@@ -155,7 +155,7 @@ func (vmHandler *AzureVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 			//ManagedDisk: &compute.ManagedDiskParameters{
 			//	StorageAccountType: storageType,
 			//},
-			ManagedDisk: managedDisk,
+			ManagedDisk:  managedDisk,
 			DeleteOption: compute.DiskDeleteOptionTypesDelete,
 		},
 	}
@@ -771,9 +771,9 @@ func (vmHandler *AzureVMHandler) mappingServerInfo(server compute.VirtualMachine
 		Region: irs.RegionInfo{
 			Region: *server.Location,
 		},
-		VMSpecName: string(server.VirtualMachineProperties.HardwareProfile.VMSize),
+		VMSpecName:     string(server.VirtualMachineProperties.HardwareProfile.VMSize),
 		RootDeviceName: "Not visible in Azure",
-		VMBlockDisk: "Not visible in Azure",
+		VMBlockDisk:    "Not visible in Azure",
 	}
 
 	// Set VM Zone
