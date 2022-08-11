@@ -35,7 +35,7 @@ type ClusterInfo struct {
 	Addons		AddonsInfo
 
 	
-        status 		ClusterStatus
+        Status 		ClusterStatus
 
 	CreatedTime	time.Time
 	KeyValueList []KeyValue
