@@ -29,6 +29,8 @@ type VMReqInfo struct {
 	RootDiskType string  // "", "SSD(gp2)", "Premium SSD", ...
         RootDiskSize string  // "", "default", "50", "1000" (GB)
 
+	DataDiskIIDs []IID
+
 	VMUserId     string
 	VMUserPasswd string
 }
@@ -79,9 +81,11 @@ type VMInfo struct {
 	RootDiskType	string  // "SSD(gp2)", "Premium SSD", ...
         RootDiskSize	string  // "default", "50", "1000" (GB)
 	RootDeviceName	string // "/dev/sda1", ...
-	VMBootDisk  	string // Deprecated soon
 
-	VMBlockDisk string // ex)
+	DataDiskIIDs []IID
+
+	VMBootDisk  	string // Deprecated soon
+	VMBlockDisk 	string // Deprecated soon
 
 	VMUserId     string // ex) user1
 	VMUserPasswd string
