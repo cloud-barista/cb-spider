@@ -15,9 +15,16 @@ import (
 	"time"
 )
 
+type ImageType string
+const (
+	PublicImage 	ImageType = "PublicImage"
+	MyImage 	ImageType = "MyImage" 
+)
+
 type VMReqInfo struct {
 	IId IID // {NameId, SystemId}
 
+	ImageType         ImageType // PublicImage | MyImage, default: PublicImage
 	ImageIID          IID
 	VpcIID            IID
 	SubnetIID         IID
@@ -70,6 +77,7 @@ type VMInfo struct {
 	StartTime time.Time // Timezone: based on cloud-barista server location.
 
 	Region            RegionInfo //  ex) {us-east1, us-east1-c} or {ap-northeast-2}
+	ImageType         ImageType // PublicImage | MyImage
 	ImageIId          IID
 	VMSpecName        string //  instance type or flavour, etc... ex) t2.micro or f1.micro
 	VpcIID            IID
