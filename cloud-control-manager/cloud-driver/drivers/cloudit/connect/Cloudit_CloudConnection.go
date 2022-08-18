@@ -17,6 +17,7 @@ import (
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/sirupsen/logrus"
+	"errors"
 )
 
 var cblogger *logrus.Logger
@@ -90,4 +91,8 @@ func (ClouditCloudConnection) IsConnected() (bool, error) {
 }
 func (ClouditCloudConnection) Close() error {
 	return nil
+}
+
+func (cloudConn *ClouditCloudConnection) CreateDiskHandler() (irs.DiskHandler, error) {
+        return nil, errors.New("Cloudit Driver: not implemented")
 }

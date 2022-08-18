@@ -20,6 +20,7 @@ import (
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/sirupsen/logrus"
+	"errors"
 )
 
 var cblogger *logrus.Logger
@@ -141,4 +142,8 @@ func (cloudConn *AzureCloudConnection) IsConnected() (bool, error) {
 
 func (cloudConn *AzureCloudConnection) Close() error {
 	return nil
+}
+
+func (cloudConn *AzureCloudConnection) CreateDiskHandler() (irs.DiskHandler, error) {
+        return nil, errors.New("Azure Driver: not implemented")
 }

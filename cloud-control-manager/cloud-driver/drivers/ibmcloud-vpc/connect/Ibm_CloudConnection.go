@@ -8,6 +8,7 @@ import (
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/sirupsen/logrus"
+	"errors"
 )
 
 var cblogger *logrus.Logger
@@ -105,4 +106,8 @@ func (cloudConn *IbmCloudConnection) IsConnected() (bool, error) {
 func (cloudConn *IbmCloudConnection) Close() error {
 	cblogger.Info("Ibm Cloud Driver: called Close()!")
 	return nil
+}
+
+func (cloudConn *IbmCloudConnection) CreateDiskHandler() (irs.DiskHandler, error) {
+        return nil, errors.New("Ibm Driver: not implemented")
 }
