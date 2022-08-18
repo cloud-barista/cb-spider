@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/davecgh/go-spew/spew"
+	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/ec2"
@@ -168,4 +169,39 @@ func DescribeVolumnes(svc *ec2.EC2, volumeIdList []*string) (*ec2.DescribeVolume
 		spew.Dump(result)
 	}
 	return result, nil
+}
+
+func DescribeVolumneById(svc *ec2.EC2, volumeId string) (*ec2.Volume, error) {
+	volumeIdList := []*string{}
+	input := &ec2.DescribeVolumesInput{}
+
+	if volumeId != "" {
+		volumeIdList = append(volumeIdList, aws.String(volumeId))
+		input.VolumeIds = volumeIdList
+	}
+
+	result, err := svc.DescribeVolumes(input)
+	if err != nil {
+		if aerr, ok := err.(awserr.Error); ok {
+			switch aerr.Code() {
+			default:
+				fmt.Println(aerr.Error())
+			}
+		} else {
+			fmt.Println(err.Error())
+		}
+		return nil, err
+	}
+	if cblogger.Level.String() == "debug" {
+		spew.Dump(result)
+	}
+
+	for _, volume := range result.Volumes {
+		if strings.EqualFold(volumeId, *volume.VolumeId) {
+			//break
+			return volume, nil
+		}
+	}
+
+	return nil, awserr.New("404", "["+volumeId+"] 볼륨 정보가 존재하지 않습니다.", nil)
 }

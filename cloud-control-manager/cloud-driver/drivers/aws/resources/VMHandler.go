@@ -701,22 +701,6 @@ func (vmHandler *AwsVMHandler) TerminateVM(vmIID irs.IID) (irs.VMStatus, error) 
 //func (vmHandler *AwsVMHandler) GetVM(vmNameId string) (irs.VMInfo, error) {
 func (vmHandler *AwsVMHandler) GetVM(vmIID irs.IID) (irs.VMInfo, error) {
 	cblogger.Infof("vmNameId : [%s]", vmIID.SystemId)
-	input := &ec2.DescribeInstancesInput{
-		InstanceIds: []*string{
-			aws.String(vmIID.SystemId),
-		},
-	}
-	/*
-		input.Filters = ([]*ec2.Filter{
-			&ec2.Filter{
-				Name: aws.String("tag:Name"),
-				Values: []*string{
-					aws.String(vmIID.NameId),
-				},
-			},
-		})
-	*/
-	cblogger.Info(input)
 
 	// logger for HisCall
 	callogger := call.GetLogger("HISCALL")
@@ -731,9 +715,9 @@ func (vmHandler *AwsVMHandler) GetVM(vmIID irs.IID) (irs.VMInfo, error) {
 	}
 	callLogStart := call.Start()
 
-	result, err := vmHandler.Client.DescribeInstances(input)
+	resultInstance, err := DescribeInstanceById(vmHandler.Client, vmIID)
 	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
-	cblogger.Info(result)
+	cblogger.Info(resultInstance)
 	if err != nil {
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
@@ -750,20 +734,8 @@ func (vmHandler *AwsVMHandler) GetVM(vmIID irs.IID) (irs.VMInfo, error) {
 	}
 	callogger.Info(call.String(callLogInfo))
 
-	//cblogger.Info(result)
-	cblogger.Infof("조회된 VM 정보 수 : [%d]", len(result.Reservations))
-	if len(result.Reservations) > 1 {
-		return irs.VMInfo{}, awserr.New("600", "1개 이상의 VM ["+vmIID.NameId+"] 정보가 존재합니다.", nil)
-	} else if len(result.Reservations) == 0 {
-		cblogger.Errorf("VM [%s] 정보가 존재하지 않습니다.", vmIID.NameId)
-		return irs.VMInfo{}, awserr.New("404", "VM ["+vmIID.NameId+"] 정보가 존재하지 않습니다.", nil)
-	}
-
 	vmInfo := irs.VMInfo{}
-	for _, i := range result.Reservations {
-		//vmInfo := ExtractDescribeInstances(result.Reservations[0])
-		vmInfo = vmHandler.ExtractDescribeInstances(i)
-	}
+	vmInfo = vmHandler.ExtractDescribeInstanceToVmInfo(resultInstance)
 
 	//if len(vmInfo.Region.Zone) > 0 {
 	//vmInfo.Region.Region = vmHandler.Region.Region
@@ -771,6 +743,220 @@ func (vmHandler *AwsVMHandler) GetVM(vmIID irs.IID) (irs.VMInfo, error) {
 
 	cblogger.Info("vmInfo", vmInfo)
 	return vmInfo, nil
+}
+
+//func (vmHandler *AwsVMHandler) GetVM(vmIID irs.IID) (irs.VMInfo, error) {
+//	cblogger.Infof("vmNameId : [%s]", vmIID.SystemId)
+//	input := &ec2.DescribeInstancesInput{
+//		InstanceIds: []*string{
+//			aws.String(vmIID.SystemId),
+//		},
+//	}
+//
+//	cblogger.Info(input)
+//
+//	// logger for HisCall
+//	callogger := call.GetLogger("HISCALL")
+//	callLogInfo := call.CLOUDLOGSCHEMA{
+//		CloudOS:      call.AWS,
+//		RegionZone:   vmHandler.Region.Zone,
+//		ResourceType: call.VM,
+//		ResourceName: vmIID.SystemId,
+//		CloudOSAPI:   "DescribeInstances()",
+//		ElapsedTime:  "",
+//		ErrorMSG:     "",
+//	}
+//	callLogStart := call.Start()
+//
+//	result, err := vmHandler.Client.DescribeInstances(input)
+//	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+//	cblogger.Info(result)
+//	if err != nil {
+//		if aerr, ok := err.(awserr.Error); ok {
+//			switch aerr.Code() {
+//			default:
+//				cblogger.Error(aerr.Error())
+//			}
+//		} else {
+//			// Print the error, cast err to awserr.Error to get the Code and Message from an error.
+//			cblogger.Error(err.Error())
+//		}
+//		callLogInfo.ErrorMSG = err.Error()
+//		callogger.Info(call.String(callLogInfo))
+//		return irs.VMInfo{}, err
+//	}
+//	callogger.Info(call.String(callLogInfo))
+//
+//	//cblogger.Info(result)
+//	cblogger.Infof("조회된 VM 정보 수 : [%d]", len(result.Reservations))
+//	if len(result.Reservations) > 1 {
+//		return irs.VMInfo{}, awserr.New("600", "1개 이상의 VM ["+vmIID.NameId+"] 정보가 존재합니다.", nil)
+//	} else if len(result.Reservations) == 0 {
+//		cblogger.Errorf("VM [%s] 정보가 존재하지 않습니다.", vmIID.NameId)
+//		return irs.VMInfo{}, awserr.New("404", "VM ["+vmIID.NameId+"] 정보가 존재하지 않습니다.", nil)
+//	}
+//
+//	vmInfo := irs.VMInfo{}
+//	for _, i := range result.Reservations {
+//		//vmInfo := ExtractDescribeInstances(result.Reservations[0])
+//		vmInfo = vmHandler.ExtractDescribeInstances(i)
+//	}
+//
+//	//if len(vmInfo.Region.Zone) > 0 {
+//	//vmInfo.Region.Region = vmHandler.Region.Region
+//	//}
+//
+//	cblogger.Info("vmInfo", vmInfo)
+//	return vmInfo, nil
+//}
+
+func (vmHandler *AwsVMHandler) ExtractDescribeInstanceToVmInfo(instance *ec2.Instance) irs.VMInfo {
+	//cblogger.Info("ExtractDescribeInstances", reservation)
+	cblogger.Info("Instance", instance)
+	//spew.Dump(reservation.Instances[0])
+
+	//"stopped" / "terminated" / "running" ...
+	var state string
+	state = *instance.State.Name
+	cblogger.Infof("EC2 상태 : [%s]", state)
+
+	//VM상태와 무관하게 항상 값이 존재하는 항목들만 초기화
+	vmInfo := irs.VMInfo{
+		IId:        irs.IID{"", *instance.InstanceId},
+		ImageIId:   irs.IID{*instance.ImageId, *instance.ImageId},
+		VMSpecName: *instance.InstanceType,
+		//KeyPairIId: irs.IID{*reservation.Instances[0].KeyName, *reservation.Instances[0].KeyName},	//AWS에 키페어 없이 VM 생성하는 기능이 추가됨.
+		//GuestUserID:    "",
+		//AdditionalInfo: "State:" + *reservation.Instances[0].State.Name,
+	}
+
+	keyValueList := []irs.KeyValue{
+		{Key: "State", Value: *instance.State.Name},
+		{Key: "Architecture", Value: *instance.Architecture},
+	}
+
+	//if *reservation.Instances[0].LaunchTime != "" {
+	vmInfo.StartTime = *instance.LaunchTime
+	//}
+
+	//cblogger.Info("=======>타입 : ", reflect.TypeOf(*reservation.Instances[0]))
+	//cblogger.Info("===> PublicIpAddress TypeOf : ", reflect.TypeOf(reservation.Instances[0].PublicIpAddress))
+	//cblogger.Info("===> PublicIpAddress ValueOf : ", reflect.ValueOf(reservation.Instances[0].PublicIpAddress))
+
+	//vmInfo.PublicIP = *reservation.Instances[0].NetworkInterfaces[0].Association.PublicIp
+	//vmInfo.PublicDNS = *reservation.Instances[0].NetworkInterfaces[0].Association.PublicDnsName
+
+	//AWS에 키페어 없이 VM 생성하는 기능이 추가됨. - 이슈#573
+	if !reflect.ValueOf(instance.KeyName).IsNil() {
+		vmInfo.KeyPairIId = irs.IID{*instance.KeyName, *instance.KeyName}
+	}
+
+	// 특정 항목(예:EIP)은 VM 상태와 무관하게 동작하므로 VM 상태와 무관하게 Nil처리로 모든 필드를 처리 함.
+	if !reflect.ValueOf(instance.PublicIpAddress).IsNil() {
+		vmInfo.PublicIP = *instance.PublicIpAddress
+	}
+
+	if !reflect.ValueOf(instance.PublicDnsName).IsNil() {
+		vmInfo.PublicDNS = *instance.PublicDnsName
+	}
+
+	cblogger.Info("===> BlockDeviceMappings ValueOf : ", reflect.ValueOf(instance.BlockDeviceMappings))
+	if !reflect.ValueOf(instance.BlockDeviceMappings).IsNil() {
+		if !reflect.ValueOf(instance.BlockDeviceMappings[0].DeviceName).IsNil() {
+			vmInfo.VMBlockDisk = *instance.BlockDeviceMappings[0].DeviceName
+		}
+
+		if !reflect.ValueOf(instance.BlockDeviceMappings[0].Ebs).IsNil() {
+			volumeInfo, err := DescribeVolumneById(vmHandler.Client, *instance.BlockDeviceMappings[0].Ebs.VolumeId)
+			//volumeInfo, err := vmHandler.GetVolumInfo(*instance.BlockDeviceMappings[0].Ebs.VolumeId)
+			if err != nil {
+			} else {
+				vmInfo.RootDiskSize = strconv.FormatInt(*volumeInfo.Size, 10)
+				vmInfo.RootDiskType = *volumeInfo.VolumeType
+			}
+		}
+
+	}
+
+	if !reflect.ValueOf(instance.Placement.AvailabilityZone).IsNil() {
+		vmInfo.Region = irs.RegionInfo{
+			Region: vmHandler.Region.Region, //리전 정보 추가
+			Zone:   *instance.Placement.AvailabilityZone,
+		}
+	}
+
+	//NetworkInterfaces 배열 값들
+	if !reflect.ValueOf(instance.NetworkInterfaces).IsNil() {
+		if !reflect.ValueOf(instance.NetworkInterfaces[0].VpcId).IsNil() {
+			//vmInfo.VirtualNetworkId = *reservation.Instances[0].NetworkInterfaces[0].VpcId
+			vmInfo.VpcIID = irs.IID{"", *instance.NetworkInterfaces[0].VpcId}
+			keyValueList = append(keyValueList, irs.KeyValue{Key: "VpcId", Value: *instance.NetworkInterfaces[0].VpcId})
+		}
+
+		if !reflect.ValueOf(instance.NetworkInterfaces[0].SubnetId).IsNil() {
+			keyValueList = append(keyValueList, irs.KeyValue{Key: "SubnetId", Value: *instance.NetworkInterfaces[0].SubnetId})
+			vmInfo.SubnetIID = irs.IID{SystemId: *instance.NetworkInterfaces[0].SubnetId}
+		}
+
+		if !reflect.ValueOf(instance.NetworkInterfaces[0].Attachment).IsNil() {
+			vmInfo.NetworkInterface = *instance.NetworkInterfaces[0].Attachment.AttachmentId
+		}
+
+		for _, security := range instance.NetworkInterfaces[0].Groups {
+			//vmInfo.SecurityGroupIds = append(vmInfo.SecurityGroupIds, *security.GroupId)
+			vmInfo.SecurityGroupIIds = append(vmInfo.SecurityGroupIIds, irs.IID{*security.GroupName, *security.GroupId})
+		}
+
+	}
+
+	//SecurityName: *reservation.Instances[0].NetworkInterfaces[0].Groups[0].GroupName,
+	//vmInfo.VNIC = "eth0 - 값 위치 확인 필요"
+
+	//vmInfo.PrivateIP = *reservation.Instances[0].NetworkInterfaces[0].PrivateIpAddress	//없는 경우 존재해서 Instances[0].PrivateIpAddress로 대체 - i-0b75cac73c4575386
+	if !reflect.ValueOf(instance.PrivateIpAddress).IsNil() {
+		vmInfo.PrivateIP = *instance.PrivateIpAddress
+	}
+
+	//vmInfo.PrivateDNS = *reservation.Instances[0].NetworkInterfaces[0].PrivateDnsName		//없는 경우 존재해서 Instances[0].PrivateDnsName로 대체 - i-0b75cac73c4575386
+	if !reflect.ValueOf(instance.PrivateDnsName).IsNil() {
+		vmInfo.PrivateDNS = *instance.PrivateDnsName
+	}
+
+	if !reflect.ValueOf(instance.RootDeviceName).IsNil() {
+		//vmInfo.VMBootDisk = *reservation.Instances[0].RootDeviceName
+		vmInfo.RootDeviceName = *instance.RootDeviceName
+	}
+
+	/*
+		if !reflect.ValueOf(reservation.Instances[0].RootDeviceType).IsNil() {
+			//vmInfo.VMBootDisk = *reservation.Instances[0].RootDeviceName
+			vmInfo.RootDiskType = *reservation.Instances[0].RootDeviceType
+		}
+	*/
+
+	if !reflect.ValueOf(instance.KeyName).IsNil() {
+		keyValueList = append(keyValueList, irs.KeyValue{Key: "KeyName", Value: *instance.KeyName})
+	}
+
+	if !reflect.ValueOf(instance.Platform).IsNil() {
+		keyValueList = append(keyValueList, irs.KeyValue{Key: "Platform", Value: *instance.Platform})
+	}
+	if !reflect.ValueOf(instance.VirtualizationType).IsNil() {
+		keyValueList = append(keyValueList, irs.KeyValue{Key: "VirtualizationType", Value: *instance.VirtualizationType})
+	}
+
+	//Name은 Tag의 "Name" 속성에만 저장됨
+	cblogger.Debug("Name Tag 찾기")
+	for _, t := range instance.Tags {
+		if *t.Key == "Name" {
+			vmInfo.IId.NameId = *t.Value
+			cblogger.Debug("EC2 명칭 : ", vmInfo.IId.NameId)
+			break
+		}
+	}
+
+	vmInfo.KeyValueList = keyValueList
+	return vmInfo
 }
 
 // DescribeInstances결과에서 EC2 세부 정보 추출
