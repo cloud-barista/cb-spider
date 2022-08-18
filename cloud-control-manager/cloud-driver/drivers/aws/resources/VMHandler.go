@@ -912,6 +912,13 @@ func (vmHandler *AwsVMHandler) ExtractDescribeInstances(reservation *ec2.Reserva
 		keyValueList = append(keyValueList, irs.KeyValue{Key: "KeyName", Value: *reservation.Instances[0].KeyName})
 	}
 
+	if !reflect.ValueOf(reservation.Instances[0].Platform).IsNil() {
+		keyValueList = append(keyValueList, irs.KeyValue{Key: "Platform", Value: *reservation.Instances[0].Platform})
+	}
+	if !reflect.ValueOf(reservation.Instances[0].VirtualizationType).IsNil() {
+		keyValueList = append(keyValueList, irs.KeyValue{Key: "VirtualizationType", Value: *reservation.Instances[0].VirtualizationType})
+	}
+
 	//Name은 Tag의 "Name" 속성에만 저장됨
 	cblogger.Debug("Name Tag 찾기")
 	for _, t := range reservation.Instances[0].Tags {
