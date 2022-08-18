@@ -5765,3 +5765,32 @@ func setVMUserIIDwithSystemId(connectionName string, nlbName string, healthInfo 
 	return nil
 }
 
+func GetCSPResourceName(connectionName string, rsType string, nameID string) (string, error) {
+        cblog.Info("call GetCSPResourceName()")
+
+        // check empty and trim user inputs
+        connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)
+        if err != nil {
+                cblog.Error(err)
+                return "", err
+        }
+
+        nameID, err = EmptyCheckAndTrim("nameID", nameID)
+        if err != nil {
+                cblog.Error(err)
+                return "", err
+        }
+
+        keySPLock.RLock(connectionName, nameID)
+        defer keySPLock.RUnlock(connectionName, nameID)
+
+        // (1) get IID(NameId)
+        iidInfo, err := iidRWLock.GetIID(iidm.IIDSGROUP, connectionName, rsType, cres.IID{nameID, ""})
+        if err != nil {
+                cblog.Error(err)
+                return "", err
+        }
+
+        // (2) get DriverNameId and return it
+        return getDriverIID(iidInfo.IId).NameId, nil
+}

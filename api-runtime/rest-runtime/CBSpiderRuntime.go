@@ -334,6 +334,11 @@ func RunServer() {
                 {"GET", "/allnlb", ListAllNLB},
                 {"DELETE", "/cspnlb/:Id", DeleteCSPNLB},
 
+
+		//-------------------------------------------------------------------//
+                //----------Additional Info
+		{"GET", "/cspresourcename/:Name", GetCSPResourceName},
+
 		//-------------------------------------------------------------------//
 		//----------SPLock Info
 		{"GET", "/splockinfo", GetAllSPLockInfo},
