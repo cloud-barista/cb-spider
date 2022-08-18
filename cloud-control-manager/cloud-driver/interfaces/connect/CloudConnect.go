@@ -25,6 +25,7 @@ type CloudConnection interface {
 	CreateVMHandler() (irs.VMHandler, error)
 
 	CreateNLBHandler() (irs.NLBHandler, error)
+	CreateDiskHandler() (irs.DiskHandler, error)
 
 	IsConnected() (bool, error)
 	Close() error
