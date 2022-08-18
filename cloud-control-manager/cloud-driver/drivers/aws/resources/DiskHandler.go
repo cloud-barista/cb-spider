@@ -10,6 +10,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/ec2"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
+	cim "github.com/cloud-barista/cb-spider/cloud-info-manager"
 	"github.com/davecgh/go-spew/spew"
 	"strconv"
 	"strings"
@@ -452,8 +453,11 @@ Throughput
 */
 func validateCreateDisk(diskReqInfo irs.DiskInfo) error {
 	// VolumeType
-	// valid type : standard | io1 | io2 | gp2 | sc1 | st1 | gp3
-	if !ContainString(VOLUME_TYPE, diskReqInfo.DiskType) {
+	cloudOSMetaInfo, err := cim.GetCloudOSMetaInfo("AWS")
+	arrDiskSizeOfType := cloudOSMetaInfo.DiskSize
+
+	// 정의된 type인지
+	if !ContainString(arrDiskSizeOfType, diskReqInfo.DiskType) {
 		return errors.New("Disktype : " + diskReqInfo.DiskType + "' is not valid")
 	}
 
@@ -463,41 +467,83 @@ func validateCreateDisk(diskReqInfo irs.DiskInfo) error {
 		return err
 	}
 
-	switch diskReqInfo.DiskType {
-	case "standard":
-		if volumeSize < 1 || volumeSize > 1024 {
-			return errors.New("Disktype : " + diskReqInfo.DiskType + "' supports 1 to 1024")
-		}
-	case "gp2":
-		if volumeSize < 1 || volumeSize > 16384 {
-			return errors.New("Disktype : " + diskReqInfo.DiskType + "' supports 1 to 16384")
-		}
-	case "gp3":
-		if volumeSize < 1 || volumeSize > 16384 {
-			return errors.New("Disktype : " + diskReqInfo.DiskType + "' supports 1 to 16384")
-		}
-
-		//throughput, err := strconv.ParseInt(diskReqInfo., 10, 64)
-		// min :125, max :  1000
-	case "io1":
-		if volumeSize < 4 || volumeSize > 16384 {
-			return errors.New("Disktype : " + diskReqInfo.DiskType + "' supports 4 to 16384")
-		}
-	case "io2":
-		if volumeSize < 4 || volumeSize > 16384 {
-			return errors.New("Disktype : " + diskReqInfo.DiskType + "' supports 4 to 16384")
-		}
-	case "st1":
-		if volumeSize < 125 || volumeSize > 16384 {
-			return errors.New("Disktype : " + diskReqInfo.DiskType + "' supports 125 to 16384")
-		}
-	case "sc1":
-		if volumeSize < 125 || volumeSize > 16384 {
-			return errors.New("Disktype : " + diskReqInfo.DiskType + "' supports 125 to 16384")
-		}
-	default:
-		return errors.New("Invalid DiskType : " + diskReqInfo.DiskType)
+	type diskSizeModel struct {
+		diskType    string
+		diskMinSize int64
+		diskMaxSize int64
+		unit        string
 	}
+
+	diskSizeValue := diskSizeModel{}
+	isExists := false
+	for idx, _ := range arrDiskSizeOfType {
+		diskSizeArr := strings.Split(arrDiskSizeOfType[idx], "|")
+		if strings.EqualFold(diskReqInfo.DiskType, diskSizeArr[0]) {
+			diskSizeValue.diskType = diskSizeArr[0]
+			diskSizeValue.unit = diskSizeArr[3]
+			diskSizeValue.diskMinSize, err = strconv.ParseInt(diskSizeArr[1], 10, 64)
+			if err != nil {
+				cblogger.Error(err)
+				return err
+			}
+
+			diskSizeValue.diskMaxSize, err = strconv.ParseInt(diskSizeArr[2], 10, 64)
+			if err != nil {
+				cblogger.Error(err)
+				return err
+			}
+			isExists = true
+		}
+	}
+	if !isExists {
+		return errors.New("Invalid Root Disk Type : " + diskReqInfo.DiskType)
+	}
+
+	if volumeSize < diskSizeValue.diskMinSize {
+		fmt.Println("Disk Size Error!!: ", volumeSize, diskSizeValue.diskMinSize, diskSizeValue.diskMaxSize)
+		return errors.New("Root Disk Size must be at least the default size (" + strconv.FormatInt(diskSizeValue.diskMinSize, 10) + " GB).")
+	}
+
+	if volumeSize > diskSizeValue.diskMaxSize {
+		fmt.Println("Disk Size Error!!: ", volumeSize, diskSizeValue.diskMinSize, diskSizeValue.diskMaxSize)
+		return errors.New("Root Disk Size must be smaller than the maximum size (" + strconv.FormatInt(diskSizeValue.diskMaxSize, 10) + " GB).")
+	}
+
+	//switch diskReqInfo.DiskType {
+	//case "standard":
+	//	if volumeSize < 1 || volumeSize > 1024 {
+	//		return errors.New("Disktype : " + diskReqInfo.DiskType + "' supports 1 to 1024")
+	//	}
+	//case "gp2":
+	//	if volumeSize < 1 || volumeSize > 16384 {
+	//		return errors.New("Disktype : " + diskReqInfo.DiskType + "' supports 1 to 16384")
+	//	}
+	//case "gp3":
+	//	if volumeSize < 1 || volumeSize > 16384 {
+	//		return errors.New("Disktype : " + diskReqInfo.DiskType + "' supports 1 to 16384")
+	//	}
+	//
+	//	//throughput, err := strconv.ParseInt(diskReqInfo., 10, 64)
+	//	// min :125, max :  1000
+	//case "io1":
+	//	if volumeSize < 4 || volumeSize > 16384 {
+	//		return errors.New("Disktype : " + diskReqInfo.DiskType + "' supports 4 to 16384")
+	//	}
+	//case "io2":
+	//	if volumeSize < 4 || volumeSize > 16384 {
+	//		return errors.New("Disktype : " + diskReqInfo.DiskType + "' supports 4 to 16384")
+	//	}
+	//case "st1":
+	//	if volumeSize < 125 || volumeSize > 16384 {
+	//		return errors.New("Disktype : " + diskReqInfo.DiskType + "' supports 125 to 16384")
+	//	}
+	//case "sc1":
+	//	if volumeSize < 125 || volumeSize > 16384 {
+	//		return errors.New("Disktype : " + diskReqInfo.DiskType + "' supports 125 to 16384")
+	//	}
+	//default:
+	//	return errors.New("Invalid DiskType : " + diskReqInfo.DiskType)
+	//}
 
 	// IOPS : gp3, io1, io2
 	//iopsSize, err := strconv.ParseInt(diskReqInfo.IOPS, 10, 64)
@@ -548,28 +594,78 @@ func validateModifyDisk(diskReqInfo irs.DiskInfo, diskSize string) error {
 		return errors.New("Target DiskSize : " + diskSize + " must be greater than Original DiskSize " + diskReqInfo.DiskSize)
 	}
 
-	// VolumeType
-	// valid type : standard | io1 | io2 | gp2 | sc1 | st1 | gp3
-	if !ContainString(VOLUME_TYPE, diskReqInfo.DiskType) {
+	cloudOSMetaInfo, err := cim.GetCloudOSMetaInfo("AWS")
+	arrDiskSizeOfType := cloudOSMetaInfo.DiskSize
+
+	// 정의된 type인지
+	if !ContainString(arrDiskSizeOfType, diskReqInfo.DiskType) {
 		return errors.New("Disktype : " + diskReqInfo.DiskType + "' is not valid")
 	}
 
-	switch diskReqInfo.DiskType {
-	case "gp3":
-		if targetVolumeSize < 1 || targetVolumeSize > 16384 {
-			return errors.New("Disktype : " + diskReqInfo.DiskType + "' supports 1 to 16384")
-		}
-	case "io1":
-		if targetVolumeSize < 4 || targetVolumeSize > 16384 {
-			return errors.New("Disktype : " + diskReqInfo.DiskType + "' supports 4 to 16384")
-		}
-	case "io2":
-		if targetVolumeSize < 4 || targetVolumeSize > 16384 {
-			return errors.New("Disktype : " + diskReqInfo.DiskType + "' supports 4 to 16384")
-		}
-	default:
-		return errors.New("Invalid DiskType : " + diskReqInfo.DiskType)
+	type diskSizeModel struct {
+		diskType    string
+		diskMinSize int64
+		diskMaxSize int64
+		unit        string
 	}
+
+	diskSizeValue := diskSizeModel{}
+	isExists := false
+	for idx, _ := range arrDiskSizeOfType {
+		diskSizeArr := strings.Split(arrDiskSizeOfType[idx], "|")
+		if strings.EqualFold(diskReqInfo.DiskType, diskSizeArr[0]) {
+			diskSizeValue.diskType = diskSizeArr[0]
+			diskSizeValue.unit = diskSizeArr[3]
+			diskSizeValue.diskMinSize, err = strconv.ParseInt(diskSizeArr[1], 10, 64)
+			if err != nil {
+				cblogger.Error(err)
+				return err
+			}
+
+			diskSizeValue.diskMaxSize, err = strconv.ParseInt(diskSizeArr[2], 10, 64)
+			if err != nil {
+				cblogger.Error(err)
+				return err
+			}
+			isExists = true
+		}
+	}
+	if !isExists {
+		return errors.New("Invalid Root Disk Type : " + diskReqInfo.DiskType)
+	}
+
+	if targetVolumeSize < diskSizeValue.diskMinSize {
+		fmt.Println("Disk Size Error!!: ", targetVolumeSize, diskSizeValue.diskMinSize, diskSizeValue.diskMaxSize)
+		return errors.New("Root Disk Size must be at least the default size (" + strconv.FormatInt(diskSizeValue.diskMinSize, 10) + " GB).")
+	}
+
+	if targetVolumeSize > diskSizeValue.diskMaxSize {
+		fmt.Println("Disk Size Error!!: ", targetVolumeSize, diskSizeValue.diskMinSize, diskSizeValue.diskMaxSize)
+		return errors.New("Root Disk Size must be smaller than the maximum size (" + strconv.FormatInt(diskSizeValue.diskMaxSize, 10) + " GB).")
+	}
+
+	// VolumeType
+	// valid type : standard | io1 | io2 | gp2 | sc1 | st1 | gp3
+	//if !ContainString(arrDiskSizeOfType, diskReqInfo.DiskType) {
+	//	return errors.New("Disktype : " + diskReqInfo.DiskType + "' is not valid")
+	//}
+	//
+	//switch diskReqInfo.DiskType {
+	//case "gp3":
+	//	if targetVolumeSize < 1 || targetVolumeSize > 16384 {
+	//		return errors.New("Disktype : " + diskReqInfo.DiskType + "' supports 1 to 16384")
+	//	}
+	//case "io1":
+	//	if targetVolumeSize < 4 || targetVolumeSize > 16384 {
+	//		return errors.New("Disktype : " + diskReqInfo.DiskType + "' supports 4 to 16384")
+	//	}
+	//case "io2":
+	//	if targetVolumeSize < 4 || targetVolumeSize > 16384 {
+	//		return errors.New("Disktype : " + diskReqInfo.DiskType + "' supports 4 to 16384")
+	//	}
+	//default:
+	//	return errors.New("Invalid DiskType : " + diskReqInfo.DiskType)
+	//}
 
 	// MultiAttachEnabled
 
