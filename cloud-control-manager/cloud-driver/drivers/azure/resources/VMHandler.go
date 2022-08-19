@@ -145,7 +145,7 @@ func (vmHandler *AzureVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 
 	var managedDisk = new(compute.ManagedDiskParameters)
 	if vmReqInfo.RootDiskType != "" && strings.ToLower(vmReqInfo.RootDiskType) != "default" {
-		storageType := getVMDiskTypeInitType(vmReqInfo.RootDiskType)
+		storageType := GetVMDiskTypeInitType(vmReqInfo.RootDiskType)
 		managedDisk.StorageAccountType = storageType
 	}
 	//storageType := getVMDiskTypeInitType(vmReqInfo.RootDiskType)
@@ -864,7 +864,7 @@ func (vmHandler *AzureVMHandler) mappingServerInfo(server compute.VirtualMachine
 		vmInfo.RootDiskSize = strconv.Itoa(int(*server.VirtualMachineProperties.StorageProfile.OsDisk.DiskSizeGB))
 	}
 	if server.VirtualMachineProperties.StorageProfile.OsDisk.ManagedDisk != nil {
-		vmInfo.RootDiskType = getVMDiskInfoType(server.VirtualMachineProperties.StorageProfile.OsDisk.ManagedDisk.StorageAccountType)
+		vmInfo.RootDiskType = GetVMDiskInfoType(server.VirtualMachineProperties.StorageProfile.OsDisk.ManagedDisk.StorageAccountType)
 	}
 
 	// Get StartTime
@@ -1271,32 +1271,6 @@ func ConvertVMIID(vmIID irs.IID, credentialInfo idrv.CredentialInfo, regionInfo 
 		}
 		s := slist[len(slist)-1]
 		return irs.IID{NameId: s, SystemId: vmIID.SystemId}, nil
-	}
-}
-
-func getVMDiskTypeInitType(diskType string) compute.StorageAccountTypes {
-	switch diskType {
-	case PremiumSSD:
-		return compute.StorageAccountTypesPremiumLRS
-	case StandardSSD:
-		return compute.StorageAccountTypesStandardSSDLRS
-	case StandardHHD:
-		return compute.StorageAccountTypesStandardLRS
-	default:
-		return compute.StorageAccountTypesPremiumLRS
-	}
-}
-
-func getVMDiskInfoType(diskType compute.StorageAccountTypes) string {
-	switch diskType {
-	case compute.StorageAccountTypesPremiumLRS:
-		return PremiumSSD
-	case compute.StorageAccountTypesStandardSSDLRS:
-		return StandardSSD
-	case compute.StorageAccountTypesStandardLRS:
-		return StandardHHD
-	default:
-		return string(diskType)
 	}
 }
 
