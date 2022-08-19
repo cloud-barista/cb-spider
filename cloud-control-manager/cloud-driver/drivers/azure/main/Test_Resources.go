@@ -135,7 +135,8 @@ func showTestHandlerInfo() {
 	cblogger.Info("6. VmHandler")
 	cblogger.Info("7. NLBHandler")
 	cblogger.Info("8. DiskHandler")
-	cblogger.Info("9. Exit")
+	cblogger.Info("9. MyImageHandler")
+	cblogger.Info("10. Exit")
 	cblogger.Info("==========================================================")
 }
 
@@ -175,6 +176,8 @@ func getResourceHandler(resourceType string, config Config) (interface{}, error)
 		resourceHandler, err = cloudConnection.CreateNLBHandler()
 	case "disk":
 		resourceHandler, err = cloudConnection.CreateDiskHandler()
+	case "myimage":
+		resourceHandler, err = cloudConnection.CreateMyImageHandler()
 	}
 
 	if err != nil {
@@ -1115,6 +1118,80 @@ Loop:
 	}
 }
 
+func testMyImageHandlerListPrint() {
+	cblogger.Info("Test MyImageHandler")
+	cblogger.Info("0. Print Menu")
+	cblogger.Info("1. ListMyImage()")
+	cblogger.Info("2. GetMyImage()")
+	cblogger.Info("3. SnapshotVM()")
+	cblogger.Info("4. DeleteMyImage()")
+	cblogger.Info("5. Exit")
+}
+
+func testMyImageHandler(config Config) {
+	resourceHandler, err := getResourceHandler("myimage", config)
+	if err != nil {
+		cblogger.Error(err)
+		return
+	}
+	myimageHandler := resourceHandler.(irs.MyImageHandler)
+
+	testMyImageHandlerListPrint()
+	getimageIId := irs.IID{}
+	targetvm := irs.IID{}
+	delimageIId := irs.IID{}
+Loop:
+	for {
+		var commandNum int
+		inputCnt, err := fmt.Scan(&commandNum)
+		if err != nil {
+			cblogger.Error(err)
+		}
+
+		if inputCnt == 1 {
+			switch commandNum {
+			case 0:
+				testDiskHandlerListPrint()
+			case 1:
+				cblogger.Info("Start ListMyImage() ...")
+				if list, err := myimageHandler.ListMyImage(); err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(list)
+				}
+				cblogger.Info("Finish ListMyImage()")
+			case 2:
+				cblogger.Info("Start GetMyImage() ...")
+				if myimage, err := myimageHandler.GetMyImage(getimageIId); err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(myimage)
+				}
+				cblogger.Info("Finish GetMyImage()")
+			case 3:
+				cblogger.Info("Start SnapshotVM() ...")
+				if createInfo, err := myimageHandler.SnapshotVM(targetvm); err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(createInfo)
+				}
+				cblogger.Info("Finish SnapshotVM()")
+			case 4:
+				cblogger.Info("Start DeleteMyImage() ...")
+				if del, err := myimageHandler.DeleteMyImage(delimageIId); err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(del)
+				}
+				cblogger.Info("Finish DeleteMyImage()")
+			case 5:
+				cblogger.Info("Exit")
+				break Loop
+			}
+		}
+	}
+}
+
 func main() {
 	showTestHandlerInfo()
 	config := readConfigFile()
@@ -1153,6 +1230,9 @@ Loop:
 				testDiskHandler(config)
 				showTestHandlerInfo()
 			case 9:
+				testMyImageHandler(config)
+				showTestHandlerInfo()
+			case 10:
 				cblogger.Info("Exit Test ResourceHandler Program")
 				break Loop
 			}

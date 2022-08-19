@@ -149,6 +149,18 @@ func (cloudConn *AzureCloudConnection) CreateDiskHandler() (irs.DiskHandler, err
 	return &diskHandler, nil
 }
 
+func (cloudConn *AzureCloudConnection) CreateMyImageHandler() (irs.MyImageHandler, error) {
+	cblogger.Info("Azure Cloud Driver: called CreateMyImageHandler()!")
+	myImageHandler := azrs.AzureMyImageHandler{
+		CredentialInfo: cloudConn.CredentialInfo,
+		Region:         cloudConn.Region,
+		Ctx:            cloudConn.Ctx,
+		ImageClient:    cloudConn.ImageClient,
+		VMClient:       cloudConn.VMClient,
+	}
+	return &myImageHandler, nil
+}
+
 func (cloudConn *AzureCloudConnection) IsConnected() (bool, error) {
 	return true, nil
 }
@@ -157,12 +169,6 @@ func (cloudConn *AzureCloudConnection) Close() error {
 	return nil
 }
 
-
 func (cloudConn *AzureCloudConnection) CreateClusterHandler() (irs.ClusterHandler, error) {
 	return nil, errors.New("Azure Driver: not implemented")
 }
-
-func (cloudConn *AzureCloudConnection) CreateMyImageHandler() (irs.MyImageHandler, error) {
-	return nil, errors.New("Azure Driver: not implemented")
-}
-
