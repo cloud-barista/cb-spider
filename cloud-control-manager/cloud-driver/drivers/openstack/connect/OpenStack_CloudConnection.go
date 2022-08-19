@@ -11,7 +11,6 @@
 package connect
 
 import (
-	"errors"
 	cblog "github.com/cloud-barista/cb-log"
 	"github.com/gophercloud/gophercloud"
 	"github.com/sirupsen/logrus"
@@ -84,7 +83,13 @@ func (cloudConn *OpenStackCloudConnection) CreateNLBHandler() (irs.NLBHandler, e
 }
 
 func (cloudConn *OpenStackCloudConnection) CreateDiskHandler() (irs.DiskHandler, error) {
-	return nil, errors.New("OpenStack Driver: not implemented")
+	cblogger.Info("OpenStack Driver: called CreateDiskHandler()!")
+	diskHandler := osrs.OpenstackDiskHandler{
+		CredentialInfo: cloudConn.CredentialInfo, Region: cloudConn.Region,
+		ComputeClient: cloudConn.ComputeClient,
+		Volume2Client: cloudConn.Volume2Client, Volume3Client: cloudConn.Volume3Client,
+	}
+	return &diskHandler, nil
 }
 
 func (cloudConn *OpenStackCloudConnection) IsConnected() (bool, error) {
