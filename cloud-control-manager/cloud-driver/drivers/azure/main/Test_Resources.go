@@ -1019,11 +1019,26 @@ func testDiskHandler(config Config) {
 	diskHandler := resourceHandler.(irs.DiskHandler)
 
 	testDiskHandlerListPrint()
-	diskIId := irs.IID{}
-	createDiskReqInfo := irs.DiskInfo{}
-	delDiskIId := irs.IID{}
-	attachVMIId := irs.IID{}
-
+	diskIId := irs.IID{
+		NameId: "test02",
+	}
+	createDiskReqInfo := irs.DiskInfo{
+		IId: irs.IID{
+			NameId: "test02",
+		},
+		DiskSize: "30",
+		DiskType: "PremiumSSD",
+	}
+	delDiskIId := irs.IID{
+		NameId: "test02",
+	}
+	attachDiskIId := irs.IID{
+		NameId: "test02",
+	}
+	attachVMIId := irs.IID{
+		NameId: "tj-vm-01",
+	}
+	updateSize := "76"
 Loop:
 	for {
 		var commandNum int
@@ -1070,7 +1085,7 @@ Loop:
 				cblogger.Info("Finish DeleteDisk()")
 			case 5:
 				cblogger.Info("Start ChangeDiskSize() ...")
-				if nlbInfo, err := diskHandler.ChangeDiskSize(diskIId, ""); err != nil {
+				if nlbInfo, err := diskHandler.ChangeDiskSize(diskIId, updateSize); err != nil {
 					cblogger.Error(err)
 				} else {
 					spew.Dump(nlbInfo)
@@ -1078,7 +1093,7 @@ Loop:
 				cblogger.Info("Finish ChangeDiskSize()")
 			case 6:
 				cblogger.Info("Start AttachDisk() ...")
-				if info, err := diskHandler.AttachDisk(delDiskIId, attachVMIId); err != nil {
+				if info, err := diskHandler.AttachDisk(attachDiskIId, attachVMIId); err != nil {
 					cblogger.Error(err)
 				} else {
 					spew.Dump(info)
@@ -1086,7 +1101,7 @@ Loop:
 				cblogger.Info("Finish AttachDisk()")
 			case 7:
 				cblogger.Info("Start DetachDisk() ...")
-				if info, err := diskHandler.DetachDisk(delDiskIId, attachVMIId); err != nil {
+				if info, err := diskHandler.DetachDisk(attachDiskIId, attachVMIId); err != nil {
 					cblogger.Error(err)
 				} else {
 					spew.Dump(info)

@@ -13,6 +13,7 @@ import (
 	cblog "github.com/cloud-barista/cb-log"
 	"github.com/sirupsen/logrus"
 
+	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2021-03-01/compute"
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 )
@@ -142,9 +143,76 @@ func GetSshKeyNameById(sshId string) (string, error) {
 	return "", errors.New(fmt.Sprintf("Invalid ResourceName"))
 }
 
+func GetVMNameById(vmId string) (string, error) {
+	slice := strings.Split(vmId, "/")
+	sliceLen := len(slice)
+	for index, item := range slice {
+		if item == "virtualMachines" && sliceLen > index+1 {
+			return slice[index+1], nil
+		}
+	}
+	return "", errors.New(fmt.Sprintf("Invalid ResourceName"))
+}
+
 func CheckIIDValidation(IId irs.IID) bool {
 	if IId.NameId == "" && IId.SystemId == "" {
 		return false
 	}
 	return true
+}
+
+// VMBootDiskType
+func GetVMDiskTypeInitType(diskType string) compute.StorageAccountTypes {
+	switch diskType {
+	case PremiumSSD:
+		return compute.StorageAccountTypesPremiumLRS
+	case StandardSSD:
+		return compute.StorageAccountTypesStandardSSDLRS
+	case StandardHHD:
+		return compute.StorageAccountTypesStandardLRS
+	default:
+		return compute.StorageAccountTypesPremiumLRS
+	}
+}
+
+// VMBootDiskType
+func GetVMDiskInfoType(diskType compute.StorageAccountTypes) string {
+	switch diskType {
+	case compute.StorageAccountTypesPremiumLRS:
+		return PremiumSSD
+	case compute.StorageAccountTypesStandardSSDLRS:
+		return StandardSSD
+	case compute.StorageAccountTypesStandardLRS:
+		return StandardHHD
+	default:
+		return string(diskType)
+	}
+}
+
+// DiskType
+func GetDiskTypeInitType(diskType string) compute.DiskStorageAccountTypes {
+	switch diskType {
+	case PremiumSSD:
+		return compute.DiskStorageAccountTypesPremiumLRS
+	case StandardSSD:
+		return compute.DiskStorageAccountTypesStandardSSDLRS
+	case StandardHHD:
+		return compute.DiskStorageAccountTypesStandardLRS
+	default:
+		return compute.DiskStorageAccountTypesPremiumLRS
+	}
+}
+
+// DiskType
+func GetDiskInfoType(diskType compute.DiskStorageAccountTypes) string {
+	switch diskType {
+	case compute.DiskStorageAccountTypesPremiumLRS:
+		return PremiumSSD
+	case compute.DiskStorageAccountTypesStandardSSDLRS:
+		return StandardSSD
+	case compute.DiskStorageAccountTypesStandardLRS:
+		return StandardHHD
+	default:
+		return string(diskType)
+	}
 }

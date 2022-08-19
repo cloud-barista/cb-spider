@@ -136,7 +136,7 @@ func (cloudConn *AzureCloudConnection) CreateNLBHandler() (irs.NLBHandler, error
 }
 
 func (cloudConn *AzureCloudConnection) CreateDiskHandler() (irs.DiskHandler, error) {
-	cblogger.Info("Azure Cloud Driver: called CreateVMHandler()!")
+	cblogger.Info("Azure Cloud Driver: called CreateDiskHandler()!")
 	diskHandler := azrs.AzureDiskHandler{
 		CredentialInfo: cloudConn.CredentialInfo,
 		Region:         cloudConn.Region,
