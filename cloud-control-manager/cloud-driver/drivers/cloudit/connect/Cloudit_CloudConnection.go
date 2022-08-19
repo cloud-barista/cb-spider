@@ -92,13 +92,15 @@ func (cloudConn *ClouditCloudConnection) CreateDiskHandler() (irs.DiskHandler, e
 	return &diskHandler, nil
 }
 
+func (cloudConn *ClouditCloudConnection) CreateMyImageHandler() (irs.MyImageHandler, error) {
+	cblogger.Info("Cloudit Cloud Driver: called CreateMyImageHandler()!")
+	myImageHandler := cirs.ClouditMyImageHandler{CredentialInfo: cloudConn.CredentialInfo, Client: &cloudConn.Client}
+	return &myImageHandler, nil
+}
+
 func (ClouditCloudConnection) IsConnected() (bool, error) {
 	return true, nil
 }
 func (ClouditCloudConnection) Close() error {
 	return nil
-}
-
-func (cloudConn *ClouditCloudConnection) CreateDiskHandler() (irs.DiskHandler, error) {
-        return nil, errors.New("Cloudit Driver: not implemented")
 }

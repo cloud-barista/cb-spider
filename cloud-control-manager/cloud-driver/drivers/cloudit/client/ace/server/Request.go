@@ -3,6 +3,7 @@ package server
 import (
 	cblog "github.com/cloud-barista/cb-log"
 	"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/cloudit/client"
+	"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/cloudit/client/ace/disk"
 	"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/cloudit/client/iam/securitygroup"
 	"github.com/sirupsen/logrus"
 )
@@ -226,4 +227,36 @@ func DetachVolume(restClient *client.RestClient, serverId string, volumeId strin
 		return result.Err
 	}
 	return nil
+}
+
+// get VM attached Volumes
+func GetRawVmVolumes(restClient *client.RestClient, id string, requestOpts *client.RequestOpts) (*[]disk.DiskInfo, error) {
+	requestURL := restClient.CreateRequestBaseURL(client.ACE, "servers", id, "volumes")
+	cblogger.Info(requestURL)
+
+	var result client.Result
+	_, result.Err = restClient.Get(requestURL, &result.Body, requestOpts)
+	if result.Err != nil {
+		return nil, result.Err
+	}
+
+	var responseList []struct {
+		VolumeId    string
+		Dev         string
+		Description string
+	}
+	if err := result.ExtractInto(&responseList); err != nil {
+		return nil, err
+	}
+
+	var volumeList []disk.DiskInfo
+	for _, response := range responseList {
+		volumeList = append(volumeList, disk.DiskInfo{
+			ID:          response.VolumeId,
+			Dev:         response.Dev,
+			Description: response.Description,
+		})
+	}
+
+	return &volumeList, nil
 }
