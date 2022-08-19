@@ -12,15 +12,14 @@ package connect
 
 import (
 	"context"
+	"github.com/Azure/azure-sdk-for-go/profiles/2020-09-01/monitor/mgmt/insights"
 	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2021-03-01/compute"
 	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2021-02-01/network"
-	"github.com/Azure/azure-sdk-for-go/profiles/2020-09-01/monitor/mgmt/insights"
 	cblog "github.com/cloud-barista/cb-log"
 	azrs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/azure/resources"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/sirupsen/logrus"
-	"errors"
 )
 
 var cblogger *logrus.Logger
@@ -50,7 +49,7 @@ type AzureCloudConnection struct {
 	NLBClient                    *network.LoadBalancersClient
 	NLBBackendAddressPoolsClient *network.LoadBalancerBackendAddressPoolsClient
 	NLBLoadBalancingRulesClient  *network.LoadBalancerLoadBalancingRulesClient
-	MetricClient				 *insights.MetricsClient
+	MetricClient                 *insights.MetricsClient
 }
 
 func (cloudConn *AzureCloudConnection) CreateImageHandler() (irs.ImageHandler, error) {
@@ -131,9 +130,21 @@ func (cloudConn *AzureCloudConnection) CreateNLBHandler() (irs.NLBHandler, error
 		SubnetClient:                 cloudConn.SubnetClient,
 		IPConfigClient:               cloudConn.IPConfigClient,
 		NLBLoadBalancingRulesClient:  cloudConn.NLBLoadBalancingRulesClient,
-		MetricClient:				cloudConn.MetricClient,
+		MetricClient:                 cloudConn.MetricClient,
 	}
 	return &nlbHandler, nil
+}
+
+func (cloudConn *AzureCloudConnection) CreateDiskHandler() (irs.DiskHandler, error) {
+	cblogger.Info("Azure Cloud Driver: called CreateVMHandler()!")
+	diskHandler := azrs.AzureDiskHandler{
+		CredentialInfo: cloudConn.CredentialInfo,
+		Region:         cloudConn.Region,
+		Ctx:            cloudConn.Ctx,
+		DiskClient:     cloudConn.DiskClient,
+		VMClient:       cloudConn.VMClient,
+	}
+	return &diskHandler, nil
 }
 
 func (cloudConn *AzureCloudConnection) IsConnected() (bool, error) {
@@ -142,8 +153,4 @@ func (cloudConn *AzureCloudConnection) IsConnected() (bool, error) {
 
 func (cloudConn *AzureCloudConnection) Close() error {
 	return nil
-}
-
-func (cloudConn *AzureCloudConnection) CreateDiskHandler() (irs.DiskHandler, error) {
-        return nil, errors.New("Azure Driver: not implemented")
 }
