@@ -12,6 +12,7 @@ package main
 
 import (
 	"fmt"
+
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/sirupsen/logrus"
@@ -1588,6 +1589,121 @@ func handleLoadBalancer() {
 	}
 }
 
+func handleDisk() {
+	cblogger.Debug("Start DiskHandler Resource Test")
+
+	ResourceHandler, err := testconf.GetResourceHandler("Disk")
+	if err != nil {
+		panic(err)
+	}
+	handler := ResourceHandler.(irs.DiskHandler)
+
+	//imageReqInfo := irs2.ImageReqInfo{
+	diskReqInfo := irs.DiskInfo{
+		IId:      irs.IID{NameId: "cb-disk-02", SystemId: "cb-disk-02"},
+		DiskType: "",
+		DiskSize: "",
+	}
+
+	for {
+		fmt.Println("DiskHandler Management")
+		fmt.Println("0. Quit")
+		fmt.Println("1. Disk List")
+		fmt.Println("2. Disk Create")
+		fmt.Println("3. Disk Get")
+		fmt.Println("4. Disk Change Size")
+		fmt.Println("5. Disk Delete")
+		fmt.Println("6. Disk Attach")
+		fmt.Println("7. Disk Detach")
+
+		var commandNum int
+		inputCnt, err := fmt.Scan(&commandNum)
+		if err != nil {
+			panic(err)
+		}
+
+		if inputCnt == 1 {
+			switch commandNum {
+			case 0:
+				return
+
+			case 1:
+				result, err := handler.ListDisk()
+				if err != nil {
+					cblogger.Infof(" Disk 목록 조회 실패 : ", err)
+				} else {
+					cblogger.Info("Disk 목록 조회 결과")
+					cblogger.Info(result)
+					cblogger.Info("출력 결과 수 : ", len(result))
+					spew.Dump(result)
+					//spew.Dump(result)
+
+					//조회및 삭제 테스트를 위해 리스트의 첫번째 정보의 ID를 요청ID로 자동 갱신함.
+					// if result != nil {
+					// 	diskReqInfo.IId = result[0].IId // 조회 및 삭제를 위해 생성된 ID로 변경
+					// }
+				}
+
+			case 2:
+				cblogger.Infof("[%s] Disk 생성 테스트", diskReqInfo.IId.NameId)
+				//vNetworkReqInfo := irs.VNetworkReqInfo{}
+				result, err := handler.CreateDisk(diskReqInfo)
+				if err != nil {
+					cblogger.Infof(diskReqInfo.IId.NameId, " Disk 생성 실패 : ", err)
+				} else {
+					cblogger.Infof("Disk 생성 결과 : ", result)
+					diskReqInfo.IId = result.IId // 조회 및 삭제를 위해 생성된 ID로 변경
+					spew.Dump(result)
+				}
+
+			case 3:
+				cblogger.Infof("[%s] Disk 조회 테스트", diskReqInfo.IId.NameId)
+				result, err := handler.GetDisk(diskReqInfo.IId)
+				if err != nil {
+					cblogger.Infof("[%s] Disk 조회 실패 : ", diskReqInfo.IId.NameId, err)
+				} else {
+					cblogger.Infof("[%s] Disk 조회 결과 : [%s]", diskReqInfo.IId.NameId, result)
+					spew.Dump(result)
+				}
+
+			case 4:
+				cblogger.Infof("[%s] Disk Size 변경 테스트", diskReqInfo.IId.NameId)
+				result, err := handler.ChangeDiskSize(diskReqInfo.IId, "600")
+				if err != nil {
+					cblogger.Infof("[%s] Disk Size 변경 실패 : ", diskReqInfo.IId.NameId, err)
+				} else {
+					cblogger.Infof("[%s] Disk Size 변경 결과 : [%s]", diskReqInfo.IId.NameId, result)
+				}
+			case 5:
+				cblogger.Infof("[%s] Disk 삭제 테스트", diskReqInfo.IId.NameId)
+				result, err := handler.DeleteDisk(diskReqInfo.IId)
+				if err != nil {
+					cblogger.Infof("[%s] Disk 삭제 실패 : ", diskReqInfo.IId.NameId, err)
+				} else {
+					cblogger.Infof("[%s] Disk 삭제 결과 : [%s]", diskReqInfo.IId.NameId, result)
+				}
+			case 6:
+				cblogger.Infof("[%s] Disk Attach 테스트", diskReqInfo.IId.NameId)
+				result, err := handler.AttachDisk(diskReqInfo.IId, irs.IID{SystemId: "workation-cat982ojkg5sgtjqaafg"})
+				if err != nil {
+					cblogger.Infof("[%s] Disk Attach 실패 : ", diskReqInfo.IId.NameId, err)
+				} else {
+					cblogger.Infof("[%s] Disk Attach 결과 : [%s]", diskReqInfo.IId.NameId, result)
+					spew.Dump(result)
+				}
+			case 7:
+				cblogger.Infof("[%s] Disk Detach 테스트", diskReqInfo.IId.NameId)
+				result, err := handler.DetachDisk(diskReqInfo.IId, irs.IID{SystemId: "workation-cat982ojkg5sgtjqaafg"})
+				if err != nil {
+					cblogger.Infof("[%s] Disk Detach 실패 : ", diskReqInfo.IId.NameId, err)
+				} else {
+					cblogger.Infof("[%s] Disk Detach 결과 : [%s]", diskReqInfo.IId.NameId, result)
+				}
+			}
+		}
+	}
+}
+
 //import "path/filepath"
 
 func main() {
@@ -1598,7 +1714,8 @@ func main() {
 	//handleKeyPair()
 	//handleSecurity()
 	//handleVM()
-	handleLoadBalancer()
+	//handleLoadBalancer()
+	handleDisk()
 	//cblogger.Info(filepath.Join("a/b", "\\cloud-driver-libs\\.ssh-gcp\\"))
 	//cblogger.Info(filepath.Join("\\cloud-driver-libs\\.ssh-gcp\\", "/b/c/d"))
 }
