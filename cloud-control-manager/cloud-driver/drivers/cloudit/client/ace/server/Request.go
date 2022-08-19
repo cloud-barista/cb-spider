@@ -26,7 +26,7 @@ type VMReqInfo struct {
 	RootPassword string         `json:"rootPassword" required:"true"`
 	SubnetAddr   string         `json:"subnetAddr" required:"true"`
 	Secgroups    []SecGroupInfo `json:"secgroups" required:"true"`
-	Description  string            `json:"description" required:"false"`
+	Description  string         `json:"description" required:"false"`
 	Protection   int            `json:"protection" required:"false"`
 }
 
@@ -197,6 +197,28 @@ func Reboot(restClient *client.RestClient, id string, requestOpts *client.Reques
 //delete
 func Terminate(restClient *client.RestClient, id string, requestOpts *client.RequestOpts) error {
 	requestURL := restClient.CreateRequestBaseURL(client.ACE, "servers", id)
+	cblogger.Info(requestURL)
+
+	var result client.Result
+	if _, result.Err = restClient.Delete(requestURL, requestOpts); result.Err != nil {
+		return result.Err
+	}
+	return nil
+}
+
+func AttachVolume(restClient *client.RestClient, serverId string, requestOpts *client.RequestOpts) error {
+	requestURL := restClient.CreateRequestBaseURL(client.ACE, "servers", serverId, "volumes")
+	cblogger.Info(requestURL)
+
+	var result client.Result
+	if _, result.Err = restClient.Post(requestURL, nil, nil, requestOpts); result.Err != nil {
+		return result.Err
+	}
+	return nil
+}
+
+func DetachVolume(restClient *client.RestClient, serverId string, volumeId string, requestOpts *client.RequestOpts) error {
+	requestURL := restClient.CreateRequestBaseURL(client.ACE, "servers", serverId, "volumes", volumeId)
 	cblogger.Info(requestURL)
 
 	var result client.Result

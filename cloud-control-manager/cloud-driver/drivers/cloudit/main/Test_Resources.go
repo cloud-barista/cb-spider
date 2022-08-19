@@ -10,6 +10,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"io/ioutil"
 	"os"
+	"strconv"
 
 	"gopkg.in/yaml.v3"
 )
@@ -55,6 +56,8 @@ func getResourceHandler(resourceType string, config ResourceConfig) (interface{}
 		resourceHandler, _ = cloudConnection.CreateVMHandler()
 	case "nlb":
 		resourceHandler, _ = cloudConnection.CreateNLBHandler()
+	case "disk":
+		resourceHandler, _ = cloudConnection.CreateDiskHandler()
 	}
 	return resourceHandler, nil
 }
@@ -854,6 +857,124 @@ Loop:
 	}
 }
 
+func testDiskHandlerListPrint() {
+	res_cblogger.Info("Test DiskHandler")
+	res_cblogger.Info("0. Print Menu")
+	res_cblogger.Info("1. ListDisk()")
+	res_cblogger.Info("2. GetDisk()")
+	res_cblogger.Info("3. CreateDisk()")
+	res_cblogger.Info("4. DeleteDisk()")
+	res_cblogger.Info("5. ChangeDiskSize()")
+	res_cblogger.Info("6. AttachDisk()")
+	res_cblogger.Info("7. DetachDisk()")
+	res_cblogger.Info("8. Exit")
+}
+
+func testDiskHandler(config ResourceConfig) {
+	resourceHandler, err := getResourceHandler("disk", config)
+	if err != nil {
+		res_cblogger.Error(err)
+		return
+	}
+
+	diskHandler := resourceHandler.(irs.DiskHandler)
+
+	testDiskHandlerListPrint()
+	configdisk := config.Cloudit.DISK
+
+	diskCreateReqInfo := irs.DiskInfo{
+		IId: irs.IID{
+			NameId: configdisk.IID.NameId,
+		},
+		DiskSize: configdisk.DiskSize,
+	}
+	diskIId := irs.IID{
+		NameId: configdisk.IID.NameId,
+	}
+	vmIID := irs.IID{
+		NameId: config.Cloudit.VM.IID.NameId,
+	}
+Loop:
+	for {
+		var commandNum int
+		inputCnt, err := fmt.Scan(&commandNum)
+		if err != nil {
+			res_cblogger.Error(err)
+		}
+
+		if inputCnt == 1 {
+			switch commandNum {
+			case 0:
+				testDiskHandlerListPrint()
+			case 1:
+				res_cblogger.Info("Start ListDisk() ...")
+				if list, err := diskHandler.ListDisk(); err != nil {
+					res_cblogger.Error(err)
+				} else {
+					spew.Dump(list)
+				}
+				res_cblogger.Info("Finish ListDisk()")
+			case 2:
+				res_cblogger.Info("Start GetDisk() ...")
+				if vm, err := diskHandler.GetDisk(diskIId); err != nil {
+					res_cblogger.Error(err)
+				} else {
+					spew.Dump(vm)
+				}
+				res_cblogger.Info("Finish GetDisk()")
+			case 3:
+				res_cblogger.Info("Start CreateDisk() ...")
+				if createInfo, err := diskHandler.CreateDisk(diskCreateReqInfo); err != nil {
+					res_cblogger.Error(err)
+				} else {
+					spew.Dump(createInfo)
+				}
+				res_cblogger.Info("Finish CreateDisk()")
+			case 4:
+				res_cblogger.Info("Start DeleteDisk() ...")
+				if vmStatus, err := diskHandler.DeleteDisk(diskIId); err != nil {
+					res_cblogger.Error(err)
+				} else {
+					spew.Dump(vmStatus)
+				}
+				res_cblogger.Info("Finish DeleteDisk()")
+			case 5:
+				res_cblogger.Info("Start ChangeDiskSize() [+ 10G] ...")
+
+				// set new size
+				intSize, _ := strconv.Atoi(configdisk.DiskSize)
+				intSize += 10
+
+				if nlbInfo, err := diskHandler.ChangeDiskSize(diskIId, strconv.Itoa(intSize)); err != nil {
+					res_cblogger.Error(err)
+				} else {
+					spew.Dump(nlbInfo)
+				}
+				res_cblogger.Info("Finish ChangeDiskSize() [+ 10G]")
+			case 6:
+				res_cblogger.Info("Start AttachDisk() ...")
+				if info, err := diskHandler.AttachDisk(diskIId, vmIID); err != nil {
+					res_cblogger.Error(err)
+				} else {
+					spew.Dump(info)
+				}
+				res_cblogger.Info("Finish AttachDisk()")
+			case 7:
+				res_cblogger.Info("Start DetachDisk() ...")
+				if info, err := diskHandler.DetachDisk(diskIId, vmIID); err != nil {
+					res_cblogger.Error(err)
+				} else {
+					spew.Dump(info)
+				}
+				res_cblogger.Info("Finish DetachDisk()")
+			case 8:
+				res_cblogger.Info("Exit")
+				break Loop
+			}
+		}
+	}
+}
+
 func showTestHandlerInfo() {
 	res_cblogger.Info("==========================================================")
 	res_cblogger.Info("[Test ResourceHandler]")
@@ -864,7 +985,8 @@ func showTestHandlerInfo() {
 	res_cblogger.Info("5. VmSpecHandler")
 	res_cblogger.Info("6. VmHandler")
 	res_cblogger.Info("7. NLBHandler")
-	res_cblogger.Info("8. Exit")
+	res_cblogger.Info("8. DiskHandler")
+	res_cblogger.Info("9. Exit")
 	res_cblogger.Info("==========================================================")
 }
 
@@ -907,6 +1029,9 @@ Loop:
 				testNLBHandler(config)
 				showTestHandlerInfo()
 			case 8:
+				testDiskHandler(config)
+				showTestHandlerInfo()
+			case 9:
 				fmt.Println("Exit Test ResourceHandler Program")
 				break Loop
 			}
@@ -1063,6 +1188,13 @@ type ResourceConfig struct {
 				SystemId string `yaml:"systemId"`
 			} `yaml:"RemoveVMs"`
 		} `yaml:"nlb"`
+		DISK struct {
+			IID struct {
+				NameId   string `yaml:"nameId"`
+				SystemId string `yaml:"systemId"`
+			} `yaml:"IID"`
+			DiskSize string `yaml:"DiskSize"`
+		} `yaml:"disk"`
 	} `yaml:"cloudit"`
 }
 

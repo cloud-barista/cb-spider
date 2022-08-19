@@ -86,6 +86,12 @@ func (cloudConn *ClouditCloudConnection) CreateNLBHandler() (irs.NLBHandler, err
 	return &nlbHandler, nil
 }
 
+func (cloudConn *ClouditCloudConnection) CreateDiskHandler() (irs.DiskHandler, error) {
+	cblogger.Info("Cloudit Cloud Driver: called CreateDiskHandler()!")
+	diskHandler := cirs.ClouditDiskHandler{CredentialInfo: cloudConn.CredentialInfo, Client: &cloudConn.Client}
+	return &diskHandler, nil
+}
+
 func (ClouditCloudConnection) IsConnected() (bool, error) {
 	return true, nil
 }
