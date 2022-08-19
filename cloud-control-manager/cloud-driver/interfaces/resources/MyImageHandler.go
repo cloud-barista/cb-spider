@@ -38,7 +38,7 @@ type MyImageInfo struct {
 type MyImageHandler interface {
 
 	//------ Snapshot to create a MyImage
-	SnapshotVM(sourceVM IID) (MyImageInfo, error)
+	SnapshotVM(snapshotReqInfo MyImageInfo) (MyImageInfo, error)
 
 	//------ MyImage Management
 	ListMyImage() ([]*MyImageInfo, error)
