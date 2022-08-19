@@ -58,6 +58,8 @@ func getResourceHandler(resourceType string, config ResourceConfig) (interface{}
 		resourceHandler, _ = cloudConnection.CreateNLBHandler()
 	case "disk":
 		resourceHandler, _ = cloudConnection.CreateDiskHandler()
+	case "myimage":
+		resourceHandler, _ = cloudConnection.CreateMyImageHandler()
 	}
 	return resourceHandler, nil
 }
@@ -975,6 +977,91 @@ Loop:
 	}
 }
 
+func testMyImageHandlerListPrint() {
+	res_cblogger.Info("Test MyImageHandler")
+	res_cblogger.Info("0. Print Menu")
+	res_cblogger.Info("1. ListMyImage()")
+	res_cblogger.Info("2. GetMyImage()")
+	res_cblogger.Info("3. CreateMyImage()")
+	res_cblogger.Info("4. DeleteMyImage()")
+	res_cblogger.Info("5. Exit")
+}
+
+func testMyImageHandler(config ResourceConfig) {
+	resourceHandler, err := getResourceHandler("myimage", config)
+	if err != nil {
+		res_cblogger.Error(err)
+		return
+	}
+
+	myImageHandler := resourceHandler.(irs.MyImageHandler)
+
+	testMyImageHandlerListPrint()
+	configmyimage := config.Cloudit.MYIMAGE
+
+	snapshotCreateReqInfo := irs.MyImageInfo{
+		IId: irs.IID{
+			NameId: configmyimage.IID.NameId,
+		},
+		SourceVM: irs.IID{
+			NameId: configmyimage.SourceVMIID.NameId,
+		},
+	}
+	myImageIId := irs.IID{
+		NameId: configmyimage.IID.NameId,
+	}
+Loop:
+	for {
+		var commandNum int
+		inputCnt, err := fmt.Scan(&commandNum)
+		if err != nil {
+			res_cblogger.Error(err)
+		}
+
+		if inputCnt == 1 {
+			switch commandNum {
+			case 0:
+				testMyImageHandlerListPrint()
+			case 1:
+				res_cblogger.Info("Start ListMyImage() ...")
+				if list, err := myImageHandler.ListMyImage(); err != nil {
+					res_cblogger.Error(err)
+				} else {
+					spew.Dump(list)
+				}
+				res_cblogger.Info("Finish ListMyImage()")
+			case 2:
+				res_cblogger.Info("Start GetMyImage() ...")
+				if vm, err := myImageHandler.GetMyImage(myImageIId); err != nil {
+					res_cblogger.Error(err)
+				} else {
+					spew.Dump(vm)
+				}
+				res_cblogger.Info("Finish GetMyImage()")
+			case 3:
+				res_cblogger.Info("Start CreateMyImage() ...")
+				if createInfo, err := myImageHandler.SnapshotVM(snapshotCreateReqInfo); err != nil {
+					res_cblogger.Error(err)
+				} else {
+					spew.Dump(createInfo)
+				}
+				res_cblogger.Info("Finish CreateMyImage()")
+			case 4:
+				res_cblogger.Info("Start DeleteMyImage() ...")
+				if vmStatus, err := myImageHandler.DeleteMyImage(myImageIId); err != nil {
+					res_cblogger.Error(err)
+				} else {
+					spew.Dump(vmStatus)
+				}
+				res_cblogger.Info("Finish DeleteMyImage()")
+			case 5:
+				res_cblogger.Info("Exit")
+				break Loop
+			}
+		}
+	}
+}
+
 func showTestHandlerInfo() {
 	res_cblogger.Info("==========================================================")
 	res_cblogger.Info("[Test ResourceHandler]")
@@ -986,7 +1073,8 @@ func showTestHandlerInfo() {
 	res_cblogger.Info("6. VmHandler")
 	res_cblogger.Info("7. NLBHandler")
 	res_cblogger.Info("8. DiskHandler")
-	res_cblogger.Info("9. Exit")
+	res_cblogger.Info("9. MyImageHandler")
+	res_cblogger.Info("10. Exit")
 	res_cblogger.Info("==========================================================")
 }
 
@@ -1032,6 +1120,9 @@ Loop:
 				testDiskHandler(config)
 				showTestHandlerInfo()
 			case 9:
+				testMyImageHandler(config)
+				showTestHandlerInfo()
+			case 10:
 				fmt.Println("Exit Test ResourceHandler Program")
 				break Loop
 			}
@@ -1195,6 +1286,14 @@ type ResourceConfig struct {
 			} `yaml:"IID"`
 			DiskSize string `yaml:"DiskSize"`
 		} `yaml:"disk"`
+		MYIMAGE struct {
+			IID struct {
+				NameId string `yaml:"nameId"`
+			} `yaml:"IID"`
+			SourceVMIID struct {
+				NameId string `yaml:"nameId"`
+			} `yaml:"SourceVMIID"`
+		} `yaml:"myimage"`
 	} `yaml:"cloudit"`
 }
 

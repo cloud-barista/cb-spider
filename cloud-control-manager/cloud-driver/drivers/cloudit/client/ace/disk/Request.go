@@ -2,6 +2,7 @@ package disk
 
 import (
 	"errors"
+	"fmt"
 	cblog "github.com/cloud-barista/cb-log"
 	"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/cloudit/client"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
@@ -27,12 +28,11 @@ type DiskReqInfo struct {
 }
 
 type DiskInfo struct {
-	ID           string
-	Name         string `updateAble:"Name"`
-	State        string
-	Size         int `updateAble:"Size"`
-	CreatedTime  time.Time
-	VolumeVmList []string
+	ID        string
+	Name      string `updateAble:"Name"`
+	State     string
+	Size      int `updateAble:"Size"`
+	CreatedAt string
 
 	// miscellaneous properties
 	TemplateId  string `responseType:"KeyValue"`
@@ -43,6 +43,7 @@ type DiskInfo struct {
 	Throughput  int    `responseType:"KeyValue"`
 	Creator     string `responseType:"KeyValue"`
 	Description string `responseType:"KeyValue" updateAble:"Description"`
+	Dev         string `responseType:"KeyValue"`
 }
 
 func (diskInfo *DiskInfo) GetKeyValues() []irs.KeyValue {
@@ -74,12 +75,21 @@ func (diskInfo *DiskInfo) ToIRSDisk(restClient *client.RestClient) irs.DiskInfo 
 		MoreHeaders: restClient.AuthenticatedHeaders(),
 	})
 
+	var createdTime time.Time
+	if diskInfo.CreatedAt != "" {
+		timeArr := strings.Split(diskInfo.CreatedAt, " ")
+		timeFormatStr := fmt.Sprintf("%sT%sZ", timeArr[0], timeArr[1])
+		if createTime, err := time.Parse(time.RFC3339, timeFormatStr); err == nil {
+			createdTime = createTime
+		}
+	}
+
 	return irs.DiskInfo{
 		IId:          irs.IID{NameId: diskInfo.Name, SystemId: diskInfo.ID},
 		DiskType:     "",
 		DiskSize:     strconv.Itoa(diskInfo.Size),
 		Status:       getDiskStatus(diskInfo.State),
-		CreatedTime:  diskInfo.CreatedTime,
+		CreatedTime:  createdTime,
 		KeyValueList: diskInfo.GetKeyValues(),
 		OwnerVM:      ownerVm.IId,
 	}
