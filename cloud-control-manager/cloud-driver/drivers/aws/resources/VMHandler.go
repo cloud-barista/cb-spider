@@ -441,7 +441,7 @@ func (vmHandler *AwsVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 
 		err := AttachVolume(vmHandler.Client, deviceName, newVmId, dataDiskIID.SystemId)
 		if err != nil {
-			return irs.VMInfo{}, awserr.New(CUSTOM_ERR_CODE_BAD_REQUEST, "Instance created but attach disk failed", err)
+			return irs.VMInfo{}, awserr.New(CUSTOM_ERR_CODE_BAD_REQUEST, "The instance was created but disk attaching failed", err)
 		}
 	}
 
