@@ -2,12 +2,15 @@ package resources
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"strconv"
 	"strings"
 	"time"
 
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
+	cim "github.com/cloud-barista/cb-spider/cloud-info-manager"
 	compute "google.golang.org/api/compute/v1"
 )
 
@@ -23,6 +26,8 @@ const (
 	GCPDiskReady    string = "READY"
 	GCPDiskFailed   string = "FAILED"
 	GCPDiskDeleting string = "DELETING"
+
+	DefaultDiskType string = "pd-standard"
 )
 
 func (DiskHandler *GCPDiskHandler) CreateDisk(diskReqInfo irs.DiskInfo) (irs.DiskInfo, error) {
@@ -33,7 +38,12 @@ func (DiskHandler *GCPDiskHandler) CreateDisk(diskReqInfo irs.DiskInfo) (irs.Dis
 
 	disk := &compute.Disk{
 		Name: diskName,
-		Type: diskReqInfo.DiskType,
+	}
+
+	if diskReqInfo.DiskType != "" && diskReqInfo.DiskType != "default" {
+		disk.Type = diskReqInfo.DiskType
+	} else {
+		diskReqInfo.DiskType = DefaultDiskType
 	}
 
 	if diskReqInfo.DiskSize != "" && diskReqInfo.DiskSize != "default" {
@@ -42,6 +52,14 @@ func (DiskHandler *GCPDiskHandler) CreateDisk(diskReqInfo irs.DiskInfo) (irs.Dis
 			cblogger.Error(err)
 			return irs.DiskInfo{}, err
 		}
+
+		//disk size validation check
+		validateDiskSizeErr := validateDiskSize(diskReqInfo)
+		if validateDiskSizeErr != nil {
+			cblogger.Error(validateDiskSizeErr)
+			return irs.DiskInfo{}, validateDiskSizeErr
+		}
+
 		disk.SizeGb = diskSize
 	}
 
@@ -76,12 +94,12 @@ func (DiskHandler *GCPDiskHandler) ListDisk() ([]*irs.DiskInfo, error) {
 	}
 
 	for _, disk := range diskList.Items {
-		nlbInfo, err := DiskHandler.GetDisk(irs.IID{SystemId: disk.Name})
+		diskInfo, err := DiskHandler.GetDisk(irs.IID{SystemId: disk.Name})
 		if err != nil {
 			cblogger.Error(err)
 			return []*irs.DiskInfo{}, err
 		}
-		diskInfoList = append(diskInfoList, &nlbInfo)
+		diskInfoList = append(diskInfoList, &diskInfo)
 	}
 
 	return diskInfoList, nil
@@ -117,7 +135,7 @@ func (DiskHandler *GCPDiskHandler) GetDisk(diskIID irs.IID) (irs.DiskInfo, error
 	} else if diskResp.Status == GCPDiskDeleting {
 		diskInfo.Status = irs.DiskDeleting
 	} else if diskResp.Status == GCPDiskFailed {
-
+		diskInfo.Status = irs.DiskError
 	} else if diskResp.Status == GCPDiskReady {
 		if diskResp.Users != nil {
 			diskInfo.Status = irs.DiskAttached
@@ -133,6 +151,17 @@ func (DiskHandler *GCPDiskHandler) ChangeDiskSize(diskIID irs.IID, size string) 
 	projectID := DiskHandler.Credential.ProjectID
 	zone := DiskHandler.Region.Zone
 	disk := diskIID.SystemId
+
+	diskInfo, err := DiskHandler.GetDisk(diskIID)
+	if err != nil {
+		return false, err
+	}
+
+	err = validateChangeDiskSize(diskInfo, size)
+	if err != nil {
+		return false, err
+	}
+
 	newSize, err := strconv.ParseInt(size, 10, 64)
 	if err != nil {
 		cblogger.Error(err)
@@ -224,4 +253,117 @@ func (DiskHandler *GCPDiskHandler) DetachDisk(diskIID irs.IID, ownerVM irs.IID) 
 	}
 
 	return true, nil
+}
+
+func validateDiskSize(diskInfo irs.DiskInfo) error {
+	cloudOSMetaInfo, err := cim.GetCloudOSMetaInfo("GCP")
+	arrDiskSizeOfType := cloudOSMetaInfo.DiskSize
+
+	diskSize, err := strconv.ParseInt(diskInfo.DiskSize, 10, 64)
+	if err != nil {
+		cblogger.Error(err)
+		return err
+	}
+
+	type diskSizeModel struct {
+		diskType    string
+		diskMinSize int64
+		diskMaxSize int64
+		unit        string
+	}
+
+	diskSizeValue := diskSizeModel{}
+	isExists := false
+
+	for _, diskSizeInfo := range arrDiskSizeOfType {
+		diskSizeArr := strings.Split(diskSizeInfo, "|")
+		if strings.EqualFold(diskInfo.DiskType, diskSizeArr[0]) {
+			diskSizeValue.diskType = diskSizeArr[0]
+			diskSizeValue.unit = diskSizeArr[3]
+			diskSizeValue.diskMinSize, err = strconv.ParseInt(diskSizeArr[1], 10, 64)
+			if err != nil {
+				cblogger.Error(err)
+				return err
+			}
+
+			diskSizeValue.diskMaxSize, err = strconv.ParseInt(diskSizeArr[2], 10, 64)
+			if err != nil {
+				cblogger.Error(err)
+				return err
+			}
+			isExists = true
+		}
+	}
+
+	if !isExists {
+		return errors.New("Invalid Disk Type : " + diskInfo.DiskType)
+	}
+
+	if diskSize < diskSizeValue.diskMinSize {
+		fmt.Println("Disk Size Error!!: ", diskSize, diskSizeValue.diskMinSize, diskSizeValue.diskMaxSize)
+		return errors.New("Disk Size must be at least the minimum size (" + strconv.FormatInt(diskSizeValue.diskMinSize, 10) + " GB).")
+	}
+
+	if diskSize > diskSizeValue.diskMaxSize {
+		fmt.Println("Disk Size Error!!: ", diskSize, diskSizeValue.diskMinSize, diskSizeValue.diskMaxSize)
+		return errors.New("Disk Size must be smaller than or equal to the maximum size (" + strconv.FormatInt(diskSizeValue.diskMaxSize, 10) + " GB).")
+	}
+
+	return nil
+}
+
+func validateChangeDiskSize(diskInfo irs.DiskInfo, newSize string) error {
+	cloudOSMetaInfo, err := cim.GetCloudOSMetaInfo("GCP")
+	arrDiskSizeOfType := cloudOSMetaInfo.DiskSize
+
+	diskSize, err := strconv.ParseInt(diskInfo.DiskSize, 10, 64)
+	if err != nil {
+		cblogger.Error(err)
+		return err
+	}
+
+	newDiskSize, err := strconv.ParseInt(newSize, 10, 64)
+	if err != nil {
+		cblogger.Error(err)
+		return err
+	}
+
+	if diskSize >= newDiskSize {
+		return errors.New("Target Disk Size: " + newSize + " must be larger than existing Disk Size " + diskInfo.DiskSize)
+	}
+
+	type diskSizeModel struct {
+		diskType    string
+		diskMinSize int64
+		diskMaxSize int64
+		unit        string
+	}
+
+	diskSizeValue := diskSizeModel{}
+
+	for _, diskSizeInfo := range arrDiskSizeOfType {
+		diskSizeArr := strings.Split(diskSizeInfo, "|")
+		if strings.EqualFold(diskInfo.DiskType, diskSizeArr[0]) {
+			diskSizeValue.diskType = diskSizeArr[0]
+			diskSizeValue.unit = diskSizeArr[3]
+			diskSizeValue.diskMinSize, err = strconv.ParseInt(diskSizeArr[1], 10, 64)
+			if err != nil {
+				cblogger.Error(err)
+				return err
+			}
+
+			diskSizeValue.diskMaxSize, err = strconv.ParseInt(diskSizeArr[2], 10, 64)
+			if err != nil {
+				cblogger.Error(err)
+				return err
+			}
+		}
+	}
+
+	if newDiskSize > diskSizeValue.diskMaxSize {
+		fmt.Println("Disk Size Error!!: ", diskSize, diskSizeValue.diskMinSize, diskSizeValue.diskMaxSize)
+		return errors.New("Disk Size must be smaller than or equal to the maximum size (" + strconv.FormatInt(diskSizeValue.diskMaxSize, 10) + " GB).")
+	}
+
+	return nil
 }
