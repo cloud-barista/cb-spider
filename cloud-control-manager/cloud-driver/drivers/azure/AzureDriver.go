@@ -49,6 +49,7 @@ func (AzureDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	drvCapabilityInfo.VMHandler = true
 	drvCapabilityInfo.VMSpecHandler = true
 	drvCapabilityInfo.NLBHandler = true
+	drvCapabilityInfo.DiskHandler = true
 
 	return drvCapabilityInfo
 }

@@ -16,7 +16,7 @@ import (
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/sirupsen/logrus"
-
+	"errors"
 )
 
 var cblogger *logrus.Logger
@@ -85,4 +85,8 @@ func (cloudConn *MockConnection) IsConnected() (bool, error) {
 func (cloudConn *MockConnection) Close() error {
 	cblogger.Info("Mock Driver: called Close()!")
 	return nil
+}
+
+func (cloudConn *MockConnection) CreateDiskHandler() (irs.DiskHandler, error) {
+        return nil, errors.New("Mock Driver: not implemented")
 }
