@@ -29,6 +29,8 @@ GCP:
   region: Region / Zone
   credential: PrivateKey / ProjectID / ClientEmail
   rootdisktype: pd-standard / pd-balanced / pd-ssd / pd-extreme
+  disktype: pd-standard / pd-balanced / pd-ssd / pd-extreme
+  disksize: pd-standard|10|65536|GB / pd-balanced|10|65536|GB / pd-ssd|10|65536|GB / pd-extreme|500|65536|GB
   # idmaxlength: VPC / Subnet / SecurityGroup / KeyPair / VM
   #idmaxlength: 63 / 63 / 63 / 0 / 63
   idmaxlength: 63 / 63 / 57 / 0 / 63
