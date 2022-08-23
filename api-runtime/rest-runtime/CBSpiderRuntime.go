@@ -335,6 +335,24 @@ func RunServer() {
                 {"DELETE", "/cspnlb/:Id", DeleteCSPNLB},
 
 
+                //----------Disk Handler
+                {"POST", "/regdisk", RegisterDisk},
+                {"DELETE", "/regdisk/:Name", UnregisterDisk},
+
+                {"POST", "/disk", CreateDisk},
+                {"GET", "/disk", ListDisk},
+                {"GET", "/disk/:Name", GetDisk},
+                {"PUT", "/disk/:Name/size", ChangeDiskSize},
+                {"DELETE", "/disk/:Name", DeleteDisk},
+                //-- for vm
+                {"PUT", "/disk/:Name/attach", AttachDisk},
+                {"PUT", "/disk/:Name/detach", DetachDisk},
+
+                //-- for management
+                {"GET", "/alldisk", ListAllDisk},
+                {"DELETE", "/cspdisk/:Id", DeleteCSPDisk},
+
+
 		//-------------------------------------------------------------------//
                 //----------Additional Info
 		{"GET", "/cspresourcename/:Name", GetCSPResourceName},

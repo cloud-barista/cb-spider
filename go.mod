@@ -62,7 +62,7 @@ require (
 	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/vpc v1.0.206
 	github.com/uber/jaeger-client-go v2.29.1+incompatible
 	github.com/uber/jaeger-lib v2.4.0+incompatible // indirect
-	golang.org/x/crypto v0.0.0-20210817164053-32db794688a5
+	golang.org/x/crypto v0.0.0-20220126234351-aa10faf2a1f8
 	golang.org/x/oauth2 v0.0.0-20220411215720-9780585627b5
 	google.golang.org/api v0.81.0
 	google.golang.org/grpc v1.46.2
