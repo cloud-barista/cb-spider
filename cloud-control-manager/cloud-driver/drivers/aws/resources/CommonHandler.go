@@ -14,54 +14,7 @@ import (
 
 //// AWS API 1:1로 대응
 
-//WaitUntilVolumeAvailable
-func WaitUntilVolumeAvailable(svc *ec2.EC2, volumeID string) error {
-	input := &ec2.DescribeVolumesInput{
-		VolumeIds: []*string{
-			aws.String(volumeID),
-		},
-	}
-	err := svc.WaitUntilVolumeAvailable(input)
-	if err != nil {
-		cblogger.Errorf("failed to wait until volume available: %v", err)
-		return err
-	}
-	cblogger.Info("=========WaitUntilVolumeAvailable() 종료")
-	return nil
-}
-
-//WaitUntilVolumeDeleted
-func WaitUntilVolumeDeleted(svc *ec2.EC2, volumeID string) error {
-	input := &ec2.DescribeVolumesInput{
-		VolumeIds: []*string{
-			aws.String(volumeID),
-		},
-	}
-	err := svc.WaitUntilVolumeDeleted(input)
-	if err != nil {
-		cblogger.Errorf("failed to wait until volume deleted: %v", err)
-		return err
-	}
-	cblogger.Info("=========WaitUntilVolumeDeleted() 종료")
-	return nil
-}
-
-//WaitUntilVolumeInUse : attached
-func WaitUntilVolumeInUse(svc *ec2.EC2, volumeID string) error {
-	input := &ec2.DescribeVolumesInput{
-		VolumeIds: []*string{
-			aws.String(volumeID),
-		},
-	}
-	err := svc.WaitUntilVolumeInUse(input)
-	if err != nil {
-		cblogger.Errorf("failed to wait until volume in use: %v", err)
-		return err
-	}
-	cblogger.Info("=========WaitUntilVolumeInUse() 종료")
-	return nil
-}
-
+// ---------------- Instance Area begin ---------------//
 /*
 	Instance 정보조회.
 	기본은 목록 조회이며 filter조건이 있으면 해당 filter 조건으로 검색하도록
@@ -171,6 +124,57 @@ func DescribeAvailableDiskDeviceList(svc *ec2.EC2, vmIID irs.IID) ([]string, err
 	return availableDevices, nil
 }
 
+// ---------------- Instance Area end ---------------//
+
+// ---------------- VOLUME Area begin -----------------//
+//WaitUntilVolumeAvailable
+func WaitUntilVolumeAvailable(svc *ec2.EC2, volumeID string) error {
+	input := &ec2.DescribeVolumesInput{
+		VolumeIds: []*string{
+			aws.String(volumeID),
+		},
+	}
+	err := svc.WaitUntilVolumeAvailable(input)
+	if err != nil {
+		cblogger.Errorf("failed to wait until volume available: %v", err)
+		return err
+	}
+	cblogger.Info("=========WaitUntilVolumeAvailable() 종료")
+	return nil
+}
+
+//WaitUntilVolumeDeleted
+func WaitUntilVolumeDeleted(svc *ec2.EC2, volumeID string) error {
+	input := &ec2.DescribeVolumesInput{
+		VolumeIds: []*string{
+			aws.String(volumeID),
+		},
+	}
+	err := svc.WaitUntilVolumeDeleted(input)
+	if err != nil {
+		cblogger.Errorf("failed to wait until volume deleted: %v", err)
+		return err
+	}
+	cblogger.Info("=========WaitUntilVolumeDeleted() 종료")
+	return nil
+}
+
+//WaitUntilVolumeInUse : attached
+func WaitUntilVolumeInUse(svc *ec2.EC2, volumeID string) error {
+	input := &ec2.DescribeVolumesInput{
+		VolumeIds: []*string{
+			aws.String(volumeID),
+		},
+	}
+	err := svc.WaitUntilVolumeInUse(input)
+	if err != nil {
+		cblogger.Errorf("failed to wait until volume in use: %v", err)
+		return err
+	}
+	cblogger.Info("=========WaitUntilVolumeInUse() 종료")
+	return nil
+}
+
 /*
 	List 와 Get 이 같은 API 호출
 	filter 조건으로 VolumeId 를 넣도록하고
@@ -242,9 +246,6 @@ func DescribeVolumneById(svc *ec2.EC2, volumeId string) (*ec2.Volume, error) {
 
 func AttachVolume(svc *ec2.EC2, deviceName string, instanceId string, volumeId string) error {
 	input := &ec2.AttachVolumeInput{
-		//Device:     aws.String("/dev/sdf"),
-		//InstanceId: aws.String("i-01474ef662b89480"),
-		//VolumeId:   aws.String("vol-1234567890abcdef0"),
 		Device:     aws.String(deviceName),
 		InstanceId: aws.String(instanceId),
 		VolumeId:   aws.String(volumeId),
@@ -273,3 +274,167 @@ func AttachVolume(svc *ec2.EC2, deviceName string, instanceId string, volumeId s
 	}
 	return nil
 }
+
+// ---------------- VOLUME Area end -----------------//
+
+// ---------------- MyImage Area begin ---------------//
+
+//func CreateImage(svc *ec2, EC2, )
+
+func DescribeImages(svc *ec2.EC2, imageIIDs []*irs.IID, owners []*string) (*ec2.DescribeImagesOutput, error) {
+	input := &ec2.DescribeImagesInput{}
+
+	var imageIds []*string
+
+	if imageIIDs != nil {
+		for _, imageIID := range imageIIDs {
+			imageIds = append(imageIds, aws.String(imageIID.SystemId))
+		}
+		input.ImageIds = imageIds
+	}
+
+	// ExecutableUser : 공유 받은 이미지인가? self, userid 지정시 조회 결과 '0'
+	//request.ExecutableUsers.Add("all");
+	//request.Owners.Add("amazon");
+
+	//if executableBy != nil {
+	//	input.ExecutableUsers = executableBy
+	//}
+	//input.ExecutableUsers = []*string{aws.String("0508-6470-2683")}	// wrong
+	//input.ExecutableUsers = []*string{aws.String("050864702683")}// 0
+	//input.ExecutableUsers = []*string{aws.String("all")}// 전체 : 56551개
+	//input.ExecutableUsers = []*string{aws.String("self")} // 0
+
+	// ExecutableUsers = all, owner = amazon => 10061
+	//input.ExecutableUsers = []*string{aws.String("all")}// all image
+	//input.Owners = []*string{aws.String("amazon")}
+
+	// ExecutableUsers = all, 특정 유저 id
+	//input.Owners = []*string{aws.String("013907871322")} // 270   suse linux 소유한 public image
+	//input.Owners = []*string{aws.String("801119661308")} //1186  microsoft 가 소유한 public image
+
+	// 소유한 갯수 : self로 하거나 12자리 숫자인 userid를 넣거나.
+	//input.Owners = []*string{aws.String("self")}
+	//input.Owners = []*string{aws.String("050864702683")}	// self 와 소유자 계정ID가 같은 결과. 그러므로 self 사용
+
+	input.Owners = owners
+
+	result, err := svc.DescribeImages(input)
+	if err != nil {
+		if aerr, ok := err.(awserr.Error); ok {
+			switch aerr.Code() {
+			default:
+				fmt.Println(aerr.Error())
+			}
+		} else {
+			// Print the error, cast err to awserr.Error to get the Code and
+			// Message from an error.
+			fmt.Println(err.Error())
+		}
+	}
+	return result, err
+}
+
+func DescribeImageById(svc *ec2.EC2, imageIID *irs.IID, owners []*string) (*ec2.Image, error) {
+	var imageIIDs []*irs.IID
+	var iid irs.IID
+
+	if *imageIID == iid {
+		return nil, errors.New("imageID is empty.)")
+	}
+
+	imageIIDs = append(imageIIDs, imageIID)
+
+	result, err := DescribeImages(svc, imageIIDs, owners)
+	if err != nil {
+		if aerr, ok := err.(awserr.Error); ok {
+			switch aerr.Code() {
+			default:
+				fmt.Println(aerr.Error())
+			}
+		} else {
+			// Print the error, cast err to awserr.Error to get the Code and
+			// Message from an error.
+			fmt.Println(err.Error())
+		}
+	}
+
+	if result.Images == nil || len(result.Images) == 0 {
+		return nil, awserr.New("404", "["+imageIID.NameId+"] 이미지 정보가 존재하지 않습니다.", nil)
+	}
+	resultImage := result.Images[0]
+	return resultImage, err
+}
+
+// ---------------- MyImage Area end ---------------//
+
+// ---------------- EBS Snapshot area begin --------//
+//func DescribeSnapshots(svc *ec2.EC2, snapshotIIDs []*irs.IID) (*ec2.DescribeSnapshotsOutput, error) {
+//	input := &ec2.DescribeSnapshotsInput{
+//		//Filters: []*ec2.Filter{
+//		//	{
+//		//		Name:   aws.String("instance-state-name"),
+//		//		Values: []*string{aws.String("running"), aws.String("pending")},
+//		//	},
+//		//},
+//	}
+//
+//	var snapshotIds []*string
+//
+//	if snapshotIIDs != nil {
+//		for _, snapshotId := range snapshotIIDs {
+//			snapshotIds = append(snapshotIds, aws.String(snapshotId.SystemId))
+//		}
+//		input.SnapshotIds = snapshotIds
+//	}
+//	//fmt.Println("sign name " + svc.Client.SigningName)// ec2
+//
+//	//input.OwnerIds = []*string{aws.String("050864702683")}
+//	input.OwnerIds = []*string{aws.String("self")}
+//
+//	result, err := svc.DescribeSnapshots(input)
+//	if err != nil {
+//		if aerr, ok := err.(awserr.Error); ok {
+//			switch aerr.Code() {
+//			default:
+//				fmt.Println(aerr.Error())
+//			}
+//		} else {
+//			// Print the error, cast err to awserr.Error to get the Code and
+//			// Message from an error.
+//			fmt.Println(err.Error())
+//		}
+//	}
+//	spew.Dump(result)
+//	return result, err
+//}
+//func DescribeSnapshotById(svc *ec2.EC2, snapshotIID *irs.IID) (*ec2.Snapshot, error) {
+//	var snapshotIIDs []*irs.IID
+//	var iid irs.IID
+//
+//	if *snapshotIID == iid {
+//		return nil, errors.New("snapshot ID is empty.)")
+//	}
+//
+//	snapshotIIDs = append(snapshotIIDs, snapshotIID)
+//
+//	result, err := DescribeSnapshots(svc, snapshotIIDs)
+//	if err != nil {
+//		if aerr, ok := err.(awserr.Error); ok {
+//			switch aerr.Code() {
+//			default:
+//				fmt.Println(aerr.Error())
+//			}
+//		} else {
+//			// Print the error, cast err to awserr.Error to get the Code and
+//			// Message from an error.
+//			fmt.Println(err.Error())
+//		}
+//		return nil, err
+//	}
+//
+//	resultSnapshot := result.Snapshots[0]
+//	return resultSnapshot, err
+//}
+
+// ---------------- EBS Snapshot area end ----------//
