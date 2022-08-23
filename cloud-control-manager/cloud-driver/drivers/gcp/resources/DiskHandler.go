@@ -124,7 +124,7 @@ func (DiskHandler *GCPDiskHandler) GetDisk(diskIID irs.IID) (irs.DiskInfo, error
 	if diskResp.Users != nil {
 		arrUsers := strings.Split(diskResp.Users[0], "/")
 		ownerVM := arrUsers[len(arrUsers)-1]
-		diskInfo.OwnerVM = irs.IID{SystemId: ownerVM}
+		diskInfo.OwnerVM = irs.IID{NameId: ownerVM, SystemId: ownerVM}
 	}
 
 	arrType := strings.Split(diskResp.Type, "/")
