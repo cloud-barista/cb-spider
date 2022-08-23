@@ -1115,8 +1115,8 @@ func handleVM() {
 					//SubnetIID:         irs.IID{SystemId: "cb-sub1"},
 					VpcIID:            irs.IID{SystemId: "cb-vpc-load-test"},
 					SubnetIID:         irs.IID{SystemId: "vpc-loadtest-sub1"},
-					SecurityGroupIIDs: []irs.IID{{SystemId: "cb-securitytest1"}},
-					VMSpecName:        "f1-micro",
+					SecurityGroupIIDs: []irs.IID{{SystemId: "sg10"}},
+					VMSpecName:        "e2-small",
 					KeyPairIID:        irs.IID{SystemId: "cb-keypairtest123123"},
 					VMUserId:          "cb-user",
 
@@ -1124,6 +1124,7 @@ func handleVM() {
 					RootDiskType: "pd-balanced", //pd-standard/pd-balanced/pd-ssd/pd-extreme
 					//RootDiskSize: "12",     //최소 10GB 이상이어야 함.
 					RootDiskSize: "default", //10GB
+					DataDiskIIDs: []irs.IID{{SystemId: "cb-disk-02"}},
 				}
 
 				vmInfo, err := vmHandler.StartVM(vmReqInfo)
@@ -1600,9 +1601,9 @@ func handleDisk() {
 
 	//imageReqInfo := irs2.ImageReqInfo{
 	diskReqInfo := irs.DiskInfo{
-		IId:      irs.IID{NameId: "cb-disk-02", SystemId: "cb-disk-02"},
+		IId:      irs.IID{NameId: "cb-disk-03", SystemId: "cb-disk-03"},
 		DiskType: "",
-		DiskSize: "",
+		DiskSize: "20",
 	}
 
 	for {
@@ -1668,7 +1669,7 @@ func handleDisk() {
 
 			case 4:
 				cblogger.Infof("[%s] Disk Size 변경 테스트", diskReqInfo.IId.NameId)
-				result, err := handler.ChangeDiskSize(diskReqInfo.IId, "600")
+				result, err := handler.ChangeDiskSize(diskReqInfo.IId, "30")
 				if err != nil {
 					cblogger.Infof("[%s] Disk Size 변경 실패 : ", diskReqInfo.IId.NameId, err)
 				} else {
@@ -1684,7 +1685,7 @@ func handleDisk() {
 				}
 			case 6:
 				cblogger.Infof("[%s] Disk Attach 테스트", diskReqInfo.IId.NameId)
-				result, err := handler.AttachDisk(diskReqInfo.IId, irs.IID{SystemId: "workation-cat982ojkg5sgtjqaafg"})
+				result, err := handler.AttachDisk(diskReqInfo.IId, irs.IID{SystemId: "mcloud-barista-vm-test"})
 				if err != nil {
 					cblogger.Infof("[%s] Disk Attach 실패 : ", diskReqInfo.IId.NameId, err)
 				} else {
@@ -1693,7 +1694,7 @@ func handleDisk() {
 				}
 			case 7:
 				cblogger.Infof("[%s] Disk Detach 테스트", diskReqInfo.IId.NameId)
-				result, err := handler.DetachDisk(diskReqInfo.IId, irs.IID{SystemId: "workation-cat982ojkg5sgtjqaafg"})
+				result, err := handler.DetachDisk(diskReqInfo.IId, irs.IID{SystemId: "mcloud-barista-vm-test"})
 				if err != nil {
 					cblogger.Infof("[%s] Disk Detach 실패 : ", diskReqInfo.IId.NameId, err)
 				} else {

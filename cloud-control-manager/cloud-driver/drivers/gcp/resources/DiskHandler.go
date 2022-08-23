@@ -94,7 +94,7 @@ func (DiskHandler *GCPDiskHandler) ListDisk() ([]*irs.DiskInfo, error) {
 	}
 
 	for _, disk := range diskList.Items {
-		diskInfo, err := DiskHandler.GetDisk(irs.IID{SystemId: disk.Name})
+		diskInfo, err := DiskHandler.GetDisk(irs.IID{NameId: disk.Name, SystemId: disk.Name})
 		if err != nil {
 			cblogger.Error(err)
 			return []*irs.DiskInfo{}, err
@@ -149,6 +149,7 @@ func (DiskHandler *GCPDiskHandler) GetDisk(diskIID irs.IID) (irs.DiskInfo, error
 
 func (DiskHandler *GCPDiskHandler) ChangeDiskSize(diskIID irs.IID, size string) (bool, error) {
 	projectID := DiskHandler.Credential.ProjectID
+	region := DiskHandler.Region.Region
 	zone := DiskHandler.Region.Zone
 	disk := diskIID.SystemId
 
@@ -179,11 +180,14 @@ func (DiskHandler *GCPDiskHandler) ChangeDiskSize(diskIID irs.IID, size string) 
 		return false, err
 	}
 
+	WaitOperationComplete(DiskHandler.Client, projectID, region, zone, op.Name, 3)
+
 	return true, nil
 }
 
 func (DiskHandler *GCPDiskHandler) DeleteDisk(diskIID irs.IID) (bool, error) {
 	projectID := DiskHandler.Credential.ProjectID
+	region := DiskHandler.Region.Region
 	zone := DiskHandler.Region.Zone
 	disk := diskIID.SystemId
 
@@ -193,6 +197,8 @@ func (DiskHandler *GCPDiskHandler) DeleteDisk(diskIID irs.IID) (bool, error) {
 		cblogger.Error(err)
 		return false, err
 	}
+
+	WaitOperationComplete(DiskHandler.Client, projectID, region, zone, op.Name, 3)
 
 	return true, nil
 }
@@ -227,6 +233,7 @@ func (DiskHandler *GCPDiskHandler) AttachDisk(diskIID irs.IID, ownerVM irs.IID) 
 
 func (DiskHandler *GCPDiskHandler) DetachDisk(diskIID irs.IID, ownerVM irs.IID) (bool, error) {
 	projectID := DiskHandler.Credential.ProjectID
+	region := DiskHandler.Region.Region
 	zone := DiskHandler.Region.Zone
 	instance := ownerVM.SystemId
 	deviceName := ""
@@ -251,6 +258,8 @@ func (DiskHandler *GCPDiskHandler) DetachDisk(diskIID irs.IID, ownerVM irs.IID) 
 		cblogger.Error(err)
 		return false, err
 	}
+
+	WaitOperationComplete(DiskHandler.Client, projectID, region, zone, op.Name, 3)
 
 	return true, nil
 }
