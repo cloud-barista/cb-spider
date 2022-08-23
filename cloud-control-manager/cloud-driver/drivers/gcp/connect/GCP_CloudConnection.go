@@ -110,3 +110,9 @@ func (GCPCloudConnection) IsConnected() (bool, error) {
 func (GCPCloudConnection) Close() error {
 	return nil
 }
+
+func (cloudConn *GCPCloudConnection) CreateDiskHandler() (irs.DiskHandler, error) {
+	cblogger.Info("GCP Cloud Driver: called CreateDiskHandler()!")
+	diskHandler := gcprs.GCPDiskHandler{Region: cloudConn.Region, Ctx: cloudConn.Ctx, Client: cloudConn.VMClient, Credential: cloudConn.Credential}
+	return &diskHandler, nil
+}

@@ -41,6 +41,8 @@ type AwsCloudConnection struct {
 
 	//NLBClient *elb.ELB
 	NLBClient *elbv2.ELBV2
+
+	DiskClient *ec2.EC2
 }
 
 var cblogger *logrus.Logger
@@ -112,5 +114,10 @@ func (cloudConn *AwsCloudConnection) CreateVMSpecHandler() (irs.VMSpecHandler, e
 
 func (cloudConn *AwsCloudConnection) CreateNLBHandler() (irs.NLBHandler, error) {
 	handler := ars.AwsNLBHandler{cloudConn.Region, cloudConn.NLBClient, cloudConn.VMClient}
+	return &handler, nil
+}
+
+func (cloudConn *AwsCloudConnection) CreateDiskHandler() (irs.DiskHandler, error) {
+	handler := ars.AwsDiskHandler{cloudConn.Region, cloudConn.DiskClient}
 	return &handler, nil
 }

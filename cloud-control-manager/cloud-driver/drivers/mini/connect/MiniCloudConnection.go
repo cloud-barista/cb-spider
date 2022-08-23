@@ -93,3 +93,8 @@ func (cloudConn *MiniConnection) Close() error {
 func (cloudConn *MiniConnection) CreateNLBHandler() (irs.NLBHandler, error) {
         return nil, errors.New("Mini Driver: not implemented")
 }
+
+func (cloudConn *MiniConnection) CreateDiskHandler() (irs.DiskHandler, error) {
+        return nil, errors.New("Mini Driver: not implemented")
+}
+

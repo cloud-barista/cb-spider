@@ -91,6 +91,9 @@ func (cloudConn *DockerCloudConnection) Close() error {
 }
 
 func (cloudConn *DockerCloudConnection) CreateNLBHandler() (irs.NLBHandler, error) {
-        return nil, errors.New("Docker Cloud Driver NLB: WIP")
+        return nil, errors.New("Docker Cloud Driver NLB: not implemented")
 }
 
+func (cloudConn *DockerCloudConnection) CreateDiskHandler() (irs.DiskHandler, error) {
+        return nil, errors.New("Docker Driver: not implemented")
+}

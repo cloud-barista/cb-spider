@@ -21,6 +21,7 @@ const (
         DiskAvailable   DiskStatus = "Available"
         DiskAttached   	DiskStatus = "Attached"
         DiskDeleting   	DiskStatus = "Deleting"
+        DiskError   	DiskStatus = "Error"
 )
 
 //-------- Info Structure
@@ -30,7 +31,7 @@ type DiskInfo struct {
         DiskType string  // "", "SSD(gp2)", "Premium SSD", ...
 	DiskSize string  // "", "default", "50", "1000"  # (GB)
 	
-        Status 		DiskStatus	// DiskCreating | DiskAvailable | DiskAttached | DiskDeleting
+        Status 		DiskStatus	// DiskCreating | DiskAvailable | DiskAttached | DiskDeleting | DiskError
 	OwnerVM		IID		// When the Status is DiskAttached
 
 	CreatedTime	time.Time
