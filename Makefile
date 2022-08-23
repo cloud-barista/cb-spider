@@ -1,6 +1,7 @@
 default: cli
 		@echo -e '\t[CB-Spider] build ./bin/cb-spider....'
 		@go mod download
+		@go mod tidy
 		@go build -o bin/cb-spider ./api-runtime
 dyna plugin plug dynamic: cli
 		@echo -e '\t[CB-Spider] build ./bin/cb-spider with plugin mode...'
@@ -26,7 +27,8 @@ cli-dist dist-cli: cli
 cli:
 		@echo -e '\t[CB-Spider] build ./interface/spctl...'
 		@go mod download
-		@go build -ldflags="-X 'github.com/cloud-barista/cb-spider/interface/cli/spider/cmd.Version=v0.5.0' \
+		@go mod tidy
+		@go build -ldflags="-X 'github.com/cloud-barista/cb-spider/interface/cli/spider/cmd.Version=v0.6.0' \
 			-X 'github.com/cloud-barista/cb-spider/interface/cli/spider/cmd.CommitSHA=`(git rev-parse --short HEAD)`' \
 			-X 'github.com/cloud-barista/cb-spider/interface/cli/spider/cmd.User=`(id -u -n)`' \
 			-X 'github.com/cloud-barista/cb-spider/interface/cli/spider/cmd.Time=`(date)`'" \
