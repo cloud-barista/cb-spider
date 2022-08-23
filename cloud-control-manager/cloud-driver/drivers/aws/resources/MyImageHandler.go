@@ -243,7 +243,7 @@ func (ImageHandler *AwsMyImageHandler) SnapshotVM(snapshotReqInfo irs.MyImageInf
 		ebs := ec2.EbsBlockDevice{}
 
 		volume, err := DescribeVolumneById(ImageHandler.Client, *instanceBlockDevice.Ebs.VolumeId)
-		if err == nil {
+		if err != nil {
 			return irs.MyImageInfo{}, err
 		}
 
@@ -257,7 +257,7 @@ func (ImageHandler *AwsMyImageHandler) SnapshotVM(snapshotReqInfo irs.MyImageInf
 	var tags []*ec2.Tag
 	nameTag := &ec2.Tag{
 		Key:   aws.String(IMAGE_TAG_DEFAULT),
-		Value: aws.String(snapshotReqInfo.SourceVM.NameId),
+		Value: aws.String(snapshotReqInfo.IId.NameId),
 	}
 	tags = append(tags, nameTag)
 	sourceVMTag := &ec2.Tag{
@@ -291,11 +291,15 @@ func (ImageHandler *AwsMyImageHandler) SnapshotVM(snapshotReqInfo irs.MyImageInf
 		//InstanceId:  aws.String("i-1234567890abcdef0"),
 		//Name:        aws.String("My server"),
 		//NoReboot:    aws.Bool(true),
-		Name:                aws.String(snapshotReqInfo.IId.SystemId),
+		Name:                aws.String(snapshotReqInfo.IId.NameId),
 		InstanceId:          aws.String(snapshotReqInfo.SourceVM.SystemId),
 		Description:         aws.String(snapshotReqInfo.IId.NameId),
 		BlockDeviceMappings: blockDeviceMappingList,
 		TagSpecifications:   tagSpecs,
+	}
+
+	if cblogger.Level.String() == "debug" {
+		spew.Dump(input)
 	}
 
 	result, err := ImageHandler.Client.CreateImage(input)
@@ -333,7 +337,10 @@ func (ImageHandler *AwsMyImageHandler) ListMyImage() ([]*irs.MyImageInfo, error)
 	if err != nil {
 		return nil, err
 	}
-	spew.Dump(result)
+
+	if cblogger.Level.String() == "debug" {
+		spew.Dump(result)
+	}
 	for _, awsImage := range result.Images {
 		myImage, err := convertAWSImageToMyImageInfo(awsImage)
 		if err != nil {
@@ -365,7 +372,9 @@ func (ImageHandler *AwsMyImageHandler) DeleteMyImage(myImageIID irs.IID) (bool, 
 		return false, err
 	}
 
-	spew.Dump(result)
+	if cblogger.Level.String() == "debug" {
+		spew.Dump(result)
+	}
 	return true, nil
 }
 

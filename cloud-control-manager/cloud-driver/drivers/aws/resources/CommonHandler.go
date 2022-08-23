@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/aws/aws-sdk-go/aws/awserr"
+	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	"github.com/davecgh/go-spew/spew"
 	"strings"
 
@@ -30,7 +31,21 @@ func DescribeInstances(svc *ec2.EC2, vmIIDs []irs.IID) (*ec2.DescribeInstancesOu
 		input.InstanceIds = instanceIds
 	}
 
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.AWS,
+		ResourceType: call.VM,
+		CloudOSAPI:   "DescribeInstances",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+
+	callLogStart := call.Start()
+
 	result, err := svc.DescribeInstances(input)
+
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+	callogger.Info(call.String(callLogInfo))
 
 	return result, err
 }
@@ -191,7 +206,22 @@ func DescribeVolumnes(svc *ec2.EC2, volumeIdList []*string) (*ec2.DescribeVolume
 		input.VolumeIds = volumeIdList
 	}
 
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.AWS,
+		ResourceType: call.DISK,
+		CloudOSAPI:   "DescribeVolumes",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+
+	callLogStart := call.Start()
+
 	result, err := svc.DescribeVolumes(input)
+
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+	callogger.Info(call.String(callLogInfo))
+
 	if err != nil {
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
@@ -206,19 +236,22 @@ func DescribeVolumnes(svc *ec2.EC2, volumeIdList []*string) (*ec2.DescribeVolume
 	if cblogger.Level.String() == "debug" {
 		spew.Dump(result)
 	}
+
 	return result, nil
 }
 
 func DescribeVolumneById(svc *ec2.EC2, volumeId string) (*ec2.Volume, error) {
 	volumeIdList := []*string{}
-	input := &ec2.DescribeVolumesInput{}
+	//input := &ec2.DescribeVolumesInput{}
+	//
+	//if volumeId != "" {
+	//	volumeIdList = append(volumeIdList, aws.String(volumeId))
+	//	input.VolumeIds = volumeIdList
+	//}
+	//result, err := svc.DescribeVolumes(input)
 
-	if volumeId != "" {
-		volumeIdList = append(volumeIdList, aws.String(volumeId))
-		input.VolumeIds = volumeIdList
-	}
-
-	result, err := svc.DescribeVolumes(input)
+	volumeIdList = append(volumeIdList, aws.String(volumeId))
+	result, err := DescribeVolumnes(svc, volumeIdList)
 	if err != nil {
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
@@ -251,7 +284,22 @@ func AttachVolume(svc *ec2.EC2, deviceName string, instanceId string, volumeId s
 		VolumeId:   aws.String(volumeId),
 	}
 
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.AWS,
+		ResourceType: call.DISK,
+		CloudOSAPI:   "AttachVolume",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+
+	callLogStart := call.Start()
+
 	result, err := svc.AttachVolume(input)
+
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+	callogger.Info(call.String(callLogInfo))
+
 	if err != nil {
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
@@ -319,7 +367,21 @@ func DescribeImages(svc *ec2.EC2, imageIIDs []*irs.IID, owners []*string) (*ec2.
 
 	input.Owners = owners
 
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.AWS,
+		ResourceType: call.VMIMAGE,
+		CloudOSAPI:   "DescribeImages",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+
+	callLogStart := call.Start()
+
 	result, err := svc.DescribeImages(input)
+
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+
 	if err != nil {
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
@@ -332,6 +394,9 @@ func DescribeImages(svc *ec2.EC2, imageIIDs []*irs.IID, owners []*string) (*ec2.
 			fmt.Println(err.Error())
 		}
 	}
+
+	callogger.Info(call.String(callLogInfo))
+
 	return result, err
 }
 
@@ -360,7 +425,7 @@ func DescribeImageById(svc *ec2.EC2, imageIID *irs.IID, owners []*string) (*ec2.
 	}
 
 	if result.Images == nil || len(result.Images) == 0 {
-		return nil, awserr.New("404", "["+imageIID.NameId+"] 이미지 정보가 존재하지 않습니다.", nil)
+		return nil, awserr.New("404", "["+imageIID.SystemId+"] 이미지 정보가 존재하지 않습니다.", nil)
 	}
 	resultImage := result.Images[0]
 	return resultImage, err
