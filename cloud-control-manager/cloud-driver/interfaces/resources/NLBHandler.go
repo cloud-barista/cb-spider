@@ -42,7 +42,7 @@ type ListenerInfo struct {
 }
 
 type VMGroupInfo struct {
-        Protocol        string	// TCP|UDP|HTTP|HTTPS
+        Protocol        string	// TCP|UDP
         Port            string	// 1-65535
 	VMs		*[]IID
 
@@ -51,7 +51,7 @@ type VMGroupInfo struct {
 }
 
 type HealthCheckerInfo struct {
-	Protocol	string	// TCP|HTTP|HTTPS
+	Protocol	string	// TCP|HTTP
 	Port		string	// Listener Port or 1-65535
 	Interval	int	// secs, Interval time between health checks.
 	Timeout		int	// secs, Waiting time to decide an unhealthy VM when no response.
