@@ -9,4 +9,4 @@ replace (
 	gopkg.in/yaml.v3 => gopkg.in/yaml.v3 v3.0.0
 )
 
-require github.com/cloud-barista/cb-spider v0.5.6
+require github.com/cloud-barista/cb-spider v0.6.6

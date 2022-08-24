@@ -304,6 +304,13 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 
 	}
 
+	for _, dataDisk := range vmReqInfo.DataDiskIIDs {
+		disk := compute.AttachedDisk{
+			Source: prefix + "/zones/" + zone + "/disks/" + dataDisk.SystemId,
+		}
+		instance.Disks = append(instance.Disks, &disk)
+	}
+
 	cblogger.Info("VM 생성 시작")
 	cblogger.Debug(instance)
 	spew.Dump(instance)
@@ -919,6 +926,19 @@ func (vmHandler *GCPVMHandler) mappingServerInfo(server *compute.Instance) irs.V
 		iIdBox.Items = append(iIdBox.Items, iId)
 	}
 
+	var attachedDisk IIDBox
+	for idx, disk := range server.Disks {
+		if idx > 0 {
+			diskArr := strings.Split(disk.Source, "/")
+			diskName := diskArr[len(diskArr)-1]
+			diskIID := irs.IID{
+				NameId:   diskName,
+				SystemId: diskName,
+			}
+			attachedDisk.Items = append(attachedDisk.Items, diskIID)
+		}
+	}
+
 	vmInfo := irs.VMInfo{
 		IId: irs.IID{
 			NameId: server.Name,
@@ -952,6 +972,7 @@ func (vmHandler *GCPVMHandler) mappingServerInfo(server *compute.Instance) irs.V
 		RootDiskType:   diskType,
 		RootDiskSize:   strconv.FormatInt(diskInfo.SizeGb, 10),
 		RootDeviceName: server.Disks[0].DeviceName,
+		DataDiskIIDs:   attachedDisk.Items,
 		KeyValueList: []irs.KeyValue{
 			{"SubNetwork", server.NetworkInterfaces[0].Subnetwork},
 			{"AccessConfigName", server.NetworkInterfaces[0].AccessConfigs[0].Name},
