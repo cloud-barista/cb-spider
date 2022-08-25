@@ -44,6 +44,12 @@ func (diskHandler *MockDiskHandler) CreateDisk(diskReqInfo irs.DiskInfo) (irs.Di
 	diskReqInfo.Status = irs.DiskAvailable
 	diskReqInfo.CreatedTime = time.Now()
 
+	if diskReqInfo.DiskType == "default" || diskReqInfo.DiskType == "" {
+		diskReqInfo.DiskType = "MOCK-SSD"
+	}
+	if diskReqInfo.DiskSize == "default" || diskReqInfo.DiskSize == "" {
+		diskReqInfo.DiskSize = "512"
+	}
 
 	// (2) insert DiskInfo into global Map
 diskMapLock.Lock()
@@ -86,7 +92,7 @@ func CloneDiskInfo(srcInfo irs.DiskInfo) irs.DiskInfo {
 		DiskType: 	srcInfo.DiskType,
 		DiskSize: 	srcInfo.DiskSize, 
 		Status: 	srcInfo.Status,
-		OwnerVM: 	srcInfo.IId,
+		OwnerVM: 	irs.IID{srcInfo.OwnerVM.NameId, srcInfo.OwnerVM.SystemId},
 		CreatedTime: 	srcInfo.CreatedTime,
                 KeyValueList:  	srcInfo.KeyValueList, // now, do not need cloning
         }

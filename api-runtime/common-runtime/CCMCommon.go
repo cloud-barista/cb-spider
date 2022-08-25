@@ -1309,6 +1309,15 @@ func getUserIID(spiderIId cres.IID) cres.IID {
 	return userIId
 }
 
+func  findUserIID(iidInfoList []*iidm.IIDInfo, systemId string) cres.IID {
+        for _, iidInfo := range iidInfoList {
+                if getDriverSystemId(iidInfo.IId) == systemId {
+                        return getUserIID(iidInfo.IId)
+                }
+        }
+        return cres.IID{}
+}
+
 // (1) get spiderIID(NameId)
 // (2) get resource(driverIID)
 // (3) set ResourceInfo(userIID)
@@ -2918,6 +2927,8 @@ func StartVM(connectionName string, rsType string, reqInfo cres.VMReqInfo) (*cre
                 "resources.IID:SystemId",
                 "resources.VMReqInfo:RootDiskType", // because can be set without disk type
                 "resources.VMReqInfo:RootDiskSize", // because can be set without disk size
+               // "resources.VMReqInfo:KeyPairName",  // because can be set without KeyPair for Windows
+	//	"resources.IID:NameId",
                 "resources.VMReqInfo:VMUserId",     // because can be set without VM User
                 "resources.VMReqInfo:VMUserPasswd", // because can be set without VM PW
         }
@@ -6070,6 +6081,12 @@ func ListDisk(connectionName string, rsType string) ([]*cres.DiskInfo, error) {
                 return infoList, nil
         }
 
+	vmIIDInfoList, err := iidRWLock.ListIID(iidm.IIDSGROUP, connectionName, rsVM)
+        if err != nil {
+                cblog.Error(err)
+                return nil, err
+        }
+
         // (2) Get DiskInfo-list with IID-list
         infoList2 := []*cres.DiskInfo{}
         for _, iidInfo := range iidInfoList {
@@ -6087,6 +6104,12 @@ diskSPLock.RUnlock(connectionName, iidInfo.IId.NameId)
                         cblog.Error(err)
                         return nil, err
                 }
+		// get OwnerVM IID to convert nto UserIIDD
+		if info.Status == cres.DiskAttached  {
+			if info.OwnerVM.SystemId != ""  {
+				info.OwnerVM = findUserIID(vmIIDInfoList, info.OwnerVM.SystemId)	
+			}
+		}
 diskSPLock.RUnlock(connectionName, iidInfo.IId.NameId)
 
                 info.IId = getUserIID(iidInfo.IId)
@@ -6097,7 +6120,6 @@ diskSPLock.RUnlock(connectionName, iidInfo.IId.NameId)
         return infoList2, nil
 }
 
-// (1) get IID(NameId)
 // (2) get resource(SystemId)
 // (3) set ResourceInfo(IID.NameId)
 func GetDisk(connectionName string, rsType string, nameID string) (*cres.DiskInfo, error) {
@@ -6144,6 +6166,18 @@ defer diskSPLock.RUnlock(connectionName, nameID)
                 cblog.Error(err)
                 return nil, err
         }
+
+	vmIIDInfoList, err := iidRWLock.ListIID(iidm.IIDSGROUP, connectionName, rsVM)
+        if err != nil {
+                cblog.Error(err)
+                return nil, err
+        }
+
+	if info.Status == cres.DiskAttached  {
+		if info.OwnerVM.SystemId != ""  {
+			info.OwnerVM = findUserIID(vmIIDInfoList, info.OwnerVM.SystemId)
+		}
+	}
 
         // (3) set ResourceInfo(IID.NameId)
         // set ResourceInfo
@@ -6244,6 +6278,8 @@ func AttachDisk(connectionName string, diskName string, ownerVMName string) (*cr
 
 diskSPLock.Lock(connectionName, diskName)
 defer diskSPLock.Unlock(connectionName, diskName)
+vmSPLock.Lock(connectionName, ownerVMName)
+defer vmSPLock.Unlock(connectionName, ownerVMName)
 
         // (1) check exist(diskName)
         diskIIDInfo, err := iidRWLock.GetIID(iidm.IIDSGROUP, connectionName, rsDisk, cres.IID{diskName, ""})
@@ -6307,6 +6343,8 @@ func DetachDisk(connectionName string, diskName string, ownerVMName string) (boo
 
 diskSPLock.Lock(connectionName, diskName)
 defer diskSPLock.Unlock(connectionName, diskName)
+vmSPLock.Lock(connectionName, ownerVMName)
+defer vmSPLock.Unlock(connectionName, ownerVMName)
 
         // (1) check exist(diskName)
         diskIIDInfo, err := iidRWLock.GetIID(iidm.IIDSGROUP, connectionName, rsDisk, cres.IID{diskName, ""})

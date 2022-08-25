@@ -64,6 +64,23 @@ func vpcList(connConfig string) []string {
         return nameList
 }
 
+func vmList(connConfig string) []string {
+        resBody, err := getResourceList_with_Connection_JsonByte(connConfig, "vm")
+        if err != nil {
+                cblog.Error(err)
+        }
+        var info struct {
+                ResultList []cres.VMInfo `json:"vm"`
+        }
+        json.Unmarshal(resBody, &info)
+
+        var nameList []string
+        for _, vm := range info.ResultList {
+                nameList = append(nameList, vm.IId.NameId)
+        }
+        return nameList
+}
+
 func vmStatus(connConfig string, vmName string) string {
         resBody, err := getResource_with_Connection_JsonByte(connConfig, "vmstatus", vmName)
         if err != nil {
@@ -163,37 +180,37 @@ func Top(c echo.Context) error {
 		<font size=1>$$TIME$$</font>	
             </td>
 
-            <td width="160"> 
+            <td width="150"> 
                 <!-- Drivers Management --> 
                 <a href="driver" target="main_frame">            
                     <font size=2>1.driver</font>
                 </a>
             </td>
-            <td width="200">       
+            <td width="190">       
                 <!-- Credential Management -->
                 <a href="credential" target="main_frame">            
                     <font size=2>1.credential</font>
                 </a>
             </td>
-            <td width="140">
+            <td width="130">
                 <!-- Regions Management -->
                 <a href="region" target="main_frame">            
                     <font size=2>1.region</font>
                 </a>
             </td>
-            <td width="140">
+            <td width="190">
                 <!-- Connection Management -->
                 <a href="connectionconfig" target="main_frame">            
                     <font size=2>2.CONNECTION</font>
                 </a>
             </td>
-            <td width="230">
+            <td width="260">
                 <!-- Display Connection Config -->
 		<label id="connConfig" hidden></label>
-		<input style="font-size:11px;font-weight:bold;text-align:center;background-color:#EDF7F9;" type="text" id="connDisplay" name="connDisplay" size = 24 disabled value="CloudOS: Region / Zone">
+		<input style="font-size:11px;font-weight:bold;text-align:center;background-color:#EDF7F9;" type="text" id="connDisplay" name="connDisplay" size = 30 disabled value="CloudOS: Region / Zone">
 
             </td>
-            <td rowspan="2" width="60">       
+            <td rowspan="2" width="60"> 
                 <!-- This CB-Spider Info -->
                 <a href="spiderinfo" target="main_frame">            
                     <font size=2>info</font>
@@ -202,7 +219,7 @@ func Top(c echo.Context) error {
 	</tr>
 
         <tr bgcolor="#FFFFFF" align="left">
-            <td width="160">
+            <td width="150">
                 <!-- VPC/Subnet Management -->
                 <a href="vpc/region not set" target="main_frame" id="vpcHref">
                     <font size=2>1.vpc/subnet</font>
@@ -212,7 +229,7 @@ func Top(c echo.Context) error {
                     <font size=2>[mgmt]</font>
                 </a>                
             </td>
-            <td width="200">
+            <td width="190">
                 <!-- SecurityGroup Management -->
                 <a href="securitygroup/region not set" target="main_frame" id="securitygroupHref">
                     <font size=2>1.1.security group</font>
@@ -222,7 +239,7 @@ func Top(c echo.Context) error {
                     <font size=2>[mgmt]</font>
                 </a>
             </td>
-            <td width="140">
+            <td width="130">
                 <!-- KeyPair Management -->
                 <a href="keypair/region not set" target="main_frame" id="keypairHref">
                     <font size=2>1.keypair</font>
@@ -232,7 +249,7 @@ func Top(c echo.Context) error {
                     <font size=2>[mgmt]</font>
                 </a>
             </td>
-            <td width="140">
+            <td width="190">
                 <!-- VM Management -->
                 <a href="vm/region not set" target="main_frame" id="vmHref">
                     <font size=2>2.VM</font>
@@ -241,8 +258,22 @@ func Top(c echo.Context) error {
                 <a href="vmmgmt/region not set" target="main_frame" id="vmmgmtHref">
                     <font size=2>[mgmt]</font>
                 </a>
+
+                &nbsp;
+                &nbsp;
+
+                <!-- Disk Management -->
+                <a href="disk/region not set" target="main_frame" id="diskHref">
+                    <font size=2>2.Disk</font>
+                </a>
+                &nbsp;
+                <a href="diskmgmt/region not set" target="main_frame" id="diskmgmtHref">
+                    <font size=2>[mgmt]</font>
+                </a>
             </td>
-            <td width="140">
+
+            <td width="260">
+
                 <!-- NLB Management -->
                 <a href="nlb/region not set" target="main_frame" id="nlbHref">
                     <font size=2>3.NLB</font>
@@ -251,18 +282,26 @@ func Top(c echo.Context) error {
                 <a href="nlbmgmt/region not set" target="main_frame" id="nlbmgmtHref">
                     <font size=2>[mgmt]</font>
                 </a>
-            </td>
-            <td width="230">
+
+                &nbsp;
+                &nbsp;
+                &nbsp;
+                &nbsp;
+
                 <!-- Image Management -->
                 <a href="vmimage/region not set" target="main_frame" id="vmimageHref">
                     <font size=2>vmimage</font>
                 </a>
-		&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+
+                &nbsp;
+                &nbsp;
+
                 <!-- Spec Management -->
                 <a href="vmspec/region not set" target="main_frame" id="vmspecHref">
                     <font size=2>vmspec</font>
                 </a>
             </td>
+
         </tr>
 
     </table>
