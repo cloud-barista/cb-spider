@@ -626,8 +626,7 @@ func (nlbHandler *OpenStackNLBHandler) GetVMGroupHealthInfo(nlbIID irs.IID) (irs
 		allVMs[i] = vmIID
 		if strings.EqualFold(strings.ToUpper(member.OperatingStatus), "ONLINE") {
 			healthVMs = append(healthVMs, vmIID)
-		}
-		if strings.EqualFold(strings.ToUpper(member.OperatingStatus), "DRAINING") {
+		} else if strings.EqualFold(strings.ToUpper(member.OperatingStatus), "DRAINING") {
 			unHealthVMs = append(unHealthVMs, vmIID)
 		} else {
 			// OFFLINE DEGRADED ERROR NO_MONITOR 일 경우, HealthCheck 결과가 멤버에 제대로 갱신되지 않는 octavia 이슈일 수 있음
@@ -642,7 +641,7 @@ func (nlbHandler *OpenStackNLBHandler) GetVMGroupHealthInfo(nlbIID irs.IID) (irs
 		AllVMs:       &allVMs,
 		HealthyVMs:   &healthVMs,
 		UnHealthyVMs: &unHealthVMs,
-	}, errors.New("OPENSTACK_CANNOT_GET_VMGroupHealthInfo")
+	}, nil
 }
 func (nlbHandler *OpenStackNLBHandler) ChangeHealthCheckerInfo(nlbIID irs.IID, healthChecker irs.HealthCheckerInfo) (irs.HealthCheckerInfo, error) {
 	hiscallInfo := GetCallLogScheme(nlbHandler.Region.Region, "NETWORKLOADBALANCE", nlbIID.NameId, "ChangeHealthCheckerInfo()")
