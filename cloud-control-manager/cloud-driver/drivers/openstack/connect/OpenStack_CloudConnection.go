@@ -100,6 +100,17 @@ func (cloudConn *OpenStackCloudConnection) CreateDiskHandler() (irs.DiskHandler,
 	return &diskHandler, nil
 }
 
+func (cloudConn *OpenStackCloudConnection) CreateMyImageHandler() (irs.MyImageHandler, error) {
+	cblogger.Info("OpenStack Driver: called CreateMyImageHandler()!")
+
+	myImageHandler := osrs.OpenStackMyImageHandler{
+		CredentialInfo: cloudConn.CredentialInfo, Region: cloudConn.Region,
+		ComputeClient: cloudConn.ComputeClient,
+		Volume2Client: cloudConn.Volume2Client, Volume3Client: cloudConn.Volume3Client,
+	}
+	return &myImageHandler, nil
+}
+
 func (cloudConn *OpenStackCloudConnection) IsConnected() (bool, error) {
 	return true, nil
 }
@@ -108,10 +119,5 @@ func (cloudConn *OpenStackCloudConnection) Close() error {
 }
 
 func (cloudConn *OpenStackCloudConnection) CreateClusterHandler() (irs.ClusterHandler, error) {
-        return nil, errors.New("OpenStack Driver: not implemented")
+	return nil, errors.New("OpenStack Driver: not implemented")
 }
-
-func (cloudConn *OpenStackCloudConnection) CreateMyImageHandler() (irs.MyImageHandler, error) {
-        return nil, errors.New("OpenStack Driver: not implemented")
-}
-

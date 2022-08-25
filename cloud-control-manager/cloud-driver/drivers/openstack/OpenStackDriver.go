@@ -39,6 +39,8 @@ func (OpenStackDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	drvCapabilityInfo.VMHandler = true
 	drvCapabilityInfo.VMSpecHandler = true
 	drvCapabilityInfo.NLBHandler = true
+	drvCapabilityInfo.DiskHandler = true
+	drvCapabilityInfo.MyImageHandler = true
 
 	return drvCapabilityInfo
 }
