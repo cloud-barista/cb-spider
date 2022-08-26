@@ -454,10 +454,13 @@ Throughput
 func validateCreateDisk(diskReqInfo irs.DiskInfo) error {
 	// VolumeType
 	cloudOSMetaInfo, err := cim.GetCloudOSMetaInfo("AWS")
+	arrDiskType := cloudOSMetaInfo.DiskType
 	arrDiskSizeOfType := cloudOSMetaInfo.DiskSize
 
+	cblogger.Info(arrDiskType)
+
 	// 정의된 type인지
-	if !ContainString(arrDiskSizeOfType, diskReqInfo.DiskType) {
+	if !ContainString(arrDiskType, diskReqInfo.DiskType) {
 		return errors.New("Disktype : " + diskReqInfo.DiskType + "' is not valid")
 	}
 
