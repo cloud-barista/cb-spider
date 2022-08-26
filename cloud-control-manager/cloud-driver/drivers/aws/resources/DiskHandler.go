@@ -274,19 +274,6 @@ max은 아직 권장 디바이스 이름 없고 Linux용 이름 사용
 
 */
 func (DiskHandler *AwsDiskHandler) AttachDisk(diskIID irs.IID, ownerVM irs.IID) (irs.DiskInfo, error) {
-
-	// getVM에서 정보 추출
-	//VmHandler := AwsVMHandler{Client: DiskHandler.Client}
-	//vmInfo, errGetVM := VmHandler.GetVM(ownerVM)
-	//if errGetVM != nil {
-	//	return irs.DiskInfo{}, errGetVM
-	//}
-	//for _, kv := range vmInfo.KeyValueList {
-	//	if kv.Key == "VirtualizationType" {
-	//		virtualizationType = kv.Value
-	//		break
-	//	}
-	//}
 	device := ""
 
 	defaultVirtualizationType := "/dev/sd" // default :  linux
@@ -302,7 +289,7 @@ func (DiskHandler *AwsDiskHandler) AttachDisk(diskIID irs.IID, ownerVM irs.IID) 
 		isAvailable := true
 		for _, avn := range availableVolumeNames {
 			device = defaultVirtualizationType + avn
-
+			isAvailable = true
 			for _, diskDevice := range diskDeviceList {
 				if *diskDevice.DeviceName == "/dev/sda1" { // root disk 는 skip.
 					continue
@@ -311,9 +298,6 @@ func (DiskHandler *AwsDiskHandler) AttachDisk(diskIID irs.IID, ownerVM irs.IID) 
 				cblogger.Debug(device + " : " + *diskDevice.DeviceName)
 				if device == *diskDevice.DeviceName {
 					isAvailable = false
-					continue
-				} else {
-					isAvailable = true
 					break
 				}
 			}
@@ -345,16 +329,7 @@ func (DiskHandler *AwsDiskHandler) AttachDisk(diskIID irs.IID, ownerVM irs.IID) 
 	// os가 linux일 때
 	// ...
 
-	input := &ec2.AttachVolumeInput{
-		//Device:     aws.String("/dev/sdf"),
-		//InstanceId: aws.String("i-01474ef662b89480"),
-		//VolumeId:   aws.String("vol-1234567890abcdef0"),
-		Device:     aws.String(device),
-		InstanceId: aws.String(ownerVM.SystemId),
-		VolumeId:   aws.String(diskIID.SystemId),
-	}
-
-	result, err := DiskHandler.Client.AttachVolume(input)
+	err = AttachVolume(DiskHandler.Client, device, ownerVM.SystemId, diskIID.SystemId)
 	if err != nil {
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
@@ -364,15 +339,6 @@ func (DiskHandler *AwsDiskHandler) AttachDisk(diskIID irs.IID, ownerVM irs.IID) 
 		} else {
 			fmt.Println(err.Error())
 		}
-		return irs.DiskInfo{}, err
-	}
-
-	if cblogger.Level.String() == "debug" {
-		spew.Dump(result)
-	}
-
-	err = WaitUntilVolumeInUse(DiskHandler.Client, diskIID.SystemId)
-	if err != nil {
 		return irs.DiskInfo{}, err
 	}
 

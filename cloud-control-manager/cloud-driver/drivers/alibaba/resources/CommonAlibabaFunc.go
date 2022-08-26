@@ -201,3 +201,26 @@ func ConvertKeyValueList(v interface{}) ([]irs.KeyValue, error) {
 
 	return keyValueList, nil
 }
+
+// array에 주어진 string이 있는지 체크
+func ContainString(s []string, str string) bool {
+	for _, v := range s {
+		cblogger.Info(v + " : " + str)
+		cblogger.Info(v == str)
+		if v == str {
+			return true
+		}
+	}
+	return false
+}
+
+/**
+json 형태로 출력
+*/
+func printToJson(class interface{}) {
+	e, err := json.Marshal(class)
+	if err != nil {
+		cblogger.Info(err)
+	}
+	cblogger.Info(string(e))
+}
