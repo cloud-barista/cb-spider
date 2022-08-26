@@ -3465,6 +3465,17 @@ func getSetNameId(ConnectionName string, vmInfo *cres.VMInfo) error {
 		vmInfo.KeyPairIId.NameId = IIdInfo.IId.NameId
 	}
 
+
+	// set Data Disk NameId	
+	for i, diskIID := range vmInfo.DataDiskIIDs {
+                IIdInfo, err := iidRWLock.GetIIDbySystemID(iidm.IIDSGROUP, ConnectionName, rsDisk, diskIID)
+                if err != nil {
+                        cblog.Error(err)
+                        return err
+                }
+                vmInfo.DataDiskIIDs[i].NameId = IIdInfo.IId.NameId
+	}
+
 	return nil
 }
 
@@ -5961,6 +5972,15 @@ func CreateDisk(connectionName string, rsType string, reqInfo cres.DiskInfo) (*c
                 return nil, err
         }
 */
+
+	if strings.ToLower(strings.TrimSpace(reqInfo.DiskType)) == "default" {
+                reqInfo.DiskType = ""
+        }
+	if strings.ToLower(strings.TrimSpace(reqInfo.DiskSize)) == "default" {
+                reqInfo.DiskSize = ""
+        }
+
+
         cldConn, err := ccm.GetCloudConnection(connectionName)
         if err != nil {
                 cblog.Error(err)
