@@ -207,14 +207,12 @@ func DescribeVolumnes(svc *ec2.EC2, volumeIdList []*string) (*ec2.DescribeVolume
 
 func DescribeVolumneById(svc *ec2.EC2, volumeId string) (*ec2.Volume, error) {
 	volumeIdList := []*string{}
-	input := &ec2.DescribeVolumesInput{}
 
 	if volumeId != "" {
 		volumeIdList = append(volumeIdList, aws.String(volumeId))
-		input.VolumeIds = volumeIdList
 	}
 
-	result, err := svc.DescribeVolumes(input)
+	result, err := DescribeVolumnes(svc, volumeIdList)
 	if err != nil {
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
