@@ -12,6 +12,7 @@ import (
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	cim "github.com/cloud-barista/cb-spider/cloud-info-manager"
 	"github.com/davecgh/go-spew/spew"
+	"reflect"
 	"strconv"
 	"strings"
 )
@@ -775,35 +776,43 @@ func (DiskHandler *AwsDiskHandler) convertVolumeInfoToDiskInfo(volumeInfo *ec2.V
 			}
 		}
 	}
+	cblogger.Info(vmId)
 	diskStatus, errStatus := convertVolumeStatusToDiskStatus(*volumeInfo.State, attachments, vmId)
 	if errStatus != nil {
+
 		return irs.DiskInfo{}, errStatus
 	}
 	cblogger.Info(diskStatus)
 	diskInfo.Status = diskStatus
 
 	if !strings.EqualFold(vmId, "") {
-		VmHandler := AwsVMHandler{Client: DiskHandler.Client}
-		vmInfo, errVm := VmHandler.GetVM(irs.IID{SystemId: vmId})
-		if errVm != nil {
-			return irs.DiskInfo{}, errStatus
-		}
-		diskInfo.OwnerVM = vmInfo.IId
-		spew.Dump(vmInfo)
+		diskInfo.OwnerVM = irs.IID{SystemId: vmId}
+		//VmHandler := AwsVMHandler{Client: DiskHandler.Client}
+		//vmInfo, errVm := VmHandler.GetVM(irs.IID{SystemId: vmId})
+		//if errVm != nil {
+		//	return irs.DiskInfo{}, errStatus
+		//}
+		//diskInfo.OwnerVM = vmInfo.IId
+		//spew.Dump(vmInfo)
 	}
 
 	diskInfo.CreatedTime = *volumeInfo.CreateTime
-
+	spew.Dump(volumeInfo)
 	//KeyValueList []KeyValue
 	var inKeyValueList []irs.KeyValue
+	//if !reflect.ValueOf(volumeInfo.Encrypted).IsNil() {
 	inKeyValueList = append(inKeyValueList, irs.KeyValue{Key: "Encrypted", Value: strconv.FormatBool(*volumeInfo.Encrypted)})
-	inKeyValueList = append(inKeyValueList, irs.KeyValue{Key: "Iops", Value: strconv.Itoa(int(*volumeInfo.Iops))})
+	//}
+	if !reflect.ValueOf(volumeInfo.Iops).IsNil() {
+		inKeyValueList = append(inKeyValueList, irs.KeyValue{Key: "Iops", Value: strconv.Itoa(int(*volumeInfo.Iops))})
+	}
 	//inKeyValueList = append(inKeyValueList, icbs.KeyValue{Key: "KmsKeyId", Value: *volumeInfo.KmsKeyId})
 	inKeyValueList = append(inKeyValueList, irs.KeyValue{Key: "MultiAttachEnabled", Value: strconv.FormatBool(*volumeInfo.MultiAttachEnabled)})
+
 	//inKeyValueList = append(inKeyValueList, icbs.KeyValue{Key: "Tags", Value: strings.Join(volumeInfo.Tags, ",")})
 	//inKeyValueList = append(inKeyValueList, icbs.KeyValue{Key: "OutpostArn", Value: *volumeInfo.OutpostArn})
 	diskInfo.KeyValueList = inKeyValueList
-
+	cblogger.Info("keyvalue2")
 	if cblogger.Level.String() == "debug" {
 		spew.Dump(diskInfo)
 	}
