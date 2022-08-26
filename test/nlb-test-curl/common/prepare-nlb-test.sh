@@ -14,7 +14,7 @@ curl -sX POST http://localhost:1024/spider/vpc -H 'Content-Type: application/jso
 			"Name": "vpc-01", 
 			"IPv4_CIDR": "10.0.0.0/16", 
 			"SubnetInfoList": [ { "Name": "subnet-01", "IPv4_CIDR": "10.0.8.0/22"} ]
-	       	} 
+			} 
 	}' |json_pp
 
 if [ "$SLEEP" ]; then
@@ -29,8 +29,7 @@ curl -sX POST http://localhost:1024/spider/securitygroup -H 'Content-Type: appli
 		"ReqInfo": { 
 			"Name": "sg-01", 
 			"VPCName": "vpc-01", 
-			"SecurityRules": [ {"FromPort": "1", "ToPort" : "65535", "IPProtocol" : "tcp", "Direction" : "inbound"},
-		       			   {"FromPort": "1", "ToPort" : "65535", "IPProtocol" : "udp", "Direction" : "inbound"}	] 
+			"SecurityRules": [ {"FromPort": "1", "ToPort" : "65535", "IPProtocol" : "tcp", "Direction" : "inbound"}, {"FromPort": "1", "ToPort" : "65535", "IPProtocol" : "udp", "Direction" : "inbound"} ] 
 		} 
 	}' |json_pp
 
@@ -38,24 +37,22 @@ if [ "$SLEEP" ]; then
         sleep $SLEEP
 fi
 
-echo "#####---------- CreateKey ----------####"
-#curl -sX POST http://localhost:1024/spider/keypair -H 'Content-Type: application/json' -d \
-#	'{ 
-#		"ConnectionName": "'${CONN_CONFIG}'", 
-#		"ReqInfo": { "Name": "keypair-01" } 
-#	}' |json_pp
-#
-
-
 CLIPATH=$CBSPIDER_ROOT/interface
 KEYPAIR_NAME=$1-keypair-01
 
+echo "#####---------- CreateKey ----------####"
+curl -sX POST http://localhost:1024/spider/keypair -H 'Content-Type: application/json' -d \
+	'{ 
+		"ConnectionName": "'${CONN_CONFIG}'", 
+		"ReqInfo": { "Name": "'${KEYPAIR_NAME}'" } 
+	}' |json_pp
+
 ret=`$CLIPATH/spctl --config $CLIPATH/spctl.conf keypair create -i json -o json -d \
     '{
-      "ConnectionName":"'${CONN_CONFIG}'",
-      "ReqInfo": {
+		"ConnectionName":"'${CONN_CONFIG}'",
+		"ReqInfo": {
         "Name": "'${KEYPAIR_NAME}'"
-      }
+		}
     }'`
 
 echo -e "$ret"
