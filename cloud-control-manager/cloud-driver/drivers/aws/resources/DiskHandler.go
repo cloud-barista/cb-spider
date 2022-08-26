@@ -302,7 +302,7 @@ func (DiskHandler *AwsDiskHandler) AttachDisk(diskIID irs.IID, ownerVM irs.IID) 
 		isAvailable := true
 		for _, avn := range availableVolumeNames {
 			device = defaultVirtualizationType + avn
-
+			isAvailable = true
 			for _, diskDevice := range diskDeviceList {
 				if *diskDevice.DeviceName == "/dev/sda1" { // root disk 는 skip.
 					continue
@@ -311,9 +311,6 @@ func (DiskHandler *AwsDiskHandler) AttachDisk(diskIID irs.IID, ownerVM irs.IID) 
 				cblogger.Debug(device + " : " + *diskDevice.DeviceName)
 				if device == *diskDevice.DeviceName {
 					isAvailable = false
-					continue
-				} else {
-					isAvailable = true
 					break
 				}
 			}
