@@ -314,7 +314,6 @@ func (DiskHandler *AwsDiskHandler) AttachDisk(diskIID irs.IID, ownerVM irs.IID) 
 					continue
 				} else {
 					isAvailable = true
-					cblogger.Debugf("is abailabledjflsk")
 					break
 				}
 			}
