@@ -1178,7 +1178,7 @@ func KeyPair(c echo.Context) error {
 //====================================== VM
 
 // number, VM Name/Control, VMStatus/Last Start Time, VMImage/VMSpec, VPC/Subnet/Security Group,
-//         Network Interface/IP, DNS, Boot Disk/Block Disk, SSH AccessPoint/Access Key/Access User Name, Additional Info, checkbox
+//         Network Interface/IP, DNS, Root Disk/Data Disk, SSH AccessPoint/Access Key/Access User Name, Additional Info, checkbox
 func makeVMTRList_html(connConfig string, bgcolor string, height string, fontSize string, infoList []*cres.VMInfo) string {
 	if bgcolor == "" {
 		bgcolor = "#FFFFFF"
@@ -1231,9 +1231,9 @@ func makeVMTRList_html(connConfig string, bgcolor string, height string, fontSiz
                             <font size=%s>$$PRIVATEDNS$$</font>
                     </td>
                     <td>
-                            <font size=%s>$$BOOTDISK$$</font>
+                            <font size=%s>$$ROOTDISK$$</font>
                             <br>
-                            <font size=%s>$$BLOCKDISK$$</font>
+                            <font size=%s>$$DATADISK$$</font>
                     </td>
                     <td>
                             <font size=%s>$$SSHACCESSPOINT$$</font>
@@ -1323,9 +1323,19 @@ func makeVMTRList_html(connConfig string, bgcolor string, height string, fontSiz
 		str = strings.ReplaceAll(str, "$$PUBLICDNS$$", one.PublicDNS)
 		str = strings.ReplaceAll(str, "$$PRIVATEDNS$$", one.PrivateDNS)
 
-		// for Boot Disk & Block Disk
-		str = strings.ReplaceAll(str, "$$BOOTDISK$$", one.VMBootDisk)
-		str = strings.ReplaceAll(str, "$$BLOCKDISK$$", one.VMBlockDisk)
+		// for Root Disk & Data Disk
+		str = strings.ReplaceAll(str, "$$ROOTDISK$$", one.RootDeviceName + 
+			" (" + one.RootDiskType + ":" + one.RootDiskSize + "GB)" )
+
+		dataDiskList := ""
+		for _, disk := range one.DataDiskIIDs {
+			if dataDiskList != "" {
+				dataDiskList += "<br>"
+			}
+			diskInfo := diskInfo(connConfig, disk.NameId)
+			dataDiskList += disk.NameId + "(" + diskInfo.DiskType + ":" + diskInfo.DiskSize + "GB)"
+		}
+		str = strings.ReplaceAll(str, "$$DATADISK$$", dataDiskList)
 
 		// for SSH AccessPoint & Access Key & Access User
 		str = strings.ReplaceAll(str, "$$SSHACCESSPOINT$$", "<mark>" + one.SSHAccessPoint + "</mark>")
@@ -1551,7 +1561,7 @@ func VM(c echo.Context) error {
 		{"VPC / Subnet / Security Group", "400"},
 		{"NetworkInterface / PublicIP / PrivateIP", "400"},
 		{"PublicDNS / PrivateDNS", "400"},
-		{"BootDisk / BlockDisk", "200"},
+		{"RootDisk / DataDisk", "200"},
 		{"SSH AccessPoint / Access Key / Access User", "200"},
 		{"Additional Info", "300"},
 	}

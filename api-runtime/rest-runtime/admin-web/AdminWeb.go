@@ -128,6 +128,17 @@ func keyPairList(connConfig string) []string {
         return nameList
 }
 
+func diskInfo(connConfig string, diskName string) cres.DiskInfo {
+        resBody, err := getResource_with_Connection_JsonByte(connConfig, "disk", diskName)
+        if err != nil {
+                cblog.Error(err)
+        }
+
+        var info cres.DiskInfo
+        json.Unmarshal(resBody, &info)
+        return info
+}
+
 //================ Frame
 func Frame(c echo.Context) error {
 	cblog.Info("call Frame()")

@@ -1058,7 +1058,7 @@ func CreateVPC(connectionName string, rsType string, reqInfo cres.VPCReqInfo) (*
 
 	// (4) create spiderIID: {reqNameID, driverNameID:driverSystemID}
 	//     ex) spiderIID {"seoul-service", "vm-01-9m4e2mr0ui3e8a215n4g:i-0bc7123b7e5cbf79d"}
-	spiderIId := cres.IID{reqIId.NameId, info.IId.NameId + ":" + info.IId.SystemId}
+	spiderIId := cres.IID{reqIId.NameId, spUUID + ":" + info.IId.SystemId}
 
 	// (5) insert IID
 	// for VPC
@@ -1857,7 +1857,7 @@ func CreateSecurity(connectionName string, rsType string, reqInfo cres.SecurityR
 
 	// (4) create spiderIID: {reqNameID, "driverNameID:driverSystemID"}
 	//     ex) spiderIID {"seoul-service", "vm-01-9m4e2mr0ui3e8a215n4g:i-0bc7123b7e5cbf79d"}
-	spiderIId := cres.IID{reqIId.NameId, info.IId.NameId + ":" + info.IId.SystemId}
+	spiderIId := cres.IID{reqIId.NameId, spUUID + ":" + info.IId.SystemId}
 
 	// (5) insert spiderIID
 	iidInfo, err := iidRWLock.CreateIID(iidm.SGGROUP, connectionName, reqInfo.VpcIID.NameId, spiderIId)  // reqIId.NameId => rsType
@@ -2419,7 +2419,7 @@ func CreateKey(connectionName string, rsType string, reqInfo cres.KeyPairReqInfo
 
 	// (4) create spiderIID: {reqNameID, "driverNameID:driverSystemID"}
 	//     ex) spiderIID {"seoul-service", "vm-01-9m4e2mr0ui3e8a215n4g:i-0bc7123b7e5cbf79d"}
-	spiderIId := cres.IID{reqIId.NameId, info.IId.NameId + ":" + info.IId.SystemId}
+	spiderIId := cres.IID{reqIId.NameId, spUUID + ":" + info.IId.SystemId}
 
 	// (5) insert spiderIID
 	iidInfo, err := iidRWLock.CreateIID(iidm.IIDSGROUP, connectionName, rsType, spiderIId)
@@ -3107,7 +3107,7 @@ func StartVM(connectionName string, rsType string, reqInfo cres.VMReqInfo) (*cre
 
 	// (5) create spiderIID: {reqNameID, "driverNameID:driverSystemID"}
 	//     ex) spiderIID {"seoul-service", "vm-01-9m4e2mr0ui3e8a215n4g:i-0bc7123b7e5cbf79d"}
-	spiderIId := cres.IID{reqIId.NameId, info.IId.NameId + ":" + info.IId.SystemId}
+	spiderIId := cres.IID{reqIId.NameId, spUUID + ":" + info.IId.SystemId}
 
 
 
@@ -4881,7 +4881,7 @@ defer nlbSPLock.Unlock(connectionName, reqInfo.IId.NameId)
 
 	// (4) create spiderIID: {reqNameID, "driverNameID:driverSystemID"}
 	//     ex) spiderIID {"seoul-service", "vm-01-9m4e2mr0ui3e8a215n4g:i-0bc7123b7e5cbf79d"}
-	spiderIId := cres.IID{reqIId.NameId, info.IId.NameId + ":" + info.IId.SystemId}
+	spiderIId := cres.IID{reqIId.NameId, spUUID + ":" + info.IId.SystemId}
 
 	// (5) insert spiderIID
 	iidInfo, err := iidRWLock.CreateIID(iidm.NLBGROUP, connectionName, vpcIIDInfo.IId.NameId, spiderIId)  // reqIId.NameId => rsType
@@ -6018,7 +6018,8 @@ defer diskSPLock.Unlock(connectionName, reqInfo.IId.NameId)
 
         // (4) create spiderIID: {reqNameID, "driverNameID:driverSystemID"}
         //     ex) spiderIID {"seoul-service", "vm-01-9m4e2mr0ui3e8a215n4g:i-0bc7123b7e5cbf79d"}
-        spiderIId := cres.IID{reqIId.NameId, info.IId.NameId + ":" + info.IId.SystemId}
+        //spiderIId := cres.IID{reqIId.NameId, info.IId.NameId + ":" + info.IId.SystemId}
+        spiderIId := cres.IID{reqIId.NameId, spUUID + ":" + info.IId.SystemId}
 
         // (5) insert spiderIID
         iidInfo, err := iidRWLock.CreateIID(iidm.IIDSGROUP, connectionName, rsType, spiderIId)
