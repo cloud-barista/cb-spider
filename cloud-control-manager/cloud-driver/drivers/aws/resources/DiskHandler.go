@@ -299,18 +299,21 @@ func (DiskHandler *AwsDiskHandler) AttachDisk(diskIID irs.IID, ownerVM irs.IID) 
 
 	spew.Dump(diskDeviceList)
 	if diskDeviceList != nil {
-		isAvailable := false
+		isAvailable := true
 		for _, avn := range availableVolumeNames {
+			device = defaultVirtualizationType + avn
+
 			for _, diskDevice := range diskDeviceList {
-				if *diskDevice.DeviceName == "/dev/sda1" {
+				if *diskDevice.DeviceName == "/dev/sda1" { // root disk 는 skip.
 					continue
 				} // rootdisk
 
-				cblogger.Debug((defaultVirtualizationType + avn) + " : " + *diskDevice.DeviceName)
-				if (defaultVirtualizationType + avn) != *diskDevice.DeviceName {
-					device = defaultVirtualizationType + avn
+				cblogger.Debug(device + " : " + *diskDevice.DeviceName)
+				if device == *diskDevice.DeviceName {
+					isAvailable = false
+					continue
+				} else {
 					isAvailable = true
-					cblogger.Debugf("is abailabledjflsk")
 					break
 				}
 			}
