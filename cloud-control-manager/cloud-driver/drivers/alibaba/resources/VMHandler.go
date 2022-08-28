@@ -215,7 +215,14 @@ func (vmHandler *AlibabaVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 
 		fmt.Println("arrDiskSizeOfType: ", arrDiskSizeOfType)
 
-		diskSizeValue := DiskSize{}
+		type diskSize struct {
+			diskType    string
+			diskMinSize int64
+			diskMaxSize int64
+			unit        string
+		}
+
+		diskSizeValue := diskSize{}
 		// DiskType default 도 건드리지 않음
 		if vmReqInfo.RootDiskType == "" || strings.EqualFold(vmReqInfo.RootDiskType, "default") {
 
@@ -345,14 +352,6 @@ func (vmHandler *AlibabaVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 		return irs.VMInfo{}, nil
 	}
 	cblogger.Info("==>생성된 VM[%s]의 현재 상태[%s]", newVmIID, curStatus)
-
-	// dataDisk attach
-	for _, dataDiskIID := range vmReqInfo.DataDiskIIDs {
-		err = AttachDisk(vmHandler.Client, vmHandler.Region, newVmIID, dataDiskIID)
-		if err != nil {
-			return irs.VMInfo{}, errors.New("Instance created but attach disk failed " + err.Error())
-		}
-	}
 
 	//vmInfo, errVmInfo := vmHandler.GetVM(irs.IID{SystemId: response.InstanceId})
 	vmInfo, errVmInfo := vmHandler.GetVM(newVmIID)
@@ -655,75 +654,71 @@ func (vmHandler *AlibabaVMHandler) TerminateVM(vmIID irs.IID) (irs.VMStatus, err
 func (vmHandler *AlibabaVMHandler) GetVM(vmIID irs.IID) (irs.VMInfo, error) {
 	cblogger.Infof("vmID : [%s]", vmIID.SystemId)
 
-	//request := ecs.CreateDescribeInstancesRequest()
-	//request.Scheme = "https"
-	//request.InstanceIds = "[\"" + vmIID.SystemId + "\"]"
-	//
-	//// logger for HisCall
-	//callogger := call.GetLogger("HISCALL")
-	//callLogInfo := call.CLOUDLOGSCHEMA{
-	//	CloudOS:      call.ALIBABA,
-	//	RegionZone:   vmHandler.Region.Zone,
-	//	ResourceType: call.VM,
-	//	ResourceName: vmIID.SystemId,
-	//	CloudOSAPI:   "DescribeInstances()",
-	//	ElapsedTime:  "",
-	//	ErrorMSG:     "",
-	//}
-	//
-	//callLogStart := call.Start()
-	//response, err := vmHandler.Client.DescribeInstances(request)
-	//callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
-	//
-	//if err != nil {
-	//	callLogInfo.ErrorMSG = err.Error()
-	//	callogger.Error(call.String(callLogInfo))
-	//	cblogger.Error(err.Error())
-	//	return irs.VMInfo{}, err
-	//}
-	//callogger.Info(call.String(callLogInfo))
-	//cblogger.Info(response)
+	request := ecs.CreateDescribeInstancesRequest()
+	request.Scheme = "https"
+	request.InstanceIds = "[\"" + vmIID.SystemId + "\"]"
 
-	//if response.TotalCount < 1 {
-	//	return irs.VMInfo{}, errors.New("Notfound: '" + vmIID.SystemId + "' VM Not found")
-	//}
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.ALIBABA,
+		RegionZone:   vmHandler.Region.Zone,
+		ResourceType: call.VM,
+		ResourceName: vmIID.SystemId,
+		CloudOSAPI:   "DescribeInstances()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+
+	callLogStart := call.Start()
+	response, err := vmHandler.Client.DescribeInstances(request)
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+
+	if err != nil {
+		callLogInfo.ErrorMSG = err.Error()
+		callogger.Error(call.String(callLogInfo))
+		cblogger.Error(err.Error())
+		return irs.VMInfo{}, err
+	}
+	callogger.Info(call.String(callLogInfo))
+	cblogger.Info(response)
+
+	if response.TotalCount < 1 {
+		return irs.VMInfo{}, errors.New("Notfound: '" + vmIID.SystemId + "' VM Not found")
+	}
 
 	//	vmInfo := vmHandler.ExtractDescribeInstances(response.Instances.Instance[0])
-	//vmInfo, err := vmHandler.ExtractDescribeInstances(&response.Instances.Instance[0])
-
-	instanceInfo, err := DescribeInstanceById(vmHandler.Client, vmHandler.Region, vmIID)
-	vmInfo, err := vmHandler.ExtractDescribeInstances(&instanceInfo)
+	vmInfo := vmHandler.ExtractDescribeInstances(&response.Instances.Instance[0])
 	cblogger.Info("vmInfo", vmInfo)
-	return vmInfo, err
+	return vmInfo, nil
 }
 
 //@TODO : 2020-03-26 Ali클라우드 API 구조가 바뀐 것 같아서 임시로 변경해 놓음.
 //func (vmHandler *AlibabaVMHandler) ExtractDescribeInstances() irs.VMInfo {
-func (vmHandler *AlibabaVMHandler) ExtractDescribeInstances(instanceInfo *ecs.Instance) (irs.VMInfo, error) {
-	cblogger.Info(instanceInfo)
-	//diskInfo := vmHandler.getDiskInfo(instanceInfo.InstanceId)
-	diskInfoList, err := DescribeDisksByInstanceId(vmHandler.Client, vmHandler.Region, irs.IID{SystemId: instanceInfo.InstanceId})
-	if err != nil {
-		//return irs.VMInfo{}, err
-	}
+func (vmHandler *AlibabaVMHandler) ExtractDescribeInstances(instancInfo *ecs.Instance) irs.VMInfo {
+	cblogger.Info(instancInfo)
+	diskInfo := vmHandler.getDiskInfo(instancInfo.InstanceId)
 
 	//time.Parse(layout, str)
 	vmInfo := irs.VMInfo{
-		IId:        irs.IID{NameId: instanceInfo.InstanceName, SystemId: instanceInfo.InstanceId},
-		ImageIId:   irs.IID{SystemId: instanceInfo.ImageId},
-		VMSpecName: instanceInfo.InstanceType,
-		KeyPairIId: irs.IID{SystemId: instanceInfo.KeyPairName},
+		IId:        irs.IID{NameId: instancInfo.InstanceName, SystemId: instancInfo.InstanceId},
+		ImageIId:   irs.IID{SystemId: instancInfo.ImageId},
+		VMSpecName: instancInfo.InstanceType,
+		KeyPairIId: irs.IID{SystemId: instancInfo.KeyPairName},
 		//StartTime:  instancInfo.StartTime,
 
-		Region:    irs.RegionInfo{Region: instanceInfo.RegionId, Zone: instanceInfo.ZoneId}, //  ex) {us-east1, us-east1-c} or {ap-northeast-2}
-		VpcIID:    irs.IID{SystemId: instanceInfo.VpcAttributes.VpcId},
-		SubnetIID: irs.IID{SystemId: instanceInfo.VpcAttributes.VSwitchId},
+		Region:    irs.RegionInfo{Region: instancInfo.RegionId, Zone: instancInfo.ZoneId}, //  ex) {us-east1, us-east1-c} or {ap-northeast-2}
+		VpcIID:    irs.IID{SystemId: instancInfo.VpcAttributes.VpcId},
+		SubnetIID: irs.IID{SystemId: instancInfo.VpcAttributes.VSwitchId},
 		//SecurityGroupIIds []IID // AWS, ex) sg-0b7452563e1121bb6
 		//NetworkInterface string // ex) eth0
 		//PublicDNS
 		//PrivateIP
 		//PrivateIP: instancInfo.VpcAttributes.PrivateIpAddress.IpAddress[0],
 		//PrivateDNS
+		RootDiskType:   diskInfo.Category,
+		RootDiskSize:   strconv.Itoa(diskInfo.Size),
+		RootDeviceName: diskInfo.Device,
 
 		//VMBootDisk  string // ex) /dev/sda1
 		//VMBlockDisk string // ex)
@@ -731,22 +726,8 @@ func (vmHandler *AlibabaVMHandler) ExtractDescribeInstances(instanceInfo *ecs.In
 		KeyValueList: []irs.KeyValue{{Key: "", Value: ""}},
 	}
 
-	var dataDiskList []irs.IID
-	for diskIndex, diskInfo := range diskInfoList {
-		if diskIndex == 0 {
-			vmInfo.RootDiskType = diskInfo.Category
-			vmInfo.RootDiskSize = strconv.Itoa(diskInfo.Size)
-			vmInfo.RootDeviceName = diskInfo.Device
-		} else {
-			dataDiskList = append(dataDiskList, irs.IID{NameId: diskInfo.DiskName, SystemId: diskInfo.DiskId})
-		}
-	}
-	if len(dataDiskList) > 0 {
-		vmInfo.DataDiskIIDs = dataDiskList
-	}
-
-	if len(instanceInfo.NetworkInterfaces.NetworkInterface) > 0 {
-		vmInfo.NetworkInterface = instanceInfo.NetworkInterfaces.NetworkInterface[0].NetworkInterfaceId
+	if len(instancInfo.NetworkInterfaces.NetworkInterface) > 0 {
+		vmInfo.NetworkInterface = instancInfo.NetworkInterfaces.NetworkInterface[0].NetworkInterfaceId
 	}
 
 	//vmInfo.VMUserId = "root"
@@ -754,8 +735,8 @@ func (vmHandler *AlibabaVMHandler) ExtractDescribeInstances(instanceInfo *ecs.In
 
 	//2021-05-11 VM생성 후 WaitForRun()을 사용하지 않기 위해 추가
 	//VM을 생성하자 마자 조회하면 PrivateIpAddress 정보가 없음.
-	if len(instanceInfo.VpcAttributes.PrivateIpAddress.IpAddress) > 0 {
-		vmInfo.PrivateIP = instanceInfo.VpcAttributes.PrivateIpAddress.IpAddress[0]
+	if len(instancInfo.VpcAttributes.PrivateIpAddress.IpAddress) > 0 {
+		vmInfo.PrivateIP = instancInfo.VpcAttributes.PrivateIpAddress.IpAddress[0]
 	}
 
 	/*
@@ -768,27 +749,27 @@ func (vmHandler *AlibabaVMHandler) ExtractDescribeInstances(instanceInfo *ecs.In
 	//VMUserPasswd
 	//NetworkInterfaceId
 
-	if len(instanceInfo.PublicIpAddress.IpAddress) > 0 {
-		vmInfo.PublicIP = instanceInfo.PublicIpAddress.IpAddress[0]
+	if len(instancInfo.PublicIpAddress.IpAddress) > 0 {
+		vmInfo.PublicIP = instancInfo.PublicIpAddress.IpAddress[0]
 	}
 
-	for _, security := range instanceInfo.SecurityGroupIds.SecurityGroupId {
+	for _, security := range instancInfo.SecurityGroupIds.SecurityGroupId {
 		//vmInfo.SecurityGroupIds = append(vmInfo.SecurityGroupIds, *security.GroupId)
 		vmInfo.SecurityGroupIIds = append(vmInfo.SecurityGroupIIds, irs.IID{SystemId: security})
 	}
 
-	timeLen := len(instanceInfo.CreationTime)
+	timeLen := len(instancInfo.CreationTime)
 	cblogger.Infof("서버 구동 시간 포멧 변환 처리")
 	cblogger.Infof("======> 생성시간 길이 [%s]", timeLen)
 	if timeLen > 7 {
-		cblogger.Infof("======> 생성시간 마지막 문자열 [%s]", instanceInfo.CreationTime[timeLen-1:])
+		cblogger.Infof("======> 생성시간 마지막 문자열 [%s]", instancInfo.CreationTime[timeLen-1:])
 		var NewStartTime string
-		if instanceInfo.CreationTime[timeLen-1:] == "Z" && timeLen == 17 {
+		if instancInfo.CreationTime[timeLen-1:] == "Z" && timeLen == 17 {
 			//cblogger.Infof("======> 문자열 변환 : [%s]", StartTime[:timeLen-1])
-			NewStartTime = instanceInfo.CreationTime[:timeLen-1] + ":00Z"
+			NewStartTime = instancInfo.CreationTime[:timeLen-1] + ":00Z"
 			cblogger.Infof("======> 최종 문자열 변환 : [%s]", NewStartTime)
 		} else {
-			NewStartTime = instanceInfo.CreationTime
+			NewStartTime = instancInfo.CreationTime
 		}
 
 		cblogger.Infof("Convert StartTime string [%s] to time.time", NewStartTime)
@@ -797,54 +778,48 @@ func (vmHandler *AlibabaVMHandler) ExtractDescribeInstances(instanceInfo *ecs.In
 		t, err := time.Parse(time.RFC3339, NewStartTime)
 		if err != nil {
 			cblogger.Error(err)
-			return irs.VMInfo{}, err
 		} else {
 			cblogger.Infof("======> [%v]", t)
 			vmInfo.StartTime = t
 		}
 	}
 
-	return vmInfo, nil
+	return vmInfo
 }
 
 func (vmHandler *AlibabaVMHandler) ListVM() ([]*irs.VMInfo, error) {
 	cblogger.Infof("Start")
 
-	//request := ecs.CreateDescribeInstancesRequest()
-	//request.Scheme = "https"
-	//
-	//// logger for HisCall
-	//callogger := call.GetLogger("HISCALL")
-	//callLogInfo := call.CLOUDLOGSCHEMA{
-	//	CloudOS:      call.ALIBABA,
-	//	RegionZone:   vmHandler.Region.Zone,
-	//	ResourceType: call.VM,
-	//	ResourceName: "ListVM()",
-	//	CloudOSAPI:   "DescribeInstances()",
-	//	ElapsedTime:  "",
-	//	ErrorMSG:     "",
-	//}
-	//
-	//callLogStart := call.Start()
-	//response, err := vmHandler.Client.DescribeInstances(request)
-	//callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
-	//
-	//if err != nil {
-	//	callLogInfo.ErrorMSG = err.Error()
-	//	callogger.Error(call.String(callLogInfo))
-	//	cblogger.Error(err.Error())
-	//	return nil, err
-	//}
-	//callogger.Info(call.String(callLogInfo))
-	//cblogger.Info(response)
+	request := ecs.CreateDescribeInstancesRequest()
+	request.Scheme = "https"
 
-	resultInstanceList, err := DescribeInstances(vmHandler.Client, vmHandler.Region, nil)
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.ALIBABA,
+		RegionZone:   vmHandler.Region.Zone,
+		ResourceType: call.VM,
+		ResourceName: "ListVM()",
+		CloudOSAPI:   "DescribeInstances()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+
+	callLogStart := call.Start()
+	response, err := vmHandler.Client.DescribeInstances(request)
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+
 	if err != nil {
+		callLogInfo.ErrorMSG = err.Error()
+		callogger.Error(call.String(callLogInfo))
+		cblogger.Error(err.Error())
 		return nil, err
 	}
+	callogger.Info(call.String(callLogInfo))
+	cblogger.Info(response)
+
 	var vmInfoList []*irs.VMInfo
-	for _, curInstance := range resultInstanceList {
-		//for _, curInstance := range response.Instances.Instance {
+	for _, curInstance := range response.Instances.Instance {
 
 		cblogger.Info("[%s] ECS 정보 조회", curInstance.InstanceId)
 		vmInfo, errVmInfo := vmHandler.GetVM(irs.IID{SystemId: curInstance.InstanceId})
@@ -1019,7 +994,6 @@ func (vmHandler *AlibabaVMHandler) ListVMStatus() ([]*irs.VMStatusInfo, error) {
 	return vmInfoList, nil
 }
 
-// deprecated
 func (vmHandler *AlibabaVMHandler) getDiskInfo(instanceId string) ecs.Disk {
 
 	diskRequest := ecs.CreateDescribeDisksRequest()
