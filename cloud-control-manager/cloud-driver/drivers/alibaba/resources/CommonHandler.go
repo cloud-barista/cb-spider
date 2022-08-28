@@ -96,7 +96,7 @@ func DescribeDisks(client *ecs.Client, regionInfo idrv.RegionInfo, instanceIID i
 }
 
 /**
-1개 Disk의 정보 조회
+DiskID로 1개 Disk의 정보 조회
 */
 func DescribeDiskByDiskId(client *ecs.Client, regionInfo idrv.RegionInfo, diskIID irs.IID) (ecs.Disk, error) {
 
@@ -116,7 +116,7 @@ func DescribeDiskByDiskId(client *ecs.Client, regionInfo idrv.RegionInfo, diskII
 }
 
 /**
-1개 Disk의 정보 조회
+InstanceID로 1개 Disk의 정보 조회
 */
 func DescribeDisksByInstanceId(client *ecs.Client, regionInfo idrv.RegionInfo, instanceIID irs.IID) ([]ecs.Disk, error) {
 
@@ -259,7 +259,6 @@ func DescribeInstances(client *ecs.Client, regionInfo idrv.RegionInfo, vmIIDs []
 
 		}
 		request.InstanceIds = string(vmsJson)
-
 	}
 
 	// logger for HisCall
