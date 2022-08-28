@@ -1178,7 +1178,7 @@ func KeyPair(c echo.Context) error {
 //====================================== VM
 
 // number, VM Name/Control, VMStatus/Last Start Time, VMImage/VMSpec, VPC/Subnet/Security Group,
-//         Network Interface/IP, DNS, Boot Disk/Block Disk, SSH AccessPoint/Access Key/Access User Name, Additional Info, checkbox
+//         Network Interface/IP, DNS, Root Disk/Data Disk, SSH AccessPoint/Access Key/Access User Name, Additional Info, checkbox
 func makeVMTRList_html(connConfig string, bgcolor string, height string, fontSize string, infoList []*cres.VMInfo) string {
 	if bgcolor == "" {
 		bgcolor = "#FFFFFF"
@@ -1230,10 +1230,10 @@ func makeVMTRList_html(connConfig string, bgcolor string, height string, fontSiz
                             <br>
                             <font size=%s>$$PRIVATEDNS$$</font>
                     </td>
-                    <td>
-                            <font size=%s>$$BOOTDISK$$</font>
+                    <td align=left>
+                            <font size=%s>$$ROOTDISK$$</font>
                             <br>
-                            <font size=%s>$$BLOCKDISK$$</font>
+                            <font size=%s>$$DATADISK$$</font>
                     </td>
                     <td>
                             <font size=%s>$$SSHACCESSPOINT$$</font>
@@ -1323,9 +1323,22 @@ func makeVMTRList_html(connConfig string, bgcolor string, height string, fontSiz
 		str = strings.ReplaceAll(str, "$$PUBLICDNS$$", one.PublicDNS)
 		str = strings.ReplaceAll(str, "$$PRIVATEDNS$$", one.PrivateDNS)
 
-		// for Boot Disk & Block Disk
-		str = strings.ReplaceAll(str, "$$BOOTDISK$$", one.VMBootDisk)
-		str = strings.ReplaceAll(str, "$$BLOCKDISK$$", one.VMBlockDisk)
+		// for Root Disk & Data Disk
+		str = strings.ReplaceAll(str, "$$ROOTDISK$$", "&nbsp;* " + one.RootDeviceName + 
+			" (" + one.RootDiskType + ":" + one.RootDiskSize + "GB)" )
+
+		dataDiskList := ""
+		for idx, disk := range one.DataDiskIIDs {
+			if idx==0 {
+				dataDiskList += "<br>&nbsp;&nbsp;&nbsp;------ Data Disk ------"
+			}
+			if dataDiskList != "" {
+				dataDiskList += "<br>"
+			}
+			diskInfo := diskInfo(connConfig, disk.NameId)
+			dataDiskList += "&nbsp;* " + disk.NameId + "(" + diskInfo.DiskType + ":" + diskInfo.DiskSize + "GB)"
+		}
+		str = strings.ReplaceAll(str, "$$DATADISK$$", dataDiskList)
 
 		// for SSH AccessPoint & Access Key & Access User
 		str = strings.ReplaceAll(str, "$$SSHACCESSPOINT$$", "<mark>" + one.SSHAccessPoint + "</mark>")
@@ -1550,8 +1563,8 @@ func VM(c echo.Context) error {
 		{"VM Image / VM Spec", "200"},
 		{"VPC / Subnet / Security Group", "400"},
 		{"NetworkInterface / PublicIP / PrivateIP", "400"},
-		{"PublicDNS / PrivateDNS", "400"},
-		{"BootDisk / BlockDisk", "200"},
+		{"PublicDNS / PrivateDNS", "350"},
+		{"RootDisk / DataDisk", "250"},
 		{"SSH AccessPoint / Access Key / Access User", "200"},
 		{"Additional Info", "300"},
 	}
@@ -2753,17 +2766,34 @@ func makeDiskTRList_html(bgcolor string, height string, fontSize string, infoLis
 
                 str := strings.ReplaceAll(strTR, "$$NUM$$", strconv.Itoa(i+1))
                 str = strings.ReplaceAll(str, "$$DISKNAME$$", one.IId.NameId)
-                // Disk Info:  type(size), status, attach/detach, created time
+
+                // Disk Type
                 str = strings.ReplaceAll(str, "$$DISKTYPE$$", one.DiskType)
-                str = strings.ReplaceAll(str, "$$DISKSIZE$$", one.DiskSize + " GB")
+
+		// Size
+		sizeInputText := `<input style="font-size:12px;text-align:center;" type="text" name="size_box" size=6 id="size_input_text_` + 
+			one.IId.NameId + `" value="`+ one.DiskSize + `">&nbsp;GB &nbsp;`
+
+			sizeUpButton := `<button style="font-size:10px;" type="button" onclick="diskSizeUp('` + one.IId.NameId + `')">Upsize</button>`
+                str = strings.ReplaceAll(str, "$$DISKSIZE$$", sizeInputText + sizeUpButton)
+
+		// Status
                 str = strings.ReplaceAll(str, "$$DISKSTATUS$$", string(one.Status))
+
+		// Attach/Detach
 		if one.Status == cres.DiskAvailable {
-			str = strings.ReplaceAll(str, "$$ATTACHDETACH$$", selectHtml + ` <span>[<a href="javascript:diskAttach('`+one.IId.NameId+`')">Attach</a>]</span>`)
+			attachButton := `<button style="font-size:10px;" type="button" onclick="diskAttach('` + 
+				one.IId.NameId+ `')">Attach</button>`
+			str = strings.ReplaceAll(str, "$$ATTACHDETACH$$", selectHtml + "&nbsp;&nbsp;" + attachButton)
 		} else if one.Status == cres.DiskAttached {
-			str = strings.ReplaceAll(str, "$$ATTACHDETACH$$", one.OwnerVM.NameId + ` <span>[<a href="javascript:diskDetach('`+ one.IId.NameId+ `', '` + one.OwnerVM.NameId+ `' )">Detach</a>]</span>`)
+			detachButton := `<button style="font-size:10px;" type="button" onclick="diskDetach('` + 
+				one.IId.NameId+ `', '` + one.OwnerVM.NameId+ `')">Detach</button>`
+			str = strings.ReplaceAll(str, "$$ATTACHDETACH$$", one.OwnerVM.NameId + "&nbsp;&nbsp;" + detachButton)
 		} else {
 			str = strings.ReplaceAll(str, "$$ATTACHDETACH$$", "N/A")
 		}
+
+		// Created Time
                 str = strings.ReplaceAll(str, "$$CREATEDTIME$$", one.CreatedTime.Format("2006.01.02 15:04:05 Mon"))
 
                 // for KeyValueList
@@ -2834,6 +2864,46 @@ func makePostDiskFunc_js() string {
 }
 
 // make the string of javascript function
+func makeDiskSizeUpFunc_js() string {
+	/*
+	curl -sX PUT http://localhost:1024/spider/disk/spider-disk-01/size -H 'Content-Type: application/json' -d \
+        '{
+                "ConnectionName": "mock-config01",
+                "ReqInfo": {
+                        "Size" : "128"
+                }
+        }'
+	*/
+
+        strFunc := `
+                function diskSizeUp(diskName, sizeInputTextId) {
+                        var connConfig = parent.frames["top_frame"].document.getElementById("connConfig").innerHTML;
+
+                        var textbox = document.getElementById('size_input_text_'+diskName);
+                        upSize = textbox.value
+
+                        var xhr = new XMLHttpRequest();
+                        xhr.open("PUT", "$$SPIDER_SERVER$$/spider/disk/" + diskName + "/size", false);
+                        xhr.setRequestHeader('Content-Type', 'application/json');
+                        sendJson = '{ "ConnectionName": "' + connConfig + '", "ReqInfo": { "Size" : "' + upSize + '" } }'
+
+                        // client logging
+                        parent.frames["log_frame"].Log("PUT> " + "$$SPIDER_SERVER$$/spider/disk/" + diskName + "/size" + " -H 'Content-Type: application/json' -d '" + sendJson + "'");
+
+                        xhr.send(sendJson);
+
+                        // client logging
+                        parent.frames["log_frame"].Log("   ==> " + xhr.response);
+
+                        location.reload();
+                }
+        `
+        strFunc = strings.ReplaceAll(strFunc, "$$SPIDER_SERVER$$", "http://"+cr.ServiceIPorName+cr.ServicePort) // cr.ServicePort = ":1024"
+        return strFunc
+}
+
+
+// make the string of javascript function
 func makeAttachDiskFunc_js() string {
         /*curl -sX PUT http://localhost:1024/spider/disk/spider-disk-01/attach -H 'Content-Type: application/json' -d \
         '{
@@ -2899,7 +2969,7 @@ func makeDetachDiskFunc_js() string {
                         // client logging
                         parent.frames["log_frame"].Log("   ==> " + xhr.response);
 
-                        location.reload();
+                        setTimeout(function(){location.reload();}, 2000);
                 }
         `
         strFunc = strings.ReplaceAll(strFunc, "$$SPIDER_SERVER$$", "http://"+cr.ServiceIPorName+cr.ServicePort) // cr.ServicePort = ":1024"
@@ -2989,6 +3059,7 @@ func Disk(c echo.Context) error {
         // (1) make Javascript Function
         htmlStr += makeCheckBoxToggleFunc_js()
         htmlStr += makePostDiskFunc_js()
+        htmlStr += makeDiskSizeUpFunc_js()
         htmlStr += makeAttachDiskFunc_js()
         htmlStr += makeDetachDiskFunc_js()
         htmlStr += makeDeleteDiskFunc_js()

@@ -1390,3 +1390,11 @@ func (NLBHandler *AlibabaNLBHandler) validateCreateNLB(nlbReqInfo irs.NLBInfo) e
 
 	return nil
 }
+
+func printToJson(class interface{}) {
+	e, err := json.Marshal(class)
+	if err != nil {
+		cblogger.Info(err)
+	}
+	cblogger.Info(string(e))
+}
