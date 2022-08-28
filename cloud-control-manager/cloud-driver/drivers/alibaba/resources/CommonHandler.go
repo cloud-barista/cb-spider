@@ -65,12 +65,12 @@ func DescribeDisks(client *ecs.Client, regionInfo idrv.RegionInfo, instanceIID i
 	for {
 		result, err := client.DescribeDisks(request)
 		callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
-		//spew.Dump(result) //출력 정보가 너무 많아서 생략
+		spew.Dump(result) //출력 정보가 너무 많아서 생략
 		if err != nil {
 			callLogInfo.ErrorMSG = err.Error()
 			callogger.Error(call.String(callLogInfo))
 
-			cblogger.Errorf("Unable to get Images, %v", err)
+			cblogger.Errorf("Unable to get Disks, %v", err)
 			return resultDiskList, err
 		}
 		callogger.Info(call.String(callLogInfo))
@@ -78,7 +78,7 @@ func DescribeDisks(client *ecs.Client, regionInfo idrv.RegionInfo, instanceIID i
 		resultDiskList = append(resultDiskList, result.Disks.Disk...)
 		if CBPageOn {
 			totalCount = len(resultDiskList)
-			cblogger.Infof("CSP 전체 이미지 갯수 : [%d] - 현재 페이지:[%d] - 누적 결과 개수:[%d]", result.TotalCount, curPage, totalCount)
+			cblogger.Infof("CSP 전체 Disk 갯수 : [%d] - 현재 페이지:[%d] - 누적 결과 개수:[%d]", result.TotalCount, curPage, totalCount)
 			if totalCount >= result.TotalCount {
 				break
 			}
