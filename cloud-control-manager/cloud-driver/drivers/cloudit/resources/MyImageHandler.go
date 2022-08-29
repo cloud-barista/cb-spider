@@ -5,11 +5,14 @@ import (
 	"fmt"
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/cloudit/client"
+	"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/cloudit/client/ace/disk"
 	"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/cloudit/client/ace/server"
 	"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/cloudit/client/ace/snapshot"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
+	"sort"
 	"strings"
+	"time"
 )
 
 type ClouditMyImageHandler struct {
@@ -120,7 +123,7 @@ func (myImageHandler *ClouditMyImageHandler) GetMyImage(myImageIID irs.IID) (irs
 	}
 	LoggingInfo(hiscallInfo, start)
 
-	return irs.MyImageInfo{}, nil
+	return irs.MyImageInfo{}, errors.New("MyImage not found")
 }
 
 func (myImageHandler *ClouditMyImageHandler) DeleteMyImage(myImageIID irs.IID) (bool, error) {
@@ -246,6 +249,162 @@ func (myImageHandler *ClouditMyImageHandler) createMyImageSnapshots(myImageNameI
 	return result, nil
 }
 
+func (myImageHandler *ClouditMyImageHandler) CreateAssociatedVolumeSnapshots(myImageNameId string, vmNameId string) error {
+	// Get status of all associated volumeSnapshot and gather into MyImageInfo
+	myImageHandler.Client.TokenID = myImageHandler.CredentialInfo.AuthToken
+	authHeader := myImageHandler.Client.AuthenticatedHeaders()
+	requestOpts := client.RequestOpts{
+		MoreHeaders: authHeader,
+	}
+	volumeSnapshotList, err := snapshot.List(myImageHandler.Client, &requestOpts)
+	if err != nil {
+		return errors.New(fmt.Sprintf("Failed to Get Associated Volume Snapshots. err = %s", err.Error()))
+	}
+
+	// var rollbackTargets []snapshot.SnapshotInfo
+	var creatingVolumeList []string
+	for _, volumeSnapshot := range *volumeSnapshotList {
+		if strings.Split(volumeSnapshot.Name, DEV)[0] == myImageNameId && volumeSnapshot.Bootable == "no" {
+			// rollbackTargets = append(rollbackTargets, volumeSnapshot)
+			requestOpts = client.RequestOpts{
+				MoreHeaders: authHeader,
+				JSONBody: struct {
+					VolumeName string `json:"volumeName"`
+				}{
+					VolumeName: vmNameId + DEV + strings.Split(volumeSnapshot.Name, DEV)[1],
+				},
+			}
+			if result, createVolumeErr := snapshot.CreateVolumeBySnapshot(myImageHandler.Client, volumeSnapshot.Id, &requestOpts); result == false {
+				rollbackErr := myImageHandler.rollbackCreateVolumeBySnapshot(myImageNameId)
+				if rollbackErr != nil {
+					errStrings := []string{createVolumeErr.Error(), rollbackErr.Error()}
+					createVolumeErr = errors.New(strings.Join(errStrings, "\n\t"))
+				}
+				return errors.New(fmt.Sprintf("Failed to Create Associated Volumes by Snapshot. err = %s", createVolumeErr))
+			}
+			creatingVolumeList = append(creatingVolumeList, vmNameId+DEV+strings.Split(volumeSnapshot.Name, DEV)[1])
+		}
+	}
+
+	curRetryCnt := 0
+	maxRetryCnt := 120 * 60
+	for {
+		volumeList, getVolumeErr := disk.List(myImageHandler.Client, &requestOpts)
+		if getVolumeErr != nil {
+			return errors.New(fmt.Sprintf("Failed to Get Volumes. err = %s", err.Error()))
+		}
+
+		for _, volume := range *volumeList {
+			if len(creatingVolumeList) == 0 {
+				return nil
+			}
+			for index, creatingVolume := range creatingVolumeList {
+				if volume.Name == creatingVolume && volume.State == "AVAILABLE" {
+					ret := make([]string, 0)
+					ret = append(ret, creatingVolumeList[:index]...)
+					creatingVolumeList = append(ret, creatingVolumeList[index+1:]...)
+					break
+				}
+			}
+		}
+
+		if curRetryCnt > maxRetryCnt {
+			return errors.New("Failed to Create Associated Volumes by Snapshot. err = Volume create waiting timeout")
+		}
+
+		time.Sleep(1 * time.Second)
+		curRetryCnt++
+	}
+}
+
+func (myImageHandler *ClouditMyImageHandler) AttachAssociatedVolumesToVM(myImageNameId string, targetVmSystemId string) error {
+	myImageHandler.Client.TokenID = myImageHandler.CredentialInfo.AuthToken
+	authHeader := myImageHandler.Client.AuthenticatedHeaders()
+	requestOpts := client.RequestOpts{
+		MoreHeaders: authHeader,
+	}
+
+	targetVm, err := server.Get(myImageHandler.Client, targetVmSystemId, &requestOpts)
+	if err != nil {
+		return errors.New(fmt.Sprintf("Failed to Get Target VM. err = %s", err.Error()))
+	}
+
+	volumeList, err := disk.List(myImageHandler.Client, &requestOpts)
+	if err != nil {
+		return errors.New(fmt.Sprintf("Failed to Get Volumes. err = %s", err.Error()))
+	}
+
+	var attachTarget []disk.DiskInfo
+	for _, volume := range *volumeList {
+		if strings.Split(volume.Name, DEV)[0] == targetVm.Name && volume.Bootable == "no" {
+			attachTarget = append(attachTarget, volume)
+		}
+	}
+
+	//sort attachTarget
+	sort.Slice(attachTarget, func(i, j int) bool {
+		return attachTarget[i].Name < attachTarget[j].Name
+	})
+
+	var attachingOnProgressVolumeList []string
+	for _, volume := range attachTarget {
+		attachRequestOpts := client.RequestOpts{
+			MoreHeaders: authHeader,
+			JSONBody: struct {
+				VolumeId string `json:"volumeId"`
+				Mode     string `json:"mode"`
+			}{
+				VolumeId: volume.ID,
+				Mode:     "w",
+			},
+		}
+
+		attachErr := server.AttachVolume(myImageHandler.Client, targetVmSystemId, &attachRequestOpts)
+		if attachErr != nil {
+			return errors.New(fmt.Sprintf("Attaching Associated Volumes to VM Failed. err = %s", attachErr.Error()))
+		}
+		attachingOnProgressVolumeList = append(attachingOnProgressVolumeList, volume.ID)
+	}
+
+	curRetryCnt := 0
+	maxRetryCnt := 120 * 60
+	attachFailedList := []string{"Attaching Associated Volumes to VM Failed, Attach waiting timeout (120 minutes): err ="}
+	for {
+		for index, attachingVolume := range attachingOnProgressVolumeList {
+			rawDisk, getDiskErr := disk.Get(myImageHandler.Client, attachingVolume, &requestOpts)
+			if getDiskErr != nil {
+				return errors.New(fmt.Sprintf("Failed to Get Volume. err = %s", getDiskErr.Error()))
+			}
+
+			if rawDisk.State == "IN_USE" {
+				ret := make([]string, 0)
+				ret = append(ret, attachingOnProgressVolumeList[:index]...)
+				attachingOnProgressVolumeList = append(ret, attachingOnProgressVolumeList[index+1:]...)
+				break
+			}
+		}
+
+		if len(attachingOnProgressVolumeList) == 0 {
+			return nil
+		}
+
+		if curRetryCnt > maxRetryCnt {
+			for _, attachingVolume := range attachingOnProgressVolumeList {
+				rawDisk, getDiskErr := disk.Get(myImageHandler.Client, attachingVolume, &requestOpts)
+				if getDiskErr != nil {
+					return errors.New(fmt.Sprintf("Failed to Get Volume. err = %s", getDiskErr.Error()))
+				}
+				attachFailedList = append(attachFailedList, fmt.Sprintf("Failed Disk Name ID: %s", rawDisk.Name))
+			}
+			myImageHandler.rollbackCreateVolumeBySnapshot(myImageNameId)
+			return errors.New(strings.Join(attachFailedList, "\t\n"))
+		}
+
+		time.Sleep(1 * time.Second)
+		curRetryCnt++
+	}
+}
+
 func (myImageHandler *ClouditMyImageHandler) getMyImageInfo(myImageNameId string) (irs.MyImageInfo, error) {
 	// Get status of all associated snapshot and gather into MyImageInfo
 	myImageHandler.Client.TokenID = myImageHandler.CredentialInfo.AuthToken
@@ -280,16 +439,66 @@ func (myImageHandler *ClouditMyImageHandler) cleanSnapshotsByMyImage(myImageName
 		MoreHeaders: authHeader,
 	}
 
-	rawVmSnapshotList, err := snapshot.List(myImageHandler.Client, &requestOpts)
+	vmSnapshotList, err := snapshot.List(myImageHandler.Client, &requestOpts)
 	if err != nil {
 		return err
 	}
 
-	for _, rawVmSnapshot := range *rawVmSnapshotList {
+	for _, rawVmSnapshot := range *vmSnapshotList {
 		parsed := strings.Split(rawVmSnapshot.Name, DEV)[0]
 		if parsed == myImageNameId {
 			snapshot.DeleteSnapshot(myImageHandler.Client, rawVmSnapshot.Id, &requestOpts)
 		}
+	}
+
+	return nil
+}
+
+func (myImageHandler *ClouditMyImageHandler) rollbackCreateVolumeBySnapshot(myImageNameId string) error {
+	myImageHandler.Client.TokenID = myImageHandler.CredentialInfo.AuthToken
+	authHeader := myImageHandler.Client.AuthenticatedHeaders()
+	requestOpts := client.RequestOpts{
+		MoreHeaders: authHeader,
+	}
+
+	volumeList, getVolumeListErr := disk.List(myImageHandler.Client, &requestOpts)
+	if getVolumeListErr != nil {
+		return errors.New(fmt.Sprintf("Failed to List Volumes. err = %s", getVolumeListErr.Error()))
+	}
+
+	var rollbackTargets []disk.DiskInfo
+	for _, volume := range *volumeList {
+		if strings.Split(volume.Name, DEV)[0] == myImageNameId {
+			rollbackTargets = append(rollbackTargets, volume)
+		}
+	}
+
+	curRetryCnt := 0
+	maxRetryCnt := 120
+	rollbackFailedList := []string{"Create Volume By Snapshot Failed: err = "}
+	for {
+		for index, target := range rollbackTargets {
+			deleteErr := disk.Delete(myImageHandler.Client, target.ID, &requestOpts)
+			if deleteErr == nil {
+				ret := make([]disk.DiskInfo, 0)
+				ret = append(ret, rollbackTargets[:index]...)
+				rollbackTargets = append(ret, rollbackTargets[index+1:]...)
+			}
+			if curRetryCnt > maxRetryCnt {
+				rollbackFailedList = append(rollbackFailedList, fmt.Sprintf("Volume ID: %s: %s", target.Name, deleteErr.Error()))
+			}
+		}
+
+		if curRetryCnt > maxRetryCnt {
+			break
+		}
+
+		time.Sleep(1 * time.Second)
+		curRetryCnt++
+	}
+
+	if len(rollbackFailedList) > 1 {
+		return errors.New(strings.Join(rollbackFailedList, "\n\t"))
 	}
 
 	return nil

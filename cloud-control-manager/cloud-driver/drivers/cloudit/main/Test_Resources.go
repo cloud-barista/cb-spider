@@ -538,7 +538,8 @@ func testVMHandlerListPrint() {
 	res_cblogger.Info("7. SuspendVM()")
 	res_cblogger.Info("8. ResumeVM()")
 	res_cblogger.Info("9. TerminateVM()")
-	res_cblogger.Info("10. Exit")
+	res_cblogger.Info("10. StartVM() - from MyImage")
+	res_cblogger.Info("11. Exit")
 }
 
 func testVmHandler(config ResourceConfig) {
@@ -573,6 +574,28 @@ func testVmHandler(config ResourceConfig) {
 		VMSpecName: config.Cloudit.VM.VmSpecName,
 		KeyPairIID: irs.IID{
 			NameId: config.Cloudit.VM.KeyPairIID.NameId,
+		},
+		SecurityGroupIIDs: SecurityGroupIIDs,
+		RootDiskSize:      "",
+		RootDiskType:      "",
+	}
+	vmFromSnapshotReqInfo := irs.VMReqInfo{
+		IId: irs.IID{
+			NameId: config.Cloudit.VMFromMyImage.IID.NameId,
+		},
+		ImageIID: irs.IID{
+			NameId:   config.Cloudit.VMFromMyImage.ImageIID.NameId,
+			SystemId: config.Cloudit.VMFromMyImage.ImageIID.SystemId,
+		},
+		VpcIID: irs.IID{
+			NameId: config.Cloudit.VMFromMyImage.VpcIID.NameId,
+		},
+		SubnetIID: irs.IID{
+			NameId: config.Cloudit.VMFromMyImage.SubnetIID.NameId,
+		},
+		VMSpecName: config.Cloudit.VMFromMyImage.VmSpecName,
+		KeyPairIID: irs.IID{
+			NameId: config.Cloudit.VMFromMyImage.KeyPairIID.NameId,
 		},
 		SecurityGroupIIDs: SecurityGroupIIDs,
 		RootDiskSize:      "",
@@ -665,6 +688,14 @@ Loop:
 				}
 				res_cblogger.Info("Finish TerminateVM()")
 			case 10:
+				res_cblogger.Info("Start StartVM() - from MyImage ...")
+				if vmStatus, err := vmHandler.StartVM(vmFromSnapshotReqInfo); err != nil {
+					res_cblogger.Error(err)
+				} else {
+					spew.Dump(vmStatus)
+				}
+				res_cblogger.Info("Finish StartVM() - from MyImage ...")
+			case 11:
 				res_cblogger.Info("Exit")
 				break Loop
 			}
@@ -1167,6 +1198,34 @@ type ResourceConfig struct {
 			} `yaml:"SecurityGroupIIDs"`
 			VMUserPasswd string `yaml:"VMUserPasswd"`
 		} `yaml:"vm"`
+		VMFromMyImage struct {
+			IID struct {
+				NameId   string `yaml:"nameId"`
+				SystemId string `yaml:"systemId"`
+			} `yaml:"IID"`
+			ImageIID struct {
+				NameId   string `yaml:"nameId"`
+				SystemId string `yaml:"systemId"`
+			} `yaml:"ImageIID"`
+			VmSpecName string `yaml:"VmSpecName"`
+			KeyPairIID struct {
+				NameId   string `yaml:"nameId"`
+				SystemId string `yaml:"systemId"`
+			} `yaml:"KeyPairIID"`
+			VpcIID struct {
+				NameId   string `yaml:"nameId"`
+				SystemId string `yaml:"systemId"`
+			} `yaml:"VpcIID"`
+			SubnetIID struct {
+				NameId   string `yaml:"nameId"`
+				SystemId string `yaml:"systemId"`
+			} `yaml:"SubnetIID"`
+			SecurityGroupIIDs []struct {
+				NameId   string `yaml:"nameId"`
+				SystemId string `yaml:"systemId"`
+			} `yaml:"SecurityGroupIIDs"`
+			VMUserPasswd string `yaml:"VMUserPasswd"`
+		} `yaml:"vmFromMyImage"`
 		Resources struct {
 			ImageIID struct {
 				NameId   string `yaml:"nameId"`
