@@ -30,6 +30,7 @@ const (
 	DefaultDiskType string = "pd-standard"
 )
 
+// disk 생성
 func (DiskHandler *GCPDiskHandler) CreateDisk(diskReqInfo irs.DiskInfo) (irs.DiskInfo, error) {
 	projectID := DiskHandler.Credential.ProjectID
 	region := DiskHandler.Region.Region
