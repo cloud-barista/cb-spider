@@ -13,6 +13,7 @@ package resources
 import (
 	"errors"
 	"fmt"
+	volumes3 "github.com/gophercloud/gophercloud/openstack/blockstorage/v3/volumes"
 	"github.com/gophercloud/gophercloud/openstack/networking/v2/subnets"
 	"io/ioutil"
 	"math/rand"
@@ -23,8 +24,6 @@ import (
 	"time"
 
 	"github.com/gophercloud/gophercloud"
-	volumesV2 "github.com/gophercloud/gophercloud/openstack/blockstorage/v2/volumes"
-	volumesV3 "github.com/gophercloud/gophercloud/openstack/blockstorage/v3/volumes"
 	"github.com/gophercloud/gophercloud/openstack/compute/v2/extensions/bootfromvolume"
 	"github.com/gophercloud/gophercloud/openstack/compute/v2/extensions/floatingips"
 	"github.com/gophercloud/gophercloud/openstack/compute/v2/extensions/keypairs"
@@ -46,8 +45,7 @@ type OpenStackVMHandler struct {
 	Region        idrv.RegionInfo
 	ComputeClient *gophercloud.ServiceClient
 	NetworkClient *gophercloud.ServiceClient
-	Volume2Client *gophercloud.ServiceClient
-	Volume3Client *gophercloud.ServiceClient
+	VolumeClient  *gophercloud.ServiceClient
 }
 
 func (vmHandler *OpenStackVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (startvm irs.VMInfo, createErr error) {
@@ -159,7 +157,7 @@ func (vmHandler *OpenStackVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (startvm i
 		createVolumeFlag = false
 		serverCreateOpts.ImageRef = image.IId.SystemId
 	} else {
-		if vmHandler.Volume2Client == nil && vmHandler.Volume3Client == nil {
+		if vmHandler.VolumeClient == nil {
 			createErr := errors.New(fmt.Sprintf("Failed to startVM err = this Openstack cannot provide VolumeClient. RootDiskSize cannot be changed"))
 			cblogger.Error(createErr.Error())
 			LoggingError(hiscallInfo, createErr)
@@ -603,11 +601,23 @@ func (vmHandler *OpenStackVMHandler) mappingServerInfo(server servers.Server) ir
 	}
 	// VM DiskSize Custom
 	if len(server.AttachedVolumes) > 0 {
-		size := vmHandler.getVolumeSize(server.AttachedVolumes[0].ID)
-		vmInfo.RootDiskSize = size
-		divice := vmHandler.getVolumeAttachDevice(server.ID, server.AttachedVolumes[0].ID)
-		vmInfo.VMBlockDisk = divice
-		vmInfo.RootDeviceName = divice
+		var dataDisks []irs.IID
+		allVolume, err := getAllVolumeByServerAttachedVolume(server.AttachedVolumes, vmHandler.VolumeClient)
+		if err == nil {
+			for _, vol := range allVolume {
+				if vol.Bootable == "true" {
+					vmInfo.RootDiskSize = strconv.Itoa(vol.Size)
+					for _, att := range vol.Attachments {
+						if att.ServerID == server.ID {
+							vmInfo.RootDeviceName = att.Device
+						}
+					}
+				} else {
+					dataDisks = append(dataDisks, irs.IID{NameId: vol.Name, SystemId: vol.ID})
+				}
+			}
+			vmInfo.DataDiskIIDs = dataDisks
+		}
 	}
 	// VM Flavor 정보 설정
 	flavorId := server.Flavor["id"].(string)
@@ -839,54 +849,14 @@ func notSupportRootDiskCustom(vmReqInfo irs.VMReqInfo) error {
 	return nil
 }
 
-func (vmHandler *OpenStackVMHandler) getVolumeSize(volumeId string) string {
-	if vmHandler.Volume2Client != nil {
-		rawVolume, err := volumesV2.Get(vmHandler.Volume2Client, volumeId).Extract()
+func getAllVolumeByServerAttachedVolume(attachedVolumes []servers.AttachedVolume, volumeClient *gophercloud.ServiceClient) (volumeList []volumes3.Volume, err error) {
+	volumeList = make([]volumes3.Volume, len(attachedVolumes))
+	for i, attachedVolume := range attachedVolumes {
+		vol, err := getRawDisk(irs.IID{SystemId: attachedVolume.ID}, volumeClient)
 		if err != nil {
-			return ""
+			return nil, err
 		}
-		if rawVolume.Bootable == "true" {
-			return strconv.Itoa(rawVolume.Size)
-		}
-		return ""
+		volumeList[i] = vol
 	}
-	if vmHandler.Volume3Client != nil {
-		rawVolume, err := volumesV3.Get(vmHandler.Volume2Client, volumeId).Extract()
-		if err != nil {
-			return ""
-		}
-		if rawVolume.Bootable == "true" {
-			return strconv.Itoa(rawVolume.Size)
-		}
-		return ""
-	}
-	return ""
-}
-
-func (vmHandler *OpenStackVMHandler) getVolumeAttachDevice(serverId string, volumeId string) string {
-	if vmHandler.Volume2Client != nil {
-		rawVolume, err := volumesV2.Get(vmHandler.Volume2Client, volumeId).Extract()
-		if err != nil {
-			return ""
-		}
-		for _, att := range rawVolume.Attachments {
-			if att.ServerID == serverId {
-				return att.Device
-			}
-		}
-		return ""
-	}
-	if vmHandler.Volume3Client != nil {
-		rawVolume, err := volumesV3.Get(vmHandler.Volume2Client, volumeId).Extract()
-		if err != nil {
-			return ""
-		}
-		for _, att := range rawVolume.Attachments {
-			if att.ServerID == serverId {
-				return att.Device
-			}
-		}
-		return ""
-	}
-	return ""
+	return volumeList, nil
 }

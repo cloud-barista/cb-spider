@@ -907,9 +907,19 @@ func testDiskHandler(config Config) {
 
 	testDiskHandlerListPrint()
 	diskIId := irs.IID{}
-	createDiskReqInfo := irs.DiskInfo{}
+	createDiskReqInfo := irs.DiskInfo{
+		IId: irs.IID{
+			NameId: "test-0818-2",
+		},
+		DiskSize: "3",
+	}
 	delDiskIId := irs.IID{}
-	attachVMIId := irs.IID{}
+	attachedDisk := irs.IID{
+		NameId: "test-0818-2",
+	}
+	attachVMIId := irs.IID{
+		NameId: "vmclient",
+	}
 
 Loop:
 	for {
@@ -957,7 +967,7 @@ Loop:
 				cblogger.Info("Finish DeleteDisk()")
 			case 5:
 				cblogger.Info("Start ChangeDiskSize() ...")
-				if nlbInfo, err := diskHandler.ChangeDiskSize(diskIId, ""); err != nil {
+				if nlbInfo, err := diskHandler.ChangeDiskSize(attachedDisk, "4"); err != nil {
 					cblogger.Error(err)
 				} else {
 					spew.Dump(nlbInfo)
@@ -965,7 +975,7 @@ Loop:
 				cblogger.Info("Finish ChangeDiskSize()")
 			case 6:
 				cblogger.Info("Start AttachDisk() ...")
-				if info, err := diskHandler.AttachDisk(delDiskIId, attachVMIId); err != nil {
+				if info, err := diskHandler.AttachDisk(attachedDisk, attachVMIId); err != nil {
 					cblogger.Error(err)
 				} else {
 					spew.Dump(info)
@@ -973,7 +983,7 @@ Loop:
 				cblogger.Info("Finish AttachDisk()")
 			case 7:
 				cblogger.Info("Start DetachDisk() ...")
-				if info, err := diskHandler.DetachDisk(delDiskIId, attachVMIId); err != nil {
+				if info, err := diskHandler.DetachDisk(attachedDisk, attachVMIId); err != nil {
 					cblogger.Error(err)
 				} else {
 					spew.Dump(info)

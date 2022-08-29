@@ -66,7 +66,10 @@ func (cloudConn *OpenStackCloudConnection) CreateKeyPairHandler() (irs.KeyPairHa
 
 func (cloudConn *OpenStackCloudConnection) CreateVMHandler() (irs.VMHandler, error) {
 	cblogger.Info("OpenStack Cloud Driver: called CreateVMHandler()!")
-	vmHandler := osrs.OpenStackVMHandler{Region: cloudConn.Region, ComputeClient: cloudConn.ComputeClient, NetworkClient: cloudConn.NetworkClient, Volume2Client: cloudConn.Volume2Client, Volume3Client: cloudConn.Volume3Client}
+	vmHandler := osrs.OpenStackVMHandler{Region: cloudConn.Region, ComputeClient: cloudConn.ComputeClient, NetworkClient: cloudConn.NetworkClient, VolumeClient: cloudConn.Volume3Client}
+	if vmHandler.VolumeClient == nil {
+		vmHandler.VolumeClient = cloudConn.Volume2Client
+	}
 	return &vmHandler, nil
 }
 
@@ -87,7 +90,10 @@ func (cloudConn *OpenStackCloudConnection) CreateDiskHandler() (irs.DiskHandler,
 	diskHandler := osrs.OpenstackDiskHandler{
 		CredentialInfo: cloudConn.CredentialInfo, Region: cloudConn.Region,
 		ComputeClient: cloudConn.ComputeClient,
-		Volume2Client: cloudConn.Volume2Client, Volume3Client: cloudConn.Volume3Client,
+		VolumeClient:  cloudConn.Volume3Client,
+	}
+	if diskHandler.VolumeClient == nil {
+		diskHandler.VolumeClient = cloudConn.Volume2Client
 	}
 	return &diskHandler, nil
 }
