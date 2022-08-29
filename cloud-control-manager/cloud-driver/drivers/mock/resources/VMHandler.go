@@ -138,6 +138,12 @@ func (vmHandler *MockVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, er
 		VMBootDisk:  "/dev/sda1",
 		VMBlockDisk: "/dev/sda1",
 
+		RootDiskType:  "MOCK-SSD", 
+		RootDiskSize:  "32",
+		RootDeviceName:  "/dev/sda1",
+
+		DataDiskIIDs:  []irs.IID{},
+
 		KeyValueList: nil,
 	}
 
@@ -284,6 +290,9 @@ defer vmMapLock.Unlock()
 
 	for idx, info := range infoList {
 		if info.IId.SystemId == iid.SystemId {
+			for _, diskIID := range info.DataDiskIIDs {
+				justDetachDisk(mockName, diskIID, info.IId) 
+			}
 			infoList = append(infoList[:idx], infoList[idx+1:]...)
 		}
 	}
@@ -406,6 +415,7 @@ func CloneVMInfo(srcInfo irs.VMInfo) irs.VMInfo {
 			StartTime time.Time // Timezone: based on cloud-barista server location.
 
 			Region            RegionInfo //  ex) {us-east1, us-east1-c} or {ap-northeast-2}
+			ImageType         ImageType // PublicImage | MyImage
 			ImageIId          IID
 			VMSpecName        string //  instance type or flavour, etc... ex) t2.micro or f1.micro
 			VpcIID            IID
@@ -414,17 +424,23 @@ func CloneVMInfo(srcInfo irs.VMInfo) irs.VMInfo {
 
 			KeyPairIId IID
 
-			VMUserId     string // ex) user1
-			VMUserPasswd string
+			RootDiskType    string  // "SSD(gp2)", "Premium SSD", ...
+			RootDiskSize    string  // "default", "50", "1000" (GB)
+			RootDeviceName  string // "/dev/sda1", ...
 
-			NetworkInterface string // ex) eth0
-			PublicIP         string
-			PublicDNS        string
-			PrivateIP        string
-			PrivateDNS       string
+			DataDiskIIDs []IID
 
-			VMBootDisk  string // ex) /dev/sda1
-			VMBlockDisk string // ex)
+			VMBootDisk      string // Deprecated soon
+			VMBlockDisk     string // Deprecated soon
+
+                        VMUserId     string // ex) user1
+                        VMUserPasswd string
+
+                        NetworkInterface string // ex) eth0
+                        PublicIP         string
+                        PublicDNS        string
+                        PrivateIP        string
+                        PrivateDNS       string
 
 			SSHAccessPoint string // ex) 10.2.3.2:22, 123.456.789.123:4321
 
@@ -437,12 +453,23 @@ func CloneVMInfo(srcInfo irs.VMInfo) irs.VMInfo {
                 IId:            irs.IID{srcInfo.IId.NameId, srcInfo.IId.SystemId},
                 StartTime:      srcInfo.StartTime,
 		Region:		srcInfo.Region,
+                ImageType:      srcInfo.ImageType,
                 ImageIId:       srcInfo.ImageIId,
                 VMSpecName:     srcInfo.VMSpecName,
                 VpcIID:         irs.IID{srcInfo.VpcIID.NameId, srcInfo.VpcIID.SystemId},
                 SubnetIID:      irs.IID{srcInfo.SubnetIID.NameId, srcInfo.SubnetIID.SystemId},
 		SecurityGroupIIds: cloneIIDArray(srcInfo.SecurityGroupIIds),
                 KeyPairIId:     irs.IID{srcInfo.KeyPairIId.NameId, srcInfo.KeyPairIId.SystemId},
+
+		RootDiskType:   srcInfo.RootDiskType,
+		RootDiskSize:   srcInfo.RootDiskSize,
+		RootDeviceName: srcInfo.RootDeviceName,
+
+		DataDiskIIDs:   cloneIIDArray(srcInfo.DataDiskIIDs),
+
+		VMBootDisk:     srcInfo.VMBootDisk,
+		VMBlockDisk:    srcInfo.VMBlockDisk,
+
 		VMUserId:       srcInfo.VMUserId,
 		VMUserPasswd:   srcInfo.VMUserPasswd,
 		NetworkInterface:   srcInfo.NetworkInterface,
@@ -450,8 +477,7 @@ func CloneVMInfo(srcInfo irs.VMInfo) irs.VMInfo {
 		PublicDNS:      srcInfo.PublicDNS,
 		PrivateIP:      srcInfo.PrivateIP,
 		PrivateDNS:     srcInfo.PrivateDNS,
-		VMBootDisk:     srcInfo.VMBootDisk,
-		VMBlockDisk:    srcInfo.VMBlockDisk,
+
 		SSHAccessPoint: srcInfo.SSHAccessPoint,
 
                 KeyValueList:   srcInfo.KeyValueList, // now, do not need cloning
@@ -493,4 +519,64 @@ defer vmMapLock.RUnlock()
 	errMSG := iid.NameId + " vm iid does not exist!!"
 	cblogger.Error(errMSG)
 	return irs.VMInfo{}, fmt.Errorf(errMSG)
+}
+
+
+
+func diskAttach(mockName string, iid irs.IID, diskIID irs.IID) (bool, error) {
+        cblogger := cblog.GetLogger("CB-SPIDER")
+        cblogger.Info("Mock Driver: called diskAttach()!")
+
+
+vmMapLock.RLock()
+defer vmMapLock.RUnlock()
+
+        infoList, ok := vmInfoMap[mockName]
+        if !ok {
+                errMSG := iid.NameId + " vm iid does not exist!!"
+                cblogger.Error(errMSG)
+                return false, fmt.Errorf(errMSG)
+        }
+
+        for _, info := range infoList {
+                if (*info).IId.NameId == iid.NameId {
+			info.DataDiskIIDs = append(info.DataDiskIIDs, diskIID)
+                        return true, nil
+                }
+        }
+
+        errMSG := iid.NameId + " vm iid does not exist!!"
+        cblogger.Error(errMSG)
+        return false, fmt.Errorf(errMSG)
+}
+
+func diskDetach(mockName string, iid irs.IID, diskIID irs.IID) (bool, error) {
+        cblogger := cblog.GetLogger("CB-SPIDER")
+        cblogger.Info("Mock Driver: called diskDetach()!")
+
+
+vmMapLock.RLock()
+defer vmMapLock.RUnlock()
+
+        infoList, ok := vmInfoMap[mockName]
+        if !ok {
+                errMSG := iid.NameId + " vm iid does not exist!!"
+                cblogger.Error(errMSG)
+                return false, fmt.Errorf(errMSG)
+        }
+
+        for _, info := range infoList {
+                if (*info).IId.NameId == iid.NameId {
+			for idx, oneIID := range info.DataDiskIIDs { 
+				if oneIID == diskIID {
+					info.DataDiskIIDs = append(info.DataDiskIIDs[:idx], info.DataDiskIIDs[idx+1:]...)
+					return true, nil
+				}
+			}
+                }
+        }
+
+        errMSG := iid.NameId + " vm iid does not exist!!"
+        cblogger.Error(errMSG)
+        return false, fmt.Errorf(errMSG)
 }

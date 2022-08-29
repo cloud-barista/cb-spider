@@ -14,13 +14,11 @@ import (
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/ecs"
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/slb"
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/vpc"
-
 	cblog "github.com/cloud-barista/cb-log"
 	alirs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/alibaba/resources"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/sirupsen/logrus"
-	"errors"
 )
 
 var cblogger *logrus.Logger
@@ -44,6 +42,7 @@ type AlibabaCloudConnection struct {
 	SubnetClient *vpc.Client
 	VmSpecClient *ecs.Client
 	NLBClient    *slb.Client
+	DiskClient   *ecs.Client
 }
 
 /*
@@ -112,14 +111,16 @@ func (cloudConn *AlibabaCloudConnection) CreateNLBHandler() (irs.NLBHandler, err
 	return &handler, nil
 }
 
+func (cloudConn *AlibabaCloudConnection) CreateDiskHandler() (irs.DiskHandler, error) {
+	cblogger.Info("Start")
+	handler := alirs.AlibabaDiskHandler{cloudConn.Region, cloudConn.DiskClient}
+	return &handler, nil
+}
+
 func (AlibabaCloudConnection) IsConnected() (bool, error) {
 	return true, nil
 }
 
 func (AlibabaCloudConnection) Close() error {
 	return nil
-}
-
-func (cloudConn *AlibabaCloudConnection) CreateDiskHandler() (irs.DiskHandler, error) {
-        return nil, errors.New("Alibaba Driver: not implemented")
 }

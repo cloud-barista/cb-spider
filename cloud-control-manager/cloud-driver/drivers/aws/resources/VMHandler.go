@@ -60,7 +60,7 @@ func Connect(region string) *ec2.EC2 {
 
 // VM생성 시 사용할 루트 디스크의 최소 볼륨 사이즈 정보를 조회함
 // -1 : 정보 조회 실패
-func (vmHandler *AwsVMHandler) GetDiskInfo(ImageSystemId string) (int64, error) {
+func (vmHandler *AwsVMHandler) GetAmiDiskInfo(ImageSystemId string) (int64, error) {
 	cblogger.Debugf("ImageID : [%s]", ImageSystemId)
 
 	input := &ec2.DescribeImagesInput{
@@ -122,7 +122,7 @@ func (vmHandler *AwsVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 			//vmReqInfo.RootDiskSize = strconv.FormatInt(imageVolumeSize, 10)
 		} else {
 			//이미지의 볼륨 사이즈를 조회함.
-			imageVolumeSize, err := vmHandler.GetDiskInfo(vmReqInfo.ImageIID.SystemId)
+			imageVolumeSize, err := vmHandler.GetAmiDiskInfo(vmReqInfo.ImageIID.SystemId)
 			if err != nil {
 				cblogger.Error(err)
 				return irs.VMInfo{}, err
@@ -415,13 +415,40 @@ func (vmHandler *AwsVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 	}
 	*/
 
+	// attach disks : 직접추가하지 않고 이미 있는 volume 사용
+	availableVolumeNames := []string{"f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p"}
+	if len(vmReqInfo.DataDiskIIDs) > len(availableVolumeNames) {
+		return irs.VMInfo{}, awserr.New(CUSTOM_ERR_CODE_BAD_REQUEST, "Too many Disks.", nil)
+	}
+	availableDeviceList, err := DescribeAvailableDiskDeviceList(vmHandler.Client, irs.IID{SystemId: newVmId})
+	if err != nil {
+		return irs.VMInfo{}, err
+	}
+	for diskIndex, dataDiskIID := range vmReqInfo.DataDiskIIDs {
+		// validation Check?
+
+		deviceName := availableDeviceList[diskIndex]
+
+		//blockDeviceMapping := ec2.BlockDeviceMapping{
+		//	DeviceName: aws.String(defaultVirtualizationType + availableVolumeNames[diskIndex]),
+		//	//DeviceName: aws.String("/dev/sdh"),
+		//	Ebs: &ec2.EbsBlockDevice{
+		//		VolumeType: dataDiskInfo.VolumeType,
+		//		VolumeSize: dataDiskInfo.Size,
+		//	},
+		//}
+		//blockDeviceMappingList = append(blockDeviceMappingList, &blockDeviceMapping)
+
+		err := AttachVolume(vmHandler.Client, deviceName, newVmId, dataDiskIID.SystemId)
+		if err != nil {
+			return irs.VMInfo{}, awserr.New(CUSTOM_ERR_CODE_BAD_REQUEST, "Instance created but attach disk failed", err)
+		}
+	}
+
 	//최신 정보 조회
 	//newVmInfo, _ := vmHandler.GetVM(newVmId)
 	newVmInfo, _ := vmHandler.GetVM(irs.IID{SystemId: newVmId})
 	newVmInfo.IId.NameId = vmReqInfo.IId.NameId // Tag 정보가 없을 수 있기 때문에 요청 받은 NameId를 전달 함.
-	//newVmInfo.RootDiskType = vmReqInfo.RootDiskType
-	//newVmInfo.RootDiskSize = vmReqInfo.RootDiskSize
-	//newVmInfo.RootDeviceName = newVmInfo.VMBootDisk
 
 	/*
 		//빠른 생성을 위해 Running 상태를 대기하지 않고 최소한의 정보만 리턴 함.
@@ -862,19 +889,42 @@ func (vmHandler *AwsVMHandler) ExtractDescribeInstanceToVmInfo(instance *ec2.Ins
 
 	cblogger.Info("===> BlockDeviceMappings ValueOf : ", reflect.ValueOf(instance.BlockDeviceMappings))
 	if !reflect.ValueOf(instance.BlockDeviceMappings).IsNil() {
-		if !reflect.ValueOf(instance.BlockDeviceMappings[0].DeviceName).IsNil() {
-			vmInfo.VMBlockDisk = *instance.BlockDeviceMappings[0].DeviceName
-		}
+		//if !reflect.ValueOf(instance.BlockDeviceMappings[0].DeviceName).IsNil() {
+		//	vmInfo.VMBlockDisk = *instance.BlockDeviceMappings[0].DeviceName
+		//}
+		//
+		//if !reflect.ValueOf(instance.BlockDeviceMappings[0].Ebs).IsNil() {
+		//	volumeInfo, err := DescribeVolumneById(vmHandler.Client, *instance.BlockDeviceMappings[0].Ebs.VolumeId)
+		//	//volumeInfo, err := vmHandler.GetVolumInfo(*instance.BlockDeviceMappings[0].Ebs.VolumeId)
+		//	if err != nil {
+		//	} else {
+		//		vmInfo.RootDiskSize = strconv.FormatInt(*volumeInfo.Size, 10)
+		//		vmInfo.RootDiskType = *volumeInfo.VolumeType
+		//	}
+		//}
 
-		if !reflect.ValueOf(instance.BlockDeviceMappings[0].Ebs).IsNil() {
-			volumeInfo, err := DescribeVolumneById(vmHandler.Client, *instance.BlockDeviceMappings[0].Ebs.VolumeId)
-			//volumeInfo, err := vmHandler.GetVolumInfo(*instance.BlockDeviceMappings[0].Ebs.VolumeId)
-			if err != nil {
-			} else {
-				vmInfo.RootDiskSize = strconv.FormatInt(*volumeInfo.Size, 10)
-				vmInfo.RootDiskType = *volumeInfo.VolumeType
+		// attached 된 disk. instance의 0번째는 rootDisk
+		diskDeviceList := instance.BlockDeviceMappings
+		if diskDeviceList != nil {
+			dataDiskIIDList := []irs.IID{}
+			for diskIndex, diskDevice := range diskDeviceList {
+				diskName := diskDevice.DeviceName
+				volumeId := diskDevice.Ebs.VolumeId
+				if diskIndex == 0 {
+					vmInfo.VMBlockDisk = *diskName
+					volumeInfo, err := DescribeVolumneById(vmHandler.Client, *volumeId)
+					if err != nil {
+					} else {
+						vmInfo.RootDiskSize = strconv.FormatInt(*volumeInfo.Size, 10)
+						vmInfo.RootDiskType = *volumeInfo.VolumeType
+					}
+				} else {
+					dataDiskIIDList = append(dataDiskIIDList, irs.IID{SystemId: *volumeId})
+				}
 			}
+			vmInfo.DataDiskIIDs = dataDiskIIDList
 		}
+		//
 
 	}
 

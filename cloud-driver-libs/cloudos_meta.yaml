@@ -12,7 +12,7 @@ AWS:
   # rootdisktype: standard / io1 / io2 / gp2 / sc1 / st1 / gp3
   # issues: https://github.com/cloud-barista/cb-spider/pull/523#issuecomment-965363272
   rootdisktype: standard / gp2 / gp3
-  disktype: standard|gp2|gp3|io1|io2|st1|sc1|
+  disktype: standard / gp2 / gp3 / io1 / io2 / st1 / sc1
   disksize: standard|1|1024|GB / gp2|1|16384|GB / gp3|1|16384|GB / io1|4|16384|GB / io2|4|16384|GB / st1|125|16384|GB / sc1|125|16384|GB
   # idmaxlength: VPC / Subnet / SecurityGroup / KeyPair / VM
   idmaxlength: 255 / 256 / 255 / 255 / 255

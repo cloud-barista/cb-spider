@@ -203,3 +203,4 @@ func GetDiskInfo(client *compute.Service, credential idrv.CredentialInfo, region
 
 	return diskResp, nil
 }
+

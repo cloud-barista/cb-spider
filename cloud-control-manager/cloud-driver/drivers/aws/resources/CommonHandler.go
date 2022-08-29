@@ -138,6 +138,40 @@ func DescribeInstanceDiskDeviceList(svc *ec2.EC2, vmIID irs.IID) ([]*ec2.Instanc
 }
 
 /*
+	1개 인스턴스에서 사용가능한 device 이름 목록
+	존재하는 device 이름 제거 후 가능한 목록만 return
+*/
+func DescribeAvailableDiskDeviceList(svc *ec2.EC2, vmIID irs.IID) ([]string, error) {
+	defaultVirtualizationType := "/dev/sd" // default :  linux
+	availableVolumeNames := []string{"f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p"}
+
+	diskDeviceList, err := DescribeInstanceDiskDeviceList(svc, vmIID)
+	if err != nil {
+		return nil, err
+	}
+
+	availableDevices := []string{}
+	// 이미 사용중인이름은 제외
+	isAvailable := true
+	for _, avn := range availableVolumeNames {
+		device := defaultVirtualizationType + avn
+		for _, diskDevice := range diskDeviceList {
+
+			cblogger.Debug(device + " : " + *diskDevice.DeviceName)
+			if device == *diskDevice.DeviceName {
+				isAvailable = false
+				break
+			}
+		}
+		if isAvailable {
+			availableDevices = append(availableDevices, device)
+		}
+	}
+
+	return availableDevices, nil
+}
+
+/*
 	List 와 Get 이 같은 API 호출
 	filter 조건으로 VolumeId 를 넣도록하고
 	return은 그대로 DescribeVolumesOutput.
@@ -204,4 +238,38 @@ func DescribeVolumneById(svc *ec2.EC2, volumeId string) (*ec2.Volume, error) {
 	}
 
 	return nil, awserr.New("404", "["+volumeId+"] 볼륨 정보가 존재하지 않습니다.", nil)
+}
+
+func AttachVolume(svc *ec2.EC2, deviceName string, instanceId string, volumeId string) error {
+	input := &ec2.AttachVolumeInput{
+		//Device:     aws.String("/dev/sdf"),
+		//InstanceId: aws.String("i-01474ef662b89480"),
+		//VolumeId:   aws.String("vol-1234567890abcdef0"),
+		Device:     aws.String(deviceName),
+		InstanceId: aws.String(instanceId),
+		VolumeId:   aws.String(volumeId),
+	}
+
+	result, err := svc.AttachVolume(input)
+	if err != nil {
+		if aerr, ok := err.(awserr.Error); ok {
+			switch aerr.Code() {
+			default:
+				fmt.Println(aerr.Error())
+			}
+		} else {
+			fmt.Println(err.Error())
+		}
+		return err
+	}
+
+	if cblogger.Level.String() == "debug" {
+		spew.Dump(result)
+	}
+
+	err = WaitUntilVolumeInUse(svc, volumeId)
+	if err != nil {
+		return err
+	}
+	return nil
 }
