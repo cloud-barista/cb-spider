@@ -148,11 +148,11 @@ func (vmHandler *AwsVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 	}
 
 	imageID := vmReqInfo.ImageIID.SystemId
-	instanceType := vmReqInfo.VMSpecName // "t2.micro"
+	instanceType := vmReqInfo.VMSpecName
 	minCount := aws.Int64(1)
 	maxCount := aws.Int64(1)
 	keyName := vmReqInfo.KeyPairIID.SystemId
-	baseName := vmReqInfo.IId.NameId //"mcloud-barista-VMHandlerTest"
+	baseName := vmReqInfo.IId.NameId
 	subnetID := vmReqInfo.SubnetIID.SystemId
 
 	/* 2021-10-26 이슈 #480에 의해 제거
@@ -415,7 +415,7 @@ func (vmHandler *AwsVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 	}
 	*/
 
-	// attach disks : 직접추가하지 않고 이미 있는 volume 사용
+	// attach disks : 직접추가하지 않고 이미 있는 volume 사용. 생성시점에 추가하지 못하고 생성 후 추가.
 	availableVolumeNames := []string{"f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p"}
 	if len(vmReqInfo.DataDiskIIDs) > len(availableVolumeNames) {
 		return irs.VMInfo{}, awserr.New(CUSTOM_ERR_CODE_BAD_REQUEST, "Too many Disks.", nil)
@@ -425,8 +425,6 @@ func (vmHandler *AwsVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 		return irs.VMInfo{}, err
 	}
 	for diskIndex, dataDiskIID := range vmReqInfo.DataDiskIIDs {
-		// validation Check?
-
 		deviceName := availableDeviceList[diskIndex]
 
 		//blockDeviceMapping := ec2.BlockDeviceMapping{
@@ -727,24 +725,8 @@ func (vmHandler *AwsVMHandler) TerminateVM(vmIID irs.IID) (irs.VMStatus, error) 
 //2019-11-16부로 CB-Driver 전체 로직이 NameId 기반으로 변경됨.
 //func (vmHandler *AwsVMHandler) GetVM(vmNameId string) (irs.VMInfo, error) {
 func (vmHandler *AwsVMHandler) GetVM(vmIID irs.IID) (irs.VMInfo, error) {
-	cblogger.Infof("vmNameId : [%s]", vmIID.SystemId)
-
-	// logger for HisCall
-	callogger := call.GetLogger("HISCALL")
-	callLogInfo := call.CLOUDLOGSCHEMA{
-		CloudOS:      call.AWS,
-		RegionZone:   vmHandler.Region.Zone,
-		ResourceType: call.VM,
-		ResourceName: vmIID.SystemId,
-		CloudOSAPI:   "DescribeInstances()",
-		ElapsedTime:  "",
-		ErrorMSG:     "",
-	}
-	callLogStart := call.Start()
 
 	resultInstance, err := DescribeInstanceById(vmHandler.Client, vmIID)
-	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
-	cblogger.Info(resultInstance)
 	if err != nil {
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
@@ -755,11 +737,8 @@ func (vmHandler *AwsVMHandler) GetVM(vmIID irs.IID) (irs.VMInfo, error) {
 			// Print the error, cast err to awserr.Error to get the Code and Message from an error.
 			cblogger.Error(err.Error())
 		}
-		callLogInfo.ErrorMSG = err.Error()
-		callogger.Info(call.String(callLogInfo))
 		return irs.VMInfo{}, err
 	}
-	callogger.Info(call.String(callLogInfo))
 
 	vmInfo := irs.VMInfo{}
 	vmInfo = vmHandler.ExtractDescribeInstanceToVmInfo(resultInstance)
@@ -924,9 +903,20 @@ func (vmHandler *AwsVMHandler) ExtractDescribeInstanceToVmInfo(instance *ec2.Ins
 			}
 			vmInfo.DataDiskIIDs = dataDiskIIDList
 		}
-		//
-
 	}
+
+	// TODO : Image 분류 처리 추가할 것
+	awsImageInfo, err := DescribeImageById(vmHandler.Client, &irs.IID{SystemId: *instance.ImageId}, nil)
+	if err != nil {
+		// fail to get ImageInfo
+		//awsImageInfo.Public
+		//awsImageInfo.OwnerId //
+		//awsImageInfo.ImageOwnerAlias
+	}
+	spew.Dump(awsImageInfo) //ImageId: "ami-00f1068284b9eca92",
+
+	// instance.ImageId
+	// describeImage -> is-public
 
 	if !reflect.ValueOf(instance.Placement.AvailabilityZone).IsNil() {
 		vmInfo.Region = irs.RegionInfo{
