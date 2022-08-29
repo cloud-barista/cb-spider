@@ -957,6 +957,8 @@ Loop:
 				res_cblogger.Info("Finish GetDisk()")
 			case 3:
 				res_cblogger.Info("Start CreateDisk() ...")
+				diskCreateReqInfo.KeyValueList = append(diskCreateReqInfo.KeyValueList,
+					irs.KeyValue{Key: "clusterId", Value: "8e01e169-8318-4676-b30a-fb339de4b44b"})
 				if createInfo, err := diskHandler.CreateDisk(diskCreateReqInfo); err != nil {
 					res_cblogger.Error(err)
 				} else {
