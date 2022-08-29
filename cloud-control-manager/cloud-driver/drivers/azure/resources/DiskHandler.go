@@ -31,13 +31,31 @@ func (diskHandler *AzureDiskHandler) CreateDisk(DiskReqInfo irs.DiskInfo) (diskI
 		LoggingError(hiscallInfo, createErr)
 		return irs.DiskInfo{}, createErr
 	}
+	diskType, err := GetDiskTypeInitType(DiskReqInfo.DiskType)
+	if err != nil {
+		createErr = errors.New(fmt.Sprintf("Failed to Create Disk. err = %s", err))
+		cblogger.Error(createErr.Error())
+		LoggingError(hiscallInfo, createErr)
+		return irs.DiskInfo{}, createErr
+	}
 	diskSku := compute.DiskSku{
-		Name: GetDiskTypeInitType(DiskReqInfo.DiskType),
+		Name: diskType,
 	}
 	creationData := compute.CreationData{
 		CreateOption: compute.DiskCreateOptionEmpty,
 	}
-	diskSizeInt, _ := strconv.Atoi(DiskReqInfo.DiskSize)
+
+	diskSizeInt, err := strconv.Atoi(DiskReqInfo.DiskSize)
+	if DiskReqInfo.DiskSize == "" {
+		diskSizeInt = 1024 // Azure console Init Value
+		err = nil
+	}
+	if err != nil {
+		createErr = errors.New(fmt.Sprintf("Failed to Create Disk. err = invalid Disk Size"))
+		cblogger.Error(createErr.Error())
+		LoggingError(hiscallInfo, createErr)
+		return irs.DiskInfo{}, createErr
+	}
 	diskProperties := compute.DiskProperties{
 		DiskSizeGB:   to.Int32Ptr(int32(diskSizeInt)),
 		CreationData: &creationData,
@@ -501,27 +519,27 @@ func (diskHandler *AzureDiskHandler) validationDiskReq(diskReq irs.DiskInfo) err
 	if exist {
 		return errors.New("invalid DiskReqInfo NameId, Already exist")
 	}
-	if diskReq.DiskType == "" {
-		return errors.New("invalid DiskReqInfo DiskType")
-	}
-	if diskReq.DiskSize == "" {
-		return errors.New("invalid DiskReqInfo DiskSize")
-	}
+	//if diskReq.DiskType == "" {
+	//	return errors.New("invalid DiskReqInfo DiskType")
+	//}
+	//if diskReq.DiskSize == "" {
+	//	return errors.New("invalid DiskReqInfo DiskSize")
+	//}
 	// default?
-	_, err = strconv.Atoi(diskReq.DiskSize)
-	if err != nil {
-		return errors.New(fmt.Sprintf("invalid DiskReqInfo DiskSize, %s", err.Error()))
-	}
-	if diskReq.DiskType == "" {
-		return errors.New("invalid DiskReqInfo DiskSize")
-	}
-	disktypeErr := errors.New("invalid DiskReqInfo DiskType")
-	if diskReq.DiskType == PremiumSSD || diskReq.DiskType == StandardSSD || diskReq.DiskType == StandardHHD || strings.ToLower(diskReq.DiskType) == "default" {
-		disktypeErr = nil
-	}
-	if disktypeErr != nil {
-		return disktypeErr
-	}
+	//_, err = strconv.Atoi(diskReq.DiskSize)
+	//if err != nil {
+	//	return errors.New(fmt.Sprintf("invalid DiskReqInfo DiskSize, %s", err.Error()))
+	//}
+	//if diskReq.DiskType == "" {
+	//	return errors.New("invalid DiskReqInfo DiskSize")
+	//}
+	//disktypeErr := errors.New("invalid DiskReqInfo DiskType")
+	//if diskReq.DiskType == PremiumSSD || diskReq.DiskType == StandardSSD || diskReq.DiskType == StandardHHD || strings.ToLower(diskReq.DiskType) == "default" {
+	//	disktypeErr = nil
+	//}
+	//if disktypeErr != nil {
+	//	return disktypeErr
+	//}
 	return nil
 }
 

@@ -2,6 +2,10 @@ CSP=$1
 NLB_ADDR=$2
 NLB_PORT=$3
 
+echo -e "Calling CSP : "$CSP
+echo -e "Calling NLB_ADDR : "$NLB_ADDR
+echo -e "Calling NLB_PORT : "$NLB_PORT
+
 for (( num=1; num <= 20; num++ ))
 do
 	ssh-keygen -f "$HOME/.ssh/known_hosts" -R $NLB_ADDR > /dev/null 2> /dev/null

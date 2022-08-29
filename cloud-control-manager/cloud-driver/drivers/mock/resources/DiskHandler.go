@@ -44,6 +44,12 @@ func (diskHandler *MockDiskHandler) CreateDisk(diskReqInfo irs.DiskInfo) (irs.Di
 	diskReqInfo.Status = irs.DiskAvailable
 	diskReqInfo.CreatedTime = time.Now()
 
+	if diskReqInfo.DiskType == "default" || diskReqInfo.DiskType == "" {
+		diskReqInfo.DiskType = "MOCK-SSD"
+	}
+	if diskReqInfo.DiskSize == "default" || diskReqInfo.DiskSize == "" {
+		diskReqInfo.DiskSize = "512"
+	}
 
 	// (2) insert DiskInfo into global Map
 diskMapLock.Lock()
@@ -86,7 +92,7 @@ func CloneDiskInfo(srcInfo irs.DiskInfo) irs.DiskInfo {
 		DiskType: 	srcInfo.DiskType,
 		DiskSize: 	srcInfo.DiskSize, 
 		Status: 	srcInfo.Status,
-		OwnerVM: 	srcInfo.IId,
+		OwnerVM: 	irs.IID{srcInfo.OwnerVM.NameId, srcInfo.OwnerVM.SystemId},
 		CreatedTime: 	srcInfo.CreatedTime,
                 KeyValueList:  	srcInfo.KeyValueList, // now, do not need cloning
         }
@@ -169,6 +175,7 @@ defer diskMapLock.Unlock()
 
 	for idx, info := range infoList {
 		if info.IId.SystemId == iid.SystemId {
+			diskDetach(mockName, info.OwnerVM, iid)
 			infoList = append(infoList[:idx], infoList[idx+1:]...)
 			diskInfoMap[mockName] = infoList
 			return true, nil
@@ -201,6 +208,7 @@ defer diskMapLock.RUnlock()
 			}
 			info.OwnerVM = ownerVM
 			info.Status = irs.DiskAttached
+			diskAttach(mockName, ownerVM, diskIID)
                         return CloneDiskInfo(*info), nil
                 }
         }
@@ -226,6 +234,7 @@ defer diskMapLock.RUnlock()
 			if info.Status != irs.DiskAttached {
 				return false, fmt.Errorf("%s Disk is not Attached status!!. It is %s status", diskIID.NameId, info.Status)
 			}
+			diskDetach(mockName, ownerVM, diskIID)
                         info.Status = irs.DiskAvailable
                         info.OwnerVM = irs.IID{}
                         return true, nil
@@ -234,3 +243,28 @@ defer diskMapLock.RUnlock()
 
         return false, fmt.Errorf("%s Disk does not exist!!", diskIID.NameId)
 }
+
+func justDetachDisk(mockName string, diskIID irs.IID, ownerVM irs.IID) (bool, error) {
+        cblogger := cblog.GetLogger("CB-SPIDER")
+        cblogger.Info("Mock Driver: called justDetachDisk()!")
+
+diskMapLock.RLock()
+defer diskMapLock.RUnlock()
+        infoList, ok := diskInfoMap[mockName]
+        if !ok {
+                return false, fmt.Errorf("%s Disk does not exist!!", diskIID.NameId)
+        }
+
+        for _, info := range infoList {
+                if (*info).IId.NameId == diskIID.NameId {
+                        if info.Status != irs.DiskAttached {
+                                return false, fmt.Errorf("%s Disk is not Attached status!!. It is %s status", diskIID.NameId, info.Status)                        }
+                        info.Status = irs.DiskAvailable
+                        info.OwnerVM = irs.IID{}
+                        return true, nil
+                }
+        }
+
+        return false, fmt.Errorf("%s Disk does not exist!!", diskIID.NameId)
+}
+

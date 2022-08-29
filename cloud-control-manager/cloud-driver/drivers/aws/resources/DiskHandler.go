@@ -12,6 +12,7 @@ import (
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	cim "github.com/cloud-barista/cb-spider/cloud-info-manager"
 	"github.com/davecgh/go-spew/spew"
+	"reflect"
 	"strconv"
 	"strings"
 )
@@ -298,18 +299,21 @@ func (DiskHandler *AwsDiskHandler) AttachDisk(diskIID irs.IID, ownerVM irs.IID) 
 
 	spew.Dump(diskDeviceList)
 	if diskDeviceList != nil {
-		isAvailable := false
+		isAvailable := true
 		for _, avn := range availableVolumeNames {
+			device = defaultVirtualizationType + avn
+
 			for _, diskDevice := range diskDeviceList {
-				if *diskDevice.DeviceName == "/dev/sda1" {
+				if *diskDevice.DeviceName == "/dev/sda1" { // root disk 는 skip.
 					continue
 				} // rootdisk
 
-				cblogger.Debug((defaultVirtualizationType + avn) + " : " + *diskDevice.DeviceName)
-				if (defaultVirtualizationType + avn) != *diskDevice.DeviceName {
-					device = defaultVirtualizationType + avn
+				cblogger.Debug(device + " : " + *diskDevice.DeviceName)
+				if device == *diskDevice.DeviceName {
+					isAvailable = false
+					continue
+				} else {
 					isAvailable = true
-					cblogger.Debugf("is abailabledjflsk")
 					break
 				}
 			}
@@ -454,10 +458,13 @@ Throughput
 func validateCreateDisk(diskReqInfo irs.DiskInfo) error {
 	// VolumeType
 	cloudOSMetaInfo, err := cim.GetCloudOSMetaInfo("AWS")
+	arrDiskType := cloudOSMetaInfo.DiskType
 	arrDiskSizeOfType := cloudOSMetaInfo.DiskSize
 
+	cblogger.Info(arrDiskType)
+
 	// 정의된 type인지
-	if !ContainString(arrDiskSizeOfType, diskReqInfo.DiskType) {
+	if !ContainString(arrDiskType, diskReqInfo.DiskType) {
 		return errors.New("Disktype : " + diskReqInfo.DiskType + "' is not valid")
 	}
 
@@ -772,35 +779,43 @@ func (DiskHandler *AwsDiskHandler) convertVolumeInfoToDiskInfo(volumeInfo *ec2.V
 			}
 		}
 	}
+	cblogger.Info(vmId)
 	diskStatus, errStatus := convertVolumeStatusToDiskStatus(*volumeInfo.State, attachments, vmId)
 	if errStatus != nil {
+
 		return irs.DiskInfo{}, errStatus
 	}
 	cblogger.Info(diskStatus)
 	diskInfo.Status = diskStatus
 
 	if !strings.EqualFold(vmId, "") {
-		VmHandler := AwsVMHandler{Client: DiskHandler.Client}
-		vmInfo, errVm := VmHandler.GetVM(irs.IID{SystemId: vmId})
-		if errVm != nil {
-			return irs.DiskInfo{}, errStatus
-		}
-		diskInfo.OwnerVM = vmInfo.IId
-		spew.Dump(vmInfo)
+		diskInfo.OwnerVM = irs.IID{SystemId: vmId}
+		//VmHandler := AwsVMHandler{Client: DiskHandler.Client}
+		//vmInfo, errVm := VmHandler.GetVM(irs.IID{SystemId: vmId})
+		//if errVm != nil {
+		//	return irs.DiskInfo{}, errStatus
+		//}
+		//diskInfo.OwnerVM = vmInfo.IId
+		//spew.Dump(vmInfo)
 	}
 
 	diskInfo.CreatedTime = *volumeInfo.CreateTime
-
+	spew.Dump(volumeInfo)
 	//KeyValueList []KeyValue
 	var inKeyValueList []irs.KeyValue
+	//if !reflect.ValueOf(volumeInfo.Encrypted).IsNil() {
 	inKeyValueList = append(inKeyValueList, irs.KeyValue{Key: "Encrypted", Value: strconv.FormatBool(*volumeInfo.Encrypted)})
-	inKeyValueList = append(inKeyValueList, irs.KeyValue{Key: "Iops", Value: strconv.Itoa(int(*volumeInfo.Iops))})
+	//}
+	if !reflect.ValueOf(volumeInfo.Iops).IsNil() {
+		inKeyValueList = append(inKeyValueList, irs.KeyValue{Key: "Iops", Value: strconv.Itoa(int(*volumeInfo.Iops))})
+	}
 	//inKeyValueList = append(inKeyValueList, icbs.KeyValue{Key: "KmsKeyId", Value: *volumeInfo.KmsKeyId})
 	inKeyValueList = append(inKeyValueList, irs.KeyValue{Key: "MultiAttachEnabled", Value: strconv.FormatBool(*volumeInfo.MultiAttachEnabled)})
+
 	//inKeyValueList = append(inKeyValueList, icbs.KeyValue{Key: "Tags", Value: strings.Join(volumeInfo.Tags, ",")})
 	//inKeyValueList = append(inKeyValueList, icbs.KeyValue{Key: "OutpostArn", Value: *volumeInfo.OutpostArn})
 	diskInfo.KeyValueList = inKeyValueList
-
+	cblogger.Info("keyvalue2")
 	if cblogger.Level.String() == "debug" {
 		spew.Dump(diskInfo)
 	}

@@ -30,6 +30,7 @@ const (
 	DefaultDiskType string = "pd-standard"
 )
 
+// disk 생성
 func (DiskHandler *GCPDiskHandler) CreateDisk(diskReqInfo irs.DiskInfo) (irs.DiskInfo, error) {
 	projectID := DiskHandler.Credential.ProjectID
 	region := DiskHandler.Region.Region
@@ -41,7 +42,7 @@ func (DiskHandler *GCPDiskHandler) CreateDisk(diskReqInfo irs.DiskInfo) (irs.Dis
 	}
 
 	if diskReqInfo.DiskType != "" && diskReqInfo.DiskType != "default" {
-		disk.Type = diskReqInfo.DiskType
+		disk.Type = "projects/" + projectID + "/zones/" + zone + "/diskTypes/" + diskReqInfo.DiskType
 	} else {
 		diskReqInfo.DiskType = DefaultDiskType
 	}
@@ -90,14 +91,14 @@ func (DiskHandler *GCPDiskHandler) ListDisk() ([]*irs.DiskInfo, error) {
 	diskList, err := DiskHandler.Client.Disks.List(projectID, zone).Do()
 	if err != nil {
 		cblogger.Error(err)
-		return []*irs.DiskInfo{}, err
+		return nil, err
 	}
 
 	for _, disk := range diskList.Items {
-		diskInfo, err := DiskHandler.GetDisk(irs.IID{NameId: disk.Name, SystemId: disk.Name})
+		diskInfo, err := convertDiskInfo(disk)
 		if err != nil {
 			cblogger.Error(err)
-			return []*irs.DiskInfo{}, err
+			return nil, err
 		}
 		diskInfoList = append(diskInfoList, &diskInfo)
 	}
@@ -106,42 +107,17 @@ func (DiskHandler *GCPDiskHandler) ListDisk() ([]*irs.DiskInfo, error) {
 }
 
 func (DiskHandler *GCPDiskHandler) GetDisk(diskIID irs.IID) (irs.DiskInfo, error) {
-	diskInfo := irs.DiskInfo{}
 
-	projectID := DiskHandler.Credential.ProjectID
-	zone := DiskHandler.Region.Zone
-
-	diskResp, err := DiskHandler.Client.Disks.Get(projectID, zone, diskIID.SystemId).Do()
+	diskResp, err := GetDiskInfo(DiskHandler.Client, DiskHandler.Credential, DiskHandler.Region, diskIID.SystemId)
 	if err != nil {
 		cblogger.Error(err)
 		return irs.DiskInfo{}, err
 	}
 
-	diskInfo.IId = diskIID
-	diskInfo.DiskSize = strconv.FormatInt(diskResp.SizeGb, 10)
-	diskInfo.CreatedTime, _ = time.Parse(time.RFC3339, diskResp.CreationTimestamp)
-
-	if diskResp.Users != nil {
-		arrUsers := strings.Split(diskResp.Users[0], "/")
-		ownerVM := arrUsers[len(arrUsers)-1]
-		diskInfo.OwnerVM = irs.IID{NameId: ownerVM, SystemId: ownerVM}
-	}
-
-	arrType := strings.Split(diskResp.Type, "/")
-	diskInfo.DiskType = arrType[len(arrType)-1]
-
-	if diskResp.Status == GCPDiskCreating {
-		diskInfo.Status = irs.DiskCreating
-	} else if diskResp.Status == GCPDiskDeleting {
-		diskInfo.Status = irs.DiskDeleting
-	} else if diskResp.Status == GCPDiskFailed {
-		diskInfo.Status = irs.DiskError
-	} else if diskResp.Status == GCPDiskReady {
-		if diskResp.Users != nil {
-			diskInfo.Status = irs.DiskAttached
-		} else {
-			diskInfo.Status = irs.DiskAvailable
-		}
+	diskInfo, errDiskInfo := convertDiskInfo(diskResp)
+	if errDiskInfo != nil {
+		cblogger.Error(errDiskInfo)
+		return irs.DiskInfo{}, errDiskInfo
 	}
 
 	return diskInfo, nil
@@ -244,12 +220,19 @@ func (DiskHandler *GCPDiskHandler) DetachDisk(diskIID irs.IID, ownerVM irs.IID) 
 		return false, err
 	}
 
+	isExist := false
 	for _, diskInfo := range ownerVMInfo.Disks {
 		arrDiskName := strings.Split(diskInfo.Source, "/")
 		diskName := arrDiskName[len(arrDiskName)-1]
 		if strings.EqualFold(diskName, diskIID.SystemId) {
 			deviceName = diskInfo.DeviceName
+			isExist = true
+			break
 		}
+	}
+
+	if !isExist {
+		return false, errors.New("Disk does not exist!")
 	}
 
 	op, err := DiskHandler.Client.Instances.DetachDisk(projectID, zone, instance, deviceName).Do()
@@ -375,4 +358,52 @@ func validateChangeDiskSize(diskInfo irs.DiskInfo, newSize string) error {
 	}
 
 	return nil
+}
+
+func convertGCPStatusToDiskStatus(status string, users []string) (irs.DiskStatus, error) {
+	var returnStatus irs.DiskStatus
+
+	if status == GCPDiskCreating {
+		returnStatus = irs.DiskCreating
+	} else if status == GCPDiskDeleting {
+		returnStatus = irs.DiskDeleting
+	} else if status == GCPDiskFailed {
+		returnStatus = irs.DiskError
+	} else if status == GCPDiskReady {
+		if users != nil {
+			returnStatus = irs.DiskAttached
+		} else {
+			returnStatus = irs.DiskAvailable
+		}
+	}
+
+	return returnStatus, nil
+
+}
+
+func convertDiskInfo(diskResp *compute.Disk) (irs.DiskInfo, error) {
+	diskInfo := irs.DiskInfo{}
+
+	diskInfo.IId = irs.IID{NameId: diskResp.Name, SystemId: diskResp.Name}
+	diskInfo.DiskSize = strconv.FormatInt(diskResp.SizeGb, 10)
+	diskInfo.CreatedTime, _ = time.Parse(time.RFC3339, diskResp.CreationTimestamp)
+
+	// Users : the users of the disk (attached instances)
+	if diskResp.Users != nil {
+		arrUsers := strings.Split(diskResp.Users[0], "/")
+		ownerVM := arrUsers[len(arrUsers)-1]
+		diskInfo.OwnerVM = irs.IID{NameId: ownerVM, SystemId: ownerVM}
+	}
+
+	arrDiskType := strings.Split(diskResp.Type, "/")
+	diskInfo.DiskType = arrDiskType[len(arrDiskType)-1]
+
+	diskStatus, errStatus := convertGCPStatusToDiskStatus(diskResp.Status, diskResp.Users)
+	if errStatus != nil {
+		return irs.DiskInfo{}, errStatus
+	}
+
+	diskInfo.Status = diskStatus
+
+	return diskInfo, nil
 }
