@@ -20,7 +20,8 @@ type SecGroupInfo struct {
 }
 
 type VMReqInfo struct {
-	TemplateId   string         `json:"templateId" required:"true"`
+	TemplateId   string         `json:"templateId,omitempty"`
+	SnapshotId   string         `json:"snapshotId,omitempty"`
 	SpecId       string         `json:"specId" required:"true"`
 	Name         string         `json:"name" required:"true"`
 	HostName     string         `json:"hostName" required:"true"`

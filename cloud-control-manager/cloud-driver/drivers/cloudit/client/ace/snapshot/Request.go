@@ -1,6 +1,7 @@
 package snapshot
 
 import (
+	"errors"
 	"fmt"
 	cblog "github.com/cloud-barista/cb-log"
 	"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/cloudit/client"
@@ -31,8 +32,9 @@ type SnapshotInfo struct {
 	CreatedAt  string
 
 	// miscellaneous properties
-	Bootable string
-	Creator  string
+	Bootable   string
+	Creator    string
+	TemplateId string
 }
 
 func ToIRSMyImage(restClient *client.RestClient, associatedSnapshots *[]SnapshotInfo) (irs.MyImageInfo, error) {
@@ -94,6 +96,29 @@ func List(restClient *client.RestClient, requestOpts *client.RequestOpts) (*[]Sn
 	return &snapshotList, nil
 }
 
+func Get(restClient *client.RestClient, snapshotId string, requestOpts *client.RequestOpts) (SnapshotInfo, error) {
+	requestURL := restClient.CreateRequestBaseURL(client.ACE, "snapshots")
+	cblogger.Info(requestURL)
+
+	var result client.Result
+	if _, result.Err = restClient.Get(requestURL, &result.Body, requestOpts); result.Err != nil {
+		return SnapshotInfo{}, result.Err
+	}
+
+	var snapshotList []SnapshotInfo
+	if err := result.ExtractInto(&snapshotList); err != nil {
+		return SnapshotInfo{}, err
+	}
+
+	for _, snapshot := range snapshotList {
+		if snapshot.Id == snapshotId {
+			return snapshot, nil
+		}
+	}
+
+	return SnapshotInfo{}, errors.New("Snapshot not found")
+}
+
 //func GetSnapshotsByMyImage(restClient *client.RestClient, myImageNameId string, requestOpts *client.RequestOpts) (SnapshotInfo, error) {
 //
 //}
@@ -123,6 +148,16 @@ func DeleteSnapshot(restClient *client.RestClient, snapshotId string, requestOpt
 	if _, result.Err = restClient.Delete(requestURL, requestOpts); result.Err != nil {
 		return false, result.Err
 	}
+
+	return true, nil
+}
+
+func CreateVolumeBySnapshot(restClient *client.RestClient, snapshotId string, requestOpts *client.RequestOpts) (bool, error) {
+	requestURL := restClient.CreateRequestBaseURL(client.ACE, "snapshots", snapshotId, "volume")
+	cblogger.Info(requestURL)
+
+	var result client.Result
+	restClient.Post(requestURL, nil, &result.Body, requestOpts)
 
 	return true, nil
 }
