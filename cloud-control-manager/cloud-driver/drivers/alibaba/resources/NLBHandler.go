@@ -507,9 +507,17 @@ Newly created listeners are in the stopped state. After a listener is created, y
 */
 func (NLBHandler *AlibabaNLBHandler) AddLoadBalancerListener(nlbIID irs.IID, nlbReqInfo irs.NLBInfo) (irs.ListenerInfo, error) {
 	listener := nlbReqInfo.Listener
+	healthChecker := nlbReqInfo.HealthChecker
+
+	listenerProtocol := listener.Protocol
+	healthCheckerProtocol := healthChecker.Protocol
+	if listenerProtocol != healthCheckerProtocol {
+		return irs.ListenerInfo{}, errors.New("ALIBABA_HEALTHCHECK_PROTOCOL_NOT_SAME_LISTENER_PROTOCOL. " + listener.Protocol + ":" + healthCheckerProtocol)
+	}
 
 	var returnListener irs.ListenerInfo
 	if listener.Protocol == "TCP" {
+
 		responseListener, err := NLBHandler.addLoadBalancerTcpListener(nlbIID, nlbReqInfo)
 		if err != nil {
 			return irs.ListenerInfo{}, err
