@@ -890,6 +890,19 @@ func (vmHandler *AzureVMHandler) mappingServerInfo(server compute.VirtualMachine
 		}
 	}
 
+	if server.StorageProfile != nil && server.StorageProfile.DataDisks != nil && len(*server.StorageProfile.DataDisks) > 0 {
+		dataDisks := *server.StorageProfile.DataDisks
+		dataDiskIIDList := make([]irs.IID, len(dataDisks))
+		for i, dataDisk := range dataDisks {
+			diskId := *dataDisk.ManagedDisk.ID
+			dataDiskIIDList[i] = irs.IID{
+				NameId:   GetResourceNameById(diskId),
+				SystemId: diskId,
+			}
+		}
+		vmInfo.DataDiskIIDs = dataDiskIIDList
+	}
+
 	return vmInfo
 }
 
