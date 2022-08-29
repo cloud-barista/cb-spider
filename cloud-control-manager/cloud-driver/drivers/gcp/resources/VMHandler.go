@@ -1050,14 +1050,6 @@ func (vmHandler *GCPVMHandler) getImageInfo(diskname string) irs.IID {
 		NameId:   info.SourceImage, //2020-05-14 NameId는 사용자가 사용한 이름도 있기 때문에 리턴하지 않도록 수정
 		SystemId: info.SourceImage,
 	}
-
-	/*
-		iId := irs.IID{
-			NameId: info.Name,
-			//SystemId: strconv.FormatUint(info.Id, 10),
-			SystemId: info.Name,
-		}
-	*/
 	return iId
 }
 
