@@ -13,6 +13,7 @@ package openstack
 import (
 	"github.com/gophercloud/gophercloud"
 	"github.com/gophercloud/gophercloud/openstack"
+	"github.com/gophercloud/gophercloud/openstack/identity/v3/services"
 
 	oscon "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/openstack/connect"
 	osrs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/openstack/resources"
@@ -52,30 +53,15 @@ func (driver *OpenStackDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) 
 	// Initialize Logger
 	osrs.InitLog()
 
-	Client, err := getServiceClient(connectionInfo)
+	iConn, err := clientCreator(connectionInfo)
 	if err != nil {
 		return nil, err
 	}
-	ImageClient, err := getImageClient(connectionInfo)
-	if err != nil {
-		return nil, err
-	}
-	NetworkClient, err := getNetworkClient(connectionInfo)
-	if err != nil {
-		return nil, err
-	}
-	VolumeClient, _ := getVolumeClient(connectionInfo)
 
-	NLBClient, _ := getNLBClient(connectionInfo)
-
-	iConn := oscon.OpenStackCloudConnection{CredentialInfo: connectionInfo.CredentialInfo, Region: connectionInfo.RegionInfo, Client: Client, ImageClient: ImageClient, NetworkClient: NetworkClient, VolumeClient: VolumeClient, NLBClient: NLBClient}
-
-	return &iConn, nil
+	return iConn, nil
 }
 
-// moved by powerkim, 2019.07.29.
-func getServiceClient(connInfo idrv.ConnectionInfo) (*gophercloud.ServiceClient, error) {
-
+func getIdentityClient(connInfo idrv.ConnectionInfo) (*gophercloud.ServiceClient, error) {
 	authOpts := gophercloud.AuthOptions{
 		IdentityEndpoint: connInfo.CredentialInfo.IdentityEndpoint,
 		Username:         connInfo.CredentialInfo.Username,
@@ -89,7 +75,7 @@ func getServiceClient(connInfo idrv.ConnectionInfo) (*gophercloud.ServiceClient,
 		return nil, err
 	}
 
-	client, err := openstack.NewComputeV2(provider, gophercloud.EndpointOpts{
+	client, err := openstack.NewIdentityV3(provider, gophercloud.EndpointOpts{
 		Region: connInfo.RegionInfo.Region,
 	})
 	if err != nil {
@@ -99,32 +85,19 @@ func getServiceClient(connInfo idrv.ConnectionInfo) (*gophercloud.ServiceClient,
 	return client, err
 }
 
-func getImageClient(connInfo idrv.ConnectionInfo) (*gophercloud.ServiceClient, error) {
-
-	authOpts := gophercloud.AuthOptions{
-		IdentityEndpoint: connInfo.CredentialInfo.IdentityEndpoint,
-		Username:         connInfo.CredentialInfo.Username,
-		Password:         connInfo.CredentialInfo.Password,
-		DomainName:       connInfo.CredentialInfo.DomainName,
-		TenantID:         connInfo.CredentialInfo.ProjectID,
-	}
-	provider, err := openstack.AuthenticatedClient(authOpts)
+func clientCreator(connInfo idrv.ConnectionInfo) (icon.CloudConnection, error) {
+	identityClient, err := getIdentityClient(connInfo)
 	if err != nil {
 		return nil, err
 	}
-
-	c, err := openstack.NewImageServiceV2(provider, gophercloud.EndpointOpts{
-		Region: connInfo.RegionInfo.Region,
-	})
+	pager, err := services.List(identityClient, services.ListOpts{}).AllPages()
 	if err != nil {
 		return nil, err
 	}
-
-	return c, err
-}
-
-func getNetworkClient(connInfo idrv.ConnectionInfo) (*gophercloud.ServiceClient, error) {
-
+	list, err := services.ExtractServices(pager)
+	if err != nil {
+		return nil, err
+	}
 	authOpts := gophercloud.AuthOptions{
 		IdentityEndpoint: connInfo.CredentialInfo.IdentityEndpoint,
 		Username:         connInfo.CredentialInfo.Username,
@@ -138,64 +111,65 @@ func getNetworkClient(connInfo idrv.ConnectionInfo) (*gophercloud.ServiceClient,
 		return nil, err
 	}
 
-	client, err := openstack.NewNetworkV2(provider, gophercloud.EndpointOpts{
-		Name:   "neutron",
-		Region: connInfo.RegionInfo.Region,
-	})
-	if err != nil {
-		return nil, err
+	iConn := oscon.OpenStackCloudConnection{
+		CredentialInfo: connInfo.CredentialInfo,
+		Region:         connInfo.RegionInfo,
 	}
-
-	return client, err
-}
-func getVolumeClient(connInfo idrv.ConnectionInfo) (*gophercloud.ServiceClient, error) {
-	authOpts := gophercloud.AuthOptions{
-		IdentityEndpoint: connInfo.CredentialInfo.IdentityEndpoint,
-		Username:         connInfo.CredentialInfo.Username,
-		Password:         connInfo.CredentialInfo.Password,
-		DomainName:       connInfo.CredentialInfo.DomainName,
-		TenantID:         connInfo.CredentialInfo.ProjectID,
-	}
-	provider, err := openstack.AuthenticatedClient(authOpts)
-	if err != nil {
-		return nil, err
-	}
-	client, err := openstack.NewBlockStorageV2(provider, gophercloud.EndpointOpts{
-		Region: connInfo.RegionInfo.Region,
-	})
-	if err != nil {
-		client, err = openstack.NewBlockStorageV3(provider, gophercloud.EndpointOpts{
-			Region: connInfo.RegionInfo.Region,
-		})
+	for _, service := range list {
+		err = insertClient(&iConn, provider, connInfo, service.Type)
 		if err != nil {
 			return nil, err
 		}
 	}
-	return client, err
+	return &iConn, nil
 }
 
-func getNLBClient(connInfo idrv.ConnectionInfo) (*gophercloud.ServiceClient, error) {
-
-	authOpts := gophercloud.AuthOptions{
-		IdentityEndpoint: connInfo.CredentialInfo.IdentityEndpoint,
-		Username:         connInfo.CredentialInfo.Username,
-		Password:         connInfo.CredentialInfo.Password,
-		DomainName:       connInfo.CredentialInfo.DomainName,
-		TenantID:         connInfo.CredentialInfo.ProjectID,
+func insertClient(openstackCon *oscon.OpenStackCloudConnection, provider *gophercloud.ProviderClient, connInfo idrv.ConnectionInfo, serviceType string) error {
+	switch serviceType {
+	case "image":
+		client, err := openstack.NewImageServiceV2(provider, gophercloud.EndpointOpts{
+			Region: connInfo.RegionInfo.Region,
+		})
+		if err == nil {
+			openstackCon.ImageClient = client
+		}
+	case "load-balancer":
+		client, err := openstack.NewLoadBalancerV2(provider, gophercloud.EndpointOpts{
+			Name:   "octavia",
+			Region: connInfo.RegionInfo.Region,
+		})
+		if err == nil {
+			openstackCon.NLBClient = client
+		}
+	case "volumev2":
+		client, err := openstack.NewBlockStorageV2(provider, gophercloud.EndpointOpts{
+			Region: connInfo.RegionInfo.Region,
+		})
+		if err == nil {
+			openstackCon.Volume2Client = client
+		}
+	case "volumev3":
+		client, err := openstack.NewBlockStorageV3(provider, gophercloud.EndpointOpts{
+			Region: connInfo.RegionInfo.Region,
+		})
+		if err == nil {
+			openstackCon.Volume3Client = client
+		}
+	case "network":
+		client, err := openstack.NewNetworkV2(provider, gophercloud.EndpointOpts{
+			Name:   "neutron",
+			Region: connInfo.RegionInfo.Region,
+		})
+		if err == nil {
+			openstackCon.NetworkClient = client
+		}
+	case "compute":
+		client, err := openstack.NewComputeV2(provider, gophercloud.EndpointOpts{
+			Region: connInfo.RegionInfo.Region,
+		})
+		if err == nil {
+			openstackCon.ComputeClient = client
+		}
 	}
-
-	provider, err := openstack.AuthenticatedClient(authOpts)
-	if err != nil {
-		return nil, err
-	}
-
-	client, err := openstack.NewLoadBalancerV2(provider, gophercloud.EndpointOpts{
-		Name:   "octavia",
-		Region: connInfo.RegionInfo.Region,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	return client, err
+	return nil
 }
