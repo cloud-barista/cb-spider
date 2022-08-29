@@ -1058,7 +1058,7 @@ func CreateVPC(connectionName string, rsType string, reqInfo cres.VPCReqInfo) (*
 
 	// (4) create spiderIID: {reqNameID, driverNameID:driverSystemID}
 	//     ex) spiderIID {"seoul-service", "vm-01-9m4e2mr0ui3e8a215n4g:i-0bc7123b7e5cbf79d"}
-	spiderIId := cres.IID{reqIId.NameId, info.IId.NameId + ":" + info.IId.SystemId}
+	spiderIId := cres.IID{reqIId.NameId, spUUID + ":" + info.IId.SystemId}
 
 	// (5) insert IID
 	// for VPC
@@ -1307,6 +1307,15 @@ func getUserIID(spiderIId cres.IID) cres.IID {
 	strArray := strings.Split(spiderIId.SystemId, ":")
 	userIId := cres.IID{spiderIId.NameId, strings.ReplaceAll(spiderIId.SystemId, strArray[0]+":", "")}
 	return userIId
+}
+
+func  findUserIID(iidInfoList []*iidm.IIDInfo, systemId string) cres.IID {
+        for _, iidInfo := range iidInfoList {
+                if getDriverSystemId(iidInfo.IId) == systemId {
+                        return getUserIID(iidInfo.IId)
+                }
+        }
+        return cres.IID{}
 }
 
 // (1) get spiderIID(NameId)
@@ -1848,7 +1857,7 @@ func CreateSecurity(connectionName string, rsType string, reqInfo cres.SecurityR
 
 	// (4) create spiderIID: {reqNameID, "driverNameID:driverSystemID"}
 	//     ex) spiderIID {"seoul-service", "vm-01-9m4e2mr0ui3e8a215n4g:i-0bc7123b7e5cbf79d"}
-	spiderIId := cres.IID{reqIId.NameId, info.IId.NameId + ":" + info.IId.SystemId}
+	spiderIId := cres.IID{reqIId.NameId, spUUID + ":" + info.IId.SystemId}
 
 	// (5) insert spiderIID
 	iidInfo, err := iidRWLock.CreateIID(iidm.SGGROUP, connectionName, reqInfo.VpcIID.NameId, spiderIId)  // reqIId.NameId => rsType
@@ -2410,7 +2419,7 @@ func CreateKey(connectionName string, rsType string, reqInfo cres.KeyPairReqInfo
 
 	// (4) create spiderIID: {reqNameID, "driverNameID:driverSystemID"}
 	//     ex) spiderIID {"seoul-service", "vm-01-9m4e2mr0ui3e8a215n4g:i-0bc7123b7e5cbf79d"}
-	spiderIId := cres.IID{reqIId.NameId, info.IId.NameId + ":" + info.IId.SystemId}
+	spiderIId := cres.IID{reqIId.NameId, spUUID + ":" + info.IId.SystemId}
 
 	// (5) insert spiderIID
 	iidInfo, err := iidRWLock.CreateIID(iidm.IIDSGROUP, connectionName, rsType, spiderIId)
@@ -2918,6 +2927,8 @@ func StartVM(connectionName string, rsType string, reqInfo cres.VMReqInfo) (*cre
                 "resources.IID:SystemId",
                 "resources.VMReqInfo:RootDiskType", // because can be set without disk type
                 "resources.VMReqInfo:RootDiskSize", // because can be set without disk size
+               // "resources.VMReqInfo:KeyPairName",  // because can be set without KeyPair for Windows
+	//	"resources.IID:NameId",
                 "resources.VMReqInfo:VMUserId",     // because can be set without VM User
                 "resources.VMReqInfo:VMUserPasswd", // because can be set without VM PW
         }
@@ -3096,7 +3107,7 @@ func StartVM(connectionName string, rsType string, reqInfo cres.VMReqInfo) (*cre
 
 	// (5) create spiderIID: {reqNameID, "driverNameID:driverSystemID"}
 	//     ex) spiderIID {"seoul-service", "vm-01-9m4e2mr0ui3e8a215n4g:i-0bc7123b7e5cbf79d"}
-	spiderIId := cres.IID{reqIId.NameId, info.IId.NameId + ":" + info.IId.SystemId}
+	spiderIId := cres.IID{reqIId.NameId, spUUID + ":" + info.IId.SystemId}
 
 
 
@@ -3452,6 +3463,17 @@ func getSetNameId(ConnectionName string, vmInfo *cres.VMInfo) error {
 			return err
 		}
 		vmInfo.KeyPairIId.NameId = IIdInfo.IId.NameId
+	}
+
+
+	// set Data Disk NameId	
+	for i, diskIID := range vmInfo.DataDiskIIDs {
+                IIdInfo, err := iidRWLock.GetIIDbySystemID(iidm.IIDSGROUP, ConnectionName, rsDisk, diskIID)
+                if err != nil {
+                        cblog.Error(err)
+                        return err
+                }
+                vmInfo.DataDiskIIDs[i].NameId = IIdInfo.IId.NameId
 	}
 
 	return nil
@@ -4870,7 +4892,7 @@ defer nlbSPLock.Unlock(connectionName, reqInfo.IId.NameId)
 
 	// (4) create spiderIID: {reqNameID, "driverNameID:driverSystemID"}
 	//     ex) spiderIID {"seoul-service", "vm-01-9m4e2mr0ui3e8a215n4g:i-0bc7123b7e5cbf79d"}
-	spiderIId := cres.IID{reqIId.NameId, info.IId.NameId + ":" + info.IId.SystemId}
+	spiderIId := cres.IID{reqIId.NameId, spUUID + ":" + info.IId.SystemId}
 
 	// (5) insert spiderIID
 	iidInfo, err := iidRWLock.CreateIID(iidm.NLBGROUP, connectionName, vpcIIDInfo.IId.NameId, spiderIId)  // reqIId.NameId => rsType
@@ -5950,6 +5972,15 @@ func CreateDisk(connectionName string, rsType string, reqInfo cres.DiskInfo) (*c
                 return nil, err
         }
 */
+
+	if strings.ToLower(strings.TrimSpace(reqInfo.DiskType)) == "default" {
+                reqInfo.DiskType = ""
+        }
+	if strings.ToLower(strings.TrimSpace(reqInfo.DiskSize)) == "default" {
+                reqInfo.DiskSize = ""
+        }
+
+
         cldConn, err := ccm.GetCloudConnection(connectionName)
         if err != nil {
                 cblog.Error(err)
@@ -6007,7 +6038,8 @@ defer diskSPLock.Unlock(connectionName, reqInfo.IId.NameId)
 
         // (4) create spiderIID: {reqNameID, "driverNameID:driverSystemID"}
         //     ex) spiderIID {"seoul-service", "vm-01-9m4e2mr0ui3e8a215n4g:i-0bc7123b7e5cbf79d"}
-        spiderIId := cres.IID{reqIId.NameId, info.IId.NameId + ":" + info.IId.SystemId}
+        //spiderIId := cres.IID{reqIId.NameId, info.IId.NameId + ":" + info.IId.SystemId}
+        spiderIId := cres.IID{reqIId.NameId, spUUID + ":" + info.IId.SystemId}
 
         // (5) insert spiderIID
         iidInfo, err := iidRWLock.CreateIID(iidm.IIDSGROUP, connectionName, rsType, spiderIId)
@@ -6070,6 +6102,12 @@ func ListDisk(connectionName string, rsType string) ([]*cres.DiskInfo, error) {
                 return infoList, nil
         }
 
+	vmIIDInfoList, err := iidRWLock.ListIID(iidm.IIDSGROUP, connectionName, rsVM)
+        if err != nil {
+                cblog.Error(err)
+                return nil, err
+        }
+
         // (2) Get DiskInfo-list with IID-list
         infoList2 := []*cres.DiskInfo{}
         for _, iidInfo := range iidInfoList {
@@ -6087,6 +6125,12 @@ diskSPLock.RUnlock(connectionName, iidInfo.IId.NameId)
                         cblog.Error(err)
                         return nil, err
                 }
+		// get OwnerVM IID to convert nto UserIIDD
+		if info.Status == cres.DiskAttached  {
+			if info.OwnerVM.SystemId != ""  {
+				info.OwnerVM = findUserIID(vmIIDInfoList, info.OwnerVM.SystemId)	
+			}
+		}
 diskSPLock.RUnlock(connectionName, iidInfo.IId.NameId)
 
                 info.IId = getUserIID(iidInfo.IId)
@@ -6097,7 +6141,6 @@ diskSPLock.RUnlock(connectionName, iidInfo.IId.NameId)
         return infoList2, nil
 }
 
-// (1) get IID(NameId)
 // (2) get resource(SystemId)
 // (3) set ResourceInfo(IID.NameId)
 func GetDisk(connectionName string, rsType string, nameID string) (*cres.DiskInfo, error) {
@@ -6144,6 +6187,18 @@ defer diskSPLock.RUnlock(connectionName, nameID)
                 cblog.Error(err)
                 return nil, err
         }
+
+	vmIIDInfoList, err := iidRWLock.ListIID(iidm.IIDSGROUP, connectionName, rsVM)
+        if err != nil {
+                cblog.Error(err)
+                return nil, err
+        }
+
+	if info.Status == cres.DiskAttached  {
+		if info.OwnerVM.SystemId != ""  {
+			info.OwnerVM = findUserIID(vmIIDInfoList, info.OwnerVM.SystemId)
+		}
+	}
 
         // (3) set ResourceInfo(IID.NameId)
         // set ResourceInfo
@@ -6244,6 +6299,8 @@ func AttachDisk(connectionName string, diskName string, ownerVMName string) (*cr
 
 diskSPLock.Lock(connectionName, diskName)
 defer diskSPLock.Unlock(connectionName, diskName)
+vmSPLock.Lock(connectionName, ownerVMName)
+defer vmSPLock.Unlock(connectionName, ownerVMName)
 
         // (1) check exist(diskName)
         diskIIDInfo, err := iidRWLock.GetIID(iidm.IIDSGROUP, connectionName, rsDisk, cres.IID{diskName, ""})
@@ -6307,6 +6364,8 @@ func DetachDisk(connectionName string, diskName string, ownerVMName string) (boo
 
 diskSPLock.Lock(connectionName, diskName)
 defer diskSPLock.Unlock(connectionName, diskName)
+vmSPLock.Lock(connectionName, ownerVMName)
+defer vmSPLock.Unlock(connectionName, ownerVMName)
 
         // (1) check exist(diskName)
         diskIIDInfo, err := iidRWLock.GetIID(iidm.IIDSGROUP, connectionName, rsDisk, cres.IID{diskName, ""})

@@ -909,7 +909,12 @@ func (vmHandler *GCPVMHandler) mappingServerInfo(server *compute.Instance) irs.V
 	subnetArr := strings.Split(server.NetworkInterfaces[0].Subnetwork, "/")
 	vpcName := vpcArr[len(vpcArr)-1]
 	subnetName := subnetArr[len(subnetArr)-1]
-	diskInfo := vmHandler.getDiskInfo(server.Disks[0].Source)
+	// root disk의 type이 instance의 get으로 조회되지 않아서 getDiskInfo 호출
+	diskInfo, err := vmHandler.getDiskInfo(server.Disks[0].Source)
+	if err != nil {
+		cblogger.Error(err)
+		return irs.VMInfo{}
+	}
 	diskTypeArr := strings.Split(diskInfo.Type, "/")
 	diskType := diskTypeArr[len(diskTypeArr)-1]
 
@@ -928,6 +933,7 @@ func (vmHandler *GCPVMHandler) mappingServerInfo(server *compute.Instance) irs.V
 
 	var attachedDisk IIDBox
 	for idx, disk := range server.Disks {
+		// index 0은 root disk
 		if idx > 0 {
 			diskArr := strings.Split(disk.Source, "/")
 			diskName := diskArr[len(diskArr)-1]
@@ -1010,16 +1016,16 @@ func (vmHandler *GCPVMHandler) mappingServerInfo(server *compute.Instance) irs.V
 //이미지 URL 방식 대신 이름을 사용하도록 변경 중
 //@TODO : 2020-05-15 카푸치노 버전에서는 이름 대신 URL을 사용하기로 했음.
 func (vmHandler *GCPVMHandler) getImageInfo(diskname string) irs.IID {
-	projectID := vmHandler.Credential.ProjectID
-	zone := vmHandler.Region.Zone
-	dArr := strings.Split(diskname, "/")
-	var result string
-	if dArr != nil {
-		result = dArr[len(dArr)-1]
-	}
-	cblogger.Infof("result : [%s]", result)
+	// projectID := vmHandler.Credential.ProjectID
+	// zone := vmHandler.Region.Zone
+	// dArr := strings.Split(diskname, "/")
+	// var result string
+	// if dArr != nil {
+	// 	result = dArr[len(dArr)-1]
+	// }
+	// cblogger.Infof("result : [%s]", result)
 
-	info, err := vmHandler.Client.Disks.Get(projectID, zone, result).Do()
+	info, err := vmHandler.getDiskInfo(diskname)
 
 	cblogger.Infof("********************************** Disk 정보 ****************")
 	spew.Dump(info)
@@ -1044,21 +1050,11 @@ func (vmHandler *GCPVMHandler) getImageInfo(diskname string) irs.IID {
 		NameId:   info.SourceImage, //2020-05-14 NameId는 사용자가 사용한 이름도 있기 때문에 리턴하지 않도록 수정
 		SystemId: info.SourceImage,
 	}
-
-	/*
-		iId := irs.IID{
-			NameId: info.Name,
-			//SystemId: strconv.FormatUint(info.Id, 10),
-			SystemId: info.Name,
-		}
-	*/
 	return iId
 }
 
 // getVM에서 DiskSize, DiskType이 넘어오지 않아 Disk정보를 조회
-func (vmHandler *GCPVMHandler) getDiskInfo(diskname string) *compute.Disk {
-	projectID := vmHandler.Credential.ProjectID
-	zone := vmHandler.Region.Zone
+func (vmHandler *GCPVMHandler) getDiskInfo(diskname string) (*compute.Disk, error) {
 	dArr := strings.Split(diskname, "/")
 	var result string
 	if dArr != nil {
@@ -1066,16 +1062,16 @@ func (vmHandler *GCPVMHandler) getDiskInfo(diskname string) *compute.Disk {
 	}
 	cblogger.Infof("result : [%s]", result)
 
-	info, err := vmHandler.Client.Disks.Get(projectID, zone, result).Do()
+	info, err := GetDiskInfo(vmHandler.Client, vmHandler.Credential, vmHandler.Region, result)
 
 	cblogger.Infof("********************************** Disk 정보 ****************")
 	spew.Dump(info)
 	if err != nil {
 		cblogger.Error(err)
-		return info
+		return &compute.Disk{}, err
 	}
 
-	return info
+	return info, nil
 }
 
 // func (vmHandler *GCPVMHandler) getKeyPairInfo(diskname string) irs.IID {

@@ -384,6 +384,8 @@ func RunServer() {
 		{"GET", "/adminweb/vmmgmt/:ConnectConfig", aw.VMMgmt},
 		{"GET", "/adminweb/nlb/:ConnectConfig", aw.NLB},
 		{"GET", "/adminweb/nlbmgmt/:ConnectConfig", aw.NLBMgmt},
+		{"GET", "/adminweb/disk/:ConnectConfig", aw.Disk},
+		{"GET", "/adminweb/diskmgmt/:ConnectConfig", aw.DiskMgmt},
 
 		{"GET", "/adminweb/vmimage/:ConnectConfig", aw.VMImage},
 		{"GET", "/adminweb/vmspec/:ConnectConfig", aw.VMSpec},

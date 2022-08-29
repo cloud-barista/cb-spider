@@ -181,8 +181,8 @@ github.com/cilium/ebpf v0.4.0/go.mod h1:4tRaxcgiL706VnOzHOdBlY8IEAIdxINsQBcU4xJJ
 github.com/cilium/ebpf v0.6.2/go.mod h1:4tRaxcgiL706VnOzHOdBlY8IEAIdxINsQBcU4xJJXRs=
 github.com/cilium/ebpf v0.7.0/go.mod h1:/oI2+1shJiTGAMgl6/RgJr36Eo1jzrRcAWbcXO2usCA=
 github.com/cloud-barista/cb-log v0.5.0/go.mod h1:C0KNV97sw8IoLSlNuSiCGDQIuS/wXJaZWV/6MOwc20c=
-github.com/cloud-barista/cb-log v0.6.1 h1:mvHKKGpYp9GwgVGS5chPRfSbJgBgZ5K1nYwOiZ3QwJY=
-github.com/cloud-barista/cb-log v0.6.1/go.mod h1:Yz+YthpHrivgP8AzwfQtNtZGCu+U6fA7IqhIwAKmol8=
+github.com/cloud-barista/cb-log v0.6.2 h1:pJXS4NmG+I+IcRSERySaxZ40D/T0vNJB+CJIqsNqAsQ=
+github.com/cloud-barista/cb-log v0.6.2/go.mod h1:Yz+YthpHrivgP8AzwfQtNtZGCu+U6fA7IqhIwAKmol8=
 github.com/cloud-barista/cb-store v0.6.0 h1:UFpl4Row0oNdco20YDioiFb/ZtRbpowQbuHQkrEZDKk=
 github.com/cloud-barista/cb-store v0.6.0/go.mod h1:w1HBM1jZOdkpnNfCDwog3YOZlrSYOJLoZeWxQpLuCUk=
 github.com/cockroachdb/datadriven v0.0.0-20190809214429-80d97fb3cbaa/go.mod h1:zn76sxSg3SzpJ0PPJaLDCu+Bu0Lg3sKTORVIj19EIF8=
