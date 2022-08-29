@@ -39,7 +39,10 @@ func (diskHandler *ClouditDiskHandler) CreateDisk(DiskReqInfo irs.DiskInfo) (irs
 	// API Call prepare
 	diskHandler.Client.TokenID = diskHandler.CredentialInfo.AuthToken
 	authHeader := diskHandler.Client.AuthenticatedHeaders()
-	intSize, _ := strconv.Atoi(DiskReqInfo.DiskSize)
+	var intSize = 50
+	if convResult, atoiErr := strconv.Atoi(DiskReqInfo.DiskSize); atoiErr == nil {
+		intSize = convResult
+	}
 	clusterId := ""
 	for _, keyValue := range DiskReqInfo.KeyValueList {
 		if keyValue.Key == "clusterId" {
