@@ -190,6 +190,7 @@ func WaitOperationComplete(client *compute.Service, project string, region strin
 	return nil
 }
 
+// Get 공통으로 사용
 func GetDiskInfo(client *compute.Service, credential idrv.CredentialInfo, region idrv.RegionInfo, diskName string) (*compute.Disk, error) {
 	projectID := credential.ProjectID
 	zone := region.Zone
