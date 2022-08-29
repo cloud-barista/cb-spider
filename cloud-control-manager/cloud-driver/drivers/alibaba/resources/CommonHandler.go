@@ -178,13 +178,13 @@ func DescribeAvailableResource(client *ecs.Client, regionId string, zoneId strin
 		request.DedicatedHostId = categoryValue
 	}
 	//request.DataDiskCategory = "cloud"
-	spew.Dump(request)
+	//spew.Dump(request)
 	result, err := client.DescribeAvailableResource(request)
 	cblogger.Info(result)
 	if err != nil {
 		cblogger.Errorf("DescribeAvailableResource %v.", err)
 	}
-	spew.Dump(result)
+	//spew.Dump(result)
 
 	metaValue := reflect.ValueOf(result).Elem()
 	fieldAvailableZones := metaValue.FieldByName("AvailableZones")
@@ -204,7 +204,6 @@ Instance에 Disk Attach
 func AttachDisk(client *ecs.Client, regionInfo idrv.RegionInfo, ownerVM irs.IID, diskIID irs.IID) error {
 
 	cblogger.Infof("AttachDisk : [%s]", diskIID.SystemId)
-	// Delete the Image by Id
 
 	request := ecs.CreateAttachDiskRequest()
 	request.Scheme = "https"
@@ -243,12 +242,10 @@ func AttachDisk(client *ecs.Client, regionInfo idrv.RegionInfo, ownerVM irs.IID,
 Instance 목록 조회
  iid를 parameter로 주면 해당 iid들만 조회.
 */
-
 func DescribeInstances(client *ecs.Client, regionInfo idrv.RegionInfo, vmIIDs []irs.IID) ([]ecs.Instance, error) {
 	request := ecs.CreateDescribeInstancesRequest()
 	request.Scheme = "https"
 
-	//request.InstanceId = &[]string{vmIID.SystemId}
 	var instanceIdList []string
 	for _, instanceIID := range vmIIDs {
 		instanceIdList = append(instanceIdList, instanceIID.SystemId)
