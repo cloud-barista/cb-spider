@@ -390,6 +390,7 @@ func (vmHandler *ClouditVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (startVM irs
 	}
 
 	// MyImage로 VM 생성 시, 볼륨 스냅샷으로 볼륨을 생성하고 attach
+	var attachedVolumeList []irs.IID
 	if getMyImageErr == nil {
 		isFailed := false
 		if createVolumeErr := myImageHandler.CreateAssociatedVolumeSnapshots(myImage.IId.NameId, vm.Name); createVolumeErr != nil {
@@ -406,6 +407,15 @@ func (vmHandler *ClouditVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (startVM irs
 				}
 			}()
 		}
+
+		vmVolumeList, getVmVolumesErr := server.GetRawVmVolumes(myImageHandler.Client, vm.ID, &requestOpts)
+		if getVmVolumesErr != nil {
+			createError = errors.New("Failed to Get VM Volume List")
+		}
+
+		for _, vmVolume := range *vmVolumeList {
+			attachedVolumeList = append(attachedVolumeList, irs.IID{SystemId: vmVolume.ID, NameId: vmVolume.Name})
+		}
 	}
 
 	vmInfo, err := vmHandler.mappingServerInfo(*vm)
@@ -414,6 +424,9 @@ func (vmHandler *ClouditVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (startVM irs
 		cblogger.Error(createErr.Error())
 		LoggingError(hiscallInfo, createErr)
 		return irs.VMInfo{}, createErr
+	}
+	if len(attachedVolumeList) != 0 {
+		vmInfo.DataDiskIIDs = attachedVolumeList
 	}
 	return vmInfo, nil
 }
