@@ -114,6 +114,8 @@ func GetResourceHandler(handlerType string) (interface{}, error) {
 		resourceHandler, err = cloudConnection.CreateVMHandler()
 	case "NLB":
 		resourceHandler, err = cloudConnection.CreateNLBHandler()
+	case "Disk":
+		resourceHandler, err = cloudConnection.CreateDiskHandler()
 	}
 
 	if err != nil {

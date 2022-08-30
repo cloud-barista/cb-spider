@@ -24,6 +24,7 @@ import (
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/sirupsen/logrus"
+	tencentcbs "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/cbs/v20170312"
 	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
 	cvm "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/cvm/v20170312"
 	//lighthouse "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/lighthouse/v20200324"
@@ -37,8 +38,9 @@ func init() {
 }
 
 type TencentVMHandler struct {
-	Region idrv.RegionInfo
-	Client *cvm.Client
+	Region     idrv.RegionInfo
+	Client     *cvm.Client
+	DiskClient *tencentcbs.Client
 }
 
 //type TencentCbsHandler struct {
@@ -339,6 +341,19 @@ func (vmHandler *TencentVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 		return irs.VMInfo{}, nil
 	}
 	cblogger.Info("==>생성된 VM[%s]의 현재 상태[%s]", newVmIID, curStatus)
+
+	DiskHandler := TencentDiskHandler{
+		Region: vmHandler.Region,
+		Client: vmHandler.DiskClient,
+	}
+
+	for _, disk := range vmReqInfo.DataDiskIIDs {
+		_, attachedErr := DiskHandler.AttachDisk(irs.IID{SystemId: disk.SystemId}, irs.IID{SystemId: newVmIID.SystemId})
+		if attachedErr != nil {
+			cblogger.Error(attachedErr)
+			return irs.VMInfo{}, attachedErr
+		}
+	}
 
 	vmInfo, errVmInfo := vmHandler.GetVM(newVmIID)
 	vmInfo.IId.NameId = vmReqInfo.IId.NameId
@@ -679,8 +694,12 @@ func (vmHandler *TencentVMHandler) ExtractDescribeInstances(curVm *cvm.Instance)
 	//데이터 디스크 정보
 	if !reflect.ValueOf(curVm.DataDisks).IsNil() {
 		if len(curVm.DataDisks) > 0 {
-			if !reflect.ValueOf(curVm.DataDisks[0].DiskId).IsNil() {
-				vmInfo.VMBlockDisk = *curVm.DataDisks[0].DiskId
+			// if !reflect.ValueOf(curVm.DataDisks[0].DiskId).IsNil() {
+			// 	vmInfo.VMBlockDisk = *curVm.DataDisks[0].DiskId
+			// }
+			for _, dataDisk := range curVm.DataDisks {
+				dataDiskIID := irs.IID{SystemId: *dataDisk.DiskId}
+				vmInfo.DataDiskIIDs = append(vmInfo.DataDiskIIDs, dataDiskIID)
 			}
 		}
 	}
