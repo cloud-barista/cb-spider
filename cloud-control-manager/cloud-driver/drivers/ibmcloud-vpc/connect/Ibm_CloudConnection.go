@@ -108,7 +108,7 @@ func (cloudConn *IbmCloudConnection) Close() error {
 }
 
 func (cloudConn *IbmCloudConnection) CreateDiskHandler() (irs.DiskHandler, error) {
-	cblogger.Info("Ibm Cloud Driver: called CreateNLBHandler()!")
+	cblogger.Info("Ibm Cloud Driver: called CreateDiskHandler()!")
 	diskHandler := ibmrs.IbmDiskHandler{
 		CredentialInfo: cloudConn.CredentialInfo,
 		Region:         cloudConn.Region,
@@ -123,5 +123,12 @@ func (cloudConn *IbmCloudConnection) CreateClusterHandler() (irs.ClusterHandler,
 }
 
 func (cloudConn *IbmCloudConnection) CreateMyImageHandler() (irs.MyImageHandler, error) {
-        return nil, errors.New("Ibm Driver: not implemented")
+	cblogger.Info("Ibm Cloud Driver: called CreateMyImageHandler()!")
+	myIamgeHandler := ibmrs.IbmMyImageHandler{
+		CredentialInfo: cloudConn.CredentialInfo,
+		Region:         cloudConn.Region,
+		VpcService:     cloudConn.VpcService,
+		Ctx:            cloudConn.Ctx,
+	}
+	return &myIamgeHandler, nil
 }

@@ -9,6 +9,7 @@ import (
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
+	"sort"
 	"strconv"
 	"time"
 )
@@ -308,6 +309,29 @@ func getRawDisk(vpcService *vpcv1.VpcV1, ctx context.Context, diskIID irs.IID) (
 	}
 
 	return rawDisk, nil
+}
+
+func listRawAttachedDiskByVmIID(vpcService *vpcv1.VpcV1, ctx context.Context, ownerVMIID irs.IID) (*vpcv1.VolumeAttachmentCollection, error) {
+	instance, getInstanceErr := getRawInstance(ownerVMIID, vpcService, ctx)
+	if getInstanceErr != nil {
+		return nil, getInstanceErr
+	}
+
+	listInstanceVolumeAttachmentsOptions := &vpcv1.ListInstanceVolumeAttachmentsOptions{}
+	listInstanceVolumeAttachmentsOptions.SetInstanceID(*instance.ID)
+	volumeAttachments, _, listVolumeAttachmentsErr := vpcService.ListInstanceVolumeAttachmentsWithContext(ctx, listInstanceVolumeAttachmentsOptions)
+	if listVolumeAttachmentsErr != nil {
+		return nil, errors.New(fmt.Sprintf("Failed to List Volume Attachments. err = %s", listVolumeAttachmentsErr))
+	}
+
+	temp := volumeAttachments.VolumeAttachments
+
+	sort.Slice(temp, func(i, j int) bool {
+		return temp[i].CreatedAt.String() < temp[j].CreatedAt.String()
+	})
+	volumeAttachments.VolumeAttachments = temp
+
+	return volumeAttachments, nil
 }
 
 func getDiskStatus(status string) irs.DiskStatus {
