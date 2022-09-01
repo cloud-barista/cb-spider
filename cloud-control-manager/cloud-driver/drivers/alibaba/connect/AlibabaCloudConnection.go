@@ -39,18 +39,19 @@ type AlibabaCloudConnection struct {
 	//VNetClient          *vpc.Client
 	VpcClient *vpc.Client
 	//VNicClient          *ecs.Client
-	SubnetClient *vpc.Client
-	VmSpecClient *ecs.Client
-	NLBClient    *slb.Client
-	DiskClient   *ecs.Client
+	SubnetClient  *vpc.Client
+	VmSpecClient  *ecs.Client
+	NLBClient     *slb.Client
+	DiskClient    *ecs.Client
+	MyImageClient *ecs.Client
 }
 
 /*
-func (cloudConn *AlibabaCloudConnection) CreateVNetworkHandler() (irs.VNetworkHandler, error) {
-	cblogger.Info("Alibaba Cloud Driver: called CreateVNetworkHandler()!")
-	vNetHandler := alirs.AlibabaVNetworkHandler{cloudConn.Region, cloudConn.VNetClient}
-	return &vNetHandler, nil
-}
+	func (cloudConn *AlibabaCloudConnection) CreateVNetworkHandler() (irs.VNetworkHandler, error) {
+		cblogger.Info("Alibaba Cloud Driver: called CreateVNetworkHandler()!")
+		vNetHandler := alirs.AlibabaVNetworkHandler{cloudConn.Region, cloudConn.VNetClient}
+		return &vNetHandler, nil
+	}
 */
 func (cloudConn *AlibabaCloudConnection) CreateVPCHandler() (irs.VPCHandler, error) {
 	cblogger.Info("Alibaba Cloud Driver: called CreateVPCHandler()!")
@@ -114,6 +115,12 @@ func (cloudConn *AlibabaCloudConnection) CreateNLBHandler() (irs.NLBHandler, err
 func (cloudConn *AlibabaCloudConnection) CreateDiskHandler() (irs.DiskHandler, error) {
 	cblogger.Info("Start")
 	handler := alirs.AlibabaDiskHandler{cloudConn.Region, cloudConn.DiskClient}
+	return &handler, nil
+}
+
+func (cloudConn *AlibabaCloudConnection) CreateMyImageHandler() (irs.MyImageHandler, error) {
+	cblogger.Info("Start")
+	handler := alirs.AlibabaMyImageHandler{cloudConn.Region, cloudConn.MyImageClient}
 	return &handler, nil
 }
 

@@ -42,6 +42,7 @@ func init() {
 
 // 주어진 이미지 id에 대한 이미지 사이즈 조회
 // -1 : 정보 조회 실패
+// deprecated
 func (vmHandler *AlibabaVMHandler) GetImageSize(ImageSystemId string) (int64, error) {
 	cblogger.Debugf("ImageID : [%s]", ImageSystemId)
 
@@ -69,7 +70,9 @@ func (vmHandler *AlibabaVMHandler) GetImageSize(ImageSystemId string) (int64, er
 }
 
 // 참고 : VM 생성 시 인증 방식은 KeyPair 또는 ID&PWD 방식이 가능하지만 계정은 모두 root  - 비번 조회 기능은 없음
-//        비밀번호는 8-30자로서 대문자, 소문자, 숫자 및/또는 특수 문자가 포함되어야 합니다.
+//
+//	비밀번호는 8-30자로서 대문자, 소문자, 숫자 및/또는 특수 문자가 포함되어야 합니다.
+//
 // @TODO : root 계정의 비번만 설정 가능한 데 다른 계정이 요청되었을 경우 예외 처리할 것인지.. 아니면 비번을 설정할 것인지 확인 필요.
 // @TODO : PublicIp 요금제 방식과 대역폭 설정 방법 논의 필요
 func (vmHandler *AlibabaVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, error) {
@@ -274,7 +277,8 @@ func (vmHandler *AlibabaVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 			}
 		}
 
-		imageSize, err := vmHandler.GetImageSize(vmReqInfo.ImageIID.SystemId)
+		//imageSize, err := vmHandler.GetImageSize(vmReqInfo.ImageIID.SystemId)
+		imageSize, err := DescribeImageSize(vmHandler.Client, vmHandler.Region, vmReqInfo.ImageIID)
 		if err != nil {
 			cblogger.Error(err)
 			return irs.VMInfo{}, err
@@ -697,8 +701,8 @@ func (vmHandler *AlibabaVMHandler) GetVM(vmIID irs.IID) (irs.VMInfo, error) {
 	return vmInfo, err
 }
 
-//@TODO : 2020-03-26 Ali클라우드 API 구조가 바뀐 것 같아서 임시로 변경해 놓음.
-//func (vmHandler *AlibabaVMHandler) ExtractDescribeInstances() irs.VMInfo {
+// @TODO : 2020-03-26 Ali클라우드 API 구조가 바뀐 것 같아서 임시로 변경해 놓음.
+// func (vmHandler *AlibabaVMHandler) ExtractDescribeInstances() irs.VMInfo {
 func (vmHandler *AlibabaVMHandler) ExtractDescribeInstances(instanceInfo *ecs.Instance) (irs.VMInfo, error) {
 	cblogger.Info(instanceInfo)
 	//diskInfo := vmHandler.getDiskInfo(instanceInfo.InstanceId)
@@ -864,7 +868,7 @@ func (vmHandler *AlibabaVMHandler) ListVM() ([]*irs.VMInfo, error) {
 	return vmInfoList, nil
 }
 
-//SHUTTING-DOWN / TERMINATED
+// SHUTTING-DOWN / TERMINATED
 func (vmHandler *AlibabaVMHandler) GetVMStatus(vmIID irs.IID) (irs.VMStatus, error) {
 	vmID := vmIID.SystemId
 	cblogger.Infof("vmID : [%s]", vmID)
