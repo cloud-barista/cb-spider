@@ -348,10 +348,14 @@ func (vmHandler *TencentVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 	}
 
 	for _, disk := range vmReqInfo.DataDiskIIDs {
-		_, attachedErr := DiskHandler.AttachDisk(irs.IID{SystemId: disk.SystemId}, irs.IID{SystemId: newVmIID.SystemId})
-		if attachedErr != nil {
-			cblogger.Error(attachedErr)
-			return irs.VMInfo{}, attachedErr
+		_, attachErr := AttachDisk(DiskHandler.Client, irs.IID{SystemId: disk.SystemId}, irs.IID{SystemId: newVmIID.SystemId})
+		if attachErr != nil {
+			return irs.VMInfo{}, attachErr
+		}
+
+		_, statusErr := WaitForDone(DiskHandler.Client, irs.IID{SystemId: disk.SystemId}, "ATTACHED")
+		if statusErr != nil {
+			return irs.VMInfo{}, statusErr
 		}
 	}
 

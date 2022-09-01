@@ -19,18 +19,45 @@ type TencentDiskHandler struct {
 	Client *cbs.Client
 }
 
+const (
+	Disk_Status_Attached   = "ATTACHED"
+	Disk_Status_Unattached = "UNATTACHED"
+)
+
+/*
+	CreateDisk 이후에 DescribeDisks 호출하여 상태가 UNATTACHED 또는 ATTACHED면 정상적으로 생성된 것임
+	비동기로 처리되기는 하나 생성 직후 호출해도 정상적으로 상태값을 받아옴
+	따라서 Operation이 완료되길 기다리는 function(WaitForXXX)은 만들지 않음
+*/
 func (DiskHandler *TencentDiskHandler) CreateDisk(diskReqInfo irs.DiskInfo) (irs.DiskInfo, error) {
-	diskSize, sizeErr := strconv.ParseUint(diskReqInfo.DiskSize, 10, 64)
-	if sizeErr != nil {
-		return irs.DiskInfo{}, sizeErr
+
+	existName, errExist := DiskHandler.diskExist(diskReqInfo.IId.NameId)
+	if errExist != nil {
+		cblogger.Error(errExist)
+		return irs.DiskInfo{}, errExist
+	}
+	if existName {
+		return irs.DiskInfo{}, errors.New("A disk with the name " + diskReqInfo.IId.NameId + " already exists.")
 	}
 
 	request := cbs.NewCreateDisksRequest()
 	request.Placement = &cbs.Placement{Zone: common.StringPtr(DiskHandler.Region.Zone)}
 	request.DiskChargeType = common.StringPtr("POSTPAID_BY_HOUR")
 	request.DiskType = common.StringPtr(diskReqInfo.DiskType)
-	request.DiskSize = common.Uint64Ptr(diskSize)
 	request.DiskName = common.StringPtr(diskReqInfo.IId.NameId)
+
+	diskSizeErr := validateDiskSize(diskReqInfo)
+	if diskSizeErr != nil {
+		cblogger.Error(diskSizeErr)
+		return irs.DiskInfo{}, diskSizeErr
+	}
+
+	diskSize, sizeErr := strconv.ParseUint(diskReqInfo.DiskSize, 10, 64)
+	if sizeErr != nil {
+		return irs.DiskInfo{}, sizeErr
+	}
+
+	request.DiskSize = common.Uint64Ptr(diskSize)
 
 	response, err := DiskHandler.Client.CreateDisks(request)
 	if err != nil {
@@ -53,15 +80,13 @@ func (DiskHandler *TencentDiskHandler) CreateDisk(diskReqInfo irs.DiskInfo) (irs
 func (DiskHandler *TencentDiskHandler) ListDisk() ([]*irs.DiskInfo, error) {
 	diskInfoList := []*irs.DiskInfo{}
 
-	request := cbs.NewDescribeDisksRequest()
-
-	response, err := DiskHandler.Client.DescribeDisks(request)
+	diskSet, err := DescribeDisks(DiskHandler.Client, nil)
 	if err != nil {
 		cblogger.Error(err)
 		return nil, err
 	}
 
-	for _, disk := range response.Response.DiskSet {
+	for _, disk := range diskSet {
 		diskInfo, diskInfoErr := convertDiskInfo(disk)
 		if diskInfoErr != nil {
 			cblogger.Error(diskInfoErr)
@@ -76,17 +101,11 @@ func (DiskHandler *TencentDiskHandler) ListDisk() ([]*irs.DiskInfo, error) {
 
 func (DiskHandler *TencentDiskHandler) GetDisk(diskIID irs.IID) (irs.DiskInfo, error) {
 
-	request := cbs.NewDescribeDisksRequest()
-
-	request.DiskIds = common.StringPtrs([]string{diskIID.SystemId})
-
-	response, err := DiskHandler.Client.DescribeDisks(request)
+	targetDisk, err := DescribeDisksByDiskID(DiskHandler.Client, diskIID)
 	if err != nil {
 		cblogger.Error(err)
 		return irs.DiskInfo{}, err
 	}
-
-	targetDisk := *response.Response.DiskSet[0]
 
 	diskInfo, diskInfoErr := convertDiskInfo(&targetDisk)
 	if diskInfoErr != nil {
@@ -98,15 +117,26 @@ func (DiskHandler *TencentDiskHandler) GetDisk(diskIID irs.IID) (irs.DiskInfo, e
 }
 
 func (DiskHandler *TencentDiskHandler) ChangeDiskSize(diskIID irs.IID, size string) (bool, error) {
-	diskSize, sizeErr := strconv.ParseUint(size, 10, 64)
+	diskInfo, diskInfoErr := DiskHandler.GetDisk(diskIID)
+	if diskInfoErr != nil {
+		return false, diskInfoErr
+	}
+
+	diskSizeErr := validateChangeDiskSize(diskInfo, size)
+	if diskSizeErr != nil {
+		return false, diskSizeErr
+	}
+
+	newSize, sizeErr := strconv.ParseUint(size, 10, 64)
 	if sizeErr != nil {
+		cblogger.Error(sizeErr)
 		return false, sizeErr
 	}
 
 	request := cbs.NewResizeDiskRequest()
 
 	request.DiskId = common.StringPtr(diskIID.SystemId)
-	request.DiskSize = common.Uint64Ptr(diskSize)
+	request.DiskSize = common.Uint64Ptr(newSize)
 
 	_, err := DiskHandler.Client.ResizeDisk(request)
 	if err != nil {
@@ -132,15 +162,15 @@ func (DiskHandler *TencentDiskHandler) DeleteDisk(diskIID irs.IID) (bool, error)
 }
 
 func (DiskHandler *TencentDiskHandler) AttachDisk(diskIID irs.IID, ownerVM irs.IID) (irs.DiskInfo, error) {
-	request := cbs.NewAttachDisksRequest()
 
-	request.InstanceId = common.StringPtr(ownerVM.SystemId)
-	request.DiskIds = common.StringPtrs([]string{diskIID.SystemId})
+	_, attachErr := AttachDisk(DiskHandler.Client, irs.IID{SystemId: diskIID.SystemId}, irs.IID{SystemId: ownerVM.SystemId})
+	if attachErr != nil {
+		return irs.DiskInfo{}, attachErr
+	}
 
-	_, err := DiskHandler.Client.AttachDisks(request)
-	if err != nil {
-		cblogger.Error(err)
-		return irs.DiskInfo{}, err
+	_, statusErr := WaitForDone(DiskHandler.Client, irs.IID{SystemId: diskIID.SystemId}, Disk_Status_Attached)
+	if statusErr != nil {
+		return irs.DiskInfo{}, statusErr
 	}
 
 	diskInfo, diskInfoErr := DiskHandler.GetDisk(irs.IID{SystemId: diskIID.SystemId})
@@ -164,6 +194,11 @@ func (DiskHandler *TencentDiskHandler) DetachDisk(diskIID irs.IID, ownerVM irs.I
 		return false, err
 	}
 
+	_, statusErr := WaitForDone(DiskHandler.Client, irs.IID{SystemId: diskIID.SystemId}, Disk_Status_Unattached)
+	if statusErr != nil {
+		return false, statusErr
+	}
+
 	return true, nil
 }
 
@@ -174,9 +209,22 @@ func convertDiskInfo(diskResp *cbs.Disk) (irs.DiskInfo, error) {
 	diskInfo.DiskType = *diskResp.DiskType
 	diskInfo.DiskSize = strconv.FormatInt(int64(*diskResp.DiskSize), 10)
 	diskInfo.OwnerVM.SystemId = *diskResp.InstanceId
-	diskInfo.CreatedTime, _ = time.Parse(time.RFC3339, *diskResp.CreateTime)
+	diskInfo.CreatedTime, _ = time.Parse("2006-01-02 15:04:05", *diskResp.CreateTime)
+	diskInfo.Status = convertTenStatusToDiskStatus(diskResp)
 
 	return diskInfo, nil
+}
+
+func convertTenStatusToDiskStatus(diskInfo *cbs.Disk) irs.DiskStatus {
+	var returnStatus irs.DiskStatus
+
+	if *diskInfo.Attached {
+		returnStatus = irs.DiskAttached
+	} else {
+		returnStatus = irs.DiskAvailable
+	}
+
+	return returnStatus
 }
 
 func validateDiskSize(diskInfo irs.DiskInfo) error {
@@ -234,4 +282,90 @@ func validateDiskSize(diskInfo irs.DiskInfo) error {
 	}
 
 	return nil
+}
+
+func validateChangeDiskSize(diskInfo irs.DiskInfo, newSize string) error {
+	cloudOSMetaInfo, err := cim.GetCloudOSMetaInfo("TENCENT")
+	arrDiskSizeOfType := cloudOSMetaInfo.DiskSize
+
+	diskSize, err := strconv.ParseInt(diskInfo.DiskSize, 10, 64)
+	if err != nil {
+		cblogger.Error(err)
+		return err
+	}
+
+	newDiskSize, err := strconv.ParseInt(newSize, 10, 64)
+	if err != nil {
+		cblogger.Error(err)
+		return err
+	}
+
+	if diskSize >= newDiskSize {
+		return errors.New("Target Disk Size: " + newSize + " must be larger than existing Disk Size " + diskInfo.DiskSize)
+	}
+
+	type diskSizeModel struct {
+		diskType    string
+		diskMinSize int64
+		diskMaxSize int64
+		unit        string
+	}
+
+	diskSizeValue := diskSizeModel{}
+
+	for _, diskSizeInfo := range arrDiskSizeOfType {
+		diskSizeArr := strings.Split(diskSizeInfo, "|")
+		if strings.EqualFold(diskInfo.DiskType, diskSizeArr[0]) {
+			diskSizeValue.diskType = diskSizeArr[0]
+			diskSizeValue.unit = diskSizeArr[3]
+			diskSizeValue.diskMinSize, err = strconv.ParseInt(diskSizeArr[1], 10, 64)
+			if err != nil {
+				cblogger.Error(err)
+				return err
+			}
+
+			diskSizeValue.diskMaxSize, err = strconv.ParseInt(diskSizeArr[2], 10, 64)
+			if err != nil {
+				cblogger.Error(err)
+				return err
+			}
+		}
+	}
+
+	if newDiskSize > diskSizeValue.diskMaxSize {
+		fmt.Println("Disk Size Error!!: ", diskSize, diskSizeValue.diskMinSize, diskSizeValue.diskMaxSize)
+		return errors.New("Disk Size must be smaller than or equal to the maximum size (" + strconv.FormatInt(diskSizeValue.diskMaxSize, 10) + " GB).")
+	}
+
+	return nil
+}
+
+/*
+	disk가 존재하는지 check
+	동일이름이 없으면 false, 있으면 true
+*/
+func (DiskHandler *TencentDiskHandler) diskExist(chkName string) (bool, error) {
+	cblogger.Debugf("chkName : %s", chkName)
+
+	request := cbs.NewDescribeDisksRequest()
+
+	request.Filters = []*cbs.Filter{
+		{
+			Name:   common.StringPtr("disk-name"),
+			Values: common.StringPtrs([]string{chkName}),
+		},
+	}
+
+	response, err := DiskHandler.Client.DescribeDisks(request)
+	if err != nil {
+		cblogger.Error(err)
+		return false, err
+	}
+
+	if *response.Response.TotalCount < 1 {
+		return false, nil
+	}
+
+	cblogger.Infof("Disk 정보 찾음 - DiskId:[%s] / DiskName:[%s]", *response.Response.DiskSet[0].DiskId, *response.Response.DiskSet[0].DiskName)
+	return true, nil
 }
