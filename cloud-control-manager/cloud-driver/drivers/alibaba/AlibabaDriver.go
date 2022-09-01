@@ -82,9 +82,10 @@ func (driver *AlibabaDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (i
 		//VNetClient:          VPCClient,
 		//VNicClient:          ECSClient,
 		//SubnetClient: VPCClient,
-		VmSpecClient: ECSClient,
-		NLBClient:    NLBClient,
-		DiskClient:   ECSClient,
+		VmSpecClient:  ECSClient,
+		NLBClient:     NLBClient,
+		DiskClient:    ECSClient,
+		MyImageClient: ECSClient,
 	}
 	return &iConn, nil
 }
