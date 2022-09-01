@@ -23,7 +23,10 @@ require (
 	github.com/IBM/vpc-go-sdk v0.8.0
 	github.com/Microsoft/go-winio v0.5.2 // indirect
 	github.com/alecthomas/template v0.0.0-20190718012654-fb15b899a751
-	github.com/aliyun/alibaba-cloud-sdk-go v1.61.1662
+	//github.com/aliyun/alibaba-cloud-sdk-go v1.61.1662
+	github.com/aliyun/alibaba-cloud-sdk-go v1.61.1743
+	//v2.1.3  github.com/alibabacloud-go/ecs-20140526/v2
+	//github.com/aliyun/alibaba-cloud-sdk-go v1.95.0
 	github.com/aws/aws-sdk-go v1.39.4
 	github.com/bramvdbogaerde/go-scp v1.0.0
 	github.com/chyeh/pubip v0.0.0-20170203095919-b7e679cf541c
