@@ -59,12 +59,11 @@ type NodeGroupInfo struct {
 	RootDiskSize 	string  // "", "default", "50", "1000" (GB)
         KeyPairIID 	IID
 
-	// Auto Scaling config.
-	AutoScaling		bool
-	MinNumberNodes		int
-	MaxNumberNodes		int
+	// Scaling config.
+	DesiredNodeSize	int
+	MinNodeSize	int
+	MaxNodeSize	int
 
-	DesiredNumberNodes	int
 
 	NodeList	[]IID
 	KeyValueList []KeyValue
@@ -85,23 +84,15 @@ type ClusterHandler interface {
 	GetCluster(clusterIID IID) (ClusterInfo, error)
 	DeleteCluster(clusterIID IID) (bool, error)
 
-	AddNodeGroup(clusterIID IID, nodeGroup IID) (ClusterInfo, error)
-	RemoveNodeGroup(clusterIID IID, nodeGroup IID) (bool, error)
+        //------ NodeGroup Management
+        CreateNodeGroup(clusterIID IID, nodeGroupReqInfo NodeGroupInfo) (NodeGroupInfo, error)
+        ListNodeGroup(clusterIID IID) ([]*NodeGroupInfo, error)
+        GetNodeGroup(clusterIID IID, nodeGroupIID IID) (NodeGroupInfo, error)
+        ChangeNodeGroupScaling(clusterIID IID, nodeGroupIID IID, 
+		DesiredNodeSize int, MinNodeSize int, MaxNodeSize int) (NodeGroupInfo, error)
+        DeleteNodeGroup(clusterIID IID, nodeGroupIID IID) (bool, error)
 
 	//------ Upgrade K8S
 	UpgradeCluster(clusterIID IID, newVersion string) (ClusterInfo, error)
-
 }
 
-//-------- NodeGroup API
-type NodeGroupHandler interface {
-
-        //------ NodeGroup Management
-        CreateNodeGroup(nodeGroupReqInfo NodeGroupInfo) (NodeGroupInfo, error)
-        ListNodeGroup() ([]*NodeGroupInfo, error)
-        GetNodeGroup(nodeGroupIID IID) (NodeGroupInfo, error)
-        DeleteNodeGroup(nodeGroupIID IID) (bool, error)
-
-        AddNodes(nodeGroupIID IID, number int) (NodeGroupInfo, error)
-        RemoveNodes(nodeGroupIID IID, vmIIDs *[]IID) (bool, error)
-}

@@ -111,3 +111,7 @@ func (cloudConn *IbmCloudConnection) Close() error {
 func (cloudConn *IbmCloudConnection) CreateDiskHandler() (irs.DiskHandler, error) {
         return nil, errors.New("Ibm Driver: not implemented")
 }
+
+func (cloudConn *IbmCloudConnection) CreateClusterHandler() (irs.ClusterHandler, error) {
+        return nil, errors.New("Ibm Driver: not implemented")
+}

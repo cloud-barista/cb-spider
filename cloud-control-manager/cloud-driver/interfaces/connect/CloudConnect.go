@@ -27,6 +27,8 @@ type CloudConnection interface {
 	CreateNLBHandler() (irs.NLBHandler, error)
 	CreateDiskHandler() (irs.DiskHandler, error)
 
+	CreateClusterHandler() (irs.ClusterHandler, error)
+
 	IsConnected() (bool, error)
 	Close() error
 }
