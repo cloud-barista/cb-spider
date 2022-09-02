@@ -19,9 +19,19 @@ type ClusterStatus string
 const (
         ClusterCreating ClusterStatus = "Creating"
         ClusterActive   ClusterStatus = "Active"
-        ClusterInactive   ClusterStatus = "Inactive"
-        ClusterUpdating   ClusterStatus = "Updating"
-        ClusterDeleting   ClusterStatus = "Deleting"
+        ClusterInactive ClusterStatus = "Inactive"
+        ClusterUpdating ClusterStatus = "Updating"
+        ClusterDeleting ClusterStatus = "Deleting"
+)
+
+type NodeGroupStatus string
+
+const (
+        NodeGroupCreating NodeGroupStatus = "Creating"
+        NodeGroupActive   NodeGroupStatus = "Active"
+        NodeGroupInactive NodeGroupStatus = "Inactive"
+        NodeGroupUpdating NodeGroupStatus = "Updating"
+        NodeGroupDeleting NodeGroupStatus = "Deleting"
 )
 
 //-------- Info Structure
@@ -59,6 +69,8 @@ type NodeGroupInfo struct {
 	RootDiskSize 	string  // "", "default", "50", "1000" (GB)
         KeyPairIID 	IID
 
+        Status 		NodeGroupStatus
+
 	// Scaling config.
 	DesiredNodeSize	int
 	MinNodeSize	int
@@ -79,18 +91,18 @@ type AddonsInfo struct {
 type ClusterHandler interface {
 
 	//------ Cluster Management
-	CreateCluster(clusterReqInfo ClusterInfo) (ClusterInfo, error)
+	CreateCluster(clusterReqInfo ClusterInfo, nodeReqInfo NodeGroupInfo) (ClusterInfo, error)
 	ListCluster() ([]*ClusterInfo, error)
 	GetCluster(clusterIID IID) (ClusterInfo, error)
 	DeleteCluster(clusterIID IID) (bool, error)
 
         //------ NodeGroup Management
-        CreateNodeGroup(clusterIID IID, nodeGroupReqInfo NodeGroupInfo) (NodeGroupInfo, error)
+        AddNodeGroup(clusterIID IID, nodeGroupReqInfo NodeGroupInfo) (NodeGroupInfo, error)
         ListNodeGroup(clusterIID IID) ([]*NodeGroupInfo, error)
         GetNodeGroup(clusterIID IID, nodeGroupIID IID) (NodeGroupInfo, error)
         ChangeNodeGroupScaling(clusterIID IID, nodeGroupIID IID, 
 		DesiredNodeSize int, MinNodeSize int, MaxNodeSize int) (NodeGroupInfo, error)
-        DeleteNodeGroup(clusterIID IID, nodeGroupIID IID) (bool, error)
+        RemoveNodeGroup(clusterIID IID, nodeGroupIID IID) (bool, error)
 
 	//------ Upgrade K8S
 	UpgradeCluster(clusterIID IID, newVersion string) (ClusterInfo, error)
