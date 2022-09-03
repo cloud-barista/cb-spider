@@ -72,6 +72,7 @@ type NodeGroupInfo struct {
         Status 		NodeGroupStatus
 
 	// Scaling config.
+	OnAutoScaling	bool // default: true
 	DesiredNodeSize	int
 	MinNodeSize	int
 	MaxNodeSize	int
