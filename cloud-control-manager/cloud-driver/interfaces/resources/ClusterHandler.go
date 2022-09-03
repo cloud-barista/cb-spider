@@ -92,7 +92,7 @@ type AddonsInfo struct {
 type ClusterHandler interface {
 
 	//------ Cluster Management
-	CreateCluster(clusterReqInfo ClusterInfo, nodeReqInfo NodeGroupInfo) (ClusterInfo, error)
+	CreateCluster(clusterReqInfo ClusterInfo) (ClusterInfo, error)
 	ListCluster() ([]*ClusterInfo, error)
 	GetCluster(clusterIID IID) (ClusterInfo, error)
 	DeleteCluster(clusterIID IID) (bool, error)
@@ -101,6 +101,7 @@ type ClusterHandler interface {
         AddNodeGroup(clusterIID IID, nodeGroupReqInfo NodeGroupInfo) (NodeGroupInfo, error)
         ListNodeGroup(clusterIID IID) ([]*NodeGroupInfo, error)
         GetNodeGroup(clusterIID IID, nodeGroupIID IID) (NodeGroupInfo, error)
+        SetNodeGroupAutoScaling(clusterIID IID, nodeGroupIID IID, on bool) (bool, error)
         ChangeNodeGroupScaling(clusterIID IID, nodeGroupIID IID, 
 		DesiredNodeSize int, MinNodeSize int, MaxNodeSize int) (NodeGroupInfo, error)
         RemoveNodeGroup(clusterIID IID, nodeGroupIID IID) (bool, error)
