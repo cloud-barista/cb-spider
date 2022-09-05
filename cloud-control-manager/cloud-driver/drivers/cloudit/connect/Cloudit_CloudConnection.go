@@ -101,3 +101,7 @@ func (cloudConn *ClouditCloudConnection) CreateClusterHandler() (irs.ClusterHand
         return nil, errors.New("Cloudit Driver: not implemented")
 }
 
+func (cloudConn *ClouditCloudConnection) CreateMyImageHandler() (irs.MyImageHandler, error) {
+        return nil, errors.New("Cloudit Driver: not implemented")
+}
+

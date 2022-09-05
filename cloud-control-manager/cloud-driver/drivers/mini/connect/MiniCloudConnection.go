@@ -102,3 +102,7 @@ func (cloudConn *MiniConnection) CreateClusterHandler() (irs.ClusterHandler, err
         return nil, errors.New("Mini Driver: not implemented")
 }
 
+func (cloudConn *MiniConnection) CreateMyImageHandler() (irs.MyImageHandler, error) {
+        return nil, errors.New("Mini Driver: not implemented")
+}
+

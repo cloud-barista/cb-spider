@@ -123,3 +123,7 @@ func (cloudConn *GCPCloudConnection) CreateClusterHandler() (irs.ClusterHandler,
         return nil, errors.New("GCP Driver: not implemented")
 }
 
+func (cloudConn *GCPCloudConnection) CreateMyImageHandler() (irs.MyImageHandler, error) {
+        return nil, errors.New("GCP Driver: not implemented")
+}
+

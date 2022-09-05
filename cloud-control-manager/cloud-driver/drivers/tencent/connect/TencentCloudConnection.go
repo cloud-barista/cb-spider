@@ -125,3 +125,7 @@ func (cloudConn *TencentCloudConnection) CreateDiskHandler() (irs.DiskHandler, e
 func (cloudConn *TencentCloudConnection) CreateClusterHandler() (irs.ClusterHandler, error) {
         return nil, errors.New("Tencent Driver: not implemented")
 }
+
+func (cloudConn *TencentCloudConnection) CreateMyImageHandler() (irs.MyImageHandler, error) {
+        return nil, errors.New("Tencent Driver: not implemented")
+}
