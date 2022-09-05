@@ -104,6 +104,29 @@ func (vmHandler *MockVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, er
 		}
 	}
 
+        // data disk validation
+        diskHandler := MockDiskHandler{mockName}
+        diskInfoList, err := diskHandler.ListDisk()
+        if err != nil {
+                cblogger.Error(err)
+                return irs.VMInfo{}, err
+        }
+        validatedDiskIIDs := []irs.IID{}
+        for _, info1 := range vmReqInfo.DataDiskIIDs {
+                flg := false
+                for _, info2 := range diskInfoList {
+                        if (*info2).IId.NameId == info1.NameId {
+                                validatedDiskIIDs = append(validatedDiskIIDs, info2.IId)
+                                flg = true
+                        }
+                }
+                if !flg {
+                        errMSG := info1.NameId + " Data Disk iid does not exist!!"
+                        cblogger.Error(errMSG)
+                        return irs.VMInfo{}, fmt.Errorf(errMSG)
+                }
+        }
+
 	// keypair validation
 	keyPairHandler := MockKeyPairHandler{mockName}
 	validatedKeyPairInfo, err := keyPairHandler.GetKey(vmReqInfo.KeyPairIID)
@@ -142,7 +165,7 @@ func (vmHandler *MockVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, er
 		RootDiskSize:  "32",
 		RootDeviceName:  "/dev/sda1",
 
-		DataDiskIIDs:  []irs.IID{},
+		DataDiskIIDs:  validatedDiskIIDs,
 
 		KeyValueList: nil,
 	}

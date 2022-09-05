@@ -1328,15 +1328,16 @@ func makeVMTRList_html(connConfig string, bgcolor string, height string, fontSiz
 			" (" + one.RootDiskType + ":" + one.RootDiskSize + "GB)" )
 
 		dataDiskList := ""
-		for idx, disk := range one.DataDiskIIDs {
-			if idx==0 {
-				dataDiskList += "<br>&nbsp;&nbsp;&nbsp;------ Data Disk ------"
-			}
-			if dataDiskList != "" {
-				dataDiskList += "<br>"
-			}
+		if len(one.DataDiskIIDs) > 0 {
+			dataDiskList = "<br>&nbsp;&nbsp;&nbsp;------ Data Disk ------<br>"
+		}else {
+			dataDiskList = "<br>&nbsp;&nbsp;&nbsp;------ No Data Disk ------<br><br>"
+		}
+
+		for _, disk := range one.DataDiskIIDs {
 			diskInfo := diskInfo(connConfig, disk.NameId)
 			dataDiskList += "&nbsp;* " + disk.NameId + "(" + diskInfo.DiskType + ":" + diskInfo.DiskSize + "GB)"
+			dataDiskList += "<br>"
 		}
 		str = strings.ReplaceAll(str, "$$DATADISK$$", dataDiskList)
 
@@ -1404,7 +1405,7 @@ func makePostVMFunc_js() string {
                         var textboxes = document.getElementsByName('text_box');
                         sendJson = '{ "ConnectionName" : "' + connConfig + '", "ReqInfo" : { "Name" : "$$VMNAME$$", \
                                 "ImageName" : "$$IMAGE$$", "VMSpecName" : "$$SPEC$$", "VPCName" : "$$VPC$$", "SubnetName" : "$$SUBNET$$", \
-                                "SecurityGroupNames" : $$SECURITYGROUP$$, "KeyPairName" : "$$ACCESSKEY$$", "VMUserId" : "$$ACCESSUSER$$", "VMUserPasswd" : "$$ACCESSPASSWD$$" }}'
+                                "SecurityGroupNames" : $$SECURITYGROUP$$, "DataDiskNames" : [$$DATADISK$$], "KeyPairName" : "$$ACCESSKEY$$", "VMUserId" : "$$ACCESSUSER$$", "VMUserPasswd" : "$$ACCESSPASSWD$$" }}'
 
                         for (var i = 0; i < textboxes.length; i++) { // @todo make parallel executions
                                 switch (textboxes[i].id) {
@@ -1425,6 +1426,10 @@ func makePostVMFunc_js() string {
                                                 break;
                                         case "7":
                                                 sendJson = sendJson.replace("$$SECURITYGROUP$$", textboxes[i].value);
+                                                break;
+                                        case "10":
+						diskList = getSelectDisk(textboxes[i])
+                                                sendJson = sendJson.replace("$$DATADISK$$", diskList);
                                                 break;
                                         case "11":
                                                 sendJson = sendJson.replace("$$ACCESSKEY$$", textboxes[i].value);
@@ -1454,6 +1459,35 @@ func makePostVMFunc_js() string {
 
 			location.reload();
                 }
+
+		function getSelectDisk(select) {
+			  var result = [];
+			  var options = select && select.options;
+			  var opt;
+
+			  for (var i=0, iLen=options.length; i<iLen; i++) {
+			    opt = options[i];
+
+			    if (opt.selected) {
+			      result.push(opt.value || opt.text);
+			    }
+			  }
+
+			  if (result.length < 1) {
+			    return ""
+			  }
+
+			  diskList = ""
+			  for ( var j=0, jLen=result.length; j<jLen; j++) {
+				if (j==0) {
+					diskList += '"' + result[j] + '"'
+				} else {
+					diskList += ', "' + result[j] + '"'
+				}
+			  }
+			  return diskList;
+		}
+
         `
 	strFunc = strings.ReplaceAll(strFunc, "$$SPIDER_SERVER$$", "http://"+cr.ServiceIPorName+cr.ServicePort) // cr.ServicePort = ":1024"
 	return strFunc
@@ -1599,6 +1633,7 @@ func VM(c echo.Context) error {
 	// attach text box for add
 	nameList := vpcList(connConfig)
 	keyNameList := keyPairList(connConfig)
+	diskNameList := dataDiskList(connConfig)
 	providerName, _ := getProviderName(connConfig)
 
 	imageName := ""
@@ -1736,7 +1771,11 @@ func VM(c echo.Context) error {
                                 <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="9" disabled value="N/A">
                             </td>
                             <td style="vertical-align:top">
-                                <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="10" disabled value="N/A">
+                            `
+        // Select format of Data  name=text_box, id=10
+        htmlStr += makeDataDiskSelect_html("onchangeDataDisk", diskNameList, "10")
+
+        htmlStr += `
                             </td>
                             <td style="vertical-align:top">
 			    `
@@ -2969,7 +3008,7 @@ func makeDetachDiskFunc_js() string {
                         // client logging
                         parent.frames["log_frame"].Log("   ==> " + xhr.response);
 
-                        setTimeout(function(){location.reload();}, 2000);
+                        setTimeout(function(){location.reload();}, 3000);
                 }
         `
         strFunc = strings.ReplaceAll(strFunc, "$$SPIDER_SERVER$$", "http://"+cr.ServiceIPorName+cr.ServicePort) // cr.ServicePort = ":1024"

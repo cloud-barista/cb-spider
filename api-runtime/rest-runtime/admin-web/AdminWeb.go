@@ -128,6 +128,23 @@ func keyPairList(connConfig string) []string {
         return nameList
 }
 
+func dataDiskList(connConfig string) []string {
+        resBody, err := getResourceList_with_Connection_JsonByte(connConfig, "disk")
+        if err != nil {
+                cblog.Error(err)
+        }
+        var info struct {
+                ResultList []cres.DiskInfo `json:"disk"`
+        }
+        json.Unmarshal(resBody, &info)
+
+        var nameList []string
+        for _, disk := range info.ResultList {
+                nameList = append(nameList, disk.IId.NameId)
+        }
+        return nameList
+}
+
 func diskInfo(connConfig string, diskName string) cres.DiskInfo {
         resBody, err := getResource_with_Connection_JsonByte(connConfig, "disk", diskName)
         if err != nil {
@@ -421,6 +438,29 @@ func makeSelect_html(onchangeFunctionName string, strList []string, id string) s
 
 
 	return strSelect
+}
+
+func makeDataDiskSelect_html(onchangeFunctionName string, strList []string, id string) string {
+
+	strResult := "* DataDisk"
+	if len(strList) == 0 {
+		noDiskStr := `<input style="font-size:12px;text-align:center;" type="text" name="text_box" id="` + 
+				id +`" disabled value="N/A">`
+		return strResult + noDiskStr
+	}
+        strSelect := `<select style="width:120px;" name="text_box" id="` + id + `" onchange="` + onchangeFunctionName + `(this)" multiple>`
+        for _, one := range strList {
+		strSelect += `<option value="` + one + `">` + one + `</option>`
+        }
+
+        strSelect += `
+                </select>
+		<br>
+		(Unselect: ctrl + click)
+        `
+
+
+        return strResult + strSelect
 }
 
 func makeKeyPairSelect_html(onchangeFunctionName string, strList []string, id string) string {

@@ -2622,6 +2622,17 @@ func cloneReqInfoWithDriverIID(ConnectionName string, reqInfo cres.VMReqInfo) (c
 		newReqInfo.SecurityGroupIIDs = append(newReqInfo.SecurityGroupIIDs, getDriverIID(IIdInfo.IId))
 	}
 
+        // set Data Disk SystemId
+        for _, diskIID := range reqInfo.DataDiskIIDs {
+                IIdInfo, err := iidRWLock.GetIID(iidm.IIDSGROUP, ConnectionName, rsDisk, diskIID) 
+                if err != nil {
+                        cblog.Error(err)
+                        return cres.VMReqInfo{}, err
+                }
+                // set driverIID
+                newReqInfo.DataDiskIIDs = append(newReqInfo.DataDiskIIDs, getDriverIID(IIdInfo.IId))
+        }
+
 	// set KeyPair SystemId
 	if reqInfo.KeyPairIID.NameId != "" {
 		IIdInfo, err := iidRWLock.GetIID(iidm.IIDSGROUP, ConnectionName, rsKey, reqInfo.KeyPairIID)
@@ -3292,6 +3303,16 @@ func setNameId(ConnectionName string, vmInfo *cres.VMInfo, reqInfo *cres.VMReqIn
 		}
 		vmInfo.SecurityGroupIIds[i].NameId = IIdInfo.IId.NameId
 	}
+
+        // set Data Disk NameId
+        for i, diskIID := range vmInfo.DataDiskIIDs {
+                IIdInfo, err := iidRWLock.GetIIDbySystemID(iidm.IIDSGROUP, ConnectionName, rsDisk, diskIID)
+                if err != nil {
+                        cblog.Error(err)
+                        return err
+                }
+                vmInfo.DataDiskIIDs[i].NameId = IIdInfo.IId.NameId
+        }
 
 	if reqInfo.KeyPairIID.NameId != "" {
 		// set KeyPair SystemId
