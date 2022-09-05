@@ -19,6 +19,8 @@ import (
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/sirupsen/logrus"
 	compute "google.golang.org/api/compute/v1"
+
+	"errors"
 )
 
 var cblogger *logrus.Logger
@@ -116,3 +118,8 @@ func (cloudConn *GCPCloudConnection) CreateDiskHandler() (irs.DiskHandler, error
 	diskHandler := gcprs.GCPDiskHandler{Region: cloudConn.Region, Ctx: cloudConn.Ctx, Client: cloudConn.VMClient, Credential: cloudConn.Credential}
 	return &diskHandler, nil
 }
+
+func (cloudConn *GCPCloudConnection) CreateClusterHandler() (irs.ClusterHandler, error) {
+        return nil, errors.New("GCP Driver: not implemented")
+}
+
