@@ -44,7 +44,8 @@ type AwsCloudConnection struct {
 	//NLBClient *elb.ELB
 	NLBClient *elbv2.ELBV2
 
-	DiskClient *ec2.EC2
+	DiskClient    *ec2.EC2
+	MyImageClient *ec2.EC2
 }
 
 var cblogger *logrus.Logger
@@ -124,7 +125,14 @@ func (cloudConn *AwsCloudConnection) CreateDiskHandler() (irs.DiskHandler, error
 	return &handler, nil
 }
 
+
+func (cloudConn *AwsCloudConnection) CreateMyImageHandler() (irs.MyImageHandler, error) {
+	handler := ars.AwsMyImageHandler{cloudConn.Region, cloudConn.MyImageClient}
+	return &handler, nil
+}
+
 func (cloudConn *AwsCloudConnection) CreateClusterHandler() (irs.ClusterHandler, error) {
         return nil, errors.New("AWS Driver: not implemented")
 }
+
 
