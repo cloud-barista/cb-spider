@@ -244,6 +244,30 @@ defer diskMapLock.RUnlock()
         return false, fmt.Errorf("%s Disk does not exist!!", diskIID.NameId)
 }
 
+func justAttachDisk(mockName string, diskIID irs.IID, ownerVM irs.IID) (bool, error) {
+        cblogger := cblog.GetLogger("CB-SPIDER")
+        cblogger.Info("Mock Driver: called justAttachDisk()!")
+
+diskMapLock.RLock()
+defer diskMapLock.RUnlock()
+        infoList, ok := diskInfoMap[mockName]
+        if !ok {
+                return false, fmt.Errorf("%s Disk does not exist!!", diskIID.NameId)
+        }
+
+        for _, info := range infoList {
+                if (*info).IId.NameId == diskIID.NameId {
+                        if info.Status != irs.DiskAvailable {
+                                return false, fmt.Errorf("%s Disk is not Available status!!. It is %s status", diskIID.NameId, info.Status)                        }
+                        info.Status = irs.DiskAttached
+                        info.OwnerVM = ownerVM
+                        return true, nil
+                }
+        }
+
+        return false, fmt.Errorf("%s Disk does not exist!!", diskIID.NameId)
+}
+
 func justDetachDisk(mockName string, diskIID irs.IID, ownerVM irs.IID) (bool, error) {
         cblogger := cblog.GetLogger("CB-SPIDER")
         cblogger.Info("Mock Driver: called justDetachDisk()!")
