@@ -53,7 +53,7 @@ require (
 	github.com/swaggo/echo-swagger v1.1.0
 	github.com/swaggo/swag v1.7.0
 	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/clb v1.0.415
-	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common v1.0.415
+	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common v1.0.492
 	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/cvm v1.0.206
 	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/vpc v1.0.206
 	github.com/uber/jaeger-client-go v2.29.1+incompatible
@@ -64,6 +64,8 @@ require (
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.0
 )
+
+require github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/cbs v1.0.492
 
 require (
 	cloud.google.com/go v0.65.0 // indirect

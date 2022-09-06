@@ -170,6 +170,15 @@ func (vmHandler *MockVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, er
 		KeyValueList: nil,
 	}
 
+	// attach disks
+	for _, diskIID := range validatedDiskIIDs {
+		_, err := justAttachDisk(mockName, diskIID, vmReqInfo.IId)
+		if err != nil {
+			cblogger.Error(err)
+			return irs.VMInfo{}, err
+		}
+	}
+
 vmMapLock.Lock()
 defer vmMapLock.Unlock()
 
