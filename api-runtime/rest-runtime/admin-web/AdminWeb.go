@@ -128,7 +128,7 @@ func keyPairList(connConfig string) []string {
         return nameList
 }
 
-func dataDiskList(connConfig string) []string {
+func availableDataDiskList(connConfig string) []string {
         resBody, err := getResourceList_with_Connection_JsonByte(connConfig, "disk")
         if err != nil {
                 cblog.Error(err)
@@ -140,7 +140,9 @@ func dataDiskList(connConfig string) []string {
 
         var nameList []string
         for _, disk := range info.ResultList {
-                nameList = append(nameList, disk.IId.NameId)
+		if disk.Status == cres.DiskAvailable {
+			nameList = append(nameList, disk.IId.NameId)
+		}
         }
         return nameList
 }

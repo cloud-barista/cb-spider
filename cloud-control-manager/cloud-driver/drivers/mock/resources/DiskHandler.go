@@ -45,7 +45,7 @@ func (diskHandler *MockDiskHandler) CreateDisk(diskReqInfo irs.DiskInfo) (irs.Di
 	diskReqInfo.CreatedTime = time.Now()
 
 	if diskReqInfo.DiskType == "default" || diskReqInfo.DiskType == "" {
-		diskReqInfo.DiskType = "MOCK-SSD"
+		diskReqInfo.DiskType = "SSD"
 	}
 	if diskReqInfo.DiskSize == "default" || diskReqInfo.DiskSize == "" {
 		diskReqInfo.DiskSize = "512"

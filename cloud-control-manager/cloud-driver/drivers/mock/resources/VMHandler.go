@@ -161,7 +161,7 @@ func (vmHandler *MockVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, er
 		VMBootDisk:  "/dev/sda1",
 		VMBlockDisk: "/dev/sda1",
 
-		RootDiskType:  "MOCK-SSD", 
+		RootDiskType:  "SSD", 
 		RootDiskSize:  "32",
 		RootDeviceName:  "/dev/sda1",
 
@@ -571,7 +571,7 @@ defer vmMapLock.RUnlock()
         }
 
         for _, info := range infoList {
-                if (*info).IId.NameId == iid.NameId {
+                if (*info).IId.SystemId == iid.SystemId {
 			info.DataDiskIIDs = append(info.DataDiskIIDs, diskIID)
                         return true, nil
                 }
@@ -600,7 +600,7 @@ defer vmMapLock.RUnlock()
         for _, info := range infoList {
                 if (*info).IId.NameId == iid.NameId {
 			for idx, oneIID := range info.DataDiskIIDs { 
-				if oneIID == diskIID {
+				if oneIID.SystemId == diskIID.SystemId {
 					info.DataDiskIIDs = append(info.DataDiskIIDs[:idx], info.DataDiskIIDs[idx+1:]...)
 					return true, nil
 				}

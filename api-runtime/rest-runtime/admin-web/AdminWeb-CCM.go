@@ -849,7 +849,7 @@ func SecurityGroup(c echo.Context) error {
                             <td>
 		`
 	// Select format of CloudOS  name=text_box, id=1
-	htmlStr += makeSelect_html("onchangeVPC", nameList, "1")
+	htmlStr += makeSelect_html("", nameList, "1")
 
 	htmlStr += `
                             </td>
@@ -1461,6 +1461,9 @@ func makePostVMFunc_js() string {
                 }
 
 		function getSelectDisk(select) {
+			  if (select.tagName != 'SELECT') {
+				  return ""
+			  }
 			  var result = [];
 			  var options = select && select.options;
 			  var opt;
@@ -1633,7 +1636,7 @@ func VM(c echo.Context) error {
 	// attach text box for add
 	nameList := vpcList(connConfig)
 	keyNameList := keyPairList(connConfig)
-	diskNameList := dataDiskList(connConfig)
+	diskNameList := availableDataDiskList(connConfig)
 	providerName, _ := getProviderName(connConfig)
 
 	imageName := ""
@@ -1755,7 +1758,7 @@ func VM(c echo.Context) error {
                             <td style="vertical-align:top">
 			    `
 	// Select format of VPC  name=text_box, id=5
-	htmlStr += makeSelect_html("onchangeVPC", nameList, "5")
+	htmlStr += makeSelect_html("", nameList, "5")
 
 	htmlStr += `
 
@@ -1773,14 +1776,14 @@ func VM(c echo.Context) error {
                             <td style="vertical-align:top">
                             `
         // Select format of Data  name=text_box, id=10
-        htmlStr += makeDataDiskSelect_html("onchangeDataDisk", diskNameList, "10")
+        htmlStr += makeDataDiskSelect_html("", diskNameList, "10")
 
         htmlStr += `
                             </td>
                             <td style="vertical-align:top">
 			    `
 	// Select format of KeyPair  name=text_box, id=11
-	htmlStr += makeKeyPairSelect_html("onchangeKeyPair", keyNameList, "11")
+	htmlStr += makeKeyPairSelect_html("", keyNameList, "11")
 
 	htmlStr += `
 				<br>
@@ -2342,7 +2345,7 @@ func NLB(c echo.Context) error {
                             <td>
 		`
 	// Select format of VPC  name=text_box, id=1
-	htmlStr += makeSelect_html("onchangeVPC", nameList, "1")
+	htmlStr += makeSelect_html("", nameList, "1")
 
 	htmlStr += `
                             </td>
@@ -2801,7 +2804,7 @@ func makeDiskTRList_html(bgcolor string, height string, fontSize string, infoLis
         // set data and make TR list
         for i, one := range infoList {
 		// to select a VM in VMList
-		selectHtml := makeSelect_html("onchangeVM", vmList, "select_box_" + one.IId.NameId) // <select name="text_box" id=select_box_{diskName} onchangeVM(this)>
+		selectHtml := makeSelect_html("", vmList, "select_box_" + one.IId.NameId) // <select name="text_box" id=select_box_{diskName} onchangeVM(this)>
 
                 str := strings.ReplaceAll(strTR, "$$NUM$$", strconv.Itoa(i+1))
                 str = strings.ReplaceAll(str, "$$DISKNAME$$", one.IId.NameId)
