@@ -12,8 +12,12 @@ package alibaba
 
 import (
 	"fmt"
+
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/slb"
 
+	"time"
+
+	"github.com/aliyun/alibaba-cloud-sdk-go/sdk"
 	"github.com/aliyun/alibaba-cloud-sdk-go/sdk/auth/credentials"
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/ecs"
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/vpc"
@@ -21,11 +25,6 @@ import (
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	icon "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/connect"
 	"github.com/davecgh/go-spew/spew"
-)
-import (
-	"time"
-
-	"github.com/aliyun/alibaba-cloud-sdk-go/sdk"
 )
 
 type AlibabaDriver struct{}
@@ -46,6 +45,7 @@ func (AlibabaDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	drvCapabilityInfo.VMHandler = false
 	drvCapabilityInfo.VMSpecHandler = false
 	drvCapabilityInfo.DiskHandler = false
+	drvCapabilityInfo.ClusterHandler = true
 
 	return drvCapabilityInfo
 }
