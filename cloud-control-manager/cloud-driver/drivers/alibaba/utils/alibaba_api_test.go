@@ -160,6 +160,17 @@ func TestDeleteCluster(t *testing.T) {
 
 func TestCreateNodeGroup(t *testing.T) {
 
+	// body  := `{
+	// 	"auto_scaling":{
+	// 		"enable":true,
+	// 		"max_instances":10 ,
+	// 		"min_instances":1
+	// 	},
+	// 	"scaling_group":{
+	// 		"desired_size":5
+	// 	}
+	// }`
+
 	body := `{
 		"auto_scaling": {
 			"enable": true,
@@ -173,7 +184,7 @@ func TestCreateNodeGroup(t *testing.T) {
 		"nodepool_info": {
 			"name": "nodepoolx"
 		},
-		"scaling_group": {
+		"scaling_group": {	
 			"instance_charge_type": "PostPaid",
 			"instance_types": [
 				"ecs.c6.xlarge"
@@ -186,17 +197,63 @@ func TestCreateNodeGroup(t *testing.T) {
 			]
 		},
 		"management": {
-			"upgrade_config": {
-				"max_unavailable": 0
-			}
-		}
+			" enable":true
+		}	
 	}`
 
-	clusters_json_str, err := alibaba.CreateNodeGroup(access_key, access_secret, region_id, "c55313b876f924c62a2c0f596abbfe971", body)
+	// desired_size/count setting or modification is not supported for autoscaling-enabled nodepool
+	// body := `{
+	// 	"auto_scaling": {
+	// 		"enable": true,
+	// 		"max_instances": 5,
+	// 		"min_instances": 0
+	// 	},
+	// 	"kubernetes_config": {
+	// 		"runtime": "containerd",
+	// 		"runtime_version": "1.5.10"
+	// 	},
+	// 	"nodepool_info": {
+	// 		"name": "nodepoolx"
+	// 	},
+	// 	"scaling_group": {
+	// 		// "desired_size":1,
+	// 		"instance_charge_type": "PostPaid",
+	// 		"instance_types": [
+	// 			"ecs.c6.xlarge"
+	// 		],
+	// 		"key_pair": "kp1",
+	// 		"system_disk_category": "cloud_essd",
+	// 		"system_disk_size": 70,
+	// 		"vswitch_ids": [
+	// 			"vsw-2ze0qpwcio7r5bx3nqbp1"
+	// 		]
+	// 	},
+	// 	"management": {
+	// 		" enable":true
+	// 	}
+	// }`
+
+	clusters_json_str, err := alibaba.GetClusters(access_key, access_secret, region_id)
 	if err != nil {
-		t.Errorf("Failed to create node group: %v", err)
+		t.Errorf("Failed to get clusters: %v", err)
 	}
 	println(clusters_json_str)
+
+	clusters_json_obj := make(map[string]interface{})
+	json.Unmarshal([]byte(clusters_json_str), &clusters_json_obj)
+
+	clusters := clusters_json_obj["clusters"].([]interface{})
+	for _, v := range clusters {
+		cluster_id := v.(map[string]interface{})["cluster_id"].(string)
+		println(cluster_id)
+
+		clusters_json_str, err := alibaba.CreateNodeGroup(access_key, access_secret, region_id, cluster_id, body)
+		if err != nil {
+			t.Errorf("Failed to create node group: %v", err)
+		}
+		println(clusters_json_str)
+	}
+
 }
 
 func TestListNodeGroup(t *testing.T) {
@@ -271,7 +328,6 @@ func TestGetNodeGroup(t *testing.T) {
 				t.Errorf("Failed to get node group: %v", err)
 			}
 			println(nodepool_json_str)
-
 		}
 	}
 }
@@ -279,10 +335,105 @@ func TestGetNodeGroup(t *testing.T) {
 func TestSetNodeGroupAutoScaling(t *testing.T) {
 	//  https://next.api.alibabacloud.com/api/CS/2015-12-15/ModifyClusterNodePool?sdkStyle=old&params={}
 	// modify (set auto scaling) on/off
+	// body := `{"auto_scaling":{"enable":false}}`
+	// body := `{"auto_scaling":{"enable":true}}`
+	// body := `{"auto_scaling":{"max_instances":5,"min_instances":0},"scaling_group":{"desired_size":2}}`
+
+	clusters_json_str, err := alibaba.GetClusters(access_key, access_secret, region_id)
+	if err != nil {
+		t.Errorf("Failed to get clusters: %v", err)
+	}
+	println(clusters_json_str)
+
+	clusters_json_obj := make(map[string]interface{})
+	json.Unmarshal([]byte(clusters_json_str), &clusters_json_obj)
+
+	clusters := clusters_json_obj["clusters"].([]interface{})
+	for _, v := range clusters {
+		cluster_id := v.(map[string]interface{})["cluster_id"].(string)
+
+		nodepools_json_str, err := alibaba.ListNodeGroup(access_key, access_secret, region_id, cluster_id)
+		if err != nil {
+			t.Errorf("Failed to list node group: %v", err)
+		}
+		println(nodepools_json_str)
+		nodepools_json_obj := make(map[string]interface{})
+		json.Unmarshal([]byte(nodepools_json_str), &nodepools_json_obj)
+		nodepools := nodepools_json_obj["nodepools"].([]interface{})
+		for _, v := range nodepools {
+			node_group_id := v.(map[string]interface{})["nodepool_info"].(map[string]interface{})["nodepool_id"].(string)
+			println(node_group_id)
+
+			body := `{"auto_scaling":{"enable":false}}`
+			res, err := alibaba.ModifyNodeGroup(access_key, access_secret, region_id, cluster_id, node_group_id, body)
+			if err != nil {
+				t.Errorf("Failed to modify node group: %v", err)
+			}
+			println(res)
+
+			body = `{"auto_scaling":{"enable":true}}`
+			res, err = alibaba.ModifyNodeGroup(access_key, access_secret, region_id, cluster_id, node_group_id, body)
+			if err != nil {
+				t.Errorf("Failed to modify node group: %v", err)
+			}
+			println(res)
+			// "{\"code\":\"ErrDefaultNodePool\",\"message\":\" Nodepool is default, cannot enable autoscaling\"}\n"
+
+			// default node pool: cannot enable autoscaling
+			// custom, managed node pool: can enable autoscaling
+			// https://www.alibabacloud.com/help/en/container-service-for-kubernetes/latest/manage-node-pools
+			// body  := `{"auto_scaling":{"enable":true,"max_instances":10 ,"min_instances":1}, "scaling_group":{"desired_size":5},"management":{" enable":true}}`
+
+		}
+	}
 }
 
 func TestChangeNodeGroupScaling(t *testing.T) {
 	// modify (set auto scaling) on/off count
+	// body := `{"auto_scaling":{"enable":false}}`
+	// body := `{"auto_scaling":{"enable":true}}`
+	// body := `{"auto_scaling":{"max_instances":5,"min_instances":0},"scaling_group":{"desired_size":2}}`
+
+	clusters_json_str, err := alibaba.GetClusters(access_key, access_secret, region_id)
+	if err != nil {
+		t.Errorf("Failed to get clusters: %v", err)
+	}
+	println(clusters_json_str)
+
+	clusters_json_obj := make(map[string]interface{})
+	json.Unmarshal([]byte(clusters_json_str), &clusters_json_obj)
+
+	clusters := clusters_json_obj["clusters"].([]interface{})
+	for _, v := range clusters {
+		cluster_id := v.(map[string]interface{})["cluster_id"].(string)
+
+		nodepools_json_str, err := alibaba.ListNodeGroup(access_key, access_secret, region_id, cluster_id)
+		if err != nil {
+			t.Errorf("Failed to list node group: %v", err)
+		}
+		println(nodepools_json_str)
+		nodepools_json_obj := make(map[string]interface{})
+		json.Unmarshal([]byte(nodepools_json_str), &nodepools_json_obj)
+		nodepools := nodepools_json_obj["nodepools"].([]interface{})
+		for _, v := range nodepools {
+			node_group_id := v.(map[string]interface{})["nodepool_info"].(map[string]interface{})["nodepool_id"].(string)
+			println(node_group_id)
+
+			body := `{"auto_scaling":{"max_instances":10,"min_instances":0},"scaling_group":{"desired_size":2}}`
+			res, err := alibaba.ModifyNodeGroup(access_key, access_secret, region_id, cluster_id, node_group_id, body)
+			if err != nil {
+				t.Errorf("Failed to modify node group: %v", err)
+			}
+			println(res)
+
+			body = `{"auto_scaling":{"max_instances":3,"min_instances":1},"scaling_group":{"desired_size":1}}`
+			res, err = alibaba.ModifyNodeGroup(access_key, access_secret, region_id, cluster_id, node_group_id, body)
+			if err != nil {
+				t.Errorf("Failed to modify node group: %v", err)
+			}
+			println(res)
+		}
+	}
 }
 
 func TestDeleteNodeGroup(t *testing.T) {
