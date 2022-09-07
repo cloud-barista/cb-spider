@@ -16,6 +16,7 @@ import (
 	"sync"
 	"time"
 
+	//"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/alibaba/main/pmks_test/util"
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
@@ -35,11 +36,13 @@ func init() {
 }
 
 type AlibabaClusterHandler struct {
-	RegionInfo   idrv.RegionInfo
-	AccessKey    string
-	AccessSecret string
-	RegionID     string
+	RegionInfo     idrv.RegionInfo
+	CredentialInfo idrv.CredentialInfo
 }
+
+// connectionInfo.CredentialInfo.AccessKey
+// connectionInfo.CredentialInfo.AccessSecret
+// connectionInfo.RegionInfo.Region = "region-1"
 
 func (clusterHandler *AlibabaClusterHandler) CreateCluster(clusterReqInfo irs.ClusterInfo) (irs.ClusterInfo, error) {
 	cblogger.Info("Alibaba Cloud Driver: called CreateCluster()")

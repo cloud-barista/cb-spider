@@ -72,10 +72,11 @@ func (driver *AlibabaDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (i
 	}
 
 	iConn := alicon.AlibabaCloudConnection{
-		Region:        connectionInfo.RegionInfo,
-		VMClient:      ECSClient,
-		KeyPairClient: ECSClient,
-		ImageClient:   ECSClient,
+		CredentialInfo: connectionInfo.CredentialInfo,
+		Region:         connectionInfo.RegionInfo,
+		VMClient:       ECSClient,
+		KeyPairClient:  ECSClient,
+		ImageClient:    ECSClient,
 		//PublicIPClient:      VPCClient,
 		SecurityGroupClient: ECSClient,
 		VpcClient:           VPCClient,
