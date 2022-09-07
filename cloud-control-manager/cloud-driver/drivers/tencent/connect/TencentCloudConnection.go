@@ -36,6 +36,7 @@ type TencentCloudConnection struct {
 	VmSpecClient   *cvm.Client
 	DiskClient     *cbs.Client
 	MyImageClient  *cvm.Client
+
 	//VNicClient     *cvm.Client
 	//PublicIPClient *cvm.Client
 }
@@ -127,9 +128,11 @@ func (cloudConn *TencentCloudConnection) CreateDiskHandler() (irs.DiskHandler, e
 	return &handler, nil
 }
 
+
 func (cloudConn *TencentCloudConnection) CreateMyImageHandler() (irs.MyImageHandler, error) {
 	cblogger.Info("Start")
 	handler := trs.TencentMyImageHandler{cloudConn.Region, cloudConn.MyImageClient}
 
 	return &handler, nil
+
 }

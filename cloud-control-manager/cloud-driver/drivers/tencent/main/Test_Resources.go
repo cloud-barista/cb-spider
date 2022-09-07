@@ -949,6 +949,7 @@ func handleVM() {
 					IId: irs.IID{NameId: "mcloud-barista-vm-test"},
 					//IId:      irs.IID{NameId: "bill-test"},
 					//ImageIID: irs.IID{SystemId: "img-22trbn9x"}, //Ubuntu Server 20.04 LTS 64
+
 					ImageIID:          irs.IID{SystemId: "img-9x5o844i"}, //Ubuntu Server 18.04.1 LTS 64
 					VpcIID:            irs.IID{SystemId: "vpc-g3imdykc"},
 					SubnetIID:         irs.IID{SystemId: "subnet-rlr71m6n"}, //Zone2
@@ -1345,6 +1346,7 @@ func handleDisk() {
 	}
 }
 
+
 func handleMyImage() {
 	cblogger.Debug("Start MyImageHandler Resource Test")
 
@@ -1429,6 +1431,7 @@ func handleMyImage() {
 	}
 }
 
+
 func main() {
 	cblogger.Info("Tencent Cloud Resource Test")
 	//handleVPC() //VPC
@@ -1440,7 +1443,6 @@ func main() {
 	//handleVM()
 	//handleDisk()
 	handleMyImage()
-
 	//handlePublicIP() // PublicIP 생성 후 conf
 	//handleVNic() //Lancard
 }

@@ -19,6 +19,8 @@ import (
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/sirupsen/logrus"
+
+	"errors"
 )
 
 var cblogger *logrus.Logger
@@ -131,3 +133,8 @@ func (AlibabaCloudConnection) IsConnected() (bool, error) {
 func (AlibabaCloudConnection) Close() error {
 	return nil
 }
+
+func (cloudConn *AlibabaCloudConnection) CreateClusterHandler() (irs.ClusterHandler, error) {
+        return nil, errors.New("Alibaba Driver: not implemented")
+}
+

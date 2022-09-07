@@ -8,6 +8,7 @@ import (
 	cbs "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/cbs/v20170312"
 	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
 	cvm "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/cvm/v20170312"
+
 )
 
 func DescribeDisks(client *cbs.Client, diskIIDs []irs.IID) ([]*cbs.Disk, error) {
@@ -93,6 +94,7 @@ func AttachDisk(client *cbs.Client, diskIID irs.IID, ownerVM irs.IID) (irs.DiskI
 
 	return irs.DiskInfo{}, nil
 }
+
 
 func DescribeImages(client *cvm.Client, myImageIIDs []irs.IID) ([]*cvm.Image, error) {
 	request := cvm.NewDescribeImagesRequest()
