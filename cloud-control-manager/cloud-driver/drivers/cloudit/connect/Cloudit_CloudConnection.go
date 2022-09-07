@@ -96,3 +96,12 @@ func (ClouditCloudConnection) Close() error {
 func (cloudConn *ClouditCloudConnection) CreateDiskHandler() (irs.DiskHandler, error) {
         return nil, errors.New("Cloudit Driver: not implemented")
 }
+
+func (cloudConn *ClouditCloudConnection) CreateClusterHandler() (irs.ClusterHandler, error) {
+        return nil, errors.New("Cloudit Driver: not implemented")
+}
+
+func (cloudConn *ClouditCloudConnection) CreateMyImageHandler() (irs.MyImageHandler, error) {
+        return nil, errors.New("Cloudit Driver: not implemented")
+}
+

@@ -19,9 +19,19 @@ type ClusterStatus string
 const (
         ClusterCreating ClusterStatus = "Creating"
         ClusterActive   ClusterStatus = "Active"
-        ClusterInactive   ClusterStatus = "Inactive"
-        ClusterUpdating   ClusterStatus = "Updating"
-        ClusterDeleting   ClusterStatus = "Deleting"
+        ClusterInactive ClusterStatus = "Inactive"
+        ClusterUpdating ClusterStatus = "Updating"
+        ClusterDeleting ClusterStatus = "Deleting"
+)
+
+type NodeGroupStatus string
+
+const (
+        NodeGroupCreating NodeGroupStatus = "Creating"
+        NodeGroupActive   NodeGroupStatus = "Active"
+        NodeGroupInactive NodeGroupStatus = "Inactive"
+        NodeGroupUpdating NodeGroupStatus = "Updating"
+        NodeGroupDeleting NodeGroupStatus = "Deleting"
 )
 
 //-------- Info Structure
@@ -59,12 +69,14 @@ type NodeGroupInfo struct {
 	RootDiskSize 	string  // "", "default", "50", "1000" (GB)
         KeyPairIID 	IID
 
-	// Auto Scaling config.
-	AutoScaling		bool
-	MinNumberNodes		int
-	MaxNumberNodes		int
+        Status 		NodeGroupStatus
 
-	DesiredNumberNodes	int
+	// Scaling config.
+	OnAutoScaling	bool // default: true
+	DesiredNodeSize	int
+	MinNodeSize	int
+	MaxNodeSize	int
+
 
 	NodeList	[]IID
 	KeyValueList []KeyValue
@@ -85,23 +97,16 @@ type ClusterHandler interface {
 	GetCluster(clusterIID IID) (ClusterInfo, error)
 	DeleteCluster(clusterIID IID) (bool, error)
 
-	AddNodeGroup(clusterIID IID, nodeGroup IID) (ClusterInfo, error)
-	RemoveNodeGroup(clusterIID IID, nodeGroup IID) (bool, error)
+        //------ NodeGroup Management
+        AddNodeGroup(clusterIID IID, nodeGroupReqInfo NodeGroupInfo) (NodeGroupInfo, error)
+        ListNodeGroup(clusterIID IID) ([]*NodeGroupInfo, error)
+        GetNodeGroup(clusterIID IID, nodeGroupIID IID) (NodeGroupInfo, error)
+        SetNodeGroupAutoScaling(clusterIID IID, nodeGroupIID IID, on bool) (bool, error)
+        ChangeNodeGroupScaling(clusterIID IID, nodeGroupIID IID, 
+		DesiredNodeSize int, MinNodeSize int, MaxNodeSize int) (NodeGroupInfo, error)
+        RemoveNodeGroup(clusterIID IID, nodeGroupIID IID) (bool, error)
 
 	//------ Upgrade K8S
 	UpgradeCluster(clusterIID IID, newVersion string) (ClusterInfo, error)
-
 }
 
-//-------- NodeGroup API
-type NodeGroupHandler interface {
-
-        //------ NodeGroup Management
-        CreateNodeGroup(nodeGroupReqInfo NodeGroupInfo) (NodeGroupInfo, error)
-        ListNodeGroup() ([]*NodeGroupInfo, error)
-        GetNodeGroup(nodeGroupIID IID) (NodeGroupInfo, error)
-        DeleteNodeGroup(nodeGroupIID IID) (bool, error)
-
-        AddNodes(nodeGroupIID IID, number int) (NodeGroupInfo, error)
-        RemoveNodes(nodeGroupIID IID, vmIIDs *[]IID) (bool, error)
-}

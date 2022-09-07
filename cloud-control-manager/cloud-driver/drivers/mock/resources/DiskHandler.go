@@ -45,7 +45,7 @@ func (diskHandler *MockDiskHandler) CreateDisk(diskReqInfo irs.DiskInfo) (irs.Di
 	diskReqInfo.CreatedTime = time.Now()
 
 	if diskReqInfo.DiskType == "default" || diskReqInfo.DiskType == "" {
-		diskReqInfo.DiskType = "MOCK-SSD"
+		diskReqInfo.DiskType = "SSD"
 	}
 	if diskReqInfo.DiskSize == "default" || diskReqInfo.DiskSize == "" {
 		diskReqInfo.DiskSize = "512"
@@ -237,6 +237,30 @@ defer diskMapLock.RUnlock()
 			diskDetach(mockName, ownerVM, diskIID)
                         info.Status = irs.DiskAvailable
                         info.OwnerVM = irs.IID{}
+                        return true, nil
+                }
+        }
+
+        return false, fmt.Errorf("%s Disk does not exist!!", diskIID.NameId)
+}
+
+func justAttachDisk(mockName string, diskIID irs.IID, ownerVM irs.IID) (bool, error) {
+        cblogger := cblog.GetLogger("CB-SPIDER")
+        cblogger.Info("Mock Driver: called justAttachDisk()!")
+
+diskMapLock.RLock()
+defer diskMapLock.RUnlock()
+        infoList, ok := diskInfoMap[mockName]
+        if !ok {
+                return false, fmt.Errorf("%s Disk does not exist!!", diskIID.NameId)
+        }
+
+        for _, info := range infoList {
+                if (*info).IId.NameId == diskIID.NameId {
+                        if info.Status != irs.DiskAvailable {
+                                return false, fmt.Errorf("%s Disk is not Available status!!. It is %s status", diskIID.NameId, info.Status)                        }
+                        info.Status = irs.DiskAttached
+                        info.OwnerVM = ownerVM
                         return true, nil
                 }
         }

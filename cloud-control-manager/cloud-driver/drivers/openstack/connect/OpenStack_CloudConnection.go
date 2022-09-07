@@ -18,6 +18,8 @@ import (
 	osrs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/openstack/resources"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
+
+	"errors"
 )
 
 var cblogger *logrus.Logger
@@ -104,3 +106,12 @@ func (cloudConn *OpenStackCloudConnection) IsConnected() (bool, error) {
 func (cloudConn *OpenStackCloudConnection) Close() error {
 	return nil
 }
+
+func (cloudConn *OpenStackCloudConnection) CreateClusterHandler() (irs.ClusterHandler, error) {
+        return nil, errors.New("OpenStack Driver: not implemented")
+}
+
+func (cloudConn *OpenStackCloudConnection) CreateMyImageHandler() (irs.MyImageHandler, error) {
+        return nil, errors.New("OpenStack Driver: not implemented")
+}
+

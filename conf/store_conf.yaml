@@ -14,5 +14,4 @@ nutsdb:
 
 etcd:
   # etcd server, when ETCD typpe
-  #etcdserverport: "129.254.175.43:2379"
   etcdserverport: "localhost:2379"
