@@ -233,9 +233,6 @@ func UpgradeCluster(access_key string, access_secret string, region_id string, c
 	request.PathPattern = "/api/v2/clusters/" + cluster_id + "/upgrade"
 	request.Headers["Content-Type"] = "application/json"
 
-	// {
-	//   "next_version" : "1.22.3-aliyun.1"
-	// }
 	request.Content = []byte(body)
 
 	response, err := client.ProcessCommonRequest(request)

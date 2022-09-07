@@ -342,4 +342,24 @@ func TestUpgradeCluster(t *testing.T) {
 	//   "next_version" : "1.22.3-aliyun.1"
 	// }
 
+	clusters_json_str, err := alibaba.GetClusters(access_key, access_secret, region_id)
+	if err != nil {
+		t.Errorf("Failed to get clusters: %v", err)
+	}
+	println(clusters_json_str)
+
+	clusters_json_obj := make(map[string]interface{})
+	json.Unmarshal([]byte(clusters_json_str), &clusters_json_obj)
+
+	clusters := clusters_json_obj["clusters"].([]interface{})
+	for _, v := range clusters {
+		cluster_id := v.(map[string]interface{})["cluster_id"].(string)
+
+		version := `{"next_version" : "1.22.3-aliyun.1"}`
+		res, err := alibaba.UpgradeCluster(access_key, access_secret, region_id, cluster_id, version)
+		if err != nil {
+			t.Errorf("Failed to upgrade cluster: %v", err)
+		}
+		println(res)
+	}
 }
