@@ -51,16 +51,15 @@ func TestMain(m *testing.M) {
 func TestCreateCluster(t *testing.T) {
 
 	body := `{
-		"name": "cluster3",
+		"name": "cluster_0",
 		"region_id": "cn-beijing",
 		"cluster_type": "ManagedKubernetes",
 		"kubernetes_version": "1.22.10-aliyun.1",
 		"vpcid": "vpc-2zek5slojo5bh621ftnrg",
-		"container_cidr": "172.20.0.0/16",
-		"service_cidr": "172.19.0.0/16",
+		"container_cidr": "172.21.0.0/16",
+		"service_cidr": "172.22.0.0/16",
 		"key_pair": "kp1",
 		"login_password": "$etri2ETRI",
-		"master_count": 3,
 		"master_vswitch_ids": [
 			"vsw-2ze0qpwcio7r5bx3nqbp1"
 		],
@@ -69,7 +68,7 @@ func TestCreateCluster(t *testing.T) {
 		],
 		"master_system_disk_category": "cloud_essd",
 		"master_system_disk_size": 120,
-		"num_of_nodes": 3,
+		"num_of_nodes": 0,
 		"vswitch_ids": [
 			"vsw-2ze0qpwcio7r5bx3nqbp1"
 		],
@@ -89,6 +88,8 @@ func TestCreateCluster(t *testing.T) {
 		]
 	}`
 
+	// "master_count": 3,
+
 	/*
 		must contain three (large, lowercase letters, numbers and special symbols).
 		$etri2ETRI
@@ -105,6 +106,82 @@ func TestGetClusters(t *testing.T) {
 	result, err := alibaba.GetClusters(access_key, access_secret, region_id)
 	if err != nil {
 		t.Errorf("Failed to get clusters: %v", err)
+	}
+	println(result)
+}
+
+func TestCreateCluster2(t *testing.T) {
+	// nodecount = 0
+
+	body := `{
+		"name": "cluster_2",
+		"region_id": "cn-beijing",
+		"cluster_type": "ManagedKubernetes",
+		"kubernetes_version": "1.22.10-aliyun.1",
+		"vpcid": "vpc-2zek5slojo5bh621ftnrg",
+		"container_cidr": "172.24.0.0/16",
+		"service_cidr": "172.23.0.0/16",
+		"num_of_nodes": 0,
+		"master_vswitch_ids": [
+			"vsw-2ze0qpwcio7r5bx3nqbp1"
+		]
+	}`
+
+	// body := `{
+	// 	"name": "cluster_2",
+	// 	"region_id": "cn-beijing",
+	// 	"cluster_type": "ManagedKubernetes",
+	// 	"kubernetes_version": "1.22.10-aliyun.1",
+	// 	"vpcid": "vpc-2zek5slojo5bh621ftnrg",
+	// 	"container_cidr": "172.24.0.0/16",
+	// 	"service_cidr": "172.23.0.0/16",
+	// 	"key_pair": "kp1",
+	// 	"login_password": "$etri2ETRI",
+	// 	"master_vswitch_ids": [
+	// 		"vsw-2ze0qpwcio7r5bx3nqbp1"
+	// 	],
+	// 	"master_instance_types": [
+	// 		"ecs.g7ne.xlarge,ecs.c7.xlarge"
+	// 	],
+	// 	"master_system_disk_category": "cloud_essd",
+	// 	"master_system_disk_size": 120,
+	// 	"num_of_nodes": 0,
+	// 	"vswitch_ids": [
+	// 		"vsw-2ze0qpwcio7r5bx3nqbp1"
+	// 	],
+	// 	"worker_vswitch_ids": [
+	// 		"vsw-2ze0qpwcio7r5bx3nqbp1"
+	// 	],
+	// 	"worker_instance_types": [
+	// 		"ecs.g7ne.xlarge,ecs.c7.xlarge"
+	// 	],
+	// 	"worker_system_disk_category": "cloud_essd",
+	// 	"worker_system_disk_size": 120,
+	// 	"worker_data_disks": [
+	// 		{
+	// 			"category": "cloud_essd",
+	// 			"size": "120"
+	// 		}
+	// 	]
+	// }`
+
+	// "master_count": 3,
+
+	/*
+		must contain three (large, lowercase letters, numbers and special symbols).
+		$etri2ETRI
+	*/
+
+	/*
+	   Message: {"code":"ZoneNotSupported","message":
+	   "The current zone  does not support creating SLB, please try other zones,
+	   request id: 2C47B8CA-E920-5E54-BBC4-47081431E780",
+	   "requestId":"E9EE3C8A-71CF-5047-8BA7-15A81C954A10","status":400}
+	*/
+
+	result, err := alibaba.CreateCluster(access_key, access_secret, region_id, body)
+	if err != nil {
+		t.Errorf("Failed to create cluster: %v", err)
 	}
 	println(result)
 }
@@ -232,6 +309,59 @@ func TestCreateNodeGroup(t *testing.T) {
 	// 		" enable":true
 	// 	}
 	// }`
+
+	clusters_json_str, err := alibaba.GetClusters(access_key, access_secret, region_id)
+	if err != nil {
+		t.Errorf("Failed to get clusters: %v", err)
+	}
+	println(clusters_json_str)
+
+	clusters_json_obj := make(map[string]interface{})
+	json.Unmarshal([]byte(clusters_json_str), &clusters_json_obj)
+
+	clusters := clusters_json_obj["clusters"].([]interface{})
+	for _, v := range clusters {
+		cluster_id := v.(map[string]interface{})["cluster_id"].(string)
+		println(cluster_id)
+
+		clusters_json_str, err := alibaba.CreateNodeGroup(access_key, access_secret, region_id, cluster_id, body)
+		if err != nil {
+			t.Errorf("Failed to create node group: %v", err)
+		}
+		println(clusters_json_str)
+	}
+
+}
+
+// c870636966d134b968a960cd9d978f940
+func TestCreateNodeGroup2(t *testing.T) {
+
+	body := `{
+		"nodepool_info": {
+			"name": "nodepoolx"
+		},
+		"auto_scaling": {
+			"enable": true,
+			"max_instances": 5,
+			"min_instances": 0
+		},
+		"scaling_group": {
+			"instance_charge_type": "PostPaid",
+			"instance_types": ["ecs.c6.xlarge"],
+			"key_pair": "kp1",
+			"system_disk_category": "cloud_essd",
+			"system_disk_size": 70,
+			"vswitch_ids": ["vsw-2ze0qpwcio7r5bx3nqbp1"]
+		},
+		"management": {
+			"enable":true
+		}
+	}`
+
+	// "kubernetes_config": {
+	// 	"runtime": "containerd",
+	// 	"runtime_version": "1.5.10"
+	// },
 
 	clusters_json_str, err := alibaba.GetClusters(access_key, access_secret, region_id)
 	if err != nil {
