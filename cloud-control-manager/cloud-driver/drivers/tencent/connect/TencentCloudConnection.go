@@ -9,13 +9,13 @@
 package connect
 
 import (
-	"github.com/sirupsen/logrus"
-
 	cblog "github.com/cloud-barista/cb-log"
 	trs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/tencent/resources"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
+	"github.com/sirupsen/logrus"
 
+	"errors"
 	//"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
 	//"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/errors"
 	//"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/profile"
@@ -36,6 +36,7 @@ type TencentCloudConnection struct {
 	SecurityClient *vpc.Client
 	VmSpecClient   *cvm.Client
 	DiskClient     *cbs.Client
+	MyImageClient *cvm.Client
 	//VNicClient     *cvm.Client
 	//PublicIPClient *cvm.Client
 }
@@ -120,8 +121,17 @@ func (cloudConn *TencentCloudConnection) CreatePublicIPHandler() (irs.PublicIPHa
 */
 
 func (cloudConn *TencentCloudConnection) CreateDiskHandler() (irs.DiskHandler, error) {
+
 	cblogger.Info("Start")
 	handler := trs.TencentDiskHandler{cloudConn.Region, cloudConn.DiskClient}
+
+
+	return &handler, nil
+}
+
+func (cloudConn *TencentCloudConnection) CreateMyImageHandler() (irs.MyImageHandler, error) {
+	cblogger.Info("Start")
+	handler := trs.TencentMyImageHandler{cloudConn.Region, cloudConn.MyImageClient}
 
 	return &handler, nil
 }

@@ -42,8 +42,11 @@ ALIBABA:
   #rootdisktype: cloud_efficiency / cloud / cloud_ssd
   rootdisksize: cloud_essd|20|32768|GB / cloud_efficiency|20|32768|GB / cloud|5|2000|GB / cloud_ssd|20|32768|GB
   #rootdisksize: cloud_efficiency|20|32768|GB / cloud|5|2000|GB / cloud_ssd|20|32768|GB
+  disktype: cloud / cloud_efficiency / cloud_ssd / cloud_essd
+  disksize: cloud|5|2000|GB / cloud_efficiency|20|32768|GB / cloud_ssd|20|32768|GB / cloud_essd_PL0|40|32768|GB / cloud_essd_PL1|20|32768|GB / cloud_essd_PL2|461|32768|GB / cloud_essd_PL3|1261|32768|GB
   # idmaxlength: VPC / Subnet / SecurityGroup / KeyPair / VM
   idmaxlength: 128 / 128 / 128 / 128 / 128 
+  
 
 TENCENT:
   region: Region / Zone

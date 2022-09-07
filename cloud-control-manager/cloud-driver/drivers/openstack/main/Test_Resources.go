@@ -696,6 +696,8 @@ func getResourceHandler(resourceType string, config Config) (interface{}, error)
 		resourceHandler, err = cloudConnection.CreateVMHandler()
 	case "nlb":
 		resourceHandler, _ = cloudConnection.CreateNLBHandler()
+	case "disk":
+		resourceHandler, err = cloudConnection.CreateDiskHandler()
 	}
 
 	if err != nil {
@@ -882,6 +884,119 @@ Loop:
 	}
 }
 
+func testDiskHandlerListPrint() {
+	cblogger.Info("Test DiskHandler")
+	cblogger.Info("0. Print Menu")
+	cblogger.Info("1. ListDisk()")
+	cblogger.Info("2. GetDisk()")
+	cblogger.Info("3. CreateDisk()")
+	cblogger.Info("4. DeleteDisk()")
+	cblogger.Info("5. ChangeDiskSize()")
+	cblogger.Info("6. AttachDisk()")
+	cblogger.Info("7. DetachDisk()")
+	cblogger.Info("8. Exit")
+}
+
+func testDiskHandler(config Config) {
+	resourceHandler, err := getResourceHandler("disk", config)
+	if err != nil {
+		cblogger.Error(err)
+		return
+	}
+	diskHandler := resourceHandler.(irs.DiskHandler)
+
+	testDiskHandlerListPrint()
+	diskIId := irs.IID{}
+	createDiskReqInfo := irs.DiskInfo{
+		IId: irs.IID{
+			NameId: "test-0818-2",
+		},
+		DiskSize: "3",
+	}
+	delDiskIId := irs.IID{}
+	attachedDisk := irs.IID{
+		NameId: "test-0818-2",
+	}
+	attachVMIId := irs.IID{
+		NameId: "vmclient",
+	}
+
+Loop:
+	for {
+		var commandNum int
+		inputCnt, err := fmt.Scan(&commandNum)
+		if err != nil {
+			cblogger.Error(err)
+		}
+
+		if inputCnt == 1 {
+			switch commandNum {
+			case 0:
+				testDiskHandlerListPrint()
+			case 1:
+				cblogger.Info("Start ListDisk() ...")
+				if list, err := diskHandler.ListDisk(); err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(list)
+				}
+				cblogger.Info("Finish ListDisk()")
+			case 2:
+				cblogger.Info("Start GetDisk() ...")
+				if vm, err := diskHandler.GetDisk(diskIId); err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(vm)
+				}
+				cblogger.Info("Finish GetDisk()")
+			case 3:
+				cblogger.Info("Start CreateDisk() ...")
+				if createInfo, err := diskHandler.CreateDisk(createDiskReqInfo); err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(createInfo)
+				}
+				cblogger.Info("Finish CreateDisk()")
+			case 4:
+				cblogger.Info("Start DeleteDisk() ...")
+				if vmStatus, err := diskHandler.DeleteDisk(delDiskIId); err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(vmStatus)
+				}
+				cblogger.Info("Finish DeleteDisk()")
+			case 5:
+				cblogger.Info("Start ChangeDiskSize() ...")
+				if nlbInfo, err := diskHandler.ChangeDiskSize(attachedDisk, "4"); err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(nlbInfo)
+				}
+				cblogger.Info("Finish ChangeDiskSize()")
+			case 6:
+				cblogger.Info("Start AttachDisk() ...")
+				if info, err := diskHandler.AttachDisk(attachedDisk, attachVMIId); err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(info)
+				}
+				cblogger.Info("Finish AttachDisk()")
+			case 7:
+				cblogger.Info("Start DetachDisk() ...")
+				if info, err := diskHandler.DetachDisk(attachedDisk, attachVMIId); err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(info)
+				}
+				cblogger.Info("Finish DetachDisk()")
+			case 8:
+				cblogger.Info("Exit")
+				break Loop
+			}
+		}
+	}
+}
+
 func main() {
 
 	showTestHandlerInfo()      // ResourceHandler 테스트 정보 출력
@@ -920,6 +1035,9 @@ Loop:
 				testNLBHandler(config)
 				showTestHandlerInfo()
 			case 8:
+				testDiskHandler(config)
+				showTestHandlerInfo()
+			case 9:
 				cblogger.Info("Exit Test ResourceHandler Program")
 				break Loop
 			}
@@ -937,7 +1055,8 @@ func showTestHandlerInfo() {
 	cblogger.Info("5. VmSpecHandler")
 	cblogger.Info("6. VmHandler")
 	cblogger.Info("7. NLBHandler")
-	cblogger.Info("8. Exit")
+	cblogger.Info("8. DiskHandler")
+	cblogger.Info("9. Exit")
 	cblogger.Info("==========================================================")
 }
 
