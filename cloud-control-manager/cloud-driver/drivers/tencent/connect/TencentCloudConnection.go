@@ -15,7 +15,6 @@ import (
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/sirupsen/logrus"
 
-	"errors"
 	//"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
 	//"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/errors"
 	//"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/profile"
@@ -36,7 +35,7 @@ type TencentCloudConnection struct {
 	SecurityClient *vpc.Client
 	VmSpecClient   *cvm.Client
 	DiskClient     *cbs.Client
-	MyImageClient *cvm.Client
+	MyImageClient  *cvm.Client
 	//VNicClient     *cvm.Client
 	//PublicIPClient *cvm.Client
 }
@@ -124,7 +123,6 @@ func (cloudConn *TencentCloudConnection) CreateDiskHandler() (irs.DiskHandler, e
 
 	cblogger.Info("Start")
 	handler := trs.TencentDiskHandler{cloudConn.Region, cloudConn.DiskClient}
-
 
 	return &handler, nil
 }

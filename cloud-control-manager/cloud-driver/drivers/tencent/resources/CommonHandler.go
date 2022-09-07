@@ -7,6 +7,7 @@ import (
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	cbs "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/cbs/v20170312"
 	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
+	cvm "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/cvm/v20170312"
 )
 
 func DescribeDisks(client *cbs.Client, diskIIDs []irs.IID) ([]*cbs.Disk, error) {
@@ -91,4 +92,43 @@ func AttachDisk(client *cbs.Client, diskIID irs.IID, ownerVM irs.IID) (irs.DiskI
 	}
 
 	return irs.DiskInfo{}, nil
+}
+
+func DescribeImages(client *cvm.Client, myImageIIDs []irs.IID) ([]*cvm.Image, error) {
+	request := cvm.NewDescribeImagesRequest()
+
+	if myImageIIDs != nil {
+		request.ImageIds = common.StringPtrs([]string{myImageIIDs[0].SystemId})
+	} else {
+		request.Filters = []*cvm.Filter{
+			{
+				Name:   common.StringPtr("image-type"),
+				Values: common.StringPtrs([]string{"PRIVATE_IMAGE"}),
+			},
+		}
+	}
+
+	response, err := client.DescribeImages(request)
+	if err != nil {
+		cblogger.Error(err)
+		return nil, err
+	}
+
+	return response.Response.ImageSet, nil
+}
+
+func DescribeImagesByID(client *cvm.Client, myImageIID irs.IID) (cvm.Image, error) {
+	var myImageIIDList []irs.IID
+	myImageIIDList = append(myImageIIDList, myImageIID)
+
+	myImageList, err := DescribeImages(client, myImageIIDList)
+	if err != nil {
+		return cvm.Image{}, err
+	}
+
+	if len(myImageList) != 1 {
+		return cvm.Image{}, errors.New("search failed")
+	}
+
+	return *myImageList[0], nil
 }

@@ -949,7 +949,7 @@ func handleVM() {
 					IId: irs.IID{NameId: "mcloud-barista-vm-test"},
 					//IId:      irs.IID{NameId: "bill-test"},
 					//ImageIID: irs.IID{SystemId: "img-22trbn9x"}, //Ubuntu Server 20.04 LTS 64
-					ImageIID:          irs.IID{SystemId: "img-pi0ii46r"}, //Ubuntu Server 18.04.1 LTS 64
+					ImageIID:          irs.IID{SystemId: "img-9x5o844i"}, //Ubuntu Server 18.04.1 LTS 64
 					VpcIID:            irs.IID{SystemId: "vpc-g3imdykc"},
 					SubnetIID:         irs.IID{SystemId: "subnet-rlr71m6n"}, //Zone2
 					SecurityGroupIIDs: []irs.IID{{SystemId: "sg-j43bvarj"}},
@@ -958,10 +958,10 @@ func handleVM() {
 					//VMUserId:          "root", //root만 가능
 					//VMUserPasswd: "Cbuser!@#", //대문자 소문자 모두 사용되어야 함. 그리고 숫자나 특수 기호 중 하나가 포함되어야 함.
 					//RootDiskType: "CLOUD_PREMIUM", //LOCAL_BASIC/LOCAL_SSD/CLOUD_BASIC/CLOUD_SSD/CLOUD_PREMIUM
-					RootDiskType: "CLOUD_SSD", //LOCAL_BASIC/LOCAL_SSD/CLOUD_BASIC/CLOUD_SSD/CLOUD_PREMIUM
-					RootDiskSize: "60",        //Image Size 보다 작으면 에러 남
+					RootDiskType: "CLOUD_PREMIUM", //LOCAL_BASIC/LOCAL_SSD/CLOUD_BASIC/CLOUD_SSD/CLOUD_PREMIUM
+					RootDiskSize: "60",            //Image Size 보다 작으면 에러 남
 					//RootDiskSize: "Default", //Image Size 보다 작으면 에러 남
-					DataDiskIIDs: []irs.IID{{SystemId: "disk-obk07o6e"}},
+					//DataDiskIIDs: []irs.IID{{SystemId: "disk-obk07o6e"}},
 				}
 
 				vmInfo, err := vmHandler.StartVM(vmReqInfo)
@@ -1345,6 +1345,90 @@ func handleDisk() {
 	}
 }
 
+func handleMyImage() {
+	cblogger.Debug("Start MyImageHandler Resource Test")
+
+	ResourceHandler, err := testconf.GetResourceHandler("MyImage")
+	if err != nil {
+		panic(err)
+	}
+	handler := ResourceHandler.(irs.MyImageHandler)
+
+	myImageReqInfo := irs.MyImageInfo{
+		IId:      irs.IID{NameId: "cb-myimage-03", SystemId: "img-9x5o844i"},
+		SourceVM: irs.IID{SystemId: "ins-fptlw6mc"},
+	}
+
+	for {
+		fmt.Println("MyImageHandler Management")
+		fmt.Println("0. Quit")
+		fmt.Println("1. MyImage List")
+		fmt.Println("2. MyImage Create")
+		fmt.Println("3. MyImage Get")
+		fmt.Println("4. MyImage Delete")
+
+		var commandNum int
+		inputCnt, err := fmt.Scan(&commandNum)
+		if err != nil {
+			panic(err)
+		}
+
+		if inputCnt == 1 {
+			switch commandNum {
+			case 0:
+				return
+
+			case 1:
+				result, err := handler.ListMyImage()
+				if err != nil {
+					cblogger.Infof(" MyImage 목록 조회 실패 : ", err)
+				} else {
+					cblogger.Info("MyImage 목록 조회 결과")
+					cblogger.Info(result)
+					cblogger.Info("출력 결과 수 : ", len(result))
+					spew.Dump(result)
+					//spew.Dump(result)
+
+					//조회및 삭제 테스트를 위해 리스트의 첫번째 정보의 ID를 요청ID로 자동 갱신함.
+					// if result != nil {
+					// 	diskReqInfo.IId = result[0].IId // 조회 및 삭제를 위해 생성된 ID로 변경
+					// }
+				}
+
+			case 2:
+				cblogger.Infof("[%s] MyImage 생성 테스트", myImageReqInfo.IId.NameId)
+				//vNetworkReqInfo := irs.VNetworkReqInfo{}
+				result, err := handler.SnapshotVM(myImageReqInfo)
+				if err != nil {
+					cblogger.Infof(myImageReqInfo.IId.NameId, " MyImage 생성 실패 : ", err)
+				} else {
+					cblogger.Infof("MyImage 생성 결과 : ", result)
+					myImageReqInfo.IId = result.IId // 조회 및 삭제를 위해 생성된 ID로 변경
+					spew.Dump(result)
+				}
+
+			case 3:
+				cblogger.Infof("[%s] MyImage 조회 테스트", myImageReqInfo.IId.NameId)
+				result, err := handler.GetMyImage(myImageReqInfo.IId)
+				if err != nil {
+					cblogger.Infof("[%s] MyImage 조회 실패 : ", myImageReqInfo.IId.NameId, err)
+				} else {
+					cblogger.Infof("[%s] MyImage 조회 결과 : [%s]", myImageReqInfo.IId.NameId, result)
+					spew.Dump(result)
+				}
+			case 4:
+				cblogger.Infof("[%s] MyImage 삭제 테스트", myImageReqInfo.IId.NameId)
+				result, err := handler.DeleteMyImage(myImageReqInfo.IId)
+				if err != nil {
+					cblogger.Infof("[%s] MyImage 삭제 실패 : ", myImageReqInfo.IId.NameId, err)
+				} else {
+					cblogger.Infof("[%s] MyImage 삭제 결과 : [%s]", myImageReqInfo.IId.NameId, result)
+				}
+			}
+		}
+	}
+}
+
 func main() {
 	cblogger.Info("Tencent Cloud Resource Test")
 	//handleVPC() //VPC
@@ -1353,8 +1437,9 @@ func main() {
 	//handleSecurity()
 	//handleImage() //AMI
 	//handleKeyPair()
-	handleVM()
+	//handleVM()
 	//handleDisk()
+	handleMyImage()
 
 	//handlePublicIP() // PublicIP 생성 후 conf
 	//handleVNic() //Lancard
