@@ -1705,6 +1705,91 @@ func handleDisk() {
 	}
 }
 
+func handleMyImage() {
+	cblogger.Debug("Start MyImageHandler Resource Test")
+
+	ResourceHandler, err := testconf.GetResourceHandler("MyImage")
+	if err != nil {
+		panic(err)
+	}
+	handler := ResourceHandler.(irs.MyImageHandler)
+
+	//imageReqInfo := irs2.ImageReqInfo{
+	myImageReqInfo := irs.MyImageInfo{
+		IId:      irs.IID{NameId: "cb-disk-03", SystemId: "cb-disk-03"},
+		SourceVM: irs.IID{},
+	}
+
+	for {
+		fmt.Println("MyImageHandler Management")
+		fmt.Println("0. Quit")
+		fmt.Println("1. MyImage List")
+		fmt.Println("2. MyImage Create")
+		fmt.Println("3. MyImage Get")
+		fmt.Println("4. MyImage Delete")
+
+		var commandNum int
+		inputCnt, err := fmt.Scan(&commandNum)
+		if err != nil {
+			panic(err)
+		}
+
+		if inputCnt == 1 {
+			switch commandNum {
+			case 0:
+				return
+
+			case 1:
+				result, err := handler.ListMyImage()
+				if err != nil {
+					cblogger.Infof(" MyImage 목록 조회 실패 : ", err)
+				} else {
+					cblogger.Info("MyImage 목록 조회 결과")
+					cblogger.Info(result)
+					cblogger.Info("출력 결과 수 : ", len(result))
+					spew.Dump(result)
+					//spew.Dump(result)
+
+					//조회및 삭제 테스트를 위해 리스트의 첫번째 정보의 ID를 요청ID로 자동 갱신함.
+					// if result != nil {
+					// 	diskReqInfo.IId = result[0].IId // 조회 및 삭제를 위해 생성된 ID로 변경
+					// }
+				}
+
+			case 2:
+				cblogger.Infof("[%s] MyImage 생성 테스트", myImageReqInfo.IId.NameId)
+				//vNetworkReqInfo := irs.VNetworkReqInfo{}
+				result, err := handler.SnapshotVM(myImageReqInfo)
+				if err != nil {
+					cblogger.Infof(myImageReqInfo.IId.NameId, " MyImage 생성 실패 : ", err)
+				} else {
+					cblogger.Infof("MyImage 생성 결과 : ", result)
+					myImageReqInfo.IId = result.IId // 조회 및 삭제를 위해 생성된 ID로 변경
+					spew.Dump(result)
+				}
+
+			case 3:
+				cblogger.Infof("[%s] MyImage 조회 테스트", myImageReqInfo.IId.NameId)
+				result, err := handler.GetMyImage(myImageReqInfo.IId)
+				if err != nil {
+					cblogger.Infof("[%s] MyImage 조회 실패 : ", myImageReqInfo.IId.NameId, err)
+				} else {
+					cblogger.Infof("[%s] MyImage 조회 결과 : [%s]", myImageReqInfo.IId.NameId, result)
+					spew.Dump(result)
+				}
+			case 5:
+				cblogger.Infof("[%s] MyImage 삭제 테스트", myImageReqInfo.IId.NameId)
+				result, err := handler.DeleteMyImage(myImageReqInfo.IId)
+				if err != nil {
+					cblogger.Infof("[%s] MyImage 삭제 실패 : ", myImageReqInfo.IId.NameId, err)
+				} else {
+					cblogger.Infof("[%s] MyImage 삭제 결과 : [%s]", myImageReqInfo.IId.NameId, result)
+				}
+			}
+		}
+	}
+}
+
 //import "path/filepath"
 
 func main() {
@@ -1716,7 +1801,8 @@ func main() {
 	//handleSecurity()
 	//handleVM()
 	//handleLoadBalancer()
-	handleDisk()
+	//handleDisk()
+	handleMyImage()
 	//cblogger.Info(filepath.Join("a/b", "\\cloud-driver-libs\\.ssh-gcp\\"))
 	//cblogger.Info(filepath.Join("\\cloud-driver-libs\\.ssh-gcp\\", "/b/c/d"))
 }

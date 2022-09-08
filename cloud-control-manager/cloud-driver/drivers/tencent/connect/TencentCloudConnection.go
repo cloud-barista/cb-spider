@@ -9,13 +9,13 @@
 package connect
 
 import (
-	"github.com/sirupsen/logrus"
-
 	cblog "github.com/cloud-barista/cb-log"
 	trs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/tencent/resources"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
+	"github.com/sirupsen/logrus"
 
+	"errors"
 	//"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
 	//"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/errors"
 	//"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/profile"
@@ -25,7 +25,6 @@ import (
 	cvm "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/cvm/v20170312"
 	vpc "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/vpc/v20170312"
 
-	"errors"
 )
 
 type TencentCloudConnection struct {
@@ -38,6 +37,7 @@ type TencentCloudConnection struct {
 	SecurityClient *vpc.Client
 	VmSpecClient   *cvm.Client
 	DiskClient     *cbs.Client
+	MyImageClient *cvm.Client
 	//VNicClient     *cvm.Client
 	//PublicIPClient *cvm.Client
 }
@@ -125,13 +125,17 @@ func (cloudConn *TencentCloudConnection) CreateDiskHandler() (irs.DiskHandler, e
 	cblogger.Info("Start")
 	handler := trs.TencentDiskHandler{cloudConn.Region, cloudConn.DiskClient}
 
+
+	return &handler, nil
+}
+
+func (cloudConn *TencentCloudConnection) CreateMyImageHandler() (irs.MyImageHandler, error) {
+	cblogger.Info("Start")
+	handler := trs.TencentMyImageHandler{cloudConn.Region, cloudConn.MyImageClient}
+
 	return &handler, nil
 }
 
 func (cloudConn *TencentCloudConnection) CreateClusterHandler() (irs.ClusterHandler, error) {
-        return nil, errors.New("Tencent Driver: not implemented")
-}
-
-func (cloudConn *TencentCloudConnection) CreateMyImageHandler() (irs.MyImageHandler, error) {
         return nil, errors.New("Tencent Driver: not implemented")
 }
