@@ -88,13 +88,14 @@ func (clusterHandler *AlibabaClusterHandler) CreateCluster(clusterReqInfo irs.Cl
 	// 문제는 Cluster 생성이 완료되어야 NodeGroup 생성이 가능하다.
 	// Cluster 생성이 완료되려면 최소 10분 이상 걸린다.
 	// 성공할때까지 반복하면서 생성을 시도해야 하는가?
-	// for _, node_group := range clusterReqInfo.NodeGroupList {
-	// 	res, err := clusterHandler.AddNodeGroup(clusterReqInfo.IId, node_group)
-	// 	if err != nil {
-	// 		cblogger.Error(err)
-	// 		return irs.ClusterInfo{}, err
-	// 	}
-	// }
+	for _, node_group := range clusterReqInfo.NodeGroupList {
+		res, err := clusterHandler.AddNodeGroup(clusterReqInfo.IId, node_group)
+		if err != nil {
+			cblogger.Error(err)
+			return irs.ClusterInfo{}, err
+		}
+		printFlattenJSON(res)
+	}
 
 	return *cluster_info, nil
 }
@@ -123,9 +124,7 @@ func (clusterHandler *AlibabaClusterHandler) ListCluster() ([]*irs.ClusterInfo, 
 		}
 	}
 
-	// return cluster_info_list, nil
-
-	return nil, nil
+	return cluster_info_list, nil
 }
 
 func (clusterHandler *AlibabaClusterHandler) GetCluster(clusterIID irs.IID) (irs.ClusterInfo, error) {
@@ -185,18 +184,15 @@ func (clusterHandler *AlibabaClusterHandler) AddNodeGroup(clusterIID irs.IID, no
 
 	var result_json_obj map[string]interface{}
 	json.Unmarshal([]byte(result_json_str), &result_json_obj)
-	if result_json_obj["errors"] != nil {
-		return irs.NodeGroupInfo{}, errors.New(result_json_str)
+	printFlattenJSON(result_json_obj)
+	//{"nodepool_id":"np031dc18d09ee4959a2c6444570150c89","request_id":"BF1C50C9-E1C0-5DB1-B290-EC01B6F1BFD1","task_id":"T-63198517f47545090c000376"}
+	nodepool_id := result_json_obj["nodepool_id"].(string)
+	node_group_info, err := getNodeGroupInfo(clusterHandler.CredentialInfo.AccessKey, clusterHandler.CredentialInfo.AccessSecret, clusterHandler.RegionInfo.Region, clusterIID.SystemId, nodepool_id)
+	if err != nil {
+		return irs.NodeGroupInfo{}, err
 	}
-	// uuid := result_json_obj["uuid"].(string)
-	// node_group_info, err := getNodeGroupInfo(clusterHandler.ClusterClient.Endpoint, clusterHandler.ClusterClient.TokenID, clusterIID.SystemId, uuid)
-	// if err != nil {
-	// 	return irs.NodeGroupInfo{}, err
-	// }
 
-	// return *node_group_info, nil
-
-	return irs.NodeGroupInfo{}, nil
+	return *node_group_info, nil
 }
 
 func (clusterHandler *AlibabaClusterHandler) ListNodeGroup(clusterIID irs.IID) ([]*irs.NodeGroupInfo, error) {
@@ -422,7 +418,6 @@ func getClusterInfo(access_key string, access_secret string, region_id string, c
 	node_groups := node_groups_json_obj["nodepools"].([]interface{})
 	for _, node_group := range node_groups {
 		// printFlattenJSON(node_group)
-
 		// "nodepool_info.nodepool_id": "np02b049a03b8141858697497e12a61aa1",
 		node_group_id := node_group.(map[string]interface{})["nodepool_info"].(map[string]interface{})["nodepool_id"].(string)
 
@@ -451,54 +446,94 @@ func printFlattenJSON(json_obj interface{}) {
 	}
 }
 
-func getNodeGroupInfo(host string, token string, cluster_id string, node_group_id string) (*irs.NodeGroupInfo, error) {
-	// 	defer func() {
-	// 		if r := recover(); r != nil {
-	// 			cblogger.Error("getNodeGroupInfo() failed!", r)
-	// 		}
-	// 	}()
+func getNodeGroupInfo(access_key, access_secret, region_id, cluster_id, node_group_id string) (*irs.NodeGroupInfo, error) {
+	defer func() {
+		if r := recover(); r != nil {
+			cblogger.Error("getNodeGroupInfo() failed!", r)
+		}
+	}()
 
-	// 	node_group_json_str, err := alibaba.GetNodeGroup(host, token, cluster_id, node_group_id)
-	// 	if err != nil {
-	// 		return nil, err
-	// 	}
+	node_group_json_str, err := alibaba.GetNodeGroup(access_key, access_secret, region_id, cluster_id, node_group_id)
+	if err != nil {
+		return nil, err
+	}
 
-	// 	if node_group_json_str == "" {
-	// 		return nil, errors.New("not found")
-	// 	}
+	var node_group_json_obj map[string]interface{}
+	json.Unmarshal([]byte(node_group_json_str), &node_group_json_obj)
 
-	// 	var node_group_json_obj map[string]interface{}
-	// 	json.Unmarshal([]byte(node_group_json_str), &node_group_json_obj)
+	// mapping
+	// NodeGroupList.0.IId.NameId: 			nodepool_info.name
+	// NodeGroupList.0.IId.SystemId: 		nodepool_info.nodepool_id
+	// NodeGroupList.0.ImageIID.NameId: 	scaling_group.image_type
+	// NodeGroupList.0.ImageIID.SystemId: 	scaling_group.image_id
+	// NodeGroupList.0.VMSpecName: 			scaling_group.instance_types.0
+	// NodeGroupList.0.RootDiskType: 		scaling_group.system_disk_category
+	// NodeGroupList.0.RootDiskSize: 		scaling_group.system_disk_size
+	// NodeGroupList.0.KeyPairIID.NameId: 	scaling_group.key_pair
+	// NodeGroupList.0.KeyPairIID.SystemId: ""
+	// NodeGroupList.0.Status: 				status.state
+	// NodeGroupList.0.OnAutoScaling: 		auto_scaling.enable
+	// NodeGroupList.0.DesiredNodeSize: 	n/a
+	// NodeGroupList.0.MaxNodeSize: 		auto_scaling.max_instances
+	// NodeGroupList.0.MinNodeSize: 		auto_scaling.min_instances
+	// NodeGroupList.0.NodeList.0.NameId: 	//node정보추가 // not yet
+	// NodeGroupList.0.NodeList.0.SystemId:
 
-	// 	auto_scaling, _ := strconv.ParseBool(node_group_json_obj["labels"].(map[string]interface{})["ca_enable"].(string))
-	// 	ca_min_node_count, _ := strconv.ParseInt(node_group_json_obj["labels"].(map[string]interface{})["ca_min_node_count"].(string), 10, 32)
-	// 	ca_max_node_count, _ := strconv.ParseInt(node_group_json_obj["labels"].(map[string]interface{})["ca_max_node_count"].(string), 10, 32)
-	// 	node_count := int(node_group_json_obj["node_count"].(float64))
+	// NodeGroupList.0.KeyValueList.0.Key: key,	//keyvalue 정보 추가
+	// NodeGroupList.0.KeyValueList.0.Value: value
 
-	// 	node_group_info := irs.NodeGroupInfo{
-	// 		IId: irs.IID{
-	// 			NameId:   node_group_json_obj["name"].(string),
-	// 			SystemId: node_group_json_obj["uuid"].(string),
-	// 		},
-	// 		ImageIID: irs.IID{
-	// 			NameId:   "",
-	// 			SystemId: node_group_json_obj["image_id"].(string),
-	// 		},
-	// 		VMSpecName:      node_group_json_obj["flavor_id"].(string),
-	// 		RootDiskType:    node_group_json_obj["labels"].(map[string]interface{})["boot_volume_size"].(string),
-	// 		RootDiskSize:    node_group_json_obj["labels"].(map[string]interface{})["boot_volume_type"].(string),
-	// 		KeyPairIID:      irs.IID{},
-	// 		OnAutoScaling:   auto_scaling,
-	// 		MinNodeSize:     int(ca_min_node_count),
-	// 		MaxNodeSize:     int(ca_max_node_count),
-	// 		DesiredNodeSize: int(node_count),
-	// 		NodeList:        []irs.IID{},
-	// 		KeyValueList:    []irs.KeyValue{},
-	// 	}
+	// nodegroup.state
+	// https://www.alibabacloud.com/help/en/container-service-for-kubernetes/latest/query-the-details-of-a-node-pool
+	// active: The node pool is active.
+	// scaling: The node pool is being scaled.
+	// removing: Nodes are being removed from the node pool.
+	// deleting: The node pool is being deleted.
+	// updating: The node pool is being updated.
+	health_status := node_group_json_obj["status"].(map[string]interface{})["state"].(string)
+	status := irs.NodeGroupActive
+	if strings.EqualFold(health_status, "active") {
+		status = irs.NodeGroupActive
+	} else if strings.EqualFold(health_status, "scaling") {
+		status = irs.NodeGroupUpdating
+	} else if strings.EqualFold(health_status, "removing") {
+		status = irs.NodeGroupUpdating // removing is a kind of updating?
+	} else if strings.EqualFold(health_status, "deleting") {
+		status = irs.NodeGroupDeleting
+	} else if strings.EqualFold(health_status, "updating") {
+		status = irs.NodeGroupUpdating
+	}
 
-	//return &node_group_info, nil
+	println(status)
 
-	return nil, nil
+	// 변환 자동화 고려
+	// 변환 규칙 이용 고려 // https://github.com/qntfy/kazaam
+	// https://github.com/antchfx/jsonquery
+	node_group_info := irs.NodeGroupInfo{
+		IId: irs.IID{
+			NameId:   node_group_json_obj["nodepool_info"].(map[string]interface{})["name"].(string),
+			SystemId: node_group_json_obj["nodepool_info"].(map[string]interface{})["nodepool_id"].(string),
+		},
+		ImageIID: irs.IID{
+			NameId:   node_group_json_obj["scaling_group"].(map[string]interface{})["image_type"].(string),
+			SystemId: node_group_json_obj["scaling_group"].(map[string]interface{})["image_id"].(string),
+		},
+		VMSpecName:   node_group_json_obj["scaling_group"].(map[string]interface{})["instance_types"].([]interface{})[0].(string),
+		RootDiskType: node_group_json_obj["scaling_group"].(map[string]interface{})["system_disk_category"].(string),
+		RootDiskSize: strconv.Itoa(int(node_group_json_obj["scaling_group"].(map[string]interface{})["system_disk_size"].(float64))),
+		KeyPairIID: irs.IID{
+			NameId:   node_group_json_obj["scaling_group"].(map[string]interface{})["key_pair"].(string),
+			SystemId: "",
+		},
+		Status:          status,
+		OnAutoScaling:   node_group_json_obj["auto_scaling"].(map[string]interface{})["enable"].(bool),
+		MinNodeSize:     int(node_group_json_obj["auto_scaling"].(map[string]interface{})["min_instances"].(float64)),
+		MaxNodeSize:     int(node_group_json_obj["auto_scaling"].(map[string]interface{})["max_instances"].(float64)),
+		DesiredNodeSize: 0,                // not supported in alibaba
+		NodeList:        []irs.IID{},      // to be implemented
+		KeyValueList:    []irs.KeyValue{}, // to be implemented
+	}
+
+	return &node_group_info, nil
 }
 
 func getClusterInfoJSON(clusterInfo irs.ClusterInfo, region_id string) (string, error) {

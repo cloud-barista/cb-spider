@@ -369,7 +369,7 @@ func TestAddNodeGroup(t *testing.T) {
 	// }`
 
 	new_node_group := &irs.NodeGroupInfo{
-		IId:             irs.IID{NameId: "nodepoolx100", SystemId: ""},
+		IId:             irs.IID{NameId: "nodepoolx101", SystemId: ""},
 		ImageIID:        irs.IID{NameId: "", SystemId: "image_id"}, // 이미지 id 선택 추가
 		VMSpecName:      "ecs.c6.xlarge",
 		RootDiskType:    "cloud_essd",
