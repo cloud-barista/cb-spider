@@ -57,7 +57,7 @@ func (myImageHandler TencentMyImageHandler) SnapshotVM(snapshotReqInfo irs.MyIma
 			Tags: []*cvm.Tag{
 				&cvm.Tag{
 					Key:   common.StringPtr(IMAGE_TAG_SOURCE_VM),
-					Value: common.StringPtr("aaa"),
+					Value: common.StringPtr(snapshotReqInfo.SourceVM.SystemId),
 				},
 			},
 		},
@@ -81,7 +81,7 @@ TODO : CommonHandlerm에 DescribeImages, DescribeImageById, DescribeImageStatus 
 func (myImageHandler TencentMyImageHandler) ListMyImage() ([]*irs.MyImageInfo, error) {
 	request := cvm.NewDescribeImagesRequest()
 
-	request.ImageIds = common.StringPtrs([]string{"aaa"})
+	//request.ImageIds = common.StringPtrs([]string{"aaa"})
 	request.Filters = []*cvm.Filter{
 		&cvm.Filter{
 			Name:   common.StringPtr("image-type"),
@@ -126,7 +126,7 @@ func (myImageHandler TencentMyImageHandler) DeleteMyImage(myImageIID irs.IID) (b
 	// 삭제 처리
 	request := cvm.NewDeleteImagesRequest()
 
-	request.ImageIds = common.StringPtrs([]string{"aaa"})
+	request.ImageIds = common.StringPtrs([]string{myImageIID.SystemId})
 
 	// The returned "resp" is an instance of the DeleteImagesResponse class which corresponds to the request object
 	response, err := myImageHandler.Client.DeleteImages(request)
