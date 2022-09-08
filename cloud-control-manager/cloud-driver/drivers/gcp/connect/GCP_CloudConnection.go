@@ -124,3 +124,8 @@ func (cloudConn *GCPCloudConnection) CreateMyImageHandler() (irs.MyImageHandler,
 	myImageHandler := gcprs.GCPMyImageHandler{Region: cloudConn.Region, Ctx: cloudConn.Ctx, Client: cloudConn.VMClient, Credential: cloudConn.Credential}
 	return &myImageHandler, nil
 }
+
+func (cloudConn *GCPCloudConnection) CreateClusterHandler() (irs.ClusterHandler, error) {
+        return nil, errors.New("GCP Driver: not implemented")
+}
+
