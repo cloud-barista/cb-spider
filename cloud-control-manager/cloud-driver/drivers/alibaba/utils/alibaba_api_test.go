@@ -48,70 +48,9 @@ func TestMain(m *testing.M) {
 	os.Exit(code)
 }
 
-func TestCreateCluster(t *testing.T) {
-
-	body := `{
-		"name": "cluster_0",
-		"region_id": "cn-beijing",
-		"cluster_type": "ManagedKubernetes",
-		"kubernetes_version": "1.22.10-aliyun.1",
-		"vpcid": "vpc-2zek5slojo5bh621ftnrg",
-		"container_cidr": "172.21.0.0/16",
-		"service_cidr": "172.22.0.0/16",
-		"key_pair": "kp1",
-		"login_password": "$etri2ETRI",
-		"master_vswitch_ids": [
-			"vsw-2ze0qpwcio7r5bx3nqbp1"
-		],
-		"master_instance_types": [
-			"ecs.g7ne.xlarge,ecs.c7.xlarge"
-		],
-		"master_system_disk_category": "cloud_essd",
-		"master_system_disk_size": 120,
-		"num_of_nodes": 0,
-		"vswitch_ids": [
-			"vsw-2ze0qpwcio7r5bx3nqbp1"
-		],
-		"worker_vswitch_ids": [
-			"vsw-2ze0qpwcio7r5bx3nqbp1"
-		],
-		"worker_instance_types": [
-			"ecs.g7ne.xlarge,ecs.c7.xlarge"
-		],
-		"worker_system_disk_category": "cloud_essd",
-		"worker_system_disk_size": 120,
-		"worker_data_disks": [
-			{
-				"category": "cloud_essd",
-				"size": "120"
-			}
-		]
-	}`
-
-	// "master_count": 3,
-
-	/*
-		must contain three (large, lowercase letters, numbers and special symbols).
-		$etri2ETRI
-	*/
-
-	result, err := alibaba.CreateCluster(access_key, access_secret, region_id, body)
-	if err != nil {
-		t.Errorf("Failed to create cluster: %v", err)
-	}
-	println(result)
-}
-
-func TestGetClusters(t *testing.T) {
-	result, err := alibaba.GetClusters(access_key, access_secret, region_id)
-	if err != nil {
-		t.Errorf("Failed to get clusters: %v", err)
-	}
-	println(result)
-}
-
-func TestCreateCluster2(t *testing.T) {
+func TestCreateClusterOnly(t *testing.T) {
 	// nodecount = 0
+	t.Log("클러스터만 생성하기")
 
 	body := `{
 		"name": "cluster_2",
@@ -182,6 +121,70 @@ func TestCreateCluster2(t *testing.T) {
 	result, err := alibaba.CreateCluster(access_key, access_secret, region_id, body)
 	if err != nil {
 		t.Errorf("Failed to create cluster: %v", err)
+	}
+	println(result)
+}
+
+func TestCreateClusterWithNodeGroup(t *testing.T) {
+
+	t.Log("클러스터 + 노드그룹(1) 생성하기")
+
+	body := `{
+		"name": "cluster_0",
+		"region_id": "cn-beijing",
+		"cluster_type": "ManagedKubernetes",
+		"kubernetes_version": "1.22.10-aliyun.1",
+		"vpcid": "vpc-2zek5slojo5bh621ftnrg",
+		"container_cidr": "172.21.0.0/16",
+		"service_cidr": "172.22.0.0/16",
+		"key_pair": "kp1",
+		"login_password": "$etri2ETRI",
+		"master_vswitch_ids": [
+			"vsw-2ze0qpwcio7r5bx3nqbp1"
+		],
+		"master_instance_types": [
+			"ecs.g7ne.xlarge,ecs.c7.xlarge"
+		],
+		"master_system_disk_category": "cloud_essd",
+		"master_system_disk_size": 120,
+		"num_of_nodes": 0,
+		"vswitch_ids": [
+			"vsw-2ze0qpwcio7r5bx3nqbp1"
+		],
+		"worker_vswitch_ids": [
+			"vsw-2ze0qpwcio7r5bx3nqbp1"
+		],
+		"worker_instance_types": [
+			"ecs.g7ne.xlarge,ecs.c7.xlarge"
+		],
+		"worker_system_disk_category": "cloud_essd",
+		"worker_system_disk_size": 120,
+		"worker_data_disks": [
+			{
+				"category": "cloud_essd",
+				"size": "120"
+			}
+		]
+	}`
+
+	// "master_count": 3,
+
+	/*
+		must contain three (large, lowercase letters, numbers and special symbols).
+		$etri2ETRI
+	*/
+
+	result, err := alibaba.CreateCluster(access_key, access_secret, region_id, body)
+	if err != nil {
+		t.Errorf("Failed to create cluster: %v", err)
+	}
+	println(result)
+}
+
+func TestGetClusters(t *testing.T) {
+	result, err := alibaba.GetClusters(access_key, access_secret, region_id)
+	if err != nil {
+		t.Errorf("Failed to get clusters: %v", err)
 	}
 	println(result)
 }
@@ -336,17 +339,38 @@ func TestCreateNodeGroup(t *testing.T) {
 // c870636966d134b968a960cd9d978f940
 func TestCreateNodeGroup2(t *testing.T) {
 
+	// body := `{
+	// 	"nodepool_info": {
+	// 		"name": "nodepoolx"
+	// 	},
+	// 	"auto_scaling": {
+	// 		"enable": true,
+	// 		"max_instances": 5,
+	// 		"min_instances": 0
+	// 	},
+	// 	"scaling_group": {
+	// 		"instance_charge_type": "PostPaid",
+	// 		"instance_types": ["ecs.c6.xlarge"],
+	// 		"key_pair": "kp1",
+	// 		"system_disk_category": "cloud_essd",
+	// 		"system_disk_size": 70,
+	// 		"vswitch_ids": ["vsw-2ze0qpwcio7r5bx3nqbp1"]
+	// 	},
+	// 	"management": {
+	// 		"enable":true
+	// 	}
+	// }`
+
 	body := `{
 		"nodepool_info": {
-			"name": "nodepoolx"
+			"name": "nodepoolx3"
 		},
 		"auto_scaling": {
 			"enable": true,
 			"max_instances": 5,
-			"min_instances": 0
+			"min_instances": 2
 		},
 		"scaling_group": {
-			"instance_charge_type": "PostPaid",
 			"instance_types": ["ecs.c6.xlarge"],
 			"key_pair": "kp1",
 			"system_disk_category": "cloud_essd",

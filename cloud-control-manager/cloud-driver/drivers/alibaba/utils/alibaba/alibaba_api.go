@@ -74,7 +74,7 @@ func GetCluster(access_key string, access_secret string, region_id string, clust
 	request.Scheme = "https" // https | http
 	request.Domain = "cs." + region_id + ".aliyuncs.com"
 	request.Version = "2015-12-15"
-	request.PathPattern = "/clusters/c622a22eab740403cb3e6e675c61a4e00"
+	request.PathPattern = "/clusters/" + cluster_id
 	request.Headers["Content-Type"] = "application/json"
 
 	response, err := client.ProcessCommonRequest(request)

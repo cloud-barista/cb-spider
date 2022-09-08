@@ -11,15 +11,20 @@
 package resources
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 
 	//"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/alibaba/main/pmks_test/util"
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
+	"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/alibaba/utils/alibaba"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
+	"github.com/jeremywohl/flatten"
 	"github.com/sirupsen/logrus"
 	// call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 )
@@ -46,61 +51,77 @@ type AlibabaClusterHandler struct {
 
 func (clusterHandler *AlibabaClusterHandler) CreateCluster(clusterReqInfo irs.ClusterInfo) (irs.ClusterInfo, error) {
 	cblogger.Info("Alibaba Cloud Driver: called CreateCluster()")
-	//callLogInfo := getCallLogScheme(clusterHandler.RegionInfo.Region, call.CLUSTER, "CreateCluster()", "CreateCluster()")
-	// // 클러스터 생성 요청을 JSON 요청으로 변환
-	// payload, err := getClusterInfoJSON(clusterReqInfo)
-	// if err != nil {
-	// 	cblogger.Error(err)
-	// 	return irs.ClusterInfo{}, err
+	callLogInfo := getCallLogScheme(clusterHandler.RegionInfo.Region, call.CLUSTER, "CreateCluster()", "CreateCluster()")
+
+	// 클러스터 생성 요청을 JSON 요청으로 변환
+	payload, err := getClusterInfoJSON(clusterReqInfo, clusterHandler.RegionInfo.Region)
+	if err != nil {
+		cblogger.Error(err)
+		return irs.ClusterInfo{}, err
+	}
+
+	start := call.Start()
+	response_json_str, err := alibaba.CreateCluster(clusterHandler.CredentialInfo.AccessKey, clusterHandler.CredentialInfo.AccessSecret, clusterHandler.RegionInfo.Region, payload)
+	loggingInfo(callLogInfo, start)
+	if err != nil {
+		cblogger.Error(err)
+		loggingError(callLogInfo, err)
+		return irs.ClusterInfo{}, err
+	}
+
+	println(response_json_str)
+	// {"cluster_id":"c913aebba53eb40f3978495d92b8da57f","request_id":"2C0836DA-ED3B-5B1E-94C9-5B7E355E2E44","task_id":"T-63185224055a0b07c6000083","instanceId":"c913aebba53eb40f3978495d92b8da57f"}
+
+	var response_json_obj map[string]interface{}
+	json.Unmarshal([]byte(response_json_str), &response_json_obj)
+	cluster_id := response_json_obj["cluster_id"].(string)
+	cluster_info, err := getClusterInfo(clusterHandler.CredentialInfo.AccessKey, clusterHandler.CredentialInfo.AccessSecret, clusterHandler.RegionInfo.Region, cluster_id)
+	if err != nil {
+		return irs.ClusterInfo{}, err
+	}
+
+	// 리턴할 ClusterInfo 만들기
+	// 일단은 단순하게 만들어서 반환한다.
+	// 추후에 정보 추가 필요
+
+	// NodeGroup 생성 정보가 있는경우 생성을 시도한다.
+	// 문제는 Cluster 생성이 완료되어야 NodeGroup 생성이 가능하다.
+	// Cluster 생성이 완료되려면 최소 10분 이상 걸린다.
+	// 성공할때까지 반복하면서 생성을 시도해야 하는가?
+	// for _, node_group := range clusterReqInfo.NodeGroupList {
+	// 	res, err := clusterHandler.AddNodeGroup(clusterReqInfo.IId, node_group)
+	// 	if err != nil {
+	// 		cblogger.Error(err)
+	// 		return irs.ClusterInfo{}, err
+	// 	}
 	// }
 
-	// start := call.Start()
-	// // access_key string, access_secret string, region_id string, body string
-	// response_json_str, err := alibaba.CreateCluster(clusterHandler.ClusterClient.Endpoint, clusterHandler.ClusterClient.TokenID, payload)
-	// loggingInfo(callLogInfo, start)
-	// if err != nil {
-	// 	cblogger.Error(err)
-	// 	loggingError(callLogInfo, err)
-	// 	return irs.ClusterInfo{}, err
-	// }
-
-	// var response_json_obj map[string]interface{}
-	// json.Unmarshal([]byte(response_json_str), &response_json_obj)
-	// if v, found := response_json_obj["uuid"]; found {
-	// 	clusterReqInfo.IId.SystemId = v.(string)
-	// } else {
-	// 	err = errors.New(response_json_str)
-	// 	cblogger.Error(err)
-	// 	return irs.ClusterInfo{}, err
-	// }
-
-	// return clusterReqInfo, nil
-
-	return irs.ClusterInfo{}, nil
+	return *cluster_info, nil
 }
 
 func (clusterHandler *AlibabaClusterHandler) ListCluster() ([]*irs.ClusterInfo, error) {
 	cblogger.Info("Alibaba Cloud Driver: called ListCluster()")
-	// callLogInfo := getCallLogScheme(clusterHandler.RegionInfo.Region, call.CLUSTER, "ListCluster()", "ListCluster()")
+	callLogInfo := getCallLogScheme(clusterHandler.RegionInfo.Region, call.CLUSTER, "ListCluster()", "ListCluster()")
 
-	// start := call.Start()
-	// clusters_json_str, err := alibaba.GetClusters(clusterHandler.ClusterClient.Endpoint, clusterHandler.ClusterClient.TokenID)
-	// LoggingInfo(callLogInfo, start)
-	// if err != nil {
-	// 	return nil, err
-	// }
+	start := call.Start()
+	clusters_json_str, err := alibaba.GetClusters(clusterHandler.CredentialInfo.AccessKey, clusterHandler.CredentialInfo.AccessSecret, clusterHandler.RegionInfo.Region)
+	loggingInfo(callLogInfo, start)
+	if err != nil {
+		return nil, err
+	}
 
-	// var clusters_json_obj map[string]interface{}
-	// json.Unmarshal([]byte(clusters_json_str), &clusters_json_obj)
-	// clusters := clusters_json_obj["clusters"].([]interface{})
-	// cluster_info_list := make([]*irs.ClusterInfo, len(clusters))
-	// for i, cluster := range clusters {
-	// 	uuid := cluster.(map[string]interface{})["uuid"].(string)
-	// 	cluster_info_list[i], err = getClusterInfo(clusterHandler.ClusterClient.Endpoint, clusterHandler.ClusterClient.TokenID, uuid)
-	// 	if err != nil {
-	// 		return nil, err
-	// 	}
-	// }
+	var clusters_json_obj map[string]interface{}
+	json.Unmarshal([]byte(clusters_json_str), &clusters_json_obj)
+	clusters := clusters_json_obj["clusters"].([]interface{})
+	cluster_info_list := make([]*irs.ClusterInfo, len(clusters))
+	for i, cluster := range clusters {
+		println(i, cluster)
+		cluster_id := cluster.(map[string]interface{})["cluster_id"].(string)
+		cluster_info_list[i], err = getClusterInfo(clusterHandler.CredentialInfo.AccessKey, clusterHandler.CredentialInfo.AccessSecret, clusterHandler.RegionInfo.Region, cluster_id)
+		if err != nil {
+			return nil, err
+		}
+	}
 
 	// return cluster_info_list, nil
 
@@ -146,26 +167,27 @@ func (clusterHandler *AlibabaClusterHandler) DeleteCluster(clusterIID irs.IID) (
 
 func (clusterHandler *AlibabaClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGroupReqInfo irs.NodeGroupInfo) (irs.NodeGroupInfo, error) {
 	cblogger.Info("Alibaba Cloud Driver: called AddNodeGroup()")
-	// callLogInfo := GetCallLogScheme(clusterHandler.RegionInfo.Region, call.CLUSTER, clusterIID.NameId, "AddNodeGroup()")
 
-	// // 노드 그룹 생성 요청을 JSON 요청으로 변환
-	// payload, err := getNodeGroupJSONString(nodeGroupReqInfo)
-	// if err != nil {
-	// 	return irs.NodeGroupInfo{}, err
-	// }
+	callLogInfo := getCallLogScheme(clusterHandler.RegionInfo.Region, call.CLUSTER, clusterIID.NameId, "AddNodeGroup()")
 
-	// start := call.Start()
-	// result_json_str, err := alibaba.CreateNodeGroup(clusterHandler.ClusterClient.Endpoint, clusterHandler.ClusterClient.TokenID, clusterIID.SystemId, payload)
-	// LoggingInfo(callLogInfo, start)
-	// if err != nil {
-	// 	return irs.NodeGroupInfo{}, err
-	// }
+	// 노드 그룹 생성 요청을 JSON 요청으로 변환
+	payload, err := getNodeGroupJSONString(nodeGroupReqInfo)
+	if err != nil {
+		return irs.NodeGroupInfo{}, err
+	}
 
-	// var result_json_obj map[string]interface{}
-	// json.Unmarshal([]byte(result_json_str), &result_json_obj)
-	// if result_json_obj["errors"] != nil {
-	// 	return irs.NodeGroupInfo{}, errors.New(result_json_str)
-	// }
+	start := call.Start()
+	result_json_str, err := alibaba.CreateNodeGroup(clusterHandler.CredentialInfo.AccessKey, clusterHandler.CredentialInfo.AccessSecret, clusterHandler.RegionInfo.Region, clusterIID.SystemId, payload)
+	loggingInfo(callLogInfo, start)
+	if err != nil {
+		return irs.NodeGroupInfo{}, err
+	}
+
+	var result_json_obj map[string]interface{}
+	json.Unmarshal([]byte(result_json_str), &result_json_obj)
+	if result_json_obj["errors"] != nil {
+		return irs.NodeGroupInfo{}, errors.New(result_json_str)
+	}
 	// uuid := result_json_obj["uuid"].(string)
 	// node_group_info, err := getNodeGroupInfo(clusterHandler.ClusterClient.Endpoint, clusterHandler.ClusterClient.TokenID, clusterIID.SystemId, uuid)
 	// if err != nil {
@@ -282,143 +304,151 @@ func (clusterHandler *AlibabaClusterHandler) UpgradeCluster(clusterIID irs.IID, 
 	return irs.ClusterInfo{}, nil
 }
 
-func getClusterInfo(host string, token string, cluster_id string) (*irs.ClusterInfo, error) {
+func getClusterInfo(access_key string, access_secret string, region_id string, cluster_id string) (*irs.ClusterInfo, error) {
+	defer func() {
+		if r := recover(); r != nil {
+			cblogger.Error("getClusterInfo() failed!", r)
+		}
+	}()
 
-	// defer func() {
-	// 	if r := recover(); r != nil {
-	// 		cblogger.Error("getClusterInfo() failed!", r)
-	// 	}
-	// }()
+	cluster_json_str, err := alibaba.GetCluster(access_key, access_secret, region_id, cluster_id)
+	if err != nil {
+		return nil, err
+	}
+	println(cluster_json_str)
+	flat, err := flatten.FlattenString(cluster_json_str, "", flatten.DotStyle)
+	if err != nil {
+		return nil, err
+	}
+	println(flat)
 
-	// cluster_json_str, err := alibaba.GetCluster(host, token, cluster_id)
-	// if err != nil {
-	// 	return nil, err
-	// }
-	// var cluster_json_obj map[string]interface{}
-	// json.Unmarshal([]byte(cluster_json_str), &cluster_json_obj)
+	// k,v 추출
+	// k,v 변환 규칙 작성 [k,v]:[ClusterInfo.k, ClusterInfo.v]
+	// 변환 규칙에 따라 k,v 변환
+	var cluster_json_obj map[string]interface{}
+	json.Unmarshal([]byte(cluster_json_str), &cluster_json_obj)
 
-	// health_status := cluster_json_obj["status"].(string)
-	// cluster_status := irs.ClusterActive
-	// if health_status == "CREATE_IN_PROGRESS" {
-	// 	cluster_status = irs.ClusterCreating
-	// } else if health_status == "UPDATE_IN_PROGRESS" {
-	// 	cluster_status = irs.ClusterUpdating
-	// } else if health_status == "UPDATE_FAILED" {
-	// 	cluster_status = irs.ClusterInactive
-	// } else if health_status == "DELETE_IN_PROGRESS" {
-	// 	cluster_status = irs.ClusterDeleting
-	// } else if health_status == "CREATE_COMPLETE" {
-	// 	cluster_status = irs.ClusterActive
-	// }
+	// https://www.alibabacloud.com/help/doc-detail/86987.html
+	// Initializing	Creating the cloud resources that are used by the cluster.
+	// Creation Failed	Failed to create the cloud resources that are used by the cluster.
+	// Running	The cloud resources used by the cluster are created.
+	// Updating	Updating the metadata of the cluster.
+	// Scaling	Adding nodes to the cluster.
+	// Removing	Removing nodes from the cluster.
+	// Upgrading	Upgrading the cluster.
+	// Draining	Evicting pods from a node to other nodes. After all pods are evicted from the node, the node becomes unschudulable.
+	// Deleting	Deleting the cluster.
+	// Deletion Failed	Failed to delete the cluster.
+	// Deleted (invisible to users)	The cluster is deleted.
 
-	// created_at := cluster_json_obj["created_at"].(string)
-	// datetime, err := time.Parse(time.RFC3339, created_at)
-	// //RFC3339     = "2006-01-02T15:04:05Z07:00"
-	// //datetime, err := time.Parse("2006-01-02T15:04:05+07:00", created_at)
-	// if err != nil {
-	// 	panic(err)
-	// }
+	// ClusterCreating ClusterStatus = "Creating"
+	// ClusterActive   ClusterStatus = "Active"
+	// ClusterInactive ClusterStatus = "Inactive"
+	// ClusterUpdating ClusterStatus = "Updating"
+	// ClusterDeleting ClusterStatus = "Deleting"
 
-	// version := ""
-	// if cluster_json_obj["coe_version"] != nil {
-	// 	version = cluster_json_obj["coe_version"].(string)
-	// }
+	health_status := cluster_json_obj["state"].(string)
+	cluster_status := irs.ClusterActive
+	if strings.EqualFold(health_status, "Initializing") {
+		cluster_status = irs.ClusterCreating
+	} else if strings.EqualFold(health_status, "Updating") {
+		cluster_status = irs.ClusterUpdating
+	} else if strings.EqualFold(health_status, "Creation Failed") {
+		cluster_status = irs.ClusterInactive
+	} else if strings.EqualFold(health_status, "Deleting") {
+		cluster_status = irs.ClusterDeleting
+	} else if strings.EqualFold(health_status, "Running") {
+		cluster_status = irs.ClusterActive
+	}
 
-	// cluster_info := &irs.ClusterInfo{
-	// 	IId: irs.IID{
-	// 		NameId:   cluster_json_obj["name"].(string),
-	// 		SystemId: cluster_json_obj["uuid"].(string),
-	// 	},
-	// 	Version: version,
-	// 	Network: irs.NetworkInfo{
-	// 		VpcIID: irs.IID{
-	// 			NameId:   "",
-	// 			SystemId: cluster_json_obj["fixed_network"].(string),
-	// 		},
-	// 		SubnetIID: []irs.IID{
-	// 			{
-	// 				NameId:   "",
-	// 				SystemId: cluster_json_obj["fixed_subnet"].(string),
-	// 			},
-	// 		},
-	// 		SecurityGroupIIDs: []irs.IID{
-	// 			{
-	// 				NameId:   "",
-	// 				SystemId: "",
-	// 			},
-	// 		},
-	// 	},
-	// 	// NodeGroupList: []irs.NodeGroupInfo{
-	// 	// 	{
-	// 	// 		IId: irs.IID{
-	// 	// 			NameId:   "",
-	// 	// 			SystemId: "",
-	// 	// 		},
-	// 	// 		ImageIID: irs.IID{
-	// 	// 			NameId:   "",
-	// 	// 			SystemId: "",
-	// 	// 		},
-	// 	// 		VMSpecName:   "",
-	// 	// 		RootDiskType: "",
-	// 	// 		RootDiskSize: "",
-	// 	// 		KeyPairIID: irs.IID{
-	// 	// 			NameId:   "",
-	// 	// 			SystemId: "",
-	// 	// 		},
-	// 	// 		AutoScaling:        false,
-	// 	// 		MinNumberNodes:     0,
-	// 	// 		MaxNumberNodes:     0,
-	// 	// 		DesiredNumberNodes: 0,
-	// 	// 		NodeList:           []irs.IID{},
-	// 	// 		KeyValueList:       []irs.KeyValue{},
-	// 	// 	},
-	// 	// },
-	// 	Addons: irs.AddonsInfo{
-	// 		KeyValueList: []irs.KeyValue{},
-	// 	},
-	// 	Status:       cluster_status,
-	// 	CreatedTime:  datetime,
-	// 	KeyValueList: []irs.KeyValue{
-	// 		// {
-	// 		// 	Key:   "external_network_id",
-	// 		// 	Value: cluster.(map[string]interface{})["labels"].(map[string]interface{})["external_network_id"].(string),
-	// 		// },
-	// 		// {
-	// 		// 	Key:   "external_subnet_id_list",
-	// 		// 	Value: cluster.(map[string]interface{})["labels"].(map[string]interface{})["external_subnet_id_list"].(string),
-	// 		// },
-	// 		// {
-	// 		// 	Key:   "availability_zone",
-	// 		// 	Value: cluster.(map[string]interface{})["labels"].(map[string]interface{})["availability_zone"].(string),
-	// 		// },
-	// 		// {
-	// 		// 	Key:   "node_count",
-	// 		// 	Value: strconv.Itoa(int(cluster.(map[string]interface{})["node_count"].(float64))),
-	// 		// },
-	// 	},
-	// }
+	println(cluster_status)
 
-	// // NodeGroups
-	// node_groups_json_str, err := alibaba.GetNodeGroups(host, token, cluster_id)
-	// if err != nil {
-	// 	return nil, err
-	// }
+	created_at := cluster_json_obj["created"].(string) // 2022-09-08T09:02:16+08:00,
+	datetime, err := time.Parse(time.RFC3339, created_at)
+	if err != nil {
+		panic(err)
+	}
 
-	// var node_groups_json_obj map[string]interface{}
-	// json.Unmarshal([]byte(node_groups_json_str), &node_groups_json_obj)
-	// node_groups := node_groups_json_obj["nodegroups"].([]interface{})
-	// for _, node_group := range node_groups {
-	// 	node_group_id := node_group.(map[string]interface{})["uuid"].(string)
-	// 	node_group_info, err := getNodeGroupInfo(host, token, cluster_id, node_group_id)
-	// 	if err != nil {
-	// 		return nil, err
-	// 	}
-	// 	cluster_info.NodeGroupList = append(cluster_info.NodeGroupList, *node_group_info)
-	// }
+	// name
+	// cluster_id
+	// current_version
+	// security_group_id
+	// vpc_id
+	// state
+	// created
+	cluster_info := &irs.ClusterInfo{
+		IId: irs.IID{
+			NameId:   cluster_json_obj["name"].(string),
+			SystemId: cluster_json_obj["cluster_id"].(string),
+		},
+		Version: cluster_json_obj["current_version"].(string),
+		Network: irs.NetworkInfo{
+			VpcIID: irs.IID{
+				NameId:   "",
+				SystemId: cluster_json_obj["vpc_id"].(string),
+			},
+			SecurityGroupIIDs: []irs.IID{
+				{
+					NameId:   "",
+					SystemId: cluster_json_obj["security_group_id"].(string),
+				},
+			},
+		},
+		Status:      cluster_status,
+		CreatedTime: datetime,
+		// KeyValueList: []irs.KeyValue{}, // flatten data 입력하기
+	}
+	println(cluster_info)
 
-	// return cluster_info, nil
+	// NodeGroups
+	node_groups_json_str, err := alibaba.ListNodeGroup(access_key, access_secret, region_id, cluster_id)
+	if err != nil {
+		return nil, err
+	}
+	print(node_groups_json_str)
+	// {"NextToken":"","TotalCount":0,"nodepools":[],"request_id":"4529A823-F344-5EA6-8E60-47FC30117668"}
 
-	return nil, nil
+	// k,v 추출
+	// k,v 변환 규칙 작성 [k,v]:[NodeGroup.k, NodeGroup.v]
+	// 변환 규칙에 따라 k,v 변환
+	flat, err = flatten.FlattenString(node_groups_json_str, "", flatten.DotStyle)
+	if err != nil {
+		return nil, err
+	}
+	println(flat)
+
+	var node_groups_json_obj map[string]interface{}
+	json.Unmarshal([]byte(node_groups_json_str), &node_groups_json_obj)
+	node_groups := node_groups_json_obj["nodepools"].([]interface{})
+	for _, node_group := range node_groups {
+		// printFlattenJSON(node_group)
+
+		// "nodepool_info.nodepool_id": "np02b049a03b8141858697497e12a61aa1",
+		node_group_id := node_group.(map[string]interface{})["nodepool_info"].(map[string]interface{})["nodepool_id"].(string)
+
+		// TODO
+		node_group_info, err := getNodeGroupInfo(access_key, access_secret, region_id, cluster_id, node_group_id)
+		if err != nil {
+			return nil, err
+		}
+		cluster_info.NodeGroupList = append(cluster_info.NodeGroupList, *node_group_info)
+	}
+
+	return cluster_info, nil
+}
+
+func printFlattenJSON(json_obj interface{}) {
+	temp, err := json.MarshalIndent(json_obj, "", "  ")
+	if err != nil {
+		println(err)
+	} else {
+		flat, err := flatten.FlattenString(string(temp), "", flatten.DotStyle)
+		if err != nil {
+			println(err)
+		} else {
+			println(flat)
+		}
+	}
 }
 
 func getNodeGroupInfo(host string, token string, cluster_id string, node_group_id string) (*irs.NodeGroupInfo, error) {
@@ -466,135 +496,145 @@ func getNodeGroupInfo(host string, token string, cluster_id string, node_group_i
 	// 		KeyValueList:    []irs.KeyValue{},
 	// 	}
 
-	// 	return &node_group_info, nil
-	// }
-
-	// func getClusterInfoJSON(clusterInfo irs.ClusterInfo) (string, error) {
-	// 	defer func() {
-	// 		if r := recover(); r != nil {
-	// 			cblogger.Error("getClusterInfoJSON failed", r)
-	// 		}
-	// 	}()
-
-	// 	fixed_network := clusterInfo.Network.VpcIID.SystemId
-	// 	fixed_subnet := clusterInfo.Network.SubnetIID[0].SystemId
-	// 	flavor_id := clusterInfo.NodeGroupList[0].VMSpecName
-	// 	keypair := clusterInfo.NodeGroupList[0].KeyPairIID.NameId
-
-	// 	availability_zone := ""
-	// 	boot_volume_size := clusterInfo.NodeGroupList[0].RootDiskSize
-	// 	boot_volume_type := clusterInfo.NodeGroupList[0].RootDiskType
-
-	// 	ca_enable := "false"
-	// 	if clusterInfo.NodeGroupList[0].OnAutoScaling {
-	// 		ca_enable = "true"
-	// 	}
-	// 	ca_max_node_count := strconv.Itoa(clusterInfo.NodeGroupList[0].MaxNodeSize)
-	// 	ca_min_node_count := strconv.Itoa(clusterInfo.NodeGroupList[0].MinNodeSize)
-	// 	external_network_id := ""
-	// 	external_subnet_id_list := ""
-	// 	kube_tag := clusterInfo.Version
-	// 	node_image := clusterInfo.NodeGroupList[0].ImageIID.SystemId
-	// 	name := clusterInfo.IId.NameId
-	// 	node_count := strconv.Itoa(clusterInfo.NodeGroupList[0].DesiredNodeSize)
-
-	// 	for _, v := range clusterInfo.KeyValueList {
-	// 		switch v.Key {
-	// 		case "external_network_id":
-	// 			external_network_id = v.Value
-	// 		case "external_subnet_id_list":
-	// 			external_subnet_id_list = v.Value
-	// 		}
-	// 	}
-
-	// 	for _, v := range clusterInfo.NodeGroupList[0].KeyValueList {
-	// 		switch v.Key {
-	// 		case "availability_zone":
-	// 			availability_zone = v.Value
-	// 		}
-	// 	}
-
-	// 	temp := `{
-	// 		"cluster_template_id": "iaas_console",
-	// 		"create_timeout": 60,
-	// 		"fixed_network": "%s",
-	// 		"fixed_subnet": "%s",
-	// 		"flavor_id": "%s",
-	// 		"keypair": "%s",
-	// 		"labels": {
-	// 			"availability_zone": "%s",
-	// 			"boot_volume_size": "%s",
-	// 			"boot_volume_type": "%s",
-	// 			"ca_enable": "%s",
-	// 			"ca_max_node_count": "%s",
-	// 			"ca_min_node_count": "%s",
-	// 			"cert_manager_api": "True",
-	// 			"clusterautoscale": "nodegroupfeature",
-	// 			"external_network_id": "%s",
-	// 			"external_subnet_id_list": "%s",
-	// 			"kube_tag": "%s",
-	// 			"master_lb_floating_ip_enabled": "true",
-	// 			"node_image": "%s",
-	// 			"user_script_v2": ""
-	// 		},
-	// 		"name": "%s",
-	// 		"node_count": %s
-	// 	}`
-
-	// 	info := fmt.Sprintf(temp, fixed_network, fixed_subnet, flavor_id, keypair, availability_zone, boot_volume_size, boot_volume_type, ca_enable, ca_max_node_count, ca_min_node_count, external_network_id, external_subnet_id_list, kube_tag, node_image, name, node_count)
-
-	// 	return info, nil
+	//return &node_group_info, nil
 
 	return nil, nil
 }
 
-func getNodeGroupJSONString(nodeGroupReqInfo irs.NodeGroupInfo) (string, error) {
-	// defer func() {
-	// 	if r := recover(); r != nil {
-	// 		cblogger.Error("getNodeGroupJSONString failed", r)
-	// 	}
-	// }()
+func getClusterInfoJSON(clusterInfo irs.ClusterInfo, region_id string) (string, error) {
 
-	// name := nodeGroupReqInfo.IId.NameId
-	// node_count := nodeGroupReqInfo.DesiredNodeSize
-	// flavor_id := nodeGroupReqInfo.VMSpecName
-	// image_id := nodeGroupReqInfo.ImageIID.SystemId
+	defer func() {
+		if r := recover(); r != nil {
+			cblogger.Error("getClusterInfoJSON failed", r)
+		}
+	}()
 
-	// boot_volume_size := nodeGroupReqInfo.RootDiskSize
-	// boot_volume_type := nodeGroupReqInfo.RootDiskType
-
-	// ca_enable := strconv.FormatBool(nodeGroupReqInfo.OnAutoScaling)
-	// ca_max_node_count := strconv.Itoa(nodeGroupReqInfo.MaxNodeSize)
-	// ca_min_node_count := strconv.Itoa(nodeGroupReqInfo.MinNodeSize)
-
-	// availability_zone := ""
-	// for _, v := range nodeGroupReqInfo.KeyValueList {
-	// 	switch v.Key {
-	// 	case "availability_zone":
-	// 		availability_zone = v.Value
-	// 	}
+	// clusterInfo := irs.ClusterInfo{
+	// 	IId: irs.IID{
+	// 		NameId:   "cluster-x",
+	// 		SystemId: "",
+	// 	},
+	// 	Version: "1.22.10-aliyun.1",
+	// 	Network: irs.NetworkInfo{
+	// 		VpcIID: irs.IID{NameId: "", SystemId: "vpc-2zek5slojo5bh621ftnrg"},
+	// 	},
+	// 	KeyValueList: []irs.KeyValue{
+	// 		{
+	// 			Key:   "container_cidr",
+	// 			Value: "172.31.0.0/16",
+	// 		},
+	// 		{
+	// 			Key:   "service_cidr",
+	// 			Value: "172.32.0.0/16",
+	// 		},
+	// 		{
+	// 			Key:   "master_vswitch_id",
+	// 			Value: "vsw-2ze0qpwcio7r5bx3nqbp1",
+	// 		},
+	// 	},
 	// }
 
-	// temp := `{
-	//     "name": "%s",
-	//     "node_count": %d,
-	//     "flavor_id": "%s",
-	//     "image_id": "%s",
-	//     "labels": {
-	//         "availability_zone": "%s",
-	//         "boot_volume_size": "%s",
-	//         "boot_volume_type": "%s",
-	//         "ca_enable": "%s",
-	// 		"ca_max_node_count": "%s",
-	// 		"ca_min_node_count": "%s"
-	//     }
-	// }`
+	//cidr: Valid values: 10.0.0.0/16-24, 172.16-31.0.0/16-24, and 192.168.0.0/16-24.
+	container_cidr := ""
+	service_cidr := ""
+	master_vswitch_id := ""
 
-	// payload := fmt.Sprintf(temp, name, node_count, flavor_id, image_id, availability_zone, boot_volume_size, boot_volume_type, ca_enable, ca_max_node_count, ca_min_node_count)
+	for _, v := range clusterInfo.KeyValueList {
+		switch v.Key {
+		case "container_cidr":
+			container_cidr = v.Value
+		case "service_cidr":
+			service_cidr = v.Value
+		case "master_vswitch_id":
+			master_vswitch_id = v.Value
+		}
+	}
 
-	// return payload, nil
+	temp := `{
+		"name": "%s",
+		"region_id": "%s",
+		"cluster_type": "ManagedKubernetes",
+		"kubernetes_version": "1.22.10-aliyun.1",
+		"vpcid": "%s",
+		"container_cidr": "%s",
+		"service_cidr": "%s",
+		"num_of_nodes": 0,
+		"master_vswitch_ids": [
+			"%s"
+		]
+	}`
 
-	return "", nil
+	clusterInfoJSON := fmt.Sprintf(temp, clusterInfo.IId.NameId, region_id, clusterInfo.Network.VpcIID.SystemId, container_cidr, service_cidr, master_vswitch_id)
+
+	return clusterInfoJSON, nil
+}
+
+func getNodeGroupJSONString(nodeGroupReqInfo irs.NodeGroupInfo) (string, error) {
+
+	defer func() {
+		if r := recover(); r != nil {
+			cblogger.Error("getNodeGroupJSONString failed", r)
+		}
+	}()
+
+	// new_node_group := &irs.NodeGroupInfo{
+	// 	IId:             irs.IID{NameId: "nodepoolx100", SystemId: ""},
+	// 	ImageIID:        irs.IID{NameId: "", SystemId: "image_id"}, // 이미지 id 선택 추가
+	// 	VMSpecName:      "ecs.c6.xlarge",
+	// 	RootDiskType:    "cloud_essd",
+	// 	RootDiskSize:    "70",
+	// 	KeyPairIID:      irs.IID{NameId: "kp1", SystemId: ""},
+	// 	OnAutoScaling:   true,
+	// 	DesiredNodeSize: 1,
+	// 	MinNodeSize:     0,
+	// 	MaxNodeSize:     3,
+	// 	// KeyValueList: []irs.KeyValue{ // 클러스터 조회해서 처리한다. // //vswitch_id":"vsw-2ze0qpwcio7r5bx3nqbp1"
+	// 	// 	{
+	// 	// 		Key:   "vswitch_ids",
+	// 	// 		Value: "vsw-2ze0qpwcio7r5bx3nqbp1",
+	// 	// 	},
+	// 	// },
+	// }
+
+	name := nodeGroupReqInfo.IId.NameId
+	//image_id := nodeGroupReqInfo.ImageIID.SystemId
+	enable := nodeGroupReqInfo.OnAutoScaling
+	max_instances := nodeGroupReqInfo.MaxNodeSize
+	min_instances := nodeGroupReqInfo.MinNodeSize
+	// desired_instances := nodeGroupReqInfo.DesiredNodeSize // not supported in alibaba
+
+	instance_type := nodeGroupReqInfo.VMSpecName
+	key_pair := nodeGroupReqInfo.KeyPairIID.NameId
+
+	system_disk_category := nodeGroupReqInfo.RootDiskType
+	system_disk_size, _ := strconv.ParseInt(nodeGroupReqInfo.RootDiskSize, 10, 32)
+
+	vswitch_id := "vsw-2ze0qpwcio7r5bx3nqbp1" // get vswitch_id, get from cluster info
+
+	temp := `{
+		"nodepool_info": {
+			"name": "%s"
+		},
+		"auto_scaling": {
+			"enable": %t,
+			"max_instances": %d,
+			"min_instances": %d
+		},
+		"scaling_group": {
+			"instance_types": ["%s"],
+			"key_pair": "%s",
+			"system_disk_category": "%s",
+			"system_disk_size": %d,
+			"vswitch_ids": ["%s"]
+		},
+		"management": {
+			"enable":true
+		}
+	}`
+
+	payload := fmt.Sprintf(temp, name, enable, max_instances, min_instances, instance_type, key_pair, system_disk_category, system_disk_size, vswitch_id)
+
+	return payload, nil
 }
 
 // getCallLogScheme(clusterHandler.RegionInfo.Region, call.CLUSTER, "ListCluster()", "ListCluster()")
