@@ -3160,6 +3160,7 @@ func Disk(c echo.Context) error {
 
 	providerName, _ := getProviderName(connConfig)
 	diskTypeList := diskTypeList(providerName)
+	diskTypeSizeList := diskTypeSizeList(providerName)
 
 
         // (5) make input field and add
@@ -3179,11 +3180,17 @@ func Disk(c echo.Context) error {
         // Select format of Disk Type  name=text_box, id=2
         htmlStr += makeDataDiskTypeSelect_html("", diskTypeList, "2")
 
-        htmlStr += `
+	htmlStr += `
 
                             </td>
                             <td>
+
                                 <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="3" value="default">
+			    `
+				htmlStr += makeDataDiskTypeSize_html(diskTypeSizeList)
+
+				htmlStr += `
+
                             </td>
                             <td>
                                 <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="4" disabled value="N/A">

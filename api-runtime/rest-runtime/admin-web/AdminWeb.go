@@ -22,6 +22,7 @@ import (
 	"strings"
 	"github.com/labstack/echo/v4"
 	"encoding/json"
+	"regexp"
 )
 
 var cblog *logrus.Logger
@@ -167,6 +168,16 @@ func diskTypeList(providerName string) []string {
                 return []string{}
         }
 	return cloudOSMetaInfo.DiskType
+}
+
+func diskTypeSizeList(providerName string) []string {
+        // get Provider's Meta Info
+        cloudOSMetaInfo, err := cim.GetCloudOSMetaInfo(providerName)
+        if err != nil {
+                cblog.Error(err)
+                return []string{}
+        }
+        return cloudOSMetaInfo.DiskSize
 }
 
 //================ Frame
@@ -495,6 +506,38 @@ func makeDataDiskTypeSelect_html(onchangeFunctionName string, strList []string, 
         `
 
         return strResult + strSelect
+}
+
+func makeDataDiskTypeSize_html(strList []string) string {
+
+	strResult := ""
+        for _, one := range strList {
+		// one = "cloud|5|2000|GB"
+		splits := strings.Split(one, "|")
+		rangeStr := ""
+		if len(splits) == 4 {
+			rangeStr = fmt.Sprintf("&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;[%s]&nbsp;&nbsp; %s~%s %s<br>", 
+					strings.TrimSpace(splits[0]), insertComma(strings.TrimSpace(splits[1])), 
+				 	insertComma(strings.TrimSpace(splits[2])), strings.TrimSpace(splits[3]))
+		} else {
+			rangeStr = one // keep origin string
+		}
+		strResult += rangeStr
+        }
+
+        strInput := `<p style="font-size:12px;color:gray;text-align:left;">` + strResult + `</p>`
+
+        return strInput
+}
+
+// ref) https://stackoverflow.com/a/39185719/17474800
+func insertComma(str string) string {
+    re := regexp.MustCompile("(\\d+)(\\d{3})")
+    for n := ""; n != str; {
+        n = str
+        str = re.ReplaceAllString(str, "$1,$2")
+    }
+    return str
 }
 
 func makeKeyPairSelect_html(onchangeFunctionName string, strList []string, id string) string {
