@@ -56,3 +56,5 @@ cloud-control-manager/cloud-driver/drivers/azure/main/conf/config.yaml
 cloud-control-manager/cloud-driver/drivers/cloudit/main/conf/config.yaml
 cloud-control-manager/cloud-driver/drivers/ibmcloud-vpc/main/conf/config.yaml
 cloud-control-manager/cloud-driver/drivers/openstack/main/conf/config.yaml
+
+*pmks_test/temp/*
