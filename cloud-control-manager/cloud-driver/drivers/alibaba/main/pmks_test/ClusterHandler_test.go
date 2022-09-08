@@ -240,7 +240,6 @@ func TestCreateClusterOnly(t *testing.T) {
 
 func TestCreateClusterWith1NodeGroup(t *testing.T) {
 	//
-
 	t.Log("클러스터 + 노드그룹 생성")
 
 	clusterHandler, err := getClusterHandler()
@@ -327,53 +326,54 @@ func TestCreateClusterWith1NodeGroup(t *testing.T) {
 	t.Log(cluster_)
 }
 
-// func TestListCluster(t *testing.T) {
+func TestListCluster(t *testing.T) {
 
-// 	clusterHandler, err := getClusterHandler()
-// 	if err != nil {
-// 		t.Error(err)
-// 	}
+	clusterHandler, err := getClusterHandler()
+	if err != nil {
+		t.Error(err)
+	}
 
-// 	clusters, err := clusterHandler.ListCluster()
-// 	if err != nil {
-// 		t.Error(err)
-// 	}
+	clusters, err := clusterHandler.ListCluster()
+	if err != nil {
+		t.Error(err)
+	}
 
-// 	if len(clusters) == 0 {
-// 		t.Error("No cluster found")
-// 	}
+	if len(clusters) == 0 {
+		t.Error("No cluster found")
+	}
 
-// 	for _, cluster := range clusters {
-// 		t.Log(cluster)
-// 	}
-// }
+	for _, cluster := range clusters {
+		t.Log(cluster.IId.SystemId)
+		println(cluster.IId.NameId, cluster.Status)
+	}
+}
 
-// func TestGetCluster(t *testing.T) {
+func TestGetCluster(t *testing.T) {
 
-// 	clusterHandler, err := getClusterHandler()
-// 	if err != nil {
-// 		t.Error(err)
-// 	}
+	clusterHandler, err := getClusterHandler()
+	if err != nil {
+		t.Error(err)
+	}
 
-// 	clusters, err := clusterHandler.ListCluster()
-// 	if err != nil {
-// 		t.Error(err)
-// 	}
+	clusters, err := clusterHandler.ListCluster()
+	if err != nil {
+		t.Error(err)
+	}
 
-// 	if len(clusters) == 0 {
-// 		t.Error("No cluster found")
-// 	}
+	if len(clusters) == 0 {
+		t.Error("No cluster found")
+	}
 
-// 	t.Log(clusters)
+	t.Log(clusters)
 
-// 	for _, cluster := range clusters {
-// 		cluster_, err := clusterHandler.GetCluster(cluster.IId)
-// 		if err != nil {
-// 			println(err.Error())
-// 		}
-// 		t.Log(cluster_)
-// 	}
-// }
+	for _, cluster := range clusters {
+		cluster_, err := clusterHandler.GetCluster(cluster.IId)
+		if err != nil {
+			println(err.Error())
+		}
+		t.Log(cluster_)
+	}
+}
 
 // // func TestDeleteCluster(t *testing.T) {
 // // }
@@ -438,132 +438,154 @@ func TestAddNodeGroup(t *testing.T) {
 	}
 }
 
-// func TestListNodeGroup(t *testing.T) {
-// 	clusterHandler, err := getClusterHandler()
-// 	if err != nil {
-// 		t.Error(err)
-// 	}
+func TestListNodeGroup(t *testing.T) {
+	clusterHandler, err := getClusterHandler()
+	if err != nil {
+		t.Error(err)
+	}
 
-// 	clusters, _ := clusterHandler.ListCluster()
-// 	for _, cluster := range clusters {
-// 		node_groups, _ := clusterHandler.ListNodeGroup(cluster.IId)
-// 		for _, node_group := range node_groups {
-// 			t.Log(node_group.IId.NameId, node_group.IId.SystemId)
-// 			t.Log(node_group)
-// 		}
-// 	}
-// }
+	clusters, _ := clusterHandler.ListCluster()
+	for _, cluster := range clusters {
+		node_groups, _ := clusterHandler.ListNodeGroup(cluster.IId)
+		for _, node_group := range node_groups {
+			t.Log(node_group.IId.NameId, node_group.IId.SystemId)
+			t.Log(node_group)
+		}
+	}
+}
 
-// func TestGetNodeGroup(t *testing.T) {
-// 	clusterHandler, err := getClusterHandler()
-// 	if err != nil {
-// 		t.Error(err)
-// 	}
+func TestGetNodeGroup(t *testing.T) {
+	clusterHandler, err := getClusterHandler()
+	if err != nil {
+		t.Error(err)
+	}
 
-// 	clusters, _ := clusterHandler.ListCluster()
-// 	for _, cluster := range clusters {
-// 		node_groups, _ := clusterHandler.ListNodeGroup(cluster.IId)
-// 		for _, node_group := range node_groups {
-// 			node_group_, err := clusterHandler.GetNodeGroup(cluster.IId, node_group.IId)
-// 			if err != nil {
-// 				t.Error(err)
-// 			}
-// 			t.Log(node_group_.IId.NameId, node_group_.IId.SystemId)
-// 			t.Log(node_group_)
-// 		}
-// 	}
+	clusters, _ := clusterHandler.ListCluster()
+	for _, cluster := range clusters {
+		node_groups, _ := clusterHandler.ListNodeGroup(cluster.IId)
+		for _, node_group := range node_groups {
+			node_group_, err := clusterHandler.GetNodeGroup(cluster.IId, node_group.IId)
+			if err != nil {
+				t.Error(err)
+			}
+			t.Log(node_group_.IId.NameId, node_group_.IId.SystemId)
+			t.Log(node_group_)
+		}
+	}
 
-// 	// node_group, err := clusterHandler.GetNodeGroup(irs.IID{NameId: "", SystemId: "cluster_id_not_exist"}, irs.IID{NameId: "", SystemId: "node_group_id_not_exist"})
-// 	// if err != nil {
-// 	// 	println(err.Error())
-// 	// }
-// 	// println(node_grop)
-// }
+	node_group, err := clusterHandler.GetNodeGroup(irs.IID{NameId: "", SystemId: "cluster_id_not_exist"}, irs.IID{NameId: "", SystemId: "node_group_id_not_exist"})
+	if err != nil {
+		println(err.Error())
+	}
+	println(node_group.IId.NameId)
+}
 
-// func TestSetNodeGroupAutoScaling(t *testing.T) {
-// 	clusterHandler, err := getClusterHandler()
-// 	if err != nil {
-// 		t.Error(err)
-// 	}
+func TestSetNodeGroupAutoScaling(t *testing.T) {
+	clusterHandler, err := getClusterHandler()
+	if err != nil {
+		t.Error(err)
+	}
 
-// 	_, err = clusterHandler.SetNodeGroupAutoScaling(irs.IID{NameId: "", SystemId: ""}, irs.IID{NameId: "", SystemId: ""}, true)
-// 	if err != nil {
-// 		t.Error(err)
-// 	}
-// }
+	clusters, _ := clusterHandler.ListCluster()
+	for _, cluster := range clusters {
+		node_groups, _ := clusterHandler.ListNodeGroup(cluster.IId)
+		for _, node_group := range node_groups {
+			node_group_, err := clusterHandler.GetNodeGroup(cluster.IId, node_group.IId)
+			if err != nil {
+				t.Error(err)
+			}
 
-// func TestChangeNodeGroupScaling(t *testing.T) {
-// 	clusterHandler, err := getClusterHandler()
-// 	if err != nil {
-// 		t.Error(err)
-// 	}
+			res, err := clusterHandler.SetNodeGroupAutoScaling(cluster.IId, node_group_.IId, true)
+			if err != nil {
+				t.Error(err)
+			}
+			println(res)
+		}
+	}
+}
 
-// 	_, err = clusterHandler.ChangeNodeGroupScaling(irs.IID{NameId: "", SystemId: ""}, irs.IID{NameId: "", SystemId: ""}, 1, 0, 5)
-// 	if err != nil {
-// 		t.Error(err)
-// 	}
-// }
+func TestChangeNodeGroupScaling(t *testing.T) {
+	clusterHandler, err := getClusterHandler()
+	if err != nil {
+		t.Error(err)
+	}
 
-// func TestRemoveNodeGroup(t *testing.T) {
-// 	clusterHandler, err := getClusterHandler()
-// 	if err != nil {
-// 		t.Error(err)
-// 	}
+	clusters, _ := clusterHandler.ListCluster()
+	for _, cluster := range clusters {
+		node_groups, _ := clusterHandler.ListNodeGroup(cluster.IId)
+		for _, node_group := range node_groups {
+			node_group_, err := clusterHandler.GetNodeGroup(cluster.IId, node_group.IId)
+			if err != nil {
+				t.Error(err)
+			}
 
-// 	clusters, _ := clusterHandler.ListCluster()
-// 	for _, cluster := range clusters {
-// 		node_groups, _ := clusterHandler.ListNodeGroup(cluster.IId)
-// 		for _, node_group := range node_groups {
-// 			res, _ := clusterHandler.RemoveNodeGroup(cluster.IId, node_group.IId)
-// 			if err != nil {
-// 				t.Error(err)
-// 			}
-// 			if res == false {
-// 				t.Error("Failed to remove node group")
-// 			}
-// 		}
-// 	}
-// }
+			res, err := clusterHandler.ChangeNodeGroupScaling(cluster.IId, node_group_.IId, 1, 0, 5)
+			if err != nil {
+				t.Error(err)
+			}
+			println(res.IId.NameId, res.IId.SystemId)
+		}
+	}
+}
 
-// func TestUpgradeCluster(t *testing.T) {
-// 	clusterHandler, err := getClusterHandler()
-// 	if err != nil {
-// 		t.Error(err)
-// 	}
+func TestRemoveNodeGroup(t *testing.T) {
+	clusterHandler, err := getClusterHandler()
+	if err != nil {
+		t.Error(err)
+	}
 
-// 	clusters, _ := clusterHandler.ListCluster()
-// 	for _, cluster := range clusters {
-// 		// payload := `{
-// 		// 	"version": "v1.23.3"
-// 		// }`
-// 		res, err := clusterHandler.UpgradeCluster(cluster.IId, "v1.23.3")
-// 		if err != nil {
-// 			t.Error(err)
-// 		}
-// 		t.Log(res)
-// 	}
-// }
+	clusters, _ := clusterHandler.ListCluster()
+	for _, cluster := range clusters {
+		node_groups, _ := clusterHandler.ListNodeGroup(cluster.IId)
+		for _, node_group := range node_groups {
+			res, _ := clusterHandler.RemoveNodeGroup(cluster.IId, node_group.IId)
+			if err != nil {
+				t.Error(err)
+			}
+			if res == false {
+				t.Error("Failed to remove node group")
+			}
+		}
+	}
+}
 
-// func TestDeleteCluster(t *testing.T) {
+func TestUpgradeCluster(t *testing.T) {
+	clusterHandler, err := getClusterHandler()
+	if err != nil {
+		t.Error(err)
+	}
 
-// 	clusterHandler, err := getClusterHandler()
-// 	if err != nil {
-// 		t.Error(err)
-// 	}
+	clusters, _ := clusterHandler.ListCluster()
+	for _, cluster := range clusters {
+		res, err := clusterHandler.UpgradeCluster(cluster.IId, "1.22.3-aliyun.1")
+		// res, err := clusterHandler.UpgradeCluster(cluster.IId, "1.22.3-aliyun.x")
+		if err != nil {
+			t.Error(err)
+		}
+		t.Log(res)
+	}
+}
 
-// 	clusters, _ := clusterHandler.ListCluster()
-// 	for _, cluster := range clusters {
-// 		println(cluster.IId.NameId, cluster.IId.SystemId)
-// 		result, err := clusterHandler.DeleteCluster(cluster.IId)
-// 		if err != nil {
-// 			t.Error(err)
-// 		}
-// 		t.Log(result)
-// 	}
+func TestDeleteCluster(t *testing.T) {
 
-// 	// result, err := clusterHandler.DeleteCluster(irs.IID{NameId: "cluster_not_exist", SystemId: "cluster_id_not_exist"})
-// 	// if err != nil {
-// 	// 	println(err.Error())
-// 	// }
-// 	// println(result)
-// }
+	clusterHandler, err := getClusterHandler()
+	if err != nil {
+		t.Error(err)
+	}
+
+	clusters, _ := clusterHandler.ListCluster()
+	for _, cluster := range clusters {
+		println(cluster.IId.NameId, cluster.IId.SystemId)
+		result, err := clusterHandler.DeleteCluster(cluster.IId)
+		if err != nil {
+			t.Error(err)
+		}
+		t.Log(result)
+	}
+
+	// result, err := clusterHandler.DeleteCluster(irs.IID{NameId: "cluster_not_exist", SystemId: "cluster_id_not_exist"})
+	// if err != nil {
+	// 	println(err.Error())
+	// }
+	// println(result)
+}
