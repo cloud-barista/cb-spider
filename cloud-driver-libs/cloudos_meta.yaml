@@ -111,6 +111,10 @@ DOCKER:
 MOCK:
   region: Region
   credential: MockName
+  # idmaxlength: VPC / Subnet / SecurityGroup / KeyPair / VM
+  idmaxlength: 255 / 255 / 255 / 255 / 255
+  rootdisktype: SSD /HDD / MEM
+  disktype: SSD / HDD / MEM
 
 CLOUDTWIN:
   region: Region
