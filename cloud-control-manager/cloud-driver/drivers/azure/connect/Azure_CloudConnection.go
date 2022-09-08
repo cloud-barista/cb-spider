@@ -20,6 +20,8 @@ import (
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/sirupsen/logrus"
+
+	"errors"
 )
 
 var cblogger *logrus.Logger
@@ -154,3 +156,13 @@ func (cloudConn *AzureCloudConnection) IsConnected() (bool, error) {
 func (cloudConn *AzureCloudConnection) Close() error {
 	return nil
 }
+
+
+func (cloudConn *AzureCloudConnection) CreateClusterHandler() (irs.ClusterHandler, error) {
+	return nil, errors.New("Azure Driver: not implemented")
+}
+
+func (cloudConn *AzureCloudConnection) CreateMyImageHandler() (irs.MyImageHandler, error) {
+	return nil, errors.New("Azure Driver: not implemented")
+}
+

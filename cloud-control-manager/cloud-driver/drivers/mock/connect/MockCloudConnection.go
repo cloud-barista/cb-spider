@@ -16,6 +16,7 @@ import (
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/sirupsen/logrus"
+	"errors"
 )
 
 var cblogger *logrus.Logger
@@ -91,3 +92,12 @@ func (cloudConn *MockConnection) CreateDiskHandler() (irs.DiskHandler, error) {
 	handler := mkrs.MockDiskHandler{cloudConn.MockName}
 	return &handler, nil
 }
+
+func (cloudConn *MockConnection) CreateClusterHandler() (irs.ClusterHandler, error) {
+        return nil, errors.New("Mock Driver: not implemented")
+}
+
+func (cloudConn *MockConnection) CreateMyImageHandler() (irs.MyImageHandler, error) {
+        return nil, errors.New("Mock Driver: not implemented")
+}
+

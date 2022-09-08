@@ -11,9 +11,11 @@ import (
 	"github.com/gophercloud/gophercloud/openstack/blockstorage/extensions/volumeactions"
 	volumes2 "github.com/gophercloud/gophercloud/openstack/blockstorage/v2/volumes"
 	volumes3 "github.com/gophercloud/gophercloud/openstack/blockstorage/v3/volumes"
+	"github.com/gophercloud/gophercloud/openstack/compute/v2/extensions/volumeattach"
 	"github.com/gophercloud/gophercloud/openstack/compute/v2/servers"
 	"strconv"
 	"strings"
+	"time"
 )
 
 type OpenstackDiskHandler struct {
@@ -28,7 +30,6 @@ const (
 	VolumeV3 string = "volumev3"
 )
 
-//------ Disk Management
 func (diskHandler *OpenstackDiskHandler) CreateDisk(DiskReqInfo irs.DiskInfo) (irs.DiskInfo, error) {
 	hiscallInfo := GetCallLogScheme(diskHandler.CredentialInfo.IdentityEndpoint, "DISK", "DISK", "CreateDisk()")
 	start := call.Start()
@@ -103,6 +104,7 @@ func (diskHandler *OpenstackDiskHandler) GetDisk(diskIID irs.IID) (irs.DiskInfo,
 	LoggingInfo(hiscallInfo, start)
 	return info, nil
 }
+
 func (diskHandler *OpenstackDiskHandler) ChangeDiskSize(diskIID irs.IID, size string) (bool, error) {
 	hiscallInfo := GetCallLogScheme(diskHandler.CredentialInfo.IdentityEndpoint, "DISK", diskIID.NameId, "DeleteDisk()")
 	start := call.Start()
@@ -115,8 +117,9 @@ func (diskHandler *OpenstackDiskHandler) ChangeDiskSize(diskIID irs.IID, size st
 	}
 
 	LoggingInfo(hiscallInfo, start)
-	return false, nil
+	return true, nil
 }
+
 func (diskHandler *OpenstackDiskHandler) DeleteDisk(diskIID irs.IID) (bool, error) {
 	hiscallInfo := GetCallLogScheme(diskHandler.CredentialInfo.IdentityEndpoint, "DISK", diskIID.NameId, "DeleteDisk()")
 	start := call.Start()
@@ -131,7 +134,6 @@ func (diskHandler *OpenstackDiskHandler) DeleteDisk(diskIID irs.IID) (bool, erro
 	return true, nil
 }
 
-//------ Disk Attachment
 func (diskHandler *OpenstackDiskHandler) AttachDisk(diskIID irs.IID, ownerVM irs.IID) (irs.DiskInfo, error) {
 	hiscallInfo := GetCallLogScheme(diskHandler.CredentialInfo.IdentityEndpoint, "DISK", diskIID.NameId, "AttachDisk()")
 	start := call.Start()
@@ -152,6 +154,7 @@ func (diskHandler *OpenstackDiskHandler) AttachDisk(diskIID irs.IID, ownerVM irs
 	LoggingInfo(hiscallInfo, start)
 	return info, nil
 }
+
 func (diskHandler *OpenstackDiskHandler) DetachDisk(diskIID irs.IID, ownerVM irs.IID) (bool, error) {
 	hiscallInfo := GetCallLogScheme(diskHandler.CredentialInfo.IdentityEndpoint, "DISK", diskIID.NameId, "DetachDisk()")
 	start := call.Start()
@@ -344,7 +347,7 @@ func (diskHandler *OpenstackDiskHandler) setterDisk(rawVolume volumes3.Volume) (
 			}
 		}
 	}
-	//  status (“available”, “error”, “creating”, “deleting”, “in-use”, “attaching”, “detaching”, “error_deleting” or “maintenance”)
+	// status (“available”, “error”, “creating”, “reserved”, “deleting”, “in-use”, “attaching”, “detaching”, “error_deleting” or “maintenance”)
 	switch strings.ToLower(rawVolume.Status) {
 	case "creating":
 		info.Status = irs.DiskCreating
@@ -424,17 +427,6 @@ func validationDiskReq(diskReq irs.DiskInfo, volumeClient *gophercloud.ServiceCl
 	if exist {
 		return errors.New("invalid DiskReqInfo NameId, Already exist")
 	}
-	//if diskReq.DiskType == "" {
-	//	return errors.New("invalid DiskReqInfo DiskType")
-	//}
-	//if diskReq.DiskSize == "" {
-	//	return errors.New("invalid DiskReqInfo DiskSize")
-	//}
-	// default?
-	//_, err = strconv.Atoi(diskReq.DiskSize)
-	//if err != nil {
-	//	return errors.New(fmt.Sprintf("invalid DiskReqInfo DiskSize, %s", err.Error()))
-	//}
 	return nil
 }
 func createDiskV2(diskReq irs.DiskInfo, volume2Client *gophercloud.ServiceClient) (volumes3.Volume, error) {
@@ -530,9 +522,10 @@ func attachDisk(diskIID irs.IID, ownerVMIID irs.IID, computeClient *gophercloud.
 		}
 		ownerRawVM = *server
 	}
-
-	attachOpt := volumeactions.AttachOpts{InstanceUUID: ownerRawVM.ID, MountPoint: "/dev/vdc"}
-	err = volumeactions.Attach(volumeClient, disk.ID, attachOpt).ExtractErr()
+	volumeAttachOpt := volumeattach.CreateOpts{
+		VolumeID: disk.ID,
+	}
+	_, err = volumeattach.Create(computeClient, ownerRawVM.ID, volumeAttachOpt).Extract()
 	if err != nil {
 		return volumes3.Volume{}, err
 	}
@@ -540,7 +533,24 @@ func attachDisk(diskIID irs.IID, ownerVMIID irs.IID, computeClient *gophercloud.
 	if err != nil {
 		return volumes3.Volume{}, err
 	}
-	return newDisk, nil
+	curRetryCnt := 0
+	maxRetryCnt := 20
+	for {
+		newDisk, err = getRawDisk(diskIID, volumeClient)
+		if err != nil {
+			return volumes3.Volume{}, err
+		}
+		switch strings.ToLower(newDisk.Status) {
+		case "in-use":
+			return newDisk, nil
+		default:
+			curRetryCnt++
+			time.Sleep(1 * time.Second)
+			if curRetryCnt > maxRetryCnt {
+				return volumes3.Volume{}, errors.New(fmt.Sprintf("attaching failed. exceeded maximum retry count %d", maxRetryCnt))
+			}
+		}
+	}
 }
 
 func detachDisk(diskIID irs.IID, ownerVMIID irs.IID, computeClient *gophercloud.ServiceClient, volumeClient *gophercloud.ServiceClient) error {
@@ -585,22 +595,43 @@ func detachDisk(diskIID irs.IID, ownerVMIID irs.IID, computeClient *gophercloud.
 		}
 		ownerRawVM = *server
 	}
-	detachmentId := ""
-	for _, attachment := range disk.Attachments {
-		if attachment.ServerID == ownerRawVM.ID {
-			detachmentId = attachment.AttachmentID
+	detachmentVolumeId := ""
+	for _, attachmentedVolume := range ownerRawVM.AttachedVolumes {
+		if attachmentedVolume.ID == disk.ID {
+			detachmentVolumeId = attachmentedVolume.ID
 		}
 	}
-	if detachmentId == "" {
+	if detachmentVolumeId == "" {
 		return errors.New("not exist Disk Attached VM")
 	}
-	detachOpt := volumeactions.DetachOpts{AttachmentID: detachmentId}
-	err = volumeactions.Detach(volumeClient, disk.ID, detachOpt).ExtractErr()
+	//볼륨 아이디..
+	err = volumeattach.Delete(computeClient, ownerRawVM.ID, detachmentVolumeId).ExtractErr()
 	if err != nil {
 		return err
 	}
-	return nil
-
+	curRetryCnt := 0
+	maxRetryCnt := 20
+	for {
+		newDisk, err := getRawDisk(diskIID, volumeClient)
+		if err != nil {
+			return err
+		}
+		// status (“available”, “error”, “creating”, “reserved”, “deleting”, “in-use”, “attaching”, “detaching”, “error_deleting” or “maintenance”)
+		switch strings.ToLower(newDisk.Status) {
+		case "available":
+			return nil
+		case "detaching":
+			{
+				curRetryCnt++
+				time.Sleep(1 * time.Second)
+				if curRetryCnt > maxRetryCnt {
+					return errors.New(fmt.Sprintf("detaching failed. exceeded maximum retry count %d", maxRetryCnt))
+				}
+			}
+		default:
+			return errors.New("detaching failed")
+		}
+	}
 }
 
 func changeDiskSize(diskIID irs.IID, diskSize string, volumeClient *gophercloud.ServiceClient) error {

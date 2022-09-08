@@ -950,17 +950,18 @@ func handleVM() {
 					//IId:      irs.IID{NameId: "bill-test"},
 					//ImageIID: irs.IID{SystemId: "img-22trbn9x"}, //Ubuntu Server 20.04 LTS 64
 					ImageIID:          irs.IID{SystemId: "img-pi0ii46r"}, //Ubuntu Server 18.04.1 LTS 64
-					VpcIID:            irs.IID{SystemId: "vpc-2u04wg7k"},
-					SubnetIID:         irs.IID{SystemId: "subnet-ccawa5nz"}, //Zone2
-					SecurityGroupIIDs: []irs.IID{{SystemId: "sg-3baxppe6"}},
-					VMSpecName:        "C4.LARGE8",
-					KeyPairIID:        irs.IID{SystemId: "skey-lk66iuyh"}, //cb_user_test
+					VpcIID:            irs.IID{SystemId: "vpc-g3imdykc"},
+					SubnetIID:         irs.IID{SystemId: "subnet-rlr71m6n"}, //Zone2
+					SecurityGroupIIDs: []irs.IID{{SystemId: "sg-j43bvarj"}},
+					VMSpecName:        "SA2.MEDIUM2",
+					KeyPairIID:        irs.IID{SystemId: "skey-cp2013rp"}, //cb_user_test
 					//VMUserId:          "root", //root만 가능
 					//VMUserPasswd: "Cbuser!@#", //대문자 소문자 모두 사용되어야 함. 그리고 숫자나 특수 기호 중 하나가 포함되어야 함.
 					//RootDiskType: "CLOUD_PREMIUM", //LOCAL_BASIC/LOCAL_SSD/CLOUD_BASIC/CLOUD_SSD/CLOUD_PREMIUM
 					RootDiskType: "CLOUD_SSD", //LOCAL_BASIC/LOCAL_SSD/CLOUD_BASIC/CLOUD_SSD/CLOUD_PREMIUM
 					RootDiskSize: "60",        //Image Size 보다 작으면 에러 남
 					//RootDiskSize: "Default", //Image Size 보다 작으면 에러 남
+					DataDiskIIDs: []irs.IID{{SystemId: "disk-obk07o6e"}},
 				}
 
 				vmInfo, err := vmHandler.StartVM(vmReqInfo)
@@ -1230,15 +1231,130 @@ func handleNLB() {
 	}
 }
 
+func handleDisk() {
+	cblogger.Debug("Start DiskHandler Resource Test")
+
+	ResourceHandler, err := testconf.GetResourceHandler("Disk")
+	if err != nil {
+		panic(err)
+	}
+	handler := ResourceHandler.(irs.DiskHandler)
+
+	diskReqInfo := irs.DiskInfo{
+		IId:      irs.IID{NameId: "cb-disk-01"},
+		DiskType: "CLOUD_PREMIUM",
+		DiskSize: "20",
+	}
+
+	for {
+		fmt.Println("DiskHandler Management")
+		fmt.Println("0. Quit")
+		fmt.Println("1. Disk List")
+		fmt.Println("2. Disk Create")
+		fmt.Println("3. Disk Get")
+		fmt.Println("4. Disk Change Size")
+		fmt.Println("5. Disk Delete")
+		fmt.Println("6. Disk Attach")
+		fmt.Println("7. Disk Detach")
+
+		var commandNum int
+		inputCnt, err := fmt.Scan(&commandNum)
+		if err != nil {
+			panic(err)
+		}
+
+		if inputCnt == 1 {
+			switch commandNum {
+			case 0:
+				return
+
+			case 1:
+				result, err := handler.ListDisk()
+				if err != nil {
+					cblogger.Infof(" Disk 목록 조회 실패 : ", err)
+				} else {
+					cblogger.Info("Disk 목록 조회 결과")
+					cblogger.Info(result)
+					cblogger.Info("출력 결과 수 : ", len(result))
+					spew.Dump(result)
+					//spew.Dump(result)
+
+					//조회및 삭제 테스트를 위해 리스트의 첫번째 정보의 ID를 요청ID로 자동 갱신함.
+					// if result != nil {
+					// 	diskReqInfo.IId = result[0].IId // 조회 및 삭제를 위해 생성된 ID로 변경
+					// }
+				}
+
+			case 2:
+				cblogger.Infof("[%s] Disk 생성 테스트", diskReqInfo.IId.NameId)
+				//vNetworkReqInfo := irs.VNetworkReqInfo{}
+				result, err := handler.CreateDisk(diskReqInfo)
+				if err != nil {
+					cblogger.Infof(diskReqInfo.IId.NameId, " Disk 생성 실패 : ", err)
+				} else {
+					cblogger.Infof("Disk 생성 결과 : ", result)
+					diskReqInfo.IId = result.IId // 조회 및 삭제를 위해 생성된 ID로 변경
+					spew.Dump(result)
+				}
+
+			case 3:
+				cblogger.Infof("[%s] Disk 조회 테스트", diskReqInfo.IId.NameId)
+				result, err := handler.GetDisk(diskReqInfo.IId)
+				if err != nil {
+					cblogger.Infof("[%s] Disk 조회 실패 : ", diskReqInfo.IId.NameId, err)
+				} else {
+					cblogger.Infof("[%s] Disk 조회 결과 : [%s]", diskReqInfo.IId.NameId, result)
+					spew.Dump(result)
+				}
+
+			case 4:
+				cblogger.Infof("[%s] Disk Size 변경 테스트", diskReqInfo.IId.NameId)
+				result, err := handler.ChangeDiskSize(diskReqInfo.IId, "30")
+				if err != nil {
+					cblogger.Infof("[%s] Disk Size 변경 실패 : ", diskReqInfo.IId.NameId, err)
+				} else {
+					cblogger.Infof("[%s] Disk Size 변경 결과 : [%s]", diskReqInfo.IId.NameId, result)
+				}
+			case 5:
+				cblogger.Infof("[%s] Disk 삭제 테스트", diskReqInfo.IId.NameId)
+				result, err := handler.DeleteDisk(diskReqInfo.IId)
+				if err != nil {
+					cblogger.Infof("[%s] Disk 삭제 실패 : ", diskReqInfo.IId.NameId, err)
+				} else {
+					cblogger.Infof("[%s] Disk 삭제 결과 : [%s]", diskReqInfo.IId.NameId, result)
+				}
+			case 6:
+				cblogger.Infof("[%s] Disk Attach 테스트", diskReqInfo.IId.NameId)
+				result, err := handler.AttachDisk(diskReqInfo.IId, irs.IID{SystemId: "ins-fptlw6mc"})
+				if err != nil {
+					cblogger.Infof("[%s] Disk Attach 실패 : ", diskReqInfo.IId.NameId, err)
+				} else {
+					cblogger.Infof("[%s] Disk Attach 결과 : [%s]", diskReqInfo.IId.NameId, result)
+					spew.Dump(result)
+				}
+			case 7:
+				cblogger.Infof("[%s] Disk Detach 테스트", diskReqInfo.IId.NameId)
+				result, err := handler.DetachDisk(diskReqInfo.IId, irs.IID{SystemId: "mcloud-barista-vm-test"})
+				if err != nil {
+					cblogger.Infof("[%s] Disk Detach 실패 : ", diskReqInfo.IId.NameId, err)
+				} else {
+					cblogger.Infof("[%s] Disk Detach 결과 : [%s]", diskReqInfo.IId.NameId, result)
+				}
+			}
+		}
+	}
+}
+
 func main() {
 	cblogger.Info("Tencent Cloud Resource Test")
 	//handleVPC() //VPC
-	handleNLB()
+	//handleNLB()
 	//handleVMSpec()
 	//handleSecurity()
 	//handleImage() //AMI
 	//handleKeyPair()
-	//handleVM()
+	handleVM()
+	//handleDisk()
 
 	//handlePublicIP() // PublicIP 생성 후 conf
 	//handleVNic() //Lancard

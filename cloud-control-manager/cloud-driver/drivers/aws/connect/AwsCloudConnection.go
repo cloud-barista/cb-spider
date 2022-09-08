@@ -23,6 +23,8 @@ import (
 	//ec2drv "github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/elbv2"
+
+	"errors"
 )
 
 //type AwsCloudConnection struct{}
@@ -123,7 +125,14 @@ func (cloudConn *AwsCloudConnection) CreateDiskHandler() (irs.DiskHandler, error
 	return &handler, nil
 }
 
+
 func (cloudConn *AwsCloudConnection) CreateMyImageHandler() (irs.MyImageHandler, error) {
 	handler := ars.AwsMyImageHandler{cloudConn.Region, cloudConn.MyImageClient}
 	return &handler, nil
 }
+
+func (cloudConn *AwsCloudConnection) CreateClusterHandler() (irs.ClusterHandler, error) {
+        return nil, errors.New("AWS Driver: not implemented")
+}
+
+

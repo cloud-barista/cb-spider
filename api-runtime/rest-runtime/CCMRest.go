@@ -1520,9 +1520,6 @@ func UnregisterVM(c echo.Context) error {
 }
 
 
-// (1) check exist(NameID)
-// (2) create Resource
-// (3) insert IID
 func StartVM(c echo.Context) error {
 	cblog.Info("call StartVM()")
 
@@ -1539,6 +1536,8 @@ func StartVM(c echo.Context) error {
 
 			RootDiskType       string
 			RootDiskSize       string
+
+			DataDiskNames      []string
 
 			VMUserId     string
 			VMUserPasswd string
@@ -1560,7 +1559,14 @@ func StartVM(c echo.Context) error {
 		sgIIDList = append(sgIIDList, sgIID)
 	}
 
-	// (2) create VMReqInfo with SecurityGroup IID List
+	// (2) create DataDisk IID List
+        diskIIDList := []cres.IID{}
+        for _, diskName := range req.ReqInfo.DataDiskNames {
+                diskIID := cres.IID{diskName, ""}
+                diskIIDList = append(diskIIDList, diskIID)
+        }	
+
+	// (3) create VMReqInfo with SecurityGroup & diskIID IID List
 	reqInfo := cres.VMReqInfo{
 		IId:               cres.IID{req.ReqInfo.Name, ""},
 		ImageIID:          cres.IID{req.ReqInfo.ImageName, ""},
@@ -1573,6 +1579,8 @@ func StartVM(c echo.Context) error {
 
 		RootDiskType: req.ReqInfo.RootDiskType,
 		RootDiskSize: req.ReqInfo.RootDiskSize,
+
+		DataDiskIIDs: diskIIDList,
 
 		VMUserId:     req.ReqInfo.VMUserId,
 		VMUserPasswd: req.ReqInfo.VMUserPasswd,

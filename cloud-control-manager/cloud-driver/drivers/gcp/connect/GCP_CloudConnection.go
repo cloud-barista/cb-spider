@@ -19,6 +19,8 @@ import (
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/sirupsen/logrus"
 	compute "google.golang.org/api/compute/v1"
+
+	"errors"
 )
 
 var cblogger *logrus.Logger

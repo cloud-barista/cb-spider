@@ -9,20 +9,22 @@
 package connect
 
 import (
-	"github.com/sirupsen/logrus"
-
 	cblog "github.com/cloud-barista/cb-log"
 	trs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/tencent/resources"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
+	"github.com/sirupsen/logrus"
 
+	"errors"
 	//"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
 	//"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/errors"
 	//"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/profile"
+
+	cbs "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/cbs/v20170312"
 	clb "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/clb/v20180317"
 	cvm "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/cvm/v20170312"
 	vpc "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/vpc/v20170312"
-	"errors"
+
 )
 
 type TencentCloudConnection struct {
@@ -34,7 +36,8 @@ type TencentCloudConnection struct {
 	ImageClient    *cvm.Client
 	SecurityClient *vpc.Client
 	VmSpecClient   *cvm.Client
-
+	DiskClient     *cbs.Client
+	MyImageClient *cvm.Client
 	//VNicClient     *cvm.Client
 	//PublicIPClient *cvm.Client
 }
@@ -57,7 +60,7 @@ func (cloudConn *TencentCloudConnection) CreateKeyPairHandler() (irs.KeyPairHand
 func (cloudConn *TencentCloudConnection) CreateVMHandler() (irs.VMHandler, error) {
 	cblogger.Info("Start CreateVMHandler()")
 
-	vmHandler := trs.TencentVMHandler{cloudConn.Region, cloudConn.VMClient}
+	vmHandler := trs.TencentVMHandler{cloudConn.Region, cloudConn.VMClient, cloudConn.DiskClient}
 	return &vmHandler, nil
 }
 
@@ -119,5 +122,21 @@ func (cloudConn *TencentCloudConnection) CreatePublicIPHandler() (irs.PublicIPHa
 */
 
 func (cloudConn *TencentCloudConnection) CreateDiskHandler() (irs.DiskHandler, error) {
+	cblogger.Info("Start")
+	handler := trs.TencentDiskHandler{cloudConn.Region, cloudConn.DiskClient}
+
+
+	return &handler, nil
+}
+
+func (cloudConn *TencentCloudConnection) CreateMyImageHandler() (irs.MyImageHandler, error) {
+	cblogger.Info("Start")
+	handler := trs.TencentMyImageHandler{cloudConn.Region, cloudConn.MyImageClient}
+
+	return &handler, nil
+}
+
+func (cloudConn *TencentCloudConnection) CreateClusterHandler() (irs.ClusterHandler, error) {
         return nil, errors.New("Tencent Driver: not implemented")
+}
 }
