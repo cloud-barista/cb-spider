@@ -139,4 +139,3 @@ func (cloudConn *TencentCloudConnection) CreateMyImageHandler() (irs.MyImageHand
 func (cloudConn *TencentCloudConnection) CreateClusterHandler() (irs.ClusterHandler, error) {
         return nil, errors.New("Tencent Driver: not implemented")
 }
-}
