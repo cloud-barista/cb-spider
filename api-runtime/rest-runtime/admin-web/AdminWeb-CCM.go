@@ -3011,7 +3011,7 @@ func makeDetachDiskFunc_js() string {
                         // client logging
                         parent.frames["log_frame"].Log("   ==> " + xhr.response);
 
-                        setTimeout(function(){location.reload();}, 3000);
+                        location.reload();
                 }
         `
         strFunc = strings.ReplaceAll(strFunc, "$$SPIDER_SERVER$$", "http://"+cr.ServiceIPorName+cr.ServicePort) // cr.ServicePort = ":1024"
@@ -3158,6 +3158,10 @@ func Disk(c echo.Context) error {
         // (4-2) make TR list with info list
         htmlStr += makeDiskTRList_html("", "", "", info.ResultList, vmList)
 
+	providerName, _ := getProviderName(connConfig)
+	diskTypeList := diskTypeList(providerName)
+
+
         // (5) make input field and add
         // attach text box for add
 	
@@ -3170,7 +3174,13 @@ func Disk(c echo.Context) error {
                                 <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="1" value="spider-disk-01">
                             </td>
                             <td>
-                                <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="2" value="default">
+
+                            `
+        // Select format of Disk Type  name=text_box, id=2
+        htmlStr += makeDataDiskTypeSelect_html("", diskTypeList, "2")
+
+        htmlStr += `
+
                             </td>
                             <td>
                                 <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="3" value="default">
