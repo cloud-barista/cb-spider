@@ -386,45 +386,35 @@ func UpgradeCluster(secret_id string, secret_key string, region_id string, clust
 // 	return response.ToJsonString(), nil
 // }
 
-// func GetAutoScalingGroup(secret_id string, secret_key string, region_id string, auto_scaling_group_name string) (string, error) {
-// 	// Required steps:
-// 	// Instantiate an authentication object. The Tencent Cloud account key pair `secretId` and `secretKey` need to be passed in as the input parameters
-// 	// This example uses the way to read from the environment variable, so you need to set these two values in the environment variable in advance
-// 	// You can also write the key pair directly into the code, but be careful not to copy, upload, or share the code to others
-// 	// Query the CAM key: https://console.cloud.tencent.com/cam/capi
-// 	credential := common.NewCredential(secret_id, secret_key)
+func GetAutoScalingGroup(secret_id string, secret_key string, region_id string, auto_scaling_group_id string) (*as.DescribeAutoScalingGroupsResponse, error) {
+	// Required steps:
+	// Instantiate an authentication object. The Tencent Cloud account key pair `secretId` and `secretKey` need to be passed in as the input parameters
+	// This example uses the way to read from the environment variable, so you need to set these two values in the environment variable in advance
+	// You can also write the key pair directly into the code, but be careful not to copy, upload, or share the code to others
+	// Query the CAM key: https://console.cloud.tencent.com/cam/capi
+	credential := common.NewCredential(secret_id, secret_key)
 
-// 	// Optional steps:
-// 	// Instantiate a client configuration object. You can specify the timeout period and other configuration items
-// 	cpf := profile.NewClientProfile()
-// 	cpf.HttpProfile.Endpoint = "as.tencentcloudapi.com"
-// 	// Instantiate an client object
-// 	// The second parameter is the region information. You can directly enter the string "ap-guangzhou" or import the preset constant
-// 	client, _ := as.NewClient(credential, region_id, cpf)
+	// Optional steps:
+	// Instantiate a client configuration object. You can specify the timeout period and other configuration items
+	cpf := profile.NewClientProfile()
+	cpf.HttpProfile.Endpoint = "as.tencentcloudapi.com"
+	// Instantiate an client object
+	// The second parameter is the region information. You can directly enter the string "ap-guangzhou" or import the preset constant
+	client, _ := as.NewClient(credential, region_id, cpf)
 
-// 	// Instantiate a request object. You can further set the request parameters according to the API called and actual conditions
-// 	request := as.NewDescribeAutoScalingGroupsRequest()
+	// Instantiate a request object. You can further set the request parameters according to the API called and actual conditions
+	request := as.NewDescribeAutoScalingGroupsRequest()
 
-// 	request.Filters = []*as.Filter{
-// 		{
-// 			Name:   common.StringPtr("auto-scaling-group-name"),
-// 			Values: common.StringPtrs([]string{auto_scaling_group_name}),
-// 		},
-// 	}
+	request.AutoScalingGroupIds = common.StringPtrs([]string{auto_scaling_group_id})
 
-// 	// The returned "resp" is an instance of the DescribeAutoScalingGroupsResponse class which corresponds to the request object
-// 	response, err := client.DescribeAutoScalingGroups(request)
-// 	if _, ok := err.(*errors.TencentCloudSDKError); ok {
-// 		fmt.Printf("An API error has returned: %s", err)
-// 		return "", err
-// 	}
-// 	if err != nil {
-// 		panic(err)
-// 	}
-// 	// A string return packet in JSON format is output
-// 	fmt.Printf("%s", response.ToJsonString())
-// 	return response.ToJsonString(), nil
-// }
+	// The returned "resp" is an instance of the DescribeAutoScalingGroupsResponse class which corresponds to the request object
+	response, err := client.DescribeAutoScalingGroups(request)
+	if err != nil {
+		return nil, err
+	}
+
+	return response, nil
+}
 
 // func DisableAutoScalingGroup(secret_id string, secret_key string, region_id string, auto_scaling_group_id string) (string, error) {
 // 	// Required steps:
@@ -544,47 +534,35 @@ func UpgradeCluster(secret_id string, secret_key string, region_id string, clust
 
 // }
 
-// func GetLaunchConfiguration(secret_id string, secret_key string, region_id string, name string) (string, error) {
-// 	// Required steps:
-// 	// Instantiate an authentication object. The Tencent Cloud account key pair `secretId` and `secretKey` need to be passed in as the input parameters
-// 	// This example uses the way to read from the environment variable, so you need to set these two values in the environment variable in advance
-// 	// You can also write the key pair directly into the code, but be careful not to copy, upload, or share the code to others
-// 	// Query the CAM key: https://console.cloud.tencent.com/cam/capi
-// 	credential := common.NewCredential(secret_id, secret_key)
+func GetLaunchConfiguration(secret_id string, secret_key string, region_id string, launch_config_id string) (*as.DescribeLaunchConfigurationsResponse, error) {
+	// Required steps:
+	// Instantiate an authentication object. The Tencent Cloud account key pair `secretId` and `secretKey` need to be passed in as the input parameters
+	// This example uses the way to read from the environment variable, so you need to set these two values in the environment variable in advance
+	// You can also write the key pair directly into the code, but be careful not to copy, upload, or share the code to others
+	// Query the CAM key: https://console.cloud.tencent.com/cam/capi
+	credential := common.NewCredential(secret_id, secret_key)
 
-// 	// Optional steps:
-// 	// Instantiate a client configuration object. You can specify the timeout period and other configuration items
-// 	cpf := profile.NewClientProfile()
-// 	cpf.HttpProfile.Endpoint = "as.tencentcloudapi.com"
-// 	// Instantiate an client object
-// 	// The second parameter is the region information. You can directly enter the string "ap-guangzhou" or import the preset constant
-// 	client, _ := as.NewClient(credential, region_id, cpf)
+	// Optional steps:
+	// Instantiate a client configuration object. You can specify the timeout period and other configuration items
+	cpf := profile.NewClientProfile()
+	cpf.HttpProfile.Endpoint = "as.tencentcloudapi.com"
+	// Instantiate an client object
+	// The second parameter is the region information. You can directly enter the string "ap-guangzhou" or import the preset constant
+	client, _ := as.NewClient(credential, region_id, cpf)
 
-// 	// Instantiate a request object. You can further set the request parameters according to the API called and actual conditions
-// 	request := as.NewDescribeLaunchConfigurationsRequest()
+	// Instantiate a request object. You can further set the request parameters according to the API called and actual conditions
+	request := as.NewDescribeLaunchConfigurationsRequest()
 
-// 	// request.LaunchConfigurationIds = common.StringPtrs([]string{name})
-// 	request.Filters = []*as.Filter{
-// 		{
-// 			Name:   common.StringPtr("launch-configuration-name"),
-// 			Values: common.StringPtrs([]string{name}),
-// 		},
-// 	}
+	request.LaunchConfigurationIds = common.StringPtrs([]string{launch_config_id})
 
-// 	// The returned "resp" is an instance of the DescribeLaunchConfigurationsResponse class which corresponds to the request object
-// 	response, err := client.DescribeLaunchConfigurations(request)
-// 	if _, ok := err.(*errors.TencentCloudSDKError); ok {
-// 		fmt.Printf("An API error has returned: %s", err)
-// 		return "", err
-// 	}
-// 	if err != nil {
-// 		panic(err)
-// 	}
-// 	// A string return packet in JSON format is output
-// 	fmt.Printf("%s", response.ToJsonString())
+	// The returned "resp" is an instance of the DescribeLaunchConfigurationsResponse class which corresponds to the request object
+	response, err := client.DescribeLaunchConfigurations(request)
+	if err != nil {
+		return nil, err
+	}
 
-// 	return response.ToJsonString(), nil
-// }
+	return response, nil
+}
 
 // func DeleteLaunchConfiguration(secret_id string, secret_key string, region_id string, launch_configuration_id string) string {
 
