@@ -11,16 +11,18 @@
 package resources
 
 import (
+	"errors"
+	"fmt"
 	"sync"
+	"time"
 
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
+	"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/tencent/utils/tencent"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
-
-	//"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/tencent/utils/Tencent"
-
 	"github.com/sirupsen/logrus"
-	// call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
+	tke "github.com/tencentcloud/tencentcloud-sdk-go-intl-en/tencentcloud/tke/v20180525"
+	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
 )
 
 // tempCalllogger
@@ -39,32 +41,26 @@ type TencentClusterHandler struct {
 	CredentialInfo idrv.CredentialInfo
 }
 
-// connectionInfo.CredentialInfo.AccessKey
-// connectionInfo.CredentialInfo.AccessSecret
-// connectionInfo.RegionInfo.Region = "region-1"
-
 func (clusterHandler *TencentClusterHandler) CreateCluster(clusterReqInfo irs.ClusterInfo) (irs.ClusterInfo, error) {
 	cblogger.Info("Tencent Cloud Driver: called CreateCluster()")
-	// callLogInfo := getCallLogScheme(clusterHandler.RegionInfo.Region, call.CLUSTER, "CreateCluster()", "CreateCluster()")
+	callLogInfo := getCallLogScheme(clusterHandler.RegionInfo.Region, call.CLUSTER, "CreateCluster()", "CreateCluster()")
 
-	// // 클러스터 생성 요청을 JSON 요청으로 변환
-	// payload, err := getClusterInfoJSON(clusterReqInfo, clusterHandler.RegionInfo.Region)
-	// if err != nil {
-	// 	cblogger.Error(err)
-	// 	return irs.ClusterInfo{}, err
-	// }
+	// 클러스터 생성 요청 변환
+	request, err := getCreateClusterRequest(clusterReqInfo)
+	if err != nil {
+		cblogger.Error(err)
+		return irs.ClusterInfo{}, err
+	}
 
-	// start := call.Start()
-	// response_json_str, err := tencent.CreateCluster(clusterHandler.CredentialInfo.AccessKey, clusterHandler.CredentialInfo.AccessSecret, clusterHandler.RegionInfo.Region, payload)
-	// loggingInfo(callLogInfo, start)
-	// if err != nil {
-	// 	cblogger.Error(err)
-	// 	loggingError(callLogInfo, err)
-	// 	return irs.ClusterInfo{}, err
-	// }
-
-	// println(response_json_str)
-	// // {"cluster_id":"c913aebba53eb40f3978495d92b8da57f","request_id":"2C0836DA-ED3B-5B1E-94C9-5B7E355E2E44","task_id":"T-63185224055a0b07c6000083","instanceId":"c913aebba53eb40f3978495d92b8da57f"}
+	start := call.Start()
+	res, err := tencent.CreateCluster(clusterHandler.CredentialInfo.AccessKey, clusterHandler.CredentialInfo.AccessSecret, clusterHandler.RegionInfo.Region, request)
+	loggingInfo(callLogInfo, start)
+	if err != nil {
+		cblogger.Error(err)
+		loggingError(callLogInfo, err)
+		return irs.ClusterInfo{}, err
+	}
+	println(res.ToJsonString())
 
 	// var response_json_obj map[string]interface{}
 	// json.Unmarshal([]byte(response_json_str), &response_json_obj)
@@ -560,73 +556,52 @@ func (clusterHandler *TencentClusterHandler) UpgradeCluster(clusterIID irs.IID, 
 // 	return &node_group_info, nil
 // }
 
-// func getClusterInfoJSON(clusterInfo irs.ClusterInfo, region_id string) (string, error) {
+func getCreateClusterRequest(clusterInfo irs.ClusterInfo) (*tke.CreateClusterRequest, error) {
+	var err error = nil
+	defer func() {
+		if r := recover(); r != nil {
+			err = errors.New(fmt.Sprintf("recovered: %v", r))
+		}
+	}()
 
-// 	defer func() {
-// 		if r := recover(); r != nil {
-// 			cblogger.Error("getClusterInfoJSON failed", r)
-// 		}
-// 	}()
+	// clusterInfo := irs.ClusterInfo{
+	// 	IId: irs.IID{
+	// 		NameId:   "cluster-x1",
+	// 		SystemId: "",
+	// 	},
+	// 	Version: "1.22.5",
+	// 	Network: irs.NetworkInfo{
+	// 		VpcIID: irs.IID{NameId: "", SystemId: "vpc-q1c6fr9e"},
+	// 	},
+	// 	KeyValueList: []irs.KeyValue{
+	// 		{
+	// 			Key:   "cluster_cidr", // 조회가능한 값이면, 내부에서 처리하는 코드 추가
+	// 			Value: "172.20.0.0/16",
+	// 		},
+	// 	},
+	// }
 
-// 	// clusterInfo := irs.ClusterInfo{
-// 	// 	IId: irs.IID{
-// 	// 		NameId:   "cluster-x",
-// 	// 		SystemId: "",
-// 	// 	},
-// 	// 	Version: "1.22.10-aliyun.1",
-// 	// 	Network: irs.NetworkInfo{
-// 	// 		VpcIID: irs.IID{NameId: "", SystemId: "vpc-2zek5slojo5bh621ftnrg"},
-// 	// 	},
-// 	// 	KeyValueList: []irs.KeyValue{
-// 	// 		{
-// 	// 			Key:   "container_cidr",
-// 	// 			Value: "172.31.0.0/16",
-// 	// 		},
-// 	// 		{
-// 	// 			Key:   "service_cidr",
-// 	// 			Value: "172.32.0.0/16",
-// 	// 		},
-// 	// 		{
-// 	// 			Key:   "master_vswitch_id",
-// 	// 			Value: "vsw-2ze0qpwcio7r5bx3nqbp1",
-// 	// 		},
-// 	// 	},
-// 	// }
+	cluster_cidr := "" // 172.X.0.0.16: X Range:16, 17, ... , 31
+	for _, v := range clusterInfo.KeyValueList {
+		switch v.Key {
+		case "container_cidr":
+			cluster_cidr = v.Value
+		}
+	}
 
-// 	//cidr: Valid values: 10.0.0.0/16-24, 172.16-31.0.0/16-24, and 192.168.0.0/16-24.
-// 	container_cidr := ""
-// 	service_cidr := ""
-// 	master_vswitch_id := ""
+	request := tke.NewCreateClusterRequest()
+	request.ClusterCIDRSettings = &tke.ClusterCIDRSettings{
+		ClusterCIDR: common.StringPtr(cluster_cidr), // 172.X.0.0.16: X Range:16, 17, ... , 31
+	}
+	request.ClusterBasicSettings = &tke.ClusterBasicSettings{
+		ClusterName:    common.StringPtr(clusterInfo.IId.NameId),
+		VpcId:          common.StringPtr(clusterInfo.Network.VpcIID.SystemId),
+		ClusterVersion: common.StringPtr(clusterInfo.Version), //option, version: 1.22.5
+	}
+	request.ClusterType = common.StringPtr("MANAGED_CLUSTER") //default value
 
-// 	for _, v := range clusterInfo.KeyValueList {
-// 		switch v.Key {
-// 		case "container_cidr":
-// 			container_cidr = v.Value
-// 		case "service_cidr":
-// 			service_cidr = v.Value
-// 		case "master_vswitch_id":
-// 			master_vswitch_id = v.Value
-// 		}
-// 	}
-
-// 	temp := `{
-// 		"name": "%s",
-// 		"region_id": "%s",
-// 		"cluster_type": "ManagedKubernetes",
-// 		"kubernetes_version": "1.22.10-aliyun.1",
-// 		"vpcid": "%s",
-// 		"container_cidr": "%s",
-// 		"service_cidr": "%s",
-// 		"num_of_nodes": 0,
-// 		"master_vswitch_ids": [
-// 			"%s"
-// 		]
-// 	}`
-
-// 	clusterInfoJSON := fmt.Sprintf(temp, clusterInfo.IId.NameId, region_id, clusterInfo.Network.VpcIID.SystemId, container_cidr, service_cidr, master_vswitch_id)
-
-// 	return clusterInfoJSON, nil
-// }
+	return request, err
+}
 
 // func getNodeGroupJSONString(nodeGroupReqInfo irs.NodeGroupInfo) (string, error) {
 
@@ -696,24 +671,24 @@ func (clusterHandler *TencentClusterHandler) UpgradeCluster(clusterIID irs.IID, 
 // 	return payload, nil
 // }
 
-// // getCallLogScheme(clusterHandler.RegionInfo.Region, call.CLUSTER, "ListCluster()", "ListCluster()")
-// func getCallLogScheme(region string, resourceType call.RES_TYPE, resourceName string, apiName string) call.CLOUDLOGSCHEMA {
-// 	cblogger.Info(fmt.Sprintf("Call %s %s", call.TENCENT, apiName))
-// 	return call.CLOUDLOGSCHEMA{
-// 		CloudOS:      call.TENCENT,
-// 		RegionZone:   region,
-// 		ResourceType: resourceType,
-// 		ResourceName: resourceName,
-// 		CloudOSAPI:   apiName,
-// 	}
-// }
+// getCallLogScheme(clusterHandler.RegionInfo.Region, call.CLUSTER, "ListCluster()", "ListCluster()")
+func getCallLogScheme(region string, resourceType call.RES_TYPE, resourceName string, apiName string) call.CLOUDLOGSCHEMA {
+	cblogger.Info(fmt.Sprintf("Call %s %s", call.TENCENT, apiName))
+	return call.CLOUDLOGSCHEMA{
+		CloudOS:      call.TENCENT,
+		RegionZone:   region,
+		ResourceType: resourceType,
+		ResourceName: resourceName,
+		CloudOSAPI:   apiName,
+	}
+}
 
-// func loggingError(hiscallInfo call.CLOUDLOGSCHEMA, err error) {
-// 	hiscallInfo.ErrorMSG = err.Error()
-// 	tempCalllogger.Info(call.String(hiscallInfo))
-// }
+func loggingError(hiscallInfo call.CLOUDLOGSCHEMA, err error) {
+	hiscallInfo.ErrorMSG = err.Error()
+	tempCalllogger.Info(call.String(hiscallInfo))
+}
 
-// func loggingInfo(hiscallInfo call.CLOUDLOGSCHEMA, start time.Time) {
-// 	hiscallInfo.ElapsedTime = call.Elapsed(start)
-// 	tempCalllogger.Info(call.String(hiscallInfo))
-// }
+func loggingInfo(hiscallInfo call.CLOUDLOGSCHEMA, start time.Time) {
+	hiscallInfo.ElapsedTime = call.Elapsed(start)
+	tempCalllogger.Info(call.String(hiscallInfo))
+}

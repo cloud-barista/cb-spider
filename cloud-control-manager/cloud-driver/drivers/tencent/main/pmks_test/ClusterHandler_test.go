@@ -4,9 +4,9 @@ import (
 	"os"
 	"testing"
 
-	_ "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/alibaba/main/pmks_test/env" // 위치 변경 하면 안됨. 환경설정 정보 읽기 전에 테스트 수행됨
+	_ "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/tencent/main/pmks_test/env" // 위치 변경 하면 안됨. 환경설정 정보 읽기 전에 테스트 수행됨
 
-	adrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/alibaba"
+	tdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/tencent"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 )
@@ -15,15 +15,16 @@ func getClusterHandler() (irs.ClusterHandler, error) {
 
 	connectionInfo := idrv.ConnectionInfo{
 		CredentialInfo: idrv.CredentialInfo{
-			AccessKey:    os.Getenv("ACCESS_KEY"),
-			AccessSecret: os.Getenv("ACCESS_SECRET"),
+			ClientId:     os.Getenv("CLIENT_ID"),
+			ClientSecret: os.Getenv("CLIENT_SECRET"),
 		},
 		RegionInfo: idrv.RegionInfo{
-			Region: os.Getenv("REGION_ID"),
+			Region: os.Getenv("REGION"),
+			Zone:   os.Getenv("ZONE"),
 		},
 	}
 
-	cloudDriver := new(adrv.AlibabaDriver)
+	cloudDriver := new(tdrv.TencentDriver)
 	cloudConnection, err := cloudDriver.ConnectCloud(connectionInfo)
 	if err != nil {
 		return nil, err
@@ -191,41 +192,39 @@ func TestCreateClusterOnly(t *testing.T) {
 		t.Error(err)
 	}
 
-	// body := `{
-	// 	"name": "cluster_2",
-	// 	"region_id": "cn-beijing",
-	// 	"cluster_type": "ManagedKubernetes",
-	// 	"kubernetes_version": "1.22.10-aliyun.1",
-	// 	"vpcid": "vpc-2zek5slojo5bh621ftnrg",
-	// 	"container_cidr": "172.24.0.0/16",
-	// 	"service_cidr": "172.23.0.0/16",
-	// 	"num_of_nodes": 0,
-	// 	"master_vswitch_ids": [
-	// 		"vsw-2ze0qpwcio7r5bx3nqbp1"
-	// 	]
-	// }`
+	// // Instantiate a request object. You can further set the request parameters according to the API called and actual conditions
+	// request := tke.NewCreateClusterRequest()
+
+	// // request.FromJsonString()
+	// request.ClusterCIDRSettings = &tke.ClusterCIDRSettings{
+	// 	ClusterCIDR: common.StringPtr("172.20.0.0/16"), // 172.X.0.0.16: X Range:16, 17, ... , 31
+	// }
+	// request.ClusterBasicSettings = &tke.ClusterBasicSettings{
+	// 	ClusterName:    common.StringPtr("cluster-x2"),
+	// 	VpcId:          common.StringPtr("vpc-q1c6fr9e"),
+	// 	ClusterVersion: common.StringPtr("1.22.5"), //version: 1.22.5
+	// }
+	// request.ClusterType = common.StringPtr("MANAGED_CLUSTER")
+
+	// res, err := tencent.CreateCluster(secret_id, secret_key, region_id, request)
+	// if err != nil {
+	// 	t.Errorf("CreateCluster failed: %v", err)
+	// 	return
+	// }
 
 	clusterInfo := irs.ClusterInfo{
 		IId: irs.IID{
-			NameId:   "cluster-x",
+			NameId:   "cluster-x1",
 			SystemId: "",
 		},
-		Version: "1.22.10-aliyun.1",
+		Version: "1.22.5",
 		Network: irs.NetworkInfo{
-			VpcIID: irs.IID{NameId: "", SystemId: "vpc-2zek5slojo5bh621ftnrg"},
+			VpcIID: irs.IID{NameId: "", SystemId: "vpc-q1c6fr9e"},
 		},
 		KeyValueList: []irs.KeyValue{
 			{
-				Key:   "container_cidr",
-				Value: "172.22.0.0/16",
-			},
-			{
-				Key:   "service_cidr",
-				Value: "172.23.0.0/16",
-			},
-			{
-				Key:   "master_vswitch_id",
-				Value: "vsw-2ze0qpwcio7r5bx3nqbp1",
+				Key:   "cluster_cidr", // 조회가능한 값이면, 내부에서 처리하는 코드 추가
+				Value: "172.20.0.0/16",
 			},
 		},
 	}
