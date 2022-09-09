@@ -182,66 +182,61 @@ func TestGetClusterHander(t *testing.T) {
 
 // }
 
-// func TestCreateClusterOnly(t *testing.T) {
+func TestCreateClusterOnly(t *testing.T) {
 
-// 	t.Log("클러스터 생성, 노드그룹은 생성안함")
+	t.Log("클러스터 생성, 노드그룹은 생성안함")
 
-// 	clusterHandler, err := getClusterHandler()
-// 	if err != nil {
-// 		t.Error(err)
-// 	}
+	clusterHandler, err := getClusterHandler()
+	if err != nil {
+		t.Error(err)
+	}
 
-// 	// body := `{
-// 	// 	"name": "cluster_2",
-// 	// 	"region_id": "cn-beijing",
-// 	// 	"cluster_type": "ManagedKubernetes",
-// 	// 	"kubernetes_version": "1.22.10-aliyun.1",
-// 	// 	"vpcid": "vpc-2zek5slojo5bh621ftnrg",
-// 	// 	"container_cidr": "172.24.0.0/16",
-// 	// 	"service_cidr": "172.23.0.0/16",
-// 	// 	"num_of_nodes": 0,
-// 	// 	"master_vswitch_ids": [
-// 	// 		"vsw-2ze0qpwcio7r5bx3nqbp1"
-// 	// 	]
-// 	// }`
+	// body := `{
+	// 	"name": "cluster_2",
+	// 	"region_id": "cn-beijing",
+	// 	"cluster_type": "ManagedKubernetes",
+	// 	"kubernetes_version": "1.22.10-aliyun.1",
+	// 	"vpcid": "vpc-2zek5slojo5bh621ftnrg",
+	// 	"container_cidr": "172.24.0.0/16",
+	// 	"service_cidr": "172.23.0.0/16",
+	// 	"num_of_nodes": 0,
+	// 	"master_vswitch_ids": [
+	// 		"vsw-2ze0qpwcio7r5bx3nqbp1"
+	// 	]
+	// }`
 
-// 	clusterInfo := irs.ClusterInfo{
-// 		IId: irs.IID{
-// 			NameId:   "cluster-x",
-// 			SystemId: "",
-// 		},
-// 		Version: "1.22.10-aliyun.1",
-// 		Network: irs.NetworkInfo{
-// 			VpcIID: irs.IID{NameId: "", SystemId: "vpc-2zek5slojo5bh621ftnrg"},
-// 		},
-// 		KeyValueList: []irs.KeyValue{
-// 			{
-// 				Key:   "container_cidr",
-// 				Value: "172.22.0.0/16",
-// 			},
-// 			{
-// 				Key:   "service_cidr",
-// 				Value: "172.23.0.0/16",
-// 			},
-// 			{
-// 				Key:   "master_vswitch_id",
-// 				Value: "vsw-2ze0qpwcio7r5bx3nqbp1",
-// 			},
-// 		},
-// 	}
+	clusterInfo := irs.ClusterInfo{
+		IId: irs.IID{
+			NameId:   "cluster-x",
+			SystemId: "",
+		},
+		Version: "1.22.10-aliyun.1",
+		Network: irs.NetworkInfo{
+			VpcIID: irs.IID{NameId: "", SystemId: "vpc-2zek5slojo5bh621ftnrg"},
+		},
+		KeyValueList: []irs.KeyValue{
+			{
+				Key:   "container_cidr",
+				Value: "172.22.0.0/16",
+			},
+			{
+				Key:   "service_cidr",
+				Value: "172.23.0.0/16",
+			},
+			{
+				Key:   "master_vswitch_id",
+				Value: "vsw-2ze0qpwcio7r5bx3nqbp1",
+			},
+		},
+	}
 
-// 	// container_cidr + ?
-// 	// service_cidr + ?
-// 	// login_password + ?
-// 	// master_vswitch_ids
-// 	//cidr: Valid values: 10.0.0.0/16-24, 172.16-31.0.0/16-24, and 192.168.0.0/16-24.
-// 	cluster_, err := clusterHandler.CreateCluster(clusterInfo)
-// 	if err != nil {
-// 		t.Error(err)
-// 	}
+	cluster_, err := clusterHandler.CreateCluster(clusterInfo)
+	if err != nil {
+		t.Error(err)
+	}
 
-// 	t.Log(cluster_)
-// }
+	t.Log(cluster_)
+}
 
 // func TestCreateClusterWith1NodeGroup(t *testing.T) {
 // 	//

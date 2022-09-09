@@ -317,6 +317,29 @@ func ChangeNodeGroupScaling(secret_id string, secret_key string, region_id strin
 	return response, nil
 }
 
+func UpgradeCluster(secret_id string, secret_key string, region_id string, cluster_id string, version string) (*tke.UpdateClusterVersionResponse, error) {
+
+	credential := common.NewCredential(secret_id, secret_key)
+	cpf := profile.NewClientProfile()
+	cpf.HttpProfile.Endpoint = "tke.tencentcloudapi.com"
+	client, _ := tke.NewClient(credential, region_id, cpf)
+
+	// Instantiate a request object. You can further set the request parameters according to the API called and actual conditions
+	request := tke.NewUpdateClusterVersionRequest()
+
+	request.ClusterId = common.StringPtr(cluster_id)
+	request.DstVersion = common.StringPtr(version)
+
+	// The returned "resp" is an instance of the UpdateClusterVersionResponse class which corresponds to the request object
+	response, err := client.UpdateClusterVersion(request)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return response, nil
+}
+
 // func CreateAutoScalingGroup(secret_id string, secret_key string, region_id string, auto_scaling_group_name string, launch_config_id string, vpc_id string, subnet_id string, max_size uint64, min_size uint64, desired_size uint64) (string, error) {
 
 // 	// Required steps:

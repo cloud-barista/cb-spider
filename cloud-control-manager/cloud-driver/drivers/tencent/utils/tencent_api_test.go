@@ -326,3 +326,42 @@ func TestDeleteNodeGroup(t *testing.T) {
 		}
 	}
 }
+
+func TestUpgradeCluster(t *testing.T) {
+
+	res, err := tencent.GetClusters(secret_id, secret_key, region_id)
+	if err != nil {
+		println(err)
+	}
+
+	for _, cluster := range res.Response.Clusters {
+		cluster_id := *cluster.ClusterId
+		version := "1.22.5"
+		res, err := tencent.UpgradeCluster(secret_id, secret_key, region_id, cluster_id, version)
+		if err != nil {
+			println(err.Error())
+			//[TencentCloudSDKError] Code=InvalidParameter.Param,
+			//Message=PARAM_ERROR(unsupported convert 1.20.6 to 1.22.5),
+			//RequestId=859d4b16-91c8-40e6-97dd-c7b8006ba7aa
+		}
+		println(res.ToJsonString())
+
+		version = "1.20.6"
+		res, err = tencent.UpgradeCluster(secret_id, secret_key, region_id, cluster_id, version)
+		if err != nil {
+			println(err.Error())
+		}
+		println(res.ToJsonString())
+
+		version = "1.20.7"
+		res, err = tencent.UpgradeCluster(secret_id, secret_key, region_id, cluster_id, version)
+		if err != nil {
+			println(err.Error())
+			//[TencentCloudSDKError] Code=ResourceUnavailable.ClusterState,
+			//Message=CLUSTER_STATE_ERROR(cluster is in upgrading),
+			//RequestId=304b274a-3500-4d33-9e79-60d849dd192d
+		}
+		println(res.ToJsonString())
+
+	}
+}

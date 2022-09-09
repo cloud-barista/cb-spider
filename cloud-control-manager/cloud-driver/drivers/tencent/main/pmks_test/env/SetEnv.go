@@ -9,9 +9,7 @@ func init() {
 }
 
 func SetEnv() {
-	os.Setenv("CBSPIDER_ROOT", "/path")
-	os.Setenv("CBLOG_ROOT", "/path")
-	os.Setenv("ACCESS_KEY", "***")
-	os.Setenv("ACCESS_SECRET", "***")
+	os.Setenv("SECRET_ID", "***")
+	os.Setenv("SECRET_KEY", "***")
 	os.Setenv("REGION_ID", "cn-beijing")
 }
