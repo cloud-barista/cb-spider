@@ -11,8 +11,9 @@
 package resources
 
 import (
-	"errors"
+	"encoding/json"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -20,6 +21,8 @@ import (
 	"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/tencent/utils/tencent"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
+
+	"github.com/jeremywohl/flatten"
 	"github.com/sirupsen/logrus"
 	tke "github.com/tencentcloud/tencentcloud-sdk-go-intl-en/tencentcloud/tke/v20180525"
 	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
@@ -65,10 +68,10 @@ func (clusterHandler *TencentClusterHandler) CreateCluster(clusterReqInfo irs.Cl
 	// var response_json_obj map[string]interface{}
 	// json.Unmarshal([]byte(response_json_str), &response_json_obj)
 	// cluster_id := response_json_obj["cluster_id"].(string)
-	// cluster_info, err := getClusterInfo(clusterHandler.CredentialInfo.AccessKey, clusterHandler.CredentialInfo.AccessSecret, clusterHandler.RegionInfo.Region, cluster_id)
-	// if err != nil {
-	// 	return irs.ClusterInfo{}, err
-	// }
+	cluster_info, err := getClusterInfo(clusterHandler.CredentialInfo.ClientId, clusterHandler.CredentialInfo.ClientSecret, clusterHandler.RegionInfo.Region, *res.Response.ClusterId)
+	if err != nil {
+		return irs.ClusterInfo{}, err
+	}
 
 	// // 리턴할 ClusterInfo 만들기
 	// // 일단은 단순하게 만들어서 반환한다.
@@ -86,38 +89,30 @@ func (clusterHandler *TencentClusterHandler) CreateCluster(clusterReqInfo irs.Cl
 	// 	}
 	// 	printFlattenJSON(res)
 	// }
-	// return *cluster_info, nil
 
-	return irs.ClusterInfo{}, nil
+	return *cluster_info, nil
 }
 
 func (clusterHandler *TencentClusterHandler) ListCluster() ([]*irs.ClusterInfo, error) {
 	cblogger.Info("Tencent Cloud Driver: called ListCluster()")
-	// callLogInfo := getCallLogScheme(clusterHandler.RegionInfo.Region, call.CLUSTER, "ListCluster()", "ListCluster()")
+	callLogInfo := getCallLogScheme(clusterHandler.RegionInfo.Region, call.CLUSTER, "ListCluster()", "ListCluster()")
 
-	// start := call.Start()
-	// clusters_json_str, err := tencent.GetClusters(clusterHandler.CredentialInfo.AccessKey, clusterHandler.CredentialInfo.AccessSecret, clusterHandler.RegionInfo.Region)
-	// loggingInfo(callLogInfo, start)
-	// if err != nil {
-	// 	return nil, err
-	// }
+	start := call.Start()
+	res, err := tencent.GetClusters(clusterHandler.CredentialInfo.ClientId, clusterHandler.CredentialInfo.ClientSecret, clusterHandler.RegionInfo.Region)
+	loggingInfo(callLogInfo, start)
+	if err != nil {
+		return nil, err
+	}
 
-	// var clusters_json_obj map[string]interface{}
-	// json.Unmarshal([]byte(clusters_json_str), &clusters_json_obj)
-	// clusters := clusters_json_obj["clusters"].([]interface{})
-	// cluster_info_list := make([]*irs.ClusterInfo, len(clusters))
-	// for i, cluster := range clusters {
-	// 	println(i, cluster)
-	// 	cluster_id := cluster.(map[string]interface{})["cluster_id"].(string)
-	// 	cluster_info_list[i], err = getClusterInfo(clusterHandler.CredentialInfo.AccessKey, clusterHandler.CredentialInfo.AccessSecret, clusterHandler.RegionInfo.Region, cluster_id)
-	// 	if err != nil {
-	// 		return nil, err
-	// 	}
-	// }
+	cluster_info_list := make([]*irs.ClusterInfo, *res.Response.TotalCount)
+	for i, cluster := range res.Response.Clusters {
+		cluster_info_list[i], err = getClusterInfo(clusterHandler.CredentialInfo.ClientId, clusterHandler.CredentialInfo.ClientSecret, clusterHandler.RegionInfo.Region, *cluster.ClusterId)
+		if err != nil {
+			return nil, err
+		}
+	}
 
-	// return cluster_info_list, nil
-
-	return nil, nil
+	return cluster_info_list, nil
 }
 
 func (clusterHandler *TencentClusterHandler) GetCluster(clusterIID irs.IID) (irs.ClusterInfo, error) {
@@ -322,245 +317,202 @@ func (clusterHandler *TencentClusterHandler) UpgradeCluster(clusterIID irs.IID, 
 	return irs.ClusterInfo{}, nil
 }
 
-// func getClusterInfo(access_key string, access_secret string, region_id string, cluster_id string) (*irs.ClusterInfo, error) {
-// 	defer func() {
-// 		if r := recover(); r != nil {
-// 			cblogger.Error("getClusterInfo() failed!", r)
-// 		}
-// 	}()
-
-// 	cluster_json_str, err := tencent.GetCluster(access_key, access_secret, region_id, cluster_id)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	println(cluster_json_str)
-// 	flat, err := flatten.FlattenString(cluster_json_str, "", flatten.DotStyle)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	println(flat)
-
-// 	// k,v 추출
-// 	// k,v 변환 규칙 작성 [k,v]:[ClusterInfo.k, ClusterInfo.v]
-// 	// 변환 규칙에 따라 k,v 변환
-// 	var cluster_json_obj map[string]interface{}
-// 	json.Unmarshal([]byte(cluster_json_str), &cluster_json_obj)
-
-// 	// https://www.Tencentcloud.com/help/doc-detail/86987.html
-// 	// Initializing	Creating the cloud resources that are used by the cluster.
-// 	// Creation Failed	Failed to create the cloud resources that are used by the cluster.
-// 	// Running	The cloud resources used by the cluster are created.
-// 	// Updating	Updating the metadata of the cluster.
-// 	// Scaling	Adding nodes to the cluster.
-// 	// Removing	Removing nodes from the cluster.
-// 	// Upgrading	Upgrading the cluster.
-// 	// Draining	Evicting pods from a node to other nodes. After all pods are evicted from the node, the node becomes unschudulable.
-// 	// Deleting	Deleting the cluster.
-// 	// Deletion Failed	Failed to delete the cluster.
-// 	// Deleted (invisible to users)	The cluster is deleted.
-
-// 	// ClusterCreating ClusterStatus = "Creating"
-// 	// ClusterActive   ClusterStatus = "Active"
-// 	// ClusterInactive ClusterStatus = "Inactive"
-// 	// ClusterUpdating ClusterStatus = "Updating"
-// 	// ClusterDeleting ClusterStatus = "Deleting"
-
-// 	health_status := cluster_json_obj["state"].(string)
-// 	cluster_status := irs.ClusterActive
-// 	if strings.EqualFold(health_status, "Initializing") {
-// 		cluster_status = irs.ClusterCreating
-// 	} else if strings.EqualFold(health_status, "Updating") {
-// 		cluster_status = irs.ClusterUpdating
-// 	} else if strings.EqualFold(health_status, "Creation Failed") {
-// 		cluster_status = irs.ClusterInactive
-// 	} else if strings.EqualFold(health_status, "Deleting") {
-// 		cluster_status = irs.ClusterDeleting
-// 	} else if strings.EqualFold(health_status, "Running") {
-// 		cluster_status = irs.ClusterActive
-// 	}
-
-// 	println(cluster_status)
-
-// 	created_at := cluster_json_obj["created"].(string) // 2022-09-08T09:02:16+08:00,
-// 	datetime, err := time.Parse(time.RFC3339, created_at)
-// 	if err != nil {
-// 		panic(err)
-// 	}
-
-// 	// name
-// 	// cluster_id
-// 	// current_version
-// 	// security_group_id
-// 	// vpc_id
-// 	// state
-// 	// created
-// 	cluster_info := &irs.ClusterInfo{
-// 		IId: irs.IID{
-// 			NameId:   cluster_json_obj["name"].(string),
-// 			SystemId: cluster_json_obj["cluster_id"].(string),
-// 		},
-// 		Version: cluster_json_obj["current_version"].(string),
-// 		Network: irs.NetworkInfo{
-// 			VpcIID: irs.IID{
-// 				NameId:   "",
-// 				SystemId: cluster_json_obj["vpc_id"].(string),
-// 			},
-// 			SecurityGroupIIDs: []irs.IID{
-// 				{
-// 					NameId:   "",
-// 					SystemId: cluster_json_obj["security_group_id"].(string),
-// 				},
-// 			},
-// 		},
-// 		Status:      cluster_status,
-// 		CreatedTime: datetime,
-// 		// KeyValueList: []irs.KeyValue{}, // flatten data 입력하기
-// 	}
-// 	println(cluster_info)
-
-// 	// NodeGroups
-// 	node_groups_json_str, err := tencent.ListNodeGroup(access_key, access_secret, region_id, cluster_id)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	print(node_groups_json_str)
-// 	// {"NextToken":"","TotalCount":0,"nodepools":[],"request_id":"4529A823-F344-5EA6-8E60-47FC30117668"}
-
-// 	// k,v 추출
-// 	// k,v 변환 규칙 작성 [k,v]:[NodeGroup.k, NodeGroup.v]
-// 	// 변환 규칙에 따라 k,v 변환
-// 	flat, err = flatten.FlattenString(node_groups_json_str, "", flatten.DotStyle)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	println(flat)
-
-// 	var node_groups_json_obj map[string]interface{}
-// 	json.Unmarshal([]byte(node_groups_json_str), &node_groups_json_obj)
-// 	node_groups := node_groups_json_obj["nodepools"].([]interface{})
-// 	for _, node_group := range node_groups {
-// 		// printFlattenJSON(node_group)
-// 		// "nodepool_info.nodepool_id": "np02b049a03b8141858697497e12a61aa1",
-// 		node_group_id := node_group.(map[string]interface{})["nodepool_info"].(map[string]interface{})["nodepool_id"].(string)
-// 		node_group_info, err := getNodeGroupInfo(access_key, access_secret, region_id, cluster_id, node_group_id)
-// 		if err != nil {
-// 			return nil, err
-// 		}
-// 		cluster_info.NodeGroupList = append(cluster_info.NodeGroupList, *node_group_info)
-// 	}
-
-// 	return cluster_info, nil
-// }
-
-// func printFlattenJSON(json_obj interface{}) {
-// 	temp, err := json.MarshalIndent(json_obj, "", "  ")
-// 	if err != nil {
-// 		println(err)
-// 	} else {
-// 		flat, err := flatten.FlattenString(string(temp), "", flatten.DotStyle)
-// 		if err != nil {
-// 			println(err)
-// 		} else {
-// 			println(flat)
-// 		}
-// 	}
-// }
-
-// func getNodeGroupInfo(access_key, access_secret, region_id, cluster_id, node_group_id string) (*irs.NodeGroupInfo, error) {
-// 	defer func() {
-// 		if r := recover(); r != nil {
-// 			cblogger.Error("getNodeGroupInfo() failed!", r)
-// 		}
-// 	}()
-
-// 	node_group_json_str, err := tencent.GetNodeGroup(access_key, access_secret, region_id, cluster_id, node_group_id)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-
-// 	var node_group_json_obj map[string]interface{}
-// 	json.Unmarshal([]byte(node_group_json_str), &node_group_json_obj)
-
-// 	// mapping
-// 	// NodeGroupList.0.IId.NameId: 			nodepool_info.name
-// 	// NodeGroupList.0.IId.SystemId: 		nodepool_info.nodepool_id
-// 	// NodeGroupList.0.ImageIID.NameId: 	scaling_group.image_type
-// 	// NodeGroupList.0.ImageIID.SystemId: 	scaling_group.image_id
-// 	// NodeGroupList.0.VMSpecName: 			scaling_group.instance_types.0
-// 	// NodeGroupList.0.RootDiskType: 		scaling_group.system_disk_category
-// 	// NodeGroupList.0.RootDiskSize: 		scaling_group.system_disk_size
-// 	// NodeGroupList.0.KeyPairIID.NameId: 	scaling_group.key_pair
-// 	// NodeGroupList.0.KeyPairIID.SystemId: ""
-// 	// NodeGroupList.0.Status: 				status.state
-// 	// NodeGroupList.0.OnAutoScaling: 		auto_scaling.enable
-// 	// NodeGroupList.0.DesiredNodeSize: 	n/a
-// 	// NodeGroupList.0.MaxNodeSize: 		auto_scaling.max_instances
-// 	// NodeGroupList.0.MinNodeSize: 		auto_scaling.min_instances
-// 	// NodeGroupList.0.NodeList.0.NameId: 	//node정보추가 // not yet
-// 	// NodeGroupList.0.NodeList.0.SystemId:
-
-// 	// NodeGroupList.0.KeyValueList.0.Key: key,	//keyvalue 정보 추가
-// 	// NodeGroupList.0.KeyValueList.0.Value: value
-
-// 	// nodegroup.state
-// 	// https://www.Tencentcloud.com/help/en/container-service-for-kubernetes/latest/query-the-details-of-a-node-pool
-// 	// active: The node pool is active.
-// 	// scaling: The node pool is being scaled.
-// 	// removing: Nodes are being removed from the node pool.
-// 	// deleting: The node pool is being deleted.
-// 	// updating: The node pool is being updated.
-// 	health_status := node_group_json_obj["status"].(map[string]interface{})["state"].(string)
-// 	status := irs.NodeGroupActive
-// 	if strings.EqualFold(health_status, "active") {
-// 		status = irs.NodeGroupActive
-// 	} else if strings.EqualFold(health_status, "scaling") {
-// 		status = irs.NodeGroupUpdating
-// 	} else if strings.EqualFold(health_status, "removing") {
-// 		status = irs.NodeGroupUpdating // removing is a kind of updating?
-// 	} else if strings.EqualFold(health_status, "deleting") {
-// 		status = irs.NodeGroupDeleting
-// 	} else if strings.EqualFold(health_status, "updating") {
-// 		status = irs.NodeGroupUpdating
-// 	}
-
-// 	println(status)
-
-// 	// 변환 자동화 고려
-// 	// 변환 규칙 이용 고려 // https://github.com/qntfy/kazaam
-// 	// https://github.com/antchfx/jsonquery
-// 	node_group_info := irs.NodeGroupInfo{
-// 		IId: irs.IID{
-// 			NameId:   node_group_json_obj["nodepool_info"].(map[string]interface{})["name"].(string),
-// 			SystemId: node_group_json_obj["nodepool_info"].(map[string]interface{})["nodepool_id"].(string),
-// 		},
-// 		ImageIID: irs.IID{
-// 			NameId:   node_group_json_obj["scaling_group"].(map[string]interface{})["image_type"].(string),
-// 			SystemId: node_group_json_obj["scaling_group"].(map[string]interface{})["image_id"].(string),
-// 		},
-// 		VMSpecName:   node_group_json_obj["scaling_group"].(map[string]interface{})["instance_types"].([]interface{})[0].(string),
-// 		RootDiskType: node_group_json_obj["scaling_group"].(map[string]interface{})["system_disk_category"].(string),
-// 		RootDiskSize: strconv.Itoa(int(node_group_json_obj["scaling_group"].(map[string]interface{})["system_disk_size"].(float64))),
-// 		KeyPairIID: irs.IID{
-// 			NameId:   node_group_json_obj["scaling_group"].(map[string]interface{})["key_pair"].(string),
-// 			SystemId: "",
-// 		},
-// 		Status:          status,
-// 		OnAutoScaling:   node_group_json_obj["auto_scaling"].(map[string]interface{})["enable"].(bool),
-// 		MinNodeSize:     int(node_group_json_obj["auto_scaling"].(map[string]interface{})["min_instances"].(float64)),
-// 		MaxNodeSize:     int(node_group_json_obj["auto_scaling"].(map[string]interface{})["max_instances"].(float64)),
-// 		DesiredNodeSize: 0,                // not supported in Tencent
-// 		NodeList:        []irs.IID{},      // to be implemented
-// 		KeyValueList:    []irs.KeyValue{}, // to be implemented
-// 	}
-
-// 	return &node_group_info, nil
-// }
-
-func getCreateClusterRequest(clusterInfo irs.ClusterInfo) (*tke.CreateClusterRequest, error) {
+func getClusterInfo(access_key string, access_secret string, region_id string, cluster_id string) (*irs.ClusterInfo, error) {
 	var err error = nil
 	defer func() {
 		if r := recover(); r != nil {
-			err = errors.New(fmt.Sprintf("recovered: %v", r))
+			err = fmt.Errorf("getClusterInfo() -> %v", r)
+		}
+	}()
+
+	res, err := tencent.GetCluster(access_key, access_secret, region_id, cluster_id)
+	if err != nil {
+		return nil, err
+	}
+
+	if *res.Response.TotalCount == 0 {
+		return nil, fmt.Errorf("cluster[%s] does not exist", cluster_id)
+	}
+
+	printFlattenJSON(res)
+
+	// // k,v 추출
+	// // k,v 변환 규칙 작성 [k,v]:[ClusterInfo.k, ClusterInfo.v]
+	// // 변환 규칙에 따라 k,v 변환
+
+	// https://intl.cloud.tencent.com/document/api/457/32022#ClusterStatus
+	// Cluster status (Running, Creating, Idling or Abnormal)
+
+	health_status := *res.Response.Clusters[0].ClusterStatus
+	cluster_status := irs.ClusterActive
+	if strings.EqualFold(health_status, "Creating") {
+		cluster_status = irs.ClusterCreating
+	} else if strings.EqualFold(health_status, "Creating") {
+		cluster_status = irs.ClusterUpdating
+	} else if strings.EqualFold(health_status, "Abnormal") {
+		cluster_status = irs.ClusterInactive
+	} else if strings.EqualFold(health_status, "Running") {
+		cluster_status = irs.ClusterActive
+	}
+	// } else if strings.EqualFold(health_status, "") { // tencent has no "delete" state
+	// // 	cluster_status = irs.ClusterDeleting
+	println(cluster_status)
+
+	// "2022-09-09T13:10:06Z",
+	created_at := *res.Response.Clusters[0].CreatedTime // 2022-09-08T09:02:16+08:00,
+	datetime, err := time.Parse(time.RFC3339, created_at)
+	if err != nil {
+		panic(err)
+	}
+
+	// "Response.Clusters.0.ClusterName": "cluster-x1",
+	// "Response.Clusters.0.ClusterVersion": "1.22.5",
+	// "Response.Clusters.0.ClusterNetworkSettings.VpcId": "vpc-q1c6fr9e",
+	// "Response.Clusters.0.ClusterStatus": "Creating",
+	// "Response.Clusters.0.CreatedTime": "2022-09-09T13:10:06Z",
+
+	cluster_info := &irs.ClusterInfo{
+		IId: irs.IID{
+			NameId:   *res.Response.Clusters[0].ClusterName,
+			SystemId: *res.Response.Clusters[0].ClusterId,
+		},
+		Version: *res.Response.Clusters[0].ClusterVersion,
+		Network: irs.NetworkInfo{
+			VpcIID: irs.IID{
+				NameId:   "",
+				SystemId: *res.Response.Clusters[0].ClusterVersion,
+			},
+		},
+		Status:      cluster_status,
+		CreatedTime: datetime,
+		// KeyValueList: []irs.KeyValue{}, // flatten data 입력하기
+	}
+	println(cluster_info)
+
+	// NodeGroups
+	res2, err := tencent.ListNodeGroup(access_key, access_secret, region_id, cluster_id)
+	if err != nil {
+		return nil, err
+	}
+	print(res.ToJsonString())
+
+	// // k,v 추출
+	// // k,v 변환 규칙 작성 [k,v]:[NodeGroup.k, NodeGroup.v]
+	// // 변환 규칙에 따라 k,v 변환
+	// flat, err = flatten.FlattenString(node_groups_json_str, "", flatten.DotStyle)
+	// if err != nil {
+	// 	return nil, err
+	// }
+	// println(flat)
+
+	for _, nodepool := range res2.Response.NodePoolSet {
+		node_group_info, err := getNodeGroupInfo(access_key, access_secret, region_id, cluster_id, *nodepool.NodePoolId)
+		if err != nil {
+			return nil, err
+		}
+		cluster_info.NodeGroupList = append(cluster_info.NodeGroupList, *node_group_info)
+	}
+
+	//return cluster_info, nil
+
+	return cluster_info, nil
+}
+
+func printFlattenJSON(json_obj interface{}) {
+	temp, err := json.MarshalIndent(json_obj, "", "  ")
+	if err != nil {
+		println(err)
+	} else {
+		flat, err := flatten.FlattenString(string(temp), "", flatten.DotStyle)
+		if err != nil {
+			println(err)
+		} else {
+			println(flat)
+		}
+	}
+}
+
+func getNodeGroupInfo(access_key, access_secret, region_id, cluster_id, node_group_id string) (*irs.NodeGroupInfo, error) {
+	var err error = nil
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("getNodeGroupInfo() -> %v", r)
+		}
+	}()
+
+	res, err := tencent.GetNodeGroup(access_key, access_secret, region_id, cluster_id, node_group_id)
+	if err != nil {
+		return nil, err
+	}
+	printFlattenJSON(res)
+
+	launch_config, err := tencent.GetLaunchConfiguration(access_key, access_secret, region_id, *res.Response.NodePool.LaunchConfigurationId)
+	if err != nil {
+		return nil, err
+	}
+	printFlattenJSON(launch_config)
+
+	auto_scaling_group, err := tencent.GetAutoScalingGroup(access_key, access_secret, region_id, *res.Response.NodePool.AutoscalingGroupId)
+	if err != nil {
+		return nil, err
+	}
+	printFlattenJSON(auto_scaling_group)
+
+	// nodepool LifeState
+	// The lifecycle state of the current node pool.
+	// Valid values: creating, normal, updating, deleting, and deleted.
+	health_status := *res.Response.NodePool.LifeState
+	status := irs.NodeGroupActive
+	if strings.EqualFold(health_status, "normal") {
+		status = irs.NodeGroupActive
+	} else if strings.EqualFold(health_status, "creating") {
+		status = irs.NodeGroupUpdating
+	} else if strings.EqualFold(health_status, "removing") {
+		status = irs.NodeGroupUpdating // removing is a kind of updating?
+	} else if strings.EqualFold(health_status, "deleting") {
+		status = irs.NodeGroupDeleting
+	} else if strings.EqualFold(health_status, "updating") {
+		status = irs.NodeGroupUpdating
+	}
+
+	println(status)
+
+	auto_scale_enalbed := false
+	if strings.EqualFold("Response.AutoScalingGroupSet.0.EnabledStatus", "ENABLED") {
+		auto_scale_enalbed = true
+	}
+
+	node_group_info := irs.NodeGroupInfo{
+		IId: irs.IID{
+			NameId:   *res.Response.NodePool.Name,
+			SystemId: *res.Response.NodePool.NodePoolId,
+		},
+		ImageIID: irs.IID{
+			NameId:   "",
+			SystemId: *launch_config.Response.LaunchConfigurationSet[0].ImageId,
+		},
+		VMSpecName:      *launch_config.Response.LaunchConfigurationSet[0].InstanceType,
+		RootDiskType:    *launch_config.Response.LaunchConfigurationSet[0].SystemDisk.DiskType,
+		RootDiskSize:    fmt.Sprintf("%d", *launch_config.Response.LaunchConfigurationSet[0].SystemDisk.DiskSize),
+		KeyPairIID:      irs.IID{NameId: "", SystemId: ""}, // not available
+		Status:          status,
+		OnAutoScaling:   auto_scale_enalbed,
+		MinNodeSize:     int(*auto_scaling_group.Response.AutoScalingGroupSet[0].MinSize),
+		MaxNodeSize:     int(*auto_scaling_group.Response.AutoScalingGroupSet[0].MaxSize),
+		DesiredNodeSize: int(*auto_scaling_group.Response.AutoScalingGroupSet[0].DesiredCapacity),
+		NodeList:        []irs.IID{},      // to be implemented
+		KeyValueList:    []irs.KeyValue{}, // to be implemented
+	}
+
+	return &node_group_info, nil
+}
+
+func getCreateClusterRequest(clusterInfo irs.ClusterInfo) (*tke.CreateClusterRequest, error) {
+
+	var err error = nil
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("recovered: %v", r)
 		}
 	}()
 

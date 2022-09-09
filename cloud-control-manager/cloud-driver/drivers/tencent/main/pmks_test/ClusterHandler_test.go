@@ -325,27 +325,27 @@ func TestCreateClusterOnly(t *testing.T) {
 // 	t.Log(cluster_)
 // }
 
-// func TestListCluster(t *testing.T) {
+func TestListCluster(t *testing.T) {
 
-// 	clusterHandler, err := getClusterHandler()
-// 	if err != nil {
-// 		t.Error(err)
-// 	}
+	clusterHandler, err := getClusterHandler()
+	if err != nil {
+		t.Error(err)
+	}
 
-// 	clusters, err := clusterHandler.ListCluster()
-// 	if err != nil {
-// 		t.Error(err)
-// 	}
+	clusters, err := clusterHandler.ListCluster()
+	if err != nil {
+		t.Error(err)
+	}
 
-// 	if len(clusters) == 0 {
-// 		t.Error("No cluster found")
-// 	}
+	if len(clusters) == 0 {
+		t.Error("No cluster found")
+	}
 
-// 	for _, cluster := range clusters {
-// 		t.Log(cluster.IId.SystemId)
-// 		println(cluster.IId.NameId, cluster.Status)
-// 	}
-// }
+	for _, cluster := range clusters {
+		t.Log(cluster.IId.SystemId)
+		println(cluster.IId.NameId, cluster.Status)
+	}
+}
 
 // func TestGetCluster(t *testing.T) {
 
