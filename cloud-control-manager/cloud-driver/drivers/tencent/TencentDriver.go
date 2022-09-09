@@ -218,6 +218,7 @@ func (driver *TencentDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (i
 	}
 
 	iConn := tcon.TencentCloudConnection{
+		CredentialInfo: connectionInfo.CredentialInfo,
 		Region:         connectionInfo.RegionInfo,
 		VNetworkClient: vpcClient,
 		NLBClient:      clbClient,

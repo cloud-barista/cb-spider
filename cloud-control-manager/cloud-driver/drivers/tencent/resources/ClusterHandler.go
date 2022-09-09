@@ -53,7 +53,7 @@ func (clusterHandler *TencentClusterHandler) CreateCluster(clusterReqInfo irs.Cl
 	}
 
 	start := call.Start()
-	res, err := tencent.CreateCluster(clusterHandler.CredentialInfo.AccessKey, clusterHandler.CredentialInfo.AccessSecret, clusterHandler.RegionInfo.Region, request)
+	res, err := tencent.CreateCluster(clusterHandler.CredentialInfo.ClientId, clusterHandler.CredentialInfo.ClientSecret, clusterHandler.RegionInfo.Region, request)
 	loggingInfo(callLogInfo, start)
 	if err != nil {
 		cblogger.Error(err)
@@ -584,7 +584,7 @@ func getCreateClusterRequest(clusterInfo irs.ClusterInfo) (*tke.CreateClusterReq
 	cluster_cidr := "" // 172.X.0.0.16: X Range:16, 17, ... , 31
 	for _, v := range clusterInfo.KeyValueList {
 		switch v.Key {
-		case "container_cidr":
+		case "cluster_cidr":
 			cluster_cidr = v.Value
 		}
 	}
