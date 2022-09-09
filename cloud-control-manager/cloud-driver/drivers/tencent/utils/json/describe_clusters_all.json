@@ -1,0 +1,80 @@
+{
+    "Response": {
+        "TotalCount": 2,
+        "Clusters": [
+            {
+                "ClusterId": "cls-gx0hqf8z",
+                "ClusterName": "cluster-x1",
+                "ClusterDescription": "",
+                "ClusterVersion": "1.22.5",
+                "ClusterOs": "ubuntu16.04.1 LTSx86_64",
+                "ClusterType": "MANAGED_CLUSTER",
+                "ClusterNetworkSettings": {
+                    "ClusterCIDR": "172.19.0.0/16",
+                    "IgnoreClusterCIDRConflict": false,
+                    "MaxNodePodNum": 256,
+                    "MaxClusterServiceNum": 256,
+                    "Ipvs": false,
+                    "VpcId": "vpc-q1c6fr9e",
+                    "Cni": true,
+                    "KubeProxyMode": "",
+                    "ServiceCIDR": "172.19.255.0/24",
+                    "IgnoreServiceCIDRConflict": false,
+                    "IsDualStack": false,
+                    "Ipv6ServiceCIDR": ""
+                },
+                "ClusterNodeNum": 0,
+                "ProjectId": 0,
+                "ClusterStatus": "Running",
+                "Property": "{\"NodeNameType\":\"lan-ip\",\"NetworkType\":\"GR\"}",
+                "ClusterMaterNodeNum": 1,
+                "ImageId": "",
+                "OsCustomizeType": "",
+                "ContainerRuntime": "docker",
+                "CreatedTime": "2022-09-09T01:23:06Z",
+                "DeletionProtection": false,
+                "EnableExternalNode": false,
+                "ClusterLevel": "L5",
+                "AutoUpgradeClusterLevel": true,
+                "QGPUShareEnable": false
+            },
+            {
+                "ClusterId": "cls-ke0ztn01",
+                "ClusterName": "mycluster1",
+                "ClusterDescription": "",
+                "ClusterVersion": "1.20.6",
+                "ClusterOs": "ubuntu16.04.1 LTSx86_64",
+                "ClusterType": "MANAGED_CLUSTER",
+                "ClusterNetworkSettings": {
+                    "ClusterCIDR": "172.17.0.0/16",
+                    "IgnoreClusterCIDRConflict": false,
+                    "MaxNodePodNum": 64,
+                    "MaxClusterServiceNum": 1024,
+                    "Ipvs": false,
+                    "VpcId": "vpc-q1c6fr9e",
+                    "Cni": true,
+                    "KubeProxyMode": "",
+                    "ServiceCIDR": "172.17.252.0/22",
+                    "IgnoreServiceCIDRConflict": false,
+                    "IsDualStack": false,
+                    "Ipv6ServiceCIDR": ""
+                },
+                "ClusterNodeNum": 0,
+                "ProjectId": 0,
+                "ClusterStatus": "Running",
+                "Property": "{\"NodeNameType\":\"lan-ip\",\"NetworkType\":\"GR\"}",
+                "ClusterMaterNodeNum": 1,
+                "ImageId": "",
+                "OsCustomizeType": "",
+                "ContainerRuntime": "docker",
+                "CreatedTime": "2022-08-31T03:16:48Z",
+                "DeletionProtection": false,
+                "EnableExternalNode": false,
+                "ClusterLevel": "L5",
+                "AutoUpgradeClusterLevel": true,
+                "QGPUShareEnable": false
+            }
+        ],
+        "RequestId": "7e866a69-5258-4fc9-933e-f01c599ddecc"
+    }
+}

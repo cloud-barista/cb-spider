@@ -29,6 +29,7 @@ import (
 )
 
 type TencentCloudConnection struct {
+	CredentialInfo idrv.CredentialInfo
 	Region         idrv.RegionInfo
 	VNetworkClient *vpc.Client
 	NLBClient      *clb.Client
@@ -129,9 +130,14 @@ func (cloudConn *TencentCloudConnection) CreateDiskHandler() (irs.DiskHandler, e
 }
 
 func (cloudConn *TencentCloudConnection) CreateClusterHandler() (irs.ClusterHandler, error) {
-        return nil, errors.New("Tencent Driver: not implemented")
+	// temp
+	// getEnv & Setting
+	clusterHandler := trs.TencentClusterHandler{RegionInfo: cloudConn.Region, CredentialInfo: cloudConn.CredentialInfo}
+
+	return &clusterHandler, nil
+
 }
 
 func (cloudConn *TencentCloudConnection) CreateMyImageHandler() (irs.MyImageHandler, error) {
-        return nil, errors.New("Tencent Driver: not implemented")
+	return nil, errors.New("Tencent Driver: not implemented")
 }
