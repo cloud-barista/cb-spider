@@ -22,7 +22,7 @@ func TestCreateCluster1(t *testing.T) {
 
 	// request.FromJsonString()
 	request.ClusterCIDRSettings = &tke.ClusterCIDRSettings{
-		ClusterCIDR: common.StringPtr("172.20.0.0/16"), // 172.X.0.0.16: X Range:16, 17, ... , 31
+		ClusterCIDR: common.StringPtr("172.21.0.0/16"), // 172.X.0.0.16: X Range:16, 17, ... , 31
 		//IgnoreClusterCIDRConflict: common.BoolPtr(false),
 		//MaxNodePodNum:             common.Uint64Ptr(64),
 		//MaxClusterServiceNum:      common.Uint64Ptr(1024),
