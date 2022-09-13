@@ -40,8 +40,8 @@ type GCPVMHandler struct {
 	Credential idrv.CredentialInfo
 }
 
-//https://cloud.google.com/compute/docs/reference/rest/v1/instances
-//https://cloud.google.com/compute/docs/disks#disk-types
+// https://cloud.google.com/compute/docs/reference/rest/v1/instances
+// https://cloud.google.com/compute/docs/disks#disk-types
 func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, error) {
 	// Set VM Create Information
 	// GCP 는 reqinfo에 ProjectID를 받아야 함.
@@ -285,10 +285,18 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 			}
 		}
 
+		var projectIdForImage string
 		imageUrlArr := strings.Split(imageURL, "/")
+		imageName := imageUrlArr[len(imageUrlArr)-1]
+
+		if vmReqInfo.ImageType == irs.MyImage {
+			projectIdForImage = vmHandler.Credential.ProjectID
+		} else {
+			projectIdForImage = imageUrlArr[6]
+		}
 
 		// 이미지 사이즈 추출
-		imageResp, err := vmHandler.Client.Images.Get(imageUrlArr[6], imageUrlArr[9]).Context(ctx).Do() // 수정 필요
+		imageResp, err := GetImageInfo(vmHandler.Client, projectIdForImage, imageName)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -821,10 +829,10 @@ func (vmHandler *GCPVMHandler) GetVM(vmID irs.IID) (irs.VMInfo, error) {
 }
 
 /*
-	GCP에서 instance 조회는 Project, ZONE 이 필수임.
-	경우에 따라서 Zone 없이 VM ID만으로 조회하느 기능이 필요하여
-	전체 목록에서 id를 filter해서 가져옴.
-	vmID는 project에서 unique
+GCP에서 instance 조회는 Project, ZONE 이 필수임.
+경우에 따라서 Zone 없이 VM ID만으로 조회하느 기능이 필요하여
+전체 목록에서 id를 filter해서 가져옴.
+vmID는 project에서 unique
 */
 func (vmHandler *GCPVMHandler) GetVmById(vmID irs.IID) (irs.VMInfo, error) {
 	projectID := vmHandler.Credential.ProjectID
@@ -964,7 +972,7 @@ func (vmHandler *GCPVMHandler) mappingServerInfo(server *compute.Instance) irs.V
 			NameId:   server.Labels["keypair"],
 			SystemId: server.Labels["keypair"],
 		},
-		ImageIId:  vmHandler.getImageInfo(server.Disks[0].Source),
+		ImageIId:  vmHandler.getImageIID(server.Disks[0].Source),
 		PublicIP:  server.NetworkInterfaces[0].AccessConfigs[0].NatIP,
 		PrivateIP: server.NetworkInterfaces[0].NetworkIP,
 		VpcIID: irs.IID{
@@ -991,6 +999,8 @@ func (vmHandler *GCPVMHandler) mappingServerInfo(server *compute.Instance) irs.V
 		},
 	}
 
+	vmInfo.ImageType = vmHandler.getImageType(vmInfo.ImageIId.SystemId)
+
 	arrVmSpec := strings.Split(server.MachineType, "/")
 	cblogger.Info(arrVmSpec)
 	if len(arrVmSpec) > 1 {
@@ -1013,9 +1023,29 @@ func (vmHandler *GCPVMHandler) mappingServerInfo(server *compute.Instance) irs.V
 	return vmInfo
 }
 
-//이미지 URL 방식 대신 이름을 사용하도록 변경 중
-//@TODO : 2020-05-15 카푸치노 버전에서는 이름 대신 URL을 사용하기로 했음.
-func (vmHandler *GCPVMHandler) getImageInfo(diskname string) irs.IID {
+func (vmHandler *GCPVMHandler) getImageType(imageUrl string) irs.ImageType {
+	var imageType irs.ImageType
+	imageUrlArr := strings.Split(imageUrl, "/")
+	projectID := imageUrlArr[6]
+	imageName := imageUrlArr[len(imageUrlArr)-1]
+	imageInfo, err := GetImageInfo(vmHandler.Client, projectID, imageName)
+	if err != nil {
+		cblogger.Error(err)
+		return imageType
+	}
+
+	if imageInfo.SourceDisk != "" {
+		imageType = irs.MyImage
+	} else {
+		imageType = irs.PublicImage
+	}
+
+	return imageType
+}
+
+// 이미지 URL 방식 대신 이름을 사용하도록 변경 중
+// @TODO : 2020-05-15 카푸치노 버전에서는 이름 대신 URL을 사용하기로 했음.
+func (vmHandler *GCPVMHandler) getImageIID(diskname string) irs.IID {
 	// projectID := vmHandler.Credential.ProjectID
 	// zone := vmHandler.Region.Zone
 	// dArr := strings.Split(diskname, "/")

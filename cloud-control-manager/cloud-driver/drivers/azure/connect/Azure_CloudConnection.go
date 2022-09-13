@@ -162,3 +162,7 @@ func (cloudConn *AzureCloudConnection) CreateClusterHandler() (irs.ClusterHandle
 	return nil, errors.New("Azure Driver: not implemented")
 }
 
+func (cloudConn *AzureCloudConnection) CreateMyImageHandler() (irs.MyImageHandler, error) {
+	return nil, errors.New("Azure Driver: not implemented")
+}
+

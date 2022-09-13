@@ -101,3 +101,7 @@ func (cloudConn *DockerCloudConnection) CreateDiskHandler() (irs.DiskHandler, er
 func (cloudConn *DockerCloudConnection) CreateClusterHandler() (irs.ClusterHandler, error) {
         return nil, errors.New("Docker Driver: not implemented")
 }
+
+func (cloudConn *DockerCloudConnection) CreateMyImageHandler() (irs.MyImageHandler, error) {
+        return nil, errors.New("Docker Driver: not implemented")
+}

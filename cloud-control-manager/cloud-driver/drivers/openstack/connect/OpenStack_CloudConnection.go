@@ -111,3 +111,7 @@ func (cloudConn *OpenStackCloudConnection) CreateClusterHandler() (irs.ClusterHa
         return nil, errors.New("OpenStack Driver: not implemented")
 }
 
+func (cloudConn *OpenStackCloudConnection) CreateMyImageHandler() (irs.MyImageHandler, error) {
+        return nil, errors.New("OpenStack Driver: not implemented")
+}
+

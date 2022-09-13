@@ -1,13 +1,17 @@
 package resources
 
 import (
+
 	"errors"
 	"time"
+
 
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
+
+
 
 	//cvm "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/cvm/v20170312"
 	cvm "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/cvm/v20170312"
@@ -38,6 +42,7 @@ type TencentMyImageHandler struct {
 }
 
 func (myImageHandler TencentMyImageHandler) SnapshotVM(snapshotReqInfo irs.MyImageInfo) (irs.MyImageInfo, error) {
+
 	existName, errExist := myImageHandler.myImageExist(snapshotReqInfo.IId.NameId)
 	if errExist != nil {
 		cblogger.Error(errExist)
@@ -46,6 +51,7 @@ func (myImageHandler TencentMyImageHandler) SnapshotVM(snapshotReqInfo irs.MyIma
 	if existName {
 		return irs.MyImageInfo{}, errors.New("A MyImage with the name " + snapshotReqInfo.IId.NameId + " already exists.")
 	}
+
 
 	request := cvm.NewCreateImageRequest()
 
@@ -57,12 +63,14 @@ func (myImageHandler TencentMyImageHandler) SnapshotVM(snapshotReqInfo irs.MyIma
 	request.ImageName = common.StringPtr(snapshotReqInfo.IId.NameId)
 	request.InstanceId = common.StringPtr(snapshotReqInfo.SourceVM.SystemId)
 
+
 	// Tag 추가 ResourceType : instance(for CVM), host(for CDH), image(for image), keypair(for key)
 	request.TagSpecification = []*cvm.TagSpecification{
 		{
 			ResourceType: common.StringPtr(RESOURCE_TYPE_MYIMAGE),
 			Tags: []*cvm.Tag{
 				{
+
 					Key:   common.StringPtr(IMAGE_TAG_SOURCE_VM),
 					Value: common.StringPtr(snapshotReqInfo.SourceVM.SystemId),
 				},
@@ -72,12 +80,14 @@ func (myImageHandler TencentMyImageHandler) SnapshotVM(snapshotReqInfo irs.MyIma
 
 	// The returned "resp" is an instance of the CreateImageResponse class which corresponds to the request object
 	response, err := myImageHandler.Client.CreateImage(request)
+
 	if err != nil {
 		cblogger.Error(err)
 		return irs.MyImageInfo{}, err
 	}
 
 	spew.Dump(response)
+
 
 	myImageInfo, myImageErr := myImageHandler.GetMyImage(irs.IID{SystemId: *response.Response.ImageId})
 	if myImageErr != nil {
@@ -94,6 +104,7 @@ TODO : CommonHandlerm에 DescribeImages, DescribeImageById, DescribeImageStatus 
 */
 func (myImageHandler TencentMyImageHandler) ListMyImage() ([]*irs.MyImageInfo, error) {
 
+
 	myImageSet, err := DescribeImages(myImageHandler.Client, nil)
 	if err != nil {
 		cblogger.Error(err)
@@ -101,6 +112,7 @@ func (myImageHandler TencentMyImageHandler) ListMyImage() ([]*irs.MyImageInfo, e
 	}
 
 	myImageInfoList := []*irs.MyImageInfo{}
+
 	for _, image := range myImageSet {
 		myImageInfo, myImageInfoErr := convertImageSetToMyImageInfo(image)
 		if myImageInfoErr != nil {
@@ -112,6 +124,7 @@ func (myImageHandler TencentMyImageHandler) ListMyImage() ([]*irs.MyImageInfo, e
 }
 
 func (myImageHandler TencentMyImageHandler) GetMyImage(myImageIID irs.IID) (irs.MyImageInfo, error) {
+
 
 	targetImage, err := DescribeImagesByID(myImageHandler.Client, myImageIID)
 	if err != nil {
@@ -145,6 +158,7 @@ func (myImageHandler TencentMyImageHandler) DeleteMyImage(myImageIID irs.IID) (b
 
 	// The returned "resp" is an instance of the DeleteImagesResponse class which corresponds to the request object
 	response, err := myImageHandler.Client.DeleteImages(request)
+
 	if err != nil {
 		cblogger.Error(err)
 		return false, err

@@ -51,12 +51,12 @@ type GcpCBNetworkInfo struct {
 	SubnetId   string
 }
 
-//VPC
+// VPC
 func GetCBDefaultVNetName() string {
 	return CBDefaultVNetName
 }
 
-//Subnet
+// Subnet
 func GetCBDefaultSubnetName() string {
 	return CBDefaultSubnetName
 }
@@ -202,4 +202,14 @@ func GetDiskInfo(client *compute.Service, credential idrv.CredentialInfo, region
 	}
 
 	return diskResp, nil
+}
+
+func GetImageInfo(client *compute.Service, projectId string, imageName string) (*compute.Image, error) {
+	imageResp, err := client.Images.Get(projectId, imageName).Do()
+	if err != nil {
+		cblogger.Error(err)
+		return &compute.Image{}, err
+	}
+
+	return imageResp, nil
 }

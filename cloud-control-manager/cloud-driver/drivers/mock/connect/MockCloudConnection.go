@@ -97,3 +97,7 @@ func (cloudConn *MockConnection) CreateClusterHandler() (irs.ClusterHandler, err
         return nil, errors.New("Mock Driver: not implemented")
 }
 
+func (cloudConn *MockConnection) CreateMyImageHandler() (irs.MyImageHandler, error) {
+        return nil, errors.New("Mock Driver: not implemented")
+}
+
