@@ -45,7 +45,7 @@ func ToIRSMyImage(restClient *client.RestClient, associatedSnapshots *[]Snapshot
 	result.SourceVM.SystemId = ""
 	for _, snapshot := range *associatedSnapshots {
 		if snapshot.Bootable == "yes" {
-			result.IId.NameId = strings.Split(snapshot.Name, "/dev:")[0]
+			result.IId.NameId = strings.Split(snapshot.Name, "-dev-")[0]
 			result.IId.SystemId = snapshot.Id
 			result.SourceVM.NameId = snapshot.ServerName
 			if snapshot.CreatedAt != "" {

@@ -20,7 +20,7 @@ type ClouditMyImageHandler struct {
 	Client         *client.RestClient
 }
 
-const DEV = "/dev:"
+const DEV = "-dev-"
 
 func (myImageHandler *ClouditMyImageHandler) SnapshotVM(snapshotReqInfo irs.MyImageInfo) (irs.MyImageInfo, error) {
 	hiscallInfo := GetCallLogScheme(ClouditRegion, "MYIMAGE", "MYIMAGE", "SnapshotVM()")
@@ -47,8 +47,8 @@ func (myImageHandler *ClouditMyImageHandler) SnapshotVM(snapshotReqInfo irs.MyIm
 	_, createVmSnapshotErr := myImageHandler.createMyImageSnapshots(snapshotReqInfo.IId.NameId, snapshotReqInfo.SourceVM)
 	if createVmSnapshotErr != nil {
 		createErr = createVmSnapshotErr
-		defer func(myImageNameId string) (irs.MyImageInfo, error) {
-			cleanErr := myImageHandler.cleanSnapshotsByMyImage(myImageNameId)
+		defer func(myImageIID irs.IID) (irs.MyImageInfo, error) {
+			cleanErr := myImageHandler.cleanSnapshotsByMyImage(myImageIID)
 			if cleanErr != nil {
 				createErr = errors.New(fmt.Sprintf("Failed to Create and Clean MyImage. err = %s", cleanErr.Error()))
 			}
@@ -56,7 +56,7 @@ func (myImageHandler *ClouditMyImageHandler) SnapshotVM(snapshotReqInfo irs.MyIm
 				return irs.MyImageInfo{}, createErr
 			}
 			return irs.MyImageInfo{}, nil
-		}(snapshotReqInfo.IId.NameId)
+		}(snapshotReqInfo.IId)
 	}
 
 	// MyImageInfo 반환
@@ -106,8 +106,10 @@ func (myImageHandler *ClouditMyImageHandler) ListMyImage() ([]*irs.MyImageInfo, 
 func (myImageHandler *ClouditMyImageHandler) GetMyImage(myImageIID irs.IID) (irs.MyImageInfo, error) {
 	hiscallInfo := GetCallLogScheme(ClouditRegion, "MYIMAGE", "MYIMAGE", "GetMyImage()")
 
-	if myImageIID.NameId == "" {
-		return irs.MyImageInfo{}, errors.New(fmt.Sprintf("Failed to Get MyImage. err = MyImage Name ID is required"))
+	if myImageIID.NameId == "" && myImageIID.SystemId == "" {
+		return irs.MyImageInfo{}, errors.New(fmt.Sprintf("Failed to Get MyImage. err = MyImage Name ID or System ID is required"))
+	} else if myImageIID.NameId != "" && myImageIID.SystemId != "" {
+		return irs.MyImageInfo{}, errors.New(fmt.Sprintf("Failed to Get MyImage. err = Ambigous image ID, %s", myImageIID))
 	}
 
 	start := call.Start()
@@ -119,6 +121,8 @@ func (myImageHandler *ClouditMyImageHandler) GetMyImage(myImageIID irs.IID) (irs
 	for _, myImage := range myImageList {
 		if myImage.IId.NameId == myImageIID.NameId {
 			return *myImage, nil
+		} else if myImage.IId.SystemId == myImageIID.SystemId {
+			return *myImage, nil
 		}
 	}
 	LoggingInfo(hiscallInfo, start)
@@ -129,12 +133,14 @@ func (myImageHandler *ClouditMyImageHandler) GetMyImage(myImageIID irs.IID) (irs
 func (myImageHandler *ClouditMyImageHandler) DeleteMyImage(myImageIID irs.IID) (bool, error) {
 	hiscallInfo := GetCallLogScheme(ClouditRegion, "MYIMAGE", "MYIMAGE", "DeleteMyImage()")
 
-	if myImageIID.NameId == "" {
-		return false, errors.New(fmt.Sprintf("Failed to Delete MyImage. err = MyImage Name ID is required"))
+	if myImageIID.NameId == "" && myImageIID.SystemId == "" {
+		return false, errors.New(fmt.Sprintf("Failed to Delete MyImage. err = MyImage Name ID or System ID is required"))
+	} else if myImageIID.NameId != "" && myImageIID.SystemId != "" {
+		return false, errors.New(fmt.Sprintf("Failed to Delete MyImage. err = Ambigous image ID, %s", myImageIID))
 	}
 
 	start := call.Start()
-	if err := myImageHandler.cleanSnapshotsByMyImage(myImageIID.NameId); err != nil {
+	if err := myImageHandler.cleanSnapshotsByMyImage(myImageIID); err != nil {
 		return false, errors.New(fmt.Sprintf("Failed to Delete MyImage. err = %s", err))
 	}
 	LoggingInfo(hiscallInfo, start)
@@ -432,22 +438,35 @@ func (myImageHandler *ClouditMyImageHandler) getMyImageInfo(myImageNameId string
 	return myImageInfo, nil
 }
 
-func (myImageHandler *ClouditMyImageHandler) cleanSnapshotsByMyImage(myImageNameId string) error {
+func (myImageHandler *ClouditMyImageHandler) cleanSnapshotsByMyImage(myImageIID irs.IID) error {
 	myImageHandler.Client.TokenID = myImageHandler.CredentialInfo.AuthToken
 	authHeader := myImageHandler.Client.AuthenticatedHeaders()
 	requestOpts := client.RequestOpts{
 		MoreHeaders: authHeader,
 	}
 
-	vmSnapshotList, err := snapshot.List(myImageHandler.Client, &requestOpts)
+	snapshotList, err := snapshot.List(myImageHandler.Client, &requestOpts)
 	if err != nil {
 		return err
 	}
 
-	for _, rawVmSnapshot := range *vmSnapshotList {
-		parsed := strings.Split(rawVmSnapshot.Name, DEV)[0]
-		if parsed == myImageNameId {
-			snapshot.DeleteSnapshot(myImageHandler.Client, rawVmSnapshot.Id, &requestOpts)
+	myImageNameId := ""
+	if myImageIID.NameId != "" {
+		myImageNameId = myImageIID.NameId
+	} else {
+		for _, rawVmSnapshot := range *snapshotList {
+			if rawVmSnapshot.Id == myImageIID.SystemId {
+				myImageNameId = strings.Split(rawVmSnapshot.Name, DEV)[0]
+			}
+		}
+	}
+
+	if myImageNameId != "" {
+		for _, rawVmSnapshot := range *snapshotList {
+			parsed := strings.Split(rawVmSnapshot.Name, DEV)[0]
+			if parsed == myImageNameId {
+				snapshot.DeleteSnapshot(myImageHandler.Client, rawVmSnapshot.Id, &requestOpts)
+			}
 		}
 	}
 

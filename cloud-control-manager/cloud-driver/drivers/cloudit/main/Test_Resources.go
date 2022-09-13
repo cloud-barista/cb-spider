@@ -561,6 +561,7 @@ func testVmHandler(config ResourceConfig) {
 		IId: irs.IID{
 			NameId: config.Cloudit.VM.IID.NameId,
 		},
+		ImageType: irs.PublicImage,
 		ImageIID: irs.IID{
 			NameId:   config.Cloudit.VM.ImageIID.NameId,
 			SystemId: config.Cloudit.VM.ImageIID.SystemId,
@@ -583,6 +584,7 @@ func testVmHandler(config ResourceConfig) {
 		IId: irs.IID{
 			NameId: config.Cloudit.VMFromMyImage.IID.NameId,
 		},
+		ImageType: irs.MyImage,
 		ImageIID: irs.IID{
 			NameId:   config.Cloudit.VMFromMyImage.ImageIID.NameId,
 			SystemId: config.Cloudit.VMFromMyImage.ImageIID.SystemId,
@@ -1041,7 +1043,8 @@ func testMyImageHandler(config ResourceConfig) {
 		},
 	}
 	myImageIId := irs.IID{
-		NameId: configmyimage.IID.NameId,
+		NameId:   configmyimage.IID.NameId,
+		SystemId: configmyimage.IID.SystemId,
 	}
 Loop:
 	for {
@@ -1349,7 +1352,8 @@ type ResourceConfig struct {
 		} `yaml:"disk"`
 		MYIMAGE struct {
 			IID struct {
-				NameId string `yaml:"nameId"`
+				NameId   string `yaml:"nameId"`
+				SystemId string `yaml:"systemId"`
 			} `yaml:"IID"`
 			SourceVMIID struct {
 				NameId string `yaml:"nameId"`
