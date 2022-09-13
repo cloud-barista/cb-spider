@@ -3,7 +3,9 @@ package ibmcloudvpc
 import (
 	"context"
 	"errors"
+	"fmt"
 	"github.com/IBM/go-sdk-core/v5/core"
+	vpc0230 "github.com/IBM/vpc-go-sdk/0.23.0/vpcv1"
 	"github.com/IBM/vpc-go-sdk/vpcv1"
 	"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/ibmcloud-vpc/connect"
 	ibms "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/ibmcloud-vpc/resources"
@@ -57,8 +59,9 @@ func (driver *IbmCloudDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (
 	var endPoint string
 	getRegionOptions := &vpcv1.GetRegionOptions{}
 	getRegionOptions.SetName(connectionInfo.RegionInfo.Region)
-	region, _, err := initVpcService.GetRegionWithContext(ctx, getRegionOptions)
+	region, details, err := initVpcService.GetRegionWithContext(ctx, getRegionOptions)
 	if err != nil {
+		fmt.Println(details)
 		return nil, err
 	} else {
 		getZoneOptions := &vpcv1.GetRegionZoneOptions{}
@@ -76,6 +79,12 @@ func (driver *IbmCloudDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (
 		},
 		URL: endPoint,
 	})
+	vpcService0230, err := vpc0230.NewVpcV1(&vpc0230.VpcV1Options{
+		Authenticator: &core.IamAuthenticator{
+			ApiKey: connectionInfo.CredentialInfo.ApiKey,
+		},
+		URL: endPoint,
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -83,6 +92,7 @@ func (driver *IbmCloudDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (
 		CredentialInfo: connectionInfo.CredentialInfo,
 		Region:         connectionInfo.RegionInfo,
 		VpcService:     vpcService,
+		VpcService0230: vpcService0230,
 		Ctx:            ctx,
 	}
 	return &iConn, nil
@@ -100,4 +110,3 @@ func checkConnectionInfo(connectionInfo idrv.ConnectionInfo) error {
 	}
 	return nil
 }
-

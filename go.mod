@@ -3,6 +3,8 @@ module github.com/cloud-barista/cb-spider
 go 1.19
 
 replace (
+	github.com/IBM/vpc-go-sdk/0.23.0 => github.com/IBM/vpc-go-sdk v0.23.0
+	github.com/coreos/bbolt => go.etcd.io/bbolt v1.3.3
 	github.com/dgrijalva/jwt-go => github.com/golang-jwt/jwt v3.2.1+incompatible
 	github.com/docker/distribution => github.com/docker/distribution v2.8.0+incompatible
 )
@@ -11,8 +13,10 @@ require (
 	github.com/Azure/azure-sdk-for-go v55.6.0+incompatible
 	github.com/Azure/go-autorest/autorest/azure/auth v0.5.8
 	github.com/Azure/go-autorest/autorest/to v0.4.0
-	github.com/IBM/go-sdk-core/v5 v5.5.1
+	github.com/IBM/go-sdk-core/v5 v5.9.5
 	github.com/IBM/vpc-go-sdk v0.8.0
+	github.com/IBM/vpc-go-sdk/0.23.0 v0.23.0
+	github.com/Microsoft/go-winio v0.5.2 // indirect
 	github.com/alecthomas/template v0.0.0-20190718012654-fb15b899a751
 	//github.com/aliyun/alibaba-cloud-sdk-go v1.61.1662
 	github.com/aliyun/alibaba-cloud-sdk-go v1.61.1743

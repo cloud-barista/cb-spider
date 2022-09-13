@@ -2,6 +2,7 @@ package connect
 
 import (
 	"context"
+	vpcv0230 "github.com/IBM/vpc-go-sdk/0.23.0/vpcv1"
 	"github.com/IBM/vpc-go-sdk/vpcv1"
 	cblog "github.com/cloud-barista/cb-log"
 	ibmrs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/ibmcloud-vpc/resources"
@@ -21,6 +22,7 @@ type IbmCloudConnection struct {
 	CredentialInfo idrv.CredentialInfo
 	Region         idrv.RegionInfo
 	VpcService     *vpcv1.VpcV1
+	VpcService0230 *vpcv0230.VpcV1
 	Ctx            context.Context
 }
 
@@ -41,6 +43,7 @@ func (cloudConn *IbmCloudConnection) CreateVMHandler() (irs.VMHandler, error) {
 		CredentialInfo: cloudConn.CredentialInfo,
 		Region:         cloudConn.Region,
 		VpcService:     cloudConn.VpcService,
+		VpcService0230: cloudConn.VpcService0230,
 		Ctx:            cloudConn.Ctx,
 	}
 	return &vmHandler, nil
