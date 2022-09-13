@@ -190,6 +190,10 @@ func (myImageHandler *ClouditMyImageHandler) getExistMyImageName(myImageNameId s
 }
 
 func (myImageHandler *ClouditMyImageHandler) createMyImageSnapshots(myImageNameId string, sourceVm irs.IID) (irs.MyImageInfo, error) {
+	if len(myImageNameId) > 35 {
+		return irs.MyImageInfo{}, errors.New(fmt.Sprintf("Snapshot name cannot be longer than 35"))
+	}
+
 	// Find VM root volume
 	myImageHandler.Client.TokenID = myImageHandler.CredentialInfo.AuthToken
 	authHeader := myImageHandler.Client.AuthenticatedHeaders()
@@ -229,9 +233,6 @@ func (myImageHandler *ClouditMyImageHandler) createMyImageSnapshots(myImageNameI
 	// Create snapshot of every volume associated with VM
 	for _, vmVolume := range *vmVolumeList {
 		myImageNameIdWithDev := fmt.Sprintf("%s%s%s", myImageNameId, DEV, vmVolume.Dev)
-		if len(myImageNameIdWithDev) > 45 {
-			return irs.MyImageInfo{}, errors.New(fmt.Sprintf("Snapshot name cannot be longer than 45. Generated name: %s", myImageNameIdWithDev))
-		}
 		snapshotCreateReqInfo := snapshot.SnapshotReqInfo{
 			Name:     myImageNameIdWithDev,
 			VolumeId: vmVolume.ID,
