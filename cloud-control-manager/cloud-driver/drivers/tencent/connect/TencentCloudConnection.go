@@ -37,7 +37,7 @@ type TencentCloudConnection struct {
 	SecurityClient *vpc.Client
 	VmSpecClient   *cvm.Client
 	DiskClient     *cbs.Client
-	MyImageClient *cvm.Client
+	MyImageClient  *cvm.Client
 	//VNicClient     *cvm.Client
 	//PublicIPClient *cvm.Client
 }
@@ -122,6 +122,7 @@ func (cloudConn *TencentCloudConnection) CreatePublicIPHandler() (irs.PublicIPHa
 */
 
 func (cloudConn *TencentCloudConnection) CreateDiskHandler() (irs.DiskHandler, error) {
+
 	cblogger.Info("Start")
 	handler := trs.TencentDiskHandler{cloudConn.Region, cloudConn.DiskClient}
 
@@ -136,6 +137,11 @@ func (cloudConn *TencentCloudConnection) CreateMyImageHandler() (irs.MyImageHand
 	return &handler, nil
 }
 
-func (cloudConn *TencentCloudConnection) CreateClusterHandler() (irs.ClusterHandler, error) {
-        return nil, errors.New("Tencent Driver: not implemented")
+
+func (cloudConn *TencentCloudConnection) CreateMyImageHandler() (irs.MyImageHandler, error) {
+	cblogger.Info("Start")
+	handler := trs.TencentMyImageHandler{cloudConn.Region, cloudConn.MyImageClient}
+
+	return &handler, nil
+
 }

@@ -1,6 +1,5 @@
 // Proof of Concepts for the Cloud-Barista Multi-Cloud Project.
-//      * Cloud-Barista: https://github.com/cloud-barista
-//
+//   - Cloud-Barista: https://github.com/cloud-barista
 //
 // by CB-Spider Team, 2019.03.
 package resources
@@ -267,16 +266,12 @@ func (vmHandler *TencentVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 				return irs.VMInfo{}, err
 			}
 
-			imageRequest := cvm.NewDescribeImagesRequest()
-
-			imageRequest.ImageIds = common.StringPtrs([]string{vmReqInfo.ImageIID.SystemId})
-
-			response, err := vmHandler.Client.DescribeImages(imageRequest)
+			imageInfo, err := DescribeImagesByID(vmHandler.Client, vmReqInfo.ImageIID)
 			if err != nil {
 				cblogger.Error(err)
 				return irs.VMInfo{}, err
 			}
-			imageSize := *response.Response.ImageSet[0].ImageSize
+			imageSize := *imageInfo.ImageSize
 			fmt.Println("image : ", imageSize)
 
 			if rootDiskSize < imageSize {
@@ -615,7 +610,18 @@ func (vmHandler *TencentVMHandler) ExtractDescribeInstances(curVm *cvm.Instance)
 	}
 
 	if !reflect.ValueOf(curVm.ImageId).IsNil() {
-		vmInfo.ImageIId = irs.IID{SystemId: *curVm.ImageId}
+		imageIID := irs.IID{SystemId: *curVm.ImageId}
+		vmInfo.ImageIId = imageIID
+		imageInfo, err := DescribeImagesByID(vmHandler.Client, imageIID)
+		if err != nil {
+			cblogger.Error(err)
+		}
+
+		if *imageInfo.ImageType == "PUBLIC_IMAGE" {
+			vmInfo.ImageType = irs.PublicImage
+		} else {
+			vmInfo.ImageType = irs.MyImage
+		}
 	}
 
 	// vmInfo.StartTime = *curVm.CreatedTime
@@ -869,7 +875,6 @@ func (vmHandler *TencentVMHandler) ListVMStatus() ([]*irs.VMStatusInfo, error) {
 	return vmStatusList, nil
 }
 
-//
 // tencent life cycle
 // https://intl.cloud.tencent.com/document/product/213/4856?lang=en&pg=
 func ConvertVMStatusString(vmStatus string) (irs.VMStatus, error) {
@@ -947,7 +952,7 @@ func (vmHandler *TencentVMHandler) WaitForRun(vmIID irs.IID) (irs.VMStatus, erro
 	return irs.VMStatus(waitStatus), nil
 }
 
-//VM 이름으로 중복 생성을 막아야 해서 VM존재 여부를 체크함.
+// VM 이름으로 중복 생성을 막아야 해서 VM존재 여부를 체크함.
 func (vmHandler *TencentVMHandler) vmExist(vmName string) (bool, error) {
 	cblogger.Infof("VM조회(Name기반) : %s", vmName)
 	request := cvm.NewDescribeInstancesRequest()

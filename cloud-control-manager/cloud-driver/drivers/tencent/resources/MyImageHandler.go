@@ -1,12 +1,18 @@
 package resources
 
 import (
-	"fmt"
+
+	"errors"
+	"time"
+
+
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
-	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/errors"
+
+
+
 	//cvm "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/cvm/v20170312"
 	cvm "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/cvm/v20170312"
 )
@@ -37,6 +43,16 @@ type TencentMyImageHandler struct {
 
 func (myImageHandler TencentMyImageHandler) SnapshotVM(snapshotReqInfo irs.MyImageInfo) (irs.MyImageInfo, error) {
 
+	existName, errExist := myImageHandler.myImageExist(snapshotReqInfo.IId.NameId)
+	if errExist != nil {
+		cblogger.Error(errExist)
+		return irs.MyImageInfo{}, errExist
+	}
+	if existName {
+		return irs.MyImageInfo{}, errors.New("A MyImage with the name " + snapshotReqInfo.IId.NameId + " already exists.")
+	}
+
+
 	request := cvm.NewCreateImageRequest()
 
 	//ImageName        *string `json:"ImageName,omitempty" name:"ImageName"`
@@ -47,15 +63,14 @@ func (myImageHandler TencentMyImageHandler) SnapshotVM(snapshotReqInfo irs.MyIma
 	request.ImageName = common.StringPtr(snapshotReqInfo.IId.NameId)
 	request.InstanceId = common.StringPtr(snapshotReqInfo.SourceVM.SystemId)
 
-	// DataDisk 가 있으면 해당 경로
-	//request.DataDiskIds = common.StringPtrs([]string{ "datade" })
 
 	// Tag 추가 ResourceType : instance(for CVM), host(for CDH), image(for image), keypair(for key)
 	request.TagSpecification = []*cvm.TagSpecification{
-		&cvm.TagSpecification{
-			ResourceType: common.StringPtr("instance"),
+		{
+			ResourceType: common.StringPtr(RESOURCE_TYPE_MYIMAGE),
 			Tags: []*cvm.Tag{
-				&cvm.Tag{
+				{
+
 					Key:   common.StringPtr(IMAGE_TAG_SOURCE_VM),
 					Value: common.StringPtr(snapshotReqInfo.SourceVM.SystemId),
 				},
@@ -65,13 +80,22 @@ func (myImageHandler TencentMyImageHandler) SnapshotVM(snapshotReqInfo irs.MyIma
 
 	// The returned "resp" is an instance of the CreateImageResponse class which corresponds to the request object
 	response, err := myImageHandler.Client.CreateImage(request)
-	if _, ok := err.(*errors.TencentCloudSDKError); ok {
+
+	if err != nil {
+		cblogger.Error(err)
 		return irs.MyImageInfo{}, err
 	}
 
 	spew.Dump(response)
-	//response.Response.RequestId
-	return irs.MyImageInfo{}, nil
+
+
+	myImageInfo, myImageErr := myImageHandler.GetMyImage(irs.IID{SystemId: *response.Response.ImageId})
+	if myImageErr != nil {
+		cblogger.Error(myImageErr)
+		return irs.MyImageInfo{}, myImageErr
+	}
+
+	return myImageInfo, nil
 }
 
 /*
@@ -79,28 +103,19 @@ func (myImageHandler TencentMyImageHandler) SnapshotVM(snapshotReqInfo irs.MyIma
 TODO : CommonHandlerm에 DescribeImages, DescribeImageById, DescribeImageStatus 추가할 것.
 */
 func (myImageHandler TencentMyImageHandler) ListMyImage() ([]*irs.MyImageInfo, error) {
-	request := cvm.NewDescribeImagesRequest()
 
-	//request.ImageIds = common.StringPtrs([]string{"aaa"})
-	request.Filters = []*cvm.Filter{
-		&cvm.Filter{
-			Name:   common.StringPtr("image-type"),
-			Values: common.StringPtrs([]string{"PUBLIC_IMAGE"}),
-		},
-	}
 
-	// The returned "resp" is an instance of the DescribeImagesResponse class which corresponds to the request object
-	response, err := myImageHandler.Client.DescribeImages(request)
-	if _, ok := err.(*errors.TencentCloudSDKError); ok {
-		fmt.Printf("An API error has returned: %s", err)
+	myImageSet, err := DescribeImages(myImageHandler.Client, nil)
+	if err != nil {
+		cblogger.Error(err)
 		return nil, err
 	}
 
 	myImageInfoList := []*irs.MyImageInfo{}
-	for _, image := range response.Response.ImageSet {
-		myImageInfo, err := convertImageSetToMyImageInfo(image)
-		if err != nil {
 
+	for _, image := range myImageSet {
+		myImageInfo, myImageInfoErr := convertImageSetToMyImageInfo(image)
+		if myImageInfoErr != nil {
 			continue
 		}
 		myImageInfoList = append(myImageInfoList, &myImageInfo)
@@ -109,8 +124,21 @@ func (myImageHandler TencentMyImageHandler) ListMyImage() ([]*irs.MyImageInfo, e
 }
 
 func (myImageHandler TencentMyImageHandler) GetMyImage(myImageIID irs.IID) (irs.MyImageInfo, error) {
-	//myImageInfo, err := DescribeImageById()
-	return irs.MyImageInfo{}, nil
+
+
+	targetImage, err := DescribeImagesByID(myImageHandler.Client, myImageIID)
+	if err != nil {
+		cblogger.Error(err)
+		return irs.MyImageInfo{}, err
+	}
+
+	myImageInfo, myImageInfoErr := convertImageSetToMyImageInfo(&targetImage)
+	if myImageInfoErr != nil {
+		cblogger.Error(myImageInfoErr)
+		return irs.MyImageInfo{}, myImageInfoErr
+	}
+
+	return myImageInfo, nil
 }
 
 /*
@@ -130,8 +158,9 @@ func (myImageHandler TencentMyImageHandler) DeleteMyImage(myImageIID irs.IID) (b
 
 	// The returned "resp" is an instance of the DeleteImagesResponse class which corresponds to the request object
 	response, err := myImageHandler.Client.DeleteImages(request)
-	if _, ok := err.(*errors.TencentCloudSDKError); ok {
-		fmt.Printf("An API error has returned: %s", err)
+
+	if err != nil {
+		cblogger.Error(err)
 		return false, err
 	}
 
@@ -143,6 +172,54 @@ func (myImageHandler TencentMyImageHandler) DeleteMyImage(myImageIID irs.IID) (b
 }
 
 func convertImageSetToMyImageInfo(tencentImage *cvm.Image) (irs.MyImageInfo, error) {
-	returnMymageInfo := irs.MyImageInfo{}
-	return returnMymageInfo, nil
+	returnMyImageInfo := irs.MyImageInfo{}
+
+	returnMyImageInfo.IId = irs.IID{NameId: *tencentImage.ImageName, SystemId: *tencentImage.ImageId}
+	returnMyImageInfo.SourceVM = irs.IID{SystemId: *tencentImage.Tags[0].Value}
+	returnMyImageInfo.CreatedTime, _ = time.Parse(time.RFC3339, *tencentImage.CreatedTime)
+	returnMyImageInfo.Status = convertTenStatusToImageStatus(*tencentImage.ImageState)
+	return returnMyImageInfo, nil
+}
+
+func convertTenStatusToImageStatus(status string) irs.MyImageStatus {
+	var returnStatus irs.MyImageStatus
+
+	// CREATING / NORMAL / CREATEFAILED / USING / SYNCING / IMPORTING / IMPORTFAILED
+	if status == TENCENT_IMAGE_STATE_NORMAL {
+		returnStatus = irs.MyImageAvailable
+	} else {
+		returnStatus = irs.MyImageUnavailable
+	}
+
+	return returnStatus
+}
+
+/*
+myimage가 존재하는지 check
+동일이름이 없으면 false, 있으면 true
+*/
+func (myImageHandler *TencentMyImageHandler) myImageExist(chkName string) (bool, error) {
+	cblogger.Debugf("chkName : %s", chkName)
+
+	request := cvm.NewDescribeImagesRequest()
+
+	request.Filters = []*cvm.Filter{
+		{
+			Name:   common.StringPtr("image-name"),
+			Values: common.StringPtrs([]string{chkName}),
+		},
+	}
+
+	response, err := myImageHandler.Client.DescribeImages(request)
+	if err != nil {
+		cblogger.Error(err)
+		return false, err
+	}
+
+	if *response.Response.TotalCount < 1 {
+		return false, nil
+	}
+
+	cblogger.Infof("MyImage 정보 찾음 - MyImageId:[%s] / MyImageName:[%s]", *response.Response.ImageSet[0].ImageId, *response.Response.ImageSet[0].ImageName)
+	return true, nil
 }
