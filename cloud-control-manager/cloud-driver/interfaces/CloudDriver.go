@@ -54,8 +54,6 @@ type CredentialInfo struct {
 	MockName         string // Mock
 	ApiKey           string // Ibm
 	ConnectionName   string // MINI
-	AccessKey        string // Alibaba, Tencent
-	AccessSecret     string // Alibaba, Tencent
 }
 
 type RegionInfo struct {
