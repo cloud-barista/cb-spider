@@ -19,8 +19,8 @@ func getClusterHandler() (irs.ClusterHandler, error) {
 
 	connectionInfo := idrv.ConnectionInfo{
 		CredentialInfo: idrv.CredentialInfo{
-			AccessKey:    os.Getenv("ACCESS_KEY"),
-			AccessSecret: os.Getenv("ACCESS_SECRET"),
+			ClientId:     os.Getenv("CLIENT_ID"),
+			ClientSecret: os.Getenv("CLIENT_SECRET"),
 		},
 		RegionInfo: idrv.RegionInfo{
 			Region: os.Getenv("REGION_ID"),
