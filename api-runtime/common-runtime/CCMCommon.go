@@ -6358,8 +6358,8 @@ defer vmSPLock.Unlock(connectionName, ownerVMName)
 func DetachDisk(connectionName string, diskName string, ownerVMName string) (bool, error) {
         cblog.Info("call DetachDisk()")
 
-        // check empty and trim user inputs
-        connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)
+        // check empty and trim user inputs 
+	connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)
         if err != nil {
                 cblog.Error(err)
                 return false, err
@@ -6408,6 +6408,27 @@ defer vmSPLock.Unlock(connectionName, ownerVMName)
                 cblog.Error(err)
                 return false, err
         }
+
+	if info == false {
+		return false, err
+	}
+
+	// check deteched
+	waiter := NewWaiter(1, 10) // (sleep, timeout)
+	for {
+		getInfo, err := handler.GetDisk(getDriverIID(diskIIDInfo.IId))
+		if err != nil {
+			cblog.Error(err)
+		}
+
+                if getInfo.Status == cres.DiskAvailable {
+			return true, nil
+                }
+
+                if !waiter.Wait() {
+			break
+                }
+	}
 
         return info, nil
 }

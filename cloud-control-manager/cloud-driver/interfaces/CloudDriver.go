@@ -15,9 +15,9 @@ import (
 )
 
 type DriverCapabilityInfo struct {
-	NLBHandler   bool // support: true, do not support: false
-	ImageHandler bool // support: true, do not support: false
-	VPCHandler   bool // support: true, do not support: false
+	NLBHandler   	bool // support: true, do not support: false
+	ImageHandler 	bool // support: true, do not support: false
+	VPCHandler   	bool // support: true, do not support: false
 	//VNetworkHandler bool // support: true, do not support: false
 	SecurityHandler bool // support: true, do not support: false
 	KeyPairHandler  bool // support: true, do not support: false
@@ -25,8 +25,8 @@ type DriverCapabilityInfo struct {
 	PublicIPHandler bool // support: true, do not support: false
 	VMHandler       bool // support: true, do not support: false
 	VMSpecHandler   bool // support: true, do not support: false
-	DiskHandler	bool // support: true, do not support: false
-	MyIamgeHandler	bool // support: true, do not support: false
+	DiskHandler		bool // support: true, do not support: false
+	MyImageHandler	bool // support: true, do not support: false
 	ClusterHandler	bool // support: true, do not support: false
 
 	FIXED_SUBNET_CIDR bool // support: true, do not support: false

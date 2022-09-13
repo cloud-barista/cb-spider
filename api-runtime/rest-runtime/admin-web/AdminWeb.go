@@ -13,6 +13,7 @@ import (
 	"bytes"
         "github.com/cloud-barista/cb-store/config"
         "github.com/sirupsen/logrus"
+	cim "github.com/cloud-barista/cb-spider/cloud-info-manager"
 	cres "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	cr "github.com/cloud-barista/cb-spider/api-runtime/common-runtime"
 
@@ -21,6 +22,7 @@ import (
 	"strings"
 	"github.com/labstack/echo/v4"
 	"encoding/json"
+	"regexp"
 )
 
 var cblog *logrus.Logger
@@ -156,6 +158,26 @@ func diskInfo(connConfig string, diskName string) cres.DiskInfo {
         var info cres.DiskInfo
         json.Unmarshal(resBody, &info)
         return info
+}
+
+func diskTypeList(providerName string) []string {
+        // get Provider's Meta Info
+        cloudOSMetaInfo, err := cim.GetCloudOSMetaInfo(providerName)
+        if err != nil {
+                cblog.Error(err)
+                return []string{}
+        }
+	return cloudOSMetaInfo.DiskType
+}
+
+func diskTypeSizeList(providerName string) []string {
+        // get Provider's Meta Info
+        cloudOSMetaInfo, err := cim.GetCloudOSMetaInfo(providerName)
+        if err != nil {
+                cblog.Error(err)
+                return []string{}
+        }
+        return cloudOSMetaInfo.DiskSize
 }
 
 //================ Frame
@@ -463,6 +485,59 @@ func makeDataDiskSelect_html(onchangeFunctionName string, strList []string, id s
 
 
         return strResult + strSelect
+}
+
+func makeDataDiskTypeSelect_html(onchangeFunctionName string, strList []string, id string) string {
+
+        strResult := ""
+        if len(strList) == 0 {
+                noDiskStr := `<input style="font-size:12px;text-align:center;" type="text" name="text_box" id="` +
+                                id +`" value="default">`
+                return strResult + noDiskStr
+        }
+        strSelect := `<select style="width:120px;" name="text_box" id="` + id + `" onchange="` + onchangeFunctionName + `(this)">`
+                strSelect += `<option value="default">default</option>`
+        for _, one := range strList {
+                strSelect += `<option value="` + one + `">` + one + `</option>`
+        }
+
+        strSelect += `
+                </select>
+        `
+
+        return strResult + strSelect
+}
+
+func makeDataDiskTypeSize_html(strList []string) string {
+
+	strResult := ""
+        for _, one := range strList {
+		// one = "cloud|5|2000|GB"
+		splits := strings.Split(one, "|")
+		rangeStr := ""
+		if len(splits) == 4 {
+			rangeStr = fmt.Sprintf("&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;[%s]&nbsp;&nbsp; %s~%s %s<br>", 
+					strings.TrimSpace(splits[0]), insertComma(strings.TrimSpace(splits[1])), 
+				 	insertComma(strings.TrimSpace(splits[2])), strings.TrimSpace(splits[3]))
+		} else {
+			rangeStr = one // keep origin string
+		}
+		strResult += rangeStr
+        }
+
+        strInput := `<p style="font-size:12px;color:gray;text-align:left;">` + strResult + `</p>`
+
+        return strInput
+}
+
+// ref) https://stackoverflow.com/a/39185719/17474800
+func insertComma(str string) string {
+    re := regexp.MustCompile("(\\d+)(\\d{3})")
+    for n := ""; n != str; {
+        n = str
+        str = re.ReplaceAllString(str, "$1,$2")
+    }
+    return str
 }
 
 func makeKeyPairSelect_html(onchangeFunctionName string, strList []string, id string) string {
