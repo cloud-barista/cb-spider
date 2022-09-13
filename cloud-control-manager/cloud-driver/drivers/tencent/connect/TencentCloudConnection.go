@@ -137,11 +137,7 @@ func (cloudConn *TencentCloudConnection) CreateMyImageHandler() (irs.MyImageHand
 	return &handler, nil
 }
 
-
-func (cloudConn *TencentCloudConnection) CreateMyImageHandler() (irs.MyImageHandler, error) {
-	cblogger.Info("Start")
-	handler := trs.TencentMyImageHandler{cloudConn.Region, cloudConn.MyImageClient}
-
-	return &handler, nil
-
+func (cloudConn *TencentCloudConnection) CreateClusterHandler() (irs.ClusterHandler, error) {
+        return nil, errors.New("Tencent Driver: not implemented")
 }
+
