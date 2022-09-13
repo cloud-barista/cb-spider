@@ -39,8 +39,8 @@ type Config struct {
 	} `yaml:"tencent"`
 }
 
-//환경 설정 파일 읽기
-//환경변수 CBSPIDER_PATH 설정 후 해당 폴더 하위에 /config/configTencent.yaml 파일 생성해야 함.
+// 환경 설정 파일 읽기
+// 환경변수 CBSPIDER_PATH 설정 후 해당 폴더 하위에 /config/configTencent.yaml 파일 생성해야 함.
 func ReadConfigFile() Config {
 	// Set Environment Value of Project Root Path
 	// /mnt/d/Workspace/mcloud-barista-config/config/config.yaml
@@ -67,8 +67,8 @@ func ReadConfigFile() Config {
 	return config
 }
 
-//handlerType : resources폴더의 xxxHandler.go에서 Handler이전까지의 문자열
-//(예) ImageHandler.go -> "Image"
+// handlerType : resources폴더의 xxxHandler.go에서 Handler이전까지의 문자열
+// (예) ImageHandler.go -> "Image"
 func GetResourceHandler(handlerType string) (interface{}, error) {
 	var cloudDriver idrv.CloudDriver
 	cloudDriver = new(tdrv.TencentDriver)
@@ -116,6 +116,9 @@ func GetResourceHandler(handlerType string) (interface{}, error) {
 		resourceHandler, err = cloudConnection.CreateNLBHandler()
 	case "Disk":
 		resourceHandler, err = cloudConnection.CreateDiskHandler()
+	case "MyImage":
+		resourceHandler, err = cloudConnection.CreateMyImageHandler()
+
 	}
 
 	if err != nil {

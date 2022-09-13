@@ -226,6 +226,7 @@ func (driver *TencentDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (i
 		SecurityClient: vpcClient,
 		VmSpecClient:   vmClient,
 		DiskClient:     cbsClient,
+		MyImageClient:  vmClient,
 
 		//VNicClient:     vmClient,
 		//PublicIPClient: vmClient,
