@@ -1,14 +1,11 @@
 package pmks
 
 import (
-	"encoding/json"
-	"fmt"
 	"os"
 	"testing"
 	"time"
 
 	_ "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/alibaba/main/pmks_test/env" // 위치 변경 하면 안됨. 환경설정 정보 읽기 전에 테스트 수행됨
-	"github.com/jeremywohl/flatten"
 
 	adrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/alibaba"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
@@ -41,141 +38,141 @@ func getClusterHandler() (irs.ClusterHandler, error) {
 	return clusterHandler, nil
 }
 
-func TestNewClusterInfo(t *testing.T) {
+// func TestNewClusterInfo(t *testing.T) {
 
-	temp := irs.ClusterInfo{
-		IId: irs.IID{
-			NameId:   "cluster-name",
-			SystemId: "cluser-id",
-		},
-		Version: "1.21.2",
-		Network: irs.NetworkInfo{
-			VpcIID: irs.IID{
-				NameId:   "",
-				SystemId: "vpc-id",
-			},
-			SubnetIID: []irs.IID{
-				{
-					NameId:   "subnet-name",
-					SystemId: "subnet-id",
-				},
-			},
-			SecurityGroupIIDs: []irs.IID{
-				{
-					NameId:   "security-group-name",
-					SystemId: "sg-id",
-				},
-			},
-			KeyValueList: []irs.KeyValue{
-				{
-					Key:   "key",
-					Value: "value",
-				},
-			},
-		},
-		NodeGroupList: []irs.NodeGroupInfo{
-			{
-				IId: irs.IID{
-					NameId:   "test-node-group-name",
-					SystemId: "test-node-group-id",
-				},
-				ImageIID: irs.IID{
-					NameId:   "image-name",
-					SystemId: "image-id",
-				},
-				VMSpecName:   "ecs.g6.large",
-				RootDiskType: "disk_type",
-				RootDiskSize: "20",
-				KeyPairIID: irs.IID{
-					NameId:   "keypair",
-					SystemId: "keypair-id",
-				},
-				Status:          irs.NodeGroupCreating,
-				OnAutoScaling:   false,
-				DesiredNodeSize: 1,
-				MinNodeSize:     1,
-				MaxNodeSize:     1,
-				NodeList: []irs.IID{
-					{
-						NameId:   "node-name",
-						SystemId: "node-id",
-					},
-				},
-				KeyValueList: []irs.KeyValue{
-					{
-						Key:   "key",
-						Value: "value",
-					},
-				},
-			},
-		},
-		Addons: irs.AddonsInfo{
-			KeyValueList: []irs.KeyValue{
-				{
-					Key:   "ingress",
-					Value: "nginx",
-				},
-			},
-		},
-		Status:      irs.ClusterCreating,
-		CreatedTime: time.Now(),
-		KeyValueList: []irs.KeyValue{
-			{
-				Key:   "test-key",
-				Value: "test-value",
-			},
-		},
-	}
+// 	temp := irs.ClusterInfo{
+// 		IId: irs.IID{
+// 			NameId:   "cluster-name",
+// 			SystemId: "cluser-id",
+// 		},
+// 		Version: "1.21.2",
+// 		Network: irs.NetworkInfo{
+// 			VpcIID: irs.IID{
+// 				NameId:   "",
+// 				SystemId: "vpc-id",
+// 			},
+// 			SubnetIID: []irs.IID{
+// 				{
+// 					NameId:   "subnet-name",
+// 					SystemId: "subnet-id",
+// 				},
+// 			},
+// 			SecurityGroupIIDs: []irs.IID{
+// 				{
+// 					NameId:   "security-group-name",
+// 					SystemId: "sg-id",
+// 				},
+// 			},
+// 			KeyValueList: []irs.KeyValue{
+// 				{
+// 					Key:   "key",
+// 					Value: "value",
+// 				},
+// 			},
+// 		},
+// 		NodeGroupList: []irs.NodeGroupInfo{
+// 			{
+// 				IId: irs.IID{
+// 					NameId:   "test-node-group-name",
+// 					SystemId: "test-node-group-id",
+// 				},
+// 				ImageIID: irs.IID{
+// 					NameId:   "image-name",
+// 					SystemId: "image-id",
+// 				},
+// 				VMSpecName:   "ecs.g6.large",
+// 				RootDiskType: "disk_type",
+// 				RootDiskSize: "20",
+// 				KeyPairIID: irs.IID{
+// 					NameId:   "keypair",
+// 					SystemId: "keypair-id",
+// 				},
+// 				Status:          irs.NodeGroupCreating,
+// 				OnAutoScaling:   false,
+// 				DesiredNodeSize: 1,
+// 				MinNodeSize:     1,
+// 				MaxNodeSize:     1,
+// 				NodeList: []irs.IID{
+// 					{
+// 						NameId:   "node-name",
+// 						SystemId: "node-id",
+// 					},
+// 				},
+// 				KeyValueList: []irs.KeyValue{
+// 					{
+// 						Key:   "key",
+// 						Value: "value",
+// 					},
+// 				},
+// 			},
+// 		},
+// 		Addons: irs.AddonsInfo{
+// 			KeyValueList: []irs.KeyValue{
+// 				{
+// 					Key:   "ingress",
+// 					Value: "nginx",
+// 				},
+// 			},
+// 		},
+// 		Status:      irs.ClusterCreating,
+// 		CreatedTime: time.Now(),
+// 		KeyValueList: []irs.KeyValue{
+// 			{
+// 				Key:   "test-key",
+// 				Value: "test-value",
+// 			},
+// 		},
+// 	}
 
-	j, err := json.MarshalIndent(temp, "", "  ")
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-	println(string(j))
+// 	j, err := json.MarshalIndent(temp, "", "  ")
+// 	if err != nil {
+// 		fmt.Println(err)
+// 		return
+// 	}
+// 	println(string(j))
 
-	flat, _ := flatten.FlattenString(string(j), "", flatten.DotStyle)
-	println(flat)
+// 	flat, _ := flatten.FlattenString(string(j), "", flatten.DotStyle)
+// 	println(flat)
 
-	// {
-	// 	"Addons.KeyValueList.0.Key": "ingress",
-	// 	"Addons.KeyValueList.0.Value": "nginx",
-	// 	"CreatedTime": "2022-09-08T15:27:45.67002+09:00",
-	// 	"IId.NameId": "cluster-name",
-	// 	"IId.SystemId": "cluser-id",
-	// 	"KeyValueList.0.Key": "test-key",
-	// 	"KeyValueList.0.Value": "test-value",
-	// 	"Network.KeyValueList.0.Key": "key",
-	// 	"Network.KeyValueList.0.Value": "value",
-	// 	"Network.SecurityGroupIIDs.0.NameId": "security-group-name",
-	// 	"Network.SecurityGroupIIDs.0.SystemId": "sg-id",
-	// 	"Network.SubnetIID.0.NameId": "subnet-name",
-	// 	"Network.SubnetIID.0.SystemId": "subnet-id",
-	// 	"Network.VpcIID.NameId": "",
-	// 	"Network.VpcIID.SystemId": "vpc-id",
-	// 	"NodeGroupList.0.DesiredNodeSize": 1,
-	// 	"NodeGroupList.0.IId.NameId": "test-node-group-name",
-	// 	"NodeGroupList.0.IId.SystemId": "test-node-group-id",
-	// 	"NodeGroupList.0.ImageIID.NameId": "image-name",
-	// 	"NodeGroupList.0.ImageIID.SystemId": "image-id",
-	// 	"NodeGroupList.0.KeyPairIID.NameId": "keypair",
-	// 	"NodeGroupList.0.KeyPairIID.SystemId": "keypair-id",
-	// 	"NodeGroupList.0.KeyValueList.0.Key": "key",
-	// 	"NodeGroupList.0.KeyValueList.0.Value": "value",
-	// 	"NodeGroupList.0.MaxNodeSize": 1,
-	// 	"NodeGroupList.0.MinNodeSize": 1,
-	// 	"NodeGroupList.0.NodeList.0.NameId": "node-name",
-	// 	"NodeGroupList.0.NodeList.0.SystemId": "node-id",
-	// 	"NodeGroupList.0.OnAutoScaling": false,
-	// 	"NodeGroupList.0.RootDiskSize": "20",
-	// 	"NodeGroupList.0.RootDiskType": "disk_type",
-	// 	"NodeGroupList.0.Status": "Creating",
-	// 	"NodeGroupList.0.VMSpecName": "ecs.g6.large",
-	// 	"Status": "Creating",
-	// 	"Version": "1.21.2"
-	// }
+// 	// {
+// 	// 	"Addons.KeyValueList.0.Key": "ingress",
+// 	// 	"Addons.KeyValueList.0.Value": "nginx",
+// 	// 	"CreatedTime": "2022-09-08T15:27:45.67002+09:00",
+// 	// 	"IId.NameId": "cluster-name",
+// 	// 	"IId.SystemId": "cluser-id",
+// 	// 	"KeyValueList.0.Key": "test-key",
+// 	// 	"KeyValueList.0.Value": "test-value",
+// 	// 	"Network.KeyValueList.0.Key": "key",
+// 	// 	"Network.KeyValueList.0.Value": "value",
+// 	// 	"Network.SecurityGroupIIDs.0.NameId": "security-group-name",
+// 	// 	"Network.SecurityGroupIIDs.0.SystemId": "sg-id",
+// 	// 	"Network.SubnetIID.0.NameId": "subnet-name",
+// 	// 	"Network.SubnetIID.0.SystemId": "subnet-id",
+// 	// 	"Network.VpcIID.NameId": "",
+// 	// 	"Network.VpcIID.SystemId": "vpc-id",
+// 	// 	"NodeGroupList.0.DesiredNodeSize": 1,
+// 	// 	"NodeGroupList.0.IId.NameId": "test-node-group-name",
+// 	// 	"NodeGroupList.0.IId.SystemId": "test-node-group-id",
+// 	// 	"NodeGroupList.0.ImageIID.NameId": "image-name",
+// 	// 	"NodeGroupList.0.ImageIID.SystemId": "image-id",
+// 	// 	"NodeGroupList.0.KeyPairIID.NameId": "keypair",
+// 	// 	"NodeGroupList.0.KeyPairIID.SystemId": "keypair-id",
+// 	// 	"NodeGroupList.0.KeyValueList.0.Key": "key",
+// 	// 	"NodeGroupList.0.KeyValueList.0.Value": "value",
+// 	// 	"NodeGroupList.0.MaxNodeSize": 1,
+// 	// 	"NodeGroupList.0.MinNodeSize": 1,
+// 	// 	"NodeGroupList.0.NodeList.0.NameId": "node-name",
+// 	// 	"NodeGroupList.0.NodeList.0.SystemId": "node-id",
+// 	// 	"NodeGroupList.0.OnAutoScaling": false,
+// 	// 	"NodeGroupList.0.RootDiskSize": "20",
+// 	// 	"NodeGroupList.0.RootDiskType": "disk_type",
+// 	// 	"NodeGroupList.0.Status": "Creating",
+// 	// 	"NodeGroupList.0.VMSpecName": "ecs.g6.large",
+// 	// 	"Status": "Creating",
+// 	// 	"Version": "1.21.2"
+// 	// }
 
-}
+// }
 
 func TestCreateClusterOnly(t *testing.T) {
 
