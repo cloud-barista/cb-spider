@@ -544,6 +544,7 @@ func testVMHandler(config Config) {
 		IId: irs.IID{
 			NameId: config.Openstack.Resources.Vm.IID.NameId,
 		},
+		ImageType: irs.PublicImage,
 		ImageIID: irs.IID{
 			NameId:   config.Openstack.Resources.Vm.ImageIID.NameId,
 			SystemId: config.Openstack.Resources.Vm.ImageIID.SystemId,
@@ -908,19 +909,21 @@ func testDiskHandler(config Config) {
 	diskHandler := resourceHandler.(irs.DiskHandler)
 
 	testDiskHandlerListPrint()
-	diskIId := irs.IID{}
+	diskIId := irs.IID{
+		NameId: "test-0830-2",
+	}
 	createDiskReqInfo := irs.DiskInfo{
 		IId: irs.IID{
-			NameId: "test-0818-2",
+			NameId: "test-0830-2",
 		},
-		DiskSize: "3",
+		DiskSize: "1",
 	}
 	delDiskIId := irs.IID{}
 	attachedDisk := irs.IID{
-		NameId: "test-0818-2",
+		NameId: "test-0830-1",
 	}
 	attachVMIId := irs.IID{
-		NameId: "vmclient",
+		NameId: "vm-0831-02-changesize",
 	}
 
 Loop:
@@ -1018,9 +1021,20 @@ func testMyImageHandler(config Config) {
 	myimageHandler := resourceHandler.(irs.MyImageHandler)
 
 	testMyImageHandlerListPrint()
-	getimageIId := irs.IID{}
-	imageInfo := irs.MyImageInfo{}
-	delimageIId := irs.IID{}
+	getimageIId := irs.IID{
+		NameId: "vm-defaultsize-sanp",
+	}
+	imageInfo := irs.MyImageInfo{
+		IId: irs.IID{
+			NameId: "vm-defaultsize-sanp",
+		},
+		SourceVM: irs.IID{
+			NameId: "vm-defaultsize",
+		},
+	}
+	delimageIId := irs.IID{
+		NameId: "vm-defaultsize-sanp",
+	}
 Loop:
 	for {
 		var commandNum int
@@ -1032,7 +1046,7 @@ Loop:
 		if inputCnt == 1 {
 			switch commandNum {
 			case 0:
-				testDiskHandlerListPrint()
+				testMyImageHandlerListPrint()
 			case 1:
 				cblogger.Info("Start ListMyImage() ...")
 				if list, err := myimageHandler.ListMyImage(); err != nil {

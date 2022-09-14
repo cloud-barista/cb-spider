@@ -92,18 +92,18 @@ func GetPublicVPCInfo(client *gophercloud.ServiceClient, typeName string) (strin
 	return "", nil
 }
 
-func GetFlavorByName(client *gophercloud.ServiceClient, flavorName string) (string, error) {
+func GetFlavorByName(client *gophercloud.ServiceClient, flavorName string) (flavors.Flavor, error) {
 	pages, err := flavors.ListDetail(client, nil).AllPages()
 	if err != nil {
-		return "", err
+		return flavors.Flavor{}, err
 	}
 	flavorList, err := flavors.ExtractFlavors(pages)
 	for _, flavor := range flavorList {
 		if flavor.Name == flavorName {
-			return flavor.ID, nil
+			return flavor, nil
 		}
 	}
-	return "", errors.New(fmt.Sprintf("could not found Flavor with name %s ", flavorName))
+	return flavors.Flavor{}, errors.New(fmt.Sprintf("could not found Flavor with name %s ", flavorName))
 }
 
 func GetSecurityByName(networkClient *gophercloud.ServiceClient, securityName string) (*secgroups.SecurityGroup, error) {

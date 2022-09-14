@@ -104,9 +104,13 @@ func (cloudConn *OpenStackCloudConnection) CreateMyImageHandler() (irs.MyImageHa
 	cblogger.Info("OpenStack Driver: called CreateMyImageHandler()!")
 
 	myImageHandler := osrs.OpenStackMyImageHandler{
-		CredentialInfo: cloudConn.CredentialInfo, Region: cloudConn.Region,
-		ComputeClient: cloudConn.ComputeClient,
-		Volume2Client: cloudConn.Volume2Client, Volume3Client: cloudConn.Volume3Client,
+		CredentialInfo: cloudConn.CredentialInfo,
+		Region:         cloudConn.Region,
+		ComputeClient:  cloudConn.ComputeClient,
+		VolumeClient:   cloudConn.Volume3Client,
+	}
+	if myImageHandler.VolumeClient == nil {
+		myImageHandler.VolumeClient = cloudConn.Volume2Client
 	}
 	return &myImageHandler, nil
 }
