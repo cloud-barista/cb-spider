@@ -2,6 +2,7 @@ package connect
 
 import (
 	"context"
+	"errors"
 	vpcv0230 "github.com/IBM/vpc-go-sdk/0.23.0/vpcv1"
 	"github.com/IBM/vpc-go-sdk/vpcv1"
 	cblog "github.com/cloud-barista/cb-log"
@@ -122,7 +123,7 @@ func (cloudConn *IbmCloudConnection) CreateDiskHandler() (irs.DiskHandler, error
 }
 
 func (cloudConn *IbmCloudConnection) CreateClusterHandler() (irs.ClusterHandler, error) {
-        return nil, errors.New("Ibm Driver: not implemented")
+	return nil, errors.New("Ibm Driver: not implemented")
 }
 
 func (cloudConn *IbmCloudConnection) CreateMyImageHandler() (irs.MyImageHandler, error) {

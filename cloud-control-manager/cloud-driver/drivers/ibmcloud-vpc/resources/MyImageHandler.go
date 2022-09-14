@@ -96,43 +96,43 @@ func (myImageHandler *IbmMyImageHandler) ListMyImage() ([]*irs.MyImageInfo, erro
 }
 
 func (myImageHandler *IbmMyImageHandler) GetMyImage(myImageIID irs.IID) (irs.MyImageInfo, error) {
-	if myImageIID.NameId == "" {
-		return irs.MyImageInfo{}, errors.New("Failed to Get MyImage. err = MyImage Name ID is required")
+	if myImageIID.NameId == "" && myImageIID.SystemId == "" {
+		return irs.MyImageInfo{}, errors.New("Failed to Get MyImage. err = MyImage Name ID or System ID is required")
+	} else if myImageIID.NameId != "" && myImageIID.SystemId != "" {
+		return irs.MyImageInfo{}, errors.New(fmt.Sprintf("Failed to Get MyImage. err = Ambigous image ID, %s", myImageIID))
 	}
 
 	hiscallInfo := GetCallLogScheme(myImageHandler.Region, call.MYIMAGE, myImageIID.NameId, "GetMyImage()")
 
 	start := call.Start()
-	snapshotList, _, listSnapshotErr := myImageHandler.VpcService.ListSnapshotsWithContext(myImageHandler.Ctx, &vpcv1.ListSnapshotsOptions{})
-	if listSnapshotErr != nil {
-		return irs.MyImageInfo{}, errors.New(fmt.Sprintf("Failed to Get MyImage. err = %s", listSnapshotErr.Error()))
+	myImageList, err := myImageHandler.ListMyImage()
+	if err != nil {
+		return irs.MyImageInfo{}, errors.New(fmt.Sprintf("Failed to Get MyImage. err = %s", err))
 	}
 
-	var associatedSnapshots []vpcv1.Snapshot
-	for _, snapshot := range snapshotList.Snapshots {
-		if strings.Split(*snapshot.Name, DEV)[0] == myImageIID.NameId {
-			associatedSnapshots = append(associatedSnapshots, snapshot)
+	for _, myImage := range myImageList {
+		if myImage.IId.NameId == myImageIID.NameId {
+			return *myImage, nil
+		} else if myImage.IId.SystemId == myImageIID.SystemId {
+			return *myImage, nil
 		}
-	}
-
-	myImage, convertErr := myImageHandler.ToISRMyImage(associatedSnapshots)
-	if convertErr != nil {
-		return irs.MyImageInfo{}, errors.New(fmt.Sprintf("Failed to Get MyImage. err = %s", convertErr.Error()))
 	}
 	LoggingInfo(hiscallInfo, start)
 
-	return myImage, nil
+	return irs.MyImageInfo{}, errors.New("MyImage not found")
 }
 
 func (myImageHandler *IbmMyImageHandler) DeleteMyImage(myImageIID irs.IID) (bool, error) {
-	if myImageIID.NameId == "" {
-		return false, errors.New("Failed to Delete MyImage. err = MyImage Name ID is required")
+	if myImageIID.NameId == "" && myImageIID.SystemId == "" {
+		return false, errors.New("Failed to Delete MyImage. err = MyImage Name ID or System ID is required")
+	} else if myImageIID.NameId != "" && myImageIID.SystemId != "" {
+		return false, errors.New(fmt.Sprintf("Failed to Get MyImage. err = Ambigous image ID, %s", myImageIID))
 	}
 
 	hiscallInfo := GetCallLogScheme(myImageHandler.Region, call.MYIMAGE, myImageIID.NameId, "DeleteMyImage()")
 
 	start := call.Start()
-	if err := myImageHandler.cleanSnapshotByMyImage(myImageIID.NameId); err != nil {
+	if err := myImageHandler.cleanSnapshotByMyImage(myImageIID); err != nil {
 		return false, errors.New(fmt.Sprintf("Failed to Delte MyImage. err = %s", err))
 	}
 	LoggingInfo(hiscallInfo, start)
@@ -153,7 +153,7 @@ func (myImageHandler *IbmMyImageHandler) ToISRMyImage(snapshotList []vpcv1.Snaps
 	var myImageCreatedTime time.Time
 	for _, snapshot := range snapshotList {
 		if *snapshot.Bootable == true {
-			myImageNameId = *snapshot.Name
+			myImageNameId = strings.Split(*snapshot.Name, DEV)[0]
 			myImageSystemId = *snapshot.ID
 
 			getVolumeOptions := vpcv1.GetVolumeOptions{
@@ -185,19 +185,32 @@ func (myImageHandler *IbmMyImageHandler) ToISRMyImage(snapshotList []vpcv1.Snaps
 	}, nil
 }
 
-func (myImageHandler *IbmMyImageHandler) cleanSnapshotByMyImage(myImageNameId string) error {
+func (myImageHandler *IbmMyImageHandler) cleanSnapshotByMyImage(myImageIID irs.IID) error {
 	snapshotList, _, listSnapshotErr := myImageHandler.VpcService.ListSnapshotsWithContext(myImageHandler.Ctx, &vpcv1.ListSnapshotsOptions{})
 	if listSnapshotErr != nil {
 		return listSnapshotErr
 	}
 
-	for _, snapshot := range (*snapshotList).Snapshots {
-		parsed := strings.Split(*snapshot.Name, DEV)[0]
-		if parsed == myImageNameId {
-			deleteSnapshotOptions := vpcv1.DeleteSnapshotOptions{
-				ID: snapshot.ID,
+	myImageNameId := ""
+	if myImageIID.NameId != "" {
+		myImageNameId = myImageIID.NameId
+	} else {
+		for _, snapshot := range snapshotList.Snapshots {
+			if *snapshot.ID == myImageIID.SystemId {
+				myImageNameId = strings.Split(*snapshot.Name, DEV)[0]
 			}
-			myImageHandler.VpcService.DeleteSnapshotWithContext(myImageHandler.Ctx, &deleteSnapshotOptions)
+		}
+	}
+
+	if myImageNameId != "" {
+		for _, snapshot := range snapshotList.Snapshots {
+			parsed := strings.Split(*snapshot.Name, DEV)[0]
+			if parsed == myImageNameId {
+				deleteSnapshotOptions := vpcv1.DeleteSnapshotOptions{
+					ID: snapshot.ID,
+				}
+				myImageHandler.VpcService.DeleteSnapshotWithContext(myImageHandler.Ctx, &deleteSnapshotOptions)
+			}
 		}
 	}
 

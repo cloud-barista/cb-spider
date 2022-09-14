@@ -101,6 +101,33 @@ type Config struct {
 					SystemId string `yaml:"systemId"`
 				} `yaml:"SecurityGroupIIDs"`
 			} `yaml:"vm"`
+			VmFromMyImage struct {
+				IID struct {
+					NameId   string `yaml:"nameId"`
+					SystemId string `yaml:"systemId"`
+				} `yaml:"IID"`
+				ImageIID struct {
+					NameId   string `yaml:"nameId"`
+					SystemId string `yaml:"systemId"`
+				} `yaml:"ImageIID"`
+				VmSpecName string `yaml:"VmSpecName"`
+				KeyPairIID struct {
+					NameId   string `yaml:"nameId"`
+					SystemId string `yaml:"systemId"`
+				} `yaml:"KeyPairIID"`
+				VpcIID struct {
+					NameId   string `yaml:"nameId"`
+					SystemId string `yaml:"systemId"`
+				} `yaml:"VpcIID"`
+				SubnetIID struct {
+					NameId   string `yaml:"nameId"`
+					SystemId string `yaml:"systemId"`
+				} `yaml:"SubnetIID"`
+				SecurityGroupIIDs []struct {
+					NameId   string `yaml:"nameId"`
+					SystemId string `yaml:"systemId"`
+				} `yaml:"SecurityGroupIIDs"`
+			} `yaml:"VmFromMyImage"`
 			DISK struct {
 				IID struct {
 					NameId   string `yaml:"nameId"`
@@ -284,7 +311,7 @@ func testSecurityHandlerListPrint() {
 	cblogger.Info("7. Exit")
 }
 
-//SecurityGroup
+// SecurityGroup
 func testSecurityHandler(config Config) {
 	resourceHandler, err := getResourceHandler("security", config)
 	if err != nil {
@@ -703,7 +730,8 @@ func testVMHandlerListPrint() {
 	cblogger.Info("7. SuspendVM()")
 	cblogger.Info("8. ResumeVM()")
 	cblogger.Info("9. TerminateVM()")
-	cblogger.Info("10. Exit")
+	cblogger.Info("10. StartVM() - from MyImage")
+	cblogger.Info("11. Exit")
 }
 
 func testVMHandler(config Config) {
@@ -739,6 +767,27 @@ func testVMHandler(config Config) {
 			NameId: config.IbmVPC.Resources.Vm.SubnetIID.NameId,
 		},
 		VMSpecName: config.IbmVPC.Resources.Vm.VmSpecName,
+		KeyPairIID: irs.IID{
+			NameId: config.IbmVPC.Resources.KeyPair.NameId,
+		},
+		SecurityGroupIIDs: SecurityGroupIIDs,
+		RootDiskSize:      "",
+		RootDiskType:      "",
+	}
+	vmFromSnapshotReqInfo := irs.VMReqInfo{
+		IId: irs.IID{
+			NameId: config.IbmVPC.Resources.VmFromMyImage.IID.NameId,
+		},
+		ImageIID: irs.IID{
+			NameId: config.IbmVPC.Resources.VmFromMyImage.ImageIID.NameId,
+		},
+		VpcIID: irs.IID{
+			NameId: config.IbmVPC.Resources.VmFromMyImage.VpcIID.NameId,
+		},
+		SubnetIID: irs.IID{
+			NameId: config.IbmVPC.Resources.VmFromMyImage.SubnetIID.NameId,
+		},
+		VMSpecName: config.IbmVPC.Resources.VmFromMyImage.VmSpecName,
 		KeyPairIID: irs.IID{
 			NameId: config.IbmVPC.Resources.KeyPair.NameId,
 		},
@@ -793,6 +842,7 @@ Loop:
 				cblogger.Info("Finish GetVMStatus()")
 			case 5:
 				cblogger.Info("Start StartVM() ...")
+				vmReqInfo.ImageType = irs.PublicImage
 				if vm, err := vmHandler.StartVM(vmReqInfo); err != nil {
 					cblogger.Error(err)
 				} else {
@@ -832,6 +882,15 @@ Loop:
 				}
 				cblogger.Info("Finish TerminateVM()")
 			case 10:
+				cblogger.Info("Start StartVM() - from MyImage ...")
+				vmFromSnapshotReqInfo.ImageType = irs.MyImage
+				if vmStatus, err := vmHandler.StartVM(vmFromSnapshotReqInfo); err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(vmStatus)
+				}
+				cblogger.Info("Finish StartVM() - from MyImage")
+			case 11:
 				cblogger.Info("Exit")
 				break Loop
 			}

@@ -15,6 +15,7 @@ import (
 	"math/rand"
 	"net/url"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -69,6 +70,12 @@ func (vmHandler *IbmVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 		myImage, getMyImageErr = myImageHandler.GetMyImage(vmReqInfo.ImageIID)
 		if getMyImageErr != nil {
 			createErr := errors.New(fmt.Sprintf("Failed to Create VM. err = %s", getMyImageErr.Error()))
+			cblogger.Error(createErr.Error())
+			LoggingError(hiscallInfo, createErr)
+			return irs.VMInfo{}, createErr
+		}
+		if myImage.Status != irs.MyImageAvailable {
+			createErr := errors.New("Failed to Create VM. err = Source Image status is not Available")
 			cblogger.Error(createErr.Error())
 			LoggingError(hiscallInfo, createErr)
 			return irs.VMInfo{}, createErr
@@ -149,17 +156,58 @@ func (vmHandler *IbmVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 	// TODO : UserData cloudInit
 	createInstanceOptions := &vpcv0230.CreateInstanceOptions{}
 	if vmReqInfo.ImageType == irs.MyImage {
-		BootVolumeName := fmt.Sprintf("%s%s%s", myImage.IId.SystemId, DEV, "0")
-		RootDiskSize, _ := strconv.Atoi(vmReqInfo.RootDiskSize)
+		snapshotList, _, listSnapshotErr := vmHandler.VpcService.ListSnapshotsWithContext(vmHandler.Ctx, &vpcv1.ListSnapshotsOptions{})
+		if listSnapshotErr != nil {
+			return irs.VMInfo{}, errors.New(fmt.Sprintf("Failed to Get MyImage. err = %s", listSnapshotErr.Error()))
+		}
+
+		var associatedSnapshots []vpcv1.Snapshot
+		for _, snapshot := range snapshotList.Snapshots {
+			if strings.Split(*snapshot.Name, DEV)[0] == myImage.IId.NameId {
+				associatedSnapshots = append(associatedSnapshots, snapshot)
+			}
+		}
+
+		sort.Slice(associatedSnapshots, func(i, j int) bool {
+			return *associatedSnapshots[i].Name < *associatedSnapshots[j].Name
+		})
+
+		var dataVolumeAttachments []vpcv0230.VolumeAttachmentPrototypeInstanceContext
+		var bootVolumeAttachment vpcv0230.VolumeAttachmentPrototypeInstanceBySourceSnapshotContext
+		for _, snapshot := range associatedSnapshots {
+			sourceVolume, _, getSourceVolumeErr := vmHandler.VpcService0230.GetVolumeWithContext(vmHandler.Ctx, &vpcv0230.GetVolumeOptions{ID: snapshot.SourceVolume.ID})
+			if getSourceVolumeErr != nil {
+				return irs.VMInfo{}, errors.New(fmt.Sprintf("Failed to Get Source Volume. err = %s", getSourceVolumeErr.Error()))
+			}
+
+			volumeName := fmt.Sprintf("%s%s%s", vmReqInfo.IId.NameId, DEV, strings.Split(*snapshot.Name, DEV)[1])
+			if *snapshot.Bootable {
+				bootVolumeAttachment = vpcv0230.VolumeAttachmentPrototypeInstanceBySourceSnapshotContext{
+					Volume: &vpcv0230.VolumePrototypeInstanceBySourceSnapshotContext{
+						Name:           core.StringPtr(volumeName),
+						Profile:        &vpcv0230.VolumeProfileIdentityByName{Name: sourceVolume.Profile.Name},
+						Capacity:       sourceVolume.Capacity,
+						SourceSnapshot: &vpcv0230.SnapshotIdentityByID{ID: snapshot.ID},
+					},
+				}
+			} else {
+				model := vpcv0230.VolumeAttachmentPrototypeInstanceContext{
+					Volume: &vpcv0230.VolumeAttachmentVolumePrototypeInstanceContextVolumePrototypeInstanceContextVolumePrototypeInstanceContextVolumeBySourceSnapshot{
+						Name:           core.StringPtr(volumeName),
+						Profile:        &vpcv0230.VolumeProfileIdentityByName{Name: sourceVolume.Profile.Name},
+						Capacity:       sourceVolume.Capacity,
+						SourceSnapshot: &vpcv0230.SnapshotIdentityByID{ID: snapshot.ID},
+					},
+				}
+
+				dataVolumeAttachments = append(dataVolumeAttachments, model)
+			}
+		}
+
 		createInstanceOptions.SetInstancePrototype(&vpcv0230.InstancePrototypeInstanceBySourceSnapshot{
-			Name: &vmReqInfo.IId.NameId,
-			BootVolumeAttachment: &vpcv0230.VolumeAttachmentPrototypeInstanceBySourceSnapshotContext{
-				Volume: &vpcv0230.VolumePrototypeInstanceBySourceSnapshotContext{
-					Capacity:       core.Int64Ptr(int64(RootDiskSize)),
-					Name:           &BootVolumeName,
-					SourceSnapshot: &vpcv0230.SnapshotIdentityByID{ID: &myImage.IId.SystemId},
-				},
-			},
+			Name:                 &vmReqInfo.IId.NameId,
+			BootVolumeAttachment: &bootVolumeAttachment,
+			VolumeAttachments:    dataVolumeAttachments,
 			Profile: &vpcv0230.InstanceProfileIdentity{
 				Name: spec.Name,
 			},
