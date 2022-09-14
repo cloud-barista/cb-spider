@@ -102,7 +102,7 @@ func (diskHandler *AzureDiskHandler) CreateDisk(DiskReqInfo irs.DiskInfo) (diskI
 func (diskHandler *AzureDiskHandler) ListDisk() ([]*irs.DiskInfo, error) {
 	hiscallInfo := GetCallLogScheme(diskHandler.Region, "DISK", "DISK", "ListDisk()")
 	start := call.Start()
-	diskList, err := diskHandler.DiskClient.List(diskHandler.Ctx)
+	diskList, err := diskHandler.DiskClient.ListByResourceGroup(diskHandler.Ctx, diskHandler.Region.ResourceGroup)
 	if err != nil {
 		getErr := errors.New(fmt.Sprintf("Failed to List Disk. err = %s", err))
 		cblogger.Error(getErr.Error())
@@ -427,7 +427,7 @@ func (diskHandler *AzureDiskHandler) DetachDisk(diskIID irs.IID, ownerVM irs.IID
 
 func GetRawDisk(diskIID irs.IID, resourceGroup string, client *compute.DisksClient, ctx context.Context) (compute.Disk, error) {
 	if diskIID.NameId == "" {
-		diskList, err := client.List(ctx)
+		diskList, err := client.ListByResourceGroup(ctx, resourceGroup)
 		if err != nil {
 			return compute.Disk{}, err
 		}
@@ -512,7 +512,7 @@ func (diskHandler *AzureDiskHandler) validationDiskReq(diskReq irs.DiskInfo) err
 	if diskReq.IId.NameId == "" {
 		return errors.New("invalid DiskReqInfo NameId")
 	}
-	exist, err := CheckExistDisk(diskReq.IId, diskHandler.DiskClient, diskHandler.Ctx)
+	exist, err := CheckExistDisk(diskReq.IId, diskHandler.Region.ResourceGroup, diskHandler.DiskClient, diskHandler.Ctx)
 	if err != nil {
 		return errors.New("failed Check disk Name Exist")
 	}
@@ -543,8 +543,8 @@ func (diskHandler *AzureDiskHandler) validationDiskReq(diskReq irs.DiskInfo) err
 	return nil
 }
 
-func CheckExistDisk(diskIID irs.IID, client *compute.DisksClient, ctx context.Context) (bool, error) {
-	diskList, err := client.List(ctx)
+func CheckExistDisk(diskIID irs.IID, resourceGroup string, client *compute.DisksClient, ctx context.Context) (bool, error) {
+	diskList, err := client.ListByResourceGroup(ctx, resourceGroup)
 	if err != nil {
 		return false, err
 	}
