@@ -219,16 +219,17 @@ func TestCreateClusterOnly(t *testing.T) {
 		},
 		Version: "1.22.5",
 		Network: irs.NetworkInfo{
-			VpcIID:            irs.IID{NameId: "", SystemId: "vpc-q1c6fr9e"},
-			SecurityGroupIIDs: []irs.IID{{NameId: "", SystemId: "sg-q1c6fr9"}},
+			VpcIID:    irs.IID{NameId: "", SystemId: "vpc-q1c6fr9e"},
+			SubnetIID: []irs.IID{{NameId: "", SystemId: "subnet-rl79gxhv"}},
+			//SecurityGroupIIDs: []irs.IID{{NameId: "", SystemId: "sg-46eef229"}},
 		},
-		KeyValueList: []irs.KeyValue{
-			{
-				Key:   "cluster_cidr", // 조회가능한 값이면, 내부에서 처리하는 코드 추가
-				Value: "172.25.0.0/16",
-				// Value: "172.20.0.0/16",
-			},
-		},
+		// KeyValueList: []irs.KeyValue{
+		// 	{
+		// 		Key:   "cluster_cidr", // 조회가능한 값이면, 내부에서 처리하는 코드 추가
+		// 		Value: "172.25.0.0/16",
+		// 		// Value: "172.20.0.0/16",
+		// 	},
+		// },
 	}
 
 	cluster_, err := clusterHandler.CreateCluster(clusterInfo)
@@ -420,8 +421,9 @@ func TestAddNodeGroup(t *testing.T) {
 	// }
 
 	new_node_group := &irs.NodeGroupInfo{
-		IId:             irs.IID{NameId: "nodepoolx101", SystemId: ""},
-		ImageIID:        irs.IID{NameId: "", SystemId: "image_id"}, // 이미지 id 선택 추가
+		IId: irs.IID{NameId: "nodepoolx101", SystemId: ""},
+		// ImageIID:        irs.IID{NameId: "", SystemId: "img-pi0ii46r"}, // 이미지 id 선택 추가, img-pi0ii46r:ubuntu18.04
+		// image id can not be set, when creating nodepool
 		VMSpecName:      "S3.MEDIUM2",
 		RootDiskType:    "CLOUD_PREMIUM",
 		RootDiskSize:    "50",
@@ -430,19 +432,19 @@ func TestAddNodeGroup(t *testing.T) {
 		DesiredNodeSize: 1,
 		MinNodeSize:     0,
 		MaxNodeSize:     3,
-		KeyValueList: []irs.KeyValue{
-			{
-				Key:   "security_group_id", // security_group_id는 cluster_info 정보에 있음. 이것을 어떻게 참조할지가 문제.
-				Value: "sg-46eef229",
-			},
-			{
-				Key:   "subnet_id",       // cluster_info 에서 참조
-				Value: "subnet-rl79gxhv", // subnet-rl79gxhv
-			},
-			{
-				Key:   "vpc_id", // cluster_info 정보에 있음. 조회해서 처리 가능
-				Value: "vpc-q1c6fr9e",
-			},
+		KeyValueList:    []irs.KeyValue{
+			// {
+			// 	Key:   "security_group_id", // security_group_id는 cluster_info 정보에 있음. 이것을 어떻게 참조할지가 문제.
+			// 	Value: "sg-46eef229",
+			// },
+			// {
+			// 	Key:   "subnet_id",       // cluster_info 에서 참조
+			// 	Value: "subnet-rl79gxhv", // subnet-rl79gxhv
+			// },
+			// {
+			// 	Key:   "vpc_id", // cluster_info 정보에 있음. 조회해서 처리 가능
+			// 	Value: "vpc-q1c6fr9e",
+			// },
 		},
 	}
 

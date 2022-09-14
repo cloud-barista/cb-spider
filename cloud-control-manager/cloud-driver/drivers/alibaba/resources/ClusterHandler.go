@@ -155,7 +155,7 @@ func (clusterHandler *AlibabaClusterHandler) AddNodeGroup(clusterIID irs.IID, no
 	callLogInfo := getCallLogScheme(clusterHandler.RegionInfo.Region, call.CLUSTER, clusterIID.NameId, "AddNodeGroup()")
 
 	// 노드 그룹 생성 요청을 JSON 요청으로 변환
-	payload, err := getNodeGroupJSONString(nodeGroupReqInfo)
+	payload, err := getNodeGroupJSONString(clusterHandler, clusterIID, nodeGroupReqInfo)
 	if err != nil {
 		cblogger.Error(err)
 		return irs.NodeGroupInfo{}, err
@@ -643,7 +643,7 @@ func getClusterInfoJSON(clusterHandler *AlibabaClusterHandler, clusterInfo irs.C
 	return clusterInfoJSON, err
 }
 
-func getNodeGroupJSONString(nodeGroupReqInfo irs.NodeGroupInfo) (string, error) {
+func getNodeGroupJSONString(clusterHandler *AlibabaClusterHandler, clusterIID irs.IID, nodeGroupReqInfo irs.NodeGroupInfo) (string, error) {
 
 	var err error = nil
 	defer func() {
@@ -684,7 +684,21 @@ func getNodeGroupJSONString(nodeGroupReqInfo irs.NodeGroupInfo) (string, error) 
 	system_disk_category := nodeGroupReqInfo.RootDiskType
 	system_disk_size, _ := strconv.ParseInt(nodeGroupReqInfo.RootDiskSize, 10, 32)
 
-	vswitch_id := "vsw-2ze0qpwcio7r5bx3nqbp1" // get vswitch_id, get from cluster info
+	// get vswitch_id
+	clusterInfo, err := clusterHandler.GetCluster(clusterIID)
+	if err != nil {
+		return "", err
+	}
+
+	vswitch_id := "" // get vswitch_id, get from cluster info
+	res, err := alibaba.DescribeVSwitches(clusterHandler.CredentialInfo.ClientId, clusterHandler.CredentialInfo.ClientSecret, clusterHandler.RegionInfo.Region, clusterInfo.Network.VpcIID.SystemId)
+	if err != nil {
+		return "", err
+	}
+	for _, v := range res.VSwitches.VSwitch {
+		vswitch_id = v.VSwitchId
+		break
+	}
 
 	temp := `{
 		"nodepool_info": {

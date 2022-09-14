@@ -365,3 +365,20 @@ func TestUpgradeCluster(t *testing.T) {
 
 	}
 }
+
+func TestDescribeSecurityGroups(t *testing.T) {
+
+	res, err := tencent.DescribeSecurityGroups(secret_id, secret_key, region_id)
+	if err != nil {
+		println(err)
+	}
+
+	for _, group := range res.Response.SecurityGroupSet {
+
+		if *group.IsDefault {
+			println(*group.SecurityGroupId, *group.SecurityGroupName)
+		}
+
+	}
+
+}

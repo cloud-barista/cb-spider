@@ -50,7 +50,7 @@ func (clusterHandler *TencentClusterHandler) CreateCluster(clusterReqInfo irs.Cl
 	callLogInfo := getCallLogScheme(clusterHandler.RegionInfo.Region, call.CLUSTER, "CreateCluster()", "CreateCluster()")
 
 	// 클러스터 생성 요청 변환
-	request, err := getCreateClusterRequest(clusterReqInfo)
+	request, err := getCreateClusterRequest(clusterHandler, clusterReqInfo)
 	if err != nil {
 		cblogger.Error(err)
 		return irs.ClusterInfo{}, err
@@ -151,7 +151,7 @@ func (clusterHandler *TencentClusterHandler) AddNodeGroup(clusterIID irs.IID, no
 
 	// 노드 그룹 생성 요청 변환
 	// get cluster info. to get security_group_id
-	request, err := getNodeGroupRequest(clusterIID.SystemId, nodeGroupReqInfo)
+	request, err := getNodeGroupRequest(clusterHandler, clusterIID.SystemId, nodeGroupReqInfo)
 	if err != nil {
 		cblogger.Error(err)
 		return irs.NodeGroupInfo{}, err
@@ -361,7 +361,13 @@ func getClusterInfo(access_key string, access_secret string, region_id string, c
 		Network: irs.NetworkInfo{
 			VpcIID: irs.IID{
 				NameId:   "",
-				SystemId: *res.Response.Clusters[0].ClusterVersion,
+				SystemId: *res.Response.Clusters[0].ClusterNetworkSettings.VpcId,
+			},
+			SubnetIID: []irs.IID{
+				{
+					NameId:   "",
+					SystemId: *res.Response.Clusters[0].ClusterNetworkSettings.Subnets[0],
+				},
 			},
 		},
 		Status:      cluster_status,
@@ -505,7 +511,7 @@ func getNodeGroupInfo(access_key, access_secret, region_id, cluster_id, node_gro
 	return &node_group_info, err
 }
 
-func getCreateClusterRequest(clusterInfo irs.ClusterInfo) (*tke.CreateClusterRequest, error) {
+func getCreateClusterRequest(clusterHandler *TencentClusterHandler, clusterInfo irs.ClusterInfo) (*tke.CreateClusterRequest, error) {
 
 	var err error = nil
 	defer func() {
@@ -514,34 +520,39 @@ func getCreateClusterRequest(clusterInfo irs.ClusterInfo) (*tke.CreateClusterReq
 		}
 	}()
 
-	// clusterInfo := irs.ClusterInfo{
-	// 	IId: irs.IID{
-	// 		NameId:   "cluster-x1",
-	// 		SystemId: "",
-	// 	},
-	// 	Version: "1.22.5",
-	// 	Network: irs.NetworkInfo{
-	// 		VpcIID: irs.IID{NameId: "", SystemId: "vpc-q1c6fr9e"},
-	// 	},
-	// 	KeyValueList: []irs.KeyValue{
-	// 		{
-	// 			Key:   "cluster_cidr", // 조회가능한 값이면, 내부에서 처리하는 코드 추가
-	// 			Value: "172.20.0.0/16",
-	// 		},
-	// 	},
+	// 172.X.0.0.16: X Range:16, 17, ... , 31
+	// for _, v := range clusterInfo.KeyValueList {
+	// 	switch v.Key {
+	// 	case "cluster_cidr":
+	// 		cluster_cidr = v.Value
+	// 	}
 	// }
+	m_cidr := make(map[string]bool)
+	for i := 16; i < 32; i++ {
+		m_cidr[fmt.Sprintf("172.%v.0.0/16", i)] = true
+	}
 
-	cluster_cidr := "" // 172.X.0.0.16: X Range:16, 17, ... , 31
-	for _, v := range clusterInfo.KeyValueList {
-		switch v.Key {
-		case "cluster_cidr":
-			cluster_cidr = v.Value
+	clusters, err := clusterHandler.ListCluster()
+	if err != nil {
+		return nil, err
+	}
+	for _, cluster := range clusters {
+		for _, v := range cluster.KeyValueList {
+			if v.Key == "ClusterNetworkSettings.ClusterCIDR" {
+				delete(m_cidr, v.Value)
+			}
 		}
+	}
+
+	cidr_list := []string{}
+	for k := range m_cidr {
+		cidr_list = append(cidr_list, k)
 	}
 
 	request := tke.NewCreateClusterRequest()
 	request.ClusterCIDRSettings = &tke.ClusterCIDRSettings{
-		ClusterCIDR: common.StringPtr(cluster_cidr), // 172.X.0.0.16: X Range:16, 17, ... , 31
+		ClusterCIDR:  common.StringPtr(cidr_list[0]), // 172.X.0.0.16: X Range:16, 17, ... , 31
+		EniSubnetIds: common.StringPtrs([]string{clusterInfo.Network.SubnetIID[0].SystemId}),
 	}
 	request.ClusterBasicSettings = &tke.ClusterBasicSettings{
 		ClusterName:    common.StringPtr(clusterInfo.IId.NameId),
@@ -550,10 +561,18 @@ func getCreateClusterRequest(clusterInfo irs.ClusterInfo) (*tke.CreateClusterReq
 	}
 	request.ClusterType = common.StringPtr("MANAGED_CLUSTER") //default value
 
+	// request.ExistedInstancesForNode = []*tke.ExistedInstancesForNode{
+	// 	{
+	// 		ExistedInstancesPara: &tke.ExistedInstancesPara{
+	// 			SecurityGroupIds: common.StringPtrs([]string{clusterInfo.Network.SecurityGroupIIDs[0].SystemId}),
+	// 		},
+	// 	},
+	// }
+
 	return request, err
 }
 
-func getNodeGroupRequest(cluster_id string, nodeGroupReqInfo irs.NodeGroupInfo) (*tke.CreateClusterNodePoolRequest, error) {
+func getNodeGroupRequest(clusterHandler *TencentClusterHandler, cluster_id string, nodeGroupReqInfo irs.NodeGroupInfo) (*tke.CreateClusterNodePoolRequest, error) {
 
 	var err error = nil
 	defer func() {
@@ -561,6 +580,59 @@ func getNodeGroupRequest(cluster_id string, nodeGroupReqInfo irs.NodeGroupInfo) 
 			err = fmt.Errorf("getNodeGroupRequest: %v", r)
 		}
 	}()
+
+	// 값 찾기
+	// 클러스터 정보를 조회해서 찾는다.
+	// 클러스터가 있어야 NodeGroup 생성이 가능하기 때문에, 이 정보는 조회 가능한다.
+
+	// {
+	// 	Key:   "security_group_id", // security_group_id는 cluster_info 정보에 있음. 이것을 어떻게 참조할지가 문제.
+	// 	Value: "sg-46eef229",
+	// },
+	// {
+	// 	Key:   "subnet_id",       // cluster_info 에서 참조
+	// 	Value: "subnet-rl79gxhv", // subnet-rl79gxhv
+	// },
+	// {
+	// 	Key:   "vpc_id", // cluster_info 정보에 있음. 조회해서 처리 가능
+	// 	Value: "vpc-q1c6fr9e",
+	// },
+
+	cluster, res := clusterHandler.GetCluster(irs.IID{SystemId: cluster_id})
+	if res != nil {
+		return nil, res
+	}
+	vpc_id := cluster.Network.VpcIID.SystemId
+	subnet_id := cluster.Network.SubnetIID[0].SystemId
+
+	response, err := tencent.DescribeSecurityGroups(clusterHandler.CredentialInfo.ClientId, clusterHandler.CredentialInfo.ClientSecret, clusterHandler.RegionInfo.Region)
+	if err != nil {
+		println(err)
+	}
+
+	security_group_id := ""
+	for _, group := range response.Response.SecurityGroupSet {
+		if *group.IsDefault {
+			security_group_id = *group.SecurityGroupId
+			break
+		}
+	}
+
+	// temp, err := json.Marshal(*res.Response.NodePool)
+	// if err != nil {
+	// 	panic(err)
+	// }
+	// var json_obj map[string]interface{}
+	// json.Unmarshal([]byte(temp), &json_obj)
+
+	// flat, err := flatten.Flatten(json_obj, "", flatten.DotStyle)
+	// if err != nil {
+	// 	return nil, err
+	// }
+	// for k, v := range flat {
+	// 	temp := fmt.Sprintf("%v", v)
+	// 	node_group_info.KeyValueList = append(node_group_info.KeyValueList, irs.KeyValue{Key: k, Value: temp})
+	// }
 
 	// KeyValueList: []irs.KeyValue{
 	// 	{
@@ -576,32 +648,12 @@ func getNodeGroupRequest(cluster_id string, nodeGroupReqInfo irs.NodeGroupInfo) 
 	// 		Value: "vpc-q1c6fr9e",
 	// 	},
 	// },
-	security_group_id := "" // 입력해야함
-	subnet_id := ""         // 입력해야함
-	vpc_id := ""            // 클러스터 정보에서 조회 가능
-	for _, v := range nodeGroupReqInfo.KeyValueList {
-		switch v.Key {
-		case "security_group_id":
-			security_group_id = v.Value
-		case "subnet_id":
-			subnet_id = v.Value
-		case "vpc_id":
-			vpc_id = v.Value
-		}
-	}
 
+	// '{"LaunchConfigurationName":"name","InstanceType":"S3.MEDIUM2","ImageId":"img-pi0ii46r"}'
 	launch_config_json_str := `{
 		"InstanceType": "%s",
 		"SecurityGroupIds": ["%s"]
 	}`
-
-	// launch_config_json_str := `{
-	// 	"InstanceType": "%s",
-	// 	"SecurityGroupIds": ["%s"],
-	// 	"ImageId":"%s"
-	// }`
-
-	//"ImageId":""
 
 	// security group id 는 cluster info 에서 지정한다.
 	// 그런데 텐센트는 노드그룹 생성에서 지정해야한다.
@@ -631,6 +683,13 @@ func getNodeGroupRequest(cluster_id string, nodeGroupReqInfo irs.NodeGroupInfo) 
 
 	launch_config_json_str = fmt.Sprintf(launch_config_json_str, nodeGroupReqInfo.VMSpecName, security_group_id)
 
+	// auto_scaling_group_json_str := `{
+	// 	"MinSize": %d,
+	// 	"MaxSize": %d,
+	// 	"DesiredCapacity": %d,
+	// 	"VpcId": "%s",
+	// 	"SubnetIds": ["%s"]
+	// }`
 	auto_scaling_group_json_str := `{
 		"MinSize": %d,
 		"MaxSize": %d,			

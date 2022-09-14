@@ -5,6 +5,7 @@ import (
 	"github.com/tencentcloud/tencentcloud-sdk-go-intl-en/tencentcloud/common"
 	"github.com/tencentcloud/tencentcloud-sdk-go-intl-en/tencentcloud/common/profile"
 	tke "github.com/tencentcloud/tencentcloud-sdk-go-intl-en/tencentcloud/tke/v20180525"
+	vpc "github.com/tencentcloud/tencentcloud-sdk-go-intl-en/tencentcloud/vpc/v20170312"
 )
 
 func CreateCluster(secret_id string, secret_key string, region_id string, request *tke.CreateClusterRequest) (*tke.CreateClusterResponse, error) {
@@ -599,3 +600,73 @@ func GetLaunchConfiguration(secret_id string, secret_key string, region_id strin
 
 // 	return response.ToJsonString()
 // }
+
+//         // Instantiate a client configuration object. You can specify the timeout period and other configuration items
+//         cpf := profile.NewClientProfile()
+//         cpf.HttpProfile.Endpoint = "vpc.tencentcloudapi.com"
+//         // Instantiate an client object
+//         // The second parameter is the region information. You can directly enter the string "ap-guangzhou" or import the preset constant
+//         client, _ := vpc.NewClient(credential, "ap-beijing", cpf)
+
+//         // Instantiate a request object. You can further set the request parameters according to the API called and actual conditions
+//         request := vpc.NewDescribeSecurityGroupsRequest()
+
+//         // The returned "resp" is an instance of the DescribeSecurityGroupsResponse class which corresponds to the request object
+//         response, err := client.DescribeSecurityGroups(request)
+//         if _, ok := err.(*errors.TencentCloudSDKError); ok {
+//                 fmt.Printf("An API error has returned: %s", err)
+//                 return
+//         }
+//         if err != nil {
+//                 panic(err)
+//         }
+//         // A string return packet in JSON format is output
+//         fmt.Printf("%s", response.ToJsonString())
+// }
+
+func DescribeSecurityGroups(secret_id string, secret_key string, region_id string) (*vpc.DescribeSecurityGroupsResponse, error) {
+
+	credential := common.NewCredential(secret_id, secret_key)
+	cpf := profile.NewClientProfile()
+	cpf.HttpProfile.Endpoint = "vpc.tencentcloudapi.com"
+
+	client, _ := vpc.NewClient(credential, region_id, cpf)
+
+	request := vpc.NewDescribeSecurityGroupsRequest()
+
+	response, err := client.DescribeSecurityGroups(request)
+	if err != nil {
+		return nil, err
+	}
+
+	return response, nil
+}
+
+// {
+// 	"Response": {
+// 	  "RequestId": "d222da41-336b-4c36-aebf-0e7dd4493e06",
+// 	  "SecurityGroupSet": [
+// 		{
+// 		  "CreatedTime": "2022-08-30 10:30:03",
+// 		  "IsDefault": true,
+// 		  "ProjectId": "0",
+// 		  "SecurityGroupDesc": "System created security group",
+// 		  "SecurityGroupId": "sg-46eef229",
+// 		  "SecurityGroupName": "default",
+// 		  "TagSet": [],
+// 		  "UpdateTime": "2022-08-30 10:30:04"
+// 		},
+// 		{
+// 		  "CreatedTime": "2022-08-30 10:27:56",
+// 		  "IsDefault": false,
+// 		  "ProjectId": "0",
+// 		  "SecurityGroupDesc": "Host login and web service port open for Internet: all ports open for private network.",
+// 		  "SecurityGroupId": "sg-esz2nqpj",
+// 		  "SecurityGroupName": "TCP port 22, 80, 443, 3389 and ICMP open-2022083011275171687",
+// 		  "TagSet": [],
+// 		  "UpdateTime": "2022-08-30 10:27:58"
+// 		}
+// 	  ],
+// 	  "TotalCount": 2
+// 	}
+//   }
