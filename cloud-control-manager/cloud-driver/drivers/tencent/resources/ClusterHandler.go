@@ -11,6 +11,7 @@
 package resources
 
 import (
+	"encoding/json"
 	"fmt"
 	"strconv"
 	"strings"
@@ -21,6 +22,7 @@ import (
 	"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/tencent/utils/tencent"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
+	"github.com/jeremywohl/flatten"
 
 	"github.com/sirupsen/logrus"
 	tke "github.com/tencentcloud/tencentcloud-sdk-go-intl-en/tencentcloud/tke/v20180525"
@@ -367,14 +369,33 @@ func getClusterInfo(access_key string, access_secret string, region_id string, c
 		// KeyValueList: []irs.KeyValue{}, // flatten data 입력하기
 	}
 
+	// to much shit!
+	// e := reflect.ValueOf(*res.Response.Clusters[0])
+	// fieldNum := e.NumField()
+	// for i := 0; i < fieldNum; i++ {
+	// 	v := e.Field(i)
+	// 	t := e.Type().Field(i)
+	// 	fmt.Printf("Name: %s / Type: %s / Value: %v / Tag: %s \n", t.Name, t.Type, *v.Interface().(*string), t.Tag.Get("custom"))
+	// }
+
 	// // k,v 추출
 	// // k,v 변환 규칙 작성 [k,v]:[NodeGroup.k, NodeGroup.v]
 	// // 변환 규칙에 따라 k,v 변환
-	// flat, err = flatten.FlattenString(node_groups_json_str, "", flatten.DotStyle)
-	// if err != nil {
-	// 	return nil, err
-	// }
-	// println(flat)
+	temp, err := json.Marshal(*res.Response.Clusters[0])
+	if err != nil {
+		panic(err)
+	}
+	var json_obj map[string]interface{}
+	json.Unmarshal([]byte(temp), &json_obj)
+
+	flat, err := flatten.Flatten(json_obj, "", flatten.DotStyle)
+	if err != nil {
+		return nil, err
+	}
+	for k, v := range flat {
+		temp := fmt.Sprintf("%v", v)
+		cluster_info.KeyValueList = append(cluster_info.KeyValueList, irs.KeyValue{Key: k, Value: temp})
+	}
 
 	// NodeGroups
 	res2, err := tencent.ListNodeGroup(access_key, access_secret, region_id, cluster_id)
@@ -462,6 +483,23 @@ func getNodeGroupInfo(access_key, access_secret, region_id, cluster_id, node_gro
 		DesiredNodeSize: int(*auto_scaling_group.Response.AutoScalingGroupSet[0].DesiredCapacity),
 		NodeList:        []irs.IID{},      // to be implemented
 		KeyValueList:    []irs.KeyValue{}, // to be implemented
+	}
+
+	// add key value list
+	temp, err := json.Marshal(*res.Response.NodePool)
+	if err != nil {
+		panic(err)
+	}
+	var json_obj map[string]interface{}
+	json.Unmarshal([]byte(temp), &json_obj)
+
+	flat, err := flatten.Flatten(json_obj, "", flatten.DotStyle)
+	if err != nil {
+		return nil, err
+	}
+	for k, v := range flat {
+		temp := fmt.Sprintf("%v", v)
+		node_group_info.KeyValueList = append(node_group_info.KeyValueList, irs.KeyValue{Key: k, Value: temp})
 	}
 
 	return &node_group_info, err
