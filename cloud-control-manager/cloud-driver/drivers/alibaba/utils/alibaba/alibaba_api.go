@@ -4,6 +4,7 @@ import (
 	"github.com/aliyun/alibaba-cloud-sdk-go/sdk"
 	"github.com/aliyun/alibaba-cloud-sdk-go/sdk/auth/credentials"
 	"github.com/aliyun/alibaba-cloud-sdk-go/sdk/requests"
+	vpc "github.com/aliyun/alibaba-cloud-sdk-go/services/vpc"
 )
 
 func CreateCluster(access_key string, access_secret string, region_id string, body string) (string, error) {
@@ -272,4 +273,25 @@ func UpgradeCluster(access_key string, access_secret string, region_id string, c
 	}
 
 	return response.GetHttpContentString(), nil
+}
+
+func DescribeVSwitches(access_key string, access_secret string, region_id string, vpc_id string) (*vpc.DescribeVSwitchesResponse, error) {
+
+	config := sdk.NewConfig()
+	credential := credentials.NewAccessKeyCredential(access_key, access_secret)
+	client, err := vpc.NewClientWithOptions(region_id, config, credential)
+	if err != nil {
+		return nil, err
+	}
+
+	request := vpc.CreateDescribeVSwitchesRequest()
+	request.Scheme = "https"
+	request.VpcId = vpc_id
+	response, err := client.DescribeVSwitches(request)
+	if err != nil {
+		return nil, err
+	}
+
+	// return response.GetHttpContentString(), nil
+	return response, nil
 }

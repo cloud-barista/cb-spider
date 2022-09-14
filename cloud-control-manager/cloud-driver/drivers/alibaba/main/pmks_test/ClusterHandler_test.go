@@ -202,27 +202,27 @@ func TestCreateClusterOnly(t *testing.T) {
 
 	clusterInfo := irs.ClusterInfo{
 		IId: irs.IID{
-			NameId:   "cluster-x",
+			NameId:   "cluster-3",
 			SystemId: "",
 		},
 		Version: "1.22.10-aliyun.1",
 		Network: irs.NetworkInfo{
 			VpcIID: irs.IID{NameId: "", SystemId: "vpc-2zek5slojo5bh621ftnrg"},
 		},
-		KeyValueList: []irs.KeyValue{
-			{
-				Key:   "container_cidr",
-				Value: "172.22.0.0/16",
-			},
-			{
-				Key:   "service_cidr",
-				Value: "172.23.0.0/16",
-			},
-			{
-				Key:   "master_vswitch_id",
-				Value: "vsw-2ze0qpwcio7r5bx3nqbp1",
-			},
-		},
+		// KeyValueList: []irs.KeyValue{
+		// 	{
+		// 		Key:   "container_cidr",
+		// 		Value: "172.23.0.0/16",
+		// 	},
+		// 	{
+		// 		Key:   "service_cidr",
+		// 		Value: "172.24.0.0/16",
+		// 	},
+		// 	{
+		// 		Key:   "master_vswitch_id",
+		// 		Value: "vsw-2ze0qpwcio7r5bx3nqbp1",
+		// 	},
+		// },
 	}
 
 	// container_cidr + ?

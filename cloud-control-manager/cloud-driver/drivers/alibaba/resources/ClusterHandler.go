@@ -49,7 +49,7 @@ func (clusterHandler *AlibabaClusterHandler) CreateCluster(clusterReqInfo irs.Cl
 	callLogInfo := getCallLogScheme(clusterHandler.RegionInfo.Region, call.CLUSTER, "CreateCluster()", "CreateCluster()")
 
 	// 클러스터 생성 요청을 JSON 요청으로 변환
-	payload, err := getClusterInfoJSON(clusterReqInfo, clusterHandler.RegionInfo.Region)
+	payload, err := getClusterInfoJSON(clusterHandler, clusterReqInfo)
 	if err != nil {
 		cblogger.Error(err)
 		return irs.ClusterInfo{}, err
@@ -328,9 +328,6 @@ func getClusterInfo(access_key string, access_secret string, region_id string, c
 		return nil, err
 	}
 
-	// k,v 추출
-	// k,v 변환 규칙 작성 [k,v]:[ClusterInfo.k, ClusterInfo.v]
-	// 변환 규칙에 따라 k,v 변환
 	var cluster_json_obj map[string]interface{}
 	json.Unmarshal([]byte(cluster_json_str), &cluster_json_obj)
 
@@ -403,20 +400,25 @@ func getClusterInfo(access_key string, access_secret string, region_id string, c
 		// KeyValueList: []irs.KeyValue{}, // flatten data 입력하기
 	}
 
+	// k,v 추출
+	// k,v 변환 규칙 작성 [k,v]:[ClusterInfo.k, ClusterInfo.v]
+	// 변환 규칙에 따라 k,v 변환
+	// flat, err := flatten.FlattenString(cluster_json_str, "", flatten.DotStyle)
+	flat, err := flatten.Flatten(cluster_json_obj, "", flatten.DotStyle)
+	if err != nil {
+		return nil, err
+	}
+	for k, v := range flat {
+		temp := fmt.Sprintf("%v", v)
+		cluster_info.KeyValueList = append(cluster_info.KeyValueList, irs.KeyValue{Key: k, Value: temp})
+	}
+
 	// NodeGroups
 	node_groups_json_str, err := alibaba.ListNodeGroup(access_key, access_secret, region_id, cluster_id)
 	if err != nil {
 		return nil, err
 	}
 	// {"NextToken":"","TotalCount":0,"nodepools":[],"request_id":"4529A823-F344-5EA6-8E60-47FC30117668"}
-
-	// k,v 추출
-	// k,v 변환 규칙 작성 [k,v]:[NodeGroup.k, NodeGroup.v]
-	// 변환 규칙에 따라 k,v 변환
-	// flat, err = flatten.FlattenString(node_groups_json_str, "", flatten.DotStyle)
-	// if err != nil {
-	// 	return nil, err
-	// }
 
 	var node_groups_json_obj map[string]interface{}
 	json.Unmarshal([]byte(node_groups_json_str), &node_groups_json_obj)
@@ -520,10 +522,23 @@ func getNodeGroupInfo(access_key, access_secret, region_id, cluster_id, node_gro
 		KeyValueList:    []irs.KeyValue{}, // to be implemented
 	}
 
+	// k,v 추출
+	// k,v 변환 규칙 작성 [k,v]:[ClusterInfo.k, ClusterInfo.v]
+	// 변환 규칙에 따라 k,v 변환
+	// flat, err := flatten.FlattenString(cluster_json_str, "", flatten.DotStyle)
+	flat, err := flatten.Flatten(node_group_json_obj, "", flatten.DotStyle)
+	if err != nil {
+		return nil, err
+	}
+	for k, v := range flat {
+		temp := fmt.Sprintf("%v", v)
+		node_group_info.KeyValueList = append(node_group_info.KeyValueList, irs.KeyValue{Key: k, Value: temp})
+	}
+
 	return &node_group_info, err
 }
 
-func getClusterInfoJSON(clusterInfo irs.ClusterInfo, region_id string) (string, error) {
+func getClusterInfoJSON(clusterHandler *AlibabaClusterHandler, clusterInfo irs.ClusterInfo) (string, error) {
 
 	var err error = nil
 	defer func() {
@@ -558,19 +573,56 @@ func getClusterInfoJSON(clusterInfo irs.ClusterInfo, region_id string) (string, 
 	// }
 
 	//cidr: Valid values: 10.0.0.0/16-24, 172.16-31.0.0/16-24, and 192.168.0.0/16-24.
-	container_cidr := ""
-	service_cidr := ""
+	// container_cidr := ""
+	// service_cidr := ""
 	master_vswitch_id := ""
 
-	for _, v := range clusterInfo.KeyValueList {
-		switch v.Key {
-		case "container_cidr":
-			container_cidr = v.Value
-		case "service_cidr":
-			service_cidr = v.Value
-		case "master_vswitch_id":
-			master_vswitch_id = v.Value
+	// for _, v := range clusterInfo.KeyValueList {
+	// 	switch v.Key {
+	// 	case "container_cidr":
+	// 		container_cidr = v.Value
+	// 	case "service_cidr":
+	// 		service_cidr = v.Value
+	// 		// case "master_vswitch_id":
+	// 		// 	master_vswitch_id = v.Value
+	// 	}
+	// }
+
+	// get vswitch_id
+	res, err := alibaba.DescribeVSwitches(clusterHandler.CredentialInfo.ClientId, clusterHandler.CredentialInfo.ClientSecret, clusterHandler.RegionInfo.Region, clusterInfo.Network.VpcIID.SystemId)
+	if err != nil {
+		return "", err
+	}
+	for _, v := range res.VSwitches.VSwitch {
+		master_vswitch_id = v.VSwitchId
+		break
+	}
+
+	// get cidr list
+	//cidr: Valid values: 10.0.0.0/16-24, 172.16-31.0.0/16-24, and 192.168.0.0/16-24.
+
+	m_cidr := make(map[string]bool)
+	for i := 16; i < 32; i++ {
+		m_cidr[fmt.Sprintf("172.%v.0.0/16", i)] = true
+	}
+
+	clusters, err := clusterHandler.ListCluster()
+	if err != nil {
+		return "", err
+	}
+	for _, cluster := range clusters {
+		for _, v := range cluster.KeyValueList {
+			// "parameters.ServiceCIDR": "172.24.0.0/16",
+			// "subnet_cidr": "172.23.0.0/16",
+			if v.Key == "parameters.ServiceCIDR" || v.Key == "subnet_cidr" {
+				delete(m_cidr, v.Value)
+			}
 		}
+	}
+
+	cidr_list := []string{}
+	for k := range m_cidr {
+		cidr_list = append(cidr_list, k)
 	}
 
 	temp := `{
@@ -582,12 +634,11 @@ func getClusterInfoJSON(clusterInfo irs.ClusterInfo, region_id string) (string, 
 		"container_cidr": "%s",
 		"service_cidr": "%s",
 		"num_of_nodes": 0,
-		"master_vswitch_ids": [
-			"%s"
-		]
+		"master_vswitch_ids": ["%s"]
 	}`
 
-	clusterInfoJSON := fmt.Sprintf(temp, clusterInfo.IId.NameId, region_id, clusterInfo.Network.VpcIID.SystemId, container_cidr, service_cidr, master_vswitch_id)
+	//clusterInfoJSON := fmt.Sprintf(temp, clusterInfo.IId.NameId, clusterHandler.RegionInfo.Region, clusterInfo.Network.VpcIID.SystemId, container_cidr, service_cidr, master_vswitch_id)
+	clusterInfoJSON := fmt.Sprintf(temp, clusterInfo.IId.NameId, clusterHandler.RegionInfo.Region, clusterInfo.Network.VpcIID.SystemId, cidr_list[0], cidr_list[1], master_vswitch_id)
 
 	return clusterInfoJSON, err
 }
