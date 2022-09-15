@@ -1,0 +1,37 @@
+{
+    "Response": {
+        "NodePool": {
+            "NodePoolId": "np-9zxke3ar",
+            "Name": "nodegroup_x1",
+            "ClusterInstanceId": "cls-a7ixp8n3",
+            "LifeState": "normal",
+            "LaunchConfigurationId": "asc-g02kbamb",
+            "AutoscalingGroupId": "asg-k4rdj0vt",
+            "NodeCountSummary": {
+                "ManuallyAdded": {
+                    "Joining": 0,
+                    "Initializing": 0,
+                    "Normal": 0,
+                    "Total": 0
+                },
+                "AutoscalingAdded": {
+                    "Joining": 0,
+                    "Initializing": 1,
+                    "Normal": 0,
+                    "Total": 1
+                }
+            },
+            "AutoscalingGroupStatus": "enabled",
+            "MaxNodesNum": 3,
+            "MinNodesNum": 0,
+            "DesiredNodesNum": 1,
+            "NodePoolOs": "ubuntu16.04.1 LTSx86_64",
+            "OsCustomizeType": "GENERAL",
+            "ImageId": "",
+            "DesiredPodNum": 256,
+            "UserScript": "",
+            "DeletionProtection": false
+        },
+        "RequestId": "2f54638d-fbcf-4d86-86d0-fcdf7a832270"
+    }
+}

@@ -19,8 +19,6 @@ import (
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/sirupsen/logrus"
-
-	"errors"
 )
 
 var cblogger *logrus.Logger
@@ -31,7 +29,8 @@ func init() {
 }
 
 type AlibabaCloudConnection struct {
-	Region idrv.RegionInfo
+	CredentialInfo idrv.CredentialInfo
+	Region         idrv.RegionInfo
 
 	VMClient      *ecs.Client
 	KeyPairClient *ecs.Client
@@ -124,6 +123,18 @@ func (cloudConn *AlibabaCloudConnection) CreateMyImageHandler() (irs.MyImageHand
 	cblogger.Info("Start")
 	handler := alirs.AlibabaMyImageHandler{cloudConn.Region, cloudConn.MyImageClient}
 	return &handler, nil
+
+}
+
+func (cloudConn *AlibabaCloudConnection) CreateClusterHandler() (irs.ClusterHandler, error) {
+	cblogger.Info("Alibaba Cloud Driver: called CreateClusterHandler()!")
+
+	// temp
+	// getEnv & Setting
+	clusterHandler := alirs.AlibabaClusterHandler{RegionInfo: cloudConn.Region, CredentialInfo: cloudConn.CredentialInfo}
+
+	return &clusterHandler, nil
+
 }
 
 func (AlibabaCloudConnection) IsConnected() (bool, error) {
@@ -133,8 +144,3 @@ func (AlibabaCloudConnection) IsConnected() (bool, error) {
 func (AlibabaCloudConnection) Close() error {
 	return nil
 }
-
-func (cloudConn *AlibabaCloudConnection) CreateClusterHandler() (irs.ClusterHandler, error) {
-        return nil, errors.New("Alibaba Driver: not implemented")
-}
-

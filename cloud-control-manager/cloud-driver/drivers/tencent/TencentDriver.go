@@ -46,6 +46,7 @@ func (TencentDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	drvCapabilityInfo.PublicIPHandler = false
 	drvCapabilityInfo.VMHandler = true
 	drvCapabilityInfo.VMSpecHandler = true
+	drvCapabilityInfo.ClusterHandler = true
 
 	return drvCapabilityInfo
 }
@@ -217,6 +218,7 @@ func (driver *TencentDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (i
 	}
 
 	iConn := tcon.TencentCloudConnection{
+		CredentialInfo: connectionInfo.CredentialInfo,
 		Region:         connectionInfo.RegionInfo,
 		VNetworkClient: vpcClient,
 		NLBClient:      clbClient,
