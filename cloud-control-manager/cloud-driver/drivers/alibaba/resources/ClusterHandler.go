@@ -342,14 +342,7 @@ func getClusterInfo(access_key string, access_secret string, region_id string, c
 	// Draining	Evicting pods from a node to other nodes. After all pods are evicted from the node, the node becomes unschudulable.
 	// Deleting	Deleting the cluster.
 	// Deletion Failed	Failed to delete the cluster.
-	// Deleted (invisible to users)	The cluster is deleted.
-
-	// ClusterCreating ClusterStatus = "Creating"
-	// ClusterActive   ClusterStatus = "Active"
-	// ClusterInactive ClusterStatus = "Inactive"
-	// ClusterUpdating ClusterStatus = "Updating"
-	// ClusterDeleting ClusterStatus = "Deleting"
-
+	// Deleted (invisible to users)	The cluster is deleted."
 	health_status := cluster_json_obj["state"].(string)
 	cluster_status := irs.ClusterActive
 	if strings.EqualFold(health_status, "Initializing") {
@@ -370,13 +363,6 @@ func getClusterInfo(access_key string, access_secret string, region_id string, c
 		panic(err)
 	}
 
-	// name
-	// cluster_id
-	// current_version
-	// security_group_id
-	// vpc_id
-	// state
-	// created
 	cluster_info := &irs.ClusterInfo{
 		IId: irs.IID{
 			NameId:   cluster_json_obj["name"].(string),
@@ -400,10 +386,8 @@ func getClusterInfo(access_key string, access_secret string, region_id string, c
 		// KeyValueList: []irs.KeyValue{}, // flatten data 입력하기
 	}
 
-	// k,v 추출
-	// k,v 변환 규칙 작성 [k,v]:[ClusterInfo.k, ClusterInfo.v]
-	// 변환 규칙에 따라 k,v 변환
-	// flat, err := flatten.FlattenString(cluster_json_str, "", flatten.DotStyle)
+	// k,v 추출 & 추가
+	// KeyValueList: []irs.KeyValue{},
 	flat, err := flatten.Flatten(cluster_json_obj, "", flatten.DotStyle)
 	if err != nil {
 		return nil, err
@@ -418,7 +402,6 @@ func getClusterInfo(access_key string, access_secret string, region_id string, c
 	if err != nil {
 		return nil, err
 	}
-	// {"NextToken":"","TotalCount":0,"nodepools":[],"request_id":"4529A823-F344-5EA6-8E60-47FC30117668"}
 
 	var node_groups_json_obj map[string]interface{}
 	json.Unmarshal([]byte(node_groups_json_str), &node_groups_json_obj)
@@ -452,27 +435,6 @@ func getNodeGroupInfo(access_key, access_secret, region_id, cluster_id, node_gro
 	var node_group_json_obj map[string]interface{}
 	json.Unmarshal([]byte(node_group_json_str), &node_group_json_obj)
 
-	// mapping
-	// NodeGroupList.0.IId.NameId: 			nodepool_info.name
-	// NodeGroupList.0.IId.SystemId: 		nodepool_info.nodepool_id
-	// NodeGroupList.0.ImageIID.NameId: 	scaling_group.image_type
-	// NodeGroupList.0.ImageIID.SystemId: 	scaling_group.image_id
-	// NodeGroupList.0.VMSpecName: 			scaling_group.instance_types.0
-	// NodeGroupList.0.RootDiskType: 		scaling_group.system_disk_category
-	// NodeGroupList.0.RootDiskSize: 		scaling_group.system_disk_size
-	// NodeGroupList.0.KeyPairIID.NameId: 	scaling_group.key_pair
-	// NodeGroupList.0.KeyPairIID.SystemId: ""
-	// NodeGroupList.0.Status: 				status.state
-	// NodeGroupList.0.OnAutoScaling: 		auto_scaling.enable
-	// NodeGroupList.0.DesiredNodeSize: 	n/a
-	// NodeGroupList.0.MaxNodeSize: 		auto_scaling.max_instances
-	// NodeGroupList.0.MinNodeSize: 		auto_scaling.min_instances
-	// NodeGroupList.0.NodeList.0.NameId: 	//node정보추가 // not yet
-	// NodeGroupList.0.NodeList.0.SystemId:
-
-	// NodeGroupList.0.KeyValueList.0.Key: key,	//keyvalue 정보 추가
-	// NodeGroupList.0.KeyValueList.0.Value: value
-
 	// nodegroup.state
 	// https://www.alibabacloud.com/help/en/container-service-for-kubernetes/latest/query-the-details-of-a-node-pool
 	// active: The node pool is active.
@@ -494,9 +456,6 @@ func getNodeGroupInfo(access_key, access_secret, region_id, cluster_id, node_gro
 		status = irs.NodeGroupUpdating
 	}
 
-	// 변환 자동화 고려
-	// 변환 규칙 이용 고려 // https://github.com/qntfy/kazaam
-	// https://github.com/antchfx/jsonquery
 	node_group_info := irs.NodeGroupInfo{
 		IId: irs.IID{
 			NameId:   node_group_json_obj["nodepool_info"].(map[string]interface{})["name"].(string),
@@ -517,15 +476,13 @@ func getNodeGroupInfo(access_key, access_secret, region_id, cluster_id, node_gro
 		OnAutoScaling:   node_group_json_obj["auto_scaling"].(map[string]interface{})["enable"].(bool),
 		MinNodeSize:     int(node_group_json_obj["auto_scaling"].(map[string]interface{})["min_instances"].(float64)),
 		MaxNodeSize:     int(node_group_json_obj["auto_scaling"].(map[string]interface{})["max_instances"].(float64)),
-		DesiredNodeSize: 0,                // not supported in alibaba
-		NodeList:        []irs.IID{},      // to be implemented
-		KeyValueList:    []irs.KeyValue{}, // to be implemented
+		DesiredNodeSize: 0, // not supported in alibaba
+		NodeList:        []irs.IID{},
+		KeyValueList:    []irs.KeyValue{},
 	}
 
-	// k,v 추출
-	// k,v 변환 규칙 작성 [k,v]:[ClusterInfo.k, ClusterInfo.v]
-	// 변환 규칙에 따라 k,v 변환
-	// flat, err := flatten.FlattenString(cluster_json_str, "", flatten.DotStyle)
+	// k,v 추출 & 추가
+	// KeyValueList:    []irs.KeyValue{}
 	flat, err := flatten.Flatten(node_group_json_obj, "", flatten.DotStyle)
 	if err != nil {
 		return nil, err
@@ -547,48 +504,8 @@ func getClusterInfoJSON(clusterHandler *AlibabaClusterHandler, clusterInfo irs.C
 		}
 	}()
 
-	// clusterInfo := irs.ClusterInfo{
-	// 	IId: irs.IID{
-	// 		NameId:   "cluster-x",
-	// 		SystemId: "",
-	// 	},
-	// 	Version: "1.22.10-aliyun.1",
-	// 	Network: irs.NetworkInfo{
-	// 		VpcIID: irs.IID{NameId: "", SystemId: "vpc-2zek5slojo5bh621ftnrg"},
-	// 	},
-	// 	KeyValueList: []irs.KeyValue{
-	// 		{
-	// 			Key:   "container_cidr",
-	// 			Value: "172.31.0.0/16",
-	// 		},
-	// 		{
-	// 			Key:   "service_cidr",
-	// 			Value: "172.32.0.0/16",
-	// 		},
-	// 		{
-	// 			Key:   "master_vswitch_id",
-	// 			Value: "vsw-2ze0qpwcio7r5bx3nqbp1",
-	// 		},
-	// 	},
-	// }
-
-	//cidr: Valid values: 10.0.0.0/16-24, 172.16-31.0.0/16-24, and 192.168.0.0/16-24.
-	// container_cidr := ""
-	// service_cidr := ""
-	master_vswitch_id := ""
-
-	// for _, v := range clusterInfo.KeyValueList {
-	// 	switch v.Key {
-	// 	case "container_cidr":
-	// 		container_cidr = v.Value
-	// 	case "service_cidr":
-	// 		service_cidr = v.Value
-	// 		// case "master_vswitch_id":
-	// 		// 	master_vswitch_id = v.Value
-	// 	}
-	// }
-
 	// get vswitch_id
+	master_vswitch_id := ""
 	res, err := alibaba.DescribeVSwitches(clusterHandler.CredentialInfo.ClientId, clusterHandler.CredentialInfo.ClientSecret, clusterHandler.RegionInfo.Region, clusterInfo.Network.VpcIID.SystemId)
 	if err != nil {
 		return "", err
@@ -600,12 +517,10 @@ func getClusterInfoJSON(clusterHandler *AlibabaClusterHandler, clusterInfo irs.C
 
 	// get cidr list
 	//cidr: Valid values: 10.0.0.0/16-24, 172.16-31.0.0/16-24, and 192.168.0.0/16-24.
-
 	m_cidr := make(map[string]bool)
 	for i := 16; i < 32; i++ {
 		m_cidr[fmt.Sprintf("172.%v.0.0/16", i)] = true
 	}
-
 	clusters, err := clusterHandler.ListCluster()
 	if err != nil {
 		return "", err
@@ -619,12 +534,12 @@ func getClusterInfoJSON(clusterHandler *AlibabaClusterHandler, clusterInfo irs.C
 			}
 		}
 	}
-
 	cidr_list := []string{}
 	for k := range m_cidr {
 		cidr_list = append(cidr_list, k)
 	}
 
+	// create request json
 	temp := `{
 		"name": "%s",
 		"region_id": "%s",
@@ -637,7 +552,6 @@ func getClusterInfoJSON(clusterHandler *AlibabaClusterHandler, clusterInfo irs.C
 		"master_vswitch_ids": ["%s"]
 	}`
 
-	//clusterInfoJSON := fmt.Sprintf(temp, clusterInfo.IId.NameId, clusterHandler.RegionInfo.Region, clusterInfo.Network.VpcIID.SystemId, container_cidr, service_cidr, master_vswitch_id)
 	clusterInfoJSON := fmt.Sprintf(temp, clusterInfo.IId.NameId, clusterHandler.RegionInfo.Region, clusterInfo.Network.VpcIID.SystemId, cidr_list[0], cidr_list[1], master_vswitch_id)
 
 	return clusterInfoJSON, err
@@ -652,35 +566,14 @@ func getNodeGroupJSONString(clusterHandler *AlibabaClusterHandler, clusterIID ir
 		}
 	}()
 
-	// new_node_group := &irs.NodeGroupInfo{
-	// 	IId:             irs.IID{NameId: "nodepoolx100", SystemId: ""},
-	// 	ImageIID:        irs.IID{NameId: "", SystemId: "image_id"}, // 이미지 id 선택 추가
-	// 	VMSpecName:      "ecs.c6.xlarge",
-	// 	RootDiskType:    "cloud_essd",
-	// 	RootDiskSize:    "70",
-	// 	KeyPairIID:      irs.IID{NameId: "kp1", SystemId: ""},
-	// 	OnAutoScaling:   true,
-	// 	DesiredNodeSize: 1,
-	// 	MinNodeSize:     0,
-	// 	MaxNodeSize:     3,
-	// 	// KeyValueList: []irs.KeyValue{ // 클러스터 조회해서 처리한다. // //vswitch_id":"vsw-2ze0qpwcio7r5bx3nqbp1"
-	// 	// 	{
-	// 	// 		Key:   "vswitch_ids",
-	// 	// 		Value: "vsw-2ze0qpwcio7r5bx3nqbp1",
-	// 	// 	},
-	// 	// },
-	// }
-
 	name := nodeGroupReqInfo.IId.NameId
-	//image_id := nodeGroupReqInfo.ImageIID.SystemId
+	// image_id := nodeGroupReqInfo.ImageIID.SystemId // 옵션은 있으나, 설정해도 반영 안됨
 	enable := nodeGroupReqInfo.OnAutoScaling
 	max_instances := nodeGroupReqInfo.MaxNodeSize
 	min_instances := nodeGroupReqInfo.MinNodeSize
 	// desired_instances := nodeGroupReqInfo.DesiredNodeSize // not supported in alibaba
-
 	instance_type := nodeGroupReqInfo.VMSpecName
 	key_pair := nodeGroupReqInfo.KeyPairIID.NameId
-
 	system_disk_category := nodeGroupReqInfo.RootDiskType
 	system_disk_size, _ := strconv.ParseInt(nodeGroupReqInfo.RootDiskSize, 10, 32)
 
@@ -689,7 +582,6 @@ func getNodeGroupJSONString(clusterHandler *AlibabaClusterHandler, clusterIID ir
 	if err != nil {
 		return "", err
 	}
-
 	vswitch_id := "" // get vswitch_id, get from cluster info
 	res, err := alibaba.DescribeVSwitches(clusterHandler.CredentialInfo.ClientId, clusterHandler.CredentialInfo.ClientSecret, clusterHandler.RegionInfo.Region, clusterInfo.Network.VpcIID.SystemId)
 	if err != nil {
@@ -726,7 +618,6 @@ func getNodeGroupJSONString(clusterHandler *AlibabaClusterHandler, clusterIID ir
 	return payload, err
 }
 
-// getCallLogScheme(clusterHandler.RegionInfo.Region, call.CLUSTER, "ListCluster()", "ListCluster()")
 func getCallLogScheme(region string, resourceType call.RES_TYPE, resourceName string, apiName string) call.CLOUDLOGSCHEMA {
 	cblogger.Info(fmt.Sprintf("Call %s %s", call.ALIBABA, apiName))
 	return call.CLOUDLOGSCHEMA{

@@ -47,142 +47,6 @@ func TestGetClusterHander(t *testing.T) {
 	println(clusterHandler)
 }
 
-// func TestNewClusterInfo(t *testing.T) {
-
-// 	temp := irs.ClusterInfo{
-// 		IId: irs.IID{
-// 			NameId:   "cluster-name",
-// 			SystemId: "cluser-id",
-// 		},
-// 		Version: "1.21.2",
-// 		Network: irs.NetworkInfo{
-// 			VpcIID: irs.IID{
-// 				NameId:   "",
-// 				SystemId: "vpc-id",
-// 			},
-// 			SubnetIID: []irs.IID{
-// 				{
-// 					NameId:   "subnet-name",
-// 					SystemId: "subnet-id",
-// 				},
-// 			},
-// 			SecurityGroupIIDs: []irs.IID{
-// 				{
-// 					NameId:   "security-group-name",
-// 					SystemId: "sg-id",
-// 				},
-// 			},
-// 			KeyValueList: []irs.KeyValue{
-// 				{
-// 					Key:   "key",
-// 					Value: "value",
-// 				},
-// 			},
-// 		},
-// 		NodeGroupList: []irs.NodeGroupInfo{
-// 			{
-// 				IId: irs.IID{
-// 					NameId:   "test-node-group-name",
-// 					SystemId: "test-node-group-id",
-// 				},
-// 				ImageIID: irs.IID{
-// 					NameId:   "image-name",
-// 					SystemId: "image-id",
-// 				},
-// 				VMSpecName:   "ecs.g6.large",
-// 				RootDiskType: "disk_type",
-// 				RootDiskSize: "20",
-// 				KeyPairIID: irs.IID{
-// 					NameId:   "keypair",
-// 					SystemId: "keypair-id",
-// 				},
-// 				Status:          irs.NodeGroupCreating,
-// 				OnAutoScaling:   false,
-// 				DesiredNodeSize: 1,
-// 				MinNodeSize:     1,
-// 				MaxNodeSize:     1,
-// 				NodeList: []irs.IID{
-// 					{
-// 						NameId:   "node-name",
-// 						SystemId: "node-id",
-// 					},
-// 				},
-// 				KeyValueList: []irs.KeyValue{
-// 					{
-// 						Key:   "key",
-// 						Value: "value",
-// 					},
-// 				},
-// 			},
-// 		},
-// 		Addons: irs.AddonsInfo{
-// 			KeyValueList: []irs.KeyValue{
-// 				{
-// 					Key:   "ingress",
-// 					Value: "nginx",
-// 				},
-// 			},
-// 		},
-// 		Status:      irs.ClusterCreating,
-// 		CreatedTime: time.Now(),
-// 		KeyValueList: []irs.KeyValue{
-// 			{
-// 				Key:   "test-key",
-// 				Value: "test-value",
-// 			},
-// 		},
-// 	}
-
-// 	j, err := json.MarshalIndent(temp, "", "  ")
-// 	if err != nil {
-// 		fmt.Println(err)
-// 		return
-// 	}
-// 	println(string(j))
-
-// 	flat, _ := flatten.FlattenString(string(j), "", flatten.DotStyle)
-// 	println(flat)
-
-// 	// {
-// 	// 	"Addons.KeyValueList.0.Key": "ingress",
-// 	// 	"Addons.KeyValueList.0.Value": "nginx",
-// 	// 	"CreatedTime": "2022-09-08T15:27:45.67002+09:00",
-// 	// 	"IId.NameId": "cluster-name",
-// 	// 	"IId.SystemId": "cluser-id",
-// 	// 	"KeyValueList.0.Key": "test-key",
-// 	// 	"KeyValueList.0.Value": "test-value",
-// 	// 	"Network.KeyValueList.0.Key": "key",
-// 	// 	"Network.KeyValueList.0.Value": "value",
-// 	// 	"Network.SecurityGroupIIDs.0.NameId": "security-group-name",
-// 	// 	"Network.SecurityGroupIIDs.0.SystemId": "sg-id",
-// 	// 	"Network.SubnetIID.0.NameId": "subnet-name",
-// 	// 	"Network.SubnetIID.0.SystemId": "subnet-id",
-// 	// 	"Network.VpcIID.NameId": "",
-// 	// 	"Network.VpcIID.SystemId": "vpc-id",
-// 	// 	"NodeGroupList.0.DesiredNodeSize": 1,
-// 	// 	"NodeGroupList.0.IId.NameId": "test-node-group-name",
-// 	// 	"NodeGroupList.0.IId.SystemId": "test-node-group-id",
-// 	// 	"NodeGroupList.0.ImageIID.NameId": "image-name",
-// 	// 	"NodeGroupList.0.ImageIID.SystemId": "image-id",
-// 	// 	"NodeGroupList.0.KeyPairIID.NameId": "keypair",
-// 	// 	"NodeGroupList.0.KeyPairIID.SystemId": "keypair-id",
-// 	// 	"NodeGroupList.0.KeyValueList.0.Key": "key",
-// 	// 	"NodeGroupList.0.KeyValueList.0.Value": "value",
-// 	// 	"NodeGroupList.0.MaxNodeSize": 1,
-// 	// 	"NodeGroupList.0.MinNodeSize": 1,
-// 	// 	"NodeGroupList.0.NodeList.0.NameId": "node-name",
-// 	// 	"NodeGroupList.0.NodeList.0.SystemId": "node-id",
-// 	// 	"NodeGroupList.0.OnAutoScaling": false,
-// 	// 	"NodeGroupList.0.RootDiskSize": "20",
-// 	// 	"NodeGroupList.0.RootDiskType": "disk_type",
-// 	// 	"NodeGroupList.0.Status": "Creating",
-// 	// 	"NodeGroupList.0.VMSpecName": "ecs.g6.large",
-// 	// 	"Status": "Creating",
-// 	// 	"Version": "1.21.2"
-// 	// }
-
-// }
-
 func TestCreateClusterOnly(t *testing.T) {
 
 	t.Log("클러스터 생성, 노드그룹은 생성안함")
@@ -191,26 +55,6 @@ func TestCreateClusterOnly(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-
-	// // Instantiate a request object. You can further set the request parameters according to the API called and actual conditions
-	// request := tke.NewCreateClusterRequest()
-
-	// // request.FromJsonString()
-	// request.ClusterCIDRSettings = &tke.ClusterCIDRSettings{
-	// 	ClusterCIDR: common.StringPtr("172.20.0.0/16"), // 172.X.0.0.16: X Range:16, 17, ... , 31
-	// }
-	// request.ClusterBasicSettings = &tke.ClusterBasicSettings{
-	// 	ClusterName:    common.StringPtr("cluster-x2"),
-	// 	VpcId:          common.StringPtr("vpc-q1c6fr9e"),
-	// 	ClusterVersion: common.StringPtr("1.22.5"), //version: 1.22.5
-	// }
-	// request.ClusterType = common.StringPtr("MANAGED_CLUSTER")
-
-	// res, err := tencent.CreateCluster(secret_id, secret_key, region_id, request)
-	// if err != nil {
-	// 	t.Errorf("CreateCluster failed: %v", err)
-	// 	return
-	// }
 
 	clusterInfo := irs.ClusterInfo{
 		IId: irs.IID{
@@ -221,15 +65,8 @@ func TestCreateClusterOnly(t *testing.T) {
 		Network: irs.NetworkInfo{
 			VpcIID:    irs.IID{NameId: "", SystemId: "vpc-q1c6fr9e"},
 			SubnetIID: []irs.IID{{NameId: "", SystemId: "subnet-rl79gxhv"}},
-			//SecurityGroupIIDs: []irs.IID{{NameId: "", SystemId: "sg-46eef229"}},
+			//SecurityGroupIIDs: []irs.IID{{NameId: "", SystemId: "sg-46eef229"}}, // 설정 안됨
 		},
-		// KeyValueList: []irs.KeyValue{
-		// 	{
-		// 		Key:   "cluster_cidr", // 조회가능한 값이면, 내부에서 처리하는 코드 추가
-		// 		Value: "172.25.0.0/16",
-		// 		// Value: "172.20.0.0/16",
-		// 	},
-		// },
 	}
 
 	cluster_, err := clusterHandler.CreateCluster(clusterInfo)
@@ -239,94 +76,6 @@ func TestCreateClusterOnly(t *testing.T) {
 
 	t.Log(cluster_)
 }
-
-// func TestCreateClusterWith1NodeGroup(t *testing.T) {
-// 	//
-// 	t.Log("클러스터 + 노드그룹 생성")
-
-// 	clusterHandler, err := getClusterHandler()
-// 	if err != nil {
-// 		t.Error(err)
-// 	}
-
-// 	clusterInfo := irs.ClusterInfo{
-// 		IId: irs.IID{
-// 			NameId:   "cluster-x",
-// 			SystemId: "",
-// 		},
-// 		Version: "1.22.10-aliyun.1",
-// 		Network: irs.NetworkInfo{
-// 			VpcIID:            irs.IID{NameId: "", SystemId: "vpc-2zek5slojo5bh621ftnrg"},
-// 			SubnetIID:         []irs.IID{},
-// 			SecurityGroupIIDs: []irs.IID{},
-// 			KeyValueList:      []irs.KeyValue{},
-// 		},
-// 		NodeGroupList: []irs.NodeGroupInfo{
-// 			{
-// 				IId: irs.IID{
-// 					NameId:   "test-node-group-name",
-// 					SystemId: "test-node-group-id",
-// 				},
-// 				ImageIID: irs.IID{
-// 					NameId:   "image-name",
-// 					SystemId: "image-id",
-// 				},
-// 				VMSpecName:   "ecs.g6.large",
-// 				RootDiskType: "disk_type",
-// 				RootDiskSize: "20",
-// 				KeyPairIID: irs.IID{
-// 					NameId:   "keypair",
-// 					SystemId: "keypair-id",
-// 				},
-// 				Status:          irs.NodeGroupCreating,
-// 				OnAutoScaling:   false,
-// 				DesiredNodeSize: 1,
-// 				MinNodeSize:     1,
-// 				MaxNodeSize:     1,
-// 				NodeList: []irs.IID{
-// 					{
-// 						NameId:   "node-name",
-// 						SystemId: "node-id",
-// 					},
-// 				},
-// 				KeyValueList: []irs.KeyValue{
-// 					{
-// 						Key:   "key",
-// 						Value: "value",
-// 					},
-// 				},
-// 			},
-// 		},
-// 		Addons: irs.AddonsInfo{
-// 			KeyValueList: []irs.KeyValue{
-// 				{
-// 					Key:   "ingress",
-// 					Value: "nginx",
-// 				},
-// 			},
-// 		},
-// 		Status:      irs.ClusterCreating,
-// 		CreatedTime: time.Now(),
-// 		KeyValueList: []irs.KeyValue{
-// 			{
-// 				Key:   "test-key",
-// 				Value: "test-value",
-// 			},
-// 		},
-// 	}
-
-// 	// container_cidr + ?
-// 	// service_cidr + ?
-// 	// login_password + ?
-// 	// master_vswitch_ids
-
-// 	cluster_, err := clusterHandler.CreateCluster(clusterInfo)
-// 	if err != nil {
-// 		t.Error(err)
-// 	}
-
-// 	t.Log(cluster_)
-// }
 
 func TestListCluster(t *testing.T) {
 
@@ -377,8 +126,9 @@ func TestGetCluster(t *testing.T) {
 	}
 }
 
-// // // func TestDeleteCluster(t *testing.T) {
-// // // }
+// 맨 마지막 테스트로 이동
+// func TestDeleteCluster(t *testing.T) {
+// }
 
 func TestAddNodeGroup(t *testing.T) {
 	clusterHandler, err := getClusterHandler()
@@ -386,44 +136,10 @@ func TestAddNodeGroup(t *testing.T) {
 		t.Error(err)
 	}
 
-	// launch_config_json_str := `{
-	// 	"InstanceType": "%s",
-	// 	"SecurityGroupIds": ["%s"]
-	// }`
-	// launch_config_json_str = fmt.Sprintf(launch_config_json_str, "S3.MEDIUM2", "sg-46eef229")
-
-	// auto_scaling_group_json_str := `{
-	// 	"MinSize": %d,
-	// 	"MaxSize": %d,
-	// 	"DesiredCapacity": %d,
-	// 	"VpcId": "%s",
-	// 	"SubnetIds": ["%s"]
-	// }`
-	// auto_scaling_group_json_str = fmt.Sprintf(auto_scaling_group_json_str, 0, 3, 1, "vpc-q1c6fr9e", "subnet-rl79gxhv")
-
-	// enable_auto_scale := true
-
-	// // cluster_id, "cls-ke0ztn01_nodepool-x", lc_json_str, asc_json_str, true, "CLOUD_PREMIUM", 50
-	// // Instantiate a request object. You can further set the request parameters according to the API called and actual conditions
-	// request := tke.NewCreateClusterNodePoolRequest()
-	// request.Name = common.StringPtr("nodegroup_x1")
-	// request.ClusterId = common.StringPtr(cluster_id)
-	// request.LaunchConfigurePara = common.StringPtr(launch_config_json_str)
-	// request.AutoScalingGroupPara = common.StringPtr(auto_scaling_group_json_str)
-	// request.EnableAutoscale = common.BoolPtr(enable_auto_scale)
-	// request.InstanceAdvancedSettings = &tke.InstanceAdvancedSettings{
-	// 	DataDisks: []*tke.DataDisk{
-	// 		{
-	// 			DiskType: common.StringPtr("CLOUD_PREMIUM"),
-	// 			DiskSize: common.Int64Ptr(50),
-	// 		},
-	// 	},
-	// }
-
 	new_node_group := &irs.NodeGroupInfo{
 		IId: irs.IID{NameId: "nodepoolx101", SystemId: ""},
-		// ImageIID:        irs.IID{NameId: "", SystemId: "img-pi0ii46r"}, // 이미지 id 선택 추가, img-pi0ii46r:ubuntu18.04
 		// image id can not be set, when creating nodepool
+		// ImageIID:        irs.IID{NameId: "", SystemId: "img-pi0ii46r"}, // 이미지 id 선택 추가, img-pi0ii46r:ubuntu18.04
 		VMSpecName:      "S3.MEDIUM2",
 		RootDiskType:    "CLOUD_PREMIUM",
 		RootDiskSize:    "50",
@@ -432,31 +148,15 @@ func TestAddNodeGroup(t *testing.T) {
 		DesiredNodeSize: 1,
 		MinNodeSize:     0,
 		MaxNodeSize:     3,
-		KeyValueList:    []irs.KeyValue{
-			// {
-			// 	Key:   "security_group_id", // security_group_id는 cluster_info 정보에 있음. 이것을 어떻게 참조할지가 문제.
-			// 	Value: "sg-46eef229",
-			// },
-			// {
-			// 	Key:   "subnet_id",       // cluster_info 에서 참조
-			// 	Value: "subnet-rl79gxhv", // subnet-rl79gxhv
-			// },
-			// {
-			// 	Key:   "vpc_id", // cluster_info 정보에 있음. 조회해서 처리 가능
-			// 	Value: "vpc-q1c6fr9e",
-			// },
-		},
 	}
 
 	clusters, _ := clusterHandler.ListCluster()
 	for _, cluster := range clusters {
-		// println(cluster.IId.NameId, cluster.IId.SystemId)
 		t.Log(cluster)
 		node_group, err := clusterHandler.AddNodeGroup(cluster.IId, *new_node_group)
 		if err != nil {
 			t.Error(err)
 		}
-		// println(node_group.IId.NameId, node_group.IId.SystemId)
 		t.Log(node_group)
 	}
 }

@@ -292,6 +292,5 @@ func DescribeVSwitches(access_key string, access_secret string, region_id string
 		return nil, err
 	}
 
-	// return response.GetHttpContentString(), nil
 	return response, nil
 }

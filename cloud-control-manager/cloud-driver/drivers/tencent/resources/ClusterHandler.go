@@ -78,9 +78,6 @@ func (clusterHandler *TencentClusterHandler) CreateCluster(clusterReqInfo irs.Cl
 	// 	printFlattenJSON(res)
 	// }
 
-	// var response_json_obj map[string]interface{}
-	// json.Unmarshal([]byte(response_json_str), &response_json_obj)
-	// cluster_id := response_json_obj["cluster_id"].(string)
 	cluster_info, err := getClusterInfo(clusterHandler.CredentialInfo.ClientId, clusterHandler.CredentialInfo.ClientSecret, clusterHandler.RegionInfo.Region, *res.Response.ClusterId)
 	if err != nil {
 		cblogger.Error(err)
@@ -318,13 +315,8 @@ func getClusterInfo(access_key string, access_secret string, region_id string, c
 		return nil, fmt.Errorf("cluster[%s] does not exist", cluster_id)
 	}
 
-	// // k,v 추출
-	// // k,v 변환 규칙 작성 [k,v]:[ClusterInfo.k, ClusterInfo.v]
-	// // 변환 규칙에 따라 k,v 변환
-
 	// https://intl.cloud.tencent.com/document/api/457/32022#ClusterStatus
 	// Cluster status (Running, Creating, Idling or Abnormal)
-
 	health_status := *res.Response.Clusters[0].ClusterStatus
 	cluster_status := irs.ClusterActive
 	if strings.EqualFold(health_status, "Creating") {
@@ -375,7 +367,12 @@ func getClusterInfo(access_key string, access_secret string, region_id string, c
 		// KeyValueList: []irs.KeyValue{}, // flatten data 입력하기
 	}
 
-	// to much shit!
+	// k,v 추출 & 추가
+	// KeyValueList: []irs.KeyValue{}, // flatten data 입력하기
+	//
+	// reflect로 변환하는 것은 코드 지저분해짐
+	// 다른방법 찾기전에는 json으로 변환해서 처리
+	//
 	// e := reflect.ValueOf(*res.Response.Clusters[0])
 	// fieldNum := e.NumField()
 	// for i := 0; i < fieldNum; i++ {
@@ -383,10 +380,6 @@ func getClusterInfo(access_key string, access_secret string, region_id string, c
 	// 	t := e.Type().Field(i)
 	// 	fmt.Printf("Name: %s / Type: %s / Value: %v / Tag: %s \n", t.Name, t.Type, *v.Interface().(*string), t.Tag.Get("custom"))
 	// }
-
-	// // k,v 추출
-	// // k,v 변환 규칙 작성 [k,v]:[NodeGroup.k, NodeGroup.v]
-	// // 변환 규칙에 따라 k,v 변환
 	temp, err := json.Marshal(*res.Response.Clusters[0])
 	if err != nil {
 		panic(err)
@@ -433,19 +426,16 @@ func getNodeGroupInfo(access_key, access_secret, region_id, cluster_id, node_gro
 	if err != nil {
 		return nil, err
 	}
-	// printFlattenJSON(res)
 
 	launch_config, err := tencent.GetLaunchConfiguration(access_key, access_secret, region_id, *res.Response.NodePool.LaunchConfigurationId)
 	if err != nil {
 		return nil, err
 	}
-	// printFlattenJSON(launch_config)
 
 	auto_scaling_group, err := tencent.GetAutoScalingGroup(access_key, access_secret, region_id, *res.Response.NodePool.AutoscalingGroupId)
 	if err != nil {
 		return nil, err
 	}
-	// printFlattenJSON(auto_scaling_group)
 
 	// nodepool LifeState
 	// The lifecycle state of the current node pool.
@@ -498,7 +488,6 @@ func getNodeGroupInfo(access_key, access_secret, region_id, cluster_id, node_gro
 	}
 	var json_obj map[string]interface{}
 	json.Unmarshal([]byte(temp), &json_obj)
-
 	flat, err := flatten.Flatten(json_obj, "", flatten.DotStyle)
 	if err != nil {
 		return nil, err
@@ -521,12 +510,6 @@ func getCreateClusterRequest(clusterHandler *TencentClusterHandler, clusterInfo 
 	}()
 
 	// 172.X.0.0.16: X Range:16, 17, ... , 31
-	// for _, v := range clusterInfo.KeyValueList {
-	// 	switch v.Key {
-	// 	case "cluster_cidr":
-	// 		cluster_cidr = v.Value
-	// 	}
-	// }
 	m_cidr := make(map[string]bool)
 	for i := 16; i < 32; i++ {
 		m_cidr[fmt.Sprintf("172.%v.0.0/16", i)] = true
@@ -561,6 +544,8 @@ func getCreateClusterRequest(clusterHandler *TencentClusterHandler, clusterInfo 
 	}
 	request.ClusterType = common.StringPtr("MANAGED_CLUSTER") //default value
 
+	// not working!
+	// security group을 추가해보려 했으나, 설정안됨
 	// request.ExistedInstancesForNode = []*tke.ExistedInstancesForNode{
 	// 	{
 	// 		ExistedInstancesPara: &tke.ExistedInstancesPara{
@@ -580,23 +565,6 @@ func getNodeGroupRequest(clusterHandler *TencentClusterHandler, cluster_id strin
 			err = fmt.Errorf("getNodeGroupRequest: %v", r)
 		}
 	}()
-
-	// 값 찾기
-	// 클러스터 정보를 조회해서 찾는다.
-	// 클러스터가 있어야 NodeGroup 생성이 가능하기 때문에, 이 정보는 조회 가능한다.
-
-	// {
-	// 	Key:   "security_group_id", // security_group_id는 cluster_info 정보에 있음. 이것을 어떻게 참조할지가 문제.
-	// 	Value: "sg-46eef229",
-	// },
-	// {
-	// 	Key:   "subnet_id",       // cluster_info 에서 참조
-	// 	Value: "subnet-rl79gxhv", // subnet-rl79gxhv
-	// },
-	// {
-	// 	Key:   "vpc_id", // cluster_info 정보에 있음. 조회해서 처리 가능
-	// 	Value: "vpc-q1c6fr9e",
-	// },
 
 	cluster, res := clusterHandler.GetCluster(irs.IID{SystemId: cluster_id})
 	if res != nil {
@@ -618,78 +586,14 @@ func getNodeGroupRequest(clusterHandler *TencentClusterHandler, cluster_id strin
 		}
 	}
 
-	// temp, err := json.Marshal(*res.Response.NodePool)
-	// if err != nil {
-	// 	panic(err)
-	// }
-	// var json_obj map[string]interface{}
-	// json.Unmarshal([]byte(temp), &json_obj)
-
-	// flat, err := flatten.Flatten(json_obj, "", flatten.DotStyle)
-	// if err != nil {
-	// 	return nil, err
-	// }
-	// for k, v := range flat {
-	// 	temp := fmt.Sprintf("%v", v)
-	// 	node_group_info.KeyValueList = append(node_group_info.KeyValueList, irs.KeyValue{Key: k, Value: temp})
-	// }
-
-	// KeyValueList: []irs.KeyValue{
-	// 	{
-	// 		Key:   "security_group_id", // security_group_id는 cluster_info 정보에 있음. 이것을 어떻게 참조할지가 문제.
-	// 		Value: "sg-46eef229",
-	// 	},
-	// 	{
-	// 		Key:   "subnet_id", // cluster_info 에서 참조
-	// 		Value: "subnet-rl79gxhv",
-	// 	},
-	// 	{
-	// 		Key:   "vpc_id", // cluster_info 정보에 있음. 조회해서 처리 가능
-	// 		Value: "vpc-q1c6fr9e",
-	// 	},
-	// },
-
 	// '{"LaunchConfigurationName":"name","InstanceType":"S3.MEDIUM2","ImageId":"img-pi0ii46r"}'
+	// ImageId를 설정하면 에러 발생, 설정안됨.
 	launch_config_json_str := `{
 		"InstanceType": "%s",
 		"SecurityGroupIds": ["%s"]
 	}`
-
-	// security group id 는 cluster info 에서 지정한다.
-	// 그런데 텐센트는 노드그룹 생성에서 지정해야한다.
-	// node group info 네는 securityp group id 필드가 없다.
-	// 그래서 일단 key/value 에 지정해서 사용한다. // issue
-
-	// 추가
-	// https://intl.cloud.tencent.com/document/api/377/30998
-	//keypair:
-	//image_id: "ImageId": "",
-
-	//launch_config_json_str = fmt.Sprintf(launch_config_json_str, "S3.MEDIUM2", "sg-46eef229")
-	// req.setLaunchConfigurationName("name");
-	// req.setInstanceType("instance_type");
-	// req.setImageId("image_id");
-	// SystemDisk systemDisk1 = new SystemDisk();
-	// systemDisk1.setDiskType("disk_type");
-	// systemDisk1.setDiskSize(50L);
-	// req.setSystemDisk(systemDisk1);
-	// LoginSettings loginSettings1 = new LoginSettings();
-	// loginSettings1.setPassword("password");
-	// String[] keyIds1 = {"key_id"};
-	// loginSettings1.setKeyIds(keyIds1);
-	// req.setLoginSettings(loginSettings1);
-	// String[] securityGroupIds1 = {"security_group"};
-	// req.setSecurityGroupIds(securityGroupIds1);
-
 	launch_config_json_str = fmt.Sprintf(launch_config_json_str, nodeGroupReqInfo.VMSpecName, security_group_id)
 
-	// auto_scaling_group_json_str := `{
-	// 	"MinSize": %d,
-	// 	"MaxSize": %d,
-	// 	"DesiredCapacity": %d,
-	// 	"VpcId": "%s",
-	// 	"SubnetIds": ["%s"]
-	// }`
 	auto_scaling_group_json_str := `{
 		"MinSize": %d,
 		"MaxSize": %d,			
@@ -698,12 +602,8 @@ func getNodeGroupRequest(clusterHandler *TencentClusterHandler, cluster_id strin
 		"SubnetIds": ["%s"]
 	}`
 	auto_scaling_group_json_str = fmt.Sprintf(auto_scaling_group_json_str, 0, 3, 1, vpc_id, subnet_id)
-	// auto_scaling_group_json_str = fmt.Sprintf(auto_scaling_group_json_str, nodeGroupReqInfo.MinNodeSize, nodeGroupReqInfo.MaxNodeSize, nodeGroupReqInfo.DesiredNodeSize, nodeGroupReqInfo.Network.VpcIID.SystemId, nodeGroupReqInfo.Network.SubnetIID.SystemId)
 
 	disk_size, _ := strconv.ParseInt(nodeGroupReqInfo.RootDiskSize, 10, 64)
-
-	// cluster_id, "cls-ke0ztn01_nodepool-x", lc_json_str, asc_json_str, true, "CLOUD_PREMIUM", 50
-	// Instantiate a request object. You can further set the request parameters according to the API called and actual conditions
 	request := tke.NewCreateClusterNodePoolRequest()
 	request.Name = common.StringPtr(nodeGroupReqInfo.IId.NameId)
 	request.ClusterId = common.StringPtr(cluster_id)
@@ -718,10 +618,10 @@ func getNodeGroupRequest(clusterHandler *TencentClusterHandler, cluster_id strin
 			},
 		},
 	}
+
 	return request, err
 }
 
-// getCallLogScheme(clusterHandler.RegionInfo.Region, call.CLUSTER, "ListCluster()", "ListCluster()")
 func getCallLogScheme(region string, resourceType call.RES_TYPE, resourceName string, apiName string) call.CLOUDLOGSCHEMA {
 	cblogger.Info(fmt.Sprintf("Call %s %s", call.TENCENT, apiName))
 	return call.CLOUDLOGSCHEMA{
