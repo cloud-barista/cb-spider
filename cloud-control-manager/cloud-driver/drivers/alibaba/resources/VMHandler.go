@@ -736,8 +736,8 @@ func (vmHandler *AlibabaVMHandler) ExtractDescribeInstances(instanceInfo *ecs.In
 	}
 
 	var dataDiskList []irs.IID
-	for diskIndex, diskInfo := range diskInfoList {
-		if diskIndex == 0 {
+	for _, diskInfo := range diskInfoList {
+		if diskInfo.Type == "system" {
 			vmInfo.RootDiskType = diskInfo.Category
 			vmInfo.RootDiskSize = strconv.Itoa(diskInfo.Size)
 			vmInfo.RootDeviceName = diskInfo.Device

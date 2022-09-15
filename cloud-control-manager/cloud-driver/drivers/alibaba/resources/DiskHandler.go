@@ -3,6 +3,10 @@ package resources
 import (
 	"errors"
 	"fmt"
+	"strconv"
+	"strings"
+	"time"
+
 	"github.com/aliyun/alibaba-cloud-sdk-go/sdk/requests"
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/ecs"
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
@@ -10,9 +14,6 @@ import (
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	cim "github.com/cloud-barista/cb-spider/cloud-info-manager"
 	"github.com/davecgh/go-spew/spew"
-	"strconv"
-	"strings"
-	"time"
 )
 
 type AlibabaDiskHandler struct {
@@ -36,7 +37,8 @@ const (
 	ALIBABA_DISK_STATUS_REINITING = "ReIniting"
 )
 
-/**
+/*
+*
 create 시 특정 instance에 바로 attach 가능하나 CB-SPIDER에서는 사용하지 않음
 */
 func (diskHandler *AlibabaDiskHandler) CreateDisk(diskReqInfo irs.DiskInfo) (irs.DiskInfo, error) {
@@ -109,7 +111,8 @@ func (diskHandler *AlibabaDiskHandler) CreateDisk(diskReqInfo irs.DiskInfo) (irs
 	return diskInfo, nil
 }
 
-/**
+/*
+*
 Root-Disk, Data-Disk 구분 없이 모든 Disk 목록을 제공한다.
 */
 func (diskHandler *AlibabaDiskHandler) ListDisk() ([]*irs.DiskInfo, error) {
@@ -396,7 +399,8 @@ func (diskHandler *AlibabaDiskHandler) AttachDisk(diskIID irs.IID, ownerVM irs.I
 	return newDiskInfo, err
 }
 
-/**
+/*
+*
 The disk must be attached to an ECS instance and in the In Use (In_Use) state.
 The instance from which you want to detach the data disk must be in the Running (Running) or Stopped (Stopped) state.
 The instance from which you want to detach the system disk must be in the Stopped (Stopped) state.
@@ -465,10 +469,11 @@ func (diskHandler *AlibabaDiskHandler) DetachDisk(diskIID irs.IID, ownerVM irs.I
 	return true, nil
 }
 
-/**
+/*
+*
 Disk 생성시 validation check
- - DiskType
- - DiskType 별 min/max capacity check
+  - DiskType
+  - DiskType 별 min/max capacity check
 */
 func validateCreateDisk(diskReqInfo irs.DiskInfo) error {
 	// Check Disk Exists
@@ -617,9 +622,9 @@ func validateModifyDisk(diskReqInfo irs.DiskInfo, diskSize string) error {
 	return nil
 }
 
-//https://pkg.go.dev/github.com/aliyun/alibaba-cloud-sdk-go/services/ecs?tab=doc#Image
-//package ecs v1.61.170 Latest Published: Apr 30, 2020
-//Image 정보를 추출함
+// https://pkg.go.dev/github.com/aliyun/alibaba-cloud-sdk-go/services/ecs?tab=doc#Image
+// package ecs v1.61.170 Latest Published: Apr 30, 2020
+// Image 정보를 추출함
 func ExtractDiskDescribeInfo(aliDisk *ecs.Disk) (irs.DiskInfo, error) {
 
 	diskInfo := irs.DiskInfo{
@@ -631,7 +636,7 @@ func ExtractDiskDescribeInfo(aliDisk *ecs.Disk) (irs.DiskInfo, error) {
 	diskInfo.CreatedTime, _ = time.Parse(
 		time.RFC3339,
 		aliDisk.CreationTime)
-
+	diskInfo.OwnerVM = irs.IID{SystemId: aliDisk.InstanceId}
 	diskStatus, errStatus := convertAlibabaDiskStatusToDiskStatus(aliDisk.Status)
 	if errStatus != nil {
 		return irs.DiskInfo{}, errStatus
@@ -694,7 +699,8 @@ func ExtractDiskDescribeInfo(aliDisk *ecs.Disk) (irs.DiskInfo, error) {
 	return diskInfo, nil
 }
 
-/**
+/*
+*
 Alibaba 의 DiskStatus 를 CB-SPIDER의 DiskStatus 로 변환
 */
 func convertAlibabaDiskStatusToDiskStatus(aliDiskStaus string) (irs.DiskStatus, error) {
