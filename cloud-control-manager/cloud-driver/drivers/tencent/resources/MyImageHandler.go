@@ -1,17 +1,13 @@
 package resources
 
 import (
-
 	"errors"
 	"time"
-
 
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
-
-
 
 	//cvm "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/cvm/v20170312"
 	cvm "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/cvm/v20170312"
@@ -52,8 +48,28 @@ func (myImageHandler TencentMyImageHandler) SnapshotVM(snapshotReqInfo irs.MyIma
 		return irs.MyImageInfo{}, errors.New("A MyImage with the name " + snapshotReqInfo.IId.NameId + " already exists.")
 	}
 
-
+	vmRequest := cvm.NewDescribeInstancesRequest()
 	request := cvm.NewCreateImageRequest()
+
+	vmRequest.InstanceIds = common.StringPtrs([]string{snapshotReqInfo.SourceVM.SystemId})
+
+	vmInfo, vmInfoErr := myImageHandler.Client.DescribeInstances(vmRequest)
+	if vmInfoErr != nil {
+		cblogger.Error(vmInfoErr)
+		return irs.MyImageInfo{}, vmInfoErr
+	}
+
+	dataDiskSet := vmInfo.Response.InstanceSet[0].DataDisks
+	var dataDiskIdList []string
+
+	if len(dataDiskSet) > 0 {
+		for _, dataDisk := range dataDiskSet {
+			dataDiskId := dataDisk.DiskId
+			dataDiskIdList = append(dataDiskIdList, *dataDiskId)
+		}
+
+		request.DataDiskIds = common.StringPtrs(dataDiskIdList)
+	}
 
 	//ImageName        *string `json:"ImageName,omitempty" name:"ImageName"`
 	//InstanceId       *string `json:"InstanceId,omitempty" name:"InstanceId"`
@@ -62,7 +78,6 @@ func (myImageHandler TencentMyImageHandler) SnapshotVM(snapshotReqInfo irs.MyIma
 
 	request.ImageName = common.StringPtr(snapshotReqInfo.IId.NameId)
 	request.InstanceId = common.StringPtr(snapshotReqInfo.SourceVM.SystemId)
-
 
 	// Tag 추가 ResourceType : instance(for CVM), host(for CDH), image(for image), keypair(for key)
 	request.TagSpecification = []*cvm.TagSpecification{
@@ -88,7 +103,6 @@ func (myImageHandler TencentMyImageHandler) SnapshotVM(snapshotReqInfo irs.MyIma
 
 	spew.Dump(response)
 
-
 	myImageInfo, myImageErr := myImageHandler.GetMyImage(irs.IID{SystemId: *response.Response.ImageId})
 	if myImageErr != nil {
 		cblogger.Error(myImageErr)
@@ -103,7 +117,6 @@ func (myImageHandler TencentMyImageHandler) SnapshotVM(snapshotReqInfo irs.MyIma
 TODO : CommonHandlerm에 DescribeImages, DescribeImageById, DescribeImageStatus 추가할 것.
 */
 func (myImageHandler TencentMyImageHandler) ListMyImage() ([]*irs.MyImageInfo, error) {
-
 
 	myImageSet, err := DescribeImages(myImageHandler.Client, nil)
 	if err != nil {
@@ -124,7 +137,6 @@ func (myImageHandler TencentMyImageHandler) ListMyImage() ([]*irs.MyImageInfo, e
 }
 
 func (myImageHandler TencentMyImageHandler) GetMyImage(myImageIID irs.IID) (irs.MyImageInfo, error) {
-
 
 	targetImage, err := DescribeImagesByID(myImageHandler.Client, myImageIID)
 	if err != nil {
