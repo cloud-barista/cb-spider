@@ -382,11 +382,9 @@ func TestDescribeSecurityGroups(t *testing.T) {
 	}
 
 	for _, group := range res.Response.SecurityGroupSet {
-
 		if *group.IsDefault {
 			println(*group.SecurityGroupId, *group.SecurityGroupName)
 		}
-
 	}
 
 }
