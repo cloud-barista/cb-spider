@@ -12,6 +12,7 @@ package connect
 
 import (
 	"context"
+	"errors"
 
 	cblog "github.com/cloud-barista/cb-log"
 	gcprs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/gcp/resources"
@@ -19,8 +20,6 @@ import (
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/sirupsen/logrus"
 	compute "google.golang.org/api/compute/v1"
-
-	"errors"
 )
 
 var cblogger *logrus.Logger
@@ -126,6 +125,5 @@ func (cloudConn *GCPCloudConnection) CreateMyImageHandler() (irs.MyImageHandler,
 }
 
 func (cloudConn *GCPCloudConnection) CreateClusterHandler() (irs.ClusterHandler, error) {
-        return nil, errors.New("GCP Driver: not implemented")
+	return nil, errors.New("GCP Driver: not implemented")
 }
-
