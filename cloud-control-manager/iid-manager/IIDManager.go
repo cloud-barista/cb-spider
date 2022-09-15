@@ -395,8 +395,8 @@ func getIdMaxLength(providerName string, rsType string) int {
 	}
 
 	/*----- ref) cloud-driver-libs/cloudos_meta.yaml
-	  # idmaxlength: VPC / Subnet / SecurityGroup / KeyPair / VM
-	    idmaxlength: 255 / 256 / 255 / 255 / 255
+	  # idmaxlength: VPC / Subnet / SecurityGroup / KeyPair / VM / Disk / NLB / MyImage /Cluster
+	    idmaxlength: 255 / 256 / 255 / 255 / 255 / 255 / 255 / 255 / 255
 	-----*/
 	idx := getIDXNumber(rsType)
 	if idx == -1 {
@@ -420,6 +420,14 @@ func getIDXNumber(rsType string) int {
 		return 3
 	case "vm": 
 		return 4
+	case "disk": 
+		return 5
+	case "nlb": 
+		return 6
+	case "myimage": 
+		return 7
+	case "cluster": 
+		return 8
 	default: 
 		return -1
 	}
