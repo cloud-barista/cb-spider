@@ -58,10 +58,12 @@ func (clusterHandler *TencentClusterHandler) CreateCluster(clusterReqInfo irs.Cl
 
 	start := call.Start()
 	res, err := tencent.CreateCluster(clusterHandler.CredentialInfo.ClientId, clusterHandler.CredentialInfo.ClientSecret, clusterHandler.RegionInfo.Region, request)
-	loggingInfo(callLogInfo, start)
+	callLogInfo.ElapsedTime = call.Elapsed(start)
+	tempCalllogger.Info(call.String(callLogInfo))
 	if err != nil {
 		cblogger.Error(err)
-		loggingError(callLogInfo, err)
+		callLogInfo.ErrorMSG = err.Error()
+		tempCalllogger.Info(call.String(callLogInfo))
 		return irs.ClusterInfo{}, err
 	}
 
@@ -94,9 +96,12 @@ func (clusterHandler *TencentClusterHandler) ListCluster() ([]*irs.ClusterInfo, 
 
 	start := call.Start()
 	res, err := tencent.GetClusters(clusterHandler.CredentialInfo.ClientId, clusterHandler.CredentialInfo.ClientSecret, clusterHandler.RegionInfo.Region)
-	loggingInfo(callLogInfo, start)
+	callLogInfo.ElapsedTime = call.Elapsed(start)
+	tempCalllogger.Info(call.String(callLogInfo))
 	if err != nil {
 		cblogger.Error(err)
+		callLogInfo.ErrorMSG = err.Error()
+		tempCalllogger.Info(call.String(callLogInfo))
 		return nil, err
 	}
 
@@ -118,9 +123,12 @@ func (clusterHandler *TencentClusterHandler) GetCluster(clusterIID irs.IID) (irs
 
 	start := call.Start()
 	cluster_info, err := getClusterInfo(clusterHandler.CredentialInfo.ClientId, clusterHandler.CredentialInfo.ClientSecret, clusterHandler.RegionInfo.Region, clusterIID.SystemId)
-	loggingInfo(callLogInfo, start)
+	callLogInfo.ElapsedTime = call.Elapsed(start)
+	tempCalllogger.Info(call.String(callLogInfo))
 	if err != nil {
 		cblogger.Error(err)
+		callLogInfo.ErrorMSG = err.Error()
+		tempCalllogger.Info(call.String(callLogInfo))
 		return irs.ClusterInfo{}, err
 	}
 
@@ -133,9 +141,12 @@ func (clusterHandler *TencentClusterHandler) DeleteCluster(clusterIID irs.IID) (
 
 	start := call.Start()
 	res, err := tencent.DeleteCluster(clusterHandler.CredentialInfo.ClientId, clusterHandler.CredentialInfo.ClientSecret, clusterHandler.RegionInfo.Region, clusterIID.SystemId)
-	loggingInfo(callLogInfo, start)
+	callLogInfo.ElapsedTime = call.Elapsed(start)
+	tempCalllogger.Info(call.String(callLogInfo))
 	if err != nil {
 		cblogger.Error(err)
+		callLogInfo.ErrorMSG = err.Error()
+		tempCalllogger.Info(call.String(callLogInfo))
 		return false, err
 	}
 	cblogger.Info("DeleteCluster(): ", res)
@@ -157,9 +168,12 @@ func (clusterHandler *TencentClusterHandler) AddNodeGroup(clusterIID irs.IID, no
 
 	start := call.Start()
 	response, err := tencent.CreateNodeGroup(clusterHandler.CredentialInfo.ClientId, clusterHandler.CredentialInfo.ClientSecret, clusterHandler.RegionInfo.Region, request)
-	loggingInfo(callLogInfo, start)
+	callLogInfo.ElapsedTime = call.Elapsed(start)
+	tempCalllogger.Info(call.String(callLogInfo))
 	if err != nil {
 		cblogger.Error(err)
+		callLogInfo.ErrorMSG = err.Error()
+		tempCalllogger.Info(call.String(callLogInfo))
 		return irs.NodeGroupInfo{}, err
 	}
 
@@ -180,9 +194,12 @@ func (clusterHandler *TencentClusterHandler) ListNodeGroup(clusterIID irs.IID) (
 
 	start := call.Start()
 	res, err := tencent.ListNodeGroup(clusterHandler.CredentialInfo.ClientId, clusterHandler.CredentialInfo.ClientSecret, clusterHandler.RegionInfo.Region, clusterIID.SystemId)
-	loggingInfo(callLogInfo, start)
+	callLogInfo.ElapsedTime = call.Elapsed(start)
+	tempCalllogger.Info(call.String(callLogInfo))
 	if err != nil {
 		cblogger.Error(err)
+		callLogInfo.ErrorMSG = err.Error()
+		tempCalllogger.Info(call.String(callLogInfo))
 		return node_group_info_list, err
 	}
 
@@ -204,9 +221,12 @@ func (clusterHandler *TencentClusterHandler) GetNodeGroup(clusterIID irs.IID, no
 
 	start := call.Start()
 	temp, err := getNodeGroupInfo(clusterHandler.CredentialInfo.ClientId, clusterHandler.CredentialInfo.ClientSecret, clusterHandler.RegionInfo.Region, clusterIID.SystemId, nodeGroupIID.SystemId)
-	loggingInfo(callLogInfo, start)
+	callLogInfo.ElapsedTime = call.Elapsed(start)
+	tempCalllogger.Info(call.String(callLogInfo))
 	if err != nil {
 		cblogger.Error(err)
+		callLogInfo.ErrorMSG = err.Error()
+		tempCalllogger.Info(call.String(callLogInfo))
 		return irs.NodeGroupInfo{}, err
 	}
 
@@ -219,9 +239,12 @@ func (clusterHandler *TencentClusterHandler) SetNodeGroupAutoScaling(clusterIID 
 
 	start := call.Start()
 	temp, err := tencent.SetNodeGroupAutoScaling(clusterHandler.CredentialInfo.ClientId, clusterHandler.CredentialInfo.ClientSecret, clusterHandler.RegionInfo.Region, clusterIID.SystemId, nodeGroupIID.SystemId, on)
-	loggingInfo(callLogInfo, start)
+	callLogInfo.ElapsedTime = call.Elapsed(start)
+	tempCalllogger.Info(call.String(callLogInfo))
 	if err != nil {
 		cblogger.Error(err)
+		callLogInfo.ErrorMSG = err.Error()
+		tempCalllogger.Info(call.String(callLogInfo))
 		return false, err
 	}
 	cblogger.Info(temp.ToJsonString())
@@ -233,7 +256,6 @@ func (clusterHandler *TencentClusterHandler) ChangeNodeGroupScaling(clusterIID i
 	cblogger.Info("Tencent Cloud Driver: called ChangeNodeGroupScaling()")
 	callLogInfo := getCallLogScheme(clusterHandler.RegionInfo.Region, call.CLUSTER, clusterIID.NameId, "ChangeNodeGroupScaling()")
 
-	// nodepool.AutoscalingGroupId
 	nodegroup, err := tencent.GetNodeGroup(clusterHandler.CredentialInfo.ClientId, clusterHandler.CredentialInfo.ClientSecret, clusterHandler.RegionInfo.Region, clusterIID.SystemId, nodeGroupIID.SystemId)
 	if err != nil {
 		cblogger.Error(err)
@@ -242,8 +264,11 @@ func (clusterHandler *TencentClusterHandler) ChangeNodeGroupScaling(clusterIID i
 
 	start := call.Start()
 	temp, err := tencent.ChangeNodeGroupScaling(clusterHandler.CredentialInfo.ClientId, clusterHandler.CredentialInfo.ClientSecret, clusterHandler.RegionInfo.Region, *nodegroup.Response.NodePool.AutoscalingGroupId, uint64(desiredNodeSize), uint64(minNodeSize), uint64(maxNodeSize))
-	loggingInfo(callLogInfo, start)
+	callLogInfo.ElapsedTime = call.Elapsed(start)
+	tempCalllogger.Info(call.String(callLogInfo))
 	if err != nil {
+		callLogInfo.ErrorMSG = err.Error()
+		tempCalllogger.Info(call.String(callLogInfo))
 		cblogger.Error(err)
 	}
 	cblogger.Info(temp.ToJsonString())
@@ -263,9 +288,12 @@ func (clusterHandler *TencentClusterHandler) RemoveNodeGroup(clusterIID irs.IID,
 
 	start := call.Start()
 	res, err := tencent.DeleteNodeGroup(clusterHandler.CredentialInfo.ClientId, clusterHandler.CredentialInfo.ClientSecret, clusterHandler.RegionInfo.Region, clusterIID.SystemId, nodeGroupIID.SystemId)
-	loggingInfo(callLogInfo, start)
+	callLogInfo.ElapsedTime = call.Elapsed(start)
+	tempCalllogger.Info(call.String(callLogInfo))
 	if err != nil {
 		cblogger.Error(err)
+		callLogInfo.ErrorMSG = err.Error()
+		tempCalllogger.Info(call.String(callLogInfo))
 		return false, err
 	}
 	cblogger.Info(res.ToJsonString())
@@ -277,14 +305,14 @@ func (clusterHandler *TencentClusterHandler) UpgradeCluster(clusterIID irs.IID, 
 	cblogger.Info("Tencent Cloud Driver: called UpgradeCluster()")
 	callLogInfo := getCallLogScheme(clusterHandler.RegionInfo.Region, call.CLUSTER, clusterIID.NameId, "UpgradeCluster()")
 
-	//version := "1.22.5"
 	start := call.Start()
 	res, err := tencent.UpgradeCluster(clusterHandler.CredentialInfo.ClientId, clusterHandler.CredentialInfo.ClientSecret, clusterHandler.RegionInfo.Region, clusterIID.SystemId, newVersion)
-	loggingInfo(callLogInfo, start)
+	callLogInfo.ElapsedTime = call.Elapsed(start)
+	tempCalllogger.Info(call.String(callLogInfo))
 	if err != nil {
 		cblogger.Error(err)
-		//[TencentCloudSDKError] Code=InvalidParameter.Param,
-		//Message=PARAM_ERROR(unsupported convert 1.20.6 to 1.22.5),
+		callLogInfo.ErrorMSG = err.Error()
+		tempCalllogger.Info(call.String(callLogInfo))
 		return irs.ClusterInfo{}, err
 	}
 	cblogger.Info(res.ToJsonString())
@@ -329,21 +357,15 @@ func getClusterInfo(access_key string, access_secret string, region_id string, c
 	} else if strings.EqualFold(health_status, "Running") {
 		cluster_status = irs.ClusterActive
 	}
-	// } else if strings.EqualFold(health_status, "") { // tencent has no "delete" state
-	// // 	cluster_status = irs.ClusterDeleting
+	// else if strings.EqualFold(health_status, "") { // tencent has no "delete" state
+	// cluster_status = irs.ClusterDeleting
+	//}
 
-	// "2022-09-09T13:10:06Z",
-	created_at := *res.Response.Clusters[0].CreatedTime // 2022-09-08T09:02:16+08:00,
+	created_at := *res.Response.Clusters[0].CreatedTime // "2022-09-09T13:10:06Z",
 	datetime, err := time.Parse(time.RFC3339, created_at)
 	if err != nil {
 		panic(err)
 	}
-
-	// "Response.Clusters.0.ClusterName": "cluster-x1",
-	// "Response.Clusters.0.ClusterVersion": "1.22.5",
-	// "Response.Clusters.0.ClusterNetworkSettings.VpcId": "vpc-q1c6fr9e",
-	// "Response.Clusters.0.ClusterStatus": "Creating",
-	// "Response.Clusters.0.CreatedTime": "2022-09-09T13:10:06Z",
 
 	cluster_info := &irs.ClusterInfo{
 		IId: irs.IID{
@@ -370,17 +392,6 @@ func getClusterInfo(access_key string, access_secret string, region_id string, c
 
 	// k,v 추출 & 추가
 	// KeyValueList: []irs.KeyValue{}, // flatten data 입력하기
-	//
-	// reflect로 변환하는 것은 코드 지저분해짐
-	// 다른방법 찾기전에는 json으로 변환해서 처리
-	//
-	// e := reflect.ValueOf(*res.Response.Clusters[0])
-	// fieldNum := e.NumField()
-	// for i := 0; i < fieldNum; i++ {
-	// 	v := e.Field(i)
-	// 	t := e.Type().Field(i)
-	// 	fmt.Printf("Name: %s / Type: %s / Value: %v / Tag: %s \n", t.Name, t.Type, *v.Interface().(*string), t.Tag.Get("custom"))
-	// }
 	temp, err := json.Marshal(*res.Response.Clusters[0])
 	if err != nil {
 		panic(err)
@@ -545,16 +556,6 @@ func getCreateClusterRequest(clusterHandler *TencentClusterHandler, clusterInfo 
 	}
 	request.ClusterType = common.StringPtr("MANAGED_CLUSTER") //default value
 
-	// not working!
-	// security group을 추가해보려 했으나, 설정안됨
-	// request.ExistedInstancesForNode = []*tke.ExistedInstancesForNode{
-	// 	{
-	// 		ExistedInstancesPara: &tke.ExistedInstancesPara{
-	// 			SecurityGroupIds: common.StringPtrs([]string{clusterInfo.Network.SecurityGroupIIDs[0].SystemId}),
-	// 		},
-	// 	},
-	// }
-
 	return request, err
 }
 
@@ -633,27 +634,3 @@ func getCallLogScheme(region string, resourceType call.RES_TYPE, resourceName st
 		CloudOSAPI:   apiName,
 	}
 }
-
-func loggingError(hiscallInfo call.CLOUDLOGSCHEMA, err error) {
-	hiscallInfo.ErrorMSG = err.Error()
-	tempCalllogger.Info(call.String(hiscallInfo))
-}
-
-func loggingInfo(hiscallInfo call.CLOUDLOGSCHEMA, start time.Time) {
-	hiscallInfo.ElapsedTime = call.Elapsed(start)
-	tempCalllogger.Info(call.String(hiscallInfo))
-}
-
-// func printFlattenJSON(json_obj interface{}) {
-// 	temp, err := json.MarshalIndent(json_obj, "", "  ")
-// 	if err != nil {
-// 		println(err)
-// 	} else {
-// 		flat, err := flatten.FlattenString(string(temp), "", flatten.DotStyle)
-// 		if err != nil {
-// 			println(err)
-// 		} else {
-// 			println(flat)
-// 		}
-// 	}
-// }

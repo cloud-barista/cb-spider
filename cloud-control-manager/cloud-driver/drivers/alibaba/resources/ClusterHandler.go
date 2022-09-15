@@ -77,7 +77,6 @@ func (clusterHandler *AlibabaClusterHandler) CreateCluster(clusterReqInfo irs.Cl
 	// 		return irs.ClusterInfo{}, err
 	// 	}
 	// }
-
 	var response_json_obj map[string]interface{}
 	json.Unmarshal([]byte(response_json_str), &response_json_obj)
 	cluster_id := response_json_obj["cluster_id"].(string)
@@ -100,6 +99,8 @@ func (clusterHandler *AlibabaClusterHandler) ListCluster() ([]*irs.ClusterInfo, 
 	tempCalllogger.Info(call.String(callLogInfo))
 	if err != nil {
 		cblogger.Error(err)
+		callLogInfo.ErrorMSG = err.Error()
+		tempCalllogger.Info(call.String(callLogInfo))
 		return nil, err
 	}
 
@@ -130,6 +131,8 @@ func (clusterHandler *AlibabaClusterHandler) GetCluster(clusterIID irs.IID) (irs
 	tempCalllogger.Info(call.String(callLogInfo))
 	if err != nil {
 		cblogger.Error(err)
+		callLogInfo.ErrorMSG = err.Error()
+		tempCalllogger.Info(call.String(callLogInfo))
 		return irs.ClusterInfo{}, err
 	}
 
@@ -146,6 +149,8 @@ func (clusterHandler *AlibabaClusterHandler) DeleteCluster(clusterIID irs.IID) (
 	tempCalllogger.Info(call.String(callLogInfo))
 	if err != nil {
 		cblogger.Error(err)
+		callLogInfo.ErrorMSG = err.Error()
+		tempCalllogger.Info(call.String(callLogInfo))
 		return false, err
 	}
 	cblogger.Info(res)
@@ -170,6 +175,8 @@ func (clusterHandler *AlibabaClusterHandler) AddNodeGroup(clusterIID irs.IID, no
 	tempCalllogger.Info(call.String(callLogInfo))
 	if err != nil {
 		cblogger.Error(err)
+		callLogInfo.ErrorMSG = err.Error()
+		tempCalllogger.Info(call.String(callLogInfo))
 		return irs.NodeGroupInfo{}, err
 	}
 
@@ -198,6 +205,8 @@ func (clusterHandler *AlibabaClusterHandler) ListNodeGroup(clusterIID irs.IID) (
 	tempCalllogger.Info(call.String(callLogInfo))
 	if err != nil {
 		cblogger.Error(err)
+		callLogInfo.ErrorMSG = err.Error()
+		tempCalllogger.Info(call.String(callLogInfo))
 		return node_group_info_list, err
 	}
 
@@ -227,6 +236,8 @@ func (clusterHandler *AlibabaClusterHandler) GetNodeGroup(clusterIID irs.IID, no
 	tempCalllogger.Info(call.String(callLogInfo))
 	if err != nil {
 		cblogger.Error(err)
+		callLogInfo.ErrorMSG = err.Error()
+		tempCalllogger.Info(call.String(callLogInfo))
 		return irs.NodeGroupInfo{}, err
 	}
 
@@ -246,6 +257,8 @@ func (clusterHandler *AlibabaClusterHandler) SetNodeGroupAutoScaling(clusterIID 
 	tempCalllogger.Info(call.String(callLogInfo))
 	if err != nil {
 		cblogger.Error(err)
+		callLogInfo.ErrorMSG = err.Error()
+		tempCalllogger.Info(call.String(callLogInfo))
 		return false, err
 	}
 	cblogger.Info(res)
@@ -266,6 +279,8 @@ func (clusterHandler *AlibabaClusterHandler) ChangeNodeGroupScaling(clusterIID i
 	tempCalllogger.Info(call.String(callLogInfo))
 	if err != nil {
 		cblogger.Error(err)
+		callLogInfo.ErrorMSG = err.Error()
+		tempCalllogger.Info(call.String(callLogInfo))
 		return irs.NodeGroupInfo{}, err
 	}
 	cblogger.Info(res)
@@ -289,6 +304,8 @@ func (clusterHandler *AlibabaClusterHandler) RemoveNodeGroup(clusterIID irs.IID,
 	tempCalllogger.Info(call.String(callLogInfo))
 	if err != nil {
 		cblogger.Error(err)
+		callLogInfo.ErrorMSG = err.Error()
+		tempCalllogger.Info(call.String(callLogInfo))
 		return false, err
 	}
 	cblogger.Info(res)
@@ -309,6 +326,8 @@ func (clusterHandler *AlibabaClusterHandler) UpgradeCluster(clusterIID irs.IID, 
 	tempCalllogger.Info(call.String(callLogInfo))
 	if err != nil {
 		cblogger.Error(err)
+		callLogInfo.ErrorMSG = err.Error()
+		tempCalllogger.Info(call.String(callLogInfo))
 		return irs.ClusterInfo{}, err
 	}
 	cblogger.Info(res)
