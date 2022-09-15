@@ -1,10 +1,12 @@
-// Proof of Concepts of CB-Spider.
+// Tencent Driver of CB-Spider.
 // The CB-Spider is a sub-Framework of the Cloud-Barista Multi-Cloud Project.
 // The CB-Spider Mission is to connect all the clouds with a single interface.
 //
-//      * Cloud-Barista: https://github.com/cloud-barista
+//   - Cloud-Barista: https://github.com/cloud-barista
 //
-// by devunet@mz.co.kr, 2021.05.04
+// This is Tencent Driver.
+//
+// by CB-Spider Team, 2022.09.
 
 package connect
 
@@ -15,7 +17,6 @@ import (
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/sirupsen/logrus"
 
-	"errors"
 	//"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
 	//"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/errors"
 	//"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/profile"
@@ -24,10 +25,10 @@ import (
 	clb "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/clb/v20180317"
 	cvm "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/cvm/v20170312"
 	vpc "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/vpc/v20170312"
-
 )
 
 type TencentCloudConnection struct {
+	CredentialInfo idrv.CredentialInfo
 	Region         idrv.RegionInfo
 	VNetworkClient *vpc.Client
 	NLBClient      *clb.Client
@@ -126,7 +127,6 @@ func (cloudConn *TencentCloudConnection) CreateDiskHandler() (irs.DiskHandler, e
 	cblogger.Info("Start")
 	handler := trs.TencentDiskHandler{cloudConn.Region, cloudConn.DiskClient}
 
-
 	return &handler, nil
 }
 
@@ -138,6 +138,10 @@ func (cloudConn *TencentCloudConnection) CreateMyImageHandler() (irs.MyImageHand
 }
 
 func (cloudConn *TencentCloudConnection) CreateClusterHandler() (irs.ClusterHandler, error) {
-        return nil, errors.New("Tencent Driver: not implemented")
-}
+	// temp
+	// getEnv & Setting
+	clusterHandler := trs.TencentClusterHandler{RegionInfo: cloudConn.Region, CredentialInfo: cloudConn.CredentialInfo}
 
+	return &clusterHandler, nil
+
+}

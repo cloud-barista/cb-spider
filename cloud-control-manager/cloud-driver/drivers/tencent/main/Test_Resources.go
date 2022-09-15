@@ -1,12 +1,12 @@
-// Proof of Concepts of CB-Spider.
-// The CB-Spider is sub-Framework of the Cloud-Barista Multi-Cloud Project.
+// Tencent Driver of CB-Spider.
+// The CB-Spider is a sub-Framework of the Cloud-Barista Multi-Cloud Project.
 // The CB-Spider Mission is to connect all the clouds with a single interface.
 //
 //      * Cloud-Barista: https://github.com/cloud-barista
 //
-// This is a Tencent Cloud Driver Example for Test.
+// This is Tencent Driver.
 //
-// by devunet@mz.co.kr, 2021.04.
+// by CB-Spider Team, 2022.09.
 
 package main
 
@@ -1346,7 +1346,6 @@ func handleDisk() {
 	}
 }
 
-
 func handleMyImage() {
 	cblogger.Debug("Start MyImageHandler Resource Test")
 
@@ -1430,7 +1429,6 @@ func handleMyImage() {
 		}
 	}
 }
-
 
 func main() {
 	cblogger.Info("Tencent Cloud Resource Test")

@@ -12,83 +12,79 @@ package resources
 
 import "time"
 
-
-//-------- Const
+// -------- Const
 type ClusterStatus string
 
 const (
-        ClusterCreating ClusterStatus = "Creating"
-        ClusterActive   ClusterStatus = "Active"
-        ClusterInactive ClusterStatus = "Inactive"
-        ClusterUpdating ClusterStatus = "Updating"
-        ClusterDeleting ClusterStatus = "Deleting"
+	ClusterCreating ClusterStatus = "Creating"
+	ClusterActive   ClusterStatus = "Active"
+	ClusterInactive ClusterStatus = "Inactive"
+	ClusterUpdating ClusterStatus = "Updating"
+	ClusterDeleting ClusterStatus = "Deleting"
 )
 
 type NodeGroupStatus string
 
 const (
-        NodeGroupCreating NodeGroupStatus = "Creating"
-        NodeGroupActive   NodeGroupStatus = "Active"
-        NodeGroupInactive NodeGroupStatus = "Inactive"
-        NodeGroupUpdating NodeGroupStatus = "Updating"
-        NodeGroupDeleting NodeGroupStatus = "Deleting"
+	NodeGroupCreating NodeGroupStatus = "Creating"
+	NodeGroupActive   NodeGroupStatus = "Active"
+	NodeGroupInactive NodeGroupStatus = "Inactive"
+	NodeGroupUpdating NodeGroupStatus = "Updating"
+	NodeGroupDeleting NodeGroupStatus = "Deleting"
 )
 
-//-------- Info Structure
+// -------- Info Structure
 type ClusterInfo struct {
-	IId		IID 	// {NameId, SystemId}
+	IId IID // {NameId, SystemId}
 
-	Version		string	// Kubernetes Version, ex) 1.23.3
+	Version string // Kubernetes Version, ex) 1.23.3
 
-	Network		NetworkInfo
-	NodeGroupList	[]NodeGroupInfo	
-	Addons		AddonsInfo
+	Network       NetworkInfo
+	NodeGroupList []NodeGroupInfo
+	Addons        AddonsInfo
 
-	
-        Status 		ClusterStatus
+	Status ClusterStatus
 
-	CreatedTime	time.Time
+	CreatedTime  time.Time
 	KeyValueList []KeyValue
 }
 
 type NetworkInfo struct {
-	VpcIID		IID	// {NameId, SystemId}
-	SubnetIID	[]IID	
-        SecurityGroupIIDs []IID
+	VpcIID            IID // {NameId, SystemId}
+	SubnetIID         []IID
+	SecurityGroupIIDs []IID
 
 	KeyValueList []KeyValue
 }
 
 type NodeGroupInfo struct {
-	IId		IID 	// {NameId, SystemId}
+	IId IID // {NameId, SystemId}
 
 	// VM config.
-	ImageIID	IID
-        VMSpecName 	string
-        RootDiskType    string  // "SSD(gp2)", "Premium SSD", ...
-	RootDiskSize 	string  // "", "default", "50", "1000" (GB)
-        KeyPairIID 	IID
+	ImageIID     IID
+	VMSpecName   string
+	RootDiskType string // "SSD(gp2)", "Premium SSD", ...
+	RootDiskSize string // "", "default", "50", "1000" (GB)
+	KeyPairIID   IID
 
-        Status 		NodeGroupStatus
+	Status NodeGroupStatus
 
 	// Scaling config.
-	OnAutoScaling	bool // default: true
-	DesiredNodeSize	int
-	MinNodeSize	int
-	MaxNodeSize	int
+	OnAutoScaling   bool // default: true
+	DesiredNodeSize int
+	MinNodeSize     int
+	MaxNodeSize     int
 
-
-	NodeList	[]IID
+	NodeList     []IID
 	KeyValueList []KeyValue
 }
 
 // CNI, DNS, .... @todo
 type AddonsInfo struct {
-        KeyValueList []KeyValue
+	KeyValueList []KeyValue
 }
 
-
-//-------- Cluster API
+// -------- Cluster API
 type ClusterHandler interface {
 
 	//------ Cluster Management
@@ -97,16 +93,15 @@ type ClusterHandler interface {
 	GetCluster(clusterIID IID) (ClusterInfo, error)
 	DeleteCluster(clusterIID IID) (bool, error)
 
-        //------ NodeGroup Management
-        AddNodeGroup(clusterIID IID, nodeGroupReqInfo NodeGroupInfo) (NodeGroupInfo, error)
-        ListNodeGroup(clusterIID IID) ([]*NodeGroupInfo, error)
-        GetNodeGroup(clusterIID IID, nodeGroupIID IID) (NodeGroupInfo, error)
-        SetNodeGroupAutoScaling(clusterIID IID, nodeGroupIID IID, on bool) (bool, error)
-        ChangeNodeGroupScaling(clusterIID IID, nodeGroupIID IID, 
+	//------ NodeGroup Management
+	AddNodeGroup(clusterIID IID, nodeGroupReqInfo NodeGroupInfo) (NodeGroupInfo, error)
+	ListNodeGroup(clusterIID IID) ([]*NodeGroupInfo, error)
+	GetNodeGroup(clusterIID IID, nodeGroupIID IID) (NodeGroupInfo, error)
+	SetNodeGroupAutoScaling(clusterIID IID, nodeGroupIID IID, on bool) (bool, error)
+	ChangeNodeGroupScaling(clusterIID IID, nodeGroupIID IID,
 		DesiredNodeSize int, MinNodeSize int, MaxNodeSize int) (NodeGroupInfo, error)
-        RemoveNodeGroup(clusterIID IID, nodeGroupIID IID) (bool, error)
+	RemoveNodeGroup(clusterIID IID, nodeGroupIID IID) (bool, error)
 
 	//------ Upgrade K8S
 	UpgradeCluster(clusterIID IID, newVersion string) (ClusterInfo, error)
 }
-

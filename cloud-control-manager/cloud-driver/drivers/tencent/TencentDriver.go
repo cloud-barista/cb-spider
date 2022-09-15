@@ -1,12 +1,12 @@
-// Proof of Concepts of CB-Spider.
+// Tencent Driver of CB-Spider.
 // The CB-Spider is a sub-Framework of the Cloud-Barista Multi-Cloud Project.
 // The CB-Spider Mission is to connect all the clouds with a single interface.
 //
 //      * Cloud-Barista: https://github.com/cloud-barista
 //
-// This is a Cloud Driver Example for PoC Test.
+// This is Tencent Driver.
 //
-// by CB-Spider Team, 2019.06.
+// by CB-Spider Team, 2022.09.
 
 package tencent
 
@@ -46,6 +46,7 @@ func (TencentDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	drvCapabilityInfo.PublicIPHandler = false
 	drvCapabilityInfo.VMHandler = true
 	drvCapabilityInfo.VMSpecHandler = true
+	drvCapabilityInfo.ClusterHandler = true
 
 	return drvCapabilityInfo
 }
@@ -217,6 +218,7 @@ func (driver *TencentDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (i
 	}
 
 	iConn := tcon.TencentCloudConnection{
+		CredentialInfo: connectionInfo.CredentialInfo,
 		Region:         connectionInfo.RegionInfo,
 		VNetworkClient: vpcClient,
 		NLBClient:      clbClient,

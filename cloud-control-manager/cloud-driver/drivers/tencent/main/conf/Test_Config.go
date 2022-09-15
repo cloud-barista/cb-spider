@@ -1,12 +1,12 @@
-// Proof of Concepts of CB-Spider.
-// The CB-Spider is sub-Framework of the Cloud-Barista Multi-Cloud Project.
+// Tencent Driver of CB-Spider.
+// The CB-Spider is a sub-Framework of the Cloud-Barista Multi-Cloud Project.
 // The CB-Spider Mission is to connect all the clouds with a single interface.
 //
 //      * Cloud-Barista: https://github.com/cloud-barista
 //
-// This is a Cloud Driver Example for PoC Test.
+// This is Tencent Driver.
 //
-// by devunet@mz.co.kr, 2019.08.
+// by CB-Spider Team, 2022.09.
 
 package TencentTestConfig
 

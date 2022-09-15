@@ -1,19 +1,23 @@
-// Proof of Concepts of CB-Spider.
+// Alibaba Driver of CB-Spider.
 // The CB-Spider is a sub-Framework of the Cloud-Barista Multi-Cloud Project.
 // The CB-Spider Mission is to connect all the clouds with a single interface.
 //
 //      * Cloud-Barista: https://github.com/cloud-barista
 //
-// This is a Cloud Driver Example for PoC Test.
+// This is Alibaba Driver.
 //
-// by zephy@mz.co.kr, 2019.09.
+// by CB-Spider Team, 2022.09.
 
 package alibaba
 
 import (
 	"fmt"
+
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/slb"
 
+	"time"
+
+	"github.com/aliyun/alibaba-cloud-sdk-go/sdk"
 	"github.com/aliyun/alibaba-cloud-sdk-go/sdk/auth/credentials"
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/ecs"
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/vpc"
@@ -21,11 +25,6 @@ import (
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	icon "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/connect"
 	"github.com/davecgh/go-spew/spew"
-)
-import (
-	"time"
-
-	"github.com/aliyun/alibaba-cloud-sdk-go/sdk"
 )
 
 type AlibabaDriver struct{}
@@ -46,6 +45,7 @@ func (AlibabaDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	drvCapabilityInfo.VMHandler = false
 	drvCapabilityInfo.VMSpecHandler = false
 	drvCapabilityInfo.DiskHandler = false
+	drvCapabilityInfo.ClusterHandler = true
 
 	return drvCapabilityInfo
 }
@@ -72,10 +72,11 @@ func (driver *AlibabaDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (i
 	}
 
 	iConn := alicon.AlibabaCloudConnection{
-		Region:        connectionInfo.RegionInfo,
-		VMClient:      ECSClient,
-		KeyPairClient: ECSClient,
-		ImageClient:   ECSClient,
+		CredentialInfo: connectionInfo.CredentialInfo,
+		Region:         connectionInfo.RegionInfo,
+		VMClient:       ECSClient,
+		KeyPairClient:  ECSClient,
+		ImageClient:    ECSClient,
 		//PublicIPClient:      VPCClient,
 		SecurityGroupClient: ECSClient,
 		VpcClient:           VPCClient,
