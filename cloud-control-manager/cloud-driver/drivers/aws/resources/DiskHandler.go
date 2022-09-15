@@ -5,6 +5,10 @@ package resources
 import (
 	"errors"
 	"fmt"
+	"reflect"
+	"strconv"
+	"strings"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/ec2"
@@ -12,9 +16,6 @@ import (
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	cim "github.com/cloud-barista/cb-spider/cloud-info-manager"
 	"github.com/davecgh/go-spew/spew"
-	"reflect"
-	"strconv"
-	"strings"
 )
 
 type AwsDiskHandler struct {
@@ -47,12 +48,12 @@ const (
 //------ Disk Management
 
 /*
-	Spider 의 Disk = AWS 의 Volume
+Spider 의 Disk = AWS 의 Volume
 
-	disk type에 따라 달라짐
-	- 빈 disk
-	- snapshot에서 가져오는 경우
-	- 암호화 된 disk
+disk type에 따라 달라짐
+- 빈 disk
+- snapshot에서 가져오는 경우
+- 암호화 된 disk
 */
 func (DiskHandler *AwsDiskHandler) CreateDisk(diskReqInfo irs.DiskInfo) (irs.DiskInfo, error) {
 
@@ -130,8 +131,8 @@ func (DiskHandler *AwsDiskHandler) CreateDisk(diskReqInfo irs.DiskInfo) (irs.Dis
 }
 
 /*
-	GetDisk와 ListDisk 처리로직 동일하므로 DescribeVolumes 호출.
-	단, IDList를 nil로 set.
+GetDisk와 ListDisk 처리로직 동일하므로 DescribeVolumes 호출.
+단, IDList를 nil로 set.
 */
 func (DiskHandler *AwsDiskHandler) ListDisk() ([]*irs.DiskInfo, error) {
 	//Filters []*Filter `locationName:"Filter" locationNameList:"Filter" type:"list"`
@@ -155,7 +156,7 @@ func (DiskHandler *AwsDiskHandler) ListDisk() ([]*irs.DiskInfo, error) {
 }
 
 /*
-	ListDisk와 처리로직 동일 but, volumeID 로 호출하므로 1개만 return.
+ListDisk와 처리로직 동일 but, volumeID 로 호출하므로 1개만 return.
 */
 func (DiskHandler *AwsDiskHandler) GetDisk(diskIID irs.IID) (irs.DiskInfo, error) {
 	var diskIds []*string
@@ -171,16 +172,16 @@ func (DiskHandler *AwsDiskHandler) GetDisk(diskIID irs.IID) (irs.DiskInfo, error
 }
 
 /*
-	IOPS : Default: The existing value is retained if you keep the same volume type.
-		If you change the volume type to io1, io2, or gp3, the default is 3,000.
-    //    * gp2 and gp3: 1-16,384
-    //
-    //    * io1 and io2: 4-16,384
-    //
-    //    * st1 and sc1: 125-16,384
-    //
-    //    * standard: 1-1,024
-	Size *int64 `type:"integer"`
+		IOPS : Default: The existing value is retained if you keep the same volume type.
+			If you change the volume type to io1, io2, or gp3, the default is 3,000.
+	    //    * gp2 and gp3: 1-16,384
+	    //
+	    //    * io1 and io2: 4-16,384
+	    //
+	    //    * st1 and sc1: 125-16,384
+	    //
+	    //    * standard: 1-1,024
+		Size *int64 `type:"integer"`
 */
 func (DiskHandler *AwsDiskHandler) ChangeDiskSize(diskIID irs.IID, size string) (bool, error) {
 
@@ -220,10 +221,10 @@ func (DiskHandler *AwsDiskHandler) ChangeDiskSize(diskIID irs.IID, size string) 
 	cblogger.Debug("originalSize : " + strconv.Itoa(int(*result.VolumeModification.OriginalSize)))
 	cblogger.Debug("targetSize : " + strconv.Itoa(int(*result.VolumeModification.TargetSize)))
 
-	err = WaitUntilVolumeInUse(DiskHandler.Client, diskIID.SystemId)
-	if err != nil {
-		return false, err
-	}
+	// err = WaitUntilVolumeInUse(DiskHandler.Client, diskIID.SystemId)
+	// if err != nil {
+	// 	return false, err
+	// }
 	return true, nil
 }
 func (DiskHandler *AwsDiskHandler) DeleteDisk(diskIID irs.IID) (bool, error) {
@@ -271,7 +272,6 @@ max은 아직 권장 디바이스 이름 없고 Linux용 이름 사용
 	//device := vmInfo.VMBlockDisk // "/dev/sda1"  이미 있는 이름. rootdisk에서 사용
 	//device := "/dev/sdf" [f ~ p] 사이의 값
 	//device := "/dev/sdf/aa/" // invalid
-
 */
 func (DiskHandler *AwsDiskHandler) AttachDisk(diskIID irs.IID, ownerVM irs.IID) (irs.DiskInfo, error) {
 
@@ -429,6 +429,7 @@ func (DiskHandler *AwsDiskHandler) DetachDisk(diskIID irs.IID, ownerVM irs.IID) 
 
 /*
 VolumeType : https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ebs-volume-types.html
+
 	The volume type. This parameter can be one of the following values:
 	General Purpose SSD: gp2 | gp3
 	Provisioned IOPS SSD: io1 | io2
@@ -437,20 +438,24 @@ VolumeType : https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ebs-volume-type
 	Magnetic: standard
 
 Size :
+
 	The size of the volume, in GiBs.
 	You must specify either a snapshot ID or a volume size.
 	If you specify a snapshot, the default is the snapshot size.
 	You can specify a volume size that is equal to or larger than the snapshot size.
 
 IOPS :
+
 	gp3: 3,000-16,000 IOPS
 	io1: 100-64,000 IOPS
 	io2: 100-64,000 IOPS
 
 MultiAttachEnabled : io1, io2 only
+
 	If you enable Multi-Attach, you can attach the volume to up to 16 Instances built on the Nitro System in the same Availability Zone
 
 Throughput
+
 	The throughput to provision for a volume, with a maximum of 1,000 MiB/s.
 	This parameter is valid only for gp3 volumes.
 	Valid Range: Minimum value of 125. Maximum value of 1000.
@@ -602,11 +607,12 @@ func validateModifyDisk(diskReqInfo irs.DiskInfo, diskSize string) error {
 	}
 
 	cloudOSMetaInfo, err := cim.GetCloudOSMetaInfo("AWS")
+	arrDiskType := cloudOSMetaInfo.DiskType
 	arrDiskSizeOfType := cloudOSMetaInfo.DiskSize
 
 	// 정의된 type인지
-	if !ContainString(arrDiskSizeOfType, diskReqInfo.DiskType) {
-		return errors.New("Disktype : " + diskReqInfo.DiskType + "' is not valid")
+	if !ContainString(arrDiskType, diskReqInfo.DiskType) {
+		return errors.New("Disktype : " + diskReqInfo.DiskType + " is not valid")
 	}
 
 	type diskSizeModel struct {
@@ -761,8 +767,16 @@ func convertVolumeStatusToDiskStatus(volumeState string, attachmentList []*ec2.V
 }
 func (DiskHandler *AwsDiskHandler) convertVolumeInfoToDiskInfo(volumeInfo *ec2.Volume) (irs.DiskInfo, error) {
 	diskInfo := irs.DiskInfo{}
+	var diskName string
 
-	diskInfo.IId = irs.IID{NameId: *volumeInfo.VolumeId, SystemId: *volumeInfo.VolumeId}
+	for _, t := range volumeInfo.Tags {
+		if *t.Key == "Name" {
+			diskName = *t.Value
+			break
+		}
+	}
+
+	diskInfo.IId = irs.IID{NameId: diskName, SystemId: *volumeInfo.VolumeId}
 	// tag에서 빼야하나?
 	diskInfo.DiskSize = strconv.Itoa(int(*volumeInfo.Size))
 	diskInfo.DiskType = *volumeInfo.VolumeType

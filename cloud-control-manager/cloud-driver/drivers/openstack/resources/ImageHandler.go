@@ -32,7 +32,7 @@ func setterImage(image images.Image) *irs.ImageInfo {
 			SystemId: image.ID,
 		},
 		GuestOS: image.Name,
-		Status: image.Status,
+		Status:  image.Status,
 	}
 
 	// 메타 정보 등록
@@ -125,15 +125,7 @@ func (imageHandler *OpenStackImageHandler) ListImage() ([]*irs.ImageInfo, error)
 	hiscallInfo := GetCallLogScheme(imageHandler.Client.IdentityEndpoint, call.VMIMAGE, Image, "ListImage()")
 
 	start := call.Start()
-	pager, err := images.ListDetail(imageHandler.Client, images.ListOpts{}).AllPages()
-	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return nil, err
-	}
-	LoggingInfo(hiscallInfo, start)
-
-	imageList, err := images.ExtractImages(pager)
+	imageList, err := getRawImageList(imageHandler.Client)
 	if err != nil {
 		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
@@ -145,6 +137,7 @@ func (imageHandler *OpenStackImageHandler) ListImage() ([]*irs.ImageInfo, error)
 		imageInfo := setterImage(img)
 		imageInfoList[i] = imageInfo
 	}
+	LoggingInfo(hiscallInfo, start)
 	return imageInfoList, nil
 }
 
@@ -153,7 +146,7 @@ func (imageHandler *OpenStackImageHandler) GetImage(imageIID irs.IID) (irs.Image
 	hiscallInfo := GetCallLogScheme(imageHandler.Client.IdentityEndpoint, call.VMIMAGE, imageIID.NameId, "GetImage()")
 
 	start := call.Start()
-	image, err := imageHandler.getRawImage(imageIID)
+	image, err := getRawImage(imageIID, imageHandler.Client)
 	if err != nil {
 		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
@@ -161,7 +154,7 @@ func (imageHandler *OpenStackImageHandler) GetImage(imageIID irs.IID) (irs.Image
 	}
 	LoggingInfo(hiscallInfo, start)
 
-	imageInfo := setterImage(*image)
+	imageInfo := setterImage(image)
 	return *imageInfo, nil
 }
 
@@ -169,7 +162,7 @@ func (imageHandler *OpenStackImageHandler) DeleteImage(imageIID irs.IID) (bool, 
 	// log HisCall
 	hiscallInfo := GetCallLogScheme(imageHandler.Client.IdentityEndpoint, call.VMIMAGE, imageIID.NameId, "DeleteImage()")
 
-	image, err := imageHandler.getRawImage(imageIID)
+	image, err := getRawImage(imageIID, imageHandler.Client)
 	if err != nil {
 		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
@@ -185,10 +178,43 @@ func (imageHandler *OpenStackImageHandler) DeleteImage(imageIID irs.IID) (bool, 
 	LoggingInfo(hiscallInfo, start)
 	return true, nil
 }
-func (imageHandler *OpenStackImageHandler) getRawImage(imageIId irs.IID) (*images.Image, error) {
+func getRawImage(imageIId irs.IID, computeClient *gophercloud.ServiceClient) (images.Image, error) {
 	if !CheckIIDValidation(imageIId) {
-		return nil, errors.New("invalid IID")
+		return images.Image{}, errors.New("invalid IID")
 	}
-	return images.Get(imageHandler.Client, imageIId.SystemId).Extract()
+	if imageIId.SystemId == "" {
+		imageIId.SystemId = imageIId.NameId
+	}
+	image, err := images.Get(computeClient, imageIId.SystemId).Extract()
+	if err != nil {
+		return images.Image{}, err
+	}
+	return *image, nil
 }
 
+func getRawImageList(computeClient *gophercloud.ServiceClient) ([]images.Image, error) {
+	pager, err := images.ListDetail(computeClient, images.ListOpts{}).AllPages()
+	if err != nil {
+		return nil, err
+	}
+	list, err := images.ExtractImages(pager)
+	if err != nil {
+		return nil, err
+	}
+	var imageList []images.Image
+
+	for _, image := range list {
+		snapshotFlag, err := CheckSnapshot(image)
+		if err != nil {
+			return nil, err
+		}
+		if !snapshotFlag {
+			imageList = append(imageList, image)
+		}
+	}
+	if imageList == nil {
+		emptyList := make([]images.Image, 0)
+		return emptyList, nil
+	}
+	return imageList, err
+}
