@@ -13,6 +13,7 @@ package resources
 import (
 	"errors"
 	"fmt"
+	"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/cloudit/client/ace/snapshot"
 	"strconv"
 	"strings"
 	"time"
@@ -66,17 +67,42 @@ func (vmHandler *ClouditVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (startVM irs
 		return irs.VMInfo{}, createErr
 	}
 
-	// 이미지 정보 조회 (Name)
+	// 이미지, MyImage 정보 조회 (Name)
 	imageHandler := ClouditImageHandler{
 		Client:         vmHandler.Client,
 		CredentialInfo: vmHandler.CredentialInfo,
 	}
-	image, err := imageHandler.GetImage(vmReqInfo.ImageIID)
-	if err != nil {
-		createErr := errors.New(fmt.Sprintf("Failed to Create VM. err = Failed to get image, %s", err.Error()))
-		cblogger.Error(createErr.Error())
-		LoggingError(hiscallInfo, createErr)
-		return irs.VMInfo{}, createErr
+	myImageHandler := ClouditMyImageHandler{
+		Client:         vmHandler.Client,
+		CredentialInfo: vmHandler.CredentialInfo,
+	}
+
+	var image irs.ImageInfo
+	var myImage irs.MyImageInfo
+	if vmReqInfo.ImageType == irs.MyImage {
+		var getMyImageErr error
+		myImage, getMyImageErr = myImageHandler.GetMyImage(vmReqInfo.ImageIID)
+		if getMyImageErr != nil {
+			createErr := errors.New(fmt.Sprintf("Failed to Create VM. err = Failed to get image, %s", getMyImageErr.Error()))
+			cblogger.Error(createErr.Error())
+			LoggingError(hiscallInfo, createErr)
+			return irs.VMInfo{}, createErr
+		}
+		if myImage.Status != irs.MyImageAvailable {
+			myImageStatusErr := errors.New("Failed to Create VM. err = Given MyImage is not Available")
+			cblogger.Error(myImageStatusErr.Error())
+			LoggingError(hiscallInfo, myImageStatusErr)
+			return irs.VMInfo{}, myImageStatusErr
+		}
+	} else {
+		var getImageErr error
+		image, getImageErr = imageHandler.GetImage(vmReqInfo.ImageIID)
+		if getImageErr != nil {
+			createErr := errors.New(fmt.Sprintf("Failed to Create VM. err = Failed to get image, %s", getImageErr.Error()))
+			cblogger.Error(createErr.Error())
+			LoggingError(hiscallInfo, createErr)
+			return irs.VMInfo{}, createErr
+		}
 	}
 
 	//  네트워크 정보 조회 (Name)
@@ -139,15 +165,38 @@ func (vmHandler *ClouditVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (startVM irs
 	vmHandler.Client.TokenID = vmHandler.CredentialInfo.AuthToken
 	authHeader := vmHandler.Client.AuthenticatedHeaders()
 	KeyPairDes := fmt.Sprintf("keypair:%s", vmReqInfo.KeyPairIID.NameId)
-	reqInfo := server.VMReqInfo{
-		TemplateId:   image.IId.SystemId,
-		SpecId:       *vmSpecId,
-		Name:         vmReqInfo.IId.NameId,
-		HostName:     vmReqInfo.IId.NameId,
-		RootPassword: VMDefaultPassword,
-		SubnetAddr:   subnet.Addr,
-		Secgroups:    addUserSSHSG,
-		Description:  KeyPairDes,
+	var reqInfo server.VMReqInfo
+	if vmReqInfo.ImageType == irs.MyImage {
+		snapshotReqOpts := client.RequestOpts{
+			MoreHeaders: authHeader,
+		}
+		snapshot, getSnapshotErr := snapshot.Get(myImageHandler.Client, myImage.IId.SystemId, &snapshotReqOpts)
+		if getSnapshotErr != nil {
+			return irs.VMInfo{}, errors.New(fmt.Sprintf("Failed to Create VM. err = %s", getSnapshotErr.Error()))
+		}
+
+		reqInfo = server.VMReqInfo{
+			TemplateId:   snapshot.TemplateId,
+			SnapshotId:   myImage.IId.SystemId,
+			SpecId:       *vmSpecId,
+			Name:         vmReqInfo.IId.NameId,
+			HostName:     vmReqInfo.IId.NameId,
+			RootPassword: VMDefaultPassword,
+			SubnetAddr:   subnet.Addr,
+			Secgroups:    addUserSSHSG,
+			Description:  KeyPairDes,
+		}
+	} else {
+		reqInfo = server.VMReqInfo{
+			TemplateId:   image.IId.SystemId,
+			SpecId:       *vmSpecId,
+			Name:         vmReqInfo.IId.NameId,
+			HostName:     vmReqInfo.IId.NameId,
+			RootPassword: VMDefaultPassword,
+			SubnetAddr:   subnet.Addr,
+			Secgroups:    addUserSSHSG,
+			Description:  KeyPairDes,
+		}
 	}
 
 	requestOpts := client.RequestOpts{
@@ -254,7 +303,7 @@ func (vmHandler *ClouditVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (startVM irs
 
 	// 사용자 등록 및 sudoer 권한 추가
 	_, err = RunCommand(vm.AdaptiveIp, SSHDefaultPort, VMDefaultUser, VMDefaultPassword, fmt.Sprintf("useradd -s /bin/bash %s -rm", loginUserId))
-	if err != nil {
+	if err != nil && vmReqInfo.ImageType != irs.MyImage {
 		createErr = errors.New(fmt.Sprintf("Failed to Create VM. err = %s = %s", createUserErr.Error(), err.Error()))
 		cblogger.Error(createErr.Error())
 		LoggingError(hiscallInfo, createErr)
@@ -348,12 +397,45 @@ func (vmHandler *ClouditVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (startVM irs
 		LoggingError(hiscallInfo, createErr)
 		return irs.VMInfo{}, createErr
 	}
+
+	// MyImage로 VM 생성 시, 볼륨 스냅샷으로 볼륨을 생성하고 attach
+	var attachedVolumeList []irs.IID
+	if vmReqInfo.ImageType == irs.MyImage {
+		isFailed := false
+		if createVolumeErr := myImageHandler.CreateAssociatedVolumeSnapshots(myImage.IId.NameId, vm.Name); createVolumeErr != nil {
+			isFailed = true
+		}
+		if volumeAttachError := myImageHandler.AttachAssociatedVolumesToVM(myImage.IId.NameId, vm.ID); volumeAttachError != nil {
+			isFailed = true
+		}
+		if isFailed {
+			defer func() {
+				cleanerErr := vmHandler.vmCleaner(cleanVMIID)
+				if cleanerErr != nil {
+					createError = errors.New(fmt.Sprintf("%s and Failed to rollback err = %s", createError.Error(), cleanerErr.Error()))
+				}
+			}()
+		}
+
+		vmVolumeList, getVmVolumesErr := server.GetRawVmVolumes(myImageHandler.Client, vm.ID, &requestOpts)
+		if getVmVolumesErr != nil {
+			createError = errors.New("Failed to Get VM Volume List")
+		}
+
+		for _, vmVolume := range *vmVolumeList {
+			attachedVolumeList = append(attachedVolumeList, irs.IID{SystemId: vmVolume.ID, NameId: vmVolume.Name})
+		}
+	}
+
 	vmInfo, err := vmHandler.mappingServerInfo(*vm)
 	if err != nil {
 		createErr = errors.New(fmt.Sprintf("Failed to Create VM. err = %s", err.Error()))
 		cblogger.Error(createErr.Error())
 		LoggingError(hiscallInfo, createErr)
 		return irs.VMInfo{}, createErr
+	}
+	if len(attachedVolumeList) != 0 {
+		vmInfo.DataDiskIIDs = attachedVolumeList
 	}
 	return vmInfo, nil
 }
