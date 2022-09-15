@@ -14,6 +14,7 @@ import (
 	"errors"
 	"fmt"
 	volumes3 "github.com/gophercloud/gophercloud/openstack/blockstorage/v3/volumes"
+	"github.com/gophercloud/gophercloud/openstack/compute/v2/images"
 	"github.com/gophercloud/gophercloud/openstack/networking/v2/subnets"
 	"io/ioutil"
 	"math/rand"
@@ -80,19 +81,8 @@ func (vmHandler *OpenStackVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (startvm i
 		return irs.VMInfo{}, createErr
 	}
 
-	//  이미지 정보 조회 (Name)
-	imageHandler := OpenStackImageHandler{
-		Client: vmHandler.ComputeClient,
-	}
-	image, err := imageHandler.GetImage(vmReqInfo.ImageIID)
-	if err != nil {
-		createErr := errors.New(fmt.Sprintf("Failed to startVM err = failed to get image, err : %s", err))
-		cblogger.Error(createErr.Error())
-		LoggingError(hiscallInfo, createErr)
-		return irs.VMInfo{}, createErr
-	}
 	// Flavor 정보 조회 (Name)
-	vmSpecId, err := GetFlavorByName(vmHandler.ComputeClient, vmReqInfo.VMSpecName)
+	vmSpec, err := GetFlavorByName(vmHandler.ComputeClient, vmReqInfo.VMSpecName)
 	if err != nil {
 		createErr := errors.New(fmt.Sprintf("Failed to startVM err = failed to get vmspec, err : %s", err))
 		cblogger.Error(createErr.Error())
@@ -140,30 +130,7 @@ func (vmHandler *OpenStackVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (startvm i
 		LoggingError(hiscallInfo, createErr)
 		return irs.VMInfo{}, createErr
 	}
-	// VM 생성
-	createVolumeFlag := true
-	serverCreateOpts := servers.CreateOpts{
-		Name:      vmReqInfo.IId.NameId,
-		FlavorRef: vmSpecId,
-		Metadata: map[string]string{
-			"imagekey": image.IId.NameId,
-		},
-		Networks: []servers.Network{
-			{UUID: rawVpc.ID, FixedIP: fixedIp},
-		},
-	}
-
-	if vmReqInfo.RootDiskSize == "" || vmReqInfo.RootDiskSize == "default" {
-		createVolumeFlag = false
-		serverCreateOpts.ImageRef = image.IId.SystemId
-	} else {
-		if vmHandler.VolumeClient == nil {
-			createErr := errors.New(fmt.Sprintf("Failed to startVM err = this Openstack cannot provide VolumeClient. RootDiskSize cannot be changed"))
-			cblogger.Error(createErr.Error())
-			LoggingError(hiscallInfo, createErr)
-			return irs.VMInfo{}, createErr
-		}
-	}
+	// SecurityGroup 준비
 	segHandler := OpenStackSecurityHandler{
 		Client:        vmHandler.ComputeClient,
 		NetworkClient: vmHandler.NetworkClient,
@@ -180,8 +147,7 @@ func (vmHandler *OpenStackVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (startvm i
 		}
 		sgIdArr[i] = SecurityGroup.ID
 	}
-	serverCreateOpts.SecurityGroups = sgIdArr
-
+	// serverCreateOpts.SecurityGroups = sgIdArr
 	// Add KeyPair
 	keyPair, err := GetRawKey(vmHandler.ComputeClient, vmReqInfo.KeyPairIID)
 	if err != nil {
@@ -190,9 +156,9 @@ func (vmHandler *OpenStackVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (startvm i
 		LoggingError(hiscallInfo, createErr)
 		return irs.VMInfo{}, createErr
 	}
-	createOpts := keypairs.CreateOptsExt{
-		KeyName: keyPair.Name,
-	}
+	//createOpts := keypairs.CreateOptsExt{
+	//	KeyName: keyPair.Name,
+	//}
 
 	// cloud-init 스크립트 설정
 	rootPath := os.Getenv("CBSPIDER_ROOT")
@@ -207,36 +173,96 @@ func (vmHandler *OpenStackVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (startvm i
 	fileStr = strings.ReplaceAll(fileStr, "{{public_key}}", keyPair.PublicKey)
 
 	// cloud-init 스크립트 적용
-	serverCreateOpts.UserData = []byte(fileStr)
-	createOpts.CreateOptsBuilder = serverCreateOpts
+	//serverCreateOpts.UserData = []byte(fileStr)
+	//createOpts.CreateOptsBuilder = serverCreateOpts
 
-	start := call.Start()
-	// VM RootDiskSize Set
-	var server *servers.Server
-	if !createVolumeFlag {
-		server, err = servers.Create(vmHandler.ComputeClient, createOpts).Extract()
-	} else {
-		vmSize, err := strconv.Atoi(vmReqInfo.RootDiskSize)
+	var image images.Image
+	// SnapShot
+	if vmReqInfo.ImageType == irs.MyImage {
+		image, err = getRawSnapshot(vmReqInfo.ImageIID, vmHandler.ComputeClient)
 		if err != nil {
-			createErr := errors.New(fmt.Sprintf("Failed to startVM err = Invalid RootDiskSize"))
+			createErr := errors.New(fmt.Sprintf("Failed to startVM err = failed to get image, err : %s", err))
 			cblogger.Error(createErr.Error())
 			LoggingError(hiscallInfo, createErr)
 			return irs.VMInfo{}, createErr
 		}
+	} else {
+		// PublicImage
+		image, err = getRawImage(vmReqInfo.ImageIID, vmHandler.ComputeClient)
+		if err != nil {
+			createErr := errors.New(fmt.Sprintf("Failed to startVM err = failed to get image, err : %s", err))
+			cblogger.Error(createErr.Error())
+			LoggingError(hiscallInfo, createErr)
+			return irs.VMInfo{}, createErr
+		}
+	}
+	serverCreateOpts := servers.CreateOpts{
+		Name:      vmReqInfo.IId.NameId,
+		FlavorRef: vmSpec.ID,
+		//Metadata: map[string]string{
+		//	"snapshot": snapshotImage.Name,
+		//},
+		Networks: []servers.Network{
+			{UUID: rawVpc.ID, FixedIP: fixedIp},
+		},
+		ImageRef:       image.ID,
+		SecurityGroups: sgIdArr,
+		UserData:       []byte(fileStr),
+	}
+	createOpts := keypairs.CreateOptsExt{
+		KeyName: keyPair.Name,
+	}
+
+	var server *servers.Server
+	if vmReqInfo.ImageType != irs.MyImage {
+		serverCreateOpts.Metadata = map[string]string{
+			"imagekey": image.ID,
+		}
+		vmSize := vmSpec.Disk
+		if vmReqInfo.RootDiskSize != "" && vmReqInfo.RootDiskSize != "default" {
+			vmSize, err = strconv.Atoi(vmReqInfo.RootDiskSize)
+			if err != nil {
+				createErr := errors.New(fmt.Sprintf("Failed to startVM err = Invalid RootDiskSize"))
+				cblogger.Error(createErr.Error())
+				LoggingError(hiscallInfo, createErr)
+				return irs.VMInfo{}, createErr
+			}
+		}
 		blockDeviceSet := []bootfromvolume.BlockDevice{
 			bootfromvolume.BlockDevice{
-				UUID:                image.IId.SystemId,
+				UUID:                image.ID,
 				SourceType:          bootfromvolume.SourceImage,
 				VolumeSize:          vmSize,
 				DestinationType:     bootfromvolume.DestinationVolume,
 				DeleteOnTermination: true,
 			},
 		}
-		bootopt := bootfromvolume.CreateOptsExt{
+		createOpts.CreateOptsBuilder = serverCreateOpts
+		bootOpt := bootfromvolume.CreateOptsExt{
 			CreateOptsBuilder: createOpts,
 			BlockDevice:       blockDeviceSet,
 		}
-		server, err = bootfromvolume.Create(vmHandler.ComputeClient, bootopt).Extract()
+
+		server, err = bootfromvolume.Create(vmHandler.ComputeClient, bootOpt).Extract()
+	} else {
+		serverCreateOpts.Metadata = map[string]string{
+			"imagekey": image.ID,
+		}
+		//blockDeviceSet := []bootfromvolume.BlockDevice{
+		//	bootfromvolume.BlockDevice{
+		//		UUID:                image.ID,
+		//		VolumeSize:          image.MinDisk,
+		//		SourceType:          bootfromvolume.SourceSnapshot,
+		//		DestinationType:     bootfromvolume.DestinationVolume,
+		//		DeleteOnTermination: true,
+		//	},
+		//}
+		createOpts.CreateOptsBuilder = serverCreateOpts
+		//bootOpt := bootfromvolume.CreateOptsExt{
+		//	CreateOptsBuilder: createOpts,
+		//	BlockDevice:       blockDeviceSet,
+		//}
+		server, err = servers.Create(vmHandler.ComputeClient, createOpts).Extract()
 	}
 	if err != nil {
 		createErr := errors.New(fmt.Sprintf("Failed to startVM err = %s", err))
@@ -258,13 +284,10 @@ func (vmHandler *OpenStackVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (startvm i
 
 	var serverResult *servers.Server
 	var serverInfo irs.VMInfo
-
+	start := call.Start()
 	// VM 생성 완료까지 wait
 	curRetryCnt := 0
-	maxRetryCnt := 120
-	if createVolumeFlag {
-		maxRetryCnt = 240
-	}
+	maxRetryCnt := 240
 	for {
 		// Check VM Deploy Status
 		serverResult, err = servers.Get(vmHandler.ComputeClient, server.ID).Extract()
@@ -274,7 +297,6 @@ func (vmHandler *OpenStackVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (startvm i
 			LoggingError(hiscallInfo, createErr)
 			return irs.VMInfo{}, createErr
 		}
-
 		if strings.ToLower(serverResult.Status) == "active" {
 			// Associate Public IP
 			if ok, err := vmHandler.AssociatePublicIP(serverResult.ID); !ok {
@@ -583,16 +605,13 @@ func (vmHandler *OpenStackVMHandler) mappingServerInfo(server servers.Server) ir
 	if creatTime, err := time.Parse(time.RFC3339, server.Created.String()); err == nil {
 		vmInfo.StartTime = creatTime
 	}
-	imageHandler := OpenStackImageHandler{
-		Client: vmHandler.ComputeClient,
-	}
 	// VM Image 정보 설정
 	for key, value := range server.Metadata {
 		if key == "imagekey" {
 			imageInfo := irs.IID{
 				NameId: value,
 			}
-			image, err := imageHandler.getRawImage(imageInfo)
+			image, err := getRawImage(imageInfo, vmHandler.ComputeClient)
 			if err == nil {
 				imageInfo.SystemId = image.ID
 			}
