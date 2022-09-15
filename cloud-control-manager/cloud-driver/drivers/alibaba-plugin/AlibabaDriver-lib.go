@@ -11,8 +11,9 @@
 package main
 
 import (
-        "C"
-        alibaba "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/alibaba"
+	"C"
+
+	alibaba "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/alibaba"
 )
 
 var CloudDriver alibaba.AlibabaDriver

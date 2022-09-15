@@ -1,3 +1,12 @@
+// Tencent Driver of CB-Spider.
+// The CB-Spider is a sub-Framework of the Cloud-Barista Multi-Cloud Project.
+// The CB-Spider Mission is to connect all the clouds with a single interface.
+//
+//   - Cloud-Barista: https://github.com/cloud-barista
+//
+// This is Tencent Driver.
+//
+// by CB-Spider Team, 2022.09.
 package main
 
 import (
@@ -5,15 +14,14 @@ import (
 	"os"
 	"testing"
 
-	_ "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/tencent/utils/env"
 	tencent "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/tencent/utils/tencent"
 	tke "github.com/tencentcloud/tencentcloud-sdk-go-intl-en/tencentcloud/tke/v20180525"
 	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
 )
 
-var secret_id = os.Getenv("SECRET_ID")
-var secret_key = os.Getenv("SECRET_KEY")
-var region_id = os.Getenv("REGION_ID")
+var secret_id = os.Getenv("CLIENT_ID")
+var secret_key = os.Getenv("CLIENT_SECRET")
+var region_id = os.Getenv("REGION")
 
 func TestCreateCluster1(t *testing.T) {
 

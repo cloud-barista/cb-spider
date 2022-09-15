@@ -1,12 +1,12 @@
-// Proof of Concepts of CB-Spider.
+// Tencent Driver of CB-Spider.
 // The CB-Spider is a sub-Framework of the Cloud-Barista Multi-Cloud Project.
 // The CB-Spider Mission is to connect all the clouds with a single interface.
 //
 //      * Cloud-Barista: https://github.com/cloud-barista
 //
-// This is a Cloud Driver Example for PoC Test.
+// This is Tencent Driver.
 //
-// by ETRI, 2022.08.
+// by CB-Spider Team, 2022.09.
 
 package resources
 
@@ -65,17 +65,18 @@ func (clusterHandler *TencentClusterHandler) CreateCluster(clusterReqInfo irs.Cl
 		return irs.ClusterInfo{}, err
 	}
 
-	// // // NodeGroup 생성 정보가 있는경우 생성을 시도한다.
-	// // // 문제는 Cluster 생성이 완료되어야 NodeGroup 생성이 가능하다.
-	// // // Cluster 생성이 완료되려면 최소 10분 이상 걸린다.
-	// // // 성공할때까지 반복하면서 생성을 시도해야 하는가?
+	// NodeGroup 생성 정보가 있는경우 생성을 시도한다.
+	// 현재는 생성 시도를 안한다. 생성하기로 결정되면 아래 주석을 풀어서 사용한다.
+	// 이유:
+	// - Cluster 생성이 완료되어야 NodeGroup 생성이 가능하다.
+	// - Cluster 생성이 완료되려면 최소 10분 이상 걸린다.
+	// - 성공할때까지 반복하면서 생성을 시도해야 한다.
 	// for _, node_group := range clusterReqInfo.NodeGroupList {
 	// 	res, err := clusterHandler.AddNodeGroup(clusterReqInfo.IId, node_group)
 	// 	if err != nil {
 	// 		cblogger.Error(err)
 	// 		return irs.ClusterInfo{}, err
 	// 	}
-	// 	printFlattenJSON(res)
 	// }
 
 	cluster_info, err := getClusterInfo(clusterHandler.CredentialInfo.ClientId, clusterHandler.CredentialInfo.ClientSecret, clusterHandler.RegionInfo.Region, *res.Response.ClusterId)

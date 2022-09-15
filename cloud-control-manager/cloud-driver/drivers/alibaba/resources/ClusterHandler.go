@@ -1,12 +1,12 @@
-// Proof of Concepts of CB-Spider.
+// Alibaba Driver of CB-Spider.
 // The CB-Spider is a sub-Framework of the Cloud-Barista Multi-Cloud Project.
 // The CB-Spider Mission is to connect all the clouds with a single interface.
 //
 //      * Cloud-Barista: https://github.com/cloud-barista
 //
-// This is a Cloud Driver Example for PoC Test.
+// This is Alibaba Driver.
 //
-// by ETRI, 2022.08.
+// by CB-Spider Team, 2022.09.
 
 package resources
 
@@ -18,14 +18,12 @@ import (
 	"sync"
 	"time"
 
-	//"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/alibaba/main/pmks_test/util"
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/alibaba/utils/alibaba"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/jeremywohl/flatten"
 	"github.com/sirupsen/logrus"
-	// call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 )
 
 // tempCalllogger
@@ -63,13 +61,13 @@ func (clusterHandler *AlibabaClusterHandler) CreateCluster(clusterReqInfo irs.Cl
 		loggingError(callLogInfo, err)
 		return irs.ClusterInfo{}, err
 	}
-	// println(response_json_str)
-	// {"cluster_id":"c913aebba53eb40f3978495d92b8da57f","request_id":"2C0836DA-ED3B-5B1E-94C9-5B7E355E2E44","task_id":"T-63185224055a0b07c6000083","instanceId":"c913aebba53eb40f3978495d92b8da57f"}
 
 	// NodeGroup 생성 정보가 있는경우 생성을 시도한다.
-	// 문제는 Cluster 생성이 완료되어야 NodeGroup 생성이 가능하다.
-	// Cluster 생성이 완료되려면 최소 10분 이상 걸린다.
-	// 성공할때까지 반복하면서 생성을 시도해야 하는가?
+	// 현재는 생성 시도를 안한다. 생성하기로 결정되면 아래 주석을 풀어서 사용한다.
+	// 이유:
+	// - Cluster 생성이 완료되어야 NodeGroup 생성이 가능하다.
+	// - Cluster 생성이 완료되려면 최소 10분 이상 걸린다.
+	// - 성공할때까지 반복하면서 생성을 시도해야 한다.
 	// for _, node_group := range clusterReqInfo.NodeGroupList {
 	// 	node_group_info, err := clusterHandler.AddNodeGroup(clusterReqInfo.IId, node_group)
 	// 	if err != nil {
@@ -172,7 +170,6 @@ func (clusterHandler *AlibabaClusterHandler) AddNodeGroup(clusterIID irs.IID, no
 	var result_json_obj map[string]interface{}
 	json.Unmarshal([]byte(result_json_str), &result_json_obj)
 	printFlattenJSON(result_json_obj)
-	//{"nodepool_id":"np031dc18d09ee4959a2c6444570150c89","request_id":"BF1C50C9-E1C0-5DB1-B290-EC01B6F1BFD1","task_id":"T-63198517f47545090c000376"}
 	nodepool_id := result_json_obj["nodepool_id"].(string)
 	node_group_info, err := getNodeGroupInfo(clusterHandler.CredentialInfo.ClientId, clusterHandler.CredentialInfo.ClientSecret, clusterHandler.RegionInfo.Region, clusterIID.SystemId, nodepool_id)
 	if err != nil {
@@ -251,7 +248,6 @@ func (clusterHandler *AlibabaClusterHandler) ChangeNodeGroupScaling(clusterIID i
 	cblogger.Info("Alibaba Cloud Driver: called ChangeNodeGroupScaling()")
 	callLogInfo := getCallLogScheme(clusterHandler.RegionInfo.Region, call.CLUSTER, clusterIID.NameId, "ChangeNodeGroupScaling()")
 
-	// temp := `{"auto_scaling":{"max_instances":%d,"min_instances":%d},"scaling_group":{"desired_size":%d}}`
 	// desired_size is not supported in alibaba with auto scaling mode
 	temp := `{"auto_scaling":{"max_instances":%d,"min_instances":%d}}`
 	body := fmt.Sprintf(temp, maxNodeSize, minNodeSize)
@@ -387,7 +383,6 @@ func getClusterInfo(access_key string, access_secret string, region_id string, c
 	}
 
 	// k,v 추출 & 추가
-	// KeyValueList: []irs.KeyValue{},
 	flat, err := flatten.Flatten(cluster_json_obj, "", flatten.DotStyle)
 	if err != nil {
 		return nil, err
@@ -482,7 +477,6 @@ func getNodeGroupInfo(access_key, access_secret, region_id, cluster_id, node_gro
 	}
 
 	// k,v 추출 & 추가
-	// KeyValueList:    []irs.KeyValue{}
 	flat, err := flatten.Flatten(node_group_json_obj, "", flatten.DotStyle)
 	if err != nil {
 		return nil, err
@@ -527,8 +521,6 @@ func getClusterInfoJSON(clusterHandler *AlibabaClusterHandler, clusterInfo irs.C
 	}
 	for _, cluster := range clusters {
 		for _, v := range cluster.KeyValueList {
-			// "parameters.ServiceCIDR": "172.24.0.0/16",
-			// "subnet_cidr": "172.23.0.0/16",
 			if v.Key == "parameters.ServiceCIDR" || v.Key == "subnet_cidr" {
 				delete(m_cidr, v.Value)
 			}

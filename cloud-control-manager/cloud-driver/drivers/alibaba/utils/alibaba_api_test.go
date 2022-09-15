@@ -1,3 +1,13 @@
+// Alibaba Driver of CB-Spider.
+// The CB-Spider is a sub-Framework of the Cloud-Barista Multi-Cloud Project.
+// The CB-Spider Mission is to connect all the clouds with a single interface.
+//
+//      * Cloud-Barista: https://github.com/cloud-barista
+//
+// This is Alibaba Driver.
+//
+// by CB-Spider Team, 2022.09.
+
 package main
 
 import (
@@ -6,25 +16,7 @@ import (
 	"testing"
 
 	alibaba "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/alibaba/utils/alibaba"
-	_ "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/alibaba/utils/env"
 )
-
-// //------ Cluster Management
-// *CreateCluster(clusterReqInfo ClusterInfo) (ClusterInfo, error)
-// *ListCluster() ([]*ClusterInfo, error)
-// *GetCluster(clusterIID IID) (ClusterInfo, error)
-// *DeleteCluster(clusterIID IID) (bool, error)
-
-// //------ NodeGroup Management
-// *AddNodeGroup(clusterIID IID, nodeGroupReqInfo NodeGroupInfo) (NodeGroupInfo, error)
-// *ListNodeGroup(clusterIID IID) ([]*NodeGroupInfo, error)
-// *GetNodeGroup(clusterIID IID, nodeGroupIID IID) (NodeGroupInfo, error)
-// -SetNodeGroupAutoScaling(clusterIID IID, nodeGroupIID IID, on bool) (bool, error)
-// -ChangeNodeGroupScaling(clusterIID IID, nodeGroupIID IID, DesiredNodeSize int, MinNodeSize int, MaxNodeSize int) (NodeGroupInfo, error)
-// *RemoveNodeGroup(clusterIID IID, nodeGroupIID IID) (bool, error)
-
-// //------ Upgrade K8S
-// -UpgradeCluster(clusterIID IID, newVersion string) (ClusterInfo, error)
 
 var access_key string
 var access_secret string
@@ -32,9 +24,9 @@ var region_id string
 
 func setup() {
 	println("setup")
-	access_key = os.Getenv("ACCESS_KEY")
-	access_secret = os.Getenv("ACCESS_SECRET")
-	region_id = os.Getenv("REGION_ID")
+	access_key = os.Getenv("CLIENT_ID")
+	access_secret = os.Getenv("CLIENT_SECRET")
+	region_id = os.Getenv("REGION")
 }
 
 func shutdown() {
@@ -49,7 +41,7 @@ func TestMain(m *testing.M) {
 }
 
 func TestCreateClusterOnly(t *testing.T) {
-	// nodecount = 0
+
 	t.Log("클러스터만 생성하기")
 
 	body := `{
@@ -65,58 +57,6 @@ func TestCreateClusterOnly(t *testing.T) {
 			"vsw-2ze0qpwcio7r5bx3nqbp1"
 		]
 	}`
-
-	// body := `{
-	// 	"name": "cluster_2",
-	// 	"region_id": "cn-beijing",
-	// 	"cluster_type": "ManagedKubernetes",
-	// 	"kubernetes_version": "1.22.10-aliyun.1",
-	// 	"vpcid": "vpc-2zek5slojo5bh621ftnrg",
-	// 	"container_cidr": "172.24.0.0/16",
-	// 	"service_cidr": "172.23.0.0/16",
-	// 	"key_pair": "kp1",
-	// 	"login_password": "$etri2ETRI",
-	// 	"master_vswitch_ids": [
-	// 		"vsw-2ze0qpwcio7r5bx3nqbp1"
-	// 	],
-	// 	"master_instance_types": [
-	// 		"ecs.g7ne.xlarge,ecs.c7.xlarge"
-	// 	],
-	// 	"master_system_disk_category": "cloud_essd",
-	// 	"master_system_disk_size": 120,
-	// 	"num_of_nodes": 0,
-	// 	"vswitch_ids": [
-	// 		"vsw-2ze0qpwcio7r5bx3nqbp1"
-	// 	],
-	// 	"worker_vswitch_ids": [
-	// 		"vsw-2ze0qpwcio7r5bx3nqbp1"
-	// 	],
-	// 	"worker_instance_types": [
-	// 		"ecs.g7ne.xlarge,ecs.c7.xlarge"
-	// 	],
-	// 	"worker_system_disk_category": "cloud_essd",
-	// 	"worker_system_disk_size": 120,
-	// 	"worker_data_disks": [
-	// 		{
-	// 			"category": "cloud_essd",
-	// 			"size": "120"
-	// 		}
-	// 	]
-	// }`
-
-	// "master_count": 3,
-
-	/*
-		must contain three (large, lowercase letters, numbers and special symbols).
-		$etri2ETRI
-	*/
-
-	/*
-	   Message: {"code":"ZoneNotSupported","message":
-	   "The current zone  does not support creating SLB, please try other zones,
-	   request id: 2C47B8CA-E920-5E54-BBC4-47081431E780",
-	   "requestId":"E9EE3C8A-71CF-5047-8BA7-15A81C954A10","status":400}
-	*/
 
 	result, err := alibaba.CreateCluster(access_key, access_secret, region_id, body)
 	if err != nil {
@@ -166,13 +106,6 @@ func TestCreateClusterWithNodeGroup(t *testing.T) {
 			}
 		]
 	}`
-
-	// "master_count": 3,
-
-	/*
-		must contain three (large, lowercase letters, numbers and special symbols).
-		$etri2ETRI
-	*/
 
 	result, err := alibaba.CreateCluster(access_key, access_secret, region_id, body)
 	if err != nil {
@@ -240,17 +173,6 @@ func TestDeleteCluster(t *testing.T) {
 
 func TestCreateNodeGroup(t *testing.T) {
 
-	// body  := `{
-	// 	"auto_scaling":{
-	// 		"enable":true,
-	// 		"max_instances":10 ,
-	// 		"min_instances":1
-	// 	},
-	// 	"scaling_group":{
-	// 		"desired_size":5
-	// 	}
-	// }`
-
 	body := `{
 		"auto_scaling": {
 			"enable": true,
@@ -281,38 +203,6 @@ func TestCreateNodeGroup(t *testing.T) {
 		}	
 	}`
 
-	// desired_size/count setting or modification is not supported for autoscaling-enabled nodepool
-	// body := `{
-	// 	"auto_scaling": {
-	// 		"enable": true,
-	// 		"max_instances": 5,
-	// 		"min_instances": 0
-	// 	},
-	// 	"kubernetes_config": {
-	// 		"runtime": "containerd",
-	// 		"runtime_version": "1.5.10"
-	// 	},
-	// 	"nodepool_info": {
-	// 		"name": "nodepoolx"
-	// 	},
-	// 	"scaling_group": {
-	// 		// "desired_size":1,
-	// 		"instance_charge_type": "PostPaid",
-	// 		"instance_types": [
-	// 			"ecs.c6.xlarge"
-	// 		],
-	// 		"key_pair": "kp1",
-	// 		"system_disk_category": "cloud_essd",
-	// 		"system_disk_size": 70,
-	// 		"vswitch_ids": [
-	// 			"vsw-2ze0qpwcio7r5bx3nqbp1"
-	// 		]
-	// 	},
-	// 	"management": {
-	// 		" enable":true
-	// 	}
-	// }`
-
 	clusters_json_str, err := alibaba.GetClusters(access_key, access_secret, region_id)
 	if err != nil {
 		t.Errorf("Failed to get clusters: %v", err)
@@ -336,30 +226,7 @@ func TestCreateNodeGroup(t *testing.T) {
 
 }
 
-// c870636966d134b968a960cd9d978f940
 func TestCreateNodeGroup2(t *testing.T) {
-
-	// body := `{
-	// 	"nodepool_info": {
-	// 		"name": "nodepoolx"
-	// 	},
-	// 	"auto_scaling": {
-	// 		"enable": true,
-	// 		"max_instances": 5,
-	// 		"min_instances": 0
-	// 	},
-	// 	"scaling_group": {
-	// 		"instance_charge_type": "PostPaid",
-	// 		"instance_types": ["ecs.c6.xlarge"],
-	// 		"key_pair": "kp1",
-	// 		"system_disk_category": "cloud_essd",
-	// 		"system_disk_size": 70,
-	// 		"vswitch_ids": ["vsw-2ze0qpwcio7r5bx3nqbp1"]
-	// 	},
-	// 	"management": {
-	// 		"enable":true
-	// 	}
-	// }`
 
 	body := `{
 		"nodepool_info": {
@@ -381,11 +248,6 @@ func TestCreateNodeGroup2(t *testing.T) {
 			"enable":true
 		}
 	}`
-
-	// "kubernetes_config": {
-	// 	"runtime": "containerd",
-	// 	"runtime_version": "1.5.10"
-	// },
 
 	clusters_json_str, err := alibaba.GetClusters(access_key, access_secret, region_id)
 	if err != nil {
@@ -488,11 +350,6 @@ func TestGetNodeGroup(t *testing.T) {
 
 func TestSetNodeGroupAutoScaling(t *testing.T) {
 	//  https://next.api.alibabacloud.com/api/CS/2015-12-15/ModifyClusterNodePool?sdkStyle=old&params={}
-	// modify (set auto scaling) on/off
-	// body := `{"auto_scaling":{"enable":false}}`
-	// body := `{"auto_scaling":{"enable":true}}`
-	// body := `{"auto_scaling":{"max_instances":5,"min_instances":0},"scaling_group":{"desired_size":2}}`
-
 	clusters_json_str, err := alibaba.GetClusters(access_key, access_secret, region_id)
 	if err != nil {
 		t.Errorf("Failed to get clusters: %v", err)
@@ -532,12 +389,10 @@ func TestSetNodeGroupAutoScaling(t *testing.T) {
 			}
 			println(res)
 			// "{\"code\":\"ErrDefaultNodePool\",\"message\":\" Nodepool is default, cannot enable autoscaling\"}\n"
-
 			// default node pool: cannot enable autoscaling
 			// custom, managed node pool: can enable autoscaling
 			// https://www.alibabacloud.com/help/en/container-service-for-kubernetes/latest/manage-node-pools
 			// body  := `{"auto_scaling":{"enable":true,"max_instances":10 ,"min_instances":1}, "scaling_group":{"desired_size":5},"management":{" enable":true}}`
-
 		}
 	}
 }
@@ -547,7 +402,6 @@ func TestChangeNodeGroupScaling(t *testing.T) {
 	// body := `{"auto_scaling":{"enable":false}}`
 	// body := `{"auto_scaling":{"enable":true}}`
 	// body := `{"auto_scaling":{"max_instances":5,"min_instances":0},"scaling_group":{"desired_size":2}}`
-
 	clusters_json_str, err := alibaba.GetClusters(access_key, access_secret, region_id)
 	if err != nil {
 		t.Errorf("Failed to get clusters: %v", err)
@@ -632,21 +486,11 @@ func TestDeleteNodeGroup(t *testing.T) {
 }
 
 func TestUpgradeCluster(t *testing.T) {
-
-	// POST /api/v2/clusters/c82e6987e2961451182edacd74faf****/upgrade HTTP/1.1
-	// Content-Type:application/json
-	// {
-	//   "component_name" : "k8s",
-	//   "next_version" : "1.16.9-aliyun.1",
-	//   "version" : "1.14.8-aliyun.1"
-	// }
-
 	//https://www.alibabacloud.com/help/en/container-service-for-kubernetes/latest/kubernetes-1-22-release-notes#concept-2170736
 	// 1.22.3-aliyun.1
 	// {
 	//   "next_version" : "1.22.3-aliyun.1"
 	// }
-
 	clusters_json_str, err := alibaba.GetClusters(access_key, access_secret, region_id)
 	if err != nil {
 		t.Errorf("Failed to get clusters: %v", err)

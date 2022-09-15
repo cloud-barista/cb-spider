@@ -1,10 +1,18 @@
+// Tencent Driver of CB-Spider.
+// The CB-Spider is a sub-Framework of the Cloud-Barista Multi-Cloud Project.
+// The CB-Spider Mission is to connect all the clouds with a single interface.
+//
+//      * Cloud-Barista: https://github.com/cloud-barista
+//
+// This is Tencent Driver.
+//
+// by CB-Spider Team, 2022.09.
+
 package pmks
 
 import (
 	"os"
 	"testing"
-
-	_ "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/tencent/main/pmks_test/env" // 위치 변경 하면 안됨. 환경설정 정보 읽기 전에 테스트 수행됨
 
 	tdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/tencent"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
