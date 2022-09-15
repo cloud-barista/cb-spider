@@ -55,10 +55,12 @@ func (clusterHandler *AlibabaClusterHandler) CreateCluster(clusterReqInfo irs.Cl
 
 	start := call.Start()
 	response_json_str, err := alibaba.CreateCluster(clusterHandler.CredentialInfo.ClientId, clusterHandler.CredentialInfo.ClientSecret, clusterHandler.RegionInfo.Region, payload)
-	loggingInfo(callLogInfo, start)
+	callLogInfo.ElapsedTime = call.Elapsed(start)
+	tempCalllogger.Info(call.String(callLogInfo))
 	if err != nil {
 		cblogger.Error(err)
-		loggingError(callLogInfo, err)
+		callLogInfo.ErrorMSG = err.Error()
+		tempCalllogger.Info(call.String(callLogInfo))
 		return irs.ClusterInfo{}, err
 	}
 
@@ -94,7 +96,8 @@ func (clusterHandler *AlibabaClusterHandler) ListCluster() ([]*irs.ClusterInfo, 
 
 	start := call.Start()
 	clusters_json_str, err := alibaba.GetClusters(clusterHandler.CredentialInfo.ClientId, clusterHandler.CredentialInfo.ClientSecret, clusterHandler.RegionInfo.Region)
-	loggingInfo(callLogInfo, start)
+	callLogInfo.ElapsedTime = call.Elapsed(start)
+	tempCalllogger.Info(call.String(callLogInfo))
 	if err != nil {
 		cblogger.Error(err)
 		return nil, err
@@ -123,7 +126,8 @@ func (clusterHandler *AlibabaClusterHandler) GetCluster(clusterIID irs.IID) (irs
 
 	start := call.Start()
 	cluster_info, err := getClusterInfo(clusterHandler.CredentialInfo.ClientId, clusterHandler.CredentialInfo.ClientSecret, clusterHandler.RegionInfo.Region, clusterIID.SystemId)
-	loggingInfo(callLogInfo, start)
+	callLogInfo.ElapsedTime = call.Elapsed(start)
+	tempCalllogger.Info(call.String(callLogInfo))
 	if err != nil {
 		cblogger.Error(err)
 		return irs.ClusterInfo{}, err
@@ -138,7 +142,8 @@ func (clusterHandler *AlibabaClusterHandler) DeleteCluster(clusterIID irs.IID) (
 
 	start := call.Start()
 	res, err := alibaba.DeleteCluster(clusterHandler.CredentialInfo.ClientId, clusterHandler.CredentialInfo.ClientSecret, clusterHandler.RegionInfo.Region, clusterIID.SystemId)
-	loggingInfo(callLogInfo, start)
+	callLogInfo.ElapsedTime = call.Elapsed(start)
+	tempCalllogger.Info(call.String(callLogInfo))
 	if err != nil {
 		cblogger.Error(err)
 		return false, err
@@ -161,7 +166,8 @@ func (clusterHandler *AlibabaClusterHandler) AddNodeGroup(clusterIID irs.IID, no
 
 	start := call.Start()
 	result_json_str, err := alibaba.CreateNodeGroup(clusterHandler.CredentialInfo.ClientId, clusterHandler.CredentialInfo.ClientSecret, clusterHandler.RegionInfo.Region, clusterIID.SystemId, payload)
-	loggingInfo(callLogInfo, start)
+	callLogInfo.ElapsedTime = call.Elapsed(start)
+	tempCalllogger.Info(call.String(callLogInfo))
 	if err != nil {
 		cblogger.Error(err)
 		return irs.NodeGroupInfo{}, err
@@ -188,7 +194,8 @@ func (clusterHandler *AlibabaClusterHandler) ListNodeGroup(clusterIID irs.IID) (
 
 	start := call.Start()
 	node_groups_json_str, err := alibaba.ListNodeGroup(clusterHandler.CredentialInfo.ClientId, clusterHandler.CredentialInfo.ClientSecret, clusterHandler.RegionInfo.Region, clusterIID.SystemId)
-	loggingInfo(callLogInfo, start)
+	callLogInfo.ElapsedTime = call.Elapsed(start)
+	tempCalllogger.Info(call.String(callLogInfo))
 	if err != nil {
 		cblogger.Error(err)
 		return node_group_info_list, err
@@ -216,7 +223,8 @@ func (clusterHandler *AlibabaClusterHandler) GetNodeGroup(clusterIID irs.IID, no
 
 	start := call.Start()
 	temp, err := getNodeGroupInfo(clusterHandler.CredentialInfo.ClientId, clusterHandler.CredentialInfo.ClientSecret, clusterHandler.RegionInfo.Region, clusterIID.SystemId, nodeGroupIID.SystemId)
-	loggingInfo(callLogInfo, start)
+	callLogInfo.ElapsedTime = call.Elapsed(start)
+	tempCalllogger.Info(call.String(callLogInfo))
 	if err != nil {
 		cblogger.Error(err)
 		return irs.NodeGroupInfo{}, err
@@ -234,7 +242,8 @@ func (clusterHandler *AlibabaClusterHandler) SetNodeGroupAutoScaling(clusterIID 
 
 	start := call.Start()
 	res, err := alibaba.ModifyNodeGroup(clusterHandler.CredentialInfo.ClientId, clusterHandler.CredentialInfo.ClientSecret, clusterHandler.RegionInfo.Region, clusterIID.SystemId, nodeGroupIID.SystemId, body)
-	loggingInfo(callLogInfo, start)
+	callLogInfo.ElapsedTime = call.Elapsed(start)
+	tempCalllogger.Info(call.String(callLogInfo))
 	if err != nil {
 		cblogger.Error(err)
 		return false, err
@@ -253,7 +262,8 @@ func (clusterHandler *AlibabaClusterHandler) ChangeNodeGroupScaling(clusterIID i
 	body := fmt.Sprintf(temp, maxNodeSize, minNodeSize)
 	start := call.Start()
 	res, err := alibaba.ModifyNodeGroup(clusterHandler.CredentialInfo.ClientId, clusterHandler.CredentialInfo.ClientSecret, clusterHandler.RegionInfo.Region, clusterIID.SystemId, nodeGroupIID.SystemId, body)
-	loggingInfo(callLogInfo, start)
+	callLogInfo.ElapsedTime = call.Elapsed(start)
+	tempCalllogger.Info(call.String(callLogInfo))
 	if err != nil {
 		cblogger.Error(err)
 		return irs.NodeGroupInfo{}, err
@@ -275,7 +285,8 @@ func (clusterHandler *AlibabaClusterHandler) RemoveNodeGroup(clusterIID irs.IID,
 
 	start := call.Start()
 	res, err := alibaba.DeleteNodeGroup(clusterHandler.CredentialInfo.ClientId, clusterHandler.CredentialInfo.ClientSecret, clusterHandler.RegionInfo.Region, clusterIID.SystemId, nodeGroupIID.SystemId)
-	loggingInfo(callLogInfo, start)
+	callLogInfo.ElapsedTime = call.Elapsed(start)
+	tempCalllogger.Info(call.String(callLogInfo))
 	if err != nil {
 		cblogger.Error(err)
 		return false, err
@@ -294,7 +305,8 @@ func (clusterHandler *AlibabaClusterHandler) UpgradeCluster(clusterIID irs.IID, 
 
 	start := call.Start()
 	res, err := alibaba.UpgradeCluster(clusterHandler.CredentialInfo.ClientId, clusterHandler.CredentialInfo.ClientSecret, clusterHandler.RegionInfo.Region, clusterIID.SystemId, body)
-	loggingInfo(callLogInfo, start)
+	callLogInfo.ElapsedTime = call.Elapsed(start)
+	tempCalllogger.Info(call.String(callLogInfo))
 	if err != nil {
 		cblogger.Error(err)
 		return irs.ClusterInfo{}, err
@@ -619,16 +631,6 @@ func getCallLogScheme(region string, resourceType call.RES_TYPE, resourceName st
 		ResourceName: resourceName,
 		CloudOSAPI:   apiName,
 	}
-}
-
-func loggingError(hiscallInfo call.CLOUDLOGSCHEMA, err error) {
-	hiscallInfo.ErrorMSG = err.Error()
-	tempCalllogger.Info(call.String(hiscallInfo))
-}
-
-func loggingInfo(hiscallInfo call.CLOUDLOGSCHEMA, start time.Time) {
-	hiscallInfo.ElapsedTime = call.Elapsed(start)
-	tempCalllogger.Info(call.String(hiscallInfo))
 }
 
 func printFlattenJSON(json_obj interface{}) {
