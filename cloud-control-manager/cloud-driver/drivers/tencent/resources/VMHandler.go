@@ -288,6 +288,25 @@ func (vmHandler *TencentVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 
 	}
 
+	// image 정보에 포함된 data disk setting
+	imageInfo, imageErr := DescribeImagesByID(vmHandler.Client, vmReqInfo.ImageIID)
+	if imageErr != nil {
+		cblogger.Error(imageErr)
+	}
+
+	snapshotSet := imageInfo.SnapshotSet
+	dataDiskList := []*cvm.DataDisk{}
+
+	for _, snapshot := range snapshotSet {
+		dataDisk := cvm.DataDisk{}
+		if *snapshot.DiskUsage == "DATA_DISK" {
+			dataDisk.SnapshotId = snapshot.SnapshotId
+			dataDisk.DiskSize = snapshot.DiskSize
+			dataDiskList = append(dataDiskList, &dataDisk)
+		}
+	}
+
+	request.DataDisks = dataDiskList
 	//=============================
 	// UserData생성 처리(File기반)
 	//=============================
