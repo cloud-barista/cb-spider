@@ -356,6 +356,8 @@ func RunServer() {
 		//-------------------------------------------------------------------//
                 //----------Additional Info
 		{"GET", "/cspresourcename/:Name", GetCSPResourceName},
+		//----------AnyCall Handler
+		{"POST", "/anycall", AnyCall},
 
 		//-------------------------------------------------------------------//
 		//----------SPLock Info

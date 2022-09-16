@@ -25,6 +25,8 @@ import (
 	clb "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/clb/v20180317"
 	cvm "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/cvm/v20170312"
 	vpc "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/vpc/v20170312"
+
+	"errors"
 )
 
 type TencentCloudConnection struct {
@@ -145,3 +147,9 @@ func (cloudConn *TencentCloudConnection) CreateClusterHandler() (irs.ClusterHand
 	return &clusterHandler, nil
 
 }
+
+
+func (cloudConn *TencentCloudConnection) CreateAnyCallHandler() (irs.AnyCallHandler, error) {
+	return nil, errors.New("Tencent Driver: not implemented")
+}
+

@@ -108,3 +108,9 @@ func (cloudConn *ClouditCloudConnection) CreateMyImageHandler() (irs.MyImageHand
 	myImageHandler := cirs.ClouditMyImageHandler{CredentialInfo: cloudConn.CredentialInfo, Client: &cloudConn.Client}
 	return &myImageHandler, nil
 }
+
+
+func (cloudConn *ClouditCloudConnection) CreateAnyCallHandler() (irs.AnyCallHandler, error) {
+	return nil, errors.New("Cloudit Driver: not implemented")
+}
+

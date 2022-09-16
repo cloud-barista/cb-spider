@@ -2654,3 +2654,36 @@ func DetachDisk(c echo.Context) error {
 
         return c.JSON(http.StatusOK, result)
 }
+
+//================ AnyCall Handler
+
+func AnyCall(c echo.Context) error {
+        cblog.Info("call AnyCall()")
+
+        var req struct {
+                ConnectionName string
+		ReqInfo	struct {
+			FID string
+			IKeyValueList []cres.KeyValue
+		}
+        }
+
+
+        if err := c.Bind(&req); err != nil {
+                return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+        }
+
+	reqInfo := cres.AnyCallInfo {
+		FID:	req.ReqInfo.FID,
+		IKeyValueList: req.ReqInfo.IKeyValueList,
+	}
+
+        // Call common-runtime API
+        result, err := cmrt.AnyCall(req.ConnectionName, reqInfo)
+        if err != nil {
+                return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+        }
+
+        return c.JSON(http.StatusOK, result)
+}
+

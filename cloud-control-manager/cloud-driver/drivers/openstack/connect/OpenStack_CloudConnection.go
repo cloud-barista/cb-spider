@@ -125,3 +125,9 @@ func (cloudConn *OpenStackCloudConnection) Close() error {
 func (cloudConn *OpenStackCloudConnection) CreateClusterHandler() (irs.ClusterHandler, error) {
 	return nil, errors.New("OpenStack Driver: not implemented")
 }
+
+
+
+func (cloudConn *OpenStackCloudConnection) CreateAnyCallHandler() (irs.AnyCallHandler, error) {
+	return nil, errors.New("OpenStack Driver: not implemented")
+}

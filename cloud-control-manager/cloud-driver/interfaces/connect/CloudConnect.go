@@ -30,6 +30,8 @@ type CloudConnection interface {
 
 	CreateClusterHandler() (irs.ClusterHandler, error)
 
+	CreateAnyCallHandler() (irs.AnyCallHandler, error)
+
 	IsConnected() (bool, error)
 	Close() error
 }

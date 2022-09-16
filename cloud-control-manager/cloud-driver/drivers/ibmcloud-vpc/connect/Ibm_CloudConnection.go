@@ -136,3 +136,8 @@ func (cloudConn *IbmCloudConnection) CreateMyImageHandler() (irs.MyImageHandler,
 	}
 	return &myIamgeHandler, nil
 }
+
+func (cloudConn *IbmCloudConnection) CreateAnyCallHandler() (irs.AnyCallHandler, error) {
+	return nil, errors.New("Ibm Driver: not implemented")
+}
+

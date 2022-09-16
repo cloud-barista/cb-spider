@@ -4034,6 +4034,7 @@ func DeleteResource(connectionName string, rsType string, nameID string, force s
 		defer vmSPLock.Unlock(connectionName, nameID)
 	case rsNLB:
 		nlbSPLock.Lock(connectionName, nameID)
+		defer nlbSPLock.Unlock(connectionName, nameID)
 	case rsDisk:
 		diskSPLock.Lock(connectionName, nameID)
 		defer diskSPLock.Unlock(connectionName, nameID)
@@ -5850,6 +5851,7 @@ func setVMUserIIDwithSystemId(connectionName string, nlbName string, healthInfo 
 	return nil
 }
 
+//================ get CSP Name
 func GetCSPResourceName(connectionName string, rsType string, nameID string) (string, error) {
         cblog.Info("call GetCSPResourceName()")
 
@@ -5865,9 +5867,6 @@ func GetCSPResourceName(connectionName string, rsType string, nameID string) (st
                 cblog.Error(err)
                 return "", err
         }
-
-        keySPLock.RLock(connectionName, nameID)
-        defer keySPLock.RUnlock(connectionName, nameID)
 
         // (1) get IID(NameId)
         iidInfo, err := iidRWLock.GetIID(iidm.IIDSGROUP, connectionName, rsType, cres.IID{nameID, ""})
@@ -6432,3 +6431,38 @@ defer vmSPLock.Unlock(connectionName, ownerVMName)
 
         return info, nil
 }
+
+
+//================ AnyCall Handler
+func AnyCall(connectionName string, reqInfo cres.AnyCallInfo) (*cres.AnyCallInfo, error) {
+        cblog.Info("call AnyCall()")
+
+        // check empty and trim user inputs
+        connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)
+        if err != nil {
+                cblog.Error(err)
+                return nil, err
+        }
+
+        cldConn, err := ccm.GetCloudConnection(connectionName)
+        if err != nil {
+                cblog.Error(err)
+                return nil, err
+        }
+
+        handler, err := cldConn.CreateAnyCallHandler()
+        if err != nil {
+                cblog.Error(err)
+                return nil, err
+        }
+
+        //  Call AnyCall
+        info, err := handler.AnyCall(reqInfo)
+        if err != nil {
+                cblog.Error(err)
+                return nil, err
+        }
+
+        return &info, nil
+}
+
