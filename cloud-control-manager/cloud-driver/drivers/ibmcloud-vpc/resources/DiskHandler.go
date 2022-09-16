@@ -31,7 +31,7 @@ func (diskHandler *IbmDiskHandler) CreateDisk(diskReqInfo irs.DiskInfo) (irs.Dis
 	}
 	if ptrCapacity == nil || *ptrCapacity < 10 {
 		// set default capacity as minimum
-		ptrCapacity = core.Int64Ptr(10)
+		ptrCapacity = core.Int64Ptr(50)
 	}
 	if &diskReqInfo.DiskType == nil || diskReqInfo.DiskType == "" {
 		// set default type as least performance
