@@ -18,9 +18,7 @@ type GCPMyImageHandler struct {
 }
 
 const (
-	GCPMyImageReady   string = "READY"
-	GCPMyImageFailed  string = "FAILED"
-	GCPMyImagePending string = "PENDING"
+	GCPMyImageReady string = "READY"
 )
 
 func (MyImageHandler *GCPMyImageHandler) SnapshotVM(snapshotReqInfo irs.MyImageInfo) (irs.MyImageInfo, error) {
@@ -28,18 +26,12 @@ func (MyImageHandler *GCPMyImageHandler) SnapshotVM(snapshotReqInfo irs.MyImageI
 	zone := MyImageHandler.Region.Zone
 	myImageName := snapshotReqInfo.IId.NameId
 
-	vmResp, vmErr := MyImageHandler.Client.Instances.Get(projectID, zone, snapshotReqInfo.SourceVM.SystemId).Do()
-	if vmErr != nil {
-		cblogger.Error(vmErr)
-		return irs.MyImageInfo{}, vmErr
+	machineImage := &compute.MachineImage{
+		SourceInstance: "projects/" + projectID + "/zones/" + zone + "/instances/" + snapshotReqInfo.SourceVM.SystemId,
+		Name:           myImageName,
 	}
 
-	image := &compute.Image{
-		SourceDisk: vmResp.Disks[0].Source,
-		Name:       myImageName,
-	}
-
-	op, err := MyImageHandler.Client.Images.Insert(projectID, image).Do()
+	op, err := MyImageHandler.Client.MachineImages.Insert(projectID, machineImage).Do()
 	if err != nil {
 		cblogger.Error(err)
 		return irs.MyImageInfo{}, err
@@ -61,7 +53,7 @@ func (MyImageHandler *GCPMyImageHandler) ListMyImage() ([]*irs.MyImageInfo, erro
 
 	projectID := MyImageHandler.Credential.ProjectID
 
-	myImageList, err := MyImageHandler.Client.Images.List(projectID).Do()
+	myImageList, err := MyImageHandler.Client.MachineImages.List(projectID).Do()
 	if err != nil {
 		cblogger.Error(err)
 		return nil, err
@@ -71,7 +63,7 @@ func (MyImageHandler *GCPMyImageHandler) ListMyImage() ([]*irs.MyImageInfo, erro
 		myImageInfo, err := MyImageHandler.convertMyImageInfo(myImage)
 		if err != nil {
 			cblogger.Error(err)
-			return nil, err
+			continue
 		}
 		myImageInfoList = append(myImageInfoList, &myImageInfo)
 	}
@@ -82,7 +74,7 @@ func (MyImageHandler *GCPMyImageHandler) ListMyImage() ([]*irs.MyImageInfo, erro
 func (MyImageHandler *GCPMyImageHandler) GetMyImage(myImageIID irs.IID) (irs.MyImageInfo, error) {
 	projectID := MyImageHandler.Credential.ProjectID
 
-	myImageResp, err := GetImageInfo(MyImageHandler.Client, projectID, myImageIID.SystemId)
+	myImageResp, err := GetMachineImageInfo(MyImageHandler.Client, projectID, myImageIID.SystemId)
 	if err != nil {
 		cblogger.Error(err)
 		return irs.MyImageInfo{}, err
@@ -101,7 +93,7 @@ func (MyImageHandler *GCPMyImageHandler) DeleteMyImage(myImageIID irs.IID) (bool
 	projectID := MyImageHandler.Credential.ProjectID
 	myImage := myImageIID.SystemId
 
-	op, err := MyImageHandler.Client.Images.Delete(projectID, myImage).Do()
+	op, err := MyImageHandler.Client.MachineImages.Delete(projectID, myImage).Do()
 	if err != nil {
 		cblogger.Error(err)
 		return false, err
@@ -112,20 +104,12 @@ func (MyImageHandler *GCPMyImageHandler) DeleteMyImage(myImageIID irs.IID) (bool
 	return true, nil
 }
 
-func (MyImageHandler *GCPMyImageHandler) convertMyImageInfo(myImageResp *compute.Image) (irs.MyImageInfo, error) {
+func (MyImageHandler *GCPMyImageHandler) convertMyImageInfo(myImageResp *compute.MachineImage) (irs.MyImageInfo, error) {
 	myImageInfo := irs.MyImageInfo{}
 
 	myImageInfo.IId = irs.IID{NameId: myImageResp.Name, SystemId: myImageResp.Name}
-	arrSourceDisk := strings.Split(myImageResp.SourceDisk, "/")
-	sourceDisk := arrSourceDisk[len(arrSourceDisk)-1]
 
-	diskInfo, diskErr := GetDiskInfo(MyImageHandler.Client, MyImageHandler.Credential, MyImageHandler.Region, sourceDisk)
-	if diskErr != nil {
-		cblogger.Error(diskErr)
-		return irs.MyImageInfo{}, diskErr
-	}
-
-	arrSourceVM := strings.Split(diskInfo.Users[0], "/")
+	arrSourceVM := strings.Split(myImageResp.SourceInstance, "/")
 	sourceVM := arrSourceVM[len(arrSourceVM)-1]
 
 	myImageInfo.SourceVM = irs.IID{SystemId: sourceVM}
@@ -148,9 +132,7 @@ func convertMyImageStatus(status string) (irs.MyImageStatus, error) {
 
 	if status == GCPMyImageReady {
 		returnStatus = irs.MyImageAvailable
-	} else if status == GCPMyImageFailed {
-		returnStatus = irs.MyImageUnavailable
-	} else if status == GCPMyImagePending {
+	} else {
 		returnStatus = irs.MyImageUnavailable
 	}
 
