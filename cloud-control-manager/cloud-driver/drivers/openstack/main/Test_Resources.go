@@ -544,7 +544,7 @@ func testVMHandler(config Config) {
 		IId: irs.IID{
 			NameId: config.Openstack.Resources.Vm.IID.NameId,
 		},
-		ImageType: irs.PublicImage,
+		ImageType: irs.MyImage,
 		ImageIID: irs.IID{
 			NameId:   config.Openstack.Resources.Vm.ImageIID.NameId,
 			SystemId: config.Openstack.Resources.Vm.ImageIID.SystemId,
@@ -910,20 +910,20 @@ func testDiskHandler(config Config) {
 
 	testDiskHandlerListPrint()
 	diskIId := irs.IID{
-		NameId: "test-0830-2",
+		NameId: "volume1",
 	}
 	createDiskReqInfo := irs.DiskInfo{
 		IId: irs.IID{
-			NameId: "test-0830-2",
+			NameId: "volume1",
 		},
 		DiskSize: "1",
 	}
 	delDiskIId := irs.IID{}
 	attachedDisk := irs.IID{
-		NameId: "test-0830-1",
+		NameId: "volume1",
 	}
 	attachVMIId := irs.IID{
-		NameId: "vm-0831-02-changesize",
+		NameId: "vm-tester",
 	}
 
 Loop:
@@ -1026,10 +1026,10 @@ func testMyImageHandler(config Config) {
 	}
 	imageInfo := irs.MyImageInfo{
 		IId: irs.IID{
-			NameId: "vm-defaultsize-sanp",
+			NameId: "vm-tester-snap",
 		},
 		SourceVM: irs.IID{
-			NameId: "vm-defaultsize",
+			NameId: "vm-tester",
 		},
 	}
 	delimageIId := irs.IID{

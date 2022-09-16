@@ -108,6 +108,7 @@ func (cloudConn *AzureCloudConnection) CreateVMHandler() (irs.VMHandler, error) 
 		PublicIPClient: cloudConn.PublicIPClient,
 		DiskClient:     cloudConn.DiskClient,
 		SshKeyClient:   cloudConn.SshKeyClient,
+		ImageClient:    cloudConn.ImageClient,
 	}
 	return &vmHandler, nil
 }

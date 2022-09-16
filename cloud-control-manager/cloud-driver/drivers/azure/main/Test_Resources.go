@@ -79,6 +79,7 @@ type Config struct {
 				ImageIID struct {
 					NameId string `yaml:"nameId"`
 				} `yaml:"ImageIID"`
+				ImageType  string `yaml:"ImageType"`
 				VmSpecName string `yaml:"VmSpecName"`
 				KeyPairIID struct {
 					NameId string `yaml:"nameId"`
@@ -95,6 +96,25 @@ type Config struct {
 				RootDiskSize string `yaml:"RootDiskSize"`
 				RootDiskType string `yaml:"RootDiskType"`
 			} `yaml:"vm"`
+			MyImage struct {
+				IID struct {
+					NameId string `yaml:"nameId"`
+				} `yaml:"IID"`
+				SourceVM struct {
+					NameId string `yaml:"nameId"`
+				} `yaml:"sourceVM"`
+			} `yaml:"myImage"`
+			Disk struct {
+				IID struct {
+					NameId string `yaml:"nameId"`
+				} `yaml:"IID"`
+				DiskType       string `yaml:"diskType"`
+				DiskSize       string `yaml:"diskSize"`
+				UpdateDiskSize string `yaml:"updateDiskSize"`
+				AttachedVM     struct {
+					NameId string `yaml:"nameId"`
+				} `yaml:"attachedVM"`
+			} `yaml:"disk"`
 		} `yaml:"resources"`
 	} `yaml:"azure"`
 }
@@ -261,7 +281,7 @@ func testSecurityHandlerListPrint() {
 	cblogger.Info("7. Exit")
 }
 
-//SecurityGroup
+// SecurityGroup
 func testSecurityHandler(config Config) {
 	resourceHandler, err := getResourceHandler("security", config)
 	if err != nil {
@@ -700,6 +720,10 @@ func testVMHandler(config Config) {
 	for _, sg := range configsgIIDs {
 		SecurityGroupIIDs = append(SecurityGroupIIDs, irs.IID{NameId: sg.NameId})
 	}
+	imageType := irs.PublicImage
+	if config.Azure.Resources.Vm.ImageType == "MyImage" {
+		imageType = irs.MyImage
+	}
 	vmIID := irs.IID{
 		NameId: config.Azure.Resources.Vm.IID.NameId,
 	}
@@ -707,6 +731,7 @@ func testVMHandler(config Config) {
 		IId: irs.IID{
 			NameId: config.Azure.Resources.Vm.IID.NameId,
 		},
+		ImageType: imageType,
 		ImageIID: irs.IID{
 			NameId: config.Azure.Resources.Vm.ImageIID.NameId,
 		},
@@ -1023,25 +1048,25 @@ func testDiskHandler(config Config) {
 
 	testDiskHandlerListPrint()
 	diskIId := irs.IID{
-		NameId: "test02",
+		NameId: config.Azure.Resources.Disk.IID.NameId,
 	}
 	createDiskReqInfo := irs.DiskInfo{
 		IId: irs.IID{
-			NameId: "test02",
+			NameId: config.Azure.Resources.Disk.IID.NameId,
 		},
-		DiskSize: "30",
-		DiskType: "PremiumSSD",
+		DiskSize: config.Azure.Resources.Disk.DiskSize,
+		DiskType: config.Azure.Resources.Disk.DiskType,
 	}
 	delDiskIId := irs.IID{
-		NameId: "test02",
+		NameId: config.Azure.Resources.Disk.IID.NameId,
 	}
 	attachDiskIId := irs.IID{
-		NameId: "test02",
+		NameId: config.Azure.Resources.Disk.IID.NameId,
 	}
 	attachVMIId := irs.IID{
-		NameId: "tj-vm-01",
+		NameId: config.Azure.Resources.Disk.AttachedVM.NameId,
 	}
-	updateSize := "76"
+	updateSize := config.Azure.Resources.Disk.UpdateDiskSize
 Loop:
 	for {
 		var commandNum int
@@ -1137,9 +1162,12 @@ func testMyImageHandler(config Config) {
 	myimageHandler := resourceHandler.(irs.MyImageHandler)
 
 	testMyImageHandlerListPrint()
-	getimageIId := irs.IID{}
-	targetvm := irs.IID{}
-	delimageIId := irs.IID{}
+	getimageIId := irs.IID{NameId: config.Azure.Resources.MyImage.IID.NameId}
+	targetvm := irs.MyImageInfo{
+		IId:      irs.IID{NameId: config.Azure.Resources.MyImage.IID.NameId},
+		SourceVM: irs.IID{NameId: config.Azure.Resources.MyImage.SourceVM.NameId},
+	}
+	delimageIId := irs.IID{NameId: config.Azure.Resources.MyImage.IID.NameId}
 Loop:
 	for {
 		var commandNum int
@@ -1151,7 +1179,7 @@ Loop:
 		if inputCnt == 1 {
 			switch commandNum {
 			case 0:
-				testDiskHandlerListPrint()
+				testMyImageHandlerListPrint()
 			case 1:
 				cblogger.Info("Start ListMyImage() ...")
 				if list, err := myimageHandler.ListMyImage(); err != nil {
