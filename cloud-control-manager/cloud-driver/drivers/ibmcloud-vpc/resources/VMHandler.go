@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/IBM/go-sdk-core/v5/core"
+	vpcv0230 "github.com/IBM/vpc-go-sdk/0.23.0/vpcv1"
 	"github.com/IBM/vpc-go-sdk/vpcv1"
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
@@ -14,6 +15,7 @@ import (
 	"math/rand"
 	"net/url"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -24,6 +26,7 @@ type IbmVMHandler struct {
 	CredentialInfo idrv.CredentialInfo
 	Region         idrv.RegionInfo
 	VpcService     *vpcv1.VpcV1
+	VpcService0230 *vpcv0230.VpcV1
 	Ctx            context.Context
 }
 
@@ -54,13 +57,40 @@ func (vmHandler *IbmVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 		return irs.VMInfo{}, createErr
 	}
 	// 1-2. Setup Req Resource IID
-	image, err := getRawImage(vmReqInfo.ImageIID, vmHandler.VpcService, vmHandler.Ctx)
-	if err != nil {
-		createErr := errors.New(fmt.Sprintf("Failed to Create VM. err = %s", err.Error()))
-		cblogger.Error(createErr.Error())
-		LoggingError(hiscallInfo, createErr)
-		return irs.VMInfo{}, createErr
+	var image vpcv1.Image
+	var myImage irs.MyImageInfo
+	if vmReqInfo.ImageType == irs.MyImage {
+		myImageHandler := IbmMyImageHandler{
+			CredentialInfo: vmHandler.CredentialInfo,
+			Region:         vmHandler.Region,
+			VpcService:     vmHandler.VpcService,
+			Ctx:            vmHandler.Ctx,
+		}
+		var getMyImageErr error
+		myImage, getMyImageErr = myImageHandler.GetMyImage(vmReqInfo.ImageIID)
+		if getMyImageErr != nil {
+			createErr := errors.New(fmt.Sprintf("Failed to Create VM. err = %s", getMyImageErr.Error()))
+			cblogger.Error(createErr.Error())
+			LoggingError(hiscallInfo, createErr)
+			return irs.VMInfo{}, createErr
+		}
+		if myImage.Status != irs.MyImageAvailable {
+			createErr := errors.New("Failed to Create VM. err = Source Image status is not Available")
+			cblogger.Error(createErr.Error())
+			LoggingError(hiscallInfo, createErr)
+			return irs.VMInfo{}, createErr
+		}
+	} else {
+		var getImageErr error
+		image, getImageErr = getRawImage(vmReqInfo.ImageIID, vmHandler.VpcService, vmHandler.Ctx)
+		if getImageErr != nil {
+			createErr := errors.New(fmt.Sprintf("Failed to Create VM. err = %s", getImageErr.Error()))
+			cblogger.Error(createErr.Error())
+			LoggingError(hiscallInfo, createErr)
+			return irs.VMInfo{}, createErr
+		}
 	}
+
 	vpc, err := getRawVPC(vmReqInfo.VpcIID, vmHandler.VpcService, vmHandler.Ctx)
 	if err != nil {
 		createErr := errors.New(fmt.Sprintf("Failed to Create VM. err = %s", err.Error()))
@@ -124,34 +154,111 @@ func (vmHandler *IbmVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 
 	// 2.Create VM
 	// TODO : UserData cloudInit
-	createInstanceOptions := &vpcv1.CreateInstanceOptions{}
-	createInstanceOptions.SetInstancePrototype(&vpcv1.InstancePrototype{
-		Name: &vmReqInfo.IId.NameId,
-		Image: &vpcv1.ImageIdentity{
-			ID: image.ID,
-		},
-		Profile: &vpcv1.InstanceProfileIdentity{
-			Name: spec.Name,
-		},
-		Zone: &vpcv1.ZoneIdentity{
-			Name: &vmHandler.Region.Zone,
-		},
-		PrimaryNetworkInterface: &vpcv1.NetworkInterfacePrototype{
-			Subnet: &vpcv1.SubnetIdentity{
-				ID: vpcSubnet.ID,
+	createInstanceOptions := &vpcv0230.CreateInstanceOptions{}
+	if vmReqInfo.ImageType == irs.MyImage {
+		snapshotList, _, listSnapshotErr := vmHandler.VpcService.ListSnapshotsWithContext(vmHandler.Ctx, &vpcv1.ListSnapshotsOptions{})
+		if listSnapshotErr != nil {
+			return irs.VMInfo{}, errors.New(fmt.Sprintf("Failed to Get MyImage. err = %s", listSnapshotErr.Error()))
+		}
+
+		var associatedSnapshots []vpcv1.Snapshot
+		for _, snapshot := range snapshotList.Snapshots {
+			if strings.Split(*snapshot.Name, DEV)[0] == myImage.IId.NameId {
+				associatedSnapshots = append(associatedSnapshots, snapshot)
+			}
+		}
+
+		sort.Slice(associatedSnapshots, func(i, j int) bool {
+			return *associatedSnapshots[i].Name < *associatedSnapshots[j].Name
+		})
+
+		var dataVolumeAttachments []vpcv0230.VolumeAttachmentPrototypeInstanceContext
+		var bootVolumeAttachment vpcv0230.VolumeAttachmentPrototypeInstanceBySourceSnapshotContext
+		for _, snapshot := range associatedSnapshots {
+			sourceVolume, _, getSourceVolumeErr := vmHandler.VpcService0230.GetVolumeWithContext(vmHandler.Ctx, &vpcv0230.GetVolumeOptions{ID: snapshot.SourceVolume.ID})
+			if getSourceVolumeErr != nil {
+				return irs.VMInfo{}, errors.New(fmt.Sprintf("Failed to Get Source Volume. err = %s", getSourceVolumeErr.Error()))
+			}
+
+			volumeName := fmt.Sprintf("%s%s%s", vmReqInfo.IId.NameId, DEV, strings.Split(*snapshot.Name, DEV)[1])
+			if *snapshot.Bootable {
+				bootVolumeAttachment = vpcv0230.VolumeAttachmentPrototypeInstanceBySourceSnapshotContext{
+					Volume: &vpcv0230.VolumePrototypeInstanceBySourceSnapshotContext{
+						Name:           core.StringPtr(volumeName),
+						Profile:        &vpcv0230.VolumeProfileIdentityByName{Name: sourceVolume.Profile.Name},
+						Capacity:       sourceVolume.Capacity,
+						SourceSnapshot: &vpcv0230.SnapshotIdentityByID{ID: snapshot.ID},
+					},
+				}
+			} else {
+				model := vpcv0230.VolumeAttachmentPrototypeInstanceContext{
+					Volume: &vpcv0230.VolumeAttachmentVolumePrototypeInstanceContextVolumePrototypeInstanceContextVolumePrototypeInstanceContextVolumeBySourceSnapshot{
+						Name:           core.StringPtr(volumeName),
+						Profile:        &vpcv0230.VolumeProfileIdentityByName{Name: sourceVolume.Profile.Name},
+						Capacity:       sourceVolume.Capacity,
+						SourceSnapshot: &vpcv0230.SnapshotIdentityByID{ID: snapshot.ID},
+					},
+				}
+
+				dataVolumeAttachments = append(dataVolumeAttachments, model)
+			}
+		}
+
+		createInstanceOptions.SetInstancePrototype(&vpcv0230.InstancePrototypeInstanceBySourceSnapshot{
+			Name:                 &vmReqInfo.IId.NameId,
+			BootVolumeAttachment: &bootVolumeAttachment,
+			VolumeAttachments:    dataVolumeAttachments,
+			Profile: &vpcv0230.InstanceProfileIdentity{
+				Name: spec.Name,
 			},
-		},
-		Keys: []vpcv1.KeyIdentityIntf{
-			&vpcv1.KeyIdentity{
-				ID: key.ID,
+			Zone: &vpcv0230.ZoneIdentity{
+				Name: &vmHandler.Region.Zone,
 			},
-		},
-		VPC: &vpcv1.VPCIdentity{
-			ID: vpc.ID,
-		},
-		UserData: &userData,
-	})
-	createInstance, _, err := vmHandler.VpcService.CreateInstanceWithContext(vmHandler.Ctx, createInstanceOptions)
+			PrimaryNetworkInterface: &vpcv0230.NetworkInterfacePrototype{
+				Subnet: &vpcv0230.SubnetIdentity{
+					ID: vpcSubnet.ID,
+				},
+			},
+			Keys: []vpcv0230.KeyIdentityIntf{
+				&vpcv0230.KeyIdentity{
+					ID: key.ID,
+				},
+			},
+			VPC: &vpcv0230.VPCIdentity{
+				ID: vpc.ID,
+			},
+			UserData: &userData,
+		})
+	} else {
+		createInstanceOptions.SetInstancePrototype(&vpcv0230.InstancePrototype{
+			Name: &vmReqInfo.IId.NameId,
+			Image: &vpcv0230.ImageIdentity{
+				ID: image.ID,
+			},
+			Profile: &vpcv0230.InstanceProfileIdentity{
+				Name: spec.Name,
+			},
+			Zone: &vpcv0230.ZoneIdentity{
+				Name: &vmHandler.Region.Zone,
+			},
+			PrimaryNetworkInterface: &vpcv0230.NetworkInterfacePrototype{
+				Subnet: &vpcv0230.SubnetIdentity{
+					ID: vpcSubnet.ID,
+				},
+			},
+			Keys: []vpcv0230.KeyIdentityIntf{
+				&vpcv0230.KeyIdentity{
+					ID: key.ID,
+				},
+			},
+			VPC: &vpcv0230.VPCIdentity{
+				ID: vpc.ID,
+			},
+			UserData: &userData,
+		})
+	}
+
+	createInstance, _, err := vmHandler.VpcService0230.CreateInstanceWithContext(vmHandler.Ctx, createInstanceOptions)
 	if err != nil {
 		createErr := errors.New(fmt.Sprintf("Failed to Create VM. err = %s", err.Error()))
 		cblogger.Error(createErr.Error())

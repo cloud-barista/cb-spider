@@ -2,13 +2,14 @@ package connect
 
 import (
 	"context"
+	"errors"
+	vpcv0230 "github.com/IBM/vpc-go-sdk/0.23.0/vpcv1"
 	"github.com/IBM/vpc-go-sdk/vpcv1"
 	cblog "github.com/cloud-barista/cb-log"
 	ibmrs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/ibmcloud-vpc/resources"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/sirupsen/logrus"
-	"errors"
 )
 
 var cblogger *logrus.Logger
@@ -22,6 +23,7 @@ type IbmCloudConnection struct {
 	CredentialInfo idrv.CredentialInfo
 	Region         idrv.RegionInfo
 	VpcService     *vpcv1.VpcV1
+	VpcService0230 *vpcv0230.VpcV1
 	Ctx            context.Context
 }
 
@@ -42,6 +44,7 @@ func (cloudConn *IbmCloudConnection) CreateVMHandler() (irs.VMHandler, error) {
 		CredentialInfo: cloudConn.CredentialInfo,
 		Region:         cloudConn.Region,
 		VpcService:     cloudConn.VpcService,
+		VpcService0230: cloudConn.VpcService0230,
 		Ctx:            cloudConn.Ctx,
 	}
 	return &vmHandler, nil
@@ -109,13 +112,27 @@ func (cloudConn *IbmCloudConnection) Close() error {
 }
 
 func (cloudConn *IbmCloudConnection) CreateDiskHandler() (irs.DiskHandler, error) {
-        return nil, errors.New("Ibm Driver: not implemented")
+	cblogger.Info("Ibm Cloud Driver: called CreateDiskHandler()!")
+	diskHandler := ibmrs.IbmDiskHandler{
+		CredentialInfo: cloudConn.CredentialInfo,
+		Region:         cloudConn.Region,
+		VpcService:     cloudConn.VpcService,
+		Ctx:            cloudConn.Ctx,
+	}
+	return &diskHandler, nil
 }
 
 func (cloudConn *IbmCloudConnection) CreateClusterHandler() (irs.ClusterHandler, error) {
-        return nil, errors.New("Ibm Driver: not implemented")
+	return nil, errors.New("Ibm Driver: not implemented")
 }
 
 func (cloudConn *IbmCloudConnection) CreateMyImageHandler() (irs.MyImageHandler, error) {
-        return nil, errors.New("Ibm Driver: not implemented")
+	cblogger.Info("Ibm Cloud Driver: called CreateMyImageHandler()!")
+	myIamgeHandler := ibmrs.IbmMyImageHandler{
+		CredentialInfo: cloudConn.CredentialInfo,
+		Region:         cloudConn.Region,
+		VpcService:     cloudConn.VpcService,
+		Ctx:            cloudConn.Ctx,
+	}
+	return &myIamgeHandler, nil
 }
