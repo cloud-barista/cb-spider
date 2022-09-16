@@ -14,6 +14,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -38,7 +39,7 @@ type IbmNLBHandler struct {
 	Ctx            context.Context
 }
 
-//------ NLB Management
+// ------ NLB Management
 func (nlbHandler *IbmNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (irs.NLBInfo, error) {
 	hiscallInfo := GetCallLogScheme(nlbHandler.Region, "NETWORKLOADBALANCE", nlbReqInfo.IId.NameId, "CreateNLB()")
 	start := call.Start()
@@ -75,17 +76,30 @@ func (nlbHandler *IbmNLBHandler) ListNLB() ([]*irs.NLBInfo, error) {
 
 	nlbInfoList := make([]*irs.NLBInfo, len(*nlbList))
 
+	var wait sync.WaitGroup
+	wait.Add(len(*nlbList))
+	var errList []string
+
 	for i, nlb := range *nlbList {
-		info, err := nlbHandler.setterNLB(nlb)
-		if err != nil {
-			getErr := errors.New(fmt.Sprintf("Failed to List NLB. err = %s", err.Error()))
-			cblogger.Error(getErr.Error())
-			LoggingError(hiscallInfo, getErr)
-			return nil, getErr
-		}
-		nlbInfoList[i] = info
+		go func() {
+			defer wait.Done()
+			info, getErr := nlbHandler.setterNLB(nlb)
+			if getErr != nil {
+				cblogger.Error(getErr.Error())
+				LoggingError(hiscallInfo, getErr)
+				errList = append(errList, getErr.Error())
+			}
+			nlbInfoList[i] = info
+		}()
 	}
+	wait.Wait()
 	LoggingInfo(hiscallInfo, start)
+
+	if len(errList) > 0 {
+		errList = append([]string{"Failed to List NLB. err = "}, errList...)
+		return nil, errors.New(strings.Join(errList, "\n\t"))
+	}
+
 	return nlbInfoList, nil
 }
 func (nlbHandler *IbmNLBHandler) GetNLB(nlbIID irs.IID) (irs.NLBInfo, error) {
@@ -123,7 +137,7 @@ func (nlbHandler *IbmNLBHandler) DeleteNLB(nlbIID irs.IID) (bool, error) {
 	return true, nil
 }
 
-//------ Frontend Control
+// ------ Frontend Control
 func (nlbHandler *IbmNLBHandler) ChangeListener(nlbIID irs.IID, listener irs.ListenerInfo) (irs.ListenerInfo, error) {
 	hiscallInfo := GetCallLogScheme(nlbHandler.Region, "NETWORKLOADBALANCE", nlbIID.NameId, "ChangeListener()")
 	start := call.Start()
@@ -209,7 +223,7 @@ func (nlbHandler *IbmNLBHandler) ChangeListener(nlbIID irs.IID, listener irs.Lis
 	return info.Listener, err
 }
 
-//------ Backend Control
+// ------ Backend Control
 func (nlbHandler *IbmNLBHandler) ChangeVMGroupInfo(nlbIID irs.IID, vmGroup irs.VMGroupInfo) (irs.VMGroupInfo, error) {
 	hiscallInfo := GetCallLogScheme(nlbHandler.Region, "NETWORKLOADBALANCE", nlbIID.NameId, "ChangeVMGroupInfo()")
 	start := call.Start()
@@ -720,31 +734,71 @@ func (nlbHandler *IbmNLBHandler) setterNLB(nlb vpcv1.LoadBalancer) (*irs.NLBInfo
 		nlbInfo.Type = string(NLBInternalType)
 	}
 
-	vpcIId, err := nlbHandler.getVPCIID(nlb)
-	if err != nil {
-		return nil, err
-	}
-	nlbInfo.VpcIID = vpcIId
+	var apiCallFunctions []func(rawNlb vpcv1.LoadBalancer, irsNlb *irs.NLBInfo) error
+	// define and register get VPC IID
+	apiCallFunctions = append(apiCallFunctions, func(nlbInner vpcv1.LoadBalancer, nlbInfoInner *irs.NLBInfo) error {
+		vpcIId, err := nlbHandler.getVPCIID(nlbInner)
+		if err != nil {
+			return err
+		}
+		nlbInfoInner.VpcIID = vpcIId
+		return nil
+	})
+	// define and register get VM Group
+	apiCallFunctions = append(apiCallFunctions, func(nlbInner vpcv1.LoadBalancer, nlbInfoInner *irs.NLBInfo) error {
+		vmGroup, err := nlbHandler.getVMGroup(nlb)
+		if err != nil {
+			return err
+		}
+		nlbInfo.VMGroup = vmGroup
+		return nil
+	})
+	// define and register get Listener
+	apiCallFunctions = append(apiCallFunctions, func(nlbInner vpcv1.LoadBalancer, nlbInfoInner *irs.NLBInfo) error {
+		listenerInfo, err := nlbHandler.getListenerInfo(nlb)
+		if err != nil {
+			return err
+		}
+		nlbInfo.Listener = listenerInfo
+		return nil
+	})
+	// define and register get HealthChecker
+	apiCallFunctions = append(apiCallFunctions, func(nlbInner vpcv1.LoadBalancer, nlbInfoInner *irs.NLBInfo) error {
+		healthCheckerInfo, err := nlbHandler.getHealthCheckerInfo(nlb)
+		if err != nil {
+			return err
+		}
+		nlbInfo.HealthChecker = healthCheckerInfo
+		return nil
+	})
 
-	vmGroup, err := nlbHandler.getVMGroup(nlb)
-	if err != nil {
-		return nil, err
-	}
-	nlbInfo.VMGroup = vmGroup
+	// prepare api call
+	var wait sync.WaitGroup
+	wait.Add(len(apiCallFunctions))
+	var errList []string
 
-	listenerInfo, err := nlbHandler.getListenerInfo(nlb)
-	if err != nil {
-		return nil, err
+	// define api call done behaviour
+	callAndWaitGroup := func(call func(rawNlb vpcv1.LoadBalancer, irsNlb *irs.NLBInfo) error) {
+		defer wait.Done()
+		if err := call(nlb, &nlbInfo); err != nil {
+			errList = append(errList, err.Error())
+		}
 	}
-	nlbInfo.Listener = listenerInfo
+
+	// asynchronously call registered apis
+	for _, apiCallFunction := range apiCallFunctions {
+		go callAndWaitGroup(apiCallFunction)
+	}
+
+	// wait for all registered api call is done
+	wait.Wait()
+
+	// return all errors if occurs
+	if len(errList) > 0 {
+		return &irs.NLBInfo{}, errors.New(strings.Join(errList, "\n\t"))
+	}
 
 	nlbInfo.CreatedTime = time.Time(*nlb.CreatedAt)
-
-	healthCheckerInfo, err := nlbHandler.getHealthCheckerInfo(nlb)
-	if err != nil {
-		return nil, err
-	}
-	nlbInfo.HealthChecker = healthCheckerInfo
 
 	return &nlbInfo, nil
 }
@@ -914,7 +968,6 @@ func (nlbHandler *IbmNLBHandler) getCreatePoolOptions(nlbReqInfo irs.NLBInfo) ([
 	return poolArray, nil
 }
 
-//
 func (nlbHandler *IbmNLBHandler) convertCBVMGroupToIbmPoolMember(vmGroup irs.VMGroupInfo) ([]vpcv1.LoadBalancerPoolMemberPrototype, error) {
 	vms := *vmGroup.VMs
 	memberPort, err := strconv.Atoi(vmGroup.Port)
