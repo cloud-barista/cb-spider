@@ -12,7 +12,6 @@ package connect
 
 import (
 	"context"
-	"errors"
 
 	cblog "github.com/cloud-barista/cb-log"
 	gcprs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/gcp/resources"
