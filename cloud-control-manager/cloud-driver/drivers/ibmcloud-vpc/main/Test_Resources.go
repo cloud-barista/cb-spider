@@ -224,8 +224,8 @@ func getResourceHandler(resourceType string, config Config) (interface{}, error)
 		resourceHandler, err = ibmCon.CreateVMHandler()
 	// TODO interface Change
 	case "nlb":
-		return nil, errors.New("not support")
-		//	resourceHandler, err = ibmCon.CreateNLBHandler()
+		//return nil, errors.New("not support")
+		resourceHandler, err = ibmCon.CreateNLBHandler()
 	case "disk":
 		resourceHandler, err = ibmCon.CreateDiskHandler()
 	case "myimage":
@@ -926,11 +926,11 @@ func testNLBHandler(config Config) {
 	testNLBHandlerListPrint()
 
 	nlbIId := irs.IID{
-		NameId: "nlb-tester-0527-2",
+		NameId: "test-nlb-01",
 	}
 	nlbCreateReqInfo := irs.NLBInfo{
 		IId: irs.IID{
-			NameId: "nlb-tester-0527-2",
+			NameId: "test-nlb-01",
 		},
 		VpcIID: irs.IID{
 			NameId: "nlb-tester-vpc",
@@ -943,7 +943,7 @@ func testNLBHandler(config Config) {
 			Port:     "8080",
 			Protocol: "TCP",
 			VMs: &[]irs.IID{
-				{NameId: "nlb-tester-vm-03"},
+				{NameId: "nlb-tester-vm-02"},
 			},
 		},
 		HealthChecker: irs.HealthCheckerInfo{
