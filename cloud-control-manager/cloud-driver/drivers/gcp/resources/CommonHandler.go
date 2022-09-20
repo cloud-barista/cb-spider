@@ -204,11 +204,11 @@ func GetDiskInfo(client *compute.Service, credential idrv.CredentialInfo, region
 	return diskResp, nil
 }
 
-func GetImageInfo(client *compute.Service, projectId string, imageName string) (*compute.Image, error) {
-	imageResp, err := client.Images.Get(projectId, imageName).Do()
+func GetMachineImageInfo(client *compute.Service, projectId string, imageName string) (*compute.MachineImage, error) {
+	imageResp, err := client.MachineImages.Get(projectId, imageName).Do()
 	if err != nil {
 		cblogger.Error(err)
-		return &compute.Image{}, err
+		return &compute.MachineImage{}, err
 	}
 
 	return imageResp, nil
