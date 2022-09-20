@@ -51,6 +51,7 @@ func addTag(anyCallHandler *AwsAnyCallHandler, callInfo irs.AnyCallInfo) (irs.An
 	fmt.Printf("\n\n\n * Region/Zone:%s/%s, *ClientId:%s, * ClientSecret:%s\n", 
 		anyCallHandler.Region.Region, anyCallHandler.Region.Zone, 
 		anyCallHandler.CredentialInfo.ClientId, anyCallHandler.CredentialInfo.ClientSecret)
+	fmt.Printf("\n\n\n * Client:%#v\n\n\n", *anyCallHandler.Client)
 
         // Input Arg Validation
         if callInfo.IKeyValueList == nil {
