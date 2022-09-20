@@ -402,6 +402,12 @@ func getIdMaxLength(providerName string, rsType string) int {
 	if idx == -1 {
 		return 0
 	}
+
+	// target CSP's rsType not defined in cloudos_meta.yaml
+	if idx >= len(cloudOSMetaInfo.IdMaxLength)  {
+		return 0
+	}
+
 	strMaxLength := cloudOSMetaInfo.IdMaxLength[idx]
 	maxLength, _ := strconv.Atoi(strMaxLength)
 
