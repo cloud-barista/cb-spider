@@ -200,6 +200,7 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 		},
 	}
 
+	// imageType이 MyImage인 경우 SourceMachineImage Setting
 	if vmReqInfo.ImageType == irs.MyImage {
 		instance.SourceMachineImage = imageURL
 	} else {
