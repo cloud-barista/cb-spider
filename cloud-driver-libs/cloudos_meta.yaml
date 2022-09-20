@@ -14,8 +14,8 @@ AWS:
   rootdisktype: standard / gp2 / gp3
   disktype: standard / gp2 / gp3 / io1 / io2 / st1 / sc1
   disksize: standard|1|1024|GB / gp2|1|16384|GB / gp3|1|16384|GB / io1|4|16384|GB / io2|4|16384|GB / st1|125|16384|GB / sc1|125|16384|GB
-  # idmaxlength: VPC / Subnet / SecurityGroup / KeyPair / VM
-  idmaxlength: 255 / 256 / 255 / 255 / 255
+  # idmaxlength: VPC / Subnet / SecurityGroup / KeyPair / VM / Disk / NLB / MyImage / Cluster
+  idmaxlength: 255 / 256 / 255 / 255 / 255 / 256 / 32 / 127 / 100
 
 AZURE:
   region: location / ResourceGroup
@@ -31,9 +31,9 @@ GCP:
   rootdisktype: pd-standard / pd-balanced / pd-ssd / pd-extreme
   disktype: pd-standard / pd-balanced / pd-ssd / pd-extreme
   disksize: pd-standard|10|65536|GB / pd-balanced|10|65536|GB / pd-ssd|10|65536|GB / pd-extreme|500|65536|GB
-  # idmaxlength: VPC / Subnet / SecurityGroup / KeyPair / VM
+  # idmaxlength: VPC / Subnet / SecurityGroup / KeyPair / VM / Disk / NLB / MyImage / Cluster
   #idmaxlength: 63 / 63 / 63 / 0 / 63
-  idmaxlength: 63 / 63 / 57 / 0 / 63
+  idmaxlength: 63 / 63 / 57 / 0 / 63 / 63 / 63 / 63 / 40
 
 ALIBABA:
   region: Region / Zone
@@ -44,8 +44,8 @@ ALIBABA:
   #rootdisksize: cloud_efficiency|20|32768|GB / cloud|5|2000|GB / cloud_ssd|20|32768|GB
   disktype: cloud / cloud_efficiency / cloud_ssd / cloud_essd
   disksize: cloud|5|2000|GB / cloud_efficiency|20|32768|GB / cloud_ssd|20|32768|GB / cloud_essd_PL0|40|32768|GB / cloud_essd_PL1|20|32768|GB / cloud_essd_PL2|461|32768|GB / cloud_essd_PL3|1261|32768|GB
-  # idmaxlength: VPC / Subnet / SecurityGroup / KeyPair / VM
-  idmaxlength: 128 / 128 / 128 / 128 / 128 
+  # idmaxlength: VPC / Subnet / SecurityGroup / KeyPair / VM / Disk / NLB / MyImage / Cluster
+  idmaxlength: 128 / 128 / 128 / 128 / 128 / 128 / 80 / 128 / 63
   
 
 TENCENT:
@@ -56,8 +56,8 @@ TENCENT:
   rootdisksize: CLOUD_PREMIUM|50|16000|GB / CLOUD_SSD|50|16000|GB
   disktype: CLOUD_PREMIUM / CLOUD_SSD / CLOUD_HSSD / CLOUD_BASIC / CLOUD_TSSD
   disksize: CLOUD_PREMIUM|10|32000|GB / CLOUD_SSD|20|32000|GB / CLOUD_HSSD|20|32000|GB / CLOUD_BASIC|10|32000|GB / CLOUD_TSSD|10|32000|GB
-  # idmaxlength: VPC / Subnet / SecurityGroup / KeyPair / VM
-  idmaxlength: 60 / 60 / 60 / 25 / 88
+  # idmaxlength: VPC / Subnet / SecurityGroup / KeyPair / VM / Disk / NLB / MyImage / Cluster
+  idmaxlength: 60 / 60 / 60 / 25 / 88 / 60 / 60 / 60 /50
 
 IBM:
   region: Region / Zone
