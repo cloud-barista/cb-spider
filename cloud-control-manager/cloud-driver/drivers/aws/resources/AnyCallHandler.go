@@ -6,7 +6,7 @@
 //
 // This is AWS Driver.
 //
-// by CB-Spider Team, 2020.09.
+// by CB-Spider Team, 2022.09.
 
 package resources
 
@@ -27,8 +27,19 @@ type AwsAnyCallHandler struct {
         Client         *ec2.EC2
 }
 
+/********************************************************
+        // call example
+        curl -sX POST http://localhost:1024/spider/anycall -H 'Content-Type: application/json' -d \
+        '{
+                "ConnectionName" : "aws-ohio-config",
+                "ReqInfo" : {
+                        "FID" : "addTag",
+                        "IKeyValueList" : [{"Key":"key1", "Value":"value1"}, {"Key":"key2", "Value":"value2"}]
+                }
+        }' | json_pp
+********************************************************/
 func (anyCallHandler *AwsAnyCallHandler) AnyCall(callInfo irs.AnyCallInfo) (irs.AnyCallInfo, error) {
-	cblogger.Info("AWS Driver: called Call()!")
+	cblogger.Info("AWS Driver: called AnyCall()!")
 
         switch callInfo.FID {
         case "addTag" :
@@ -45,7 +56,7 @@ func (anyCallHandler *AwsAnyCallHandler) AnyCall(callInfo irs.AnyCallInfo) (irs.
 // implemented by developer user, like 'addTag(kv []KeyVale) bool'
 ///////////////////////////////////////////////////////////////////
 func addTag(anyCallHandler *AwsAnyCallHandler, callInfo irs.AnyCallInfo) (irs.AnyCallInfo, error) {
-        cblogger.Info("AWS Driver: called Call()/addTag()!")
+        cblogger.Info("AWS Driver: called AnyCall()/addTag()!")
 
 	// you must delete this line
 	fmt.Printf("\n\n\n * Region/Zone:%s/%s, *ClientId:%s, * ClientSecret:%s\n", 
