@@ -4,7 +4,6 @@ go 1.19
 
 replace (
 	github.com/IBM/vpc-go-sdk/0.23.0 => github.com/IBM/vpc-go-sdk v0.23.0
-	github.com/coreos/bbolt => go.etcd.io/bbolt v1.3.3
 	github.com/dgrijalva/jwt-go => github.com/golang-jwt/jwt v3.2.1+incompatible
 	github.com/docker/distribution => github.com/docker/distribution v2.8.0+incompatible
 )
@@ -18,7 +17,6 @@ require (
 	github.com/IBM/vpc-go-sdk/0.23.0 v0.23.0
 	github.com/Microsoft/go-winio v0.5.2 // indirect
 	github.com/alecthomas/template v0.0.0-20190718012654-fb15b899a751
-	//github.com/aliyun/alibaba-cloud-sdk-go v1.61.1662
 	github.com/aliyun/alibaba-cloud-sdk-go v1.61.1743
 	github.com/aws/aws-sdk-go v1.39.4
 	github.com/bramvdbogaerde/go-scp v1.0.0
