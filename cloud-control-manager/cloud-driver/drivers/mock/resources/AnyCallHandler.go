@@ -25,12 +25,20 @@ type MockAnyCallHandler struct {
 }
 
 
-
-// (1) create keyPairInfo object
-// (2) insert keyPairInfo into global Map
+/********************************************************
+        // call example
+        curl -sX POST http://localhost:1024/spider/anycall -H 'Content-Type: application/json' -d \
+        '{
+                "ConnectionName" : "mock-config01",
+                "ReqInfo" : {
+                        "FID" : "countAll",
+                        "IKeyValueList" : [{"Key":"rsType", "Value":"vpc"}]
+                }
+        }' | json_pp
+********************************************************/
 func (anyCallHandler *MockAnyCallHandler) AnyCall(callInfo irs.AnyCallInfo) (irs.AnyCallInfo, error) {
 	cblogger := cblog.GetLogger("CB-SPIDER")
-	cblogger.Info("Mock Driver: called Call()!")
+	cblogger.Info("Mock Driver: called AnyCall()!")
 
 	switch callInfo.FID {
 	case "countAll" : 
@@ -44,10 +52,12 @@ func (anyCallHandler *MockAnyCallHandler) AnyCall(callInfo irs.AnyCallInfo) (irs
 }
 
 
+///////////////////////////////////////////////////////////////////
 // implemented by developer user, like 'countAll(rsType string) int'
+///////////////////////////////////////////////////////////////////
 func countAll(anyCallHandler *MockAnyCallHandler, callInfo irs.AnyCallInfo) (irs.AnyCallInfo, error) {
 	cblogger := cblog.GetLogger("CB-SPIDER")
-	cblogger.Info("Mock Driver: called Call()/countAll()!")
+	cblogger.Info("Mock Driver: called AnyCall()/countAll()!")
 
 	mockName := anyCallHandler.MockName
 
@@ -65,15 +75,17 @@ func countAll(anyCallHandler *MockAnyCallHandler, callInfo irs.AnyCallInfo) (irs
 	case "vpc": 
 		infoList, ok := vpcInfoMap[mockName]
 		if !ok {
-			return callInfo, nil
+			strCount = "0"	
+		} else {
+			strCount = strconv.Itoa(len(infoList))
 		}
-		strCount = strconv.Itoa(len(infoList))
 	case "sg": 
 		infoList, ok := securityInfoMap[mockName]
 		if !ok {
-			return callInfo, nil
+			strCount = "0"	
+		} else {
+			strCount = strconv.Itoa(len(infoList))
 		}
-		strCount = strconv.Itoa(len(infoList))
 	}
 
 	// make results
