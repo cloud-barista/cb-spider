@@ -15,6 +15,10 @@ curl -X POST http://$RESTSERVER:1024/spider/region -H 'Content-Type: application
 
 curl -X POST http://$RESTSERVER:1024/spider/region -H 'Content-Type: application/json' -d '{"RegionName":"ncpvpc-singapore5","ProviderName":"NCPVPC", "KeyValueInfoList": [{"Key":"Region", "Value":"SGN"}, {"Key":"Zone", "Value":"SGN-5"}]}'
 
+curl -X POST http://$RESTSERVER:1024/spider/region -H 'Content-Type: application/json' -d '{"RegionName":"ncpvpc-japan4","ProviderName":"NCPVPC", "KeyValueInfoList": [{"Key":"Region", "Value":"JPN"}, {"Key":"Zone", "Value":"JPN-4"}]}'
+
+curl -X POST http://$RESTSERVER:1024/spider/region -H 'Content-Type: application/json' -d '{"RegionName":"ncpvpc-japan5","ProviderName":"NCPVPC", "KeyValueInfoList": [{"Key":"Region", "Value":"JPN"}, {"Key":"Zone", "Value":"JPN-5"}]}'
+
  # Cloud Connection Config Info
 curl -X POST http://$RESTSERVER:1024/spider/connectionconfig -H 'Content-Type: application/json' -d '{"ConfigName":"ncpvpc-korea1-config","ProviderName":"NCPVPC", "DriverName":"ncpvpc-driver01", "CredentialName":"ncpvpc-credential01", "RegionName":"ncpvpc-korea1"}'
 
@@ -23,3 +27,7 @@ curl -X POST http://$RESTSERVER:1024/spider/connectionconfig -H 'Content-Type: a
 curl -X POST http://$RESTSERVER:1024/spider/connectionconfig -H 'Content-Type: application/json' -d '{"ConfigName":"ncpvpc-singapore4-config","ProviderName":"NCPVPC", "DriverName":"ncpvpc-driver01", "CredentialName":"ncpvpc-credential01", "RegionName":"ncpvpc-singapore4"}'
 
 curl -X POST http://$RESTSERVER:1024/spider/connectionconfig -H 'Content-Type: application/json' -d '{"ConfigName":"ncpvpc-singapore5-config","ProviderName":"NCPVPC", "DriverName":"ncpvpc-driver01", "CredentialName":"ncpvpc-credential01", "RegionName":"ncpvpc-singapore5"}'
+
+curl -X POST http://$RESTSERVER:1024/spider/connectionconfig -H 'Content-Type: application/json' -d '{"ConfigName":"ncpvpc-japan4-config","ProviderName":"NCPVPC", "DriverName":"ncpvpc-driver01", "CredentialName":"ncpvpc-credential01", "RegionName":"ncpvpc-japan4"}'
+
+curl -X POST http://$RESTSERVER:1024/spider/connectionconfig -H 'Content-Type: application/json' -d '{"ConfigName":"ncpvpc-japan5-config","ProviderName":"NCPVPC", "DriverName":"ncpvpc-driver01", "CredentialName":"ncpvpc-credential01", "RegionName":"ncpvpc-japan5"}'
