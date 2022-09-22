@@ -95,6 +95,7 @@ func (myImageHandler *OpenStackMyImageHandler) GetMyImage(myImageIID irs.IID) (i
 	LoggingInfo(hiscallInfo, start)
 	return info, nil
 }
+
 func (myImageHandler *OpenStackMyImageHandler) DeleteMyImage(myImageIID irs.IID) (bool, error) {
 	hiscallInfo := GetCallLogScheme(myImageHandler.CredentialInfo.IdentityEndpoint, "MyImage", myImageIID.NameId, "GetMyImage()")
 	start := call.Start()
@@ -281,6 +282,9 @@ func deleteSnapshot(snapshotIID irs.IID, computeClient *gophercloud.ServiceClien
 	}
 
 	if snapshotmeta.BlockDeviceMapping != nil && len(snapshotmeta.BlockDeviceMapping) > 0 {
+		if volumeClient == nil {
+			return false, errors.New("the image has Metadata about the volume. However, this Openstack does not have a Cinder module installed. Please check the cinder module installation")
+		}
 		for _, volumeSnapshot := range snapshotmeta.BlockDeviceMapping {
 			if volumeClient.Type == VolumeV3 {
 				err = volumes3snapshots.Delete(volumeClient, volumeSnapshot.SnapshotId).ExtractErr()

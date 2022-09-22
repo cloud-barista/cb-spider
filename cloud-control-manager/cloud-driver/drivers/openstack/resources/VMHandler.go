@@ -156,9 +156,6 @@ func (vmHandler *OpenStackVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (startvm i
 		LoggingError(hiscallInfo, createErr)
 		return irs.VMInfo{}, createErr
 	}
-	//createOpts := keypairs.CreateOptsExt{
-	//	KeyName: keyPair.Name,
-	//}
 
 	// cloud-init 스크립트 설정
 	rootPath := os.Getenv("CBSPIDER_ROOT")
@@ -171,10 +168,6 @@ func (vmHandler *OpenStackVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (startvm i
 	fileStr := string(fileData)
 	fileStr = strings.ReplaceAll(fileStr, "{{username}}", SSHDefaultUser)
 	fileStr = strings.ReplaceAll(fileStr, "{{public_key}}", keyPair.PublicKey)
-
-	// cloud-init 스크립트 적용
-	//serverCreateOpts.UserData = []byte(fileStr)
-	//createOpts.CreateOptsBuilder = serverCreateOpts
 
 	var image images.Image
 	// SnapShot
@@ -207,61 +200,83 @@ func (vmHandler *OpenStackVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (startvm i
 		},
 		ImageRef:       image.ID,
 		SecurityGroups: sgIdArr,
-		UserData:       []byte(fileStr),
+		UserData:       []byte(fileStr), // cloud-init 스크립트 적용
+	}
+	serverCreateOpts.Metadata = map[string]string{
+		"imagekey": image.ID,
 	}
 	createOpts := keypairs.CreateOptsExt{
 		KeyName: keyPair.Name,
 	}
-
 	var server *servers.Server
 	if vmReqInfo.ImageType != irs.MyImage {
-		serverCreateOpts.Metadata = map[string]string{
-			"imagekey": image.ID,
-		}
-		vmSize := vmSpec.Disk
-		if vmReqInfo.RootDiskSize != "" && vmReqInfo.RootDiskSize != "default" {
-			vmSize, err = strconv.Atoi(vmReqInfo.RootDiskSize)
+		// PublicImage
+		// DiskSize 변경
+		if !(vmReqInfo.RootDiskSize == "" || vmReqInfo.RootDiskSize == "default") {
+			if vmHandler.VolumeClient == nil {
+				// Disk Size 변경 && vmHandler.VolumeClient == nil
+				createErr := errors.New(fmt.Sprintf("Failed to startVM err = this Openstack cannot provide VolumeClient. RootDiskSize cannot be changed"))
+				cblogger.Error(createErr.Error())
+				LoggingError(hiscallInfo, createErr)
+				return irs.VMInfo{}, createErr
+			}
+			vmSize, err := strconv.Atoi(vmReqInfo.RootDiskSize)
 			if err != nil {
 				createErr := errors.New(fmt.Sprintf("Failed to startVM err = Invalid RootDiskSize"))
 				cblogger.Error(createErr.Error())
 				LoggingError(hiscallInfo, createErr)
 				return irs.VMInfo{}, createErr
 			}
+			blockDeviceSet := []bootfromvolume.BlockDevice{
+				bootfromvolume.BlockDevice{
+					UUID:                image.ID,
+					SourceType:          bootfromvolume.SourceImage,
+					VolumeSize:          vmSize,
+					DestinationType:     bootfromvolume.DestinationVolume,
+					DeleteOnTermination: true,
+				},
+			}
+			createOpts.CreateOptsBuilder = serverCreateOpts
+			bootOpt := bootfromvolume.CreateOptsExt{
+				CreateOptsBuilder: createOpts,
+				BlockDevice:       blockDeviceSet,
+			}
+			server, err = bootfromvolume.Create(vmHandler.ComputeClient, bootOpt).Extract()
+		} else {
+			// Disk Size 변경 X
+			if vmHandler.VolumeClient == nil { // Disk Size 변경 X && VolumeClient == nil
+				createOpts.CreateOptsBuilder = serverCreateOpts
+				server, err = servers.Create(vmHandler.ComputeClient, createOpts).Extract()
+			} else { // Disk Size 변경 X && VolumeClient != nil
+				vmSize := vmSpec.Disk
+				blockDeviceSet := []bootfromvolume.BlockDevice{
+					bootfromvolume.BlockDevice{
+						UUID:                image.ID,
+						SourceType:          bootfromvolume.SourceImage,
+						VolumeSize:          vmSize,
+						DestinationType:     bootfromvolume.DestinationVolume,
+						DeleteOnTermination: true,
+					},
+				}
+				createOpts.CreateOptsBuilder = serverCreateOpts
+				bootOpt := bootfromvolume.CreateOptsExt{
+					CreateOptsBuilder: createOpts,
+					BlockDevice:       blockDeviceSet,
+				}
+				server, err = bootfromvolume.Create(vmHandler.ComputeClient, bootOpt).Extract()
+			}
 		}
-		blockDeviceSet := []bootfromvolume.BlockDevice{
-			bootfromvolume.BlockDevice{
-				UUID:                image.ID,
-				SourceType:          bootfromvolume.SourceImage,
-				VolumeSize:          vmSize,
-				DestinationType:     bootfromvolume.DestinationVolume,
-				DeleteOnTermination: true,
-			},
-		}
-		createOpts.CreateOptsBuilder = serverCreateOpts
-		bootOpt := bootfromvolume.CreateOptsExt{
-			CreateOptsBuilder: createOpts,
-			BlockDevice:       blockDeviceSet,
-		}
-
-		server, err = bootfromvolume.Create(vmHandler.ComputeClient, bootOpt).Extract()
 	} else {
-		serverCreateOpts.Metadata = map[string]string{
-			"imagekey": image.ID,
+		// snapshot block_device_mapping Check (volumeClient)
+		_, exist := image.Metadata["block_device_mapping"]
+		if exist && vmHandler.VolumeClient == nil {
+			createErr := errors.New(fmt.Sprintf("Failed to startVM err = this Openstack cannot provide VolumeClient. BlockDevice information is located within the snapshot."))
+			cblogger.Error(createErr.Error())
+			LoggingError(hiscallInfo, createErr)
+			return irs.VMInfo{}, createErr
 		}
-		//blockDeviceSet := []bootfromvolume.BlockDevice{
-		//	bootfromvolume.BlockDevice{
-		//		UUID:                image.ID,
-		//		VolumeSize:          image.MinDisk,
-		//		SourceType:          bootfromvolume.SourceSnapshot,
-		//		DestinationType:     bootfromvolume.DestinationVolume,
-		//		DeleteOnTermination: true,
-		//	},
-		//}
+		// MyImage
 		createOpts.CreateOptsBuilder = serverCreateOpts
-		//bootOpt := bootfromvolume.CreateOptsExt{
-		//	CreateOptsBuilder: createOpts,
-		//	BlockDevice:       blockDeviceSet,
-		//}
 		server, err = servers.Create(vmHandler.ComputeClient, createOpts).Extract()
 	}
 	if err != nil {
@@ -619,7 +634,7 @@ func (vmHandler *OpenStackVMHandler) mappingServerInfo(server servers.Server) ir
 		}
 	}
 	// VM DiskSize Custom
-	if len(server.AttachedVolumes) > 0 {
+	if len(server.AttachedVolumes) > 0 && vmHandler.VolumeClient != nil {
 		var dataDisks []irs.IID
 		allVolume, err := getAllVolumeByServerAttachedVolume(server.AttachedVolumes, vmHandler.VolumeClient)
 		if err == nil {
@@ -749,7 +764,16 @@ func (vmHandler *OpenStackVMHandler) availableFixedIP(subnetIId irs.IID) (string
 	if err != nil {
 		return "", errors.New(fmt.Sprintf("Failed to Create SubnetIP err = %s", err))
 	}
-	vms, err := vmHandler.ListVM()
+
+	pager, err := servers.List(vmHandler.ComputeClient, nil).AllPages()
+	if err != nil {
+		return "", errors.New(fmt.Sprintf("Failed to Create SubnetIP err = %s", err))
+	}
+	allVMList, err := servers.ExtractServers(pager)
+	if err != nil {
+		return "", errors.New(fmt.Sprintf("Failed to Create SubnetIP err = %s", err))
+	}
+	//vms, err := vmHandler.ListVM()
 	if err != nil {
 		return "", errors.New(fmt.Sprintf("Failed to Create SubnetIP err = %s", err))
 	}
@@ -758,8 +782,21 @@ func (vmHandler *OpenStackVMHandler) availableFixedIP(subnetIId irs.IID) (string
 		return "", errors.New(fmt.Sprintf("Failed to Create SubnetIP err = %s", err))
 	}
 	var vmIps []string
-	for _, vm := range vms {
-		vmIps = append(vmIps, vm.PrivateIP)
+	for _, vm := range allVMList {
+		privateIP := ""
+		for _, addrs := range vm.Addresses {
+			// PrivateIP 설정
+			for _, addr := range addrs.([]interface{}) {
+				addrMap := addr.(map[string]interface{})
+				if addrMap["OS-EXT-IPS:type"] == "fixed" {
+					privateIP = addrMap["addr"].(string)
+				}
+			}
+		}
+		if privateIP != "" {
+			vmIps = append(vmIps, privateIP)
+		}
+
 	}
 	filteredIps := difference(subnetIps, vmIps)
 	if len(filteredIps) > 0 {
@@ -869,6 +906,9 @@ func notSupportRootDiskCustom(vmReqInfo irs.VMReqInfo) error {
 }
 
 func getAllVolumeByServerAttachedVolume(attachedVolumes []servers.AttachedVolume, volumeClient *gophercloud.ServiceClient) (volumeList []volumes3.Volume, err error) {
+	if volumeClient == nil {
+		return make([]volumes3.Volume, 0), nil
+	}
 	volumeList = make([]volumes3.Volume, len(attachedVolumes))
 	for i, attachedVolume := range attachedVolumes {
 		vol, err := getRawDisk(irs.IID{SystemId: attachedVolume.ID}, volumeClient)
