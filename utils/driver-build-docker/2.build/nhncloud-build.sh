@@ -20,6 +20,7 @@ cd $CBSPIDER_ROOT
 
 echo "# env GIT_TERMINAL_PROMPT=1 GOPRIVATE=github.com/cloud-barista go get -v github.com/cloud-barista/nhncloud-sdk-for-drv@latest"
 env GIT_TERMINAL_PROMPT=1 GOPRIVATE=github.com/cloud-barista go get -v github.com/cloud-barista/nhncloud-sdk-for-drv@latest
+env GIT_TERMINAL_PROMPT=1 GOPRIVATE=github.com/cloud-barista go get -v github.com/cloud-barista/nhncloud@latest
 
 cd $HOME
 
