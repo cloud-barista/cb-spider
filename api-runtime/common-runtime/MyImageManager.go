@@ -178,11 +178,8 @@ defer myImageSPLock.Unlock(connectionName, reqInfo.IId.NameId)
         reqInfo.IId = driverIId
 
 
-	sourceVMNameID := reqInfo.SourceVM.NameId
-vmSPLock.RLock(connectionName, sourceVMNameID)
-defer vmSPLock.RUnlock(connectionName, sourceVMNameID)
-
         // get Source VM's IID(NameId)
+	sourceVMNameID := reqInfo.SourceVM.NameId
         vmIIdInfo, err := iidRWLock.GetIID(iidm.IIDSGROUP, connectionName, rsVM, cres.IID{sourceVMNameID, ""})
         if err != nil {
                 cblog.Error(err)
@@ -218,6 +215,14 @@ defer vmSPLock.RUnlock(connectionName, sourceVMNameID)
         // (6) create userIID: {reqNameID, driverSystemID}
         //     ex) userIID {"seoul-service", "i-0bc7123b7e5cbf79d"}
         info.IId = getUserIID(iidInfo.IId)
+
+	// get Source VM's IID with VM's SystemId
+	vmIIdInfo2, err := iidRWLock.GetIIDbySystemID(iidm.IIDSGROUP, connectionName, rsVM, info.SourceVM)
+	if err != nil {
+		cblog.Error(err)
+		return nil, err
+	}
+	info.SourceVM.NameId = vmIIdInfo2.IId.NameId
 
         return &info, nil
 }
@@ -283,6 +288,15 @@ myImageSPLock.RUnlock(connectionName, iidInfo.IId.NameId)
 
                 info.IId = getUserIID(iidInfo.IId)
 
+		// get Source VM's IID with VM's SystemId
+		vmIIdInfo, err := iidRWLock.GetIIDbySystemID(iidm.IIDSGROUP, connectionName, rsVM, info.SourceVM)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+		info.SourceVM.NameId = vmIIdInfo.IId.NameId
+
+
                 infoList2 = append(infoList2, &info)
         }
 
@@ -340,6 +354,14 @@ defer myImageSPLock.RUnlock(connectionName, nameID)
         // (3) set ResourceInfo(IID.NameId)
         // set ResourceInfo
         info.IId = getUserIID(iidInfo.IId)
+
+	// get Source VM's IID with VM's SystemId
+	vmIIdInfo, err := iidRWLock.GetIIDbySystemID(iidm.IIDSGROUP, connectionName, rsVM, info.SourceVM)
+	if err != nil {
+		cblog.Error(err)
+		return nil, err
+	}
+	info.SourceVM.NameId = vmIIdInfo.IId.NameId
 
         return &info, nil
 }
