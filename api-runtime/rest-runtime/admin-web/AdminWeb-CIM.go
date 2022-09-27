@@ -276,6 +276,19 @@ func Driver(c echo.Context) error {
 	return c.HTML(http.StatusOK, htmlStr)
 }
 
+func cloudosList() []string {
+	resBody, err := getResourceList_JsonByte("cloudos")
+	if err != nil {
+		cblog.Error(err)
+	}
+	var info struct {
+		ResultList []string `json:"cloudos"`
+	}
+	json.Unmarshal(resBody, &info)
+
+	return info.ResultList
+}
+
 func genLoggingGETResURL(rsType string) string {
         /* return example
         <script type="text/javascript">
