@@ -111,6 +111,7 @@ func StartVM(c echo.Context) error {
 		ConnectionName string
 		ReqInfo        struct {
 			Name               string
+			ImageType          string
 			ImageName          string
 			VPCName            string
 			SubnetName         string
@@ -153,6 +154,7 @@ func StartVM(c echo.Context) error {
 	// (3) create VMReqInfo with SecurityGroup & diskIID IID List
 	reqInfo := cres.VMReqInfo{
 		IId:               cres.IID{req.ReqInfo.Name, ""},
+		ImageType:         cres.ImageType(req.ReqInfo.ImageType),
 		ImageIID:          cres.IID{req.ReqInfo.ImageName, ""},
 		VpcIID:            cres.IID{req.ReqInfo.VPCName, ""},
 		SubnetIID:         cres.IID{req.ReqInfo.SubnetName, ""},

@@ -330,6 +330,12 @@ func StartVM(connectionName string, rsType string, reqInfo cres.VMReqInfo) (*cre
                 return nil, err
         }
 
+	err = checkImageType(connectionName, &reqInfo)
+	if err != nil {
+                cblog.Error(err)
+                return nil, err
+        }
+
 	cldConn, err := ccm.GetCloudConnection(connectionName)
 	if err != nil {
 		cblog.Error(err)
@@ -541,6 +547,35 @@ func StartVM(connectionName string, rsType string, reqInfo cres.VMReqInfo) (*cre
 	} else {
 		return &info, nil
 	}
+}
+
+func checkImageType(connectionName string, reqInfo *cres.VMReqInfo) error {
+fmt.Printf("\n\n\n powerkim: %#v\n\n", reqInfo.ImageType)
+	if reqInfo.ImageType == "" {
+		reqInfo.ImageType = cres.PublicImage
+	}
+	if reqInfo.ImageType == cres.MyImage {
+		// checking to change ther Root-Disk
+		if reqInfo.RootDiskType != "" || reqInfo.RootDiskSize != "" {
+			return errors.New("MyImage can not configure the Root-Disk!!")
+		}
+		// checking to add Data-Disks
+		if reqInfo.DataDiskIIDs == nil && len(reqInfo.DataDiskIIDs) > 0 {
+			return errors.New("MyImage can not have a Data-Disk!!")
+		}
+
+		// get MyImage's SystemId
+		imageNameID := reqInfo.ImageIID.NameId
+		imageIIdInfo, err := iidRWLock.GetIID(iidm.IIDSGROUP, connectionName, rsMyImage, cres.IID{imageNameID, ""})
+		if err != nil {
+			cblog.Error(err)
+			return err
+		}
+		fmt.Printf("\n\n\n powerkim: %#v\n\n", imageIIdInfo.IId)
+		reqInfo.ImageIID.SystemId = getDriverSystemId(imageIIdInfo.IId)
+
+	}
+	return nil
 }
 
 func cloneReqInfoWithDriverIID(ConnectionName string, reqInfo cres.VMReqInfo) (cres.VMReqInfo, error) {
