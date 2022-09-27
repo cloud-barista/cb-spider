@@ -353,6 +353,20 @@ func RunServer() {
                 {"DELETE", "/cspdisk/:Id", DeleteCSPDisk},
 
 
+		//----------MyImage Handler
+                {"POST", "/regmyimage", RegisterMyImage},
+                {"DELETE", "/regmyimage/:Name", UnregisterMyImage},
+
+                {"POST", "/myimage", SnapshotVM},
+                {"GET", "/myimage", ListMyImage},
+                {"GET", "/myimage/:Name", GetMyImage},
+                {"DELETE", "/myimage/:Name", DeleteMyImage},
+
+                //-- for management
+                {"GET", "/allmyimage", ListAllMyImage},
+                {"DELETE", "/cspmyimage/:Id", DeleteCSPMyImage},
+
+
 		//-------------------------------------------------------------------//
                 //----------Additional Info
 		{"GET", "/cspresourcename/:Name", GetCSPResourceName},

@@ -19,14 +19,15 @@ import (
 
 // define string of resource types
 const (
-	rsImage string = "image"
-	rsVPC   string = "vpc"
-	rsSubnet string = "subnet"	
-	rsSG  string = "sg"
-	rsKey string = "keypair"
-	rsVM  string = "vm"
-	rsNLB  string = "nlb"
-	rsDisk  string = "disk"
+	rsImage 	string = "image"
+	rsVPC   	string = "vpc"
+	rsSubnet 	string = "subnet"	
+	rsSG  		string = "sg"
+	rsKey 		string = "keypair"
+	rsVM  		string = "vm"
+	rsNLB  		string = "nlb"
+	rsDisk  	string = "disk"
+	rsMyImage 	string = "myimage"
 )
 
 

@@ -32,6 +32,7 @@ const (
 	rsVM  string = "vm"
 	rsNLB  string = "nlb"
 	rsDisk  string = "disk"
+	rsMyImage  string = "myimage"
 )
 
 func RsTypeString(rsType string) string {
@@ -52,6 +53,8 @@ func RsTypeString(rsType string) string {
 		return "nlb"
 	case rsDisk:
 		return "disk"
+	case rsMyImage:
+		return "MyImage"
         default:
                 return rsType + " is not supported Resource!!"
 
@@ -66,6 +69,7 @@ var keySPLock = splock.New()
 var vmSPLock = splock.New()
 var nlbSPLock = splock.New()
 var diskSPLock = splock.New()
+var myImageSPLock = splock.New()
 
 // definition of IIDManager RWLock
 var iidRWLock = new(iidm.IIDRWLOCK)
@@ -117,6 +121,17 @@ func checkNotFoundError(err error) bool {
 	msg = strings.ToLower(msg)
 
 	return strings.Contains(msg, "notfound") || strings.Contains(msg, "notexist") || strings.Contains(msg, "failedtofind") || strings.Contains(msg, "failedtogetthevm")
+}
+
+
+
+func getUserIIDList(iidInfoList []*iidm.IIDInfo) []*cres.IID {
+	iidList := []*cres.IID{}
+	for _, iidInfo := range iidInfoList {
+		userIId := getUserIID(iidInfo.IId)
+		iidList = append(iidList, &userIId)
+	}
+	return iidList
 }
 
 // Get driverSystemId from SpiderIID
@@ -195,6 +210,154 @@ func uniqueNameList(vpcNameList []string) []string {
     return list
 }
 
+//======================== Common Handling
+
+// UnregisterResource API does not delete the real resource.
+// This API just unregister the resource from Spider.
+// (1) check exist(NameID)
+// (2) delete SpiderIID
+func UnregisterResource(connectionName string, rsType string, nameId string) (bool, error) {
+        cblog.Info("call UnregisterResource()")
+
+	// check empty and trim user inputs
+        connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)
+        if err != nil {
+		cblog.Error(err)
+                return false, err
+        }
+
+        nameId, err = EmptyCheckAndTrim("nameId", nameId)
+        if err != nil {
+		cblog.Error(err)
+                return false, err
+        }
+
+	switch rsType {
+        case rsVPC:
+                vpcSPLock.Lock(connectionName, nameId)
+                defer vpcSPLock.Unlock(connectionName, nameId)
+        case rsSG:
+                sgSPLock.Lock(connectionName, nameId)
+                defer sgSPLock.Unlock(connectionName, nameId)
+        case rsKey:
+                keySPLock.Lock(connectionName, nameId)
+                defer keySPLock.Unlock(connectionName, nameId)
+        case rsVM:
+                vmSPLock.Lock(connectionName, nameId)
+                defer vmSPLock.Unlock(connectionName, nameId)
+        case rsNLB:
+                nlbSPLock.Lock(connectionName, nameId)
+                defer nlbSPLock.Unlock(connectionName, nameId)
+        case rsDisk:
+                diskSPLock.Lock(connectionName, nameId)
+                defer diskSPLock.Unlock(connectionName, nameId)
+        case rsMyImage:
+                myImageSPLock.Lock(connectionName, nameId)
+                defer myImageSPLock.Unlock(connectionName, nameId)
+        default:
+                return false, fmt.Errorf(rsType + " is not supported Resource!!")
+        }
+
+
+        // (1) check existence(UserID)
+	var isExist bool=false
+	var vpcName string 
+	switch rsType {
+        case rsSG:
+		iidInfoList, err := getAllSGIIDInfoList(connectionName)
+		if err != nil {
+			cblog.Error(err)
+			return false, err
+		}
+		for _, OneIIdInfo := range iidInfoList {
+			if OneIIdInfo.IId.NameId == nameId {
+				vpcName = OneIIdInfo.ResourceType/*vpcName*/  // ---------- Don't forget
+				isExist = true
+				break
+			}
+		}
+        case rsNLB:
+                iidInfoList, err := getAllNLBIIDInfoList(connectionName)
+                if err != nil {
+                        cblog.Error(err)
+                        return false, err
+                }
+                for _, OneIIdInfo := range iidInfoList {
+                        if OneIIdInfo.IId.NameId == nameId {
+                                vpcName = OneIIdInfo.ResourceType/*vpcName*/  // ---------- Don't forget
+                                isExist = true
+                                break
+                        }
+                }
+	default:
+		// (1) check exist(NameID)
+		var err error
+		isExist, err = iidRWLock.IsExistIID(iidm.IIDSGROUP, connectionName, rsType, cres.IID{nameId, ""})
+		if err != nil {
+			cblog.Error(err)
+			return false, err
+		}
+	} // end of switch
+
+	if isExist == false {
+		return false, fmt.Errorf("The %s '%s' does not exist!", RsTypeString(rsType), nameId)
+	}
+
+	// (2) delete the IID from Metadb
+	switch rsType {
+        case rsVPC:
+		// if vpc, delete all subnet meta data
+                // (a) for vPC
+		_, err := iidRWLock.DeleteIID(iidm.IIDSGROUP, connectionName, rsType, cres.IID{nameId, ""})
+                if err != nil {
+                        cblog.Error(err)
+			return false, err
+                }
+
+                // (b) for Subnet list
+                // key-value structure: ~/{SUBNETGROUP}/{ConnectionName}/{VPC-NameId}/{Subnet-reqNameId} [subnet-driverNameId:subnet-driverSystemId]  # VPC NameId => rsType
+                subnetIIdInfoList, err2 := iidRWLock.ListIID(iidm.SUBNETGROUP, connectionName, nameId/*vpcName*/)
+                if err2 != nil {
+                        cblog.Error(err)
+			return false, err
+                }
+                for _, subnetIIdInfo := range subnetIIdInfoList {
+                        // key-value structure: ~/{SUBNETGROUP}/{ConnectionName}/{VPC-NameId}/{Subnet-reqNameId} [subnet-driverNameId:subnet-driverSystemId]  # VPC NameId => rsType
+                        _, err := iidRWLock.DeleteIID(iidm.SUBNETGROUP, connectionName, nameId/*vpcName*/, subnetIIdInfo.IId)
+                        if err != nil {
+                                cblog.Error(err)
+				return false, err
+                        }
+                }
+
+                // @todo Should we also delete the SG list of this VPC ?
+
+
+        case rsSG:
+		_, err := iidRWLock.DeleteIID(iidm.SGGROUP, connectionName, vpcName/*rsType*/, cres.IID{nameId, ""})
+		if err != nil {
+			cblog.Error(err)
+			return false, err
+		}
+
+        case rsNLB:
+                _, err := iidRWLock.DeleteIID(iidm.NLBGROUP, connectionName, vpcName/*rsType*/, cres.IID{nameId, ""})
+                if err != nil {
+                        cblog.Error(err)
+                        return false, err
+                }
+
+	default: // other resources(key, vm, ...)
+		_, err := iidRWLock.DeleteIID(iidm.IIDSGROUP, connectionName, rsType, cres.IID{nameId, ""})
+		if err != nil {
+			cblog.Error(err)
+			return false, err
+		}
+	} // end of switch
+
+	return true, nil
+}
+
 
 // list all Resources for management
 // (1) get IID:list
@@ -231,6 +394,8 @@ func ListAllResource(connectionName string, rsType string) (AllResourceList, err
 		handler, err = cldConn.CreateNLBHandler()
 	case rsDisk:
 		handler, err = cldConn.CreateDiskHandler()
+	case rsMyImage:
+		handler, err = cldConn.CreateMyImageHandler()
 	default:
 		return AllResourceList{}, fmt.Errorf(rsType + " is not supported Resource!!")
 	}
@@ -340,6 +505,17 @@ func ListAllResource(connectionName string, rsType string) (AllResourceList, err
                                 iidCSPList = append(iidCSPList, &info.IId)
                         }
                 }
+        case rsMyImage:
+                infoList, err := handler.(cres.MyImageHandler).ListMyImage()
+                if err != nil {
+                        cblog.Error(err)
+                        return AllResourceList{}, err
+                }
+                if infoList != nil {
+                        for _, info := range infoList {
+                                iidCSPList = append(iidCSPList, &info.IId)
+                        }
+                }
 
 	default:
 		return AllResourceList{}, fmt.Errorf(rsType + " is not supported Resource!!")
@@ -418,15 +594,6 @@ func ListAllResource(connectionName string, rsType string) (AllResourceList, err
 	return allResList, nil
 }
 
-func getUserIIDList(iidInfoList []*iidm.IIDInfo) []*cres.IID {
-	iidList := []*cres.IID{}
-	for _, iidInfo := range iidInfoList {
-		userIId := getUserIID(iidInfo.IId)
-		iidList = append(iidList, &userIId)
-	}
-	return iidList
-}
-
 // (1) get spiderIID
 // (2) delete Resource(SystemId)
 // (3) delete IID
@@ -467,6 +634,8 @@ func DeleteResource(connectionName string, rsType string, nameID string, force s
 		handler, err = cldConn.CreateNLBHandler()
 	case rsDisk:
 		handler, err = cldConn.CreateDiskHandler()
+	case rsMyImage:
+		handler, err = cldConn.CreateMyImageHandler()
 	default:
 		err := fmt.Errorf(rsType + " is not supported Resource!!")
 		return false, "", err
@@ -495,6 +664,10 @@ func DeleteResource(connectionName string, rsType string, nameID string, force s
 	case rsDisk:
 		diskSPLock.Lock(connectionName, nameID)
 		defer diskSPLock.Unlock(connectionName, nameID)
+	case rsMyImage:
+		myImageSPLock.Lock(connectionName, nameID)
+		defer myImageSPLock.Unlock(connectionName, nameID)
+
 	default:
 		err := fmt.Errorf(rsType + " is not supported Resource!!")
 		return false, "", err
@@ -678,6 +851,14 @@ func DeleteResource(connectionName string, rsType string, nameID string, force s
                                 return false, "", err
                         }
                 }
+        case rsMyImage:
+                result, err = handler.(cres.MyImageHandler).DeleteMyImage(driverIId)
+                if err != nil {
+                        cblog.Error(err)
+                        if force != "true" {
+                                return false, "", err
+                        }
+                }
 
 	default:
 		err := fmt.Errorf(rsType + " is not supported Resource!!")
@@ -803,6 +984,9 @@ func DeleteCSPResource(connectionName string, rsType string, systemID string) (b
 		handler, err = cldConn.CreateNLBHandler()
 	case rsDisk:
 		handler, err = cldConn.CreateDiskHandler()
+	case rsMyImage:
+		handler, err = cldConn.CreateMyImageHandler()
+
 	default:
 		return false, "", fmt.Errorf(rsType + " is not supported Resource!!")
 	}
@@ -853,6 +1037,13 @@ func DeleteCSPResource(connectionName string, rsType string, systemID string) (b
                         cblog.Error(err)
                         return false, "", err
                 }
+        case rsMyImage:
+                result, err = handler.(cres.MyImageHandler).DeleteMyImage(iid)
+                if err != nil {
+                        cblog.Error(err)
+                        return false, "", err
+                }
+
 	default:
 		return false, "", fmt.Errorf(rsType + " is not supported Resource!!")
 	}
