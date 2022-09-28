@@ -14,6 +14,10 @@
 # get host go version
 GOVERSION=`go version |awk '{print $3}'|sed 's/go//g'`
 
+if [ "$GOVERSION" = "1.19" ]; then
+        GOVERSION=${GOVERSION}.0
+fi
+
 # for setup current $CBSPIDER_ROOT
 source ../../setup.env
 
@@ -24,3 +28,5 @@ sudo docker run --rm -it -v $PWD/2.build:$HOME/2.build -v $HOME/go:$HOME/go -v $
 	-e GOPATH=$HOME/go -e CBSPIDER_ROOT=$CBSPIDER_ROOT \
 	-e  HOME=$HOME -w $HOME --hostname driver-build --name driver-build \
 	golang:$GOVERSION /bin/bash
+
+git checkout ../../go.mod ../../go.sum

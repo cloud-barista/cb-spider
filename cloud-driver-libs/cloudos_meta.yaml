@@ -21,7 +21,7 @@ AZURE:
   region: location / ResourceGroup
   credential: ClientId / ClientSecret / TenantId / SubscriptionId
   # type issues: https://github.com/cloud-barista/cb-spider/pull/529#issue-1051678985
-  rootdisktype: PremiumSSD / StandardSSD / StandardHHD
+  rootdisktype: PremiumSSD / StandardSSD / StandardHDD
   # idmaxlength: VPC / Subnet / SecurityGroup / KeyPair / VM
   idmaxlength: 64 / 80 / 64 / 80 / 64
 
