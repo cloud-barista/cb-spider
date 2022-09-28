@@ -522,6 +522,7 @@ func StartVM(connectionName string, rsType string, reqInfo cres.VMReqInfo) (*cre
 		return nil, err
 	}
 
+	
 /*
 	// set sg NameId from VPCNameId-SecurityGroupNameId
 	// IID.NameID format => {VPC NameID} + SG_DELIMITER + {SG NameID}
@@ -534,7 +535,9 @@ func StartVM(connectionName string, rsType string, reqInfo cres.VMReqInfo) (*cre
 	//     ex) userIID {"seoul-service", "i-0bc7123b7e5cbf79d"}
 	info.IId = getUserIID(iidInfo.IId)
 
+	/////////////////////////////////
 	// set NameId for info by reqInfo
+	/////////////////////////////////
 	setNameId(connectionName, &info, &reqInfo)
 
 	// current: Assume 22 port, except Cloud-Twin, by powerkim, 2021.03.24.
@@ -780,12 +783,24 @@ func validateRootDiskSize(strSize string) error {
 }
 
 func setNameId(ConnectionName string, vmInfo *cres.VMInfo, reqInfo *cres.VMReqInfo) error {
-
-	// set Image SystemId
-	// @todo before Image Handling by powerkim
-	if reqInfo.ImageIID.NameId != "" {
-		vmInfo.ImageIId.NameId = reqInfo.ImageIID.NameId
-	}
+	
+        // set Image Type & NameId (CSP dosen't return ImageType)
+        if reqInfo.ImageType == cres.PublicImage {
+		vmInfo.ImageType = cres.PublicImage
+        	vmInfo.ImageIId.NameId = reqInfo.ImageIID.NameId		        		
+        }
+        if reqInfo.ImageType == cres.MyImage {                
+		vmInfo.ImageType = cres.MyImage
+        	if vmInfo.ImageIId.SystemId != "" {
+	                // get MyImage's NameId
+	                imageIIdInfo, err := iidRWLock.GetIIDbySystemID(iidm.IIDSGROUP, ConnectionName, rsMyImage, vmInfo.ImageIId)
+	                if err != nil {
+	                        cblog.Error(err)
+	                        return err
+	                }
+	                vmInfo.ImageIId.NameId = imageIIdInfo.IId.NameId
+	        }
+        }
 
 	// set VPC NameId
 	if reqInfo.VpcIID.NameId != "" {
@@ -807,15 +822,31 @@ func setNameId(ConnectionName string, vmInfo *cres.VMInfo, reqInfo *cres.VMReqIn
 		vmInfo.SecurityGroupIIds[i].NameId = IIdInfo.IId.NameId
 	}
 
-        // set Data Disk NameId
-        for i, diskIID := range vmInfo.DataDiskIIDs {
-                IIdInfo, err := iidRWLock.GetIIDbySystemID(iidm.IIDSGROUP, ConnectionName, rsDisk, diskIID)
-                if err != nil {
-                        cblog.Error(err)
-                        return err
-                }
-                vmInfo.DataDiskIIDs[i].NameId = IIdInfo.IId.NameId
-        }
+	// When PublicImage Type, Set Disks NameId
+	if reqInfo.ImageType == cres.PublicImage {
+	        // set Data Disk NameId
+	        for i, diskIID := range vmInfo.DataDiskIIDs {
+	                IIdInfo, err := iidRWLock.GetIIDbySystemID(iidm.IIDSGROUP, ConnectionName, rsDisk, diskIID)
+	                if err != nil {
+	                        cblog.Error(err)
+	                        return err
+	                }
+	                vmInfo.DataDiskIIDs[i].NameId = IIdInfo.IId.NameId
+	        }
+	}
+
+	// When MyImage Type, Register auto-generated Disks into Spider-Server
+	if reqInfo.ImageType == cres.MyImage {
+	        for i, diskIID := range vmInfo.DataDiskIIDs {
+	        	diskIID.NameId = reqInfo.IId.NameId + "-disk-" + strconv.Itoa(i)
+	        	diskInfo, err := RegisterDisk(ConnectionName, diskIID)
+	                if err != nil {
+	                        cblog.Error(err)
+	                        return err
+	                }	                
+	                vmInfo.DataDiskIIDs[i].NameId = diskInfo.IId.NameId
+	        }
+	}
 
 	if reqInfo.KeyPairIID.NameId != "" {
 		// set KeyPair SystemId
@@ -945,9 +976,25 @@ vmSPLock.RUnlock(connectionName, iid.NameId)
 
 func getSetNameId(ConnectionName string, vmInfo *cres.VMInfo) error {
 
-	// set Image NameId
-	// @todo before Image Handling by powerkim
-	//vmInfo.ImageIId.NameId = vmInfo.ImageIId.SystemId
+        // set Image Type and NameId (CSP dosen't return ImageType)
+	// find Image.SystemId in MyImage to get ImageType
+	// default imagetype is Public
+	vmInfo.ImageType = cres.PublicImage
+	if vmInfo.ImageIId.SystemId != "" {
+		// get MyImage's NameId
+		imageIIdInfo, err := iidRWLock.GetIIDbySystemID(iidm.IIDSGROUP, ConnectionName, rsMyImage, vmInfo.ImageIId)
+		if err != nil {
+			cblog.Error(err)
+			return err
+		}
+		if imageIIdInfo != nil && imageIIdInfo.IId.NameId != "" {
+			vmInfo.ImageType = cres.MyImage
+			vmInfo.ImageIId.NameId = imageIIdInfo.IId.NameId
+		}
+	}
+        if vmInfo.ImageType == cres.PublicImage {
+        	vmInfo.ImageIId.NameId = vmInfo.ImageIId.SystemId		        		
+        }
 
 	if vmInfo.VpcIID.SystemId != "" {
 		// set VPC NameId

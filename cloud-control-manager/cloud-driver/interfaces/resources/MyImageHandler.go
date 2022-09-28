@@ -27,7 +27,7 @@ type MyImageInfo struct {
 
         SourceVM IID
 	
-        Status 		MyImageStatus  // Creating | Available | Deleting
+        Status 		MyImageStatus  // Available | Deleting
 
 	CreatedTime	time.Time
 	KeyValueList 	[]KeyValue
