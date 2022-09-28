@@ -44,7 +44,7 @@ create 시 특정 instance에 바로 attach 가능하나 CB-SPIDER에서는 사�
 func (diskHandler *AlibabaDiskHandler) CreateDisk(diskReqInfo irs.DiskInfo) (irs.DiskInfo, error) {
 	cblogger.Info("Start CreateDisk : ", diskReqInfo)
 
-	err := validateCreateDisk(diskReqInfo)
+	err := validateCreateDisk(&diskReqInfo)
 	if err != nil {
 		return irs.DiskInfo{}, err
 	}
@@ -475,7 +475,7 @@ Disk 생성시 validation check
   - DiskType
   - DiskType 별 min/max capacity check
 */
-func validateCreateDisk(diskReqInfo irs.DiskInfo) error {
+func validateCreateDisk(diskReqInfo *irs.DiskInfo) error {
 	// Check Disk Exists
 
 	cloudOSMetaInfo, err := cim.GetCloudOSMetaInfo("ALIBABA")
@@ -484,18 +484,32 @@ func validateCreateDisk(diskReqInfo irs.DiskInfo) error {
 
 	arrDiskType := cloudOSMetaInfo.DiskType
 	arrDiskSizeOfType := cloudOSMetaInfo.DiskSize
+	arrRootDiskSizeOfType := cloudOSMetaInfo.RootDiskSize
 	// Check Disk available
 	// Size :
 	// DiskCategory : cloud / cloud_efficiency / cloud_ssd / cloud_essd
 	// valid size : cloud 5 ~ 2000, cloud_efficiency 20 ~ 32768, cloud_ssd 20 ~ 32768, cloud_essd
 
+	reqDiskCategory := diskReqInfo.DiskType
+	diskSize := diskReqInfo.DiskSize
+
+	if reqDiskCategory == "" || reqDiskCategory == "default" {
+		diskSizeArr := strings.Split(arrRootDiskSizeOfType[0], "|")
+		reqDiskCategory = diskSizeArr[0]      // ESSD
+		diskReqInfo.DiskType = diskSizeArr[0] // set default value
+	}
 	// 정의된 type인지
-	if !ContainString(arrDiskType, diskReqInfo.DiskType) {
-		return errors.New("Disktype : " + diskReqInfo.DiskType + "' is not valid")
+	if !ContainString(arrDiskType, reqDiskCategory) {
+		return errors.New("Disktype : " + reqDiskCategory + "' is not valid")
 	}
 
-	reqDiskCategory := diskReqInfo.DiskType
-	reqDiskSize, err := strconv.ParseInt(diskReqInfo.DiskSize, 10, 64)
+	if diskSize == "" || diskSize == "default" {
+		diskSizeArr := strings.Split(arrRootDiskSizeOfType[0], "|")
+		diskSize = diskSizeArr[1]
+		diskReqInfo.DiskSize = diskSizeArr[1] // set default value
+	}
+
+	reqDiskSize, err := strconv.ParseInt(diskSize, 10, 64)
 	if err != nil {
 		return err
 	}
@@ -531,7 +545,7 @@ func validateCreateDisk(diskReqInfo irs.DiskInfo) error {
 	}
 
 	if !isExists {
-		return errors.New("Invalid Root Disk Type : " + diskReqInfo.DiskType)
+		return errors.New("Invalid Disk Type : " + diskReqInfo.DiskType)
 	}
 
 	if reqDiskSize < diskSizeValue.diskMinSize {

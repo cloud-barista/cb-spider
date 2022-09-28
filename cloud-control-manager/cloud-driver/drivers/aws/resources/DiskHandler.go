@@ -59,7 +59,7 @@ func (DiskHandler *AwsDiskHandler) CreateDisk(diskReqInfo irs.DiskInfo) (irs.Dis
 
 	zone := DiskHandler.Region.Zone
 	spew.Dump(DiskHandler.Region)
-	err := validateCreateDisk(diskReqInfo)
+	err := validateCreateDisk(&diskReqInfo)
 	if err != nil {
 		return irs.DiskInfo{}, err
 	}
@@ -460,21 +460,35 @@ Throughput
 	This parameter is valid only for gp3 volumes.
 	Valid Range: Minimum value of 125. Maximum value of 1000.
 */
-func validateCreateDisk(diskReqInfo irs.DiskInfo) error {
+func validateCreateDisk(diskReqInfo *irs.DiskInfo) error {
 	// VolumeType
 	cloudOSMetaInfo, err := cim.GetCloudOSMetaInfo("AWS")
 	arrDiskType := cloudOSMetaInfo.DiskType
 	arrDiskSizeOfType := cloudOSMetaInfo.DiskSize
+	arrRootDiskSizeOfType := cloudOSMetaInfo.RootDiskSize
 
 	cblogger.Info(arrDiskType)
+	reqDiskType := diskReqInfo.DiskType
+	reqDiskSize := diskReqInfo.DiskSize
+	if reqDiskType == "" || reqDiskType == "default" {
+		diskSizeArr := strings.Split(arrRootDiskSizeOfType[0], "|")
+		reqDiskType = diskSizeArr[0]
+		diskReqInfo.DiskType = diskSizeArr[0]
+	}
 
 	// 정의된 type인지
 	if !ContainString(arrDiskType, diskReqInfo.DiskType) {
 		return errors.New("Disktype : " + diskReqInfo.DiskType + "' is not valid")
 	}
 
+	if reqDiskSize == "" || reqDiskSize == "default" {
+		diskSizeArr := strings.Split(arrRootDiskSizeOfType[0], "|")
+		reqDiskSize = diskSizeArr[1]
+		diskReqInfo.DiskSize = diskSizeArr[1] // set default value
+	}
+
 	// volume Size
-	volumeSize, err := strconv.ParseInt(diskReqInfo.DiskSize, 10, 64)
+	volumeSize, err := strconv.ParseInt(reqDiskSize, 10, 64)
 	if err != nil {
 		return err
 	}
@@ -513,12 +527,12 @@ func validateCreateDisk(diskReqInfo irs.DiskInfo) error {
 
 	if volumeSize < diskSizeValue.diskMinSize {
 		fmt.Println("Disk Size Error!!: ", volumeSize, diskSizeValue.diskMinSize, diskSizeValue.diskMaxSize)
-		return errors.New("Root Disk Size must be at least the default size (" + strconv.FormatInt(diskSizeValue.diskMinSize, 10) + " GB).")
+		return errors.New("Disk Size must be at least the default size (" + strconv.FormatInt(diskSizeValue.diskMinSize, 10) + " GB).")
 	}
 
 	if volumeSize > diskSizeValue.diskMaxSize {
 		fmt.Println("Disk Size Error!!: ", volumeSize, diskSizeValue.diskMinSize, diskSizeValue.diskMaxSize)
-		return errors.New("Root Disk Size must be smaller than the maximum size (" + strconv.FormatInt(diskSizeValue.diskMaxSize, 10) + " GB).")
+		return errors.New("Disk Size must be smaller than the maximum size (" + strconv.FormatInt(diskSizeValue.diskMaxSize, 10) + " GB).")
 	}
 
 	//switch diskReqInfo.DiskType {
