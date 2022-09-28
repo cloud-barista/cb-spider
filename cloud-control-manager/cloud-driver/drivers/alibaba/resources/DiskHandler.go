@@ -523,7 +523,8 @@ func validateCreateDisk(diskReqInfo *irs.DiskInfo) error {
 		case "cloud_essd":
 			// cloud_essd 는 performanceLevel(PL0, PL1, PL2, PL3) 에 따라 또 다시 min/max가 생김.
 			// cb-spider는 performanceLevel을 관리하지 않으므로 기본값인 PL2 를 사용한다.
-			reqDiskType += "_PL2"
+			// console 상 attach disk의 default는 PL1
+			reqDiskType += "_PL1"
 		}
 
 		if strings.EqualFold(reqDiskType, diskSizeArr[0]) {

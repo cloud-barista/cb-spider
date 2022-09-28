@@ -43,8 +43,6 @@ func (DiskHandler *TencentDiskHandler) CreateDisk(diskReqInfo irs.DiskInfo) (irs
 	request := cbs.NewCreateDisksRequest()
 	request.Placement = &cbs.Placement{Zone: common.StringPtr(DiskHandler.Region.Zone)}
 	request.DiskChargeType = common.StringPtr("POSTPAID_BY_HOUR")
-	request.DiskType = common.StringPtr(diskReqInfo.DiskType)
-	request.DiskName = common.StringPtr(diskReqInfo.IId.NameId)
 
 	diskErr := validateDisk(&diskReqInfo)
 	if diskErr != nil {
@@ -58,6 +56,8 @@ func (DiskHandler *TencentDiskHandler) CreateDisk(diskReqInfo irs.DiskInfo) (irs
 	}
 
 	request.DiskSize = common.Uint64Ptr(diskSize)
+	request.DiskType = common.StringPtr(diskReqInfo.DiskType)
+	request.DiskName = common.StringPtr(diskReqInfo.IId.NameId)
 
 	response, err := DiskHandler.Client.CreateDisks(request)
 	if err != nil {
@@ -270,7 +270,7 @@ func validateDisk(diskReqInfo *irs.DiskInfo) error {
 
 	for _, diskSizeInfo := range arrDiskSizeOfType {
 		diskSizeArr := strings.Split(diskSizeInfo, "|")
-		if strings.EqualFold(reqDiskSize, diskSizeArr[0]) {
+		if strings.EqualFold(reqDiskType, diskSizeArr[0]) {
 			diskSizeValue.diskType = diskSizeArr[0]
 			diskSizeValue.unit = diskSizeArr[3]
 			diskSizeValue.diskMinSize, err = strconv.ParseInt(diskSizeArr[1], 10, 64)

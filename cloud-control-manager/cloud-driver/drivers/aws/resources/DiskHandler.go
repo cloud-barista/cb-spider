@@ -464,27 +464,32 @@ func validateCreateDisk(diskReqInfo *irs.DiskInfo) error {
 	// VolumeType
 	cloudOSMetaInfo, err := cim.GetCloudOSMetaInfo("AWS")
 	arrDiskType := cloudOSMetaInfo.DiskType
+	arrRootDiskType := cloudOSMetaInfo.RootDiskType
 	arrDiskSizeOfType := cloudOSMetaInfo.DiskSize
-	arrRootDiskSizeOfType := cloudOSMetaInfo.RootDiskSize
 
 	cblogger.Info(arrDiskType)
 	reqDiskType := diskReqInfo.DiskType
 	reqDiskSize := diskReqInfo.DiskSize
 	if reqDiskType == "" || reqDiskType == "default" {
-		diskSizeArr := strings.Split(arrRootDiskSizeOfType[0], "|")
-		reqDiskType = diskSizeArr[0]
-		diskReqInfo.DiskType = diskSizeArr[0]
+		reqDiskType = arrRootDiskType[0]
+		diskReqInfo.DiskType = arrRootDiskType[0]
 	}
 
 	// 정의된 type인지
-	if !ContainString(arrDiskType, diskReqInfo.DiskType) {
-		return errors.New("Disktype : " + diskReqInfo.DiskType + "' is not valid")
+	if !ContainString(arrDiskType, reqDiskType) {
+		return errors.New("Disktype : " + reqDiskType + " is not valid")
 	}
 
 	if reqDiskSize == "" || reqDiskSize == "default" {
-		diskSizeArr := strings.Split(arrRootDiskSizeOfType[0], "|")
-		reqDiskSize = diskSizeArr[1]
-		diskReqInfo.DiskSize = diskSizeArr[1] // set default value
+		for _, diskSizeInfo := range arrDiskSizeOfType {
+			diskSizeArr := strings.Split(diskSizeInfo, "|")
+			if strings.EqualFold(reqDiskType, diskSizeArr[0]) {
+				reqDiskSize = diskSizeArr[1]
+				diskReqInfo.DiskSize = diskSizeArr[1] // set default value
+				break
+			}
+		}
+
 	}
 
 	// volume Size
