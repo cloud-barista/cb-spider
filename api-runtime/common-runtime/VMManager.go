@@ -330,7 +330,7 @@ func StartVM(connectionName string, rsType string, reqInfo cres.VMReqInfo) (*cre
                 return nil, err
         }
 
-	err = checkImageType(connectionName, &reqInfo)
+	err = checkImageType(&reqInfo)
 	if err != nil {
                 cblog.Error(err)
                 return nil, err
@@ -549,8 +549,8 @@ func StartVM(connectionName string, rsType string, reqInfo cres.VMReqInfo) (*cre
 	}
 }
 
-func checkImageType(connectionName string, reqInfo *cres.VMReqInfo) error {
-fmt.Printf("\n\n\n powerkim: %#v\n\n", reqInfo.ImageType)
+func checkImageType(reqInfo *cres.VMReqInfo) error {
+
 	if reqInfo.ImageType == "" {
 		reqInfo.ImageType = cres.PublicImage
 	}
@@ -563,17 +563,6 @@ fmt.Printf("\n\n\n powerkim: %#v\n\n", reqInfo.ImageType)
 		if reqInfo.DataDiskIIDs == nil && len(reqInfo.DataDiskIIDs) > 0 {
 			return errors.New("MyImage can not have a Data-Disk!!")
 		}
-
-		// get MyImage's SystemId
-		imageNameID := reqInfo.ImageIID.NameId
-		imageIIdInfo, err := iidRWLock.GetIID(iidm.IIDSGROUP, connectionName, rsMyImage, cres.IID{imageNameID, ""})
-		if err != nil {
-			cblog.Error(err)
-			return err
-		}
-		fmt.Printf("\n\n\n powerkim: %#v\n\n", imageIIdInfo.IId)
-		reqInfo.ImageIID.SystemId = getDriverSystemId(imageIIdInfo.IId)
-
 	}
 	return nil
 }
@@ -583,8 +572,9 @@ func cloneReqInfoWithDriverIID(ConnectionName string, reqInfo cres.VMReqInfo) (c
 	newReqInfo := cres.VMReqInfo {
 		IId:       cres.IID{reqInfo.IId.NameId, reqInfo.IId.SystemId},
 
+		ImageType:        cres.ImageType(reqInfo.ImageType),
 		// set Image SystemId
-		ImageIID:         cres.IID{reqInfo.ImageIID.NameId, reqInfo.ImageIID.NameId},
+		//ImageIID:         cres.IID{reqInfo.ImageIID.NameId, reqInfo.ImageIID.NameId},
 		//VpcIID:           cres.IID{reqInfo.VpcIID.NameId, reqInfo.VpcIID.SystemId},
 		//SubnetIID:        cres.IID{reqInfo.SubnetIID.NameId, reqInfo.SubnetIID.SystemId},
 		//SecurityGroupIIDs: getSecurityGroupIIDs(),
@@ -595,8 +585,26 @@ func cloneReqInfoWithDriverIID(ConnectionName string, reqInfo cres.VMReqInfo) (c
 		RootDiskType:	  reqInfo.RootDiskType, 
 		RootDiskSize:	  reqInfo.RootDiskSize,
 
+		// DataDiskIIDs
+
 		VMUserId:         reqInfo.VMUserId,
 		VMUserPasswd:	  reqInfo.VMUserPasswd,
+	}
+
+	// set Image SystemId
+	if reqInfo.ImageType == cres.PublicImage {
+		newReqInfo.ImageIID = cres.IID{reqInfo.ImageIID.NameId, reqInfo.ImageIID.NameId}
+	}
+	if reqInfo.ImageType == cres.MyImage {
+		if reqInfo.ImageIID.NameId != "" {		
+			// get MyImage's SystemId
+			imageIIdInfo, err := iidRWLock.GetIID(iidm.IIDSGROUP, ConnectionName, rsMyImage, reqInfo.ImageIID)
+			if err != nil {
+				cblog.Error(err)
+				return cres.VMReqInfo{}, err
+			}
+			newReqInfo.ImageIID = getDriverIID(imageIIdInfo.IId)
+		}
 	}
 
 	// set VPC SystemId
