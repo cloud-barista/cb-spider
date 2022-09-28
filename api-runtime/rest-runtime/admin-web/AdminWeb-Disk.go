@@ -11,7 +11,6 @@ package adminweb
 import (
 	"fmt"
 
-	cim "github.com/cloud-barista/cb-spider/cloud-info-manager"
 	cr "github.com/cloud-barista/cb-spider/api-runtime/common-runtime"
 	cres "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 
@@ -495,42 +494,6 @@ func Disk(c echo.Context) error {
         return c.HTML(http.StatusOK, htmlStr)
 }
 
-func vmList(connConfig string) []string {
-        resBody, err := getResourceList_with_Connection_JsonByte(connConfig, "vm")
-        if err != nil {
-                cblog.Error(err)
-        }
-        var info struct {
-                ResultList []cres.VMInfo `json:"vm"`
-        }
-        json.Unmarshal(resBody, &info)
-
-        var nameList []string
-        for _, vm := range info.ResultList {
-                nameList = append(nameList, vm.IId.NameId)
-        }
-        return nameList
-}
-
-func diskTypeList(providerName string) []string {
-        // get Provider's Meta Info
-        cloudOSMetaInfo, err := cim.GetCloudOSMetaInfo(providerName)
-        if err != nil {
-                cblog.Error(err)
-                return []string{}
-        }
-	return cloudOSMetaInfo.DiskType
-}
-
-func diskTypeSizeList(providerName string) []string {
-        // get Provider's Meta Info
-        cloudOSMetaInfo, err := cim.GetCloudOSMetaInfo(providerName)
-        if err != nil {
-                cblog.Error(err)
-                return []string{}
-        }
-        return cloudOSMetaInfo.DiskSize
-}
 
 func makeDataDiskTypeSelect_html(onchangeFunctionName string, strList []string, id string) string {
 

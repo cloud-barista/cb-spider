@@ -56,6 +56,8 @@ func makeVMTRList_html(connConfig string, bgcolor string, height string, fontSiz
                             <font size=%s>$$LASTSTARTTIME$$</font>
                     </td>                    
                     <td>
+                            <font size=%s>$$IMAGETYPE$$</font>
+                            <br>                    
                             <font size=%s>$$IMAGE$$</font>
                             <br>
                             <font size=%s>$$SPEC$$</font>
@@ -98,8 +100,8 @@ func makeVMTRList_html(connConfig string, bgcolor string, height string, fontSiz
                         <input type="checkbox" name="check_box" value=$$VMNAME$$>
                     </td>
                 </tr>
-                `, bgcolor, height, fontSize, fontSize, fontSize, fontSize, fontSize, fontSize, fontSize, fontSize, fontSize, fontSize,
-		fontSize, fontSize, fontSize, fontSize, fontSize, fontSize, fontSize, fontSize, fontSize)
+                `, bgcolor, height, fontSize, fontSize, fontSize, fontSize, fontSize, fontSize, fontSize, fontSize, fontSize, 
+		  fontSize, fontSize, fontSize, fontSize, fontSize, fontSize, fontSize, fontSize, fontSize, fontSize, fontSize)
 
 	strData := ""
 	// set data and make TR list
@@ -119,6 +121,7 @@ func makeVMTRList_html(connConfig string, bgcolor string, height string, fontSiz
 		str = strings.ReplaceAll(str, "$$LASTSTARTTIME$$", one.StartTime.Format("2006.01.02 15:04:05 Mon"))
 
 		// for Image & Spec
+		str = strings.ReplaceAll(str, "$$IMAGETYPE$$", string(one.ImageType))
 		str = strings.ReplaceAll(str, "$$IMAGE$$", one.ImageIId.NameId)
 		str = strings.ReplaceAll(str, "$$SPEC$$", one.VMSpecName)
 
@@ -270,17 +273,25 @@ func makePostVMFunc_js() string {
                 function postVM() {
                         var connConfig = parent.frames["top_frame"].document.getElementById("connConfig").innerHTML;
                         var textboxes = document.getElementsByName('text_box');
-                        sendJson = '{ "ConnectionName" : "' + connConfig + '", "ReqInfo" : { "Name" : "$$VMNAME$$", \
+                        sendJson = '{ "ConnectionName" : "' + connConfig + '", "ReqInfo" : { "Name" : "$$VMNAME$$", "ImageType" : "$$IMAGETYPE$$",\
                                 "ImageName" : "$$IMAGE$$", "VMSpecName" : "$$SPEC$$", "VPCName" : "$$VPC$$", "SubnetName" : "$$SUBNET$$", \
-                                "SecurityGroupNames" : $$SECURITYGROUP$$, "DataDiskNames" : [$$DATADISK$$], "KeyPairName" : "$$ACCESSKEY$$", "VMUserId" : "$$ACCESSUSER$$", "VMUserPasswd" : "$$ACCESSPASSWD$$" }}'
+                                "SecurityGroupNames" : $$SECURITYGROUP$$, "DataDiskNames" : [$$DATADISK$$], "KeyPairName" : "$$ACCESSKEY$$", \
+                                "VMUserId" : "$$ACCESSUSER$$", "VMUserPasswd" : "$$ACCESSPASSWD$$" }}'
 
                         for (var i = 0; i < textboxes.length; i++) { // @todo make parallel executions
                                 switch (textboxes[i].id) {
                                         case "1":
                                                 sendJson = sendJson.replace("$$VMNAME$$", textboxes[i].value);
                                                 break;
+                                        case "22":
+                                                sendJson = sendJson.replace("$$IMAGETYPE$$", textboxes[i].value);
+                                                break;
+
                                         case "3":
-                                                sendJson = sendJson.replace("$$IMAGE$$", textboxes[i].value);
+                                        case "33":
+                                        	if (textboxes[i].hidden==false) {
+                                                	sendJson = sendJson.replace("$$IMAGE$$", textboxes[i].value);
+                                                }
                                                 break;
                                         case "4":
                                                 sendJson = sendJson.replace("$$SPEC$$", textboxes[i].value);
@@ -447,6 +458,7 @@ func VM(c echo.Context) error {
 	htmlStr += makePostVMFunc_js()
 	htmlStr += makeDeleteVMFunc_js()
 	htmlStr += makeVMControlFunc_js()
+	htmlStr += makeOnchangeImageTypeFunc_js()
 
 	htmlStr += `
                     </script>
@@ -464,7 +476,7 @@ func VM(c echo.Context) error {
 	nameWidthList := []NameWidth{
 		{"VM Name / Control", "200"},
 		{"VM Status / Last Start Time", "200"},
-		{"VM Image / VM Spec", "200"},
+		{"ImageType / Image / VM Spec", "200"},
 		{"VPC / Subnet / Security Group", "400"},
 		{"NetworkInterface / PublicIP / PrivateIP", "400"},
 		{"PublicDNS / PrivateDNS", "350"},
@@ -502,6 +514,8 @@ func VM(c echo.Context) error {
 	// (5) make input field and add
 	// attach text box for add
 	nameList := vpcList(connConfig)
+	imageTypeList := []string{"PublicImage", "MyImage"}
+	myImageList := myImageList(connConfig)
 	keyNameList := keyPairList(connConfig)
 	diskNameList := availableDataDiskList(connConfig)
 	providerName, _ := getProviderName(connConfig)
@@ -618,6 +632,13 @@ func VM(c echo.Context) error {
                                 <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="2" disabled value="N/A">
                             </td>
                             <td style="vertical-align:top">
+                            `
+	// Select format of VPC  name=text_box, id=5
+	htmlStr += makeSelect_html("onchangeImageType", imageTypeList, "22")
+
+
+	htmlStr += makeMyImageSelect_html("", myImageList, "33")
+	htmlStr += `                            
                                 <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="3" value="$$IMAGENAME$$">
 			        <br>
                                 <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="4" value="$$SPECNAME$$">
@@ -688,53 +709,6 @@ func VM(c echo.Context) error {
 	return c.HTML(http.StatusOK, htmlStr)
 }
 
-func vmStatus(connConfig string, vmName string) string {
-        resBody, err := getResource_with_Connection_JsonByte(connConfig, "vmstatus", vmName)
-        if err != nil {
-                cblog.Error(err)
-        }
-	//var info cres.VMStatusInfo 
-	var info struct {
-                Status string
-        }
-        json.Unmarshal(resBody, &info)
-        //return fmt.Sprint(info.Status)
-        return info.Status
-}
-
-func subnetList(connConfig string, vpcName string) []string {
-        resBody, err := getResource_with_Connection_JsonByte(connConfig, "vpc", vpcName)
-        if err != nil {
-                cblog.Error(err)
-        }
-        var info cres.VPCInfo
-        json.Unmarshal(resBody, &info)
-
-        var nameList []string
-        for _, subnetInfo := range info.SubnetInfoList {
-                nameList = append(nameList, subnetInfo.IId.NameId)
-        }
-        return nameList
-}
-
-
-func keyPairList(connConfig string) []string {
-        resBody, err := getResourceList_with_Connection_JsonByte(connConfig, "keypair")
-        if err != nil {
-                cblog.Error(err)
-        }
-        var info struct {
-                ResultList []cres.VPCInfo `json:"keypair"`
-        }
-        json.Unmarshal(resBody, &info)
-
-        var nameList []string
-        for _, keypair := range info.ResultList {
-                nameList = append(nameList, keypair.IId.NameId)
-        }
-        return nameList
-}
-
 func makeKeyPairSelect_html(onchangeFunctionName string, strList []string, id string) string {
 
         strSelect := `<select name="text_box" id="` + id + `" onchange="` + onchangeFunctionName + `(this)">`
@@ -750,36 +724,6 @@ func makeKeyPairSelect_html(onchangeFunctionName string, strList []string, id st
 
 
         return strSelect
-}
-
-func availableDataDiskList(connConfig string) []string {
-        resBody, err := getResourceList_with_Connection_JsonByte(connConfig, "disk")
-        if err != nil {
-                cblog.Error(err)
-        }
-        var info struct {
-                ResultList []cres.DiskInfo `json:"disk"`
-        }
-        json.Unmarshal(resBody, &info)
-
-        var nameList []string
-        for _, disk := range info.ResultList {
-		if disk.Status == cres.DiskAvailable {
-			nameList = append(nameList, disk.IId.NameId)
-		}
-        }
-        return nameList
-}
-
-func diskInfo(connConfig string, diskName string) cres.DiskInfo {
-        resBody, err := getResource_with_Connection_JsonByte(connConfig, "disk", diskName)
-        if err != nil {
-                cblog.Error(err)
-        }
-
-        var info cres.DiskInfo
-        json.Unmarshal(resBody, &info)
-        return info
 }
 
 
@@ -804,4 +748,40 @@ func makeDataDiskSelect_html(onchangeFunctionName string, strList []string, id s
 
 
         return strResult + strSelect
+}
+
+func makeMyImageSelect_html(onchangeFunctionName string, strList []string, id string) string {
+
+	
+	if len(strList) == 0 {
+		publicImageStr := `<input style="font-size:12px;text-align:center;" type="text" name="text_box" id="` +
+				id +`" disabled value="None" hidden>`
+		return publicImageStr
+	}
+        strSelect := `<select style="width:120px;" name="text_box" id="` + id + `" onchange="` + onchangeFunctionName + `(this)" hidden>`
+        for _, one := range strList {
+		strSelect += `<option value="` + one + `">` + one + `</option>`
+        }
+
+        strSelect += `
+                </select>
+        `
+        return strSelect
+}
+
+// make the string of javascript function
+func makeOnchangeImageTypeFunc_js() string {
+        strFunc := `
+              function onchangeImageType(source) {
+                var imageType = source.value
+                if (imageType == 'MyImage') {
+                	document.getElementById('3').hidden=true;
+                	document.getElementById('33').hidden=false;
+                } else {
+                	document.getElementById('3').hidden=false;
+                	document.getElementById('33').hidden=true;
+                }
+              }
+        `
+        return strFunc
 }

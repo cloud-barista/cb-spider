@@ -10,6 +10,7 @@ package adminweb
 
 import (
 	"fmt"
+	cim "github.com/cloud-barista/cb-spider/cloud-info-manager"
 	cr "github.com/cloud-barista/cb-spider/api-runtime/common-runtime"
 	cres "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"encoding/json"
@@ -20,25 +21,6 @@ import (
 	"io/ioutil"
 
 )
-
-
-func vpcList(connConfig string) []string {
-        resBody, err := getResourceList_with_Connection_JsonByte(connConfig, "vpc")
-        if err != nil {
-                cblog.Error(err)
-        }
-        var info struct {
-                ResultList []cres.VPCInfo `json:"vpc"`
-        }
-        json.Unmarshal(resBody, &info)
-
-	var nameList []string
-	for _, vpc := range info.ResultList {
-		nameList = append(nameList, vpc.IId.NameId)
-	}
-        return nameList
-}
-
 
 func makeSelect_html(onchangeFunctionName string, strList []string, id string) string {
 
@@ -58,6 +40,157 @@ func makeSelect_html(onchangeFunctionName string, strList []string, id string) s
 
 	return strSelect
 }
+
+//----------------
+
+func vpcList(connConfig string) []string {
+        resBody, err := getResourceList_with_Connection_JsonByte(connConfig, "vpc")
+        if err != nil {
+                cblog.Error(err)
+        }
+        var info struct {
+                ResultList []cres.VPCInfo `json:"vpc"`
+        }
+        json.Unmarshal(resBody, &info)
+
+	var nameList []string
+	for _, vpc := range info.ResultList {
+		nameList = append(nameList, vpc.IId.NameId)
+	}
+        return nameList
+}
+
+func subnetList(connConfig string, vpcName string) []string {
+        resBody, err := getResource_with_Connection_JsonByte(connConfig, "vpc", vpcName)
+        if err != nil {
+                cblog.Error(err)
+        }
+        var info cres.VPCInfo
+        json.Unmarshal(resBody, &info)
+
+        var nameList []string
+        for _, subnetInfo := range info.SubnetInfoList {
+                nameList = append(nameList, subnetInfo.IId.NameId)
+        }
+        return nameList
+}
+
+func keyPairList(connConfig string) []string {
+        resBody, err := getResourceList_with_Connection_JsonByte(connConfig, "keypair")
+        if err != nil {
+                cblog.Error(err)
+        }
+        var info struct {
+                ResultList []cres.VPCInfo `json:"keypair"`
+        }
+        json.Unmarshal(resBody, &info)
+
+        var nameList []string
+        for _, keypair := range info.ResultList {
+                nameList = append(nameList, keypair.IId.NameId)
+        }
+        return nameList
+}
+
+func vmList(connConfig string) []string {
+        resBody, err := getResourceList_with_Connection_JsonByte(connConfig, "vm")
+        if err != nil {
+                cblog.Error(err)
+        }
+        var info struct {
+                ResultList []cres.VMInfo `json:"vm"`
+        }
+        json.Unmarshal(resBody, &info)
+
+        var nameList []string
+        for _, vm := range info.ResultList {
+                nameList = append(nameList, vm.IId.NameId)
+        }
+        return nameList
+}
+
+func vmStatus(connConfig string, vmName string) string {
+        resBody, err := getResource_with_Connection_JsonByte(connConfig, "vmstatus", vmName)
+        if err != nil {
+                cblog.Error(err)
+        }
+	//var info cres.VMStatusInfo 
+	var info struct {
+                Status string
+        }
+        json.Unmarshal(resBody, &info)
+        //return fmt.Sprint(info.Status)
+        return info.Status
+}
+
+func diskTypeList(providerName string) []string {
+        // get Provider's Meta Info
+        cloudOSMetaInfo, err := cim.GetCloudOSMetaInfo(providerName)
+        if err != nil {
+                cblog.Error(err)
+                return []string{}
+        }
+	return cloudOSMetaInfo.DiskType
+}
+
+func diskTypeSizeList(providerName string) []string {
+        // get Provider's Meta Info
+        cloudOSMetaInfo, err := cim.GetCloudOSMetaInfo(providerName)
+        if err != nil {
+                cblog.Error(err)
+                return []string{}
+        }
+        return cloudOSMetaInfo.DiskSize
+}
+
+func availableDataDiskList(connConfig string) []string {
+        resBody, err := getResourceList_with_Connection_JsonByte(connConfig, "disk")
+        if err != nil {
+                cblog.Error(err)
+        }
+        var info struct {
+                ResultList []cres.DiskInfo `json:"disk"`
+        }
+        json.Unmarshal(resBody, &info)
+
+        var nameList []string
+        for _, disk := range info.ResultList {
+		if disk.Status == cres.DiskAvailable {
+			nameList = append(nameList, disk.IId.NameId)
+		}
+        }
+        return nameList
+}
+
+func diskInfo(connConfig string, diskName string) cres.DiskInfo {
+        resBody, err := getResource_with_Connection_JsonByte(connConfig, "disk", diskName)
+        if err != nil {
+                cblog.Error(err)
+        }
+
+        var info cres.DiskInfo
+        json.Unmarshal(resBody, &info)
+        return info
+}
+
+func myImageList(connConfig string) []string {
+        resBody, err := getResourceList_with_Connection_JsonByte(connConfig, "myimage")
+        if err != nil {
+                cblog.Error(err)
+        }
+        var info struct {
+                ResultList []cres.MyImageInfo `json:"myimage"`
+        }
+        json.Unmarshal(resBody, &info)
+
+	var nameList []string
+	for _, myImage := range info.ResultList {
+		nameList = append(nameList, myImage.IId.NameId)
+	}
+        return nameList
+}
+
+// -------------
 
 func getResourceList_JsonByte(resourceName string) ([]byte, error) {
         // cr.ServicePort = ":1024"
