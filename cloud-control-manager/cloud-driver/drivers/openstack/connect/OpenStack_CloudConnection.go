@@ -129,5 +129,11 @@ func (cloudConn *OpenStackCloudConnection) CreateClusterHandler() (irs.ClusterHa
 
 
 func (cloudConn *OpenStackCloudConnection) CreateAnyCallHandler() (irs.AnyCallHandler, error) {
-	return nil, errors.New("OpenStack Driver: not implemented")
+	cblogger.Info("OpenStack Driver: called CreateAnyCallHandler()!")
+
+        anyCallHandler := osrs.OpenStackAnyCallHandler{
+                CredentialInfo: cloudConn.CredentialInfo,
+                Region:         cloudConn.Region,
+        }
+        return &anyCallHandler, nil
 }
