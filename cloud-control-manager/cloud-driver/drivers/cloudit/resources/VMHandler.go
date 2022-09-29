@@ -38,6 +38,7 @@ const (
 
 type ClouditVMHandler struct {
 	CredentialInfo idrv.CredentialInfo
+	RegionInfo     idrv.RegionInfo
 	Client         *client.RestClient
 }
 
@@ -165,6 +166,44 @@ func (vmHandler *ClouditVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (startVM irs
 	vmHandler.Client.TokenID = vmHandler.CredentialInfo.AuthToken
 	authHeader := vmHandler.Client.AuthenticatedHeaders()
 	KeyPairDes := fmt.Sprintf("keypair:%s", vmReqInfo.KeyPairIID.NameId)
+
+	clusterNameId := vmHandler.RegionInfo.Region
+	clusterSystemId := ""
+	if clusterNameId == "" {
+		return irs.VMInfo{}, errors.New("Failed to Create Disk. err = ClusterId is required.")
+	} else if clusterNameId == "default" {
+		return irs.VMInfo{}, errors.New("Failed to Create Disk. err = Cloudit does not supports \"default\" cluster.")
+	}
+
+	requestURL := vmHandler.Client.CreateRequestBaseURL(client.ACE, "clusters")
+	cblogger.Info(requestURL)
+
+	var result client.Result
+	if _, result.Err = vmHandler.Client.Get(requestURL, &result.Body, &client.RequestOpts{
+		MoreHeaders: authHeader,
+	}); result.Err != nil {
+		createErr := errors.New(fmt.Sprintf("Failed to Create Disk. err = %s", err.Error()))
+		cblogger.Error(createErr.Error())
+		LoggingError(hiscallInfo, createErr)
+		return irs.VMInfo{}, createErr
+	}
+
+	var clusterList []struct {
+		Id   string
+		Name string
+	}
+	if err := result.ExtractInto(&clusterList); err != nil {
+		createErr := errors.New(fmt.Sprintf("Failed to Create Disk. err = %s", err.Error()))
+		cblogger.Error(createErr.Error())
+		LoggingError(hiscallInfo, createErr)
+		return irs.VMInfo{}, createErr
+	}
+	for _, cluster := range clusterList {
+		if cluster.Name == clusterNameId {
+			clusterSystemId = cluster.Id
+		}
+	}
+
 	var reqInfo server.VMReqInfo
 	if vmReqInfo.ImageType == irs.MyImage {
 		snapshotReqOpts := client.RequestOpts{
@@ -185,6 +224,7 @@ func (vmHandler *ClouditVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (startVM irs
 			SubnetAddr:   subnet.Addr,
 			Secgroups:    addUserSSHSG,
 			Description:  KeyPairDes,
+			ClusterId:    clusterSystemId,
 		}
 	} else {
 		reqInfo = server.VMReqInfo{
@@ -196,6 +236,7 @@ func (vmHandler *ClouditVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (startVM irs
 			SubnetAddr:   subnet.Addr,
 			Secgroups:    addUserSSHSG,
 			Description:  KeyPairDes,
+			ClusterId:    clusterSystemId,
 		}
 	}
 

@@ -15,6 +15,7 @@ import (
 
 type ClouditDiskHandler struct {
 	CredentialInfo idrv.CredentialInfo
+	RegionInfo     idrv.RegionInfo
 	Client         *client.RestClient
 }
 
@@ -43,19 +44,47 @@ func (diskHandler *ClouditDiskHandler) CreateDisk(DiskReqInfo irs.DiskInfo) (irs
 	if convResult, atoiErr := strconv.Atoi(DiskReqInfo.DiskSize); atoiErr == nil {
 		intSize = convResult
 	}
-	clusterId := ""
-	for _, keyValue := range DiskReqInfo.KeyValueList {
-		if keyValue.Key == "clusterId" {
-			clusterId = keyValue.Value
+	clusterNameId := diskHandler.RegionInfo.Region
+	clusterSystemId := ""
+	if clusterNameId == "" {
+		return irs.DiskInfo{}, errors.New("Failed to Create Disk. err = ClusterId is required.")
+	} else if clusterNameId == "default" {
+		return irs.DiskInfo{}, errors.New("Failed to Create Disk. err = Cloudit does not supports \"default\" cluster.")
+	}
+
+	requestURL := diskHandler.Client.CreateRequestBaseURL(client.ACE, "clusters")
+	cblogger.Info(requestURL)
+
+	var result client.Result
+	if _, result.Err = diskHandler.Client.Get(requestURL, &result.Body, &client.RequestOpts{
+		MoreHeaders: authHeader,
+	}); result.Err != nil {
+		createErr := errors.New(fmt.Sprintf("Failed to Create Disk. err = %s", err.Error()))
+		cblogger.Error(createErr.Error())
+		LoggingError(hiscallInfo, createErr)
+		return irs.DiskInfo{}, createErr
+	}
+
+	var clusterList []struct {
+		Id   string
+		Name string
+	}
+	if err := result.ExtractInto(&clusterList); err != nil {
+		createErr := errors.New(fmt.Sprintf("Failed to Create Disk. err = %s", err.Error()))
+		cblogger.Error(createErr.Error())
+		LoggingError(hiscallInfo, createErr)
+		return irs.DiskInfo{}, createErr
+	}
+	for _, cluster := range clusterList {
+		if cluster.Name == clusterNameId {
+			clusterSystemId = cluster.Id
 		}
 	}
-	if clusterId == "" {
-		return irs.DiskInfo{}, errors.New("Failed to Create Disk. err = clusterId is required.")
-	}
+
 	reqInfo := disk.DiskReqInfo{
 		Name: DiskReqInfo.IId.NameId,
 		// ToDo: to static value?
-		ClusterId: clusterId,
+		ClusterId: clusterSystemId,
 		Size:      intSize,
 	}
 	requestOpts := client.RequestOpts{
