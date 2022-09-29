@@ -1206,6 +1206,15 @@ func (vmHandler *IbmVMHandler) getNetworkInfo(instance vpcv1.Instance) vmNetwork
 }
 
 func (vmHandler *IbmVMHandler) setVmInfo(instance vpcv1.Instance) (irs.VMInfo, error) {
+	var dataDiskIIDs []irs.IID
+	for _, rawDataDisk := range instance.VolumeAttachments {
+		if *rawDataDisk.Volume.ID != *instance.BootVolumeAttachment.Volume.ID {
+			dataDiskIIDs = append(dataDiskIIDs, irs.IID{
+				NameId:   *rawDataDisk.Volume.Name,
+				SystemId: *rawDataDisk.Volume.ID,
+			})
+		}
+	}
 	vmInfo := irs.VMInfo{
 		IId: irs.IID{
 			NameId:   *instance.Name,
@@ -1229,6 +1238,7 @@ func (vmHandler *IbmVMHandler) setVmInfo(instance vpcv1.Instance) (irs.VMInfo, e
 		VMUserId:       CBDefaultVmUserName,
 		RootDeviceName: "Not visible in IBMCloud-VPC",
 		VMBlockDisk:    "Not visible in IBMCloud-VPC",
+		DataDiskIIDs:   dataDiskIIDs,
 	}
 	chanCount := 0
 	// KeyGet
