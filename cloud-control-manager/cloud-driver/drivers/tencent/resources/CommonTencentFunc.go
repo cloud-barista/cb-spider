@@ -27,7 +27,7 @@ const CBDefaultSubnetName string = "CB-VNet-Subnet" // CB Default Subnet Name
 const CBDefaultCidrBlock string = "192.168.0.0/16"  // CB Default CidrBlock
 
 // 2021-10-27 이슈#480에 의해 Local Key 로직 제거
-//const CBKeyPairPath string = "/meta_db/.ssh-tencent/"
+// const CBKeyPairPath string = "/meta_db/.ssh-tencent/"
 const CBCloudInitFilePath string = "/cloud-driver-libs/.cloud-init-tencent/cloud-init"
 const CBDefaultVmUserName string = "cb-user" // default VM User Name
 
@@ -45,12 +45,12 @@ type TencentCBNetworkInfo struct {
 const CUSTOM_ERR_CODE_TOOMANY string = "600"  //"n개 이상의 xxxx 정보가 존재합니다."
 const CUSTOM_ERR_CODE_NOTFOUND string = "404" //"XXX 정보가 존재하지 않습니다."
 
-//VPC
+// VPC
 func GetCBDefaultVNetName() string {
 	return CBDefaultVNetName
 }
 
-//Subnet
+// Subnet
 func GetCBDefaultSubnetName() string {
 	return CBDefaultSubnetName
 }
@@ -67,7 +67,7 @@ func JSONMarshal(t interface{}) ([]byte, error) {
 	return buffer.Bytes(), err
 }
 
-//Cloud Object를 JSON String 타입으로 변환
+// Cloud Object를 JSON String 타입으로 변환
 func ConvertJsonStringNoEscape(v interface{}) (string, error) {
 	//jsonBytes, errJson := json.Marshal(v)
 
@@ -92,7 +92,7 @@ func ConvertJsonStringNoEscape(v interface{}) (string, error) {
 	return jsonString, nil
 }
 
-//Cloud Object를 JSON String 타입으로 변환
+// Cloud Object를 JSON String 타입으로 변환
 func ConvertJsonString(v interface{}) (string, error) {
 	jsonBytes, errJson := json.Marshal(v)
 
@@ -107,7 +107,7 @@ func ConvertJsonString(v interface{}) (string, error) {
 	return jsonString, nil
 }
 
-//CB-KeyValue 등을 위해 String 타입으로 변환
+// CB-KeyValue 등을 위해 String 타입으로 변환
 func ConvertToString(value interface{}) (string, error) {
 	if value == nil {
 		cblogger.Debugf("Nil Value")
@@ -133,7 +133,7 @@ func ConvertToString(value interface{}) (string, error) {
 	return result, nil
 }
 
-//Cloud Object를 CB-KeyValue 형식으로 변환이 필요할 경우 이용
+// Cloud Object를 CB-KeyValue 형식으로 변환이 필요할 경우 이용
 func ConvertKeyValueList(v interface{}) ([]irs.KeyValue, error) {
 	//spew.Dump(v)
 	var keyValueList []irs.KeyValue
@@ -180,4 +180,16 @@ func ConvertKeyValueList(v interface{}) ([]irs.KeyValue, error) {
 	//keyValueList = append(keyValueList, irs.KeyValue{"test", typeToString([]float32{3.14, 1.53, 2.0000000000000})})
 
 	return keyValueList, nil
+}
+
+// array에 주어진 string이 있는지 체크
+func ContainString(s []string, str string) bool {
+	for _, v := range s {
+		cblogger.Info(v + " : " + str)
+		cblogger.Info(v == str)
+		if v == str {
+			return true
+		}
+	}
+	return false
 }

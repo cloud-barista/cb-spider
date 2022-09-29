@@ -25,9 +25,9 @@ const (
 )
 
 /*
-	CreateDisk 이후에 DescribeDisks 호출하여 상태가 UNATTACHED 또는 ATTACHED면 정상적으로 생성된 것임
-	비동기로 처리되기는 하나 생성 직후 호출해도 정상적으로 상태값을 받아옴
-	따라서 Operation이 완료되길 기다리는 function(WaitForXXX)은 만들지 않음
+CreateDisk 이후에 DescribeDisks 호출하여 상태가 UNATTACHED 또는 ATTACHED면 정상적으로 생성된 것임
+비동기로 처리되기는 하나 생성 직후 호출해도 정상적으로 상태값을 받아옴
+따라서 Operation이 완료되길 기다리는 function(WaitForXXX)은 만들지 않음
 */
 func (DiskHandler *TencentDiskHandler) CreateDisk(diskReqInfo irs.DiskInfo) (irs.DiskInfo, error) {
 
@@ -43,13 +43,11 @@ func (DiskHandler *TencentDiskHandler) CreateDisk(diskReqInfo irs.DiskInfo) (irs
 	request := cbs.NewCreateDisksRequest()
 	request.Placement = &cbs.Placement{Zone: common.StringPtr(DiskHandler.Region.Zone)}
 	request.DiskChargeType = common.StringPtr("POSTPAID_BY_HOUR")
-	request.DiskType = common.StringPtr(diskReqInfo.DiskType)
-	request.DiskName = common.StringPtr(diskReqInfo.IId.NameId)
 
-	diskSizeErr := validateDiskSize(diskReqInfo)
-	if diskSizeErr != nil {
-		cblogger.Error(diskSizeErr)
-		return irs.DiskInfo{}, diskSizeErr
+	diskErr := validateDisk(&diskReqInfo)
+	if diskErr != nil {
+		cblogger.Error(diskErr)
+		return irs.DiskInfo{}, diskErr
 	}
 
 	diskSize, sizeErr := strconv.ParseUint(diskReqInfo.DiskSize, 10, 64)
@@ -58,6 +56,8 @@ func (DiskHandler *TencentDiskHandler) CreateDisk(diskReqInfo irs.DiskInfo) (irs
 	}
 
 	request.DiskSize = common.Uint64Ptr(diskSize)
+	request.DiskType = common.StringPtr(diskReqInfo.DiskType)
+	request.DiskName = common.StringPtr(diskReqInfo.IId.NameId)
 
 	response, err := DiskHandler.Client.CreateDisks(request)
 	if err != nil {
@@ -227,11 +227,32 @@ func convertTenStatusToDiskStatus(diskInfo *cbs.Disk) irs.DiskStatus {
 	return returnStatus
 }
 
-func validateDiskSize(diskInfo irs.DiskInfo) error {
+func validateDisk(diskReqInfo *irs.DiskInfo) error {
 	cloudOSMetaInfo, err := cim.GetCloudOSMetaInfo("TENCENT")
+	arrDiskType := cloudOSMetaInfo.DiskType
 	arrDiskSizeOfType := cloudOSMetaInfo.DiskSize
+	arrRootDiskSizeOfType := cloudOSMetaInfo.RootDiskSize
 
-	diskSize, err := strconv.ParseInt(diskInfo.DiskSize, 10, 64)
+	reqDiskType := diskReqInfo.DiskType
+	reqDiskSize := diskReqInfo.DiskSize
+
+	if reqDiskType == "" || reqDiskType == "default" {
+		diskSizeArr := strings.Split(arrRootDiskSizeOfType[0], "|")
+		reqDiskType = diskSizeArr[0]          //
+		diskReqInfo.DiskType = diskSizeArr[0] // set default value
+	}
+	// 정의된 type인지
+	if !ContainString(arrDiskType, reqDiskType) {
+		return errors.New("Disktype : " + reqDiskType + "' is not valid")
+	}
+
+	if reqDiskSize == "" || reqDiskSize == "default" {
+		diskSizeArr := strings.Split(arrRootDiskSizeOfType[0], "|")
+		reqDiskSize = diskSizeArr[1]
+		diskReqInfo.DiskSize = diskSizeArr[1] // set default value
+	}
+
+	diskSize, err := strconv.ParseInt(reqDiskSize, 10, 64)
 	if err != nil {
 		cblogger.Error(err)
 		return err
@@ -249,7 +270,7 @@ func validateDiskSize(diskInfo irs.DiskInfo) error {
 
 	for _, diskSizeInfo := range arrDiskSizeOfType {
 		diskSizeArr := strings.Split(diskSizeInfo, "|")
-		if strings.EqualFold(diskInfo.DiskType, diskSizeArr[0]) {
+		if strings.EqualFold(reqDiskType, diskSizeArr[0]) {
 			diskSizeValue.diskType = diskSizeArr[0]
 			diskSizeValue.unit = diskSizeArr[3]
 			diskSizeValue.diskMinSize, err = strconv.ParseInt(diskSizeArr[1], 10, 64)
@@ -268,7 +289,7 @@ func validateDiskSize(diskInfo irs.DiskInfo) error {
 	}
 
 	if !isExists {
-		return errors.New("Invalid Disk Type : " + diskInfo.DiskType)
+		return errors.New("Invalid Disk Type : " + reqDiskType)
 	}
 
 	if diskSize < diskSizeValue.diskMinSize {
@@ -341,8 +362,8 @@ func validateChangeDiskSize(diskInfo irs.DiskInfo, newSize string) error {
 }
 
 /*
-	disk가 존재하는지 check
-	동일이름이 없으면 false, 있으면 true
+disk가 존재하는지 check
+동일이름이 없으면 false, 있으면 true
 */
 func (DiskHandler *TencentDiskHandler) diskExist(chkName string) (bool, error) {
 	cblogger.Debugf("chkName : %s", chkName)
