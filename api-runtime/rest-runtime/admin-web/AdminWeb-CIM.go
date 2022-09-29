@@ -240,8 +240,8 @@ func Driver(c echo.Context) error {
 		nameList := cloudosList()
 		htmlStr += `
 			<tr bgcolor="#FFFFFF" align="center" height="30">
-			    <td>
-				    <font size=2>#</font>
+			    <td bgcolor="#FFEFBA">
+                                    <font size=2>&nbsp;create:&nbsp;</font>
 			    </td>
 			    <td>
 				<!-- <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="1" value="AWS"> -->
@@ -566,8 +566,8 @@ func Credential(c echo.Context) error {
 		nameList := cloudosList()
                 htmlStr += `
                         <tr bgcolor="#FFFFFF" align="center" height="30">
-                            <td>
-                                    <font size=2>#</font>
+                            <td bgcolor="#FFEFBA">
+                                    <font size=2>&nbsp;create:&nbsp;</font>
                             </td>
                             <td>
 				<!-- <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="1" value="AWS"> -->
@@ -890,8 +890,8 @@ func Region(c echo.Context) error {
 		nameList := cloudosList()
                 htmlStr += `
                         <tr bgcolor="#FFFFFF" align="center" height="30">
-                            <td>
-                                    <font size=2>#</font>
+                            <td bgcolor="#FFEFBA">
+                                    <font size=2>&nbsp;create:&nbsp;</font>
                             </td>
                             <td>
                 <!-- <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="1" value="AWS"> -->
@@ -1152,6 +1152,12 @@ func makeSetupConnectionConfigFunc_js() string {
                         a.href = "disk/" + configName
                         a = parent.frames["top_frame"].document.getElementById("diskmgmtHref");
                         a.href = "diskmgmt/" + configName
+
+                        // for myimage 
+                        a = parent.frames["top_frame"].document.getElementById("myimageHref");
+                        a.href = "myimage/" + configName
+                        a = parent.frames["top_frame"].document.getElementById("myimagemgmtHref");
+                        a.href = "myimagemgmt/" + configName
 
 		    // for VMImage
 		    a = parent.frames["top_frame"].document.getElementById("vmimageHref");
@@ -1473,8 +1479,8 @@ func Connectionconfig(c echo.Context) error {
 		nameList := cloudosList()
                 htmlStr += `
                         <tr bgcolor="#FFFFFF" align="center" height="30">
-                            <td>
-                                    <font size=2>#</font>
+                            <td bgcolor="#FFEFBA">
+                                    <font size=2>&nbsp;create:&nbsp;</font>
                             </td>
                             <td>
                 <!-- <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="1" value="AWS"> -->

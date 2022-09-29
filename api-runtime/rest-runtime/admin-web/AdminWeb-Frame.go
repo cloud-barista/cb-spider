@@ -188,7 +188,19 @@ func Top(c echo.Context) error {
                 &nbsp;
                 &nbsp;
 
-                <!-- Image Management -->
+                <!-- MyImage Management -->
+                <a href="myimage/region not set" target="main_frame" id="myimageHref">
+                    <font size=2>MyImage</font>
+                </a>
+                &nbsp;
+                <a href="nlbmgmt/region not set" target="main_frame" id="myimagemgmtHref">
+                    <font size=2>[mgmt]</font>
+                </a>
+
+                &nbsp;
+                &nbsp;
+
+                <!-- PublicImage Management -->
                 <a href="vmimage/region not set" target="main_frame" id="vmimageHref">
                     <font size=2>vmimage</font>
                 </a>

@@ -620,10 +620,11 @@ func VM(c echo.Context) error {
 		vmUser = "cb-user"
 	}
 
+	// white color: #FFFFFF
 	htmlStr += `
                         <tr bgcolor="#FFFFFF" align="center" height="30">
-                            <td>
-                                    <font size=2>#</font>
+                            <td bgcolor="#FFEFBA">
+                                    <font size=2>&nbsp;create:&nbsp;</font>
                             </td>
                             <td style="vertical-align:top">
                                 <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="1" value="vm-01">
@@ -716,7 +717,7 @@ func makeKeyPairSelect_html(onchangeFunctionName string, strList []string, id st
 		strSelect += `<option value="` + one + `">` + one + `</option>`
         }
 	// add one more not to use Key but to use password
-	strSelect += `<option value=""</option>`
+	// strSelect += `<option value=""</option>`
 
         strSelect += `
                 </select>

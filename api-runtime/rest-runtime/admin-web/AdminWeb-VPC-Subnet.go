@@ -363,8 +363,8 @@ func VPC(c echo.Context) error {
 	// attach text box for add
 	htmlStr += `
                         <tr bgcolor="#FFFFFF" align="center" height="30">
-                            <td>
-                                    <font size=2>#</font>
+                            <td bgcolor="#FFEFBA">
+                                    <font size=2>&nbsp;create:&nbsp;</font>
                             </td>
                             <td>
                                 <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="1" value="vpc-01">

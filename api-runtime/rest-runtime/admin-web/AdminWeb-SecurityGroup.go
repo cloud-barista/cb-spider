@@ -421,8 +421,8 @@ func SecurityGroup(c echo.Context) error {
 
 	htmlStr += `
                         <tr bgcolor="#FFFFFF" align="center" height="30">
-                            <td>
-                                    <font size=2>#</font>
+                            <td bgcolor="#FFEFBA">
+                                    <font size=2>&nbsp;create:&nbsp;</font>
                             </td>
                             <td>
 		`

@@ -69,7 +69,7 @@ func makeDiskTRList_html(bgcolor string, height string, fontSize string, infoLis
                         <input type="checkbox" name="check_box" value=$$DISKNAME$$>
                     </td>
                 </tr>
-                `, bgcolor, height, fontSize, fontSize, fontSize, fontSize, fontSize, fontSize, fontSize)
+                `, bgcolor, height, fontSize, fontSize, fontSize, fontSize, fontSize, fontSize, fontSize, fontSize)
 
         strData := ""
         // set data and make TR list
@@ -439,8 +439,8 @@ func Disk(c echo.Context) error {
 	
         htmlStr += `
                         <tr bgcolor="#FFFFFF" align="center" height="30">
-                            <td>
-                                    <font size=2>#</font>
+                            <td bgcolor="#FFEFBA">
+                                    <font size=2>&nbsp;create:&nbsp;</font>
                             </td>
                             <td>
                                 <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="1" value="spider-disk-01">

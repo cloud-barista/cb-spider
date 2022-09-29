@@ -403,6 +403,8 @@ func RunServer() {
 		{"GET", "/adminweb/disk/:ConnectConfig", aw.Disk},
 		{"GET", "/adminweb/diskmgmt/:ConnectConfig", aw.DiskMgmt},
 
+		{"GET", "/adminweb/myimage/:ConnectConfig", aw.MyImage},
+		{"GET", "/adminweb/myimagemgmt/:ConnectConfig", aw.MyImageMgmt},
 		{"GET", "/adminweb/vmimage/:ConnectConfig", aw.VMImage},
 		{"GET", "/adminweb/vmspec/:ConnectConfig", aw.VMSpec},
 	}
