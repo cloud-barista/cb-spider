@@ -69,8 +69,8 @@ func getConnectionInfo(anyCallHandler *OpenStackAnyCallHandler, callInfo irs.Any
 		tmpEncryptAndEncode(anyCallHandler.CredentialInfo.IdentityEndpoint)})
 	callInfo.OKeyValueList = append(callInfo.OKeyValueList, irs.KeyValue{"DomainName",
 		tmpEncryptAndEncode(anyCallHandler.CredentialInfo.DomainName)})
-	callInfo.OKeyValueList = append(callInfo.OKeyValueList, irs.KeyValue{"TenantId",
-		tmpEncryptAndEncode(anyCallHandler.CredentialInfo.TenantId)})
+	callInfo.OKeyValueList = append(callInfo.OKeyValueList, irs.KeyValue{"ProjectID",
+		tmpEncryptAndEncode(anyCallHandler.CredentialInfo.ProjectID)})
 	callInfo.OKeyValueList = append(callInfo.OKeyValueList, irs.KeyValue{"Username",
 		tmpEncryptAndEncode(anyCallHandler.CredentialInfo.Username)})
 	callInfo.OKeyValueList = append(callInfo.OKeyValueList, irs.KeyValue{"Password",
