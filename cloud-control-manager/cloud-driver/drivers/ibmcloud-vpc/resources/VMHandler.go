@@ -155,6 +155,17 @@ func (vmHandler *IbmVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 	// 2.Create VM
 	// TODO : UserData cloudInit
 	createInstanceOptions := &vpcv0230.CreateInstanceOptions{}
+
+	var existingDataVolumeAttachments []vpcv0230.VolumeAttachmentPrototypeInstanceContext
+	for _, dataVolumeIID := range vmReqInfo.DataDiskIIDs {
+		rawDisk, getRawDiskErr := getRawDisk(vmHandler.VpcService, vmHandler.Ctx, dataVolumeIID)
+		if getRawDiskErr == nil {
+			existingDataVolumeAttachments = append(existingDataVolumeAttachments, vpcv0230.VolumeAttachmentPrototypeInstanceContext{
+				Volume: &vpcv0230.VolumeAttachmentVolumePrototypeInstanceContextVolumeIdentity{ID: rawDisk.ID},
+			})
+		}
+	}
+
 	if vmReqInfo.ImageType == irs.MyImage {
 		snapshotList, _, listSnapshotErr := vmHandler.VpcService.ListSnapshotsWithContext(vmHandler.Ctx, &vpcv1.ListSnapshotsOptions{})
 		if listSnapshotErr != nil {
@@ -203,6 +214,8 @@ func (vmHandler *IbmVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 				dataVolumeAttachments = append(dataVolumeAttachments, model)
 			}
 		}
+
+		dataVolumeAttachments = append(dataVolumeAttachments, existingDataVolumeAttachments...)
 
 		createInstanceOptions.SetInstancePrototype(&vpcv0230.InstancePrototypeInstanceBySourceSnapshot{
 			Name:                 &vmReqInfo.IId.NameId,
@@ -254,7 +267,8 @@ func (vmHandler *IbmVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 			VPC: &vpcv0230.VPCIdentity{
 				ID: vpc.ID,
 			},
-			UserData: &userData,
+			UserData:          &userData,
+			VolumeAttachments: existingDataVolumeAttachments,
 		})
 	}
 

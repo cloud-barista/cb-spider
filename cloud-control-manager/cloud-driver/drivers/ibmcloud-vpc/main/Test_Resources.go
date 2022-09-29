@@ -100,6 +100,10 @@ type Config struct {
 					NameId   string `yaml:"nameId"`
 					SystemId string `yaml:"systemId"`
 				} `yaml:"SecurityGroupIIDs"`
+				DataDiskIIDs []struct {
+					NameId   string `yaml:"nameId"`
+					SystemId string `yaml:"systemId"`
+				} `yaml:"DataDiskIIDs"`
 			} `yaml:"vm"`
 			VmFromMyImage struct {
 				IID struct {
@@ -750,6 +754,10 @@ func testVMHandler(config Config) {
 	for _, sg := range configsgIIDs {
 		SecurityGroupIIDs = append(SecurityGroupIIDs, irs.IID{NameId: sg.NameId})
 	}
+	var vmDataDiskIIDs []irs.IID
+	for _, dataDisk := range config.IbmVPC.Resources.Vm.DataDiskIIDs {
+		vmDataDiskIIDs = append(vmDataDiskIIDs, irs.IID{NameId: dataDisk.NameId})
+	}
 	vmIID := irs.IID{
 		NameId: config.IbmVPC.Resources.Vm.IID.NameId,
 	}
@@ -773,6 +781,7 @@ func testVMHandler(config Config) {
 		SecurityGroupIIDs: SecurityGroupIIDs,
 		RootDiskSize:      "",
 		RootDiskType:      "",
+		DataDiskIIDs:      vmDataDiskIIDs,
 	}
 	vmFromSnapshotReqInfo := irs.VMReqInfo{
 		IId: irs.IID{
