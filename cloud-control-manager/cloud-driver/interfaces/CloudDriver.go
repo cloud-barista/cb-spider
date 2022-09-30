@@ -15,9 +15,9 @@ import (
 )
 
 type DriverCapabilityInfo struct {
-	NLBHandler   	bool // support: true, do not support: false
-	ImageHandler 	bool // support: true, do not support: false
-	VPCHandler   	bool // support: true, do not support: false
+	NLBHandler   bool // support: true, do not support: false
+	ImageHandler bool // support: true, do not support: false
+	VPCHandler   bool // support: true, do not support: false
 	//VNetworkHandler bool // support: true, do not support: false
 	SecurityHandler bool // support: true, do not support: false
 	KeyPairHandler  bool // support: true, do not support: false
@@ -54,6 +54,7 @@ type CredentialInfo struct {
 	MockName         string // Mock
 	ApiKey           string // Ibm
 	ConnectionName   string // MINI
+	ClusterId        string // Cloudit
 }
 
 type RegionInfo struct {
