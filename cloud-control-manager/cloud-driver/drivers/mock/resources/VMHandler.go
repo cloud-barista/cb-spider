@@ -42,12 +42,27 @@ func (vmHandler *MockVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, er
 	mockName := vmHandler.MockName
 	vmReqInfo.IId.SystemId = vmReqInfo.IId.NameId
 
-	// image validation
-	imageHandler := MockImageHandler{mockName}
-	validatedImgInfo, err := imageHandler.GetImage(vmReqInfo.ImageIID)
-	if err != nil {
-		cblogger.Error(err)
-		return irs.VMInfo{}, err
+	validatedImageIID := irs.IID{}
+	// public image validation
+	if vmReqInfo.ImageType == irs.PublicImage {
+		imageHandler := MockImageHandler{mockName}
+		validatedImgInfo, err := imageHandler.GetImage(vmReqInfo.ImageIID)
+		if err != nil {
+			cblogger.Error(err)
+			return irs.VMInfo{}, err
+		}
+		validatedImageIID = validatedImgInfo.IId
+	}
+
+	// MyImage validation
+	if vmReqInfo.ImageType == irs.MyImage {
+		myImageHandler := MockMyImageHandler{mockName}
+		validatedMyImgInfo, err := myImageHandler.GetMyImage(vmReqInfo.ImageIID)
+		if err != nil {
+			cblogger.Error(err)
+			return irs.VMInfo{}, err
+		}
+		validatedImageIID = validatedMyImgInfo.IId
 	}
 
 	// spec validation
@@ -141,7 +156,7 @@ func (vmHandler *MockVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, er
 		StartTime: time.Now(),
 
 		Region:            irs.RegionInfo{vmHandler.Region.Region, vmHandler.Region.Zone},
-		ImageIId:          validatedImgInfo.IId,
+		ImageIId:          validatedImageIID,
 		VMSpecName:        validatedSpecInfo.Name,
 		VpcIID:            validatedVPCInfo.IId,
 		SubnetIID:         validatedSubnetInfo.IId,

@@ -7,7 +7,7 @@ replace (
 	gopkg.in/yaml.v3 => gopkg.in/yaml.v3 v3.0.0
 )
 
-require github.com/cloud-barista/cb-spider v0.6.8
+require github.com/cloud-barista/cb-spider v0.6.11
 
 require (
 	github.com/beorn7/perks v1.0.1 // indirect

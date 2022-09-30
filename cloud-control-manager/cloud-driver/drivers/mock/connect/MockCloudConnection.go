@@ -98,7 +98,9 @@ func (cloudConn *MockConnection) CreateClusterHandler() (irs.ClusterHandler, err
 }
 
 func (cloudConn *MockConnection) CreateMyImageHandler() (irs.MyImageHandler, error) {
-        return nil, errors.New("Mock Driver: not implemented")
+	cblogger.Info("Mock Driver: called CreateMyImageHandler()!")
+	handler := mkrs.MockMyImageHandler{cloudConn.MockName}
+	return &handler, nil
 }
 
 func (cloudConn *MockConnection) CreateAnyCallHandler() (irs.AnyCallHandler, error) {
