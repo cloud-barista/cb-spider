@@ -155,6 +155,17 @@ func (vmHandler *IbmVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 	// 2.Create VM
 	// TODO : UserData cloudInit
 	createInstanceOptions := &vpcv0230.CreateInstanceOptions{}
+
+	var existingDataVolumeAttachments []vpcv0230.VolumeAttachmentPrototypeInstanceContext
+	for _, dataVolumeIID := range vmReqInfo.DataDiskIIDs {
+		rawDisk, getRawDiskErr := getRawDisk(vmHandler.VpcService, vmHandler.Ctx, dataVolumeIID)
+		if getRawDiskErr == nil {
+			existingDataVolumeAttachments = append(existingDataVolumeAttachments, vpcv0230.VolumeAttachmentPrototypeInstanceContext{
+				Volume: &vpcv0230.VolumeAttachmentVolumePrototypeInstanceContextVolumeIdentity{ID: rawDisk.ID},
+			})
+		}
+	}
+
 	if vmReqInfo.ImageType == irs.MyImage {
 		snapshotList, _, listSnapshotErr := vmHandler.VpcService.ListSnapshotsWithContext(vmHandler.Ctx, &vpcv1.ListSnapshotsOptions{})
 		if listSnapshotErr != nil {
@@ -203,6 +214,8 @@ func (vmHandler *IbmVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 				dataVolumeAttachments = append(dataVolumeAttachments, model)
 			}
 		}
+
+		dataVolumeAttachments = append(dataVolumeAttachments, existingDataVolumeAttachments...)
 
 		createInstanceOptions.SetInstancePrototype(&vpcv0230.InstancePrototypeInstanceBySourceSnapshot{
 			Name:                 &vmReqInfo.IId.NameId,
@@ -254,7 +267,8 @@ func (vmHandler *IbmVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 			VPC: &vpcv0230.VPCIdentity{
 				ID: vpc.ID,
 			},
-			UserData: &userData,
+			UserData:          &userData,
+			VolumeAttachments: existingDataVolumeAttachments,
 		})
 	}
 
@@ -1192,6 +1206,15 @@ func (vmHandler *IbmVMHandler) getNetworkInfo(instance vpcv1.Instance) vmNetwork
 }
 
 func (vmHandler *IbmVMHandler) setVmInfo(instance vpcv1.Instance) (irs.VMInfo, error) {
+	var dataDiskIIDs []irs.IID
+	for _, rawDataDisk := range instance.VolumeAttachments {
+		if *rawDataDisk.Volume.ID != *instance.BootVolumeAttachment.Volume.ID {
+			dataDiskIIDs = append(dataDiskIIDs, irs.IID{
+				NameId:   *rawDataDisk.Volume.Name,
+				SystemId: *rawDataDisk.Volume.ID,
+			})
+		}
+	}
 	vmInfo := irs.VMInfo{
 		IId: irs.IID{
 			NameId:   *instance.Name,
@@ -1215,6 +1238,7 @@ func (vmHandler *IbmVMHandler) setVmInfo(instance vpcv1.Instance) (irs.VMInfo, e
 		VMUserId:       CBDefaultVmUserName,
 		RootDeviceName: "Not visible in IBMCloud-VPC",
 		VMBlockDisk:    "Not visible in IBMCloud-VPC",
+		DataDiskIIDs:   dataDiskIIDs,
 	}
 	chanCount := 0
 	// KeyGet
