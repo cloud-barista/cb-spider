@@ -29,14 +29,11 @@ func getResourceHandler(resourceType string, config ResourceConfig) (interface{}
 
 	connectionInfo := idrv.ConnectionInfo{
 		CredentialInfo: idrv.CredentialInfo{
-			TenantId:         config.Cloudit.TenantID,
 			IdentityEndpoint: config.Cloudit.IdentityEndpoint,
 			Username:         config.Cloudit.Username,
 			Password:         config.Cloudit.Password,
+			TenantId:         config.Cloudit.TenantID,
 			AuthToken:        config.Cloudit.AuthToken,
-		},
-		RegionInfo: idrv.RegionInfo{
-			Region: config.Cloudit.Region,
 		},
 	}
 
@@ -967,6 +964,8 @@ Loop:
 				res_cblogger.Info("Finish GetDisk()")
 			case 3:
 				res_cblogger.Info("Start CreateDisk() ...")
+				diskCreateReqInfo.KeyValueList = append(diskCreateReqInfo.KeyValueList,
+					irs.KeyValue{Key: "clusterId", Value: "8e01e169-8318-4676-b30a-fb339de4b44b"})
 				if createInfo, err := diskHandler.CreateDisk(diskCreateReqInfo); err != nil {
 					res_cblogger.Error(err)
 				} else {
@@ -1181,7 +1180,6 @@ type ResourceConfig struct {
 		AuthToken        string `yaml:"auth_token"`
 		TenantID         string `yaml:"tenant_id"`
 		ServerId         string `yaml:"server_id"`
-		Region           string `yaml:"region"`
 		VM               struct {
 			IID struct {
 				NameId   string `yaml:"nameId"`

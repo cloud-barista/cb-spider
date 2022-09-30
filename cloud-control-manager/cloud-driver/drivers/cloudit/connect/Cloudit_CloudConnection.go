@@ -29,7 +29,6 @@ func init() {
 
 type ClouditCloudConnection struct {
 	CredentialInfo idrv.CredentialInfo
-	RegionInfo     idrv.RegionInfo
 	Client         client.RestClient
 }
 
@@ -71,7 +70,7 @@ func (cloudConn *ClouditCloudConnection) CreateKeyPairHandler() (irs.KeyPairHand
 
 func (cloudConn *ClouditCloudConnection) CreateVMHandler() (irs.VMHandler, error) {
 	cblogger.Info("Cloudit Cloud Driver: called CreateVMHandler()!")
-	vmHandler := cirs.ClouditVMHandler{CredentialInfo: cloudConn.CredentialInfo, RegionInfo: cloudConn.RegionInfo, Client: &cloudConn.Client}
+	vmHandler := cirs.ClouditVMHandler{CredentialInfo: cloudConn.CredentialInfo, Client: &cloudConn.Client}
 	return &vmHandler, nil
 }
 
@@ -96,7 +95,7 @@ func (ClouditCloudConnection) Close() error {
 
 func (cloudConn *ClouditCloudConnection) CreateDiskHandler() (irs.DiskHandler, error) {
 	cblogger.Info("Cloudit Cloud Driver: called CreateDiskHandler()!")
-	diskHandler := cirs.ClouditDiskHandler{CredentialInfo: cloudConn.CredentialInfo, RegionInfo: cloudConn.RegionInfo, Client: &cloudConn.Client}
+	diskHandler := cirs.ClouditDiskHandler{CredentialInfo: cloudConn.CredentialInfo, Client: &cloudConn.Client}
 	return &diskHandler, nil
 }
 
@@ -110,6 +109,8 @@ func (cloudConn *ClouditCloudConnection) CreateMyImageHandler() (irs.MyImageHand
 	return &myImageHandler, nil
 }
 
+
 func (cloudConn *ClouditCloudConnection) CreateAnyCallHandler() (irs.AnyCallHandler, error) {
 	return nil, errors.New("Cloudit Driver: not implemented")
 }
+

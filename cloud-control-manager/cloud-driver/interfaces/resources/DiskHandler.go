@@ -12,32 +12,34 @@ package resources
 
 import "time"
 
-// -------- Const
+
+//-------- Const
 type DiskStatus string
 
 const (
-	DiskCreating  DiskStatus = "Creating"
-	DiskAvailable DiskStatus = "Available"
-	DiskAttached  DiskStatus = "Attached"
-	DiskDeleting  DiskStatus = "Deleting"
-	DiskError     DiskStatus = "Error"
+        DiskCreating 	DiskStatus = "Creating"
+        DiskAvailable   DiskStatus = "Available"
+        DiskAttached   	DiskStatus = "Attached"
+        DiskDeleting   	DiskStatus = "Deleting"
+        DiskError   	DiskStatus = "Error"
 )
 
-// -------- Info Structure
+//-------- Info Structure
 type DiskInfo struct {
-	IId IID // {NameId, SystemId}
+	IId	IID 	// {NameId, SystemId}
 
-	DiskType string // "", "SSD(gp2)", "Premium SSD", ...
-	DiskSize string // "", "default", "50", "1000"  # (GB)
+        DiskType string  // "", "SSD(gp2)", "Premium SSD", ...
+	DiskSize string  // "", "default", "50", "1000"  # (GB)
+	
+        Status 		DiskStatus	// DiskCreating | DiskAvailable | DiskAttached | DiskDeleting | DiskError
+	OwnerVM		IID		// When the Status is DiskAttached
 
-	Status  DiskStatus // DiskCreating | DiskAvailable | DiskAttached | DiskDeleting | DiskError
-	OwnerVM IID        // When the Status is DiskAttached
-
-	CreatedTime  time.Time
+	CreatedTime	time.Time
 	KeyValueList []KeyValue
 }
 
-// -------- Disk API
+
+//-------- Disk API
 type DiskHandler interface {
 
 	//------ Disk Management
@@ -46,6 +48,7 @@ type DiskHandler interface {
 	GetDisk(diskIID IID) (DiskInfo, error)
 	ChangeDiskSize(diskIID IID, size string) (bool, error)
 	DeleteDisk(diskIID IID) (bool, error)
+
 
 	//------ Disk Attachment
 	AttachDisk(diskIID IID, ownerVM IID) (DiskInfo, error)

@@ -30,7 +30,6 @@ type VMReqInfo struct {
 	Secgroups    []SecGroupInfo `json:"secgroups" required:"true"`
 	Description  string         `json:"description" required:"false"`
 	Protection   int            `json:"protection" required:"false"`
-	ClusterId    string         `json:"clusterId,omitempty"`
 }
 
 type ServerInfo struct {
@@ -161,7 +160,7 @@ func Start(restClient *client.RestClient, requestOpts *client.RequestOpts) (*Ser
 	return &server, nil
 }
 
-// shutdown
+//shutdown
 func Suspend(restClient *client.RestClient, id string, requestOpts *client.RequestOpts) error {
 	requestURL := restClient.CreateRequestBaseURL(client.ACE, "servers", id, "shutdown")
 	cblogger.Info(requestURL)
@@ -173,7 +172,7 @@ func Suspend(restClient *client.RestClient, id string, requestOpts *client.Reque
 	return nil
 }
 
-// start
+//start
 func Resume(restClient *client.RestClient, id string, requestOpts *client.RequestOpts) error {
 	requestURL := restClient.CreateRequestBaseURL(client.ACE, "servers", id, "start")
 	cblogger.Info(requestURL)
@@ -185,7 +184,7 @@ func Resume(restClient *client.RestClient, id string, requestOpts *client.Reques
 	return nil
 }
 
-// reboot
+//reboot
 func Reboot(restClient *client.RestClient, id string, requestOpts *client.RequestOpts) error {
 	requestURL := restClient.CreateRequestBaseURL(client.ACE, "servers", id, "reboot")
 	cblogger.Info(requestURL)
@@ -197,7 +196,7 @@ func Reboot(restClient *client.RestClient, id string, requestOpts *client.Reques
 	return nil
 }
 
-// delete
+//delete
 func Terminate(restClient *client.RestClient, id string, requestOpts *client.RequestOpts) error {
 	requestURL := restClient.CreateRequestBaseURL(client.ACE, "servers", id)
 	cblogger.Info(requestURL)
