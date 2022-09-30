@@ -107,9 +107,9 @@ sleep 1
 echo "## 4. VM: StartVM"
 curl -sX POST http://localhost:1024/spider/vm -H 'Content-Type: application/json' -d '{ "ConnectionName": "'${CONN_CONFIG}'", "ReqInfo": { "Name": "ncp-vm-01", "ImageName": "'${IMAGE_NAME}'", "VPCName": "ncp-vpc-01", "SubnetName": "ncp-subnet-01", "SecurityGroupNames": [ "default1", "default2" ], "VMSpecName": "'${SPEC_NAME}'", "KeyPairName": "ncp-key-01"} }' |json_pp
 
-echo "============== sleep 50sec after start VM"
+echo "============== sleep 120sec after start VM"
 
-sleep 50 
+sleep 120 
 
 echo "## 4. VM: List"
 curl -sX GET http://localhost:1024/spider/vm -H 'Content-Type: application/json' -d '{ "ConnectionName": "'${CONN_CONFIG}'"}' |json_pp
@@ -139,13 +139,13 @@ sleep 40
 echo "## 4. VM: Resume"
 curl -sX GET http://localhost:1024/spider/controlvm/ncp-vm-01?action=resume -H 'Content-Type: application/json' -d '{ "ConnectionName": "'${CONN_CONFIG}'"}' |json_pp
 
-echo "============== sleep 20sec after resume VM"
-sleep 20
+echo "============== sleep 120sec after resume VM"
+sleep 120
 echo "## 4. VM: Reboot"
 curl -sX GET http://localhost:1024/spider/controlvm/ncp-vm-01?action=reboot -H 'Content-Type: application/json' -d '{ "ConnectionName": "'${CONN_CONFIG}'"}' |json_pp
 
-echo "============== sleep 70sec after reboot VM"
-sleep 70 
+echo "============== sleep 120sec after reboot VM"
+sleep 120 
 echo "#-----------------------------"
 
 echo "####################################################################"
