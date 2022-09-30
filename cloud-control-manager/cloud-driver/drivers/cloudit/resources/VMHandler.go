@@ -468,6 +468,27 @@ func (vmHandler *ClouditVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (startVM irs
 		}
 	}
 
+	diskHandler := ClouditDiskHandler{
+		CredentialInfo: vmHandler.CredentialInfo,
+		RegionInfo:     vmHandler.RegionInfo,
+		Client:         vmHandler.Client,
+	}
+	for _, dataDisk := range vmReqInfo.DataDiskIIDs {
+		rawDisk, getDiskErr := diskHandler.getRawDisk(dataDisk)
+		if getDiskErr != nil {
+			createErr = errors.New(fmt.Sprintf("Failed to Create VM. err = %s", err.Error()))
+			cblogger.Error(createErr.Error())
+			LoggingError(hiscallInfo, createErr)
+			return irs.VMInfo{}, createErr
+		}
+		if attachDiskErr := diskHandler.attachDisk(irs.IID{SystemId: rawDisk.ID}, irs.IID{SystemId: vm.ID}); attachDiskErr != nil {
+			createErr = errors.New(fmt.Sprintf("Failed to Create VM. err = %s", err.Error()))
+			cblogger.Error(createErr.Error())
+			LoggingError(hiscallInfo, createErr)
+			return irs.VMInfo{}, createErr
+		}
+	}
+
 	vmInfo, err := vmHandler.mappingServerInfo(*vm)
 	if err != nil {
 		createErr = errors.New(fmt.Sprintf("Failed to Create VM. err = %s", err.Error()))

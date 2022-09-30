@@ -560,6 +560,10 @@ func testVmHandler(config ResourceConfig) {
 		NameId:   config.Cloudit.VM.IID.NameId,
 		SystemId: config.Cloudit.VM.IID.SystemId,
 	}
+	var vmDataDiskIIDs []irs.IID
+	for _, dataDisk := range config.Cloudit.VM.DataDiskIIDs {
+		vmDataDiskIIDs = append(vmDataDiskIIDs, irs.IID{NameId: dataDisk.NameId})
+	}
 	vmReqInfo := irs.VMReqInfo{
 		IId: irs.IID{
 			NameId: config.Cloudit.VM.IID.NameId,
@@ -582,6 +586,7 @@ func testVmHandler(config ResourceConfig) {
 		SecurityGroupIIDs: SecurityGroupIIDs,
 		RootDiskSize:      "",
 		RootDiskType:      "",
+		DataDiskIIDs:      vmDataDiskIIDs,
 	}
 	vmFromSnapshotReqInfo := irs.VMReqInfo{
 		IId: irs.IID{
@@ -1204,6 +1209,10 @@ type ResourceConfig struct {
 				SystemId string `yaml:"systemId"`
 			} `yaml:"SecurityGroupIIDs"`
 			VMUserPasswd string `yaml:"VMUserPasswd"`
+			DataDiskIIDs []struct {
+				NameId   string `yaml:"nameId"`
+				SystemId string `yaml:"systemId"`
+			} `yaml:"DataDiskIIDs"`
 		} `yaml:"vm"`
 		VMFromMyImage struct {
 			IID struct {
