@@ -62,8 +62,8 @@ TENCENT:
 IBM:
   region: Region / Zone
   credential: ApiKey
-  # idmaxlength: VPC / Subnet / SecurityGroup / KeyPair / VM
-  idmaxlength: 63 / 63 / 63 / 63 / 63
+  #idmaxlength: VPC / Subnet / SecurityGroup / KeyPair / VM / Disk / NLB / MyImage / Cluster
+  idmaxlength: 63 / 63 / 63 / 63 / 63 / 63 / 63 / 63 / 63
 
 OPENSTACK:
   region: Region
@@ -73,9 +73,9 @@ OPENSTACK:
 
 CLOUDIT:
   region: Region
-  credential: IdentityEndpoint / AuthToken / Username / Password / TenantId
-  # idmaxlength: VPC / Subnet / SecurityGroup / KeyPair / VM
-  idmaxlength: 0 / 45 / 45 / 0 / 45
+  credential: IdentityEndpoint / AuthToken / Username / Password / TenantId / ClusterId
+  # idmaxlength: VPC / Subnet / SecurityGroup / KeyPair / VM / Disk / NLB / MyImage / Cluster
+  idmaxlength: 0 / 45 / 45 / 0 / 45 / 45 / 45 / 45 / 45
 
 NCP: 
   region: Region / Zone
