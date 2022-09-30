@@ -46,9 +46,12 @@ func makeVMTRList_html(connConfig string, bgcolor string, height string, fontSiz
                             <font size=%s>$$NUM$$</font>
                     </td>
                     <td>
-														<font size=%s>$$VMNAME$$</font>
-														<br>
-														<font size=%s>$$VMCONTROL$$</font>
+			    <font size=%s>$$VMNAME$$</font>
+			    <br>
+			    <font size=%s>$$VMCONTROL$$</font>
+			    <br>
+			    <input style="font-size:12px;text-align:center;" type="text" name="myimage-name" id="myimage-name" value="spider-myimage-$$NUM$$">
+			    <button type="button" onclick="postSnapshotVM('$$NUM$$', '$$VMNAME$$')">Snapshot</button>
                     </td>
                     <td>
                             <font size=%s>$$VMSTATUS$$</font>
@@ -459,6 +462,7 @@ func VM(c echo.Context) error {
 	htmlStr += makeDeleteVMFunc_js()
 	htmlStr += makeVMControlFunc_js()
 	htmlStr += makeOnchangeImageTypeFunc_js()
+	htmlStr += makePostSnapshotVMFunc_js()
 
 	htmlStr += `
                     </script>
@@ -784,5 +788,49 @@ func makeOnchangeImageTypeFunc_js() string {
                 }
               }
         `
+        return strFunc
+}
+
+
+// make the string of javascript function
+func makePostSnapshotVMFunc_js() string {
+
+        //curl -sX POST http://localhost:1024/spider/myimage -H 'Content-Type: application/json'
+        //      -d '{ "ConnectionName": "'${CONN_CONFIG}'", "ReqInfo": {
+                                //      "Name": "spider-myimage-01",
+                                //      "SourceVM": "vm-01"
+                        //      } }'
+
+        strFunc := `
+                function postSnapshotVM(i, vmName) {
+                        var connConfig = parent.frames["top_frame"].document.getElementById("connConfig").innerHTML;
+
+                        var myImages = document.getElementsByName('myimage-name');
+                        var idx = parseInt(i)-1;                        
+                        var myImageName = myImages[idx].value;
+
+            		sendJson = '{ "ConnectionName" : "' + connConfig + '", "ReqInfo" : { "Name" : "$$MYIMAGENAME$$", "SourceVM" : "$$SOURCEVM$$"}}'
+            		sendJson = sendJson.replace("$$MYIMAGENAME$$", myImageName);
+            		sendJson = sendJson.replace("$$SOURCEVM$$", vmName);
+
+                        var xhr = new XMLHttpRequest();
+                        xhr.open("POST", "$$SPIDER_SERVER$$/spider/myimage", false);
+                        xhr.setRequestHeader('Content-Type', 'application/json');
+
+                        // client logging
+                        parent.frames["log_frame"].Log("curl -sX POST " + 
+                                "$$SPIDER_SERVER$$/spider/myimage -H 'Content-Type: application/json' -d '" + sendJson + "'");
+
+                        xhr.send(sendJson);
+
+                        // client logging
+                        parent.frames["log_frame"].Log("   ==> " + xhr.response);
+                        var jsonVal = JSON.parse(xhr.response)
+
+
+            location.reload();
+                }
+        `
+        strFunc = strings.ReplaceAll(strFunc, "$$SPIDER_SERVER$$", "http://"+cr.ServiceIPorName+cr.ServicePort) // cr.ServicePort = ":1024"
         return strFunc
 }

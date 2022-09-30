@@ -83,19 +83,19 @@ func Top(c echo.Context) error {
             <td width="150"> 
                 <!-- Drivers Management --> 
                 <a href="driver" target="main_frame">            
-                    <font size=2>1.driver</font>
+                    <font size=2>1.Driver</font>
                 </a>
             </td>
             <td width="190">       
                 <!-- Credential Management -->
                 <a href="credential" target="main_frame">            
-                    <font size=2>1.credential</font>
+                    <font size=2>1.Credential</font>
                 </a>
             </td>
             <td width="130">
                 <!-- Regions Management -->
                 <a href="region" target="main_frame">            
-                    <font size=2>1.region</font>
+                    <font size=2>1.Region</font>
                 </a>
             </td>
             <td width="190">
@@ -104,16 +104,16 @@ func Top(c echo.Context) error {
                     <font size=2>2.CONNECTION</font>
                 </a>
             </td>
-            <td width="260">
+            <td width="240">
                 <!-- Display Connection Config -->
 		<label id="connConfig" hidden></label>
 		<input style="font-size:11px;font-weight:bold;text-align:center;background-color:#EDF7F9;" type="text" id="connDisplay" name="connDisplay" size = 30 disabled value="CloudOS: Region / Zone">
 
             </td>
-            <td rowspan="2" width="60"> 
+            <td rowspan="2" width="80"> 
                 <!-- This CB-Spider Info -->
                 <a href="spiderinfo" target="main_frame">            
-                    <font size=2>info</font>
+                    <font size=2>Spider Info</font>
                 </a>
             </td>
 	</tr>
@@ -122,7 +122,7 @@ func Top(c echo.Context) error {
             <td width="150">
                 <!-- VPC/Subnet Management -->
                 <a href="vpc/region not set" target="main_frame" id="vpcHref">
-                    <font size=2>1.vpc/subnet</font>
+                    <font size=2>1.VPC/Subnet</font>
                 </a>
 		&nbsp;
                 <a href="vpcmgmt/region not set" target="main_frame" id="vpcmgmtHref">
@@ -132,7 +132,7 @@ func Top(c echo.Context) error {
             <td width="190">
                 <!-- SecurityGroup Management -->
                 <a href="securitygroup/region not set" target="main_frame" id="securitygroupHref">
-                    <font size=2>1.1.security group</font>
+                    <font size=2>1.1.SecurityGroup</font>
                 </a>
 		&nbsp;
                 <a href="securitygroupmgmt/region not set" target="main_frame" id="securitygroupmgmtHref">
@@ -142,37 +142,16 @@ func Top(c echo.Context) error {
             <td width="130">
                 <!-- KeyPair Management -->
                 <a href="keypair/region not set" target="main_frame" id="keypairHref">
-                    <font size=2>1.keypair</font>
+                    <font size=2>1.KeyPair</font>
                 </a>
 		&nbsp;
                 <a href="keypairmgmt/region not set" target="main_frame" id="keypairmgmtHref">
                     <font size=2>[mgmt]</font>
                 </a>
             </td>
-            <td width="190">
-                <!-- VM Management -->
-                <a href="vm/region not set" target="main_frame" id="vmHref">
-                    <font size=2>2.VM</font>
-                </a>
-                &nbsp;
-                <a href="vmmgmt/region not set" target="main_frame" id="vmmgmtHref">
-                    <font size=2>[mgmt]</font>
-                </a>
+            <td width="280">
 
-                &nbsp;
-                &nbsp;
-
-                <!-- Disk Management -->
-                <a href="disk/region not set" target="main_frame" id="diskHref">
-                    <font size=2>2.Disk</font>
-                </a>
-                &nbsp;
-                <a href="diskmgmt/region not set" target="main_frame" id="diskmgmtHref">
-                    <font size=2>[mgmt]</font>
-                </a>
-            </td>
-
-            <td width="260">
+                <br>
 
                 <!-- NLB Management -->
                 <a href="nlb/region not set" target="main_frame" id="nlbHref">
@@ -183,26 +162,50 @@ func Top(c echo.Context) error {
                     <font size=2>[mgmt]</font>
                 </a>
 
-                &nbsp;
-                &nbsp;
-                &nbsp;
-                &nbsp;
+                <br>
 
+                <!-- VM Management -->
+                <a href="vm/region not set" target="main_frame" id="vmHref">
+                    <font size=2>2.VM</font>
+                </a>
+                &nbsp;
+                <a href="vmmgmt/region not set" target="main_frame" id="vmmgmtHref">
+                    <font size=2>[mgmt]</font>
+                </a>
+                &nbsp;
+                &nbsp;
+                &nbsp;
+                ⇆
+                &nbsp;
+                &nbsp;
                 <!-- MyImage Management -->
                 <a href="myimage/region not set" target="main_frame" id="myimageHref">
-                    <font size=2>MyImage</font>
+                    <font size=2>3.MyImage</font>
                 </a>
                 &nbsp;
                 <a href="nlbmgmt/region not set" target="main_frame" id="myimagemgmtHref">
                     <font size=2>[mgmt]</font>
+                </a>            
+
+                <br>
+
+                <!-- Disk Management -->
+                <a href="disk/region not set" target="main_frame" id="diskHref">
+                    <font size=2>2.Disk</font>
+                </a>
+                &nbsp;
+                <a href="diskmgmt/region not set" target="main_frame" id="diskmgmtHref">
+                    <font size=2>[mgmt]</font>
                 </a>
 
+            </td>
+            <td width="240">
                 &nbsp;
                 &nbsp;
 
                 <!-- PublicImage Management -->
                 <a href="vmimage/region not set" target="main_frame" id="vmimageHref">
-                    <font size=2>vmimage</font>
+                    <font size=2>VM Image</font>
                 </a>
 
                 &nbsp;
@@ -210,7 +213,7 @@ func Top(c echo.Context) error {
 
                 <!-- Spec Management -->
                 <a href="vmspec/region not set" target="main_frame" id="vmspecHref">
-                    <font size=2>vmspec</font>
+                    <font size=2>VM Spec</font>
                 </a>
             </td>
 

@@ -1553,10 +1553,10 @@ func SpiderInfo(c echo.Context) error {
                                             <font size=2>$$STARTTIME$$</font>
                                     </td>
                                     <td width="220">
-                                            <font size=2>CB-Spider v0.6.0 (Cafe Latte)</font>
+                                            <font size=2>CB-Spider v0.6.10 (Cafe Latte)</font>
                                     </td>
                                     <td width="220">
-                                            <font size=2>REST API v0.6.0 (Cafe Latte)</font>
+                                            <font size=2>REST API v0.6.9 (Cafe Latte)</font>
                                     </td>
                                 </tr>
 
