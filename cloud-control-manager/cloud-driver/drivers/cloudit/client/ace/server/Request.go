@@ -244,6 +244,7 @@ func GetRawVmVolumes(restClient *client.RestClient, id string, requestOpts *clie
 
 	var responseList []struct {
 		VolumeId    string
+		VolumeName  string
 		Dev         string
 		Description string
 	}
@@ -255,6 +256,7 @@ func GetRawVmVolumes(restClient *client.RestClient, id string, requestOpts *clie
 	for _, response := range responseList {
 		volumeList = append(volumeList, disk.DiskInfo{
 			ID:          response.VolumeId,
+			Name:        response.VolumeName,
 			Dev:         response.Dev,
 			Description: response.Description,
 		})

@@ -13,6 +13,7 @@ package resources
 import (
 	"errors"
 	"fmt"
+	"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/cloudit/client/ace/disk"
 	"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/cloudit/client/ace/snapshot"
 	"strconv"
 	"strings"
@@ -1047,6 +1048,19 @@ func (vmHandler *ClouditVMHandler) mappingServerInfo(server server.ServerInfo) (
 		}
 		vmInfo.SecurityGroupIIds = segGroupList
 	}
+
+	// Get Attached Disk Info
+	vmDataVolumeList, getVmDataVolumeErr := vmHandler.getAttachedDiskList(vmInfo.IId)
+	if getVmDataVolumeErr != nil {
+		return irs.VMInfo{}, errors.New(fmt.Sprintf("Failed Get Attached Disk err= %s", err.Error()))
+	}
+
+	var dataDiskIIDs []irs.IID
+	for _, vmDataVolume := range *vmDataVolumeList {
+		dataDiskIIDs = append(dataDiskIIDs, irs.IID{NameId: vmDataVolume.Name, SystemId: vmDataVolume.ID})
+	}
+	vmInfo.DataDiskIIDs = dataDiskIIDs
+
 	return vmInfo, nil
 }
 
@@ -1094,6 +1108,33 @@ func (vmHandler *ClouditVMHandler) getRawVm(vmIID irs.IID) (*server.ServerInfo, 
 		return server.Get(vmHandler.Client, vmIID.SystemId, &requestOpts)
 	}
 	return nil, errors.New("not found vm")
+}
+
+func (vmHandler *ClouditVMHandler) getAttachedDiskList(vmIID irs.IID) (*[]disk.DiskInfo, error) {
+	vm, getVmError := vmHandler.getRawVm(vmIID)
+	if getVmError != nil {
+		return nil, errors.New(fmt.Sprintf("Failed to Get Attached Disk List err = %s", getVmError))
+	}
+
+	vmHandler.Client.TokenID = vmHandler.CredentialInfo.AuthToken
+	authHeader := vmHandler.Client.AuthenticatedHeaders()
+	requestOpts := client.RequestOpts{
+		MoreHeaders: authHeader,
+	}
+
+	vmVolumeList, getVmVolumeListErr := server.GetRawVmVolumes(vmHandler.Client, vm.ID, &requestOpts)
+	if getVmVolumeListErr != nil {
+		return nil, errors.New(fmt.Sprintf("Failed to Get Attached Disk List err = %s", getVmVolumeListErr))
+	}
+
+	var vmDataVolumeList []disk.DiskInfo
+	for _, vmVolume := range *vmVolumeList {
+		if vmVolume.Dev != "vda" {
+			vmDataVolumeList = append(vmDataVolumeList, vmVolume)
+		}
+	}
+
+	return &vmDataVolumeList, nil
 }
 
 func getVmStatus(vmStatus string) irs.VMStatus {
