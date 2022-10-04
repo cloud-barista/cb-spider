@@ -46,7 +46,7 @@ func (diskHandler *AzureDiskHandler) CreateDisk(DiskReqInfo irs.DiskInfo) (diskI
 	}
 
 	diskSizeInt, err := strconv.Atoi(DiskReqInfo.DiskSize)
-	if DiskReqInfo.DiskSize == "" {
+	if DiskReqInfo.DiskSize == "" || strings.ToLower(DiskReqInfo.DiskSize) == "default" {
 		diskSizeInt = 1024 // Azure console Init Value
 		err = nil
 	}
@@ -253,79 +253,8 @@ func (diskHandler *AzureDiskHandler) DeleteDisk(diskIID irs.IID) (bool, error) {
 func (diskHandler *AzureDiskHandler) AttachDisk(diskIID irs.IID, ownerVM irs.IID) (irs.DiskInfo, error) {
 	hiscallInfo := GetCallLogScheme(diskHandler.Region, "DISK", diskIID.NameId, "AttachDisk()")
 	start := call.Start()
-	convertedDiskIId, err := ConvertDiskIID(diskIID, diskHandler.CredentialInfo, diskHandler.Region)
-	if err != nil {
-		attachErr := errors.New(fmt.Sprintf("Failed to AttachDisk. err = %s", err))
-		cblogger.Error(attachErr.Error())
-		LoggingError(hiscallInfo, attachErr)
-		return irs.DiskInfo{}, attachErr
-	}
-	disk, err := GetRawDisk(convertedDiskIId, diskHandler.Region.ResourceGroup, diskHandler.DiskClient, diskHandler.Ctx)
-	if err != nil {
-		attachErr := errors.New(fmt.Sprintf("Failed to AttachDisk. err = %s", err))
-		cblogger.Error(attachErr.Error())
-		LoggingError(hiscallInfo, attachErr)
-		return irs.DiskInfo{}, attachErr
-	}
-	err = checkAttachStatus(disk)
-	if err != nil {
-		attachErr := errors.New(fmt.Sprintf("Failed to AttachDisk. err = %s", err))
-		cblogger.Error(attachErr.Error())
-		LoggingError(hiscallInfo, attachErr)
-		return irs.DiskInfo{}, attachErr
-	}
-	convertedVMIId, err := ConvertVMIID(ownerVM, diskHandler.CredentialInfo, diskHandler.Region)
-	if err != nil {
-		attachErr := errors.New(fmt.Sprintf("Failed to AttachDisk. GetVM err = %s", err))
-		cblogger.Error(attachErr.Error())
-		LoggingError(hiscallInfo, attachErr)
-		return irs.DiskInfo{}, attachErr
-	}
-	vm, err := GetRawVM(convertedVMIId, diskHandler.Region.ResourceGroup, diskHandler.VMClient, diskHandler.Ctx)
-	if err != nil {
-		attachErr := errors.New(fmt.Sprintf("Failed to AttachDisk. GetVM err = %s", err))
-		cblogger.Error(attachErr.Error())
-		LoggingError(hiscallInfo, attachErr)
-		return irs.DiskInfo{}, attachErr
-	}
-	oldDataDisks := *vm.StorageProfile.DataDisks
-	minLunNums, err := getMinDataDiskLun(&oldDataDisks)
-	if err != nil {
-		attachErr := errors.New(fmt.Sprintf("Failed to AttachDisk. err = %s", err))
-		cblogger.Error(attachErr.Error())
-		LoggingError(hiscallInfo, attachErr)
-		return irs.DiskInfo{}, attachErr
-	}
-	oldDataDisks = append(oldDataDisks, compute.DataDisk{
-		Lun:          to.Int32Ptr(minLunNums),
-		CreateOption: compute.DiskCreateOptionTypesAttach,
-		ManagedDisk: &compute.ManagedDiskParameters{
-			ID: to.StringPtr(*disk.ID),
-		},
-	})
-	vmOpts := compute.VirtualMachine{
-		Location: to.StringPtr(diskHandler.Region.Region),
-		VirtualMachineProperties: &compute.VirtualMachineProperties{
-			StorageProfile: &compute.StorageProfile{
-				DataDisks: &oldDataDisks,
-			},
-		},
-	}
-	feature, err := diskHandler.VMClient.CreateOrUpdate(diskHandler.Ctx, diskHandler.Region.ResourceGroup, *vm.Name, vmOpts)
-	if err != nil {
-		attachErr := errors.New(fmt.Sprintf("Failed to AttachDisk. err = %s", err))
-		cblogger.Error(attachErr.Error())
-		LoggingError(hiscallInfo, attachErr)
-		return irs.DiskInfo{}, attachErr
-	}
-	err = feature.WaitForCompletionRef(diskHandler.Ctx, diskHandler.VMClient.Client)
-	if err != nil {
-		attachErr := errors.New(fmt.Sprintf("Failed to AttachDisk. err = %s", err))
-		cblogger.Error(attachErr.Error())
-		LoggingError(hiscallInfo, attachErr)
-		return irs.DiskInfo{}, attachErr
-	}
-	disk, err = GetRawDisk(convertedDiskIId, diskHandler.Region.ResourceGroup, diskHandler.DiskClient, diskHandler.Ctx)
+
+	disk, err := Attach(diskIID, ownerVM, diskHandler.CredentialInfo, diskHandler.Region, diskHandler.Ctx, diskHandler.VMClient, diskHandler.DiskClient)
 	if err != nil {
 		attachErr := errors.New(fmt.Sprintf("Failed to AttachDisk. err = %s", err))
 		cblogger.Error(attachErr.Error())
@@ -612,11 +541,138 @@ func checkDeleteStatus(disk compute.Disk) error {
 	return errors.New(fmt.Sprintf("Deleting is only possible if it is mounted on a VM in the deallocated state or if it is in the Unattached state."))
 }
 
-func checkAttachStatus(disk compute.Disk) error {
+func CheckAttachStatus(disk compute.Disk) error {
 	if disk.DiskProperties != nil && disk.DiskProperties.ProvisioningState != nil {
 		if *disk.DiskProperties.ProvisioningState == "Succeeded" && disk.DiskProperties.DiskState == compute.DiskStateUnattached {
 			return nil
 		}
 	}
 	return errors.New(fmt.Sprintf("Attach is only available when UnAttached"))
+}
+
+func Attach(diskIID irs.IID, ownerVM irs.IID, credentialInfo idrv.CredentialInfo, region idrv.RegionInfo, ctx context.Context, vmClient *compute.VirtualMachinesClient, diskClient *compute.DisksClient) (compute.Disk, error) {
+
+	convertedDiskIId, err := ConvertDiskIID(diskIID, credentialInfo, region)
+	if err != nil {
+		return compute.Disk{}, err
+	}
+	disk, err := GetRawDisk(convertedDiskIId, region.ResourceGroup, diskClient, ctx)
+	if err != nil {
+		return compute.Disk{}, err
+	}
+	err = CheckAttachStatus(disk)
+	if err != nil {
+		return compute.Disk{}, err
+	}
+	convertedVMIId, err := ConvertVMIID(ownerVM, credentialInfo, region)
+	if err != nil {
+		return compute.Disk{}, errors.New(fmt.Sprintf("GetVM err = %s", err))
+	}
+	vm, err := GetRawVM(convertedVMIId, region.ResourceGroup, vmClient, ctx)
+	if err != nil {
+		return compute.Disk{}, errors.New(fmt.Sprintf("GetVM err = %s", err))
+	}
+	oldDataDisks := *vm.StorageProfile.DataDisks
+	minLunNums, err := getMinDataDiskLun(&oldDataDisks)
+	if err != nil {
+		return compute.Disk{}, err
+	}
+	oldDataDisks = append(oldDataDisks, compute.DataDisk{
+		Lun:          to.Int32Ptr(minLunNums),
+		CreateOption: compute.DiskCreateOptionTypesAttach,
+		ManagedDisk: &compute.ManagedDiskParameters{
+			ID: to.StringPtr(*disk.ID),
+		},
+	})
+	vmOpts := compute.VirtualMachine{
+		Location: to.StringPtr(region.Region),
+		VirtualMachineProperties: &compute.VirtualMachineProperties{
+			StorageProfile: &compute.StorageProfile{
+				DataDisks: &oldDataDisks,
+			},
+		},
+	}
+	feature, err := vmClient.CreateOrUpdate(ctx, region.ResourceGroup, *vm.Name, vmOpts)
+	if err != nil {
+		return compute.Disk{}, err
+	}
+	err = feature.WaitForCompletionRef(ctx, vmClient.Client)
+	if err != nil {
+		return compute.Disk{}, err
+	}
+	disk, err = GetRawDisk(convertedDiskIId, region.ResourceGroup, diskClient, ctx)
+	if err != nil {
+		return compute.Disk{}, err
+	}
+	return disk, err
+}
+
+func AttachList(diskIIDList []irs.IID, ownerVM irs.IID, credentialInfo idrv.CredentialInfo, region idrv.RegionInfo, ctx context.Context, vmClient *compute.VirtualMachinesClient, diskClient *compute.DisksClient) (compute.VirtualMachine, error) {
+	rawDataDiskList := make([]compute.Disk, len(diskIIDList))
+	// get RawDisk List
+	if len(diskIIDList) > 0 {
+		for i, dataDiskIID := range diskIIDList {
+			convertedDiskIId, err := ConvertDiskIID(dataDiskIID, credentialInfo, region)
+			if err != nil {
+				convertErr := errors.New(fmt.Sprintf("Failed to get DataDisk err = %s", err.Error()))
+				return compute.VirtualMachine{}, convertErr
+			}
+			disk, err := GetRawDisk(convertedDiskIId, region.ResourceGroup, diskClient, ctx)
+			if err != nil {
+				convertErr := errors.New(fmt.Sprintf("Failed to get DataDisk err = %s", err.Error()))
+				return compute.VirtualMachine{}, convertErr
+			}
+			err = CheckAttachStatus(disk)
+			if err != nil {
+				return compute.VirtualMachine{}, err
+			}
+			rawDataDiskList[i] = disk
+		}
+	} else {
+		return compute.VirtualMachine{}, nil
+	}
+	convertedVMIId, err := ConvertVMIID(ownerVM, credentialInfo, region)
+	if err != nil {
+		return compute.VirtualMachine{}, errors.New(fmt.Sprintf("Failed to get VM err = %s", err))
+	}
+	vm, err := GetRawVM(convertedVMIId, region.ResourceGroup, vmClient, ctx)
+	if err != nil {
+		return compute.VirtualMachine{}, errors.New(fmt.Sprintf("Failed to get VMerr = %s", err))
+	}
+	oldDataDisks := *vm.StorageProfile.DataDisks
+
+	minLunNums, err := getMinDataDiskLun(&oldDataDisks)
+	if err != nil {
+		return compute.VirtualMachine{}, err
+	}
+	for i, rawDisk := range rawDataDiskList {
+		oldDataDisks = append(oldDataDisks, compute.DataDisk{
+			Lun:          to.Int32Ptr(minLunNums + int32(i)),
+			CreateOption: compute.DiskCreateOptionTypesAttach,
+			ManagedDisk: &compute.ManagedDiskParameters{
+				ID: to.StringPtr(*rawDisk.ID),
+			},
+		})
+	}
+	vmOpts := compute.VirtualMachine{
+		Location: to.StringPtr(region.Region),
+		VirtualMachineProperties: &compute.VirtualMachineProperties{
+			StorageProfile: &compute.StorageProfile{
+				DataDisks: &oldDataDisks,
+			},
+		},
+	}
+	feature, err := vmClient.CreateOrUpdate(ctx, region.ResourceGroup, *vm.Name, vmOpts)
+	if err != nil {
+		return compute.VirtualMachine{}, err
+	}
+	err = feature.WaitForCompletionRef(ctx, vmClient.Client)
+	if err != nil {
+		return compute.VirtualMachine{}, err
+	}
+	vm, err = GetRawVM(convertedVMIId, region.ResourceGroup, vmClient, ctx)
+	if err != nil {
+		return compute.VirtualMachine{}, errors.New(fmt.Sprintf("Failed to get VMerr = %s", err))
+	}
+	return vm, nil
 }
