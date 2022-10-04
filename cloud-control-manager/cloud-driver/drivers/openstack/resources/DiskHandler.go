@@ -1,6 +1,7 @@
 package resources
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -15,6 +16,7 @@ import (
 	"github.com/gophercloud/gophercloud/openstack/compute/v2/servers"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -484,7 +486,7 @@ func validationDiskReq(diskReq irs.DiskInfo, volumeClient *gophercloud.ServiceCl
 }
 func createDiskV2(diskReq irs.DiskInfo, volume2Client *gophercloud.ServiceClient) (volumes3.Volume, error) {
 	size, err := strconv.Atoi(diskReq.DiskSize)
-	if diskReq.DiskSize == "" {
+	if diskReq.DiskSize == "" || strings.ToLower(diskReq.DiskSize) == "default" {
 		size = 1
 		err = nil
 	}
@@ -508,7 +510,7 @@ func createDiskV2(diskReq irs.DiskInfo, volume2Client *gophercloud.ServiceClient
 
 func createDiskV3(diskReq irs.DiskInfo, volume3Client *gophercloud.ServiceClient) (volumes3.Volume, error) {
 	size, err := strconv.Atoi(diskReq.DiskSize)
-	if diskReq.DiskSize == "" {
+	if diskReq.DiskSize == "" || strings.ToLower(diskReq.DiskSize) == "default" {
 		size = 1
 		err = nil
 	}
@@ -603,6 +605,136 @@ func attachDisk(diskIID irs.IID, ownerVMIID irs.IID, computeClient *gophercloud.
 				return volumes3.Volume{}, errors.New(fmt.Sprintf("attaching failed. exceeded maximum retry count %d", maxRetryCnt))
 			}
 		}
+	}
+}
+
+func AttachList(diskIIDList []irs.IID, ownerVMIID irs.IID, computeClient *gophercloud.ServiceClient, volumeClient *gophercloud.ServiceClient) (*servers.Server, error) {
+	rawDataDiskList := make([]volumes3.Volume, len(diskIIDList))
+	if len(diskIIDList) > 0 {
+		for i, dataDiskIID := range diskIIDList {
+			disk, err := getRawDisk(dataDiskIID, volumeClient)
+			if err != nil {
+				convertErr := errors.New(fmt.Sprintf("Failed to get DataDisk err = %s", err.Error()))
+				return nil, convertErr
+			}
+			if disk.Status != "available" {
+				return nil, errors.New(fmt.Sprintf("Attach is only available when available Status"))
+			}
+			rawDataDiskList[i] = disk
+		}
+	} else {
+		return nil, nil
+	}
+
+	var ownerRawVM servers.Server
+	if ownerVMIID.SystemId == "" {
+		pager, err := servers.List(computeClient, nil).AllPages()
+		if err != nil {
+			return nil, err
+		}
+		rawServers, err := servers.ExtractServers(pager)
+		if err != nil {
+			return nil, err
+		}
+		vmCheck := false
+		for _, vm := range rawServers {
+			if vm.Name == ownerVMIID.NameId {
+				ownerRawVM = vm
+				vmCheck = true
+				break
+			}
+		}
+		if !vmCheck {
+			return nil, errors.New("not found vm")
+		}
+	} else {
+		server, err := servers.Get(computeClient, ownerVMIID.SystemId).Extract()
+		if err != nil {
+			return nil, err
+		}
+		ownerRawVM = *server
+	}
+	var wg sync.WaitGroup
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	var globalErr error
+
+	for _, rawDataDisk := range rawDataDiskList {
+		wg.Add(1)
+		dumpVolume := rawDataDisk
+		go func() {
+			defer wg.Done()
+			_, err := attachWithCtx(ctx, dumpVolume, ownerRawVM.ID, computeClient, volumeClient)
+			if err != nil {
+				cancel()
+				if globalErr == nil {
+					globalErr = err
+				}
+			}
+		}()
+	}
+	wg.Wait()
+	if globalErr != nil {
+		return nil, globalErr
+	}
+	server, err := servers.Get(computeClient, ownerRawVM.ID).Extract()
+	if err != nil {
+		return nil, err
+	}
+	return server, nil
+}
+
+// volumes3.Volume, error
+type volumeWithError struct {
+	Volume volumes3.Volume
+	Err    error
+}
+
+func attachWithCtx(ctx context.Context, volume volumes3.Volume, ownerRawVMID string, computeClient *gophercloud.ServiceClient, volumeClient *gophercloud.ServiceClient) (volumes3.Volume, error) {
+	done := make(chan volumeWithError)
+	go func() {
+		volumeAttachOpt := volumeattach.CreateOpts{
+			VolumeID: volume.ID,
+		}
+		_, err := volumeattach.Create(computeClient, ownerRawVMID, volumeAttachOpt).Extract()
+		if err != nil {
+			done <- volumeWithError{
+				volumes3.Volume{}, err,
+			}
+		}
+		curRetryCnt := 0
+		maxRetryCnt := 20
+		for {
+			newDisk, err := getRawDisk(irs.IID{SystemId: volume.ID}, volumeClient)
+			if err != nil {
+				done <- volumeWithError{
+					volumes3.Volume{}, err,
+				}
+				break
+			}
+			switch strings.ToLower(newDisk.Status) {
+			case "in-use":
+				done <- volumeWithError{
+					volumes3.Volume{}, err,
+				}
+				break
+			default:
+				curRetryCnt++
+				time.Sleep(1 * time.Second)
+				if curRetryCnt > maxRetryCnt {
+					done <- volumeWithError{
+						volumes3.Volume{}, errors.New(fmt.Sprintf("attaching failed. exceeded maximum retry count %d", maxRetryCnt)),
+					}
+					break
+				}
+			}
+		}
+	}()
+	select {
+	case volumeWithErrorDone := <-done:
+		return volumeWithErrorDone.Volume, volumeWithErrorDone.Err
+	case <-ctx.Done():
+		return volumes3.Volume{}, nil
 	}
 }
 

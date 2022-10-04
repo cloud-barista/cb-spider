@@ -54,7 +54,7 @@ func (vmHandler *OpenStackVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (startvm i
 	hiscallInfo := GetCallLogScheme(vmHandler.ComputeClient.IdentityEndpoint, call.VM, vmReqInfo.IId.NameId, "StartVM()")
 	err := notSupportRootDiskCustom(vmReqInfo)
 	if err != nil {
-		createErr := errors.New(fmt.Sprintf("Failed to startVM err = %s", err.Error()))
+		createErr = errors.New(fmt.Sprintf("Failed to startVM err = %s", err.Error()))
 		cblogger.Error(createErr.Error())
 		LoggingError(hiscallInfo, createErr)
 		return irs.VMInfo{}, createErr
@@ -80,7 +80,29 @@ func (vmHandler *OpenStackVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (startvm i
 		LoggingError(hiscallInfo, createErr)
 		return irs.VMInfo{}, createErr
 	}
-
+	if len(vmReqInfo.DataDiskIIDs) > 0 {
+		if vmHandler.VolumeClient == nil {
+			createErr := errors.New(fmt.Sprintf("Failed to startVM err = this Openstack cannot provide VolumeClient. DataDisk cannot be attach"))
+			cblogger.Error(createErr.Error())
+			LoggingError(hiscallInfo, createErr)
+			return irs.VMInfo{}, createErr
+		}
+		for _, dataDiskIID := range vmReqInfo.DataDiskIIDs {
+			disk, err := getRawDisk(dataDiskIID, vmHandler.VolumeClient)
+			if err != nil {
+				createErr := errors.New(fmt.Sprintf("Failed to startVM err = Failed to get DataDisk err = %s", err.Error()))
+				cblogger.Error(createErr.Error())
+				LoggingError(hiscallInfo, createErr)
+				return irs.VMInfo{}, createErr
+			}
+			if disk.Status != "available" {
+				createErr := errors.New(fmt.Sprintf("Failed to startVM err = Attach is only available when available Status"))
+				cblogger.Error(createErr.Error())
+				LoggingError(hiscallInfo, createErr)
+				return irs.VMInfo{}, createErr
+			}
+		}
+	}
 	// Flavor 정보 조회 (Name)
 	vmSpec, err := GetFlavorByName(vmHandler.ComputeClient, vmReqInfo.VMSpecName)
 	if err != nil {
@@ -321,14 +343,6 @@ func (vmHandler *OpenStackVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (startvm i
 				return irs.VMInfo{}, createErr
 			}
 			// Get server info
-			serverResult, err = servers.Get(vmHandler.ComputeClient, server.ID).Extract()
-			if err != nil {
-				createErr = errors.New(fmt.Sprintf("Failed to startVM err =  %s", err))
-				cblogger.Error(createErr.Error())
-				LoggingError(hiscallInfo, createErr)
-				return irs.VMInfo{}, createErr
-			}
-			serverInfo = vmHandler.mappingServerInfo(*serverResult)
 			break
 		}
 		curRetryCnt++
@@ -340,6 +354,25 @@ func (vmHandler *OpenStackVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (startvm i
 			return irs.VMInfo{}, createErr
 		}
 	}
+	//  If DataDisk Exist
+	if len(vmReqInfo.DataDiskIIDs) > 0 {
+		serverResult, err = AttachList(vmReqInfo.DataDiskIIDs, vmReqInfo.IId, vmHandler.ComputeClient, vmHandler.VolumeClient)
+		if err != nil {
+			createErr = errors.New(fmt.Sprintf("Failed to startVM err =  %s", err))
+			cblogger.Error(createErr.Error())
+			LoggingError(hiscallInfo, createErr)
+			return irs.VMInfo{}, createErr
+		}
+	} else {
+		serverResult, err = servers.Get(vmHandler.ComputeClient, server.ID).Extract()
+		if err != nil {
+			createErr = errors.New(fmt.Sprintf("Failed to startVM err =  %s", err))
+			cblogger.Error(createErr.Error())
+			LoggingError(hiscallInfo, createErr)
+			return irs.VMInfo{}, createErr
+		}
+	}
+	serverInfo = vmHandler.mappingServerInfo(*serverResult)
 	LoggingInfo(hiscallInfo, start)
 	return serverInfo, nil
 }
