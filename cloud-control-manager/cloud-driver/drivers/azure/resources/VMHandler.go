@@ -34,7 +34,7 @@ const (
 	VM                           = "VM"
 	PremiumSSD                   = "PremiumSSD"
 	StandardSSD                  = "StandardSSD"
-	StandardHHD                  = "StandardHHD"
+	StandardHDD                  = "StandardHDD"
 )
 
 type AzureVMHandler struct {
@@ -110,6 +110,34 @@ func (vmHandler *AzureVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 			cblogger.Error(createErr.Error())
 			LoggingError(hiscallInfo, createErr)
 			return irs.VMInfo{}, createErr
+		}
+	}
+	rawDataDiskList := make([]compute.Disk, len(vmReqInfo.DataDiskIIDs))
+	// 1-3. Check DataDisk, Check DataDisk Status
+	if len(vmReqInfo.DataDiskIIDs) > 0 {
+		for i, dataDiskIID := range vmReqInfo.DataDiskIIDs {
+			convertedDiskIId, err := ConvertDiskIID(dataDiskIID, vmHandler.CredentialInfo, vmHandler.Region)
+			if err != nil {
+				createErr := errors.New(fmt.Sprintf("Failed to Start VM. Failed to get DataDisk err = %s", err.Error()))
+				cblogger.Error(createErr.Error())
+				LoggingError(hiscallInfo, createErr)
+				return irs.VMInfo{}, createErr
+			}
+			disk, err := GetRawDisk(convertedDiskIId, vmHandler.Region.ResourceGroup, vmHandler.DiskClient, vmHandler.Ctx)
+			if err != nil {
+				createErr := errors.New(fmt.Sprintf("Failed to Start VM. Failed to get DataDisk err = %s", err.Error()))
+				cblogger.Error(createErr.Error())
+				LoggingError(hiscallInfo, createErr)
+				return irs.VMInfo{}, createErr
+			}
+			err = CheckAttachStatus(disk)
+			if err != nil {
+				createErr := errors.New(fmt.Sprintf("Failed to Start VM. Failed to check DataDisk Status err = %s", err.Error()))
+				cblogger.Error(createErr.Error())
+				LoggingError(hiscallInfo, createErr)
+				return irs.VMInfo{}, createErr
+			}
+			rawDataDiskList[i] = disk
 		}
 	}
 
@@ -360,16 +388,7 @@ func (vmHandler *AzureVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 		// Get powerState, provisioningState
 		vmStatus := getVmStatus(instanceView)
 		if vmStatus == irs.Running {
-			vm, err := vmHandler.Client.Get(vmHandler.Ctx, vmHandler.Region.ResourceGroup, vmReqInfo.IId.NameId, compute.InstanceViewTypesInstanceView)
-			if err != nil {
-				createErr := errors.New(fmt.Sprintf("Failed to Start VM. err = %s, and Failed to rollback deleting", err.Error()))
-				cblogger.Error(createErr.Error())
-				LoggingError(hiscallInfo, createErr)
-				return irs.VMInfo{}, createErr
-			}
-			vmInfo := vmHandler.mappingServerInfo(vm)
-			LoggingInfo(hiscallInfo, start)
-			return vmInfo, nil
+			break
 		}
 		curRetryCnt++
 		time.Sleep(1 * time.Second)
@@ -383,6 +402,38 @@ func (vmHandler *AzureVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 			LoggingError(hiscallInfo, createErr)
 			return irs.VMInfo{}, createErr
 		}
+	}
+	// 6. If DataDisk Exist
+	if len(vmReqInfo.DataDiskIIDs) > 0 {
+		vm, err := AttachList(vmReqInfo.DataDiskIIDs, vmReqInfo.IId, vmHandler.CredentialInfo, vmHandler.Region, vmHandler.Ctx, vmHandler.Client, vmHandler.DiskClient)
+		if err != nil {
+			createErr := errors.New(fmt.Sprintf("Failed to Start VM. err = %s, and Finished to rollback deleting", err.Error()))
+			cleanErr := vmHandler.cleanDeleteVm(vmReqInfo.IId)
+			if cleanErr != nil {
+				createErr = errors.New(fmt.Sprintf("Failed to Start VM. err = %s, and Failed to rollback err = %s", err.Error(), cleanErr.Error()))
+			}
+			cblogger.Error(createErr.Error())
+			LoggingError(hiscallInfo, createErr)
+			return irs.VMInfo{}, createErr
+		}
+		vmInfo := vmHandler.mappingServerInfo(vm)
+		LoggingInfo(hiscallInfo, start)
+		return vmInfo, nil
+	} else {
+		vm, err := vmHandler.Client.Get(vmHandler.Ctx, vmHandler.Region.ResourceGroup, vmReqInfo.IId.NameId, compute.InstanceViewTypesInstanceView)
+		if err != nil {
+			createErr := errors.New(fmt.Sprintf("Failed to Start VM. err = %s, and Failed to rollback deleting", err.Error()))
+			cleanErr := vmHandler.cleanDeleteVm(vmReqInfo.IId)
+			if cleanErr != nil {
+				createErr = errors.New(fmt.Sprintf("Failed to Start VM. err = %s, and Failed to rollback err = %s", err.Error(), cleanErr.Error()))
+			}
+			cblogger.Error(createErr.Error())
+			LoggingError(hiscallInfo, createErr)
+			return irs.VMInfo{}, createErr
+		}
+		vmInfo := vmHandler.mappingServerInfo(vm)
+		LoggingInfo(hiscallInfo, start)
+		return vmInfo, nil
 	}
 }
 
