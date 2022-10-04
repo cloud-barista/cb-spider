@@ -10,6 +10,7 @@ package commonruntime
 
 import (
 	"fmt"
+	"strings"
 
 	ccm "github.com/cloud-barista/cb-spider/cloud-control-manager"
 	cres "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
@@ -176,7 +177,9 @@ defer diskSPLock.Unlock(connectionName, reqInfo.IId.NameId)
         // driverIID
         driverIId := cres.IID{spUUID, ""}
         reqInfo.IId = driverIId
-
+	if strings.ToLower(reqInfo.DiskType) == "default" {
+		reqInfo.DiskType = ""
+	}
         // (3) create Resource
         info, err := handler.CreateDisk(reqInfo)
         if err != nil {
