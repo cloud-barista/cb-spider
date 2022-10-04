@@ -69,8 +69,8 @@ IBM:
 OPENSTACK:
   region: Region
   credential: IdentityEndpoint / Username / Password / DomainName / ProjectID
-  # idmaxlength: VPC / Subnet / SecurityGroup / KeyPair / VM
-  idmaxlength: 255 / 255 / 255 / 255 / 255
+  # idmaxlength: VPC / Subnet / SecurityGroup / KeyPair / VM / Disk / NLB / MyImage
+  idmaxlength: 255 / 255 / 255 / 255 / 255 / 255 / 255 / 255
 
 CLOUDIT:
   region: Region
