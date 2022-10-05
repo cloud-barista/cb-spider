@@ -640,9 +640,10 @@ func VM(c echo.Context) error {
                             `
 	// Select format of VPC  name=text_box, id=5
 	htmlStr += makeSelect_html("onchangeImageType", imageTypeList, "22")
-
+	htmlStr += "<br>"
 
 	htmlStr += makeMyImageSelect_html("", myImageList, "33")
+
 	htmlStr += `                            
                                 <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="3" value="$$IMAGENAME$$">
 			        <br>
