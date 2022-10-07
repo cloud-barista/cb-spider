@@ -98,8 +98,6 @@ func (myImageHandler *IbmMyImageHandler) ListMyImage() ([]*irs.MyImageInfo, erro
 func (myImageHandler *IbmMyImageHandler) GetMyImage(myImageIID irs.IID) (irs.MyImageInfo, error) {
 	if myImageIID.NameId == "" && myImageIID.SystemId == "" {
 		return irs.MyImageInfo{}, errors.New("Failed to Get MyImage. err = MyImage Name ID or System ID is required")
-	} else if myImageIID.NameId != "" && myImageIID.SystemId != "" {
-		return irs.MyImageInfo{}, errors.New(fmt.Sprintf("Failed to Get MyImage. err = Ambigous image ID, %s", myImageIID))
 	}
 
 	hiscallInfo := GetCallLogScheme(myImageHandler.Region, call.MYIMAGE, myImageIID.NameId, "GetMyImage()")
@@ -111,9 +109,9 @@ func (myImageHandler *IbmMyImageHandler) GetMyImage(myImageIID irs.IID) (irs.MyI
 	}
 
 	for _, myImage := range myImageList {
-		if myImage.IId.NameId == myImageIID.NameId {
+		if myImage.IId.SystemId == myImageIID.SystemId {
 			return *myImage, nil
-		} else if myImage.IId.SystemId == myImageIID.SystemId {
+		} else if myImage.IId.NameId == myImageIID.NameId {
 			return *myImage, nil
 		}
 	}
@@ -125,8 +123,6 @@ func (myImageHandler *IbmMyImageHandler) GetMyImage(myImageIID irs.IID) (irs.MyI
 func (myImageHandler *IbmMyImageHandler) DeleteMyImage(myImageIID irs.IID) (bool, error) {
 	if myImageIID.NameId == "" && myImageIID.SystemId == "" {
 		return false, errors.New("Failed to Delete MyImage. err = MyImage Name ID or System ID is required")
-	} else if myImageIID.NameId != "" && myImageIID.SystemId != "" {
-		return false, errors.New(fmt.Sprintf("Failed to Get MyImage. err = Ambigous image ID, %s", myImageIID))
 	}
 
 	hiscallInfo := GetCallLogScheme(myImageHandler.Region, call.MYIMAGE, myImageIID.NameId, "DeleteMyImage()")
@@ -160,14 +156,12 @@ func (myImageHandler *IbmMyImageHandler) ToISRMyImage(snapshotList []vpcv1.Snaps
 				ID: snapshot.SourceVolume.ID,
 			}
 			rawSourceVolume, _, getSourceVolumeErr := myImageHandler.VpcService.GetVolumeWithContext(myImageHandler.Ctx, &getVolumeOptions)
-			if getSourceVolumeErr != nil {
-				return irs.MyImageInfo{}, errors.New("Connot find Source VM")
+			sourceVmNameId = ""
+			sourceVmSystemId = ""
+			if getSourceVolumeErr == nil && len((*rawSourceVolume).VolumeAttachments) != 0 {
+				sourceVmNameId = *(*rawSourceVolume).VolumeAttachments[0].Instance.Name
+				sourceVmSystemId = *(*rawSourceVolume).VolumeAttachments[0].Instance.ID
 			}
-			if len((*rawSourceVolume).VolumeAttachments) == 0 {
-				return irs.MyImageInfo{}, errors.New("Connot find Source VM")
-			}
-			sourceVmNameId = *(*rawSourceVolume).VolumeAttachments[0].Instance.Name
-			sourceVmSystemId = *(*rawSourceVolume).VolumeAttachments[0].Instance.ID
 
 			myImageCreatedTime = time.Time(*snapshot.CreatedAt).Local()
 		}
