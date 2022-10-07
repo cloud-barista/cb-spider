@@ -51,7 +51,7 @@ type ClusterInfo struct {
 
 type NetworkInfo struct {
 	VpcIID            IID // {NameId, SystemId}
-	SubnetIID         []IID
+	SubnetIIDs        []IID
 	SecurityGroupIIDs []IID
 
 	KeyValueList []KeyValue
@@ -75,7 +75,7 @@ type NodeGroupInfo struct {
 	MinNodeSize     int
 	MaxNodeSize     int
 
-	NodeList     []IID
+	Nodes        []IID
 	KeyValueList []KeyValue
 }
 

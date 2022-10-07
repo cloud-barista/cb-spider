@@ -503,7 +503,7 @@ func getNodeGroupInfo(access_key, access_secret, region_id, cluster_id, node_gro
 		MinNodeSize:     int(node_group_json_obj["auto_scaling"].(map[string]interface{})["min_instances"].(float64)),
 		MaxNodeSize:     int(node_group_json_obj["auto_scaling"].(map[string]interface{})["max_instances"].(float64)),
 		DesiredNodeSize: 0, // not supported in alibaba
-		NodeList:        []irs.IID{},
+		Nodes:           []irs.IID{},
 		KeyValueList:    []irs.KeyValue{},
 	}
 

@@ -378,7 +378,7 @@ func getClusterInfo(access_key string, access_secret string, region_id string, c
 				NameId:   "",
 				SystemId: *res.Response.Clusters[0].ClusterNetworkSettings.VpcId,
 			},
-			SubnetIID: []irs.IID{
+			SubnetIIDs: []irs.IID{
 				{
 					NameId:   "",
 					SystemId: *res.Response.Clusters[0].ClusterNetworkSettings.Subnets[0],
@@ -489,7 +489,7 @@ func getNodeGroupInfo(access_key, access_secret, region_id, cluster_id, node_gro
 		MinNodeSize:     int(*auto_scaling_group.Response.AutoScalingGroupSet[0].MinSize),
 		MaxNodeSize:     int(*auto_scaling_group.Response.AutoScalingGroupSet[0].MaxSize),
 		DesiredNodeSize: int(*auto_scaling_group.Response.AutoScalingGroupSet[0].DesiredCapacity),
-		NodeList:        []irs.IID{},      // to be implemented
+		Nodes:        []irs.IID{},      // to be implemented
 		KeyValueList:    []irs.KeyValue{}, // to be implemented
 	}
 
@@ -547,7 +547,7 @@ func getCreateClusterRequest(clusterHandler *TencentClusterHandler, clusterInfo 
 	request := tke.NewCreateClusterRequest()
 	request.ClusterCIDRSettings = &tke.ClusterCIDRSettings{
 		ClusterCIDR:  common.StringPtr(cidr_list[0]), // 172.X.0.0.16: X Range:16, 17, ... , 31
-		EniSubnetIds: common.StringPtrs([]string{clusterInfo.Network.SubnetIID[0].SystemId}),
+		EniSubnetIds: common.StringPtrs([]string{clusterInfo.Network.SubnetIIDs[0].SystemId}),
 	}
 	request.ClusterBasicSettings = &tke.ClusterBasicSettings{
 		ClusterName:    common.StringPtr(clusterInfo.IId.NameId),
@@ -573,7 +573,7 @@ func getNodeGroupRequest(clusterHandler *TencentClusterHandler, cluster_id strin
 		return nil, res
 	}
 	vpc_id := cluster.Network.VpcIID.SystemId
-	subnet_id := cluster.Network.SubnetIID[0].SystemId
+	subnet_id := cluster.Network.SubnetIIDs[0].SystemId
 
 	response, err := tencent.DescribeSecurityGroups(clusterHandler.CredentialInfo.ClientId, clusterHandler.CredentialInfo.ClientSecret, clusterHandler.RegionInfo.Region)
 	if err != nil {
