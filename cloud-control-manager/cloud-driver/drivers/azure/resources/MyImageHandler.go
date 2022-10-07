@@ -23,8 +23,29 @@ type AzureMyImageHandler struct {
 }
 
 func (myImageHandler *AzureMyImageHandler) SnapshotVM(snapshotReqInfo irs.MyImageInfo) (myImageInfo irs.MyImageInfo, snapshotErr error) {
-	hiscallInfo := GetCallLogScheme(myImageHandler.Region, "MyImage", "MyImage", "ListMyImage()")
+	hiscallInfo := GetCallLogScheme(myImageHandler.Region, call.MYIMAGE, snapshotReqInfo.IId.NameId, "SnapshotVM()")
 	start := call.Start()
+	convertedMyImageIId, err := ConvertMyImageIID(snapshotReqInfo.IId, myImageHandler.CredentialInfo, myImageHandler.Region)
+	if err != nil {
+		snapshotErr = errors.New(fmt.Sprintf("Failed to SnapshotVM. err = %s", err))
+		cblogger.Error(snapshotErr.Error())
+		LoggingError(hiscallInfo, snapshotErr)
+		return irs.MyImageInfo{}, snapshotErr
+	}
+	// image 이름 확인
+	exist, err := CheckExistMyImage(convertedMyImageIId, myImageHandler.ImageClient, myImageHandler.Ctx)
+	if err != nil {
+		snapshotErr = errors.New(fmt.Sprintf("Failed to SnapshotVM. err = %s", err))
+		cblogger.Error(snapshotErr.Error())
+		LoggingError(hiscallInfo, snapshotErr)
+		return irs.MyImageInfo{}, snapshotErr
+	}
+	if exist {
+		snapshotErr = errors.New(fmt.Sprintf("Failed to SnapshotVM. err = already MyImage %s", convertedMyImageIId.NameId))
+		cblogger.Error(snapshotErr.Error())
+		LoggingError(hiscallInfo, snapshotErr)
+		return irs.MyImageInfo{}, snapshotErr
+	}
 	// vm 존재 확인
 	sourceVM := snapshotReqInfo.SourceVM
 	convertedVMIId, err := ConvertVMIID(sourceVM, myImageHandler.CredentialInfo, myImageHandler.Region)
@@ -34,7 +55,7 @@ func (myImageHandler *AzureMyImageHandler) SnapshotVM(snapshotReqInfo irs.MyImag
 		LoggingError(hiscallInfo, snapshotErr)
 		return irs.MyImageInfo{}, snapshotErr
 	}
-	exist, err := CheckExistVM(convertedVMIId, myImageHandler.Region.ResourceGroup, myImageHandler.VMClient, myImageHandler.Ctx)
+	exist, err = CheckExistVM(convertedVMIId, myImageHandler.Region.ResourceGroup, myImageHandler.VMClient, myImageHandler.Ctx)
 	if err != nil {
 		snapshotErr = errors.New(fmt.Sprintf("Failed to SnapshotVM. err = %s", err))
 		cblogger.Error(snapshotErr.Error())
@@ -55,34 +76,45 @@ func (myImageHandler *AzureMyImageHandler) SnapshotVM(snapshotReqInfo irs.MyImag
 		return irs.MyImageInfo{}, snapshotErr
 	}
 	vmStatus := getVmStatus(*rawVm.InstanceView)
-	if vmStatus != irs.Suspended {
+
+	if vmStatus == irs.Running {
+		offFuture, err := myImageHandler.VMClient.PowerOff(myImageHandler.Ctx, myImageHandler.Region.ResourceGroup, *rawVm.Name, to.BoolPtr(false))
 		if err != nil {
-			snapshotErr = errors.New(fmt.Sprintf("Failed to SnapshotVM. err = Snapshots are only available in the 'Suspended' state."))
+			snapshotErr = errors.New(fmt.Sprintf("Failed to SnapshotVM. Failed to PowerOff err = %s", err))
 			cblogger.Error(snapshotErr.Error())
 			LoggingError(hiscallInfo, snapshotErr)
 			return irs.MyImageInfo{}, snapshotErr
 		}
-	}
-	convertedMyImageIId, err := ConvertMyImageIID(snapshotReqInfo.IId, myImageHandler.CredentialInfo, myImageHandler.Region)
-	if err != nil {
-		snapshotErr = errors.New(fmt.Sprintf("Failed to SnapshotVM. err = %s", err))
-		cblogger.Error(snapshotErr.Error())
-		LoggingError(hiscallInfo, snapshotErr)
-		return irs.MyImageInfo{}, snapshotErr
-	}
-	// image 이름 확인
-	exist, err = CheckExistMyImage(convertedMyImageIId, myImageHandler.ImageClient, myImageHandler.Ctx)
-	if err != nil {
-		snapshotErr = errors.New(fmt.Sprintf("Failed to SnapshotVM. err = %s", err))
-		cblogger.Error(snapshotErr.Error())
-		LoggingError(hiscallInfo, snapshotErr)
-		return irs.MyImageInfo{}, snapshotErr
-	}
-	if exist {
-		snapshotErr = errors.New(fmt.Sprintf("Failed to SnapshotVM. err = already MyImage %s", convertedMyImageIId.NameId))
-		cblogger.Error(snapshotErr.Error())
-		LoggingError(hiscallInfo, snapshotErr)
-		return irs.MyImageInfo{}, snapshotErr
+		err = offFuture.WaitForCompletionRef(myImageHandler.Ctx, myImageHandler.VMClient.Client)
+		if err != nil {
+			snapshotErr = errors.New(fmt.Sprintf("Failed to SnapshotVM. Failed to PowerOff err = %s", err))
+			cblogger.Error(snapshotErr.Error())
+			LoggingError(hiscallInfo, snapshotErr)
+			return irs.MyImageInfo{}, snapshotErr
+		}
+		curRetryCnt := 0
+		maxRetryCnt := 60
+		for {
+			instanceView, instanceViewErr := myImageHandler.VMClient.InstanceView(myImageHandler.Ctx, myImageHandler.Region.ResourceGroup, *rawVm.Name)
+			if instanceViewErr == nil && getVmStatus(instanceView) == irs.Suspended {
+				break
+			}
+			curRetryCnt++
+			time.Sleep(1 * time.Second)
+			if curRetryCnt > maxRetryCnt {
+				snapshotErr = errors.New(fmt.Sprintf("Failed to SnapshotVM. Failed to PowerOff err = exceeded maximum retry count %d", maxRetryCnt))
+				cblogger.Error(snapshotErr.Error())
+				LoggingError(hiscallInfo, snapshotErr)
+				return irs.MyImageInfo{}, snapshotErr
+			}
+		}
+	} else if vmStatus != irs.Suspended {
+		if err != nil {
+			snapshotErr = errors.New(fmt.Sprintf("Failed to SnapshotVM. err = Snapshots are only available in the 'Suspended', 'Running' state."))
+			cblogger.Error(snapshotErr.Error())
+			LoggingError(hiscallInfo, snapshotErr)
+			return irs.MyImageInfo{}, snapshotErr
+		}
 	}
 	// 이미지 생성
 	imagecreatOpt := compute.Image{
@@ -144,7 +176,7 @@ func (myImageHandler *AzureMyImageHandler) SnapshotVM(snapshotReqInfo irs.MyImag
 }
 
 func (myImageHandler *AzureMyImageHandler) ListMyImage() ([]*irs.MyImageInfo, error) {
-	hiscallInfo := GetCallLogScheme(myImageHandler.Region, "MyImage", "MyImage", "ListMyImage()")
+	hiscallInfo := GetCallLogScheme(myImageHandler.Region, call.MYIMAGE, "MyImage", "ListMyImage()")
 	start := call.Start()
 	myImageList, err := myImageHandler.ImageClient.List(myImageHandler.Ctx)
 	if err != nil {
@@ -168,7 +200,7 @@ func (myImageHandler *AzureMyImageHandler) ListMyImage() ([]*irs.MyImageInfo, er
 	return myImageInfoList, nil
 }
 func (myImageHandler *AzureMyImageHandler) GetMyImage(myImageIID irs.IID) (irs.MyImageInfo, error) {
-	hiscallInfo := GetCallLogScheme(myImageHandler.Region, "MyImage", myImageIID.NameId, "GetMyImage()")
+	hiscallInfo := GetCallLogScheme(myImageHandler.Region, call.MYIMAGE, myImageIID.NameId, "GetMyImage()")
 	start := call.Start()
 	convertedMyImageIID, err := ConvertMyImageIID(myImageIID, myImageHandler.CredentialInfo, myImageHandler.Region)
 	if err != nil {
@@ -189,7 +221,7 @@ func (myImageHandler *AzureMyImageHandler) GetMyImage(myImageIID irs.IID) (irs.M
 	return info, nil
 }
 func (myImageHandler *AzureMyImageHandler) DeleteMyImage(myImageIID irs.IID) (bool, error) {
-	hiscallInfo := GetCallLogScheme(myImageHandler.Region, "MyImage", myImageIID.NameId, "GetMyImage()")
+	hiscallInfo := GetCallLogScheme(myImageHandler.Region, call.MYIMAGE, myImageIID.NameId, "GetMyImage()")
 	start := call.Start()
 	convertedMyImageIID, err := ConvertMyImageIID(myImageIID, myImageHandler.CredentialInfo, myImageHandler.Region)
 	if err != nil {
