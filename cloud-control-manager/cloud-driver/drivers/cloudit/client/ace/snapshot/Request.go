@@ -76,6 +76,13 @@ func ToIRSMyImage(restClient *client.RestClient, associatedSnapshots *[]Snapshot
 		}
 	}
 
+	if result.SourceVM.NameId == "" {
+		result.SourceVM.NameId = "Deleted"
+	}
+	if result.SourceVM.SystemId == "" {
+		result.SourceVM.SystemId = "Deleted"
+	}
+
 	return result, nil
 }
 
