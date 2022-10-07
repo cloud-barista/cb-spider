@@ -156,8 +156,8 @@ func (myImageHandler *IbmMyImageHandler) ToISRMyImage(snapshotList []vpcv1.Snaps
 				ID: snapshot.SourceVolume.ID,
 			}
 			rawSourceVolume, _, getSourceVolumeErr := myImageHandler.VpcService.GetVolumeWithContext(myImageHandler.Ctx, &getVolumeOptions)
-			sourceVmNameId = ""
-			sourceVmSystemId = ""
+			sourceVmNameId = "Deleted"
+			sourceVmSystemId = "Deleted"
 			if getSourceVolumeErr == nil && len((*rawSourceVolume).VolumeAttachments) != 0 {
 				sourceVmNameId = *(*rawSourceVolume).VolumeAttachments[0].Instance.Name
 				sourceVmSystemId = *(*rawSourceVolume).VolumeAttachments[0].Instance.ID
