@@ -33,6 +33,7 @@ const (
 	rsNLB  string = "nlb"
 	rsDisk  string = "disk"
 	rsMyImage  string = "myimage"
+	rsCluster  string = "cluster"
 )
 
 func RsTypeString(rsType string) string {
@@ -55,6 +56,8 @@ func RsTypeString(rsType string) string {
 		return "disk"
 	case rsMyImage:
 		return "MyImage"
+	case rsCluster:
+		return "Cluster"
         default:
                 return rsType + " is not supported Resource!!"
 
@@ -70,6 +73,7 @@ var vmSPLock = splock.New()
 var nlbSPLock = splock.New()
 var diskSPLock = splock.New()
 var myImageSPLock = splock.New()
+var clusterSPLock = splock.New()
 
 // definition of IIDManager RWLock
 var iidRWLock = new(iidm.IIDRWLOCK)
@@ -254,6 +258,9 @@ func UnregisterResource(connectionName string, rsType string, nameId string) (bo
         case rsMyImage:
                 myImageSPLock.Lock(connectionName, nameId)
                 defer myImageSPLock.Unlock(connectionName, nameId)
+        case rsCluster:
+                clusterSPLock.Lock(connectionName, nameId)
+                defer clusterSPLock.Unlock(connectionName, nameId)
         default:
                 return false, fmt.Errorf(rsType + " is not supported Resource!!")
         }
@@ -667,6 +674,9 @@ func DeleteResource(connectionName string, rsType string, nameID string, force s
 	case rsMyImage:
 		myImageSPLock.Lock(connectionName, nameID)
 		defer myImageSPLock.Unlock(connectionName, nameID)
+	case rsCluster:
+		clusterSPLock.Lock(connectionName, nameID)
+		defer clusterSPLock.Unlock(connectionName, nameID)
 
 	default:
 		err := fmt.Errorf(rsType + " is not supported Resource!!")
