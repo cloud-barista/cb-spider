@@ -166,8 +166,8 @@ func RegisterNLB(connectionName string, vpcUserID string, userIID cres.IID) (*cr
                 return nil, err
         }
 
-        vpcSPLock.Lock(connectionName, vpcUserID)
-        defer vpcSPLock.Unlock(connectionName, vpcUserID)
+        vpcSPLock.RLock(connectionName, vpcUserID)
+        defer vpcSPLock.RUnlock(connectionName, vpcUserID)
         nlbSPLock.Lock(connectionName, userIID.NameId)
         defer nlbSPLock.Unlock(connectionName, userIID.NameId)
 
@@ -281,8 +281,8 @@ func CreateNLB(connectionName string, rsType string, reqInfo cres.NLBInfo) (*cre
 	*/
 
 
-vpcSPLock.Lock(connectionName, reqInfo.VpcIID.NameId)
-defer vpcSPLock.Unlock(connectionName, reqInfo.VpcIID.NameId)
+vpcSPLock.RLock(connectionName, reqInfo.VpcIID.NameId)
+defer vpcSPLock.RUnlock(connectionName, reqInfo.VpcIID.NameId)
 
 	//+++++++++++++++++++++++++++++++++++++++++++
 	// set VPC's SystemId
