@@ -30,7 +30,7 @@ const CBDefaultSubnetName string = "CB-VNet-Subnet" // CB Default Subnet Name
 const CBDefaultCidrBlock string = "192.168.0.0/16"  // CB Default CidrBlock
 //const CBKeyPairPath string = "/meta_db/.ssh-aws/" // 이슈 #480에 의한 로컬 키 관리 제거
 
-//const CBCloudInitFilePath string = "/cloud-driver-libs/.cloud-init-aws/cloud-init"
+// const CBCloudInitFilePath string = "/cloud-driver-libs/.cloud-init-aws/cloud-init"
 const CBCloudInitFilePath string = "/cloud-driver-libs/.cloud-init-common/cloud-init"
 const CBDefaultVmUserName string = "cb-user" // default VM User Name
 
@@ -51,12 +51,12 @@ type AwsCBNetworkInfo struct {
 	SubnetId   string
 }
 
-//VPC
+// VPC
 func GetCBDefaultVNetName() string {
 	return CBDefaultVNetName
 }
 
-//Subnet
+// Subnet
 func GetCBDefaultSubnetName() string {
 	return CBDefaultSubnetName
 }
@@ -222,7 +222,7 @@ func (VPCHandler *AwsVPCHandler) IsAvailableAutoCBNet() bool {
 }
 */
 
-//Name Tag 설정
+// Name Tag 설정
 func SetNameTag(Client *ec2.EC2, Id string, value string) bool {
 	// Tag에 Name 설정
 	cblogger.Infof("Name Tage 설정 - ResourceId : [%s]  Value : [%s] ", Id, value)
@@ -252,7 +252,7 @@ func JSONMarshal(t interface{}) ([]byte, error) {
 	return buffer.Bytes(), err
 }
 
-//Cloud Object를 JSON String 타입으로 변환
+// Cloud Object를 JSON String 타입으로 변환
 func ConvertJsonStringNoEscape(v interface{}) (string, error) {
 	//jsonBytes, errJson := json.Marshal(v)
 
@@ -277,7 +277,7 @@ func ConvertJsonStringNoEscape(v interface{}) (string, error) {
 	return jsonString, nil
 }
 
-//Cloud Object를 JSON String 타입으로 변환
+// Cloud Object를 JSON String 타입으로 변환
 func ConvertJsonString(v interface{}) (string, error) {
 	jsonBytes, errJson := json.Marshal(v)
 
@@ -292,7 +292,7 @@ func ConvertJsonString(v interface{}) (string, error) {
 	return jsonString, nil
 }
 
-//CB-KeyValue 등을 위해 String 타입으로 변환
+// CB-KeyValue 등을 위해 String 타입으로 변환
 func ConvertToString(value interface{}) (string, error) {
 	if value == nil {
 		if KEY_VALUE_CONVERT_DEBUG_INFO {
@@ -324,7 +324,7 @@ func ConvertToString(value interface{}) (string, error) {
 	return result, nil
 }
 
-//Cloud Object를 CB-KeyValue 형식으로 변환이 필요할 경우 이용
+// Cloud Object를 CB-KeyValue 형식으로 변환이 필요할 경우 이용
 func ConvertKeyValueList(v interface{}) ([]irs.KeyValue, error) {
 	//spew.Dump(v)
 	var keyValueList []irs.KeyValue
@@ -382,4 +382,13 @@ func ContainString(s []string, str string) bool {
 		}
 	}
 	return false
+}
+
+// toString 용
+func PrintToJson(class interface{}) {
+	e, err := json.Marshal(class)
+	if err != nil {
+		cblogger.Info(err)
+	}
+	cblogger.Info(string(e))
 }

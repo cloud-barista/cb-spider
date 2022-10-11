@@ -1415,6 +1415,75 @@ func handleNLB() {
 	}
 }
 
+func handleCluster() {
+	cblogger.Debug("Start PMKS Handler Resource Test")
+
+	ResourceHandler, err := getResourceHandler("PMKS")
+	if err != nil {
+		panic(err)
+	}
+	handler := ResourceHandler.(irs.ClusterHandler)
+
+	subnets := []irs.IID{}
+	subnets = append(subnets, irs.IID{SystemId: "subnet-262d6d7a"})
+	subnets = append(subnets, irs.IID{SystemId: "subnet-d0ee6fab"})
+
+	clusterReqInfo := irs.ClusterInfo{
+		IId: irs.IID{NameId: "cb-eks-cluster-test01"},
+		//Version : "1.23.3", //K8s version
+		Network: irs.NetworkInfo{
+			VpcIID: irs.IID{SystemId: "vpc-c0479cab"},
+			//SubnetIID: [irs.IID{SystemId: "subnet-262d6d7a"},irs.IID{SystemId: "vpc-c0479cab"}],
+			SubnetIID: subnets,
+		},
+	} // nlbReqInfo
+
+	for {
+		fmt.Println("ClusterHandler Management")
+		fmt.Println("0. Quit")
+		fmt.Println("1. Cluster List")
+		fmt.Println("2. Cluster Create")
+		fmt.Println("3. Cluster Get")
+		fmt.Println("4. Cluster Delete")
+
+		fmt.Println("5. AddNodeGroup")
+		fmt.Println("6. RemoveNodeGroup")
+
+		fmt.Println("7. UpgradeCluster")
+
+		var commandNum int
+		inputCnt, err := fmt.Scan(&commandNum)
+		if err != nil {
+			panic(err)
+		}
+
+		if inputCnt == 1 {
+			switch commandNum {
+			case 0:
+				return
+
+			case 1:
+				result, err := handler.ListCluster()
+				if err != nil {
+					cblogger.Infof(" Cluster 목록 조회 실패 : ", err)
+				} else {
+					cblogger.Info("Cluster 목록 조회 결과")
+					cblogger.Debug(result)
+					cblogger.Infof("로그 레벨 : [%s]", cblog.GetLevel())
+					//spew.Dump(result)
+					cblogger.Info("출력 결과 수 : ", len(result))
+
+					//조회및 삭제 테스트를 위해 리스트의 첫번째 정보의 ID를 요청ID로 자동 갱신함.
+					if result != nil {
+						clusterReqInfo.IId = result[0].IId // 조회 및 삭제를 위해 생성된 ID로 변경
+					}
+				}
+
+			}
+		}
+	}
+}
+
 func main() {
 	cblogger.Info("AWS Resource Test")
 	//handleVPC()
@@ -1426,11 +1495,13 @@ func main() {
 	//handleImage() //AMI
 	//handleVNic() //Lancard
 	//handleVMSpec()
-	handleNLB()
+	//handleNLB()
+
+	handleCluster()
 }
 
-//handlerType : resources폴더의 xxxHandler.go에서 Handler이전까지의 문자열
-//(예) ImageHandler.go -> "Image"
+// handlerType : resources폴더의 xxxHandler.go에서 Handler이전까지의 문자열
+// (예) ImageHandler.go -> "Image"
 func getResourceHandler(handlerType string) (interface{}, error) {
 	var cloudDriver idrv.CloudDriver
 	cloudDriver = new(awsdrv.AwsDriver)
@@ -1472,6 +1543,8 @@ func getResourceHandler(handlerType string) (interface{}, error) {
 		resourceHandler, err = cloudConnection.CreateVMSpecHandler()
 	case "NLB":
 		resourceHandler, err = cloudConnection.CreateNLBHandler()
+	case "PMKS":
+		resourceHandler, err = cloudConnection.CreateClusterHandler()
 	}
 
 	if err != nil {
@@ -1569,16 +1642,18 @@ type Config struct {
 	} `yaml:"aws"`
 }
 
-//환경 설정 파일 읽기
-//환경변수 CBSPIDER_PATH 설정 후 해당 폴더 하위에 /config/config.yaml 파일 생성해야 함.
+// 환경 설정 파일 읽기
+// 환경변수 CBSPIDER_PATH 설정 후 해당 폴더 하위에 /config/config.yaml 파일 생성해야 함.
 func readConfigFile() Config {
 	// Set Environment Value of Project Root Path
 	rootPath := os.Getenv("CBSPIDER_PATH")
+	rootPath = "/home/nobang/goland/branches/feature_pmks_aws_20221005_yhnoh2/cloud-control-manager/cloud-driver/drivers/aws/main"
 	//rootpath := "D:/Workspace/mcloud-barista-config"
 	// /mnt/d/Workspace/mcloud-barista-config/config/config.yaml
 	cblogger.Infof("Test Data 설정파일 : [%]", rootPath+"/config/config.yaml")
 
-	data, err := ioutil.ReadFile(rootPath + "/config/config.yaml")
+	//data, err := ioutil.ReadFile(rootPath + "/config/config.yaml")
+	data, err := ioutil.ReadFile(rootPath + "/Sample/config/config.yaml")
 	//data, err := ioutil.ReadFile("D:/Workspace/mcloud-bar-config/config/config.yaml")
 	if err != nil {
 		panic(err)
