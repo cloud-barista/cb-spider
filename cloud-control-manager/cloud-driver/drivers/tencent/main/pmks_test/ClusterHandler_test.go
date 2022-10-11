@@ -13,6 +13,7 @@ package pmks
 import (
 	"os"
 	"testing"
+	"time"
 
 	tdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/tencent"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
@@ -71,8 +72,8 @@ func TestCreateClusterOnly(t *testing.T) {
 		},
 		Version: "1.22.5",
 		Network: irs.NetworkInfo{
-			VpcIID:    irs.IID{NameId: "", SystemId: "vpc-q1c6fr9e"},
-			SubnetIID: []irs.IID{{NameId: "", SystemId: "subnet-rl79gxhv"}},
+			VpcIID:     irs.IID{NameId: "", SystemId: "vpc-q1c6fr9e"},
+			SubnetIIDs: []irs.IID{{NameId: "", SystemId: "subnet-rl79gxhv"}},
 			//SecurityGroupIIDs: []irs.IID{{NameId: "", SystemId: "sg-46eef229"}}, // 설정 안됨
 		},
 	}
@@ -97,10 +98,6 @@ func TestListCluster(t *testing.T) {
 		t.Error(err)
 	}
 
-	if len(clusters) == 0 {
-		t.Error("No cluster found")
-	}
-
 	for _, cluster := range clusters {
 		t.Log(cluster.IId.SystemId)
 		println(cluster.IId.NameId, cluster.Status)
@@ -117,10 +114,6 @@ func TestGetCluster(t *testing.T) {
 	clusters, err := clusterHandler.ListCluster()
 	if err != nil {
 		t.Error(err)
-	}
-
-	if len(clusters) == 0 {
-		t.Error("No cluster found")
 	}
 
 	t.Log(clusters)
@@ -231,6 +224,10 @@ func TestSetNodeGroupAutoScaling(t *testing.T) {
 				t.Error(err)
 			}
 			println(res)
+
+			// 오토스케일링 모드 변경 후 바로 또 변경하려고 하면 요청 거부가 발생 할 수 있음.
+			// 그래서 5초간 대기 후에 다시 요청한다.
+			time.Sleep(5 * time.Second)
 
 			res, err = clusterHandler.SetNodeGroupAutoScaling(cluster.IId, node_group_.IId, true)
 			if err != nil {
