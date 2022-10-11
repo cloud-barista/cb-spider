@@ -371,8 +371,8 @@ func getClusterInfo(access_key string, access_secret string, region_id string, c
 	// Deletion Failed	Failed to delete the cluster.
 	// Deleted (invisible to users)	The cluster is deleted."
 	health_status := cluster_json_obj["state"].(string)
-	cluster_status := irs.ClusterActive
-	if strings.EqualFold(health_status, "Initializing") {
+	cluster_status := irs.ClusterInactive
+	if strings.EqualFold(health_status, "Initializing") || strings.EqualFold(health_status, "initial") {
 		cluster_status = irs.ClusterCreating
 	} else if strings.EqualFold(health_status, "Updating") {
 		cluster_status = irs.ClusterUpdating
@@ -567,7 +567,7 @@ func getClusterInfoJSON(clusterHandler *AlibabaClusterHandler, clusterInfo irs.C
 		"name": "%s",
 		"region_id": "%s",
 		"cluster_type": "ManagedKubernetes",
-		"kubernetes_version": "1.22.10-aliyun.1",
+		"kubernetes_version": "%s",
 		"vpcid": "%s",
 		"container_cidr": "%s",
 		"service_cidr": "%s",
@@ -575,7 +575,7 @@ func getClusterInfoJSON(clusterHandler *AlibabaClusterHandler, clusterInfo irs.C
 		"master_vswitch_ids": ["%s"]
 	}`
 
-	clusterInfoJSON := fmt.Sprintf(temp, clusterInfo.IId.NameId, clusterHandler.RegionInfo.Region, clusterInfo.Network.VpcIID.SystemId, cidr_list[0], cidr_list[1], master_vswitch_id)
+	clusterInfoJSON := fmt.Sprintf(temp, clusterInfo.IId.NameId, clusterHandler.RegionInfo.Region, clusterInfo.Version, clusterInfo.Network.VpcIID.SystemId, cidr_list[0], cidr_list[1], master_vswitch_id)
 
 	return clusterInfoJSON, err
 }
