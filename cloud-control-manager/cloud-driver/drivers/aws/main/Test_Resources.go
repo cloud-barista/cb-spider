@@ -1424,6 +1424,11 @@ func handleCluster() {
 	}
 	handler := ResourceHandler.(irs.ClusterHandler)
 
+	if handler == nil {
+		fmt.Println("handler nil")
+		panic(err)
+	}
+
 	subnets := []irs.IID{}
 	subnets = append(subnets, irs.IID{SystemId: "subnet-262d6d7a"})
 	subnets = append(subnets, irs.IID{SystemId: "subnet-d0ee6fab"})
@@ -1476,6 +1481,53 @@ func handleCluster() {
 					//조회및 삭제 테스트를 위해 리스트의 첫번째 정보의 ID를 요청ID로 자동 갱신함.
 					if result != nil {
 						clusterReqInfo.IId = result[0].IId // 조회 및 삭제를 위해 생성된 ID로 변경
+					}
+				}
+			case 2:
+				cblogger.Infof("[%s] Cluster 생성 테스트", clusterReqInfo.IId.NameId)
+				result, err := handler.CreateCluster(clusterReqInfo)
+				if err != nil {
+					cblogger.Infof(clusterReqInfo.IId.NameId, " clusterReqInfo 생성 실패 : ", err)
+				} else {
+					cblogger.Infof("clusterReqInfo 생성 성공 : ", result)
+					clusterReqInfo.IId = result.IId // 조회 및 삭제를 위해 생성된 ID로 변경
+					if cblogger.Level.String() == "debug" {
+						spew.Dump(result)
+					}
+				}
+
+			case 3:
+				cblogger.Infof("[%s] clusterReqInfo 조회 테스트", clusterReqInfo.IId)
+				result, err := handler.GetCluster(clusterReqInfo.IId)
+				if err != nil {
+					cblogger.Infof("[%s] clusterReqInfo 조회 실패 : ", clusterReqInfo.IId.NameId, err)
+				} else {
+					cblogger.Infof("[%s] clusterReqInfo 조회 성공 : [%s]", clusterReqInfo.IId.NameId, result)
+					if cblogger.Level.String() == "debug" {
+						spew.Dump(result)
+					}
+				}
+
+			case 4:
+				cblogger.Infof("[%s] cluster삭제 테스트", clusterReqInfo.IId.NameId)
+				result, err := handler.DeleteCluster(clusterReqInfo.IId)
+				if err != nil {
+					cblogger.Infof("[%s] clusterReqInfo 삭제 실패 : ", clusterReqInfo.IId.NameId, err)
+				} else {
+					cblogger.Info("성공")
+					cblogger.Infof("[%s] clusterReqInfo 삭제 성공 : [%s]", clusterReqInfo.IId.NameId, result)
+				}
+
+			case 5:
+				cblogger.Infof("[%s] AddNode 테스트", clusterReqInfo.IId)
+				reqNodeGroupInfo := irs.NodeGroupInfo{}
+				result, err := handler.AddNodeGroup(clusterReqInfo.IId, reqNodeGroupInfo)
+				if err != nil {
+					cblogger.Infof("[%s] 리스너 변경 실패 : ", clusterReqInfo.IId.NameId, err)
+				} else {
+					cblogger.Infof("[%s] 리스너 변경 성공 : [%s]", clusterReqInfo.IId.NameId, result)
+					if cblogger.Level.String() == "debug" {
+						spew.Dump(result)
 					}
 				}
 
