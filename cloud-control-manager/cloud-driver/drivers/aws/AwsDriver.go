@@ -24,8 +24,11 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/autoscaling"
 	"github.com/aws/aws-sdk-go/service/ec2"
+	"github.com/aws/aws-sdk-go/service/eks"
 	"github.com/aws/aws-sdk-go/service/elbv2"
+	"github.com/aws/aws-sdk-go/service/iam"
 )
 
 type AwsDriver struct {
@@ -51,7 +54,7 @@ func (AwsDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	return drvCapabilityInfo
 }
 
-//func getVMClient(regionInfo idrv.RegionInfo) (*ec2.EC2, error) {
+// func getVMClient(regionInfo idrv.RegionInfo) (*ec2.EC2, error) {
 func getVMClient(connectionInfo idrv.ConnectionInfo) (*ec2.EC2, error) {
 
 	// setup Region
@@ -80,7 +83,7 @@ func getVMClient(connectionInfo idrv.ConnectionInfo) (*ec2.EC2, error) {
 	return svc, nil
 }
 
-//로드밸런서 처리를 위한 ELB 클라이언트 획득
+// 로드밸런서 처리를 위한 ELB 클라이언트 획득
 func getNLBClient(connectionInfo idrv.ConnectionInfo) (*elbv2.ELBV2, error) {
 	//func getNLBClient(connectionInfo idrv.ConnectionInfo) (*elb.ELB, error) {
 
@@ -111,6 +114,89 @@ func getNLBClient(connectionInfo idrv.ConnectionInfo) (*elbv2.ELBV2, error) {
 	return svc, nil
 }
 
+// EKS 처리를 위한 EKS 클라이언트 획득
+func getEKSClient(connectionInfo idrv.ConnectionInfo) (*eks.EKS, error) {
+
+	// setup Region
+	fmt.Println("AwsDriver : getEKSClient() - Region : [" + connectionInfo.RegionInfo.Region + "]")
+	fmt.Println("AwsDriver : getEKSClient() - Zone : [" + connectionInfo.RegionInfo.Zone + "]")
+	//fmt.Println("전달 받은 커넥션 정보")
+	//spew.Dump(connectionInfo)
+
+	sess, err := session.NewSession(&aws.Config{
+		Region: aws.String(connectionInfo.RegionInfo.Region),
+		//Region:      aws.String("ap-northeast-2"),
+		Credentials: credentials.NewStaticCredentials(connectionInfo.CredentialInfo.ClientId, connectionInfo.CredentialInfo.ClientSecret, "")},
+	)
+	if err != nil {
+		fmt.Println("Could not create aws New Session", err)
+		return nil, err
+	}
+
+	svc := eks.New(sess)
+	if err != nil {
+		fmt.Println("Could not create eks service client", err)
+		return nil, err
+	}
+
+	return svc, nil
+}
+
+// Iam 처리를 위한 iam 클라이언트 획득
+func getIamClient(connectionInfo idrv.ConnectionInfo) (*iam.IAM, error) {
+	// setup Region
+	fmt.Println("AwsDriver : getIamClient() - Region : [" + connectionInfo.RegionInfo.Region + "]")
+	fmt.Println("AwsDriver : getIamClient() - Zone : [" + connectionInfo.RegionInfo.Zone + "]")
+	//fmt.Println("전달 받은 커넥션 정보")
+	//spew.Dump(connectionInfo)
+
+	sess, err := session.NewSession(&aws.Config{
+		Region: aws.String(connectionInfo.RegionInfo.Region),
+		//Region:      aws.String("ap-northeast-2"),
+		Credentials: credentials.NewStaticCredentials(connectionInfo.CredentialInfo.ClientId, connectionInfo.CredentialInfo.ClientSecret, "")},
+	)
+	if err != nil {
+		fmt.Println("Could not create aws New Session", err)
+		return nil, err
+	}
+
+	svc := iam.New(sess)
+	if err != nil {
+		fmt.Println("Could not create iam service client", err)
+		return nil, err
+	}
+
+	return svc, nil
+}
+
+// AutoScaling 처리를 위한 autoScaling 클라이언트 획득
+func getAutoScalingClient(connectionInfo idrv.ConnectionInfo) (*autoscaling.AutoScaling, error) {
+
+	// setup Region
+	fmt.Println("AwsDriver : getAutoScalingClient() - Region : [" + connectionInfo.RegionInfo.Region + "]")
+	fmt.Println("AwsDriver : getAutoScalingClient() - Zone : [" + connectionInfo.RegionInfo.Zone + "]")
+	//fmt.Println("전달 받은 커넥션 정보")
+	//spew.Dump(connectionInfo)
+
+	sess, err := session.NewSession(&aws.Config{
+		Region:      aws.String(connectionInfo.RegionInfo.Region),
+		Credentials: credentials.NewStaticCredentials(connectionInfo.CredentialInfo.ClientId, connectionInfo.CredentialInfo.ClientSecret, "")},
+	)
+	if err != nil {
+		fmt.Println("Could not create aws New Session", err)
+		return nil, err
+	}
+
+	//svc := elb.New(sess)
+	// Create ELBv2 service client
+	svc := autoscaling.New(sess)
+	if err != nil {
+		fmt.Println("Could not create autoscaling service client", err)
+		return nil, err
+	}
+
+	return svc, nil
+}
 func (driver *AwsDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (icon.CloudConnection, error) {
 	// 1. get info of credential and region for Test A Cloud from connectionInfo.
 	// 2. create a client object(or service  object) of Test A Cloud with credential info.
@@ -124,6 +210,9 @@ func (driver *AwsDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (icon.
 	//var iConn icon.CloudConnection
 	vmClient, err := getVMClient(connectionInfo)
 	nlbClient, err := getNLBClient(connectionInfo)
+	eksClient, err := getEKSClient(connectionInfo)
+	iamClient, err := getIamClient(connectionInfo)
+	autoScalingClient, err := getAutoScalingClient(connectionInfo)
 	//vmClient, err := getVMClient(connectionInfo.RegionInfo)
 	if err != nil {
 		return nil, err
@@ -146,8 +235,12 @@ func (driver *AwsDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (icon.
 		DiskClient:     vmClient,
 		MyImageClient:  vmClient,
 
+		EKSClient:         eksClient,
+		IamClient:         iamClient,
+		AutoScalingClient: autoScalingClient,
+
 		// Connection for AnyCall
-		AnyCallClient:  vmClient,
+		AnyCallClient: vmClient,
 	}
 
 	return &iConn, nil // return type: (icon.CloudConnection, error)

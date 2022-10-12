@@ -139,7 +139,19 @@ func (cloudConn *AwsCloudConnection) CreateMyImageHandler() (irs.MyImageHandler,
 }
 
 func (cloudConn *AwsCloudConnection) CreateClusterHandler() (irs.ClusterHandler, error) {
-	//return nil, errors.New("AWS Driver: not implemented")
+	cblogger.Info("CreateClusterHandler through")
+	if cloudConn.MyImageClient == nil {
+		cblogger.Info("cloudConn.MyImageClient is nil")
+	}
+	if cloudConn.EKSClient == nil {
+		cblogger.Info("cloudConn.EKSClient is nil")
+	}
+	if cloudConn.IamClient == nil {
+		cblogger.Info("cloudConn.IamClient is nil")
+	}
+	if cloudConn.AutoScalingClient == nil {
+		cblogger.Info("cloudConn.AutoScalingClient is nil")
+	}
 	handler := ars.AwsClusterHandler{cloudConn.Region, cloudConn.EKSClient, cloudConn.IamClient, cloudConn.AutoScalingClient}
 	return &handler, nil
 }
