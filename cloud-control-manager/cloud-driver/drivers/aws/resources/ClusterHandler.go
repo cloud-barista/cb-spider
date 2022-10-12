@@ -50,8 +50,8 @@ func (ClusterHandler *AwsClusterHandler) CreateCluster(clusterReqInfo irs.Cluste
 	}
 
 	//AWS의 경우 사전에 Role의 생성이 필요하며, 현재는 role 이름을 다음 이름으로 일치 시킨다.(추후 개선)
-	//예시) spider-eks-role
-	eksRoleName := "spider-eks-cluster-role"
+	//예시) cluster : cloud-barista-spider-eks-cluster-role, Node : cloud-barista-spider-eks-nodegroup-role
+	eksRoleName := "cloud-barista-spider-eks-cluster-role"
 	// get Role Arn
 	eksRole, err := ClusterHandler.getRole(irs.IID{SystemId: eksRoleName})
 	if err != nil {
@@ -64,7 +64,7 @@ func (ClusterHandler *AwsClusterHandler) CreateCluster(clusterReqInfo irs.Cluste
 
 	// create cluster
 	input := &eks.CreateClusterInput{
-		Name: aws.String(clusterReqInfo.IId.SystemId),
+		Name: aws.String(clusterReqInfo.IId.NameId),
 		ResourcesVpcConfig: &eks.VpcConfigRequest{
 			SecurityGroupIds: securityGroupIds,
 			SubnetIds:        subnetIds,
@@ -99,13 +99,15 @@ func (ClusterHandler *AwsClusterHandler) CreateCluster(clusterReqInfo irs.Cluste
 		} else {
 			// Print the error, cast err to awserr.Error to get the Code and
 			// Message from an error.
+
 			fmt.Println(err.Error())
 		}
+		return irs.ClusterInfo{}, err
 	}
 
-	if cblogger.Level.String() == "debug" {
-		spew.Dump(result)
-	}
+	//if cblogger.Level.String() == "debug" {
+	spew.Dump(result)
+	//}
 
 	//----- wait until Status=COMPLETE -----//  :  cluster describe .status 로 확인
 
@@ -133,10 +135,11 @@ func (ClusterHandler *AwsClusterHandler) ListCluster() ([]*irs.ClusterInfo, erro
 
 	input := &eks.ListClustersInput{}
 	if ClusterHandler == nil {
-		fmt.Print(" ClusterHandlerIs nil")
+		fmt.Println(" ClusterHandlerIs nil")
 	}
+	fmt.Println(ClusterHandler)
 	if ClusterHandler.Client == nil {
-		fmt.Print(" ClusterHandler.Clint Is nil")
+		fmt.Println(" ClusterHandler.Client Is nil")
 	}
 	result, err := ClusterHandler.Client.ListClusters(input)
 	if err != nil {
@@ -258,7 +261,9 @@ func (ClusterHandler *AwsClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGr
 		return irs.NodeGroupInfo{}, awserr.New(CUSTOM_ERR_CODE_BAD_REQUEST, "max는 최소가 1이다.", nil)
 	}
 
-	eksRoleName := "arn:aws:iam::050864702683:role/cb-eks-nodegroup-role"
+	//eksRoleName := "arn:aws:iam::050864702683:role/cb-eks-nodegroup-role"
+	eksRoleName := "arn:aws:iam::050864702683:role/AWSServiceRoleForAmazonEKSNodegroup"
+	//AWSServiceRoleForAmazonEKSNodegroup
 
 	clusterInfo, err := ClusterHandler.GetCluster(clusterIID)
 	if err != nil {
