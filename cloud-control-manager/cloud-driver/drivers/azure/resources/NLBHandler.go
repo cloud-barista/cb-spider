@@ -49,7 +49,7 @@ const (
 	NLBRegionType                      NLBScope                  = "REGION"
 )
 
-//------ NLB Management
+// ------ NLB Management
 func (nlbHandler *AzureNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (createNLB irs.NLBInfo, createError error) {
 	hiscallInfo := GetCallLogScheme(nlbHandler.Region, "NETWORKLOADBALANCE", nlbReqInfo.IId.NameId, "CreateNLB()")
 	start := call.Start()
@@ -306,8 +306,8 @@ func (nlbHandler *AzureNLBHandler) DeleteNLB(nlbIID irs.IID) (bool, error) {
 	return deleteResult, nil
 }
 
-//------ Frontend Control
-//------ Backend Control
+// ------ Frontend Control
+// ------ Backend Control
 func (nlbHandler *AzureNLBHandler) ChangeListener(nlbIID irs.IID, listener irs.ListenerInfo) (irs.ListenerInfo, error) {
 	hiscallInfo := GetCallLogScheme(nlbHandler.Region, "NETWORKLOADBALANCE", nlbIID.NameId, "ChangeListener()")
 	start := call.Start()
@@ -796,11 +796,14 @@ func (nlbHandler *AzureNLBHandler) ChangeHealthCheckerInfo(nlbIID irs.IID, healt
 			LoggingError(hiscallInfo, changeErr)
 			return irs.HealthCheckerInfo{}, changeErr
 		}
-		if healthChecker.Interval < 5 || healthChecker.Interval > 2147483646 {
-			return irs.HealthCheckerInfo{}, errors.New("invalid HealthCheckerInfo Interval, interval must be between 5 and 2147483646")
+		if healthChecker.Interval < 5 {
+			return irs.HealthCheckerInfo{}, errors.New("invalid HealthCheckerInfo Interval, interval must be greater than 5")
 		}
-		if healthChecker.Threshold < 2 || healthChecker.Threshold > 429496729 {
-			return irs.HealthCheckerInfo{}, errors.New("invalid HealthCheckerInfo Threshold, Threshold must be between 2 and 429496729 ")
+		if healthChecker.Threshold < 1 {
+			return irs.HealthCheckerInfo{}, errors.New("invalid HealthCheckerInfo Threshold, Threshold  must be greater than 1")
+		}
+		if healthChecker.Interval*healthChecker.Threshold > 2147483647 {
+			return irs.HealthCheckerInfo{}, errors.New("invalid HealthCheckerInfo Interval * Threshold must be between 5 and 2147483647 ")
 		}
 		currentProbes[0].Protocol = protocol
 		currentProbes[0].Port = to.Int32Ptr(int32(port))
@@ -1356,11 +1359,15 @@ func getAzureProbeByCBHealthChecker(healthChecker irs.HealthCheckerInfo) (networ
 	if err != nil {
 		return network.Probe{}, errors.New("invalid HealthCheckerInfo Protocol")
 	}
-	if healthChecker.Interval < 5 || healthChecker.Interval > 2147483646 {
-		return network.Probe{}, errors.New("invalid HealthCheckerInfo Interval, interval must be between 5 and 2147483646")
+
+	if healthChecker.Interval < 5 {
+		return network.Probe{}, errors.New("invalid HealthCheckerInfo Interval, interval must be greater than 5")
 	}
-	if healthChecker.Threshold < 2 || healthChecker.Threshold > 429496729 {
-		return network.Probe{}, errors.New("invalid HealthCheckerInfo Threshold, Threshold must be between 2 and 429496729 ")
+	if healthChecker.Threshold < 1 {
+		return network.Probe{}, errors.New("invalid HealthCheckerInfo Threshold, Threshold  must be greater than 1")
+	}
+	if healthChecker.Interval*healthChecker.Threshold > 2147483647 {
+		return network.Probe{}, errors.New("invalid HealthCheckerInfo Interval * Threshold must be between 5 and 2147483647 ")
 	}
 	probe := network.Probe{
 		Name: to.StringPtr(generateRandName(ProbeNamePrefix)),
