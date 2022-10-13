@@ -53,6 +53,9 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 	prefix := "https://www.googleapis.com/compute/v1/projects/" + projectID
 	//imageURL := "projects/ubuntu-os-cloud/global/images/ubuntu-minimal-1804-bionic-v20191024"
 	imageURL := vmReqInfo.ImageIID.SystemId
+	if vmReqInfo.ImageType == irs.MyImage {
+		imageURL = "global/machineImages/" + imageURL // MyImage는 ImageURL 형태가 아니라 ID를 사용하므로 앞에 URL 형태를 붙여줌
+	}
 	region := vmHandler.Region.Region
 
 	zone := vmHandler.Region.Zone

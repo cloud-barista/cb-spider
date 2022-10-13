@@ -48,7 +48,6 @@ ALIBABA:
   # idmaxlength: VPC / Subnet / SecurityGroup / KeyPair / VM / Disk / NLB / MyImage / Cluster
   idmaxlength: 128 / 128 / 128 / 128 / 128 / 128 / 80 / 128 / 63
 
-
 TENCENT:
   region: Region / Zone
   credential: ClientId / ClientSecret
