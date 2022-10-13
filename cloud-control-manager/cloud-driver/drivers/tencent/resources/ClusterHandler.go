@@ -49,6 +49,7 @@ func (clusterHandler *TencentClusterHandler) CreateCluster(clusterReqInfo irs.Cl
 	cblogger.Info("Tencent Cloud Driver: called CreateCluster()")
 	callLogInfo := getCallLogScheme(clusterHandler.RegionInfo.Region, call.CLUSTER, "CreateCluster()", "CreateCluster()")
 
+	start := call.Start()
 	// 클러스터 생성 요청 변환
 	request, err := getCreateClusterRequest(clusterHandler, clusterReqInfo)
 	if err != nil {
@@ -56,11 +57,8 @@ func (clusterHandler *TencentClusterHandler) CreateCluster(clusterReqInfo irs.Cl
 		cblogger.Error(err)
 		return irs.ClusterInfo{}, err
 	}
-
-	start := call.Start()
 	res, err := tencent.CreateCluster(clusterHandler.CredentialInfo.ClientId, clusterHandler.CredentialInfo.ClientSecret, clusterHandler.RegionInfo.Region, request)
 	callLogInfo.ElapsedTime = call.Elapsed(start)
-	tempCalllogger.Info(call.String(callLogInfo))
 	if err != nil {
 		err := fmt.Errorf("Failed to Create Cluster :  %v", err)
 		cblogger.Error(err)
@@ -68,6 +66,7 @@ func (clusterHandler *TencentClusterHandler) CreateCluster(clusterReqInfo irs.Cl
 		tempCalllogger.Error(call.String(callLogInfo))
 		return irs.ClusterInfo{}, err
 	}
+	tempCalllogger.Info(call.String(callLogInfo))
 
 	// NodeGroup 생성 정보가 있는경우 생성을 시도한다.
 	// 현재는 생성 시도를 안한다. 생성하기로 결정되면 아래 주석을 풀어서 사용한다.
@@ -100,7 +99,6 @@ func (clusterHandler *TencentClusterHandler) ListCluster() ([]*irs.ClusterInfo, 
 	start := call.Start()
 	res, err := tencent.GetClusters(clusterHandler.CredentialInfo.ClientId, clusterHandler.CredentialInfo.ClientSecret, clusterHandler.RegionInfo.Region)
 	callLogInfo.ElapsedTime = call.Elapsed(start)
-	tempCalllogger.Info(call.String(callLogInfo))
 	if err != nil {
 		err := fmt.Errorf("Failed to Get Clusters :  %v", err)
 		cblogger.Error(err)
@@ -108,6 +106,7 @@ func (clusterHandler *TencentClusterHandler) ListCluster() ([]*irs.ClusterInfo, 
 		tempCalllogger.Error(call.String(callLogInfo))
 		return nil, err
 	}
+	tempCalllogger.Info(call.String(callLogInfo))
 
 	cluster_info_list := make([]*irs.ClusterInfo, *res.Response.TotalCount)
 	for i, cluster := range res.Response.Clusters {
@@ -129,7 +128,6 @@ func (clusterHandler *TencentClusterHandler) GetCluster(clusterIID irs.IID) (irs
 	start := call.Start()
 	cluster_info, err := getClusterInfo(clusterHandler.CredentialInfo.ClientId, clusterHandler.CredentialInfo.ClientSecret, clusterHandler.RegionInfo.Region, clusterIID.SystemId)
 	callLogInfo.ElapsedTime = call.Elapsed(start)
-	tempCalllogger.Info(call.String(callLogInfo))
 	if err != nil {
 		err := fmt.Errorf("Failed to Get ClusterInfo :  %v", err)
 		cblogger.Error(err)
@@ -137,6 +135,7 @@ func (clusterHandler *TencentClusterHandler) GetCluster(clusterIID irs.IID) (irs
 		tempCalllogger.Error(call.String(callLogInfo))
 		return irs.ClusterInfo{}, err
 	}
+	tempCalllogger.Info(call.String(callLogInfo))
 
 	return *cluster_info, nil
 }
@@ -148,7 +147,6 @@ func (clusterHandler *TencentClusterHandler) DeleteCluster(clusterIID irs.IID) (
 	start := call.Start()
 	res, err := tencent.DeleteCluster(clusterHandler.CredentialInfo.ClientId, clusterHandler.CredentialInfo.ClientSecret, clusterHandler.RegionInfo.Region, clusterIID.SystemId)
 	callLogInfo.ElapsedTime = call.Elapsed(start)
-	tempCalllogger.Info(call.String(callLogInfo))
 	if err != nil {
 		err := fmt.Errorf("Failed to Delete Cluster :  %v", err)
 		cblogger.Error(err)
@@ -157,6 +155,7 @@ func (clusterHandler *TencentClusterHandler) DeleteCluster(clusterIID irs.IID) (
 		return false, err
 	}
 	cblogger.Info("DeleteCluster(): ", res)
+	tempCalllogger.Info(call.String(callLogInfo))
 
 	return true, nil
 }
@@ -165,6 +164,7 @@ func (clusterHandler *TencentClusterHandler) AddNodeGroup(clusterIID irs.IID, no
 	cblogger.Info("Tencent Cloud Driver: called AddNodeGroup()")
 	callLogInfo := getCallLogScheme(clusterHandler.RegionInfo.Region, call.CLUSTER, clusterIID.NameId, "AddNodeGroup()")
 
+	start := call.Start()
 	// 노드 그룹 생성 요청 변환
 	// get cluster info. to get security_group_id
 	request, err := getNodeGroupRequest(clusterHandler, clusterIID.SystemId, nodeGroupReqInfo)
@@ -173,11 +173,8 @@ func (clusterHandler *TencentClusterHandler) AddNodeGroup(clusterIID irs.IID, no
 		cblogger.Error(err)
 		return irs.NodeGroupInfo{}, err
 	}
-
-	start := call.Start()
 	response, err := tencent.CreateNodeGroup(clusterHandler.CredentialInfo.ClientId, clusterHandler.CredentialInfo.ClientSecret, clusterHandler.RegionInfo.Region, request)
 	callLogInfo.ElapsedTime = call.Elapsed(start)
-	tempCalllogger.Info(call.String(callLogInfo))
 	if err != nil {
 		err := fmt.Errorf("Failed to Create Node Group :  %v", err)
 		cblogger.Error(err)
@@ -185,6 +182,7 @@ func (clusterHandler *TencentClusterHandler) AddNodeGroup(clusterIID irs.IID, no
 		tempCalllogger.Error(call.String(callLogInfo))
 		return irs.NodeGroupInfo{}, err
 	}
+	tempCalllogger.Info(call.String(callLogInfo))
 
 	node_group_info, err := getNodeGroupInfo(clusterHandler.CredentialInfo.ClientId, clusterHandler.CredentialInfo.ClientSecret, clusterHandler.RegionInfo.Region, clusterIID.SystemId, *response.Response.NodePoolId)
 	if err != nil {
@@ -200,12 +198,10 @@ func (clusterHandler *TencentClusterHandler) ListNodeGroup(clusterIID irs.IID) (
 	cblogger.Info("Tencent Cloud Driver: called ListNodeGroup()")
 	callLogInfo := getCallLogScheme(clusterHandler.RegionInfo.Region, call.CLUSTER, clusterIID.NameId, "ListNodeGroup()")
 
-	node_group_info_list := []*irs.NodeGroupInfo{}
-
 	start := call.Start()
+	node_group_info_list := []*irs.NodeGroupInfo{}
 	res, err := tencent.ListNodeGroup(clusterHandler.CredentialInfo.ClientId, clusterHandler.CredentialInfo.ClientSecret, clusterHandler.RegionInfo.Region, clusterIID.SystemId)
 	callLogInfo.ElapsedTime = call.Elapsed(start)
-	tempCalllogger.Info(call.String(callLogInfo))
 	if err != nil {
 		err := fmt.Errorf("Failed to List Node Group :  %v", err)
 		cblogger.Error(err)
@@ -213,6 +209,7 @@ func (clusterHandler *TencentClusterHandler) ListNodeGroup(clusterIID irs.IID) (
 		tempCalllogger.Error(call.String(callLogInfo))
 		return node_group_info_list, err
 	}
+	tempCalllogger.Info(call.String(callLogInfo))
 
 	for _, node_group := range res.Response.NodePoolSet {
 		node_group_info, err := getNodeGroupInfo(clusterHandler.CredentialInfo.ClientId, clusterHandler.CredentialInfo.ClientSecret, clusterHandler.RegionInfo.Region, clusterIID.SystemId, *node_group.NodePoolId)
@@ -234,7 +231,6 @@ func (clusterHandler *TencentClusterHandler) GetNodeGroup(clusterIID irs.IID, no
 	start := call.Start()
 	temp, err := getNodeGroupInfo(clusterHandler.CredentialInfo.ClientId, clusterHandler.CredentialInfo.ClientSecret, clusterHandler.RegionInfo.Region, clusterIID.SystemId, nodeGroupIID.SystemId)
 	callLogInfo.ElapsedTime = call.Elapsed(start)
-	tempCalllogger.Info(call.String(callLogInfo))
 	if err != nil {
 		err := fmt.Errorf("Failed to Get Node Group Info:  %v", err)
 		cblogger.Error(err)
@@ -242,6 +238,7 @@ func (clusterHandler *TencentClusterHandler) GetNodeGroup(clusterIID irs.IID, no
 		tempCalllogger.Error(call.String(callLogInfo))
 		return irs.NodeGroupInfo{}, err
 	}
+	tempCalllogger.Info(call.String(callLogInfo))
 
 	return *temp, nil
 }
@@ -253,7 +250,6 @@ func (clusterHandler *TencentClusterHandler) SetNodeGroupAutoScaling(clusterIID 
 	start := call.Start()
 	temp, err := tencent.SetNodeGroupAutoScaling(clusterHandler.CredentialInfo.ClientId, clusterHandler.CredentialInfo.ClientSecret, clusterHandler.RegionInfo.Region, clusterIID.SystemId, nodeGroupIID.SystemId, on)
 	callLogInfo.ElapsedTime = call.Elapsed(start)
-	tempCalllogger.Info(call.String(callLogInfo))
 	if err != nil {
 		err := fmt.Errorf("Failed to Set Node Group AutoScaling:  %v", err)
 		cblogger.Error(err)
@@ -262,6 +258,7 @@ func (clusterHandler *TencentClusterHandler) SetNodeGroupAutoScaling(clusterIID 
 		return false, err
 	}
 	cblogger.Info(temp.ToJsonString())
+	tempCalllogger.Info(call.String(callLogInfo))
 
 	return true, nil
 }
@@ -270,17 +267,15 @@ func (clusterHandler *TencentClusterHandler) ChangeNodeGroupScaling(clusterIID i
 	cblogger.Info("Tencent Cloud Driver: called ChangeNodeGroupScaling()")
 	callLogInfo := getCallLogScheme(clusterHandler.RegionInfo.Region, call.CLUSTER, clusterIID.NameId, "ChangeNodeGroupScaling()")
 
+	start := call.Start()
 	nodegroup, err := tencent.GetNodeGroup(clusterHandler.CredentialInfo.ClientId, clusterHandler.CredentialInfo.ClientSecret, clusterHandler.RegionInfo.Region, clusterIID.SystemId, nodeGroupIID.SystemId)
 	if err != nil {
 		err := fmt.Errorf("Failed to Get Node Group:  %v", err)
 		cblogger.Error(err)
 		return irs.NodeGroupInfo{}, err
 	}
-
-	start := call.Start()
 	temp, err := tencent.ChangeNodeGroupScaling(clusterHandler.CredentialInfo.ClientId, clusterHandler.CredentialInfo.ClientSecret, clusterHandler.RegionInfo.Region, *nodegroup.Response.NodePool.AutoscalingGroupId, uint64(desiredNodeSize), uint64(minNodeSize), uint64(maxNodeSize))
 	callLogInfo.ElapsedTime = call.Elapsed(start)
-	tempCalllogger.Info(call.String(callLogInfo))
 	if err != nil {
 		err := fmt.Errorf("Failed to Change Node Group Scaling:  %v", err)
 		cblogger.Error(err)
@@ -289,6 +284,7 @@ func (clusterHandler *TencentClusterHandler) ChangeNodeGroupScaling(clusterIID i
 		cblogger.Error(err)
 	}
 	cblogger.Info(temp.ToJsonString())
+	tempCalllogger.Info(call.String(callLogInfo))
 
 	node_group_info, err := getNodeGroupInfo(clusterHandler.CredentialInfo.ClientId, clusterHandler.CredentialInfo.ClientSecret, clusterHandler.RegionInfo.Region, clusterIID.SystemId, nodeGroupIID.SystemId)
 	if err != nil {
@@ -307,7 +303,6 @@ func (clusterHandler *TencentClusterHandler) RemoveNodeGroup(clusterIID irs.IID,
 	start := call.Start()
 	res, err := tencent.DeleteNodeGroup(clusterHandler.CredentialInfo.ClientId, clusterHandler.CredentialInfo.ClientSecret, clusterHandler.RegionInfo.Region, clusterIID.SystemId, nodeGroupIID.SystemId)
 	callLogInfo.ElapsedTime = call.Elapsed(start)
-	tempCalllogger.Info(call.String(callLogInfo))
 	if err != nil {
 		err := fmt.Errorf("Failed to Delete NodeGroup:  %v", err)
 		cblogger.Error(err)
@@ -316,6 +311,7 @@ func (clusterHandler *TencentClusterHandler) RemoveNodeGroup(clusterIID irs.IID,
 		return false, err
 	}
 	cblogger.Info(res.ToJsonString())
+	tempCalllogger.Info(call.String(callLogInfo))
 
 	return true, nil
 }
@@ -327,7 +323,6 @@ func (clusterHandler *TencentClusterHandler) UpgradeCluster(clusterIID irs.IID, 
 	start := call.Start()
 	res, err := tencent.UpgradeCluster(clusterHandler.CredentialInfo.ClientId, clusterHandler.CredentialInfo.ClientSecret, clusterHandler.RegionInfo.Region, clusterIID.SystemId, newVersion)
 	callLogInfo.ElapsedTime = call.Elapsed(start)
-	tempCalllogger.Info(call.String(callLogInfo))
 	if err != nil {
 		err := fmt.Errorf("Failed to Upgrade Cluster:  %v", err)
 		cblogger.Error(err)
@@ -336,6 +331,7 @@ func (clusterHandler *TencentClusterHandler) UpgradeCluster(clusterIID irs.IID, 
 		return irs.ClusterInfo{}, err
 	}
 	cblogger.Info(res.ToJsonString())
+	tempCalllogger.Info(call.String(callLogInfo))
 
 	clusterInfo, err := getClusterInfo(clusterHandler.CredentialInfo.ClientId, clusterHandler.CredentialInfo.ClientSecret, clusterHandler.RegionInfo.Region, clusterIID.SystemId)
 	if err != nil {
