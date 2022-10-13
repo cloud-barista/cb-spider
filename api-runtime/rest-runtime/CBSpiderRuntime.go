@@ -353,9 +353,25 @@ func RunServer() {
                 {"DELETE", "/cspdisk/:Id", DeleteCSPDisk},
 
 
+		//----------MyImage Handler
+                {"POST", "/regmyimage", RegisterMyImage},
+                {"DELETE", "/regmyimage/:Name", UnregisterMyImage},
+
+                {"POST", "/myimage", SnapshotVM},
+                {"GET", "/myimage", ListMyImage},
+                {"GET", "/myimage/:Name", GetMyImage},
+                {"DELETE", "/myimage/:Name", DeleteMyImage},
+
+                //-- for management
+                {"GET", "/allmyimage", ListAllMyImage},
+                {"DELETE", "/cspmyimage/:Id", DeleteCSPMyImage},
+
+
 		//-------------------------------------------------------------------//
                 //----------Additional Info
 		{"GET", "/cspresourcename/:Name", GetCSPResourceName},
+		//----------AnyCall Handler
+		{"POST", "/anycall", AnyCall},
 
 		//-------------------------------------------------------------------//
 		//----------SPLock Info
@@ -387,6 +403,8 @@ func RunServer() {
 		{"GET", "/adminweb/disk/:ConnectConfig", aw.Disk},
 		{"GET", "/adminweb/diskmgmt/:ConnectConfig", aw.DiskMgmt},
 
+		{"GET", "/adminweb/myimage/:ConnectConfig", aw.MyImage},
+		{"GET", "/adminweb/myimagemgmt/:ConnectConfig", aw.MyImageMgmt},
 		{"GET", "/adminweb/vmimage/:ConnectConfig", aw.VMImage},
 		{"GET", "/adminweb/vmspec/:ConnectConfig", aw.VMSpec},
 	}

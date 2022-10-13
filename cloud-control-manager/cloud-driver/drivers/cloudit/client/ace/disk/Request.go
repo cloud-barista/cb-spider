@@ -242,10 +242,13 @@ func GetOwnerVm(restClient *client.RestClient, id string, requestOpts *client.Re
 		return irs.VMInfo{}, result.Err
 	}
 
-	var ownerVmList []irs.VMInfo
+	var ownerVmList []struct {
+		VmId   string
+		VmName string
+	}
 	if err := result.ExtractInto(&ownerVmList); err != nil || len(ownerVmList) == 0 {
 		return irs.VMInfo{}, err
 	}
 
-	return ownerVmList[0], nil
+	return irs.VMInfo{IId: irs.IID{NameId: ownerVmList[0].VmName, SystemId: ownerVmList[0].VmId}}, nil
 }

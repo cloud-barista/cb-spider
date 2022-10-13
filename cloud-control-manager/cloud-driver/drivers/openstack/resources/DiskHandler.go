@@ -1,6 +1,7 @@
 package resources
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -15,6 +16,7 @@ import (
 	"github.com/gophercloud/gophercloud/openstack/compute/v2/servers"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -33,8 +35,14 @@ const (
 func (diskHandler *OpenstackDiskHandler) CreateDisk(DiskReqInfo irs.DiskInfo) (irs.DiskInfo, error) {
 	hiscallInfo := GetCallLogScheme(diskHandler.CredentialInfo.IdentityEndpoint, "DISK", "DISK", "CreateDisk()")
 	start := call.Start()
-
-	err := validationDiskReq(DiskReqInfo, diskHandler.VolumeClient)
+	err := diskHandler.CheckDiskHandler()
+	if err != nil {
+		createErr := errors.New(fmt.Sprintf("Failed to Create Disk. err = %s", err))
+		cblogger.Error(createErr.Error())
+		LoggingError(hiscallInfo, createErr)
+		return irs.DiskInfo{}, createErr
+	}
+	err = validationDiskReq(DiskReqInfo, diskHandler.VolumeClient)
 	if err != nil {
 		createErr := errors.New(fmt.Sprintf("Failed to Create Disk. err = %s", err))
 		cblogger.Error(createErr.Error())
@@ -61,7 +69,13 @@ func (diskHandler *OpenstackDiskHandler) CreateDisk(DiskReqInfo irs.DiskInfo) (i
 func (diskHandler *OpenstackDiskHandler) ListDisk() ([]*irs.DiskInfo, error) {
 	hiscallInfo := GetCallLogScheme(diskHandler.CredentialInfo.IdentityEndpoint, "DISK", "DISK", "ListDisk()")
 	start := call.Start()
-
+	err := diskHandler.CheckDiskHandler()
+	if err != nil {
+		getErr := errors.New(fmt.Sprintf("Failed to List Disk. err = %s", err))
+		cblogger.Error(getErr.Error())
+		LoggingError(hiscallInfo, getErr)
+		return []*irs.DiskInfo{}, getErr
+	}
 	list, err := getRawDiskList(diskHandler.VolumeClient)
 	if err != nil {
 		getErr := errors.New(fmt.Sprintf("Failed to List Disk. err = %s", err))
@@ -87,16 +101,23 @@ func (diskHandler *OpenstackDiskHandler) ListDisk() ([]*irs.DiskInfo, error) {
 func (diskHandler *OpenstackDiskHandler) GetDisk(diskIID irs.IID) (irs.DiskInfo, error) {
 	hiscallInfo := GetCallLogScheme(diskHandler.CredentialInfo.IdentityEndpoint, "DISK", diskIID.NameId, "GetDisk()")
 	start := call.Start()
+	err := diskHandler.CheckDiskHandler()
+	if err != nil {
+		getErr := errors.New(fmt.Sprintf("Failed to Get Disk. err = %s", err))
+		cblogger.Error(getErr.Error())
+		LoggingError(hiscallInfo, getErr)
+		return irs.DiskInfo{}, getErr
+	}
 	disk, err := getRawDisk(diskIID, diskHandler.VolumeClient)
 	if err != nil {
-		getErr := errors.New(fmt.Sprintf("Failed to List Disk. err = %s", err))
+		getErr := errors.New(fmt.Sprintf("Failed to Get Disk. err = %s", err))
 		cblogger.Error(getErr.Error())
 		LoggingError(hiscallInfo, getErr)
 		return irs.DiskInfo{}, getErr
 	}
 	info, err := diskHandler.setterDisk(disk)
 	if err != nil {
-		getErr := errors.New(fmt.Sprintf("Failed to List Disk. err = %s", err))
+		getErr := errors.New(fmt.Sprintf("Failed to Get Disk. err = %s", err))
 		cblogger.Error(getErr.Error())
 		LoggingError(hiscallInfo, getErr)
 		return irs.DiskInfo{}, getErr
@@ -108,14 +129,20 @@ func (diskHandler *OpenstackDiskHandler) GetDisk(diskIID irs.IID) (irs.DiskInfo,
 func (diskHandler *OpenstackDiskHandler) ChangeDiskSize(diskIID irs.IID, size string) (bool, error) {
 	hiscallInfo := GetCallLogScheme(diskHandler.CredentialInfo.IdentityEndpoint, "DISK", diskIID.NameId, "DeleteDisk()")
 	start := call.Start()
-	err := changeDiskSize(diskIID, size, diskHandler.VolumeClient)
+	err := diskHandler.CheckDiskHandler()
 	if err != nil {
 		changeDiskSizeErr := errors.New(fmt.Sprintf("Failed to ChangeDiskSize. err = %s", err))
 		cblogger.Error(changeDiskSizeErr.Error())
 		LoggingError(hiscallInfo, changeDiskSizeErr)
 		return false, changeDiskSizeErr
 	}
-
+	err = changeDiskSize(diskIID, size, diskHandler.VolumeClient)
+	if err != nil {
+		changeDiskSizeErr := errors.New(fmt.Sprintf("Failed to ChangeDiskSize. err = %s", err))
+		cblogger.Error(changeDiskSizeErr.Error())
+		LoggingError(hiscallInfo, changeDiskSizeErr)
+		return false, changeDiskSizeErr
+	}
 	LoggingInfo(hiscallInfo, start)
 	return true, nil
 }
@@ -123,9 +150,16 @@ func (diskHandler *OpenstackDiskHandler) ChangeDiskSize(diskIID irs.IID, size st
 func (diskHandler *OpenstackDiskHandler) DeleteDisk(diskIID irs.IID) (bool, error) {
 	hiscallInfo := GetCallLogScheme(diskHandler.CredentialInfo.IdentityEndpoint, "DISK", diskIID.NameId, "DeleteDisk()")
 	start := call.Start()
-	err := deleteDisk(diskIID, diskHandler.VolumeClient)
+	err := diskHandler.CheckDiskHandler()
 	if err != nil {
-		delErr := errors.New(fmt.Sprintf("Failed to List Disk. err = %s", err))
+		delErr := errors.New(fmt.Sprintf("Failed to Delete Disk. err = %s", err))
+		cblogger.Error(delErr.Error())
+		LoggingError(hiscallInfo, delErr)
+		return false, delErr
+	}
+	err = deleteDisk(diskIID, diskHandler.VolumeClient)
+	if err != nil {
+		delErr := errors.New(fmt.Sprintf("Failed to Delete Disk. err = %s", err))
 		cblogger.Error(delErr.Error())
 		LoggingError(hiscallInfo, delErr)
 		return false, delErr
@@ -137,16 +171,23 @@ func (diskHandler *OpenstackDiskHandler) DeleteDisk(diskIID irs.IID) (bool, erro
 func (diskHandler *OpenstackDiskHandler) AttachDisk(diskIID irs.IID, ownerVM irs.IID) (irs.DiskInfo, error) {
 	hiscallInfo := GetCallLogScheme(diskHandler.CredentialInfo.IdentityEndpoint, "DISK", diskIID.NameId, "AttachDisk()")
 	start := call.Start()
+	err := diskHandler.CheckDiskHandler()
+	if err != nil {
+		attachErr := errors.New(fmt.Sprintf("Failed to AttachDisk. err = %s", err))
+		cblogger.Error(attachErr.Error())
+		LoggingError(hiscallInfo, attachErr)
+		return irs.DiskInfo{}, attachErr
+	}
 	disk, err := attachDisk(diskIID, ownerVM, diskHandler.ComputeClient, diskHandler.VolumeClient)
 	if err != nil {
-		attachErr := errors.New(fmt.Sprintf("Failed to List Disk. err = %s", err))
+		attachErr := errors.New(fmt.Sprintf("Failed to AttachDisk. err = %s", err))
 		cblogger.Error(attachErr.Error())
 		LoggingError(hiscallInfo, attachErr)
 		return irs.DiskInfo{}, attachErr
 	}
 	info, err := diskHandler.setterDisk(disk)
 	if err != nil {
-		attachErr := errors.New(fmt.Sprintf("Failed to List Disk. err = %s", err))
+		attachErr := errors.New(fmt.Sprintf("Failed to AttachDisk. err = %s", err))
 		cblogger.Error(attachErr.Error())
 		LoggingError(hiscallInfo, attachErr)
 		return irs.DiskInfo{}, attachErr
@@ -158,7 +199,14 @@ func (diskHandler *OpenstackDiskHandler) AttachDisk(diskIID irs.IID, ownerVM irs
 func (diskHandler *OpenstackDiskHandler) DetachDisk(diskIID irs.IID, ownerVM irs.IID) (bool, error) {
 	hiscallInfo := GetCallLogScheme(diskHandler.CredentialInfo.IdentityEndpoint, "DISK", diskIID.NameId, "DetachDisk()")
 	start := call.Start()
-	err := detachDisk(diskIID, ownerVM, diskHandler.ComputeClient, diskHandler.VolumeClient)
+	err := diskHandler.CheckDiskHandler()
+	if err != nil {
+		detachErr := errors.New(fmt.Sprintf("Failed to DetachDisk. err = %s", err))
+		cblogger.Error(detachErr.Error())
+		LoggingError(hiscallInfo, detachErr)
+		return false, detachErr
+	}
+	err = detachDisk(diskIID, ownerVM, diskHandler.ComputeClient, diskHandler.VolumeClient)
 	if err != nil {
 		detachErr := errors.New(fmt.Sprintf("Failed to DetachDisk. err = %s", err))
 		cblogger.Error(detachErr.Error())
@@ -167,6 +215,13 @@ func (diskHandler *OpenstackDiskHandler) DetachDisk(diskIID irs.IID, ownerVM irs
 	}
 	LoggingInfo(hiscallInfo, start)
 	return true, nil
+}
+
+func (diskHandler *OpenstackDiskHandler) CheckDiskHandler() error {
+	if diskHandler.VolumeClient == nil {
+		return errors.New("DiskHandler is not available on this Openstack. Please check the cinder module installation")
+	}
+	return nil
 }
 
 func volumes2ToVolumes3(vol2 volumes2.Volume) (volumes3.Volume, error) {
@@ -431,7 +486,7 @@ func validationDiskReq(diskReq irs.DiskInfo, volumeClient *gophercloud.ServiceCl
 }
 func createDiskV2(diskReq irs.DiskInfo, volume2Client *gophercloud.ServiceClient) (volumes3.Volume, error) {
 	size, err := strconv.Atoi(diskReq.DiskSize)
-	if diskReq.DiskSize == "" {
+	if diskReq.DiskSize == "" || strings.ToLower(diskReq.DiskSize) == "default" {
 		size = 1
 		err = nil
 	}
@@ -455,7 +510,7 @@ func createDiskV2(diskReq irs.DiskInfo, volume2Client *gophercloud.ServiceClient
 
 func createDiskV3(diskReq irs.DiskInfo, volume3Client *gophercloud.ServiceClient) (volumes3.Volume, error) {
 	size, err := strconv.Atoi(diskReq.DiskSize)
-	if diskReq.DiskSize == "" {
+	if diskReq.DiskSize == "" || strings.ToLower(diskReq.DiskSize) == "default" {
 		size = 1
 		err = nil
 	}
@@ -550,6 +605,136 @@ func attachDisk(diskIID irs.IID, ownerVMIID irs.IID, computeClient *gophercloud.
 				return volumes3.Volume{}, errors.New(fmt.Sprintf("attaching failed. exceeded maximum retry count %d", maxRetryCnt))
 			}
 		}
+	}
+}
+
+func AttachList(diskIIDList []irs.IID, ownerVMIID irs.IID, computeClient *gophercloud.ServiceClient, volumeClient *gophercloud.ServiceClient) (*servers.Server, error) {
+	rawDataDiskList := make([]volumes3.Volume, len(diskIIDList))
+	if len(diskIIDList) > 0 {
+		for i, dataDiskIID := range diskIIDList {
+			disk, err := getRawDisk(dataDiskIID, volumeClient)
+			if err != nil {
+				convertErr := errors.New(fmt.Sprintf("Failed to get DataDisk err = %s", err.Error()))
+				return nil, convertErr
+			}
+			if disk.Status != "available" {
+				return nil, errors.New(fmt.Sprintf("Attach is only available when available Status"))
+			}
+			rawDataDiskList[i] = disk
+		}
+	} else {
+		return nil, nil
+	}
+
+	var ownerRawVM servers.Server
+	if ownerVMIID.SystemId == "" {
+		pager, err := servers.List(computeClient, nil).AllPages()
+		if err != nil {
+			return nil, err
+		}
+		rawServers, err := servers.ExtractServers(pager)
+		if err != nil {
+			return nil, err
+		}
+		vmCheck := false
+		for _, vm := range rawServers {
+			if vm.Name == ownerVMIID.NameId {
+				ownerRawVM = vm
+				vmCheck = true
+				break
+			}
+		}
+		if !vmCheck {
+			return nil, errors.New("not found vm")
+		}
+	} else {
+		server, err := servers.Get(computeClient, ownerVMIID.SystemId).Extract()
+		if err != nil {
+			return nil, err
+		}
+		ownerRawVM = *server
+	}
+	var wg sync.WaitGroup
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	var globalErr error
+
+	for _, rawDataDisk := range rawDataDiskList {
+		wg.Add(1)
+		dumpVolume := rawDataDisk
+		go func() {
+			defer wg.Done()
+			_, err := attachWithCtx(ctx, dumpVolume, ownerRawVM.ID, computeClient, volumeClient)
+			if err != nil {
+				cancel()
+				if globalErr == nil {
+					globalErr = err
+				}
+			}
+		}()
+	}
+	wg.Wait()
+	if globalErr != nil {
+		return nil, globalErr
+	}
+	server, err := servers.Get(computeClient, ownerRawVM.ID).Extract()
+	if err != nil {
+		return nil, err
+	}
+	return server, nil
+}
+
+// volumes3.Volume, error
+type volumeWithError struct {
+	Volume volumes3.Volume
+	Err    error
+}
+
+func attachWithCtx(ctx context.Context, volume volumes3.Volume, ownerRawVMID string, computeClient *gophercloud.ServiceClient, volumeClient *gophercloud.ServiceClient) (volumes3.Volume, error) {
+	done := make(chan volumeWithError)
+	go func() {
+		volumeAttachOpt := volumeattach.CreateOpts{
+			VolumeID: volume.ID,
+		}
+		_, err := volumeattach.Create(computeClient, ownerRawVMID, volumeAttachOpt).Extract()
+		if err != nil {
+			done <- volumeWithError{
+				volumes3.Volume{}, err,
+			}
+		}
+		curRetryCnt := 0
+		maxRetryCnt := 20
+		for {
+			newDisk, err := getRawDisk(irs.IID{SystemId: volume.ID}, volumeClient)
+			if err != nil {
+				done <- volumeWithError{
+					volumes3.Volume{}, err,
+				}
+				break
+			}
+			switch strings.ToLower(newDisk.Status) {
+			case "in-use":
+				done <- volumeWithError{
+					volumes3.Volume{}, err,
+				}
+				break
+			default:
+				curRetryCnt++
+				time.Sleep(1 * time.Second)
+				if curRetryCnt > maxRetryCnt {
+					done <- volumeWithError{
+						volumes3.Volume{}, errors.New(fmt.Sprintf("attaching failed. exceeded maximum retry count %d", maxRetryCnt)),
+					}
+					break
+				}
+			}
+		}
+	}()
+	select {
+	case volumeWithErrorDone := <-done:
+		return volumeWithErrorDone.Volume, volumeWithErrorDone.Err
+	case <-ctx.Done():
+		return volumes3.Volume{}, nil
 	}
 }
 

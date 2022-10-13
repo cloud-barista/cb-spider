@@ -34,6 +34,7 @@ func getResourceHandler(resourceType string, config ResourceConfig) (interface{}
 			Password:         config.Cloudit.Password,
 			TenantId:         config.Cloudit.TenantID,
 			AuthToken:        config.Cloudit.AuthToken,
+			ClusterId:        config.Cloudit.ClusterID,
 		},
 	}
 
@@ -557,6 +558,10 @@ func testVmHandler(config ResourceConfig) {
 		NameId:   config.Cloudit.VM.IID.NameId,
 		SystemId: config.Cloudit.VM.IID.SystemId,
 	}
+	var vmDataDiskIIDs []irs.IID
+	for _, dataDisk := range config.Cloudit.VM.DataDiskIIDs {
+		vmDataDiskIIDs = append(vmDataDiskIIDs, irs.IID{NameId: dataDisk.NameId})
+	}
 	vmReqInfo := irs.VMReqInfo{
 		IId: irs.IID{
 			NameId: config.Cloudit.VM.IID.NameId,
@@ -579,6 +584,7 @@ func testVmHandler(config ResourceConfig) {
 		SecurityGroupIIDs: SecurityGroupIIDs,
 		RootDiskSize:      "",
 		RootDiskType:      "",
+		DataDiskIIDs:      vmDataDiskIIDs,
 	}
 	vmFromSnapshotReqInfo := irs.VMReqInfo{
 		IId: irs.IID{
@@ -959,8 +965,6 @@ Loop:
 				res_cblogger.Info("Finish GetDisk()")
 			case 3:
 				res_cblogger.Info("Start CreateDisk() ...")
-				diskCreateReqInfo.KeyValueList = append(diskCreateReqInfo.KeyValueList,
-					irs.KeyValue{Key: "clusterId", Value: "8e01e169-8318-4676-b30a-fb339de4b44b"})
 				if createInfo, err := diskHandler.CreateDisk(diskCreateReqInfo); err != nil {
 					res_cblogger.Error(err)
 				} else {
@@ -1174,6 +1178,7 @@ type ResourceConfig struct {
 		IdentityEndpoint string `yaml:"identity_endpoint"`
 		AuthToken        string `yaml:"auth_token"`
 		TenantID         string `yaml:"tenant_id"`
+		ClusterID        string `yaml:"cluster_id"`
 		ServerId         string `yaml:"server_id"`
 		VM               struct {
 			IID struct {
@@ -1202,6 +1207,10 @@ type ResourceConfig struct {
 				SystemId string `yaml:"systemId"`
 			} `yaml:"SecurityGroupIIDs"`
 			VMUserPasswd string `yaml:"VMUserPasswd"`
+			DataDiskIIDs []struct {
+				NameId   string `yaml:"nameId"`
+				SystemId string `yaml:"systemId"`
+			} `yaml:"DataDiskIIDs"`
 		} `yaml:"vm"`
 		VMFromMyImage struct {
 			IID struct {

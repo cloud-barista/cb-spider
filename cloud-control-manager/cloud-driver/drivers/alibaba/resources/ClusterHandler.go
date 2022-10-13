@@ -49,6 +49,7 @@ func (clusterHandler *AlibabaClusterHandler) CreateCluster(clusterReqInfo irs.Cl
 	// 클러스터 생성 요청을 JSON 요청으로 변환
 	payload, err := getClusterInfoJSON(clusterHandler, clusterReqInfo)
 	if err != nil {
+		err := fmt.Errorf("Failed to Get ClusterInfo JSON :  %v", err)
 		cblogger.Error(err)
 		return irs.ClusterInfo{}, err
 	}
@@ -58,9 +59,10 @@ func (clusterHandler *AlibabaClusterHandler) CreateCluster(clusterReqInfo irs.Cl
 	callLogInfo.ElapsedTime = call.Elapsed(start)
 	tempCalllogger.Info(call.String(callLogInfo))
 	if err != nil {
+		err := fmt.Errorf("Failed to Create Cluster :  %v", err)
 		cblogger.Error(err)
 		callLogInfo.ErrorMSG = err.Error()
-		tempCalllogger.Info(call.String(callLogInfo))
+		tempCalllogger.Error(call.String(callLogInfo))
 		return irs.ClusterInfo{}, err
 	}
 
@@ -69,7 +71,7 @@ func (clusterHandler *AlibabaClusterHandler) CreateCluster(clusterReqInfo irs.Cl
 	// 이유:
 	// - Cluster 생성이 완료되어야 NodeGroup 생성이 가능하다.
 	// - Cluster 생성이 완료되려면 최소 10분 이상 걸린다.
-	// - 성공할때까지 반복하면서 생성을 시도해야 한다.
+	// - 성공할때까지 대기한 후에 생성을 시도해야 한다.
 	// for _, node_group := range clusterReqInfo.NodeGroupList {
 	// 	node_group_info, err := clusterHandler.AddNodeGroup(clusterReqInfo.IId, node_group)
 	// 	if err != nil {
@@ -82,6 +84,7 @@ func (clusterHandler *AlibabaClusterHandler) CreateCluster(clusterReqInfo irs.Cl
 	cluster_id := response_json_obj["cluster_id"].(string)
 	cluster_info, err := getClusterInfo(clusterHandler.CredentialInfo.ClientId, clusterHandler.CredentialInfo.ClientSecret, clusterHandler.RegionInfo.Region, cluster_id)
 	if err != nil {
+		err := fmt.Errorf("Failed to Get Cluster Info :  %v", err)
 		cblogger.Error(err)
 		return irs.ClusterInfo{}, err
 	}
@@ -98,9 +101,10 @@ func (clusterHandler *AlibabaClusterHandler) ListCluster() ([]*irs.ClusterInfo, 
 	callLogInfo.ElapsedTime = call.Elapsed(start)
 	tempCalllogger.Info(call.String(callLogInfo))
 	if err != nil {
+		err := fmt.Errorf("Failed to Get Clusters :  %v", err)
 		cblogger.Error(err)
 		callLogInfo.ErrorMSG = err.Error()
-		tempCalllogger.Info(call.String(callLogInfo))
+		tempCalllogger.Error(call.String(callLogInfo))
 		return nil, err
 	}
 
@@ -113,6 +117,7 @@ func (clusterHandler *AlibabaClusterHandler) ListCluster() ([]*irs.ClusterInfo, 
 		cluster_id := cluster.(map[string]interface{})["cluster_id"].(string)
 		cluster_info_list[i], err = getClusterInfo(clusterHandler.CredentialInfo.ClientId, clusterHandler.CredentialInfo.ClientSecret, clusterHandler.RegionInfo.Region, cluster_id)
 		if err != nil {
+			err := fmt.Errorf("Failed to Get ClusterInfo :  %v", err)
 			cblogger.Error(err)
 			return nil, err
 		}
@@ -130,9 +135,10 @@ func (clusterHandler *AlibabaClusterHandler) GetCluster(clusterIID irs.IID) (irs
 	callLogInfo.ElapsedTime = call.Elapsed(start)
 	tempCalllogger.Info(call.String(callLogInfo))
 	if err != nil {
+		err := fmt.Errorf("Failed to Get ClusterInfo :  %v", err)
 		cblogger.Error(err)
 		callLogInfo.ErrorMSG = err.Error()
-		tempCalllogger.Info(call.String(callLogInfo))
+		tempCalllogger.Error(call.String(callLogInfo))
 		return irs.ClusterInfo{}, err
 	}
 
@@ -148,9 +154,10 @@ func (clusterHandler *AlibabaClusterHandler) DeleteCluster(clusterIID irs.IID) (
 	callLogInfo.ElapsedTime = call.Elapsed(start)
 	tempCalllogger.Info(call.String(callLogInfo))
 	if err != nil {
+		err := fmt.Errorf("Failed to Delete Cluster :  %v", err)
 		cblogger.Error(err)
 		callLogInfo.ErrorMSG = err.Error()
-		tempCalllogger.Info(call.String(callLogInfo))
+		tempCalllogger.Error(call.String(callLogInfo))
 		return false, err
 	}
 	cblogger.Info(res)
@@ -165,6 +172,7 @@ func (clusterHandler *AlibabaClusterHandler) AddNodeGroup(clusterIID irs.IID, no
 	// 노드 그룹 생성 요청을 JSON 요청으로 변환
 	payload, err := getNodeGroupJSONString(clusterHandler, clusterIID, nodeGroupReqInfo)
 	if err != nil {
+		err := fmt.Errorf("Failed to Get NodeGroup JSON String :  %v", err)
 		cblogger.Error(err)
 		return irs.NodeGroupInfo{}, err
 	}
@@ -174,18 +182,19 @@ func (clusterHandler *AlibabaClusterHandler) AddNodeGroup(clusterIID irs.IID, no
 	callLogInfo.ElapsedTime = call.Elapsed(start)
 	tempCalllogger.Info(call.String(callLogInfo))
 	if err != nil {
+		err := fmt.Errorf("Failed to Create NodeGroup :  %v", err)
 		cblogger.Error(err)
 		callLogInfo.ErrorMSG = err.Error()
-		tempCalllogger.Info(call.String(callLogInfo))
+		tempCalllogger.Error(call.String(callLogInfo))
 		return irs.NodeGroupInfo{}, err
 	}
 
 	var result_json_obj map[string]interface{}
 	json.Unmarshal([]byte(result_json_str), &result_json_obj)
-	printFlattenJSON(result_json_obj)
 	nodepool_id := result_json_obj["nodepool_id"].(string)
 	node_group_info, err := getNodeGroupInfo(clusterHandler.CredentialInfo.ClientId, clusterHandler.CredentialInfo.ClientSecret, clusterHandler.RegionInfo.Region, clusterIID.SystemId, nodepool_id)
 	if err != nil {
+		err := fmt.Errorf("Failed to Get NodeGroupInfo :  %v", err)
 		cblogger.Error(err)
 		return irs.NodeGroupInfo{}, err
 	}
@@ -204,9 +213,10 @@ func (clusterHandler *AlibabaClusterHandler) ListNodeGroup(clusterIID irs.IID) (
 	callLogInfo.ElapsedTime = call.Elapsed(start)
 	tempCalllogger.Info(call.String(callLogInfo))
 	if err != nil {
+		err := fmt.Errorf("Failed to List NodeGroup :  %v", err)
 		cblogger.Error(err)
 		callLogInfo.ErrorMSG = err.Error()
-		tempCalllogger.Info(call.String(callLogInfo))
+		tempCalllogger.Error(call.String(callLogInfo))
 		return node_group_info_list, err
 	}
 
@@ -217,6 +227,7 @@ func (clusterHandler *AlibabaClusterHandler) ListNodeGroup(clusterIID irs.IID) (
 		node_group_id := node_group.(map[string]interface{})["nodepool_info"].(map[string]interface{})["nodepool_id"].(string)
 		node_group_info, err := getNodeGroupInfo(clusterHandler.CredentialInfo.ClientId, clusterHandler.CredentialInfo.ClientSecret, clusterHandler.RegionInfo.Region, clusterIID.SystemId, node_group_id)
 		if err != nil {
+			err := fmt.Errorf("Failed to Get NodeGroupInfo :  %v", err)
 			cblogger.Error(err)
 			return nil, err
 		}
@@ -235,9 +246,10 @@ func (clusterHandler *AlibabaClusterHandler) GetNodeGroup(clusterIID irs.IID, no
 	callLogInfo.ElapsedTime = call.Elapsed(start)
 	tempCalllogger.Info(call.String(callLogInfo))
 	if err != nil {
+		err := fmt.Errorf("Failed to Get NodeGroupInfo :  %v", err)
 		cblogger.Error(err)
 		callLogInfo.ErrorMSG = err.Error()
-		tempCalllogger.Info(call.String(callLogInfo))
+		tempCalllogger.Error(call.String(callLogInfo))
 		return irs.NodeGroupInfo{}, err
 	}
 
@@ -256,9 +268,10 @@ func (clusterHandler *AlibabaClusterHandler) SetNodeGroupAutoScaling(clusterIID 
 	callLogInfo.ElapsedTime = call.Elapsed(start)
 	tempCalllogger.Info(call.String(callLogInfo))
 	if err != nil {
+		err := fmt.Errorf("Failed to Modify NodeGroup :  %v", err)
 		cblogger.Error(err)
 		callLogInfo.ErrorMSG = err.Error()
-		tempCalllogger.Info(call.String(callLogInfo))
+		tempCalllogger.Error(call.String(callLogInfo))
 		return false, err
 	}
 	cblogger.Info(res)
@@ -278,15 +291,17 @@ func (clusterHandler *AlibabaClusterHandler) ChangeNodeGroupScaling(clusterIID i
 	callLogInfo.ElapsedTime = call.Elapsed(start)
 	tempCalllogger.Info(call.String(callLogInfo))
 	if err != nil {
+		err := fmt.Errorf("Failed to Modify NodeGroup :  %v", err)
 		cblogger.Error(err)
 		callLogInfo.ErrorMSG = err.Error()
-		tempCalllogger.Info(call.String(callLogInfo))
+		tempCalllogger.Error(call.String(callLogInfo))
 		return irs.NodeGroupInfo{}, err
 	}
 	cblogger.Info(res)
 
 	node_group_info, err := getNodeGroupInfo(clusterHandler.CredentialInfo.ClientId, clusterHandler.CredentialInfo.ClientSecret, clusterHandler.RegionInfo.Region, clusterIID.SystemId, nodeGroupIID.SystemId)
 	if err != nil {
+		err := fmt.Errorf("Failed to Get NodeGroupInfo :  %v", err)
 		cblogger.Error(err)
 		return irs.NodeGroupInfo{}, err
 	}
@@ -303,9 +318,10 @@ func (clusterHandler *AlibabaClusterHandler) RemoveNodeGroup(clusterIID irs.IID,
 	callLogInfo.ElapsedTime = call.Elapsed(start)
 	tempCalllogger.Info(call.String(callLogInfo))
 	if err != nil {
+		err := fmt.Errorf("Failed to Delete NodeGroup :  %v", err)
 		cblogger.Error(err)
 		callLogInfo.ErrorMSG = err.Error()
-		tempCalllogger.Info(call.String(callLogInfo))
+		tempCalllogger.Error(call.String(callLogInfo))
 		return false, err
 	}
 	cblogger.Info(res)
@@ -325,15 +341,17 @@ func (clusterHandler *AlibabaClusterHandler) UpgradeCluster(clusterIID irs.IID, 
 	callLogInfo.ElapsedTime = call.Elapsed(start)
 	tempCalllogger.Info(call.String(callLogInfo))
 	if err != nil {
+		err := fmt.Errorf("Failed to Upgrade Cluster :  %v", err)
 		cblogger.Error(err)
 		callLogInfo.ErrorMSG = err.Error()
-		tempCalllogger.Info(call.String(callLogInfo))
+		tempCalllogger.Error(call.String(callLogInfo))
 		return irs.ClusterInfo{}, err
 	}
 	cblogger.Info(res)
 
 	clusterInfo, err := getClusterInfo(clusterHandler.CredentialInfo.ClientId, clusterHandler.CredentialInfo.ClientSecret, clusterHandler.RegionInfo.Region, clusterIID.SystemId)
 	if err != nil {
+		err := fmt.Errorf("Failed to Get ClusterInfo :  %v", err)
 		cblogger.Error(err)
 		return irs.ClusterInfo{}, err
 	}
@@ -341,12 +359,12 @@ func (clusterHandler *AlibabaClusterHandler) UpgradeCluster(clusterIID irs.IID, 
 	return *clusterInfo, nil
 }
 
-func getClusterInfo(access_key string, access_secret string, region_id string, cluster_id string) (*irs.ClusterInfo, error) {
+func getClusterInfo(access_key string, access_secret string, region_id string, cluster_id string) (clusterInfo *irs.ClusterInfo, err error) {
 
-	var err error = nil
 	defer func() {
 		if r := recover(); r != nil {
-			err = fmt.Errorf("getClusterInfo() failed! %v", r)
+			err = fmt.Errorf("Failed to Process getClusterInfo() %v", r)
+			cblogger.Error(err)
 		}
 	}()
 
@@ -371,8 +389,8 @@ func getClusterInfo(access_key string, access_secret string, region_id string, c
 	// Deletion Failed	Failed to delete the cluster.
 	// Deleted (invisible to users)	The cluster is deleted."
 	health_status := cluster_json_obj["state"].(string)
-	cluster_status := irs.ClusterActive
-	if strings.EqualFold(health_status, "Initializing") {
+	cluster_status := irs.ClusterInactive
+	if strings.EqualFold(health_status, "Initializing") || strings.EqualFold(health_status, "initial") {
 		cluster_status = irs.ClusterCreating
 	} else if strings.EqualFold(health_status, "Updating") {
 		cluster_status = irs.ClusterUpdating
@@ -387,10 +405,12 @@ func getClusterInfo(access_key string, access_secret string, region_id string, c
 	created_at := cluster_json_obj["created"].(string) // 2022-09-08T09:02:16+08:00,
 	datetime, err := time.Parse(time.RFC3339, created_at)
 	if err != nil {
+		err := fmt.Errorf("Failed to Parse Created Time :  %v", err)
+		cblogger.Error(err)
 		panic(err)
 	}
 
-	cluster_info := &irs.ClusterInfo{
+	clusterInfo = &irs.ClusterInfo{
 		IId: irs.IID{
 			NameId:   cluster_json_obj["name"].(string),
 			SystemId: cluster_json_obj["cluster_id"].(string),
@@ -416,16 +436,20 @@ func getClusterInfo(access_key string, access_secret string, region_id string, c
 	// k,v 추출 & 추가
 	flat, err := flatten.Flatten(cluster_json_obj, "", flatten.DotStyle)
 	if err != nil {
+		err := fmt.Errorf("Failed to Flatten ClusterInfo :  %v", err)
+		cblogger.Error(err)
 		return nil, err
 	}
 	for k, v := range flat {
 		temp := fmt.Sprintf("%v", v)
-		cluster_info.KeyValueList = append(cluster_info.KeyValueList, irs.KeyValue{Key: k, Value: temp})
+		clusterInfo.KeyValueList = append(clusterInfo.KeyValueList, irs.KeyValue{Key: k, Value: temp})
 	}
 
 	// NodeGroups
 	node_groups_json_str, err := alibaba.ListNodeGroup(access_key, access_secret, region_id, cluster_id)
 	if err != nil {
+		err := fmt.Errorf("Failed to List NodeGroup :  %v", err)
+		cblogger.Error(err)
 		return nil, err
 	}
 
@@ -436,25 +460,29 @@ func getClusterInfo(access_key string, access_secret string, region_id string, c
 		node_group_id := node_group.(map[string]interface{})["nodepool_info"].(map[string]interface{})["nodepool_id"].(string)
 		node_group_info, err := getNodeGroupInfo(access_key, access_secret, region_id, cluster_id, node_group_id)
 		if err != nil {
+			err := fmt.Errorf("Failed to Get NodeGroupInfo :  %v", err)
+			cblogger.Error(err)
 			return nil, err
 		}
-		cluster_info.NodeGroupList = append(cluster_info.NodeGroupList, *node_group_info)
+		clusterInfo.NodeGroupList = append(clusterInfo.NodeGroupList, *node_group_info)
 	}
 
-	return cluster_info, err
+	return clusterInfo, err
 }
 
-func getNodeGroupInfo(access_key, access_secret, region_id, cluster_id, node_group_id string) (*irs.NodeGroupInfo, error) {
+func getNodeGroupInfo(access_key, access_secret, region_id, cluster_id, node_group_id string) (nodeGroupInfo *irs.NodeGroupInfo, err error) {
 
-	var err error = nil
 	defer func() {
 		if r := recover(); r != nil {
-			err = fmt.Errorf("getNodeGroupInfo() failed! %v", r)
+			err = fmt.Errorf("Failed to Process getNodeGroupInfo() %v", r)
+			cblogger.Error(err)
 		}
 	}()
 
 	node_group_json_str, err := alibaba.GetNodeGroup(access_key, access_secret, region_id, cluster_id, node_group_id)
 	if err != nil {
+		err := fmt.Errorf("Failed to Get NodeGroup :  %v", err)
+		cblogger.Error(err)
 		return nil, err
 	}
 
@@ -482,7 +510,7 @@ func getNodeGroupInfo(access_key, access_secret, region_id, cluster_id, node_gro
 		status = irs.NodeGroupUpdating
 	}
 
-	node_group_info := irs.NodeGroupInfo{
+	nodeGroupInfo = &irs.NodeGroupInfo{
 		IId: irs.IID{
 			NameId:   node_group_json_obj["nodepool_info"].(map[string]interface{})["name"].(string),
 			SystemId: node_group_json_obj["nodepool_info"].(map[string]interface{})["nodepool_id"].(string),
@@ -503,29 +531,31 @@ func getNodeGroupInfo(access_key, access_secret, region_id, cluster_id, node_gro
 		MinNodeSize:     int(node_group_json_obj["auto_scaling"].(map[string]interface{})["min_instances"].(float64)),
 		MaxNodeSize:     int(node_group_json_obj["auto_scaling"].(map[string]interface{})["max_instances"].(float64)),
 		DesiredNodeSize: 0, // not supported in alibaba
-		NodeList:        []irs.IID{},
+		Nodes:           []irs.IID{},
 		KeyValueList:    []irs.KeyValue{},
 	}
 
 	// k,v 추출 & 추가
 	flat, err := flatten.Flatten(node_group_json_obj, "", flatten.DotStyle)
 	if err != nil {
+		err := fmt.Errorf("Failed to Flatten NodeGroup :  %v", err)
+		cblogger.Error(err)
 		return nil, err
 	}
 	for k, v := range flat {
 		temp := fmt.Sprintf("%v", v)
-		node_group_info.KeyValueList = append(node_group_info.KeyValueList, irs.KeyValue{Key: k, Value: temp})
+		nodeGroupInfo.KeyValueList = append(nodeGroupInfo.KeyValueList, irs.KeyValue{Key: k, Value: temp})
 	}
 
-	return &node_group_info, err
+	return nodeGroupInfo, err
 }
 
-func getClusterInfoJSON(clusterHandler *AlibabaClusterHandler, clusterInfo irs.ClusterInfo) (string, error) {
+func getClusterInfoJSON(clusterHandler *AlibabaClusterHandler, clusterInfo irs.ClusterInfo) (clusterInfoJSON string, err error) {
 
-	var err error = nil
 	defer func() {
 		if r := recover(); r != nil {
-			err = fmt.Errorf("getClusterInfoJSON() failed! %v", r)
+			err = fmt.Errorf("Failed to Process getClusterInfoJSON() %v", r)
+			cblogger.Error(err)
 		}
 	}()
 
@@ -533,6 +563,8 @@ func getClusterInfoJSON(clusterHandler *AlibabaClusterHandler, clusterInfo irs.C
 	master_vswitch_id := ""
 	res, err := alibaba.DescribeVSwitches(clusterHandler.CredentialInfo.ClientId, clusterHandler.CredentialInfo.ClientSecret, clusterHandler.RegionInfo.Region, clusterInfo.Network.VpcIID.SystemId)
 	if err != nil {
+		err := fmt.Errorf("Failed to Describe VSwitches :  %v", err)
+		cblogger.Error(err)
 		return "", err
 	}
 	for _, v := range res.VSwitches.VSwitch {
@@ -548,6 +580,8 @@ func getClusterInfoJSON(clusterHandler *AlibabaClusterHandler, clusterInfo irs.C
 	}
 	clusters, err := clusterHandler.ListCluster()
 	if err != nil {
+		err := fmt.Errorf("Failed to List Cluster :  %v", err)
+		cblogger.Error(err)
 		return "", err
 	}
 	for _, cluster := range clusters {
@@ -567,7 +601,7 @@ func getClusterInfoJSON(clusterHandler *AlibabaClusterHandler, clusterInfo irs.C
 		"name": "%s",
 		"region_id": "%s",
 		"cluster_type": "ManagedKubernetes",
-		"kubernetes_version": "1.22.10-aliyun.1",
+		"kubernetes_version": "%s",
 		"vpcid": "%s",
 		"container_cidr": "%s",
 		"service_cidr": "%s",
@@ -575,17 +609,17 @@ func getClusterInfoJSON(clusterHandler *AlibabaClusterHandler, clusterInfo irs.C
 		"master_vswitch_ids": ["%s"]
 	}`
 
-	clusterInfoJSON := fmt.Sprintf(temp, clusterInfo.IId.NameId, clusterHandler.RegionInfo.Region, clusterInfo.Network.VpcIID.SystemId, cidr_list[0], cidr_list[1], master_vswitch_id)
+	clusterInfoJSON = fmt.Sprintf(temp, clusterInfo.IId.NameId, clusterHandler.RegionInfo.Region, clusterInfo.Version, clusterInfo.Network.VpcIID.SystemId, cidr_list[0], cidr_list[1], master_vswitch_id)
 
 	return clusterInfoJSON, err
 }
 
-func getNodeGroupJSONString(clusterHandler *AlibabaClusterHandler, clusterIID irs.IID, nodeGroupReqInfo irs.NodeGroupInfo) (string, error) {
+func getNodeGroupJSONString(clusterHandler *AlibabaClusterHandler, clusterIID irs.IID, nodeGroupReqInfo irs.NodeGroupInfo) (payload string, err error) {
 
-	var err error = nil
 	defer func() {
 		if r := recover(); r != nil {
-			err = fmt.Errorf("getNodeGroupJSONString() failed! %v", r)
+			err = fmt.Errorf("Failed to Process getNodeGroupJSONString %v", r)
+			cblogger.Error(err)
 		}
 	}()
 
@@ -603,11 +637,15 @@ func getNodeGroupJSONString(clusterHandler *AlibabaClusterHandler, clusterIID ir
 	// get vswitch_id
 	clusterInfo, err := clusterHandler.GetCluster(clusterIID)
 	if err != nil {
+		err := fmt.Errorf("Failed to Get Cluster :  %v", err)
+		cblogger.Error(err)
 		return "", err
 	}
 	vswitch_id := "" // get vswitch_id, get from cluster info
 	res, err := alibaba.DescribeVSwitches(clusterHandler.CredentialInfo.ClientId, clusterHandler.CredentialInfo.ClientSecret, clusterHandler.RegionInfo.Region, clusterInfo.Network.VpcIID.SystemId)
 	if err != nil {
+		err := fmt.Errorf("Failed to Describe VSwitches :  %v", err)
+		cblogger.Error(err)
 		return "", err
 	}
 	for _, v := range res.VSwitches.VSwitch {
@@ -636,7 +674,7 @@ func getNodeGroupJSONString(clusterHandler *AlibabaClusterHandler, clusterIID ir
 		}
 	}`
 
-	payload := fmt.Sprintf(temp, name, enable, max_instances, min_instances, instance_type, key_pair, system_disk_category, system_disk_size, vswitch_id)
+	payload = fmt.Sprintf(temp, name, enable, max_instances, min_instances, instance_type, key_pair, system_disk_category, system_disk_size, vswitch_id)
 
 	return payload, err
 }
@@ -649,19 +687,5 @@ func getCallLogScheme(region string, resourceType call.RES_TYPE, resourceName st
 		ResourceType: resourceType,
 		ResourceName: resourceName,
 		CloudOSAPI:   apiName,
-	}
-}
-
-func printFlattenJSON(json_obj interface{}) {
-	temp, err := json.MarshalIndent(json_obj, "", "  ")
-	if err != nil {
-		println(err)
-	} else {
-		flat, err := flatten.FlattenString(string(temp), "", flatten.DotStyle)
-		if err != nil {
-			println(err)
-		} else {
-			println(flat)
-		}
 	}
 }

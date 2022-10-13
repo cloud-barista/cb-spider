@@ -46,6 +46,8 @@ type AwsCloudConnection struct {
 
 	DiskClient    *ec2.EC2
 	MyImageClient *ec2.EC2
+
+	AnyCallClient *ec2.EC2
 }
 
 var cblogger *logrus.Logger
@@ -135,4 +137,8 @@ func (cloudConn *AwsCloudConnection) CreateClusterHandler() (irs.ClusterHandler,
         return nil, errors.New("AWS Driver: not implemented")
 }
 
+func (cloudConn *AwsCloudConnection) CreateAnyCallHandler() (irs.AnyCallHandler, error) {
+	handler := ars.AwsAnyCallHandler{cloudConn.Region, cloudConn.CredentialInfo, cloudConn.AnyCallClient}
+        return &handler, nil
+}
 

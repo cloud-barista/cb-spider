@@ -108,8 +108,6 @@ func (myImageHandler *ClouditMyImageHandler) GetMyImage(myImageIID irs.IID) (irs
 
 	if myImageIID.NameId == "" && myImageIID.SystemId == "" {
 		return irs.MyImageInfo{}, errors.New(fmt.Sprintf("Failed to Get MyImage. err = MyImage Name ID or System ID is required"))
-	} else if myImageIID.NameId != "" && myImageIID.SystemId != "" {
-		return irs.MyImageInfo{}, errors.New(fmt.Sprintf("Failed to Get MyImage. err = Ambigous image ID, %s", myImageIID))
 	}
 
 	start := call.Start()
@@ -119,9 +117,9 @@ func (myImageHandler *ClouditMyImageHandler) GetMyImage(myImageIID irs.IID) (irs
 	}
 
 	for _, myImage := range myImageList {
-		if myImage.IId.NameId == myImageIID.NameId {
+		if myImage.IId.SystemId == myImageIID.SystemId {
 			return *myImage, nil
-		} else if myImage.IId.SystemId == myImageIID.SystemId {
+		} else if myImage.IId.NameId == myImageIID.NameId {
 			return *myImage, nil
 		}
 	}
@@ -135,8 +133,6 @@ func (myImageHandler *ClouditMyImageHandler) DeleteMyImage(myImageIID irs.IID) (
 
 	if myImageIID.NameId == "" && myImageIID.SystemId == "" {
 		return false, errors.New(fmt.Sprintf("Failed to Delete MyImage. err = MyImage Name ID or System ID is required"))
-	} else if myImageIID.NameId != "" && myImageIID.SystemId != "" {
-		return false, errors.New(fmt.Sprintf("Failed to Delete MyImage. err = Ambigous image ID, %s", myImageIID))
 	}
 
 	start := call.Start()

@@ -13,6 +13,7 @@ package resources
 import (
 	"errors"
 	"fmt"
+	"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/cloudit/client/ace/disk"
 	"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/cloudit/client/ace/snapshot"
 	"strconv"
 	"strings"
@@ -165,6 +166,44 @@ func (vmHandler *ClouditVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (startVM irs
 	vmHandler.Client.TokenID = vmHandler.CredentialInfo.AuthToken
 	authHeader := vmHandler.Client.AuthenticatedHeaders()
 	KeyPairDes := fmt.Sprintf("keypair:%s", vmReqInfo.KeyPairIID.NameId)
+
+	clusterNameId := vmHandler.CredentialInfo.ClusterId
+	clusterSystemId := ""
+	if clusterNameId == "" {
+		return irs.VMInfo{}, errors.New("Failed to Create Disk. err = ClusterId is required.")
+	} else if clusterNameId == "default" {
+		return irs.VMInfo{}, errors.New("Failed to Create Disk. err = Cloudit does not supports \"default\" cluster.")
+	}
+
+	requestURL := vmHandler.Client.CreateRequestBaseURL(client.ACE, "clusters")
+	cblogger.Info(requestURL)
+
+	var result client.Result
+	if _, result.Err = vmHandler.Client.Get(requestURL, &result.Body, &client.RequestOpts{
+		MoreHeaders: authHeader,
+	}); result.Err != nil {
+		createErr := errors.New(fmt.Sprintf("Failed to Create Disk. err = %s", err.Error()))
+		cblogger.Error(createErr.Error())
+		LoggingError(hiscallInfo, createErr)
+		return irs.VMInfo{}, createErr
+	}
+
+	var clusterList []struct {
+		Id   string
+		Name string
+	}
+	if err := result.ExtractInto(&clusterList); err != nil {
+		createErr := errors.New(fmt.Sprintf("Failed to Create Disk. err = %s", err.Error()))
+		cblogger.Error(createErr.Error())
+		LoggingError(hiscallInfo, createErr)
+		return irs.VMInfo{}, createErr
+	}
+	for _, cluster := range clusterList {
+		if cluster.Name == clusterNameId {
+			clusterSystemId = cluster.Id
+		}
+	}
+
 	var reqInfo server.VMReqInfo
 	if vmReqInfo.ImageType == irs.MyImage {
 		snapshotReqOpts := client.RequestOpts{
@@ -185,6 +224,7 @@ func (vmHandler *ClouditVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (startVM irs
 			SubnetAddr:   subnet.Addr,
 			Secgroups:    addUserSSHSG,
 			Description:  KeyPairDes,
+			ClusterId:    clusterSystemId,
 		}
 	} else {
 		reqInfo = server.VMReqInfo{
@@ -196,6 +236,7 @@ func (vmHandler *ClouditVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (startVM irs
 			SubnetAddr:   subnet.Addr,
 			Secgroups:    addUserSSHSG,
 			Description:  KeyPairDes,
+			ClusterId:    clusterSystemId,
 		}
 	}
 
@@ -424,6 +465,26 @@ func (vmHandler *ClouditVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (startVM irs
 
 		for _, vmVolume := range *vmVolumeList {
 			attachedVolumeList = append(attachedVolumeList, irs.IID{SystemId: vmVolume.ID, NameId: vmVolume.Name})
+		}
+	}
+
+	diskHandler := ClouditDiskHandler{
+		CredentialInfo: vmHandler.CredentialInfo,
+		Client:         vmHandler.Client,
+	}
+	for _, dataDisk := range vmReqInfo.DataDiskIIDs {
+		rawDisk, getDiskErr := diskHandler.getRawDisk(dataDisk)
+		if getDiskErr != nil {
+			createErr = errors.New(fmt.Sprintf("Failed to Create VM. err = %s", err.Error()))
+			cblogger.Error(createErr.Error())
+			LoggingError(hiscallInfo, createErr)
+			return irs.VMInfo{}, createErr
+		}
+		if attachDiskErr := diskHandler.attachDisk(irs.IID{SystemId: rawDisk.ID}, irs.IID{SystemId: vm.ID}); attachDiskErr != nil {
+			createErr = errors.New(fmt.Sprintf("Failed to Create VM. err = %s", err.Error()))
+			cblogger.Error(createErr.Error())
+			LoggingError(hiscallInfo, createErr)
+			return irs.VMInfo{}, createErr
 		}
 	}
 
@@ -985,6 +1046,19 @@ func (vmHandler *ClouditVMHandler) mappingServerInfo(server server.ServerInfo) (
 		}
 		vmInfo.SecurityGroupIIds = segGroupList
 	}
+
+	// Get Attached Disk Info
+	vmDataVolumeList, getVmDataVolumeErr := vmHandler.getAttachedDiskList(vmInfo.IId)
+	if getVmDataVolumeErr != nil {
+		return irs.VMInfo{}, errors.New(fmt.Sprintf("Failed Get Attached Disk err= %s", err.Error()))
+	}
+
+	var dataDiskIIDs []irs.IID
+	for _, vmDataVolume := range *vmDataVolumeList {
+		dataDiskIIDs = append(dataDiskIIDs, irs.IID{NameId: vmDataVolume.Name, SystemId: vmDataVolume.ID})
+	}
+	vmInfo.DataDiskIIDs = dataDiskIIDs
+
 	return vmInfo, nil
 }
 
@@ -1032,6 +1106,33 @@ func (vmHandler *ClouditVMHandler) getRawVm(vmIID irs.IID) (*server.ServerInfo, 
 		return server.Get(vmHandler.Client, vmIID.SystemId, &requestOpts)
 	}
 	return nil, errors.New("not found vm")
+}
+
+func (vmHandler *ClouditVMHandler) getAttachedDiskList(vmIID irs.IID) (*[]disk.DiskInfo, error) {
+	vm, getVmError := vmHandler.getRawVm(vmIID)
+	if getVmError != nil {
+		return nil, errors.New(fmt.Sprintf("Failed to Get Attached Disk List err = %s", getVmError))
+	}
+
+	vmHandler.Client.TokenID = vmHandler.CredentialInfo.AuthToken
+	authHeader := vmHandler.Client.AuthenticatedHeaders()
+	requestOpts := client.RequestOpts{
+		MoreHeaders: authHeader,
+	}
+
+	vmVolumeList, getVmVolumeListErr := server.GetRawVmVolumes(vmHandler.Client, vm.ID, &requestOpts)
+	if getVmVolumeListErr != nil {
+		return nil, errors.New(fmt.Sprintf("Failed to Get Attached Disk List err = %s", getVmVolumeListErr))
+	}
+
+	var vmDataVolumeList []disk.DiskInfo
+	for _, vmVolume := range *vmVolumeList {
+		if vmVolume.Dev != "vda" {
+			vmDataVolumeList = append(vmDataVolumeList, vmVolume)
+		}
+	}
+
+	return &vmDataVolumeList, nil
 }
 
 func getVmStatus(vmStatus string) irs.VMStatus {

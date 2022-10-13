@@ -45,6 +45,12 @@ func getClusterHandler() (irs.ClusterHandler, error) {
 	return clusterHandler, nil
 }
 
+// K8S 버전 변경
+// 기존에 정상적으로 생되던 K8S 버전이 지금은 지원안됨
+// K8S 버전을 지원되는 버전으로 변경
+//
+//	"message":"The specified KubernetesVersion 1.22.10-aliyun.1 is invalid,
+//	allowd values are [1.24.6-aliyun.1 1.22.15-aliyun.1]
 func TestCreateClusterOnly(t *testing.T) {
 
 	t.Log("클러스터 생성, 노드그룹은 생성안함")
@@ -59,7 +65,7 @@ func TestCreateClusterOnly(t *testing.T) {
 			NameId:   "cluster-1",
 			SystemId: "",
 		},
-		Version: "1.22.10-aliyun.1",
+		Version: "1.22.15-aliyun.1",
 		Network: irs.NetworkInfo{
 			VpcIID: irs.IID{NameId: "", SystemId: "vpc-2zek5slojo5bh621ftnrg"},
 		},
@@ -87,10 +93,10 @@ func TestCreateClusterWith1NodeGroup(t *testing.T) {
 			NameId:   "cluster-x",
 			SystemId: "",
 		},
-		Version: "1.22.10-aliyun.1",
+		Version: "1.22.15-aliyun.1",
 		Network: irs.NetworkInfo{
 			VpcIID:            irs.IID{NameId: "", SystemId: "vpc-2zek5slojo5bh621ftnrg"},
-			SubnetIID:         []irs.IID{},
+			SubnetIIDs:        []irs.IID{},
 			SecurityGroupIIDs: []irs.IID{},
 			KeyValueList:      []irs.KeyValue{},
 		},
@@ -130,10 +136,6 @@ func TestListCluster(t *testing.T) {
 		t.Error(err)
 	}
 
-	if len(clusters) == 0 {
-		t.Error("No cluster found")
-	}
-
 	for _, cluster := range clusters {
 		t.Log(cluster.IId.SystemId)
 		println(cluster.IId.NameId, cluster.Status)
@@ -150,10 +152,6 @@ func TestGetCluster(t *testing.T) {
 	clusters, err := clusterHandler.ListCluster()
 	if err != nil {
 		t.Error(err)
-	}
-
-	if len(clusters) == 0 {
-		t.Error("No cluster found")
 	}
 
 	t.Log(clusters)
@@ -322,7 +320,6 @@ func TestUpgradeCluster(t *testing.T) {
 	clusters, _ := clusterHandler.ListCluster()
 	for _, cluster := range clusters {
 		res, err := clusterHandler.UpgradeCluster(cluster.IId, "1.22.3-aliyun.1")
-		// res, err := clusterHandler.UpgradeCluster(cluster.IId, "1.22.3-aliyun.x")
 		if err != nil {
 			t.Error(err)
 		}

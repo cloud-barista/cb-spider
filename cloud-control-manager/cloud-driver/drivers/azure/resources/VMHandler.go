@@ -34,7 +34,7 @@ const (
 	VM                           = "VM"
 	PremiumSSD                   = "PremiumSSD"
 	StandardSSD                  = "StandardSSD"
-	StandardHHD                  = "StandardHHD"
+	StandardHDD                  = "StandardHDD"
 )
 
 type AzureVMHandler struct {
@@ -47,6 +47,7 @@ type AzureVMHandler struct {
 	PublicIPClient *network.PublicIPAddressesClient
 	DiskClient     *compute.DisksClient
 	SshKeyClient   *compute.SSHPublicKeysClient
+	ImageClient    *compute.ImagesClient
 }
 
 func (vmHandler *AzureVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, error) {
@@ -59,7 +60,8 @@ func (vmHandler *AzureVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 		LoggingError(hiscallInfo, createErr)
 		return irs.VMInfo{}, createErr
 	}
-	// 1. Check Exist
+	// 1. pre Check
+	// 1-1. Exist VM
 	vmExist, err := CheckExistVM(vmReqInfo.IId, vmHandler.Region.ResourceGroup, vmHandler.Client, vmHandler.Ctx)
 	if err != nil {
 		createErr := errors.New(fmt.Sprintf("Failed to Create VM. err = %s", err))
@@ -73,6 +75,72 @@ func (vmHandler *AzureVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 		LoggingError(hiscallInfo, createErr)
 		return irs.VMInfo{}, createErr
 	}
+	// 1-2. Check VMImageIID Image format, Exist Image
+	vmImage := vmReqInfo.ImageIID.SystemId
+	if vmImage == "" {
+		vmImage = vmReqInfo.ImageIID.NameId
+	}
+	if vmReqInfo.ImageType == "" || vmReqInfo.ImageType == irs.PublicImage {
+		//PublicImage
+		if strings.Contains(vmImage, ":") {
+			imageArr := strings.Split(vmImage, ":")
+			if len(imageArr) < 4 {
+				createErr := errors.New(fmt.Sprintf("Failed to Create VM. err = Invalid Public Image IID"))
+				cblogger.Error(createErr.Error())
+				LoggingError(hiscallInfo, createErr)
+				return irs.VMInfo{}, createErr
+			}
+		} else {
+			createErr := errors.New(fmt.Sprintf("Failed to Create VM. err = Invalid Public Image IID"))
+			cblogger.Error(createErr.Error())
+			LoggingError(hiscallInfo, createErr)
+			return irs.VMInfo{}, createErr
+		}
+	} else {
+		convertMyImageIId, err := ConvertMyImageIID(vmReqInfo.ImageIID, vmHandler.CredentialInfo, vmHandler.Region)
+		if err != nil {
+			createErr := errors.New(fmt.Sprintf("Failed to Start VM. err = %s", err.Error()))
+			cblogger.Error(createErr.Error())
+			LoggingError(hiscallInfo, createErr)
+			return irs.VMInfo{}, createErr
+		}
+		_, err = vmHandler.ImageClient.Get(vmHandler.Ctx, vmHandler.Region.ResourceGroup, convertMyImageIId.NameId, "")
+		if err != nil {
+			createErr := errors.New(fmt.Sprintf("Failed to Start VM. err = %s", err.Error()))
+			cblogger.Error(createErr.Error())
+			LoggingError(hiscallInfo, createErr)
+			return irs.VMInfo{}, createErr
+		}
+	}
+	rawDataDiskList := make([]compute.Disk, len(vmReqInfo.DataDiskIIDs))
+	// 1-3. Check DataDisk, Check DataDisk Status
+	if len(vmReqInfo.DataDiskIIDs) > 0 {
+		for i, dataDiskIID := range vmReqInfo.DataDiskIIDs {
+			convertedDiskIId, err := ConvertDiskIID(dataDiskIID, vmHandler.CredentialInfo, vmHandler.Region)
+			if err != nil {
+				createErr := errors.New(fmt.Sprintf("Failed to Start VM. Failed to get DataDisk err = %s", err.Error()))
+				cblogger.Error(createErr.Error())
+				LoggingError(hiscallInfo, createErr)
+				return irs.VMInfo{}, createErr
+			}
+			disk, err := GetRawDisk(convertedDiskIId, vmHandler.Region.ResourceGroup, vmHandler.DiskClient, vmHandler.Ctx)
+			if err != nil {
+				createErr := errors.New(fmt.Sprintf("Failed to Start VM. Failed to get DataDisk err = %s", err.Error()))
+				cblogger.Error(createErr.Error())
+				LoggingError(hiscallInfo, createErr)
+				return irs.VMInfo{}, createErr
+			}
+			err = CheckAttachStatus(disk)
+			if err != nil {
+				createErr := errors.New(fmt.Sprintf("Failed to Start VM. Failed to check DataDisk Status err = %s", err.Error()))
+				cblogger.Error(createErr.Error())
+				LoggingError(hiscallInfo, createErr)
+				return irs.VMInfo{}, createErr
+			}
+			rawDataDiskList[i] = disk
+		}
+	}
+
 	cleanVMClientSet := CleanVMClientSet{
 		VPCName:    vmReqInfo.VpcIID.NameId,
 		SubnetName: vmReqInfo.SubnetIID.NameId,
@@ -138,16 +206,14 @@ func (vmHandler *AzureVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 		},
 	}
 	// 3-2. Set VmReqInfo - vmImage & storageType
-	vmImage := vmReqInfo.ImageIID.SystemId
-	if vmImage == "" {
-		vmImage = vmReqInfo.ImageIID.NameId
-	}
 
 	var managedDisk = new(compute.ManagedDiskParameters)
 	if vmReqInfo.RootDiskType != "" && strings.ToLower(vmReqInfo.RootDiskType) != "default" {
 		storageType := GetVMDiskTypeInitType(vmReqInfo.RootDiskType)
 		managedDisk.StorageAccountType = storageType
 	}
+	// snapshotPoint Start
+
 	//storageType := getVMDiskTypeInitType(vmReqInfo.RootDiskType)
 	vmOpts.StorageProfile = &compute.StorageProfile{
 		OsDisk: &compute.OSDisk{
@@ -159,7 +225,9 @@ func (vmHandler *AzureVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 			DeleteOption: compute.DiskDeleteOptionTypesDelete,
 		},
 	}
-	if strings.Contains(vmImage, ":") {
+
+	if vmReqInfo.ImageType == "" || vmReqInfo.ImageType == irs.PublicImage {
+		//PublicImage
 		imageArr := strings.Split(vmImage, ":")
 		// URN 기반 퍼블릭 이미지 설정
 		vmOpts.StorageProfile.ImageReference = &compute.ImageReference{
@@ -169,12 +237,35 @@ func (vmHandler *AzureVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 			Version:   to.StringPtr(imageArr[3]),
 		}
 	} else {
-		// 사용자 프라이빗 이미지 설정
+		//MyImage
+		convertMyImageIId, convertedErr := ConvertMyImageIID(vmReqInfo.ImageIID, vmHandler.CredentialInfo, vmHandler.Region)
+		if convertedErr != nil {
+			createErr := errors.New(fmt.Sprintf("Failed to Start VM. err = %s, and Finished to rollback deleting", err.Error()))
+			cleanResource := CleanVMClientRequestResource{
+				publicIPIId.NameId, vNicIId.NameId, "",
+			}
+			clean, deperr := vmHandler.cleanVMRelatedResource(VMCleanRelatedResource{
+				RequiredSet:         cleanVMClientSet,
+				CleanTargetResource: cleanResource,
+			})
+			if deperr != nil {
+				createErr = errors.New(fmt.Sprintf("Failed to Start VM. err = %s, and Failed to rollback err = %s", err.Error(), deperr.Error()))
+				cblogger.Error(createErr.Error())
+				LoggingError(hiscallInfo, createErr)
+				return irs.VMInfo{}, createErr
+			}
+			if !clean {
+				createErr = errors.New(fmt.Sprintf("Failed to Start VM. err = %s, and Failed to rollback deleting", err.Error()))
+			}
+			cblogger.Error(createErr.Error())
+			LoggingError(hiscallInfo, createErr)
+			return irs.VMInfo{}, createErr
+		}
 		vmOpts.StorageProfile.ImageReference = &compute.ImageReference{
-			ID: to.StringPtr(vmImage),
+			ID: to.StringPtr(convertMyImageIId.SystemId),
 		}
 	}
-
+	// snapshotPoint Start
 	// 3-2. Set VmReqInfo - KeyPair & tagging
 	if vmReqInfo.KeyPairIID.NameId != "" {
 		key, keyErr := GetRawKey(vmReqInfo.KeyPairIID, vmHandler.Region.ResourceGroup, vmHandler.SshKeyClient, vmHandler.Ctx)
@@ -297,16 +388,7 @@ func (vmHandler *AzureVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 		// Get powerState, provisioningState
 		vmStatus := getVmStatus(instanceView)
 		if vmStatus == irs.Running {
-			vm, err := vmHandler.Client.Get(vmHandler.Ctx, vmHandler.Region.ResourceGroup, vmReqInfo.IId.NameId, compute.InstanceViewTypesInstanceView)
-			if err != nil {
-				createErr := errors.New(fmt.Sprintf("Failed to Start VM. err = %s, and Failed to rollback deleting", err.Error()))
-				cblogger.Error(createErr.Error())
-				LoggingError(hiscallInfo, createErr)
-				return irs.VMInfo{}, createErr
-			}
-			vmInfo := vmHandler.mappingServerInfo(vm)
-			LoggingInfo(hiscallInfo, start)
-			return vmInfo, nil
+			break
 		}
 		curRetryCnt++
 		time.Sleep(1 * time.Second)
@@ -320,6 +402,38 @@ func (vmHandler *AzureVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 			LoggingError(hiscallInfo, createErr)
 			return irs.VMInfo{}, createErr
 		}
+	}
+	// 6. If DataDisk Exist
+	if len(vmReqInfo.DataDiskIIDs) > 0 {
+		vm, err := AttachList(vmReqInfo.DataDiskIIDs, vmReqInfo.IId, vmHandler.CredentialInfo, vmHandler.Region, vmHandler.Ctx, vmHandler.Client, vmHandler.DiskClient)
+		if err != nil {
+			createErr := errors.New(fmt.Sprintf("Failed to Start VM. err = %s, and Finished to rollback deleting", err.Error()))
+			cleanErr := vmHandler.cleanDeleteVm(vmReqInfo.IId)
+			if cleanErr != nil {
+				createErr = errors.New(fmt.Sprintf("Failed to Start VM. err = %s, and Failed to rollback err = %s", err.Error(), cleanErr.Error()))
+			}
+			cblogger.Error(createErr.Error())
+			LoggingError(hiscallInfo, createErr)
+			return irs.VMInfo{}, createErr
+		}
+		vmInfo := vmHandler.mappingServerInfo(vm)
+		LoggingInfo(hiscallInfo, start)
+		return vmInfo, nil
+	} else {
+		vm, err := vmHandler.Client.Get(vmHandler.Ctx, vmHandler.Region.ResourceGroup, vmReqInfo.IId.NameId, compute.InstanceViewTypesInstanceView)
+		if err != nil {
+			createErr := errors.New(fmt.Sprintf("Failed to Start VM. err = %s, and Failed to rollback deleting", err.Error()))
+			cleanErr := vmHandler.cleanDeleteVm(vmReqInfo.IId)
+			if cleanErr != nil {
+				createErr = errors.New(fmt.Sprintf("Failed to Start VM. err = %s, and Failed to rollback err = %s", err.Error(), cleanErr.Error()))
+			}
+			cblogger.Error(createErr.Error())
+			LoggingError(hiscallInfo, createErr)
+			return irs.VMInfo{}, createErr
+		}
+		vmInfo := vmHandler.mappingServerInfo(vm)
+		LoggingInfo(hiscallInfo, start)
+		return vmInfo, nil
 	}
 }
 

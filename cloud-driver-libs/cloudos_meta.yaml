@@ -21,9 +21,10 @@ AZURE:
   region: location / ResourceGroup
   credential: ClientId / ClientSecret / TenantId / SubscriptionId
   # type issues: https://github.com/cloud-barista/cb-spider/pull/529#issue-1051678985
-  rootdisktype: PremiumSSD / StandardSSD / StandardHHD
-  # idmaxlength: VPC / Subnet / SecurityGroup / KeyPair / VM
-  idmaxlength: 64 / 80 / 64 / 80 / 64
+  rootdisktype: PremiumSSD / StandardSSD / StandardHDD
+  disktype: PremiumSSD / StandardSSD / StandardHDD
+  # idmaxlength: VPC / Subnet / SecurityGroup / KeyPair / VM / Disk / NLB / MyImage / Cluster
+  idmaxlength: 64 / 80 / 64 / 80 / 64 / 80 / 80 / 80 / 63
 
 GCP:
   region: Region / Zone
@@ -46,7 +47,6 @@ ALIBABA:
   disksize: cloud|5|2000|GB / cloud_efficiency|20|32768|GB / cloud_ssd|20|32768|GB / cloud_essd_PL0|40|32768|GB / cloud_essd_PL1|20|32768|GB / cloud_essd_PL2|461|32768|GB / cloud_essd_PL3|1261|32768|GB
   # idmaxlength: VPC / Subnet / SecurityGroup / KeyPair / VM / Disk / NLB / MyImage / Cluster
   idmaxlength: 128 / 128 / 128 / 128 / 128 / 128 / 80 / 128 / 63
-  
 
 TENCENT:
   region: Region / Zone
@@ -62,28 +62,28 @@ TENCENT:
 IBM:
   region: Region / Zone
   credential: ApiKey
-  # idmaxlength: VPC / Subnet / SecurityGroup / KeyPair / VM
-  idmaxlength: 63 / 63 / 63 / 63 / 63
+  #idmaxlength: VPC / Subnet / SecurityGroup / KeyPair / VM / Disk / NLB / MyImage / Cluster
+  idmaxlength: 63 / 63 / 63 / 63 / 63 / 63 / 63 / 63 / 63
 
 OPENSTACK:
   region: Region
   credential: IdentityEndpoint / Username / Password / DomainName / ProjectID
-  # idmaxlength: VPC / Subnet / SecurityGroup / KeyPair / VM
-  idmaxlength: 255 / 255 / 255 / 255 / 255
+  # idmaxlength: VPC / Subnet / SecurityGroup / KeyPair / VM / Disk / NLB / MyImage
+  idmaxlength: 255 / 255 / 255 / 255 / 255 / 255 / 255 / 255
 
 CLOUDIT:
   region: Region
-  credential: IdentityEndpoint / AuthToken / Username / Password / TenantId
-  # idmaxlength: VPC / Subnet / SecurityGroup / KeyPair / VM
-  idmaxlength: 0 / 45 / 45 / 0 / 45
+  credential: IdentityEndpoint / AuthToken / Username / Password / TenantId / ClusterId
+  # idmaxlength: VPC / Subnet / SecurityGroup / KeyPair / VM / Disk / NLB / MyImage / Cluster
+  idmaxlength: 0 / 45 / 45 / 0 / 45 / 45 / 45 / 45 / 45
 
-NCP: 
+NCP:
   region: Region / Zone
   credential: ClientId / ClientSecret
   # idmaxlength: VPC / Subnet / SecurityGroup / KeyPair / VM
   idmaxlength: 0 / 0 / 0 / 30 / 30
-  
-NCPVPC: 
+
+NCPVPC:
   region: Region / Zone
   credential: ClientId / ClientSecret
   # idmaxlength: VPC / Subnet / SecurityGroup / KeyPair / VM
@@ -92,7 +92,7 @@ NCPVPC:
 KTCLOUD:
   region: Region / Zone
   credential: ClientId / ClientSecret
-  
+
 NHNCLOUD:
   region: Region
   credential: IdentityEndpoint / Username / Password / DomainName / TenantId
