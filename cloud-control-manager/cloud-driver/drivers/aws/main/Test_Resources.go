@@ -1699,13 +1699,13 @@ type Config struct {
 func readConfigFile() Config {
 	// Set Environment Value of Project Root Path
 	rootPath := os.Getenv("CBSPIDER_PATH")
-	rootPath = "/home/nobang/goland/branches/feature_pmks_aws_20221005_yhnoh2/cloud-control-manager/cloud-driver/drivers/aws/main"
+	//rootPath = "/home/nobang/goland/branches/feature_pmks_aws_20221005_yhnoh2/cloud-control-manager/cloud-driver/drivers/aws/main"
 	//rootpath := "D:/Workspace/mcloud-barista-config"
 	// /mnt/d/Workspace/mcloud-barista-config/config/config.yaml
 	cblogger.Infof("Test Data 설정파일 : [%]", rootPath+"/config/config.yaml")
 
-	//data, err := ioutil.ReadFile(rootPath + "/config/config.yaml")
-	data, err := ioutil.ReadFile(rootPath + "/Sample/config/config.yaml")
+	data, err := ioutil.ReadFile(rootPath + "/config/config.yaml")
+	//data, err := ioutil.ReadFile(rootPath + "/Sample/config/config.yaml")
 	//data, err := ioutil.ReadFile("D:/Workspace/mcloud-bar-config/config/config.yaml")
 	if err != nil {
 		panic(err)
