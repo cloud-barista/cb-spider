@@ -95,8 +95,6 @@ type ClusterHandler interface {
 
 	//------ NodeGroup Management
 	AddNodeGroup(clusterIID IID, nodeGroupReqInfo NodeGroupInfo) (NodeGroupInfo, error)
-	ListNodeGroup(clusterIID IID) ([]*NodeGroupInfo, error)
-	GetNodeGroup(clusterIID IID, nodeGroupIID IID) (NodeGroupInfo, error)
 	SetNodeGroupAutoScaling(clusterIID IID, nodeGroupIID IID, on bool) (bool, error)
 	ChangeNodeGroupScaling(clusterIID IID, nodeGroupIID IID,
 		DesiredNodeSize int, MinNodeSize int, MaxNodeSize int) (NodeGroupInfo, error)
