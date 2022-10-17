@@ -1548,8 +1548,8 @@ func checkValidationNLB(nlbReqInfo irs.NLBInfo) error {
 }
 
 func checkValidationNLBHealthCheck(healthCheckerInfo irs.HealthCheckerInfo) error {
-	// default 0, Not -1
-	if !(healthCheckerInfo.Timeout == 0 || healthCheckerInfo.Timeout == -1) {
+	// Not -1
+	if healthCheckerInfo.Timeout != -1 {
 		return errors.New(fmt.Sprintf("Azure NLB does not support timeout."))
 	}
 	if healthCheckerInfo.Interval < 5 {
