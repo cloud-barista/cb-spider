@@ -364,6 +364,25 @@ func (vmHandler *AlibabaVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 		cblogger.Error(errVmInfo.Error())
 		return irs.VMInfo{}, errVmInfo
 	}
+
+	// VM을 삭제해도 DataDisk는 삭제되지 않도록 Attribute 설정
+	diskRequest := ecs.CreateModifyDiskAttributeRequest()
+	diskRequest.Scheme = "https"
+	diskRequest.DeleteWithInstance = requests.NewBoolean(false)
+
+	diskIds := []string{}
+
+	for _, dataDiskId := range vmInfo.DataDiskIIDs {
+		diskIds = append(diskIds, dataDiskId.SystemId)
+	}
+
+	diskRequest.DiskIds = &diskIds
+
+	_, diskErr := vmHandler.Client.ModifyDiskAttribute(diskRequest)
+	if err != nil {
+		return irs.VMInfo{}, errors.New("Instance created but modifying disk attributes failed " + diskErr.Error())
+	}
+
 	vmInfo.IId.NameId = vmReqInfo.IId.NameId
 
 	//VM 생성 시 요청한 계정 정보가 있을 경우 사용된 계정 정보를 함께 전달 함.
