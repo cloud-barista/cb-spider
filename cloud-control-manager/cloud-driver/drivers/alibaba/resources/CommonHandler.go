@@ -3,15 +3,16 @@ package resources
 import (
 	"encoding/json"
 	"errors"
+	"reflect"
+	"strings"
+	"time"
+
 	"github.com/aliyun/alibaba-cloud-sdk-go/sdk/requests"
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/ecs"
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/davecgh/go-spew/spew"
-	"reflect"
-	"strings"
-	"time"
 )
 
 //// Alibaba API 1:1로 대응
@@ -435,7 +436,7 @@ func WaitForImageStatus(client *ecs.Client, regionInfo idrv.RegionInfo, imageIID
 	//cblogger.Info("======> MyImage 생성 직후에는 정보 조회가 안되기 때문에 원하는 상태(ex.Available) 될 때까지 대기함.")
 
 	curRetryCnt := 0
-	maxRetryCnt := 120
+	maxRetryCnt := 600
 
 	targetStatus := ""
 	failStatus := ALIBABA_IMAGE_STATE_ERROR
