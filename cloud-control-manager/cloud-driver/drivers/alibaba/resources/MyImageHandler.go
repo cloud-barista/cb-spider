@@ -3,12 +3,13 @@ package resources
 // https://www.alibabacloud.com/help/en/elastic-compute-service/latest/deleteimage
 
 import (
-	"github.com/aliyun/alibaba-cloud-sdk-go/services/ecs"
-	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
-	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/aliyun/alibaba-cloud-sdk-go/services/ecs"
+	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
+	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 )
 
 type AlibabaMyImageHandler struct {
@@ -68,6 +69,10 @@ func (myImageHandler AlibabaMyImageHandler) SnapshotVM(snapshotReqInfo irs.MyIma
 	curStatus, errStatus := WaitForImageStatus(myImageHandler.Client, myImageHandler.Region, imageIID, "")
 	if errStatus != nil {
 		cblogger.Error(errStatus)
+		_, deleteErr := myImageHandler.DeleteMyImage(imageIID)
+		if deleteErr != nil { // 중간 생성 자원 삭제 실패
+			return irs.MyImageInfo{}, deleteErr
+		}
 		return irs.MyImageInfo{}, errStatus
 	}
 	cblogger.Info("==>생성된 Image[%s]의 현재 상태[%s]", imageIID, curStatus)
@@ -116,13 +121,13 @@ func (myImageHandler AlibabaMyImageHandler) GetMyImage(myImageIID irs.IID) (irs.
 func (myImageHandler AlibabaMyImageHandler) DeleteMyImage(myImageIID irs.IID) (bool, error) {
 
 	// 상태체크해서 available일 때 삭제
-	imageStatus, err := DescribeImageStatus(myImageHandler.Client, myImageHandler.Region, myImageIID, ALIBABA_IMAGE_STATE_AVAILABLE)
-	if err != nil {
-		cblogger.Info("DeleteMyImage : status " + imageStatus)
-		return false, err
-	}
+	// imageStatus, err := DescribeImageStatus(myImageHandler.Client, myImageHandler.Region, myImageIID, ALIBABA_IMAGE_STATE_AVAILABLE)
+	// if err != nil {
+	// 	cblogger.Info("DeleteMyImage : status " + imageStatus)
+	// 	return false, err
+	// }
 
-	cblogger.Info("DeleteMyImage : status " + imageStatus)
+	// cblogger.Info("DeleteMyImage : status " + imageStatus)
 	request := ecs.CreateDeleteImageRequest()
 	request.Scheme = "https"
 	// 필수 Req Name
