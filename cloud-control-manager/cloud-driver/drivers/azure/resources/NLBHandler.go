@@ -53,7 +53,13 @@ const (
 func (nlbHandler *AzureNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (createNLB irs.NLBInfo, createError error) {
 	hiscallInfo := GetCallLogScheme(nlbHandler.Region, "NETWORKLOADBALANCE", nlbReqInfo.IId.NameId, "CreateNLB()")
 	start := call.Start()
-
+	err := checkValidationNLB(nlbReqInfo)
+	if err != nil {
+		createError = errors.New(fmt.Sprintf("Failed to Create NLB. err = %s", err.Error()))
+		cblogger.Error(createError)
+		LoggingError(hiscallInfo, createError)
+		return irs.NLBInfo{}, createError
+	}
 	exist, err := nlbHandler.existNLB(nlbReqInfo.IId)
 	if err != nil {
 		createError = errors.New(fmt.Sprintf("Failed to Create NLB. err = %s", err.Error()))
@@ -770,6 +776,13 @@ func (nlbHandler *AzureNLBHandler) GetVMGroupHealthInfo(nlbIID irs.IID) (irs.Hea
 func (nlbHandler *AzureNLBHandler) ChangeHealthCheckerInfo(nlbIID irs.IID, healthChecker irs.HealthCheckerInfo) (irs.HealthCheckerInfo, error) {
 	hiscallInfo := GetCallLogScheme(nlbHandler.Region, "NETWORKLOADBALANCE", nlbIID.NameId, "ChangeHealthCheckerInfo()")
 	start := call.Start()
+	err := checkValidationNLBHealthCheck(healthChecker)
+	if err != nil {
+		changeErr := errors.New(fmt.Sprintf("Failed to ChangeHealthCheckerInfo NLB. err = %s", err.Error()))
+		cblogger.Error(changeErr.Error())
+		LoggingError(hiscallInfo, changeErr)
+		return irs.HealthCheckerInfo{}, changeErr
+	}
 	nlb, err := nlbHandler.getRawNLB(nlbIID)
 	if err != nil {
 		changeErr := errors.New(fmt.Sprintf("Failed to ChangeHealthCheckerInfo NLB. err = %s", err.Error()))
@@ -1255,7 +1268,7 @@ func (nlbHandler *AzureNLBHandler) getLoadBalancingRuleInfoByNLB(nlb network.Loa
 	for _, probe := range Probes {
 		if *probe.ID == probeId {
 			// Azure not support
-			healthCheckerInfo.Timeout = 0
+			healthCheckerInfo.Timeout = -1
 			healthCheckerInfo.Threshold = int(*probe.NumberOfProbes)
 			healthCheckerInfo.Interval = int(*probe.IntervalInSeconds)
 			healthCheckerInfo.Port = strconv.Itoa(int(*probe.Port))
@@ -1527,4 +1540,26 @@ func convertListenerInfoProtocolsToInboundRuleProtocol(protocol string) (network
 		return network.TransportProtocolUDP, nil
 	}
 	return "", errors.New("invalid Protocols")
+}
+
+func checkValidationNLB(nlbReqInfo irs.NLBInfo) error {
+	err := checkValidationNLBHealthCheck(nlbReqInfo.HealthChecker)
+	return err
+}
+
+func checkValidationNLBHealthCheck(healthCheckerInfo irs.HealthCheckerInfo) error {
+	// Not -1
+	if healthCheckerInfo.Timeout != -1 {
+		return errors.New(fmt.Sprintf("Azure NLB does not support timeout."))
+	}
+	if healthCheckerInfo.Interval < 5 {
+		return errors.New("invalid HealthCheckerInfo Interval, interval must be greater than 5")
+	}
+	if healthCheckerInfo.Threshold < 1 {
+		return errors.New("invalid HealthCheckerInfo Threshold, Threshold  must be greater than 1")
+	}
+	if healthCheckerInfo.Interval*healthCheckerInfo.Threshold > 2147483647 {
+		return errors.New("invalid HealthCheckerInfo Interval * Threshold must be between 5 and 2147483647 ")
+	}
+	return nil
 }
