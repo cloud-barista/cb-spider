@@ -34,6 +34,7 @@ const (
 	rsDisk  string = "disk"
 	rsMyImage  string = "myimage"
 	rsCluster  string = "cluster"
+	rsNodeGroup  string = "nodegroup"
 )
 
 func RsTypeString(rsType string) string {
@@ -58,6 +59,8 @@ func RsTypeString(rsType string) string {
 		return "MyImage"
 	case rsCluster:
 		return "Cluster"
+	case rsNodeGroup:
+		return "NodeGroup"
         default:
                 return rsType + " is not supported Resource!!"
 
