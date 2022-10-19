@@ -313,62 +313,82 @@ func RunServer() {
 		// only for AdminWeb
 		{"PUT", "/controlvm/:Name", ControlVM}, // suspend, resume, reboot
 
-                //----------NLB Handler
-                {"GET", "/getnlbowner", GetNLBOwnerVPC},
-                {"POST", "/regnlb", RegisterNLB},
-                {"DELETE", "/regnlb/:Name", UnregisterNLB},
+		//----------NLB Handler
+		{"GET", "/getnlbowner", GetNLBOwnerVPC},
+		{"POST", "/regnlb", RegisterNLB},
+		{"DELETE", "/regnlb/:Name", UnregisterNLB},
 
-                {"POST", "/nlb", CreateNLB},
-                {"GET", "/nlb", ListNLB},
-                {"GET", "/nlb/:Name", GetNLB},
-                {"DELETE", "/nlb/:Name", DeleteNLB},
-                //-- for vm
-                {"POST", "/nlb/:Name/vms", AddNLBVMs},
-                {"DELETE", "/nlb/:Name/vms", RemoveNLBVMs}, // no force option
-                {"PUT", "/nlb/:Name/listener", ChangeListener},
-                {"PUT", "/nlb/:Name/vmgroup", ChangeVMGroup},
-                {"PUT", "/nlb/:Name/healthchecker", ChangeHealthChecker},
-                {"GET", "/nlb/:Name/health", GetVMGroupHealthInfo},
+		{"POST", "/nlb", CreateNLB},
+		{"GET", "/nlb", ListNLB},
+		{"GET", "/nlb/:Name", GetNLB},
+		{"DELETE", "/nlb/:Name", DeleteNLB},
+		//-- for vm
+		{"POST", "/nlb/:Name/vms", AddNLBVMs},
+		{"DELETE", "/nlb/:Name/vms", RemoveNLBVMs}, // no force option
+		{"PUT", "/nlb/:Name/listener", ChangeListener},
+		{"PUT", "/nlb/:Name/vmgroup", ChangeVMGroup},
+		{"PUT", "/nlb/:Name/healthchecker", ChangeHealthChecker},
+		{"GET", "/nlb/:Name/health", GetVMGroupHealthInfo},
 
-                //-- for management
-                {"GET", "/allnlb", ListAllNLB},
-                {"DELETE", "/cspnlb/:Id", DeleteCSPNLB},
+		//-- for management
+		{"GET", "/allnlb", ListAllNLB},
+		{"DELETE", "/cspnlb/:Id", DeleteCSPNLB},
 
 
-                //----------Disk Handler
-                {"POST", "/regdisk", RegisterDisk},
-                {"DELETE", "/regdisk/:Name", UnregisterDisk},
+		//----------Disk Handler
+		{"POST", "/regdisk", RegisterDisk},
+		{"DELETE", "/regdisk/:Name", UnregisterDisk},
 
-                {"POST", "/disk", CreateDisk},
-                {"GET", "/disk", ListDisk},
-                {"GET", "/disk/:Name", GetDisk},
-                {"PUT", "/disk/:Name/size", ChangeDiskSize},
-                {"DELETE", "/disk/:Name", DeleteDisk},
-                //-- for vm
-                {"PUT", "/disk/:Name/attach", AttachDisk},
-                {"PUT", "/disk/:Name/detach", DetachDisk},
+		{"POST", "/disk", CreateDisk},
+		{"GET", "/disk", ListDisk},
+		{"GET", "/disk/:Name", GetDisk},
+		{"PUT", "/disk/:Name/size", ChangeDiskSize},
+		{"DELETE", "/disk/:Name", DeleteDisk},
+		//-- for vm
+		{"PUT", "/disk/:Name/attach", AttachDisk},
+		{"PUT", "/disk/:Name/detach", DetachDisk},
 
-                //-- for management
-                {"GET", "/alldisk", ListAllDisk},
-                {"DELETE", "/cspdisk/:Id", DeleteCSPDisk},
+		//-- for management
+		{"GET", "/alldisk", ListAllDisk},
+		{"DELETE", "/cspdisk/:Id", DeleteCSPDisk},
 
 
 		//----------MyImage Handler
-                {"POST", "/regmyimage", RegisterMyImage},
-                {"DELETE", "/regmyimage/:Name", UnregisterMyImage},
+		{"POST", "/regmyimage", RegisterMyImage},
+		{"DELETE", "/regmyimage/:Name", UnregisterMyImage},
 
-                {"POST", "/myimage", SnapshotVM},
-                {"GET", "/myimage", ListMyImage},
-                {"GET", "/myimage/:Name", GetMyImage},
-                {"DELETE", "/myimage/:Name", DeleteMyImage},
+		{"POST", "/myimage", SnapshotVM},
+		{"GET", "/myimage", ListMyImage},
+		{"GET", "/myimage/:Name", GetMyImage},
+		{"DELETE", "/myimage/:Name", DeleteMyImage},
 
-                //-- for management
-                {"GET", "/allmyimage", ListAllMyImage},
-                {"DELETE", "/cspmyimage/:Id", DeleteCSPMyImage},
+		//-- for management
+		{"GET", "/allmyimage", ListAllMyImage},
+		{"DELETE", "/cspmyimage/:Id", DeleteCSPMyImage},
+
+		//----------Cluster Handler
+		{"GET", "/getclusterowner", GetClusterOwnerVPC},
+		{"POST", "/regcluster", RegisterCluster},
+		{"DELETE", "/regcluster/:Name", UnregisterCluster},
+
+		{"POST", "/cluster", CreateCluster},
+		{"GET", "/cluster", ListCluster},
+		{"GET", "/cluster/:Name", GetCluster},
+		{"DELETE", "/cluster/:Name", DeleteCluster},
+		//-- for NodeGroup
+		{"POST", "/cluster/:Name/nodegroup", AddNodeGroup},
+		{"DELETE", "/cluster/:Name/nodegroup:NodeGroupName", RemoveNodeGroup},
+		{"PUT", "/cluster/:Name/nodegroup:NodeGroupName/onautoscaling", SetNodeGroupAutoScaling},
+		{"PUT", "/cluster/:Name/nodegroup:NodeGroupName/autoscalesize", ChangeNodeGroupScaling},
+		{"PUT", "/cluster/:Name/upgrade", UpgradeCluster},
+
+		//-- for management
+		{"GET", "/allcluster", ListAllCluster},
+		{"DELETE", "/cspcluster/:Id", DeleteCSPCluster},
 
 
 		//-------------------------------------------------------------------//
-                //----------Additional Info
+        //----------Additional Info
 		{"GET", "/cspresourcename/:Name", GetCSPResourceName},
 		//----------AnyCall Handler
 		{"POST", "/anycall", AnyCall},

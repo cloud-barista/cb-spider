@@ -406,6 +406,8 @@ func ListAllResource(connectionName string, rsType string) (AllResourceList, err
 		handler, err = cldConn.CreateDiskHandler()
 	case rsMyImage:
 		handler, err = cldConn.CreateMyImageHandler()
+	case rsCluster:
+		handler, err = cldConn.CreateClusterHandler()		
 	default:
 		return AllResourceList{}, fmt.Errorf(rsType + " is not supported Resource!!")
 	}
@@ -517,6 +519,17 @@ func ListAllResource(connectionName string, rsType string) (AllResourceList, err
                 }
         case rsMyImage:
                 infoList, err := handler.(cres.MyImageHandler).ListMyImage()
+                if err != nil {
+                        cblog.Error(err)
+                        return AllResourceList{}, err
+                }
+                if infoList != nil {
+                        for _, info := range infoList {
+                                iidCSPList = append(iidCSPList, &info.IId)
+                        }
+                }
+        case rsCluster:
+                infoList, err := handler.(cres.ClusterHandler).ListCluster()
                 if err != nil {
                         cblog.Error(err)
                         return AllResourceList{}, err
@@ -646,6 +659,8 @@ func DeleteResource(connectionName string, rsType string, nameID string, force s
 		handler, err = cldConn.CreateDiskHandler()
 	case rsMyImage:
 		handler, err = cldConn.CreateMyImageHandler()
+	case rsCluster:
+		handler, err = cldConn.CreateClusterHandler()
 	default:
 		err := fmt.Errorf(rsType + " is not supported Resource!!")
 		return false, "", err
@@ -872,6 +887,14 @@ func DeleteResource(connectionName string, rsType string, nameID string, force s
                                 return false, "", err
                         }
                 }
+        case rsCluster:
+                result, err = handler.(cres.ClusterHandler).DeleteCluster(driverIId)
+                if err != nil {
+                        cblog.Error(err)
+                        if force != "true" {
+                                return false, "", err
+                        }
+                }
 
 	default:
 		err := fmt.Errorf(rsType + " is not supported Resource!!")
@@ -999,7 +1022,8 @@ func DeleteCSPResource(connectionName string, rsType string, systemID string) (b
 		handler, err = cldConn.CreateDiskHandler()
 	case rsMyImage:
 		handler, err = cldConn.CreateMyImageHandler()
-
+	case rsCluster:
+		handler, err = cldConn.CreateClusterHandler()
 	default:
 		return false, "", fmt.Errorf(rsType + " is not supported Resource!!")
 	}
@@ -1052,6 +1076,12 @@ func DeleteCSPResource(connectionName string, rsType string, systemID string) (b
                 }
         case rsMyImage:
                 result, err = handler.(cres.MyImageHandler).DeleteMyImage(iid)
+                if err != nil {
+                        cblog.Error(err)
+                        return false, "", err
+                }
+        case rsCluster:
+                result, err = handler.(cres.ClusterHandler).DeleteCluster(iid)
                 if err != nil {
                         cblog.Error(err)
                         return false, "", err

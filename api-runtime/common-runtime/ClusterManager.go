@@ -454,9 +454,10 @@ defer clusterSPLock.Unlock(connectionName, reqInfo.IId.NameId)
 		return nil, err
 	}
 
-        // inset spiderIID for NodeGroup list
+        // insert spiderIID for NodeGroup list
         for _, ngInfo := range info.NodeGroupList {
-                // key-value structure: ~/{SUBNETGROUP}/{ConnectionName}/{VPC-NameId}/{Subnet-reqNameId} [subnet-driverNameId:subnet-driverSystemId]  # VPC NameId => rsType
+                // key-value structure: ~/{NGGROUP}/{ConnectionName}/{Cluster-NameId}/{NodeGroup-reqNameId} 
+		// 			[NodeGroup-driverNameId:nodegroup-driverSystemId]  # Cluster NameId => rsType
                 ngReqNameId := getReqNameId(ngReqIIdList, ngInfo.IId.NameId)
                 if ngReqNameId == "" {
                         cblog.Error(ngInfo.IId.NameId + "is not a requested NodeGroup.")
@@ -752,7 +753,7 @@ defer clusterSPLock.RUnlock(connectionName, clusterName)
 // (2) add NodeGroup
 // (3) Get ClusterInfo
 // (4) Set ResoureInfo
-func AddNodeGroup(connectionName string, clusterName string, reqInfo cres.NodeGroupInfo) (*cres.ClusterInfo, error) {
+func AddNodeGroup(connectionName string, rsType string, clusterName string, reqInfo cres.NodeGroupInfo) (*cres.ClusterInfo, error) {
         cblog.Info("call AddNodeGroup()")
 
         // check empty and trim user inputs
@@ -825,13 +826,59 @@ defer clusterSPLock.Unlock(connectionName, clusterName)
                 return nil, err
         }
 
-        // refine RootDisk and RootDiskSize in reqInfo(NodeGroupInfo)
-        translateRootDiskInfo(providerName, &reqInfo)
-
-        _, err = handler.AddNodeGroup(getDriverIID(iidInfo.IId), reqInfo) 
+        // (1) check exist(NameID)
+        ngIIdInfoList, err := getAllNodeGroupIIDInfoList(connectionName)
         if err != nil {
                 cblog.Error(err)
                 return nil, err
+        }
+        var isExist bool=false
+        for _, OneIIdInfo := range ngIIdInfoList {
+                if OneIIdInfo.IId.NameId == reqInfo.IId.NameId {
+                        isExist = true
+                }
+        }
+
+        if isExist == true {
+                err :=  fmt.Errorf(rsType + "-" + reqInfo.IId.NameId + " already exists!")
+                cblog.Error(err)
+                return nil, err
+        }
+
+        // refine RootDisk and RootDiskSize in reqInfo(NodeGroupInfo)
+        translateRootDiskInfo(providerName, &reqInfo)
+
+
+        nodeGroupUUID, err := iidm.New(connectionName, rsNodeGroup, reqInfo.IId.NameId)
+        if err != nil {
+                cblog.Error(err)
+                return nil, err
+        }
+
+        // driverIID
+        driverIId := cres.IID{nodeGroupUUID, ""}
+        reqInfo.IId = driverIId
+
+        // (2) add a NodeGroup into CSP
+        ngInfo, err := handler.AddNodeGroup(getDriverIID(iidInfo.IId), reqInfo) 
+        if err != nil {
+                cblog.Error(err)
+                return nil, err
+        }
+
+        ngSpiderIId := cres.IID{reqInfo.IId.NameId, nodeGroupUUID + ":" + ngInfo.IId.SystemId}
+        _, err2 := iidRWLock.CreateIID(iidm.NGGROUP, connectionName, clusterName, ngSpiderIId) // clusterName => rsType
+        if err2 != nil {
+                cblog.Error(err2)
+                // rollback
+                // (1) for resource
+                cblog.Info("<<ROLLBACK:TRY:NODEGROUP-CSP>> " + ngInfo.IId.SystemId)
+                _, err3 := handler.RemoveNodeGroup(getDriverIID(iidInfo.IId),  ngInfo.IId)
+                if err3 != nil {
+                        cblog.Error(err3)
+                        return nil, fmt.Errorf(err2.Error() + ", " + err3.Error())
+                }
+                return nil, err2
         }
 
         // (3) Get ClusterInfo
@@ -1112,7 +1159,7 @@ defer clusterSPLock.Unlock(connectionName, clusterName)
 	return ngInfo, nil      
 }
 
-func RemoveNodeGroup(connectionName string, clusterName string, nodeGroupName string) (bool, error) {
+func RemoveNodeGroup(connectionName string, clusterName string, nodeGroupName string, force string) (bool, error) {
         cblog.Info("call RemoveNodeGroup()")
 
         // check empty and trim user inputs
@@ -1157,13 +1204,83 @@ defer clusterSPLock.Unlock(connectionName, clusterName)
         }
 
         // (2) Remove the NodeGroup from the Cluster
-        boolRet, err := handler.RemoveNodeGroup(cluserDriverIID, nodeGroupDriverIID) 
+        result, err := handler.RemoveNodeGroup(cluserDriverIID, nodeGroupDriverIID) 
+        if err != nil {
+                cblog.Error(err)
+                if force != "true" {
+                        return false, err
+                }
+        }
+ 
+         if force != "true" {
+                if result == false {
+                        return result, nil
+                }
+        }
+
+        // (3) delete IID
+        _, err = iidRWLock.DeleteIID(iidm.NGGROUP, connectionName, clusterName, cres.IID{nodeGroupName, ""})
+        if err != nil {
+                cblog.Error(err)
+                if force != "true" {
+                        return false, err
+                }
+        }
+
+        return result, nil
+}
+
+func RemoveCSPNodeGroup(connectionName string, clusterName string, systemID string) (bool, error) {
+        cblog.Info("call RemoveNodeGroup()")
+
+        // check empty and trim user inputs
+        connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)
         if err != nil {
                 cblog.Error(err)
                 return false, err
         }
- 
-        return boolRet, nil
+
+        clusterName, err = EmptyCheckAndTrim("clusterName", clusterName)
+        if err != nil {
+                cblog.Error(err)
+                return false, err
+        }
+
+        systemID, err = EmptyCheckAndTrim("systemID", systemID)
+        if err != nil {
+                cblog.Error(err)
+                return false, err
+        }
+
+        cldConn, err := ccm.GetCloudConnection(connectionName)
+        if err != nil {
+                cblog.Error(err)
+                return false, err
+        }
+
+        handler, err := cldConn.CreateClusterHandler()
+        if err != nil {
+                cblog.Error(err)
+                return false, err
+        }
+
+        iid := cres.IID{"", systemID}
+
+        // delete Resource(SystemId)
+        result := false
+        // get owner Cluster IIDInfo
+        iidClusterInfo, err := iidRWLock.GetIID(iidm.CLUSTERGROUP, connectionName, rsVPC, cres.IID{clusterName, ""})
+        if err != nil {
+                cblog.Error(err)
+                return false, err
+        }
+        result, err = handler.(cres.VPCHandler).RemoveSubnet(getDriverIID(iidClusterInfo.IId), iid)
+        if err != nil {
+                cblog.Error(err)
+                return false, err
+        }
+
+        return result, nil
 }
 
 func UpgradeCluster(connectionName string, clusterName string, newVersion string) (cres.ClusterInfo, error) {

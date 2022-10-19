@@ -28,6 +28,8 @@ const (
 	rsNLB  		string = "nlb"
 	rsDisk  	string = "disk"
 	rsMyImage 	string = "myimage"
+	rsCluster 	string = "cluster"
+	rsNodeGroup 	string = "nodegroup"
 )
 
 
