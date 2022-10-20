@@ -298,13 +298,14 @@ func CreateCluster(connectionName string, rsType string, reqInfo cres.ClusterInf
 	*/
 
 	//+++++++++++++++++++++ Set NetworkInfo's SystemId
-	netReqInfo := reqInfo.Network
+	netReqInfo := &reqInfo.Network
 	vpcSPLock.RLock(connectionName, netReqInfo.VpcIID.NameId)
 	defer vpcSPLock.RUnlock(connectionName, netReqInfo.VpcIID.NameId)
 	// (1) VpcIID
+        var vpcIIDInfo *iidm.IIDInfo
         if netReqInfo.VpcIID.NameId != "" {
                 // get spiderIID
-                vpcIIDInfo, err := iidRWLock.GetIID(iidm.IIDSGROUP, connectionName, rsVPC, netReqInfo.VpcIID)
+                vpcIIDInfo, err = iidRWLock.GetIID(iidm.IIDSGROUP, connectionName, rsVPC, netReqInfo.VpcIID)
                 if err != nil {
                         cblog.Error(err)
                         return nil, err
@@ -315,7 +316,7 @@ func CreateCluster(connectionName string, rsType string, reqInfo cres.ClusterInf
 
         // (2) SubnetIIDs
         for idx, subnetIID := range netReqInfo.SubnetIIDs {
-                subnetIIdInfo, err := iidRWLock.GetIID(iidm.SUBNETGROUP, connectionName, netReqInfo.VpcIID.NameId, subnetIID) // VpcIID.NameId => rsType
+                subnetIIdInfo, err := iidRWLock.GetIID(iidm.SUBNETGROUP, connectionName, vpcIIDInfo.IId.NameId, subnetIID) // VpcIID.NameId => rsType
                 if err != nil {
                         cblog.Error(err)
                         return nil, err
@@ -328,7 +329,7 @@ func CreateCluster(connectionName string, rsType string, reqInfo cres.ClusterInf
         for idx, sgIID := range netReqInfo.SecurityGroupIIDs {
         	sgSPLock.RLock(connectionName, sgIID.NameId)
 		defer sgSPLock.RUnlock(connectionName, sgIID.NameId)
-                sgIIdInfo, err := iidRWLock.GetIID(iidm.SGGROUP, connectionName, netReqInfo.VpcIID.NameId, sgIID)  // VpcIID.NameId => rsType
+                sgIIdInfo, err := iidRWLock.GetIID(iidm.SGGROUP, connectionName, vpcIIDInfo.IId.NameId, sgIID)  // VpcIID.NameId => rsType
                 if err != nil {
                         cblog.Error(err)
                         return nil, err
@@ -441,7 +442,7 @@ defer clusterSPLock.Unlock(connectionName, reqInfo.IId.NameId)
 	spiderIId := cres.IID{reqIId.NameId, spUUID + ":" + info.IId.SystemId}
 
 	// (5) insert spiderIID
-	iidInfo, err := iidRWLock.CreateIID(iidm.CLUSTERGROUP, connectionName, netReqInfo.VpcIID.NameId, spiderIId)  // reqIId.NameId => rsType
+	iidInfo, err := iidRWLock.CreateIID(iidm.CLUSTERGROUP, connectionName, vpcIIDInfo.IId.NameId, spiderIId)  // reqIId.NameId => rsType
 	if err != nil {
 		cblog.Error(err)
 		// rollback
@@ -477,7 +478,7 @@ defer clusterSPLock.Unlock(connectionName, reqInfo.IId.NameId)
                         }
                         // (2) for Cluster IID
                         cblog.Info("<<ROLLBACK:TRY:CLUSTER-IID>> " + info.IId.NameId)
-                        _, err3 := iidRWLock.DeleteIID(iidm.CLUSTERGROUP, connectionName, rsType, iidInfo.IId)
+                        _, err3 := iidRWLock.DeleteIID(iidm.CLUSTERGROUP, connectionName, vpcIIDInfo.IId.NameId, iidInfo.IId)
                         if err3 != nil {
                                 cblog.Error(err3)
                                 return nil, fmt.Errorf(err.Error() + ", " + err3.Error())
@@ -985,7 +986,7 @@ func SetNodeGroupAutoScaling(connectionName string, clusterName string, nodeGrou
 clusterSPLock.Lock(connectionName, clusterName)
 defer clusterSPLock.Unlock(connectionName, clusterName)
 
-       // (1) Get the Cluster's DriverIID and the NodeGroup's DriverIID
+       // (1) Check the Cluster existence(clusetName) and Get the Cluster's DriverIID and the NodeGroup's DriverIID
         cluserDriverIID, nodeGroupDriverIID, err := getClusterDriverIIDNodeGroupDriverIID(connectionName, clusterName, nodeGroupName)
         if err != nil {
                 cblog.Error(err)
@@ -1004,14 +1005,14 @@ defer clusterSPLock.Unlock(connectionName, clusterName)
 
 func getClusterDriverIIDNodeGroupDriverIID(connectionName string, clusterName string, nodeGroupName string) (cres.IID, cres.IID, error) {
 
-        // (1) Get Cluster's SpiderIID
+        // (1) Check the Cluster existence(clusetName) and Get the Cluster's DriverIID
         clusterDriverIID, err := getClusterDriverIID(connectionName, clusterName)
         if err != nil {
                 cblog.Error(err)
                 return cres.IID{}, cres.IID{}, err
         }
 
-        // (2) Get NodeGroup's SpiderIID
+        // (2) Get NodeGroup's DriverIID
         ngIIdInfoList, err := getAllClusterIIDInfoList(connectionName)
         if err != nil {
                 cblog.Error(err)
@@ -1035,6 +1036,7 @@ func getClusterDriverIIDNodeGroupDriverIID(connectionName string, clusterName st
         return clusterDriverIID, getDriverIID(ngIIdInfo.IId), nil
 }
 
+// Check the Cluster existence(clusetName) and Get the Cluster's DriverIID
 func getClusterDriverIID(connectionName string, clusterName string) (cres.IID, error) {
 
         // (1) Get Cluster's SpiderIID
@@ -1122,7 +1124,7 @@ func ChangeNodeGroupScaling(connectionName string, clusterName string, nodeGroup
 clusterSPLock.Lock(connectionName, clusterName)
 defer clusterSPLock.Unlock(connectionName, clusterName)
 
-        // (1) Get the Cluster's DriverIID and the NodeGroup's DriverIID
+        // (1) Check the Cluster existence(clusetName) and Get the Cluster's DriverIID and the NodeGroup's DriverIID
         cluserDriverIID, nodeGroupDriverIID, err := getClusterDriverIIDNodeGroupDriverIID(connectionName, clusterName, nodeGroupName)
         if err != nil {
                 cblog.Error(err)
@@ -1196,7 +1198,7 @@ func RemoveNodeGroup(connectionName string, clusterName string, nodeGroupName st
 clusterSPLock.Lock(connectionName, clusterName)
 defer clusterSPLock.Unlock(connectionName, clusterName)
 
-       // (1) Get the Cluster's DriverIID and the NodeGroup's DriverIID
+       // (1) Check the Cluster existence(clusetName) and Get the Cluster's DriverIID and the NodeGroup's DriverIID
         cluserDriverIID, nodeGroupDriverIID, err := getClusterDriverIIDNodeGroupDriverIID(connectionName, clusterName, nodeGroupName)
         if err != nil {
                 cblog.Error(err)
@@ -1252,6 +1254,13 @@ func RemoveCSPNodeGroup(connectionName string, clusterName string, systemID stri
                 return false, err
         }
 
+        // Check the Cluster existence(clusetName) and Get the Cluster's DriverIID
+        clusterDriverIID, err := getClusterDriverIID(connectionName, clusterName)
+        if err != nil {
+                cblog.Error(err)
+                return false, err
+        }
+
         cldConn, err := ccm.GetCloudConnection(connectionName)
         if err != nil {
                 cblog.Error(err)
@@ -1268,13 +1277,7 @@ func RemoveCSPNodeGroup(connectionName string, clusterName string, systemID stri
 
         // delete Resource(SystemId)
         result := false
-        // get owner Cluster IIDInfo
-        iidClusterInfo, err := iidRWLock.GetIID(iidm.CLUSTERGROUP, connectionName, rsVPC, cres.IID{clusterName, ""})
-        if err != nil {
-                cblog.Error(err)
-                return false, err
-        }
-        result, err = handler.(cres.VPCHandler).RemoveSubnet(getDriverIID(iidClusterInfo.IId), iid)
+        result, err = handler.(cres.ClusterHandler).RemoveNodeGroup(clusterDriverIID, iid)
         if err != nil {
                 cblog.Error(err)
                 return false, err
@@ -1320,7 +1323,7 @@ func UpgradeCluster(connectionName string, clusterName string, newVersion string
 clusterSPLock.Lock(connectionName, clusterName)
 defer clusterSPLock.Unlock(connectionName, clusterName)
 
-       // (1) Get the Cluster's DriverIID and the NodeGroup's DriverIID
+       // (1) Check the Cluster existence(clusetName) and Get the Cluster's DriverIID
         cluserDriverIID, err := getClusterDriverIID(connectionName, clusterName)
         if err != nil {
                 cblog.Error(err)

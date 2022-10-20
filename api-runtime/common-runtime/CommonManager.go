@@ -299,6 +299,20 @@ func UnregisterResource(connectionName string, rsType string, nameId string) (bo
                                 break
                         }
                 }
+        case rsCluster:
+                iidInfoList, err := getAllClusterIIDInfoList(connectionName)
+                if err != nil {
+                        cblog.Error(err)
+                        return false, err
+                }
+                for _, OneIIdInfo := range iidInfoList {
+                        if OneIIdInfo.IId.NameId == nameId {
+                                vpcName = OneIIdInfo.ResourceType/*vpcName*/  // ---------- Don't forget
+                                isExist = true
+                                break
+                        }
+                }
+
 	default:
 		// (1) check exist(NameID)
 		var err error
@@ -352,6 +366,13 @@ func UnregisterResource(connectionName string, rsType string, nameId string) (bo
 
         case rsNLB:
                 _, err := iidRWLock.DeleteIID(iidm.NLBGROUP, connectionName, vpcName/*rsType*/, cres.IID{nameId, ""})
+                if err != nil {
+                        cblog.Error(err)
+                        return false, err
+                }
+
+        case rsCluster:
+                _, err := iidRWLock.DeleteIID(iidm.CLUSTERGROUP, connectionName, vpcName/*rsType*/, cres.IID{nameId, ""})
                 if err != nil {
                         cblog.Error(err)
                         return false, err
@@ -428,6 +449,12 @@ func ListAllResource(connectionName string, rsType string) (AllResourceList, err
 		}
         case rsNLB:
                 iidInfoList, err = getAllNLBIIDInfoList(connectionName)
+                if err != nil {
+                        cblog.Error(err)
+                        return AllResourceList{}, err
+                }
+        case rsCluster:
+                iidInfoList, err = getAllClusterIIDInfoList(connectionName)
                 if err != nil {
                         cblog.Error(err)
                         return AllResourceList{}, err
@@ -744,6 +771,26 @@ func DeleteResource(connectionName string, rsType string, nameID string, force s
                 return false, "", err
                 }
 
+        case rsCluster:
+                iidInfoList, err := getAllClusterIIDInfoList(connectionName)
+                if err != nil {
+                        cblog.Error(err)
+                        return false, "", err
+                }
+                var bool_ret = false
+                for _, OneIIdInfo := range iidInfoList {
+                        if OneIIdInfo.IId.NameId == nameID {
+                                iidInfo = OneIIdInfo
+                                bool_ret = true
+                                break;
+                        }
+                }
+                if bool_ret == false {
+			err := fmt.Errorf("[" + connectionName + ":" + RsTypeString(rsType) +  ":" + nameID + "] does not exist!")
+			cblog.Error(err)
+                return false, "", err
+                }
+
 	default:
 		iidInfo, err = iidRWLock.GetIID(iidm.IIDSGROUP, connectionName, rsType, cres.IID{nameID, ""})
 		if err != nil {
@@ -960,6 +1007,14 @@ func DeleteResource(connectionName string, rsType string, nameID string, force s
 		return result, vmStatus, nil
         case rsNLB:
                 _, err = iidRWLock.DeleteIID(iidm.NLBGROUP, connectionName, iidInfo.ResourceType/*vpcName*/, cres.IID{nameID, ""})
+                if err != nil {
+                        cblog.Error(err)
+                        if force != "true" {
+                                return false, "", err
+                        }
+                }
+        case rsCluster:
+                _, err = iidRWLock.DeleteIID(iidm.CLUSTERGROUP, connectionName, iidInfo.ResourceType/*vpcName*/, cres.IID{nameID, ""})
                 if err != nil {
                         cblog.Error(err)
                         if force != "true" {

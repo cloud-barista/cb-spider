@@ -119,7 +119,7 @@ type ClusterReq struct {
                 SecurityGroupNames	[]string
 
 		// (3) NodeGroupInfo List
-		NodeGroupReqList	[]NodeGroupReq
+		NodeGroupList	        []NodeGroupReq
         }
 }
 
@@ -160,7 +160,7 @@ func CreateCluster(c echo.Context) error {
 					SecurityGroupIIDs:	convertIIDs(req.ReqInfo.SecurityGroupNames),
 				}, 
 		// (3) NodeGroup Info List
-                NodeGroupList: 	convertNodeGroupList(req.ReqInfo.NodeGroupReqList),
+                NodeGroupList: 	convertNodeGroupList(req.ReqInfo.NodeGroupList),
         }
 
         // Resource Name has namespace prefix when from Tumblebug
@@ -405,7 +405,18 @@ func AddNodeGroup(c echo.Context) error {
                 NameSpace string
                 ConnectionName string
                 ReqInfo        struct {
-                        NodeGroupReq    NodeGroupReq
+                        Name                    string 
+                        ImageName               string 
+                        VMSpecName              string 
+                        RootDiskType            string 
+                        RootDiskSize            string 
+                        KeyPairName             string 
+
+                        // autoscale config.
+                        OnAutoScaling           string 
+                        DesiredNodeSize         string 
+                        MinNodeSize             string 
+                        MaxNodeSize             string
                 }
         }
 
@@ -413,7 +424,19 @@ func AddNodeGroup(c echo.Context) error {
                 return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
         }
 
-        reqInfo := convertNodeGroup(req.ReqInfo.NodeGroupReq)
+        reqInfo := cres.NodeGroupInfo {
+                                IId:    cres.IID{req.ReqInfo.Name, ""},
+                                ImageIID:       cres.IID{req.ReqInfo.ImageName, ""},
+                                VMSpecName:     req.ReqInfo.VMSpecName,
+                                RootDiskType:   req.ReqInfo.RootDiskType,
+                                RootDiskSize:   req.ReqInfo.RootDiskSize,
+                                KeyPairIID:     cres.IID{req.ReqInfo.KeyPairName, ""},
+
+                                OnAutoScaling:  func() bool { on, _ := strconv.ParseBool(req.ReqInfo.OnAutoScaling); return on }(),
+                                DesiredNodeSize: func() int { size, _ := strconv.Atoi(req.ReqInfo.DesiredNodeSize); return size }(),
+                                MinNodeSize: func() int { size, _ := strconv.Atoi(req.ReqInfo.MinNodeSize); return size }(),
+                                MaxNodeSize: func() int { size, _ := strconv.Atoi(req.ReqInfo.MaxNodeSize); return size }(),
+                        }
 
         // Resource Name has namespace prefix when from Tumblebug
         if req.NameSpace != "" {

@@ -377,9 +377,9 @@ func RunServer() {
 		{"DELETE", "/cluster/:Name", DeleteCluster},
 		//-- for NodeGroup
 		{"POST", "/cluster/:Name/nodegroup", AddNodeGroup},
-		{"DELETE", "/cluster/:Name/nodegroup:NodeGroupName", RemoveNodeGroup},
-		{"PUT", "/cluster/:Name/nodegroup:NodeGroupName/onautoscaling", SetNodeGroupAutoScaling},
-		{"PUT", "/cluster/:Name/nodegroup:NodeGroupName/autoscalesize", ChangeNodeGroupScaling},
+		{"DELETE", "/cluster/:Name/nodegroup/:NodeGroupName", RemoveNodeGroup},
+		{"PUT", "/cluster/:Name/nodegroup/:NodeGroupName/onautoscaling", SetNodeGroupAutoScaling},
+		{"PUT", "/cluster/:Name/nodegroup/:NodeGroupName/autoscalesize", ChangeNodeGroupScaling},
 		{"PUT", "/cluster/:Name/upgrade", UpgradeCluster},
 
 		//-- for management
