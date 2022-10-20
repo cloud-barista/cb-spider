@@ -201,58 +201,58 @@ func (clusterHandler *AlibabaClusterHandler) AddNodeGroup(clusterIID irs.IID, no
 	return *node_group_info, nil
 }
 
-func (clusterHandler *AlibabaClusterHandler) ListNodeGroup(clusterIID irs.IID) ([]*irs.NodeGroupInfo, error) {
-	cblogger.Info("Alibaba Cloud Driver: called ListNodeGroup()")
-	callLogInfo := getCallLogScheme(clusterHandler.RegionInfo.Region, call.CLUSTER, clusterIID.NameId, "ListNodeGroup()")
+// func (clusterHandler *AlibabaClusterHandler) ListNodeGroup(clusterIID irs.IID) ([]*irs.NodeGroupInfo, error) {
+// 	cblogger.Info("Alibaba Cloud Driver: called ListNodeGroup()")
+// 	callLogInfo := getCallLogScheme(clusterHandler.RegionInfo.Region, call.CLUSTER, clusterIID.NameId, "ListNodeGroup()")
 
-	start := call.Start()
-	node_group_info_list := []*irs.NodeGroupInfo{}
-	node_groups_json_str, err := alibaba.ListNodeGroup(clusterHandler.CredentialInfo.ClientId, clusterHandler.CredentialInfo.ClientSecret, clusterHandler.RegionInfo.Region, clusterIID.SystemId)
-	callLogInfo.ElapsedTime = call.Elapsed(start)
-	if err != nil {
-		err := fmt.Errorf("Failed to List NodeGroup :  %v", err)
-		cblogger.Error(err)
-		callLogInfo.ErrorMSG = err.Error()
-		tempCalllogger.Error(call.String(callLogInfo))
-		return node_group_info_list, err
-	}
-	tempCalllogger.Info(call.String(callLogInfo))
+// 	start := call.Start()
+// 	node_group_info_list := []*irs.NodeGroupInfo{}
+// 	node_groups_json_str, err := alibaba.ListNodeGroup(clusterHandler.CredentialInfo.ClientId, clusterHandler.CredentialInfo.ClientSecret, clusterHandler.RegionInfo.Region, clusterIID.SystemId)
+// 	callLogInfo.ElapsedTime = call.Elapsed(start)
+// 	if err != nil {
+// 		err := fmt.Errorf("Failed to List NodeGroup :  %v", err)
+// 		cblogger.Error(err)
+// 		callLogInfo.ErrorMSG = err.Error()
+// 		tempCalllogger.Error(call.String(callLogInfo))
+// 		return node_group_info_list, err
+// 	}
+// 	tempCalllogger.Info(call.String(callLogInfo))
 
-	var node_groups_json_obj map[string]interface{}
-	json.Unmarshal([]byte(node_groups_json_str), &node_groups_json_obj)
-	node_groups := node_groups_json_obj["nodepools"].([]interface{})
-	for _, node_group := range node_groups {
-		node_group_id := node_group.(map[string]interface{})["nodepool_info"].(map[string]interface{})["nodepool_id"].(string)
-		node_group_info, err := getNodeGroupInfo(clusterHandler.CredentialInfo.ClientId, clusterHandler.CredentialInfo.ClientSecret, clusterHandler.RegionInfo.Region, clusterIID.SystemId, node_group_id)
-		if err != nil {
-			err := fmt.Errorf("Failed to Get NodeGroupInfo :  %v", err)
-			cblogger.Error(err)
-			return nil, err
-		}
-		node_group_info_list = append(node_group_info_list, node_group_info)
-	}
+// 	var node_groups_json_obj map[string]interface{}
+// 	json.Unmarshal([]byte(node_groups_json_str), &node_groups_json_obj)
+// 	node_groups := node_groups_json_obj["nodepools"].([]interface{})
+// 	for _, node_group := range node_groups {
+// 		node_group_id := node_group.(map[string]interface{})["nodepool_info"].(map[string]interface{})["nodepool_id"].(string)
+// 		node_group_info, err := getNodeGroupInfo(clusterHandler.CredentialInfo.ClientId, clusterHandler.CredentialInfo.ClientSecret, clusterHandler.RegionInfo.Region, clusterIID.SystemId, node_group_id)
+// 		if err != nil {
+// 			err := fmt.Errorf("Failed to Get NodeGroupInfo :  %v", err)
+// 			cblogger.Error(err)
+// 			return nil, err
+// 		}
+// 		node_group_info_list = append(node_group_info_list, node_group_info)
+// 	}
 
-	return node_group_info_list, nil
-}
+// 	return node_group_info_list, nil
+// }
 
-func (clusterHandler *AlibabaClusterHandler) GetNodeGroup(clusterIID irs.IID, nodeGroupIID irs.IID) (irs.NodeGroupInfo, error) {
-	cblogger.Info("Alibaba Cloud Driver: called GetNodeGroup()")
-	callLogInfo := getCallLogScheme(clusterHandler.RegionInfo.Region, call.CLUSTER, clusterIID.NameId, "GetNodeGroup()")
+// func (clusterHandler *AlibabaClusterHandler) GetNodeGroup(clusterIID irs.IID, nodeGroupIID irs.IID) (irs.NodeGroupInfo, error) {
+// 	cblogger.Info("Alibaba Cloud Driver: called GetNodeGroup()")
+// 	callLogInfo := getCallLogScheme(clusterHandler.RegionInfo.Region, call.CLUSTER, clusterIID.NameId, "GetNodeGroup()")
 
-	start := call.Start()
-	temp, err := getNodeGroupInfo(clusterHandler.CredentialInfo.ClientId, clusterHandler.CredentialInfo.ClientSecret, clusterHandler.RegionInfo.Region, clusterIID.SystemId, nodeGroupIID.SystemId)
-	callLogInfo.ElapsedTime = call.Elapsed(start)
-	if err != nil {
-		err := fmt.Errorf("Failed to Get NodeGroupInfo :  %v", err)
-		cblogger.Error(err)
-		callLogInfo.ErrorMSG = err.Error()
-		tempCalllogger.Error(call.String(callLogInfo))
-		return irs.NodeGroupInfo{}, err
-	}
-	tempCalllogger.Info(call.String(callLogInfo))
+// 	start := call.Start()
+// 	temp, err := getNodeGroupInfo(clusterHandler.CredentialInfo.ClientId, clusterHandler.CredentialInfo.ClientSecret, clusterHandler.RegionInfo.Region, clusterIID.SystemId, nodeGroupIID.SystemId)
+// 	callLogInfo.ElapsedTime = call.Elapsed(start)
+// 	if err != nil {
+// 		err := fmt.Errorf("Failed to Get NodeGroupInfo :  %v", err)
+// 		cblogger.Error(err)
+// 		callLogInfo.ErrorMSG = err.Error()
+// 		tempCalllogger.Error(call.String(callLogInfo))
+// 		return irs.NodeGroupInfo{}, err
+// 	}
+// 	tempCalllogger.Info(call.String(callLogInfo))
 
-	return *temp, nil
-}
+// 	return *temp, nil
+// }
 
 func (clusterHandler *AlibabaClusterHandler) SetNodeGroupAutoScaling(clusterIID irs.IID, nodeGroupIID irs.IID, on bool) (bool, error) {
 	cblogger.Info("Alibaba Cloud Driver: called SetNodeGroupAutoScaling()")
