@@ -12,6 +12,8 @@ package pmks
 
 import (
 	"os"
+	"regexp"
+	"strings"
 	"testing"
 	"time"
 
@@ -72,9 +74,40 @@ func TestCreateClusterOnly(t *testing.T) {
 		},
 		Version: "1.22.5",
 		Network: irs.NetworkInfo{
-			VpcIID:     irs.IID{NameId: "", SystemId: "vpc-q1c6fr9e"},
-			SubnetIIDs: []irs.IID{{NameId: "", SystemId: "subnet-rl79gxhv"}},
-			//SecurityGroupIIDs: []irs.IID{{NameId: "", SystemId: "sg-46eef229"}}, // 설정 안됨
+			VpcIID:            irs.IID{NameId: "", SystemId: "vpc-q1c6fr9e"},
+			SubnetIIDs:        []irs.IID{{NameId: "", SystemId: "subnet-rl79gxhv"}},
+			SecurityGroupIIDs: []irs.IID{{NameId: "", SystemId: "sg-c00t00ih"}}, // 설정 안됨 => Description으로 설정해놓고, 조회해서 사용!
+		},
+	}
+
+	cluster_, err := clusterHandler.CreateCluster(clusterInfo)
+	if err != nil {
+		t.Error(err)
+	}
+
+	t.Log(cluster_)
+}
+
+// create on se
+func TestCreateClusterOnly_2(t *testing.T) {
+
+	t.Log("클러스터 생성, 노드그룹은 생성안함")
+
+	clusterHandler, err := getClusterHandler()
+	if err != nil {
+		t.Error(err)
+	}
+
+	clusterInfo := irs.ClusterInfo{
+		IId: irs.IID{
+			NameId:   "cluster-x1",
+			SystemId: "",
+		},
+		Version: "1.22.5",
+		Network: irs.NetworkInfo{
+			VpcIID:            irs.IID{NameId: "", SystemId: "vpc-am6zxh28"},
+			SubnetIIDs:        []irs.IID{{NameId: "", SystemId: "subnet-onpt6vkn"}},
+			SecurityGroupIIDs: []irs.IID{{NameId: "", SystemId: "sg-c00t00ih"}}, // 설정 안됨 => Description으로 설정해놓고, 조회해서 사용!
 		},
 	}
 
@@ -101,6 +134,15 @@ func TestListCluster(t *testing.T) {
 	for _, cluster := range clusters {
 		t.Log(cluster.IId.SystemId)
 		println(cluster.IId.NameId, cluster.Status)
+		for _, item := range cluster.KeyValueList {
+			println("\t", item.Key, item.Value)
+			if item.Key == "ClusterDescription" {
+				re := regexp.MustCompile(`\S*#CB-SPIDER:PMKS:SECURITYGROUP:ID:\S*`)
+				temp := re.FindString(item.Value)
+				split := strings.Split(temp, "#CB-SPIDER:PMKS:SECURITYGROUP:ID:")
+				println(split[1])
+			}
+		}
 	}
 }
 
@@ -162,18 +204,6 @@ func TestAddNodeGroup(t *testing.T) {
 	}
 }
 
-/*
-	"ReqInfo": {
-	"Name": "Economy",
-	"ImageName": "img-pi0ii46r",
-	"VMSpecName": "S3.MEDIUM2",
-	"KeyPairName": "keypair-01",
-	"OnAutoScaling": "true",
-	"DesiredNodeSize": "2",
-	"MinNodeSize": "2",
-	"MaxNodeSize": "2"
-	}
-*/
 func TestAddNodeGroup2(t *testing.T) {
 	clusterHandler, err := getClusterHandler()
 	if err != nil {
