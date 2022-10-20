@@ -162,6 +162,49 @@ func TestAddNodeGroup(t *testing.T) {
 	}
 }
 
+/*
+	"ReqInfo": {
+	"Name": "Economy",
+	"ImageName": "img-pi0ii46r",
+	"VMSpecName": "S3.MEDIUM2",
+	"KeyPairName": "keypair-01",
+	"OnAutoScaling": "true",
+	"DesiredNodeSize": "2",
+	"MinNodeSize": "2",
+	"MaxNodeSize": "2"
+	}
+*/
+func TestAddNodeGroup2(t *testing.T) {
+	clusterHandler, err := getClusterHandler()
+	if err != nil {
+		t.Error(err)
+	}
+
+	new_node_group := &irs.NodeGroupInfo{
+		IId: irs.IID{NameId: "Economy", SystemId: ""},
+		// image id can not be set, when creating nodepool
+		// ImageIID:        irs.IID{NameId: "", SystemId: "img-pi0ii46r"}, // 이미지 id 선택 추가, img-pi0ii46r:ubuntu18.04
+		VMSpecName: "S3.MEDIUM2",
+		// RootDiskType:    "CLOUD_PREMIUM",
+		// RootDiskSize:    "50",
+		KeyPairIID:      irs.IID{NameId: "keypair-01", SystemId: ""}, // 필수 옵션 아님, 대응되는 필드가 없음. 찾아봐야함.
+		OnAutoScaling:   true,
+		DesiredNodeSize: 2,
+		MinNodeSize:     2,
+		MaxNodeSize:     2,
+	}
+
+	clusters, _ := clusterHandler.ListCluster()
+	for _, cluster := range clusters {
+		t.Log(cluster)
+		node_group, err := clusterHandler.AddNodeGroup(cluster.IId, *new_node_group)
+		if err != nil {
+			t.Error(err)
+		}
+		t.Log(node_group)
+	}
+}
+
 // func TestListNodeGroup(t *testing.T) {
 // 	clusterHandler, err := getClusterHandler()
 // 	if err != nil {
