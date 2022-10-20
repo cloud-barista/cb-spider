@@ -194,54 +194,54 @@ func (clusterHandler *TencentClusterHandler) AddNodeGroup(clusterIID irs.IID, no
 	return *node_group_info, nil
 }
 
-func (clusterHandler *TencentClusterHandler) ListNodeGroup(clusterIID irs.IID) ([]*irs.NodeGroupInfo, error) {
-	cblogger.Info("Tencent Cloud Driver: called ListNodeGroup()")
-	callLogInfo := getCallLogScheme(clusterHandler.RegionInfo.Region, call.CLUSTER, clusterIID.NameId, "ListNodeGroup()")
+// func (clusterHandler *TencentClusterHandler) ListNodeGroup(clusterIID irs.IID) ([]*irs.NodeGroupInfo, error) {
+// 	cblogger.Info("Tencent Cloud Driver: called ListNodeGroup()")
+// 	callLogInfo := getCallLogScheme(clusterHandler.RegionInfo.Region, call.CLUSTER, clusterIID.NameId, "ListNodeGroup()")
 
-	start := call.Start()
-	node_group_info_list := []*irs.NodeGroupInfo{}
-	res, err := tencent.ListNodeGroup(clusterHandler.CredentialInfo.ClientId, clusterHandler.CredentialInfo.ClientSecret, clusterHandler.RegionInfo.Region, clusterIID.SystemId)
-	callLogInfo.ElapsedTime = call.Elapsed(start)
-	if err != nil {
-		err := fmt.Errorf("Failed to List Node Group :  %v", err)
-		cblogger.Error(err)
-		callLogInfo.ErrorMSG = err.Error()
-		tempCalllogger.Error(call.String(callLogInfo))
-		return node_group_info_list, err
-	}
-	tempCalllogger.Info(call.String(callLogInfo))
+// 	start := call.Start()
+// 	node_group_info_list := []*irs.NodeGroupInfo{}
+// 	res, err := tencent.ListNodeGroup(clusterHandler.CredentialInfo.ClientId, clusterHandler.CredentialInfo.ClientSecret, clusterHandler.RegionInfo.Region, clusterIID.SystemId)
+// 	callLogInfo.ElapsedTime = call.Elapsed(start)
+// 	if err != nil {
+// 		err := fmt.Errorf("Failed to List Node Group :  %v", err)
+// 		cblogger.Error(err)
+// 		callLogInfo.ErrorMSG = err.Error()
+// 		tempCalllogger.Error(call.String(callLogInfo))
+// 		return node_group_info_list, err
+// 	}
+// 	tempCalllogger.Info(call.String(callLogInfo))
 
-	for _, node_group := range res.Response.NodePoolSet {
-		node_group_info, err := getNodeGroupInfo(clusterHandler.CredentialInfo.ClientId, clusterHandler.CredentialInfo.ClientSecret, clusterHandler.RegionInfo.Region, clusterIID.SystemId, *node_group.NodePoolId)
-		if err != nil {
-			err := fmt.Errorf("Failed to Get Node Group Info:  %v", err)
-			cblogger.Error(err)
-			return nil, err
-		}
-		node_group_info_list = append(node_group_info_list, node_group_info)
-	}
+// 	for _, node_group := range res.Response.NodePoolSet {
+// 		node_group_info, err := getNodeGroupInfo(clusterHandler.CredentialInfo.ClientId, clusterHandler.CredentialInfo.ClientSecret, clusterHandler.RegionInfo.Region, clusterIID.SystemId, *node_group.NodePoolId)
+// 		if err != nil {
+// 			err := fmt.Errorf("Failed to Get Node Group Info:  %v", err)
+// 			cblogger.Error(err)
+// 			return nil, err
+// 		}
+// 		node_group_info_list = append(node_group_info_list, node_group_info)
+// 	}
 
-	return node_group_info_list, nil
-}
+// 	return node_group_info_list, nil
+// }
 
-func (clusterHandler *TencentClusterHandler) GetNodeGroup(clusterIID irs.IID, nodeGroupIID irs.IID) (irs.NodeGroupInfo, error) {
-	cblogger.Info("Tencent Cloud Driver: called GetNodeGroup()")
-	callLogInfo := getCallLogScheme(clusterHandler.RegionInfo.Region, call.CLUSTER, clusterIID.NameId, "GetNodeGroup()")
+// func (clusterHandler *TencentClusterHandler) GetNodeGroup(clusterIID irs.IID, nodeGroupIID irs.IID) (irs.NodeGroupInfo, error) {
+// 	cblogger.Info("Tencent Cloud Driver: called GetNodeGroup()")
+// 	callLogInfo := getCallLogScheme(clusterHandler.RegionInfo.Region, call.CLUSTER, clusterIID.NameId, "GetNodeGroup()")
 
-	start := call.Start()
-	temp, err := getNodeGroupInfo(clusterHandler.CredentialInfo.ClientId, clusterHandler.CredentialInfo.ClientSecret, clusterHandler.RegionInfo.Region, clusterIID.SystemId, nodeGroupIID.SystemId)
-	callLogInfo.ElapsedTime = call.Elapsed(start)
-	if err != nil {
-		err := fmt.Errorf("Failed to Get Node Group Info:  %v", err)
-		cblogger.Error(err)
-		callLogInfo.ErrorMSG = err.Error()
-		tempCalllogger.Error(call.String(callLogInfo))
-		return irs.NodeGroupInfo{}, err
-	}
-	tempCalllogger.Info(call.String(callLogInfo))
+// 	start := call.Start()
+// 	temp, err := getNodeGroupInfo(clusterHandler.CredentialInfo.ClientId, clusterHandler.CredentialInfo.ClientSecret, clusterHandler.RegionInfo.Region, clusterIID.SystemId, nodeGroupIID.SystemId)
+// 	callLogInfo.ElapsedTime = call.Elapsed(start)
+// 	if err != nil {
+// 		err := fmt.Errorf("Failed to Get Node Group Info:  %v", err)
+// 		cblogger.Error(err)
+// 		callLogInfo.ErrorMSG = err.Error()
+// 		tempCalllogger.Error(call.String(callLogInfo))
+// 		return irs.NodeGroupInfo{}, err
+// 	}
+// 	tempCalllogger.Info(call.String(callLogInfo))
 
-	return *temp, nil
-}
+// 	return *temp, nil
+// }
 
 func (clusterHandler *TencentClusterHandler) SetNodeGroupAutoScaling(clusterIID irs.IID, nodeGroupIID irs.IID, on bool) (bool, error) {
 	cblogger.Info("Tencent Cloud Driver: called SetNodeGroupAutoScaling()")
