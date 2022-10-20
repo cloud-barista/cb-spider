@@ -662,9 +662,10 @@ func getNodeGroupRequest(clusterHandler *TencentClusterHandler, cluster_id strin
 	// ImageId를 설정하면 에러 발생, 설정안됨.
 	launch_config_json_str := `{
 		"InstanceType": "%s",
-		"SecurityGroupIds": ["%s"]
-	}`
-	launch_config_json_str = fmt.Sprintf(launch_config_json_str, nodeGroupReqInfo.VMSpecName, security_group_id)
+		"SecurityGroupIds": ["%s"],
+		"LoginSettings": { "KeyIds" : ["%s"] }
+	}`		
+	launch_config_json_str = fmt.Sprintf(launch_config_json_str, nodeGroupReqInfo.VMSpecName, security_group_id, nodeGroupReqInfo.KeyPairIID.SystemId)
 
 	auto_scaling_group_json_str := `{
 		"MinSize": %d,
