@@ -13,6 +13,7 @@ package resources
 import (
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -595,7 +596,16 @@ func getCreateClusterRequest(clusterHandler *TencentClusterHandler, clusterInfo 
 	request.ClusterBasicSettings = &tke.ClusterBasicSettings{
 		ClusterName:    common.StringPtr(clusterInfo.IId.NameId),
 		VpcId:          common.StringPtr(clusterInfo.Network.VpcIID.SystemId),
-		ClusterVersion: common.StringPtr(clusterInfo.Version), //option, version: 1.22.5
+		ClusterVersion: common.StringPtr(clusterInfo.Version), // option, version: 1.22.5
+		// security_group_name을 저장하는 방법이 없음.
+		// description에 securityp_group_name을 저장해서 사용함.
+		// 향후, 추가 정보가 필요하면, description에 json 문서를 저장하는 방식으로 사용할 수도 있음.
+		//
+		// 정보검색은
+		// 사용자가 필요에 따라서 다른 description내용을 추가할 수 도 있으니,
+		// "#CB-SPIDER:PMKS:SECURITYGROUP:ID"을 포함하는 Line을 찾아서 처리
+		// >> regex로 구현
+		ClusterDescription: common.StringPtr("#CB-SPIDER:PMKS:SECURITYGROUP:ID:" + clusterInfo.Network.SecurityGroupIIDs[0].SystemId), // option, #CB-SPIDER:PMKS:SECURITYGROUP:sg-c00t00ih
 	}
 	request.ClusterType = common.StringPtr("MANAGED_CLUSTER") //default value
 
@@ -620,20 +630,33 @@ func getNodeGroupRequest(clusterHandler *TencentClusterHandler, cluster_id strin
 	vpc_id := cluster.Network.VpcIID.SystemId
 	subnet_id := cluster.Network.SubnetIIDs[0].SystemId
 
-	response, err := tencent.DescribeSecurityGroups(clusterHandler.CredentialInfo.ClientId, clusterHandler.CredentialInfo.ClientSecret, clusterHandler.RegionInfo.Region)
-	if err != nil {
-		err := fmt.Errorf("Failed to Describe Security Groups :  %v", err)
-		cblogger.Error(err)
-		println(err)
-	}
-
+	// description에서 security group 이름 추출
 	security_group_id := ""
-	for _, group := range response.Response.SecurityGroupSet {
-		if *group.IsDefault {
-			security_group_id = *group.SecurityGroupId
+	for _, item := range cluster.KeyValueList {
+		println("\t", item.Key, item.Value)
+		if item.Key == "ClusterDescription" {
+			re := regexp.MustCompile(`\S*#CB-SPIDER:PMKS:SECURITYGROUP:ID:\S*`)
+			temp := re.FindString(item.Value)
+			split := strings.Split(temp, "#CB-SPIDER:PMKS:SECURITYGROUP:ID:")
+			security_group_id = split[1]
 			break
 		}
 	}
+
+	// response, err := tencent.DescribeSecurityGroups(clusterHandler.CredentialInfo.ClientId, clusterHandler.CredentialInfo.ClientSecret, clusterHandler.RegionInfo.Region)
+	// if err != nil {
+	// 	err := fmt.Errorf("Failed to Describe Security Groups :  %v", err)
+	// 	cblogger.Error(err)
+	// 	println(err)
+	// }
+
+	// security_group_id := ""
+	// for _, group := range response.Response.SecurityGroupSet {
+	// 	if *group.IsDefault {
+	// 		security_group_id = *group.SecurityGroupId
+	// 		break
+	// 	}
+	// }
 
 	// '{"LaunchConfigurationName":"name","InstanceType":"S3.MEDIUM2","ImageId":"img-pi0ii46r"}'
 	// ImageId를 설정하면 에러 발생, 설정안됨.
@@ -650,7 +673,8 @@ func getNodeGroupRequest(clusterHandler *TencentClusterHandler, cluster_id strin
 		"VpcId": "%s",
 		"SubnetIds": ["%s"]
 	}`
-	auto_scaling_group_json_str = fmt.Sprintf(auto_scaling_group_json_str, 0, 3, 1, vpc_id, subnet_id)
+
+	auto_scaling_group_json_str = fmt.Sprintf(auto_scaling_group_json_str, nodeGroupReqInfo.MinNodeSize, nodeGroupReqInfo.MaxNodeSize, nodeGroupReqInfo.DesiredNodeSize, vpc_id, subnet_id)
 
 	disk_size, _ := strconv.ParseInt(nodeGroupReqInfo.RootDiskSize, 10, 64)
 	request = tke.NewCreateClusterNodePoolRequest()
