@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-
 	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2021-02-01/network"
 	"github.com/Azure/go-autorest/autorest/to"
 
@@ -260,6 +259,27 @@ func (vpcHandler *AzureVPCHandler) getRawVPC(vpcIID irs.IID) (*network.VirtualNe
 		return nil, errors.New("not found SecurityGroup")
 	} else {
 		vpc, err := vpcHandler.Client.Get(vpcHandler.Ctx, vpcHandler.Region.ResourceGroup, vpcIID.NameId, "")
+		return &vpc, err
+	}
+}
+
+func getRawVirtualNetwork(vpcIID irs.IID, virtualNetworksClient *network.VirtualNetworksClient, ctx context.Context, resourceGroup string) (*network.VirtualNetwork, error) {
+	if vpcIID.SystemId == "" && vpcIID.NameId == "" {
+		return nil, errors.New("invalid IID")
+	}
+	if vpcIID.NameId == "" {
+		result, err := virtualNetworksClient.List(ctx, resourceGroup)
+		if err != nil {
+			return nil, err
+		}
+		for _, vpc := range result.Values() {
+			if *vpc.ID == vpcIID.SystemId {
+				return &vpc, nil
+			}
+		}
+		return nil, errors.New("not found SecurityGroup")
+	} else {
+		vpc, err := virtualNetworksClient.Get(ctx, resourceGroup, vpcIID.NameId, "")
 		return &vpc, err
 	}
 }

@@ -156,7 +156,8 @@ func showTestHandlerInfo() {
 	cblogger.Info("7. NLBHandler")
 	cblogger.Info("8. DiskHandler")
 	cblogger.Info("9. MyImageHandler")
-	cblogger.Info("10. Exit")
+	cblogger.Info("10. ClusterHandler")
+	cblogger.Info("11. Exit")
 	cblogger.Info("==========================================================")
 }
 
@@ -198,6 +199,8 @@ func getResourceHandler(resourceType string, config Config) (interface{}, error)
 		resourceHandler, err = cloudConnection.CreateDiskHandler()
 	case "myimage":
 		resourceHandler, err = cloudConnection.CreateMyImageHandler()
+	case "cluster":
+		resourceHandler, err = cloudConnection.CreateClusterHandler()
 	}
 
 	if err != nil {
@@ -884,19 +887,18 @@ func testNLBHandler(config Config) {
 			Port:     "8080",
 		},
 		VMGroup: irs.VMGroupInfo{
-			Port:     "8080",
+			Port:     "80",
 			Protocol: "TCP",
 			VMs: &[]irs.IID{
-				{NameId: "nlb-tester-vm-01"},
-				{NameId: "nlb-tester-vm-02"},
+				{NameId: "tj-vm-tester"},
+				//{NameId: "nlb-tester-vm-02"},
 			},
 		},
 		HealthChecker: irs.HealthCheckerInfo{
 			Protocol:  "TCP",
-			Port:      "8080",
+			Port:      "80",
 			Interval:  10,
-			Timeout:   10,
-			Threshold: 10,
+			Threshold: 429496728,
 		},
 	}
 	updateListener := irs.ListenerInfo{
@@ -922,9 +924,9 @@ func testNLBHandler(config Config) {
 
 	updateHealthCheckerInfo := irs.HealthCheckerInfo{
 		Protocol:  "TCP",
-		Port:      "8087",
-		Interval:  5,
-		Threshold: 2,
+		Port:      "80",
+		Interval:  10,
+		Threshold: 1,
 	}
 Loop:
 	for {
@@ -1220,6 +1222,226 @@ Loop:
 	}
 }
 
+func testClusterHandlerListPrint() {
+	cblogger.Info("Test ClusterHandler")
+	cblogger.Info("0. Print Menu")
+	cblogger.Info("1. ListCluster()")
+	cblogger.Info("2. GetCluster()")
+	cblogger.Info("3. CreateCluster()")
+	cblogger.Info("4. DeleteCluster()") //AddNodeGroup
+	cblogger.Info("5. AddNodeGroup()")
+	cblogger.Info("6. RemoveNodeGroup()")
+	cblogger.Info("7. SetNodeGroupAutoScaling()")
+	cblogger.Info("8. ChangeNodeGroupScaling()")
+	cblogger.Info("9. UpgradeCluster()")
+	cblogger.Info("10. Create-Get-List-Delete")
+	cblogger.Info("11. Exit")
+}
+
+func testClusterHandler(config Config) {
+	resourceHandler, err := getResourceHandler("cluster", config)
+	if err != nil {
+		cblogger.Error(err)
+		return
+	}
+
+	clusterHandler := resourceHandler.(irs.ClusterHandler)
+	testClusterHandlerListPrint()
+	createreq := irs.ClusterInfo{
+		IId: irs.IID{
+			NameId: "test-cluster-1",
+		},
+		Network: irs.NetworkInfo{
+			VpcIID:            irs.IID{NameId: "cluster-tester-vpc"},
+			SubnetIIDs:        []irs.IID{{NameId: "cluster-tester-vpc-sb-01"}},
+			SecurityGroupIIDs: []irs.IID{{NameId: "test-cluster-applysg"}},
+		},
+		Version: "1.22.11",
+		// ImageIID
+		NodeGroupList: []irs.NodeGroupInfo{
+			{
+				IId:             irs.IID{NameId: "nodegroup"},
+				VMSpecName:      "Standard_B2s",
+				RootDiskSize:    "default",
+				KeyPairIID:      irs.IID{NameId: "azure0916"},
+				DesiredNodeSize: 1,
+				MaxNodeSize:     3,
+				MinNodeSize:     1,
+				OnAutoScaling:   true,
+			},
+		},
+	}
+	addNodeGroup := irs.NodeGroupInfo{
+		IId:             irs.IID{NameId: "nodegroup2"},
+		VMSpecName:      "Standard_B2s",
+		RootDiskSize:    "default",
+		KeyPairIID:      irs.IID{NameId: "azure0916"},
+		DesiredNodeSize: 1,
+		MaxNodeSize:     3,
+		MinNodeSize:     1,
+		OnAutoScaling:   true,
+	}
+
+Loop:
+	for {
+		var commandNum int
+		inputCnt, err := fmt.Scan(&commandNum)
+		if err != nil {
+			cblogger.Error(err)
+		}
+
+		if inputCnt == 1 {
+			switch commandNum {
+			case 0:
+				testClusterHandlerListPrint()
+			case 1:
+				cblogger.Info("Start ListCluster() ...")
+				if list, err := clusterHandler.ListCluster(); err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(list)
+				}
+				cblogger.Info("Finish ListCluster()")
+			case 2:
+				cblogger.Info("Start GetCluster() ...")
+				if clusterInfo, err := clusterHandler.GetCluster(createreq.IId); err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(clusterInfo)
+				}
+				cblogger.Info("Finish GetCluster()")
+			case 3:
+				cblogger.Info("Start CreateCluster() ...")
+				if createInfo, err := clusterHandler.CreateCluster(createreq); err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(createInfo)
+				}
+				cblogger.Info("Finish CreateCluster()")
+			case 4:
+				cblogger.Info("Start DeleteCluster() ...")
+				if del, err := clusterHandler.DeleteCluster(createreq.IId); err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(del)
+				}
+				cblogger.Info("Finish DeleteCluster()")
+			case 5:
+				cblogger.Info("Start AddNodeGroup() ...")
+				if del, err := clusterHandler.AddNodeGroup(createreq.IId, addNodeGroup); err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(del)
+				}
+				cblogger.Info("Finish AddNodeGroup()")
+			case 6:
+				cblogger.Info("Start RemoveNodeGroup() ...")
+				if del, err := clusterHandler.RemoveNodeGroup(createreq.IId, addNodeGroup.IId); err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(del)
+				}
+				cblogger.Info("Finish RemoveNodeGroup()")
+			case 7:
+				cblogger.Info("Start SetNodeGroupAutoScaling() ...")
+				if del, err := clusterHandler.SetNodeGroupAutoScaling(createreq.IId, createreq.NodeGroupList[0].IId, true); err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(del)
+				}
+				cblogger.Info("Finish SetNodeGroupAutoScaling()")
+			case 8:
+				cblogger.Info("Start ChangeNodeGroupScaling() ...")
+				if del, err := clusterHandler.ChangeNodeGroupScaling(createreq.IId, createreq.NodeGroupList[0].IId, 3, 1, 3); err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(del)
+				}
+				cblogger.Info("Finish ChangeNodeGroupScaling()")
+			case 9:
+				cblogger.Info("Start UpgradeCluster() ...")
+				if del, err := clusterHandler.UpgradeCluster(createreq.IId, "1.23.8"); err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(del)
+				}
+				cblogger.Info("Finish UpgradeCluster()")
+			case 10:
+				falowStr := "Create->GET->List->Delete"
+				cblogger.Info(fmt.Sprintf("Start %s =====", falowStr))
+				cblogger.Info("Start Create =====")
+				continueCheck := true
+				if createInfo, err := clusterHandler.CreateCluster(createreq); err != nil {
+					continueCheck = false
+					cblogger.Error("Failed Create =====")
+					cblogger.Error(err)
+					if _, err := clusterHandler.DeleteCluster(createreq.IId); err != nil {
+						cblogger.Error("Clean Failed!")
+						cblogger.Error(err)
+						cblogger.Error("Clean Failed!")
+					}
+				} else {
+					spew.Dump(createInfo)
+					cblogger.Info("Finish Create =====")
+				}
+				if !continueCheck {
+					cblogger.Info(fmt.Sprintf("Finish Failed %s =====", falowStr))
+					continue
+				}
+				cblogger.Info("Start Get =====")
+				if clusterInfo, err := clusterHandler.GetCluster(createreq.IId); err != nil {
+					continueCheck = false
+					cblogger.Error("Failed Get =====")
+					cblogger.Error(err)
+					if _, err := clusterHandler.DeleteCluster(createreq.IId); err != nil {
+						cblogger.Error("Clean Failed!")
+						cblogger.Error(err)
+						cblogger.Error("Clean Failed!")
+					}
+				} else {
+					spew.Dump(clusterInfo)
+					cblogger.Info("Finish Get =====")
+				}
+				if !continueCheck {
+					cblogger.Info(fmt.Sprintf("Finish Failed %s =====", falowStr))
+					continue
+				}
+				cblogger.Info("Start List =====")
+				if list, err := clusterHandler.ListCluster(); err != nil {
+					continueCheck = false
+					cblogger.Error("Failed List =====")
+					cblogger.Error(err)
+					if _, err := clusterHandler.DeleteCluster(createreq.IId); err != nil {
+						cblogger.Error("Clean Failed!")
+						cblogger.Error(err)
+						cblogger.Error("Clean Failed!")
+					}
+				} else {
+					spew.Dump(list)
+					cblogger.Info("Finish List =====")
+				}
+				if !continueCheck {
+					cblogger.Info(fmt.Sprintf("Finish Failed %s =====", falowStr))
+					continue
+				}
+				// Final
+				cblogger.Info("Start Delete =====")
+				if del, err := clusterHandler.DeleteCluster(createreq.IId); err != nil {
+					cblogger.Error("Failed Delete =====")
+					cblogger.Error(err)
+				} else {
+					spew.Dump(del)
+					cblogger.Info("Finish Delete =====")
+				}
+				cblogger.Info(fmt.Sprintf("Finish %s =====", falowStr))
+			case 11:
+				cblogger.Info("Exit")
+				break Loop
+			}
+		}
+	}
+}
+
 func main() {
 	showTestHandlerInfo()
 	config := readConfigFile()
@@ -1261,6 +1483,9 @@ Loop:
 				testMyImageHandler(config)
 				showTestHandlerInfo()
 			case 10:
+				testClusterHandler(config)
+				showTestHandlerInfo()
+			case 11:
 				cblogger.Info("Exit Test ResourceHandler Program")
 				break Loop
 			}

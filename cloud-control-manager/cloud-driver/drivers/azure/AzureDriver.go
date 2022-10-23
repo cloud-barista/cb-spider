@@ -12,6 +12,7 @@ package azure
 
 import (
 	"context"
+	"github.com/Azure/azure-sdk-for-go/services/containerservice/mgmt/2022-03-01/containerservice"
 	"time"
 
 	"github.com/Azure/azure-sdk-for-go/profiles/2020-09-01/monitor/mgmt/insights"
@@ -138,28 +139,47 @@ func (driver *AzureDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (ico
 	if err != nil {
 		return nil, err
 	}
-
+	Ctx, managedClustersClient, err := getManagedClustersClient(connectionInfo.CredentialInfo)
+	if err != nil {
+		return nil, err
+	}
+	Ctx, agentPoolsClient, err := getAgentPoolsClient(connectionInfo.CredentialInfo)
+	if err != nil {
+		return nil, err
+	}
+	Ctx, virtualMachineScaleSetsClient, err := getVirtualMachineScaleSetsClient(connectionInfo.CredentialInfo)
+	if err != nil {
+		return nil, err
+	}
+	Ctx, virtualMachineScaleSetVMsClient, err := getVirtualMachineScaleSetVMsClient(connectionInfo.CredentialInfo)
+	if err != nil {
+		return nil, err
+	}
 	iConn := azcon.AzureCloudConnection{
-		CredentialInfo:               connectionInfo.CredentialInfo,
-		Region:                       connectionInfo.RegionInfo,
-		Ctx:                          Ctx,
-		VMClient:                     VMClient,
-		ImageClient:                  imageClient,
-		PublicIPClient:               publicIPClient,
-		SecurityGroupClient:          sgClient,
-		SecurityGroupRuleClient:      sgRuleClient,
-		VNetClient:                   VNetClient,
-		VNicClient:                   vNicClient,
-		IPConfigClient:               IPConfigClient,
-		SubnetClient:                 SubnetClient,
-		VMImageClient:                VMImageClient,
-		DiskClient:                   DiskClient,
-		VmSpecClient:                 VmSpecClient,
-		SshKeyClient:                 sshKeyClient,
-		NLBClient:                    nlbClient,
-		NLBBackendAddressPoolsClient: nlbBackendAddressPoolsClient,
-		NLBLoadBalancingRulesClient:  nlbLoadBalancingRulesClient,
-		MetricClient:                 metricClient,
+		CredentialInfo:                  connectionInfo.CredentialInfo,
+		Region:                          connectionInfo.RegionInfo,
+		Ctx:                             Ctx,
+		VMClient:                        VMClient,
+		ImageClient:                     imageClient,
+		PublicIPClient:                  publicIPClient,
+		SecurityGroupClient:             sgClient,
+		SecurityGroupRuleClient:         sgRuleClient,
+		VNetClient:                      VNetClient,
+		VNicClient:                      vNicClient,
+		IPConfigClient:                  IPConfigClient,
+		SubnetClient:                    SubnetClient,
+		VMImageClient:                   VMImageClient,
+		DiskClient:                      DiskClient,
+		VmSpecClient:                    VmSpecClient,
+		SshKeyClient:                    sshKeyClient,
+		NLBClient:                       nlbClient,
+		NLBBackendAddressPoolsClient:    nlbBackendAddressPoolsClient,
+		NLBLoadBalancingRulesClient:     nlbLoadBalancingRulesClient,
+		MetricClient:                    metricClient,
+		ManagedClustersClient:           managedClustersClient,
+		AgentPoolsClient:                agentPoolsClient,
+		VirtualMachineScaleSetsClient:   virtualMachineScaleSetsClient,
+		VirtualMachineScaleSetVMsClient: virtualMachineScaleSetVMsClient,
 	}
 	return &iConn, nil
 }
@@ -430,4 +450,56 @@ func getMetricClient(credential idrv.CredentialInfo) (context.Context, *insights
 	ctx, _ := context.WithTimeout(context.Background(), cspTimeout*time.Second)
 
 	return ctx, &metricClient, nil
+}
+
+func getManagedClustersClient(credential idrv.CredentialInfo) (context.Context, *containerservice.ManagedClustersClient, error) {
+	config := auth.NewClientCredentialsConfig(credential.ClientId, credential.ClientSecret, credential.TenantId)
+	authorizer, err := config.Authorizer()
+	if err != nil {
+		return nil, nil, err
+	}
+	managedClustersClient := containerservice.NewManagedClustersClient(credential.SubscriptionId)
+	managedClustersClient.Authorizer = authorizer
+	ctx, _ := context.WithTimeout(context.Background(), cspTimeout*time.Second)
+
+	return ctx, &managedClustersClient, nil
+}
+
+func getAgentPoolsClient(credential idrv.CredentialInfo) (context.Context, *containerservice.AgentPoolsClient, error) {
+	config := auth.NewClientCredentialsConfig(credential.ClientId, credential.ClientSecret, credential.TenantId)
+	authorizer, err := config.Authorizer()
+	if err != nil {
+		return nil, nil, err
+	}
+	agentPoolsClient := containerservice.NewAgentPoolsClient(credential.SubscriptionId)
+	agentPoolsClient.Authorizer = authorizer
+	ctx, _ := context.WithTimeout(context.Background(), cspTimeout*time.Second)
+
+	return ctx, &agentPoolsClient, nil
+}
+
+func getVirtualMachineScaleSetsClient(credential idrv.CredentialInfo) (context.Context, *compute.VirtualMachineScaleSetsClient, error) {
+	config := auth.NewClientCredentialsConfig(credential.ClientId, credential.ClientSecret, credential.TenantId)
+	authorizer, err := config.Authorizer()
+	if err != nil {
+		return nil, nil, err
+	}
+	virtualMachineScaleSetsClient := compute.NewVirtualMachineScaleSetsClient(credential.SubscriptionId)
+	virtualMachineScaleSetsClient.Authorizer = authorizer
+	ctx, _ := context.WithTimeout(context.Background(), cspTimeout*time.Second)
+
+	return ctx, &virtualMachineScaleSetsClient, nil
+}
+
+func getVirtualMachineScaleSetVMsClient(credential idrv.CredentialInfo) (context.Context, *compute.VirtualMachineScaleSetVMsClient, error) {
+	config := auth.NewClientCredentialsConfig(credential.ClientId, credential.ClientSecret, credential.TenantId)
+	authorizer, err := config.Authorizer()
+	if err != nil {
+		return nil, nil, err
+	}
+	virtualMachineScaleSetVMsClient := compute.NewVirtualMachineScaleSetVMsClient(credential.SubscriptionId)
+	virtualMachineScaleSetVMsClient.Authorizer = authorizer
+	ctx, _ := context.WithTimeout(context.Background(), cspTimeout*time.Second)
+
+	return ctx, &virtualMachineScaleSetVMsClient, nil
 }
