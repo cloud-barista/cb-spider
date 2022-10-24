@@ -88,7 +88,7 @@ func TestCreateClusterOnly(t *testing.T) {
 	t.Log(cluster_)
 }
 
-// create on se
+// create on seoul region
 func TestCreateClusterOnly_2(t *testing.T) {
 
 	t.Log("클러스터 생성, 노드그룹은 생성안함")
@@ -100,13 +100,13 @@ func TestCreateClusterOnly_2(t *testing.T) {
 
 	clusterInfo := irs.ClusterInfo{
 		IId: irs.IID{
-			NameId:   "cluster-x1",
+			NameId:   "cluster-x2",
 			SystemId: "",
 		},
 		Version: "1.22.5",
 		Network: irs.NetworkInfo{
 			VpcIID:            irs.IID{NameId: "", SystemId: "vpc-am6zxh28"},
-			SubnetIIDs:        []irs.IID{{NameId: "", SystemId: "subnet-onpt6vkn"}},
+			SubnetIIDs:        []irs.IID{{NameId: "", SystemId: "subnet-hxz3js5x"}},
 			SecurityGroupIIDs: []irs.IID{{NameId: "", SystemId: "sg-c00t00ih"}}, // 설정 안됨 => Description으로 설정해놓고, 조회해서 사용!
 		},
 	}
@@ -186,11 +186,11 @@ func TestAddNodeGroup(t *testing.T) {
 		VMSpecName:      "S3.MEDIUM2",
 		RootDiskType:    "CLOUD_PREMIUM",
 		RootDiskSize:    "50",
-		KeyPairIID:      irs.IID{NameId: "kp1", SystemId: ""}, // 필수 옵션 아님, 대응되는 필드가 없음. 찾아봐야함.
+		KeyPairIID:      irs.IID{NameId: "", SystemId: "skey-4l982cjb"}, // KeyPair ID 설정
 		OnAutoScaling:   true,
-		DesiredNodeSize: 1,
-		MinNodeSize:     0,
-		MaxNodeSize:     3,
+		DesiredNodeSize: 2,
+		MinNodeSize:     2,
+		MaxNodeSize:     2,
 	}
 
 	clusters, _ := clusterHandler.ListCluster()
@@ -211,13 +211,12 @@ func TestAddNodeGroup2(t *testing.T) {
 	}
 
 	new_node_group := &irs.NodeGroupInfo{
-		IId: irs.IID{NameId: "Economy", SystemId: ""},
-		// image id can not be set, when creating nodepool
-		// ImageIID:        irs.IID{NameId: "", SystemId: "img-pi0ii46r"}, // 이미지 id 선택 추가, img-pi0ii46r:ubuntu18.04
+		IId: irs.IID{NameId: "ng-x4", SystemId: ""},
+		// ImageIID:   irs.IID{NameId: "", SystemId: "img-4wpaazux"}, // TKE Ubuntu16 64 bits // 설정안됨
 		VMSpecName: "S3.MEDIUM2",
 		// RootDiskType:    "CLOUD_PREMIUM",
 		// RootDiskSize:    "50",
-		KeyPairIID:      irs.IID{NameId: "keypair-01", SystemId: ""}, // 필수 옵션 아님, 대응되는 필드가 없음. 찾아봐야함.
+		KeyPairIID:      irs.IID{NameId: "", SystemId: "skey-4l982cjb"}, // KeyPair ID 설정
 		OnAutoScaling:   true,
 		DesiredNodeSize: 2,
 		MinNodeSize:     2,

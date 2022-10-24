@@ -372,12 +372,14 @@ func getClusterInfo(access_key string, access_secret string, region_id string, c
 	cluster_status := irs.ClusterActive
 	if strings.EqualFold(health_status, "Creating") {
 		cluster_status = irs.ClusterCreating
-	} else if strings.EqualFold(health_status, "Creating") {
+	} else if strings.EqualFold(health_status, "Upgrading") {
 		cluster_status = irs.ClusterUpdating
-	} else if strings.EqualFold(health_status, "Abnormal") {
-		cluster_status = irs.ClusterInactive
+	} else if strings.EqualFold(health_status, "Deleting") {
+		cluster_status = irs.ClusterDeleting
 	} else if strings.EqualFold(health_status, "Running") {
 		cluster_status = irs.ClusterActive
+	} else {
+		cluster_status = irs.ClusterInactive
 	}
 	// else if strings.EqualFold(health_status, "") { // tencent has no "delete" state
 	// cluster_status = irs.ClusterDeleting
@@ -391,6 +393,19 @@ func getClusterInfo(access_key string, access_secret string, region_id string, c
 		panic(err)
 	}
 
+	// description에서 security group 이름 추출
+	security_group_id := ""
+	re := regexp.MustCompile(`\S*#CB-SPIDER:PMKS:SECURITYGROUP:ID:\S*`)
+	found := re.FindString(*res.Response.Clusters[0].ClusterDescription)
+	split := strings.Split(found, "#CB-SPIDER:PMKS:SECURITYGROUP:ID:")
+	security_group_id = split[1]
+
+	subnet_id := ""
+	re = regexp.MustCompile(`\S*#CB-SPIDER:PMKS:SUBNET:ID:\S*`)
+	found = re.FindString(*res.Response.Clusters[0].ClusterDescription)
+	split = strings.Split(found, "#CB-SPIDER:PMKS:SUBNET:ID:")
+	subnet_id = split[1]
+
 	clusterInfo = &irs.ClusterInfo{
 		IId: irs.IID{
 			NameId:   *res.Response.Clusters[0].ClusterName,
@@ -402,12 +417,8 @@ func getClusterInfo(access_key string, access_secret string, region_id string, c
 				NameId:   "",
 				SystemId: *res.Response.Clusters[0].ClusterNetworkSettings.VpcId,
 			},
-			SubnetIIDs: []irs.IID{
-				{
-					NameId:   "",
-					SystemId: *res.Response.Clusters[0].ClusterNetworkSettings.Subnets[0],
-				},
-			},
+			SecurityGroupIIDs: []irs.IID{{NameId: "", SystemId: security_group_id}},
+			SubnetIIDs:        []irs.IID{{NameId: "", SystemId: subnet_id}},
 		},
 		Status:      cluster_status,
 		CreatedTime: datetime,
@@ -521,14 +532,26 @@ func getNodeGroupInfo(access_key, access_secret, region_id, cluster_id, node_gro
 		VMSpecName:      *launch_config.Response.LaunchConfigurationSet[0].InstanceType,
 		RootDiskType:    *launch_config.Response.LaunchConfigurationSet[0].SystemDisk.DiskType,
 		RootDiskSize:    fmt.Sprintf("%d", *launch_config.Response.LaunchConfigurationSet[0].SystemDisk.DiskSize),
-		KeyPairIID:      irs.IID{NameId: "", SystemId: ""}, // not available
+		KeyPairIID:      irs.IID{NameId: "", SystemId: *launch_config.Response.LaunchConfigurationSet[0].LoginSettings.KeyIds[0]},
 		Status:          status,
 		OnAutoScaling:   auto_scale_enalbed,
 		MinNodeSize:     int(*auto_scaling_group.Response.AutoScalingGroupSet[0].MinSize),
 		MaxNodeSize:     int(*auto_scaling_group.Response.AutoScalingGroupSet[0].MaxSize),
 		DesiredNodeSize: int(*auto_scaling_group.Response.AutoScalingGroupSet[0].DesiredCapacity),
-		Nodes:           []irs.IID{},      // to be implemented
-		KeyValueList:    []irs.KeyValue{}, // to be implemented
+		Nodes:           []irs.IID{}, // to be implemented
+		KeyValueList:    []irs.KeyValue{},
+	}
+
+	nodes, err := tencent.DescribeClusterInstances(access_key, access_secret, region_id, cluster_id)
+	if err != nil {
+		err := fmt.Errorf("Failed to Get Nodes :  %v", err)
+		cblogger.Error(err)
+		return nil, err
+	}
+	for _, node := range nodes.Response.InstanceSet {
+		if node_group_id == *node.NodePoolId {
+			nodeGroupInfo.Nodes = append(nodeGroupInfo.Nodes, irs.IID{NameId: "", SystemId: *node.InstanceId})
+		}
 	}
 
 	// add key value list
@@ -590,22 +613,30 @@ func getCreateClusterRequest(clusterHandler *TencentClusterHandler, clusterInfo 
 
 	request = tke.NewCreateClusterRequest()
 	request.ClusterCIDRSettings = &tke.ClusterCIDRSettings{
-		ClusterCIDR:  common.StringPtr(cidr_list[0]), // 172.X.0.0.16: X Range:16, 17, ... , 31
-		EniSubnetIds: common.StringPtrs([]string{clusterInfo.Network.SubnetIIDs[0].SystemId}),
+		ClusterCIDR: common.StringPtr(cidr_list[0]), // 172.X.0.0.16: X Range:16, 17, ... , 31
 	}
+
+	// security_group_name을 저장하는 방법이 없음.
+	// description에 securityp_group_name을 저장해서 사용함.
+	// 향후, 추가 정보가 필요하면, description에 json 문서를 저장하는 방식으로 사용할 수도 있음.
+	//
+	// 정보검색은
+	// 사용자가 필요에 따라서 다른 description내용을 추가할 수 도 있으니,
+	// "#CB-SPIDER:PMKS:SECURITYGROUP:ID"을 포함하는 Line을 찾아서 처리
+	// >> regex로 구현
+	// ------------------------------------------------------------
+	// subnet_id 저장이 안됨
+	// description 정보에 저장해서 사용
+	// SubnetId:       common.StringPtr(clusterInfo.Network.SubnetIIDs[0].SystemId),
+	// " #CB-SPIDER:PMKS:SUBNET:ID:"
+	desc_str := `#CB-SPIDER:PMKS:SECURITYGROUP:ID:%s #CB-SPIDER:PMKS:SUBNET:ID:%s`
+	desc_str = fmt.Sprintf(desc_str, clusterInfo.Network.SecurityGroupIIDs[0].SystemId, clusterInfo.Network.SubnetIIDs[0].SystemId)
+
 	request.ClusterBasicSettings = &tke.ClusterBasicSettings{
-		ClusterName:    common.StringPtr(clusterInfo.IId.NameId),
-		VpcId:          common.StringPtr(clusterInfo.Network.VpcIID.SystemId),
-		ClusterVersion: common.StringPtr(clusterInfo.Version), // option, version: 1.22.5
-		// security_group_name을 저장하는 방법이 없음.
-		// description에 securityp_group_name을 저장해서 사용함.
-		// 향후, 추가 정보가 필요하면, description에 json 문서를 저장하는 방식으로 사용할 수도 있음.
-		//
-		// 정보검색은
-		// 사용자가 필요에 따라서 다른 description내용을 추가할 수 도 있으니,
-		// "#CB-SPIDER:PMKS:SECURITYGROUP:ID"을 포함하는 Line을 찾아서 처리
-		// >> regex로 구현
-		ClusterDescription: common.StringPtr("#CB-SPIDER:PMKS:SECURITYGROUP:ID:" + clusterInfo.Network.SecurityGroupIIDs[0].SystemId), // option, #CB-SPIDER:PMKS:SECURITYGROUP:sg-c00t00ih
+		ClusterName:        common.StringPtr(clusterInfo.IId.NameId),
+		VpcId:              common.StringPtr(clusterInfo.Network.VpcIID.SystemId),
+		ClusterVersion:     common.StringPtr(clusterInfo.Version), // option, version: 1.22.5
+		ClusterDescription: common.StringPtr(desc_str),            // option, #CB-SPIDER:PMKS:SECURITYGROUP:sg-c00t00ih
 	}
 	request.ClusterType = common.StringPtr("MANAGED_CLUSTER") //default value
 
@@ -629,34 +660,7 @@ func getNodeGroupRequest(clusterHandler *TencentClusterHandler, cluster_id strin
 	}
 	vpc_id := cluster.Network.VpcIID.SystemId
 	subnet_id := cluster.Network.SubnetIIDs[0].SystemId
-
-	// description에서 security group 이름 추출
-	security_group_id := ""
-	for _, item := range cluster.KeyValueList {
-		println("\t", item.Key, item.Value)
-		if item.Key == "ClusterDescription" {
-			re := regexp.MustCompile(`\S*#CB-SPIDER:PMKS:SECURITYGROUP:ID:\S*`)
-			temp := re.FindString(item.Value)
-			split := strings.Split(temp, "#CB-SPIDER:PMKS:SECURITYGROUP:ID:")
-			security_group_id = split[1]
-			break
-		}
-	}
-
-	// response, err := tencent.DescribeSecurityGroups(clusterHandler.CredentialInfo.ClientId, clusterHandler.CredentialInfo.ClientSecret, clusterHandler.RegionInfo.Region)
-	// if err != nil {
-	// 	err := fmt.Errorf("Failed to Describe Security Groups :  %v", err)
-	// 	cblogger.Error(err)
-	// 	println(err)
-	// }
-
-	// security_group_id := ""
-	// for _, group := range response.Response.SecurityGroupSet {
-	// 	if *group.IsDefault {
-	// 		security_group_id = *group.SecurityGroupId
-	// 		break
-	// 	}
-	// }
+	security_group_id := cluster.Network.SecurityGroupIIDs[0].SystemId
 
 	// '{"LaunchConfigurationName":"name","InstanceType":"S3.MEDIUM2","ImageId":"img-pi0ii46r"}'
 	// ImageId를 설정하면 에러 발생, 설정안됨.
@@ -664,7 +668,7 @@ func getNodeGroupRequest(clusterHandler *TencentClusterHandler, cluster_id strin
 		"InstanceType": "%s",
 		"SecurityGroupIds": ["%s"],
 		"LoginSettings": { "KeyIds" : ["%s"] }
-	}`		
+	}`
 	launch_config_json_str = fmt.Sprintf(launch_config_json_str, nodeGroupReqInfo.VMSpecName, security_group_id, nodeGroupReqInfo.KeyPairIID.SystemId)
 
 	auto_scaling_group_json_str := `{
@@ -692,6 +696,9 @@ func getNodeGroupRequest(clusterHandler *TencentClusterHandler, cluster_id strin
 			},
 		},
 	}
+	// request.NodePoolOs = common.StringPtr(nodeGroupReqInfo.ImageIID.SystemId)
+	// request.ContainerRuntime = common.StringPtr("docker")
+	// request.RuntimeVersion = common.StringPtr("19.3")
 
 	return request, err
 }
