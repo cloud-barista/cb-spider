@@ -1430,14 +1430,16 @@ func handleCluster() {
 	}
 
 	subnets := []irs.IID{}
-	subnets = append(subnets, irs.IID{SystemId: "subnet-262d6d7a"})
-	subnets = append(subnets, irs.IID{SystemId: "subnet-d0ee6fab"})
+	subnets = append(subnets, irs.IID{SystemId: "subnet-0d30ee6b367974a39"}) //a1
+	subnets = append(subnets, irs.IID{SystemId: "subnet-06d5c04b32019b81f"}) //c1
+	subnets = append(subnets, irs.IID{SystemId: "subnet-05c5d26bd2f014591"}) //a2
 
+	//vpc-0c4d36a3ac3924419
 	clusterReqInfo := irs.ClusterInfo{
 		IId: irs.IID{NameId: "cb-eks-cluster-test01"},
 		//Version : "1.23.3", //K8s version
 		Network: irs.NetworkInfo{
-			VpcIID: irs.IID{SystemId: "vpc-c0479cab"},
+			VpcIID: irs.IID{SystemId: "	vpc-0c4d36a3ac3924419"},
 			//SubnetIID: [irs.IID{SystemId: "subnet-262d6d7a"},irs.IID{SystemId: "vpc-c0479cab"}],
 			SubnetIID: subnets,
 		},
@@ -1479,8 +1481,9 @@ func handleCluster() {
 					cblogger.Info("출력 결과 수 : ", len(result))
 
 					//조회및 삭제 테스트를 위해 리스트의 첫번째 정보의 ID를 요청ID로 자동 갱신함.
-					if result != nil {
+					if len(result) > 0 {
 						clusterReqInfo.IId = result[0].IId // 조회 및 삭제를 위해 생성된 ID로 변경
+						cblogger.Info("---> Req IID 변경 : ", clusterReqInfo.IId)
 					}
 				}
 			case 2:

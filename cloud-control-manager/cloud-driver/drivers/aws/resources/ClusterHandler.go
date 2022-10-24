@@ -2,6 +2,7 @@ package resources
 
 import (
 	"fmt"
+	"reflect"
 	"strconv"
 	"strings"
 
@@ -10,6 +11,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/autoscaling"
 	"github.com/aws/aws-sdk-go/service/eks"
 	"github.com/aws/aws-sdk-go/service/iam"
+	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/davecgh/go-spew/spew"
@@ -72,42 +74,76 @@ func (ClusterHandler *AwsClusterHandler) CreateCluster(clusterReqInfo irs.Cluste
 		//RoleArn: aws.String("arn:aws:iam::012345678910:role/eks-service-role-AWSServiceRoleForAmazonEKS-J7ONKE3BQ4PI"),
 		//RoleArn: aws.String(roleArn),
 		RoleArn: roleArn,
-		Version: aws.String(reqK8sVersion),
 	}
 
+	//EKS버전 처리(Spider 입력 값 형태 : "1.23.4" / AWS 버전 형태 : "1.23")
+	if reqK8sVersion != "" {
+		arrVer := strings.Split(reqK8sVersion, ".")
+		switch len(arrVer) {
+		case 2: // 그대로 적용
+			input.Version = aws.String(reqK8sVersion)
+			break
+		case 3: // 앞의 2자리만 취함. (정상적인 입력 형태)
+			input.Version = aws.String(arrVer[0] + "." + arrVer[1])
+			break
+		default: // 위 2가지 외에는 CSP의 기본값(최신버전)을 적용 함.
+			break
+		}
+	}
+
+	if cblogger.Level.String() == "debug" {
+		cblogger.Debug(input)
+	}
+
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.AWS,
+		RegionZone:   ClusterHandler.Region.Zone,
+		ResourceType: call.CLUSTER,
+		ResourceName: clusterReqInfo.IId.NameId,
+		CloudOSAPI:   "CreateCluster()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+	callLogStart := call.Start()
+
 	result, err := ClusterHandler.Client.CreateCluster(input)
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+
 	if err != nil {
+		callLogInfo.ErrorMSG = err.Error()
+		callogger.Info(call.String(callLogInfo))
+
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
 			case eks.ErrCodeResourceInUseException:
-				fmt.Println(eks.ErrCodeResourceInUseException, aerr.Error())
+				cblogger.Error(eks.ErrCodeResourceInUseException, aerr.Error())
 			case eks.ErrCodeResourceLimitExceededException:
-				fmt.Println(eks.ErrCodeResourceLimitExceededException, aerr.Error())
+				cblogger.Error(eks.ErrCodeResourceLimitExceededException, aerr.Error())
 			case eks.ErrCodeInvalidParameterException:
-				fmt.Println(eks.ErrCodeInvalidParameterException, aerr.Error())
+				cblogger.Error(eks.ErrCodeInvalidParameterException, aerr.Error())
 			case eks.ErrCodeClientException:
-				fmt.Println(eks.ErrCodeClientException, aerr.Error())
+				cblogger.Error(eks.ErrCodeClientException, aerr.Error())
 			case eks.ErrCodeServerException:
-				fmt.Println(eks.ErrCodeServerException, aerr.Error())
+				cblogger.Error(eks.ErrCodeServerException, aerr.Error())
 			case eks.ErrCodeServiceUnavailableException:
-				fmt.Println(eks.ErrCodeServiceUnavailableException, aerr.Error())
+				cblogger.Error(eks.ErrCodeServiceUnavailableException, aerr.Error())
 			case eks.ErrCodeUnsupportedAvailabilityZoneException:
-				fmt.Println(eks.ErrCodeUnsupportedAvailabilityZoneException, aerr.Error())
+				cblogger.Error(eks.ErrCodeUnsupportedAvailabilityZoneException, aerr.Error())
 			default:
-				fmt.Println(aerr.Error())
+				cblogger.Error(aerr.Error())
 			}
 		} else {
-			// Print the error, cast err to awserr.Error to get the Code and
-			// Message from an error.
-
-			fmt.Println(err.Error())
+			cblogger.Error(err.Error())
 		}
 		return irs.ClusterInfo{}, err
 	}
+	callogger.Info(call.String(callLogInfo))
 
-	//if cblogger.Level.String() == "debug" {
-	spew.Dump(result)
-	//}
+	if cblogger.Level.String() == "debug" {
+		spew.Dump(result)
+	}
 
 	//----- wait until Status=COMPLETE -----//  :  cluster describe .status 로 확인
 
@@ -116,9 +152,11 @@ func (ClusterHandler *AwsClusterHandler) CreateCluster(clusterReqInfo irs.Cluste
 	for _, nodeGroupInfo := range nodeGroupInfoList {
 		resultNodeGroupInfo, nodeGroupErr := ClusterHandler.AddNodeGroup(clusterIID, nodeGroupInfo)
 		if nodeGroupErr != nil {
-			fmt.Println(err.Error())
+			cblogger.Error(err.Error())
 		}
-		spew.Dump(resultNodeGroupInfo)
+		if cblogger.Level.String() == "debug" {
+			spew.Dump(resultNodeGroupInfo)
+		}
 	}
 
 	//----- wait until Status=COMPLETE -----//  :  Nodegroup이 모두 생성되면 조회
@@ -130,36 +168,37 @@ func (ClusterHandler *AwsClusterHandler) CreateCluster(clusterReqInfo irs.Cluste
 	}
 	return clusterInfo, nil
 }
+
 func (ClusterHandler *AwsClusterHandler) ListCluster() ([]*irs.ClusterInfo, error) {
 	//return irs.ClusterInfo{}, nil
 
 	input := &eks.ListClustersInput{}
 	if ClusterHandler == nil {
-		fmt.Println(" ClusterHandlerIs nil")
+		cblogger.Error(" ClusterHandlerIs nil")
 	}
 	fmt.Println(ClusterHandler)
 	if ClusterHandler.Client == nil {
-		fmt.Println(" ClusterHandler.Client Is nil")
+		cblogger.Error(" ClusterHandler.Client Is nil")
 	}
 	result, err := ClusterHandler.Client.ListClusters(input)
 	if err != nil {
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
 			case eks.ErrCodeInvalidParameterException:
-				fmt.Println(eks.ErrCodeInvalidParameterException, aerr.Error())
+				cblogger.Error(eks.ErrCodeInvalidParameterException, aerr.Error())
 			case eks.ErrCodeClientException:
-				fmt.Println(eks.ErrCodeClientException, aerr.Error())
+				cblogger.Error(eks.ErrCodeClientException, aerr.Error())
 			case eks.ErrCodeServerException:
-				fmt.Println(eks.ErrCodeServerException, aerr.Error())
+				cblogger.Error(eks.ErrCodeServerException, aerr.Error())
 			case eks.ErrCodeServiceUnavailableException:
-				fmt.Println(eks.ErrCodeServiceUnavailableException, aerr.Error())
+				cblogger.Error(eks.ErrCodeServiceUnavailableException, aerr.Error())
 			default:
-				fmt.Println(aerr.Error())
+				cblogger.Error(aerr.Error())
 			}
 		} else {
 			// Print the error, cast err to awserr.Error to get the Code and
 			// Message from an error.
-			fmt.Println(err.Error())
+			cblogger.Error(err.Error())
 		}
 		return nil, err
 	}
@@ -178,36 +217,103 @@ func (ClusterHandler *AwsClusterHandler) ListCluster() ([]*irs.ClusterInfo, erro
 	return clusterList, nil
 
 }
+
 func (ClusterHandler *AwsClusterHandler) GetCluster(clusterIID irs.IID) (irs.ClusterInfo, error) {
 	input := &eks.DescribeClusterInput{
 		Name: aws.String(clusterIID.SystemId),
 	}
 
+	if cblogger.Level.String() == "debug" {
+		cblogger.Debug(input)
+	}
+
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.AWS,
+		RegionZone:   ClusterHandler.Region.Zone,
+		ResourceType: call.CLUSTER,
+		ResourceName: clusterIID.SystemId,
+		CloudOSAPI:   "DescribeCluster()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+	callLogStart := call.Start()
+
 	result, err := ClusterHandler.Client.DescribeCluster(input)
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 	if err != nil {
+		callLogInfo.ErrorMSG = err.Error()
+		callogger.Info(call.String(callLogInfo))
+
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
 			case eks.ErrCodeResourceNotFoundException:
-				fmt.Println(eks.ErrCodeResourceNotFoundException, aerr.Error())
+				cblogger.Error(eks.ErrCodeResourceNotFoundException, aerr.Error())
 			case eks.ErrCodeClientException:
-				fmt.Println(eks.ErrCodeClientException, aerr.Error())
+				cblogger.Error(eks.ErrCodeClientException, aerr.Error())
 			case eks.ErrCodeServerException:
-				fmt.Println(eks.ErrCodeServerException, aerr.Error())
+				cblogger.Error(eks.ErrCodeServerException, aerr.Error())
 			case eks.ErrCodeServiceUnavailableException:
-				fmt.Println(eks.ErrCodeServiceUnavailableException, aerr.Error())
+				cblogger.Error(eks.ErrCodeServiceUnavailableException, aerr.Error())
 			default:
-				fmt.Println(aerr.Error())
+				cblogger.Error(aerr.Error())
 			}
 		} else {
-			// Print the error, cast err to awserr.Error to get the Code and
-			// Message from an error.
-			fmt.Println(err.Error())
+			cblogger.Error(err.Error())
 		}
 		return irs.ClusterInfo{}, err
 	}
-	spew.Dump(result)
-	return irs.ClusterInfo{}, nil
+	callogger.Info(call.String(callLogInfo))
+
+	if cblogger.Level.String() == "debug" {
+		spew.Dump(result)
+	}
+
+	clusterInfo := irs.ClusterInfo{
+		IId:         irs.IID{NameId: "", SystemId: *result.Cluster.Name},
+		Version:     *result.Cluster.Version,
+		CreatedTime: *result.Cluster.CreatedAt,
+		Status:      irs.ClusterStatus(*result.Cluster.Status),
+	}
+	/*
+		NodeGroupList []NodeGroupInfo
+		Addons        AddonsInfo
+	*/
+
+	if !reflect.ValueOf(result.Cluster.ResourcesVpcConfig).IsNil() {
+		clusterInfo.Network.VpcIID = irs.IID{SystemId: *result.Cluster.ResourcesVpcConfig.VpcId}
+
+		//서브넷 처리
+		//SubnetIds: ["subnet-0d30ee6b367974a39","subnet-06d5c04b32019b81f","subnet-05c5d26bd2f014591"],
+		if len(result.Cluster.ResourcesVpcConfig.SubnetIds) > 0 {
+			for _, curSubnetId := range result.Cluster.ResourcesVpcConfig.SubnetIds {
+				clusterInfo.Network.SubnetIID = append(clusterInfo.Network.SubnetIID, irs.IID{SystemId: *curSubnetId})
+			}
+		}
+
+		//보안그룹 처리
+		if len(result.Cluster.ResourcesVpcConfig.SecurityGroupIds) > 0 {
+			for _, curSecurityGroupId := range result.Cluster.ResourcesVpcConfig.SecurityGroupIds {
+				clusterInfo.Network.SecurityGroupIIDs = append(clusterInfo.Network.SecurityGroupIIDs, irs.IID{SystemId: *curSecurityGroupId})
+			}
+		}
+	}
+
+	keyValueList := []irs.KeyValue{
+		{Key: "Status", Value: *result.Cluster.Status},
+		{Key: "Arn", Value: *result.Cluster.Arn},
+		{Key: "RoleArn", Value: *result.Cluster.RoleArn},
+	}
+	clusterInfo.KeyValueList = keyValueList
+
+	if cblogger.Level.String() == "debug" {
+		spew.Dump(clusterInfo)
+	}
+
+	return clusterInfo, nil
 }
+
 func (ClusterHandler *AwsClusterHandler) DeleteCluster(clusterIID irs.IID) (bool, error) {
 	input := &eks.DeleteClusterInput{
 		Name: aws.String(clusterIID.SystemId),
@@ -218,22 +324,22 @@ func (ClusterHandler *AwsClusterHandler) DeleteCluster(clusterIID irs.IID) (bool
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
 			case eks.ErrCodeResourceInUseException:
-				fmt.Println(eks.ErrCodeResourceInUseException, aerr.Error())
+				cblogger.Error(eks.ErrCodeResourceInUseException, aerr.Error())
 			case eks.ErrCodeResourceNotFoundException:
-				fmt.Println(eks.ErrCodeResourceNotFoundException, aerr.Error())
+				cblogger.Error(eks.ErrCodeResourceNotFoundException, aerr.Error())
 			case eks.ErrCodeClientException:
-				fmt.Println(eks.ErrCodeClientException, aerr.Error())
+				cblogger.Error(eks.ErrCodeClientException, aerr.Error())
 			case eks.ErrCodeServerException:
-				fmt.Println(eks.ErrCodeServerException, aerr.Error())
+				cblogger.Error(eks.ErrCodeServerException, aerr.Error())
 			case eks.ErrCodeServiceUnavailableException:
-				fmt.Println(eks.ErrCodeServiceUnavailableException, aerr.Error())
+				cblogger.Error(eks.ErrCodeServiceUnavailableException, aerr.Error())
 			default:
-				fmt.Println(aerr.Error())
+				cblogger.Error(aerr.Error())
 			}
 		} else {
 			// Print the error, cast err to awserr.Error to get the Code and
 			// Message from an error.
-			fmt.Println(err.Error())
+			cblogger.Error(err.Error())
 		}
 		return false, nil
 	}
@@ -352,6 +458,7 @@ func (ClusterHandler *AwsClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGr
 	}
 	return nodeGroup, nil
 }
+
 func (ClusterHandler *AwsClusterHandler) ListNodeGroup(clusterIID irs.IID) ([]*irs.NodeGroupInfo, error) {
 	input := &eks.ListNodegroupsInput{
 		ClusterName: aws.String(clusterIID.SystemId),
@@ -404,6 +511,7 @@ func (ClusterHandler *AwsClusterHandler) SetNodeGroupAutoScaling(clusterIID irs.
 
 	return false, nil
 }
+
 func (ClusterHandler *AwsClusterHandler) ChangeNodeGroupScaling(clusterIID irs.IID, nodeGroupIID irs.IID,
 	DesiredNodeSize int, MinNodeSize int, MaxNodeSize int) (irs.NodeGroupInfo, error) {
 
@@ -477,22 +585,22 @@ func (ClusterHandler *AwsClusterHandler) UpgradeCluster(clusterIID irs.IID, newV
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
 			case eks.ErrCodeInvalidParameterException:
-				fmt.Println(eks.ErrCodeInvalidParameterException, aerr.Error())
+				cblogger.Error(eks.ErrCodeInvalidParameterException, aerr.Error())
 			case eks.ErrCodeClientException:
-				fmt.Println(eks.ErrCodeClientException, aerr.Error())
+				cblogger.Error(eks.ErrCodeClientException, aerr.Error())
 			case eks.ErrCodeResourceNotFoundException:
-				fmt.Println(eks.ErrCodeResourceNotFoundException, aerr.Error())
+				cblogger.Error(eks.ErrCodeResourceNotFoundException, aerr.Error())
 			case eks.ErrCodeServerException:
-				fmt.Println(eks.ErrCodeServerException, aerr.Error())
+				cblogger.Error(eks.ErrCodeServerException, aerr.Error())
 			case eks.ErrCodeInvalidRequestException:
-				fmt.Println(eks.ErrCodeInvalidRequestException, aerr.Error())
+				cblogger.Error(eks.ErrCodeInvalidRequestException, aerr.Error())
 			default:
-				fmt.Println(aerr.Error())
+				cblogger.Error(aerr.Error())
 			}
 		} else {
 			// Print the error, cast err to awserr.Error to get the Code and
 			// Message from an error.
-			fmt.Println(err.Error())
+			cblogger.Error(err.Error())
 		}
 	}
 	spew.Dump(result)
@@ -511,16 +619,16 @@ func (ClusterHandler *AwsClusterHandler) getRole(role irs.IID) (*iam.GetRoleOutp
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
 			case iam.ErrCodeNoSuchEntityException:
-				fmt.Println(iam.ErrCodeNoSuchEntityException, aerr.Error())
+				cblogger.Error(iam.ErrCodeNoSuchEntityException, aerr.Error())
 			case iam.ErrCodeServiceFailureException:
-				fmt.Println(iam.ErrCodeServiceFailureException, aerr.Error())
+				cblogger.Error(iam.ErrCodeServiceFailureException, aerr.Error())
 			default:
-				fmt.Println(aerr.Error())
+				cblogger.Error(aerr.Error())
 			}
 		} else {
 			// Print the error, cast err to awserr.Error to get the Code and
 			// Message from an error.
-			fmt.Println(err.Error())
+			cblogger.Error(err.Error())
 		}
 		return nil, err
 	}
