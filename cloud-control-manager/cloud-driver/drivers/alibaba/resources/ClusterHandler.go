@@ -417,6 +417,12 @@ func getClusterInfo(access_key string, access_secret string, region_id string, c
 				NameId:   "",
 				SystemId: cluster_json_obj["vpc_id"].(string),
 			},
+			SubnetIIDs: []irs.IID{
+				{
+					NameId:   "",
+					SystemId: cluster_json_obj["vswitch_id"].(string),
+				},
+			},
 			SecurityGroupIIDs: []irs.IID{
 				{
 					NameId:   "",
@@ -543,6 +549,20 @@ func getNodeGroupInfo(access_key, access_secret, region_id, cluster_id, node_gro
 		nodeGroupInfo.KeyValueList = append(nodeGroupInfo.KeyValueList, irs.KeyValue{Key: k, Value: temp})
 	}
 
+	nodes_json_str, err := alibaba.DescribeClusterNodes(access_key, access_secret, region_id, cluster_id, node_group_id)
+	if err != nil {
+		err := fmt.Errorf("Failed to Get Nodes :  %v", err)
+		cblogger.Error(err)
+		return nil, err
+	}
+	var nodes_json_obj map[string]interface{}
+	json.Unmarshal([]byte(nodes_json_str), &nodes_json_obj)
+	nodes := nodes_json_obj["nodes"].([]interface{})
+	for _, node := range nodes {
+		node_id := node.(map[string]interface{})["instance_id"].(string)
+		nodeGroupInfo.Nodes = append(nodeGroupInfo.Nodes, irs.IID{NameId: "", SystemId: node_id})
+	}
+
 	return nodeGroupInfo, err
 }
 
@@ -602,10 +622,11 @@ func getClusterInfoJSON(clusterHandler *AlibabaClusterHandler, clusterInfo irs.C
 		"container_cidr": "%s",
 		"service_cidr": "%s",
 		"num_of_nodes": 0,
-		"master_vswitch_ids": ["%s"]
+		"master_vswitch_ids": ["%s"],
+		"security_group_id": "%s"
 	}`
 
-	clusterInfoJSON = fmt.Sprintf(temp, clusterInfo.IId.NameId, clusterHandler.RegionInfo.Region, clusterInfo.Version, clusterInfo.Network.VpcIID.SystemId, cidr_list[0], cidr_list[1], master_vswitch_id)
+	clusterInfoJSON = fmt.Sprintf(temp, clusterInfo.IId.NameId, clusterHandler.RegionInfo.Region, clusterInfo.Version, clusterInfo.Network.VpcIID.SystemId, cidr_list[0], cidr_list[1], master_vswitch_id, clusterInfo.Network.SecurityGroupIIDs[0].SystemId)
 
 	return clusterInfoJSON, err
 }
