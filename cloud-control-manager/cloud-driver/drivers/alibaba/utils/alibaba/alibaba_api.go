@@ -176,6 +176,41 @@ func ListNodeGroup(access_key string, access_secret string, region_id string, cl
 	return response.GetHttpContentString(), nil
 }
 
+// package main
+
+// import (
+// 	"fmt"
+
+// 	"github.com/aliyun/alibaba-cloud-sdk-go/sdk"
+// 	"github.com/aliyun/alibaba-cloud-sdk-go/sdk/requests"
+// )
+
+func DescribeClusterNodes(access_key string, access_secret string, region_id string, cluster_id string, nodepool_id string) (string, error) {
+
+	config := sdk.NewConfig()
+	credential := credentials.NewAccessKeyCredential(access_key, access_secret)
+	client, err := sdk.NewClientWithOptions(region_id, config, credential)
+	if err != nil {
+		return "", err
+	}
+
+	request := requests.NewCommonRequest()
+	request.Method = "GET"
+	request.Scheme = "https" // https | http
+	request.Domain = "cs.cn-qingdao.aliyuncs.com"
+	request.Version = "2015-12-15"
+	request.PathPattern = "/clusters/" + cluster_id + "/nodes"
+	request.Headers["Content-Type"] = "application/json"
+	request.QueryParams["nodepool_id"] = nodepool_id
+
+	response, err := client.ProcessCommonRequest(request)
+	if err != nil {
+		return "", err
+	}
+
+	return response.GetHttpContentString(), nil
+}
+
 func GetNodeGroup(access_key string, access_secret string, region_id string, cluster_id string, nodepool_id string) (string, error) {
 	config := sdk.NewConfig()
 	credential := credentials.NewAccessKeyCredential(access_key, access_secret)
