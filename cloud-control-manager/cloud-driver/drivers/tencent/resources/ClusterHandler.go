@@ -372,12 +372,14 @@ func getClusterInfo(access_key string, access_secret string, region_id string, c
 	cluster_status := irs.ClusterActive
 	if strings.EqualFold(health_status, "Creating") {
 		cluster_status = irs.ClusterCreating
-	} else if strings.EqualFold(health_status, "Creating") {
+	} else if strings.EqualFold(health_status, "Upgrading") {
 		cluster_status = irs.ClusterUpdating
-	} else if strings.EqualFold(health_status, "Abnormal") {
-		cluster_status = irs.ClusterInactive
+	} else if strings.EqualFold(health_status, "Deleting") {
+		cluster_status = irs.ClusterDeleting
 	} else if strings.EqualFold(health_status, "Running") {
 		cluster_status = irs.ClusterActive
+	} else {
+		cluster_status = irs.ClusterInactive
 	}
 	// else if strings.EqualFold(health_status, "") { // tencent has no "delete" state
 	// cluster_status = irs.ClusterDeleting
@@ -391,6 +393,19 @@ func getClusterInfo(access_key string, access_secret string, region_id string, c
 		panic(err)
 	}
 
+	// description에서 security group 이름 추출
+	security_group_id := ""
+	re := regexp.MustCompile(`\S*#CB-SPIDER:PMKS:SECURITYGROUP:ID:\S*`)
+	found := re.FindString(*res.Response.Clusters[0].ClusterDescription)
+	split := strings.Split(found, "#CB-SPIDER:PMKS:SECURITYGROUP:ID:")
+	security_group_id = split[1]
+
+	subnet_id := ""
+	re = regexp.MustCompile(`\S*#CB-SPIDER:PMKS:SUBNET:ID:\S*`)
+	found = re.FindString(*res.Response.Clusters[0].ClusterDescription)
+	split = strings.Split(found, "#CB-SPIDER:PMKS:SUBNET:ID:")
+	subnet_id = split[1]
+
 	clusterInfo = &irs.ClusterInfo{
 		IId: irs.IID{
 			NameId:   *res.Response.Clusters[0].ClusterName,
@@ -402,12 +417,8 @@ func getClusterInfo(access_key string, access_secret string, region_id string, c
 				NameId:   "",
 				SystemId: *res.Response.Clusters[0].ClusterNetworkSettings.VpcId,
 			},
-			SubnetIIDs: []irs.IID{
-				{
-					NameId:   "",
-					SystemId: *res.Response.Clusters[0].ClusterNetworkSettings.Subnets[0],
-				},
-			},
+			SecurityGroupIIDs: []irs.IID{{NameId: "", SystemId: security_group_id}},
+			SubnetIIDs:        []irs.IID{{NameId: "", SystemId: subnet_id}},
 		},
 		Status:      cluster_status,
 		CreatedTime: datetime,
@@ -590,22 +601,31 @@ func getCreateClusterRequest(clusterHandler *TencentClusterHandler, clusterInfo 
 
 	request = tke.NewCreateClusterRequest()
 	request.ClusterCIDRSettings = &tke.ClusterCIDRSettings{
-		ClusterCIDR:  common.StringPtr(cidr_list[0]), // 172.X.0.0.16: X Range:16, 17, ... , 31
-		EniSubnetIds: common.StringPtrs([]string{clusterInfo.Network.SubnetIIDs[0].SystemId}),
+		ClusterCIDR: common.StringPtr(cidr_list[0]), // 172.X.0.0.16: X Range:16, 17, ... , 31
 	}
+
+	// security_group_name을 저장하는 방법이 없음.
+	// description에 securityp_group_name을 저장해서 사용함.
+	// 향후, 추가 정보가 필요하면, description에 json 문서를 저장하는 방식으로 사용할 수도 있음.
+	//
+	// 정보검색은
+	// 사용자가 필요에 따라서 다른 description내용을 추가할 수 도 있으니,
+	// "#CB-SPIDER:PMKS:SECURITYGROUP:ID"을 포함하는 Line을 찾아서 처리
+	// >> regex로 구현
+	// ------------------------------------------------------------
+	// subnet_id 저장이 안됨
+	// description 정보에 저장해서 사용
+	// SubnetId:       common.StringPtr(clusterInfo.Network.SubnetIIDs[0].SystemId),
+	// " #CB-SPIDER:PMKS:SUBNET:ID:"
+	desc_str := `#CB-SPIDER:PMKS:SECURITYGROUP:ID:%s #CB-SPIDER:PMKS:SUBNET:ID:%s`
+	desc_str = fmt.Sprintf(desc_str, clusterInfo.Network.SecurityGroupIIDs[0].SystemId, clusterInfo.Network.SubnetIIDs[0].SystemId)
+
 	request.ClusterBasicSettings = &tke.ClusterBasicSettings{
 		ClusterName:    common.StringPtr(clusterInfo.IId.NameId),
 		VpcId:          common.StringPtr(clusterInfo.Network.VpcIID.SystemId),
 		ClusterVersion: common.StringPtr(clusterInfo.Version), // option, version: 1.22.5
-		// security_group_name을 저장하는 방법이 없음.
-		// description에 securityp_group_name을 저장해서 사용함.
-		// 향후, 추가 정보가 필요하면, description에 json 문서를 저장하는 방식으로 사용할 수도 있음.
-		//
-		// 정보검색은
-		// 사용자가 필요에 따라서 다른 description내용을 추가할 수 도 있으니,
-		// "#CB-SPIDER:PMKS:SECURITYGROUP:ID"을 포함하는 Line을 찾아서 처리
-		// >> regex로 구현
-		ClusterDescription: common.StringPtr("#CB-SPIDER:PMKS:SECURITYGROUP:ID:" + clusterInfo.Network.SecurityGroupIIDs[0].SystemId), // option, #CB-SPIDER:PMKS:SECURITYGROUP:sg-c00t00ih
+
+		ClusterDescription: common.StringPtr(desc_str), // option, #CB-SPIDER:PMKS:SECURITYGROUP:sg-c00t00ih
 	}
 	request.ClusterType = common.StringPtr("MANAGED_CLUSTER") //default value
 
@@ -629,19 +649,19 @@ func getNodeGroupRequest(clusterHandler *TencentClusterHandler, cluster_id strin
 	}
 	vpc_id := cluster.Network.VpcIID.SystemId
 	subnet_id := cluster.Network.SubnetIIDs[0].SystemId
+	security_group_id := cluster.Network.SecurityGroupIIDs[0].SystemId
 
-	// description에서 security group 이름 추출
-	security_group_id := ""
-	for _, item := range cluster.KeyValueList {
-		println("\t", item.Key, item.Value)
-		if item.Key == "ClusterDescription" {
-			re := regexp.MustCompile(`\S*#CB-SPIDER:PMKS:SECURITYGROUP:ID:\S*`)
-			temp := re.FindString(item.Value)
-			split := strings.Split(temp, "#CB-SPIDER:PMKS:SECURITYGROUP:ID:")
-			security_group_id = split[1]
-			break
-		}
-	}
+	// // description에서 security group 이름 추출
+	// for _, item := range cluster.KeyValueList {
+	// 	println("\t", item.Key, item.Value)
+	// 	if item.Key == "ClusterDescription" {
+	// 		re := regexp.MustCompile(`\S*#CB-SPIDER:PMKS:SECURITYGROUP:ID:\S*`)
+	// 		temp := re.FindString(item.Value)
+	// 		split := strings.Split(temp, "#CB-SPIDER:PMKS:SECURITYGROUP:ID:")
+	// 		security_group_id = split[1]
+	// 		break
+	// 	}
+	// }
 
 	// response, err := tencent.DescribeSecurityGroups(clusterHandler.CredentialInfo.ClientId, clusterHandler.CredentialInfo.ClientSecret, clusterHandler.RegionInfo.Region)
 	// if err != nil {
@@ -664,7 +684,7 @@ func getNodeGroupRequest(clusterHandler *TencentClusterHandler, cluster_id strin
 		"InstanceType": "%s",
 		"SecurityGroupIds": ["%s"],
 		"LoginSettings": { "KeyIds" : ["%s"] }
-	}`		
+	}`
 	launch_config_json_str = fmt.Sprintf(launch_config_json_str, nodeGroupReqInfo.VMSpecName, security_group_id, nodeGroupReqInfo.KeyPairIID.SystemId)
 
 	auto_scaling_group_json_str := `{
@@ -674,6 +694,10 @@ func getNodeGroupRequest(clusterHandler *TencentClusterHandler, cluster_id strin
 		"VpcId": "%s",
 		"SubnetIds": ["%s"]
 	}`
+
+	// &VpcId=vpc-hy436tmc
+	// &SubnetIds.0=subnet-3tmerl37
+	// &SubnetIds.1=subnet-b0vxjhot
 
 	auto_scaling_group_json_str = fmt.Sprintf(auto_scaling_group_json_str, nodeGroupReqInfo.MinNodeSize, nodeGroupReqInfo.MaxNodeSize, nodeGroupReqInfo.DesiredNodeSize, vpc_id, subnet_id)
 
