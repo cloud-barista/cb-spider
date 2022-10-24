@@ -532,14 +532,26 @@ func getNodeGroupInfo(access_key, access_secret, region_id, cluster_id, node_gro
 		VMSpecName:      *launch_config.Response.LaunchConfigurationSet[0].InstanceType,
 		RootDiskType:    *launch_config.Response.LaunchConfigurationSet[0].SystemDisk.DiskType,
 		RootDiskSize:    fmt.Sprintf("%d", *launch_config.Response.LaunchConfigurationSet[0].SystemDisk.DiskSize),
-		KeyPairIID:      irs.IID{NameId: "", SystemId: ""}, // not available
+		KeyPairIID:      irs.IID{NameId: "", SystemId: *launch_config.Response.LaunchConfigurationSet[0].LoginSettings.KeyIds[0]},
 		Status:          status,
 		OnAutoScaling:   auto_scale_enalbed,
 		MinNodeSize:     int(*auto_scaling_group.Response.AutoScalingGroupSet[0].MinSize),
 		MaxNodeSize:     int(*auto_scaling_group.Response.AutoScalingGroupSet[0].MaxSize),
 		DesiredNodeSize: int(*auto_scaling_group.Response.AutoScalingGroupSet[0].DesiredCapacity),
-		Nodes:           []irs.IID{},      // to be implemented
-		KeyValueList:    []irs.KeyValue{}, // to be implemented
+		Nodes:           []irs.IID{}, // to be implemented
+		KeyValueList:    []irs.KeyValue{},
+	}
+
+	nodes, err := tencent.DescribeClusterInstances(access_key, access_secret, region_id, cluster_id)
+	if err != nil {
+		err := fmt.Errorf("Failed to Get Nodes :  %v", err)
+		cblogger.Error(err)
+		return nil, err
+	}
+	for _, node := range nodes.Response.InstanceSet {
+		if node_group_id == *node.NodePoolId {
+			nodeGroupInfo.Nodes = append(nodeGroupInfo.Nodes, irs.IID{NameId: "", SystemId: *node.InstanceId})
+		}
 	}
 
 	// add key value list
@@ -695,10 +707,6 @@ func getNodeGroupRequest(clusterHandler *TencentClusterHandler, cluster_id strin
 		"SubnetIds": ["%s"]
 	}`
 
-	// &VpcId=vpc-hy436tmc
-	// &SubnetIds.0=subnet-3tmerl37
-	// &SubnetIds.1=subnet-b0vxjhot
-
 	auto_scaling_group_json_str = fmt.Sprintf(auto_scaling_group_json_str, nodeGroupReqInfo.MinNodeSize, nodeGroupReqInfo.MaxNodeSize, nodeGroupReqInfo.DesiredNodeSize, vpc_id, subnet_id)
 
 	disk_size, _ := strconv.ParseInt(nodeGroupReqInfo.RootDiskSize, 10, 64)
@@ -716,6 +724,9 @@ func getNodeGroupRequest(clusterHandler *TencentClusterHandler, cluster_id strin
 			},
 		},
 	}
+	// request.NodePoolOs = common.StringPtr(nodeGroupReqInfo.ImageIID.SystemId)
+	// request.ContainerRuntime = common.StringPtr("docker")
+	// request.RuntimeVersion = common.StringPtr("19.3")
 
 	return request, err
 }
