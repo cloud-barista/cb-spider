@@ -633,11 +633,10 @@ func getCreateClusterRequest(clusterHandler *TencentClusterHandler, clusterInfo 
 	desc_str = fmt.Sprintf(desc_str, clusterInfo.Network.SecurityGroupIIDs[0].SystemId, clusterInfo.Network.SubnetIIDs[0].SystemId)
 
 	request.ClusterBasicSettings = &tke.ClusterBasicSettings{
-		ClusterName:    common.StringPtr(clusterInfo.IId.NameId),
-		VpcId:          common.StringPtr(clusterInfo.Network.VpcIID.SystemId),
-		ClusterVersion: common.StringPtr(clusterInfo.Version), // option, version: 1.22.5
-
-		ClusterDescription: common.StringPtr(desc_str), // option, #CB-SPIDER:PMKS:SECURITYGROUP:sg-c00t00ih
+		ClusterName:        common.StringPtr(clusterInfo.IId.NameId),
+		VpcId:              common.StringPtr(clusterInfo.Network.VpcIID.SystemId),
+		ClusterVersion:     common.StringPtr(clusterInfo.Version), // option, version: 1.22.5
+		ClusterDescription: common.StringPtr(desc_str),            // option, #CB-SPIDER:PMKS:SECURITYGROUP:sg-c00t00ih
 	}
 	request.ClusterType = common.StringPtr("MANAGED_CLUSTER") //default value
 
@@ -662,33 +661,6 @@ func getNodeGroupRequest(clusterHandler *TencentClusterHandler, cluster_id strin
 	vpc_id := cluster.Network.VpcIID.SystemId
 	subnet_id := cluster.Network.SubnetIIDs[0].SystemId
 	security_group_id := cluster.Network.SecurityGroupIIDs[0].SystemId
-
-	// // description에서 security group 이름 추출
-	// for _, item := range cluster.KeyValueList {
-	// 	println("\t", item.Key, item.Value)
-	// 	if item.Key == "ClusterDescription" {
-	// 		re := regexp.MustCompile(`\S*#CB-SPIDER:PMKS:SECURITYGROUP:ID:\S*`)
-	// 		temp := re.FindString(item.Value)
-	// 		split := strings.Split(temp, "#CB-SPIDER:PMKS:SECURITYGROUP:ID:")
-	// 		security_group_id = split[1]
-	// 		break
-	// 	}
-	// }
-
-	// response, err := tencent.DescribeSecurityGroups(clusterHandler.CredentialInfo.ClientId, clusterHandler.CredentialInfo.ClientSecret, clusterHandler.RegionInfo.Region)
-	// if err != nil {
-	// 	err := fmt.Errorf("Failed to Describe Security Groups :  %v", err)
-	// 	cblogger.Error(err)
-	// 	println(err)
-	// }
-
-	// security_group_id := ""
-	// for _, group := range response.Response.SecurityGroupSet {
-	// 	if *group.IsDefault {
-	// 		security_group_id = *group.SecurityGroupId
-	// 		break
-	// 	}
-	// }
 
 	// '{"LaunchConfigurationName":"name","InstanceType":"S3.MEDIUM2","ImageId":"img-pi0ii46r"}'
 	// ImageId를 설정하면 에러 발생, 설정안됨.
