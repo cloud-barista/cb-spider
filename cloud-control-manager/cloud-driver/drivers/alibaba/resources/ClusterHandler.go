@@ -562,7 +562,9 @@ func getNodeGroupInfo(access_key, access_secret, region_id, cluster_id, node_gro
 	nodes := nodes_json_obj["nodes"].([]interface{})
 	for _, node := range nodes {
 		node_id := node.(map[string]interface{})["instance_id"].(string)
-		nodeGroupInfo.Nodes = append(nodeGroupInfo.Nodes, irs.IID{NameId: "", SystemId: node_id})
+		if node_id != "" {
+			nodeGroupInfo.Nodes = append(nodeGroupInfo.Nodes, irs.IID{NameId: "", SystemId: node_id})
+		}
 	}
 
 	return nodeGroupInfo, err
