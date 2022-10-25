@@ -11,6 +11,8 @@
 package alibaba
 
 import (
+	"strings"
+
 	"github.com/aliyun/alibaba-cloud-sdk-go/sdk"
 	"github.com/aliyun/alibaba-cloud-sdk-go/sdk/auth/credentials"
 	"github.com/aliyun/alibaba-cloud-sdk-go/sdk/requests"
@@ -254,10 +256,18 @@ func DeleteNodeGroup(access_key string, access_secret string, region_id string, 
 	request.Headers["Content-Type"] = "application/json"
 	request.QueryParams["force"] = "true"
 
-	_, _ = client.ProcessCommonRequest(request) // force option은 두번 실행해야 삭제됨
+	// 노드그룹을 삭제 또는 오토스케일러 변경을 최초 호출하면 에러가 발생한다.
+	// 어떻게 하면 좋은가?
+	// 첫번째 호출에서 에러가 없으면 리턴! // 최초 호출이 아닌 경우
+	// 첫번째 호출에서 에러 발생하면 한번 더 호출! // 최초 호출인 경우
 	response, err := client.ProcessCommonRequest(request)
 	if err != nil {
-		return "", err
+		if strings.EqualFold(err.Error(), "cluster-autoscaler") {
+			response, err = client.ProcessCommonRequest(request)
+			if err != nil {
+				return "", err
+			}
+		}
 	}
 
 	return response.GetHttpContentString(), nil
@@ -280,15 +290,20 @@ func ModifyNodeGroup(access_key string, access_secret string, region_id string, 
 	request.Version = "2015-12-15"
 	request.PathPattern = "/clusters/" + cluster_id + "/nodepools/" + nodepool_id
 	request.Headers["Content-Type"] = "application/json"
-
-	// body := `{"auto_scaling":{"enable":false}}`
-	// body := `{"auto_scaling":{"enable":true}}`
-	// body := `{"auto_scaling":{"max_instances":5,"min_instances":0},"scaling_group":{"desired_size":2}}`
 	request.Content = []byte(body)
 
+	// 노드그룹을 삭제 또는 오토스케일러 변경을 최초 호출하면 에러가 발생한다.
+	// 어떻게 하면 좋은가?
+	// 첫번째 호출에서 에러가 없으면 리턴! // 최초 호출이 아닌 경우
+	// 첫번째 호출에서 에러 발생하면 한번 더 호출! // 최초 호출인 경우
 	response, err := client.ProcessCommonRequest(request)
 	if err != nil {
-		return "", err
+		if strings.EqualFold(err.Error(), "cluster-autoscaler") {
+			response, err = client.ProcessCommonRequest(request)
+			if err != nil {
+				return "", err
+			}
+		}
 	}
 
 	return response.GetHttpContentString(), nil

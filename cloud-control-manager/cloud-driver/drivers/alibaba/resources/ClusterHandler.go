@@ -533,9 +533,10 @@ func getNodeGroupInfo(access_key, access_secret, region_id, cluster_id, node_gro
 		OnAutoScaling:   node_group_json_obj["auto_scaling"].(map[string]interface{})["enable"].(bool),
 		MinNodeSize:     int(node_group_json_obj["auto_scaling"].(map[string]interface{})["min_instances"].(float64)),
 		MaxNodeSize:     int(node_group_json_obj["auto_scaling"].(map[string]interface{})["max_instances"].(float64)),
-		DesiredNodeSize: 0, // not supported in alibaba
-		Nodes:           []irs.IID{},
-		KeyValueList:    []irs.KeyValue{},
+		DesiredNodeSize: -1, // Parameter desired_size/count setting or modification is not supported for autoscaling-enabled nodepool
+
+		Nodes:        []irs.IID{},
+		KeyValueList: []irs.KeyValue{},
 	}
 
 	// k,v 추출 & 추가
@@ -562,7 +563,9 @@ func getNodeGroupInfo(access_key, access_secret, region_id, cluster_id, node_gro
 	nodes := nodes_json_obj["nodes"].([]interface{})
 	for _, node := range nodes {
 		node_id := node.(map[string]interface{})["instance_id"].(string)
-		nodeGroupInfo.Nodes = append(nodeGroupInfo.Nodes, irs.IID{NameId: "", SystemId: node_id})
+		if node_id != "" {
+			nodeGroupInfo.Nodes = append(nodeGroupInfo.Nodes, irs.IID{NameId: "", SystemId: node_id})
+		}
 	}
 
 	return nodeGroupInfo, err
@@ -647,7 +650,7 @@ func getNodeGroupJSONString(clusterHandler *AlibabaClusterHandler, clusterIID ir
 	enable := nodeGroupReqInfo.OnAutoScaling
 	max_instances := nodeGroupReqInfo.MaxNodeSize
 	min_instances := nodeGroupReqInfo.MinNodeSize
-	// desired_instances := nodeGroupReqInfo.DesiredNodeSize // not supported in alibaba
+	//desired_instances := nodeGroupReqInfo.DesiredNodeSize
 	instance_type := nodeGroupReqInfo.VMSpecName
 	key_pair := nodeGroupReqInfo.KeyPairIID.NameId
 	system_disk_category := nodeGroupReqInfo.RootDiskType
@@ -680,7 +683,7 @@ func getNodeGroupJSONString(clusterHandler *AlibabaClusterHandler, clusterIID ir
 			"enable": %t,
 			"max_instances": %d,
 			"min_instances": %d
-		},
+		},		
 		"scaling_group": {
 			"instance_types": ["%s"],
 			"key_pair": "%s",
