@@ -245,9 +245,9 @@ func TestAddNodeGroupTokyo(t *testing.T) {
 		RootDiskSize:    "70",
 		KeyPairIID:      irs.IID{NameId: "kp1", SystemId: ""},
 		OnAutoScaling:   true,
-		DesiredNodeSize: 0, // not supported.
-		MinNodeSize:     2,
-		MaxNodeSize:     2,
+		DesiredNodeSize: 2,
+		MinNodeSize:     1,
+		MaxNodeSize:     3,
 	}
 
 	clusters, _ := clusterHandler.ListCluster()
@@ -303,7 +303,7 @@ func TestAddNodeGroupTokyo(t *testing.T) {
 // 	println(node_group.IId.NameId)
 // }
 
-func TestSetNodeGroupAutoScaling(t *testing.T) {
+func TestSetNodeGroupAutoScalingOn(t *testing.T) {
 	clusterHandler, err := getClusterHandler()
 	if err != nil {
 		t.Error(err)
@@ -323,6 +323,26 @@ func TestSetNodeGroupAutoScaling(t *testing.T) {
 	}
 }
 
+func TestSetNodeGroupAutoScalingOff(t *testing.T) {
+	clusterHandler, err := getClusterHandler()
+	if err != nil {
+		t.Error(err)
+	}
+
+	clusters, _ := clusterHandler.ListCluster()
+	for _, cluster := range clusters {
+		// node_groups, _ := clusterHandler.ListNodeGroup(cluster.IId)
+		// for _, node_group := range node_groups {
+		for _, node_group_info := range cluster.NodeGroupList {
+			res, err := clusterHandler.SetNodeGroupAutoScaling(cluster.IId, node_group_info.IId, false)
+			if err != nil {
+				t.Error(err)
+			}
+			println(res)
+		}
+	}
+}
+
 func TestChangeNodeGroupScaling(t *testing.T) {
 	clusterHandler, err := getClusterHandler()
 	if err != nil {
@@ -332,7 +352,7 @@ func TestChangeNodeGroupScaling(t *testing.T) {
 	clusters, _ := clusterHandler.ListCluster()
 	for _, cluster := range clusters {
 		for _, node_group_info := range cluster.NodeGroupList {
-			res, err := clusterHandler.ChangeNodeGroupScaling(cluster.IId, node_group_info.IId, 1, 0, 5)
+			res, err := clusterHandler.ChangeNodeGroupScaling(cluster.IId, node_group_info.IId, 0, 1, 2)
 			if err != nil {
 				t.Error(err)
 			}
