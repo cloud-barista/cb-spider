@@ -986,7 +986,7 @@ func DeleteResource(connectionName string, rsType string, nameID string, force s
                                 }
                         }
                 }
-                // @todo Should we also delete the SG list of this VPC ?
+                // @todo Should we also delete the SG list of this VPC ? NO, We Can't delete the VPC had SGs
 
         case rsSG:
                 _, err = iidRWLock.DeleteIID(iidm.SGGROUP, connectionName, iidInfo.ResourceType/*vpcName*/, cres.IID{nameID, ""})
@@ -1021,6 +1021,26 @@ func DeleteResource(connectionName string, rsType string, nameID string, force s
                                 return false, "", err
                         }
                 }
+
+                // for NodeGroup list
+                // key-value structure: ~/{NODEGROUP}/{ConnectionName}/{Cluster-NameId}/{NodeGroup-reqNameId} [nodegroup-driverNameId:nodegroup-driverSystemId]  # Cluster NameId => rsType
+                ngIIdInfoList, err2 := iidRWLock.ListIID(iidm.NGGROUP, connectionName, iidInfo.IId.NameId/*clusterName*/)
+                if err2 != nil {
+                        cblog.Error(err)
+                        if force != "true" {
+                                return false, "", err
+                        }
+                }
+                for _, ngIIdInfo := range ngIIdInfoList {                        
+                        _, err := iidRWLock.DeleteIID(iidm.NGGROUP, connectionName, iidInfo.IId.NameId/*clusterName*/, ngIIdInfo.IId)
+                        if err != nil {
+                                cblog.Error(err)
+                                if force != "true" {
+                                        return false, "", err
+                                }
+                        }
+                }
+
 
         default: // ex) KeyPair, Disk
 		_, err = iidRWLock.DeleteIID(iidm.IIDSGROUP, connectionName, rsType, iidInfo.IId)

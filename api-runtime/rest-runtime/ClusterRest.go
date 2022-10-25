@@ -224,13 +224,13 @@ func attachNameSpaceToName(nameSpace string, clusterInfo *cres.ClusterInfo) {
         clusterInfo.Network.VpcIID.NameId = nameSpace + clusterInfo.Network.VpcIID.NameId
 
         // (2) Network's SubnetIIDs
-        for idx, _ := range clusterInfo.Network.SubnetIIDs {
-                clusterInfo.Network.SubnetIIDs[idx].NameId = nameSpace + clusterInfo.Network.SubnetIIDs[idx].NameId
-        }
+        //for idx, _ := range clusterInfo.Network.SubnetIIDs {
+        //        clusterInfo.Network.SubnetIIDs[idx].NameId = nameSpace + clusterInfo.Network.SubnetIIDs[idx].NameId
+        //}
 
         // (3) Network's SecurityGroupsIIDs
-        for idx, _ := range clusterInfo.Network.SubnetIIDs {
-                clusterInfo.Network.SubnetIIDs[idx].NameId = nameSpace + clusterInfo.Network.SubnetIIDs[idx].NameId
+        for idx, _ := range clusterInfo.Network.SecurityGroupIIDs {
+                clusterInfo.Network.SecurityGroupIIDs[idx].NameId = nameSpace + clusterInfo.Network.SecurityGroupIIDs[idx].NameId
         }
 
         // (4) NodeGroup's KeyPairIID
@@ -289,10 +289,10 @@ func detachNameSpaceFromName(nameSpace string, clusterInfo *cres.ClusterInfo) {
         clusterInfo.Network.VpcIID.NameId = strings.Replace(clusterInfo.Network.VpcIID.NameId, nameSpace, "", 1)
 
         // (2) Network's SubnetIIDs
-        for idx, _ := range clusterInfo.Network.SubnetIIDs {
-                clusterInfo.Network.SubnetIIDs[idx].NameId = 
-                        strings.Replace(clusterInfo.Network.SubnetIIDs[idx].NameId, nameSpace, "", 1)
-        }
+        //for idx, _ := range clusterInfo.Network.SubnetIIDs {
+        //        clusterInfo.Network.SubnetIIDs[idx].NameId = 
+        //                strings.Replace(clusterInfo.Network.SubnetIIDs[idx].NameId, nameSpace, "", 1)
+        //}
 
         // (3) Network's SecurityGroupsIIDs
         for idx, _ := range clusterInfo.Network.SecurityGroupIIDs {
