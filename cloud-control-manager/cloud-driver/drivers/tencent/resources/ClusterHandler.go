@@ -550,7 +550,9 @@ func getNodeGroupInfo(access_key, access_secret, region_id, cluster_id, node_gro
 	}
 	for _, node := range nodes.Response.InstanceSet {
 		if node_group_id == *node.NodePoolId {
-			nodeGroupInfo.Nodes = append(nodeGroupInfo.Nodes, irs.IID{NameId: "", SystemId: *node.InstanceId})
+			if *node.InstanceId != "" {
+				nodeGroupInfo.Nodes = append(nodeGroupInfo.Nodes, irs.IID{NameId: "", SystemId: *node.InstanceId})
+			}
 		}
 	}
 
