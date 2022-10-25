@@ -252,7 +252,9 @@ func DeleteNodeGroup(access_key string, access_secret string, region_id string, 
 	request.Version = "2015-12-15"
 	request.PathPattern = "/clusters/" + cluster_id + "/nodepools/" + nodepool_id
 	request.Headers["Content-Type"] = "application/json"
+	request.QueryParams["force"] = "true"
 
+	_, _ = client.ProcessCommonRequest(request) // force option은 두번 실행해야 삭제됨
 	response, err := client.ProcessCommonRequest(request)
 	if err != nil {
 		return "", err
