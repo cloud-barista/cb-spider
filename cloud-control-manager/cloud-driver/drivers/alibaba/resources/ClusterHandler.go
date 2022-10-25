@@ -442,6 +442,7 @@ func getClusterInfo(access_key string, access_secret string, region_id string, c
 		cblogger.Error(err)
 		return nil, err
 	}
+	delete(flat, "meta_data")
 	for k, v := range flat {
 		temp := fmt.Sprintf("%v", v)
 		clusterInfo.KeyValueList = append(clusterInfo.KeyValueList, irs.KeyValue{Key: k, Value: temp})
@@ -526,7 +527,7 @@ func getNodeGroupInfo(access_key, access_secret, region_id, cluster_id, node_gro
 		RootDiskSize: strconv.Itoa(int(node_group_json_obj["scaling_group"].(map[string]interface{})["system_disk_size"].(float64))),
 		KeyPairIID: irs.IID{
 			NameId:   node_group_json_obj["scaling_group"].(map[string]interface{})["key_pair"].(string),
-			SystemId: "",
+			SystemId: node_group_json_obj["scaling_group"].(map[string]interface{})["key_pair"].(string), // key-pair id is not exist. so use name.
 		},
 		Status:          status,
 		OnAutoScaling:   node_group_json_obj["auto_scaling"].(map[string]interface{})["enable"].(bool),
@@ -544,6 +545,7 @@ func getNodeGroupInfo(access_key, access_secret, region_id, cluster_id, node_gro
 		cblogger.Error(err)
 		return nil, err
 	}
+	delete(flat, "meta_data")
 	for k, v := range flat {
 		temp := fmt.Sprintf("%v", v)
 		nodeGroupInfo.KeyValueList = append(nodeGroupInfo.KeyValueList, irs.KeyValue{Key: k, Value: temp})
