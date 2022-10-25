@@ -215,8 +215,8 @@ func TestAddNodeGroup(t *testing.T) {
 		KeyPairIID:      irs.IID{NameId: "kp1", SystemId: ""},
 		OnAutoScaling:   true,
 		DesiredNodeSize: 0, // not supported.
-		MinNodeSize:     2,
-		MaxNodeSize:     4,
+		MinNodeSize:     3,
+		MaxNodeSize:     3,
 	}
 
 	clusters, _ := clusterHandler.ListCluster()
