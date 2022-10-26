@@ -516,7 +516,7 @@ func getNodeGroupInfo(access_key, access_secret, region_id, cluster_id, node_gro
 	}
 
 	auto_scale_enalbed := false
-	if strings.EqualFold("Response.AutoScalingGroupSet.0.EnabledStatus", "ENABLED") {
+	if strings.EqualFold(*res.Response.NodePool.AutoscalingGroupStatus, "ENABLED") {
 		auto_scale_enalbed = true
 	}
 
