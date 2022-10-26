@@ -722,9 +722,63 @@ func (vmHandler *AwsVMHandler) TerminateVM(vmIID irs.IID) (irs.VMStatus, error) 
 	return irs.VMStatus("Terminating"), nil
 }
 
+// https://docs.aws.amazon.com/ko_kr/AWSEC2/latest/APIReference/API_GetPasswordData.html
+// https://awscli.amazonaws.com/v2/documentation/api/latest/reference/ec2/get-password-data.html
+// @TODO : ssh key를 이용해서 암호가 해독된 Password를 조회해야 함.
+func (vmHandler *AwsVMHandler) GetPasswordData(vmIID irs.IID) (string, error) {
+	vmID := vmIID.SystemId
+	cblogger.Infof("VM ID : [%s]", vmID)
+
+	input := &ec2.GetPasswordDataInput{
+		InstanceId: aws.String(vmID),
+	}
+
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.AWS,
+		RegionZone:   vmHandler.Region.Zone,
+		ResourceType: call.VM,
+		ResourceName: vmIID.SystemId,
+		CloudOSAPI:   "GetPasswordData()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+	callLogStart := call.Start()
+
+	result, err := vmHandler.Client.GetPasswordData(input)
+
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+	if cblogger.Level.String() == "debug" {
+		spew.Dump(result)
+	}
+
+	if err != nil {
+		callLogInfo.ErrorMSG = err.Error()
+		callogger.Info(call.String(callLogInfo))
+		cblogger.Error(err)
+		return "", err
+	}
+	callogger.Info(call.String(callLogInfo))
+
+	return *result.PasswordData, nil
+}
+
 //2019-11-16부로 CB-Driver 전체 로직이 NameId 기반으로 변경됨.
 //func (vmHandler *AwsVMHandler) GetVM(vmNameId string) (irs.VMInfo, error) {
 func (vmHandler *AwsVMHandler) GetVM(vmIID irs.IID) (irs.VMInfo, error) {
+
+	/* //Windows OS Password 조회 테스트 중
+	passwordData, errPasswd := vmHandler.GetPasswordData(vmIID)
+	if errPasswd != nil {
+		cblogger.Error(errPasswd)
+	}
+	cblogger.Debugf("Password : [%s]", passwordData)
+
+	if 1 == 1 {
+		return irs.VMInfo{}, nil
+	}
+	*/
 
 	resultInstance, err := DescribeInstanceById(vmHandler.Client, vmIID)
 	if err != nil {
