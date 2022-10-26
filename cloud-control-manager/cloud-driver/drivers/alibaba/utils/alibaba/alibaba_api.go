@@ -262,11 +262,13 @@ func DeleteNodeGroup(access_key string, access_secret string, region_id string, 
 	// 첫번째 호출에서 에러 발생하면 한번 더 호출! // 최초 호출인 경우
 	response, err := client.ProcessCommonRequest(request)
 	if err != nil {
-		if strings.EqualFold(err.Error(), "cluster-autoscaler") {
+		if strings.Contains(strings.ToLower(err.Error()), "cluster-autoscaler") {
 			response, err = client.ProcessCommonRequest(request)
 			if err != nil {
 				return "", err
 			}
+		} else {
+			return "", err
 		}
 	}
 
@@ -298,11 +300,13 @@ func ModifyNodeGroup(access_key string, access_secret string, region_id string, 
 	// 첫번째 호출에서 에러 발생하면 한번 더 호출! // 최초 호출인 경우
 	response, err := client.ProcessCommonRequest(request)
 	if err != nil {
-		if strings.EqualFold(err.Error(), "cluster-autoscaler") {
+		if strings.Contains(strings.ToLower(err.Error()), "cluster-autoscaler") {
 			response, err = client.ProcessCommonRequest(request)
 			if err != nil {
 				return "", err
 			}
+		} else {
+			return "", err
 		}
 	}
 
