@@ -628,7 +628,8 @@ func getClusterInfoJSON(clusterHandler *AlibabaClusterHandler, clusterInfo irs.C
 		"service_cidr": "%s",
 		"num_of_nodes": 0,
 		"master_vswitch_ids": ["%s"],
-		"security_group_id": "%s"
+		"security_group_id": "%s",
+		"endpoint_public_access": true
 	}`
 
 	clusterInfoJSON = fmt.Sprintf(temp, clusterInfo.IId.NameId, clusterHandler.RegionInfo.Region, clusterInfo.Version, clusterInfo.Network.VpcIID.SystemId, cidr_list[0], cidr_list[1], master_vswitch_id, clusterInfo.Network.SecurityGroupIIDs[0].SystemId)

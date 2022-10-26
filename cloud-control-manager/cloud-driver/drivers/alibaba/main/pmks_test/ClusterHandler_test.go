@@ -91,7 +91,7 @@ func TestCreateClusterOnlyAtTokyo(t *testing.T) {
 
 	clusterInfo := irs.ClusterInfo{
 		IId: irs.IID{
-			NameId:   "cluster-tokyo2",
+			NameId:   "cluster-tokyo",
 			SystemId: "",
 		},
 		Version: "1.22.15-aliyun.1",
