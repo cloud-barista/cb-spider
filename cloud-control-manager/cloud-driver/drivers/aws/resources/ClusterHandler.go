@@ -1,7 +1,7 @@
 package resources
 
 import (
-	"fmt"
+	"errors"
 	"reflect"
 	"strconv"
 	"strings"
@@ -145,43 +145,107 @@ func (ClusterHandler *AwsClusterHandler) CreateCluster(clusterReqInfo irs.Cluste
 		spew.Dump(result)
 	}
 
+	/*// Sync Call에서 Async Call로 변경 - 이슈:#716
 	//----- wait until Status=COMPLETE -----//  :  cluster describe .status 로 확인
-
-	clusterIID := irs.IID{NameId: clusterReqInfo.IId.NameId, SystemId: result.Cluster.Identity.String()}
-	nodeGroupInfoList := clusterReqInfo.NodeGroupList
-	for _, nodeGroupInfo := range nodeGroupInfoList {
-		resultNodeGroupInfo, nodeGroupErr := ClusterHandler.AddNodeGroup(clusterIID, nodeGroupInfo)
-		if nodeGroupErr != nil {
-			cblogger.Error(err.Error())
-		}
-		if cblogger.Level.String() == "debug" {
-			spew.Dump(resultNodeGroupInfo)
-		}
+	errWait := ClusterHandler.WaitUntilClusterActive(result.Cluster.Identity.String())
+	if errWait != nil {
+		cblogger.Error(errWait)
+		return irs.ClusterInfo{}, errWait
 	}
+	*/
 
-	//----- wait until Status=COMPLETE -----//  :  Nodegroup이 모두 생성되면 조회
+	/*
+		//노드그룹 추가
+		clusterIID := irs.IID{NameId: clusterReqInfo.IId.NameId, SystemId: result.Cluster.Identity.String()}
+		nodeGroupInfoList := clusterReqInfo.NodeGroupList
+		for _, nodeGroupInfo := range nodeGroupInfoList {
+			resultNodeGroupInfo, nodeGroupErr := ClusterHandler.AddNodeGroup(clusterIID, nodeGroupInfo)
+			if nodeGroupErr != nil {
+				cblogger.Error(err.Error())
+			}
+			if cblogger.Level.String() == "debug" {
+				spew.Dump(resultNodeGroupInfo)
+			}
+		}
+		//----- wait until Status=COMPLETE -----//  :  Nodegroup이 모두 생성되면 조회
+	*/
 
 	clusterInfo, errClusterInfo := ClusterHandler.GetCluster(clusterReqInfo.IId)
 	if errClusterInfo != nil {
 		cblogger.Error(errClusterInfo.Error())
 		return irs.ClusterInfo{}, errClusterInfo
 	}
+	clusterInfo.IId.NameId = clusterReqInfo.IId.NameId
 	return clusterInfo, nil
+}
+
+//Nodegroup이 Activty 상태일때까지 대기함.
+func (ClusterHandler *AwsClusterHandler) WaitUntilNodegroupActive(clusterName string, nodegroupName string) error {
+	cblogger.Debugf("Cluster Name : [%s] / NodegroupName : [%s]", clusterName, nodegroupName)
+	input := &eks.DescribeNodegroupInput{
+		ClusterName:   aws.String(clusterName),
+		NodegroupName: aws.String(nodegroupName),
+	}
+
+	err := ClusterHandler.Client.WaitUntilNodegroupActive(input)
+	if err != nil {
+		cblogger.Errorf("failed to wait until Nodegroup Active : %v", err)
+		return err
+	}
+	cblogger.Debug("=========WaitUntilNodegroupActive() 종료")
+	return nil
+}
+
+//Cluster가 Activty 상태일때까지 대기함.
+func (ClusterHandler *AwsClusterHandler) WaitUntilClusterActive(clusterName string) error {
+	cblogger.Debugf("Cluster Name : [%s]", clusterName)
+	input := &eks.DescribeClusterInput{
+		Name: aws.String(clusterName),
+	}
+
+	err := ClusterHandler.Client.WaitUntilClusterActive(input)
+	if err != nil {
+		cblogger.Errorf("failed to wait until cluster Active: %v", err)
+		return err
+	}
+	cblogger.Debug("=========WaitUntilClusterActive() 종료")
+	return nil
 }
 
 func (ClusterHandler *AwsClusterHandler) ListCluster() ([]*irs.ClusterInfo, error) {
 	//return irs.ClusterInfo{}, nil
-
 	input := &eks.ListClustersInput{}
 	if ClusterHandler == nil {
-		cblogger.Error(" ClusterHandlerIs nil")
+		cblogger.Error("ClusterHandlerIs nil")
+		return nil, errors.New("ClusterHandler is nil")
+
 	}
-	fmt.Println(ClusterHandler)
+
+	cblogger.Debug(ClusterHandler)
 	if ClusterHandler.Client == nil {
 		cblogger.Error(" ClusterHandler.Client Is nil")
+		return nil, errors.New("ClusterHandler is nil")
 	}
+
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.AWS,
+		RegionZone:   ClusterHandler.Region.Zone,
+		ResourceType: call.CLUSTER,
+		ResourceName: "List()",
+		CloudOSAPI:   "ListClusters()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+	callLogStart := call.Start()
+
 	result, err := ClusterHandler.Client.ListClusters(input)
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+
 	if err != nil {
+		callLogInfo.ErrorMSG = err.Error()
+		callogger.Info(call.String(callLogInfo))
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
 			case eks.ErrCodeInvalidParameterException:
@@ -202,8 +266,12 @@ func (ClusterHandler *AwsClusterHandler) ListCluster() ([]*irs.ClusterInfo, erro
 		}
 		return nil, err
 	}
+	callogger.Info(call.String(callLogInfo))
 
-	spew.Dump(result)
+	if cblogger.Level.String() == "debug" {
+		spew.Dump(result)
+	}
+
 	clusterList := []*irs.ClusterInfo{}
 	for _, clusterName := range result.Clusters {
 
@@ -315,12 +383,35 @@ func (ClusterHandler *AwsClusterHandler) GetCluster(clusterIID irs.IID) (irs.Clu
 }
 
 func (ClusterHandler *AwsClusterHandler) DeleteCluster(clusterIID irs.IID) (bool, error) {
+	cblogger.Infof("Cluster Name : %s", clusterIID.SystemId)
 	input := &eks.DeleteClusterInput{
 		Name: aws.String(clusterIID.SystemId),
 	}
 
+	if cblogger.Level.String() == "debug" {
+		cblogger.Debug(input)
+	}
+
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.AWS,
+		RegionZone:   ClusterHandler.Region.Zone,
+		ResourceType: call.CLUSTER,
+		ResourceName: clusterIID.SystemId,
+		CloudOSAPI:   "DeleteCluster()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+	callLogStart := call.Start()
+
 	result, err := ClusterHandler.Client.DeleteCluster(input)
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+
 	if err != nil {
+		callLogInfo.ErrorMSG = err.Error()
+		callogger.Info(call.String(callLogInfo))
+
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
 			case eks.ErrCodeResourceInUseException:
@@ -343,14 +434,21 @@ func (ClusterHandler *AwsClusterHandler) DeleteCluster(clusterIID irs.IID) (bool
 		}
 		return false, nil
 	}
-	spew.Dump(result)
-	waitInput := &eks.DescribeClusterInput{
-		Name: aws.String(clusterIID.SystemId),
+	callogger.Info(call.String(callLogInfo))
+
+	if cblogger.Level.String() == "debug" {
+		spew.Dump(result)
 	}
-	err = ClusterHandler.Client.WaitUntilClusterDeleted(waitInput)
-	if err != nil {
-		return false, err
-	}
+
+	/*
+		waitInput := &eks.DescribeClusterInput{
+			Name: aws.String(clusterIID.SystemId),
+		}
+		err = ClusterHandler.Client.WaitUntilClusterDeleted(waitInput)
+		if err != nil {
+			return false, err
+		}
+	*/
 	return true, nil
 }
 
@@ -375,6 +473,7 @@ func (ClusterHandler *AwsClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGr
 	if err != nil {
 		return irs.NodeGroupInfo{}, err
 	}
+
 	networkInfo := clusterInfo.Network
 	var subnetList []*string
 	for _, subnet := range networkInfo.SubnetIID {
@@ -394,7 +493,8 @@ func (ClusterHandler *AwsClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGr
 		//AmiType: "", // Valid Values: AL2_x86_64 | AL2_x86_64_GPU | AL2_ARM_64 | CUSTOM | BOTTLEROCKET_ARM_64 | BOTTLEROCKET_x86_64, Required: No
 		//CapacityType: aws.String("ON_DEMAND"),//Valid Values: ON_DEMAND | SPOT, Required: No
 
-		ClusterName:   aws.String("cb-eks-cluster"),              //uri, required
+		//ClusterName:   aws.String("cb-eks-cluster"),              //uri, required
+		ClusterName:   aws.String(clusterIID.SystemId),           //uri, required
 		NodegroupName: aws.String(nodeGroupReqInfo.IId.SystemId), // required
 		Tags:          aws.StringMap(tags),
 		NodeRole:      aws.String(eksRoleName), // roleName, required
@@ -451,6 +551,15 @@ func (ClusterHandler *AwsClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGr
 
 	spew.Dump(result)
 	nodegroupName := result.Nodegroup.NodegroupName
+
+	/*// Sync Call에서 Async Call로 변경 - 이슈:#716
+	//노드 그룹이 활성화될 때까지 대기
+	errWait := ClusterHandler.WaitUntilNodegroupActive(clusterIID.SystemId, *nodegroupName)
+	if errWait != nil {
+		cblogger.Error(errWait)
+		return irs.NodeGroupInfo{}, errWait
+	}
+	*/
 
 	nodeGroup, err := ClusterHandler.GetNodeGroup(clusterIID, irs.IID{NameId: nodeGroupReqInfo.IId.NameId, SystemId: *nodegroupName})
 	if err != nil {
