@@ -213,9 +213,9 @@ func TestAddNodeGroup2(t *testing.T) {
 	new_node_group := &irs.NodeGroupInfo{
 		IId: irs.IID{NameId: "ng-x4", SystemId: ""},
 		// ImageIID:   irs.IID{NameId: "", SystemId: "img-4wpaazux"}, // TKE Ubuntu16 64 bits // 설정안됨
-		VMSpecName: "S3.MEDIUM2",
-		// RootDiskType:    "CLOUD_PREMIUM",
-		// RootDiskSize:    "50",
+		VMSpecName:      "S3.MEDIUM2",
+		RootDiskType:    "CLOUD_BSSD",
+		RootDiskSize:    "50",
 		KeyPairIID:      irs.IID{NameId: "", SystemId: "skey-4l982cjb"}, // KeyPair ID 설정
 		OnAutoScaling:   true,
 		DesiredNodeSize: 2,
