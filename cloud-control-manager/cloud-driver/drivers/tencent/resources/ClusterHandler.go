@@ -14,6 +14,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"regexp"
+	"runtime/debug"
 	"strconv"
 	"strings"
 	"sync"
@@ -348,7 +349,7 @@ func getClusterInfo(access_key string, access_secret string, region_id string, c
 
 	defer func() {
 		if r := recover(); r != nil {
-			err = fmt.Errorf("Failed to Process getNodeGroupInfo() : %v", r)
+			err = fmt.Errorf("Failed to Process getClusterInfo() : %v\n\n%v", r, string(debug.Stack()))
 			cblogger.Error(err)
 		}
 	}()
@@ -397,14 +398,18 @@ func getClusterInfo(access_key string, access_secret string, region_id string, c
 	security_group_id := ""
 	re := regexp.MustCompile(`\S*#CB-SPIDER:PMKS:SECURITYGROUP:ID:\S*`)
 	found := re.FindString(*res.Response.Clusters[0].ClusterDescription)
-	split := strings.Split(found, "#CB-SPIDER:PMKS:SECURITYGROUP:ID:")
-	security_group_id = split[1]
+	if found != "" {
+		split := strings.Split(found, "#CB-SPIDER:PMKS:SECURITYGROUP:ID:")
+		security_group_id = split[1]
+	}
 
 	subnet_id := ""
 	re = regexp.MustCompile(`\S*#CB-SPIDER:PMKS:SUBNET:ID:\S*`)
 	found = re.FindString(*res.Response.Clusters[0].ClusterDescription)
-	split = strings.Split(found, "#CB-SPIDER:PMKS:SUBNET:ID:")
-	subnet_id = split[1]
+	if found != "" {
+		split := strings.Split(found, "#CB-SPIDER:PMKS:SUBNET:ID:")
+		subnet_id = split[1]
+	}
 
 	clusterInfo = &irs.ClusterInfo{
 		IId: irs.IID{
@@ -472,7 +477,7 @@ func getNodeGroupInfo(access_key, access_secret, region_id, cluster_id, node_gro
 
 	defer func() {
 		if r := recover(); r != nil {
-			err = fmt.Errorf("Failed to Process getNodeGroupInfo() : %v", r)
+			err = fmt.Errorf("Failed to Process getNodeGroupInfo() : %v\n\n%v", r, string(debug.Stack()))
 			cblogger.Error(err)
 		}
 	}()
@@ -583,7 +588,7 @@ func getCreateClusterRequest(clusterHandler *TencentClusterHandler, clusterInfo 
 
 	defer func() {
 		if r := recover(); r != nil {
-			err = fmt.Errorf("Failed to Prcess getCreateClusterRequest() : %v", r)
+			err = fmt.Errorf("Failed to Process getCreateClusterRequest() : %v\n\n%v", r, string(debug.Stack()))
 			cblogger.Error(err)
 		}
 	}()
@@ -649,7 +654,7 @@ func getNodeGroupRequest(clusterHandler *TencentClusterHandler, cluster_id strin
 
 	defer func() {
 		if r := recover(); r != nil {
-			err = fmt.Errorf("Failed to Process getNodeGroupRequest() : %v", r)
+			err = fmt.Errorf("Failed to Process getNodeGroupRequest() : %v\n\n%v", r, string(debug.Stack()))
 			cblogger.Error(err)
 		}
 	}()
