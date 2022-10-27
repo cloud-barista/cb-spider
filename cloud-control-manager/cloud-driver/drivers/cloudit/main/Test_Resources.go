@@ -585,6 +585,7 @@ func testVmHandler(config ResourceConfig) {
 		RootDiskSize:      "",
 		RootDiskType:      "",
 		DataDiskIIDs:      vmDataDiskIIDs,
+		VMUserPasswd:      config.Cloudit.VM.VMUserPasswd,
 	}
 	vmFromSnapshotReqInfo := irs.VMReqInfo{
 		IId: irs.IID{
