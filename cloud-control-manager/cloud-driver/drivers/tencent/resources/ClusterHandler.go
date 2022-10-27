@@ -700,7 +700,7 @@ func getNodeGroupRequest(clusterHandler *TencentClusterHandler, cluster_id strin
 			"PublicIpAssigned": true
 		}
 	}`
-	launch_config_json_str = fmt.Sprintf(launch_config_json_str, nodeGroupReqInfo.VMSpecName, security_group_id, nodeGroupReqInfo.KeyPairIID.SystemId, strSystemDisk, nodeGroupReqInfo.ImageIID.SystemId)
+	launch_config_json_str = fmt.Sprintf(launch_config_json_str, nodeGroupReqInfo.VMSpecName, security_group_id, nodeGroupReqInfo.KeyPairIID.SystemId, strSystemDisk)
 
 	auto_scaling_group_json_str := `{
 		"MinSize": %d,
