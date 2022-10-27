@@ -668,8 +668,23 @@ func getNodeGroupRequest(clusterHandler *TencentClusterHandler, cluster_id strin
 	vpc_id := cluster.Network.VpcIID.SystemId
 	subnet_id := cluster.Network.SubnetIIDs[0].SystemId
 	security_group_id := cluster.Network.SecurityGroupIIDs[0].SystemId
-
 	disk_size, _ := strconv.ParseInt(nodeGroupReqInfo.RootDiskSize, 10, 64)
+
+	strSystemDisk := ""
+	switch {
+	case nodeGroupReqInfo.RootDiskType == "" && disk_size == 0:
+		strSystemDisk = ""
+	case nodeGroupReqInfo.RootDiskType == "" && disk_size != 0:
+		strSystemDisk = `"SystemDisk": { "DiskSize": %d },`
+		strSystemDisk = fmt.Sprintf(strSystemDisk, disk_size)
+	case nodeGroupReqInfo.RootDiskType != "" && disk_size == 0:
+		strSystemDisk = `"SystemDisk": { "DiskType" : "%s" },`
+		strSystemDisk = fmt.Sprintf(strSystemDisk, nodeGroupReqInfo.RootDiskType)
+	default:
+		strSystemDisk = `"SystemDisk": { "DiskType" : "%s", "DiskSize": %d },`
+		strSystemDisk = fmt.Sprintf(strSystemDisk, nodeGroupReqInfo.RootDiskType, disk_size)
+	}
+
 	// '{"LaunchConfigurationName":"name","InstanceType":"S3.MEDIUM2","ImageId":"img-pi0ii46r"}'
 	// "SystemDisk": { "DiskType" : "CLOUD_BSSD", "DiskSize": 50 },
 	// ImageId를 설정하면 에러 발생, 설정안됨.
@@ -678,14 +693,14 @@ func getNodeGroupRequest(clusterHandler *TencentClusterHandler, cluster_id strin
 		"SecurityGroupIds": ["%s"],
 		"LoginSettings": { "KeyIds" : ["%s"] },
 		"InstanceChargeType": "POSTPAID_BY_HOUR",
-		"SystemDisk": { "DiskType" : "%s", "DiskSize": %d },
+		%s
 		"InternetAccessible": {
 			"InternetChargeType":"TRAFFIC_POSTPAID_BY_HOUR",
 			"InternetMaxBandwidthOut": 1,
 			"PublicIpAssigned": true
 		}
 	}`
-	launch_config_json_str = fmt.Sprintf(launch_config_json_str, nodeGroupReqInfo.VMSpecName, security_group_id, nodeGroupReqInfo.KeyPairIID.SystemId, nodeGroupReqInfo.RootDiskType, disk_size)
+	launch_config_json_str = fmt.Sprintf(launch_config_json_str, nodeGroupReqInfo.VMSpecName, security_group_id, nodeGroupReqInfo.KeyPairIID.SystemId, strSystemDisk, nodeGroupReqInfo.ImageIID.SystemId)
 
 	auto_scaling_group_json_str := `{
 		"MinSize": %d,
