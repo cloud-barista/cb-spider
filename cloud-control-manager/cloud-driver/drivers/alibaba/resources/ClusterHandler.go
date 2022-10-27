@@ -13,6 +13,7 @@ package resources
 import (
 	"encoding/json"
 	"fmt"
+	"runtime/debug"
 	"strconv"
 	"strings"
 	"sync"
@@ -359,7 +360,7 @@ func getClusterInfo(access_key string, access_secret string, region_id string, c
 
 	defer func() {
 		if r := recover(); r != nil {
-			err = fmt.Errorf("Failed to Process getClusterInfo() %v", r)
+			err = fmt.Errorf("Failed to Process getClusterInfo() : %v\n\n%v", r, string(debug.Stack()))
 			cblogger.Error(err)
 		}
 	}()
@@ -477,7 +478,7 @@ func getNodeGroupInfo(access_key, access_secret, region_id, cluster_id, node_gro
 
 	defer func() {
 		if r := recover(); r != nil {
-			err = fmt.Errorf("Failed to Process getNodeGroupInfo() %v", r)
+			err = fmt.Errorf("Failed to Process getNodeGroupInfo() : %v\n\n%v", r, string(debug.Stack()))
 			cblogger.Error(err)
 		}
 	}()
@@ -575,7 +576,7 @@ func getClusterInfoJSON(clusterHandler *AlibabaClusterHandler, clusterInfo irs.C
 
 	defer func() {
 		if r := recover(); r != nil {
-			err = fmt.Errorf("Failed to Process getClusterInfoJSON() %v", r)
+			err = fmt.Errorf("Failed to Process getClusterInfoJSON() : %v\n\n%v", r, string(debug.Stack()))
 			cblogger.Error(err)
 		}
 	}()
@@ -641,7 +642,7 @@ func getNodeGroupJSONString(clusterHandler *AlibabaClusterHandler, clusterIID ir
 
 	defer func() {
 		if r := recover(); r != nil {
-			err = fmt.Errorf("Failed to Process getNodeGroupJSONString %v", r)
+			err = fmt.Errorf("Failed to Process getNodeGroupJSONString() : %v\n\n%v", r, string(debug.Stack()))
 			cblogger.Error(err)
 		}
 	}()
