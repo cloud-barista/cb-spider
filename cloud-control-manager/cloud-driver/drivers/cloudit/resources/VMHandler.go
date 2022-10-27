@@ -205,6 +205,30 @@ func (vmHandler *ClouditVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (startVM irs
 	}
 
 	var reqInfo server.VMReqInfo
+	rawRootImage, getRawRootImageErr := imageHandler.GetRawRootImage(irs.IID{SystemId: vmReqInfo.ImageIID.SystemId}, vmReqInfo.ImageType == irs.MyImage)
+	if getRawRootImageErr != nil {
+		return irs.VMInfo{}, errors.New(fmt.Sprintf("Failed to Create VM. err = %s", getRawRootImageErr.Error()))
+	}
+	isWindows := strings.Contains(strings.ToLower(rawRootImage.OS), "windows")
+
+	reqInfo = server.VMReqInfo{
+		SpecId:       *vmSpecId,
+		Name:         vmReqInfo.IId.NameId,
+		HostName:     vmReqInfo.IId.NameId,
+		RootPassword: VMDefaultPassword,
+		SubnetAddr:   subnet.Addr,
+		Secgroups:    addUserSSHSG,
+		Description:  KeyPairDes,
+		ClusterId:    clusterSystemId,
+	}
+
+	if isWindows {
+		if len(vmReqInfo.IId.NameId) > 15 {
+			return irs.VMInfo{}, errors.New("Failed to Create VM. err = Hostname length of Windows cannot exceed 15")
+		}
+		reqInfo.RootPassword = vmReqInfo.VMUserPasswd
+	}
+
 	if vmReqInfo.ImageType == irs.MyImage {
 		snapshotReqOpts := client.RequestOpts{
 			MoreHeaders: authHeader,
@@ -213,31 +237,10 @@ func (vmHandler *ClouditVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (startVM irs
 		if getSnapshotErr != nil {
 			return irs.VMInfo{}, errors.New(fmt.Sprintf("Failed to Create VM. err = %s", getSnapshotErr.Error()))
 		}
-
-		reqInfo = server.VMReqInfo{
-			TemplateId:   snapshot.TemplateId,
-			SnapshotId:   myImage.IId.SystemId,
-			SpecId:       *vmSpecId,
-			Name:         vmReqInfo.IId.NameId,
-			HostName:     vmReqInfo.IId.NameId,
-			RootPassword: VMDefaultPassword,
-			SubnetAddr:   subnet.Addr,
-			Secgroups:    addUserSSHSG,
-			Description:  KeyPairDes,
-			ClusterId:    clusterSystemId,
-		}
+		reqInfo.TemplateId = snapshot.TemplateId
+		reqInfo.SnapshotId = myImage.IId.SystemId
 	} else {
-		reqInfo = server.VMReqInfo{
-			TemplateId:   image.IId.SystemId,
-			SpecId:       *vmSpecId,
-			Name:         vmReqInfo.IId.NameId,
-			HostName:     vmReqInfo.IId.NameId,
-			RootPassword: VMDefaultPassword,
-			SubnetAddr:   subnet.Addr,
-			Secgroups:    addUserSSHSG,
-			Description:  KeyPairDes,
-			ClusterId:    clusterSystemId,
-		}
+		reqInfo.TemplateId = image.IId.SystemId
 	}
 
 	requestOpts := client.RequestOpts{
@@ -319,83 +322,86 @@ func (vmHandler *ClouditVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (startVM irs
 		return irs.VMInfo{}, createErr
 	}
 
-	// SSH 접속 사용자 및 공개키 등록
-	loginUserId := SSHDefaultUser
-	createUserErr := errors.New(fmt.Sprintf("Failed adding cb-User to new VM"))
+	if !isWindows {
+		// SSH 접속 사용자 및 공개키 등록
+		loginUserId := SSHDefaultUser
+		createUserErr := errors.New(fmt.Sprintf("Failed adding cb-User to new VM"))
 
-	// SSH 접속까지 시도
-	curConnectionCnt := 0
-	maxConnectionRetryCnt := 120
-	for {
-		cblogger.Info("Trying to connect via root user ...")
-		_, err := RunCommand(vm.AdaptiveIp, SSHDefaultPort, VMDefaultUser, VMDefaultPassword, "echo test")
-		if err == nil {
-			break
+		// SSH 접속까지 시도
+		curConnectionCnt := 0
+		maxConnectionRetryCnt := 120
+		for {
+			cblogger.Info("Trying to connect via root user ...")
+			_, err := RunCommand(vm.AdaptiveIp, SSHDefaultPort, VMDefaultUser, VMDefaultPassword, "echo test")
+			if err == nil {
+				break
+			}
+			time.Sleep(1 * time.Second)
+			curConnectionCnt++
+			if curConnectionCnt > maxConnectionRetryCnt {
+				createErr = errors.New(fmt.Sprintf("Failed to Create VM. err = %s, not Connected", createUserErr.Error()))
+				cblogger.Error(createErr.Error())
+				LoggingError(hiscallInfo, createErr)
+				return irs.VMInfo{}, createErr
+			}
 		}
-		time.Sleep(1 * time.Second)
-		curConnectionCnt++
-		if curConnectionCnt > maxConnectionRetryCnt {
-			createErr = errors.New(fmt.Sprintf("Failed to Create VM. err = %s, not Connected", createUserErr.Error()))
+
+		// 사용자 등록 및 sudoer 권한 추가
+		_, err = RunCommand(vm.AdaptiveIp, SSHDefaultPort, VMDefaultUser, VMDefaultPassword, fmt.Sprintf("useradd -s /bin/bash %s -rm", loginUserId))
+		if err != nil && vmReqInfo.ImageType != irs.MyImage {
+			createErr = errors.New(fmt.Sprintf("Failed to Create VM. err = %s = %s", createUserErr.Error(), err.Error()))
+			cblogger.Error(createErr.Error())
+			LoggingError(hiscallInfo, createErr)
+			return irs.VMInfo{}, createErr
+		}
+		_, err = RunCommand(vm.AdaptiveIp, SSHDefaultPort, VMDefaultUser, VMDefaultPassword, fmt.Sprintf("echo \"%s ALL=(root) NOPASSWD:ALL\" >> /etc/sudoers", loginUserId))
+		if err != nil {
+			createErr = errors.New(fmt.Sprintf("Failed to Create VM. err = %s = %s", createUserErr.Error(), err.Error()))
+			cblogger.Error(createErr.Error())
+			LoggingError(hiscallInfo, createErr)
+			return irs.VMInfo{}, createErr
+		}
+
+		// 공개키 등록
+		_, err = RunCommand(vm.AdaptiveIp, SSHDefaultPort, VMDefaultUser, VMDefaultPassword, fmt.Sprintf("mkdir -p /home/%s/.ssh", loginUserId))
+		publicKey, err := GetPublicKey(vmHandler.CredentialInfo, vmReqInfo.KeyPairIID.NameId)
+		if err != nil {
+			createErr = errors.New(fmt.Sprintf("Failed to Create VM. err = %s = %s", createUserErr.Error(), err.Error()))
+			cblogger.Error(createErr.Error())
+			LoggingError(hiscallInfo, createErr)
+			return irs.VMInfo{}, createErr
+		}
+		_, err = RunCommand(vm.AdaptiveIp, SSHDefaultPort, VMDefaultUser, VMDefaultPassword, fmt.Sprintf("echo \"%s\" > /home/%s/.ssh/authorized_keys", publicKey, loginUserId))
+		if err != nil {
+			createErr = errors.New(fmt.Sprintf("Failed to Create VM. err = %s = %s", createUserErr.Error(), err.Error()))
+			cblogger.Error(createErr.Error())
+			LoggingError(hiscallInfo, createErr)
+			return irs.VMInfo{}, createErr
+		}
+		// ssh 접속 방법 변경 (sshd_config 파일 변경)
+		_, err = RunCommand(vm.AdaptiveIp, SSHDefaultPort, VMDefaultUser, VMDefaultPassword, "sed -i 's/PasswordAuthentication yes/PasswordAuthentication no/g' /etc/ssh/sshd_config")
+		if err != nil {
+			createErr = errors.New(fmt.Sprintf("Failed to Create VM. err = %s = %s", createUserErr.Error(), err.Error()))
+			cblogger.Error(createErr.Error())
+			LoggingError(hiscallInfo, createErr)
+			return irs.VMInfo{}, createErr
+		}
+		_, err = RunCommand(vm.AdaptiveIp, SSHDefaultPort, VMDefaultUser, VMDefaultPassword, "sed -i 's/#PubkeyAuthentication yes/PubkeyAuthentication yes/g' /etc/ssh/sshd_config")
+		if err != nil {
+			createErr = errors.New(fmt.Sprintf("Failed to Create VM. err = %s = %s", createUserErr.Error(), err.Error()))
+			cblogger.Error(createErr.Error())
+			LoggingError(hiscallInfo, createErr)
+			return irs.VMInfo{}, createErr
+		}
+		_, err = RunCommand(vm.AdaptiveIp, SSHDefaultPort, VMDefaultUser, VMDefaultPassword, "systemctl restart sshd")
+		if err != nil {
+			createErr = errors.New(fmt.Sprintf("Failed to Create VM. err = %s = %s", createUserErr.Error(), err.Error()))
 			cblogger.Error(createErr.Error())
 			LoggingError(hiscallInfo, createErr)
 			return irs.VMInfo{}, createErr
 		}
 	}
 
-	// 사용자 등록 및 sudoer 권한 추가
-	_, err = RunCommand(vm.AdaptiveIp, SSHDefaultPort, VMDefaultUser, VMDefaultPassword, fmt.Sprintf("useradd -s /bin/bash %s -rm", loginUserId))
-	if err != nil && vmReqInfo.ImageType != irs.MyImage {
-		createErr = errors.New(fmt.Sprintf("Failed to Create VM. err = %s = %s", createUserErr.Error(), err.Error()))
-		cblogger.Error(createErr.Error())
-		LoggingError(hiscallInfo, createErr)
-		return irs.VMInfo{}, createErr
-	}
-	_, err = RunCommand(vm.AdaptiveIp, SSHDefaultPort, VMDefaultUser, VMDefaultPassword, fmt.Sprintf("echo \"%s ALL=(root) NOPASSWD:ALL\" >> /etc/sudoers", loginUserId))
-	if err != nil {
-		createErr = errors.New(fmt.Sprintf("Failed to Create VM. err = %s = %s", createUserErr.Error(), err.Error()))
-		cblogger.Error(createErr.Error())
-		LoggingError(hiscallInfo, createErr)
-		return irs.VMInfo{}, createErr
-	}
-
-	// 공개키 등록
-	_, err = RunCommand(vm.AdaptiveIp, SSHDefaultPort, VMDefaultUser, VMDefaultPassword, fmt.Sprintf("mkdir -p /home/%s/.ssh", loginUserId))
-	publicKey, err := GetPublicKey(vmHandler.CredentialInfo, vmReqInfo.KeyPairIID.NameId)
-	if err != nil {
-		createErr = errors.New(fmt.Sprintf("Failed to Create VM. err = %s = %s", createUserErr.Error(), err.Error()))
-		cblogger.Error(createErr.Error())
-		LoggingError(hiscallInfo, createErr)
-		return irs.VMInfo{}, createErr
-	}
-	_, err = RunCommand(vm.AdaptiveIp, SSHDefaultPort, VMDefaultUser, VMDefaultPassword, fmt.Sprintf("echo \"%s\" > /home/%s/.ssh/authorized_keys", publicKey, loginUserId))
-	if err != nil {
-		createErr = errors.New(fmt.Sprintf("Failed to Create VM. err = %s = %s", createUserErr.Error(), err.Error()))
-		cblogger.Error(createErr.Error())
-		LoggingError(hiscallInfo, createErr)
-		return irs.VMInfo{}, createErr
-	}
-	// ssh 접속 방법 변경 (sshd_config 파일 변경)
-	_, err = RunCommand(vm.AdaptiveIp, SSHDefaultPort, VMDefaultUser, VMDefaultPassword, "sed -i 's/PasswordAuthentication yes/PasswordAuthentication no/g' /etc/ssh/sshd_config")
-	if err != nil {
-		createErr = errors.New(fmt.Sprintf("Failed to Create VM. err = %s = %s", createUserErr.Error(), err.Error()))
-		cblogger.Error(createErr.Error())
-		LoggingError(hiscallInfo, createErr)
-		return irs.VMInfo{}, createErr
-	}
-	_, err = RunCommand(vm.AdaptiveIp, SSHDefaultPort, VMDefaultUser, VMDefaultPassword, "sed -i 's/#PubkeyAuthentication yes/PubkeyAuthentication yes/g' /etc/ssh/sshd_config")
-	if err != nil {
-		createErr = errors.New(fmt.Sprintf("Failed to Create VM. err = %s = %s", createUserErr.Error(), err.Error()))
-		cblogger.Error(createErr.Error())
-		LoggingError(hiscallInfo, createErr)
-		return irs.VMInfo{}, createErr
-	}
-	_, err = RunCommand(vm.AdaptiveIp, SSHDefaultPort, VMDefaultUser, VMDefaultPassword, "systemctl restart sshd")
-	if err != nil {
-		createErr = errors.New(fmt.Sprintf("Failed to Create VM. err = %s = %s", createUserErr.Error(), err.Error()))
-		cblogger.Error(createErr.Error())
-		LoggingError(hiscallInfo, createErr)
-		return irs.VMInfo{}, createErr
-	}
 	vmHandler.Client.TokenID = vmHandler.CredentialInfo.AuthToken
 	secGroups := make([]string, len(vmReqInfo.SecurityGroupIIDs))
 	if len(vmReqInfo.SecurityGroupIIDs) > 0 {
@@ -475,7 +481,7 @@ func (vmHandler *ClouditVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (startVM irs
 	for _, dataDisk := range vmReqInfo.DataDiskIIDs {
 		rawDisk, getDiskErr := diskHandler.getRawDisk(dataDisk)
 		if getDiskErr != nil {
-			createErr = errors.New(fmt.Sprintf("Failed to Create VM. err = %s", err.Error()))
+			createErr = errors.New(fmt.Sprintf("Failed to Create VM. err = %s", getDiskErr.Error()))
 			cblogger.Error(createErr.Error())
 			LoggingError(hiscallInfo, createErr)
 			return irs.VMInfo{}, createErr
