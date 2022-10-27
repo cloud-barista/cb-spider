@@ -669,14 +669,23 @@ func getNodeGroupRequest(clusterHandler *TencentClusterHandler, cluster_id strin
 	subnet_id := cluster.Network.SubnetIIDs[0].SystemId
 	security_group_id := cluster.Network.SecurityGroupIIDs[0].SystemId
 
+	disk_size, _ := strconv.ParseInt(nodeGroupReqInfo.RootDiskSize, 10, 64)
 	// '{"LaunchConfigurationName":"name","InstanceType":"S3.MEDIUM2","ImageId":"img-pi0ii46r"}'
+	// "SystemDisk": { "DiskType" : "CLOUD_BSSD", "DiskSize": 50 },
 	// ImageId를 설정하면 에러 발생, 설정안됨.
 	launch_config_json_str := `{
 		"InstanceType": "%s",
 		"SecurityGroupIds": ["%s"],
-		"LoginSettings": { "KeyIds" : ["%s"] }
+		"LoginSettings": { "KeyIds" : ["%s"] },
+		"InstanceChargeType": "POSTPAID_BY_HOUR",
+		"SystemDisk": { "DiskType" : "%s", "DiskSize": %d },
+		"InternetAccessible": {
+			"InternetChargeType":"TRAFFIC_POSTPAID_BY_HOUR",
+			"InternetMaxBandwidthOut": 1,
+			"PublicIpAssigned": true
+		}
 	}`
-	launch_config_json_str = fmt.Sprintf(launch_config_json_str, nodeGroupReqInfo.VMSpecName, security_group_id, nodeGroupReqInfo.KeyPairIID.SystemId)
+	launch_config_json_str = fmt.Sprintf(launch_config_json_str, nodeGroupReqInfo.VMSpecName, security_group_id, nodeGroupReqInfo.KeyPairIID.SystemId, nodeGroupReqInfo.RootDiskType, disk_size)
 
 	auto_scaling_group_json_str := `{
 		"MinSize": %d,
@@ -688,7 +697,6 @@ func getNodeGroupRequest(clusterHandler *TencentClusterHandler, cluster_id strin
 
 	auto_scaling_group_json_str = fmt.Sprintf(auto_scaling_group_json_str, nodeGroupReqInfo.MinNodeSize, nodeGroupReqInfo.MaxNodeSize, nodeGroupReqInfo.DesiredNodeSize, vpc_id, subnet_id)
 
-	disk_size, _ := strconv.ParseInt(nodeGroupReqInfo.RootDiskSize, 10, 64)
 	request = tke.NewCreateClusterNodePoolRequest()
 	request.Name = common.StringPtr(nodeGroupReqInfo.IId.NameId)
 	request.ClusterId = common.StringPtr(cluster_id)
@@ -696,12 +704,12 @@ func getNodeGroupRequest(clusterHandler *TencentClusterHandler, cluster_id strin
 	request.AutoScalingGroupPara = common.StringPtr(auto_scaling_group_json_str)
 	request.EnableAutoscale = common.BoolPtr(nodeGroupReqInfo.OnAutoScaling)
 	request.InstanceAdvancedSettings = &tke.InstanceAdvancedSettings{
-		DataDisks: []*tke.DataDisk{
-			{
-				DiskType: common.StringPtr(nodeGroupReqInfo.RootDiskType), //ex. "CLOUD_PREMIUM"
-				DiskSize: common.Int64Ptr(disk_size),                      //ex. 50
-			},
-		},
+		// DataDisks: []*tke.DataDisk{
+		// 	{
+		// 		DiskType: common.StringPtr(nodeGroupReqInfo.RootDiskType), //ex. "CLOUD_PREMIUM"
+		// 		DiskSize: common.Int64Ptr(disk_size),                      //ex. 50
+		// 	},
+		// },
 	}
 	// request.NodePoolOs = common.StringPtr(nodeGroupReqInfo.ImageIID.SystemId)
 	// request.ContainerRuntime = common.StringPtr("docker")
