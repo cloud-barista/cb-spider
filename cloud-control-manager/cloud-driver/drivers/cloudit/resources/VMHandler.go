@@ -226,6 +226,9 @@ func (vmHandler *ClouditVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (startVM irs
 		if len(vmReqInfo.IId.NameId) > 15 {
 			return irs.VMInfo{}, errors.New("Failed to Create VM. err = Hostname length of Windows cannot exceed 15")
 		}
+		if len(vmReqInfo.VMUserPasswd) < 8 {
+			return irs.VMInfo{}, errors.New("Failed to Create VM. err = Password length of Windows cannot be less than 8")
+		}
 		reqInfo.RootPassword = vmReqInfo.VMUserPasswd
 	}
 
