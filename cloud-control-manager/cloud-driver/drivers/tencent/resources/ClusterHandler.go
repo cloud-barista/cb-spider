@@ -700,7 +700,7 @@ func getNodeGroupRequest(clusterHandler *TencentClusterHandler, cluster_id strin
 			"PublicIpAssigned": true
 		}
 	}`
-	launch_config_json_str = fmt.Sprintf(launch_config_json_str, nodeGroupReqInfo.VMSpecName, security_group_id, nodeGroupReqInfo.KeyPairIID.SystemId, strSystemDisk, nodeGroupReqInfo.ImageIID.SystemId)
+	launch_config_json_str = fmt.Sprintf(launch_config_json_str, nodeGroupReqInfo.VMSpecName, security_group_id, nodeGroupReqInfo.KeyPairIID.SystemId, strSystemDisk)
 
 	auto_scaling_group_json_str := `{
 		"MinSize": %d,
@@ -726,9 +726,13 @@ func getNodeGroupRequest(clusterHandler *TencentClusterHandler, cluster_id strin
 		// 	},
 		// },
 	}
-	// request.NodePoolOs = common.StringPtr(nodeGroupReqInfo.ImageIID.SystemId)
+	if nodeGroupReqInfo.ImageIID.SystemId != "" {
+		// 등록 가능한 이미지 이름 목록: https://www.tencentcloud.com/document/product/457/46750
+		request.NodePoolOs = common.StringPtr(nodeGroupReqInfo.ImageIID.SystemId) // ex: "tlinux3.1x86_64"
+	}
 	// request.ContainerRuntime = common.StringPtr("docker")
 	// request.RuntimeVersion = common.StringPtr("19.3")
+	print(request.ToJsonString())
 
 	return request, err
 }
