@@ -211,8 +211,9 @@ func TestAddNodeGroup2(t *testing.T) {
 	}
 
 	new_node_group := &irs.NodeGroupInfo{
-		IId: irs.IID{NameId: "ng-x4", SystemId: ""},
-		// ImageIID:   irs.IID{NameId: "", SystemId: "img-4wpaazux"}, // TKE Ubuntu16 64 bits // 설정안됨
+		IId: irs.IID{NameId: "ng-x5", SystemId: ""},
+		//ImageIID:        irs.IID{NameId: "tlinux3.1x86_64", SystemId: "tlinux3.1x86_64"},
+		ImageIID:        irs.IID{SystemId: "tlinux3.1x86_64"},
 		VMSpecName:      "S3.MEDIUM2",
 		RootDiskType:    "CLOUD_BSSD",
 		RootDiskSize:    "50",
