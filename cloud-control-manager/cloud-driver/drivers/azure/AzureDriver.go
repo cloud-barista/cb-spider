@@ -52,6 +52,7 @@ func (AzureDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	drvCapabilityInfo.NLBHandler = true
 	drvCapabilityInfo.DiskHandler = true
 	drvCapabilityInfo.MyImageHandler = true
+	drvCapabilityInfo.ClusterHandler = true
 
 	return drvCapabilityInfo
 }

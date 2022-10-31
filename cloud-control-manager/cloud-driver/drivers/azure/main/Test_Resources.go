@@ -12,6 +12,7 @@ import (
 	"gopkg.in/yaml.v3"
 	"io/ioutil"
 	"os"
+	"time"
 )
 
 type Config struct {
@@ -1235,7 +1236,8 @@ func testClusterHandlerListPrint() {
 	cblogger.Info("8. ChangeNodeGroupScaling()")
 	cblogger.Info("9. UpgradeCluster()")
 	cblogger.Info("10. Create-Get-List-Delete")
-	cblogger.Info("11. Exit")
+	cblogger.Info("11. Create->GET->List->AddNodeGroup->RemoveNodeGroup->SetNodeGroupAutoScaling(Change)->SetNodeGroupAutoScaling(restore)->ChangeNodeGroupScaling->Upgrade->Delete")
+	cblogger.Info("12. Exit")
 }
 
 func testClusterHandler(config Config) {
@@ -1249,7 +1251,7 @@ func testClusterHandler(config Config) {
 	testClusterHandlerListPrint()
 	createreq := irs.ClusterInfo{
 		IId: irs.IID{
-			NameId: "test-cluster-1",
+			NameId: "test-cluster-2",
 		},
 		Network: irs.NetworkInfo{
 			VpcIID:            irs.IID{NameId: "cluster-tester-vpc"},
@@ -1260,7 +1262,17 @@ func testClusterHandler(config Config) {
 		// ImageIID
 		NodeGroupList: []irs.NodeGroupInfo{
 			{
-				IId:             irs.IID{NameId: "nodegroup"},
+				IId:             irs.IID{NameId: "nodegroup0"},
+				VMSpecName:      "Standard_B2s",
+				RootDiskSize:    "default",
+				KeyPairIID:      irs.IID{NameId: "azure0916"},
+				DesiredNodeSize: 1,
+				MaxNodeSize:     3,
+				MinNodeSize:     1,
+				OnAutoScaling:   true,
+			},
+			{
+				IId:             irs.IID{NameId: "nodegroup1"},
 				VMSpecName:      "Standard_B2s",
 				RootDiskSize:    "default",
 				KeyPairIID:      irs.IID{NameId: "azure0916"},
@@ -1272,13 +1284,13 @@ func testClusterHandler(config Config) {
 		},
 	}
 	addNodeGroup := irs.NodeGroupInfo{
-		IId:             irs.IID{NameId: "nodegroup2"},
+		IId:             irs.IID{NameId: "nodegroup3"},
 		VMSpecName:      "Standard_B2s",
 		RootDiskSize:    "default",
 		KeyPairIID:      irs.IID{NameId: "azure0916"},
-		DesiredNodeSize: 1,
-		MaxNodeSize:     3,
-		MinNodeSize:     1,
+		DesiredNodeSize: 3,
+		MaxNodeSize:     5,
+		MinNodeSize:     2,
 		OnAutoScaling:   true,
 	}
 
@@ -1352,7 +1364,7 @@ Loop:
 				cblogger.Info("Finish SetNodeGroupAutoScaling()")
 			case 8:
 				cblogger.Info("Start ChangeNodeGroupScaling() ...")
-				if del, err := clusterHandler.ChangeNodeGroupScaling(createreq.IId, createreq.NodeGroupList[0].IId, 3, 1, 3); err != nil {
+				if del, err := clusterHandler.ChangeNodeGroupScaling(createreq.IId, createreq.NodeGroupList[0].IId, 3, 3, 5); err != nil {
 					cblogger.Error(err)
 				} else {
 					spew.Dump(del)
@@ -1360,7 +1372,7 @@ Loop:
 				cblogger.Info("Finish ChangeNodeGroupScaling()")
 			case 9:
 				cblogger.Info("Start UpgradeCluster() ...")
-				if del, err := clusterHandler.UpgradeCluster(createreq.IId, "1.23.8"); err != nil {
+				if del, err := clusterHandler.UpgradeCluster(createreq.IId, "1.22.12"); err != nil {
 					cblogger.Error(err)
 				} else {
 					spew.Dump(del)
@@ -1373,55 +1385,40 @@ Loop:
 				continueCheck := true
 				if createInfo, err := clusterHandler.CreateCluster(createreq); err != nil {
 					continueCheck = false
-					cblogger.Error("Failed Create =====")
+					cblogger.Error("!!!!!!!!!!!!!!!!!!!Failed Create =====")
 					cblogger.Error(err)
-					if _, err := clusterHandler.DeleteCluster(createreq.IId); err != nil {
-						cblogger.Error("Clean Failed!")
-						cblogger.Error(err)
-						cblogger.Error("Clean Failed!")
-					}
 				} else {
 					spew.Dump(createInfo)
 					cblogger.Info("Finish Create =====")
 				}
 				if !continueCheck {
-					cblogger.Info(fmt.Sprintf("Finish Failed %s =====", falowStr))
+					cblogger.Info(fmt.Sprintf("Finish Failed Create ====="))
 					continue
 				}
 				cblogger.Info("Start Get =====")
 				if clusterInfo, err := clusterHandler.GetCluster(createreq.IId); err != nil {
 					continueCheck = false
-					cblogger.Error("Failed Get =====")
+					cblogger.Error("!!!!!!!!!!!!!!!!!!!Failed Get =====")
 					cblogger.Error(err)
-					if _, err := clusterHandler.DeleteCluster(createreq.IId); err != nil {
-						cblogger.Error("Clean Failed!")
-						cblogger.Error(err)
-						cblogger.Error("Clean Failed!")
-					}
 				} else {
 					spew.Dump(clusterInfo)
 					cblogger.Info("Finish Get =====")
 				}
 				if !continueCheck {
-					cblogger.Info(fmt.Sprintf("Finish Failed %s =====", falowStr))
+					cblogger.Info(fmt.Sprintf("Finish Failed Get ====="))
 					continue
 				}
 				cblogger.Info("Start List =====")
 				if list, err := clusterHandler.ListCluster(); err != nil {
 					continueCheck = false
-					cblogger.Error("Failed List =====")
+					cblogger.Error("!!!!!!!!!!!!!!!!!!!Failed List =====")
 					cblogger.Error(err)
-					if _, err := clusterHandler.DeleteCluster(createreq.IId); err != nil {
-						cblogger.Error("Clean Failed!")
-						cblogger.Error(err)
-						cblogger.Error("Clean Failed!")
-					}
 				} else {
 					spew.Dump(list)
 					cblogger.Info("Finish List =====")
 				}
 				if !continueCheck {
-					cblogger.Info(fmt.Sprintf("Finish Failed %s =====", falowStr))
+					cblogger.Info(fmt.Sprintf("Finish Failed List ====="))
 					continue
 				}
 				// Final
@@ -1435,6 +1432,363 @@ Loop:
 				}
 				cblogger.Info(fmt.Sprintf("Finish %s =====", falowStr))
 			case 11:
+				falowStr := "Create->GET->AddNodeGroup->RemoveNodeGroup->SetNodeGroupAutoScaling(Change)->SetNodeGroupAutoScaling(restore)->ChangeNodeGroupScaling->Delete"
+				cblogger.Info(fmt.Sprintf("Start %s =====", falowStr))
+				cblogger.Info("Start Create =====")
+				continueCheck := true
+				if createInfo, err := clusterHandler.CreateCluster(createreq); err != nil {
+					continueCheck = false
+					cblogger.Error("!!!!!!!!!!!!!!!!!!!Failed Create =====")
+					cblogger.Error(err)
+					cblogger.Info(fmt.Sprintf("Finish Failed Create ====="))
+				} else {
+					spew.Dump(createInfo)
+					cblogger.Info("Finish Create =====")
+				}
+				if !continueCheck {
+					continue
+				}
+				cblogger.Info("Start Get =====")
+				if clusterInfo, err := clusterHandler.GetCluster(createreq.IId); err != nil {
+					continueCheck = false
+					cblogger.Error("!!!!!!!!!!!!!!!!!!!Failed Get =====")
+					cblogger.Error(err)
+					cblogger.Info(fmt.Sprintf("Finish Failed Get ====="))
+				} else {
+					spew.Dump(clusterInfo)
+					cblogger.Info("Finish Get =====")
+				}
+				if !continueCheck {
+					continue
+				}
+				waitCount := 0
+				waitMaxCount := 200
+				for {
+					waitCount++
+					clusterInfo, err := clusterHandler.GetCluster(createreq.IId)
+					cblogger.Info(fmt.Sprintf("Waiting Check Creating Cluster Status %s", string(clusterInfo.Status)))
+					if err != nil {
+						cblogger.Info(fmt.Sprintf("Failed Waiting Check Creating Cluster Status"))
+						continueCheck = false
+						break
+					}
+					if clusterInfo.Status == irs.ClusterActive {
+						cblogger.Info(fmt.Sprintf("Waiting Check Creating Cluster Status %s", string(clusterInfo.Status)))
+						cblogger.Info("Pre-Next Current Cluster")
+						spew.Dump(clusterInfo)
+						cblogger.Info("@@@@@@@@@@@@@@@@@@@@@=============NextStep!=============@@@@@@@@@@@@@@@@@@@@@")
+						break
+					}
+					time.Sleep(10 * time.Second)
+					if waitCount > waitMaxCount {
+						cblogger.Info(fmt.Sprintf("Waiting Check Creating Cluster Status TimeOut"))
+						continueCheck = false
+						break
+					}
+				}
+				if !continueCheck {
+					continue
+				}
+				cblogger.Info("Start AddNodeGroup =====")
+				if add, err := clusterHandler.AddNodeGroup(createreq.IId, addNodeGroup); err != nil {
+					continueCheck = false
+					cblogger.Error("!!!!!!!!!!!!!!!!!!!Failed AddNodeGroup =====")
+					cblogger.Error(err)
+					cblogger.Info(fmt.Sprintf("Finish Failed AddNodeGroup ====="))
+				} else {
+					spew.Dump(add)
+					cblogger.Info("Finish AddNodeGroup =====")
+				}
+				if !continueCheck {
+					continue
+				}
+				waitCount = 0
+				for {
+					waitCount++
+					clusterInfo, err := clusterHandler.GetCluster(createreq.IId)
+					if err != nil {
+						cblogger.Info(fmt.Sprintf("Failed Waiting Check AddNodeGroup Status"))
+						continueCheck = false
+						break
+					}
+					subChek := false
+					for _, nodeGroup := range clusterInfo.NodeGroupList {
+						if nodeGroup.IId.NameId == addNodeGroup.IId.NameId {
+							if nodeGroup.Status == irs.NodeGroupActive {
+								cblogger.Info(fmt.Sprintf("Waiting Check Creating AddNodeGroup Status %s", string(clusterInfo.Status)))
+								cblogger.Info("Pre-Next Current Cluster")
+								spew.Dump(clusterInfo)
+								cblogger.Info("@@@@@@@@@@@@@@@@@@@@@=============NextStep!=============@@@@@@@@@@@@@@@@@@@@")
+								subChek = true
+								break
+							} else {
+								cblogger.Info(fmt.Sprintf("Waiting Check Creating AddNodeGroup Status %s", string(clusterInfo.Status)))
+							}
+						}
+					}
+					if subChek {
+						break
+					}
+					time.Sleep(10 * time.Second)
+					if waitCount > waitMaxCount {
+						cblogger.Info(fmt.Sprintf("Waiting Check Creating Cluster AddNodeGroup TimeOut"))
+						continueCheck = false
+						break
+					}
+				}
+				if !continueCheck {
+					continue
+				}
+				cblogger.Info("Start RemoveNodeGroup =====")
+				if del, err := clusterHandler.RemoveNodeGroup(createreq.IId, addNodeGroup.IId); err != nil {
+					continueCheck = false
+					cblogger.Error("!!!!!!!!!!!!!!!!!!!Failed RemoveNodeGroup =====")
+					cblogger.Error(err)
+					cblogger.Info(fmt.Sprintf("Finish Failed RemoveNodeGroup ====="))
+				} else {
+					spew.Dump(del)
+					cblogger.Info("Finish RemoveNodeGroup =====")
+				}
+				if !continueCheck {
+					continue
+				}
+				waitCount = 0
+				for {
+					waitCount++
+					clusterInfo, err := clusterHandler.GetCluster(createreq.IId)
+					if err != nil {
+						cblogger.Info(fmt.Sprintf("Failed Waiting Check RemoveNodeGroup Status"))
+						continueCheck = false
+						break
+					}
+					existChk := false
+					for _, nodeGroup := range clusterInfo.NodeGroupList {
+						if nodeGroup.IId.NameId == addNodeGroup.IId.NameId {
+							existChk = true
+						}
+					}
+					if existChk {
+						cblogger.Info(fmt.Sprintf("Waiting Check RemoveNodeGroup Exist"))
+					} else {
+						cblogger.Info(fmt.Sprintf("Waiting Check RemoveNodeGroup Not Exist", string(clusterInfo.Status)))
+						cblogger.Info("Pre-Next Current Cluster")
+						spew.Dump(clusterInfo)
+						cblogger.Info("@@@@@@@@@@@@@@@@@@@@@=============NextStep!=============@@@@@@@@@@@@@@@@@@@@")
+						break
+					}
+					time.Sleep(10 * time.Second)
+					if waitCount > waitMaxCount {
+						cblogger.Info(fmt.Sprintf("Waiting Check RemoveNodeGroup TimeOut"))
+						continueCheck = false
+						break
+					}
+				}
+				if !continueCheck {
+					continue
+				}
+				cblogger.Info("Start SetNodeGroupAutoScaling Change =====")
+				if ch, err := clusterHandler.SetNodeGroupAutoScaling(createreq.IId, createreq.NodeGroupList[0].IId, !createreq.NodeGroupList[0].OnAutoScaling); err != nil {
+					continueCheck = false
+					cblogger.Error("!!!!!!!!!!!!!!!!!!!Failed SetNodeGroupAutoScaling Change=====")
+					cblogger.Error(err)
+					cblogger.Info(fmt.Sprintf("Finish Failed SetNodeGroupAutoScaling Change====="))
+				} else {
+					spew.Dump(ch)
+					cblogger.Info("Finish SetNodeGroupAutoScaling =====")
+				}
+				if !continueCheck {
+					continue
+				}
+				waitCount = 0
+				for {
+					waitCount++
+					clusterInfo, err := clusterHandler.GetCluster(createreq.IId)
+					if err != nil {
+						cblogger.Info(fmt.Sprintf("Failed Waiting Check SetNodeGroupAutoScaling Status"))
+						continueCheck = false
+						break
+					}
+					subCheck := false
+					for _, nodeGroup := range clusterInfo.NodeGroupList {
+						if nodeGroup.IId.NameId == createreq.NodeGroupList[0].IId.NameId {
+							if nodeGroup.Status == irs.NodeGroupActive {
+								cblogger.Info(fmt.Sprintf("Waiting Check SetNodeGroupAutoScaling Status %s", string(clusterInfo.Status)))
+								cblogger.Info("Pre-Next Current Cluster")
+								spew.Dump(clusterInfo)
+								cblogger.Info("@@@@@@@@@@@@@@@@@@@@@=============NextStep!=============@@@@@@@@@@@@@@@@@@@@")
+								subCheck = true
+								break
+							} else {
+								cblogger.Info(fmt.Sprintf("Waiting Check SetNodeGroupAutoScaling Status %s", string(clusterInfo.Status)))
+							}
+						}
+					}
+					if subCheck {
+						break
+					}
+					time.Sleep(10 * time.Second)
+					if waitCount > waitMaxCount {
+						cblogger.Info(fmt.Sprintf("Waiting Check SetNodeGroupAutoScaling TimeOut"))
+						continueCheck = false
+						break
+					}
+				}
+				if !continueCheck {
+					continue
+				}
+				cblogger.Info("Start SetNodeGroupAutoScaling restore =====")
+				if ch, err := clusterHandler.SetNodeGroupAutoScaling(createreq.IId, createreq.NodeGroupList[0].IId, createreq.NodeGroupList[0].OnAutoScaling); err != nil {
+					continueCheck = false
+					cblogger.Error("!!!!!!!!!!!!!!!!!!!Failed SetNodeGroupAutoScaling restore=====")
+					cblogger.Error(err)
+					cblogger.Info(fmt.Sprintf("Finish Failed SetNodeGroupAutoScaling restore====="))
+				} else {
+					spew.Dump(ch)
+					cblogger.Info("Finish SetNodeGroupAutoScaling =====")
+				}
+				if !continueCheck {
+					continue
+				}
+				waitCount = 0
+				for {
+					waitCount++
+					clusterInfo, err := clusterHandler.GetCluster(createreq.IId)
+					if err != nil {
+						cblogger.Info(fmt.Sprintf("Failed Waiting Check ReStore SetNodeGroupAutoScaling Status"))
+						continueCheck = false
+						break
+					}
+					subCheck := false
+					for _, nodeGroup := range clusterInfo.NodeGroupList {
+						if nodeGroup.IId.NameId == createreq.NodeGroupList[0].IId.NameId {
+							if nodeGroup.Status == irs.NodeGroupActive {
+								cblogger.Info(fmt.Sprintf("Waiting Check ReStore SetNodeGroupAutoScaling Status %s", string(clusterInfo.Status)))
+								cblogger.Info("Pre-Next Current Cluster")
+								spew.Dump(clusterInfo)
+								cblogger.Info("@@@@@@@@@@@@@@@@@@@@@=============NextStep!=============@@@@@@@@@@@@@@@@@@@@")
+								subCheck = true
+								break
+							} else {
+								cblogger.Info(fmt.Sprintf("Waiting Check ReStore SetNodeGroupAutoScaling Status %s", string(clusterInfo.Status)))
+							}
+						}
+					}
+					if subCheck {
+						break
+					}
+					time.Sleep(10 * time.Second)
+					if waitCount > waitMaxCount {
+						cblogger.Info(fmt.Sprintf("Waiting Check ReStore SetNodeGroupAutoScaling TimeOut"))
+						continueCheck = false
+						break
+					}
+				}
+				if !continueCheck {
+					continue
+				}
+				cblogger.Info("Start ChangeNodeGroupScaling =====")
+				if del, err := clusterHandler.ChangeNodeGroupScaling(createreq.IId, createreq.NodeGroupList[0].IId, 3, 1, 3); err != nil {
+					continueCheck = false
+					cblogger.Error("!!!!!!!!!!!!!!!!!!!Failed ChangeNodeGroupScaling =====")
+					cblogger.Error(err)
+					cblogger.Info(fmt.Sprintf("Finish Failed ChangeNodeGroupScaling ====="))
+				} else {
+					spew.Dump(del)
+					cblogger.Info("Finish ChangeNodeGroupScaling =====")
+				}
+				if !continueCheck {
+					continue
+				}
+				waitCount = 0
+				for {
+					waitCount++
+					clusterInfo, err := clusterHandler.GetCluster(createreq.IId)
+					if err != nil {
+						cblogger.Info(fmt.Sprintf("Failed Waiting Check ChangeNodeGroupScaling Status"))
+						continueCheck = false
+						break
+					}
+					subCheck := false
+					for _, nodeGroup := range clusterInfo.NodeGroupList {
+						if nodeGroup.IId.NameId == createreq.NodeGroupList[0].IId.NameId {
+							if nodeGroup.Status == irs.NodeGroupActive {
+								cblogger.Info(fmt.Sprintf("Waiting Check ChangeNodeGroupScaling Status %s", string(clusterInfo.Status)))
+								cblogger.Info("Pre-Next Current Cluster")
+								spew.Dump(clusterInfo)
+								cblogger.Info("@@@@@@@@@@@@@@@@@@@@@=============NextStep!=============@@@@@@@@@@@@@@@@@@@@")
+								subCheck = true
+								break
+							} else {
+								cblogger.Info(fmt.Sprintf("Waiting Check ChangeNodeGroupScaling Status %s", string(clusterInfo.Status)))
+							}
+						}
+					}
+					if subCheck {
+						break
+					}
+					time.Sleep(10 * time.Second)
+					if waitCount > waitMaxCount {
+						cblogger.Info(fmt.Sprintf("Waiting Check ChangeNodeGroupScaling TimeOut"))
+						continueCheck = false
+						break
+					}
+				}
+				if !continueCheck {
+					continue
+				}
+				////////////////
+				cblogger.Info("Start Upgrade =====")
+				if up, err := clusterHandler.UpgradeCluster(createreq.IId, "1.23.8"); err != nil {
+					continueCheck = false
+					cblogger.Error("!!!!!!!!!!!!!!!!!!!Failed Upgrade =====")
+					cblogger.Error(err)
+					cblogger.Info(fmt.Sprintf("Finish Failed Upgrade ====="))
+				} else {
+					spew.Dump(up)
+					cblogger.Info("Finish Upgrade =====")
+				}
+				if !continueCheck {
+					continue
+				}
+				waitCount = 0
+				for {
+					waitCount++
+					clusterInfo, err := clusterHandler.GetCluster(createreq.IId)
+					cblogger.Info(fmt.Sprintf("Waiting Check Upgrade Cluster Status %s", string(clusterInfo.Status)))
+					if err != nil {
+						cblogger.Info(fmt.Sprintf("Failed Waiting Check Upgrade Cluster Status"))
+						continueCheck = false
+						break
+					}
+					if clusterInfo.Status == irs.ClusterActive {
+						cblogger.Info(fmt.Sprintf("Waiting Check Upgrade Cluster Status %s", string(clusterInfo.Status)))
+						cblogger.Info("Pre-Next Current Cluster")
+						spew.Dump(clusterInfo)
+						cblogger.Info("@@@@@@@@@@@@@@@@@@@@@=============NextStep!=============@@@@@@@@@@@@@@@@@@@@")
+						break
+					}
+					time.Sleep(10 * time.Second)
+					if waitCount > waitMaxCount {
+						cblogger.Info(fmt.Sprintf("Waiting Check Upgrade Cluster Status TimeOut"))
+						continueCheck = false
+						break
+					}
+				}
+				if !continueCheck {
+					continue
+				}
+
+				///////////
+				cblogger.Info("Start Delete =====")
+				if del, err := clusterHandler.DeleteCluster(createreq.IId); err != nil {
+					cblogger.Error("Failed Delete =====")
+					cblogger.Error(err)
+				} else {
+					spew.Dump(del)
+					cblogger.Info("Finish Delete =====")
+				}
+				cblogger.Info(fmt.Sprintf("Finish %s =====", falowStr))
+			case 12:
 				cblogger.Info("Exit")
 				break Loop
 			}

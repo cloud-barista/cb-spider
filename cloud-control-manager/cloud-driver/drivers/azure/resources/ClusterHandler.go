@@ -13,13 +13,17 @@ import (
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"math"
 	"net"
+	"reflect"
 	"strconv"
 	"strings"
 	"time"
 )
 
 const (
-	maxPodCount = 110
+	maxPodCount          = 110
+	OwnerClusterKey      = "ownerCluster"
+	ScaleSetOwnerKey     = "aks-managed-poolName"
+	ClusterNodeSSHKeyKey = "sshkey"
 )
 
 type AzureClusterHandler struct {
@@ -41,7 +45,19 @@ type AzureClusterHandler struct {
 func (ac *AzureClusterHandler) CreateCluster(clusterReqInfo irs.ClusterInfo) (info irs.ClusterInfo, createErr error) {
 	hiscallInfo := GetCallLogScheme(ac.Region, call.CLUSTER, clusterReqInfo.IId.NameId, "CreateCluster()")
 	start := call.Start()
-	cluster, err := createCluster(clusterReqInfo, ac.VirtualNetworksClient, ac.ManagedClustersClient, ac.VirtualMachineSizesClient, ac.SSHPublicKeysClient, ac.CredentialInfo, ac.Region, ac.Ctx)
+	err := createCluster(clusterReqInfo, ac.VirtualNetworksClient, ac.ManagedClustersClient, ac.VirtualMachineSizesClient, ac.SSHPublicKeysClient, ac.CredentialInfo, ac.Region, ac.Ctx)
+	if err != nil {
+		createErr = errors.New(fmt.Sprintf("Failed to Create Cluster. err = %s", err))
+		cblogger.Error(createErr.Error())
+		LoggingError(hiscallInfo, createErr)
+		return irs.ClusterInfo{}, createErr
+	}
+	defer func() {
+		if createErr != nil {
+			cleanCluster(clusterReqInfo.IId.NameId, ac.ManagedClustersClient, ac.Region.ResourceGroup, ac.Ctx)
+		}
+	}()
+	baseSecurityGroup, err := waitingClusterBaseSecurityGroup(irs.IID{NameId: clusterReqInfo.IId.NameId}, ac.ManagedClustersClient, ac.SecurityGroupsClient, ac.Ctx, ac.CredentialInfo, ac.Region)
 	if err != nil {
 		createErr = errors.New(fmt.Sprintf("Failed to Create Cluster. err = %s", err))
 		cblogger.Error(createErr.Error())
@@ -49,7 +65,7 @@ func (ac *AzureClusterHandler) CreateCluster(clusterReqInfo irs.ClusterInfo) (in
 		return irs.ClusterInfo{}, createErr
 	}
 	for _, sg := range clusterReqInfo.Network.SecurityGroupIIDs {
-		err = applySecurityGroup(cluster, sg, ac.AgentPoolsClient, ac.VirtualMachineScaleSetsClient, ac.SecurityGroupsClient, ac.SecurityRulesClient, ac.Ctx)
+		err = applySecurityGroup(irs.IID{NameId: clusterReqInfo.IId.NameId}, irs.IID{NameId: sg.NameId}, baseSecurityGroup, ac.ManagedClustersClient, ac.SecurityGroupsClient, ac.SecurityRulesClient, ac.Ctx, ac.CredentialInfo, ac.Region)
 		if err != nil {
 			createErr = errors.New(fmt.Sprintf("Failed to Create Cluster. err = %s", err))
 			cblogger.Error(createErr.Error())
@@ -57,14 +73,14 @@ func (ac *AzureClusterHandler) CreateCluster(clusterReqInfo irs.ClusterInfo) (in
 			return irs.ClusterInfo{}, createErr
 		}
 	}
-	cluster, err = getRawCluster(clusterReqInfo.IId, ac.ManagedClustersClient, ac.Ctx, ac.CredentialInfo, ac.Region)
+	cluster, err := getRawCluster(clusterReqInfo.IId, ac.ManagedClustersClient, ac.Ctx, ac.CredentialInfo, ac.Region)
 	if err != nil {
 		createErr = errors.New(fmt.Sprintf("Failed to Create Cluster. err = %s", err))
 		cblogger.Error(createErr.Error())
 		LoggingError(hiscallInfo, createErr)
 		return irs.ClusterInfo{}, createErr
 	}
-	info, err = setterClusterInfo(cluster, ac.VirtualNetworksClient, ac.AgentPoolsClient, ac.VirtualMachineScaleSetsClient, ac.VirtualMachineScaleSetVMsClient, ac.CredentialInfo, ac.Region, ac.Ctx)
+	info, err = setterClusterInfo(cluster, ac.SecurityGroupsClient, ac.VirtualNetworksClient, ac.AgentPoolsClient, ac.VirtualMachineScaleSetsClient, ac.VirtualMachineScaleSetVMsClient, ac.CredentialInfo, ac.Region, ac.Ctx)
 	if err != nil {
 		createErr = errors.New(fmt.Sprintf("Failed to Create Cluster. err = %s", err))
 		cblogger.Error(createErr.Error())
@@ -87,7 +103,7 @@ func (ac *AzureClusterHandler) ListCluster() (listInfo []*irs.ClusterInfo, getEr
 	}
 	listInfo = make([]*irs.ClusterInfo, len(clusterList.Values()))
 	for i, cluster := range clusterList.Values() {
-		info, err := setterClusterInfo(cluster, ac.VirtualNetworksClient, ac.AgentPoolsClient, ac.VirtualMachineScaleSetsClient, ac.VirtualMachineScaleSetVMsClient, ac.CredentialInfo, ac.Region, ac.Ctx)
+		info, err := setterClusterInfo(cluster, ac.SecurityGroupsClient, ac.VirtualNetworksClient, ac.AgentPoolsClient, ac.VirtualMachineScaleSetsClient, ac.VirtualMachineScaleSetVMsClient, ac.CredentialInfo, ac.Region, ac.Ctx)
 		if err != nil {
 			getErr = errors.New(fmt.Sprintf("Failed to List Cluster. err = %s", err))
 			cblogger.Error(getErr.Error())
@@ -112,7 +128,7 @@ func (ac *AzureClusterHandler) GetCluster(clusterIID irs.IID) (info irs.ClusterI
 		return irs.ClusterInfo{}, getErr
 	}
 
-	info, err = setterClusterInfo(cluster, ac.VirtualNetworksClient, ac.AgentPoolsClient, ac.VirtualMachineScaleSetsClient, ac.VirtualMachineScaleSetVMsClient, ac.CredentialInfo, ac.Region, ac.Ctx)
+	info, err = setterClusterInfo(cluster, ac.SecurityGroupsClient, ac.VirtualNetworksClient, ac.AgentPoolsClient, ac.VirtualMachineScaleSetsClient, ac.VirtualMachineScaleSetVMsClient, ac.CredentialInfo, ac.Region, ac.Ctx)
 	if err != nil {
 		getErr = errors.New(fmt.Sprintf("Failed to Get Cluster. err = %s", err))
 		cblogger.Error(getErr.Error())
@@ -147,7 +163,7 @@ func (ac *AzureClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGroupReqInfo
 		LoggingError(hiscallInfo, addNodeErr)
 		return irs.NodeGroupInfo{}, addNodeErr
 	}
-	nodeGroupInfo, err := addNodeGroupPool(cluster, nodeGroupReqInfo, ac.ManagedClustersClient, ac.AgentPoolsClient, ac.VirtualMachineScaleSetsClient, ac.VirtualMachineScaleSetVMsClient, ac.SubnetClient, ac.CredentialInfo, ac.Region, ac.Ctx)
+	nodeGroupInfo, err := addNodeGroupPool(cluster, nodeGroupReqInfo, ac.AgentPoolsClient, ac.VirtualMachineScaleSetsClient, ac.VirtualMachineScaleSetVMsClient, ac.SubnetClient, ac.CredentialInfo, ac.Region, ac.Ctx)
 	if err != nil {
 		addNodeErr = errors.New(fmt.Sprintf("Failed to Add NodeGroup. err = %s", err))
 		cblogger.Error(addNodeErr.Error())
@@ -183,7 +199,6 @@ func (ac *AzureClusterHandler) SetNodeGroupAutoScaling(clusterIID irs.IID, nodeG
 func (ac *AzureClusterHandler) ChangeNodeGroupScaling(clusterIID irs.IID, nodeGroupIID irs.IID, DesiredNodeSize int, MinNodeSize int, MaxNodeSize int) (nodeGroupInfo irs.NodeGroupInfo, changeErr error) {
 	hiscallInfo := GetCallLogScheme(ac.Region, call.CLUSTER, clusterIID.NameId, "ChangeNodeGroupScaling()")
 	start := call.Start()
-
 	cluster, err := getRawCluster(clusterIID, ac.ManagedClustersClient, ac.Ctx, ac.CredentialInfo, ac.Region)
 	if err != nil {
 		changeErr = errors.New(fmt.Sprintf("Failed to Change NodeGroupScaling. err = %s", err))
@@ -198,7 +213,6 @@ func (ac *AzureClusterHandler) ChangeNodeGroupScaling(clusterIID irs.IID, nodeGr
 		LoggingError(hiscallInfo, changeErr)
 		return irs.NodeGroupInfo{}, changeErr
 	}
-
 	LoggingInfo(hiscallInfo, start)
 	return info, nil
 }
@@ -234,7 +248,21 @@ func (ac *AzureClusterHandler) UpgradeCluster(clusterIID irs.IID, newVersion str
 		LoggingError(hiscallInfo, upgradeErr)
 		return irs.ClusterInfo{}, upgradeErr
 	}
-	err = upgradeCluter(cluster, newVersion, ac.ManagedClustersClient, ac.Ctx, ac.Region)
+	err = upgradeCluter(cluster, newVersion, ac.ManagedClustersClient, ac.AgentPoolsClient, ac.VirtualMachineScaleSetsClient, ac.Ctx, ac.Region)
+	if err != nil {
+		upgradeErr = errors.New(fmt.Sprintf("Failed to Upgrade Cluster. err = %s", err))
+		cblogger.Error(upgradeErr.Error())
+		LoggingError(hiscallInfo, upgradeErr)
+		return irs.ClusterInfo{}, upgradeErr
+	}
+	cluster, err = getRawCluster(clusterIID, ac.ManagedClustersClient, ac.Ctx, ac.CredentialInfo, ac.Region)
+	if err != nil {
+		upgradeErr = errors.New(fmt.Sprintf("Failed to Upgrade Cluster. err = %s", err))
+		cblogger.Error(upgradeErr.Error())
+		LoggingError(hiscallInfo, upgradeErr)
+		return irs.ClusterInfo{}, upgradeErr
+	}
+	info, err = setterClusterInfo(cluster, ac.SecurityGroupsClient, ac.VirtualNetworksClient, ac.AgentPoolsClient, ac.VirtualMachineScaleSetsClient, ac.VirtualMachineScaleSetVMsClient, ac.CredentialInfo, ac.Region, ac.Ctx)
 	if err != nil {
 		upgradeErr = errors.New(fmt.Sprintf("Failed to Upgrade Cluster. err = %s", err))
 		cblogger.Error(upgradeErr.Error())
@@ -242,20 +270,46 @@ func (ac *AzureClusterHandler) UpgradeCluster(clusterIID irs.IID, newVersion str
 		return irs.ClusterInfo{}, upgradeErr
 	}
 	LoggingInfo(hiscallInfo, start)
-	return irs.ClusterInfo{}, nil
+	return info, nil
 }
 
-func upgradeCluter(cluster containerservice.ManagedCluster, newVersion string, managedClustersClient *containerservice.ManagedClustersClient, ctx context.Context, region idrv.RegionInfo) error {
+func checkUpgradeCluster(cluster containerservice.ManagedCluster, agentPoolsClient *containerservice.AgentPoolsClient, virtualMachineScaleSetsClient *compute.VirtualMachineScaleSetsClient, ctx context.Context) error {
+	if getClusterStatus(cluster) != irs.ClusterActive {
+		return errors.New("failed Upgrade Cluster err = Cluster's status must be Active")
+
+	}
+	nodePoolPairList, err := getRawNodePoolPairList(cluster, agentPoolsClient, virtualMachineScaleSetsClient, ctx)
+	if err != nil {
+		return errors.New(fmt.Sprintf("failed Upgrade Cluster err = failed to get information for agentPool and virtualMachineScaleSetts while checking for upgradeability err = %s", err))
+	}
+	check := true
+	for _, nodePoolPair := range nodePoolPairList {
+		if getNodeInfoStatus(nodePoolPair.AgentPool, nodePoolPair.virtualMachineScaleSet) != irs.NodeGroupActive {
+			check = false
+		}
+	}
+	if !check {
+		return errors.New("failed Upgrade Cluster err = NodeGroup's status must be Active")
+
+	}
+	return nil
+}
+
+func upgradeCluter(cluster containerservice.ManagedCluster, newVersion string, managedClustersClient *containerservice.ManagedClustersClient, agentPoolsClient *containerservice.AgentPoolsClient, virtualMachineScaleSetsClient *compute.VirtualMachineScaleSetsClient, ctx context.Context, region idrv.RegionInfo) error {
+	err := checkUpgradeCluster(cluster, agentPoolsClient, virtualMachineScaleSetsClient, ctx)
+	if err != nil {
+		return err
+	}
 	updateCluster := cluster
 	updateCluster.KubernetesVersion = to.StringPtr(newVersion)
-	upgradeResult, err := managedClustersClient.CreateOrUpdate(ctx, region.ResourceGroup, *cluster.Name, updateCluster)
+	_, err = managedClustersClient.CreateOrUpdate(ctx, region.ResourceGroup, *cluster.Name, updateCluster)
 	if err != nil {
 		return err
 	}
-	err = upgradeResult.WaitForCompletionRef(ctx, managedClustersClient.Client)
-	if err != nil {
-		return err
-	}
+	//err = upgradeResult.WaitForCompletionRef(ctx, managedClustersClient.Client)
+	//if err != nil {
+	//	return err
+	//}
 	return nil
 }
 
@@ -291,7 +345,7 @@ func getRawCluster(clusterIID irs.IID, managedClustersClient *containerservice.M
 	return cluster, nil
 }
 
-func setterClusterInfo(cluster containerservice.ManagedCluster, virtualNetworksClient *network.VirtualNetworksClient, agentPoolsClient *containerservice.AgentPoolsClient, virtualMachineScaleSetsClient *compute.VirtualMachineScaleSetsClient, virtualMachineScaleSetVMsClient *compute.VirtualMachineScaleSetVMsClient, credentialInfo idrv.CredentialInfo, region idrv.RegionInfo, ctx context.Context) (clusterInfo irs.ClusterInfo, err error) {
+func setterClusterInfo(cluster containerservice.ManagedCluster, securityGroupsClient *network.SecurityGroupsClient, virtualNetworksClient *network.VirtualNetworksClient, agentPoolsClient *containerservice.AgentPoolsClient, virtualMachineScaleSetsClient *compute.VirtualMachineScaleSetsClient, virtualMachineScaleSetVMsClient *compute.VirtualMachineScaleSetVMsClient, credentialInfo idrv.CredentialInfo, region idrv.RegionInfo, ctx context.Context) (clusterInfo irs.ClusterInfo, err error) {
 	clusterInfo.IId = irs.IID{*cluster.Name, *cluster.ID}
 	if cluster.ManagedClusterProperties != nil {
 		// Version
@@ -299,7 +353,7 @@ func setterClusterInfo(cluster containerservice.ManagedCluster, virtualNetworksC
 			clusterInfo.Version = *cluster.ManagedClusterProperties.KubernetesVersion
 		}
 		// NetworkInfo - Network Configuration AzureCNI
-		networkInfo, err := getNetworkInfo(cluster, agentPoolsClient, virtualNetworksClient, virtualMachineScaleSetsClient, credentialInfo, region, ctx)
+		networkInfo, err := getNetworkInfo(cluster, securityGroupsClient, virtualNetworksClient, credentialInfo, region, ctx)
 		if err == nil {
 			clusterInfo.Network = networkInfo
 		}
@@ -325,9 +379,9 @@ func setterClusterInfo(cluster containerservice.ManagedCluster, virtualNetworksC
 					clusterInfo.CreatedTime = time.Unix(timeInt64, 0)
 				}
 			}
-			sshkey, sshKeyExist := tags["sshkey"]
+			sshkey, sshKeyExist := tags[ClusterNodeSSHKeyKey]
 			if sshKeyExist && sshkey != nil {
-				keyValues = append(keyValues, irs.KeyValue{Key: "sshkey", Value: *sshkey})
+				keyValues = append(keyValues, irs.KeyValue{Key: ClusterNodeSSHKeyKey, Value: *sshkey})
 			}
 		}
 		clusterInfo.KeyValueList = keyValues
@@ -336,23 +390,31 @@ func setterClusterInfo(cluster containerservice.ManagedCluster, virtualNetworksC
 	return clusterInfo, nil
 }
 
-func getClusterStatus(cluster containerservice.ManagedCluster) irs.ClusterStatus {
-	resultStatus := irs.ClusterInactive
+func getClusterStatus(cluster containerservice.ManagedCluster) (resultStatus irs.ClusterStatus) {
+	defer func() {
+		if r := recover(); r != nil {
+			resultStatus = irs.ClusterInactive
+		}
+	}()
+	resultStatus = irs.ClusterInactive
 	if cluster.ProvisioningState == nil || cluster.PowerState == nil {
 		return resultStatus
 	}
 	provisioningState := *cluster.ProvisioningState
 	powerState := cluster.PowerState.Code
-	if provisioningState == "Starting" {
+	if powerState != containerservice.CodeRunning {
+		resultStatus = irs.ClusterInactive
+	}
+	if provisioningState == "Creating" {
 		resultStatus = irs.ClusterCreating
 	}
-	if provisioningState == "Succeeded" && powerState == containerservice.CodeRunning {
+	if provisioningState == "Succeeded" {
 		resultStatus = irs.ClusterActive
 	}
 	if provisioningState == "Deleting" {
 		resultStatus = irs.ClusterDeleting
 	}
-	if provisioningState == "InProgress" {
+	if provisioningState == "Updating" || provisioningState == "Upgrading" {
 		resultStatus = irs.ClusterUpdating
 	}
 	return resultStatus
@@ -393,7 +455,7 @@ func getSubnetIdByAgentPoolProfiles(agentPoolProfiles []containerservice.Managed
 	return *targetSubnetId, nil
 }
 
-func getNetworkInfo(cluster containerservice.ManagedCluster, agentPoolsClient *containerservice.AgentPoolsClient, virtualNetworksClient *network.VirtualNetworksClient, virtualMachineScaleSetsClient *compute.VirtualMachineScaleSetsClient, CredentialInfo idrv.CredentialInfo, Region idrv.RegionInfo, ctx context.Context) (info irs.NetworkInfo, err error) {
+func getNetworkInfo(cluster containerservice.ManagedCluster, securityGroupsClient *network.SecurityGroupsClient, virtualNetworksClient *network.VirtualNetworksClient, CredentialInfo idrv.CredentialInfo, Region idrv.RegionInfo, ctx context.Context) (info irs.NetworkInfo, err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			info = irs.NetworkInfo{}
@@ -415,19 +477,15 @@ func getNetworkInfo(cluster containerservice.ManagedCluster, agentPoolsClient *c
 			if err != nil {
 				return irs.NetworkInfo{}, errors.New("failed get cluster subnetName")
 			}
-			targetSecurityGroupIdList, err := getClusterAgentPoolSecurityGroupId(cluster, agentPoolsClient, virtualMachineScaleSetsClient, ctx)
+			securityGroupList, err := getClusterSecurityGroup(cluster, securityGroupsClient, ctx)
 			if err != nil {
 				return irs.NetworkInfo{}, errors.New("failed get cluster SecurityGroups")
 			}
-			sgIIDs := make([]irs.IID, len(targetSecurityGroupIdList))
-			for i, sgid := range targetSecurityGroupIdList {
-				sgName, err := getNameById(sgid, AzureSecurityGroups)
-				if err != nil {
-					return irs.NetworkInfo{}, errors.New("failed get cluster SecurityGroups")
-				}
+			sgIIDs := make([]irs.IID, len(securityGroupList))
+			for i, sg := range securityGroupList {
 				sgIIDs[i] = irs.IID{
-					NameId:   sgName,
-					SystemId: sgid,
+					NameId:   *sg.Name,
+					SystemId: *sg.ID,
 				}
 			}
 			info = irs.NetworkInfo{
@@ -521,55 +579,16 @@ func convertNodePoolPairSpecifiedNodePool(cluster containerservice.ManagedCluste
 		return irs.NodeGroupInfo{}, errors.New("empty nodePool Name")
 	}
 	var nodeInfo *irs.NodeGroupInfo
-	sshkeyName, sshKeyExist := cluster.Tags["sshkey"]
-	keyPairIID := irs.IID{}
-	if sshKeyExist && sshkeyName != nil {
-		keyPairIID.NameId = *sshkeyName
-		clusterSubscriptionsById, subscriptionsErr := getSubscriptionsById(*cluster.ID)
-		clusterResourceGroup, err := getResourceGroupById(*cluster.ID)
-		if err == nil && subscriptionsErr == nil {
-			keyPairIID.SystemId = GetSshKeyIdByName(idrv.CredentialInfo{SubscriptionId: clusterSubscriptionsById}, idrv.RegionInfo{
-				ResourceGroup: clusterResourceGroup,
-			}, *sshkeyName)
-		}
+	clusterNodeSShkey, err := getClusterSSHKey(cluster)
+	if err != nil {
+		return irs.NodeGroupInfo{}, errors.New(fmt.Sprintf("failed get convertNodeGroupInfo err = %s", err))
 	}
+
 	for _, nodePoolPair := range nodePoolPairList {
-		scaleSet := nodePoolPair.virtualMachineScaleSet
 		agentPool := nodePoolPair.AgentPool
 		if *agentPool.Name == nodePoolName {
-			nodeInfo = &irs.NodeGroupInfo{
-				IId: irs.IID{
-					NameId:   *agentPool.Name,
-					SystemId: *agentPool.ID,
-				},
-				ImageIID: irs.IID{
-					SystemId: *scaleSet.VirtualMachineProfile.StorageProfile.ImageReference.ID,
-					NameId:   *scaleSet.VirtualMachineProfile.StorageProfile.ImageReference.ID,
-				},
-				VMSpecName:      *scaleSet.Sku.Name,
-				RootDiskType:    GetVMDiskInfoType(scaleSet.VirtualMachineProfile.StorageProfile.OsDisk.ManagedDisk.StorageAccountType),
-				RootDiskSize:    strconv.Itoa(int(*scaleSet.VirtualMachineProfile.StorageProfile.OsDisk.DiskSizeGB)),
-				KeyPairIID:      keyPairIID,
-				Status:          getNodeInfoStatus(scaleSet),
-				OnAutoScaling:   *agentPool.EnableAutoScaling,
-				DesiredNodeSize: int(*agentPool.Count),
-				MinNodeSize:     int(*agentPool.MinCount),
-				MaxNodeSize:     int(*agentPool.MaxCount),
-			}
-			if agentPool.MinCount != nil {
-				nodeInfo.MinNodeSize = int(*agentPool.MinCount)
-			}
-			if agentPool.MaxCount != nil {
-				nodeInfo.MaxNodeSize = int(*agentPool.MaxCount)
-			}
-			vmIIds := make([]irs.IID, 0)
-			vms, err := virtualMachineScaleSetVMsClient.List(ctx, resourceGroupManagedK8s, *scaleSet.Name, "", "", "")
-			if err == nil {
-				for _, vm := range vms.Values() {
-					vmIIds = append(vmIIds, irs.IID{*vm.Name, *vm.ID})
-				}
-			}
-			nodeInfo.Nodes = vmIIds
+			info := convertNodePairToNodeInfo(nodePoolPair, clusterNodeSShkey, virtualMachineScaleSetVMsClient, resourceGroupManagedK8s, ctx)
+			nodeInfo = &info
 			break
 		}
 		continue
@@ -591,54 +610,12 @@ func convertNodePoolPair(cluster containerservice.ManagedCluster, agentPoolsClie
 	}
 	nodeInfoGroupList := make([]irs.NodeGroupInfo, len(nodePoolPairList))
 
-	sshkeyName, sshKeyExist := cluster.Tags["sshkey"]
-	keyPairIID := irs.IID{}
-
-	if sshKeyExist && sshkeyName != nil {
-		keyPairIID.NameId = *sshkeyName
-		clusterSubscriptionsById, subscriptionsErr := getSubscriptionsById(*cluster.ID)
-		clusterResourceGroup, err := getResourceGroupById(*cluster.ID)
-		if err == nil && subscriptionsErr == nil {
-			keyPairIID.SystemId = GetSshKeyIdByName(idrv.CredentialInfo{SubscriptionId: clusterSubscriptionsById}, idrv.RegionInfo{
-				ResourceGroup: clusterResourceGroup,
-			}, *sshkeyName)
-		}
+	clusterNodeSShkey, err := getClusterSSHKey(cluster)
+	if err != nil {
+		return make([]irs.NodeGroupInfo, 0), errors.New(fmt.Sprintf("failed get convertNodeGroupInfo err = %s", err))
 	}
 	for i, nodePoolPair := range nodePoolPairList {
-		scaleSet := nodePoolPair.virtualMachineScaleSet
-		agentPool := nodePoolPair.AgentPool
-		nodeInfoGroup := irs.NodeGroupInfo{
-			IId: irs.IID{
-				NameId:   *agentPool.Name,
-				SystemId: *agentPool.ID,
-			},
-			ImageIID: irs.IID{
-				SystemId: *scaleSet.VirtualMachineProfile.StorageProfile.ImageReference.ID,
-				NameId:   *scaleSet.VirtualMachineProfile.StorageProfile.ImageReference.ID,
-			},
-			VMSpecName:      *scaleSet.Sku.Name,
-			RootDiskType:    GetVMDiskInfoType(scaleSet.VirtualMachineProfile.StorageProfile.OsDisk.ManagedDisk.StorageAccountType),
-			RootDiskSize:    strconv.Itoa(int(*scaleSet.VirtualMachineProfile.StorageProfile.OsDisk.DiskSizeGB)),
-			KeyPairIID:      keyPairIID,
-			Status:          getNodeInfoStatus(scaleSet),
-			OnAutoScaling:   *agentPool.EnableAutoScaling,
-			DesiredNodeSize: int(*agentPool.Count),
-		}
-		if agentPool.MinCount != nil {
-			nodeInfoGroup.MinNodeSize = int(*agentPool.MinCount)
-		}
-		if agentPool.MaxCount != nil {
-			nodeInfoGroup.MaxNodeSize = int(*agentPool.MaxCount)
-		}
-		vmIIds := make([]irs.IID, 0)
-		vms, err := virtualMachineScaleSetVMsClient.List(ctx, resourceGroupManagedK8s, *scaleSet.Name, "", "", "")
-		if err == nil {
-			for _, vm := range vms.Values() {
-				vmIIds = append(vmIIds, irs.IID{*vm.Name, *vm.ID})
-			}
-		}
-		nodeInfoGroup.Nodes = vmIIds
-		nodeInfoGroupList[i] = nodeInfoGroup
+		nodeInfoGroupList[i] = convertNodePairToNodeInfo(nodePoolPair, clusterNodeSShkey, virtualMachineScaleSetVMsClient, resourceGroupManagedK8s, ctx)
 	}
 	return nodeInfoGroupList, nil
 }
@@ -659,24 +636,30 @@ func getNodeGroupInfoList(cluster containerservice.ManagedCluster, agentPoolsCli
 	return nodeInfoGroupList, nil
 }
 
-func getNodeInfoStatus(virtualMachineScaleSet compute.VirtualMachineScaleSet) irs.NodeGroupStatus {
-	if virtualMachineScaleSet.ProvisioningState == nil {
+func getNodeInfoStatus(agentPool containerservice.AgentPool, virtualMachineScaleSet compute.VirtualMachineScaleSet) (status irs.NodeGroupStatus) {
+	defer func() {
+		if r := recover(); r != nil {
+			status = irs.NodeGroupInactive
+		}
+	}()
+	if reflect.ValueOf(virtualMachineScaleSet.ProvisioningState).IsNil() || reflect.ValueOf(agentPool.ProvisioningState).IsNil() {
 		return irs.NodeGroupInactive
 	}
-	switch *virtualMachineScaleSet.ProvisioningState {
-	case "Canceled":
-		return irs.NodeGroupInactive
-	case "Deleting":
-		return irs.NodeGroupDeleting
-	case "Failed":
-		return irs.NodeGroupInactive
-	case "InProgress":
-		return irs.NodeGroupUpdating
-	case "Succeeded":
+	if *virtualMachineScaleSet.ProvisioningState == "Succeeded" && *agentPool.ProvisioningState == "Succeeded" {
 		return irs.NodeGroupActive
-	default:
-		return irs.NodeGroupInactive
 	}
+	if *virtualMachineScaleSet.ProvisioningState == "Creating" || *agentPool.ProvisioningState == "Creating" {
+		return irs.NodeGroupCreating
+	}
+	if *virtualMachineScaleSet.ProvisioningState == "Updating" || *agentPool.ProvisioningState == "Updating" ||
+		*virtualMachineScaleSet.ProvisioningState == "Upgrading" || *agentPool.ProvisioningState == "Upgrading" ||
+		*virtualMachineScaleSet.ProvisioningState == "Scaling" || *agentPool.ProvisioningState == "Scaling" {
+		return irs.NodeGroupUpdating
+	}
+	if *virtualMachineScaleSet.ProvisioningState == "Deleting" || *agentPool.ProvisioningState == "Deleting" {
+		return irs.NodeGroupDeleting
+	}
+	return irs.NodeGroupInactive
 }
 
 func getclusterDNSPrefix(clusterName string) string {
@@ -703,6 +686,10 @@ func checkValidationNodeGroups(nodeGroups []irs.NodeGroupInfo, virtualMachineSiz
 		if nodeGroup.IId.NameId == "" {
 			return errors.New("nodeGroup Name Empty")
 		}
+		// image지정 제공 안함(Azure에서 기본적으로 매핑.)
+		if nodeGroup.ImageIID.NameId != "" || nodeGroup.ImageIID.SystemId != "" {
+			return errors.New("The Cluster in Azure does not provide Image Designation. Please remove the name of the image and try")
+		}
 		// vmSpec CPU 2이상
 		if nodeGroup.VMSpecName == "" {
 			return errors.New("nodeGroup VMSpecName Empty")
@@ -718,15 +705,15 @@ func checkValidationNodeGroups(nodeGroups []irs.NodeGroupInfo, virtualMachineSiz
 			// NameId, SystemId 둘다 값이 있음
 			if nodeGroup.KeyPairIID.NameId != "" && nodeGroup.KeyPairIID.SystemId != "" {
 				if nodeGroup.KeyPairIID.NameId != sshKeyIID.NameId || nodeGroup.KeyPairIID.SystemId != sshKeyIID.SystemId {
-					return errors.New("The SSHkey in the Azure Cluster NodeGroup must all be the same")
+					return errors.New("the SSHkey in the Azure Cluster NodeGroup must all be the same")
 				}
 			} else if nodeGroup.KeyPairIID.NameId != "" {
 				if nodeGroup.KeyPairIID.NameId != sshKeyIID.NameId {
-					return errors.New("The SSHkey in the Azure Cluster NodeGroup must all be the same")
+					return errors.New("the SSHkey in the Azure Cluster NodeGroup must all be the same")
 				}
 			} else if nodeGroup.KeyPairIID.SystemId != "" {
 				if nodeGroup.KeyPairIID.SystemId != sshKeyIID.SystemId {
-					return errors.New("The SSHkey in the Azure Cluster NodeGroup must all be the same")
+					return errors.New("the SSHkey in the Azure Cluster NodeGroup must all be the same")
 				}
 			} else {
 				// nodeGroup.KeyPairIID.NameId == "" && nodeGroup.KeyPairIID.SystemId == ""
@@ -788,40 +775,41 @@ func checkValidationNodeGroups(nodeGroups []irs.NodeGroupInfo, virtualMachineSiz
 func checkValidationCreateCluster(clusterReqInfo irs.ClusterInfo, virtualMachineSizesClient *compute.VirtualMachineSizesClient, regionInfo idrv.RegionInfo, ctx context.Context) error {
 	// nodegroup 확인
 	err := checkValidationNodeGroups(clusterReqInfo.NodeGroupList, virtualMachineSizesClient, regionInfo, ctx)
+	// network
 	if err != nil {
 		return errors.New(fmt.Sprintf("Failed Validation Check NodeGroup. err = %s", err.Error()))
 	}
 	return nil
 }
 
-func createCluster(clusterReqInfo irs.ClusterInfo, virtualNetworksClient *network.VirtualNetworksClient, managedClustersClient *containerservice.ManagedClustersClient, virtualMachineSizesClient *compute.VirtualMachineSizesClient, sshPublicKeysClient *compute.SSHPublicKeysClient, credentialInfo idrv.CredentialInfo, regionInfo idrv.RegionInfo, ctx context.Context) (containerservice.ManagedCluster, error) {
+func createCluster(clusterReqInfo irs.ClusterInfo, virtualNetworksClient *network.VirtualNetworksClient, managedClustersClient *containerservice.ManagedClustersClient, virtualMachineSizesClient *compute.VirtualMachineSizesClient, sshPublicKeysClient *compute.SSHPublicKeysClient, credentialInfo idrv.CredentialInfo, regionInfo idrv.RegionInfo, ctx context.Context) error {
 	// 사전 확인
 	err := checkValidationCreateCluster(clusterReqInfo, virtualMachineSizesClient, regionInfo, ctx)
 	if err != nil {
-		return containerservice.ManagedCluster{}, err
+		return err
 	}
 	targetSubnet, err := getRawClusterTargetSubnet(clusterReqInfo.Network, virtualNetworksClient, ctx, regionInfo.ResourceGroup)
 	if err != nil {
-		return containerservice.ManagedCluster{}, err
+		return err
 	}
 	// agentPoolProfiles
 	agentPoolProfiles, err := generateAgentPoolProfileList(clusterReqInfo, targetSubnet)
 	if err != nil {
-		return containerservice.ManagedCluster{}, err
+		return err
 	}
 	// networkProfile
 	networkProfile, err := generatorNetworkProfile(clusterReqInfo, targetSubnet)
 	if err != nil {
-		return containerservice.ManagedCluster{}, err
+		return err
 	}
 	// mapping ssh
 	linuxProfileSSH, sshKey, err := generateManagedClusterLinuxProfileSSH(clusterReqInfo, sshPublicKeysClient, regionInfo.ResourceGroup, ctx)
 	if err != nil {
-		return containerservice.ManagedCluster{}, err
+		return err
 	}
-	tags, err := generatorClusterTags(*sshKey.Name)
+	tags, err := generatorClusterTags(*sshKey.Name, clusterReqInfo.IId.NameId)
 	if err != nil {
-		return containerservice.ManagedCluster{}, err
+		return err
 	}
 	addonProfiles := generatePreparedAddonProfiles()
 
@@ -846,32 +834,33 @@ func createCluster(clusterReqInfo irs.ClusterInfo, virtualNetworksClient *networ
 			AddonProfiles:     addonProfiles,
 		},
 	}
-	result, err := managedClustersClient.CreateOrUpdate(ctx, regionInfo.ResourceGroup, clusterReqInfo.IId.NameId, clusterCreateOpts)
+	_, err = managedClustersClient.CreateOrUpdate(ctx, regionInfo.ResourceGroup, clusterReqInfo.IId.NameId, clusterCreateOpts)
 	if err != nil {
-		return containerservice.ManagedCluster{}, err
+		return err
 	}
-	err = result.WaitForCompletionRef(ctx, managedClustersClient.Client)
-	if err != nil {
-		return containerservice.ManagedCluster{}, err
-	}
-	newCluster, err := getRawCluster(irs.IID{NameId: clusterReqInfo.IId.NameId}, managedClustersClient, ctx, credentialInfo, regionInfo)
-	if err != nil {
-		return containerservice.ManagedCluster{}, err
-	}
-	return newCluster, nil
+	//err = result.WaitForCompletionRef(ctx, managedClustersClient.Client)
+	//if err != nil {
+	//	return containerservice.ManagedCluster{}, err
+	//}
+	//newCluster, err := getRawCluster(irs.IID{NameId: clusterReqInfo.IId.NameId}, managedClustersClient, ctx, credentialInfo, regionInfo)
+	//if err != nil {
+	//	return containerservice.ManagedCluster{}, err
+	//}
+	//return newCluster, nil
+	return nil
 }
 
 func cleanCluster(clusterName string, managedClustersClient *containerservice.ManagedClustersClient, resourceGroup string, ctx context.Context) error {
 	// cluster subresource Clean 현재 없음
 	// delete Cluster
-	clsuterDeleteResult, err := managedClustersClient.Delete(ctx, resourceGroup, clusterName)
+	_, err := managedClustersClient.Delete(ctx, resourceGroup, clusterName)
 	if err != nil {
 		return err
 	}
-	err = clsuterDeleteResult.WaitForCompletionRef(ctx, managedClustersClient.Client)
-	if err != nil {
-		return err
-	}
+	//err = clsuterDeleteResult.WaitForCompletionRef(ctx, managedClustersClient.Client)
+	//if err != nil {
+	//	return err
+	//}
 	return nil
 }
 
@@ -891,7 +880,7 @@ func checkSubnetRequireIPRange(subnet network.Subnet, NodeGroupInfos []irs.NodeG
 	for _, NodeGroupInfo := range NodeGroupInfos {
 		//PodCount * maxNode + 1
 		//float64((NodeGroupInfo.MaxNodeSize + 1) + (maxPodCount * NodeGroupInfo.MaxNodeSize) + 1)
-		requireIPCount += float64(maxPodCount * (NodeGroupInfo.MaxNodeSize + 1))
+		requireIPCount += float64((maxPodCount + 1) * (NodeGroupInfo.MaxNodeSize))
 	}
 	if subnetAvailableCount < requireIPCount {
 		return errors.New(fmt.Sprintf("The subnet id not large enough to support all node pools. Current available IP address space: %d addressed. Required %d addresses.", subnetAvailableCount, requireIPCount))
@@ -992,7 +981,7 @@ func generatorServiceCidrDNSServiceIP(subnetCidr string) (ServiceCidr string, DN
 	// 허용 범위중 서브넷 범위중 가장 큰 ?.?.?.?/9 대역이여도,
 	//ServiceCidr = fmt.Sprintf("10.128.0.0/%d", networkRange)
 	if ServiceCidr == "" {
-		return "", "", "", errors.New("The cidr on the current subnet and the serviceCidr on the cb-spider are overlapping. The areas of ServiceCidr checking for superposition in cb-spider are 10.0.0.0/16 to 10.255.0.0/16, and 172.16.0.0 to 172.29.0")
+		return "", "", "", errors.New("the cidr on the current subnet and the serviceCidr on the cb-spider are overlapping. The areas of ServiceCidr checking for superposition in cb-spider are 10.0.0.0/16 to 10.255.0.0/16, and 172.16.0.0 to 172.29.0")
 	}
 	newip, _, err := net.ParseCIDR(ServiceCidr)
 	netipSplits := strings.Split(newip.String(), ".")
@@ -1031,11 +1020,12 @@ func generatorNetworkProfile(ClusterInfo irs.ClusterInfo, targetSubnet network.S
 
 }
 
-func generatorClusterTags(sshKeyName string) (map[string]*string, error) {
+func generatorClusterTags(sshKeyName string, clusterName string) (map[string]*string, error) {
 	tags := make(map[string]*string)
 	nowTime := strconv.FormatInt(time.Now().Unix(), 10)
-	tags["sshkey"] = to.StringPtr(sshKeyName)
+	tags[ClusterNodeSSHKeyKey] = to.StringPtr(sshKeyName)
 	tags["createdAt"] = to.StringPtr(nowTime)
+	tags[OwnerClusterKey] = to.StringPtr(clusterName)
 	return tags, nil
 }
 
@@ -1166,208 +1156,6 @@ func generateAgentPoolProfile(nodeGroupInfo irs.NodeGroupInfo, subnet network.Su
 	}
 	return agentPoolProfile, nil
 }
-
-// attachNodeGroupSSHSecurityGroup All Nodegroup in Cluster SSH Allow SecurityGroup
-//func attachNodeGroupSSHSecurityGroup(cluster containerservice.ManagedCluster, agentPoolsClient *containerservice.AgentPoolsClient, virtualMachineScaleSetsClient *compute.VirtualMachineScaleSetsClient, subnetClient *network.SubnetsClient, securityGroupsClient *network.SecurityGroupsClient, securityRulesClient *network.SecurityRulesClient, ctx context.Context, clusterResourceGroup string) error {
-//	if cluster.ManagedClusterProperties.NodeResourceGroup == nil {
-//		return errors.New("invalid cluster Resource")
-//	}
-//
-//	nodePoolPairList, err := getRawNodePoolPairList(cluster, agentPoolsClient, virtualMachineScaleSetsClient, ctx, clusterResourceGroup)
-//	if err != nil {
-//		return err
-//	}
-//	if nodePoolPairList == nil || len(nodePoolPairList) == 0 {
-//		return errors.New("not exist NodeGroup")
-//	}
-//
-//	// clusterManagedResourceGroup 클러스터 생성시 만들어지는 리소스 그룹
-//	clusterManagedResourceGroup := *cluster.ManagedClusterProperties.NodeResourceGroup
-//
-//	primarySubnetList, err := getPrimarySubnetListByNodePoolList(nodePoolPairList, subnetClient, ctx, clusterManagedResourceGroup)
-//	if err != nil {
-//		return err
-//	}
-//	rawSGList, err := getRawSecurityGroupListBySubnetList(primarySubnetList, securityGroupsClient, ctx, clusterManagedResourceGroup)
-//	if err != nil {
-//		return err
-//	}
-//	for _, sg := range rawSGList {
-//		err = addSSHRule(sg, securityRulesClient, ctx, clusterManagedResourceGroup)
-//		if err != nil {
-//			return err
-//		}
-//	}
-//	return nil
-//}
-
-// getPrimarySubnetIDByVMScaleSet To find PrimarySubnet in VirtualMachineScaleSet
-//func getPrimarySubnetIDByVMScaleSet(set compute.VirtualMachineScaleSet) (subnetId string, err error) {
-//	defer func() {
-//		if r := recover(); r != nil {
-//			subnetId = ""
-//			err = errors.New("not Exist Subnet")
-//		}
-//	}()
-//	if set.VirtualMachineProfile.NetworkProfile.NetworkInterfaceConfigurations != nil && len(*set.VirtualMachineProfile.NetworkProfile.NetworkInterfaceConfigurations) > 0 {
-//		scaleSetNetworkInterfaceConfigurations := *set.VirtualMachineProfile.NetworkProfile.NetworkInterfaceConfigurations
-//		var primaryNetworkInterface *compute.VirtualMachineScaleSetNetworkConfiguration
-//		for _, scaleSetNetworkInterfaceConfiguration := range scaleSetNetworkInterfaceConfigurations {
-//			if *scaleSetNetworkInterfaceConfiguration.Primary {
-//				primaryNetworkInterface = &scaleSetNetworkInterfaceConfiguration
-//				break
-//			}
-//		}
-//		if primaryNetworkInterface == nil {
-//			return "", errors.New("not Exist Subnet")
-//		}
-//		subnetID := ""
-//		for _, IPConfigurations := range *primaryNetworkInterface.IPConfigurations {
-//			if *IPConfigurations.Primary {
-//				subnetID = *IPConfigurations.Subnet.ID
-//			}
-//		}
-//		if subnetID == "" {
-//			return "", errors.New("not Exist Subnet")
-//		}
-//		return subnetID, nil
-//	}
-//	return "", errors.New("not Exist Subnet")
-//}
-
-// getPrimarySubnetIDListByNodePoolList To find PrimarySubnetList in NodePoolPair, NodePoolPair is a pair of AgentPool, virtualMachineScaleSet
-//func getPrimarySubnetIDListByNodePoolList(nodePoolPairList []NodePoolPair) ([]string, error) {
-//	var subnetIds []string
-//	for _, nodePoolPair := range nodePoolPairList {
-//		subnetId, err := getPrimarySubnetIDByVMScaleSet(nodePoolPair.virtualMachineScaleSet)
-//		if err == nil {
-//			subnetIds = append(subnetIds, subnetId)
-//		}
-//	}
-//	keys := make(map[string]bool)
-//	filterdSubnetIds := []string{}
-//	for _, subnetId := range subnetIds {
-//		if _, saveValue := keys[subnetId]; !saveValue {
-//			keys[subnetId] = true
-//			filterdSubnetIds = append(filterdSubnetIds, subnetId)
-//		}
-//	}
-//	return filterdSubnetIds, nil
-//}
-
-// getRawSubnetList To get Azure RawSubnet By Id
-//func getRawSubnetList(subnetIdList []string, subnetClient *network.SubnetsClient, ctx context.Context, resourceGroup string) ([]network.Subnet, error) {
-//	vpcName := ""
-//	for _, subnetId := range subnetIdList {
-//		vpcname, VPCerr := GetVPCNameById(subnetId)
-//		if VPCerr == nil {
-//			vpcName = vpcname
-//			break
-//		}
-//
-//	}
-//	if resourceGroup == "" || vpcName == "" {
-//		return nil, errors.New("not found Subnet")
-//	}
-//	result, err := subnetClient.List(ctx, resourceGroup, vpcName)
-//	if err != nil {
-//		return nil, errors.New("not found Subnet")
-//	}
-//	keys := make(map[string]bool)
-//	for _, subnetId := range subnetIdList {
-//		keys[subnetId] = true
-//	}
-//	subnets := []network.Subnet{}
-//	for _, subnet := range result.Values() {
-//		_, exist := keys[*subnet.ID]
-//		if exist {
-//			subnets = append(subnets, subnet)
-//		}
-//	}
-//	return subnets, nil
-//}
-
-// getPrimarySubnetListByNodePoolList Composite function of getPrimarySubnetIDListByNodePoolList and getRawSubnetList
-//func getPrimarySubnetListByNodePoolList(nodePoolPairList []NodePoolPair, subnetClient *network.SubnetsClient, ctx context.Context, resourceGroup string) ([]network.Subnet, error) {
-//	sunetIDs, err := getPrimarySubnetIDListByNodePoolList(nodePoolPairList)
-//	if err != nil {
-//		return nil, err
-//	}
-//	return getRawSubnetList(sunetIDs, subnetClient, ctx, resourceGroup)
-//}
-
-// getSecurityGroupIdBySubnet to find SecurityGroupId by Subnet
-//func getSecurityGroupIdBySubnet(subnet network.Subnet) (string, error) {
-//	if subnet.SubnetPropertiesFormat.NetworkSecurityGroup != nil {
-//		return *subnet.SubnetPropertiesFormat.NetworkSecurityGroup.ID, nil
-//	}
-//	return "", errors.New("not found NetworkSecurityGroup")
-//}
-
-// getRawSecurityGroupListBySubnet to get Azure SecurityGroup By SubnetList
-//func getRawSecurityGroupListBySubnetList(subnets []network.Subnet, SecurityGroupsClient *network.SecurityGroupsClient, ctx context.Context, resourceGroup string) ([]network.SecurityGroup, error) {
-//	listResult, err := SecurityGroupsClient.List(ctx, resourceGroup)
-//	if err != nil {
-//		return nil, err
-//	}
-//	sgMap := make(map[string]network.SecurityGroup)
-//	for _, sg := range listResult.Values() {
-//		sgName, err := getNameById(*sg.ID, AzureSecurityGroups)
-//		if err == nil {
-//			sgMap[sgName] = sg
-//		}
-//
-//	}
-//	sgList := []network.SecurityGroup{}
-//	for _, sb := range subnets {
-//		sgId, err := getSecurityGroupIdBySubnet(sb)
-//		if err == nil {
-//			sgName, _ := getNameById(sgId, AzureSecurityGroups)
-//			sg, exist := sgMap[sgName]
-//			if exist {
-//				sgList = append(sgList, sg)
-//			}
-//		}
-//	}
-//	return sgList, nil
-//}
-
-// addSSHRule attach SSH Rule
-//
-//	func addSSHRule(sg network.SecurityGroup, securityRulesClient *network.SecurityRulesClient, ctx context.Context, resourceGroup string) error {
-//		existSSHRuele := false
-//		inboundPriority := initPriority
-//		for _, sgrule := range *sg.SecurityRules {
-//			if sgrule.Protocol == network.SecurityRuleProtocolTCP {
-//				if sgrule.Direction == network.SecurityRuleDirectionInbound && *sgrule.DestinationPortRange == "22" {
-//					existSSHRuele = true
-//				}
-//				inboundPriority = int(*sgrule.Priority)
-//			}
-//		}
-//		if existSSHRuele {
-//			return nil
-//		}
-//		inboundPriority = inboundPriority + 1
-//		sshsgrule := network.SecurityRule{
-//			SecurityRulePropertiesFormat: &network.SecurityRulePropertiesFormat{
-//				SourceAddressPrefix:      to.StringPtr("*"),
-//				SourcePortRange:          to.StringPtr("*"),
-//				DestinationAddressPrefix: to.StringPtr("*"),
-//				DestinationPortRange:     to.StringPtr("22"),
-//				Protocol:                 network.SecurityRuleProtocolTCP,
-//				Access:                   network.SecurityRuleAccessAllow,
-//				Priority:                 to.Int32Ptr(int32(inboundPriority)),
-//				Direction:                network.SecurityRuleDirectionInbound,
-//			},
-//		}
-//		result, err := securityRulesClient.CreateOrUpdate(ctx, resourceGroup, *sg.Name, "cluster-node-ssh-by-cbspider", sshsgrule)
-//		if err != nil {
-//			return err
-//		}
-//		err = result.WaitForCompletionRef(ctx, securityRulesClient.Client)
-//		return err
-//	}
 
 func getSecurityGroupIdForVirtualMachineScaleSet(virtualMachineScaleSet compute.VirtualMachineScaleSet) (securityGroupId string, err error) {
 	defer func() {
@@ -1520,25 +1308,26 @@ func getClusterAgentPoolSecurityGroup(cluster containerservice.ManagedCluster, a
 	return targetSecurityGroupList, nil
 }
 
-func applySecurityGroup(cluster containerservice.ManagedCluster, securityGroupIID irs.IID, agentPoolsClient *containerservice.AgentPoolsClient, virtualMachineScaleSetsClient *compute.VirtualMachineScaleSetsClient, securityGroupsClient *network.SecurityGroupsClient, securityRulesClient *network.SecurityRulesClient, ctx context.Context) error {
-	clusterResourceGroup, err := getResourceGroupById(*cluster.ID)
-	if err != nil {
-		return errors.New(fmt.Sprintf("failed get clusterResourceGroup err = %s", err.Error()))
-	}
-	sourceSecurityGroup, err := getRawSecurityGroup(securityGroupIID, securityGroupsClient, ctx, clusterResourceGroup)
+func applySecurityGroup(clusterIID irs.IID, sourceSecurityGroupIID irs.IID, clusterBaseSecurityGroup network.SecurityGroup, managedClustersClient *containerservice.ManagedClustersClient, securityGroupsClient *network.SecurityGroupsClient, securityRulesClient *network.SecurityRulesClient, ctx context.Context, credentialInfo idrv.CredentialInfo, regionInfo idrv.RegionInfo) error {
+	//clusterResourceGroup, err := getResourceGroupById(*cluster.ID)
+	//if err != nil {
+	//	return errors.New(fmt.Sprintf("failed get clusterResourceGroup err = %s", err.Error()))
+	//}
+	sourceSecurityGroup, err := getRawSecurityGroup(sourceSecurityGroupIID, securityGroupsClient, ctx, regionInfo.ResourceGroup)
 	if err != nil {
 		return errors.New(fmt.Sprintf("failed apply securityGroup err = %s", err.Error()))
 	}
-	targetSecurityGroupList, err := getClusterAgentPoolSecurityGroup(cluster, agentPoolsClient, securityGroupsClient, virtualMachineScaleSetsClient, ctx)
-	if err != nil {
-		return errors.New(fmt.Sprintf("failed get securityGroup by AgentPool err = %s", err.Error()))
-	}
-	err = applySecurityGroupList(*sourceSecurityGroup, targetSecurityGroupList, securityRulesClient, ctx)
+	//baseSecurityGroup, err := waitingClusterBaseSecurityGroup(clusterIID, managedClustersClient, securityGroupsClient, ctx, credentialInfo, regionInfo)
+	//targetSecurityGroupList, err := getClusterAgentPoolSecurityGroup(cluster, agentPoolsClient, securityGroupsClient, virtualMachineScaleSetsClient, ctx)
+	//if err != nil {
+	//	return errors.New(fmt.Sprintf("failed get BaseSecurityGroup by Cluster err = %s", err.Error()))
+	//}
+	err = applySecurityGroupList(*sourceSecurityGroup, []network.SecurityGroup{clusterBaseSecurityGroup}, securityRulesClient, ctx)
 	return err
 	// virtualMachineScaleSet에서, VirtualMachineProfile.NetworkProfile.NetworkInterfaceConfigurations에서 Primary 확인 후, NetworkSecurityGroup를 가져와, 수정
 }
 
-func checkNodeGroupScaleValid(desiredNodeSize int, minNodeSize int, maxNodeSize int) error {
+func checkAutoScaleModeNodeGroupScaleValid(desiredNodeSize int, minNodeSize int, maxNodeSize int) error {
 	if minNodeSize < 1 {
 		return errors.New("The MinNodeSize of the node group must be at least 1 autoScaling.")
 	}
@@ -1553,12 +1342,71 @@ func checkNodeGroupScaleValid(desiredNodeSize int, minNodeSize int, maxNodeSize 
 	}
 	return nil
 }
+func checkmanualScaleModeNodeGroupScaleValid(minNodeSize int, maxNodeSize int) error {
+	if minNodeSize != 0 || maxNodeSize != 0 {
+		return errors.New("If it is not autoScaleMode, you cannot specify minNodeSize and maxNodeSize.")
+	}
+	return nil
+}
 
-func changeNodeGroupScaling(cluster containerservice.ManagedCluster, nodeGroupIID irs.IID, desiredNodeSize int, minNodeSize int, maxNodeSize int, managedClustersClient *containerservice.ManagedClustersClient, agentPoolsClient *containerservice.AgentPoolsClient, virtualMachineScaleSetsClient *compute.VirtualMachineScaleSetsClient, virtualMachineScaleSetVMsClient *compute.VirtualMachineScaleSetVMsClient, credentialInfo idrv.CredentialInfo, region idrv.RegionInfo, ctx context.Context) (irs.NodeGroupInfo, error) {
-	err := checkNodeGroupScaleValid(desiredNodeSize, minNodeSize, maxNodeSize)
+func menualScaleModechangeNodeGroupScaling(cluster containerservice.ManagedCluster, agentPool containerservice.AgentPool, desiredNodeSize int, minNodeSize int, maxNodeSize int, managedClustersClient *containerservice.ManagedClustersClient, agentPoolsClient *containerservice.AgentPoolsClient, virtualMachineScaleSetsClient *compute.VirtualMachineScaleSetsClient, virtualMachineScaleSetVMsClient *compute.VirtualMachineScaleSetVMsClient, credentialInfo idrv.CredentialInfo, region idrv.RegionInfo, ctx context.Context) (irs.NodeGroupInfo, error) {
+	err := checkmanualScaleModeNodeGroupScaleValid(minNodeSize, maxNodeSize)
 	if err != nil {
 		return irs.NodeGroupInfo{}, errors.New(fmt.Sprintf("failed scalingChange agentPool err = %s", err.Error()))
 	}
+	updateAgentPool := agentPool
+	updateAgentPool.Count = to.Int32Ptr(int32(desiredNodeSize))
+	_, err = agentPoolsClient.CreateOrUpdate(ctx, region.ResourceGroup, *cluster.Name, *agentPool.Name, updateAgentPool)
+	if err != nil {
+		return irs.NodeGroupInfo{}, errors.New(fmt.Sprintf("failed scalingChange agentPool err = %s", err.Error()))
+	}
+	//err = updateResult.WaitForCompletionRef(ctx, agentPoolsClient.Client)
+	//if err != nil {
+	//	return irs.NodeGroupInfo{}, errors.New(fmt.Sprintf("failed scalingChange agentPool err = %s", err.Error()))
+	//}
+	newCluster, err := getRawCluster(irs.IID{NameId: *cluster.Name}, managedClustersClient, ctx, credentialInfo, region)
+	if err != nil {
+		return irs.NodeGroupInfo{}, errors.New(fmt.Sprintf("failed get agentPool err = %s", err.Error()))
+	}
+	nodeGroupInfo, err := getNodeGroupInfoSpecifiedNodePool(newCluster, *agentPool.Name, agentPoolsClient, virtualMachineScaleSetsClient, virtualMachineScaleSetVMsClient, ctx)
+	if err != nil {
+		return irs.NodeGroupInfo{}, errors.New(fmt.Sprintf("failed get agentPool err = %s", err.Error()))
+	}
+	nodeGroupInfo.Status = irs.NodeGroupUpdating
+	return nodeGroupInfo, nil
+}
+
+func autoScaleModechangeNodeGroupScaling(cluster containerservice.ManagedCluster, agentPool containerservice.AgentPool, desiredNodeSize int, minNodeSize int, maxNodeSize int, managedClustersClient *containerservice.ManagedClustersClient, agentPoolsClient *containerservice.AgentPoolsClient, virtualMachineScaleSetsClient *compute.VirtualMachineScaleSetsClient, virtualMachineScaleSetVMsClient *compute.VirtualMachineScaleSetVMsClient, credentialInfo idrv.CredentialInfo, region idrv.RegionInfo, ctx context.Context) (irs.NodeGroupInfo, error) {
+	err := checkAutoScaleModeNodeGroupScaleValid(desiredNodeSize, minNodeSize, maxNodeSize)
+	if err != nil {
+		return irs.NodeGroupInfo{}, errors.New(fmt.Sprintf("failed scalingChange agentPool err = %s", err.Error()))
+	}
+	updateAgentPool := agentPool
+	updateAgentPool.MinCount = to.Int32Ptr(int32(minNodeSize))
+	updateAgentPool.MaxCount = to.Int32Ptr(int32(maxNodeSize))
+	updateAgentPool.Count = to.Int32Ptr(int32(desiredNodeSize))
+	_, err = agentPoolsClient.CreateOrUpdate(ctx, region.ResourceGroup, *cluster.Name, *agentPool.Name, updateAgentPool)
+	if err != nil {
+		return irs.NodeGroupInfo{}, errors.New(fmt.Sprintf("failed scalingChange agentPool err = %s", err.Error()))
+	}
+
+	//err = updateResult.WaitForCompletionRef(ctx, agentPoolsClient.Client)
+	//if err != nil {
+	//	return irs.NodeGroupInfo{}, errors.New(fmt.Sprintf("failed scalingChange agentPool err = %s", err.Error()))
+	//}
+	newCluster, err := getRawCluster(irs.IID{NameId: *cluster.Name}, managedClustersClient, ctx, credentialInfo, region)
+	if err != nil {
+		return irs.NodeGroupInfo{}, errors.New(fmt.Sprintf("failed get agentPool err = %s", err.Error()))
+	}
+	nodeGroupInfo, err := getNodeGroupInfoSpecifiedNodePool(newCluster, *agentPool.Name, agentPoolsClient, virtualMachineScaleSetsClient, virtualMachineScaleSetVMsClient, ctx)
+	if err != nil {
+		return irs.NodeGroupInfo{}, errors.New(fmt.Sprintf("failed get agentPool err = %s", err.Error()))
+	}
+	nodeGroupInfo.Status = irs.NodeGroupUpdating
+	return nodeGroupInfo, nil
+}
+
+func changeNodeGroupScaling(cluster containerservice.ManagedCluster, nodeGroupIID irs.IID, desiredNodeSize int, minNodeSize int, maxNodeSize int, managedClustersClient *containerservice.ManagedClustersClient, agentPoolsClient *containerservice.AgentPoolsClient, virtualMachineScaleSetsClient *compute.VirtualMachineScaleSetsClient, virtualMachineScaleSetVMsClient *compute.VirtualMachineScaleSetVMsClient, credentialInfo idrv.CredentialInfo, region idrv.RegionInfo, ctx context.Context) (irs.NodeGroupInfo, error) {
 	if nodeGroupIID.NameId == "" && nodeGroupIID.SystemId == "" {
 		return irs.NodeGroupInfo{}, errors.New("failed scalingChange agentPool err = invalid NodeGroup NameId")
 	}
@@ -1585,30 +1433,13 @@ func changeNodeGroupScaling(cluster containerservice.ManagedCluster, nodeGroupII
 	if targetAgentPool == nil {
 		return irs.NodeGroupInfo{}, errors.New("failed scalingChange agentPool err = not Exist NodeGroup")
 	}
-	if !*targetAgentPool.EnableAutoScaling {
-		return irs.NodeGroupInfo{}, errors.New("failed scalingChange agentPool err = AutoScaling is disabled for the node group. DesiredNodeSize, MinNodeSize, and MaxNodeSize can be set when autoScaling is enabled")
+	if *targetAgentPool.EnableAutoScaling {
+		// AutoScale
+		return autoScaleModechangeNodeGroupScaling(cluster, *targetAgentPool, desiredNodeSize, minNodeSize, maxNodeSize, managedClustersClient, agentPoolsClient, virtualMachineScaleSetsClient, virtualMachineScaleSetVMsClient, credentialInfo, region, ctx)
+	} else {
+		// MenualScale
+		return menualScaleModechangeNodeGroupScaling(cluster, *targetAgentPool, desiredNodeSize, minNodeSize, maxNodeSize, managedClustersClient, agentPoolsClient, virtualMachineScaleSetsClient, virtualMachineScaleSetVMsClient, credentialInfo, region, ctx)
 	}
-	updateAgentPool := *targetAgentPool
-	updateAgentPool.MinCount = to.Int32Ptr(int32(minNodeSize))
-	updateAgentPool.MaxCount = to.Int32Ptr(int32(maxNodeSize))
-	updateAgentPool.Count = to.Int32Ptr(int32(desiredNodeSize))
-	updateResult, err := agentPoolsClient.CreateOrUpdate(ctx, region.ResourceGroup, *cluster.Name, *targetAgentPool.Name, updateAgentPool)
-	if err != nil {
-		return irs.NodeGroupInfo{}, errors.New(fmt.Sprintf("failed scalingChange agentPool err = %s", err.Error()))
-	}
-	err = updateResult.WaitForCompletionRef(ctx, agentPoolsClient.Client)
-	if err != nil {
-		return irs.NodeGroupInfo{}, errors.New(fmt.Sprintf("failed scalingChange agentPool err = %s", err.Error()))
-	}
-	newCluster, err := getRawCluster(irs.IID{NameId: *cluster.Name}, managedClustersClient, ctx, credentialInfo, region)
-	if err != nil {
-		return irs.NodeGroupInfo{}, errors.New(fmt.Sprintf("failed get agentPool err = %s", err.Error()))
-	}
-	nodeGroupInfo, err := getNodeGroupInfoSpecifiedNodePool(newCluster, nodeGroupIID.NameId, agentPoolsClient, virtualMachineScaleSetsClient, virtualMachineScaleSetVMsClient, ctx)
-	if err != nil {
-		return irs.NodeGroupInfo{}, errors.New(fmt.Sprintf("failed get agentPool err = %s", err.Error()))
-	}
-	return nodeGroupInfo, nil
 }
 
 func autoScalingChange(cluster containerservice.ManagedCluster, nodeGroupIID irs.IID, autoScalingSet bool, agentPoolsClient *containerservice.AgentPoolsClient, region idrv.RegionInfo, ctx context.Context) error {
@@ -1656,14 +1487,14 @@ func autoScalingChange(cluster containerservice.ManagedCluster, nodeGroupIID irs
 		updateAgentPool.MaxCount = updateAgentPool.Count
 	}
 	updateAgentPool.EnableAutoScaling = to.BoolPtr(autoScalingSet)
-	updateResult, err := agentPoolsClient.CreateOrUpdate(ctx, region.ResourceGroup, *cluster.Name, *targetAgentPool.Name, updateAgentPool)
+	_, err = agentPoolsClient.CreateOrUpdate(ctx, region.ResourceGroup, *cluster.Name, *targetAgentPool.Name, updateAgentPool)
 	if err != nil {
 		return errors.New(fmt.Sprintf("failed autoScalingChange agentPool err = %s", err.Error()))
 	}
-	err = updateResult.WaitForCompletionRef(ctx, agentPoolsClient.Client)
-	if err != nil {
-		return errors.New(fmt.Sprintf("failed autoScalingChange agentPool err = %s", err.Error()))
-	}
+	//err = updateResult.WaitForCompletionRef(ctx, agentPoolsClient.Client)
+	//if err != nil {
+	//	return errors.New(fmt.Sprintf("failed autoScalingChange agentPool err = %s", err.Error()))
+	//}
 	return nil
 }
 
@@ -1693,17 +1524,17 @@ func deleteNodeGroup(cluster containerservice.ManagedCluster, nodeGroupIID irs.I
 	if !existNodeGroup {
 		return errors.New("failed remove agentPool err = not Exist NodeGroup")
 	}
-	deleteResult, err := agentPoolsClient.Delete(ctx, region.ResourceGroup, *cluster.Name, nodeGroupIID.NameId)
+	_, err = agentPoolsClient.Delete(ctx, region.ResourceGroup, *cluster.Name, nodeGroupIID.NameId)
 	if err != nil {
 		return errors.New(fmt.Sprintf("failed remove agentPool err = %s", err.Error()))
 	}
-	err = deleteResult.WaitForCompletionRef(ctx, agentPoolsClient.Client)
-	if err != nil {
-		return errors.New(fmt.Sprintf("failed remove agentPool err = %s", err.Error()))
-	}
+	//err = deleteResult.WaitForCompletionRef(ctx, agentPoolsClient.Client)
+	//if err != nil {
+	//	return errors.New(fmt.Sprintf("failed remove agentPool err = %s", err.Error()))
+	//}
 	return nil
 }
-func addNodeGroupPool(cluster containerservice.ManagedCluster, nodeGroup irs.NodeGroupInfo, managedClustersClient *containerservice.ManagedClustersClient, agentPoolsClient *containerservice.AgentPoolsClient, virtualMachineScaleSetsClient *compute.VirtualMachineScaleSetsClient, virtualMachineScaleSetVMsClient *compute.VirtualMachineScaleSetVMsClient, subnetClient *network.SubnetsClient, credentialInfo idrv.CredentialInfo, region idrv.RegionInfo, ctx context.Context) (irs.NodeGroupInfo, error) {
+func addNodeGroupPool(cluster containerservice.ManagedCluster, nodeGroup irs.NodeGroupInfo, agentPoolsClient *containerservice.AgentPoolsClient, virtualMachineScaleSetsClient *compute.VirtualMachineScaleSetsClient, virtualMachineScaleSetVMsClient *compute.VirtualMachineScaleSetVMsClient, subnetClient *network.SubnetsClient, credentialInfo idrv.CredentialInfo, region idrv.RegionInfo, ctx context.Context) (irs.NodeGroupInfo, error) {
 	// exist Check
 	if nodeGroup.IId.NameId == "" && nodeGroup.IId.SystemId == "" {
 		return irs.NodeGroupInfo{}, errors.New("failed add agentPool err = invalid NodeGroup NameId")
@@ -1712,16 +1543,17 @@ func addNodeGroupPool(cluster containerservice.ManagedCluster, nodeGroup irs.Nod
 	if nodeGroup.KeyPairIID.NameId == "" && nodeGroup.KeyPairIID.SystemId == "" {
 		return irs.NodeGroupInfo{}, errors.New("failed add agentPool err = sshkey in the Azure Cluster NodeGroup is empty.")
 	}
-	sshkeyName, sshKeyExist := cluster.Tags["sshkey"]
-	if !sshKeyExist || sshkeyName == nil {
+	clusterNodeSSHkey, err := getClusterSSHKey(cluster)
+	if err != nil {
 		return irs.NodeGroupInfo{}, errors.New("failed add agentPool err = sshkey in the Azure Cluster is empty.")
 	}
+
 	if nodeGroup.KeyPairIID.NameId != "" {
-		if nodeGroup.KeyPairIID.NameId != *sshkeyName {
+		if nodeGroup.KeyPairIID.NameId != clusterNodeSSHkey.NameId {
 			return irs.NodeGroupInfo{}, errors.New("The SSHkey in the Azure Cluster NodeGroup must all be the same")
 		}
 	} else {
-		clusterSShKeyId := GetSshKeyIdByName(credentialInfo, region, *sshkeyName)
+		clusterSShKeyId := GetSshKeyIdByName(credentialInfo, region, clusterNodeSSHkey.NameId)
 		if nodeGroup.KeyPairIID.SystemId != clusterSShKeyId {
 			return irs.NodeGroupInfo{}, errors.New("The SSHkey in the Azure Cluster NodeGroup must all be the same")
 		}
@@ -1768,21 +1600,249 @@ func addNodeGroupPool(cluster containerservice.ManagedCluster, nodeGroup irs.Nod
 	if err != nil {
 		return irs.NodeGroupInfo{}, errors.New(fmt.Sprintf("failed add agentPool err = %s", err.Error()))
 	}
-	result, err := agentPoolsClient.CreateOrUpdate(ctx, region.ResourceGroup, *cluster.Name, nodeGroup.IId.NameId, containerservice.AgentPool{ManagedClusterAgentPoolProfileProperties: &agentPoolProfileProperties})
+	_, err = agentPoolsClient.CreateOrUpdate(ctx, region.ResourceGroup, *cluster.Name, nodeGroup.IId.NameId, containerservice.AgentPool{ManagedClusterAgentPoolProfileProperties: &agentPoolProfileProperties})
 	if err != nil {
 		return irs.NodeGroupInfo{}, errors.New(fmt.Sprintf("failed add agentPool err = %s", err.Error()))
 	}
-	err = result.WaitForCompletionRef(ctx, agentPoolsClient.Client)
+	nodePoolPair, err := waitingSpecifiedNodePoolPair(cluster, nodeGroup.IId.NameId, agentPoolsClient, virtualMachineScaleSetsClient, ctx)
 	if err != nil {
 		return irs.NodeGroupInfo{}, errors.New(fmt.Sprintf("failed add agentPool err = %s", err.Error()))
 	}
-	newCluster, err := getRawCluster(irs.IID{NameId: *cluster.Name}, managedClustersClient, ctx, credentialInfo, region)
-	if err != nil {
-		return irs.NodeGroupInfo{}, errors.New(fmt.Sprintf("failed get agentPool err = %s", err.Error()))
+	clusterSSHKey, _ := getClusterSSHKey(cluster)
+	info := convertNodePairToNodeInfo(nodePoolPair, clusterSSHKey, virtualMachineScaleSetVMsClient, *cluster.NodeResourceGroup, ctx)
+	//err = result.WaitForCompletionRef(ctx, agentPoolsClient.Client)
+	//if err != nil {
+	//	return irs.NodeGroupInfo{}, errors.New(fmt.Sprintf("failed add agentPool err = %s", err.Error()))
+	//}
+	//newCluster, err := getRawCluster(irs.IID{NameId: *cluster.Name}, managedClustersClient, ctx, credentialInfo, region)
+	//if err != nil {
+	//	return irs.NodeGroupInfo{}, errors.New(fmt.Sprintf("failed get agentPool err = %s", err.Error()))
+	//}
+	//nodeGroupInfo, err := getNodeGroupInfoSpecifiedNodePool(newCluster, nodeGroup.IId.NameId, agentPoolsClient, virtualMachineScaleSetsClient, virtualMachineScaleSetVMsClient, ctx)
+	//if err != nil {
+	//	return irs.NodeGroupInfo{}, errors.New(fmt.Sprintf("failed get agentPool err = %s", err.Error()))
+	//}
+	return info, nil
+}
+
+func getClusterSecurityGroup(cluster containerservice.ManagedCluster, securityGroupsClient *network.SecurityGroupsClient, ctx context.Context) ([]network.SecurityGroup, error) {
+	if cluster.ManagedClusterProperties.NodeResourceGroup == nil {
+		return make([]network.SecurityGroup, 0), errors.New("failed get Cluster Managed ResourceGroup")
 	}
-	nodeGroupInfo, err := getNodeGroupInfoSpecifiedNodePool(newCluster, nodeGroup.IId.NameId, agentPoolsClient, virtualMachineScaleSetsClient, virtualMachineScaleSetVMsClient, ctx)
+	securityGroupList, err := securityGroupsClient.List(ctx, *cluster.ManagedClusterProperties.NodeResourceGroup)
 	if err != nil {
-		return irs.NodeGroupInfo{}, errors.New(fmt.Sprintf("failed get agentPool err = %s", err.Error()))
+		return make([]network.SecurityGroup, 0), err
 	}
-	return nodeGroupInfo, nil
+	return securityGroupList.Values(), nil
+}
+
+func waitingClusterBaseSecurityGroup(createdClusterIID irs.IID, managedClustersClient *containerservice.ManagedClustersClient, securityGroupsClient *network.SecurityGroupsClient, ctx context.Context, credentialInfo idrv.CredentialInfo, regionInfo idrv.RegionInfo) (network.SecurityGroup, error) {
+	// exist Cluster
+	apiCallCount := 0
+	maxAPICallCount := 60
+	var waitingErr error
+	var targetRawCluster *containerservice.ManagedCluster
+	for {
+		rawCluster, err := getRawCluster(createdClusterIID, managedClustersClient, ctx, credentialInfo, regionInfo)
+		if err == nil && rawCluster.NodeResourceGroup != nil {
+			targetRawCluster = &rawCluster
+			break
+		}
+		apiCallCount++
+		if apiCallCount >= maxAPICallCount {
+			waitingErr = errors.New("failed get Cluster err = The maximum number of verification requests has been exceeded while waiting for the creation of that resource")
+			break
+		}
+		time.Sleep(1 * time.Second)
+	}
+
+	if waitingErr != nil {
+		return network.SecurityGroup{}, waitingErr
+	}
+	// exist basicSecurity in clusterResourceGroup
+	apiCallCount = 0
+	clusterManagedResourceGroup := *targetRawCluster.NodeResourceGroup
+	if clusterManagedResourceGroup == "" {
+		return network.SecurityGroup{}, errors.New("failed get Cluster Managed ResourceGroup err = Invalid value of NodeResourceGroup for cluster")
+	}
+	var baseSecurityGroup network.SecurityGroup
+	for {
+		securityGroupList, err := securityGroupsClient.List(ctx, clusterManagedResourceGroup)
+		if err == nil && len(securityGroupList.Values()) > 0 {
+			// securityGroupList get Success
+			sgCheck := false
+			for _, sg := range securityGroupList.Values() {
+				if sg.Tags != nil {
+					val, exist := sg.Tags[OwnerClusterKey]
+					if exist && sg.ProvisioningState == network.ProvisioningStateSucceeded && val != nil && *val == *targetRawCluster.Name {
+						baseSecurityGroup = sg
+						sgCheck = true
+						break
+					}
+				}
+			}
+			if sgCheck {
+				// base securityGroup Success
+				break
+			}
+
+		}
+		apiCallCount++
+		if apiCallCount >= maxAPICallCount {
+			waitingErr = errors.New("failed get Cluster BaseSecurityGroup err = The maximum number of verification requests has been exceeded while waiting for the creation of that resource")
+			break
+		}
+		time.Sleep(1 * time.Second)
+	}
+	if waitingErr != nil {
+		return network.SecurityGroup{}, waitingErr
+	}
+	return baseSecurityGroup, nil
+	// exist basicSecurity
+}
+
+func convertNodePairToNodeInfo(nodePoolPair NodePoolPair, clusterCommonSSHKey irs.IID, virtualMachineScaleSetVMsClient *compute.VirtualMachineScaleSetVMsClient, resourceGroupManagedK8s string, ctx context.Context) irs.NodeGroupInfo {
+	scaleSet := nodePoolPair.virtualMachineScaleSet
+	agentPool := nodePoolPair.AgentPool
+	rootDiskType := ""
+	if reflect.ValueOf(scaleSet.VirtualMachineProfile.StorageProfile.OsDisk.ManagedDisk.StorageAccountType).String() != "" {
+		rootDiskType = GetVMDiskInfoType(scaleSet.VirtualMachineProfile.StorageProfile.OsDisk.ManagedDisk.StorageAccountType)
+	}
+	VMSpecName := ""
+	if !reflect.ValueOf(scaleSet.Sku.Name).IsNil() {
+		VMSpecName = *scaleSet.Sku.Name
+	}
+	RootDiskSize := ""
+	if !reflect.ValueOf(scaleSet.VirtualMachineProfile.StorageProfile.OsDisk.DiskSizeGB).IsNil() {
+		RootDiskSize = strconv.Itoa(int(*scaleSet.VirtualMachineProfile.StorageProfile.OsDisk.DiskSizeGB))
+	}
+	OnAutoScaling := false
+	if !reflect.ValueOf(agentPool.EnableAutoScaling).IsNil() {
+		OnAutoScaling = *agentPool.EnableAutoScaling
+	}
+	DesiredNodeSize := 0
+	if !reflect.ValueOf(agentPool.Count).IsNil() {
+		DesiredNodeSize = int(*agentPool.Count)
+	}
+	MinNodeSize := 0
+	if !reflect.ValueOf(agentPool.MinCount).IsNil() {
+		MinNodeSize = int(*agentPool.MinCount)
+	}
+	MaxNodeSize := 0
+	if !reflect.ValueOf(agentPool.MaxCount).IsNil() {
+		MaxNodeSize = int(*agentPool.MaxCount)
+	}
+	imageName := ""
+	if !reflect.ValueOf(scaleSet.VirtualMachineProfile.StorageProfile.ImageReference.ID).IsNil() {
+		imageName = *scaleSet.VirtualMachineProfile.StorageProfile.ImageReference.ID
+	}
+	nodeInfo := irs.NodeGroupInfo{
+		IId: irs.IID{
+			NameId:   *agentPool.Name,
+			SystemId: *agentPool.ID,
+		},
+		ImageIID: irs.IID{
+			SystemId: imageName,
+			NameId:   imageName,
+		},
+		VMSpecName:      VMSpecName,
+		RootDiskType:    rootDiskType,
+		RootDiskSize:    RootDiskSize,
+		KeyPairIID:      clusterCommonSSHKey,
+		Status:          getNodeInfoStatus(agentPool, scaleSet),
+		OnAutoScaling:   OnAutoScaling,
+		DesiredNodeSize: DesiredNodeSize,
+		MinNodeSize:     MinNodeSize,
+		MaxNodeSize:     MaxNodeSize,
+	}
+	vmIIds := make([]irs.IID, 0)
+	vms, err := virtualMachineScaleSetVMsClient.List(ctx, resourceGroupManagedK8s, *scaleSet.Name, "", "", "")
+	if err == nil {
+		for _, vm := range vms.Values() {
+			vmIIds = append(vmIIds, irs.IID{*vm.Name, *vm.ID})
+		}
+	}
+	nodeInfo.Nodes = vmIIds
+	return nodeInfo
+}
+
+func getClusterSSHKey(cluster containerservice.ManagedCluster) (irs.IID, error) {
+	sshkeyName, sshKeyExist := cluster.Tags[ClusterNodeSSHKeyKey]
+	keyPairIID := irs.IID{}
+
+	if sshKeyExist && sshkeyName != nil {
+		keyPairIID.NameId = *sshkeyName
+		clusterSubscriptionsById, subscriptionsErr := getSubscriptionsById(*cluster.ID)
+		clusterResourceGroup, err := getResourceGroupById(*cluster.ID)
+		if err != nil {
+			return irs.IID{}, errors.New("failed get Cluster Node SSHKey err = invalid Cluster ID")
+		}
+		if err == nil && subscriptionsErr == nil {
+			keyPairIID.SystemId = GetSshKeyIdByName(idrv.CredentialInfo{SubscriptionId: clusterSubscriptionsById}, idrv.RegionInfo{
+				ResourceGroup: clusterResourceGroup,
+			}, *sshkeyName)
+		}
+	}
+	return keyPairIID, nil
+}
+
+func waitingSpecifiedNodePoolPair(cluster containerservice.ManagedCluster, agentPoolName string, agentPoolsClient *containerservice.AgentPoolsClient, virtualMachineScaleSetsClient *compute.VirtualMachineScaleSetsClient, ctx context.Context) (NodePoolPair, error) {
+	clusterResourceGroup, err := getResourceGroupById(*cluster.ID)
+	if err != nil {
+		return NodePoolPair{}, errors.New(fmt.Sprintf("failed get clusterResourceGroup err = %s", err.Error()))
+	}
+	if cluster.NodeResourceGroup == nil {
+		return NodePoolPair{}, errors.New(fmt.Sprintf("failed get Cluster Managed ResourceGroup err = Invalid value of NodeResourceGroup for cluster"))
+	}
+	clusterManagedResourceGroup := ""
+	clusterManagedResourceGroup = *cluster.NodeResourceGroup
+	apiCallCount := 0
+	maxAPICallCount := 60
+	returnNodePoolPair := NodePoolPair{}
+	// var targetAgentPool *containerservice.AgentPool
+	var waitingErr error
+	for {
+		agentPool, err := agentPoolsClient.Get(ctx, clusterResourceGroup, *cluster.Name, agentPoolName)
+		if err == nil {
+			returnNodePoolPair.AgentPool = agentPool
+			break
+		}
+		apiCallCount++
+		if apiCallCount >= maxAPICallCount {
+			waitingErr = errors.New("failed get Cluster AgentPool err = The maximum number of verification requests has been exceeded while waiting for the creation of that resource")
+			break
+		}
+		time.Sleep(1 * time.Second)
+	}
+	if waitingErr != nil {
+		return NodePoolPair{}, waitingErr
+	}
+	apiCallCount = 0
+	for {
+		scaleSetList, err := virtualMachineScaleSetsClient.List(ctx, clusterManagedResourceGroup)
+		if err == nil {
+			scaleSetCheck := false
+			for _, scaleSet := range scaleSetList.Values() {
+				val, exist := scaleSet.Tags[ScaleSetOwnerKey]
+				if exist && *val == agentPoolName {
+					returnNodePoolPair.virtualMachineScaleSet = scaleSet
+					scaleSetCheck = true
+					break
+				}
+			}
+			if scaleSetCheck {
+				break
+			}
+		}
+		apiCallCount++
+		if apiCallCount >= maxAPICallCount {
+			waitingErr = errors.New("failed get Cluster VirtualMachineScaleSet err = The maximum number of verification requests has been exceeded while waiting for the creation of that resource")
+			break
+		}
+		time.Sleep(1 * time.Second)
+	}
+	if waitingErr != nil {
+		return NodePoolPair{}, waitingErr
+	}
+	return returnNodePoolPair, nil
 }
