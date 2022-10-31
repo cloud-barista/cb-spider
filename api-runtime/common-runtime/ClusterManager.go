@@ -575,7 +575,7 @@ func setResourcesNameId(connectionName string, info *cres.ClusterInfo) error {
 // (1) get IID:list
 // (2) get ClusterInfo:list
 // (3) set userIID, and ...
-func ListCluster(connectionName string, rsType string) ([]*cres.ClusterInfo, error) {
+func ListCluster(connectionName string, nameSpace string, rsType string) ([]*cres.ClusterInfo, error) {
 	cblog.Info("call ListCluster()")
 
 	// check empty and trim user inputs
@@ -611,10 +611,19 @@ func ListCluster(connectionName string, rsType string) ([]*cres.ClusterInfo, err
 		return infoList, nil
 	}
 
+	if nameSpace != "" {
+		nameSpace += "-"
+	}
+
 	// (2) Get ClusterInfo-list with IID-list
 	infoList2 := []*cres.ClusterInfo{}
 	for _, iidInfo := range iidInfoList {
 
+		if nameSpace != "" {
+			if !strings.HasPrefix(iidInfo.IId.NameId, nameSpace) {
+				continue;
+			}
+		}
 clusterSPLock.RLock(connectionName, iidInfo.IId.NameId)
 
 		// get resource(SystemId)
