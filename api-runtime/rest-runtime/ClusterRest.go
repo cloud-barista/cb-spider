@@ -734,6 +734,9 @@ func AllClusterList(c echo.Context) error {
 			if strings.Contains(err.Error(), "not implemented") {
 				continue;
 			}
+			if strings.Contains(err.Error(), "not supported") {
+				continue;
+			}
 			return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 		}
 
