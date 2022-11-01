@@ -179,7 +179,7 @@ func ChangeNodeGroupScaling(secret_id string, secret_key string, region_id strin
 	credential := common.NewCredential(secret_id, secret_key)
 	cpf := profile.NewClientProfile()
 	cpf.HttpProfile.Endpoint = "as.tencentcloudapi.com"
-	client, _ := as.NewClient(credential, "ap-beijing", cpf)
+	client, _ := as.NewClient(credential, region_id, cpf)
 
 	request := as.NewModifyAutoScalingGroupRequest()
 	request.AutoScalingGroupId = common.StringPtr(autoscaling_id)

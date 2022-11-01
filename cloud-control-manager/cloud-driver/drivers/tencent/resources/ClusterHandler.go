@@ -284,6 +284,7 @@ func (clusterHandler *TencentClusterHandler) ChangeNodeGroupScaling(clusterIID i
 		callLogInfo.ErrorMSG = err.Error()
 		tempCalllogger.Error(call.String(callLogInfo))
 		cblogger.Error(err)
+		return irs.NodeGroupInfo{}, err
 	}
 	cblogger.Info(temp.ToJsonString())
 	tempCalllogger.Info(call.String(callLogInfo))
