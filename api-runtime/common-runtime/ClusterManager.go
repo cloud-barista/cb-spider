@@ -585,19 +585,6 @@ func ListCluster(connectionName string, nameSpace string, rsType string) ([]*cre
                 return nil, err
         }
 
-	cldConn, err := ccm.GetCloudConnection(connectionName)
-	if err != nil {
-		cblog.Error(err)
-		return nil, err
-	}
-
-	handler, err := cldConn.CreateClusterHandler()
-	if err != nil {
-		cblog.Error(err)
-		return nil, err
-	}
-
-
 	// (1) get IID:list
 	iidInfoList, err := getAllClusterIIDInfoList(connectionName)
 	if err != nil {
@@ -610,6 +597,18 @@ func ListCluster(connectionName string, nameSpace string, rsType string) ([]*cre
 		infoList = []*cres.ClusterInfo{}
 		return infoList, nil
 	}
+
+	cldConn, err := ccm.GetCloudConnection(connectionName)
+        if err != nil {
+                cblog.Error(err)
+                return nil, err
+        }
+
+        handler, err := cldConn.CreateClusterHandler()
+        if err != nil {
+                cblog.Error(err)
+                return nil, err
+        }
 
 	if nameSpace != "" {
 		nameSpace += "-"
