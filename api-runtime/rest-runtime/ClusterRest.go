@@ -12,6 +12,7 @@ import (
 
         cmrt "github.com/cloud-barista/cb-spider/api-runtime/common-runtime"
         cres "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
+	ccim "github.com/cloud-barista/cb-spider/cloud-info-manager/connection-config-info-manager"
 
         // REST API (echo)
         "net/http"
@@ -220,17 +221,20 @@ func convertNodeGroup(ngReq NodeGroupReq) cres.NodeGroupInfo {
 func attachNameSpaceToName(nameSpace string, clusterInfo *cres.ClusterInfo) {
         nameSpace += "-"
 
+        // (0) Cluster's IID
+        clusterInfo.IId.NameId = nameSpace + clusterInfo.IId.NameId
+
         // (1) Network's VpcIID
         clusterInfo.Network.VpcIID.NameId = nameSpace + clusterInfo.Network.VpcIID.NameId
 
         // (2) Network's SubnetIIDs
-        for idx, _ := range clusterInfo.Network.SubnetIIDs {
-                clusterInfo.Network.SubnetIIDs[idx].NameId = nameSpace + clusterInfo.Network.SubnetIIDs[idx].NameId
-        }
+        //for idx, _ := range clusterInfo.Network.SubnetIIDs {
+        //        clusterInfo.Network.SubnetIIDs[idx].NameId = nameSpace + clusterInfo.Network.SubnetIIDs[idx].NameId
+        //}
 
         // (3) Network's SecurityGroupsIIDs
-        for idx, _ := range clusterInfo.Network.SubnetIIDs {
-                clusterInfo.Network.SubnetIIDs[idx].NameId = nameSpace + clusterInfo.Network.SubnetIIDs[idx].NameId
+        for idx, _ := range clusterInfo.Network.SecurityGroupIIDs {
+                clusterInfo.Network.SecurityGroupIIDs[idx].NameId = nameSpace + clusterInfo.Network.SecurityGroupIIDs[idx].NameId
         }
 
         // (4) NodeGroup's KeyPairIID
@@ -255,16 +259,16 @@ func ListCluster(c echo.Context) error {
         if req.ConnectionName == "" {
                 req.ConnectionName = c.QueryParam("ConnectionName")
         }
-
-        // Call common-runtime API
-        result, err := cmrt.ListCluster(req.ConnectionName, rsCluster)
-        if err != nil {
-                return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-        }
-
         // To support for Get-Query Param Type API
         if req.NameSpace == "" {
                 req.NameSpace = c.QueryParam("NameSpace")
+        }
+
+
+        // Call common-runtime API
+        result, err := cmrt.ListCluster(req.ConnectionName, req.NameSpace, rsCluster)
+        if err != nil {
+                return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
         }
 
         // Resource Name has namespace prefix when from Tumblebug
@@ -285,14 +289,17 @@ func ListCluster(c echo.Context) error {
 func detachNameSpaceFromName(nameSpace string, clusterInfo *cres.ClusterInfo) {
         nameSpace += "-"
 
+        // (0) Cluster's IID
+        clusterInfo.IId.NameId = strings.Replace(clusterInfo.IId.NameId, nameSpace, "", 1)
+
         // (1) Network's VpcIID
         clusterInfo.Network.VpcIID.NameId = strings.Replace(clusterInfo.Network.VpcIID.NameId, nameSpace, "", 1)
 
         // (2) Network's SubnetIIDs
-        for idx, _ := range clusterInfo.Network.SubnetIIDs {
-                clusterInfo.Network.SubnetIIDs[idx].NameId = 
-                        strings.Replace(clusterInfo.Network.SubnetIIDs[idx].NameId, nameSpace, "", 1)
-        }
+        //for idx, _ := range clusterInfo.Network.SubnetIIDs {
+        //        clusterInfo.Network.SubnetIIDs[idx].NameId = 
+        //                strings.Replace(clusterInfo.Network.SubnetIIDs[idx].NameId, nameSpace, "", 1)
+        //}
 
         // (3) Network's SecurityGroupsIIDs
         for idx, _ := range clusterInfo.Network.SecurityGroupIIDs {
@@ -379,8 +386,17 @@ func GetCluster(c echo.Context) error {
                 req.ConnectionName = c.QueryParam("ConnectionName")
         }
 
+	clusterName := c.Param("Name")
+        // Resource Name has namespace prefix when from Tumblebug
+        if req.NameSpace != "" {
+                nameSpace := req.NameSpace + "-"
+
+                // Cluster's Name
+                clusterName = nameSpace + clusterName
+        }
+
         // Call common-runtime API
-        result, err := cmrt.GetCluster(req.ConnectionName, rsCluster, c.Param("Name"))
+        result, err := cmrt.GetCluster(req.ConnectionName, rsCluster, clusterName)
         if err != nil {
                 return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
         }
@@ -438,15 +454,20 @@ func AddNodeGroup(c echo.Context) error {
                                 MaxNodeSize: func() int { size, _ := strconv.Atoi(req.ReqInfo.MaxNodeSize); return size }(),
                         }
 
+	clusterName := c.Param("Name")
         // Resource Name has namespace prefix when from Tumblebug
         if req.NameSpace != "" {
                 nameSpace := req.NameSpace + "-"
+
+                // Cluster's Name
+                clusterName = nameSpace + clusterName
+
                 // NodeGroup's KeyPairIID                
                 reqInfo.KeyPairIID.NameId = nameSpace + reqInfo.KeyPairIID.NameId
         }
 
         // Call common-runtime API
-        result, err := cmrt.AddNodeGroup(req.ConnectionName, rsNodeGroup, c.Param("Name"), reqInfo)
+        result, err := cmrt.AddNodeGroup(req.ConnectionName, rsNodeGroup, clusterName, reqInfo)
         if err != nil {
                 return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
         }
@@ -463,6 +484,7 @@ func RemoveNodeGroup(c echo.Context) error {
         cblog.Info("call RemoveNodeGroup()")
 
         var req struct {
+		NameSpace string
                 ConnectionName string
         }
 
@@ -470,8 +492,17 @@ func RemoveNodeGroup(c echo.Context) error {
                 return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
         }
 
+	clusterName := c.Param("Name")
+        // Resource Name has namespace prefix when from Tumblebug
+        if req.NameSpace != "" {
+                nameSpace := req.NameSpace + "-"
+
+                // Cluster's Name
+                clusterName = nameSpace + clusterName
+        }
+
         // Call common-runtime API
-        result, err := cmrt.RemoveNodeGroup(req.ConnectionName, c.Param("Name"), c.Param("NodeGroupName"), c.QueryParam("force"))
+        result, err := cmrt.RemoveNodeGroup(req.ConnectionName, clusterName, c.Param("NodeGroupName"), c.QueryParam("force"))
         if err != nil {
                 return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
         }
@@ -483,6 +514,7 @@ func SetNodeGroupAutoScaling(c echo.Context) error {
         cblog.Info("call SetNodeGroupAutoScaling()")
 
         var req struct {
+		NameSpace string
                 ConnectionName string
                 ReqInfo        struct {
                         OnAutoScaling      string
@@ -492,10 +524,19 @@ func SetNodeGroupAutoScaling(c echo.Context) error {
         if err := c.Bind(&req); err != nil {
                 return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
         }
-        
+
+	clusterName := c.Param("Name")
+        // Resource Name has namespace prefix when from Tumblebug
+        if req.NameSpace != "" {
+                nameSpace := req.NameSpace + "-"
+
+                // Cluster's Name
+                clusterName = nameSpace + clusterName
+        }
+
         // Call common-runtime API
         on, _ := strconv.ParseBool(req.ReqInfo.OnAutoScaling)
-        result, err := cmrt.SetNodeGroupAutoScaling(req.ConnectionName, c.Param("Name"), 
+        result, err := cmrt.SetNodeGroupAutoScaling(req.ConnectionName, clusterName, 
                         c.Param("NodeGroupName"), on)
         if err != nil {
                 return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
@@ -521,11 +562,20 @@ func ChangeNodeGroupScaling(c echo.Context) error {
                 return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
         }
 
+	clusterName := c.Param("Name")
+        // Resource Name has namespace prefix when from Tumblebug
+        if req.NameSpace != "" {
+                nameSpace := req.NameSpace + "-"
+
+                // Cluster's Name
+                clusterName = nameSpace + clusterName
+        }
+
         // Call common-runtime API
         desiredNodeSize, _ := strconv.Atoi(req.ReqInfo.DesiredNodeSize)
         minNodeSize, _ := strconv.Atoi(req.ReqInfo.MinNodeSize)
         maxNodeSize, _ := strconv.Atoi(req.ReqInfo.MaxNodeSize)
-        result, err := cmrt.ChangeNodeGroupScaling(req.ConnectionName, c.Param("Name"), 
+        result, err := cmrt.ChangeNodeGroupScaling(req.ConnectionName, clusterName, 
                         c.Param("NodeGroupName"), desiredNodeSize, minNodeSize, maxNodeSize)                        
         if err != nil {
                 return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
@@ -548,6 +598,7 @@ func DeleteCluster(c echo.Context) error {
         cblog.Info("call DeleteCluster()")
 
         var req struct {
+		NameSpace string
                 ConnectionName string
         }
 
@@ -555,8 +606,16 @@ func DeleteCluster(c echo.Context) error {
                 return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
         }
 
+        clusterName := c.Param("Name")
+        // Resource Name has namespace prefix when from Tumblebug
+        if req.NameSpace != "" {
+                nameSpace := req.NameSpace + "-"
+
+                // Cluster's Name
+                clusterName = nameSpace + clusterName
+        }
         // Call common-runtime API
-        result, _, err := cmrt.DeleteResource(req.ConnectionName, rsCluster, c.Param("Name"), c.QueryParam("force"))
+        result, _, err := cmrt.DeleteResource(req.ConnectionName, rsCluster, clusterName, c.QueryParam("force"))
         if err != nil {
                 return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
         }
@@ -611,8 +670,17 @@ func UpgradeCluster(c echo.Context) error {
                 return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
         }
 
+	clusterName := c.Param("Name")
+        // Resource Name has namespace prefix when from Tumblebug
+        if req.NameSpace != "" {
+                nameSpace := req.NameSpace + "-"
+
+                // Cluster's Name
+                clusterName = nameSpace + clusterName
+        }
+
         // Call common-runtime API
-        result, err := cmrt.UpgradeCluster(req.ConnectionName, c.Param("Name"), req.ReqInfo.Version)
+        result, err := cmrt.UpgradeCluster(req.ConnectionName, clusterName, req.ReqInfo.Version)
         if err != nil {
                 return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
         }
@@ -623,4 +691,68 @@ func UpgradeCluster(c echo.Context) error {
         }
         
         return c.JSON(http.StatusOK, result)
+}
+
+
+func AllClusterList(c echo.Context) error {
+        cblog.Info("call AllClusterList()")
+
+        var req struct {
+                NameSpace string
+        }
+
+        if err := c.Bind(&req); err != nil {
+                return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+        }
+
+	// To support for Get-Query Param Type API
+        if req.NameSpace == "" {
+                req.NameSpace = c.QueryParam("NameSpace")
+        }
+
+	// Get All ConnectionNames
+	infoList, err := ccim.ListConnectionConfig()
+        if err != nil {
+                return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+        }
+
+	type ConnectionClusterList struct {
+                Connection string
+                Provider   string
+                ClusterList []*cres.ClusterInfo
+        }
+        var jsonResult struct {
+		AllClusterList [] ConnectionClusterList
+        }
+
+
+	for _, oneConn := range infoList {
+
+		// Call common-runtime API
+		oneClusterList, err := cmrt.ListCluster(oneConn.ConfigName, req.NameSpace, rsCluster)
+		if err != nil {
+			if strings.Contains(err.Error(), "not implemented") {
+				continue;
+			}
+			if strings.Contains(err.Error(), "not supported") {
+				continue;
+			}
+			return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		}
+
+		if len(oneClusterList) < 1 {
+			continue;
+		}
+		// Resource Name has namespace prefix when from Tumblebug
+		if req.NameSpace != "" {
+			for _, clusterInfo := range oneClusterList {
+				detachNameSpaceFromName(req.NameSpace, clusterInfo)
+			}
+		}
+
+		jsonResult.AllClusterList = append(jsonResult.AllClusterList, 
+			ConnectionClusterList{ oneConn.ConfigName, oneConn.ProviderName, oneClusterList})
+	}
+
+        return c.JSON(http.StatusOK, &jsonResult)
 }

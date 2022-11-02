@@ -15,11 +15,13 @@ import (
 	"math/rand"
 	"net/url"
 	"os"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
+	"unicode"
 )
 
 type IbmVMHandler struct {
@@ -59,6 +61,7 @@ func (vmHandler *IbmVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 	// 1-2. Setup Req Resource IID
 	var image vpcv1.Image
 	var myImage irs.MyImageInfo
+	var isWindows bool
 	if vmReqInfo.ImageType == irs.MyImage {
 		myImageHandler := IbmMyImageHandler{
 			CredentialInfo: vmHandler.CredentialInfo,
@@ -80,6 +83,15 @@ func (vmHandler *IbmVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 			LoggingError(hiscallInfo, createErr)
 			return irs.VMInfo{}, createErr
 		}
+		rawSnapshot, _, getRawSnapshotErr := myImageHandler.VpcService.GetSnapshotWithContext(myImageHandler.Ctx, &vpcv1.GetSnapshotOptions{ID: &myImage.IId.SystemId})
+		if getRawSnapshotErr != nil {
+			createErr := errors.New("Failed to Create VM. err = Cannot get Snapshot Detail of Source MyImage")
+			cblogger.Error(createErr.Error())
+			LoggingError(hiscallInfo, createErr)
+			return irs.VMInfo{}, createErr
+		}
+
+		isWindows = strings.Contains(strings.ToLower(*rawSnapshot.OperatingSystem.Name), "windows")
 	} else {
 		var getImageErr error
 		image, getImageErr = getRawImage(vmReqInfo.ImageIID, vmHandler.VpcService, vmHandler.Ctx)
@@ -89,6 +101,8 @@ func (vmHandler *IbmVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 			LoggingError(hiscallInfo, createErr)
 			return irs.VMInfo{}, createErr
 		}
+
+		isWindows = strings.Contains(strings.ToLower(*image.OperatingSystem.Name), "windows")
 	}
 
 	vpc, err := getRawVPC(vmReqInfo.VpcIID, vmHandler.VpcService, vmHandler.Ctx)
@@ -141,16 +155,64 @@ func (vmHandler *IbmVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 	}
 
 	// 1-3. cloud-init data set
-	rootPath := os.Getenv("CBSPIDER_ROOT")
-	fileDataCloudInit, err := ioutil.ReadFile(rootPath + CBCloudInitFilePath)
-	if err != nil {
-		createErr := errors.New(fmt.Sprintf("Failed to Create VM. err = %s", err.Error()))
-		cblogger.Error(createErr.Error())
-		LoggingError(hiscallInfo, createErr)
-		return irs.VMInfo{}, createErr
+	var userData string
+	if isWindows {
+		userId := vmReqInfo.VMUserId
+		if userId == "" {
+			userId = "Administrator"
+		}
+
+		if len(vmReqInfo.VMUserPasswd) < 8 {
+			createErr := errors.New(fmt.Sprintf("Failed to Create VM. err = %s", "Password length cannot be less than 8 digit"))
+			cblogger.Error(createErr.Error())
+			LoggingError(hiscallInfo, createErr)
+			return irs.VMInfo{}, createErr
+		}
+
+		passwordComplexityScore := 0
+		var regexMatchers []*regexp.Regexp
+		regexMatcherHasDigit := regexp.MustCompile(`\d`)
+		regexMatchers = append(regexMatchers, regexMatcherHasDigit)
+		regexMatcherHasUpperCase := regexp.MustCompile("[A-Z]")
+		regexMatchers = append(regexMatchers, regexMatcherHasUpperCase)
+		regexMatcherHasLowerCase := regexp.MustCompile("[a-z]")
+		regexMatchers = append(regexMatchers, regexMatcherHasLowerCase)
+		regexMatcherHasNonAlphanumeric := regexp.MustCompile(`[^a-zA-Z0-9]`)
+		regexMatchers = append(regexMatchers, regexMatcherHasNonAlphanumeric)
+
+		for _, matcher := range regexMatchers {
+			if matcher.MatchString(vmReqInfo.VMUserPasswd) {
+				passwordComplexityScore++
+			}
+		}
+
+		for _, c := range vmReqInfo.VMUserPasswd {
+			if unicode.IsLetter(c) && !unicode.IsUpper(c) && !unicode.IsLower(c) {
+				passwordComplexityScore++
+				break
+			}
+		}
+
+		if passwordComplexityScore < 3 {
+			createErr := errors.New(fmt.Sprintf("Failed to Create VM. err = %s", "Password must meet Windows password complexity requirements"))
+			cblogger.Error(createErr.Error())
+			LoggingError(hiscallInfo, createErr)
+			return irs.VMInfo{}, createErr
+		}
+
+		userData = fmt.Sprintf("#ps1_sysnative\nnet user \"%s\" \"%s\"", userId, vmReqInfo.VMUserPasswd)
+	} else {
+		rootPath := os.Getenv("CBSPIDER_ROOT")
+		fileDataCloudInit, err := ioutil.ReadFile(rootPath + CBCloudInitFilePath)
+		if err != nil {
+			createErr := errors.New(fmt.Sprintf("Failed to Create VM. err = %s", err.Error()))
+			cblogger.Error(createErr.Error())
+			LoggingError(hiscallInfo, createErr)
+			return irs.VMInfo{}, createErr
+		}
+		userData = string(fileDataCloudInit)
+		userData = strings.ReplaceAll(userData, "{{username}}", CBDefaultVmUserName)
 	}
-	userData := string(fileDataCloudInit)
-	userData = strings.ReplaceAll(userData, "{{username}}", CBDefaultVmUserName)
 
 	// 2.Create VM
 	// TODO : UserData cloudInit
@@ -440,6 +502,10 @@ func (vmHandler *IbmVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 				return irs.VMInfo{}, createErr
 			}
 			LoggingInfo(hiscallInfo, start)
+			if isWindows {
+				finalInstanceInfo.VMUserId = vmReqInfo.VMUserId
+				finalInstanceInfo.VMUserPasswd = vmReqInfo.VMUserPasswd
+			}
 			return finalInstanceInfo, nil
 		}
 		curRetryCnt++

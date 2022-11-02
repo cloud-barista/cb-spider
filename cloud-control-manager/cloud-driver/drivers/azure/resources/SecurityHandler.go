@@ -180,7 +180,7 @@ func (securityHandler *AzureSecurityHandler) GetSecurity(securityIID irs.IID) (i
 	hiscallInfo := GetCallLogScheme(securityHandler.Region, call.SECURITYGROUP, securityIID.NameId, "GetSecurity()")
 
 	start := call.Start()
-	rawSecurityGroup, err := securityHandler.getRawSecurityGroup(securityIID)
+	rawSecurityGroup, err := getRawSecurityGroup(securityIID, securityHandler.Client, securityHandler.Ctx, securityHandler.Region.ResourceGroup)
 	if err != nil {
 		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
@@ -217,7 +217,7 @@ func (securityHandler *AzureSecurityHandler) AddRules(sgIID irs.IID, securityRul
 	hiscallInfo := GetCallLogScheme(securityHandler.Region, call.SECURITYGROUP, sgIID.NameId, "AddRules()")
 
 	start := call.Start()
-	security, err := securityHandler.getRawSecurityGroup(sgIID)
+	security, err := getRawSecurityGroup(sgIID, securityHandler.Client, securityHandler.Ctx, securityHandler.Region.ResourceGroup)
 	if err != nil {
 		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
@@ -275,7 +275,7 @@ func (securityHandler *AzureSecurityHandler) AddRules(sgIID irs.IID, securityRul
 	}
 
 	// 변된 SecurityGroup 정보 리턴
-	updatedSecurity, err := securityHandler.getRawSecurityGroup(sgIID)
+	updatedSecurity, err := getRawSecurityGroup(sgIID, securityHandler.Client, securityHandler.Ctx, securityHandler.Region.ResourceGroup)
 	if err != nil {
 		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
@@ -293,7 +293,7 @@ func (securityHandler *AzureSecurityHandler) RemoveRules(sgIID irs.IID, security
 
 	start := call.Start()
 
-	security, err := securityHandler.getRawSecurityGroup(sgIID)
+	security, err := getRawSecurityGroup(sgIID, securityHandler.Client, securityHandler.Ctx, securityHandler.Region.ResourceGroup)
 
 	if err != nil {
 		cblogger.Error(err.Error())
@@ -349,12 +349,12 @@ func (securityHandler *AzureSecurityHandler) RemoveRules(sgIID irs.IID, security
 	return true, nil
 }
 
-func (securityHandler *AzureSecurityHandler) getRawSecurityGroup(sgIID irs.IID) (*network.SecurityGroup, error) {
+func getRawSecurityGroup(sgIID irs.IID, client *network.SecurityGroupsClient, ctx context.Context, resourceGroup string) (*network.SecurityGroup, error) {
 	if sgIID.SystemId == "" && sgIID.NameId == "" {
 		return nil, errors.New("invalid IID")
 	}
 	if sgIID.NameId == "" {
-		result, err := securityHandler.Client.List(securityHandler.Ctx, securityHandler.Region.ResourceGroup)
+		result, err := client.List(ctx, resourceGroup)
 		if err != nil {
 			return nil, err
 		}
@@ -365,7 +365,7 @@ func (securityHandler *AzureSecurityHandler) getRawSecurityGroup(sgIID irs.IID) 
 		}
 		return nil, errors.New("not found SecurityGroup")
 	} else {
-		security, err := securityHandler.Client.Get(securityHandler.Ctx, securityHandler.Region.ResourceGroup, sgIID.NameId, "")
+		security, err := client.Get(ctx, resourceGroup, sgIID.NameId, "")
 		return &security, err
 	}
 }

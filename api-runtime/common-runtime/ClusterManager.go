@@ -513,7 +513,7 @@ defer clusterSPLock.Unlock(connectionName, reqInfo.IId.NameId)
 
 func setResourcesNameId(connectionName string, info *cres.ClusterInfo) error {
 	//+++++++++++++++++++++ Set NetworkInfo's NameId
-	netInfo := info.Network
+	netInfo := &info.Network
 	// (1) VpcIID
 	// get spiderIID
 	vpcIIDInfo, err := iidRWLock.GetIIDbySystemID(iidm.IIDSGROUP, connectionName, rsVPC, netInfo.VpcIID)
@@ -575,7 +575,7 @@ func setResourcesNameId(connectionName string, info *cres.ClusterInfo) error {
 // (1) get IID:list
 // (2) get ClusterInfo:list
 // (3) set userIID, and ...
-func ListCluster(connectionName string, rsType string) ([]*cres.ClusterInfo, error) {
+func ListCluster(connectionName string, nameSpace string, rsType string) ([]*cres.ClusterInfo, error) {
 	cblog.Info("call ListCluster()")
 
 	// check empty and trim user inputs
@@ -584,19 +584,6 @@ func ListCluster(connectionName string, rsType string) ([]*cres.ClusterInfo, err
 		cblog.Error(err)
                 return nil, err
         }
-
-	cldConn, err := ccm.GetCloudConnection(connectionName)
-	if err != nil {
-		cblog.Error(err)
-		return nil, err
-	}
-
-	handler, err := cldConn.CreateClusterHandler()
-	if err != nil {
-		cblog.Error(err)
-		return nil, err
-	}
-
 
 	// (1) get IID:list
 	iidInfoList, err := getAllClusterIIDInfoList(connectionName)
@@ -611,10 +598,31 @@ func ListCluster(connectionName string, rsType string) ([]*cres.ClusterInfo, err
 		return infoList, nil
 	}
 
+	cldConn, err := ccm.GetCloudConnection(connectionName)
+        if err != nil {
+                cblog.Error(err)
+                return nil, err
+        }
+
+        handler, err := cldConn.CreateClusterHandler()
+        if err != nil {
+                cblog.Error(err)
+                return nil, err
+        }
+
+	if nameSpace != "" {
+		nameSpace += "-"
+	}
+
 	// (2) Get ClusterInfo-list with IID-list
 	infoList2 := []*cres.ClusterInfo{}
 	for _, iidInfo := range iidInfoList {
 
+		if nameSpace != "" {
+			if !strings.HasPrefix(iidInfo.IId.NameId, nameSpace) {
+				continue;
+			}
+		}
 clusterSPLock.RLock(connectionName, iidInfo.IId.NameId)
 
 		// get resource(SystemId)
@@ -857,6 +865,7 @@ defer clusterSPLock.Unlock(connectionName, clusterName)
         }
 
         // driverIID
+        nodeGroupNameId := reqInfo.IId.NameId
         driverIId := cres.IID{nodeGroupUUID, ""}
         reqInfo.IId = driverIId
 
@@ -867,7 +876,7 @@ defer clusterSPLock.Unlock(connectionName, clusterName)
                 return nil, err
         }
 
-        ngSpiderIId := cres.IID{reqInfo.IId.NameId, nodeGroupUUID + ":" + ngInfo.IId.SystemId}
+        ngSpiderIId := cres.IID{nodeGroupNameId, nodeGroupUUID + ":" + ngInfo.IId.SystemId}
         _, err2 := iidRWLock.CreateIID(iidm.NGGROUP, connectionName, clusterName, ngSpiderIId) // clusterName => rsType
         if err2 != nil {
                 cblog.Error(err2)
@@ -1013,7 +1022,7 @@ func getClusterDriverIIDNodeGroupDriverIID(connectionName string, clusterName st
         }
 
         // (2) Get NodeGroup's DriverIID
-        ngIIdInfoList, err := getAllClusterIIDInfoList(connectionName)
+        ngIIdInfoList, err := getAllNodeGroupIIDInfoList(connectionName)
         if err != nil {
                 cblog.Error(err)
                 return cres.IID{}, cres.IID{}, err

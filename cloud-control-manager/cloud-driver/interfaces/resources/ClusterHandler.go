@@ -38,12 +38,15 @@ type ClusterInfo struct {
 	IId IID // {NameId, SystemId}
 
 	Version string // Kubernetes Version, ex) 1.23.3
-
 	Network       NetworkInfo
+
+	// ---
+
 	NodeGroupList []NodeGroupInfo
+	AccessInfo    AccessInfo
 	Addons        AddonsInfo
 
-	Status ClusterStatus
+	Status        ClusterStatus
 
 	CreatedTime  time.Time
 	KeyValueList []KeyValue
@@ -53,6 +56,8 @@ type NetworkInfo struct {
 	VpcIID            IID // {NameId, SystemId}
 	SubnetIIDs        []IID
 	SecurityGroupIIDs []IID
+
+	// ---
 
 	KeyValueList []KeyValue
 }
@@ -67,16 +72,23 @@ type NodeGroupInfo struct {
 	RootDiskSize string // "", "default", "50", "1000" (GB)
 	KeyPairIID   IID
 
-	Status NodeGroupStatus
-
 	// Scaling config.
 	OnAutoScaling   bool // default: true
 	DesiredNodeSize int
 	MinNodeSize     int
 	MaxNodeSize     int
 
+	// ---
+
+	Status       NodeGroupStatus
 	Nodes        []IID
+
 	KeyValueList []KeyValue
+}
+
+type AccessInfo struct {
+	Endpoint 	string // ex) https://1.2.3.4:6443
+	Kubeconfg	string
 }
 
 // CNI, DNS, .... @todo
