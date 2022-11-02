@@ -88,10 +88,6 @@ func (myImageHandler *IbmMyImageHandler) ListMyImage() ([]*irs.MyImageInfo, erro
 	}
 	LoggingInfo(hiscallInfo, start)
 
-	if len(myImageInfoList) == 0 {
-		return nil, errors.New("Failed to List MyImage. err = Cannot find MyImage")
-	}
-
 	return myImageInfoList, nil
 }
 

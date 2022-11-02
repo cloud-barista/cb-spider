@@ -133,6 +133,8 @@ type Config struct {
 					NameId   string `yaml:"nameId"`
 					SystemId string `yaml:"systemId"`
 				} `yaml:"SecurityGroupIIDs"`
+				VMUserID       string `yaml:"VMUserID"`
+				VMUserPassword string `yaml:"VMUserPassword"`
 			} `yaml:"VmFromMyImage"`
 			DISK struct {
 				IID struct {
@@ -807,6 +809,8 @@ func testVMHandler(config Config) {
 		SecurityGroupIIDs: SecurityGroupIIDs,
 		RootDiskSize:      "",
 		RootDiskType:      "",
+		VMUserId:          config.IbmVPC.Resources.VmFromMyImage.VMUserID,
+		VMUserPasswd:      config.IbmVPC.Resources.VmFromMyImage.VMUserPassword,
 	}
 
 Loop:
