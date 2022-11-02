@@ -15,9 +15,11 @@ import (
 	"fmt"
 	"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/cloudit/client/ace/disk"
 	"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/cloudit/client/ace/snapshot"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
 
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/cloudit/client"
@@ -205,7 +207,7 @@ func (vmHandler *ClouditVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (startVM irs
 	}
 
 	var reqInfo server.VMReqInfo
-	rawRootImage, getRawRootImageErr := imageHandler.GetRawRootImage(irs.IID{SystemId: vmReqInfo.ImageIID.SystemId}, vmReqInfo.ImageType == irs.MyImage)
+	rawRootImage, getRawRootImageErr := imageHandler.GetRawRootImage(irs.IID{NameId: vmReqInfo.ImageIID.NameId}, vmReqInfo.ImageType == irs.MyImage)
 	if getRawRootImageErr != nil {
 		return irs.VMInfo{}, errors.New(fmt.Sprintf("Failed to Create VM. err = %s", getRawRootImageErr.Error()))
 	}
@@ -229,6 +231,37 @@ func (vmHandler *ClouditVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (startVM irs
 		if len(vmReqInfo.VMUserPasswd) < 8 {
 			return irs.VMInfo{}, errors.New("Failed to Create VM. err = Password length of Windows cannot be less than 8")
 		}
+		passwordComplexityScore := 0
+		var regexMatchers []*regexp.Regexp
+		regexMatcherHasDigit := regexp.MustCompile(`\d`)
+		regexMatchers = append(regexMatchers, regexMatcherHasDigit)
+		regexMatcherHasUpperCase := regexp.MustCompile("[A-Z]")
+		regexMatchers = append(regexMatchers, regexMatcherHasUpperCase)
+		regexMatcherHasLowerCase := regexp.MustCompile("[a-z]")
+		regexMatchers = append(regexMatchers, regexMatcherHasLowerCase)
+		regexMatcherHasNonAlphanumeric := regexp.MustCompile(`[^a-zA-Z0-9]`)
+		regexMatchers = append(regexMatchers, regexMatcherHasNonAlphanumeric)
+
+		for _, matcher := range regexMatchers {
+			if matcher.MatchString(vmReqInfo.VMUserPasswd) {
+				passwordComplexityScore++
+			}
+		}
+
+		for _, c := range vmReqInfo.VMUserPasswd {
+			if unicode.IsLetter(c) && !unicode.IsUpper(c) && !unicode.IsLower(c) {
+				passwordComplexityScore++
+				break
+			}
+		}
+
+		if passwordComplexityScore < 3 {
+			createErr := errors.New(fmt.Sprintf("Failed to Create VM. err = %s", "Password must meet Windows password complexity requirements"))
+			cblogger.Error(createErr.Error())
+			LoggingError(hiscallInfo, createErr)
+			return irs.VMInfo{}, createErr
+		}
+
 		reqInfo.RootPassword = vmReqInfo.VMUserPasswd
 	}
 
@@ -507,6 +540,12 @@ func (vmHandler *ClouditVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (startVM irs
 	if len(attachedVolumeList) != 0 {
 		vmInfo.DataDiskIIDs = attachedVolumeList
 	}
+
+	if isWindows {
+		vmInfo.VMUserId = "Administrator"
+		vmInfo.VMUserPasswd = vmReqInfo.VMUserPasswd
+	}
+
 	return vmInfo, nil
 }
 
