@@ -127,6 +127,19 @@ func (vmHandler *AlibabaVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 		spew.Dump(userDataBase64)
 	*/
 
+	vmImage, err := DescribeImageByImageId(vmHandler.Client, vmHandler.Region, vmReqInfo.ImageIID, false)
+	if err != nil {
+		cblogger.Error(err)
+		errMsg := "요청된 이미지의 정보를 조회할 수 없습니다." + err.Error()
+		return irs.VMInfo{}, errors.New(errMsg)
+	}
+
+	isWindows := false
+	osType := vmImage.OSType //"OSType": "windows"
+	if osType == "windows" {
+		isWindows = true
+	}
+
 	//=============================
 	// UserData생성 처리(File기반)
 	//=============================
@@ -174,12 +187,20 @@ func (vmHandler *AlibabaVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 	request.InstanceName = vmReqInfo.IId.NameId
 	//request.HostName = vmReqInfo.IId.NameId	// OS 호스트 명
 	request.InstanceType = vmReqInfo.VMSpecName
-	request.KeyPairName = vmReqInfo.KeyPairIID.SystemId
+
+	// windows 일 떄는 password 만 set, keypairName은 비움.
+	// 다른 os일 때 password는 cb-user의 password 로 사용
+	if isWindows {
+		request.Password = vmReqInfo.VMUserPasswd
+	} else {
+		request.KeyPairName = vmReqInfo.KeyPairIID.SystemId
+
+		// cb user 추가
+		request.Password = vmReqInfo.VMUserPasswd //값에는 8-30자가 포함되고 대문자, 소문자, 숫자 및/또는 특수 문자가 포함되어야 합니다.
+		request.UserData = userDataBase64         // cbuser 추가
+	}
+
 	request.VSwitchId = vmReqInfo.SubnetIID.SystemId
-
-	request.Password = vmReqInfo.VMUserPasswd //값에는 8-30자가 포함되고 대문자, 소문자, 숫자 및/또는 특수 문자가 포함되어야 합니다.
-
-	request.UserData = userDataBase64 // cbuser 추가
 
 	//==============
 	//PublicIp 설정
@@ -278,12 +299,7 @@ func (vmHandler *AlibabaVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 		}
 
 		//imageSize, err := vmHandler.GetImageSize(vmReqInfo.ImageIID.SystemId)
-		imageSize, err := DescribeImageSize(vmHandler.Client, vmHandler.Region, vmReqInfo.ImageIID)
-		if err != nil {
-			cblogger.Error(err)
-			return irs.VMInfo{}, err
-		}
-
+		imageSize := int64(vmImage.Size)
 		if imageSize < 0 {
 			return irs.VMInfo{}, errors.New("요청된 이미지의 기본 사이즈 정보를 조회할 수 없습니다.")
 		} else {
@@ -298,7 +314,16 @@ func (vmHandler *AlibabaVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 
 	}
 
-	spew.Dump(request)
+	// Windows OS 처리
+	//"Platform": "Windows Server 2012",
+	//"OSName": "Windows Server  2012 R2 数据中心版 64位英文版",
+	//"OSType": "windows",
+	if isWindows {
+		//The password must be 8 to 30 characters in length
+		//and contain at least three of the following character types: uppercase letters, lowercase letters, digits, and special characters.
+		//Special characters include: // ( ) ` ~ ! @ # $ % ^ & * - _ + = | { } [ ] : ; ' < > , . ? /
+
+	}
 
 	//=============================
 	// VM생성 처리
