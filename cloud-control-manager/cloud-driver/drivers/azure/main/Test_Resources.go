@@ -96,6 +96,8 @@ type Config struct {
 				} `yaml:"SecurityGroupIIDs"`
 				RootDiskSize string `yaml:"RootDiskSize"`
 				RootDiskType string `yaml:"RootDiskType"`
+				VMUserId     string `yaml:"VMUserId"`
+				VMUserPasswd string `yaml:"VMUserPasswd"`
 			} `yaml:"vm"`
 			MyImage struct {
 				IID struct {
@@ -752,6 +754,8 @@ func testVMHandler(config Config) {
 		RootDiskSize:      config.Azure.Resources.Vm.RootDiskSize,
 		RootDiskType:      config.Azure.Resources.Vm.RootDiskType,
 		SecurityGroupIIDs: SecurityGroupIIDs,
+		VMUserId:          config.Azure.Resources.Vm.VMUserId,
+		VMUserPasswd:      config.Azure.Resources.Vm.VMUserPasswd,
 	}
 
 Loop:
