@@ -813,5 +813,9 @@ func AllClusterList(c echo.Context) error {
 			ConnectionClusterList{ oneConn.ConfigName, oneConn.ProviderName, oneClusterList})
 	}
 
+	if jsonResult.AllClusterList == nil {
+		jsonResult.AllClusterList = []ConnectionClusterList{}
+	}
+
         return c.JSON(http.StatusOK, &jsonResult)
 }
