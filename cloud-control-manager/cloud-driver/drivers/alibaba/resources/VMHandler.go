@@ -188,6 +188,8 @@ func (vmHandler *AlibabaVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 	//request.HostName = vmReqInfo.IId.NameId	// OS 호스트 명
 	request.InstanceType = vmReqInfo.VMSpecName
 
+	request.ZoneId = vmHandler.Region.Zone // Disk의 경우 zone dependency가 있어 Zone 명시해야 함.(disk가 없으면 무시해도 됨.)
+
 	// windows 일 떄는 password 만 set, keypairName은 비움.
 	// 다른 os일 때 password는 cb-user의 password 로 사용
 	if isWindows {
