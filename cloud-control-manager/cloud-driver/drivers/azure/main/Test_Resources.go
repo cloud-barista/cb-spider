@@ -1235,9 +1235,8 @@ func testClusterHandlerListPrint() {
 	cblogger.Info("7. SetNodeGroupAutoScaling()")
 	cblogger.Info("8. ChangeNodeGroupScaling()")
 	cblogger.Info("9. UpgradeCluster()")
-	cblogger.Info("10. Create-Get-List-Delete")
-	cblogger.Info("11. Create->GET->List->AddNodeGroup->RemoveNodeGroup->SetNodeGroupAutoScaling(Change)->SetNodeGroupAutoScaling(restore)->ChangeNodeGroupScaling->Upgrade->Delete")
-	cblogger.Info("12. Exit")
+	cblogger.Info("10. Create->GET->List->AddNodeGroup->RemoveNodeGroup->SetNodeGroupAutoScaling(Change)->SetNodeGroupAutoScaling(restore)->ChangeNodeGroupScaling->Upgrade->Delete")
+	cblogger.Info("11. Exit")
 }
 
 func testClusterHandler(config Config) {
@@ -1267,20 +1266,20 @@ func testClusterHandler(config Config) {
 				RootDiskSize:    "default",
 				KeyPairIID:      irs.IID{NameId: "azure0916"},
 				DesiredNodeSize: 1,
-				MaxNodeSize:     3,
+				MaxNodeSize:     2,
 				MinNodeSize:     1,
 				OnAutoScaling:   true,
 			},
-			{
-				IId:             irs.IID{NameId: "nodegroup1"},
-				VMSpecName:      "Standard_B2s",
-				RootDiskSize:    "default",
-				KeyPairIID:      irs.IID{NameId: "azure0916"},
-				DesiredNodeSize: 1,
-				MaxNodeSize:     3,
-				MinNodeSize:     1,
-				OnAutoScaling:   true,
-			},
+			//{
+			//	IId:             irs.IID{NameId: "nodegroup1"},
+			//	VMSpecName:      "Standard_B2s",
+			//	RootDiskSize:    "default",
+			//	KeyPairIID:      irs.IID{NameId: "azure0916"},
+			//	DesiredNodeSize: 1,
+			//	MaxNodeSize:     3,
+			//	MinNodeSize:     1,
+			//	OnAutoScaling:   true,
+			//},
 		},
 	}
 	addNodeGroup := irs.NodeGroupInfo{
@@ -1379,59 +1378,6 @@ Loop:
 				}
 				cblogger.Info("Finish UpgradeCluster()")
 			case 10:
-				falowStr := "Create->GET->List->Delete"
-				cblogger.Info(fmt.Sprintf("Start %s =====", falowStr))
-				cblogger.Info("Start Create =====")
-				continueCheck := true
-				if createInfo, err := clusterHandler.CreateCluster(createreq); err != nil {
-					continueCheck = false
-					cblogger.Error("!!!!!!!!!!!!!!!!!!!Failed Create =====")
-					cblogger.Error(err)
-				} else {
-					spew.Dump(createInfo)
-					cblogger.Info("Finish Create =====")
-				}
-				if !continueCheck {
-					cblogger.Info(fmt.Sprintf("Finish Failed Create ====="))
-					continue
-				}
-				cblogger.Info("Start Get =====")
-				if clusterInfo, err := clusterHandler.GetCluster(createreq.IId); err != nil {
-					continueCheck = false
-					cblogger.Error("!!!!!!!!!!!!!!!!!!!Failed Get =====")
-					cblogger.Error(err)
-				} else {
-					spew.Dump(clusterInfo)
-					cblogger.Info("Finish Get =====")
-				}
-				if !continueCheck {
-					cblogger.Info(fmt.Sprintf("Finish Failed Get ====="))
-					continue
-				}
-				cblogger.Info("Start List =====")
-				if list, err := clusterHandler.ListCluster(); err != nil {
-					continueCheck = false
-					cblogger.Error("!!!!!!!!!!!!!!!!!!!Failed List =====")
-					cblogger.Error(err)
-				} else {
-					spew.Dump(list)
-					cblogger.Info("Finish List =====")
-				}
-				if !continueCheck {
-					cblogger.Info(fmt.Sprintf("Finish Failed List ====="))
-					continue
-				}
-				// Final
-				cblogger.Info("Start Delete =====")
-				if del, err := clusterHandler.DeleteCluster(createreq.IId); err != nil {
-					cblogger.Error("Failed Delete =====")
-					cblogger.Error(err)
-				} else {
-					spew.Dump(del)
-					cblogger.Info("Finish Delete =====")
-				}
-				cblogger.Info(fmt.Sprintf("Finish %s =====", falowStr))
-			case 11:
 				falowStr := "Create->GET->AddNodeGroup->RemoveNodeGroup->SetNodeGroupAutoScaling(Change)->SetNodeGroupAutoScaling(restore)->ChangeNodeGroupScaling->Delete"
 				cblogger.Info(fmt.Sprintf("Start %s =====", falowStr))
 				cblogger.Info("Start Create =====")
@@ -1788,7 +1734,7 @@ Loop:
 					cblogger.Info("Finish Delete =====")
 				}
 				cblogger.Info(fmt.Sprintf("Finish %s =====", falowStr))
-			case 12:
+			case 11:
 				cblogger.Info("Exit")
 				break Loop
 			}
