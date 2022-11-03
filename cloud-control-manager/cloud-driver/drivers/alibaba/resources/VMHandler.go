@@ -191,6 +191,9 @@ func (vmHandler *AlibabaVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 	// windows 일 떄는 password 만 set, keypairName은 비움.
 	// 다른 os일 때 password는 cb-user의 password 로 사용
 	if isWindows {
+		if vmReqInfo.VMUserPasswd == "" {
+			return irs.VMInfo{}, errors.New("Please Input password. ")
+		}
 		request.Password = vmReqInfo.VMUserPasswd
 	} else {
 		request.KeyPairName = vmReqInfo.KeyPairIID.SystemId
