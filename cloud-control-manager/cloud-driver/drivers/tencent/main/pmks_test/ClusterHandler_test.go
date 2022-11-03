@@ -88,7 +88,7 @@ func TestCreateClusterOnly(t *testing.T) {
 	t.Log(cluster_)
 }
 
-// create on se
+// create on seoul region
 func TestCreateClusterOnly_2(t *testing.T) {
 
 	t.Log("클러스터 생성, 노드그룹은 생성안함")
@@ -100,13 +100,13 @@ func TestCreateClusterOnly_2(t *testing.T) {
 
 	clusterInfo := irs.ClusterInfo{
 		IId: irs.IID{
-			NameId:   "cluster-x1",
+			NameId:   "cluster-x2",
 			SystemId: "",
 		},
 		Version: "1.22.5",
 		Network: irs.NetworkInfo{
 			VpcIID:            irs.IID{NameId: "", SystemId: "vpc-am6zxh28"},
-			SubnetIIDs:        []irs.IID{{NameId: "", SystemId: "subnet-onpt6vkn"}},
+			SubnetIIDs:        []irs.IID{{NameId: "", SystemId: "subnet-hxz3js5x"}},
 			SecurityGroupIIDs: []irs.IID{{NameId: "", SystemId: "sg-c00t00ih"}}, // 설정 안됨 => Description으로 설정해놓고, 조회해서 사용!
 		},
 	}
@@ -186,11 +186,11 @@ func TestAddNodeGroup(t *testing.T) {
 		VMSpecName:      "S3.MEDIUM2",
 		RootDiskType:    "CLOUD_PREMIUM",
 		RootDiskSize:    "50",
-		KeyPairIID:      irs.IID{NameId: "kp1", SystemId: ""}, // 필수 옵션 아님, 대응되는 필드가 없음. 찾아봐야함.
+		KeyPairIID:      irs.IID{NameId: "", SystemId: "skey-4l982cjb"}, // KeyPair ID 설정
 		OnAutoScaling:   true,
-		DesiredNodeSize: 1,
-		MinNodeSize:     0,
-		MaxNodeSize:     3,
+		DesiredNodeSize: 2,
+		MinNodeSize:     2,
+		MaxNodeSize:     2,
 	}
 
 	clusters, _ := clusterHandler.ListCluster()
@@ -211,13 +211,13 @@ func TestAddNodeGroup2(t *testing.T) {
 	}
 
 	new_node_group := &irs.NodeGroupInfo{
-		IId: irs.IID{NameId: "Economy", SystemId: ""},
-		// image id can not be set, when creating nodepool
-		// ImageIID:        irs.IID{NameId: "", SystemId: "img-pi0ii46r"}, // 이미지 id 선택 추가, img-pi0ii46r:ubuntu18.04
-		VMSpecName: "S3.MEDIUM2",
-		// RootDiskType:    "CLOUD_PREMIUM",
-		// RootDiskSize:    "50",
-		KeyPairIID:      irs.IID{NameId: "keypair-01", SystemId: ""}, // 필수 옵션 아님, 대응되는 필드가 없음. 찾아봐야함.
+		IId: irs.IID{NameId: "ng-x5", SystemId: ""},
+		//ImageIID:        irs.IID{NameId: "tlinux3.1x86_64", SystemId: "tlinux3.1x86_64"},
+		ImageIID:        irs.IID{SystemId: "tlinux3.1x86_64"},
+		VMSpecName:      "S3.MEDIUM2",
+		RootDiskType:    "CLOUD_BSSD",
+		RootDiskSize:    "50",
+		KeyPairIID:      irs.IID{NameId: "", SystemId: "skey-4l982cjb"}, // KeyPair ID 설정
 		OnAutoScaling:   true,
 		DesiredNodeSize: 2,
 		MinNodeSize:     2,
@@ -235,47 +235,60 @@ func TestAddNodeGroup2(t *testing.T) {
 	}
 }
 
-// func TestListNodeGroup(t *testing.T) {
-// 	clusterHandler, err := getClusterHandler()
-// 	if err != nil {
-// 		t.Error(err)
-// 	}
+func TestAddNodeGroup3(t *testing.T) {
 
-// 	clusters, _ := clusterHandler.ListCluster()
-// 	for _, cluster := range clusters {
-// 		node_groups, _ := clusterHandler.ListNodeGroup(cluster.IId)
-// 		for _, node_group := range node_groups {
-// 			t.Log(node_group.IId.NameId, node_group.IId.SystemId)
-// 			t.Log(node_group)
-// 		}
-// 	}
-// }
+	// 	"ReqInfo": {
+	// 		"Name": "Economy",
+	// 		"Name": "Economy", "ImageName": "tlinux3.1x86_64", "VMSpecName": "S3.MEDIUM8", "KeyPairName": "keypair-02",
+	// 				"OnAutoScaling": "true", "DesiredNodeSize": "2", "MinNodeSize": "1", "MaxNodeSize": "3"
+	// }
 
-// func TestGetNodeGroup(t *testing.T) {
-// 	clusterHandler, err := getClusterHandler()
-// 	if err != nil {
-// 		t.Error(err)
-// 	}
+	clusterHandler, err := getClusterHandler()
+	if err != nil {
+		t.Error(err)
+	}
 
-// 	clusters, _ := clusterHandler.ListCluster()
-// 	for _, cluster := range clusters {
-// 		node_groups, _ := clusterHandler.ListNodeGroup(cluster.IId)
-// 		for _, node_group := range node_groups {
-// 			node_group_, err := clusterHandler.GetNodeGroup(cluster.IId, node_group.IId)
-// 			if err != nil {
-// 				t.Error(err)
-// 			}
-// 			t.Log(node_group_.IId.NameId, node_group_.IId.SystemId)
-// 			t.Log(node_group_)
-// 		}
-// 	}
+	new_node_group := &irs.NodeGroupInfo{
+		IId:             irs.IID{NameId: "np-test2", SystemId: ""},
+		ImageIID:        irs.IID{SystemId: "tlinux3.1x86_64"},
+		VMSpecName:      "S3.MEDIUM8",
+		RootDiskType:    "CLOUD_BSSD",
+		RootDiskSize:    "50",
+		KeyPairIID:      irs.IID{NameId: "", SystemId: "skey-4l982cjb"}, // KeyPair ID 설정
+		OnAutoScaling:   true,
+		DesiredNodeSize: 2,
+		MinNodeSize:     1,
+		MaxNodeSize:     3,
+	}
 
-// 	node_group, err := clusterHandler.GetNodeGroup(irs.IID{NameId: "", SystemId: "cluster_id_not_exist"}, irs.IID{NameId: "", SystemId: "node_group_id_not_exist"})
-// 	if err != nil {
-// 		println(err.Error())
-// 	}
-// 	println(node_group.IId.NameId)
-// }
+	clusters, _ := clusterHandler.ListCluster()
+	for _, cluster := range clusters {
+		t.Log(cluster)
+		node_group, err := clusterHandler.AddNodeGroup(cluster.IId, *new_node_group)
+		if err != nil {
+			t.Error(err)
+		}
+		t.Log(node_group)
+	}
+}
+
+func TestChangeNodeGroupScaling3(t *testing.T) {
+	clusterHandler, err := getClusterHandler()
+	if err != nil {
+		t.Error(err)
+	}
+
+	clusters, _ := clusterHandler.ListCluster()
+	for _, cluster := range clusters {
+		for _, node_group_info := range cluster.NodeGroupList {
+			res, err := clusterHandler.ChangeNodeGroupScaling(cluster.IId, node_group_info.IId, 2, 1, 3)
+			if err != nil {
+				t.Error(err)
+			}
+			println(res.IId.NameId, res.IId.SystemId)
+		}
+	}
+}
 
 func TestSetNodeGroupAutoScaling(t *testing.T) {
 	clusterHandler, err := getClusterHandler()

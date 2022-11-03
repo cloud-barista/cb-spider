@@ -5,6 +5,7 @@ import (
 	"fmt"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"math/rand"
+	"net"
 	"strconv"
 	"strings"
 	"sync"
@@ -103,16 +104,19 @@ type AzureResourceCategory string
 type AzureResourceKind string
 
 const (
-	AzureNetworkCategory AzureResourceCategory = "Microsoft.Network"
-	AzureComputeCategory AzureResourceCategory = "Microsoft.Compute"
+	AzureNetworkCategory          AzureResourceCategory = "Microsoft.Network"
+	AzureComputeCategory          AzureResourceCategory = "Microsoft.Compute"
+	AzureContainerServiceCategory AzureResourceCategory = "Microsoft.ContainerService"
 
 	AzureVirtualNetworks          AzureResourceKind = "virtualNetworks"
+	AzureSubnet                   AzureResourceKind = "subnets"
 	AzureSSHPublicKeys            AzureResourceKind = "sshPublicKeys"
 	AzureSecurityGroups           AzureResourceKind = "networkSecurityGroups"
 	AzurePublicIPAddresses        AzureResourceKind = "publicIPAddresses"
 	AzureFrontendIPConfigurations AzureResourceKind = "frontendIPConfigurations"
 	AzureLoadBalancers            AzureResourceKind = "loadBalancers"
 	AzureNetworkInterfaces        AzureResourceKind = "networkInterfaces"
+	AzureContainerService         AzureResourceKind = "managedClusters"
 )
 
 func generateRandName(prefix string) string {
@@ -132,6 +136,47 @@ func GetSshKeyIdByName(credentialInfo idrv.CredentialInfo, regionInfo idrv.Regio
 	return fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/%s/%s/%s", credentialInfo.SubscriptionId, regionInfo.ResourceGroup, AzureNetworkCategory, AzureSSHPublicKeys, keyName)
 }
 
+func GetClusterIdByName(credentialInfo idrv.CredentialInfo, regionInfo idrv.RegionInfo, clusterName string) string {
+	return fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/%s/%s/%s", credentialInfo.SubscriptionId, regionInfo.ResourceGroup, AzureContainerServiceCategory, AzureContainerService, clusterName)
+}
+
+func getNodePoolIdByName(credentialInfo idrv.CredentialInfo, regionInfo idrv.RegionInfo, clusterName string, nodePoolName string) string {
+	return fmt.Sprintf("%s/agentPools/%s", GetClusterIdByName(credentialInfo, regionInfo, clusterName), nodePoolName)
+}
+
+func getSubscriptionsById(resourceId string) (string, error) {
+	slice := strings.Split(resourceId, "/")
+	sliceLen := len(slice)
+	for index, item := range slice {
+		if item == "subscriptions" && sliceLen > index+1 {
+			return slice[index+1], nil
+		}
+	}
+	return "", errors.New(fmt.Sprintf("Invalid ResourceID"))
+}
+
+func GetVPCNameById(vpcId string) (string, error) {
+	slice := strings.Split(vpcId, "/")
+	sliceLen := len(slice)
+	for index, item := range slice {
+		if item == string(AzureVirtualNetworks) && sliceLen > index+1 {
+			return slice[index+1], nil
+		}
+	}
+	return "", errors.New(fmt.Sprintf("Invalid ResourceID"))
+}
+
+func GetClusterNameById(clusterId string) (string, error) {
+	slice := strings.Split(clusterId, "/")
+	sliceLen := len(slice)
+	for index, item := range slice {
+		if item == string(AzureContainerService) && sliceLen > index+1 {
+			return slice[index+1], nil
+		}
+	}
+	return "", errors.New(fmt.Sprintf("Invalid ResourceID"))
+}
+
 func GetSshKeyNameById(sshId string) (string, error) {
 	slice := strings.Split(sshId, "/")
 	sliceLen := len(slice)
@@ -143,11 +188,33 @@ func GetSshKeyNameById(sshId string) (string, error) {
 	return "", errors.New(fmt.Sprintf("Invalid ResourceName"))
 }
 
+func getNameById(sshId string, kind AzureResourceKind) (string, error) {
+	slice := strings.Split(sshId, "/")
+	sliceLen := len(slice)
+	for index, item := range slice {
+		if item == string(kind) && sliceLen > index+1 {
+			return slice[index+1], nil
+		}
+	}
+	return "", errors.New(fmt.Sprintf("Invalid ResourceName"))
+}
+
 func GetVMNameById(vmId string) (string, error) {
 	slice := strings.Split(vmId, "/")
 	sliceLen := len(slice)
 	for index, item := range slice {
 		if item == "virtualMachines" && sliceLen > index+1 {
+			return slice[index+1], nil
+		}
+	}
+	return "", errors.New(fmt.Sprintf("Invalid ResourceName"))
+}
+
+func getResourceGroupById(vmId string) (string, error) {
+	slice := strings.Split(vmId, "/")
+	sliceLen := len(slice)
+	for index, item := range slice {
+		if strings.ToLower(item) == "resourcegroups" && sliceLen > index+1 {
 			return slice[index+1], nil
 		}
 	}
@@ -219,4 +286,18 @@ func GetDiskInfoType(diskType compute.DiskStorageAccountTypes) string {
 	default:
 		return string(diskType)
 	}
+}
+
+func overlapCheckCidr(cidr1 string, cidr2 string) (bool, error) {
+	cidr1IP, cidr1IPnet, err := net.ParseCIDR(cidr1)
+	if err != nil {
+		return false, err
+	}
+	cidr2IP, cidr2IPnet, err := net.ParseCIDR(cidr2)
+	if err != nil {
+		return false, err
+	}
+	check1 := cidr1IPnet.Contains(cidr2IP)
+	check2 := cidr2IPnet.Contains(cidr1IP)
+	return !check1 && !check2, nil
 }

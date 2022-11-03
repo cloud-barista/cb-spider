@@ -104,6 +104,8 @@ type Config struct {
 					NameId   string `yaml:"nameId"`
 					SystemId string `yaml:"systemId"`
 				} `yaml:"DataDiskIIDs"`
+				VMUserID       string `yaml:"VMUserID"`
+				VMUserPassword string `yaml:"VMUserPassword"`
 			} `yaml:"vm"`
 			VmFromMyImage struct {
 				IID struct {
@@ -131,6 +133,8 @@ type Config struct {
 					NameId   string `yaml:"nameId"`
 					SystemId string `yaml:"systemId"`
 				} `yaml:"SecurityGroupIIDs"`
+				VMUserID       string `yaml:"VMUserID"`
+				VMUserPassword string `yaml:"VMUserPassword"`
 			} `yaml:"VmFromMyImage"`
 			DISK struct {
 				IID struct {
@@ -782,6 +786,8 @@ func testVMHandler(config Config) {
 		RootDiskSize:      "",
 		RootDiskType:      "",
 		DataDiskIIDs:      vmDataDiskIIDs,
+		VMUserId:          config.IbmVPC.Resources.Vm.VMUserID,
+		VMUserPasswd:      config.IbmVPC.Resources.Vm.VMUserPassword,
 	}
 	vmFromSnapshotReqInfo := irs.VMReqInfo{
 		IId: irs.IID{
@@ -803,6 +809,8 @@ func testVMHandler(config Config) {
 		SecurityGroupIIDs: SecurityGroupIIDs,
 		RootDiskSize:      "",
 		RootDiskType:      "",
+		VMUserId:          config.IbmVPC.Resources.VmFromMyImage.VMUserID,
+		VMUserPasswd:      config.IbmVPC.Resources.VmFromMyImage.VMUserPassword,
 	}
 
 Loop:

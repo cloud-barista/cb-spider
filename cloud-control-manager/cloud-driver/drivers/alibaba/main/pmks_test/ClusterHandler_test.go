@@ -67,7 +67,37 @@ func TestCreateClusterOnly(t *testing.T) {
 		},
 		Version: "1.22.15-aliyun.1",
 		Network: irs.NetworkInfo{
-			VpcIID: irs.IID{NameId: "", SystemId: "vpc-2zek5slojo5bh621ftnrg"},
+			VpcIID:            irs.IID{NameId: "", SystemId: "vpc-6wegylv6bnfsrxfyli7ni"},
+			SecurityGroupIIDs: []irs.IID{{NameId: "", SystemId: "sg-6we5h09p1u380n7or9hc"}},
+		},
+	}
+
+	cluster_, err := clusterHandler.CreateCluster(clusterInfo)
+	if err != nil {
+		t.Error(err)
+	}
+
+	t.Log(cluster_)
+}
+
+func TestCreateClusterOnlyAtTokyo(t *testing.T) {
+
+	t.Log("클러스터 생성, 노드그룹은 생성안함")
+
+	clusterHandler, err := getClusterHandler()
+	if err != nil {
+		t.Error(err)
+	}
+
+	clusterInfo := irs.ClusterInfo{
+		IId: irs.IID{
+			NameId:   "cluster-tokyo",
+			SystemId: "",
+		},
+		Version: "1.22.15-aliyun.1",
+		Network: irs.NetworkInfo{
+			VpcIID:            irs.IID{NameId: "", SystemId: "vpc-6wegylv6bnfsrxfyli7ni"},
+			SecurityGroupIIDs: []irs.IID{{NameId: "", SystemId: "sg-6we5h09p1u380n7or9hc"}},
 		},
 	}
 
@@ -177,15 +207,46 @@ func TestAddNodeGroup(t *testing.T) {
 	}
 
 	new_node_group := &irs.NodeGroupInfo{
-		IId: irs.IID{NameId: "nodepoolx2", SystemId: ""},
+		IId: irs.IID{NameId: "nodepool-x", SystemId: ""},
 		// ImageIID:        irs.IID{NameId: "", SystemId: "ubuntu_20_04_x64_20G_alibase_20220824.vhd"}, // 옵션, 설정해도 안됨
 		VMSpecName:      "ecs.c6.xlarge",
 		RootDiskType:    "cloud_essd",
 		RootDiskSize:    "70",
 		KeyPairIID:      irs.IID{NameId: "kp1", SystemId: ""},
 		OnAutoScaling:   true,
-		DesiredNodeSize: 1,
-		MinNodeSize:     0,
+		DesiredNodeSize: 0, // not supported.
+		MinNodeSize:     3,
+		MaxNodeSize:     3,
+	}
+
+	clusters, _ := clusterHandler.ListCluster()
+	for _, cluster := range clusters {
+		t.Log(cluster)
+		node_group, err := clusterHandler.AddNodeGroup(cluster.IId, *new_node_group)
+		if err != nil {
+			t.Error(err)
+		}
+		t.Log(node_group)
+	}
+}
+
+func TestAddNodeGroupTokyo(t *testing.T) {
+
+	clusterHandler, err := getClusterHandler()
+	if err != nil {
+		t.Error(err)
+	}
+
+	new_node_group := &irs.NodeGroupInfo{
+		IId: irs.IID{NameId: "nodepool-x2", SystemId: ""},
+		// ImageIID:        irs.IID{NameId: "", SystemId: "ubuntu_20_04_x64_20G_alibase_20220824.vhd"}, // 옵션, 설정해도 안됨
+		VMSpecName:      "ecs.c6.xlarge",
+		RootDiskType:    "cloud_essd",
+		RootDiskSize:    "70",
+		KeyPairIID:      irs.IID{NameId: "kp1", SystemId: ""},
+		OnAutoScaling:   true,
+		DesiredNodeSize: 2,
+		MinNodeSize:     1,
 		MaxNodeSize:     3,
 	}
 
@@ -242,7 +303,7 @@ func TestAddNodeGroup(t *testing.T) {
 // 	println(node_group.IId.NameId)
 // }
 
-func TestSetNodeGroupAutoScaling(t *testing.T) {
+func TestSetNodeGroupAutoScalingOn(t *testing.T) {
 	clusterHandler, err := getClusterHandler()
 	if err != nil {
 		t.Error(err)
@@ -262,6 +323,26 @@ func TestSetNodeGroupAutoScaling(t *testing.T) {
 	}
 }
 
+func TestSetNodeGroupAutoScalingOff(t *testing.T) {
+	clusterHandler, err := getClusterHandler()
+	if err != nil {
+		t.Error(err)
+	}
+
+	clusters, _ := clusterHandler.ListCluster()
+	for _, cluster := range clusters {
+		// node_groups, _ := clusterHandler.ListNodeGroup(cluster.IId)
+		// for _, node_group := range node_groups {
+		for _, node_group_info := range cluster.NodeGroupList {
+			res, err := clusterHandler.SetNodeGroupAutoScaling(cluster.IId, node_group_info.IId, false)
+			if err != nil {
+				t.Error(err)
+			}
+			println(res)
+		}
+	}
+}
+
 func TestChangeNodeGroupScaling(t *testing.T) {
 	clusterHandler, err := getClusterHandler()
 	if err != nil {
@@ -271,7 +352,7 @@ func TestChangeNodeGroupScaling(t *testing.T) {
 	clusters, _ := clusterHandler.ListCluster()
 	for _, cluster := range clusters {
 		for _, node_group_info := range cluster.NodeGroupList {
-			res, err := clusterHandler.ChangeNodeGroupScaling(cluster.IId, node_group_info.IId, 1, 0, 5)
+			res, err := clusterHandler.ChangeNodeGroupScaling(cluster.IId, node_group_info.IId, 0, 1, 2)
 			if err != nil {
 				t.Error(err)
 			}

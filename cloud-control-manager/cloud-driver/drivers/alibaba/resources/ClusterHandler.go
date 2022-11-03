@@ -13,6 +13,7 @@ package resources
 import (
 	"encoding/json"
 	"fmt"
+	"runtime/debug"
 	"strconv"
 	"strings"
 	"sync"
@@ -359,7 +360,7 @@ func getClusterInfo(access_key string, access_secret string, region_id string, c
 
 	defer func() {
 		if r := recover(); r != nil {
-			err = fmt.Errorf("Failed to Process getClusterInfo() %v", r)
+			err = fmt.Errorf("Failed to Process getClusterInfo() : %v\n\n%v", r, string(debug.Stack()))
 			cblogger.Error(err)
 		}
 	}()
@@ -417,6 +418,12 @@ func getClusterInfo(access_key string, access_secret string, region_id string, c
 				NameId:   "",
 				SystemId: cluster_json_obj["vpc_id"].(string),
 			},
+			SubnetIIDs: []irs.IID{
+				{
+					NameId:   "",
+					SystemId: cluster_json_obj["vswitch_id"].(string),
+				},
+			},
 			SecurityGroupIIDs: []irs.IID{
 				{
 					NameId:   "",
@@ -436,6 +443,7 @@ func getClusterInfo(access_key string, access_secret string, region_id string, c
 		cblogger.Error(err)
 		return nil, err
 	}
+	delete(flat, "meta_data")
 	for k, v := range flat {
 		temp := fmt.Sprintf("%v", v)
 		clusterInfo.KeyValueList = append(clusterInfo.KeyValueList, irs.KeyValue{Key: k, Value: temp})
@@ -470,7 +478,7 @@ func getNodeGroupInfo(access_key, access_secret, region_id, cluster_id, node_gro
 
 	defer func() {
 		if r := recover(); r != nil {
-			err = fmt.Errorf("Failed to Process getNodeGroupInfo() %v", r)
+			err = fmt.Errorf("Failed to Process getNodeGroupInfo() : %v\n\n%v", r, string(debug.Stack()))
 			cblogger.Error(err)
 		}
 	}()
@@ -520,15 +528,16 @@ func getNodeGroupInfo(access_key, access_secret, region_id, cluster_id, node_gro
 		RootDiskSize: strconv.Itoa(int(node_group_json_obj["scaling_group"].(map[string]interface{})["system_disk_size"].(float64))),
 		KeyPairIID: irs.IID{
 			NameId:   node_group_json_obj["scaling_group"].(map[string]interface{})["key_pair"].(string),
-			SystemId: "",
+			SystemId: node_group_json_obj["scaling_group"].(map[string]interface{})["key_pair"].(string), // key-pair id is not exist. so use name.
 		},
 		Status:          status,
 		OnAutoScaling:   node_group_json_obj["auto_scaling"].(map[string]interface{})["enable"].(bool),
 		MinNodeSize:     int(node_group_json_obj["auto_scaling"].(map[string]interface{})["min_instances"].(float64)),
 		MaxNodeSize:     int(node_group_json_obj["auto_scaling"].(map[string]interface{})["max_instances"].(float64)),
-		DesiredNodeSize: 0, // not supported in alibaba
-		Nodes:           []irs.IID{},
-		KeyValueList:    []irs.KeyValue{},
+		DesiredNodeSize: -1, // Parameter desired_size/count setting or modification is not supported for autoscaling-enabled nodepool
+
+		Nodes:        []irs.IID{},
+		KeyValueList: []irs.KeyValue{},
 	}
 
 	// k,v 추출 & 추가
@@ -538,9 +547,26 @@ func getNodeGroupInfo(access_key, access_secret, region_id, cluster_id, node_gro
 		cblogger.Error(err)
 		return nil, err
 	}
+	delete(flat, "meta_data")
 	for k, v := range flat {
 		temp := fmt.Sprintf("%v", v)
 		nodeGroupInfo.KeyValueList = append(nodeGroupInfo.KeyValueList, irs.KeyValue{Key: k, Value: temp})
+	}
+
+	nodes_json_str, err := alibaba.DescribeClusterNodes(access_key, access_secret, region_id, cluster_id, node_group_id)
+	if err != nil {
+		err := fmt.Errorf("Failed to Get Nodes :  %v", err)
+		cblogger.Error(err)
+		return nil, err
+	}
+	var nodes_json_obj map[string]interface{}
+	json.Unmarshal([]byte(nodes_json_str), &nodes_json_obj)
+	nodes := nodes_json_obj["nodes"].([]interface{})
+	for _, node := range nodes {
+		node_id := node.(map[string]interface{})["instance_id"].(string)
+		if node_id != "" {
+			nodeGroupInfo.Nodes = append(nodeGroupInfo.Nodes, irs.IID{NameId: "", SystemId: node_id})
+		}
 	}
 
 	return nodeGroupInfo, err
@@ -550,7 +576,7 @@ func getClusterInfoJSON(clusterHandler *AlibabaClusterHandler, clusterInfo irs.C
 
 	defer func() {
 		if r := recover(); r != nil {
-			err = fmt.Errorf("Failed to Process getClusterInfoJSON() %v", r)
+			err = fmt.Errorf("Failed to Process getClusterInfoJSON() : %v\n\n%v", r, string(debug.Stack()))
 			cblogger.Error(err)
 		}
 	}()
@@ -602,10 +628,12 @@ func getClusterInfoJSON(clusterHandler *AlibabaClusterHandler, clusterInfo irs.C
 		"container_cidr": "%s",
 		"service_cidr": "%s",
 		"num_of_nodes": 0,
-		"master_vswitch_ids": ["%s"]
+		"master_vswitch_ids": ["%s"],
+		"security_group_id": "%s",
+		"endpoint_public_access": true
 	}`
 
-	clusterInfoJSON = fmt.Sprintf(temp, clusterInfo.IId.NameId, clusterHandler.RegionInfo.Region, clusterInfo.Version, clusterInfo.Network.VpcIID.SystemId, cidr_list[0], cidr_list[1], master_vswitch_id)
+	clusterInfoJSON = fmt.Sprintf(temp, clusterInfo.IId.NameId, clusterHandler.RegionInfo.Region, clusterInfo.Version, clusterInfo.Network.VpcIID.SystemId, cidr_list[0], cidr_list[1], master_vswitch_id, clusterInfo.Network.SecurityGroupIIDs[0].SystemId)
 
 	return clusterInfoJSON, err
 }
@@ -614,7 +642,7 @@ func getNodeGroupJSONString(clusterHandler *AlibabaClusterHandler, clusterIID ir
 
 	defer func() {
 		if r := recover(); r != nil {
-			err = fmt.Errorf("Failed to Process getNodeGroupJSONString %v", r)
+			err = fmt.Errorf("Failed to Process getNodeGroupJSONString() : %v\n\n%v", r, string(debug.Stack()))
 			cblogger.Error(err)
 		}
 	}()
@@ -624,7 +652,7 @@ func getNodeGroupJSONString(clusterHandler *AlibabaClusterHandler, clusterIID ir
 	enable := nodeGroupReqInfo.OnAutoScaling
 	max_instances := nodeGroupReqInfo.MaxNodeSize
 	min_instances := nodeGroupReqInfo.MinNodeSize
-	// desired_instances := nodeGroupReqInfo.DesiredNodeSize // not supported in alibaba
+	//desired_instances := nodeGroupReqInfo.DesiredNodeSize
 	instance_type := nodeGroupReqInfo.VMSpecName
 	key_pair := nodeGroupReqInfo.KeyPairIID.NameId
 	system_disk_category := nodeGroupReqInfo.RootDiskType
@@ -657,7 +685,7 @@ func getNodeGroupJSONString(clusterHandler *AlibabaClusterHandler, clusterIID ir
 			"enable": %t,
 			"max_instances": %d,
 			"min_instances": %d
-		},
+		},		
 		"scaling_group": {
 			"instance_types": ["%s"],
 			"key_pair": "%s",
