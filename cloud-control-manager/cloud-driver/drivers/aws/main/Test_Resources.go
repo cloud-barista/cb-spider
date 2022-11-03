@@ -1439,11 +1439,30 @@ func handleCluster() {
 		IId: irs.IID{NameId: "cb-eks-cluster-test01"},
 		//Version : "1.23.3", //K8s version
 		Network: irs.NetworkInfo{
-			VpcIID: irs.IID{SystemId: "	vpc-0c4d36a3ac3924419"},
+			VpcIID: irs.IID{SystemId: "vpc-0c4d36a3ac3924419"},
 			//SubnetIID: [irs.IID{SystemId: "subnet-262d6d7a"},irs.IID{SystemId: "vpc-c0479cab"}],
 			SubnetIID: subnets,
 		},
 	} // nlbReqInfo
+
+	reqNodeGroupInfo := irs.NodeGroupInfo{
+		IId: irs.IID{NameId: "cb-eks-node-test01"},
+
+		// VM config.
+		ImageIID     IID
+		VMSpecName   string
+		RootDiskType string // "SSD(gp2)", "Premium SSD", ...
+		RootDiskSize string // "", "default", "50", "1000" (GB)
+		KeyPairIID   IID
+	
+		Status NodeGroupStatus
+	
+		// Scaling config.
+		OnAutoScaling   bool // default: true
+		DesiredNodeSize int
+		MinNodeSize     int
+		MaxNodeSize     int		
+	}
 
 	for {
 		fmt.Println("ClusterHandler Management")
@@ -1523,7 +1542,6 @@ func handleCluster() {
 
 			case 5:
 				cblogger.Infof("[%s] AddNode 테스트", clusterReqInfo.IId)
-				reqNodeGroupInfo := irs.NodeGroupInfo{}
 				result, err := handler.AddNodeGroup(clusterReqInfo.IId, reqNodeGroupInfo)
 				if err != nil {
 					cblogger.Infof("[%s] 리스너 변경 실패 : ", clusterReqInfo.IId.NameId, err)
