@@ -15,11 +15,12 @@ import (
 )
 
 type AzureMyImageHandler struct {
-	CredentialInfo idrv.CredentialInfo
-	Region         idrv.RegionInfo
-	Ctx            context.Context
-	VMClient       *compute.VirtualMachinesClient
-	ImageClient    *compute.ImagesClient
+	CredentialInfo                  idrv.CredentialInfo
+	Region                          idrv.RegionInfo
+	Ctx                             context.Context
+	VMClient                        *compute.VirtualMachinesClient
+	ImageClient                     *compute.ImagesClient
+	VirtualMachineRunCommandsClient *compute.VirtualMachineRunCommandsClient
 }
 
 func (myImageHandler *AzureMyImageHandler) SnapshotVM(snapshotReqInfo irs.MyImageInfo) (myImageInfo irs.MyImageInfo, snapshotErr error) {
@@ -75,47 +76,14 @@ func (myImageHandler *AzureMyImageHandler) SnapshotVM(snapshotReqInfo irs.MyImag
 		LoggingError(hiscallInfo, snapshotErr)
 		return irs.MyImageInfo{}, snapshotErr
 	}
-	vmStatus := getVmStatus(*rawVm.InstanceView)
-
-	if vmStatus == irs.Running {
-		offFuture, err := myImageHandler.VMClient.PowerOff(myImageHandler.Ctx, myImageHandler.Region.ResourceGroup, *rawVm.Name, to.BoolPtr(false))
-		if err != nil {
-			snapshotErr = errors.New(fmt.Sprintf("Failed to SnapshotVM. Failed to PowerOff err = %s", err))
-			cblogger.Error(snapshotErr.Error())
-			LoggingError(hiscallInfo, snapshotErr)
-			return irs.MyImageInfo{}, snapshotErr
-		}
-		err = offFuture.WaitForCompletionRef(myImageHandler.Ctx, myImageHandler.VMClient.Client)
-		if err != nil {
-			snapshotErr = errors.New(fmt.Sprintf("Failed to SnapshotVM. Failed to PowerOff err = %s", err))
-			cblogger.Error(snapshotErr.Error())
-			LoggingError(hiscallInfo, snapshotErr)
-			return irs.MyImageInfo{}, snapshotErr
-		}
-		curRetryCnt := 0
-		maxRetryCnt := 60
-		for {
-			instanceView, instanceViewErr := myImageHandler.VMClient.InstanceView(myImageHandler.Ctx, myImageHandler.Region.ResourceGroup, *rawVm.Name)
-			if instanceViewErr == nil && getVmStatus(instanceView) == irs.Suspended {
-				break
-			}
-			curRetryCnt++
-			time.Sleep(1 * time.Second)
-			if curRetryCnt > maxRetryCnt {
-				snapshotErr = errors.New(fmt.Sprintf("Failed to SnapshotVM. Failed to PowerOff err = exceeded maximum retry count %d", maxRetryCnt))
-				cblogger.Error(snapshotErr.Error())
-				LoggingError(hiscallInfo, snapshotErr)
-				return irs.MyImageInfo{}, snapshotErr
-			}
-		}
-	} else if vmStatus != irs.Suspended {
-		if err != nil {
-			snapshotErr = errors.New(fmt.Sprintf("Failed to SnapshotVM. err = Snapshots are only available in the 'Suspended', 'Running' state."))
-			cblogger.Error(snapshotErr.Error())
-			LoggingError(hiscallInfo, snapshotErr)
-			return irs.MyImageInfo{}, snapshotErr
-		}
+	err = preparationOperationForGeneralize(rawVm, myImageHandler.VMClient, myImageHandler.VirtualMachineRunCommandsClient, myImageHandler.Ctx, myImageHandler.Region)
+	if err != nil {
+		snapshotErr = errors.New(fmt.Sprintf("Failed to SnapshotVM. err = %s", err))
+		cblogger.Error(snapshotErr.Error())
+		LoggingError(hiscallInfo, snapshotErr)
+		return irs.MyImageInfo{}, snapshotErr
 	}
+
 	// 이미지 생성
 	imagecreatOpt := compute.Image{
 		Location: to.StringPtr(myImageHandler.Region.Region),
@@ -128,6 +96,7 @@ func (myImageHandler *AzureMyImageHandler) SnapshotVM(snapshotReqInfo irs.MyImag
 			"createdAt": to.StringPtr(strconv.FormatInt(time.Now().Unix(), 10)),
 		},
 	}
+
 	_, err = myImageHandler.VMClient.Generalize(myImageHandler.Ctx, myImageHandler.Region.ResourceGroup, convertedVMIId.NameId)
 	if err != nil {
 		snapshotErr = errors.New(fmt.Sprintf("Failed to SnapshotVM. err = %s", err))
@@ -178,7 +147,7 @@ func (myImageHandler *AzureMyImageHandler) SnapshotVM(snapshotReqInfo irs.MyImag
 func (myImageHandler *AzureMyImageHandler) ListMyImage() ([]*irs.MyImageInfo, error) {
 	hiscallInfo := GetCallLogScheme(myImageHandler.Region, call.MYIMAGE, "MyImage", "ListMyImage()")
 	start := call.Start()
-	myImageList, err := myImageHandler.ImageClient.List(myImageHandler.Ctx)
+	myImageList, err := myImageHandler.ImageClient.ListByResourceGroup(myImageHandler.Ctx, myImageHandler.Region.ResourceGroup)
 	if err != nil {
 		getErr := errors.New(fmt.Sprintf("Failed to List MyImage. err = %s", err))
 		cblogger.Error(getErr.Error())
@@ -322,4 +291,123 @@ func CheckExistMyImage(myImageIID irs.IID, client *compute.ImagesClient, ctx con
 		}
 	}
 	return false, nil
+}
+
+func preparationOperationForGeneralize(rawVm compute.VirtualMachine, vmClient *compute.VirtualMachinesClient, virtualMachineRunCommandsClient *compute.VirtualMachineRunCommandsClient, ctx context.Context, region idrv.RegionInfo) error {
+	sourceVMOSType, err := getOSTypeByVM(rawVm)
+	if err != nil {
+		return err
+	}
+	vmStatus := getVmStatus(*rawVm.InstanceView)
+	if sourceVMOSType == WindowOS {
+		if vmStatus == irs.Running {
+			err = windowShellPreparationOperationForGeneralize(*rawVm.Name, virtualMachineRunCommandsClient, ctx, region)
+			if err != nil {
+				return err
+			}
+			err = suspendCheck(*rawVm.Name, vmClient, ctx, region)
+			if err != nil {
+				return errors.New(fmt.Sprintf("failed to PowerOff err = %s", err))
+			}
+		} else if vmStatus == irs.Suspended {
+			resumeFuture, err := vmClient.Start(ctx, region.ResourceGroup, *rawVm.Name)
+			if err != nil {
+				return errors.New(fmt.Sprintf("The VM failed to runnig to prepare for virtualization inside the VM err = %s", err))
+			}
+			err = resumeFuture.WaitForCompletionRef(ctx, vmClient.Client)
+			if err != nil {
+				return errors.New(fmt.Sprintf("The VM failed to runnig to prepare for virtualization inside the VM err = %s", err))
+			}
+			curRetryCnt := 0
+			maxRetryCnt := 60
+			for {
+				instanceView, instanceViewErr := vmClient.InstanceView(ctx, region.ResourceGroup, *rawVm.Name)
+				if instanceViewErr == nil && getVmStatus(instanceView) == irs.Running {
+					break
+				}
+				curRetryCnt++
+				time.Sleep(1 * time.Second)
+				if curRetryCnt > maxRetryCnt {
+					return errors.New(fmt.Sprintf("The VM failed to runnig to prepare for virtualization inside the VM err = exceeded maximum retry count %d", maxRetryCnt))
+				}
+			}
+			err = windowShellPreparationOperationForGeneralize(*rawVm.Name, virtualMachineRunCommandsClient, ctx, region)
+			if err != nil {
+				return errors.New(fmt.Sprintf("virtualization preparation operation failed inside the VM. err = %s", err))
+			}
+			err = suspendCheck(*rawVm.Name, vmClient, ctx, region)
+			if err != nil {
+				return errors.New(fmt.Sprintf("failed to PowerOff err = %s", err))
+			}
+		} else {
+			return errors.New(fmt.Sprintf("snapshots are only available in the 'Suspended', 'Running' state."))
+		}
+		return nil
+	} else {
+		// Linux
+		if vmStatus == irs.Running {
+			err = waitingVMSuspend(rawVm, vmClient, ctx, region)
+			if err != nil {
+				return err
+			}
+		} else if vmStatus != irs.Suspended {
+			return errors.New(fmt.Sprintf("snapshots are only available in the 'Suspended', 'Running' state."))
+		}
+		return nil
+	}
+}
+
+func suspendCheck(vmName string, vmClient *compute.VirtualMachinesClient, ctx context.Context, region idrv.RegionInfo) error {
+	curRetryCnt := 0
+	maxRetryCnt := 60
+	for {
+		instanceView, instanceViewErr := vmClient.InstanceView(ctx, region.ResourceGroup, vmName)
+		if instanceViewErr == nil && getVmStatus(instanceView) == irs.Suspended {
+			break
+		}
+		curRetryCnt++
+		time.Sleep(1 * time.Second)
+		if curRetryCnt > maxRetryCnt {
+			return errors.New(fmt.Sprintf("failed to PowerOff err = exceeded maximum retry count %d", maxRetryCnt))
+		}
+	}
+	return nil
+}
+
+func waitingVMSuspend(rawVm compute.VirtualMachine, vmClient *compute.VirtualMachinesClient, ctx context.Context, region idrv.RegionInfo) error {
+	offFuture, err := vmClient.PowerOff(ctx, region.ResourceGroup, *rawVm.Name, to.BoolPtr(false))
+	if err != nil {
+		return errors.New(fmt.Sprintf("failed to PowerOff err = %s", err))
+	}
+	err = offFuture.WaitForCompletionRef(ctx, vmClient.Client)
+	if err != nil {
+		return errors.New(fmt.Sprintf("failed to PowerOff err = %s", err))
+	}
+	err = suspendCheck(*rawVm.Name, vmClient, ctx, region)
+	if err != nil {
+		return errors.New(fmt.Sprintf("failed to PowerOff err = %s", err))
+	}
+	return nil
+}
+
+func windowShellPreparationOperationForGeneralize(vmName string, virtualMachineRunCommandsClient *compute.VirtualMachineRunCommandsClient, ctx context.Context, region idrv.RegionInfo) error {
+	runOpt := compute.VirtualMachineRunCommand{
+		VirtualMachineRunCommandProperties: &compute.VirtualMachineRunCommandProperties{
+			Source: &compute.VirtualMachineRunCommandScriptSource{
+				// Script: to.StringPtr(fmt.Sprintf("net user /add administrator qwe1212!Q; net localgroup administrators cb-user /add; net user /delete administrator;")),
+				Script: to.StringPtr(`RD C:\Windows\Panther -Recurse; C:\Windows\system32\sysprep\sysprep.exe /oobe /generalize /mode:vm /shutdown;`),
+			},
+		},
+		Location: to.StringPtr(region.Region),
+	}
+
+	runCommandResult, err := virtualMachineRunCommandsClient.CreateOrUpdate(ctx, region.ResourceGroup, vmName, "RunPowerShellScript", runOpt)
+	if err != nil {
+		return errors.New(fmt.Sprintf("failed window PreworkForGeneralize %s", err.Error()))
+	}
+	err = runCommandResult.WaitForCompletionRef(ctx, virtualMachineRunCommandsClient.Client)
+	if err != nil {
+		return errors.New(fmt.Sprintf("failed window PreworkForGeneralize %s", err.Error()))
+	}
+	return nil
 }
