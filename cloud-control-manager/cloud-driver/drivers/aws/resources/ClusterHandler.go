@@ -170,6 +170,7 @@ func (ClusterHandler *AwsClusterHandler) CreateCluster(clusterReqInfo irs.Cluste
 		//----- wait until Status=COMPLETE -----//  :  Nodegroup이 모두 생성되면 조회
 	*/
 
+	clusterReqInfo.IId.SystemId = *result.Cluster.Name
 	clusterInfo, errClusterInfo := ClusterHandler.GetCluster(clusterReqInfo.IId)
 	if errClusterInfo != nil {
 		cblogger.Error(errClusterInfo.Error())
@@ -432,7 +433,7 @@ func (ClusterHandler *AwsClusterHandler) DeleteCluster(clusterIID irs.IID) (bool
 			// Message from an error.
 			cblogger.Error(err.Error())
 		}
-		return false, nil
+		return false, err
 	}
 	callogger.Info(call.String(callLogInfo))
 
@@ -458,16 +459,29 @@ func (ClusterHandler *AwsClusterHandler) DeleteCluster(clusterIID irs.IID) (bool
 Cluster.NetworkInfo 설정과 동일 서브넷으로 설정
 NodeGroup 추가시에는 대상 Cluster 정보 획득하여 설정
 NodeGroup에 다른 Subnet 설정이 꼭 필요시 추후 재논의
+//https://github.com/cloud-barista/cb-spider/wiki/Provider-Managed-Kubernetes-and-Driver-API
 */
 func (ClusterHandler *AwsClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGroupReqInfo irs.NodeGroupInfo) (irs.NodeGroupInfo, error) {
 	// validation check
 	if nodeGroupReqInfo.MaxNodeSize < 1 { // nodeGroupReqInfo.MaxNodeSize 는 최소가 1이다.
-		return irs.NodeGroupInfo{}, awserr.New(CUSTOM_ERR_CODE_BAD_REQUEST, "max는 최소가 1이다.", nil)
+		return irs.NodeGroupInfo{}, awserr.New(CUSTOM_ERR_CODE_BAD_REQUEST, "MaxNodeSize 값은 1이상이 되어야 합니다.", nil)
 	}
 
 	//eksRoleName := "arn:aws:iam::050864702683:role/cb-eks-nodegroup-role"
-	eksRoleName := "arn:aws:iam::050864702683:role/AWSServiceRoleForAmazonEKSNodegroup"
+	//eksRoleName := "arn:aws:iam::050864702683:role/AWSServiceRoleForAmazonEKSNodegroup"
 	//AWSServiceRoleForAmazonEKSNodegroup
+
+	//eksRoleName := "cloud-barista-spider-eks-cluster-role"
+	// get Role Arn
+	//eksRoleName := "AWSServiceRoleForAmazonEKSNodegroup"
+	eksRoleName := "cloud-barista-spider-eks-nodegroup-role"
+	eksRoleName = "cb-eks-nodegroup-role" //테스트용
+	eksRole, err := ClusterHandler.getRole(irs.IID{SystemId: eksRoleName})
+	if err != nil {
+		// role 은 required 임.
+		return irs.NodeGroupInfo{}, err
+	}
+	roleArn := eksRole.Role.Arn
 
 	clusterInfo, err := ClusterHandler.GetCluster(clusterIID)
 	if err != nil {
@@ -494,10 +508,11 @@ func (ClusterHandler *AwsClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGr
 		//CapacityType: aws.String("ON_DEMAND"),//Valid Values: ON_DEMAND | SPOT, Required: No
 
 		//ClusterName:   aws.String("cb-eks-cluster"),              //uri, required
-		ClusterName:   aws.String(clusterIID.SystemId),           //uri, required
-		NodegroupName: aws.String(nodeGroupReqInfo.IId.SystemId), // required
+		ClusterName:   aws.String(clusterIID.SystemId),         //uri, required
+		NodegroupName: aws.String(nodeGroupReqInfo.IId.NameId), // required
 		Tags:          aws.StringMap(tags),
-		NodeRole:      aws.String(eksRoleName), // roleName, required
+		//NodeRole:      aws.String(eksRoleName), // roleName, required
+		NodeRole: roleArn,
 		ScalingConfig: &eks.NodegroupScalingConfig{
 			DesiredSize: aws.Int64(int64(nodeGroupReqInfo.DesiredNodeSize)),
 			MaxSize:     aws.Int64(int64(nodeGroupReqInfo.MaxNodeSize)),
@@ -549,7 +564,10 @@ func (ClusterHandler *AwsClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGr
 		return irs.NodeGroupInfo{}, err
 	}
 
-	spew.Dump(result)
+	if cblogger.Level.String() == "debug" {
+		spew.Dump(result)
+	}
+
 	nodegroupName := result.Nodegroup.NodegroupName
 
 	/*// Sync Call에서 Async Call로 변경 - 이슈:#716
@@ -565,6 +583,7 @@ func (ClusterHandler *AwsClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGr
 	if err != nil {
 		return irs.NodeGroupInfo{}, err
 	}
+	nodeGroup.IId.NameId = nodeGroupReqInfo.IId.NameId
 	return nodeGroup, nil
 }
 
