@@ -227,16 +227,61 @@ func (vmHandler *AwsVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 	//=============================
 	// 향후 공통 파일이나 외부에서 수정 가능하도록 cloud-init 스크립트 파일로 설정
 	rootPath := os.Getenv("CBSPIDER_ROOT")
-	fileDataCloudInit, err := ioutil.ReadFile(rootPath + CBCloudInitFilePath)
+	initFilePath := rootPath + CBCloudInitFilePath // Linux용 Cloud Init Data 탬플릿
+	userData := ""
+	isWindowsImage := false
+
+	//Windows OS 처리를 위해 이미지 정보 조회
+	imageHandler := AwsImageHandler{
+		Region: vmHandler.Region,
+		Client: vmHandler.Client,
+	}
+
+	imgInfo, errImgInfo := imageHandler.GetImage(vmReqInfo.ImageIID)
+	if errImgInfo != nil {
+		cblogger.Error(errImgInfo)
+		return irs.VMInfo{}, errImgInfo
+	}
+
+	cblogger.Debugf("imgInfo.GuestOS : [%s]", imgInfo.GuestOS)
+	if strings.Contains(strings.ToUpper(imgInfo.GuestOS), "WINDOWS") {
+
+		if len(vmReqInfo.VMUserPasswd) < 2 {
+			cblogger.Error("윈도우즈용 비밀번호가 입력되지 않았습니다.")
+			return irs.VMInfo{}, awserr.New(CUSTOM_ERR_CODE_BAD_REQUEST, "VMUserPasswd is nil - Password for Windows is not entered.", nil)
+		}
+
+		isWindowsImage = true
+		initFilePath = rootPath + CBCloudInitWindowsFilePath //windows용 Cloud-Init 탬플릿으로 변경
+	} else {
+		isWindowsImage = false
+	}
+
+	fileDataCloudInit, err := ioutil.ReadFile(initFilePath)
 	if err != nil {
 		cblogger.Error(err)
 		return irs.VMInfo{}, err
 	}
-	userData := string(fileDataCloudInit)
+
+	//OS 종류에 따른 Cloud Init Data 처리
+	if isWindowsImage {
+		userData = strings.Replace(string(fileDataCloudInit), "*PASSWORD*", vmReqInfo.VMUserPasswd, 1)
+		cblogger.Debugf("Windows용 Cloud-Init : [%s]", userData)
+	} else {
+		userData = string(fileDataCloudInit)
+	}
+
 	//userData = strings.ReplaceAll(userData, "{{username}}", CBDefaultVmUserName)
 	//userData = strings.ReplaceAll(userData, "{{public_key}}", keyPairInfo.PublicKey)
 	userDataBase64 := aws.String(base64.StdEncoding.EncodeToString([]byte(userData)))
 	cblogger.Debugf("cloud-init data : [%s]", userDataBase64)
+
+	/*
+		if 1 == 1 {
+			cblogger.Error("====윈도우즈 지원 테스트로 강제 종료함. ====")
+			return irs.VMInfo{}, nil
+		}
+	*/
 
 	//=============================
 	// VM생성 처리
