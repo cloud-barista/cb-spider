@@ -341,6 +341,9 @@ func (vmHandler *AzureVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 			}
 		}
 	} else {
+		if len(vmReqInfo.IId.NameId) > 15 {
+			vmOpts.OsProfile.ComputerName = to.StringPtr(vmReqInfo.IId.NameId[:15])
+		}
 		vmOpts.OsProfile.AdminPassword = to.StringPtr(vmReqInfo.VMUserPasswd)
 		vmOpts.OsProfile.AdminUsername = to.StringPtr(WindowTempUser)
 		vmOpts.Tags = map[string]*string{
@@ -1490,9 +1493,9 @@ func checkAuthInfoOSType(vmReqInfo irs.VMReqInfo, OSType AzureOSTYPE) error {
 }
 
 func checkComputerNameWindow(vmReqInfo irs.VMReqInfo) error {
-	if len(vmReqInfo.IId.NameId) > 15 {
-		return errors.New("for Windows, VM's computeName cannot exceed 15 characters")
-	}
+	//if len(vmReqInfo.IId.NameId) > 15 {
+	//	return errors.New("for Windows, VM's computeName cannot exceed 15 characters")
+	//}
 	// https://learn.microsoft.com/ko-KR/troubleshoot/windows-server/identity/naming-conventions-for-computer-domain-site-ou
 	matchCase, _ := regexp.MatchString(`[\/?:|*<>\\\"]+`, vmReqInfo.IId.NameId)
 	if matchCase {
