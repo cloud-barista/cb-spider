@@ -949,7 +949,7 @@ func handleVM() {
 
 	//config := readConfigFile()
 	//VmID := irs.IID{NameId: config.Aws.BaseName, SystemId: config.Aws.VmID}
-	VmID := irs.IID{SystemId: "i-08f13a125cc74bef6"}
+	VmID := irs.IID{SystemId: "i-0cea86282a9e2a569"}
 
 	for {
 		fmt.Println("VM Management")
@@ -978,16 +978,18 @@ func handleVM() {
 
 			case 1:
 				vmReqInfo := irs.VMReqInfo{
-					IId: irs.IID{NameId: "mcloud-barista-cb-user-test-rootsize"},
+					IId: irs.IID{NameId: "mcloud-barista-windows-test"},
 					//ImageIID:          irs.IID{SystemId: "ami-001b6f8703b50e077"}, //centos-stable-7.2003.13-ebs-202005201235
 					//ImageIID:          irs.IID{SystemId: "ami-059b6d3840b03d6dd"}, //Ubuntu Server 20.04 LTS (HVM)
 					//ImageIID:          irs.IID{SystemId: "ami-09e67e426f25ce0d7"}, //Ubuntu Server 20.04 LTS (HVM) - 버지니아 북부 리전
 					//ImageIID:          irs.IID{SystemId: "ami-059b6d3840b03d6dd"}, //Ubuntu Server 20.04 LTS (HVM)
-					ImageIID:          irs.IID{SystemId: "ami-0fe22bffdec36361c"}, //Ubuntu Server 18.04 LTS (HVM) - Japan 리전
+					//ImageIID: irs.IID{SystemId: "ami-0fe22bffdec36361c"}, //Ubuntu Server 18.04 LTS (HVM) - Japan 리전
+					ImageIID:          irs.IID{SystemId: "ami-093f427eb324bb754"}, //Microsoft Windows Server 2012 R2 RTM 64-bit Locale English AMI provided by Amazon - Japan 리전
 					SubnetIID:         irs.IID{SystemId: "subnet-0a6ca346752be1ca4"},
-					SecurityGroupIIDs: []irs.IID{{SystemId: "sg-08c76d376b6e4e4ae"}},
+					SecurityGroupIIDs: []irs.IID{{SystemId: "sg-0f4532a525ad09de1"}}, //3389 RDP 포트 Open
 					VMSpecName:        "t2.micro",
 					KeyPairIID:        irs.IID{SystemId: "japan-test"},
+					VMUserPasswd:      "1234qwer!@#$", //윈도우즈용 비밀번호
 
 					RootDiskType: "standard", //gp2/standard/io1/io2/sc1/st1/gp3
 					//RootDiskType: "gp2", //gp2/standard/io1/io2/sc1/st1/gp3
@@ -1421,12 +1423,12 @@ func main() {
 	//handleKeyPair()
 	//handlePublicIP() // PublicIP 생성 후 conf
 	//handleSecurity()
-	//handleVM()
+	handleVM()
 
 	//handleImage() //AMI
 	//handleVNic() //Lancard
 	//handleVMSpec()
-	handleNLB()
+	//handleNLB()
 }
 
 //handlerType : resources폴더의 xxxHandler.go에서 Handler이전까지의 문자열
