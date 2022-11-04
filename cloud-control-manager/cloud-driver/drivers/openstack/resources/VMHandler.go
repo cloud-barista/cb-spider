@@ -13,7 +13,15 @@ package resources
 import (
 	"errors"
 	"fmt"
+	cdcom "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/common"
+	"github.com/gophercloud/gophercloud"
 	volumes3 "github.com/gophercloud/gophercloud/openstack/blockstorage/v3/volumes"
+	"github.com/gophercloud/gophercloud/openstack/compute/v2/extensions/bootfromvolume"
+	"github.com/gophercloud/gophercloud/openstack/compute/v2/extensions/floatingips"
+	"github.com/gophercloud/gophercloud/openstack/compute/v2/extensions/keypairs"
+	"github.com/gophercloud/gophercloud/openstack/compute/v2/extensions/startstop"
+	"github.com/gophercloud/gophercloud/openstack/compute/v2/flavors"
+	"github.com/gophercloud/gophercloud/openstack/compute/v2/servers"
 	"github.com/gophercloud/gophercloud/openstack/networking/v2/subnets"
 	"io/ioutil"
 	"math/rand"
@@ -23,15 +31,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	"unicode"
-
-	"github.com/gophercloud/gophercloud"
-	"github.com/gophercloud/gophercloud/openstack/compute/v2/extensions/bootfromvolume"
-	"github.com/gophercloud/gophercloud/openstack/compute/v2/extensions/floatingips"
-	"github.com/gophercloud/gophercloud/openstack/compute/v2/extensions/keypairs"
-	"github.com/gophercloud/gophercloud/openstack/compute/v2/extensions/startstop"
-	"github.com/gophercloud/gophercloud/openstack/compute/v2/flavors"
-	"github.com/gophercloud/gophercloud/openstack/compute/v2/servers"
 
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
@@ -960,35 +959,9 @@ func checkWindowVMReqInfo(vmReqInfo irs.VMReqInfo) error {
 		return errors.New("for Windows, the userId only provides Administrator")
 	}
 	// password
-	if len(vmReqInfo.VMUserPasswd) < 8 {
-		return errors.New("password length of Windows cannot be less than 8")
-	}
-
-	passwordComplexityScore := 0
-	var regexMatchers []*regexp.Regexp
-	regexMatcherHasDigit := regexp.MustCompile(`\d`)
-	regexMatchers = append(regexMatchers, regexMatcherHasDigit)
-	regexMatcherHasUpperCase := regexp.MustCompile("[A-Z]")
-	regexMatchers = append(regexMatchers, regexMatcherHasUpperCase)
-	regexMatcherHasLowerCase := regexp.MustCompile("[a-z]")
-	regexMatchers = append(regexMatchers, regexMatcherHasLowerCase)
-	regexMatcherHasNonAlphanumeric := regexp.MustCompile(`[^a-zA-Z0-9]`)
-	regexMatchers = append(regexMatchers, regexMatcherHasNonAlphanumeric)
-
-	for _, matcher := range regexMatchers {
-		if matcher.MatchString(vmReqInfo.VMUserPasswd) {
-			passwordComplexityScore++
-		}
-	}
-
-	for _, c := range vmReqInfo.VMUserPasswd {
-		if unicode.IsLetter(c) && !unicode.IsUpper(c) && !unicode.IsLower(c) {
-			passwordComplexityScore++
-			break
-		}
-	}
-	if passwordComplexityScore < 3 {
-		return errors.New("password must meet Windows password complexity requirements")
+	err := cdcom.ValidateWindowsPassword(vmReqInfo.VMUserPasswd)
+	if err != nil {
+		return err
 	}
 	if vmReqInfo.KeyPairIID.NameId != "" || vmReqInfo.KeyPairIID.SystemId != "" {
 		return errors.New("for Windows, SSH key login method is not supported")
