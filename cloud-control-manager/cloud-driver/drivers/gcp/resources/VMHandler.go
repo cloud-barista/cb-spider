@@ -203,6 +203,13 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 		},
 	}
 
+	//Windows OS인 경우 administrator 계정 비번 설정 및 계정 활성화
+	if vmReqInfo.WindowsType {
+		winOsMeta := "net user \"administrator\" \"" + vmReqInfo.VMUserPasswd + "\"\nnet user administrator /active:yes"
+		winOsPwd := compute.MetadataItems{Key: "windows-startup-script-cmd", Value: &winOsMeta}
+		instance.Metadata.Items = append(instance.Metadata.Items, &winOsPwd)
+	}
+
 	// imageType이 MyImage인 경우 SourceMachineImage Setting
 	if vmReqInfo.ImageType == irs.MyImage {
 		instance.SourceMachineImage = imageURL

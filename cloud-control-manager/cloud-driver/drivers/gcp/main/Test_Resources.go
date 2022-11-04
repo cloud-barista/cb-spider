@@ -1125,6 +1125,9 @@ func handleVM() {
 					//RootDiskSize: "12",     //최소 10GB 이상이어야 함.
 					RootDiskSize: "default", //10GB
 					DataDiskIIDs: []irs.IID{{SystemId: "cb-disk-02"}},
+
+					VMUserPasswd: "1234qwer!@#$", //윈도우즈용 비밀번호
+					WindowsType:  true,           //윈도우즈 테스트
 				}
 
 				vmInfo, err := vmHandler.StartVM(vmReqInfo)
@@ -1799,10 +1802,10 @@ func main() {
 	//handleImage() //AMI
 	//handleKeyPair()
 	//handleSecurity()
-	//handleVM()
+	handleVM()
 	//handleLoadBalancer()
 	//handleDisk()
-	handleMyImage()
+	//handleMyImage()
 	//cblogger.Info(filepath.Join("a/b", "\\cloud-driver-libs\\.ssh-gcp\\"))
 	//cblogger.Info(filepath.Join("\\cloud-driver-libs\\.ssh-gcp\\", "/b/c/d"))
 }
