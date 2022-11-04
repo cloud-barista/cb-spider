@@ -11,11 +11,13 @@ import (
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
+	"gopkg.in/yaml.v2"
 	"math"
 	"net"
 	"reflect"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -24,6 +26,7 @@ const (
 	OwnerClusterKey      = "ownerCluster"
 	ScaleSetOwnerKey     = "aks-managed-poolName"
 	ClusterNodeSSHKeyKey = "sshkey"
+	ClusterAdminKey      = "clusterAdmin"
 )
 
 type AzureClusterHandler struct {
@@ -80,7 +83,7 @@ func (ac *AzureClusterHandler) CreateCluster(clusterReqInfo irs.ClusterInfo) (in
 		LoggingError(hiscallInfo, createErr)
 		return irs.ClusterInfo{}, createErr
 	}
-	info, err = setterClusterInfo(cluster, ac.SecurityGroupsClient, ac.VirtualNetworksClient, ac.AgentPoolsClient, ac.VirtualMachineScaleSetsClient, ac.VirtualMachineScaleSetVMsClient, ac.CredentialInfo, ac.Region, ac.Ctx)
+	info, err = setterClusterInfo(cluster, ac.ManagedClustersClient, ac.SecurityGroupsClient, ac.VirtualNetworksClient, ac.AgentPoolsClient, ac.VirtualMachineScaleSetsClient, ac.VirtualMachineScaleSetVMsClient, ac.CredentialInfo, ac.Region, ac.Ctx)
 	if err != nil {
 		createErr = errors.New(fmt.Sprintf("Failed to Create Cluster. err = %s", err))
 		cblogger.Error(createErr.Error())
@@ -101,16 +104,12 @@ func (ac *AzureClusterHandler) ListCluster() (listInfo []*irs.ClusterInfo, getEr
 		LoggingError(hiscallInfo, getErr)
 		return make([]*irs.ClusterInfo, 0), getErr
 	}
-	listInfo = make([]*irs.ClusterInfo, len(clusterList.Values()))
-	for i, cluster := range clusterList.Values() {
-		info, err := setterClusterInfo(cluster, ac.SecurityGroupsClient, ac.VirtualNetworksClient, ac.AgentPoolsClient, ac.VirtualMachineScaleSetsClient, ac.VirtualMachineScaleSetVMsClient, ac.CredentialInfo, ac.Region, ac.Ctx)
-		if err != nil {
-			getErr = errors.New(fmt.Sprintf("Failed to List Cluster. err = %s", err))
-			cblogger.Error(getErr.Error())
-			LoggingError(hiscallInfo, getErr)
-			return make([]*irs.ClusterInfo, 0), getErr
-		}
-		listInfo[i] = &info
+	listInfo, err = setterClusterInfoList(clusterList.Values(), ac.ManagedClustersClient, ac.SecurityGroupsClient, ac.VirtualNetworksClient, ac.AgentPoolsClient, ac.VirtualMachineScaleSetsClient, ac.VirtualMachineScaleSetVMsClient, ac.CredentialInfo, ac.Region, ac.Ctx)
+	if err != nil {
+		getErr = errors.New(fmt.Sprintf("Failed to List Cluster. err = %s", err))
+		cblogger.Error(getErr.Error())
+		LoggingError(hiscallInfo, getErr)
+		return make([]*irs.ClusterInfo, 0), getErr
 	}
 	LoggingInfo(hiscallInfo, start)
 	return listInfo, nil
@@ -127,8 +126,7 @@ func (ac *AzureClusterHandler) GetCluster(clusterIID irs.IID) (info irs.ClusterI
 		LoggingError(hiscallInfo, getErr)
 		return irs.ClusterInfo{}, getErr
 	}
-
-	info, err = setterClusterInfo(cluster, ac.SecurityGroupsClient, ac.VirtualNetworksClient, ac.AgentPoolsClient, ac.VirtualMachineScaleSetsClient, ac.VirtualMachineScaleSetVMsClient, ac.CredentialInfo, ac.Region, ac.Ctx)
+	info, err = setterClusterInfo(cluster, ac.ManagedClustersClient, ac.SecurityGroupsClient, ac.VirtualNetworksClient, ac.AgentPoolsClient, ac.VirtualMachineScaleSetsClient, ac.VirtualMachineScaleSetVMsClient, ac.CredentialInfo, ac.Region, ac.Ctx)
 	if err != nil {
 		getErr = errors.New(fmt.Sprintf("Failed to Get Cluster. err = %s", err))
 		cblogger.Error(getErr.Error())
@@ -262,7 +260,7 @@ func (ac *AzureClusterHandler) UpgradeCluster(clusterIID irs.IID, newVersion str
 		LoggingError(hiscallInfo, upgradeErr)
 		return irs.ClusterInfo{}, upgradeErr
 	}
-	info, err = setterClusterInfo(cluster, ac.SecurityGroupsClient, ac.VirtualNetworksClient, ac.AgentPoolsClient, ac.VirtualMachineScaleSetsClient, ac.VirtualMachineScaleSetVMsClient, ac.CredentialInfo, ac.Region, ac.Ctx)
+	info, err = setterClusterInfo(cluster, ac.ManagedClustersClient, ac.SecurityGroupsClient, ac.VirtualNetworksClient, ac.AgentPoolsClient, ac.VirtualMachineScaleSetsClient, ac.VirtualMachineScaleSetVMsClient, ac.CredentialInfo, ac.Region, ac.Ctx)
 	if err != nil {
 		upgradeErr = errors.New(fmt.Sprintf("Failed to Upgrade Cluster. err = %s", err))
 		cblogger.Error(upgradeErr.Error())
@@ -345,7 +343,67 @@ func getRawCluster(clusterIID irs.IID, managedClustersClient *containerservice.M
 	return cluster, nil
 }
 
-func setterClusterInfo(cluster containerservice.ManagedCluster, securityGroupsClient *network.SecurityGroupsClient, virtualNetworksClient *network.VirtualNetworksClient, agentPoolsClient *containerservice.AgentPoolsClient, virtualMachineScaleSetsClient *compute.VirtualMachineScaleSetsClient, virtualMachineScaleSetVMsClient *compute.VirtualMachineScaleSetVMsClient, credentialInfo idrv.CredentialInfo, region idrv.RegionInfo, ctx context.Context) (clusterInfo irs.ClusterInfo, err error) {
+type ClusterInfoWithError struct {
+	ClusterInfo irs.ClusterInfo
+	err         error
+}
+
+func setterClusterInfoWithCancel(cluster containerservice.ManagedCluster, managedClustersClient *containerservice.ManagedClustersClient, securityGroupsClient *network.SecurityGroupsClient, virtualNetworksClient *network.VirtualNetworksClient, agentPoolsClient *containerservice.AgentPoolsClient, virtualMachineScaleSetsClient *compute.VirtualMachineScaleSetsClient, virtualMachineScaleSetVMsClient *compute.VirtualMachineScaleSetVMsClient, credentialInfo idrv.CredentialInfo, region idrv.RegionInfo, ctx context.Context, cancelCtx context.Context) (irs.ClusterInfo, error) {
+	done := make(chan ClusterInfoWithError)
+
+	go func() {
+		clusterInfo, err := setterClusterInfo(cluster, managedClustersClient, securityGroupsClient, virtualNetworksClient, agentPoolsClient, virtualMachineScaleSetsClient, virtualMachineScaleSetVMsClient, credentialInfo, region, ctx)
+		done <- ClusterInfoWithError{
+			ClusterInfo: clusterInfo,
+			err:         err,
+		}
+	}()
+	select {
+	case vmInfoWithErrorDone := <-done:
+		return vmInfoWithErrorDone.ClusterInfo, vmInfoWithErrorDone.err
+	case <-cancelCtx.Done():
+		return irs.ClusterInfo{}, nil
+	}
+}
+
+func setterClusterInfoList(clusterList []containerservice.ManagedCluster, managedClustersClient *containerservice.ManagedClustersClient, securityGroupsClient *network.SecurityGroupsClient, virtualNetworksClient *network.VirtualNetworksClient, agentPoolsClient *containerservice.AgentPoolsClient, virtualMachineScaleSetsClient *compute.VirtualMachineScaleSetsClient, virtualMachineScaleSetVMsClient *compute.VirtualMachineScaleSetVMsClient, credentialInfo idrv.CredentialInfo, region idrv.RegionInfo, ctx context.Context) (clusterInfoList []*irs.ClusterInfo, err error) {
+	clusterListCount := len(clusterList)
+
+	clusterInfos := make([]*irs.ClusterInfo, clusterListCount)
+	if clusterListCount == 0 {
+		return clusterInfos, nil
+	}
+	var wg sync.WaitGroup
+	cancelCtx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	var globalErr error
+
+	for i, cluster := range clusterList {
+		wg.Add(1)
+		index := i
+		copyCluster := cluster
+		go func() {
+			defer wg.Done()
+			info, err := setterClusterInfoWithCancel(copyCluster, managedClustersClient, securityGroupsClient, virtualNetworksClient, agentPoolsClient, virtualMachineScaleSetsClient, virtualMachineScaleSetVMsClient, credentialInfo, region, ctx, cancelCtx)
+			if err != nil {
+				cancel()
+				if globalErr == nil {
+					globalErr = err
+				}
+			}
+			clusterInfos[index] = &info
+		}()
+	}
+	wg.Wait()
+	if globalErr != nil {
+		return nil, globalErr
+	}
+
+	return clusterInfos, nil
+}
+
+func setterClusterInfo(cluster containerservice.ManagedCluster, managedClustersClient *containerservice.ManagedClustersClient, securityGroupsClient *network.SecurityGroupsClient, virtualNetworksClient *network.VirtualNetworksClient, agentPoolsClient *containerservice.AgentPoolsClient, virtualMachineScaleSetsClient *compute.VirtualMachineScaleSetsClient, virtualMachineScaleSetVMsClient *compute.VirtualMachineScaleSetVMsClient, credentialInfo idrv.CredentialInfo, region idrv.RegionInfo, ctx context.Context) (clusterInfo irs.ClusterInfo, err error) {
 	clusterInfo.IId = irs.IID{*cluster.Name, *cluster.ID}
 	if cluster.ManagedClusterProperties != nil {
 		// Version
@@ -368,6 +426,10 @@ func setterClusterInfo(cluster containerservice.ManagedCluster, securityGroupsCl
 		status := getClusterStatus(cluster)
 		if err == nil {
 			clusterInfo.Status = status
+		}
+		accessInfo, err := getClusterAccessInfo(cluster, managedClustersClient, ctx)
+		if err == nil {
+			clusterInfo.AccessInfo = accessInfo
 		}
 		keyValues := []irs.KeyValue{}
 		if cluster.Tags != nil {
@@ -1845,4 +1907,62 @@ func waitingSpecifiedNodePoolPair(cluster containerservice.ManagedCluster, agent
 		return NodePoolPair{}, waitingErr
 	}
 	return returnNodePoolPair, nil
+}
+
+type ServerKubeConfig struct {
+	Clusters []struct {
+		Cluster struct {
+			Server                   string `yaml:"server"`
+			CertificateAuthorityData string `yaml:"certificate-authority-data"`
+		} `yaml:"cluster"`
+		Name string `yaml:"name"`
+	} `yaml:"clusters"`
+	Context []struct {
+		Context struct {
+			Cluster string `yaml:"cluster"`
+			User    string `yaml:"user"`
+		} `yaml:"context"`
+		Name string `yaml:"name"`
+	} `yaml:"contexts"`
+	CurrentContext string `yaml:"current-context"`
+	Kind           string `yaml:"kind"`
+	Users          []struct {
+		User struct {
+			ClientCertificateData string `yaml:"client-certificate-data"`
+			ClientKeyData         string `yaml:"client-key-data"`
+			Token                 string `yaml:"token"`
+		}
+		Name string `yaml:"name"`
+	} `yaml:"users"`
+}
+
+func getClusterAccessInfo(cluster containerservice.ManagedCluster, managedClustersClient *containerservice.ManagedClustersClient, ctx context.Context) (accessInfo irs.AccessInfo, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = errors.New(fmt.Sprintf("faild get AccessInfo"))
+			accessInfo = irs.AccessInfo{}
+		}
+	}()
+	clusterResourceGroup, err := getResourceGroupById(*cluster.ID)
+	if err != nil {
+		return irs.AccessInfo{}, errors.New(fmt.Sprintf("faild get AccessInfo err = %s", err.Error()))
+	}
+	config, err := managedClustersClient.GetAccessProfile(ctx, clusterResourceGroup, *cluster.Name, ClusterAdminKey)
+	if err != nil {
+		return irs.AccessInfo{}, errors.New(fmt.Sprintf("faild get AccessInfo err = %s", err.Error()))
+	}
+	accessInfo.Kubeconfg = string(*config.KubeConfig)
+
+	kubeConfig := ServerKubeConfig{}
+	err = yaml.Unmarshal(*config.KubeConfig, &kubeConfig)
+	if err != nil {
+		return irs.AccessInfo{}, errors.New(fmt.Sprintf("faild get AccessInfo err = %s", err.Error()))
+	}
+	for _, clusterConfig := range kubeConfig.Clusters {
+		if clusterConfig.Name == *cluster.Name {
+			accessInfo.Endpoint = clusterConfig.Cluster.Server
+			break
+		}
+	}
+	return accessInfo, nil
 }

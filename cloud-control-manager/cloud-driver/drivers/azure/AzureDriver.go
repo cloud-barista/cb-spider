@@ -156,6 +156,10 @@ func (driver *AzureDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (ico
 	if err != nil {
 		return nil, err
 	}
+	Ctx, virtualMachineRunCommandClient, err := getVirtualMachineRunCommandClient(connectionInfo.CredentialInfo)
+	if err != nil {
+		return nil, err
+	}
 	iConn := azcon.AzureCloudConnection{
 		CredentialInfo:                  connectionInfo.CredentialInfo,
 		Region:                          connectionInfo.RegionInfo,
@@ -181,6 +185,7 @@ func (driver *AzureDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (ico
 		AgentPoolsClient:                agentPoolsClient,
 		VirtualMachineScaleSetsClient:   virtualMachineScaleSetsClient,
 		VirtualMachineScaleSetVMsClient: virtualMachineScaleSetVMsClient,
+		VirtualMachineRunCommandsClient: virtualMachineRunCommandClient,
 	}
 	return &iConn, nil
 }
@@ -503,4 +508,17 @@ func getVirtualMachineScaleSetVMsClient(credential idrv.CredentialInfo) (context
 	ctx, _ := context.WithTimeout(context.Background(), cspTimeout*time.Second)
 
 	return ctx, &virtualMachineScaleSetVMsClient, nil
+}
+
+func getVirtualMachineRunCommandClient(credential idrv.CredentialInfo) (context.Context, *compute.VirtualMachineRunCommandsClient, error) {
+	config := auth.NewClientCredentialsConfig(credential.ClientId, credential.ClientSecret, credential.TenantId)
+	authorizer, err := config.Authorizer()
+	if err != nil {
+		return nil, nil, err
+	}
+	virtualMachineRunCommandsClient := compute.NewVirtualMachineRunCommandsClient(credential.SubscriptionId)
+	virtualMachineRunCommandsClient.Authorizer = authorizer
+	ctx, _ := context.WithTimeout(context.Background(), cspTimeout*time.Second)
+
+	return ctx, &virtualMachineRunCommandsClient, nil
 }

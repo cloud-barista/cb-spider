@@ -1,0 +1,95 @@
+RESTSERVER=localhost
+
+#==================== Driver
+
+ # for Cloud Driver Info
+curl -sX POST http://$RESTSERVER:1024/spider/driver -H 'Content-Type: application/json' -d \
+	'{
+		"DriverName":"aws-driver01",
+		"ProviderName":"AWS", 
+		"DriverLibFileName":"aws-driver-v1.0.so"
+	}' | json_pp
+
+
+
+#==================== Credential
+
+ # for Cloud Credential Info
+curl -sX POST http://$RESTSERVER:1024/spider/credential -H 'Content-Type: application/json' -d \
+	'{
+		"CredentialName":"aws-credential01",
+		"ProviderName":"AWS", 
+		"KeyValueInfoList": [
+				{"Key":"ClientId", "Value":"XXXXXX"}, 
+				{"Key":"ClientSecret", "Value":"XXXXXX"}
+			]
+	}' | json_pp
+
+
+
+#==================== Region
+
+# for Seoul Region
+curl -sX POST http://$RESTSERVER:1024/spider/region -H 'Content-Type: application/json' -d \
+        '{
+                "RegionName":"aws-seoul",
+                "ProviderName":"AWS",
+                "KeyValueInfoList": [{"Key":"Region", "Value":"ap-northeast-2"}, {"Key":"Zone", "Value":"ap-northeast-2a"}]
+        }' | json_pp
+
+# for Tokyo Region
+curl -sX POST http://$RESTSERVER:1024/spider/region -H 'Content-Type: application/json' -d \
+	'{
+		"RegionName":"aws-tokyo",
+		"ProviderName":"AWS", 
+		"KeyValueInfoList": [
+				{"Key":"Region", "Value":"ap-northeast-1"}, 
+				{"Key":"Zone", "Value":"ap-northeast-1a"}
+			]
+	}' | json_pp
+
+# for Mumbai Region
+curl -sX POST http://$RESTSERVER:1024/spider/region -H 'Content-Type: application/json' -d \
+        '{
+                "RegionName":"aws-mumbai",
+                "ProviderName":"AWS",
+                "KeyValueInfoList": [
+                                {"Key":"Region", "Value":"ap-south-1"},
+                                {"Key":"Zone", "Value":"ap-south-1a"}
+                        ]
+        }' | json_pp
+
+
+
+#==================== Connection
+
+# Connection for SEOUL
+curl -sX POST http://$RESTSERVER:1024/spider/connectionconfig -H 'Content-Type: application/json' -d \
+        '{
+		"ConfigName":"CICS-CRMS-AWS-SEOUL",
+                "ProviderName":"AWS",
+                "DriverName":"aws-driver01",
+                "CredentialName":"aws-credential01",
+                "RegionName":"aws-seoul"
+        }' | json_pp
+
+# Connection for TOKYO
+curl -sX POST http://$RESTSERVER:1024/spider/connectionconfig -H 'Content-Type: application/json' -d \
+	'{
+		"ConfigName":"CICS-CRMS-AWS-TOKYO",
+		"ProviderName":"AWS", 
+		"DriverName":"aws-driver01", 
+		"CredentialName":"aws-credential01", 
+		"RegionName":"aws-tokyo"
+	}' | json_pp
+
+# Connection for MUMBAI
+curl -sX POST http://$RESTSERVER:1024/spider/connectionconfig -H 'Content-Type: application/json' -d \
+        '{
+                "ConfigName":"CICS-CRMS-AWS-MUMBAI",
+                "ProviderName":"AWS",
+                "DriverName":"aws-driver01",
+                "CredentialName":"aws-credential01",
+                "RegionName":"aws-mumbai"
+        }' | json_pp
+
