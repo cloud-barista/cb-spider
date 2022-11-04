@@ -9,19 +9,18 @@ import (
 	vpcv0230 "github.com/IBM/vpc-go-sdk/0.23.0/vpcv1"
 	"github.com/IBM/vpc-go-sdk/vpcv1"
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
+	cdcom "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/common"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"io/ioutil"
 	"math/rand"
 	"net/url"
 	"os"
-	"regexp"
 	"sort"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
-	"unicode"
 )
 
 type IbmVMHandler struct {
@@ -162,42 +161,9 @@ func (vmHandler *IbmVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 			userId = "Administrator"
 		}
 
-		if len(vmReqInfo.VMUserPasswd) < 8 {
-			createErr := errors.New(fmt.Sprintf("Failed to Create VM. err = %s", "Password length cannot be less than 8 digit"))
-			cblogger.Error(createErr.Error())
-			LoggingError(hiscallInfo, createErr)
-			return irs.VMInfo{}, createErr
-		}
-
-		passwordComplexityScore := 0
-		var regexMatchers []*regexp.Regexp
-		regexMatcherHasDigit := regexp.MustCompile(`\d`)
-		regexMatchers = append(regexMatchers, regexMatcherHasDigit)
-		regexMatcherHasUpperCase := regexp.MustCompile("[A-Z]")
-		regexMatchers = append(regexMatchers, regexMatcherHasUpperCase)
-		regexMatcherHasLowerCase := regexp.MustCompile("[a-z]")
-		regexMatchers = append(regexMatchers, regexMatcherHasLowerCase)
-		regexMatcherHasNonAlphanumeric := regexp.MustCompile(`[^a-zA-Z0-9]`)
-		regexMatchers = append(regexMatchers, regexMatcherHasNonAlphanumeric)
-
-		for _, matcher := range regexMatchers {
-			if matcher.MatchString(vmReqInfo.VMUserPasswd) {
-				passwordComplexityScore++
-			}
-		}
-
-		for _, c := range vmReqInfo.VMUserPasswd {
-			if unicode.IsLetter(c) && !unicode.IsUpper(c) && !unicode.IsLower(c) {
-				passwordComplexityScore++
-				break
-			}
-		}
-
-		if passwordComplexityScore < 3 {
-			createErr := errors.New(fmt.Sprintf("Failed to Create VM. err = %s", "Password must meet Windows password complexity requirements"))
-			cblogger.Error(createErr.Error())
-			LoggingError(hiscallInfo, createErr)
-			return irs.VMInfo{}, createErr
+		pwValidErr := cdcom.ValidateWindowsPassword(vmReqInfo.VMUserPasswd)
+		if pwValidErr != nil {
+			return irs.VMInfo{}, pwValidErr
 		}
 
 		userData = fmt.Sprintf("#ps1_sysnative\nnet user \"%s\" \"%s\"", userId, vmReqInfo.VMUserPasswd)

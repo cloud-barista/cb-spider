@@ -14,6 +14,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	"math/rand"
 	"reflect"
 	"regexp"
@@ -24,8 +25,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2021-03-01/compute"
 	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2021-02-01/network"
 	"github.com/Azure/go-autorest/autorest/to"
-
-	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
+	cdcom "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/common"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 )
@@ -1472,7 +1472,7 @@ func checkAuthInfoOSType(vmReqInfo irs.VMReqInfo, OSType AzureOSTYPE) error {
 		if idErr != nil {
 			return idErr
 		}
-		_, pwErr := windowPasswordCheck(vmReqInfo.VMUserPasswd)
+		pwErr := cdcom.ValidateWindowsPassword(vmReqInfo.VMUserPasswd)
 		if pwErr != nil {
 			return pwErr
 		}
@@ -1611,33 +1611,4 @@ func windowUserIdCheck(userId string) (bool, error) {
 		return true, nil
 	}
 	return false, errors.New("for Windows, the userId only provides Administrator")
-}
-
-func windowPasswordCheck(pw string) (bool, error) {
-	if len(pw) < 12 || len(pw) > 123 {
-		return false, errors.New("password must be between 12 and 123 characters long and must have 3 of the following: 1 lower case character, 1 upper case character, 1 number, and 1 special character")
-	}
-	checkNum := 0
-	matchCase, err := regexp.MatchString(".*[a-z]+", pw)
-	if matchCase && err == nil {
-		checkNum++
-	}
-	matchCase, _ = regexp.MatchString(".*[A-Z]+", pw)
-	if matchCase && err == nil {
-		checkNum++
-	}
-	matchCase, _ = regexp.MatchString(".*[0-9]+", pw)
-	if matchCase && err == nil {
-		checkNum++
-	}
-	matchCase, _ = regexp.MatchString(`[\{\}\[\]\/?.,;:|\)*~!^\-_+<>@\#$%&\\\=\(\'\"\n\r]+`, pw)
-	if matchCase && err == nil {
-		checkNum++
-	}
-	if checkNum >= 3 {
-		return true, nil
-	} else {
-		return false, errors.New("Password must be between 12 and 123 characters long and must have 3 of the following: 1 lower case character, 1 upper case character, 1 number, and 1 special character.")
-
-	}
 }
