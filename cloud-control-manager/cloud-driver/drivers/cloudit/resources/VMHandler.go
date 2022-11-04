@@ -207,7 +207,7 @@ func (vmHandler *ClouditVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (startVM irs
 	}
 
 	var reqInfo server.VMReqInfo
-	rawRootImage, getRawRootImageErr := imageHandler.GetRawRootImage(irs.IID{NameId: vmReqInfo.ImageIID.NameId}, vmReqInfo.ImageType == irs.MyImage)
+	rawRootImage, getRawRootImageErr := imageHandler.GetRawRootImage(irs.IID{SystemId: vmReqInfo.ImageIID.SystemId, NameId: vmReqInfo.ImageIID.NameId}, vmReqInfo.ImageType == irs.MyImage)
 	if getRawRootImageErr != nil {
 		return irs.VMInfo{}, errors.New(fmt.Sprintf("Failed to Create VM. err = %s", getRawRootImageErr.Error()))
 	}
@@ -226,7 +226,7 @@ func (vmHandler *ClouditVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (startVM irs
 
 	if isWindows {
 		if len(vmReqInfo.IId.NameId) > 15 {
-			return irs.VMInfo{}, errors.New("Failed to Create VM. err = Hostname length of Windows cannot exceed 15")
+			reqInfo.HostName = vmReqInfo.IId.NameId[:15]
 		}
 		if len(vmReqInfo.VMUserPasswd) < 8 {
 			return irs.VMInfo{}, errors.New("Failed to Create VM. err = Password length of Windows cannot be less than 8")
