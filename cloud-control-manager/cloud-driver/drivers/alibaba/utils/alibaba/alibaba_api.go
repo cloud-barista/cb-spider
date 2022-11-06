@@ -98,6 +98,33 @@ func GetCluster(access_key string, access_secret string, region_id string, clust
 	return response.GetHttpContentString(), nil
 }
 
+func GetClusterKubeConfig(access_key string, access_secret string, region_id string, cluster_id string) (string, error) {
+
+	config := sdk.NewConfig()
+	credential := credentials.NewAccessKeyCredential(access_key, access_secret)
+	client, err := sdk.NewClientWithOptions(region_id, config, credential)
+	if err != nil {
+		return "", err
+	}
+
+	request := requests.NewCommonRequest()
+
+	request.Method = "GET"
+	request.Scheme = "https" // https | http
+	request.Domain = "cs." + region_id + ".aliyuncs.com"
+	request.Version = "2015-12-15"
+	request.PathPattern = "/clusters/" + cluster_id
+	request.PathPattern = "/k8s/" + cluster_id + "/user_config"
+	request.Headers["Content-Type"] = "application/json"
+
+	response, err := client.ProcessCommonRequest(request)
+	if err != nil {
+		return "", err
+	}
+
+	return response.GetHttpContentString(), nil
+}
+
 func DeleteCluster(access_key string, access_secret string, region_id string, cluster_id string) (string, error) {
 
 	config := sdk.NewConfig()
@@ -199,7 +226,7 @@ func DescribeClusterNodes(access_key string, access_secret string, region_id str
 	request := requests.NewCommonRequest()
 	request.Method = "GET"
 	request.Scheme = "https" // https | http
-	request.Domain = "cs.cn-qingdao.aliyuncs.com"
+	request.Domain = "cs." + region_id + ".aliyuncs.com"
 	request.Version = "2015-12-15"
 	request.PathPattern = "/clusters/" + cluster_id + "/nodes"
 	request.Headers["Content-Type"] = "application/json"
