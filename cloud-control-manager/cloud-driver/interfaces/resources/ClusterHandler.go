@@ -88,7 +88,7 @@ type NodeGroupInfo struct {
 
 type AccessInfo struct {
 	Endpoint 	string // ex) https://1.2.3.4:6443
-	Kubeconfg	string
+	Kubeconfig	string
 }
 
 // CNI, DNS, .... @todo
