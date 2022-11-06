@@ -23,6 +23,8 @@ import (
 
 	"golang.org/x/crypto/ssh"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
+	"errors"
+	"regexp"
 )
 
 // generate a KeyPair with 4KB length
@@ -166,4 +168,44 @@ func MakePublicKeyFromPrivateKey(pem string) (string, error) {
 	}
 
 	return string(bytes.TrimRight(ssh.MarshalAuthorizedKey(pub), "\n")), nil
+}
+
+
+//-------------------
+
+func ValidateWindowsPassword(pw string) error {
+
+	invalidMSG := `Password must be between 12 and 123 characters long and must have 3 of the following: 
+			1 lower case character, 
+			1 upper case character, 
+			1 number,
+			1 special character`
+
+        if len(pw) < 12 || len(pw) > 123 {
+                return errors.New(invalidMSG)
+        }
+
+        checkNum := 0
+        matchCase, err := regexp.MatchString(".*[a-z]+", pw)
+        if matchCase && err == nil {
+                checkNum++
+        }
+        matchCase, _ = regexp.MatchString(".*[A-Z]+", pw)
+        if matchCase && err == nil {
+                checkNum++
+        }
+        matchCase, _ = regexp.MatchString(".*[0-9]+", pw)
+        if matchCase && err == nil {
+                checkNum++
+        }
+        matchCase, _ = regexp.MatchString(`[\{\}\[\]\/?.,;:|\)*~!^\-_+<>@\#$%&\\\=\(\'\"\n\r]+`, pw)
+        if matchCase && err == nil {
+                checkNum++
+        }
+        if checkNum >= 3 {
+                return nil
+        } else {
+                return errors.New(invalidMSG)
+
+        }
 }

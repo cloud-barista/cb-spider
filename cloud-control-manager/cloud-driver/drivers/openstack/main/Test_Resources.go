@@ -540,11 +540,15 @@ func testVMHandler(config Config) {
 		NameId:   config.Openstack.Resources.Vm.IID.NameId,
 		SystemId: config.Openstack.Resources.Vm.IID.SystemId,
 	}
+	imageType := irs.PublicImage
+	if config.Openstack.Resources.Vm.ImageType == "MyImage" {
+		imageType = irs.MyImage
+	}
 	vmReqInfo := irs.VMReqInfo{
 		IId: irs.IID{
 			NameId: config.Openstack.Resources.Vm.IID.NameId,
 		},
-		ImageType: irs.MyImage,
+		ImageType: imageType,
 		ImageIID: irs.IID{
 			NameId:   config.Openstack.Resources.Vm.ImageIID.NameId,
 			SystemId: config.Openstack.Resources.Vm.ImageIID.SystemId,
@@ -564,6 +568,8 @@ func testVMHandler(config Config) {
 		RootDiskSize:      config.Openstack.Resources.Vm.RootDiskSize,
 		RootDiskType:      config.Openstack.Resources.Vm.RootDiskType,
 		SecurityGroupIIDs: SecurityGroupIIDs,
+		VMUserId:          config.Openstack.Resources.Vm.VMUserId,
+		VMUserPasswd:      config.Openstack.Resources.Vm.VMUserPasswd,
 	}
 
 Loop:
@@ -1026,10 +1032,10 @@ func testMyImageHandler(config Config) {
 	}
 	imageInfo := irs.MyImageInfo{
 		IId: irs.IID{
-			NameId: "vm-tester-snap",
+			NameId: "winfire1back",
 		},
 		SourceVM: irs.IID{
-			NameId: "vm-tester",
+			NameId: "winfire1winfire1winfire1",
 		},
 	}
 	delimageIId := irs.IID{
@@ -1226,6 +1232,7 @@ type Config struct {
 					NameId   string `yaml:"nameId"`
 					SystemId string `yaml:"systemId"`
 				} `yaml:"ImageIID"`
+				ImageType  string `yaml:"ImageType"`
 				VmSpecName string `yaml:"VmSpecName"`
 				KeyPairIID struct {
 					NameId string `yaml:"nameId"`
@@ -1244,6 +1251,8 @@ type Config struct {
 				} `yaml:"SecurityGroupIIDs"`
 				RootDiskSize string `yaml:"RootDiskSize"`
 				RootDiskType string `yaml:"RootDiskType"`
+				VMUserId     string `yaml:"VMUserId"`
+				VMUserPasswd string `yaml:"VMUserPasswd"`
 			} `yaml:"vm"`
 		} `yaml:"resources"`
 	} `yaml:"openstack"`

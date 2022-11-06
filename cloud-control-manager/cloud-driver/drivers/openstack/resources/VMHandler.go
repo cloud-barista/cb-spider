@@ -13,33 +13,39 @@ package resources
 import (
 	"errors"
 	"fmt"
-	volumes3 "github.com/gophercloud/gophercloud/openstack/blockstorage/v3/volumes"
-	"github.com/gophercloud/gophercloud/openstack/compute/v2/images"
-	"github.com/gophercloud/gophercloud/openstack/networking/v2/subnets"
-	"io/ioutil"
-	"math/rand"
-	"net"
-	"os"
-	"strconv"
-	"strings"
-	"time"
-
+	cdcom "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/common"
 	"github.com/gophercloud/gophercloud"
+	volumes3 "github.com/gophercloud/gophercloud/openstack/blockstorage/v3/volumes"
 	"github.com/gophercloud/gophercloud/openstack/compute/v2/extensions/bootfromvolume"
 	"github.com/gophercloud/gophercloud/openstack/compute/v2/extensions/floatingips"
 	"github.com/gophercloud/gophercloud/openstack/compute/v2/extensions/keypairs"
 	"github.com/gophercloud/gophercloud/openstack/compute/v2/extensions/startstop"
 	"github.com/gophercloud/gophercloud/openstack/compute/v2/flavors"
 	"github.com/gophercloud/gophercloud/openstack/compute/v2/servers"
+	"github.com/gophercloud/gophercloud/openstack/networking/v2/subnets"
+	"io/ioutil"
+	"math/rand"
+	"net"
+	"os"
+	"regexp"
+	"strconv"
+	"strings"
+	"time"
 
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 )
 
+type OpenstackOSTYPE string
+
 const (
-	VM             = "VM"
-	SSHDefaultUser = "cb-user"
+	WindowBaseUser                 = "Administrator"
+	VM                             = "VM"
+	SSHDefaultUser                 = "cb-user"
+	WindowOS       OpenstackOSTYPE = "windows"
+	LinuxOS        OpenstackOSTYPE = "linux"
+	UnknownOS      OpenstackOSTYPE = "unknown"
 )
 
 type OpenStackVMHandler struct {
@@ -169,144 +175,70 @@ func (vmHandler *OpenStackVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (startvm i
 		}
 		sgIdArr[i] = SecurityGroup.ID
 	}
-	// serverCreateOpts.SecurityGroups = sgIdArr
-	// Add KeyPair
-	keyPair, err := GetRawKey(vmHandler.ComputeClient, vmReqInfo.KeyPairIID)
-	if err != nil {
-		createErr := errors.New(fmt.Sprintf("Failed to startVM err %s", err))
-		cblogger.Error(createErr.Error())
-		LoggingError(hiscallInfo, createErr)
-		return irs.VMInfo{}, createErr
-	}
-
-	// cloud-init 스크립트 설정
-	rootPath := os.Getenv("CBSPIDER_ROOT")
-	fileData, err := ioutil.ReadFile(rootPath + "/cloud-driver-libs/.cloud-init-openstack/cloud-init")
-	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return irs.VMInfo{}, err
-	}
-	fileStr := string(fileData)
-	fileStr = strings.ReplaceAll(fileStr, "{{username}}", SSHDefaultUser)
-	fileStr = strings.ReplaceAll(fileStr, "{{public_key}}", keyPair.PublicKey)
-
-	var image images.Image
-	// SnapShot
-	if vmReqInfo.ImageType == irs.MyImage {
-		image, err = getRawSnapshot(vmReqInfo.ImageIID, vmHandler.ComputeClient)
-		if err != nil {
-			createErr := errors.New(fmt.Sprintf("Failed to startVM err = failed to get image, err : %s", err))
-			cblogger.Error(createErr.Error())
-			LoggingError(hiscallInfo, createErr)
-			return irs.VMInfo{}, createErr
-		}
-	} else {
-		// PublicImage
-		image, err = getRawImage(vmReqInfo.ImageIID, vmHandler.ComputeClient)
-		if err != nil {
-			createErr := errors.New(fmt.Sprintf("Failed to startVM err = failed to get image, err : %s", err))
-			cblogger.Error(createErr.Error())
-			LoggingError(hiscallInfo, createErr)
-			return irs.VMInfo{}, createErr
-		}
-	}
 	serverCreateOpts := servers.CreateOpts{
 		Name:      vmReqInfo.IId.NameId,
 		FlavorRef: vmSpec.ID,
-		//Metadata: map[string]string{
-		//	"snapshot": snapshotImage.Name,
-		//},
 		Networks: []servers.Network{
 			{UUID: rawVpc.ID, FixedIP: fixedIp},
 		},
-		ImageRef:       image.ID,
 		SecurityGroups: sgIdArr,
-		UserData:       []byte(fileStr), // cloud-init 스크립트 적용
 	}
-	serverCreateOpts.Metadata = map[string]string{
-		"imagekey": image.ID,
-	}
-	createOpts := keypairs.CreateOptsExt{
-		KeyName: keyPair.Name,
-	}
-	var server *servers.Server
+
+	var server servers.Server
+	// Public
 	if vmReqInfo.ImageType != irs.MyImage {
-		// PublicImage
-		// DiskSize 변경
-		if !(vmReqInfo.RootDiskSize == "" || vmReqInfo.RootDiskSize == "default") {
-			if vmHandler.VolumeClient == nil {
-				// Disk Size 변경 && vmHandler.VolumeClient == nil
-				createErr := errors.New(fmt.Sprintf("Failed to startVM err = this Openstack cannot provide VolumeClient. RootDiskSize cannot be changed"))
-				cblogger.Error(createErr.Error())
-				LoggingError(hiscallInfo, createErr)
-				return irs.VMInfo{}, createErr
-			}
-			vmSize, err := strconv.Atoi(vmReqInfo.RootDiskSize)
-			if err != nil {
-				createErr := errors.New(fmt.Sprintf("Failed to startVM err = Invalid RootDiskSize"))
-				cblogger.Error(createErr.Error())
-				LoggingError(hiscallInfo, createErr)
-				return irs.VMInfo{}, createErr
-			}
-			blockDeviceSet := []bootfromvolume.BlockDevice{
-				bootfromvolume.BlockDevice{
-					UUID:                image.ID,
-					SourceType:          bootfromvolume.SourceImage,
-					VolumeSize:          vmSize,
-					DestinationType:     bootfromvolume.DestinationVolume,
-					DeleteOnTermination: true,
-				},
-			}
-			createOpts.CreateOptsBuilder = serverCreateOpts
-			bootOpt := bootfromvolume.CreateOptsExt{
-				CreateOptsBuilder: createOpts,
-				BlockDevice:       blockDeviceSet,
-			}
-			server, err = bootfromvolume.Create(vmHandler.ComputeClient, bootOpt).Extract()
-		} else {
-			// Disk Size 변경 X
-			if vmHandler.VolumeClient == nil { // Disk Size 변경 X && VolumeClient == nil
-				createOpts.CreateOptsBuilder = serverCreateOpts
-				server, err = servers.Create(vmHandler.ComputeClient, createOpts).Extract()
-			} else { // Disk Size 변경 X && VolumeClient != nil
-				vmSize := vmSpec.Disk
-				blockDeviceSet := []bootfromvolume.BlockDevice{
-					bootfromvolume.BlockDevice{
-						UUID:                image.ID,
-						SourceType:          bootfromvolume.SourceImage,
-						VolumeSize:          vmSize,
-						DestinationType:     bootfromvolume.DestinationVolume,
-						DeleteOnTermination: true,
-					},
-				}
-				createOpts.CreateOptsBuilder = serverCreateOpts
-				bootOpt := bootfromvolume.CreateOptsExt{
-					CreateOptsBuilder: createOpts,
-					BlockDevice:       blockDeviceSet,
-				}
-				server, err = bootfromvolume.Create(vmHandler.ComputeClient, bootOpt).Extract()
-			}
-		}
-	} else {
-		// snapshot block_device_mapping Check (volumeClient)
-		_, exist := image.Metadata["block_device_mapping"]
-		if exist && vmHandler.VolumeClient == nil {
-			createErr := errors.New(fmt.Sprintf("Failed to startVM err = this Openstack cannot provide VolumeClient. BlockDevice information is located within the snapshot."))
+		imageOSType, err := getOSTypeByImage(vmReqInfo.ImageIID, vmHandler.ComputeClient)
+		if err != nil {
+			createErr := errors.New(fmt.Sprintf("Failed to startVM err = failed to get image os type, err : %s", err))
 			cblogger.Error(createErr.Error())
 			LoggingError(hiscallInfo, createErr)
 			return irs.VMInfo{}, createErr
 		}
-		// MyImage
-		createOpts.CreateOptsBuilder = serverCreateOpts
-		server, err = servers.Create(vmHandler.ComputeClient, createOpts).Extract()
+		if imageOSType == WindowOS {
+			server, err = severCreatePublicImageWindowOS(serverCreateOpts, vmReqInfo, vmHandler.VolumeClient, vmHandler.ComputeClient)
+			if err != nil {
+				createErr := errors.New(fmt.Sprintf("Failed to startVM err =  %s", err))
+				cblogger.Error(createErr.Error())
+				LoggingError(hiscallInfo, createErr)
+				return irs.VMInfo{}, createErr
+			}
+		} else {
+			server, err = severCreatePublicImageLinuxOS(serverCreateOpts, vmReqInfo, vmHandler.VolumeClient, vmHandler.ComputeClient)
+			if err != nil {
+				createErr := errors.New(fmt.Sprintf("Failed to startVM err = %s", err))
+				cblogger.Error(createErr.Error())
+				LoggingError(hiscallInfo, createErr)
+				return irs.VMInfo{}, createErr
+			}
+		}
+	} else {
+		//MyImage
+		imageOSType, err := getOSTypeByMyImage(vmReqInfo.ImageIID, vmHandler.ComputeClient)
+		if err != nil {
+			createErr := errors.New(fmt.Sprintf("Failed to startVM err = failed to get image os type, err : %s", err))
+			cblogger.Error(createErr.Error())
+			LoggingError(hiscallInfo, createErr)
+			return irs.VMInfo{}, createErr
+		}
+		if imageOSType == WindowOS {
+			server, err = severCreateMyImageWindowOS(serverCreateOpts, vmReqInfo, vmHandler.VolumeClient, vmHandler.ComputeClient)
+			if err != nil {
+				createErr := errors.New(fmt.Sprintf("Failed to startVM err = %s", err))
+				cblogger.Error(createErr.Error())
+				LoggingError(hiscallInfo, createErr)
+				return irs.VMInfo{}, createErr
+			}
+		} else {
+			server, err = severCreateMyImageLinuxOS(serverCreateOpts, vmReqInfo, vmHandler.VolumeClient, vmHandler.ComputeClient)
+			if err != nil {
+				createErr := errors.New(fmt.Sprintf("Failed to startVM err = %s", err))
+				cblogger.Error(createErr.Error())
+				LoggingError(hiscallInfo, createErr)
+				return irs.VMInfo{}, createErr
+			}
+		}
 	}
-	if err != nil {
-		createErr := errors.New(fmt.Sprintf("Failed to startVM err = %s", err))
-		cblogger.Error(createErr.Error())
-		LoggingError(hiscallInfo, createErr)
-		return irs.VMInfo{}, createErr
-	}
+
 	defer func() {
 		if createErr != nil {
 			cleanVMIId := irs.IID{
@@ -373,6 +305,10 @@ func (vmHandler *OpenStackVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (startvm i
 		}
 	}
 	serverInfo = vmHandler.mappingServerInfo(*serverResult)
+	password, err := getPassword(*serverResult)
+	if err == nil {
+		serverInfo.VMUserPasswd = password
+	}
 	LoggingInfo(hiscallInfo, start)
 	return serverInfo, nil
 }
@@ -640,15 +576,23 @@ func (vmHandler *OpenStackVMHandler) mappingServerInfo(server servers.Server) ir
 			Zone:   vmHandler.Region.Zone,
 			Region: vmHandler.Region.Region,
 		},
-		KeyPairIId: irs.IID{
-			NameId:   server.KeyName,
-			SystemId: server.KeyName,
-		},
+
 		//VMUserId:          server.UserID,
 		//VMUserPasswd:      server.AdminPass,
 		NetworkInterface:  server.HostID,
 		KeyValueList:      nil,
 		SecurityGroupIIds: nil,
+	}
+	OSType, err := getOSTypeByServer(server)
+	if err == nil {
+		if OSType == WindowOS {
+			vmInfo.VMUserId = WindowBaseUser
+		} else {
+			vmInfo.KeyPairIId = irs.IID{
+				NameId:   server.KeyName,
+				SystemId: server.KeyName,
+			}
+		}
 	}
 	if creatTime, err := time.Parse(time.RFC3339, server.Created.String()); err == nil {
 		vmInfo.StartTime = creatTime
@@ -951,4 +895,308 @@ func getAllVolumeByServerAttachedVolume(attachedVolumes []servers.AttachedVolume
 		volumeList[i] = vol
 	}
 	return volumeList, nil
+}
+
+func getOSTypeByImage(imageIID irs.IID, computeClient *gophercloud.ServiceClient) (OpenstackOSTYPE, error) {
+	image, err := getRawImage(imageIID, computeClient)
+	if err != nil {
+		return UnknownOS, err
+	}
+	value, exist := image.Metadata["os_type"]
+	if !exist {
+		return LinuxOS, nil
+	}
+	if value == "windows" {
+		return WindowOS, nil
+	}
+	return LinuxOS, nil
+}
+
+func getOSTypeByMyImage(imageIID irs.IID, computeClient *gophercloud.ServiceClient) (OpenstackOSTYPE, error) {
+	image, err := getRawSnapshot(imageIID, computeClient)
+	if err != nil {
+		return UnknownOS, err
+	}
+	value, exist := image.Metadata["os_type"]
+	if !exist {
+		return LinuxOS, nil
+	}
+	if value == "windows" {
+		return WindowOS, nil
+	}
+	return LinuxOS, nil
+}
+
+func getOSTypeByServer(server servers.Server) (OpenstackOSTYPE, error) {
+	value, exist := server.Metadata["os_type"]
+	if !exist {
+		return LinuxOS, nil
+	}
+	if value == "windows" {
+		return WindowOS, nil
+	}
+	return LinuxOS, nil
+}
+
+func getPassword(server servers.Server) (string, error) {
+	pw, exist := server.Metadata["admin_pass"]
+	if exist {
+		return pw, nil
+	}
+	return "", errors.New("failed get password err = password information not found")
+}
+
+func checkWindowVMReqInfo(vmReqInfo irs.VMReqInfo) error {
+	//if len(vmReqInfo.IId.NameId) > 15 {
+	//	return errors.New("for Windows, VM's computeName cannot exceed 15 characters")
+	//}
+	// https://learn.microsoft.com/ko-KR/troubleshoot/windows-server/identity/naming-conventions-for-computer-domain-site-ou
+	matchCase, _ := regexp.MatchString(`[\/?:|*<>\\\"]+`, vmReqInfo.IId.NameId)
+	if matchCase {
+		return errors.New("for Windows, VM's computeName contains unacceptable special characters")
+	}
+	if vmReqInfo.VMUserId != WindowBaseUser {
+		return errors.New("for Windows, the userId only provides Administrator")
+	}
+	// password
+	err := cdcom.ValidateWindowsPassword(vmReqInfo.VMUserPasswd)
+	if err != nil {
+		return err
+	}
+	if vmReqInfo.KeyPairIID.NameId != "" || vmReqInfo.KeyPairIID.SystemId != "" {
+		return errors.New("for Windows, SSH key login method is not supported")
+	}
+	return nil
+}
+
+func linuxServerCreatOptConvertKeyPairWrapping(baseServerCreateOpt servers.CreateOpts, keyPairIID irs.IID, computeClient *gophercloud.ServiceClient) (keypairs.CreateOptsExt, error) {
+	keyPair, err := GetRawKey(computeClient, keyPairIID)
+	if err != nil {
+		return keypairs.CreateOptsExt{}, err
+	}
+	rootPath := os.Getenv("CBSPIDER_ROOT")
+	fileData, err := ioutil.ReadFile(rootPath + "/cloud-driver-libs/.cloud-init-openstack/cloud-init")
+	if err != nil {
+		return keypairs.CreateOptsExt{}, err
+	}
+	fileStr := string(fileData)
+	fileStr = strings.ReplaceAll(fileStr, "{{username}}", SSHDefaultUser)
+	fileStr = strings.ReplaceAll(fileStr, "{{public_key}}", keyPair.PublicKey)
+
+	baseServerCreateOpt.UserData = []byte(fileStr)
+	createOptsExt := keypairs.CreateOptsExt{
+		KeyName: keyPair.Name,
+	}
+	createOptsExt.CreateOptsBuilder = baseServerCreateOpt
+	return createOptsExt, nil
+}
+
+func createBlockDeviceSet(imageUUID string, diskSize string) (bootfromvolume.BlockDevice, error) {
+	volumeSize, err := strconv.Atoi(diskSize)
+	if err != nil {
+		return bootfromvolume.BlockDevice{}, errors.New(fmt.Sprintf("Invalid RootDiskSize"))
+	}
+	return bootfromvolume.BlockDevice{
+		UUID:                imageUUID,
+		SourceType:          bootfromvolume.SourceImage,
+		VolumeSize:          volumeSize,
+		DestinationType:     bootfromvolume.DestinationVolume,
+		DeleteOnTermination: true,
+	}, nil
+}
+
+func severCreatePublicImageLinuxOS(baseServerCreateOpt servers.CreateOpts, vmReqInfo irs.VMReqInfo, VolumeClient *gophercloud.ServiceClient, computeClient *gophercloud.ServiceClient) (servers.Server, error) {
+	image, err := getRawImage(vmReqInfo.ImageIID, computeClient)
+	if err != nil {
+		return servers.Server{}, err
+	}
+	baseServerCreateOpt.ImageRef = image.ID
+	baseServerCreateOpt.Metadata = map[string]string{
+		"imagekey": image.ID,
+		"os_type":  string(LinuxOS),
+	}
+
+	if !(vmReqInfo.RootDiskSize == "" || vmReqInfo.RootDiskSize == "default") {
+		if VolumeClient == nil {
+			// Disk Size 변경 && vmHandler.VolumeClient == nil
+			return servers.Server{}, errors.New(fmt.Sprintf("this Openstack cannot provide VolumeClient. RootDiskSize cannot be changed"))
+		}
+		rootBlockDeviceSet, err := createBlockDeviceSet(image.ID, vmReqInfo.RootDiskSize)
+		if err != nil {
+			return servers.Server{}, err
+		}
+		blockDeviceSet := []bootfromvolume.BlockDevice{
+			rootBlockDeviceSet,
+		}
+		// Linux
+		createOptsExt, err := linuxServerCreatOptConvertKeyPairWrapping(baseServerCreateOpt, vmReqInfo.KeyPairIID, computeClient)
+		if err != nil {
+			return servers.Server{}, err
+		}
+		bootOpt := bootfromvolume.CreateOptsExt{
+			CreateOptsBuilder: createOptsExt,
+			BlockDevice:       blockDeviceSet,
+		}
+		server, err := bootfromvolume.Create(computeClient, bootOpt).Extract()
+		if err != nil {
+			return servers.Server{}, err
+		}
+		return *server, nil
+	} else {
+		// Disk Size 변경 X
+		if VolumeClient == nil { // Disk Size 변경 X && VolumeClient == nil
+			server, err := servers.Create(computeClient, baseServerCreateOpt).Extract()
+			if err != nil {
+				return servers.Server{}, err
+			}
+			return *server, nil
+		} else { // Disk Size 변경 X && VolumeClient != nil
+			vmSpec, err := GetFlavorByName(computeClient, vmReqInfo.VMSpecName)
+			if err != nil {
+				return servers.Server{}, errors.New(fmt.Sprintf("failed to get vmspec, err : %s", err))
+			}
+			rootBlockDeviceSet, err := createBlockDeviceSet(image.ID, strconv.Itoa(vmSpec.Disk))
+			if err != nil {
+				return servers.Server{}, err
+			}
+			blockDeviceSet := []bootfromvolume.BlockDevice{
+				rootBlockDeviceSet,
+			}
+			createOptsExt, err := linuxServerCreatOptConvertKeyPairWrapping(baseServerCreateOpt, vmReqInfo.KeyPairIID, computeClient)
+			if err != nil {
+				return servers.Server{}, err
+			}
+			bootOpt := bootfromvolume.CreateOptsExt{
+				CreateOptsBuilder: createOptsExt,
+				BlockDevice:       blockDeviceSet,
+			}
+			server, err := bootfromvolume.Create(computeClient, bootOpt).Extract()
+			if err != nil {
+				return servers.Server{}, err
+			}
+			return *server, nil
+		}
+	}
+
+}
+
+func severCreatePublicImageWindowOS(baseServerCreateOpt servers.CreateOpts, vmReqInfo irs.VMReqInfo, VolumeClient *gophercloud.ServiceClient, computeClient *gophercloud.ServiceClient) (servers.Server, error) {
+	err := checkWindowVMReqInfo(vmReqInfo)
+	if err != nil {
+		return servers.Server{}, err
+	}
+	image, err := getRawImage(vmReqInfo.ImageIID, computeClient)
+	if err != nil {
+		return servers.Server{}, err
+	}
+	baseServerCreateOpt.ImageRef = image.ID
+	baseServerCreateOpt.Metadata = map[string]string{
+		"imagekey":   image.ID,
+		"admin_pass": vmReqInfo.VMUserPasswd,
+		"os_type":    string(WindowOS),
+	}
+	// Disk Size 변경
+	if !(vmReqInfo.RootDiskSize == "" || vmReqInfo.RootDiskSize == "default") {
+		if VolumeClient == nil {
+			// Disk Size 변경 && vmHandler.VolumeClient == nil
+			return servers.Server{}, errors.New(fmt.Sprintf("this Openstack cannot provide VolumeClient. RootDiskSize cannot be changed"))
+		}
+		rootBlockDeviceSet, err := createBlockDeviceSet(image.ID, vmReqInfo.RootDiskSize)
+		if err != nil {
+			return servers.Server{}, err
+		}
+		blockDeviceSet := []bootfromvolume.BlockDevice{
+			rootBlockDeviceSet,
+		}
+		// Window
+		bootOpt := bootfromvolume.CreateOptsExt{
+			CreateOptsBuilder: baseServerCreateOpt,
+			BlockDevice:       blockDeviceSet,
+		}
+		server, err := bootfromvolume.Create(computeClient, bootOpt).Extract()
+		if err != nil {
+			return servers.Server{}, err
+		}
+		return *server, nil
+	} else {
+		// Disk Size 변경 X
+		if VolumeClient == nil { // Disk Size 변경 X && VolumeClient == nil
+			server, err := servers.Create(computeClient, baseServerCreateOpt).Extract()
+			if err != nil {
+				return servers.Server{}, err
+			}
+			return *server, nil
+		} else { // Disk Size 변경 X && VolumeClient != nil
+			vmSpec, err := GetFlavorByName(computeClient, vmReqInfo.VMSpecName)
+			if err != nil {
+				return servers.Server{}, errors.New(fmt.Sprintf("failed to get vmspec, err : %s", err))
+			}
+			rootBlockDeviceSet, err := createBlockDeviceSet(image.ID, strconv.Itoa(vmSpec.Disk))
+			if err != nil {
+				return servers.Server{}, err
+			}
+			blockDeviceSet := []bootfromvolume.BlockDevice{
+				rootBlockDeviceSet,
+			}
+			bootOpt := bootfromvolume.CreateOptsExt{
+				CreateOptsBuilder: baseServerCreateOpt,
+				BlockDevice:       blockDeviceSet,
+			}
+			server, err := bootfromvolume.Create(computeClient, bootOpt).Extract()
+			if err != nil {
+				return servers.Server{}, err
+			}
+			return *server, nil
+		}
+	}
+}
+
+func severCreateMyImageWindowOS(baseServerCreateOpt servers.CreateOpts, vmReqInfo irs.VMReqInfo, VolumeClient *gophercloud.ServiceClient, ComputeClient *gophercloud.ServiceClient) (servers.Server, error) {
+	err := checkWindowVMReqInfo(vmReqInfo)
+	if err != nil {
+		return servers.Server{}, err
+	}
+	image, err := getRawSnapshot(vmReqInfo.ImageIID, ComputeClient)
+	if err != nil {
+		return servers.Server{}, err
+	}
+	baseServerCreateOpt.ImageRef = image.ID
+	baseServerCreateOpt.Metadata = map[string]string{
+		"imagekey":   image.ID,
+		"os_type":    string(WindowOS),
+		"admin_pass": vmReqInfo.VMUserPasswd,
+	}
+	_, exist := image.Metadata["block_device_mapping"]
+	if exist && VolumeClient == nil {
+		return servers.Server{}, errors.New(fmt.Sprintf("Failed to startVM err = this Openstack cannot provide VolumeClient. BlockDevice information is located within the snapshot."))
+	}
+	server, err := servers.Create(ComputeClient, baseServerCreateOpt).Extract()
+	if err != nil {
+		return servers.Server{}, err
+	}
+	return *server, err
+}
+
+func severCreateMyImageLinuxOS(baseServerCreateOpt servers.CreateOpts, vmReqInfo irs.VMReqInfo, volumeClient *gophercloud.ServiceClient, computeClient *gophercloud.ServiceClient) (servers.Server, error) {
+	image, err := getRawSnapshot(vmReqInfo.ImageIID, computeClient)
+	if err != nil {
+		return servers.Server{}, errors.New(fmt.Sprintf("failed to get image, err : %s", err))
+	}
+	baseServerCreateOpt.ImageRef = image.ID
+	baseServerCreateOpt.Metadata = map[string]string{
+		"imagekey": image.ID,
+		"os_type":  string(LinuxOS),
+	}
+	// snapshot block_device_mapping Check (volumeClient)
+	_, exist := image.Metadata["block_device_mapping"]
+	if exist && volumeClient == nil {
+		return servers.Server{}, errors.New(fmt.Sprintf("Failed to startVM err = this Openstack cannot provide VolumeClient. BlockDevice information is located within the snapshot."))
+	}
+
+	createOptsExt, err := linuxServerCreatOptConvertKeyPairWrapping(baseServerCreateOpt, vmReqInfo.KeyPairIID, computeClient)
+	server, err := servers.Create(computeClient, createOptsExt).Extract()
+	if err != nil {
+		return servers.Server{}, err
+	}
+	return *server, err
 }

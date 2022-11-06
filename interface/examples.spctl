@@ -110,8 +110,8 @@ spctl vm start -d \
 spctl --cname aws-ohio-config vm list
 
 [Get Key]
-spctl --cname aws-ohio-config vm get -n spider-key-01
+spctl --cname aws-ohio-config vm get -n spider-vm-01
 
 [Delete Key]
-spctl --cname aws-ohio-config vm delete -n spider-key-01
+spctl --cname aws-ohio-config vm terminate -n spider-vm-01
 

@@ -278,13 +278,23 @@ func ExKeyPairCmd() *cobra.Command {
                 Long: "example to create KeyPair",
                 Run: func(cmd *cobra.Command, args []string) {
                         excmd := `
-pctl keypair create -d \
+[Create Key]
+spctl keypair create -d \
     '{
       "ConnectionName":"aws-ohio-config",
       "ReqInfo": {
         "Name": "spider-key-01"
       }
     }'
+
+[List Key]
+spctl --cname aws-ohio-config keypair list
+
+[Get Key]
+spctl --cname aws-ohio-config keypair get -n spider-key-01
+
+[Delete Key]
+spctl --cname aws-ohio-config keypair delete -n spider-key-01
 
 `
                         fmt.Printf(excmd)

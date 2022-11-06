@@ -13,6 +13,7 @@ package resources
 import (
 	"errors"
 	"fmt"
+	cdcom "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/common"
 	"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/cloudit/client/ace/disk"
 	"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/cloudit/client/ace/snapshot"
 	"strconv"
@@ -205,7 +206,7 @@ func (vmHandler *ClouditVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (startVM irs
 	}
 
 	var reqInfo server.VMReqInfo
-	rawRootImage, getRawRootImageErr := imageHandler.GetRawRootImage(irs.IID{SystemId: vmReqInfo.ImageIID.SystemId}, vmReqInfo.ImageType == irs.MyImage)
+	rawRootImage, getRawRootImageErr := imageHandler.GetRawRootImage(irs.IID{SystemId: vmReqInfo.ImageIID.SystemId, NameId: vmReqInfo.ImageIID.NameId}, vmReqInfo.ImageType == irs.MyImage)
 	if getRawRootImageErr != nil {
 		return irs.VMInfo{}, errors.New(fmt.Sprintf("Failed to Create VM. err = %s", getRawRootImageErr.Error()))
 	}
@@ -224,11 +225,13 @@ func (vmHandler *ClouditVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (startVM irs
 
 	if isWindows {
 		if len(vmReqInfo.IId.NameId) > 15 {
-			return irs.VMInfo{}, errors.New("Failed to Create VM. err = Hostname length of Windows cannot exceed 15")
+			reqInfo.HostName = vmReqInfo.IId.NameId[:15]
 		}
-		if len(vmReqInfo.VMUserPasswd) < 8 {
-			return irs.VMInfo{}, errors.New("Failed to Create VM. err = Password length of Windows cannot be less than 8")
+		pwValidErr := cdcom.ValidateWindowsPassword(vmReqInfo.VMUserPasswd)
+		if pwValidErr != nil {
+			return irs.VMInfo{}, errors.New(fmt.Sprintf("Failed to Create VM. err = %s", pwValidErr))
 		}
+
 		reqInfo.RootPassword = vmReqInfo.VMUserPasswd
 	}
 
@@ -507,6 +510,12 @@ func (vmHandler *ClouditVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (startVM irs
 	if len(attachedVolumeList) != 0 {
 		vmInfo.DataDiskIIDs = attachedVolumeList
 	}
+
+	if isWindows {
+		vmInfo.VMUserId = "Administrator"
+		vmInfo.VMUserPasswd = vmReqInfo.VMUserPasswd
+	}
+
 	return vmInfo, nil
 }
 

@@ -180,7 +180,14 @@ func CreateCluster(c echo.Context) error {
                 detachNameSpaceFromName(req.NameSpace, result)
         }
 
-        return c.JSON(http.StatusOK, result)
+	var jsonResult struct {
+		Connection string
+		ClusterInfo *cres.ClusterInfo
+	}
+	jsonResult.Connection =  req.ConnectionName
+	jsonResult.ClusterInfo =  result
+
+        return c.JSON(http.StatusOK, &jsonResult)
 }
 
 func convertIIDs(names []string) []cres.IID {
@@ -279,9 +286,12 @@ func ListCluster(c echo.Context) error {
         }
 
         var jsonResult struct {
-                Result []*cres.ClusterInfo `json:"cluster"`
+                Connection string
+                ClusterInfoList []*cres.ClusterInfo
         }
-        jsonResult.Result = result
+        jsonResult.Connection =  req.ConnectionName
+        jsonResult.ClusterInfoList =  result
+
         return c.JSON(http.StatusOK, &jsonResult)
 }
 
@@ -366,7 +376,14 @@ func ListAllCluster(c echo.Context) error {
                 }
         }
 
-        return c.JSON(http.StatusOK, &allResourceList)
+	var jsonResult struct {
+                Connection string
+                AllResourceList *cmrt.AllResourceList
+        }
+        jsonResult.Connection =  req.ConnectionName
+        jsonResult.AllResourceList =  &allResourceList
+
+        return c.JSON(http.StatusOK, &jsonResult)
 }
 
 func GetCluster(c echo.Context) error {
@@ -411,7 +428,14 @@ func GetCluster(c echo.Context) error {
                 detachNameSpaceFromName(req.NameSpace, result)
         }
 
-        return c.JSON(http.StatusOK, result)
+	var jsonResult struct {
+                Connection string
+                ClusterInfo *cres.ClusterInfo
+        }
+        jsonResult.Connection =  req.ConnectionName
+        jsonResult.ClusterInfo =  result
+
+        return c.JSON(http.StatusOK, jsonResult)
 }
 
 func AddNodeGroup(c echo.Context) error {
@@ -477,7 +501,14 @@ func AddNodeGroup(c echo.Context) error {
                 detachNameSpaceFromName(req.NameSpace, result)
         }
 
-        return c.JSON(http.StatusOK, result)
+	var jsonResult struct {
+                Connection string
+                ClusterInfo *cres.ClusterInfo
+        }
+        jsonResult.Connection =  req.ConnectionName
+        jsonResult.ClusterInfo =  result
+
+        return c.JSON(http.StatusOK, &jsonResult)
 }
 
 func RemoveNodeGroup(c echo.Context) error {
@@ -588,7 +619,14 @@ func ChangeNodeGroupScaling(c echo.Context) error {
                         strings.Replace(result.KeyPairIID.NameId, nameSpace,"", 1)
         }
 
-        return c.JSON(http.StatusOK, result)
+	var jsonResult struct {
+                Connection string
+                NodeGroupInfo *cres.NodeGroupInfo
+        }
+        jsonResult.Connection =  req.ConnectionName
+        jsonResult.NodeGroupInfo =  &result
+
+        return c.JSON(http.StatusOK, &jsonResult)
 }
 
 // (1) get args from REST Call
@@ -689,8 +727,15 @@ func UpgradeCluster(c echo.Context) error {
         if req.NameSpace != "" {
                 detachNameSpaceFromName(req.NameSpace, &result)
         }
-        
-        return c.JSON(http.StatusOK, result)
+
+	var jsonResult struct {
+                Connection string
+                ClusterInfo *cres.ClusterInfo
+        }
+        jsonResult.Connection =  req.ConnectionName
+        jsonResult.ClusterInfo =  &result
+
+        return c.JSON(http.StatusOK, &jsonResult)
 }
 
 
@@ -699,6 +744,7 @@ func AllClusterList(c echo.Context) error {
 
         var req struct {
                 NameSpace string
+                ConnectionNames []string
         }
 
         if err := c.Bind(&req); err != nil {
@@ -710,11 +756,24 @@ func AllClusterList(c echo.Context) error {
                 req.NameSpace = c.QueryParam("NameSpace")
         }
 
-	// Get All ConnectionNames
-	infoList, err := ccim.ListConnectionConfig()
-        if err != nil {
-                return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-        }
+	connInfoList := []*ccim.ConnectionConfigInfo{}
+	var err error
+        if req.ConnectionNames == nil || len(req.ConnectionNames) < 1 {
+		// Get All ConnectionNames
+		connInfoList, err = ccim.ListConnectionConfig()
+		if err != nil {
+			return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		}
+	} else {
+		for _, oneConn := range req.ConnectionNames {
+			connInfo, err := ccim.GetConnectionConfig(oneConn)
+			if err != nil {
+				return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+			}
+			connInfoList = append(connInfoList, connInfo)
+		}
+	}
+
 
 	type ConnectionClusterList struct {
                 Connection string
@@ -726,7 +785,7 @@ func AllClusterList(c echo.Context) error {
         }
 
 
-	for _, oneConn := range infoList {
+	for _, oneConn := range connInfoList {
 
 		// Call common-runtime API
 		oneClusterList, err := cmrt.ListCluster(oneConn.ConfigName, req.NameSpace, rsCluster)
@@ -752,6 +811,10 @@ func AllClusterList(c echo.Context) error {
 
 		jsonResult.AllClusterList = append(jsonResult.AllClusterList, 
 			ConnectionClusterList{ oneConn.ConfigName, oneConn.ProviderName, oneClusterList})
+	}
+
+	if jsonResult.AllClusterList == nil {
+		jsonResult.AllClusterList = []ConnectionClusterList{}
 	}
 
         return c.JSON(http.StatusOK, &jsonResult)

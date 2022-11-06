@@ -194,7 +194,7 @@ func (imageHandler *ClouditImageHandler) GetRawRootImage(imageIId irs.IID, isMyI
 		}
 
 		for _, rawSnapshot := range *snapshotList {
-			if strings.EqualFold(imageIId.SystemId, rawSnapshot.Id) {
+			if strings.Contains(rawSnapshot.Name, imageIId.NameId) && rawSnapshot.Bootable == "yes" {
 				rootImage, getRootImageErr := imageHandler.getRawImage(irs.IID{SystemId: rawSnapshot.TemplateId})
 				if getRootImageErr != nil {
 					return nil, getRootImageErr
