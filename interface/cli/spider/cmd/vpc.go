@@ -383,6 +383,7 @@ func ExVPCCmd() *cobra.Command {
                 Long: "example to create vpc",
                 Run: func(cmd *cobra.Command, args []string) {
                         excmd := `
+[Create VPC/Subnet]
 spctl vpc create -d \
     '{
       "ConnectionName":"aws-ohio-config",
@@ -399,6 +400,15 @@ spctl vpc create -d \
         ]
       }
     }'
+
+[List VPC/Subnet]
+spctl --cname aws-ohio-config vpc list
+
+[Get VPC/Subnet]
+spctl --cname aws-ohio-config vpc get -n spider-vpc-01
+
+[Delete VPC/Subnet]
+spctl --cname aws-ohio-config vpc delete -n spider-vpc-01
 
 `
                         fmt.Printf(excmd)
