@@ -407,6 +407,22 @@ func getClusterInfo(access_key string, access_secret string, region_id string, c
 		panic(err)
 	}
 
+	//"{\"api_server_endpoint\":\"https://47.74.22.109:6443\",\"dashboard_endpoint\":\"\",\"intranet_api_server_endpoint\":\"https://10.0.11.77:6443\"}"
+	// if api_server_endpoint is not exist, it'll throw error
+	master_url_json_obj := make(map[string]interface{})
+	json.Unmarshal([]byte(cluster_json_obj["master_url"].(string)), &master_url_json_obj)
+	end_point := master_url_json_obj["api_server_endpoint"].(string)
+
+	// get kubeconfig
+	cluster_kube_config_json_str, err := alibaba.GetClusterKubeConfig(access_key, access_secret, region_id, cluster_id)
+	if err != nil {
+		return nil, err
+	}
+	cluster_kube_config_json_obj := make(map[string]interface{})
+	json.Unmarshal([]byte(cluster_kube_config_json_str), &cluster_kube_config_json_obj)
+	// println(cluster_kube_config_json_obj["config"].(string))
+	kube_config := cluster_kube_config_json_obj["config"].(string)
+
 	clusterInfo = &irs.ClusterInfo{
 		IId: irs.IID{
 			NameId:   cluster_json_obj["name"].(string),
@@ -433,6 +449,10 @@ func getClusterInfo(access_key string, access_secret string, region_id string, c
 		},
 		Status:      cluster_status,
 		CreatedTime: datetime,
+		AccessInfo: irs.AccessInfo{
+			Endpoint:   end_point,
+			Kubeconfig: kube_config,
+		},
 		// KeyValueList: []irs.KeyValue{}, // flatten data 입력하기
 	}
 

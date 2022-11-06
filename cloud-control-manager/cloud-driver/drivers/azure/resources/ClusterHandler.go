@@ -1951,7 +1951,7 @@ func getClusterAccessInfo(cluster containerservice.ManagedCluster, managedCluste
 	if err != nil {
 		return irs.AccessInfo{}, errors.New(fmt.Sprintf("faild get AccessInfo err = %s", err.Error()))
 	}
-	accessInfo.Kubeconfg = string(*config.KubeConfig)
+	accessInfo.Kubeconfig = string(*config.KubeConfig)
 
 	kubeConfig := ServerKubeConfig{}
 	err = yaml.Unmarshal(*config.KubeConfig, &kubeConfig)
