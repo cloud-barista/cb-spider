@@ -125,6 +125,13 @@ func (vmHandler *AwsVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 		cblogger.Error(errImgInfo)
 		return irs.VMInfo{}, errImgInfo
 	}
+
+	owner := amiImage.ImageOwnerAlias
+	isMyImage := false
+	if *owner == "self" {
+		isMyImage = true
+	}
+	cblogger.Debugf("ImageOwnerAlias = ", owner)
 	//===============================
 	// Root Disk Size 사전 검증 - 이슈#536
 	//===============================
@@ -347,9 +354,23 @@ func (vmHandler *AwsVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 	//=============================
 	// SystemDisk 처리 - 이슈 #348에 의해 RootDisk 기능 지원
 	//=============================
+
+	deleteOnTermination := false
 	//이슈#660 반영
 	if strings.EqualFold(vmReqInfo.RootDiskType, "default") {
 		vmReqInfo.RootDiskType = ""
+		if isMyImage {
+			deleteOnTermination = true
+			blockDeviceMappings := []*ec2.BlockDeviceMapping{
+				{
+					Ebs: &ec2.EbsBlockDevice{
+						DeleteOnTermination: aws.Bool(deleteOnTermination),
+					},
+				},
+			}
+			input.SetBlockDeviceMappings(blockDeviceMappings)
+			cblogger.Debugf("MyImage set DeleteOnTermination = ", isMyImage, deleteOnTermination)
+		}
 	}
 	if vmReqInfo.RootDiskType != "" || vmReqInfo.RootDiskSize != "" {
 		blockDeviceMappings := []*ec2.BlockDeviceMapping{
@@ -360,10 +381,12 @@ func (vmHandler *AwsVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 					//RootDeviceName
 					//VolumeType: aws.String(diskType),
 					//VolumeSize: diskSize,
+					DeleteOnTermination: aws.Bool(deleteOnTermination),
 				},
 			},
 		}
 		input.SetBlockDeviceMappings(blockDeviceMappings)
+		cblogger.Debugf("MyImage set DeleteOnTermination = ", isMyImage, deleteOnTermination)
 
 		//=============================
 		// Root Disk Type 변경
