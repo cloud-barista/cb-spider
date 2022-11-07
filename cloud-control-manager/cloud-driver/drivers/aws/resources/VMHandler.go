@@ -126,12 +126,43 @@ func (vmHandler *AwsVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 		return irs.VMInfo{}, errImgInfo
 	}
 
-	owner := amiImage.ImageOwnerAlias
+	// public image일 때
+	// 	 ImageOwnerAlias: "amazon"
+	// 	 OwnerId: "801119661308"
+	// MyImage일 때
+	//	 ImageOwnerAlias property가 없음
+	// 	 OwnerId는 자신의 Id(12자리)
+
 	isMyImage := false
-	if *owner == "self" {
+	abc := reflect.ValueOf(amiImage)
+	imageOwnerAliasField := abc.Elem().FieldByName("ImageOwnerAlias")
+	cblogger.Debugf("field: ", imageOwnerAliasField.IsValid())
+	if !imageOwnerAliasField.IsValid() {
+		cblogger.Debugf("ownerAlias: myimage ")
 		isMyImage = true
+	} else {
+		cblogger.Debugf("ownerAlias: ", imageOwnerAliasField)
+		cblogger.Debug("ownerAliasIsNil: ", imageOwnerAliasField.IsNil())
+		if imageOwnerAliasField.IsNil() {
+			isMyImage = true
+		}
 	}
-	cblogger.Debugf("ImageOwnerAlias = ", owner)
+	cblogger.Debugf("isMyImage: ", isMyImage)
+	// cblogger.Debugf("abc: ", abc)
+	// if abc != nil {
+	// 	ownerAlias := amiImage.ImageOwnerAlias
+	// 	if *ownerAlias == "amazon" {
+	// 		cblogger.Debugf("ownerAlias: amazon ", *ownerAlias)
+	// 	} else {
+	// 		cblogger.Debugf("ownerAlias: myimage ", *ownerAlias)
+	// 		isMyImage = true
+	// 	}
+	// }
+	// if !reflect.ValueOf(&amiImage.ImageOwnerAlias).IsNil() {
+
+	// }
+
+	// cblogger.Debugf("OwnerId = ", *owner)
 	//===============================
 	// Root Disk Size 사전 검증 - 이슈#536
 	//===============================
