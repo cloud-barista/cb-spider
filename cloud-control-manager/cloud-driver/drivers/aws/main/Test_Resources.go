@@ -1446,22 +1446,22 @@ func handleCluster() {
 	} // nlbReqInfo
 
 	reqNodeGroupInfo := irs.NodeGroupInfo{
-		IId: irs.IID{NameId: "cb-eks-node-test01"},
+		IId:         irs.IID{NameId: "cb-eks-node-test01"},
+		MinNodeSize: 1,
+		MaxNodeSize: 2,
 
 		// VM config.
-		ImageIID     IID
-		VMSpecName   string
-		RootDiskType string // "SSD(gp2)", "Premium SSD", ...
-		RootDiskSize string // "", "default", "50", "1000" (GB)
-		KeyPairIID   IID
-	
-		Status NodeGroupStatus
-	
+		ImageIID:     irs.IID{SystemId: "ami-00e07ff65a55e3ca5"}, // Amazon Linux 2 (AL2_x86_64) - https://docs.aws.amazon.com/eks/latest/userguide/eks-optimized-ami.html
+		VMSpecName:   "t3.medium",
+		RootDiskType: "SSD(gp2)", // "SSD(gp2)", "Premium SSD", ...
+		RootDiskSize: "20",       // "", "default", "50", "1000" (GB)
+		KeyPairIID:   irs.IID{SystemId: "japan-test"},
+
+		//Status NodeGroupStatus
+
 		// Scaling config.
-		OnAutoScaling   bool // default: true
-		DesiredNodeSize int
-		MinNodeSize     int
-		MaxNodeSize     int		
+		OnAutoScaling:   true, // default: true
+		DesiredNodeSize: 1,
 	}
 
 	for {
@@ -1472,10 +1472,11 @@ func handleCluster() {
 		fmt.Println("3. Cluster Get")
 		fmt.Println("4. Cluster Delete")
 
-		fmt.Println("5. AddNodeGroup")
-		fmt.Println("6. RemoveNodeGroup")
+		fmt.Println("5. ListNodeGroup")
+		fmt.Println("6. AddNodeGroup")
+		fmt.Println("7. RemoveNodeGroup")
 
-		fmt.Println("7. UpgradeCluster")
+		fmt.Println("8. UpgradeCluster")
 
 		var commandNum int
 		inputCnt, err := fmt.Scan(&commandNum)
@@ -1541,12 +1542,44 @@ func handleCluster() {
 				}
 
 			case 5:
-				cblogger.Infof("[%s] AddNode 테스트", clusterReqInfo.IId)
+				cblogger.Infof("[%s] ListNodeGroup 테스트", clusterReqInfo.IId)
+				result, err := handler.ListNodeGroup(clusterReqInfo.IId)
+				if err != nil {
+					cblogger.Infof("[%s] ListNodeGroup 실패 : ", clusterReqInfo.IId.NameId, err)
+				} else {
+					cblogger.Infof("[%s] ListNodeGroup 성공 : [%s]", clusterReqInfo.IId.NameId, result)
+					if cblogger.Level.String() == "debug" {
+						spew.Dump(result)
+					}
+
+					cblogger.Info("출력 결과 수 : ", len(result))
+
+					//조회및 삭제 테스트를 위해 리스트의 첫번째 정보의 ID를 요청ID로 자동 갱신함.
+					if len(result) > 0 {
+						reqNodeGroupInfo.IId = result[0].IId // 조회 및 삭제를 위해 생성된 ID로 변경
+						cblogger.Info("---> Req IID 변경 : ", reqNodeGroupInfo.IId)
+					}
+				}
+
+			case 6:
+				cblogger.Infof("[%s] AddNodeGroup 테스트", clusterReqInfo.IId)
 				result, err := handler.AddNodeGroup(clusterReqInfo.IId, reqNodeGroupInfo)
 				if err != nil {
-					cblogger.Infof("[%s] 리스너 변경 실패 : ", clusterReqInfo.IId.NameId, err)
+					cblogger.Infof("[%s] AddNodeGroup 실패 : ", clusterReqInfo.IId.NameId, err)
 				} else {
-					cblogger.Infof("[%s] 리스너 변경 성공 : [%s]", clusterReqInfo.IId.NameId, result)
+					cblogger.Infof("[%s] AddNodeGroup 성공 : [%s]", clusterReqInfo.IId.NameId, result)
+					if cblogger.Level.String() == "debug" {
+						spew.Dump(result)
+					}
+				}
+
+			case 7:
+				cblogger.Infof("[%s] RemoveNodeGroup 테스트", clusterReqInfo.IId)
+				result, err := handler.RemoveNodeGroup(clusterReqInfo.IId, reqNodeGroupInfo.IId)
+				if err != nil {
+					cblogger.Infof("[%s] RemoveNodeGroup 실패 : ", reqNodeGroupInfo.IId.SystemId, err)
+				} else {
+					cblogger.Infof("[%s] RemoveNodeGroup 성공", reqNodeGroupInfo.IId.SystemId)
 					if cblogger.Level.String() == "debug" {
 						spew.Dump(result)
 					}

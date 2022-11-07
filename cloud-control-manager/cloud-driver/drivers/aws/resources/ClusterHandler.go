@@ -57,6 +57,7 @@ func (ClusterHandler *AwsClusterHandler) CreateCluster(clusterReqInfo irs.Cluste
 	// get Role Arn
 	eksRole, err := ClusterHandler.getRole(irs.IID{SystemId: eksRoleName})
 	if err != nil {
+		cblogger.Error(err)
 		// role 은 required 임.
 		return irs.ClusterInfo{}, err
 	}
@@ -215,7 +216,6 @@ func (ClusterHandler *AwsClusterHandler) WaitUntilClusterActive(clusterName stri
 
 func (ClusterHandler *AwsClusterHandler) ListCluster() ([]*irs.ClusterInfo, error) {
 	//return irs.ClusterInfo{}, nil
-	input := &eks.ListClustersInput{}
 	if ClusterHandler == nil {
 		cblogger.Error("ClusterHandlerIs nil")
 		return nil, errors.New("ClusterHandler is nil")
@@ -228,6 +228,7 @@ func (ClusterHandler *AwsClusterHandler) ListCluster() ([]*irs.ClusterInfo, erro
 		return nil, errors.New("ClusterHandler is nil")
 	}
 
+	input := &eks.ListClustersInput{}
 	// logger for HisCall
 	callogger := call.GetLogger("HISCALL")
 	callLogInfo := call.CLOUDLOGSCHEMA{
@@ -278,6 +279,7 @@ func (ClusterHandler *AwsClusterHandler) ListCluster() ([]*irs.ClusterInfo, erro
 
 		clusterInfo, err := ClusterHandler.GetCluster(irs.IID{SystemId: *clusterName})
 		if err != nil {
+			cblogger.Error(err)
 			continue //	에러가 나면 일단 skip시킴.
 		}
 		clusterList = append(clusterList, &clusterInfo)
@@ -375,6 +377,22 @@ func (ClusterHandler *AwsClusterHandler) GetCluster(clusterIID irs.IID) (irs.Clu
 		{Key: "RoleArn", Value: *result.Cluster.RoleArn},
 	}
 	clusterInfo.KeyValueList = keyValueList
+
+	//노드 그룹 처리
+	resNodeGroupList, errNodeGroup := ClusterHandler.ListNodeGroup(clusterInfo.IId)
+	if errNodeGroup != nil {
+		cblogger.Error(errNodeGroup)
+		return irs.ClusterInfo{}, errNodeGroup
+	}
+	if cblogger.Level.String() == "debug" {
+		spew.Dump(resNodeGroupList)
+	}
+
+	//노드 그룹 타입 변환
+	for _, curNodeGroup := range resNodeGroupList {
+		cblogger.Debugf("노드 그룹 : [%s]", curNodeGroup.IId.NameId)
+		clusterInfo.NodeGroupList = append(clusterInfo.NodeGroupList, *curNodeGroup)
+	}
 
 	if cblogger.Level.String() == "debug" {
 		spew.Dump(clusterInfo)
@@ -475,9 +493,10 @@ func (ClusterHandler *AwsClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGr
 	// get Role Arn
 	//eksRoleName := "AWSServiceRoleForAmazonEKSNodegroup"
 	eksRoleName := "cloud-barista-spider-eks-nodegroup-role"
-	eksRoleName = "cb-eks-nodegroup-role" //테스트용
+	//eksRoleName = "cb-eks-nodegroup-role" //테스트용
 	eksRole, err := ClusterHandler.getRole(irs.IID{SystemId: eksRoleName})
 	if err != nil {
+		cblogger.Error(err)
 		// role 은 required 임.
 		return irs.NodeGroupInfo{}, err
 	}
@@ -485,13 +504,20 @@ func (ClusterHandler *AwsClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGr
 
 	clusterInfo, err := ClusterHandler.GetCluster(clusterIID)
 	if err != nil {
+		cblogger.Error(err)
 		return irs.NodeGroupInfo{}, err
 	}
 
 	networkInfo := clusterInfo.Network
 	var subnetList []*string
 	for _, subnet := range networkInfo.SubnetIID {
-		subnetList = append(subnetList, &subnet.SystemId)
+		subnetId := subnet.SystemId // 포인터라서 subnet.SystemId를 직접 Append하면 안 됨.
+		subnetList = append(subnetList, &subnetId)
+	}
+
+	cblogger.Debug("최종 Subnet 목록")
+	if cblogger.Level.String() == "debug" {
+		spew.Dump(subnetList)
 	}
 
 	var nodeSecurityGroupList []*string
@@ -559,8 +585,13 @@ func (ClusterHandler *AwsClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGr
 		input.InstanceTypes = aws.StringSlice(nodeSpec)
 	}
 
+	if cblogger.Level.String() == "debug" {
+		spew.Dump(input)
+	}
+
 	result, err := ClusterHandler.Client.CreateNodegroup(input) // 비동기
 	if err != nil {
+		cblogger.Error(err)
 		return irs.NodeGroupInfo{}, err
 	}
 
@@ -581,6 +612,7 @@ func (ClusterHandler *AwsClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGr
 
 	nodeGroup, err := ClusterHandler.GetNodeGroup(clusterIID, irs.IID{NameId: nodeGroupReqInfo.IId.NameId, SystemId: *nodegroupName})
 	if err != nil {
+		cblogger.Error(err)
 		return irs.NodeGroupInfo{}, err
 	}
 	nodeGroup.IId.NameId = nodeGroupReqInfo.IId.NameId
@@ -595,6 +627,7 @@ func (ClusterHandler *AwsClusterHandler) ListNodeGroup(clusterIID irs.IID) ([]*i
 
 	result, err := ClusterHandler.Client.ListNodegroups(input)
 	if err != nil {
+		cblogger.Error(err)
 		return nil, err
 	}
 	spew.Dump(result)
@@ -602,6 +635,7 @@ func (ClusterHandler *AwsClusterHandler) ListNodeGroup(clusterIID irs.IID) ([]*i
 	for _, nodeGroupName := range result.Nodegroups {
 		nodeGroupInfo, err := ClusterHandler.GetNodeGroup(clusterIID, irs.IID{SystemId: *nodeGroupName})
 		if err != nil {
+			cblogger.Error(err)
 			//return nil, err
 			continue
 		}
@@ -622,11 +656,13 @@ func (ClusterHandler *AwsClusterHandler) GetNodeGroup(clusterIID irs.IID, nodeGr
 
 	result, err := ClusterHandler.Client.DescribeNodegroup(input)
 	if err != nil {
+		cblogger.Error(err)
 		return irs.NodeGroupInfo{}, err
 	}
 
 	nodeGroupInfo, err := ClusterHandler.convertNodeGroup(result)
 	if err != nil {
+		cblogger.Error(err)
 		return irs.NodeGroupInfo{}, err
 	}
 	return nodeGroupInfo, nil
@@ -655,6 +691,7 @@ func (ClusterHandler *AwsClusterHandler) ChangeNodeGroupScaling(clusterIID irs.I
 
 	result, err := ClusterHandler.Client.DescribeNodegroup(input)
 	if err != nil {
+		cblogger.Error(err)
 		return irs.NodeGroupInfo{}, err
 	}
 
@@ -671,6 +708,7 @@ func (ClusterHandler *AwsClusterHandler) ChangeNodeGroupScaling(clusterIID irs.I
 
 		updateResult, err := ClusterHandler.AutoScaling.UpdateAutoScalingGroup(input)
 		if err != nil {
+			cblogger.Error(err)
 			return irs.NodeGroupInfo{}, err
 		}
 		spew.Dump(updateResult)
@@ -679,6 +717,7 @@ func (ClusterHandler *AwsClusterHandler) ChangeNodeGroupScaling(clusterIID irs.I
 
 	nodeGroupInfo, err := ClusterHandler.GetNodeGroup(clusterIID, irs.IID{SystemId: *nodeGroupName})
 	if err != nil {
+		cblogger.Error(err)
 		return irs.NodeGroupInfo{}, err
 	}
 	return nodeGroupInfo, nil
@@ -693,6 +732,7 @@ func (ClusterHandler *AwsClusterHandler) RemoveNodeGroup(clusterIID irs.IID, nod
 
 	result, err := ClusterHandler.Client.DeleteNodegroup(input)
 	if err != nil {
+		cblogger.Error(err)
 		return false, err
 	}
 
@@ -710,6 +750,7 @@ func (ClusterHandler *AwsClusterHandler) UpgradeCluster(clusterIID irs.IID, newV
 	}
 	result, err := ClusterHandler.Client.UpdateClusterVersion(input)
 	if err != nil {
+		cblogger.Error(err)
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
 			case eks.ErrCodeInvalidParameterException:
