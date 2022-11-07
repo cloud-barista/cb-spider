@@ -22,7 +22,8 @@ import (
 	"strings"
 	"time"
 
-	keypair "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/common"
+	//keypair "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/common"
+	cdcom "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/common"
 	//cim "github.com/cloud-barista/cb-spider/cloud-info-manager"
 	compute "google.golang.org/api/compute/v1"
 	// "golang.org/x/oauth2/google"
@@ -117,7 +118,7 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 	}
 
 	cblogger.Debug("공개키 생성")
-	publicKey, errPub := keypair.MakePublicKeyFromPrivateKey(keypairInfo.PrivateKey)
+	publicKey, errPub := cdcom.MakePublicKeyFromPrivateKey(keypairInfo.PrivateKey)
 	if errPub != nil {
 		cblogger.Error(errPub)
 		return irs.VMInfo{}, errPub
@@ -205,6 +206,12 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 
 	//Windows OS인 경우 administrator 계정 비번 설정 및 계정 활성화
 	if vmReqInfo.WindowsType {
+
+		err := cdcom.ValidateWindowsPassword(vmReqInfo.VMUserPasswd)
+		if err != nil {
+			return irs.VMInfo{}, err
+		}
+
 		winOsMeta := "net user \"administrator\" \"" + vmReqInfo.VMUserPasswd + "\"\nnet user administrator /active:yes"
 		winOsPwd := compute.MetadataItems{Key: "windows-startup-script-cmd", Value: &winOsMeta}
 		instance.Metadata.Items = append(instance.Metadata.Items, &winOsPwd)

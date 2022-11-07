@@ -19,6 +19,7 @@ import (
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/ecs"
 	cblog "github.com/cloud-barista/cb-log"
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
+	cdcom "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/common"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	cim "github.com/cloud-barista/cb-spider/cloud-info-manager"
@@ -138,6 +139,11 @@ func (vmHandler *AlibabaVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 	osType := vmImage.OSType //"OSType": "windows"
 	if osType == "windows" {
 		isWindows = true
+
+		err := cdcom.ValidateWindowsPassword(vmReqInfo.VMUserPasswd)
+		if err != nil {
+			return irs.VMInfo{}, err
+		}
 	}
 
 	//=============================
@@ -193,9 +199,6 @@ func (vmHandler *AlibabaVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 	// windows 일 떄는 password 만 set, keypairName은 비움.
 	// 다른 os일 때 password는 cb-user의 password 로 사용
 	if isWindows {
-		if vmReqInfo.VMUserPasswd == "" {
-			return irs.VMInfo{}, errors.New("Please Input password. ")
-		}
 		request.Password = vmReqInfo.VMUserPasswd
 	} else {
 		request.KeyPairName = vmReqInfo.KeyPairIID.SystemId

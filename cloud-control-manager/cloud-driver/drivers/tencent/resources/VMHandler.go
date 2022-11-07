@@ -19,6 +19,7 @@ import (
 
 	cblog "github.com/cloud-barista/cb-log"
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
+	cdcom "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/common"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/davecgh/go-spew/spew"
@@ -110,23 +111,15 @@ func (vmHandler *TencentVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 	cblogger.Error("OsName,", *imageInfo.OsName)     //"OsName": "Windows Server 2012 R2 DataCenter 64bitEN",
 	cblogger.Error("Platform,", *imageInfo.Platform) //"Platform": "Windows",
 	if *imageInfo.Platform == "Windows" {
+
+		err := cdcom.ValidateWindowsPassword(vmReqInfo.VMUserPasswd)
+		if err != nil {
+			return irs.VMInfo{}, err
+		}
+
 		isWindow = true
-		vmReqInfo.VMUserId = "administrator" // window은 administrator로 set
-		password := vmReqInfo.VMUserPasswd
-		if password == "" {
-			return irs.VMInfo{}, errors.New("Please Input password. ")
-		}
-		if len(password) < 12 || len(password) > 30 {
-			return irs.VMInfo{}, errors.New("Please Input password. ")
-		}
-		if strings.Index(password, "administrator") > -1 {
-			return irs.VMInfo{}, errors.New("Password 에 administrator가 들어갈 수 없습니다. ")
-		}
-		//The password for a Windows instance should contain 12 to 30 characters,
-		//The password cannot start with "/",
-		//and must include at least 3 types of the following characters: [a-z], [A-Z], [0-9] and special characters [()`~!@#$%^&*-+=_|{}[]:;'<>,.?/],
-		//and cannot contain user name, such as "administrator" (case-insensitive).
 		vmReqInfo.KeyPairIID = irs.IID{}
+		vmReqInfo.VMUserId = "administrator" // window은 administrator로 set
 		cblogger.Error("Window 이므로 keyPair는 사용하지 않고 admin, pass만 사용", vmReqInfo.VMUserId, vmReqInfo.VMUserPasswd, vmReqInfo.KeyPairIID)
 	}
 

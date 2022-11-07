@@ -29,7 +29,7 @@ type AwsImageHandler struct {
 	Client *ec2.EC2
 }
 
-//@TODO : 작업해야 함.
+// @TODO : 작업해야 함.
 func (imageHandler *AwsImageHandler) CreateImage(imageReqInfo irs.ImageReqInfo) (irs.ImageInfo, error) {
 	// logger for HisCall
 	callogger := call.GetLogger("HISCALL")
@@ -52,8 +52,8 @@ func (imageHandler *AwsImageHandler) CreateImage(imageReqInfo irs.ImageReqInfo) 
 	return irs.ImageInfo{imageReqInfo.IId, "", "", nil}, nil
 }
 
-//@TODO : 목록이 너무 많기 때문에 amazon 계정으로 공유된 퍼블릭 이미지중 AMI만 조회 함.
-//20210607 - Tumblebug에서 필터할 수 있도록 state는 모든 이미지를 대상으로 하며, 이미지가 너무 많기 때문에 AWS 소유의 이미지만 제공 함.
+// @TODO : 목록이 너무 많기 때문에 amazon 계정으로 공유된 퍼블릭 이미지중 AMI만 조회 함.
+// 20210607 - Tumblebug에서 필터할 수 있도록 state는 모든 이미지를 대상으로 하며, 이미지가 너무 많기 때문에 AWS 소유의 이미지만 제공 함.
 func (imageHandler *AwsImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 	cblogger.Debug("Start")
 	var imageInfoList []*irs.ImageInfo
@@ -148,8 +148,8 @@ func (imageHandler *AwsImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 	return imageInfoList, nil
 }
 
-//Image 정보를 추출함
-//@TODO : GuestOS 쳌크할 것
+// Image 정보를 추출함
+// @TODO : GuestOS 쳌크할 것
 func ExtractImageDescribeInfo(image *ec2.Image) irs.ImageInfo {
 	//spew.Dump(image)
 	imageInfo := irs.ImageInfo{
@@ -211,8 +211,7 @@ func ExtractImageDescribeInfo(image *ec2.Image) irs.ImageInfo {
 	return imageInfo
 }
 
-//func (imageHandler *AwsImageHandler) GetImage(imageID string) (irs.ImageInfo, error) {
-func (imageHandler *AwsImageHandler) GetImage(imageIID irs.IID) (irs.ImageInfo, error) {
+func (imageHandler *AwsImageHandler) GetAmiImage(imageIID irs.IID) (*ec2.Image, error) {
 
 	cblogger.Infof("imageID : [%s]", imageIID.SystemId)
 
@@ -250,16 +249,42 @@ func (imageHandler *AwsImageHandler) GetImage(imageIID irs.IID) (irs.ImageInfo, 
 				cblogger.Error(aerr.Error())
 			}
 		} else {
+			cblogger.Error(err.Error())
+		}
+		return nil, err
+	}
+	callogger.Info(call.String(callLogInfo))
+
+	if len(result.Images) > 0 {
+		return result.Images[0], nil
+	} else {
+		return nil, errors.New("조회된 Image 정보가 없습니다.")
+	}
+
+}
+
+// func (imageHandler *AwsImageHandler) GetImage(imageID string) (irs.ImageInfo, error) {
+func (imageHandler *AwsImageHandler) GetImage(imageIID irs.IID) (irs.ImageInfo, error) {
+
+	cblogger.Infof("imageID : [%s]", imageIID.SystemId)
+	amiImage, err := imageHandler.GetAmiImage(imageIID)
+
+	if err != nil {
+		if aerr, ok := err.(awserr.Error); ok {
+			switch aerr.Code() {
+			default:
+				cblogger.Error(aerr.Error())
+			}
+		} else {
 			// Print the error, cast err to awserr.Error to get the Code and
 			// Message from an error.
 			cblogger.Error(err.Error())
 		}
 		return irs.ImageInfo{}, err
 	}
-	callogger.Info(call.String(callLogInfo))
 
-	if len(result.Images) > 0 {
-		imageInfo := ExtractImageDescribeInfo(result.Images[0])
+	if amiImage != nil {
+		imageInfo := ExtractImageDescribeInfo(amiImage)
 		return imageInfo, nil
 	} else {
 		return irs.ImageInfo{}, errors.New("조회된 Image 정보가 없습니다.")
@@ -267,7 +292,7 @@ func (imageHandler *AwsImageHandler) GetImage(imageIID irs.IID) (irs.ImageInfo, 
 
 }
 
-//@TODO : 삭제 API 찾아야 함.
+// @TODO : 삭제 API 찾아야 함.
 func (imageHandler *AwsImageHandler) DeleteImage(imageIID irs.IID) (bool, error) {
 	// logger for HisCall
 	callogger := call.GetLogger("HISCALL")
@@ -286,4 +311,35 @@ func (imageHandler *AwsImageHandler) DeleteImage(imageIID irs.IID) (bool, error)
 	callogger.Info(call.String(callLogInfo))
 
 	return false, nil
+}
+
+func (imageHandler *AwsImageHandler) GetImageSizeFromEc2Image(ec2Image *ec2.Image) (int64, error) {
+	if !reflect.ValueOf(ec2Image.BlockDeviceMappings).IsNil() {
+		if !reflect.ValueOf(ec2Image.BlockDeviceMappings[0].Ebs).IsNil() {
+			isize := aws.Int64(*ec2Image.BlockDeviceMappings[0].Ebs.VolumeSize)
+			return *isize, nil
+		} else {
+			cblogger.Error("BlockDeviceMappings에서 Ebs 정보를 찾을 수 없습니다.")
+			return -1, errors.New("BlockDeviceMappings에서 Ebs 정보를 찾을 수 없습니다.")
+		}
+	} else {
+		cblogger.Error("BlockDeviceMappings 정보를 찾을 수 없습니다.")
+		return -1, errors.New("BlockDeviceMappings 정보를 찾을 수 없습니다.")
+	}
+}
+
+func (imageHandler *AwsImageHandler) GetOsTypeFromEc2Image(ec2Image *ec2.Image) string {
+	var guestOS string
+	//주로 윈도우즈는 Platform 정보가 존재하며 리눅스 계열은 PlatformDetails만 존재하는 듯. - "Linux/UNIX"
+	//윈도우즈 계열은 PlatformDetails에는 "Windows with SQL Server Standard"처럼 SQL정보도 포함되어있음.
+	if !reflect.ValueOf(ec2Image.Platform).IsNil() {
+		guestOS = *ec2Image.Platform //Linux/UNIX
+
+	} else {
+		// Platform 정보가 없는 경우 PlatformDetails 정보가 존재하면 PlatformDetails 값을 이용함.
+		if !reflect.ValueOf(ec2Image.PlatformDetails).IsNil() {
+			guestOS = *ec2Image.PlatformDetails //Linux/UNIX
+		}
+	}
+	return guestOS
 }
