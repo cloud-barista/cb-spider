@@ -216,3 +216,8 @@ func (imageHandler *ClouditImageHandler) GetRawRootImage(imageIId irs.IID, isMyI
 	}
 	return nil, errors.New("not found image")
 }
+
+func (imageHandler *ClouditImageHandler) CheckWindowsImage(imageIID irs.IID) (bool, error) {
+	return false, fmt.Errorf("Does not support CheckWindowsImage() yet!!")
+}
+

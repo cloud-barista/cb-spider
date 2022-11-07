@@ -174,3 +174,8 @@ func getImageNextHref(next *vpcv1.ImageCollectionNext) (string, error) {
 	}
 	return "", errors.New("NOT NEXT")
 }
+
+func (imageHandler *IbmImageHandler) CheckWindowsImage(imageIID irs.IID) (bool, error) { 
+	return false, fmt.Errorf("Does not support CheckWindowsImage() yet!!")
+}
+

@@ -218,3 +218,8 @@ func getRawImageList(computeClient *gophercloud.ServiceClient) ([]images.Image, 
 	}
 	return imageList, err
 }
+
+func (imageHandler *OpenStackImageHandler) CheckWindowsImage(imageIID irs.IID) (bool, error) {
+	return false, fmt.Errorf("Does not support CheckWindowsImage() yet!!")
+}
+

@@ -471,3 +471,8 @@ func convertAWSImageToMyImageInfo(awsImage *ec2.Image) (irs.MyImageInfo, error) 
 
 	return returnMyImage, nil
 }
+
+func (ImageHandler *AwsMyImageHandler) CheckWindowsImage(myImageIID irs.IID) (bool, error) {
+	return false, fmt.Errorf("Does not support CheckWindowsImage() yet!!")
+}
+

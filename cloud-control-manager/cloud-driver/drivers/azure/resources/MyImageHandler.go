@@ -411,3 +411,9 @@ func windowShellPreparationOperationForGeneralize(vmName string, virtualMachineR
 	}
 	return nil
 }
+
+
+func (myImageHandler *AzureMyImageHandler) CheckWindowsImage(myImageIID irs.IID) (bool, error) {
+	return false, fmt.Errorf("Does not support CheckWindowsImage() yet!!")
+}
+

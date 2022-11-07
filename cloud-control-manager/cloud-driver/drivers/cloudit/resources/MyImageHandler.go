@@ -519,3 +519,8 @@ func (myImageHandler *ClouditMyImageHandler) rollbackCreateVolumeBySnapshot(myIm
 
 	return nil
 }
+
+func (myImageHandler *ClouditMyImageHandler) CheckWindowsImage(myImageIID irs.IID) (bool, error) {
+	return false, fmt.Errorf("Does not support CheckWindowsImage() yet!!")
+}
+

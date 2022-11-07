@@ -662,3 +662,8 @@ func mappingImageInfo(imageInfo *compute.Image) irs.ImageInfo {
 	return imageList
 
 }
+
+func (imageHandler *GCPImageHandler) CheckWindowsImage(imageIID irs.IID) (bool, error) {
+	return false, fmt.Errorf("Does not support CheckWindowsImage() yet!!")
+}
+

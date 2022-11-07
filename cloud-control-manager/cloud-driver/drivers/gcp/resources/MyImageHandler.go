@@ -8,6 +8,8 @@ import (
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	compute "google.golang.org/api/compute/v1"
+
+	"fmt"
 )
 
 type GCPMyImageHandler struct {
@@ -139,3 +141,9 @@ func convertMyImageStatus(status string) (irs.MyImageStatus, error) {
 	return returnStatus, nil
 
 }
+
+
+func (MyImageHandler *GCPMyImageHandler) CheckWindowsImage(myImageIID irs.IID) (bool, error) {
+	return false, fmt.Errorf("Does not support CheckWindowsImage() yet!!")
+}
+

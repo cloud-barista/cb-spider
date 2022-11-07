@@ -22,6 +22,7 @@ import (
 
 	//irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/new-resources"
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
+	"fmt"
 )
 
 type AwsImageHandler struct {
@@ -287,3 +288,8 @@ func (imageHandler *AwsImageHandler) DeleteImage(imageIID irs.IID) (bool, error)
 
 	return false, nil
 }
+
+func (imageHandler *AwsImageHandler) CheckWindowsImage(imageIID irs.IID) (bool, error) {
+	return false, fmt.Errorf("Does not support CheckWindowsImage() yet!!")
+}
+
