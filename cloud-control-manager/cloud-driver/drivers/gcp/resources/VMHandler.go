@@ -22,7 +22,8 @@ import (
 	"strings"
 	"time"
 
-	keypair "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/common"
+	//keypair "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/common"
+	cdcom "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/common"
 	//cim "github.com/cloud-barista/cb-spider/cloud-info-manager"
 	compute "google.golang.org/api/compute/v1"
 	// "golang.org/x/oauth2/google"
@@ -117,7 +118,7 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 	}
 
 	cblogger.Debug("공개키 생성")
-	publicKey, errPub := keypair.MakePublicKeyFromPrivateKey(keypairInfo.PrivateKey)
+	publicKey, errPub := cdcom.MakePublicKeyFromPrivateKey(keypairInfo.PrivateKey)
 	if errPub != nil {
 		cblogger.Error(errPub)
 		return irs.VMInfo{}, errPub
@@ -151,6 +152,27 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 
 	cblogger.Info("networkURL 정보 : ", networkURL)
 	cblogger.Info("subnetWorkURL 정보 : ", subnetWorkURL)
+
+	// 이미지 사이즈 추출
+	var projectIdForImage string
+	var imageSize int64
+	imageUrlArr := strings.Split(imageURL, "/")
+	imageName := imageUrlArr[len(imageUrlArr)-1]
+
+	projectIdForImage = imageUrlArr[6]
+	imageResp, err := vmHandler.Client.Images.Get(projectIdForImage, imageName).Do()
+	if err != nil {
+		log.Fatal(err)
+	}
+	spew.Dump(imageResp)
+	osFeatures := imageResp.GuestOsFeatures
+	isWindows := false
+	for _, feature := range osFeatures {
+		if feature.Type == "WINDOWS" {
+			isWindows = true
+		}
+	}
+
 	instance := &compute.Instance{
 		Name: vmName,
 		Metadata: &compute.Metadata{
@@ -201,6 +223,19 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 		Tags: &compute.Tags{
 			Items: securityTags,
 		},
+	}
+
+	//Windows OS인 경우 administrator 계정 비번 설정 및 계정 활성화
+	if isWindows {
+
+		err := cdcom.ValidateWindowsPassword(vmReqInfo.VMUserPasswd)
+		if err != nil {
+			return irs.VMInfo{}, err
+		}
+
+		winOsMeta := "net user \"administrator\" \"" + vmReqInfo.VMUserPasswd + "\"\nnet user administrator /active:yes"
+		winOsPwd := compute.MetadataItems{Key: "windows-startup-script-cmd", Value: &winOsMeta}
+		instance.Metadata.Items = append(instance.Metadata.Items, &winOsPwd)
 	}
 
 	// imageType이 MyImage인 경우 SourceMachineImage Setting
@@ -295,17 +330,6 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 				}
 			}
 
-			// 이미지 사이즈 추출
-			var projectIdForImage string
-			var imageSize int64
-			imageUrlArr := strings.Split(imageURL, "/")
-			imageName := imageUrlArr[len(imageUrlArr)-1]
-
-			projectIdForImage = imageUrlArr[6]
-			imageResp, err := vmHandler.Client.Images.Get(projectIdForImage, imageName).Do()
-			if err != nil {
-				log.Fatal(err)
-			}
 			imageSize = imageResp.DiskSizeGb
 
 			if iDiskSize < imageSize {
