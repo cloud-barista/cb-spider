@@ -469,7 +469,6 @@ func (vmHandler *IbmVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 			}
 			LoggingInfo(hiscallInfo, start)
 			if isWindows {
-				finalInstanceInfo.VMUserId = vmReqInfo.VMUserId
 				finalInstanceInfo.VMUserPasswd = vmReqInfo.VMUserPasswd
 			}
 			return finalInstanceInfo, nil
@@ -1304,6 +1303,60 @@ func (vmHandler *IbmVMHandler) setVmInfo(instance vpcv1.Instance) (irs.VMInfo, e
 		case volumeRootDiskSize := <-volumeDone:
 			vmInfo.RootDiskSize = volumeRootDiskSize
 		}
+	}
+
+	vmInfo.RootDiskType = "general-purpose"
+
+	imageId := instance.Image.ID
+	imageHandler := IbmImageHandler{
+		CredentialInfo: vmHandler.CredentialInfo,
+		Region:         vmHandler.Region,
+		VpcService:     vmHandler.VpcService,
+		Ctx:            vmHandler.Ctx,
+	}
+	myImageHandler := IbmMyImageHandler{
+		CredentialInfo: vmHandler.CredentialInfo,
+		Region:         vmHandler.Region,
+		VpcService:     vmHandler.VpcService,
+		Ctx:            vmHandler.Ctx,
+	}
+
+	vmInfo.VMBootDisk = *instance.BootVolumeAttachment.Volume.ID
+
+	sourceImage, getSourceImageErr := imageHandler.GetImage(irs.IID{SystemId: *imageId})
+	if getSourceImageErr == nil {
+		vmInfo.ImageIId = sourceImage.IId
+		vmInfo.ImageType = irs.PublicImage
+
+		image, getImageErr := getRawImage(irs.IID{SystemId: *imageId}, vmHandler.VpcService, vmHandler.Ctx)
+		if getImageErr == nil {
+			isWindows := strings.Contains(strings.ToLower(*image.OperatingSystem.Name), "windows")
+			if isWindows {
+				vmInfo.VMUserId = "Administrator"
+			} else {
+				vmInfo.VMUserId = "cb-user"
+			}
+		}
+
+		return vmInfo, nil
+	}
+
+	sourceMyImage, getSourceMyImageErr := myImageHandler.GetMyImage(irs.IID{SystemId: *imageId})
+	if getSourceMyImageErr == nil {
+		vmInfo.ImageIId = sourceMyImage.IId
+		vmInfo.ImageType = irs.MyImage
+
+		rawSnapshot, _, getRawSnapshotErr := myImageHandler.VpcService.GetSnapshotWithContext(myImageHandler.Ctx, &vpcv1.GetSnapshotOptions{ID: imageId})
+		if getRawSnapshotErr == nil {
+			isWindows := strings.Contains(strings.ToLower(*rawSnapshot.OperatingSystem.Name), "windows")
+			if isWindows {
+				vmInfo.VMUserId = "Administrator"
+			} else {
+				vmInfo.VMUserId = "cb-user"
+			}
+		}
+
+		return vmInfo, nil
 	}
 
 	return vmInfo, nil
