@@ -218,8 +218,21 @@ func getSnapshotStatus(status string) irs.MyImageStatus {
 	}
 }
 
-
 func (myImageHandler *IbmMyImageHandler) CheckWindowsImage(myImageIID irs.IID) (bool, error) {
-	return false, fmt.Errorf("Does not support CheckWindowsImage() yet!!")
-}
+	var getMyImageErr error
+	myImage, getMyImageErr := myImageHandler.GetMyImage(myImageIID)
+	if getMyImageErr != nil {
+		return false, getMyImageErr
+	}
+	if myImage.Status != irs.MyImageAvailable {
+		myImageUnavailableErr := errors.New("Failed to Check Image OS. err = Source Image status is not Available")
+		return false, myImageUnavailableErr
+	}
+	rawSnapshot, _, getRawSnapshotErr := myImageHandler.VpcService.GetSnapshotWithContext(myImageHandler.Ctx, &vpcv1.GetSnapshotOptions{ID: &myImage.IId.SystemId})
+	if getRawSnapshotErr != nil {
+		return false, getRawSnapshotErr
+	}
 
+	isWindows := strings.Contains(strings.ToLower(*rawSnapshot.OperatingSystem.Name), "windows")
+	return isWindows, nil
+}

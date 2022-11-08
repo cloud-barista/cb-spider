@@ -220,6 +220,16 @@ func getRawImageList(computeClient *gophercloud.ServiceClient) ([]images.Image, 
 }
 
 func (imageHandler *OpenStackImageHandler) CheckWindowsImage(imageIID irs.IID) (bool, error) {
-	return false, fmt.Errorf("Does not support CheckWindowsImage() yet!!")
+	image, err := getRawImage(imageIID, imageHandler.Client)
+	if err != nil {
+		return false, err
+	}
+	value, exist := image.Metadata["os_type"]
+	if !exist {
+		return false, nil
+	}
+	if value == "windows" {
+		return true, nil
+	}
+	return false, nil
 }
-

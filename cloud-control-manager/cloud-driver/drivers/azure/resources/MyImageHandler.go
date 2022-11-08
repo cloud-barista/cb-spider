@@ -9,6 +9,7 @@ import (
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
+	"reflect"
 	"strconv"
 	"strings"
 	"time"
@@ -412,8 +413,23 @@ func windowShellPreparationOperationForGeneralize(vmName string, virtualMachineR
 	return nil
 }
 
-
 func (myImageHandler *AzureMyImageHandler) CheckWindowsImage(myImageIID irs.IID) (bool, error) {
-	return false, fmt.Errorf("Does not support CheckWindowsImage() yet!!")
+	convertedMyImageIID, err := ConvertMyImageIID(myImageIID, myImageHandler.CredentialInfo, myImageHandler.Region)
+	if err != nil {
+		return false, errors.New(fmt.Sprintf("failed get OSType By MyImageIID err = %s", err.Error()))
+	}
+	myImage, err := myImageHandler.ImageClient.Get(myImageHandler.Ctx, myImageHandler.Region.ResourceGroup, convertedMyImageIID.NameId, "")
+	if err != nil {
+		return false, errors.New(fmt.Sprintf("failed get OSType By MyImageIID err = failed get MyImage err = %s", err.Error()))
+	}
+	if reflect.ValueOf(myImage.StorageProfile.OsDisk).IsNil() {
+		return false, errors.New(fmt.Sprintf("failed get OSType By MyImageIID err = empty MyImage OSType"))
+	}
+	if myImage.StorageProfile.OsDisk.OsType == compute.OperatingSystemTypesLinux {
+		return false, nil
+	}
+	if myImage.StorageProfile.OsDisk.OsType == compute.OperatingSystemTypesWindows {
+		return true, nil
+	}
+	return false, errors.New(fmt.Sprintf("failed get OSType By MyImageIID err = empty MyImage OSType"))
 }
-

@@ -358,6 +358,16 @@ func (myImageHandler *OpenStackMyImageHandler) snapshot(snapshotReqInfo irs.MyIm
 }
 
 func (myImageHandler *OpenStackMyImageHandler) CheckWindowsImage(myImageIID irs.IID) (bool, error) {
-	return false, fmt.Errorf("Does not support CheckWindowsImage() yet!!")
+	image, err := getRawSnapshot(myImageIID, myImageHandler.ComputeClient)
+	if err != nil {
+		return false, err
+	}
+	value, exist := image.Metadata["os_type"]
+	if !exist {
+		return false, nil
+	}
+	if value == "windows" {
+		return true, nil
+	}
+	return false, nil
 }
-

@@ -269,6 +269,20 @@ func (imageHandler *AzureImageHandler) DeleteImage(imageIID irs.IID) (bool, erro
 }
 
 func (imageHandler *AzureImageHandler) CheckWindowsImage(imageIID irs.IID) (bool, error) {
-	return false, fmt.Errorf("Does not support CheckWindowsImage() yet!!")
+	if imageIID.NameId == "" && imageIID.SystemId == "" {
+		return false, errors.New("failed get OSType By ImageIID err = empty ImageIID")
+	}
+	imageName := imageIID.NameId
+	if imageIID.NameId == "" {
+		imageName = imageIID.SystemId
+	}
+	imageNameSplits := strings.Split(imageName, ":")
+	if len(imageNameSplits) != 4 {
+		return false, errors.New("failed get OSType By ImageIID err = invalid ImageIID, Image Name must be in the form of 'Publisher:Offer:Sku:Version'. ")
+	}
+	offer := imageNameSplits[1]
+	if strings.Contains(strings.ToLower(offer), "window") {
+		return true, nil
+	}
+	return false, nil
 }
-
