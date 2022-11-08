@@ -217,3 +217,9 @@ func getSnapshotStatus(status string) irs.MyImageStatus {
 		return irs.MyImageUnavailable
 	}
 }
+
+
+func (myImageHandler *IbmMyImageHandler) CheckWindowsImage(myImageIID irs.IID) (bool, error) {
+	return false, fmt.Errorf("Does not support CheckWindowsImage() yet!!")
+}
+

@@ -43,5 +43,6 @@ type MyImageHandler interface {
 	//------ MyImage Management
 	ListMyImage() ([]*MyImageInfo, error)
 	GetMyImage(myImageIID IID) (MyImageInfo, error)
+	CheckWindowsImage(myImageIID IID) (bool, error)
 	DeleteMyImage(myImageIID IID) (bool, error)
 }

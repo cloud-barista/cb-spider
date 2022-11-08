@@ -356,3 +356,8 @@ func (myImageHandler *OpenStackMyImageHandler) snapshot(snapshotReqInfo irs.MyIm
 	}
 	return *image, nil
 }
+
+func (myImageHandler *OpenStackMyImageHandler) CheckWindowsImage(myImageIID irs.IID) (bool, error) {
+	return false, fmt.Errorf("Does not support CheckWindowsImage() yet!!")
+}
+

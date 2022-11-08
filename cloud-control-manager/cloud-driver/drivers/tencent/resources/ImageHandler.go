@@ -21,6 +21,7 @@ import (
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
 	cvm "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/cvm/v20170312"
+	"fmt"
 )
 
 type TencentImageHandler struct {
@@ -228,3 +229,8 @@ func (imageHandler *TencentImageHandler) DeleteImage(imageIID irs.IID) (bool, er
 
 	return true, nil
 }
+
+func (imageHandler *TencentImageHandler) CheckWindowsImage(imageIID irs.IID) (bool, error) {
+	return false, fmt.Errorf("Does not support CheckWindowsImage() yet!!")
+}
+

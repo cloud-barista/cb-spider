@@ -267,3 +267,8 @@ func (imageHandler *AzureImageHandler) DeleteImage(imageIID irs.IID) (bool, erro
 
 	return true, nil
 }
+
+func (imageHandler *AzureImageHandler) CheckWindowsImage(imageIID irs.IID) (bool, error) {
+	return false, fmt.Errorf("Does not support CheckWindowsImage() yet!!")
+}
+

@@ -20,6 +20,7 @@ import (
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/davecgh/go-spew/spew"
+	"fmt"
 )
 
 type AlibabaImageHandler struct {
@@ -324,3 +325,8 @@ func (imageHandler *AlibabaImageHandler) DeleteImage(imageIID irs.IID) (bool, er
 
 	return true, nil
 }
+
+func (imageHandler *AlibabaImageHandler) CheckWindowsImage(imageIID irs.IID) (bool, error) {
+	return false, fmt.Errorf("Does not support CheckWindowsImage() yet!!")
+}
+

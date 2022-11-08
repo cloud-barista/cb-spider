@@ -173,3 +173,8 @@ func (imageHandler *DockerImageHandler) DeleteImage(imageIID irs.IID) (bool, err
 
 	return true, nil
 }
+
+func (imageHandler *DockerImageHandler) CheckWindowsImage(imageIID irs.IID) (bool, error) {
+	return false, fmt.Errorf("Does not support CheckWindowsImage() yet!!")
+}
+

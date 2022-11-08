@@ -389,13 +389,13 @@ spctl vm start -d \
       }
     }'
 
-[List Key]
+[List VM]
 spctl --cname aws-ohio-config vm list
 
-[Get Key]
+[Get VM]
 spctl --cname aws-ohio-config vm get -n spider-vm-01
 
-[Delete Key]
+[Terminate VM]
 spctl --cname aws-ohio-config vm terminate -n spider-vm-01
 
 `

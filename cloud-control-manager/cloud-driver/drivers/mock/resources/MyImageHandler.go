@@ -149,3 +149,8 @@ defer myImageMapLock.Unlock()
 	}
 	return false, nil
 }
+
+func (myImageHandler *MockMyImageHandler) CheckWindowsImage(iid irs.IID) (bool, error) {
+	return false, fmt.Errorf("Does not support CheckWindowsImage() yet!!")
+}
+

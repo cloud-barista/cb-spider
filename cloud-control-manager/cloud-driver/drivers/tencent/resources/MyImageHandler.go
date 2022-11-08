@@ -11,6 +11,7 @@ import (
 
 	//cvm "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/cvm/v20170312"
 	cvm "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/cvm/v20170312"
+	"fmt"
 )
 
 //https://intl.cloud.tencent.com/document/product/213/4940
@@ -235,3 +236,8 @@ func (myImageHandler *TencentMyImageHandler) myImageExist(chkName string) (bool,
 	cblogger.Infof("MyImage 정보 찾음 - MyImageId:[%s] / MyImageName:[%s]", *response.Response.ImageSet[0].ImageId, *response.Response.ImageSet[0].ImageName)
 	return true, nil
 }
+
+func (myImageHandler TencentMyImageHandler) CheckWindowsImage(myImageIID irs.IID) (bool, error) {
+	return false, fmt.Errorf("Does not support CheckWindowsImage() yet!!")
+}
+
