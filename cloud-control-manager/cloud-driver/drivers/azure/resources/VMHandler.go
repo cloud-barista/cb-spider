@@ -1476,9 +1476,9 @@ func checkAuthInfoOSType(vmReqInfo irs.VMReqInfo, OSType AzureOSTYPE) error {
 		if pwErr != nil {
 			return pwErr
 		}
-		if vmReqInfo.KeyPairIID.NameId != "" || vmReqInfo.KeyPairIID.SystemId != "" {
-			return errors.New("for Windows, SSH key login method is not supported")
-		}
+		//if vmReqInfo.KeyPairIID.NameId != "" || vmReqInfo.KeyPairIID.SystemId != "" {
+		//	return errors.New("for Windows, SSH key login method is not supported")
+		//}
 		computeErr := checkComputerNameWindow(vmReqInfo)
 		if computeErr != nil {
 			return computeErr
