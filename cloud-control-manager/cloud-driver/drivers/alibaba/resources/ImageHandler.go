@@ -11,7 +11,6 @@
 package resources
 
 import (
-	"errors"
 	"strconv"
 
 	"github.com/aliyun/alibaba-cloud-sdk-go/sdk/requests"
@@ -20,7 +19,6 @@ import (
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/davecgh/go-spew/spew"
-	"fmt"
 )
 
 type AlibabaImageHandler struct {
@@ -190,9 +188,9 @@ func (imageHandler *AlibabaImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 	return imageInfoList, nil
 }
 
-//https://pkg.go.dev/github.com/aliyun/alibaba-cloud-sdk-go/services/ecs?tab=doc#Image
-//package ecs v1.61.170 Latest Published: Apr 30, 2020
-//Image 정보를 추출함
+// https://pkg.go.dev/github.com/aliyun/alibaba-cloud-sdk-go/services/ecs?tab=doc#Image
+// package ecs v1.61.170 Latest Published: Apr 30, 2020
+// Image 정보를 추출함
 func ExtractImageDescribeInfo(image *ecs.Image) irs.ImageInfo {
 	//@TODO : 2020-03-26 Ali클라우드 API 구조가 바뀐 것 같아서 임시로 변경해 놓음.
 	//func ExtractImageDescribeInfo(image *ecs.ImageInDescribeImages) irs.ImageInfo {
@@ -239,47 +237,53 @@ func ExtractImageDescribeInfo(image *ecs.Image) irs.ImageInfo {
 func (imageHandler *AlibabaImageHandler) GetImage(imageIID irs.IID) (irs.ImageInfo, error) {
 	cblogger.Infof("imageID : ", imageIID.SystemId)
 
-	request := ecs.CreateDescribeImagesRequest()
-	request.Scheme = "https"
+	// request := ecs.CreateDescribeImagesRequest()
+	// request.Scheme = "https"
 
-	// request.Status = "Available"
-	// request.ActionType = "*"
+	// // request.Status = "Available"
+	// // request.ActionType = "*"
 
-	request.ImageId = imageIID.SystemId
+	// request.ImageId = imageIID.SystemId
 
-	// logger for HisCall
-	callogger := call.GetLogger("HISCALL")
-	callLogInfo := call.CLOUDLOGSCHEMA{
-		CloudOS:      call.ALIBABA,
-		RegionZone:   imageHandler.Region.Zone,
-		ResourceType: call.VMIMAGE,
-		ResourceName: imageIID.SystemId,
-		CloudOSAPI:   "DescribeImages()",
-		ElapsedTime:  "",
-		ErrorMSG:     "",
-	}
+	// // logger for HisCall
+	// callogger := call.GetLogger("HISCALL")
+	// callLogInfo := call.CLOUDLOGSCHEMA{
+	// 	CloudOS:      call.ALIBABA,
+	// 	RegionZone:   imageHandler.Region.Zone,
+	// 	ResourceType: call.VMIMAGE,
+	// 	ResourceName: imageIID.SystemId,
+	// 	CloudOSAPI:   "DescribeImages()",
+	// 	ElapsedTime:  "",
+	// 	ErrorMSG:     "",
+	// }
 
-	callLogStart := call.Start()
-	result, err := imageHandler.Client.DescribeImages(request)
-	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+	// callLogStart := call.Start()
+	// result, err := imageHandler.Client.DescribeImages(request)
+	// callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 
-	//ecs.DescribeImagesResponse.Images.Image
-	//spew.Dump(result)
-	cblogger.Info(result)
+	// //ecs.DescribeImagesResponse.Images.Image
+	// //spew.Dump(result)
+	// cblogger.Info(result)
+	// if err != nil {
+	// 	callLogInfo.ErrorMSG = err.Error()
+	// 	callogger.Error(call.String(callLogInfo))
+
+	// 	cblogger.Errorf("Unable to get Images, %v", err)
+	// 	return irs.ImageInfo{}, err
+	// }
+	// callogger.Info(call.String(callLogInfo))
+
+	// if result.TotalCount < 1 {
+	// 	return irs.ImageInfo{}, errors.New("Notfound: '" + imageIID.SystemId + "' Images Not found")
+	// }
+
+	result, err := DescribeImageByImageId(imageHandler.Client, imageHandler.Region, imageIID, true)
+
 	if err != nil {
-		callLogInfo.ErrorMSG = err.Error()
-		callogger.Error(call.String(callLogInfo))
-
-		cblogger.Errorf("Unable to get Images, %v", err)
 		return irs.ImageInfo{}, err
 	}
-	callogger.Info(call.String(callLogInfo))
 
-	if result.TotalCount < 1 {
-		return irs.ImageInfo{}, errors.New("Notfound: '" + imageIID.SystemId + "' Images Not found")
-	}
-
-	imageInfo := ExtractImageDescribeInfo(&result.Images.Image[0])
+	imageInfo := ExtractImageDescribeInfo(&result)
 
 	return imageInfo, nil
 }
@@ -326,7 +330,20 @@ func (imageHandler *AlibabaImageHandler) DeleteImage(imageIID irs.IID) (bool, er
 	return true, nil
 }
 
+// WindowOS 여부
 func (imageHandler *AlibabaImageHandler) CheckWindowsImage(imageIID irs.IID) (bool, error) {
-	return false, fmt.Errorf("Does not support CheckWindowsImage() yet!!")
-}
+	isWindows := false
+	isMyImage := false
 
+	osType, err := DescribeImageOsType(imageHandler.Client, imageHandler.Region, imageIID, isMyImage)
+
+	if err != nil {
+		return isWindows, err
+	}
+
+	if osType == "windows" {
+		isWindows = true
+	}
+
+	return isWindows, nil
+}

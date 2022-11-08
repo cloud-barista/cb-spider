@@ -522,3 +522,22 @@ func WaitForImageStatus(client *ecs.Client, regionInfo idrv.RegionInfo, imageIID
 	//}
 	//return irs.MyImageStatus(aliImageState), nil
 }
+
+// Image의 OS Type을 string으로 반환
+func DescribeImageOsType(client *ecs.Client, regionInfo idrv.RegionInfo, imageIID irs.IID, isMyImage bool) (string, error) {
+
+	result, err := DescribeImageByImageId(client, regionInfo, imageIID, isMyImage)
+
+	if err != nil {
+		return "", err
+	}
+
+	osType := GetOsType(result)
+	return osType, nil
+}
+
+// Image에서 OSTYPE 만 추출
+func GetOsType(ecsImage ecs.Image) string {
+	osType := ecsImage.OSType //"OSType": "windows"
+	return osType
+}

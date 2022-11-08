@@ -10,7 +10,6 @@ import (
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/ecs"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
-	"fmt"
 )
 
 type AlibabaMyImageHandler struct {
@@ -229,8 +228,19 @@ func convertImageStateToMyImageStatus(aliImageState *string) irs.MyImageStatus {
 	return returnStatus
 }
 
-
+// MyImage 의 window 여부 return
 func (myImageHandler AlibabaMyImageHandler) CheckWindowsImage(myImageIID irs.IID) (bool, error) {
-	return false, fmt.Errorf("Does not support CheckWindowsImage() yet!!")
-}
+	isWindows := false
+	isMyImage := true
 
+	osType, err := DescribeImageOsType(myImageHandler.Client, myImageHandler.Region, myImageIID, isMyImage)
+	if err != nil {
+		return isWindows, err
+	}
+
+	if osType == "windows" {
+		isWindows = true
+	}
+
+	return isWindows, nil
+}

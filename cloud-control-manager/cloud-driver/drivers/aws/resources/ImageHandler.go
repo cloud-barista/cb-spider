@@ -13,6 +13,7 @@ import (
 	"errors"
 	"reflect"
 	"strconv"
+	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
@@ -22,7 +23,6 @@ import (
 
 	//irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/new-resources"
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
-	"fmt"
 )
 
 type AwsImageHandler struct {
@@ -268,7 +268,7 @@ func (imageHandler *AwsImageHandler) GetAmiImage(imageIID irs.IID) (*ec2.Image, 
 func (imageHandler *AwsImageHandler) GetImage(imageIID irs.IID) (irs.ImageInfo, error) {
 
 	cblogger.Infof("imageID : [%s]", imageIID.SystemId)
-	amiImage, err := imageHandler.GetAmiImage(imageIID)
+	resultImage, err := DescribeImageById(imageHandler.Client, &imageIID, nil)
 
 	if err != nil {
 		if aerr, ok := err.(awserr.Error); ok {
@@ -284,8 +284,8 @@ func (imageHandler *AwsImageHandler) GetImage(imageIID irs.IID) (irs.ImageInfo, 
 		return irs.ImageInfo{}, err
 	}
 
-	if amiImage != nil {
-		imageInfo := ExtractImageDescribeInfo(amiImage)
+	if resultImage != nil {
+		imageInfo := ExtractImageDescribeInfo(resultImage)
 		return imageInfo, nil
 	} else {
 		return irs.ImageInfo{}, errors.New("조회된 Image 정보가 없습니다.")
@@ -314,7 +314,6 @@ func (imageHandler *AwsImageHandler) DeleteImage(imageIID irs.IID) (bool, error)
 	return false, nil
 }
 
-
 func (imageHandler *AwsImageHandler) GetImageSizeFromEc2Image(ec2Image *ec2.Image) (int64, error) {
 	if !reflect.ValueOf(ec2Image.BlockDeviceMappings).IsNil() {
 		if !reflect.ValueOf(ec2Image.BlockDeviceMappings[0].Ebs).IsNil() {
@@ -330,24 +329,34 @@ func (imageHandler *AwsImageHandler) GetImageSizeFromEc2Image(ec2Image *ec2.Imag
 	}
 }
 
-func (imageHandler *AwsImageHandler) GetOsTypeFromEc2Image(ec2Image *ec2.Image) string {
-	var guestOS string
-	//주로 윈도우즈는 Platform 정보가 존재하며 리눅스 계열은 PlatformDetails만 존재하는 듯. - "Linux/UNIX"
-	//윈도우즈 계열은 PlatformDetails에는 "Windows with SQL Server Standard"처럼 SQL정보도 포함되어있음.
-	if !reflect.ValueOf(ec2Image.Platform).IsNil() {
-		guestOS = *ec2Image.Platform //Linux/UNIX
-
-	} else {
-		// Platform 정보가 없는 경우 PlatformDetails 정보가 존재하면 PlatformDetails 값을 이용함.
-		if !reflect.ValueOf(ec2Image.PlatformDetails).IsNil() {
-			guestOS = *ec2Image.PlatformDetails //Linux/UNIX
-		}
-	}
-	return guestOS
-}
-
+// windows os 여부 return
 func (imageHandler *AwsImageHandler) CheckWindowsImage(imageIID irs.IID) (bool, error) {
-	return false, fmt.Errorf("Does not support CheckWindowsImage() yet!!")
+	isWindowsImage := false
+
+	// image 조회 : myImage []*string{aws.String("self")} / public image []*string{aws.String("amazon")}
+	resultImage, err := DescribeImageById(imageHandler.Client, &imageIID, nil)
+	//amiImage, err := imageHandler.GetAmiImage(imageIID)
+
+	if err != nil {
+		if aerr, ok := err.(awserr.Error); ok {
+			switch aerr.Code() {
+			default:
+				cblogger.Error(aerr.Error())
+			}
+		} else {
+			// Print the error, cast err to awserr.Error to get the Code and
+			// Message from an error.
+			cblogger.Error(err.Error())
+		}
+		return false, err
+	}
+
+	// image에서 OsType 추출
+	guestOS := GetOsTypeFromEc2Image(resultImage)
+	cblogger.Debugf("imgInfo.GuestOS : [%s]", guestOS)
+	if strings.Contains(strings.ToUpper(guestOS), "WINDOWS") {
+		isWindowsImage = true
+	}
+
+	return isWindowsImage, nil
 }
-
-

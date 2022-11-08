@@ -11,7 +11,6 @@ import (
 
 	//cvm "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/cvm/v20170312"
 	cvm "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/cvm/v20170312"
-	"fmt"
 )
 
 //https://intl.cloud.tencent.com/document/product/213/4940
@@ -118,8 +117,8 @@ func (myImageHandler TencentMyImageHandler) SnapshotVM(snapshotReqInfo irs.MyIma
 TODO : CommonHandlerm에 DescribeImages, DescribeImageById, DescribeImageStatus 추가할 것.
 */
 func (myImageHandler TencentMyImageHandler) ListMyImage() ([]*irs.MyImageInfo, error) {
-
-	myImageSet, err := DescribeImages(myImageHandler.Client, nil)
+	imageTypes := []string{}
+	myImageSet, err := DescribeImages(myImageHandler.Client, nil, imageTypes)
 	if err != nil {
 		cblogger.Error(err)
 		return nil, err
@@ -138,8 +137,8 @@ func (myImageHandler TencentMyImageHandler) ListMyImage() ([]*irs.MyImageInfo, e
 }
 
 func (myImageHandler TencentMyImageHandler) GetMyImage(myImageIID irs.IID) (irs.MyImageInfo, error) {
-
-	targetImage, err := DescribeImagesByID(myImageHandler.Client, myImageIID)
+	imageTypes := []string{"PRIVATE_IMAGE"}
+	targetImage, err := DescribeImagesByID(myImageHandler.Client, myImageIID, imageTypes)
 	if err != nil {
 		cblogger.Error(err)
 		return irs.MyImageInfo{}, err
@@ -237,7 +236,24 @@ func (myImageHandler *TencentMyImageHandler) myImageExist(chkName string) (bool,
 	return true, nil
 }
 
+// https://console.tencentcloud.com/api/explorer?Product=cvm&Version=2017-03-12&Action=DescribeImages
+// Window OS 여부
+// imageType : MyImage는 PRIVATE,    PRIVATE_IMAGE, PUBLIC_IMAGE, SHARED_IMAGE
 func (myImageHandler TencentMyImageHandler) CheckWindowsImage(myImageIID irs.IID) (bool, error) {
-	return false, fmt.Errorf("Does not support CheckWindowsImage() yet!!")
-}
+	//return false, fmt.Errorf("Does not support CheckWindowsImage() yet!!")
+	imageTypes := []string{"PRIVATE_IMAGE"}
+	isWindow := false
 
+	resultImg, err := DescribeImagesByID(myImageHandler.Client, myImageIID, imageTypes)
+	if err != nil {
+		return isWindow, err
+	}
+
+	platform := GetOsType(resultImg)
+	if *platform == "Windows" {
+		isWindow = true
+	}
+
+	return false, nil
+
+}

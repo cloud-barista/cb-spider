@@ -2,14 +2,13 @@ package resources
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"time"
 
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	compute "google.golang.org/api/compute/v1"
-
-	"fmt"
 )
 
 type GCPMyImageHandler struct {
@@ -142,8 +141,23 @@ func convertMyImageStatus(status string) (irs.MyImageStatus, error) {
 
 }
 
-
+// https://cloud.google.com/compute/docs/reference/rest/beta/machineImages/list
+// machine Image에서 os속성이 없음.
 func (MyImageHandler *GCPMyImageHandler) CheckWindowsImage(myImageIID irs.IID) (bool, error) {
+	//projectID := MyImageHandler.Credential.ProjectID
+	//isWindows := false
+	//myImageResp, err := GetMachineImageInfo(MyImageHandler.Client, projectID, myImageIID.SystemId)
+
+	//if err != nil {
+	//	return isWindows, err
+	//}
+	// osFeatures := myImageResp
+
+	// for _, feature := range osFeatures {
+	// 	if feature.Type == "WINDOWS" {
+	// 		isWindows = true
+	// 	}
+	// }
+	//return isWindows, nil
 	return false, fmt.Errorf("Does not support CheckWindowsImage() yet!!")
 }
-

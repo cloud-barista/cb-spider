@@ -101,7 +101,8 @@ func (vmHandler *TencentVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 
 	cblogger.Error("imageInfo begin")
 	// Image의 크기 -> rootdisk size, datadisk attach 확인 및 설정
-	imageInfo, err := DescribeImagesByID(vmHandler.Client, vmReqInfo.ImageIID)
+	imageTypes := []string{"PUBLIC_IMAGE", "SHARED_IMAGE", "PRIVATE_IMAGE"}
+	imageInfo, err := DescribeImagesByID(vmHandler.Client, vmReqInfo.ImageIID, imageTypes)
 	if err != nil {
 		cblogger.Error(err)
 		return irs.VMInfo{}, err
@@ -110,8 +111,9 @@ func (vmHandler *TencentVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 	isWindow := false
 	cblogger.Error("OsName,", *imageInfo.OsName)     //"OsName": "Windows Server 2012 R2 DataCenter 64bitEN",
 	cblogger.Error("Platform,", *imageInfo.Platform) //"Platform": "Windows",
-	if *imageInfo.Platform == "Windows" {
 
+	platform := GetOsType(imageInfo)
+	if *platform == "Windows" {
 		err := cdcom.ValidateWindowsPassword(vmReqInfo.VMUserPasswd)
 		if err != nil {
 			return irs.VMInfo{}, err
@@ -657,15 +659,15 @@ func (vmHandler *TencentVMHandler) ExtractDescribeInstances(curVm *cvm.Instance)
 	if !reflect.ValueOf(curVm.ImageId).IsNil() {
 		imageIID := irs.IID{SystemId: *curVm.ImageId}
 		vmInfo.ImageIId = imageIID
-		imageInfo, err := DescribeImagesByID(vmHandler.Client, imageIID)
+		imageInfo, err := DescribeImagesByID(vmHandler.Client, imageIID, nil) // imageTypes := []string{"PUBLIC_IMAGE", "SHARED_IMAGE","PRIVATE_IMAGE"}
 		if err != nil {
 			cblogger.Error(err)
 		}
 
-		if *imageInfo.ImageType == "PUBLIC_IMAGE" {
-			vmInfo.ImageType = irs.PublicImage
-		} else {
+		if *imageInfo.ImageType == "PRIVATE_IMAGE" {
 			vmInfo.ImageType = irs.MyImage
+		} else {
+			vmInfo.ImageType = irs.PublicImage // "PUBLIC_IMAGE", "SHARED_IMAGE"
 		}
 	}
 

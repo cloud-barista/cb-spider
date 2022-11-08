@@ -119,7 +119,8 @@ func (vmHandler *AwsVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 		Client: vmHandler.Client,
 	}
 
-	amiImage, errImgInfo := imageHandler.GetAmiImage(vmReqInfo.ImageIID)
+	amiImage, errImgInfo := DescribeImageById(imageHandler.Client, &vmReqInfo.ImageIID, nil)
+	//amiImage, errImgInfo := imageHandler.GetAmiImage(vmReqInfo.ImageIID)
 	//imgInfo, errImgInfo := imageHandler.GetImage(vmReqInfo.ImageIID)
 	if errImgInfo != nil {
 		cblogger.Error(errImgInfo)
@@ -305,7 +306,7 @@ func (vmHandler *AwsVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 	userData := ""
 	isWindowsImage := false
 
-	guestOS := imageHandler.GetOsTypeFromEc2Image(amiImage)
+	guestOS := GetOsTypeFromEc2Image(amiImage)
 	cblogger.Debugf("imgInfo.GuestOS : [%s]", guestOS)
 	if strings.Contains(strings.ToUpper(guestOS), "WINDOWS") {
 

@@ -86,7 +86,7 @@ func (imageHandler *GCPImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 }
 */
 
-//리스트의 경우 Name 기반으로 조회해서 처리하기에는 너무 느리기 때문에 직접 컨버팅함.
+// 리스트의 경우 Name 기반으로 조회해서 처리하기에는 너무 느리기 때문에 직접 컨버팅함.
 func (imageHandler *GCPImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 	cblogger.Debug("전체 이미지 조회")
 
@@ -172,7 +172,7 @@ func (imageHandler *GCPImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 	return imageList, nil
 }
 
-//Name 기반으로 VM생성에 필요한 URL및 Image API 호출과 CB 리턴 정보 조회용
+// Name 기반으로 VM생성에 필요한 URL및 Image API 호출과 CB 리턴 정보 조회용
 type GcpImageInfo struct {
 	ImageUrl string //for CB(VM Start)
 	Name     string //for CB
@@ -189,7 +189,7 @@ type GcpImageInfo struct {
 	Family      string //for keyValue
 }
 
-//GCP 호출을 줄이기 위해 조회된 정보를 CB형태로 직접 변환해서 전달 함.
+// GCP 호출을 줄이기 위해 조회된 정보를 CB형태로 직접 변환해서 전달 함.
 func (imageHandler *GCPImageHandler) ConvertGcpImageInfoToCbImageInfo(imageInfo GcpImageInfo) irs.ImageInfo {
 	cblogger.Info(imageInfo)
 	spew.Dump(imageInfo)
@@ -218,8 +218,8 @@ func (imageHandler *GCPImageHandler) ConvertGcpImageInfoToCbImageInfo(imageInfo 
 	return cbImageInfo
 }
 
-//이슈 #239에 의해 Name 기반에서 URL 기반으로 로직 변경
-//전달 받은 URL에서 projectId와 Name을 추출해서 조회함.
+// 이슈 #239에 의해 Name 기반에서 URL 기반으로 로직 변경
+// 전달 받은 URL에서 projectId와 Name을 추출해서 조회함.
 func (imageHandler *GCPImageHandler) GetImage(imageIID irs.IID) (irs.ImageInfo, error) {
 	cblogger.Info(imageIID)
 
@@ -268,8 +268,8 @@ func (imageHandler *GCPImageHandler) GetImage(imageIID irs.IID) (irs.ImageInfo, 
 	return imageInfo, nil
 }
 
-//이슈 #239에 의해 Name 기반에서 URL 기반으로 로직 변경
-//전체 목록에서 이미지 정보를 조회 함. - 위의 GetImage()로 검색되지 않는 경우가 발생하면 이 함수를 이용할 것.
+// 이슈 #239에 의해 Name 기반에서 URL 기반으로 로직 변경
+// 전체 목록에서 이미지 정보를 조회 함. - 위의 GetImage()로 검색되지 않는 경우가 발생하면 이 함수를 이용할 것.
 func (imageHandler *GCPImageHandler) GetImageByUrl(imageIID irs.IID) (irs.ImageInfo, error) {
 	cblogger.Info(imageIID)
 
@@ -339,10 +339,10 @@ func (imageHandler *GCPImageHandler) DeleteImage(imageIID irs.IID) (bool, error)
 	return true, err
 }
 
-//이슈 #239에 의해 Name 기반에서 URL 기반으로 로직 변경
-//사용의 편의를 위해 이미지 URL을 전달 받아서 이미지 정보를 리턴 함.
-//https://cloud.google.com/compute/docs/images?hl=ko
-//@TODO : 효율을 위해서 최소한 ProjectId 정보를 입력 받아야 하지만 현재는 이미지 URL만 전달 받기 때문에 하나로 통합해 놓음.
+// 이슈 #239에 의해 Name 기반에서 URL 기반으로 로직 변경
+// 사용의 편의를 위해 이미지 URL을 전달 받아서 이미지 정보를 리턴 함.
+// https://cloud.google.com/compute/docs/images?hl=ko
+// @TODO : 효율을 위해서 최소한 ProjectId 정보를 입력 받아야 하지만 현재는 이미지 URL만 전달 받기 때문에 하나로 통합해 놓음.
 func (imageHandler *GCPImageHandler) FindImageInfo(reqImageName string) (GcpImageInfo, error) {
 	cblogger.Infof("[%s] 이미지 정보 찾기 ", reqImageName)
 
@@ -469,8 +469,8 @@ func (imageHandler *GCPImageHandler) FindImageInfo(reqImageName string) (GcpImag
 	return GcpImageInfo{}, errors.New("Not Found : [" + reqImageName + "] Image information not found")
 }
 
-//목록에서 이미지 Name으로 정보를 찾아서 리턴 함. - 2020-07-24 URL기반으로 변경되어서 이 메소드는 사용 안 함.
-//@TODO : 효율을 위해서 최소한 ProjectId 정보를 입력 받아야 하지만 현재는 이미지 명만 전달 받기 때문에 하나로 통합해 놓음.
+// 목록에서 이미지 Name으로 정보를 찾아서 리턴 함. - 2020-07-24 URL기반으로 변경되어서 이 메소드는 사용 안 함.
+// @TODO : 효율을 위해서 최소한 ProjectId 정보를 입력 받아야 하지만 현재는 이미지 명만 전달 받기 때문에 하나로 통합해 놓음.
 func (imageHandler *GCPImageHandler) FindImageInfoByName(reqImageName string) (GcpImageInfo, error) {
 	cblogger.Infof("[%s] 이미지 정보 찾기 ", reqImageName)
 
@@ -625,7 +625,7 @@ func (imageHandler *GCPImageHandler) FindImageInfo(projectId string, reqImageNam
 }
 */
 
-//@TODO : 나중에 시스템아이디 값 변경해야 함.(현재 이미지 핸들러는 이름 기반으로 변경되어 있기 때문...)
+// @TODO : 나중에 시스템아이디 값 변경해야 함.(현재 이미지 핸들러는 이름 기반으로 변경되어 있기 때문...)
 func mappingImageInfo(imageInfo *compute.Image) irs.ImageInfo {
 	//lArr := strings.Split(imageInfo.Licenses[0], "/")
 	//os := lArr[len(lArr)-1]
@@ -663,7 +663,19 @@ func mappingImageInfo(imageInfo *compute.Image) irs.ImageInfo {
 
 }
 
+// windows os 여부 return
 func (imageHandler *GCPImageHandler) CheckWindowsImage(imageIID irs.IID) (bool, error) {
-	return false, fmt.Errorf("Does not support CheckWindowsImage() yet!!")
-}
+	isWindows := false
+	resultImage, err := FindImageByID(imageHandler.Client, imageIID)
+	if err != nil {
+		return isWindows, err
+	}
+	osFeatures := resultImage.GuestOsFeatures
 
+	for _, feature := range osFeatures {
+		if feature.Type == "WINDOWS" {
+			isWindows = true
+		}
+	}
+	return isWindows, nil
+}
