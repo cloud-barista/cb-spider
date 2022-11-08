@@ -218,6 +218,11 @@ func (imageHandler *ClouditImageHandler) GetRawRootImage(imageIId irs.IID, isMyI
 }
 
 func (imageHandler *ClouditImageHandler) CheckWindowsImage(imageIID irs.IID) (bool, error) {
-	return false, fmt.Errorf("Does not support CheckWindowsImage() yet!!")
-}
+	rawRootImage, getRawRootImageErr := imageHandler.GetRawRootImage(imageIID, false)
+	if getRawRootImageErr != nil {
+		return false, errors.New(fmt.Sprintf("Failed to Check Windows Image. err = %s", getRawRootImageErr.Error()))
+	}
 
+	isWindows := strings.Contains(strings.ToLower(rawRootImage.OS), "windows")
+	return isWindows, nil
+}

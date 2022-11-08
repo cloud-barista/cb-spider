@@ -521,6 +521,15 @@ func (myImageHandler *ClouditMyImageHandler) rollbackCreateVolumeBySnapshot(myIm
 }
 
 func (myImageHandler *ClouditMyImageHandler) CheckWindowsImage(myImageIID irs.IID) (bool, error) {
-	return false, fmt.Errorf("Does not support CheckWindowsImage() yet!!")
-}
+	imageHandler := ClouditImageHandler{
+		CredentialInfo: myImageHandler.CredentialInfo,
+		Client:         myImageHandler.Client,
+	}
+	rawRootImage, getRawRootImageErr := imageHandler.GetRawRootImage(myImageIID, true)
+	if getRawRootImageErr != nil {
+		return false, errors.New(fmt.Sprintf("Failed to Check Windows Image. err = %s", getRawRootImageErr.Error()))
+	}
 
+	isWindows := strings.Contains(strings.ToLower(rawRootImage.OS), "windows")
+	return isWindows, nil
+}

@@ -175,7 +175,13 @@ func getImageNextHref(next *vpcv1.ImageCollectionNext) (string, error) {
 	return "", errors.New("NOT NEXT")
 }
 
-func (imageHandler *IbmImageHandler) CheckWindowsImage(imageIID irs.IID) (bool, error) { 
-	return false, fmt.Errorf("Does not support CheckWindowsImage() yet!!")
-}
+func (imageHandler *IbmImageHandler) CheckWindowsImage(imageIID irs.IID) (bool, error) {
+	var getImageErr error
+	rawImage, getImageErr := getRawImage(imageIID, imageHandler.VpcService, imageHandler.Ctx)
+	if getImageErr != nil {
+		return false, getImageErr
+	}
 
+	isWindows := strings.Contains(strings.ToLower(*rawImage.OperatingSystem.Name), "windows")
+	return isWindows, nil
+}
