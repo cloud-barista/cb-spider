@@ -357,6 +357,10 @@ func New(cloudConnectName string, rsType string, uid string) (string, error) {
 		return uid, nil
 	}
 
+	if cccInfo.ProviderName == "AZURE" && rsType == "nodegroup" {
+		return uid, nil
+	}
+
 	// default length: 9 + 21 => 30 (NCP's ID Length, the shortest)
 	//   ex) AWS maxLen(VMID)=255, #234 + #1 + #20 <== "{UID}-{XID}", {XID} = #20
 	maxLength := 9
@@ -434,6 +438,8 @@ func getIDXNumber(rsType string) int {
 		return 7
 	case "cluster": 
 		return 8
+	case "nodegroup": 
+		return 9
 	default: 
 		return -1
 	}
