@@ -344,6 +344,6 @@ func (imageHandler *AlibabaImageHandler) CheckWindowsImage(imageIID irs.IID) (bo
 	if osType == "windows" {
 		isWindows = true
 	}
-
+	cblogger.Info("isWindows = ", isWindows)
 	return isWindows, nil
 }
