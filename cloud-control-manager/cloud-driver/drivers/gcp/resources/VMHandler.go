@@ -75,12 +75,7 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 
 	var pubKey string
 	if isMyImage {
-		imageHandler := GCPMyImageHandler{Credential: vmHandler.Credential, Region: vmHandler.Region, Client: vmHandler.Client}
-		window, err := imageHandler.CheckWindowsImage(vmReqInfo.ImageIID)
-		if err != nil {
-			return irs.VMInfo{}, err
-		}
-		cblogger.Info("CheckWindowsImage : ", window)
+
 		//spider-myimage-1-cdlkbi2t39h9lqh14i90
 		//projects/csta-349809/global/machineImages",
 
@@ -126,12 +121,6 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 		//imageSize = machineImage.DiskSizeGb
 
 	} else {
-		imageHandler := GCPImageHandler{Credential: vmHandler.Credential, Region: vmHandler.Region, Client: vmHandler.Client}
-		window, err := imageHandler.CheckWindowsImage(vmReqInfo.ImageIID)
-		if err != nil {
-			return irs.VMInfo{}, err
-		}
-		cblogger.Info("CheckWindowsImage : ", window)
 
 		computeImage, err := GetPublicImageInfo(vmHandler.Client, vmReqInfo.ImageIID)
 		if err != nil {
