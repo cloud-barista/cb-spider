@@ -666,7 +666,8 @@ func mappingImageInfo(imageInfo *compute.Image) irs.ImageInfo {
 // windows os 여부 return
 func (imageHandler *GCPImageHandler) CheckWindowsImage(imageIID irs.IID) (bool, error) {
 	isWindows := false
-	resultImage, err := FindImageByID(imageHandler.Client, imageIID)
+	resultImage, err := GetPublicImageInfo(imageHandler.Client, imageIID)
+	// resultImage, err := FindImageByID(imageHandler.Client, imageIID)
 	if err != nil {
 		return isWindows, err
 	}

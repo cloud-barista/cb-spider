@@ -206,13 +206,47 @@ func GetDiskInfo(client *compute.Service, credential idrv.CredentialInfo, region
 }
 
 func GetMachineImageInfo(client *compute.Service, projectId string, imageName string) (*compute.MachineImage, error) {
+	cblogger.Infof("projectId : [%s] / imageName : [%s]", projectId, imageName)
 	imageResp, err := client.MachineImages.Get(projectId, imageName).Do()
 	if err != nil {
 		cblogger.Error(err)
 		return &compute.MachineImage{}, err
 	}
-
+	if imageResp == nil {
+		return nil, errors.New("Not Found : [" + imageName + "] Image information not found")
+	}
+	// cblogger.Infof("result ", imageResp)
+	// spew.Dump(imageResp)
 	return imageResp, nil
+}
+
+// IID 에서 systemID로 image 조회.  : systemID가 URL로 되어있어 필요한 값들을 추출하여 사용. projectId, imageName
+func GetPublicImageInfo(client *compute.Service, imageIID irs.IID) (*compute.Image, error) {
+	projectId := ""
+	imageName := ""
+
+	arrLink := strings.Split(imageIID.SystemId, "/")
+	if len(arrLink) > 0 {
+		imageName = arrLink[len(arrLink)-1]
+		for pos, item := range arrLink {
+			if strings.EqualFold(item, "projects") {
+				projectId = arrLink[pos+1]
+				break
+			}
+		}
+	}
+	cblogger.Infof("projectId : [%s] / imageName : [%s]", projectId, imageName)
+	if projectId == "" {
+		return nil, errors.New("ProjectId information not found in URL.")
+	}
+
+	image, err := client.Images.Get(projectId, imageName).Do()
+	if err != nil {
+		cblogger.Error(err)
+		return nil, err
+	}
+	return image, nil
+
 }
 
 // IID 에서 systemID로 image 조회.
@@ -260,11 +294,14 @@ func FindImageByID(client *compute.Service, imageIID irs.IID) (*compute.Image, e
 		cblogger.Info("NestPageToken : ", nextPageToken)
 
 		for {
+			cblogger.Info("Loop?")
 			for _, item := range res.Items {
 				cnt++
 				if strings.EqualFold(reqImageName, item.SelfLink) {
+					cblogger.Info("found Image : ", item)
 					return item, nil
 				}
+				cblogger.Info("cnt : ", item)
 			}
 		}
 	}

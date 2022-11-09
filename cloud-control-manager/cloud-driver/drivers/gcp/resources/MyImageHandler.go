@@ -2,7 +2,6 @@ package resources
 
 import (
 	"context"
-	"fmt"
 	"strings"
 	"time"
 
@@ -144,20 +143,30 @@ func convertMyImageStatus(status string) (irs.MyImageStatus, error) {
 // https://cloud.google.com/compute/docs/reference/rest/beta/machineImages/list
 // machine Image에서 os속성이 없음.
 func (MyImageHandler *GCPMyImageHandler) CheckWindowsImage(myImageIID irs.IID) (bool, error) {
-	//projectID := MyImageHandler.Credential.ProjectID
-	//isWindows := false
-	//myImageResp, err := GetMachineImageInfo(MyImageHandler.Client, projectID, myImageIID.SystemId)
+	projectID := MyImageHandler.Credential.ProjectID
+	isWindows := false
+	machineImage, err := GetMachineImageInfo(MyImageHandler.Client, projectID, myImageIID.SystemId)
 
-	//if err != nil {
-	//	return isWindows, err
-	//}
-	// osFeatures := myImageResp
+	if err != nil {
+		return isWindows, err
+	}
 
-	// for _, feature := range osFeatures {
-	// 	if feature.Type == "WINDOWS" {
-	// 		isWindows = true
-	// 	}
-	// }
-	//return isWindows, nil
-	return false, fmt.Errorf("Does not support CheckWindowsImage() yet!!")
+	ip := machineImage.InstanceProperties
+	disks := ip.Disks
+	for _, disk := range disks {
+		if disk.Boot { // Boot Device
+			osFeatures := disk.GuestOsFeatures
+			for _, feature := range osFeatures {
+				if feature.Type == "WINDOWS" {
+					isWindows = true
+					return isWindows, nil
+
+				}
+			}
+			cblogger.Info(isWindows)
+		}
+	}
+
+	//return false, fmt.Errorf("Does not support CheckWindowsImage() yet!!")
+	return isWindows, nil
 }
