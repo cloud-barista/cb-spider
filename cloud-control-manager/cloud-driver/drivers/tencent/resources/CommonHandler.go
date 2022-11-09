@@ -139,6 +139,7 @@ func DescribeImagesByID(client *cvm.Client, myImageIID irs.IID, imageTypes []str
 // Image에서 OS Type 추출
 // "OsName": "TencentOS Server 3.1 (TK4)",
 // "Platform": "TencentOS",
-func GetOsType(cvmImage cvm.Image) *string {
-	return cvmImage.Platform
+func GetOsType(cvmImage cvm.Image) string {
+	cblogger.Info("OsName,", *cvmImage.Platform)
+	return *cvmImage.Platform
 }

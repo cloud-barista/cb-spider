@@ -113,13 +113,16 @@ func (vmHandler *AwsVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 		spew.Dump(vmReqInfo)
 	}
 
-	//Windows OS 처리를 위해 이미지 정보 조회
+	// //Windows OS 처리를 위해 이미지 정보 조회
 	imageHandler := AwsImageHandler{
 		Region: vmHandler.Region,
 		Client: vmHandler.Client,
 	}
+	window, err := imageHandler.CheckWindowsImage(vmReqInfo.ImageIID)
+	cblogger.Info("window = ", window)
 
-	amiImage, errImgInfo := DescribeImageById(imageHandler.Client, &vmReqInfo.ImageIID, nil)
+	// amiImage, errImgInfo := DescribeImageById(imageHandler.Client, &vmReqInfo.ImageIID, nil)
+	amiImage, errImgInfo := DescribeImageById(vmHandler.Client, &vmReqInfo.ImageIID, nil)
 	//amiImage, errImgInfo := imageHandler.GetAmiImage(vmReqInfo.ImageIID)
 	//imgInfo, errImgInfo := imageHandler.GetImage(vmReqInfo.ImageIID)
 	if errImgInfo != nil {
@@ -180,7 +183,7 @@ func (vmHandler *AwsVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 			//	return irs.VMInfo{}, err
 			//}
 
-			imageVolumeSize, err := imageHandler.GetImageSizeFromEc2Image(amiImage)
+			imageVolumeSize, err := GetImageSizeFromEc2Image(amiImage)
 			if err != nil {
 				return irs.VMInfo{}, err
 			}

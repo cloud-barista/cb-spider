@@ -314,21 +314,6 @@ func (imageHandler *AwsImageHandler) DeleteImage(imageIID irs.IID) (bool, error)
 	return false, nil
 }
 
-func (imageHandler *AwsImageHandler) GetImageSizeFromEc2Image(ec2Image *ec2.Image) (int64, error) {
-	if !reflect.ValueOf(ec2Image.BlockDeviceMappings).IsNil() {
-		if !reflect.ValueOf(ec2Image.BlockDeviceMappings[0].Ebs).IsNil() {
-			isize := aws.Int64(*ec2Image.BlockDeviceMappings[0].Ebs.VolumeSize)
-			return *isize, nil
-		} else {
-			cblogger.Error("BlockDeviceMappings에서 Ebs 정보를 찾을 수 없습니다.")
-			return -1, errors.New("BlockDeviceMappings에서 Ebs 정보를 찾을 수 없습니다.")
-		}
-	} else {
-		cblogger.Error("BlockDeviceMappings 정보를 찾을 수 없습니다.")
-		return -1, errors.New("BlockDeviceMappings 정보를 찾을 수 없습니다.")
-	}
-}
-
 // windows os 여부 return
 func (imageHandler *AwsImageHandler) CheckWindowsImage(imageIID irs.IID) (bool, error) {
 	isWindowsImage := false

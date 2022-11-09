@@ -107,13 +107,13 @@ func (vmHandler *TencentVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 		cblogger.Error(err)
 		return irs.VMInfo{}, err
 	}
-	cblogger.Error("imageInfo end")
+
 	isWindow := false
-	cblogger.Error("OsName,", *imageInfo.OsName)     //"OsName": "Windows Server 2012 R2 DataCenter 64bitEN",
-	cblogger.Error("Platform,", *imageInfo.Platform) //"Platform": "Windows",
+	cblogger.Info("OsName,", *imageInfo.OsName)     //"OsName": "Windows Server 2012 R2 DataCenter 64bitEN",
+	cblogger.Info("Platform,", *imageInfo.Platform) //"Platform": "Windows", "Ubuntu",
 
 	platform := GetOsType(imageInfo)
-	if *platform == "Windows" {
+	if platform == "Windows" {
 		err := cdcom.ValidateWindowsPassword(vmReqInfo.VMUserPasswd)
 		if err != nil {
 			return irs.VMInfo{}, err

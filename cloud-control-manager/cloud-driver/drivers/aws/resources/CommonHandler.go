@@ -433,12 +433,29 @@ func DescribeImageById(svc *ec2.EC2, imageIID *irs.IID, owners []*string) (*ec2.
 	return resultImage, err
 }
 
+// Image 정보에서 image size(GB) return
+func GetImageSizeFromEc2Image(ec2Image *ec2.Image) (int64, error) {
+	if !reflect.ValueOf(ec2Image.BlockDeviceMappings).IsNil() {
+		if !reflect.ValueOf(ec2Image.BlockDeviceMappings[0].Ebs).IsNil() {
+			isize := aws.Int64(*ec2Image.BlockDeviceMappings[0].Ebs.VolumeSize)
+			return *isize, nil
+		} else {
+			cblogger.Error("BlockDeviceMappings에서 Ebs 정보를 찾을 수 없습니다.")
+			return -1, errors.New("BlockDeviceMappings에서 Ebs 정보를 찾을 수 없습니다.")
+		}
+	} else {
+		cblogger.Error("BlockDeviceMappings 정보를 찾을 수 없습니다.")
+		return -1, errors.New("BlockDeviceMappings 정보를 찾을 수 없습니다.")
+	}
+}
+
 // Image 정보에서 osType return
 func GetOsTypeFromEc2Image(ec2Image *ec2.Image) string {
 	var guestOS string
 	//주로 윈도우즈는 Platform 정보가 존재하며 리눅스 계열은 PlatformDetails만 존재하는 듯. - "Linux/UNIX"
 	//윈도우즈 계열은 PlatformDetails에는 "Windows with SQL Server Standard"처럼 SQL정보도 포함되어있음.
 	if !reflect.ValueOf(ec2Image.Platform).IsNil() {
+		cblogger.Info("guestOS =", *ec2Image.Platform)
 		guestOS = *ec2Image.Platform //Linux/UNIX
 
 	} else {

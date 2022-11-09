@@ -250,7 +250,7 @@ func (myImageHandler TencentMyImageHandler) CheckWindowsImage(myImageIID irs.IID
 	}
 
 	platform := GetOsType(resultImg)
-	if *platform == "Windows" {
+	if platform == "Windows" {
 		isWindow = true
 	}
 
