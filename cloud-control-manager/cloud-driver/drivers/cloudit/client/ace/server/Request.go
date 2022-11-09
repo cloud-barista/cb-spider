@@ -5,6 +5,7 @@ import (
 	"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/cloudit/client"
 	"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/cloudit/client/ace/disk"
 	"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/cloudit/client/iam/securitygroup"
+	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/sirupsen/logrus"
 )
 
@@ -17,6 +18,11 @@ func init() {
 
 type SecGroupInfo struct {
 	Id string `json:"id" required:"true"`
+}
+
+type VmTagInfo struct {
+	MyImageIID *irs.IID `json:"MyImageIID,omitempty"`
+	Keypair    string
 }
 
 type VMReqInfo struct {

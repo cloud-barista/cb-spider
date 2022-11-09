@@ -11,6 +11,7 @@
 package resources
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	cdcom "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/common"
@@ -166,7 +167,22 @@ func (vmHandler *ClouditVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (startVM irs
 
 	vmHandler.Client.TokenID = vmHandler.CredentialInfo.AuthToken
 	authHeader := vmHandler.Client.AuthenticatedHeaders()
-	KeyPairDes := fmt.Sprintf("keypair:%s", vmReqInfo.KeyPairIID.NameId)
+
+	vmTag := server.VmTagInfo{
+		MyImageIID: nil,
+	}
+	if vmReqInfo.ImageType == irs.MyImage {
+		vmTag.MyImageIID = &myImage.IId
+	}
+	vmTag.Keypair = vmReqInfo.KeyPairIID.NameId
+	vmTagByte, jsonMarshalErr := json.Marshal(vmTag)
+	if jsonMarshalErr != nil {
+		cblogger.Error(jsonMarshalErr.Error())
+		LoggingError(hiscallInfo, jsonMarshalErr)
+		return irs.VMInfo{}, jsonMarshalErr
+	}
+	vmTagStr := string(vmTagByte)
+	//KeyPairDes := fmt.Sprintf("keypair:%s", vmReqInfo.KeyPairIID.NameId)
 
 	clusterNameId := vmHandler.CredentialInfo.ClusterId
 	clusterSystemId := ""
@@ -219,7 +235,7 @@ func (vmHandler *ClouditVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (startVM irs
 		RootPassword: VMDefaultPassword,
 		SubnetAddr:   subnet.Addr,
 		Secgroups:    addUserSSHSG,
-		Description:  KeyPairDes,
+		Description:  vmTagStr,
 		ClusterId:    clusterSystemId,
 	}
 
@@ -991,37 +1007,54 @@ func (vmHandler *ClouditVMHandler) DisassociatePublicIP(publicIP string) (bool, 
 	}
 }
 
-func (vmHandler *ClouditVMHandler) mappingServerInfo(server server.ServerInfo) (irs.VMInfo, error) {
+func (vmHandler *ClouditVMHandler) mappingServerInfo(serverInfo server.ServerInfo) (irs.VMInfo, error) {
 	// Get Default VM Info
+
+	vmTag := server.VmTagInfo{}
+	vmTagInfoByte := []byte(serverInfo.Description)
+	json.Unmarshal(vmTagInfoByte, &vmTag)
+
+	var vmImageIId irs.IID
+	var imageType irs.ImageType
+	if vmTag.MyImageIID == nil {
+		vmImageIId.NameId = serverInfo.Template
+		vmImageIId.SystemId = serverInfo.TemplateID
+		imageType = irs.PublicImage
+	} else {
+		vmImageIId = *vmTag.MyImageIID
+		imageType = irs.MyImage
+	}
+
+	var vmUser string
+	if strings.Contains(strings.ToLower(serverInfo.Template), "window") {
+		vmUser = "Administrator"
+	} else {
+		vmUser = SSHDefaultUser
+	}
 
 	vmInfo := irs.VMInfo{
 		IId: irs.IID{
-			NameId:   server.Name,
-			SystemId: server.ID,
+			NameId:   serverInfo.Name,
+			SystemId: serverInfo.ID,
 		},
 		Region: irs.RegionInfo{
-			Region: server.TenantID,
-			Zone:   server.TenantID,
+			Region: serverInfo.TenantID,
+			Zone:   serverInfo.TenantID,
 		},
-		ImageIId: irs.IID{
-			NameId:   server.Template,
-			SystemId: server.TemplateID,
-		},
-		VMSpecName: server.Spec,
-		KeyPairIId: irs.IID{
-			NameId:   strings.Replace(server.Description, "keypair:", "", 1),
-			SystemId: strings.Replace(server.Description, "keypair:", "", 1),
-		},
-		VMUserId:       SSHDefaultUser,
-		PublicIP:       server.AdaptiveIp,
-		PrivateIP:      server.PrivateIp,
-		SSHAccessPoint: fmt.Sprintf("%s:%d", server.AdaptiveIp, SSHDefaultPort),
-		RootDiskSize:   strconv.Itoa(server.VolumeSize),
+		ImageType:      imageType,
+		ImageIId:       vmImageIId,
+		VMSpecName:     serverInfo.Spec,
+		KeyPairIId:     irs.IID{NameId: vmTag.Keypair, SystemId: vmTag.Keypair},
+		VMUserId:       vmUser,
+		PublicIP:       serverInfo.AdaptiveIp,
+		PrivateIP:      serverInfo.PrivateIp,
+		SSHAccessPoint: fmt.Sprintf("%s:%d", serverInfo.AdaptiveIp, SSHDefaultPort),
+		RootDiskSize:   strconv.Itoa(serverInfo.VolumeSize),
 		RootDeviceName: "Not visible in Cloudit",
 		VMBlockDisk:    "Not visible in Cloudit",
 	}
-	if server.CreatedAt != "" {
-		timeArr := strings.Split(server.CreatedAt, " ")
+	if serverInfo.CreatedAt != "" {
+		timeArr := strings.Split(serverInfo.CreatedAt, " ")
 		timeFormatStr := fmt.Sprintf("%sT%sZ", timeArr[0], timeArr[1])
 		if createTime, err := time.Parse(time.RFC3339, timeFormatStr); err == nil {
 			vmInfo.StartTime = createTime
@@ -1037,7 +1070,7 @@ func (vmHandler *ClouditVMHandler) mappingServerInfo(server server.ServerInfo) (
 	if err == nil {
 		vmInfo.VpcIID = defaultVPC.IId
 	}
-	subnet, err := VPCHandler.GetSubnet(irs.IID{NameId: server.SubnetAddr})
+	subnet, err := VPCHandler.GetSubnet(irs.IID{NameId: serverInfo.SubnetAddr})
 	if err != nil {
 		return irs.VMInfo{}, errors.New(fmt.Sprintf("Failed Get Subnet err= %s", err.Error()))
 	}
@@ -1049,7 +1082,7 @@ func (vmHandler *ClouditVMHandler) mappingServerInfo(server server.ServerInfo) (
 	// Get SecurityGroup Info
 	vmHandler.Client.TokenID = vmHandler.CredentialInfo.AuthToken
 	authHeader := vmHandler.Client.AuthenticatedHeaders()
-	vnicList, err := ListVNic(authHeader, vmHandler.Client, server.ID)
+	vnicList, err := ListVNic(authHeader, vmHandler.Client, serverInfo.ID)
 	if err != nil {
 		return irs.VMInfo{}, errors.New(fmt.Sprintf("Failed Get VNic err= %s", err.Error()))
 	}
