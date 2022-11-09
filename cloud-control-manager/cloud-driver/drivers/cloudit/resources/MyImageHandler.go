@@ -221,6 +221,20 @@ func (myImageHandler *ClouditMyImageHandler) createMyImageSnapshots(myImageNameI
 		}
 	}
 
+	vmHandler := ClouditVMHandler{
+		CredentialInfo: myImageHandler.CredentialInfo,
+		Client:         myImageHandler.Client,
+	}
+
+	rawVm, getRawVmErr := vmHandler.getRawVm(irs.IID{SystemId: sourceVm.SystemId})
+	if getRawVmErr != nil {
+		return irs.MyImageInfo{}, errors.New("Failed to get Source VM Info")
+	}
+	if strings.Contains(strings.ToLower(rawVm.Template), "window") &&
+		rawVm.State != "STOPPED" {
+		return irs.MyImageInfo{}, errors.New("Cannot Create Windows VM Snapshot while Source VM is not Stopped")
+	}
+
 	vmVolumeList, err := server.GetRawVmVolumes(myImageHandler.Client, sourceVm.SystemId, &requestOpts)
 	if err != nil {
 		return irs.MyImageInfo{}, errors.New("Failed to get VM attached volumes")
