@@ -1280,17 +1280,17 @@ func applySecurityGroupList(sourceSecurity network.SecurityGroup, targetSecurity
 	for _, targetsg := range targetSecurityGroupList {
 		copySourceSGRules := sourceSGRules
 		sgresourceGroup, _ := getResourceGroupById(*targetsg.ID)
-		inboundPriority, outboundPriority, err := getNextSecurityGroupRulePriority(targetsg)
-		if err != nil {
-			return err
-		}
 		inboundsgRules, outboundsgRules, err := sliceSecurityGroupRuleINAndOUT(copySourceSGRules)
 		if err != nil {
 			return err
 		}
-		for i, inboundsgRule := range inboundsgRules {
+		for _, inboundsgRule := range inboundsgRules {
 			update := inboundsgRule
-			update.Priority = to.Int32Ptr(int32(inboundPriority + i))
+			update.Priority = inboundsgRule.Priority
+			if *update.Priority >= 500 {
+				// AKS baseRule 회피
+				update.Priority = to.Int32Ptr(*inboundsgRule.Priority + 100)
+			}
 			updateResult, err := SecurityRulesClient.CreateOrUpdate(ctx, sgresourceGroup, *targetsg.Name, *inboundsgRule.Name, update)
 			if err != nil {
 				return err
@@ -1300,9 +1300,9 @@ func applySecurityGroupList(sourceSecurity network.SecurityGroup, targetSecurity
 				return err
 			}
 		}
-		for i, outboundsgRule := range outboundsgRules {
+		for _, outboundsgRule := range outboundsgRules {
 			update := outboundsgRule
-			update.Priority = to.Int32Ptr(int32(outboundPriority + i))
+			update.Priority = outboundsgRule.Priority
 			updateResult, err := SecurityRulesClient.CreateOrUpdate(ctx, sgresourceGroup, *targetsg.Name, *outboundsgRule.Name, update)
 			if err != nil {
 				return err
@@ -1670,7 +1670,10 @@ func addNodeGroupPool(cluster containerservice.ManagedCluster, nodeGroup irs.Nod
 	if err != nil {
 		return irs.NodeGroupInfo{}, errors.New(fmt.Sprintf("failed add agentPool err = %s", err.Error()))
 	}
-	clusterSSHKey, _ := getClusterSSHKey(cluster)
+	clusterSSHKey, err := getClusterSSHKey(cluster)
+	if err != nil {
+		return irs.NodeGroupInfo{}, errors.New(fmt.Sprintf("failed add agentPool err = %s", err.Error()))
+	}
 	info := convertNodePairToNodeInfo(nodePoolPair, clusterSSHKey, virtualMachineScaleSetVMsClient, *cluster.NodeResourceGroup, ctx)
 	//err = result.WaitForCompletionRef(ctx, agentPoolsClient.Client)
 	//if err != nil {
@@ -1701,7 +1704,7 @@ func getClusterSecurityGroup(cluster containerservice.ManagedCluster, securityGr
 func waitingClusterBaseSecurityGroup(createdClusterIID irs.IID, managedClustersClient *containerservice.ManagedClustersClient, securityGroupsClient *network.SecurityGroupsClient, ctx context.Context, credentialInfo idrv.CredentialInfo, regionInfo idrv.RegionInfo) (network.SecurityGroup, error) {
 	// exist Cluster
 	apiCallCount := 0
-	maxAPICallCount := 60
+	maxAPICallCount := 240
 	var waitingErr error
 	var targetRawCluster *containerservice.ManagedCluster
 	for {
@@ -1729,14 +1732,14 @@ func waitingClusterBaseSecurityGroup(createdClusterIID irs.IID, managedClustersC
 	}
 	var baseSecurityGroup network.SecurityGroup
 	for {
-		securityGroupList, err := securityGroupsClient.List(ctx, clusterManagedResourceGroup)
+		securityGroupList, err := securityGroupsClient.ListAll(ctx)
 		if err == nil && len(securityGroupList.Values()) > 0 {
 			// securityGroupList get Success
 			sgCheck := false
 			for _, sg := range securityGroupList.Values() {
 				if sg.Tags != nil {
 					val, exist := sg.Tags[OwnerClusterKey]
-					if exist && sg.ProvisioningState == network.ProvisioningStateSucceeded && val != nil && *val == *targetRawCluster.Name {
+					if exist && val != nil && *val == *targetRawCluster.Name {
 						baseSecurityGroup = sg
 						sgCheck = true
 						break
@@ -1754,7 +1757,35 @@ func waitingClusterBaseSecurityGroup(createdClusterIID irs.IID, managedClustersC
 			waitingErr = errors.New("failed get Cluster BaseSecurityGroup err = The maximum number of verification requests has been exceeded while waiting for the creation of that resource")
 			break
 		}
-		time.Sleep(1 * time.Second)
+		time.Sleep(4 * time.Second)
+	}
+	if waitingErr != nil {
+		return network.SecurityGroup{}, waitingErr
+	}
+	// check ClusterBaseRule..
+	apiCallCount = 0
+	for {
+		baseRuleCheck := 0
+		sg, err := securityGroupsClient.Get(ctx, clusterManagedResourceGroup, *baseSecurityGroup.Name, "")
+		if err == nil {
+			for _, rule := range *sg.SecurityRules {
+				if *rule.Priority == 500 && *rule.DestinationPortRange == "80" {
+					baseRuleCheck++
+				}
+				if *rule.Priority == 501 && *rule.DestinationPortRange == "443" {
+					baseRuleCheck++
+				}
+			}
+		}
+		if baseRuleCheck == 2 {
+			break
+		}
+		apiCallCount++
+		if apiCallCount >= maxAPICallCount {
+			waitingErr = errors.New("failed wait creating BaseRule in Cluster BaseSecurityGroup err = The maximum number of verification requests has been exceeded while waiting for the creation of that resource")
+			break
+		}
+		time.Sleep(4 * time.Second)
 	}
 	if waitingErr != nil {
 		return network.SecurityGroup{}, waitingErr
@@ -1859,7 +1890,7 @@ func waitingSpecifiedNodePoolPair(cluster containerservice.ManagedCluster, agent
 	clusterManagedResourceGroup := ""
 	clusterManagedResourceGroup = *cluster.NodeResourceGroup
 	apiCallCount := 0
-	maxAPICallCount := 60
+	maxAPICallCount := 100
 	returnNodePoolPair := NodePoolPair{}
 	// var targetAgentPool *containerservice.AgentPool
 	var waitingErr error
@@ -1874,7 +1905,7 @@ func waitingSpecifiedNodePoolPair(cluster containerservice.ManagedCluster, agent
 			waitingErr = errors.New("failed get Cluster AgentPool err = The maximum number of verification requests has been exceeded while waiting for the creation of that resource")
 			break
 		}
-		time.Sleep(1 * time.Second)
+		time.Sleep(4 * time.Second)
 	}
 	if waitingErr != nil {
 		return NodePoolPair{}, waitingErr
@@ -1901,7 +1932,7 @@ func waitingSpecifiedNodePoolPair(cluster containerservice.ManagedCluster, agent
 			waitingErr = errors.New("failed get Cluster VirtualMachineScaleSet err = The maximum number of verification requests has been exceeded while waiting for the creation of that resource")
 			break
 		}
-		time.Sleep(1 * time.Second)
+		time.Sleep(4 * time.Second)
 	}
 	if waitingErr != nil {
 		return NodePoolPair{}, waitingErr
