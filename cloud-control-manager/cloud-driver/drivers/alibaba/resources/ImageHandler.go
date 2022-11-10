@@ -277,7 +277,7 @@ func (imageHandler *AlibabaImageHandler) GetImage(imageIID irs.IID) (irs.ImageIn
 	// 	return irs.ImageInfo{}, errors.New("Notfound: '" + imageIID.SystemId + "' Images Not found")
 	// }
 
-	result, err := DescribeImageByImageId(imageHandler.Client, imageHandler.Region, imageIID, true)
+	result, err := DescribeImageByImageId(imageHandler.Client, imageHandler.Region, imageIID, false)
 
 	if err != nil {
 		return irs.ImageInfo{}, err

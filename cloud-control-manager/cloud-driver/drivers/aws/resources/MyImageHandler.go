@@ -366,6 +366,16 @@ func (ImageHandler *AwsMyImageHandler) GetMyImage(myImageIID irs.IID) (irs.MyIma
 }
 
 func (ImageHandler *AwsMyImageHandler) DeleteMyImage(myImageIID irs.IID) (bool, error) {
+	resultImage, err := DescribeImageById(ImageHandler.Client, &myImageIID, []*string{aws.String("self")})
+	if err != nil {
+		return false, err
+	}
+
+	snapshotId, err := GetSnapshotIdFromEc2Image(resultImage)
+	if err != nil {
+		return false, err
+	}
+
 	input := &ec2.DeregisterImageInput{}
 	input.ImageId = aws.String(myImageIID.SystemId)
 
@@ -378,7 +388,7 @@ func (ImageHandler *AwsMyImageHandler) DeleteMyImage(myImageIID irs.IID) (bool, 
 		spew.Dump(result)
 	}
 
-	snapShotDeleteResult, err := ImageHandler.DeleteSnapshotOfImage(myImageIID)
+	snapShotDeleteResult, err := ImageHandler.DeleteSnapshotBySnapshot(irs.IID{SystemId: snapshotId})
 	if err != nil {
 		return snapShotDeleteResult, errors.New("Fail to delete snapshot")
 	}
@@ -479,9 +489,9 @@ func convertAWSImageToMyImageInfo(awsImage *ec2.Image) (irs.MyImageInfo, error) 
 }
 
 // Image에 대한 snap 삭제
-func (ImageHandler *AwsMyImageHandler) DeleteSnapshotOfImage(myImageIID irs.IID) (bool, error) {
+func (ImageHandler *AwsMyImageHandler) DeleteSnapshotBySnapshot(snapshotIID irs.IID) (bool, error) {
 	input := &ec2.DeleteSnapshotInput{
-		SnapshotId: aws.String(myImageIID.SystemId),
+		SnapshotId: aws.String(snapshotIID.SystemId),
 	}
 
 	result, err := ImageHandler.Client.DeleteSnapshot(input)

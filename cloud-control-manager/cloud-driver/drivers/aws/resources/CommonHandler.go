@@ -453,6 +453,22 @@ func GetImageSizeFromEc2Image(ec2Image *ec2.Image) (int64, error) {
 	}
 }
 
+// Image 정보에서 Snapshot Id return
+func GetSnapshotIdFromEc2Image(ec2Image *ec2.Image) (string, error) {
+	if !reflect.ValueOf(ec2Image.BlockDeviceMappings).IsNil() {
+		if !reflect.ValueOf(ec2Image.BlockDeviceMappings[0].Ebs).IsNil() {
+			snapshotId := *ec2Image.BlockDeviceMappings[0].Ebs.SnapshotId
+			return snapshotId, nil
+		} else {
+			cblogger.Error("BlockDeviceMappings에서 Ebs 정보를 찾을 수 없습니다.")
+			return "", errors.New("BlockDeviceMappings에서 Ebs 정보를 찾을 수 없습니다.")
+		}
+	} else {
+		cblogger.Error("BlockDeviceMappings 정보를 찾을 수 없습니다.")
+		return "", errors.New("BlockDeviceMappings 정보를 찾을 수 없습니다.")
+	}
+}
+
 // Image 정보에서 osType return
 func GetOsTypeFromEc2Image(ec2Image *ec2.Image) string {
 	var guestOS string
