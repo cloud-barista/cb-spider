@@ -3,22 +3,24 @@ package resources
 // https://docs.aws.amazon.com/sdk-for-go/api/service/ec2/#EC2.CreateImage
 
 import (
+	"errors"
 	"fmt"
+	"strings"
+	"time"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/davecgh/go-spew/spew"
-	"strings"
-	"time"
 )
 
 // https://docs.aws.amazon.com/sdk-for-go/api/service/ec2/#EC2.CreateImage
-//Snapshot은 현재 운영 중인 자원의 상태를 저장한 후 필요 시에 동일한 상태로 복제하여 재 생산할 수 있는 기능을 말한다.
-//Snapshot은 VM의 상태를 저장해주는 VM Snapshot과 Disk(Volume)의 상태를 저장해주는 Disk Snapshot이 존재한다.
-//CB-Spider MyImage 관리 기능은 VM Snapshot 실행과 결과로 생성된 VM Image(MyImage)를 관리하는 기능을 제공한다
-//CB-Spider VM Snapshot은 운영 중인 VM의 상태와 VM에 Attach된 Data-Disk의 상태도 저장된다.
+// Snapshot은 현재 운영 중인 자원의 상태를 저장한 후 필요 시에 동일한 상태로 복제하여 재 생산할 수 있는 기능을 말한다.
+// Snapshot은 VM의 상태를 저장해주는 VM Snapshot과 Disk(Volume)의 상태를 저장해주는 Disk Snapshot이 존재한다.
+// CB-Spider MyImage 관리 기능은 VM Snapshot 실행과 결과로 생성된 VM Image(MyImage)를 관리하는 기능을 제공한다
+// CB-Spider VM Snapshot은 운영 중인 VM의 상태와 VM에 Attach된 Data-Disk의 상태도 저장된다.
 type AwsMyImageHandler struct {
 	Region idrv.RegionInfo
 	Client *ec2.EC2
@@ -364,6 +366,16 @@ func (ImageHandler *AwsMyImageHandler) GetMyImage(myImageIID irs.IID) (irs.MyIma
 }
 
 func (ImageHandler *AwsMyImageHandler) DeleteMyImage(myImageIID irs.IID) (bool, error) {
+	resultImage, err := DescribeImageById(ImageHandler.Client, &myImageIID, []*string{aws.String("self")})
+	if err != nil {
+		return false, err
+	}
+
+	snapshotId, err := GetSnapshotIdFromEc2Image(resultImage)
+	if err != nil {
+		return false, err
+	}
+
 	input := &ec2.DeregisterImageInput{}
 	input.ImageId = aws.String(myImageIID.SystemId)
 
@@ -375,10 +387,14 @@ func (ImageHandler *AwsMyImageHandler) DeleteMyImage(myImageIID irs.IID) (bool, 
 	if cblogger.Level.String() == "debug" {
 		spew.Dump(result)
 	}
+
+	snapShotDeleteResult, err := ImageHandler.DeleteSnapshotBySnapshot(irs.IID{SystemId: snapshotId})
+	if err != nil {
+		return snapShotDeleteResult, errors.New("Fail to delete snapshot")
+	}
 	return true, nil
 }
 
-//
 // AWS Image state 를 CB-SPIDER MyImage 의 statuf 로 변환
 func convertImageStateToMyImageStatus(awsImageState *string) irs.MyImageStatus {
 	var returnStatus irs.MyImageStatus
@@ -472,7 +488,57 @@ func convertAWSImageToMyImageInfo(awsImage *ec2.Image) (irs.MyImageInfo, error) 
 	return returnMyImage, nil
 }
 
-func (ImageHandler *AwsMyImageHandler) CheckWindowsImage(myImageIID irs.IID) (bool, error) {
-	return false, fmt.Errorf("Does not support CheckWindowsImage() yet!!")
+// Image에 대한 snap 삭제
+func (ImageHandler *AwsMyImageHandler) DeleteSnapshotBySnapshot(snapshotIID irs.IID) (bool, error) {
+	input := &ec2.DeleteSnapshotInput{
+		SnapshotId: aws.String(snapshotIID.SystemId),
+	}
+
+	result, err := ImageHandler.Client.DeleteSnapshot(input)
+	if err != nil {
+		if aerr, ok := err.(awserr.Error); ok {
+			switch aerr.Code() {
+			default:
+				fmt.Println(aerr.Error())
+			}
+		} else {
+			fmt.Println(err.Error())
+		}
+		return false, err
+	}
+
+	spew.Dump(result)
+	return true, nil
 }
 
+func (ImageHandler *AwsMyImageHandler) CheckWindowsImage(myImageIID irs.IID) (bool, error) {
+	isWindowsImage := false
+	myImage := []*string{aws.String("self")}
+
+	// image 조회 : myImage []*string{aws.String("self")} / public image []*string{aws.String("amazon")}
+	resultImage, err := DescribeImageById(ImageHandler.Client, &myImageIID, myImage)
+
+	if err != nil {
+		if aerr, ok := err.(awserr.Error); ok {
+			switch aerr.Code() {
+			default:
+				cblogger.Error(aerr.Error())
+			}
+		} else {
+			// Print the error, cast err to awserr.Error to get the Code and
+			// Message from an error.
+			cblogger.Error(err.Error())
+		}
+		return false, err
+	}
+
+	// image에서 OsType 추출
+	guestOS := GetOsTypeFromEc2Image(resultImage)
+	cblogger.Debugf("imgInfo.GuestOS : [%s]", guestOS)
+	if strings.Contains(strings.ToUpper(guestOS), "WINDOWS") {
+		isWindowsImage = true
+	}
+
+	return isWindowsImage, nil
+	return false, fmt.Errorf("Does not support CheckWindowsImage() yet!!")
+}

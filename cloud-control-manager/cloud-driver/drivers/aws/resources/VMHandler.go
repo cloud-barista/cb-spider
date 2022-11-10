@@ -113,13 +113,9 @@ func (vmHandler *AwsVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 		spew.Dump(vmReqInfo)
 	}
 
-	//Windows OS 처리를 위해 이미지 정보 조회
-	imageHandler := AwsImageHandler{
-		Region: vmHandler.Region,
-		Client: vmHandler.Client,
-	}
-
-	amiImage, errImgInfo := imageHandler.GetAmiImage(vmReqInfo.ImageIID)
+	// amiImage, errImgInfo := DescribeImageById(imageHandler.Client, &vmReqInfo.ImageIID, nil)
+	amiImage, errImgInfo := DescribeImageById(vmHandler.Client, &vmReqInfo.ImageIID, nil)
+	//amiImage, errImgInfo := imageHandler.GetAmiImage(vmReqInfo.ImageIID)
 	//imgInfo, errImgInfo := imageHandler.GetImage(vmReqInfo.ImageIID)
 	if errImgInfo != nil {
 		cblogger.Error(errImgInfo)
@@ -179,7 +175,7 @@ func (vmHandler *AwsVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 			//	return irs.VMInfo{}, err
 			//}
 
-			imageVolumeSize, err := imageHandler.GetImageSizeFromEc2Image(amiImage)
+			imageVolumeSize, err := GetImageSizeFromEc2Image(amiImage)
 			if err != nil {
 				return irs.VMInfo{}, err
 			}
@@ -305,7 +301,7 @@ func (vmHandler *AwsVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 	userData := ""
 	isWindowsImage := false
 
-	guestOS := imageHandler.GetOsTypeFromEc2Image(amiImage)
+	guestOS := GetOsTypeFromEc2Image(amiImage)
 	cblogger.Debugf("imgInfo.GuestOS : [%s]", guestOS)
 	if strings.Contains(strings.ToUpper(guestOS), "WINDOWS") {
 

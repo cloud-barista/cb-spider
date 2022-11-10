@@ -18,6 +18,7 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"strings"
 	"time"
 
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
@@ -205,11 +206,105 @@ func GetDiskInfo(client *compute.Service, credential idrv.CredentialInfo, region
 }
 
 func GetMachineImageInfo(client *compute.Service, projectId string, imageName string) (*compute.MachineImage, error) {
+	cblogger.Infof("projectId : [%s] / imageName : [%s]", projectId, imageName)
 	imageResp, err := client.MachineImages.Get(projectId, imageName).Do()
 	if err != nil {
 		cblogger.Error(err)
 		return &compute.MachineImage{}, err
 	}
-
+	if imageResp == nil {
+		return nil, errors.New("Not Found : [" + imageName + "] Image information not found")
+	}
+	// cblogger.Infof("result ", imageResp)
+	// spew.Dump(imageResp)
 	return imageResp, nil
+}
+
+// IID 에서 systemID로 image 조회.  : systemID가 URL로 되어있어 필요한 값들을 추출하여 사용. projectId, imageName
+func GetPublicImageInfo(client *compute.Service, imageIID irs.IID) (*compute.Image, error) {
+	projectId := ""
+	imageName := ""
+
+	arrLink := strings.Split(imageIID.SystemId, "/")
+	if len(arrLink) > 0 {
+		imageName = arrLink[len(arrLink)-1]
+		for pos, item := range arrLink {
+			if strings.EqualFold(item, "projects") {
+				projectId = arrLink[pos+1]
+				break
+			}
+		}
+	}
+	cblogger.Infof("projectId : [%s] / imageName : [%s]", projectId, imageName)
+	if projectId == "" {
+		return nil, errors.New("ProjectId information not found in URL.")
+	}
+
+	image, err := client.Images.Get(projectId, imageName).Do()
+	if err != nil {
+		cblogger.Error(err)
+		return nil, err
+	}
+	return image, nil
+
+}
+
+// IID 에서 systemID로 image 조회.
+func FindImageByID(client *compute.Service, imageIID irs.IID) (*compute.Image, error) {
+	reqImageName := imageIID.SystemId
+
+	//https://cloud.google.com/compute/docs/images?hl=ko
+	arrImageProjectList := []string{
+		//"ubuntu-os-cloud",
+
+		"gce-uefi-images", // 보안 VM을 지원하는 이미지
+
+		//보안 VM을 지원하지 않는 이미지들
+		"centos-cloud",
+		"cos-cloud",
+		"coreos-cloud",
+		"debian-cloud",
+		"rhel-cloud",
+		"rhel-sap-cloud",
+		"suse-cloud",
+		"suse-sap-cloud",
+		"ubuntu-os-cloud",
+		"windows-cloud",
+		"windows-sql-cloud",
+	}
+
+	cnt := 0
+	nextPageToken := ""
+	var req *compute.ImagesListCall
+	var res *compute.ImageList
+	var err error
+	for _, projectId := range arrImageProjectList {
+		req = client.Images.List(projectId)
+		//req.Filter("name=" + reqImageName)
+		//req.Filter("SelfLink=" + reqImageName)
+
+		res, err = req.Do()
+		if err != nil {
+			cblogger.Errorf("[%s] 프로젝트 소유의 이미지 목록 조회 실패!", projectId)
+			cblogger.Error(err)
+			return nil, err
+		}
+
+		nextPageToken = res.NextPageToken
+		cblogger.Info("NestPageToken : ", nextPageToken)
+
+		for {
+			cblogger.Info("Loop?")
+			for _, item := range res.Items {
+				cnt++
+				if strings.EqualFold(reqImageName, item.SelfLink) {
+					cblogger.Info("found Image : ", item)
+					return item, nil
+				}
+				cblogger.Info("cnt : ", item)
+			}
+		}
+	}
+	return nil, errors.New("Not Found : [" + reqImageName + "] Image information not found")
+
 }

@@ -136,7 +136,7 @@ func (vmHandler *AlibabaVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 	}
 
 	isWindows := false
-	osType := vmImage.OSType //"OSType": "windows"
+	osType := GetOsType(vmImage) //"OSType": "windows"
 	if osType == "windows" {
 		isWindows = true
 
