@@ -348,7 +348,7 @@ func DescribeImages(client *ecs.Client, regionInfo idrv.RegionInfo, imageIIDs []
 
 /*
 *
-DiskID로 1개 Disk의 정보 조회
+ImageID로 1개 Image의 정보 조회
 */
 func DescribeImageByImageId(client *ecs.Client, regionInfo idrv.RegionInfo, imageIID irs.IID, isMyImage bool) (ecs.Image, error) {
 
@@ -521,4 +521,24 @@ func WaitForImageStatus(client *ecs.Client, regionInfo idrv.RegionInfo, imageIID
 	//	return irs.MyImageStatus(abnormalAliImageState), nil
 	//}
 	//return irs.MyImageStatus(aliImageState), nil
+}
+
+// Image의 OS Type을 string으로 반환
+func DescribeImageOsType(client *ecs.Client, regionInfo idrv.RegionInfo, imageIID irs.IID, isMyImage bool) (string, error) {
+
+	result, err := DescribeImageByImageId(client, regionInfo, imageIID, isMyImage)
+
+	if err != nil {
+		return "", err
+	}
+
+	osType := GetOsType(result)
+	return osType, nil
+}
+
+// Image에서 OSTYPE 만 추출
+func GetOsType(ecsImage ecs.Image) string {
+	osType := ecsImage.OSType //"OSType": "windows"
+	cblogger.Info("osType = ", osType)
+	return osType
 }

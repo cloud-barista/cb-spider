@@ -16,7 +16,6 @@ import (
 	"errors"
 	_ "errors"
 	"fmt"
-	"log"
 	"regexp"
 	"strconv"
 	"strings"
@@ -52,16 +51,103 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 	vmName := vmReqInfo.IId.NameId
 	projectID := vmHandler.Credential.ProjectID
 	prefix := "https://www.googleapis.com/compute/v1/projects/" + projectID
-	//imageURL := "projects/ubuntu-os-cloud/global/images/ubuntu-minimal-1804-bionic-v20191024"
-	imageURL := vmReqInfo.ImageIID.SystemId
-	if vmReqInfo.ImageType == irs.MyImage {
-		imageURL = "global/machineImages/" + imageURL // MyImage는 ImageURL 형태가 아니라 ID를 사용하므로 앞에 URL 형태를 붙여줌
-	}
-	region := vmHandler.Region.Region
 
+	region := vmHandler.Region.Region
 	zone := vmHandler.Region.Zone
 	// email을 어디다가 넣지? 이것또한 문제넹
 	clientEmail := vmHandler.Credential.ClientEmail
+
+	//imageURL := "projects/ubuntu-os-cloud/global/images/ubuntu-minimal-1804-bionic-v20191024"
+	imageURL := vmReqInfo.ImageIID.SystemId
+	isMyImage := false
+	isWindows := false
+
+	// public Image vs myImage
+	if vmReqInfo.ImageType == irs.MyImage {
+		isMyImage = true
+		imageURL = "global/machineImages/" + imageURL // MyImage는 ImageURL 형태가 아니라 ID를 사용하므로 앞에 URL 형태를 붙여줌
+	}
+	// 이미지 사이즈 추출
+	//var projectIdForImage string
+	var imageSize int64
+	//imageUrlArr := strings.Split(imageURL, "/")
+	//imageName := imageUrlArr[len(imageUrlArr)-1]
+
+	var pubKey string
+	if isMyImage {
+
+		//spider-myimage-1-cdlkbi2t39h9lqh14i90
+		//projects/csta-349809/global/machineImages",
+
+		machineImage, err := GetMachineImageInfo(vmHandler.Client, projectID, vmReqInfo.ImageIID.SystemId)
+		if err != nil {
+			return irs.VMInfo{}, err
+		}
+
+		// osFeatures := machineImage.GuestOsFeatures
+
+		// for _, feature := range osFeatures {
+		// 	if feature.Type == "WINDOWS" {
+		// 		isWindows = true
+		// 		break
+		// 	}
+		// }
+
+		// disks := machineImage.SavedDisks
+		// for _, disk := range disks {
+		// 	if disk
+		// 		isWindows = true
+		// 		break
+		// 	}
+		// }
+		ip := machineImage.InstanceProperties
+		disks := ip.Disks
+		for _, disk := range disks {
+			if disk.Boot { // Boot Device
+				//diskSize := disk.DiskSizeGb
+				imageSize = disk.DiskSizeGb // image size가 맞나??
+				cblogger.Info(imageSize)
+				osFeatures := disk.GuestOsFeatures
+				for _, feature := range osFeatures {
+					if feature.Type == "WINDOWS" {
+						isWindows = true
+						break
+					}
+				}
+				cblogger.Info(isWindows)
+			}
+		}
+
+		//imageSize = machineImage.DiskSizeGb
+
+	} else {
+
+		computeImage, err := GetPublicImageInfo(vmHandler.Client, vmReqInfo.ImageIID)
+		if err != nil {
+			cblogger.Info("GetPublicImageInfo err : ", err)
+			return irs.VMInfo{}, err
+		}
+
+		// projectIdForImage = imageUrlArr[6]
+		// imageResp, err := vmHandler.Client.Images.Get(projectIdForImage, imageName).Do()
+		// if err != nil {
+		// 	log.Fatal(err)
+		// }
+		// spew.Dump(imageResp)
+		//osFeatures := imageResp.GuestOsFeatures
+		osFeatures := computeImage.GuestOsFeatures
+
+		for _, feature := range osFeatures {
+			if feature.Type == "WINDOWS" {
+				isWindows = true
+			}
+		}
+
+		imageSize = computeImage.DiskSizeGb
+
+	}
+	cblogger.Info("isMyImage = ", isMyImage)
+	cblogger.Info("isWindows = ", isWindows)
 
 	/* // 2020-05-15 Name 기반 로직을 임의로 막아 놓음 - 다음 버전에 적용 예정. 현재는 URL 방식
 	//이미지 URL처리
@@ -108,27 +194,6 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 	// 	publicIPAddress = publicIPInfo.PublicIP
 	// }
 
-	//KEYPAIR HANDLER
-	keypairHandler := GCPKeyPairHandler{
-		vmHandler.Credential, vmHandler.Region}
-	keypairInfo, errKeypair := keypairHandler.GetKey(vmReqInfo.KeyPairIID)
-	if errKeypair != nil {
-		cblogger.Error(errKeypair)
-		return irs.VMInfo{}, errKeypair
-	}
-
-	cblogger.Debug("공개키 생성")
-	publicKey, errPub := cdcom.MakePublicKeyFromPrivateKey(keypairInfo.PrivateKey)
-	if errPub != nil {
-		cblogger.Error(errPub)
-		return irs.VMInfo{}, errPub
-	}
-
-	//pubKey := "cb-user:" + keypairInfo.PublicKey
-	pubKey := "cb-user:" + strings.TrimSpace(publicKey) + " " + "cb-user"
-	cblogger.Debug("keypairInfo 정보")
-	spew.Dump(keypairInfo)
-
 	/*
 		type GCPImageHandler struct {
 			Region     idrv.RegionInfo
@@ -137,6 +202,30 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 			Credential idrv.CredentialInfo
 		}
 	*/
+
+	// keyPair 정보는 window가 아닐 때만 Set
+	if !isWindows {
+		//KEYPAIR HANDLER
+		keypairHandler := GCPKeyPairHandler{
+			vmHandler.Credential, vmHandler.Region}
+		keypairInfo, errKeypair := keypairHandler.GetKey(vmReqInfo.KeyPairIID)
+		if errKeypair != nil {
+			cblogger.Error(errKeypair)
+			return irs.VMInfo{}, errKeypair
+		}
+
+		cblogger.Debug("공개키 생성")
+		publicKey, errPub := cdcom.MakePublicKeyFromPrivateKey(keypairInfo.PrivateKey)
+		if errPub != nil {
+			cblogger.Error(errPub)
+			return irs.VMInfo{}, errPub
+		}
+
+		//pubKey := "cb-user:" + keypairInfo.PublicKey
+		pubKey = "cb-user:" + strings.TrimSpace(publicKey) + " " + "cb-user"
+		cblogger.Debug("keypairInfo 정보")
+		spew.Dump(keypairInfo)
+	}
 
 	// Security Group Tags
 	var securityTags []string
@@ -152,26 +241,6 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 
 	cblogger.Info("networkURL 정보 : ", networkURL)
 	cblogger.Info("subnetWorkURL 정보 : ", subnetWorkURL)
-
-	// 이미지 사이즈 추출
-	var projectIdForImage string
-	var imageSize int64
-	imageUrlArr := strings.Split(imageURL, "/")
-	imageName := imageUrlArr[len(imageUrlArr)-1]
-
-	projectIdForImage = imageUrlArr[6]
-	imageResp, err := vmHandler.Client.Images.Get(projectIdForImage, imageName).Do()
-	if err != nil {
-		log.Fatal(err)
-	}
-	spew.Dump(imageResp)
-	osFeatures := imageResp.GuestOsFeatures
-	isWindows := false
-	for _, feature := range osFeatures {
-		if feature.Type == "WINDOWS" {
-			isWindows = true
-		}
-	}
 
 	instance := &compute.Instance{
 		Name: vmName,
@@ -227,7 +296,6 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 
 	//Windows OS인 경우 administrator 계정 비번 설정 및 계정 활성화
 	if isWindows {
-
 		err := cdcom.ValidateWindowsPassword(vmReqInfo.VMUserPasswd)
 		if err != nil {
 			return irs.VMInfo{}, err
@@ -239,7 +307,7 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 	}
 
 	// imageType이 MyImage인 경우 SourceMachineImage Setting
-	if vmReqInfo.ImageType == irs.MyImage {
+	if isMyImage {
 		instance.SourceMachineImage = imageURL
 	} else {
 		instance.Disks[0].InitializeParams = &compute.AttachedDiskInitializeParams{
@@ -330,7 +398,7 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 				}
 			}
 
-			imageSize = imageResp.DiskSizeGb
+			//imageSize = imageResp.DiskSizeGb
 
 			if iDiskSize < imageSize {
 				fmt.Println("Disk Size Error!!: ", iDiskSize)
