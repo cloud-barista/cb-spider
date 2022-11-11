@@ -381,6 +381,7 @@ func RunServer() {
 		{"PUT", "/cluster/:Name/nodegroup/:NodeGroupName/onautoscaling", SetNodeGroupAutoScaling},
 		{"PUT", "/cluster/:Name/nodegroup/:NodeGroupName/autoscalesize", ChangeNodeGroupScaling},
 		{"PUT", "/cluster/:Name/upgrade", UpgradeCluster},
+		{"GET", "/cspvm/:Id", GetCSPVM},
 
 		//-- for management
 		{"GET", "/allcluster", ListAllCluster},
@@ -429,6 +430,9 @@ func RunServer() {
 		{"GET", "/adminweb/myimagemgmt/:ConnectConfig", aw.MyImageMgmt},
 		{"GET", "/adminweb/vmimage/:ConnectConfig", aw.VMImage},
 		{"GET", "/adminweb/vmspec/:ConnectConfig", aw.VMSpec},
+
+		{"GET", "/adminweb/cluster/:ConnectConfig", aw.Cluster},
+		{"GET", "/adminweb/clustermgmt/:ConnectConfig", aw.ClusterMgmt},
 	}
 	//======================================= setup routes
 
@@ -491,6 +495,7 @@ func ApiServer(routes []route) {
 
 	// for spider logo
 	e.File("/spider/adminweb/images/logo.png", cbspiderRoot+"/api-runtime/rest-runtime/admin-web/images/cb-spider-circle-logo.png")
+	e.File("/spider/adminweb/images/pmks.png", cbspiderRoot+"/api-runtime/rest-runtime/admin-web/images/cb-spider-pmks-logo.png")
 
 	e.HideBanner = true
 	e.HidePort = true

@@ -1167,6 +1167,11 @@ func makeSetupConnectionConfigFunc_js() string {
 		    a = parent.frames["top_frame"].document.getElementById("vmspecHref");
 		    a.href = "vmspec/" + configName
 
+		        // for Cluster(PMKS)
+                        a = parent.frames["top_frame"].document.getElementById("clusterHref");
+                        a.href = "cluster/" + configName
+                        a = parent.frames["top_frame"].document.getElementById("clustermgmtHref");
+                        a.href = "clustermgmt/" + configName
                 }
         `
         return strFunc

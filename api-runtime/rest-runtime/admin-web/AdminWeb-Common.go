@@ -395,6 +395,15 @@ func genLoggingGETURL(connConfig string, rsType string) string {
 
 func genLoggingResult(response string) string {
 
+	/*--------------------
+	    {
+               "Key" : "Property",
+               "Value" : "{\"NodeNameType\":\"lan-ip\",\"NetworkType\":\"GR\"}"
+            },
+	----------------------*/
+	// to escape back-slash in the 'Property' Values
+        response = strings.ReplaceAll(response, `\"`, `"`)
+
         htmlStr := `
                 <script type="text/javascript">
                 `

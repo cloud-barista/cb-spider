@@ -265,6 +265,31 @@ func GetVM(c echo.Context) error {
 	return c.JSON(http.StatusOK, result)
 }
 
+func GetCSPVM(c echo.Context) error {
+        cblog.Info("call GetCSPVM()")
+
+        var req struct {
+                ConnectionName string
+        }
+
+        if err := c.Bind(&req); err != nil {
+                return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+        }
+
+        // To support for Get-Query Param Type API
+        if req.ConnectionName == "" {
+                req.ConnectionName = c.QueryParam("ConnectionName")
+        }
+
+        // Call common-runtime API
+        result, err := cmrt.GetCSPVM(req.ConnectionName, rsVM, c.Param("Id"))
+        if err != nil {
+                return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+        }
+
+        return c.JSON(http.StatusOK, result)
+}
+
 // (1) get args from REST Call
 // (2) call common-runtime API
 // (3) return REST Json Format

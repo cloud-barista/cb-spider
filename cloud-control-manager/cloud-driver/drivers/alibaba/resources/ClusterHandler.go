@@ -411,17 +411,23 @@ func getClusterInfo(access_key string, access_secret string, region_id string, c
 	// if api_server_endpoint is not exist, it'll throw error
 	master_url_json_obj := make(map[string]interface{})
 	json.Unmarshal([]byte(cluster_json_obj["master_url"].(string)), &master_url_json_obj)
-	end_point := master_url_json_obj["api_server_endpoint"].(string)
+	end_point := ""
+	if master_url_json_obj["api_server_endpoint"] != nil {
+		end_point = master_url_json_obj["api_server_endpoint"].(string)
+	}
 
 	// get kubeconfig
+	kube_config := "Preparing...."
 	cluster_kube_config_json_str, err := alibaba.GetClusterKubeConfig(access_key, access_secret, region_id, cluster_id)
 	if err != nil {
-		return nil, err
+		cblogger.Info("Kubeconfig is not ready yet!")
+		//return nil, err
+	} else {
+		cluster_kube_config_json_obj := make(map[string]interface{})
+		json.Unmarshal([]byte(cluster_kube_config_json_str), &cluster_kube_config_json_obj)
+		// println(cluster_kube_config_json_obj["config"].(string))
+		kube_config = cluster_kube_config_json_obj["config"].(string)
 	}
-	cluster_kube_config_json_obj := make(map[string]interface{})
-	json.Unmarshal([]byte(cluster_kube_config_json_str), &cluster_kube_config_json_obj)
-	// println(cluster_kube_config_json_obj["config"].(string))
-	kube_config := cluster_kube_config_json_obj["config"].(string)
 
 	clusterInfo = &irs.ClusterInfo{
 		IId: irs.IID{

@@ -526,102 +526,60 @@ func VM(c echo.Context) error {
 
 	imageName := ""
 	specName := ""
-	subnetName := ""
-	sgName := ""
-	vmUser := "" // AWS:ec2-user, Azure&GCP:cb-user, Alibaba&Cloudit:root, OpenStack: ubuntu
+	subnetName := "subnet-01"
+	sgName := `["sg-01"]`
+	vmUser := "Administrator"  // Administrator for Windows GuserOS
+	vmPasswd := "cloudbarista123^"  // default pw for Windows GuserOS
 	switch providerName {
 	case "AWS":
 		imageName = "ami-00978328f54e31526"
 		specName = "t2.micro"
-		subnetName = "subnet-01"
-		sgName = `["sg-01"]`
-		vmUser = "cb-user"
 	case "AZURE":
 		imageName = "Canonical:UbuntuServer:18.04-LTS:latest"
 		specName = "Standard_B1ls"
-		subnetName = "subnet-01"
-		sgName = `["sg-01"]`
-		vmUser = "cb-user"
 	case "GCP":
 		imageName = "https://www.googleapis.com/compute/v1/projects/ubuntu-os-cloud/global/images/ubuntu-minimal-1804-bionic-v20191024"
 		specName = "f1-micro"
-		subnetName = "subnet-01"
-		sgName = `["sg-01"]`
-		vmUser = "cb-user"
 	case "ALIBABA":
-		imageName = "ubuntu_18_04_x64_20G_alibase_20220322.vhd"
+		imageName = "ubuntu_18_04_x64_20G_alibase_20220824.vhd"
 		specName = "ecs.t5-lc1m2.small"
-		subnetName = "subnet-01"
-		sgName = `["sg-01"]`
-		vmUser = "cb-user"
 	case "TENCENT":
 		imageName = "img-pi0ii46r"
-		specName = "S5.MEDIUM8"
-		subnetName = "subnet-01"
-		sgName = `["sg-01"]`
-		vmUser = "cb-user"
+		specName = "S3.MEDIUM2"
 	case "IBM":
 		imageName = "r014-a044e2f5-dfe1-416c-8990-5dc895352728"
 		specName = "bx2-2x8"
-		subnetName = "subnet-01"
-		sgName = `["sg-01"]`
-		vmUser = "cb-user"
-
 	case "CLOUDIT":
 		imageName = "ee441331-0872-49c3-886c-1873a6e32e09"
 		specName = "small-2"
-		subnetName = "subnet-01"
-		sgName = `["sg-01"]`
-		vmUser = "cb-user"
 	case "OPENSTACK":
 		imageName = "ubuntu18.04"
 		specName = "DS-Demo"
-		subnetName = "subnet-01"
-		sgName = `["sg-01"]`
-		vmUser = "cb-user"
 	case "NCP":
 		imageName = "SPSW0LINUX000130"
 		specName = "SPSVRHICPUSSD002"
-		subnetName = "subnet-01"
-		sgName = `["sg-01"]`
-		vmUser = "cb-user"
 	case "KTCLOUD":
 		imageName = "97ef0091-fdf7-44e9-be79-c99dc9b1a0ad"
 		specName = "d3530ad2-462b-43ad-97d5-e1087b952b7d!87c0a6f6-c684-4fbe-a393-d8412bcf788d_disk100GB"
-		subnetName = "subnet-01"
-		sgName = `["sg-01"]`
-		vmUser = "cb-user"
 	case "NHNCLOUD":
 		imageName = "5396655e-166a-4875-80d2-ed8613aa054f"
 		specName = "m2.c4m8"
-		subnetName = "subnet-01"
-		sgName = `["sg-01"]`
-		vmUser = "cb-user"
-
 	case "DOCKER":
 		imageName = "nginx:latest"
 		specName = "NA"
 		subnetName = "NA"
 		sgName = `["NA"]`
-		vmUser = "cb-user"
 	case "MOCK":
 		imageName = "mock-vmimage-01"
 		subnetName = "subnet-01"
 		sgName = `["sg-01"]`
 		specName = "mock-vmspec-01"
-		vmUser = "cb-user"
 	case "CLOUDTWIN":
 		imageName = "ubuntu18.04-sshd-systemd"
 		subnetName = "subnet-01"
-		sgName = `["sg-01"]`
-		specName = "spec-1"
-		vmUser = "cb-user"
 	default:
 		imageName = "ami-00978328f54e31526"
 		specName = "t2.micro"
-		subnetName = "subnet-01"
-		sgName = `["sg-01"]`
-		vmUser = "cb-user"
 	}
 
 	// white color: #FFFFFF
@@ -683,7 +641,7 @@ func VM(c echo.Context) error {
 				<br>
                                 <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="12" value="$$VMUSER$$" disabled>
 				<br>
-                                <input style="font-size:12px;text-align:center;" type="password" name="text_box" id="13" value="" disabled>
+                                <input style="font-size:12px;text-align:center;" type="password" name="text_box" id="13" value="$$VMPASSWD$$">
                             </td>
                             <td style="vertical-align:top">
                                 <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="14" disabled value="N/A">
@@ -702,6 +660,7 @@ func VM(c echo.Context) error {
 	htmlStr = strings.ReplaceAll(htmlStr, "$$SUBNETNAME$$", subnetName)
 	htmlStr = strings.ReplaceAll(htmlStr, "$$SGNAME$$", sgName)
 	htmlStr = strings.ReplaceAll(htmlStr, "$$VMUSER$$", vmUser)
+	htmlStr = strings.ReplaceAll(htmlStr, "$$VMPASSWD$$", vmPasswd)
 
 	// make page tail
 	htmlStr += `
