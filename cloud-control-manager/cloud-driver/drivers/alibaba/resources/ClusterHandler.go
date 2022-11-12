@@ -411,13 +411,13 @@ func getClusterInfo(access_key string, access_secret string, region_id string, c
 	// if api_server_endpoint is not exist, it'll throw error
 	master_url_json_obj := make(map[string]interface{})
 	json.Unmarshal([]byte(cluster_json_obj["master_url"].(string)), &master_url_json_obj)
-	end_point := ""
+	end_point := "Endpoint is not ready yet!"
 	if master_url_json_obj["api_server_endpoint"] != nil {
 		end_point = master_url_json_obj["api_server_endpoint"].(string)
 	}
 
 	// get kubeconfig
-	kube_config := "Preparing...."
+	kube_config := "Kubeconfig is not ready yet!"
 	cluster_kube_config_json_str, err := alibaba.GetClusterKubeConfig(access_key, access_secret, region_id, cluster_id)
 	if err != nil {
 		cblogger.Info("Kubeconfig is not ready yet!")

@@ -412,6 +412,12 @@ func getClusterInfo(access_key string, access_secret string, region_id string, c
 		subnet_id = split[1]
 	}
 
+	accessInfo, err := getClusterAccessInfo(access_key, access_secret, region_id, cluster_id, security_group_id)
+	if err != nil {		
+		cblogger.Error(err)	
+		return nil, err
+	}
+	
 	clusterInfo = &irs.ClusterInfo{
 		IId: irs.IID{
 			NameId:   *res.Response.Clusters[0].ClusterName,
@@ -428,6 +434,7 @@ func getClusterInfo(access_key string, access_secret string, region_id string, c
 		},
 		Status:      cluster_status,
 		CreatedTime: datetime,
+		AccessInfo:  accessInfo,
 		// KeyValueList: []irs.KeyValue{}, // flatten data 입력하기
 	}
 
@@ -472,6 +479,110 @@ func getClusterInfo(access_key string, access_secret string, region_id string, c
 	}
 
 	return clusterInfo, err
+}
+
+func getClusterAccessInfo(access_key string, access_secret string, region_id string, cluster_id string, security_group_id string) (accessInfo irs.AccessInfo, err error) {
+
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("Failed to Process getClusterAccessInfo() : %v\n\n%v", r, string(debug.Stack()))
+			cblogger.Error(err)
+		}
+	}()
+
+    accessInfo = irs.AccessInfo{
+		Endpoint   : "Endpoint is not ready yet!",
+		Kubeconfig : "Kubeconfig is not ready yet!",
+	}
+
+	// (1) Endpoint
+	res, err := tencent.GetClusterEndpoint(access_key, access_secret, region_id, cluster_id)
+	if err != nil {
+		if strings.Contains(err.Error(), "CLUSTER_IN_ABNORMAL_STAT") || strings.Contains(err.Error(), "CLUSTER_STATE_ERROR") {
+			cblogger.Info(cluster_id + err.Error())
+			accessInfo.Endpoint = "Cluster is not ready yet!"
+		} else {
+			err := fmt.Errorf("Failed to Get Cluster Endpoint:  %v", err)
+			cblogger.Error(err)
+			return irs.AccessInfo{}, err
+		}
+	}
+    
+    if res == nil || res.Response == nil {
+    	return accessInfo, nil
+    }
+
+    if *res.Response.ClusterExternalEndpoint == "" {
+		_, err := tencent.CreateClusterEndpoint(access_key, access_secret, region_id, cluster_id, security_group_id)
+		if err != nil {
+			if strings.Contains(err.Error(), "CLUSTER_IN_ABNORMAL_STAT") || strings.Contains(err.Error(), "CLUSTER_STATE_ERROR") {
+				cblogger.Info(cluster_id + err.Error())
+				accessInfo.Endpoint = "First, add a nodegroup."
+			} else if strings.Contains(err.Error(), "same type task in execution") {
+				cblogger.Info(cluster_id + err.Error())
+				accessInfo.Endpoint = "Preparing...."
+			} else {
+				err := fmt.Errorf("Failed to Create Cluster Endpoint:  %v", err)
+				cblogger.Error(err)
+				return irs.AccessInfo{}, err
+			}
+		}
+    } else {
+    	accessInfo.Endpoint = *res.Response.ClusterExternalEndpoint
+    }
+
+	// (2) Kubeconfig
+	resKubeconfig, err := tencent.GetClusterKubeconfig(access_key, access_secret, region_id, cluster_id)
+	if err != nil {
+		if strings.Contains(err.Error(), "CLUSTER_IN_ABNORMAL_STAT") || strings.Contains(err.Error(), "CLUSTER_STATE_ERROR") {
+			cblogger.Info(cluster_id + err.Error())
+			accessInfo.Kubeconfig = "Cluster is not ready yet!"
+		} else {
+			err := fmt.Errorf("Failed to Get Cluster Kubeconfig:  %v", err)
+			cblogger.Error(err)
+			return irs.AccessInfo{}, err
+		}
+	}
+    
+    if resKubeconfig == nil || resKubeconfig.Response == nil {
+    	return accessInfo, nil
+    }
+
+    if *resKubeconfig.Response.Kubeconfig == "" {
+		accessInfo.Kubeconfig = "Preparing...."
+    } else {
+    	accessInfo.Kubeconfig = changeDomainNameToIP(*resKubeconfig.Response.Kubeconfig, accessInfo.Endpoint)
+    }
+
+    return accessInfo, nil
+}
+
+func changeDomainNameToIP(kubeConfig string, endpoint string) string {
+
+	TargetStr := "    server: https://"
+
+	if kubeConfig == "" || !strings.Contains(kubeConfig, TargetStr)  {
+		return kubeConfig
+	}
+	if endpoint == "" || !strings.Contains(endpoint, ":") {
+		return kubeConfig
+	}
+
+	// get IP from 1.2.3.4:443
+	splits := strings.Split(endpoint, ":")
+	ip := splits[0]
+
+	// replace 'domain name' with 'ip'
+	// ex) server: https://cls-amu0j0tf.ccs.tencent-cloud.com 
+	//     => server: https://1.2.3.4
+    lines := strings.Split(kubeConfig, "\n")
+    for i, line := range lines {
+            if strings.Contains(line, TargetStr) {
+                    lines[i] = TargetStr + ip
+            }
+    }
+
+    return strings.Join(lines, "\n")
 }
 
 func getNodeGroupInfo(access_key, access_secret, region_id, cluster_id, node_group_id string) (nodeGroupInfo *irs.NodeGroupInfo, err error) {

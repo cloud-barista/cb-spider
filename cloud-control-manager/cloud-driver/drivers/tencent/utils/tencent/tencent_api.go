@@ -302,3 +302,54 @@ func DescribeClusterInstances(secret_id string, secret_key string, region_id str
 
 	return response, nil
 }
+
+func CreateClusterEndpoint(secret_id string, secret_key string, region_id string, 
+		cluster_id string, security_group_id string) (*tke.CreateClusterEndpointResponse, error) {
+        credential := common.NewCredential(secret_id, secret_key)
+        cpf := profile.NewClientProfile()
+        cpf.HttpProfile.Endpoint = "tke.tencentcloudapi.com"
+        client, _ := tke.NewClient(credential, region_id, cpf)
+
+        request := tke.NewCreateClusterEndpointRequest()
+        request.ClusterId = common.StringPtr(cluster_id)
+        request.SecurityGroup = common.StringPtr(security_group_id)
+        request.IsExtranet = common.BoolPtr(true)
+        response, err := client.CreateClusterEndpoint(request)
+        if err != nil {
+                return nil, err
+        }
+
+        return response, nil
+}
+
+func GetClusterEndpoint(secret_id string, secret_key string, region_id string, cluster_id string) (*tke.DescribeClusterEndpointsResponse, error) {
+        credential := common.NewCredential(secret_id, secret_key)
+        cpf := profile.NewClientProfile()
+        cpf.HttpProfile.Endpoint = "tke.tencentcloudapi.com"
+        client, _ := tke.NewClient(credential, region_id, cpf)
+
+        request := tke.NewDescribeClusterEndpointsRequest()
+	request.ClusterId = common.StringPtr(cluster_id)
+	response, err := client.DescribeClusterEndpoints(request)
+        if err != nil {
+                return nil, err
+        }
+
+        return response, nil
+}
+
+func GetClusterKubeconfig(secret_id string, secret_key string, region_id string, cluster_id string) (*tke.DescribeClusterKubeconfigResponse, error) {
+        credential := common.NewCredential(secret_id, secret_key)
+        cpf := profile.NewClientProfile()
+        cpf.HttpProfile.Endpoint = "tke.tencentcloudapi.com"
+        client, _ := tke.NewClient(credential, region_id, cpf)
+
+        request := tke.NewDescribeClusterKubeconfigRequest()
+        request.ClusterId = common.StringPtr(cluster_id)
+        response, err := client.DescribeClusterKubeconfig(request)
+        if err != nil {
+                return nil, err
+        }
+
+        return response, nil
+}
