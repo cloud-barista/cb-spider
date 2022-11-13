@@ -92,7 +92,7 @@ $$ADDITIONALINFO$$
                     </td>
                 </tr>
                 `, bgcolor, height, fontSize, fontSize, fontSize, fontSize, fontSize, 
-                fontSize, fontSize, fontSize, fontSize, fontSize, fontSize, fontSize)
+                fontSize, fontSize, fontSize, fontSize, fontSize, fontSize)
 
 	strRemoveNodeGroup := fmt.Sprintf(`
                 <a href="javascript:$$REMOVENODEGROUP$$;">
