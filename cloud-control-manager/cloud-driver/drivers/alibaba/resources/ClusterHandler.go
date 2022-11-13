@@ -426,7 +426,7 @@ func getClusterInfo(access_key string, access_secret string, region_id string, c
 		cluster_kube_config_json_obj := make(map[string]interface{})
 		json.Unmarshal([]byte(cluster_kube_config_json_str), &cluster_kube_config_json_obj)
 		// println(cluster_kube_config_json_obj["config"].(string))
-		kube_config = cluster_kube_config_json_obj["config"].(string)
+		kube_config = strings.TrimSpace(cluster_kube_config_json_obj["config"].(string))
 	}
 
 	clusterInfo = &irs.ClusterInfo{
