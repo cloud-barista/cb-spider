@@ -29,7 +29,7 @@ import (
 // number, CLUSTERNAME/Version, Status/CreatedTime, NetworkInfo(VPC/Sub/SG), AccessInfo(AccessPoint/KubeConfig), Addons, 
 // NodeGroups,  
 // Additional Info, checkbox
-func makeClusterTRList_html(bgcolor string, height string, fontSize string, providerName string, infoList []*cres.ClusterInfo) string {
+func makeClusterTRList_html(bgcolor string, height string, fontSize string, providerName string, connConfig string, infoList []*cres.ClusterInfo) string {
 	if bgcolor == "" {
 		bgcolor = "#FFFFFF"
 	}
@@ -68,7 +68,7 @@ func makeClusterTRList_html(bgcolor string, height string, fontSize string, prov
                             <br>
                             ----------
                             <br>
-                            <textarea style="font-size:12px;text-align:left;" disabled rows=13 cols=50>
+                            <textarea style="font-size:12px;text-align:left;" disabled rows=13 cols=40>
 $$KUBECONFIG$$
                             </textarea>
                     </td>
@@ -79,7 +79,13 @@ $$KUBECONFIG$$
                             <font size=%s>$$NODEGROUPS$$</font>
                     </td>
                     <td>
-                            <font size=%s>$$ADDITIONALINFO$$</font>
+                            <br>
+                            <textarea style="font-size:12px;text-align:left;" disabled rows=13 cols=40>
+$$ADDITIONALINFO$$
+                            </textarea>
+                            <br>
+                            <br>
+                            <br>
                     </td>
                     <td>
                         <input type="checkbox" name="check_box" value=$$CLUSTERNAME$$>
@@ -168,8 +174,8 @@ $$KUBECONFIG$$
 
 			// Nodes
 			strVMList := ""
-			for _, vmIID := range one.Nodes {
-				strVMList += vmIID.SystemId + ", "
+			for idx, vmIID := range one.Nodes {
+				strVMList += generateNodeInfoHyperlinkNodeString(idx, connConfig, vmIID.SystemId) + ", "
 			}
 			strVMList = strings.TrimRight(strVMList, ", ")
 			
@@ -207,6 +213,42 @@ $$KUBECONFIG$$
 	}
 
 	return strData
+}
+
+func generateNodeInfoHyperlinkNodeString(idx int, connConfig string, nodeCSPName string) string {
+	return fmt.Sprintf(`
+                <a href="javascript:openNodeInfoWindow('%s', '%s');">
+                        <font size=2>node-%d</font>
+                </a>
+		`, connConfig, nodeCSPName, idx+1)
+}
+
+// make the string of javascript function
+func makeOpenNodeInfoFunc_js() string {
+	//curl -sX GET http://localhost:1024/spider/cspvm/"i-6we0n1kv4s13ncj4pfc3"?ConnectionName=alibaba-tokyo-config
+
+	strFunc := `
+                function openNodeInfoWindow(connConfig, nodeCSPName) {
+
+                        var xhr = new XMLHttpRequest();
+                        xhr.open("GET", "$$SPIDER_SERVER$$/spider/cspvm/" + nodeCSPName + "?ConnectionName=" + connConfig, false);
+
+			 // client logging
+			parent.frames["log_frame"].Log("curl -sX GET " + "$$SPIDER_SERVER$$/spider/cspvm" + nodeCSPName + "?ConnectionName=" + connConfig);
+
+                        xhr.send(null);
+
+			// client logging
+			parent.frames["log_frame"].Log("   => " + xhr.response);
+
+                        var win = window.open("", "_blank", "width=500,height=690,location=no,scrollbars=no,menubar=no,status=no,titlebar=no,toolbar=no,resizable=no,top=300,left=500,");
+                        var jsonPretty = JSON.stringify(JSON.parse(xhr.response),null,2);  
+                        var textArea = '<textarea style="font-size:12px;text-align:left;resize:none;" disabled rows=47 cols=66>' + jsonPretty + '</textarea>'
+                        win.document.write(textArea);
+                }
+        `
+	strFunc = strings.ReplaceAll(strFunc, "$$SPIDER_SERVER$$", "http://"+cr.ServiceIPorName+cr.ServicePort) // cr.ServicePort = ":1024"
+	return strFunc
 }
 
 func generateNodeGroupReqString(providerName string) string {
@@ -511,6 +553,7 @@ func Cluster(c echo.Context) error {
 	htmlStr += makeDeleteClusterFunc_js()	
 	htmlStr += makePostNodeGroupFunc_js()
 	htmlStr += makeRemoveNodeGroupFunc_js()
+	htmlStr += makeOpenNodeInfoFunc_js()
 
 	htmlStr += `
                     </script>
@@ -529,10 +572,10 @@ func Cluster(c echo.Context) error {
 		{"Cluster Name / Version", "200"},
 		{"Cluster Status / Created Time", "200"},
 		{"VPC / Subnet / Security Group", "400"},
-		{"Endpoint / Kubeconfig", "500"},
+		{"Endpoint / Kubeconfig", "250"},
 		{"Addons", "200"},
-		{"NodeGroups", "600"},
-		{"Additional Info", "200"},
+		{"NodeGroups", "300"},
+		{"Additional Info", "300"},
 	}
 	htmlStr += makeTitleTRList_html("#DDDDDD", "2", nameWidthList, true)
 
@@ -561,7 +604,7 @@ func Cluster(c echo.Context) error {
 	providerName, _ := getProviderName(connConfig)
 
 	// (4-2) make TR list with info list
-	htmlStr += makeClusterTRList_html("", "", "", providerName, info.ClusterInfoList)
+	htmlStr += makeClusterTRList_html("", "", "", providerName, connConfig, info.ClusterInfoList)
 
 	// (5) make input field and add	
 	vpcList := vpcList(connConfig)
