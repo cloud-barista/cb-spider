@@ -311,11 +311,12 @@ func (myImageHandler AlibabaMyImageHandler) CheckWindowsImage(myImageIID irs.IID
 // A snapshot that has been used to create custom images cannot be deleted. The snapshot can be deleted only after the created custom images are deleted
 func (myImageHandler *AlibabaMyImageHandler) DeleteSnapshotBySnapshotID(snapshotIID irs.IID) (bool, error) {
 
-	input := &ecs.DeleteSnapshotRequest{
-		SnapshotId: snapshotIID.SystemId,
-	}
+	request := ecs.CreateDeleteSnapshotRequest()
+	request.Scheme = "https"
 
-	response, err := myImageHandler.Client.DeleteSnapshot(input)
+	request.SnapshotId = snapshotIID.SystemId
+
+	response, err := myImageHandler.Client.DeleteSnapshot(request)
 	if err != nil {
 		return false, err
 	}

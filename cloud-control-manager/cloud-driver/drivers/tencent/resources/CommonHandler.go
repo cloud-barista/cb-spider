@@ -136,6 +136,17 @@ func DescribeImagesByID(client *cvm.Client, myImageIID irs.IID, imageTypes []str
 	return *myImageList[0], nil
 }
 
+func DescribeImageStatus(client *cvm.Client, imageIID irs.IID, imageTypes []string) (string, error) {
+	cvmImage, err := DescribeImagesByID(client, imageIID, imageTypes)
+	if err != nil {
+		return "", err
+	}
+
+	status := *cvmImage.ImageState
+
+	return status, nil
+}
+
 // Image에서 OS Type 추출
 // "OsName": "TencentOS Server 3.1 (TK4)",
 // "Platform": "TencentOS",

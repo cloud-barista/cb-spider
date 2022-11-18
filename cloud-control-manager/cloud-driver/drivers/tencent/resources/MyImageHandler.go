@@ -162,11 +162,20 @@ A shared image cannot be deleted.
 func (myImageHandler TencentMyImageHandler) DeleteMyImage(myImageIID irs.IID) (bool, error) {
 
 	// Image 상태 조회
+	status, err := DescribeImageStatus(myImageHandler.Client, myImageIID, nil)
+	if err != nil {
+		return false, err
+	}
+
+	if status == TENCENT_IMAGE_STATE_CREATING || status == TENCENT_IMAGE_STATE_USING {
+		return false, errors.New("CREATING or USING, the image cannot be deleted.")
+	}
 
 	// 삭제 처리
 	request := cvm.NewDeleteImagesRequest()
 
 	request.ImageIds = common.StringPtrs([]string{myImageIID.SystemId})
+	request.DeleteBindedSnap = common.BoolPtr(true)
 
 	// The returned "resp" is an instance of the DeleteImagesResponse class which corresponds to the request object
 	response, err := myImageHandler.Client.DeleteImages(request)
