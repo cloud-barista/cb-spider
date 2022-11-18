@@ -542,3 +542,20 @@ func GetOsType(ecsImage ecs.Image) string {
 	cblogger.Info("osType = ", osType)
 	return osType
 }
+
+// Image에서 상태만 추출
+func GetImageStatus(ecsImage ecs.Image) string {
+	return ecsImage.Status
+}
+
+// Image에서 SnapShotID 목록 추출
+func GetSnapShotIdList(ecsImage ecs.Image) []string {
+	var snapShotIdList []string
+
+	devices := ecsImage.DiskDeviceMappings
+	for _, diskDeviceMapping := range devices.DiskDeviceMapping {
+		snapShotIdList = append(snapShotIdList, diskDeviceMapping.SnapshotId)
+	}
+
+	return snapShotIdList
+}
