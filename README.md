@@ -55,7 +55,7 @@ If you have any difficulties in using Cloud-Barista, please let us know.
 
 #### 3. 제공 자원
 
-  | Provider | VMImage List/Get | VMSpec List/Get| VPC/Subnet | SecurityGroup | VM KeyPair| VM   | NLB/Disk/MyImage | K8S |
+  | Provider | Image Info | VMSpec Info| VPC/Subnet | SecurityGroup | VM KeyPair| VM   | NLB/Disk/MyImage | K8S |
   |:-------------:|:-------------:|:-------------:|:-------------:|:-------------:|:-------------:|:-------------:|:-------------:|:-------------:|
   | AWS           | O          | O          | O          | O          | O          | O          | O          |Coming Soon|
   | Azure         | O          | O          | O          | O          | O          | O          | O          | O          |
