@@ -55,17 +55,17 @@ If you have any difficulties in using Cloud-Barista, please let us know.
 
 #### 3. 제공 자원
 
-  | Provider(CloudOS) | VM Image List/Get | VM Spec List/Get| VPC/Subnet | Security Group | VM KeyPair| VM   | Network LB  |
-  |:-------------:|:-------------:|:-------------:|:-------------:|:-------------:|:-------------:|:-------------:|:-------------:|
-  | AWS           | O          | O          | O          | O          | O          | O          | O          |
-  | Azure         | O          | O          | O          | O          | O          | O          | ∝-Test       |
-  | GCP           | O          | O          | O          | O          | O          | O          | ∝-Test       |
-  | Alibaba       | O          | O          | O          | O          | O          | O          | ∝-Test       |
-  | Tencent       | O          | O          | O          | O          | O          | O          | O          |
-  | IBM           | O          | O          | O          | O          | O          | O          | ∝-Test       |
-  | OpenStack     | O          | O          | O          | O          | O          | O          | ∝-Test       |
-  | Cloudit       | O          | O          | O(💬)          | O          | O          | O          | ∝-Test       |
-  | Docker (PoC)  | O          | -          | -          | -          | -          | O          | -          |
+  | Provider(CloudOS) | VM Image List/Get | VM Spec List/Get| VPC/Subnet | Security Group | VM KeyPair| VM   | NLB/Disk/MyImage | K8S |
+  |:-------------:|:-------------:|:-------------:|:-------------:|:-------------:|:-------------:|:-------------:|:-------------:|:-------------:|
+  | AWS           | O          | O          | O          | O          | O          | O          | O          |Coming Soon|
+  | Azure         | O          | O          | O          | O          | O          | O          | O          | O          |
+  | GCP           | O          | O          | O          | O          | O          | O          | O          |Coming Soon|
+  | Alibaba       | O          | O          | O          | O          | O          | O          | O          | O          |
+  | Tencent       | O          | O          | O          | O          | O          | O          | O          | O          |
+  | IBM           | O          | O          | O          | O          | O          | O          | O          |Coming Soon|
+  | OpenStack     | O          | O          | O          | O          | O          | O          | O          | - |
+  | Cloudit       | O          | O          | O(💬)      | O          | O          | O          | O          | - |
+  | Docker (PoC)  | O          | -          | -          | -          | -          | O          | -          | - |
 
     💬 특이사항: 
         - VPC: 단일 VPC 생성 제공 (두개 이상 VPC 생성 불가)
@@ -75,7 +75,8 @@ If you have any difficulties in using Cloud-Barista, please let us know.
             - 이미 사용 중인 CIDR 요청시 오류 메시지에 사용 가능한 CIDR 목록 반환
 
 #### 4. VM 계정
-- CB Spider VM User: cb-user
+- Ubuntu, Debian VM User: cb-user
+- Windows VM User: Administrator
 
 
 #### 5. 활용 방법
