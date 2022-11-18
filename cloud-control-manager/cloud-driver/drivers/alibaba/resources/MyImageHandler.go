@@ -3,6 +3,8 @@ package resources
 // https://www.alibabacloud.com/help/en/elastic-compute-service/latest/deleteimage
 
 import (
+	"errors"
+	"reflect"
 	"strconv"
 	"strings"
 	"time"
@@ -84,7 +86,7 @@ func (myImageHandler AlibabaMyImageHandler) SnapshotVM(snapshotReqInfo irs.MyIma
 
 /*
 *
-owner=sef인 Image목록 조회
+owner=self인 Image목록 조회
 공통으로 DescribeImages를 사용하기 때문에 구분으로 isMyImage = true 로 전송 필요
 */
 func (myImageHandler AlibabaMyImageHandler) ListMyImage() ([]*irs.MyImageInfo, error) {
@@ -118,6 +120,15 @@ func (myImageHandler AlibabaMyImageHandler) GetMyImage(myImageIID irs.IID) (irs.
 	return myImageInfo, err
 }
 
+// MyImage 삭제
+// Image 삭제 후 Snapshot 삭제 가능 :
+// - A snapshot that has been used to create custom images cannot be deleted. The snapshot can be deleted only after the created custom images are deleted
+// Image를 Instance가 사용중이면 삭제 불가. image로 작업중이면 삭제 불가
+// A custom image cannot be deleted in the following scenarios:
+//
+//	The image is being imported. You can go to the Task Logs page in the Elastic Compute Service (ECS) console to cancel the image import task. After the image import task is canceled, you can delete the image. For more information, see Import custom images.
+//	The image is being exported. You can go to the Task Logs page in the ECS console to cancel the image export task. After the image export task is canceled, you can delete the image. For more information, see Export a custom image.
+//	The image is being used by ECS instances
 func (myImageHandler AlibabaMyImageHandler) DeleteMyImage(myImageIID irs.IID) (bool, error) {
 
 	// 상태체크해서 available일 때 삭제
@@ -126,6 +137,19 @@ func (myImageHandler AlibabaMyImageHandler) DeleteMyImage(myImageIID irs.IID) (b
 	// 	cblogger.Info("DeleteMyImage : status " + imageStatus)
 	// 	return false, err
 	// }
+
+	ecsImage, err := DescribeImageByImageId(myImageHandler.Client, myImageHandler.Region, myImageIID, true)
+	if err != nil {
+		return false, err
+	}
+
+	imageStatus := GetImageStatus(ecsImage)
+
+	if imageStatus == "" {
+
+	}
+
+	snapShotIdList := GetSnapShotIdList(ecsImage)
 
 	// cblogger.Info("DeleteMyImage : status " + imageStatus)
 	request := ecs.CreateDeleteImageRequest()
@@ -140,7 +164,44 @@ func (myImageHandler AlibabaMyImageHandler) DeleteMyImage(myImageIID irs.IID) (b
 		return false, err
 	}
 
-	cblogger.Info("MyImage deleted by requestId " + response.RequestId)
+	// 이미지가 삭제될 때까지 대기
+	curRetryCnt := 0
+	maxRetryCnt := 600
+	for {
+		aliImage, err := DescribeImages(myImageHandler.Client, myImageHandler.Region, []irs.IID{myImageIID}, true)
+		if err != nil {
+			cblogger.Error(err.Error())
+			break
+		}
+
+		if len(aliImage) == 0 { // return을 empty string 으로 할까?
+			break
+		}
+
+		aliImageState := ""
+		if !reflect.ValueOf(aliImage[0]).IsNil() {
+			aliImageState = aliImage[0].Status
+		}
+
+		curRetryCnt++
+		cblogger.Errorf("MyImage의 상태 1초 대기후 조회합니다. 현재 [%s]", aliImageState)
+		time.Sleep(time.Second * 1)
+		if curRetryCnt > maxRetryCnt {
+			cblogger.Errorf("장시간(%d 초) 대기해도 MyImage의 Status 값이 [%s]으로 변경되지 않아서 강제로 중단합니다.", maxRetryCnt)
+			return false, errors.New("장시간 기다렸으나 생성된 MyImage의 상태가 [" + string(aliImageState) + "]으로 바뀌지 않아서 중단 합니다.")
+		}
+	}
+	cblogger.Info("MyImage deleted. requestId =" + response.RequestId)
+
+	// myImage에 연결된 snapshot들도 삭제
+	for _, snapShotId := range snapShotIdList {
+		result, err := myImageHandler.DeleteSnapshotBySnapshotID(irs.IID{SystemId: snapShotId})
+		if err != nil {
+			cblogger.Info("Deleting SnapShot failed" + response.RequestId)
+		}
+		cblogger.Info("SnapShot deleted ", result, snapShotId)
+	}
+
 	//spew.Dump(response)
 	return true, err
 }
@@ -243,4 +304,30 @@ func (myImageHandler AlibabaMyImageHandler) CheckWindowsImage(myImageIID irs.IID
 	}
 
 	return isWindows, nil
+}
+
+// MyImage에 대한 snap 삭제
+// If the specified snapshot ID does not exist, the request is ignored.
+// A snapshot that has been used to create custom images cannot be deleted. The snapshot can be deleted only after the created custom images are deleted
+func (myImageHandler *AlibabaMyImageHandler) DeleteSnapshotBySnapshotID(snapshotIID irs.IID) (bool, error) {
+
+	input := &ecs.DeleteSnapshotRequest{
+		SnapshotId: snapshotIID.SystemId,
+	}
+
+	response, err := myImageHandler.Client.DeleteSnapshot(input)
+	if err != nil {
+		return false, err
+	}
+
+	//requestId := response.RequestId
+
+	// 삭제 대기 // API Gateway 이용 requestID에 대한 statusCode 확인 로직 : https://www.alibabacloud.com/help/en/log-service/latest/api-gateway
+	cblogger.Info("Snapshot deleted. requestId =" + response.RequestId)
+
+	// snapshot disk도 삭제
+
+	//spew.Dump(response)
+
+	return true, err
 }
