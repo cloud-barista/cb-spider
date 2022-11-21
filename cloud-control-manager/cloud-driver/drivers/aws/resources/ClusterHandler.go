@@ -363,7 +363,17 @@ func (ClusterHandler *AwsClusterHandler) GetCluster(clusterIID irs.IID) (irs.Clu
 			}
 		}
 
-		//보안그룹 처리
+		//클러스터 보안그룹 처리
+		// ClusterSecurityGroupId: "sg-0bb02bf07fe5f42f0",
+		if *result.Cluster.ResourcesVpcConfig.ClusterSecurityGroupId != "" {
+			/*
+				for _, curSecurityGroupId := range result.Cluster.ResourcesVpcConfig.SecurityGroupIds {
+					clusterInfo.Network.SecurityGroupIIDs = append(clusterInfo.Network.SecurityGroupIIDs, irs.IID{SystemId: *curSecurityGroupId})
+				}
+			*/
+		}
+
+		//보안그룹 처리 : "추가 보안 그룹"에 해당하는 듯
 		if len(result.Cluster.ResourcesVpcConfig.SecurityGroupIds) > 0 {
 			for _, curSecurityGroupId := range result.Cluster.ResourcesVpcConfig.SecurityGroupIds {
 				clusterInfo.Network.SecurityGroupIIDs = append(clusterInfo.Network.SecurityGroupIIDs, irs.IID{SystemId: *curSecurityGroupId})
@@ -485,15 +495,8 @@ func (ClusterHandler *AwsClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGr
 		return irs.NodeGroupInfo{}, awserr.New(CUSTOM_ERR_CODE_BAD_REQUEST, "MaxNodeSize 값은 1이상이 되어야 합니다.", nil)
 	}
 
-	//eksRoleName := "arn:aws:iam::050864702683:role/cb-eks-nodegroup-role"
-	//eksRoleName := "arn:aws:iam::050864702683:role/AWSServiceRoleForAmazonEKSNodegroup"
-	//AWSServiceRoleForAmazonEKSNodegroup
-
-	//eksRoleName := "cloud-barista-spider-eks-cluster-role"
 	// get Role Arn
-	//eksRoleName := "AWSServiceRoleForAmazonEKSNodegroup"
 	eksRoleName := "cloud-barista-spider-eks-nodegroup-role"
-	//eksRoleName = "cb-eks-nodegroup-role" //테스트용
 	eksRole, err := ClusterHandler.getRole(irs.IID{SystemId: eksRoleName})
 	if err != nil {
 		cblogger.Error(err)
@@ -623,14 +626,18 @@ func (ClusterHandler *AwsClusterHandler) ListNodeGroup(clusterIID irs.IID) ([]*i
 	input := &eks.ListNodegroupsInput{
 		ClusterName: aws.String(clusterIID.SystemId),
 	}
-	spew.Dump(input)
+	if cblogger.Level.String() == "debug" {
+		spew.Dump(input)
+	}
 
 	result, err := ClusterHandler.Client.ListNodegroups(input)
 	if err != nil {
 		cblogger.Error(err)
 		return nil, err
 	}
-	spew.Dump(result)
+	if cblogger.Level.String() == "debug" {
+		spew.Dump(result)
+	}
 	nodeGroupInfoList := []*irs.NodeGroupInfo{}
 	for _, nodeGroupName := range result.Nodegroups {
 		nodeGroupInfo, err := ClusterHandler.GetNodeGroup(clusterIID, irs.IID{SystemId: *nodeGroupName})
@@ -648,16 +655,18 @@ func (ClusterHandler *AwsClusterHandler) GetNodeGroup(clusterIID irs.IID, nodeGr
 	input := &eks.DescribeNodegroupInput{
 		//AmiType: "", // Valid Values: AL2_x86_64 | AL2_x86_64_GPU | AL2_ARM_64 | CUSTOM | BOTTLEROCKET_ARM_64 | BOTTLEROCKET_x86_64, Required: No
 		//CapacityType: aws.String("ON_DEMAND"),//Valid Values: ON_DEMAND | SPOT, Required: No
-
 		ClusterName:   aws.String(clusterIID.SystemId),   //required
 		NodegroupName: aws.String(nodeGroupIID.SystemId), // required
 	}
-	spew.Dump(input)
 
 	result, err := ClusterHandler.Client.DescribeNodegroup(input)
 	if err != nil {
 		cblogger.Error(err)
 		return irs.NodeGroupInfo{}, err
+	}
+	if cblogger.Level.String() == "debug" {
+		cblogger.Debug("===> 노드 그룹 호출 결과")
+		spew.Dump(result)
 	}
 
 	nodeGroupInfo, err := ClusterHandler.convertNodeGroup(result)
@@ -711,8 +720,9 @@ func (ClusterHandler *AwsClusterHandler) ChangeNodeGroupScaling(clusterIID irs.I
 			cblogger.Error(err)
 			return irs.NodeGroupInfo{}, err
 		}
-		spew.Dump(updateResult)
-
+		if cblogger.Level.String() == "debug" {
+			spew.Dump(updateResult)
+		}
 	}
 
 	nodeGroupInfo, err := ClusterHandler.GetNodeGroup(clusterIID, irs.IID{SystemId: *nodeGroupName})
@@ -736,8 +746,9 @@ func (ClusterHandler *AwsClusterHandler) RemoveNodeGroup(clusterIID irs.IID, nod
 		return false, err
 	}
 
-	spew.Dump(result.Nodegroup)
-
+	if cblogger.Level.String() == "debug" {
+		spew.Dump(result.Nodegroup)
+	}
 	return true, nil
 }
 
@@ -772,7 +783,9 @@ func (ClusterHandler *AwsClusterHandler) UpgradeCluster(clusterIID irs.IID, newV
 			cblogger.Error(err.Error())
 		}
 	}
-	spew.Dump(result)
+	if cblogger.Level.String() == "debug" {
+		spew.Dump(result)
+	}
 	// getClusterInfo
 	return irs.ClusterInfo{}, nil
 
@@ -809,9 +822,7 @@ func (ClusterHandler *AwsClusterHandler) getRole(role irs.IID) (*iam.GetRoleOutp
 EKS의 NodeGroup정보를 Spider의 NodeGroup으로 변경
 */
 func (NodeGroupHandler *AwsClusterHandler) convertNodeGroup(nodeGroupOutput *eks.DescribeNodegroupOutput) (irs.NodeGroupInfo, error) {
-
 	nodeGroupInfo := irs.NodeGroupInfo{}
-
 	PrintToJson(nodeGroupOutput)
 
 	nodeGroup := nodeGroupOutput.Nodegroup
@@ -821,6 +832,7 @@ func (NodeGroupHandler *AwsClusterHandler) convertNodeGroup(nodeGroupOutput *eks
 
 	//subnetList := nodeGroup.Subnets
 	//nodeGroupStatus := nodeGroup.Status
+	nodeGroupInfo.Status = irs.NodeGroupStatus(*nodeGroup.Status)
 	instanceTypeList := nodeGroup.InstanceTypes // spec
 
 	//nodes := nodeGroup.Health.Issues[0].ResourceIds // 문제 있는 node들만 있는것이 아닌지..
@@ -834,7 +846,7 @@ func (NodeGroupHandler *AwsClusterHandler) convertNodeGroup(nodeGroupOutput *eks
 	//nodeGroup.LaunchTemplate //미사용
 	//clusterName := nodeGroup.ClusterName
 	//capacityType := nodeGroup.CapacityType // "ON_DEMAND"
-	//amiType := nodeGroup.AmiType	// AL2_x86_64"
+	nodeGroupInfo.ImageIID.NameId = *nodeGroup.AmiType // AL2_x86_64"
 	//createTime := nodeGroup.CreatedAt
 	//health := nodeGroup.Health // Code, Message, ResourceIds	// ,"Health":{"Issues":[{"Code":"NodeCreationFailure","Message":"Unhealthy nodes in the kubernetes cluster",
 	//labelList := nodeGroup.Labels
@@ -875,7 +887,15 @@ func (NodeGroupHandler *AwsClusterHandler) convertNodeGroup(nodeGroupOutput *eks
 	}
 	nodeGroupInfo.VMSpecName = *instanceTypeList[0]
 	//nodeGroupInfo.ImageIID
-	//nodeGroupInfo.KeyPairIID // keypair setting 해야하네?
+
+	if !reflect.ValueOf(nodeGroup.RemoteAccess).IsNil() {
+		if !reflect.ValueOf(nodeGroup.RemoteAccess.Ec2SshKey).IsNil() {
+			nodeGroupInfo.KeyPairIID = irs.IID{
+				SystemId: *nodeGroup.RemoteAccess.Ec2SshKey,
+			}
+		}
+	}
+
 	//nodeGroupInfo.RootDiskSize = strconv.FormatInt(*nodeGroup.DiskSize, 10)
 	nodeGroupInfo.RootDiskSize = strconv.FormatInt(*rootDiskSize, 10)
 
