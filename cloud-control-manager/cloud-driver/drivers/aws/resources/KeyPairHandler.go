@@ -93,7 +93,7 @@ func (keyPairHandler *AwsKeyPairHandler) ListKey() ([]*irs.KeyPairInfo, error) {
 	return keyPairList, nil
 }
 
-//2021-10-26 이슈#480에 의해 Local Key 로직 제거
+// 2021-10-26 이슈#480에 의해 Local Key 로직 제거
 func (keyPairHandler *AwsKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPairReqInfo) (irs.KeyPairInfo, error) {
 	cblogger.Info(keyPairReqInfo)
 	/* 2021-10-26 이슈#480에 의해 Local Key 로직 제거
@@ -202,7 +202,7 @@ func (keyPairHandler *AwsKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPairReq
 }
 
 // 2021-10-26 이슈#480에 의해 Local Key 로직 제거
-//혼선을 피하기 위해 keyPairID 대신 keyName으로 변경 함.
+// 혼선을 피하기 위해 keyPairID 대신 keyName으로 변경 함.
 func (keyPairHandler *AwsKeyPairHandler) GetKey(keyIID irs.IID) (irs.KeyPairInfo, error) {
 
 	/* 2021-10-26 이슈#480에 의해 Local Key 로직 제거
@@ -276,11 +276,11 @@ func (keyPairHandler *AwsKeyPairHandler) GetKey(keyIID irs.IID) (irs.KeyPairInfo
 		spew.Dump(keyPairInfo)
 		return keyPairInfo, nil
 	} else {
-		return irs.KeyPairInfo{}, errors.New("정보를 찾을 수 없습니다.")
+		return irs.KeyPairInfo{}, errors.New("No information found.")
 	}
 }
 
-//KeyPair 정보를 추출함
+// KeyPair 정보를 추출함
 func ExtractKeyPairDescribeInfo(keyPair *ec2.KeyPairInfo) (irs.KeyPairInfo, error) {
 	//spew.Dump(keyPair)
 	keyPairInfo := irs.KeyPairInfo{
@@ -398,9 +398,9 @@ func (keyPairHandler *AwsKeyPairHandler) DeleteKey(keyIID irs.IID) (bool, error)
 	return true, nil
 }
 
-//=================================
+// =================================
 // 공개 키 변환 및 키 정보 로컬 보관 로직 추가
-//=================================
+// =================================
 func (keyPairHandler *AwsKeyPairHandler) CheckKeyPairFolder(keyPairPath string) error {
 	//키페어 생성 시 폴더가 존재하지 않으면 생성 함.
 	_, errChkDir := os.Stat(keyPairPath)
@@ -421,7 +421,8 @@ func (keyPairHandler *AwsKeyPairHandler) CheckKeyPairFolder(keyPairPath string) 
 }
 
 // @TODO - PK 이슈 처리해야 함. (A User / B User / User 하위의 IAM 계정간의 호환성에 이슈가 없어야 하는데 현재는 안 됨.)
-//       - 따라서 AWS는 대안으로 KeyPair의 FingerPrint를 이용하도록 변경 - 필요시 리전및 키 이름과 혼용해서 만들어야할 듯.
+//   - 따라서 AWS는 대안으로 KeyPair의 FingerPrint를 이용하도록 변경 - 필요시 리전및 키 이름과 혼용해서 만들어야할 듯.
+//
 // KeyPair 해시 생성 함수 (PK 이슈로 현재는 사용하지 않음)
 func CreateHashString(credentialInfo idrv.CredentialInfo, Region idrv.RegionInfo) (string, error) {
 	log.Println("credentialInfo.ClientId : " + credentialInfo.ClientId)
