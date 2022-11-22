@@ -104,7 +104,7 @@ func (vmHandler *IbmVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 		isWindows = strings.Contains(strings.ToLower(*image.OperatingSystem.Name), "windows")
 	}
 
-	vpc, err := getRawVPC(vmReqInfo.VpcIID, vmHandler.VpcService, vmHandler.Ctx)
+	vpc, err := GetRawVPC(vmReqInfo.VpcIID, vmHandler.VpcService, vmHandler.Ctx)
 	if err != nil {
 		createErr := errors.New(fmt.Sprintf("Failed to Create VM. err = %s", err.Error()))
 		cblogger.Error(createErr.Error())
