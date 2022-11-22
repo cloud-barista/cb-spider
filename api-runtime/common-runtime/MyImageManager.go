@@ -220,7 +220,7 @@ defer myImageSPLock.Unlock(connectionName, reqInfo.IId.NameId)
 	vmIIdInfo2, err := iidRWLock.GetIIDbySystemID(iidm.IIDSGROUP, connectionName, rsVM, info.SourceVM)
 	if err != nil {
 		cblog.Error(err)
-		info.SourceVM.NameId = "N/A"
+		info.SourceVM.NameId = ""
 	} else {
 		info.SourceVM.NameId = vmIIdInfo2.IId.NameId
 	}
@@ -293,7 +293,7 @@ myImageSPLock.RUnlock(connectionName, iidInfo.IId.NameId)
 		vmIIdInfo, err := iidRWLock.GetIIDbySystemID(iidm.IIDSGROUP, connectionName, rsVM, info.SourceVM)
 		if err != nil {
 			cblog.Error(err)
-			info.SourceVM.NameId = "N/A"
+			info.SourceVM.NameId = ""
 		} else {
 			info.SourceVM.NameId = vmIIdInfo.IId.NameId
 		}
@@ -360,7 +360,7 @@ defer myImageSPLock.RUnlock(connectionName, nameID)
 	vmIIdInfo, err := iidRWLock.GetIIDbySystemID(iidm.IIDSGROUP, connectionName, rsVM, info.SourceVM)
 	if err != nil {
 		cblog.Error(err)
-		info.SourceVM.NameId = "N/A"
+		info.SourceVM.NameId = ""
 	} else {
 		info.SourceVM.NameId = vmIIdInfo.IId.NameId
 	}
