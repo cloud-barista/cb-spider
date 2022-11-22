@@ -649,6 +649,7 @@ func getClusterInfoJSON(clusterHandler *AlibabaClusterHandler, clusterInfo irs.C
 		"name": "%s",
 		"region_id": "%s",
 		"cluster_type": "ManagedKubernetes",
+		"cluster_spec": "ack.pro.small",
 		"kubernetes_version": "%s",
 		"vpcid": "%s",
 		"container_cidr": "%s",

@@ -1,3 +1,20 @@
+# v0.7.0 (Cortado, 2022.11.25.)
+
+### API Change
+
+- Add Disk, VM Snapshot, MyImage, AnyCall and PMKS API ([v0.7.0](https://github.com/cloud-barista/cb-spider/wiki/CB-Spider-User-Interface))
+
+
+### Feature
+- Add [Disk(Volume) Mangement](https://github.com/cloud-barista/cb-spider/wiki/Disk-and-Driver-API)
+- Add [VM Snapshot/MyImage Management](https://github.com/cloud-barista/cb-spider/wiki/MyImage-and-Driver-API)
+- Add [AnyCall API Extension](https://github.com/cloud-barista/cb-spider/wiki/AnyCall-API-Extension-Guide)
+- Add [PMKS(Provider Managed Kubernetes) Management](https://github.com/cloud-barista/cb-spider/wiki/Provider-Managed-Kubernetes-and-Driver-API)
+- Support [Windows GuestOS](https://github.com/cloud-barista/cb-spider/issues/805)
+
+
+***
+
 # v0.6.0 (Cafe Latte, 2022.07.08.)
 
 ### API Change
