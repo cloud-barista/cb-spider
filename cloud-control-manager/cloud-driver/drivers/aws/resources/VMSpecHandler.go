@@ -14,7 +14,7 @@ import (
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 )
 
-//https://docs.aws.amazon.com/sdk-for-go/api/service/ec2/#EC2.DescribeInstanceTypes
+// https://docs.aws.amazon.com/sdk-for-go/api/service/ec2/#EC2.DescribeInstanceTypes
 type AwsVmSpecHandler struct {
 	Region idrv.RegionInfo
 	Client *ec2.EC2
@@ -35,7 +35,7 @@ func ExtractGpuInfo(gpuDeviceInfo *ec2.GpuDeviceInfo) irs.GpuInfo {
 	return gpuInfo
 }
 
-//인스턴스 스펙 정보를 추출함
+// 인스턴스 스펙 정보를 추출함
 func ExtractVMSpecInfo(Region string, instanceTypeInfo *ec2.InstanceTypeInfo) irs.VMSpecInfo {
 	cblogger.Debugf("ExtractVMSpecInfo : Region:[%s] / SpecName:[%s]", Region, *instanceTypeInfo.InstanceType)
 	//spew.Dump(instanceTypeInfo)
@@ -94,12 +94,12 @@ func ExtractVMSpecInfo(Region string, instanceTypeInfo *ec2.InstanceTypeInfo) ir
 	return vmSpecInfo
 }
 
-//해당 Zone의 스펙 ID 목록을 조회함.
+// 해당 Zone의 스펙 ID 목록을 조회함.
 func (vmSpecHandler *AwsVmSpecHandler) ListVMSpecAZ(ZoneName string) (map[string]string, error) {
 	cblogger.Infof("Start ListVMSpecAZ(ZoneName:[%s])", ZoneName)
 	if ZoneName == "" {
-		cblogger.Error("Connection 정보에 Zone 정보가 없습니다.")
-		return nil, errors.New("Connection 정보에 Zone 정보가 없습니다.")
+		cblogger.Error("Connection information does not contain Zone information.")
+		return nil, errors.New("Connection information does not contain Zone information.")
 	}
 
 	var mapVmSpecIds map[string]string
@@ -169,8 +169,8 @@ func (vmSpecHandler *AwsVmSpecHandler) ListVMSpec() ([]*irs.VMSpecInfo, error) {
 	zoneId := vmSpecHandler.Region.Zone
 	cblogger.Infof("Request Zone : [%s]", zoneId)
 	if zoneId == "" {
-		cblogger.Error("Connection 정보에 Zone 정보가 없습니다.")
-		return nil, errors.New("Connection 정보에 Zone 정보가 없습니다.")
+		cblogger.Error("Connection information does not contain Zone information.")
+		return nil, errors.New("Connection information does not contain Zone information.")
 	}
 
 	mapVmSpecIds, errListVMSpecAZ := vmSpecHandler.ListVMSpecAZ(zoneId)
@@ -312,7 +312,7 @@ func (vmSpecHandler *AwsVmSpecHandler) GetVMSpec(Name string) (irs.VMSpecInfo, e
 	//cblogger.Info(resp)
 	//fmt.Println(resp)
 	if len(resp.InstanceTypes) < 1 {
-		return irs.VMSpecInfo{}, errors.New(Name + "에 해당하는 Spec 정보를 찾을 수 없습니다.")
+		return irs.VMSpecInfo{}, errors.New("Spec not found for " + Name)
 	}
 
 	vMSpecInfo := ExtractVMSpecInfo(vmSpecHandler.Region.Region, resp.InstanceTypes[0])
@@ -336,8 +336,8 @@ func (vmSpecHandler *AwsVmSpecHandler) ListOrgVMSpec() (string, error) {
 	zoneId := vmSpecHandler.Region.Zone
 	cblogger.Infof("Zone : %s", zoneId)
 	if zoneId == "" {
-		cblogger.Error("Connection 정보에 Zone 정보가 없습니다.")
-		return "", errors.New("Connection 정보에 Zone 정보가 없습니다.")
+		cblogger.Error("Connection information does not contain Zone information.")
+		return "", errors.New("Connection information does not contain Zone information.")
 	}
 
 	mapVmSpecIds, errListVMSpecAZ := vmSpecHandler.ListVMSpecAZ(zoneId)
@@ -495,7 +495,7 @@ func (vmSpecHandler *AwsVmSpecHandler) GetOrgVMSpec(Name string) (string, error)
 	//cblogger.Info(resp)
 	//fmt.Println(resp)
 	if len(resp.InstanceTypes) < 1 {
-		return "", errors.New(Name + "에 해당하는 Spec 정보를 찾을 수 없습니다.")
+		return "", errors.New("Spec not found for " + Name)
 	}
 
 	jsonString, errJson := ConvertJsonString(resp.InstanceTypes[0])

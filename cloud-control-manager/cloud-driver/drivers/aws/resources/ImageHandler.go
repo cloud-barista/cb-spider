@@ -259,7 +259,7 @@ func (imageHandler *AwsImageHandler) GetAmiImage(imageIID irs.IID) (*ec2.Image, 
 	if len(result.Images) > 0 {
 		return result.Images[0], nil
 	} else {
-		return nil, errors.New("조회된 Image 정보가 없습니다.")
+		return nil, errors.New("Image Not Found.")
 	}
 
 }
@@ -288,7 +288,7 @@ func (imageHandler *AwsImageHandler) GetImage(imageIID irs.IID) (irs.ImageInfo, 
 		imageInfo := ExtractImageDescribeInfo(resultImage)
 		return imageInfo, nil
 	} else {
-		return irs.ImageInfo{}, errors.New("조회된 Image 정보가 없습니다.")
+		return irs.ImageInfo{}, errors.New("Image Not Found.")
 	}
 
 }

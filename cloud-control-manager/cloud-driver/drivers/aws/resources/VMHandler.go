@@ -91,16 +91,16 @@ func (vmHandler *AwsVMHandler) GetAmiDiskInfo(ImageSystemId string) (int64, erro
 				isize := aws.Int64(*result.Images[0].BlockDeviceMappings[0].Ebs.VolumeSize)
 				return *isize, nil
 			} else {
-				cblogger.Error("BlockDeviceMappings에서 Ebs 정보를 찾을 수 없습니다.")
-				return -1, errors.New("BlockDeviceMappings에서 Ebs 정보를 찾을 수 없습니다.")
+				cblogger.Error("Ebs information not found in BlockDeviceMappings.")
+				return -1, errors.New("Ebs information not found in BlockDeviceMappings.")
 			}
 		} else {
-			cblogger.Error("BlockDeviceMappings 정보를 찾을 수 없습니다.")
-			return -1, errors.New("BlockDeviceMappings 정보를 찾을 수 없습니다.")
+			cblogger.Error("BlockDeviceMappings information not found.")
+			return -1, errors.New("BlockDeviceMappings information not found.")
 		}
 	} else {
-		cblogger.Error("요청된 Image 정보[" + ImageSystemId + "]를 찾을 수 없습니다.")
-		return -1, errors.New("요청된 Image 정보[" + ImageSystemId + "]를 찾을 수 없습니다.")
+		cblogger.Error("The requested Image[" + ImageSystemId + "]could not be found.")
+		return -1, errors.New("The requested Image[" + ImageSystemId + "]could not be found.")
 	}
 }
 
@@ -199,7 +199,7 @@ func (vmHandler *AwsVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 			// }
 
 			if imageVolumeSize < 0 {
-				return irs.VMInfo{}, awserr.New(CUSTOM_ERR_CODE_BAD_REQUEST, "요청된 이미지의 기본 볼륨 사이즈 정보를 조회할 수 없습니다.", nil)
+				return irs.VMInfo{}, awserr.New(CUSTOM_ERR_CODE_BAD_REQUEST, "Unable to query the default volume size for the requested image.", nil)
 			}
 
 			//요청된 사이즈 체크
@@ -469,7 +469,7 @@ func (vmHandler *AwsVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 	callogger.Info(call.String(callLogInfo))
 
 	if len(runResult.Instances) < 1 {
-		return irs.VMInfo{}, errors.New("AWS로부터 전달 받은 VM 정보가 없습니다.")
+		return irs.VMInfo{}, errors.New("No VM information received from AWS.")
 	}
 
 	//=============================
@@ -1371,10 +1371,10 @@ func (vmHandler *AwsVMHandler) GetVolumInfo(volumeId string) (*ec2.Volume, error
 	//cblogger.Info(result)
 	cblogger.Infof("조회된 볼륨 수 : [%d]", len(result.Volumes))
 	if len(result.Volumes) > 1 {
-		return nil, awserr.New("700", "1개 이상의 Volume 정보가 존재합니다.", nil)
+		return nil, awserr.New("700", "One or more volumes exist.", nil)
 	} else if len(result.Volumes) == 0 {
 		cblogger.Errorf("[%s]와 일치하는 볼륨 정보가 존재하지 않습니다.", volumeId)
-		return nil, awserr.New("404", "["+volumeId+"] 볼륨 정보가 존재하지 않습니다.", nil)
+		return nil, awserr.New("404", "["+volumeId+"] Volume Not Found", nil)
 	}
 
 	cblogger.Info("VolumeInfo", result.Volumes)
@@ -1478,7 +1478,7 @@ func ConvertVMStatusString(vmStatus string) (irs.VMStatus, error) {
 	} else {
 		//resultStatus = "Failed"
 		cblogger.Errorf("vmStatus [%s]와 일치하는 맵핑 정보를 찾지 못 함.", vmStatus)
-		return irs.VMStatus("Failed"), errors.New(vmStatus + "와 일치하는 CB VM 상태정보를 찾을 수 없습니다.")
+		return irs.VMStatus("Failed"), errors.New("Cannot find status information that matches " + vmStatus)
 	}
 	cblogger.Infof("VM 상태 치환 : [%s] ==> [%s]", vmStatus, resultStatus)
 	return irs.VMStatus(resultStatus), nil
@@ -1552,7 +1552,7 @@ func (vmHandler *AwsVMHandler) GetVMStatus(vmIID irs.IID) (irs.VMStatus, error) 
 		}
 	}
 
-	return irs.VMStatus("Failed"), errors.New("상태 정보를 찾을 수 없습니다.")
+	return irs.VMStatus("Failed"), errors.New("Status information not found.")
 }
 
 func (vmHandler *AwsVMHandler) ListVMStatus() ([]*irs.VMStatusInfo, error) {
