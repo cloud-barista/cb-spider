@@ -60,7 +60,7 @@ func DescribeInstanceById(svc *ec2.EC2, vmIID irs.IID) (*ec2.Instance, error) {
 	var iid irs.IID
 
 	if vmIID == iid {
-		return nil, errors.New("instanceID is empty.)")
+		return nil, errors.New("instanceID is empty.")
 	}
 
 	vmIIDs = append(vmIIDs, vmIID)
@@ -71,7 +71,9 @@ func DescribeInstanceById(svc *ec2.EC2, vmIID irs.IID) (*ec2.Instance, error) {
 	}
 
 	if len(result.Reservations) < 1 || len(result.Reservations[0].Instances) < 1 {
+
 		return nil, errors.New(vmIID.SystemId + " instance not found.")
+
 	}
 	instance := result.Reservations[0].Instances[0]
 	return instance, err
@@ -280,7 +282,7 @@ func DescribeVolumneById(svc *ec2.EC2, volumeId string) (*ec2.Volume, error) {
 		}
 	}
 
-	return nil, awserr.New("404", "["+volumeId+"] 볼륨 정보가 존재하지 않습니다.", nil)
+	return nil, awserr.New("404", "["+volumeId+"] Volume Not Found", nil)
 }
 
 func AttachVolume(svc *ec2.EC2, deviceName string, instanceId string, volumeId string) error {
@@ -411,7 +413,7 @@ func DescribeImageById(svc *ec2.EC2, imageIID *irs.IID, owners []*string) (*ec2.
 	var iid irs.IID
 
 	if *imageIID == iid {
-		return nil, errors.New("imageID is empty.)")
+		return nil, errors.New("imageID is empty.")
 	}
 
 	imageIIDs = append(imageIIDs, imageIID)
@@ -431,7 +433,7 @@ func DescribeImageById(svc *ec2.EC2, imageIID *irs.IID, owners []*string) (*ec2.
 	}
 
 	if result.Images == nil || len(result.Images) == 0 {
-		return nil, awserr.New("404", "["+imageIID.SystemId+"] 이미지 정보가 존재하지 않습니다.", nil)
+		return nil, awserr.New("404", "["+imageIID.SystemId+"] Image Not Found", nil)
 	}
 	resultImage := result.Images[0]
 	return resultImage, err
@@ -444,12 +446,12 @@ func GetImageSizeFromEc2Image(ec2Image *ec2.Image) (int64, error) {
 			isize := aws.Int64(*ec2Image.BlockDeviceMappings[0].Ebs.VolumeSize)
 			return *isize, nil
 		} else {
-			cblogger.Error("BlockDeviceMappings에서 Ebs 정보를 찾을 수 없습니다.")
-			return -1, errors.New("BlockDeviceMappings에서 Ebs 정보를 찾을 수 없습니다.")
+			cblogger.Error("Ebs information not found in BlockDeviceMappings.")
+			return -1, errors.New("Ebs information not found in BlockDeviceMappings.")
 		}
 	} else {
-		cblogger.Error("BlockDeviceMappings 정보를 찾을 수 없습니다.")
-		return -1, errors.New("BlockDeviceMappings 정보를 찾을 수 없습니다.")
+		cblogger.Error("BlockDeviceMappings information not found.")
+		return -1, errors.New("BlockDeviceMappings information not found.")
 	}
 }
 
@@ -460,12 +462,12 @@ func GetSnapshotIdFromEc2Image(ec2Image *ec2.Image) (string, error) {
 			snapshotId := *ec2Image.BlockDeviceMappings[0].Ebs.SnapshotId
 			return snapshotId, nil
 		} else {
-			cblogger.Error("BlockDeviceMappings에서 Ebs 정보를 찾을 수 없습니다.")
-			return "", errors.New("BlockDeviceMappings에서 Ebs 정보를 찾을 수 없습니다.")
+			cblogger.Error("Ebs information not found in BlockDeviceMappings.")
+			return "", errors.New("Ebs information not found in BlockDeviceMappings.")
 		}
 	} else {
-		cblogger.Error("BlockDeviceMappings 정보를 찾을 수 없습니다.")
-		return "", errors.New("BlockDeviceMappings 정보를 찾을 수 없습니다.")
+		cblogger.Error("BlockDeviceMappings information not found.")
+		return "", errors.New("BlockDeviceMappings information not found.")
 	}
 }
 
