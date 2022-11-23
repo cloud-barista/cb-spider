@@ -40,7 +40,7 @@ const (
 	StandardHDD                       = "StandardHDD"
 	WindowBaseUser                    = "Administrator"
 	WindowBaseGroup                   = "Administrators"
-	WindowTempUser                    = CBVMUser
+	WindowBuitinUser                  = CBVMUser
 	UnknownOS             AzureOSTYPE = "UnknownOS"
 	WindowOS              AzureOSTYPE = "WindowOS"
 	LinuxOS               AzureOSTYPE = "LinuxOS"
@@ -345,7 +345,7 @@ func (vmHandler *AzureVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 			vmOpts.OsProfile.ComputerName = to.StringPtr(vmReqInfo.IId.NameId[:15])
 		}
 		vmOpts.OsProfile.AdminPassword = to.StringPtr(vmReqInfo.VMUserPasswd)
-		vmOpts.OsProfile.AdminUsername = to.StringPtr(WindowTempUser)
+		vmOpts.OsProfile.AdminUsername = to.StringPtr(WindowBuitinUser)
 		vmOpts.Tags = map[string]*string{
 			"publicip":  to.StringPtr(publicIPIId.NameId),
 			"createdBy": to.StringPtr(vmReqInfo.IId.NameId),
@@ -443,17 +443,32 @@ func (vmHandler *AzureVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 	}
 	// 6. Window user Change
 	if imageOsType == WindowOS {
-		err = changeAdministratorUser(vmReqInfo.IId, WindowBaseUser, vmReqInfo.VMUserPasswd, CBVMUser, vmHandler.Client, vmHandler.VirtualMachineRunCommandsClient, vmHandler.Ctx, vmHandler.Region)
-		if err != nil {
-			createErr := errors.New(fmt.Sprintf("Failed to Start VM. err = %s, and Finished to rollback deleting", err.Error()))
-			cleanErr := vmHandler.cleanDeleteVm(vmReqInfo.IId)
-			if cleanErr != nil {
-				createErr = errors.New(fmt.Sprintf("Failed to Start VM. err = %s, and Failed to rollback err = %s", err.Error(), cleanErr.Error()))
+		if vmReqInfo.ImageType == "" || vmReqInfo.ImageType == irs.PublicImage {
+			err = createAdministratorUser(vmReqInfo.IId, WindowBaseUser, vmReqInfo.VMUserPasswd, vmHandler.Client, vmHandler.VirtualMachineRunCommandsClient, vmHandler.Ctx, vmHandler.Region)
+			if err != nil {
+				createErr := errors.New(fmt.Sprintf("Failed to Start VM. err = %s, and Finished to rollback deleting", err.Error()))
+				cleanErr := vmHandler.cleanDeleteVm(vmReqInfo.IId)
+				if cleanErr != nil {
+					createErr = errors.New(fmt.Sprintf("Failed to Start VM. err = %s, and Failed to rollback err = %s", err.Error(), cleanErr.Error()))
+				}
+				cblogger.Error(createErr.Error())
+				LoggingError(hiscallInfo, createErr)
+				return irs.VMInfo{}, createErr
 			}
-			cblogger.Error(createErr.Error())
-			LoggingError(hiscallInfo, createErr)
-			return irs.VMInfo{}, createErr
+		} else {
+			err = changeUserPassword(vmReqInfo.IId, WindowBaseUser, vmReqInfo.VMUserPasswd, vmHandler.Client, vmHandler.VirtualMachineRunCommandsClient, vmHandler.Ctx, vmHandler.Region)
+			if err != nil {
+				createErr := errors.New(fmt.Sprintf("Failed to Start VM. err = %s, and Finished to rollback deleting", err.Error()))
+				cleanErr := vmHandler.cleanDeleteVm(vmReqInfo.IId)
+				if cleanErr != nil {
+					createErr = errors.New(fmt.Sprintf("Failed to Start VM. err = %s, and Failed to rollback err = %s", err.Error(), cleanErr.Error()))
+				}
+				cblogger.Error(createErr.Error())
+				LoggingError(hiscallInfo, createErr)
+				return irs.VMInfo{}, createErr
+			}
 		}
+
 	}
 	// 7. If DataDisk Exist
 	if len(vmReqInfo.DataDiskIIDs) > 0 {
@@ -1527,7 +1542,7 @@ func checkVMReqInfo(vmReqInfo irs.VMReqInfo) error {
 	return nil
 }
 
-func changeAdministratorUser(vmIID irs.IID, newusername string, newpassword string, oldusername string, virtualMachinesClient *compute.VirtualMachinesClient, virtualMachineRunCommandsClient *compute.VirtualMachineRunCommandsClient, ctx context.Context, region idrv.RegionInfo) error {
+func createAdministratorUser(vmIID irs.IID, newusername string, newpassword string, virtualMachinesClient *compute.VirtualMachinesClient, virtualMachineRunCommandsClient *compute.VirtualMachineRunCommandsClient, ctx context.Context, region idrv.RegionInfo) error {
 	rawVm, err := GetRawVM(vmIID, region.ResourceGroup, virtualMachinesClient, ctx)
 	if err != nil {
 		return errors.New(fmt.Sprintf("failed window User Add %s", err.Error()))
@@ -1536,7 +1551,31 @@ func changeAdministratorUser(vmIID irs.IID, newusername string, newpassword stri
 		VirtualMachineRunCommandProperties: &compute.VirtualMachineRunCommandProperties{
 			Source: &compute.VirtualMachineRunCommandScriptSource{
 				// Script: to.StringPtr(fmt.Sprintf("net user /add administrator qwe1212!Q; net localgroup administrators cb-user /add; net user /delete administrator;")),
-				Script: to.StringPtr(fmt.Sprintf("net user /add %s %s; net localgroup %s %s /add; net user /delete %s;", newusername, newpassword, WindowBaseGroup, newusername, oldusername)),
+				Script: to.StringPtr(fmt.Sprintf("net user /add %s %s; net localgroup %s %s /add", newusername, newpassword, WindowBaseGroup, newusername)),
+			},
+		},
+		Location: to.StringPtr(region.Region),
+	}
+	runCommandResult, err := virtualMachineRunCommandsClient.CreateOrUpdate(ctx, region.ResourceGroup, *rawVm.Name, "RunPowerShellScript", runOpt)
+	if err != nil {
+		return errors.New(fmt.Sprintf("failed window User Add %s", err.Error()))
+	}
+	err = runCommandResult.WaitForCompletionRef(ctx, virtualMachineRunCommandsClient.Client)
+	if err != nil {
+		return errors.New(fmt.Sprintf("failed window User Add %s", err.Error()))
+	}
+	return nil
+}
+
+func changeUserPassword(vmIID irs.IID, username string, newpassword string, virtualMachinesClient *compute.VirtualMachinesClient, virtualMachineRunCommandsClient *compute.VirtualMachineRunCommandsClient, ctx context.Context, region idrv.RegionInfo) error {
+	rawVm, err := GetRawVM(vmIID, region.ResourceGroup, virtualMachinesClient, ctx)
+	if err != nil {
+		return errors.New(fmt.Sprintf("failed window User Add %s", err.Error()))
+	}
+	runOpt := compute.VirtualMachineRunCommand{
+		VirtualMachineRunCommandProperties: &compute.VirtualMachineRunCommandProperties{
+			Source: &compute.VirtualMachineRunCommandScriptSource{
+				Script: to.StringPtr(fmt.Sprintf("net user %s %s; net user %s %s;", username, newpassword, WindowBuitinUser, newpassword)),
 			},
 		},
 		Location: to.StringPtr(region.Region),
