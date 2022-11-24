@@ -1,0 +1,3 @@
+'Visual Basic Code
+sCommandToRun = "net user Administrator {{PASSWORD}}"
+Call Shell("cmd.exe /S /C" & sCommandToRun, vbHide)
