@@ -371,9 +371,17 @@ func (ImageHandler *AwsMyImageHandler) DeleteMyImage(myImageIID irs.IID) (bool, 
 		return false, err
 	}
 
-	snapshotId, err := GetSnapshotIdFromEc2Image(resultImage)
+	snapshotIds, err := GetSnapshotIdFromEc2Image(resultImage)
 	if err != nil {
 		return false, err
+	}
+
+	diskIIDs, err := GetDisksFromEc2Image(resultImage)
+	if err != nil {
+		return false, err
+	}
+	if cblogger.Level.String() == "debug" {
+		spew.Dump(diskIIDs)
 	}
 
 	input := &ec2.DeregisterImageInput{}
@@ -388,9 +396,11 @@ func (ImageHandler *AwsMyImageHandler) DeleteMyImage(myImageIID irs.IID) (bool, 
 		spew.Dump(result)
 	}
 
-	snapShotDeleteResult, err := ImageHandler.DeleteSnapshotBySnapshot(irs.IID{SystemId: snapshotId})
-	if err != nil {
-		return snapShotDeleteResult, errors.New("Fail to delete snapshot")
+	for _, snapshotId := range snapshotIds {
+		snapShotDeleteResult, err := ImageHandler.DeleteSnapshotById(snapshotId)
+		if err != nil {
+			return snapShotDeleteResult, errors.New("Fail to delete snapshot" + snapshotId + " " + err.Error())
+		}
 	}
 	return true, nil
 }
@@ -489,12 +499,19 @@ func convertAWSImageToMyImageInfo(awsImage *ec2.Image) (irs.MyImageInfo, error) 
 }
 
 // Image에 대한 snap 삭제
-func (ImageHandler *AwsMyImageHandler) DeleteSnapshotBySnapshot(snapshotIID irs.IID) (bool, error) {
+func (MyImageHandler *AwsMyImageHandler) DeleteSnapshotById(snapshotId string) (bool, error) {
+	cblogger.Info("DeleteSnapshotBySnapshots -------------")
+	// result, err := DescribeVolumnesBySnapshot(MyImageHandler.Client, snapshotIIDs)
+	// if err != nil {
+	// 	return false, err
+	// }
+	// spew.Dump(result)
+
 	input := &ec2.DeleteSnapshotInput{
-		SnapshotId: aws.String(snapshotIID.SystemId),
+		SnapshotId: aws.String(snapshotId),
 	}
 
-	result, err := ImageHandler.Client.DeleteSnapshot(input)
+	result, err := MyImageHandler.Client.DeleteSnapshot(input)
 	if err != nil {
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
@@ -507,7 +524,10 @@ func (ImageHandler *AwsMyImageHandler) DeleteSnapshotBySnapshot(snapshotIID irs.
 		return false, err
 	}
 
-	spew.Dump(result)
+	if cblogger.Level.String() == "debug" {
+		spew.Dump(result)
+	}
+
 	return true, nil
 }
 
