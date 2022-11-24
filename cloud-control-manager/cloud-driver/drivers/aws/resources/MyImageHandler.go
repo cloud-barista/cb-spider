@@ -560,5 +560,5 @@ func (ImageHandler *AwsMyImageHandler) CheckWindowsImage(myImageIID irs.IID) (bo
 	}
 
 	return isWindowsImage, nil
-	return false, fmt.Errorf("Does not support CheckWindowsImage() yet!!")
+
 }

@@ -332,14 +332,6 @@ func DescribeVolumnesBySnapshot(svc *ec2.EC2, snapShotIIDs []string) (*ec2.Descr
 	}
 	//if cblogger.Level.String() == "debug" {
 	spew.Dump(result.Volumes)
-	cblogger.Info("*111**")
-	cblogger.Info(result)
-	cblogger.Info("*111**")
-	callogger.Info(result.GoString())
-	cblogger.Info("*222**")
-	cblogger.Info(result.Volumes)
-	cblogger.Info("*222**")
-	cblogger.Info(len(result.Volumes))
 	//}
 
 	return result, nil
