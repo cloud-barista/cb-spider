@@ -400,20 +400,20 @@ func (vmHandler *AwsVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 		// }
 	}
 	if vmReqInfo.RootDiskType != "" || vmReqInfo.RootDiskSize != "" {
-		// blockDeviceMappings := []*ec2.BlockDeviceMapping{
-		// 	{
-		// 		DeviceName: aws.String("/dev/sda1"),
-		// 		//DeviceName: aws.String("/dev/sdh"),
-		// 		Ebs: &ec2.EbsBlockDevice{
-		// 			//RootDeviceName
-		// 			//VolumeType: aws.String(diskType),
-		// 			//VolumeSize: diskSize,
-		// 			DeleteOnTermination: aws.Bool(deleteOnTermination),
-		// 		},
-		// 	},
-		// }
-		// input.SetBlockDeviceMappings(blockDeviceMappings)
-		// cblogger.Debugf("MyImage set DeleteOnTermination = ", isMyImage, deleteOnTermination)
+		blockDeviceMappings := []*ec2.BlockDeviceMapping{
+			{
+				DeviceName: aws.String("/dev/sda1"),
+				//DeviceName: aws.String("/dev/sdh"),
+				Ebs: &ec2.EbsBlockDevice{
+					//RootDeviceName
+					//VolumeType: aws.String(diskType),
+					//VolumeSize: diskSize,
+					//DeleteOnTermination: aws.Bool(deleteOnTermination),
+				},
+			},
+		}
+		input.SetBlockDeviceMappings(blockDeviceMappings)
+		//cblogger.Debugf("MyImage set DeleteOnTermination = ", isMyImage, deleteOnTermination)
 
 		//=============================
 		// Root Disk Type 변경
