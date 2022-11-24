@@ -285,6 +285,65 @@ func DescribeVolumneById(svc *ec2.EC2, volumeId string) (*ec2.Volume, error) {
 	return nil, awserr.New("404", "["+volumeId+"] Volume Not Found", nil)
 }
 
+func DescribeVolumnesBySnapshot(svc *ec2.EC2, snapShotIIDs []string) (*ec2.DescribeVolumesOutput, error) {
+	var ids []*string
+	for _, snapShotIID := range snapShotIIDs {
+		ids = append(ids, aws.String(snapShotIID))
+	}
+	input := &ec2.DescribeVolumesInput{
+		Filters: []*ec2.Filter{
+			{
+				Name: aws.String("snapshot-id"),
+				//Values: ids,
+				Values: []*string{
+					aws.String(snapShotIIDs[0]),
+				},
+			},
+		},
+	}
+
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.AWS,
+		ResourceType: call.DISK,
+		CloudOSAPI:   "DescribeVolumnesBySnapshot",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+
+	callLogStart := call.Start()
+
+	result, err := svc.DescribeVolumes(input)
+	callogger.Info("DescribeVolumnesBySnapshot   IN PU T")
+	spew.Dump(input)
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+	callogger.Info(call.String(callLogInfo))
+
+	if err != nil {
+		if aerr, ok := err.(awserr.Error); ok {
+			switch aerr.Code() {
+			default:
+				fmt.Println(aerr.Error())
+			}
+		} else {
+			fmt.Println(err.Error())
+		}
+		return nil, err
+	}
+	//if cblogger.Level.String() == "debug" {
+	spew.Dump(result.Volumes)
+	cblogger.Info("*111**")
+	cblogger.Info(result)
+	cblogger.Info("*111**")
+	callogger.Info(result.GoString())
+	cblogger.Info("*222**")
+	cblogger.Info(result.Volumes)
+	cblogger.Info("*222**")
+	cblogger.Info(len(result.Volumes))
+	//}
+
+	return result, nil
+}
 func AttachVolume(svc *ec2.EC2, deviceName string, instanceId string, volumeId string) error {
 	input := &ec2.AttachVolumeInput{
 		Device:     aws.String(deviceName),
@@ -329,6 +388,45 @@ func AttachVolume(svc *ec2.EC2, deviceName string, instanceId string, volumeId s
 		return err
 	}
 	return nil
+}
+
+func DeleteDisk(svc *ec2.EC2, disks []irs.IID) (bool, error) {
+	returnResult := false
+	if disks != nil && len(disks) > 0 {
+		for _, diskIID := range disks {
+			input := &ec2.DeleteVolumeInput{
+				VolumeId: aws.String(diskIID.SystemId),
+			}
+
+			result, err := svc.DeleteVolume(input)
+			if err != nil {
+				if aerr, ok := err.(awserr.Error); ok {
+					switch aerr.Code() {
+					default:
+						fmt.Println(aerr.Error())
+					}
+				} else {
+					// Print the error, cast err to awserr.Error to get the Code and
+					// Message from an error.
+					fmt.Println(err.Error())
+				}
+				return false, err
+			}
+
+			if cblogger.Level.String() == "debug" {
+				spew.Dump(result)
+			}
+
+			err = WaitUntilVolumeDeleted(svc, diskIID.SystemId)
+			if err != nil {
+				return false, err
+			}
+
+			returnResult = true
+		}
+	}
+
+	return returnResult, nil
 }
 
 // ---------------- VOLUME Area end -----------------//
@@ -456,18 +554,60 @@ func GetImageSizeFromEc2Image(ec2Image *ec2.Image) (int64, error) {
 }
 
 // Image 정보에서 Snapshot Id return
-func GetSnapshotIdFromEc2Image(ec2Image *ec2.Image) (string, error) {
+//
+//	func GetSnapshotIdFromEc2Image(ec2Image *ec2.Image) (string, error) {
+//		if !reflect.ValueOf(ec2Image.BlockDeviceMappings).IsNil() {
+//			if !reflect.ValueOf(ec2Image.BlockDeviceMappings[0].Ebs).IsNil() {
+//				snapshotId := *ec2Image.BlockDeviceMappings[0].Ebs.SnapshotId
+//				return snapshotId, nil
+//			} else {
+//				cblogger.Error("Ebs information not found in BlockDeviceMappings.")
+//				return "", errors.New("Ebs information not found in BlockDeviceMappings.")
+//			}
+//		} else {
+//			cblogger.Error("BlockDeviceMappings information not found.")
+//			return "", errors.New("BlockDeviceMappings information not found.")
+//		}
+//	}
+func GetSnapshotIdFromEc2Image(ec2Image *ec2.Image) ([]string, error) {
+	var snapshotIds []string
 	if !reflect.ValueOf(ec2Image.BlockDeviceMappings).IsNil() {
-		if !reflect.ValueOf(ec2Image.BlockDeviceMappings[0].Ebs).IsNil() {
-			snapshotId := *ec2Image.BlockDeviceMappings[0].Ebs.SnapshotId
-			return snapshotId, nil
-		} else {
-			cblogger.Error("Ebs information not found in BlockDeviceMappings.")
-			return "", errors.New("Ebs information not found in BlockDeviceMappings.")
+		// rootdisk 찾기
+		// if !reflect.ValueOf(ec2Image.BlockDeviceMappings[0].Ebs).IsNil() {
+		// 	snapshotId := *ec2Image.BlockDeviceMappings[0].Ebs.SnapshotId
+		// 	return snapshotId, nil
+		// } else {
+		// 	cblogger.Error("Ebs information not found in BlockDeviceMappings.")
+		// 	return "", errors.New("Ebs information not found in BlockDeviceMappings.")
+		// }
+		for _, blockDevice := range ec2Image.BlockDeviceMappings {
+			if !reflect.ValueOf(blockDevice.Ebs).IsNil() {
+				snapshotId := *blockDevice.Ebs.SnapshotId
+				snapshotIds = append(snapshotIds, snapshotId)
+			}
 		}
 	} else {
 		cblogger.Error("BlockDeviceMappings information not found.")
-		return "", errors.New("BlockDeviceMappings information not found.")
+		return snapshotIds, errors.New("BlockDeviceMappings information not found.")
+	}
+
+	return snapshotIds, nil
+}
+
+// 이미지에서 루트 볼륨 외 disk ID들을 return
+func GetDisksFromEc2Image(ec2Image *ec2.Image) ([]irs.IID, error) {
+	diskIIDs := []irs.IID{}
+	if !reflect.ValueOf(ec2Image.BlockDeviceMappings).IsNil() {
+		if !reflect.ValueOf(ec2Image.BlockDeviceMappings[0].Ebs).IsNil() {
+			//snapshotId := *ec2Image.BlockDeviceMappings[0].Ebs.SnapshotId
+			return diskIIDs, nil
+		} else {
+			cblogger.Error("Ebs information not found in BlockDeviceMappings.")
+			return diskIIDs, errors.New("Ebs information not found in BlockDeviceMappings.")
+		}
+	} else {
+		cblogger.Error("BlockDeviceMappings information not found.")
+		return diskIIDs, errors.New("BlockDeviceMappings information not found.")
 	}
 }
 
