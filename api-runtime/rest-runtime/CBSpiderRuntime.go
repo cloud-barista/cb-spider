@@ -393,6 +393,7 @@ func RunServer() {
 		//-------------------------------------------------------------------//
         //----------Additional Info
 		{"GET", "/cspresourcename/:Name", GetCSPResourceName},
+		{"GET", "/cspresourceinfo/:Name", GetCSPResourceInfo},
 		//----------AnyCall Handler
 		{"POST", "/anycall", AnyCall},
 

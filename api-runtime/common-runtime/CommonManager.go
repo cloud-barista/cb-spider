@@ -18,6 +18,7 @@ import (
 	iidm "github.com/cloud-barista/cb-spider/cloud-control-manager/iid-manager"
 	"github.com/cloud-barista/cb-store/config"
 	"github.com/sirupsen/logrus"
+	"encoding/json"
 
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 )
@@ -1177,6 +1178,126 @@ func DeleteCSPResource(connectionName string, rsType string, systemID string) (b
 	} else {
 		return result, "", nil
 	}
+}
+
+// Get Json string of CSP's Resource(SystemId) Info
+func GetCSPResourceInfo(connectionName string, rsType string, systemID string) ([]byte, error) {
+	cblog.Info("call GetCSPResourceInfo()")
+
+	// check empty and trim user inputs
+        connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)
+        if err != nil {
+                return nil, err
+		cblog.Error(err)
+        }
+
+        systemID, err = EmptyCheckAndTrim("systemID", systemID)
+        if err != nil {
+                return nil, err
+		cblog.Error(err)
+        }
+
+	cldConn, err := ccm.GetCloudConnection(connectionName)
+	if err != nil {
+		cblog.Error(err)
+		return nil, err
+	}
+
+	var handler interface{}
+
+	switch rsType {
+	case rsVPC:
+		handler, err = cldConn.CreateVPCHandler()
+	case rsSG:
+		handler, err = cldConn.CreateSecurityHandler()
+	case rsKey:
+		handler, err = cldConn.CreateKeyPairHandler()
+	case rsVM:
+		handler, err = cldConn.CreateVMHandler()
+	case rsNLB:
+		handler, err = cldConn.CreateNLBHandler()
+	case rsDisk:
+		handler, err = cldConn.CreateDiskHandler()
+	case rsMyImage:
+		handler, err = cldConn.CreateMyImageHandler()
+	case rsCluster:
+		handler, err = cldConn.CreateClusterHandler()
+	default:
+		return nil, fmt.Errorf(rsType + " is not supported Resource!!")
+	}
+	if err != nil {
+		cblog.Error(err)
+		return nil, err
+	}
+
+	iid := cres.IID{getMSShortID(systemID), getMSShortID(systemID)}
+
+	// Get CSP's Resource(SystemId)	
+	jsonResult := []byte{}
+	switch rsType {
+	case rsVPC:
+		result, err := handler.(cres.VPCHandler).GetVPC(iid)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+		jsonResult, _ = json.Marshal(result)		
+	case rsSG:
+		result, err := handler.(cres.SecurityHandler).GetSecurity(iid)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+		jsonResult, _ = json.Marshal(result)
+	case rsKey:
+		result, err := handler.(cres.KeyPairHandler).GetKey(iid)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+		jsonResult, _ = json.Marshal(result)
+	case rsVM:
+		result, err := handler.(cres.VMHandler).GetVM(iid)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+		jsonResult, _ = json.Marshal(result)
+	case rsNLB:
+		result, err := handler.(cres.NLBHandler).GetNLB(iid)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+		jsonResult, _ = json.Marshal(result)
+        case rsDisk:
+                result, err := handler.(cres.DiskHandler).GetDisk(iid)
+                if err != nil {
+                        cblog.Error(err)
+                        return nil, err
+                }
+                jsonResult, _ = json.Marshal(result)
+        case rsMyImage:
+                result, err := handler.(cres.MyImageHandler).GetMyImage(iid)
+                if err != nil {
+                        cblog.Error(err)
+                        return nil, err
+                }
+                jsonResult, _ = json.Marshal(result)
+        case rsCluster:
+                result, err := handler.(cres.ClusterHandler).GetCluster(iid)
+                if err != nil {
+                        cblog.Error(err)
+                        return nil, err
+                }
+                jsonResult, _ = json.Marshal(result)
+
+	default:
+		return nil, fmt.Errorf(rsType + " is not supported Resource!!")
+	}
+
+	//return string(jsonResult), nil
+	return jsonResult, nil
 }
 
 //================ get CSP Name

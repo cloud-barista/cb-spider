@@ -71,7 +71,9 @@ func DescribeInstanceById(svc *ec2.EC2, vmIID irs.IID) (*ec2.Instance, error) {
 	}
 
 	if len(result.Reservations) < 1 || len(result.Reservations[0].Instances) < 1 {
-		return nil, errors.New("instance not found.")
+
+		return nil, errors.New(vmIID.SystemId + " instance not found.")
+
 	}
 	instance := result.Reservations[0].Instances[0]
 	return instance, err
