@@ -440,6 +440,30 @@ func StartVM(connectionName string, rsType string, reqInfo cres.VMReqInfo) (*cre
 		}
 	}
 
+	// check Winddows GuestOS
+	isWindowsOS := false
+	isWindowsOS, err = checkImageWindowsOS(cldConn, reqInfoForDriver.ImageType, reqInfoForDriver.ImageIID)
+	if err != nil {
+		if strings.Contains(err.Error(), "yet!") {
+			cblog.Info(err)
+		} else {
+			cblog.Error(err)
+			return nil, err
+		}
+	}
+
+	if isWindowsOS {
+		adminID := "Administrator"
+		if reqInfoForDriver.VMUserId == "" {
+			reqInfo.VMUserId = adminID
+			reqInfoForDriver.VMUserId = adminID
+		}
+		if reqInfoForDriver.VMUserId != adminID {
+			cblog.Error(err)
+			return nil, fmt.Errorf(reqInfoForDriver.VMUserId + ": cannot be used for Windows GuestOS UserID!")
+		}
+	}
+
 	callInfo := call.CLOUDLOGSCHEMA {
                 CloudOS: call.CLOUD_OS(providerName),
                 RegionZone: regionName + "/" + zoneName,
@@ -494,19 +518,6 @@ func StartVM(connectionName string, rsType string, reqInfo cres.VMReqInfo) (*cre
 			checkError.MSG = fmt.Sprintf("[%s] Failed to Start VM %s when getting PublicIP. (Timeout=%v)", connectionName, reqIId.NameId, waiter.Timeout)
 			break
                 }
-	}
-
-
-	// check Winddows GuestOS
-	isWindowsOS := false
-	isWindowsOS, err = checkImageWindowsOS(cldConn, reqInfoForDriver.ImageType, reqInfoForDriver.ImageIID)
-	if err != nil {
-		if strings.Contains(err.Error(), "yet!") {
-			cblog.Info(err)
-		} else {
-			cblog.Error(err)
-			return nil, err
-		}
 	}
 
 	if !checkError.Flag && !isWindowsOS && providerName != "MOCK" {
@@ -573,7 +584,8 @@ func StartVM(connectionName string, rsType string, reqInfo cres.VMReqInfo) (*cre
 	setNameId(connectionName, &info, &reqInfo)
 
 	if isWindowsOS {
-		info.VMUserId = "Administrator"
+		info.VMUserId = reqInfo.VMUserId
+		info.VMUserPasswd = reqInfo.VMUserPasswd
 		info.SSHAccessPoint = "RDP: " + info.PublicIP
 	} else {
 		info.VMUserId = "cb-user"
