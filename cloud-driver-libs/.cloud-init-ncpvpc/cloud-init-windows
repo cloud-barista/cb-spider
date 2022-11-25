@@ -1,3 +1,4 @@
-'Visual Basic Code
-sCommandToRun = "net user Administrator {{PASSWORD}}"
-Call Shell("cmd.exe /S /C" & sCommandToRun, vbHide)
+Dim shell
+Set shell= WScript.CreateObject ("WScript.shell")
+shell.Exec "net user Administrator {{PASSWORD}}"
+Set shell= Nothing
