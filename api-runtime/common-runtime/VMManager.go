@@ -279,20 +279,21 @@ func RegisterVM(connectionName string, userIID cres.IID) (*cres.VMInfo, error) {
                         cblog.Info(err)
                 } else {
                         cblog.Error(err)
-                        return nil, err
+                        //return nil, err                        
+                        getInfo.SSHAccessPoint = getInfo.PublicIP
                 }
-        }
-
-	if isWindowsOS {
-                getInfo.VMUserId = "Administrator"
-		getInfo.SSHAccessPoint = "RDP: " + getInfo.PublicIP
         } else {
-                getInfo.VMUserId = "cb-user"
-                // current: Assume 22 port, except Cloud-Twin, by powerkim, 2021.03.24.
-                if getInfo.SSHAccessPoint == "" {
-                        getInfo.SSHAccessPoint = getInfo.PublicIP + ":22"
-                }
-        }
+		if isWindowsOS {
+	                getInfo.VMUserId = "Administrator"
+			getInfo.SSHAccessPoint = "RDP: " + getInfo.PublicIP
+	        } else {
+	                getInfo.VMUserId = "cb-user"
+	                // current: Assume 22 port, except Cloud-Twin, by powerkim, 2021.03.24.
+	                if getInfo.SSHAccessPoint == "" {
+	                        getInfo.SSHAccessPoint = getInfo.PublicIP + ":22"
+	                }
+	        }
+	}
 
 
         // (3) create spiderIID: {UserID, SP-XID:CSP-ID}
@@ -1052,20 +1053,21 @@ vmSPLock.RUnlock(connectionName, iid.NameId)
                         cblog.Info(err)
                 } else {
                         cblog.Error(err)
-                        return 
+                        //return 
+			info.SSHAccessPoint = info.PublicIP
                 }
-        }
-
-        if isWindowsOS {
-                info.VMUserId = "Administrator"
-		info.SSHAccessPoint = "RDP: " + info.PublicIP
         } else {
-                info.VMUserId = "cb-user"
-                // current: Assume 22 port, except Cloud-Twin, by powerkim, 2021.03.24.
-                if info.SSHAccessPoint == "" {
-                        info.SSHAccessPoint = info.PublicIP + ":22"
-                }
-        }
+		if isWindowsOS {
+			info.VMUserId = "Administrator"
+			info.SSHAccessPoint = "RDP: " + info.PublicIP
+		} else {
+			info.VMUserId = "cb-user"
+			// current: Assume 22 port, except Cloud-Twin, by powerkim, 2021.03.24.
+			if info.SSHAccessPoint == "" {
+				info.SSHAccessPoint = info.PublicIP + ":22"
+			}
+		}
+	}
 
 	retInfo <- ResultVMInfo{info, nil}
 }
@@ -1221,20 +1223,21 @@ func GetVM(connectionName string, rsType string, nameID string) (*cres.VMInfo, e
                         cblog.Info(err)
                 } else {
                         cblog.Error(err)
-                        return nil, err
+                        //return nil, err
+			info.SSHAccessPoint = info.PublicIP
                 }
-        }
-
-        if isWindowsOS {
-                info.VMUserId = "Administrator"
-		info.SSHAccessPoint = "RDP: " + info.PublicIP
         } else {
-                info.VMUserId = "cb-user"
-                // current: Assume 22 port, except Cloud-Twin, by powerkim, 2021.03.24.
-                if info.SSHAccessPoint == "" {
-                        info.SSHAccessPoint = info.PublicIP + ":22"
-                }
-        }
+		if isWindowsOS {
+			info.VMUserId = "Administrator"
+			info.SSHAccessPoint = "RDP: " + info.PublicIP
+		} else {
+			info.VMUserId = "cb-user"
+			// current: Assume 22 port, except Cloud-Twin, by powerkim, 2021.03.24.
+			if info.SSHAccessPoint == "" {
+				info.SSHAccessPoint = info.PublicIP + ":22"
+			}
+		}
+	}
 
 	return &info, nil
 }

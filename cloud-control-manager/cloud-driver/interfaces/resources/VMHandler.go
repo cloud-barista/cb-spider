@@ -16,10 +16,15 @@ import (
 )
 
 type ImageType string
-
 const (
 	PublicImage ImageType = "PublicImage"
 	MyImage     ImageType = "MyImage"
+)
+
+type Platform string
+const (
+        LINUX	Platform = "LINUX"
+        WINDOWS	Platform = "WINDOWS"
 )
 
 type VMReqInfo struct {
@@ -106,7 +111,10 @@ type VMInfo struct {
 	PrivateIP        string
 	PrivateDNS       string
 
-	SSHAccessPoint string // ex) 10.2.3.2:22, 123.456.789.123:4321
+	Platform         Platform // LINUX | WINDOWS
+
+	SSHAccessPoint string // ex) 10.2.3.2:22, 123.456.789.123:4321 ==> Deprecated
+	AccessPoint string // ex) 10.2.3.2:22, 123.456.789.123:4321
 
 	KeyValueList []KeyValue
 }
