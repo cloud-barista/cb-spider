@@ -1551,7 +1551,7 @@ func createAdministratorUser(vmIID irs.IID, newusername string, newpassword stri
 		VirtualMachineRunCommandProperties: &compute.VirtualMachineRunCommandProperties{
 			Source: &compute.VirtualMachineRunCommandScriptSource{
 				// Script: to.StringPtr(fmt.Sprintf("net user /add administrator qwe1212!Q; net localgroup administrators cb-user /add; net user /delete administrator;")),
-				Script: to.StringPtr(fmt.Sprintf("net user /add %s %s; net localgroup %s %s /add", newusername, newpassword, WindowBaseGroup, newusername)),
+				Script: to.StringPtr(fmt.Sprintf("net user /add %s %s /Y; net localgroup %s %s /add;", newusername, newpassword, WindowBaseGroup, newusername)),
 			},
 		},
 		Location: to.StringPtr(region.Region),
