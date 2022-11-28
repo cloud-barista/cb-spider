@@ -285,7 +285,7 @@ func RegisterVM(connectionName string, userIID cres.IID) (*cres.VMInfo, error) {
         } else {
 		if isWindowsOS {
 	                getInfo.VMUserId = "Administrator"
-			getInfo.SSHAccessPoint = "RDP: " + getInfo.PublicIP
+			getInfo.SSHAccessPoint = getInfo.PublicIP + ":3389"
 	        } else {
 	                getInfo.VMUserId = "cb-user"
 	                // current: Assume 22 port, except Cloud-Twin, by powerkim, 2021.03.24.
@@ -587,7 +587,7 @@ func StartVM(connectionName string, rsType string, reqInfo cres.VMReqInfo) (*cre
 	if isWindowsOS {
 		info.VMUserId = reqInfo.VMUserId
 		info.VMUserPasswd = reqInfo.VMUserPasswd
-		info.SSHAccessPoint = "RDP: " + info.PublicIP
+		info.SSHAccessPoint = info.PublicIP + ":3389"
 	} else {
 		info.VMUserId = "cb-user"
 		// current: Assume 22 port, except Cloud-Twin, by powerkim, 2021.03.24.
@@ -1059,7 +1059,7 @@ vmSPLock.RUnlock(connectionName, iid.NameId)
         } else {
 		if isWindowsOS {
 			info.VMUserId = "Administrator"
-			info.SSHAccessPoint = "RDP: " + info.PublicIP
+			info.SSHAccessPoint = info.PublicIP + ":3389"
 		} else {
 			info.VMUserId = "cb-user"
 			// current: Assume 22 port, except Cloud-Twin, by powerkim, 2021.03.24.
@@ -1229,7 +1229,7 @@ func GetVM(connectionName string, rsType string, nameID string) (*cres.VMInfo, e
         } else {
 		if isWindowsOS {
 			info.VMUserId = "Administrator"
-			info.SSHAccessPoint = "RDP: " + info.PublicIP
+			info.SSHAccessPoint = info.PublicIP + ":3389"
 		} else {
 			info.VMUserId = "cb-user"
 			// current: Assume 22 port, except Cloud-Twin, by powerkim, 2021.03.24.
