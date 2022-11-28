@@ -300,7 +300,7 @@ func preparationOperationForGeneralize(rawVm compute.VirtualMachine, vmClient *c
 		return err
 	}
 	vmStatus := getVmStatus(*rawVm.InstanceView)
-	if sourceVMOSType == WindowOS {
+	if sourceVMOSType == irs.WINDOWS {
 		if vmStatus == irs.Running {
 			err = windowShellPreparationOperationForGeneralize(*rawVm.Name, virtualMachineRunCommandsClient, ctx, region)
 			if err != nil {
