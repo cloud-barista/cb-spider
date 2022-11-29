@@ -357,8 +357,26 @@ func New(cloudConnectName string, rsType string, uid string) (string, error) {
 		return uid, nil
 	}
 
+	// MaxLength = 12, lower, number, Cannot use '-'
 	if cccInfo.ProviderName == "AZURE" && rsType == "nodegroup" {
-		return uid, nil
+		retUID := strings.ToLower(strings.ReplaceAll(uid, "-", ""))
+
+		if len(retUID) > 12 {
+			// #6 + #6 => #12
+			retUID = uid[:6] + xid.New().String()[0:6]
+		}
+		return retUID, nil
+	}
+
+	// MaxLenth = 20, lower, number, '-'
+	if cccInfo.ProviderName == "NHNCLOUD" && (rsType == "cluster" || rsType == "nodegroup") {
+		retUID := strings.ToLower(uid)
+
+		if len(retUID) > 20 {
+			// #10 + #10 => #20
+			retUID = uid[:10] + xid.New().String()[0:10]
+		}
+		return retUID, nil
 	}
 
 	// default length: 9 + 21 => 30 (NCP's ID Length, the shortest)
