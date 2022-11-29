@@ -1,6 +1,5 @@
 #!/bin/bash
 
-RESTSERVER=3.36.93.11
 RESTSERVER=localhost
 
 while true
