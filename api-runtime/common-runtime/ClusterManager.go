@@ -410,11 +410,21 @@ defer clusterSPLock.Unlock(connectionName, reqInfo.IId.NameId)
 	driverIId := cres.IID{spUUID, ""}
 	reqInfo.IId = driverIId
 
+	providerName, err := ccm.GetProviderNameByConnectionName(connectionName)
+        if err != nil {
+                cblog.Error(err)
+                return nil, err
+        }
+
         // Create SP-UUID for NodeGroup list
         ngReqIIdList := []cres.IID{}
         ngInfoList := []cres.NodeGroupInfo{}
-        for _, info := range reqInfo.NodeGroupList {
-                nodeGroupUUID, err := iidm.New(connectionName, rsNodeGroup, info.IId.NameId)
+        for idx, info := range reqInfo.NodeGroupList {
+		nodeGroupUUID := ""
+		if providerName == "NHNCLOUD" && idx == 0 {
+			nodeGroupUUID = "default-worker" // fixed name in NHN
+		}
+                nodeGroupUUID, err = iidm.New(connectionName, rsNodeGroup, info.IId.NameId)
                 if err != nil {
                         cblog.Error(err)
                         return nil, err
