@@ -43,9 +43,10 @@ func (vmSpecHandler *AzureVmSpecHandler) ListVMSpec() ([]*irs.VMSpecInfo, error)
 	start := call.Start()
 	result, err := vmSpecHandler.Client.List(vmSpecHandler.Ctx, vmSpecHandler.Region.Region)
 	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return nil, err
+		getErr := errors.New(fmt.Sprintf("Failed to List VMSpec. err = %s", err.Error()))
+		cblogger.Error(getErr.Error())
+		LoggingError(hiscallInfo, getErr)
+		return nil, getErr
 	}
 	LoggingInfo(hiscallInfo, start)
 
@@ -63,9 +64,10 @@ func (vmSpecHandler *AzureVmSpecHandler) GetVMSpec(Name string) (irs.VMSpecInfo,
 	start := call.Start()
 	result, err := vmSpecHandler.Client.List(vmSpecHandler.Ctx, vmSpecHandler.Region.Region)
 	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return irs.VMSpecInfo{}, err
+		getErr := errors.New(fmt.Sprintf("Failed to Get VMSpec. err = %s", err.Error()))
+		cblogger.Error(getErr.Error())
+		LoggingError(hiscallInfo, getErr)
+		return irs.VMSpecInfo{}, getErr
 	}
 
 	for _, spec := range *result.Value {
@@ -75,8 +77,7 @@ func (vmSpecHandler *AzureVmSpecHandler) GetVMSpec(Name string) (irs.VMSpecInfo,
 			return *vmSpecInfo, nil
 		}
 	}
-
-	getErr := errors.New(fmt.Sprintf("failed to get VM spec, err : %s", err))
+	getErr := errors.New(fmt.Sprintf("Failed to Get VMSpec. err = Not Exist"))
 	cblogger.Error(getErr.Error())
 	LoggingError(hiscallInfo, getErr)
 	return irs.VMSpecInfo{}, getErr
@@ -89,9 +90,10 @@ func (vmSpecHandler *AzureVmSpecHandler) ListOrgVMSpec() (string, error) {
 	start := call.Start()
 	result, err := vmSpecHandler.Client.List(vmSpecHandler.Ctx, vmSpecHandler.Region.Region)
 	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return "", err
+		getErr := errors.New(fmt.Sprintf("Failed to List OrgVMSpec. err = %s", err.Error()))
+		cblogger.Error(getErr.Error())
+		LoggingError(hiscallInfo, getErr)
+		return "", getErr
 	}
 	LoggingInfo(hiscallInfo, start)
 
@@ -101,9 +103,10 @@ func (vmSpecHandler *AzureVmSpecHandler) ListOrgVMSpec() (string, error) {
 	jsonResult.Result = *result.Value
 	jsonBytes, err := json.Marshal(jsonResult)
 	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return "", err
+		getErr := errors.New(fmt.Sprintf("Failed to List OrgVMSpec. err = %s", err.Error()))
+		cblogger.Error(getErr.Error())
+		LoggingError(hiscallInfo, getErr)
+		return "", getErr
 	}
 
 	jsonString := string(jsonBytes)
@@ -117,9 +120,10 @@ func (vmSpecHandler *AzureVmSpecHandler) GetOrgVMSpec(Name string) (string, erro
 	start := call.Start()
 	result, err := vmSpecHandler.Client.List(vmSpecHandler.Ctx, vmSpecHandler.Region.Region)
 	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return "", err
+		getErr := errors.New(fmt.Sprintf("Failed to Get OrgVMSpec. err = %s", err.Error()))
+		cblogger.Error(getErr.Error())
+		LoggingError(hiscallInfo, getErr)
+		return "", getErr
 	}
 	LoggingInfo(hiscallInfo, start)
 
@@ -127,19 +131,18 @@ func (vmSpecHandler *AzureVmSpecHandler) GetOrgVMSpec(Name string) (string, erro
 		if Name == *spec.Name {
 			jsonBytes, err := json.Marshal(spec)
 			if err != nil {
-				getErr := errors.New(fmt.Sprintf("failed to get VM spec, err : %s", err))
+				getErr := errors.New(fmt.Sprintf("Failed to Get OrgVMSpec. err = %s", err.Error()))
 				cblogger.Error(getErr.Error())
 				LoggingError(hiscallInfo, getErr)
-				return "", err
+				return "", getErr
 			}
 
 			jsonString := string(jsonBytes)
 			return jsonString, nil
 		}
 	}
-
-	notFoundErr := errors.New("failed to get VM spec")
-	cblogger.Error(notFoundErr.Error())
-	LoggingError(hiscallInfo, notFoundErr)
-	return "", notFoundErr
+	getErr := errors.New(fmt.Sprintf("Failed to Get OrgVMSpec. err = Not Exist"))
+	cblogger.Error(getErr.Error())
+	LoggingError(hiscallInfo, getErr)
+	return "", getErr
 }

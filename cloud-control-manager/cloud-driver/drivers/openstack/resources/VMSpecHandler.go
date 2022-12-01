@@ -39,21 +39,22 @@ func setterVMSpec(region string, vmSpec flavors.Flavor) *irs.VMSpecInfo {
 func (vmSpecHandler *OpenStackVMSpecHandler) ListVMSpec() ([]*irs.VMSpecInfo, error) {
 	// log HisCall
 	hiscallInfo := GetCallLogScheme(vmSpecHandler.Client.IdentityEndpoint, call.VMSPEC, VMSpec, "ListVMSpec()")
-
 	start := call.Start()
 	pager, err := flavors.ListDetail(vmSpecHandler.Client, flavors.ListOpts{}).AllPages()
 	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return nil, err
+		getErr := errors.New(fmt.Sprintf("Failed to List VMSpec. err = %s", err.Error()))
+		cblogger.Error(getErr.Error())
+		LoggingError(hiscallInfo, getErr)
+		return nil, getErr
 	}
 	LoggingInfo(hiscallInfo, start)
 
 	list, err := flavors.ExtractFlavors(pager)
 	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return nil, err
+		getErr := errors.New(fmt.Sprintf("Failed to List VMSpec. err = %s", err.Error()))
+		cblogger.Error(getErr.Error())
+		LoggingError(hiscallInfo, getErr)
+		return nil, getErr
 	}
 
 	vmSpecList := make([]*irs.VMSpecInfo, len(list))
@@ -66,20 +67,21 @@ func (vmSpecHandler *OpenStackVMSpecHandler) ListVMSpec() ([]*irs.VMSpecInfo, er
 func (vmSpecHandler *OpenStackVMSpecHandler) GetVMSpec(Name string) (irs.VMSpecInfo, error) {
 	// log HisCall
 	hiscallInfo := GetCallLogScheme(vmSpecHandler.Client.IdentityEndpoint, call.VMSPEC, Name, "GetVMSpec()")
-
+	start := call.Start()
 	vmSpecId, err := vmSpecHandler.getIDFromName(vmSpecHandler.Client, Name)
 	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return irs.VMSpecInfo{}, err
+		getErr := errors.New(fmt.Sprintf("Failed to Get VMSpec. err = %s", err.Error()))
+		cblogger.Error(getErr.Error())
+		LoggingError(hiscallInfo, getErr)
+		return irs.VMSpecInfo{}, getErr
 	}
 
-	start := call.Start()
 	vmSpec, err := flavors.Get(vmSpecHandler.Client, vmSpecId).Extract()
 	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return irs.VMSpecInfo{}, err
+		getErr := errors.New(fmt.Sprintf("Failed to Get VMSpec. err = %s", err.Error()))
+		cblogger.Error(getErr.Error())
+		LoggingError(hiscallInfo, getErr)
+		return irs.VMSpecInfo{}, getErr
 	}
 	LoggingInfo(hiscallInfo, start)
 
@@ -90,21 +92,21 @@ func (vmSpecHandler *OpenStackVMSpecHandler) GetVMSpec(Name string) (irs.VMSpecI
 func (vmSpecHandler *OpenStackVMSpecHandler) ListOrgVMSpec() (string, error) {
 	// log HisCall
 	hiscallInfo := GetCallLogScheme(vmSpecHandler.Client.IdentityEndpoint, call.VMSPEC, VMSpec, "ListOrgVMSpec()")
-
 	start := call.Start()
 	pager, err := flavors.ListDetail(vmSpecHandler.Client, flavors.ListOpts{}).AllPages()
 	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return "", err
+		getErr := errors.New(fmt.Sprintf("Failed to List OrgVMSpec. err = %s", err.Error()))
+		cblogger.Error(getErr.Error())
+		LoggingError(hiscallInfo, getErr)
+		return "", getErr
 	}
-	LoggingInfo(hiscallInfo, start)
 
 	list, err := flavors.ExtractFlavors(pager)
 	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return "", err
+		getErr := errors.New(fmt.Sprintf("Failed to List OrgVMSpec. err = %s", err.Error()))
+		cblogger.Error(getErr.Error())
+		LoggingError(hiscallInfo, getErr)
+		return "", getErr
 	}
 
 	var jsonResult struct {
@@ -113,12 +115,14 @@ func (vmSpecHandler *OpenStackVMSpecHandler) ListOrgVMSpec() (string, error) {
 	jsonResult.Result = list
 	jsonBytes, err := json.Marshal(jsonResult)
 	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return "", err
+		getErr := errors.New(fmt.Sprintf("Failed to List OrgVMSpec. err = %s", err.Error()))
+		cblogger.Error(getErr.Error())
+		LoggingError(hiscallInfo, getErr)
+		return "", getErr
 	}
 
 	jsonString := string(jsonBytes)
+	LoggingInfo(hiscallInfo, start)
 
 	return jsonString, nil
 }
@@ -126,32 +130,32 @@ func (vmSpecHandler *OpenStackVMSpecHandler) ListOrgVMSpec() (string, error) {
 func (vmSpecHandler *OpenStackVMSpecHandler) GetOrgVMSpec(Name string) (string, error) {
 	// log HisCall
 	hiscallInfo := GetCallLogScheme(vmSpecHandler.Client.IdentityEndpoint, call.VMSPEC, Name, "GetOrgVMSpec()")
-
+	start := call.Start()
 	vmSpecId, err := vmSpecHandler.getIDFromName(vmSpecHandler.Client, Name)
 	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return "", err
+		getErr := errors.New(fmt.Sprintf("Failed to Get OrgVMSpec. err = %s", err.Error()))
+		cblogger.Error(getErr.Error())
+		LoggingError(hiscallInfo, getErr)
+		return "", getErr
 	}
-
-	start := call.Start()
 	vmSpec, err := flavors.Get(vmSpecHandler.Client, vmSpecId).Extract()
 	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return "", err
+		getErr := errors.New(fmt.Sprintf("Failed to Get OrgVMSpec. err = %s", err.Error()))
+		cblogger.Error(getErr.Error())
+		LoggingError(hiscallInfo, getErr)
+		return "", getErr
 	}
-	LoggingInfo(hiscallInfo, start)
 
 	jsonBytes, err := json.Marshal(vmSpec)
 	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return "", err
+		getErr := errors.New(fmt.Sprintf("Failed to Get OrgVMSpec. err = %s", err.Error()))
+		cblogger.Error(getErr.Error())
+		LoggingError(hiscallInfo, getErr)
+		return "", getErr
 	}
 
 	jsonString := string(jsonBytes)
-
+	LoggingInfo(hiscallInfo, start)
 	return jsonString, nil
 }
 
