@@ -88,6 +88,8 @@ func (nlbHandler *AzureNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (createNLB 
 			if cleanerErr != nil {
 				createError = errors.New(fmt.Sprintf("%s and Failed to rollback err = %s", createError.Error(), cleanerErr.Error()))
 			}
+			cblogger.Error(createError)
+			LoggingError(hiscallInfo, createError)
 		}
 	}()
 
