@@ -90,7 +90,7 @@ func (imageHandler *ClouditImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 	start := call.Start()
 	imageList, err := image.List(imageHandler.Client, &requestOpts)
 	if err != nil {
-		getErr := errors.New(fmt.Sprintf("Failed to Get ImageList. err = %s", err.Error()))
+		getErr := errors.New(fmt.Sprintf("Failed to List Image. err = %s", err.Error()))
 		cblogger.Error(getErr.Error())
 		LoggingError(hiscallInfo, getErr)
 		return nil, getErr
@@ -218,11 +218,16 @@ func (imageHandler *ClouditImageHandler) GetRawRootImage(imageIId irs.IID, isMyI
 }
 
 func (imageHandler *ClouditImageHandler) CheckWindowsImage(imageIID irs.IID) (bool, error) {
+	hiscallInfo := GetCallLogScheme(ClouditRegion, call.VMIMAGE, imageIID.NameId, "CheckWindowsImage()")
+	start := call.Start()
 	rawRootImage, getRawRootImageErr := imageHandler.GetRawRootImage(imageIID, false)
 	if getRawRootImageErr != nil {
-		return false, errors.New(fmt.Sprintf("Failed to Check Windows Image. err = %s", getRawRootImageErr.Error()))
+		checkWindowsImageErr := errors.New(fmt.Sprintf("Failed to CheckWindowsImage By Image. err = %s", getRawRootImageErr.Error()))
+		cblogger.Error(checkWindowsImageErr.Error())
+		LoggingError(hiscallInfo, checkWindowsImageErr)
+		return false, checkWindowsImageErr
 	}
-
+	LoggingInfo(hiscallInfo, start)
 	isWindows := strings.Contains(strings.ToLower(rawRootImage.OS), "windows")
 	return isWindows, nil
 }

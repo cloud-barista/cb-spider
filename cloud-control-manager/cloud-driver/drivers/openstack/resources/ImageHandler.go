@@ -127,9 +127,10 @@ func (imageHandler *OpenStackImageHandler) ListImage() ([]*irs.ImageInfo, error)
 	start := call.Start()
 	imageList, err := getRawImageList(imageHandler.Client)
 	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return nil, err
+		getErr := errors.New(fmt.Sprintf("Failed to List Image. err = %s", err.Error()))
+		cblogger.Error(getErr.Error())
+		LoggingError(hiscallInfo, getErr)
+		return nil, getErr
 	}
 
 	imageInfoList := make([]*irs.ImageInfo, len(imageList))
@@ -148,9 +149,10 @@ func (imageHandler *OpenStackImageHandler) GetImage(imageIID irs.IID) (irs.Image
 	start := call.Start()
 	image, err := getRawImage(imageIID, imageHandler.Client)
 	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return irs.ImageInfo{}, err
+		getErr := errors.New(fmt.Sprintf("Failed to Get Image. err = %s", err.Error()))
+		cblogger.Error(getErr.Error())
+		LoggingError(hiscallInfo, getErr)
+		return irs.ImageInfo{}, getErr
 	}
 	LoggingInfo(hiscallInfo, start)
 
@@ -161,14 +163,13 @@ func (imageHandler *OpenStackImageHandler) GetImage(imageIID irs.IID) (irs.Image
 func (imageHandler *OpenStackImageHandler) DeleteImage(imageIID irs.IID) (bool, error) {
 	// log HisCall
 	hiscallInfo := GetCallLogScheme(imageHandler.Client.IdentityEndpoint, call.VMIMAGE, imageIID.NameId, "DeleteImage()")
-
+	start := call.Start()
 	image, err := getRawImage(imageIID, imageHandler.Client)
 	if err != nil {
 		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
 		return false, err
 	}
-	start := call.Start()
 	err = images.Delete(imageHandler.Client, image.ID).ExtractErr()
 	if err != nil {
 		cblogger.Error(err.Error())
@@ -220,10 +221,16 @@ func getRawImageList(computeClient *gophercloud.ServiceClient) ([]images.Image, 
 }
 
 func (imageHandler *OpenStackImageHandler) CheckWindowsImage(imageIID irs.IID) (bool, error) {
+	hiscallInfo := GetCallLogScheme(imageHandler.Client.IdentityEndpoint, call.VMIMAGE, imageIID.NameId, "CheckWindowsImage()")
+	start := call.Start()
 	image, err := getRawImage(imageIID, imageHandler.Client)
 	if err != nil {
-		return false, err
+		checkWindowsImageErr := errors.New(fmt.Sprintf("Failed to CheckWindowsImage By Image. err = %s", err.Error()))
+		cblogger.Error(checkWindowsImageErr.Error())
+		LoggingError(hiscallInfo, checkWindowsImageErr)
+		return false, checkWindowsImageErr
 	}
+	LoggingInfo(hiscallInfo, start)
 	value, exist := image.Metadata["os_type"]
 	if !exist {
 		return false, nil
