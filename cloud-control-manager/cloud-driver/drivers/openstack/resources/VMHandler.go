@@ -583,6 +583,7 @@ func (vmHandler *OpenStackVMHandler) mappingServerInfo(server servers.Server) ir
 		if OSType == irs.WINDOWS {
 			vmInfo.VMUserId = WindowBaseUser
 		} else {
+			vmInfo.VMUserId = SSHDefaultUser
 			vmInfo.KeyPairIId = irs.IID{
 				NameId:   server.KeyName,
 				SystemId: server.KeyName,
@@ -689,6 +690,13 @@ func (vmHandler *OpenStackVMHandler) mappingServerInfo(server servers.Server) ir
 	osPlatform, err := getOSTypeByServer(server)
 	if err == nil {
 		vmInfo.Platform = osPlatform
+	}
+	if vmInfo.PublicIP != "" {
+		if osPlatform == irs.WINDOWS {
+			vmInfo.AccessPoint = fmt.Sprintf("%s:%s", vmInfo.PublicIP, "3389")
+		} else {
+			vmInfo.AccessPoint = fmt.Sprintf("%s:%s", vmInfo.PublicIP, "22")
+		}
 	}
 	return vmInfo
 }
