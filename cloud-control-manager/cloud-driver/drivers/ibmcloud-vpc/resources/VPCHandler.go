@@ -170,7 +170,7 @@ func (vpcHandler *IbmVPCHandler) ListVPC() ([]*irs.VPCInfo, error) {
 	start := call.Start()
 	vpcs, _, err := vpcHandler.VpcService.ListVpcsWithContext(vpcHandler.Ctx, listVpcsOptions)
 	if err != nil {
-		getErr := errors.New(fmt.Sprintf("Failed to Get VPCList err = %s", err.Error()))
+		getErr := errors.New(fmt.Sprintf("Failed to List VPC err = %s", err.Error()))
 		cblogger.Error(getErr.Error())
 		LoggingError(hiscallInfo, getErr)
 		return nil, getErr
@@ -180,7 +180,7 @@ func (vpcHandler *IbmVPCHandler) ListVPC() ([]*irs.VPCInfo, error) {
 		for _, vpc := range vpcs.Vpcs {
 			vpcInfo, err := setVPCInfo(vpc, vpcHandler.VpcService, vpcHandler.Ctx)
 			if err != nil {
-				getErr := errors.New(fmt.Sprintf("Failed to Get VPCList err = %s", err.Error()))
+				getErr := errors.New(fmt.Sprintf("Failed to List VPC err = %s", err.Error()))
 				cblogger.Error(getErr.Error())
 				LoggingError(hiscallInfo, getErr)
 				return nil, getErr
@@ -194,7 +194,7 @@ func (vpcHandler *IbmVPCHandler) ListVPC() ([]*irs.VPCInfo, error) {
 			}
 			vpcs, _, err = vpcHandler.VpcService.ListVpcsWithContext(vpcHandler.Ctx, listVpcsOptions2)
 			if err != nil {
-				getErr := errors.New(fmt.Sprintf("Failed to Get VPCList err = %s", err.Error()))
+				getErr := errors.New(fmt.Sprintf("Failed to List VPC err = %s", err.Error()))
 				cblogger.Error(getErr.Error())
 				LoggingError(hiscallInfo, getErr)
 				return nil, getErr
@@ -210,13 +210,23 @@ func (vpcHandler *IbmVPCHandler) GetVPC(vpcIID irs.IID) (irs.VPCInfo, error) {
 	hiscallInfo := GetCallLogScheme(vpcHandler.Region, call.VPCSUBNET, "VPC", "GetVPC()")
 	start := call.Start()
 	vpc, err := getRawVPC(vpcIID, vpcHandler.VpcService, vpcHandler.Ctx)
-
+	if err != nil {
+		getErr := errors.New(fmt.Sprintf("Failed to Get VPC err = %s", err.Error()))
+		cblogger.Error(getErr.Error())
+		LoggingError(hiscallInfo, getErr)
+		return irs.VPCInfo{}, getErr
+	}
 	// default SecurityGroup modify
 
 	options := &vpcv1.GetSecurityGroupOptions{}
 	options.SetID(*vpc.DefaultSecurityGroup.ID)
 	sg, _, err := vpcHandler.VpcService.GetSecurityGroupWithContext(vpcHandler.Ctx, options)
-
+	if err != nil {
+		getErr := errors.New(fmt.Sprintf("Failed to Get VPC err = %s", err.Error()))
+		cblogger.Error(getErr.Error())
+		LoggingError(hiscallInfo, getErr)
+		return irs.VPCInfo{}, getErr
+	}
 	err = ModifyVPCDefaultRule(sg.Rules, irs.IID{NameId: *sg.Name, SystemId: *sg.ID}, vpcHandler.VpcService, vpcHandler.Ctx)
 
 	if err != nil {
@@ -309,14 +319,14 @@ func (vpcHandler *IbmVPCHandler) AddSubnet(vpcIID irs.IID, subnetInfo irs.Subnet
 	start := call.Start()
 	vpc, err := getRawVPC(vpcIID, vpcHandler.VpcService, vpcHandler.Ctx)
 	if err != nil {
-		addSubnetErr := errors.New(fmt.Sprintf("Failed to AddSubnet err = %s", err.Error()))
+		addSubnetErr := errors.New(fmt.Sprintf("Failed to Add Subnet err = %s", err.Error()))
 		cblogger.Error(addSubnetErr.Error())
 		LoggingError(hiscallInfo, addSubnetErr)
 		return irs.VPCInfo{}, addSubnetErr
 	}
 	err = attachSubnet(vpc, subnetInfo, vpcHandler.VpcService, vpcHandler.Ctx)
 	if err != nil {
-		addSubnetErr := errors.New(fmt.Sprintf("Failed to AddSubnet err = %s", err.Error()))
+		addSubnetErr := errors.New(fmt.Sprintf("Failed to Add Subnet err = %s", err.Error()))
 		cblogger.Error(addSubnetErr.Error())
 		LoggingError(hiscallInfo, addSubnetErr)
 		return irs.VPCInfo{}, addSubnetErr
@@ -324,14 +334,14 @@ func (vpcHandler *IbmVPCHandler) AddSubnet(vpcIID irs.IID, subnetInfo irs.Subnet
 	LoggingInfo(hiscallInfo, start)
 	vpc, err = getRawVPC(vpcIID, vpcHandler.VpcService, vpcHandler.Ctx)
 	if err != nil {
-		addSubnetErr := errors.New(fmt.Sprintf("Failed to AddSubnet err = %s", err.Error()))
+		addSubnetErr := errors.New(fmt.Sprintf("Failed to Add Subnet err = %s", err.Error()))
 		cblogger.Error(addSubnetErr.Error())
 		LoggingError(hiscallInfo, addSubnetErr)
 		return irs.VPCInfo{}, addSubnetErr
 	}
 	vpcInfo, err := setVPCInfo(vpc, vpcHandler.VpcService, vpcHandler.Ctx)
 	if err != nil {
-		addSubnetErr := errors.New(fmt.Sprintf("Failed to AddSubnet err = %s", err.Error()))
+		addSubnetErr := errors.New(fmt.Sprintf("Failed to Add Subnet err = %s", err.Error()))
 		cblogger.Error(addSubnetErr.Error())
 		LoggingError(hiscallInfo, addSubnetErr)
 		return irs.VPCInfo{}, addSubnetErr
@@ -346,7 +356,7 @@ func (vpcHandler *IbmVPCHandler) RemoveSubnet(vpcIID irs.IID, subnetIID irs.IID)
 		options.SetID(subnetIID.SystemId)
 		_, err := vpcHandler.VpcService.DeleteSubnetWithContext(vpcHandler.Ctx, options)
 		if err != nil {
-			delErr := errors.New(fmt.Sprintf("Failed to RemoveSubnet err = %s", err.Error()))
+			delErr := errors.New(fmt.Sprintf("Failed to Remove Subnet err = %s", err.Error()))
 			cblogger.Error(delErr.Error())
 			LoggingError(hiscallInfo, delErr)
 			return false, delErr
@@ -356,7 +366,7 @@ func (vpcHandler *IbmVPCHandler) RemoveSubnet(vpcIID irs.IID, subnetIID irs.IID)
 	}
 	vpc, err := getRawVPC(vpcIID, vpcHandler.VpcService, vpcHandler.Ctx)
 	if err != nil {
-		delErr := errors.New(fmt.Sprintf("Failed to RemoveSubnet err = %s", err.Error()))
+		delErr := errors.New(fmt.Sprintf("Failed to Remove Subnet err = %s", err.Error()))
 		cblogger.Error(delErr.Error())
 		LoggingError(hiscallInfo, delErr)
 		return false, delErr
@@ -369,7 +379,7 @@ func (vpcHandler *IbmVPCHandler) RemoveSubnet(vpcIID irs.IID, subnetIID irs.IID)
 				options.SetID(*subnet.ID)
 				_, err := vpcHandler.VpcService.DeleteSubnetWithContext(vpcHandler.Ctx, options)
 				if err != nil {
-					delErr := errors.New(fmt.Sprintf("Failed to RemoveSubnet err = %s", err.Error()))
+					delErr := errors.New(fmt.Sprintf("Failed to Remove Subnet err = %s", err.Error()))
 					cblogger.Error(delErr.Error())
 					LoggingError(hiscallInfo, delErr)
 					return false, delErr
@@ -380,7 +390,7 @@ func (vpcHandler *IbmVPCHandler) RemoveSubnet(vpcIID irs.IID, subnetIID irs.IID)
 		}
 	}
 	err = errors.New("not found subnet")
-	delErr := errors.New(fmt.Sprintf("Failed to RemoveSubnet err = %s", err.Error()))
+	delErr := errors.New(fmt.Sprintf("Failed to Remove Subnet err = %s", err.Error()))
 	cblogger.Error(delErr.Error())
 	LoggingError(hiscallInfo, delErr)
 	return false, delErr

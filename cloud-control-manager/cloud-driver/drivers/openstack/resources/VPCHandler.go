@@ -78,23 +78,26 @@ func (vpcHandler *OpenStackVPCHandler) setterSubnet(subnet subnets.Subnet) *irs.
 func (vpcHandler *OpenStackVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (createdVPC irs.VPCInfo, createErr error) {
 	// log HisCall
 	hiscallInfo := GetCallLogScheme(vpcHandler.Client.IdentityEndpoint, call.VPCSUBNET, vpcReqInfo.IId.NameId, "CreateVPC()")
+	start := call.Start()
 
 	// Check VPC Exists
 	listOpts := networks.ListOpts{Name: vpcReqInfo.IId.NameId}
 	page, err := networks.List(vpcHandler.Client, listOpts).AllPages()
 	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return irs.VPCInfo{}, err
+		createErr := errors.New(fmt.Sprintf("Failed to Create VPC err = %s", err.Error()))
+		cblogger.Error(createErr.Error())
+		LoggingError(hiscallInfo, createErr)
+		return irs.VPCInfo{}, createErr
 	}
 	vpcList, err := networks.ExtractNetworks(page)
 	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return irs.VPCInfo{}, err
+		createErr := errors.New(fmt.Sprintf("Failed to Create VPC err = %s", err.Error()))
+		cblogger.Error(createErr.Error())
+		LoggingError(hiscallInfo, createErr)
+		return irs.VPCInfo{}, createErr
 	}
 	if len(vpcList) != 0 {
-		createErr := errors.New(fmt.Sprintf("Failed to Create VPC. The VPC name %s already exists", vpcReqInfo.IId.NameId))
+		createErr := errors.New(fmt.Sprintf("Failed to Create VPC. err = The VPC name %s already exists", vpcReqInfo.IId.NameId))
 		cblogger.Error(createErr.Error())
 		LoggingError(hiscallInfo, createErr)
 		return irs.VPCInfo{}, createErr
@@ -105,7 +108,6 @@ func (vpcHandler *OpenStackVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (cre
 		Name: vpcReqInfo.IId.NameId,
 	}
 
-	start := call.Start()
 	vpc, err := networks.Create(vpcHandler.Client, createOpts).Extract()
 	if err != nil {
 		createErr := errors.New(fmt.Sprintf("Failed to Create VPC with name %s err=%s and Finished to rollback deleting", vpcReqInfo.IId.NameId, err.Error()))
@@ -124,6 +126,8 @@ func (vpcHandler *OpenStackVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (cre
 			cleanErr := vpcHandler.vpcCleaner(cleanVPCIId)
 			if cleanErr != nil {
 				createErr = errors.New(fmt.Sprintf("%s Failed to rollback deleting err = %s", createErr, cleanErr))
+				cblogger.Error(createErr.Error())
+				LoggingError(hiscallInfo, createErr)
 			}
 		}
 	}()
@@ -131,7 +135,7 @@ func (vpcHandler *OpenStackVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (cre
 	// Create Router
 	routerId, err := vpcHandler.CreateRouter(vpcReqInfo.IId.NameId)
 	if err != nil {
-		createErr = errors.New(fmt.Sprintf("Failed to Create VPC with name %s err=%s", vpcReqInfo.IId.NameId, err.Error()))
+		createErr := errors.New(fmt.Sprintf("Failed to Create VPC err = %s", err.Error()))
 		cblogger.Error(createErr.Error())
 		LoggingError(hiscallInfo, createErr)
 		return irs.VPCInfo{}, createErr
@@ -141,7 +145,7 @@ func (vpcHandler *OpenStackVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (cre
 	for _, subnet := range vpcReqInfo.SubnetInfoList {
 		_, err := vpcHandler.CreateSubnet(vpc.ID, subnet)
 		if err != nil {
-			createErr = errors.New(fmt.Sprintf("Failed to Create VPC with name %s err=%s", vpcReqInfo.IId.NameId, err.Error()))
+			createErr := errors.New(fmt.Sprintf("Failed to Create VPC err = %s", err.Error()))
 			cblogger.Error(createErr.Error())
 			LoggingError(hiscallInfo, createErr)
 			return irs.VPCInfo{}, createErr
@@ -150,7 +154,7 @@ func (vpcHandler *OpenStackVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (cre
 
 	vpcInfo, err := vpcHandler.GetVPC(irs.IID{SystemId: vpc.ID})
 	if err != nil {
-		createErr = errors.New(fmt.Sprintf("Failed to Create VPC with name %s err=%s", vpcReqInfo.IId.NameId, err.Error()))
+		createErr := errors.New(fmt.Sprintf("Failed to Create VPC err = %s", err.Error()))
 		cblogger.Error(createErr.Error())
 		LoggingError(hiscallInfo, createErr)
 		return irs.VPCInfo{}, createErr
@@ -183,7 +187,7 @@ func (vpcHandler *OpenStackVPCHandler) ListVPC() ([]*irs.VPCInfo, error) {
 	start := call.Start()
 	page, err := networks.List(vpcHandler.Client, listOpts).AllPages()
 	if err != nil {
-		getErr := errors.New(fmt.Sprintf("Failed to Get VPC List, err=%s", err.Error()))
+		getErr := errors.New(fmt.Sprintf("Failed to List VPC err = %s", err.Error()))
 		cblogger.Error(getErr.Error())
 		LoggingError(hiscallInfo, getErr)
 		return nil, getErr
@@ -193,7 +197,7 @@ func (vpcHandler *OpenStackVPCHandler) ListVPC() ([]*irs.VPCInfo, error) {
 	var vpcList []NetworkWithExt
 	err = networks.ExtractNetworksInto(page, &vpcList)
 	if err != nil {
-		getErr := errors.New(fmt.Sprintf("Failed to Get VPC List, err=%s", err.Error()))
+		getErr := errors.New(fmt.Sprintf("Failed to List VPC err = %s", err.Error()))
 		cblogger.Error(getErr.Error())
 		LoggingError(hiscallInfo, getErr)
 		return nil, getErr
@@ -215,7 +219,7 @@ func (vpcHandler *OpenStackVPCHandler) GetVPC(vpcIID irs.IID) (irs.VPCInfo, erro
 	start := call.Start()
 	vpc, err := vpcHandler.getRawVPC(vpcIID)
 	if err != nil {
-		getErr := errors.New(fmt.Sprintf("Failed to Get VPC with Id %s, err=%s", vpcIID.SystemId, err.Error()))
+		getErr := errors.New(fmt.Sprintf("Failed to Get VPC err = %s", err.Error()))
 		cblogger.Error(getErr.Error())
 		LoggingError(hiscallInfo, getErr)
 		return irs.VPCInfo{}, getErr
@@ -232,10 +236,10 @@ func (vpcHandler *OpenStackVPCHandler) DeleteVPC(vpcIID irs.IID) (bool, error) {
 	start := call.Start()
 	err := vpcHandler.vpcCleaner(vpcIID)
 	if err != nil {
-		getErr := errors.New(fmt.Sprintf("Failed to Delete VPC with name %s err=%s", vpcIID.NameId, err.Error()))
-		cblogger.Error(getErr.Error())
-		LoggingError(hiscallInfo, getErr)
-		return false, getErr
+		delErr := errors.New(fmt.Sprintf("Failed to Delete VPC err = %s", err.Error()))
+		cblogger.Error(delErr.Error())
+		LoggingError(hiscallInfo, delErr)
+		return false, delErr
 	}
 	LoggingInfo(hiscallInfo, start)
 
@@ -383,18 +387,19 @@ func (vpcHandler *OpenStackVPCHandler) AddSubnet(vpcIID irs.IID, subnetInfo irs.
 	start := call.Start()
 	_, err := subnets.Create(vpcHandler.Client, subnetCreateOpts).Extract()
 	if err != nil {
-		createErr := errors.New(fmt.Sprintf("Failed to Create Subnet with name %s, err=%s", subnetCreateOpts.Name, err.Error()))
-		cblogger.Error(createErr.Error())
-		LoggingError(hiscallInfo, createErr)
-		return irs.VPCInfo{}, createErr
+		addSubnetErr := errors.New(fmt.Sprintf("Failed to Add Subnet err = %s", err.Error()))
+		cblogger.Error(addSubnetErr.Error())
+		LoggingError(hiscallInfo, addSubnetErr)
+		return irs.VPCInfo{}, addSubnetErr
 	}
 	LoggingInfo(hiscallInfo, start)
 
 	result, err := vpcHandler.GetVPC(vpcIID)
 	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return irs.VPCInfo{}, err
+		addSubnetErr := errors.New(fmt.Sprintf("Failed to Add Subnet err = %s", err.Error()))
+		cblogger.Error(addSubnetErr.Error())
+		LoggingError(hiscallInfo, addSubnetErr)
+		return irs.VPCInfo{}, addSubnetErr
 	}
 	return result, nil
 }
@@ -406,9 +411,10 @@ func (vpcHandler *OpenStackVPCHandler) RemoveSubnet(vpcIID irs.IID, subnetIID ir
 	start := call.Start()
 	err := subnets.Delete(vpcHandler.Client, subnetIID.SystemId).ExtractErr()
 	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return false, err
+		delErr := errors.New(fmt.Sprintf("Failed to Remove Subnet err = %s", err.Error()))
+		cblogger.Error(delErr.Error())
+		LoggingError(hiscallInfo, delErr)
+		return false, delErr
 	}
 	LoggingInfo(hiscallInfo, start)
 
