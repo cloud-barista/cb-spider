@@ -1095,6 +1095,13 @@ func (vmHandler *AzureVMHandler) mappingServerInfo(server compute.VirtualMachine
 	if err == nil {
 		vmInfo.Platform = osPlatform
 	}
+	if vmInfo.PublicIP != "" {
+		if osPlatform == irs.WINDOWS {
+			vmInfo.AccessPoint = fmt.Sprintf("%s:%s", vmInfo.PublicIP, "3389")
+		} else {
+			vmInfo.AccessPoint = fmt.Sprintf("%s:%s", vmInfo.PublicIP, "22")
+		}
+	}
 	return vmInfo
 }
 
