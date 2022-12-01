@@ -525,8 +525,6 @@ func (vmHandler *OpenStackVMHandler) AssociatePublicIP(serverID string) (bool, e
 		err = floatingips.AssociateInstance(vmHandler.ComputeClient, serverID, associateOpts).ExtractErr()
 		if err == nil {
 			break
-		} else {
-			fmt.Println(fmt.Sprintf("[%d] err = %s", curRetryCnt, err))
 		}
 
 		time.Sleep(1 * time.Second)
