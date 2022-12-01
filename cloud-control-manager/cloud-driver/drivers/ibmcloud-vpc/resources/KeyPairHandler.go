@@ -85,7 +85,7 @@ func (keyPairHandler *IbmKeyPairHandler) ListKey() ([]*irs.KeyPairInfo, error) {
 	listKeysOptions := &vpcv1.ListKeysOptions{}
 	keys, _, err := keyPairHandler.VpcService.ListKeysWithContext(keyPairHandler.Ctx, listKeysOptions)
 	if err != nil {
-		getErr := errors.New(fmt.Sprintf("Failed to Get KeyList err = %s", err.Error()))
+		getErr := errors.New(fmt.Sprintf("Failed to List Key err = %s", err.Error()))
 		cblogger.Error(getErr.Error())
 		LoggingError(hiscallInfo, getErr)
 		return nil, getErr
@@ -108,7 +108,7 @@ func (keyPairHandler *IbmKeyPairHandler) ListKey() ([]*irs.KeyPairInfo, error) {
 			}
 			keys, _, err = keyPairHandler.VpcService.ListKeysWithContext(keyPairHandler.Ctx, listKeysOptions)
 			if err != nil {
-				getErr := errors.New(fmt.Sprintf("Failed to Get KeyList err = %s", err.Error()))
+				getErr := errors.New(fmt.Sprintf("Failed to List Key err = %s", err.Error()))
 				cblogger.Error(getErr.Error())
 				LoggingError(hiscallInfo, getErr)
 				return nil, getErr
