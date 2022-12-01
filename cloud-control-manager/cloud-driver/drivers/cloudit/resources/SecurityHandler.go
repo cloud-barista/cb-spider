@@ -128,7 +128,7 @@ func (securityHandler *ClouditSecurityHandler) ListSecurity() ([]*irs.SecurityIn
 	start := call.Start()
 	securityList, err := securitygroup.List(securityHandler.Client, &requestOpts)
 	if err != nil {
-		getErr := errors.New(fmt.Sprintf("Failed to Get SecurityList. err = %s", err.Error()))
+		getErr := errors.New(fmt.Sprintf("Failed to List Security. err = %s", err.Error()))
 		cblogger.Error(getErr.Error())
 		LoggingError(hiscallInfo, getErr)
 		return nil, getErr
@@ -139,7 +139,7 @@ func (securityHandler *ClouditSecurityHandler) ListSecurity() ([]*irs.SecurityIn
 	for i, sg := range *securityList {
 		sgRules, err := securitygroup.ListRule(securityHandler.Client, sg.ID, &requestOpts)
 		if err != nil {
-			getErr := errors.New(fmt.Sprintf("Failed to Get SecurityList. err = %s", err.Error()))
+			getErr := errors.New(fmt.Sprintf("Failed to List Security. err = %s", err.Error()))
 			cblogger.Error(getErr.Error())
 			LoggingError(hiscallInfo, getErr)
 			return nil, getErr
@@ -152,7 +152,7 @@ func (securityHandler *ClouditSecurityHandler) ListSecurity() ([]*irs.SecurityIn
 	for i, security := range *securityList {
 		secInfo, err := securityHandler.setterSecGroup(security)
 		if err != nil {
-			getErr := errors.New(fmt.Sprintf("Failed to Get SecurityList. err = %s", err.Error()))
+			getErr := errors.New(fmt.Sprintf("Failed to List Security. err = %s", err.Error()))
 			cblogger.Error(getErr.Error())
 			LoggingError(hiscallInfo, getErr)
 			return nil, getErr

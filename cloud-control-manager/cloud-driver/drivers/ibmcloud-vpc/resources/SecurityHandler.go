@@ -128,7 +128,7 @@ func (securityHandler *IbmSecurityHandler) ListSecurity() ([]*irs.SecurityInfo, 
 	options := &vpcv1.ListSecurityGroupsOptions{}
 	securityGroups, _, err := securityHandler.VpcService.ListSecurityGroupsWithContext(securityHandler.Ctx, options)
 	if err != nil {
-		getErr := errors.New(fmt.Sprintf("Failed to Get SecurityList. err = %s", err.Error()))
+		getErr := errors.New(fmt.Sprintf("Failed to List Security. err = %s", err.Error()))
 		cblogger.Error(getErr.Error())
 		LoggingError(hiscallInfo, getErr)
 		return nil, getErr
@@ -138,7 +138,7 @@ func (securityHandler *IbmSecurityHandler) ListSecurity() ([]*irs.SecurityInfo, 
 		for _, securityGroup := range securityGroups.SecurityGroups {
 			securityInfo, err := setSecurityGroupInfo(securityGroup)
 			if err != nil {
-				getErr := errors.New(fmt.Sprintf("Failed to Get SecurityList. err = %s", err.Error()))
+				getErr := errors.New(fmt.Sprintf("Failed to List Security. err = %s", err.Error()))
 				cblogger.Error(getErr.Error())
 				LoggingError(hiscallInfo, getErr)
 				return nil, getErr
@@ -152,7 +152,7 @@ func (securityHandler *IbmSecurityHandler) ListSecurity() ([]*irs.SecurityInfo, 
 			}
 			securityGroups, _, err = securityHandler.VpcService.ListSecurityGroupsWithContext(securityHandler.Ctx, options2)
 			if err != nil {
-				getErr := errors.New(fmt.Sprintf("Failed to Get SecurityList. err = %s", err.Error()))
+				getErr := errors.New(fmt.Sprintf("Failed to List Security. err = %s", err.Error()))
 				cblogger.Error(getErr.Error())
 				LoggingError(hiscallInfo, getErr)
 				return nil, getErr
