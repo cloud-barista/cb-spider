@@ -86,8 +86,12 @@ NCP:
 NCPVPC:
   region: Region / Zone
   credential: ClientId / ClientSecret
-  # idmaxlength: VPC / Subnet / SecurityGroup / KeyPair / VM
-  idmaxlength: 30 / 30 / 30 / 30 / 30
+  rootdisktype: SSD / HDD
+  rootdisksize: SSD|50|100|GB / HDD|50|100|GB
+  disktype: SSD / HDD
+  disksize: SSD|10|2000|GB / HDD|10|2000|GB
+  # idmaxlength: VPC / Subnet / SecurityGroup / KeyPair / VM / Disk / NLB / MyImage / Cluster
+  idmaxlength: 30 / 30 / 30 / 30 / 30 / 30 / 30 / 30 / 20
 
 KTCLOUD:
   region: Region / Zone
