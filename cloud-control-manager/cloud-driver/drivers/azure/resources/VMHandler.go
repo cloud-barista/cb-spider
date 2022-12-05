@@ -509,7 +509,7 @@ func (vmHandler *AzureVMHandler) SuspendVM(vmIID irs.IID) (irs.VMStatus, error) 
 
 	convertedIID, err := ConvertVMIID(vmIID, vmHandler.CredentialInfo, vmHandler.Region)
 	if err != nil {
-		getErr := errors.New(fmt.Sprintf("Failed to Resume VM. err = %s", err))
+		getErr := errors.New(fmt.Sprintf("Failed to Suspend VM. err = %s", err))
 		cblogger.Error(getErr.Error())
 		LoggingError(hiscallInfo, getErr)
 		return irs.Failed, getErr
@@ -712,8 +712,6 @@ func (vmHandler *AzureVMHandler) TerminateVM(vmIID irs.IID) (irs.VMStatus, error
 	// log HisCall
 	hiscallInfo := GetCallLogScheme(vmHandler.Region, call.VM, vmIID.NameId, "TerminateVM()")
 	start := call.Start()
-	LoggingInfo(hiscallInfo, start)
-
 	err := vmHandler.cleanDeleteVm(vmIID)
 	if err != nil {
 		getErr := errors.New(fmt.Sprintf("Failed to Terminate VM. err = %s", err))
@@ -721,6 +719,8 @@ func (vmHandler *AzureVMHandler) TerminateVM(vmIID irs.IID) (irs.VMStatus, error
 		LoggingError(hiscallInfo, getErr)
 		return irs.Failed, getErr
 	}
+	LoggingInfo(hiscallInfo, start)
+
 	return irs.NotExist, nil
 }
 
@@ -731,9 +731,10 @@ func (vmHandler *AzureVMHandler) ListVMStatus() ([]*irs.VMStatusInfo, error) {
 	start := call.Start()
 	serverList, err := vmHandler.Client.List(vmHandler.Ctx, vmHandler.Region.ResourceGroup)
 	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return []*irs.VMStatusInfo{}, err
+		getErr := errors.New(fmt.Sprintf("Failed to List VMStatus. err = %s", err))
+		cblogger.Error(getErr.Error())
+		LoggingError(hiscallInfo, getErr)
+		return []*irs.VMStatusInfo{}, getErr
 	}
 	LoggingInfo(hiscallInfo, start)
 
@@ -781,9 +782,10 @@ func (vmHandler *AzureVMHandler) GetVMStatus(vmIID irs.IID) (irs.VMStatus, error
 	start := call.Start()
 	instanceView, err := vmHandler.Client.InstanceView(vmHandler.Ctx, vmHandler.Region.ResourceGroup, convertedIID.NameId)
 	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return irs.Failed, err
+		getErr := errors.New(fmt.Sprintf("Failed to Get VM. err = %s", err))
+		cblogger.Error(getErr.Error())
+		LoggingError(hiscallInfo, getErr)
+		return irs.Failed, getErr
 	}
 	LoggingInfo(hiscallInfo, start)
 
@@ -818,7 +820,7 @@ func (vmHandler *AzureVMHandler) ListVM() ([]*irs.VMInfo, error) {
 func (vmHandler *AzureVMHandler) GetVM(vmIID irs.IID) (irs.VMInfo, error) {
 	// log HisCall
 	hiscallInfo := GetCallLogScheme(vmHandler.Region, call.VM, vmIID.NameId, "GetVM()")
-
+	start := call.Start()
 	convertedIID, err := ConvertVMIID(vmIID, vmHandler.CredentialInfo, vmHandler.Region)
 	if err != nil {
 		getErr := errors.New(fmt.Sprintf("Failed to Get VM. err = %s", err))
@@ -826,8 +828,6 @@ func (vmHandler *AzureVMHandler) GetVM(vmIID irs.IID) (irs.VMInfo, error) {
 		LoggingError(hiscallInfo, getErr)
 		return irs.VMInfo{}, getErr
 	}
-
-	start := call.Start()
 
 	vm, err := GetRawVM(convertedIID, vmHandler.Region.ResourceGroup, vmHandler.Client, vmHandler.Ctx)
 	if err != nil {

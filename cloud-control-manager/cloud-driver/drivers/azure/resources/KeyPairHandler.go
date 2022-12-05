@@ -104,7 +104,7 @@ func (keyPairHandler *AzureKeyPairHandler) ListKey() ([]*irs.KeyPairInfo, error)
 	// 0. Get List Resource
 	listResult, err := keyPairHandler.Client.ListByResourceGroup(keyPairHandler.Ctx, keyPairHandler.Region.ResourceGroup)
 	if err != nil {
-		getErr := errors.New(fmt.Sprintf("Failed to Get KeyList. err = %s", err.Error()))
+		getErr := errors.New(fmt.Sprintf("Failed to List Key. err = %s", err.Error()))
 		cblogger.Error(getErr.Error())
 		LoggingError(hiscallInfo, getErr)
 		return nil, getErr
@@ -114,7 +114,7 @@ func (keyPairHandler *AzureKeyPairHandler) ListKey() ([]*irs.KeyPairInfo, error)
 	for _, key := range listResult.Values() {
 		keyInfo, err := keyPairHandler.setterKey(key, "")
 		if err != nil {
-			getErr := errors.New(fmt.Sprintf("Failed to Get KeyList. err = %s", err.Error()))
+			getErr := errors.New(fmt.Sprintf("Failed to List Key. err = %s", err.Error()))
 			cblogger.Error(getErr.Error())
 			LoggingError(hiscallInfo, getErr)
 			return nil, getErr

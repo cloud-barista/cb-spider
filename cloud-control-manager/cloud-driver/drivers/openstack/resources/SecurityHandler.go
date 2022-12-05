@@ -66,13 +66,14 @@ func (securityHandler *OpenStackSecurityHandler) CreateSecurity(securityReqInfo 
 	// Check SecurityGroup Exists
 	secGroupList, err := securityHandler.ListSecurity()
 	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return irs.SecurityInfo{}, err
+		createErr := errors.New(fmt.Sprintf("Failed to Create Security. err = %s", err.Error()))
+		cblogger.Error(createErr.Error())
+		LoggingError(hiscallInfo, createErr)
+		return irs.SecurityInfo{}, createErr
 	}
 	for _, sg := range secGroupList {
 		if sg.IId.NameId == securityReqInfo.IId.NameId {
-			createErr := errors.New(fmt.Sprintf("Security Group with name %s already exist", securityReqInfo.IId.NameId))
+			createErr := errors.New(fmt.Sprintf("Failed to Create Security. err = %s already exist", securityReqInfo.IId.NameId))
 			cblogger.Error(createErr.Error())
 			LoggingError(hiscallInfo, createErr)
 			return irs.SecurityInfo{}, createErr
@@ -88,9 +89,10 @@ func (securityHandler *OpenStackSecurityHandler) CreateSecurity(securityReqInfo 
 	start := call.Start()
 	group, err := secgroups.Create(securityHandler.Client, createOpts).Extract()
 	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return irs.SecurityInfo{}, err
+		createErr := errors.New(fmt.Sprintf("Failed to Create Security. err = %s", err.Error()))
+		cblogger.Error(createErr.Error())
+		LoggingError(hiscallInfo, createErr)
+		return irs.SecurityInfo{}, createErr
 	}
 
 	defer func() {
@@ -118,29 +120,29 @@ func (securityHandler *OpenStackSecurityHandler) CreateSecurity(securityReqInfo 
 
 	createRuleOpts, err := convertCBRuleInfosToOpenStackRules(group.ID, &updateRules)
 	if err != nil {
-		creteErr = err
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return irs.SecurityInfo{}, creteErr
+		createErr := errors.New(fmt.Sprintf("Failed to Create Security. err = %s", err.Error()))
+		cblogger.Error(createErr.Error())
+		LoggingError(hiscallInfo, createErr)
+		return irs.SecurityInfo{}, createErr
 	}
 	// Create SecurityGroup Rules
 	for _, createRuleOpt := range *createRuleOpts {
 		_, err := rules.Create(securityHandler.NetworkClient, createRuleOpt).Extract()
 		if err != nil {
-			creteErr = err
-			cblogger.Error(err.Error())
-			LoggingError(hiscallInfo, err)
-			return irs.SecurityInfo{}, creteErr
+			createErr := errors.New(fmt.Sprintf("Failed to Create Security. err = %s", err.Error()))
+			cblogger.Error(createErr.Error())
+			LoggingError(hiscallInfo, createErr)
+			return irs.SecurityInfo{}, createErr
 		}
 	}
 
 	// 생성된 SecurityGroup 정보 리턴
 	securityInfo, err := securityHandler.GetSecurity(irs.IID{SystemId: group.ID})
 	if err != nil {
-		creteErr = err
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return irs.SecurityInfo{}, creteErr
+		createErr := errors.New(fmt.Sprintf("Failed to Create Security. err = %s", err.Error()))
+		cblogger.Error(createErr.Error())
+		LoggingError(hiscallInfo, createErr)
+		return irs.SecurityInfo{}, createErr
 	}
 	LoggingInfo(hiscallInfo, start)
 	return securityInfo, creteErr
@@ -154,17 +156,19 @@ func (securityHandler *OpenStackSecurityHandler) ListSecurity() ([]*irs.Security
 	start := call.Start()
 	pager, err := secgroups.List(securityHandler.Client).AllPages()
 	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return nil, err
+		getErr := errors.New(fmt.Sprintf("Failed to List Security. err = %s", err.Error()))
+		cblogger.Error(getErr.Error())
+		LoggingError(hiscallInfo, getErr)
+		return nil, getErr
 	}
 	LoggingInfo(hiscallInfo, start)
 
 	security, err := secgroups.ExtractSecurityGroups(pager)
 	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return nil, err
+		getErr := errors.New(fmt.Sprintf("Failed to List Security. err = %s", err.Error()))
+		cblogger.Error(getErr.Error())
+		LoggingError(hiscallInfo, getErr)
+		return nil, getErr
 	}
 
 	// 보안그룹 목록 정보 매핑
@@ -183,9 +187,10 @@ func (securityHandler *OpenStackSecurityHandler) GetSecurity(securityIID irs.IID
 	start := call.Start()
 	securityGroup, err := securityHandler.getRawSecurity(securityIID)
 	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return irs.SecurityInfo{}, err
+		getErr := errors.New(fmt.Sprintf("Failed to Get Security. err = %s", err.Error()))
+		cblogger.Error(getErr.Error())
+		LoggingError(hiscallInfo, getErr)
+		return irs.SecurityInfo{}, getErr
 	}
 	LoggingInfo(hiscallInfo, start)
 
@@ -200,9 +205,10 @@ func (securityHandler *OpenStackSecurityHandler) DeleteSecurity(securityIID irs.
 	start := call.Start()
 	result := secgroups.Delete(securityHandler.Client, securityIID.SystemId)
 	if result.Err != nil {
-		cblogger.Error(result.Err.Error())
-		LoggingError(hiscallInfo, result.Err)
-		return false, result.Err
+		delErr := errors.New(fmt.Sprintf("Failed to Delete Security. err = %s", result.Err.Error()))
+		cblogger.Error(delErr.Error())
+		LoggingError(hiscallInfo, delErr)
+		return false, delErr
 	}
 	LoggingInfo(hiscallInfo, start)
 	return true, nil
@@ -214,9 +220,10 @@ func (securityHandler *OpenStackSecurityHandler) AddRules(sgIID irs.IID, securit
 	start := call.Start()
 	securityGroup, err := securityHandler.getRawSecurity(sgIID)
 	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return irs.SecurityInfo{}, err
+		getErr := errors.New(fmt.Sprintf("Failed to Add SecurityGroup Rules. err = %s", err.Error()))
+		cblogger.Error(getErr.Error())
+		LoggingError(hiscallInfo, getErr)
+		return irs.SecurityInfo{}, getErr
 	}
 
 	securityInfo := securityHandler.setterSeg(*securityGroup)
@@ -232,34 +239,38 @@ func (securityHandler *OpenStackSecurityHandler) AddRules(sgIID irs.IID, securit
 		}
 		if existCheck {
 			b, err := json.Marshal(newRule)
-			err = errors.New(fmt.Sprintf("Failed to Add SecurityGroup Rules. err already Exist Rule : %s", string(b)))
-			cblogger.Error(err.Error())
-			LoggingError(hiscallInfo, err)
-			return irs.SecurityInfo{}, err
+			err = errors.New(fmt.Sprintf("already Exist Rule : %s", string(b)))
+			getErr := errors.New(fmt.Sprintf("Failed to Add SecurityGroup Rules. err = %s", err.Error()))
+			cblogger.Error(getErr.Error())
+			LoggingError(hiscallInfo, getErr)
+			return irs.SecurityInfo{}, getErr
 		}
 		updateRules = append(updateRules, newRule)
 	}
 	createRuleOpts, err := convertCBRuleInfosToOpenStackRules(securityGroup.ID, &updateRules)
 	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return irs.SecurityInfo{}, err
+		getErr := errors.New(fmt.Sprintf("Failed to Add SecurityGroup Rules. err = %s", err.Error()))
+		cblogger.Error(getErr.Error())
+		LoggingError(hiscallInfo, getErr)
+		return irs.SecurityInfo{}, getErr
 	}
 	for _, createRuleOpt := range *createRuleOpts {
 		_, err := rules.Create(securityHandler.NetworkClient, createRuleOpt).Extract()
 		if err != nil {
-			cblogger.Error(err.Error())
-			LoggingError(hiscallInfo, err)
-			return irs.SecurityInfo{}, err
+			getErr := errors.New(fmt.Sprintf("Failed to Add SecurityGroup Rules. err = %s", err.Error()))
+			cblogger.Error(getErr.Error())
+			LoggingError(hiscallInfo, getErr)
+			return irs.SecurityInfo{}, getErr
 		}
 	}
 
 	//  SecurityGroup 정보 리턴
 	updatedSecurity, err := securityHandler.getRawSecurity(sgIID)
 	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return irs.SecurityInfo{}, err
+		getErr := errors.New(fmt.Sprintf("Failed to Add SecurityGroup Rules. err = %s", err.Error()))
+		cblogger.Error(getErr.Error())
+		LoggingError(hiscallInfo, getErr)
+		return irs.SecurityInfo{}, getErr
 	}
 	LoggingInfo(hiscallInfo, start)
 
@@ -282,16 +293,25 @@ func (securityHandler *OpenStackSecurityHandler) RemoveRules(sgIID irs.IID, secu
 
 	pager, err := rules.List(securityHandler.NetworkClient, listOpts).AllPages()
 	if err != nil {
-		return false, err
+		getErr := errors.New(fmt.Sprintf("Failed to Remove SecurityGroup Rules. err = %s", err.Error()))
+		cblogger.Error(getErr.Error())
+		LoggingError(hiscallInfo, getErr)
+		return false, getErr
 	}
 	secList, err := rules.ExtractRules(pager)
 	if err != nil {
-		return false, err
+		getErr := errors.New(fmt.Sprintf("Failed to Remove SecurityGroup Rules. err = %s", err.Error()))
+		cblogger.Error(getErr.Error())
+		LoggingError(hiscallInfo, getErr)
+		return false, getErr
 	}
 	var deleteRuleIds []string
 	ruleWithIds, err := getRuleInfoWithIds(&secList)
 	if err != nil {
-		return false, err
+		getErr := errors.New(fmt.Sprintf("Failed to Remove SecurityGroup Rules. err = %s", err.Error()))
+		cblogger.Error(getErr.Error())
+		LoggingError(hiscallInfo, getErr)
+		return false, getErr
 	}
 
 	for _, delRule := range *securityRules {
@@ -305,16 +325,20 @@ func (securityHandler *OpenStackSecurityHandler) RemoveRules(sgIID irs.IID, secu
 		}
 		if !existCheck {
 			b, err := json.Marshal(delRule)
-			err = errors.New(fmt.Sprintf("Failed to Remove SecurityGroup Rules. err = not Exist Rule : %s", string(b)))
-			cblogger.Error(err.Error())
-			LoggingError(hiscallInfo, err)
-			return false, err
+			err = errors.New(fmt.Sprintf("not Exist Rule : %s", string(b)))
+			getErr := errors.New(fmt.Sprintf("Failed to Remove SecurityGroup Rules. err = %s", err.Error()))
+			cblogger.Error(getErr.Error())
+			LoggingError(hiscallInfo, getErr)
+			return false, getErr
 		}
 	}
 	for _, deleteRuleId := range deleteRuleIds {
 		err := rules.Delete(securityHandler.NetworkClient, deleteRuleId).ExtractErr()
 		if err != nil {
-			return false, err
+			getErr := errors.New(fmt.Sprintf("Failed to Remove SecurityGroup Rules. err = %s", err.Error()))
+			cblogger.Error(getErr.Error())
+			LoggingError(hiscallInfo, getErr)
+			return false, getErr
 		}
 	}
 	LoggingInfo(hiscallInfo, start)

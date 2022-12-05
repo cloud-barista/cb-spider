@@ -3,7 +3,6 @@ package ibmcloudvpc
 import (
 	"context"
 	"errors"
-	"fmt"
 	"github.com/IBM/go-sdk-core/v5/core"
 	vpc0230 "github.com/IBM/vpc-go-sdk/0.23.0/vpcv1"
 	"github.com/IBM/vpc-go-sdk/vpcv1"
@@ -59,9 +58,8 @@ func (driver *IbmCloudDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (
 	var endPoint string
 	getRegionOptions := &vpcv1.GetRegionOptions{}
 	getRegionOptions.SetName(connectionInfo.RegionInfo.Region)
-	region, details, err := initVpcService.GetRegionWithContext(ctx, getRegionOptions)
+	region, _, err := initVpcService.GetRegionWithContext(ctx, getRegionOptions)
 	if err != nil {
-		fmt.Println(details)
 		return nil, err
 	} else {
 		getZoneOptions := &vpcv1.GetRegionZoneOptions{}

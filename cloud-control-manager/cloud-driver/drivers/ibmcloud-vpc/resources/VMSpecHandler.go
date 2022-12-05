@@ -28,7 +28,7 @@ func (vmSpecHandler *IbmVmSpecHandler) ListVMSpec() ([]*irs.VMSpecInfo, error) {
 	options := &vpcv1.ListInstanceProfilesOptions{}
 	profiles, _, err := vmSpecHandler.VpcService.ListInstanceProfilesWithContext(vmSpecHandler.Ctx, options)
 	if err != nil {
-		getErr := errors.New(fmt.Sprintf("Failed to Get VMSpecList. err = %s", err.Error()))
+		getErr := errors.New(fmt.Sprintf("Failed to List VMSpec. err = %s", err.Error()))
 		cblogger.Error(getErr.Error())
 		LoggingError(hiscallInfo, getErr)
 		return nil, getErr
@@ -37,7 +37,7 @@ func (vmSpecHandler *IbmVmSpecHandler) ListVMSpec() ([]*irs.VMSpecInfo, error) {
 	for _, profile := range profiles.Profiles {
 		vmSpecInfo, err := setVmSpecInfo(profile, vmSpecHandler.Region.Region)
 		if err != nil {
-			getErr := errors.New(fmt.Sprintf("Failed to Get VMSpecList. err = %s", err.Error()))
+			getErr := errors.New(fmt.Sprintf("Failed to List VMSpec. err = %s", err.Error()))
 			cblogger.Error(getErr.Error())
 			LoggingError(hiscallInfo, getErr)
 			return nil, getErr
@@ -83,7 +83,7 @@ func (vmSpecHandler *IbmVmSpecHandler) ListOrgVMSpec() (string, error) {
 	options := &vpcv1.ListInstanceProfilesOptions{}
 	profiles, _, err := vmSpecHandler.VpcService.ListInstanceProfilesWithContext(vmSpecHandler.Ctx, options)
 	if err != nil {
-		getErr := errors.New(fmt.Sprintf("Failed to Get OrgVMSpecList. err = %s", err.Error()))
+		getErr := errors.New(fmt.Sprintf("Failed to List OrgVMSpec. err = %s", err.Error()))
 		cblogger.Error(getErr.Error())
 		LoggingError(hiscallInfo, getErr)
 		return "", getErr
@@ -91,7 +91,7 @@ func (vmSpecHandler *IbmVmSpecHandler) ListOrgVMSpec() (string, error) {
 	for _, profile := range profiles.Profiles {
 		vmSpecInfo, err := setVmSpecInfo(profile, vmSpecHandler.Region.Region)
 		if err != nil {
-			getErr := errors.New(fmt.Sprintf("Failed to Get OrgVMSpecList. err = %s", err.Error()))
+			getErr := errors.New(fmt.Sprintf("Failed to List OrgVMSpec. err = %s", err.Error()))
 			cblogger.Error(getErr.Error())
 			LoggingError(hiscallInfo, getErr)
 			return "", getErr
@@ -100,7 +100,7 @@ func (vmSpecHandler *IbmVmSpecHandler) ListOrgVMSpec() (string, error) {
 	}
 	jsonBytes, err := json.Marshal(specList)
 	if err != nil {
-		getErr := errors.New(fmt.Sprintf("Failed to Get OrgVMSpecList. err = %s", err.Error()))
+		getErr := errors.New(fmt.Sprintf("Failed to List OrgVMSpec. err = %s", err.Error()))
 		cblogger.Error(getErr.Error())
 		LoggingError(hiscallInfo, getErr)
 		return "", getErr
@@ -144,7 +144,7 @@ func (vmSpecHandler *IbmVmSpecHandler) GetOrgVMSpec(Name string) (string, error)
 	return jsonString, nil
 }
 
-func setVmSpecInfo(profile vpcv1.InstanceProfile, region string)(irs.VMSpecInfo, error){
+func setVmSpecInfo(profile vpcv1.InstanceProfile, region string) (irs.VMSpecInfo, error) {
 	if profile.Name == nil {
 		return irs.VMSpecInfo{}, errors.New(fmt.Sprintf("Invalid vmspec"))
 	}

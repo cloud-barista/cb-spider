@@ -38,9 +38,8 @@ func (imageHandler *IbmImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 	ListImagesOptions := &vpcv1.ListImagesOptions{}
 	ListImagesOptions.SetVisibility("public")
 	images, _, err := imageHandler.VpcService.ListImagesWithContext(imageHandler.Ctx, ListImagesOptions)
-
 	if err != nil {
-		getErr := errors.New(fmt.Sprintf("Failed to Get ImageList. err = %s", err.Error()))
+		getErr := errors.New(fmt.Sprintf("Failed to List Image. err = %s", err.Error()))
 		cblogger.Error(getErr.Error())
 		LoggingError(hiscallInfo, getErr)
 		return nil, getErr
@@ -65,7 +64,7 @@ func (imageHandler *IbmImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 			}
 			images, _, err = imageHandler.VpcService.ListImagesWithContext(imageHandler.Ctx, ListImagesOptions2)
 			if err != nil {
-				getErr := errors.New(fmt.Sprintf("Failed to Get ImageList. err = %s", err.Error()))
+				getErr := errors.New(fmt.Sprintf("Failed to List Image. err = %s", err.Error()))
 				cblogger.Error(getErr.Error())
 				LoggingError(hiscallInfo, getErr)
 				return nil, getErr
@@ -176,12 +175,17 @@ func getImageNextHref(next *vpcv1.ImageCollectionNext) (string, error) {
 }
 
 func (imageHandler *IbmImageHandler) CheckWindowsImage(imageIID irs.IID) (bool, error) {
+	hiscallInfo := GetCallLogScheme(imageHandler.Region, call.VMIMAGE, imageIID.NameId, "CheckWindowsImage()")
+	start := call.Start()
 	var getImageErr error
 	rawImage, getImageErr := getRawImage(imageIID, imageHandler.VpcService, imageHandler.Ctx)
 	if getImageErr != nil {
-		return false, getImageErr
+		checkWindowsImageErr := errors.New(fmt.Sprintf("Failed to CheckWindowsImage By Image. err = %s", getImageErr.Error()))
+		cblogger.Error(checkWindowsImageErr.Error())
+		LoggingError(hiscallInfo, checkWindowsImageErr)
+		return false, checkWindowsImageErr
 	}
-
+	LoggingInfo(hiscallInfo, start)
 	isWindows := strings.Contains(strings.ToLower(*rawImage.OperatingSystem.Name), "windows")
 	return isWindows, nil
 }

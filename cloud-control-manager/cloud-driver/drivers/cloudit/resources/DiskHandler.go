@@ -46,9 +46,15 @@ func (diskHandler *ClouditDiskHandler) CreateDisk(DiskReqInfo irs.DiskInfo) (irs
 	clusterNameId := diskHandler.CredentialInfo.ClusterId
 	clusterSystemId := ""
 	if clusterNameId == "" {
-		return irs.DiskInfo{}, errors.New("Failed to Create Disk. err = ClusterId is required.")
+		createErr := errors.New(fmt.Sprintf("Failed to Create Disk. err = ClusterId is required."))
+		cblogger.Error(createErr.Error())
+		LoggingError(hiscallInfo, createErr)
+		return irs.DiskInfo{}, createErr
 	} else if clusterNameId == "default" {
-		return irs.DiskInfo{}, errors.New("Failed to Create Disk. err = Cloudit does not supports \"default\" cluster.")
+		createErr := errors.New("Failed to Create Disk. err = Cloudit does not supports \"default\" cluster.")
+		cblogger.Error(createErr.Error())
+		LoggingError(hiscallInfo, createErr)
+		return irs.DiskInfo{}, createErr
 	}
 
 	requestURL := diskHandler.Client.CreateRequestBaseURL(client.ACE, "clusters")
@@ -108,17 +114,16 @@ func (diskHandler *ClouditDiskHandler) CreateDisk(DiskReqInfo irs.DiskInfo) (irs
 func (diskHandler *ClouditDiskHandler) ListDisk() ([]*irs.DiskInfo, error) {
 	hiscallInfo := GetCallLogScheme(ClouditRegion, "DISK", "DISK", "ListDisk()")
 
+	start := call.Start()
 	// API call prepare
 	diskHandler.Client.TokenID = diskHandler.CredentialInfo.AuthToken
 	authHeader := diskHandler.Client.AuthenticatedHeaders()
 	requestOpts := client.RequestOpts{
 		MoreHeaders: authHeader,
 	}
-
-	start := call.Start()
 	diskList, err := disk.List(diskHandler.Client, &requestOpts)
 	if err != nil {
-		getErr := errors.New(fmt.Sprintf("Failed to Get DiskList. err = %s", err.Error()))
+		getErr := errors.New(fmt.Sprintf("Failed to List Disk. err = %s", err.Error()))
 		cblogger.Error(getErr.Error())
 		LoggingError(hiscallInfo, getErr)
 		return nil, getErr
@@ -152,17 +157,23 @@ func (diskHandler *ClouditDiskHandler) GetDisk(diskIID irs.IID) (irs.DiskInfo, e
 
 func (diskHandler *ClouditDiskHandler) ChangeDiskSize(diskIID irs.IID, size string) (bool, error) {
 	hiscallInfo := GetCallLogScheme(ClouditRegion, "DISK", diskIID.NameId, "ChangeDiskSize()")
-
+	start := call.Start()
 	// get target Disk
 	targetDiskSystemId := ""
 	if diskIID.SystemId == "" {
 		diskInfo, err := diskHandler.getRawDisk(diskIID)
 		if err != nil {
-			return false, errors.New(fmt.Sprintf("Failed to Update Disk. err = %s", err))
+			changeErr := errors.New(fmt.Sprintf("Failed to ChangeDiskSize. err = %s", err.Error()))
+			cblogger.Error(changeErr.Error())
+			LoggingError(hiscallInfo, changeErr)
+			return false, changeErr
 		}
 		diskStatus := diskInfo.ToIRSDisk(diskHandler.Client).Status
 		if diskStatus != irs.DiskAvailable {
-			return false, errors.New(fmt.Sprintf("Failed to Update Disk. err = cannot change disk size in %s state", diskStatus))
+			changeErr := errors.New(fmt.Sprintf("Failed to ChangeDiskSize. err = cannot change disk size in %s state", diskStatus))
+			cblogger.Error(changeErr.Error())
+			LoggingError(hiscallInfo, changeErr)
+			return false, changeErr
 		}
 		targetDiskSystemId = diskInfo.ID
 	} else {
@@ -175,14 +186,12 @@ func (diskHandler *ClouditDiskHandler) ChangeDiskSize(diskIID irs.IID, size stri
 		ID:   targetDiskSystemId,
 		Size: intSize,
 	}
-
-	start := call.Start()
 	result, err := diskHandler.updateDisk(diskUpdateInfo)
 	if err != nil {
-		getErr := errors.New(fmt.Sprintf("Failed to Update Disk. err = %s", err.Error()))
-		cblogger.Error(getErr.Error())
-		LoggingError(hiscallInfo, getErr)
-		return false, getErr
+		changeErr := errors.New(fmt.Sprintf("Failed to ChangeDiskSize. err = %s", err.Error()))
+		cblogger.Error(changeErr.Error())
+		LoggingError(hiscallInfo, changeErr)
+		return false, changeErr
 	}
 	LoggingInfo(hiscallInfo, start)
 
@@ -198,7 +207,10 @@ func (diskHandler *ClouditDiskHandler) DeleteDisk(diskIID irs.IID) (bool, error)
 		diskInfo, _ := diskHandler.getRawDisk(diskIID)
 		diskStatus := diskInfo.ToIRSDisk(diskHandler.Client).Status
 		if !(diskStatus == irs.DiskAvailable || diskStatus == irs.DiskError) {
-			return false, errors.New(fmt.Sprintf("Failed to Delete Disk. err = cannot delete disk in %s state", diskStatus))
+			delErr := errors.New(fmt.Sprintf("Failed to Delete Disk. err = cannot delete disk in %s state", diskStatus))
+			cblogger.Error(delErr.Error())
+			LoggingError(hiscallInfo, delErr)
+			return false, delErr
 		}
 		targetDiskSystemId = diskInfo.ID
 	} else {
@@ -208,10 +220,10 @@ func (diskHandler *ClouditDiskHandler) DeleteDisk(diskIID irs.IID) (bool, error)
 	start := call.Start()
 	result, err := diskHandler.deleteDisk(irs.IID{SystemId: targetDiskSystemId})
 	if err != nil {
-		getErr := errors.New(fmt.Sprintf("Failed to Delete Disk. err = %s", err.Error()))
-		cblogger.Error(getErr.Error())
-		LoggingError(hiscallInfo, getErr)
-		return false, getErr
+		delErr := errors.New(fmt.Sprintf("Failed to Delete Disk. err = %s", err.Error()))
+		cblogger.Error(delErr.Error())
+		LoggingError(hiscallInfo, delErr)
+		return false, delErr
 	}
 	LoggingInfo(hiscallInfo, start)
 
@@ -220,17 +232,23 @@ func (diskHandler *ClouditDiskHandler) DeleteDisk(diskIID irs.IID) (bool, error)
 
 func (diskHandler *ClouditDiskHandler) AttachDisk(diskIID irs.IID, ownerVM irs.IID) (irs.DiskInfo, error) {
 	hiscallInfo := GetCallLogScheme(ClouditRegion, "DISK", diskIID.NameId, "AttachDisk()")
-
+	start := call.Start()
 	// get target Disk
 	targetDiskSystemId := ""
 	if diskIID.SystemId == "" {
 		diskInfo, err := diskHandler.getRawDisk(diskIID)
 		if err != nil {
-			return irs.DiskInfo{}, errors.New(fmt.Sprintf("Cannot Attach Disk. err = %s", err))
+			attachErr := errors.New(fmt.Sprintf("Failed to Attach Disk. err = %s", err.Error()))
+			cblogger.Error(attachErr.Error())
+			LoggingError(hiscallInfo, attachErr)
+			return irs.DiskInfo{}, attachErr
 		}
 		diskStatus := diskInfo.ToIRSDisk(diskHandler.Client).Status
 		if diskStatus != irs.DiskAvailable {
-			return irs.DiskInfo{}, errors.New(fmt.Sprintf("Cannot Attach Disk. err = cannot attach disk in %s state", diskStatus))
+			attachErr := errors.New(fmt.Sprintf("Failed to Attach Disk. err = cannot attach disk in %s state", diskStatus))
+			cblogger.Error(attachErr.Error())
+			LoggingError(hiscallInfo, attachErr)
+			return irs.DiskInfo{}, attachErr
 		}
 		targetDiskSystemId = diskInfo.ID
 	} else {
@@ -247,7 +265,10 @@ func (diskHandler *ClouditDiskHandler) AttachDisk(diskIID irs.IID, ownerVM irs.I
 		}
 		vmList, err := server.List(diskHandler.Client, &requestOpts)
 		if err != nil {
-			return irs.DiskInfo{}, errors.New(fmt.Sprintf("Failed to Attach Disk. err = %s", err))
+			attachErr := errors.New(fmt.Sprintf("Failed to Attach Disk. err = %s", err.Error()))
+			cblogger.Error(attachErr.Error())
+			LoggingError(hiscallInfo, attachErr)
+			return irs.DiskInfo{}, attachErr
 		}
 		for _, vm := range *vmList {
 			if strings.EqualFold(vm.Name, ownerVM.NameId) {
@@ -258,16 +279,21 @@ func (diskHandler *ClouditDiskHandler) AttachDisk(diskIID irs.IID, ownerVM irs.I
 		targetVMSystemId = ownerVM.SystemId
 	}
 
-	start := call.Start()
 	err := diskHandler.attachDisk(irs.IID{SystemId: targetDiskSystemId}, irs.IID{SystemId: targetVMSystemId})
 	if err != nil {
-		return irs.DiskInfo{}, errors.New(fmt.Sprintf("Failed to attach disk. err = %s", err))
+		attachErr := errors.New(fmt.Sprintf("Failed to Attach Disk. err = %s", err.Error()))
+		cblogger.Error(attachErr.Error())
+		LoggingError(hiscallInfo, attachErr)
+		return irs.DiskInfo{}, attachErr
 	}
 	LoggingInfo(hiscallInfo, start)
 
 	diskInfo, err := diskHandler.GetDisk(irs.IID{SystemId: targetDiskSystemId})
 	if err != nil {
-		return irs.DiskInfo{}, errors.New(fmt.Sprintf("Failed to get attached disk information. err = %s", err))
+		attachErr := errors.New(fmt.Sprintf("Failed to Attach Disk. err = Failed to get attached disk information. err = %s", err.Error()))
+		cblogger.Error(attachErr.Error())
+		LoggingError(hiscallInfo, attachErr)
+		return irs.DiskInfo{}, attachErr
 	}
 
 	return diskInfo, nil
@@ -275,17 +301,23 @@ func (diskHandler *ClouditDiskHandler) AttachDisk(diskIID irs.IID, ownerVM irs.I
 
 func (diskHandler *ClouditDiskHandler) DetachDisk(diskIID irs.IID, ownerVM irs.IID) (bool, error) {
 	hiscallInfo := GetCallLogScheme(ClouditRegion, "DISK", diskIID.NameId, "DetachDisk()")
-
+	start := call.Start()
 	// get target Disk
 	targetDiskSystemId := ""
 	if diskIID.SystemId == "" {
 		diskInfo, err := diskHandler.getRawDisk(diskIID)
 		if err != nil {
-			return false, errors.New(fmt.Sprintf("Failed to Detach Disk. err = %s", err))
+			detachErr := errors.New(fmt.Sprintf("Failed to Detach Disk. err = %s", err.Error()))
+			cblogger.Error(detachErr.Error())
+			LoggingError(hiscallInfo, detachErr)
+			return false, detachErr
 		}
 		diskStatus := diskInfo.ToIRSDisk(diskHandler.Client).Status
 		if diskStatus != irs.DiskAttached {
-			return false, errors.New(fmt.Sprintf("Cannot Detach Disk. err = cannot detach disk in %s state", diskStatus))
+			detachErr := errors.New(fmt.Sprintf("Failed to Detach Disk. err = cannot detach disk in %s state", diskStatus))
+			cblogger.Error(detachErr.Error())
+			LoggingError(hiscallInfo, detachErr)
+			return false, detachErr
 		}
 		targetDiskSystemId = diskInfo.ID
 	} else {
@@ -302,7 +334,10 @@ func (diskHandler *ClouditDiskHandler) DetachDisk(diskIID irs.IID, ownerVM irs.I
 		}
 		vmList, err := server.List(diskHandler.Client, &requestOpts)
 		if err != nil {
-			return false, errors.New(fmt.Sprintf("Failed to Detach Disk. err = %s", err))
+			detachErr := errors.New(fmt.Sprintf("Failed to Detach Disk. err = %s", err.Error()))
+			cblogger.Error(detachErr.Error())
+			LoggingError(hiscallInfo, detachErr)
+			return false, detachErr
 		}
 		for _, vm := range *vmList {
 			if strings.EqualFold(vm.Name, ownerVM.NameId) {
@@ -313,13 +348,14 @@ func (diskHandler *ClouditDiskHandler) DetachDisk(diskIID irs.IID, ownerVM irs.I
 		targetVMSystemId = ownerVM.SystemId
 	}
 
-	start := call.Start()
 	err := diskHandler.detachDisk(irs.IID{SystemId: targetDiskSystemId}, irs.IID{SystemId: targetVMSystemId})
 	if err != nil {
-		return false, errors.New(fmt.Sprintf("Failed to Detach Disk. err = %s", err))
+		detachErr := errors.New(fmt.Sprintf("Failed to Detach Disk. err = %s", err.Error()))
+		cblogger.Error(detachErr.Error())
+		LoggingError(hiscallInfo, detachErr)
+		return false, detachErr
 	}
 	LoggingInfo(hiscallInfo, start)
-
 	return true, nil
 }
 

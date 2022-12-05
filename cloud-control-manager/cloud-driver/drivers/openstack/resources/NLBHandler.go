@@ -41,7 +41,7 @@ const (
 	NLBRegionType   NLBScope = "REGION"
 )
 
-//------ NLB Management
+// ------ NLB Management
 func (nlbHandler *OpenStackNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (createNLB irs.NLBInfo, createError error) {
 	hiscallInfo := GetCallLogScheme(nlbHandler.Region.Region, "NETWORKLOADBALANCE", nlbReqInfo.IId.NameId, "CreateNLB()")
 	start := call.Start()
@@ -209,7 +209,7 @@ func (nlbHandler *OpenStackNLBHandler) DeleteNLB(nlbIID irs.IID) (bool, error) {
 	return true, nil
 }
 
-//------ Frontend Control
+// ------ Frontend Control
 func (nlbHandler *OpenStackNLBHandler) ChangeListener(nlbIID irs.IID, listener irs.ListenerInfo) (irs.ListenerInfo, error) {
 	hiscallInfo := GetCallLogScheme(nlbHandler.Region.Region, "NETWORKLOADBALANCE", nlbIID.NameId, "ChangeListener()")
 	start := call.Start()
@@ -341,7 +341,7 @@ func (nlbHandler *OpenStackNLBHandler) ChangeListener(nlbIID irs.IID, listener i
 	return info, nil
 }
 
-//------ Backend Control
+// ------ Backend Control
 func (nlbHandler *OpenStackNLBHandler) ChangeVMGroupInfo(nlbIID irs.IID, vmGroup irs.VMGroupInfo) (irs.VMGroupInfo, error) {
 	hiscallInfo := GetCallLogScheme(nlbHandler.Region.Region, "NETWORKLOADBALANCE", nlbIID.NameId, "ChangeVMGroupInfo()")
 	start := call.Start()
@@ -485,7 +485,10 @@ func (nlbHandler *OpenStackNLBHandler) AddVMs(nlbIID irs.IID, vmIIDs *[]irs.IID)
 	for _, currentVMIID := range currentvmIIDs {
 		for _, addvm := range *vmIIDs {
 			if strings.EqualFold(currentVMIID.NameId, addvm.NameId) {
-				return irs.VMGroupInfo{}, errors.New(fmt.Sprintf("already Exist vm %s", addvm.NameId))
+				addErr := errors.New(fmt.Sprintf("Failed to AddVMs. err = already Exist vm %s", addvm.NameId))
+				cblogger.Error(addErr.Error())
+				LoggingError(hiscallInfo, addErr)
+				return irs.VMGroupInfo{}, addErr
 			}
 		}
 	}
@@ -1113,7 +1116,7 @@ func (nlbHandler *OpenStackNLBHandler) getMemberCreateOpt(vmIIds []irs.IID, port
 	return poolMemberOptions, nil
 }
 
-//getListenerCreateOpt
+// getListenerCreateOpt
 func (nlbHandler *OpenStackNLBHandler) getListenerCreateOpt(nlbReqInfo irs.NLBInfo, nlbID string, poolId string) (listeners.CreateOpts, error) {
 	listenerProtocol, err := checkListenerProtocol(nlbReqInfo.Listener.Protocol)
 	if err != nil {

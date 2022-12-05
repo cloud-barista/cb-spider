@@ -320,9 +320,10 @@ func (vmHandler *OpenStackVMHandler) SuspendVM(vmIID irs.IID) (irs.VMStatus, err
 	start := call.Start()
 	err := startstop.Stop(vmHandler.ComputeClient, vmIID.SystemId).Err
 	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return irs.Failed, err
+		suspendErr := errors.New(fmt.Sprintf("Failed to Suspend VM. err = %s", err))
+		cblogger.Error(suspendErr.Error())
+		LoggingError(hiscallInfo, suspendErr)
+		return irs.Failed, suspendErr
 	}
 	LoggingInfo(hiscallInfo, start)
 
@@ -342,9 +343,10 @@ func (vmHandler *OpenStackVMHandler) ResumeVM(vmIID irs.IID) (irs.VMStatus, erro
 	start := call.Start()
 	err := startstop.Start(vmHandler.ComputeClient, vmIID.SystemId).Err
 	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return irs.Failed, err
+		resumeErr := errors.New(fmt.Sprintf("Failed to Resume VM. err = %s", err))
+		cblogger.Error(resumeErr.Error())
+		LoggingError(hiscallInfo, resumeErr)
+		return irs.Failed, resumeErr
 	}
 	LoggingInfo(hiscallInfo, start)
 
@@ -368,9 +370,10 @@ func (vmHandler *OpenStackVMHandler) RebootVM(vmIID irs.IID) (irs.VMStatus, erro
 
 	err := servers.Reboot(vmHandler.ComputeClient, vmIID.SystemId, rebootOpts).ExtractErr()
 	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return irs.Failed, err
+		rebootErr := errors.New(fmt.Sprintf("Failed to Reboot VM. err = %s", err))
+		cblogger.Error(rebootErr.Error())
+		LoggingError(hiscallInfo, rebootErr)
+		return irs.Failed, rebootErr
 	}
 	LoggingInfo(hiscallInfo, start)
 
@@ -384,7 +387,10 @@ func (vmHandler *OpenStackVMHandler) TerminateVM(vmIID irs.IID) (irs.VMStatus, e
 	start := call.Start()
 	cleanErr := vmHandler.vmCleaner(vmIID)
 	if cleanErr != nil {
-		return irs.Failed, cleanErr
+		terminateErr := errors.New(fmt.Sprintf("Failed to Terminate VM. err = %s", cleanErr))
+		cblogger.Error(terminateErr.Error())
+		LoggingError(hiscallInfo, terminateErr)
+		return irs.Failed, terminateErr
 	}
 	LoggingInfo(hiscallInfo, start)
 
@@ -399,17 +405,19 @@ func (vmHandler *OpenStackVMHandler) ListVMStatus() ([]*irs.VMStatusInfo, error)
 	start := call.Start()
 	pager, err := servers.List(vmHandler.ComputeClient, nil).AllPages()
 	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return nil, err
+		getErr := errors.New(fmt.Sprintf("Failed to List VMStatus. err = %s", err))
+		cblogger.Error(getErr.Error())
+		LoggingError(hiscallInfo, getErr)
+		return nil, getErr
 	}
 	LoggingInfo(hiscallInfo, start)
 
 	servers, err := servers.ExtractServers(pager)
 	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return nil, err
+		getErr := errors.New(fmt.Sprintf("Failed to List VMStatus. err = %s", err))
+		cblogger.Error(getErr.Error())
+		LoggingError(hiscallInfo, getErr)
+		return nil, getErr
 	}
 
 	// Add to List
@@ -435,9 +443,10 @@ func (vmHandler *OpenStackVMHandler) GetVMStatus(vmIID irs.IID) (irs.VMStatus, e
 	start := call.Start()
 	serverResult, err := servers.Get(vmHandler.ComputeClient, vmIID.SystemId).Extract()
 	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return "", err
+		getErr := errors.New(fmt.Sprintf("Failed to Get VM. err = %s", err))
+		cblogger.Error(getErr.Error())
+		LoggingError(hiscallInfo, getErr)
+		return "", getErr
 	}
 	LoggingInfo(hiscallInfo, start)
 
@@ -453,17 +462,19 @@ func (vmHandler *OpenStackVMHandler) ListVM() ([]*irs.VMInfo, error) {
 	start := call.Start()
 	pager, err := servers.List(vmHandler.ComputeClient, nil).AllPages()
 	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return nil, err
+		getErr := errors.New(fmt.Sprintf("Failed to List VM. err = %s", err))
+		cblogger.Error(getErr.Error())
+		LoggingError(hiscallInfo, getErr)
+		return nil, getErr
 	}
 	LoggingInfo(hiscallInfo, start)
 
 	servers, err := servers.ExtractServers(pager)
 	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return nil, err
+		getErr := errors.New(fmt.Sprintf("Failed to List VM. err = %s", err))
+		cblogger.Error(getErr.Error())
+		LoggingError(hiscallInfo, getErr)
+		return nil, getErr
 	}
 
 	// 가상서버 목록 정보 매핑
@@ -493,9 +504,10 @@ func (vmHandler *OpenStackVMHandler) GetVM(vmIID irs.IID) (irs.VMInfo, error) {
 	start := call.Start()
 	serverResult, err := vmHandler.getRawVM(vmIID)
 	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return irs.VMInfo{}, err
+		getErr := errors.New(fmt.Sprintf("Failed to Get VM. err = %s", err))
+		cblogger.Error(getErr.Error())
+		LoggingError(hiscallInfo, getErr)
+		return irs.VMInfo{}, getErr
 	}
 	LoggingInfo(hiscallInfo, start)
 
@@ -525,8 +537,6 @@ func (vmHandler *OpenStackVMHandler) AssociatePublicIP(serverID string) (bool, e
 		err = floatingips.AssociateInstance(vmHandler.ComputeClient, serverID, associateOpts).ExtractErr()
 		if err == nil {
 			break
-		} else {
-			fmt.Println(fmt.Sprintf("[%d] err = %s", curRetryCnt, err))
 		}
 
 		time.Sleep(1 * time.Second)

@@ -358,16 +358,24 @@ func (myImageHandler *OpenStackMyImageHandler) snapshot(snapshotReqInfo irs.MyIm
 }
 
 func (myImageHandler *OpenStackMyImageHandler) CheckWindowsImage(myImageIID irs.IID) (bool, error) {
+	hiscallInfo := GetCallLogScheme(myImageHandler.CredentialInfo.IdentityEndpoint, call.MYIMAGE, myImageIID.NameId, "CheckWindowsImage()")
+	start := call.Start()
 	image, err := getRawSnapshot(myImageIID, myImageHandler.ComputeClient)
 	if err != nil {
-		return false, err
+		checkWindowsImageErr := errors.New(fmt.Sprintf("Failed to CheckWindowsImage By MyImage. err = %s", err.Error()))
+		cblogger.Error(checkWindowsImageErr.Error())
+		LoggingError(hiscallInfo, checkWindowsImageErr)
+		return false, checkWindowsImageErr
 	}
 	value, exist := image.Metadata["os_type"]
 	if !exist {
+		LoggingInfo(hiscallInfo, start)
 		return false, nil
 	}
 	if value == "windows" {
+		LoggingInfo(hiscallInfo, start)
 		return true, nil
 	}
+	LoggingInfo(hiscallInfo, start)
 	return false, nil
 }

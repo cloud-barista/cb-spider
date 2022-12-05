@@ -414,22 +414,39 @@ func windowShellPreparationOperationForGeneralize(vmName string, virtualMachineR
 }
 
 func (myImageHandler *AzureMyImageHandler) CheckWindowsImage(myImageIID irs.IID) (bool, error) {
+	hiscallInfo := GetCallLogScheme(myImageHandler.Region, call.MYIMAGE, myImageIID.NameId, "CheckWindowsImage()")
+	start := call.Start()
 	convertedMyImageIID, err := ConvertMyImageIID(myImageIID, myImageHandler.CredentialInfo, myImageHandler.Region)
 	if err != nil {
-		return false, errors.New(fmt.Sprintf("failed get OSType By MyImageIID err = %s", err.Error()))
+		checkWindowsImageErr := errors.New(fmt.Sprintf("Failed to CheckWindowsImage By MyImage. err = %s", err))
+		cblogger.Error(checkWindowsImageErr.Error())
+		LoggingError(hiscallInfo, checkWindowsImageErr)
+		return false, checkWindowsImageErr
 	}
 	myImage, err := myImageHandler.ImageClient.Get(myImageHandler.Ctx, myImageHandler.Region.ResourceGroup, convertedMyImageIID.NameId, "")
 	if err != nil {
-		return false, errors.New(fmt.Sprintf("failed get OSType By MyImageIID err = failed get MyImage err = %s", err.Error()))
+		checkWindowsImageErr := errors.New(fmt.Sprintf("Failed to CheckWindowsImage By MyImage. err = failed get MyImage err %s", err.Error()))
+		cblogger.Error(checkWindowsImageErr.Error())
+		LoggingError(hiscallInfo, checkWindowsImageErr)
+		return false, checkWindowsImageErr
 	}
 	if reflect.ValueOf(myImage.StorageProfile.OsDisk).IsNil() {
-		return false, errors.New(fmt.Sprintf("failed get OSType By MyImageIID err = empty MyImage OSType"))
+		checkWindowsImageErr := errors.New(fmt.Sprintf("Failed to CheckWindowsImage By MyImage. err = empty MyImage OSType"))
+		cblogger.Error(checkWindowsImageErr.Error())
+		LoggingError(hiscallInfo, checkWindowsImageErr)
+		return false, checkWindowsImageErr
 	}
+
 	if myImage.StorageProfile.OsDisk.OsType == compute.OperatingSystemTypesLinux {
+		LoggingInfo(hiscallInfo, start)
 		return false, nil
 	}
 	if myImage.StorageProfile.OsDisk.OsType == compute.OperatingSystemTypesWindows {
+		LoggingInfo(hiscallInfo, start)
 		return true, nil
 	}
-	return false, errors.New(fmt.Sprintf("failed get OSType By MyImageIID err = empty MyImage OSType"))
+	checkWindowsImageErr := errors.New(fmt.Sprintf("Failed to CheckWindowsImage By MyImage. err = empty MyImage OSType"))
+	cblogger.Error(checkWindowsImageErr.Error())
+	LoggingError(hiscallInfo, checkWindowsImageErr)
+	return false, checkWindowsImageErr
 }

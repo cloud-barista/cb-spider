@@ -661,7 +661,7 @@ func (vmHandler *IbmVMHandler) ListVMStatus() ([]*irs.VMStatusInfo, error) {
 	options := &vpcv1.ListInstancesOptions{}
 	instances, _, err := vmHandler.VpcService.ListInstancesWithContext(vmHandler.Ctx, options)
 	if err != nil {
-		getErr := errors.New(fmt.Sprintf("Failed to Get ListVMStatus. err = %s", err.Error()))
+		getErr := errors.New(fmt.Sprintf("Failed to List VMStatus. err = %s", err.Error()))
 		cblogger.Error(getErr.Error())
 		LoggingError(hiscallInfo, getErr)
 		return nil, getErr
@@ -687,7 +687,7 @@ func (vmHandler *IbmVMHandler) ListVMStatus() ([]*irs.VMStatusInfo, error) {
 			}
 			instances, _, err = vmHandler.VpcService.ListInstancesWithContext(vmHandler.Ctx, listVpcsOptions2)
 			if err != nil {
-				getErr := errors.New(fmt.Sprintf("Failed to Get ListVMStatus. err = %s", err.Error()))
+				getErr := errors.New(fmt.Sprintf("Failed to List VMStatus. err = %s", err.Error()))
 				cblogger.Error(getErr.Error())
 				LoggingError(hiscallInfo, getErr)
 				return nil, getErr
@@ -726,7 +726,7 @@ func (vmHandler *IbmVMHandler) ListVM() ([]*irs.VMInfo, error) {
 	options := &vpcv1.ListInstancesOptions{}
 	instances, _, err := vmHandler.VpcService.ListInstancesWithContext(vmHandler.Ctx, options)
 	if err != nil {
-		getErr := errors.New(fmt.Sprintf("Failed to Get VMList. err = %s", err.Error()))
+		getErr := errors.New(fmt.Sprintf("Failed to List VM. err = %s", err.Error()))
 		cblogger.Error(getErr.Error())
 		LoggingError(hiscallInfo, getErr)
 		return nil, getErr
@@ -743,7 +743,7 @@ func (vmHandler *IbmVMHandler) ListVM() ([]*irs.VMInfo, error) {
 			}
 			instances, _, err = vmHandler.VpcService.ListInstancesWithContext(vmHandler.Ctx, listVpcsOptions2)
 			if err != nil {
-				getErr := errors.New(fmt.Sprintf("Failed to Get VMList. err = %s", err.Error()))
+				getErr := errors.New(fmt.Sprintf("Failed to List VM. err = %s", err.Error()))
 				cblogger.Error(getErr.Error())
 				LoggingError(hiscallInfo, getErr)
 				return nil, getErr
@@ -756,7 +756,7 @@ func (vmHandler *IbmVMHandler) ListVM() ([]*irs.VMInfo, error) {
 
 	vmList, err := vmHandler.setVMList(vmInstanceList)
 	if err != nil {
-		getErr := errors.New(fmt.Sprintf("Failed to Get VMList. err = %s", err.Error()))
+		getErr := errors.New(fmt.Sprintf("Failed to List VM. err = %s", err.Error()))
 		cblogger.Error(getErr.Error())
 		LoggingError(hiscallInfo, getErr)
 		return nil, getErr

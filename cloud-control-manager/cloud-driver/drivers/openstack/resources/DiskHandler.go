@@ -33,32 +33,32 @@ const (
 )
 
 func (diskHandler *OpenstackDiskHandler) CreateDisk(DiskReqInfo irs.DiskInfo) (irs.DiskInfo, error) {
-	hiscallInfo := GetCallLogScheme(diskHandler.CredentialInfo.IdentityEndpoint, "DISK", "DISK", "CreateDisk()")
+	hiscallInfo := GetCallLogScheme(diskHandler.CredentialInfo.IdentityEndpoint, call.DISK, "DISK", "CreateDisk()")
 	start := call.Start()
 	err := diskHandler.CheckDiskHandler()
 	if err != nil {
-		createErr := errors.New(fmt.Sprintf("Failed to Create Disk. err = %s", err))
+		createErr := errors.New(fmt.Sprintf("Failed to Create Disk. err = %s", err.Error()))
 		cblogger.Error(createErr.Error())
 		LoggingError(hiscallInfo, createErr)
 		return irs.DiskInfo{}, createErr
 	}
 	err = validationDiskReq(DiskReqInfo, diskHandler.VolumeClient)
 	if err != nil {
-		createErr := errors.New(fmt.Sprintf("Failed to Create Disk. err = %s", err))
+		createErr := errors.New(fmt.Sprintf("Failed to Create Disk. err = %s", err.Error()))
 		cblogger.Error(createErr.Error())
 		LoggingError(hiscallInfo, createErr)
 		return irs.DiskInfo{}, createErr
 	}
 	vol, err := createDisk(DiskReqInfo, diskHandler.VolumeClient)
 	if err != nil {
-		createErr := errors.New(fmt.Sprintf("Failed to Create Disk. err = %s", err))
+		createErr := errors.New(fmt.Sprintf("Failed to Create Disk. err = %s", err.Error()))
 		cblogger.Error(createErr.Error())
 		LoggingError(hiscallInfo, createErr)
 		return irs.DiskInfo{}, createErr
 	}
 	info, err := diskHandler.setterDisk(vol)
 	if err != nil {
-		createErr := errors.New(fmt.Sprintf("Failed to Create Disk. err = %s", err))
+		createErr := errors.New(fmt.Sprintf("Failed to Create Disk. err = %s", err.Error()))
 		cblogger.Error(createErr.Error())
 		LoggingError(hiscallInfo, createErr)
 		return irs.DiskInfo{}, createErr
@@ -67,18 +67,18 @@ func (diskHandler *OpenstackDiskHandler) CreateDisk(DiskReqInfo irs.DiskInfo) (i
 	return info, nil
 }
 func (diskHandler *OpenstackDiskHandler) ListDisk() ([]*irs.DiskInfo, error) {
-	hiscallInfo := GetCallLogScheme(diskHandler.CredentialInfo.IdentityEndpoint, "DISK", "DISK", "ListDisk()")
+	hiscallInfo := GetCallLogScheme(diskHandler.CredentialInfo.IdentityEndpoint, call.DISK, "DISK", "ListDisk()")
 	start := call.Start()
 	err := diskHandler.CheckDiskHandler()
 	if err != nil {
-		getErr := errors.New(fmt.Sprintf("Failed to List Disk. err = %s", err))
+		getErr := errors.New(fmt.Sprintf("Failed to List Disk. err = %s", err.Error()))
 		cblogger.Error(getErr.Error())
 		LoggingError(hiscallInfo, getErr)
 		return []*irs.DiskInfo{}, getErr
 	}
 	list, err := getRawDiskList(diskHandler.VolumeClient)
 	if err != nil {
-		getErr := errors.New(fmt.Sprintf("Failed to List Disk. err = %s", err))
+		getErr := errors.New(fmt.Sprintf("Failed to List Disk. err = %s", err.Error()))
 		cblogger.Error(getErr.Error())
 		LoggingError(hiscallInfo, getErr)
 		return []*irs.DiskInfo{}, getErr
@@ -87,7 +87,7 @@ func (diskHandler *OpenstackDiskHandler) ListDisk() ([]*irs.DiskInfo, error) {
 	for i, vol := range list {
 		info, err := diskHandler.setterDisk(vol)
 		if err != nil {
-			getErr := errors.New(fmt.Sprintf("Failed to List Disk. err = %s", err))
+			getErr := errors.New(fmt.Sprintf("Failed to List Disk. err = %s", err.Error()))
 			cblogger.Error(getErr.Error())
 			LoggingError(hiscallInfo, getErr)
 			return []*irs.DiskInfo{}, getErr
@@ -99,25 +99,25 @@ func (diskHandler *OpenstackDiskHandler) ListDisk() ([]*irs.DiskInfo, error) {
 	return infoList, nil
 }
 func (diskHandler *OpenstackDiskHandler) GetDisk(diskIID irs.IID) (irs.DiskInfo, error) {
-	hiscallInfo := GetCallLogScheme(diskHandler.CredentialInfo.IdentityEndpoint, "DISK", diskIID.NameId, "GetDisk()")
+	hiscallInfo := GetCallLogScheme(diskHandler.CredentialInfo.IdentityEndpoint, call.DISK, diskIID.NameId, "GetDisk()")
 	start := call.Start()
 	err := diskHandler.CheckDiskHandler()
 	if err != nil {
-		getErr := errors.New(fmt.Sprintf("Failed to Get Disk. err = %s", err))
+		getErr := errors.New(fmt.Sprintf("Failed to Get Disk. err = %s", err.Error()))
 		cblogger.Error(getErr.Error())
 		LoggingError(hiscallInfo, getErr)
 		return irs.DiskInfo{}, getErr
 	}
 	disk, err := getRawDisk(diskIID, diskHandler.VolumeClient)
 	if err != nil {
-		getErr := errors.New(fmt.Sprintf("Failed to Get Disk. err = %s", err))
+		getErr := errors.New(fmt.Sprintf("Failed to Get Disk. err = %s", err.Error()))
 		cblogger.Error(getErr.Error())
 		LoggingError(hiscallInfo, getErr)
 		return irs.DiskInfo{}, getErr
 	}
 	info, err := diskHandler.setterDisk(disk)
 	if err != nil {
-		getErr := errors.New(fmt.Sprintf("Failed to Get Disk. err = %s", err))
+		getErr := errors.New(fmt.Sprintf("Failed to Get Disk. err = %s", err.Error()))
 		cblogger.Error(getErr.Error())
 		LoggingError(hiscallInfo, getErr)
 		return irs.DiskInfo{}, getErr
@@ -127,18 +127,18 @@ func (diskHandler *OpenstackDiskHandler) GetDisk(diskIID irs.IID) (irs.DiskInfo,
 }
 
 func (diskHandler *OpenstackDiskHandler) ChangeDiskSize(diskIID irs.IID, size string) (bool, error) {
-	hiscallInfo := GetCallLogScheme(diskHandler.CredentialInfo.IdentityEndpoint, "DISK", diskIID.NameId, "DeleteDisk()")
+	hiscallInfo := GetCallLogScheme(diskHandler.CredentialInfo.IdentityEndpoint, call.DISK, diskIID.NameId, "DeleteDisk()")
 	start := call.Start()
 	err := diskHandler.CheckDiskHandler()
 	if err != nil {
-		changeDiskSizeErr := errors.New(fmt.Sprintf("Failed to ChangeDiskSize. err = %s", err))
+		changeDiskSizeErr := errors.New(fmt.Sprintf("Failed to ChangeDiskSize. err = %s", err.Error()))
 		cblogger.Error(changeDiskSizeErr.Error())
 		LoggingError(hiscallInfo, changeDiskSizeErr)
 		return false, changeDiskSizeErr
 	}
 	err = changeDiskSize(diskIID, size, diskHandler.VolumeClient)
 	if err != nil {
-		changeDiskSizeErr := errors.New(fmt.Sprintf("Failed to ChangeDiskSize. err = %s", err))
+		changeDiskSizeErr := errors.New(fmt.Sprintf("Failed to ChangeDiskSize. err = %s", err.Error()))
 		cblogger.Error(changeDiskSizeErr.Error())
 		LoggingError(hiscallInfo, changeDiskSizeErr)
 		return false, changeDiskSizeErr
@@ -148,18 +148,18 @@ func (diskHandler *OpenstackDiskHandler) ChangeDiskSize(diskIID irs.IID, size st
 }
 
 func (diskHandler *OpenstackDiskHandler) DeleteDisk(diskIID irs.IID) (bool, error) {
-	hiscallInfo := GetCallLogScheme(diskHandler.CredentialInfo.IdentityEndpoint, "DISK", diskIID.NameId, "DeleteDisk()")
+	hiscallInfo := GetCallLogScheme(diskHandler.CredentialInfo.IdentityEndpoint, call.DISK, diskIID.NameId, "DeleteDisk()")
 	start := call.Start()
 	err := diskHandler.CheckDiskHandler()
 	if err != nil {
-		delErr := errors.New(fmt.Sprintf("Failed to Delete Disk. err = %s", err))
+		delErr := errors.New(fmt.Sprintf("Failed to Delete Disk. err = %s", err.Error()))
 		cblogger.Error(delErr.Error())
 		LoggingError(hiscallInfo, delErr)
 		return false, delErr
 	}
 	err = deleteDisk(diskIID, diskHandler.VolumeClient)
 	if err != nil {
-		delErr := errors.New(fmt.Sprintf("Failed to Delete Disk. err = %s", err))
+		delErr := errors.New(fmt.Sprintf("Failed to Delete Disk. err = %s", err.Error()))
 		cblogger.Error(delErr.Error())
 		LoggingError(hiscallInfo, delErr)
 		return false, delErr
@@ -169,25 +169,25 @@ func (diskHandler *OpenstackDiskHandler) DeleteDisk(diskIID irs.IID) (bool, erro
 }
 
 func (diskHandler *OpenstackDiskHandler) AttachDisk(diskIID irs.IID, ownerVM irs.IID) (irs.DiskInfo, error) {
-	hiscallInfo := GetCallLogScheme(diskHandler.CredentialInfo.IdentityEndpoint, "DISK", diskIID.NameId, "AttachDisk()")
+	hiscallInfo := GetCallLogScheme(diskHandler.CredentialInfo.IdentityEndpoint, call.DISK, diskIID.NameId, "AttachDisk()")
 	start := call.Start()
 	err := diskHandler.CheckDiskHandler()
 	if err != nil {
-		attachErr := errors.New(fmt.Sprintf("Failed to AttachDisk. err = %s", err))
+		attachErr := errors.New(fmt.Sprintf("Failed to AttachDisk. err = %s", err.Error()))
 		cblogger.Error(attachErr.Error())
 		LoggingError(hiscallInfo, attachErr)
 		return irs.DiskInfo{}, attachErr
 	}
 	disk, err := attachDisk(diskIID, ownerVM, diskHandler.ComputeClient, diskHandler.VolumeClient)
 	if err != nil {
-		attachErr := errors.New(fmt.Sprintf("Failed to AttachDisk. err = %s", err))
+		attachErr := errors.New(fmt.Sprintf("Failed to AttachDisk. err = %s", err.Error()))
 		cblogger.Error(attachErr.Error())
 		LoggingError(hiscallInfo, attachErr)
 		return irs.DiskInfo{}, attachErr
 	}
 	info, err := diskHandler.setterDisk(disk)
 	if err != nil {
-		attachErr := errors.New(fmt.Sprintf("Failed to AttachDisk. err = %s", err))
+		attachErr := errors.New(fmt.Sprintf("Failed to AttachDisk. err = %s", err.Error()))
 		cblogger.Error(attachErr.Error())
 		LoggingError(hiscallInfo, attachErr)
 		return irs.DiskInfo{}, attachErr
@@ -197,18 +197,18 @@ func (diskHandler *OpenstackDiskHandler) AttachDisk(diskIID irs.IID, ownerVM irs
 }
 
 func (diskHandler *OpenstackDiskHandler) DetachDisk(diskIID irs.IID, ownerVM irs.IID) (bool, error) {
-	hiscallInfo := GetCallLogScheme(diskHandler.CredentialInfo.IdentityEndpoint, "DISK", diskIID.NameId, "DetachDisk()")
+	hiscallInfo := GetCallLogScheme(diskHandler.CredentialInfo.IdentityEndpoint, call.DISK, diskIID.NameId, "DetachDisk()")
 	start := call.Start()
 	err := diskHandler.CheckDiskHandler()
 	if err != nil {
-		detachErr := errors.New(fmt.Sprintf("Failed to DetachDisk. err = %s", err))
+		detachErr := errors.New(fmt.Sprintf("Failed to DetachDisk. err = %s", err.Error()))
 		cblogger.Error(detachErr.Error())
 		LoggingError(hiscallInfo, detachErr)
 		return false, detachErr
 	}
 	err = detachDisk(diskIID, ownerVM, diskHandler.ComputeClient, diskHandler.VolumeClient)
 	if err != nil {
-		detachErr := errors.New(fmt.Sprintf("Failed to DetachDisk. err = %s", err))
+		detachErr := errors.New(fmt.Sprintf("Failed to DetachDisk. err = %s", err.Error()))
 		cblogger.Error(detachErr.Error())
 		LoggingError(hiscallInfo, detachErr)
 		return false, detachErr

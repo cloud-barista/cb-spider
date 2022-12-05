@@ -35,7 +35,7 @@ type ClouditNLBHandler struct {
 	Client         *client.RestClient
 }
 
-//------ NLB Management
+// ------ NLB Management
 func (nlbHandler *ClouditNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (irs.NLBInfo, error) {
 	hiscallInfo := GetCallLogScheme(ClouditRegion, "NETWORKLOADBALANCE", nlbReqInfo.IId.NameId, "CreateNLB()")
 	start := call.Start()
@@ -120,7 +120,7 @@ func (nlbHandler *ClouditNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (irs.NLBI
 
 	rawVMList, err := nlbHandler.getRawVmList()
 	if err != nil {
-		createErr := errors.New(fmt.Sprintf("Failed to Create NLB. err = %s",err.Error()))
+		createErr := errors.New(fmt.Sprintf("Failed to Create NLB. err = %s", err.Error()))
 		cblogger.Error(createErr.Error())
 		LoggingError(hiscallInfo, createErr)
 		return irs.NLBInfo{}, createErr
@@ -256,7 +256,7 @@ func (nlbHandler *ClouditNLBHandler) DeleteNLB(nlbIID irs.IID) (bool, error) {
 	return result, err
 }
 
-//------ Frontend Control
+// ------ Frontend Control
 func (nlbHandler *ClouditNLBHandler) ChangeListener(nlbIID irs.IID, listener irs.ListenerInfo) (irs.ListenerInfo, error) {
 	hiscallInfo := GetCallLogScheme(ClouditRegion, "NETWORKLOADBALANCE", nlbIID.NameId, "ChangeListener()")
 	start := call.Start()
@@ -265,7 +265,7 @@ func (nlbHandler *ClouditNLBHandler) ChangeListener(nlbIID irs.IID, listener irs
 	return irs.ListenerInfo{}, errors.New("CLOUDIT_CANNOT_CHANGE_LISTENERINFO")
 }
 
-//------ Backend Control
+// ------ Backend Control
 func (nlbHandler *ClouditNLBHandler) ChangeVMGroupInfo(nlbIID irs.IID, vmGroup irs.VMGroupInfo) (irs.VMGroupInfo, error) {
 	hiscallInfo := GetCallLogScheme(ClouditRegion, "NETWORKLOADBALANCE", nlbIID.NameId, "ChangeVMGroupInfo()")
 	start := call.Start()
@@ -333,7 +333,10 @@ func (nlbHandler *ClouditNLBHandler) ChangeVMGroupInfo(nlbIID irs.IID, vmGroup i
 	for i, vm := range oldVmIIds {
 		for _, member := range rawNLB.Members {
 			if strings.EqualFold(member.ServerName, vm.NameId) {
-				return irs.VMGroupInfo{}, errors.New("can't add already exist vm")
+				changeErr := errors.New(fmt.Sprintf("Failed to ChangeVMGroupInfo. err = can't add already exist vm"))
+				cblogger.Error(changeErr.Error())
+				LoggingError(hiscallInfo, changeErr)
+				return irs.VMGroupInfo{}, changeErr
 			}
 		}
 		rawVm, err := nlbHandler.getRawVmByName(vm.NameId)

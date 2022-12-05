@@ -177,9 +177,10 @@ func (vmHandler *ClouditVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (startVM irs
 	vmTag.Keypair = vmReqInfo.KeyPairIID.NameId
 	vmTagByte, jsonMarshalErr := json.Marshal(vmTag)
 	if jsonMarshalErr != nil {
-		cblogger.Error(jsonMarshalErr.Error())
-		LoggingError(hiscallInfo, jsonMarshalErr)
-		return irs.VMInfo{}, jsonMarshalErr
+		createErr := errors.New(fmt.Sprintf("Failed to Create VM. err = %s", jsonMarshalErr.Error()))
+		cblogger.Error(createErr.Error())
+		LoggingError(hiscallInfo, createErr)
+		return irs.VMInfo{}, createErr
 	}
 	vmTagStr := string(vmTagByte)
 	//KeyPairDes := fmt.Sprintf("keypair:%s", vmReqInfo.KeyPairIID.NameId)
@@ -187,19 +188,25 @@ func (vmHandler *ClouditVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (startVM irs
 	clusterNameId := vmHandler.CredentialInfo.ClusterId
 	clusterSystemId := ""
 	if clusterNameId == "" {
-		return irs.VMInfo{}, errors.New("Failed to Create Disk. err = ClusterId is required.")
+		createErr := errors.New(fmt.Sprintf("Failed to Create VM. err = Failed to Create Disk. err = ClusterId is required."))
+		cblogger.Error(createErr.Error())
+		LoggingError(hiscallInfo, createErr)
+		return irs.VMInfo{}, createErr
 	} else if clusterNameId == "default" {
-		return irs.VMInfo{}, errors.New("Failed to Create Disk. err = Cloudit does not supports \"default\" cluster.")
+		createErr := errors.New(fmt.Sprintf("Failed to Create VM. err = Failed to Create Disk. err = Cloudit does not supports \"default\" cluster."))
+		cblogger.Error(createErr.Error())
+		LoggingError(hiscallInfo, createErr)
+		return irs.VMInfo{}, createErr
 	}
 
 	requestURL := vmHandler.Client.CreateRequestBaseURL(client.ACE, "clusters")
-	cblogger.Info(requestURL)
+	// cblogger.Info(requestURL)
 
 	var result client.Result
 	if _, result.Err = vmHandler.Client.Get(requestURL, &result.Body, &client.RequestOpts{
 		MoreHeaders: authHeader,
 	}); result.Err != nil {
-		createErr := errors.New(fmt.Sprintf("Failed to Create Disk. err = %s", err.Error()))
+		createErr := errors.New(fmt.Sprintf("Failed to Create VM. err = Failed to Create Disk. err = %s", err.Error()))
 		cblogger.Error(createErr.Error())
 		LoggingError(hiscallInfo, createErr)
 		return irs.VMInfo{}, createErr
@@ -210,7 +217,7 @@ func (vmHandler *ClouditVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (startVM irs
 		Name string
 	}
 	if err := result.ExtractInto(&clusterList); err != nil {
-		createErr := errors.New(fmt.Sprintf("Failed to Create Disk. err = %s", err.Error()))
+		createErr := errors.New(fmt.Sprintf("Failed to Create VM. err = Failed to Create Disk. err = %s", err.Error()))
 		cblogger.Error(createErr.Error())
 		LoggingError(hiscallInfo, createErr)
 		return irs.VMInfo{}, createErr
@@ -224,7 +231,10 @@ func (vmHandler *ClouditVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (startVM irs
 	var reqInfo server.VMReqInfo
 	rawRootImage, getRawRootImageErr := imageHandler.GetRawRootImage(irs.IID{SystemId: vmReqInfo.ImageIID.SystemId, NameId: vmReqInfo.ImageIID.NameId}, vmReqInfo.ImageType == irs.MyImage)
 	if getRawRootImageErr != nil {
-		return irs.VMInfo{}, errors.New(fmt.Sprintf("Failed to Create VM. err = %s", getRawRootImageErr.Error()))
+		createErr := errors.New(fmt.Sprintf("Failed to Create VM. err = %s", getRawRootImageErr.Error()))
+		cblogger.Error(createErr.Error())
+		LoggingError(hiscallInfo, createErr)
+		return irs.VMInfo{}, createErr
 	}
 	isWindows := strings.Contains(strings.ToLower(rawRootImage.OS), "windows")
 
@@ -245,7 +255,10 @@ func (vmHandler *ClouditVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (startVM irs
 		}
 		pwValidErr := cdcom.ValidateWindowsPassword(vmReqInfo.VMUserPasswd)
 		if pwValidErr != nil {
-			return irs.VMInfo{}, errors.New(fmt.Sprintf("Failed to Create VM. err = %s", pwValidErr))
+			createErr := errors.New(fmt.Sprintf("Failed to Create VM. err = %s", pwValidErr.Error()))
+			cblogger.Error(createErr.Error())
+			LoggingError(hiscallInfo, createErr)
+			return irs.VMInfo{}, createErr
 		}
 
 		reqInfo.RootPassword = vmReqInfo.VMUserPasswd
@@ -257,7 +270,10 @@ func (vmHandler *ClouditVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (startVM irs
 		}
 		snapshot, getSnapshotErr := snapshot.Get(myImageHandler.Client, myImage.IId.SystemId, &snapshotReqOpts)
 		if getSnapshotErr != nil {
-			return irs.VMInfo{}, errors.New(fmt.Sprintf("Failed to Create VM. err = %s", getSnapshotErr.Error()))
+			createErr := errors.New(fmt.Sprintf("Failed to Create VM. err = %s", getSnapshotErr.Error()))
+			cblogger.Error(createErr.Error())
+			LoggingError(hiscallInfo, createErr)
+			return irs.VMInfo{}, createErr
 		}
 		reqInfo.TemplateId = snapshot.TemplateId
 		reqInfo.SnapshotId = myImage.IId.SystemId
@@ -298,6 +314,8 @@ func (vmHandler *ClouditVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (startVM irs
 			if cleanerErr != nil {
 				createError = errors.New(fmt.Sprintf("%s and Failed to rollback err = %s", createError.Error(), cleanerErr.Error()))
 			}
+			cblogger.Error(createErr.Error())
+			LoggingError(hiscallInfo, createErr)
 		}
 	}()
 	// VM 생성 완료까지 wait
@@ -483,6 +501,8 @@ func (vmHandler *ClouditVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (startVM irs
 				if cleanerErr != nil {
 					createError = errors.New(fmt.Sprintf("%s and Failed to rollback err = %s", createError.Error(), cleanerErr.Error()))
 				}
+				cblogger.Error(createErr.Error())
+				LoggingError(hiscallInfo, createErr)
 			}()
 		}
 
@@ -800,7 +820,7 @@ func (vmHandler *ClouditVMHandler) ListVMStatus() ([]*irs.VMStatusInfo, error) {
 	start := call.Start()
 	vmList, err := server.List(vmHandler.Client, &requestOpts)
 	if err != nil {
-		getErr := errors.New(fmt.Sprintf("Failed to Get ListVMStatus. err = %s", err.Error()))
+		getErr := errors.New(fmt.Sprintf("Failed to List VMStatus. err = %s", err.Error()))
 		cblogger.Error(getErr.Error())
 		LoggingError(hiscallInfo, getErr)
 		return nil, getErr
@@ -854,7 +874,7 @@ func (vmHandler *ClouditVMHandler) ListVM() ([]*irs.VMInfo, error) {
 	start := call.Start()
 	vmList, err := server.List(vmHandler.Client, &requestOpts)
 	if err != nil {
-		getErr := errors.New(fmt.Sprintf("Failed to Get VMList. err = %s", err.Error()))
+		getErr := errors.New(fmt.Sprintf("Failed to List VM. err = %s", err.Error()))
 		cblogger.Error(getErr.Error())
 		LoggingError(hiscallInfo, getErr)
 		return nil, getErr
@@ -865,7 +885,7 @@ func (vmHandler *ClouditVMHandler) ListVM() ([]*irs.VMInfo, error) {
 	for i, vm := range *vmList {
 		vmInfo, err := vmHandler.mappingServerInfo(vm)
 		if err != nil {
-			getErr := errors.New(fmt.Sprintf("Failed to Get VMList. err = %s", err.Error()))
+			getErr := errors.New(fmt.Sprintf("Failed to List VM. err = %s", err.Error()))
 			cblogger.Error(getErr.Error())
 			LoggingError(hiscallInfo, getErr)
 			return nil, getErr
@@ -906,7 +926,7 @@ func (vmHandler *ClouditVMHandler) vmCleaner(vmIID irs.IID) error {
 	}
 	rawVm, err := vmHandler.getRawVm(vmIID)
 	if err != nil {
-		cleanErr := errors.New(fmt.Sprintf("Failed to Get. err = %s", err.Error()))
+		cleanErr := errors.New(fmt.Sprintf("Failed to Get VM. err = %s", err.Error()))
 		return cleanErr
 	}
 	// DisassociatePublicIP
