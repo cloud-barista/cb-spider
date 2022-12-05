@@ -163,13 +163,11 @@ func (imageHandler *DockerImageHandler) DeleteImage(imageIID irs.IID) (bool, err
         cblogger.Info("Docker Cloud Driver: called DeleteImage()!")
 
 
-        response, err := imageHandler.Client.ImageRemove(imageHandler.Context, imageIID.SystemId, types.ImageRemoveOptions{})
+        _, err := imageHandler.Client.ImageRemove(imageHandler.Context, imageIID.SystemId, types.ImageRemoveOptions{})
         if err != nil {
                 cblogger.Error(err)
                 return false, err
         }
-
-	fmt.Printf("\n\n=================\n %#v", response)
 
 	return true, nil
 }
