@@ -1163,7 +1163,7 @@ func (vmHandler *IbmVMHandler) getKeyIId(instance vpcv1.Instance) irs.IID {
 type vmNetworkInfo struct {
 	NetworkInterface  string
 	PublicIP          string
-	SSHAccessPoint    string
+	AccessPoint       string
 	SecurityGroupIIds []irs.IID
 }
 
@@ -1211,7 +1211,7 @@ func (vmHandler *IbmVMHandler) getNetworkInfo(instance vpcv1.Instance) vmNetwork
 		info.NetworkInterface = *networkInterface.Name
 		if networkInterface.FloatingIps != nil && len(networkInterface.FloatingIps) > 0 {
 			info.PublicIP = *networkInterface.FloatingIps[0].Address
-			info.SSHAccessPoint = info.PublicIP + ":22"
+			info.AccessPoint = info.PublicIP
 		}
 		if vpcId == "" {
 			info.SecurityGroupIIds = []irs.IID{}
@@ -1298,7 +1298,7 @@ func (vmHandler *IbmVMHandler) setVmInfo(instance vpcv1.Instance) (irs.VMInfo, e
 		case netInfo := <-networkDone:
 			vmInfo.NetworkInterface = netInfo.NetworkInterface
 			vmInfo.PublicIP = netInfo.PublicIP
-			vmInfo.SSHAccessPoint = netInfo.SSHAccessPoint
+			vmInfo.AccessPoint = netInfo.AccessPoint
 			vmInfo.SecurityGroupIIds = netInfo.SecurityGroupIIds
 		case volumeRootDiskSize := <-volumeDone:
 			vmInfo.RootDiskSize = volumeRootDiskSize
@@ -1307,56 +1307,19 @@ func (vmHandler *IbmVMHandler) setVmInfo(instance vpcv1.Instance) (irs.VMInfo, e
 
 	vmInfo.RootDiskType = "general-purpose"
 
-	imageId := instance.Image.ID
-	imageHandler := IbmImageHandler{
-		CredentialInfo: vmHandler.CredentialInfo,
-		Region:         vmHandler.Region,
-		VpcService:     vmHandler.VpcService,
-		Ctx:            vmHandler.Ctx,
-	}
-	myImageHandler := IbmMyImageHandler{
-		CredentialInfo: vmHandler.CredentialInfo,
-		Region:         vmHandler.Region,
-		VpcService:     vmHandler.VpcService,
-		Ctx:            vmHandler.Ctx,
-	}
-
 	vmInfo.VMBootDisk = *instance.BootVolumeAttachment.Volume.ID
-
-	sourceImage, getSourceImageErr := imageHandler.GetImage(irs.IID{SystemId: *imageId})
-	if getSourceImageErr == nil {
-		vmInfo.ImageIId = sourceImage.IId
-		vmInfo.ImageType = irs.PublicImage
-
-		image, getImageErr := getRawImage(irs.IID{SystemId: *imageId}, vmHandler.VpcService, vmHandler.Ctx)
-		if getImageErr == nil {
-			isWindows := strings.Contains(strings.ToLower(*image.OperatingSystem.Name), "windows")
-			if isWindows {
-				vmInfo.VMUserId = "Administrator"
-			} else {
-				vmInfo.VMUserId = "cb-user"
-			}
+	rawBootDisk, getRawBootDiskErr := getRawDisk(vmHandler.VpcService, vmHandler.Ctx, irs.IID{SystemId: vmInfo.VMBootDisk})
+	if getRawBootDiskErr == nil {
+		isWindows := strings.Contains(strings.ToLower(*rawBootDisk.OperatingSystem.Name), "windows")
+		if isWindows {
+			vmInfo.Platform = irs.WINDOWS
+			vmInfo.VMUserId = "Administrator"
+			vmInfo.AccessPoint = vmInfo.AccessPoint + ":3389"
+		} else {
+			vmInfo.Platform = irs.LINUX
+			vmInfo.VMUserId = "cb-user"
+			vmInfo.AccessPoint = vmInfo.AccessPoint + ":22"
 		}
-
-		return vmInfo, nil
-	}
-
-	sourceMyImage, getSourceMyImageErr := myImageHandler.GetMyImage(irs.IID{SystemId: *imageId})
-	if getSourceMyImageErr == nil {
-		vmInfo.ImageIId = sourceMyImage.IId
-		vmInfo.ImageType = irs.MyImage
-
-		rawSnapshot, _, getRawSnapshotErr := myImageHandler.VpcService.GetSnapshotWithContext(myImageHandler.Ctx, &vpcv1.GetSnapshotOptions{ID: imageId})
-		if getRawSnapshotErr == nil {
-			isWindows := strings.Contains(strings.ToLower(*rawSnapshot.OperatingSystem.Name), "windows")
-			if isWindows {
-				vmInfo.VMUserId = "Administrator"
-			} else {
-				vmInfo.VMUserId = "cb-user"
-			}
-		}
-
-		return vmInfo, nil
 	}
 
 	return vmInfo, nil

@@ -37,15 +37,10 @@ import (
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 )
 
-type OpenstackOSTYPE string
-
 const (
-	WindowBaseUser                 = "Administrator"
-	VM                             = "VM"
-	SSHDefaultUser                 = "cb-user"
-	WindowOS       OpenstackOSTYPE = "windows"
-	LinuxOS        OpenstackOSTYPE = "linux"
-	UnknownOS      OpenstackOSTYPE = "unknown"
+	WindowBaseUser = "Administrator"
+	VM             = "VM"
+	SSHDefaultUser = "cb-user"
 )
 
 type OpenStackVMHandler struct {
@@ -194,7 +189,7 @@ func (vmHandler *OpenStackVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (startvm i
 			LoggingError(hiscallInfo, createErr)
 			return irs.VMInfo{}, createErr
 		}
-		if imageOSType == WindowOS {
+		if imageOSType == irs.WINDOWS {
 			server, err = severCreatePublicImageWindowOS(serverCreateOpts, vmReqInfo, vmHandler.VolumeClient, vmHandler.ComputeClient)
 			if err != nil {
 				createErr := errors.New(fmt.Sprintf("Failed to startVM err =  %s", err))
@@ -220,7 +215,7 @@ func (vmHandler *OpenStackVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (startvm i
 			LoggingError(hiscallInfo, createErr)
 			return irs.VMInfo{}, createErr
 		}
-		if imageOSType == WindowOS {
+		if imageOSType == irs.WINDOWS {
 			server, err = severCreateMyImageWindowOS(serverCreateOpts, vmReqInfo, vmHandler.VolumeClient, vmHandler.ComputeClient)
 			if err != nil {
 				createErr := errors.New(fmt.Sprintf("Failed to startVM err = %s", err))
@@ -585,9 +580,10 @@ func (vmHandler *OpenStackVMHandler) mappingServerInfo(server servers.Server) ir
 	}
 	OSType, err := getOSTypeByServer(server)
 	if err == nil {
-		if OSType == WindowOS {
+		if OSType == irs.WINDOWS {
 			vmInfo.VMUserId = WindowBaseUser
 		} else {
+			vmInfo.VMUserId = SSHDefaultUser
 			vmInfo.KeyPairIId = irs.IID{
 				NameId:   server.KeyName,
 				SystemId: server.KeyName,
@@ -691,6 +687,17 @@ func (vmHandler *OpenStackVMHandler) mappingServerInfo(server servers.Server) ir
 		vmInfo.NetworkInterface = port.ID
 	}
 
+	osPlatform, err := getOSTypeByServer(server)
+	if err == nil {
+		vmInfo.Platform = osPlatform
+	}
+	if vmInfo.PublicIP != "" {
+		if osPlatform == irs.WINDOWS {
+			vmInfo.AccessPoint = fmt.Sprintf("%s:%s", vmInfo.PublicIP, "3389")
+		} else {
+			vmInfo.AccessPoint = fmt.Sprintf("%s:%s", vmInfo.PublicIP, "22")
+		}
+	}
 	return vmInfo
 }
 
@@ -897,45 +904,47 @@ func getAllVolumeByServerAttachedVolume(attachedVolumes []servers.AttachedVolume
 	return volumeList, nil
 }
 
-func getOSTypeByImage(imageIID irs.IID, computeClient *gophercloud.ServiceClient) (OpenstackOSTYPE, error) {
+func getOSTypeByImage(imageIID irs.IID, computeClient *gophercloud.ServiceClient) (irs.Platform, error) {
 	image, err := getRawImage(imageIID, computeClient)
 	if err != nil {
-		return UnknownOS, err
+		return "", err
 	}
 	value, exist := image.Metadata["os_type"]
 	if !exist {
-		return LinuxOS, nil
+		return irs.LINUX, nil
 	}
+	// os_type의 값 windows는 정해진 값, irs.Platform의 값이 바뀔 경우를 대비하여, static
 	if value == "windows" {
-		return WindowOS, nil
+		return irs.WINDOWS, nil
 	}
-	return LinuxOS, nil
+	return irs.LINUX, nil
 }
 
-func getOSTypeByMyImage(imageIID irs.IID, computeClient *gophercloud.ServiceClient) (OpenstackOSTYPE, error) {
+func getOSTypeByMyImage(imageIID irs.IID, computeClient *gophercloud.ServiceClient) (irs.Platform, error) {
 	image, err := getRawSnapshot(imageIID, computeClient)
 	if err != nil {
-		return UnknownOS, err
+		return "", err
 	}
 	value, exist := image.Metadata["os_type"]
 	if !exist {
-		return LinuxOS, nil
+		return irs.LINUX, nil
 	}
+	// os_type의 값 windows는 정해진 값, irs.Platform의 값이 바뀔 경우를 대비하여, static
 	if value == "windows" {
-		return WindowOS, nil
+		return irs.WINDOWS, nil
 	}
-	return LinuxOS, nil
+	return irs.LINUX, nil
 }
 
-func getOSTypeByServer(server servers.Server) (OpenstackOSTYPE, error) {
+func getOSTypeByServer(server servers.Server) (irs.Platform, error) {
 	value, exist := server.Metadata["os_type"]
 	if !exist {
-		return LinuxOS, nil
+		return irs.LINUX, nil
 	}
 	if value == "windows" {
-		return WindowOS, nil
+		return irs.WINDOWS, nil
 	}
-	return LinuxOS, nil
+	return irs.LINUX, nil
 }
 
 func getPassword(server servers.Server) (string, error) {
@@ -1013,7 +1022,7 @@ func severCreatePublicImageLinuxOS(baseServerCreateOpt servers.CreateOpts, vmReq
 	baseServerCreateOpt.ImageRef = image.ID
 	baseServerCreateOpt.Metadata = map[string]string{
 		"imagekey": image.ID,
-		"os_type":  string(LinuxOS),
+		"os_type":  "linux",
 	}
 
 	if !(vmReqInfo.RootDiskSize == "" || vmReqInfo.RootDiskSize == "default") {
@@ -1093,7 +1102,8 @@ func severCreatePublicImageWindowOS(baseServerCreateOpt servers.CreateOpts, vmRe
 	baseServerCreateOpt.Metadata = map[string]string{
 		"imagekey":   image.ID,
 		"admin_pass": vmReqInfo.VMUserPasswd,
-		"os_type":    string(WindowOS),
+		// os_type의 값 windows는 정해진 값, irs.Platform의 값이 바뀔 경우를 대비하여, static
+		"os_type": "windows",
 	}
 	// Disk Size 변경
 	if !(vmReqInfo.RootDiskSize == "" || vmReqInfo.RootDiskSize == "default") {
@@ -1162,8 +1172,9 @@ func severCreateMyImageWindowOS(baseServerCreateOpt servers.CreateOpts, vmReqInf
 	}
 	baseServerCreateOpt.ImageRef = image.ID
 	baseServerCreateOpt.Metadata = map[string]string{
-		"imagekey":   image.ID,
-		"os_type":    string(WindowOS),
+		"imagekey": image.ID,
+		// os_type의 값 windows는 정해진 값, irs.Platform의 값이 바뀔 경우를 대비하여, static
+		"os_type":    "windows",
 		"admin_pass": vmReqInfo.VMUserPasswd,
 	}
 	_, exist := image.Metadata["block_device_mapping"]
@@ -1185,7 +1196,7 @@ func severCreateMyImageLinuxOS(baseServerCreateOpt servers.CreateOpts, vmReqInfo
 	baseServerCreateOpt.ImageRef = image.ID
 	baseServerCreateOpt.Metadata = map[string]string{
 		"imagekey": image.ID,
-		"os_type":  string(LinuxOS),
+		"os_type":  "linux",
 	}
 	// snapshot block_device_mapping Check (volumeClient)
 	_, exist := image.Metadata["block_device_mapping"]

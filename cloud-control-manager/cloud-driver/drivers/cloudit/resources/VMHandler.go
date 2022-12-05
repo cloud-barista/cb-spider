@@ -1034,10 +1034,16 @@ func (vmHandler *ClouditVMHandler) mappingServerInfo(serverInfo server.ServerInf
 	}
 
 	var vmUser string
+	var platform irs.Platform
+	var accessPoint string
 	if strings.Contains(strings.ToLower(serverInfo.Template), "window") {
 		vmUser = "Administrator"
+		platform = irs.WINDOWS
+		accessPoint = serverInfo.AdaptiveIp + ":3389"
 	} else {
 		vmUser = SSHDefaultUser
+		platform = irs.WINDOWS
+		accessPoint = serverInfo.AdaptiveIp + ":22"
 	}
 
 	vmInfo := irs.VMInfo{
@@ -1056,7 +1062,8 @@ func (vmHandler *ClouditVMHandler) mappingServerInfo(serverInfo server.ServerInf
 		VMUserId:       vmUser,
 		PublicIP:       serverInfo.AdaptiveIp,
 		PrivateIP:      serverInfo.PrivateIp,
-		SSHAccessPoint: fmt.Sprintf("%s:%d", serverInfo.AdaptiveIp, SSHDefaultPort),
+		Platform:       platform,
+		AccessPoint:    accessPoint,
 		RootDiskSize:   strconv.Itoa(serverInfo.VolumeSize),
 		RootDeviceName: "Not visible in Cloudit",
 		VMBlockDisk:    "Not visible in Cloudit",

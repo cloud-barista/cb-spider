@@ -30,20 +30,15 @@ import (
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 )
 
-type AzureOSTYPE string
-
 const (
-	ProvisioningStateCode string      = "ProvisioningState/succeeded"
-	VM                                = "VM"
-	PremiumSSD                        = "PremiumSSD"
-	StandardSSD                       = "StandardSSD"
-	StandardHDD                       = "StandardHDD"
-	WindowBaseUser                    = "Administrator"
-	WindowBaseGroup                   = "Administrators"
-	WindowBuitinUser                  = CBVMUser
-	UnknownOS             AzureOSTYPE = "UnknownOS"
-	WindowOS              AzureOSTYPE = "WindowOS"
-	LinuxOS               AzureOSTYPE = "LinuxOS"
+	ProvisioningStateCode string = "ProvisioningState/succeeded"
+	VM                           = "VM"
+	PremiumSSD                   = "PremiumSSD"
+	StandardSSD                  = "StandardSSD"
+	StandardHDD                  = "StandardHDD"
+	WindowBaseUser               = "Administrator"
+	WindowBaseGroup              = "Administrators"
+	WindowBuitinUser             = CBVMUser
 )
 
 type AzureVMHandler struct {
@@ -291,7 +286,7 @@ func (vmHandler *AzureVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 		}
 	}
 
-	if imageOsType == LinuxOS {
+	if imageOsType == irs.LINUX {
 		// 3-2. Set VmReqInfo - KeyPair & tagging
 		if vmReqInfo.KeyPairIID.NameId != "" {
 			key, keyErr := GetRawKey(vmReqInfo.KeyPairIID, vmHandler.Region.ResourceGroup, vmHandler.SshKeyClient, vmHandler.Ctx)
@@ -442,7 +437,7 @@ func (vmHandler *AzureVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 		}
 	}
 	// 6. Window user Change
-	if imageOsType == WindowOS {
+	if imageOsType == irs.WINDOWS {
 		if vmReqInfo.ImageType == "" || vmReqInfo.ImageType == irs.PublicImage {
 			err = createAdministratorUser(vmReqInfo.IId, WindowBaseUser, vmReqInfo.VMUserPasswd, vmHandler.Client, vmHandler.VirtualMachineRunCommandsClient, vmHandler.Ctx, vmHandler.Region)
 			if err != nil {
@@ -499,7 +494,7 @@ func (vmHandler *AzureVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 			return irs.VMInfo{}, createErr
 		}
 		vmInfo := vmHandler.mappingServerInfo(vm)
-		if imageOsType == WindowOS {
+		if imageOsType == irs.WINDOWS {
 			vmInfo.VMUserPasswd = vmReqInfo.VMUserPasswd
 		}
 		LoggingInfo(hiscallInfo, start)
@@ -1035,10 +1030,10 @@ func (vmHandler *AzureVMHandler) mappingServerInfo(server compute.VirtualMachine
 	}
 	osType, err := getOSTypeByVM(server)
 	if err == nil {
-		if osType == WindowOS {
+		if osType == irs.WINDOWS {
 			vmInfo.VMUserId = WindowBaseUser
 		}
-		if osType == LinuxOS {
+		if osType == irs.LINUX {
 			vmInfo.VMUserId = CBVMUser
 		}
 	}
@@ -1096,7 +1091,17 @@ func (vmHandler *AzureVMHandler) mappingServerInfo(server compute.VirtualMachine
 		}
 		vmInfo.DataDiskIIDs = dataDiskIIDList
 	}
-
+	osPlatform, err := getOSTypeByVM(server)
+	if err == nil {
+		vmInfo.Platform = osPlatform
+	}
+	if vmInfo.PublicIP != "" {
+		if osPlatform == irs.WINDOWS {
+			vmInfo.AccessPoint = fmt.Sprintf("%s:%s", vmInfo.PublicIP, "3389")
+		} else {
+			vmInfo.AccessPoint = fmt.Sprintf("%s:%s", vmInfo.PublicIP, "22")
+		}
+	}
 	return vmInfo
 }
 
@@ -1481,8 +1486,8 @@ func ConvertVMIID(vmIID irs.IID, credentialInfo idrv.CredentialInfo, regionInfo 
 	}
 }
 
-func checkAuthInfoOSType(vmReqInfo irs.VMReqInfo, OSType AzureOSTYPE) error {
-	if OSType == WindowOS {
+func checkAuthInfoOSType(vmReqInfo irs.VMReqInfo, OSType irs.Platform) error {
+	if OSType == irs.WINDOWS {
 		_, idErr := windowUserIdCheck(vmReqInfo.VMUserId)
 		if idErr != nil {
 			return idErr
@@ -1499,7 +1504,7 @@ func checkAuthInfoOSType(vmReqInfo irs.VMReqInfo, OSType AzureOSTYPE) error {
 			return computeErr
 		}
 	}
-	if OSType == LinuxOS {
+	if OSType == irs.LINUX {
 		if vmReqInfo.KeyPairIID.NameId == "" && vmReqInfo.KeyPairIID.SystemId == "" {
 			return errors.New("for Linux, KeyPairIID is required")
 		}
@@ -1591,7 +1596,7 @@ func changeUserPassword(vmIID irs.IID, username string, newpassword string, virt
 	return nil
 }
 
-func CheckVMReqInfoOSType(vmReqInfo irs.VMReqInfo, imageClient *compute.ImagesClient, credentialInfo idrv.CredentialInfo, region idrv.RegionInfo, ctx context.Context) (AzureOSTYPE, error) {
+func CheckVMReqInfoOSType(vmReqInfo irs.VMReqInfo, imageClient *compute.ImagesClient, credentialInfo idrv.CredentialInfo, region idrv.RegionInfo, ctx context.Context) (irs.Platform, error) {
 	if vmReqInfo.ImageType == "" || vmReqInfo.ImageType == irs.PublicImage {
 		return getOSTypeByPublicImage(vmReqInfo.ImageIID)
 	} else {
@@ -1599,16 +1604,16 @@ func CheckVMReqInfoOSType(vmReqInfo irs.VMReqInfo, imageClient *compute.ImagesCl
 	}
 }
 
-func getOSTypeByVM(server compute.VirtualMachine) (AzureOSTYPE, error) {
+func getOSTypeByVM(server compute.VirtualMachine) (irs.Platform, error) {
 	if server.OsProfile.LinuxConfiguration != nil {
-		return LinuxOS, nil
+		return irs.LINUX, nil
 	}
-	return WindowOS, nil
+	return irs.WINDOWS, nil
 }
 
-func getOSTypeByPublicImage(imageIID irs.IID) (AzureOSTYPE, error) {
+func getOSTypeByPublicImage(imageIID irs.IID) (irs.Platform, error) {
 	if imageIID.NameId == "" && imageIID.SystemId == "" {
-		return UnknownOS, errors.New("failed get OSType By ImageIID err = empty ImageIID")
+		return "", errors.New("failed get OSType By ImageIID err = empty ImageIID")
 	}
 	imageName := imageIID.NameId
 	if imageIID.NameId == "" {
@@ -1616,34 +1621,34 @@ func getOSTypeByPublicImage(imageIID irs.IID) (AzureOSTYPE, error) {
 	}
 	imageNameSplits := strings.Split(imageName, ":")
 	if len(imageNameSplits) != 4 {
-		return UnknownOS, errors.New("failed get OSType By ImageIID err = invalid ImageIID, Image Name must be in the form of 'Publisher:Offer:Sku:Version'. ")
+		return "", errors.New("failed get OSType By ImageIID err = invalid ImageIID, Image Name must be in the form of 'Publisher:Offer:Sku:Version'. ")
 	}
 	offer := imageNameSplits[1]
 	if strings.Contains(strings.ToLower(offer), "window") {
-		return WindowOS, nil
+		return irs.WINDOWS, nil
 	}
-	return LinuxOS, nil
+	return irs.LINUX, nil
 }
 
-func getOSTypeByMyImage(myImageIID irs.IID, imageClient *compute.ImagesClient, credentialInfo idrv.CredentialInfo, region idrv.RegionInfo, ctx context.Context) (AzureOSTYPE, error) {
+func getOSTypeByMyImage(myImageIID irs.IID, imageClient *compute.ImagesClient, credentialInfo idrv.CredentialInfo, region idrv.RegionInfo, ctx context.Context) (irs.Platform, error) {
 	convertedMyImageIID, err := ConvertMyImageIID(myImageIID, credentialInfo, region)
 	if err != nil {
-		return UnknownOS, errors.New(fmt.Sprintf("failed get OSType By MyImageIID err = %s", err.Error()))
+		return "", errors.New(fmt.Sprintf("failed get OSType By MyImageIID err = %s", err.Error()))
 	}
 	myImage, err := imageClient.Get(ctx, region.ResourceGroup, convertedMyImageIID.NameId, "")
 	if err != nil {
-		return UnknownOS, errors.New(fmt.Sprintf("failed get OSType By MyImageIID err = failed get MyImage err = %s", err.Error()))
+		return "", errors.New(fmt.Sprintf("failed get OSType By MyImageIID err = failed get MyImage err = %s", err.Error()))
 	}
 	if reflect.ValueOf(myImage.StorageProfile.OsDisk).IsNil() {
-		return UnknownOS, errors.New(fmt.Sprintf("failed get OSType By MyImageIID err = empty MyImage OSType"))
+		return "", errors.New(fmt.Sprintf("failed get OSType By MyImageIID err = empty MyImage OSType"))
 	}
 	if myImage.StorageProfile.OsDisk.OsType == compute.OperatingSystemTypesLinux {
-		return LinuxOS, nil
+		return irs.LINUX, nil
 	}
 	if myImage.StorageProfile.OsDisk.OsType == compute.OperatingSystemTypesWindows {
-		return WindowOS, nil
+		return irs.LINUX, nil
 	}
-	return UnknownOS, errors.New(fmt.Sprintf("failed get OSType By MyImageIID err = empty MyImage OSType"))
+	return "", errors.New(fmt.Sprintf("failed get OSType By MyImageIID err = empty MyImage OSType"))
 }
 func windowUserIdCheck(userId string) (bool, error) {
 	if userId == "Administrator" {
