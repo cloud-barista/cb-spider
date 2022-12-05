@@ -14,7 +14,6 @@ package resources
 
 import (
 	"errors"
-	"fmt"
 	"reflect"
 	"strconv"
 	"strings"
