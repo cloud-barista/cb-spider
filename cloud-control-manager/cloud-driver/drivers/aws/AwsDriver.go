@@ -13,6 +13,7 @@ package aws
 
 import (
 	acon "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/aws/connect"
+	ars "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/aws/resources"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 
 	icon "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/connect"
@@ -51,7 +52,7 @@ func (AwsDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	return drvCapabilityInfo
 }
 
-//func getVMClient(regionInfo idrv.RegionInfo) (*ec2.EC2, error) {
+// func getVMClient(regionInfo idrv.RegionInfo) (*ec2.EC2, error) {
 func getVMClient(connectionInfo idrv.ConnectionInfo) (*ec2.EC2, error) {
 
 	// setup Region
@@ -80,7 +81,7 @@ func getVMClient(connectionInfo idrv.ConnectionInfo) (*ec2.EC2, error) {
 	return svc, nil
 }
 
-//로드밸런서 처리를 위한 ELB 클라이언트 획득
+// 로드밸런서 처리를 위한 ELB 클라이언트 획득
 func getNLBClient(connectionInfo idrv.ConnectionInfo) (*elbv2.ELBV2, error) {
 	//func getNLBClient(connectionInfo idrv.ConnectionInfo) (*elb.ELB, error) {
 
@@ -117,6 +118,9 @@ func (driver *AwsDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (icon.
 	// 3. create CloudConnection Instance of "connect/TDA_CloudConnection".
 	// 4. return CloudConnection Interface of TDA_CloudConnection.
 
+	// Initialize Logger
+	ars.InitLog()
+
 	//fmt.Println("ConnectCloud의 전달 받은 idrv.ConnectionInfo 정보")
 	//spew.Dump(connectionInfo)
 
@@ -147,7 +151,7 @@ func (driver *AwsDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (icon.
 		MyImageClient:  vmClient,
 
 		// Connection for AnyCall
-		AnyCallClient:  vmClient,
+		AnyCallClient: vmClient,
 	}
 
 	return &iConn, nil // return type: (icon.CloudConnection, error)
