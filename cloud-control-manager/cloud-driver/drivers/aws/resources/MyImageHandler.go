@@ -11,6 +11,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/ec2"
+	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/davecgh/go-spew/spew"
@@ -232,9 +233,13 @@ const (
 ////------ Snapshot to create a MyImage
 
 func (ImageHandler *AwsMyImageHandler) SnapshotVM(snapshotReqInfo irs.MyImageInfo) (irs.MyImageInfo, error) {
+	hiscallInfo := GetCallLogScheme(ImageHandler.Region, call.MYIMAGE, snapshotReqInfo.IId.NameId, "SnapshotVM()")
+	start := call.Start()
+
 	//Instance 정보 조회
 	instance, err := DescribeInstanceById(ImageHandler.Client, snapshotReqInfo.SourceVM)
 	if err != nil {
+		cblogger.Error(err)
 		return irs.MyImageInfo{}, err
 	}
 
@@ -246,6 +251,7 @@ func (ImageHandler *AwsMyImageHandler) SnapshotVM(snapshotReqInfo irs.MyImageInf
 
 		volume, err := DescribeVolumneById(ImageHandler.Client, *instanceBlockDevice.Ebs.VolumeId)
 		if err != nil {
+			cblogger.Error(err)
 			return irs.MyImageInfo{}, err
 		}
 
@@ -305,6 +311,7 @@ func (ImageHandler *AwsMyImageHandler) SnapshotVM(snapshotReqInfo irs.MyImageInf
 	}
 
 	result, err := ImageHandler.Client.CreateImage(input)
+	hiscallInfo.ElapsedTime = call.Elapsed(start)
 	if err != nil {
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
@@ -316,12 +323,19 @@ func (ImageHandler *AwsMyImageHandler) SnapshotVM(snapshotReqInfo irs.MyImageInf
 			// Message from an error.
 			fmt.Println(err.Error())
 		}
+		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
 		return irs.MyImageInfo{}, err
 	}
+	calllogger.Info(call.String(hiscallInfo))
 
 	createdImageId := result.ImageId
 
 	myImage, err := ImageHandler.GetMyImage(irs.IID{SystemId: *createdImageId})
+	if err != nil {
+		cblogger.Error(err)
+		return irs.MyImageInfo{}, err
+	}
 
 	return myImage, nil
 }
@@ -329,16 +343,22 @@ func (ImageHandler *AwsMyImageHandler) SnapshotVM(snapshotReqInfo irs.MyImageInf
 //------ MyImage Management
 
 func (ImageHandler *AwsMyImageHandler) ListMyImage() ([]*irs.MyImageInfo, error) {
+	hiscallInfo := GetCallLogScheme(ImageHandler.Region, call.MYIMAGE, "MyImage", "ListMyImage()")
+	start := call.Start()
+
 	var returnMyImageInfoList []*irs.MyImageInfo
 	//input := &ec2.DescribeImagesInput{}
 	//
 	//result, err := ImageHandler.Client.DescribeImages(input)
 	//result, err := DescribeImages(ImageHandler.Client, nil)
 	result, err := DescribeImages(ImageHandler.Client, nil, []*string{aws.String("self")})
-
+	hiscallInfo.ElapsedTime = call.Elapsed(start)
 	if err != nil {
+		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
 		return nil, err
 	}
+	calllogger.Info(call.String(hiscallInfo))
 
 	if cblogger.Level.String() == "debug" {
 		spew.Dump(result)
@@ -347,7 +367,8 @@ func (ImageHandler *AwsMyImageHandler) ListMyImage() ([]*irs.MyImageInfo, error)
 		myImage, err := convertAWSImageToMyImageInfo(awsImage)
 		if err != nil {
 			// conver Error but continue;
-			//return nil, err
+			cblogger.Error(err)
+			continue
 		}
 		returnMyImageInfoList = append(returnMyImageInfoList, &myImage)
 	}
@@ -356,28 +377,46 @@ func (ImageHandler *AwsMyImageHandler) ListMyImage() ([]*irs.MyImageInfo, error)
 }
 
 func (ImageHandler *AwsMyImageHandler) GetMyImage(myImageIID irs.IID) (irs.MyImageInfo, error) {
+	hiscallInfo := GetCallLogScheme(ImageHandler.Region, call.MYIMAGE, myImageIID.NameId, "GetMyImage()")
+	start := call.Start()
+
 	resultImage, err := DescribeImageById(ImageHandler.Client, &myImageIID, []*string{aws.String("self")})
+	hiscallInfo.ElapsedTime = call.Elapsed(start)
 	if err != nil {
+		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
+		return irs.MyImageInfo{}, err
+	}
+	calllogger.Info(call.String(hiscallInfo))
+
+	returnMyImage, err := convertAWSImageToMyImageInfo(resultImage)
+	if err != nil {
+		cblogger.Error(err)
 		return irs.MyImageInfo{}, err
 	}
 
-	returnMyImage, err := convertAWSImageToMyImageInfo(resultImage)
 	return returnMyImage, nil
 }
 
 func (ImageHandler *AwsMyImageHandler) DeleteMyImage(myImageIID irs.IID) (bool, error) {
+	hiscallInfo := GetCallLogScheme(ImageHandler.Region, call.MYIMAGE, myImageIID.NameId, "DeleteMyImage()")
+	start := call.Start()
+
 	resultImage, err := DescribeImageById(ImageHandler.Client, &myImageIID, []*string{aws.String("self")})
 	if err != nil {
+		cblogger.Error(err)
 		return false, err
 	}
 
 	snapshotIds, err := GetSnapshotIdFromEc2Image(resultImage)
 	if err != nil {
+		cblogger.Error(err)
 		return false, err
 	}
 
 	diskIIDs, err := GetDisksFromEc2Image(resultImage)
 	if err != nil {
+		cblogger.Error(err)
 		return false, err
 	}
 	if cblogger.Level.String() == "debug" {
@@ -388,9 +427,13 @@ func (ImageHandler *AwsMyImageHandler) DeleteMyImage(myImageIID irs.IID) (bool, 
 	input.ImageId = aws.String(myImageIID.SystemId)
 
 	result, err := ImageHandler.Client.DeregisterImage(input)
+	hiscallInfo.ElapsedTime = call.Elapsed(start)
 	if err != nil {
+		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
 		return false, err
 	}
+	calllogger.Info(call.String(hiscallInfo))
 
 	if cblogger.Level.String() == "debug" {
 		spew.Dump(result)
@@ -399,9 +442,12 @@ func (ImageHandler *AwsMyImageHandler) DeleteMyImage(myImageIID irs.IID) (bool, 
 	for _, snapshotId := range snapshotIds {
 		snapShotDeleteResult, err := ImageHandler.DeleteSnapshotById(snapshotId)
 		if err != nil {
-			return snapShotDeleteResult, errors.New("Fail to delete snapshot" + snapshotId + " " + err.Error())
+			snapShotDeleteErr := errors.New(fmt.Sprintf("Fail to delete snapshot" + snapshotId + " " + err.Error()))
+			cblogger.Error(snapShotDeleteErr.Error())
+			return snapShotDeleteResult, snapShotDeleteErr
 		}
 	}
+
 	return true, nil
 }
 
@@ -532,12 +578,15 @@ func (MyImageHandler *AwsMyImageHandler) DeleteSnapshotById(snapshotId string) (
 }
 
 func (ImageHandler *AwsMyImageHandler) CheckWindowsImage(myImageIID irs.IID) (bool, error) {
+	hiscallInfo := GetCallLogScheme(ImageHandler.Region, call.MYIMAGE, myImageIID.NameId, "CheckWindowsImage()")
+	start := call.Start()
+
 	isWindowsImage := false
 	myImage := []*string{aws.String("self")}
 
 	// image 조회 : myImage []*string{aws.String("self")} / public image []*string{aws.String("amazon")}
 	resultImage, err := DescribeImageById(ImageHandler.Client, &myImageIID, myImage)
-
+	hiscallInfo.ElapsedTime = call.Elapsed(start)
 	if err != nil {
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
@@ -549,8 +598,11 @@ func (ImageHandler *AwsMyImageHandler) CheckWindowsImage(myImageIID irs.IID) (bo
 			// Message from an error.
 			cblogger.Error(err.Error())
 		}
+
+		LoggingError(hiscallInfo, err)
 		return false, err
 	}
+	calllogger.Info(call.String(hiscallInfo))
 
 	// image에서 OsType 추출
 	guestOS := GetOsTypeFromEc2Image(resultImage)
