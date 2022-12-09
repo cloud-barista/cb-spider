@@ -19,10 +19,14 @@ import (
 	"io/ioutil"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
+	cblog "github.com/cloud-barista/cb-log"
+	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
+	"github.com/sirupsen/logrus"
 	compute "google.golang.org/api/compute/v1"
 )
 
@@ -50,6 +54,39 @@ type GcpCBNetworkInfo struct {
 
 	SubnetName string
 	SubnetId   string
+}
+
+var once sync.Once
+var cblogger *logrus.Logger
+var calllogger *logrus.Logger
+
+func InitLog() {
+	once.Do(func() {
+		// cblog is a global variable.
+		cblogger = cblog.GetLogger("CB-SPIDER")
+		calllogger = call.GetLogger("HISCALL")
+	})
+}
+
+func LoggingError(hiscallInfo call.CLOUDLOGSCHEMA, err error) {
+	hiscallInfo.ErrorMSG = err.Error()
+	calllogger.Error(call.String(hiscallInfo))
+}
+
+func LoggingInfo(hiscallInfo call.CLOUDLOGSCHEMA, start time.Time) {
+	hiscallInfo.ElapsedTime = call.Elapsed(start)
+	calllogger.Info(call.String(hiscallInfo))
+}
+
+func GetCallLogScheme(region idrv.RegionInfo, resourceType call.RES_TYPE, resourceName string, apiName string) call.CLOUDLOGSCHEMA {
+	cblogger.Info(fmt.Sprintf("Call %s %s", call.GCP, apiName))
+	return call.CLOUDLOGSCHEMA{
+		CloudOS:      call.GCP,
+		RegionZone:   region.Region,
+		ResourceType: resourceType,
+		ResourceName: resourceName,
+		CloudOSAPI:   apiName,
+	}
 }
 
 // VPC

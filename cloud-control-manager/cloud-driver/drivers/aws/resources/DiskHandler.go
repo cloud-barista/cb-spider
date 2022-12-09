@@ -12,6 +12,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/ec2"
+	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	cim "github.com/cloud-barista/cb-spider/cloud-info-manager"
@@ -56,6 +57,8 @@ disk type에 따라 달라짐
 - 암호화 된 disk
 */
 func (DiskHandler *AwsDiskHandler) CreateDisk(diskReqInfo irs.DiskInfo) (irs.DiskInfo, error) {
+	hiscallInfo := GetCallLogScheme(DiskHandler.Region, call.DISK, diskReqInfo.IId.NameId, "CreateDisk()")
+	start := call.Start()
 
 	zone := DiskHandler.Region.Zone
 	spew.Dump(DiskHandler.Region)
@@ -103,6 +106,7 @@ func (DiskHandler *AwsDiskHandler) CreateDisk(diskReqInfo irs.DiskInfo) (irs.Dis
 	//input.KmsKeyId = ""
 	spew.Dump(input)
 	result, err := DiskHandler.Client.CreateVolume(input)
+	hiscallInfo.ElapsedTime = call.Elapsed(start)
 	if err != nil {
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
@@ -112,8 +116,11 @@ func (DiskHandler *AwsDiskHandler) CreateDisk(diskReqInfo irs.DiskInfo) (irs.Dis
 		} else {
 			fmt.Println(err.Error())
 		}
+		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
 		return irs.DiskInfo{}, err
 	}
+	calllogger.Info(call.String(hiscallInfo))
 
 	newVolume := irs.IID{}
 	newVolume.NameId = diskReqInfo.IId.NameId
@@ -135,14 +142,20 @@ GetDisk와 ListDisk 처리로직 동일하므로 DescribeVolumes 호출.
 단, IDList를 nil로 set.
 */
 func (DiskHandler *AwsDiskHandler) ListDisk() ([]*irs.DiskInfo, error) {
+	hiscallInfo := GetCallLogScheme(DiskHandler.Region, call.DISK, "Disk", "ListDisk()")
+	start := call.Start()
 	//Filters []*Filter `locationName:"Filter" locationNameList:"Filter" type:"list"`
 	//MaxResults *int64 `locationName:"maxResults" type:"integer"`
 	//VolumeIds []*string `locationName:"VolumeId" locationNameList:"VolumeId" type:"list"`
 
 	result, err := DescribeVolumnes(DiskHandler.Client, nil)
+	hiscallInfo.ElapsedTime = call.Elapsed(start)
 	if err != nil {
+		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
 		return nil, err
 	}
+	calllogger.Info(call.String(hiscallInfo))
 
 	var returnDiskInfoList []*irs.DiskInfo
 	for _, volumeInfo := range result.Volumes {
@@ -159,13 +172,20 @@ func (DiskHandler *AwsDiskHandler) ListDisk() ([]*irs.DiskInfo, error) {
 ListDisk와 처리로직 동일 but, volumeID 로 호출하므로 1개만 return.
 */
 func (DiskHandler *AwsDiskHandler) GetDisk(diskIID irs.IID) (irs.DiskInfo, error) {
+	hiscallInfo := GetCallLogScheme(DiskHandler.Region, call.DISK, diskIID.NameId, "GetDisk()")
+	start := call.Start()
+
 	var diskIds []*string
 	diskIds = append(diskIds, &diskIID.SystemId)
 
 	result, err := DescribeVolumnes(DiskHandler.Client, diskIds)
+	hiscallInfo.ElapsedTime = call.Elapsed(start)
 	if err != nil {
+		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
 		return irs.DiskInfo{}, err
 	}
+	calllogger.Info(call.String(hiscallInfo))
 
 	diskInfo, err := DiskHandler.convertVolumeInfoToDiskInfo(result.Volumes[0])
 	return diskInfo, nil
@@ -184,6 +204,8 @@ func (DiskHandler *AwsDiskHandler) GetDisk(diskIID irs.IID) (irs.DiskInfo, error
 		Size *int64 `type:"integer"`
 */
 func (DiskHandler *AwsDiskHandler) ChangeDiskSize(diskIID irs.IID, size string) (bool, error) {
+	hiscallInfo := GetCallLogScheme(DiskHandler.Region, call.DISK, diskIID.NameId, "ChangeDiskSize()")
+	start := call.Start()
 
 	diskInfo, err := DiskHandler.GetDisk(diskIID)
 	if err != nil {
@@ -205,6 +227,7 @@ func (DiskHandler *AwsDiskHandler) ChangeDiskSize(diskIID irs.IID, size string) 
 	}
 
 	result, err := DiskHandler.Client.ModifyVolume(input)
+	hiscallInfo.ElapsedTime = call.Elapsed(start)
 	if err != nil {
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
@@ -216,8 +239,12 @@ func (DiskHandler *AwsDiskHandler) ChangeDiskSize(diskIID irs.IID, size string) 
 			// Message from an error.
 			fmt.Println(err.Error())
 		}
+		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
 		return false, err
 	}
+	calllogger.Info(call.String(hiscallInfo))
+
 	cblogger.Debug("originalSize : " + strconv.Itoa(int(*result.VolumeModification.OriginalSize)))
 	cblogger.Debug("targetSize : " + strconv.Itoa(int(*result.VolumeModification.TargetSize)))
 
@@ -228,12 +255,15 @@ func (DiskHandler *AwsDiskHandler) ChangeDiskSize(diskIID irs.IID, size string) 
 	return true, nil
 }
 func (DiskHandler *AwsDiskHandler) DeleteDisk(diskIID irs.IID) (bool, error) {
+	hiscallInfo := GetCallLogScheme(DiskHandler.Region, call.DISK, diskIID.NameId, "DeleteDisk()")
+	start := call.Start()
 
 	input := &ec2.DeleteVolumeInput{
 		VolumeId: aws.String(diskIID.SystemId),
 	}
 
 	result, err := DiskHandler.Client.DeleteVolume(input)
+	hiscallInfo.ElapsedTime = call.Elapsed(start)
 	if err != nil {
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
@@ -245,8 +275,11 @@ func (DiskHandler *AwsDiskHandler) DeleteDisk(diskIID irs.IID) (bool, error) {
 			// Message from an error.
 			fmt.Println(err.Error())
 		}
+		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
 		return false, err
 	}
+	calllogger.Info(call.String(hiscallInfo))
 
 	if cblogger.Level.String() == "debug" {
 		spew.Dump(result)
@@ -274,7 +307,8 @@ max은 아직 권장 디바이스 이름 없고 Linux용 이름 사용
 	//device := "/dev/sdf/aa/" // invalid
 */
 func (DiskHandler *AwsDiskHandler) AttachDisk(diskIID irs.IID, ownerVM irs.IID) (irs.DiskInfo, error) {
-
+	hiscallInfo := GetCallLogScheme(DiskHandler.Region, call.DISK, diskIID.NameId, "AttachDisk()")
+	start := call.Start()
 	// getVM에서 정보 추출
 	//VmHandler := AwsVMHandler{Client: DiskHandler.Client}
 	//vmInfo, errGetVM := VmHandler.GetVM(ownerVM)
@@ -355,6 +389,7 @@ func (DiskHandler *AwsDiskHandler) AttachDisk(diskIID irs.IID, ownerVM irs.IID) 
 	}
 
 	result, err := DiskHandler.Client.AttachVolume(input)
+	hiscallInfo.ElapsedTime = call.Elapsed(start)
 	if err != nil {
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
@@ -364,8 +399,11 @@ func (DiskHandler *AwsDiskHandler) AttachDisk(diskIID irs.IID, ownerVM irs.IID) 
 		} else {
 			fmt.Println(err.Error())
 		}
+		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
 		return irs.DiskInfo{}, err
 	}
+	calllogger.Info(call.String(hiscallInfo))
 
 	if cblogger.Level.String() == "debug" {
 		spew.Dump(result)
@@ -383,6 +421,8 @@ func (DiskHandler *AwsDiskHandler) AttachDisk(diskIID irs.IID, ownerVM irs.IID) 
 	return returnDiskInfo, nil
 }
 func (DiskHandler *AwsDiskHandler) DetachDisk(diskIID irs.IID, ownerVM irs.IID) (bool, error) {
+	hiscallInfo := GetCallLogScheme(DiskHandler.Region, call.DISK, diskIID.NameId, "DetachDisk()")
+	start := call.Start()
 	//// getVM에서 정보 추출
 	//VmHandler := AwsVMHandler{Client: DiskHandler.Client}
 	//vmInfo, errGetVM := VmHandler.GetVM(ownerVM)
@@ -403,6 +443,7 @@ func (DiskHandler *AwsDiskHandler) DetachDisk(diskIID irs.IID, ownerVM irs.IID) 
 	}
 
 	result, err := DiskHandler.Client.DetachVolume(input)
+	hiscallInfo.ElapsedTime = call.Elapsed(start)
 	if err != nil {
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
@@ -412,8 +453,11 @@ func (DiskHandler *AwsDiskHandler) DetachDisk(diskIID irs.IID, ownerVM irs.IID) 
 		} else {
 			fmt.Println(err.Error())
 		}
+		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
 		return false, err
 	}
+	calllogger.Info(call.String(hiscallInfo))
 
 	if cblogger.Level.String() == "debug" {
 		spew.Dump(result)
