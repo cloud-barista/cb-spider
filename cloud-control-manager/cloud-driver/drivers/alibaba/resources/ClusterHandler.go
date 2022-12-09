@@ -43,7 +43,7 @@ type AlibabaClusterHandler struct {
 
 func (clusterHandler *AlibabaClusterHandler) CreateCluster(clusterReqInfo irs.ClusterInfo) (irs.ClusterInfo, error) {
 	cblogger.Info("Alibaba Cloud Driver: called CreateCluster()")
-	callLogInfo := getCallLogScheme(clusterHandler.RegionInfo.Region, call.CLUSTER, "CreateCluster()", "CreateCluster()")
+	callLogInfo := GetCallLogScheme(clusterHandler.RegionInfo, call.CLUSTER, "CreateCluster()", "CreateCluster()")
 
 	start := call.Start()
 	// 클러스터 생성 요청을 JSON 요청으로 변환
@@ -92,7 +92,7 @@ func (clusterHandler *AlibabaClusterHandler) CreateCluster(clusterReqInfo irs.Cl
 
 func (clusterHandler *AlibabaClusterHandler) ListCluster() ([]*irs.ClusterInfo, error) {
 	cblogger.Info("Alibaba Cloud Driver: called ListCluster()")
-	callLogInfo := getCallLogScheme(clusterHandler.RegionInfo.Region, call.CLUSTER, "ListCluster()", "ListCluster()")
+	callLogInfo := GetCallLogScheme(clusterHandler.RegionInfo, call.CLUSTER, "ListCluster()", "ListCluster()")
 
 	start := call.Start()
 	clusters_json_str, err := alibaba.GetClusters(clusterHandler.CredentialInfo.ClientId, clusterHandler.CredentialInfo.ClientSecret, clusterHandler.RegionInfo.Region)
@@ -126,7 +126,7 @@ func (clusterHandler *AlibabaClusterHandler) ListCluster() ([]*irs.ClusterInfo, 
 
 func (clusterHandler *AlibabaClusterHandler) GetCluster(clusterIID irs.IID) (irs.ClusterInfo, error) {
 	cblogger.Info("Alibaba Cloud Driver: called GetCluster()")
-	callLogInfo := getCallLogScheme(clusterHandler.RegionInfo.Region, call.CLUSTER, clusterIID.NameId, "GetCluster()")
+	callLogInfo := GetCallLogScheme(clusterHandler.RegionInfo, call.CLUSTER, clusterIID.NameId, "GetCluster()")
 
 	start := call.Start()
 	cluster_info, err := getClusterInfo(clusterHandler.CredentialInfo.ClientId, clusterHandler.CredentialInfo.ClientSecret, clusterHandler.RegionInfo.Region, clusterIID.SystemId)
@@ -145,7 +145,7 @@ func (clusterHandler *AlibabaClusterHandler) GetCluster(clusterIID irs.IID) (irs
 
 func (clusterHandler *AlibabaClusterHandler) DeleteCluster(clusterIID irs.IID) (bool, error) {
 	cblogger.Info("Alibaba Cloud Driver: called DeleteCluster()")
-	callLogInfo := getCallLogScheme(clusterHandler.RegionInfo.Region, call.CLUSTER, clusterIID.NameId, "DeleteCluster()")
+	callLogInfo := GetCallLogScheme(clusterHandler.RegionInfo, call.CLUSTER, clusterIID.NameId, "DeleteCluster()")
 
 	start := call.Start()
 	res, err := alibaba.DeleteCluster(clusterHandler.CredentialInfo.ClientId, clusterHandler.CredentialInfo.ClientSecret, clusterHandler.RegionInfo.Region, clusterIID.SystemId)
@@ -165,7 +165,7 @@ func (clusterHandler *AlibabaClusterHandler) DeleteCluster(clusterIID irs.IID) (
 
 func (clusterHandler *AlibabaClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGroupReqInfo irs.NodeGroupInfo) (irs.NodeGroupInfo, error) {
 	cblogger.Info("Alibaba Cloud Driver: called AddNodeGroup()")
-	callLogInfo := getCallLogScheme(clusterHandler.RegionInfo.Region, call.CLUSTER, clusterIID.NameId, "AddNodeGroup()")
+	callLogInfo := GetCallLogScheme(clusterHandler.RegionInfo, call.CLUSTER, clusterIID.NameId, "AddNodeGroup()")
 
 	start := call.Start()
 	// 노드 그룹 생성 요청을 JSON 요청으로 변환
@@ -255,7 +255,7 @@ func (clusterHandler *AlibabaClusterHandler) AddNodeGroup(clusterIID irs.IID, no
 
 func (clusterHandler *AlibabaClusterHandler) SetNodeGroupAutoScaling(clusterIID irs.IID, nodeGroupIID irs.IID, on bool) (bool, error) {
 	cblogger.Info("Alibaba Cloud Driver: called SetNodeGroupAutoScaling()")
-	callLogInfo := getCallLogScheme(clusterHandler.RegionInfo.Region, call.CLUSTER, clusterIID.NameId, "SetNodeGroupAutoScaling()")
+	callLogInfo := GetCallLogScheme(clusterHandler.RegionInfo, call.CLUSTER, clusterIID.NameId, "SetNodeGroupAutoScaling()")
 
 	start := call.Start()
 	temp := `{"auto_scaling":{"enable":%t}}`
@@ -277,7 +277,7 @@ func (clusterHandler *AlibabaClusterHandler) SetNodeGroupAutoScaling(clusterIID 
 
 func (clusterHandler *AlibabaClusterHandler) ChangeNodeGroupScaling(clusterIID irs.IID, nodeGroupIID irs.IID, desiredNodeSize int, minNodeSize int, maxNodeSize int) (irs.NodeGroupInfo, error) {
 	cblogger.Info("Alibaba Cloud Driver: called ChangeNodeGroupScaling()")
-	callLogInfo := getCallLogScheme(clusterHandler.RegionInfo.Region, call.CLUSTER, clusterIID.NameId, "ChangeNodeGroupScaling()")
+	callLogInfo := GetCallLogScheme(clusterHandler.RegionInfo, call.CLUSTER, clusterIID.NameId, "ChangeNodeGroupScaling()")
 
 	start := call.Start()
 	// desired_size is not supported in alibaba with auto scaling mode
@@ -307,7 +307,7 @@ func (clusterHandler *AlibabaClusterHandler) ChangeNodeGroupScaling(clusterIID i
 
 func (clusterHandler *AlibabaClusterHandler) RemoveNodeGroup(clusterIID irs.IID, nodeGroupIID irs.IID) (bool, error) {
 	cblogger.Info("Alibaba Cloud Driver: called RemoveNodeGroup()")
-	callLogInfo := getCallLogScheme(clusterHandler.RegionInfo.Region, call.CLUSTER, clusterIID.NameId, "RemoveNodeGroup()")
+	callLogInfo := GetCallLogScheme(clusterHandler.RegionInfo, call.CLUSTER, clusterIID.NameId, "RemoveNodeGroup()")
 
 	start := call.Start()
 	res, err := alibaba.DeleteNodeGroup(clusterHandler.CredentialInfo.ClientId, clusterHandler.CredentialInfo.ClientSecret, clusterHandler.RegionInfo.Region, clusterIID.SystemId, nodeGroupIID.SystemId)
@@ -327,7 +327,7 @@ func (clusterHandler *AlibabaClusterHandler) RemoveNodeGroup(clusterIID irs.IID,
 
 func (clusterHandler *AlibabaClusterHandler) UpgradeCluster(clusterIID irs.IID, newVersion string) (irs.ClusterInfo, error) {
 	cblogger.Info("Alibaba Cloud Driver: called UpgradeCluster()")
-	callLogInfo := getCallLogScheme(clusterHandler.RegionInfo.Region, call.CLUSTER, clusterIID.NameId, "UpgradeCluster()")
+	callLogInfo := GetCallLogScheme(clusterHandler.RegionInfo, call.CLUSTER, clusterIID.NameId, "UpgradeCluster()")
 
 	start := call.Start()
 	temp := `{"next_version" : "%s"}`
@@ -728,13 +728,13 @@ func getNodeGroupJSONString(clusterHandler *AlibabaClusterHandler, clusterIID ir
 	return payload, err
 }
 
-func getCallLogScheme(region string, resourceType call.RES_TYPE, resourceName string, apiName string) call.CLOUDLOGSCHEMA {
-	cblogger.Info(fmt.Sprintf("Call %s %s", call.ALIBABA, apiName))
-	return call.CLOUDLOGSCHEMA{
-		CloudOS:      call.ALIBABA,
-		RegionZone:   region,
-		ResourceType: resourceType,
-		ResourceName: resourceName,
-		CloudOSAPI:   apiName,
-	}
-}
+// func getCallLogScheme(region string, resourceType call.RES_TYPE, resourceName string, apiName string) call.CLOUDLOGSCHEMA {
+// 	cblogger.Info(fmt.Sprintf("Call %s %s", call.ALIBABA, apiName))
+// 	return call.CLOUDLOGSCHEMA{
+// 		CloudOS:      call.ALIBABA,
+// 		RegionZone:   region,
+// 		ResourceType: resourceType,
+// 		ResourceName: resourceName,
+// 		CloudOSAPI:   apiName,
+// 	}
+// }
