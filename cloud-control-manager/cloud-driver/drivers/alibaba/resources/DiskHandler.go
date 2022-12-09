@@ -42,6 +42,9 @@ const (
 create 시 특정 instance에 바로 attach 가능하나 CB-SPIDER에서는 사용하지 않음
 */
 func (diskHandler *AlibabaDiskHandler) CreateDisk(diskReqInfo irs.DiskInfo) (irs.DiskInfo, error) {
+	hiscallInfo := GetCallLogScheme(diskHandler.Region, call.DISK, diskReqInfo.IId.NameId, "CreateDisk()")
+	start := call.Start()
+
 	cblogger.Info("Start CreateDisk : ", diskReqInfo)
 
 	err := validateCreateDisk(&diskReqInfo)
@@ -72,32 +75,17 @@ func (diskHandler *AlibabaDiskHandler) CreateDisk(diskReqInfo irs.DiskInfo) (irs
 		},
 	}
 
-	// logger for HisCall
-	callogger := call.GetLogger("HISCALL")
-	callLogInfo := call.CLOUDLOGSCHEMA{
-		CloudOS:      call.ALIBABA,
-		RegionZone:   diskHandler.Region.Zone,
-		ResourceType: call.DISK,
-		ResourceName: diskReqInfo.IId.SystemId,
-		CloudOSAPI:   "CreateDisk()",
-		ElapsedTime:  "",
-		ErrorMSG:     "",
-	}
-
 	spew.Dump(request)
-	callLogStart := call.Start()
 	// Creates a new custom Image with the given name
 	result, err := diskHandler.Client.CreateDisk(request)
-	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+	hiscallInfo.ElapsedTime = call.Elapsed(start)
 
 	if err != nil {
-		callLogInfo.ErrorMSG = err.Error()
-		callogger.Error(call.String(callLogInfo))
-
+		LoggingError(hiscallInfo, err)
 		cblogger.Errorf("Unable to create Disk: %s, %v.", diskReqInfo.IId.NameId, err)
 		return irs.DiskInfo{}, err
 	}
-	callogger.Info(call.String(callLogInfo))
+	calllogger.Info(call.String(hiscallInfo))
 
 	cblogger.Infof("Created Disk %q %s\n %s\n", result.DiskId, diskReqInfo.IId.NameId, result.RequestId)
 	spew.Dump(result)
@@ -116,13 +104,20 @@ func (diskHandler *AlibabaDiskHandler) CreateDisk(diskReqInfo irs.DiskInfo) (irs
 Root-Disk, Data-Disk 구분 없이 모든 Disk 목록을 제공한다.
 */
 func (diskHandler *AlibabaDiskHandler) ListDisk() ([]*irs.DiskInfo, error) {
+	hiscallInfo := GetCallLogScheme(diskHandler.Region, call.DISK, "Disk", "ListDisk()")
+	start := call.Start()
+
 	cblogger.Debug("Start")
 	var diskInfoList []*irs.DiskInfo
 
 	aliDiskInfoList, err := DescribeDisks(diskHandler.Client, diskHandler.Region, irs.IID{}, nil)
+	hiscallInfo.ElapsedTime = call.Elapsed(start)
 	if err != nil {
+		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
 		return nil, err
 	}
+	calllogger.Info(call.String(hiscallInfo))
 
 	//regionID := diskHandler.Region.Region
 	//
@@ -201,9 +196,19 @@ func (diskHandler *AlibabaDiskHandler) ListDisk() ([]*irs.DiskInfo, error) {
 }
 
 func (diskHandler *AlibabaDiskHandler) GetDisk(diskIID irs.IID) (irs.DiskInfo, error) {
+	hiscallInfo := GetCallLogScheme(diskHandler.Region, call.DISK, diskIID.NameId, "GetDisk()")
+	start := call.Start()
+
 	cblogger.Infof("diskID : ", diskIID.SystemId)
 
 	resultDisk, err := DescribeDiskByDiskId(diskHandler.Client, diskHandler.Region, diskIID)
+	hiscallInfo.ElapsedTime = call.Elapsed(start)
+	if err != nil {
+		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
+		return irs.DiskInfo{}, err
+	}
+	calllogger.Info(call.String(hiscallInfo))
 	//request := ecs.CreateDescribeDisksRequest()
 	//request.Scheme = "https"
 	//
@@ -255,6 +260,8 @@ func (diskHandler *AlibabaDiskHandler) GetDisk(diskIID irs.IID) (irs.DiskInfo, e
 }
 
 func (diskHandler *AlibabaDiskHandler) ChangeDiskSize(diskIID irs.IID, size string) (bool, error) {
+	hiscallInfo := GetCallLogScheme(diskHandler.Region, call.DISK, diskIID.NameId, "ChangeDiskSize()")
+	start := call.Start()
 
 	diskInfo, err := diskHandler.GetDisk(diskIID)
 	if err != nil {
@@ -270,31 +277,16 @@ func (diskHandler *AlibabaDiskHandler) ChangeDiskSize(diskIID irs.IID, size stri
 	request.DiskId = diskIID.SystemId
 	request.NewSize = requests.Integer(size)
 
-	// logger for HisCall
-	callogger := call.GetLogger("HISCALL")
-	callLogInfo := call.CLOUDLOGSCHEMA{
-		CloudOS:      call.ALIBABA,
-		RegionZone:   diskHandler.Region.Zone,
-		ResourceType: call.DISK,
-		ResourceName: diskIID.SystemId,
-		CloudOSAPI:   "ChangeDiskSize()",
-		ElapsedTime:  "",
-		ErrorMSG:     "",
-	}
-
-	callLogStart := call.Start()
-
 	result, err := diskHandler.Client.ResizeDisk(request)
-	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+	hiscallInfo.ElapsedTime = call.Elapsed(start)
 	cblogger.Info(result)
 	if err != nil {
-		callLogInfo.ErrorMSG = err.Error()
-		callogger.Error(call.String(callLogInfo))
+		LoggingError(hiscallInfo, err)
 
 		cblogger.Errorf("Unable to resize Disk: %s, %v.", diskIID.SystemId, err)
 		return false, err
 	}
-	callogger.Info(call.String(callLogInfo))
+	calllogger.Info(call.String(hiscallInfo))
 
 	cblogger.Infof("Successfully resized %q Disk\n", diskIID.SystemId)
 
@@ -302,6 +294,9 @@ func (diskHandler *AlibabaDiskHandler) ChangeDiskSize(diskIID irs.IID, size stri
 }
 
 func (diskHandler *AlibabaDiskHandler) DeleteDisk(diskIID irs.IID) (bool, error) {
+	hiscallInfo := GetCallLogScheme(diskHandler.Region, call.DISK, diskIID.NameId, "DeleteDisk()")
+	start := call.Start()
+
 	cblogger.Infof("DeleteDisk : [%s]", diskIID.SystemId)
 	// Delete the Image by Id
 
@@ -310,30 +305,16 @@ func (diskHandler *AlibabaDiskHandler) DeleteDisk(diskIID irs.IID) (bool, error)
 
 	request.DiskId = diskIID.SystemId
 
-	// logger for HisCall
-	callogger := call.GetLogger("HISCALL")
-	callLogInfo := call.CLOUDLOGSCHEMA{
-		CloudOS:      call.ALIBABA,
-		RegionZone:   diskHandler.Region.Zone,
-		ResourceType: call.DISK,
-		ResourceName: diskIID.SystemId,
-		CloudOSAPI:   "DeleteDisk()",
-		ElapsedTime:  "",
-		ErrorMSG:     "",
-	}
-
-	callLogStart := call.Start()
 	result, err := diskHandler.Client.DeleteDisk(request)
-	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+	hiscallInfo.ElapsedTime = call.Elapsed(start)
 	cblogger.Info(result)
 	if err != nil {
-		callLogInfo.ErrorMSG = err.Error()
-		callogger.Error(call.String(callLogInfo))
+		LoggingError(hiscallInfo, err)
 
 		cblogger.Errorf("Unable to delete Disk: %s, %v.", diskIID.SystemId, err)
 		return false, err
 	}
-	callogger.Info(call.String(callLogInfo))
+	calllogger.Info(call.String(hiscallInfo))
 
 	cblogger.Infof("Successfully deleted %q Disk\n", diskIID.SystemId)
 
@@ -341,6 +322,9 @@ func (diskHandler *AlibabaDiskHandler) DeleteDisk(diskIID irs.IID) (bool, error)
 }
 
 func (diskHandler *AlibabaDiskHandler) AttachDisk(diskIID irs.IID, ownerVM irs.IID) (irs.DiskInfo, error) {
+	hiscallInfo := GetCallLogScheme(diskHandler.Region, call.DISK, diskIID.NameId, "AttachDisk()")
+	start := call.Start()
+
 	diskInfo, err := diskHandler.GetDisk(diskIID)
 	if err != nil {
 		return irs.DiskInfo{}, err
@@ -386,12 +370,15 @@ func (diskHandler *AlibabaDiskHandler) AttachDisk(diskIID irs.IID, ownerVM irs.I
 	//callLogStart := call.Start()
 	//result, err := diskHandler.Client.AttachDisk(request)
 	err = AttachDisk(diskHandler.Client, diskHandler.Region, ownerVM, diskIID)
+	hiscallInfo.ElapsedTime = call.Elapsed(start)
 	//callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 
 	if err != nil {
 		cblogger.Errorf("Unable to attach Disk: %s, %v.", diskIID.SystemId, err)
+		LoggingError(hiscallInfo, err)
 		return irs.DiskInfo{}, err
 	}
+	calllogger.Info(call.String(hiscallInfo))
 
 	cblogger.Infof("Successfully attached  %q Disk\n", diskIID.SystemId)
 	newDiskInfo, err := diskHandler.GetDisk(irs.IID{SystemId: diskIID.SystemId})
@@ -408,6 +395,9 @@ If OperationLocks in the response contains "LockReason" : "security" when you qu
 DetachDisk is an asynchronous operation. It takes about 1 minute for a disk to be detached from an instance after the operation is called.
 */
 func (diskHandler *AlibabaDiskHandler) DetachDisk(diskIID irs.IID, ownerVM irs.IID) (bool, error) {
+	hiscallInfo := GetCallLogScheme(diskHandler.Region, call.DISK, diskIID.NameId, "DetachDisk()")
+	start := call.Start()
+
 	diskInfo, err := diskHandler.GetDisk(diskIID)
 	if err != nil {
 		return false, err
@@ -440,30 +430,16 @@ func (diskHandler *AlibabaDiskHandler) DetachDisk(diskIID irs.IID, ownerVM irs.I
 	request.DiskId = diskIID.SystemId
 	request.InstanceId = ownerVM.SystemId
 
-	// logger for HisCall
-	callogger := call.GetLogger("HISCALL")
-	callLogInfo := call.CLOUDLOGSCHEMA{
-		CloudOS:      call.ALIBABA,
-		RegionZone:   diskHandler.Region.Zone,
-		ResourceType: call.DISK,
-		ResourceName: diskIID.SystemId,
-		CloudOSAPI:   "AttachDisk()",
-		ElapsedTime:  "",
-		ErrorMSG:     "",
-	}
-
-	callLogStart := call.Start()
 	result, err := diskHandler.Client.DetachDisk(request)
-	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+	hiscallInfo.ElapsedTime = call.Elapsed(start)
 	cblogger.Info(result)
 	if err != nil {
-		callLogInfo.ErrorMSG = err.Error()
-		callogger.Error(call.String(callLogInfo))
+		LoggingError(hiscallInfo, err)
 
 		cblogger.Errorf("Unable to detach Disk: %s, %v.", diskIID.SystemId, err)
 		return false, err
 	}
-	callogger.Info(call.String(callLogInfo))
+	calllogger.Info(call.String(hiscallInfo))
 
 	cblogger.Infof("Successfully detached  %q Disk\n", diskIID.SystemId)
 	return true, nil
