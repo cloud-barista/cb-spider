@@ -620,7 +620,7 @@ func mappingClusterInfo(cluster *container.Cluster) (ClusterInfo irs.ClusterInfo
 
 	//// ---- ClusterInfo Area ----////
 	// 1. IId IID // {NameId, SystemId}
-	clusterIID := irs.IID{NameId: cluster.Name, SystemId: cluster.Id}
+	clusterIID := irs.IID{NameId: cluster.Name, SystemId: cluster.Name}
 
 	// 2. Version string // Kubernetes Version, ex) 1.23.3
 	clusterVersion := cluster.InitialClusterVersion //initialClusterVersion, currentMasterVersion, currentNodeVersion
@@ -737,6 +737,8 @@ func mappingClusterInfo(cluster *container.Cluster) (ClusterInfo irs.ClusterInfo
 	clusterInfo.Status = clusterStatus
 	clusterInfo.CreatedTime = createDatetime
 	clusterInfo.Addons = addOnsInfo
+
+	spew.Dump(clusterInfo)
 
 	return clusterInfo, nil
 }
