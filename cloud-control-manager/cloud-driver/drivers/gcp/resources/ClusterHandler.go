@@ -72,11 +72,12 @@ func (ClusterHandler *GCPClusterHandler) CreateCluster(clusterReqInfo irs.Cluste
 
 	reqCluster := container.Cluster{}
 	reqCluster.Name = clusterReqInfo.IId.NameId
-	reqCluster.InitialClusterVersion = clusterReqInfo.Version
 
-	// NodeGroup 이 1개는 넘어오므로 cluster의 InitialNodeCount는 동시에 Set 못함.
-	// NodeGroup이 없는경우 Set.
-	//reqCluster.InitialNodeCount = 3 // Cluster.initial_node_count must be greater than zero
+	// version 없으면 default
+	if clusterReqInfo.Version != "" {
+		reqCluster.InitialClusterVersion = clusterReqInfo.Version
+	}
+
 	reqCluster.Network = clusterReqInfo.Network.VpcIID.SystemId
 	if len(clusterReqInfo.Network.SubnetIIDs) > 0 {
 		reqCluster.Subnetwork = clusterReqInfo.Network.SubnetIIDs[0].NameId
@@ -88,42 +89,48 @@ func (ClusterHandler *GCPClusterHandler) CreateCluster(clusterReqInfo irs.Cluste
 	// nodeGroup List set
 	nodePools := []*container.NodePool{}
 	cblogger.Info("clusterReqInfo.NodeGroupList ", len(clusterReqInfo.NodeGroupList))
-	// 최초 생성 시 nodeGroup을 1개 지정함. 2개 이상일 때는 생성 후에 add NodeGroup으로 추가
-	for _, reqNodeGroup := range clusterReqInfo.NodeGroupList {
-		nodePool := container.NodePool{}
-		nodePool.Name = reqNodeGroup.IId.NameId
-		nodePool.InitialNodeCount = int64(reqNodeGroup.DesiredNodeSize)
-		if reqNodeGroup.OnAutoScaling {
-			nodePoolAutoScaling := container.NodePoolAutoscaling{}
-			nodePoolAutoScaling.Enabled = true
-			nodePoolAutoScaling.MaxNodeCount = int64(reqNodeGroup.MaxNodeSize)
-			nodePoolAutoScaling.MinNodeCount = int64(reqNodeGroup.MinNodeSize)
+	if clusterReqInfo.NodeGroupList != nil && len(clusterReqInfo.NodeGroupList) > 0 {
+		// 최초 생성 시 nodeGroup을 1개 지정함. 2개 이상일 때는 생성 후에 add NodeGroup으로 추가
+		for _, reqNodeGroup := range clusterReqInfo.NodeGroupList {
+			nodePool := container.NodePool{}
+			nodePool.Name = reqNodeGroup.IId.NameId
+			nodePool.InitialNodeCount = int64(reqNodeGroup.DesiredNodeSize)
+			if reqNodeGroup.OnAutoScaling {
+				nodePoolAutoScaling := container.NodePoolAutoscaling{}
+				nodePoolAutoScaling.Enabled = true
+				nodePoolAutoScaling.MaxNodeCount = int64(reqNodeGroup.MaxNodeSize)
+				nodePoolAutoScaling.MinNodeCount = int64(reqNodeGroup.MinNodeSize)
 
-			nodePool.Autoscaling = &nodePoolAutoScaling
-		}
-
-		nodeConfig := container.NodeConfig{}
-		diskSize, err := strconv.ParseInt(reqNodeGroup.RootDiskSize, 10, 64)
-		if err != nil {
-			return irs.ClusterInfo{}, err
-		}
-		nodeConfig.DiskSizeGb = diskSize
-		nodeConfig.DiskType = reqNodeGroup.RootDiskType
-		nodeConfig.MachineType = reqNodeGroup.VMSpecName
-		if clusterReqInfo.Network.SecurityGroupIIDs != nil && len(clusterReqInfo.Network.SecurityGroupIIDs) > 0 {
-			var sgTags []string
-			for _, securityGroupIID := range clusterReqInfo.Network.SecurityGroupIIDs {
-				sgTags = append(sgTags, GCP_PMKS_SECURITYGROUP_TAG+securityGroupIID.NameId)
+				nodePool.Autoscaling = &nodePoolAutoScaling
 			}
-			nodeConfig.Tags = sgTags
+
+			nodeConfig := container.NodeConfig{}
+			diskSize, err := strconv.ParseInt(reqNodeGroup.RootDiskSize, 10, 64)
+			if err != nil {
+				return irs.ClusterInfo{}, err
+			}
+			nodeConfig.DiskSizeGb = diskSize
+			nodeConfig.DiskType = reqNodeGroup.RootDiskType
+			nodeConfig.MachineType = reqNodeGroup.VMSpecName
+			if clusterReqInfo.Network.SecurityGroupIIDs != nil && len(clusterReqInfo.Network.SecurityGroupIIDs) > 0 {
+				var sgTags []string
+				for _, securityGroupIID := range clusterReqInfo.Network.SecurityGroupIIDs {
+					sgTags = append(sgTags, GCP_PMKS_SECURITYGROUP_TAG+securityGroupIID.NameId)
+				}
+				nodeConfig.Tags = sgTags
+			}
+
+			nodePool.Config = &nodeConfig
+
+			nodePools = append(nodePools, &nodePool)
+			//break //1개만 add?
 		}
-
-		nodePool.Config = &nodeConfig
-
-		nodePools = append(nodePools, &nodePool)
-		//break //1개만 add?
+		rb.Cluster.NodePools = nodePools
+	} else {
+		// NodeGroup 이 1개는 넘어오므로 cluster의 InitialNodeCount는 동시에 Set 못함.
+		// NodeGroup이 없는경우 Set.
+		reqCluster.InitialNodeCount = 3 // Cluster.initial_node_count must be greater than zero
 	}
-	rb.Cluster.NodePools = nodePools
 
 	spew.Dump(rb)
 	// if 1 == 1 {
