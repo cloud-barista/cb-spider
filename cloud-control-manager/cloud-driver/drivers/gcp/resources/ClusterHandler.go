@@ -153,7 +153,7 @@ func (ClusterHandler *GCPClusterHandler) CreateCluster(clusterReqInfo irs.Cluste
 
 	//createdClusterName := "projects/" + projectID + "/locations/" + zone + "/clusters/" + clusterReqInfo.IId.NameId
 
-	clusterInfo, err := ClusterHandler.GetCluster(irs.IID{NameId: clusterReqInfo.IId.NameId})
+	clusterInfo, err := ClusterHandler.GetCluster(irs.IID{NameId: clusterReqInfo.IId.NameId, SystemId: clusterReqInfo.IId.NameId})
 	if err != nil {
 		err := fmt.Errorf("Failed to Get Cluster Info :  %v", err)
 		cblogger.Error(err)
