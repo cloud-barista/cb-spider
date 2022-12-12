@@ -528,8 +528,21 @@ func validateCreateDisk(diskReqInfo *irs.DiskInfo) error {
 		for _, diskSizeInfo := range arrDiskSizeOfType {
 			diskSizeArr := strings.Split(diskSizeInfo, "|")
 			if strings.EqualFold(reqDiskType, diskSizeArr[0]) {
-				reqDiskSize = diskSizeArr[1]
-				diskReqInfo.DiskSize = diskSizeArr[1] // set default value
+				diskMinSize, err := strconv.ParseInt(diskSizeArr[1], 10, 64)
+				if err != nil {
+					cblogger.Error(err)
+					return err
+				}
+
+				// default size를 50GB로 정하였으나,
+				// st1, sc1 type의 경우 minimum size가 50GB보다 큰 125GB이므로, 이 경우에는 minimum size를 default size로 사용함
+				if diskMinSize < 50 {
+					reqDiskSize = "50"
+					diskReqInfo.DiskSize = "50"
+				} else {
+					reqDiskSize = diskSizeArr[1]
+					diskReqInfo.DiskSize = diskSizeArr[1] // set default value
+				}
 				break
 			}
 		}
