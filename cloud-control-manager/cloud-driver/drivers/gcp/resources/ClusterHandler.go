@@ -77,7 +77,7 @@ func (ClusterHandler *GCPClusterHandler) CreateCluster(clusterReqInfo irs.Cluste
 	// NodeGroup 이 1개는 넘어오므로 cluster의 InitialNodeCount는 동시에 Set 못함.
 	// NodeGroup이 없는경우 Set.
 	//reqCluster.InitialNodeCount = 3 // Cluster.initial_node_count must be greater than zero
-	reqCluster.Network = clusterReqInfo.Network.VpcIID.NameId
+	reqCluster.Network = clusterReqInfo.Network.VpcIID.SystemId
 	if len(clusterReqInfo.Network.SubnetIIDs) > 0 {
 		reqCluster.Subnetwork = clusterReqInfo.Network.SubnetIIDs[0].NameId
 	}
