@@ -24,6 +24,7 @@ import (
 	goo "golang.org/x/oauth2/google"
 
 	compute "google.golang.org/api/compute/v1"
+	"google.golang.org/api/container/v1"
 )
 
 type GCPDriver struct {
@@ -45,6 +46,9 @@ func (GCPDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	drvCapabilityInfo.VMHandler = true
 	drvCapabilityInfo.VMSpecHandler = true
 	drvCapabilityInfo.VPCHandler = true
+	drvCapabilityInfo.DiskHandler = false
+	drvCapabilityInfo.MyImageHandler = false
+	drvCapabilityInfo.ClusterHandler = true
 
 	return drvCapabilityInfo
 }
@@ -62,6 +66,14 @@ func (driver *GCPDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (icon.
 	if err != nil {
 		return nil, err
 	}
+	//Ctx2, containerClient, err := getContainerClient(connectionInfo.CredentialInfo)
+	_, containerClient, err := getContainerClient(connectionInfo.CredentialInfo)
+	fmt.Println("################## getContainerClient ##################")
+	fmt.Println("getContainerClient")
+	fmt.Println("################## getContainerClient ##################")
+	if err != nil {
+		return nil, err
+	}
 
 	iConn := gcpcon.GCPCloudConnection{
 		Region:      connectionInfo.RegionInfo,
@@ -73,9 +85,10 @@ func (driver *GCPDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (icon.
 		SecurityGroupClient: VMClient,
 		// VNetClient:          VMClient,
 		// VNicClient:          VMClient,
-		SubnetClient:  VMClient,
-		VMSpecHandler: VMClient,
-		VPCHandler:    VMClient,
+		SubnetClient:    VMClient,
+		VMSpecHandler:   VMClient,
+		VPCHandler:      VMClient,
+		ContainerClient: containerClient,
 	}
 
 	//fmt.Println("################## resource ConnectionInfo ##################")
@@ -84,6 +97,11 @@ func (driver *GCPDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (icon.
 	return &iConn, nil
 }
 
+// authorization scopes : https://developers.google.com/identity/protocols/oauth2/scopes
+// cloud-platform, cloud-platform.read-only, compute, compute.readonly
+
+// auth scope : compute
+// 아래에서 cloud-platform을 사용하는데 vmClient 대체가 되는지 확인 필요.
 func getVMClient(credential idrv.CredentialInfo) (context.Context, *compute.Service, error) {
 
 	// GCP 는  ClientSecret에
@@ -118,3 +136,36 @@ func getVMClient(credential idrv.CredentialInfo) (context.Context, *compute.Serv
 	return ctx, vmClient, nil
 }
 
+// auth scope : cloud-platform
+func getContainerClient(credential idrv.CredentialInfo) (context.Context, *container.Service, error) {
+
+	// GCP 는  ClientSecret에
+	gcpType := "service_account"
+	data := make(map[string]string)
+
+	data["type"] = gcpType
+	data["private_key"] = credential.PrivateKey
+	data["client_email"] = credential.ClientEmail
+
+	fmt.Println("################## data ##################")
+	//fmt.Println("data to json : ", data)
+	fmt.Println("################## data ##################")
+
+	res, _ := json.Marshal(data)
+	authURL := "https://www.googleapis.com/auth/cloud-platform"
+
+	conf, err := goo.JWTConfigFromJSON(res, authURL)
+
+	if err != nil {
+
+		return nil, nil, err
+	}
+
+	client := conf.Client(o2.NoContext)
+
+	containerClient, err := container.New(client)
+
+	ctx := context.Background()
+
+	return ctx, containerClient, nil
+}

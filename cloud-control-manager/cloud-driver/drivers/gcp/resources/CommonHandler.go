@@ -21,9 +21,12 @@ import (
 	"strings"
 	"time"
 
+	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
+	"github.com/davecgh/go-spew/spew"
 	compute "google.golang.org/api/compute/v1"
+	container "google.golang.org/api/container/v1"
 )
 
 const (
@@ -50,6 +53,18 @@ type GcpCBNetworkInfo struct {
 
 	SubnetName string
 	SubnetId   string
+}
+
+func getGCPCallLogScheme(zone string, resourceType call.RES_TYPE, resourceName string, apiName string) call.CLOUDLOGSCHEMA {
+
+	cblogger.Info(fmt.Sprintf("Call %s %s", call.GCP, apiName))
+	return call.CLOUDLOGSCHEMA{
+		CloudOS:      call.GCP,
+		RegionZone:   zone,
+		ResourceType: resourceType,
+		ResourceName: resourceName,
+		CloudOSAPI:   apiName,
+	}
 }
 
 // VPC
@@ -308,3 +323,184 @@ func FindImageByID(client *compute.Service, imageIID irs.IID) (*compute.Image, e
 	return nil, errors.New("Not Found : [" + reqImageName + "] Image information not found")
 
 }
+
+// container 의 operation
+func WaitContainerOperationComplete(client *container.Service, project string, region string, zone string, resourceId string, operationType int) error {
+	before_time := time.Now()
+	max_time := 300 //최대 300초간 체크
+
+	var opSatus *container.Operation
+	var err error
+
+	operationName := "projects/" + project + "/locations/" + zone + "/operations/" + resourceId
+	for {
+		opSatus, err = client.Projects.Locations.Operations.Get(operationName).Do()
+		if err != nil {
+			cblogger.Infof("WaitUntilOperationComplete / [%s]", err)
+			return err
+		}
+		cblogger.Infof("==> 상태 : 진행율 : [%d] / [%s]", opSatus.Progress, opSatus.Status)
+
+		//PENDING, RUNNING, or DONE.
+
+		// STATUS_UNSPECIFIED 	Not set.
+		// PENDING 	The operation has been created.
+		// RUNNING 	The operation is currently running.
+		// DONE 	The operation is done, either cancelled or completed.
+		// ABORTING 	The operation is aborting.
+		if opSatus.Status == "DONE" {
+			cblogger.Info("Wait을 종료합니다.", resourceId, ":", opSatus.Status)
+			return nil
+		}
+
+		time.Sleep(time.Second * 1)
+		after_time := time.Now()
+		diff := after_time.Sub(before_time)
+		if int(diff.Seconds()) > max_time {
+			cblogger.Errorf("[%d]초 동안 리소스[%s]의 상태가 완료되지 않아서 Wait을 강제로 종료함.", max_time, resourceId)
+			return errors.New("장시간 요청 작업이 완료되지 않아서 Wait을 강제로 종료함.)")
+		}
+	}
+
+	return nil
+}
+
+// 30초동안 Fail 이 떨어지지 않으면 성공
+func WaitContainerOperationFail(client *container.Service, project string, region string, zone string, resourceId string, operationType int) error {
+	before_time := time.Now()
+	max_time := 30
+
+	var opSatus *container.Operation
+	var err error
+
+	operationName := "projects/" + project + "/locations/" + zone + "/operations/" + resourceId
+	for {
+		opSatus, err = client.Projects.Locations.Operations.Get(operationName).Do()
+		if err != nil {
+			cblogger.Infof("WaitContainerOperationFail / [%s]", err)
+			return err
+		}
+		spew.Dump(opSatus)
+		cblogger.Infof("==> 상태 : 진행율 : [%d] / [%s]", opSatus.Progress, opSatus.Status)
+
+		//PENDING, RUNNING, or DONE.
+
+		// STATUS_UNSPECIFIED 	Not set.
+		// PENDING 	The operation has been created.
+		// RUNNING 	The operation is currently running.
+		// DONE 	The operation is done, either cancelled or completed.
+		// ABORTING 	The operation is aborting.
+		if opSatus.Status == "ABORTING" {
+			cblogger.Info("Wait을 종료합니다.", resourceId, ":", opSatus.Status)
+			return nil
+		}
+
+		time.Sleep(time.Second * 5)
+		after_time := time.Now()
+		diff := after_time.Sub(before_time)
+		if int(diff.Seconds()) > max_time {
+			cblogger.Errorf("[%d]초 동안 리소스[%s]의 상태가 완료되지 않아서 Wait을 강제로 종료함.", max_time, resourceId)
+			return nil
+		}
+	}
+
+	return nil
+}
+
+// 20분
+func WaitContainerOperationDone(client *container.Service, project string, region string, zone string, resourceId string, operationType int, maxTime int) error {
+	before_time := time.Now()
+
+	var opSatus *container.Operation
+	var err error
+
+	operationName := "projects/" + project + "/locations/" + zone + "/operations/" + resourceId
+	for {
+		opSatus, err = client.Projects.Locations.Operations.Get(operationName).Do()
+		if err != nil {
+			cblogger.Infof("WaitContainerOperationDone / [%s]", err)
+			return err
+		}
+		spew.Dump(opSatus)
+		cblogger.Infof("==> 상태 : 진행율 : [%d] / [%s]", opSatus.Progress, opSatus.Status)
+
+		//PENDING, RUNNING, or DONE.
+
+		// STATUS_UNSPECIFIED 	Not set.
+		// PENDING 	The operation has been created.
+		// RUNNING 	The operation is currently running.
+		// DONE 	The operation is done, either cancelled or completed.
+		// ABORTING 	The operation is aborting.
+		if opSatus.Status == "DONE" {
+			cblogger.Info("Wait을 종료합니다.", resourceId, ":", opSatus.Status)
+			return nil
+		}
+
+		time.Sleep(time.Second * 5)
+		after_time := time.Now()
+		diff := after_time.Sub(before_time)
+		if int(diff.Seconds()) > maxTime {
+			cblogger.Errorf("[%d]초 동안 리소스[%s]의 상태가 완료되지 않아서 Wait을 강제로 종료함.", maxTime, resourceId)
+			return nil
+		}
+	}
+
+	return nil
+}
+
+/*
+### container operation ###
+(*container.Operation)(0xc0003d6a00)({
+ ClusterConditions: ([]*container.StatusCondition) <nil>,
+ Detail: (string) "",
+ EndTime: (string) "",
+ Error: (*container.Status)(<nil>),
+ Location: (string) "",
+ Name: (string) (len=32) "operation-1670486783109-b7af5968",
+ NodepoolConditions: ([]*container.StatusCondition) <nil>,
+ OperationType: (string) (len=14) "CREATE_CLUSTER",
+ Progress: (*container.OperationProgress)(<nil>),
+ SelfLink: (string) (len=125) "https://container.googleapis.com/v1/projects/244703045150/zones/asia-northeast3-a/operations/operation-1670486783109-b7af5968",
+ StartTime: (string) (len=30) "2022-12-08T08:06:23.109241982Z",
+ Status: (string) (len=7) "RUNNING",
+ StatusMessage: (string) "",
+ TargetLink: (string) (len=97) "https://container.googleapis.com/v1/projects/244703045150/zones/asia-northeast3-a/clusters/pmks08",
+ Zone: (string) (len=17) "asia-northeast3-a",
+ ServerResponse: (googleapi.ServerResponse) {
+  HTTPStatusCode: (int) 200,
+  Header: (http.Header) (len=9) {
+   (string) (len=12) "Content-Type": ([]string) (len=1 cap=1) {
+    (string) (len=31) "application/json; charset=UTF-8"
+   },
+   (string) (len=4) "Vary": ([]string) (len=3 cap=4) {
+    (string) (len=6) "Origin",
+    (string) (len=8) "X-Origin",
+    (string) (len=7) "Referer"
+   },
+   (string) (len=4) "Date": ([]string) (len=1 cap=1) {
+    (string) (len=29) "Thu, 08 Dec 2022 08:06:23 GMT"
+   },
+   (string) (len=15) "X-Frame-Options": ([]string) (len=1 cap=1) {
+    (string) (len=10) "SAMEORIGIN"
+   },
+   (string) (len=22) "X-Content-Type-Options": ([]string) (len=1 cap=1) {
+    (string) (len=7) "nosniff"
+   },
+   (string) (len=7) "Alt-Svc": ([]string) (len=1 cap=1) {
+    (string) (len=162) "h3=\":443\"; ma=2592000,h3-29=\":443\"; ma=2592000,h3-Q050=\":443\"; ma=2592000,h3-Q046=\":443\"; ma=2592000,h3-Q043=\":443\"; ma=2592000,quic=\":443\"; ma=2592000; v=\"46,43\""
+   },
+   (string) (len=6) "Server": ([]string) (len=1 cap=1) {
+    (string) (len=3) "ESF"
+   },
+   (string) (len=13) "Cache-Control": ([]string) (len=1 cap=1) {
+    (string) (len=7) "private"
+   },
+   (string) (len=16) "X-Xss-Protection": ([]string) (len=1 cap=1) {
+    (string) (len=1) "0"
+   }
+  }
+ },
+ ForceSendFields: ([]string) <nil>,
+ NullFields: ([]string) <nil>
+})
+*/

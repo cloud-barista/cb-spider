@@ -20,6 +20,7 @@ import (
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/sirupsen/logrus"
 	compute "google.golang.org/api/compute/v1"
+	"google.golang.org/api/container/v1"
 )
 
 var cblogger *logrus.Logger
@@ -42,6 +43,7 @@ type GCPCloudConnection struct {
 	SubnetClient        *compute.Service
 	VMSpecHandler       *compute.Service
 	VPCHandler          *compute.Service
+	ContainerClient     *container.Service
 }
 
 // func (cloudConn *GCPCloudConnection) CreateVNetworkHandler() (irs.VNetworkHandler, error) {
@@ -125,12 +127,11 @@ func (cloudConn *GCPCloudConnection) CreateMyImageHandler() (irs.MyImageHandler,
 }
 
 func (cloudConn *GCPCloudConnection) CreateClusterHandler() (irs.ClusterHandler, error) {
-	return nil, errors.New("GCP Driver: not implemented")
+	cblogger.Info("GCP Cloud Driver: called CreateClusterHandler()!")
+	clusterHandler := gcprs.GCPClusterHandler{Region: cloudConn.Region, Ctx: cloudConn.Ctx, Client: cloudConn.VMClient, ContainerClient: cloudConn.ContainerClient, Credential: cloudConn.Credential}
+	return &clusterHandler, nil
 }
-
-
 
 func (cloudConn *GCPCloudConnection) CreateAnyCallHandler() (irs.AnyCallHandler, error) {
 	return nil, errors.New("GCP Driver: not implemented")
 }
-
