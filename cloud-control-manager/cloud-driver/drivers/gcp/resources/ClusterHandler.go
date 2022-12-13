@@ -74,8 +74,8 @@ func (ClusterHandler *GCPClusterHandler) CreateCluster(clusterReqInfo irs.Cluste
 	securityGroupMap := make(map[string]string)
 	var sgTags []string
 	if clusterReqInfo.Network.SecurityGroupIIDs != nil && len(clusterReqInfo.Network.SecurityGroupIIDs) > 0 {
-		for _, securityGroupIID := range clusterReqInfo.Network.SecurityGroupIIDs {
-			securityGroupMap[GCP_PMKS_SECURITYGROUP_TAG+securityGroupIID.NameId] = securityGroupIID.NameId
+		for idx, securityGroupIID := range clusterReqInfo.Network.SecurityGroupIIDs {
+			securityGroupMap[GCP_PMKS_SECURITYGROUP_TAG+strconv.Itoa(idx)] = securityGroupIID.NameId
 			sgTags = append(sgTags, securityGroupIID.NameId)
 		}
 	}
