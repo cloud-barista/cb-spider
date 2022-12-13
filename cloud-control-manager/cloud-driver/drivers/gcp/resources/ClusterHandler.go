@@ -714,6 +714,9 @@ func getParentNodePoolsAtContainer(projectID string, location string, clusters s
 	return parent
 }
 
+// container.Cluster에서 spider의 clusterInfo로 변경
+// cluster의 nodePool에는 instanceGroupUrl 만 있어서 nodeGroup의 상세정보가 없음
+// 추가로 nodepool을 조회해야 함.
 func mappingClusterInfo(cluster *container.Cluster) (ClusterInfo irs.ClusterInfo, err error) {
 	clusterInfo := irs.ClusterInfo{}
 
@@ -1053,6 +1056,7 @@ func getNodePools(containerClient *container.Service, projectID string, region s
 }
 
 // clusterInfo 로 Set
+// cluster에는 NodeGroup의 link정보만 있어서 NodeGroup정보를 추가로 조회해야 함.
 func convertCluster(client *compute.Service, credential idrv.CredentialInfo, region idrv.RegionInfo, cluster *container.Cluster) (irs.ClusterInfo, error) {
 	clusterInfo, err := mappingClusterInfo(cluster)
 	if err != nil {
@@ -1060,8 +1064,8 @@ func convertCluster(client *compute.Service, credential idrv.CredentialInfo, reg
 		// return irs.ClusterInfo{}, err
 	}
 
-	// mappingClusterInfo에서 우선 nodeGroup 정보가 set 됨.
-
+	// mappingClusterInfo에서 우선 nodeGroup 정보가 set 됨. nodeGroup.KeyValueList에 instanceGroupID가 들어있음.
+	cblogger.Info("nodeGroupList ", clusterInfo.NodeGroupList)
 	//nodePools = resp.NodePools
 	nodeGroupList, err := convertNodeGroup(client, credential, region, clusterInfo.NodeGroupList)
 	if err != err { // 오류가 나도 clusterInfo를 넘김
@@ -1074,6 +1078,7 @@ func convertCluster(client *compute.Service, credential idrv.CredentialInfo, reg
 }
 
 // nodeGroupInfo로 set
+// nodeGroup 정보에서 Node
 func convertNodeGroup(client *compute.Service, credential idrv.CredentialInfo, region idrv.RegionInfo, orgNodeGroupList []irs.NodeGroupInfo) ([]irs.NodeGroupInfo, error) {
 	nodeGroupList := []irs.NodeGroupInfo{}
 	for _, nodeGroupInfo := range orgNodeGroupList {
