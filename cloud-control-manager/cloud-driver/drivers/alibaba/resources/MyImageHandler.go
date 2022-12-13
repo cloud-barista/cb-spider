@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/ecs"
+	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 )
@@ -34,6 +35,9 @@ const (
 )
 
 func (myImageHandler AlibabaMyImageHandler) SnapshotVM(snapshotReqInfo irs.MyImageInfo) (irs.MyImageInfo, error) {
+
+	hiscallInfo := GetCallLogScheme(myImageHandler.Region, call.MYIMAGE, snapshotReqInfo.IId.NameId, "SnapshotVM()")
+	start := call.Start()
 
 	request := ecs.CreateCreateImageRequest()
 	request.Scheme = "https"
@@ -60,9 +64,13 @@ func (myImageHandler AlibabaMyImageHandler) SnapshotVM(snapshotReqInfo irs.MyIma
 
 	//spew.Dump(request)
 	result, err := myImageHandler.Client.CreateImage(request)
+	hiscallInfo.ElapsedTime = call.Elapsed(start)
 	if err != nil {
+		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
 		return irs.MyImageInfo{}, err
 	}
+	calllogger.Info(call.String(hiscallInfo))
 
 	imageIID := irs.IID{SystemId: result.ImageId}
 	// ImageId 로 해당 Image의 Status 조회
@@ -90,17 +98,24 @@ owner=self인 Image목록 조회
 공통으로 DescribeImages를 사용하기 때문에 구분으로 isMyImage = true 로 전송 필요
 */
 func (myImageHandler AlibabaMyImageHandler) ListMyImage() ([]*irs.MyImageInfo, error) {
+	hiscallInfo := GetCallLogScheme(myImageHandler.Region, call.MYIMAGE, "MyImage", "ListMyImage()")
+	start := call.Start()
 
 	result, err := DescribeImages(myImageHandler.Client, myImageHandler.Region, nil, true)
+	hiscallInfo.ElapsedTime = call.Elapsed(start)
 	if err != nil {
+		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
 		return nil, err
 	}
+	calllogger.Info(call.String(hiscallInfo))
 
 	var myImageInfoList []*irs.MyImageInfo
 	for _, image := range result {
 		myImageInfo, err := ExtractMyImageDescribeInfo(&image)
 		if err != nil {
-
+			cblogger.Error(err)
+			LoggingError(hiscallInfo, err)
 		} else {
 			myImageInfoList = append(myImageInfoList, &myImageInfo)
 		}
@@ -110,11 +125,17 @@ func (myImageHandler AlibabaMyImageHandler) ListMyImage() ([]*irs.MyImageInfo, e
 }
 
 func (myImageHandler AlibabaMyImageHandler) GetMyImage(myImageIID irs.IID) (irs.MyImageInfo, error) {
+	hiscallInfo := GetCallLogScheme(myImageHandler.Region, call.MYIMAGE, myImageIID.NameId, "GetMyImage()")
+	start := call.Start()
 
 	result, err := DescribeImageByImageId(myImageHandler.Client, myImageHandler.Region, myImageIID, true)
+	hiscallInfo.ElapsedTime = call.Elapsed(start)
 	if err != nil {
+		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
 		return irs.MyImageInfo{}, err
 	}
+	calllogger.Info(call.String(hiscallInfo))
 
 	myImageInfo, err := ExtractMyImageDescribeInfo(&result)
 	return myImageInfo, err
@@ -130,7 +151,8 @@ func (myImageHandler AlibabaMyImageHandler) GetMyImage(myImageIID irs.IID) (irs.
 //	The image is being exported. You can go to the Task Logs page in the ECS console to cancel the image export task. After the image export task is canceled, you can delete the image. For more information, see Export a custom image.
 //	The image is being used by ECS instances
 func (myImageHandler AlibabaMyImageHandler) DeleteMyImage(myImageIID irs.IID) (bool, error) {
-
+	hiscallInfo := GetCallLogScheme(myImageHandler.Region, call.MYIMAGE, myImageIID.NameId, "DeleteMyImage()")
+	start := call.Start()
 	// 상태체크해서 available일 때 삭제
 	// imageStatus, err := DescribeImageStatus(myImageHandler.Client, myImageHandler.Region, myImageIID, ALIBABA_IMAGE_STATE_AVAILABLE)
 	// if err != nil {
@@ -140,6 +162,8 @@ func (myImageHandler AlibabaMyImageHandler) DeleteMyImage(myImageIID irs.IID) (b
 
 	ecsImage, err := DescribeImageByImageId(myImageHandler.Client, myImageHandler.Region, myImageIID, true)
 	if err != nil {
+		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
 		return false, err
 	}
 
@@ -160,9 +184,13 @@ func (myImageHandler AlibabaMyImageHandler) DeleteMyImage(myImageIID irs.IID) (b
 
 	//spew.Dump(request)
 	response, err := myImageHandler.Client.DeleteImage(request)
+	hiscallInfo.ElapsedTime = call.Elapsed(start)
 	if err != nil {
+		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
 		return false, err
 	}
+	calllogger.Info(call.String(hiscallInfo))
 
 	// 이미지가 삭제될 때까지 대기
 	curRetryCnt := 0
@@ -291,13 +319,20 @@ func convertImageStateToMyImageStatus(aliImageState *string) irs.MyImageStatus {
 
 // MyImage 의 window 여부 return
 func (myImageHandler AlibabaMyImageHandler) CheckWindowsImage(myImageIID irs.IID) (bool, error) {
+	hiscallInfo := GetCallLogScheme(myImageHandler.Region, call.MYIMAGE, myImageIID.NameId, "CheckWindowsImage()")
+	start := call.Start()
+
 	isWindows := false
 	isMyImage := true
 
 	osType, err := DescribeImageOsType(myImageHandler.Client, myImageHandler.Region, myImageIID, isMyImage)
+	hiscallInfo.ElapsedTime = call.Elapsed(start)
 	if err != nil {
+		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
 		return isWindows, err
 	}
+	calllogger.Info(call.String(hiscallInfo))
 
 	if osType == "windows" {
 		isWindows = true

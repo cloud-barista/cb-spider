@@ -5,6 +5,7 @@ import (
 	"strings"
 	"time"
 
+	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	compute "google.golang.org/api/compute/v1"
@@ -22,6 +23,9 @@ const (
 )
 
 func (MyImageHandler *GCPMyImageHandler) SnapshotVM(snapshotReqInfo irs.MyImageInfo) (irs.MyImageInfo, error) {
+	hiscallInfo := GetCallLogScheme(MyImageHandler.Region, call.MYIMAGE, snapshotReqInfo.IId.NameId, "SnapshotVM()")
+	start := call.Start()
+
 	projectID := MyImageHandler.Credential.ProjectID
 	zone := MyImageHandler.Region.Zone
 	myImageName := snapshotReqInfo.IId.NameId
@@ -32,10 +36,13 @@ func (MyImageHandler *GCPMyImageHandler) SnapshotVM(snapshotReqInfo irs.MyImageI
 	}
 
 	op, err := MyImageHandler.Client.MachineImages.Insert(projectID, machineImage).Do()
+	hiscallInfo.ElapsedTime = call.Elapsed(start)
 	if err != nil {
 		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
 		return irs.MyImageInfo{}, err
 	}
+	calllogger.Info(call.String(hiscallInfo))
 
 	WaitUntilComplete(MyImageHandler.Client, projectID, "", op.Name, true)
 
@@ -49,15 +56,21 @@ func (MyImageHandler *GCPMyImageHandler) SnapshotVM(snapshotReqInfo irs.MyImageI
 }
 
 func (MyImageHandler *GCPMyImageHandler) ListMyImage() ([]*irs.MyImageInfo, error) {
+	hiscallInfo := GetCallLogScheme(MyImageHandler.Region, call.MYIMAGE, "MyImage", "ListMyImage()")
+	start := call.Start()
+
 	myImageInfoList := []*irs.MyImageInfo{}
 
 	projectID := MyImageHandler.Credential.ProjectID
 
 	myImageList, err := MyImageHandler.Client.MachineImages.List(projectID).Do()
+	hiscallInfo.ElapsedTime = call.Elapsed(start)
 	if err != nil {
 		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
 		return nil, err
 	}
+	calllogger.Info(call.String(hiscallInfo))
 
 	for _, myImage := range myImageList.Items {
 		myImageInfo, err := MyImageHandler.convertMyImageInfo(myImage)
@@ -72,13 +85,19 @@ func (MyImageHandler *GCPMyImageHandler) ListMyImage() ([]*irs.MyImageInfo, erro
 }
 
 func (MyImageHandler *GCPMyImageHandler) GetMyImage(myImageIID irs.IID) (irs.MyImageInfo, error) {
+	hiscallInfo := GetCallLogScheme(MyImageHandler.Region, call.MYIMAGE, myImageIID.NameId, "GetMyImage()")
+	start := call.Start()
+
 	projectID := MyImageHandler.Credential.ProjectID
 
 	myImageResp, err := GetMachineImageInfo(MyImageHandler.Client, projectID, myImageIID.SystemId)
+	hiscallInfo.ElapsedTime = call.Elapsed(start)
 	if err != nil {
 		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
 		return irs.MyImageInfo{}, err
 	}
+	calllogger.Info(call.String(hiscallInfo))
 
 	myImageInfo, errMyImage := MyImageHandler.convertMyImageInfo(myImageResp)
 	if errMyImage != nil {
@@ -90,14 +109,20 @@ func (MyImageHandler *GCPMyImageHandler) GetMyImage(myImageIID irs.IID) (irs.MyI
 }
 
 func (MyImageHandler *GCPMyImageHandler) DeleteMyImage(myImageIID irs.IID) (bool, error) {
+	hiscallInfo := GetCallLogScheme(MyImageHandler.Region, call.MYIMAGE, myImageIID.NameId, "DeleteMyImage()")
+	start := call.Start()
+
 	projectID := MyImageHandler.Credential.ProjectID
 	myImage := myImageIID.SystemId
 
 	op, err := MyImageHandler.Client.MachineImages.Delete(projectID, myImage).Do()
+	hiscallInfo.ElapsedTime = call.Elapsed(start)
 	if err != nil {
 		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
 		return false, err
 	}
+	calllogger.Info(call.String(hiscallInfo))
 
 	WaitUntilComplete(MyImageHandler.Client, projectID, "", op.Name, true)
 
@@ -143,13 +168,20 @@ func convertMyImageStatus(status string) (irs.MyImageStatus, error) {
 // https://cloud.google.com/compute/docs/reference/rest/beta/machineImages/list
 // machine Image에서 os속성이 없음.
 func (MyImageHandler *GCPMyImageHandler) CheckWindowsImage(myImageIID irs.IID) (bool, error) {
+	hiscallInfo := GetCallLogScheme(MyImageHandler.Region, call.MYIMAGE, myImageIID.NameId, "CheckWindowsImage()")
+	start := call.Start()
+
 	projectID := MyImageHandler.Credential.ProjectID
 	isWindows := false
 	machineImage, err := GetMachineImageInfo(MyImageHandler.Client, projectID, myImageIID.SystemId)
+	hiscallInfo.ElapsedTime = call.Elapsed(start)
 
 	if err != nil {
+		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
 		return isWindows, err
 	}
+	calllogger.Info(call.String(hiscallInfo))
 
 	ip := machineImage.InstanceProperties
 	disks := ip.Disks
@@ -167,6 +199,5 @@ func (MyImageHandler *GCPMyImageHandler) CheckWindowsImage(myImageIID irs.IID) (
 		}
 	}
 
-	//return false, fmt.Errorf("Does not support CheckWindowsImage() yet!!")
 	return isWindows, nil
 }

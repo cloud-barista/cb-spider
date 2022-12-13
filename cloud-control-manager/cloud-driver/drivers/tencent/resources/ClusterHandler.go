@@ -17,7 +17,6 @@ import (
 	"runtime/debug"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
@@ -26,21 +25,20 @@ import (
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/jeremywohl/flatten"
 
-	"github.com/sirupsen/logrus"
 	tke "github.com/tencentcloud/tencentcloud-sdk-go-intl-en/tencentcloud/tke/v20180525"
 	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
 )
 
-// tempCalllogger
+// calllogger
 // 공통로거 만들기 이전까지 사용
-var once sync.Once
-var tempCalllogger *logrus.Logger
+// var once sync.Once
+// var calllogger *logrus.Logger
 
-func init() {
-	once.Do(func() {
-		tempCalllogger = call.GetLogger("HISCALL")
-	})
-}
+// func init() {
+// 	once.Do(func() {
+// 		calllogger = call.GetLogger("HISCALL")
+// 	})
+// }
 
 type TencentClusterHandler struct {
 	RegionInfo     idrv.RegionInfo
@@ -49,7 +47,7 @@ type TencentClusterHandler struct {
 
 func (clusterHandler *TencentClusterHandler) CreateCluster(clusterReqInfo irs.ClusterInfo) (irs.ClusterInfo, error) {
 	cblogger.Info("Tencent Cloud Driver: called CreateCluster()")
-	callLogInfo := getCallLogScheme(clusterHandler.RegionInfo.Region, call.CLUSTER, "CreateCluster()", "CreateCluster()")
+	callLogInfo := GetCallLogScheme(clusterHandler.RegionInfo, call.CLUSTER, "CreateCluster()", "CreateCluster()")
 
 	start := call.Start()
 	// 클러스터 생성 요청 변환
@@ -65,10 +63,10 @@ func (clusterHandler *TencentClusterHandler) CreateCluster(clusterReqInfo irs.Cl
 		err := fmt.Errorf("Failed to Create Cluster :  %v", err)
 		cblogger.Error(err)
 		callLogInfo.ErrorMSG = err.Error()
-		tempCalllogger.Error(call.String(callLogInfo))
+		calllogger.Error(call.String(callLogInfo))
 		return irs.ClusterInfo{}, err
 	}
-	tempCalllogger.Info(call.String(callLogInfo))
+	calllogger.Info(call.String(callLogInfo))
 
 	// NodeGroup 생성 정보가 있는경우 생성을 시도한다.
 	// 현재는 생성 시도를 안한다. 생성하기로 결정되면 아래 주석을 풀어서 사용한다.
@@ -96,7 +94,7 @@ func (clusterHandler *TencentClusterHandler) CreateCluster(clusterReqInfo irs.Cl
 
 func (clusterHandler *TencentClusterHandler) ListCluster() ([]*irs.ClusterInfo, error) {
 	cblogger.Info("Tencent Cloud Driver: called ListCluster()")
-	callLogInfo := getCallLogScheme(clusterHandler.RegionInfo.Region, call.CLUSTER, "ListCluster()", "ListCluster()")
+	callLogInfo := GetCallLogScheme(clusterHandler.RegionInfo, call.CLUSTER, "ListCluster()", "ListCluster()")
 
 	start := call.Start()
 	res, err := tencent.GetClusters(clusterHandler.CredentialInfo.ClientId, clusterHandler.CredentialInfo.ClientSecret, clusterHandler.RegionInfo.Region)
@@ -105,10 +103,10 @@ func (clusterHandler *TencentClusterHandler) ListCluster() ([]*irs.ClusterInfo, 
 		err := fmt.Errorf("Failed to Get Clusters :  %v", err)
 		cblogger.Error(err)
 		callLogInfo.ErrorMSG = err.Error()
-		tempCalllogger.Error(call.String(callLogInfo))
+		calllogger.Error(call.String(callLogInfo))
 		return nil, err
 	}
-	tempCalllogger.Info(call.String(callLogInfo))
+	calllogger.Info(call.String(callLogInfo))
 
 	cluster_info_list := make([]*irs.ClusterInfo, *res.Response.TotalCount)
 	for i, cluster := range res.Response.Clusters {
@@ -125,7 +123,7 @@ func (clusterHandler *TencentClusterHandler) ListCluster() ([]*irs.ClusterInfo, 
 
 func (clusterHandler *TencentClusterHandler) GetCluster(clusterIID irs.IID) (irs.ClusterInfo, error) {
 	cblogger.Info("Tencent Cloud Driver: called GetCluster()")
-	callLogInfo := getCallLogScheme(clusterHandler.RegionInfo.Region, call.CLUSTER, clusterIID.NameId, "GetCluster()")
+	callLogInfo := GetCallLogScheme(clusterHandler.RegionInfo, call.CLUSTER, clusterIID.NameId, "GetCluster()")
 
 	start := call.Start()
 	cluster_info, err := getClusterInfo(clusterHandler.CredentialInfo.ClientId, clusterHandler.CredentialInfo.ClientSecret, clusterHandler.RegionInfo.Region, clusterIID.SystemId)
@@ -134,17 +132,17 @@ func (clusterHandler *TencentClusterHandler) GetCluster(clusterIID irs.IID) (irs
 		err := fmt.Errorf("Failed to Get ClusterInfo :  %v", err)
 		cblogger.Error(err)
 		callLogInfo.ErrorMSG = err.Error()
-		tempCalllogger.Error(call.String(callLogInfo))
+		calllogger.Error(call.String(callLogInfo))
 		return irs.ClusterInfo{}, err
 	}
-	tempCalllogger.Info(call.String(callLogInfo))
+	calllogger.Info(call.String(callLogInfo))
 
 	return *cluster_info, nil
 }
 
 func (clusterHandler *TencentClusterHandler) DeleteCluster(clusterIID irs.IID) (bool, error) {
 	cblogger.Info("Tencent Cloud Driver: called DeleteCluster()")
-	callLogInfo := getCallLogScheme(clusterHandler.RegionInfo.Region, call.CLUSTER, clusterIID.NameId, "DeleteCluster()")
+	callLogInfo := GetCallLogScheme(clusterHandler.RegionInfo, call.CLUSTER, clusterIID.NameId, "DeleteCluster()")
 
 	start := call.Start()
 	res, err := tencent.DeleteCluster(clusterHandler.CredentialInfo.ClientId, clusterHandler.CredentialInfo.ClientSecret, clusterHandler.RegionInfo.Region, clusterIID.SystemId)
@@ -153,18 +151,18 @@ func (clusterHandler *TencentClusterHandler) DeleteCluster(clusterIID irs.IID) (
 		err := fmt.Errorf("Failed to Delete Cluster :  %v", err)
 		cblogger.Error(err)
 		callLogInfo.ErrorMSG = err.Error()
-		tempCalllogger.Error(call.String(callLogInfo))
+		calllogger.Error(call.String(callLogInfo))
 		return false, err
 	}
 	cblogger.Info("DeleteCluster(): ", res)
-	tempCalllogger.Info(call.String(callLogInfo))
+	calllogger.Info(call.String(callLogInfo))
 
 	return true, nil
 }
 
 func (clusterHandler *TencentClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGroupReqInfo irs.NodeGroupInfo) (irs.NodeGroupInfo, error) {
 	cblogger.Info("Tencent Cloud Driver: called AddNodeGroup()")
-	callLogInfo := getCallLogScheme(clusterHandler.RegionInfo.Region, call.CLUSTER, clusterIID.NameId, "AddNodeGroup()")
+	callLogInfo := GetCallLogScheme(clusterHandler.RegionInfo, call.CLUSTER, clusterIID.NameId, "AddNodeGroup()")
 
 	start := call.Start()
 	// 노드 그룹 생성 요청 변환
@@ -181,10 +179,10 @@ func (clusterHandler *TencentClusterHandler) AddNodeGroup(clusterIID irs.IID, no
 		err := fmt.Errorf("Failed to Create Node Group :  %v", err)
 		cblogger.Error(err)
 		callLogInfo.ErrorMSG = err.Error()
-		tempCalllogger.Error(call.String(callLogInfo))
+		calllogger.Error(call.String(callLogInfo))
 		return irs.NodeGroupInfo{}, err
 	}
-	tempCalllogger.Info(call.String(callLogInfo))
+	calllogger.Info(call.String(callLogInfo))
 
 	node_group_info, err := getNodeGroupInfo(clusterHandler.CredentialInfo.ClientId, clusterHandler.CredentialInfo.ClientSecret, clusterHandler.RegionInfo.Region, clusterIID.SystemId, *response.Response.NodePoolId)
 	if err != nil {
@@ -208,10 +206,10 @@ func (clusterHandler *TencentClusterHandler) AddNodeGroup(clusterIID irs.IID, no
 // 		err := fmt.Errorf("Failed to List Node Group :  %v", err)
 // 		cblogger.Error(err)
 // 		callLogInfo.ErrorMSG = err.Error()
-// 		tempCalllogger.Error(call.String(callLogInfo))
+// 		calllogger.Error(call.String(callLogInfo))
 // 		return node_group_info_list, err
 // 	}
-// 	tempCalllogger.Info(call.String(callLogInfo))
+// 	calllogger.Info(call.String(callLogInfo))
 
 // 	for _, node_group := range res.Response.NodePoolSet {
 // 		node_group_info, err := getNodeGroupInfo(clusterHandler.CredentialInfo.ClientId, clusterHandler.CredentialInfo.ClientSecret, clusterHandler.RegionInfo.Region, clusterIID.SystemId, *node_group.NodePoolId)
@@ -237,17 +235,17 @@ func (clusterHandler *TencentClusterHandler) AddNodeGroup(clusterIID irs.IID, no
 // 		err := fmt.Errorf("Failed to Get Node Group Info:  %v", err)
 // 		cblogger.Error(err)
 // 		callLogInfo.ErrorMSG = err.Error()
-// 		tempCalllogger.Error(call.String(callLogInfo))
+// 		calllogger.Error(call.String(callLogInfo))
 // 		return irs.NodeGroupInfo{}, err
 // 	}
-// 	tempCalllogger.Info(call.String(callLogInfo))
+// 	calllogger.Info(call.String(callLogInfo))
 
 // 	return *temp, nil
 // }
 
 func (clusterHandler *TencentClusterHandler) SetNodeGroupAutoScaling(clusterIID irs.IID, nodeGroupIID irs.IID, on bool) (bool, error) {
 	cblogger.Info("Tencent Cloud Driver: called SetNodeGroupAutoScaling()")
-	callLogInfo := getCallLogScheme(clusterHandler.RegionInfo.Region, call.CLUSTER, clusterIID.NameId, "SetNodeGroupAutoScaling()")
+	callLogInfo := GetCallLogScheme(clusterHandler.RegionInfo, call.CLUSTER, clusterIID.NameId, "SetNodeGroupAutoScaling()")
 
 	start := call.Start()
 	temp, err := tencent.SetNodeGroupAutoScaling(clusterHandler.CredentialInfo.ClientId, clusterHandler.CredentialInfo.ClientSecret, clusterHandler.RegionInfo.Region, clusterIID.SystemId, nodeGroupIID.SystemId, on)
@@ -256,18 +254,18 @@ func (clusterHandler *TencentClusterHandler) SetNodeGroupAutoScaling(clusterIID 
 		err := fmt.Errorf("Failed to Set Node Group AutoScaling:  %v", err)
 		cblogger.Error(err)
 		callLogInfo.ErrorMSG = err.Error()
-		tempCalllogger.Error(call.String(callLogInfo))
+		calllogger.Error(call.String(callLogInfo))
 		return false, err
 	}
 	cblogger.Info(temp.ToJsonString())
-	tempCalllogger.Info(call.String(callLogInfo))
+	calllogger.Info(call.String(callLogInfo))
 
 	return true, nil
 }
 
 func (clusterHandler *TencentClusterHandler) ChangeNodeGroupScaling(clusterIID irs.IID, nodeGroupIID irs.IID, desiredNodeSize int, minNodeSize int, maxNodeSize int) (irs.NodeGroupInfo, error) {
 	cblogger.Info("Tencent Cloud Driver: called ChangeNodeGroupScaling()")
-	callLogInfo := getCallLogScheme(clusterHandler.RegionInfo.Region, call.CLUSTER, clusterIID.NameId, "ChangeNodeGroupScaling()")
+	callLogInfo := GetCallLogScheme(clusterHandler.RegionInfo, call.CLUSTER, clusterIID.NameId, "ChangeNodeGroupScaling()")
 
 	start := call.Start()
 	nodegroup, err := tencent.GetNodeGroup(clusterHandler.CredentialInfo.ClientId, clusterHandler.CredentialInfo.ClientSecret, clusterHandler.RegionInfo.Region, clusterIID.SystemId, nodeGroupIID.SystemId)
@@ -282,12 +280,12 @@ func (clusterHandler *TencentClusterHandler) ChangeNodeGroupScaling(clusterIID i
 		err := fmt.Errorf("Failed to Change Node Group Scaling:  %v", err)
 		cblogger.Error(err)
 		callLogInfo.ErrorMSG = err.Error()
-		tempCalllogger.Error(call.String(callLogInfo))
+		calllogger.Error(call.String(callLogInfo))
 		cblogger.Error(err)
 		return irs.NodeGroupInfo{}, err
 	}
 	cblogger.Info(temp.ToJsonString())
-	tempCalllogger.Info(call.String(callLogInfo))
+	calllogger.Info(call.String(callLogInfo))
 
 	node_group_info, err := getNodeGroupInfo(clusterHandler.CredentialInfo.ClientId, clusterHandler.CredentialInfo.ClientSecret, clusterHandler.RegionInfo.Region, clusterIID.SystemId, nodeGroupIID.SystemId)
 	if err != nil {
@@ -301,7 +299,7 @@ func (clusterHandler *TencentClusterHandler) ChangeNodeGroupScaling(clusterIID i
 
 func (clusterHandler *TencentClusterHandler) RemoveNodeGroup(clusterIID irs.IID, nodeGroupIID irs.IID) (bool, error) {
 	cblogger.Info("Tencent Cloud Driver: called RemoveNodeGroup()")
-	callLogInfo := getCallLogScheme(clusterHandler.RegionInfo.Region, call.CLUSTER, clusterIID.NameId, "RemoveNodeGroup()")
+	callLogInfo := GetCallLogScheme(clusterHandler.RegionInfo, call.CLUSTER, clusterIID.NameId, "RemoveNodeGroup()")
 
 	start := call.Start()
 	res, err := tencent.DeleteNodeGroup(clusterHandler.CredentialInfo.ClientId, clusterHandler.CredentialInfo.ClientSecret, clusterHandler.RegionInfo.Region, clusterIID.SystemId, nodeGroupIID.SystemId)
@@ -310,18 +308,18 @@ func (clusterHandler *TencentClusterHandler) RemoveNodeGroup(clusterIID irs.IID,
 		err := fmt.Errorf("Failed to Delete NodeGroup:  %v", err)
 		cblogger.Error(err)
 		callLogInfo.ErrorMSG = err.Error()
-		tempCalllogger.Error(call.String(callLogInfo))
+		calllogger.Error(call.String(callLogInfo))
 		return false, err
 	}
 	cblogger.Info(res.ToJsonString())
-	tempCalllogger.Info(call.String(callLogInfo))
+	calllogger.Info(call.String(callLogInfo))
 
 	return true, nil
 }
 
 func (clusterHandler *TencentClusterHandler) UpgradeCluster(clusterIID irs.IID, newVersion string) (irs.ClusterInfo, error) {
 	cblogger.Info("Tencent Cloud Driver: called UpgradeCluster()")
-	callLogInfo := getCallLogScheme(clusterHandler.RegionInfo.Region, call.CLUSTER, clusterIID.NameId, "UpgradeCluster()")
+	callLogInfo := GetCallLogScheme(clusterHandler.RegionInfo, call.CLUSTER, clusterIID.NameId, "UpgradeCluster()")
 
 	start := call.Start()
 	res, err := tencent.UpgradeCluster(clusterHandler.CredentialInfo.ClientId, clusterHandler.CredentialInfo.ClientSecret, clusterHandler.RegionInfo.Region, clusterIID.SystemId, newVersion)
@@ -330,11 +328,11 @@ func (clusterHandler *TencentClusterHandler) UpgradeCluster(clusterIID irs.IID, 
 		err := fmt.Errorf("Failed to Upgrade Cluster:  %v", err)
 		cblogger.Error(err)
 		callLogInfo.ErrorMSG = err.Error()
-		tempCalllogger.Error(call.String(callLogInfo))
+		calllogger.Error(call.String(callLogInfo))
 		return irs.ClusterInfo{}, err
 	}
 	cblogger.Info(res.ToJsonString())
-	tempCalllogger.Info(call.String(callLogInfo))
+	calllogger.Info(call.String(callLogInfo))
 
 	clusterInfo, err := getClusterInfo(clusterHandler.CredentialInfo.ClientId, clusterHandler.CredentialInfo.ClientSecret, clusterHandler.RegionInfo.Region, clusterIID.SystemId)
 	if err != nil {
@@ -413,11 +411,11 @@ func getClusterInfo(access_key string, access_secret string, region_id string, c
 	}
 
 	accessInfo, err := getClusterAccessInfo(access_key, access_secret, region_id, cluster_id, security_group_id)
-	if err != nil {		
-		cblogger.Error(err)	
+	if err != nil {
+		cblogger.Error(err)
 		return nil, err
 	}
-	
+
 	clusterInfo = &irs.ClusterInfo{
 		IId: irs.IID{
 			NameId:   *res.Response.Clusters[0].ClusterName,
@@ -490,9 +488,9 @@ func getClusterAccessInfo(access_key string, access_secret string, region_id str
 		}
 	}()
 
-    accessInfo = irs.AccessInfo{
-		Endpoint   : "Endpoint is not ready yet!",
-		Kubeconfig : "Kubeconfig is not ready yet!",
+	accessInfo = irs.AccessInfo{
+		Endpoint:   "Endpoint is not ready yet!",
+		Kubeconfig: "Kubeconfig is not ready yet!",
 	}
 
 	// (1) Endpoint
@@ -507,12 +505,12 @@ func getClusterAccessInfo(access_key string, access_secret string, region_id str
 			return irs.AccessInfo{}, err
 		}
 	}
-    
-    if res == nil || res.Response == nil {
-    	return accessInfo, nil
-    }
 
-    if *res.Response.ClusterExternalEndpoint == "" {
+	if res == nil || res.Response == nil {
+		return accessInfo, nil
+	}
+
+	if *res.Response.ClusterExternalEndpoint == "" {
 		_, err := tencent.CreateClusterEndpoint(access_key, access_secret, region_id, cluster_id, security_group_id)
 		if err != nil {
 			if strings.Contains(err.Error(), "CLUSTER_IN_ABNORMAL_STAT") || strings.Contains(err.Error(), "CLUSTER_STATE_ERROR") {
@@ -527,9 +525,9 @@ func getClusterAccessInfo(access_key string, access_secret string, region_id str
 				return irs.AccessInfo{}, err
 			}
 		}
-    } else {
-    	accessInfo.Endpoint = *res.Response.ClusterExternalEndpoint
-    }
+	} else {
+		accessInfo.Endpoint = *res.Response.ClusterExternalEndpoint
+	}
 
 	// (2) Kubeconfig
 	resKubeconfig, err := tencent.GetClusterKubeconfig(access_key, access_secret, region_id, cluster_id)
@@ -543,25 +541,25 @@ func getClusterAccessInfo(access_key string, access_secret string, region_id str
 			return irs.AccessInfo{}, err
 		}
 	}
-    
-    if resKubeconfig == nil || resKubeconfig.Response == nil {
-    	return accessInfo, nil
-    }
 
-    if *resKubeconfig.Response.Kubeconfig == "" {
+	if resKubeconfig == nil || resKubeconfig.Response == nil {
+		return accessInfo, nil
+	}
+
+	if *resKubeconfig.Response.Kubeconfig == "" {
 		accessInfo.Kubeconfig = "Preparing...."
-    } else {
-    	accessInfo.Kubeconfig = changeDomainNameToIP(*resKubeconfig.Response.Kubeconfig, accessInfo.Endpoint)
-    }
+	} else {
+		accessInfo.Kubeconfig = changeDomainNameToIP(*resKubeconfig.Response.Kubeconfig, accessInfo.Endpoint)
+	}
 
-    return accessInfo, nil
+	return accessInfo, nil
 }
 
 func changeDomainNameToIP(kubeConfig string, endpoint string) string {
 
 	TargetStr := "    server: https://"
 
-	if kubeConfig == "" || !strings.Contains(kubeConfig, TargetStr)  {
+	if kubeConfig == "" || !strings.Contains(kubeConfig, TargetStr) {
 		return kubeConfig
 	}
 	if endpoint == "" || !strings.Contains(endpoint, ":") {
@@ -573,16 +571,16 @@ func changeDomainNameToIP(kubeConfig string, endpoint string) string {
 	ip := splits[0]
 
 	// replace 'domain name' with 'ip'
-	// ex) server: https://cls-amu0j0tf.ccs.tencent-cloud.com 
+	// ex) server: https://cls-amu0j0tf.ccs.tencent-cloud.com
 	//     => server: https://1.2.3.4
-    lines := strings.Split(kubeConfig, "\n")
-    for i, line := range lines {
-            if strings.Contains(line, TargetStr) {
-                    lines[i] = TargetStr + ip
-            }
-    }
+	lines := strings.Split(kubeConfig, "\n")
+	for i, line := range lines {
+		if strings.Contains(line, TargetStr) {
+			lines[i] = TargetStr + ip
+		}
+	}
 
-    return strings.Join(lines, "\n")
+	return strings.Join(lines, "\n")
 }
 
 func getNodeGroupInfo(access_key, access_secret, region_id, cluster_id, node_group_id string) (nodeGroupInfo *irs.NodeGroupInfo, err error) {
@@ -849,13 +847,13 @@ func getNodeGroupRequest(clusterHandler *TencentClusterHandler, cluster_id strin
 	return request, err
 }
 
-func getCallLogScheme(region string, resourceType call.RES_TYPE, resourceName string, apiName string) call.CLOUDLOGSCHEMA {
-	cblogger.Info(fmt.Sprintf("Call %s %s", call.TENCENT, apiName))
-	return call.CLOUDLOGSCHEMA{
-		CloudOS:      call.TENCENT,
-		RegionZone:   region,
-		ResourceType: resourceType,
-		ResourceName: resourceName,
-		CloudOSAPI:   apiName,
-	}
-}
+// func getCallLogScheme(region string, resourceType call.RES_TYPE, resourceName string, apiName string) call.CLOUDLOGSCHEMA {
+// 	cblogger.Info(fmt.Sprintf("Call %s %s", call.TENCENT, apiName))
+// 	return call.CLOUDLOGSCHEMA{
+// 		CloudOS:      call.TENCENT,
+// 		RegionZone:   region,
+// 		ResourceType: resourceType,
+// 		ResourceName: resourceName,
+// 		CloudOSAPI:   apiName,
+// 	}
+// }

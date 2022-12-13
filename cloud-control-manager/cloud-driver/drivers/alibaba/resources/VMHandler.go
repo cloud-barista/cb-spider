@@ -17,14 +17,12 @@ import (
 
 	"github.com/aliyun/alibaba-cloud-sdk-go/sdk/requests"
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/ecs"
-	cblog "github.com/cloud-barista/cb-log"
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	cdcom "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/common"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	cim "github.com/cloud-barista/cb-spider/cloud-info-manager"
 	"github.com/davecgh/go-spew/spew"
-	"github.com/sirupsen/logrus"
 	/*
 		"github.com/davecgh/go-spew/spew"
 	*/)
@@ -32,13 +30,6 @@ import (
 type AlibabaVMHandler struct {
 	Region idrv.RegionInfo
 	Client *ecs.Client
-}
-
-var cblogger *logrus.Logger
-
-func init() {
-	// cblog is a global variable.
-	cblogger = cblog.GetLogger("CB-SPIDER")
 }
 
 // 주어진 이미지 id에 대한 이미지 사이즈 조회

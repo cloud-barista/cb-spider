@@ -4,6 +4,7 @@ import (
 	"errors"
 	"time"
 
+	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/davecgh/go-spew/spew"
@@ -38,6 +39,9 @@ type TencentMyImageHandler struct {
 }
 
 func (myImageHandler TencentMyImageHandler) SnapshotVM(snapshotReqInfo irs.MyImageInfo) (irs.MyImageInfo, error) {
+
+	hiscallInfo := GetCallLogScheme(myImageHandler.Region, call.MYIMAGE, snapshotReqInfo.IId.NameId, "SnapshotVM()")
+	start := call.Start()
 
 	existName, errExist := myImageHandler.myImageExist(snapshotReqInfo.IId.NameId)
 	if errExist != nil {
@@ -95,11 +99,13 @@ func (myImageHandler TencentMyImageHandler) SnapshotVM(snapshotReqInfo irs.MyIma
 
 	// The returned "resp" is an instance of the CreateImageResponse class which corresponds to the request object
 	response, err := myImageHandler.Client.CreateImage(request)
-
+	hiscallInfo.ElapsedTime = call.Elapsed(start)
 	if err != nil {
 		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
 		return irs.MyImageInfo{}, err
 	}
+	calllogger.Info(call.String(hiscallInfo))
 
 	spew.Dump(response)
 
@@ -117,12 +123,18 @@ func (myImageHandler TencentMyImageHandler) SnapshotVM(snapshotReqInfo irs.MyIma
 TODO : CommonHandlerm에 DescribeImages, DescribeImageById, DescribeImageStatus 추가할 것.
 */
 func (myImageHandler TencentMyImageHandler) ListMyImage() ([]*irs.MyImageInfo, error) {
+	hiscallInfo := GetCallLogScheme(myImageHandler.Region, call.MYIMAGE, "MyImage", "ListMyImage()")
+	start := call.Start()
+
 	imageTypes := []string{}
 	myImageSet, err := DescribeImages(myImageHandler.Client, nil, imageTypes)
+	hiscallInfo.ElapsedTime = call.Elapsed(start)
 	if err != nil {
 		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
 		return nil, err
 	}
+	calllogger.Info(call.String(hiscallInfo))
 
 	myImageInfoList := []*irs.MyImageInfo{}
 
@@ -137,12 +149,18 @@ func (myImageHandler TencentMyImageHandler) ListMyImage() ([]*irs.MyImageInfo, e
 }
 
 func (myImageHandler TencentMyImageHandler) GetMyImage(myImageIID irs.IID) (irs.MyImageInfo, error) {
+	hiscallInfo := GetCallLogScheme(myImageHandler.Region, call.MYIMAGE, myImageIID.NameId, "GetMyImage()")
+	start := call.Start()
+
 	imageTypes := []string{"PRIVATE_IMAGE"}
 	targetImage, err := DescribeImagesByID(myImageHandler.Client, myImageIID, imageTypes)
+	hiscallInfo.ElapsedTime = call.Elapsed(start)
 	if err != nil {
 		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
 		return irs.MyImageInfo{}, err
 	}
+	calllogger.Info(call.String(hiscallInfo))
 
 	myImageInfo, myImageInfoErr := convertImageSetToMyImageInfo(&targetImage)
 	if myImageInfoErr != nil {
@@ -160,7 +178,8 @@ Up to 10 custom images are allowed in each region. If you have run out of the qu
 A shared image cannot be deleted.
 */
 func (myImageHandler TencentMyImageHandler) DeleteMyImage(myImageIID irs.IID) (bool, error) {
-
+	hiscallInfo := GetCallLogScheme(myImageHandler.Region, call.MYIMAGE, myImageIID.NameId, "DeleteMyImage()")
+	start := call.Start()
 	// Image 상태 조회
 	status, err := DescribeImageStatus(myImageHandler.Client, myImageIID, nil)
 	if err != nil {
@@ -179,11 +198,12 @@ func (myImageHandler TencentMyImageHandler) DeleteMyImage(myImageIID irs.IID) (b
 
 	// The returned "resp" is an instance of the DeleteImagesResponse class which corresponds to the request object
 	response, err := myImageHandler.Client.DeleteImages(request)
-
+	hiscallInfo.ElapsedTime = call.Elapsed(start)
 	if err != nil {
 		cblogger.Error(err)
 		return false, err
 	}
+	calllogger.Info(call.String(hiscallInfo))
 
 	requestId := response.Response.RequestId
 	cblogger.Info("requestId : %s", requestId)
@@ -249,14 +269,20 @@ func (myImageHandler *TencentMyImageHandler) myImageExist(chkName string) (bool,
 // Window OS 여부
 // imageType : MyImage는 PRIVATE,    PRIVATE_IMAGE, PUBLIC_IMAGE, SHARED_IMAGE
 func (myImageHandler TencentMyImageHandler) CheckWindowsImage(myImageIID irs.IID) (bool, error) {
-	//return false, fmt.Errorf("Does not support CheckWindowsImage() yet!!")
+	hiscallInfo := GetCallLogScheme(myImageHandler.Region, call.MYIMAGE, myImageIID.NameId, "CheckWindowsImage()")
+	start := call.Start()
+
 	imageTypes := []string{"PRIVATE_IMAGE"}
 	isWindow := false
 
 	resultImg, err := DescribeImagesByID(myImageHandler.Client, myImageIID, imageTypes)
+	hiscallInfo.ElapsedTime = call.Elapsed(start)
 	if err != nil {
+		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
 		return isWindow, err
 	}
+	calllogger.Info(call.String(hiscallInfo))
 
 	platform := GetOsType(resultImg)
 	if platform == "Windows" {
