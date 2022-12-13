@@ -19,6 +19,7 @@ import (
 
 const (
 	GCP_PMKS_SECURITYGROUP_TAG = "cb-spider-pmks-securitygroup-"
+	GCP_PMKS_INSTANCEGROUP_KEY = "InstanceGroup_"
 
 	GCP_CONTAINER_OPERATION_TYPE_UNSPECIFIED         = -1 //"Not set."
 	GCP_CONTAINER_OPERATION_CREATE_CLUSTER           = 1  //"Cluster create."
@@ -201,6 +202,7 @@ func (ClusterHandler *GCPClusterHandler) ListCluster() ([]*irs.ClusterInfo, erro
 		if err != nil {
 			// cluster err
 		}
+
 		clusterInfoList = append(clusterInfoList, &clusterInfo)
 	}
 	return clusterInfoList, nil
@@ -231,6 +233,31 @@ func (ClusterHandler *GCPClusterHandler) GetCluster(clusterIID irs.IID) (irs.Clu
 		return irs.ClusterInfo{}, err
 	}
 
+	//nodePools = resp.NodePools
+	nodeGroupList := clusterInfo.NodeGroupList
+	for _, nodeGroupInfo := range nodeGroupList {
+		keyValueList := nodeGroupInfo.KeyValueList
+		for _, keyValue := range keyValueList {
+			if strings.HasPrefix(keyValue.Key, GCP_PMKS_INSTANCEGROUP_KEY) {
+				nodeList := []irs.IID{}
+				instanceGroupValue := keyValue.Value
+				instanceList, err := GetInstancesOfInstanceGroup(ClusterHandler.Client, ClusterHandler.Credential, ClusterHandler.Region, instanceGroupValue)
+				if err != nil {
+					return clusterInfo, err
+				}
+				for _, instance := range instanceList {
+					instanceInfo, err := GetInstance(ClusterHandler.Client, ClusterHandler.Credential, ClusterHandler.Region, instance)
+					if err != nil {
+						return clusterInfo, err
+					}
+					// nodeGroup의 Instance ID
+					nodeIID := irs.IID{NameId: instanceInfo.Name, SystemId: instanceInfo.Name}
+					nodeList = append(nodeList, nodeIID)
+				}
+				nodeGroupInfo.Nodes = nodeList
+			}
+		}
+	}
 	return clusterInfo, nil
 }
 
@@ -348,7 +375,35 @@ func (ClusterHandler *GCPClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGr
 	if err != nil {
 		return irs.NodeGroupInfo{}, err
 	}
-	return mappingNodeGroupInfo(nodePool)
+
+	nodeGroupInfo, err = mappingNodeGroupInfo(nodePool)
+	if err != nil {
+		return nodeGroupInfo, err
+	}
+
+	keyValueList := nodeGroupInfo.KeyValueList
+	for _, keyValue := range keyValueList {
+		if strings.HasPrefix(keyValue.Key, GCP_PMKS_INSTANCEGROUP_KEY) {
+			nodeList := []irs.IID{}
+			instanceGroupValue := keyValue.Value
+			instanceList, err := GetInstancesOfInstanceGroup(ClusterHandler.Client, ClusterHandler.Credential, ClusterHandler.Region, instanceGroupValue)
+			if err != nil {
+				return nodeGroupInfo, err
+			}
+			for _, instance := range instanceList {
+				instanceInfo, err := GetInstance(ClusterHandler.Client, ClusterHandler.Credential, ClusterHandler.Region, instance)
+				if err != nil {
+					return nodeGroupInfo, err
+				}
+				// nodeGroup의 Instance ID
+				nodeIID := irs.IID{NameId: instanceInfo.Name, SystemId: instanceInfo.Name}
+				nodeList = append(nodeList, nodeIID)
+			}
+			nodeGroupInfo.Nodes = nodeList
+		}
+	}
+
+	return nodeGroupInfo, nil
 
 }
 
@@ -684,26 +739,26 @@ func mappingClusterInfo(cluster *container.Cluster) (ClusterInfo irs.ClusterInfo
 	var nodeGroupList []irs.NodeGroupInfo
 	if cluster.NodePools != nil && len(cluster.NodePools) > 0 {
 		for _, nodePool := range cluster.NodePools {
-			nodePoolName := nodePool.Name
-			imageType := nodePool.Config.ImageType     // COS_CONTAINERD
-			diskSize := nodePool.Config.DiskSizeGb     // 100Gb
-			diskType := nodePool.Config.DiskType       // pd-standard
-			machineType := nodePool.Config.MachineType // e2-medium
+			// nodePoolName := nodePool.Name
+			// imageType := nodePool.Config.ImageType     // COS_CONTAINERD
+			// diskSize := nodePool.Config.DiskSizeGb     // 100Gb
+			// diskType := nodePool.Config.DiskType       // pd-standard
+			// machineType := nodePool.Config.MachineType // e2-medium
 
-			// diskSize := cluster.NodeConfig.DiskSizeGb// 100Gb
-			// diskType := cluster.NodeConfig.DiskType// pd-standard
-			// machineType := cluster.NodeConfig.MachineType// e2-medium
+			// // diskSize := cluster.NodeConfig.DiskSizeGb// 100Gb
+			// // diskType := cluster.NodeConfig.DiskType// pd-standard
+			// // machineType := cluster.NodeConfig.MachineType// e2-medium
 
-			var maxNodeSize int
-			var minNodeSize int
-			var desiredNodeSize int
-			var autoScaling bool
-			if nodePool.Autoscaling != nil && nodePool.Autoscaling.Enabled {
-				autoScaling = nodePool.Autoscaling.Enabled
-				maxNodeSize = int(nodePool.Autoscaling.MaxNodeCount)
-				minNodeSize = int(nodePool.Autoscaling.MinNodeCount)
-				desiredNodeSize = int(nodePool.InitialNodeCount)
-			}
+			// var maxNodeSize int
+			// var minNodeSize int
+			// var desiredNodeSize int
+			// var autoScaling bool
+			// if nodePool.Autoscaling != nil && nodePool.Autoscaling.Enabled {
+			// 	autoScaling = nodePool.Autoscaling.Enabled
+			// 	maxNodeSize = int(nodePool.Autoscaling.MaxNodeCount)
+			// 	minNodeSize = int(nodePool.Autoscaling.MinNodeCount)
+			// 	desiredNodeSize = int(nodePool.InitialNodeCount)
+			// }
 
 			// IId IID // {NameId, SystemId}
 
@@ -716,21 +771,25 @@ func mappingClusterInfo(cluster *container.Cluster) (ClusterInfo irs.ClusterInfo
 			// Nodes        []IID
 
 			// KeyValueList []KeyValue
-			nodeGroupInfo := irs.NodeGroupInfo{}
-			nodeGroupInfo.IId = irs.IID{NameId: nodePoolName, SystemId: nodePoolName}
-			nodeGroupInfo.RootDiskSize = strconv.FormatInt(diskSize, 10)
-			nodeGroupInfo.RootDiskType = diskType
-			nodeGroupInfo.VMSpecName = machineType
-			nodeGroupInfo.ImageIID = irs.IID{NameId: imageType, SystemId: imageType}
-			nodeGroupInfo.DesiredNodeSize = desiredNodeSize
-			if autoScaling {
-				nodeGroupInfo.MaxNodeSize = maxNodeSize
-				nodeGroupInfo.MinNodeSize = minNodeSize
-				nodeGroupInfo.OnAutoScaling = autoScaling
-			}
-			nodeGroupInfo.KeyPairIID = irs.IID{NameId: "NameId", SystemId: "SystemId"} // for the test
+			// nodeGroupInfo := irs.NodeGroupInfo{}
+			// nodeGroupInfo.IId = irs.IID{NameId: nodePoolName, SystemId: nodePoolName}
+			// nodeGroupInfo.RootDiskSize = strconv.FormatInt(diskSize, 10)
+			// nodeGroupInfo.RootDiskType = diskType
+			// nodeGroupInfo.VMSpecName = machineType
+			// nodeGroupInfo.ImageIID = irs.IID{NameId: imageType, SystemId: imageType}
+			// nodeGroupInfo.DesiredNodeSize = desiredNodeSize
+			// if autoScaling {
+			// 	nodeGroupInfo.MaxNodeSize = maxNodeSize
+			// 	nodeGroupInfo.MinNodeSize = minNodeSize
+			// 	nodeGroupInfo.OnAutoScaling = autoScaling
+			// }
 
 			//nodeGroupInfo.Nodes : 별도의 API 호출필요
+			nodeGroupInfo, err := mappingNodeGroupInfo(nodePool)
+			if err != nil {
+				return clusterInfo, err
+			}
+			nodeGroupInfo.KeyPairIID = irs.IID{NameId: "NameId", SystemId: "SystemId"} // for the test
 
 			nodeGroupList = append(nodeGroupList, nodeGroupInfo)
 		}
@@ -805,6 +864,20 @@ func mappingNodeGroupInfo(nodePool *container.NodePool) (NodeGroupInfo irs.NodeG
 
 	nodeGroupInfo.RootDiskSize = strconv.FormatInt(nodePool.Config.DiskSizeGb, 10)
 	nodeGroupInfo.RootDiskType = nodePool.Config.DiskType
+
+	keyValueList := []irs.KeyValue{}
+	if nodePool.InstanceGroupUrls != nil {
+		for idx, instanceGroupUrl := range nodePool.InstanceGroupUrls {
+			urlArr := strings.Split(instanceGroupUrl, "/")
+			instanceGroupName := urlArr[len(urlArr)-1]
+			keyValueList = append(keyValueList, irs.KeyValue{Key: "InstanceGroup_" + strconv.Itoa(idx), Value: instanceGroupName})
+
+			// InstanceGroup.ListInstances
+			//"instance": "https://www.googleapis.com/compute/v1/projects/csta-349809/zones/asia-northeast1-a/instances/gke-spider-cluster-03-ce-default-pool-3082fa6f-kvks",
+		}
+
+	}
+	nodeGroupInfo.KeyValueList = keyValueList
 
 	return nodeGroupInfo, nil
 }

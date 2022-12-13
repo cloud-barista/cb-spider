@@ -124,6 +124,43 @@ func GetPublicKey(credentialInfo idrv.CredentialInfo, keyPairName string) (strin
 	return string(publicKeyBytes), nil
 }
 
+// InstanceGroup의 인스턴스 목록 return
+func GetInstancesOfInstanceGroup(client *compute.Service, credential idrv.CredentialInfo, region idrv.RegionInfo, instanceGroup string) ([]string, error) {
+	projectID := credential.ProjectID
+	zone := region.Zone
+
+	rb := &compute.InstanceGroupsListInstancesRequest{
+		// TODO: Add desired fields of the request body.
+	}
+
+	instanceGroupsListInstances, err := client.InstanceGroups.ListInstances(projectID, zone, instanceGroup, rb).Do()
+	if err != nil {
+		return nil, err
+	}
+
+	var instanceList []string
+	for _, instance := range instanceGroupsListInstances.Items {
+		instanceUrl := instance.Instance
+		urlArr := strings.Split(instanceUrl, "/")
+		instanceName := urlArr[len(urlArr)-1]
+		instanceList = append(instanceList, instanceName)
+	}
+	return instanceList, nil
+}
+
+// Instance 정보조회
+func GetInstance(client *compute.Service, credential idrv.CredentialInfo, region idrv.RegionInfo, instance string) (*compute.Instance, error) {
+	projectID := credential.ProjectID
+	zone := region.Zone
+
+	instanceInfo, err := client.Instances.Get(projectID, zone, instance).Do()
+	if err != nil {
+		return nil, err
+	}
+
+	return instanceInfo, nil
+}
+
 // Operation 이 완료 될 때까지 기다림.
 func WaitUntilComplete(client *compute.Service, project string, region string, resourceId string, isGlobalAction bool) error {
 	before_time := time.Now()
