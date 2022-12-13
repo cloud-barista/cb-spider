@@ -704,26 +704,29 @@ func mappingClusterInfo(cluster *container.Cluster) (ClusterInfo irs.ClusterInfo
 			metaSecurityGroupTags = append(metaSecurityGroupTags, resourceVal)
 		}
 	}
-	cblogger.Info("metaSecurityGroupTags : ", len(metaSecurityGroupTags))
+	cblogger.Info("metaSecurityGroupTags : ", metaSecurityGroupTags)
 	// NodeConfig의 Tag가 SecurityGroup으로 사용하는 Tag인지 알려면
 	// Metadata에 Label이 정의되어있는지 여부로 확인
 	// Create에서 Metadata 와 nodeConfig의 Tag가 같은값이 들어가는데 굳이 한번 더 체크할 필요가 있을까?
-	nodeConfigTags := cluster.NodeConfig.Tags
-	for _, nodeConfigTag := range nodeConfigTags {
-		cblogger.Info("nodeConfigTag len : ", len(nodeConfigTags))
-		cblogger.Info("nodeConfigTag : ", nodeConfigTag)
-		for _, securityGroupTag := range metaSecurityGroupTags {
-			if nodeConfigTag == securityGroupTag {
-				securityGroups = append(securityGroups, irs.IID{NameId: securityGroupTag, SystemId: securityGroupTag})
-			}
-		}
-		// 	if strings.HasPrefix(nodeConfigTag, GCP_PMKS_SECURITYGROUP_TAG) {
-		// 		securityGroupName := nodeConfigTag[len(GCP_PMKS_SECURITYGROUP_TAG):]
-		// 		securityGroups = append(securityGroups, irs.IID{NameId: securityGroupName, SystemId: securityGroupName})
-		// 	} else {
-		// 		// securityGroup is required
-		// 	}
+	for _, securityGroupTag := range metaSecurityGroupTags {
+		securityGroups = append(securityGroups, irs.IID{NameId: securityGroupTag, SystemId: securityGroupTag})
 	}
+	// nodeConfigTags := cluster.NodeConfig.Tags
+	// for _, nodeConfigTag := range nodeConfigTags {
+	// 	cblogger.Info("nodeConfigTag len : ", len(nodeConfigTags))
+	// 	cblogger.Info("nodeConfigTag : ", nodeConfigTag)
+	// 	for _, securityGroupTag := range metaSecurityGroupTags {
+	// 		if nodeConfigTag == securityGroupTag {
+	// 			securityGroups = append(securityGroups, irs.IID{NameId: securityGroupTag, SystemId: securityGroupTag})
+	// 		}
+	// 	}
+	// 	// 	if strings.HasPrefix(nodeConfigTag, GCP_PMKS_SECURITYGROUP_TAG) {
+	// 	// 		securityGroupName := nodeConfigTag[len(GCP_PMKS_SECURITYGROUP_TAG):]
+	// 	// 		securityGroups = append(securityGroups, irs.IID{NameId: securityGroupName, SystemId: securityGroupName})
+	// 	// 	} else {
+	// 	// 		// securityGroup is required
+	// 	// 	}
+	// }
 
 	networkInfo := irs.NetworkInfo{
 		VpcIID:     irs.IID{NameId: cluster.Network, SystemId: cluster.Network},
