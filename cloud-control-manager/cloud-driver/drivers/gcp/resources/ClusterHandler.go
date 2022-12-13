@@ -728,6 +728,8 @@ func mappingClusterInfo(cluster *container.Cluster) (ClusterInfo irs.ClusterInfo
 				nodeGroupInfo.MinNodeSize = minNodeSize
 				nodeGroupInfo.OnAutoScaling = autoScaling
 			}
+			nodeGroupInfo.KeyPairIID = irs.IID{NameId: "NameId", SystemId: "SystemId"} // for the test
+
 			//nodeGroupInfo.Nodes : 별도의 API 호출필요
 
 			nodeGroupList = append(nodeGroupList, nodeGroupInfo)
