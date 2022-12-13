@@ -704,7 +704,7 @@ func mappingClusterInfo(cluster *container.Cluster) (ClusterInfo irs.ClusterInfo
 			metaSecurityGroupTags = append(metaSecurityGroupTags, resourceVal)
 		}
 	}
-
+	cblogger.Info("metaSecurityGroupTags : ", len(metaSecurityGroupTags))
 	// NodeConfig의 Tag가 SecurityGroup으로 사용하는 Tag인지 알려면
 	// Metadata에 Label이 정의되어있는지 여부로 확인
 	// Create에서 Metadata 와 nodeConfig의 Tag가 같은값이 들어가는데 굳이 한번 더 체크할 필요가 있을까?
@@ -851,6 +851,8 @@ func mappingNodeGroupInfo(nodePool *container.NodePool) (NodeGroupInfo irs.NodeG
 	nodeGroupInfo.IId.NameId = nodePool.Name
 	nodeGroupInfo.IId.SystemId = nodePool.Name
 
+	imageType := nodePool.Config.ImageType // COS_CONTAINERD
+
 	// scaling
 	if nodePool.Autoscaling != nil {
 		nodeGroupInfo.OnAutoScaling = nodePool.Autoscaling.Enabled
@@ -861,7 +863,7 @@ func mappingNodeGroupInfo(nodePool *container.NodePool) (NodeGroupInfo irs.NodeG
 
 	nodeGroupStatus := getNodeGroupStatus(nodePool.Status)
 	nodeGroupInfo.Status = nodeGroupStatus
-
+	nodeGroupInfo.ImageIID = irs.IID{NameId: imageType, SystemId: imageType}
 	nodeGroupInfo.VMSpecName = nodePool.Config.MachineType
 
 	nodeGroupInfo.RootDiskSize = strconv.FormatInt(nodePool.Config.DiskSizeGb, 10)
