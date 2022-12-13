@@ -877,7 +877,7 @@ func mappingClusterInfo(cluster *container.Cluster) (ClusterInfo irs.ClusterInfo
 	clusterInfo.CreatedTime = createDatetime
 	clusterInfo.Addons = addOnsInfo
 
-	spew.Dump(clusterInfo)
+	// spew.Dump(clusterInfo)
 
 	return clusterInfo, nil
 }
@@ -1077,6 +1077,8 @@ func convertCluster(client *compute.Service, credential idrv.CredentialInfo, reg
 func convertNodeGroup(client *compute.Service, credential idrv.CredentialInfo, region idrv.RegionInfo, orgNodeGroupList []irs.NodeGroupInfo) ([]irs.NodeGroupInfo, error) {
 	nodeGroupList := []irs.NodeGroupInfo{}
 	for _, nodeGroupInfo := range orgNodeGroupList {
+		cblogger.Info("convertNodeGroup ", nodeGroupInfo)
+		spew.Dump(nodeGroupInfo)
 		keyValueList := nodeGroupInfo.KeyValueList
 		for _, keyValue := range keyValueList {
 			if strings.HasPrefix(keyValue.Key, GCP_PMKS_INSTANCEGROUP_KEY) {
