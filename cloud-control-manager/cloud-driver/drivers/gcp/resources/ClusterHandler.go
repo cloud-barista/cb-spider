@@ -852,10 +852,12 @@ func mappingNodeGroupInfo(nodePool *container.NodePool) (NodeGroupInfo irs.NodeG
 	nodeGroupInfo.IId.SystemId = nodePool.Name
 
 	// scaling
-	nodeGroupInfo.OnAutoScaling = nodePool.Autoscaling.Enabled
+	if nodePool.Autoscaling != nil {
+		nodeGroupInfo.OnAutoScaling = nodePool.Autoscaling.Enabled
+		nodeGroupInfo.MaxNodeSize = int(nodePool.Autoscaling.MaxNodeCount)
+		nodeGroupInfo.MinNodeSize = int(nodePool.Autoscaling.MinNodeCount)
+	}
 	nodeGroupInfo.DesiredNodeSize = int(nodePool.InitialNodeCount)
-	nodeGroupInfo.MaxNodeSize = int(nodePool.Autoscaling.MaxNodeCount)
-	nodeGroupInfo.MinNodeSize = int(nodePool.Autoscaling.MinNodeCount)
 
 	nodeGroupStatus := getNodeGroupStatus(nodePool.Status)
 	nodeGroupInfo.Status = nodeGroupStatus
