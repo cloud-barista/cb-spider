@@ -198,9 +198,41 @@ func (ClusterHandler *GCPClusterHandler) ListCluster() ([]*irs.ClusterInfo, erro
 	respClusters := resp.Clusters
 	cblogger.Info(respClusters)
 	for _, cluster := range respClusters {
-		clusterInfo, err := mappingClusterInfo(cluster)
+		// clusterInfo, err := mappingClusterInfo(cluster)
+		// if err != nil {
+		// 	// cluster err
+		// 	return nil, err
+		// }
+
+		// nodeGroupList := clusterInfo.NodeGroupList
+		// for _, nodeGroupInfo := range nodeGroupList {
+		// 	keyValueList := nodeGroupInfo.KeyValueList
+		// 	for _, keyValue := range keyValueList {
+		// 		if strings.HasPrefix(keyValue.Key, GCP_PMKS_INSTANCEGROUP_KEY) {
+		// 			nodeList := []irs.IID{}
+		// 			instanceGroupValue := keyValue.Value
+		// 			instanceList, err := GetInstancesOfInstanceGroup(ClusterHandler.Client, ClusterHandler.Credential, ClusterHandler.Region, instanceGroupValue)
+		// 			if err != nil {
+		// 				return clusterInfoList, err
+		// 			}
+		// 			for _, instance := range instanceList {
+		// 				instanceInfo, err := GetInstance(ClusterHandler.Client, ClusterHandler.Credential, ClusterHandler.Region, instance)
+		// 				if err != nil {
+		// 					return clusterInfoList, err
+		// 				}
+		// 				// nodeGroup의 Instance ID
+		// 				nodeIID := irs.IID{NameId: instanceInfo.Name, SystemId: instanceInfo.Name}
+		// 				nodeList = append(nodeList, nodeIID)
+		// 			}
+		// 			nodeGroupInfo.Nodes = nodeList
+		// 		}
+		// 	}
+		// }
+		// clusterInfo.NodeGroupList = nodeGroupList
+		clusterInfo, err := convertCluster(ClusterHandler.Client, ClusterHandler.Credential, ClusterHandler.Region, cluster)
 		if err != nil {
-			// cluster err
+			cblogger.Error(err) // 에러가 났어도 다음 항목 조회
+			continue
 		}
 
 		clusterInfoList = append(clusterInfoList, &clusterInfo)
@@ -227,36 +259,44 @@ func (ClusterHandler *GCPClusterHandler) GetCluster(clusterIID irs.IID) (irs.Clu
 		return irs.ClusterInfo{}, err
 	}
 
-	clusterInfo, err := mappingClusterInfo(resp)
-	if err != nil {
-		// cluster err
-		return irs.ClusterInfo{}, err
-	}
+	// clusterInfo, err := mappingClusterInfo(resp)
+	// if err != nil {
+	// 	// cluster err
+	// 	return irs.ClusterInfo{}, err
+	// }
 
-	//nodePools = resp.NodePools
-	nodeGroupList := clusterInfo.NodeGroupList
-	for _, nodeGroupInfo := range nodeGroupList {
-		keyValueList := nodeGroupInfo.KeyValueList
-		for _, keyValue := range keyValueList {
-			if strings.HasPrefix(keyValue.Key, GCP_PMKS_INSTANCEGROUP_KEY) {
-				nodeList := []irs.IID{}
-				instanceGroupValue := keyValue.Value
-				instanceList, err := GetInstancesOfInstanceGroup(ClusterHandler.Client, ClusterHandler.Credential, ClusterHandler.Region, instanceGroupValue)
-				if err != nil {
-					return clusterInfo, err
-				}
-				for _, instance := range instanceList {
-					instanceInfo, err := GetInstance(ClusterHandler.Client, ClusterHandler.Credential, ClusterHandler.Region, instance)
-					if err != nil {
-						return clusterInfo, err
-					}
-					// nodeGroup의 Instance ID
-					nodeIID := irs.IID{NameId: instanceInfo.Name, SystemId: instanceInfo.Name}
-					nodeList = append(nodeList, nodeIID)
-				}
-				nodeGroupInfo.Nodes = nodeList
-			}
-		}
+	// //nodePools = resp.NodePools
+	// nodeGroupList := clusterInfo.NodeGroupList
+	// for _, nodeGroupInfo := range nodeGroupList {
+	// 	keyValueList := nodeGroupInfo.KeyValueList
+	// 	for _, keyValue := range keyValueList {
+	// 		if strings.HasPrefix(keyValue.Key, GCP_PMKS_INSTANCEGROUP_KEY) {
+	// 			nodeList := []irs.IID{}
+	// 			instanceGroupValue := keyValue.Value
+	// 			instanceList, err := GetInstancesOfInstanceGroup(ClusterHandler.Client, ClusterHandler.Credential, ClusterHandler.Region, instanceGroupValue)
+	// 			if err != nil {
+	// 				return clusterInfo, err
+	// 			}
+	// 			for _, instance := range instanceList {
+	// 				instanceInfo, err := GetInstance(ClusterHandler.Client, ClusterHandler.Credential, ClusterHandler.Region, instance)
+	// 				if err != nil {
+	// 					return clusterInfo, err
+	// 				}
+	// 				// nodeGroup의 Instance ID
+	// 				nodeIID := irs.IID{NameId: instanceInfo.Name, SystemId: instanceInfo.Name}
+	// 				nodeList = append(nodeList, nodeIID)
+	// 			}
+	// 			nodeGroupInfo.Nodes = nodeList
+	// 		}
+	// 	}
+	// 	nodeGroupList = append(nodeGroupList, nodeGroupInfo)
+	// }
+	// clusterInfo.NodeGroupList = nodeGroupList
+
+	clusterInfo, err := convertCluster(ClusterHandler.Client, ClusterHandler.Credential, ClusterHandler.Region, resp)
+	if err != nil {
+		cblogger.Error(err)
+		return irs.ClusterInfo{}, err
 	}
 	return clusterInfo, nil
 }
@@ -1010,4 +1050,58 @@ func getNodePools(containerClient *container.Service, projectID string, region s
 	}
 
 	return nodePool, nil
+}
+
+// clusterInfo 로 Set
+func convertCluster(client *compute.Service, credential idrv.CredentialInfo, region idrv.RegionInfo, cluster *container.Cluster) (irs.ClusterInfo, error) {
+	clusterInfo, err := mappingClusterInfo(cluster)
+	if err != nil {
+		// cluster err
+		// return irs.ClusterInfo{}, err
+	}
+
+	// mappingClusterInfo에서 우선 nodeGroup 정보가 set 됨.
+
+	//nodePools = resp.NodePools
+	nodeGroupList, err := convertNodeGroup(client, credential, region, clusterInfo.NodeGroupList)
+	if err != err { // 오류가 나도 clusterInfo를 넘김
+		// failed to get nodeGroupInfo
+		cblogger.Error(err)
+	}
+
+	clusterInfo.NodeGroupList = nodeGroupList
+	return clusterInfo, nil
+}
+
+// nodeGroupInfo로 set
+func convertNodeGroup(client *compute.Service, credential idrv.CredentialInfo, region idrv.RegionInfo, orgNodeGroupList []irs.NodeGroupInfo) ([]irs.NodeGroupInfo, error) {
+	nodeGroupList := []irs.NodeGroupInfo{}
+	for _, nodeGroupInfo := range orgNodeGroupList {
+		keyValueList := nodeGroupInfo.KeyValueList
+		for _, keyValue := range keyValueList {
+			if strings.HasPrefix(keyValue.Key, GCP_PMKS_INSTANCEGROUP_KEY) {
+				nodeList := []irs.IID{}
+				instanceGroupValue := keyValue.Value
+				instanceList, err := GetInstancesOfInstanceGroup(client, credential, region, instanceGroupValue)
+				if err != nil {
+					return nodeGroupList, err
+				}
+				for _, instance := range instanceList {
+					instanceInfo, err := GetInstance(client, credential, region, instance)
+					if err != nil {
+						return nodeGroupList, err
+					}
+					// nodeGroup의 Instance ID
+					nodeIID := irs.IID{NameId: instanceInfo.Name, SystemId: instanceInfo.Name}
+					nodeList = append(nodeList, nodeIID)
+
+					nodeGroupInfo.KeyPairIID = irs.IID{NameId: instanceInfo.Labels["keypair"], SystemId: instanceInfo.Labels["keypair"]}
+				}
+				nodeGroupInfo.Nodes = nodeList
+
+			}
+		}
+		nodeGroupList = append(nodeGroupList, nodeGroupInfo)
+	}
+	return nodeGroupList, nil
 }
