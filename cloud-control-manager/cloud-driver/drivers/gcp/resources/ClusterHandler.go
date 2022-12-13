@@ -70,6 +70,16 @@ func (ClusterHandler *GCPClusterHandler) CreateCluster(clusterReqInfo irs.Cluste
 	// parent := "projects/" + projectID + "/locations/" + zone
 	//projects/csta-349809/locations/asia-northeast3-a
 
+	// Meta정보에 securityGroup 정보를 Key,Val 형태로 넣고 실제 값(val)은 nodeConfig 에 set하여 사용
+	securityGroupMap := make(map[string]string)
+	var sgTags []string
+	if clusterReqInfo.Network.SecurityGroupIIDs != nil && len(clusterReqInfo.Network.SecurityGroupIIDs) > 0 {
+		for _, securityGroupIID := range clusterReqInfo.Network.SecurityGroupIIDs {
+			securityGroupMap[GCP_PMKS_SECURITYGROUP_TAG+securityGroupIID.NameId] = securityGroupIID.NameId
+			sgTags = append(sgTags, securityGroupIID.NameId)
+		}
+	}
+
 	reqCluster := container.Cluster{}
 	reqCluster.Name = clusterReqInfo.IId.NameId
 
@@ -85,6 +95,7 @@ func (ClusterHandler *GCPClusterHandler) CreateCluster(clusterReqInfo irs.Cluste
 
 	rb := &container.CreateClusterRequest{}
 	rb.Cluster = &reqCluster
+	rb.Cluster.ResourceLabels = securityGroupMap
 
 	// nodeGroup List set
 	nodePools := []*container.NodePool{}
@@ -112,13 +123,7 @@ func (ClusterHandler *GCPClusterHandler) CreateCluster(clusterReqInfo irs.Cluste
 			nodeConfig.DiskSizeGb = diskSize
 			nodeConfig.DiskType = reqNodeGroup.RootDiskType
 			nodeConfig.MachineType = reqNodeGroup.VMSpecName
-			if clusterReqInfo.Network.SecurityGroupIIDs != nil && len(clusterReqInfo.Network.SecurityGroupIIDs) > 0 {
-				var sgTags []string
-				for _, securityGroupIID := range clusterReqInfo.Network.SecurityGroupIIDs {
-					sgTags = append(sgTags, GCP_PMKS_SECURITYGROUP_TAG+securityGroupIID.NameId)
-				}
-				nodeConfig.Tags = sgTags
-			}
+			nodeConfig.Tags = sgTags
 
 			nodePool.Config = &nodeConfig
 
@@ -268,6 +273,18 @@ func (ClusterHandler *GCPClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGr
 	region := ClusterHandler.Region.Region
 	zone := ClusterHandler.Region.Zone
 
+	// cluster 조회
+	clusterInfo, err := ClusterHandler.GetCluster(clusterIID)
+	if err != nil {
+		return nodeGroupInfo, err
+	}
+	var sgTags []string
+	if clusterInfo.Network.SecurityGroupIIDs != nil && len(clusterInfo.Network.SecurityGroupIIDs) > 0 {
+		for _, securityGroupIID := range clusterInfo.Network.SecurityGroupIIDs {
+			sgTags = append(sgTags, securityGroupIID.NameId)
+		}
+	}
+
 	// param set
 	reqNodePool := container.NodePool{}
 	reqNodePool.Name = nodeGroupReqInfo.IId.NameId
@@ -289,12 +306,12 @@ func (ClusterHandler *GCPClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGr
 	nodeConfig.DiskSizeGb = diskSize
 	nodeConfig.DiskType = nodeGroupReqInfo.RootDiskType
 	nodeConfig.MachineType = nodeGroupReqInfo.VMSpecName
+	nodeConfig.Tags = sgTags
 
-	// cluster를 조회하여 가져와야 함.: securityGroup
-	// if clusterReqInfo.Network.SecurityGroupIIDs != nil && len(clusterReqInfo.Network.SecurityGroupIIDs) > 0 {
+	// if clusterInfo.Network.SecurityGroupIIDs != nil && len(clusterInfo.Network.SecurityGroupIIDs) > 0 {
 	// 	var sgTags []string
-	// 	for _, securityGroupIID := range clusterReqInfo.Network.SecurityGroupIIDs {
-	// 		sgTags = append(sgTags, GCP_PMKS_SECURITYGROUP_TAG +securityGroupIID.NameId)
+	// 	for _, securityGroupIID := range clusterInfo.Network.SecurityGroupIIDs {
+	// 		sgTags = append(sgTags, securityGroupIID.NameId)
 	// 	}
 	// 	nodeConfig.Tags = sgTags
 	// }
@@ -347,9 +364,7 @@ func (ClusterHandler *GCPClusterHandler) SetNodeGroupAutoScaling(clusterIID irs.
 		Autoscaling: &container.NodePoolAutoscaling{Enabled: on},
 	}
 	spew.Dump(rb)
-	// if 1 == 1 {
-	// 	return false, nil
-	// }
+
 	callLogInfo := getGCPCallLogScheme(zone, call.CLUSTER, "SetNodeGroupAutoScaling()", "SetNodeGroupAutoScaling()")
 	start := call.Start()
 	op, err := ClusterHandler.ContainerClient.Projects.Locations.Clusters.NodePools.SetAutoscaling(parent, rb).Do()
@@ -626,15 +641,33 @@ func mappingClusterInfo(cluster *container.Cluster) (ClusterInfo irs.ClusterInfo
 	clusterVersion := cluster.InitialClusterVersion //initialClusterVersion, currentMasterVersion, currentNodeVersion
 
 	// 3. Network       NetworkInfo
-	securityGroups := []irs.IID{}
+	securityGroups := []irs.IID{} // SecurityGroup으로 정의된 Label추출
+	var metaSecurityGroupTags []string
+	for resourceKey, resourceVal := range cluster.ResourceLabels {
+		if strings.HasPrefix(resourceKey, GCP_PMKS_SECURITYGROUP_TAG) {
+			//securityGroups = append(securityGroups, irs.IID{NameId: resourceVal, SystemId: resourceVal})
+			metaSecurityGroupTags = append(metaSecurityGroupTags, resourceVal)
+		}
+	}
+
+	// NodeConfig의 Tag가 SecurityGroup으로 사용하는 Tag인지 알려면
+	// Metadata에 Label이 정의되어있는지 여부로 확인
+	// Create에서 Metadata 와 nodeConfig의 Tag가 같은값이 들어가는데 굳이 한번 더 체크할 필요가 있을까?
 	nodeConfigTags := cluster.NodeConfig.Tags
 	for _, nodeConfigTag := range nodeConfigTags {
 		cblogger.Info("nodeConfigTag len : ", len(nodeConfigTags))
 		cblogger.Info("nodeConfigTag : ", nodeConfigTag)
-		if strings.HasPrefix(nodeConfigTag, GCP_PMKS_SECURITYGROUP_TAG) {
-			securityGroupName := nodeConfigTag[len(GCP_PMKS_SECURITYGROUP_TAG):]
-			securityGroups = append(securityGroups, irs.IID{NameId: securityGroupName, SystemId: securityGroupName})
+		for _, securityGroupTag := range metaSecurityGroupTags {
+			if nodeConfigTag == securityGroupTag {
+				securityGroups = append(securityGroups, irs.IID{NameId: securityGroupTag, SystemId: securityGroupTag})
+			}
 		}
+		// 	if strings.HasPrefix(nodeConfigTag, GCP_PMKS_SECURITYGROUP_TAG) {
+		// 		securityGroupName := nodeConfigTag[len(GCP_PMKS_SECURITYGROUP_TAG):]
+		// 		securityGroups = append(securityGroups, irs.IID{NameId: securityGroupName, SystemId: securityGroupName})
+		// 	} else {
+		// 		// securityGroup is required
+		// 	}
 	}
 
 	networkInfo := irs.NetworkInfo{
@@ -652,10 +685,11 @@ func mappingClusterInfo(cluster *container.Cluster) (ClusterInfo irs.ClusterInfo
 	if cluster.NodePools != nil && len(cluster.NodePools) > 0 {
 		for _, nodePool := range cluster.NodePools {
 			nodePoolName := nodePool.Name
-			//imageType := nodePool.Config.ImageType// COS_CONTAINERD
+			imageType := nodePool.Config.ImageType     // COS_CONTAINERD
 			diskSize := nodePool.Config.DiskSizeGb     // 100Gb
 			diskType := nodePool.Config.DiskType       // pd-standard
 			machineType := nodePool.Config.MachineType // e2-medium
+
 			// diskSize := cluster.NodeConfig.DiskSizeGb// 100Gb
 			// diskType := cluster.NodeConfig.DiskType// pd-standard
 			// machineType := cluster.NodeConfig.MachineType// e2-medium
@@ -687,6 +721,7 @@ func mappingClusterInfo(cluster *container.Cluster) (ClusterInfo irs.ClusterInfo
 			nodeGroupInfo.RootDiskSize = strconv.FormatInt(diskSize, 10)
 			nodeGroupInfo.RootDiskType = diskType
 			nodeGroupInfo.VMSpecName = machineType
+			nodeGroupInfo.ImageIID = irs.IID{NameId: imageType, SystemId: imageType}
 			nodeGroupInfo.DesiredNodeSize = desiredNodeSize
 			if autoScaling {
 				nodeGroupInfo.MaxNodeSize = maxNodeSize
