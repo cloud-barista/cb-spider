@@ -360,7 +360,7 @@ func (ClusterHandler *GCPClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGr
 			sgTags = append(sgTags, securityGroupIID.NameId)
 		}
 	}
-	spew.Dump(nodeGroupInfo)
+	spew.Dump(nodeGroupReqInfo)
 	// param set
 	reqNodePool := container.NodePool{}
 	reqNodePool.Name = nodeGroupReqInfo.IId.NameId
@@ -399,6 +399,7 @@ func (ClusterHandler *GCPClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGr
 
 	parent := getParentClusterAtContainer(projectID, zone, clusterIID.NameId)
 	cblogger.Info("parent : ", parent)
+	spew.Dump(reqNodePool)
 
 	rb := &container.CreateNodePoolRequest{
 		NodePool: &reqNodePool,
