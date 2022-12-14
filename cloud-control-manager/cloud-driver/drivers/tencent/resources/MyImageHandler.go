@@ -11,6 +11,7 @@ import (
 	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
 
 	//cvm "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/cvm/v20170312"
+	cbs "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/cbs/v20170312"
 	cvm "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/cvm/v20170312"
 )
 
@@ -28,17 +29,22 @@ const (
 
 	TENCENT_IMAGE_STATE_ERROR = "Error"
 
+	TENCENT_SNAPSHOT_STATE_NORMAL      = "NORMAL"
+	TENCENT_SNAPSHOT_STATE_CREATING    = "CREATING"
+	TENCENT_SNAPSHOT_STATE_ROLLBACKING = "ROLLBACKING"
+
 	RESOURCE_TYPE_MYIMAGE = "image"
 	IMAGE_TAG_DEFAULT     = "Name"
 	IMAGE_TAG_SOURCE_VM   = "CB-VMSNAPSHOT-SOURCEVM-ID"
 )
 
 type TencentMyImageHandler struct {
-	Region idrv.RegionInfo
-	Client *cvm.Client
+	Region    idrv.RegionInfo
+	Client    *cvm.Client
+	CbsClient *cbs.Client
 }
 
-func (myImageHandler TencentMyImageHandler) SnapshotVM(snapshotReqInfo irs.MyImageInfo) (irs.MyImageInfo, error) {
+func (myImageHandler *TencentMyImageHandler) SnapshotVM(snapshotReqInfo irs.MyImageInfo) (irs.MyImageInfo, error) {
 
 	hiscallInfo := GetCallLogScheme(myImageHandler.Region, call.MYIMAGE, snapshotReqInfo.IId.NameId, "SnapshotVM()")
 	start := call.Start()
@@ -122,7 +128,7 @@ func (myImageHandler TencentMyImageHandler) SnapshotVM(snapshotReqInfo irs.MyIma
 *
 TODO : CommonHandlerm에 DescribeImages, DescribeImageById, DescribeImageStatus 추가할 것.
 */
-func (myImageHandler TencentMyImageHandler) ListMyImage() ([]*irs.MyImageInfo, error) {
+func (myImageHandler *TencentMyImageHandler) ListMyImage() ([]*irs.MyImageInfo, error) {
 	hiscallInfo := GetCallLogScheme(myImageHandler.Region, call.MYIMAGE, "MyImage", "ListMyImage()")
 	start := call.Start()
 
@@ -148,7 +154,7 @@ func (myImageHandler TencentMyImageHandler) ListMyImage() ([]*irs.MyImageInfo, e
 	return myImageInfoList, nil
 }
 
-func (myImageHandler TencentMyImageHandler) GetMyImage(myImageIID irs.IID) (irs.MyImageInfo, error) {
+func (myImageHandler *TencentMyImageHandler) GetMyImage(myImageIID irs.IID) (irs.MyImageInfo, error) {
 	hiscallInfo := GetCallLogScheme(myImageHandler.Region, call.MYIMAGE, myImageIID.NameId, "GetMyImage()")
 	start := call.Start()
 
@@ -177,37 +183,68 @@ If the ImageState of an image is CREATING or USING, the image cannot be deleted.
 Up to 10 custom images are allowed in each region. If you have run out of the quota, delete unused images to create new ones.
 A shared image cannot be deleted.
 */
-func (myImageHandler TencentMyImageHandler) DeleteMyImage(myImageIID irs.IID) (bool, error) {
+func (myImageHandler *TencentMyImageHandler) DeleteMyImage(myImageIID irs.IID) (bool, error) {
 	hiscallInfo := GetCallLogScheme(myImageHandler.Region, call.MYIMAGE, myImageIID.NameId, "DeleteMyImage()")
 	start := call.Start()
+
 	// Image 상태 조회
-	status, err := DescribeImageStatus(myImageHandler.Client, myImageIID, nil)
+	imageTypes := []string{"PRIVATE_IMAGE"}
+	resultImg, err := DescribeImagesByID(myImageHandler.Client, myImageIID, imageTypes)
 	if err != nil {
 		return false, err
 	}
+
+	status := *resultImg.ImageState
 
 	if status == TENCENT_IMAGE_STATE_CREATING || status == TENCENT_IMAGE_STATE_USING {
 		return false, errors.New("CREATING or USING, the image cannot be deleted.")
 	}
 
-	// 삭제 처리
+	// Snapshot 상태 조회
+	snapshotIds := GetSnapshotIdsFromImage(resultImg)
+	for _, snapshotId := range snapshotIds {
+		snapshotStatus, err := DescribeSnapshotStatus(myImageHandler.CbsClient, irs.IID{SystemId: snapshotId})
+		if err != nil {
+			return false, err
+		}
+
+		if snapshotStatus != TENCENT_SNAPSHOT_STATE_NORMAL {
+			return false, errors.New("CREATING or ROLLBACKING, the snapshot cannot be deleted.")
+		}
+	}
+
+	// Image 삭제 처리
 	request := cvm.NewDeleteImagesRequest()
 
 	request.ImageIds = common.StringPtrs([]string{myImageIID.SystemId})
-	request.DeleteBindedSnap = common.BoolPtr(true)
+	// request.DeleteBindedSnap = common.BoolPtr(true)
 
 	// The returned "resp" is an instance of the DeleteImagesResponse class which corresponds to the request object
 	response, err := myImageHandler.Client.DeleteImages(request)
 	hiscallInfo.ElapsedTime = call.Elapsed(start)
+
 	if err != nil {
 		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
 		return false, err
 	}
 	calllogger.Info(call.String(hiscallInfo))
 
 	requestId := response.Response.RequestId
 	cblogger.Info("requestId : %s", requestId)
-	// image 조회 : 없어야 정상임.
+
+	// Image 삭제 대기
+	_, err = WaitForDelete(myImageHandler.Client, myImageIID)
+	if err != nil {
+		cblogger.Error(err)
+		return false, err
+	}
+
+	// Snapshot 삭제 처리
+	_, snapshotErr := myImageHandler.DeleteSnapshotById(snapshotIds)
+	if snapshotErr != nil {
+		cblogger.Error(snapshotErr)
+	}
 
 	return true, nil
 }
@@ -233,6 +270,30 @@ func convertTenStatusToImageStatus(status string) irs.MyImageStatus {
 	}
 
 	return returnStatus
+}
+
+// Image에 대한 snap 삭제
+func (myImageHandler *TencentMyImageHandler) DeleteSnapshotById(snapshotIds []string) (bool, error) {
+	request := cbs.NewDeleteSnapshotsRequest()
+	request.SnapshotIds = common.StringPtrs(snapshotIds)
+	request.DeleteBindImages = common.BoolPtr(true)
+
+	DiskHandler := TencentDiskHandler{
+		Region: myImageHandler.Region,
+		Client: myImageHandler.CbsClient,
+	}
+
+	response, err := DiskHandler.Client.DeleteSnapshots(request)
+
+	if err != nil {
+		cblogger.Error(err)
+		return false, err
+	}
+
+	requestId := response.Response.RequestId
+	cblogger.Info("requestId : %s", requestId)
+
+	return true, nil
 }
 
 /*
@@ -268,7 +329,7 @@ func (myImageHandler *TencentMyImageHandler) myImageExist(chkName string) (bool,
 // https://console.tencentcloud.com/api/explorer?Product=cvm&Version=2017-03-12&Action=DescribeImages
 // Window OS 여부
 // imageType : MyImage는 PRIVATE,    PRIVATE_IMAGE, PUBLIC_IMAGE, SHARED_IMAGE
-func (myImageHandler TencentMyImageHandler) CheckWindowsImage(myImageIID irs.IID) (bool, error) {
+func (myImageHandler *TencentMyImageHandler) CheckWindowsImage(myImageIID irs.IID) (bool, error) {
 	hiscallInfo := GetCallLogScheme(myImageHandler.Region, call.MYIMAGE, myImageIID.NameId, "CheckWindowsImage()")
 	start := call.Start()
 

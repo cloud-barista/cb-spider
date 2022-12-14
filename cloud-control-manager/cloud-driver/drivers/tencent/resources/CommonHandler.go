@@ -42,6 +42,35 @@ func DescribeDisksByDiskID(client *cbs.Client, diskIID irs.IID) (cbs.Disk, error
 	return *diskList[0], nil
 }
 
+func WaitForDelete(client *cvm.Client, imageIID irs.IID) (bool, error) {
+	var imageIIDList []irs.IID
+	imageIIDList = append(imageIIDList, imageIID)
+
+	curRetryCnt := 0
+	maxRetryCnt := 120
+	for {
+		imageList, err := DescribeImages(client, imageIIDList, nil)
+		if err != nil {
+			cblogger.Error(err.Error())
+		}
+
+		if len(imageList) == 0 {
+			cblogger.Info("Image의 삭제가 완료되어 대기를 중단합니다.")
+			break
+		}
+
+		curRetryCnt++
+		cblogger.Info("Image의 삭제가 완료되지 않아 1초 대기후 조회합니다.")
+		time.Sleep(time.Second * 1)
+		if curRetryCnt > maxRetryCnt {
+			cblogger.Errorf("장시간(%d 초) 대기해도 Image의 삭제가 완료되지 않아서 강제로 중단합니다.", maxRetryCnt)
+			return false, errors.New("Failed to delete image")
+		}
+	}
+
+	return true, nil
+}
+
 func WaitForDone(client *cbs.Client, diskIID irs.IID, status string) (string, error) {
 
 	waitStatus := status
@@ -143,6 +172,43 @@ func DescribeImageStatus(client *cvm.Client, imageIID irs.IID, imageTypes []stri
 	}
 
 	status := *cvmImage.ImageState
+
+	return status, nil
+}
+
+func GetSnapshotIdsFromImage(myImage cvm.Image) []string {
+	var snapshotIds []string
+
+	for _, snapshot := range myImage.SnapshotSet {
+		snapshotId := *snapshot.SnapshotId
+		snapshotIds = append(snapshotIds, snapshotId)
+	}
+	return snapshotIds
+}
+
+func DescribeSnapshotByID(client *cbs.Client, snapshotIID irs.IID) (cbs.Snapshot, error) {
+	request := cbs.NewDescribeSnapshotsRequest()
+	request.SnapshotIds = common.StringPtrs([]string{snapshotIID.SystemId})
+
+	response, err := client.DescribeSnapshots(request)
+	if err != nil {
+		return cbs.Snapshot{}, err
+	}
+
+	if len(response.Response.SnapshotSet) != 1 {
+		return cbs.Snapshot{}, errors.New("search failed")
+	}
+
+	return *response.Response.SnapshotSet[0], nil
+}
+
+func DescribeSnapshotStatus(client *cbs.Client, snapshotIID irs.IID) (string, error) {
+	snapshot, err := DescribeSnapshotByID(client, snapshotIID)
+	if err != nil {
+		return "", err
+	}
+
+	status := *snapshot.SnapshotState
 
 	return status, nil
 }
