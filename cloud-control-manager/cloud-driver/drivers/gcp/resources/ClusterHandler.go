@@ -1120,8 +1120,8 @@ func convertNodeGroup(client *compute.Service, credential idrv.CredentialInfo, r
 				}
 				cblogger.Info("nodeList ", nodeList)
 				nodeGroupInfo.Nodes = nodeList
-				cblogger.Info("nodeGroupInfo ", nodeGroupInfo)
-
+				//cblogger.Info("nodeGroupInfo ", nodeGroupInfo)
+				spew.Dump(nodeGroupInfo)
 			}
 		}
 		nodeGroupList = append(nodeGroupList, nodeGroupInfo)
