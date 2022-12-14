@@ -360,7 +360,7 @@ func (ClusterHandler *GCPClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGr
 			sgTags = append(sgTags, securityGroupIID.NameId)
 		}
 	}
-
+	spew.Dump(nodeGroupInfo)
 	// param set
 	reqNodePool := container.NodePool{}
 	reqNodePool.Name = nodeGroupReqInfo.IId.NameId
