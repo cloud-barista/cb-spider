@@ -1853,8 +1853,8 @@ func (ic *IbmClusterHandler) validateAtCreateCluster(clusterInfo irs.ClusterInfo
 	if len(clusterInfo.NodeGroupList) < 1 {
 		return errors.New("At least one Node Group must be specified")
 	}
-	if clusterInfo.Version == "" {
-		return errors.New("Version is required")
+	if clusterInfo.Version == "" || clusterInfo.Version == "default" {
+		clusterInfo.Version = "1.24.8"
 	}
 	for i, nodeGroup := range clusterInfo.NodeGroupList {
 		if i != 0 && nodeGroup.IId.NameId == "" {
