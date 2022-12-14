@@ -93,9 +93,19 @@ func (ic *IbmClusterHandler) CreateCluster(clusterReqInfo irs.ClusterInfo) (irs.
 	hiscallInfo := GetCallLogScheme(ic.Region, call.CLUSTER, clusterReqInfo.IId.NameId, "CreateCluster()")
 	start := call.Start()
 
+	// validation
+	validationErr := ic.validateAtCreateCluster(clusterReqInfo)
+	if validationErr != nil {
+		cblogger.Error(validationErr)
+		LoggingError(hiscallInfo, validationErr)
+		return irs.ClusterInfo{}, errors.New(fmt.Sprintf("Failed to Create Cluster. err = %s", validationErr))
+	}
+
 	// get resource group id
 	resourceGroupId, getResourceGroupErr := ic.getDefaultResourceGroupId()
 	if getResourceGroupErr != nil {
+		cblogger.Error(getResourceGroupErr)
+		LoggingError(hiscallInfo, getResourceGroupErr)
 		return irs.ClusterInfo{}, errors.New(fmt.Sprintf("Failed to Create Cluster. err = %s", getResourceGroupErr))
 	}
 
@@ -108,12 +118,16 @@ func (ic *IbmClusterHandler) CreateCluster(clusterReqInfo irs.ClusterInfo) (irs.
 	}
 	vpcInfo, getVpcInfoErr := vpcHandler.GetVPC(clusterReqInfo.Network.VpcIID)
 	if getVpcInfoErr != nil {
+		cblogger.Error(getVpcInfoErr)
+		LoggingError(hiscallInfo, getVpcInfoErr)
 		return irs.ClusterInfo{}, errors.New(fmt.Sprintf("Failed to Create Cluster. err = %s", getVpcInfoErr))
 	}
 
 	// get subnet info
 	subnetInfo, getSubnetInfoErr := ic.validateAndGetSubnetInfo(clusterReqInfo.Network)
 	if getSubnetInfoErr != nil {
+		cblogger.Error(getSubnetInfoErr)
+		LoggingError(hiscallInfo, getSubnetInfoErr)
 		return irs.ClusterInfo{}, errors.New(fmt.Sprintf("Failed to Create Cluster. err = %s", getSubnetInfoErr))
 	}
 
@@ -137,6 +151,8 @@ func (ic *IbmClusterHandler) CreateCluster(clusterReqInfo irs.ClusterInfo) (irs.
 			XAuthResourceGroup:           core.StringPtr(resourceGroupId),
 		})
 		if createClusterErr != nil {
+			cblogger.Error(createClusterErr)
+			LoggingError(hiscallInfo, createClusterErr)
 			return irs.ClusterInfo{}, errors.New(fmt.Sprintf("Failed to Create Cluster. err = %s", createClusterErr))
 		}
 
@@ -144,6 +160,9 @@ func (ic *IbmClusterHandler) CreateCluster(clusterReqInfo irs.ClusterInfo) (irs.
 			ID: core.StringPtr(vpcInfo.IId.SystemId),
 		})
 		if getRawVpcErr != nil {
+			cblogger.Error(getRawVpcErr)
+			LoggingError(hiscallInfo, getRawVpcErr)
+			ic.DeleteCluster(clusterReqInfo.IId)
 			return irs.ClusterInfo{}, errors.New(fmt.Sprintf("Failed to Create Cluster. err = %s", getRawVpcErr))
 		}
 
@@ -200,13 +219,20 @@ func (ic *IbmClusterHandler) CreateCluster(clusterReqInfo irs.ClusterInfo) (irs.
 						CIDR:       "0.0.0.0/0",
 					}}
 
-					sgHander.AddRules(brokenVpcDefaultSg.IId, &mandatoriyRuleList)
+					_, addRuleErr := sgHander.AddRules(brokenVpcDefaultSg.IId, &mandatoriyRuleList)
+					if addRuleErr != nil {
+						cblogger.Error(addRuleErr)
+						LoggingError(hiscallInfo, addRuleErr)
+						ic.DeleteCluster(clusterReqInfo.IId)
+					}
 					break
 				}
 			}
 		}()
 
 	} else if getClusterErr != nil {
+		cblogger.Error(getClusterErr)
+		LoggingError(hiscallInfo, getClusterErr)
 		return irs.ClusterInfo{}, errors.New(fmt.Sprintf("Failed to Create Cluster. err = %s", getClusterErr))
 	}
 
@@ -217,6 +243,9 @@ func (ic *IbmClusterHandler) CreateCluster(clusterReqInfo irs.ClusterInfo) (irs.
 		ShowResources:      core.StringPtr("true"),
 	})
 	if getClustersErr != nil {
+		cblogger.Error(getClustersErr)
+		LoggingError(hiscallInfo, getClustersErr)
+		ic.DeleteCluster(clusterReqInfo.IId)
 		return irs.ClusterInfo{}, errors.New(fmt.Sprintf("Failed to Get Cluster. err = %s", getClustersErr))
 	}
 	rawCluster := (*rawClusters)[0]
@@ -224,6 +253,9 @@ func (ic *IbmClusterHandler) CreateCluster(clusterReqInfo irs.ClusterInfo) (irs.
 	// Enable cluster-autoscaler addon and apply autoscaler option
 	autoScalerErr := ic.installAutoScalerAddon(clusterReqInfo, rawCluster.Id, rawCluster.Crn, resourceGroupId, false)
 	if autoScalerErr != nil {
+		cblogger.Error(autoScalerErr)
+		LoggingError(hiscallInfo, autoScalerErr)
+		ic.DeleteCluster(clusterReqInfo.IId)
 		return irs.ClusterInfo{}, errors.New(fmt.Sprintf("Failed to Get Cluster. err = %s", autoScalerErr))
 	}
 
@@ -235,6 +267,8 @@ func (ic *IbmClusterHandler) CreateCluster(clusterReqInfo irs.ClusterInfo) (irs.
 
 	clusterInfo, getClusterErr := ic.GetCluster(irs.IID{SystemId: rawCluster.Id})
 	if getClusterErr != nil {
+		cblogger.Error(getClusterErr)
+		LoggingError(hiscallInfo, getClusterErr)
 		return irs.ClusterInfo{}, errors.New(fmt.Sprintf("Failed to Create Cluster. err = %s", getClusterErr))
 	}
 
@@ -244,8 +278,13 @@ func (ic *IbmClusterHandler) CreateCluster(clusterReqInfo irs.ClusterInfo) (irs.
 }
 
 func (ic *IbmClusterHandler) ListCluster() ([]*irs.ClusterInfo, error) {
+	hiscallInfo := GetCallLogScheme(ic.Region, call.CLUSTER, "", "ListCluster()")
+	start := call.Start()
+
 	resourceGroupId, getResourceGroupIdErr := ic.getDefaultResourceGroupId()
 	if getResourceGroupIdErr != nil {
+		cblogger.Error(getResourceGroupIdErr)
+		LoggingError(hiscallInfo, getResourceGroupIdErr)
 		return []*irs.ClusterInfo{}, errors.New(fmt.Sprintf("Failed to List Cluster. err = %s", getResourceGroupIdErr))
 	}
 
@@ -254,6 +293,8 @@ func (ic *IbmClusterHandler) ListCluster() ([]*irs.ClusterInfo, error) {
 		Provider:           core.StringPtr("vpc-gen2"),
 	})
 	if getClusterListErr != nil {
+		cblogger.Error(getClusterListErr)
+		LoggingError(hiscallInfo, getClusterListErr)
 		return []*irs.ClusterInfo{}, errors.New(fmt.Sprintf("Failed to List Cluster. err = %s", getClusterListErr))
 	}
 
@@ -271,6 +312,8 @@ func (ic *IbmClusterHandler) ListCluster() ([]*irs.ClusterInfo, error) {
 	}
 	wait.Wait()
 
+	LoggingInfo(hiscallInfo, start)
+
 	return ret, nil
 }
 
@@ -284,6 +327,8 @@ func (ic *IbmClusterHandler) GetCluster(clusterIID irs.IID) (irs.ClusterInfo, er
 
 	resourceGroupId, getResourceGroupIdErr := ic.getDefaultResourceGroupId()
 	if getResourceGroupIdErr != nil {
+		cblogger.Error(getResourceGroupIdErr)
+		LoggingError(hiscallInfo, getResourceGroupIdErr)
 		return irs.ClusterInfo{}, errors.New(fmt.Sprintf("Failed to Get Cluster. err = %s", getResourceGroupIdErr))
 	}
 
@@ -299,6 +344,8 @@ func (ic *IbmClusterHandler) GetCluster(clusterIID irs.IID) (irs.ClusterInfo, er
 		ShowResources:      core.StringPtr("true"),
 	})
 	if getClustersErr != nil {
+		cblogger.Error(getClustersErr)
+		LoggingError(hiscallInfo, getClustersErr)
 		return irs.ClusterInfo{}, errors.New(fmt.Sprintf("Failed to Get Cluster. err = %s", getClustersErr))
 	}
 
@@ -306,6 +353,8 @@ func (ic *IbmClusterHandler) GetCluster(clusterIID irs.IID) (irs.ClusterInfo, er
 		if rawCluster.Id == clusterIID.SystemId || rawCluster.Name == clusterIID.NameId {
 			ret, getClusterInfoErr := ic.setClusterInfo(rawCluster)
 			if getClusterInfoErr != nil {
+				cblogger.Error(getClusterInfoErr)
+				LoggingError(hiscallInfo, getClusterInfoErr)
 				return irs.ClusterInfo{}, errors.New(fmt.Sprintf("Failed to Get Cluster. err = %s", getClusterInfoErr))
 			}
 			LoggingInfo(hiscallInfo, start)
@@ -314,22 +363,30 @@ func (ic *IbmClusterHandler) GetCluster(clusterIID irs.IID) (irs.ClusterInfo, er
 	}
 
 	LoggingInfo(hiscallInfo, start)
-	return irs.ClusterInfo{}, errors.New(fmt.Sprintf("Failed to Get Cluster. err = cannot find cluster"))
+	return irs.ClusterInfo{}, nil
 }
 
 func (ic *IbmClusterHandler) DeleteCluster(clusterIID irs.IID) (bool, error) {
 	hiscallInfo := GetCallLogScheme(ic.Region, call.CLUSTER, clusterIID.NameId, "DeleteCluster()")
 	start := call.Start()
 
+	if clusterIID.NameId == "" && clusterIID.SystemId == "" {
+		return false, errors.New("Failed to Delete Cluster. err = invalid IID")
+	}
+
 	// get resource group id
 	resourceGroupId, getResourceGroupErr := ic.getDefaultResourceGroupId()
 	if getResourceGroupErr != nil {
+		cblogger.Error(getResourceGroupErr)
+		LoggingError(hiscallInfo, getResourceGroupErr)
 		return false, errors.New(fmt.Sprintf("Failed to Delete Cluster. err = %s", getResourceGroupErr))
 	}
 
 	// check exists
 	fullClusterIID, getClusterIIDErr := ic.getClusterIID(clusterIID)
 	if getClusterIIDErr != nil {
+		cblogger.Error(getClusterIIDErr)
+		LoggingError(hiscallInfo, getClusterIIDErr)
 		return false, errors.New(fmt.Sprintf("Failed to Delete Cluster. err = %s", getClusterIIDErr))
 	}
 
@@ -339,6 +396,8 @@ func (ic *IbmClusterHandler) DeleteCluster(clusterIID irs.IID) (bool, error) {
 		ShowResources:      core.StringPtr("false"),
 	})
 	if getClusterErr != nil {
+		cblogger.Error(getClusterErr)
+		LoggingError(hiscallInfo, getClusterErr)
 		return false, errors.New(fmt.Sprintf("Failed to Delete Cluster. err = %s", getClusterErr))
 	}
 
@@ -349,6 +408,8 @@ func (ic *IbmClusterHandler) DeleteCluster(clusterIID irs.IID) (bool, error) {
 		DeleteResources:    core.StringPtr("true"),
 	})
 	if deleteClusterErr != nil {
+		cblogger.Error(deleteClusterErr)
+		LoggingError(hiscallInfo, deleteClusterErr)
 		return false, errors.New(fmt.Sprintf("Failed to Delete Cluster. err = %s", deleteClusterErr))
 	}
 
@@ -358,15 +419,34 @@ func (ic *IbmClusterHandler) DeleteCluster(clusterIID irs.IID) (bool, error) {
 }
 
 func (ic *IbmClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGroupReqInfo irs.NodeGroupInfo) (irs.NodeGroupInfo, error) {
+	hiscallInfo := GetCallLogScheme(ic.Region, call.CLUSTER, clusterIID.NameId, "AddNodeGroup()")
+	start := call.Start()
+
+	// validation
+	validateErr := ic.validateAtAddNodeGroup(clusterIID, nodeGroupReqInfo)
+	if validateErr != nil {
+		return irs.NodeGroupInfo{}, errors.New(fmt.Sprintf("Failed to Add Node Group. err = %s", validateErr))
+	}
+
 	// get resource group id
 	resourceGroupId, getResourceGroupErr := ic.getDefaultResourceGroupId()
 	if getResourceGroupErr != nil {
+		cblogger.Error(getResourceGroupErr)
+		LoggingError(hiscallInfo, getResourceGroupErr)
 		return irs.NodeGroupInfo{}, errors.New(fmt.Sprintf("Failed to Add Node Group. err = %s", getResourceGroupErr))
 	}
 
 	irsCluster, getIrsClusterErr := ic.GetCluster(clusterIID)
 	if getIrsClusterErr != nil {
+		cblogger.Error(getIrsClusterErr)
+		LoggingError(hiscallInfo, getIrsClusterErr)
 		return irs.NodeGroupInfo{}, errors.New(fmt.Sprintf("Failed to Add Node Group. err = %s", getIrsClusterErr))
+	}
+	if irsCluster.Status == irs.ClusterDeleting {
+		clusterStatusErr := errors.New(fmt.Sprintf("Cannot Add Node Group at %s status", irsCluster.Status))
+		cblogger.Error(clusterStatusErr)
+		LoggingError(hiscallInfo, clusterStatusErr)
+		return irs.NodeGroupInfo{}, errors.New(fmt.Sprintf("Failed to Add Node Group. err = %s", clusterStatusErr))
 	}
 
 	// Get Network.Subnet Info
@@ -374,6 +454,8 @@ func (ic *IbmClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGroupReqInfo i
 		ResourceGroupID: core.StringPtr(resourceGroupId),
 	})
 	if getRawVpeListErr != nil {
+		cblogger.Error(getRawVpeListErr)
+		LoggingError(hiscallInfo, getRawVpeListErr)
 		return irs.NodeGroupInfo{}, getRawVpeListErr
 	}
 
@@ -392,6 +474,8 @@ func (ic *IbmClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGroupReqInfo i
 				ID: core.StringPtr(subnetId),
 			})
 			if getRawSubnetErr != nil {
+				cblogger.Error(getRawSubnetErr)
+				LoggingError(hiscallInfo, getRawSubnetErr)
 				return irs.NodeGroupInfo{}, getRawSubnetErr
 			}
 			subnetIID.NameId = *rawSubnet.Name
@@ -414,6 +498,8 @@ func (ic *IbmClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGroupReqInfo i
 		XAuthResourceGroup: core.StringPtr(resourceGroupId),
 	})
 	if addNodeGroupErr != nil {
+		cblogger.Error(addNodeGroupErr)
+		LoggingError(hiscallInfo, addNodeGroupErr)
 		return irs.NodeGroupInfo{}, errors.New(fmt.Sprintf("Failed to Add Node Group. err = %s", addNodeGroupErr))
 	}
 
@@ -424,6 +510,8 @@ func (ic *IbmClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGroupReqInfo i
 		XAuthResourceGroup: core.StringPtr(resourceGroupId),
 	})
 	if getNewNodeGroupErr != nil {
+		cblogger.Error(getNewNodeGroupErr)
+		LoggingError(hiscallInfo, getNewNodeGroupErr)
 		return irs.NodeGroupInfo{}, errors.New(fmt.Sprintf("Failed to Add Node Group. err = %s", getNewNodeGroupErr))
 	}
 
@@ -435,6 +523,8 @@ func (ic *IbmClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGroupReqInfo i
 		Pool:               newNodeGroup.ID,
 	})
 	if getWorkersErr != nil {
+		cblogger.Error(getWorkersErr)
+		LoggingError(hiscallInfo, getWorkersErr)
 		return irs.NodeGroupInfo{}, errors.New(fmt.Sprintf("Failed to Add Node Group. err = %s", getWorkersErr))
 	}
 
@@ -445,6 +535,8 @@ func (ic *IbmClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGroupReqInfo i
 			SystemId: *worker.ID,
 		})
 	}
+
+	LoggingInfo(hiscallInfo, start)
 
 	return irs.NodeGroupInfo{
 		IId: irs.IID{
@@ -473,15 +565,36 @@ func (ic *IbmClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGroupReqInfo i
 }
 
 func (ic *IbmClusterHandler) SetNodeGroupAutoScaling(clusterIID irs.IID, nodeGroupIID irs.IID, on bool) (bool, error) {
+	hiscallInfo := GetCallLogScheme(ic.Region, call.CLUSTER, clusterIID.NameId, "SetNodeGroupAutoScaling()")
+	start := call.Start()
+
+	// validation
+	if clusterIID.SystemId == "" && clusterIID.NameId == "" {
+		return false, errors.New("Failed to Set Node Group Auto Scaling. err = Invalid Cluster IID")
+	}
+	if nodeGroupIID.SystemId == "" && nodeGroupIID.NameId == "" {
+		return false, errors.New("Failed to Set Node Group Auto Scaling. err = Invalid Node Group IID")
+	}
+
 	// get resource group id
 	resourceGroupId, getResourceGroupErr := ic.getDefaultResourceGroupId()
 	if getResourceGroupErr != nil {
+		cblogger.Error(getResourceGroupErr)
+		LoggingError(hiscallInfo, getResourceGroupErr)
 		return false, errors.New(fmt.Sprintf("Failed to Set Node Group Auto Scaling. err = %s", getResourceGroupErr))
 	}
 
 	irsCluster, getIrsClusterErr := ic.GetCluster(clusterIID)
 	if getIrsClusterErr != nil {
+		cblogger.Error(getIrsClusterErr)
+		LoggingError(hiscallInfo, getIrsClusterErr)
 		return false, errors.New(fmt.Sprintf("Failed to Set Node Group Auto Scaling. err = %s", getIrsClusterErr))
+	}
+	if irsCluster.Status == irs.ClusterDeleting {
+		clusterStatusErr := errors.New(fmt.Sprintf("Cannot Set Node Group AutoScaling at %s status", irsCluster.Status))
+		cblogger.Error(clusterStatusErr)
+		LoggingError(hiscallInfo, clusterStatusErr)
+		return false, errors.New(fmt.Sprintf("Failed to Set Node Group AutoScaling. err = %s", clusterStatusErr))
 	}
 
 	nodeGroups, _, getNodeGroupsErr := ic.ClusterService.VpcGetWorkerPoolsWithContext(ic.Ctx, &kubernetesserviceapiv1.VpcGetWorkerPoolsOptions{
@@ -490,6 +603,8 @@ func (ic *IbmClusterHandler) SetNodeGroupAutoScaling(clusterIID irs.IID, nodeGro
 		XAuthResourceGroup: core.StringPtr(resourceGroupId),
 	})
 	if getNodeGroupsErr != nil {
+		cblogger.Error(getNodeGroupsErr)
+		LoggingError(hiscallInfo, getNodeGroupsErr)
 		return false, errors.New(fmt.Sprintf("Failed to Set Node Group Auto Scaling. err = %s", getNodeGroupsErr))
 	}
 
@@ -501,32 +616,47 @@ func (ic *IbmClusterHandler) SetNodeGroupAutoScaling(clusterIID irs.IID, nodeGro
 		}
 	}
 	if targetNodeGroup == nil {
-		return false, errors.New(fmt.Sprintf("Failed to Set Node Group Auto Scaling. err = cannot find node group: %s", nodeGroupIID))
+		nodeGroupNotExistErr := errors.New(fmt.Sprintf("Failed to Set Node Group Auto Scaling. err = cannot find node group: %s", nodeGroupIID))
+		cblogger.Error(nodeGroupNotExistErr)
+		LoggingError(hiscallInfo, nodeGroupNotExistErr)
+		return false, nodeGroupNotExistErr
 	}
 
 	nodeGroupName := targetNodeGroup.PoolName
 
 	kubeConfigStr, getKubeConfigErr := ic.getKubeConfig(irsCluster.IId.SystemId, resourceGroupId)
 	if getKubeConfigErr != nil {
+		cblogger.Error(getKubeConfigErr)
+		LoggingError(hiscallInfo, getKubeConfigErr)
 		return false, errors.New(fmt.Sprintf("Failed to Set Node Group Auto Scaling. err = %s", getKubeConfigErr))
 	}
 
 	var newNodeGroupInfo []irs.NodeGroupInfo
 	configMap, getConfigMapErr := ic.getAutoScalerConfigMap(kubeConfigStr)
 	if getConfigMapErr != nil {
+		cblogger.Error(getConfigMapErr)
+		LoggingError(hiscallInfo, getConfigMapErr)
 		return false, errors.New(fmt.Sprintf("Failed to Set Node Group Auto Scaling. err = %s", getConfigMapErr))
 	}
 	if configMap == nil {
-		return false, errors.New("Failed to Set Node Group Auto Scaling. err = Cannot find Auto Scaler Config Map, Please try after autoscaler addon is deployed")
+		configMapNotExistErr := errors.New("Failed to Set Node Group Auto Scaling. err = Cannot find Auto Scaler Config Map, Please try after autoscaler addon is deployed")
+		cblogger.Error(configMapNotExistErr)
+		LoggingError(hiscallInfo, configMapNotExistErr)
+		return false, configMapNotExistErr
 	} else {
 		jsonProperty, exists := configMap.Data[AutoscalerConfigMapOptionProperty]
 		if !exists {
-			return false, errors.New("Failed to Set Node Group Auto Scaling. err = Cannot find Auto Scaler Config Map, Please try after autoscaler addon is deployed")
+			propertyNotExistErr := errors.New("Failed to Set Node Group Auto Scaling. err = Cannot find Auto Scaler Config Map, Please try after autoscaler addon is deployed")
+			cblogger.Error(propertyNotExistErr)
+			LoggingError(hiscallInfo, propertyNotExistErr)
+			return false, propertyNotExistErr
 		}
 
 		var workerPoolAutoscalerConfigs []kubernetesserviceapiv1.WorkerPoolAutoscalerConfig
 		unmarshalErr := json.Unmarshal([]byte(jsonProperty), &workerPoolAutoscalerConfigs)
 		if unmarshalErr != nil {
+			cblogger.Error(unmarshalErr)
+			LoggingError(hiscallInfo, unmarshalErr)
 			return false, errors.New(fmt.Sprintf("Failed to Set Node Group Auto Scaling. err = %s", unmarshalErr))
 		}
 
@@ -545,28 +675,54 @@ func (ic *IbmClusterHandler) SetNodeGroupAutoScaling(clusterIID irs.IID, nodeGro
 		}
 
 		if !isIncluded {
-			return false, errors.New("Failed to Set Node Group Auto Scaling. err = Cannot find Node Group in Auto Scaler Config Map, Please try to change Node Group scaling")
+			autoScalingSettingNotExistsErr := errors.New("Failed to Set Node Group Auto Scaling. err = Cannot find Node Group Auto Scaling Setting in Auto Scaler Config Map, Please try change Node Group scaling")
+			cblogger.Error(autoScalingSettingNotExistsErr)
+			LoggingError(hiscallInfo, autoScalingSettingNotExistsErr)
+			return false, autoScalingSettingNotExistsErr
 		}
 	}
 
 	updateConfigMapErr := ic.updateAutoScalerConfigMap(kubeConfigStr, newNodeGroupInfo)
 	if updateConfigMapErr != nil {
+		cblogger.Error(updateConfigMapErr)
+		LoggingError(hiscallInfo, updateConfigMapErr)
 		return false, errors.New(fmt.Sprintf("Failed to Set Node Group Auto Scaling. err = %s", updateConfigMapErr))
 	}
+
+	LoggingInfo(hiscallInfo, start)
 
 	return true, nil
 }
 
 func (ic *IbmClusterHandler) ChangeNodeGroupScaling(clusterIID irs.IID, nodeGroupIID irs.IID, DesiredNodeSize int, MinNodeSize int, MaxNodeSize int) (irs.NodeGroupInfo, error) {
+	hiscallInfo := GetCallLogScheme(ic.Region, call.CLUSTER, clusterIID.NameId, "ChangeNodeGroupScaling()")
+	start := call.Start()
+
+	// validation
+	validateErr := ic.validateAtChangeNodeGroupScaling(clusterIID, nodeGroupIID, MinNodeSize, MaxNodeSize)
+	if validateErr != nil {
+		return irs.NodeGroupInfo{}, errors.New(fmt.Sprintf("Failed to Change Node Group Scaling. err = %s", validateErr))
+	}
+
 	// get resource group id
 	resourceGroupId, getResourceGroupErr := ic.getDefaultResourceGroupId()
 	if getResourceGroupErr != nil {
+		cblogger.Error(getResourceGroupErr)
+		LoggingError(hiscallInfo, getResourceGroupErr)
 		return irs.NodeGroupInfo{}, errors.New(fmt.Sprintf("Failed to Change Node Group Scaling. err = %s", getResourceGroupErr))
 	}
 
 	irsCluster, getIrsClusterErr := ic.GetCluster(clusterIID)
 	if getIrsClusterErr != nil {
+		cblogger.Error(getIrsClusterErr)
+		LoggingError(hiscallInfo, getIrsClusterErr)
 		return irs.NodeGroupInfo{}, errors.New(fmt.Sprintf("Failed to Change Node Group Scaling. err = %s", getIrsClusterErr))
+	}
+	if irsCluster.Status == irs.ClusterDeleting {
+		clusterStatusErr := errors.New(fmt.Sprintf("Cannot Change Node Group Scaling at %s status", irsCluster.Status))
+		cblogger.Error(clusterStatusErr)
+		LoggingError(hiscallInfo, clusterStatusErr)
+		return irs.NodeGroupInfo{}, errors.New(fmt.Sprintf("Failed to Change Node Group Scaling. err = %s", clusterStatusErr))
 	}
 
 	nodeGroups, _, getNodeGroupsErr := ic.ClusterService.VpcGetWorkerPoolsWithContext(ic.Ctx, &kubernetesserviceapiv1.VpcGetWorkerPoolsOptions{
@@ -575,6 +731,8 @@ func (ic *IbmClusterHandler) ChangeNodeGroupScaling(clusterIID irs.IID, nodeGrou
 		XAuthResourceGroup: core.StringPtr(resourceGroupId),
 	})
 	if getNodeGroupsErr != nil {
+		cblogger.Error(getNodeGroupsErr)
+		LoggingError(hiscallInfo, getNodeGroupsErr)
 		return irs.NodeGroupInfo{}, errors.New(fmt.Sprintf("Failed to Change Node Group Scaling. err = %s", getNodeGroupsErr))
 	}
 
@@ -586,13 +744,18 @@ func (ic *IbmClusterHandler) ChangeNodeGroupScaling(clusterIID irs.IID, nodeGrou
 		}
 	}
 	if targetNodeGroup == nil {
-		return irs.NodeGroupInfo{}, errors.New(fmt.Sprintf("Failed to Change Node Group Scaling. err = cannot find node group: %s", nodeGroupIID))
+		nodeGroupNotExistErr := errors.New(fmt.Sprintf("Failed to Change Node Group Scaling. err = cannot find node group: %s", nodeGroupIID))
+		cblogger.Error(nodeGroupNotExistErr)
+		LoggingError(hiscallInfo, nodeGroupNotExistErr)
+		return irs.NodeGroupInfo{}, nodeGroupNotExistErr
 	}
 
 	nodeGroupName := targetNodeGroup.PoolName
 
 	kubeConfigStr, getKubeConfigErr := ic.getKubeConfig(irsCluster.IId.SystemId, resourceGroupId)
 	if getKubeConfigErr != nil {
+		cblogger.Error(getKubeConfigErr)
+		LoggingError(hiscallInfo, getKubeConfigErr)
 		return irs.NodeGroupInfo{}, errors.New(fmt.Sprintf("Failed to Change Node Group Scaling. err = %s", getKubeConfigErr))
 	}
 
@@ -600,19 +763,29 @@ func (ic *IbmClusterHandler) ChangeNodeGroupScaling(clusterIID irs.IID, nodeGrou
 	var changedNodeGroupIndex int
 	configMap, getConfigMapErr := ic.getAutoScalerConfigMap(kubeConfigStr)
 	if getConfigMapErr != nil {
+		cblogger.Error(getConfigMapErr)
+		LoggingError(hiscallInfo, getConfigMapErr)
 		return irs.NodeGroupInfo{}, errors.New(fmt.Sprintf("Failed to Change Node Group Scaling. err = %s", getConfigMapErr))
 	}
 	if configMap == nil {
-		return irs.NodeGroupInfo{}, errors.New("Failed to Change Node Group Scaling. err = Cannot find Auto Scaler Config Map, Please try after autoscaler addon is deployed")
+		configMapNotExistErr := errors.New("Failed to Change Node Group Scaling. err = Cannot find Auto Scaler Config Map, Please try after autoscaler addon is deployed")
+		cblogger.Error(configMapNotExistErr)
+		LoggingError(hiscallInfo, configMapNotExistErr)
+		return irs.NodeGroupInfo{}, configMapNotExistErr
 	} else {
 		jsonProperty, exists := configMap.Data[AutoscalerConfigMapOptionProperty]
 		if !exists {
-			return irs.NodeGroupInfo{}, errors.New("Failed to Change Node Group Scaling. err = Cannot find Auto Scaler Config Map, Please try after autoscaler addon is deployed")
+			propertyNotExistErr := errors.New("Failed to Change Node Group Scaling. err = Cannot find Auto Scaler Config Map, Please try after autoscaler addon is deployed")
+			cblogger.Error(propertyNotExistErr)
+			LoggingError(hiscallInfo, propertyNotExistErr)
+			return irs.NodeGroupInfo{}, propertyNotExistErr
 		}
 
 		var workerPoolAutoscalerConfigs []kubernetesserviceapiv1.WorkerPoolAutoscalerConfig
 		unmarshalErr := json.Unmarshal([]byte(jsonProperty), &workerPoolAutoscalerConfigs)
 		if unmarshalErr != nil {
+			cblogger.Error(unmarshalErr)
+			LoggingError(hiscallInfo, unmarshalErr)
 			return irs.NodeGroupInfo{}, errors.New(fmt.Sprintf("Failed to Change Node Group Scaling. err = %s", unmarshalErr))
 		}
 
@@ -644,6 +817,8 @@ func (ic *IbmClusterHandler) ChangeNodeGroupScaling(clusterIID irs.IID, nodeGrou
 
 	updateConfigMapErr := ic.updateAutoScalerConfigMap(kubeConfigStr, newNodeGroupInfo)
 	if updateConfigMapErr != nil {
+		cblogger.Error(updateConfigMapErr)
+		LoggingError(hiscallInfo, updateConfigMapErr)
 		return irs.NodeGroupInfo{}, errors.New(fmt.Sprintf("Failed to Change Node Group Scaling. err = %s", updateConfigMapErr))
 	}
 
@@ -655,6 +830,8 @@ func (ic *IbmClusterHandler) ChangeNodeGroupScaling(clusterIID irs.IID, nodeGrou
 		Pool:               core.StringPtr(targetNodeGroup.Id),
 	})
 	if getWorkersErr != nil {
+		cblogger.Error(getWorkersErr)
+		LoggingError(hiscallInfo, getWorkersErr)
 		return irs.NodeGroupInfo{}, errors.New(fmt.Sprintf("Failed to Add Node Group. err = %s", getWorkersErr))
 	}
 
@@ -665,6 +842,8 @@ func (ic *IbmClusterHandler) ChangeNodeGroupScaling(clusterIID irs.IID, nodeGrou
 			SystemId: *worker.ID,
 		})
 	}
+
+	LoggingInfo(hiscallInfo, start)
 
 	return irs.NodeGroupInfo{
 		IId: irs.IID{
@@ -693,14 +872,29 @@ func (ic *IbmClusterHandler) ChangeNodeGroupScaling(clusterIID irs.IID, nodeGrou
 }
 
 func (ic *IbmClusterHandler) RemoveNodeGroup(clusterIID irs.IID, nodeGroupIID irs.IID) (bool, error) {
+	hiscallInfo := GetCallLogScheme(ic.Region, call.CLUSTER, clusterIID.NameId, "RemoveNodeGroup()")
+	start := call.Start()
+
+	// validation
+	if clusterIID.SystemId == "" && clusterIID.NameId == "" {
+		return false, errors.New("Failed to Set Node Group Auto Scaling. err = Invalid Cluster IID")
+	}
+	if nodeGroupIID.SystemId == "" && nodeGroupIID.NameId == "" {
+		return false, errors.New("Failed to Set Node Group Auto Scaling. err = Invalid Node Group IID")
+	}
+
 	// get resource group id
 	resourceGroupId, getResourceGroupErr := ic.getDefaultResourceGroupId()
 	if getResourceGroupErr != nil {
+		cblogger.Error(getResourceGroupErr)
+		LoggingError(hiscallInfo, getResourceGroupErr)
 		return false, errors.New(fmt.Sprintf("Failed to Remove Node Group. err = %s", getResourceGroupErr))
 	}
 
 	irsCluster, getIrsClusterErr := ic.GetCluster(clusterIID)
 	if getIrsClusterErr != nil {
+		cblogger.Error(getIrsClusterErr)
+		LoggingError(hiscallInfo, getIrsClusterErr)
 		return false, errors.New(fmt.Sprintf("Failed to Remove Node Group. err = %s", getIrsClusterErr))
 	}
 
@@ -710,6 +904,8 @@ func (ic *IbmClusterHandler) RemoveNodeGroup(clusterIID irs.IID, nodeGroupIID ir
 		XAuthResourceGroup: core.StringPtr(resourceGroupId),
 	})
 	if getNodeGroupsErr != nil {
+		cblogger.Error(getNodeGroupsErr)
+		LoggingError(hiscallInfo, getNodeGroupsErr)
 		return false, errors.New(fmt.Sprintf("Failed to Remove Node Group. err = %s", getNodeGroupsErr))
 	}
 
@@ -727,8 +923,12 @@ func (ic *IbmClusterHandler) RemoveNodeGroup(clusterIID irs.IID, nodeGroupIID ir
 		XAuthResourceGroup: core.StringPtr(resourceGroupId),
 	})
 	if removeErr != nil {
+		cblogger.Error(removeErr)
+		LoggingError(hiscallInfo, removeErr)
 		return false, errors.New(fmt.Sprintf("Failed to Remove Node Group. err = %s", removeErr))
 	}
+
+	LoggingInfo(hiscallInfo, start)
 
 	return true, nil
 }
@@ -737,21 +937,40 @@ func (ic *IbmClusterHandler) UpgradeCluster(clusterIID irs.IID, newVersion strin
 	hiscallInfo := GetCallLogScheme(ic.Region, call.CLUSTER, clusterIID.NameId, "UpgradeCluster()")
 	start := call.Start()
 
+	// validation
+	if clusterIID.SystemId == "" && clusterIID.NameId == "" {
+		return irs.ClusterInfo{}, errors.New("Failed to Set Node Group Auto Scaling. err = Invalid Cluster IID")
+	}
+	if newVersion == "" {
+		return irs.ClusterInfo{}, errors.New("Failed to Set Node Group Auto Scaling. err = New Version is required")
+	}
+
 	// get resource group id
 	resourceGroupId, getResourceGroupErr := ic.getDefaultResourceGroupId()
 	if getResourceGroupErr != nil {
+		cblogger.Error(getResourceGroupErr)
+		LoggingError(hiscallInfo, getResourceGroupErr)
 		return irs.ClusterInfo{}, errors.New(fmt.Sprintf("Failed to Upgrade Cluster. err = %s", getResourceGroupErr))
 	}
 
 	fullClusterIID, getClusterIIDErr := ic.getClusterIID(clusterIID)
 	if getClusterIIDErr != nil {
+		cblogger.Error(getClusterIIDErr)
+		LoggingError(hiscallInfo, getClusterIIDErr)
 		return irs.ClusterInfo{}, errors.New(fmt.Sprintf("Failed to Upgrade Cluster. err = %s", getClusterIIDErr))
 	}
 
-	// backup autoscaler settings
-	irsClsuterBackup, getIrsClusterErr := ic.GetCluster(fullClusterIID)
+	prevIrsClsuter, getIrsClusterErr := ic.GetCluster(fullClusterIID)
 	if getIrsClusterErr != nil {
+		cblogger.Error(getIrsClusterErr)
+		LoggingError(hiscallInfo, getIrsClusterErr)
 		return irs.ClusterInfo{}, errors.New(fmt.Sprintf("Failed to Upgrade Cluster. err = %s", getIrsClusterErr))
+	}
+	if prevIrsClsuter.Status != irs.ClusterActive {
+		clusterStatusErr := errors.New(fmt.Sprintf("Failed to Upgrade Cluster. err = Cannot upgrade cluster in %s status", prevIrsClsuter.Status))
+		cblogger.Error(clusterStatusErr)
+		LoggingError(hiscallInfo, clusterStatusErr)
+		return irs.ClusterInfo{}, clusterStatusErr
 	}
 
 	rawCluster, _, getClusterErr := ic.ClusterService.VpcGetClusterWithContext(ic.Ctx, &kubernetesserviceapiv1.VpcGetClusterOptions{
@@ -760,6 +979,8 @@ func (ic *IbmClusterHandler) UpgradeCluster(clusterIID irs.IID, newVersion strin
 		ShowResources:      core.StringPtr("true"),
 	})
 	if getClusterErr != nil {
+		cblogger.Error(getClusterErr)
+		LoggingError(hiscallInfo, getClusterErr)
 		return irs.ClusterInfo{}, errors.New(fmt.Sprintf("Failed to Upgrade Cluster. err = %s", getClusterErr))
 	}
 	targetCluster := (*rawCluster)[0]
@@ -767,6 +988,8 @@ func (ic *IbmClusterHandler) UpgradeCluster(clusterIID irs.IID, newVersion strin
 	// uninstall autoscaler addon
 	uninstallErr := ic.uninstallAutoScalerAddon(fullClusterIID.SystemId, targetCluster.Crn, resourceGroupId)
 	if uninstallErr != nil {
+		cblogger.Error(uninstallErr)
+		LoggingError(hiscallInfo, uninstallErr)
 		return irs.ClusterInfo{}, errors.New(fmt.Sprintf("Failed to Upgrade Cluster. err = %s", uninstallErr))
 	}
 
@@ -778,6 +1001,8 @@ func (ic *IbmClusterHandler) UpgradeCluster(clusterIID irs.IID, newVersion strin
 		XAuthResourceGroup: core.StringPtr(resourceGroupId),
 	})
 	if updateErr != nil {
+		cblogger.Error(updateErr)
+		LoggingError(hiscallInfo, updateErr)
 		return irs.ClusterInfo{}, errors.New(fmt.Sprintf("Failed to Upgrade Cluster. err = %s", updateErr))
 	}
 	ic.manageStatusTag(targetCluster.Crn, MasterUpgradeStatus, WAITING)
@@ -854,15 +1079,19 @@ func (ic *IbmClusterHandler) UpgradeCluster(clusterIID irs.IID, newVersion strin
 	}()
 
 	// reinstall new autoscaler
-	irsClsuterBackup.Version = newVersion
-	autoScalerErr := ic.installAutoScalerAddon(irsClsuterBackup, fullClusterIID.SystemId, targetCluster.Crn, resourceGroupId, true)
+	prevIrsClsuter.Version = newVersion
+	autoScalerErr := ic.installAutoScalerAddon(prevIrsClsuter, fullClusterIID.SystemId, targetCluster.Crn, resourceGroupId, true)
 	if autoScalerErr != nil {
+		cblogger.Error(autoScalerErr)
+		LoggingError(hiscallInfo, autoScalerErr)
 		return irs.ClusterInfo{}, errors.New(fmt.Sprintf("Failed to Upgrade Cluster. err = %s", autoScalerErr))
 	}
 
 	// get cluster info
 	irsCluster, getIrsClusterErr := ic.GetCluster(clusterIID)
 	if getIrsClusterErr != nil {
+		cblogger.Error(getIrsClusterErr)
+		LoggingError(hiscallInfo, getIrsClusterErr)
 		return irs.ClusterInfo{}, errors.New(fmt.Sprintf("Failed to Upgrade Cluster. err = %s", getIrsClusterErr))
 	}
 
@@ -939,7 +1168,7 @@ func (ic *IbmClusterHandler) checkIfClusterIsSupported(versionRange string, clus
 func (ic *IbmClusterHandler) createRemainingWorkerPools(clusterReqInfo irs.ClusterInfo, vpcInfo irs.VPCInfo, subnetInfo irs.SubnetInfo, rawCluster kubernetesserviceapiv1.GetClusterDetailResponse, resourceGroupId string) {
 	for i := 1; i < len(clusterReqInfo.NodeGroupList); i++ {
 		workerPool := ic.getWorkerPoolFromNodeGroupInfo(clusterReqInfo.NodeGroupList[i], vpcInfo.IId.SystemId, subnetInfo.IId.SystemId)
-		ic.ClusterService.VpcCreateWorkerPoolWithContext(ic.Ctx, &kubernetesserviceapiv1.VpcCreateWorkerPoolOptions{
+		_, _, createWorkerPoolErr := ic.ClusterService.VpcCreateWorkerPoolWithContext(ic.Ctx, &kubernetesserviceapiv1.VpcCreateWorkerPoolOptions{
 			Cluster:     core.StringPtr(rawCluster.Id),
 			Flavor:      workerPool.Flavor,
 			Isolation:   workerPool.Isolation,
@@ -954,6 +1183,10 @@ func (ic *IbmClusterHandler) createRemainingWorkerPools(clusterReqInfo irs.Clust
 			XAuthResourceGroup: core.StringPtr(resourceGroupId),
 			Headers:            nil,
 		})
+		if createWorkerPoolErr != nil {
+			cblogger.Error(createWorkerPoolErr)
+			ic.DeleteCluster(clusterReqInfo.IId)
+		}
 	}
 }
 
@@ -969,10 +1202,7 @@ func (ic *IbmClusterHandler) getAddonInfo(clusterId string, resourceGroupId stri
 	for _, clusterAddon := range rawClusterAddons {
 		addonJsonValue, marshalErr := json.Marshal(clusterAddon)
 		if marshalErr != nil {
-			keyValues = append(keyValues, irs.KeyValue{
-				Key:   *clusterAddon.Name,
-				Value: "Error on get addon",
-			})
+			cblogger.Error(marshalErr)
 		}
 		keyValues = append(keyValues, irs.KeyValue{
 			Key:   *clusterAddon.Name,
@@ -1113,6 +1343,9 @@ func (ic *IbmClusterHandler) getKubeConfig(clusterId string, resourceGroupId str
 }
 
 func (ic *IbmClusterHandler) getNodeGroupStatusFromString(nodeGroupStatus string) irs.NodeGroupStatus {
+	// IBM Node Group does not have Creating or Updating status
+	// While creating a Node Group, its status is indicated as Active
+	// While updating Node Group such as autoscale configuration, its status is indicated as Active
 	switch strings.ToLower(nodeGroupStatus) {
 	case "active":
 		return irs.NodeGroupActive
@@ -1163,6 +1396,7 @@ func (ic *IbmClusterHandler) initSecurityGroup(clusterReqInfo irs.ClusterInfo, c
 				if getSgErr != nil {
 					initSuccess = false
 					ic.manageStatusTag(clusterCrn, SecurityGroupStatus, FAILED)
+					ic.DeleteCluster(clusterReqInfo.IId)
 					break
 				}
 
@@ -1170,6 +1404,7 @@ func (ic *IbmClusterHandler) initSecurityGroup(clusterReqInfo irs.ClusterInfo, c
 				if sgUpdateErr != nil {
 					initSuccess = false
 					ic.manageStatusTag(clusterCrn, SecurityGroupStatus, FAILED)
+					ic.DeleteCluster(clusterReqInfo.IId)
 					break
 				}
 			}
@@ -1267,6 +1502,9 @@ func (ic *IbmClusterHandler) installAutoScalerAddon(clusterReqInfo irs.ClusterIn
 					cnt++
 				}
 				ic.manageStatusTag(clusterCrn, AutoScalerStatus, FAILED)
+				if !isUpdating {
+					ic.DeleteCluster(clusterReqInfo.IId)
+				}
 			}()
 		}
 	}()
@@ -1409,18 +1647,13 @@ func (ic *IbmClusterHandler) setClusterInfo(rawCluster kubernetesserviceapiv1.Ge
 		serviceEndpoint = rawCluster.ServiceEndpoints.PrivateServiceEndpointURL
 	}
 
-	var statusDetail []irs.KeyValue
-
 	// Get KubeConfig
 	kubeConfigStr, getKubeConfigStrErr := ic.getKubeConfig(rawCluster.Id, resourceGroupId)
 	if getKubeConfigStrErr == nil {
 		// Get Autoscaling Info
 		configMap, getAutoScalerConfigMapErr := ic.getAutoScalerConfigMap(kubeConfigStr)
 		if getAutoScalerConfigMapErr != nil {
-			statusDetail = append(statusDetail, irs.KeyValue{
-				Key:   GetAutoScalerConfigErr,
-				Value: getAutoScalerConfigMapErr.Error(),
-			})
+			cblogger.Error(getAutoScalerConfigMapErr)
 		}
 
 		if configMap == nil {
@@ -1433,19 +1666,13 @@ func (ic *IbmClusterHandler) setClusterInfo(rawCluster kubernetesserviceapiv1.Ge
 		} else {
 			jsonProperty, exists := configMap.Data[AutoscalerConfigMapOptionProperty]
 			if !exists {
-				statusDetail = append(statusDetail, irs.KeyValue{
-					Key:   GetAutoScalerConfigErr,
-					Value: "Failed to get Autoscaler Config from Config Map",
-				})
+				cblogger.Error(errors.New("Failed to get Autoscaler Config from Config Map"))
 			}
 
 			var workerPoolAutoscalerConfigs []kubernetesserviceapiv1.WorkerPoolAutoscalerConfig
 			unmarshalErr := json.Unmarshal([]byte(jsonProperty), &workerPoolAutoscalerConfigs)
 			if unmarshalErr != nil {
-				statusDetail = append(statusDetail, irs.KeyValue{
-					Key:   GetAutoScalerConfigErr,
-					Value: "Failed to Unmarshal Autoscaler Config from Config Map",
-				})
+				cblogger.Error(unmarshalErr)
 			}
 
 			for index, nodeGroup := range nodeGroupList {
@@ -1460,10 +1687,7 @@ func (ic *IbmClusterHandler) setClusterInfo(rawCluster kubernetesserviceapiv1.Ge
 			}
 		}
 	} else {
-		statusDetail = append(statusDetail, irs.KeyValue{
-			Key:   GetKubeConfigErr,
-			Value: getKubeConfigStrErr.Error(),
-		})
+		cblogger.Error(getKubeConfigStrErr)
 	}
 
 	// get cluster status
@@ -1614,6 +1838,83 @@ func (ic *IbmClusterHandler) validateAndGetSubnetInfo(networkInfo irs.NetworkInf
 		}
 	}
 	return irs.SubnetInfo{}, errors.New(fmt.Sprintf("Cannot use given subnet: %v from VPC: %v", networkInfo.SubnetIIDs[0], vpcInfo.IId))
+}
+
+func (ic *IbmClusterHandler) validateAtCreateCluster(clusterInfo irs.ClusterInfo) error {
+	if clusterInfo.IId.NameId == "" {
+		return errors.New("Cluster name is required")
+	}
+	if clusterInfo.Network.VpcIID.SystemId == "" && clusterInfo.Network.VpcIID.NameId == "" {
+		return errors.New(fmt.Sprintf("Cannot identify VPC. IID: %s", clusterInfo.Network.VpcIID))
+	}
+	if len(clusterInfo.Network.SubnetIIDs) < 1 {
+		return errors.New("At least one Subnet must be specified")
+	}
+	if len(clusterInfo.NodeGroupList) < 1 {
+		return errors.New("At least one Node Group must be specified")
+	}
+	if clusterInfo.Version == "" {
+		return errors.New("Version is required")
+	}
+	for i, nodeGroup := range clusterInfo.NodeGroupList {
+		if i != 0 && nodeGroup.IId.NameId == "" {
+			return errors.New(fmt.Sprintf("Node Group name is required for Node Group #%d ", i))
+		}
+		if nodeGroup.MaxNodeSize < 1 {
+			return errors.New(fmt.Sprintf("MaxNodeSize of Node Group: %s cannot be smaller than 1", nodeGroup.IId))
+		}
+		if nodeGroup.MinNodeSize < 1 {
+			return errors.New(fmt.Sprintf("MinNodeSize of Node Group: %s cannot be smaller than 1", nodeGroup.IId))
+		}
+		if nodeGroup.DesiredNodeSize < 1 {
+			return errors.New(fmt.Sprintf("DesiredNodeSize of Node Group: %s cannot be smaller than 1", nodeGroup.IId))
+		}
+		if nodeGroup.VMSpecName == "" {
+			return errors.New("VM Spec Name is required")
+		}
+	}
+
+	return nil
+}
+
+func (ic *IbmClusterHandler) validateAtAddNodeGroup(clusterIID irs.IID, nodeGroupInfo irs.NodeGroupInfo) interface{} {
+	if clusterIID.SystemId == "" && clusterIID.NameId == "" {
+		return errors.New("Invalid Cluster IID")
+	}
+	if nodeGroupInfo.IId.NameId == "" {
+		return errors.New("Node Group name is required")
+	}
+	if nodeGroupInfo.MaxNodeSize < 1 {
+		return errors.New("MaxNodeSize cannot be smaller than 1")
+	}
+	if nodeGroupInfo.MinNodeSize < 1 {
+		return errors.New("MaxNodeSize cannot be smaller than 1")
+	}
+	if nodeGroupInfo.DesiredNodeSize < 1 {
+		return errors.New("DesiredNodeSize cannot be smaller than 1")
+	}
+	if nodeGroupInfo.VMSpecName == "" {
+		return errors.New("VM Spec Name is required")
+	}
+
+	return nil
+}
+
+func (ic *IbmClusterHandler) validateAtChangeNodeGroupScaling(clusterIID irs.IID, nodeGroupIID irs.IID, minNodeSize int, maxNodeSize int) error {
+	if clusterIID.SystemId == "" && clusterIID.NameId == "" {
+		return errors.New("Invalid Cluster IID")
+	}
+	if nodeGroupIID.SystemId == "" && nodeGroupIID.NameId == "" {
+		return errors.New("Invalid Node Group IID")
+	}
+	if minNodeSize < 1 {
+		return errors.New("MaxNodeSize cannot be smaller than 1")
+	}
+	if maxNodeSize < 1 {
+		return errors.New("MaxNodeSize cannot be smaller than 1")
+	}
+
+	return nil
 }
 
 func compareTag(tag string, statusCode string, status string) bool {
