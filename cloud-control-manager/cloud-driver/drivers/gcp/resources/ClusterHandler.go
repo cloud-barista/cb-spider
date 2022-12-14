@@ -1132,7 +1132,7 @@ func convertNodeGroup(client *compute.Service, credential idrv.CredentialInfo, r
 					nodeGroupInfo.KeyPairIID = irs.IID{NameId: "NameId", SystemId: "SystemId"} // empty면 오류나므로 기본값으로 설정후 update하도록
 					if instanceInfo.Labels != nil {
 						keyPairVal, exists := instanceInfo.Labels[GCP_PMKS_KEYPAIR_KEY]
-						if !exists {
+						if exists {
 							cblogger.Info("nodeGroup set keypair ", keyPairVal)
 							nodeGroupInfo.KeyPairIID = irs.IID{NameId: keyPairVal, SystemId: keyPairVal}
 						}
