@@ -435,18 +435,21 @@ func (ClusterHandler *GCPClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGr
 				cblogger.Error(err)
 				return nodeGroupInfo, err
 			}
+			cblogger.Info("instanceList: ", instanceList)
 			for _, instance := range instanceList {
 				instanceInfo, err := GetInstance(ClusterHandler.Client, ClusterHandler.Credential, ClusterHandler.Region, instance)
 				if err != nil {
 					cblogger.Error(err)
 					return nodeGroupInfo, err
 				}
+				cblogger.Info("instanceInfo: ", instanceInfo)
 				// nodeGroup의 Instance ID
 				nodeIID := irs.IID{NameId: instanceInfo.Name, SystemId: instanceInfo.Name}
 				nodeList = append(nodeList, nodeIID)
 			}
 		}
 	}
+	cblogger.Info("nodeList: ", nodeList)
 	nodeGroupInfo.Nodes = nodeList
 
 	return nodeGroupInfo, nil
