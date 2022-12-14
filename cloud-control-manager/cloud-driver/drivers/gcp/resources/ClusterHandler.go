@@ -1123,7 +1123,13 @@ func convertNodeGroup(client *compute.Service, credential idrv.CredentialInfo, r
 					nodeList = append(nodeList, nodeIID)
 
 					cblogger.Info("instanceInfo.Labels ", instanceInfo.Labels)
-					nodeGroupInfo.KeyPairIID = irs.IID{NameId: instanceInfo.Labels[GCP_PMKS_KEYPAIR_KEY], SystemId: instanceInfo.Labels[GCP_PMKS_KEYPAIR_KEY]}
+					if instanceInfo.Labels != nil {
+						keyPairVal, exists := instanceInfo.Labels[GCP_PMKS_KEYPAIR_KEY]
+						if !exists {
+							cblogger.Info("nodeGroup set keypair ", keyPairVal)
+							nodeGroupInfo.KeyPairIID = irs.IID{NameId: keyPairVal, SystemId: keyPairVal}
+						}
+					}
 				}
 				cblogger.Info("nodeList ", nodeList)
 				nodeGroupInfo.Nodes = nodeList
