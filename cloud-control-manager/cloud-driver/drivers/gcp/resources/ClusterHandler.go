@@ -1104,17 +1104,20 @@ func convertNodeGroup(client *compute.Service, credential idrv.CredentialInfo, r
 				if err != nil {
 					return nodeGroupList, err
 				}
+				cblogger.Info("instanceList ", instanceList)
 				for _, instance := range instanceList {
 					instanceInfo, err := GetInstance(client, credential, region, instance)
 					if err != nil {
 						return nodeGroupList, err
 					}
+					spew.Dump(instanceInfo)
 					// nodeGroup의 Instance ID
 					nodeIID := irs.IID{NameId: instanceInfo.Name, SystemId: instanceInfo.Name}
 					nodeList = append(nodeList, nodeIID)
 
 					nodeGroupInfo.KeyPairIID = irs.IID{NameId: instanceInfo.Labels["keypair"], SystemId: instanceInfo.Labels["keypair"]}
 				}
+				cblogger.Info("nodeList ", nodeList)
 				nodeGroupInfo.Nodes = nodeList
 
 			}
