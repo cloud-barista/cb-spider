@@ -20,6 +20,7 @@ import (
 const (
 	GCP_PMKS_SECURITYGROUP_TAG = "cb-spider-pmks-securitygroup-"
 	GCP_PMKS_INSTANCEGROUP_KEY = "InstanceGroup_"
+	GCP_PMKS_KEYPAIR_KEY       = "keypair"
 
 	GCP_CONTAINER_OPERATION_TYPE_UNSPECIFIED         = -1 //"Not set."
 	GCP_CONTAINER_OPERATION_CREATE_CLUSTER           = 1  //"Cluster create."
@@ -121,10 +122,16 @@ func (ClusterHandler *GCPClusterHandler) CreateCluster(clusterReqInfo irs.Cluste
 			if err != nil {
 				return irs.ClusterInfo{}, err
 			}
+
+			keyPair := map[string]string{}
+			//keyPair[GCP_PMKS_KEYPAIR_KEY] = reqNodeGroup.KeyPairIID.NameId
+			keyPair[GCP_PMKS_KEYPAIR_KEY] = reqNodeGroup.KeyPairIID.SystemId
+
 			nodeConfig.DiskSizeGb = diskSize
 			nodeConfig.DiskType = reqNodeGroup.RootDiskType
 			nodeConfig.MachineType = reqNodeGroup.VMSpecName
 			nodeConfig.Tags = sgTags
+			nodeConfig.Labels = keyPair
 
 			nodePool.Config = &nodeConfig
 
@@ -1116,7 +1123,7 @@ func convertNodeGroup(client *compute.Service, credential idrv.CredentialInfo, r
 					nodeList = append(nodeList, nodeIID)
 
 					cblogger.Info("instanceInfo.Labels ", instanceInfo.Labels)
-					nodeGroupInfo.KeyPairIID = irs.IID{NameId: instanceInfo.Labels["keypair"], SystemId: instanceInfo.Labels["keypair"]}
+					nodeGroupInfo.KeyPairIID = irs.IID{NameId: instanceInfo.Labels[GCP_PMKS_KEYPAIR_KEY], SystemId: instanceInfo.Labels[GCP_PMKS_KEYPAIR_KEY]}
 				}
 				cblogger.Info("nodeList ", nodeList)
 				nodeGroupInfo.Nodes = nodeList
