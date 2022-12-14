@@ -413,6 +413,7 @@ func (ClusterHandler *GCPClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGr
 
 	nodePool, err := getNodePools(ClusterHandler.ContainerClient, projectID, region, zone, clusterIID, nodeGroupReqInfo.IId)
 	if err != nil {
+		cblogger.Error(err)
 		return irs.NodeGroupInfo{}, err
 	}
 
@@ -421,27 +422,32 @@ func (ClusterHandler *GCPClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGr
 		return nodeGroupInfo, err
 	}
 
+	nodeList := []irs.IID{}
 	keyValueList := nodeGroupInfo.KeyValueList
 	for _, keyValue := range keyValueList {
+		cblogger.Info("keyValue : ", keyValue)
 		if strings.HasPrefix(keyValue.Key, GCP_PMKS_INSTANCEGROUP_KEY) {
-			nodeList := []irs.IID{}
+			cblogger.Info("keyValue HasPrefix: ")
+
 			instanceGroupValue := keyValue.Value
 			instanceList, err := GetInstancesOfInstanceGroup(ClusterHandler.Client, ClusterHandler.Credential, ClusterHandler.Region, instanceGroupValue)
 			if err != nil {
+				cblogger.Error(err)
 				return nodeGroupInfo, err
 			}
 			for _, instance := range instanceList {
 				instanceInfo, err := GetInstance(ClusterHandler.Client, ClusterHandler.Credential, ClusterHandler.Region, instance)
 				if err != nil {
+					cblogger.Error(err)
 					return nodeGroupInfo, err
 				}
 				// nodeGroup의 Instance ID
 				nodeIID := irs.IID{NameId: instanceInfo.Name, SystemId: instanceInfo.Name}
 				nodeList = append(nodeList, nodeIID)
 			}
-			nodeGroupInfo.Nodes = nodeList
 		}
 	}
+	nodeGroupInfo.Nodes = nodeList
 
 	return nodeGroupInfo, nil
 
