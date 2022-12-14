@@ -122,8 +122,9 @@ func (ClusterHandler *GCPClusterHandler) CreateCluster(clusterReqInfo irs.Cluste
 			if err != nil {
 				return irs.ClusterInfo{}, err
 			}
-
-			nodeConfig.DiskSizeGb = diskSize
+			if diskSize > 0 {
+				nodeConfig.DiskSizeGb = diskSize
+			}
 			nodeConfig.DiskType = reqNodeGroup.RootDiskType
 			nodeConfig.MachineType = reqNodeGroup.VMSpecName
 			nodeConfig.Tags = sgTags
@@ -352,6 +353,7 @@ func (ClusterHandler *GCPClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGr
 	// cluster 조회
 	clusterInfo, err := ClusterHandler.GetCluster(clusterIID)
 	if err != nil {
+		cblogger.Info("clusterInfo : ", clusterInfo)
 		return nodeGroupInfo, err
 	}
 	var sgTags []string
@@ -920,7 +922,7 @@ func mappingNodeGroupInfo(nodePool *container.NodePool) (NodeGroupInfo irs.NodeG
 	imageType := nodePool.Config.ImageType // COS_CONTAINERD
 
 	// scaling
-	if nodePool.Autoscaling != nil {
+	if nodePool.Autoscaling != nil && nodePool.Autoscaling.Enabled {
 		nodeGroupInfo.OnAutoScaling = nodePool.Autoscaling.Enabled
 		nodeGroupInfo.MaxNodeSize = int(nodePool.Autoscaling.MaxNodeCount)
 		nodeGroupInfo.MinNodeSize = int(nodePool.Autoscaling.MinNodeCount)
