@@ -55,7 +55,7 @@ func init() {
 func (cloudConn *TencentCloudConnection) CreateKeyPairHandler() (irs.KeyPairHandler, error) {
 	cblogger.Info("Start CreateKeyPairHandler()")
 
-	keyPairHandler := trs.TencentKeyPairHandler{cloudConn.Region, cloudConn.KeyPairClient}
+	keyPairHandler := trs.TencentKeyPairHandler{Region: cloudConn.Region, Client: cloudConn.KeyPairClient}
 
 	return &keyPairHandler, nil
 }
@@ -63,7 +63,7 @@ func (cloudConn *TencentCloudConnection) CreateKeyPairHandler() (irs.KeyPairHand
 func (cloudConn *TencentCloudConnection) CreateVMHandler() (irs.VMHandler, error) {
 	cblogger.Info("Start CreateVMHandler()")
 
-	vmHandler := trs.TencentVMHandler{cloudConn.Region, cloudConn.VMClient, cloudConn.DiskClient}
+	vmHandler := trs.TencentVMHandler{Region: cloudConn.Region, Client: cloudConn.VMClient, DiskClient: cloudConn.DiskClient}
 	return &vmHandler, nil
 }
 
@@ -76,35 +76,35 @@ func (cloudConn *TencentCloudConnection) Close() error {
 
 func (cloudConn *TencentCloudConnection) CreateVPCHandler() (irs.VPCHandler, error) {
 	cblogger.Info("Start")
-	handler := trs.TencentVPCHandler{cloudConn.Region, cloudConn.VNetworkClient}
+	handler := trs.TencentVPCHandler{Region: cloudConn.Region, Client: cloudConn.VNetworkClient}
 
 	return &handler, nil
 }
 
 func (cloudConn *TencentCloudConnection) CreateNLBHandler() (irs.NLBHandler, error) {
 	cblogger.Info("Start")
-	handler := trs.TencentNLBHandler{cloudConn.Region, cloudConn.NLBClient, cloudConn.VNetworkClient}
+	handler := trs.TencentNLBHandler{Region: cloudConn.Region, Client: cloudConn.NLBClient, VpcClient: cloudConn.VNetworkClient}
 
 	return &handler, nil
 }
 
 func (cloudConn *TencentCloudConnection) CreateImageHandler() (irs.ImageHandler, error) {
 	cblogger.Info("Start")
-	handler := trs.TencentImageHandler{cloudConn.Region, cloudConn.ImageClient}
+	handler := trs.TencentImageHandler{Region: cloudConn.Region, Client: cloudConn.ImageClient}
 
 	return &handler, nil
 }
 
 func (cloudConn *TencentCloudConnection) CreateSecurityHandler() (irs.SecurityHandler, error) {
 	cblogger.Info("Start")
-	handler := trs.TencentSecurityHandler{cloudConn.Region, cloudConn.SecurityClient}
+	handler := trs.TencentSecurityHandler{Region: cloudConn.Region, Client: cloudConn.SecurityClient}
 
 	return &handler, nil
 }
 
 func (cloudConn *TencentCloudConnection) CreateVMSpecHandler() (irs.VMSpecHandler, error) {
 	cblogger.Info("Start")
-	handler := trs.TencentVmSpecHandler{cloudConn.Region, cloudConn.VmSpecClient}
+	handler := trs.TencentVmSpecHandler{Region: cloudConn.Region, Client: cloudConn.VmSpecClient}
 	return &handler, nil
 }
 
@@ -127,14 +127,14 @@ func (cloudConn *TencentCloudConnection) CreatePublicIPHandler() (irs.PublicIPHa
 func (cloudConn *TencentCloudConnection) CreateDiskHandler() (irs.DiskHandler, error) {
 
 	cblogger.Info("Start")
-	handler := trs.TencentDiskHandler{cloudConn.Region, cloudConn.DiskClient}
+	handler := trs.TencentDiskHandler{Region: cloudConn.Region, Client: cloudConn.DiskClient}
 
 	return &handler, nil
 }
 
 func (cloudConn *TencentCloudConnection) CreateMyImageHandler() (irs.MyImageHandler, error) {
 	cblogger.Info("Start")
-	handler := trs.TencentMyImageHandler{cloudConn.Region, cloudConn.MyImageClient}
+	handler := trs.TencentMyImageHandler{Region: cloudConn.Region, Client: cloudConn.MyImageClient, CbsClient: cloudConn.DiskClient}
 
 	return &handler, nil
 }
@@ -148,8 +148,6 @@ func (cloudConn *TencentCloudConnection) CreateClusterHandler() (irs.ClusterHand
 
 }
 
-
 func (cloudConn *TencentCloudConnection) CreateAnyCallHandler() (irs.AnyCallHandler, error) {
 	return nil, errors.New("Tencent Driver: not implemented")
 }
-
