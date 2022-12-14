@@ -1092,7 +1092,7 @@ func convertNodeGroup(client *compute.Service, credential idrv.CredentialInfo, r
 	nodeGroupList := []irs.NodeGroupInfo{}
 	for _, nodeGroupInfo := range orgNodeGroupList {
 		cblogger.Info("convertNodeGroup ", nodeGroupInfo)
-		spew.Dump(nodeGroupInfo)
+		//spew.Dump(nodeGroupInfo)
 		keyValueList := nodeGroupInfo.KeyValueList
 		for _, keyValue := range keyValueList {
 			cblogger.Info("keyValue ", keyValue)
@@ -1110,15 +1110,17 @@ func convertNodeGroup(client *compute.Service, credential idrv.CredentialInfo, r
 					if err != nil {
 						return nodeGroupList, err
 					}
-					spew.Dump(instanceInfo)
+					//spew.Dump(instanceInfo)
 					// nodeGroup의 Instance ID
 					nodeIID := irs.IID{NameId: instanceInfo.Name, SystemId: instanceInfo.Name}
 					nodeList = append(nodeList, nodeIID)
 
+					cblogger.Info("instanceInfo.Labels ", instanceInfo.Labels)
 					nodeGroupInfo.KeyPairIID = irs.IID{NameId: instanceInfo.Labels["keypair"], SystemId: instanceInfo.Labels["keypair"]}
 				}
 				cblogger.Info("nodeList ", nodeList)
 				nodeGroupInfo.Nodes = nodeList
+				cblogger.Info("nodeGroupInfo ", nodeGroupInfo)
 
 			}
 		}

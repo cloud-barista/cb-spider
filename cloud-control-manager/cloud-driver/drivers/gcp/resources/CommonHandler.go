@@ -138,7 +138,7 @@ func GetInstancesOfInstanceGroup(client *compute.Service, credential idrv.Creden
 		cblogger.Error(err)
 		return nil, err
 	}
-	cblogger.Info("instanceGroupsListInstances : ", instanceGroupsListInstances)
+	//cblogger.Info("instanceGroupsListInstances : ", instanceGroupsListInstances)
 	var instanceList []string
 	for _, instance := range instanceGroupsListInstances.Items {
 		instanceUrl := instance.Instance
@@ -146,7 +146,7 @@ func GetInstancesOfInstanceGroup(client *compute.Service, credential idrv.Creden
 		instanceName := urlArr[len(urlArr)-1]
 		instanceList = append(instanceList, instanceName)
 	}
-	cblogger.Info("instanceList : ", instanceList)
+	//cblogger.Info("instanceList : ", instanceList)
 
 	return instanceList, nil
 }
