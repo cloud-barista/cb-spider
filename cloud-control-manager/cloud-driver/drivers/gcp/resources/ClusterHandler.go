@@ -123,15 +123,17 @@ func (ClusterHandler *GCPClusterHandler) CreateCluster(clusterReqInfo irs.Cluste
 				return irs.ClusterInfo{}, err
 			}
 
-			keyPair := map[string]string{}
-			//keyPair[GCP_PMKS_KEYPAIR_KEY] = reqNodeGroup.KeyPairIID.NameId
-			keyPair[GCP_PMKS_KEYPAIR_KEY] = reqNodeGroup.KeyPairIID.SystemId
-
 			nodeConfig.DiskSizeGb = diskSize
 			nodeConfig.DiskType = reqNodeGroup.RootDiskType
 			nodeConfig.MachineType = reqNodeGroup.VMSpecName
 			nodeConfig.Tags = sgTags
-			nodeConfig.Labels = keyPair
+
+			keyPair := map[string]string{}
+			if reqNodeGroup.KeyPairIID.SystemId != "" {
+				//keyPair[GCP_PMKS_KEYPAIR_KEY] = reqNodeGroup.KeyPairIID.NameId
+				keyPair[GCP_PMKS_KEYPAIR_KEY] = reqNodeGroup.KeyPairIID.SystemId
+				nodeConfig.Labels = keyPair
+			}
 
 			nodePool.Config = &nodeConfig
 
