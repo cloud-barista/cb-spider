@@ -429,6 +429,7 @@ func (ClusterHandler *GCPClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGr
 
 	nodeGroupInfo, err = mappingNodeGroupInfo(nodePool)
 	if err != nil {
+		cblogger.Error(err)
 		return nodeGroupInfo, err
 	}
 
