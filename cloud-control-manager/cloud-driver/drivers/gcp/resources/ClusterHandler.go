@@ -1092,7 +1092,9 @@ func convertNodeGroup(client *compute.Service, credential idrv.CredentialInfo, r
 		spew.Dump(nodeGroupInfo)
 		keyValueList := nodeGroupInfo.KeyValueList
 		for _, keyValue := range keyValueList {
+			cblogger.Info("keyValue ", keyValue)
 			if strings.HasPrefix(keyValue.Key, GCP_PMKS_INSTANCEGROUP_KEY) {
+				cblogger.Info("HasPrefix ")
 				nodeList := []irs.IID{}
 				instanceGroupValue := keyValue.Value
 				instanceList, err := GetInstancesOfInstanceGroup(client, credential, region, instanceGroupValue)
