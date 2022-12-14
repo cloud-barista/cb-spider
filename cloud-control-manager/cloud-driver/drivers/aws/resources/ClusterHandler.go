@@ -652,6 +652,8 @@ func (ClusterHandler *AwsClusterHandler) ListNodeGroup(clusterIID irs.IID) ([]*i
 }
 
 func (ClusterHandler *AwsClusterHandler) GetNodeGroup(clusterIID irs.IID, nodeGroupIID irs.IID) (irs.NodeGroupInfo, error) {
+	cblogger.Debugf("Cluster SystemId : [%s] / NodeGroup SystemId : [%s]", clusterIID.SystemId, nodeGroupIID.SystemId)
+
 	input := &eks.DescribeNodegroupInput{
 		//AmiType: "", // Valid Values: AL2_x86_64 | AL2_x86_64_GPU | AL2_ARM_64 | CUSTOM | BOTTLEROCKET_ARM_64 | BOTTLEROCKET_x86_64, Required: No
 		//CapacityType: aws.String("ON_DEMAND"),//Valid Values: ON_DEMAND | SPOT, Required: No
@@ -660,13 +662,13 @@ func (ClusterHandler *AwsClusterHandler) GetNodeGroup(clusterIID irs.IID, nodeGr
 	}
 
 	result, err := ClusterHandler.Client.DescribeNodegroup(input)
-	if err != nil {
-		cblogger.Error(err)
-		return irs.NodeGroupInfo{}, err
-	}
 	if cblogger.Level.String() == "debug" {
 		cblogger.Debug("===> 노드 그룹 호출 결과")
 		spew.Dump(result)
+	}
+	if err != nil {
+		cblogger.Error(err)
+		return irs.NodeGroupInfo{}, err
 	}
 
 	nodeGroupInfo, err := ClusterHandler.convertNodeGroup(result)
@@ -688,6 +690,8 @@ func (ClusterHandler *AwsClusterHandler) SetNodeGroupAutoScaling(clusterIID irs.
 func (ClusterHandler *AwsClusterHandler) ChangeNodeGroupScaling(clusterIID irs.IID, nodeGroupIID irs.IID,
 	DesiredNodeSize int, MinNodeSize int, MaxNodeSize int) (irs.NodeGroupInfo, error) {
 
+	cblogger.Infof("Cluster SystemId : [%s] / NodeGroup SystemId : [%s] / DesiredNodeSize : [%d] / MinNodeSize : [%d] / MaxNodeSize : [%d]", clusterIID.SystemId, nodeGroupIID.SystemId, DesiredNodeSize, MinNodeSize, MaxNodeSize)
+
 	// clusterIID로 cluster 정보를 조회
 	// nodeGroupIID로 nodeGroup 정보를 조회
 	// 		nodeGroup에 AutoScaling 그룹 이름이 있음.
@@ -699,6 +703,9 @@ func (ClusterHandler *AwsClusterHandler) ChangeNodeGroupScaling(clusterIID irs.I
 	}
 
 	result, err := ClusterHandler.Client.DescribeNodegroup(input)
+	if cblogger.Level.String() == "debug" {
+		spew.Dump(result.Nodegroup)
+	}
 	if err != nil {
 		cblogger.Error(err)
 		return irs.NodeGroupInfo{}, err
@@ -734,7 +741,7 @@ func (ClusterHandler *AwsClusterHandler) ChangeNodeGroupScaling(clusterIID irs.I
 }
 
 func (ClusterHandler *AwsClusterHandler) RemoveNodeGroup(clusterIID irs.IID, nodeGroupIID irs.IID) (bool, error) {
-
+	cblogger.Infof("Cluster SystemId : [%s] / NodeGroup SystemId : [%s]", clusterIID.SystemId, nodeGroupIID.SystemId)
 	input := &eks.DeleteNodegroupInput{
 		ClusterName:   aws.String(clusterIID.SystemId),   //required
 		NodegroupName: aws.String(nodeGroupIID.SystemId), // required
@@ -747,18 +754,22 @@ func (ClusterHandler *AwsClusterHandler) RemoveNodeGroup(clusterIID irs.IID, nod
 	}
 
 	if cblogger.Level.String() == "debug" {
-		spew.Dump(result.Nodegroup)
+		//spew.Dump(result.Nodegroup)
+		spew.Dump(result)
 	}
 	return true, nil
 }
 
 // ------ Upgrade K8S
 func (ClusterHandler *AwsClusterHandler) UpgradeCluster(clusterIID irs.IID, newVersion string) (irs.ClusterInfo, error) {
+	cblogger.Infof("Cluster SystemId : [%s] / Request New Version : [%s]", clusterIID.SystemId, newVersion)
+
 	// -- version 만 update인 경우
 	input := &eks.UpdateClusterVersionInput{
 		Name:    aws.String(clusterIID.SystemId),
 		Version: aws.String(newVersion),
 	}
+
 	result, err := ClusterHandler.Client.UpdateClusterVersion(input)
 	if err != nil {
 		cblogger.Error(err)
@@ -864,8 +875,9 @@ func (NodeGroupHandler *AwsClusterHandler) convertNodeGroup(nodeGroupOutput *eks
 	}
 
 	nodeGroupInfo.NodeList = nodes
-	nodeGroupInfo.MaxNodeSize = int(*scalingConfig.MaxSize)
+	nodeGroupInfo.DesiredNodeSize = int(*scalingConfig.DesiredSize)
 	nodeGroupInfo.MinNodeSize = int(*scalingConfig.MinSize)
+	nodeGroupInfo.MaxNodeSize = int(*scalingConfig.MaxSize)
 
 	if nodeGroupTagList == nil {
 		nodeGroupTagList[NODEGROUP_TAG] = nodeGroupName // 값이없으면 nodeGroupName이랑 같은값으로 set.

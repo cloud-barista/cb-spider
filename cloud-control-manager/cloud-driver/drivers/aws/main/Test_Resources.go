@@ -1477,6 +1477,7 @@ func handleCluster() {
 		fmt.Println("7. RemoveNodeGroup")
 
 		fmt.Println("8. UpgradeCluster")
+		fmt.Println("9. ChangeNodeGroupScaling")
 
 		var commandNum int
 		inputCnt, err := fmt.Scan(&commandNum)
@@ -1585,6 +1586,30 @@ func handleCluster() {
 					}
 				}
 
+			case 8:
+				cblogger.Infof("[%s] UpgradeCluster 테스트", clusterReqInfo.IId)
+				result, err := handler.UpgradeCluster(clusterReqInfo.IId, "1.24")
+				if err != nil {
+					cblogger.Infof("[%s] UpgradeCluster 실패 : ", clusterReqInfo.IId.NameId, err)
+				} else {
+					cblogger.Infof("[%s] UpgradeCluster 성공 : [%s]", clusterReqInfo.IId.NameId, result)
+					if cblogger.Level.String() == "debug" {
+						spew.Dump(result)
+					}
+				}
+
+			case 9:
+				cblogger.Infof("[%s] ChangeNodeGroupScaling 테스트", clusterReqInfo.IId)
+				//원하는 크기 / 최소 크기 / 최대 크기
+				result, err := handler.ChangeNodeGroupScaling(clusterReqInfo.IId, reqNodeGroupInfo.IId, 2, 2, 4)
+				if err != nil {
+					cblogger.Infof("[%s] ChangeNodeGroupScaling 실패 : ", clusterReqInfo.IId.NameId, err)
+				} else {
+					cblogger.Infof("[%s] ChangeNodeGroupScaling 성공 : [%s]", clusterReqInfo.IId.NameId, result)
+					if cblogger.Level.String() == "debug" {
+						spew.Dump(result)
+					}
+				}
 			}
 		}
 	}
