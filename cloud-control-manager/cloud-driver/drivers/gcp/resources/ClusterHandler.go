@@ -66,7 +66,7 @@ func (ClusterHandler *GCPClusterHandler) CreateCluster(clusterReqInfo irs.Cluste
 	zone := ClusterHandler.Region.Zone
 
 	cblogger.Info("GCP Cloud Driver: called CreateCluster()")
-	callLogInfo := getGCPCallLogScheme(zone, call.CLUSTER, "CreateCluster()", "CreateCluster()")
+	hiscallInfo := GetCallLogScheme(ClusterHandler.Region, call.CLUSTER, clusterReqInfo.IId.NameId, "CreateCluster()")
 
 	parent := getParentAtContainer(projectID, zone)
 	// parent := "projects/" + projectID + "/locations/" + zone
@@ -155,7 +155,7 @@ func (ClusterHandler *GCPClusterHandler) CreateCluster(clusterReqInfo irs.Cluste
 
 	start := call.Start()
 	op, err := ClusterHandler.ContainerClient.Projects.Locations.Clusters.Create(parent, rb).Do()
-	callLogInfo.ElapsedTime = call.Elapsed(start)
+	hiscallInfo.ElapsedTime = call.Elapsed(start)
 	if err != nil {
 		cblogger.Error(err)
 		return irs.ClusterInfo{}, err
@@ -189,19 +189,19 @@ func (ClusterHandler *GCPClusterHandler) ListCluster() ([]*irs.ClusterInfo, erro
 	zone := ClusterHandler.Region.Zone
 
 	cblogger.Info("GCP Cloud Driver: called ListCluster()")
-	callLogInfo := getGCPCallLogScheme(zone, call.CLUSTER, "ListCluster()", "ListCluster()")
+	hiscallInfo := GetCallLogScheme(ClusterHandler.Region, call.CLUSTER, "ListCluster()", "ListCluster()")
 
 	parent := getParentAtContainer(projectID, zone)
 	cblogger.Info("parent : ", parent)
 	start := call.Start()
 	resp, err := ClusterHandler.ContainerClient.Projects.Locations.Clusters.List(parent).Do()
-	callLogInfo.ElapsedTime = call.Elapsed(start)
+	hiscallInfo.ElapsedTime = call.Elapsed(start)
 	if err != nil {
 		err := fmt.Errorf("Failed to Get ClusterInfo :  %v", err)
 		cblogger.Error(err)
 		return nil, err
 	}
-	spew.Dump(resp)
+	//spew.Dump(resp)
 
 	clusterInfoList := []*irs.ClusterInfo{}
 
@@ -256,13 +256,13 @@ func (ClusterHandler *GCPClusterHandler) GetCluster(clusterIID irs.IID) (irs.Clu
 	zone := ClusterHandler.Region.Zone
 
 	cblogger.Info("GCP Cloud Driver: called GetCluster()")
-	callLogInfo := getGCPCallLogScheme(zone, call.CLUSTER, "GetCluster()", "GetCluster()")
+	hiscallInfo := GetCallLogScheme(ClusterHandler.Region, call.CLUSTER, clusterIID.NameId, "GetCluster()")
 
 	parent := getParentClusterAtContainer(projectID, zone, clusterIID.NameId)
 
 	start := call.Start()
 	resp, err := ClusterHandler.ContainerClient.Projects.Locations.Clusters.Get(parent).Do()
-	callLogInfo.ElapsedTime = call.Elapsed(start)
+	hiscallInfo.ElapsedTime = call.Elapsed(start)
 	if err != nil {
 		err := fmt.Errorf("Failed to Get ClusterInfo :  %v", err)
 		cblogger.Error(err)
@@ -318,13 +318,13 @@ func (ClusterHandler *GCPClusterHandler) DeleteCluster(clusterIID irs.IID) (bool
 	zone := ClusterHandler.Region.Zone
 
 	cblogger.Info("GCP Cloud Driver: called DeleteCluster()")
-	callLogInfo := getGCPCallLogScheme(zone, call.CLUSTER, "DeleteCluster()", "DeleteCluster()")
+	hiscallInfo := GetCallLogScheme(ClusterHandler.Region, call.CLUSTER, clusterIID.NameId, "DeleteCluster()")
 
 	parent := getParentClusterAtContainer(projectID, zone, clusterIID.NameId)
 	cblogger.Info("parent : ", parent)
 	start := call.Start()
 	op, err := ClusterHandler.ContainerClient.Projects.Locations.Clusters.Delete(parent).Do()
-	callLogInfo.ElapsedTime = call.Elapsed(start)
+	hiscallInfo.ElapsedTime = call.Elapsed(start)
 	if err != nil {
 		err := fmt.Errorf("Failed to DeleteCluster :  %v", err)
 		cblogger.Error(err)
@@ -362,7 +362,7 @@ func (ClusterHandler *GCPClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGr
 			sgTags = append(sgTags, securityGroupIID.NameId)
 		}
 	}
-	spew.Dump(nodeGroupReqInfo)
+	//spew.Dump(nodeGroupReqInfo)
 	// param set
 	reqNodePool := container.NodePool{}
 	reqNodePool.Name = nodeGroupReqInfo.IId.NameId
@@ -397,11 +397,11 @@ func (ClusterHandler *GCPClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGr
 	reqNodePool.Config = &nodeConfig
 
 	cblogger.Info("GCP Cloud Driver: called AddNodeGroup()")
-	callLogInfo := getGCPCallLogScheme(zone, call.CLUSTER, "AddNodeGroup()", "AddNodeGroup()")
+	hiscallInfo := GetCallLogScheme(ClusterHandler.Region, call.CLUSTER, clusterIID.NameId, "AddNodeGroup()")
 
 	parent := getParentClusterAtContainer(projectID, zone, clusterIID.NameId)
 	cblogger.Info("parent : ", parent)
-	spew.Dump(reqNodePool)
+	//spew.Dump(reqNodePool)
 
 	rb := &container.CreateNodePoolRequest{
 		NodePool: &reqNodePool,
@@ -409,13 +409,13 @@ func (ClusterHandler *GCPClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGr
 
 	start := call.Start()
 	op, err := ClusterHandler.ContainerClient.Projects.Locations.Clusters.NodePools.Create(parent, rb).Do()
-	callLogInfo.ElapsedTime = call.Elapsed(start)
+	hiscallInfo.ElapsedTime = call.Elapsed(start)
 	if err != nil {
 		err := fmt.Errorf("Failed to AddNodeGroup :  %v", err)
 		cblogger.Error(err)
 		return nodeGroupInfo, err
 	}
-	spew.Dump(op)
+	//spew.Dump(op)
 
 	operationErr := WaitContainerOperationFail(ClusterHandler.ContainerClient, projectID, region, zone, op.Name, GCP_CONTAINER_OPERATION_CREATE_NODE_POOL)
 	if operationErr != nil {
@@ -423,7 +423,7 @@ func (ClusterHandler *GCPClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGr
 		return nodeGroupInfo, err
 	}
 
-	nodePool, err := getNodePools(ClusterHandler.ContainerClient, projectID, region, zone, clusterIID, nodeGroupReqInfo.IId)
+	nodePool, err := getNodePools(ClusterHandler.ContainerClient, projectID, ClusterHandler.Region, clusterIID, nodeGroupReqInfo.IId)
 	if err != nil {
 		cblogger.Error(err)
 		return irs.NodeGroupInfo{}, err
@@ -482,10 +482,10 @@ func (ClusterHandler *GCPClusterHandler) SetNodeGroupAutoScaling(clusterIID irs.
 	}
 	spew.Dump(rb)
 
-	callLogInfo := getGCPCallLogScheme(zone, call.CLUSTER, "SetNodeGroupAutoScaling()", "SetNodeGroupAutoScaling()")
+	hiscallInfo := GetCallLogScheme(ClusterHandler.Region, call.CLUSTER, clusterIID.NameId, "SetNodeGroupAutoScaling()")
 	start := call.Start()
 	op, err := ClusterHandler.ContainerClient.Projects.Locations.Clusters.NodePools.SetAutoscaling(parent, rb).Do()
-	callLogInfo.ElapsedTime = call.Elapsed(start)
+	hiscallInfo.ElapsedTime = call.Elapsed(start)
 	if err != nil {
 		err := fmt.Errorf("Failed to SetNodeGroupAutoScaling :  %v", err)
 		cblogger.Error(err)
@@ -512,7 +512,7 @@ func (ClusterHandler *GCPClusterHandler) ChangeNodeGroupScaling(clusterIID irs.I
 	parent := getParentNodePoolsAtContainer(projectID, zone, clusterIID.NameId, nodeGroupIID.NameId)
 
 	// orgnodePool
-	orgNodePool, err := getNodePools(ClusterHandler.ContainerClient, projectID, region, zone, clusterIID, nodeGroupIID)
+	orgNodePool, err := getNodePools(ClusterHandler.ContainerClient, projectID, ClusterHandler.Region, clusterIID, nodeGroupIID)
 	if err != nil {
 		return irs.NodeGroupInfo{}, err
 	}
@@ -523,8 +523,7 @@ func (ClusterHandler *GCPClusterHandler) ChangeNodeGroupScaling(clusterIID irs.I
 
 	// autoScaling의 min/max 변경
 	orgAutoScaling := orgNodePool.Autoscaling
-
-	callLogInfo := getGCPCallLogScheme(zone, call.CLUSTER, "SetNodeGroupAutoScaling()", "SetNodeGroupAutoScaling()")
+	hiscallInfo := GetCallLogScheme(ClusterHandler.Region, call.CLUSTER, clusterIID.NameId, "SetNodeGroupAutoScaling()")
 
 	// min, max의 변경일 때
 	if intMaxNodeSize > 0 || intMinNodeSize > 0 {
@@ -570,7 +569,7 @@ func (ClusterHandler *GCPClusterHandler) ChangeNodeGroupScaling(clusterIID irs.I
 
 		start := call.Start()
 		op, err := ClusterHandler.ContainerClient.Projects.Locations.Clusters.NodePools.SetAutoscaling(parent, rb).Do()
-		callLogInfo.ElapsedTime = call.Elapsed(start)
+		hiscallInfo.ElapsedTime = call.Elapsed(start)
 		if err != nil {
 			err := fmt.Errorf("Failed to SetNodeGroupAutoScaling :  %v", err)
 			cblogger.Error(err)
@@ -625,10 +624,10 @@ func (ClusterHandler *GCPClusterHandler) ChangeNodeGroupScaling(clusterIID irs.I
 			NodeCount: intDesiredNodeSize,
 		}
 
-		callLogInfo = getGCPCallLogScheme(zone, call.CLUSTER, "SetNodeGroupAutoScaling()", "SetNodeGroupAutoScaling()")
+		hiscallInfo := GetCallLogScheme(ClusterHandler.Region, call.CLUSTER, clusterIID.NameId, "SetNodeGroupAutoScaling()")
 		start := call.Start()
 		op2, err2 := ClusterHandler.ContainerClient.Projects.Locations.Clusters.NodePools.SetSize(parent, rb2).Do()
-		callLogInfo.ElapsedTime = call.Elapsed(start)
+		hiscallInfo.ElapsedTime = call.Elapsed(start)
 		if err2 != nil {
 			err2 := fmt.Errorf("Failed to SetNodeGroupAutoScaling :  %v", err2)
 			cblogger.Error(err2)
@@ -644,7 +643,7 @@ func (ClusterHandler *GCPClusterHandler) ChangeNodeGroupScaling(clusterIID irs.I
 	}
 
 	// 처리가 끝났으면 NodePool 조회
-	nodePool, err := getNodePools(ClusterHandler.ContainerClient, projectID, region, zone, clusterIID, nodeGroupIID)
+	nodePool, err := getNodePools(ClusterHandler.ContainerClient, projectID, ClusterHandler.Region, clusterIID, nodeGroupIID)
 	if err != nil {
 		return irs.NodeGroupInfo{}, err
 	}
@@ -659,14 +658,14 @@ func (ClusterHandler *GCPClusterHandler) RemoveNodeGroup(clusterIID irs.IID, nod
 	zone := ClusterHandler.Region.Zone
 
 	cblogger.Info("GCP Cloud Driver: called RemoveNodeGroup()")
-	callLogInfo := getGCPCallLogScheme(zone, call.CLUSTER, "RemoveNodeGroup()", "RemoveNodeGroup()")
+	hiscallInfo := GetCallLogScheme(ClusterHandler.Region, call.CLUSTER, clusterIID.NameId, "RemoveNodeGroup()")
 
 	parent := getParentNodePoolsAtContainer(projectID, zone, clusterIID.NameId, nodeGroupIID.NameId)
 	cblogger.Info("parent : ", parent)
 
 	start := call.Start()
 	op, err := ClusterHandler.ContainerClient.Projects.Locations.Clusters.NodePools.Delete(parent).Do()
-	callLogInfo.ElapsedTime = call.Elapsed(start)
+	hiscallInfo.ElapsedTime = call.Elapsed(start)
 	if err != nil {
 		err := fmt.Errorf("Failed to RemoveNodeGroup :  %v", err)
 		cblogger.Error(err)
@@ -694,7 +693,7 @@ func (ClusterHandler *GCPClusterHandler) UpgradeCluster(clusterIID irs.IID, newV
 	zone := ClusterHandler.Region.Zone
 
 	cblogger.Info("GCP Cloud Driver: called UpgradeCluster()")
-	callLogInfo := getGCPCallLogScheme(zone, call.CLUSTER, "UpgradeCluster()", "UpgradeCluster()")
+	hiscallInfo := GetCallLogScheme(ClusterHandler.Region, call.CLUSTER, clusterIID.NameId, "UpgradeCluster()")
 
 	parent := getParentClusterAtContainer(projectID, zone, clusterIID.NameId)
 	rb := &container.UpdateMasterRequest{
@@ -703,7 +702,7 @@ func (ClusterHandler *GCPClusterHandler) UpgradeCluster(clusterIID irs.IID, newV
 
 	start := call.Start()
 	op, err := ClusterHandler.ContainerClient.Projects.Locations.Clusters.UpdateMaster(parent, rb).Do()
-	callLogInfo.ElapsedTime = call.Elapsed(start)
+	hiscallInfo.ElapsedTime = call.Elapsed(start)
 	if err != nil {
 		err := fmt.Errorf("Failed to UpgradeCluster :  %v", err)
 		cblogger.Error(err)
@@ -1032,7 +1031,7 @@ func getNodeGroupStatus(nodePoolStatus string) irs.NodeGroupStatus {
 // 	reqNodePool.Autoscaling = &autoScaling
 
 // 	cblogger.Info("GCP Cloud Driver: called updateNodeGroupAutoScaling()")
-// 	callLogInfo := getGCPCallLogScheme(zone, call.CLUSTER, "updateNodeGroupAutoScaling()", "updateNodeGroupAutoScaling()")
+// 	hiscallInfo := GetCallLogScheme(zone, call.CLUSTER, "updateNodeGroupAutoScaling()", "updateNodeGroupAutoScaling()")
 
 // 	rb := &container.SetNodePoolAutoscalingRequest{
 // 		Autoscaling: reqNodePool.Autoscaling,
@@ -1040,7 +1039,7 @@ func getNodeGroupStatus(nodePoolStatus string) irs.NodeGroupStatus {
 
 // 	start := call.Start()
 // 	op, err := containerClient.Projects.Locations.Clusters.NodePools.SetAutoscaling(parent, rb).Do()
-// 	callLogInfo.ElapsedTime = call.Elapsed(start)
+// 	hiscallInfo.ElapsedTime = call.Elapsed(start)
 // 	if err != nil {
 // 		err := fmt.Errorf("Failed to AddNodeGroup :  %v", err)
 // 		cblogger.Error(err)
@@ -1058,16 +1057,16 @@ func getNodeGroupStatus(nodePoolStatus string) irs.NodeGroupStatus {
 // }
 
 // NodePool 조회
-func getNodePools(containerClient *container.Service, projectID string, region string, zone string, clusterIID irs.IID, nodeGroupIID irs.IID) (*container.NodePool, error) {
+func getNodePools(containerClient *container.Service, projectID string, region idrv.RegionInfo, clusterIID irs.IID, nodeGroupIID irs.IID) (*container.NodePool, error) {
 
-	parent := getParentNodePoolsAtContainer(projectID, zone, clusterIID.NameId, nodeGroupIID.NameId)
+	parent := getParentNodePoolsAtContainer(projectID, region.Zone, clusterIID.NameId, nodeGroupIID.NameId)
 
 	cblogger.Info("GCP Cloud Driver: called getNodePools() ", parent)
-	callLogInfo := getGCPCallLogScheme(zone, call.CLUSTER, "getNodePools()", "getNodePools()")
+	hiscallInfo := GetCallLogScheme(region, call.CLUSTER, clusterIID.NameId, "getNodePools()")
 
 	start := call.Start()
 	nodePool, err := containerClient.Projects.Locations.Clusters.NodePools.Get(parent).Do()
-	callLogInfo.ElapsedTime = call.Elapsed(start)
+	hiscallInfo.ElapsedTime = call.Elapsed(start)
 	if err != nil {
 		err := fmt.Errorf("Failed to getNodePools :  %v", err)
 		cblogger.Error(err)
