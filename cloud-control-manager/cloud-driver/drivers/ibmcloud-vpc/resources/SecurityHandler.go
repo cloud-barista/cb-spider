@@ -46,7 +46,7 @@ func (securityHandler *IbmSecurityHandler) CreateSecurity(securityReqInfo irs.Se
 		LoggingError(hiscallInfo, createErr)
 		return irs.SecurityInfo{}, createErr
 	}
-	vpc, err := getRawVPC(securityReqInfo.VpcIID, securityHandler.VpcService, securityHandler.Ctx)
+	vpc, err := GetRawVPC(securityReqInfo.VpcIID, securityHandler.VpcService, securityHandler.Ctx)
 	if err != nil {
 		createErr := errors.New(fmt.Sprintf("Failed to Create Security. err = %s", err.Error()))
 		cblogger.Error(createErr.Error())

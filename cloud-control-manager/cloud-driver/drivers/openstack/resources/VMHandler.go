@@ -982,9 +982,9 @@ func checkWindowVMReqInfo(vmReqInfo irs.VMReqInfo) error {
 	if err != nil {
 		return err
 	}
-	if vmReqInfo.KeyPairIID.NameId != "" || vmReqInfo.KeyPairIID.SystemId != "" {
-		return errors.New("for Windows, SSH key login method is not supported")
-	}
+	//if vmReqInfo.KeyPairIID.NameId != "" || vmReqInfo.KeyPairIID.SystemId != "" {
+	//	return errors.New("for Windows, SSH key login method is not supported")
+	//}
 	return nil
 }
 

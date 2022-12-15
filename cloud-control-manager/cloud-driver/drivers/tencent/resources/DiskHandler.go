@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	cim "github.com/cloud-barista/cb-spider/cloud-info-manager"
@@ -30,6 +31,8 @@ CreateDisk 이후에 DescribeDisks 호출하여 상태가 UNATTACHED 또는 ATTA
 따라서 Operation이 완료되길 기다리는 function(WaitForXXX)은 만들지 않음
 */
 func (DiskHandler *TencentDiskHandler) CreateDisk(diskReqInfo irs.DiskInfo) (irs.DiskInfo, error) {
+	hiscallInfo := GetCallLogScheme(DiskHandler.Region, call.DISK, diskReqInfo.IId.NameId, "CreateDisk()")
+	start := call.Start()
 
 	existName, errExist := DiskHandler.diskExist(diskReqInfo.IId.NameId)
 	if errExist != nil {
@@ -60,10 +63,13 @@ func (DiskHandler *TencentDiskHandler) CreateDisk(diskReqInfo irs.DiskInfo) (irs
 	request.DiskName = common.StringPtr(diskReqInfo.IId.NameId)
 
 	response, err := DiskHandler.Client.CreateDisks(request)
+	hiscallInfo.ElapsedTime = call.Elapsed(start)
 	if err != nil {
 		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
 		return irs.DiskInfo{}, err
 	}
+	calllogger.Info(call.String(hiscallInfo))
 
 	newDiskId := *response.Response.DiskIdSet[0]
 	cblogger.Debug(newDiskId)
@@ -78,13 +84,19 @@ func (DiskHandler *TencentDiskHandler) CreateDisk(diskReqInfo irs.DiskInfo) (irs
 }
 
 func (DiskHandler *TencentDiskHandler) ListDisk() ([]*irs.DiskInfo, error) {
+	hiscallInfo := GetCallLogScheme(DiskHandler.Region, call.DISK, "Disk", "ListDisk()")
+	start := call.Start()
+
 	diskInfoList := []*irs.DiskInfo{}
 
 	diskSet, err := DescribeDisks(DiskHandler.Client, nil)
+	hiscallInfo.ElapsedTime = call.Elapsed(start)
 	if err != nil {
 		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
 		return nil, err
 	}
+	calllogger.Info(call.String(hiscallInfo))
 
 	for _, disk := range diskSet {
 		diskInfo, diskInfoErr := convertDiskInfo(disk)
@@ -100,12 +112,17 @@ func (DiskHandler *TencentDiskHandler) ListDisk() ([]*irs.DiskInfo, error) {
 }
 
 func (DiskHandler *TencentDiskHandler) GetDisk(diskIID irs.IID) (irs.DiskInfo, error) {
+	hiscallInfo := GetCallLogScheme(DiskHandler.Region, call.DISK, diskIID.NameId, "GetDisk()")
+	start := call.Start()
 
 	targetDisk, err := DescribeDisksByDiskID(DiskHandler.Client, diskIID)
+	hiscallInfo.ElapsedTime = call.Elapsed(start)
 	if err != nil {
 		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
 		return irs.DiskInfo{}, err
 	}
+	calllogger.Info(call.String(hiscallInfo))
 
 	diskInfo, diskInfoErr := convertDiskInfo(&targetDisk)
 	if diskInfoErr != nil {
@@ -117,6 +134,9 @@ func (DiskHandler *TencentDiskHandler) GetDisk(diskIID irs.IID) (irs.DiskInfo, e
 }
 
 func (DiskHandler *TencentDiskHandler) ChangeDiskSize(diskIID irs.IID, size string) (bool, error) {
+	hiscallInfo := GetCallLogScheme(DiskHandler.Region, call.DISK, diskIID.NameId, "ChangeDiskSize()")
+	start := call.Start()
+
 	diskInfo, diskInfoErr := DiskHandler.GetDisk(diskIID)
 	if diskInfoErr != nil {
 		return false, diskInfoErr
@@ -139,34 +159,49 @@ func (DiskHandler *TencentDiskHandler) ChangeDiskSize(diskIID irs.IID, size stri
 	request.DiskSize = common.Uint64Ptr(newSize)
 
 	_, err := DiskHandler.Client.ResizeDisk(request)
+	hiscallInfo.ElapsedTime = call.Elapsed(start)
 	if err != nil {
 		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
 		return false, err
 	}
+	calllogger.Info(call.String(hiscallInfo))
 
 	return true, nil
 }
 
 func (DiskHandler *TencentDiskHandler) DeleteDisk(diskIID irs.IID) (bool, error) {
+	hiscallInfo := GetCallLogScheme(DiskHandler.Region, call.DISK, diskIID.NameId, "DeleteDisk()")
+	start := call.Start()
+
 	request := cbs.NewTerminateDisksRequest()
 
 	request.DiskIds = common.StringPtrs([]string{diskIID.SystemId})
 
 	_, err := DiskHandler.Client.TerminateDisks(request)
+	hiscallInfo.ElapsedTime = call.Elapsed(start)
 	if err != nil {
 		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
 		return false, err
 	}
+	calllogger.Info(call.String(hiscallInfo))
 
 	return true, nil
 }
 
 func (DiskHandler *TencentDiskHandler) AttachDisk(diskIID irs.IID, ownerVM irs.IID) (irs.DiskInfo, error) {
+	hiscallInfo := GetCallLogScheme(DiskHandler.Region, call.DISK, diskIID.NameId, "AttachDisk()")
+	start := call.Start()
 
 	_, attachErr := AttachDisk(DiskHandler.Client, irs.IID{SystemId: diskIID.SystemId}, irs.IID{SystemId: ownerVM.SystemId})
+	hiscallInfo.ElapsedTime = call.Elapsed(start)
 	if attachErr != nil {
+		cblogger.Error(attachErr)
+		LoggingError(hiscallInfo, attachErr)
 		return irs.DiskInfo{}, attachErr
 	}
+	calllogger.Info(call.String(hiscallInfo))
 
 	_, statusErr := WaitForDone(DiskHandler.Client, irs.IID{SystemId: diskIID.SystemId}, Disk_Status_Attached)
 	if statusErr != nil {
@@ -183,16 +218,21 @@ func (DiskHandler *TencentDiskHandler) AttachDisk(diskIID irs.IID, ownerVM irs.I
 }
 
 func (DiskHandler *TencentDiskHandler) DetachDisk(diskIID irs.IID, ownerVM irs.IID) (bool, error) {
+	hiscallInfo := GetCallLogScheme(DiskHandler.Region, call.DISK, diskIID.NameId, "DetachDisk()")
+	start := call.Start()
 
 	request := cbs.NewDetachDisksRequest()
 
 	request.DiskIds = common.StringPtrs([]string{diskIID.SystemId})
 
 	_, err := DiskHandler.Client.DetachDisks(request)
+	hiscallInfo.ElapsedTime = call.Elapsed(start)
 	if err != nil {
 		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
 		return false, err
 	}
+	calllogger.Info(call.String(hiscallInfo))
 
 	_, statusErr := WaitForDone(DiskHandler.Client, irs.IID{SystemId: diskIID.SystemId}, Disk_Status_Unattached)
 	if statusErr != nil {
