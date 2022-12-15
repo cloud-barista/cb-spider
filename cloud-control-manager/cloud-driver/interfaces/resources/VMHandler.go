@@ -23,8 +23,9 @@ const (
 
 type Platform string
 const (
-        LINUX	Platform = "LINUX"
-        WINDOWS	Platform = "WINDOWS"
+        LINUX		Platform = "LINUX" // deprecated
+        LINUX_UNIX	Platform = "LINUX/UNIX"
+        WINDOWS		Platform = "WINDOWS"
 )
 
 type VMReqInfo struct {
