@@ -1508,38 +1508,40 @@ func handleCluster() {
 					}
 				}
 			case 2:
-				cblogger.Infof("[%s] Cluster 생성 테스트", clusterReqInfo.IId.NameId)
+				cblogger.Infof("[%s] Cluster Create 테스트", clusterReqInfo.IId.NameId)
 				result, err := handler.CreateCluster(clusterReqInfo)
 				if err != nil {
-					cblogger.Infof(clusterReqInfo.IId.NameId, " clusterReqInfo 생성 실패 : ", err)
+					cblogger.Infof(clusterReqInfo.IId.NameId, " Cluster Create 실패 : ", err)
 				} else {
-					cblogger.Infof("clusterReqInfo 생성 성공 : ", result)
+					cblogger.Infof("Cluster Create 성공 : ", result)
 					clusterReqInfo.IId = result.IId // 조회 및 삭제를 위해 생성된 ID로 변경
 					if cblogger.Level.String() == "debug" {
 						spew.Dump(result)
 					}
 				}
 
+				//eks-cb-eks-node-test02a-aws-9cc2876a-d3cb-2c25-55a8-9a19c431e716
+
 			case 3:
-				cblogger.Infof("[%s] clusterReqInfo 조회 테스트", clusterReqInfo.IId)
+				cblogger.Infof("[%s] Cluster Get 테스트", clusterReqInfo.IId)
 				result, err := handler.GetCluster(clusterReqInfo.IId)
 				if err != nil {
-					cblogger.Infof("[%s] clusterReqInfo 조회 실패 : ", clusterReqInfo.IId.NameId, err)
+					cblogger.Infof("[%s] Cluster Get 실패 : ", clusterReqInfo.IId.NameId, err)
 				} else {
-					cblogger.Infof("[%s] clusterReqInfo 조회 성공 : [%s]", clusterReqInfo.IId.NameId, result)
+					cblogger.Infof("[%s] Cluster Get 성공 : [%s]", clusterReqInfo.IId.NameId, result)
 					if cblogger.Level.String() == "debug" {
 						spew.Dump(result)
 					}
 				}
 
 			case 4:
-				cblogger.Infof("[%s] cluster삭제 테스트", clusterReqInfo.IId.NameId)
+				cblogger.Infof("[%s] Cluster Delete 테스트", clusterReqInfo.IId.NameId)
 				result, err := handler.DeleteCluster(clusterReqInfo.IId)
 				if err != nil {
-					cblogger.Infof("[%s] clusterReqInfo 삭제 실패 : ", clusterReqInfo.IId.NameId, err)
+					cblogger.Infof("[%s] Cluster Delete 실패 : ", clusterReqInfo.IId.NameId, err)
 				} else {
 					cblogger.Info("성공")
-					cblogger.Infof("[%s] clusterReqInfo 삭제 성공 : [%s]", clusterReqInfo.IId.NameId, result)
+					cblogger.Infof("[%s] Cluster Delete 성공 : [%s]", clusterReqInfo.IId.NameId, result)
 				}
 
 			case 5:

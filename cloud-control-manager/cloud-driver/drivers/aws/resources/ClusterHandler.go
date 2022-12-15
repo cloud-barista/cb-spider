@@ -679,17 +679,61 @@ func (ClusterHandler *AwsClusterHandler) GetNodeGroup(clusterIID irs.IID, nodeGr
 	return nodeGroupInfo, nil
 }
 
+func (ClusterHandler *AwsClusterHandler) GetAutoScalingGroups(autoScalingGroupName string) ([]irs.IID, error) {
+	input := &autoscaling.DescribeAutoScalingGroupsInput{
+		AutoScalingGroupNames: []*string{
+			aws.String(autoScalingGroupName),
+		},
+	}
+
+	result, err := ClusterHandler.AutoScaling.DescribeAutoScalingGroups(input)
+	if cblogger.Level.String() == "debug" {
+		spew.Dump(result)
+	}
+
+	if err != nil {
+		cblogger.Error(err)
+		if aerr, ok := err.(awserr.Error); ok {
+			switch aerr.Code() {
+			case autoscaling.ErrCodeInvalidNextToken:
+				cblogger.Error(autoscaling.ErrCodeInvalidNextToken, aerr.Error())
+			case autoscaling.ErrCodeResourceContentionFault:
+				cblogger.Error(autoscaling.ErrCodeResourceContentionFault, aerr.Error())
+			default:
+				cblogger.Error(aerr.Error())
+			}
+		} else {
+			// Print the error, cast err to awserr.Error to get the Code and
+			// Message from an error.
+			cblogger.Error(err.Error())
+		}
+		return nil, err
+	}
+
+	//nodeList := []*irs.IID{}
+	nodeList := []irs.IID{}
+	//AutoScalingGroups
+	if len(result.AutoScalingGroups) > 0 {
+		for _, curGroup := range result.AutoScalingGroups[0].Instances {
+			cblogger.Debugf("   ====> [%s]", *curGroup.InstanceId)
+			nodeList = append(nodeList, irs.IID{SystemId: *curGroup.InstanceId})
+		}
+	}
+
+	cblogger.Debug("**VM 인스턴스 목록**")
+	spew.Dump(nodeList)
+	return nodeList, nil
+}
+
 /*
 AutoScaling 이라는 별도의 메뉴가 있음.
 */
 func (ClusterHandler *AwsClusterHandler) SetNodeGroupAutoScaling(clusterIID irs.IID, nodeGroupIID irs.IID, on bool) (bool, error) {
-
 	return false, nil
 }
 
 func (ClusterHandler *AwsClusterHandler) ChangeNodeGroupScaling(clusterIID irs.IID, nodeGroupIID irs.IID,
 	DesiredNodeSize int, MinNodeSize int, MaxNodeSize int) (irs.NodeGroupInfo, error) {
-
 	cblogger.Infof("Cluster SystemId : [%s] / NodeGroup SystemId : [%s] / DesiredNodeSize : [%d] / MinNodeSize : [%d] / MaxNodeSize : [%d]", clusterIID.SystemId, nodeGroupIID.SystemId, DesiredNodeSize, MinNodeSize, MaxNodeSize)
 
 	// clusterIID로 cluster 정보를 조회
@@ -866,15 +910,32 @@ func (NodeGroupHandler *AwsClusterHandler) convertNodeGroup(nodeGroupOutput *eks
 	//nodeGroupResources.AutoScalingGroups// 미사용
 	//nodeGroupResources.RemoteAccessSecurityGroup// 미사용
 
-	nodes := []irs.IID{}
-	for _, issue := range nodeGroup.Health.Issues {
-		resourceIds := issue.ResourceIds
-		for _, resourceId := range resourceIds {
-			nodes = append(nodes, irs.IID{SystemId: *resourceId})
+	/*
+		nodes := []irs.IID{}
+		for _, issue := range nodeGroup.Health.Issues {
+			resourceIds := issue.ResourceIds
+			for _, resourceId := range resourceIds {
+				nodes = append(nodes, irs.IID{SystemId: *resourceId})
+			}
 		}
+		nodeGroupInfo.NodeList = nodes
+	*/
+
+	//=============
+	//VM 노드 조회
+	//=============
+	// 오토스케일링 그룹 목록에서 VM 목록 정보 추출
+	//"Resources":{"AutoScalingGroups":[{"Name":"eks-cb-eks-nodegroup-test-fec135d9-c812-8862-e3b0-7b773ce70d2e"}],
+	autoscalingGroupName := *nodeGroup.Resources.AutoScalingGroups[0].Name //"eks-cb-eks-node-test02a-aws-9cc2876a-d3cb-2c25-55a8-9a19c431e716"
+	cblogger.Debugf("autoscalingGroupName : [%s]", autoscalingGroupName)
+
+	nodeList, errNodeList := NodeGroupHandler.GetAutoScalingGroups(autoscalingGroupName)
+	if errNodeList != nil {
+		return irs.NodeGroupInfo{}, errNodeList
 	}
 
-	nodeGroupInfo.NodeList = nodes
+	nodeGroupInfo.NodeList = nodeList
+
 	nodeGroupInfo.DesiredNodeSize = int(*scalingConfig.DesiredSize)
 	nodeGroupInfo.MinNodeSize = int(*scalingConfig.MinSize)
 	nodeGroupInfo.MaxNodeSize = int(*scalingConfig.MaxSize)
@@ -912,14 +973,14 @@ func (NodeGroupHandler *AwsClusterHandler) convertNodeGroup(nodeGroupOutput *eks
 	nodeGroupInfo.RootDiskSize = strconv.FormatInt(*rootDiskSize, 10)
 
 	// TODO : node 목록 NodegroupArn 으로 조회해야하나??
-	nodeList := []irs.IID{}
+	//nodeList := []irs.IID{}
 	//if nodeList != nil {
 	//	for _, nodeId := range nodes {
 	//		nodeList = append(nodeList, irs.IID{NameId: "", SystemId: *nodeId})
 	//	}
 	//}
-	nodeGroupInfo.NodeList = nodeList
-	cblogger.Info("NodeGroup")
+	//nodeGroupInfo.NodeList = nodeList
+	//cblogger.Info("NodeGroup")
 	//	{"Nodegroup":
 	//		{"AmiType":"AL2_x86_64"
 	//		,"CapacityType":"ON_DEMAND"
