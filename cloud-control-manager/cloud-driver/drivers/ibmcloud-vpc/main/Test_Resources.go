@@ -152,6 +152,38 @@ type Config struct {
 					NameId string `yaml:"nameId"`
 				} `yaml:"SourceVMIID"`
 			} `yaml:"myimage"`
+			CLUSTER struct {
+				IID struct {
+					NameId string `yaml:"nameId"`
+				} `yaml:"IID"`
+				Version string `yaml:"version"`
+				Network struct {
+					VpcIID struct {
+						NameId string `yaml:"nameId"`
+					} `yaml:"vpcIID"`
+					SubnetIIDs []struct {
+						NameId string `yaml:"nameId"`
+					} `yaml:"subnetIIDs"`
+					SecurityGroupIIDs []struct {
+						NameId string `yaml:"nameId"`
+					} `yaml:"securityGroupIIDs"`
+				} `yaml:"network"`
+				NodeGroupList []struct {
+					IID struct {
+						NameId string `yaml:"nameId"`
+					} `yaml:"IID"`
+					VMSpecName   string `yaml:"vmSpecName"`
+					RootDiskType string `yaml:"rootDiskType"`
+					RootDiskSize string `yaml:"rootDiskSize"`
+					KeyPairIID   struct {
+						NameId string `yaml:"nameId"`
+					} `yaml:"keyPairIID"`
+					OnAutoScaling  bool `yaml:"onAutoScaling"`
+					DesireNodeSize int  `yaml:"desireNodeSize"`
+					MinNodeSize    int  `yaml:"minNodeSize"`
+					MaxNodeSize    int  `yaml:"maxNodeSize"`
+				} `yaml:"nodeGroupList"`
+			} `yaml:"cluster"`
 		} `yaml:"resources"`
 	} `yaml:"ibmvpc"`
 }
@@ -193,7 +225,8 @@ func showTestHandlerInfo() {
 	cblogger.Info("7. NLBHandler")
 	cblogger.Info("8. DiskHandler")
 	cblogger.Info("9. MyImageHandler")
-	cblogger.Info("10. Exit")
+	cblogger.Info("10. ClusterHandler")
+	cblogger.Info("11. Exit")
 	cblogger.Info("==========================================================")
 }
 
@@ -238,6 +271,8 @@ func getResourceHandler(resourceType string, config Config) (interface{}, error)
 		resourceHandler, err = ibmCon.CreateDiskHandler()
 	case "myimage":
 		resourceHandler, err = ibmCon.CreateMyImageHandler()
+	case "cluster":
+		resourceHandler, err = ibmCon.CreateClusterHandler()
 	}
 
 	return resourceHandler, nil
@@ -1297,6 +1332,168 @@ Loop:
 	}
 }
 
+func testClusterHandlerListPrint() {
+	cblogger.Info("Test ClusterHandler")
+	cblogger.Info("0. Print Menu")
+	cblogger.Info("1. ListCluster()")
+	cblogger.Info("2. GetCluster()")
+	cblogger.Info("3. CreateCluster()")
+	cblogger.Info("4. DeleteCluster()") //AddNodeGroup
+	cblogger.Info("5. AddNodeGroup()")
+	cblogger.Info("6. RemoveNodeGroup()")
+	cblogger.Info("7. SetNodeGroupAutoScaling()")
+	cblogger.Info("8. ChangeNodeGroupScaling()")
+	cblogger.Info("9. UpgradeCluster()")
+	cblogger.Info("10. Exit")
+}
+
+func testClusterHandler(config Config) {
+	resourceHandler, err := getResourceHandler("cluster", config)
+	if err != nil {
+		cblogger.Error(err)
+		return
+	}
+
+	clusterHandler := resourceHandler.(irs.ClusterHandler)
+
+	testClusterHandlerListPrint()
+	configCluster := config.IbmVPC.Resources.CLUSTER
+
+	clusterIID := irs.IID{NameId: configCluster.IID.NameId}
+
+	var subnetIIDs []irs.IID
+	for _, configSubnetIID := range configCluster.Network.SubnetIIDs {
+		subnetIIDs = append(subnetIIDs, irs.IID{NameId: configSubnetIID.NameId})
+	}
+	var securityGroupIID []irs.IID
+	for _, configSecurityGroupIID := range configCluster.Network.SecurityGroupIIDs {
+		securityGroupIID = append(securityGroupIID, irs.IID{NameId: configSecurityGroupIID.NameId})
+	}
+	var nodeGroupList []irs.NodeGroupInfo
+	for _, configNodeGroup := range configCluster.NodeGroupList {
+		nodeGroupList = append(nodeGroupList, irs.NodeGroupInfo{
+			IId:             irs.IID{NameId: configNodeGroup.IID.NameId},
+			VMSpecName:      configNodeGroup.VMSpecName,
+			RootDiskType:    configNodeGroup.RootDiskType,
+			RootDiskSize:    configNodeGroup.RootDiskSize,
+			KeyPairIID:      irs.IID{NameId: configNodeGroup.KeyPairIID.NameId},
+			OnAutoScaling:   configNodeGroup.OnAutoScaling,
+			DesiredNodeSize: configNodeGroup.DesireNodeSize,
+			MinNodeSize:     configNodeGroup.MinNodeSize,
+			MaxNodeSize:     configNodeGroup.MaxNodeSize,
+		})
+	}
+	clusterCreateReqInfo := irs.ClusterInfo{
+		IId:     irs.IID{NameId: configCluster.IID.NameId},
+		Version: configCluster.Version,
+		Network: irs.NetworkInfo{
+			VpcIID:            irs.IID{NameId: configCluster.Network.VpcIID.NameId},
+			SubnetIIDs:        subnetIIDs,
+			SecurityGroupIIDs: securityGroupIID,
+		},
+		NodeGroupList: nodeGroupList,
+	}
+	nodeGroupReqInfo := irs.NodeGroupInfo{
+		IId:             irs.IID{NameId: "NewNodeGroup"},
+		VMSpecName:      "bx2.4x16",
+		OnAutoScaling:   false,
+		DesiredNodeSize: 1,
+		MinNodeSize:     1,
+		MaxNodeSize:     2,
+	}
+
+Loop:
+	for {
+		var commandNum int
+		inputCnt, err := fmt.Scan(&commandNum)
+		if err != nil {
+			cblogger.Error(err)
+		}
+
+		if inputCnt == 1 {
+			switch commandNum {
+			case 0:
+				testClusterHandlerListPrint()
+			case 1:
+				cblogger.Info("Start ListCluster() ...")
+				if list, err := clusterHandler.ListCluster(); err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(list)
+				}
+				cblogger.Info("Finish ListCluster()")
+			case 2:
+				cblogger.Info("Start GetCluster() ...")
+				if cluster, err := clusterHandler.GetCluster(clusterIID); err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(cluster)
+				}
+				cblogger.Info("Finish GetCluster()")
+			case 3:
+				cblogger.Info("Start CreateCluster() ...")
+				if createInfo, err := clusterHandler.CreateCluster(clusterCreateReqInfo); err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(createInfo)
+				}
+				cblogger.Info("Finish CreateCluster()")
+			case 4:
+				cblogger.Info("Start DeleteCluster() ...")
+				if deleteClusterResult, err := clusterHandler.DeleteCluster(clusterCreateReqInfo.IId); err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(deleteClusterResult)
+				}
+				cblogger.Info("Finish DeleteCluster()")
+			case 5:
+				cblogger.Info("Start AddNodeGroup() ...")
+				if addNodeGroupInfo, err := clusterHandler.AddNodeGroup(clusterCreateReqInfo.IId, nodeGroupReqInfo); err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(addNodeGroupInfo)
+				}
+				cblogger.Info("Finish AddNodeGroup()")
+			case 6:
+				cblogger.Info("Start RemoveNodeGroup() ...")
+				if removeNodeGroupResult, err := clusterHandler.RemoveNodeGroup(clusterCreateReqInfo.IId, nodeGroupReqInfo.IId); err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(removeNodeGroupResult)
+				}
+				cblogger.Info("Finish RemoveNodeGroup()")
+			case 7:
+				cblogger.Info("Start SetNodeGroupAutoScaling() ...")
+				if setNodeGroupAutoScalingResult, err := clusterHandler.SetNodeGroupAutoScaling(clusterCreateReqInfo.IId, clusterCreateReqInfo.NodeGroupList[0].IId, true); err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(setNodeGroupAutoScalingResult)
+				}
+				cblogger.Info("Finish SetNodeGroupAutoScaling()")
+			case 8:
+				cblogger.Info("Start ChangeNodeGroupScaling() ...")
+				if changeNodeGroupScalingResult, err := clusterHandler.ChangeNodeGroupScaling(clusterCreateReqInfo.IId, clusterCreateReqInfo.NodeGroupList[0].IId, 2, 2, 3); err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(changeNodeGroupScalingResult)
+				}
+				cblogger.Info("Finish ChangeNodeGroupScaling()")
+			case 9:
+				cblogger.Info("Start UpgradeCluster() ...")
+				if upgradeResult, err := clusterHandler.UpgradeCluster(clusterCreateReqInfo.IId, "1.25.4"); err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(upgradeResult)
+				}
+				cblogger.Info("Finish UpgradeCluster()")
+			case 10:
+				cblogger.Info("Exit")
+				break Loop
+			}
+		}
+	}
+}
+
 func main() {
 	showTestHandlerInfo()
 	config := readConfigFile()
@@ -1341,6 +1538,9 @@ Loop:
 				testMyImageHandler(config)
 				showTestHandlerInfo()
 			case 10:
+				testClusterHandler(config)
+				showTestHandlerInfo()
+			case 11:
 				cblogger.Info("Exit Test ResourceHandler Program")
 				break Loop
 			}
