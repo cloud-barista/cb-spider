@@ -45,7 +45,7 @@ func (ClusterHandler *AwsClusterHandler) CreateCluster(clusterReqInfo irs.Cluste
 		securityGroupIds = append(securityGroupIds, aws.String(securityGroupIID.SystemId))
 	}
 
-	reqSubnetIds := clusterReqInfo.Network.SubnetIID
+	reqSubnetIds := clusterReqInfo.Network.SubnetIIDs
 	var subnetIds []*string
 	for _, subnetIID := range reqSubnetIds {
 		subnetIds = append(subnetIds, aws.String(subnetIID.SystemId))
@@ -346,6 +346,7 @@ func (ClusterHandler *AwsClusterHandler) GetCluster(clusterIID irs.IID) (irs.Clu
 		Version:     *result.Cluster.Version,
 		CreatedTime: *result.Cluster.CreatedAt,
 		Status:      irs.ClusterStatus(*result.Cluster.Status),
+		AccessInfo:  irs.AccessInfo{Endpoint: *result.Cluster.Endpoint},
 	}
 	/*
 		NodeGroupList []NodeGroupInfo
@@ -359,7 +360,7 @@ func (ClusterHandler *AwsClusterHandler) GetCluster(clusterIID irs.IID) (irs.Clu
 		//SubnetIds: ["subnet-0d30ee6b367974a39","subnet-06d5c04b32019b81f","subnet-05c5d26bd2f014591"],
 		if len(result.Cluster.ResourcesVpcConfig.SubnetIds) > 0 {
 			for _, curSubnetId := range result.Cluster.ResourcesVpcConfig.SubnetIds {
-				clusterInfo.Network.SubnetIID = append(clusterInfo.Network.SubnetIID, irs.IID{SystemId: *curSubnetId})
+				clusterInfo.Network.SubnetIIDs = append(clusterInfo.Network.SubnetIIDs, irs.IID{SystemId: *curSubnetId})
 			}
 		}
 
@@ -513,7 +514,7 @@ func (ClusterHandler *AwsClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGr
 
 	networkInfo := clusterInfo.Network
 	var subnetList []*string
-	for _, subnet := range networkInfo.SubnetIID {
+	for _, subnet := range networkInfo.SubnetIIDs {
 		subnetId := subnet.SystemId // 포인터라서 subnet.SystemId를 직접 Append하면 안 됨.
 		subnetList = append(subnetList, &subnetId)
 	}
@@ -934,7 +935,7 @@ func (NodeGroupHandler *AwsClusterHandler) convertNodeGroup(nodeGroupOutput *eks
 		return irs.NodeGroupInfo{}, errNodeList
 	}
 
-	nodeGroupInfo.NodeList = nodeList
+	nodeGroupInfo.Nodes = nodeList
 
 	nodeGroupInfo.DesiredNodeSize = int(*scalingConfig.DesiredSize)
 	nodeGroupInfo.MinNodeSize = int(*scalingConfig.MinSize)
