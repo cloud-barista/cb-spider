@@ -69,3 +69,49 @@ ibmvpc:
       SecurityGroupIIDs:
         - nameId:  mcb-test-sg
           systemId:
+    cluster:
+      IID:
+        nameId: mycluster
+      version: "1.24.9"
+      network:
+        vpcIID:
+          nameId: "cb-sp-container"
+        subnetIIDs:
+          - nameId: "sn-20221212-03"
+        securityGroupIIDs:
+          - nameId: "container-test-1"
+          - nameId: "container-test-2"
+      nodeGroupList:
+        - IID:
+            nameId: "default"
+          vmSpecName: "bx2.4x16"
+          rootDiskType: "Default"
+          rootDiskSize: "Default"
+          keyPairIID:
+            nameId: "some-random-keypair"
+          onAutoScaling: false
+          desireNodeSize: 1
+          minNodeSize: 1
+          maxNodeSize: 2
+      additionalNodeGroup:
+          IID:
+            nameId: "second"
+          vmSpecName: "bx2.4x16"
+          rootDiskType: "Default"
+          rootDiskSize: "Default"
+          keyPairIID:
+            nameId: "some-random-keypair"
+          onAutoScaling: false
+          desireNodeSize: 1
+          minNodeSize: 1
+          maxNodeSize: 2
+      clusterUpdateInfos:
+          targetNodeGroupIID:
+            nameId: "second"
+          onNodeGroupAutoScaling: true
+          changeNodeGroupScaling:
+            desiredNodeSize: 2
+            minNodeSize: 2
+            maxNodeSize: 3
+          upgradeVersion: "1.25.5"
+
