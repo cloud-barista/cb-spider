@@ -523,7 +523,7 @@ func (ClusterHandler *GCPClusterHandler) ChangeNodeGroupScaling(clusterIID irs.I
 
 	// autoScaling의 min/max 변경
 	orgAutoScaling := orgNodePool.Autoscaling
-	hiscallInfo := GetCallLogScheme(ClusterHandler.Region, call.CLUSTER, clusterIID.NameId, "SetNodeGroupAutoScaling()")
+	hiscallInfo := GetCallLogScheme(ClusterHandler.Region, call.CLUSTER, clusterIID.NameId, "ChangeNodeGroupScaling()")
 
 	// min, max의 변경일 때
 	if intMaxNodeSize > 0 || intMinNodeSize > 0 {
