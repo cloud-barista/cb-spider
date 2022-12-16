@@ -2,8 +2,8 @@
 
 # server type: NUTSDB | ETCD
 # NUTSDB: embedded Key-Value Store on Local Filesystem
-storetype: ETCD
-#storetype: NUTSDB
+#storetype: ETCD
+storetype: NUTSDB
 
 nutsdb:
   dbpath: "$CBSTORE_ROOT/meta_db/dat"
