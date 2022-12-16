@@ -1443,7 +1443,7 @@ func handleCluster() {
 		Network: irs.NetworkInfo{
 			VpcIID: irs.IID{SystemId: "vpc-0c4d36a3ac3924419"},
 			//SubnetIID: [irs.IID{SystemId: "subnet-262d6d7a"},irs.IID{SystemId: "vpc-c0479cab"}],
-			SubnetIID: subnets,
+			SubnetIIDs: subnets,
 		},
 	} // nlbReqInfo
 
@@ -1546,25 +1546,27 @@ func handleCluster() {
 					cblogger.Infof("[%s] Cluster Delete 성공 : [%s]", clusterReqInfo.IId.NameId, result)
 				}
 
-			case 5:
-				cblogger.Infof("[%s] ListNodeGroup 테스트", clusterReqInfo.IId)
-				result, err := handler.ListNodeGroup(clusterReqInfo.IId)
-				if err != nil {
-					cblogger.Infof("[%s] ListNodeGroup 실패 : ", clusterReqInfo.IId.NameId, err)
-				} else {
-					cblogger.Infof("[%s] ListNodeGroup 성공 : [%s]", clusterReqInfo.IId.NameId, result)
-					if cblogger.Level.String() == "debug" {
-						spew.Dump(result)
-					}
+			/*
+				case 5:
+					cblogger.Infof("[%s] ListNodeGroup 테스트", clusterReqInfo.IId)
+					result, err := handler.ListNodeGroup(clusterReqInfo.IId)
+					if err != nil {
+						cblogger.Infof("[%s] ListNodeGroup 실패 : ", clusterReqInfo.IId.NameId, err)
+					} else {
+						cblogger.Infof("[%s] ListNodeGroup 성공 : [%s]", clusterReqInfo.IId.NameId, result)
+						if cblogger.Level.String() == "debug" {
+							spew.Dump(result)
+						}
 
-					cblogger.Info("출력 결과 수 : ", len(result))
+						cblogger.Info("출력 결과 수 : ", len(result))
 
-					//조회및 삭제 테스트를 위해 리스트의 첫번째 정보의 ID를 요청ID로 자동 갱신함.
-					if len(result) > 0 {
-						reqNodeGroupInfo.IId = result[0].IId // 조회 및 삭제를 위해 생성된 ID로 변경
-						cblogger.Info("---> Req IID 변경 : ", reqNodeGroupInfo.IId)
+						//조회및 삭제 테스트를 위해 리스트의 첫번째 정보의 ID를 요청ID로 자동 갱신함.
+						if len(result) > 0 {
+							reqNodeGroupInfo.IId = result[0].IId // 조회 및 삭제를 위해 생성된 ID로 변경
+							cblogger.Info("---> Req IID 변경 : ", reqNodeGroupInfo.IId)
+						}
 					}
-				}
+			*/
 
 			case 6:
 				cblogger.Infof("[%s] AddNodeGroup 테스트", clusterReqInfo.IId)
@@ -1625,7 +1627,7 @@ func main() {
 	//handleKeyPair()
 	//handlePublicIP() // PublicIP 생성 후 conf
 	//handleSecurity()
-	handleVM()
+	//handleVM()
 
 	//handleImage() //AMI
 	//handleVNic() //Lancard
