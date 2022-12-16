@@ -88,7 +88,7 @@ func (keyPairHandler *OpenStackKeyPairHandler) ListKey() ([]*irs.KeyPairInfo, er
 	// 0. Get List Resource
 	pager, err := keypairs.List(keyPairHandler.Client).AllPages()
 	if err != nil {
-		getErr := errors.New(fmt.Sprintf("Failed to Get KeyList err = %s", err.Error()))
+		getErr := errors.New(fmt.Sprintf("Failed to List Key err = %s", err.Error()))
 		cblogger.Error(getErr.Error())
 		LoggingError(hiscallInfo, getErr)
 		return nil, getErr
@@ -97,7 +97,7 @@ func (keyPairHandler *OpenStackKeyPairHandler) ListKey() ([]*irs.KeyPairInfo, er
 
 	keypair, err := keypairs.ExtractKeyPairs(pager)
 	if err != nil {
-		getErr := errors.New(fmt.Sprintf("Failed to Get KeyList err = %s", err.Error()))
+		getErr := errors.New(fmt.Sprintf("Failed to List Key err = %s", err.Error()))
 		cblogger.Error(getErr.Error())
 		LoggingError(hiscallInfo, getErr)
 		return nil, getErr
@@ -174,7 +174,7 @@ func (keyPairHandler *OpenStackKeyPairHandler) DeleteKey(keyIID irs.IID) (bool, 
 
 func CheckExistKey(client *gophercloud.ServiceClient, keyIID irs.IID) (bool, error) {
 	if ok := CheckIIDValidation(keyIID); !ok {
-		return false, errors.New(fmt.Sprintf("InValid IID"))
+		return false, errors.New(fmt.Sprintf("invalid IID"))
 	}
 	keyName := keyIID.SystemId
 	if keyIID.SystemId == "" {

@@ -22,18 +22,18 @@ type AzureDiskHandler struct {
 }
 
 func (diskHandler *AzureDiskHandler) CreateDisk(DiskReqInfo irs.DiskInfo) (diskInfo irs.DiskInfo, createErr error) {
-	hiscallInfo := GetCallLogScheme(diskHandler.Region, "DISK", DiskReqInfo.IId.NameId, "CreateDisk()")
+	hiscallInfo := GetCallLogScheme(diskHandler.Region, call.DISK, DiskReqInfo.IId.NameId, "CreateDisk()")
 	start := call.Start()
 	err := diskHandler.validationDiskReq(DiskReqInfo)
 	if err != nil {
-		createErr = errors.New(fmt.Sprintf("Failed to Create Disk. err = %s", err))
+		createErr = errors.New(fmt.Sprintf("Failed to Create Disk. err = %s", err.Error()))
 		cblogger.Error(createErr.Error())
 		LoggingError(hiscallInfo, createErr)
 		return irs.DiskInfo{}, createErr
 	}
 	diskType, err := GetDiskTypeInitType(DiskReqInfo.DiskType)
 	if err != nil {
-		createErr = errors.New(fmt.Sprintf("Failed to Create Disk. err = %s", err))
+		createErr = errors.New(fmt.Sprintf("Failed to Create Disk. err = %s", err.Error()))
 		cblogger.Error(createErr.Error())
 		LoggingError(hiscallInfo, createErr)
 		return irs.DiskInfo{}, createErr
@@ -63,35 +63,35 @@ func (diskHandler *AzureDiskHandler) CreateDisk(DiskReqInfo irs.DiskInfo) (diskI
 	diskCreateOpt := compute.Disk{DiskProperties: &diskProperties, Sku: &diskSku, Location: to.StringPtr(diskHandler.Region.Region)}
 	result, err := diskHandler.DiskClient.CreateOrUpdate(diskHandler.Ctx, diskHandler.Region.ResourceGroup, DiskReqInfo.IId.NameId, diskCreateOpt)
 	if err != nil {
-		createErr = errors.New(fmt.Sprintf("Failed to Create Disk. err = %s", err))
+		createErr = errors.New(fmt.Sprintf("Failed to Create Disk. err = %s", err.Error()))
 		cblogger.Error(createErr.Error())
 		LoggingError(hiscallInfo, createErr)
 		return irs.DiskInfo{}, createErr
 	}
 	err = result.WaitForCompletionRef(diskHandler.Ctx, diskHandler.DiskClient.Client)
 	if err != nil {
-		createErr = errors.New(fmt.Sprintf("Failed to Create Disk. err = %s", err))
+		createErr = errors.New(fmt.Sprintf("Failed to Create Disk. err = %s", err.Error()))
 		cblogger.Error(createErr.Error())
 		LoggingError(hiscallInfo, createErr)
 		return irs.DiskInfo{}, createErr
 	}
 	convertedIId, err := ConvertDiskIID(DiskReqInfo.IId, diskHandler.CredentialInfo, diskHandler.Region)
 	if err != nil {
-		createErr = errors.New(fmt.Sprintf("Failed to Create Disk. err = %s", err))
+		createErr = errors.New(fmt.Sprintf("Failed to Create Disk. err = %s", err.Error()))
 		cblogger.Error(createErr.Error())
 		LoggingError(hiscallInfo, createErr)
 		return irs.DiskInfo{}, createErr
 	}
 	disk, err := GetRawDisk(convertedIId, diskHandler.Region.ResourceGroup, diskHandler.DiskClient, diskHandler.Ctx)
 	if err != nil {
-		getErr := errors.New(fmt.Sprintf("Failed to Get Disk. err = %s", err))
+		getErr := errors.New(fmt.Sprintf("Failed to Get Disk. err = %s", err.Error()))
 		cblogger.Error(getErr.Error())
 		LoggingError(hiscallInfo, getErr)
 		return irs.DiskInfo{}, getErr
 	}
 	info, err := setterDiskInfo(disk)
 	if err != nil {
-		getErr := errors.New(fmt.Sprintf("Failed to Get Disk. err = %s", err))
+		getErr := errors.New(fmt.Sprintf("Failed to Get Disk. err = %s", err.Error()))
 		cblogger.Error(getErr.Error())
 		LoggingError(hiscallInfo, getErr)
 		return irs.DiskInfo{}, getErr
@@ -100,11 +100,11 @@ func (diskHandler *AzureDiskHandler) CreateDisk(DiskReqInfo irs.DiskInfo) (diskI
 	return *info, nil
 }
 func (diskHandler *AzureDiskHandler) ListDisk() ([]*irs.DiskInfo, error) {
-	hiscallInfo := GetCallLogScheme(diskHandler.Region, "DISK", "DISK", "ListDisk()")
+	hiscallInfo := GetCallLogScheme(diskHandler.Region, call.DISK, "DISK", "ListDisk()")
 	start := call.Start()
 	diskList, err := diskHandler.DiskClient.ListByResourceGroup(diskHandler.Ctx, diskHandler.Region.ResourceGroup)
 	if err != nil {
-		getErr := errors.New(fmt.Sprintf("Failed to List Disk. err = %s", err))
+		getErr := errors.New(fmt.Sprintf("Failed to List Disk. err = %s", err.Error()))
 		cblogger.Error(getErr.Error())
 		LoggingError(hiscallInfo, getErr)
 		return []*irs.DiskInfo{}, getErr
@@ -113,7 +113,7 @@ func (diskHandler *AzureDiskHandler) ListDisk() ([]*irs.DiskInfo, error) {
 	for _, disk := range diskList.Values() {
 		diskStatus, err := setterDiskInfo(disk)
 		if err != nil {
-			getErr := errors.New(fmt.Sprintf("Failed to List Disk. err = %s", err))
+			getErr := errors.New(fmt.Sprintf("Failed to List Disk. err = %s", err.Error()))
 			cblogger.Error(getErr.Error())
 			LoggingError(hiscallInfo, getErr)
 			return []*irs.DiskInfo{}, getErr
@@ -124,18 +124,18 @@ func (diskHandler *AzureDiskHandler) ListDisk() ([]*irs.DiskInfo, error) {
 	return diskStatusList, nil
 }
 func (diskHandler *AzureDiskHandler) GetDisk(diskIID irs.IID) (irs.DiskInfo, error) {
-	hiscallInfo := GetCallLogScheme(diskHandler.Region, "DISK", diskIID.NameId, "GetDisk()")
+	hiscallInfo := GetCallLogScheme(diskHandler.Region, call.DISK, diskIID.NameId, "GetDisk()")
 	start := call.Start()
 	convertedIId, err := ConvertDiskIID(diskIID, diskHandler.CredentialInfo, diskHandler.Region)
 	if err != nil {
-		getErr := errors.New(fmt.Sprintf("Failed to Get Disk. err = %s", err))
+		getErr := errors.New(fmt.Sprintf("Failed to Get Disk. err = %s", err.Error()))
 		cblogger.Error(getErr.Error())
 		LoggingError(hiscallInfo, getErr)
 		return irs.DiskInfo{}, getErr
 	}
 	disk, err := GetRawDisk(convertedIId, diskHandler.Region.ResourceGroup, diskHandler.DiskClient, diskHandler.Ctx)
 	if err != nil {
-		getErr := errors.New(fmt.Sprintf("Failed to Get Disk. err = %s", err))
+		getErr := errors.New(fmt.Sprintf("Failed to Get Disk. err = %s", err.Error()))
 		cblogger.Error(getErr.Error())
 		LoggingError(hiscallInfo, getErr)
 		return irs.DiskInfo{}, getErr
@@ -143,7 +143,7 @@ func (diskHandler *AzureDiskHandler) GetDisk(diskIID irs.IID) (irs.DiskInfo, err
 	LoggingInfo(hiscallInfo, start)
 	info, err := setterDiskInfo(disk)
 	if err != nil {
-		getErr := errors.New(fmt.Sprintf("Failed to Get Disk. err = %s", err))
+		getErr := errors.New(fmt.Sprintf("Failed to Get Disk. err = %s", err.Error()))
 		cblogger.Error(getErr.Error())
 		LoggingError(hiscallInfo, getErr)
 		return irs.DiskInfo{}, getErr
@@ -151,19 +151,19 @@ func (diskHandler *AzureDiskHandler) GetDisk(diskIID irs.IID) (irs.DiskInfo, err
 	return *info, nil
 }
 func (diskHandler *AzureDiskHandler) ChangeDiskSize(diskIID irs.IID, size string) (bool, error) {
-	hiscallInfo := GetCallLogScheme(diskHandler.Region, "DISK", diskIID.NameId, "ChangeDiskSize()")
+	hiscallInfo := GetCallLogScheme(diskHandler.Region, call.DISK, diskIID.NameId, "ChangeDiskSize()")
 	start := call.Start()
 	// Exist Disk
 	convertedDiskIId, err := ConvertDiskIID(diskIID, diskHandler.CredentialInfo, diskHandler.Region)
 	if err != nil {
-		changeDiskSizeErr := errors.New(fmt.Sprintf("Failed to ChangeDiskSize. err = %s", err))
+		changeDiskSizeErr := errors.New(fmt.Sprintf("Failed to ChangeDiskSize. err = %s", err.Error()))
 		cblogger.Error(changeDiskSizeErr.Error())
 		LoggingError(hiscallInfo, changeDiskSizeErr)
 		return false, changeDiskSizeErr
 	}
 	sizeChangeDisk, err := GetRawDisk(convertedDiskIId, diskHandler.Region.ResourceGroup, diskHandler.DiskClient, diskHandler.Ctx)
 	if err != nil {
-		changeDiskSizeErr := errors.New(fmt.Sprintf("Failed to ChangeDiskSize. err = %s", err))
+		changeDiskSizeErr := errors.New(fmt.Sprintf("Failed to ChangeDiskSize. err = %s", err.Error()))
 		cblogger.Error(changeDiskSizeErr.Error())
 		LoggingError(hiscallInfo, changeDiskSizeErr)
 		return false, changeDiskSizeErr
@@ -171,7 +171,7 @@ func (diskHandler *AzureDiskHandler) ChangeDiskSize(diskIID irs.IID, size string
 	// size Check
 	newSize, err := checkSize(size, *sizeChangeDisk.DiskSizeGB)
 	if err != nil {
-		changeDiskSizeErr := errors.New(fmt.Sprintf("Failed to ChangeDiskSize. err = %s", err))
+		changeDiskSizeErr := errors.New(fmt.Sprintf("Failed to ChangeDiskSize. err = %s", err.Error()))
 		cblogger.Error(changeDiskSizeErr.Error())
 		LoggingError(hiscallInfo, changeDiskSizeErr)
 		return false, changeDiskSizeErr
@@ -179,7 +179,7 @@ func (diskHandler *AzureDiskHandler) ChangeDiskSize(diskIID irs.IID, size string
 	// disk Status Check
 	err = checkChangeStatus(sizeChangeDisk)
 	if err != nil {
-		changeDiskSizeErr := errors.New(fmt.Sprintf("Failed to ChangeDiskSize. err = %s", err))
+		changeDiskSizeErr := errors.New(fmt.Sprintf("Failed to ChangeDiskSize. err = %s", err.Error()))
 		cblogger.Error(changeDiskSizeErr.Error())
 		LoggingError(hiscallInfo, changeDiskSizeErr)
 		return false, changeDiskSizeErr
@@ -192,14 +192,14 @@ func (diskHandler *AzureDiskHandler) ChangeDiskSize(diskIID irs.IID, size string
 	}
 	result, err := diskHandler.DiskClient.Update(diskHandler.Ctx, diskHandler.Region.ResourceGroup, *sizeChangeDisk.Name, diskUpdateOpt)
 	if err != nil {
-		changeDiskSizeErr := errors.New(fmt.Sprintf("Failed to ChangeDiskSize. err = %s", err))
+		changeDiskSizeErr := errors.New(fmt.Sprintf("Failed to ChangeDiskSize. err = %s", err.Error()))
 		cblogger.Error(changeDiskSizeErr.Error())
 		LoggingError(hiscallInfo, changeDiskSizeErr)
 		return false, changeDiskSizeErr
 	}
 	err = result.WaitForCompletionRef(diskHandler.Ctx, diskHandler.DiskClient.Client)
 	if err != nil {
-		changeDiskSizeErr := errors.New(fmt.Sprintf("Failed to ChangeDiskSize. err = %s", err))
+		changeDiskSizeErr := errors.New(fmt.Sprintf("Failed to ChangeDiskSize. err = %s", err.Error()))
 		cblogger.Error(changeDiskSizeErr.Error())
 		LoggingError(hiscallInfo, changeDiskSizeErr)
 		return false, changeDiskSizeErr
@@ -208,18 +208,18 @@ func (diskHandler *AzureDiskHandler) ChangeDiskSize(diskIID irs.IID, size string
 	return true, nil
 }
 func (diskHandler *AzureDiskHandler) DeleteDisk(diskIID irs.IID) (bool, error) {
-	hiscallInfo := GetCallLogScheme(diskHandler.Region, "DISK", diskIID.NameId, "DeleteDisk()")
+	hiscallInfo := GetCallLogScheme(diskHandler.Region, call.DISK, diskIID.NameId, "DeleteDisk()")
 	start := call.Start()
 	convertedDiskIId, err := ConvertDiskIID(diskIID, diskHandler.CredentialInfo, diskHandler.Region)
 	if err != nil {
-		deleteDiskSizeErr := errors.New(fmt.Sprintf("Failed to DeleteDisk. err = %s", err))
+		deleteDiskSizeErr := errors.New(fmt.Sprintf("Failed to DeleteDisk. err = %s", err.Error()))
 		cblogger.Error(deleteDiskSizeErr.Error())
 		LoggingError(hiscallInfo, deleteDiskSizeErr)
 		return false, deleteDiskSizeErr
 	}
 	deleteDisk, err := GetRawDisk(convertedDiskIId, diskHandler.Region.ResourceGroup, diskHandler.DiskClient, diskHandler.Ctx)
 	if err != nil {
-		deleteDiskSizeErr := errors.New(fmt.Sprintf("Failed to DeleteDisk. err = %s", err))
+		deleteDiskSizeErr := errors.New(fmt.Sprintf("Failed to DeleteDisk. err = %s", err.Error()))
 		cblogger.Error(deleteDiskSizeErr.Error())
 		LoggingError(hiscallInfo, deleteDiskSizeErr)
 		return false, deleteDiskSizeErr
@@ -227,7 +227,7 @@ func (diskHandler *AzureDiskHandler) DeleteDisk(diskIID irs.IID) (bool, error) {
 	// Check status
 	err = checkDeleteStatus(deleteDisk)
 	if err != nil {
-		deleteDiskSizeErr := errors.New(fmt.Sprintf("Failed to DeleteDisk. err = %s", err))
+		deleteDiskSizeErr := errors.New(fmt.Sprintf("Failed to DeleteDisk. err = %s", err.Error()))
 		cblogger.Error(deleteDiskSizeErr.Error())
 		LoggingError(hiscallInfo, deleteDiskSizeErr)
 		return false, deleteDiskSizeErr
@@ -241,7 +241,7 @@ func (diskHandler *AzureDiskHandler) DeleteDisk(diskIID irs.IID) (bool, error) {
 	}
 	err = result.WaitForCompletionRef(diskHandler.Ctx, diskHandler.DiskClient.Client)
 	if err != nil {
-		deleteDiskSizeErr := errors.New(fmt.Sprintf("Failed to DeleteDisk. err = %s", err))
+		deleteDiskSizeErr := errors.New(fmt.Sprintf("Failed to DeleteDisk. err = %s", err.Error()))
 		cblogger.Error(deleteDiskSizeErr.Error())
 		LoggingError(hiscallInfo, deleteDiskSizeErr)
 		return false, deleteDiskSizeErr
@@ -251,19 +251,19 @@ func (diskHandler *AzureDiskHandler) DeleteDisk(diskIID irs.IID) (bool, error) {
 }
 
 func (diskHandler *AzureDiskHandler) AttachDisk(diskIID irs.IID, ownerVM irs.IID) (irs.DiskInfo, error) {
-	hiscallInfo := GetCallLogScheme(diskHandler.Region, "DISK", diskIID.NameId, "AttachDisk()")
+	hiscallInfo := GetCallLogScheme(diskHandler.Region, call.DISK, diskIID.NameId, "AttachDisk()")
 	start := call.Start()
 
 	disk, err := Attach(diskIID, ownerVM, diskHandler.CredentialInfo, diskHandler.Region, diskHandler.Ctx, diskHandler.VMClient, diskHandler.DiskClient)
 	if err != nil {
-		attachErr := errors.New(fmt.Sprintf("Failed to AttachDisk. err = %s", err))
+		attachErr := errors.New(fmt.Sprintf("Failed to AttachDisk. err = %s", err.Error()))
 		cblogger.Error(attachErr.Error())
 		LoggingError(hiscallInfo, attachErr)
 		return irs.DiskInfo{}, attachErr
 	}
 	info, err := setterDiskInfo(disk)
 	if err != nil {
-		attachErr := errors.New(fmt.Sprintf("Failed to AttachDisk. err = %s", err))
+		attachErr := errors.New(fmt.Sprintf("Failed to AttachDisk. err = %s", err.Error()))
 		cblogger.Error(attachErr.Error())
 		LoggingError(hiscallInfo, attachErr)
 		return irs.DiskInfo{}, attachErr
@@ -273,32 +273,32 @@ func (diskHandler *AzureDiskHandler) AttachDisk(diskIID irs.IID, ownerVM irs.IID
 }
 
 func (diskHandler *AzureDiskHandler) DetachDisk(diskIID irs.IID, ownerVM irs.IID) (bool, error) {
-	hiscallInfo := GetCallLogScheme(diskHandler.Region, "DISK", diskIID.NameId, "DetachDisk()")
+	hiscallInfo := GetCallLogScheme(diskHandler.Region, call.DISK, diskIID.NameId, "DetachDisk()")
 	start := call.Start()
 	convertedDiskIId, err := ConvertDiskIID(diskIID, diskHandler.CredentialInfo, diskHandler.Region)
 	if err != nil {
-		dettachErr := errors.New(fmt.Sprintf("Failed to DetachDisk. err = %s", err))
+		dettachErr := errors.New(fmt.Sprintf("Failed to DetachDisk. err = %s", err.Error()))
 		cblogger.Error(dettachErr.Error())
 		LoggingError(hiscallInfo, dettachErr)
 		return false, dettachErr
 	}
 	detachDisk, err := GetRawDisk(convertedDiskIId, diskHandler.Region.ResourceGroup, diskHandler.DiskClient, diskHandler.Ctx)
 	if err != nil {
-		dettachErr := errors.New(fmt.Sprintf("Failed to DetachDisk. err = %s", err))
+		dettachErr := errors.New(fmt.Sprintf("Failed to DetachDisk. err = %s", err.Error()))
 		cblogger.Error(dettachErr.Error())
 		LoggingError(hiscallInfo, dettachErr)
 		return false, dettachErr
 	}
 	convertedVMIID, err := ConvertVMIID(ownerVM, diskHandler.CredentialInfo, diskHandler.Region)
 	if err != nil {
-		dettachErr := errors.New(fmt.Sprintf("Failed to DetachDisk. GetVM err = %s", err))
+		dettachErr := errors.New(fmt.Sprintf("Failed to DetachDisk. GetVM err = %s", err.Error()))
 		cblogger.Error(dettachErr.Error())
 		LoggingError(hiscallInfo, dettachErr)
 		return false, dettachErr
 	}
 	vm, err := GetRawVM(convertedVMIID, diskHandler.Region.ResourceGroup, diskHandler.VMClient, diskHandler.Ctx)
 	if err != nil {
-		dettachErr := errors.New(fmt.Sprintf("Failed to DetachDisk. GetVM err = %s", err))
+		dettachErr := errors.New(fmt.Sprintf("Failed to DetachDisk. GetVM err = %s", err.Error()))
 		cblogger.Error(dettachErr.Error())
 		LoggingError(hiscallInfo, dettachErr)
 		return false, dettachErr
@@ -338,14 +338,14 @@ func (diskHandler *AzureDiskHandler) DetachDisk(diskIID irs.IID, ownerVM irs.IID
 	}
 	feature, err := diskHandler.VMClient.CreateOrUpdate(diskHandler.Ctx, diskHandler.Region.ResourceGroup, *vm.Name, vmOpts)
 	if err != nil {
-		dettachErr := errors.New(fmt.Sprintf("Failed to DetachDisk. err = %s", err))
+		dettachErr := errors.New(fmt.Sprintf("Failed to DetachDisk. err = %s", err.Error()))
 		cblogger.Error(dettachErr.Error())
 		LoggingError(hiscallInfo, dettachErr)
 		return false, dettachErr
 	}
 	err = feature.WaitForCompletionRef(diskHandler.Ctx, diskHandler.VMClient.Client)
 	if err != nil {
-		dettachErr := errors.New(fmt.Sprintf("Failed to DetachDisk. err = %s", err))
+		dettachErr := errors.New(fmt.Sprintf("Failed to DetachDisk. err = %s", err.Error()))
 		cblogger.Error(dettachErr.Error())
 		LoggingError(hiscallInfo, dettachErr)
 		return false, dettachErr

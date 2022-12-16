@@ -178,9 +178,10 @@ func (NLBHandler *AwsNLBHandler) CreateTargetGroup(nlbReqInfo irs.NLBInfo) (*elb
 		input.HealthyThresholdCount = aws.Int64(int64(nlbReqInfo.HealthChecker.Threshold))
 
 		//TCP는 HealthyThresholdCount와 UnhealthyThresholdCount 값을 동일하게 설정해야 함.
-		if strings.EqualFold(nlbReqInfo.HealthChecker.Protocol, "TCP") {
-			input.UnhealthyThresholdCount = aws.Int64(int64(nlbReqInfo.HealthChecker.Threshold))
-		}
+		// nlbReqInfo.HealthChecker.Threshold 에 Threshold 값밖에 없기 때문에 healthy Threshold, unhealthy Threshold 모두 같은 값으로 setting
+		//if strings.EqualFold(nlbReqInfo.HealthChecker.Protocol, "TCP") {
+		input.UnhealthyThresholdCount = aws.Int64(int64(nlbReqInfo.HealthChecker.Threshold))
+		//}
 	}
 
 	result, err := NLBHandler.Client.CreateTargetGroup(input)
@@ -379,7 +380,7 @@ func (NLBHandler *AwsNLBHandler) CheckHealthCheckerValidation(reqHealthCheckerIn
 	return nil
 }
 
-//&elbv2.CreateTargetGroupInput
+// &elbv2.CreateTargetGroupInput
 func (NLBHandler *AwsNLBHandler) CheckCreateValidation(nlbReqInfo irs.NLBInfo) error {
 	//&elbv2.CreateTargetGroupInput
 
@@ -397,7 +398,7 @@ func (NLBHandler *AwsNLBHandler) CheckCreateValidation(nlbReqInfo irs.NLBInfo) e
 	//return nil
 }
 
-//------ NLB Management
+// ------ NLB Management
 func (NLBHandler *AwsNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (irs.NLBInfo, error) {
 	cblogger.Debug(nlbReqInfo)
 
@@ -688,7 +689,7 @@ func (NLBHandler *AwsNLBHandler) ListNLB() ([]*irs.NLBInfo, error) {
 	return results, nil
 }
 
-//NLB 생성전에 NLB가 이미 존재하는지 체크 함.
+// NLB 생성전에 NLB가 이미 존재하는지 체크 함.
 func (NLBHandler *AwsNLBHandler) IsExistNLB(nlbName string) (bool, error) {
 
 	input := &elbv2.DescribeLoadBalancersInput{
@@ -1191,7 +1192,7 @@ func (NLBHandler *AwsNLBHandler) DeleteNLB(nlbIID irs.IID) (bool, error) {
 	return true, nil
 }
 
-//------ Frontend Control
+// ------ Frontend Control
 // Protocol 하고 Port 정보만 변경 가능
 func (NLBHandler *AwsNLBHandler) ChangeListener(nlbIID irs.IID, listener irs.ListenerInfo) (irs.ListenerInfo, error) {
 	if nlbIID.SystemId == "" {
@@ -1335,7 +1336,7 @@ func (NLBHandler *AwsNLBHandler) ChangeListener(nlbIID irs.IID, listener irs.Lis
 
 }
 
-//------ Backend Control
+// ------ Backend Control
 func (NLBHandler *AwsNLBHandler) ChangeVMGroupInfo(nlbIID irs.IID, vmGroup irs.VMGroupInfo) (irs.VMGroupInfo, error) {
 	// logger for HisCall
 	callogger := call.GetLogger("HISCALL")
@@ -1549,8 +1550,8 @@ func (NLBHandler *AwsNLBHandler) RemoveVMs(nlbIID irs.IID, vmIIDs *[]irs.IID) (b
 	return true, nil
 }
 
-//ExtractVMGroupInfo에서 GetVMGroupHealthInfo를 호출하는 형태로 사용되면 발생할 무한 루프 방지를 위해 별도의 함수로 분리 함.
-//https://docs.aws.amazon.com/elasticloadbalancing/latest/APIReference/API_TargetHealth.html
+// ExtractVMGroupInfo에서 GetVMGroupHealthInfo를 호출하는 형태로 사용되면 발생할 무한 루프 방지를 위해 별도의 함수로 분리 함.
+// https://docs.aws.amazon.com/elasticloadbalancing/latest/APIReference/API_TargetHealth.html
 func (NLBHandler *AwsNLBHandler) ExtractVMGroupHealthInfo(targetGroupArn string) (irs.HealthInfo, error) {
 	input := &elbv2.DescribeTargetHealthInput{
 		TargetGroupArn: aws.String(targetGroupArn),

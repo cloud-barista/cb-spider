@@ -32,6 +32,8 @@ const (
         SUBNETGROUP IIDGroup = "iids:subnet"
         SGGROUP IIDGroup = "iids:sg"
         NLBGROUP IIDGroup = "iids:nlb"
+        CLUSTERGROUP IIDGroup = "iids:cluster"
+        NGGROUP IIDGroup = "iids:nodegroup"
 )
 
 /* //====================================================================

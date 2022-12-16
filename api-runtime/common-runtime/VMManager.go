@@ -19,6 +19,7 @@ import (
 	cim "github.com/cloud-barista/cb-spider/cloud-info-manager"
 	ccm "github.com/cloud-barista/cb-spider/cloud-control-manager"
 	cres "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
+	ccon "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/connect"
 	iidm "github.com/cloud-barista/cb-spider/cloud-control-manager/iid-manager"
 	"github.com/cloud-barista/cb-spider/cloud-control-manager/vm-ssh"
 
@@ -270,10 +271,29 @@ func RegisterVM(connectionName string, userIID cres.IID) (*cres.VMInfo, error) {
                 return nil, err
         }
 
-        // current: Assume 22 port, except Cloud-Twin, by powerkim, 2021.03.24.
-        if getInfo.SSHAccessPoint == "" {
-                getInfo.SSHAccessPoint = getInfo.PublicIP + ":22"
-        }
+	        // check Winddows GuestOS
+        isWindowsOS := false
+        isWindowsOS, err = checkImageWindowsOS(cldConn, getInfo.ImageType, getInfo.ImageIId)
+        if err != nil {
+                if strings.Contains(err.Error(), "yet!") {
+                        cblog.Info(err)
+                } else {
+                        cblog.Error(err)
+                        //return nil, err                        
+                        getInfo.SSHAccessPoint = getInfo.PublicIP
+                }
+        } else {
+		if isWindowsOS {
+	                getInfo.VMUserId = "Administrator"
+			getInfo.SSHAccessPoint = getInfo.PublicIP + ":3389"
+	        } else {
+	                getInfo.VMUserId = "cb-user"
+	                // current: Assume 22 port, except Cloud-Twin, by powerkim, 2021.03.24.
+	                if getInfo.SSHAccessPoint == "" {
+	                        getInfo.SSHAccessPoint = getInfo.PublicIP + ":22"
+	                }
+	        }
+	}
 
 
         // (3) create spiderIID: {UserID, SP-XID:CSP-ID}
@@ -421,6 +441,30 @@ func StartVM(connectionName string, rsType string, reqInfo cres.VMReqInfo) (*cre
 		}
 	}
 
+	// check Winddows GuestOS
+	isWindowsOS := false
+	isWindowsOS, err = checkImageWindowsOS(cldConn, reqInfoForDriver.ImageType, reqInfoForDriver.ImageIID)
+	if err != nil {
+		if strings.Contains(err.Error(), "yet!") {
+			cblog.Info(err)
+		} else {
+			cblog.Error(err)
+			return nil, err
+		}
+	}
+
+	if isWindowsOS {
+		adminID := "Administrator"
+		if reqInfoForDriver.VMUserId == "" {
+			reqInfo.VMUserId = adminID
+			reqInfoForDriver.VMUserId = adminID
+		}
+		if reqInfoForDriver.VMUserId != adminID {
+			cblog.Error(err)
+			return nil, fmt.Errorf(reqInfoForDriver.VMUserId + ": cannot be used for Windows GuestOS UserID!")
+		}
+	}
+
 	callInfo := call.CLOUDLOGSCHEMA {
                 CloudOS: call.CLOUD_OS(providerName),
                 RegionZone: regionName + "/" + zoneName,
@@ -477,7 +521,7 @@ func StartVM(connectionName string, rsType string, reqInfo cres.VMReqInfo) (*cre
                 }
 	}
 
-	if !checkError.Flag  && providerName != "MOCK" {
+	if !checkError.Flag && !isWindowsOS && providerName != "MOCK" {
 		// --- <step-2> Check SSHD Daemon of new VM
 		waiter2 := NewWaiter(2, 120) // (sleep, timeout) 
 
@@ -540,16 +584,23 @@ func StartVM(connectionName string, rsType string, reqInfo cres.VMReqInfo) (*cre
 	/////////////////////////////////
 	setNameId(connectionName, &info, &reqInfo)
 
-	// current: Assume 22 port, except Cloud-Twin, by powerkim, 2021.03.24.
-	if info.SSHAccessPoint == "" {
-		info.SSHAccessPoint = info.PublicIP + ":22"
+	if isWindowsOS {
+		info.VMUserId = reqInfo.VMUserId
+		info.VMUserPasswd = reqInfo.VMUserPasswd
+		info.SSHAccessPoint = info.PublicIP + ":3389"
+	} else {
+		info.VMUserId = "cb-user"
+		// current: Assume 22 port, except Cloud-Twin, by powerkim, 2021.03.24.
+		if info.SSHAccessPoint == "" {
+			info.SSHAccessPoint = info.PublicIP + ":22"
+		}
 	}
 
-	if checkError.Flag {
-		return &info, fmt.Errorf(checkError.MSG)
-	} else {
+	//if checkError.Flag {
+	//	return &info, fmt.Errorf(checkError.MSG)
+	//} else {
 		return &info, nil
-	}
+	//}
 }
 
 func checkImageType(reqInfo *cres.VMReqInfo) error {
@@ -569,6 +620,28 @@ func checkImageType(reqInfo *cres.VMReqInfo) error {
 	}
 	return nil
 }
+
+func checkImageWindowsOS(cldConn ccon.CloudConnection, imageType cres.ImageType, imageIID cres.IID) (bool, error) {
+
+	if imageType == cres.PublicImage {
+		handler, err := cldConn.CreateImageHandler()
+		if err != nil {
+			cblog.Error(err)
+			return false, err
+		}
+		return handler.CheckWindowsImage(imageIID)
+	}
+	if imageType == cres.MyImage {
+		handler, err := cldConn.CreateMyImageHandler()
+                if err != nil {
+                        cblog.Error(err)
+                        return false, err
+                }
+                return handler.CheckWindowsImage(imageIID)
+	}
+	return false, fmt.Errorf(string(imageType) + " is not supported ImageType!")
+}
+
 
 func cloneReqInfoWithDriverIID(ConnectionName string, reqInfo cres.VMReqInfo) (cres.VMReqInfo, error) {
 
@@ -965,9 +1038,35 @@ vmSPLock.RUnlock(connectionName, iid.NameId)
 	}
 vmSPLock.RUnlock(connectionName, iid.NameId)
 
-	// current: Assume 22 port, except Cloud-Twin, by powerkim, 2021.03.24.
-	if info.SSHAccessPoint == "" {
-		info.SSHAccessPoint = info.PublicIP + ":22"
+
+        cldConn, err := ccm.GetCloudConnection(connectionName)
+        if err != nil {
+                cblog.Error(err)
+                return 
+        }
+
+        // check Winddows GuestOS
+        isWindowsOS := false
+        isWindowsOS, err = checkImageWindowsOS(cldConn, info.ImageType, info.ImageIId)
+        if err != nil {
+                if strings.Contains(err.Error(), "yet!") {
+                        cblog.Info(err)
+                } else {
+                        cblog.Error(err)
+                        //return 
+			info.SSHAccessPoint = info.PublicIP
+                }
+        } else {
+		if isWindowsOS {
+			info.VMUserId = "Administrator"
+			info.SSHAccessPoint = info.PublicIP + ":3389"
+		} else {
+			info.VMUserId = "cb-user"
+			// current: Assume 22 port, except Cloud-Twin, by powerkim, 2021.03.24.
+			if info.SSHAccessPoint == "" {
+				info.SSHAccessPoint = info.PublicIP + ":22"
+			}
+		}
 	}
 
 	retInfo <- ResultVMInfo{info, nil}
@@ -1042,8 +1141,8 @@ func getSetNameId(ConnectionName string, vmInfo *cres.VMInfo) error {
                 IIdInfo, err := iidRWLock.GetIIDbySystemID(iidm.IIDSGROUP, ConnectionName, rsDisk, diskIID)
                 if err != nil {
                         cblog.Error(err)
-                        return err
-                }
+					return err
+				}
                 vmInfo.DataDiskIIDs[i].NameId = IIdInfo.IId.NameId
 	}
 
@@ -1115,12 +1214,69 @@ func GetVM(connectionName string, rsType string, nameID string) (*cres.VMInfo, e
 		info.SecurityGroupIIds[i].NameId = vpc_sg_nameid[1]
 	}
 */
-	// current: Assume 22 port, except Cloud-Twin, by powerkim, 2021.03.24.
-        if info.SSHAccessPoint == "" {
-                info.SSHAccessPoint = info.PublicIP + ":22"
-        }
+
+        // check Winddows GuestOS
+        isWindowsOS := false
+        isWindowsOS, err = checkImageWindowsOS(cldConn, info.ImageType, info.ImageIId)
+        if err != nil {
+                if strings.Contains(err.Error(), "yet!") {
+                        cblog.Info(err)
+                } else {
+                        cblog.Error(err)
+                        //return nil, err
+			info.SSHAccessPoint = info.PublicIP
+                }
+        } else {
+		if isWindowsOS {
+			info.VMUserId = "Administrator"
+			info.SSHAccessPoint = info.PublicIP + ":3389"
+		} else {
+			info.VMUserId = "cb-user"
+			// current: Assume 22 port, except Cloud-Twin, by powerkim, 2021.03.24.
+			if info.SSHAccessPoint == "" {
+				info.SSHAccessPoint = info.PublicIP + ":22"
+			}
+		}
+	}
 
 	return &info, nil
+}
+
+func GetCSPVM(connectionName string, rsType string, cspID string) (*cres.VMInfo, error) {
+        cblog.Info("call GetVM()")
+
+        // check empty and trim user inputs
+        connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)
+        if err != nil {
+                cblog.Error(err)
+                return nil, err
+        }
+
+        cspID, err = EmptyCheckAndTrim("cspID", cspID)
+        if err != nil {
+                cblog.Error(err)
+                return nil, err
+        }
+
+        cldConn, err := ccm.GetCloudConnection(connectionName)
+        if err != nil {
+                cblog.Error(err)
+                return nil, err
+        }
+
+        handler, err := cldConn.CreateVMHandler()
+        if err != nil {
+                cblog.Error(err)
+                return nil, err
+        }
+
+        info, err := handler.GetVM(cres.IID{"", cspID})
+        if err != nil {
+                cblog.Error(err)
+                return nil, err
+        }
+
+        return &info, nil
 }
 
 // (1) get IID:list

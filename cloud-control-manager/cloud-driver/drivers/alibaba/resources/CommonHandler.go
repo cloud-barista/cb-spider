@@ -3,15 +3,16 @@ package resources
 import (
 	"encoding/json"
 	"errors"
+	"reflect"
+	"strings"
+	"time"
+
 	"github.com/aliyun/alibaba-cloud-sdk-go/sdk/requests"
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/ecs"
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/davecgh/go-spew/spew"
-	"reflect"
-	"strings"
-	"time"
 )
 
 //// Alibaba API 1:1로 대응
@@ -347,7 +348,7 @@ func DescribeImages(client *ecs.Client, regionInfo idrv.RegionInfo, imageIIDs []
 
 /*
 *
-DiskID로 1개 Disk의 정보 조회
+ImageID로 1개 Image의 정보 조회
 */
 func DescribeImageByImageId(client *ecs.Client, regionInfo idrv.RegionInfo, imageIID irs.IID, isMyImage bool) (ecs.Image, error) {
 
@@ -435,7 +436,7 @@ func WaitForImageStatus(client *ecs.Client, regionInfo idrv.RegionInfo, imageIID
 	//cblogger.Info("======> MyImage 생성 직후에는 정보 조회가 안되기 때문에 원하는 상태(ex.Available) 될 때까지 대기함.")
 
 	curRetryCnt := 0
-	maxRetryCnt := 120
+	maxRetryCnt := 600
 
 	targetStatus := ""
 	failStatus := ALIBABA_IMAGE_STATE_ERROR
@@ -520,4 +521,41 @@ func WaitForImageStatus(client *ecs.Client, regionInfo idrv.RegionInfo, imageIID
 	//	return irs.MyImageStatus(abnormalAliImageState), nil
 	//}
 	//return irs.MyImageStatus(aliImageState), nil
+}
+
+// Image의 OS Type을 string으로 반환
+func DescribeImageOsType(client *ecs.Client, regionInfo idrv.RegionInfo, imageIID irs.IID, isMyImage bool) (string, error) {
+
+	result, err := DescribeImageByImageId(client, regionInfo, imageIID, isMyImage)
+
+	if err != nil {
+		return "", err
+	}
+
+	osType := GetOsType(result)
+	return osType, nil
+}
+
+// Image에서 OSTYPE 만 추출
+func GetOsType(ecsImage ecs.Image) string {
+	osType := ecsImage.OSType //"OSType": "windows"
+	cblogger.Info("osType = ", osType)
+	return osType
+}
+
+// Image에서 상태만 추출
+func GetImageStatus(ecsImage ecs.Image) string {
+	return ecsImage.Status
+}
+
+// Image에서 SnapShotID 목록 추출
+func GetSnapShotIdList(ecsImage ecs.Image) []string {
+	var snapShotIdList []string
+
+	devices := ecsImage.DiskDeviceMappings
+	for _, diskDeviceMapping := range devices.DiskDeviceMapping {
+		snapShotIdList = append(snapShotIdList, diskDeviceMapping.SnapshotId)
+	}
+
+	return snapShotIdList
 }

@@ -357,6 +357,28 @@ func New(cloudConnectName string, rsType string, uid string) (string, error) {
 		return uid, nil
 	}
 
+	// MaxLength = 12, lower, number, Cannot use '-'
+	if cccInfo.ProviderName == "AZURE" && rsType == "nodegroup" {
+		retUID := strings.ToLower(strings.ReplaceAll(uid, "-", ""))
+
+		if len(retUID) > 12 {
+			// #6 + #6 => #12
+			retUID = uid[:6] + xid.New().String()[0:6]
+		}
+		return retUID, nil
+	}
+
+	// MaxLenth = 20, lower, number, '-'
+	if cccInfo.ProviderName == "NHNCLOUD" && (rsType == "cluster" || rsType == "nodegroup") {
+		retUID := strings.ToLower(uid)
+
+		if len(retUID) > 20 {
+			// #10 + #10 => #20
+			retUID = uid[:10] + xid.New().String()[0:10]
+		}
+		return retUID, nil
+	}
+
 	// default length: 9 + 21 => 30 (NCP's ID Length, the shortest)
 	//   ex) AWS maxLen(VMID)=255, #234 + #1 + #20 <== "{UID}-{XID}", {XID} = #20
 	maxLength := 9
@@ -434,6 +456,8 @@ func getIDXNumber(rsType string) int {
 		return 7
 	case "cluster": 
 		return 8
+	case "nodegroup": 
+		return 9
 	default: 
 		return -1
 	}

@@ -97,7 +97,10 @@ func (nlbHandler *IbmNLBHandler) ListNLB() ([]*irs.NLBInfo, error) {
 
 	if len(errList) > 0 {
 		errList = append([]string{"Failed to List NLB. err = "}, errList...)
-		return nil, errors.New(strings.Join(errList, "\n\t"))
+		getErr := errors.New(fmt.Sprintf("Failed to List NLB. err = %s", strings.Join(errList, "\n\t")))
+		cblogger.Error(getErr.Error())
+		LoggingError(hiscallInfo, getErr)
+		return nil, getErr
 	}
 
 	return nlbInfoList, nil
@@ -402,7 +405,10 @@ func (nlbHandler *IbmNLBHandler) AddVMs(nlbIID irs.IID, vmIIDs *[]irs.IID) (irs.
 	for _, addVMIId := range addedVm {
 		for _, currentIId := range currentVMIIDs {
 			if strings.EqualFold(addVMIId.NameId, currentIId.NameId) {
-				return irs.VMGroupInfo{}, errors.New("can't add already exist vm")
+				changeErr := errors.New(fmt.Sprintf("Failed to Add VMs. err = can't add already exist vm"))
+				cblogger.Error(changeErr.Error())
+				LoggingError(hiscallInfo, changeErr)
+				return irs.VMGroupInfo{}, changeErr
 			}
 		}
 	}

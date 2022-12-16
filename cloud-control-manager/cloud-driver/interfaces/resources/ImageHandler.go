@@ -28,5 +28,6 @@ type ImageHandler interface {
 	CreateImage(imageReqInfo ImageReqInfo) (ImageInfo, error)
 	ListImage() ([]*ImageInfo, error)
 	GetImage(imageIID IID) (ImageInfo, error)
+	CheckWindowsImage(imageIID IID) (bool, error)
 	DeleteImage(imageIID IID) (bool, error)
 }

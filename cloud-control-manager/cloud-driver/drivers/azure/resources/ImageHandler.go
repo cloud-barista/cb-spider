@@ -129,17 +129,16 @@ func (imageHandler *AzureImageHandler) CreateImage(imageReqInfo irs.ImageReqInfo
 func (imageHandler *AzureImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 	// log HisCall
 	hiscallInfo := GetCallLogScheme(imageHandler.Region, call.VMIMAGE, Image, "ListImage()")
-
+	start := call.Start()
 	var imageList []*irs.ImageInfo
 
 	publishers, err := imageHandler.VMImageClient.ListPublishers(context.TODO(), imageHandler.Region.Region)
 	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return nil, err
+		createErr := errors.New(fmt.Sprintf("Failed to List Image. err = %s", err.Error()))
+		cblogger.Error(createErr)
+		LoggingError(hiscallInfo, createErr)
+		return nil, createErr
 	}
-
-	start := call.Start()
 
 	var publisherWg sync.WaitGroup
 	publisherWg.Add(len(*publishers.Value))
@@ -189,15 +188,15 @@ func (imageHandler *AzureImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 func (imageHandler *AzureImageHandler) GetImage(imageIID irs.IID) (irs.ImageInfo, error) {
 	// log HisCall
 	hiscallInfo := GetCallLogScheme(imageHandler.Region, call.VMIMAGE, imageIID.NameId, "GetImage()")
-
+	start := call.Start()
 	imageArr := strings.Split(imageIID.NameId, ":")
 
 	// 이미지 URN 형식 검사
 	if len(imageArr) != 4 {
-		formatErr := errors.New("invalid format for image ID, imageId=" + imageIID.NameId)
-		cblogger.Error(formatErr.Error())
-		LoggingError(hiscallInfo, formatErr)
-		return irs.ImageInfo{}, formatErr
+		createErr := errors.New(fmt.Sprintf("Failed to Get Image. err = %s", "invalid format for image ID, imageId="+imageIID.NameId))
+		cblogger.Error(createErr)
+		LoggingError(hiscallInfo, createErr)
+		return irs.ImageInfo{}, createErr
 	}
 
 	// 해당 이미지 publisher, offer, skus 기준 version 목록 조회 (latest 기준 조회 기능 미활용)
@@ -232,12 +231,13 @@ func (imageHandler *AzureImageHandler) GetImage(imageIID irs.IID) (irs.ImageInfo
 	*/
 
 	// 1개의 버전 정보를 기준으로 이미지 정보 조회
-	start := call.Start()
+
 	vmImage, err := imageHandler.VMImageClient.Get(imageHandler.Ctx, imageHandler.Region.Region, imageArr[0], imageArr[1], imageArr[2], imageArr[3])
 	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return irs.ImageInfo{}, err
+		createErr := errors.New(fmt.Sprintf("Failed to Get Image. err = %s", err.Error()))
+		cblogger.Error(createErr)
+		LoggingError(hiscallInfo, createErr)
+		return irs.ImageInfo{}, createErr
 	}
 	LoggingInfo(hiscallInfo, start)
 
@@ -266,4 +266,32 @@ func (imageHandler *AzureImageHandler) DeleteImage(imageIID irs.IID) (bool, erro
 	}
 
 	return true, nil
+}
+
+func (imageHandler *AzureImageHandler) CheckWindowsImage(imageIID irs.IID) (bool, error) {
+	hiscallInfo := GetCallLogScheme(imageHandler.Region, call.VMIMAGE, imageIID.NameId, "CheckWindowsImage()")
+	start := call.Start()
+	if imageIID.NameId == "" && imageIID.SystemId == "" {
+		checkWindowsImageErr := errors.New(fmt.Sprintf("Failed to CheckWindowsImage By Image. err = empty ImageIID"))
+		cblogger.Error(checkWindowsImageErr.Error())
+		LoggingError(hiscallInfo, checkWindowsImageErr)
+		return false, checkWindowsImageErr
+	}
+	imageName := imageIID.NameId
+	if imageIID.NameId == "" {
+		imageName = imageIID.SystemId
+	}
+	imageNameSplits := strings.Split(imageName, ":")
+	if len(imageNameSplits) != 4 {
+		checkWindowsImageErr := errors.New(fmt.Sprintf("Failed to CheckWindowsImage By Image. err = invalid ImageIID, Image Name must be in the form of 'Publisher:Offer:Sku:Version'. "))
+		cblogger.Error(checkWindowsImageErr.Error())
+		LoggingError(hiscallInfo, checkWindowsImageErr)
+		return false, checkWindowsImageErr
+	}
+	offer := imageNameSplits[1]
+	LoggingInfo(hiscallInfo, start)
+	if strings.Contains(strings.ToLower(offer), "window") {
+		return true, nil
+	}
+	return false, nil
 }

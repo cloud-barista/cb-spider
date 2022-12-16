@@ -21,6 +21,7 @@ import (
 
 
 	"github.com/go-redis/redis"
+	"fmt"
 )
 
 
@@ -137,3 +138,8 @@ func (imageHandler *MiniImageHandler) DeleteImage(imageIID irs.IID) (bool, error
 
 	return false, errors.New("not implemented")
 }
+
+func (imageHandler *MiniImageHandler) CheckWindowsImage(imageIID irs.IID) (bool, error) {
+	return false, fmt.Errorf("Does not support CheckWindowsImage() yet!!")
+}
+

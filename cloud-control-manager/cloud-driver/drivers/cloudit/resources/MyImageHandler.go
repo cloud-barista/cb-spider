@@ -30,13 +30,14 @@ func (myImageHandler *ClouditMyImageHandler) SnapshotVM(snapshotReqInfo irs.MyIm
 	// MyImage 이름 중복 체크
 	exist, err := myImageHandler.getExistMyImageName(snapshotReqInfo.IId.NameId)
 	if exist {
-		createErr = errors.New(fmt.Sprintf("Failed to Create MyImage. err = %s already exist", snapshotReqInfo.IId.NameId))
+		createErr = errors.New(fmt.Sprintf("Failed to SnapshotVM VM. err = %s already exist", snapshotReqInfo.IId.NameId))
 		if err != nil {
-			createErr = errors.New(fmt.Sprintf("Failed to Create MyImage. err = %s", err.Error()))
+			createErr = errors.New(fmt.Sprintf("Failed to SnapshotVM VM. err = %s", err.Error()))
 			cblogger.Error(createErr.Error())
 			LoggingError(hiscallInfo, createErr)
 			return irs.MyImageInfo{}, createErr
 		}
+		createErr = errors.New(fmt.Sprintf("Failed to SnapshotVM VM. err = %s", createErr.Error()))
 		cblogger.Error(createErr.Error())
 		LoggingError(hiscallInfo, createErr)
 		return irs.MyImageInfo{}, createErr
@@ -50,9 +51,12 @@ func (myImageHandler *ClouditMyImageHandler) SnapshotVM(snapshotReqInfo irs.MyIm
 		defer func(myImageIID irs.IID) (irs.MyImageInfo, error) {
 			cleanErr := myImageHandler.cleanSnapshotsByMyImage(myImageIID)
 			if cleanErr != nil {
-				createErr = errors.New(fmt.Sprintf("Failed to Create and Clean MyImage. err = %s", cleanErr.Error()))
+				createErr = errors.New(fmt.Sprintf("Failed to SnapshotVM VM and Clean MyImage. err = %s", cleanErr.Error()))
 			}
 			if createErr != nil {
+				createErr = errors.New(fmt.Sprintf("Failed to SnapshotVM VM. err = %s", createErr.Error()))
+				cblogger.Error(createErr.Error())
+				LoggingError(hiscallInfo, createErr)
 				return irs.MyImageInfo{}, createErr
 			}
 			return irs.MyImageInfo{}, nil
@@ -62,7 +66,10 @@ func (myImageHandler *ClouditMyImageHandler) SnapshotVM(snapshotReqInfo irs.MyIm
 	// MyImageInfo 반환
 	myImageInfo, getMyImageInfoErr := myImageHandler.getMyImageInfo(snapshotReqInfo.IId.NameId)
 	if getMyImageInfoErr != nil {
-		return irs.MyImageInfo{}, errors.New(fmt.Sprintf("Failed to Get MyImage Info. err = %s", getMyImageInfoErr.Error()))
+		createErr = errors.New(fmt.Sprintf("Failed to SnapshotVM VM. err = Failed to Get MyImage Info. err = %s", getMyImageInfoErr.Error()))
+		cblogger.Error(createErr.Error())
+		LoggingError(hiscallInfo, createErr)
+		return irs.MyImageInfo{}, createErr
 	}
 	LoggingInfo(hiscallInfo, start)
 
@@ -70,18 +77,20 @@ func (myImageHandler *ClouditMyImageHandler) SnapshotVM(snapshotReqInfo irs.MyIm
 }
 
 func (myImageHandler *ClouditMyImageHandler) ListMyImage() ([]*irs.MyImageInfo, error) {
-	hiscallInfo := GetCallLogScheme(ClouditRegion, "MYIMAGE", "MYIMAGE", "ListMyImage()")
-
+	hiscallInfo := GetCallLogScheme(ClouditRegion, call.MYIMAGE, "MYIMAGE", "ListMyImage()")
+	start := call.Start()
 	myImageHandler.Client.TokenID = myImageHandler.CredentialInfo.AuthToken
 	authHeader := myImageHandler.Client.AuthenticatedHeaders()
 	requestOpts := client.RequestOpts{
 		MoreHeaders: authHeader,
 	}
 
-	start := call.Start()
 	vmSnapshotList, err := snapshot.List(myImageHandler.Client, &requestOpts)
 	if err != nil {
-		return nil, err
+		createErr := errors.New(fmt.Sprintf("Failed to List MyImage. err = %s", err.Error()))
+		cblogger.Error(createErr.Error())
+		LoggingError(hiscallInfo, createErr)
+		return nil, createErr
 	}
 
 	groupByMyImageResult := make(map[string][]snapshot.SnapshotInfo)
@@ -94,7 +103,10 @@ func (myImageHandler *ClouditMyImageHandler) ListMyImage() ([]*irs.MyImageInfo, 
 	for _, associcatedSnapshots := range groupByMyImageResult {
 		myImage, toMyImageErr := snapshot.ToIRSMyImage(myImageHandler.Client, &associcatedSnapshots)
 		if toMyImageErr != nil {
-			return nil, toMyImageErr
+			createErr := errors.New(fmt.Sprintf("Failed to List MyImage. err = %s", toMyImageErr.Error()))
+			cblogger.Error(createErr.Error())
+			LoggingError(hiscallInfo, createErr)
+			return nil, createErr
 		}
 		myImageInfoList = append(myImageInfoList, &myImage)
 	}
@@ -104,44 +116,54 @@ func (myImageHandler *ClouditMyImageHandler) ListMyImage() ([]*irs.MyImageInfo, 
 }
 
 func (myImageHandler *ClouditMyImageHandler) GetMyImage(myImageIID irs.IID) (irs.MyImageInfo, error) {
-	hiscallInfo := GetCallLogScheme(ClouditRegion, "MYIMAGE", "MYIMAGE", "GetMyImage()")
+	hiscallInfo := GetCallLogScheme(ClouditRegion, call.MYIMAGE, myImageIID.NameId, "GetMyImage()")
 
 	if myImageIID.NameId == "" && myImageIID.SystemId == "" {
-		return irs.MyImageInfo{}, errors.New(fmt.Sprintf("Failed to Get MyImage. err = MyImage Name ID or System ID is required"))
-	} else if myImageIID.NameId != "" && myImageIID.SystemId != "" {
-		return irs.MyImageInfo{}, errors.New(fmt.Sprintf("Failed to Get MyImage. err = Ambigous image ID, %s", myImageIID))
+		createErr := errors.New(fmt.Sprintf("Failed to Get MyImage. err = MyImage Name ID or System ID is required"))
+		cblogger.Error(createErr.Error())
+		LoggingError(hiscallInfo, createErr)
+		return irs.MyImageInfo{}, createErr
 	}
 
 	start := call.Start()
 	myImageList, err := myImageHandler.ListMyImage()
 	if err != nil {
-		return irs.MyImageInfo{}, err
+		createErr := errors.New(fmt.Sprintf("Failed to Get MyImage. err = %s", err.Error()))
+		cblogger.Error(createErr.Error())
+		LoggingError(hiscallInfo, createErr)
+		return irs.MyImageInfo{}, createErr
 	}
 
 	for _, myImage := range myImageList {
-		if myImage.IId.NameId == myImageIID.NameId {
+		if myImage.IId.SystemId == myImageIID.SystemId {
+			LoggingInfo(hiscallInfo, start)
 			return *myImage, nil
-		} else if myImage.IId.SystemId == myImageIID.SystemId {
+		} else if myImage.IId.NameId == myImageIID.NameId {
+			LoggingInfo(hiscallInfo, start)
 			return *myImage, nil
 		}
 	}
-	LoggingInfo(hiscallInfo, start)
-
-	return irs.MyImageInfo{}, errors.New("MyImage not found")
+	createErr := errors.New(fmt.Sprintf("Failed to Get MyImage. err = MyImage not found"))
+	cblogger.Error(createErr.Error())
+	LoggingError(hiscallInfo, createErr)
+	return irs.MyImageInfo{}, createErr
 }
 
 func (myImageHandler *ClouditMyImageHandler) DeleteMyImage(myImageIID irs.IID) (bool, error) {
-	hiscallInfo := GetCallLogScheme(ClouditRegion, "MYIMAGE", "MYIMAGE", "DeleteMyImage()")
-
+	hiscallInfo := GetCallLogScheme(ClouditRegion, call.MYIMAGE, myImageIID.NameId, "DeleteMyImage()")
+	start := call.Start()
 	if myImageIID.NameId == "" && myImageIID.SystemId == "" {
-		return false, errors.New(fmt.Sprintf("Failed to Delete MyImage. err = MyImage Name ID or System ID is required"))
-	} else if myImageIID.NameId != "" && myImageIID.SystemId != "" {
-		return false, errors.New(fmt.Sprintf("Failed to Delete MyImage. err = Ambigous image ID, %s", myImageIID))
+		delErr := errors.New(fmt.Sprintf("Failed to Delete MyImage. err = MyImage Name ID or System ID is required"))
+		cblogger.Error(delErr.Error())
+		LoggingError(hiscallInfo, delErr)
+		return false, delErr
 	}
 
-	start := call.Start()
 	if err := myImageHandler.cleanSnapshotsByMyImage(myImageIID); err != nil {
-		return false, errors.New(fmt.Sprintf("Failed to Delete MyImage. err = %s", err))
+		delErr := errors.New(fmt.Sprintf("Failed to Delete MyImage. err = %s", err.Error()))
+		cblogger.Error(delErr.Error())
+		LoggingError(hiscallInfo, delErr)
+		return false, delErr
 	}
 	LoggingInfo(hiscallInfo, start)
 
@@ -223,6 +245,20 @@ func (myImageHandler *ClouditMyImageHandler) createMyImageSnapshots(myImageNameI
 		if !founded {
 			return irs.MyImageInfo{}, errors.New(fmt.Sprintf("SourceVM with Name ID: %s does not exists", sourceVm.NameId))
 		}
+	}
+
+	vmHandler := ClouditVMHandler{
+		CredentialInfo: myImageHandler.CredentialInfo,
+		Client:         myImageHandler.Client,
+	}
+
+	rawVm, getRawVmErr := vmHandler.getRawVm(irs.IID{SystemId: sourceVm.SystemId})
+	if getRawVmErr != nil {
+		return irs.MyImageInfo{}, errors.New("Failed to get Source VM Info")
+	}
+	if strings.Contains(strings.ToLower(rawVm.Template), "window") &&
+		rawVm.State != "STOPPED" {
+		return irs.MyImageInfo{}, errors.New("Cannot Create Windows VM Snapshot while Source VM is not Stopped")
 	}
 
 	vmVolumeList, err := server.GetRawVmVolumes(myImageHandler.Client, sourceVm.SystemId, &requestOpts)
@@ -522,4 +558,24 @@ func (myImageHandler *ClouditMyImageHandler) rollbackCreateVolumeBySnapshot(myIm
 	}
 
 	return nil
+}
+
+func (myImageHandler *ClouditMyImageHandler) CheckWindowsImage(myImageIID irs.IID) (bool, error) {
+	hiscallInfo := GetCallLogScheme(ClouditRegion, call.MYIMAGE, myImageIID.NameId, "CheckWindowsImage()")
+	start := call.Start()
+	imageHandler := ClouditImageHandler{
+		CredentialInfo: myImageHandler.CredentialInfo,
+		Client:         myImageHandler.Client,
+	}
+	rawRootImage, getRawRootImageErr := imageHandler.GetRawRootImage(myImageIID, true)
+	if getRawRootImageErr != nil {
+		checkWindowsImageErr := errors.New(fmt.Sprintf("Failed to CheckWindowsImage By MyImage. err = %s", getRawRootImageErr.Error()))
+		cblogger.Error(checkWindowsImageErr.Error())
+		LoggingError(hiscallInfo, checkWindowsImageErr)
+		return false, checkWindowsImageErr
+	}
+
+	isWindows := strings.Contains(strings.ToLower(rawRootImage.OS), "windows")
+	LoggingInfo(hiscallInfo, start)
+	return isWindows, nil
 }

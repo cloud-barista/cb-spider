@@ -17,13 +17,12 @@ import (
 
 	"github.com/aliyun/alibaba-cloud-sdk-go/sdk/requests"
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/ecs"
-	cblog "github.com/cloud-barista/cb-log"
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
+	cdcom "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/common"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	cim "github.com/cloud-barista/cb-spider/cloud-info-manager"
 	"github.com/davecgh/go-spew/spew"
-	"github.com/sirupsen/logrus"
 	/*
 		"github.com/davecgh/go-spew/spew"
 	*/)
@@ -31,13 +30,6 @@ import (
 type AlibabaVMHandler struct {
 	Region idrv.RegionInfo
 	Client *ecs.Client
-}
-
-var cblogger *logrus.Logger
-
-func init() {
-	// cblog is a global variable.
-	cblogger = cblog.GetLogger("CB-SPIDER")
 }
 
 // 주어진 이미지 id에 대한 이미지 사이즈 조회
@@ -127,6 +119,24 @@ func (vmHandler *AlibabaVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 		spew.Dump(userDataBase64)
 	*/
 
+	vmImage, err := DescribeImageByImageId(vmHandler.Client, vmHandler.Region, vmReqInfo.ImageIID, false)
+	if err != nil {
+		cblogger.Error(err)
+		errMsg := "요청된 이미지의 정보를 조회할 수 없습니다." + err.Error()
+		return irs.VMInfo{}, errors.New(errMsg)
+	}
+
+	isWindows := false
+	osType := GetOsType(vmImage) //"OSType": "windows"
+	if osType == "windows" {
+		isWindows = true
+
+		err := cdcom.ValidateWindowsPassword(vmReqInfo.VMUserPasswd)
+		if err != nil {
+			return irs.VMInfo{}, err
+		}
+	}
+
 	//=============================
 	// UserData생성 처리(File기반)
 	//=============================
@@ -174,12 +184,22 @@ func (vmHandler *AlibabaVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 	request.InstanceName = vmReqInfo.IId.NameId
 	//request.HostName = vmReqInfo.IId.NameId	// OS 호스트 명
 	request.InstanceType = vmReqInfo.VMSpecName
-	request.KeyPairName = vmReqInfo.KeyPairIID.SystemId
+
+	request.ZoneId = vmHandler.Region.Zone // Disk의 경우 zone dependency가 있어 Zone 명시해야 함.(disk가 없으면 무시해도 됨.)
+
+	// windows 일 떄는 password 만 set, keypairName은 비움.
+	// 다른 os일 때 password는 cb-user의 password 로 사용
+	if isWindows {
+		request.Password = vmReqInfo.VMUserPasswd
+	} else {
+		request.KeyPairName = vmReqInfo.KeyPairIID.SystemId
+
+		// cb user 추가
+		request.Password = vmReqInfo.VMUserPasswd //값에는 8-30자가 포함되고 대문자, 소문자, 숫자 및/또는 특수 문자가 포함되어야 합니다.
+		request.UserData = userDataBase64         // cbuser 추가
+	}
+
 	request.VSwitchId = vmReqInfo.SubnetIID.SystemId
-
-	request.Password = vmReqInfo.VMUserPasswd //값에는 8-30자가 포함되고 대문자, 소문자, 숫자 및/또는 특수 문자가 포함되어야 합니다.
-
-	request.UserData = userDataBase64 // cbuser 추가
 
 	//==============
 	//PublicIp 설정
@@ -278,12 +298,7 @@ func (vmHandler *AlibabaVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 		}
 
 		//imageSize, err := vmHandler.GetImageSize(vmReqInfo.ImageIID.SystemId)
-		imageSize, err := DescribeImageSize(vmHandler.Client, vmHandler.Region, vmReqInfo.ImageIID)
-		if err != nil {
-			cblogger.Error(err)
-			return irs.VMInfo{}, err
-		}
-
+		imageSize := int64(vmImage.Size)
 		if imageSize < 0 {
 			return irs.VMInfo{}, errors.New("요청된 이미지의 기본 사이즈 정보를 조회할 수 없습니다.")
 		} else {
@@ -298,7 +313,16 @@ func (vmHandler *AlibabaVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 
 	}
 
-	spew.Dump(request)
+	// Windows OS 처리
+	//"Platform": "Windows Server 2012",
+	//"OSName": "Windows Server  2012 R2 数据中心版 64位英文版",
+	//"OSType": "windows",
+	if isWindows {
+		//The password must be 8 to 30 characters in length
+		//and contain at least three of the following character types: uppercase letters, lowercase letters, digits, and special characters.
+		//Special characters include: // ( ) ` ~ ! @ # $ % ^ & * - _ + = | { } [ ] : ; ' < > , . ? /
+
+	}
 
 	//=============================
 	// VM생성 처리
@@ -364,6 +388,25 @@ func (vmHandler *AlibabaVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 		cblogger.Error(errVmInfo.Error())
 		return irs.VMInfo{}, errVmInfo
 	}
+
+	// VM을 삭제해도 DataDisk는 삭제되지 않도록 Attribute 설정
+	diskRequest := ecs.CreateModifyDiskAttributeRequest()
+	diskRequest.Scheme = "https"
+	diskRequest.DeleteWithInstance = requests.NewBoolean(false)
+
+	diskIds := []string{}
+
+	for _, dataDiskId := range vmInfo.DataDiskIIDs {
+		diskIds = append(diskIds, dataDiskId.SystemId)
+	}
+
+	diskRequest.DiskIds = &diskIds
+
+	_, diskErr := vmHandler.Client.ModifyDiskAttribute(diskRequest)
+	if err != nil {
+		return irs.VMInfo{}, errors.New("Instance created but modifying disk attributes failed " + diskErr.Error())
+	}
+
 	vmInfo.IId.NameId = vmReqInfo.IId.NameId
 
 	//VM 생성 시 요청한 계정 정보가 있을 경우 사용된 계정 정보를 함께 전달 함.

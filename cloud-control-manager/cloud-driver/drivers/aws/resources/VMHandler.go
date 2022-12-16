@@ -1,5 +1,5 @@
 // Proof of Concepts for the Cloud-Barista Multi-Cloud Project.
-//      * Cloud-Barista: https://github.com/cloud-barista
+//   - Cloud-Barista: https://github.com/cloud-barista
 //
 // EC2 Hander (AWS SDK GO Version 1.16.26, Thanks AWS.)
 //
@@ -21,10 +21,9 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/davecgh/go-spew/spew"
-	"github.com/sirupsen/logrus"
 
-	cblog "github.com/cloud-barista/cb-log"
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
+	cdcom "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/common"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 )
@@ -32,13 +31,6 @@ import (
 type AwsVMHandler struct {
 	Region idrv.RegionInfo
 	Client *ec2.EC2
-}
-
-var cblogger *logrus.Logger
-
-func init() {
-	// cblog is a global variable.
-	cblogger = cblog.GetLogger("CB-SPIDER")
 }
 
 func Connect(region string) *ec2.EC2 {
@@ -90,28 +82,74 @@ func (vmHandler *AwsVMHandler) GetAmiDiskInfo(ImageSystemId string) (int64, erro
 				isize := aws.Int64(*result.Images[0].BlockDeviceMappings[0].Ebs.VolumeSize)
 				return *isize, nil
 			} else {
-				cblogger.Error("BlockDeviceMappings에서 Ebs 정보를 찾을 수 없습니다.")
-				return -1, errors.New("BlockDeviceMappings에서 Ebs 정보를 찾을 수 없습니다.")
+				cblogger.Error("Ebs information not found in BlockDeviceMappings.")
+				return -1, errors.New("Ebs information not found in BlockDeviceMappings.")
 			}
 		} else {
-			cblogger.Error("BlockDeviceMappings 정보를 찾을 수 없습니다.")
-			return -1, errors.New("BlockDeviceMappings 정보를 찾을 수 없습니다.")
+			cblogger.Error("BlockDeviceMappings information not found.")
+			return -1, errors.New("BlockDeviceMappings information not found.")
 		}
 	} else {
-		cblogger.Error("요청된 Image 정보[" + ImageSystemId + "]를 찾을 수 없습니다.")
-		return -1, errors.New("요청된 Image 정보[" + ImageSystemId + "]를 찾을 수 없습니다.")
+		cblogger.Error("The requested Image[" + ImageSystemId + "]could not be found.")
+		return -1, errors.New("The requested Image[" + ImageSystemId + "]could not be found.")
 	}
 }
 
-//1개의 VM만 생성되도록 수정 (MinCount / MaxCount 이용 안 함)
-//키페어 이름(예:mcloud-barista)은 아래 URL에 나오는 목록 중 "키페어 이름"의 값을 적으면 됨.
-//https://ap-northeast-2.console.aws.amazon.com/ec2/v2/home?region=ap-northeast-2#KeyPairs:sort=keyName
+// 1개의 VM만 생성되도록 수정 (MinCount / MaxCount 이용 안 함)
+// 키페어 이름(예:mcloud-barista)은 아래 URL에 나오는 목록 중 "키페어 이름"의 값을 적으면 됨.
+// https://ap-northeast-2.console.aws.amazon.com/ec2/v2/home?region=ap-northeast-2#KeyPairs:sort=keyName
 func (vmHandler *AwsVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, error) {
 	cblogger.Debug(vmReqInfo)
 	if cblogger.Level.String() == "debug" {
 		spew.Dump(vmReqInfo)
 	}
 
+	// amiImage, errImgInfo := DescribeImageById(imageHandler.Client, &vmReqInfo.ImageIID, nil)
+	amiImage, errImgInfo := DescribeImageById(vmHandler.Client, &vmReqInfo.ImageIID, nil)
+	//amiImage, errImgInfo := imageHandler.GetAmiImage(vmReqInfo.ImageIID)
+	//imgInfo, errImgInfo := imageHandler.GetImage(vmReqInfo.ImageIID)
+	if errImgInfo != nil {
+		cblogger.Error(errImgInfo)
+		return irs.VMInfo{}, errImgInfo
+	}
+
+	// public image일 때
+	// 	 ImageOwnerAlias: "amazon"
+	// 	 OwnerId: "801119661308"
+	// MyImage일 때
+	//	 ImageOwnerAlias property가 없음
+	// 	 OwnerId는 자신의 Id(12자리)
+
+	isMyImage := false
+	abc := reflect.ValueOf(amiImage)
+	imageOwnerAliasField := abc.Elem().FieldByName("ImageOwnerAlias")
+	cblogger.Debugf("field: ", imageOwnerAliasField.IsValid())
+	if !imageOwnerAliasField.IsValid() {
+		cblogger.Debugf("ownerAlias: myimage ")
+		isMyImage = true
+	} else {
+		cblogger.Debugf("ownerAlias: ", imageOwnerAliasField)
+		cblogger.Debug("ownerAliasIsNil: ", imageOwnerAliasField.IsNil())
+		if imageOwnerAliasField.IsNil() {
+			isMyImage = true
+		}
+	}
+	cblogger.Debugf("isMyImage: ", isMyImage)
+	// cblogger.Debugf("abc: ", abc)
+	// if abc != nil {
+	// 	ownerAlias := amiImage.ImageOwnerAlias
+	// 	if *ownerAlias == "amazon" {
+	// 		cblogger.Debugf("ownerAlias: amazon ", *ownerAlias)
+	// 	} else {
+	// 		cblogger.Debugf("ownerAlias: myimage ", *ownerAlias)
+	// 		isMyImage = true
+	// 	}
+	// }
+	// if !reflect.ValueOf(&amiImage.ImageOwnerAlias).IsNil() {
+
+	// }
+
+	// cblogger.Debugf("OwnerId = ", *owner)
 	//===============================
 	// Root Disk Size 사전 검증 - 이슈#536
 	//===============================
@@ -122,14 +160,37 @@ func (vmHandler *AwsVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 			//vmReqInfo.RootDiskSize = strconv.FormatInt(imageVolumeSize, 10)
 		} else {
 			//이미지의 볼륨 사이즈를 조회함.
-			imageVolumeSize, err := vmHandler.GetAmiDiskInfo(vmReqInfo.ImageIID.SystemId)
+			//imageVolumeSize, err := vmHandler.GetAmiDiskInfo(vmReqInfo.ImageIID.SystemId)
+			//if err != nil {
+			//	cblogger.Error(err)
+			//	return irs.VMInfo{}, err
+			//}
+
+			imageVolumeSize, err := GetImageSizeFromEc2Image(amiImage)
 			if err != nil {
-				cblogger.Error(err)
 				return irs.VMInfo{}, err
 			}
 
+			// if len(result.Images) > 0 {
+			// 	if !reflect.ValueOf(result.Images[0].BlockDeviceMappings).IsNil() {
+			// 		if !reflect.ValueOf(result.Images[0].BlockDeviceMappings[0].Ebs).IsNil() {
+			// 			isize := aws.Int64(*result.Images[0].BlockDeviceMappings[0].Ebs.VolumeSize)
+			// 			return *isize, nil
+			// 		} else {
+			// 			cblogger.Error("BlockDeviceMappings에서 Ebs 정보를 찾을 수 없습니다.")
+			// 			return -1, errors.New("BlockDeviceMappings에서 Ebs 정보를 찾을 수 없습니다.")
+			// 		}
+			// 	} else {
+			// 		cblogger.Error("BlockDeviceMappings 정보를 찾을 수 없습니다.")
+			// 		return -1, errors.New("BlockDeviceMappings 정보를 찾을 수 없습니다.")
+			// 	}
+			// } else {
+			// 	cblogger.Error("요청된 Image 정보[" + ImageSystemId + "]를 찾을 수 없습니다.")
+			// 	return -1, errors.New("요청된 Image 정보[" + ImageSystemId + "]를 찾을 수 없습니다.")
+			// }
+
 			if imageVolumeSize < 0 {
-				return irs.VMInfo{}, awserr.New(CUSTOM_ERR_CODE_BAD_REQUEST, "요청된 이미지의 기본 볼륨 사이즈 정보를 조회할 수 없습니다.", nil)
+				return irs.VMInfo{}, awserr.New(CUSTOM_ERR_CODE_BAD_REQUEST, "Unable to query the default volume size for the requested image.", nil)
 			}
 
 			//요청된 사이즈 체크
@@ -227,16 +288,49 @@ func (vmHandler *AwsVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 	//=============================
 	// 향후 공통 파일이나 외부에서 수정 가능하도록 cloud-init 스크립트 파일로 설정
 	rootPath := os.Getenv("CBSPIDER_ROOT")
-	fileDataCloudInit, err := ioutil.ReadFile(rootPath + CBCloudInitFilePath)
+	initFilePath := rootPath + CBCloudInitFilePath // Linux용 Cloud Init Data 탬플릿
+	userData := ""
+	isWindowsImage := false
+
+	guestOS := GetOsTypeFromEc2Image(amiImage)
+	cblogger.Debugf("imgInfo.GuestOS : [%s]", guestOS)
+	if strings.Contains(strings.ToUpper(guestOS), "WINDOWS") {
+
+		err := cdcom.ValidateWindowsPassword(vmReqInfo.VMUserPasswd)
+		if err != nil {
+			return irs.VMInfo{}, err
+		}
+		isWindowsImage = true
+		initFilePath = rootPath + CBCloudInitWindowsFilePath //windows용 Cloud-Init 탬플릿으로 변경
+	} else {
+		isWindowsImage = false
+	}
+
+	fileDataCloudInit, err := ioutil.ReadFile(initFilePath)
 	if err != nil {
 		cblogger.Error(err)
 		return irs.VMInfo{}, err
 	}
-	userData := string(fileDataCloudInit)
+
+	//OS 종류에 따른 Cloud Init Data 처리
+	if isWindowsImage {
+		userData = strings.Replace(string(fileDataCloudInit), "*PASSWORD*", vmReqInfo.VMUserPasswd, 1)
+		cblogger.Debugf("Windows용 Cloud-Init : [%s]", userData)
+	} else {
+		userData = string(fileDataCloudInit)
+	}
+
 	//userData = strings.ReplaceAll(userData, "{{username}}", CBDefaultVmUserName)
 	//userData = strings.ReplaceAll(userData, "{{public_key}}", keyPairInfo.PublicKey)
 	userDataBase64 := aws.String(base64.StdEncoding.EncodeToString([]byte(userData)))
 	cblogger.Debugf("cloud-init data : [%s]", userDataBase64)
+
+	/*
+		if 1 == 1 {
+			cblogger.Error("====윈도우즈 지원 테스트로 강제 종료함. ====")
+			return irs.VMInfo{}, nil
+		}
+	*/
 
 	//=============================
 	// VM생성 처리
@@ -278,9 +372,23 @@ func (vmHandler *AwsVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 	//=============================
 	// SystemDisk 처리 - 이슈 #348에 의해 RootDisk 기능 지원
 	//=============================
+
+	// deleteOnTermination := false
 	//이슈#660 반영
 	if strings.EqualFold(vmReqInfo.RootDiskType, "default") {
 		vmReqInfo.RootDiskType = ""
+		// if isMyImage {
+		// 	// deleteOnTermination = true
+		// 	blockDeviceMappings := []*ec2.BlockDeviceMapping{
+		// 		{
+		// 			Ebs: &ec2.EbsBlockDevice{
+		// 				DeleteOnTermination: aws.Bool(deleteOnTermination),
+		// 			},
+		// 		},
+		// 	}
+		// 	input.SetBlockDeviceMappings(blockDeviceMappings)
+		// 	cblogger.Debugf("MyImage set DeleteOnTermination = ", isMyImage, deleteOnTermination)
+		// }
 	}
 	if vmReqInfo.RootDiskType != "" || vmReqInfo.RootDiskSize != "" {
 		blockDeviceMappings := []*ec2.BlockDeviceMapping{
@@ -291,10 +399,12 @@ func (vmHandler *AwsVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 					//RootDeviceName
 					//VolumeType: aws.String(diskType),
 					//VolumeSize: diskSize,
+					//DeleteOnTermination: aws.Bool(deleteOnTermination),
 				},
 			},
 		}
 		input.SetBlockDeviceMappings(blockDeviceMappings)
+		//cblogger.Debugf("MyImage set DeleteOnTermination = ", isMyImage, deleteOnTermination)
 
 		//=============================
 		// Root Disk Type 변경
@@ -350,7 +460,7 @@ func (vmHandler *AwsVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 	callogger.Info(call.String(callLogInfo))
 
 	if len(runResult.Instances) < 1 {
-		return irs.VMInfo{}, errors.New("AWS로부터 전달 받은 VM 정보가 없습니다.")
+		return irs.VMInfo{}, errors.New("No VM information received from AWS.")
 	}
 
 	//=============================
@@ -467,7 +577,7 @@ func (vmHandler *AwsVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 	return newVmInfo, nil
 }
 
-//VM이 Running 상태일때까지 대기 함.
+// VM이 Running 상태일때까지 대기 함.
 func WaitForRun(svc *ec2.EC2, instanceID string) {
 	cblogger.Infof("EC2 ID : [%s]", instanceID)
 
@@ -483,7 +593,7 @@ func WaitForRun(svc *ec2.EC2, instanceID string) {
 	cblogger.Info("=========WaitForRun() 종료")
 }
 
-//func (vmHandler *AwsVMHandler) ResumeVM(vmNameId string) (irs.VMStatus, error) {
+// func (vmHandler *AwsVMHandler) ResumeVM(vmNameId string) (irs.VMStatus, error) {
 func (vmHandler *AwsVMHandler) ResumeVM(vmIID irs.IID) (irs.VMStatus, error) {
 	cblogger.Infof("vmNameId : [%s]", vmIID.SystemId)
 
@@ -550,7 +660,7 @@ func (vmHandler *AwsVMHandler) ResumeVM(vmIID irs.IID) (irs.VMStatus, error) {
 	return irs.VMStatus("Resuming"), nil
 }
 
-//func (vmHandler *AwsVMHandler) SuspendVM(vmNameId string) (irs.VMStatus, error) {
+// func (vmHandler *AwsVMHandler) SuspendVM(vmNameId string) (irs.VMStatus, error) {
 func (vmHandler *AwsVMHandler) SuspendVM(vmIID irs.IID) (irs.VMStatus, error) {
 	cblogger.Infof("vmNameId : [%s]", vmIID.SystemId)
 
@@ -610,7 +720,7 @@ func (vmHandler *AwsVMHandler) SuspendVM(vmIID irs.IID) (irs.VMStatus, error) {
 	return irs.VMStatus("Suspending"), nil
 }
 
-//func (vmHandler *AwsVMHandler) RebootVM(vmNameId string) (irs.VMStatus, error) {
+// func (vmHandler *AwsVMHandler) RebootVM(vmNameId string) (irs.VMStatus, error) {
 func (vmHandler *AwsVMHandler) RebootVM(vmIID irs.IID) (irs.VMStatus, error) {
 	cblogger.Infof("vmNameId : [%s]", vmIID.NameId)
 
@@ -680,7 +790,7 @@ func (vmHandler *AwsVMHandler) RebootVM(vmIID irs.IID) (irs.VMStatus, error) {
 	return irs.VMStatus("Rebooting"), nil
 }
 
-//func (vmHandler *AwsVMHandler) TerminateVM(vmNameId string) (irs.VMStatus, error) {
+// func (vmHandler *AwsVMHandler) TerminateVM(vmNameId string) (irs.VMStatus, error) {
 func (vmHandler *AwsVMHandler) TerminateVM(vmIID irs.IID) (irs.VMStatus, error) {
 	cblogger.Infof("vmNameId : [%s]", vmIID.NameId)
 
@@ -722,9 +832,63 @@ func (vmHandler *AwsVMHandler) TerminateVM(vmIID irs.IID) (irs.VMStatus, error) 
 	return irs.VMStatus("Terminating"), nil
 }
 
-//2019-11-16부로 CB-Driver 전체 로직이 NameId 기반으로 변경됨.
-//func (vmHandler *AwsVMHandler) GetVM(vmNameId string) (irs.VMInfo, error) {
+// https://docs.aws.amazon.com/ko_kr/AWSEC2/latest/APIReference/API_GetPasswordData.html
+// https://awscli.amazonaws.com/v2/documentation/api/latest/reference/ec2/get-password-data.html
+// @TODO : ssh key를 이용해서 암호가 해독된 Password를 조회해야 함.
+func (vmHandler *AwsVMHandler) GetPasswordData(vmIID irs.IID) (string, error) {
+	vmID := vmIID.SystemId
+	cblogger.Infof("VM ID : [%s]", vmID)
+
+	input := &ec2.GetPasswordDataInput{
+		InstanceId: aws.String(vmID),
+	}
+
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.AWS,
+		RegionZone:   vmHandler.Region.Zone,
+		ResourceType: call.VM,
+		ResourceName: vmIID.SystemId,
+		CloudOSAPI:   "GetPasswordData()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+	callLogStart := call.Start()
+
+	result, err := vmHandler.Client.GetPasswordData(input)
+
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+	if cblogger.Level.String() == "debug" {
+		spew.Dump(result)
+	}
+
+	if err != nil {
+		callLogInfo.ErrorMSG = err.Error()
+		callogger.Info(call.String(callLogInfo))
+		cblogger.Error(err)
+		return "", err
+	}
+	callogger.Info(call.String(callLogInfo))
+
+	return *result.PasswordData, nil
+}
+
+// 2019-11-16부로 CB-Driver 전체 로직이 NameId 기반으로 변경됨.
+// func (vmHandler *AwsVMHandler) GetVM(vmNameId string) (irs.VMInfo, error) {
 func (vmHandler *AwsVMHandler) GetVM(vmIID irs.IID) (irs.VMInfo, error) {
+
+	/* //Windows OS Password 조회 테스트 중
+	passwordData, errPasswd := vmHandler.GetPasswordData(vmIID)
+	if errPasswd != nil {
+		cblogger.Error(errPasswd)
+	}
+	cblogger.Debugf("Password : [%s]", passwordData)
+
+	if 1 == 1 {
+		return irs.VMInfo{}, nil
+	}
+	*/
 
 	resultInstance, err := DescribeInstanceById(vmHandler.Client, vmIID)
 	if err != nil {
@@ -1159,7 +1323,7 @@ func (vmHandler *AwsVMHandler) ExtractDescribeInstances(reservation *ec2.Reserva
 	return vmInfo
 }
 
-//볼륨 정보 조회
+// 볼륨 정보 조회
 func (vmHandler *AwsVMHandler) GetVolumInfo(volumeId string) (*ec2.Volume, error) {
 	cblogger.Infof("volumeId : [%s]", volumeId)
 
@@ -1198,10 +1362,10 @@ func (vmHandler *AwsVMHandler) GetVolumInfo(volumeId string) (*ec2.Volume, error
 	//cblogger.Info(result)
 	cblogger.Infof("조회된 볼륨 수 : [%d]", len(result.Volumes))
 	if len(result.Volumes) > 1 {
-		return nil, awserr.New("700", "1개 이상의 Volume 정보가 존재합니다.", nil)
+		return nil, awserr.New("700", "One or more volumes exist.", nil)
 	} else if len(result.Volumes) == 0 {
 		cblogger.Errorf("[%s]와 일치하는 볼륨 정보가 존재하지 않습니다.", volumeId)
-		return nil, awserr.New("404", "["+volumeId+"] 볼륨 정보가 존재하지 않습니다.", nil)
+		return nil, awserr.New("404", "["+volumeId+"] Volume Not Found", nil)
 	}
 
 	cblogger.Info("VolumeInfo", result.Volumes)
@@ -1305,14 +1469,14 @@ func ConvertVMStatusString(vmStatus string) (irs.VMStatus, error) {
 	} else {
 		//resultStatus = "Failed"
 		cblogger.Errorf("vmStatus [%s]와 일치하는 맵핑 정보를 찾지 못 함.", vmStatus)
-		return irs.VMStatus("Failed"), errors.New(vmStatus + "와 일치하는 CB VM 상태정보를 찾을 수 없습니다.")
+		return irs.VMStatus("Failed"), errors.New("Cannot find status information that matches " + vmStatus)
 	}
 	cblogger.Infof("VM 상태 치환 : [%s] ==> [%s]", vmStatus, resultStatus)
 	return irs.VMStatus(resultStatus), nil
 }
 
-//SHUTTING-DOWN / TERMINATED
-//func (vmHandler *AwsVMHandler) GetVMStatus(vmNameId string) (irs.VMStatus, error) {
+// SHUTTING-DOWN / TERMINATED
+// func (vmHandler *AwsVMHandler) GetVMStatus(vmNameId string) (irs.VMStatus, error) {
 func (vmHandler *AwsVMHandler) GetVMStatus(vmIID irs.IID) (irs.VMStatus, error) {
 	cblogger.Infof("vmNameId : [%s]", vmIID.SystemId)
 
@@ -1379,7 +1543,7 @@ func (vmHandler *AwsVMHandler) GetVMStatus(vmIID irs.IID) (irs.VMStatus, error) 
 		}
 	}
 
-	return irs.VMStatus("Failed"), errors.New("상태 정보를 찾을 수 없습니다.")
+	return irs.VMStatus("Failed"), errors.New("Status information not found.")
 }
 
 func (vmHandler *AwsVMHandler) ListVMStatus() ([]*irs.VMStatusInfo, error) {

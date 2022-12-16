@@ -28,7 +28,7 @@ type TencentImageHandler struct {
 	Client *cvm.Client
 }
 
-//@TODO - 이미지 생성에 따른 구조체 정의 필요 - 현재는 IID뿐이 없어서 이미지 이름으로만 생성하도록 했음.(인스턴스Id가 없어서 에러 발생함.)
+// @TODO - 이미지 생성에 따른 구조체 정의 필요 - 현재는 IID뿐이 없어서 이미지 이름으로만 생성하도록 했음.(인스턴스Id가 없어서 에러 발생함.)
 func (imageHandler *TencentImageHandler) CreateImage(imageReqInfo irs.ImageReqInfo) (irs.ImageInfo, error) {
 	cblogger.Info(imageReqInfo)
 
@@ -227,4 +227,23 @@ func (imageHandler *TencentImageHandler) DeleteImage(imageIID irs.IID) (bool, er
 	callogger.Info(call.String(callLogInfo))
 
 	return true, nil
+}
+
+// windows 여부 return
+// imate-type : PUBLIC_IMAGE, SHARED_IMAGE, PRIVATE_IMAGE
+func (imageHandler *TencentImageHandler) CheckWindowsImage(imageIID irs.IID) (bool, error) {
+	isWindow := false
+	imageTypes := []string{"PUBLIC_IMAGE", "SHARED_IMAGE"}
+
+	resultImg, err := DescribeImagesByID(imageHandler.Client, imageIID, imageTypes)
+	if err != nil {
+		return isWindow, err
+	}
+
+	platform := GetOsType(resultImg)
+	if platform == "Windows" {
+		isWindow = true
+	}
+
+	return isWindow, nil
 }

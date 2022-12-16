@@ -35,8 +35,8 @@ func (VPCHandler *AwsVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.VPCIn
 	zoneId := VPCHandler.Region.Zone
 	cblogger.Infof("Zone : %s", zoneId)
 	if zoneId == "" {
-		cblogger.Error("Connection 정보에 Zone 정보가 없습니다.")
-		return irs.VPCInfo{}, errors.New("Connection 정보에 Zone 정보가 없습니다.")
+		cblogger.Error("Connection information does not contain Zone information.")
+		return irs.VPCInfo{}, errors.New("Connection information does not contain Zone information.")
 	}
 
 	input := &ec2.CreateVpcInput{
@@ -222,8 +222,8 @@ func (VPCHandler *AwsVPCHandler) CreateRouteIGW(vpcId string, igwId string) erro
 	return nil
 }
 
-//https://docs.aws.amazon.com/ko_kr/vpc/latest/userguide/VPC_Route_Tables.html
-//https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribeRouteTables.html
+// https://docs.aws.amazon.com/ko_kr/vpc/latest/userguide/VPC_Route_Tables.html
+// https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribeRouteTables.html
 // 자동 생성된 VPC의 기본 라우팅 테이블 정보를 찾음
 func (VPCHandler *AwsVPCHandler) GetDefaultRouteTable(vpcId string) (string, error) {
 	input := &ec2.DescribeRouteTablesInput{
@@ -260,7 +260,7 @@ func (VPCHandler *AwsVPCHandler) GetDefaultRouteTable(vpcId string) (string, err
 		cblogger.Infof("라우팅 테이블 ID 찾음 : [%s]", routeTableId)
 		return routeTableId, nil
 	} else {
-		return "", errors.New("VPC에 할당된 라우팅 테이블 ID를 찾을 수 없습니다.")
+		return "", errors.New("The routing table ID assigned to the VPC could not be found.")
 	}
 }
 
@@ -270,8 +270,8 @@ func (VPCHandler *AwsVPCHandler) CreateSubnet(vpcId string, reqSubnetInfo irs.Su
 	zoneId := VPCHandler.Region.Zone
 	cblogger.Infof("Zone : %s", zoneId)
 	if zoneId == "" {
-		cblogger.Error("Connection 정보에 Zone 정보가 없습니다.")
-		return irs.SubnetInfo{}, errors.New("Connection 정보에 Zone 정보가 없습니다.")
+		cblogger.Error("Connection information does not contain Zone information.")
+		return irs.SubnetInfo{}, errors.New("Connection information does not contain Zone information.")
 	}
 
 	if reqSubnetInfo.IId.SystemId != "" {
@@ -606,7 +606,7 @@ func (VPCHandler *AwsVPCHandler) DeleteVPC(vpcIID irs.IID) (bool, error) {
 			cblogger.Infof("  ==> [%s] Subnet 삭제완료", curSubnet.IId.SystemId)
 		} else {
 			cblogger.Errorf("  ==> [%s] Subnet 삭제실패", curSubnet.IId.SystemId)
-			return false, errors.New("Subnet 삭제 실패로 VPC를 삭제하지 못 했습니다.") //삭제 실패 이유를 모르는 경우
+			return false, errors.New("Failed to delete VPC due to Subnet deletion failure.") //삭제 실패 이유를 모르는 경우
 		}
 	}
 
@@ -748,7 +748,7 @@ func (VPCHandler *AwsVPCHandler) DeleteRouteIGW(vpcId string) error {
 	spew.Dump(result)
 
 	if len(result.RouteTables) < 1 {
-		return errors.New("VPC에 할당된 라우팅 테이블 정보를 찾을 수 없습니다.")
+		return errors.New("The routing table information assigned to the VPC could not be found.")
 	}
 
 	routeTableId = *result.RouteTables[0].RouteTableId
@@ -808,7 +808,7 @@ func (VPCHandler *AwsVPCHandler) DeleteRouteIGW(vpcId string) error {
 	return nil
 }
 
-//VPC에 연결된 모든 IGW를 삭제함.
+// VPC에 연결된 모든 IGW를 삭제함.
 func (VPCHandler *AwsVPCHandler) DeleteAllIGW(vpcId string) error {
 	input := &ec2.DescribeInternetGatewaysInput{
 		Filters: []*ec2.Filter{
@@ -906,7 +906,7 @@ func (VPCHandler *AwsVPCHandler) DeleteIGW(igwId string) error {
 	return nil
 }
 
-//VPC의 하위 서브넷 목록을 조회함.
+// VPC의 하위 서브넷 목록을 조회함.
 func (VPCHandler *AwsVPCHandler) ListSubnet(vpcId string) ([]irs.SubnetInfo, error) {
 	cblogger.Debug("Start")
 	var arrSubnetInfoList []irs.SubnetInfo
@@ -1035,7 +1035,7 @@ func (VPCHandler *AwsVPCHandler) GetSubnet(reqSubnetId string) (irs.SubnetInfo, 
 	KeyValueList    []KeyValue
 */
 
-//Subnet 정보를 추출함
+// Subnet 정보를 추출함
 func ExtractSubnetDescribeInfo(subnetInfo *ec2.Subnet) irs.SubnetInfo {
 	vNetworkInfo := irs.SubnetInfo{
 		IId:       irs.IID{SystemId: *subnetInfo.SubnetId},

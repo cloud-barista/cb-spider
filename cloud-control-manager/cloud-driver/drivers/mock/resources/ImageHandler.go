@@ -124,3 +124,8 @@ func (imageHandler *MockImageHandler) DeleteImage(imageIID irs.IID) (bool, error
 	}
 	return false, nil
 }
+
+func (imageHandler *MockImageHandler) CheckWindowsImage(imageIID irs.IID) (bool, error) {
+	return false, fmt.Errorf("Does not support CheckWindowsImage() yet!!")
+}
+

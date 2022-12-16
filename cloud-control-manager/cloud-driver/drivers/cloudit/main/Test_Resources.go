@@ -585,6 +585,7 @@ func testVmHandler(config ResourceConfig) {
 		RootDiskSize:      "",
 		RootDiskType:      "",
 		DataDiskIIDs:      vmDataDiskIIDs,
+		VMUserPasswd:      config.Cloudit.VM.VMUserPasswd,
 	}
 	vmFromSnapshotReqInfo := irs.VMReqInfo{
 		IId: irs.IID{
@@ -608,6 +609,8 @@ func testVmHandler(config ResourceConfig) {
 		SecurityGroupIIDs: SecurityGroupIIDs,
 		RootDiskSize:      "",
 		RootDiskType:      "",
+		VMUserId:          config.Cloudit.VMFromMyImage.VMUserId,
+		VMUserPasswd:      config.Cloudit.VMFromMyImage.VMUserPasswd,
 	}
 
 Loop:
@@ -1238,6 +1241,7 @@ type ResourceConfig struct {
 				NameId   string `yaml:"nameId"`
 				SystemId string `yaml:"systemId"`
 			} `yaml:"SecurityGroupIIDs"`
+			VMUserId     string `yaml:"VMUserId"`
 			VMUserPasswd string `yaml:"VMUserPasswd"`
 		} `yaml:"vmFromMyImage"`
 		Resources struct {

@@ -166,8 +166,8 @@ func RegisterNLB(connectionName string, vpcUserID string, userIID cres.IID) (*cr
                 return nil, err
         }
 
-        vpcSPLock.Lock(connectionName, vpcUserID)
-        defer vpcSPLock.Unlock(connectionName, vpcUserID)
+        vpcSPLock.RLock(connectionName, vpcUserID)
+        defer vpcSPLock.RUnlock(connectionName, vpcUserID)
         nlbSPLock.Lock(connectionName, userIID.NameId)
         defer nlbSPLock.Unlock(connectionName, userIID.NameId)
 
@@ -281,8 +281,8 @@ func CreateNLB(connectionName string, rsType string, reqInfo cres.NLBInfo) (*cre
 	*/
 
 
-vpcSPLock.Lock(connectionName, reqInfo.VpcIID.NameId)
-defer vpcSPLock.Unlock(connectionName, reqInfo.VpcIID.NameId)
+vpcSPLock.RLock(connectionName, reqInfo.VpcIID.NameId)
+defer vpcSPLock.RUnlock(connectionName, reqInfo.VpcIID.NameId)
 
 	//+++++++++++++++++++++++++++++++++++++++++++
 	// set VPC's SystemId
@@ -362,6 +362,15 @@ defer nlbSPLock.Unlock(connectionName, reqInfo.IId.NameId)
 	driverIId := cres.IID{spUUID, ""}
 	reqInfo.IId = driverIId
 
+        // get Provider Name
+        providerName, err := ccm.GetProviderNameByConnectionName(connectionName)
+        if err != nil {
+                cblog.Error(err)
+                return nil, err
+        }
+	// set default configuration of HealthChecker
+	setDefaultHealthCheckerConfig(providerName, &reqInfo.HealthChecker)
+
 	// (3) create Resource
 	info, err := handler.CreateNLB(reqInfo)
 	if err != nil {
@@ -400,6 +409,44 @@ defer nlbSPLock.Unlock(connectionName, reqInfo.IId.NameId)
 	info.IId = getUserIID(iidInfo.IId)
 
 	return &info, nil
+}
+
+func setDefaultHealthCheckerConfig(providerName string, reqInfo *cres.HealthCheckerInfo) {
+
+	// * -1(int) => set up with spider's default value
+	// * Spider's default values for Health Checking
+	//	[TCP]  Interval:10 / Timeout:10 / Threshold:3
+	//	[HTTP] Interval:10 / Timeout:6 (Azure:10) / Threshold:3
+	// * AWS, Azure: disable Timeout Configuration
+
+	// (1) TCP
+	if reqInfo.Protocol == "TCP" {
+		if reqInfo.Interval == -1 {
+			reqInfo.Interval = 10
+		}
+		if reqInfo.Timeout == -1 {
+			if providerName != "AWS" && providerName != "AZURE" {
+				reqInfo.Timeout = 10
+			}
+		}
+		if reqInfo.Threshold == -1 {
+			reqInfo.Threshold = 3
+		}
+	}
+	// (2) HTTP
+        if reqInfo.Protocol == "HTTP" {
+                if reqInfo.Interval == -1 {
+                        reqInfo.Interval = 10
+                }
+                if reqInfo.Timeout == -1 {
+			if providerName != "AWS" && providerName != "AZURE" {
+				reqInfo.Timeout = 6
+			}
+                }
+		if reqInfo.Threshold == -1 {
+			reqInfo.Threshold = 3
+		}
+        }
 }
 
 func setVMGroupSystemId(connectionName string, vmList *[]cres.IID) error {

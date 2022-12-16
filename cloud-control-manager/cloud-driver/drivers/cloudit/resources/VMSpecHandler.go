@@ -48,6 +48,7 @@ func setterVMSpec(region string, vmSpec specs.VMSpecInfo) *irs.VMSpecInfo {
 func (vmSpecHandler *ClouditVMSpecHandler) ListVMSpec() ([]*irs.VMSpecInfo, error) {
 	// log HisCall
 	hiscallInfo := GetCallLogScheme(ClouditRegion, call.VMSPEC, VMSpec, "ListVMSpec()")
+	start := call.Start()
 
 	vmSpecHandler.Client.TokenID = vmSpecHandler.CredentialInfo.AuthToken
 	authHeader := vmSpecHandler.Client.AuthenticatedHeaders()
@@ -56,20 +57,19 @@ func (vmSpecHandler *ClouditVMSpecHandler) ListVMSpec() ([]*irs.VMSpecInfo, erro
 		MoreHeaders: authHeader,
 	}
 
-	start := call.Start()
 	list, err := specs.List(vmSpecHandler.Client, &requestOpts)
 	if err != nil {
-		getErr := errors.New(fmt.Sprintf("Failed to Get VMSpecList. err = %s", err.Error()))
+		getErr := errors.New(fmt.Sprintf("Failed to List VMSpec. err = %s", err.Error()))
 		cblogger.Error(getErr.Error())
 		LoggingError(hiscallInfo, getErr)
 		return nil, getErr
 	}
-	LoggingInfo(hiscallInfo, start)
 
 	vmSpecList := make([]*irs.VMSpecInfo, len(*list))
 	for i, spec := range *list {
 		vmSpecList[i] = setterVMSpec(vmSpecHandler.CredentialInfo.IdentityEndpoint, spec)
 	}
+	LoggingInfo(hiscallInfo, start)
 	return vmSpecList, nil
 }
 
@@ -104,7 +104,7 @@ func (vmSpecHandler *ClouditVMSpecHandler) ListOrgVMSpec() (string, error) {
 	start := call.Start()
 	list, err := specs.List(vmSpecHandler.Client, &requestOpts)
 	if err != nil {
-		getErr := errors.New(fmt.Sprintf("Failed to Get OrgVMSpecList. err = %s", err.Error()))
+		getErr := errors.New(fmt.Sprintf("Failed to List OrgVMSpec. err = %s", err.Error()))
 		cblogger.Error(getErr.Error())
 		LoggingError(hiscallInfo, getErr)
 		return "", getErr
@@ -117,7 +117,7 @@ func (vmSpecHandler *ClouditVMSpecHandler) ListOrgVMSpec() (string, error) {
 	jsonResult.Result = *list
 	jsonBytes, err := json.Marshal(jsonResult)
 	if err != nil {
-		getErr := errors.New(fmt.Sprintf("Failed to Get OrgVMSpecList. err = %s", err.Error()))
+		getErr := errors.New(fmt.Sprintf("Failed to List OrgVMSpec. err = %s", err.Error()))
 		cblogger.Error(getErr.Error())
 		LoggingError(hiscallInfo, getErr)
 		return "", getErr

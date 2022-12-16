@@ -1167,6 +1167,11 @@ func makeSetupConnectionConfigFunc_js() string {
 		    a = parent.frames["top_frame"].document.getElementById("vmspecHref");
 		    a.href = "vmspec/" + configName
 
+		        // for Cluster(PMKS)
+                        a = parent.frames["top_frame"].document.getElementById("clusterHref");
+                        a.href = "cluster/" + configName
+                        a = parent.frames["top_frame"].document.getElementById("clustermgmtHref");
+                        a.href = "clustermgmt/" + configName
                 }
         `
         return strFunc
@@ -1553,10 +1558,10 @@ func SpiderInfo(c echo.Context) error {
                                             <font size=2>$$STARTTIME$$</font>
                                     </td>
                                     <td width="220">
-                                            <font size=2>CB-Spider v0.6.10 (Cafe Latte)</font>
+                                            <font size=2>CB-Spider v0.7.0 (Cortado)</font>
                                     </td>
                                     <td width="220">
-                                            <font size=2>REST API v0.6.9 (Cafe Latte)</font>
+                                            <font size=2>REST API v0.7.0 (Cortado)</font>
                                     </td>
                                 </tr>
 

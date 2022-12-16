@@ -19,6 +19,7 @@ import (
         "github.com/labstack/echo/v4"
 
         "strconv"
+        "strings"
 )
 
 
@@ -153,8 +154,13 @@ func CreateNLB(c echo.Context) error {
                 Scope:        	req.ReqInfo.Scope,
                 Listener: 	req.ReqInfo.Listener,
                 VMGroup: 	convertVMGroupInfo(req.ReqInfo.VMGroup),
-                HealthChecker: 	convertHealthCheckerInfo(req.ReqInfo.HealthChecker),
+                //HealthChecker: below
         }
+	healthChecker, err := convertHealthCheckerInfo(req.ReqInfo.HealthChecker)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+	reqInfo.HealthChecker = healthChecker
 
         // Call common-runtime API
         result, err := cmrt.CreateNLB(req.ConnectionName, rsNLB, reqInfo)
@@ -173,11 +179,50 @@ func convertVMGroupInfo(vgInfo VMGroupReq) cres.VMGroupInfo {
 	return cres.VMGroupInfo{vgInfo.Protocol, vgInfo.Port, &vmIIDList, "", nil}
 }
 
-func convertHealthCheckerInfo(hcInfo HealthCheckerReq) cres.HealthCheckerInfo {
-	interval, _ := strconv.Atoi(hcInfo.Interval)
-	timeout, _ := strconv.Atoi(hcInfo.Timeout)
-	threshold, _ := strconv.Atoi(hcInfo.Threshold)
-        return cres.HealthCheckerInfo{hcInfo.Protocol, hcInfo.Port, interval, timeout, threshold, "", nil}
+func convertHealthCheckerInfo(hcInfo HealthCheckerReq) (cres.HealthCheckerInfo, error) {
+	// default: "default" or "" or "-1" => -1
+
+	var err error
+	// (1) Interval
+	interval := -1
+	strInterval := strings.ToLower(hcInfo.Interval)
+	switch  strInterval {
+	case "default", "", "-1":
+	default: 
+		interval, err = strconv.Atoi(hcInfo.Interval)
+		if err != nil {
+			cblog.Error(err)
+			return cres.HealthCheckerInfo{}, err
+		}
+	}
+
+	// (2) Timeout
+        timeout := -1
+	strTimeout := strings.ToLower(hcInfo.Timeout)
+        switch  strTimeout {
+	case "default", "", "-1":
+        default:
+		timeout, err = strconv.Atoi(hcInfo.Timeout)
+                if err != nil {
+                        cblog.Error(err)
+                        return cres.HealthCheckerInfo{}, err
+                }
+        }
+
+	// (3) Threshold
+        threshold := -1
+	strThreshold := strings.ToLower(hcInfo.Threshold)
+        switch  strThreshold {
+	case "default", "", "-1":
+        default:
+		threshold, err = strconv.Atoi(hcInfo.Threshold)
+                if err != nil {
+                        cblog.Error(err)
+                        return cres.HealthCheckerInfo{}, err
+                }
+        }
+
+        return cres.HealthCheckerInfo{hcInfo.Protocol, hcInfo.Port, interval, timeout, threshold, "", nil}, nil
 }
 
 func ListNLB(c echo.Context) error {

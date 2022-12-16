@@ -278,6 +278,7 @@ func ExSecurityCmd() *cobra.Command {
                 Long: "example to create securityvm",
                 Run: func(cmd *cobra.Command, args []string) {
                         excmd := `
+[Create SG]
 spctl security create -d \
     '{
       "ConnectionName":"aws-ohio-config",
@@ -296,6 +297,15 @@ spctl security create -d \
         ]
       }
     }'
+
+[List SG]
+spctl --cname aws-ohio-config security list
+
+[Get SG]
+spctl --cname aws-ohio-config security get -n spider-sg-01
+
+[Delete SG]
+spctl --cname aws-ohio-config security delete -n spider-sg-01
 
 `
                         fmt.Printf(excmd)

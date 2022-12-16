@@ -38,12 +38,15 @@ type ClusterInfo struct {
 	IId IID // {NameId, SystemId}
 
 	Version string // Kubernetes Version, ex) 1.23.3
-
 	Network       NetworkInfo
+
+	// ---
+
 	NodeGroupList []NodeGroupInfo
+	AccessInfo    AccessInfo
 	Addons        AddonsInfo
 
-	Status ClusterStatus
+	Status        ClusterStatus
 
 	CreatedTime  time.Time
 	KeyValueList []KeyValue
@@ -51,8 +54,10 @@ type ClusterInfo struct {
 
 type NetworkInfo struct {
 	VpcIID            IID // {NameId, SystemId}
-	SubnetIID         []IID
+	SubnetIIDs        []IID
 	SecurityGroupIIDs []IID
+
+	// ---
 
 	KeyValueList []KeyValue
 }
@@ -67,16 +72,23 @@ type NodeGroupInfo struct {
 	RootDiskSize string // "", "default", "50", "1000" (GB)
 	KeyPairIID   IID
 
-	Status NodeGroupStatus
-
 	// Scaling config.
 	OnAutoScaling   bool // default: true
 	DesiredNodeSize int
 	MinNodeSize     int
 	MaxNodeSize     int
 
-	NodeList     []IID
+	// ---
+
+	Status       NodeGroupStatus
+	Nodes        []IID
+
 	KeyValueList []KeyValue
+}
+
+type AccessInfo struct {
+	Endpoint 	string // ex) https://1.2.3.4:6443
+	Kubeconfig	string
 }
 
 // CNI, DNS, .... @todo
@@ -95,8 +107,6 @@ type ClusterHandler interface {
 
 	//------ NodeGroup Management
 	AddNodeGroup(clusterIID IID, nodeGroupReqInfo NodeGroupInfo) (NodeGroupInfo, error)
-	ListNodeGroup(clusterIID IID) ([]*NodeGroupInfo, error)
-	GetNodeGroup(clusterIID IID, nodeGroupIID IID) (NodeGroupInfo, error)
 	SetNodeGroupAutoScaling(clusterIID IID, nodeGroupIID IID, on bool) (bool, error)
 	ChangeNodeGroupScaling(clusterIID IID, nodeGroupIID IID,
 		DesiredNodeSize int, MinNodeSize int, MaxNodeSize int) (NodeGroupInfo, error)

@@ -18,10 +18,16 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/ec2"
+	cblog "github.com/cloud-barista/cb-log"
+	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
+	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
+	"github.com/sirupsen/logrus"
 )
 
 const KEY_VALUE_CONVERT_DEBUG_INFO bool = false     // JSON 및 Key Value객체 Convert시(ConvertToString, ConvertKeyValueList) Debug 로그 정보 출력 여부(Debug 모드로 개발 할 때 불필요한 정보를 줄이기 위해 추가)
@@ -30,7 +36,7 @@ const CBDefaultSubnetName string = "CB-VNet-Subnet" // CB Default Subnet Name
 const CBDefaultCidrBlock string = "192.168.0.0/16"  // CB Default CidrBlock
 //const CBKeyPairPath string = "/meta_db/.ssh-aws/" // 이슈 #480에 의한 로컬 키 관리 제거
 
-// const CBCloudInitFilePath string = "/cloud-driver-libs/.cloud-init-aws/cloud-init"
+const CBCloudInitWindowsFilePath string = "/cloud-driver-libs/.cloud-init-aws/cloud-init-windows" //Windows용 사용자 비번 설정을 위한 탬플릿
 const CBCloudInitFilePath string = "/cloud-driver-libs/.cloud-init-common/cloud-init"
 const CBDefaultVmUserName string = "cb-user" // default VM User Name
 
@@ -49,6 +55,39 @@ type AwsCBNetworkInfo struct {
 
 	SubnetName string
 	SubnetId   string
+}
+
+var once sync.Once
+var cblogger *logrus.Logger
+var calllogger *logrus.Logger
+
+func InitLog() {
+	once.Do(func() {
+		// cblog is a global variable.
+		cblogger = cblog.GetLogger("CB-SPIDER")
+		calllogger = call.GetLogger("HISCALL")
+	})
+}
+
+func LoggingError(hiscallInfo call.CLOUDLOGSCHEMA, err error) {
+	hiscallInfo.ErrorMSG = err.Error()
+	calllogger.Error(call.String(hiscallInfo))
+}
+
+func LoggingInfo(hiscallInfo call.CLOUDLOGSCHEMA, start time.Time) {
+	hiscallInfo.ElapsedTime = call.Elapsed(start)
+	calllogger.Info(call.String(hiscallInfo))
+}
+
+func GetCallLogScheme(region idrv.RegionInfo, resourceType call.RES_TYPE, resourceName string, apiName string) call.CLOUDLOGSCHEMA {
+	cblogger.Info(fmt.Sprintf("Call %s %s", call.AWS, apiName))
+	return call.CLOUDLOGSCHEMA{
+		CloudOS:      call.AWS,
+		RegionZone:   region.Region,
+		ResourceType: resourceType,
+		ResourceName: resourceName,
+		CloudOSAPI:   apiName,
+	}
 }
 
 // VPC

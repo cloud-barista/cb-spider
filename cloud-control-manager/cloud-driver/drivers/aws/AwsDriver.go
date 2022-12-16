@@ -13,6 +13,7 @@ package aws
 
 import (
 	acon "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/aws/connect"
+	ars "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/aws/resources"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 
 	icon "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/connect"
@@ -202,6 +203,9 @@ func (driver *AwsDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (icon.
 	// 2. create a client object(or service  object) of Test A Cloud with credential info.
 	// 3. create CloudConnection Instance of "connect/TDA_CloudConnection".
 	// 4. return CloudConnection Interface of TDA_CloudConnection.
+
+	// Initialize Logger
+	ars.InitLog()
 
 	//fmt.Println("ConnectCloud의 전달 받은 idrv.ConnectionInfo 정보")
 	//spew.Dump(connectionInfo)

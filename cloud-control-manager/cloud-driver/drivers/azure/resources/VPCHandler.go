@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-
 	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2021-02-01/network"
 	"github.com/Azure/go-autorest/autorest/to"
 
@@ -62,7 +61,7 @@ func (vpcHandler *AzureVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.VPC
 	// Check VPC Exists
 	vpc, _ := vpcHandler.Client.Get(vpcHandler.Ctx, vpcHandler.Region.ResourceGroup, vpcReqInfo.IId.NameId, "")
 	if vpc.ID != nil {
-		createErr := errors.New(fmt.Sprintf("vpc with name %s already exist", vpcReqInfo.IId.NameId))
+		createErr := errors.New(fmt.Sprintf("Failed to Create VPC err = vpc with name %s already exist", vpcReqInfo.IId.NameId))
 		cblogger.Error(createErr.Error())
 		LoggingError(hiscallInfo, createErr)
 		return irs.VPCInfo{}, createErr
@@ -82,15 +81,17 @@ func (vpcHandler *AzureVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.VPC
 	start := call.Start()
 	future, err := vpcHandler.Client.CreateOrUpdate(vpcHandler.Ctx, vpcHandler.Region.ResourceGroup, vpcReqInfo.IId.NameId, createOpts)
 	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return irs.VPCInfo{}, err
+		createErr := errors.New(fmt.Sprintf("Failed to Create VPC err = %s", err.Error()))
+		cblogger.Error(createErr.Error())
+		LoggingError(hiscallInfo, createErr)
+		return irs.VPCInfo{}, createErr
 	}
 	err = future.WaitForCompletionRef(vpcHandler.Ctx, vpcHandler.Client.Client)
 	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return irs.VPCInfo{}, err
+		createErr := errors.New(fmt.Sprintf("Failed to Create VPC err = %s", err.Error()))
+		cblogger.Error(createErr.Error())
+		LoggingError(hiscallInfo, createErr)
+		return irs.VPCInfo{}, createErr
 	}
 	LoggingInfo(hiscallInfo, start)
 
@@ -118,7 +119,10 @@ func (vpcHandler *AzureVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.VPC
 	// 생성된 VNetwork 정보 리턴
 	vpcInfo, err := vpcHandler.GetVPC(irs.IID{NameId: vpcReqInfo.IId.NameId})
 	if err != nil {
-		return irs.VPCInfo{}, err
+		createErr := errors.New(fmt.Sprintf("Failed to Create VPC err = %s", err.Error()))
+		cblogger.Error(createErr.Error())
+		LoggingError(hiscallInfo, createErr)
+		return irs.VPCInfo{}, createErr
 	}
 	return vpcInfo, nil
 }
@@ -130,9 +134,10 @@ func (vpcHandler *AzureVPCHandler) ListVPC() ([]*irs.VPCInfo, error) {
 	start := call.Start()
 	vpcList, err := vpcHandler.Client.List(vpcHandler.Ctx, vpcHandler.Region.ResourceGroup)
 	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return nil, err
+		getErr := errors.New(fmt.Sprintf("Failed to List VPC err = %s", err.Error()))
+		cblogger.Error(getErr.Error())
+		LoggingError(hiscallInfo, getErr)
+		return nil, getErr
 	}
 	LoggingInfo(hiscallInfo, start)
 
@@ -150,9 +155,10 @@ func (vpcHandler *AzureVPCHandler) GetVPC(vpcIID irs.IID) (irs.VPCInfo, error) {
 	start := call.Start()
 	vpc, err := vpcHandler.getRawVPC(vpcIID)
 	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return irs.VPCInfo{}, err
+		getErr := errors.New(fmt.Sprintf("Failed to Get VPC err = %s", err.Error()))
+		cblogger.Error(getErr.Error())
+		LoggingError(hiscallInfo, getErr)
+		return irs.VPCInfo{}, getErr
 	}
 	LoggingInfo(hiscallInfo, start)
 
@@ -167,15 +173,17 @@ func (vpcHandler *AzureVPCHandler) DeleteVPC(vpcIID irs.IID) (bool, error) {
 	start := call.Start()
 	future, err := vpcHandler.Client.Delete(vpcHandler.Ctx, vpcHandler.Region.ResourceGroup, vpcIID.NameId)
 	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return false, err
+		delErr := errors.New(fmt.Sprintf("Failed to Delete VPC err = %s", err.Error()))
+		cblogger.Error(delErr.Error())
+		LoggingError(hiscallInfo, delErr)
+		return false, delErr
 	}
 	err = future.WaitForCompletionRef(vpcHandler.Ctx, vpcHandler.Client.Client)
 	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return false, err
+		delErr := errors.New(fmt.Sprintf("Failed to Delete VPC err = %s", err.Error()))
+		cblogger.Error(delErr.Error())
+		LoggingError(hiscallInfo, delErr)
+		return false, delErr
 	}
 	LoggingInfo(hiscallInfo, start)
 
@@ -188,10 +196,10 @@ func (vpcHandler *AzureVPCHandler) AddSubnet(vpcIID irs.IID, subnetInfo irs.Subn
 
 	vpc, err := vpcHandler.getRawVPC(vpcIID)
 	if err != nil {
-		createErr := errors.New(fmt.Sprintf("failed to create subnet with name %s, err = %s", subnetInfo.IId.NameId, err.Error()))
-		cblogger.Error(createErr.Error())
-		LoggingError(hiscallInfo, createErr)
-		return irs.VPCInfo{}, createErr
+		addSubnetErr := errors.New(fmt.Sprintf("Failed to AddSubnet err = %s", err.Error()))
+		cblogger.Error(addSubnetErr.Error())
+		LoggingError(hiscallInfo, addSubnetErr)
+		return irs.VPCInfo{}, addSubnetErr
 	}
 	subnetCreateOpts := network.Subnet{
 		Name: to.StringPtr(subnetInfo.IId.NameId),
@@ -202,24 +210,24 @@ func (vpcHandler *AzureVPCHandler) AddSubnet(vpcIID irs.IID, subnetInfo irs.Subn
 	start := call.Start()
 	future, err := vpcHandler.SubnetClient.CreateOrUpdate(vpcHandler.Ctx, vpcHandler.Region.ResourceGroup, *vpc.Name, subnetInfo.IId.NameId, subnetCreateOpts)
 	if err != nil {
-		createErr := errors.New(fmt.Sprintf("failed to create subnet with name %s", subnetInfo.IId.NameId))
-		cblogger.Error(createErr.Error())
-		LoggingError(hiscallInfo, createErr)
-		return irs.VPCInfo{}, createErr
+		addSubnetErr := errors.New(fmt.Sprintf("Failed to AddSubnet err = %s", err.Error()))
+		cblogger.Error(addSubnetErr.Error())
+		LoggingError(hiscallInfo, addSubnetErr)
+		return irs.VPCInfo{}, addSubnetErr
 	}
 	err = future.WaitForCompletionRef(vpcHandler.Ctx, vpcHandler.Client.Client)
 	if err != nil {
-		createErr := errors.New(fmt.Sprintf("failed to create subnet with name %s", subnetInfo.IId.NameId))
-		cblogger.Error(createErr.Error())
-		LoggingError(hiscallInfo, createErr)
-		return irs.VPCInfo{}, createErr
+		addSubnetErr := errors.New(fmt.Sprintf("Failed to AddSubnet err = %s", err.Error()))
+		cblogger.Error(addSubnetErr.Error())
+		LoggingError(hiscallInfo, addSubnetErr)
+		return irs.VPCInfo{}, addSubnetErr
 	}
 	result, err := vpcHandler.GetVPC(irs.IID{NameId: vpcIID.NameId})
 	if err != nil {
-		createErr := errors.New(fmt.Sprintf("failed to create subnet with name %s", subnetInfo.IId.NameId))
-		cblogger.Error(createErr.Error())
-		LoggingError(hiscallInfo, createErr)
-		return irs.VPCInfo{}, createErr
+		addSubnetErr := errors.New(fmt.Sprintf("Failed to AddSubnet err = %s", err.Error()))
+		cblogger.Error(addSubnetErr.Error())
+		LoggingError(hiscallInfo, addSubnetErr)
+		return irs.VPCInfo{}, addSubnetErr
 	}
 	LoggingInfo(hiscallInfo, start)
 	return result, nil
@@ -230,15 +238,17 @@ func (vpcHandler *AzureVPCHandler) RemoveSubnet(vpcIID irs.IID, subnetIID irs.II
 	start := call.Start()
 	future, err := vpcHandler.SubnetClient.Delete(vpcHandler.Ctx, vpcHandler.Region.ResourceGroup, vpcIID.NameId, subnetIID.NameId)
 	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return false, err
+		delErr := errors.New(fmt.Sprintf("Failed to RemoveSubnet err = %s", err.Error()))
+		cblogger.Error(delErr.Error())
+		LoggingError(hiscallInfo, delErr)
+		return false, delErr
 	}
 	err = future.WaitForCompletionRef(vpcHandler.Ctx, vpcHandler.Client.Client)
 	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return false, err
+		delErr := errors.New(fmt.Sprintf("Failed to RemoveSubnet err = %s", err.Error()))
+		cblogger.Error(delErr.Error())
+		LoggingError(hiscallInfo, delErr)
+		return false, delErr
 	}
 	LoggingInfo(hiscallInfo, start)
 	return true, nil
@@ -260,6 +270,27 @@ func (vpcHandler *AzureVPCHandler) getRawVPC(vpcIID irs.IID) (*network.VirtualNe
 		return nil, errors.New("not found SecurityGroup")
 	} else {
 		vpc, err := vpcHandler.Client.Get(vpcHandler.Ctx, vpcHandler.Region.ResourceGroup, vpcIID.NameId, "")
+		return &vpc, err
+	}
+}
+
+func getRawVirtualNetwork(vpcIID irs.IID, virtualNetworksClient *network.VirtualNetworksClient, ctx context.Context, resourceGroup string) (*network.VirtualNetwork, error) {
+	if vpcIID.SystemId == "" && vpcIID.NameId == "" {
+		return nil, errors.New("invalid IID")
+	}
+	if vpcIID.NameId == "" {
+		result, err := virtualNetworksClient.List(ctx, resourceGroup)
+		if err != nil {
+			return nil, err
+		}
+		for _, vpc := range result.Values() {
+			if *vpc.ID == vpcIID.SystemId {
+				return &vpc, nil
+			}
+		}
+		return nil, errors.New("not found SecurityGroup")
+	} else {
+		vpc, err := virtualNetworksClient.Get(ctx, resourceGroup, vpcIID.NameId, "")
 		return &vpc, err
 	}
 }

@@ -3,10 +3,12 @@ package resources
 import (
 	"errors"
 	"fmt"
+	"reflect"
+	"strings"
+
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	"github.com/davecgh/go-spew/spew"
-	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/ec2"
@@ -51,14 +53,14 @@ func DescribeInstances(svc *ec2.EC2, vmIIDs []irs.IID) (*ec2.DescribeInstancesOu
 }
 
 /*
-	1개 인스턴스의 정보 조회
+1개 인스턴스의 정보 조회
 */
 func DescribeInstanceById(svc *ec2.EC2, vmIID irs.IID) (*ec2.Instance, error) {
 	var vmIIDs []irs.IID
 	var iid irs.IID
 
 	if vmIID == iid {
-		return nil, errors.New("instanceID is empty.)")
+		return nil, errors.New("instanceID is empty.")
 	}
 
 	vmIIDs = append(vmIIDs, vmIID)
@@ -67,12 +69,18 @@ func DescribeInstanceById(svc *ec2.EC2, vmIID irs.IID) (*ec2.Instance, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	if len(result.Reservations) < 1 || len(result.Reservations[0].Instances) < 1 {
+
+		return nil, errors.New(vmIID.SystemId + " instance not found.")
+
+	}
 	instance := result.Reservations[0].Instances[0]
 	return instance, err
 }
 
 /*
-	1개 인스턴스의 상태조회
+1개 인스턴스의 상태조회
 */
 func DescribeInstanceStatus(svc *ec2.EC2, vmIID irs.IID) (string, error) {
 
@@ -91,7 +99,7 @@ func DescribeInstanceStatus(svc *ec2.EC2, vmIID irs.IID) (string, error) {
 }
 
 /*
-	1개 인스턴스에서 사용중인 disk 와 device 목록
+1개 인스턴스에서 사용중인 disk 와 device 목록
 */
 func DescribeInstanceDiskDeviceList(svc *ec2.EC2, vmIID irs.IID) ([]*ec2.InstanceBlockDeviceMapping, error) {
 
@@ -106,8 +114,8 @@ func DescribeInstanceDiskDeviceList(svc *ec2.EC2, vmIID irs.IID) ([]*ec2.Instanc
 }
 
 /*
-	1개 인스턴스에서 사용가능한 device 이름 목록
-	존재하는 device 이름 제거 후 가능한 목록만 return
+1개 인스턴스에서 사용가능한 device 이름 목록
+존재하는 device 이름 제거 후 가능한 목록만 return
 */
 func DescribeAvailableDiskDeviceList(svc *ec2.EC2, vmIID irs.IID) ([]string, error) {
 	defaultVirtualizationType := "/dev/sd" // default :  linux
@@ -142,7 +150,7 @@ func DescribeAvailableDiskDeviceList(svc *ec2.EC2, vmIID irs.IID) ([]string, err
 // ---------------- Instance Area end ---------------//
 
 // ---------------- VOLUME Area begin -----------------//
-//WaitUntilVolumeAvailable
+// WaitUntilVolumeAvailable
 func WaitUntilVolumeAvailable(svc *ec2.EC2, volumeID string) error {
 	input := &ec2.DescribeVolumesInput{
 		VolumeIds: []*string{
@@ -158,7 +166,7 @@ func WaitUntilVolumeAvailable(svc *ec2.EC2, volumeID string) error {
 	return nil
 }
 
-//WaitUntilVolumeDeleted
+// WaitUntilVolumeDeleted
 func WaitUntilVolumeDeleted(svc *ec2.EC2, volumeID string) error {
 	input := &ec2.DescribeVolumesInput{
 		VolumeIds: []*string{
@@ -174,7 +182,7 @@ func WaitUntilVolumeDeleted(svc *ec2.EC2, volumeID string) error {
 	return nil
 }
 
-//WaitUntilVolumeInUse : attached
+// WaitUntilVolumeInUse : attached
 func WaitUntilVolumeInUse(svc *ec2.EC2, volumeID string) error {
 	input := &ec2.DescribeVolumesInput{
 		VolumeIds: []*string{
@@ -191,12 +199,12 @@ func WaitUntilVolumeInUse(svc *ec2.EC2, volumeID string) error {
 }
 
 /*
-	List 와 Get 이 같은 API 호출
-	filter 조건으로 VolumeId 를 넣도록하고
-	return은 그대로 DescribeVolumesOutput.
-	Get에서는 1개만 들어있으므로 [0]번째 사용
+List 와 Get 이 같은 API 호출
+filter 조건으로 VolumeId 를 넣도록하고
+return은 그대로 DescribeVolumesOutput.
+Get에서는 1개만 들어있으므로 [0]번째 사용
 
-	각 항목을 irs.DiskInfo로 변환하는 convertVolumeInfoToDiskInfo 로 필요Data 생성
+각 항목을 irs.DiskInfo로 변환하는 convertVolumeInfoToDiskInfo 로 필요Data 생성
 */
 func DescribeVolumnes(svc *ec2.EC2, volumeIdList []*string) (*ec2.DescribeVolumesOutput, error) {
 
@@ -274,9 +282,60 @@ func DescribeVolumneById(svc *ec2.EC2, volumeId string) (*ec2.Volume, error) {
 		}
 	}
 
-	return nil, awserr.New("404", "["+volumeId+"] 볼륨 정보가 존재하지 않습니다.", nil)
+	return nil, awserr.New("404", "["+volumeId+"] Volume Not Found", nil)
 }
 
+func DescribeVolumnesBySnapshot(svc *ec2.EC2, snapShotIIDs []string) (*ec2.DescribeVolumesOutput, error) {
+	var ids []*string
+	for _, snapShotIID := range snapShotIIDs {
+		ids = append(ids, aws.String(snapShotIID))
+	}
+	input := &ec2.DescribeVolumesInput{
+		Filters: []*ec2.Filter{
+			{
+				Name: aws.String("snapshot-id"),
+				//Values: ids,
+				Values: []*string{
+					aws.String(snapShotIIDs[0]),
+				},
+			},
+		},
+	}
+
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.AWS,
+		ResourceType: call.DISK,
+		CloudOSAPI:   "DescribeVolumnesBySnapshot",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+
+	callLogStart := call.Start()
+
+	result, err := svc.DescribeVolumes(input)
+	callogger.Info("DescribeVolumnesBySnapshot   IN PU T")
+	spew.Dump(input)
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+	callogger.Info(call.String(callLogInfo))
+
+	if err != nil {
+		if aerr, ok := err.(awserr.Error); ok {
+			switch aerr.Code() {
+			default:
+				fmt.Println(aerr.Error())
+			}
+		} else {
+			fmt.Println(err.Error())
+		}
+		return nil, err
+	}
+	//if cblogger.Level.String() == "debug" {
+	spew.Dump(result.Volumes)
+	//}
+
+	return result, nil
+}
 func AttachVolume(svc *ec2.EC2, deviceName string, instanceId string, volumeId string) error {
 	input := &ec2.AttachVolumeInput{
 		Device:     aws.String(deviceName),
@@ -321,6 +380,45 @@ func AttachVolume(svc *ec2.EC2, deviceName string, instanceId string, volumeId s
 		return err
 	}
 	return nil
+}
+
+func DeleteDisk(svc *ec2.EC2, disks []irs.IID) (bool, error) {
+	returnResult := false
+	if disks != nil && len(disks) > 0 {
+		for _, diskIID := range disks {
+			input := &ec2.DeleteVolumeInput{
+				VolumeId: aws.String(diskIID.SystemId),
+			}
+
+			result, err := svc.DeleteVolume(input)
+			if err != nil {
+				if aerr, ok := err.(awserr.Error); ok {
+					switch aerr.Code() {
+					default:
+						fmt.Println(aerr.Error())
+					}
+				} else {
+					// Print the error, cast err to awserr.Error to get the Code and
+					// Message from an error.
+					fmt.Println(err.Error())
+				}
+				return false, err
+			}
+
+			if cblogger.Level.String() == "debug" {
+				spew.Dump(result)
+			}
+
+			err = WaitUntilVolumeDeleted(svc, diskIID.SystemId)
+			if err != nil {
+				return false, err
+			}
+
+			returnResult = true
+		}
+	}
+
+	return returnResult, nil
 }
 
 // ---------------- VOLUME Area end -----------------//
@@ -405,7 +503,7 @@ func DescribeImageById(svc *ec2.EC2, imageIID *irs.IID, owners []*string) (*ec2.
 	var iid irs.IID
 
 	if *imageIID == iid {
-		return nil, errors.New("imageID is empty.)")
+		return nil, errors.New("imageID is empty.")
 	}
 
 	imageIIDs = append(imageIIDs, imageIID)
@@ -425,10 +523,102 @@ func DescribeImageById(svc *ec2.EC2, imageIID *irs.IID, owners []*string) (*ec2.
 	}
 
 	if result.Images == nil || len(result.Images) == 0 {
-		return nil, awserr.New("404", "["+imageIID.SystemId+"] 이미지 정보가 존재하지 않습니다.", nil)
+		return nil, awserr.New("404", "["+imageIID.SystemId+"] Image Not Found", nil)
 	}
 	resultImage := result.Images[0]
 	return resultImage, err
+}
+
+// Image 정보에서 image size(GB) return
+func GetImageSizeFromEc2Image(ec2Image *ec2.Image) (int64, error) {
+	if !reflect.ValueOf(ec2Image.BlockDeviceMappings).IsNil() {
+		if !reflect.ValueOf(ec2Image.BlockDeviceMappings[0].Ebs).IsNil() {
+			isize := aws.Int64(*ec2Image.BlockDeviceMappings[0].Ebs.VolumeSize)
+			return *isize, nil
+		} else {
+			cblogger.Error("Ebs information not found in BlockDeviceMappings.")
+			return -1, errors.New("Ebs information not found in BlockDeviceMappings.")
+		}
+	} else {
+		cblogger.Error("BlockDeviceMappings information not found.")
+		return -1, errors.New("BlockDeviceMappings information not found.")
+	}
+}
+
+// Image 정보에서 Snapshot Id return
+//
+//	func GetSnapshotIdFromEc2Image(ec2Image *ec2.Image) (string, error) {
+//		if !reflect.ValueOf(ec2Image.BlockDeviceMappings).IsNil() {
+//			if !reflect.ValueOf(ec2Image.BlockDeviceMappings[0].Ebs).IsNil() {
+//				snapshotId := *ec2Image.BlockDeviceMappings[0].Ebs.SnapshotId
+//				return snapshotId, nil
+//			} else {
+//				cblogger.Error("Ebs information not found in BlockDeviceMappings.")
+//				return "", errors.New("Ebs information not found in BlockDeviceMappings.")
+//			}
+//		} else {
+//			cblogger.Error("BlockDeviceMappings information not found.")
+//			return "", errors.New("BlockDeviceMappings information not found.")
+//		}
+//	}
+func GetSnapshotIdFromEc2Image(ec2Image *ec2.Image) ([]string, error) {
+	var snapshotIds []string
+	if !reflect.ValueOf(ec2Image.BlockDeviceMappings).IsNil() {
+		// rootdisk 찾기
+		// if !reflect.ValueOf(ec2Image.BlockDeviceMappings[0].Ebs).IsNil() {
+		// 	snapshotId := *ec2Image.BlockDeviceMappings[0].Ebs.SnapshotId
+		// 	return snapshotId, nil
+		// } else {
+		// 	cblogger.Error("Ebs information not found in BlockDeviceMappings.")
+		// 	return "", errors.New("Ebs information not found in BlockDeviceMappings.")
+		// }
+		for _, blockDevice := range ec2Image.BlockDeviceMappings {
+			if !reflect.ValueOf(blockDevice.Ebs).IsNil() {
+				snapshotId := *blockDevice.Ebs.SnapshotId
+				snapshotIds = append(snapshotIds, snapshotId)
+			}
+		}
+	} else {
+		cblogger.Error("BlockDeviceMappings information not found.")
+		return snapshotIds, errors.New("BlockDeviceMappings information not found.")
+	}
+
+	return snapshotIds, nil
+}
+
+// 이미지에서 루트 볼륨 외 disk ID들을 return
+func GetDisksFromEc2Image(ec2Image *ec2.Image) ([]irs.IID, error) {
+	diskIIDs := []irs.IID{}
+	if !reflect.ValueOf(ec2Image.BlockDeviceMappings).IsNil() {
+		if !reflect.ValueOf(ec2Image.BlockDeviceMappings[0].Ebs).IsNil() {
+			//snapshotId := *ec2Image.BlockDeviceMappings[0].Ebs.SnapshotId
+			return diskIIDs, nil
+		} else {
+			cblogger.Error("Ebs information not found in BlockDeviceMappings.")
+			return diskIIDs, errors.New("Ebs information not found in BlockDeviceMappings.")
+		}
+	} else {
+		cblogger.Error("BlockDeviceMappings information not found.")
+		return diskIIDs, errors.New("BlockDeviceMappings information not found.")
+	}
+}
+
+// Image 정보에서 osType return
+func GetOsTypeFromEc2Image(ec2Image *ec2.Image) string {
+	var guestOS string
+	//주로 윈도우즈는 Platform 정보가 존재하며 리눅스 계열은 PlatformDetails만 존재하는 듯. - "Linux/UNIX"
+	//윈도우즈 계열은 PlatformDetails에는 "Windows with SQL Server Standard"처럼 SQL정보도 포함되어있음.
+	if !reflect.ValueOf(ec2Image.Platform).IsNil() {
+		cblogger.Info("guestOS =", *ec2Image.Platform)
+		guestOS = *ec2Image.Platform //Linux/UNIX
+
+	} else {
+		// Platform 정보가 없는 경우 PlatformDetails 정보가 존재하면 PlatformDetails 값을 이용함.
+		if !reflect.ValueOf(ec2Image.PlatformDetails).IsNil() {
+			guestOS = *ec2Image.PlatformDetails //Linux/UNIX
+		}
+	}
+	return guestOS
 }
 
 // ---------------- MyImage Area end ---------------//

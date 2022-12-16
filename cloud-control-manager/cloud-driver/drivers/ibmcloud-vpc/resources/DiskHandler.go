@@ -23,7 +23,7 @@ type IbmDiskHandler struct {
 
 func (diskHandler *IbmDiskHandler) CreateDisk(diskReqInfo irs.DiskInfo) (irs.DiskInfo, error) {
 	hiscallInfo := GetCallLogScheme(diskHandler.Region, call.DISK, diskReqInfo.IId.NameId, "CreateDisk()")
-
+	start := call.Start()
 	intCapacity, capacityAtoiErr := strconv.Atoi(diskReqInfo.DiskSize)
 	var ptrCapacity *int64
 	if capacityAtoiErr == nil {
@@ -49,10 +49,12 @@ func (diskHandler *IbmDiskHandler) CreateDisk(diskReqInfo irs.DiskInfo) (irs.Dis
 		Capacity: ptrCapacity,
 	})
 
-	start := call.Start()
 	createdDisk, _, createVolumeErr := diskHandler.VpcService.CreateVolume(createVolumeOptions)
 	if createVolumeErr != nil {
-		return irs.DiskInfo{}, errors.New(fmt.Sprintf("Failed to Create Disk. err = %s", createVolumeErr.Error()))
+		createErr := errors.New(fmt.Sprintf("Failed to Create Disk. err = %s", createVolumeErr.Error()))
+		cblogger.Error(createErr.Error())
+		LoggingError(hiscallInfo, createErr)
+		return irs.DiskInfo{}, createErr
 	}
 	LoggingInfo(hiscallInfo, start)
 
@@ -65,15 +67,16 @@ func (diskHandler *IbmDiskHandler) ListDisk() ([]*irs.DiskInfo, error) {
 	start := call.Start()
 	rawDiskList, listDiskErr := getRawDiskList(diskHandler.VpcService, diskHandler.Ctx)
 	if listDiskErr != nil {
-		return nil, errors.New(fmt.Sprintf("Failed to List Disk. err = %s", listDiskErr.Error()))
+		getErr := errors.New(fmt.Sprintf("Failed to List Disk. err = %s", listDiskErr.Error()))
+		cblogger.Error(getErr.Error())
+		LoggingError(hiscallInfo, getErr)
+		return nil, getErr
 	}
-	LoggingInfo(hiscallInfo, start)
-
 	var irsDiskInfoList []*irs.DiskInfo
 	for _, rawDisk := range *rawDiskList {
 		irsDiskInfoList = append(irsDiskInfoList, diskHandler.ToIRSDisk(&rawDisk))
 	}
-
+	LoggingInfo(hiscallInfo, start)
 	return irsDiskInfoList, nil
 }
 
@@ -83,7 +86,10 @@ func (diskHandler *IbmDiskHandler) GetDisk(diskIID irs.IID) (irs.DiskInfo, error
 	start := call.Start()
 	rawDisk, getDiskErr := getRawDisk(diskHandler.VpcService, diskHandler.Ctx, diskIID)
 	if getDiskErr != nil {
-		return irs.DiskInfo{}, errors.New(fmt.Sprintf("Failed to List Disk. err = %s", getDiskErr.Error()))
+		getErr := errors.New(fmt.Sprintf("Failed to Get Disk. err = %s", getDiskErr.Error()))
+		cblogger.Error(getErr.Error())
+		LoggingError(hiscallInfo, getErr)
+		return irs.DiskInfo{}, getErr
 	}
 	LoggingInfo(hiscallInfo, start)
 
@@ -92,16 +98,22 @@ func (diskHandler *IbmDiskHandler) GetDisk(diskIID irs.IID) (irs.DiskInfo, error
 
 func (diskHandler *IbmDiskHandler) ChangeDiskSize(diskIID irs.IID, size string) (bool, error) {
 	hiscallInfo := GetCallLogScheme(diskHandler.Region, call.DISK, diskIID.SystemId, "ChangeDisk()")
-
+	start := call.Start()
 	targetSystemId, getDiskSystemIdErr := getDiskSystemId(diskHandler.VpcService, diskHandler.Ctx, diskIID)
 	if getDiskSystemIdErr != nil {
-		return false, getDiskSystemIdErr
+		changeErr := errors.New(fmt.Sprintf("Failed to ChangeDiskSize. err = %s", getDiskSystemIdErr.Error()))
+		cblogger.Error(changeErr.Error())
+		LoggingError(hiscallInfo, changeErr)
+		return false, changeErr
 	}
 
 	updateMaps := make(map[string]interface{})
 	intSize, err := strconv.Atoi(size)
 	if err != nil {
-		return false, err
+		changeErr := errors.New(fmt.Sprintf("Failed to ChangeDiskSize. err = %s", err.Error()))
+		cblogger.Error(changeErr.Error())
+		LoggingError(hiscallInfo, changeErr)
+		return false, changeErr
 	}
 	updateMaps["capacity"] = core.Int64Ptr(int64(intSize))
 
@@ -109,10 +121,13 @@ func (diskHandler *IbmDiskHandler) ChangeDiskSize(diskIID irs.IID, size string) 
 		ID:          core.StringPtr(targetSystemId),
 		VolumePatch: updateMaps,
 	}
-	start := call.Start()
+
 	_, _, updateDiskErr := diskHandler.VpcService.UpdateVolumeWithContext(diskHandler.Ctx, updateVolumeOptions)
 	if updateDiskErr != nil {
-		return false, errors.New(fmt.Sprintf("Failed to Changed Disk Size. err = %s", updateDiskErr.Error()))
+		changeErr := errors.New(fmt.Sprintf("Failed to ChangeDiskSize. err = %s", updateDiskErr.Error()))
+		cblogger.Error(changeErr.Error())
+		LoggingError(hiscallInfo, changeErr)
+		return false, changeErr
 	}
 	LoggingInfo(hiscallInfo, start)
 
@@ -121,20 +136,25 @@ func (diskHandler *IbmDiskHandler) ChangeDiskSize(diskIID irs.IID, size string) 
 
 func (diskHandler *IbmDiskHandler) DeleteDisk(diskIID irs.IID) (bool, error) {
 	hiscallInfo := GetCallLogScheme(diskHandler.Region, call.DISK, diskIID.SystemId, "DeleteDisk()")
-
+	start := call.Start()
 	targetSystemId, getDiskSystemIdErr := getDiskSystemId(diskHandler.VpcService, diskHandler.Ctx, diskIID)
 	if getDiskSystemIdErr != nil {
-		return false, getDiskSystemIdErr
+		delErr := errors.New(fmt.Sprintf("Failed to Delete Disk. err = %s", getDiskSystemIdErr.Error()))
+		cblogger.Error(delErr.Error())
+		LoggingError(hiscallInfo, delErr)
+		return false, delErr
 	}
 
 	deleteVolumeOptions := &vpcv1.DeleteVolumeOptions{
 		ID: core.StringPtr(targetSystemId),
 	}
 
-	start := call.Start()
 	_, deleteDiskErr := diskHandler.VpcService.DeleteVolumeWithContext(diskHandler.Ctx, deleteVolumeOptions)
 	if deleteDiskErr != nil {
-		return false, errors.New(fmt.Sprintf("Failed to Delete Disk. err = %s", deleteDiskErr.Error()))
+		delErr := errors.New(fmt.Sprintf("Failed to Delete Disk. err = %s", deleteDiskErr.Error()))
+		cblogger.Error(delErr.Error())
+		LoggingError(hiscallInfo, delErr)
+		return false, delErr
 	}
 	LoggingInfo(hiscallInfo, start)
 
@@ -143,15 +163,21 @@ func (diskHandler *IbmDiskHandler) DeleteDisk(diskIID irs.IID) (bool, error) {
 
 func (diskHandler *IbmDiskHandler) AttachDisk(diskIID irs.IID, ownerVM irs.IID) (irs.DiskInfo, error) {
 	hiscallInfo := GetCallLogScheme(diskHandler.Region, call.DISK, diskIID.SystemId, "AttachDisk()")
-
+	start := call.Start()
 	instance, getInstanceError := getRawInstance(ownerVM, diskHandler.VpcService, diskHandler.Ctx)
 	if getInstanceError != nil {
-		return irs.DiskInfo{}, errors.New(fmt.Sprintf("Failed to Get Owner VM. err = %s", getInstanceError))
+		attachErr := errors.New(fmt.Sprintf("Failed to Attach Disk. err = %s", getInstanceError.Error()))
+		cblogger.Error(attachErr.Error())
+		LoggingError(hiscallInfo, attachErr)
+		return irs.DiskInfo{}, attachErr
 	}
 
 	targetVolumeSystemId, getDiskSystemIdErr := getDiskSystemId(diskHandler.VpcService, diskHandler.Ctx, diskIID)
 	if getDiskSystemIdErr != nil {
-		return irs.DiskInfo{}, getDiskSystemIdErr
+		attachErr := errors.New(fmt.Sprintf("Failed to Attach Disk. err = %s", getInstanceError.Error()))
+		cblogger.Error(attachErr.Error())
+		LoggingError(hiscallInfo, attachErr)
+		return irs.DiskInfo{}, attachErr
 	}
 
 	createInstanceVolumeAttachmentOptions := &vpcv1.CreateInstanceVolumeAttachmentOptions{}
@@ -159,39 +185,53 @@ func (diskHandler *IbmDiskHandler) AttachDisk(diskIID irs.IID, ownerVM irs.IID) 
 	createInstanceVolumeAttachmentOptions.SetVolume(&vpcv1.VolumeAttachmentPrototypeVolumeVolumeIdentityVolumeIdentityByID{ID: &targetVolumeSystemId})
 	createInstanceVolumeAttachmentOptions.SetDeleteVolumeOnInstanceDelete(false)
 
-	start := call.Start()
 	_, _, attachDiskErr := diskHandler.VpcService.CreateInstanceVolumeAttachmentWithContext(diskHandler.Ctx, createInstanceVolumeAttachmentOptions)
 	if attachDiskErr != nil {
-		return irs.DiskInfo{}, errors.New(fmt.Sprintf("Failed to Attach Disk. err = %s", attachDiskErr.Error()))
+		attachErr := errors.New(fmt.Sprintf("Failed to Attach Disk. err = %s", attachDiskErr.Error()))
+		cblogger.Error(attachErr.Error())
+		LoggingError(hiscallInfo, attachErr)
+		return irs.DiskInfo{}, attachErr
 	}
-	LoggingInfo(hiscallInfo, start)
 
 	attachedDisk, getDiskErr := diskHandler.GetDisk(diskIID)
 	if getDiskErr != nil {
-		return irs.DiskInfo{}, errors.New(fmt.Sprintf("Failed to Get Disk. err = %s", getDiskErr.Error()))
+		attachErr := errors.New(fmt.Sprintf("Failed to Attach Disk. err = %s", getDiskErr.Error()))
+		cblogger.Error(attachErr.Error())
+		LoggingError(hiscallInfo, attachErr)
+		return irs.DiskInfo{}, attachErr
 	}
-
+	LoggingInfo(hiscallInfo, start)
 	return attachedDisk, nil
 }
 
 func (diskHandler *IbmDiskHandler) DetachDisk(diskIID irs.IID, ownerVM irs.IID) (bool, error) {
 	hiscallInfo := GetCallLogScheme(diskHandler.Region, call.DISK, diskIID.SystemId, "DetachDisk()")
+	start := call.Start()
 
 	instance, getInstanceError := getRawInstance(ownerVM, diskHandler.VpcService, diskHandler.Ctx)
 	if getInstanceError != nil {
-		return false, errors.New(fmt.Sprintf("Failed to Get Owner VM. err = %s", getInstanceError))
+		detachErr := errors.New(fmt.Sprintf("Failed to Detach Disk. err = %s", getInstanceError.Error()))
+		cblogger.Error(detachErr.Error())
+		LoggingError(hiscallInfo, detachErr)
+		return false, detachErr
 	}
 
 	targetVolumeSystemId, getDiskSystemIdErr := getDiskSystemId(diskHandler.VpcService, diskHandler.Ctx, diskIID)
 	if getDiskSystemIdErr != nil {
-		return false, getDiskSystemIdErr
+		detachErr := errors.New(fmt.Sprintf("Failed to Detach Disk. err = %s", getDiskSystemIdErr.Error()))
+		cblogger.Error(detachErr.Error())
+		LoggingError(hiscallInfo, detachErr)
+		return false, detachErr
 	}
 
 	listInstanceVolumeAttachmentsOptions := &vpcv1.ListInstanceVolumeAttachmentsOptions{}
 	listInstanceVolumeAttachmentsOptions.SetInstanceID(*instance.ID)
 	volumeAttachments, _, listVolumeAttachmentsErr := diskHandler.VpcService.ListInstanceVolumeAttachmentsWithContext(diskHandler.Ctx, listInstanceVolumeAttachmentsOptions)
 	if listVolumeAttachmentsErr != nil {
-		return false, errors.New(fmt.Sprintf("Failed to List Volume Attachments. err = %s", listVolumeAttachmentsErr))
+		detachErr := errors.New(fmt.Sprintf("Failed to Detach Disk. err = %s", listVolumeAttachmentsErr.Error()))
+		cblogger.Error(detachErr.Error())
+		LoggingError(hiscallInfo, detachErr)
+		return false, detachErr
 	}
 
 	targetVolumeAttachmentId := ""
@@ -202,20 +242,24 @@ func (diskHandler *IbmDiskHandler) DetachDisk(diskIID irs.IID, ownerVM irs.IID) 
 		}
 	}
 	if targetVolumeAttachmentId == "" {
-		return false, errors.New(fmt.Sprintf("Failed to Get Volume Attachment. err = Cannot find Volume Attachment"))
+		detachErr := errors.New(fmt.Sprintf("Failed to Detach Disk. err = Cannot find Volume Attachment"))
+		cblogger.Error(detachErr.Error())
+		LoggingError(hiscallInfo, detachErr)
+		return false, detachErr
 	}
 
 	deleteInstanceVolumeAttachmentOptions := &vpcv1.DeleteInstanceVolumeAttachmentOptions{}
 	deleteInstanceVolumeAttachmentOptions.SetID(targetVolumeAttachmentId)
 	deleteInstanceVolumeAttachmentOptions.SetInstanceID(*instance.ID)
 
-	start := call.Start()
 	_, detachDiskErr := diskHandler.VpcService.DeleteInstanceVolumeAttachmentWithContext(diskHandler.Ctx, deleteInstanceVolumeAttachmentOptions)
 	if detachDiskErr != nil {
-		return false, errors.New(fmt.Sprintf("Failed to Detach Disk. err = %s", detachDiskErr))
+		detachErr := errors.New(fmt.Sprintf("Failed to Detach Disk. err = %s", detachDiskErr.Error()))
+		cblogger.Error(detachErr.Error())
+		LoggingError(hiscallInfo, detachErr)
+		return false, detachErr
 	}
 	LoggingInfo(hiscallInfo, start)
-
 	return true, nil
 }
 

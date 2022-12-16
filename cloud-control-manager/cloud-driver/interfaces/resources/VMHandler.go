@@ -17,8 +17,15 @@ import (
 
 type ImageType string
 const (
-	PublicImage 	ImageType = "PublicImage"
-	MyImage 	ImageType = "MyImage" 
+	PublicImage ImageType = "PublicImage"
+	MyImage     ImageType = "MyImage"
+)
+
+type Platform string
+const (
+        LINUX		Platform = "LINUX" // deprecated
+        LINUX_UNIX	Platform = "LINUX/UNIX"
+        WINDOWS		Platform = "WINDOWS"
 )
 
 type VMReqInfo struct {
@@ -33,13 +40,14 @@ type VMReqInfo struct {
 	VMSpecName string
 	KeyPairIID IID
 
-	RootDiskType string  // "", "SSD(gp2)", "Premium SSD", ...
-        RootDiskSize string  // "", "default", "50", "1000" (GB)
+	RootDiskType string // "", "SSD(gp2)", "Premium SSD", ...
+	RootDiskSize string // "", "default", "50", "1000" (GB)
 
 	DataDiskIIDs []IID
 
 	VMUserId     string
 	VMUserPasswd string
+	WindowsType  bool
 }
 
 type VMStatusInfo struct {
@@ -77,7 +85,7 @@ type VMInfo struct {
 	StartTime time.Time // Timezone: based on cloud-barista server location.
 
 	Region            RegionInfo //  ex) {us-east1, us-east1-c} or {ap-northeast-2}
-	ImageType         ImageType // PublicImage | MyImage
+	ImageType         ImageType  // PublicImage | MyImage
 	ImageIId          IID
 	VMSpecName        string //  instance type or flavour, etc... ex) t2.micro or f1.micro
 	VpcIID            IID
@@ -86,14 +94,14 @@ type VMInfo struct {
 
 	KeyPairIId IID
 
-	RootDiskType	string  // "SSD(gp2)", "Premium SSD", ...
-        RootDiskSize	string  // "default", "50", "1000" (GB)
-	RootDeviceName	string // "/dev/sda1", ...
+	RootDiskType   string // "SSD(gp2)", "Premium SSD", ...
+	RootDiskSize   string // "default", "50", "1000" (GB)
+	RootDeviceName string // "/dev/sda1", ...
 
 	DataDiskIIDs []IID
 
-	VMBootDisk  	string // Deprecated soon
-	VMBlockDisk 	string // Deprecated soon
+	VMBootDisk  string // Deprecated soon
+	VMBlockDisk string // Deprecated soon
 
 	VMUserId     string // ex) user1
 	VMUserPasswd string
@@ -104,8 +112,10 @@ type VMInfo struct {
 	PrivateIP        string
 	PrivateDNS       string
 
+	Platform         Platform // LINUX | WINDOWS
 
-	SSHAccessPoint string // ex) 10.2.3.2:22, 123.456.789.123:4321
+	SSHAccessPoint string // ex) 10.2.3.2:22, 123.456.789.123:4321 ==> Deprecated
+	AccessPoint string // ex) 10.2.3.2:22, 123.456.789.123:4321
 
 	KeyValueList []KeyValue
 }

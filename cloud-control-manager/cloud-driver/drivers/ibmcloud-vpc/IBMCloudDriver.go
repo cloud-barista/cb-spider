@@ -3,11 +3,12 @@ package ibmcloudvpc
 import (
 	"context"
 	"errors"
-	"fmt"
 	"github.com/IBM/go-sdk-core/v5/core"
+	"github.com/IBM/platform-services-go-sdk/globaltaggingv1"
 	vpc0230 "github.com/IBM/vpc-go-sdk/0.23.0/vpcv1"
 	"github.com/IBM/vpc-go-sdk/vpcv1"
 	"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/ibmcloud-vpc/connect"
+	"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/ibmcloud-vpc/kubernetesserviceapiv1"
 	ibms "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/ibmcloud-vpc/resources"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	icon "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/connect"
@@ -59,9 +60,8 @@ func (driver *IbmCloudDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (
 	var endPoint string
 	getRegionOptions := &vpcv1.GetRegionOptions{}
 	getRegionOptions.SetName(connectionInfo.RegionInfo.Region)
-	region, details, err := initVpcService.GetRegionWithContext(ctx, getRegionOptions)
+	region, _, err := initVpcService.GetRegionWithContext(ctx, getRegionOptions)
 	if err != nil {
-		fmt.Println(details)
 		return nil, err
 	} else {
 		getZoneOptions := &vpcv1.GetRegionZoneOptions{}
@@ -85,14 +85,27 @@ func (driver *IbmCloudDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (
 		},
 		URL: endPoint,
 	})
+	clusterService, err := kubernetesserviceapiv1.NewKubernetesServiceApiV1(&kubernetesserviceapiv1.KubernetesServiceApiV1Options{
+		Authenticator: &core.IamAuthenticator{
+			ApiKey: connectionInfo.CredentialInfo.ApiKey,
+		},
+	})
 	if err != nil {
 		return nil, err
 	}
+	taggingService, err := globaltaggingv1.NewGlobalTaggingV1(&globaltaggingv1.GlobalTaggingV1Options{
+		Authenticator: &core.IamAuthenticator{
+			ApiKey: connectionInfo.CredentialInfo.ApiKey,
+		},
+	})
+
 	iConn := connect.IbmCloudConnection{
 		CredentialInfo: connectionInfo.CredentialInfo,
 		Region:         connectionInfo.RegionInfo,
 		VpcService:     vpcService,
 		VpcService0230: vpcService0230,
+		ClusterService: clusterService,
+		TaggingService: taggingService,
 		Ctx:            ctx,
 	}
 	return &iConn, nil

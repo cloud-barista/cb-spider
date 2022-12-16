@@ -372,13 +372,14 @@ func ExVMCmd() *cobra.Command {
                 Long: "example to start vm",
                 Run: func(cmd *cobra.Command, args []string) {
 			excmd := `
+[Start VM]
 spctl vm start -d \
     '{
       "ConnectionName":"aws-ohio-config",
       "ReqInfo": {
         "Name": "spider-vm-01",
         
-        "ImageName": "ami-0bbe28eb2173f6167",
+        "ImageName": "ami-097a2df4ac947655f",
         "VMSpecName": "t2.micro",
 
         "VPCName": "spider-vpc-01",
@@ -387,6 +388,15 @@ spctl vm start -d \
         "KeyPairName": "spider-key-01"
       }
     }'
+
+[List VM]
+spctl --cname aws-ohio-config vm list
+
+[Get VM]
+spctl --cname aws-ohio-config vm get -n spider-vm-01
+
+[Terminate VM]
+spctl --cname aws-ohio-config vm terminate -n spider-vm-01
 
 `
                         fmt.Printf(excmd)

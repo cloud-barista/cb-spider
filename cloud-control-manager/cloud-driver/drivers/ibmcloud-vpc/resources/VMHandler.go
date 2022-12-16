@@ -9,6 +9,7 @@ import (
 	vpcv0230 "github.com/IBM/vpc-go-sdk/0.23.0/vpcv1"
 	"github.com/IBM/vpc-go-sdk/vpcv1"
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
+	cdcom "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/common"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"io/ioutil"
@@ -59,6 +60,7 @@ func (vmHandler *IbmVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 	// 1-2. Setup Req Resource IID
 	var image vpcv1.Image
 	var myImage irs.MyImageInfo
+	var isWindows bool
 	if vmReqInfo.ImageType == irs.MyImage {
 		myImageHandler := IbmMyImageHandler{
 			CredentialInfo: vmHandler.CredentialInfo,
@@ -80,6 +82,15 @@ func (vmHandler *IbmVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 			LoggingError(hiscallInfo, createErr)
 			return irs.VMInfo{}, createErr
 		}
+		rawSnapshot, _, getRawSnapshotErr := myImageHandler.VpcService.GetSnapshotWithContext(myImageHandler.Ctx, &vpcv1.GetSnapshotOptions{ID: &myImage.IId.SystemId})
+		if getRawSnapshotErr != nil {
+			createErr := errors.New("Failed to Create VM. err = Cannot get Snapshot Detail of Source MyImage")
+			cblogger.Error(createErr.Error())
+			LoggingError(hiscallInfo, createErr)
+			return irs.VMInfo{}, createErr
+		}
+
+		isWindows = strings.Contains(strings.ToLower(*rawSnapshot.OperatingSystem.Name), "windows")
 	} else {
 		var getImageErr error
 		image, getImageErr = getRawImage(vmReqInfo.ImageIID, vmHandler.VpcService, vmHandler.Ctx)
@@ -89,9 +100,11 @@ func (vmHandler *IbmVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 			LoggingError(hiscallInfo, createErr)
 			return irs.VMInfo{}, createErr
 		}
+
+		isWindows = strings.Contains(strings.ToLower(*image.OperatingSystem.Name), "windows")
 	}
 
-	vpc, err := getRawVPC(vmReqInfo.VpcIID, vmHandler.VpcService, vmHandler.Ctx)
+	vpc, err := GetRawVPC(vmReqInfo.VpcIID, vmHandler.VpcService, vmHandler.Ctx)
 	if err != nil {
 		createErr := errors.New(fmt.Sprintf("Failed to Create VM. err = %s", err.Error()))
 		cblogger.Error(createErr.Error())
@@ -141,16 +154,31 @@ func (vmHandler *IbmVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 	}
 
 	// 1-3. cloud-init data set
-	rootPath := os.Getenv("CBSPIDER_ROOT")
-	fileDataCloudInit, err := ioutil.ReadFile(rootPath + CBCloudInitFilePath)
-	if err != nil {
-		createErr := errors.New(fmt.Sprintf("Failed to Create VM. err = %s", err.Error()))
-		cblogger.Error(createErr.Error())
-		LoggingError(hiscallInfo, createErr)
-		return irs.VMInfo{}, createErr
+	var userData string
+	if isWindows {
+		userId := vmReqInfo.VMUserId
+		if userId == "" {
+			userId = "Administrator"
+		}
+
+		pwValidErr := cdcom.ValidateWindowsPassword(vmReqInfo.VMUserPasswd)
+		if pwValidErr != nil {
+			return irs.VMInfo{}, pwValidErr
+		}
+
+		userData = fmt.Sprintf("#ps1_sysnative\nnet user \"%s\" \"%s\"", userId, vmReqInfo.VMUserPasswd)
+	} else {
+		rootPath := os.Getenv("CBSPIDER_ROOT")
+		fileDataCloudInit, err := ioutil.ReadFile(rootPath + CBCloudInitFilePath)
+		if err != nil {
+			createErr := errors.New(fmt.Sprintf("Failed to Create VM. err = %s", err.Error()))
+			cblogger.Error(createErr.Error())
+			LoggingError(hiscallInfo, createErr)
+			return irs.VMInfo{}, createErr
+		}
+		userData = string(fileDataCloudInit)
+		userData = strings.ReplaceAll(userData, "{{username}}", CBDefaultVmUserName)
 	}
-	userData := string(fileDataCloudInit)
-	userData = strings.ReplaceAll(userData, "{{username}}", CBDefaultVmUserName)
 
 	// 2.Create VM
 	// TODO : UserData cloudInit
@@ -440,6 +468,9 @@ func (vmHandler *IbmVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 				return irs.VMInfo{}, createErr
 			}
 			LoggingInfo(hiscallInfo, start)
+			if isWindows {
+				finalInstanceInfo.VMUserPasswd = vmReqInfo.VMUserPasswd
+			}
 			return finalInstanceInfo, nil
 		}
 		curRetryCnt++
@@ -630,7 +661,7 @@ func (vmHandler *IbmVMHandler) ListVMStatus() ([]*irs.VMStatusInfo, error) {
 	options := &vpcv1.ListInstancesOptions{}
 	instances, _, err := vmHandler.VpcService.ListInstancesWithContext(vmHandler.Ctx, options)
 	if err != nil {
-		getErr := errors.New(fmt.Sprintf("Failed to Get ListVMStatus. err = %s", err.Error()))
+		getErr := errors.New(fmt.Sprintf("Failed to List VMStatus. err = %s", err.Error()))
 		cblogger.Error(getErr.Error())
 		LoggingError(hiscallInfo, getErr)
 		return nil, getErr
@@ -656,7 +687,7 @@ func (vmHandler *IbmVMHandler) ListVMStatus() ([]*irs.VMStatusInfo, error) {
 			}
 			instances, _, err = vmHandler.VpcService.ListInstancesWithContext(vmHandler.Ctx, listVpcsOptions2)
 			if err != nil {
-				getErr := errors.New(fmt.Sprintf("Failed to Get ListVMStatus. err = %s", err.Error()))
+				getErr := errors.New(fmt.Sprintf("Failed to List VMStatus. err = %s", err.Error()))
 				cblogger.Error(getErr.Error())
 				LoggingError(hiscallInfo, getErr)
 				return nil, getErr
@@ -695,7 +726,7 @@ func (vmHandler *IbmVMHandler) ListVM() ([]*irs.VMInfo, error) {
 	options := &vpcv1.ListInstancesOptions{}
 	instances, _, err := vmHandler.VpcService.ListInstancesWithContext(vmHandler.Ctx, options)
 	if err != nil {
-		getErr := errors.New(fmt.Sprintf("Failed to Get VMList. err = %s", err.Error()))
+		getErr := errors.New(fmt.Sprintf("Failed to List VM. err = %s", err.Error()))
 		cblogger.Error(getErr.Error())
 		LoggingError(hiscallInfo, getErr)
 		return nil, getErr
@@ -712,7 +743,7 @@ func (vmHandler *IbmVMHandler) ListVM() ([]*irs.VMInfo, error) {
 			}
 			instances, _, err = vmHandler.VpcService.ListInstancesWithContext(vmHandler.Ctx, listVpcsOptions2)
 			if err != nil {
-				getErr := errors.New(fmt.Sprintf("Failed to Get VMList. err = %s", err.Error()))
+				getErr := errors.New(fmt.Sprintf("Failed to List VM. err = %s", err.Error()))
 				cblogger.Error(getErr.Error())
 				LoggingError(hiscallInfo, getErr)
 				return nil, getErr
@@ -725,7 +756,7 @@ func (vmHandler *IbmVMHandler) ListVM() ([]*irs.VMInfo, error) {
 
 	vmList, err := vmHandler.setVMList(vmInstanceList)
 	if err != nil {
-		getErr := errors.New(fmt.Sprintf("Failed to Get VMList. err = %s", err.Error()))
+		getErr := errors.New(fmt.Sprintf("Failed to List VM. err = %s", err.Error()))
 		cblogger.Error(getErr.Error())
 		LoggingError(hiscallInfo, getErr)
 		return nil, getErr
@@ -1132,7 +1163,7 @@ func (vmHandler *IbmVMHandler) getKeyIId(instance vpcv1.Instance) irs.IID {
 type vmNetworkInfo struct {
 	NetworkInterface  string
 	PublicIP          string
-	SSHAccessPoint    string
+	AccessPoint       string
 	SecurityGroupIIds []irs.IID
 }
 
@@ -1180,7 +1211,7 @@ func (vmHandler *IbmVMHandler) getNetworkInfo(instance vpcv1.Instance) vmNetwork
 		info.NetworkInterface = *networkInterface.Name
 		if networkInterface.FloatingIps != nil && len(networkInterface.FloatingIps) > 0 {
 			info.PublicIP = *networkInterface.FloatingIps[0].Address
-			info.SSHAccessPoint = info.PublicIP + ":22"
+			info.AccessPoint = info.PublicIP
 		}
 		if vpcId == "" {
 			info.SecurityGroupIIds = []irs.IID{}
@@ -1267,10 +1298,27 @@ func (vmHandler *IbmVMHandler) setVmInfo(instance vpcv1.Instance) (irs.VMInfo, e
 		case netInfo := <-networkDone:
 			vmInfo.NetworkInterface = netInfo.NetworkInterface
 			vmInfo.PublicIP = netInfo.PublicIP
-			vmInfo.SSHAccessPoint = netInfo.SSHAccessPoint
+			vmInfo.AccessPoint = netInfo.AccessPoint
 			vmInfo.SecurityGroupIIds = netInfo.SecurityGroupIIds
 		case volumeRootDiskSize := <-volumeDone:
 			vmInfo.RootDiskSize = volumeRootDiskSize
+		}
+	}
+
+	vmInfo.RootDiskType = "general-purpose"
+
+	vmInfo.VMBootDisk = *instance.BootVolumeAttachment.Volume.ID
+	rawBootDisk, getRawBootDiskErr := getRawDisk(vmHandler.VpcService, vmHandler.Ctx, irs.IID{SystemId: vmInfo.VMBootDisk})
+	if getRawBootDiskErr == nil {
+		isWindows := strings.Contains(strings.ToLower(*rawBootDisk.OperatingSystem.Name), "windows")
+		if isWindows {
+			vmInfo.Platform = irs.WINDOWS
+			vmInfo.VMUserId = "Administrator"
+			vmInfo.AccessPoint = vmInfo.AccessPoint + ":3389"
+		} else {
+			vmInfo.Platform = irs.LINUX
+			vmInfo.VMUserId = "cb-user"
+			vmInfo.AccessPoint = vmInfo.AccessPoint + ":22"
 		}
 	}
 

@@ -591,9 +591,9 @@ func NLB(c echo.Context) error {
                             <td>
                                 <!--Port:--> <= <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="11" maxlength="5" size="5" value="22">
 				<br>--------------------------------<br>
-                                Interval: <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="12" maxlength="5" size="5" value="10">
-                                <br> Timeout: <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="13" maxlength="5" size="5" value="10">
-                                <br> Threshold: <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="14" maxlength="5" size="5" value="3">
+                                Interval: <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="12" maxlength="5" size="5" value="default">
+                                <br> Timeout: <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="13" maxlength="5" size="5" value="default">
+                                <br> Threshold: <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="14" maxlength="5" size="5" value="default">
 				<br>--------------------------------<br>
                                 <!--Protocol:-->
 					<select style="font-size:12px;text-align:center;"  name="text_box" id="10" >

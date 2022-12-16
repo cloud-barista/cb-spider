@@ -27,7 +27,7 @@ type MyImageInfo struct {
 
         SourceVM IID
 	
-        Status 		MyImageStatus  // Available | Deleting
+        Status 		MyImageStatus  // Available | Unavailable
 
 	CreatedTime	time.Time
 	KeyValueList 	[]KeyValue
@@ -43,5 +43,6 @@ type MyImageHandler interface {
 	//------ MyImage Management
 	ListMyImage() ([]*MyImageInfo, error)
 	GetMyImage(myImageIID IID) (MyImageInfo, error)
+	CheckWindowsImage(myImageIID IID) (bool, error)
 	DeleteMyImage(myImageIID IID) (bool, error)
 }

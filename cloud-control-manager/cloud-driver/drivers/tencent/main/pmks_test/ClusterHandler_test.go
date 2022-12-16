@@ -12,7 +12,10 @@ package pmks
 
 import (
 	"os"
+	"regexp"
+	"strings"
 	"testing"
+	"time"
 
 	tdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/tencent"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
@@ -71,9 +74,40 @@ func TestCreateClusterOnly(t *testing.T) {
 		},
 		Version: "1.22.5",
 		Network: irs.NetworkInfo{
-			VpcIID:    irs.IID{NameId: "", SystemId: "vpc-q1c6fr9e"},
-			SubnetIID: []irs.IID{{NameId: "", SystemId: "subnet-rl79gxhv"}},
-			//SecurityGroupIIDs: []irs.IID{{NameId: "", SystemId: "sg-46eef229"}}, // 설정 안됨
+			VpcIID:            irs.IID{NameId: "", SystemId: "vpc-q1c6fr9e"},
+			SubnetIIDs:        []irs.IID{{NameId: "", SystemId: "subnet-rl79gxhv"}},
+			SecurityGroupIIDs: []irs.IID{{NameId: "", SystemId: "sg-c00t00ih"}}, // 설정 안됨 => Description으로 설정해놓고, 조회해서 사용!
+		},
+	}
+
+	cluster_, err := clusterHandler.CreateCluster(clusterInfo)
+	if err != nil {
+		t.Error(err)
+	}
+
+	t.Log(cluster_)
+}
+
+// create on seoul region
+func TestCreateClusterOnly_2(t *testing.T) {
+
+	t.Log("클러스터 생성, 노드그룹은 생성안함")
+
+	clusterHandler, err := getClusterHandler()
+	if err != nil {
+		t.Error(err)
+	}
+
+	clusterInfo := irs.ClusterInfo{
+		IId: irs.IID{
+			NameId:   "cluster-x2",
+			SystemId: "",
+		},
+		Version: "1.22.5",
+		Network: irs.NetworkInfo{
+			VpcIID:            irs.IID{NameId: "", SystemId: "vpc-am6zxh28"},
+			SubnetIIDs:        []irs.IID{{NameId: "", SystemId: "subnet-hxz3js5x"}},
+			SecurityGroupIIDs: []irs.IID{{NameId: "", SystemId: "sg-c00t00ih"}}, // 설정 안됨 => Description으로 설정해놓고, 조회해서 사용!
 		},
 	}
 
@@ -97,13 +131,18 @@ func TestListCluster(t *testing.T) {
 		t.Error(err)
 	}
 
-	if len(clusters) == 0 {
-		t.Error("No cluster found")
-	}
-
 	for _, cluster := range clusters {
 		t.Log(cluster.IId.SystemId)
 		println(cluster.IId.NameId, cluster.Status)
+		for _, item := range cluster.KeyValueList {
+			println("\t", item.Key, item.Value)
+			if item.Key == "ClusterDescription" {
+				re := regexp.MustCompile(`\S*#CB-SPIDER:PMKS:SECURITYGROUP:ID:\S*`)
+				temp := re.FindString(item.Value)
+				split := strings.Split(temp, "#CB-SPIDER:PMKS:SECURITYGROUP:ID:")
+				println(split[1])
+			}
+		}
 	}
 }
 
@@ -117,10 +156,6 @@ func TestGetCluster(t *testing.T) {
 	clusters, err := clusterHandler.ListCluster()
 	if err != nil {
 		t.Error(err)
-	}
-
-	if len(clusters) == 0 {
-		t.Error("No cluster found")
 	}
 
 	t.Log(clusters)
@@ -151,10 +186,78 @@ func TestAddNodeGroup(t *testing.T) {
 		VMSpecName:      "S3.MEDIUM2",
 		RootDiskType:    "CLOUD_PREMIUM",
 		RootDiskSize:    "50",
-		KeyPairIID:      irs.IID{NameId: "kp1", SystemId: ""}, // 필수 옵션 아님, 대응되는 필드가 없음. 찾아봐야함.
+		KeyPairIID:      irs.IID{NameId: "", SystemId: "skey-4l982cjb"}, // KeyPair ID 설정
 		OnAutoScaling:   true,
-		DesiredNodeSize: 1,
-		MinNodeSize:     0,
+		DesiredNodeSize: 2,
+		MinNodeSize:     2,
+		MaxNodeSize:     2,
+	}
+
+	clusters, _ := clusterHandler.ListCluster()
+	for _, cluster := range clusters {
+		t.Log(cluster)
+		node_group, err := clusterHandler.AddNodeGroup(cluster.IId, *new_node_group)
+		if err != nil {
+			t.Error(err)
+		}
+		t.Log(node_group)
+	}
+}
+
+func TestAddNodeGroup2(t *testing.T) {
+	clusterHandler, err := getClusterHandler()
+	if err != nil {
+		t.Error(err)
+	}
+
+	new_node_group := &irs.NodeGroupInfo{
+		IId: irs.IID{NameId: "ng-x5", SystemId: ""},
+		//ImageIID:        irs.IID{NameId: "tlinux3.1x86_64", SystemId: "tlinux3.1x86_64"},
+		ImageIID:        irs.IID{SystemId: "tlinux3.1x86_64"},
+		VMSpecName:      "S3.MEDIUM2",
+		RootDiskType:    "CLOUD_BSSD",
+		RootDiskSize:    "50",
+		KeyPairIID:      irs.IID{NameId: "", SystemId: "skey-4l982cjb"}, // KeyPair ID 설정
+		OnAutoScaling:   true,
+		DesiredNodeSize: 2,
+		MinNodeSize:     2,
+		MaxNodeSize:     2,
+	}
+
+	clusters, _ := clusterHandler.ListCluster()
+	for _, cluster := range clusters {
+		t.Log(cluster)
+		node_group, err := clusterHandler.AddNodeGroup(cluster.IId, *new_node_group)
+		if err != nil {
+			t.Error(err)
+		}
+		t.Log(node_group)
+	}
+}
+
+func TestAddNodeGroup3(t *testing.T) {
+
+	// 	"ReqInfo": {
+	// 		"Name": "Economy",
+	// 		"Name": "Economy", "ImageName": "tlinux3.1x86_64", "VMSpecName": "S3.MEDIUM8", "KeyPairName": "keypair-02",
+	// 				"OnAutoScaling": "true", "DesiredNodeSize": "2", "MinNodeSize": "1", "MaxNodeSize": "3"
+	// }
+
+	clusterHandler, err := getClusterHandler()
+	if err != nil {
+		t.Error(err)
+	}
+
+	new_node_group := &irs.NodeGroupInfo{
+		IId:             irs.IID{NameId: "np-test2", SystemId: ""},
+		ImageIID:        irs.IID{SystemId: "tlinux3.1x86_64"},
+		VMSpecName:      "S3.MEDIUM8",
+		RootDiskType:    "CLOUD_BSSD",
+		RootDiskSize:    "50",
+		KeyPairIID:      irs.IID{NameId: "", SystemId: "skey-4l982cjb"}, // KeyPair ID 설정
+		OnAutoScaling:   true,
+		DesiredNodeSize: 2,
+		MinNodeSize:     1,
 		MaxNodeSize:     3,
 	}
 
@@ -169,7 +272,7 @@ func TestAddNodeGroup(t *testing.T) {
 	}
 }
 
-func TestListNodeGroup(t *testing.T) {
+func TestChangeNodeGroupScaling3(t *testing.T) {
 	clusterHandler, err := getClusterHandler()
 	if err != nil {
 		t.Error(err)
@@ -177,38 +280,14 @@ func TestListNodeGroup(t *testing.T) {
 
 	clusters, _ := clusterHandler.ListCluster()
 	for _, cluster := range clusters {
-		node_groups, _ := clusterHandler.ListNodeGroup(cluster.IId)
-		for _, node_group := range node_groups {
-			t.Log(node_group.IId.NameId, node_group.IId.SystemId)
-			t.Log(node_group)
-		}
-	}
-}
-
-func TestGetNodeGroup(t *testing.T) {
-	clusterHandler, err := getClusterHandler()
-	if err != nil {
-		t.Error(err)
-	}
-
-	clusters, _ := clusterHandler.ListCluster()
-	for _, cluster := range clusters {
-		node_groups, _ := clusterHandler.ListNodeGroup(cluster.IId)
-		for _, node_group := range node_groups {
-			node_group_, err := clusterHandler.GetNodeGroup(cluster.IId, node_group.IId)
+		for _, node_group_info := range cluster.NodeGroupList {
+			res, err := clusterHandler.ChangeNodeGroupScaling(cluster.IId, node_group_info.IId, 2, 1, 3)
 			if err != nil {
 				t.Error(err)
 			}
-			t.Log(node_group_.IId.NameId, node_group_.IId.SystemId)
-			t.Log(node_group_)
+			println(res.IId.NameId, res.IId.SystemId)
 		}
 	}
-
-	node_group, err := clusterHandler.GetNodeGroup(irs.IID{NameId: "", SystemId: "cluster_id_not_exist"}, irs.IID{NameId: "", SystemId: "node_group_id_not_exist"})
-	if err != nil {
-		println(err.Error())
-	}
-	println(node_group.IId.NameId)
 }
 
 func TestSetNodeGroupAutoScaling(t *testing.T) {
@@ -219,20 +298,18 @@ func TestSetNodeGroupAutoScaling(t *testing.T) {
 
 	clusters, _ := clusterHandler.ListCluster()
 	for _, cluster := range clusters {
-		node_groups, _ := clusterHandler.ListNodeGroup(cluster.IId)
-		for _, node_group := range node_groups {
-			node_group_, err := clusterHandler.GetNodeGroup(cluster.IId, node_group.IId)
-			if err != nil {
-				t.Error(err)
-			}
-
-			res, err := clusterHandler.SetNodeGroupAutoScaling(cluster.IId, node_group_.IId, false)
+		for _, node_group_info := range cluster.NodeGroupList {
+			res, err := clusterHandler.SetNodeGroupAutoScaling(cluster.IId, node_group_info.IId, false)
 			if err != nil {
 				t.Error(err)
 			}
 			println(res)
 
-			res, err = clusterHandler.SetNodeGroupAutoScaling(cluster.IId, node_group_.IId, true)
+			// 오토스케일링 모드 변경 후 바로 또 변경하려고 하면 요청 거부가 발생 할 수 있음.
+			// 그래서 5초간 대기 후에 다시 요청한다.
+			time.Sleep(5 * time.Second)
+
+			res, err = clusterHandler.SetNodeGroupAutoScaling(cluster.IId, node_group_info.IId, true)
 			if err != nil {
 				t.Error(err)
 			}
@@ -249,20 +326,14 @@ func TestChangeNodeGroupScaling(t *testing.T) {
 
 	clusters, _ := clusterHandler.ListCluster()
 	for _, cluster := range clusters {
-		node_groups, _ := clusterHandler.ListNodeGroup(cluster.IId)
-		for _, node_group := range node_groups {
-			node_group_, err := clusterHandler.GetNodeGroup(cluster.IId, node_group.IId)
-			if err != nil {
-				t.Error(err)
-			}
-
-			res, err := clusterHandler.ChangeNodeGroupScaling(cluster.IId, node_group_.IId, 2, 0, 5)
+		for _, node_group_info := range cluster.NodeGroupList {
+			res, err := clusterHandler.ChangeNodeGroupScaling(cluster.IId, node_group_info.IId, 2, 0, 5)
 			if err != nil {
 				t.Error(err)
 			}
 			println(res.IId.NameId, res.IId.SystemId)
 
-			res, err = clusterHandler.ChangeNodeGroupScaling(cluster.IId, node_group_.IId, 1, 0, 3)
+			res, err = clusterHandler.ChangeNodeGroupScaling(cluster.IId, node_group_info.IId, 1, 0, 3)
 			if err != nil {
 				t.Error(err)
 			}
@@ -279,9 +350,8 @@ func TestRemoveNodeGroup(t *testing.T) {
 
 	clusters, _ := clusterHandler.ListCluster()
 	for _, cluster := range clusters {
-		node_groups, _ := clusterHandler.ListNodeGroup(cluster.IId)
-		for _, node_group := range node_groups {
-			res, _ := clusterHandler.RemoveNodeGroup(cluster.IId, node_group.IId)
+		for _, node_group_info := range cluster.NodeGroupList {
+			res, _ := clusterHandler.RemoveNodeGroup(cluster.IId, node_group_info.IId)
 			if err != nil {
 				t.Error(err)
 			}

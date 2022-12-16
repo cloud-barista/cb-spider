@@ -8,7 +8,6 @@ import (
 	cbs "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/cbs/v20170312"
 	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
 	cvm "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/cvm/v20170312"
-
 )
 
 func DescribeDisks(client *cbs.Client, diskIIDs []irs.IID) ([]*cbs.Disk, error) {
@@ -41,6 +40,35 @@ func DescribeDisksByDiskID(client *cbs.Client, diskIID irs.IID) (cbs.Disk, error
 	}
 
 	return *diskList[0], nil
+}
+
+func WaitForDelete(client *cvm.Client, imageIID irs.IID) (bool, error) {
+	var imageIIDList []irs.IID
+	imageIIDList = append(imageIIDList, imageIID)
+
+	curRetryCnt := 0
+	maxRetryCnt := 120
+	for {
+		imageList, err := DescribeImages(client, imageIIDList, nil)
+		if err != nil {
+			cblogger.Error(err.Error())
+		}
+
+		if len(imageList) == 0 {
+			cblogger.Info("Image의 삭제가 완료되어 대기를 중단합니다.")
+			break
+		}
+
+		curRetryCnt++
+		cblogger.Info("Image의 삭제가 완료되지 않아 1초 대기후 조회합니다.")
+		time.Sleep(time.Second * 1)
+		if curRetryCnt > maxRetryCnt {
+			cblogger.Errorf("장시간(%d 초) 대기해도 Image의 삭제가 완료되지 않아서 강제로 중단합니다.", maxRetryCnt)
+			return false, errors.New("Failed to delete image")
+		}
+	}
+
+	return true, nil
 }
 
 func WaitForDone(client *cbs.Client, diskIID irs.IID, status string) (string, error) {
@@ -95,18 +123,19 @@ func AttachDisk(client *cbs.Client, diskIID irs.IID, ownerVM irs.IID) (irs.DiskI
 	return irs.DiskInfo{}, nil
 }
 
-
-func DescribeImages(client *cvm.Client, myImageIIDs []irs.IID) ([]*cvm.Image, error) {
+func DescribeImages(client *cvm.Client, myImageIIDs []irs.IID, imageTypes []string) ([]*cvm.Image, error) {
 	request := cvm.NewDescribeImagesRequest()
 
 	if myImageIIDs != nil {
 		request.ImageIds = common.StringPtrs([]string{myImageIIDs[0].SystemId})
 	} else {
-		request.Filters = []*cvm.Filter{
-			{
-				Name:   common.StringPtr("image-type"),
-				Values: common.StringPtrs([]string{"PRIVATE_IMAGE"}),
-			},
+		if imageTypes != nil && len(imageTypes) > 0 {
+			request.Filters = []*cvm.Filter{
+				{
+					Name:   common.StringPtr("image-type"),
+					Values: common.StringPtrs(imageTypes),
+				},
+			}
 		}
 	}
 
@@ -119,11 +148,12 @@ func DescribeImages(client *cvm.Client, myImageIIDs []irs.IID) ([]*cvm.Image, er
 	return response.Response.ImageSet, nil
 }
 
-func DescribeImagesByID(client *cvm.Client, myImageIID irs.IID) (cvm.Image, error) {
+// imageTypes : PUBLIC_IMAGE, SHARED_IMAGE, PRIVATE_IMAGE
+func DescribeImagesByID(client *cvm.Client, myImageIID irs.IID, imageTypes []string) (cvm.Image, error) {
 	var myImageIIDList []irs.IID
 	myImageIIDList = append(myImageIIDList, myImageIID)
 
-	myImageList, err := DescribeImages(client, myImageIIDList)
+	myImageList, err := DescribeImages(client, myImageIIDList, imageTypes)
 	if err != nil {
 		return cvm.Image{}, err
 	}
@@ -133,4 +163,60 @@ func DescribeImagesByID(client *cvm.Client, myImageIID irs.IID) (cvm.Image, erro
 	}
 
 	return *myImageList[0], nil
+}
+
+func DescribeImageStatus(client *cvm.Client, imageIID irs.IID, imageTypes []string) (string, error) {
+	cvmImage, err := DescribeImagesByID(client, imageIID, imageTypes)
+	if err != nil {
+		return "", err
+	}
+
+	status := *cvmImage.ImageState
+
+	return status, nil
+}
+
+func GetSnapshotIdsFromImage(myImage cvm.Image) []string {
+	var snapshotIds []string
+
+	for _, snapshot := range myImage.SnapshotSet {
+		snapshotId := *snapshot.SnapshotId
+		snapshotIds = append(snapshotIds, snapshotId)
+	}
+	return snapshotIds
+}
+
+func DescribeSnapshotByID(client *cbs.Client, snapshotIID irs.IID) (cbs.Snapshot, error) {
+	request := cbs.NewDescribeSnapshotsRequest()
+	request.SnapshotIds = common.StringPtrs([]string{snapshotIID.SystemId})
+
+	response, err := client.DescribeSnapshots(request)
+	if err != nil {
+		return cbs.Snapshot{}, err
+	}
+
+	if len(response.Response.SnapshotSet) != 1 {
+		return cbs.Snapshot{}, errors.New("search failed")
+	}
+
+	return *response.Response.SnapshotSet[0], nil
+}
+
+func DescribeSnapshotStatus(client *cbs.Client, snapshotIID irs.IID) (string, error) {
+	snapshot, err := DescribeSnapshotByID(client, snapshotIID)
+	if err != nil {
+		return "", err
+	}
+
+	status := *snapshot.SnapshotState
+
+	return status, nil
+}
+
+// Image에서 OS Type 추출
+// "OsName": "TencentOS Server 3.1 (TK4)",
+// "Platform": "TencentOS",
+func GetOsType(cvmImage cvm.Image) string {
+	cblogger.Info("OsName,", *cvmImage.Platform)
+	return *cvmImage.Platform
 }

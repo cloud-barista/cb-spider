@@ -26,7 +26,7 @@ func setup() {
 	println("setup")
 	access_key = os.Getenv("CLIENT_ID")
 	access_secret = os.Getenv("CLIENT_SECRET")
-	region_id = os.Getenv("REGION")
+	region_id = os.Getenv("REGION_ID")
 }
 
 func shutdown() {
@@ -145,7 +145,40 @@ func TestGetCluster(t *testing.T) {
 
 		cluster_json_obj := make(map[string]interface{})
 		json.Unmarshal([]byte(cluster_json_str), &cluster_json_obj)
-		print(cluster_json_obj["cluster_id"].(string))
+		println(cluster_json_obj["cluster_id"].(string))
+
+		//"{\"api_server_endpoint\":\"https://47.74.22.109:6443\",\"dashboard_endpoint\":\"\",\"intranet_api_server_endpoint\":\"https://10.0.11.77:6443\"}"
+		println(cluster_json_obj["master_url"].(string))
+		master_url_json_obj := make(map[string]interface{})
+		json.Unmarshal([]byte(cluster_json_obj["master_url"].(string)), &master_url_json_obj)
+		println(master_url_json_obj["api_server_endpoint"].(string))
+	}
+}
+
+func TestGetClusterKubeConfig(t *testing.T) {
+	clusters_json_str, err := alibaba.GetClusters(access_key, access_secret, region_id)
+	if err != nil {
+		t.Errorf("Failed to get clusters: %v", err)
+	}
+	println(clusters_json_str)
+
+	clusters_json_obj := make(map[string]interface{})
+	json.Unmarshal([]byte(clusters_json_str), &clusters_json_obj)
+
+	clusters := clusters_json_obj["clusters"].([]interface{})
+	for _, v := range clusters {
+		cluster_id := v.(map[string]interface{})["cluster_id"].(string)
+		println(cluster_id)
+
+		cluster_kube_config_json_str, err := alibaba.GetClusterKubeConfig(access_key, access_secret, region_id, cluster_id)
+		if err != nil {
+			t.Errorf("Failed to get cluster: %v", err)
+		}
+		println(cluster_kube_config_json_str)
+
+		cluster_kube_config_json_obj := make(map[string]interface{})
+		json.Unmarshal([]byte(cluster_kube_config_json_str), &cluster_kube_config_json_obj)
+		println(cluster_kube_config_json_obj["config"].(string))
 	}
 }
 

@@ -3,12 +3,16 @@ package resources
 // https://www.alibabacloud.com/help/en/elastic-compute-service/latest/deleteimage
 
 import (
-	"github.com/aliyun/alibaba-cloud-sdk-go/services/ecs"
-	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
-	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
+	"errors"
+	"reflect"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/aliyun/alibaba-cloud-sdk-go/services/ecs"
+	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
+	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
+	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 )
 
 type AlibabaMyImageHandler struct {
@@ -31,6 +35,9 @@ const (
 )
 
 func (myImageHandler AlibabaMyImageHandler) SnapshotVM(snapshotReqInfo irs.MyImageInfo) (irs.MyImageInfo, error) {
+
+	hiscallInfo := GetCallLogScheme(myImageHandler.Region, call.MYIMAGE, snapshotReqInfo.IId.NameId, "SnapshotVM()")
+	start := call.Start()
 
 	request := ecs.CreateCreateImageRequest()
 	request.Scheme = "https"
@@ -57,9 +64,13 @@ func (myImageHandler AlibabaMyImageHandler) SnapshotVM(snapshotReqInfo irs.MyIma
 
 	//spew.Dump(request)
 	result, err := myImageHandler.Client.CreateImage(request)
+	hiscallInfo.ElapsedTime = call.Elapsed(start)
 	if err != nil {
+		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
 		return irs.MyImageInfo{}, err
 	}
+	calllogger.Info(call.String(hiscallInfo))
 
 	imageIID := irs.IID{SystemId: result.ImageId}
 	// ImageId 로 해당 Image의 Status 조회
@@ -68,6 +79,10 @@ func (myImageHandler AlibabaMyImageHandler) SnapshotVM(snapshotReqInfo irs.MyIma
 	curStatus, errStatus := WaitForImageStatus(myImageHandler.Client, myImageHandler.Region, imageIID, "")
 	if errStatus != nil {
 		cblogger.Error(errStatus)
+		_, deleteErr := myImageHandler.DeleteMyImage(imageIID)
+		if deleteErr != nil { // 중간 생성 자원 삭제 실패
+			return irs.MyImageInfo{}, deleteErr
+		}
 		return irs.MyImageInfo{}, errStatus
 	}
 	cblogger.Info("==>생성된 Image[%s]의 현재 상태[%s]", imageIID, curStatus)
@@ -79,21 +94,28 @@ func (myImageHandler AlibabaMyImageHandler) SnapshotVM(snapshotReqInfo irs.MyIma
 
 /*
 *
-owner=sef인 Image목록 조회
+owner=self인 Image목록 조회
 공통으로 DescribeImages를 사용하기 때문에 구분으로 isMyImage = true 로 전송 필요
 */
 func (myImageHandler AlibabaMyImageHandler) ListMyImage() ([]*irs.MyImageInfo, error) {
+	hiscallInfo := GetCallLogScheme(myImageHandler.Region, call.MYIMAGE, "MyImage", "ListMyImage()")
+	start := call.Start()
 
 	result, err := DescribeImages(myImageHandler.Client, myImageHandler.Region, nil, true)
+	hiscallInfo.ElapsedTime = call.Elapsed(start)
 	if err != nil {
+		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
 		return nil, err
 	}
+	calllogger.Info(call.String(hiscallInfo))
 
 	var myImageInfoList []*irs.MyImageInfo
 	for _, image := range result {
 		myImageInfo, err := ExtractMyImageDescribeInfo(&image)
 		if err != nil {
-
+			cblogger.Error(err)
+			LoggingError(hiscallInfo, err)
 		} else {
 			myImageInfoList = append(myImageInfoList, &myImageInfo)
 		}
@@ -103,26 +125,57 @@ func (myImageHandler AlibabaMyImageHandler) ListMyImage() ([]*irs.MyImageInfo, e
 }
 
 func (myImageHandler AlibabaMyImageHandler) GetMyImage(myImageIID irs.IID) (irs.MyImageInfo, error) {
+	hiscallInfo := GetCallLogScheme(myImageHandler.Region, call.MYIMAGE, myImageIID.NameId, "GetMyImage()")
+	start := call.Start()
 
 	result, err := DescribeImageByImageId(myImageHandler.Client, myImageHandler.Region, myImageIID, true)
+	hiscallInfo.ElapsedTime = call.Elapsed(start)
 	if err != nil {
+		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
 		return irs.MyImageInfo{}, err
 	}
+	calllogger.Info(call.String(hiscallInfo))
 
 	myImageInfo, err := ExtractMyImageDescribeInfo(&result)
 	return myImageInfo, err
 }
 
+// MyImage 삭제
+// Image 삭제 후 Snapshot 삭제 가능 :
+// - A snapshot that has been used to create custom images cannot be deleted. The snapshot can be deleted only after the created custom images are deleted
+// Image를 Instance가 사용중이면 삭제 불가. image로 작업중이면 삭제 불가
+// A custom image cannot be deleted in the following scenarios:
+//
+//	The image is being imported. You can go to the Task Logs page in the Elastic Compute Service (ECS) console to cancel the image import task. After the image import task is canceled, you can delete the image. For more information, see Import custom images.
+//	The image is being exported. You can go to the Task Logs page in the ECS console to cancel the image export task. After the image export task is canceled, you can delete the image. For more information, see Export a custom image.
+//	The image is being used by ECS instances
 func (myImageHandler AlibabaMyImageHandler) DeleteMyImage(myImageIID irs.IID) (bool, error) {
-
+	hiscallInfo := GetCallLogScheme(myImageHandler.Region, call.MYIMAGE, myImageIID.NameId, "DeleteMyImage()")
+	start := call.Start()
 	// 상태체크해서 available일 때 삭제
-	imageStatus, err := DescribeImageStatus(myImageHandler.Client, myImageHandler.Region, myImageIID, ALIBABA_IMAGE_STATE_AVAILABLE)
+	// imageStatus, err := DescribeImageStatus(myImageHandler.Client, myImageHandler.Region, myImageIID, ALIBABA_IMAGE_STATE_AVAILABLE)
+	// if err != nil {
+	// 	cblogger.Info("DeleteMyImage : status " + imageStatus)
+	// 	return false, err
+	// }
+
+	ecsImage, err := DescribeImageByImageId(myImageHandler.Client, myImageHandler.Region, myImageIID, true)
 	if err != nil {
-		cblogger.Info("DeleteMyImage : status " + imageStatus)
+		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
 		return false, err
 	}
 
-	cblogger.Info("DeleteMyImage : status " + imageStatus)
+	imageStatus := GetImageStatus(ecsImage)
+
+	if imageStatus == "" {
+
+	}
+
+	snapShotIdList := GetSnapShotIdList(ecsImage)
+
+	// cblogger.Info("DeleteMyImage : status " + imageStatus)
 	request := ecs.CreateDeleteImageRequest()
 	request.Scheme = "https"
 	// 필수 Req Name
@@ -131,11 +184,52 @@ func (myImageHandler AlibabaMyImageHandler) DeleteMyImage(myImageIID irs.IID) (b
 
 	//spew.Dump(request)
 	response, err := myImageHandler.Client.DeleteImage(request)
+	hiscallInfo.ElapsedTime = call.Elapsed(start)
 	if err != nil {
+		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
 		return false, err
 	}
+	calllogger.Info(call.String(hiscallInfo))
 
-	cblogger.Info("MyImage deleted by requestId " + response.RequestId)
+	// 이미지가 삭제될 때까지 대기
+	curRetryCnt := 0
+	maxRetryCnt := 600
+	for {
+		aliImage, err := DescribeImages(myImageHandler.Client, myImageHandler.Region, []irs.IID{myImageIID}, true)
+		if err != nil {
+			cblogger.Error(err.Error())
+			break
+		}
+
+		if len(aliImage) == 0 { // return을 empty string 으로 할까?
+			break
+		}
+
+		aliImageState := ""
+		if !reflect.ValueOf(aliImage[0]).IsNil() {
+			aliImageState = aliImage[0].Status
+		}
+
+		curRetryCnt++
+		cblogger.Errorf("MyImage의 상태 1초 대기후 조회합니다. 현재 [%s]", aliImageState)
+		time.Sleep(time.Second * 1)
+		if curRetryCnt > maxRetryCnt {
+			cblogger.Errorf("장시간(%d 초) 대기해도 MyImage의 Status 값이 [%s]으로 변경되지 않아서 강제로 중단합니다.", maxRetryCnt)
+			return false, errors.New("장시간 기다렸으나 생성된 MyImage의 상태가 [" + string(aliImageState) + "]으로 바뀌지 않아서 중단 합니다.")
+		}
+	}
+	cblogger.Info("MyImage deleted. requestId =" + response.RequestId)
+
+	// myImage에 연결된 snapshot들도 삭제
+	for _, snapShotId := range snapShotIdList {
+		result, err := myImageHandler.DeleteSnapshotBySnapshotID(irs.IID{SystemId: snapShotId})
+		if err != nil {
+			cblogger.Info("Deleting SnapShot failed" + response.RequestId)
+		}
+		cblogger.Info("SnapShot deleted ", result, snapShotId)
+	}
+
 	//spew.Dump(response)
 	return true, err
 }
@@ -221,4 +315,55 @@ func convertImageStateToMyImageStatus(aliImageState *string) irs.MyImageStatus {
 		returnStatus = irs.MyImageUnavailable
 	}
 	return returnStatus
+}
+
+// MyImage 의 window 여부 return
+func (myImageHandler AlibabaMyImageHandler) CheckWindowsImage(myImageIID irs.IID) (bool, error) {
+	hiscallInfo := GetCallLogScheme(myImageHandler.Region, call.MYIMAGE, myImageIID.NameId, "CheckWindowsImage()")
+	start := call.Start()
+
+	isWindows := false
+	isMyImage := true
+
+	osType, err := DescribeImageOsType(myImageHandler.Client, myImageHandler.Region, myImageIID, isMyImage)
+	hiscallInfo.ElapsedTime = call.Elapsed(start)
+	if err != nil {
+		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
+		return isWindows, err
+	}
+	calllogger.Info(call.String(hiscallInfo))
+
+	if osType == "windows" {
+		isWindows = true
+	}
+
+	return isWindows, nil
+}
+
+// MyImage에 대한 snap 삭제
+// If the specified snapshot ID does not exist, the request is ignored.
+// A snapshot that has been used to create custom images cannot be deleted. The snapshot can be deleted only after the created custom images are deleted
+func (myImageHandler *AlibabaMyImageHandler) DeleteSnapshotBySnapshotID(snapshotIID irs.IID) (bool, error) {
+
+	request := ecs.CreateDeleteSnapshotRequest()
+	request.Scheme = "https"
+
+	request.SnapshotId = snapshotIID.SystemId
+
+	response, err := myImageHandler.Client.DeleteSnapshot(request)
+	if err != nil {
+		return false, err
+	}
+
+	//requestId := response.RequestId
+
+	// 삭제 대기 // API Gateway 이용 requestID에 대한 statusCode 확인 로직 : https://www.alibabacloud.com/help/en/log-service/latest/api-gateway
+	cblogger.Info("Snapshot deleted. requestId =" + response.RequestId)
+
+	// snapshot disk도 삭제
+
+	//spew.Dump(response)
+
+	return true, err
 }

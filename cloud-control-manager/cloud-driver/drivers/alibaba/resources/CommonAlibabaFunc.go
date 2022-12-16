@@ -16,10 +16,16 @@ import (
 	"fmt"
 	"reflect"
 	"strconv"
+	"sync"
+	"time"
 
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/ecs"
+	cblog "github.com/cloud-barista/cb-log"
+	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
+	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/davecgh/go-spew/spew"
+	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -70,16 +76,49 @@ type AlibabaCBNetworkInfo struct {
 	SubnetId   string
 }
 
+var once sync.Once
+var cblogger *logrus.Logger
+var calllogger *logrus.Logger
+
+func InitLog() {
+	once.Do(func() {
+		// cblog is a global variable.
+		cblogger = cblog.GetLogger("CB-SPIDER")
+		calllogger = call.GetLogger("HISCALL")
+	})
+}
+
+func LoggingError(hiscallInfo call.CLOUDLOGSCHEMA, err error) {
+	hiscallInfo.ErrorMSG = err.Error()
+	calllogger.Error(call.String(hiscallInfo))
+}
+
+func LoggingInfo(hiscallInfo call.CLOUDLOGSCHEMA, start time.Time) {
+	hiscallInfo.ElapsedTime = call.Elapsed(start)
+	calllogger.Info(call.String(hiscallInfo))
+}
+
+func GetCallLogScheme(region idrv.RegionInfo, resourceType call.RES_TYPE, resourceName string, apiName string) call.CLOUDLOGSCHEMA {
+	cblogger.Info(fmt.Sprintf("Call %s %s", call.ALIBABA, apiName))
+	return call.CLOUDLOGSCHEMA{
+		CloudOS:      call.ALIBABA,
+		RegionZone:   region.Region,
+		ResourceType: resourceType,
+		ResourceName: resourceName,
+		CloudOSAPI:   apiName,
+	}
+}
+
 func GetCBResourceGroupName() string {
 	return CBResourceGroupName
 }
 
-//VPC
+// VPC
 func GetCBVirutalNetworkName() string {
 	return CBVirutalNetworkName
 }
 
-//Subnet
+// Subnet
 func GetCBSubnetName() string {
 	return CBSubnetName
 }
@@ -122,7 +161,7 @@ func SetNameTag(Client *ecs.Client, resourceId string, resourceType string, valu
 	return true
 }
 
-//Cloud Object를 JSON String 타입으로 변환
+// Cloud Object를 JSON String 타입으로 변환
 func ConvertJsonString(v interface{}) (string, error) {
 	jsonBytes, errJson := json.Marshal(v)
 	if errJson != nil {
@@ -136,7 +175,7 @@ func ConvertJsonString(v interface{}) (string, error) {
 	return jsonString, nil
 }
 
-//CB-KeyValue 등을 위해 String 타입으로 변환
+// CB-KeyValue 등을 위해 String 타입으로 변환
 func ConvertToString(value interface{}) (string, error) {
 	if value == nil {
 		cblogger.Error("Nil Value")
@@ -162,7 +201,7 @@ func ConvertToString(value interface{}) (string, error) {
 	return result, nil
 }
 
-//Cloud Object를 CB-KeyValue 형식으로 변환이 필요할 경우 이용
+// Cloud Object를 CB-KeyValue 형식으로 변환이 필요할 경우 이용
 func ConvertKeyValueList(v interface{}) ([]irs.KeyValue, error) {
 	spew.Dump(v)
 
@@ -214,7 +253,8 @@ func ContainString(s []string, str string) bool {
 	return false
 }
 
-/**
+/*
+*
 json 형태로 출력
 */
 func printToJson(class interface{}) {

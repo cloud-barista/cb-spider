@@ -39,7 +39,7 @@ func Frame(c echo.Context) error {
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
   </head>
  <!--   <frameset rows="66,*" frameborder="Yes" border=1"> -->
-    <frameset rows="100,*" frameborder="Yes" border=1">
+    <frameset rows="125,*" frameborder="Yes" border=1">
         <frame src="adminweb/top" name="top_frame" scrolling="auto" noresize marginwidth="0" marginheight="0"/>
         <frameset rows="*,130" frameborder="Yes" border=2">
             <frame src="adminweb/driver" id="main_frame" name="main_frame" scrolling="auto" /> 
@@ -125,6 +125,10 @@ func Top(c echo.Context) error {
                 <a href="vpcmgmt/region not set" target="main_frame" id="vpcmgmtHref">
                     <font size=2>[mgmt]</font>
                 </a>                
+
+                <br>
+                <br>
+                <br>
             </td>
             <td width="190">
             
@@ -138,6 +142,11 @@ func Top(c echo.Context) error {
                 <a href="securitygroupmgmt/region not set" target="main_frame" id="securitygroupmgmtHref">
                     <font size=2>[mgmt]</font>
                 </a>
+
+                <br>
+                <br>
+                <br>
+
             </td>
             <td width="130">
             
@@ -151,6 +160,11 @@ func Top(c echo.Context) error {
                 <a href="keypairmgmt/region not set" target="main_frame" id="keypairmgmtHref">
                     <font size=2>[mgmt]</font>
                 </a>
+
+                <br>
+                <br>
+                <br>
+
             </td>
             <td width="280">
 
@@ -200,6 +214,26 @@ func Top(c echo.Context) error {
                 <a href="diskmgmt/region not set" target="main_frame" id="diskmgmtHref">
                     <font size=2>[mgmt]</font>
                 </a>
+
+                <br>
+                <br>
+
+                <!-- PMKS(K8S) Management -->
+                <a href="cluster/region not set" target="main_frame" id="clusterHref">
+                    <font size=2>2.PMKS</font>
+                </a>
+                &nbsp;
+                <a href="clustermgmt/region not set" target="main_frame" id="clustermgmtHref">
+                    <font size=2>[mgmt]</font>
+                </a>
+                &nbsp;
+                <a href="clusterdashboard" target="main_frame" id="clusterdashboardHref">
+                    <font size=2>[Dashboard]</font>
+                </a>
+                <!-- <a href="../adminweb/clusterdashboard" target="main_frame">                  
+                  <img height="40" width="40" src="./images/pmks.png" border='0' hspace='0' vspace='1' align="middle">
+                </a> -->
+
             </td>
             <td width="240">
                         
@@ -227,6 +261,10 @@ func Top(c echo.Context) error {
                 <a href="spiderinfo" target="main_frame">            
                     <font size=2>Spider Info</font>
                 </a>
+
+                <br>
+                <br>
+                <br>
 
             </td>
 

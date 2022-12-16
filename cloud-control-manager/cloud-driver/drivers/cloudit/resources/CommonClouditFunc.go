@@ -169,7 +169,6 @@ func RunCommand(serverIp string, serverPort int, username string, password strin
 
 	err = session.Run(command)
 	if err != nil {
-		fmt.Println(err)
 		return "", err
 	}
 	defer session.Close()

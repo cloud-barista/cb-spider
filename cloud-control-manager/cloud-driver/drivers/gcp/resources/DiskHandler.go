@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	cim "github.com/cloud-barista/cb-spider/cloud-info-manager"
@@ -32,6 +33,9 @@ const (
 
 // disk 생성
 func (DiskHandler *GCPDiskHandler) CreateDisk(diskReqInfo irs.DiskInfo) (irs.DiskInfo, error) {
+	hiscallInfo := GetCallLogScheme(DiskHandler.Region, call.DISK, diskReqInfo.IId.NameId, "CreateDisk()")
+	start := call.Start()
+
 	projectID := DiskHandler.Credential.ProjectID
 	region := DiskHandler.Region.Region
 	zone := DiskHandler.Region.Zone
@@ -65,10 +69,13 @@ func (DiskHandler *GCPDiskHandler) CreateDisk(diskReqInfo irs.DiskInfo) (irs.Dis
 	}
 
 	op, err := DiskHandler.Client.Disks.Insert(projectID, zone, disk).Do()
+	hiscallInfo.ElapsedTime = call.Elapsed(start)
 	if err != nil {
 		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
 		return irs.DiskInfo{}, err
 	}
+	calllogger.Info(call.String(hiscallInfo))
 
 	// Disk 생성 대기
 	WaitOperationComplete(DiskHandler.Client, projectID, region, zone, op.Name, 3)
@@ -83,16 +90,22 @@ func (DiskHandler *GCPDiskHandler) CreateDisk(diskReqInfo irs.DiskInfo) (irs.Dis
 }
 
 func (DiskHandler *GCPDiskHandler) ListDisk() ([]*irs.DiskInfo, error) {
+	hiscallInfo := GetCallLogScheme(DiskHandler.Region, call.DISK, "Disk", "ListDisk()")
+	start := call.Start()
+
 	diskInfoList := []*irs.DiskInfo{}
 
 	projectID := DiskHandler.Credential.ProjectID
 	zone := DiskHandler.Region.Zone
 
 	diskList, err := DiskHandler.Client.Disks.List(projectID, zone).Do()
+	hiscallInfo.ElapsedTime = call.Elapsed(start)
 	if err != nil {
 		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
 		return nil, err
 	}
+	calllogger.Info(call.String(hiscallInfo))
 
 	for _, disk := range diskList.Items {
 		diskInfo, err := convertDiskInfo(disk)
@@ -107,12 +120,17 @@ func (DiskHandler *GCPDiskHandler) ListDisk() ([]*irs.DiskInfo, error) {
 }
 
 func (DiskHandler *GCPDiskHandler) GetDisk(diskIID irs.IID) (irs.DiskInfo, error) {
+	hiscallInfo := GetCallLogScheme(DiskHandler.Region, call.DISK, diskIID.NameId, "GetDisk()")
+	start := call.Start()
 
 	diskResp, err := GetDiskInfo(DiskHandler.Client, DiskHandler.Credential, DiskHandler.Region, diskIID.SystemId)
+	hiscallInfo.ElapsedTime = call.Elapsed(start)
 	if err != nil {
 		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
 		return irs.DiskInfo{}, err
 	}
+	calllogger.Info(call.String(hiscallInfo))
 
 	diskInfo, errDiskInfo := convertDiskInfo(diskResp)
 	if errDiskInfo != nil {
@@ -124,6 +142,9 @@ func (DiskHandler *GCPDiskHandler) GetDisk(diskIID irs.IID) (irs.DiskInfo, error
 }
 
 func (DiskHandler *GCPDiskHandler) ChangeDiskSize(diskIID irs.IID, size string) (bool, error) {
+	hiscallInfo := GetCallLogScheme(DiskHandler.Region, call.DISK, diskIID.NameId, "ChangeDiskSize()")
+	start := call.Start()
+
 	projectID := DiskHandler.Credential.ProjectID
 	region := DiskHandler.Region.Region
 	zone := DiskHandler.Region.Zone
@@ -150,11 +171,14 @@ func (DiskHandler *GCPDiskHandler) ChangeDiskSize(diskIID irs.IID, size string) 
 	}
 
 	op, err := DiskHandler.Client.Disks.Resize(projectID, zone, disk, diskSize).Do()
+	hiscallInfo.ElapsedTime = call.Elapsed(start)
 	if err != nil {
 		cblogger.Info(op)
 		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
 		return false, err
 	}
+	calllogger.Info(call.String(hiscallInfo))
 
 	WaitOperationComplete(DiskHandler.Client, projectID, region, zone, op.Name, 3)
 
@@ -162,17 +186,23 @@ func (DiskHandler *GCPDiskHandler) ChangeDiskSize(diskIID irs.IID, size string) 
 }
 
 func (DiskHandler *GCPDiskHandler) DeleteDisk(diskIID irs.IID) (bool, error) {
+	hiscallInfo := GetCallLogScheme(DiskHandler.Region, call.DISK, diskIID.NameId, "DeleteDisk()")
+	start := call.Start()
+
 	projectID := DiskHandler.Credential.ProjectID
 	region := DiskHandler.Region.Region
 	zone := DiskHandler.Region.Zone
 	disk := diskIID.SystemId
 
 	op, err := DiskHandler.Client.Disks.Delete(projectID, zone, disk).Do()
+	hiscallInfo.ElapsedTime = call.Elapsed(start)
 	if err != nil {
 		cblogger.Info(op)
 		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
 		return false, err
 	}
+	calllogger.Info(call.String(hiscallInfo))
 
 	WaitOperationComplete(DiskHandler.Client, projectID, region, zone, op.Name, 3)
 
@@ -180,6 +210,9 @@ func (DiskHandler *GCPDiskHandler) DeleteDisk(diskIID irs.IID) (bool, error) {
 }
 
 func (DiskHandler *GCPDiskHandler) AttachDisk(diskIID irs.IID, ownerVM irs.IID) (irs.DiskInfo, error) {
+	hiscallInfo := GetCallLogScheme(DiskHandler.Region, call.DISK, diskIID.NameId, "AttachDisk()")
+	start := call.Start()
+
 	projectID := DiskHandler.Credential.ProjectID
 	region := DiskHandler.Region.Region
 	zone := DiskHandler.Region.Zone
@@ -190,11 +223,14 @@ func (DiskHandler *GCPDiskHandler) AttachDisk(diskIID irs.IID, ownerVM irs.IID) 
 	}
 
 	op, err := DiskHandler.Client.Instances.AttachDisk(projectID, zone, instance, attachedDisk).Do()
+	hiscallInfo.ElapsedTime = call.Elapsed(start)
 	if err != nil {
 		cblogger.Info(op)
 		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
 		return irs.DiskInfo{}, err
 	}
+	calllogger.Info(call.String(hiscallInfo))
 
 	WaitOperationComplete(DiskHandler.Client, projectID, region, zone, op.Name, 3)
 
@@ -208,6 +244,9 @@ func (DiskHandler *GCPDiskHandler) AttachDisk(diskIID irs.IID, ownerVM irs.IID) 
 }
 
 func (DiskHandler *GCPDiskHandler) DetachDisk(diskIID irs.IID, ownerVM irs.IID) (bool, error) {
+	hiscallInfo := GetCallLogScheme(DiskHandler.Region, call.DISK, diskIID.NameId, "DetachDisk()")
+	start := call.Start()
+
 	projectID := DiskHandler.Credential.ProjectID
 	region := DiskHandler.Region.Region
 	zone := DiskHandler.Region.Zone
@@ -236,11 +275,14 @@ func (DiskHandler *GCPDiskHandler) DetachDisk(diskIID irs.IID, ownerVM irs.IID) 
 	}
 
 	op, err := DiskHandler.Client.Instances.DetachDisk(projectID, zone, instance, deviceName).Do()
+	hiscallInfo.ElapsedTime = call.Elapsed(start)
 	if err != nil {
 		cblogger.Info(op)
 		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
 		return false, err
 	}
+	calllogger.Info(call.String(hiscallInfo))
 
 	WaitOperationComplete(DiskHandler.Client, projectID, region, zone, op.Name, 3)
 

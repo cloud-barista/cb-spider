@@ -12,16 +12,16 @@ package connect
 
 import (
 	"context"
+	"errors"
 	"github.com/Azure/azure-sdk-for-go/profiles/2020-09-01/monitor/mgmt/insights"
 	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2021-03-01/compute"
+	"github.com/Azure/azure-sdk-for-go/services/containerservice/mgmt/2022-03-01/containerservice"
 	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2021-02-01/network"
 	cblog "github.com/cloud-barista/cb-log"
 	azrs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/azure/resources"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/sirupsen/logrus"
-
-	"errors"
 )
 
 var cblogger *logrus.Logger
@@ -32,26 +32,31 @@ func init() {
 }
 
 type AzureCloudConnection struct {
-	CredentialInfo               idrv.CredentialInfo
-	Region                       idrv.RegionInfo
-	Ctx                          context.Context
-	VMClient                     *compute.VirtualMachinesClient
-	ImageClient                  *compute.ImagesClient
-	VMImageClient                *compute.VirtualMachineImagesClient
-	PublicIPClient               *network.PublicIPAddressesClient
-	SecurityGroupClient          *network.SecurityGroupsClient
-	SecurityGroupRuleClient      *network.SecurityRulesClient
-	VNetClient                   *network.VirtualNetworksClient
-	VNicClient                   *network.InterfacesClient
-	IPConfigClient               *network.InterfaceIPConfigurationsClient
-	SubnetClient                 *network.SubnetsClient
-	DiskClient                   *compute.DisksClient
-	VmSpecClient                 *compute.VirtualMachineSizesClient
-	SshKeyClient                 *compute.SSHPublicKeysClient
-	NLBClient                    *network.LoadBalancersClient
-	NLBBackendAddressPoolsClient *network.LoadBalancerBackendAddressPoolsClient
-	NLBLoadBalancingRulesClient  *network.LoadBalancerLoadBalancingRulesClient
-	MetricClient                 *insights.MetricsClient
+	CredentialInfo                  idrv.CredentialInfo
+	Region                          idrv.RegionInfo
+	Ctx                             context.Context
+	VMClient                        *compute.VirtualMachinesClient
+	ImageClient                     *compute.ImagesClient
+	VMImageClient                   *compute.VirtualMachineImagesClient
+	PublicIPClient                  *network.PublicIPAddressesClient
+	SecurityGroupClient             *network.SecurityGroupsClient
+	SecurityGroupRuleClient         *network.SecurityRulesClient
+	VNetClient                      *network.VirtualNetworksClient
+	VNicClient                      *network.InterfacesClient
+	IPConfigClient                  *network.InterfaceIPConfigurationsClient
+	SubnetClient                    *network.SubnetsClient
+	DiskClient                      *compute.DisksClient
+	VmSpecClient                    *compute.VirtualMachineSizesClient
+	SshKeyClient                    *compute.SSHPublicKeysClient
+	NLBClient                       *network.LoadBalancersClient
+	NLBBackendAddressPoolsClient    *network.LoadBalancerBackendAddressPoolsClient
+	NLBLoadBalancingRulesClient     *network.LoadBalancerLoadBalancingRulesClient
+	MetricClient                    *insights.MetricsClient
+	ManagedClustersClient           *containerservice.ManagedClustersClient
+	AgentPoolsClient                *containerservice.AgentPoolsClient
+	VirtualMachineScaleSetsClient   *compute.VirtualMachineScaleSetsClient
+	VirtualMachineScaleSetVMsClient *compute.VirtualMachineScaleSetVMsClient
+	VirtualMachineRunCommandsClient *compute.VirtualMachineRunCommandsClient
 }
 
 func (cloudConn *AzureCloudConnection) CreateImageHandler() (irs.ImageHandler, error) {
@@ -99,16 +104,17 @@ func (cloudConn *AzureCloudConnection) CreateKeyPairHandler() (irs.KeyPairHandle
 func (cloudConn *AzureCloudConnection) CreateVMHandler() (irs.VMHandler, error) {
 	cblogger.Info("Azure Cloud Driver: called CreateVMHandler()!")
 	vmHandler := azrs.AzureVMHandler{
-		CredentialInfo: cloudConn.CredentialInfo,
-		Region:         cloudConn.Region,
-		Ctx:            cloudConn.Ctx,
-		Client:         cloudConn.VMClient,
-		SubnetClient:   cloudConn.SubnetClient,
-		NicClient:      cloudConn.VNicClient,
-		PublicIPClient: cloudConn.PublicIPClient,
-		DiskClient:     cloudConn.DiskClient,
-		SshKeyClient:   cloudConn.SshKeyClient,
-		ImageClient:    cloudConn.ImageClient,
+		CredentialInfo:                  cloudConn.CredentialInfo,
+		Region:                          cloudConn.Region,
+		Ctx:                             cloudConn.Ctx,
+		Client:                          cloudConn.VMClient,
+		SubnetClient:                    cloudConn.SubnetClient,
+		NicClient:                       cloudConn.VNicClient,
+		PublicIPClient:                  cloudConn.PublicIPClient,
+		DiskClient:                      cloudConn.DiskClient,
+		SshKeyClient:                    cloudConn.SshKeyClient,
+		ImageClient:                     cloudConn.ImageClient,
+		VirtualMachineRunCommandsClient: cloudConn.VirtualMachineRunCommandsClient,
 	}
 	return &vmHandler, nil
 }
@@ -153,11 +159,12 @@ func (cloudConn *AzureCloudConnection) CreateDiskHandler() (irs.DiskHandler, err
 func (cloudConn *AzureCloudConnection) CreateMyImageHandler() (irs.MyImageHandler, error) {
 	cblogger.Info("Azure Cloud Driver: called CreateMyImageHandler()!")
 	myImageHandler := azrs.AzureMyImageHandler{
-		CredentialInfo: cloudConn.CredentialInfo,
-		Region:         cloudConn.Region,
-		Ctx:            cloudConn.Ctx,
-		ImageClient:    cloudConn.ImageClient,
-		VMClient:       cloudConn.VMClient,
+		CredentialInfo:                  cloudConn.CredentialInfo,
+		Region:                          cloudConn.Region,
+		Ctx:                             cloudConn.Ctx,
+		ImageClient:                     cloudConn.ImageClient,
+		VMClient:                        cloudConn.VMClient,
+		VirtualMachineRunCommandsClient: cloudConn.VirtualMachineRunCommandsClient,
 	}
 	return &myImageHandler, nil
 }
@@ -171,11 +178,24 @@ func (cloudConn *AzureCloudConnection) Close() error {
 }
 
 func (cloudConn *AzureCloudConnection) CreateClusterHandler() (irs.ClusterHandler, error) {
-	return nil, errors.New("Azure Driver: not implemented")
+	cblogger.Info("Azure Cloud Driver: called CreateClusterHandler()!")
+	clusterHandler := azrs.AzureClusterHandler{
+		CredentialInfo:                  cloudConn.CredentialInfo,
+		Region:                          cloudConn.Region,
+		Ctx:                             cloudConn.Ctx,
+		ManagedClustersClient:           cloudConn.ManagedClustersClient,
+		VirtualNetworksClient:           cloudConn.VNetClient,
+		AgentPoolsClient:                cloudConn.AgentPoolsClient,
+		VirtualMachineScaleSetsClient:   cloudConn.VirtualMachineScaleSetsClient,
+		VirtualMachineScaleSetVMsClient: cloudConn.VirtualMachineScaleSetVMsClient,
+		SubnetClient:                    cloudConn.SubnetClient,
+		SecurityGroupsClient:            cloudConn.SecurityGroupClient,
+		SecurityRulesClient:             cloudConn.SecurityGroupRuleClient,
+		VirtualMachineSizesClient:       cloudConn.VmSpecClient,
+		SSHPublicKeysClient:             cloudConn.SshKeyClient,
+	}
+	return &clusterHandler, nil
 }
-
-
-
 
 func (cloudConn *AzureCloudConnection) CreateAnyCallHandler() (irs.AnyCallHandler, error) {
 	return nil, errors.New("Azure Driver: not implemented")

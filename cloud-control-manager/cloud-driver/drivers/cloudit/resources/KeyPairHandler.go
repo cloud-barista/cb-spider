@@ -2,6 +2,7 @@ package resources
 
 import (
 	"errors"
+	"fmt"
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	keypair "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/common"
 	"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/cloudit/client"
@@ -35,36 +36,42 @@ func (keyPairHandler *ClouditKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPai
 	start := call.Start()
 	keyPairPath := os.Getenv("CBSPIDER_ROOT") + CBKeyPairPath
 	if err := keyPairHandler.CheckKeyPairFolder(keyPairPath); err != nil {
-		cblogger.Error(err)
-		return irs.KeyPairInfo{}, err
+		createErr := errors.New(fmt.Sprintf("Failed to Create Key. err = %s", err.Error()))
+		cblogger.Error(createErr.Error())
+		LoggingError(hiscallInfo, createErr)
+		return irs.KeyPairInfo{}, createErr
 	}
 	hashString, err := CreateHashString(keyPairHandler.CredentialInfo)
 	if err != nil {
-		cblogger.Error(err)
-		LoggingError(hiscallInfo, err)
-		return irs.KeyPairInfo{}, err
+		createErr := errors.New(fmt.Sprintf("Failed to Create Key. err = %s", err.Error()))
+		cblogger.Error(createErr.Error())
+		LoggingError(hiscallInfo, createErr)
+		return irs.KeyPairInfo{}, createErr
 	}
 	existKey, _ := keypair.GetKey(KeyPairProvider, hashString, keyPairReqInfo.IId.NameId)
 	if existKey != nil {
-		cblogger.Error(errors.New("exist Key"))
-		LoggingError(hiscallInfo, err)
-		return irs.KeyPairInfo{}, err
+		createErr := errors.New(fmt.Sprintf("Failed to Create Key. err = The Key already exist"))
+		cblogger.Error(createErr.Error())
+		LoggingError(hiscallInfo, createErr)
+		return irs.KeyPairInfo{}, createErr
 	}
 
 	privateKeyBytes, _, err := keypair.GenKeyPair()
 
 	if err != nil {
-		cblogger.Error(err)
-		LoggingError(hiscallInfo, err)
-		return irs.KeyPairInfo{}, err
+		createErr := errors.New(fmt.Sprintf("Failed to Create Key. err = %s", err.Error()))
+		cblogger.Error(createErr.Error())
+		LoggingError(hiscallInfo, createErr)
+		return irs.KeyPairInfo{}, createErr
 	}
 
 	err = keypair.AddKey(KeyPairProvider, hashString, keyPairReqInfo.IId.NameId, string(privateKeyBytes))
 
 	if err != nil {
-		cblogger.Error(err)
-		LoggingError(hiscallInfo, err)
-		return irs.KeyPairInfo{}, err
+		createErr := errors.New(fmt.Sprintf("Failed to Create Key. err = %s", err.Error()))
+		cblogger.Error(createErr.Error())
+		LoggingError(hiscallInfo, createErr)
+		return irs.KeyPairInfo{}, createErr
 	}
 
 	keyPairInfo := irs.KeyPairInfo{
@@ -85,19 +92,26 @@ func (keyPairHandler *ClouditKeyPairHandler) ListKey() ([]*irs.KeyPairInfo, erro
 	start := call.Start()
 	keyPairPath := os.Getenv("CBSPIDER_ROOT") + CBKeyPairPath
 	if err := keyPairHandler.CheckKeyPairFolder(keyPairPath); err != nil {
-		cblogger.Error(err)
-		LoggingError(hiscallInfo, err)
-		return nil, err
+		getErr := errors.New(fmt.Sprintf("Failed to List Key. err = %s", err.Error()))
+		cblogger.Error(getErr.Error())
+		LoggingError(hiscallInfo, getErr)
+		return nil, getErr
 	}
 	hashString, err := CreateHashString(keyPairHandler.CredentialInfo)
 	if err != nil {
-		cblogger.Error(err)
-		LoggingError(hiscallInfo, err)
-		return nil, err
+		getErr := errors.New(fmt.Sprintf("Failed to List Key. err = %s", err.Error()))
+		cblogger.Error(getErr.Error())
+		LoggingError(hiscallInfo, getErr)
+		return nil, getErr
 	}
 
 	keyValueList, err := keypair.ListKey(KeyPairProvider, hashString)
-
+	if err != nil {
+		getErr := errors.New(fmt.Sprintf("Failed to List Key. err = %s", err.Error()))
+		cblogger.Error(getErr.Error())
+		LoggingError(hiscallInfo, getErr)
+		return nil, getErr
+	}
 	var keyPairInfoList []*irs.KeyPairInfo
 
 	for _, keyValue := range keyValueList {
@@ -111,9 +125,10 @@ func (keyPairHandler *ClouditKeyPairHandler) ListKey() ([]*irs.KeyPairInfo, erro
 			//PrivateKey: keyValue.Value,
 		}
 		if err != nil {
-			cblogger.Error(err)
-			LoggingError(hiscallInfo, err)
-			return nil, err
+			getErr := errors.New(fmt.Sprintf("Failed to List Key. err = %s", err.Error()))
+			cblogger.Error(getErr.Error())
+			LoggingError(hiscallInfo, getErr)
+			return nil, getErr
 		}
 		keyPairInfoList = append(keyPairInfoList, &keypairInfo)
 	}
@@ -127,15 +142,17 @@ func (keyPairHandler *ClouditKeyPairHandler) GetKey(keyIID irs.IID) (irs.KeyPair
 
 	hashString, err := CreateHashString(keyPairHandler.CredentialInfo)
 	if err != nil {
-		cblogger.Error(err)
-		LoggingError(hiscallInfo, err)
-		return irs.KeyPairInfo{}, err
+		getErr := errors.New(fmt.Sprintf("Failed to Get Key. err = InValid IID"))
+		cblogger.Error(getErr.Error())
+		LoggingError(hiscallInfo, getErr)
+		return irs.KeyPairInfo{}, getErr
 	}
 	_, err = keypair.GetKey(KeyPairProvider, hashString, keyIID.NameId)
 	if err != nil {
-		cblogger.Error(err)
-		LoggingError(hiscallInfo, err)
-		return irs.KeyPairInfo{}, err
+		getErr := errors.New(fmt.Sprintf("Failed to Get Key. err = InValid IID"))
+		cblogger.Error(getErr.Error())
+		LoggingError(hiscallInfo, getErr)
+		return irs.KeyPairInfo{}, getErr
 	}
 	keypairInfo := irs.KeyPairInfo{
 		IId: irs.IID{
@@ -158,19 +175,25 @@ func (keyPairHandler *ClouditKeyPairHandler) DeleteKey(keyIID irs.IID) (bool, er
 	}
 	hashString, err := CreateHashString(keyPairHandler.CredentialInfo)
 	if err != nil {
-		cblogger.Error(err)
-		return false, err
+		delErr := errors.New(fmt.Sprintf("Failed to Delete Key err = InValid IID"))
+		cblogger.Error(delErr.Error())
+		LoggingError(hiscallInfo, delErr)
+		return false, delErr
 	}
 
 	keyValue, err := keypair.GetKey(KeyPairProvider, hashString, keyIID.NameId)
 	if keyValue == nil {
-		cblogger.Error("KeyPair Not Found")
-		return false, err
+		delErr := errors.New(fmt.Sprintf("Failed to Delete Key err = InValid IID"))
+		cblogger.Error(delErr.Error())
+		LoggingError(hiscallInfo, delErr)
+		return false, delErr
 	}
 	delerr := keypair.DelKey(KeyPairProvider, hashString, keyIID.NameId)
 	if delerr != nil {
-		cblogger.Error(err)
-		return false, err
+		delErr := errors.New(fmt.Sprintf("Failed to Delete Key err = InValid IID"))
+		cblogger.Error(delErr.Error())
+		LoggingError(hiscallInfo, delErr)
+		return false, delErr
 	}
 	LoggingInfo(hiscallInfo, start)
 	return true, nil

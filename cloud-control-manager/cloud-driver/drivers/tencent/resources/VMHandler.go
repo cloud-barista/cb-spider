@@ -17,24 +17,16 @@ import (
 
 	//"regexp"
 
-	cblog "github.com/cloud-barista/cb-log"
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
+	cdcom "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/common"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/davecgh/go-spew/spew"
-	"github.com/sirupsen/logrus"
 	tencentcbs "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/cbs/v20170312"
 	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
 	cvm "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/cvm/v20170312"
 	//lighthouse "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/lighthouse/v20200324"
 )
-
-var cblogger *logrus.Logger
-
-func init() {
-	// cblog is a global variable.
-	cblogger = cblog.GetLogger("CB-SPIDER Tencent VMHandler")
-}
 
 type TencentVMHandler struct {
 	Region     idrv.RegionInfo
@@ -87,13 +79,41 @@ func (vmHandler *TencentVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 	//=================================================
 	// 동일 이름 생성 방지 추가(cb-spider 요청 필수 기능)
 	//=================================================
-	vmExist, errExist := vmHandler.vmExist(vmReqInfo.IId.NameId)
-	if errExist != nil {
-		cblogger.Error(errExist)
-		return irs.VMInfo{}, errExist
+	//vmExist, errExist := vmHandler.vmExist(vmReqInfo.IId.NameId)
+	//cblogger.Error("vmExist ::: ", vmExist)
+	//cblogger.Error("errExist :::", errExist)
+	//if errExist != nil {
+	//	cblogger.Error(errExist)
+	//	return irs.VMInfo{}, errExist
+	//}
+	//if vmExist {
+	//	return irs.VMInfo{}, errors.New("A VM with the name " + vmReqInfo.IId.NameId + " already exists.")
+	//}
+
+	cblogger.Error("imageInfo begin")
+	// Image의 크기 -> rootdisk size, datadisk attach 확인 및 설정
+	imageTypes := []string{"PUBLIC_IMAGE", "SHARED_IMAGE", "PRIVATE_IMAGE"}
+	imageInfo, err := DescribeImagesByID(vmHandler.Client, vmReqInfo.ImageIID, imageTypes)
+	if err != nil {
+		cblogger.Error(err)
+		return irs.VMInfo{}, err
 	}
-	if vmExist {
-		return irs.VMInfo{}, errors.New("A VM with the name " + vmReqInfo.IId.NameId + " already exists.")
+
+	isWindow := false
+	cblogger.Info("OsName,", *imageInfo.OsName)     //"OsName": "Windows Server 2012 R2 DataCenter 64bitEN",
+	cblogger.Info("Platform,", *imageInfo.Platform) //"Platform": "Windows", "Ubuntu",
+
+	platform := GetOsType(imageInfo)
+	if platform == "Windows" {
+		err := cdcom.ValidateWindowsPassword(vmReqInfo.VMUserPasswd)
+		if err != nil {
+			return irs.VMInfo{}, err
+		}
+
+		isWindow = true
+		vmReqInfo.KeyPairIID = irs.IID{}
+		vmReqInfo.VMUserId = "administrator" // window은 administrator로 set
+		cblogger.Error("Window 이므로 keyPair는 사용하지 않고 admin, pass만 사용", vmReqInfo.VMUserId, vmReqInfo.VMUserPasswd, vmReqInfo.KeyPairIID)
 	}
 
 	/* 2021-10-26 이슈 #480에 의해 제거
@@ -144,8 +164,17 @@ func (vmHandler *TencentVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 	}
 
 	request.InstanceName = common.StringPtr(vmReqInfo.IId.NameId)
-	request.LoginSettings = &cvm.LoginSettings{
-		KeyIds: common.StringPtrs([]string{vmReqInfo.KeyPairIID.SystemId}),
+
+	// windows의 경우 keyPair set 하면 오류. password setting 되어있는지 확인
+	if isWindow {
+		//user := vmReqInfo.VMUserId // administrator
+		request.LoginSettings = &cvm.LoginSettings{
+			Password: &vmReqInfo.VMUserPasswd,
+		}
+	} else {
+		request.LoginSettings = &cvm.LoginSettings{
+			KeyIds: common.StringPtrs([]string{vmReqInfo.KeyPairIID.SystemId}),
+		}
 	}
 
 	//=============================
@@ -266,11 +295,6 @@ func (vmHandler *TencentVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 				return irs.VMInfo{}, err
 			}
 
-			imageInfo, err := DescribeImagesByID(vmHandler.Client, vmReqInfo.ImageIID)
-			if err != nil {
-				cblogger.Error(err)
-				return irs.VMInfo{}, err
-			}
 			imageSize := *imageInfo.ImageSize
 			fmt.Println("image : ", imageSize)
 
@@ -289,24 +313,19 @@ func (vmHandler *TencentVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 	}
 
 	// image 정보에 포함된 data disk setting
-	imageInfo, imageErr := DescribeImagesByID(vmHandler.Client, vmReqInfo.ImageIID)
-	if imageErr != nil {
-		cblogger.Error(imageErr)
-	}
-
 	snapshotSet := imageInfo.SnapshotSet
 	dataDiskList := []*cvm.DataDisk{}
-
 	for _, snapshot := range snapshotSet {
 		dataDisk := cvm.DataDisk{}
 		if *snapshot.DiskUsage == "DATA_DISK" {
 			dataDisk.SnapshotId = snapshot.SnapshotId
 			dataDisk.DiskSize = snapshot.DiskSize
 			dataDiskList = append(dataDiskList, &dataDisk)
+			cblogger.Info("Image에 DataDisk 포함 되어 있음. ")
 		}
 	}
-
 	request.DataDisks = dataDiskList
+
 	//=============================
 	// UserData생성 처리(File기반)
 	//=============================
@@ -375,7 +394,7 @@ func (vmHandler *TencentVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 
 	vmInfo, errVmInfo := vmHandler.GetVM(newVmIID)
 	vmInfo.IId.NameId = vmReqInfo.IId.NameId
-	if vmInfo.KeyPairIId.SystemId == "" {
+	if isWindow == false && vmInfo.KeyPairIId.SystemId == "" {
 		vmInfo.KeyPairIId.SystemId = vmReqInfo.KeyPairIID.SystemId // keypairIID가 없으면 채워 넣음, VM 생성 직후에는 안 들어올 수 있음
 	}
 	cblogger.Debug(vmInfo)
@@ -631,15 +650,15 @@ func (vmHandler *TencentVMHandler) ExtractDescribeInstances(curVm *cvm.Instance)
 	if !reflect.ValueOf(curVm.ImageId).IsNil() {
 		imageIID := irs.IID{SystemId: *curVm.ImageId}
 		vmInfo.ImageIId = imageIID
-		imageInfo, err := DescribeImagesByID(vmHandler.Client, imageIID)
+		imageInfo, err := DescribeImagesByID(vmHandler.Client, imageIID, nil) // imageTypes := []string{"PUBLIC_IMAGE", "SHARED_IMAGE","PRIVATE_IMAGE"}
 		if err != nil {
 			cblogger.Error(err)
 		}
 
-		if *imageInfo.ImageType == "PUBLIC_IMAGE" {
-			vmInfo.ImageType = irs.PublicImage
-		} else {
+		if *imageInfo.ImageType == "PRIVATE_IMAGE" {
 			vmInfo.ImageType = irs.MyImage
+		} else {
+			vmInfo.ImageType = irs.PublicImage // "PUBLIC_IMAGE", "SHARED_IMAGE"
 		}
 	}
 

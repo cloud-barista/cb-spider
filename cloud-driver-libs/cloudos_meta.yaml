@@ -48,7 +48,6 @@ ALIBABA:
   # idmaxlength: VPC / Subnet / SecurityGroup / KeyPair / VM / Disk / NLB / MyImage / Cluster
   idmaxlength: 128 / 128 / 128 / 128 / 128 / 128 / 80 / 128 / 63
 
-
 TENCENT:
   region: Region / Zone
   credential: ClientId / ClientSecret
@@ -87,17 +86,24 @@ NCP:
 NCPVPC:
   region: Region / Zone
   credential: ClientId / ClientSecret
-  # idmaxlength: VPC / Subnet / SecurityGroup / KeyPair / VM
-  idmaxlength: 30 / 30 / 30 / 30 / 30
+  rootdisktype: SSD / HDD
+  rootdisksize: SSD|50|100|GB / HDD|50|100|GB
+  disktype: SSD / HDD
+  disksize: SSD|10|2000|GB / HDD|10|2000|GB
+  # idmaxlength: VPC / Subnet / SecurityGroup / KeyPair / VM / Disk / NLB / MyImage / Cluster
+  idmaxlength: 30 / 30 / 30 / 30 / 30 / 30 / 30 / 30 / 20
 
 KTCLOUD:
   region: Region / Zone
   credential: ClientId / ClientSecret
 
 NHNCLOUD:
-  region: Region
+  region: Region / Zone
   credential: IdentityEndpoint / Username / Password / DomainName / TenantId
   rootdisktype: General_HDD / General_SSD
+  rootdisksize: General_HDD|20|1000|GB / General_SSD|20|1000|GB
+  disktype: General_HDD / General_SSD
+  disksize: General_HDD|10|2000|GB / General_SSD|10|2000|GB
   # idmaxlength: VPC / Subnet / SecurityGroup / KeyPair / VM
   idmaxlength: 0 / 0 / 255 / 255 / 255
 

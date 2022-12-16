@@ -50,14 +50,15 @@ func (vpcHandler *ClouditVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.V
 	hiscallInfo := GetCallLogScheme(ClouditRegion, call.VPCSUBNET, VPC, "CreateVPC()")
 	hashString, err := CreateVPCHashString(vpcHandler.CredentialInfo)
 	if err != nil {
-		cblogger.Error(err)
-		LoggingError(hiscallInfo, err)
-		return irs.VPCInfo{}, err
+		createErr := errors.New(fmt.Sprintf("Failed to Create VPC err = %s", err.Error()))
+		cblogger.Error(createErr.Error())
+		LoggingError(hiscallInfo, createErr)
+		return irs.VPCInfo{}, createErr
 	}
 	// Check NameId value
 	if vpcReqInfo.IId.NameId == "" {
 		createErr := errors.New(fmt.Sprintf("Failed to Create VPC err = Invalid IID"))
-		cblogger.Error(createErr)
+		cblogger.Error(createErr.Error())
 		LoggingError(hiscallInfo, createErr)
 		return irs.VPCInfo{}, createErr
 	}
@@ -119,9 +120,10 @@ func (vpcHandler *ClouditVPCHandler) ListVPC() ([]*irs.VPCInfo, error) {
 
 	hashString, err := CreateVPCHashString(vpcHandler.CredentialInfo)
 	if err != nil {
-		cblogger.Error(err)
-		LoggingError(hiscallInfo, err)
-		return nil, err
+		getErr := errors.New(fmt.Sprintf("Failed to List VPC err = %s", err.Error()))
+		cblogger.Error(getErr.Error())
+		LoggingError(hiscallInfo, getErr)
+		return nil, getErr
 	}
 
 	key, err := keypair.GetKey(VPCProvider, hashString, ClouditVPCREGISTER)
@@ -130,8 +132,8 @@ func (vpcHandler *ClouditVPCHandler) ListVPC() ([]*irs.VPCInfo, error) {
 	}
 	vpcName, subnetNames, err := disassembleVPCRegisterValue(key.Value)
 	if err != nil {
-		getErr := errors.New(fmt.Sprintf("Failed to List VPC err = %s", err))
-		cblogger.Error(getErr)
+		getErr := errors.New(fmt.Sprintf("Failed to List VPC err = %s", err.Error()))
+		cblogger.Error(getErr.Error())
 		LoggingError(hiscallInfo, getErr)
 		return nil, getErr
 	}
@@ -164,9 +166,10 @@ func (vpcHandler *ClouditVPCHandler) GetVPC(vpcIID irs.IID) (irs.VPCInfo, error)
 	start := call.Start()
 	hashString, err := CreateVPCHashString(vpcHandler.CredentialInfo)
 	if err != nil {
-		cblogger.Error(err)
-		LoggingError(hiscallInfo, err)
-		return irs.VPCInfo{}, err
+		getErr := errors.New(fmt.Sprintf("Failed to Get VPC err = %s", err.Error()))
+		cblogger.Error(getErr.Error())
+		LoggingError(hiscallInfo, getErr)
+		return irs.VPCInfo{}, getErr
 	}
 	// Check NameId value
 	if vpcIID.NameId == "" {
@@ -208,10 +211,10 @@ func (vpcHandler *ClouditVPCHandler) GetVPC(vpcIID irs.IID) (irs.VPCInfo, error)
 
 	err = keypair.AddKey(VPCProvider, hashString, ClouditVPCREGISTER, assembleVPCRegisterValue(vpcName, getSubnetNames(subnetList)))
 	if err != nil {
-		createErr := errors.New(fmt.Sprintf("Failed to Get VPC err = %s", err.Error()))
-		cblogger.Error(createErr.Error())
-		LoggingError(hiscallInfo, createErr)
-		return irs.VPCInfo{}, createErr
+		getErr := errors.New(fmt.Sprintf("Failed to Get VPC err = %s", err.Error()))
+		cblogger.Error(getErr.Error())
+		LoggingError(hiscallInfo, getErr)
+		return irs.VPCInfo{}, getErr
 	}
 	vpcInfo := vpcHandler.setterVPC(subnetList, vpcName)
 
@@ -223,24 +226,27 @@ func (vpcHandler *ClouditVPCHandler) DeleteVPC(vpcIID irs.IID) (bool, error) {
 	hiscallInfo := GetCallLogScheme(vpcHandler.Client.IdentityEndpoint, call.VPCSUBNET, vpcIID.NameId, "DeleteVPC()")
 	hashString, err := CreateVPCHashString(vpcHandler.CredentialInfo)
 	if err != nil {
-		cblogger.Error(err)
-		LoggingError(hiscallInfo, err)
-		return false, err
+		delErr := errors.New(fmt.Sprintf("Failed to Delete VPC err = %s", err.Error()))
+		cblogger.Error(delErr.Error())
+		LoggingError(hiscallInfo, delErr)
+		return false, delErr
 	}
 	vpcInfo, err := vpcHandler.GetVPC(vpcIID)
 	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return false, err
+		delErr := errors.New(fmt.Sprintf("Failed to Delete VPC err = %s", err.Error()))
+		cblogger.Error(delErr.Error())
+		LoggingError(hiscallInfo, delErr)
+		return false, delErr
 	}
 
 	start := call.Start()
 	for _, subnetInfo := range vpcInfo.SubnetInfoList {
 		subnetList, err := vpcHandler.ListSubnet()
 		if err != nil {
-			cblogger.Error(err.Error())
-			LoggingError(hiscallInfo, err)
-			return false, err
+			delErr := errors.New(fmt.Sprintf("Failed to Delete VPC err = %s", err.Error()))
+			cblogger.Error(delErr.Error())
+			LoggingError(hiscallInfo, delErr)
+			return false, delErr
 		}
 		for _, value := range subnetList {
 			if value.ID == subnetInfo.IId.SystemId {
@@ -255,9 +261,10 @@ func (vpcHandler *ClouditVPCHandler) DeleteVPC(vpcIID irs.IID) (bool, error) {
 
 	err = keypair.DelKey(VPCProvider, hashString, ClouditVPCREGISTER)
 	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return false, err
+		delErr := errors.New(fmt.Sprintf("Failed to Delete VPC err = %s", err.Error()))
+		cblogger.Error(delErr.Error())
+		LoggingError(hiscallInfo, delErr)
+		return false, delErr
 	}
 	LoggingInfo(hiscallInfo, start)
 
@@ -386,40 +393,42 @@ func (vpcHandler *ClouditVPCHandler) getSubnetByName(subnetName string) (*subnet
 func (vpcHandler *ClouditVPCHandler) AddSubnet(vpcIID irs.IID, subnetInfo irs.SubnetInfo) (irs.VPCInfo, error) {
 	// log HisCall
 	hiscallInfo := GetCallLogScheme(ClouditRegion, call.VPCSUBNET, vpcIID.NameId, "AddSubnet()")
+	start := call.Start()
 	hashString, err := CreateVPCHashString(vpcHandler.CredentialInfo)
 	if err != nil {
-		cblogger.Error(err)
-		LoggingError(hiscallInfo, err)
-		return irs.VPCInfo{}, err
+		addSubnetErr := errors.New(fmt.Sprintf("Failed to Add Subnet err = %s", err.Error()))
+		cblogger.Error(addSubnetErr.Error())
+		LoggingError(hiscallInfo, addSubnetErr)
+		return irs.VPCInfo{}, addSubnetErr
 	}
 	key, err := keypair.GetKey(VPCProvider, hashString, ClouditVPCREGISTER)
 	if err != nil {
-		createErr := errors.New(fmt.Sprintf("Failed to Add Subnet err = Not Exist VPC"))
-		cblogger.Error(createErr.Error())
-		LoggingError(hiscallInfo, createErr)
-		return irs.VPCInfo{}, createErr
+		addSubnetErr := errors.New(fmt.Sprintf("Failed to Add Subnet err = %s", err.Error()))
+		cblogger.Error(addSubnetErr.Error())
+		LoggingError(hiscallInfo, addSubnetErr)
+		return irs.VPCInfo{}, addSubnetErr
 	}
 	vpcName, subnetNames, err := disassembleVPCRegisterValue(key.Value)
 	if vpcName != vpcIID.NameId {
-		createErr := errors.New(fmt.Sprintf("Failed to Add Subnet err = Not Exist %s", vpcName))
-		cblogger.Error(createErr.Error())
-		LoggingError(hiscallInfo, createErr)
-		return irs.VPCInfo{}, createErr
+		addSubnetErr := errors.New(fmt.Sprintf("Failed to Add Subnet err = Not Exist %s", vpcName))
+		cblogger.Error(addSubnetErr.Error())
+		LoggingError(hiscallInfo, addSubnetErr)
+		return irs.VPCInfo{}, addSubnetErr
 	}
 
 	checkSubnet, _ := vpcHandler.getSubnetByName(subnetInfo.IId.NameId)
 	if checkSubnet != nil {
-		createErr := errors.New(fmt.Sprintf("Failed to Add Subnet err = Subnet with name %s already exist", subnetInfo.IId.NameId))
-		cblogger.Error(createErr.Error())
-		LoggingError(hiscallInfo, createErr)
-		return irs.VPCInfo{}, createErr
+		addSubnetErr := errors.New(fmt.Sprintf("Failed to Add Subnet err = Subnet with name %s already exist", subnetInfo.IId.NameId))
+		cblogger.Error(addSubnetErr.Error())
+		LoggingError(hiscallInfo, addSubnetErr)
+		return irs.VPCInfo{}, addSubnetErr
 	}
 	err = vpcHandler.checkCreatableSubnetCIDR(subnetInfo.IPv4_CIDR)
 	if err != nil {
-		createErr := errors.New(fmt.Sprintf("Failed to Add Subnet err = %s", err))
-		cblogger.Error(createErr.Error())
-		LoggingError(hiscallInfo, createErr)
-		return irs.VPCInfo{}, createErr
+		addSubnetErr := errors.New(fmt.Sprintf("Failed to Add Subnet err = %s", err.Error()))
+		cblogger.Error(addSubnetErr.Error())
+		LoggingError(hiscallInfo, addSubnetErr)
+		return irs.VPCInfo{}, addSubnetErr
 	}
 	cidrArrays := strings.Split(subnetInfo.IPv4_CIDR, "/")
 
@@ -439,30 +448,29 @@ func (vpcHandler *ClouditVPCHandler) AddSubnet(vpcIID irs.IID, subnetInfo irs.Su
 		MoreHeaders: authHeader,
 	}
 
-	start := call.Start()
 	newSubnet, err := subnet.Create(vpcHandler.Client, &createOpts)
 	if err != nil {
-		createErr := errors.New(fmt.Sprintf("Failed to Add Subnet err = %s", err))
-		cblogger.Error(createErr.Error())
-		LoggingError(hiscallInfo, createErr)
-		return irs.VPCInfo{}, createErr
+		addSubnetErr := errors.New(fmt.Sprintf("Failed to Add Subnet err = %s", err.Error()))
+		cblogger.Error(addSubnetErr.Error())
+		LoggingError(hiscallInfo, addSubnetErr)
+		return irs.VPCInfo{}, addSubnetErr
 	}
 
 	subnetNames = append(subnetNames, newSubnet.Name)
 
 	err = keypair.AddKey(VPCProvider, hashString, ClouditVPCREGISTER, assembleVPCRegisterValue(vpcName, subnetNames))
 	if err != nil {
-		createErr := errors.New(fmt.Sprintf("Failed to Add Subnet err = %s", err.Error()))
-		cblogger.Error(createErr.Error())
-		LoggingError(hiscallInfo, createErr)
-		return irs.VPCInfo{}, createErr
+		addSubnetErr := errors.New(fmt.Sprintf("Failed to Add Subnet err = %s", err.Error()))
+		cblogger.Error(addSubnetErr.Error())
+		LoggingError(hiscallInfo, addSubnetErr)
+		return irs.VPCInfo{}, addSubnetErr
 	}
 	result, err := vpcHandler.GetVPC(vpcIID)
 	if err != nil {
-		createErr := errors.New(fmt.Sprintf("Failed to Add Subnet err = %s", err))
-		cblogger.Error(createErr.Error())
-		LoggingError(hiscallInfo, createErr)
-		return irs.VPCInfo{}, createErr
+		addSubnetErr := errors.New(fmt.Sprintf("Failed to Add Subnet err = %s", err.Error()))
+		cblogger.Error(addSubnetErr.Error())
+		LoggingError(hiscallInfo, addSubnetErr)
+		return irs.VPCInfo{}, addSubnetErr
 	}
 
 	LoggingInfo(hiscallInfo, start)
@@ -473,34 +481,36 @@ func (vpcHandler *ClouditVPCHandler) AddSubnet(vpcIID irs.IID, subnetInfo irs.Su
 func (vpcHandler *ClouditVPCHandler) RemoveSubnet(vpcIID irs.IID, subnetIID irs.IID) (bool, error) {
 	// log HisCall
 	hiscallInfo := GetCallLogScheme(ClouditRegion, call.VPCSUBNET, subnetIID.NameId, "RemoveSubnet()")
+	start := call.Start()
 
 	hashString, err := CreateVPCHashString(vpcHandler.CredentialInfo)
 	if err != nil {
-		cblogger.Error(err)
-		LoggingError(hiscallInfo, err)
-		return false, err
+		delErr := errors.New(fmt.Sprintf("Failed to Remove Subnet err = %s", err.Error()))
+		cblogger.Error(delErr.Error())
+		LoggingError(hiscallInfo, delErr)
+		return false, delErr
 	}
 	key, err := keypair.GetKey(VPCProvider, hashString, ClouditVPCREGISTER)
 	if err != nil {
-		createErr := errors.New(fmt.Sprintf("Failed to Remove Subnet err = Not Exist VPC"))
-		cblogger.Error(createErr.Error())
-		LoggingError(hiscallInfo, createErr)
-		return false, createErr
+		delErr := errors.New(fmt.Sprintf("Failed to Remove Subnet err = Not Exist VPC"))
+		cblogger.Error(delErr.Error())
+		LoggingError(hiscallInfo, delErr)
+		return false, delErr
 	}
 	vpcName, subnetNames, err := disassembleVPCRegisterValue(key.Value)
 	if vpcName != vpcIID.NameId {
-		createErr := errors.New(fmt.Sprintf("Failed to Remove Subnet err = Not Exist %s", vpcName))
-		cblogger.Error(createErr.Error())
-		LoggingError(hiscallInfo, createErr)
-		return false, createErr
+		delErr := errors.New(fmt.Sprintf("Failed to Remove Subnet err = Not Exist %s", vpcName))
+		cblogger.Error(delErr.Error())
+		LoggingError(hiscallInfo, delErr)
+		return false, delErr
 	}
 
 	subnetInfo, err := vpcHandler.getSubnetByName(subnetIID.NameId)
 	if err != nil {
-		createErr := errors.New(fmt.Sprintf("Failed to Remove Subnet err = %s", err))
-		cblogger.Error(createErr.Error())
-		LoggingError(hiscallInfo, createErr)
-		return false, err
+		delErr := errors.New(fmt.Sprintf("Failed to Remove Subnet err = %s", err.Error()))
+		cblogger.Error(delErr.Error())
+		LoggingError(hiscallInfo, delErr)
+		return false, delErr
 	}
 
 	vpcHandler.Client.TokenID = vpcHandler.CredentialInfo.AuthToken
@@ -510,13 +520,12 @@ func (vpcHandler *ClouditVPCHandler) RemoveSubnet(vpcIID irs.IID, subnetIID irs.
 		MoreHeaders: authHeader,
 	}
 
-	start := call.Start()
 	err = subnet.Delete(vpcHandler.Client, subnetInfo.Addr, &requestOpts)
 	if err != nil {
-		createErr := errors.New(fmt.Sprintf("Failed to Remove Subnet err = %s", err))
-		cblogger.Error(createErr.Error())
-		LoggingError(hiscallInfo, createErr)
-		return false, err
+		delErr := errors.New(fmt.Sprintf("Failed to Remove Subnet err = %s", err.Error()))
+		cblogger.Error(delErr.Error())
+		LoggingError(hiscallInfo, delErr)
+		return false, delErr
 	}
 	for i, subnetname := range subnetNames {
 		if subnetname == subnetInfo.Name {
@@ -526,10 +535,10 @@ func (vpcHandler *ClouditVPCHandler) RemoveSubnet(vpcIID irs.IID, subnetIID irs.
 	}
 	err = keypair.AddKey(VPCProvider, hashString, ClouditVPCREGISTER, assembleVPCRegisterValue(vpcName, subnetNames))
 	if err != nil {
-		createErr := errors.New(fmt.Sprintf("Failed to Remove Subnet err = %s", err))
-		cblogger.Error(createErr.Error())
-		LoggingError(hiscallInfo, createErr)
-		return false, err
+		delErr := errors.New(fmt.Sprintf("Failed to Remove Subnet err = %s", err.Error()))
+		cblogger.Error(delErr.Error())
+		LoggingError(hiscallInfo, delErr)
+		return false, delErr
 	}
 	LoggingInfo(hiscallInfo, start)
 
@@ -644,16 +653,16 @@ func (vpcHandler *ClouditVPCHandler) creatableSubnetCIDRList() ([]string, error)
 func (vpcHandler *ClouditVPCHandler) GetDefaultVPC() (irs.VPCInfo, error) {
 	hashString, err := CreateVPCHashString(vpcHandler.CredentialInfo)
 	if err != nil {
-		return irs.VPCInfo{},err
+		return irs.VPCInfo{}, err
 	}
 
 	key, err := keypair.GetKey(VPCProvider, hashString, ClouditVPCREGISTER)
 	if err != nil {
-		return irs.VPCInfo{},err
+		return irs.VPCInfo{}, err
 	}
 	vpcName, subnetNames, err := disassembleVPCRegisterValue(key.Value)
 	if err != nil {
-		return irs.VPCInfo{},err
+		return irs.VPCInfo{}, err
 	}
 	var subnetList []subnet.SubnetInfo
 	for _, subnetName := range subnetNames {
@@ -666,7 +675,7 @@ func (vpcHandler *ClouditVPCHandler) GetDefaultVPC() (irs.VPCInfo, error) {
 
 	err = keypair.AddKey(VPCProvider, hashString, ClouditVPCREGISTER, assembleVPCRegisterValue(vpcName, getSubnetNames(subnetList)))
 	if err != nil {
-		return irs.VPCInfo{},err
+		return irs.VPCInfo{}, err
 	}
 	vpcInfo := vpcHandler.setterVPC(subnetList, vpcName)
 	return *vpcInfo, nil
