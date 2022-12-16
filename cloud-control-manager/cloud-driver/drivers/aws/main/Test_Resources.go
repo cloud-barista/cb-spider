@@ -1417,22 +1417,228 @@ func handleNLB() {
 	}
 }
 
+func handleCluster() {
+	cblogger.Debug("Start PMKS Handler Resource Test")
+
+	ResourceHandler, err := getResourceHandler("PMKS")
+	if err != nil {
+		panic(err)
+	}
+	handler := ResourceHandler.(irs.ClusterHandler)
+
+	if handler == nil {
+		fmt.Println("handler nil")
+		panic(err)
+	}
+
+	subnets := []irs.IID{}
+	subnets = append(subnets, irs.IID{SystemId: "subnet-0d30ee6b367974a39"}) //a1
+	subnets = append(subnets, irs.IID{SystemId: "subnet-06d5c04b32019b81f"}) //c1
+	subnets = append(subnets, irs.IID{SystemId: "subnet-05c5d26bd2f014591"}) //a2
+
+	//vpc-0c4d36a3ac3924419
+	clusterReqInfo := irs.ClusterInfo{
+		IId: irs.IID{NameId: "cb-eks-cluster-test01"},
+		//Version : "1.23.3", //K8s version
+		Network: irs.NetworkInfo{
+			VpcIID: irs.IID{SystemId: "vpc-0c4d36a3ac3924419"},
+			//SubnetIID: [irs.IID{SystemId: "subnet-262d6d7a"},irs.IID{SystemId: "vpc-c0479cab"}],
+			SubnetIIDs: subnets,
+		},
+	} // nlbReqInfo
+
+	reqNodeGroupInfo := irs.NodeGroupInfo{
+		IId:         irs.IID{NameId: "cb-eks-node-test01"},
+		MinNodeSize: 1,
+		MaxNodeSize: 2,
+
+		// VM config.
+		ImageIID:     irs.IID{SystemId: "ami-00e07ff65a55e3ca5"}, // Amazon Linux 2 (AL2_x86_64) - https://docs.aws.amazon.com/eks/latest/userguide/eks-optimized-ami.html
+		VMSpecName:   "t3.medium",
+		RootDiskType: "SSD(gp2)", // "SSD(gp2)", "Premium SSD", ...
+		RootDiskSize: "20",       // "", "default", "50", "1000" (GB)
+		KeyPairIID:   irs.IID{SystemId: "japan-test"},
+
+		//Status NodeGroupStatus
+
+		// Scaling config.
+		OnAutoScaling:   true, // default: true
+		DesiredNodeSize: 1,
+	}
+
+	for {
+		fmt.Println("ClusterHandler Management")
+		fmt.Println("0. Quit")
+		fmt.Println("1. Cluster List")
+		fmt.Println("2. Cluster Create")
+		fmt.Println("3. Cluster Get")
+		fmt.Println("4. Cluster Delete")
+
+		fmt.Println("5. ListNodeGroup")
+		fmt.Println("6. AddNodeGroup")
+		fmt.Println("7. RemoveNodeGroup")
+
+		fmt.Println("8. UpgradeCluster")
+		fmt.Println("9. ChangeNodeGroupScaling")
+
+		var commandNum int
+		inputCnt, err := fmt.Scan(&commandNum)
+		if err != nil {
+			panic(err)
+		}
+
+		if inputCnt == 1 {
+			switch commandNum {
+			case 0:
+				return
+
+			case 1:
+				result, err := handler.ListCluster()
+				if err != nil {
+					cblogger.Infof(" Cluster 목록 조회 실패 : ", err)
+				} else {
+					cblogger.Info("Cluster 목록 조회 결과")
+					cblogger.Debug(result)
+					cblogger.Infof("로그 레벨 : [%s]", cblog.GetLevel())
+					//spew.Dump(result)
+					cblogger.Info("출력 결과 수 : ", len(result))
+
+					//조회및 삭제 테스트를 위해 리스트의 첫번째 정보의 ID를 요청ID로 자동 갱신함.
+					if len(result) > 0 {
+						clusterReqInfo.IId = result[0].IId // 조회 및 삭제를 위해 생성된 ID로 변경
+						cblogger.Info("---> Req IID 변경 : ", clusterReqInfo.IId)
+					}
+				}
+			case 2:
+				cblogger.Infof("[%s] Cluster Create 테스트", clusterReqInfo.IId.NameId)
+				result, err := handler.CreateCluster(clusterReqInfo)
+				if err != nil {
+					cblogger.Infof(clusterReqInfo.IId.NameId, " Cluster Create 실패 : ", err)
+				} else {
+					cblogger.Infof("Cluster Create 성공 : ", result)
+					clusterReqInfo.IId = result.IId // 조회 및 삭제를 위해 생성된 ID로 변경
+					if cblogger.Level.String() == "debug" {
+						spew.Dump(result)
+					}
+				}
+
+				//eks-cb-eks-node-test02a-aws-9cc2876a-d3cb-2c25-55a8-9a19c431e716
+
+			case 3:
+				cblogger.Infof("[%s] Cluster Get 테스트", clusterReqInfo.IId)
+				result, err := handler.GetCluster(clusterReqInfo.IId)
+				if err != nil {
+					cblogger.Infof("[%s] Cluster Get 실패 : ", clusterReqInfo.IId.NameId, err)
+				} else {
+					cblogger.Infof("[%s] Cluster Get 성공 : [%s]", clusterReqInfo.IId.NameId, result)
+					if cblogger.Level.String() == "debug" {
+						spew.Dump(result)
+					}
+				}
+
+			case 4:
+				cblogger.Infof("[%s] Cluster Delete 테스트", clusterReqInfo.IId.NameId)
+				result, err := handler.DeleteCluster(clusterReqInfo.IId)
+				if err != nil {
+					cblogger.Infof("[%s] Cluster Delete 실패 : ", clusterReqInfo.IId.NameId, err)
+				} else {
+					cblogger.Info("성공")
+					cblogger.Infof("[%s] Cluster Delete 성공 : [%s]", clusterReqInfo.IId.NameId, result)
+				}
+
+			/*
+				case 5:
+					cblogger.Infof("[%s] ListNodeGroup 테스트", clusterReqInfo.IId)
+					result, err := handler.ListNodeGroup(clusterReqInfo.IId)
+					if err != nil {
+						cblogger.Infof("[%s] ListNodeGroup 실패 : ", clusterReqInfo.IId.NameId, err)
+					} else {
+						cblogger.Infof("[%s] ListNodeGroup 성공 : [%s]", clusterReqInfo.IId.NameId, result)
+						if cblogger.Level.String() == "debug" {
+							spew.Dump(result)
+						}
+
+						cblogger.Info("출력 결과 수 : ", len(result))
+
+						//조회및 삭제 테스트를 위해 리스트의 첫번째 정보의 ID를 요청ID로 자동 갱신함.
+						if len(result) > 0 {
+							reqNodeGroupInfo.IId = result[0].IId // 조회 및 삭제를 위해 생성된 ID로 변경
+							cblogger.Info("---> Req IID 변경 : ", reqNodeGroupInfo.IId)
+						}
+					}
+			*/
+
+			case 6:
+				cblogger.Infof("[%s] AddNodeGroup 테스트", clusterReqInfo.IId)
+				result, err := handler.AddNodeGroup(clusterReqInfo.IId, reqNodeGroupInfo)
+				if err != nil {
+					cblogger.Infof("[%s] AddNodeGroup 실패 : ", clusterReqInfo.IId.NameId, err)
+				} else {
+					cblogger.Infof("[%s] AddNodeGroup 성공 : [%s]", clusterReqInfo.IId.NameId, result)
+					if cblogger.Level.String() == "debug" {
+						spew.Dump(result)
+					}
+				}
+
+			case 7:
+				cblogger.Infof("[%s] RemoveNodeGroup 테스트", clusterReqInfo.IId)
+				result, err := handler.RemoveNodeGroup(clusterReqInfo.IId, reqNodeGroupInfo.IId)
+				if err != nil {
+					cblogger.Infof("[%s] RemoveNodeGroup 실패 : ", reqNodeGroupInfo.IId.SystemId, err)
+				} else {
+					cblogger.Infof("[%s] RemoveNodeGroup 성공", reqNodeGroupInfo.IId.SystemId)
+					if cblogger.Level.String() == "debug" {
+						spew.Dump(result)
+					}
+				}
+
+			case 8:
+				cblogger.Infof("[%s] UpgradeCluster 테스트", clusterReqInfo.IId)
+				result, err := handler.UpgradeCluster(clusterReqInfo.IId, "1.24")
+				if err != nil {
+					cblogger.Infof("[%s] UpgradeCluster 실패 : ", clusterReqInfo.IId.NameId, err)
+				} else {
+					cblogger.Infof("[%s] UpgradeCluster 성공 : [%s]", clusterReqInfo.IId.NameId, result)
+					if cblogger.Level.String() == "debug" {
+						spew.Dump(result)
+					}
+				}
+
+			case 9:
+				cblogger.Infof("[%s] ChangeNodeGroupScaling 테스트", clusterReqInfo.IId)
+				//원하는 크기 / 최소 크기 / 최대 크기
+				result, err := handler.ChangeNodeGroupScaling(clusterReqInfo.IId, reqNodeGroupInfo.IId, 2, 2, 4)
+				if err != nil {
+					cblogger.Infof("[%s] ChangeNodeGroupScaling 실패 : ", clusterReqInfo.IId.NameId, err)
+				} else {
+					cblogger.Infof("[%s] ChangeNodeGroupScaling 성공 : [%s]", clusterReqInfo.IId.NameId, result)
+					if cblogger.Level.String() == "debug" {
+						spew.Dump(result)
+					}
+				}
+			}
+		}
+	}
+}
+
 func main() {
 	cblogger.Info("AWS Resource Test")
 	//handleVPC()
 	//handleKeyPair()
 	//handlePublicIP() // PublicIP 생성 후 conf
 	//handleSecurity()
-	handleVM()
+	//handleVM()
 
 	//handleImage() //AMI
 	//handleVNic() //Lancard
 	//handleVMSpec()
 	//handleNLB()
+	handleCluster()
+
 }
 
-//handlerType : resources폴더의 xxxHandler.go에서 Handler이전까지의 문자열
-//(예) ImageHandler.go -> "Image"
+// handlerType : resources폴더의 xxxHandler.go에서 Handler이전까지의 문자열
+// (예) ImageHandler.go -> "Image"
 func getResourceHandler(handlerType string) (interface{}, error) {
 	var cloudDriver idrv.CloudDriver
 	cloudDriver = new(awsdrv.AwsDriver)
@@ -1474,6 +1680,8 @@ func getResourceHandler(handlerType string) (interface{}, error) {
 		resourceHandler, err = cloudConnection.CreateVMSpecHandler()
 	case "NLB":
 		resourceHandler, err = cloudConnection.CreateNLBHandler()
+	case "PMKS":
+		resourceHandler, err = cloudConnection.CreateClusterHandler()
 	}
 
 	if err != nil {
@@ -1571,16 +1779,18 @@ type Config struct {
 	} `yaml:"aws"`
 }
 
-//환경 설정 파일 읽기
-//환경변수 CBSPIDER_PATH 설정 후 해당 폴더 하위에 /config/config.yaml 파일 생성해야 함.
+// 환경 설정 파일 읽기
+// 환경변수 CBSPIDER_PATH 설정 후 해당 폴더 하위에 /config/config.yaml 파일 생성해야 함.
 func readConfigFile() Config {
 	// Set Environment Value of Project Root Path
 	rootPath := os.Getenv("CBSPIDER_PATH")
+	//rootPath = "/home/nobang/goland/branches/feature_pmks_aws_20221005_yhnoh2/cloud-control-manager/cloud-driver/drivers/aws/main"
 	//rootpath := "D:/Workspace/mcloud-barista-config"
 	// /mnt/d/Workspace/mcloud-barista-config/config/config.yaml
 	cblogger.Infof("Test Data 설정파일 : [%]", rootPath+"/config/config.yaml")
 
 	data, err := ioutil.ReadFile(rootPath + "/config/config.yaml")
+	//data, err := ioutil.ReadFile(rootPath + "/Sample/config/config.yaml")
 	//data, err := ioutil.ReadFile("D:/Workspace/mcloud-bar-config/config/config.yaml")
 	if err != nil {
 		panic(err)

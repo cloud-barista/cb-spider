@@ -24,10 +24,12 @@ import (
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 
-	"errors"
+	"github.com/aws/aws-sdk-go/service/autoscaling"
+	"github.com/aws/aws-sdk-go/service/eks"
+	"github.com/aws/aws-sdk-go/service/iam"
 )
 
-//type AwsCloudConnection struct{}
+// type AwsCloudConnection struct{}
 type AwsCloudConnection struct {
 	CredentialInfo idrv.CredentialInfo
 	Region         idrv.RegionInfo
@@ -46,6 +48,10 @@ type AwsCloudConnection struct {
 
 	DiskClient    *ec2.EC2
 	MyImageClient *ec2.EC2
+
+	EKSClient         *eks.EKS
+	IamClient         *iam.IAM
+	AutoScalingClient *autoscaling.AutoScaling
 
 	AnyCallClient *ec2.EC2
 }
@@ -83,7 +89,7 @@ func (cloudConn *AwsCloudConnection) CreateVPCHandler() (irs.VPCHandler, error) 
 	return &handler, nil
 }
 
-//func (cloudConn *AwsCloudConnection) CreateImageHandler() (irs2.ImageHandler, error) {
+// func (cloudConn *AwsCloudConnection) CreateImageHandler() (irs2.ImageHandler, error) {
 func (cloudConn *AwsCloudConnection) CreateImageHandler() (irs.ImageHandler, error) {
 	handler := ars.AwsImageHandler{cloudConn.Region, cloudConn.ImageClient}
 
@@ -127,18 +133,30 @@ func (cloudConn *AwsCloudConnection) CreateDiskHandler() (irs.DiskHandler, error
 	return &handler, nil
 }
 
-
 func (cloudConn *AwsCloudConnection) CreateMyImageHandler() (irs.MyImageHandler, error) {
 	handler := ars.AwsMyImageHandler{cloudConn.Region, cloudConn.MyImageClient}
 	return &handler, nil
 }
 
 func (cloudConn *AwsCloudConnection) CreateClusterHandler() (irs.ClusterHandler, error) {
-        return nil, errors.New("AWS Driver: not implemented")
+	cblogger.Info("CreateClusterHandler through")
+	if cloudConn.MyImageClient == nil {
+		cblogger.Info("cloudConn.MyImageClient is nil")
+	}
+	if cloudConn.EKSClient == nil {
+		cblogger.Info("cloudConn.EKSClient is nil")
+	}
+	if cloudConn.IamClient == nil {
+		cblogger.Info("cloudConn.IamClient is nil")
+	}
+	if cloudConn.AutoScalingClient == nil {
+		cblogger.Info("cloudConn.AutoScalingClient is nil")
+	}
+	handler := ars.AwsClusterHandler{cloudConn.Region, cloudConn.EKSClient, cloudConn.IamClient, cloudConn.AutoScalingClient}
+	return &handler, nil
 }
 
 func (cloudConn *AwsCloudConnection) CreateAnyCallHandler() (irs.AnyCallHandler, error) {
 	handler := ars.AwsAnyCallHandler{cloudConn.Region, cloudConn.CredentialInfo, cloudConn.AnyCallClient}
-        return &handler, nil
+	return &handler, nil
 }
-
