@@ -10,7 +10,7 @@ import (
 	"github.com/IBM/platform-services-go-sdk/resourcemanagerv2"
 	"github.com/IBM/vpc-go-sdk/vpcv1"
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
-	"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/ibmcloud-vpc/kubernetesserviceapiv1"
+	"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/ibmcloud-vpc/utils/kubernetesserviceapiv1"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/go-openapi/strfmt"
@@ -442,7 +442,7 @@ func (ic *IbmClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGroupReqInfo i
 		LoggingError(hiscallInfo, getIrsClusterErr)
 		return irs.NodeGroupInfo{}, errors.New(fmt.Sprintf("Failed to Add Node Group. err = %s", getIrsClusterErr))
 	}
-	if irsCluster.Status == irs.ClusterDeleting {
+	if irsCluster.Status == irs.ClusterCreating || irsCluster.Status == irs.ClusterDeleting {
 		clusterStatusErr := errors.New(fmt.Sprintf("Cannot Add Node Group at %s status", irsCluster.Status))
 		cblogger.Error(clusterStatusErr)
 		LoggingError(hiscallInfo, clusterStatusErr)
@@ -513,6 +513,15 @@ func (ic *IbmClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGroupReqInfo i
 		cblogger.Error(getNewNodeGroupErr)
 		LoggingError(hiscallInfo, getNewNodeGroupErr)
 		return irs.NodeGroupInfo{}, errors.New(fmt.Sprintf("Failed to Add Node Group. err = %s", getNewNodeGroupErr))
+	}
+
+	// Apply Node Group autosacler options
+	irsCluster.NodeGroupList = append(irsCluster.NodeGroupList, nodeGroupReqInfo)
+	applyAutoScalerOptionErr := ic.applyAutoScalerOptions(irsCluster, irsCluster.IId.SystemId, resourceGroupId)
+	if applyAutoScalerOptionErr != nil {
+		cblogger.Error(applyAutoScalerOptionErr)
+		LoggingError(hiscallInfo, applyAutoScalerOptionErr)
+		return irs.NodeGroupInfo{}, errors.New(fmt.Sprintf("Failed to Add Node Group. err = %s", applyAutoScalerOptionErr))
 	}
 
 	// Get Workers in pool
@@ -590,7 +599,7 @@ func (ic *IbmClusterHandler) SetNodeGroupAutoScaling(clusterIID irs.IID, nodeGro
 		LoggingError(hiscallInfo, getIrsClusterErr)
 		return false, errors.New(fmt.Sprintf("Failed to Set Node Group Auto Scaling. err = %s", getIrsClusterErr))
 	}
-	if irsCluster.Status == irs.ClusterDeleting {
+	if irsCluster.Status == irs.ClusterCreating || irsCluster.Status == irs.ClusterDeleting || irsCluster.Status == irs.ClusterUpdating {
 		clusterStatusErr := errors.New(fmt.Sprintf("Cannot Set Node Group AutoScaling at %s status", irsCluster.Status))
 		cblogger.Error(clusterStatusErr)
 		LoggingError(hiscallInfo, clusterStatusErr)
@@ -718,7 +727,7 @@ func (ic *IbmClusterHandler) ChangeNodeGroupScaling(clusterIID irs.IID, nodeGrou
 		LoggingError(hiscallInfo, getIrsClusterErr)
 		return irs.NodeGroupInfo{}, errors.New(fmt.Sprintf("Failed to Change Node Group Scaling. err = %s", getIrsClusterErr))
 	}
-	if irsCluster.Status == irs.ClusterDeleting {
+	if irsCluster.Status == irs.ClusterCreating || irsCluster.Status == irs.ClusterDeleting || irsCluster.Status == irs.ClusterUpdating {
 		clusterStatusErr := errors.New(fmt.Sprintf("Cannot Change Node Group Scaling at %s status", irsCluster.Status))
 		cblogger.Error(clusterStatusErr)
 		LoggingError(hiscallInfo, clusterStatusErr)
@@ -807,6 +816,7 @@ func (ic *IbmClusterHandler) ChangeNodeGroupScaling(clusterIID irs.IID, nodeGrou
 
 		if !isIncluded {
 			newNodeGroupInfo = append(newNodeGroupInfo, irs.NodeGroupInfo{
+				IId:           irs.IID{NameId: nodeGroupName},
 				OnAutoScaling: false,
 				MinNodeSize:   MinNodeSize,
 				MaxNodeSize:   MaxNodeSize,
@@ -896,6 +906,12 @@ func (ic *IbmClusterHandler) RemoveNodeGroup(clusterIID irs.IID, nodeGroupIID ir
 		cblogger.Error(getIrsClusterErr)
 		LoggingError(hiscallInfo, getIrsClusterErr)
 		return false, errors.New(fmt.Sprintf("Failed to Remove Node Group. err = %s", getIrsClusterErr))
+	}
+	if irsCluster.Status == irs.ClusterCreating || irsCluster.Status == irs.ClusterDeleting {
+		clusterStatusErr := errors.New(fmt.Sprintf("Cannot Remove Node Group at %s status", irsCluster.Status))
+		cblogger.Error(clusterStatusErr)
+		LoggingError(hiscallInfo, clusterStatusErr)
+		return false, errors.New(fmt.Sprintf("Failed to Remove Node Group. err = %s", clusterStatusErr))
 	}
 
 	nodeGroups, _, getNodeGroupsErr := ic.ClusterService.VpcGetWorkerPoolsWithContext(ic.Ctx, &kubernetesserviceapiv1.VpcGetWorkerPoolsOptions{
@@ -1231,7 +1247,9 @@ func (ic *IbmClusterHandler) getClusterFinalStatus(clusterStatus irs.ClusterStat
 	if compareTag(autoSaclerStatus, AutoScalerStatus, FAILED) || compareTag(securityGroupStatus, SecurityGroupStatus, FAILED) {
 		return irs.ClusterInactive
 	}
-	if compareTag(autoSaclerStatus, AutoScalerStatus, DEPLOYING) || compareTag(securityGroupStatus, SecurityGroupStatus, INITIALIZING) {
+	if compareTag(autoSaclerStatus, AutoScalerStatus, WAITING) ||
+		compareTag(autoSaclerStatus, AutoScalerStatus, DEPLOYING) ||
+		compareTag(securityGroupStatus, SecurityGroupStatus, INITIALIZING) {
 		return irs.ClusterCreating
 	}
 	if compareTag(autoSaclerStatus, AutoScalerStatus, UPGRADE_DEPLOYING) {

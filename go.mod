@@ -59,7 +59,6 @@ require (
 )
 
 require (
-	github.com/IBM-Cloud/container-services-go-sdk v0.0.0-20220922071204-21813161c36f
 	github.com/IBM/platform-services-go-sdk v0.30.0
 	github.com/go-openapi/strfmt v0.21.3
 	github.com/hashicorp/go-version v1.6.0
