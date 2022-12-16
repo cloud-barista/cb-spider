@@ -921,13 +921,13 @@ func getOSTypeByImage(imageIID irs.IID, computeClient *gophercloud.ServiceClient
 	}
 	value, exist := image.Metadata["os_type"]
 	if !exist {
-		return irs.LINUX, nil
+		return irs.LINUX_UNIX, nil
 	}
 	// os_type의 값 windows는 정해진 값, irs.Platform의 값이 바뀔 경우를 대비하여, static
 	if value == "windows" {
 		return irs.WINDOWS, nil
 	}
-	return irs.LINUX, nil
+	return irs.LINUX_UNIX, nil
 }
 
 func getOSTypeByMyImage(imageIID irs.IID, computeClient *gophercloud.ServiceClient) (irs.Platform, error) {
@@ -937,24 +937,24 @@ func getOSTypeByMyImage(imageIID irs.IID, computeClient *gophercloud.ServiceClie
 	}
 	value, exist := image.Metadata["os_type"]
 	if !exist {
-		return irs.LINUX, nil
+		return irs.LINUX_UNIX, nil
 	}
 	// os_type의 값 windows는 정해진 값, irs.Platform의 값이 바뀔 경우를 대비하여, static
 	if value == "windows" {
 		return irs.WINDOWS, nil
 	}
-	return irs.LINUX, nil
+	return irs.LINUX_UNIX, nil
 }
 
 func getOSTypeByServer(server servers.Server) (irs.Platform, error) {
 	value, exist := server.Metadata["os_type"]
 	if !exist {
-		return irs.LINUX, nil
+		return irs.LINUX_UNIX, nil
 	}
 	if value == "windows" {
 		return irs.WINDOWS, nil
 	}
-	return irs.LINUX, nil
+	return irs.LINUX_UNIX, nil
 }
 
 func getPassword(server servers.Server) (string, error) {

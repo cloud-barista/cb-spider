@@ -286,7 +286,7 @@ func (vmHandler *AzureVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 		}
 	}
 
-	if imageOsType == irs.LINUX {
+	if imageOsType == irs.LINUX_UNIX {
 		// 3-2. Set VmReqInfo - KeyPair & tagging
 		if vmReqInfo.KeyPairIID.NameId != "" {
 			key, keyErr := GetRawKey(vmReqInfo.KeyPairIID, vmHandler.Region.ResourceGroup, vmHandler.SshKeyClient, vmHandler.Ctx)
@@ -1033,7 +1033,7 @@ func (vmHandler *AzureVMHandler) mappingServerInfo(server compute.VirtualMachine
 		if osType == irs.WINDOWS {
 			vmInfo.VMUserId = WindowBaseUser
 		}
-		if osType == irs.LINUX {
+		if osType == irs.LINUX_UNIX {
 			vmInfo.VMUserId = CBVMUser
 		}
 	}
@@ -1504,7 +1504,7 @@ func checkAuthInfoOSType(vmReqInfo irs.VMReqInfo, OSType irs.Platform) error {
 			return computeErr
 		}
 	}
-	if OSType == irs.LINUX {
+	if OSType == irs.LINUX_UNIX {
 		if vmReqInfo.KeyPairIID.NameId == "" && vmReqInfo.KeyPairIID.SystemId == "" {
 			return errors.New("for Linux, KeyPairIID is required")
 		}
@@ -1606,7 +1606,7 @@ func CheckVMReqInfoOSType(vmReqInfo irs.VMReqInfo, imageClient *compute.ImagesCl
 
 func getOSTypeByVM(server compute.VirtualMachine) (irs.Platform, error) {
 	if server.OsProfile.LinuxConfiguration != nil {
-		return irs.LINUX, nil
+		return irs.LINUX_UNIX, nil
 	}
 	return irs.WINDOWS, nil
 }
@@ -1627,7 +1627,7 @@ func getOSTypeByPublicImage(imageIID irs.IID) (irs.Platform, error) {
 	if strings.Contains(strings.ToLower(offer), "window") {
 		return irs.WINDOWS, nil
 	}
-	return irs.LINUX, nil
+	return irs.LINUX_UNIX, nil
 }
 
 func getOSTypeByMyImage(myImageIID irs.IID, imageClient *compute.ImagesClient, credentialInfo idrv.CredentialInfo, region idrv.RegionInfo, ctx context.Context) (irs.Platform, error) {
@@ -1643,10 +1643,10 @@ func getOSTypeByMyImage(myImageIID irs.IID, imageClient *compute.ImagesClient, c
 		return "", errors.New(fmt.Sprintf("failed get OSType By MyImageIID err = empty MyImage OSType"))
 	}
 	if myImage.StorageProfile.OsDisk.OsType == compute.OperatingSystemTypesLinux {
-		return irs.LINUX, nil
+		return irs.LINUX_UNIX, nil
 	}
 	if myImage.StorageProfile.OsDisk.OsType == compute.OperatingSystemTypesWindows {
-		return irs.LINUX, nil
+		return irs.WINDOWS, nil
 	}
 	return "", errors.New(fmt.Sprintf("failed get OSType By MyImageIID err = empty MyImage OSType"))
 }
