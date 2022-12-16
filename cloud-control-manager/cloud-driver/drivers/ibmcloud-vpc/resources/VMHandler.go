@@ -1316,7 +1316,7 @@ func (vmHandler *IbmVMHandler) setVmInfo(instance vpcv1.Instance) (irs.VMInfo, e
 			vmInfo.VMUserId = "Administrator"
 			vmInfo.AccessPoint = vmInfo.AccessPoint + ":3389"
 		} else {
-			vmInfo.Platform = irs.LINUX
+			vmInfo.Platform = irs.LINUX_UNIX
 			vmInfo.VMUserId = "cb-user"
 			vmInfo.AccessPoint = vmInfo.AccessPoint + ":22"
 		}

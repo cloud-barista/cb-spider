@@ -23,7 +23,6 @@ const (
 
 type Platform string
 const (
-        LINUX		Platform = "LINUX" // deprecated
         LINUX_UNIX	Platform = "LINUX/UNIX"
         WINDOWS		Platform = "WINDOWS"
 )

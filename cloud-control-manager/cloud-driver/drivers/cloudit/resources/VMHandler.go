@@ -1062,7 +1062,7 @@ func (vmHandler *ClouditVMHandler) mappingServerInfo(serverInfo server.ServerInf
 		accessPoint = serverInfo.AdaptiveIp + ":3389"
 	} else {
 		vmUser = SSHDefaultUser
-		platform = irs.WINDOWS
+		platform = irs.LINUX_UNIX
 		accessPoint = serverInfo.AdaptiveIp + ":22"
 	}
 

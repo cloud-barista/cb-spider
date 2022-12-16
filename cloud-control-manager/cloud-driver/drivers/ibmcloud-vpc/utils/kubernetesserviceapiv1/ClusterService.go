@@ -32,11 +32,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/IBM/vpc-go-sdk/common"
 	"net/http"
 	"reflect"
 	"time"
 
-	common "github.com/IBM-Cloud/container-services-go-sdk/common"
 	"github.com/IBM/go-sdk-core/v5/core"
 )
 

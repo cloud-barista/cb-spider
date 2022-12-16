@@ -183,6 +183,33 @@ type Config struct {
 					MinNodeSize    int  `yaml:"minNodeSize"`
 					MaxNodeSize    int  `yaml:"maxNodeSize"`
 				} `yaml:"nodeGroupList"`
+				AdditionalNodeGroup struct {
+					IID struct {
+						NameId string `yaml:"nameId"`
+					} `yaml:"IID"`
+					VMSpecName   string `yaml:"vmSpecName"`
+					RootDiskType string `yaml:"rootDiskType"`
+					RootDiskSize string `yaml:"rootDiskSize"`
+					KeyPairIID   struct {
+						NameId string `yaml:"nameId"`
+					} `yaml:"keyPairIID"`
+					OnAutoScaling  bool `yaml:"onAutoScaling"`
+					DesireNodeSize int  `yaml:"desireNodeSize"`
+					MinNodeSize    int  `yaml:"minNodeSize"`
+					MaxNodeSize    int  `yaml:"maxNodeSize"`
+				} `yaml:"additionalNodeGroup"`
+				ClusterUpdateInfos struct {
+					TargetNodeGroupIID struct {
+						NameId string `yaml:"nameId"`
+					} `yaml:"targetNodeGroupIID"`
+					OnNodeGroupAutoScaling bool `yaml:"onNodeGroupAutoScaling"`
+					ChangeNodeGroupScaling struct {
+						DesiredNodeSize int `yaml:"desiredNodeSize"`
+						MinNodeSize     int `yaml:"minNodeSize"`
+						MaxNodeSize     int `yaml:"maxNodeSize"`
+					} `yaml:"changeNodeGroupScaling"`
+					UpgradeVersion string `yaml:"upgradeVersion"`
+				} `yaml:"clusterUpdateInfos"`
 			} `yaml:"cluster"`
 		} `yaml:"resources"`
 	} `yaml:"ibmvpc"`
@@ -1394,12 +1421,12 @@ func testClusterHandler(config Config) {
 		NodeGroupList: nodeGroupList,
 	}
 	nodeGroupReqInfo := irs.NodeGroupInfo{
-		IId:             irs.IID{NameId: "NewNodeGroup"},
-		VMSpecName:      "bx2.4x16",
-		OnAutoScaling:   false,
-		DesiredNodeSize: 1,
-		MinNodeSize:     1,
-		MaxNodeSize:     2,
+		IId:             irs.IID{NameId: configCluster.AdditionalNodeGroup.IID.NameId},
+		VMSpecName:      configCluster.AdditionalNodeGroup.VMSpecName,
+		OnAutoScaling:   configCluster.AdditionalNodeGroup.OnAutoScaling,
+		DesiredNodeSize: configCluster.AdditionalNodeGroup.DesireNodeSize,
+		MinNodeSize:     configCluster.AdditionalNodeGroup.MinNodeSize,
+		MaxNodeSize:     configCluster.AdditionalNodeGroup.MaxNodeSize,
 	}
 
 Loop:
@@ -1456,7 +1483,8 @@ Loop:
 				cblogger.Info("Finish AddNodeGroup()")
 			case 6:
 				cblogger.Info("Start RemoveNodeGroup() ...")
-				if removeNodeGroupResult, err := clusterHandler.RemoveNodeGroup(clusterCreateReqInfo.IId, nodeGroupReqInfo.IId); err != nil {
+				if removeNodeGroupResult, err := clusterHandler.RemoveNodeGroup(clusterCreateReqInfo.IId,
+					irs.IID{NameId: configCluster.AdditionalNodeGroup.IID.NameId}); err != nil {
 					cblogger.Error(err)
 				} else {
 					spew.Dump(removeNodeGroupResult)
@@ -1464,7 +1492,10 @@ Loop:
 				cblogger.Info("Finish RemoveNodeGroup()")
 			case 7:
 				cblogger.Info("Start SetNodeGroupAutoScaling() ...")
-				if setNodeGroupAutoScalingResult, err := clusterHandler.SetNodeGroupAutoScaling(clusterCreateReqInfo.IId, clusterCreateReqInfo.NodeGroupList[0].IId, true); err != nil {
+				if setNodeGroupAutoScalingResult, err := clusterHandler.SetNodeGroupAutoScaling(
+					clusterCreateReqInfo.IId,
+					irs.IID{NameId: configCluster.ClusterUpdateInfos.TargetNodeGroupIID.NameId},
+					configCluster.ClusterUpdateInfos.OnNodeGroupAutoScaling); err != nil {
 					cblogger.Error(err)
 				} else {
 					spew.Dump(setNodeGroupAutoScalingResult)
@@ -1472,7 +1503,12 @@ Loop:
 				cblogger.Info("Finish SetNodeGroupAutoScaling()")
 			case 8:
 				cblogger.Info("Start ChangeNodeGroupScaling() ...")
-				if changeNodeGroupScalingResult, err := clusterHandler.ChangeNodeGroupScaling(clusterCreateReqInfo.IId, clusterCreateReqInfo.NodeGroupList[0].IId, 2, 2, 3); err != nil {
+				if changeNodeGroupScalingResult, err := clusterHandler.ChangeNodeGroupScaling(
+					clusterCreateReqInfo.IId,
+					irs.IID{NameId: configCluster.ClusterUpdateInfos.TargetNodeGroupIID.NameId},
+					configCluster.ClusterUpdateInfos.ChangeNodeGroupScaling.DesiredNodeSize,
+					configCluster.ClusterUpdateInfos.ChangeNodeGroupScaling.MinNodeSize,
+					configCluster.ClusterUpdateInfos.ChangeNodeGroupScaling.MaxNodeSize); err != nil {
 					cblogger.Error(err)
 				} else {
 					spew.Dump(changeNodeGroupScalingResult)
@@ -1480,7 +1516,7 @@ Loop:
 				cblogger.Info("Finish ChangeNodeGroupScaling()")
 			case 9:
 				cblogger.Info("Start UpgradeCluster() ...")
-				if upgradeResult, err := clusterHandler.UpgradeCluster(clusterCreateReqInfo.IId, "1.25.4"); err != nil {
+				if upgradeResult, err := clusterHandler.UpgradeCluster(clusterCreateReqInfo.IId, configCluster.ClusterUpdateInfos.UpgradeVersion); err != nil {
 					cblogger.Error(err)
 				} else {
 					spew.Dump(upgradeResult)
