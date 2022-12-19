@@ -927,15 +927,22 @@ func (NodeGroupHandler *AwsClusterHandler) convertNodeGroup(nodeGroupOutput *eks
 	//=============
 	// 오토스케일링 그룹 목록에서 VM 목록 정보 추출
 	//"Resources":{"AutoScalingGroups":[{"Name":"eks-cb-eks-nodegroup-test-fec135d9-c812-8862-e3b0-7b773ce70d2e"}],
-	autoscalingGroupName := *nodeGroup.Resources.AutoScalingGroups[0].Name //"eks-cb-eks-node-test02a-aws-9cc2876a-d3cb-2c25-55a8-9a19c431e716"
-	cblogger.Debugf("autoscalingGroupName : [%s]", autoscalingGroupName)
 
-	nodeList, errNodeList := NodeGroupHandler.GetAutoScalingGroups(autoscalingGroupName)
-	if errNodeList != nil {
-		return irs.NodeGroupInfo{}, errNodeList
+	if !reflect.ValueOf(nodeGroup.Resources).IsNil() {
+		if !reflect.ValueOf(nodeGroup.Resources.AutoScalingGroups).IsNil() {
+			autoscalingGroupName := *nodeGroup.Resources.AutoScalingGroups[0].Name //"eks-cb-eks-node-test02a-aws-9cc2876a-d3cb-2c25-55a8-9a19c431e716"
+			cblogger.Debugf("autoscalingGroupName : [%s]", autoscalingGroupName)
+
+			if autoscalingGroupName != "" {
+				nodeList, errNodeList := NodeGroupHandler.GetAutoScalingGroups(autoscalingGroupName)
+				if errNodeList != nil {
+					return irs.NodeGroupInfo{}, errNodeList
+				}
+
+				nodeGroupInfo.Nodes = nodeList
+			}
+		}
 	}
-
-	nodeGroupInfo.Nodes = nodeList
 
 	nodeGroupInfo.DesiredNodeSize = int(*scalingConfig.DesiredSize)
 	nodeGroupInfo.MinNodeSize = int(*scalingConfig.MinSize)
