@@ -346,12 +346,17 @@ func (ClusterHandler *AwsClusterHandler) GetCluster(clusterIID irs.IID) (irs.Clu
 		Version:     *result.Cluster.Version,
 		CreatedTime: *result.Cluster.CreatedAt,
 		Status:      irs.ClusterStatus(*result.Cluster.Status),
-		AccessInfo:  irs.AccessInfo{Endpoint: *result.Cluster.Endpoint},
+		//AccessInfo:  irs.AccessInfo{Endpoint: *result.Cluster.Endpoint},
+		AccessInfo: irs.AccessInfo{},
 	}
 	/*
 		NodeGroupList []NodeGroupInfo
 		Addons        AddonsInfo
 	*/
+
+	if !reflect.ValueOf(result.Cluster.Endpoint).IsNil() {
+		clusterInfo.AccessInfo.Endpoint = *result.Cluster.Endpoint
+	}
 
 	if !reflect.ValueOf(result.Cluster.ResourcesVpcConfig).IsNil() {
 		clusterInfo.Network.VpcIID = irs.IID{SystemId: *result.Cluster.ResourcesVpcConfig.VpcId}
@@ -366,7 +371,9 @@ func (ClusterHandler *AwsClusterHandler) GetCluster(clusterIID irs.IID) (irs.Clu
 
 		//클러스터 보안그룹 처리
 		// ClusterSecurityGroupId: "sg-0bb02bf07fe5f42f0",
-		if *result.Cluster.ResourcesVpcConfig.ClusterSecurityGroupId != "" {
+		//@TODO - 클러스터 생성시 자동으로 추가되는 보안 그룹이라서 일단 CB보안그룹 목록에 포함은 시키지 않았음.
+		if !reflect.ValueOf(result.Cluster.ResourcesVpcConfig.ClusterSecurityGroupId).IsNil() {
+			//if *result.Cluster.ResourcesVpcConfig.ClusterSecurityGroupId != "" {
 			/*
 				for _, curSecurityGroupId := range result.Cluster.ResourcesVpcConfig.SecurityGroupIds {
 					clusterInfo.Network.SecurityGroupIIDs = append(clusterInfo.Network.SecurityGroupIIDs, irs.IID{SystemId: *curSecurityGroupId})
@@ -927,15 +934,22 @@ func (NodeGroupHandler *AwsClusterHandler) convertNodeGroup(nodeGroupOutput *eks
 	//=============
 	// 오토스케일링 그룹 목록에서 VM 목록 정보 추출
 	//"Resources":{"AutoScalingGroups":[{"Name":"eks-cb-eks-nodegroup-test-fec135d9-c812-8862-e3b0-7b773ce70d2e"}],
-	autoscalingGroupName := *nodeGroup.Resources.AutoScalingGroups[0].Name //"eks-cb-eks-node-test02a-aws-9cc2876a-d3cb-2c25-55a8-9a19c431e716"
-	cblogger.Debugf("autoscalingGroupName : [%s]", autoscalingGroupName)
 
-	nodeList, errNodeList := NodeGroupHandler.GetAutoScalingGroups(autoscalingGroupName)
-	if errNodeList != nil {
-		return irs.NodeGroupInfo{}, errNodeList
+	if !reflect.ValueOf(nodeGroup.Resources).IsNil() {
+		if !reflect.ValueOf(nodeGroup.Resources.AutoScalingGroups).IsNil() {
+			autoscalingGroupName := *nodeGroup.Resources.AutoScalingGroups[0].Name //"eks-cb-eks-node-test02a-aws-9cc2876a-d3cb-2c25-55a8-9a19c431e716"
+			cblogger.Debugf("autoscalingGroupName : [%s]", autoscalingGroupName)
+
+			if autoscalingGroupName != "" {
+				nodeList, errNodeList := NodeGroupHandler.GetAutoScalingGroups(autoscalingGroupName)
+				if errNodeList != nil {
+					return irs.NodeGroupInfo{}, errNodeList
+				}
+
+				nodeGroupInfo.Nodes = nodeList
+			}
+		}
 	}
-
-	nodeGroupInfo.Nodes = nodeList
 
 	nodeGroupInfo.DesiredNodeSize = int(*scalingConfig.DesiredSize)
 	nodeGroupInfo.MinNodeSize = int(*scalingConfig.MinSize)
