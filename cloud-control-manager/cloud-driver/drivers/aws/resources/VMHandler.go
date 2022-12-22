@@ -992,8 +992,8 @@ func (vmHandler *AwsVMHandler) ExtractDescribeInstanceToVmInfo(instance *ec2.Ins
 
 	//VM상태와 무관하게 항상 값이 존재하는 항목들만 초기화
 	vmInfo := irs.VMInfo{
-		IId:        irs.IID{"", *instance.InstanceId},
-		ImageIId:   irs.IID{*instance.ImageId, *instance.ImageId},
+		IId:        irs.IID{NameId: "", SystemId: *instance.InstanceId},
+		ImageIId:   irs.IID{NameId: *instance.ImageId, SystemId: *instance.ImageId},
 		VMSpecName: *instance.InstanceType,
 		//KeyPairIId: irs.IID{*reservation.Instances[0].KeyName, *reservation.Instances[0].KeyName},	//AWS에 키페어 없이 VM 생성하는 기능이 추가됨.
 		//GuestUserID:    "",
@@ -1093,7 +1093,7 @@ func (vmHandler *AwsVMHandler) ExtractDescribeInstanceToVmInfo(instance *ec2.Ins
 	if !reflect.ValueOf(instance.NetworkInterfaces).IsNil() {
 		if !reflect.ValueOf(instance.NetworkInterfaces[0].VpcId).IsNil() {
 			//vmInfo.VirtualNetworkId = *reservation.Instances[0].NetworkInterfaces[0].VpcId
-			vmInfo.VpcIID = irs.IID{"", *instance.NetworkInterfaces[0].VpcId}
+			vmInfo.VpcIID = irs.IID{NameId: "", SystemId: *instance.NetworkInterfaces[0].VpcId}
 			keyValueList = append(keyValueList, irs.KeyValue{Key: "VpcId", Value: *instance.NetworkInterfaces[0].VpcId})
 		}
 
@@ -1143,7 +1143,11 @@ func (vmHandler *AwsVMHandler) ExtractDescribeInstanceToVmInfo(instance *ec2.Ins
 	}
 
 	if !reflect.ValueOf(instance.Platform).IsNil() {
-		keyValueList = append(keyValueList, irs.KeyValue{Key: "Platform", Value: *instance.Platform})
+		if strings.ToLower(*instance.Platform) == "windows" {
+			vmInfo.Platform = irs.WINDOWS
+		}
+	} else {
+		vmInfo.Platform = irs.LINUX_UNIX
 	}
 	if !reflect.ValueOf(instance.VirtualizationType).IsNil() {
 		keyValueList = append(keyValueList, irs.KeyValue{Key: "VirtualizationType", Value: *instance.VirtualizationType})

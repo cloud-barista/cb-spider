@@ -1106,6 +1106,17 @@ func (vmHandler *GCPVMHandler) mappingServerInfo(server *compute.Instance) irs.V
 		vmInfo.VMSpecName = arrVmSpec[len(arrVmSpec)-1]
 	}
 
+	guestOSFeatures := server.Disks[0].GuestOsFeatures
+	vmInfo.Platform = irs.LINUX_UNIX
+
+	for _, feature := range guestOSFeatures {
+		osType := feature.Type
+		if osType == "WINDOWS" {
+			vmInfo.Platform = irs.WINDOWS
+			break
+		}
+	}
+
 	//2020-05-13T00:15:37.183-07:00
 	if len(server.CreationTimestamp) > 5 {
 		cblogger.Infof("서버 구동 시간 처리 : [%s]", server.CreationTimestamp)

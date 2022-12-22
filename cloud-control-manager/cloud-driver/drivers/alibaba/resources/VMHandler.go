@@ -778,6 +778,13 @@ func (vmHandler *AlibabaVMHandler) ExtractDescribeInstances(instanceInfo *ecs.In
 		KeyValueList: []irs.KeyValue{{Key: "", Value: ""}},
 	}
 
+	// Platform 정보 추가
+	if instanceInfo.OSType == "windows" {
+		vmInfo.Platform = irs.WINDOWS
+	} else {
+		vmInfo.Platform = irs.LINUX_UNIX
+	}
+
 	var dataDiskList []irs.IID
 	for _, diskInfo := range diskInfoList {
 		if diskInfo.Type == "system" {
