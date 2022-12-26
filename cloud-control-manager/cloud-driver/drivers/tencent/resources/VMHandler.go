@@ -650,16 +650,18 @@ func (vmHandler *TencentVMHandler) ExtractDescribeInstances(curVm *cvm.Instance)
 	if !reflect.ValueOf(curVm.ImageId).IsNil() {
 		imageIID := irs.IID{SystemId: *curVm.ImageId}
 		vmInfo.ImageIId = imageIID
-		imageInfo, err := DescribeImagesByID(vmHandler.Client, imageIID, nil) // imageTypes := []string{"PUBLIC_IMAGE", "SHARED_IMAGE","PRIVATE_IMAGE"}
-		if err != nil {
-			cblogger.Error(err)
-		}
+		/*
+			imageInfo, err := DescribeImagesByID(vmHandler.Client, imageIID, nil) // imageTypes := []string{"PUBLIC_IMAGE", "SHARED_IMAGE","PRIVATE_IMAGE"}
+			if err != nil {
+				cblogger.Error(err)
+			}
 
-		if *imageInfo.ImageType == "PRIVATE_IMAGE" {
-			vmInfo.ImageType = irs.MyImage
-		} else {
-			vmInfo.ImageType = irs.PublicImage // "PUBLIC_IMAGE", "SHARED_IMAGE"
-		}
+			if *imageInfo.ImageType == "PRIVATE_IMAGE" {
+				vmInfo.ImageType = irs.MyImage
+			} else {
+				vmInfo.ImageType = irs.PublicImage // "PUBLIC_IMAGE", "SHARED_IMAGE"
+			}
+		*/
 	}
 
 	// vmInfo.StartTime = *curVm.CreatedTime
@@ -687,6 +689,14 @@ func (vmHandler *TencentVMHandler) ExtractDescribeInstances(curVm *cvm.Instance)
 		} else {
 			cblogger.Debugf("======> [%v]", t)
 			vmInfo.StartTime = t
+		}
+	}
+
+	if !reflect.ValueOf(curVm.OsName).IsNil() {
+		if strings.Contains(strings.ToUpper(*curVm.OsName), "WINDOWS") {
+			vmInfo.Platform = irs.WINDOWS
+		} else {
+			vmInfo.Platform = irs.LINUX_UNIX
 		}
 	}
 
