@@ -89,11 +89,11 @@ require (
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/bwmarrin/snowflake v0.3.0 // indirect
 	github.com/cespare/xxhash/v2 v2.1.2 // indirect
-	github.com/containerd/containerd v1.6.12 // indirect
+	github.com/containerd/containerd v1.6.18 // indirect
 	github.com/coreos/go-semver v0.3.0 // indirect
 	github.com/coreos/go-systemd/v22 v22.3.2 // indirect
 	github.com/dimchansky/utfbom v1.1.1 // indirect
-	github.com/docker/distribution v0.0.0-00010101000000-000000000000 // indirect
+	github.com/docker/distribution v2.7.1+incompatible // indirect
 	github.com/docker/go-units v0.4.0 // indirect
 	github.com/form3tech-oss/jwt-go v3.2.3+incompatible // indirect
 	github.com/go-logr/logr v1.2.2 // indirect
@@ -136,7 +136,7 @@ require (
 	github.com/oklog/ulid v1.3.1 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opencontainers/image-spec v1.0.3-0.20211202183452-c5a74bcca799 // indirect
-	github.com/pelletier/go-toml v1.9.3 // indirect
+	github.com/pelletier/go-toml v1.9.5 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/prometheus/client_model v0.2.0 // indirect
 	github.com/prometheus/common v0.30.0 // indirect
@@ -159,6 +159,7 @@ require (
 	go.mongodb.org/mongo-driver v1.10.0 // indirect
 	go.opencensus.io v0.23.0 // indirect
 	go.uber.org/atomic v1.10.0 // indirect
+	go.uber.org/goleak v1.1.12 // indirect
 	go.uber.org/multierr v1.8.0 // indirect
 	go.uber.org/zap v1.23.0 // indirect
 	golang.org/x/net v0.0.0-20220826154423-83b083e8dc8b // indirect
