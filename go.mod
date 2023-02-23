@@ -21,8 +21,8 @@ require (
 	github.com/aws/aws-sdk-go v1.39.4
 	github.com/bramvdbogaerde/go-scp v1.0.0
 	github.com/chyeh/pubip v0.0.0-20170203095919-b7e679cf541c
-	github.com/cloud-barista/cb-log v0.6.3
-	github.com/cloud-barista/cb-store v0.6.2
+	github.com/cloud-barista/cb-log v0.7.0
+	github.com/cloud-barista/cb-store v0.7.1
 	github.com/davecgh/go-spew v1.1.1
 	github.com/docker/docker v20.10.7+incompatible
 	github.com/docker/go-connections v0.4.0
