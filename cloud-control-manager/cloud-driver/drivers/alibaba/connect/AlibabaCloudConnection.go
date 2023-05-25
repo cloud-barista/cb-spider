@@ -148,6 +148,6 @@ func (AlibabaCloudConnection) Close() error {
 }
 
 func (cloudConn *AlibabaCloudConnection) CreateAnyCallHandler() (irs.AnyCallHandler, error) {
-        return nil, errors.New("GCP Driver: not implemented")
+        return nil, errors.New("Alibaba Driver: not implemented")
 }
 
