@@ -128,10 +128,3 @@ CLOUDTWIN:
   region: Region
   credential: IdentityEndpoint / DomainName / MockName
 
-#--- Experimental
-
-MINI:
-  region: Region
-  credential: IdentityEndpoint / AuthToken
-
-

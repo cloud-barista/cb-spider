@@ -21,7 +21,6 @@ func init() {
 		panic("failed to connect database")
 	}
 	db.AutoMigrate(&CloudDriverInfo{})
-	fmt.Println("=================================Cloud Driver Info. Manager: DB Init")
 	metadb.Close(db)
 }
 

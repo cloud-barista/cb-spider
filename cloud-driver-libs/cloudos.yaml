@@ -29,6 +29,4 @@ cloudos:
 #--- Emulation
   - MOCK
   - CLOUDTWIN
-#--- Experimental
-  - MINI
 

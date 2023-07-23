@@ -13,7 +13,6 @@ import (
 	"strings"
 	"github.com/cloud-barista/cb-store/config"
 	"github.com/sirupsen/logrus"
-	// import cycle mini "github.com/cloud-barista/cb-spider/spider-mini/mini"
 )
 
 var cblog *logrus.Logger
@@ -82,13 +81,6 @@ func CreateConnectionConfig(configName string, providerName string, driverName s
 
 	cncInfo := &ConnectionConfigInfo{configName, providerName, driverName, credentialName, regionName}
 
-	/* import Cycle
-	if os.Getenv("EXPERIMENTAL_MINI_CLONE") == "ON" {
-		// Notify the CloneNCacheManager about the new Region inserted,
-		// and then the CloneNCacheManager schedules it immediately  
-		mini.InsertNewCloneNCache(configName)
-	}
-	*/
 
 	return cncInfo, nil
 }

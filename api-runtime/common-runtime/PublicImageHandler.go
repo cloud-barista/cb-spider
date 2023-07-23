@@ -10,9 +10,7 @@ package commonruntime
 
 import (
 	"fmt"
-	"os"
 	"time"
-	"strings"
 	"strconv"
 
 	"github.com/go-redis/redis"
@@ -131,12 +129,6 @@ func ListImage(connectionName string, rsType string) ([]*cres.ImageInfo, error) 
 	if err != nil {
 		cblog.Error(err)
                 return nil, err
-        }
-
-	if os.Getenv("EXPERIMENTAL_MINI_CACHE_SERVICE") == "ON" {
-		if strings.HasPrefix(connectionName, "mini:imageinfo") {
-			return listImageFromCache(connectionName)
-		}
         }
 
 	cldConn, err := ccm.GetCloudConnection(connectionName)

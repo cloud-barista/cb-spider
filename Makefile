@@ -33,22 +33,6 @@ cli:
 			-X 'github.com/cloud-barista/cb-spider/interface/cli/spider/cmd.User=`(id -u -n)`' \
 			-X 'github.com/cloud-barista/cb-spider/interface/cli/spider/cmd.Time=`(date)`'" \
 			-o ./interface/spctl ./interface/cli/spider/spider.go
-mini-dist dist-mini: dyna
-		@echo -e '\t[CB-Spider] tar spider-mini... to dist'
-		@mkdir -p /tmp/spider/dist
-		@cp ./setup.env /tmp/spider/dist 1> /dev/null
-		@mkdir -p /tmp/spider/dist/bin
-		@cp ./bin/* /tmp/spider/dist/bin 1> /dev/null
-		@mkdir -p /tmp/spider/dist/cloud-driver-libs
-		@cp ./cloud-driver-libs/* /tmp/spider/dist/cloud-driver-libs 1> /dev/null
-		@mkdir -p /tmp/spider/dist/conf
-		@cp ./conf/* /tmp/spider/dist/conf 1> /dev/null
-		@mkdir -p /tmp/spider/dist/api-runtime/rest-runtime/admin-web/images
-		@cp ./api-runtime/rest-runtime/admin-web/images/cb-spider-circle-logo.png \
-		      /tmp/spider/dist/api-runtime/rest-runtime/admin-web/images/cb-spider-circle-logo.png 1> /dev/null
-		@mkdir -p ./dist
-		@tar -zcvf ./dist/spider-mini-`(date +%Y.%m.%d.%H)`.tar.gz -C /tmp/spider/dist ./ 1> /dev/null
-		@rm -rf /tmp/spider
 
 swag swagger:
 		@echo -e '\t[CB-Spider] build Swagger docs'

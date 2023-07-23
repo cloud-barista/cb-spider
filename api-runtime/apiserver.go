@@ -13,12 +13,10 @@ import (
 	"fmt"
 	"sync"
 	"time"
-	"os"
 
 	cr "github.com/cloud-barista/cb-spider/api-runtime/common-runtime"
 	grpcruntime "github.com/cloud-barista/cb-spider/api-runtime/grpc-runtime"
 	restruntime "github.com/cloud-barista/cb-spider/api-runtime/rest-runtime"
-	mini "github.com/cloud-barista/cb-spider/spider-mini/mini"
 
 	"github.com/go-resty/resty/v2"
 	"github.com/spf13/cobra"
@@ -54,19 +52,6 @@ func NewRootCmd() *cobra.Command {
 				grpcruntime.RunServer()
 				wg.Done()
 			}()
-
-			if os.Getenv("EXPERIMENTAL_MINI_CLONE") == "ON" {
-
-                                time.Sleep(time.Millisecond * 5)
-                                wg.Add(1)
-
-                                go func() {
-                                        mini.RunServer()
-                                        wg.Done()
-                                }()
-
-                        }
-
 
 			wg.Wait()
 
