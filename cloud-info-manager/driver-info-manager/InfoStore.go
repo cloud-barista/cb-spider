@@ -12,17 +12,18 @@ package driverinfomanager
 import (
 	"fmt"
 
-	"github.com/cloud-barista/cb-store/utils"
-	"github.com/cloud-barista/cb-store"
-	icbs "github.com/cloud-barista/cb-store/interfaces"
+	metadb "github.com/cloud-barista/cb-spider/meta-db"
 )
 
-var store icbs.Store
-
 func init() {
-        store = cbstore.GetStore()
+	db, err := metadb.Open()
+	if err != nil {
+		panic("failed to connect database")
+	}
+	db.AutoMigrate(&CloudDriverInfo{})
+	fmt.Println("=================================Cloud Driver Info. Manager: DB Init")
+	metadb.Close(db)
 }
-
 
 /* //====================================================================
 type CloudDriverInfo struct {
@@ -32,105 +33,64 @@ type CloudDriverInfo struct {
 }
 */ //====================================================================
 
+func insert(driverInfo *CloudDriverInfo) error {
+	// ex) ("driver01", "AWS", "aws-driver-v2.0.so")
 
-// format
-// /cloud-info-spaces/drivers/<ID>/{Param1} [Value]
-// /cloud-info-spaces/drivers/<DriverName>/{ProviderName} [DriverLibFileName]
-// ex) /cloud-info-spaces/drivers/AWS_driver01-V0.5/AWS [aws-test-driver-v0.5.so]
-
-func insertInfo(driverName string, providerName string, driverLibFileName string) error {
-	// ex) /cloud-info-spaces/drivers/AWS_driver01-V0.5/AWS [aws-test-driver-v0.5.so]
-
-	key := "/cloud-info-spaces/drivers/" + driverName + "/" + providerName
-	value := driverLibFileName
-
-	err := store.Put(key, value)
-        if err != nil {
-                //cblog.Error(err)
+	db, err := metadb.Open()
+	if err != nil {
 		return err
-        }
+	}
+
+	defer metadb.Close(db)
+	db.Save(driverInfo)
+
 	return nil
 }
 
-// 1. get key-value list
-// 2. create CloudDriverInfo List & return
-func listInfo() ([]*CloudDriverInfo, error) {
-        // ex) /cloud-info-spaces/drivers/AWS_driver01-V0.5/AWS [aws-test-driver-v0.5.so]
+func list() ([]*CloudDriverInfo, error) {
+	// ex) ("driver01", "AWS", "aws-driver-v2.0.so")
 
-        key := "/cloud-info-spaces/drivers"
-        keyValueList, err := store.GetList(key, true)
-        if err != nil {
-                return nil, err
-        }
-
-        cloudDriverInfoList := make([]*CloudDriverInfo, len(keyValueList))
-        for count, kv := range keyValueList {
-                drvInfo := &CloudDriverInfo{utils.GetNodeValue(kv.Key, 3), utils.GetNodeValue(kv.Key, 4), kv.Value}
-                cloudDriverInfoList[count] = drvInfo
-        }
-
-        return cloudDriverInfoList, nil
-}
-
-// 1. get a key-value
-// 2. create CloudDriverInfo & return
-func getInfo(driverName string) (*CloudDriverInfo, error) {
-        // ex) /cloud-info-spaces/drivers/AWS_driver01-V0.5/AWS [aws-test-driver-v0.5.so]
-
-	
-	key := "/cloud-info-spaces/drivers/" + driverName
-
-	// key is not the key of cb-store, so we have to use GetList()
-        keyValueList, err := store.GetList(key, true)
-        if err != nil {
-                return nil, err
-        }
-
-	if len(keyValueList) < 1 {
-		return nil, fmt.Errorf(driverName + ": does not exist!")
+	db, err := metadb.Open()
+	if err != nil {
+		return nil, err
 	}
 
-        for _, kv := range keyValueList {
-		// keyValueList should have ~/driverName/... or ~/driverName-01/..., 
-		// so we have to check the sameness of driverName.
-                if utils.GetNodeValue(kv.Key, 3) == driverName {
-			providerName := utils.GetNodeValue(kv.Key, 4)
-			driverLibFileName := kv.Value
-			drvInfo := &CloudDriverInfo{driverName, providerName, driverLibFileName}
-			return drvInfo, nil
-                }
-        }
+	defer metadb.Close(db)
+	var cloudDriverInfoList []*CloudDriverInfo
+	db.Find(&cloudDriverInfoList)
 
-        return nil, fmt.Errorf(driverName + ": does not exist!")
+	return cloudDriverInfoList, nil
 }
 
-// 1. get the original Key.
-// 2. delete the key.
-func deleteInfo(driverName string) (bool, error) {
-        // ex) /cloud-info-spaces/drivers/AWS_driver01-V0.5/AWS [aws-test-driver-v0.5.so]
+func get(driverName string) (*CloudDriverInfo, error) {
+	// ex) ("driver01", "AWS", "aws-driver-v2.0.so")
 
-
-        key := "/cloud-info-spaces/drivers/" + driverName
-
-// @todo lock-start
-	// key is not the key of cb-store, so we have to use GetList()
-        keyValueList, err := store.GetList(key, true)
-        if err != nil {
-                return false, err
-        }
-        for _, kv := range keyValueList {
-		// keyValueList should have ~/driverName/... or ~/driverName-01/..., 
-		// so we have to check the sameness of driverName.
-		if utils.GetNodeValue(kv.Key, 3) == driverName {
-			err = store.Delete(kv.Key)
-			if err != nil {
-				return false, err
-			}
-			return true, nil
-		}
+	db, err := metadb.Open()
+	if err != nil {
+		return nil, err
 	}
-// @todo lock-end
 
-        return false, fmt.Errorf(driverName + ": does not exist!")
+	defer metadb.Close(db)
+	var cloudDriverInfo CloudDriverInfo
+	db.Where("driver_name = ?", driverName).Find(&cloudDriverInfo)
+
+	return &cloudDriverInfo, nil
 }
 
+func delete(driverName string) (bool, error) {
+	db, err := metadb.Open()
+	if err != nil {
+		return false, err
+	}
+
+	defer metadb.Close(db)
+	var cloudDriverInfo CloudDriverInfo
+	db.Where("driver_name = ?", driverName).Find(&cloudDriverInfo)
+	if cloudDriverInfo.DriverName == "" {
+		return false, fmt.Errorf(driverName + ": does not exist!")
+	}
+
+	db.Delete(&cloudDriverInfo, "driver_name = ?", driverName)
+
+	return true, nil
+}
