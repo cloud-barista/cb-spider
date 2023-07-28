@@ -14,19 +14,32 @@ import (
 
 	"github.com/cloud-barista/cb-store/config"
 	"github.com/sirupsen/logrus"
+
+	infostore "github.com/cloud-barista/cb-spider/info-store"
 )
 
 var cblog *logrus.Logger
 
-func init() {
-	cblog = config.Cblogger
-}
-
 // ====================================================================
+const KEY_COLUMN_NAME = "driver_name"
+
 type CloudDriverInfo struct {
 	DriverName        string `gorm:"primaryKey"` // ex) "AWS-Test-Driver-V0.5"
 	ProviderName      string // ex) "AWS"
 	DriverLibFileName string // ex) "aws-test-driver-v0.5.so"  //Already, you need to insert "*.so" in $CB_SPIDER_ROOT/cloud-driver/libs.
+}
+
+func init() {
+	cblog = config.Cblogger
+
+	fmt.Println("\n============================[Init] Cloud Driver Info Manager")
+
+	db, err := infostore.Open()
+	if err != nil {
+		panic("failed to connect database")
+	}
+	db.AutoMigrate(&CloudDriverInfo{})
+	infostore.Close(db)
 }
 
 //====================================================================
@@ -42,7 +55,7 @@ func RegisterCloudDriverInfo(cldInfo CloudDriverInfo) (*CloudDriverInfo, error) 
 	}
 
 	cblog.Debug("check the driver library file")
-	err = checkDriverLibFile(cldInfo.DriverLibFileName)
+	err = checkDriverLibFile(cldInfo.DriverLibFileName) // @Todo
 	if err != nil {
 		return nil, err
 	}
@@ -54,7 +67,7 @@ func RegisterCloudDriverInfo(cldInfo CloudDriverInfo) (*CloudDriverInfo, error) 
 
 	cblog.Debug("insert metainfo into store")
 
-	err = insert(&cldInfo)
+	err = infostore.Insert(&cldInfo)
 	if err != nil {
 		cblog.Error(err)
 		return nil, err
@@ -73,12 +86,13 @@ func RegisterCloudDriver(driverName string, providerName string, driverLibFileNa
 
 func ListCloudDriver() ([]*CloudDriverInfo, error) {
 	cblog.Info("call ListCloudDriver()")
-
-	cloudDriverInfoList, err := list()
+	fmt.Println("before call ListCloudDriver()")
+	var cloudDriverInfoList []*CloudDriverInfo
+	err := infostore.List(&cloudDriverInfoList)
 	if err != nil {
 		return nil, err
 	}
-
+	fmt.Println("after call ListCloudDriver()")
 	return cloudDriverInfoList, nil
 }
 
@@ -91,13 +105,14 @@ func GetCloudDriver(driverName string) (*CloudDriverInfo, error) {
 		return nil, fmt.Errorf("DriverName is empty!")
 	}
 
-	drvInfo, err := get(driverName)
+	var driverInfo CloudDriverInfo
+	err := infostore.Get(&driverInfo, KEY_COLUMN_NAME, driverName)
 	if err != nil {
 		cblog.Error(err)
 		return nil, err
 	}
 
-	return drvInfo, err
+	return &driverInfo, err
 }
 
 func UnRegisterCloudDriver(driverName string) (bool, error) {
@@ -107,7 +122,8 @@ func UnRegisterCloudDriver(driverName string) (bool, error) {
 		return false, fmt.Errorf("DriverName is empty!")
 	}
 
-	result, err := delete(driverName)
+	var driverInfo CloudDriverInfo
+	result, err := infostore.Delete(&driverInfo, KEY_COLUMN_NAME, driverName)
 	if err != nil {
 		cblog.Error(err)
 		return false, err
