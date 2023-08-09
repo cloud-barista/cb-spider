@@ -14,7 +14,6 @@ package resources
 import (
 	"context"
 	"errors"
-	"fmt"
 	"strconv"
 	"strings"
 	"time"
@@ -71,7 +70,7 @@ const (
 //.. SG에 Rule이 존재하지 않는 경우 사용되지 않는 0port를 포함하는 firewall을 유지 : GCP는 빈 firewall ruleset을 허용하지 않음으로
 //.. direction 및 cidr는 하나의 firewall에서 하나의 direction, cidr 만 사용가능 : direction, cidr이 다르게 오면 여러개의 firewall을 추가하는 것으로? -> 관리가 가능한가? 문의
 //.. valid sg name 은 maxlen=63-6 으로 57자까지. 6자는 ‘-basic’, ‘-I-xxx’, ‘-o-xxx’ 를 붙임.
-//Ex) sg name = sg-test 일 때 firewallname은 조합하여 만들고, tag로 sg를 묶는다                    inbound TCP/22/22/0.0.0.0/0 이면  firewall name=sg-test-basic, tag=sg-test   : 0번 포트는 무조건 추가
+//Ex) sg name = sg-test 일 때 firewallname은 조합하여 만들고, tag로 sg를 묶는다                   inbound TCP/22/22/0.0.0.0/0 이면  firewall name=sg-test-basic, tag=sg-test   : 0번 포트는 무조건 추가
 //Inbound TCP/80/80/0.0.0.0/0 이면 firewall name=sg-test-i-001, tag=sg-test   : inbound rule 첫번째
 //Outbound UDP/1000/1000/1.2.3.4/32 이면 firewall name=sg-test-o-001, tag=sg-test : outbound rule 첫번째
 //-> GCP CreateSecurityRule 에 default 추가
@@ -227,7 +226,7 @@ const (
 //		return irs.SecurityInfo{}, err
 //	}
 //	callogger.Info(call.String(callLogInfo))
-//	fmt.Println("create result : ", res)
+//	cblogger.Debug("create result : ", res)
 //	time.Sleep(time.Second * 3)
 //	//secInfo, _ := securityHandler.GetSecurity(securityReqInfo.IId)
 //	secInfo, _ := securityHandler.GetSecurity(irs.IID{SystemId: securityReqInfo.IId.NameId})
@@ -236,11 +235,12 @@ const (
 // securityGroup = GCP 의 Tag
 
 /*
-  SecurityGroup 생성. GCP는 firewall 추가 시 tag = securityGroupName
-  .GCP 기본 정책이 outbound에 대해 all allow이므로
-    - 우선순위가 가장 낮은(65535) all deny  outbound rule 추가
-    - 우선순위 = 100 인 all allow outbound rule 추가
-  .사용자의 요청에서 outbound all open 이 있는 경우. default로 생성하므로 skip
+SecurityGroup 생성. GCP는 firewall 추가 시 tag = securityGroupName
+.GCP 기본 정책이 outbound에 대해 all allow이므로
+  - 우선순위가 가장 낮은(65535) all deny  outbound rule 추가
+  - 우선순위 = 100 인 all allow outbound rule 추가
+
+.사용자의 요청에서 outbound all open 이 있는 경우. default로 생성하므로 skip
 */
 func (securityHandler *GCPSecurityHandler) CreateSecurity(securityReqInfo irs.SecurityReqInfo) (irs.SecurityInfo, error) {
 	cblogger.Info(securityReqInfo)
@@ -332,11 +332,11 @@ func (securityHandler *GCPSecurityHandler) CreateSecurity(securityReqInfo irs.Se
 		//IPProtocol: "all",
 		//Direction:  "outbound",
 		//CIDR:       "0.0.0.0/0",
-		//fmt.Println("default firewallFromPort : ", firewallFromPort)
-		//fmt.Println("default firewallToPort : ", firewallToPort)
-		//fmt.Println("default firewallIPProtocol : ", firewallIPProtocol)
-		//fmt.Println("default firewallDirection : ", firewallDirection)
-		//fmt.Println("default firewallCIDR : ", firewallCIDR)
+		//cblogger.Debug("default firewallFromPort : ", firewallFromPort)
+		//cblogger.Debug("default firewallToPort : ", firewallToPort)
+		//cblogger.Debug("default firewallIPProtocol : ", firewallIPProtocol)
+		//cblogger.Debug("default firewallDirection : ", firewallDirection)
+		//cblogger.Debug("default firewallCIDR : ", firewallCIDR)
 
 		// outbound all open는 생성시 자동으로 추가하므로 사용자 요청이 있으면 skip한다.
 		if strings.EqualFold(firewallFromPort, "-1") && strings.EqualFold(firewallToPort, "-1") && strings.EqualFold(firewallIPProtocol, "all") && strings.EqualFold(firewallDirection, Const_GCP_Direction_EGRESS) && strings.EqualFold(firewallCIDR, "0.0.0.0/0") {
@@ -395,7 +395,7 @@ func (securityHandler *GCPSecurityHandler) CreateSecurity(securityReqInfo irs.Se
 	//return irs.SecurityInfo{}, nil
 }
 
-//func getOperationsStatus(securityHandler GCPSecurityHandler, projectID string, operationName string, operationType string) {
+// func getOperationsStatus(securityHandler GCPSecurityHandler, projectID string, operationName string, operationType string) {
 func (securityHandler GCPSecurityHandler) getOperationsStatus(ch chan string, projectID string, operationName string, operationType string) {
 	// global : firewall
 	// region : vpc
@@ -406,7 +406,7 @@ func (securityHandler GCPSecurityHandler) getOperationsStatus(ch chan string, pr
 		cblogger.Errorf("SecurityGroup create 완료 대기 실패")
 		cblogger.Error(errWait)
 	}
-	fmt.Println("getOperationsStatus ", operationName)
+	cblogger.Debug("getOperationsStatus ", operationName)
 	ch <- operationName
 	//waitGroup.Done()
 }
@@ -473,7 +473,7 @@ func setNewFirewall(ruleInfo irs.SecurityRuleInfo, projectID string, vpcSystemId
 	//	firewallDirection = "INGRESS"
 	//
 	//} else if strings.EqualFold(firewallType, "-o-") {
-	//	fmt.Println("create sequence : ", sequence, strconv.Itoa(sequence))
+	//	cblogger.Debug("create sequence : ", sequence, strconv.Itoa(sequence))
 	//	sequenceStr := lpad(strconv.Itoa(sequence), "0", 3)
 	//	firewallName = securityGroupName + "-o-" + sequenceStr
 	//	firewallDirection = "EGRESS"
@@ -500,7 +500,7 @@ func setNewFirewall(ruleInfo irs.SecurityRuleInfo, projectID string, vpcSystemId
 		fireWall.DestinationRanges = []string{cidr}
 	}
 
-	fmt.Println("firewallset : ", fireWall)
+	cblogger.Debug("firewallset : ", fireWall)
 	return fireWall, nil
 }
 
@@ -609,7 +609,7 @@ func (securityHandler *GCPSecurityHandler) ListSecurity() ([]*irs.SecurityInfo, 
 		}
 		securityInfoList = append(securityInfoList, &securityInfo)
 	}
-	fmt.Println("securityInfoList = ", securityInfoList)
+	cblogger.Debug("securityInfoList = ", securityInfoList)
 
 	return securityInfoList, nil
 }
@@ -656,7 +656,7 @@ func (securityHandler *GCPSecurityHandler) GetSecurity(securityIID irs.IID) (irs
 		}
 	}
 
-	fmt.Println("securityInfo : ", securityInfo)
+	cblogger.Debug("securityInfo : ", securityInfo)
 	return securityInfo, nil
 }
 
@@ -751,7 +751,7 @@ func (securityHandler *GCPSecurityHandler) DeleteSecurity(securityIID irs.IID) (
 	securityGroupTag := securityIID.SystemId
 	//var vpcIID irs.IID
 
-	fmt.Println("Delete Security ", securityGroupTag)
+	cblogger.Debug("Delete Security ", securityGroupTag)
 	// 해당 Tag를 가진 목록 조회
 	firewallList, err := securityHandler.firewallList(securityGroupTag)
 	if err != nil {
@@ -759,7 +759,7 @@ func (securityHandler *GCPSecurityHandler) DeleteSecurity(securityIID irs.IID) (
 		return false, err
 	}
 
-	fmt.Println("Delete Security 삭제 대상 ", len(firewallList))
+	cblogger.Debug("Delete Security 삭제 대상 ", len(firewallList))
 	for index, firewallInfo := range firewallList {
 		//if index == 0 {
 		//	tempSecurityInfo, err := convertFromFirewallToSecurityInfo(firewallInfo) // securityInfo로 변환. securityInfo에 이름이 있어서 해당 이름 사용
@@ -769,7 +769,7 @@ func (securityHandler *GCPSecurityHandler) DeleteSecurity(securityIID irs.IID) (
 		//	}
 		//	vpcIID = tempSecurityInfo.VpcIID
 		//}
-		fmt.Println("Delete Security 삭제 대상item ", len(firewallInfo.Items), " index = ", index)
+		cblogger.Debug("Delete Security 삭제 대상item ", len(firewallInfo.Items), " index = ", index)
 		securityHandler.firewallDelete(securityGroupTag, "", firewallInfo)
 		if err != nil {
 			//500  convert Error
@@ -833,7 +833,7 @@ func (securityHandler *GCPSecurityHandler) insertDefaultOutboundPolicy(projectID
 //		return false, err
 //	}
 //	callogger.Info(call.String(callLogInfo))
-//	fmt.Println(res)
+//	cblogger.Debug(res)
 //	return true, nil
 //}
 
@@ -924,7 +924,7 @@ func (securityHandler *GCPSecurityHandler) AddRules(sgIID irs.IID, securityRules
 			reqEgressCount++
 		} else {
 			// direction 이 없는데.... continue
-			fmt.Println("no direction : ", firewallDirection)
+			cblogger.Debug("no direction : ", firewallDirection)
 			errorFirewallList = append(errorFirewallList, "there is no direction ")
 			continue
 		}
@@ -945,7 +945,7 @@ func (securityHandler *GCPSecurityHandler) AddRules(sgIID irs.IID, securityRules
 	}
 
 	// All Deny Outboun가  없으면 추가한다.
-	fmt.Println("existsAllDenyOutbound ----------------- ", existsAllDenyOutbound)
+	cblogger.Debug("existsAllDenyOutbound ----------------- ", existsAllDenyOutbound)
 	if !existsAllDenyOutbound {
 		cblogger.Info("default outbound all deny does not exist, create one")
 		maxEgessCount := maxFirewallSequence(firewallList, Const_GCP_Direction_EGRESS)
@@ -1105,7 +1105,7 @@ func (securityHandler *GCPSecurityHandler) AddRules(sgIID irs.IID, securityRules
 //		return irs.SecurityInfo{}, err
 //	}
 //	callogger.Info(call.String(callLogInfo))
-//	fmt.Println("create result : ", res)
+//	cblogger.Debug("create result : ", res)
 //	time.Sleep(time.Second * 3)
 //	//secInfo, _ := securityHandler.GetSecurity(securityReqInfo.IId)
 //	secInfo, _ := securityHandler.GetSecurity(irs.IID{SystemId: sgIID.SystemId})
@@ -1190,7 +1190,7 @@ func (securityHandler *GCPSecurityHandler) RemoveRules(sgIID irs.IID, securityRu
 				}
 
 				for _, firewallRule := range item.Allowed {
-					fmt.Println("firewallRule : ", firewallRule)
+					cblogger.Debug("firewallRule : ", firewallRule)
 					if ports := firewallRule.Ports; ports != nil {
 
 						portArr = strings.Split(firewallRule.Ports[0], "-")
@@ -1234,7 +1234,7 @@ func (securityHandler *GCPSecurityHandler) RemoveRules(sgIID irs.IID, securityRu
 
 			if strings.EqualFold(resourceId, "") {
 				//return false, errors.New("Cannot get a resourceID")
-				fmt.Println("cannot get a resourceID : ")
+				cblogger.Debug("cannot get a resourceID : ")
 				continue
 			}
 
@@ -1247,7 +1247,7 @@ func (securityHandler *GCPSecurityHandler) RemoveRules(sgIID irs.IID, securityRu
 	}
 
 	// All Deny Outboun가  없으면 추가한다.
-	fmt.Println("existsAllDenyOutbound ----------------- ", existsAllDenyOutbound)
+	cblogger.Debug("existsAllDenyOutbound ----------------- ", existsAllDenyOutbound)
 	if !existsAllDenyOutbound {
 		cblogger.Info("default outbound all deny does not exist, create one")
 		maxEgessCount := maxFirewallSequence(firewallList, Const_GCP_Direction_EGRESS)
@@ -1431,7 +1431,7 @@ func (securityHandler *GCPSecurityHandler) RemoveRules(sgIID irs.IID, securityRu
 //		return false, err
 //	}
 //	callogger.Info(call.String(callLogInfo))
-//	//fmt.Println("create result : ", res)
+//	//cblogger.Debug("create result : ", res)
 //	time.Sleep(time.Second * 3)
 //	//secInfo, _ := securityHandler.GetSecurity(securityReqInfo.IId)
 //	secInfo, _ := securityHandler.GetSecurity(irs.IID{SystemId: sgIID.SystemId})
@@ -1464,7 +1464,7 @@ func getTagFromTags(itemName string, tags []string) string {
 	// 해당 tag에 param이 있는가
 	for _, tag := range tags {
 		// naming rule에 의해 itemName 은 tag + surfix 로 구성되므로 tag가 itemName에 있어야 함.
-		fmt.Println("itemName : ", itemName, tag, strings.Index(itemName, tag))
+		cblogger.Debug("itemName : ", itemName, tag, strings.Index(itemName, tag))
 		if tag != "" && strings.Index(itemName, tag) == 0 {
 			if strings.Index(itemName, tag+"-basic") == 0 {
 				return tag
@@ -1482,7 +1482,7 @@ func getTagFromTags(itemName string, tags []string) string {
 
 // tag는 여러개일 수 있으므로 tag에 해당 이름이 있는지 찾기
 func existsNameInTags(name string, tags []string) bool {
-	//fmt.Println("existsNameInTags : ", name, tags)
+	//cblogger.Debug("existsNameInTags : ", name, tags)
 	for _, tag := range tags {
 		if strings.EqualFold(tag, name) {
 			return true
@@ -1523,33 +1523,33 @@ func extractFirewallList(firewallList compute.FirewallList, reqTag string) []com
 		}
 	}
 
-	fmt.Println("********* ", securityGroupNameMap)
+	cblogger.Debug("********* ", securityGroupNameMap)
 	var returnFirewallList []compute.FirewallList
 	for _, sgKey := range securityGroupNameMap {
 		var returnFirewall compute.FirewallList
 		var returnFirewallItemList []*compute.Firewall
-		//fmt.Println("returnFirewallItemList before length  : ", len(returnFirewallItemList))
+		//cblogger.Debug("returnFirewallItemList before length  : ", len(returnFirewallItemList))
 		for _, item := range firewallList.Items {
-			//fmt.Println("get security list result : ", sgKey, item)
+			//cblogger.Debug("get security list result : ", sgKey, item)
 			if existsNameInTags(sgKey, item.SourceTags) {
-				//fmt.Println("SourceTags : ", sgKey, item.SourceTags)
+				//cblogger.Debug("SourceTags : ", sgKey, item.SourceTags)
 				returnFirewallItemList = append(returnFirewallItemList, item)
 				continue
 			}
 			if existsNameInTags(sgKey, item.TargetTags) {
-				//fmt.Println("TargetTags : ", sgKey, item.TargetTags)
+				//cblogger.Debug("TargetTags : ", sgKey, item.TargetTags)
 				returnFirewallItemList = append(returnFirewallItemList, item)
 				continue
 			}
 
 			if strings.EqualFold(sgKey, item.Name) {
-				//fmt.Println("Name : ", sgKey, item.Name)
+				//cblogger.Debug("Name : ", sgKey, item.Name)
 				returnFirewallItemList = append(returnFirewallItemList, item)
 			}
 			//firewallItemList = append(firewallItemList, item)
 		}
-		//fmt.Println("returnFirewallItemList length  : ", len(returnFirewallItemList))
-		//fmt.Println("returnFirewallItemList  : ", returnFirewallItemList)
+		//cblogger.Debug("returnFirewallItemList length  : ", len(returnFirewallItemList))
+		//cblogger.Debug("returnFirewallItemList  : ", returnFirewallItemList)
 		returnFirewall.Items = returnFirewallItemList
 		returnFirewallList = append(returnFirewallList, returnFirewall)
 	}
@@ -1585,7 +1585,7 @@ func convertFromFirewallToSecurityInfo(firewallList compute.FirewallList) (irs.S
 				hasSecurityGroupNameFound = true
 			}
 		}
-		fmt.Println("get security list result : ", item)
+		cblogger.Debug("get security list result : ", item)
 
 		//Allowed []*FirewallAllowed `json:"allowed,omitempty"`
 		//CreationTimestamp string `json:"creationTimestamp,omitempty"`
@@ -1604,10 +1604,10 @@ func convertFromFirewallToSecurityInfo(firewallList compute.FirewallList) (irs.S
 		//SourceRanges []string `json:"sourceRanges,omitempty"`
 		//SourceServiceAccounts []string `json:"sourceServiceAccounts,omitempty"`
 		//SourceTags []string `json:"sourceTags,omitempty"`
-		fmt.Println("SourceTags : ", item.SourceTags)
+		cblogger.Debug("SourceTags : ", item.SourceTags)
 		//TargetServiceAccounts []string `json:"targetServiceAccounts,omitempty"`
 		//TargetTags []string `json:"targetTags,omitempty"`
-		fmt.Println("TargetTags : ", item.TargetTags)
+		cblogger.Debug("TargetTags : ", item.TargetTags)
 		//googleapi.ServerResponse `json:"-"`
 		//ForceSendFields []string `json:"-"`
 		//
@@ -1621,7 +1621,7 @@ func convertFromFirewallToSecurityInfo(firewallList compute.FirewallList) (irs.S
 		} else {
 			cidr = strings.Join(item.DestinationRanges, ", ")
 		}
-		fmt.Println("cidr : ", cidr)
+		cblogger.Debug("cidr : ", cidr)
 
 		var portArr []string
 		var fromPort string
@@ -1630,7 +1630,7 @@ func convertFromFirewallToSecurityInfo(firewallList compute.FirewallList) (irs.S
 
 		for _, firewallRule := range item.Allowed {
 			ipProtocol = firewallRule.IPProtocol
-			fmt.Println("ipProtocol : ", ipProtocol)
+			cblogger.Debug("ipProtocol : ", ipProtocol)
 			if strings.EqualFold(ipProtocol, "all") || strings.EqualFold(ipProtocol, "icmp") {
 				fromPort = "-1"
 				toPort = "-1"
@@ -1700,16 +1700,15 @@ func convertFromFirewallToSecurityInfo(firewallList compute.FirewallList) (irs.S
 			},
 			SecurityRules: &securityRules,
 		}
-		fmt.Println("securityRules : ", securityRules)
-		fmt.Println("securityRules length: ", len(securityRules))
+		cblogger.Debug("securityRules : ", securityRules)
+		cblogger.Debug("securityRules length: ", len(securityRules))
 	} // end of result.items
-	fmt.Println("securityInfo : ", securityInfo)
+	cblogger.Debug("securityInfo : ", securityInfo)
 	return securityInfo, nil
 }
 
 // Spider에서 온 값은 GCP로 변경 ( "INGRESS", GCP ) => inbound 로 return
 // GCP에서 온 값은 Spider로 변경 ( "inbound", SPIDER) => INGRESS 로 return
-//
 func switchDirectionSpiderAndGCP(direction string, targetType string) string {
 	returnDirection := direction
 	// gcp로 변경을 하는 경우 return = INGRESS, EGESS
@@ -1806,11 +1805,11 @@ func sameRuleCheck(searchedSecurityRules *[]irs.SecurityRuleInfo, requestedSecur
 			if !strings.EqualFold(reqRule.CIDR, searchedRule.CIDR) {
 				continue
 			}
-			fmt.Println("aaa : ", reqRulePort, ":"+fromPort+" : "+toPort)
-			fmt.Println("bbb : ", searchedRulePort, ":"+searchedRule.FromPort+" : "+searchedRule.ToPort)
-			fmt.Println("Direction : ", reqRule.Direction, ":"+searchedRule.Direction)
-			fmt.Println("IPProtocol : ", reqRule.IPProtocol, ":"+searchedRule.IPProtocol)
-			fmt.Println("CIDR : ", reqRule.CIDR, ":"+searchedRule.CIDR)
+			cblogger.Debug("aaa : ", reqRulePort, ":"+fromPort+" : "+toPort)
+			cblogger.Debug("bbb : ", searchedRulePort, ":"+searchedRule.FromPort+" : "+searchedRule.ToPort)
+			cblogger.Debug("Direction : ", reqRule.Direction, ":"+searchedRule.Direction)
+			cblogger.Debug("IPProtocol : ", reqRule.IPProtocol, ":"+searchedRule.IPProtocol)
+			cblogger.Debug("CIDR : ", reqRule.CIDR, ":"+searchedRule.CIDR)
 
 			// add일 때는 존재하는게 있으면 안됨.
 			if action == Const_SecurityRule_Add {
@@ -1852,8 +1851,8 @@ func maxFirewallSequence(firewallList []compute.FirewallList, gcpDirection strin
 				if curSequence > maxSequence {
 					maxSequence = curSequence
 				}
-				fmt.Println("str : ", str)
-				fmt.Println("curSequence : ", curSequence)
+				cblogger.Debug("str : ", str)
+				cblogger.Debug("curSequence : ", curSequence)
 			}
 		}
 	}
@@ -1889,7 +1888,7 @@ func (securityHandler *GCPSecurityHandler) firewallInsert(firewallInfo compute.F
 		return compute.Firewall{}, err
 	}
 	callogger.Info(call.String(callLogInfo))
-	fmt.Println("create default firewall rule result : ", res)
+	cblogger.Debug("create default firewall rule result : ", res)
 
 	errWait := securityHandler.WaitUntilComplete(res.Name)
 	if errWait != nil {
@@ -1915,7 +1914,7 @@ func (securityHandler *GCPSecurityHandler) firewallDelete(securityGroupTag strin
 			resourceID = firewallName
 		}
 		resourceID = item.Name
-		fmt.Println("firewallDelete ", securityGroupTag, " : ", resourceID)
+		cblogger.Debug("firewallDelete ", securityGroupTag, " : ", resourceID)
 		callogger := call.GetLogger("HISCALL")
 		callLogInfo := call.CLOUDLOGSCHEMA{
 			CloudOS:      call.GCP,
@@ -1940,7 +1939,7 @@ func (securityHandler *GCPSecurityHandler) firewallDelete(securityGroupTag strin
 			return false, err
 		}
 		callogger.Info(call.String(callLogInfo))
-		fmt.Println("remove result : ", resourceID, res)
+		cblogger.Debug("remove result : ", resourceID, res)
 
 		errWait := securityHandler.WaitUntilComplete(res.Name)
 		if errWait != nil {

@@ -362,7 +362,7 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 				// RootDiskType을 조회하여 diskSize의 min, max, default값 추출 한 뒤 입력된 diskSize가 있으면 비교시 사용
 				diskSizeResp, err := vmHandler.Client.DiskTypes.Get(projectID, zone, diskType).Do()
 				if err != nil {
-					fmt.Println("Invalid Disk Type Error!!")
+					cblogger.Debug("Invalid Disk Type Error!!")
 					return irs.VMInfo{}, err
 				}
 
@@ -386,13 +386,13 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 				// diskUnit := "GB" // 기본 단위는 GB
 
 				if iDiskSize < diskMinSize {
-					fmt.Println("Disk Size Error!!: ", iDiskSize)
+					cblogger.Debug("Disk Size Error!!: ", iDiskSize)
 					//return irs.VMInfo{}, errors.New("Requested disk size cannot be smaller than the minimum disk size, invalid")
 					return irs.VMInfo{}, errors.New("Root Disk Size must be at least the default size (" + strconv.FormatInt(diskMinSize, 10) + " GB).")
 				}
 
 				if iDiskSize > diskMaxSize {
-					fmt.Println("Disk Size Error!!: ", iDiskSize)
+					cblogger.Debug("Disk Size Error!!: ", iDiskSize)
 					//return irs.VMInfo{}, errors.New("Requested disk size cannot be larger than the maximum disk size, invalid")
 					return irs.VMInfo{}, errors.New("Root Disk Size must be smaller than the maximum size (" + strconv.FormatInt(diskMaxSize, 10) + " GB).")
 				}
@@ -401,7 +401,7 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 			//imageSize = imageResp.DiskSizeGb
 
 			if iDiskSize < imageSize {
-				fmt.Println("Disk Size Error!!: ", iDiskSize)
+				cblogger.Debug("Disk Size Error!!: ", iDiskSize)
 				return irs.VMInfo{}, errors.New("Root Disk Size must be larger then the image size (" + strconv.FormatInt(imageSize, 10) + " GB).")
 			}
 
@@ -560,7 +560,7 @@ func (vmHandler *GCPVMHandler) SuspendVM(vmID irs.IID) (irs.VMStatus, error) {
 	}
 	callogger.Info(call.String(callLogInfo))
 
-	fmt.Println("instance stop status :", inst.Status)
+	cblogger.Debug("instance stop status :", inst.Status)
 	return irs.VMStatus("Suspending"), nil
 }
 
@@ -603,7 +603,7 @@ func (vmHandler *GCPVMHandler) ResumeVM(vmID irs.IID) (irs.VMStatus, error) {
 	}
 	callogger.Info(call.String(callLogInfo))
 
-	fmt.Println("instance resume status :", inst.Status)
+	cblogger.Debug("instance resume status :", inst.Status)
 	return irs.VMStatus("Resuming"), nil
 }
 
@@ -747,7 +747,7 @@ func (vmHandler *GCPVMHandler) TerminateVM(vmID irs.IID) (irs.VMStatus, error) {
 	}
 	callogger.Info(call.String(callLogInfo))
 
-	fmt.Println("instance status :", inst.Status)
+	cblogger.Debug("instance status :", inst.Status)
 
 	return irs.VMStatus("Terminating"), nil
 }
@@ -1008,7 +1008,7 @@ func (vmHandler *GCPVMHandler) GetVmById(vmID irs.IID) (irs.VMInfo, error) {
 func (vmHandler *GCPVMHandler) mappingServerInfo(server *compute.Instance) irs.VMInfo {
 	cblogger.Info("================맵핑=====================================")
 	spew.Dump(server)
-	fmt.Println("server: ", server)
+	cblogger.Debug("server: ", server)
 
 	//var gcpHanler *GCPVMHandler
 	vpcArr := strings.Split(server.NetworkInterfaces[0].Network, "/")

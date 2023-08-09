@@ -14,7 +14,6 @@ package resources
 import (
 	"context"
 	"errors"
-	"fmt"
 	"strconv"
 	"strings"
 
@@ -326,7 +325,7 @@ func (imageHandler *GCPImageHandler) DeleteImage(imageIID irs.IID) (bool, error)
 		return false, err
 	}
 	callogger.Info(call.String(callLogInfo))
-	fmt.Println(res)
+	cblogger.Debug(res)
 	return true, err
 }
 

@@ -59,7 +59,7 @@ func (keyPairHandler *GCPKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPairReq
 		publicKeyString := string(publicKeyBytes)
 		publicKeyString = strings.TrimSpace(publicKeyString) + " " + "cb-user"
 		// projectId 대신에 cb-user 고정
-		fmt.Println("publicKeyString : ", publicKeyString)
+		cblog.Info("publicKeyString : ", publicKeyString)
 		if err != nil {
 			cblogger.Error(err)
 			return irs.KeyPairInfo{}, err

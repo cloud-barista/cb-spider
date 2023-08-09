@@ -5,18 +5,20 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
+	"strings"
+	"time"
+
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/davecgh/go-spew/spew"
 	compute "google.golang.org/api/compute/v1"
 	"google.golang.org/api/googleapi"
-	"strconv"
-	"strings"
-	"time"
 )
 
-/**
+/*
+*
 Adderess(LB) -> pool(backend) -> firewallrule(Listener)
 */
 type GCPNLBHandler struct {
@@ -378,24 +380,24 @@ func (nlbHandler *GCPNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (irs.NLBInfo,
 }
 
 /*
- At the API level, there is no Load Balancer,
- only the components that make it up.
- Your best bet to get a view similar to the UI is to list forwarding rules (global and regional).
+	At the API level, there is no Load Balancer,
+	only the components that make it up.
+	Your best bet to get a view similar to the UI is to list forwarding rules (global and regional).
+
 You can use gcloud compute forwarding-rules list which will show you all the forwarding rules in use (similar to the UI view),
 along with the IPs of each and the target (which may be a backend service or a target pool).
 
- load balancer => GCP forwardingrules
- listener => GCP frontend
- vmGroup => GCP backend. vm instances target pull or instance group list
- healthchecker => GCP Healthchecker
+	load balancer => GCP forwardingrules
+	listener => GCP frontend
+	vmGroup => GCP backend. vm instances target pull or instance group list
+	healthchecker => GCP Healthchecker
 
 - backend service 없음.
 - region forwarding rule, targetpool, targetpool안의 instance에서 사용하는 healthchecker
 
- NLBInfo의 IID 에서 NameId = targetPool name, SystemId = targetPool Url
+	NLBInfo의 IID 에서 NameId = targetPool name, SystemId = targetPool Url
 
 - VPC정보조회를 위해 INSTANCE 정보 조회 시 같은 region의 다른 zone은 가져오지 못함. getVPCInfoFromVM 으로 가져오도록 함.
-
 */
 func (nlbHandler *GCPNLBHandler) ListNLB() ([]*irs.NLBInfo, error) {
 	var nlbInfoList []*irs.NLBInfo
@@ -669,10 +671,10 @@ func (nlbHandler *GCPNLBHandler) GetNLB(nlbIID irs.IID) (irs.NLBInfo, error) {
 // ex) frontend는 삭제되고 targetPool이 어떤이유에서 삭제가 되지 않았을 때,
 // 다음 시도에서 삭제
 
-	삭제 시도 시 404 Error인 경우는 이미 지워진 것일 수 있음.
+		삭제 시도 시 404 Error인 경우는 이미 지워진 것일 수 있음.
 
-	3가지 resource가 모두 없으면 404 Error
-    1가지라도 있어서 삭제하면 삭제처리.
+		3가지 resource가 모두 없으면 404 Error
+	    1가지라도 있어서 삭제하면 삭제처리.
 */
 func (nlbHandler *GCPNLBHandler) DeleteNLB(nlbIID irs.IID) (bool, error) {
 	deleteResultMap := make(map[string]error) // 삭제가 정상이면 error == nil
@@ -759,40 +761,39 @@ func (nlbHandler *GCPNLBHandler) DeleteNLB(nlbIID irs.IID) (bool, error) {
 //------ Frontend Control
 
 /*
-	Listener 정보 변경 -> 수정기능이 없으므로 Error return
+Listener 정보 변경 -> 수정기능이 없으므로 Error return
 
-		수정 가능한 항목은 Protocol, IP, Port, DNSName(현재 버전에서는 사용x. 향후 사용가능)
-		: patch function이 있으나 현재는 NetworkTier만 수정가능하여 해당 function사용 못함
+	수정 가능한 항목은 Protocol, IP, Port, DNSName(현재 버전에서는 사용x. 향후 사용가능)
+	: patch function이 있으나 현재는 NetworkTier만 수정가능하여 해당 function사용 못함
 
-		부하 분산기를 전환하려면 다음 단계를 따르세요.
+	부하 분산기를 전환하려면 다음 단계를 따르세요.
 
-		프리미엄 등급 IP 주소를 사용하는 새로운 부하 분산기 전달 규칙을 만듭니다.
-		현재 표준 등급 IP 주소에서 새로운 프리미엄 등급 IP 주소로 트래픽을 천천히 마이그레이션하려면 DNS를 사용합니다.
-		마이그레이션이 완료되면 표준 등급 IP 주소 및 이와 연결된 리전 부하 분산기를 해제할 수 있습니다.
-		여러 부하 분산기가 동일한 백엔드를 가리키도록 할 수 있으므로 백엔드를 변경할 필요는 없습니다.
+	프리미엄 등급 IP 주소를 사용하는 새로운 부하 분산기 전달 규칙을 만듭니다.
+	현재 표준 등급 IP 주소에서 새로운 프리미엄 등급 IP 주소로 트래픽을 천천히 마이그레이션하려면 DNS를 사용합니다.
+	마이그레이션이 완료되면 표준 등급 IP 주소 및 이와 연결된 리전 부하 분산기를 해제할 수 있습니다.
+	여러 부하 분산기가 동일한 백엔드를 가리키도록 할 수 있으므로 백엔드를 변경할 필요는 없습니다.
 
-		(참고) patch 사용하려던 로직
-		if !strings.EqualFold(listener.Protocol, "") {
-			patchRegionForwardingRule.IPProtocol = listener.Protocol
-		}
+	(참고) patch 사용하려던 로직
+	if !strings.EqualFold(listener.Protocol, "") {
+		patchRegionForwardingRule.IPProtocol = listener.Protocol
+	}
 
-		if !strings.EqualFold(listener.IP, "") {
-			patchRegionForwardingRule.IPAddress = listener.IP
-		}
+	if !strings.EqualFold(listener.IP, "") {
+		patchRegionForwardingRule.IPAddress = listener.IP
+	}
 
-		if !strings.EqualFold(listener.Port, "") {
-			patchRegionForwardingRule.PortRange = listener.Port
-		}
+	if !strings.EqualFold(listener.Port, "") {
+		patchRegionForwardingRule.PortRange = listener.Port
+	}
 
-		patchRegionForwardingRule.NetworkTier = "STANDARD"
-		//networkTier :
-		//	. If this field is not specified, it is assumed to be PREMIUM.
-		//	. If IPAddress is specified, this value must be equal to the networkTier of the Address.
-		//	- Region forwording rule : PREMIUM and STANDARD
-		//	- Global forwording rule : PREMIUM only
+	patchRegionForwardingRule.NetworkTier = "STANDARD"
+	//networkTier :
+	//	. If this field is not specified, it is assumed to be PREMIUM.
+	//	. If IPAddress is specified, this value must be equal to the networkTier of the Address.
+	//	- Region forwording rule : PREMIUM and STANDARD
+	//	- Global forwording rule : PREMIUM only
 
-		nlbHandler.patchRegionForwardingRules(regionID, forwardingRuleName, &patchRegionForwardingRule)
-
+	nlbHandler.patchRegionForwardingRules(regionID, forwardingRuleName, &patchRegionForwardingRule)
 */
 func (nlbHandler *GCPNLBHandler) ChangeListener(nlbIID irs.IID, listener irs.ListenerInfo) (irs.ListenerInfo, error) {
 
@@ -855,8 +856,8 @@ func (nlbHandler *GCPNLBHandler) ChangeListener(nlbIID irs.IID, listener irs.Lis
 }
 
 /*
-	VM Group 변경에서는 VMs 는 제외임.
-	GCP의 경우 frontend와 backend를 protocol, ip로 연결하지 않으므로 해당 기능은 제외한다.
+VM Group 변경에서는 VMs 는 제외임.
+GCP의 경우 frontend와 backend를 protocol, ip로 연결하지 않으므로 해당 기능은 제외한다.
 */
 func (nlbHandler *GCPNLBHandler) ChangeVMGroupInfo(nlbIID irs.IID, vmGroup irs.VMGroupInfo) (irs.VMGroupInfo, error) {
 
@@ -864,9 +865,9 @@ func (nlbHandler *GCPNLBHandler) ChangeVMGroupInfo(nlbIID irs.IID, vmGroup irs.V
 }
 
 /*
-	targetPool에 vm 추가
-    필요한 parameter는 instanceUrl이며 vmIID.SystemID에서 vm을 조회하여 사용해야 함.
-	수정 후 해당 vmGroupInfo(instance 들) return
+		targetPool에 vm 추가
+	    필요한 parameter는 instanceUrl이며 vmIID.SystemID에서 vm을 조회하여 사용해야 함.
+		수정 후 해당 vmGroupInfo(instance 들) return
 */
 func (nlbHandler *GCPNLBHandler) AddVMs(nlbIID irs.IID, vmIIDs *[]irs.IID) (irs.VMGroupInfo, error) {
 	//
@@ -916,9 +917,9 @@ func (nlbHandler *GCPNLBHandler) AddVMs(nlbIID irs.IID, vmIIDs *[]irs.IID) (irs.
 }
 
 /*
-	targetPool에 vm 삭제
-    필요한 parameter는 instanceUrl이며 vmIID.SystemID에 들어있음.
-	수정 성공여부 return
+		targetPool에 vm 삭제
+	    필요한 parameter는 instanceUrl이며 vmIID.SystemID에 들어있음.
+		수정 성공여부 return
 */
 func (nlbHandler *GCPNLBHandler) RemoveVMs(nlbIID irs.IID, vmIIDs *[]irs.IID) (bool, error) {
 	//
@@ -1018,6 +1019,7 @@ func (nlbHandler *GCPNLBHandler) GetVMGroupHealthInfo(nlbIID irs.IID) (irs.Healt
 
 /*
 // HealthCheckerInfo 변경
+
 	cspId = selfLink
 	healthCheckerName = nbl name
 
@@ -1545,7 +1547,7 @@ func (nlbHandler *GCPNLBHandler) insertRegionForwardingRules(regionID string, re
 	return nil
 }
 
-//deleteRegionForwardingRule
+// deleteRegionForwardingRule
 // 특정 forwarding rule만 삭제
 func (nlbHandler *GCPNLBHandler) deleteRegionForwardingRule(regionID string, forwardingRuleName string) error {
 	// path param
@@ -1840,7 +1842,7 @@ func (nlbHandler *GCPNLBHandler) insertGlobalBackendServices(reqBackendService c
 }
 
 // Global BackendService 조회
-//func (nlbHandler *GCPNLBHandler) getBackendServices(resourceId string) (*compute.InstanceTemplate, error) {
+// func (nlbHandler *GCPNLBHandler) getBackendServices(resourceId string) (*compute.InstanceTemplate, error) {
 func (nlbHandler *GCPNLBHandler) getGlobalBackendServices(backendServiceName string) (*compute.BackendService, error) {
 	projectID := nlbHandler.Credential.ProjectID
 
@@ -2133,12 +2135,12 @@ func (nlbHandler *GCPNLBHandler) listTargetPools(regionID string, filter string)
 
 /*
 	getHealth : Instance의 가장 최근의 health check result
+
 // instanceReference 는 instarce의 url을 인자로 갖는다.
 // targetPools.get(targetPoolName)  을 통해 instalces[]을 알 수 있음. 배열에서 하나씩 꺼내서 instanceReference에 넣고 사용.
 // Target pools are used for network TCP/UDP load balancing. A target pool references member instances, an associated legacy HttpHealthCheck resource, and, optionally, a backup target poo
 
 	//https://www.googleapis.com/compute/v1/projects/myproject/zones/zoneName/instances/lbname
-
 */
 func (nlbHandler *GCPNLBHandler) getTargetPoolHealth(regionID string, targetPoolName string, instanceUrl string) (*compute.TargetPoolInstanceHealth, error) {
 
@@ -2157,10 +2159,10 @@ func (nlbHandler *GCPNLBHandler) getTargetPoolHealth(regionID string, targetPool
 }
 
 /*
-	health checker 생성
-	targetPoolName = health checker name
-	health checker는 독립적임. HttpHealthChecks의 insert
-	TimeoutSec should be less than checkIntervalSec
+health checker 생성
+targetPoolName = health checker name
+health checker는 독립적임. HttpHealthChecks의 insert
+TimeoutSec should be less than checkIntervalSec
 */
 func (nlbHandler *GCPNLBHandler) insertHealthCheck(regionID string, targetPoolName string, healthCheckerInfo *irs.HealthCheckerInfo) error {
 	// path param
@@ -2202,6 +2204,7 @@ func (nlbHandler *GCPNLBHandler) insertHealthCheck(regionID string, targetPoolNa
 	등록된 healthchecker 수정
 	health checker는 독립적임. HttpHealthChecks의 patch
 	patch 가 맞는지, update 가 맞는지 확인 필요
+
 Updates a HttpHealthCheck resource in the specified project using the data included in the request.
 This method supports PATCH semantics and uses the JSON merge patch format and processing rules.
 
@@ -2260,10 +2263,10 @@ func (nlbHandler *GCPNLBHandler) patchHealthCheck(regionID string, targetPoolNam
 }
 
 /*
-	등록된 healthchecker 삭제
-	health checker는 독립적임.
+등록된 healthchecker 삭제
+health checker는 독립적임.
 
-	health checker Url 이 있으면 해당값이 제일 정확하므로 url에서 이름을 추충하여 사용
+health checker Url 이 있으면 해당값이 제일 정확하므로 url에서 이름을 추충하여 사용
 */
 func (nlbHandler *GCPNLBHandler) removeHttpHealthCheck(targetPoolName string, healthCheckUrl string) error {
 	// path param
@@ -2347,9 +2350,9 @@ func (nlbHandler *GCPNLBHandler) addTargetPoolHealthCheck(regionID string, targe
 }
 
 /*
- TargetPool에 등록되어 있는 health checker 제거(링크만 제거)
-	TargetPool에 healthChecker는 없을 수도 있음. 없어도 오류가 아님.
-	실제 healthCheck는 살아있음. httpHealthCheck 제거는 nlbHandler.removeHealthCheck
+	 TargetPool에 등록되어 있는 health checker 제거(링크만 제거)
+		TargetPool에 healthChecker는 없을 수도 있음. 없어도 오류가 아님.
+		실제 healthCheck는 살아있음. httpHealthCheck 제거는 nlbHandler.removeHealthCheck
 */
 func (nlbHandler *GCPNLBHandler) removeTargetPoolHealthCheck(regionID string, targetPoolName string, healthCheckerName string) error {
 	// path param
@@ -2376,6 +2379,7 @@ func (nlbHandler *GCPNLBHandler) removeTargetPoolHealthCheck(regionID string, ta
 
 /*
 // TargetPool 에 Instance bind추가
+
 	parameter instance = The URL for a specific instance
 
 // Target pools are used for network TCP/UDP load balancing. A target pool references member instances, an associated legacy HttpHealthCheck resource, and, optionally, a backup target poo
@@ -2420,8 +2424,8 @@ func (nlbHandler *GCPNLBHandler) addTargetPoolInstance(regionID string, targetPo
 }
 
 /*
-	TargetPool에서 instance bind 삭제
-	parameter instance = The URL for a specific instance
+TargetPool에서 instance bind 삭제
+parameter instance = The URL for a specific instance
 */
 func (nlbHandler *GCPNLBHandler) removeTargetPoolInstances(regionID string, targetPoolName string, deleteInstanceIIDs *[]irs.IID) error {
 	// path param
@@ -2526,29 +2530,29 @@ func printToJson(class interface{}) {
 
 /*
 // lister 정보를 gcp의 forwardingRule에 맞게 변경
-	ipProtocol // TCP, UDP, ESP, AH, SCTP, ICMP and L3_DEFAULT
-	allPorts : ports/portRange/allPorts 세가지 중 1가지만 사용가능
-	  - TCP, UDP and SCTP traffic, packets addressed to any ports will be forwarded to the target or backendService.
-	portRange
-      - load balancing scheme 가 EXTERNAL, INTERNAL_SELF_MANAGED or INTERNAL_MANAGED 일 때,
-      - IPProtocol 가 TCP, UDP or SCTP 일 떄 사용가능
-      - targetPool이나 backendService로 전달
-	ports[] : backendService로 직접전달 시 사용
-	allowGlobalAccess :
-	  - If the field is set to TRUE, clients can access ILB from all regions.
-	  - Otherwise only allows access from clients in the same region as the internal load balancer.
 
-	target
-	subnetwork : custom mode 또는 ipv6로 external forwarding rule 생성 시 필요
-	network : external load balancing 에서 사용 안함.
-	networkTier :
-	  . If this field is not specified, it is assumed to be PREMIUM.
-	  . If IPAddress is specified, this value must be equal to the networkTier of the Address.
-	  - Region forwording rule : PREMIUM and STANDARD
-	  - Global forwording rule : PREMIUM only
-	backendService : Required for Internal TCP/UDP Load Balancing and Network Load Balancing; must be omitted for all other load balancer types.
-	ipVersion : IPV4 or IPV6. This can only be specified for an external global forwarding rule.
+		ipProtocol // TCP, UDP, ESP, AH, SCTP, ICMP and L3_DEFAULT
+		allPorts : ports/portRange/allPorts 세가지 중 1가지만 사용가능
+		  - TCP, UDP and SCTP traffic, packets addressed to any ports will be forwarded to the target or backendService.
+		portRange
+	      - load balancing scheme 가 EXTERNAL, INTERNAL_SELF_MANAGED or INTERNAL_MANAGED 일 때,
+	      - IPProtocol 가 TCP, UDP or SCTP 일 떄 사용가능
+	      - targetPool이나 backendService로 전달
+		ports[] : backendService로 직접전달 시 사용
+		allowGlobalAccess :
+		  - If the field is set to TRUE, clients can access ILB from all regions.
+		  - Otherwise only allows access from clients in the same region as the internal load balancer.
 
+		target
+		subnetwork : custom mode 또는 ipv6로 external forwarding rule 생성 시 필요
+		network : external load balancing 에서 사용 안함.
+		networkTier :
+		  . If this field is not specified, it is assumed to be PREMIUM.
+		  . If IPAddress is specified, this value must be equal to the networkTier of the Address.
+		  - Region forwording rule : PREMIUM and STANDARD
+		  - Global forwording rule : PREMIUM only
+		backendService : Required for Internal TCP/UDP Load Balancing and Network Load Balancing; must be omitted for all other load balancer types.
+		ipVersion : IPV4 or IPV6. This can only be specified for an external global forwarding rule.
 */
 func convertNlbInfoToForwardingRule(nlbListener irs.ListenerInfo, targetPool *compute.TargetPool) compute.ForwardingRule {
 	//ipProtocol // TCP, UDP, ESP, AH, SCTP, ICMP and L3_DEFAULT
@@ -2591,22 +2595,23 @@ func convertNlbInfoToForwardingRule(nlbListener irs.ListenerInfo, targetPool *co
 
 /*
 //
-	NLB 생성을 위해 요청받은 nlbInfo 정보를 gcp의 TargetPool에 맞게 변경
-	FailoverRatio : 설정 시 backupPool도 설정해야 함.
-	vmID 는 url형태가 아니므로 vm을 조회하여 selflink를 set
-	Instances[] : resource URLs
-	HealthChecks[] : resource URLs
 
-  vmGroup = TargetPool
-  vmGroup.cspId = targetPoolName, lbName
+		NLB 생성을 위해 요청받은 nlbInfo 정보를 gcp의 TargetPool에 맞게 변경
+		FailoverRatio : 설정 시 backupPool도 설정해야 함.
+		vmID 는 url형태가 아니므로 vm을 조회하여 selflink를 set
+		Instances[] : resource URLs
+		HealthChecks[] : resource URLs
 
-	ex)
-	//"healthChecks":[
-	//					"https://www.googleapis.com/compute/v1/projects/myproject/global/httpHealthChecks/test-lb-seoul-healthchecker"
-	//					],
-	//"instances":[
-	//					"https://www.googleapis.com/compute/v1/projects/myproject/zones/asia-northeast3-a/instances/test-lb-seoul-01"
-	//					]
+	  vmGroup = TargetPool
+	  vmGroup.cspId = targetPoolName, lbName
+
+		ex)
+		//"healthChecks":[
+		//					"https://www.googleapis.com/compute/v1/projects/myproject/global/httpHealthChecks/test-lb-seoul-healthchecker"
+		//					],
+		//"instances":[
+		//					"https://www.googleapis.com/compute/v1/projects/myproject/zones/asia-northeast3-a/instances/test-lb-seoul-01"
+		//					]
 */
 func (nlbHandler *GCPNLBHandler) convertNlbInfoToTargetPool(nlbInfo *irs.NLBInfo) (compute.TargetPool, error) {
 	vmList := nlbInfo.VMGroup.VMs
@@ -2642,9 +2647,9 @@ func (nlbHandler *GCPNLBHandler) convertNlbInfoToTargetPool(nlbInfo *irs.NLBInfo
 }
 
 /*
-	가져온 TargetPool정보를 Spider 의 NLBInfo로 변환
-	extractVmGroup 은 추출만 하면 됨.
-	extractHealthChecker는 health checker 정보를 조회해야 하므로 nlbHandler 필요
+가져온 TargetPool정보를 Spider 의 NLBInfo로 변환
+extractVmGroup 은 추출만 하면 됨.
+extractHealthChecker는 health checker 정보를 조회해야 하므로 nlbHandler 필요
 */
 func (nlbHandler *GCPNLBHandler) convertTargetPoolToNLBInfo(targetPool *compute.TargetPool, nlbInfo *irs.NLBInfo) error {
 	regionID := nlbHandler.Region.Region
@@ -2678,7 +2683,7 @@ func (nlbHandler *GCPNLBHandler) convertTargetPoolToNLBInfo(targetPool *compute.
 }
 
 /*
-	forwarding rule의 Port가 Range 이나 Spider에서는 1개만 사용하므로 첫번째 값만 사용
+forwarding rule의 Port가 Range 이나 Spider에서는 1개만 사용하므로 첫번째 값만 사용
 */
 func convertRegionForwardingRuleToNlbListener(forwardingRule *compute.ForwardingRule) irs.ListenerInfo {
 	portRange := forwardingRule.PortRange
@@ -2747,6 +2752,7 @@ func (nlbHandler *GCPNLBHandler) getListenerByNlbSystemID(nlbIID irs.IID) (irs.L
 
 /*
 // TargetPool = backend = vmGroup 이며
+
 	가져온 targetPool을 spider에서 사용하는 vmGroup으로 변환하여 return
 
 	ex) vmGroup
@@ -2788,7 +2794,7 @@ func extractVmGroup(targetPool *compute.TargetPool, nlbInfo *irs.NLBInfo) irs.VM
 }
 
 /*
-	targetPool에서 healthcheker를 가져와서 spider의 HealthCheckerInfo 로 return
+targetPool에서 healthcheker를 가져와서 spider의 HealthCheckerInfo 로 return
 */
 func (nlbHandler *GCPNLBHandler) extractHealthChecker(regionID string, targetPool *compute.TargetPool) (irs.HealthCheckerInfo, error) {
 	returnHealthChecker := irs.HealthCheckerInfo{}
@@ -2834,8 +2840,8 @@ func (nlbHandler *GCPNLBHandler) extractHealthChecker(regionID string, targetPoo
 }
 
 /*
-	vpc를 가져오기 위해 vm 정보를 조회.
-	zone은 다를 수 있으므로 VMHandler의 GetVM을 사용하지 않고 zone을 parameter로 받는 function을 따로 만듬
+vpc를 가져오기 위해 vm 정보를 조회.
+zone은 다를 수 있으므로 VMHandler의 GetVM을 사용하지 않고 zone을 parameter로 받는 function을 따로 만듬
 */
 func (nlbHandler *GCPNLBHandler) getVPCInfoFromVM(zoneID string, vmID irs.IID) (irs.IID, error) {
 	projectID := nlbHandler.Credential.ProjectID
@@ -2886,8 +2892,8 @@ func (nlbHandler *GCPNLBHandler) getVPCInfoFromVM(zoneID string, vmID irs.IID) (
 }
 
 /*
-	vm의 url 조회
-	zone은 다를 수 있으므로 VMHandler의 GetVM을 사용하지 않고 zone을 parameter로 받는 function을 따로 만듬
+vm의 url 조회
+zone은 다를 수 있으므로 VMHandler의 GetVM을 사용하지 않고 zone을 parameter로 받는 function을 따로 만듬
 */
 func (nlbHandler *GCPNLBHandler) getVmUrl(zoneID string, vmID irs.IID) (string, error) {
 	projectID := nlbHandler.Credential.ProjectID
@@ -2920,6 +2926,7 @@ func (nlbHandler *GCPNLBHandler) getVmUrl(zoneID string, vmID irs.IID) (string, 
 
 /*
 // CreateNLB validation check
+
 	nlb이름이 같은 resource가 있는지 check
 */
 func (nlbHandler *GCPNLBHandler) validateCreateNLB(nlbReqInfo irs.NLBInfo) error {
@@ -2987,6 +2994,7 @@ func (nlbHandler *GCPNLBHandler) validateCreateNLB(nlbReqInfo irs.NLBInfo) error
 
 /*
 // DeleteNLB validation check
+
 	체크하면서 validation이 실패하면 errors.New("message ")로 map에 추가
 
 	삭제 전 대상 resource가 없는지 checkeck. 셋 다 있으면 OK.
@@ -3042,7 +3050,7 @@ func (nlbHandler *GCPNLBHandler) validateDeleteNLB(nlbIID irs.IID) (map[string]e
 	//}
 
 	//for key, errResult := range validationMap {
-	//	fmt.Println(key, errResult)
+	//	cblog.Info(key, errResult)
 	//	if errResult != nil {
 	//		if strings.EqualFold(NLB_Component_TARGETPOOL, key){
 	//
@@ -3077,24 +3085,24 @@ func (nlbHandler *GCPNLBHandler) validateDeleteNLB(nlbIID irs.IID) (map[string]e
 }
 
 /*
-	GCP의 Error는 String이기 때문에 안에 있는 Code, Message를 겍체로 변환한 후 비교하는 function
-	예상하는 ErrorCode면 true, 아니면 false
-	return param1 : 같은지 비교
-	return param2 : Error 변환 에러 여부
+GCP의 Error는 String이기 때문에 안에 있는 Code, Message를 겍체로 변환한 후 비교하는 function
+예상하는 ErrorCode면 true, 아니면 false
+return param1 : 같은지 비교
+return param2 : Error 변환 에러 여부
 
-		if err != nil {
-				if ee, ok := err.(*googleapi.Error); ok {
-						fmt.Printf("Error Code %v", ee.Code)
-						fmt.Printf("Error Message %v", ee.Message)
-						fmt.Printf("Error Details %v", ee.Details)
-						fmt.Printf("Error Body %v", ee.Body)
-				}
-		}
+	if err != nil {
+			if ee, ok := err.(*googleapi.Error); ok {
+					fmt.Printf("Error Code %v", ee.Code)
+					fmt.Printf("Error Message %v", ee.Message)
+					fmt.Printf("Error Details %v", ee.Details)
+					fmt.Printf("Error Body %v", ee.Body)
+			}
+	}
 
-	return 결과 : 비교결과, 비교성공 여부.   비교성공여부가 false면 error자체가 GCP의 에러가 아님.
-	같으면 true, true
-	다르면 false, true
-	예외면 false, false
+return 결과 : 비교결과, 비교성공 여부.   비교성공여부가 false면 error자체가 GCP의 에러가 아님.
+같으면 true, true
+다르면 false, true
+예외면 false, false
 */
 func checkErrorCode(expectErrorCode int, err error) (bool, bool) {
 	var errorCode int
@@ -3115,15 +3123,15 @@ func checkErrorCode(expectErrorCode int, err error) (bool, bool) {
 }
 
 /*
-	에러 발생 시 자원 회수(삭제)용
-	map에 해당 자원의 경로가 들어 있음.
-	healthChecker = url
-	targetPool = url
+에러 발생 시 자원 회수(삭제)용
+map에 해당 자원의 경로가 들어 있음.
+healthChecker = url
+targetPool = url
 
-	오류 메시지 예시
-	(1) XXX deleted
-	(2) YYY deleted
-	(3) ~~~~~ error.... (= CSP 반환 메시지)
+오류 메시지 예시
+(1) XXX deleted
+(2) YYY deleted
+(3) ~~~~~ error.... (= CSP 반환 메시지)
 */
 func (nlbHandler *GCPNLBHandler) rollbackCreatedNlbResources(regionID string, resourceMap map[string]string) string {
 	rollbackResult := String_Empty

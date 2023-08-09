@@ -34,7 +34,7 @@ type GCPVPCHandler struct {
 	Credential idrv.CredentialInfo
 }
 
-//@TODO : VPC 생성 로직 변경 필요 / 서브넷이 백그라운드로 생성되기 때문에 조회 시 모두 생성될 때까지 대기하는 로직 필요(그렇지 않으면 일부 정보가 누락됨)
+// @TODO : VPC 생성 로직 변경 필요 / 서브넷이 백그라운드로 생성되기 때문에 조회 시 모두 생성될 때까지 대기하는 로직 필요(그렇지 않으면 일부 정보가 누락됨)
 func (vVPCHandler *GCPVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.VPCInfo, error) {
 	cblogger.Info(vpcReqInfo)
 
@@ -174,8 +174,8 @@ func (vVPCHandler *GCPVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.VPCI
 	return vpcInfo, nil
 }
 
-//VPC 정보가 조회될때까지 대기
-//waitFound : true - 정보가 조회될때까지 대기(생성 시) / false - 정보가 조회되지 않을때까지 대기(삭제 시)
+// VPC 정보가 조회될때까지 대기
+// waitFound : true - 정보가 조회될때까지 대기(생성 시) / false - 정보가 조회되지 않을때까지 대기(삭제 시)
 func (vVPCHandler *GCPVPCHandler) WaitForRunVpc(name string, waitFound bool) error {
 	cblogger.Info("======> VPC 정보가 조회될때까지 대기함.")
 
@@ -235,8 +235,8 @@ func (vVPCHandler *GCPVPCHandler) WaitForRunVpc(name string, waitFound bool) err
 	return nil
 }
 
-//Subnet 정보가 조회될때까지 대기
-//waitFound : true - 정보가 조회될때까지 대기(생성 시) / false - 정보가 조회되지 않을때까지 대기(삭제 시)
+// Subnet 정보가 조회될때까지 대기
+// waitFound : true - 정보가 조회될때까지 대기(생성 시) / false - 정보가 조회되지 않을때까지 대기(삭제 시)
 func (vVPCHandler *GCPVPCHandler) WaitForRunSubnet(subnetName string, waitFound bool) error {
 	cblogger.Info("======> Subnet 정보가 조회될때까지 대기함.")
 
@@ -301,13 +301,13 @@ func (vVPCHandler *GCPVPCHandler) WaitForRunSubnet(subnetName string, waitFound 
 //https://godoc.org/google.golang.org/api/compute/v1#GlobalOperationsGetCall.Do
 //https://cloud.google.com/compute/docs/reference/rest/v1/globalOperations/list
 
-//https://cloud.google.com/compute/docs/reference/rest/v1/globalOperations/get
+// https://cloud.google.com/compute/docs/reference/rest/v1/globalOperations/get
 //
 // resourceId : API 호출후 받은 리소스 값
-//VPC : 글로벌
-//https://www.googleapis.com/compute/v1/projects/mcloud-barista2020/global/networks/cb-vpc-load-test
-//Subnet : Regions
-//https://www.googleapis.com/compute/v1/projects/mcloud-barista2020/regions/asia-northeast3/operations/operation-1590139586815-5a6393937274c-71aebdca-1574e4d7
+// VPC : 글로벌
+// https://www.googleapis.com/compute/v1/projects/mcloud-barista2020/global/networks/cb-vpc-load-test
+// Subnet : Regions
+// https://www.googleapis.com/compute/v1/projects/mcloud-barista2020/regions/asia-northeast3/operations/operation-1590139586815-5a6393937274c-71aebdca-1574e4d7
 // 404 에러 체크해서 global과 region 자동으로 처리 가능하니 필요하면 나중에 공통 유틸로 변경할 것
 func (vVPCHandler *GCPVPCHandler) WaitUntilComplete(resourceId string, isGlobalAction bool) error {
 	//compute.ZoneOperationsGetCall
@@ -588,7 +588,7 @@ func (vVPCHandler *GCPVPCHandler) DeleteVPC(vpcID irs.IID) (bool, error) {
 		return false, errChkVpcStatus
 	}
 
-	//fmt.Println(info)
+	//cblog.Info(info)
 	return true, nil
 }
 
@@ -606,7 +606,7 @@ func (VPCHandler *GCPVPCHandler) AddSubnet(vpcIID irs.IID, subnetInfo irs.Subnet
 	//return irs.VPCInfo{}, nil
 }
 
-//리턴 값은 구현하지 않고 nil을 리턴함. - 현재 사용되는 곳이 없어서 시간상 누락 시킴.
+// 리턴 값은 구현하지 않고 nil을 리턴함. - 현재 사용되는 곳이 없어서 시간상 누락 시킴.
 func (vVPCHandler *GCPVPCHandler) CreateSubnet(vpcId string, reqSubnetInfo irs.SubnetInfo) (irs.SubnetInfo, error) {
 	cblogger.Info(reqSubnetInfo)
 

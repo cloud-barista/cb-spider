@@ -13,7 +13,6 @@ package gcp
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 
 	gcpcon "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/gcp/connect"
 	gcps "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/gcp/resources"
@@ -23,6 +22,7 @@ import (
 
 	goo "golang.org/x/oauth2/google"
 
+	cblogger "github.com/sirupsen/logrus"
 	compute "google.golang.org/api/compute/v1"
 	"google.golang.org/api/container/v1"
 	"google.golang.org/api/option"
@@ -64,17 +64,17 @@ func (driver *GCPDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (icon.
 	gcps.InitLog()
 
 	Ctx, VMClient, err := getVMClient(connectionInfo.CredentialInfo)
-	fmt.Println("################## getVMClient ##################")
-	fmt.Println("getVMClient")
-	fmt.Println("################## getVMClient ##################")
+	cblogger.Debug("################## getVMClient ##################")
+	cblogger.Debug("getVMClient")
+	cblogger.Debug("################## getVMClient ##################")
 	if err != nil {
 		return nil, err
 	}
 	//Ctx2, containerClient, err := getContainerClient(connectionInfo.CredentialInfo)
 	_, containerClient, err := getContainerClient(connectionInfo.CredentialInfo)
-	fmt.Println("################## getContainerClient ##################")
-	fmt.Println("getContainerClient")
-	fmt.Println("################## getContainerClient ##################")
+	cblogger.Debug("################## getContainerClient ##################")
+	cblogger.Debug("getContainerClient")
+	cblogger.Debug("################## getContainerClient ##################")
 	if err != nil {
 		return nil, err
 	}
@@ -95,9 +95,9 @@ func (driver *GCPDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (icon.
 		ContainerClient: containerClient,
 	}
 
-	//fmt.Println("################## resource ConnectionInfo ##################")
-	//fmt.Println("iConn : ", iConn)
-	//fmt.Println("################## resource ConnectionInfo ##################")
+	//cblogger.Debug("################## resource ConnectionInfo ##################")
+	//cblogger.Debug("iConn : ", iConn)
+	//cblogger.Debug("################## resource ConnectionInfo ##################")
 	return &iConn, nil
 }
 
@@ -116,9 +116,9 @@ func getVMClient(credential idrv.CredentialInfo) (context.Context, *compute.Serv
 	data["private_key"] = credential.PrivateKey
 	data["client_email"] = credential.ClientEmail
 
-	fmt.Println("################## data ##################")
-	//fmt.Println("data to json : ", data)
-	fmt.Println("################## data ##################")
+	cblogger.Debug("################## data ##################")
+	//cblogger.Debug("data to json : ", data)
+	cblogger.Debug("################## data ##################")
 
 	res, _ := json.Marshal(data)
 	// data, err := ioutil.ReadFile(credential.ClientSecret)
@@ -151,9 +151,9 @@ func getContainerClient(credential idrv.CredentialInfo) (context.Context, *conta
 	data["private_key"] = credential.PrivateKey
 	data["client_email"] = credential.ClientEmail
 
-	fmt.Println("################## data ##################")
-	//fmt.Println("data to json : ", data)
-	fmt.Println("################## data ##################")
+	cblogger.Debug("################## data ##################")
+	//cblogger.Debug("data to json : ", data)
+	cblogger.Debug("################## data ##################")
 
 	res, _ := json.Marshal(data)
 	authURL := "https://www.googleapis.com/auth/cloud-platform"
