@@ -11,19 +11,18 @@ package connectionconfiginfomanager
 import (
 	"fmt"
 	"strings"
+
 	"github.com/cloud-barista/cb-store/config"
 	"github.com/sirupsen/logrus"
+
+	infostore "github.com/cloud-barista/cb-spider/info-store"
 )
 
-var cblog *logrus.Logger
+// ====================================================================
+const KEY_COLUMN_NAME = "config_name"
 
-func init() {
-	cblog = config.Cblogger
-}
-
-//====================================================================
 type ConnectionConfigInfo struct {
-	ConfigName     string // ex) "config01"
+	ConfigName     string `gorm:"primaryKey"` // ex) "config01"
 	ProviderName   string // ex) "AWS"
 	DriverName     string // ex) "AWS-Test-Driver-V0.5"
 	CredentialName string // ex) "credential01"
@@ -32,72 +31,71 @@ type ConnectionConfigInfo struct {
 
 //====================================================================
 
-func CreateConnectionConfigInfo(configInfo ConnectionConfigInfo) (*ConnectionConfigInfo, error) {
-	return CreateConnectionConfig(configInfo.ConfigName, configInfo.ProviderName, configInfo.DriverName, configInfo.CredentialName, configInfo.RegionName)
+var cblog *logrus.Logger
+
+func init() {
+	cblog = config.Cblogger
+
+	db, err := infostore.Open()
+	if err != nil {
+		panic("failed to connect database")
+	}
+	db.AutoMigrate(&ConnectionConfigInfo{})
+	infostore.Close(db)
 }
 
 // 1. check params
-// 2. check driver files
-// 3. insert them into cb-store
-// You should copy the driver library into ~/libs before.
-func CreateConnectionConfig(configName string, providerName string, driverName string, credentialName string, regionName string) (*ConnectionConfigInfo, error) {
-	cblog.Info("call CreateConnectionConfig()")
+// 2. insert them into info-store
+func CreateConnectionConfigInfo(configInfo ConnectionConfigInfo) (*ConnectionConfigInfo, error) {
+	cblog.Info("call CreateConnectionConfigInfo()")
 
 	cblog.Debug("check params")
-	err := checkParams(configName, providerName, driverName, credentialName, regionName)
+	err := checkParams(configInfo.ConfigName,
+		configInfo.ProviderName, configInfo.DriverName, configInfo.CredentialName, configInfo.RegionName)
 	if err != nil {
 		return nil, err
 
 	}
 
 	// trim user inputs
-	configName = strings.TrimSpace(configName)
-	providerName = strings.ToUpper(strings.TrimSpace(providerName))
-	driverName = strings.TrimSpace(driverName)
-	credentialName = strings.TrimSpace(credentialName)
-	regionName = strings.TrimSpace(regionName)
-
-	// check the existence of the key to be inserted
-	tmpcncInfo, err := getInfo(configName)
-        if tmpcncInfo != nil {
-		if tmpcncInfo.ConfigName == configName {
-			cblog.Debug("delete the existed key to update it")
-			_, err := deleteInfo(configName)
-			if err != nil {
-				cblog.Error(err)
-				return nil, err
-			}			
-		}
-        }
-
+	configInfo.ConfigName = strings.TrimSpace(configInfo.ConfigName)
+	configInfo.ProviderName = strings.ToUpper(strings.TrimSpace(configInfo.ProviderName))
+	configInfo.DriverName = strings.TrimSpace(configInfo.DriverName)
+	configInfo.CredentialName = strings.TrimSpace(configInfo.CredentialName)
+	configInfo.RegionName = strings.TrimSpace(configInfo.RegionName)
 
 	cblog.Debug("insert metainfo into store")
 
-	err = insertInfo(configName, providerName, driverName, credentialName, regionName)
+	err = infostore.Insert(&configInfo)
 	if err != nil {
 		cblog.Error(err)
 		return nil, err
 	}
 
-	cncInfo := &ConnectionConfigInfo{configName, providerName, driverName, credentialName, regionName}
+	return &configInfo, nil
+}
 
-
-	return cncInfo, nil
+func CreateConnectionConfig(configName string,
+	providerName string, driverName string, credentialName string, regionName string) (*ConnectionConfigInfo, error) {
+	cblog.Info("call CreateConnectionConfig()")
+	return CreateConnectionConfigInfo(ConnectionConfigInfo{configName,
+		providerName, driverName, credentialName, regionName})
 }
 
 func ListConnectionConfig() ([]*ConnectionConfigInfo, error) {
 	cblog.Info("call ListConnectionConfig()")
 
-	configInfoList, err := listInfo()
+	var connectionConfigInfoList []*ConnectionConfigInfo
+	err := infostore.List(&connectionConfigInfoList)
 	if err != nil {
 		return nil, err
 	}
 
-	return configInfoList, nil
+	return connectionConfigInfoList, nil
 }
 
 // 1. check params
-// 2. get DriverInfo from cb-store
+// 2. get ConnectionConfigInfo from info-store
 func GetConnectionConfig(configName string) (*ConnectionConfigInfo, error) {
 	cblog.Info("call GetConnectionConfig()")
 
@@ -105,13 +103,14 @@ func GetConnectionConfig(configName string) (*ConnectionConfigInfo, error) {
 		return nil, fmt.Errorf("ConfigName is empty!")
 	}
 
-	cncInfo, err := getInfo(configName)
+	var connectionConfigInfo ConnectionConfigInfo
+	err := infostore.Get(&connectionConfigInfo, KEY_COLUMN_NAME, configName)
 	if err != nil {
 		cblog.Error(err)
 		return nil, err
 	}
 
-	return cncInfo, err
+	return &connectionConfigInfo, err
 }
 
 func DeleteConnectionConfig(configName string) (bool, error) {
@@ -121,7 +120,7 @@ func DeleteConnectionConfig(configName string) (bool, error) {
 		return false, fmt.Errorf("ConfigName is empty!")
 	}
 
-	result, err := deleteInfo(configName)
+	result, err := infostore.Delete(&ConnectionConfigInfo{}, KEY_COLUMN_NAME, configName)
 	if err != nil {
 		cblog.Error(err)
 		return false, err

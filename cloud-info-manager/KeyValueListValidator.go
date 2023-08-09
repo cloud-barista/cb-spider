@@ -9,26 +9,26 @@ package cloudos
 
 import (
 	"fmt"
-        icbs "github.com/cloud-barista/cb-store/interfaces"
-)
 
+	icdrs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
+)
 
 // (1) Remove list of valid keys with list of inpput keys
 // (2) Check the list of remaining Keys
-func ValidateKeyValueList(inKeyValueList []icbs.KeyValue, validKeyList []string) error {
+func ValidateKeyValueList(inKeyValueList []icdrs.KeyValue, validKeyList []string) error {
 
 	clonedKeyList := cloneSlice(validKeyList)
 
-        // (1) Remove list of valid keys with list of inpput keys
-	inputKeyList := make([]string, len(inKeyValueList))	
-        for  idx, kv := range inKeyValueList {
+	// (1) Remove list of valid keys with list of inpput keys
+	inputKeyList := make([]string, len(inKeyValueList))
+	for idx, kv := range inKeyValueList {
 		inputKeyList[idx] = kv.Key
-                for _, key := range clonedKeyList {
-                        if kv.Key == key {
-                                clonedKeyList = removeSlice(clonedKeyList, key)
-                        }
-                }
-        }
+		for _, key := range clonedKeyList {
+			if kv.Key == key {
+				clonedKeyList = removeSlice(clonedKeyList, key)
+			}
+		}
+	}
 	// (2) Check the list of remaining Keys
 	if len(clonedKeyList) == 0 {
 		return nil
@@ -40,12 +40,12 @@ func ValidateKeyValueList(inKeyValueList []icbs.KeyValue, validKeyList []string)
 
 func removeSlice(inSlice []string, deleteValue string) []string {
 	for idx, v := range inSlice {
-                if v == deleteValue {
-                        inSlice = append(inSlice[:idx], inSlice[idx+1:]...)
+		if v == deleteValue {
+			inSlice = append(inSlice[:idx], inSlice[idx+1:]...)
 			return inSlice
-                }
-        }
-	return  inSlice
+		}
+	}
+	return inSlice
 }
 
 func cloneSlice(inSlice []string) []string {

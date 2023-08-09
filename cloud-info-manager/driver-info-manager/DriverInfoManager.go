@@ -4,6 +4,7 @@
 //
 //      * Cloud-Barista: https://github.com/cloud-barista
 //
+// by CB-Spider Team, 2023.07.
 // by CB-Spider Team, 2019.09.
 
 package driverinfomanager
@@ -18,8 +19,6 @@ import (
 	infostore "github.com/cloud-barista/cb-spider/info-store"
 )
 
-var cblog *logrus.Logger
-
 // ====================================================================
 const KEY_COLUMN_NAME = "driver_name"
 
@@ -29,10 +28,12 @@ type CloudDriverInfo struct {
 	DriverLibFileName string // ex) "aws-test-driver-v0.5.so"  //Already, you need to insert "*.so" in $CB_SPIDER_ROOT/cloud-driver/libs.
 }
 
+// ====================================================================
+
+var cblog *logrus.Logger
+
 func init() {
 	cblog = config.Cblogger
-
-	fmt.Println("\n============================[Init] Cloud Driver Info Manager")
 
 	db, err := infostore.Open()
 	if err != nil {
@@ -42,10 +43,11 @@ func init() {
 	infostore.Close(db)
 }
 
-//====================================================================
-
+// 1. check params
+// 2. check driver files
+// 3. insert them into info-store
 func RegisterCloudDriverInfo(cldInfo CloudDriverInfo) (*CloudDriverInfo, error) {
-	cblog.Info("call RegisterCloudDriver()")
+	cblog.Info("call RegisterCloudDriverInfo()")
 
 	cblog.Debug("check params")
 	err := checkParams(cldInfo.DriverName, cldInfo.ProviderName, cldInfo.DriverLibFileName)
@@ -76,28 +78,25 @@ func RegisterCloudDriverInfo(cldInfo CloudDriverInfo) (*CloudDriverInfo, error) 
 	return &cldInfo, nil
 }
 
-// 1. check params
-// 2. check driver files
-// 3. insert them into cb-store
-// You should copy the driver library into ~/libs before.
 func RegisterCloudDriver(driverName string, providerName string, driverLibFileName string) (*CloudDriverInfo, error) {
+	cblog.Info("call RegisterCloudDriver()")
 	return RegisterCloudDriverInfo(CloudDriverInfo{driverName, providerName, driverLibFileName})
 }
 
 func ListCloudDriver() ([]*CloudDriverInfo, error) {
 	cblog.Info("call ListCloudDriver()")
-	fmt.Println("before call ListCloudDriver()")
+
 	var cloudDriverInfoList []*CloudDriverInfo
 	err := infostore.List(&cloudDriverInfoList)
 	if err != nil {
 		return nil, err
 	}
-	fmt.Println("after call ListCloudDriver()")
+
 	return cloudDriverInfoList, nil
 }
 
 // 1. check params
-// 2. get DriverInfo from cb-store
+// 2. get DriverInfo from info-store
 func GetCloudDriver(driverName string) (*CloudDriverInfo, error) {
 	cblog.Info("call GetCloudDriver()")
 
@@ -122,8 +121,7 @@ func UnRegisterCloudDriver(driverName string) (bool, error) {
 		return false, fmt.Errorf("DriverName is empty!")
 	}
 
-	var driverInfo CloudDriverInfo
-	result, err := infostore.Delete(&driverInfo, KEY_COLUMN_NAME, driverName)
+	result, err := infostore.Delete(&CloudDriverInfo{}, KEY_COLUMN_NAME, driverName)
 	if err != nil {
 		cblog.Error(err)
 		return false, err

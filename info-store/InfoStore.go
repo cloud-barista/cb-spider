@@ -10,11 +10,15 @@
 package infostore
 
 import (
+	"database/sql/driver"
+	"encoding/json"
 	"fmt"
 	"os"
 
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
+
+	icdrs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 )
 
 var DB_FILE_PATH string
@@ -23,6 +27,31 @@ func init() {
 	/*###############################################################*/
 	DB_FILE_PATH = os.Getenv("CBSPIDER_ROOT") + "/meta_db/cb-spider.db"
 	/*###############################################################*/
+}
+
+// KeyValue is a struct for Key-Value pair
+// KVList type is used for storing a list of KeyValue with a json format
+type KVList []icdrs.KeyValue
+
+func (o *KVList) Scan(src any) error {
+	bytes := []byte(src.(string))
+	err := json.Unmarshal(bytes, o)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (o KVList) Value() (driver.Value, error) {
+	if len(o) == 0 {
+		return nil, nil
+	}
+	jsonData, err := json.Marshal(o)
+	if err != nil {
+		fmt.Println("Failed to serialize to JSON:", err)
+		return nil, err
+	}
+	return string(jsonData), nil
 }
 
 // Meta DB Opener

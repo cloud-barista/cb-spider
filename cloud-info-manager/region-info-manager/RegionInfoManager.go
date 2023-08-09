@@ -4,6 +4,7 @@
 //
 //      * Cloud-Barista: https://github.com/cloud-barista
 //
+// by CB-Spider Team, 2023.07.
 // by CB-Spider Team, 2019.09.
 
 package regioninfomanager
@@ -11,65 +12,78 @@ package regioninfomanager
 import (
 	"fmt"
 	"strings"
-	"github.com/cloud-barista/cb-store/config"
-	icbs "github.com/cloud-barista/cb-store/interfaces"
+
+	icdrs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	cim "github.com/cloud-barista/cb-spider/cloud-info-manager"
+	"github.com/cloud-barista/cb-store/config"
 
 	"github.com/sirupsen/logrus"
+
+	infostore "github.com/cloud-barista/cb-spider/info-store"
 )
+
+// ====================================================================
+const KEY_COLUMN_NAME = "region_name"
+
+type RegionInfo struct {
+	RegionName       string           `gorm:"primaryKey"` // ex) "region01"
+	ProviderName     string           // ex) "GCP"
+	KeyValueInfoList infostore.KVList `gorm:"type:text"` // stored with json format, ex) { {region, us-east1}, {zone, us-east1-c}, ...}
+}
+
+//====================================================================
 
 var cblog *logrus.Logger
 
 func init() {
 	cblog = config.Cblogger
-}
 
-//====================================================================
-type RegionInfo struct {
-	RegionName       string          // ex) "region01"
-	ProviderName     string          // ex) "GCP"
-	KeyValueInfoList []icbs.KeyValue // ex) { {region, us-east1},
-	//	 {zone, us-east1-c},
-}
-
-//====================================================================
-
-func RegisterRegionInfo(rgnInfo RegionInfo) (*RegionInfo, error) {
-	return RegisterRegion(rgnInfo.RegionName, rgnInfo.ProviderName, rgnInfo.KeyValueInfoList)
+	db, err := infostore.Open()
+	if err != nil {
+		panic("failed to connect database")
+	}
+	db.AutoMigrate(&RegionInfo{})
+	infostore.Close(db)
 }
 
 // 1. check params
-// 2. insert them into cb-store
-func RegisterRegion(regionName string, providerName string, keyValueInfoList []icbs.KeyValue) (*RegionInfo, error) {
-	cblog.Info("call RegisterRegion()")
+// 2. insert them into info-store
+func RegisterRegionInfo(rgnInfo RegionInfo) (*RegionInfo, error) {
+	cblog.Info("call RegisterRegionInfo()")
 
 	cblog.Debug("check params")
-	err := checkParams(regionName, providerName, keyValueInfoList)
+	err := checkParams(rgnInfo.RegionName, rgnInfo.ProviderName, rgnInfo.KeyValueInfoList)
 	if err != nil {
 		return nil, err
 
 	}
 
-        // trim user inputs
-        regionName = strings.TrimSpace(regionName)
-	providerName = strings.ToUpper(strings.TrimSpace(providerName))
+	// trim user inputs
+	rgnInfo.RegionName = strings.TrimSpace(rgnInfo.RegionName)
+	rgnInfo.ProviderName = strings.ToUpper(strings.TrimSpace(rgnInfo.ProviderName))
 
 	cblog.Debug("insert metainfo into store")
 
-	err = insertInfo(regionName, providerName, keyValueInfoList)
+	err = infostore.Insert(&rgnInfo)
 	if err != nil {
 		cblog.Error(err)
 		return nil, err
 	}
 
-	rgnInfo := &RegionInfo{regionName, providerName, keyValueInfoList}
-	return rgnInfo, nil
+	return &rgnInfo, nil
+}
+
+func RegisterRegion(regionName string, providerName string, keyValueInfoList []icdrs.KeyValue) (*RegionInfo, error) {
+	cblog.Info("call RegisterRegion()")
+
+	return RegisterRegionInfo(RegionInfo{regionName, providerName, keyValueInfoList})
 }
 
 func ListRegion() ([]*RegionInfo, error) {
 	cblog.Info("call ListRegion()")
 
-	regionInfoList, err := listInfo()
+	var regionInfoList []*RegionInfo
+	err := infostore.List(&regionInfoList)
 	if err != nil {
 		return nil, err
 	}
@@ -78,7 +92,7 @@ func ListRegion() ([]*RegionInfo, error) {
 }
 
 // 1. check params
-// 2. get CredentialInfo from cb-store
+// 2. get RegionIfno from info-store
 func GetRegion(regionName string) (*RegionInfo, error) {
 	cblog.Info("call GetRegion()")
 
@@ -86,13 +100,14 @@ func GetRegion(regionName string) (*RegionInfo, error) {
 		return nil, fmt.Errorf("RegionName is empty!")
 	}
 
-	rgnInfo, err := getInfo(regionName)
+	var regionInfo RegionInfo
+	err := infostore.Get(&regionInfo, KEY_COLUMN_NAME, regionName)
 	if err != nil {
 		cblog.Error(err)
 		return nil, err
 	}
 
-	return rgnInfo, err
+	return &regionInfo, err
 }
 
 func UnRegisterRegion(regionName string) (bool, error) {
@@ -102,7 +117,7 @@ func UnRegisterRegion(regionName string) (bool, error) {
 		return false, fmt.Errorf("RegionName is empty!")
 	}
 
-	result, err := deleteInfo(regionName)
+	result, err := infostore.Delete(&RegionInfo{}, KEY_COLUMN_NAME, regionName)
 	if err != nil {
 		cblog.Error(err)
 		return false, err
@@ -113,7 +128,7 @@ func UnRegisterRegion(regionName string) (bool, error) {
 
 //----------------
 
-func checkParams(regionName string, providerName string, keyValueInfoList []icbs.KeyValue) error {
+func checkParams(regionName string, providerName string, keyValueInfoList []icdrs.KeyValue) error {
 	if regionName == "" {
 		return fmt.Errorf("RegionName is empty!")
 	}
@@ -125,18 +140,18 @@ func checkParams(regionName string, providerName string, keyValueInfoList []icbs
 	}
 
 	// get Provider's Meta Info
-        cloudOSMetaInfo, err := cim.GetCloudOSMetaInfo(providerName)
-        if err != nil {
-                cblog.Error(err)
-                return err
-        }
+	cloudOSMetaInfo, err := cim.GetCloudOSMetaInfo(providerName)
+	if err != nil {
+		cblog.Error(err)
+		return err
+	}
 
 	// validate the KeyValueList of Region Input
 	err = cim.ValidateKeyValueList(keyValueInfoList, cloudOSMetaInfo.Region)
-        if err != nil {
-                cblog.Error(err)
-                return err
-        }
+	if err != nil {
+		cblog.Error(err)
+		return err
+	}
 
 	return nil
 }

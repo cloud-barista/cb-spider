@@ -11,11 +11,11 @@ package clouddriverhandler
 import (
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	icon "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/connect"
+	icdrs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	ccim "github.com/cloud-barista/cb-spider/cloud-info-manager/connection-config-info-manager"
 	cim "github.com/cloud-barista/cb-spider/cloud-info-manager/credential-info-manager"
 	dim "github.com/cloud-barista/cb-spider/cloud-info-manager/driver-info-manager"
 	rim "github.com/cloud-barista/cb-spider/cloud-info-manager/region-info-manager"
-	icbs "github.com/cloud-barista/cb-store/interfaces"
 
 	"fmt"
 	"strings"
@@ -160,7 +160,7 @@ func getRegionNameByRegionInfo(rgnInfo *rim.RegionInfo) (string, string, error) 
 	return regionName, zoneName, nil
 }
 
-func getValue(keyValueInfoList []icbs.KeyValue, key string) string {
+func getValue(keyValueInfoList []icdrs.KeyValue, key string) string {
 	for _, kv := range keyValueInfoList {
 		if kv.Key == key {
 			return kv.Value
