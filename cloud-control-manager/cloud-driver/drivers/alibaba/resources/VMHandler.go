@@ -1083,7 +1083,7 @@ func (vmHandler *AlibabaVMHandler) getDiskInfo(instanceId string) ecs.Disk {
 
 	response, err := vmHandler.Client.DescribeDisks(diskRequest)
 	if err != nil {
-		fmt.Print(err.Error())
+		cblogger.Error(err.Error())
 	}
 	fmt.Println("response: ", response)
 

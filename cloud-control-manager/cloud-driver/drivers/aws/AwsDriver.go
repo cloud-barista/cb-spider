@@ -59,8 +59,8 @@ func (AwsDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 func getVMClient(connectionInfo idrv.ConnectionInfo) (*ec2.EC2, error) {
 
 	// setup Region
-	fmt.Println("AwsDriver : getVMClient() - Region : [" + connectionInfo.RegionInfo.Region + "]")
-	fmt.Println("AwsDriver : getVMClient() - Zone : [" + connectionInfo.RegionInfo.Zone + "]")
+	// fmt.Println("AwsDriver : getVMClient() - Region : [" + connectionInfo.RegionInfo.Region + "]")
+	// fmt.Println("AwsDriver : getVMClient() - Zone : [" + connectionInfo.RegionInfo.Zone + "]")
 	//fmt.Println("전달 받은 커넥션 정보")
 	//spew.Dump(connectionInfo)
 
@@ -89,8 +89,8 @@ func getNLBClient(connectionInfo idrv.ConnectionInfo) (*elbv2.ELBV2, error) {
 	//func getNLBClient(connectionInfo idrv.ConnectionInfo) (*elb.ELB, error) {
 
 	// setup Region
-	fmt.Println("AwsDriver : getVMClient() - Region : [" + connectionInfo.RegionInfo.Region + "]")
-	fmt.Println("AwsDriver : getVMClient() - Zone : [" + connectionInfo.RegionInfo.Zone + "]")
+	// fmt.Println("AwsDriver : getVMClient() - Region : [" + connectionInfo.RegionInfo.Region + "]")
+	// fmt.Println("AwsDriver : getVMClient() - Zone : [" + connectionInfo.RegionInfo.Zone + "]")
 	//fmt.Println("전달 받은 커넥션 정보")
 	//spew.Dump(connectionInfo)
 
@@ -119,8 +119,8 @@ func getNLBClient(connectionInfo idrv.ConnectionInfo) (*elbv2.ELBV2, error) {
 func getEKSClient(connectionInfo idrv.ConnectionInfo) (*eks.EKS, error) {
 
 	// setup Region
-	fmt.Println("AwsDriver : getEKSClient() - Region : [" + connectionInfo.RegionInfo.Region + "]")
-	fmt.Println("AwsDriver : getEKSClient() - Zone : [" + connectionInfo.RegionInfo.Zone + "]")
+	// fmt.Println("AwsDriver : getEKSClient() - Region : [" + connectionInfo.RegionInfo.Region + "]")
+	// fmt.Println("AwsDriver : getEKSClient() - Zone : [" + connectionInfo.RegionInfo.Zone + "]")
 	//fmt.Println("전달 받은 커넥션 정보")
 	//spew.Dump(connectionInfo)
 
@@ -146,8 +146,8 @@ func getEKSClient(connectionInfo idrv.ConnectionInfo) (*eks.EKS, error) {
 // Iam 처리를 위한 iam 클라이언트 획득
 func getIamClient(connectionInfo idrv.ConnectionInfo) (*iam.IAM, error) {
 	// setup Region
-	fmt.Println("AwsDriver : getIamClient() - Region : [" + connectionInfo.RegionInfo.Region + "]")
-	fmt.Println("AwsDriver : getIamClient() - Zone : [" + connectionInfo.RegionInfo.Zone + "]")
+	// fmt.Println("AwsDriver : getIamClient() - Region : [" + connectionInfo.RegionInfo.Region + "]")
+	// fmt.Println("AwsDriver : getIamClient() - Zone : [" + connectionInfo.RegionInfo.Zone + "]")
 	//fmt.Println("전달 받은 커넥션 정보")
 	//spew.Dump(connectionInfo)
 
@@ -174,8 +174,8 @@ func getIamClient(connectionInfo idrv.ConnectionInfo) (*iam.IAM, error) {
 func getAutoScalingClient(connectionInfo idrv.ConnectionInfo) (*autoscaling.AutoScaling, error) {
 
 	// setup Region
-	fmt.Println("AwsDriver : getAutoScalingClient() - Region : [" + connectionInfo.RegionInfo.Region + "]")
-	fmt.Println("AwsDriver : getAutoScalingClient() - Zone : [" + connectionInfo.RegionInfo.Zone + "]")
+	// fmt.Println("AwsDriver : getAutoScalingClient() - Region : [" + connectionInfo.RegionInfo.Region + "]")
+	// fmt.Println("AwsDriver : getAutoScalingClient() - Zone : [" + connectionInfo.RegionInfo.Zone + "]")
 	//fmt.Println("전달 받은 커넥션 정보")
 	//spew.Dump(connectionInfo)
 
