@@ -1,3 +1,3 @@
-# Contributing
+# Contributing Guide
 
-Welcome to Cloud-Barista! To learn more about contributing to the Cloud-Barista, check out the [Contributor's Guide](https://github.com/cloud-barista/docs/blob/master/CONTRIBUTING.md).
+Welcome to CB-Spider! We're absolutely thrilled to have you here. If you're interested in contributing to this repository and becoming a part of our wonderful community, we encourage you to take a look at our incredibly helpful [Contributing Guide](https://github.com/cloud-barista/docs/blob/master/CONTRIBUTING.md).
