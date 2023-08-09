@@ -1793,17 +1793,102 @@ func handleMyImage() {
 	}
 }
 
+func handlePMKS() {
+	cblogger.Debug("Start ClusterHandler Resource Test")
+
+	ResourceHandler, err := testconf.GetResourceHandler("PMKS")
+	if err != nil {
+		panic(err)
+	}
+	handler := ResourceHandler.(irs.ClusterHandler)
+
+	//imageReqInfo := irs2.ImageReqInfo{
+	clusterReqInfo := irs.ClusterInfo{
+		IId: irs.IID{NameId: "cb-pmks-01", SystemId: "cb-pmks-01"},
+	}
+
+	for {
+		fmt.Println("ClusterHandler Management")
+		fmt.Println("0. Quit")
+		fmt.Println("1. Cluster List")
+		fmt.Println("2. Cluster Create")
+		fmt.Println("3. Cluster Get")
+		fmt.Println("4. Cluster Delete")
+
+		var commandNum int
+		inputCnt, err := fmt.Scan(&commandNum)
+		if err != nil {
+			panic(err)
+		}
+
+		if inputCnt == 1 {
+			switch commandNum {
+			case 0:
+				return
+
+			case 1:
+				result, err := handler.ListCluster()
+				if err != nil {
+					cblogger.Infof(" Cluster 목록 조회 실패 : ", err)
+				} else {
+					cblogger.Info("Cluster 목록 조회 결과")
+					cblogger.Info(result)
+					cblogger.Info("출력 결과 수 : ", len(result))
+					spew.Dump(result)
+					//spew.Dump(result)
+
+					//조회및 삭제 테스트를 위해 리스트의 첫번째 정보의 ID를 요청ID로 자동 갱신함.
+					// if result != nil {
+					//    diskReqInfo.IId = result[0].IId // 조회 및 삭제를 위해 생성된 ID로 변경
+					// }
+				}
+
+			case 2:
+				cblogger.Infof("[%s] Cluster 생성 테스트", clusterReqInfo.IId.NameId)
+				//vNetworkReqInfo := irs.VNetworkReqInfo{}
+				result, err := handler.CreateCluster(clusterReqInfo)
+				if err != nil {
+					cblogger.Infof(clusterReqInfo.IId.NameId, " Cluster 생성 실패 : ", err)
+				} else {
+					cblogger.Infof("Cluster 생성 결과 : ", result)
+					clusterReqInfo.IId = result.IId // 조회 및 삭제를 위해 생성된 ID로 변경
+					spew.Dump(result)
+				}
+
+			case 3:
+				cblogger.Infof("[%s] Cluster 조회 테스트", clusterReqInfo.IId.NameId)
+				result, err := handler.GetCluster(clusterReqInfo.IId)
+				if err != nil {
+					cblogger.Infof("[%s] Cluster 조회 실패 : ", clusterReqInfo.IId.NameId, err)
+				} else {
+					cblogger.Infof("[%s] Cluster 조회 결과 : [%s]", clusterReqInfo.IId.NameId, result)
+					spew.Dump(result)
+				}
+			case 5:
+				cblogger.Infof("[%s] Cluster 삭제 테스트", clusterReqInfo.IId.NameId)
+				result, err := handler.DeleteCluster(clusterReqInfo.IId)
+				if err != nil {
+					cblogger.Infof("[%s] Cluster 삭제 실패 : ", clusterReqInfo.IId.NameId, err)
+				} else {
+					cblogger.Infof("[%s] Cluster 삭제 결과 : [%s]", clusterReqInfo.IId.NameId, result)
+				}
+			}
+		}
+	}
+}
+
 //import "path/filepath"
 
 func main() {
 	cblogger.Info("GCP Resource Test")
-	//handleVPC()
+	handlePMKS()
+	// handleVPC()
 	//handleVMSpec()
 	//handleImage() //AMI
 	//handleKeyPair()
 	//handleSecurity()
-	handleVM()
-	//handleLoadBalancer()
+	// handleVM()
+	// handleLoadBalancer()
 	//handleDisk()
 	//handleMyImage()
 	//cblogger.Info(filepath.Join("a/b", "\\cloud-driver-libs\\.ssh-gcp\\"))

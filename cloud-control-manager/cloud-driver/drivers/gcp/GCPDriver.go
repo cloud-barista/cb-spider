@@ -21,11 +21,11 @@ import (
 
 	icon "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/connect"
 
-	o2 "golang.org/x/oauth2"
 	goo "golang.org/x/oauth2/google"
 
 	compute "google.golang.org/api/compute/v1"
 	"google.golang.org/api/container/v1"
+	"google.golang.org/api/option"
 )
 
 type GCPDriver struct {
@@ -131,11 +131,11 @@ func getVMClient(credential idrv.CredentialInfo) (context.Context, *compute.Serv
 		return nil, nil, err
 	}
 
-	client := conf.Client(o2.NoContext)
-
-	vmClient, err := compute.New(client)
-
 	ctx := context.Background()
+
+	client := conf.Client(ctx)
+
+	vmClient, err := compute.NewService(ctx, option.WithHTTPClient(client))
 
 	return ctx, vmClient, nil
 }
@@ -165,12 +165,11 @@ func getContainerClient(credential idrv.CredentialInfo) (context.Context, *conta
 		return nil, nil, err
 	}
 
-	client := conf.Client(o2.NoContext)
-
-	containerClient, err := container.New(client)
-
 	ctx := context.Background()
+
+	client := conf.Client(ctx)
+
+	containerClient, err := container.NewService(ctx, option.WithHTTPClient(client))
 
 	return ctx, containerClient, nil
 }
-
