@@ -9,87 +9,85 @@
 package restruntime
 
 import (
+	cmrt "github.com/cloud-barista/cb-spider/api-runtime/common-runtime"
+	cres "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 
-        cmrt "github.com/cloud-barista/cb-spider/api-runtime/common-runtime"
-        cres "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
+	// REST API (echo)
+	"net/http"
 
-        // REST API (echo)
-        "net/http"
+	"github.com/labstack/echo/v4"
 
-        "github.com/labstack/echo/v4"
-
-        "strconv"
+	"strconv"
 )
-
 
 //================ VPC Handler
 
 type vpcRegisterReq struct {
 	ConnectionName string
 	ReqInfo        struct {
-		Name           string
-		CSPId          string
+		Name  string
+		CSPId string
 	}
 }
 
 func RegisterVPC(c echo.Context) error {
-        cblog.Info("call RegisterVPC()")
+	cblog.Info("call RegisterVPC()")
 
-        req := vpcRegisterReq{}
+	req := vpcRegisterReq{}
 
-        if err := c.Bind(&req); err != nil {
-                return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-        }
+	if err := c.Bind(&req); err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
 
-        // create UserIID
+	// create UserIID
 	userIId := cres.IID{req.ReqInfo.Name, req.ReqInfo.CSPId}
 
-        // Call common-runtime API
-        result, err := cmrt.RegisterVPC(req.ConnectionName, userIId)
-        if err != nil {
-                return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-        }
+	// Call common-runtime API
+	result, err := cmrt.RegisterVPC(req.ConnectionName, userIId)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
 
-        return c.JSON(http.StatusOK, result)
+	return c.JSON(http.StatusOK, result)
 }
 
 // (1) get args from REST Call
 // (2) call common-runtime API
 // (3) return REST Json Format
 func UnregisterVPC(c echo.Context) error {
-        cblog.Info("call UnregisterVPC()")
+	cblog.Info("call UnregisterVPC()")
 
-        var req struct {
-                ConnectionName string
-        }
+	var req struct {
+		ConnectionName string
+	}
 
-        if err := c.Bind(&req); err != nil {
-                return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-        }
+	if err := c.Bind(&req); err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
 
-        // Call common-runtime API
-        result, err := cmrt.UnregisterResource(req.ConnectionName, rsVPC, c.Param("Name"))
-        if err != nil {
-                return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-        }
+	// Call common-runtime API
+	result, err := cmrt.UnregisterResource(req.ConnectionName, rsVPC, c.Param("Name"))
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
 
-        resultInfo := BooleanInfo{
-                Result: strconv.FormatBool(result),
-        }
+	resultInfo := BooleanInfo{
+		Result: strconv.FormatBool(result),
+	}
 
-        return c.JSON(http.StatusOK, &resultInfo)
+	return c.JSON(http.StatusOK, &resultInfo)
 }
 
 type vpcCreateReq struct {
-        ConnectionName string
-        ReqInfo        struct {
-                Name           string
-                IPv4_CIDR      string
-                SubnetInfoList []struct {
-                        Name      string
-                        IPv4_CIDR string
-                }
-        }
+	ConnectionName string
+	ReqInfo        struct {
+		Name           string
+		IPv4_CIDR      string
+		SubnetInfoList []struct {
+			Name      string
+			IPv4_CIDR string
+		}
+	}
 }
 
 // createVPC godoc
@@ -147,9 +145,9 @@ func ListVPC(c echo.Context) error {
 	}
 
 	// To support for Get-Query Param Type API
-        if req.ConnectionName == "" {
-                req.ConnectionName = c.QueryParam("ConnectionName")
-        }
+	if req.ConnectionName == "" {
+		req.ConnectionName = c.QueryParam("ConnectionName")
+	}
 
 	// Call common-runtime API
 	result, err := cmrt.ListVPC(req.ConnectionName, rsVPC)
@@ -181,9 +179,9 @@ func ListAllVPC(c echo.Context) error {
 	}
 
 	// To support for Get-Query Param Type API
-        if req.ConnectionName == "" {
-                req.ConnectionName = c.QueryParam("ConnectionName")
-        }
+	if req.ConnectionName == "" {
+		req.ConnectionName = c.QueryParam("ConnectionName")
+	}
 
 	// Call common-runtime API
 	allResourceList, err := cmrt.ListAllResource(req.ConnectionName, rsVPC)
@@ -206,9 +204,9 @@ func GetVPC(c echo.Context) error {
 	}
 
 	// To support for Get-Query Param Type API
-        if req.ConnectionName == "" {
-                req.ConnectionName = c.QueryParam("ConnectionName")
-        }
+	if req.ConnectionName == "" {
+		req.ConnectionName = c.QueryParam("ConnectionName")
+	}
 
 	// Call common-runtime API
 	result, err := cmrt.GetVPC(req.ConnectionName, rsVPC, c.Param("Name"))
@@ -234,7 +232,7 @@ func DeleteVPC(c echo.Context) error {
 	}
 
 	// Call common-runtime API
-	result, _, err := cmrt.DeleteResource(req.ConnectionName, rsVPC, c.Param("Name"), c.QueryParam("force"))
+	result, err := cmrt.DeleteVPC(req.ConnectionName, rsVPC, c.Param("Name"), c.QueryParam("force"))
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
@@ -358,24 +356,24 @@ func RemoveCSPSubnet(c echo.Context) error {
 }
 
 func GetSGOwnerVPC(c echo.Context) error {
-        cblog.Info("call GetSGOwnerVPC()")
+	cblog.Info("call GetSGOwnerVPC()")
 
-        var req struct {
-                ConnectionName string
+	var req struct {
+		ConnectionName string
 		ReqInfo        struct {
-			CSPId          string
+			CSPId string
 		}
-        }
+	}
 
-        if err := c.Bind(&req); err != nil {
-                return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-        }
+	if err := c.Bind(&req); err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
 
-        // Call common-runtime API
-        result, err := cmrt.GetSGOwnerVPC(req.ConnectionName, req.ReqInfo.CSPId)
-        if err != nil {
-                return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-        }
+	// Call common-runtime API
+	result, err := cmrt.GetSGOwnerVPC(req.ConnectionName, req.ReqInfo.CSPId)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
 
-        return c.JSON(http.StatusOK, result)
+	return c.JSON(http.StatusOK, result)
 }

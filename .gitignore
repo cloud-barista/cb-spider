@@ -14,6 +14,7 @@
 *.out
 
 *.swp
+*.pid
 
 .DS_Store
 
@@ -41,6 +42,7 @@ interface/cbadm
 interface/spctl
 
 .history/
+.vscode/
 
 cloud-control-manager/cloud-driver/drivers/ncp/*
 cloud-control-manager/cloud-driver/drivers/ncp-plugin/*
