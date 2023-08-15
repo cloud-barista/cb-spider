@@ -17,6 +17,7 @@ import (
 
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
 
 	icdrs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 )
@@ -57,7 +58,9 @@ func (o KVList) Value() (driver.Value, error) {
 // Meta DB Opener
 func Open() (*gorm.DB, error) {
 
-	db, err := gorm.Open(sqlite.Open(DB_FILE_PATH), &gorm.Config{})
+	// Turn-on error logs of gorm: db, err := gorm.Open(sqlite.Open(DB_FILE_PATH), &gorm.Config{})
+	db, err := gorm.Open(sqlite.Open(DB_FILE_PATH), &gorm.Config{
+		Logger: logger.Default.LogMode(logger.Silent)})
 	if err != nil {
 		db = nil
 		return nil, err

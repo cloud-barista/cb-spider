@@ -22,27 +22,14 @@ import (
 )
 
 // ====================================================================
-const CONNECTION_NAME_COLUMN = "connection_name"
-const NAME_ID_COLUMN = "name_id"
-const SYSTEM_ID_COLUMN = "system_id"
-const OWNER_VPC_NAME_COLUMN = "owner_vpc_name"
-
-type VPCIIDInfo struct {
-	ConnectionName string `gorm:"primaryKey"` // ex) "aws-seoul-config"
-	NameId         string `gorm:"primaryKey"` // ex) "my_resource"
-	SystemId       string // ID in CSP, ex) "i7baab81a4ez"
-}
-
-type SubnetIIDInfo struct {
-	ConnectionName string `gorm:"primaryKey"` // ex) "aws-seoul-config"
-	NameId         string `gorm:"primaryKey"` // ex) "my_resource"
-	SystemId       string // ID in CSP, ex) "i7baab81a4ez"
-	OwnerVPCName   string `gorm:"primaryKey"` // ex) "my_vpc"
-}
+// type for GORM
+type VPCIIDInfo FirstIIDInfo
 
 func (VPCIIDInfo) TableName() string {
 	return "vpc_iid_infos"
 }
+
+type SubnetIIDInfo SecondaryIIDInfo
 
 func (SubnetIIDInfo) TableName() string {
 	return "subnet_iid_infos"
@@ -840,7 +827,7 @@ func RemoveCSPSubnet(connectionName string, vpcName string, systemID string) (bo
 // (2) delete Resource(SystemId)
 // (3) delete IID
 func DeleteVPC(connectionName string, rsType string, nameID string, force string) (bool, error) {
-	cblog.Info("call DeleteResource()")
+	cblog.Info("call DeleteeVPC()")
 
 	// check empty and trim user inputs
 	connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)

@@ -83,6 +83,28 @@ var clusterSPLock = splock.New()
 // definition of IIDManager RWLock
 var iidRWLock = new(iidm.IIDRWLOCK)
 
+// ====================================================================
+// Common column name and struct for GORM
+const CONNECTION_NAME_COLUMN = "connection_name"
+const NAME_ID_COLUMN = "name_id"
+const SYSTEM_ID_COLUMN = "system_id"
+const OWNER_VPC_NAME_COLUMN = "owner_vpc_name"
+
+type FirstIIDInfo struct {
+	ConnectionName string `gorm:"primaryKey"` // ex) "aws-seoul-config"
+	NameId         string `gorm:"primaryKey"` // ex) "my_resource"
+	SystemId       string // ID in CSP, ex) "i7baab81a4ez"
+}
+
+type SecondaryIIDInfo struct {
+	ConnectionName string `gorm:"primaryKey"` // ex) "aws-seoul-config"
+	NameId         string `gorm:"primaryKey"` // ex) "my_resource"
+	SystemId       string // ID in CSP, ex) "i7baab81a4ez"
+	OwnerVPCName   string `gorm:"primaryKey"` // ex) "my_vpc"
+}
+
+// ====================================================================
+
 var cblog *logrus.Logger
 var callogger *logrus.Logger
 

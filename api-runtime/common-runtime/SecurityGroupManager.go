@@ -15,111 +15,132 @@ import (
 	ccm "github.com/cloud-barista/cb-spider/cloud-control-manager"
 	cres "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	iidm "github.com/cloud-barista/cb-spider/cloud-control-manager/iid-manager"
+	infostore "github.com/cloud-barista/cb-spider/info-store"
 )
 
+// ====================================================================
+// type for GORM
+
+type SGIIDInfo SecondaryIIDInfo
+
+func (SGIIDInfo) TableName() string {
+	return "sg_iid_infos"
+}
+
+//====================================================================
+
+func init() {
+	db, err := infostore.Open()
+	if err != nil {
+		panic("failed to connect database")
+	}
+	db.AutoMigrate(&SGIIDInfo{})
+	infostore.Close(db)
+}
 
 //================ SecurityGroup Handler
 
 func GetSGOwnerVPC(connectionName string, cspID string) (owerVPC cres.IID, err error) {
-        cblog.Info("call GetSGOwnerVPC()")
+	cblog.Info("call GetSGOwnerVPC()")
 
-        // check empty and trim user inputs
-        connectionName, err = EmptyCheckAndTrim("connectionName", connectionName)
-        if err != nil {
-                cblog.Error(err)
-                return cres.IID{}, err
-        }
+	// check empty and trim user inputs
+	connectionName, err = EmptyCheckAndTrim("connectionName", connectionName)
+	if err != nil {
+		cblog.Error(err)
+		return cres.IID{}, err
+	}
 
-        cspID, err = EmptyCheckAndTrim("cspID", cspID)
-        if err != nil {
-                cblog.Error(err)
-                return cres.IID{}, err
-        }
+	cspID, err = EmptyCheckAndTrim("cspID", cspID)
+	if err != nil {
+		cblog.Error(err)
+		return cres.IID{}, err
+	}
 
-        rsType := rsSG
+	rsType := rsSG
 
-        cldConn, err := ccm.GetCloudConnection(connectionName)
-        if err != nil {
-                cblog.Error(err)
-                return cres.IID{}, err
-        }
+	cldConn, err := ccm.GetCloudConnection(connectionName)
+	if err != nil {
+		cblog.Error(err)
+		return cres.IID{}, err
+	}
 
-        handler, err := cldConn.CreateSecurityHandler()
-        if err != nil {
-                cblog.Error(err)
-                return cres.IID{}, err
-        }
+	handler, err := cldConn.CreateSecurityHandler()
+	if err != nil {
+		cblog.Error(err)
+		return cres.IID{}, err
+	}
 
-// Except Management API
-//sgSPLock.RLock()
-//vpcSPLock.RLock()
+	// Except Management API
+	//sgSPLock.RLock()
+	//vpcSPLock.RLock()
 
-        // (1) check existence(cspID)
-        iidInfoList, err := getAllSGIIDInfoList(connectionName)
-        if err != nil {
-//vpcSPLock.RUnlock()
-//sgSPLock.RUnlock()
-                cblog.Error(err)
-                return cres.IID{}, err
-        }
-        var isExist bool=false
-        var nameId string
-        for _, OneIIdInfo := range iidInfoList {
-                if getMSShortID(getDriverSystemId(OneIIdInfo.IId)) == cspID {
-                        nameId = OneIIdInfo.IId.NameId
-                        isExist = true
-                        break
-                }
-        }
-        if isExist == true {
-//vpcSPLock.RUnlock()
-//sgSPLock.RUnlock()
-                err :=  fmt.Errorf(rsType + "-" + cspID + " already exists with " + nameId + "!")
-                cblog.Error(err)
-                return cres.IID{}, err
-        }
+	// (1) check existence(cspID)
+	var iidInfoList []*SGIIDInfo
+	err = infostore.ListByCondition(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName)
+	if err != nil {
+		//vpcSPLock.RUnlock()
+		//sgSPLock.RUnlock()
+		cblog.Error(err)
+		return cres.IID{}, err
+	}
+	var isExist bool = false
+	var nameId string
+	for _, OneIIdInfo := range iidInfoList {
+		if getMSShortID(getDriverSystemId(cres.IID{NameId: OneIIdInfo.NameId, SystemId: OneIIdInfo.SystemId})) == cspID {
+			nameId = OneIIdInfo.NameId
+			isExist = true
+			break
+		}
+	}
+	if isExist {
+		//vpcSPLock.RUnlock()
+		//sgSPLock.RUnlock()
+		err := fmt.Errorf(rsType + "-" + cspID + " already exists with " + nameId + "!")
+		cblog.Error(err)
+		return cres.IID{}, err
+	}
 
-        // (2) get resource info(CSP-ID)
-        // check existence and get info of this resouce in the CSP
-        // Do not user NameId, because Azure driver use it like SystemId
-        getInfo, err := handler.GetSecurity( cres.IID{getMSShortID(cspID), cspID} )
-        if err != nil {
-//vpcSPLock.RUnlock()
-//sgSPLock.RUnlock()
-                cblog.Error(err)
-                return cres.IID{}, err
-        }
+	// (2) get resource info(CSP-ID)
+	// check existence and get info of this resouce in the CSP
+	// Do not user NameId, because Azure driver use it like SystemId
+	getInfo, err := handler.GetSecurity(cres.IID{NameId: getMSShortID(cspID), SystemId: cspID})
+	if err != nil {
+		//vpcSPLock.RUnlock()
+		//sgSPLock.RUnlock()
+		cblog.Error(err)
+		return cres.IID{}, err
+	}
 
-        // (3) get VPC IID:list
-        vpcIIDInfoList, err := iidRWLock.ListIID(iidm.IIDSGROUP, connectionName, rsVPC)
-        if err != nil {
-//vpcSPLock.RUnlock()
-//sgSPLock.RUnlock()
-                cblog.Error(err)
-                return cres.IID{}, err
-        }
-//vpcSPLock.RUnlock()
-//sgSPLock.RUnlock()
+	// (3) get VPC IID:list
+	var vpcIIDInfoList []*VPCIIDInfo
+	err = infostore.ListByCondition(&vpcIIDInfoList, CONNECTION_NAME_COLUMN, connectionName)
+	if err != nil {
+		//vpcSPLock.RUnlock()
+		//sgSPLock.RUnlock()
+		cblog.Error(err)
+		return cres.IID{}, err
+	}
+	//vpcSPLock.RUnlock()
+	//sgSPLock.RUnlock()
 
-        //--------
-        //-------- ex) spiderIID {"vpc-01", "vpc-01-9m4e2mr0ui3e8a215n4g:i-0bc7123b7e5cbf79d"}
-        //--------
-        // Do not user NameId, because Azure driver use it like SystemId
-        vpcCSPID := getMSShortID(getInfo.VpcIID.SystemId)
-        if vpcIIDInfoList == nil || len(vpcIIDInfoList) <= 0 {
-                return cres.IID{"", vpcCSPID}, nil
-        }
+	//--------
+	//-------- ex) spiderIID {"vpc-01", "vpc-01-9m4e2mr0ui3e8a215n4g:i-0bc7123b7e5cbf79d"}
+	//--------
+	// Do not user NameId, because Azure driver use it like SystemId
+	vpcCSPID := getMSShortID(getInfo.VpcIID.SystemId)
+	if vpcIIDInfoList == nil || len(vpcIIDInfoList) <= 0 {
+		return cres.IID{NameId: "", SystemId: vpcCSPID}, nil
+	}
 
-        // (4) check existence in the MetaDB
-        for _, one := range vpcIIDInfoList {
-                if getMSShortID(getDriverSystemId(one.IId)) == vpcCSPID {
-                        return cres.IID{one.IId.NameId, vpcCSPID}, nil
-                }
-        }
+	// (4) check existence in the MetaDB
+	for _, one := range vpcIIDInfoList {
+		if getMSShortID(getDriverSystemId(cres.IID{NameId: one.NameId, SystemId: one.SystemId})) == vpcCSPID {
+			return cres.IID{NameId: one.NameId, SystemId: vpcCSPID}, nil
+		}
+	}
 
-        return cres.IID{"", vpcCSPID}, nil
+	return cres.IID{"", vpcCSPID}, nil
 }
-
 
 // UserIID{UserID, CSP-ID} => SpiderIID{UserID, SP-XID:CSP-ID}
 // (0) check VPC existence(VPC UserID)
@@ -128,127 +149,117 @@ func GetSGOwnerVPC(connectionName string, cspID string) (owerVPC cres.IID, err e
 // (3) create spiderIID: {UserID, SP-XID:CSP-ID}
 // (4) insert spiderIID
 func RegisterSecurity(connectionName string, vpcUserID string, userIID cres.IID) (*cres.SecurityInfo, error) {
-        cblog.Info("call RegisterSecurity()")
+	cblog.Info("call RegisterSecurity()")
 
 	// check empty and trim user inputs
-        connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)
-        if err != nil {
+	connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)
+	if err != nil {
 		cblog.Error(err)
-                return nil, err
-        }
+		return nil, err
+	}
 
-        vpcUserID, err = EmptyCheckAndTrim("vpcUserID", vpcUserID)
-        if err != nil {
+	vpcUserID, err = EmptyCheckAndTrim("vpcUserID", vpcUserID)
+	if err != nil {
 		cblog.Error(err)
-                return nil, err
-        }
+		return nil, err
+	}
 
-	emptyPermissionList := []string{
-        }
+	emptyPermissionList := []string{}
 
-        err = ValidateStruct(userIID, emptyPermissionList)
-        if err != nil {
-                cblog.Error(err)
-                return nil, err
-        }
+	err = ValidateStruct(userIID, emptyPermissionList)
+	if err != nil {
+		cblog.Error(err)
+		return nil, err
+	}
 
-        rsType := rsSG
+	rsType := rsSG
 
-        cldConn, err := ccm.GetCloudConnection(connectionName)
-        if err != nil {
-                cblog.Error(err)
-                return nil, err
-        }
+	cldConn, err := ccm.GetCloudConnection(connectionName)
+	if err != nil {
+		cblog.Error(err)
+		return nil, err
+	}
 
 	handler, err := cldConn.CreateSecurityHandler()
-        if err != nil {
-                cblog.Error(err)
-                return nil, err
-        }
+	if err != nil {
+		cblog.Error(err)
+		return nil, err
+	}
 
-        vpcSPLock.Lock(connectionName, vpcUserID)
-        defer vpcSPLock.Unlock(connectionName, vpcUserID)
-        sgSPLock.Lock(connectionName, userIID.NameId)
-        defer sgSPLock.Unlock(connectionName, userIID.NameId)
+	vpcSPLock.Lock(connectionName, vpcUserID)
+	defer vpcSPLock.Unlock(connectionName, vpcUserID)
+	sgSPLock.Lock(connectionName, userIID.NameId)
+	defer sgSPLock.Unlock(connectionName, userIID.NameId)
 
-        // (0) check VPC existence(VPC UserID)
-        bool_ret, err := iidRWLock.IsExistIID(iidm.IIDSGROUP, connectionName, rsVPC, cres.IID{vpcUserID, ""})
-        if err != nil {
-                cblog.Error(err)
-                return nil, err
-        }
-        if bool_ret == false {
+	// (0) check VPC existence(VPC UserID)
+	bool_ret, err := infostore.HasByConditions(&VPCIIDInfo{}, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, vpcUserID)
+	if err != nil {
+		cblog.Error(err)
+		return nil, err
+	}
+	if !bool_ret {
 		err := fmt.Errorf("The %s '%s' does not exist!", RsTypeString(rsVPC), vpcUserID)
 		cblog.Error(err)
-                return nil, err
-        }
+		return nil, err
+	}
 
-        // (1) check existence(UserID)
-        iidInfoList, err := getAllSGIIDInfoList(connectionName)
-        if err != nil {
-                cblog.Error(err)
-                return nil, err
-        }
-        var isExist bool=false
-        for _, OneIIdInfo := range iidInfoList {
-                if OneIIdInfo.IId.NameId == userIID.NameId {
-                        isExist = true
-			break
-                }
-        }
+	// (1) check existence(UserID)
+	isExist, err := infostore.HasByConditions(&SGIIDInfo{}, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, userIID.NameId)
+	if err != nil {
+		cblog.Error(err)
+		return nil, err
+	}
+	if isExist {
+		err := fmt.Errorf(rsType + "-" + userIID.NameId + " already exists!")
+		cblog.Error(err)
+		return nil, err
+	}
 
-        if isExist == true {
-                err :=  fmt.Errorf(rsType + "-" + userIID.NameId + " already exists!")
-                cblog.Error(err)
-                return nil, err
-        }
-
-
-        // (2) get resource info(CSP-ID)
-        // check existence and get info of this resouce in the CSP
+	// (2) get resource info(CSP-ID)
+	// check existence and get info of this resouce in the CSP
 	// Do not user NameId, because Azure driver use it like SystemId
-        getInfo, err := handler.GetSecurity( cres.IID{getMSShortID(userIID.SystemId), userIID.SystemId} )
-        if err != nil {
-                cblog.Error(err)
-                return nil, err
-        }
-        // Direction: to lower
-        // IPProtocol: to upper
-        // no CIDR: "0.0.0.0/0"
-        transformArgs(getInfo.SecurityRules)
+	getInfo, err := handler.GetSecurity(cres.IID{NameId: getMSShortID(userIID.SystemId), SystemId: userIID.SystemId})
+	if err != nil {
+		cblog.Error(err)
+		return nil, err
+	}
+	// Direction: to lower
+	// IPProtocol: to upper
+	// no CIDR: "0.0.0.0/0"
+	transformArgs(getInfo.SecurityRules)
 
-        // (3) create spiderIID: {UserID, SP-XID:CSP-ID}
-        //     ex) spiderIID {"vpc-01", "vpc-01-9m4e2mr0ui3e8a215n4g:i-0bc7123b7e5cbf79d"}
+	// (3) create spiderIID: {UserID, SP-XID:CSP-ID}
+	//     ex) spiderIID {"vpc-01", "vpc-01-9m4e2mr0ui3e8a215n4g:i-0bc7123b7e5cbf79d"}
 	// Do not user NameId, because Azure driver use it like SystemId
 	systemId := getMSShortID(getInfo.IId.SystemId)
-        spiderIId := cres.IID{userIID.NameId, systemId + ":" + getInfo.IId.SystemId}
+	spiderIId := cres.IID{NameId: userIID.NameId, SystemId: systemId + ":" + getInfo.IId.SystemId}
 
+	// (4) insert spiderIID
+	// insert SecurityGroup SpiderIID to metadb
+	err = infostore.Insert(&SGIIDInfo{ConnectionName: connectionName,
+		NameId: spiderIId.NameId, SystemId: spiderIId.SystemId, OwnerVPCName: vpcUserID})
+	if err != nil {
+		cblog.Error(err)
+		return nil, err
+	}
 
-        // (4) insert spiderIID
-        // insert SecurityGroup SpiderIID to metadb
-	_, err = iidRWLock.CreateIID(iidm.SGGROUP, connectionName, vpcUserID, spiderIId)
-        if err != nil {
-                cblog.Error(err)
-                return nil, err
-        }
+	// set up SecurityGroup User IID for return info
+	getInfo.IId = userIID
 
-        // set up SecurityGroup User IID for return info
-        getInfo.IId = userIID
+	// set up VPC UserIID for return info
+	var iidInfo VPCIIDInfo
+	err = infostore.GetByConditions(&iidInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, vpcUserID)
+	if err != nil {
+		cblog.Error(err)
+		return nil, err
+	}
+	getInfo.VpcIID = getUserIID(cres.IID{NameId: iidInfo.NameId, SystemId: iidInfo.SystemId})
+	if err != nil {
+		cblog.Error(err)
+		return nil, err
+	}
 
-        // set up VPC UserIID for return info
-        iidInfo, err := iidRWLock.GetIID(iidm.IIDSGROUP, connectionName, rsVPC, cres.IID{vpcUserID, ""})
-        if err != nil {
-                cblog.Error(err)
-                return nil, err
-        }
-        getInfo.VpcIID = getUserIID(iidInfo.IId)
-        if err != nil {
-                cblog.Error(err)
-                return nil, err
-        }
-
-
-        return &getInfo, nil
+	return &getInfo, nil
 }
 
 // (1) check exist(NameID)
@@ -261,38 +272,38 @@ func CreateSecurity(connectionName string, rsType string, reqInfo cres.SecurityR
 	cblog.Info("call CreateSecurity()")
 
 	// check empty and trim user inputs
-        connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)
-        if err != nil {
+	connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)
+	if err != nil {
 		cblog.Error(err)
-                return nil, err
-        }
+		return nil, err
+	}
 
 	/* Currently, Validator does not support the struct has a point of Array such as SecurityReqInfo
-        emptyPermissionList := []string{
-                "resources.IID:SystemId",
-                "resources.SecurityReqInfo:Direction", // because can be unused in some CSP
-                "resources.SecurityRuleInfo:CIDR",     // because can be set without soruce CIDR
-        }
+	   emptyPermissionList := []string{
+	           "resources.IID:SystemId",
+	           "resources.SecurityReqInfo:Direction", // because can be unused in some CSP
+	           "resources.SecurityRuleInfo:CIDR",     // because can be set without soruce CIDR
+	   }
 
-        err = ValidateStruct(reqInfo, emptyPermissionList)
-        if err != nil {
-                cblog.Error(err)
-                return nil, err
-        }
+	   err = ValidateStruct(reqInfo, emptyPermissionList)
+	   if err != nil {
+	           cblog.Error(err)
+	           return nil, err
+	   }
 	*/
-
 
 	vpcSPLock.Lock(connectionName, reqInfo.VpcIID.NameId)
 	defer vpcSPLock.Unlock(connectionName, reqInfo.VpcIID.NameId)
 
 	//+++++++++++++++++++++++++++++++++++++++++++
 	// set VPC's SystemId
-	vpcIIDInfo, err := iidRWLock.GetIID(iidm.IIDSGROUP, connectionName, rsVPC, reqInfo.VpcIID)
+	var vpcIIDInfo VPCIIDInfo
+	err = infostore.GetByConditions(&vpcIIDInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, reqInfo.VpcIID.NameId)
 	if err != nil {
 		cblog.Error(err)
 		return nil, err
 	}
-	reqInfo.VpcIID.SystemId = getDriverSystemId(vpcIIDInfo.IId)
+	reqInfo.VpcIID.SystemId = getDriverSystemId(cres.IID{NameId: vpcIIDInfo.NameId, SystemId: vpcIIDInfo.SystemId})
 	//+++++++++++++++++++++++++++++++++++++++++++
 
 	cldConn, err := ccm.GetCloudConnection(connectionName)
@@ -307,10 +318,10 @@ func CreateSecurity(connectionName string, rsType string, reqInfo cres.SecurityR
 		return nil, err
 	}
 
-        // Direction: to lower
-        // IPProtocol: to upper
-        // no CIDR: "0.0.0.0/0"
-        transformArgs(reqInfo.SecurityRules)
+	// Direction: to lower
+	// IPProtocol: to upper
+	// no CIDR: "0.0.0.0/0"
+	transformArgs(reqInfo.SecurityRules)
 
 	sgSPLock.Lock(connectionName, reqInfo.IId.NameId)
 	defer sgSPLock.Unlock(connectionName, reqInfo.IId.NameId)
@@ -320,7 +331,7 @@ func CreateSecurity(connectionName string, rsType string, reqInfo cres.SecurityR
 		cblog.Error(err)
 		return nil, err
 	}
-	var isExist bool=false
+	var isExist bool = false
 	for _, OneIIdInfo := range iidInfoList {
 		if OneIIdInfo.IId.NameId == reqInfo.IId.NameId {
 			isExist = true
@@ -328,7 +339,7 @@ func CreateSecurity(connectionName string, rsType string, reqInfo cres.SecurityR
 	}
 
 	if isExist == true {
-		err :=  fmt.Errorf(rsType + "-" + reqInfo.IId.NameId + " already exists!")
+		err := fmt.Errorf(rsType + "-" + reqInfo.IId.NameId + " already exists!")
 		cblog.Error(err)
 		return nil, err
 	}
@@ -337,20 +348,20 @@ func CreateSecurity(connectionName string, rsType string, reqInfo cres.SecurityR
 	//     ex) SP-XID {"vm-01-9m4e2mr0ui3e8a215n4g"}
 	//
 	//     create reqIID: {reqNameID, reqSystemID}   # reqSystemID=SP-XID
-	//         ex) reqIID {"seoul-service", "vm-01-9m4e2mr0ui3e8a215n4g"} 
+	//         ex) reqIID {"seoul-service", "vm-01-9m4e2mr0ui3e8a215n4g"}
 	//
 	//     create driverIID: {driverNameID, driverSystemID}   # driverNameID=SP-XID, driverSystemID=csp's ID
 	//         ex) driverIID {"vm-01-9m4e2mr0ui3e8a215n4g", "i-0bc7123b7e5cbf79d"}
 	spUUID, err := iidm.New(connectionName, rsType, reqInfo.IId.NameId)
 	if err != nil {
-                cblog.Error(err)
-                return nil, err
-        }
+		cblog.Error(err)
+		return nil, err
+	}
 
 	// reqIID
-	reqIId := cres.IID{reqInfo.IId.NameId, spUUID}
+	reqIId := cres.IID{NameId: reqInfo.IId.NameId, SystemId: spUUID}
 	// driverIID
-	driverIId := cres.IID{spUUID, ""}
+	driverIId := cres.IID{NameId: spUUID, SystemId: ""}
 	reqInfo.IId = driverIId
 
 	// (3) create Resource
@@ -359,20 +370,21 @@ func CreateSecurity(connectionName string, rsType string, reqInfo cres.SecurityR
 		cblog.Error(err)
 		return nil, err
 	}
-        // Direction: to lower
-        // IPProtocol: to upper
-        // no CIDR: "0.0.0.0/0"
-        transformArgs(info.SecurityRules)
+	// Direction: to lower
+	// IPProtocol: to upper
+	// no CIDR: "0.0.0.0/0"
+	transformArgs(info.SecurityRules)
 
 	// set VPC NameId
 	info.VpcIID.NameId = reqInfo.VpcIID.NameId
 
 	// (4) create spiderIID: {reqNameID, "driverNameID:driverSystemID"}
 	//     ex) spiderIID {"seoul-service", "vm-01-9m4e2mr0ui3e8a215n4g:i-0bc7123b7e5cbf79d"}
-	spiderIId := cres.IID{reqIId.NameId, spUUID + ":" + info.IId.SystemId}
+	spiderIId := cres.IID{NameId: reqIId.NameId, SystemId: spUUID + ":" + info.IId.SystemId}
 
 	// (5) insert spiderIID
-	iidInfo, err := iidRWLock.CreateIID(iidm.SGGROUP, connectionName, reqInfo.VpcIID.NameId, spiderIId)  // reqIId.NameId => rsType
+	err = infostore.Insert(&SGIIDInfo{ConnectionName: connectionName,
+		NameId: spiderIId.NameId, SystemId: spiderIId.SystemId, OwnerVPCName: reqInfo.VpcIID.NameId})
 	if err != nil {
 		cblog.Error(err)
 		// rollback
@@ -387,25 +399,26 @@ func CreateSecurity(connectionName string, rsType string, reqInfo cres.SecurityR
 
 	// (6) create userIID: {reqNameID, driverSystemID}
 	//     ex) userIID {"seoul-service", "i-0bc7123b7e5cbf79d"}
-	info.IId = getUserIID(iidInfo.IId)
+	// info.IId = getUserIID(iidInfo.IId)
+	info.IId = cres.IID{NameId: reqIId.NameId, SystemId: info.IId.SystemId}
 
 	// set VPC SystemId
-	info.VpcIID.SystemId = getDriverSystemId(vpcIIDInfo.IId)
+	info.VpcIID.SystemId = getDriverSystemId(cres.IID{NameId: vpcIIDInfo.NameId, SystemId: vpcIIDInfo.SystemId})
 
 	return &info, nil
 }
 
 func transformArgs(ruleList *[]cres.SecurityRuleInfo) {
-        for n, _ := range *ruleList {
+	for n, _ := range *ruleList {
 		// Direction: to lower => inbound | outbound
 		(*ruleList)[n].Direction = strings.ToLower((*ruleList)[n].Direction)
 		// IPProtocol: to upper => ALL | TCP | UDP | ICMP
 		(*ruleList)[n].IPProtocol = strings.ToUpper((*ruleList)[n].IPProtocol)
 		// no CIDR, set default ("0.0.0.0/0")
-                if (*ruleList)[n].CIDR == "" {
-                        (*ruleList)[n].CIDR = "0.0.0.0/0"
-                }
-        }
+		if (*ruleList)[n].CIDR == "" {
+			(*ruleList)[n].CIDR = "0.0.0.0/0"
+		}
+	}
 }
 
 // (1) get IID:list
@@ -415,11 +428,11 @@ func ListSecurity(connectionName string, rsType string) ([]*cres.SecurityInfo, e
 	cblog.Info("call ListSecurity()")
 
 	// check empty and trim user inputs
-        connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)
-        if err != nil {
+	connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)
+	if err != nil {
 		cblog.Error(err)
-                return nil, err
-        }
+		return nil, err
+	}
 
 	cldConn, err := ccm.GetCloudConnection(connectionName)
 	if err != nil {
@@ -433,9 +446,10 @@ func ListSecurity(connectionName string, rsType string) ([]*cres.SecurityInfo, e
 		return nil, err
 	}
 
-
 	// (1) get IID:list
-	iidInfoList, err := getAllSGIIDInfoList(connectionName)
+	// before: iidInfoList, err := getAllSGIIDInfoList(connectionName)
+	var iidInfoList []*SGIIDInfo
+	err = infostore.ListByCondition(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName)
 	if err != nil {
 		cblog.Error(err)
 		return nil, err
@@ -451,12 +465,12 @@ func ListSecurity(connectionName string, rsType string) ([]*cres.SecurityInfo, e
 	infoList2 := []*cres.SecurityInfo{}
 	for _, iidInfo := range iidInfoList {
 
-sgSPLock.RLock(connectionName, iidInfo.IId.NameId)
+		sgSPLock.RLock(connectionName, iidInfo.NameId)
 
 		// get resource(SystemId)
-		info, err := handler.GetSecurity(getDriverIID(iidInfo.IId))
+		info, err := handler.GetSecurity(getDriverIID(cres.IID{NameId: iidInfo.NameId, SystemId: iidInfo.SystemId}))
 		if err != nil {
-sgSPLock.RUnlock(connectionName, iidInfo.IId.NameId)
+			sgSPLock.RUnlock(connectionName, iidInfo.NameId)
 			if checkNotFoundError(err) {
 				cblog.Info(err)
 				continue
@@ -464,7 +478,7 @@ sgSPLock.RUnlock(connectionName, iidInfo.IId.NameId)
 			cblog.Error(err)
 			return nil, err
 		}
-sgSPLock.RUnlock(connectionName, iidInfo.IId.NameId)
+		sgSPLock.RUnlock(connectionName, iidInfo.NameId)
 		// Direction: to lower
 		// IPProtocol: to upper
 		// no CIDR: "0.0.0.0/0"
@@ -472,15 +486,16 @@ sgSPLock.RUnlock(connectionName, iidInfo.IId.NameId)
 
 		// (3) set ResourceInfo(IID.NameId)
 		// set ResourceInfo
-		info.IId = getUserIID(iidInfo.IId)
+		info.IId = getUserIID(cres.IID{NameId: iidInfo.NameId, SystemId: iidInfo.SystemId})
 
 		// set VPC SystemId
-		vpcIIDInfo, err := iidRWLock.GetIID(iidm.IIDSGROUP, connectionName, rsVPC, cres.IID{iidInfo.ResourceType/*vpcName*/, ""})
+		var vpcIIDInfo VPCIIDInfo
+		err = infostore.GetByConditions(&vpcIIDInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, iidInfo.OwnerVPCName)
 		if err != nil {
 			cblog.Error(err)
 			return nil, err
 		}
-		info.VpcIID = getUserIID(vpcIIDInfo.IId)
+		info.VpcIID = getUserIID(cres.IID{NameId: vpcIIDInfo.NameId, SystemId: vpcIIDInfo.SystemId})
 
 		infoList2 = append(infoList2, &info)
 	}
@@ -495,17 +510,17 @@ func GetSecurity(connectionName string, rsType string, nameID string) (*cres.Sec
 	cblog.Info("call GetSecurity()")
 
 	// check empty and trim user inputs
-        connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)
-        if err != nil {
+	connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)
+	if err != nil {
 		cblog.Error(err)
-                return nil, err
-        }
+		return nil, err
+	}
 
-        nameID, err = EmptyCheckAndTrim("nameID", nameID)
-        if err != nil {
+	nameID, err = EmptyCheckAndTrim("nameID", nameID)
+	if err != nil {
 		cblog.Error(err)
-                return nil, err
-        }
+		return nil, err
+	}
 
 	cldConn, err := ccm.GetCloudConnection(connectionName)
 	if err != nil {
@@ -523,48 +538,32 @@ func GetSecurity(connectionName string, rsType string, nameID string) (*cres.Sec
 	defer sgSPLock.RUnlock(connectionName, nameID)
 
 	// (1) get IID(NameId)
-	iidInfoList, err := getAllSGIIDInfoList(connectionName)
-	if err != nil {
-		cblog.Error(err)
-		return nil, err
-	}
-	var iidInfo *iidm.IIDInfo
-	var bool_ret = false
-	for _, OneIIdInfo := range iidInfoList {
-		if OneIIdInfo.IId.NameId == nameID {
-			iidInfo = OneIIdInfo
-			bool_ret = true
-			break;
-		}
-	}
-	if bool_ret == false {
-		err := fmt.Errorf("The %s '%s' does not exist!", RsTypeString(rsType), nameID)
-		cblog.Error(err)
-                return nil, err
-        }
+	var iidInfo SGIIDInfo
+	err = infostore.GetByConditions(&iidInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameID)
 
 	// (2) get resource(SystemId)
-	info, err := handler.GetSecurity(getDriverIID(iidInfo.IId))
+	info, err := handler.GetSecurity(getDriverIID(cres.IID{NameId: iidInfo.NameId, SystemId: iidInfo.SystemId}))
 	if err != nil {
 		cblog.Error(err)
 		return nil, err
 	}
-        // Direction: to lower
-        // IPProtocol: to upper
-        // no CIDR: "0.0.0.0/0"
-        transformArgs(info.SecurityRules)
+	// Direction: to lower
+	// IPProtocol: to upper
+	// no CIDR: "0.0.0.0/0"
+	transformArgs(info.SecurityRules)
 
 	// (3) set ResourceInfo(IID.NameId)
 	// set ResourceInfo
-	info.IId = getUserIID(iidInfo.IId)
+	info.IId = getUserIID(cres.IID{NameId: iidInfo.NameId, SystemId: iidInfo.SystemId})
 
 	// set VPC SystemId
-	vpcIIDInfo, err := iidRWLock.GetIID(iidm.IIDSGROUP, connectionName, rsVPC, cres.IID{iidInfo.ResourceType/*vpcName*/, ""})
+	var vpcIIDInfo VPCIIDInfo
+	err = infostore.GetByConditions(&vpcIIDInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, iidInfo.OwnerVPCName)
 	if err != nil {
 		cblog.Error(err)
 		return nil, err
 	}
-	info.VpcIID = getUserIID(vpcIIDInfo.IId)
+	info.VpcIID = getUserIID(cres.IID{NameId: vpcIIDInfo.NameId, SystemId: vpcIIDInfo.SystemId})
 
 	return &info, nil
 }
@@ -572,154 +571,208 @@ func GetSecurity(connectionName string, rsType string, nameID string) (*cres.Sec
 // (1) check exist(NameID)
 // (2) add Rules
 func AddRules(connectionName string, sgName string, reqInfoList []cres.SecurityRuleInfo) (*cres.SecurityInfo, error) {
-        cblog.Info("call AddRules()")
+	cblog.Info("call AddRules()")
 
-        // check empty and trim user inputs
-        connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)
-        if err != nil {
-                cblog.Error(err)
-                return nil, err
-        }
+	// check empty and trim user inputs
+	connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)
+	if err != nil {
+		cblog.Error(err)
+		return nil, err
+	}
 
-        sgName, err = EmptyCheckAndTrim("sgName", sgName)
-        if err != nil {
-                cblog.Error(err)
-                return nil, err
-        }
+	sgName, err = EmptyCheckAndTrim("sgName", sgName)
+	if err != nil {
+		cblog.Error(err)
+		return nil, err
+	}
 
-        cldConn, err := ccm.GetCloudConnection(connectionName)
-        if err != nil {
-                cblog.Error(err)
-                return nil, err
-        }
+	cldConn, err := ccm.GetCloudConnection(connectionName)
+	if err != nil {
+		cblog.Error(err)
+		return nil, err
+	}
 
-        handler, err := cldConn.CreateSecurityHandler()
-        if err != nil {
-                cblog.Error(err)
-                return nil, err
-        }
+	handler, err := cldConn.CreateSecurityHandler()
+	if err != nil {
+		cblog.Error(err)
+		return nil, err
+	}
 
-        // Direction: to lower
-        // IPProtocol: to upper
-        // no CIDR: "0.0.0.0/0"
-        transformArgs(&reqInfoList)
+	// Direction: to lower
+	// IPProtocol: to upper
+	// no CIDR: "0.0.0.0/0"
+	transformArgs(&reqInfoList)
 
-        sgSPLock.Lock(connectionName, sgName)
-        defer sgSPLock.Unlock(connectionName, sgName)
+	sgSPLock.Lock(connectionName, sgName)
+	defer sgSPLock.Unlock(connectionName, sgName)
 
-        // (1) check exist(sgName)
-        iidInfoList, err := getAllSGIIDInfoList(connectionName)
-        if err != nil {
-                cblog.Error(err)
-                return nil, err
-        }
-        var iidInfo *iidm.IIDInfo
-        var bool_ret = false
-        for _, OneIIdInfo := range iidInfoList {
-                if OneIIdInfo.IId.NameId == sgName {
-                        iidInfo = OneIIdInfo
-                        bool_ret = true
-                        break;
-                }
-        }
-        if bool_ret == false {
-                err := fmt.Errorf("The %s '%s' does not exist!", RsTypeString(rsSG), sgName)
-                cblog.Error(err)
-                return nil, err
-        }
+	// (1) check exist(sgName)
+	bool_ret, err := infostore.HasByConditions(&SGIIDInfo{}, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, sgName)
+	if err != nil {
+		cblog.Error(err)
+		return nil, err
+	}
+	if !bool_ret {
+		err := fmt.Errorf("The %s '%s' does not exist!", RsTypeString(rsSG), sgName)
+		cblog.Error(err)
+		return nil, err
+	}
 
-        // (2) add Rules
-        // driverIID for driver
-        info, err := handler.AddRules(getDriverIID(iidInfo.IId), &reqInfoList)
-        if err != nil {
-                cblog.Error(err)
-                return nil, err
-        }
-        // Direction: to lower
-        // IPProtocol: to upper
-        // no CIDR: "0.0.0.0/0"
-        transformArgs(info.SecurityRules)
+	var iidInfo SGIIDInfo
+	err = infostore.GetByConditions(&iidInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, sgName)
 
-        // (3) set ResourceInfo(userIID)
-        info.IId = getUserIID(iidInfo.IId)
+	// (2) add Rules
+	// driverIID for driver
+	info, err := handler.AddRules(getDriverIID(cres.IID{NameId: iidInfo.NameId, SystemId: iidInfo.SystemId}), &reqInfoList)
+	if err != nil {
+		cblog.Error(err)
+		return nil, err
+	}
+	// Direction: to lower
+	// IPProtocol: to upper
+	// no CIDR: "0.0.0.0/0"
+	transformArgs(info.SecurityRules)
 
-        // set VPC SystemId
-        vpcIIDInfo, err := iidRWLock.GetIID(iidm.IIDSGROUP, connectionName, rsVPC, cres.IID{iidInfo.ResourceType/*vpcName*/, ""})
-        if err != nil {
-                cblog.Error(err)
-                return nil, err
-        }
-        info.VpcIID = getUserIID(vpcIIDInfo.IId)
+	// (3) set ResourceInfo(userIID)
+	info.IId = getUserIID(cres.IID{NameId: iidInfo.NameId, SystemId: iidInfo.SystemId})
 
-        return &info, nil
+	// set VPC SystemId
+	var vpcIIDInfo VPCIIDInfo
+	err = infostore.GetByConditions(&vpcIIDInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, iidInfo.OwnerVPCName)
+	if err != nil {
+		cblog.Error(err)
+		return nil, err
+	}
+	info.VpcIID = getUserIID(cres.IID{NameId: vpcIIDInfo.NameId, SystemId: vpcIIDInfo.SystemId})
+
+	return &info, nil
 }
 
 // (1) check exist(NameID)
 // (2) remove Rules
 func RemoveRules(connectionName string, sgName string, reqRuleInfoList []cres.SecurityRuleInfo) (bool, error) {
-        cblog.Info("call RemoveRules()")
+	cblog.Info("call RemoveRules()")
 
-        // check empty and trim user inputs
-        connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)
-        if err != nil {
-                cblog.Error(err)
-                return false, err
-        }
+	// check empty and trim user inputs
+	connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)
+	if err != nil {
+		cblog.Error(err)
+		return false, err
+	}
 
-        sgName, err = EmptyCheckAndTrim("sgName", sgName)
-        if err != nil {
-                cblog.Error(err)
-                return false, err
-        }
+	sgName, err = EmptyCheckAndTrim("sgName", sgName)
+	if err != nil {
+		cblog.Error(err)
+		return false, err
+	}
 
-        cldConn, err := ccm.GetCloudConnection(connectionName)
-        if err != nil {
-                cblog.Error(err)
-                return false, err
-        }
+	cldConn, err := ccm.GetCloudConnection(connectionName)
+	if err != nil {
+		cblog.Error(err)
+		return false, err
+	}
 
-        handler, err := cldConn.CreateSecurityHandler()
-        if err != nil {
-                cblog.Error(err)
-                return false, err
-        }
+	handler, err := cldConn.CreateSecurityHandler()
+	if err != nil {
+		cblog.Error(err)
+		return false, err
+	}
 
-        // Direction: to lower
-        // IPProtocol: to upper
-        // no CIDR: "0.0.0.0/0"
-        transformArgs(&reqRuleInfoList)
+	// Direction: to lower
+	// IPProtocol: to upper
+	// no CIDR: "0.0.0.0/0"
+	transformArgs(&reqRuleInfoList)
 
-        sgSPLock.Lock(connectionName, sgName)
-        defer sgSPLock.Unlock(connectionName, sgName)
+	sgSPLock.Lock(connectionName, sgName)
+	defer sgSPLock.Unlock(connectionName, sgName)
 
-        // (1) check exist(sgName)
-        iidInfoList, err := getAllSGIIDInfoList(connectionName)
-        if err != nil {
-                cblog.Error(err)
-                return false, err
-        }
-        var iidInfo *iidm.IIDInfo
-        var bool_ret = false
-        for _, OneIIdInfo := range iidInfoList {
-                if OneIIdInfo.IId.NameId == sgName {
-                        iidInfo = OneIIdInfo
-                        bool_ret = true
-                        break;
-                }
-        }
-        if bool_ret == false {
-                err := fmt.Errorf("The %s '%s' does not exist!", RsTypeString(rsSG), sgName)
-                cblog.Error(err)
-                return false, err
-        }
+	// (1) check exist(sgName)
+	bool_ret, err := infostore.HasByConditions(&SGIIDInfo{}, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, sgName)
+	if err != nil {
+		cblog.Error(err)
+		return false, err
+	}
+	if !bool_ret {
+		err := fmt.Errorf("The %s '%s' does not exist!", RsTypeString(rsSG), sgName)
+		cblog.Error(err)
+		return false, err
+	}
 
-        // (2) remove Rules
-        // driverIID for driver
-        result, err := handler.RemoveRules(getDriverIID(iidInfo.IId), &reqRuleInfoList)
-        if err != nil {
-                cblog.Error(err)
-                return false, err
-        }
+	var iidInfo SGIIDInfo
+	err = infostore.GetByConditions(&iidInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, sgName)
 
-        return result, nil
+	// (2) remove Rules
+	// driverIID for driver
+	result, err := handler.RemoveRules(getDriverIID(cres.IID{NameId: iidInfo.NameId, SystemId: iidInfo.SystemId}), &reqRuleInfoList)
+	if err != nil {
+		cblog.Error(err)
+		return false, err
+	}
+
+	return result, nil
+}
+
+// (1) get spiderIID
+// (2) delete Resource(SystemId)
+// (3) delete IID
+func DeleteSecurity(connectionName string, rsType string, nameID string, force string) (bool, error) {
+	cblog.Info("call DeleteSecurity()")
+
+	// check empty and trim user inputs
+	connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)
+	if err != nil {
+		cblog.Error(err)
+		return false, err
+	}
+
+	nameID, err = EmptyCheckAndTrim("nameID", nameID)
+	if err != nil {
+		cblog.Error(err)
+		return false, err
+	}
+
+	cldConn, err := ccm.GetCloudConnection(connectionName)
+	if err != nil {
+		cblog.Error(err)
+		return false, err
+	}
+
+	var handler interface{}
+	handler, err = cldConn.CreateSecurityHandler()
+
+	sgSPLock.Lock(connectionName, nameID)
+	defer sgSPLock.Unlock(connectionName, nameID)
+
+	// (1) get spiderIID for creating driverIID
+	var iidInfo SGIIDInfo
+	err = infostore.GetByConditions(&iidInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameID)
+
+	// (2) delete Resource(SystemId)
+	driverIId := getDriverIID(cres.IID{NameId: iidInfo.NameId, SystemId: iidInfo.SystemId})
+	result, err := handler.(cres.SecurityHandler).DeleteSecurity(driverIId)
+	if err != nil {
+		cblog.Error(err)
+		if force == "false" {
+			return false, err
+		}
+	}
+
+	if force == "false" {
+		if result == false {
+			return result, nil
+		}
+	}
+
+	// (3) delete IID
+	_, err = infostore.DeleteBy3Conditions(&SGIIDInfo{}, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameID,
+		OWNER_VPC_NAME_COLUMN, iidInfo.OwnerVPCName)
+	if err != nil {
+		cblog.Error(err)
+		if force == "false" {
+			return false, err
+		}
+	}
+
+	// except rsVM
+	return result, nil
 }
