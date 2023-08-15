@@ -1,4 +1,3 @@
-
 // Cloud Control Manager's Rest Runtime of CB-Spider.
 // The CB-Spider is a sub-Framework of the Cloud-Barista Multi-Cloud Project.
 // The CB-Spider Mission is to connect all the clouds with a single interface.
@@ -10,77 +9,74 @@
 package restruntime
 
 import (
+	cmrt "github.com/cloud-barista/cb-spider/api-runtime/common-runtime"
+	cres "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 
-        cmrt "github.com/cloud-barista/cb-spider/api-runtime/common-runtime"
-        cres "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
+	// REST API (echo)
+	"net/http"
 
-        // REST API (echo)
-        "net/http"
+	"github.com/labstack/echo/v4"
 
-        "github.com/labstack/echo/v4"
-
-        "strconv"
+	"strconv"
 )
-
 
 //================ Disk Handler
 
 type keyRegisterReq struct {
-        ConnectionName string
-        ReqInfo        struct {
-                Name           string
-                CSPId          string
-        }
+	ConnectionName string
+	ReqInfo        struct {
+		Name  string
+		CSPId string
+	}
 }
 
 func RegisterKey(c echo.Context) error {
-        cblog.Info("call RegisterKey()")
+	cblog.Info("call RegisterKey()")
 
-        req := keyRegisterReq{}
+	req := keyRegisterReq{}
 
-        if err := c.Bind(&req); err != nil {
-                return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-        }
+	if err := c.Bind(&req); err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
 
-        // create UserIID
-        userIId := cres.IID{req.ReqInfo.Name, req.ReqInfo.CSPId}
+	// create UserIID
+	userIId := cres.IID{NameId: req.ReqInfo.Name, SystemId: req.ReqInfo.CSPId}
 
-        // Call common-runtime API
-        result, err := cmrt.RegisterKey(req.ConnectionName, userIId)
-        if err != nil {
-                return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-        }
+	// Call common-runtime API
+	result, err := cmrt.RegisterKey(req.ConnectionName, userIId)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
 
-        return c.JSON(http.StatusOK, result)
+	return c.JSON(http.StatusOK, result)
 }
 
 // (1) get args from REST Call
 // (2) call common-runtime API
 // (3) return REST Json Format
 func UnregisterKey(c echo.Context) error {
-        cblog.Info("call UnregisterKey()")
+	cblog.Info("call UnregisterKey()")
 
-        var req struct {
-                ConnectionName string
-        }
+	var req struct {
+		ConnectionName string
+	}
 
-        if err := c.Bind(&req); err != nil {
-                return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-        }
+	if err := c.Bind(&req); err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
 
-        // Call common-runtime API
-        result, err := cmrt.UnregisterResource(req.ConnectionName, rsKey, c.Param("Name"))
-        if err != nil {
-                return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-        }
+	// Call common-runtime API
+	result, err := cmrt.UnregisterResource(req.ConnectionName, rsKey, c.Param("Name"))
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
 
-        resultInfo := BooleanInfo{
-                Result: strconv.FormatBool(result),
-        }
+	resultInfo := BooleanInfo{
+		Result: strconv.FormatBool(result),
+	}
 
-        return c.JSON(http.StatusOK, &resultInfo)
+	return c.JSON(http.StatusOK, &resultInfo)
 }
-
 
 // type keyPairCreateReq struct {
 // 	ConnectionName string
@@ -123,7 +119,7 @@ func CreateKey(c echo.Context) error {
 
 	// Rest RegInfo => Driver ReqInfo
 	reqInfo := cres.KeyPairReqInfo{
-		IId: cres.IID{req.ReqInfo.Name, ""},
+		IId: cres.IID{NameId: req.ReqInfo.Name, SystemId: ""},
 	}
 
 	// Call common-runtime API
@@ -147,9 +143,9 @@ func ListKey(c echo.Context) error {
 	}
 
 	// To support for Get-Query Param Type API
-        if req.ConnectionName == "" {
-                req.ConnectionName = c.QueryParam("ConnectionName")
-        }
+	if req.ConnectionName == "" {
+		req.ConnectionName = c.QueryParam("ConnectionName")
+	}
 
 	// Call common-runtime API
 	result, err := cmrt.ListKey(req.ConnectionName, rsKey)
@@ -180,9 +176,9 @@ func ListAllKey(c echo.Context) error {
 	}
 
 	// To support for Get-Query Param Type API
-        if req.ConnectionName == "" {
-                req.ConnectionName = c.QueryParam("ConnectionName")
-        }
+	if req.ConnectionName == "" {
+		req.ConnectionName = c.QueryParam("ConnectionName")
+	}
 
 	// Call common-runtime API
 	allResourceList, err := cmrt.ListAllResource(req.ConnectionName, rsKey)
@@ -233,7 +229,7 @@ func DeleteKey(c echo.Context) error {
 	}
 
 	// Call common-runtime API
-	result, _, err := cmrt.DeleteResource(req.ConnectionName, rsKey, c.Param("Name"), c.QueryParam("force"))
+	result, err := cmrt.DeleteKey(req.ConnectionName, rsKey, c.Param("Name"), c.QueryParam("force"))
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}

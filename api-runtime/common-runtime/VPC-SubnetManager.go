@@ -294,7 +294,6 @@ func CreateVPC(connectionName string, rsType string, reqInfo cres.VPCReqInfo) (*
 	}
 	// for Subnet list
 	for _, subnetInfo := range info.SubnetInfoList {
-		// key-value structure: ~/{SUBNETGROUP}/{ConnectionName}/{VPC-NameId}/{Subnet-reqNameId} [subnet-driverNameId:subnet-driverSystemId]  # VPC NameId => rsType
 		subnetReqNameId := getReqNameId(subnetReqIIdList, subnetInfo.IId.NameId)
 		if subnetReqNameId == "" {
 			cblog.Error(subnetInfo.IId.NameId + "is not requested Subnet.")
@@ -631,7 +630,6 @@ func AddSubnet(connectionName string, rsType string, vpcName string, reqInfo cre
 	// for Subnet list
 	for _, subnetInfo := range info.SubnetInfoList {
 		if subnetInfo.IId.NameId == reqInfo.IId.NameId { // NameId => SS-UUID
-			// key-value structure: ~/{SUBNETGROUP}/{ConnectionName}/{VPC-NameId}/{Subnet-reqNameId} [subnet-driverNameId:subnet-driverSystemId]  # VPC NameId => rsType
 			subnetSpiderIId := cres.IID{NameId: subnetReqNameId, SystemId: subnetInfo.IId.NameId + ":" + subnetInfo.IId.SystemId}
 			err = infostore.Insert(&SubnetIIDInfo{ConnectionName: connectionName, NameId: subnetSpiderIId.NameId, SystemId: subnetSpiderIId.SystemId,
 				OwnerVPCName: vpcName})
@@ -775,20 +773,20 @@ func RemoveCSPSubnet(connectionName string, vpcName string, systemID string) (bo
 	// check empty and trim user inputs
 	connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)
 	if err != nil {
-		return false, err
 		cblog.Error(err)
+		return false, err
 	}
 
 	vpcName, err = EmptyCheckAndTrim("vpcName", vpcName)
 	if err != nil {
-		return false, err
 		cblog.Error(err)
+		return false, err
 	}
 
 	systemID, err = EmptyCheckAndTrim("systemID", systemID)
 	if err != nil {
-		return false, err
 		cblog.Error(err)
+		return false, err
 	}
 
 	cldConn, err := ccm.GetCloudConnection(connectionName)
@@ -803,7 +801,7 @@ func RemoveCSPSubnet(connectionName string, vpcName string, systemID string) (bo
 		return false, err
 	}
 
-	iid := cres.IID{"", systemID}
+	iid := cres.IID{NameId: "", SystemId: systemID}
 
 	// delete Resource(SystemId)
 	result := false

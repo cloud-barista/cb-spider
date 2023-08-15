@@ -1080,14 +1080,14 @@ func DeleteCSPResource(connectionName string, rsType string, systemID string) (b
 	// check empty and trim user inputs
 	connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)
 	if err != nil {
-		return false, "", err
 		cblog.Error(err)
+		return false, "", err
 	}
 
 	systemID, err = EmptyCheckAndTrim("systemID", systemID)
 	if err != nil {
-		return false, "", err
 		cblog.Error(err)
+		return false, "", err
 	}
 
 	cldConn, err := ccm.GetCloudConnection(connectionName)

@@ -540,6 +540,10 @@ func GetSecurity(connectionName string, rsType string, nameID string) (*cres.Sec
 	// (1) get IID(NameId)
 	var iidInfo SGIIDInfo
 	err = infostore.GetByConditions(&iidInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameID)
+	if err != nil {
+		cblog.Error(err)
+		return nil, err
+	}
 
 	// (2) get resource(SystemId)
 	info, err := handler.GetSecurity(getDriverIID(cres.IID{NameId: iidInfo.NameId, SystemId: iidInfo.SystemId}))
@@ -620,6 +624,10 @@ func AddRules(connectionName string, sgName string, reqInfoList []cres.SecurityR
 
 	var iidInfo SGIIDInfo
 	err = infostore.GetByConditions(&iidInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, sgName)
+	if err != nil {
+		cblog.Error(err)
+		return nil, err
+	}
 
 	// (2) add Rules
 	// driverIID for driver
@@ -700,6 +708,10 @@ func RemoveRules(connectionName string, sgName string, reqRuleInfoList []cres.Se
 
 	var iidInfo SGIIDInfo
 	err = infostore.GetByConditions(&iidInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, sgName)
+	if err != nil {
+		cblog.Error(err)
+		return false, err
+	}
 
 	// (2) remove Rules
 	// driverIID for driver
@@ -737,8 +749,11 @@ func DeleteSecurity(connectionName string, rsType string, nameID string, force s
 		return false, err
 	}
 
-	var handler interface{}
-	handler, err = cldConn.CreateSecurityHandler()
+	handler, err := cldConn.CreateSecurityHandler()
+	if err != nil {
+		cblog.Error(err)
+		return false, err
+	}
 
 	sgSPLock.Lock(connectionName, nameID)
 	defer sgSPLock.Unlock(connectionName, nameID)
@@ -746,6 +761,10 @@ func DeleteSecurity(connectionName string, rsType string, nameID string, force s
 	// (1) get spiderIID for creating driverIID
 	var iidInfo SGIIDInfo
 	err = infostore.GetByConditions(&iidInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameID)
+	if err != nil {
+		cblog.Error(err)
+		return false, err
+	}
 
 	// (2) delete Resource(SystemId)
 	driverIId := getDriverIID(cres.IID{NameId: iidInfo.NameId, SystemId: iidInfo.SystemId})
@@ -758,7 +777,7 @@ func DeleteSecurity(connectionName string, rsType string, nameID string, force s
 	}
 
 	if force == "false" {
-		if result == false {
+		if !result {
 			return result, nil
 		}
 	}
@@ -773,6 +792,5 @@ func DeleteSecurity(connectionName string, rsType string, nameID string, force s
 		}
 	}
 
-	// except rsVM
 	return result, nil
 }
