@@ -31,7 +31,8 @@ func (KeyIIDInfo) TableName() string {
 func init() {
 	db, err := infostore.Open()
 	if err != nil {
-		panic("failed to connect database")
+		cblog.Error(err)
+		return
 	}
 	db.AutoMigrate(&KeyIIDInfo{})
 	infostore.Close(db)
@@ -335,7 +336,7 @@ func GetKey(connectionName string, rsType string, nameID string) (*cres.KeyPairI
 
 	// (1) get IID(NameId)
 	var iidInfo KeyIIDInfo
-	infostore.GetByConditions(&iidInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameID)
+	err = infostore.GetByConditions(&iidInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameID)
 	if err != nil {
 		cblog.Error(err)
 		return nil, err

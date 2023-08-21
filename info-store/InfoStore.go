@@ -49,7 +49,6 @@ func (o KVList) Value() (driver.Value, error) {
 	}
 	jsonData, err := json.Marshal(o)
 	if err != nil {
-		fmt.Println("Failed to serialize to JSON:", err)
 		return nil, err
 	}
 	return string(jsonData), nil
@@ -237,6 +236,26 @@ func GetBy3Conditions(info interface{}, columnName1 string, columnValue1 string,
 	defer Close(db)
 
 	if err := db.Where(columnName1+" = ? AND "+columnName2+" = ? AND "+columnName3+" = ?", columnValue1, columnValue2, columnValue3).First(&info).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return fmt.Errorf(columnValue1 + ", " + columnValue2 + ": does not exist!")
+		} else {
+			return fmt.Errorf(columnValue1+", "+columnValue2+": %v", err)
+		}
+	}
+
+	return nil
+}
+
+// Get a Info with a condition(Conneciton Name) and contains(contained_text)
+func GetByContain(info interface{}, columnName1 string, columnValue1 string, columnName2 string, columnValue2 string) error {
+	db, err := Open()
+	if err != nil {
+		return err
+	}
+	defer Close(db)
+
+	if err := db.Where(columnName1+" = ? AND "+columnName2+" LIKE ?",
+		columnValue1, fmt.Sprintf("%%%s%%", columnValue2)).First(&info).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return fmt.Errorf(columnValue1 + ", " + columnValue2 + ": does not exist!")
 		} else {

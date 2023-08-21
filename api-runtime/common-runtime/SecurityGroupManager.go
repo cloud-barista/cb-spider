@@ -32,7 +32,8 @@ func (SGIIDInfo) TableName() string {
 func init() {
 	db, err := infostore.Open()
 	if err != nil {
-		panic("failed to connect database")
+		cblog.Error(err)
+		return
 	}
 	db.AutoMigrate(&SGIIDInfo{})
 	infostore.Close(db)
@@ -326,19 +327,20 @@ func CreateSecurity(connectionName string, rsType string, reqInfo cres.SecurityR
 	sgSPLock.Lock(connectionName, reqInfo.IId.NameId)
 	defer sgSPLock.Unlock(connectionName, reqInfo.IId.NameId)
 	// (1) check exist(NameID)
-	iidInfoList, err := getAllSGIIDInfoList(connectionName)
+	var iidInfoList []*SGIIDInfo
+	err = infostore.ListByCondition(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName)
 	if err != nil {
 		cblog.Error(err)
 		return nil, err
 	}
 	var isExist bool = false
 	for _, OneIIdInfo := range iidInfoList {
-		if OneIIdInfo.IId.NameId == reqInfo.IId.NameId {
+		if OneIIdInfo.NameId == reqInfo.IId.NameId {
 			isExist = true
 		}
 	}
 
-	if isExist == true {
+	if isExist {
 		err := fmt.Errorf(rsType + "-" + reqInfo.IId.NameId + " already exists!")
 		cblog.Error(err)
 		return nil, err
@@ -447,7 +449,6 @@ func ListSecurity(connectionName string, rsType string) ([]*cres.SecurityInfo, e
 	}
 
 	// (1) get IID:list
-	// before: iidInfoList, err := getAllSGIIDInfoList(connectionName)
 	var iidInfoList []*SGIIDInfo
 	err = infostore.ListByCondition(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName)
 	if err != nil {

@@ -40,7 +40,8 @@ func (SubnetIIDInfo) TableName() string {
 func init() {
 	db, err := infostore.Open()
 	if err != nil {
-		panic("failed to connect database")
+		cblog.Error(err)
+		return
 	}
 	db.AutoMigrate(&VPCIIDInfo{})
 	db.AutoMigrate(&SubnetIIDInfo{})
@@ -468,7 +469,8 @@ func getVPCInfo(connectionName string, handler cres.VPCHandler, iid cres.IID, re
 	subnetInfoList := []cres.SubnetInfo{}
 	for _, subnetInfo := range info.SubnetInfoList {
 		var subnetIIDInfo SubnetIIDInfo
-		infostore.GetByConditionsAndContains(&subnetIIDInfo, CONNECTION_NAME_COLUMN, connectionName, OWNER_VPC_NAME_COLUMN, iid.NameId, SYSTEM_ID_COLUMN, subnetInfo.IId.SystemId)
+		err := infostore.GetByConditionsAndContains(&subnetIIDInfo, CONNECTION_NAME_COLUMN, connectionName,
+			OWNER_VPC_NAME_COLUMN, iid.NameId, SYSTEM_ID_COLUMN, subnetInfo.IId.SystemId)
 		if err != nil {
 			vpcSPLock.RUnlock(connectionName, iid.NameId)
 			cblog.Error(err)
@@ -522,7 +524,7 @@ func GetVPC(connectionName string, rsType string, nameID string) (*cres.VPCInfo,
 	defer vpcSPLock.RUnlock(connectionName, nameID)
 	// (1) get spiderIID(NameId)
 	var iidInfo VPCIIDInfo
-	infostore.GetByConditions(&iidInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameID)
+	err = infostore.GetByConditions(&iidInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameID)
 	if err != nil {
 		cblog.Error(err)
 		return nil, err
@@ -542,8 +544,8 @@ func GetVPC(connectionName string, rsType string, nameID string) (*cres.VPCInfo,
 	subnetInfoList := []cres.SubnetInfo{}
 	for _, subnetInfo := range info.SubnetInfoList {
 		var subnetIIDInfo SubnetIIDInfo
-		infostore.GetByConditionsAndContains(&subnetIIDInfo, CONNECTION_NAME_COLUMN, connectionName, OWNER_VPC_NAME_COLUMN, info.IId.NameId,
-			SYSTEM_ID_COLUMN, subnetInfo.IId.SystemId)
+		err := infostore.GetByConditionsAndContains(&subnetIIDInfo, CONNECTION_NAME_COLUMN, connectionName,
+			OWNER_VPC_NAME_COLUMN, info.IId.NameId, SYSTEM_ID_COLUMN, subnetInfo.IId.SystemId)
 		if err != nil {
 			cblog.Error(err)
 			return nil, err
@@ -605,7 +607,7 @@ func AddSubnet(connectionName string, rsType string, vpcName string, reqInfo cre
 	}
 	// (2) create Resource
 	var iidVPCInfo VPCIIDInfo
-	infostore.GetByConditions(&iidVPCInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, vpcName)
+	err = infostore.GetByConditions(&iidVPCInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, vpcName)
 	if err != nil {
 		cblog.Error(err)
 		return nil, err
@@ -665,8 +667,8 @@ func AddSubnet(connectionName string, rsType string, vpcName string, reqInfo cre
 	subnetInfoList := []cres.SubnetInfo{}
 	for _, subnetInfo := range info.SubnetInfoList {
 		var subnetIIDInfo SubnetIIDInfo
-		infostore.GetByConditionsAndContains(&subnetIIDInfo, CONNECTION_NAME_COLUMN, connectionName, OWNER_VPC_NAME_COLUMN, vpcName,
-			SYSTEM_ID_COLUMN, subnetInfo.IId.SystemId)
+		err := infostore.GetByConditionsAndContains(&subnetIIDInfo, CONNECTION_NAME_COLUMN, connectionName,
+			OWNER_VPC_NAME_COLUMN, vpcName, SYSTEM_ID_COLUMN, subnetInfo.IId.SystemId)
 		if err != nil {
 			cblog.Error(err)
 			return nil, err
@@ -723,7 +725,7 @@ func RemoveSubnet(connectionName string, vpcName string, nameID string, force st
 
 	// (1) get spiderIID for creating driverIID
 	var iidInfo SubnetIIDInfo
-	infostore.GetBy3Conditions(&iidInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameID, OWNER_VPC_NAME_COLUMN, vpcName)
+	err = infostore.GetBy3Conditions(&iidInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameID, OWNER_VPC_NAME_COLUMN, vpcName)
 	if err != nil {
 		cblog.Error(err)
 		return false, err
@@ -734,7 +736,7 @@ func RemoveSubnet(connectionName string, vpcName string, nameID string, force st
 	result := false
 
 	var iidVPCInfo VPCIIDInfo
-	infostore.GetByConditions(&iidVPCInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, vpcName)
+	err = infostore.GetByConditions(&iidVPCInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, vpcName)
 	if err != nil {
 		cblog.Error(err)
 		return false, err
@@ -807,7 +809,7 @@ func RemoveCSPSubnet(connectionName string, vpcName string, systemID string) (bo
 	result := false
 	// get owner vpc IIDInfo
 	var iidVPCInfo VPCIIDInfo
-	infostore.GetByConditions(&iidVPCInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, vpcName)
+	err = infostore.GetByConditions(&iidVPCInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, vpcName)
 	if err != nil {
 		cblog.Error(err)
 		return false, err
@@ -857,7 +859,7 @@ func DeleteVPC(connectionName string, rsType string, nameID string, force string
 
 	// (1) get spiderIID for creating driverIID
 	var iidInfo VPCIIDInfo
-	infostore.GetByConditions(&iidInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameID)
+	err = infostore.GetByConditions(&iidInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameID)
 	if err != nil {
 		cblog.Error(err)
 		return false, err
