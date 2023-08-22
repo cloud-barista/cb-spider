@@ -140,7 +140,7 @@ func GetSGOwnerVPC(connectionName string, cspID string) (owerVPC cres.IID, err e
 		}
 	}
 
-	return cres.IID{"", vpcCSPID}, nil
+	return cres.IID{NameId: "", SystemId: vpcCSPID}, nil
 }
 
 // UserIID{UserID, CSP-ID} => SpiderIID{UserID, SP-XID:CSP-ID}

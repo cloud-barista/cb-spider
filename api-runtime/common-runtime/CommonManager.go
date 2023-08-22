@@ -18,6 +18,7 @@ import (
 	ccm "github.com/cloud-barista/cb-spider/cloud-control-manager"
 	cres "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	iidm "github.com/cloud-barista/cb-spider/cloud-control-manager/iid-manager"
+	infostore "github.com/cloud-barista/cb-spider/info-store"
 	"github.com/cloud-barista/cb-store/config"
 	"github.com/sirupsen/logrus"
 
@@ -307,14 +308,15 @@ func UnregisterResource(connectionName string, rsType string, nameId string) (bo
 			}
 		}
 	case rsNLB:
-		iidInfoList, err := getAllNLBIIDInfoList(connectionName)
+		var iidInfoList []*NLBIIDInfo
+		err := infostore.ListByCondition(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName)
 		if err != nil {
 			cblog.Error(err)
 			return false, err
 		}
 		for _, OneIIdInfo := range iidInfoList {
-			if OneIIdInfo.IId.NameId == nameId {
-				vpcName = OneIIdInfo.ResourceType /*vpcName*/ // ---------- Don't forget
+			if OneIIdInfo.NameId == nameId {
+				vpcName = OneIIdInfo.OwnerVPCName /*vpcName*/ // ---------- Don't forget
 				isExist = true
 				break
 			}
@@ -466,7 +468,8 @@ func ListAllResource(connectionName string, rsType string) (AllResourceList, err
 			return AllResourceList{}, err
 		}
 	case rsNLB:
-		iidInfoList, err = getAllNLBIIDInfoList(connectionName)
+		var iidInfoList []*NLBIIDInfo
+		err = infostore.ListByCondition(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName)
 		if err != nil {
 			cblog.Error(err)
 			return AllResourceList{}, err
@@ -769,25 +772,26 @@ func DeleteResource(connectionName string, rsType string, nameID string, force s
 			return false, "", err
 		}
 
-	case rsNLB:
-		iidInfoList, err := getAllNLBIIDInfoList(connectionName)
-		if err != nil {
-			cblog.Error(err)
-			return false, "", err
-		}
-		var bool_ret = false
-		for _, OneIIdInfo := range iidInfoList {
-			if OneIIdInfo.IId.NameId == nameID {
-				iidInfo = OneIIdInfo
-				bool_ret = true
-				break
-			}
-		}
-		if bool_ret == false {
-			err := fmt.Errorf("[" + connectionName + ":" + RsTypeString(rsType) + ":" + nameID + "] does not exist!")
-			cblog.Error(err)
-			return false, "", err
-		}
+	// case rsNLB:
+	// 	var iidInfoList []*NLBIIDInfo
+	// 	err = infostore.ListByCondition(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName)
+	// 	if err != nil {
+	// 		cblog.Error(err)
+	// 		return false, "", err
+	// 	}
+	// 	var bool_ret = false
+	// 	for _, OneIIdInfo := range iidInfoList {
+	// 		if OneIIdInfo.NameId == nameID {
+	// 			iidInfo = OneIIdInfo
+	// 			bool_ret = true
+	// 			break
+	// 		}
+	// 	}
+	// 	if bool_ret == false {
+	// 		err := fmt.Errorf("[" + connectionName + ":" + RsTypeString(rsType) + ":" + nameID + "] does not exist!")
+	// 		cblog.Error(err)
+	// 		return false, "", err
+	// 	}
 
 	case rsCluster:
 		iidInfoList, err := getAllClusterIIDInfoList(connectionName)
