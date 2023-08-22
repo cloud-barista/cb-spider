@@ -86,7 +86,7 @@ func (vmHandler *MockVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, er
 	for _, info := range validatedVPCInfo.SubnetInfoList {
 		if info.IId.NameId == vmReqInfo.SubnetIID.NameId {
 			validatedSubnetInfo = &info
-			break;
+			break
 		}
 	}
 	if validatedSubnetInfo == nil {
@@ -119,28 +119,28 @@ func (vmHandler *MockVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, er
 		}
 	}
 
-        // data disk validation
-        diskHandler := MockDiskHandler{mockName}
-        diskInfoList, err := diskHandler.ListDisk()
-        if err != nil {
-                cblogger.Error(err)
-                return irs.VMInfo{}, err
-        }
-        validatedDiskIIDs := []irs.IID{}
-        for _, info1 := range vmReqInfo.DataDiskIIDs {
-                flg := false
-                for _, info2 := range diskInfoList {
-                        if (*info2).IId.NameId == info1.NameId {
-                                validatedDiskIIDs = append(validatedDiskIIDs, info2.IId)
-                                flg = true
-                        }
-                }
-                if !flg {
-                        errMSG := info1.NameId + " Data Disk iid does not exist!!"
-                        cblogger.Error(errMSG)
-                        return irs.VMInfo{}, fmt.Errorf(errMSG)
-                }
-        }
+	// data disk validation
+	diskHandler := MockDiskHandler{mockName}
+	diskInfoList, err := diskHandler.ListDisk()
+	if err != nil {
+		cblogger.Error(err)
+		return irs.VMInfo{}, err
+	}
+	validatedDiskIIDs := []irs.IID{}
+	for _, info1 := range vmReqInfo.DataDiskIIDs {
+		flg := false
+		for _, info2 := range diskInfoList {
+			if (*info2).IId.NameId == info1.NameId {
+				validatedDiskIIDs = append(validatedDiskIIDs, info2.IId)
+				flg = true
+			}
+		}
+		if !flg {
+			errMSG := info1.NameId + " Data Disk iid does not exist!!"
+			cblogger.Error(errMSG)
+			return irs.VMInfo{}, fmt.Errorf(errMSG)
+		}
+	}
 
 	// keypair validation
 	keyPairHandler := MockKeyPairHandler{mockName}
@@ -176,11 +176,11 @@ func (vmHandler *MockVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, er
 		VMBootDisk:  "/dev/sda1",
 		VMBlockDisk: "/dev/sda1",
 
-		RootDiskType:  "SSD", 
-		RootDiskSize:  "32",
-		RootDeviceName:  "/dev/sda1",
+		RootDiskType:   "SSD",
+		RootDiskSize:   "32",
+		RootDeviceName: "/dev/sda1",
 
-		DataDiskIIDs:  validatedDiskIIDs,
+		DataDiskIIDs: validatedDiskIIDs,
 
 		KeyValueList: nil,
 	}
@@ -194,8 +194,8 @@ func (vmHandler *MockVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, er
 		}
 	}
 
-vmMapLock.Lock()
-defer vmMapLock.Unlock()
+	vmMapLock.Lock()
+	defer vmMapLock.Unlock()
 
 	infoList, _ := vmInfoMap[mockName]
 	infoList = append(infoList, &vmInfo)
@@ -217,8 +217,8 @@ func (vmHandler *MockVMHandler) SuspendVM(iid irs.IID) (irs.VMStatus, error) {
 
 	mockName := vmHandler.MockName
 
-vmMapLock.Lock()
-defer vmMapLock.Unlock()
+	vmMapLock.Lock()
+	defer vmMapLock.Unlock()
 
 	statusInfoList, ok := vmStatusInfoMap[mockName]
 	if !ok {
@@ -249,8 +249,8 @@ func (vmHandler *MockVMHandler) ResumeVM(iid irs.IID) (irs.VMStatus, error) {
 
 	mockName := vmHandler.MockName
 
-vmMapLock.Lock()
-defer vmMapLock.Unlock()
+	vmMapLock.Lock()
+	defer vmMapLock.Unlock()
 
 	statusInfoList, ok := vmStatusInfoMap[mockName]
 	if !ok {
@@ -282,8 +282,8 @@ func (vmHandler *MockVMHandler) RebootVM(iid irs.IID) (irs.VMStatus, error) {
 
 	mockName := vmHandler.MockName
 
-vmMapLock.Lock()
-defer vmMapLock.Unlock()
+	vmMapLock.Lock()
+	defer vmMapLock.Unlock()
 
 	statusInfoList, ok := vmStatusInfoMap[mockName]
 	if !ok {
@@ -318,27 +318,27 @@ func (vmHandler *MockVMHandler) TerminateVM(iid irs.IID) (irs.VMStatus, error) {
 	cblogger := cblog.GetLogger("CB-SPIDER")
 	cblogger.Info("Mock Driver: called TerminateVM()!")
 
-        mockName := vmHandler.MockName
+	mockName := vmHandler.MockName
 
-vmMapLock.Lock()
-defer vmMapLock.Unlock()
+	vmMapLock.Lock()
+	defer vmMapLock.Unlock()
 
-        infoList, ok := vmInfoMap[mockName]
-        if !ok {
+	infoList, ok := vmInfoMap[mockName]
+	if !ok {
 		errMSG := iid.NameId + " vm iid does not exist!!"
-                return "", fmt.Errorf(errMSG)
-        }
+		return "", fmt.Errorf(errMSG)
+	}
 
-        statusInfoList, ok := vmStatusInfoMap[mockName]
-        if !ok {
+	statusInfoList, ok := vmStatusInfoMap[mockName]
+	if !ok {
 		errMSG := iid.NameId + " vm iid does not exist!!"
-                return "", fmt.Errorf(errMSG)
-        }
+		return "", fmt.Errorf(errMSG)
+	}
 
 	for idx, info := range infoList {
 		if info.IId.SystemId == iid.SystemId {
 			for _, diskIID := range info.DataDiskIIDs {
-				justDetachDisk(mockName, diskIID, info.IId) 
+				justDetachDisk(mockName, diskIID, info.IId)
 			}
 			infoList = append(infoList[:idx], infoList[idx+1:]...)
 		}
@@ -361,8 +361,8 @@ func (vmHandler *MockVMHandler) ListVMStatus() ([]*irs.VMStatusInfo, error) {
 
 	mockName := vmHandler.MockName
 
-vmMapLock.RLock()
-defer vmMapLock.RUnlock()
+	vmMapLock.RLock()
+	defer vmMapLock.RUnlock()
 
 	infoList, ok := vmStatusInfoMap[mockName]
 	if !ok {
@@ -373,33 +373,31 @@ defer vmMapLock.RUnlock()
 }
 
 func CloneVMStatusInfoList(srcInfoList []*irs.VMStatusInfo) []*irs.VMStatusInfo {
-        clonedInfoList := []*irs.VMStatusInfo{}
-        for _, srcInfo := range srcInfoList {
-                clonedInfo := CloneVMStatusInfo(*srcInfo)
-                clonedInfoList = append(clonedInfoList, &clonedInfo)
-        }
-        return clonedInfoList
+	clonedInfoList := []*irs.VMStatusInfo{}
+	for _, srcInfo := range srcInfoList {
+		clonedInfo := CloneVMStatusInfo(*srcInfo)
+		clonedInfoList = append(clonedInfoList, &clonedInfo)
+	}
+	return clonedInfoList
 }
 
 func CloneVMStatusInfo(srcInfo irs.VMStatusInfo) irs.VMStatusInfo {
-        /*
+	/*
 		type VMStatusInfo struct {
 			IId      IID // {NameId, SystemId}
 			VmStatus VMStatus
 		}
 
 	*/
-	
+
 	// clone VMStatusInfo
-	clonedInfo := irs.VMStatusInfo {
-		IId:            irs.IID{srcInfo.IId.NameId, srcInfo.IId.SystemId},
-		VmStatus:	srcInfo.VmStatus,
+	clonedInfo := irs.VMStatusInfo{
+		IId:      irs.IID{srcInfo.IId.NameId, srcInfo.IId.SystemId},
+		VmStatus: srcInfo.VmStatus,
 	}
 
 	return clonedInfo
 }
-
-
 
 func (vmHandler *MockVMHandler) GetVMStatus(iid irs.IID) (irs.VMStatus, error) {
 	cblogger := cblog.GetLogger("CB-SPIDER")
@@ -407,15 +405,14 @@ func (vmHandler *MockVMHandler) GetVMStatus(iid irs.IID) (irs.VMStatus, error) {
 
 	mockName := vmHandler.MockName
 
-vmMapLock.RLock()
-defer vmMapLock.RUnlock()
+	vmMapLock.RLock()
+	defer vmMapLock.RUnlock()
 
-        infoList, ok := vmStatusInfoMap[mockName]
-        if !ok {
+	infoList, ok := vmStatusInfoMap[mockName]
+	if !ok {
 		errMSG := iid.NameId + " vm iid does not exist!!"
-                return "", fmt.Errorf(errMSG)
-        }
-
+		return "", fmt.Errorf(errMSG)
+	}
 
 	for _, info := range infoList {
 		if (*info).IId.NameId == iid.NameId {
@@ -434,8 +431,8 @@ func (vmHandler *MockVMHandler) ListVM() ([]*irs.VMInfo, error) {
 
 	mockName := vmHandler.MockName
 
-vmMapLock.RLock()
-defer vmMapLock.RUnlock()
+	vmMapLock.RLock()
+	defer vmMapLock.RUnlock()
 
 	infoList, ok := vmInfoMap[mockName]
 	if !ok {
@@ -447,90 +444,90 @@ defer vmMapLock.RUnlock()
 }
 
 func CloneVMInfoList(srcInfoList []*irs.VMInfo) []*irs.VMInfo {
-        clonedInfoList := []*irs.VMInfo{}
-        for _, srcInfo := range srcInfoList {
-                clonedInfo := CloneVMInfo(*srcInfo)
-                clonedInfoList = append(clonedInfoList, &clonedInfo)
-        }
-        return clonedInfoList
+	clonedInfoList := []*irs.VMInfo{}
+	for _, srcInfo := range srcInfoList {
+		clonedInfo := CloneVMInfo(*srcInfo)
+		clonedInfoList = append(clonedInfoList, &clonedInfo)
+	}
+	return clonedInfoList
 }
 
 func CloneVMInfo(srcInfo irs.VMInfo) irs.VMInfo {
-        /*
-		type VMInfo struct {
-			IId       IID       // {NameId, SystemId}
-			StartTime time.Time // Timezone: based on cloud-barista server location.
+	/*
+				type VMInfo struct {
+					IId       IID       // {NameId, SystemId}
+					StartTime time.Time // Timezone: based on cloud-barista server location.
 
-			Region            RegionInfo //  ex) {us-east1, us-east1-c} or {ap-northeast-2}
-			ImageType         ImageType // PublicImage | MyImage
-			ImageIId          IID
-			VMSpecName        string //  instance type or flavour, etc... ex) t2.micro or f1.micro
-			VpcIID            IID
-			SubnetIID         IID   // AWS, ex) subnet-8c4a53e4
-			SecurityGroupIIds []IID // AWS, ex) sg-0b7452563e1121bb6
+					Region            RegionInfo //  ex) {us-east1, us-east1-c} or {ap-northeast-2}
+					ImageType         ImageType // PublicImage | MyImage
+					ImageIId          IID
+					VMSpecName        string //  instance type or flavour, etc... ex) t2.micro or f1.micro
+					VpcIID            IID
+					SubnetIID         IID   // AWS, ex) subnet-8c4a53e4
+					SecurityGroupIIds []IID // AWS, ex) sg-0b7452563e1121bb6
 
-			KeyPairIId IID
+					KeyPairIId IID
 
-			RootDiskType    string  // "SSD(gp2)", "Premium SSD", ...
-			RootDiskSize    string  // "default", "50", "1000" (GB)
-			RootDeviceName  string // "/dev/sda1", ...
+					RootDiskType    string  // "SSD(gp2)", "Premium SSD", ...
+					RootDiskSize    string  // "default", "50", "1000" (GB)
+					RootDeviceName  string // "/dev/sda1", ...
 
-			DataDiskIIDs []IID
+					DataDiskIIDs []IID
 
-			VMBootDisk      string // Deprecated soon
-			VMBlockDisk     string // Deprecated soon
+					VMBootDisk      string // Deprecated soon
+					VMBlockDisk     string // Deprecated soon
 
-                        VMUserId     string // ex) user1
-                        VMUserPasswd string
+		                        VMUserId     string // ex) user1
+		                        VMUserPasswd string
 
-                        NetworkInterface string // ex) eth0
-                        PublicIP         string
-                        PublicDNS        string
-                        PrivateIP        string
-                        PrivateDNS       string
+		                        NetworkInterface string // ex) eth0
+		                        PublicIP         string
+		                        PublicDNS        string
+		                        PrivateIP        string
+		                        PrivateDNS       string
 
-			SSHAccessPoint string // ex) 10.2.3.2:22, 123.456.789.123:4321
+					SSHAccessPoint string // ex) 10.2.3.2:22, 123.456.789.123:4321
 
-			KeyValueList []KeyValue
-		}
-        */
+					KeyValueList []KeyValue
+				}
+	*/
 
-        // clone VMInfo
-        clonedInfo := irs.VMInfo{
-                IId:            irs.IID{srcInfo.IId.NameId, srcInfo.IId.SystemId},
-                StartTime:      srcInfo.StartTime,
-		Region:		srcInfo.Region,
-                ImageType:      srcInfo.ImageType,
-                ImageIId:       srcInfo.ImageIId,
-                VMSpecName:     srcInfo.VMSpecName,
-                VpcIID:         irs.IID{srcInfo.VpcIID.NameId, srcInfo.VpcIID.SystemId},
-                SubnetIID:      irs.IID{srcInfo.SubnetIID.NameId, srcInfo.SubnetIID.SystemId},
+	// clone VMInfo
+	clonedInfo := irs.VMInfo{
+		IId:               irs.IID{srcInfo.IId.NameId, srcInfo.IId.SystemId},
+		StartTime:         srcInfo.StartTime,
+		Region:            srcInfo.Region,
+		ImageType:         srcInfo.ImageType,
+		ImageIId:          srcInfo.ImageIId,
+		VMSpecName:        srcInfo.VMSpecName,
+		VpcIID:            irs.IID{srcInfo.VpcIID.NameId, srcInfo.VpcIID.SystemId},
+		SubnetIID:         irs.IID{srcInfo.SubnetIID.NameId, srcInfo.SubnetIID.SystemId},
 		SecurityGroupIIds: cloneIIDArray(srcInfo.SecurityGroupIIds),
-                KeyPairIId:     irs.IID{srcInfo.KeyPairIId.NameId, srcInfo.KeyPairIId.SystemId},
+		KeyPairIId:        irs.IID{srcInfo.KeyPairIId.NameId, srcInfo.KeyPairIId.SystemId},
 
 		RootDiskType:   srcInfo.RootDiskType,
 		RootDiskSize:   srcInfo.RootDiskSize,
 		RootDeviceName: srcInfo.RootDeviceName,
 
-		DataDiskIIDs:   cloneIIDArray(srcInfo.DataDiskIIDs),
+		DataDiskIIDs: cloneIIDArray(srcInfo.DataDiskIIDs),
 
-		VMBootDisk:     srcInfo.VMBootDisk,
-		VMBlockDisk:    srcInfo.VMBlockDisk,
+		VMBootDisk:  srcInfo.VMBootDisk,
+		VMBlockDisk: srcInfo.VMBlockDisk,
 
-		VMUserId:       srcInfo.VMUserId,
-		VMUserPasswd:   srcInfo.VMUserPasswd,
-		NetworkInterface:   srcInfo.NetworkInterface,
-		PublicIP:       srcInfo.PublicIP,
-		PublicDNS:      srcInfo.PublicDNS,
-		PrivateIP:      srcInfo.PrivateIP,
-		PrivateDNS:     srcInfo.PrivateDNS,
+		VMUserId:         srcInfo.VMUserId,
+		VMUserPasswd:     srcInfo.VMUserPasswd,
+		NetworkInterface: srcInfo.NetworkInterface,
+		PublicIP:         srcInfo.PublicIP,
+		PublicDNS:        srcInfo.PublicDNS,
+		PrivateIP:        srcInfo.PrivateIP,
+		PrivateDNS:       srcInfo.PrivateDNS,
 
 		SSHAccessPoint: srcInfo.SSHAccessPoint,
 
-                KeyValueList:   srcInfo.KeyValueList, // now, do not need cloning
-        }
+		KeyValueList: srcInfo.KeyValueList, // now, do not need cloning
+	}
 
-        return clonedInfo
+	return clonedInfo
 }
 
 func cloneIIDArray(srcIIDArray []irs.IID) []irs.IID {
@@ -545,17 +542,17 @@ func (vmHandler *MockVMHandler) GetVM(iid irs.IID) (irs.VMInfo, error) {
 	cblogger := cblog.GetLogger("CB-SPIDER")
 	cblogger.Info("Mock Driver: called GetVM()!")
 
-        mockName := vmHandler.MockName
+	mockName := vmHandler.MockName
 
-vmMapLock.RLock()
-defer vmMapLock.RUnlock()
+	vmMapLock.RLock()
+	defer vmMapLock.RUnlock()
 
-        infoList, ok := vmInfoMap[mockName]
-        if !ok {
+	infoList, ok := vmInfoMap[mockName]
+	if !ok {
 		errMSG := iid.NameId + " vm iid does not exist!!"
 		cblogger.Error(errMSG)
 		return irs.VMInfo{}, fmt.Errorf(errMSG)
-        }
+	}
 
 	for _, info := range infoList {
 		if (*info).IId.NameId == iid.NameId {
@@ -568,62 +565,58 @@ defer vmMapLock.RUnlock()
 	return irs.VMInfo{}, fmt.Errorf(errMSG)
 }
 
-
-
 func diskAttach(mockName string, iid irs.IID, diskIID irs.IID) (bool, error) {
-        cblogger := cblog.GetLogger("CB-SPIDER")
-        cblogger.Info("Mock Driver: called diskAttach()!")
+	cblogger := cblog.GetLogger("CB-SPIDER")
+	cblogger.Info("Mock Driver: called diskAttach()!")
 
+	vmMapLock.RLock()
+	defer vmMapLock.RUnlock()
 
-vmMapLock.RLock()
-defer vmMapLock.RUnlock()
+	infoList, ok := vmInfoMap[mockName]
+	if !ok {
+		errMSG := iid.NameId + " vm iid does not exist!!"
+		cblogger.Error(errMSG)
+		return false, fmt.Errorf(errMSG)
+	}
 
-        infoList, ok := vmInfoMap[mockName]
-        if !ok {
-                errMSG := iid.NameId + " vm iid does not exist!!"
-                cblogger.Error(errMSG)
-                return false, fmt.Errorf(errMSG)
-        }
-
-        for _, info := range infoList {
-                if (*info).IId.SystemId == iid.SystemId {
+	for _, info := range infoList {
+		if (*info).IId.SystemId == iid.SystemId {
 			info.DataDiskIIDs = append(info.DataDiskIIDs, diskIID)
-                        return true, nil
-                }
-        }
+			return true, nil
+		}
+	}
 
-        errMSG := iid.NameId + " vm iid does not exist!!"
-        cblogger.Error(errMSG)
-        return false, fmt.Errorf(errMSG)
+	errMSG := iid.NameId + " vm iid does not exist!!"
+	cblogger.Error(errMSG)
+	return false, fmt.Errorf(errMSG)
 }
 
 func diskDetach(mockName string, iid irs.IID, diskIID irs.IID) (bool, error) {
-        cblogger := cblog.GetLogger("CB-SPIDER")
-        cblogger.Info("Mock Driver: called diskDetach()!")
+	cblogger := cblog.GetLogger("CB-SPIDER")
+	cblogger.Info("Mock Driver: called diskDetach()!")
 
+	vmMapLock.RLock()
+	defer vmMapLock.RUnlock()
 
-vmMapLock.RLock()
-defer vmMapLock.RUnlock()
+	infoList, ok := vmInfoMap[mockName]
+	if !ok {
+		errMSG := iid.NameId + " vm iid does not exist!!"
+		cblogger.Error(errMSG)
+		return false, fmt.Errorf(errMSG)
+	}
 
-        infoList, ok := vmInfoMap[mockName]
-        if !ok {
-                errMSG := iid.NameId + " vm iid does not exist!!"
-                cblogger.Error(errMSG)
-                return false, fmt.Errorf(errMSG)
-        }
-
-        for _, info := range infoList {
-                if (*info).IId.NameId == iid.NameId {
-			for idx, oneIID := range info.DataDiskIIDs { 
+	for _, info := range infoList {
+		if (*info).IId.NameId == iid.NameId {
+			for idx, oneIID := range info.DataDiskIIDs {
 				if oneIID.SystemId == diskIID.SystemId {
 					info.DataDiskIIDs = append(info.DataDiskIIDs[:idx], info.DataDiskIIDs[idx+1:]...)
 					return true, nil
 				}
 			}
-                }
-        }
+		}
+	}
 
-        errMSG := iid.NameId + " vm iid does not exist!!"
-        cblogger.Error(errMSG)
-        return false, fmt.Errorf(errMSG)
+	errMSG := iid.NameId + " vm iid does not exist!!"
+	cblogger.Error(errMSG)
+	return false, fmt.Errorf(errMSG)
 }

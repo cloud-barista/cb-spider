@@ -1436,7 +1436,7 @@ func DeleteNLB(connectionName string, rsType string, nameID string, force string
 			break
 		}
 	}
-	if bool_ret == false {
+	if !bool_ret {
 		err := fmt.Errorf("[" + connectionName + ":" + RsTypeString(rsType) + ":" + nameID + "] does not exist!")
 		cblog.Error(err)
 		return false, err
@@ -1455,15 +1455,13 @@ func DeleteNLB(connectionName string, rsType string, nameID string, force string
 	}
 
 	if force == "false" {
-		if rsType != rsVM {
-			if result == false {
-				return result, nil
-			}
+		if result == false {
+			return result, nil
 		}
 	}
 
 	// (3) delete IID
-	_, err = infostore.DeleteByConditions(&VMIIDInfo{}, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameID)
+	_, err = infostore.DeleteByConditions(&NLBIIDInfo{}, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameID)
 	if err != nil {
 		cblog.Error(err)
 		if force == "false" {
@@ -1471,6 +1469,5 @@ func DeleteNLB(connectionName string, rsType string, nameID string, force string
 		}
 	}
 
-	// except rsVM
 	return result, nil
 }
