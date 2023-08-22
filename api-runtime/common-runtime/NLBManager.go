@@ -476,20 +476,6 @@ func setDefaultHealthCheckerConfig(providerName string, reqInfo *cres.HealthChec
 	}
 }
 
-func setVMGroupSystemId(connectionName string, vmList *[]cres.IID) error {
-	// set VM's SystemId
-	for idx, vmIID := range *vmList {
-		var vmIIDInfo VMIIDInfo
-		err := infostore.GetByConditions(&vmIIDInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, vmIID.NameId)
-		if err != nil {
-			cblog.Error(err)
-			return err
-		}
-		(*vmList)[idx] = getUserIID(cres.IID{NameId: vmIIDInfo.NameId, SystemId: vmIIDInfo.SystemId})
-	}
-	return nil
-}
-
 func transformArgsToUpper(nlbInfo *cres.NLBInfo) {
 	nlbInfo.Type = strings.ToUpper(nlbInfo.Type)
 	nlbInfo.Scope = strings.ToUpper(nlbInfo.Scope)

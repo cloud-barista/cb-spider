@@ -686,12 +686,13 @@ func cloneReqInfoWithDriverIID(ConnectionName string, reqInfo cres.VMReqInfo) (c
 	if reqInfo.ImageType == cres.MyImage {
 		if reqInfo.ImageIID.NameId != "" {
 			// get MyImage's SystemId
-			imageIIdInfo, err := iidRWLock.GetIID(iidm.IIDSGROUP, ConnectionName, rsMyImage, reqInfo.ImageIID)
+			var imageIIdInfo MyImageIIDInfo
+			err := infostore.GetByConditions(&imageIIdInfo, CONNECTION_NAME_COLUMN, ConnectionName, NAME_ID_COLUMN, reqInfo.ImageIID.NameId)
 			if err != nil {
 				cblog.Error(err)
 				return cres.VMReqInfo{}, err
 			}
-			newReqInfo.ImageIID = getDriverIID(imageIIdInfo.IId)
+			newReqInfo.ImageIID = getDriverIID(cres.IID{NameId: imageIIdInfo.NameId, SystemId: imageIIdInfo.SystemId})
 		}
 	}
 
@@ -736,13 +737,14 @@ func cloneReqInfoWithDriverIID(ConnectionName string, reqInfo cres.VMReqInfo) (c
 
 	// set Data Disk SystemId
 	for _, diskIID := range reqInfo.DataDiskIIDs {
-		iidInfo, err := iidRWLock.GetIID(iidm.IIDSGROUP, ConnectionName, rsDisk, diskIID)
+		var iidInfo DiskIIDInfo
+		err := infostore.GetByConditions(&iidInfo, CONNECTION_NAME_COLUMN, ConnectionName, NAME_ID_COLUMN, diskIID.NameId)
 		if err != nil {
 			cblog.Error(err)
 			return cres.VMReqInfo{}, err
 		}
 		// set driverIID
-		newReqInfo.DataDiskIIDs = append(newReqInfo.DataDiskIIDs, getDriverIID(iidInfo.IId))
+		newReqInfo.DataDiskIIDs = append(newReqInfo.DataDiskIIDs, getDriverIID(cres.IID{NameId: iidInfo.NameId, SystemId: iidInfo.SystemId}))
 	}
 
 	// set KeyPair SystemId
@@ -882,12 +884,13 @@ func setNameId(ConnectionName string, vmInfo *cres.VMInfo, reqInfo *cres.VMReqIn
 		vmInfo.ImageType = cres.MyImage
 		if vmInfo.ImageIId.SystemId != "" {
 			// get MyImage's NameId
-			imageIIdInfo, err := iidRWLock.GetIIDbySystemID(iidm.IIDSGROUP, ConnectionName, rsMyImage, vmInfo.ImageIId)
+			var imageIIdInfo MyImageIIDInfo
+			err := infostore.GetByContain(&imageIIdInfo, CONNECTION_NAME_COLUMN, ConnectionName, SYSTEM_ID_COLUMN, vmInfo.ImageIId.SystemId)
 			if err != nil {
 				cblog.Error(err)
 				return err
 			}
-			vmInfo.ImageIId.NameId = imageIIdInfo.IId.NameId
+			vmInfo.ImageIId.NameId = imageIIdInfo.NameId
 		}
 	}
 
@@ -917,12 +920,13 @@ func setNameId(ConnectionName string, vmInfo *cres.VMInfo, reqInfo *cres.VMReqIn
 	if reqInfo.ImageType == cres.PublicImage {
 		// set Data Disk NameId
 		for i, diskIID := range vmInfo.DataDiskIIDs {
-			IIdInfo, err := iidRWLock.GetIIDbySystemID(iidm.IIDSGROUP, ConnectionName, rsDisk, diskIID)
+			var iidInfo DiskIIDInfo
+			err := infostore.GetByContain(&iidInfo, CONNECTION_NAME_COLUMN, ConnectionName, SYSTEM_ID_COLUMN, diskIID.SystemId)
 			if err != nil {
 				cblog.Error(err)
 				return err
 			}
-			vmInfo.DataDiskIIDs[i].NameId = IIdInfo.IId.NameId
+			vmInfo.DataDiskIIDs[i].NameId = iidInfo.NameId
 		}
 	}
 
@@ -1099,14 +1103,17 @@ func getSetNameId(ConnectionName string, vmInfo *cres.VMInfo) error {
 	vmInfo.ImageType = cres.PublicImage
 	if vmInfo.ImageIId.SystemId != "" {
 		// get MyImage's NameId
-		imageIIdInfo, err := iidRWLock.GetIIDbySystemID(iidm.IIDSGROUP, ConnectionName, rsMyImage, vmInfo.ImageIId)
+		var imageIIdInfo MyImageIIDInfo
+		err := infostore.GetByContain(&imageIIdInfo, CONNECTION_NAME_COLUMN, ConnectionName, SYSTEM_ID_COLUMN, vmInfo.ImageIId.SystemId)
 		if err != nil {
-			cblog.Error(err)
-			return err
+			if !strings.Contains(err.Error(), "does not exist") {
+				cblog.Error(err)
+				return err
+			}
 		}
-		if imageIIdInfo != nil && imageIIdInfo.IId.NameId != "" {
+		if imageIIdInfo.NameId != "" {
 			vmInfo.ImageType = cres.MyImage
-			vmInfo.ImageIId.NameId = imageIIdInfo.IId.NameId
+			vmInfo.ImageIId.NameId = imageIIdInfo.NameId
 		}
 	}
 	if vmInfo.ImageType == cres.PublicImage {
@@ -1161,12 +1168,13 @@ func getSetNameId(ConnectionName string, vmInfo *cres.VMInfo) error {
 
 	// set Data Disk NameId
 	for i, diskIID := range vmInfo.DataDiskIIDs {
-		IIdInfo, err := iidRWLock.GetIIDbySystemID(iidm.IIDSGROUP, ConnectionName, rsDisk, diskIID)
+		var iidInfo DiskIIDInfo
+		err := infostore.GetByContain(&iidInfo, CONNECTION_NAME_COLUMN, ConnectionName, SYSTEM_ID_COLUMN, diskIID.SystemId)
 		if err != nil {
 			cblog.Error(err)
 			return err
 		}
-		vmInfo.DataDiskIIDs[i].NameId = IIdInfo.IId.NameId
+		vmInfo.DataDiskIIDs[i].NameId = iidInfo.NameId
 	}
 
 	return nil
