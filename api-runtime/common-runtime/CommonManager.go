@@ -90,6 +90,7 @@ const CONNECTION_NAME_COLUMN = "connection_name"
 const NAME_ID_COLUMN = "name_id"
 const SYSTEM_ID_COLUMN = "system_id"
 const OWNER_VPC_NAME_COLUMN = "owner_vpc_name"
+const OWNER_CLUSTER_NAME_COLUMN = "owner_cluster_name"
 
 type FirstIIDInfo struct {
 	ConnectionName string `gorm:"primaryKey"` // ex) "aws-seoul-config"
@@ -97,11 +98,18 @@ type FirstIIDInfo struct {
 	SystemId       string // ID in CSP, ex) "i7baab81a4ez"
 }
 
-type SecondaryIIDInfo struct {
+type VPCDependentIIDInfo struct {
 	ConnectionName string `gorm:"primaryKey"` // ex) "aws-seoul-config"
 	NameId         string `gorm:"primaryKey"` // ex) "my_resource"
 	SystemId       string // ID in CSP, ex) "i7baab81a4ez"
-	OwnerVPCName   string `gorm:"primaryKey"` // ex) "my_vpc"
+	OwnerVPCName   string `gorm:"primaryKey"` // ex) "my_vpc" for NLB
+}
+
+type ClusterDependentIIDInfo struct {
+	ConnectionName   string `gorm:"primaryKey"` // ex) "aws-seoul-config"
+	NameId           string `gorm:"primaryKey"` // ex) "my_resource"
+	SystemId         string // ID in CSP, ex) "i7baab81a4ez"
+	OwnerClusterName string `gorm:"primaryKey"` // ex) "my_cluster"' for NodeGroup
 }
 
 // ====================================================================
@@ -322,14 +330,15 @@ func UnregisterResource(connectionName string, rsType string, nameId string) (bo
 			}
 		}
 	case rsCluster:
-		iidInfoList, err := getAllClusterIIDInfoList(connectionName)
+		var iidInfoList []*ClusterIIDInfo
+		err = infostore.ListByCondition(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName)
 		if err != nil {
 			cblog.Error(err)
 			return false, err
 		}
 		for _, OneIIdInfo := range iidInfoList {
-			if OneIIdInfo.IId.NameId == nameId {
-				vpcName = OneIIdInfo.ResourceType /*vpcName*/ // ---------- Don't forget
+			if OneIIdInfo.NameId == nameId {
+				vpcName = OneIIdInfo.OwnerVPCName
 				isExist = true
 				break
 			}
@@ -475,7 +484,8 @@ func ListAllResource(connectionName string, rsType string) (AllResourceList, err
 			return AllResourceList{}, err
 		}
 	case rsCluster:
-		iidInfoList, err = getAllClusterIIDInfoList(connectionName)
+		var iidInfoList []*ClusterIIDInfo
+		err = infostore.ListByCondition(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName)
 		if err != nil {
 			cblog.Error(err)
 			return AllResourceList{}, err
@@ -752,25 +762,25 @@ func DeleteResource(connectionName string, rsType string, nameID string, force s
 	// (1) get spiderIID for creating driverIID
 	var iidInfo *iidm.IIDInfo
 	switch rsType {
-	case rsSG:
-		iidInfoList, err := getAllSGIIDInfoList(connectionName)
-		if err != nil {
-			cblog.Error(err)
-			return false, "", err
-		}
-		var bool_ret = false
-		for _, OneIIdInfo := range iidInfoList {
-			if OneIIdInfo.IId.NameId == nameID {
-				iidInfo = OneIIdInfo
-				bool_ret = true
-				break
-			}
-		}
-		if bool_ret == false {
-			err := fmt.Errorf("[" + connectionName + ":" + RsTypeString(rsType) + ":" + nameID + "] does not exist!")
-			cblog.Error(err)
-			return false, "", err
-		}
+	// case rsSG:
+	// 	iidInfoList, err := getAllSGIIDInfoList(connectionName)
+	// 	if err != nil {
+	// 		cblog.Error(err)
+	// 		return false, "", err
+	// 	}
+	// 	var bool_ret = false
+	// 	for _, OneIIdInfo := range iidInfoList {
+	// 		if OneIIdInfo.IId.NameId == nameID {
+	// 			iidInfo = OneIIdInfo
+	// 			bool_ret = true
+	// 			break
+	// 		}
+	// 	}
+	// 	if bool_ret == false {
+	// 		err := fmt.Errorf("[" + connectionName + ":" + RsTypeString(rsType) + ":" + nameID + "] does not exist!")
+	// 		cblog.Error(err)
+	// 		return false, "", err
+	// 	}
 
 	// case rsNLB:
 	// 	var iidInfoList []*NLBIIDInfo
@@ -792,9 +802,10 @@ func DeleteResource(connectionName string, rsType string, nameID string, force s
 	// 		cblog.Error(err)
 	// 		return false, "", err
 	// 	}
-
+	/* @todo
 	case rsCluster:
-		iidInfoList, err := getAllClusterIIDInfoList(connectionName)
+		var iidInfoList []*ClusterIIDInfo
+		err = infostore.ListByCondition(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName)
 		if err != nil {
 			cblog.Error(err)
 			return false, "", err
@@ -812,7 +823,7 @@ func DeleteResource(connectionName string, rsType string, nameID string, force s
 			cblog.Error(err)
 			return false, "", err
 		}
-
+	*/
 	default:
 		iidInfo, err = iidRWLock.GetIID(iidm.IIDSGROUP, connectionName, rsType, cres.IID{nameID, ""})
 		if err != nil {

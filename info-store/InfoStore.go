@@ -266,8 +266,8 @@ func GetByContain(info interface{}, columnName1 string, columnValue1 string, col
 	return nil
 }
 
-// Get a Info with two conditions(Conneciton Name, Resource NameId) and contains(contained_text)
-func GetByConditionsAndContains(info interface{}, columnName1 string, columnValue1 string, columnName2 string, columnValue2 string,
+// Get a Info with two conditions(Conneciton Name, Resource NameId) and contain(contained_text)
+func GetByConditionsAndContain(info interface{}, columnName1 string, columnValue1 string, columnName2 string, columnValue2 string,
 	columnName3 string, columnValue3 string) error {
 	db, err := Open()
 	if err != nil {
@@ -278,7 +278,7 @@ func GetByConditionsAndContains(info interface{}, columnName1 string, columnValu
 	if err := db.Where(columnName1+" = ? AND "+columnName2+" = ? AND "+columnName3+" LIKE ?",
 		columnValue1, columnValue2, fmt.Sprintf("%%%s%%", columnValue3)).First(&info).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
-			return fmt.Errorf(columnValue1 + ", " + columnValue2 + ": does not exist!")
+			return fmt.Errorf(columnValue1 + ", " + columnValue2 + ", " + columnValue3 + ": does not exist!")
 		} else {
 			return fmt.Errorf(columnValue1+", "+columnValue2+": %v", err)
 		}

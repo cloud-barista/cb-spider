@@ -618,7 +618,7 @@ func Cluster(c echo.Context) error {
 	switch providerName {
 	case "AWS":
 	case "AZURE":
-		version = "1.22.11"
+		version = "1.25.11"
 		nodegroupList = generateNodeGroupReqString(providerName)
 	case "GCP":
 	case "ALIBABA":

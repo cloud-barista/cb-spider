@@ -29,7 +29,7 @@ func (VPCIIDInfo) TableName() string {
 	return "vpc_iid_infos"
 }
 
-type SubnetIIDInfo SecondaryIIDInfo
+type SubnetIIDInfo VPCDependentIIDInfo
 
 func (SubnetIIDInfo) TableName() string {
 	return "subnet_iid_infos"
@@ -469,7 +469,7 @@ func getVPCInfo(connectionName string, handler cres.VPCHandler, iid cres.IID, re
 	subnetInfoList := []cres.SubnetInfo{}
 	for _, subnetInfo := range info.SubnetInfoList {
 		var subnetIIDInfo SubnetIIDInfo
-		err := infostore.GetByConditionsAndContains(&subnetIIDInfo, CONNECTION_NAME_COLUMN, connectionName,
+		err := infostore.GetByConditionsAndContain(&subnetIIDInfo, CONNECTION_NAME_COLUMN, connectionName,
 			OWNER_VPC_NAME_COLUMN, iid.NameId, SYSTEM_ID_COLUMN, subnetInfo.IId.SystemId)
 		if err != nil {
 			vpcSPLock.RUnlock(connectionName, iid.NameId)
@@ -544,7 +544,7 @@ func GetVPC(connectionName string, rsType string, nameID string) (*cres.VPCInfo,
 	subnetInfoList := []cres.SubnetInfo{}
 	for _, subnetInfo := range info.SubnetInfoList {
 		var subnetIIDInfo SubnetIIDInfo
-		err := infostore.GetByConditionsAndContains(&subnetIIDInfo, CONNECTION_NAME_COLUMN, connectionName,
+		err := infostore.GetByConditionsAndContain(&subnetIIDInfo, CONNECTION_NAME_COLUMN, connectionName,
 			OWNER_VPC_NAME_COLUMN, info.IId.NameId, SYSTEM_ID_COLUMN, subnetInfo.IId.SystemId)
 		if err != nil {
 			cblog.Error(err)
@@ -667,7 +667,7 @@ func AddSubnet(connectionName string, rsType string, vpcName string, reqInfo cre
 	subnetInfoList := []cres.SubnetInfo{}
 	for _, subnetInfo := range info.SubnetInfoList {
 		var subnetIIDInfo SubnetIIDInfo
-		err := infostore.GetByConditionsAndContains(&subnetIIDInfo, CONNECTION_NAME_COLUMN, connectionName,
+		err := infostore.GetByConditionsAndContain(&subnetIIDInfo, CONNECTION_NAME_COLUMN, connectionName,
 			OWNER_VPC_NAME_COLUMN, vpcName, SYSTEM_ID_COLUMN, subnetInfo.IId.SystemId)
 		if err != nil {
 			cblog.Error(err)

@@ -22,7 +22,7 @@ import (
 // ====================================================================
 // type for GORM
 
-type NLBIIDInfo SecondaryIIDInfo
+type NLBIIDInfo VPCDependentIIDInfo
 
 func (NLBIIDInfo) TableName() string {
 	return "nlb_iid_infos"

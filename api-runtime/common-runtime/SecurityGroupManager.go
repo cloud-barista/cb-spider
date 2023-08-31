@@ -21,7 +21,7 @@ import (
 // ====================================================================
 // type for GORM
 
-type SGIIDInfo SecondaryIIDInfo
+type SGIIDInfo VPCDependentIIDInfo
 
 func (SGIIDInfo) TableName() string {
 	return "sg_iid_infos"

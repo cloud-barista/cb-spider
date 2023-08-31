@@ -907,7 +907,7 @@ func setNameId(ConnectionName string, vmInfo *cres.VMInfo, reqInfo *cres.VMReqIn
 	// set SecurityGroups NameId
 	for i, sgIID := range vmInfo.SecurityGroupIIds {
 		var iidInfo SGIIDInfo
-		err := infostore.GetByConditionsAndContains(&iidInfo, CONNECTION_NAME_COLUMN, ConnectionName,
+		err := infostore.GetByConditionsAndContain(&iidInfo, CONNECTION_NAME_COLUMN, ConnectionName,
 			OWNER_VPC_NAME_COLUMN, reqInfo.VpcIID.NameId, SYSTEM_ID_COLUMN, sgIID.SystemId)
 		if err != nil {
 			cblog.Error(err)
@@ -1134,7 +1134,7 @@ func getSetNameId(ConnectionName string, vmInfo *cres.VMInfo) error {
 	if vmInfo.SubnetIID.SystemId != "" {
 		// set Subnet NameId
 		var iidInfo SubnetIIDInfo
-		err := infostore.GetByConditionsAndContains(&iidInfo, CONNECTION_NAME_COLUMN, ConnectionName,
+		err := infostore.GetByConditionsAndContain(&iidInfo, CONNECTION_NAME_COLUMN, ConnectionName,
 			OWNER_VPC_NAME_COLUMN, vmInfo.VpcIID.NameId, SYSTEM_ID_COLUMN, vmInfo.SubnetIID.SystemId)
 		if err != nil {
 			cblog.Error(err)
@@ -1146,7 +1146,7 @@ func getSetNameId(ConnectionName string, vmInfo *cres.VMInfo) error {
 	// set SecurityGroups NameId
 	for i, sgIID := range vmInfo.SecurityGroupIIds {
 		var iidInfo SGIIDInfo
-		err := infostore.GetByConditionsAndContains(&iidInfo, CONNECTION_NAME_COLUMN, ConnectionName,
+		err := infostore.GetByConditionsAndContain(&iidInfo, CONNECTION_NAME_COLUMN, ConnectionName,
 			OWNER_VPC_NAME_COLUMN, vmInfo.VpcIID.NameId, SYSTEM_ID_COLUMN, sgIID.SystemId)
 		if err != nil {
 			cblog.Error(err)
