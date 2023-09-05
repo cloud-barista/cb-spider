@@ -8,9 +8,7 @@
 # by CB-Spider Team, 2020.11.
 # by CB-Spider Team, 2020.03.
 
-
 ### List of support CloudOS.
-
 cloudos:
   - AWS
   - AZURE
@@ -22,11 +20,11 @@ cloudos:
   - CLOUDIT
   - NCP
   - NCPVPC
-  - KTCLOUD
   - NHNCLOUD
+  - KTCLOUD
+  - KTCLOUDVPC  
 #--- PoC
   - DOCKER
 #--- Emulation
   - MOCK
   - CLOUDTWIN
-
