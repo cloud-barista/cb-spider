@@ -80,8 +80,12 @@ CLOUDIT:
 NCP:
   region: Region / Zone
   credential: ClientId / ClientSecret
-  # idmaxlength: VPC / Subnet / SecurityGroup / KeyPair / VM
-  idmaxlength: 0 / 0 / 0 / 30 / 30
+  rootdisktype: SSD / HDD
+  rootdisksize: SSD|50|100|GB / HDD|50|100|GB
+  disktype: SSD / HDD
+  disksize: SSD|10|2000|GB / HDD|10|2000|GB
+  # idmaxlength: VPC / Subnet / SecurityGroup / KeyPair / VM / Disk / NLB / MyImage / Cluster
+  idmaxlength: 0 / 0 / 0 / 30 / 30 / 30 / 30 / 30 / 0
 
 NCPVPC:
   region: Region / Zone
@@ -96,6 +100,10 @@ NCPVPC:
 KTCLOUD:
   region: Region / Zone
   credential: ClientId / ClientSecret
+
+KTCLOUDVPC:
+  region: Region
+  credential: IdentityEndpoint / Username / Password / DomainName / ProjectID
 
 NHNCLOUD:
   region: Region / Zone
