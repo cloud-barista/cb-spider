@@ -43,6 +43,7 @@ type GCPCloudConnection struct {
 	SubnetClient        *compute.Service
 	VMSpecHandler       *compute.Service
 	VPCHandler          *compute.Service
+	RegionZoneHandler   *compute.Service
 	ContainerClient     *container.Service
 }
 
@@ -134,4 +135,10 @@ func (cloudConn *GCPCloudConnection) CreateClusterHandler() (irs.ClusterHandler,
 
 func (cloudConn *GCPCloudConnection) CreateAnyCallHandler() (irs.AnyCallHandler, error) {
 	return nil, errors.New("GCP Driver: not implemented")
+}
+
+func (cloudConn *GCPCloudConnection) CreateRegionZoneHandler() (irs.RegionZoneHandler, error) {
+	cblogger.Info("GCP Cloud Driver: called CreateRegionZoneHandler()!")
+	regionZoneHandler := gcprs.GCPRegionZoneHandler{cloudConn.Region, cloudConn.Ctx, cloudConn.VMClient, cloudConn.Credential}
+	return &regionZoneHandler, nil
 }

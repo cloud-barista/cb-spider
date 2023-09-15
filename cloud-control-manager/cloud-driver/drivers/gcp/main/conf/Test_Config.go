@@ -44,8 +44,8 @@ type Config struct {
 }
 
 // 환경변수 : GOOGLE_APPLICATION_CREDENTIALS - 인증용 .json 파일의 위치
-//handlerType : resources폴더의 xxxHandler.go에서 Handler이전까지의 문자열
-//(예) ImageHandler.go -> "Image"
+// handlerType : resources폴더의 xxxHandler.go에서 Handler이전까지의 문자열
+// (예) ImageHandler.go -> "Image"
 func GetResourceHandler(handlerType string) (interface{}, error) {
 	var cloudDriver idrv.CloudDriver
 	cloudDriver = new(gcpdrv.GCPDriver)
@@ -100,6 +100,8 @@ func GetResourceHandler(handlerType string) (interface{}, error) {
 		resourceHandler, err = cloudConnection.CreateVMSpecHandler()
 	case "VPCHandler":
 		resourceHandler, err = cloudConnection.CreateVPCHandler()
+	case "RegionZone":
+		resourceHandler, err = cloudConnection.CreateRegionZoneHandler()
 	}
 
 	if err != nil {
