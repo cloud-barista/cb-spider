@@ -41,9 +41,9 @@ type GCPCloudConnection struct {
 	VNetClient          *compute.Service
 	VNicClient          *compute.Service
 	SubnetClient        *compute.Service
-	VMSpecHandler       *compute.Service
-	VPCHandler          *compute.Service
-	RegionZoneHandler   *compute.Service
+	VMSpecClient        *compute.Service
+	VPCClient           *compute.Service
+	RegionZoneClient    *compute.Service
 	ContainerClient     *container.Service
 }
 

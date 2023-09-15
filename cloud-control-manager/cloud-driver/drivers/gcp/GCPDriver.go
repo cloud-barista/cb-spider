@@ -90,8 +90,8 @@ func (driver *GCPDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (icon.
 		// VNetClient:          VMClient,
 		// VNicClient:          VMClient,
 		SubnetClient:    VMClient,
-		VMSpecHandler:   VMClient,
-		VPCHandler:      VMClient,
+		VMSpecClient:    VMClient,
+		VPCClient:       VMClient,
 		ContainerClient: containerClient,
 	}
 
@@ -173,4 +173,3 @@ func getContainerClient(credential idrv.CredentialInfo) (context.Context, *conta
 
 	return ctx, containerClient, nil
 }
-
