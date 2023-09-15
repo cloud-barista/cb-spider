@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
-	"strings"
 
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
@@ -87,22 +86,37 @@ func (regionZoneHandler *GCPRegionZoneHandler) ListRegionZone() ([]*irs.RegionZo
 
 		// ZoneList
 		var zoneInfoList []*irs.ZoneInfo
-		for _, zoneUrl := range item.Zones {
-			// "https://www.googleapis.com/compute/v1/projects/csta-349809/zones/northamerica-northeast1-a"
-			startIndex := strings.Index(zoneUrl, "/zones/") + len("/zones/")
-			if startIndex < len("/zones/") {
-				//fmt.Println("Invalid URL:", zoneUrl)
-				cblogger.Error("Invalid URL:", zoneUrl)
-				continue
-			}
-			zone := zoneUrl[startIndex:]
-
+		resultZones, err := GetZoneListByRegion(regionZoneHandler.Client, item.SelfLink)
+		if err != nil {
+			// failed to get ZoneInfo by region
+		}
+		for _, zone := range resultZones.Items {
 			zoneInfo := irs.ZoneInfo{}
-			zoneInfo.Name = zone
-			zoneInfo.DisplayName = zone
+			zoneInfo.Name = zone.Name
+			zoneInfo.DisplayName = zone.Name
+			zoneInfo.Status = GetZoneStatus(zone.Status)
 
 			zoneInfoList = append(zoneInfoList, &zoneInfo)
 		}
+
+		//zoneInfo.Status = GetRegionStatus()
+
+		// for _, zoneUrl := range item.Zones {
+		// 	// "https://www.googleapis.com/compute/v1/projects/csta-349809/zones/northamerica-northeast1-a"
+		// 	startIndex := strings.Index(zoneUrl, "/zones/") + len("/zones/")
+		// 	if startIndex < len("/zones/") {
+		// 		//fmt.Println("Invalid URL:", zoneUrl)
+		// 		cblogger.Error("Invalid URL:", zoneUrl)
+		// 		continue
+		// 	}
+		// 	zone := zoneUrl[startIndex:]
+
+		// 	zoneInfo := irs.ZoneInfo{}
+		// 	zoneInfo.Name = zone
+		// 	zoneInfo.DisplayName = zone
+
+		// 	zoneInfoList = append(zoneInfoList, &zoneInfo)
+		// }
 
 		// KeyValueList
 		keyValueList := []irs.KeyValue{}
@@ -194,6 +208,7 @@ func (regionZoneHandler *GCPRegionZoneHandler) ListOrgZone() (string, error) {
 		ErrorMSG:     "",
 	}
 	callLogStart := call.Start()
+
 	resp, err := regionZoneHandler.Client.Zones.List(projectID).Do()
 	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 
