@@ -22,11 +22,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/davecgh/go-spew/spew"
 	cblog "github.com/cloud-barista/cb-log"
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
+	"github.com/davecgh/go-spew/spew"
 	"github.com/sirupsen/logrus"
 	compute "google.golang.org/api/compute/v1"
 	container "google.golang.org/api/container/v1"
@@ -510,6 +510,46 @@ func WaitContainerOperationDone(client *container.Service, project string, regio
 	}
 
 	return nil
+}
+
+// region에 해당하는 zone 목록 조회
+func GetZoneListByRegion(client *compute.Service, regionUrl string) (*compute.ZoneList, error) {
+	projectId := ""
+	regionName := ""
+
+	arrLink := strings.Split(regionUrl, "/")
+	if len(arrLink) > 0 {
+		regionName = arrLink[len(arrLink)-1]
+		for pos, item := range arrLink {
+			if strings.EqualFold(item, "projects") {
+				projectId = arrLink[pos+1]
+				break
+			}
+		}
+	}
+	cblogger.Infof("projectId : [%s] / imageName : [%s]", projectId, regionName)
+	if projectId == "" {
+		return nil, errors.New("ProjectId information not found in URL.")
+	}
+
+	resp, err := client.Zones.List(projectId).Do()
+
+	if err != nil {
+		cblogger.Error(err)
+		return nil, err
+	}
+	return resp, nil
+
+}
+
+// Available or Unavailable 로 return
+// Status of the zone, either UP or DOWN.
+func GetZoneStatus(status string) irs.ZoneStatus {
+	if status == "UP" {
+		return irs.ZoneAvailable
+	} else {
+		return irs.ZoneUnavailable
+	}
 }
 
 /*
