@@ -1793,7 +1793,71 @@ func handleMyImage() {
 	}
 }
 
-//import "path/filepath"
+func handleRegionZone() {
+	cblogger.Debug("Start RegionZoneHandler Resource Test")
+
+	ResourceHandler, err := testconf.GetResourceHandler("RegionZone")
+	if err != nil {
+		panic(err)
+	}
+	handler := ResourceHandler.(irs.RegionZoneHandler)
+
+	for {
+		fmt.Println("RegionZoneHandler Management")
+		fmt.Println("0. Quit")
+		fmt.Println("1. RegionZone List")
+		fmt.Println("2. OrgRegion List")
+		fmt.Println("3. OrgZone List")
+
+		var commandNum int
+		inputCnt, err := fmt.Scan(&commandNum)
+		if err != nil {
+			panic(err)
+		}
+
+		if inputCnt == 1 {
+			switch commandNum {
+			case 0:
+				return
+
+			case 1:
+				result, err := handler.ListRegionZone()
+				if err != nil {
+					cblogger.Infof(" RegionZone 목록 조회 실패 : ", err)
+				} else {
+					cblogger.Info("RegionZone 목록 조회 결과")
+					cblogger.Info(result)
+					cblogger.Info("출력 결과 수 : ", len(result))
+					spew.Dump(result)
+					//spew.Dump(result)
+
+					//조회및 삭제 테스트를 위해 리스트의 첫번째 정보의 ID를 요청ID로 자동 갱신함.
+					// if result != nil {
+					// 	diskReqInfo.IId = result[0].IId // 조회 및 삭제를 위해 생성된 ID로 변경
+					// }
+				}
+
+			case 2:
+				result, err := handler.ListOrgRegion()
+				if err != nil {
+					cblogger.Infof("[%s] ListOrgZone 조회 실패 : ", err)
+				} else {
+					cblogger.Infof("[%s] ListOrgZone 조회 성공 : ", result)
+					spew.Dump(result)
+				}
+
+			case 3:
+				result, err := handler.ListOrgZone()
+				if err != nil {
+					cblogger.Infof("[%s] ListOrgZone 조회 실패 : ", err)
+				} else {
+					cblogger.Infof("[%s] ListOrgZone 조회 성공 : ", result)
+					spew.Dump(result)
+				}
+			}
+		}
+	}
+}
 
 func main() {
 	cblogger.Info("GCP Resource Test")
@@ -1802,10 +1866,11 @@ func main() {
 	//handleImage() //AMI
 	//handleKeyPair()
 	//handleSecurity()
-	handleVM()
+	//handleVM()
 	//handleLoadBalancer()
 	//handleDisk()
 	//handleMyImage()
+	handleRegionZone()
 	//cblogger.Info(filepath.Join("a/b", "\\cloud-driver-libs\\.ssh-gcp\\"))
 	//cblogger.Info(filepath.Join("\\cloud-driver-libs\\.ssh-gcp\\", "/b/c/d"))
 }
