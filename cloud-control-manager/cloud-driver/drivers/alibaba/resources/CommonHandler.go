@@ -560,9 +560,9 @@ func GetSnapShotIdList(ecsImage ecs.Image) []string {
 	return snapShotIdList
 }
 
-// Region status
+// Region status : available, soldOut
 func GetRegionStatus(status string) irs.ZoneStatus {
-	if status == "UP" {
+	if status == "available" {
 		return irs.ZoneAvailable
 	} else {
 		return irs.ZoneUnavailable
