@@ -64,20 +64,25 @@ var cloudOSList = []call.CLOUD_OS{
 	call.CLOUDIT,
 	call.NCP,
 	call.NCPVPC,
-	call.KTCLOUD,
 	call.NHNCLOUD,
+	call.KTCLOUD,
+	call.KTCLOUDVPC,
 	call.DOCKER,
 	call.MOCK,
 	call.CLOUDTWIN,
 }
 
 var resTypeList = []call.RES_TYPE{
+	call.REGIONZONE,
 	call.VMIMAGE,
 	call.VMSPEC,
 	call.VPCSUBNET,
 	call.SECURITYGROUP,
 	call.VMKEYPAIR,
+	call.DISK,
 	call.VM,
+	call.MYIMAGE,
+	call.NLB,
 }
 
 func setRandom(info *call.CLOUDLOGSCHEMA) {

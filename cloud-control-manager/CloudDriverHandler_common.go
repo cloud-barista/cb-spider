@@ -152,6 +152,8 @@ func getRegionNameByRegionInfo(rgnInfo *rim.RegionInfo) (string, string, error) 
 		zoneName = getValue(rgnInfo.KeyValueInfoList, "Zone")
 	case "OPENSTACK", "CLOUDIT", "DOCKER", "CLOUDTWIN", "MOCK":
 		regionName = getValue(rgnInfo.KeyValueInfoList, "Region")
+	case "KTCLOUDVPC":
+		zoneName = getValue(rgnInfo.KeyValueInfoList, "Zone")
 	default:
 		errmsg := rgnInfo.ProviderName + " is not a valid ProviderName!!"
 		return "", "", fmt.Errorf(errmsg)
