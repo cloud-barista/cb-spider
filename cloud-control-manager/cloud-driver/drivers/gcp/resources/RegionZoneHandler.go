@@ -108,8 +108,9 @@ func (regionZoneHandler *GCPRegionZoneHandler) ListRegionZone() ([]*irs.RegionZo
 			keyValue := irs.KeyValue{}
 			keyValue.Key = field.Name
 			keyValue.Value = fmt.Sprintf("%v", value)
-			info.KeyValueList = keyValueList
+			keyValueList = append(keyValueList, keyValue)
 		}
+		info.KeyValueList = keyValueList
 
 		regionZoneInfoList = append(regionZoneInfoList, &info)
 	}
