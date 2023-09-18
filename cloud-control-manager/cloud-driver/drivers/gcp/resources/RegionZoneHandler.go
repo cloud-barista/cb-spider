@@ -19,30 +19,6 @@ type GCPRegionZoneHandler struct {
 	Credential idrv.CredentialInfo
 }
 
-// // -------- Const
-// type ZoneStatus string
-
-// const (
-// 	ZoneAvailable   ZoneStatus = "Available"
-// 	ZoneUnavailable ZoneStatus = "Unavailable"
-// )
-
-// type RegionZoneInfo struct {
-// 	Name        string
-// 	DisplayName string
-// 	ZoneList    []ZoneInfo
-
-// 	KeyValueList []KeyValue
-// }
-
-// type ZoneInfo struct {
-// 	Name        string
-// 	DisplayName string
-// 	Status      ZoneStatus // Available | Unavailable
-
-// 	KeyValueList []KeyValue
-// }
-
 // required Compute Engine IAM ROLE : compute.regions.list
 func (regionZoneHandler *GCPRegionZoneHandler) ListRegionZone() ([]*irs.RegionZoneInfo, error) {
 	var regionZoneInfoList []*irs.RegionZoneInfo
@@ -76,10 +52,6 @@ func (regionZoneHandler *GCPRegionZoneHandler) ListRegionZone() ([]*irs.RegionZo
 	}
 
 	for _, item := range resp.Items {
-		// Name        string
-		// DisplayName string
-		// ZoneList    []ZoneInfo
-		// KeyValueList []KeyValue
 		info := irs.RegionZoneInfo{}
 		info.Name = item.Name
 		info.DisplayName = item.Name
@@ -99,8 +71,7 @@ func (regionZoneHandler *GCPRegionZoneHandler) ListRegionZone() ([]*irs.RegionZo
 			zoneInfoList = append(zoneInfoList, &zoneInfo)
 		}
 
-		//zoneInfo.Status = GetRegionStatus()
-
+		// 가져온 결과에서 Zone 정보 추출 : Zone의 status를 찾지 못해 조회하는 것으로 변경
 		// for _, zoneUrl := range item.Zones {
 		// 	// "https://www.googleapis.com/compute/v1/projects/csta-349809/zones/northamerica-northeast1-a"
 		// 	startIndex := strings.Index(zoneUrl, "/zones/") + len("/zones/")
@@ -118,26 +89,15 @@ func (regionZoneHandler *GCPRegionZoneHandler) ListRegionZone() ([]*irs.RegionZo
 		// 	zoneInfoList = append(zoneInfoList, &zoneInfo)
 		// }
 
-		// KeyValueList
 		keyValueList := []irs.KeyValue{}
-		//
-		// keyValue := irs.KeyValue{}
-		// keyValue.Key = "Kind"
-		// keyValue.Value = item.Kind
-		// info.KeyValueList = keyValueList
-
-		// t := reflect.TypeOf(item)
 		itemType := reflect.TypeOf(item)
 		if itemType.Kind() == reflect.Ptr {
 			itemType = itemType.Elem()
 		}
-		// v := reflect.ValueOf(item)
 		itemValue := reflect.ValueOf(item)
 		if itemValue.Kind() == reflect.Ptr {
 			itemValue = itemValue.Elem()
 		}
-
-		// numFields := t.NumField()
 		numFields := itemType.NumField()
 
 		// 속성 이름과 값을 출력합니다.
@@ -157,14 +117,6 @@ func (regionZoneHandler *GCPRegionZoneHandler) ListRegionZone() ([]*irs.RegionZo
 	return regionZoneInfoList, nil
 }
 func (regionZoneHandler *GCPRegionZoneHandler) ListOrgRegion() (string, error) {
-	// regionResp, err := regionZoneHandler.Client.Regions.(projectID).Do()
-	// if err != nil {
-	// 	cblogger.Error(err)
-	// 	return regionZoneInfoList, err
-	// }
-	// if regionResp == nil {
-	// 	return nil, errors.New("Not Found : Region Zone information not found")
-	// }
 
 	projectID := regionZoneHandler.Credential.ProjectID
 
@@ -191,7 +143,7 @@ func (regionZoneHandler *GCPRegionZoneHandler) ListOrgRegion() (string, error) {
 	callogger.Info(call.String(callLogInfo))
 	j, _ := resp.MarshalJSON()
 
-	callogger.Info(j)
+	//callogger.Info(j)
 	return string(j), err
 }
 func (regionZoneHandler *GCPRegionZoneHandler) ListOrgZone() (string, error) {
@@ -221,7 +173,7 @@ func (regionZoneHandler *GCPRegionZoneHandler) ListOrgZone() (string, error) {
 	callogger.Info(call.String(callLogInfo))
 	j, _ := resp.MarshalJSON()
 
-	callogger.Info(j)
+	//callogger.Info(j)
 	return string(j), err
 }
 

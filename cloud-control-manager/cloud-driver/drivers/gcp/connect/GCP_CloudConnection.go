@@ -139,6 +139,6 @@ func (cloudConn *GCPCloudConnection) CreateAnyCallHandler() (irs.AnyCallHandler,
 
 func (cloudConn *GCPCloudConnection) CreateRegionZoneHandler() (irs.RegionZoneHandler, error) {
 	cblogger.Info("GCP Cloud Driver: called CreateRegionZoneHandler()!")
-	regionZoneHandler := gcprs.GCPRegionZoneHandler{cloudConn.Region, cloudConn.Ctx, cloudConn.VMClient, cloudConn.Credential}
+	regionZoneHandler := gcprs.GCPRegionZoneHandler{cloudConn.Region, cloudConn.Ctx, cloudConn.RegionZoneClient, cloudConn.Credential}
 	return &regionZoneHandler, nil
 }
