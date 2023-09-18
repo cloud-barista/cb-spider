@@ -49,6 +49,11 @@ type AlibabaCloudConnection struct {
 	MyImageClient *ecs.Client
 }
 
+// CreateRegionZoneHandler implements connect.CloudConnection.
+func (*AlibabaCloudConnection) CreateRegionZoneHandler() (irs.RegionZoneHandler, error) {
+	panic("unimplemented")
+}
+
 /*
 	func (cloudConn *AlibabaCloudConnection) CreateVNetworkHandler() (irs.VNetworkHandler, error) {
 		cblogger.Info("Alibaba Cloud Driver: called CreateVNetworkHandler()!")
@@ -148,6 +153,5 @@ func (AlibabaCloudConnection) Close() error {
 }
 
 func (cloudConn *AlibabaCloudConnection) CreateAnyCallHandler() (irs.AnyCallHandler, error) {
-        return nil, errors.New("Alibaba Driver: not implemented")
+	return nil, errors.New("Alibaba Driver: not implemented")
 }
-

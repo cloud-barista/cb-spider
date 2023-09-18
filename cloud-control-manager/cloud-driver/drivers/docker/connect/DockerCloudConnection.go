@@ -12,11 +12,12 @@ package connect
 
 import (
 	"context"
+
 	cblog "github.com/cloud-barista/cb-log"
-	"github.com/docker/docker/client"
 	dkrs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/docker/resources"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
+	"github.com/docker/docker/client"
 	"github.com/sirupsen/logrus"
 
 	"errors"
@@ -30,9 +31,14 @@ func init() {
 }
 
 type DockerCloudConnection struct {
-	ConnectionInfo      idrv.ConnectionInfo
-	Context		    context.Context
-	Client              *client.Client
+	ConnectionInfo idrv.ConnectionInfo
+	Context        context.Context
+	Client         *client.Client
+}
+
+// CreateRegionZoneHandler implements connect.CloudConnection.
+func (*DockerCloudConnection) CreateRegionZoneHandler() (irs.RegionZoneHandler, error) {
+	panic("unimplemented")
 }
 
 func (cloudConn *DockerCloudConnection) CreateImageHandler() (irs.ImageHandler, error) {
@@ -41,39 +47,38 @@ func (cloudConn *DockerCloudConnection) CreateImageHandler() (irs.ImageHandler, 
 	return &imageHandler, nil
 }
 
-
 func (cloudConn *DockerCloudConnection) CreateVMHandler() (irs.VMHandler, error) {
 	cblogger.Info("Docker Cloud Driver: called CreateVMHandler()!")
 	vmHandler := dkrs.DockerVMHandler{
-		Region:         cloudConn.ConnectionInfo.RegionInfo,
-		Context:        cloudConn.Context,
-		Client:         cloudConn.Client,
+		Region:  cloudConn.ConnectionInfo.RegionInfo,
+		Context: cloudConn.Context,
+		Client:  cloudConn.Client,
 	}
 	return &vmHandler, nil
 }
 
 func (cloudConn *DockerCloudConnection) CreateVPCHandler() (irs.VPCHandler, error) {
-        cblogger.Error("Docker Cloud Driver: called CreateVPCHandler(), but not supported!")
-        return nil, nil
+	cblogger.Error("Docker Cloud Driver: called CreateVPCHandler(), but not supported!")
+	return nil, nil
 }
 
 func (cloudConn DockerCloudConnection) CreateSecurityHandler() (irs.SecurityHandler, error) {
-        cblogger.Error("Docker Cloud Driver: called CreateSecurityHandler(), but not supported!")
-        return nil, nil
+	cblogger.Error("Docker Cloud Driver: called CreateSecurityHandler(), but not supported!")
+	return nil, nil
 }
 
 func (cloudConn *DockerCloudConnection) CreateKeyPairHandler() (irs.KeyPairHandler, error) {
-        cblogger.Error("Docker Cloud Driver: called CreateKeyPairHandler(), but not supported!")
-        return nil, nil
+	cblogger.Error("Docker Cloud Driver: called CreateKeyPairHandler(), but not supported!")
+	return nil, nil
 }
 
 func (cloudConn *DockerCloudConnection) CreateVMSpecHandler() (irs.VMSpecHandler, error) {
-        cblogger.Error("Docker Cloud Driver: called CreateVMSpecHandler(), but not supported!")
+	cblogger.Error("Docker Cloud Driver: called CreateVMSpecHandler(), but not supported!")
 	return nil, nil
 }
 
 func (cloudConn *DockerCloudConnection) IsConnected() (bool, error) {
-        cblogger.Info("Docker Cloud Driver: called IsConnected()!")
+	cblogger.Info("Docker Cloud Driver: called IsConnected()!")
 	if cloudConn == nil {
 		return false, nil
 	}
@@ -86,27 +91,26 @@ func (cloudConn *DockerCloudConnection) IsConnected() (bool, error) {
 }
 
 func (cloudConn *DockerCloudConnection) Close() error {
-        cblogger.Info("Docker Cloud Driver: called Close()!")
+	cblogger.Info("Docker Cloud Driver: called Close()!")
 	return cloudConn.Client.Close()
 }
 
 func (cloudConn *DockerCloudConnection) CreateNLBHandler() (irs.NLBHandler, error) {
-        return nil, errors.New("Docker Cloud Driver NLB: not implemented")
+	return nil, errors.New("Docker Cloud Driver NLB: not implemented")
 }
 
 func (cloudConn *DockerCloudConnection) CreateDiskHandler() (irs.DiskHandler, error) {
-        return nil, errors.New("Docker Driver: not implemented")
+	return nil, errors.New("Docker Driver: not implemented")
 }
 
 func (cloudConn *DockerCloudConnection) CreateClusterHandler() (irs.ClusterHandler, error) {
-        return nil, errors.New("Docker Driver: not implemented")
+	return nil, errors.New("Docker Driver: not implemented")
 }
 
 func (cloudConn *DockerCloudConnection) CreateMyImageHandler() (irs.MyImageHandler, error) {
-        return nil, errors.New("Docker Driver: not implemented")
+	return nil, errors.New("Docker Driver: not implemented")
 }
 
 func (cloudConn *DockerCloudConnection) CreateAnyCallHandler() (irs.AnyCallHandler, error) {
-        return nil, errors.New("Docker Driver: not implemented")
+	return nil, errors.New("Docker Driver: not implemented")
 }
-

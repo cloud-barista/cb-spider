@@ -56,6 +56,11 @@ type AwsCloudConnection struct {
 	AnyCallClient *ec2.EC2
 }
 
+// CreateRegionZoneHandler implements connect.CloudConnection.
+func (*AwsCloudConnection) CreateRegionZoneHandler() (irs.RegionZoneHandler, error) {
+	panic("unimplemented")
+}
+
 var cblogger *logrus.Logger
 
 func init() {

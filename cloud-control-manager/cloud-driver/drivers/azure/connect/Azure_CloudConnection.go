@@ -13,6 +13,7 @@ package connect
 import (
 	"context"
 	"errors"
+
 	"github.com/Azure/azure-sdk-for-go/profiles/2020-09-01/monitor/mgmt/insights"
 	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2021-03-01/compute"
 	"github.com/Azure/azure-sdk-for-go/services/containerservice/mgmt/2022-03-01/containerservice"
@@ -57,6 +58,11 @@ type AzureCloudConnection struct {
 	VirtualMachineScaleSetsClient   *compute.VirtualMachineScaleSetsClient
 	VirtualMachineScaleSetVMsClient *compute.VirtualMachineScaleSetVMsClient
 	VirtualMachineRunCommandsClient *compute.VirtualMachineRunCommandsClient
+}
+
+// CreateRegionZoneHandler implements connect.CloudConnection.
+func (*AzureCloudConnection) CreateRegionZoneHandler() (irs.RegionZoneHandler, error) {
+	panic("unimplemented")
 }
 
 func (cloudConn *AzureCloudConnection) CreateImageHandler() (irs.ImageHandler, error) {

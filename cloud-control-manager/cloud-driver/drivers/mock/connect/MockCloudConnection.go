@@ -11,12 +11,13 @@
 package connect
 
 import (
+	"errors"
+
 	cblog "github.com/cloud-barista/cb-log"
 	mkrs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/mock/resources"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/sirupsen/logrus"
-	"errors"
 )
 
 var cblogger *logrus.Logger
@@ -29,6 +30,11 @@ func init() {
 type MockConnection struct {
 	Region   idrv.RegionInfo
 	MockName string
+}
+
+// CreateRegionZoneHandler implements connect.CloudConnection.
+func (*MockConnection) CreateRegionZoneHandler() (irs.RegionZoneHandler, error) {
+	panic("unimplemented")
 }
 
 func (cloudConn *MockConnection) CreateImageHandler() (irs.ImageHandler, error) {
@@ -94,7 +100,7 @@ func (cloudConn *MockConnection) CreateDiskHandler() (irs.DiskHandler, error) {
 }
 
 func (cloudConn *MockConnection) CreateClusterHandler() (irs.ClusterHandler, error) {
-        return nil, errors.New("Mock Driver: not implemented")
+	return nil, errors.New("Mock Driver: not implemented")
 }
 
 func (cloudConn *MockConnection) CreateMyImageHandler() (irs.MyImageHandler, error) {
@@ -104,8 +110,7 @@ func (cloudConn *MockConnection) CreateMyImageHandler() (irs.MyImageHandler, err
 }
 
 func (cloudConn *MockConnection) CreateAnyCallHandler() (irs.AnyCallHandler, error) {
-        cblogger.Info("Mock Driver: called CreateAnyCallHandler()!")
-        handler := mkrs.MockAnyCallHandler{cloudConn.MockName}
-        return &handler, nil
+	cblogger.Info("Mock Driver: called CreateAnyCallHandler()!")
+	handler := mkrs.MockAnyCallHandler{cloudConn.MockName}
+	return &handler, nil
 }
-

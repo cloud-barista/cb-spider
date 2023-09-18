@@ -45,6 +45,11 @@ type TencentCloudConnection struct {
 	//PublicIPClient *cvm.Client
 }
 
+// CreateRegionZoneHandler implements connect.CloudConnection.
+func (*TencentCloudConnection) CreateRegionZoneHandler() (irs.RegionZoneHandler, error) {
+	panic("unimplemented")
+}
+
 var cblogger *logrus.Logger
 
 func init() {
