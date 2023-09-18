@@ -51,8 +51,8 @@ type AlibabaCloudConnection struct {
 }
 
 func (cloudConn *AlibabaCloudConnection) CreateRegionZoneHandler() (irs.RegionZoneHandler, error) {
+	//regionZoneHandler := alirs.AlibabaRegionZoneHandler{Region: cloudConn.Region, Client: cloudConn.RegionZoneClient}
 	regionZoneHandler := alirs.AlibabaRegionZoneHandler{Region: cloudConn.Region, Client: cloudConn.RegionZoneClient}
-
 	return &regionZoneHandler, nil
 }
 

@@ -578,12 +578,11 @@ func DescribeRegions(client *ecs.Client) (*ecs.DescribeRegionsResponse, error) {
 		CloudOS:      call.ALIBABA,
 		RegionZone:   "",
 		ResourceType: call.REGIONZONE,
-		ResourceName: "",
-		CloudOSAPI:   "ListRegions()",
+		ResourceName: "Regions",
+		CloudOSAPI:   "ListRegionZone()",
 		ElapsedTime:  "",
 		ErrorMSG:     "",
 	}
-
 	callLogStart := call.Start()
 	result, err := client.DescribeRegions(request)
 	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
@@ -593,6 +592,30 @@ func DescribeRegions(client *ecs.Client) (*ecs.DescribeRegionsResponse, error) {
 		return nil, err
 	}
 	callogger.Info(call.String(callLogInfo))
+
+	// request := ecs.CreateDescribeRegionsRequest()
+	// request.AcceptLanguage = "en-US" // Only Chinese (zh-CN : default), English (en-US), and Japanese (ja) are allowed
+
+	// callogger := call.GetLogger("HISCALL")
+	// callLogInfo := call.CLOUDLOGSCHEMA{
+	// 	CloudOS:      call.ALIBABA,
+	// 	RegionZone:   "",
+	// 	ResourceType: call.REGIONZONE,
+	// 	ResourceName: "",
+	// 	CloudOSAPI:   "ListRegions()",
+	// 	ElapsedTime:  "",
+	// 	ErrorMSG:     "",
+	// }
+
+	// callLogStart := call.Start()
+	// result, err := client.DescribeRegions(request)
+	// callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+	// if err != nil {
+	// 	callLogInfo.ErrorMSG = err.Error()
+	// 	callogger.Error(call.String(callLogInfo))
+	// 	return nil, err
+	// }
+	// callogger.Info(call.String(callLogInfo))
 	return result, nil
 }
 

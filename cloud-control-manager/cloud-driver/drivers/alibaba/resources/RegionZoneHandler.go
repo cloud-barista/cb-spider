@@ -22,8 +22,8 @@ type AlibabaRegionZoneHandler struct {
 func (regionZoneHandler AlibabaRegionZoneHandler) ListRegionZone() ([]*irs.RegionZoneInfo, error) {
 	var regionZoneInfoList []*irs.RegionZoneInfo
 
-	request := ecs.CreateDescribeRegionsRequest()
-	request.AcceptLanguage = "en-US" // Only Chinese (zh-CN : default), English (en-US), and Japanese (ja) are allowed
+	// request := ecs.CreateDescribeRegionsRequest()
+	// request.AcceptLanguage = "en-US" // Only Chinese (zh-CN : default), English (en-US), and Japanese (ja) are allowed
 
 	// callogger := call.GetLogger("HISCALL")
 	// callLogInfo := call.CLOUDLOGSCHEMA{
@@ -44,6 +44,7 @@ func (regionZoneHandler AlibabaRegionZoneHandler) ListRegionZone() ([]*irs.Regio
 	// 	return regionZoneInfoList, err
 	// }
 	// callogger.Info(call.String(callLogInfo))
+
 	result, err := DescribeRegions(regionZoneHandler.Client)
 	if err != nil {
 		return regionZoneInfoList, err
@@ -61,7 +62,7 @@ func (regionZoneHandler AlibabaRegionZoneHandler) ListRegionZone() ([]*irs.Regio
 
 		// ZoneList
 		var zoneInfoList []irs.ZoneInfo
-
+		cblogger.Info("regionId ", regionId)
 		zonesResult, err := DescribeZonesByRegion(regionZoneHandler.Client, regionId)
 		if err != nil {
 			cblogger.Debug("DescribeZone failed ", err)
@@ -117,8 +118,8 @@ func (regionZoneHandler AlibabaRegionZoneHandler) ListRegionZone() ([]*irs.Regio
 
 // 모든 Region 정보 조회(json return)
 func (regionZoneHandler AlibabaRegionZoneHandler) ListOrgRegion() (string, error) {
-	request := ecs.CreateDescribeRegionsRequest()
-	request.AcceptLanguage = "en-US" // Only Chinese (zh-CN : default), English (en-US), and Japanese (ja) are allowed
+	// request := ecs.CreateDescribeRegionsRequest()
+	// request.AcceptLanguage = "en-US" // Only Chinese (zh-CN : default), English (en-US), and Japanese (ja) are allowed
 
 	// callogger := call.GetLogger("HISCALL")
 	// callLogInfo := call.CLOUDLOGSCHEMA{
