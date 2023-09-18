@@ -1430,6 +1430,74 @@ func handleMyImage() {
 	}
 }
 
+func handleRegionZone() {
+	cblogger.Debug("Start RegionZoneHandler Resource Test")
+
+	ResourceHandler, err := testconf.GetResourceHandler("RegionZone")
+	if err != nil {
+		panic(err)
+	}
+	handler := ResourceHandler.(irs.RegionZoneHandler)
+
+	for {
+		fmt.Println("RegionZoneHandler Management")
+		fmt.Println("0. Quit")
+		fmt.Println("1. List RegionZone")
+		fmt.Println("2. List OrgRegion")
+		fmt.Println("3. List OrgZone")
+
+		var commandNum int
+		inputCnt, err := fmt.Scan(&commandNum)
+		if err != nil {
+			panic(err)
+		}
+
+		if inputCnt == 1 {
+			switch commandNum {
+			case 0:
+				return
+
+			case 1:
+				result, err := handler.ListRegionZone()
+				if err != nil {
+					cblogger.Infof("ListRegionZone 목록 조회 실패 : %s", err)
+				} else {
+					cblogger.Info("ListRegionZone 목록 조회 결과")
+					// cblogger.Debugf("결과 %s", result[0])
+					spew.Dump(result)
+					cblogger.Infof("로그 레벨 : [%s]", cblog.GetLevel())
+					//spew.Dump(result)
+					cblogger.Info("출력 결과 수 : ", len(result))
+				}
+			case 2:
+				result, err := handler.ListOrgRegion()
+				if err != nil {
+					cblogger.Infof("ListRegionZone 목록 조회 실패 : %s", err)
+				} else {
+					cblogger.Info("ListRegionZone 목록 조회 결과")
+					// cblogger.Debugf("결과 %s", result[0])
+					cblogger.Info(result)
+					cblogger.Infof("로그 레벨 : [%s]", cblog.GetLevel())
+					//spew.Dump(result)
+					cblogger.Info("출력 결과 수 : ", len(result))
+				}
+			case 3:
+				result, err := handler.ListOrgZone()
+				if err != nil {
+					cblogger.Infof("ListRegionZone 목록 조회 실패 : %s", err)
+				} else {
+					cblogger.Info("ListRegionZone 목록 조회 결과")
+					// cblogger.Debugf("결과 %s", result[0])
+					cblogger.Info(result)
+					cblogger.Infof("로그 레벨 : [%s]", cblog.GetLevel())
+					//spew.Dump(result)
+					cblogger.Info("출력 결과 수 : ", len(result))
+				}
+			}
+		}
+	}
+}
+
 func main() {
 	cblogger.Info("Tencent Cloud Resource Test")
 	//handleVPC() //VPC
@@ -1440,7 +1508,8 @@ func main() {
 	//handleKeyPair()
 	//handleVM()
 	//handleDisk()
-	handleMyImage()
+	// handleMyImage()
 	//handlePublicIP() // PublicIP 생성 후 conf
+	handleRegionZone()
 	//handleVNic() //Lancard
 }

@@ -32,6 +32,8 @@ type CloudConnection interface {
 
 	CreateAnyCallHandler() (irs.AnyCallHandler, error)
 
+	CreateRegionZoneHandler() (irs.RegionZoneHandler, error)
+
 	IsConnected() (bool, error)
 	Close() error
 }
