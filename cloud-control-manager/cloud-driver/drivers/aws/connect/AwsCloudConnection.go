@@ -27,6 +27,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/autoscaling"
 	"github.com/aws/aws-sdk-go/service/eks"
 	"github.com/aws/aws-sdk-go/service/iam"
+	"errors"
 )
 
 // type AwsCloudConnection struct{}
@@ -58,7 +59,7 @@ type AwsCloudConnection struct {
 
 // CreateRegionZoneHandler implements connect.CloudConnection.
 func (*AwsCloudConnection) CreateRegionZoneHandler() (irs.RegionZoneHandler, error) {
-	panic("unimplemented")
+	return nil, errors.New("Driver: not implemented")
 }
 
 var cblogger *logrus.Logger

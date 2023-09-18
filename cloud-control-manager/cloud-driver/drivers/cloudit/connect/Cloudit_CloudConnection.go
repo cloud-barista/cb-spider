@@ -35,7 +35,7 @@ type ClouditCloudConnection struct {
 
 // CreateRegionZoneHandler implements connect.CloudConnection.
 func (*ClouditCloudConnection) CreateRegionZoneHandler() (irs.RegionZoneHandler, error) {
-	panic("unimplemented")
+	return nil, errors.New("Driver: not implemented")
 }
 
 func (cloudConn *ClouditCloudConnection) CreateImageHandler() (irs.ImageHandler, error) {

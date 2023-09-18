@@ -38,7 +38,7 @@ type DockerCloudConnection struct {
 
 // CreateRegionZoneHandler implements connect.CloudConnection.
 func (*DockerCloudConnection) CreateRegionZoneHandler() (irs.RegionZoneHandler, error) {
-	panic("unimplemented")
+	return nil, errors.New("Driver: not implemented")
 }
 
 func (cloudConn *DockerCloudConnection) CreateImageHandler() (irs.ImageHandler, error) {

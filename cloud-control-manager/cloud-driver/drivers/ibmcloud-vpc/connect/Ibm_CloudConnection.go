@@ -34,7 +34,7 @@ type IbmCloudConnection struct {
 
 // CreateRegionZoneHandler implements connect.CloudConnection.
 func (*IbmCloudConnection) CreateRegionZoneHandler() (irs.RegionZoneHandler, error) {
-	panic("unimplemented")
+	return nil, errors.New("Driver: not implemented")
 }
 
 func (cloudConn *IbmCloudConnection) CreateImageHandler() (irs.ImageHandler, error) {

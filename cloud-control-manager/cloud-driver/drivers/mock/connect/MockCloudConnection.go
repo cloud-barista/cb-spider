@@ -34,7 +34,7 @@ type MockConnection struct {
 
 // CreateRegionZoneHandler implements connect.CloudConnection.
 func (*MockConnection) CreateRegionZoneHandler() (irs.RegionZoneHandler, error) {
-	panic("unimplemented")
+	return nil, errors.New("Driver: not implemented")
 }
 
 func (cloudConn *MockConnection) CreateImageHandler() (irs.ImageHandler, error) {

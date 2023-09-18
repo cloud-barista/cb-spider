@@ -62,7 +62,7 @@ type AzureCloudConnection struct {
 
 // CreateRegionZoneHandler implements connect.CloudConnection.
 func (*AzureCloudConnection) CreateRegionZoneHandler() (irs.RegionZoneHandler, error) {
-	panic("unimplemented")
+	return nil, errors.New("Driver: not implemented")
 }
 
 func (cloudConn *AzureCloudConnection) CreateImageHandler() (irs.ImageHandler, error) {

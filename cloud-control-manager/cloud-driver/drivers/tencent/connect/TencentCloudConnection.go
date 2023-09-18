@@ -47,7 +47,7 @@ type TencentCloudConnection struct {
 
 // CreateRegionZoneHandler implements connect.CloudConnection.
 func (*TencentCloudConnection) CreateRegionZoneHandler() (irs.RegionZoneHandler, error) {
-	panic("unimplemented")
+	return nil, errors.New("Driver: not implemented")
 }
 
 var cblogger *logrus.Logger

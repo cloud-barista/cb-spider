@@ -44,7 +44,7 @@ type OpenStackCloudConnection struct {
 
 // CreateRegionZoneHandler implements connect.CloudConnection.
 func (*OpenStackCloudConnection) CreateRegionZoneHandler() (irs.RegionZoneHandler, error) {
-	panic("unimplemented")
+	return nil, errors.New("Driver: not implemented")
 }
 
 func (cloudConn *OpenStackCloudConnection) CreateImageHandler() (irs.ImageHandler, error) {
