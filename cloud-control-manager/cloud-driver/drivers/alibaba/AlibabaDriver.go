@@ -47,6 +47,7 @@ func (AlibabaDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	drvCapabilityInfo.VMSpecHandler = false
 	drvCapabilityInfo.DiskHandler = false
 	drvCapabilityInfo.ClusterHandler = true
+	drvCapabilityInfo.RegionZoneHandler = false
 
 	return drvCapabilityInfo
 }
@@ -87,10 +88,11 @@ func (driver *AlibabaDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (i
 		//VNetClient:          VPCClient,
 		//VNicClient:          ECSClient,
 		//SubnetClient: VPCClient,
-		VmSpecClient:  ECSClient,
-		NLBClient:     NLBClient,
-		DiskClient:    ECSClient,
-		MyImageClient: ECSClient,
+		VmSpecClient:     ECSClient,
+		NLBClient:        NLBClient,
+		DiskClient:       ECSClient,
+		MyImageClient:    ECSClient,
+		RegionZoneClient: ECSClient,
 	}
 	return &iConn, nil
 }

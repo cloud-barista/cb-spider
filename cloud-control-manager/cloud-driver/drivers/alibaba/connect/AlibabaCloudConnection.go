@@ -42,16 +42,18 @@ type AlibabaCloudConnection struct {
 	//VNetClient          *vpc.Client
 	VpcClient *vpc.Client
 	//VNicClient          *ecs.Client
-	SubnetClient  *vpc.Client
-	VmSpecClient  *ecs.Client
-	NLBClient     *slb.Client
-	DiskClient    *ecs.Client
-	MyImageClient *ecs.Client
+	SubnetClient     *vpc.Client
+	VmSpecClient     *ecs.Client
+	NLBClient        *slb.Client
+	DiskClient       *ecs.Client
+	MyImageClient    *ecs.Client
+	RegionZoneClient *ecs.Client
 }
 
-// CreateRegionZoneHandler implements connect.CloudConnection.
-func (*AlibabaCloudConnection) CreateRegionZoneHandler() (irs.RegionZoneHandler, error) {
-	return nil, errors.New("Driver: not implemented")
+func (cloudConn *AlibabaCloudConnection) CreateRegionZoneHandler() (irs.RegionZoneHandler, error) {
+	regionZoneHandler := alirs.AlibabaRegionZoneHandler{Region: cloudConn.Region, Client: cloudConn.RegionZoneClient}
+
+	return &regionZoneHandler, nil
 }
 
 /*

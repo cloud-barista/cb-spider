@@ -559,3 +559,67 @@ func GetSnapShotIdList(ecsImage ecs.Image) []string {
 
 	return snapShotIdList
 }
+
+// Region status
+func GetRegionStatus(status string) irs.ZoneStatus {
+	if status == "UP" {
+		return irs.ZoneAvailable
+	} else {
+		return irs.ZoneUnavailable
+	}
+}
+
+func DescribeRegions(client *ecs.Client) (*ecs.DescribeRegionsResponse, error) {
+	request := ecs.CreateDescribeRegionsRequest()
+	request.AcceptLanguage = "en-US" // Only Chinese (zh-CN : default), English (en-US), and Japanese (ja) are allowed
+
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.ALIBABA,
+		RegionZone:   "",
+		ResourceType: call.REGIONZONE,
+		ResourceName: "",
+		CloudOSAPI:   "ListRegions()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+
+	callLogStart := call.Start()
+	result, err := client.DescribeRegions(request)
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+	if err != nil {
+		callLogInfo.ErrorMSG = err.Error()
+		callogger.Error(call.String(callLogInfo))
+		return nil, err
+	}
+	callogger.Info(call.String(callLogInfo))
+	return result, nil
+}
+
+func DescribeZonesByRegion(client *ecs.Client, regionId string) (*ecs.DescribeZonesResponse, error) {
+	request := ecs.CreateDescribeZonesRequest()
+	request.AcceptLanguage = "en-US" // Only Chinese (zh-CN : default), English (en-US), and Japanese (ja) are allowed
+	request.RegionId = regionId
+
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.ALIBABA,
+		RegionZone:   "",
+		ResourceType: call.REGIONZONE,
+		ResourceName: "",
+		CloudOSAPI:   "ListZones()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+
+	callLogStart := call.Start()
+	result, err := client.DescribeZones(request)
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+	if err != nil {
+		callLogInfo.ErrorMSG = err.Error()
+		callogger.Error(call.String(callLogInfo))
+		return nil, err
+	}
+	callogger.Info(call.String(callLogInfo))
+	return result, nil
+}
