@@ -57,8 +57,8 @@ func (regionZoneHandler AlibabaRegionZoneHandler) ListRegionZone() ([]*irs.Regio
 		info.Name = regionId
 		info.DisplayName = item.LocalName
 
-		regionStatus := GetRegionStatus(item.Status)
-		cblogger.Info("regionStatus ", regionStatus)
+		// regionStatus := GetRegionStatus(item.Status)
+		// cblogger.Info("regionStatus ", regionStatus)
 
 		// ZoneList
 		var zoneInfoList []irs.ZoneInfo
@@ -71,7 +71,7 @@ func (regionZoneHandler AlibabaRegionZoneHandler) ListRegionZone() ([]*irs.Regio
 			zoneInfo := irs.ZoneInfo{}
 			zoneInfo.Name = zone.ZoneId
 			zoneInfo.DisplayName = zone.LocalName
-			//zoneInfo.Status = regionStatus // Zone의 상태값이 없으므로 set하지 않도록 변경.
+			zoneInfo.Status = GetZoneStatus("") // Zone의 상태값이 없으므로 set하지 않도록 변경.
 
 			keyValueList := []irs.KeyValue{}
 			itemType := reflect.TypeOf(zone)
@@ -206,6 +206,81 @@ func (regionZoneHandler AlibabaRegionZoneHandler) ListOrgZone() (string, error) 
 		cblogger.Error(errJson)
 	}
 	return jsonString, errJson
+}
+
+// 특정 Region에 대한 정보 조회.
+func (regionZoneHandler AlibabaRegionZoneHandler) GetRegionZone(reqRegionId string) (irs.RegionZoneInfo, error) {
+	regionInfo := irs.RegionZoneInfo{}
+	result, err := DescribeRegions(regionZoneHandler.Client)
+	if err != nil {
+		return regionInfo, err
+	}
+
+	for _, item := range result.Regions.Region {
+		regionId := item.RegionId
+
+		if reqRegionId != regionId {
+			continue
+		}
+
+		regionInfo.Name = regionId
+		regionInfo.DisplayName = item.LocalName
+
+		// regionStatus := GetRegionStatus(item.Status)
+		// cblogger.Info("regionStatus ", regionStatus)
+
+		// ZoneList
+		var zoneInfoList []irs.ZoneInfo
+		cblogger.Info("regionId ", regionId)
+		zonesResult, err := DescribeZonesByRegion(regionZoneHandler.Client, regionId)
+		if err != nil {
+			cblogger.Debug("DescribeZone failed ", err)
+		}
+		for _, zone := range zonesResult.Zones.Zone {
+			zoneInfo := irs.ZoneInfo{}
+			zoneInfo.Name = zone.ZoneId
+			zoneInfo.DisplayName = zone.LocalName
+			zoneInfo.Status = GetZoneStatus("") // Zone의 상태값이 없으므로 set하지 않도록 변경.
+
+			keyValueList := []irs.KeyValue{}
+			itemType := reflect.TypeOf(zone)
+			if itemType.Kind() == reflect.Ptr {
+				itemType = itemType.Elem()
+			}
+			itemValue := reflect.ValueOf(zone)
+			if itemValue.Kind() == reflect.Ptr {
+				itemValue = itemValue.Elem()
+			}
+			numFields := itemType.NumField()
+
+			// 속성 이름과 값을 출력합니다.
+			for i := 0; i < numFields; i++ {
+				field := itemType.Field(i)
+				value := itemValue.Field(i).Interface()
+
+				keyValue := irs.KeyValue{}
+				keyValue.Key = field.Name
+				keyValue.Value = fmt.Sprintf("%v", value)
+				keyValueList = append(keyValueList, keyValue)
+			}
+			zoneInfo.KeyValueList = keyValueList
+
+			zoneInfoList = append(zoneInfoList, zoneInfo)
+		}
+		regionInfo.ZoneList = zoneInfoList
+		// "ZoneType": "AvailabilityZone",
+		// "LocalName": "曼谷 可用区A",
+		// "ZoneId": "ap-southeast-7a",
+
+		keyValueList := []irs.KeyValue{}
+		keyValue := irs.KeyValue{}
+		keyValue.Key = "RegionEndpoint"
+		keyValue.Value = item.RegionEndpoint
+		regionInfo.KeyValueList = keyValueList
+
+		break
+	}
+	return regionInfo, nil
 }
 
 // regionList Result

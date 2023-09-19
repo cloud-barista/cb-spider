@@ -1527,6 +1527,7 @@ func handleRegionZone() {
 		fmt.Println("1. ListRegionZone List")
 		fmt.Println("2. ListOrgRegion ")
 		fmt.Println("3. ListOrgZone ")
+		fmt.Println("4. GetRegionZone ")
 
 		var commandNum int
 		inputCnt, err := fmt.Scan(&commandNum)
@@ -1563,6 +1564,15 @@ func handleRegionZone() {
 					cblogger.Infof(" ListOrgZone 목록 조회 실패 : ", err)
 				} else {
 					cblogger.Info("ListOrgZone 목록 조회 결과")
+					spew.Dump(result)
+				}
+			case 4:
+				regionId := "ap-northeast-2"
+				result, err := handler.GetRegionZone(regionId)
+				if err != nil {
+					cblogger.Infof(" GetRegionZone 조회 실패 : ", regionId, err)
+				} else {
+					cblogger.Info("GetRegionZone 조회 결과", regionId)
 					spew.Dump(result)
 				}
 

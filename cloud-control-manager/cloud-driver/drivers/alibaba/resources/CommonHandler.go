@@ -561,20 +561,20 @@ func GetSnapShotIdList(ecsImage ecs.Image) []string {
 }
 
 // Region status : available, soldOut
-func GetRegionStatus(status string) irs.ZoneStatus {
-	if status == "available" || status == "" {
-		return irs.ZoneAvailable
-	} else {
-		return irs.ZoneUnavailable
-	}
-}
+// deprecated : Region에 대한 Status는 따로 관리하지 않음.
+// func GetRegionStatus(status string) irs.ZoneStatus {
+// 	if status == "available" || status == "Available" {
+// 		return irs.ZoneAvailable
+// 	} else if status == "soldOut" || status == "soldout" {
+// 		return irs.ZoneUnavailable
+// 	} else {
+// 		return irs.NotSupported
+// 	}
+// }
 
+// Alibaba에서 Zone에 대한 status는 관리하고 있지 않음
 func GetZoneStatus(status string) irs.ZoneStatus {
-	if status == "available" {
-		return irs.ZoneAvailable
-	} else {
-		return irs.ZoneUnavailable
-	}
+	return irs.NotSupported
 }
 
 func DescribeRegions(client *ecs.Client) (*ecs.DescribeRegionsResponse, error) {
