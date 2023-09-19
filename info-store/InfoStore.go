@@ -20,14 +20,31 @@ import (
 	"gorm.io/gorm/logger"
 
 	icdrs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
+	"github.com/cloud-barista/cb-store/config"
+	"github.com/sirupsen/logrus"
 )
+
+var cblog *logrus.Logger
 
 var DB_FILE_PATH string
 
 func init() {
+	cblog = config.Cblogger
+
 	/*###############################################################*/
-	DB_FILE_PATH = os.Getenv("CBSPIDER_ROOT") + "/meta_db/cb-spider.db"
+	DB_PATH := os.Getenv("CBSPIDER_ROOT") + "/meta_db"
+	DB_FILE_PATH = DB_PATH + "/cb-spider.db"
 	/*###############################################################*/
+
+	// if no path, makes it
+	_, err := os.Stat(DB_PATH)
+	if os.IsNotExist(err) {
+		err := os.Mkdir(DB_PATH, 0755)
+		if err != nil {
+			cblog.Fatal(err)
+			return
+		}
+	}
 }
 
 // KeyValue is a struct for Key-Value pair

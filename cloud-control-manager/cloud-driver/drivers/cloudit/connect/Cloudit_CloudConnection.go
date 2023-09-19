@@ -12,6 +12,7 @@ package connect
 
 import (
 	"errors"
+
 	cblog "github.com/cloud-barista/cb-log"
 	"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/cloudit/client"
 	cirs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/cloudit/resources"
@@ -30,6 +31,11 @@ func init() {
 type ClouditCloudConnection struct {
 	CredentialInfo idrv.CredentialInfo
 	Client         client.RestClient
+}
+
+// CreateRegionZoneHandler implements connect.CloudConnection.
+func (*ClouditCloudConnection) CreateRegionZoneHandler() (irs.RegionZoneHandler, error) {
+	return nil, errors.New("Driver: not implemented")
 }
 
 func (cloudConn *ClouditCloudConnection) CreateImageHandler() (irs.ImageHandler, error) {
@@ -109,8 +115,6 @@ func (cloudConn *ClouditCloudConnection) CreateMyImageHandler() (irs.MyImageHand
 	return &myImageHandler, nil
 }
 
-
 func (cloudConn *ClouditCloudConnection) CreateAnyCallHandler() (irs.AnyCallHandler, error) {
 	return nil, errors.New("Cloudit Driver: not implemented")
 }
-

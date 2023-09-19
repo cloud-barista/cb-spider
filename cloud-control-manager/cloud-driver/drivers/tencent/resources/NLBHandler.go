@@ -908,9 +908,6 @@ func (NLBHandler *TencentNLBHandler) ExtractNLBDescribeInfo(nlbInfo *clb.LoadBal
 	return resNLBInfo, nil
 }
 
-func GetResourceHandler(s string) {
-	panic("unimplemented")
-}
 
 /*
 	NLB Name으로 Listener를 조회하여 NLBInfo.Listener 값으로 변환

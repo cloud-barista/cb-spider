@@ -49,6 +49,7 @@ func (GCPDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	drvCapabilityInfo.VPCHandler = true
 	drvCapabilityInfo.DiskHandler = false
 	drvCapabilityInfo.MyImageHandler = false
+	drvCapabilityInfo.RegionZoneHandler = false
 	drvCapabilityInfo.ClusterHandler = true
 
 	return drvCapabilityInfo
@@ -89,10 +90,11 @@ func (driver *GCPDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (icon.
 		SecurityGroupClient: VMClient,
 		// VNetClient:          VMClient,
 		// VNicClient:          VMClient,
-		SubnetClient:    VMClient,
-		VMSpecHandler:   VMClient,
-		VPCHandler:      VMClient,
-		ContainerClient: containerClient,
+		SubnetClient:     VMClient,
+		VMSpecClient:     VMClient,
+		VPCClient:        VMClient,
+		RegionZoneClient: VMClient,
+		ContainerClient:  containerClient,
 	}
 
 	//fmt.Println("################## resource ConnectionInfo ##################")
@@ -173,4 +175,3 @@ func getContainerClient(credential idrv.CredentialInfo) (context.Context, *conta
 
 	return ctx, containerClient, nil
 }
-

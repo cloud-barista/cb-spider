@@ -22,7 +22,7 @@ cloudos:
   - NCPVPC
   - NHNCLOUD
   - KTCLOUD
-  - KTCLOUDVPC  
+  - KTCLOUDVPC
 #--- PoC
   - DOCKER
 #--- Emulation

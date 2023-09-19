@@ -97,14 +97,6 @@ NCPVPC:
   # idmaxlength: VPC / Subnet / SecurityGroup / KeyPair / VM / Disk / NLB / MyImage / Cluster
   idmaxlength: 30 / 30 / 30 / 30 / 30 / 30 / 30 / 30 / 20
 
-KTCLOUD:
-  region: Region / Zone
-  credential: ClientId / ClientSecret
-
-KTCLOUDVPC:
-  region: Region
-  credential: IdentityEndpoint / Username / Password / DomainName / ProjectID
-
 NHNCLOUD:
   region: Region / Zone
   credential: IdentityEndpoint / Username / Password / DomainName / TenantId
@@ -114,6 +106,16 @@ NHNCLOUD:
   disksize: General_HDD|10|2000|GB / General_SSD|10|2000|GB
   # idmaxlength: VPC / Subnet / SecurityGroup / KeyPair / VM
   idmaxlength: 0 / 0 / 255 / 255 / 255
+
+KTCLOUD:
+  region: Region / Zone
+  credential: ClientId / ClientSecret
+
+KTCLOUDVPC:
+  region: Zone
+  credential: IdentityEndpoint / Username / Password / DomainName / ProjectID
+  rootdisktype: HDD / SSD
+  rootdisksize: HDD|50|100|GB / SSD|50|100|GB
 
 #--- PoC
 
