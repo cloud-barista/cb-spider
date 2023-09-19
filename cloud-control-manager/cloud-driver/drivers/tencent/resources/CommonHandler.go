@@ -4,10 +4,13 @@ import (
 	"errors"
 	"time"
 
+	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	cbs "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/cbs/v20170312"
 	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
 	cvm "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/cvm/v20170312"
+
+	tencentError "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/errors"
 )
 
 func DescribeDisks(client *cbs.Client, diskIIDs []irs.IID) ([]*cbs.Disk, error) {
@@ -219,4 +222,62 @@ func DescribeSnapshotStatus(client *cbs.Client, snapshotIID irs.IID) (string, er
 func GetOsType(cvmImage cvm.Image) string {
 	cblogger.Info("OsName,", *cvmImage.Platform)
 	return *cvmImage.Platform
+}
+
+// ListOrgRegion
+func DescribeRegions(client *cvm.Client) (*cvm.DescribeRegionsResponse, error) {
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.TENCENT,
+		RegionZone:   client.GetRegion(),
+		ResourceType: call.REGIONZONE,
+		ResourceName: "",
+		CloudOSAPI:   "DescribeRegions()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+
+	inputRegions := cvm.NewDescribeRegionsRequest()
+
+	callLogStart := call.Start()
+	responseRegions, err := client.DescribeRegions(inputRegions)
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+	callogger.Info(call.String(callLogInfo))
+
+	if _, ok := err.(*tencentError.TencentCloudSDKError); ok {
+		cblogger.Error(err)
+		return nil, err
+	}
+
+	return responseRegions, nil
+}
+
+// ListOrgZone : 클라이언트가 Region 정보를 갖고 있음.
+func DescribeZones(client *cvm.Client) (*cvm.DescribeZonesResponse, error) {
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.TENCENT,
+		RegionZone:   client.GetRegion(),
+		ResourceType: call.REGIONZONE,
+		ResourceName: "",
+		CloudOSAPI:   "DescribeZones()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+
+	inputZones := cvm.NewDescribeZonesRequest()
+
+	callLogStart := call.Start()
+	responseZones, err := client.DescribeZones(inputZones)
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+	callogger.Info(call.String(callLogInfo))
+
+	if _, ok := err.(*tencentError.TencentCloudSDKError); ok {
+		cblogger.Error(err)
+		return nil, err
+	}
+
+	return responseZones, nil
 }

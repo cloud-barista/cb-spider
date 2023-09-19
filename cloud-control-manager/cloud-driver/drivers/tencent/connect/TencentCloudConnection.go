@@ -30,24 +30,20 @@ import (
 )
 
 type TencentCloudConnection struct {
-	CredentialInfo idrv.CredentialInfo
-	Region         idrv.RegionInfo
-	VNetworkClient *vpc.Client
-	NLBClient      *clb.Client
-	VMClient       *cvm.Client
-	KeyPairClient  *cvm.Client
-	ImageClient    *cvm.Client
-	SecurityClient *vpc.Client
-	VmSpecClient   *cvm.Client
-	DiskClient     *cbs.Client
-	MyImageClient  *cvm.Client
+	CredentialInfo   idrv.CredentialInfo
+	Region           idrv.RegionInfo
+	VNetworkClient   *vpc.Client
+	NLBClient        *clb.Client
+	VMClient         *cvm.Client
+	KeyPairClient    *cvm.Client
+	ImageClient      *cvm.Client
+	SecurityClient   *vpc.Client
+	VmSpecClient     *cvm.Client
+	DiskClient       *cbs.Client
+	MyImageClient    *cvm.Client
+	RegionZoneClient *cvm.Client
 	//VNicClient     *cvm.Client
 	//PublicIPClient *cvm.Client
-}
-
-// CreateRegionZoneHandler implements connect.CloudConnection.
-func (*TencentCloudConnection) CreateRegionZoneHandler() (irs.RegionZoneHandler, error) {
-	return nil, errors.New("Driver: not implemented")
 }
 
 var cblogger *logrus.Logger
@@ -155,4 +151,9 @@ func (cloudConn *TencentCloudConnection) CreateClusterHandler() (irs.ClusterHand
 
 func (cloudConn *TencentCloudConnection) CreateAnyCallHandler() (irs.AnyCallHandler, error) {
 	return nil, errors.New("Tencent Driver: not implemented")
+}
+
+func (cloudConn *TencentCloudConnection) CreateRegionZoneHandler() (irs.RegionZoneHandler, error) {
+	handler := trs.TencentRegionZoneHandler{Region: cloudConn.Region, Client: cloudConn.RegionZoneClient}
+	return &handler, nil
 }
