@@ -27,9 +27,9 @@ type DriverCapabilityInfo struct {
 	VMSpecHandler     bool // support: true, do not support: false
 	DiskHandler       bool // support: true, do not support: false
 	MyImageHandler    bool // support: true, do not support: false
-	RegionZoneHandler bool
-	ClusterHandler    bool // support: true, do not support: false
+	RegionZoneHandler bool // support: true, do not support: false
 
+	ClusterHandler    bool // support: true, do not support: false
 	FIXED_SUBNET_CIDR bool // support: true, do not support: false
 	VPC_CIDR          bool // support: true, do not support: false
 	SINGLE_VPC        bool // support: true, do not support: false

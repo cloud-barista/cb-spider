@@ -18,6 +18,8 @@ import (
 	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2021-03-01/compute"
 	"github.com/Azure/azure-sdk-for-go/services/containerservice/mgmt/2022-03-01/containerservice"
 	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2021-02-01/network"
+	"github.com/Azure/azure-sdk-for-go/services/resources/mgmt/2019-11-01/subscriptions"
+	"github.com/Azure/azure-sdk-for-go/services/resources/mgmt/2020-10-01/resources"
 	cblog "github.com/cloud-barista/cb-log"
 	azrs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/azure/resources"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
@@ -36,6 +38,7 @@ type AzureCloudConnection struct {
 	CredentialInfo                  idrv.CredentialInfo
 	Region                          idrv.RegionInfo
 	Ctx                             context.Context
+	Client                          *subscriptions.Client
 	VMClient                        *compute.VirtualMachinesClient
 	ImageClient                     *compute.ImagesClient
 	VMImageClient                   *compute.VirtualMachineImagesClient
@@ -58,11 +61,8 @@ type AzureCloudConnection struct {
 	VirtualMachineScaleSetsClient   *compute.VirtualMachineScaleSetsClient
 	VirtualMachineScaleSetVMsClient *compute.VirtualMachineScaleSetVMsClient
 	VirtualMachineRunCommandsClient *compute.VirtualMachineRunCommandsClient
-}
-
-// CreateRegionZoneHandler implements connect.CloudConnection.
-func (*AzureCloudConnection) CreateRegionZoneHandler() (irs.RegionZoneHandler, error) {
-	return nil, errors.New("Driver: not implemented")
+	GroupsClient                    *resources.GroupsClient
+	ResourceSkusClient              *compute.ResourceSkusClient
 }
 
 func (cloudConn *AzureCloudConnection) CreateImageHandler() (irs.ImageHandler, error) {
@@ -173,6 +173,19 @@ func (cloudConn *AzureCloudConnection) CreateMyImageHandler() (irs.MyImageHandle
 		VirtualMachineRunCommandsClient: cloudConn.VirtualMachineRunCommandsClient,
 	}
 	return &myImageHandler, nil
+}
+
+func (cloudConn *AzureCloudConnection) CreateRegionZoneHandler() (irs.RegionZoneHandler, error) {
+	cblogger.Info("Azure Cloud Driver: called CreateRegionZoneHandler()!")
+	regionZoneHandler := azrs.AzureRegionZoneHandler{
+		CredentialInfo:     cloudConn.CredentialInfo,
+		Region:             cloudConn.Region,
+		Ctx:                cloudConn.Ctx,
+		Client:             cloudConn.Client,
+		GroupsClient:       cloudConn.GroupsClient,
+		ResourceSkusClient: cloudConn.ResourceSkusClient,
+	}
+	return &regionZoneHandler, nil
 }
 
 func (cloudConn *AzureCloudConnection) IsConnected() (bool, error) {
