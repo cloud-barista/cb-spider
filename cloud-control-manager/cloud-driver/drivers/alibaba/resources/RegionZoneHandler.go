@@ -71,7 +71,7 @@ func (regionZoneHandler AlibabaRegionZoneHandler) ListRegionZone() ([]*irs.Regio
 			zoneInfo := irs.ZoneInfo{}
 			zoneInfo.Name = zone.ZoneId
 			zoneInfo.DisplayName = zone.LocalName
-			zoneInfo.Status = regionStatus
+			//zoneInfo.Status = regionStatus // Zone의 상태값이 없으므로 set하지 않도록 변경.
 
 			keyValueList := []irs.KeyValue{}
 			itemType := reflect.TypeOf(zone)

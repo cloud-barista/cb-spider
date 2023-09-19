@@ -569,6 +569,14 @@ func GetRegionStatus(status string) irs.ZoneStatus {
 	}
 }
 
+func GetZoneStatus(status string) irs.ZoneStatus {
+	if status == "available" {
+		return irs.ZoneAvailable
+	} else {
+		return irs.ZoneUnavailable
+	}
+}
+
 func DescribeRegions(client *ecs.Client) (*ecs.DescribeRegionsResponse, error) {
 	request := ecs.CreateDescribeRegionsRequest()
 	request.AcceptLanguage = "en-US" // Only Chinese (zh-CN : default), English (en-US), and Japanese (ja) are allowed
