@@ -580,6 +580,12 @@ func GetRegion(client *compute.Service, projectId string, regionName string) (*c
 
 // region에 해당하는 zone 목록 조회
 // filter조건으로 사용하는 region조건은 regionUrl로 넘겨야 함.
+// filter조건 자체가 string이며 regionUrl에 특수문자가 있고 따옴표로 감싸야만 결과가 정상적으로 나옴
+// region="xxx/xxx/xxx" 형태로 보내야하며
+// ` ` 로 감싸야 함.
+// filter := "region=https://www.googleapis.com/compute/v1/projects/xxx/regions/us-east1" -> error return.
+// filter := `region="https://www.googleapis.com/compute/v1/projects/xxx/regions/us-east1"` -> 조회결과 옴
+// filter := `region="us-east1"`// -> 조회결과 없음
 func GetZoneListByRegion(client *compute.Service, projectId string, regionUrl string) (*compute.ZoneList, error) {
 
 	if projectId == "" {
@@ -589,18 +595,16 @@ func GetZoneListByRegion(client *compute.Service, projectId string, regionUrl st
 		return nil, errors.New("Region information not found")
 	}
 
-	// filter := "region:us-central1"
-	//filter := "region=https://www.googleapis.com/compute/v1/projects/csta-349809/regions/us-east1"
-	filter := "region=" + regionUrl
-	resp, err := client.Zones.List(projectId).Filter(filter).Do() // 작동안됨..
-	//resp, err := client.Zones.List(projectId).Do()
+	filter := `region="` + regionUrl + `"`
+
+	resp, err := client.Zones.List(projectId).Filter(filter).Do()
 
 	if err != nil {
 		cblogger.Error(err)
 		return nil, err
 	}
+	// spew.Dump(resp)
 	return resp, nil
-
 }
 
 // Available or Unavailable 로 return

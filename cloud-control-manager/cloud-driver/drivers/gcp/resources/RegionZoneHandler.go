@@ -34,19 +34,22 @@ func (regionZoneHandler *GCPRegionZoneHandler) GetRegionZone(regionName string) 
 	regionZoneInfo.DisplayName = resp.Name
 
 	// ZoneList
-	var zoneInfoList []*irs.ZoneInfo
+	var zoneInfoList []irs.ZoneInfo
 	resultZones, err := GetZoneListByRegion(regionZoneHandler.Client, projectID, resp.SelfLink)
 	if err != nil {
 		// failed to get ZoneInfo by region
 	} else {
-		for _, zone := range resultZones.Items {
-			zoneInfo := irs.ZoneInfo{}
-			zoneInfo.Name = zone.Name
-			zoneInfo.DisplayName = zone.Name
-			zoneInfo.Status = GetZoneStatus(zone.Status)
+		if resultZones != nil && resultZones.Items != nil {
+			for _, zone := range resultZones.Items {
+				zoneInfo := irs.ZoneInfo{}
+				zoneInfo.Name = zone.Name
+				zoneInfo.DisplayName = zone.Name
+				zoneInfo.Status = GetZoneStatus(zone.Status)
 
-			zoneInfoList = append(zoneInfoList, &zoneInfo)
-			// set zone keyvalue list
+				zoneInfoList = append(zoneInfoList, zoneInfo)
+				// set zone keyvalue list
+			}
+			regionZoneInfo.ZoneList = zoneInfoList
 		}
 	}
 
