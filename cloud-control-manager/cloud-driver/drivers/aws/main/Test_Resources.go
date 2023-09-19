@@ -1862,7 +1862,7 @@ func readConfigFile() Config {
 	// cblogger.Infof("Test Data 설정파일 : [%]", rootPath+"/config/config.yaml")
 
 	// data, err := ioutil.ReadFile(rootPath + "/config/config.yaml")
-	data, err := ioutil.ReadFile("/home/raccoon/cert/spider/aws/config.yaml")
+	data, err := ioutil.ReadFile("/Sample/config/config.yaml")
 	//data, err := ioutil.ReadFile(rootPath + "/Sample/config/config.yaml")
 	//data, err := ioutil.ReadFile("D:/Workspace/mcloud-bar-config/config/config.yaml")
 	if err != nil {
