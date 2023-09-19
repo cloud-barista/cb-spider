@@ -37,6 +37,8 @@ type ZoneInfo struct {
 
 type RegionZoneHandler interface {
 	ListRegionZone() ([]*RegionZoneInfo, error)
+	GetRegionZone(Name string) (RegionZoneInfo, error)
+
 	ListOrgRegion() (string, error) // return string: json format
 	ListOrgZone() (string, error)   // return string: json format
 }
