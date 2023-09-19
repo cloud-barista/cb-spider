@@ -512,27 +512,88 @@ func WaitContainerOperationDone(client *container.Service, project string, regio
 	return nil
 }
 
-// region에 해당하는 zone 목록 조회
-func GetZoneListByRegion(client *compute.Service, regionUrl string) (*compute.ZoneList, error) {
-	projectId := ""
-	regionName := ""
+// 리전 목록 조회
+func ListRegion(client *compute.Service, projectId string) (*compute.RegionList, error) {
 
-	arrLink := strings.Split(regionUrl, "/")
-	if len(arrLink) > 0 {
-		regionName = arrLink[len(arrLink)-1]
-		for pos, item := range arrLink {
-			if strings.EqualFold(item, "projects") {
-				projectId = arrLink[pos+1]
-				break
-			}
-		}
-	}
-	cblogger.Infof("projectId : [%s] / imageName : [%s]", projectId, regionName)
 	if projectId == "" {
-		return nil, errors.New("ProjectId information not found in URL.")
+		return nil, errors.New("ProjectId not found.")
 	}
 
-	resp, err := client.Zones.List(projectId).Do()
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.GCP,
+		RegionZone:   "",
+		ResourceType: call.REGIONZONE,
+		ResourceName: "",
+		CloudOSAPI:   "List()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+	callLogStart := call.Start()
+	resp, err := client.Regions.List(projectId).Do()
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+
+	if err != nil {
+		callLogInfo.ErrorMSG = err.Error()
+		callogger.Info(call.String(callLogInfo))
+		cblogger.Error(err)
+		return nil, err
+	}
+	return resp, nil
+}
+
+// region 조회
+// GCP에서 region은 regionName과 regionUri로 구분 됨. regionName으로 찾는 function임.
+func GetRegion(client *compute.Service, projectId string, regionName string) (*compute.Region, error) {
+
+	if projectId == "" {
+		return nil, errors.New("ProjectId not found.")
+	}
+
+	if regionName == "" {
+		return nil, errors.New("Region Name not found.")
+	}
+
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.GCP,
+		RegionZone:   regionName,
+		ResourceType: call.REGIONZONE,
+		ResourceName: "",
+		CloudOSAPI:   "Get()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+	callLogStart := call.Start()
+	resp, err := client.Regions.Get(projectId, regionName).Do()
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+
+	if err != nil {
+		callLogInfo.ErrorMSG = err.Error()
+		callogger.Info(call.String(callLogInfo))
+		cblogger.Error(err)
+		return nil, err
+	}
+	return resp, nil
+
+}
+
+// region에 해당하는 zone 목록 조회
+// filter조건으로 사용하는 region조건은 regionUrl로 넘겨야 함.
+func GetZoneListByRegion(client *compute.Service, projectId string, regionUrl string) (*compute.ZoneList, error) {
+
+	if projectId == "" {
+		return nil, errors.New("Project information not found")
+	}
+	if regionUrl == "" {
+		return nil, errors.New("Region information not found")
+	}
+
+	// filter := "region:us-central1"
+	//filter := "region=https://www.googleapis.com/compute/v1/projects/csta-349809/regions/us-east1"
+	filter := "region=" + regionUrl
+	resp, err := client.Zones.List(projectId).Filter(filter).Do() // 작동안됨..
+	//resp, err := client.Zones.List(projectId).Do()
 
 	if err != nil {
 		cblogger.Error(err)
@@ -543,7 +604,7 @@ func GetZoneListByRegion(client *compute.Service, regionUrl string) (*compute.Zo
 }
 
 // Available or Unavailable 로 return
-// Status of the zone, either UP or DOWN.
+// Status of the zone, either UP or DOWN. (지원하지 않는 경우 NotSupported)
 func GetZoneStatus(status string) irs.ZoneStatus {
 	if status == "UP" {
 		return irs.ZoneAvailable

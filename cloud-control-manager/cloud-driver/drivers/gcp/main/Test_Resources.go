@@ -1808,6 +1808,7 @@ func handleRegionZone() {
 		fmt.Println("1. RegionZone List")
 		fmt.Println("2. OrgRegion List")
 		fmt.Println("3. OrgZone List")
+		fmt.Println("4. GetRegionZone List")
 
 		var commandNum int
 		inputCnt, err := fmt.Scan(&commandNum)
@@ -1854,6 +1855,16 @@ func handleRegionZone() {
 					cblogger.Infof("[%s] ListOrgZone 조회 성공 : ", result)
 					spew.Dump(result)
 				}
+			case 4:
+				regionName := "us-central1"
+				result, err := handler.GetRegionZone(regionName)
+				if err != nil {
+					cblogger.Infof("[%s] GetRegionZone 조회 실패 : ", err)
+				} else {
+					cblogger.Infof("[%s] GetRegionZone 조회 성공 : ", result)
+					spew.Dump(result)
+				}
+
 			}
 		}
 	}
@@ -1866,7 +1877,7 @@ func main() {
 	//handleImage() //AMI
 	//handleKeyPair()
 	//handleSecurity()
-	//handleVM()
+	// handleVM()
 	//handleLoadBalancer()
 	//handleDisk()
 	//handleMyImage()
