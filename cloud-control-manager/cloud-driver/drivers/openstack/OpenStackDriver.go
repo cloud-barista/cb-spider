@@ -117,6 +117,7 @@ func clientCreator(connInfo idrv.ConnectionInfo) (icon.CloudConnection, error) {
 	iConn := oscon.OpenStackCloudConnection{
 		CredentialInfo: connInfo.CredentialInfo,
 		Region:         connInfo.RegionInfo,
+		IdentityClient: identityClient,
 	}
 	for _, service := range list {
 		err = insertClient(&iConn, provider, connInfo, service.Type)
