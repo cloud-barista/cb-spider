@@ -1,8 +1,6 @@
 package resources
 
 import (
-	"reflect"
-
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/profile"
@@ -33,27 +31,12 @@ func (regionZoneHandler *TencentRegionZoneHandler) ListRegionZone() ([]*irs.Regi
 
 		var zoneInfoList []irs.ZoneInfo
 		for _, zone := range responseZones.Response.ZoneSet {
-			keyValueList := []irs.KeyValue{}
-			itemType := reflect.TypeOf(zone)
-			if itemType.Kind() == reflect.Ptr {
-				itemType = itemType.Elem()
-			}
-			itemValue := reflect.ValueOf(zone)
-			if itemValue.Kind() == reflect.Ptr {
-				itemValue = itemValue.Elem()
-			}
-			numFields := itemType.NumField()
 
-			// 속성 이름과 값을 출력합니다.
-			for i := 0; i < numFields; i++ {
-				field := itemType.Field(i)
-				value := itemValue.Field(i).Interface()
-
-				keyValue := irs.KeyValue{}
-				keyValue.Key = field.Name
-				keyValue.Value = *value.(*string)
-
-				keyValueList = append(keyValueList, keyValue)
+			keyValueList, err := ConvertKeyValueList(zone)
+			if err != nil {
+				cblogger.Errorf("err : ConvertKeyValueList [%s]", *zone.ZoneName)
+				cblogger.Error(err)
+				keyValueList = nil
 			}
 
 			zoneInfo := irs.ZoneInfo{}
@@ -65,26 +48,11 @@ func (regionZoneHandler *TencentRegionZoneHandler) ListRegionZone() ([]*irs.Regi
 			zoneInfoList = append(zoneInfoList, zoneInfo)
 		}
 
-		keyValueList := []irs.KeyValue{}
-		itemType := reflect.TypeOf(region)
-		if itemType.Kind() == reflect.Ptr {
-			itemType = itemType.Elem()
-		}
-		itemValue := reflect.ValueOf(region)
-		if itemValue.Kind() == reflect.Ptr {
-			itemValue = itemValue.Elem()
-		}
-		numFields := itemType.NumField()
-
-		for i := 0; i < numFields; i++ {
-			field := itemType.Field(i)
-			value := itemValue.Field(i).Interface()
-
-			keyValue := irs.KeyValue{}
-			keyValue.Key = field.Name
-			keyValue.Value = *value.(*string)
-
-			keyValueList = append(keyValueList, keyValue)
+		keyValueList, err := ConvertKeyValueList(region)
+		if err != nil {
+			cblogger.Errorf("err : ConvertKeyValueList [%s]", *region.Region)
+			cblogger.Error(err)
+			keyValueList = nil
 		}
 
 		regionInfo := irs.RegionZoneInfo{}
