@@ -243,6 +243,8 @@ func (driver *AwsDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (icon.
 		IamClient:         iamClient,
 		AutoScalingClient: autoScalingClient,
 
+		RegionZoneClient: vmClient,
+
 		// Connection for AnyCall
 		AnyCallClient: vmClient,
 	}

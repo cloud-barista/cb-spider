@@ -27,7 +27,6 @@ import (
 	"github.com/aws/aws-sdk-go/service/autoscaling"
 	"github.com/aws/aws-sdk-go/service/eks"
 	"github.com/aws/aws-sdk-go/service/iam"
-	"errors"
 )
 
 // type AwsCloudConnection struct{}
@@ -47,6 +46,9 @@ type AwsCloudConnection struct {
 	//NLBClient *elb.ELB
 	NLBClient *elbv2.ELBV2
 
+	//RegionZoneClient
+	RegionZoneClient *ec2.EC2
+
 	DiskClient    *ec2.EC2
 	MyImageClient *ec2.EC2
 
@@ -55,11 +57,6 @@ type AwsCloudConnection struct {
 	AutoScalingClient *autoscaling.AutoScaling
 
 	AnyCallClient *ec2.EC2
-}
-
-// CreateRegionZoneHandler implements connect.CloudConnection.
-func (*AwsCloudConnection) CreateRegionZoneHandler() (irs.RegionZoneHandler, error) {
-	return nil, errors.New("Driver: not implemented")
 }
 
 var cblogger *logrus.Logger
@@ -164,5 +161,10 @@ func (cloudConn *AwsCloudConnection) CreateClusterHandler() (irs.ClusterHandler,
 
 func (cloudConn *AwsCloudConnection) CreateAnyCallHandler() (irs.AnyCallHandler, error) {
 	handler := ars.AwsAnyCallHandler{cloudConn.Region, cloudConn.CredentialInfo, cloudConn.AnyCallClient}
+	return &handler, nil
+}
+
+func (cloudConn *AwsCloudConnection) CreateRegionZoneHandler() (irs.RegionZoneHandler, error) {
+	handler := ars.AwsRegionZoneHandler{cloudConn.Region, cloudConn.RegionZoneClient}
 	return &handler, nil
 }
