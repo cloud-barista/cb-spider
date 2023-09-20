@@ -78,7 +78,7 @@ type StatusInfo struct {
 	Status string // PENDING | RUNNING | SUSPENDING | SUSPENDED | REBOOTING | TERMINATING | TERMINATED
 }
 
-//ex) {"POST", "/driver", registerCloudDriver}
+// ex) {"POST", "/driver", registerCloudDriver}
 type route struct {
 	method, path string
 	function     echo.HandlerFunc
@@ -224,6 +224,12 @@ func RunServer() {
 
 		//-------------------------------------------------------------------//
 
+		//----------RegionZone Handler
+		{"GET", "/regionzone", ListRegionZone},
+		{"GET", "/regionzone/:Name", GetRegionZone},
+		{"GET", "/orgregion", ListOrgRegion},
+		{"GET", "/orgzone", ListOrgZone},
+
 		//----------Image Handler
 		{"POST", "/vmimage", CreateImage},
 		{"GET", "/vmimage", ListImage},
@@ -334,7 +340,6 @@ func RunServer() {
 		{"GET", "/allnlb", ListAllNLB},
 		{"DELETE", "/cspnlb/:Id", DeleteCSPNLB},
 
-
 		//----------Disk Handler
 		{"POST", "/regdisk", RegisterDisk},
 		{"DELETE", "/regdisk/:Name", UnregisterDisk},
@@ -351,7 +356,6 @@ func RunServer() {
 		//-- for management
 		{"GET", "/alldisk", ListAllDisk},
 		{"DELETE", "/cspdisk/:Id", DeleteCSPDisk},
-
 
 		//----------MyImage Handler
 		{"POST", "/regmyimage", RegisterMyImage},
@@ -391,7 +395,7 @@ func RunServer() {
 		{"GET", "/nscluster", AllClusterList},
 
 		//-------------------------------------------------------------------//
-        //----------Additional Info
+		//----------Additional Info
 		{"GET", "/cspresourcename/:Name", GetCSPResourceName},
 		{"GET", "/cspresourceinfo/:Name", GetCSPResourceInfo},
 		//----------AnyCall Handler
@@ -442,7 +446,7 @@ func RunServer() {
 
 }
 
-//================ REST API Server: setup & start
+// ================ REST API Server: setup & start
 func ApiServer(routes []route) {
 	e := echo.New()
 
@@ -451,14 +455,14 @@ func ApiServer(routes []route) {
 	e.Use(middleware.Logger())
 	e.Use(middleware.Recover())
 
-        cbspiderRoot := os.Getenv("CBSPIDER_ROOT")
+	cbspiderRoot := os.Getenv("CBSPIDER_ROOT")
 
 	// for HTTP Access Log
 	e.Logger.SetOutput(&lumberjack.Logger{
-	    Filename:   cbspiderRoot+"/log/http-access.log",
-	    MaxSize:    10,  // megabytes
-	    MaxBackups: 10,  // number of backups
-	    MaxAge:     31,  // days
+		Filename:   cbspiderRoot + "/log/http-access.log",
+		MaxSize:    10, // megabytes
+		MaxBackups: 10, // number of backups
+		MaxAge:     31, // days
 	})
 
 	API_USERNAME := os.Getenv("API_USERNAME")
@@ -506,7 +510,7 @@ func ApiServer(routes []route) {
 	e.Logger.Fatal(e.Start(cr.ServerPort))
 }
 
-//================ API Info
+// ================ API Info
 func apiInfo(c echo.Context) error {
 	cblog.Info("call apiInfo()")
 
@@ -514,7 +518,7 @@ func apiInfo(c echo.Context) error {
 	return c.String(http.StatusOK, apiInfo)
 }
 
-//================ Endpoint Info
+// ================ Endpoint Info
 func EndpointInfo(c echo.Context) error {
 	cblog.Info("call endpointInfo()")
 
