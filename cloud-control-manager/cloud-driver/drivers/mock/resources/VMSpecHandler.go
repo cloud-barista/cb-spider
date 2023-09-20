@@ -11,6 +11,7 @@
 package resources
 
 import (
+	"encoding/json"
 	"fmt"
 
 	cblog "github.com/cloud-barista/cb-log"
@@ -32,20 +33,20 @@ func init() {
 // Be called before using the User function.
 // Called in MockDriver
 func PrepareVMSpec(mockName string) {
-        cblogger := cblog.GetLogger("CB-SPIDER")
-        cblogger.Info("Mock Driver: called prepare()!")
+	cblogger := cblog.GetLogger("CB-SPIDER")
+	cblogger.Info("Mock Driver: called prepare()!")
 
-        if vmSpecInfoMap[mockName] != nil {
-        	return
-		}
+	if vmSpecInfoMap[mockName] != nil {
+		return
+	}
 
-		prepareVMSpecInfoList = []*irs.VMSpecInfo{
-                {"common-region", "mock-vmspec-01", irs.VCpuInfo{"4", "2.7"}, "32768", []irs.GpuInfo{{"2", "NVIDIA", "V100", "16384MB"}}, nil},
-                {"common-region", "mock-vmspec-02", irs.VCpuInfo{"4", "3.2"}, "32768", []irs.GpuInfo{{"1", "NVIDIA", "V100", "16384MB"}}, nil},
-                {"common-region", "mock-vmspec-03", irs.VCpuInfo{"8", "2.7"}, "62464", nil, nil},
-                {"common-region", "mock-vmspec-04", irs.VCpuInfo{"8", "2.7"}, "1024", nil, nil},
-        }
-		vmSpecInfoMap[mockName] = prepareVMSpecInfoList
+	prepareVMSpecInfoList = []*irs.VMSpecInfo{
+		{"common-region", "mock-vmspec-01", irs.VCpuInfo{"4", "2.7"}, "32768", []irs.GpuInfo{{"2", "NVIDIA", "V100", "16384MB"}}, nil},
+		{"common-region", "mock-vmspec-02", irs.VCpuInfo{"4", "3.2"}, "32768", []irs.GpuInfo{{"1", "NVIDIA", "V100", "16384MB"}}, nil},
+		{"common-region", "mock-vmspec-03", irs.VCpuInfo{"8", "2.7"}, "62464", nil, nil},
+		{"common-region", "mock-vmspec-04", irs.VCpuInfo{"8", "2.7"}, "1024", nil, nil},
+	}
+	vmSpecInfoMap[mockName] = prepareVMSpecInfoList
 }
 
 func (vmSpecHandler *MockVMSpecHandler) ListVMSpec() ([]*irs.VMSpecInfo, error) {
@@ -87,11 +88,31 @@ func (vmSpecHandler *MockVMSpecHandler) GetVMSpec(Name string) (irs.VMSpecInfo, 
 func (vmSpecHandler *MockVMSpecHandler) ListOrgVMSpec() (string, error) { // return string: json format
 	cblogger := cblog.GetLogger("CB-SPIDER")
 	cblogger.Info("Mock Driver: called ListOrgVMSpec()!")
-	return "", nil
+
+	// Convert prepareVMSpecInfoList to JSON
+	jsonData, err := json.MarshalIndent(prepareVMSpecInfoList, "", "  ")
+	if err != nil {
+		cblogger.Error("Error while converting to JSON: ", err)
+		return "", err
+	}
+
+	return string(jsonData), nil
 }
 
 func (vmSpecHandler *MockVMSpecHandler) GetOrgVMSpec(Name string) (string, error) { // return string: json format
 	cblogger := cblog.GetLogger("CB-SPIDER")
 	cblogger.Info("Mock Driver: called GetOrgVMSpec()!")
-	return "", nil
+
+	for _, info := range prepareVMSpecInfoList {
+		if (*info).Name == Name {
+			jsonData, err := json.MarshalIndent(info, "", "  ")
+			if err != nil {
+				cblogger.Error("Error while converting to JSON: ", err)
+				return "", err
+			}
+			return string(jsonData), nil
+		}
+	}
+
+	return "", fmt.Errorf("%s VMSpec does not exist!!", Name)
 }
