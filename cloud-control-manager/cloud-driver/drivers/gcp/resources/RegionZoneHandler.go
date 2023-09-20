@@ -19,6 +19,11 @@ type GCPRegionZoneHandler struct {
 	Credential idrv.CredentialInfo
 }
 
+// GetRegionZone implements resources.RegionZoneHandler.
+func (*GCPRegionZoneHandler) GetRegionZone(Name string) (irs.RegionZoneInfo, error) {
+	return irs.RegionZoneInfo{}, errors.New("Driver: not implemented")
+}
+
 // required Compute Engine IAM ROLE : compute.regions.list
 func (regionZoneHandler *GCPRegionZoneHandler) ListRegionZone() ([]*irs.RegionZoneInfo, error) {
 	var regionZoneInfoList []*irs.RegionZoneInfo
