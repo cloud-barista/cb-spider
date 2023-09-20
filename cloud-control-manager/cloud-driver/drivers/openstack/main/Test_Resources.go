@@ -683,10 +683,14 @@ func getResourceHandler(resourceType string, config Config) (interface{}, error)
 		},
 	}
 
-	cloudConnection, _ := cloudDriver.ConnectCloud(connectionInfo)
+	var err error
+
+	cloudConnection, err := cloudDriver.ConnectCloud(connectionInfo)
+	if err != nil {
+		return nil, err
+	}
 
 	var resourceHandler interface{}
-	var err error
 
 	switch resourceType {
 	case "image":
@@ -707,6 +711,8 @@ func getResourceHandler(resourceType string, config Config) (interface{}, error)
 		resourceHandler, err = cloudConnection.CreateDiskHandler()
 	case "myimage":
 		resourceHandler, err = cloudConnection.CreateMyImageHandler()
+	case "regionzone":
+		resourceHandler, err = cloudConnection.CreateRegionZoneHandler()
 	}
 
 	if err != nil {
@@ -1093,6 +1099,70 @@ Loop:
 	}
 }
 
+func testRegionZoneHandlerListPrint() {
+	cblogger.Info("Test RegionZoneHandler")
+	cblogger.Info("0. Print Menu")
+	cblogger.Info("1. ListRegionZone()")
+	cblogger.Info("2. ListOrgRegion()")
+	cblogger.Info("3. ListOrgZone()")
+	cblogger.Info("4. Exit")
+}
+
+func testRegionZoneHandler(config Config) {
+	resourceHandler, err := getResourceHandler("regionzone", config)
+	if err != nil {
+		cblogger.Error(err)
+		return
+	}
+
+	regionZoneHandler := resourceHandler.(irs.RegionZoneHandler)
+
+	testRegionZoneHandlerListPrint()
+
+Loop:
+	for {
+		var commandNum int
+		inputCnt, err := fmt.Scan(&commandNum)
+		if err != nil {
+			cblogger.Error(err)
+		}
+
+		if inputCnt == 1 {
+			switch commandNum {
+			case 0:
+				testMyImageHandlerListPrint()
+			case 1:
+				cblogger.Info("Start ListRegionZone() ...")
+				if list, err := regionZoneHandler.ListRegionZone(); err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(list)
+				}
+				cblogger.Info("Finish ListRegionZone()")
+			case 2:
+				cblogger.Info("Start ListOrgRegion() ...")
+				if vm, err := regionZoneHandler.ListOrgRegion(); err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(vm)
+				}
+				cblogger.Info("Finish ListOrgRegion()")
+			case 3:
+				cblogger.Info("Start ListOrgZone() ...")
+				if createInfo, err := regionZoneHandler.ListOrgZone(); err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(createInfo)
+				}
+				cblogger.Info("Finish ListOrgZone()")
+			case 4:
+				cblogger.Info("Exit")
+				break Loop
+			}
+		}
+	}
+}
+
 func main() {
 
 	showTestHandlerInfo()      // ResourceHandler 테스트 정보 출력
@@ -1137,6 +1207,9 @@ Loop:
 				testMyImageHandler(config)
 				showTestHandlerInfo()
 			case 10:
+				testRegionZoneHandler(config)
+				showTestHandlerInfo()
+			case 11:
 				cblogger.Info("Exit Test ResourceHandler Program")
 				break Loop
 			}
@@ -1156,7 +1229,8 @@ func showTestHandlerInfo() {
 	cblogger.Info("7. NLBHandler")
 	cblogger.Info("8. DiskHandler")
 	cblogger.Info("9. MyImageHandler")
-	cblogger.Info("10. Exit")
+	cblogger.Info("10. RegionZoneHandler")
+	cblogger.Info("11. Exit")
 	cblogger.Info("==========================================================")
 }
 

@@ -42,11 +42,6 @@ type OpenStackCloudConnection struct {
 	IdentityClient *gophercloud.ServiceClient
 }
 
-// CreateRegionZoneHandler implements connect.CloudConnection.
-func (*OpenStackCloudConnection) CreateRegionZoneHandler() (irs.RegionZoneHandler, error) {
-	return nil, errors.New("Driver: not implemented")
-}
-
 func (cloudConn *OpenStackCloudConnection) CreateImageHandler() (irs.ImageHandler, error) {
 	cblogger.Info("OpenStack Cloud Driver: called CreateImageHandler()!")
 	imageHandler := osrs.OpenStackImageHandler{Client: cloudConn.ComputeClient, ImageClient: cloudConn.ImageClient}
@@ -118,6 +113,16 @@ func (cloudConn *OpenStackCloudConnection) CreateMyImageHandler() (irs.MyImageHa
 		myImageHandler.VolumeClient = cloudConn.Volume2Client
 	}
 	return &myImageHandler, nil
+}
+
+func (cloudConn *OpenStackCloudConnection) CreateRegionZoneHandler() (irs.RegionZoneHandler, error) {
+	cblogger.Info("OpenStack Driver: called CreateRegionZoneHandler()!")
+
+	regionZoneHandler := osrs.OpenStackRegionZoneHandler{
+		IdentityClient: cloudConn.IdentityClient,
+		ComputeClient:  cloudConn.ComputeClient,
+	}
+	return &regionZoneHandler, nil
 }
 
 func (cloudConn *OpenStackCloudConnection) IsConnected() (bool, error) {
