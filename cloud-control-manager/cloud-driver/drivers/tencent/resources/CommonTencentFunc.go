@@ -232,3 +232,12 @@ func ContainString(s []string, str string) bool {
 	}
 	return false
 }
+
+// ZoneStatus 일반화
+func GetZoneStatus(status string) irs.ZoneStatus {
+	if status == "AVAILABLE" {
+		return irs.ZoneAvailable
+	} else {
+		return irs.ZoneUnavailable
+	}
+}
