@@ -1443,8 +1443,9 @@ func handleRegionZone() {
 		fmt.Println("RegionZoneHandler Management")
 		fmt.Println("0. Quit")
 		fmt.Println("1. List RegionZone")
-		fmt.Println("2. List OrgRegion")
-		fmt.Println("3. List OrgZone")
+		fmt.Println("2. ('ap-beijing') RegionZone")
+		fmt.Println("3. List OrgRegion")
+		fmt.Println("4. List OrgZone")
 
 		var commandNum int
 		inputCnt, err := fmt.Scan(&commandNum)
@@ -1470,6 +1471,17 @@ func handleRegionZone() {
 					cblogger.Info("출력 결과 수 : ", len(result))
 				}
 			case 2:
+				result, err := handler.GetRegionZone("ap-beijing")
+				if err != nil {
+					cblogger.Infof("ListRegionZone 목록 조회 실패 : %s", err)
+				} else {
+					cblogger.Info("ListRegionZone 목록 조회 결과")
+					// cblogger.Debugf("결과 %s", result[0])
+					spew.Dump(result)
+					cblogger.Infof("로그 레벨 : [%s]", cblog.GetLevel())
+					//spew.Dump(result)
+				}
+			case 3:
 				result, err := handler.ListOrgRegion()
 				if err != nil {
 					cblogger.Infof("ListRegionZone 목록 조회 실패 : %s", err)
@@ -1481,7 +1493,7 @@ func handleRegionZone() {
 					//spew.Dump(result)
 					cblogger.Info("출력 결과 수 : ", len(result))
 				}
-			case 3:
+			case 4:
 				result, err := handler.ListOrgZone()
 				if err != nil {
 					cblogger.Infof("ListRegionZone 목록 조회 실패 : %s", err)

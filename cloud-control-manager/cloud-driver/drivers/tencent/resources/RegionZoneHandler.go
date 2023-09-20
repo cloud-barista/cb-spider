@@ -67,6 +67,65 @@ func (regionZoneHandler *TencentRegionZoneHandler) ListRegionZone() ([]*irs.Regi
 	return regionZoneInfoList, nil
 }
 
+func (regionZoneHandler *TencentRegionZoneHandler) GetRegionZone(Name string) (irs.RegionZoneInfo, error) {
+	responseRegions, err := DescribeRegions(regionZoneHandler.Client)
+	if err != nil {
+		cblogger.Error("err : DescribeRegions")
+		cblogger.Error(err)
+		return irs.RegionZoneInfo{}, err
+	}
+
+	var targetRegion cvm.RegionInfo
+	for _, region := range responseRegions.Response.RegionSet {
+		if *region.Region == Name {
+			targetRegion = *region
+		}
+	}
+
+	clientProfile := profile.NewClientProfile()
+	clientProfile.Language = "en-US" // lang default set is zh-CN -> set as en-US.
+
+	// var regionZoneInfo irs.RegionZoneInfo
+
+	tempClient, _ := cvm.NewClient(regionZoneHandler.Client.Client.GetCredential(), Name, clientProfile)
+	responseZones, _ := DescribeZones(tempClient)
+
+	var zoneInfoList []irs.ZoneInfo
+	for _, zone := range responseZones.Response.ZoneSet {
+
+		keyValueList, err := ConvertKeyValueList(zone)
+		if err != nil {
+			cblogger.Errorf("err : ConvertKeyValueList [%s]", *zone.ZoneName)
+			cblogger.Error(err)
+			keyValueList = nil
+		}
+
+		zoneInfo := irs.ZoneInfo{}
+		zoneInfo.Name = *zone.Zone
+		zoneInfo.DisplayName = *zone.ZoneName
+		zoneInfo.Status = GetZoneStatus(*zone.ZoneState)
+		zoneInfo.KeyValueList = keyValueList
+
+		zoneInfoList = append(zoneInfoList, zoneInfo)
+	}
+
+	keyValueList, err := ConvertKeyValueList(targetRegion)
+	if err != nil {
+		cblogger.Errorf("err : ConvertKeyValueList [%s]", Name)
+		cblogger.Error(err)
+		keyValueList = nil
+	}
+
+	regionZoneInfo := irs.RegionZoneInfo{}
+	regionZoneInfo.Name = *targetRegion.Region
+	regionZoneInfo.DisplayName = *targetRegion.RegionName
+	regionZoneInfo.ZoneList = zoneInfoList
+	regionZoneInfo.KeyValueList = keyValueList
+
+	return regionZoneInfo, nil
+	// return irs.RegionZoneInfo{}, nil
+}
+
 func (regionZoneHandler *TencentRegionZoneHandler) ListOrgRegion() (string, error) {
 
 	responseRegions, err := DescribeRegions(regionZoneHandler.Client)
