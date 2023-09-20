@@ -37,16 +37,17 @@ func (AlibabaDriver) GetDriverVersion() string {
 func (AlibabaDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	var drvCapabilityInfo idrv.DriverCapabilityInfo
 
-	drvCapabilityInfo.ImageHandler = false
-	drvCapabilityInfo.VPCHandler = false
-	drvCapabilityInfo.SecurityHandler = false
-	drvCapabilityInfo.KeyPairHandler = false
+	drvCapabilityInfo.ImageHandler = true
+	drvCapabilityInfo.VPCHandler = true
+	drvCapabilityInfo.SecurityHandler = true
+	drvCapabilityInfo.KeyPairHandler = true
 	drvCapabilityInfo.VNicHandler = false
 	drvCapabilityInfo.PublicIPHandler = false
-	drvCapabilityInfo.VMHandler = false
-	drvCapabilityInfo.VMSpecHandler = false
-	drvCapabilityInfo.DiskHandler = false
+	drvCapabilityInfo.VMHandler = true
+	drvCapabilityInfo.VMSpecHandler = true
+	drvCapabilityInfo.DiskHandler = true
 	drvCapabilityInfo.ClusterHandler = true
+	drvCapabilityInfo.RegionZoneHandler = true
 
 	return drvCapabilityInfo
 }
@@ -87,10 +88,11 @@ func (driver *AlibabaDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (i
 		//VNetClient:          VPCClient,
 		//VNicClient:          ECSClient,
 		//SubnetClient: VPCClient,
-		VmSpecClient:  ECSClient,
-		NLBClient:     NLBClient,
-		DiskClient:    ECSClient,
-		MyImageClient: ECSClient,
+		VmSpecClient:     ECSClient,
+		NLBClient:        NLBClient,
+		DiskClient:       ECSClient,
+		MyImageClient:    ECSClient,
+		RegionZoneClient: ECSClient,
 	}
 	return &iConn, nil
 }
