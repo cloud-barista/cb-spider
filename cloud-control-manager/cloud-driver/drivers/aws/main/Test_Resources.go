@@ -1876,7 +1876,6 @@ func readConfigFile() Config {
 
 	// data, err := ioutil.ReadFile(rootPath + "/config/config.yaml")
 	// data, err := ioutil.ReadFile("/Sample/config/config.yaml")
-	// data, err := ioutil.ReadFile("/home/raccoon/cert/spider/aws/config.yaml")
 	data, err := ioutil.ReadFile(rootPath + "/Sample/config/config.yaml")
 	//data, err := ioutil.ReadFile("D:/Workspace/mcloud-bar-config/config/config.yaml")
 	if err != nil {
