@@ -17,7 +17,7 @@ type AwsRegionZoneHandler struct {
 
 func (regionZoneHandler *AwsRegionZoneHandler) ListRegionZone() ([]*irs.RegionZoneInfo, error) {
 
-	responseRegions, err := DescribeRegions(regionZoneHandler.Client, true)
+	responseRegions, err := DescribeRegions(regionZoneHandler.Client, true, "")
 	if err != nil {
 		cblogger.Error(err)
 		return nil, err
@@ -70,9 +70,61 @@ func (regionZoneHandler *AwsRegionZoneHandler) ListRegionZone() ([]*irs.RegionZo
 	return regionZoneInfoList, nil
 }
 
+func (regionZoneHandler *AwsRegionZoneHandler) GetRegionZone(Name string) (irs.RegionZoneInfo, error) {
+	responseRegions, err := DescribeRegions(regionZoneHandler.Client, true, Name)
+	if err != nil {
+		cblogger.Error(err)
+		return irs.RegionZoneInfo{}, err
+	}
+
+	var regionZoneInfo irs.RegionZoneInfo
+	for _, region := range responseRegions.Regions {
+		sess, err := session.NewSession(&aws.Config{
+			Region: region.RegionName,
+		})
+		if err != nil {
+			cblogger.Error(err)
+		}
+		tempclient := ec2.New(sess)
+
+		responseZones, err := DescribeAvailabilityZones(tempclient, true)
+		if err != nil {
+			cblogger.Errorf("AuthFailure on [%s]", *region.RegionName)
+			cblogger.Error(err)
+		} else {
+			var zoneInfoList []irs.ZoneInfo
+			for _, zone := range responseZones.AvailabilityZones {
+				zoneInfo := irs.ZoneInfo{}
+				zoneInfo.Name = *zone.ZoneName
+				zoneInfo.DisplayName = *zone.ZoneName
+				zoneInfo.Status = GetZoneStatus(*zone.State)
+				zoneInfo.KeyValueList, err = ConvertKeyValueList(zone)
+				if err != nil {
+					cblogger.Error(err)
+					zoneInfo.KeyValueList = nil
+				}
+
+				zoneInfoList = append(zoneInfoList, zoneInfo)
+			}
+
+			regionZoneInfo.Name = *region.RegionName
+			regionZoneInfo.DisplayName = *region.RegionName
+			regionZoneInfo.ZoneList = zoneInfoList
+			regionZoneInfo.KeyValueList, err = ConvertKeyValueList(region)
+			if err != nil {
+				cblogger.Error(err)
+				regionZoneInfo.KeyValueList = nil
+			}
+
+		}
+	}
+
+	return regionZoneInfo, nil
+}
+
 func (regionZoneHandler *AwsRegionZoneHandler) ListOrgRegion() (string, error) {
 
-	respRegions, err := DescribeRegions(regionZoneHandler.Client, true)
+	respRegions, err := DescribeRegions(regionZoneHandler.Client, true, "")
 	if err != nil {
 		cblogger.Error(err)
 		return "", err
@@ -89,7 +141,7 @@ func (regionZoneHandler *AwsRegionZoneHandler) ListOrgRegion() (string, error) {
 
 func (regionZoneHandler *AwsRegionZoneHandler) ListOrgZone() (string, error) {
 
-	responseRegions, err := DescribeRegions(regionZoneHandler.Client, true)
+	responseRegions, err := DescribeRegions(regionZoneHandler.Client, true, "")
 	if err != nil {
 		cblogger.Error(err)
 		return "", err
