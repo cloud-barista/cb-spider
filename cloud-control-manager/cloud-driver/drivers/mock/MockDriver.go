@@ -11,7 +11,6 @@
 package mock
 
 import (
-
 	cblog "github.com/cloud-barista/cb-log"
 	"github.com/sirupsen/logrus"
 
@@ -62,11 +61,11 @@ func (driver *MockDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (icon
 		Region:   connectionInfo.RegionInfo,
 		MockName: connectionInfo.CredentialInfo.MockName,
 	}
-	
+
 	// Please, do not delete this line.
-        mkrs.PrepareVMImage(iConn.MockName)
-        mkrs.PrepareVMSpec(iConn.MockName)
+	mkrs.PrepareVMImage(iConn.MockName)
+	mkrs.PrepareVMSpec(iConn.MockName)
+	mkrs.PrepareRegionZone(iConn.MockName)
 
 	return &iConn, nil
 }
-

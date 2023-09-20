@@ -32,11 +32,6 @@ type MockConnection struct {
 	MockName string
 }
 
-// CreateRegionZoneHandler implements connect.CloudConnection.
-func (*MockConnection) CreateRegionZoneHandler() (irs.RegionZoneHandler, error) {
-	return nil, errors.New("Driver: not implemented")
-}
-
 func (cloudConn *MockConnection) CreateImageHandler() (irs.ImageHandler, error) {
 	cblogger.Info("Mock Driver: called CreateImageHandler()!")
 	handler := mkrs.MockImageHandler{cloudConn.MockName}
@@ -112,5 +107,12 @@ func (cloudConn *MockConnection) CreateMyImageHandler() (irs.MyImageHandler, err
 func (cloudConn *MockConnection) CreateAnyCallHandler() (irs.AnyCallHandler, error) {
 	cblogger.Info("Mock Driver: called CreateAnyCallHandler()!")
 	handler := mkrs.MockAnyCallHandler{cloudConn.MockName}
+	return &handler, nil
+}
+
+// CreateRegionZoneHandler implements connect.CloudConnection.
+func (cloudConn *MockConnection) CreateRegionZoneHandler() (irs.RegionZoneHandler, error) {
+	cblogger.Info("Mock Driver: called CreateRegionZoneHandler()!")
+	handler := mkrs.MockRegionZoneHandler{Region: cloudConn.Region, MockName: cloudConn.MockName}
 	return &handler, nil
 }
