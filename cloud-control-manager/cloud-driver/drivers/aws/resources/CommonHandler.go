@@ -695,7 +695,7 @@ func GetOsTypeFromEc2Image(ec2Image *ec2.Image) string {
 // ---------------- EBS Snapshot area end ----------//
 
 // ---------------- RegionZone area begin ----------//
-func DescribeRegions(client *ec2.EC2, AllRegionsBool bool) (*ec2.DescribeRegionsOutput, error) {
+func DescribeRegions(client *ec2.EC2, AllRegionsBool bool, regionName string) (*ec2.DescribeRegionsOutput, error) {
 	// logger for HisCall
 	callogger := call.GetLogger("HISCALL")
 	callLogInfo := call.CLOUDLOGSCHEMA{
@@ -708,11 +708,25 @@ func DescribeRegions(client *ec2.EC2, AllRegionsBool bool) (*ec2.DescribeRegions
 		ErrorMSG:     "",
 	}
 
-	RegionsInput := &ec2.DescribeRegionsInput{
-		// AllRegions option to show next 3 status(opt-in-not-required | opted-in | not-opted-in).
-		// true = opt-in-not-required | opted-in | not-opted-in
-		// false = opted-in
-		AllRegions: aws.Bool(AllRegionsBool),
+	var RegionsInput *ec2.DescribeRegionsInput
+	// field RegionNames []*string
+	if regionName == "" {
+		RegionsInput = &ec2.DescribeRegionsInput{
+			// AllRegions option to show next 3 status(opt-in-not-required | opted-in | not-opted-in).
+			// true = opt-in-not-required | opted-in | not-opted-in
+			// false = opted-in
+			AllRegions: aws.Bool(AllRegionsBool),
+		}
+	} else {
+		RegionsInput = &ec2.DescribeRegionsInput{
+			// AllRegions option to show next 3 status(opt-in-not-required | opted-in | not-opted-in).
+			// true = opt-in-not-required | opted-in | not-opted-in
+			// false = opted-in
+			AllRegions: aws.Bool(AllRegionsBool),
+			RegionNames: []*string{
+				aws.String(regionName), // 여기에 필터로 사용할 Region을 추가합니다.
+			},
+		}
 	}
 
 	callLogStart := call.Start()
