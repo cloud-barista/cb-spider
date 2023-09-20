@@ -48,6 +48,7 @@ func (TencentDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	drvCapabilityInfo.VMHandler = true
 	drvCapabilityInfo.VMSpecHandler = true
 	drvCapabilityInfo.ClusterHandler = true
+	drvCapabilityInfo.RegionZoneHandler = true
 
 	return drvCapabilityInfo
 }
@@ -222,17 +223,18 @@ func (driver *TencentDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (i
 	}
 
 	iConn := tcon.TencentCloudConnection{
-		CredentialInfo: connectionInfo.CredentialInfo,
-		Region:         connectionInfo.RegionInfo,
-		VNetworkClient: vpcClient,
-		NLBClient:      clbClient,
-		VMClient:       vmClient,
-		KeyPairClient:  vmClient,
-		ImageClient:    vmClient,
-		SecurityClient: vpcClient,
-		VmSpecClient:   vmClient,
-		DiskClient:     cbsClient,
-		MyImageClient:  vmClient,
+		CredentialInfo:   connectionInfo.CredentialInfo,
+		Region:           connectionInfo.RegionInfo,
+		VNetworkClient:   vpcClient,
+		NLBClient:        clbClient,
+		VMClient:         vmClient,
+		KeyPairClient:    vmClient,
+		ImageClient:      vmClient,
+		SecurityClient:   vpcClient,
+		VmSpecClient:     vmClient,
+		DiskClient:       cbsClient,
+		MyImageClient:    vmClient,
+		RegionZoneClient: vmClient,
 
 		//VNicClient:     vmClient,
 		//PublicIPClient: vmClient,
