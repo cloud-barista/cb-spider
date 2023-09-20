@@ -289,5 +289,5 @@ func (handler *MockRegionZoneHandler) ListOrgZone() (string, error) {
 		}
 	}
 
-	return "", fmt.Errorf("%s VMSpec does not exist!!", handler.Region.Region)
+	return "", fmt.Errorf("%s The original zone list does not exist!!", handler.Region.Region)
 }
