@@ -51,6 +51,7 @@ func (AwsDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	drvCapabilityInfo.VMHandler = true
 	drvCapabilityInfo.VMSpecHandler = true
 	drvCapabilityInfo.NLBHandler = true
+	drvCapabilityInfo.RegionZoneHandler = true
 
 	return drvCapabilityInfo
 }
