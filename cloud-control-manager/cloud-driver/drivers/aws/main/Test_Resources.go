@@ -13,6 +13,7 @@ package main
 import (
 	"fmt"
 	"io/ioutil"
+	"os"
 
 	"github.com/aws/aws-sdk-go/aws/awserr"
 
@@ -1868,15 +1869,15 @@ type Config struct {
 // 환경변수 CBSPIDER_PATH 설정 후 해당 폴더 하위에 /config/config.yaml 파일 생성해야 함.
 func readConfigFile() Config {
 	// Set Environment Value of Project Root Path
-	// rootPath := os.Getenv("CBSPIDER_PATH")
+	rootPath := os.Getenv("CBSPIDER_PATH")
 	//rootpath := "D:/Workspace/mcloud-barista-config"
 	// /mnt/d/Workspace/mcloud-barista-config/config/config.yaml
 	// cblogger.Infof("Test Data 설정파일 : [%]", rootPath+"/config/config.yaml")
 
 	// data, err := ioutil.ReadFile(rootPath + "/config/config.yaml")
 	// data, err := ioutil.ReadFile("/Sample/config/config.yaml")
-	data, err := ioutil.ReadFile("/home/raccoon/cert/spider/aws/config.yaml")
-	//data, err := ioutil.ReadFile(rootPath + "/Sample/config/config.yaml")
+	// data, err := ioutil.ReadFile("/home/raccoon/cert/spider/aws/config.yaml")
+	data, err := ioutil.ReadFile(rootPath + "/Sample/config/config.yaml")
 	//data, err := ioutil.ReadFile("D:/Workspace/mcloud-bar-config/config/config.yaml")
 	if err != nil {
 		panic(err)
