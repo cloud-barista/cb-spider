@@ -31,28 +31,6 @@ func (regionZoneHandler *TencentRegionZoneHandler) ListRegionZone() ([]*irs.Regi
 
 		var zoneInfoList []irs.ZoneInfo
 		for _, zone := range responseZones.Response.ZoneSet {
-			// keyValueList := []irs.KeyValue{}
-			// itemType := reflect.TypeOf(zone)
-			// if itemType.Kind() == reflect.Ptr {
-			// 	itemType = itemType.Elem()
-			// }
-			// itemValue := reflect.ValueOf(zone)
-			// if itemValue.Kind() == reflect.Ptr {
-			// 	itemValue = itemValue.Elem()
-			// }
-			// numFields := itemType.NumField()
-
-			// // 속성 이름과 값을 출력합니다.
-			// for i := 0; i < numFields; i++ {
-			// 	field := itemType.Field(i)
-			// 	value := itemValue.Field(i).Interface()
-
-			// 	keyValue := irs.KeyValue{}
-			// 	keyValue.Key = field.Name
-			// 	keyValue.Value = *value.(*string)
-
-			// 	keyValueList = append(keyValueList, keyValue)
-			// }
 
 			keyValueList, err := ConvertKeyValueList(zone)
 			if err != nil {
@@ -69,28 +47,6 @@ func (regionZoneHandler *TencentRegionZoneHandler) ListRegionZone() ([]*irs.Regi
 
 			zoneInfoList = append(zoneInfoList, zoneInfo)
 		}
-
-		// keyValueList := []irs.KeyValue{}
-		// itemType := reflect.TypeOf(region)
-		// if itemType.Kind() == reflect.Ptr {
-		// 	itemType = itemType.Elem()
-		// }
-		// itemValue := reflect.ValueOf(region)
-		// if itemValue.Kind() == reflect.Ptr {
-		// 	itemValue = itemValue.Elem()
-		// }
-		// numFields := itemType.NumField()
-
-		// for i := 0; i < numFields; i++ {
-		// 	field := itemType.Field(i)
-		// 	value := itemValue.Field(i).Interface()
-
-		// 	keyValue := irs.KeyValue{}
-		// 	keyValue.Key = field.Name
-		// 	keyValue.Value = *value.(*string)
-
-		// 	keyValueList = append(keyValueList, keyValue)
-		// }
 
 		keyValueList, err := ConvertKeyValueList(region)
 		if err != nil {

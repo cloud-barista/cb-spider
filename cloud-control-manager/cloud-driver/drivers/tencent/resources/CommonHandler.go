@@ -5,13 +5,15 @@ import (
 	"time"
 
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
-	"github.com/davecgh/go-spew/spew"
 
+	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	cbs "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/cbs/v20170312"
 	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
 	tencentError "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/errors"
 	cvm "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/cvm/v20170312"
+
+	tencentError "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/errors"
 )
 
 func DescribeDisks(client *cbs.Client, diskIIDs []irs.IID) ([]*cbs.Disk, error) {
@@ -228,12 +230,10 @@ func GetOsType(cvmImage cvm.Image) string {
 // ListOrgRegion
 func DescribeRegions(client *cvm.Client) (*cvm.DescribeRegionsResponse, error) {
 	// logger for HisCall
-	spew.Dump(client)
-
 	callogger := call.GetLogger("HISCALL")
 	callLogInfo := call.CLOUDLOGSCHEMA{
 		CloudOS:      call.TENCENT,
-		RegionZone:   "",
+		RegionZone:   client.GetRegion(),
 		ResourceType: call.REGIONZONE,
 		ResourceName: "",
 		CloudOSAPI:   "DescribeRegions()",
@@ -262,7 +262,7 @@ func DescribeZones(client *cvm.Client) (*cvm.DescribeZonesResponse, error) {
 	callogger := call.GetLogger("HISCALL")
 	callLogInfo := call.CLOUDLOGSCHEMA{
 		CloudOS:      call.TENCENT,
-		RegionZone:   "",
+		RegionZone:   client.GetRegion(),
 		ResourceType: call.REGIONZONE,
 		ResourceName: "",
 		CloudOSAPI:   "DescribeZones()",
