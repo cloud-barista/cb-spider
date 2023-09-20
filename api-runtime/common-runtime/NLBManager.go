@@ -861,7 +861,7 @@ func RemoveNLBVMs(connectionName string, nlbName string, vmNames []string) (bool
 			cblog.Error(err)
 			return false, err
 		}
-		vmIID := getDriverIID(cres.IID{vmIIDInfo.NameId, vmIIDInfo.SystemId})
+		vmIID := getDriverIID(cres.IID{NameId: vmIIDInfo.NameId, SystemId: vmIIDInfo.SystemId})
 
 		vmIIDs = append(vmIIDs, vmIID)
 	}

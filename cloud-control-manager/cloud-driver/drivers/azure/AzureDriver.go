@@ -13,6 +13,7 @@ package azure
 import (
 	"context"
 	"github.com/Azure/azure-sdk-for-go/services/containerservice/mgmt/2022-03-01/containerservice"
+	"github.com/Azure/azure-sdk-for-go/services/resources/mgmt/2019-11-01/subscriptions"
 	"time"
 
 	"github.com/Azure/azure-sdk-for-go/profiles/2020-09-01/monitor/mgmt/insights"
@@ -52,6 +53,7 @@ func (AzureDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	drvCapabilityInfo.NLBHandler = true
 	drvCapabilityInfo.DiskHandler = true
 	drvCapabilityInfo.MyImageHandler = true
+	drvCapabilityInfo.RegionZoneHandler = true
 	drvCapabilityInfo.ClusterHandler = true
 
 	return drvCapabilityInfo
@@ -72,6 +74,10 @@ func (driver *AzureDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (ico
 		return nil, err
 	}
 
+	Ctx, client, err := getClient(connectionInfo.CredentialInfo)
+	if err != nil {
+		return nil, err
+	}
 	Ctx, VMClient, err := getVMClient(connectionInfo.CredentialInfo)
 	if err != nil {
 		return nil, err
@@ -160,10 +166,19 @@ func (driver *AzureDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (ico
 	if err != nil {
 		return nil, err
 	}
+	Ctx, groupsClient, err := getGroupsClient(connectionInfo.CredentialInfo)
+	if err != nil {
+		return nil, err
+	}
+	Ctx, resourceSkusClient, err := getResourceSkusClient(connectionInfo.CredentialInfo)
+	if err != nil {
+		return nil, err
+	}
 	iConn := azcon.AzureCloudConnection{
 		CredentialInfo:                  connectionInfo.CredentialInfo,
 		Region:                          connectionInfo.RegionInfo,
 		Ctx:                             Ctx,
+		Client:                          client,
 		VMClient:                        VMClient,
 		ImageClient:                     imageClient,
 		PublicIPClient:                  publicIPClient,
@@ -186,6 +201,8 @@ func (driver *AzureDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (ico
 		VirtualMachineScaleSetsClient:   virtualMachineScaleSetsClient,
 		VirtualMachineScaleSetVMsClient: virtualMachineScaleSetVMsClient,
 		VirtualMachineRunCommandsClient: virtualMachineRunCommandClient,
+		GroupsClient:                    groupsClient,
+		ResourceSkusClient:              resourceSkusClient,
 	}
 	return &iConn, nil
 }
@@ -218,6 +235,20 @@ func checkResourceGroup(credential idrv.CredentialInfo, region idrv.RegionInfo) 
 		}
 	}
 	return nil
+}
+
+func getClient(credential idrv.CredentialInfo) (context.Context, *subscriptions.Client, error) {
+	config := auth.NewClientCredentialsConfig(credential.ClientId, credential.ClientSecret, credential.TenantId)
+	authorizer, err := config.Authorizer()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	client := subscriptions.NewClient()
+	client.Authorizer = authorizer
+	ctx, _ := context.WithTimeout(context.Background(), cspTimeout*time.Second)
+
+	return ctx, &client, nil
 }
 
 func getVMClient(credential idrv.CredentialInfo) (context.Context, *compute.VirtualMachinesClient, error) {
@@ -521,4 +552,30 @@ func getVirtualMachineRunCommandClient(credential idrv.CredentialInfo) (context.
 	ctx, _ := context.WithTimeout(context.Background(), cspTimeout*time.Second)
 
 	return ctx, &virtualMachineRunCommandsClient, nil
+}
+
+func getGroupsClient(credential idrv.CredentialInfo) (context.Context, *resources.GroupsClient, error) {
+	config := auth.NewClientCredentialsConfig(credential.ClientId, credential.ClientSecret, credential.TenantId)
+	authorizer, err := config.Authorizer()
+	if err != nil {
+		return nil, nil, err
+	}
+	groupsClient := resources.NewGroupsClient(credential.SubscriptionId)
+	groupsClient.Authorizer = authorizer
+	ctx, _ := context.WithTimeout(context.Background(), cspTimeout*time.Second)
+
+	return ctx, &groupsClient, nil
+}
+
+func getResourceSkusClient(credential idrv.CredentialInfo) (context.Context, *compute.ResourceSkusClient, error) {
+	config := auth.NewClientCredentialsConfig(credential.ClientId, credential.ClientSecret, credential.TenantId)
+	authorizer, err := config.Authorizer()
+	if err != nil {
+		return nil, nil, err
+	}
+	resourceSkusClient := compute.NewResourceSkusClient(credential.SubscriptionId)
+	resourceSkusClient.Authorizer = authorizer
+	ctx, _ := context.WithTimeout(context.Background(), cspTimeout*time.Second)
+
+	return ctx, &resourceSkusClient, nil
 }
