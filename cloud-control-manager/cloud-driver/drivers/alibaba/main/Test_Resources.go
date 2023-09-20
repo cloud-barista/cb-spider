@@ -1511,6 +1511,76 @@ func handleNLB() {
 	}
 }
 
+func handleRegionZone() {
+	cblogger.Debug("Start RegionZone Test")
+	ResourceHandler, err := testconf.GetResourceHandler("RegionZone")
+	if err != nil {
+		//panic(err)
+		cblogger.Error(err)
+	}
+	handler := ResourceHandler.(irs.RegionZoneHandler)
+	cblogger.Info(handler)
+
+	for {
+		fmt.Println("Handler Management")
+		fmt.Println("0. Quit")
+		fmt.Println("1. ListRegionZone List")
+		fmt.Println("2. ListOrgRegion ")
+		fmt.Println("3. ListOrgZone ")
+		fmt.Println("4. GetRegionZone ")
+
+		var commandNum int
+		inputCnt, err := fmt.Scan(&commandNum)
+		if err != nil {
+			panic(err)
+		}
+
+		if inputCnt == 1 {
+			switch commandNum {
+			case 0:
+				return
+
+			case 1:
+				result, err := handler.ListRegionZone()
+				if err != nil {
+					cblogger.Infof(" RegionZone 목록 조회 실패 : ", err)
+				} else {
+					cblogger.Info("RegionZone 목록 조회 결과")
+					spew.Dump(result)
+				}
+
+			case 2:
+				result, err := handler.ListOrgRegion()
+				if err != nil {
+					cblogger.Infof(" ListOrgRegion 목록 조회 실패 : ", err)
+				} else {
+					cblogger.Info("ListOrgRegion 목록 조회 결과")
+					spew.Dump(result)
+				}
+
+			case 3:
+				result, err := handler.ListOrgZone()
+				if err != nil {
+					cblogger.Infof(" ListOrgZone 목록 조회 실패 : ", err)
+				} else {
+					cblogger.Info("ListOrgZone 목록 조회 결과")
+					spew.Dump(result)
+				}
+			case 4:
+				regionId := "ap-northeast-2"
+				result, err := handler.GetRegionZone(regionId)
+				if err != nil {
+					cblogger.Infof(" GetRegionZone 조회 실패 : ", regionId, err)
+				} else {
+					cblogger.Info("GetRegionZone 조회 결과", regionId)
+					spew.Dump(result)
+				}
+
+			}
+		}
+	}
+}
+
 func main() {
 	cblogger.Info("Alibaba Cloud Resource Test")
 	cblogger.Debug("Debug mode")
@@ -1521,10 +1591,11 @@ func main() {
 	//handleSecurity()
 	//handleKeyPair()
 	//handleVM()
-	handleNLB()
+	//handleNLB()
 	//handlePublicIP() // PublicIP 생성 후 conf
 
 	//handleVNic() //Lancard
+	handleRegionZone()
 
 	/*
 		//StartTime := "2020-05-07T01:35:00Z"
