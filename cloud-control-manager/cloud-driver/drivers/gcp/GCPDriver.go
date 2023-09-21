@@ -49,7 +49,7 @@ func (GCPDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	drvCapabilityInfo.VPCHandler = true
 	drvCapabilityInfo.DiskHandler = false
 	drvCapabilityInfo.MyImageHandler = false
-	drvCapabilityInfo.RegionZoneHandler = false
+	drvCapabilityInfo.RegionZoneHandler = true
 	drvCapabilityInfo.ClusterHandler = true
 
 	return drvCapabilityInfo

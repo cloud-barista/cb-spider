@@ -3,8 +3,6 @@ package resources
 import (
 	"context"
 	"errors"
-	"fmt"
-	"reflect"
 
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
@@ -20,8 +18,54 @@ type GCPRegionZoneHandler struct {
 }
 
 // GetRegionZone implements resources.RegionZoneHandler.
-func (*GCPRegionZoneHandler) GetRegionZone(Name string) (irs.RegionZoneInfo, error) {
-	return irs.RegionZoneInfo{}, errors.New("Driver: not implemented")
+// 특정 region 정보만 가져올 때.  regions.list에 filter 조건으로 name=asia-east1 을 추가해도 되나 get api가 있어 해당 api 사용
+func (regionZoneHandler *GCPRegionZoneHandler) GetRegionZone(regionName string) (irs.RegionZoneInfo, error) {
+	var regionZoneInfo irs.RegionZoneInfo
+	projectID := regionZoneHandler.Credential.ProjectID
+
+	resp, err := GetRegion(regionZoneHandler.Client, projectID, regionName)
+	if err != nil {
+		cblogger.Error(err)
+		return regionZoneInfo, err
+	}
+	regionZoneInfo.Name = resp.Name
+	regionZoneInfo.DisplayName = resp.Name
+	regionZoneInfo.KeyValueList, err = ConvertKeyValueList(resp)
+	if err != nil {
+		regionZoneInfo.KeyValueList = nil
+		cblogger.Error(err)
+	}
+
+	// ZoneList
+	var zoneInfoList []irs.ZoneInfo
+	resultZones, err := GetZoneListByRegion(regionZoneHandler.Client, projectID, resp.SelfLink)
+	if err != nil {
+		// failed to get ZoneInfo by region
+	} else {
+		if resultZones != nil && resultZones.Items != nil {
+			for _, zone := range resultZones.Items {
+				zoneInfo := irs.ZoneInfo{}
+				zoneInfo.Name = zone.Name
+				zoneInfo.DisplayName = zone.Name
+				zoneInfo.Status = GetZoneStatus(zone.Status)
+
+				zoneInfo.KeyValueList, err = ConvertKeyValueList(zone)
+				if err != nil {
+					zoneInfo.KeyValueList = nil
+					cblogger.Error(err)
+				}
+
+				zoneInfoList = append(zoneInfoList, zoneInfo)
+				// set zone keyvalue list
+			}
+
+			regionZoneInfo.ZoneList = zoneInfoList
+		}
+	}
+
+	// set region keyvalue list
+
+	return regionZoneInfo, nil
 }
 
 // required Compute Engine IAM ROLE : compute.regions.list
@@ -32,23 +76,29 @@ func (regionZoneHandler *GCPRegionZoneHandler) ListRegionZone() ([]*irs.RegionZo
 	//GET https://compute.googleapis.com/compute/v1/projects/{project}/regions
 
 	// logger for HisCall
-	callogger := call.GetLogger("HISCALL")
-	callLogInfo := call.CLOUDLOGSCHEMA{
-		CloudOS:      call.GCP,
-		RegionZone:   regionZoneHandler.Region.Zone,
-		ResourceType: call.REGIONZONE,
-		ResourceName: "",
-		CloudOSAPI:   "List()",
-		ElapsedTime:  "",
-		ErrorMSG:     "",
-	}
+	// callogger := call.GetLogger("HISCALL")
+	// callLogInfo := call.CLOUDLOGSCHEMA{
+	// 	CloudOS:      call.GCP,
+	// 	RegionZone:   regionZoneHandler.Region.Zone,
+	// 	ResourceType: call.REGIONZONE,
+	// 	ResourceName: "",
+	// 	CloudOSAPI:   "List()",
+	// 	ElapsedTime:  "",
+	// 	ErrorMSG:     "",
+	// }
 
-	callLogStart := call.Start()
-	resp, err := regionZoneHandler.Client.Regions.List(projectID).Do()
-	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
-	callogger.Info(call.String(callLogInfo))
+	// callLogStart := call.Start()
+	// resp, err := regionZoneHandler.Client.Regions.List(projectID).Do()
+	// callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+	// callogger.Info(call.String(callLogInfo))
+	// if err != nil {
+	// 	callLogInfo.ErrorMSG = err.Error()
+	// 	cblogger.Error(err)
+	// 	return regionZoneInfoList, err
+	// }
+
+	resp, err := ListRegion(regionZoneHandler.Client, projectID)
 	if err != nil {
-		callLogInfo.ErrorMSG = err.Error()
 		cblogger.Error(err)
 		return regionZoneInfoList, err
 	}
@@ -63,7 +113,7 @@ func (regionZoneHandler *GCPRegionZoneHandler) ListRegionZone() ([]*irs.RegionZo
 
 		// ZoneList
 		var zoneInfoList []*irs.ZoneInfo
-		resultZones, err := GetZoneListByRegion(regionZoneHandler.Client, item.SelfLink)
+		resultZones, err := GetZoneListByRegion(regionZoneHandler.Client, projectID, item.SelfLink)
 		if err != nil {
 			// failed to get ZoneInfo by region
 		}
@@ -72,53 +122,24 @@ func (regionZoneHandler *GCPRegionZoneHandler) ListRegionZone() ([]*irs.RegionZo
 			zoneInfo.Name = zone.Name
 			zoneInfo.DisplayName = zone.Name
 			zoneInfo.Status = GetZoneStatus(zone.Status)
+			zoneInfo.KeyValueList, err = ConvertKeyValueList(zone)
+			if err != nil {
+				zoneInfo.KeyValueList = nil
+				cblogger.Error(err)
+			}
 
 			zoneInfoList = append(zoneInfoList, &zoneInfo)
 		}
 
-		// 가져온 결과에서 Zone 정보 추출 : Zone의 status를 찾지 못해 조회하는 것으로 변경
-		// for _, zoneUrl := range item.Zones {
-		// 	// "https://www.googleapis.com/compute/v1/projects/csta-349809/zones/northamerica-northeast1-a"
-		// 	startIndex := strings.Index(zoneUrl, "/zones/") + len("/zones/")
-		// 	if startIndex < len("/zones/") {
-		// 		//fmt.Println("Invalid URL:", zoneUrl)
-		// 		cblogger.Error("Invalid URL:", zoneUrl)
-		// 		continue
-		// 	}
-		// 	zone := zoneUrl[startIndex:]
-
-		// 	zoneInfo := irs.ZoneInfo{}
-		// 	zoneInfo.Name = zone
-		// 	zoneInfo.DisplayName = zone
-
-		// 	zoneInfoList = append(zoneInfoList, &zoneInfo)
-		// }
-
-		keyValueList := []irs.KeyValue{}
-		itemType := reflect.TypeOf(item)
-		if itemType.Kind() == reflect.Ptr {
-			itemType = itemType.Elem()
+		info.KeyValueList, err = ConvertKeyValueList(item)
+		if err != nil {
+			info.KeyValueList = nil
+			cblogger.Error(err)
 		}
-		itemValue := reflect.ValueOf(item)
-		if itemValue.Kind() == reflect.Ptr {
-			itemValue = itemValue.Elem()
-		}
-		numFields := itemType.NumField()
-
-		// 속성 이름과 값을 출력합니다.
-		for i := 0; i < numFields; i++ {
-			field := itemType.Field(i)
-			value := itemValue.Field(i).Interface()
-
-			keyValue := irs.KeyValue{}
-			keyValue.Key = field.Name
-			keyValue.Value = fmt.Sprintf("%v", value)
-			keyValueList = append(keyValueList, keyValue)
-		}
-		info.KeyValueList = keyValueList
 
 		regionZoneInfoList = append(regionZoneInfoList, &info)
 	}
+	// set keyvalue list
 
 	return regionZoneInfoList, nil
 }
