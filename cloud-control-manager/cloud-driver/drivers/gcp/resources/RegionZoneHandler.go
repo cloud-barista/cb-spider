@@ -3,8 +3,6 @@ package resources
 import (
 	"context"
 	"errors"
-	"fmt"
-	"reflect"
 
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
@@ -32,6 +30,11 @@ func (regionZoneHandler *GCPRegionZoneHandler) GetRegionZone(regionName string) 
 	}
 	regionZoneInfo.Name = resp.Name
 	regionZoneInfo.DisplayName = resp.Name
+	regionZoneInfo.KeyValueList, err = ConvertKeyValueList(resp)
+	if err != nil {
+		regionZoneInfo.KeyValueList = nil
+		cblogger.Error(err)
+	}
 
 	// ZoneList
 	var zoneInfoList []irs.ZoneInfo
@@ -46,9 +49,16 @@ func (regionZoneHandler *GCPRegionZoneHandler) GetRegionZone(regionName string) 
 				zoneInfo.DisplayName = zone.Name
 				zoneInfo.Status = GetZoneStatus(zone.Status)
 
+				zoneInfo.KeyValueList, err = ConvertKeyValueList(zone)
+				if err != nil {
+					zoneInfo.KeyValueList = nil
+					cblogger.Error(err)
+				}
+
 				zoneInfoList = append(zoneInfoList, zoneInfo)
 				// set zone keyvalue list
 			}
+
 			regionZoneInfo.ZoneList = zoneInfoList
 		}
 	}
@@ -112,32 +122,20 @@ func (regionZoneHandler *GCPRegionZoneHandler) ListRegionZone() ([]*irs.RegionZo
 			zoneInfo.Name = zone.Name
 			zoneInfo.DisplayName = zone.Name
 			zoneInfo.Status = GetZoneStatus(zone.Status)
+			zoneInfo.KeyValueList, err = ConvertKeyValueList(zone)
+			if err != nil {
+				zoneInfo.KeyValueList = nil
+				cblogger.Error(err)
+			}
 
 			zoneInfoList = append(zoneInfoList, &zoneInfo)
 		}
 
-		keyValueList := []irs.KeyValue{}
-		itemType := reflect.TypeOf(item)
-		if itemType.Kind() == reflect.Ptr {
-			itemType = itemType.Elem()
+		info.KeyValueList, err = ConvertKeyValueList(item)
+		if err != nil {
+			info.KeyValueList = nil
+			cblogger.Error(err)
 		}
-		itemValue := reflect.ValueOf(item)
-		if itemValue.Kind() == reflect.Ptr {
-			itemValue = itemValue.Elem()
-		}
-		numFields := itemType.NumField()
-
-		// 속성 이름과 값을 출력합니다.
-		for i := 0; i < numFields; i++ {
-			field := itemType.Field(i)
-			value := itemValue.Field(i).Interface()
-
-			keyValue := irs.KeyValue{}
-			keyValue.Key = field.Name
-			keyValue.Value = fmt.Sprintf("%v", value)
-			keyValueList = append(keyValueList, keyValue)
-		}
-		info.KeyValueList = keyValueList
 
 		regionZoneInfoList = append(regionZoneInfoList, &info)
 	}
