@@ -1621,6 +1621,89 @@ func handleCluster() {
 	}
 }
 
+func handleRegionZone() {
+	cblogger.Debug("Start Region Zone Handler Test")
+
+	ResourceHandler, err := getResourceHandler("RegionZone")
+	if err != nil {
+		panic(err)
+	}
+	handler := ResourceHandler.(irs.RegionZoneHandler)
+	if handler == nil {
+		fmt.Println("handler nil")
+		panic(err)
+	}
+
+	for {
+		fmt.Println("RegionZoneHandler Management")
+		fmt.Println("0. Quit")
+		fmt.Println("1. List RegionZone")
+		fmt.Println("2. ('us-west-1') RegionZone")
+		fmt.Println("3. List OrgRegion")
+		fmt.Println("4. List OrgZone")
+		var commandNum int
+		inputCnt, err := fmt.Scan(&commandNum)
+		if err != nil {
+			panic(err)
+		}
+
+		if inputCnt == 1 {
+			switch commandNum {
+			case 0:
+				return
+
+			case 1:
+				result, err := handler.ListRegionZone()
+				if err != nil {
+					cblogger.Infof("ListRegionZone 목록 조회 실패 : %s", err)
+				} else {
+					cblogger.Info("ListRegionZone 목록 조회 결과")
+					// cblogger.Debugf("결과 %s", result[0])
+					spew.Dump(result)
+					cblogger.Infof("로그 레벨 : [%s]", cblog.GetLevel())
+					//spew.Dump(result)
+					cblogger.Info("출력 결과 수 : ", len(result))
+				}
+
+			case 2:
+				result, err := handler.GetRegionZone("us-west-1")
+				if err != nil {
+					cblogger.Infof("GetRegionZone 조회 실패 : ", err)
+				} else {
+					cblogger.Info("GetRegionZone 조회 결과")
+					cblogger.Debug(result)
+					cblogger.Infof("로그 레벨 : [%s]", cblog.GetLevel())
+					// spew.Dump(result)
+				}
+
+			case 3:
+				result, err := handler.ListOrgRegion()
+				if err != nil {
+					cblogger.Infof("ListOrgRegion 목록 조회 실패 : ", err)
+				} else {
+					cblogger.Info("ListOrgRegion 목록 조회 결과")
+					cblogger.Debug(result)
+					cblogger.Infof("로그 레벨 : [%s]", cblog.GetLevel())
+					//spew.Dump(result)
+					cblogger.Info("출력 결과 수 : ", len(result))
+				}
+			case 4:
+				result, err := handler.ListOrgZone()
+				if err != nil {
+					cblogger.Infof("ListOrgZone 목록 조회 실패 : %s", err)
+				} else {
+					cblogger.Info("ListOrgZone 목록 조회 결과")
+					cblogger.Debug(result)
+					cblogger.Infof("로그 레벨 : [%s]", cblog.GetLevel())
+					//spew.Dump(result)
+					cblogger.Info("출력 결과 수 : ", len(result))
+				}
+			}
+		}
+	}
+
+}
+
 func main() {
 	cblogger.Info("AWS Resource Test")
 	//handleVPC()
@@ -1633,7 +1716,8 @@ func main() {
 	//handleVNic() //Lancard
 	//handleVMSpec()
 	//handleNLB()
-	handleCluster()
+	//handleCluster()
+	handleRegionZone()
 
 }
 
@@ -1682,6 +1766,8 @@ func getResourceHandler(handlerType string) (interface{}, error) {
 		resourceHandler, err = cloudConnection.CreateNLBHandler()
 	case "PMKS":
 		resourceHandler, err = cloudConnection.CreateClusterHandler()
+	case "RegionZone":
+		resourceHandler, err = cloudConnection.CreateRegionZoneHandler()
 	}
 
 	if err != nil {
@@ -1784,13 +1870,13 @@ type Config struct {
 func readConfigFile() Config {
 	// Set Environment Value of Project Root Path
 	rootPath := os.Getenv("CBSPIDER_PATH")
-	//rootPath = "/home/nobang/goland/branches/feature_pmks_aws_20221005_yhnoh2/cloud-control-manager/cloud-driver/drivers/aws/main"
 	//rootpath := "D:/Workspace/mcloud-barista-config"
 	// /mnt/d/Workspace/mcloud-barista-config/config/config.yaml
-	cblogger.Infof("Test Data 설정파일 : [%]", rootPath+"/config/config.yaml")
+	// cblogger.Infof("Test Data 설정파일 : [%]", rootPath+"/config/config.yaml")
 
-	data, err := ioutil.ReadFile(rootPath + "/config/config.yaml")
-	//data, err := ioutil.ReadFile(rootPath + "/Sample/config/config.yaml")
+	// data, err := ioutil.ReadFile(rootPath + "/config/config.yaml")
+	// data, err := ioutil.ReadFile("/Sample/config/config.yaml")
+	data, err := ioutil.ReadFile(rootPath + "/Sample/config/config.yaml")
 	//data, err := ioutil.ReadFile("D:/Workspace/mcloud-bar-config/config/config.yaml")
 	if err != nil {
 		panic(err)

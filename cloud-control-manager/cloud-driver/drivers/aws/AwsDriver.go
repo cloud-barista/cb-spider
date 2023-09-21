@@ -51,6 +51,7 @@ func (AwsDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	drvCapabilityInfo.VMHandler = true
 	drvCapabilityInfo.VMSpecHandler = true
 	drvCapabilityInfo.NLBHandler = true
+	drvCapabilityInfo.RegionZoneHandler = true
 
 	return drvCapabilityInfo
 }
@@ -242,6 +243,8 @@ func (driver *AwsDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (icon.
 		EKSClient:         eksClient,
 		IamClient:         iamClient,
 		AutoScalingClient: autoScalingClient,
+
+		RegionZoneClient: vmClient,
 
 		// Connection for AnyCall
 		AnyCallClient: vmClient,

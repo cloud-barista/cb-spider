@@ -693,3 +693,81 @@ func GetOsTypeFromEc2Image(ec2Image *ec2.Image) string {
 //}
 
 // ---------------- EBS Snapshot area end ----------//
+
+// ---------------- RegionZone area begin ----------//
+func DescribeRegions(client *ec2.EC2, AllRegionsBool bool, regionName string) (*ec2.DescribeRegionsOutput, error) {
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.AWS,
+		RegionZone:   "",
+		ResourceType: call.REGIONZONE,
+		ResourceName: "",
+		CloudOSAPI:   "DescribeRegions()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+
+	var RegionsInput *ec2.DescribeRegionsInput
+	// field RegionNames []*string
+	if regionName == "" {
+		RegionsInput = &ec2.DescribeRegionsInput{
+			// AllRegions option to show next 3 status(opt-in-not-required | opted-in | not-opted-in).
+			// true = opt-in-not-required | opted-in | not-opted-in
+			// false = opted-in
+			AllRegions: aws.Bool(AllRegionsBool),
+		}
+	} else {
+		RegionsInput = &ec2.DescribeRegionsInput{
+			// AllRegions option to show next 3 status(opt-in-not-required | opted-in | not-opted-in).
+			// true = opt-in-not-required | opted-in | not-opted-in
+			// false = opted-in
+			AllRegions: aws.Bool(AllRegionsBool),
+			RegionNames: []*string{
+				aws.String(regionName), // 여기에 필터로 사용할 Region을 추가합니다.
+			},
+		}
+	}
+
+	callLogStart := call.Start()
+	resp, err := client.DescribeRegions(RegionsInput)
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+	callogger.Info(call.String(callLogInfo))
+
+	if err != nil {
+		cblogger.Error(err)
+	}
+
+	return resp, err
+}
+
+func DescribeAvailabilityZones(client *ec2.EC2, AllRegionsBool bool) (*ec2.DescribeAvailabilityZonesOutput, error) {
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.AWS,
+		RegionZone:   "",
+		ResourceType: call.REGIONZONE,
+		ResourceName: "",
+		CloudOSAPI:   "DescribeAvailabilityZones()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+
+	ZonesInput := &ec2.DescribeAvailabilityZonesInput{
+		AllAvailabilityZones: aws.Bool(AllRegionsBool), //  (true -> for all AZ) | (false -> for all Zone, include not avail )
+	}
+
+	callLogStart := call.Start()
+	respZones, err := client.DescribeAvailabilityZones(ZonesInput)
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+	callogger.Info(call.String(callLogInfo))
+
+	if err != nil {
+		cblogger.Error(err)
+	}
+
+	return respZones, err
+}
+
+// ---------------- RegionZone area end ----------//
