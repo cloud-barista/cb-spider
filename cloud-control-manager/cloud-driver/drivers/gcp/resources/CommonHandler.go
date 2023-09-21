@@ -13,11 +13,14 @@ package resources
 
 import (
 	"crypto/md5"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
+	"reflect"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -42,6 +45,7 @@ const (
 
 const CBDefaultVNetName string = "cb-vnet"   // CB Default Virtual Network Name
 const CBDefaultSubnetName string = "cb-vnet" // CB Default Subnet Name
+const KEY_VALUE_CONVERT_DEBUG_INFO bool = false
 
 const OperationGlobal = 1
 const OperationRegion = 2
@@ -101,6 +105,7 @@ func GetCBDefaultSubnetName() string {
 	return CBDefaultSubnetName
 }
 
+// KeyValue gen func
 func GetKeyValueList(i map[string]interface{}) []irs.KeyValue {
 	var keyValueList []irs.KeyValue
 	for k, v := range i {
@@ -119,6 +124,88 @@ func GetKeyValueList(i map[string]interface{}) []irs.KeyValue {
 	}
 
 	return keyValueList
+}
+
+// Cloud Object를 CB-KeyValue 형식으로 변환이 필요할 경우 이용
+func ConvertKeyValueList(v interface{}) ([]irs.KeyValue, error) {
+	//spew.Dump(v)
+	var keyValueList []irs.KeyValue
+	var i map[string]interface{}
+
+	jsonBytes, errJson := json.Marshal(v)
+	if errJson != nil {
+		cblogger.Error("KeyValue 변환 실패")
+		cblogger.Error(errJson)
+		return nil, errJson
+	}
+
+	json.Unmarshal(jsonBytes, &i)
+
+	for k, v := range i {
+		if KEY_VALUE_CONVERT_DEBUG_INFO {
+			cblogger.Debugf("K:[%s]====>", k)
+		}
+		/*
+			cblogger.Infof("v:[%s]====>", reflect.ValueOf(v))
+
+			vv := reflect.ValueOf(v)
+			cblogger.Infof("value ====>[%s]", vv.String())
+			s := fmt.Sprint(v)
+			cblogger.Infof("value2 ====>[%s]", s)
+		*/
+		//value := fmt.Sprint(v)
+		value, errString := ConvertToString(v)
+		if errString != nil {
+			//cblogger.Debugf("Key[%s]의 값은 변환 불가 - [%s]", k, errString) //요구에 의해서 Error에서 Warn으로 낮춤
+			continue
+		}
+		keyValueList = append(keyValueList, irs.KeyValue{k, value})
+
+		/*
+			_, ok := v.(string)
+			if !ok {
+				cblogger.Errorf("Key[%s]의 값은 변환 불가", k)
+				continue
+			}
+			keyValueList = append(keyValueList, irs.KeyValue{k, v.(string)})
+		*/
+	}
+	cblogger.Debug("getKeyValueList : ", keyValueList)
+	//keyValueList = append(keyValueList, irs.KeyValue{"test", typeToString([]float32{3.14, 1.53, 2.0000000000000})})
+
+	return keyValueList, nil
+}
+
+// CB-KeyValue 등을 위해 String 타입으로 변환
+func ConvertToString(value interface{}) (string, error) {
+	if value == nil {
+		if KEY_VALUE_CONVERT_DEBUG_INFO {
+			cblogger.Debugf("Nil Value")
+		}
+		return "", errors.New("Nil. Value")
+	}
+
+	var result string
+	t := reflect.ValueOf(value)
+	if KEY_VALUE_CONVERT_DEBUG_INFO {
+		cblogger.Debug("==>ValueOf : ", t)
+	}
+
+	switch value.(type) {
+	case float32:
+		result = strconv.FormatFloat(t.Float(), 'f', -1, 32) // f, fmt, prec, bitSize
+	case float64:
+		result = strconv.FormatFloat(t.Float(), 'f', -1, 64) // f, fmt, prec, bitSize
+		//strconv.FormatFloat(instanceTypeInfo.MemorySize, 'f', 0, 64)
+
+	default:
+		if KEY_VALUE_CONVERT_DEBUG_INFO {
+			cblogger.Debug("--> default type:", reflect.ValueOf(value).Type())
+		}
+		result = fmt.Sprint(value)
+	}
+
+	return result, nil
 }
 
 // KeyPair 해시 생성 함수
