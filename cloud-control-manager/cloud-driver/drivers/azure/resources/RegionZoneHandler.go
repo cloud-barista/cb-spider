@@ -14,6 +14,7 @@ import (
 	"reflect"
 	"sort"
 	"strings"
+	"sync"
 )
 
 type AzureRegionZoneHandler struct {
@@ -55,83 +56,202 @@ func (regionZoneHandler *AzureRegionZoneHandler) ListRegionZone() ([]*irs.Region
 		return nil, getErr
 	}
 
-	resultResourceSkusClient, err := regionZoneHandler.ResourceSkusClient.List(regionZoneHandler.Ctx, "")
-	if err != nil {
-		getErr := errors.New(fmt.Sprintf("Failed to List RegionZone. err = %s", err))
+	var regionZoneInfo []*irs.RegionZoneInfo
+
+	var routineMax = 50
+	var wait sync.WaitGroup
+	var mutex = &sync.Mutex{}
+	var lenLocations = len(*resultListLocations.Value)
+	var zoneErrorOccurred bool
+
+	for i := 0; i < lenLocations; {
+		if lenLocations-i < routineMax {
+			routineMax = lenLocations - i
+		}
+
+		wait.Add(routineMax)
+
+		for j := 0; j < routineMax; j++ {
+			go func(wait *sync.WaitGroup, loc subscriptions.Location) {
+				var zones []string
+				var zoneList []irs.ZoneInfo
+				var resultResourceSkusClient compute.ResourceSkusResultPage
+
+				resultResourceSkusClient, err = regionZoneHandler.ResourceSkusClient.List(regionZoneHandler.Ctx, "location eq '"+*loc.Name+"'")
+				if err != nil {
+					zoneErrorOccurred = true
+					return
+				}
+
+				for _, val := range resultResourceSkusClient.Values() {
+					for _, locInfo := range *val.LocationInfo {
+						locName := strings.ToLower(*loc.Name)
+						locloc := strings.ToLower(*locInfo.Location)
+
+						if locName == locloc && locInfo.Zones != nil {
+							for _, zone := range *locInfo.Zones {
+								zones = append(zones, zone)
+							}
+							break
+						}
+					}
+				}
+
+				zones = removeDuplicateStr(zones)
+
+				for _, zone := range zones {
+					zoneList = append(zoneList, irs.ZoneInfo{
+						Name:         zone,
+						DisplayName:  zone,
+						Status:       irs.NotSupported,
+						KeyValueList: []irs.KeyValue{},
+					})
+				}
+
+				var keyValueList []irs.KeyValue
+
+				elements := reflect.ValueOf(loc.Metadata).Elem()
+				for index := 0; index < elements.NumField(); index++ {
+					var value any
+
+					if elements.Field(index).Kind() == reflect.Struct {
+						continue
+					} else if elements.Field(index).Kind() == reflect.Pointer && !elements.Field(index).IsNil() {
+						if elements.Field(index).Elem().Kind() == reflect.Struct || elements.Field(index).Elem().Kind() == reflect.Slice {
+							continue
+						}
+						value = elements.Field(index).Elem().Interface()
+					} else {
+						value = elements.Field(index)
+					}
+
+					typeField := elements.Type().Field(index)
+					keyValueList = append(keyValueList, irs.KeyValue{
+						Key:   typeField.Name,
+						Value: fmt.Sprintf("%+v", value),
+					})
+				}
+
+				mutex.Lock()
+				regionZoneInfo = append(regionZoneInfo, &irs.RegionZoneInfo{
+					Name:         *loc.Name,
+					DisplayName:  *loc.DisplayName,
+					ZoneList:     zoneList,
+					KeyValueList: keyValueList,
+				})
+				mutex.Unlock()
+
+				wait.Done()
+			}(&wait, (*resultListLocations.Value)[j])
+
+			i++
+			if i == lenLocations {
+				break
+			}
+		}
+
+		wait.Wait()
+	}
+
+	if zoneErrorOccurred {
+		getErr := errors.New(fmt.Sprintf("Failed to List RegionZone. err = %s",
+			"Error occurred while getting zone info."))
 		cblogger.Error(getErr.Error())
 		LoggingError(hiscallInfo, getErr)
 		return nil, getErr
 	}
+
 	LoggingInfo(hiscallInfo, start)
-
-	var regionZoneInfo []*irs.RegionZoneInfo
-
-	for _, loc := range *resultListLocations.Value {
-		var zones []string
-		var zoneList []irs.ZoneInfo
-
-		for _, val := range resultResourceSkusClient.Values() {
-			for _, locInfo := range *val.LocationInfo {
-				locName := strings.ToLower(*loc.Name)
-				locloc := strings.ToLower(*locInfo.Location)
-
-				if locName == locloc && locInfo.Zones != nil {
-					for _, zone := range *locInfo.Zones {
-						zones = append(zones, zone)
-					}
-					break
-				}
-			}
-		}
-
-		zones = removeDuplicateStr(zones)
-
-		for _, zone := range zones {
-			zoneList = append(zoneList, irs.ZoneInfo{
-				Name:         zone,
-				DisplayName:  zone,
-				Status:       irs.NotSupported,
-				KeyValueList: []irs.KeyValue{},
-			})
-		}
-
-		var keyValueList []irs.KeyValue
-
-		elements := reflect.ValueOf(loc.Metadata).Elem()
-		for index := 0; index < elements.NumField(); index++ {
-			var value any
-
-			if elements.Field(index).Kind() == reflect.Struct {
-				continue
-			} else if elements.Field(index).Kind() == reflect.Pointer && !elements.Field(index).IsNil() {
-				if elements.Field(index).Elem().Kind() == reflect.Struct || elements.Field(index).Elem().Kind() == reflect.Slice {
-					continue
-				}
-				value = elements.Field(index).Elem().Interface()
-			} else {
-				value = elements.Field(index)
-			}
-
-			typeField := elements.Type().Field(index)
-			keyValueList = append(keyValueList, irs.KeyValue{
-				Key:   typeField.Name,
-				Value: fmt.Sprintf("%+v", value),
-			})
-		}
-
-		regionZoneInfo = append(regionZoneInfo, &irs.RegionZoneInfo{
-			Name:         *loc.Name,
-			DisplayName:  *loc.DisplayName,
-			ZoneList:     zoneList,
-			KeyValueList: keyValueList,
-		})
-	}
 
 	return regionZoneInfo, nil
 }
 
 func (regionZoneHandler *AzureRegionZoneHandler) GetRegionZone(Name string) (irs.RegionZoneInfo, error) {
-	return irs.RegionZoneInfo{}, errors.New("Driver: not implemented")
+	hiscallInfo := GetCallLogScheme(regionZoneHandler.Region, call.REGIONZONE, "RegionZone", "GetRegionZone()")
+	start := call.Start()
+
+	resultListLocations, err := regionZoneHandler.Client.ListLocations(regionZoneHandler.Ctx,
+		regionZoneHandler.CredentialInfo.SubscriptionId)
+	if err != nil {
+		getErr := errors.New(fmt.Sprintf("Failed to Get RegionZone. err = %s", err))
+		cblogger.Error(getErr.Error())
+		LoggingError(hiscallInfo, getErr)
+		return irs.RegionZoneInfo{}, getErr
+	}
+
+	resultResourceSkusClient, err := regionZoneHandler.ResourceSkusClient.List(regionZoneHandler.Ctx, "location eq '"+Name+"'")
+	if err != nil {
+		getErr := errors.New(fmt.Sprintf("Failed to Get RegionZone. err = %s", err))
+		cblogger.Error(getErr.Error())
+		LoggingError(hiscallInfo, getErr)
+		return irs.RegionZoneInfo{}, getErr
+	}
+
+	LoggingInfo(hiscallInfo, start)
+
+	var location *subscriptions.Location
+	var regionZoneInfo irs.RegionZoneInfo
+
+	for _, loc := range *resultListLocations.Value {
+		if *loc.Name == Name {
+			location = &loc
+			break
+		}
+	}
+
+	regionZoneInfo.Name = *location.Name
+	regionZoneInfo.DisplayName = *location.DisplayName
+
+	var zones []string
+
+	for _, val := range resultResourceSkusClient.Values() {
+		for _, locInfo := range *val.LocationInfo {
+			locName := strings.ToLower(Name)
+			locloc := strings.ToLower(*locInfo.Location)
+
+			if locName == locloc && locInfo.Zones != nil {
+				for _, zone := range *locInfo.Zones {
+					zones = append(zones, zone)
+				}
+				break
+			}
+		}
+	}
+
+	zones = removeDuplicateStr(zones)
+
+	for _, zone := range zones {
+		regionZoneInfo.ZoneList = append(regionZoneInfo.ZoneList, irs.ZoneInfo{
+			Name:         zone,
+			DisplayName:  zone,
+			Status:       irs.NotSupported,
+			KeyValueList: []irs.KeyValue{},
+		})
+	}
+
+	elements := reflect.ValueOf(location.Metadata).Elem()
+	for index := 0; index < elements.NumField(); index++ {
+		var value any
+
+		if elements.Field(index).Kind() == reflect.Struct {
+			continue
+		} else if elements.Field(index).Kind() == reflect.Pointer && !elements.Field(index).IsNil() {
+			if elements.Field(index).Elem().Kind() == reflect.Struct || elements.Field(index).Elem().Kind() == reflect.Slice {
+				continue
+			}
+			value = elements.Field(index).Elem().Interface()
+		} else {
+			value = elements.Field(index)
+		}
+
+		typeField := elements.Type().Field(index)
+		regionZoneInfo.KeyValueList = append(regionZoneInfo.KeyValueList, irs.KeyValue{
+			Key:   typeField.Name,
+			Value: fmt.Sprintf("%+v", value),
+		})
+	}
+
+	return regionZoneInfo, nil
 }
 
 func (regionZoneHandler *AzureRegionZoneHandler) ListOrgRegion() (string, error) {
@@ -237,6 +357,68 @@ func (regionZoneHandler *AzureRegionZoneHandler) ListOrgZone() (string, error) {
 	jsonString := string(jsonBytes)
 	return jsonString, nil
 }
+
+/*
+== GetRegionZone 실행 예시 ==
+[CLOUD-BARISTA].[INFO]: 2023-09-22 17:44:24 Test_Resources.go:1273, main.testRegionZoneHandler() - Start GetRegionZone() ...
+Enter Region Name: koreacentral
+[CLOUD-BARISTA].[INFO]: 2023-09-22 17:44:28 CommonAzureFunc.go:52, github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/azure/resources.GetCallLogScheme() - Call AZURE GetRegionZone()
+[HISCALL].[124.53.55.55] 2023-09-22 17:44:29 (Friday) github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/azure/resources.LoggingInfo():48 - "CloudOS" : "AZURE", "RegionZone" : "Korea Central", "ResourceType" : "REGIONZONE", "ResourceName" : "RegionZone", "CloudOSAPI" : "GetRegionZone()", "ElapsedTime" : "1.9558", "ErrorMSG" : ""
+(resources.RegionZoneInfo) {
+ Name: (string) (len=12) "koreacentral",
+ DisplayName: (string) (len=13) "Korea Central",
+ ZoneList: ([]resources.ZoneInfo) (len=3 cap=4) {
+  (resources.ZoneInfo) {
+   Name: (string) (len=1) "1",
+   DisplayName: (string) (len=1) "1",
+   Status: (resources.ZoneStatus) (len=12) "NotSupported",
+   KeyValueList: ([]resources.KeyValue) {
+   }
+  },
+  (resources.ZoneInfo) {
+   Name: (string) (len=1) "2",
+   DisplayName: (string) (len=1) "2",
+   Status: (resources.ZoneStatus) (len=12) "NotSupported",
+   KeyValueList: ([]resources.KeyValue) {
+   }
+  },
+  (resources.ZoneInfo) {
+   Name: (string) (len=1) "3",
+   DisplayName: (string) (len=1) "3",
+   Status: (resources.ZoneStatus) (len=12) "NotSupported",
+   KeyValueList: ([]resources.KeyValue) {
+   }
+  }
+ },
+ KeyValueList: ([]resources.KeyValue) (len=6 cap=8) {
+  (resources.KeyValue) {
+   Key: (string) (len=10) "RegionType",
+   Value: (string) (len=8) "Physical"
+  },
+  (resources.KeyValue) {
+   Key: (string) (len=14) "RegionCategory",
+   Value: (string) (len=11) "Recommended"
+  },
+  (resources.KeyValue) {
+   Key: (string) (len=14) "GeographyGroup",
+   Value: (string) (len=12) "Asia Pacific"
+  },
+  (resources.KeyValue) {
+   Key: (string) (len=9) "Longitude",
+   Value: (string) (len=7) "126.978"
+  },
+  (resources.KeyValue) {
+   Key: (string) (len=8) "Latitude",
+   Value: (string) (len=7) "37.5665"
+  },
+  (resources.KeyValue) {
+   Key: (string) (len=16) "PhysicalLocation",
+   Value: (string) (len=5) "Seoul"
+  }
+ }
+}
+[CLOUD-BARISTA].[INFO]: 2023-09-22 17:44:29 Test_Resources.go:1284, main.testRegionZoneHandler() - Finish GetRegionZone()
+*/
 
 /*
 == ListOrgRegion() 결과 값 예시 ==
