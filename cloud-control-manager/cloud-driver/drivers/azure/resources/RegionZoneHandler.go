@@ -14,6 +14,7 @@ import (
 	"reflect"
 	"sort"
 	"strings"
+	"sync"
 )
 
 type AzureRegionZoneHandler struct {
@@ -55,77 +56,112 @@ func (regionZoneHandler *AzureRegionZoneHandler) ListRegionZone() ([]*irs.Region
 		return nil, getErr
 	}
 
-	resultResourceSkusClient, err := regionZoneHandler.ResourceSkusClient.List(regionZoneHandler.Ctx, "")
-	if err != nil {
-		getErr := errors.New(fmt.Sprintf("Failed to List RegionZone. err = %s", err))
+	var regionZoneInfo []*irs.RegionZoneInfo
+
+	var routineMax = 50
+	var wait sync.WaitGroup
+	var mutex = &sync.Mutex{}
+	var lenLocations = len(*resultListLocations.Value)
+	var zoneErrorOccurred bool
+
+	for i := 0; i < lenLocations; {
+		if lenLocations-i < routineMax {
+			routineMax = lenLocations - i
+		}
+
+		wait.Add(routineMax)
+
+		for j := 0; j < routineMax; j++ {
+			go func(wait *sync.WaitGroup, loc subscriptions.Location) {
+				var zones []string
+				var zoneList []irs.ZoneInfo
+				var resultResourceSkusClient compute.ResourceSkusResultPage
+
+				resultResourceSkusClient, err = regionZoneHandler.ResourceSkusClient.List(regionZoneHandler.Ctx, "location eq '"+*loc.Name+"'")
+				if err != nil {
+					zoneErrorOccurred = true
+					return
+				}
+
+				for _, val := range resultResourceSkusClient.Values() {
+					for _, locInfo := range *val.LocationInfo {
+						locName := strings.ToLower(*loc.Name)
+						locloc := strings.ToLower(*locInfo.Location)
+
+						if locName == locloc && locInfo.Zones != nil {
+							for _, zone := range *locInfo.Zones {
+								zones = append(zones, zone)
+							}
+							break
+						}
+					}
+				}
+
+				zones = removeDuplicateStr(zones)
+
+				for _, zone := range zones {
+					zoneList = append(zoneList, irs.ZoneInfo{
+						Name:         zone,
+						DisplayName:  zone,
+						Status:       irs.NotSupported,
+						KeyValueList: []irs.KeyValue{},
+					})
+				}
+
+				var keyValueList []irs.KeyValue
+
+				elements := reflect.ValueOf(loc.Metadata).Elem()
+				for index := 0; index < elements.NumField(); index++ {
+					var value any
+
+					if elements.Field(index).Kind() == reflect.Struct {
+						continue
+					} else if elements.Field(index).Kind() == reflect.Pointer && !elements.Field(index).IsNil() {
+						if elements.Field(index).Elem().Kind() == reflect.Struct || elements.Field(index).Elem().Kind() == reflect.Slice {
+							continue
+						}
+						value = elements.Field(index).Elem().Interface()
+					} else {
+						value = elements.Field(index)
+					}
+
+					typeField := elements.Type().Field(index)
+					keyValueList = append(keyValueList, irs.KeyValue{
+						Key:   typeField.Name,
+						Value: fmt.Sprintf("%+v", value),
+					})
+				}
+
+				mutex.Lock()
+				regionZoneInfo = append(regionZoneInfo, &irs.RegionZoneInfo{
+					Name:         *loc.Name,
+					DisplayName:  *loc.DisplayName,
+					ZoneList:     zoneList,
+					KeyValueList: keyValueList,
+				})
+				mutex.Unlock()
+
+				wait.Done()
+			}(&wait, (*resultListLocations.Value)[j])
+
+			i++
+			if i == lenLocations {
+				break
+			}
+		}
+
+		wait.Wait()
+	}
+
+	if zoneErrorOccurred {
+		getErr := errors.New(fmt.Sprintf("Failed to List RegionZone. err = %s",
+			"Error occurred while getting zone info."))
 		cblogger.Error(getErr.Error())
 		LoggingError(hiscallInfo, getErr)
 		return nil, getErr
 	}
+
 	LoggingInfo(hiscallInfo, start)
-
-	var regionZoneInfo []*irs.RegionZoneInfo
-
-	for _, loc := range *resultListLocations.Value {
-		var zones []string
-		var zoneList []irs.ZoneInfo
-
-		for _, val := range resultResourceSkusClient.Values() {
-			for _, locInfo := range *val.LocationInfo {
-				locName := strings.ToLower(*loc.Name)
-				locloc := strings.ToLower(*locInfo.Location)
-
-				if locName == locloc && locInfo.Zones != nil {
-					for _, zone := range *locInfo.Zones {
-						zones = append(zones, zone)
-					}
-					break
-				}
-			}
-		}
-
-		zones = removeDuplicateStr(zones)
-
-		for _, zone := range zones {
-			zoneList = append(zoneList, irs.ZoneInfo{
-				Name:         zone,
-				DisplayName:  zone,
-				Status:       irs.NotSupported,
-				KeyValueList: []irs.KeyValue{},
-			})
-		}
-
-		var keyValueList []irs.KeyValue
-
-		elements := reflect.ValueOf(loc.Metadata).Elem()
-		for index := 0; index < elements.NumField(); index++ {
-			var value any
-
-			if elements.Field(index).Kind() == reflect.Struct {
-				continue
-			} else if elements.Field(index).Kind() == reflect.Pointer && !elements.Field(index).IsNil() {
-				if elements.Field(index).Elem().Kind() == reflect.Struct || elements.Field(index).Elem().Kind() == reflect.Slice {
-					continue
-				}
-				value = elements.Field(index).Elem().Interface()
-			} else {
-				value = elements.Field(index)
-			}
-
-			typeField := elements.Type().Field(index)
-			keyValueList = append(keyValueList, irs.KeyValue{
-				Key:   typeField.Name,
-				Value: fmt.Sprintf("%+v", value),
-			})
-		}
-
-		regionZoneInfo = append(regionZoneInfo, &irs.RegionZoneInfo{
-			Name:         *loc.Name,
-			DisplayName:  *loc.DisplayName,
-			ZoneList:     zoneList,
-			KeyValueList: keyValueList,
-		})
-	}
 
 	return regionZoneInfo, nil
 }
