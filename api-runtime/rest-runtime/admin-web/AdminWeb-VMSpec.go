@@ -22,7 +22,6 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-
 //====================================== VMSpec
 
 // number, VMSpec Name, VCPU, Memory, GPU, KeyValueList
@@ -171,7 +170,7 @@ func VMSpec(c echo.Context) error {
 	if err != nil {
 		cblog.Error(err)
 		// client logging
-                htmlStr += genLoggingResult(err.Error())
+		htmlStr += genLoggingResult(err.Error())
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 

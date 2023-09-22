@@ -435,6 +435,7 @@ func RunServer() {
 		{"GET", "/adminweb/myimagemgmt/:ConnectConfig", aw.MyImageMgmt},
 		{"GET", "/adminweb/vmimage/:ConnectConfig", aw.VMImage},
 		{"GET", "/adminweb/vmspec/:ConnectConfig", aw.VMSpec},
+		{"GET", "/adminweb/regionzone/:ConnectConfig", aw.RegionZone},
 
 		{"GET", "/adminweb/cluster/:ConnectConfig", aw.Cluster},
 		{"GET", "/adminweb/clustermgmt/:ConnectConfig", aw.ClusterMgmt},

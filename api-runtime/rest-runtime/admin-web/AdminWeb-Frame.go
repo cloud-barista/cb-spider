@@ -9,30 +9,32 @@
 package adminweb
 
 import (
-    "github.com/cloud-barista/cb-store/config"
-    "github.com/sirupsen/logrus"
 	cr "github.com/cloud-barista/cb-spider/api-runtime/common-runtime"
+	"github.com/cloud-barista/cb-store/config"
+	"github.com/sirupsen/logrus"
 
 	"net/http"
 	"strings"
+
 	"github.com/labstack/echo/v4"
 )
 
 var cblog *logrus.Logger
+
 func init() {
 	cblog = config.Cblogger
 }
 
 type NameWidth struct {
-	Name string
+	Name  string
 	Width string
 }
 
-//================ Frame
+// ================ Frame
 func Frame(c echo.Context) error {
 	cblog.Info("call Frame()")
 
-        htmlStr :=  `
+	htmlStr := `
 <html>
   <head>
     <title>CB-Spider Admin Web Tool ....__^..^__....</title>
@@ -58,11 +60,11 @@ func Frame(c echo.Context) error {
 	return c.HTML(http.StatusOK, htmlStr)
 }
 
-//================ Top Page
+// ================ Top Page
 func Top(c echo.Context) error {
 	cblog.Info("call Top()")
 
-	htmlStr :=  ` 
+	htmlStr := ` 
 <html>
 <head>
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
@@ -102,6 +104,15 @@ func Top(c echo.Context) error {
                 <!-- Connection Management -->
                 <a href="connectionconfig" target="main_frame">            
                     <font size=2>2.CONNECTION</font>
+                </a>
+            </td>
+            <td>
+                <br>
+
+                ¦&nbsp;&nbsp;
+                <!-- RegionZone Info -->
+                <a href="regionzone/region not set" target="main_frame" id="regionzoneHref">
+                    <font size=2>Region/Zone</font>
                 </a>
             </td>
             <td width="240">
@@ -275,16 +286,15 @@ func Top(c echo.Context) error {
 </html>
 	`
 
-	
 	htmlStr = strings.ReplaceAll(htmlStr, "$$TIME$$", cr.ShortStartTime)
 	return c.HTML(http.StatusOK, htmlStr)
 }
 
-//================ Log Page
+// ================ Log Page
 func Log(c echo.Context) error {
 	cblog.Info("call Log()")
 
-	htmlStr :=  ` 
+	htmlStr := ` 
 <html>
 	<head>
 		<style>
@@ -354,7 +364,6 @@ func Log(c echo.Context) error {
 </html>
 	`
 
-	
 	htmlStr = strings.ReplaceAll(htmlStr, "$$TIME$$", cr.ShortStartTime)
 	return c.HTML(http.StatusOK, htmlStr)
 }
