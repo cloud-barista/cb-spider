@@ -1234,9 +1234,10 @@ func testRegionZoneHandlerPrint() {
 	cblogger.Info("Test RegionZoneHandler")
 	cblogger.Info("0. Print Menu")
 	cblogger.Info("1. ListRegionZone()")
-	cblogger.Info("2. ListOrgRegion()")
-	cblogger.Info("3. ListOrgZone()")
-	cblogger.Info("4. Exit")
+	cblogger.Info("2. GetRegionZone()")
+	cblogger.Info("3. ListOrgRegion()")
+	cblogger.Info("4. ListOrgZone()")
+	cblogger.Info("5. Exit")
 }
 
 func testRegionZoneHandler(config Config) {
@@ -1269,6 +1270,19 @@ Loop:
 				}
 				cblogger.Info("Finish ListRegionZone()")
 			case 2:
+				cblogger.Info("Start GetRegionZone() ...")
+				var region string
+				fmt.Print("Enter Region Name: ")
+				if _, err := fmt.Scanln(&region); err != nil {
+					cblogger.Error(err)
+				}
+				if listRegionZone, err := regionzoneHandler.GetRegionZone(region); err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(listRegionZone)
+				}
+				cblogger.Info("Finish GetRegionZone()")
+			case 3:
 				cblogger.Info("Start ListOrgRegion() ...")
 				if listOrgRegion, err := regionzoneHandler.ListOrgRegion(); err != nil {
 					cblogger.Error(err)
@@ -1276,7 +1290,7 @@ Loop:
 					spew.Dump(listOrgRegion)
 				}
 				cblogger.Info("Finish ListOrgRegion()")
-			case 3:
+			case 4:
 				cblogger.Info("Start ListOrgZone() ...")
 				if listOrgZone, err := regionzoneHandler.ListOrgZone(); err != nil {
 					cblogger.Error(err)
@@ -1284,7 +1298,7 @@ Loop:
 					spew.Dump(listOrgZone)
 				}
 				cblogger.Info("Finish ListOrgZone()")
-			case 4:
+			case 5:
 				cblogger.Info("Exit")
 				break Loop
 			}
