@@ -56,7 +56,7 @@ func PrepareRegionZone(mockName string) {
 				{
 					Name:         "mercury-z2",
 					DisplayName:  "Mercury Zone 2",
-					Status:       irs.ZoneAvailable,
+					Status:       irs.ZoneUnavailable,
 					KeyValueList: nil,
 				},
 				{
@@ -75,7 +75,7 @@ func PrepareRegionZone(mockName string) {
 				{
 					Name:         "venus-z1",
 					DisplayName:  "Venus Zone 1",
-					Status:       irs.ZoneAvailable,
+					Status:       irs.NotSupported,
 					KeyValueList: nil,
 				},
 				{
@@ -112,7 +112,7 @@ func PrepareRegionZone(mockName string) {
 				{
 					Name:         "mars-z3",
 					DisplayName:  "Mars Zone 3",
-					Status:       irs.ZoneAvailable,
+					Status:       irs.ZoneUnavailable,
 					KeyValueList: nil,
 				},
 			},
@@ -125,13 +125,13 @@ func PrepareRegionZone(mockName string) {
 				{
 					Name:         "jupiter-z1",
 					DisplayName:  "Jupiter Zone 1",
-					Status:       irs.ZoneAvailable,
+					Status:       irs.ZoneUnavailable,
 					KeyValueList: nil,
 				},
 				{
 					Name:         "jupiter-z2",
 					DisplayName:  "Jupiter Zone 2",
-					Status:       irs.ZoneAvailable,
+					Status:       irs.NotSupported,
 					KeyValueList: nil,
 				},
 				{
@@ -156,7 +156,7 @@ func PrepareRegionZone(mockName string) {
 				{
 					Name:         "saturn-z2",
 					DisplayName:  "Saturn Zone 2",
-					Status:       irs.ZoneAvailable,
+					Status:       irs.ZoneUnavailable,
 					KeyValueList: nil,
 				},
 				{
@@ -187,7 +187,7 @@ func PrepareRegionZone(mockName string) {
 				{
 					Name:         "uranus-z3",
 					DisplayName:  "Uranus Zone 3",
-					Status:       irs.ZoneAvailable,
+					Status:       irs.ZoneUnavailable,
 					KeyValueList: nil,
 				},
 			},
@@ -206,13 +206,13 @@ func PrepareRegionZone(mockName string) {
 				{
 					Name:         "neptune-z2",
 					DisplayName:  "Neptune Zone 2",
-					Status:       irs.ZoneAvailable,
+					Status:       irs.NotSupported,
 					KeyValueList: nil,
 				},
 				{
 					Name:         "neptune-z3",
 					DisplayName:  "Neptune Zone 3",
-					Status:       irs.ZoneAvailable,
+					Status:       irs.NotSupported,
 					KeyValueList: nil,
 				},
 			},
