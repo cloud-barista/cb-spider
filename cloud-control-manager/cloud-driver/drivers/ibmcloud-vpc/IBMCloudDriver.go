@@ -79,12 +79,18 @@ func (driver *IbmCloudDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (
 		},
 		URL: endPoint,
 	})
+	if err != nil {
+		return nil, err
+	}
 	vpcService0230, err := vpc0230.NewVpcV1(&vpc0230.VpcV1Options{
 		Authenticator: &core.IamAuthenticator{
 			ApiKey: connectionInfo.CredentialInfo.ApiKey,
 		},
 		URL: endPoint,
 	})
+	if err != nil {
+		return nil, err
+	}
 	clusterService, err := kubernetesserviceapiv1.NewKubernetesServiceApiV1(&kubernetesserviceapiv1.KubernetesServiceApiV1Options{
 		Authenticator: &core.IamAuthenticator{
 			ApiKey: connectionInfo.CredentialInfo.ApiKey,
@@ -98,6 +104,9 @@ func (driver *IbmCloudDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (
 			ApiKey: connectionInfo.CredentialInfo.ApiKey,
 		},
 	})
+	if err != nil {
+		return nil, err
+	}
 
 	iConn := connect.IbmCloudConnection{
 		CredentialInfo: connectionInfo.CredentialInfo,
