@@ -116,7 +116,39 @@ func (regionZoneHandler *OpenStackRegionZoneHandler) ListRegionZone() ([]*irs.Re
 }
 
 func (regionZoneHandler *OpenStackRegionZoneHandler) GetRegionZone(Name string) (irs.RegionZoneInfo, error) {
-	return irs.RegionZoneInfo{}, errors.New("Driver: not implemented")
+	hiscallInfo := GetCallLogScheme(regionZoneHandler.IdentityClient.IdentityEndpoint, call.REGIONZONE, "RegionZone", "ListOrgRegion()")
+	start := call.Start()
+
+	var zoneList []irs.ZoneInfo
+
+	client, err := openstack.NewComputeV2(regionZoneHandler.IdentityClient.ProviderClient, gophercloud.EndpointOpts{
+		Region: Name,
+	})
+	if err != nil {
+		getErr := errors.New(fmt.Sprintf("Failed to List RegionZone. err = %s", err))
+		cblogger.Error(getErr.Error())
+		LoggingError(hiscallInfo, getErr)
+		return irs.RegionZoneInfo{}, getErr
+	}
+
+	list, err := getZoneList(client, hiscallInfo)
+	if err != nil {
+		getErr := errors.New(fmt.Sprintf("Failed to List RegionZone. err = %s", err))
+		cblogger.Error(getErr.Error())
+		LoggingError(hiscallInfo, getErr)
+		return irs.RegionZoneInfo{}, getErr
+	}
+
+	LoggingInfo(hiscallInfo, start)
+	zoneList = append(zoneList, *list...)
+
+	return irs.RegionZoneInfo{
+		Name:         Name,
+		DisplayName:  Name,
+		ZoneList:     zoneList,
+		KeyValueList: nil,
+	}, nil
+
 }
 
 func (regionZoneHandler *OpenStackRegionZoneHandler) ListOrgRegion() (string, error) {
@@ -199,6 +231,29 @@ func (regionZoneHandler *OpenStackRegionZoneHandler) ListOrgZone() (string, erro
 	jsonString := string(jsonBytes)
 	return jsonString, nil
 }
+
+/*
+== GetRegionZone 실행 예시 ==
+[CLOUD-BARISTA].[INFO]: 2023-09-25 15:37:35 Test_Resources.go:1144, main.testRegionZoneHandler() - Start GetRegionZone() ...
+Enter Region Name: RegionOne
+[CLOUD-BARISTA].[INFO]: 2023-09-25 15:37:40 CommonOpenStackFunc.go:52, github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/openstack/resources.GetCallLogScheme() - Call OPENSTACK ListOrgRegion()
+[HISCALL].[124.53.55.55] 2023-09-25 15:37:40 (Monday) github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/openstack/resources.LoggingInfo():48 - "CloudOS" : "OPENSTACK", "RegionZone" : "http://192.168.110.170:5000/v3/", "ResourceType" : "REGIONZONE", "ResourceName" : "RegionZone", "CloudOSAPI" : "ListOrgRegion()", "ElapsedTime" : "0.2171", "ErrorMSG" : ""
+(resources.RegionZoneInfo) {
+ Name: (string) (len=9) "RegionOne",
+ DisplayName: (string) (len=9) "RegionOne",
+ ZoneList: ([]resources.ZoneInfo) (len=1 cap=1) {
+  (resources.ZoneInfo) {
+   Name: (string) (len=4) "nova",
+   DisplayName: (string) (len=4) "nova",
+   Status: (resources.ZoneStatus) (len=9) "Available",
+   KeyValueList: ([]resources.KeyValue) {
+   }
+  }
+ },
+ KeyValueList: ([]resources.KeyValue) <nil>
+}
+[CLOUD-BARISTA].[INFO]: 2023-09-25 15:37:40 Test_Resources.go:1155, main.testRegionZoneHandler() - Finish GetRegionZone()
+*/
 
 /*
 == ListOrgRegion()  결과 값 예시 ==
