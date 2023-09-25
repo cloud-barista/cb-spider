@@ -4,25 +4,24 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
+	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
+	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/gophercloud/gophercloud"
+	"github.com/gophercloud/gophercloud/openstack"
 	"github.com/gophercloud/gophercloud/openstack/compute/v2/extensions/availabilityzones"
 	"github.com/gophercloud/gophercloud/openstack/identity/v3/regions"
-
-	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
-	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 )
 
 type OpenStackRegionZoneHandler struct {
+	Region         idrv.RegionInfo
 	IdentityClient *gophercloud.ServiceClient
-	ComputeClient  *gophercloud.ServiceClient
 }
 
-// Region, Availability Zone 개념이 OpenStack은 다르게 작용함. Region별 Availability Zone 가져오는 API 제공 안됨.
-func (regionZoneHandler *OpenStackRegionZoneHandler) ListRegionZone() ([]*irs.RegionZoneInfo, error) {
-	hiscallInfo := GetCallLogScheme(regionZoneHandler.ComputeClient.IdentityEndpoint, call.REGIONZONE, "RegionZone", "ListOrgRegion()")
-	start := call.Start()
+func getZoneList(client *gophercloud.ServiceClient, hiscallInfo call.CLOUDLOGSCHEMA) (*[]irs.ZoneInfo, error) {
+	var zoneList []irs.ZoneInfo
 
-	allPages, err := availabilityzones.List(regionZoneHandler.ComputeClient).AllPages()
+	allPages, err := availabilityzones.List(client).AllPages()
 	if err != nil {
 		getErr := errors.New(fmt.Sprintf("Failed to List RegionZone. err = %s", err))
 		cblogger.Error(getErr.Error())
@@ -30,7 +29,7 @@ func (regionZoneHandler *OpenStackRegionZoneHandler) ListRegionZone() ([]*irs.Re
 		return nil, getErr
 	}
 
-	zoneList, err := availabilityzones.ExtractAvailabilityZones(allPages)
+	list, err := availabilityzones.ExtractAvailabilityZones(allPages)
 	if err != nil {
 		getErr := errors.New(fmt.Sprintf("Failed to List RegionZone. err = %s", err))
 		cblogger.Error(getErr.Error())
@@ -38,12 +37,7 @@ func (regionZoneHandler *OpenStackRegionZoneHandler) ListRegionZone() ([]*irs.Re
 		return nil, getErr
 	}
 
-	LoggingInfo(hiscallInfo, start)
-
-	var regionZoneInfo []*irs.RegionZoneInfo
-
-	for _, zone := range zoneList {
-		var zoneList []irs.ZoneInfo
+	for _, zone := range list {
 		var status irs.ZoneStatus
 
 		if zone.ZoneState.Available {
@@ -58,25 +52,75 @@ func (regionZoneHandler *OpenStackRegionZoneHandler) ListRegionZone() ([]*irs.Re
 			Status:       status,
 			KeyValueList: []irs.KeyValue{},
 		})
+	}
+
+	return &zoneList, nil
+}
+
+func (regionZoneHandler *OpenStackRegionZoneHandler) ListRegionZone() ([]*irs.RegionZoneInfo, error) {
+	hiscallInfo := GetCallLogScheme(regionZoneHandler.IdentityClient.IdentityEndpoint, call.REGIONZONE, "RegionZone", "ListOrgRegion()")
+	start := call.Start()
+
+	listOpts := regions.ListOpts{}
+	allPages, err := regions.List(regionZoneHandler.IdentityClient, listOpts).AllPages()
+	if err != nil {
+		getErr := errors.New(fmt.Sprintf("Failed to List RegionZone. err = %s", err))
+		cblogger.Error(getErr.Error())
+		LoggingError(hiscallInfo, getErr)
+		return nil, getErr
+	}
+
+	regionList, err := regions.ExtractRegions(allPages)
+	if err != nil {
+		getErr := errors.New(fmt.Sprintf("Failed to List RegionZone. err = %s", err))
+		cblogger.Error(getErr.Error())
+		LoggingError(hiscallInfo, getErr)
+		return nil, getErr
+	}
+
+	var regionZoneInfo []*irs.RegionZoneInfo
+	var zoneList []irs.ZoneInfo
+
+	for _, region := range regionList {
+		client, err := openstack.NewComputeV2(regionZoneHandler.IdentityClient.ProviderClient, gophercloud.EndpointOpts{
+			Region: region.ID,
+		})
+		if err != nil {
+			getErr := errors.New(fmt.Sprintf("Failed to List RegionZone. err = %s", err))
+			cblogger.Error(getErr.Error())
+			LoggingError(hiscallInfo, getErr)
+			return nil, getErr
+		}
+
+		list, err := getZoneList(client, hiscallInfo)
+		if err != nil {
+			getErr := errors.New(fmt.Sprintf("Failed to List RegionZone. err = %s", err))
+			cblogger.Error(getErr.Error())
+			LoggingError(hiscallInfo, getErr)
+			return nil, getErr
+		}
+
+		zoneList = append(zoneList, *list...)
 
 		regionZoneInfo = append(regionZoneInfo, &irs.RegionZoneInfo{
-			Name:         "N/A",
-			DisplayName:  "N/A",
+			Name:         region.ID,
+			DisplayName:  region.ID,
 			ZoneList:     zoneList,
-			KeyValueList: []irs.KeyValue{},
+			KeyValueList: nil,
 		})
 	}
+
+	LoggingInfo(hiscallInfo, start)
 
 	return regionZoneInfo, nil
 }
 
-// Region, Availability Zone 개념이 OpenStack은 다르게 작용함. Region별 Availability Zone 가져오는 API 제공 안됨.
 func (regionZoneHandler *OpenStackRegionZoneHandler) GetRegionZone(Name string) (irs.RegionZoneInfo, error) {
 	return irs.RegionZoneInfo{}, errors.New("Driver: not implemented")
 }
 
 func (regionZoneHandler *OpenStackRegionZoneHandler) ListOrgRegion() (string, error) {
-	hiscallInfo := GetCallLogScheme(regionZoneHandler.ComputeClient.IdentityEndpoint, call.REGIONZONE, "RegionZone", "ListOrgRegion()")
+	hiscallInfo := GetCallLogScheme(regionZoneHandler.IdentityClient.IdentityEndpoint, call.REGIONZONE, "RegionZone", "ListOrgRegion()")
 	start := call.Start()
 
 	listOpts := regions.ListOpts{}
@@ -110,11 +154,23 @@ func (regionZoneHandler *OpenStackRegionZoneHandler) ListOrgRegion() (string, er
 	return jsonString, nil
 }
 
+// ListOrgZone
+// Region, Availability Zone 개념이 OpenStack은 다르게 작용함. 현재 구성은 config에 설정된 Region에서 사용가능한 zone 목록을 출력함.
 func (regionZoneHandler *OpenStackRegionZoneHandler) ListOrgZone() (string, error) {
-	hiscallInfo := GetCallLogScheme(regionZoneHandler.ComputeClient.IdentityEndpoint, call.REGIONZONE, "RegionZone", "ListOrgRegion()")
+	hiscallInfo := GetCallLogScheme(regionZoneHandler.IdentityClient.IdentityEndpoint, call.REGIONZONE, "RegionZone", "ListOrgRegion()")
 	start := call.Start()
 
-	allPages, err := availabilityzones.List(regionZoneHandler.ComputeClient).AllPages()
+	client, err := openstack.NewComputeV2(regionZoneHandler.IdentityClient.ProviderClient, gophercloud.EndpointOpts{
+		Region: regionZoneHandler.Region.Region,
+	})
+	if err != nil {
+		getErr := errors.New(fmt.Sprintf("Failed to List RegionZone. err = %s", err))
+		cblogger.Error(getErr.Error())
+		LoggingError(hiscallInfo, getErr)
+		return "", getErr
+	}
+
+	allPages, err := availabilityzones.List(client).AllPages()
 	if err != nil {
 		getErr := errors.New(fmt.Sprintf("Failed to List OrgZone. err = %s", err))
 		cblogger.Error(getErr.Error())

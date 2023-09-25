@@ -119,8 +119,8 @@ func (cloudConn *OpenStackCloudConnection) CreateRegionZoneHandler() (irs.Region
 	cblogger.Info("OpenStack Driver: called CreateRegionZoneHandler()!")
 
 	regionZoneHandler := osrs.OpenStackRegionZoneHandler{
+		Region:         cloudConn.Region,
 		IdentityClient: cloudConn.IdentityClient,
-		ComputeClient:  cloudConn.ComputeClient,
 	}
 	return &regionZoneHandler, nil
 }
