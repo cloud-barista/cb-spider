@@ -106,7 +106,7 @@ func (regionZoneHandler *OpenStackRegionZoneHandler) ListRegionZone() ([]*irs.Re
 			Name:         region.ID,
 			DisplayName:  region.ID,
 			ZoneList:     zoneList,
-			KeyValueList: nil,
+			KeyValueList: []irs.KeyValue{},
 		})
 	}
 
@@ -146,7 +146,7 @@ func (regionZoneHandler *OpenStackRegionZoneHandler) GetRegionZone(Name string) 
 		Name:         Name,
 		DisplayName:  Name,
 		ZoneList:     zoneList,
-		KeyValueList: nil,
+		KeyValueList: []irs.KeyValue{},
 	}, nil
 
 }
@@ -250,7 +250,8 @@ Enter Region Name: RegionOne
    }
   }
  },
- KeyValueList: ([]resources.KeyValue) <nil>
+ KeyValueList: ([]resources.KeyValue) {
+ }
 }
 [CLOUD-BARISTA].[INFO]: 2023-09-25 15:37:40 Test_Resources.go:1155, main.testRegionZoneHandler() - Finish GetRegionZone()
 */
