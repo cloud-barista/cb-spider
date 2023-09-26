@@ -31,35 +31,36 @@ func (regionZoneHandler *TencentRegionZoneHandler) ListRegionZone() ([]*irs.Regi
 
 		var zoneInfoList []irs.ZoneInfo
 		for _, zone := range responseZones.Response.ZoneSet {
-
-			keyValueList, err := ConvertKeyValueList(zone)
-			if err != nil {
-				cblogger.Errorf("err : ConvertKeyValueList [%s]", *zone.ZoneName)
-				cblogger.Error(err)
-				keyValueList = nil
-			}
-
 			zoneInfo := irs.ZoneInfo{}
 			zoneInfo.Name = *zone.Zone
 			zoneInfo.DisplayName = *zone.ZoneName
 			zoneInfo.Status = GetZoneStatus(*zone.ZoneState)
-			zoneInfo.KeyValueList = keyValueList
+
+			// keyValueList 삭제 https://github.com/cloud-barista/cb-spider/issues/930#issuecomment-1734817828
+			// keyValueList, err := ConvertKeyValueList(zone)
+			// if err != nil {
+			// 	cblogger.Errorf("err : ConvertKeyValueList [%s]", *zone.ZoneName)
+			// 	cblogger.Error(err)
+			// 	keyValueList = nil
+			// }
+			// zoneInfo.KeyValueList = keyValueList
 
 			zoneInfoList = append(zoneInfoList, zoneInfo)
-		}
-
-		keyValueList, err := ConvertKeyValueList(region)
-		if err != nil {
-			cblogger.Errorf("err : ConvertKeyValueList [%s]", *region.Region)
-			cblogger.Error(err)
-			keyValueList = nil
 		}
 
 		regionInfo := irs.RegionZoneInfo{}
 		regionInfo.Name = *region.Region
 		regionInfo.DisplayName = *region.RegionName
 		regionInfo.ZoneList = zoneInfoList
-		regionInfo.KeyValueList = keyValueList
+
+		// keyValueList 삭제 https://github.com/cloud-barista/cb-spider/issues/930#issuecomment-1734817828
+		// keyValueList, err := ConvertKeyValueList(region)
+		// if err != nil {
+		// 	cblogger.Errorf("err : ConvertKeyValueList [%s]", *region.Region)
+		// 	cblogger.Error(err)
+		// 	keyValueList = nil
+		// }
+		// regionInfo.KeyValueList = keyValueList
 
 		regionZoneInfoList = append(regionZoneInfoList, &regionInfo)
 	}
@@ -92,38 +93,38 @@ func (regionZoneHandler *TencentRegionZoneHandler) GetRegionZone(Name string) (i
 
 	var zoneInfoList []irs.ZoneInfo
 	for _, zone := range responseZones.Response.ZoneSet {
-
-		keyValueList, err := ConvertKeyValueList(zone)
-		if err != nil {
-			cblogger.Errorf("err : ConvertKeyValueList [%s]", *zone.ZoneName)
-			cblogger.Error(err)
-			keyValueList = nil
-		}
-
 		zoneInfo := irs.ZoneInfo{}
 		zoneInfo.Name = *zone.Zone
 		zoneInfo.DisplayName = *zone.ZoneName
 		zoneInfo.Status = GetZoneStatus(*zone.ZoneState)
-		zoneInfo.KeyValueList = keyValueList
+
+		// keyValueList 삭제 https://github.com/cloud-barista/cb-spider/issues/930#issuecomment-1734817828
+		// keyValueList, err := ConvertKeyValueList(zone)
+		// if err != nil {
+		// 	cblogger.Errorf("err : ConvertKeyValueList [%s]", *zone.ZoneName)
+		// 	cblogger.Error(err)
+		// 	keyValueList = nil
+		// }
+		// zoneInfo.KeyValueList = keyValueList
 
 		zoneInfoList = append(zoneInfoList, zoneInfo)
-	}
-
-	keyValueList, err := ConvertKeyValueList(targetRegion)
-	if err != nil {
-		cblogger.Errorf("err : ConvertKeyValueList [%s]", Name)
-		cblogger.Error(err)
-		keyValueList = nil
 	}
 
 	regionZoneInfo := irs.RegionZoneInfo{}
 	regionZoneInfo.Name = *targetRegion.Region
 	regionZoneInfo.DisplayName = *targetRegion.RegionName
 	regionZoneInfo.ZoneList = zoneInfoList
-	regionZoneInfo.KeyValueList = keyValueList
+
+	// keyValueList 삭제 https://github.com/cloud-barista/cb-spider/issues/930#issuecomment-1734817828
+	// keyValueList, err := ConvertKeyValueList(targetRegion)
+	// if err != nil {
+	// 	cblogger.Errorf("err : ConvertKeyValueList [%s]", Name)
+	// 	cblogger.Error(err)
+	// 	keyValueList = nil
+	// }
+	// regionZoneInfo.KeyValueList = keyValueList
 
 	return regionZoneInfo, nil
-	// return irs.RegionZoneInfo{}, nil
 }
 
 func (regionZoneHandler *TencentRegionZoneHandler) ListOrgRegion() (string, error) {
