@@ -44,11 +44,13 @@ func (regionZoneHandler *AwsRegionZoneHandler) ListRegionZone() ([]*irs.RegionZo
 				zoneInfo.Name = *zone.ZoneName
 				zoneInfo.DisplayName = *zone.ZoneName
 				zoneInfo.Status = GetZoneStatus(*zone.State)
-				zoneInfo.KeyValueList, err = ConvertKeyValueList(zone)
-				if err != nil {
-					cblogger.Error(err)
-					zoneInfo.KeyValueList = nil
-				}
+
+				// keyValueList 삭제 https://github.com/cloud-barista/cb-spider/issues/930#issuecomment-1734817828
+				// zoneInfo.KeyValueList, err = ConvertKeyValueList(zone)
+				// if err != nil {
+				// 	cblogger.Error(err)
+				// 	zoneInfo.KeyValueList = nil
+				// }
 
 				zoneInfoList = append(zoneInfoList, zoneInfo)
 			}
@@ -57,11 +59,13 @@ func (regionZoneHandler *AwsRegionZoneHandler) ListRegionZone() ([]*irs.RegionZo
 			regionInfo.Name = *region.RegionName
 			regionInfo.DisplayName = *region.RegionName
 			regionInfo.ZoneList = zoneInfoList
-			regionInfo.KeyValueList, err = ConvertKeyValueList(region)
-			if err != nil {
-				cblogger.Error(err)
-				regionInfo.KeyValueList = nil
-			}
+
+			// keyValueList 삭제 https://github.com/cloud-barista/cb-spider/issues/930#issuecomment-1734817828
+			// regionInfo.KeyValueList, err = ConvertKeyValueList(region)
+			// if err != nil {
+			// 	cblogger.Error(err)
+			// 	regionInfo.KeyValueList = nil
+			// }
 
 			regionZoneInfoList = append(regionZoneInfoList, &regionInfo)
 		}
@@ -98,11 +102,13 @@ func (regionZoneHandler *AwsRegionZoneHandler) GetRegionZone(Name string) (irs.R
 				zoneInfo.Name = *zone.ZoneName
 				zoneInfo.DisplayName = *zone.ZoneName
 				zoneInfo.Status = GetZoneStatus(*zone.State)
-				zoneInfo.KeyValueList, err = ConvertKeyValueList(zone)
-				if err != nil {
-					cblogger.Error(err)
-					zoneInfo.KeyValueList = nil
-				}
+
+				// keyValueList 삭제 https://github.com/cloud-barista/cb-spider/issues/930#issuecomment-1734817828
+				// zoneInfo.KeyValueList, err = ConvertKeyValueList(zone)
+				// if err != nil {
+				// 	cblogger.Error(err)
+				// 	zoneInfo.KeyValueList = nil
+				// }
 
 				zoneInfoList = append(zoneInfoList, zoneInfo)
 			}
@@ -110,11 +116,13 @@ func (regionZoneHandler *AwsRegionZoneHandler) GetRegionZone(Name string) (irs.R
 			regionZoneInfo.Name = *region.RegionName
 			regionZoneInfo.DisplayName = *region.RegionName
 			regionZoneInfo.ZoneList = zoneInfoList
-			regionZoneInfo.KeyValueList, err = ConvertKeyValueList(region)
-			if err != nil {
-				cblogger.Error(err)
-				regionZoneInfo.KeyValueList = nil
-			}
+
+			// // keyValueList 삭제 https://github.com/cloud-barista/cb-spider/issues/930#issuecomment-1734817828
+			// regionZoneInfo.KeyValueList, err = ConvertKeyValueList(region)
+			// if err != nil {
+			// 	cblogger.Error(err)
+			// 	regionZoneInfo.KeyValueList = nil
+			// }
 
 		}
 	}
