@@ -11,6 +11,7 @@ import (
 	"github.com/gophercloud/gophercloud/openstack"
 	"github.com/gophercloud/gophercloud/openstack/compute/v2/extensions/availabilityzones"
 	"github.com/gophercloud/gophercloud/openstack/identity/v3/regions"
+	"sync"
 )
 
 type OpenStackRegionZoneHandler struct {
@@ -79,35 +80,63 @@ func (regionZoneHandler *OpenStackRegionZoneHandler) ListRegionZone() ([]*irs.Re
 	}
 
 	var regionZoneInfo []*irs.RegionZoneInfo
-	var zoneList []irs.ZoneInfo
 
-	for _, region := range regionList {
-		client, err := openstack.NewComputeV2(regionZoneHandler.IdentityClient.ProviderClient, gophercloud.EndpointOpts{
-			Region: region.ID,
-		})
-		if err != nil {
-			getErr := errors.New(fmt.Sprintf("Failed to List RegionZone. err = %s", err))
-			cblogger.Error(getErr.Error())
-			LoggingError(hiscallInfo, getErr)
-			return nil, getErr
+	var routineMax = 10
+	var wait sync.WaitGroup
+	var mutex = &sync.Mutex{}
+	var lenRegions = len(regionList)
+	var zoneErrorOccurred bool
+
+	for i := 0; i < lenRegions; {
+		if lenRegions-i < routineMax {
+			routineMax = lenRegions - i
 		}
 
-		list, err := getZoneList(client, hiscallInfo)
-		if err != nil {
-			getErr := errors.New(fmt.Sprintf("Failed to List RegionZone. err = %s", err))
-			cblogger.Error(getErr.Error())
-			LoggingError(hiscallInfo, getErr)
-			return nil, getErr
+		wait.Add(routineMax)
+
+		for j := 0; j < routineMax; j++ {
+			go func(wait *sync.WaitGroup, reg regions.Region) {
+				client, err := openstack.NewComputeV2(regionZoneHandler.IdentityClient.ProviderClient, gophercloud.EndpointOpts{
+					Region: reg.ID,
+				})
+				if err != nil {
+					zoneErrorOccurred = true
+					return
+				}
+
+				list, err := getZoneList(client, hiscallInfo)
+				if err != nil {
+					zoneErrorOccurred = true
+					return
+				}
+
+				mutex.Lock()
+				regionZoneInfo = append(regionZoneInfo, &irs.RegionZoneInfo{
+					Name:         reg.ID,
+					DisplayName:  reg.ID,
+					ZoneList:     *list,
+					KeyValueList: []irs.KeyValue{},
+				})
+				mutex.Unlock()
+
+				wait.Done()
+			}(&wait, regionList[j])
+
+			i++
+			if i == lenRegions {
+				break
+			}
 		}
 
-		zoneList = append(zoneList, *list...)
+		wait.Wait()
+	}
 
-		regionZoneInfo = append(regionZoneInfo, &irs.RegionZoneInfo{
-			Name:         region.ID,
-			DisplayName:  region.ID,
-			ZoneList:     zoneList,
-			KeyValueList: []irs.KeyValue{},
-		})
+	if zoneErrorOccurred {
+		getErr := errors.New(fmt.Sprintf("Failed to List RegionZone. err = %s",
+			"Error occurred while getting zone info."))
+		cblogger.Error(getErr.Error())
+		LoggingError(hiscallInfo, getErr)
+		return nil, getErr
 	}
 
 	LoggingInfo(hiscallInfo, start)
