@@ -1230,7 +1230,7 @@ Loop:
 	}
 }
 
-func testRegionZoneHandlerPrint() {
+func testRegionZoneHandlerListPrint() {
 	cblogger.Info("Test RegionZoneHandler")
 	cblogger.Info("0. Print Menu")
 	cblogger.Info("1. ListRegionZone()")
@@ -1248,7 +1248,7 @@ func testRegionZoneHandler(config Config) {
 	}
 	regionzoneHandler := resourceHandler.(irs.RegionZoneHandler)
 
-	testRegionZoneHandlerPrint()
+	testRegionZoneHandlerListPrint()
 Loop:
 	for {
 		var commandNum int
@@ -1260,7 +1260,7 @@ Loop:
 		if inputCnt == 1 {
 			switch commandNum {
 			case 0:
-				testRegionZoneHandlerPrint()
+				testRegionZoneHandlerListPrint()
 			case 1:
 				cblogger.Info("Start ListRegionZone() ...")
 				if listRegionZone, err := regionzoneHandler.ListRegionZone(); err != nil {
