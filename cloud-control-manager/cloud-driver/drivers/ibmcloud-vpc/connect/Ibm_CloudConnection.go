@@ -3,7 +3,6 @@ package connect
 import (
 	"context"
 	"errors"
-
 	"github.com/IBM/platform-services-go-sdk/globaltaggingv1"
 	vpcv0230 "github.com/IBM/vpc-go-sdk/0.23.0/vpcv1"
 	"github.com/IBM/vpc-go-sdk/vpcv1"
@@ -30,11 +29,6 @@ type IbmCloudConnection struct {
 	TaggingService *globaltaggingv1.GlobalTaggingV1
 	VpcService0230 *vpcv0230.VpcV1
 	Ctx            context.Context
-}
-
-// CreateRegionZoneHandler implements connect.CloudConnection.
-func (*IbmCloudConnection) CreateRegionZoneHandler() (irs.RegionZoneHandler, error) {
-	return nil, errors.New("Driver: not implemented")
 }
 
 func (cloudConn *IbmCloudConnection) CreateImageHandler() (irs.ImageHandler, error) {
@@ -158,4 +152,14 @@ func (cloudConn *IbmCloudConnection) CreateMyImageHandler() (irs.MyImageHandler,
 
 func (cloudConn *IbmCloudConnection) CreateAnyCallHandler() (irs.AnyCallHandler, error) {
 	return nil, errors.New("Ibm Driver: not implemented")
+}
+
+func (cloudConn *IbmCloudConnection) CreateRegionZoneHandler() (irs.RegionZoneHandler, error) {
+	cblogger.Info("Ibm Cloud Driver: called CreateRegionZoneHandler()!")
+	regionZoneHandler := ibmrs.IbmRegionZoneHandler{
+		Region:     cloudConn.Region,
+		VpcService: cloudConn.VpcService,
+		Ctx:        cloudConn.Ctx,
+	}
+	return &regionZoneHandler, nil
 }
