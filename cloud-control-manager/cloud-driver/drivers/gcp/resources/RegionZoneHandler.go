@@ -30,17 +30,20 @@ func (regionZoneHandler *GCPRegionZoneHandler) GetRegionZone(regionName string) 
 	}
 	regionZoneInfo.Name = resp.Name
 	regionZoneInfo.DisplayName = resp.Name
-	regionZoneInfo.KeyValueList, err = ConvertKeyValueList(resp)
-	if err != nil {
-		regionZoneInfo.KeyValueList = nil
-		cblogger.Error(err)
-	}
+
+	// keyValueList 삭제 https://github.com/cloud-barista/cb-spider/issues/930#issuecomment-1734817828
+	// regionZoneInfo.KeyValueList, err = ConvertKeyValueList(resp)
+	// if err != nil {
+	// 	regionZoneInfo.KeyValueList = nil
+	// 	cblogger.Error(err)
+	// }
 
 	// ZoneList
 	var zoneInfoList []irs.ZoneInfo
 	resultZones, err := GetZoneListByRegion(regionZoneHandler.Client, projectID, resp.SelfLink)
 	if err != nil {
 		// failed to get ZoneInfo by region
+		cblogger.Error(err)
 	} else {
 		if resultZones != nil && resultZones.Items != nil {
 			for _, zone := range resultZones.Items {
@@ -49,16 +52,16 @@ func (regionZoneHandler *GCPRegionZoneHandler) GetRegionZone(regionName string) 
 				zoneInfo.DisplayName = zone.Name
 				zoneInfo.Status = GetZoneStatus(zone.Status)
 
-				zoneInfo.KeyValueList, err = ConvertKeyValueList(zone)
-				if err != nil {
-					zoneInfo.KeyValueList = nil
-					cblogger.Error(err)
-				}
+				// keyValueList 삭제 https://github.com/cloud-barista/cb-spider/issues/930#issuecomment-1734817828
+				// zoneInfo.KeyValueList, err = ConvertKeyValueList(zone)
+				// if err != nil {
+				// 	zoneInfo.KeyValueList = nil
+				// 	cblogger.Error(err)
+				// }
 
 				zoneInfoList = append(zoneInfoList, zoneInfo)
 				// set zone keyvalue list
 			}
-
 			regionZoneInfo.ZoneList = zoneInfoList
 		}
 	}
@@ -112,30 +115,36 @@ func (regionZoneHandler *GCPRegionZoneHandler) ListRegionZone() ([]*irs.RegionZo
 		info.DisplayName = item.Name
 
 		// ZoneList
-		var zoneInfoList []*irs.ZoneInfo
+		var zoneInfoList []irs.ZoneInfo
 		resultZones, err := GetZoneListByRegion(regionZoneHandler.Client, projectID, item.SelfLink)
 		if err != nil {
 			// failed to get ZoneInfo by region
 		}
 		for _, zone := range resultZones.Items {
+
 			zoneInfo := irs.ZoneInfo{}
 			zoneInfo.Name = zone.Name
 			zoneInfo.DisplayName = zone.Name
 			zoneInfo.Status = GetZoneStatus(zone.Status)
-			zoneInfo.KeyValueList, err = ConvertKeyValueList(zone)
-			if err != nil {
-				zoneInfo.KeyValueList = nil
-				cblogger.Error(err)
-			}
 
-			zoneInfoList = append(zoneInfoList, &zoneInfo)
+			// keyValueList 삭제 https://github.com/cloud-barista/cb-spider/issues/930#issuecomment-1734817828
+			// zoneInfo.KeyValueList, err = ConvertKeyValueList(zone)
+			// if err != nil {
+			// 	zoneInfo.KeyValueList = nil
+			// 	cblogger.Error(err)
+			// }
+
+			zoneInfoList = append(zoneInfoList, zoneInfo)
 		}
 
-		info.KeyValueList, err = ConvertKeyValueList(item)
-		if err != nil {
-			info.KeyValueList = nil
-			cblogger.Error(err)
-		}
+		// keyValueList 삭제 https://github.com/cloud-barista/cb-spider/issues/930#issuecomment-1734817828
+		// info.KeyValueList, err = ConvertKeyValueList(item)
+		// if err != nil {
+		// 	info.KeyValueList = nil
+		// 	cblogger.Error(err)
+		// }
+
+		info.ZoneList = zoneInfoList
 
 		regionZoneInfoList = append(regionZoneInfoList, &info)
 	}
