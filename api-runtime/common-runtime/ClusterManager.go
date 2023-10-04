@@ -1245,12 +1245,12 @@ func RemoveNodeGroup(connectionName string, clusterName string, nodeGroupName st
 	result, err := handler.RemoveNodeGroup(cluserDriverIID, nodeGroupDriverIID)
 	if err != nil {
 		cblog.Error(err)
-		if force == "false" {
+		if force != "true" {
 			return false, err
 		}
 	}
 
-	if force == "false" {
+	if force != "true" {
 		if !result {
 			return result, nil
 		}
@@ -1261,7 +1261,7 @@ func RemoveNodeGroup(connectionName string, clusterName string, nodeGroupName st
 		OWNER_CLUSTER_NAME_COLUMN, clusterName)
 	if err != nil {
 		cblog.Error(err)
-		if force == "false" {
+		if force != "true" {
 			return false, err
 		}
 	}
@@ -1448,12 +1448,12 @@ func DeleteCluster(connectionName string, rsType string, nameID string, force st
 	result, err = handler.(cres.ClusterHandler).DeleteCluster(driverIId)
 	if err != nil {
 		cblog.Error(err)
-		if force == "false" {
+		if force != "true" {
 			return false, err
 		}
 	}
 
-	if force == "false" {
+	if force != "true" {
 		if result == false {
 			return result, nil
 		}
@@ -1463,7 +1463,7 @@ func DeleteCluster(connectionName string, rsType string, nameID string, force st
 	_, err = infostore.DeleteByConditions(&ClusterIIDInfo{}, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameID)
 	if err != nil {
 		cblog.Error(err)
-		if force == "false" {
+		if force != "true" {
 			return false, err
 		}
 	}

@@ -1548,7 +1548,7 @@ func DeleteVM(connectionName string, rsType string, nameID string, force string)
 	vmStatus, err = handler.(cres.VMHandler).TerminateVM(driverIId)
 	if err != nil {
 		cblog.Error(err)
-		if force == "false" {
+		if force != "true" {
 			callInfo.ErrorMSG = err.Error()
 			callogger.Info(call.String(callInfo))
 			return false, vmStatus, err
@@ -1571,7 +1571,7 @@ func DeleteVM(connectionName string, rsType string, nameID string, force string)
 				break
 			}
 			cblog.Error(err)
-			if force == "false" {
+			if force != "true" {
 				callInfo.ErrorMSG = err.Error()
 				callogger.Info(call.String(callInfo))
 				return false, status, err
@@ -1586,7 +1586,7 @@ func DeleteVM(connectionName string, rsType string, nameID string, force string)
 
 		if !waiter.Wait() {
 			err := fmt.Errorf("[%s] Failed to terminate VM %s. (Timeout=%v)", connectionName, driverIId.NameId, waiter.Timeout)
-			if force == "false" {
+			if force != "true" {
 				callInfo.ErrorMSG = err.Error()
 				callogger.Info(call.String(callInfo))
 				return false, status, err
@@ -1601,7 +1601,7 @@ func DeleteVM(connectionName string, rsType string, nameID string, force string)
 	_, err = infostore.DeleteByConditions(&VMIIDInfo{}, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, iidInfo.NameId)
 	if err != nil {
 		cblog.Error(err)
-		if force == "false" {
+		if force != "true" {
 			return false, "", err
 		}
 	}

@@ -772,12 +772,12 @@ func DeleteSecurity(connectionName string, rsType string, nameID string, force s
 	result, err := handler.(cres.SecurityHandler).DeleteSecurity(driverIId)
 	if err != nil {
 		cblog.Error(err)
-		if force == "false" {
+		if force != "true" {
 			return false, err
 		}
 	}
 
-	if force == "false" {
+	if force != "true" {
 		if !result {
 			return result, nil
 		}
@@ -788,7 +788,7 @@ func DeleteSecurity(connectionName string, rsType string, nameID string, force s
 		OWNER_VPC_NAME_COLUMN, iidInfo.OwnerVPCName)
 	if err != nil {
 		cblog.Error(err)
-		if force == "false" {
+		if force != "true" {
 			return false, err
 		}
 	}

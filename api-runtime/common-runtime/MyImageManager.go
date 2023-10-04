@@ -436,11 +436,11 @@ func DeleteMyImage(connectionName string, rsType string, nameID string, force st
 	result, err = handler.(cres.MyImageHandler).DeleteMyImage(driverIId)
 	if err != nil {
 		cblog.Error(err)
-		if force == "false" {
+		if force != "true" {
 			return false, err
 		}
 	}
-	if force == "false" {
+	if force != "true" {
 		if !result {
 			return result, nil
 		}
@@ -450,7 +450,7 @@ func DeleteMyImage(connectionName string, rsType string, nameID string, force st
 	_, err = infostore.DeleteByConditions(&MyImageIIDInfo{}, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, iidInfo.NameId)
 	if err != nil {
 		cblog.Error(err)
-		if force == "false" {
+		if force != "true" {
 			return false, err
 		}
 	}

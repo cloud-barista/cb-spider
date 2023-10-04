@@ -608,12 +608,12 @@ func DeleteDisk(connectionName string, rsType string, nameID string, force strin
 	result, err = handler.(cres.DiskHandler).DeleteDisk(driverIId)
 	if err != nil {
 		cblog.Error(err)
-		if force == "false" {
+		if force != "true" {
 			return false, err
 		}
 	}
 
-	if force == "false" {
+	if force != "true" {
 		if !result {
 			return result, nil
 		}
@@ -623,7 +623,7 @@ func DeleteDisk(connectionName string, rsType string, nameID string, force strin
 	_, err = infostore.DeleteByConditions(&DiskIIDInfo{}, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameID)
 	if err != nil {
 		cblog.Error(err)
-		if force == "false" {
+		if force != "true" {
 			return false, err
 		}
 	}

@@ -1435,12 +1435,12 @@ func DeleteNLB(connectionName string, rsType string, nameID string, force string
 	result, err = handler.(cres.NLBHandler).DeleteNLB(driverIId)
 	if err != nil {
 		cblog.Error(err)
-		if force == "false" {
+		if force != "true" {
 			return false, err
 		}
 	}
 
-	if force == "false" {
+	if force != "true" {
 		if result == false {
 			return result, nil
 		}
@@ -1450,7 +1450,7 @@ func DeleteNLB(connectionName string, rsType string, nameID string, force string
 	_, err = infostore.DeleteByConditions(&NLBIIDInfo{}, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameID)
 	if err != nil {
 		cblog.Error(err)
-		if force == "false" {
+		if force != "true" {
 			return false, err
 		}
 	}

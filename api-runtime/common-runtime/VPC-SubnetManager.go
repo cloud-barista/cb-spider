@@ -846,12 +846,12 @@ func RemoveSubnet(connectionName string, vpcName string, nameID string, force st
 	result, err = handler.(cres.VPCHandler).RemoveSubnet(getDriverIID(cres.IID{NameId: iidVPCInfo.NameId, SystemId: iidVPCInfo.SystemId}), driverIId)
 	if err != nil {
 		cblog.Error(err)
-		if force == "false" {
+		if force != "true" {
 			return false, err
 		}
 	}
 
-	if force == "false" {
+	if force != "true" {
 		if !result {
 			return result, nil
 		}
@@ -862,7 +862,7 @@ func RemoveSubnet(connectionName string, vpcName string, nameID string, force st
 		OWNER_VPC_NAME_COLUMN, vpcName)
 	if err != nil {
 		cblog.Error(err)
-		if force == "false" {
+		if force != "true" {
 			return false, err
 		}
 	}
@@ -973,11 +973,11 @@ func DeleteVPC(connectionName string, rsType string, nameID string, force string
 	result, err = handler.(cres.VPCHandler).DeleteVPC(driverIId)
 	if err != nil {
 		cblog.Error(err)
-		if force == "false" {
+		if force != "true" {
 			return false, err
 		}
 	}
-	if force == "false" {
+	if force != "true" {
 		if !result {
 			return result, nil
 		}
@@ -988,7 +988,7 @@ func DeleteVPC(connectionName string, rsType string, nameID string, force string
 	_, err = infostore.DeleteByConditions(&VPCIIDInfo{}, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, iidInfo.NameId)
 	if err != nil {
 		cblog.Error(err)
-		if force == "false" {
+		if force != "true" {
 			return false, err
 		}
 	}
@@ -996,7 +996,7 @@ func DeleteVPC(connectionName string, rsType string, nameID string, force string
 	_, err2 := infostore.DeleteByConditions(&SubnetIIDInfo{}, CONNECTION_NAME_COLUMN, connectionName, OWNER_VPC_NAME_COLUMN, iidInfo.NameId)
 	if err2 != nil {
 		cblog.Error(err)
-		if force == "false" {
+		if force != "true" {
 			return false, err
 		}
 	}
