@@ -115,7 +115,7 @@ func (s *CCMService) DeleteVPC(ctx context.Context, req *pb.VPCQryRequest) (*pb.
 	logger.Debug("calling CCMService.DeleteVPC()")
 
 	// Call common-runtime API
-	result, _, err := cmrt.DeleteResource(req.ConnectionName, rsVPC, req.Name, req.Force)
+	result, err := cmrt.DeleteVPC(req.ConnectionName, rsVPC, req.Name, req.Force)
 	if err != nil {
 		return nil, gc.ConvGrpcStatusErr(err, "", "CCMService.DeleteVPC()")
 	}

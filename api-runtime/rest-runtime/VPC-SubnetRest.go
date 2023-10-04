@@ -51,6 +51,36 @@ func RegisterVPC(c echo.Context) error {
 	return c.JSON(http.StatusOK, result)
 }
 
+type subnetRegisterReq struct {
+	ConnectionName string
+	ReqInfo        struct {
+		VPCName string
+		Name    string
+		CSPId   string
+	}
+}
+
+func RegisterSubnet(c echo.Context) error {
+	cblog.Info("call RegisterSubnet()")
+
+	req := subnetRegisterReq{}
+
+	if err := c.Bind(&req); err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	// create UserIID
+	userIId := cres.IID{NameId: req.ReqInfo.Name, SystemId: req.ReqInfo.CSPId}
+
+	// Call common-runtime API
+	result, err := cmrt.RegisterSubnet(req.ConnectionName, req.ReqInfo.VPCName, userIId)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	return c.JSON(http.StatusOK, result)
+}
+
 // (1) get args from REST Call
 // (2) call common-runtime API
 // (3) return REST Json Format

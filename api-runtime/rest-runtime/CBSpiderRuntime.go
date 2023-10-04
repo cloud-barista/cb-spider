@@ -231,10 +231,8 @@ func RunServer() {
 		{"GET", "/orgzone", ListOrgZone},
 
 		//----------Image Handler
-		{"POST", "/vmimage", CreateImage},
 		{"GET", "/vmimage", ListImage},
 		{"GET", "/vmimage/:Name", GetImage},
-		{"DELETE", "/vmimage/:Name", DeleteImage},
 
 		//----------VMSpec Handler
 		{"GET", "/vmspec", ListVMSpec},
@@ -244,6 +242,7 @@ func RunServer() {
 
 		//----------VPC Handler
 		{"POST", "/regvpc", RegisterVPC},
+		{"POST", "/regsubnet", RegisterSubnet},
 		{"DELETE", "/regvpc/:Name", UnregisterVPC},
 
 		{"POST", "/vpc", CreateVPC},

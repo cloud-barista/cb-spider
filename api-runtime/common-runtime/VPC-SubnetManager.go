@@ -151,6 +151,108 @@ func RegisterVPC(connectionName string, userIID cres.IID) (*cres.VPCInfo, error)
 	return &getInfo, nil
 }
 
+// UserIID{UserID, CSP-ID} => SpiderIID{UserID, SP-XID:CSP-ID}
+// (1) check existence(UserID)
+// (2) get resource info(CSP-ID)
+// (3) create spiderIID: {UserID, SP-XID:CSP-ID}
+// (4) insert spiderIID
+func RegisterSubnet(connectionName string, vpcName string, userIID cres.IID) (*cres.VPCInfo, error) {
+	cblog.Info("call RegisterSubnet()")
+
+	// check empty and trim user inputs
+	connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)
+	if err != nil {
+		cblog.Error(err)
+		return nil, err
+	}
+
+	vpcName, err = EmptyCheckAndTrim("vpcName", vpcName)
+	if err != nil {
+		cblog.Error(err)
+		return nil, err
+	}
+
+	emptyPermissionList := []string{}
+
+	err = ValidateStruct(userIID, emptyPermissionList)
+	if err != nil {
+		cblog.Error(err)
+		return nil, err
+	}
+
+	cldConn, err := ccm.GetCloudConnection(connectionName)
+	if err != nil {
+		cblog.Error(err)
+		return nil, err
+	}
+
+	handler, err := cldConn.CreateVPCHandler()
+	if err != nil {
+		cblog.Error(err)
+		return nil, err
+	}
+
+	vpcSPLock.Lock(connectionName, userIID.NameId)
+	defer vpcSPLock.Unlock(connectionName, userIID.NameId)
+
+	// (1) check existence with NameId
+	bool_ret, err := infostore.HasBy3Conditions(&SubnetIIDInfo{}, CONNECTION_NAME_COLUMN, connectionName, OWNER_VPC_NAME_COLUMN, vpcName, NAME_ID_COLUMN, userIID.NameId)
+	if err != nil {
+		cblog.Error(err)
+		return nil, err
+	}
+	rsType := rsVPC
+	if bool_ret {
+		err := fmt.Errorf(rsType + "-" + userIID.NameId + " already exists!")
+		cblog.Error(err)
+		return nil, err
+	}
+
+	// (2) get resource info(CSP-ID)
+	var iidInfo VPCIIDInfo
+	err = infostore.GetByConditions(&iidInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, vpcName)
+	if err != nil {
+		cblog.Error(err)
+		return nil, err
+	}
+
+	// (2) get resource(driverIID)
+	getInfo, err := handler.GetVPC(getDriverIID(cres.IID{NameId: iidInfo.NameId, SystemId: iidInfo.SystemId}))
+	if err != nil {
+		cblog.Error(err)
+		return nil, err
+	}
+
+	// (3) create spiderIID: {UserID, SP-XID:CSP-ID}
+	//     ex) spiderIID {"subnet-01", "subnet-01-ck9s7jvds1k750hi2kkg:subnet-0daad7e3daa3a30f3"}
+	// insert subnet's spiderIIDs to metadb and setup subnet IID for return info
+	for count, subnetInfo := range getInfo.SubnetInfoList {
+		// generate subnet's UserID
+		subnetUserId := userIID.NameId
+		// Do not use NameId, because Azure driver use it like SystemId
+		systemId := getMSShortID(subnetInfo.IId.SystemId)
+		if subnetInfo.IId.SystemId == userIID.SystemId {
+			// insert a subnet SpiderIID to metadb
+			subnetSpiderIId := cres.IID{NameId: subnetUserId, SystemId: systemId + ":" + subnetInfo.IId.SystemId}
+			err = infostore.Insert(&SubnetIIDInfo{ConnectionName: connectionName, NameId: subnetSpiderIId.NameId, SystemId: subnetSpiderIId.SystemId,
+				OwnerVPCName: vpcName})
+			if err != nil {
+				cblog.Error(err)
+				return nil, err
+			}
+
+			// setup subnet IID for return info
+			subnetInfo.IId = cres.IID{NameId: subnetUserId, SystemId: subnetInfo.IId.SystemId}
+			getInfo.SubnetInfoList[count] = subnetInfo
+		} // end of if subnetInfo.IId.SystemId == userIID.SystemId
+	} // end of for _, info
+
+	// set up VPC User IID for return info
+	getInfo.IId = makeUserIID(iidInfo.NameId, iidInfo.SystemId)
+
+	return &getInfo, nil
+}
+
 // (1) check exist(NameID)
 // (2) generate SP-XID and create reqIID, driverIID
 // (3) create Resource

@@ -106,7 +106,7 @@ func (s *CCMService) DeleteKey(ctx context.Context, req *pb.KeyPairQryRequest) (
 	logger.Debug("calling CCMService.DeleteKey()")
 
 	// Call common-runtime API
-	result, _, err := cmrt.DeleteResource(req.ConnectionName, rsKey, req.Name, req.Force)
+	result, err := cmrt.DeleteKey(req.ConnectionName, rsKey, req.Name, req.Force)
 	if err != nil {
 		return nil, gc.ConvGrpcStatusErr(err, "", "CCMService.DeleteKey()")
 	}

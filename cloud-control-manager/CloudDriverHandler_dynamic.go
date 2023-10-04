@@ -1,3 +1,4 @@
+//go:build dyna
 // +build dyna
 
 // Cloud Driver Manager of CB-Spider.
@@ -12,7 +13,6 @@ package clouddriverhandler
 
 import (
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
-	// icbs "github.com/cloud-barista/cb-store/interfaces"
 
 	"github.com/cloud-barista/cb-store/config"
 	"github.com/sirupsen/logrus"
@@ -57,16 +57,16 @@ func getCloudDriver(cldDrvInfo dim.CloudDriverInfo) (idrv.CloudDriver, error) {
 	        A plugin is only initialized once, and cannot be closed.
 	        ref) https://golang.org/pkg/plugin/
 	-----------------*/
-// RWLock to avoid 'plugin already loaded' panic
-pluginRWLock.Lock()
+	// RWLock to avoid 'plugin already loaded' panic
+	pluginRWLock.Lock()
 	//var plug *plugin.Plugin
 	plug, err := plugin.Open(driverPath)
 	if err != nil {
-   pluginRWLock.Unlock()
+		pluginRWLock.Unlock()
 		cblog.Errorf("plugin.Open: %v\n", err)
 		return nil, err
 	}
-pluginRWLock.Unlock()
+	pluginRWLock.Unlock()
 
 	//      fmt.Printf("plug: %#v\n\n", plug)
 

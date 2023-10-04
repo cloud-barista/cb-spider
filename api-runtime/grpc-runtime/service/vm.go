@@ -184,7 +184,7 @@ func (s *CCMService) TerminateVM(ctx context.Context, req *pb.VMQryRequest) (*pb
 	logger.Debug("calling CCMService.TerminateVM()")
 
 	// Call common-runtime API
-	_, result, err := cmrt.DeleteResource(req.ConnectionName, rsVM, req.Name, req.Force)
+	_, result, err := cmrt.DeleteVM(req.ConnectionName, rsVM, req.Name, req.Force)
 	if err != nil {
 		return nil, gc.ConvGrpcStatusErr(err, "", "CCMService.TerminateVM()")
 	}

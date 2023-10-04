@@ -20,6 +20,7 @@ import (
 	iidm "github.com/cloud-barista/cb-spider/cloud-control-manager/iid-manager"
 	infostore "github.com/cloud-barista/cb-spider/info-store"
 	"github.com/cloud-barista/cb-store/config"
+
 	"github.com/sirupsen/logrus"
 
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
@@ -71,7 +72,6 @@ func RsTypeString(rsType string) string {
 }
 
 // definition of SPLock for each Resource Ops
-var imgSPLock = splock.New()
 var vpcSPLock = splock.New()
 var sgSPLock = splock.New()
 var keySPLock = splock.New()
@@ -80,9 +80,6 @@ var nlbSPLock = splock.New()
 var diskSPLock = splock.New()
 var myImageSPLock = splock.New()
 var clusterSPLock = splock.New()
-
-// definition of IIDManager RWLock
-var iidRWLock = new(iidm.IIDRWLOCK)
 
 // ====================================================================
 // Common column name and struct for GORM
@@ -187,7 +184,17 @@ func getDriverIID(spiderIId cres.IID) cres.IID {
 	//     ex) arn:aws:elasticloadbalancing:us-east-2:635484366616:loadbalancer/net/spider-nl-cangp8aba5o2pi8oa7o0/1dee7370037afd6d
 	strArray := strings.Split(spiderIId.SystemId, ":")
 	systemId := strings.ReplaceAll(spiderIId.SystemId, strArray[0]+":", "")
-	driverIId := cres.IID{strArray[0], systemId}
+	driverIId := cres.IID{NameId: strArray[0], SystemId: systemId}
+	return driverIId
+}
+
+// make a DriverIID from NameId and SystemId
+func makeDriverIID(NameId string, SystemId string) cres.IID {
+	// if AWS NLB's SystmeId,
+	//     ex) arn:aws:elasticloadbalancing:us-east-2:635484366616:loadbalancer/net/spider-nl-cangp8aba5o2pi8oa7o0/1dee7370037afd6d
+	strArray := strings.Split(SystemId, ":")
+	systemId := strings.ReplaceAll(SystemId, strArray[0]+":", "")
+	driverIId := cres.IID{NameId: strArray[0], SystemId: systemId}
 	return driverIId
 }
 
@@ -196,55 +203,17 @@ func getUserIID(spiderIId cres.IID) cres.IID {
 	// if AWS NLB's SystmeId,
 	//     ex) arn:aws:elasticloadbalancing:us-east-2:635484366616:loadbalancer/net/spider-nl-cangp8aba5o2pi8oa7o0/1dee7370037afd6d
 	strArray := strings.Split(spiderIId.SystemId, ":")
-	userIId := cres.IID{spiderIId.NameId, strings.ReplaceAll(spiderIId.SystemId, strArray[0]+":", "")}
+	userIId := cres.IID{NameId: spiderIId.NameId, SystemId: strings.ReplaceAll(spiderIId.SystemId, strArray[0]+":", "")}
 	return userIId
 }
 
-func findUserIID(iidInfoList []*iidm.IIDInfo, systemId string) cres.IID {
-	for _, iidInfo := range iidInfoList {
-		if getDriverSystemId(iidInfo.IId) == systemId {
-			return getUserIID(iidInfo.IId)
-		}
-	}
-	return cres.IID{}
-}
-
-// Get All IID:list of SecurityGroup
-// (1) Get VPC's Name List
-// (2) Create All SG's IIDInfo List
-func getAllSGIIDInfoList(connectionName string) ([]*iidm.IIDInfo, error) {
-
-	// (1) Get VPC's Name List
-	// format) /resource-info-spaces/{iidGroup}/{connectionName}/{resourceType}/{resourceName} [{resourceID}]
-	vpcNameList, err := iidRWLock.ListResourceType(iidm.SGGROUP, connectionName)
-	if err != nil {
-		cblog.Error(err)
-		return nil, err
-	}
-	vpcNameList = uniqueNameList(vpcNameList)
-	// (2) Create All SG's IIDInfo List
-	iidInfoList := []*iidm.IIDInfo{}
-	for _, vpcName := range vpcNameList {
-		iidInfoListForOneVPC, err := iidRWLock.ListIID(iidm.SGGROUP, connectionName, vpcName)
-		if err != nil {
-			cblog.Error(err)
-			return nil, err
-		}
-		iidInfoList = append(iidInfoList, iidInfoListForOneVPC...)
-	}
-	return iidInfoList, nil
-}
-
-func uniqueNameList(vpcNameList []string) []string {
-	keys := make(map[string]bool)
-	list := []string{}
-	for _, entry := range vpcNameList {
-		if _, value := keys[entry]; !value {
-			keys[entry] = true
-			list = append(list, entry)
-		}
-	}
-	return list
+// make a UserIID from NameId and SystemId
+func makeUserIID(NameId string, SystemId string) cres.IID {
+	// if AWS NLB's SystmeId,
+	//     ex) arn:aws:elasticloadbalancing:us-east-2:635484366616:loadbalancer/net/spider-nl-cangp8aba5o2pi8oa7o0/1dee7370037afd6d
+	strArray := strings.Split(SystemId, ":")
+	userIId := cres.IID{NameId: NameId, SystemId: strings.ReplaceAll(SystemId, strArray[0]+":", "")}
+	return userIId
 }
 
 //======================== Common Handling
@@ -298,125 +267,177 @@ func UnregisterResource(connectionName string, rsType string, nameId string) (bo
 		return false, fmt.Errorf(rsType + " is not supported Resource!!")
 	}
 
-	// (1) check existence(UserID)
-	var isExist bool = false
-	var vpcName string
+	// check existence(UserID) and unregister it from metadb
 	switch rsType {
-	case rsSG:
-		iidInfoList, err := getAllSGIIDInfoList(connectionName)
+	case rsVPC:
+		var iidInfoList []*VPCIIDInfo
+		err := infostore.ListByConditions(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameId)
 		if err != nil {
 			cblog.Error(err)
 			return false, err
 		}
+		if len(iidInfoList) <= 0 {
+			return false, fmt.Errorf("The %s '%s' does not exist!", RsTypeString(rsType), nameId)
+		}
+
+		_, err = infostore.DeleteByConditions(&VPCIIDInfo{}, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameId)
+		if err != nil {
+			cblog.Error(err)
+			return false, err
+		}
+
+		// unregister Subnets of this VPC
+		_, err = infostore.DeleteByConditions(&SubnetIIDInfo{}, CONNECTION_NAME_COLUMN, connectionName, OWNER_VPC_NAME_COLUMN, nameId)
+		if err != nil {
+			cblog.Error(err)
+			return false, err
+		}
+		return true, nil
+
+	case rsKey:
+		var iidInfoList []*KeyIIDInfo
+		err := infostore.ListByConditions(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameId)
+		if err != nil {
+			cblog.Error(err)
+			return false, err
+		}
+		if len(iidInfoList) <= 0 {
+			return false, fmt.Errorf("The %s '%s' does not exist!", RsTypeString(rsType), nameId)
+		}
+
+		_, err = infostore.DeleteByConditions(&KeyIIDInfo{}, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameId)
+		if err != nil {
+			cblog.Error(err)
+			return false, err
+		}
+		return true, nil
+
+	case rsVM:
+		var iidInfoList []*VMIIDInfo
+		err := infostore.ListByConditions(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameId)
+		if err != nil {
+			cblog.Error(err)
+			return false, err
+		}
+		if len(iidInfoList) <= 0 {
+			return false, fmt.Errorf("The %s '%s' does not exist!", RsTypeString(rsType), nameId)
+		}
+
+		_, err = infostore.DeleteByConditions(&VMIIDInfo{}, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameId)
+		if err != nil {
+			cblog.Error(err)
+			return false, err
+		}
+		return true, nil
+
+	case rsDisk:
+		var iidInfoList []*DiskIIDInfo
+		err := infostore.ListByConditions(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameId)
+		if err != nil {
+			cblog.Error(err)
+			return false, err
+		}
+		if len(iidInfoList) <= 0 {
+			return false, fmt.Errorf("The %s '%s' does not exist!", RsTypeString(rsType), nameId)
+		}
+
+		_, err = infostore.DeleteByConditions(&DiskIIDInfo{}, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameId)
+		if err != nil {
+			cblog.Error(err)
+			return false, err
+		}
+		return true, nil
+
+	case rsMyImage:
+		var iidInfoList []*MyImageIIDInfo
+		err := infostore.ListByConditions(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameId)
+		if err != nil {
+			cblog.Error(err)
+			return false, err
+		}
+		if len(iidInfoList) <= 0 {
+			return false, fmt.Errorf("The %s '%s' does not exist!", RsTypeString(rsType), nameId)
+		}
+
+		_, err = infostore.DeleteByConditions(&KeyIIDInfo{}, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameId)
+		if err != nil {
+			cblog.Error(err)
+			return false, err
+		}
+		return true, nil
+
+	//// following resources are dependent on the VPC.
+	case rsSG:
+		var iidInfoList []*SGIIDInfo
+		err := infostore.ListByConditions(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameId)
+		if err != nil {
+			cblog.Error(err)
+			return false, err
+		}
+		if len(iidInfoList) <= 0 {
+			return false, fmt.Errorf("The %s '%s' does not exist!", RsTypeString(rsType), nameId)
+		}
 		for _, OneIIdInfo := range iidInfoList {
-			if OneIIdInfo.IId.NameId == nameId {
-				vpcName = OneIIdInfo.ResourceType /*vpcName*/ // ---------- Don't forget
-				isExist = true
-				break
+			if OneIIdInfo.NameId == nameId {
+				_, err2 := infostore.DeleteBy3Conditions(OneIIdInfo, CONNECTION_NAME_COLUMN, connectionName,
+					NAME_ID_COLUMN, nameId, OWNER_VPC_NAME_COLUMN, OneIIdInfo.OwnerVPCName)
+				if err2 != nil {
+					cblog.Error(err2)
+					return false, err2
+				}
+				return true, nil
 			}
 		}
+
 	case rsNLB:
 		var iidInfoList []*NLBIIDInfo
-		err := infostore.ListByCondition(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName)
+		err := infostore.ListByConditions(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameId)
 		if err != nil {
 			cblog.Error(err)
 			return false, err
 		}
+		if len(iidInfoList) <= 0 {
+			return false, fmt.Errorf("The %s '%s' does not exist!", RsTypeString(rsType), nameId)
+		}
 		for _, OneIIdInfo := range iidInfoList {
 			if OneIIdInfo.NameId == nameId {
-				vpcName = OneIIdInfo.OwnerVPCName /*vpcName*/ // ---------- Don't forget
-				isExist = true
-				break
+				_, err2 := infostore.DeleteBy3Conditions(OneIIdInfo, CONNECTION_NAME_COLUMN, connectionName,
+					NAME_ID_COLUMN, nameId, OWNER_VPC_NAME_COLUMN, OneIIdInfo.OwnerVPCName)
+				if err2 != nil {
+					cblog.Error(err2)
+					return false, err2
+				}
+				return true, nil
 			}
 		}
+
 	case rsCluster:
 		var iidInfoList []*ClusterIIDInfo
-		err = infostore.ListByCondition(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName)
+		err := infostore.ListByConditions(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameId)
 		if err != nil {
 			cblog.Error(err)
 			return false, err
 		}
+		if len(iidInfoList) <= 0 {
+			return false, fmt.Errorf("The %s '%s' does not exist!", RsTypeString(rsType), nameId)
+		}
 		for _, OneIIdInfo := range iidInfoList {
 			if OneIIdInfo.NameId == nameId {
-				vpcName = OneIIdInfo.OwnerVPCName
-				isExist = true
-				break
+				_, err2 := infostore.DeleteBy3Conditions(OneIIdInfo, CONNECTION_NAME_COLUMN, connectionName,
+					NAME_ID_COLUMN, nameId, OWNER_VPC_NAME_COLUMN, OneIIdInfo.OwnerVPCName)
+				if err2 != nil {
+					cblog.Error(err2)
+					return false, err2
+				}
+				return true, nil
 			}
 		}
 
 	default:
-		// (1) check exist(NameID)
-		var err error
-		isExist, err = iidRWLock.IsExistIID(iidm.IIDSGROUP, connectionName, rsType, cres.IID{nameId, ""})
-		if err != nil {
-			cblog.Error(err)
-			return false, err
-		}
-	} // end of switch
-
-	if isExist == false {
-		return false, fmt.Errorf("The %s '%s' does not exist!", RsTypeString(rsType), nameId)
+		return false, fmt.Errorf(rsType + " is not supported Resource!!")
 	}
 
-	// (2) delete the IID from Metadb
-	switch rsType {
-	case rsVPC:
-		// if vpc, delete all subnet meta data
-		// (a) for vPC
-		_, err := iidRWLock.DeleteIID(iidm.IIDSGROUP, connectionName, rsType, cres.IID{nameId, ""})
-		if err != nil {
-			cblog.Error(err)
-			return false, err
-		}
-
-		// (b) for Subnet list
-		// key-value structure: ~/{SUBNETGROUP}/{ConnectionName}/{VPC-NameId}/{Subnet-reqNameId} [subnet-driverNameId:subnet-driverSystemId]  # VPC NameId => rsType
-		subnetIIdInfoList, err2 := iidRWLock.ListIID(iidm.SUBNETGROUP, connectionName, nameId /*vpcName*/)
-		if err2 != nil {
-			cblog.Error(err)
-			return false, err
-		}
-		for _, subnetIIdInfo := range subnetIIdInfoList {
-			// key-value structure: ~/{SUBNETGROUP}/{ConnectionName}/{VPC-NameId}/{Subnet-reqNameId} [subnet-driverNameId:subnet-driverSystemId]  # VPC NameId => rsType
-			_, err := iidRWLock.DeleteIID(iidm.SUBNETGROUP, connectionName, nameId /*vpcName*/, subnetIIdInfo.IId)
-			if err != nil {
-				cblog.Error(err)
-				return false, err
-			}
-		}
-
-		// @todo Should we also delete the SG list of this VPC ?
-
-	case rsSG:
-		_, err := iidRWLock.DeleteIID(iidm.SGGROUP, connectionName, vpcName /*rsType*/, cres.IID{nameId, ""})
-		if err != nil {
-			cblog.Error(err)
-			return false, err
-		}
-
-	case rsNLB:
-		_, err := iidRWLock.DeleteIID(iidm.NLBGROUP, connectionName, vpcName /*rsType*/, cres.IID{nameId, ""})
-		if err != nil {
-			cblog.Error(err)
-			return false, err
-		}
-
-	case rsCluster:
-		_, err := iidRWLock.DeleteIID(iidm.CLUSTERGROUP, connectionName, vpcName /*rsType*/, cres.IID{nameId, ""})
-		if err != nil {
-			cblog.Error(err)
-			return false, err
-		}
-
-	default: // other resources(key, vm, ...)
-		_, err := iidRWLock.DeleteIID(iidm.IIDSGROUP, connectionName, rsType, cres.IID{nameId, ""})
-		if err != nil {
-			cblog.Error(err)
-			return false, err
-		}
-	} // end of switch
-
-	return true, nil
+	return false, fmt.Errorf("The %s '%s' does not exist!", RsTypeString(rsType), nameId)
 }
 
 // list all Resources for management
@@ -430,8 +451,8 @@ func ListAllResource(connectionName string, rsType string) (AllResourceList, err
 	// check empty and trim user inputs
 	connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)
 	if err != nil {
-		return AllResourceList{}, err
 		cblog.Error(err)
+		return AllResourceList{}, err
 	}
 
 	cldConn, err := ccm.GetCloudConnection(connectionName)
@@ -467,14 +488,74 @@ func ListAllResource(connectionName string, rsType string) (AllResourceList, err
 
 	var allResList AllResourceList
 
-	// (1) get IID:list
-	iidInfoList := []*iidm.IIDInfo{}
+	// (1) get IID:list from metadb
+	iidList := []*cres.IID{}
 	switch rsType {
-	case rsSG:
-		iidInfoList, err = getAllSGIIDInfoList(connectionName)
+	case rsVPC:
+		var iidInfoList []*VPCIIDInfo
+		err := infostore.ListByCondition(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName)
 		if err != nil {
 			cblog.Error(err)
 			return AllResourceList{}, err
+		}
+		for _, info := range iidInfoList {
+			iid := makeUserIID(info.NameId, info.SystemId)
+			iidList = append(iidList, &iid)
+		}
+	case rsKey:
+		var iidInfoList []*KeyIIDInfo
+		err := infostore.ListByCondition(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName)
+		if err != nil {
+			cblog.Error(err)
+			return AllResourceList{}, err
+		}
+		for _, info := range iidInfoList {
+			iid := makeUserIID(info.NameId, info.SystemId)
+			iidList = append(iidList, &iid)
+		}
+	case rsVM:
+		var iidInfoList []*VMIIDInfo
+		err := infostore.ListByCondition(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName)
+		if err != nil {
+			cblog.Error(err)
+			return AllResourceList{}, err
+		}
+		for _, info := range iidInfoList {
+			iid := makeUserIID(info.NameId, info.SystemId)
+			iidList = append(iidList, &iid)
+		}
+	case rsDisk:
+		var iidInfoList []*DiskIIDInfo
+		err := infostore.ListByCondition(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName)
+		if err != nil {
+			cblog.Error(err)
+			return AllResourceList{}, err
+		}
+		for _, info := range iidInfoList {
+			iid := makeUserIID(info.NameId, info.SystemId)
+			iidList = append(iidList, &iid)
+		}
+	case rsMyImage:
+		var iidInfoList []*MyImageIIDInfo
+		err := infostore.ListByCondition(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName)
+		if err != nil {
+			cblog.Error(err)
+			return AllResourceList{}, err
+		}
+		for _, info := range iidInfoList {
+			iid := makeUserIID(info.NameId, info.SystemId)
+			iidList = append(iidList, &iid)
+		}
+	case rsSG:
+		var iidInfoList []*SGIIDInfo
+		err = infostore.ListByCondition(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName)
+		if err != nil {
+			cblog.Error(err)
+			return AllResourceList{}, err
+		}
+		for _, info := range iidInfoList {
+			iid := makeUserIID(info.NameId, info.SystemId)
+			iidList = append(iidList, &iid)
 		}
 	case rsNLB:
 		var iidInfoList []*NLBIIDInfo
@@ -483,6 +564,10 @@ func ListAllResource(connectionName string, rsType string) (AllResourceList, err
 			cblog.Error(err)
 			return AllResourceList{}, err
 		}
+		for _, info := range iidInfoList {
+			iid := makeUserIID(info.NameId, info.SystemId)
+			iidList = append(iidList, &iid)
+		}
 	case rsCluster:
 		var iidInfoList []*ClusterIIDInfo
 		err = infostore.ListByCondition(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName)
@@ -490,23 +575,23 @@ func ListAllResource(connectionName string, rsType string) (AllResourceList, err
 			cblog.Error(err)
 			return AllResourceList{}, err
 		}
+		for _, info := range iidInfoList {
+			iid := makeUserIID(info.NameId, info.SystemId)
+			iidList = append(iidList, &iid)
+		}
 
 	default:
-		iidInfoList, err = iidRWLock.ListIID(iidm.IIDSGROUP, connectionName, rsType)
-		if err != nil {
-			cblog.Error(err)
-			return AllResourceList{}, err
-		}
+		return AllResourceList{}, fmt.Errorf(rsType + " is not supported Resource!!")
 	}
 
 	// if iidInfoList is empty, OnlySpiderList is empty.
-	if iidInfoList == nil || len(iidInfoList) <= 0 {
+	if iidList == nil || len(iidList) <= 0 {
 		emptyIIDInfoList := []*cres.IID{}
 		allResList.AllList.MappedList = emptyIIDInfoList
 		allResList.AllList.OnlySpiderList = emptyIIDInfoList
 	}
 
-	// (2) get CSP:list
+	// (2) get IID:list from CSP
 	iidCSPList := []*cres.IID{}
 	switch rsType {
 	case rsVPC:
@@ -604,7 +689,7 @@ func ListAllResource(connectionName string, rsType string) (AllResourceList, err
 
 	if iidCSPList == nil || len(iidCSPList) <= 0 {
 		// if iidCSPList is empty, iidInfoList is empty => all list is empty <-------------- (1)
-		if iidInfoList == nil || len(iidInfoList) <= 0 {
+		if iidList == nil || len(iidList) <= 0 {
 			emptyIIDInfoList := []*cres.IID{}
 			allResList.AllList.OnlyCSPList = emptyIIDInfoList
 
@@ -613,14 +698,14 @@ func ListAllResource(connectionName string, rsType string) (AllResourceList, err
 			emptyIIDInfoList := []*cres.IID{}
 			allResList.AllList.MappedList = emptyIIDInfoList
 			allResList.AllList.OnlyCSPList = emptyIIDInfoList
-			allResList.AllList.OnlySpiderList = getUserIIDList(iidInfoList)
+			allResList.AllList.OnlySpiderList = iidList
 
 			return allResList, nil
 		}
 	}
 
 	// iidInfoList is empty, iidCSPList has values => only OnlyCSPList <--------------------------(3)
-	if iidInfoList == nil || len(iidInfoList) <= 0 {
+	if iidList == nil || len(iidList) <= 0 {
 		OnlyCSPList := []*cres.IID{}
 		for _, iid := range iidCSPList {
 			OnlyCSPList = append(OnlyCSPList, iid)
@@ -634,17 +719,17 @@ func ListAllResource(connectionName string, rsType string) (AllResourceList, err
 	// (3) filtering CSP-list by IID-list
 	MappedList := []*cres.IID{}
 	OnlySpiderList := []*cres.IID{}
-	for _, iidInfo := range iidInfoList {
+	for _, iidInfo := range iidList {
 		exist := false
 		for _, iid := range iidCSPList {
-			userIId := getUserIID(iidInfo.IId)
+			userIId := makeUserIID(iidInfo.NameId, iidInfo.SystemId)
 			if userIId.SystemId == iid.SystemId {
 				MappedList = append(MappedList, &userIId)
 				exist = true
 			}
 		}
-		if exist == false {
-			userIId := getUserIID(iidInfo.IId)
+		if !exist {
+			userIId := makeUserIID(iidInfo.NameId, iidInfo.SystemId)
 			OnlySpiderList = append(OnlySpiderList, &userIId)
 		}
 	}
@@ -673,419 +758,6 @@ func ListAllResource(connectionName string, rsType string) (AllResourceList, err
 	allResList.AllList.OnlyCSPList = OnlyCSPList
 
 	return allResList, nil
-}
-
-// (1) get spiderIID
-// (2) delete Resource(SystemId)
-// (3) delete IID
-func DeleteResource(connectionName string, rsType string, nameID string, force string) (bool, cres.VMStatus, error) {
-	cblog.Info("call DeleteResource()")
-
-	// check empty and trim user inputs
-	connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)
-	if err != nil {
-		cblog.Error(err)
-		return false, "", err
-	}
-
-	nameID, err = EmptyCheckAndTrim("nameID", nameID)
-	if err != nil {
-		cblog.Error(err)
-		return false, "", err
-	}
-
-	cldConn, err := ccm.GetCloudConnection(connectionName)
-	if err != nil {
-		cblog.Error(err)
-		return false, "", err
-	}
-
-	var handler interface{}
-
-	switch rsType {
-	case rsVPC:
-		handler, err = cldConn.CreateVPCHandler()
-	case rsSG:
-		handler, err = cldConn.CreateSecurityHandler()
-	case rsKey:
-		handler, err = cldConn.CreateKeyPairHandler()
-	case rsVM:
-		handler, err = cldConn.CreateVMHandler()
-	case rsNLB:
-		handler, err = cldConn.CreateNLBHandler()
-	case rsDisk:
-		handler, err = cldConn.CreateDiskHandler()
-	case rsMyImage:
-		handler, err = cldConn.CreateMyImageHandler()
-	case rsCluster:
-		handler, err = cldConn.CreateClusterHandler()
-	default:
-		err := fmt.Errorf(rsType + " is not supported Resource!!")
-		return false, "", err
-	}
-	if err != nil {
-		cblog.Error(err)
-		return false, "", err
-	}
-
-	switch rsType {
-	case rsVPC:
-		vpcSPLock.Lock(connectionName, nameID)
-		defer vpcSPLock.Unlock(connectionName, nameID)
-	case rsSG:
-		sgSPLock.Lock(connectionName, nameID)
-		defer sgSPLock.Unlock(connectionName, nameID)
-	case rsKey:
-		keySPLock.Lock(connectionName, nameID)
-		defer keySPLock.Unlock(connectionName, nameID)
-	case rsVM:
-		vmSPLock.Lock(connectionName, nameID)
-		defer vmSPLock.Unlock(connectionName, nameID)
-	case rsNLB:
-		nlbSPLock.Lock(connectionName, nameID)
-		defer nlbSPLock.Unlock(connectionName, nameID)
-	case rsDisk:
-		diskSPLock.Lock(connectionName, nameID)
-		defer diskSPLock.Unlock(connectionName, nameID)
-	case rsMyImage:
-		myImageSPLock.Lock(connectionName, nameID)
-		defer myImageSPLock.Unlock(connectionName, nameID)
-	case rsCluster:
-		clusterSPLock.Lock(connectionName, nameID)
-		defer clusterSPLock.Unlock(connectionName, nameID)
-
-	default:
-		err := fmt.Errorf(rsType + " is not supported Resource!!")
-		return false, "", err
-	}
-
-	// (1) get spiderIID for creating driverIID
-	var iidInfo *iidm.IIDInfo
-	switch rsType {
-	// case rsSG:
-	// 	iidInfoList, err := getAllSGIIDInfoList(connectionName)
-	// 	if err != nil {
-	// 		cblog.Error(err)
-	// 		return false, "", err
-	// 	}
-	// 	var bool_ret = false
-	// 	for _, OneIIdInfo := range iidInfoList {
-	// 		if OneIIdInfo.IId.NameId == nameID {
-	// 			iidInfo = OneIIdInfo
-	// 			bool_ret = true
-	// 			break
-	// 		}
-	// 	}
-	// 	if bool_ret == false {
-	// 		err := fmt.Errorf("[" + connectionName + ":" + RsTypeString(rsType) + ":" + nameID + "] does not exist!")
-	// 		cblog.Error(err)
-	// 		return false, "", err
-	// 	}
-
-	// case rsNLB:
-	// 	var iidInfoList []*NLBIIDInfo
-	// 	err = infostore.ListByCondition(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName)
-	// 	if err != nil {
-	// 		cblog.Error(err)
-	// 		return false, "", err
-	// 	}
-	// 	var bool_ret = false
-	// 	for _, OneIIdInfo := range iidInfoList {
-	// 		if OneIIdInfo.NameId == nameID {
-	// 			iidInfo = OneIIdInfo
-	// 			bool_ret = true
-	// 			break
-	// 		}
-	// 	}
-	// 	if bool_ret == false {
-	// 		err := fmt.Errorf("[" + connectionName + ":" + RsTypeString(rsType) + ":" + nameID + "] does not exist!")
-	// 		cblog.Error(err)
-	// 		return false, "", err
-	// 	}
-	/* @todo
-	case rsCluster:
-		var iidInfoList []*ClusterIIDInfo
-		err = infostore.ListByCondition(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName)
-		if err != nil {
-			cblog.Error(err)
-			return false, "", err
-		}
-		var bool_ret = false
-		for _, OneIIdInfo := range iidInfoList {
-			if OneIIdInfo.IId.NameId == nameID {
-				iidInfo = OneIIdInfo
-				bool_ret = true
-				break
-			}
-		}
-		if bool_ret == false {
-			err := fmt.Errorf("[" + connectionName + ":" + RsTypeString(rsType) + ":" + nameID + "] does not exist!")
-			cblog.Error(err)
-			return false, "", err
-		}
-	*/
-	default:
-		iidInfo, err = iidRWLock.GetIID(iidm.IIDSGROUP, connectionName, rsType, cres.IID{nameID, ""})
-		if err != nil {
-			cblog.Error(err)
-			return false, "", err
-		}
-	}
-
-	// (2) delete Resource(SystemId)
-	driverIId := getDriverIID(iidInfo.IId)
-	result := false
-	var vmStatus cres.VMStatus
-	switch rsType {
-	case rsVPC:
-		result, err = handler.(cres.VPCHandler).DeleteVPC(driverIId)
-		if err != nil {
-			cblog.Error(err)
-			if force == "false" {
-				return false, "", err
-			}
-		}
-	case rsSG:
-		result, err = handler.(cres.SecurityHandler).DeleteSecurity(driverIId)
-		if err != nil {
-			cblog.Error(err)
-			if force == "false" {
-				return false, "", err
-			}
-		}
-	case rsKey:
-		result, err = handler.(cres.KeyPairHandler).DeleteKey(driverIId)
-		if err != nil {
-			cblog.Error(err)
-			if force == "false" {
-				return false, "", err
-			}
-		}
-	case rsVM:
-		providerName, err := ccm.GetProviderNameByConnectionName(connectionName)
-		if err != nil {
-			cblog.Error(err)
-			return false, "", err
-		}
-
-		regionName, zoneName, err := ccm.GetRegionNameByConnectionName(connectionName)
-		if err != nil {
-			cblog.Error(err)
-			return false, "", err
-		}
-
-		callInfo := call.CLOUDLOGSCHEMA{
-			CloudOS:      call.CLOUD_OS(providerName),
-			RegionZone:   regionName + "/" + zoneName,
-			ResourceType: call.VM,
-			ResourceName: iidInfo.IId.NameId,
-			CloudOSAPI:   "CB-Spider:TerminateVM()",
-			ElapsedTime:  "",
-			ErrorMSG:     "",
-		}
-		start := call.Start()
-		vmStatus, err = handler.(cres.VMHandler).TerminateVM(driverIId)
-		if err != nil {
-			cblog.Error(err)
-			if force == "false" {
-				callInfo.ErrorMSG = err.Error()
-				callogger.Info(call.String(callInfo))
-				return false, vmStatus, err
-			} else {
-				break
-			}
-		}
-
-		if vmStatus == cres.Terminated {
-			break
-		}
-
-		// Check Sync Called
-		waiter := NewWaiter(5, 240) // (sleep, timeout)
-
-		for {
-			status, err := handler.(cres.VMHandler).GetVMStatus(driverIId)
-			if status == cres.NotExist { // alibaba returns NotExist with err==nil
-				err = fmt.Errorf("Not Found %s", driverIId.SystemId)
-			}
-			if err != nil {
-				if checkNotFoundError(err) { // VM can be deleted after terminate.
-					break
-				}
-				if status == cres.Failed { // tencent returns Failed with "Not Found Status error msg" in Korean
-					break
-				}
-				cblog.Error(err)
-				if force == "false" {
-					callInfo.ErrorMSG = err.Error()
-					callogger.Info(call.String(callInfo))
-					return false, status, err
-				} else {
-					break
-				}
-			}
-			if status == cres.Terminated {
-				vmStatus = status
-				break
-			}
-
-			if !waiter.Wait() {
-				err := fmt.Errorf("[%s] Failed to terminate VM %s. (Timeout=%v)", connectionName, driverIId.NameId, waiter.Timeout)
-				if force == "false" {
-					callInfo.ErrorMSG = err.Error()
-					callogger.Info(call.String(callInfo))
-					return false, status, err
-				} else {
-					break
-				}
-			}
-		}
-
-		callInfo.ElapsedTime = call.Elapsed(start)
-		callogger.Info(call.String(callInfo))
-	case rsNLB:
-		result, err = handler.(cres.NLBHandler).DeleteNLB(driverIId)
-		if err != nil {
-			cblog.Error(err)
-			if force == "false" {
-				return false, "", err
-			}
-		}
-	case rsDisk:
-		result, err = handler.(cres.DiskHandler).DeleteDisk(driverIId)
-		if err != nil {
-			cblog.Error(err)
-			if force == "false" {
-				return false, "", err
-			}
-		}
-	case rsMyImage:
-		result, err = handler.(cres.MyImageHandler).DeleteMyImage(driverIId)
-		if err != nil {
-			cblog.Error(err)
-			if force == "false" {
-				return false, "", err
-			}
-		}
-	case rsCluster:
-		result, err = handler.(cres.ClusterHandler).DeleteCluster(driverIId)
-		if err != nil {
-			cblog.Error(err)
-			if force == "false" {
-				return false, "", err
-			}
-		}
-
-	default:
-		err := fmt.Errorf(rsType + " is not supported Resource!!")
-		return false, "", err
-	}
-
-	if force == "false" {
-		if rsType != rsVM {
-			if result == false {
-				return result, "", nil
-			}
-		}
-	}
-
-	// (3) delete IID
-	switch rsType {
-	case rsVPC:
-		// for vPC
-		_, err = iidRWLock.DeleteIID(iidm.IIDSGROUP, connectionName, rsType, iidInfo.IId)
-		if err != nil {
-			cblog.Error(err)
-			if force == "false" {
-				return false, "", err
-			}
-		}
-		// for Subnet list
-		// key-value structure: ~/{SUBNETGROUP}/{ConnectionName}/{VPC-NameId}/{Subnet-reqNameId} [subnet-driverNameId:subnet-driverSystemId]  # VPC NameId => rsType
-		subnetIIdInfoList, err2 := iidRWLock.ListIID(iidm.SUBNETGROUP, connectionName, iidInfo.IId.NameId /*vpcName*/)
-		if err2 != nil {
-			cblog.Error(err)
-			if force == "false" {
-				return false, "", err
-			}
-		}
-		for _, subnetIIdInfo := range subnetIIdInfoList {
-			// key-value structure: ~/{SUBNETGROUP}/{ConnectionName}/{VPC-NameId}/{Subnet-reqNameId} [subnet-driverNameId:subnet-driverSystemId]  # VPC NameId => rsType
-			_, err := iidRWLock.DeleteIID(iidm.SUBNETGROUP, connectionName, iidInfo.IId.NameId /*vpcName*/, subnetIIdInfo.IId)
-			if err != nil {
-				cblog.Error(err)
-				if force == "false" {
-					return false, "", err
-				}
-			}
-		}
-		// @todo Should we also delete the SG list of this VPC ? NO, We Can't delete the VPC had SGs
-
-	case rsSG:
-		_, err = iidRWLock.DeleteIID(iidm.SGGROUP, connectionName, iidInfo.ResourceType /*vpcName*/, cres.IID{nameID, ""})
-		if err != nil {
-			cblog.Error(err)
-			if force == "false" {
-				return false, "", err
-			}
-		}
-	case rsVM:
-		_, err = iidRWLock.DeleteIID(iidm.IIDSGROUP, connectionName, rsType, iidInfo.IId)
-		if err != nil {
-			cblog.Error(err)
-			if force == "false" {
-				return false, "", err
-			}
-		}
-		return result, vmStatus, nil
-	case rsNLB:
-		_, err = iidRWLock.DeleteIID(iidm.NLBGROUP, connectionName, iidInfo.ResourceType /*vpcName*/, cres.IID{nameID, ""})
-		if err != nil {
-			cblog.Error(err)
-			if force == "false" {
-				return false, "", err
-			}
-		}
-	case rsCluster:
-		_, err = iidRWLock.DeleteIID(iidm.CLUSTERGROUP, connectionName, iidInfo.ResourceType /*vpcName*/, cres.IID{nameID, ""})
-		if err != nil {
-			cblog.Error(err)
-			if force == "false" {
-				return false, "", err
-			}
-		}
-
-		// for NodeGroup list
-		// key-value structure: ~/{NODEGROUP}/{ConnectionName}/{Cluster-NameId}/{NodeGroup-reqNameId} [nodegroup-driverNameId:nodegroup-driverSystemId]  # Cluster NameId => rsType
-		ngIIdInfoList, err2 := iidRWLock.ListIID(iidm.NGGROUP, connectionName, iidInfo.IId.NameId /*clusterName*/)
-		if err2 != nil {
-			cblog.Error(err)
-			if force == "false" {
-				return false, "", err
-			}
-		}
-		for _, ngIIdInfo := range ngIIdInfoList {
-			_, err := iidRWLock.DeleteIID(iidm.NGGROUP, connectionName, iidInfo.IId.NameId /*clusterName*/, ngIIdInfo.IId)
-			if err != nil {
-				cblog.Error(err)
-				if force == "false" {
-					return false, "", err
-				}
-			}
-		}
-
-	default: // ex) KeyPair, Disk
-		_, err = iidRWLock.DeleteIID(iidm.IIDSGROUP, connectionName, rsType, iidInfo.IId)
-		if err != nil {
-			cblog.Error(err)
-			if force == "false" {
-				return false, "", err
-			}
-		}
-	}
-
-	// except rsVM
-	return result, "", nil
 }
 
 // delete CSP's Resource(SystemId)
@@ -1217,14 +889,14 @@ func GetCSPResourceInfo(connectionName string, rsType string, systemID string) (
 	// check empty and trim user inputs
 	connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)
 	if err != nil {
-		return nil, err
 		cblog.Error(err)
+		return nil, err
 	}
 
 	systemID, err = EmptyCheckAndTrim("systemID", systemID)
 	if err != nil {
-		return nil, err
 		cblog.Error(err)
+		return nil, err
 	}
 
 	cldConn, err := ccm.GetCloudConnection(connectionName)
@@ -1348,12 +1020,13 @@ func GetCSPResourceName(connectionName string, rsType string, nameID string) (st
 	}
 
 	// (1) get IID(NameId)
-	iidInfo, err := iidRWLock.GetIID(iidm.IIDSGROUP, connectionName, rsType, cres.IID{nameID, ""})
+	var iid VPCIIDInfo
+	err = infostore.GetByConditions(&iid, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameID)
 	if err != nil {
 		cblog.Error(err)
 		return "", err
 	}
 
 	// (2) get DriverNameId and return it
-	return getDriverIID(iidInfo.IId).NameId, nil
+	return makeDriverIID(iid.NameId, iid.SystemId).NameId, nil
 }

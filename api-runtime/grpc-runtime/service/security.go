@@ -119,7 +119,7 @@ func (s *CCMService) DeleteSecurity(ctx context.Context, req *pb.SecurityQryRequ
 	logger.Debug("calling CCMService.DeleteSecurity()")
 
 	// Call common-runtime API
-	result, _, err := cmrt.DeleteResource(req.ConnectionName, rsSG, req.Name, req.Force)
+	result, err := cmrt.DeleteSecurity(req.ConnectionName, rsSG, req.Name, req.Force)
 	if err != nil {
 		return nil, gc.ConvGrpcStatusErr(err, "", "CCMService.DeleteSecurity()")
 	}
