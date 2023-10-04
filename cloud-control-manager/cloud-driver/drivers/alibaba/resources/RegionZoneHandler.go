@@ -5,6 +5,8 @@ package resources
 // https://next.api.alibabacloud.com/api/Ecs/2014-05-26/DescribeRegions?lang=GO
 
 import (
+	"sync"
+
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/ecs"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
@@ -17,8 +19,8 @@ type AlibabaRegionZoneHandler struct {
 
 // 모든 Region 및 Zone 정보 조회
 func (regionZoneHandler AlibabaRegionZoneHandler) ListRegionZone() ([]*irs.RegionZoneInfo, error) {
-	var regionZoneInfoList []*irs.RegionZoneInfo
-
+	var wg sync.WaitGroup
+	chanRegionZoneInfos := make(chan irs.RegionZoneInfo)
 	// request := ecs.CreateDescribeRegionsRequest()
 	// request.AcceptLanguage = "en-US" // Only Chinese (zh-CN : default), English (en-US), and Japanese (ja) are allowed
 
@@ -41,74 +43,87 @@ func (regionZoneHandler AlibabaRegionZoneHandler) ListRegionZone() ([]*irs.Regio
 	// 	return regionZoneInfoList, err
 	// }
 	// callogger.Info(call.String(callLogInfo))
-
 	result, err := DescribeRegions(regionZoneHandler.Client)
 	if err != nil {
-		return regionZoneInfoList, err
+		return nil, err
 	}
 
 	for _, item := range result.Regions.Region {
-		regionId := item.RegionId
+		wg.Add(1)
+		go func(item ecs.Region) {
+			defer wg.Done()
+			// regionStatus := GetRegionStatus(item.Status)
+			// cblogger.Info("regionStatus ", regionStatus)
+			regionId := item.RegionId
+			// ZoneList
+			var zoneInfoList []irs.ZoneInfo
+			cblogger.Info("regionId ", regionId)
+			zonesResult, err := DescribeZonesByRegion(regionZoneHandler.Client, regionId)
+			if err != nil {
+				cblogger.Debug("DescribeZone failed ", err)
+			}
+			for _, zone := range zonesResult.Zones.Zone {
+				zoneInfo := irs.ZoneInfo{}
+				zoneInfo.Name = zone.ZoneId
+				zoneInfo.DisplayName = zone.LocalName
+				zoneInfo.Status = GetZoneStatus("") // Zone의 상태값이 없으므로 set하지 않도록 변경.
 
-		info := irs.RegionZoneInfo{}
-		info.Name = regionId
-		info.DisplayName = item.LocalName
+				// keyValueList 삭제 https://github.com/cloud-barista/cb-spider/issues/930#issuecomment-1734817828
+				// keyValueList := []irs.KeyValue{}
+				// itemType := reflect.TypeOf(zone)
+				// if itemType.Kind() == reflect.Ptr {
+				// 	itemType = itemType.Elem()
+				// }
+				// itemValue := reflect.ValueOf(zone)
+				// if itemValue.Kind() == reflect.Ptr {
+				// 	itemValue = itemValue.Elem()
+				// }
+				// numFields := itemType.NumField()
 
-		// regionStatus := GetRegionStatus(item.Status)
-		// cblogger.Info("regionStatus ", regionStatus)
+				// // 속성 이름과 값을 출력합니다.
+				// for i := 0; i < numFields; i++ {
+				// 	field := itemType.Field(i)
+				// 	value := itemValue.Field(i).Interface()
 
-		// ZoneList
-		var zoneInfoList []irs.ZoneInfo
-		cblogger.Info("regionId ", regionId)
-		zonesResult, err := DescribeZonesByRegion(regionZoneHandler.Client, regionId)
-		if err != nil {
-			cblogger.Debug("DescribeZone failed ", err)
-		}
-		for _, zone := range zonesResult.Zones.Zone {
-			zoneInfo := irs.ZoneInfo{}
-			zoneInfo.Name = zone.ZoneId
-			zoneInfo.DisplayName = zone.LocalName
-			zoneInfo.Status = GetZoneStatus("") // Zone의 상태값이 없으므로 set하지 않도록 변경.
+				// 	keyValue := irs.KeyValue{}
+				// 	keyValue.Key = field.Name
+				// 	keyValue.Value = fmt.Sprintf("%v", value)
+				// 	keyValueList = append(keyValueList, keyValue)
+				// }
+				// zoneInfo.KeyValueList = keyValueList
+
+				zoneInfoList = append(zoneInfoList, zoneInfo)
+			}
+
+			info := irs.RegionZoneInfo{}
+			info.Name = regionId
+			info.DisplayName = item.LocalName
+			info.ZoneList = zoneInfoList
+			chanRegionZoneInfos <- info
+			// regionZoneInfoList = append(regionZoneInfoList, &info)
+			// "ZoneType": "AvailabilityZone",
+			// "LocalName": "曼谷 可用区A",
+			// "ZoneId": "ap-southeast-7a",
 
 			// keyValueList 삭제 https://github.com/cloud-barista/cb-spider/issues/930#issuecomment-1734817828
 			// keyValueList := []irs.KeyValue{}
-			// itemType := reflect.TypeOf(zone)
-			// if itemType.Kind() == reflect.Ptr {
-			// 	itemType = itemType.Elem()
-			// }
-			// itemValue := reflect.ValueOf(zone)
-			// if itemValue.Kind() == reflect.Ptr {
-			// 	itemValue = itemValue.Elem()
-			// }
-			// numFields := itemType.NumField()
+			// keyValue := irs.KeyValue{}
+			// keyValue.Key = "RegionEndpoint"
+			// keyValue.Value = item.RegionEndpoint
+			// info.KeyValueList = keyValueList
 
-			// // 속성 이름과 값을 출력합니다.
-			// for i := 0; i < numFields; i++ {
-			// 	field := itemType.Field(i)
-			// 	value := itemValue.Field(i).Interface()
+		}(item)
 
-			// 	keyValue := irs.KeyValue{}
-			// 	keyValue.Key = field.Name
-			// 	keyValue.Value = fmt.Sprintf("%v", value)
-			// 	keyValueList = append(keyValueList, keyValue)
-			// }
-			// zoneInfo.KeyValueList = keyValueList
+	}
 
-			zoneInfoList = append(zoneInfoList, zoneInfo)
-		}
-		info.ZoneList = zoneInfoList
-		// "ZoneType": "AvailabilityZone",
-		// "LocalName": "曼谷 可用区A",
-		// "ZoneId": "ap-southeast-7a",
+	var regionZoneInfoList []*irs.RegionZoneInfo
+	go func() {
+		wg.Wait()
+		close(chanRegionZoneInfos)
+	}()
 
-		// keyValueList 삭제 https://github.com/cloud-barista/cb-spider/issues/930#issuecomment-1734817828
-		// keyValueList := []irs.KeyValue{}
-		// keyValue := irs.KeyValue{}
-		// keyValue.Key = "RegionEndpoint"
-		// keyValue.Value = item.RegionEndpoint
-		// info.KeyValueList = keyValueList
-
-		regionZoneInfoList = append(regionZoneInfoList, &info)
+	for RegionZoneInfo := range chanRegionZoneInfos {
+		regionZoneInfoList = append(regionZoneInfoList, &RegionZoneInfo)
 	}
 
 	return regionZoneInfoList, err
