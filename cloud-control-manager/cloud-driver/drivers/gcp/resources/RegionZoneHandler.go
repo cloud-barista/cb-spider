@@ -3,6 +3,7 @@ package resources
 import (
 	"context"
 	"errors"
+	"sync"
 
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
@@ -30,17 +31,20 @@ func (regionZoneHandler *GCPRegionZoneHandler) GetRegionZone(regionName string) 
 	}
 	regionZoneInfo.Name = resp.Name
 	regionZoneInfo.DisplayName = resp.Name
-	regionZoneInfo.KeyValueList, err = ConvertKeyValueList(resp)
-	if err != nil {
-		regionZoneInfo.KeyValueList = nil
-		cblogger.Error(err)
-	}
+
+	// keyValueList 삭제 https://github.com/cloud-barista/cb-spider/issues/930#issuecomment-1734817828
+	// regionZoneInfo.KeyValueList, err = ConvertKeyValueList(resp)
+	// if err != nil {
+	// 	regionZoneInfo.KeyValueList = nil
+	// 	cblogger.Error(err)
+	// }
 
 	// ZoneList
 	var zoneInfoList []irs.ZoneInfo
 	resultZones, err := GetZoneListByRegion(regionZoneHandler.Client, projectID, resp.SelfLink)
 	if err != nil {
 		// failed to get ZoneInfo by region
+		cblogger.Error(err)
 	} else {
 		if resultZones != nil && resultZones.Items != nil {
 			for _, zone := range resultZones.Items {
@@ -49,16 +53,16 @@ func (regionZoneHandler *GCPRegionZoneHandler) GetRegionZone(regionName string) 
 				zoneInfo.DisplayName = zone.Name
 				zoneInfo.Status = GetZoneStatus(zone.Status)
 
-				zoneInfo.KeyValueList, err = ConvertKeyValueList(zone)
-				if err != nil {
-					zoneInfo.KeyValueList = nil
-					cblogger.Error(err)
-				}
+				// keyValueList 삭제 https://github.com/cloud-barista/cb-spider/issues/930#issuecomment-1734817828
+				// zoneInfo.KeyValueList, err = ConvertKeyValueList(zone)
+				// if err != nil {
+				// 	zoneInfo.KeyValueList = nil
+				// 	cblogger.Error(err)
+				// }
 
 				zoneInfoList = append(zoneInfoList, zoneInfo)
 				// set zone keyvalue list
 			}
-
 			regionZoneInfo.ZoneList = zoneInfoList
 		}
 	}
@@ -70,7 +74,9 @@ func (regionZoneHandler *GCPRegionZoneHandler) GetRegionZone(regionName string) 
 
 // required Compute Engine IAM ROLE : compute.regions.list
 func (regionZoneHandler *GCPRegionZoneHandler) ListRegionZone() ([]*irs.RegionZoneInfo, error) {
-	var regionZoneInfoList []*irs.RegionZoneInfo
+	var wg sync.WaitGroup
+	chanRegionZoneInfos := make(chan irs.RegionZoneInfo)
+
 	projectID := regionZoneHandler.Credential.ProjectID
 	//prefix := "https://www.googleapis.com/compute/v1/projects/" + projectID
 	//GET https://compute.googleapis.com/compute/v1/projects/{project}/regions
@@ -100,46 +106,65 @@ func (regionZoneHandler *GCPRegionZoneHandler) ListRegionZone() ([]*irs.RegionZo
 	resp, err := ListRegion(regionZoneHandler.Client, projectID)
 	if err != nil {
 		cblogger.Error(err)
-		return regionZoneInfoList, err
+		return nil, err
 	}
 	if resp == nil {
 		return nil, errors.New("Not Found : Region Zone information not found")
 	}
 
 	for _, item := range resp.Items {
-		info := irs.RegionZoneInfo{}
-		info.Name = item.Name
-		info.DisplayName = item.Name
+		wg.Add(1)
+		go func(item *compute.Region) {
+			defer wg.Done()
 
-		// ZoneList
-		var zoneInfoList []*irs.ZoneInfo
-		resultZones, err := GetZoneListByRegion(regionZoneHandler.Client, projectID, item.SelfLink)
-		if err != nil {
-			// failed to get ZoneInfo by region
-		}
-		for _, zone := range resultZones.Items {
-			zoneInfo := irs.ZoneInfo{}
-			zoneInfo.Name = zone.Name
-			zoneInfo.DisplayName = zone.Name
-			zoneInfo.Status = GetZoneStatus(zone.Status)
-			zoneInfo.KeyValueList, err = ConvertKeyValueList(zone)
+			// ZoneList
+			var zoneInfoList []irs.ZoneInfo
+			resultZones, err := GetZoneListByRegion(regionZoneHandler.Client, projectID, item.SelfLink)
 			if err != nil {
-				zoneInfo.KeyValueList = nil
-				cblogger.Error(err)
+				// failed to get ZoneInfo by region
+			}
+			for _, zone := range resultZones.Items {
+
+				zoneInfo := irs.ZoneInfo{}
+				zoneInfo.Name = zone.Name
+				zoneInfo.DisplayName = zone.Name
+				zoneInfo.Status = GetZoneStatus(zone.Status)
+
+				// keyValueList 삭제 https://github.com/cloud-barista/cb-spider/issues/930#issuecomment-1734817828
+				// zoneInfo.KeyValueList, err = ConvertKeyValueList(zone)
+				// if err != nil {
+				// 	zoneInfo.KeyValueList = nil
+				// 	cblogger.Error(err)
+				// }
+
+				zoneInfoList = append(zoneInfoList, zoneInfo)
 			}
 
-			zoneInfoList = append(zoneInfoList, &zoneInfo)
-		}
-
-		info.KeyValueList, err = ConvertKeyValueList(item)
-		if err != nil {
-			info.KeyValueList = nil
-			cblogger.Error(err)
-		}
-
-		regionZoneInfoList = append(regionZoneInfoList, &info)
+			// keyValueList 삭제 https://github.com/cloud-barista/cb-spider/issues/930#issuecomment-1734817828
+			// info.KeyValueList, err = ConvertKeyValueList(item)
+			// if err != nil {
+			// 	info.KeyValueList = nil
+			// 	cblogger.Error(err)
+			// }
+			info := irs.RegionZoneInfo{}
+			info.Name = item.Name
+			info.DisplayName = item.Name
+			info.ZoneList = zoneInfoList
+			chanRegionZoneInfos <- info
+			// regionZoneInfoList = append(regionZoneInfoList, &info)
+		}(item)
 	}
 	// set keyvalue list
+
+	var regionZoneInfoList []*irs.RegionZoneInfo
+	go func() {
+		wg.Wait()
+		close(chanRegionZoneInfos)
+	}()
+
+	for RegionZoneInfo := range chanRegionZoneInfos {
+		regionZoneInfoList = append(regionZoneInfoList, &RegionZoneInfo)
+	}
 
 	return regionZoneInfoList, nil
 }
