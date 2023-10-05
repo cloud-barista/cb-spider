@@ -74,9 +74,6 @@ func (regionZoneHandler *GCPRegionZoneHandler) GetRegionZone(regionName string) 
 
 // required Compute Engine IAM ROLE : compute.regions.list
 func (regionZoneHandler *GCPRegionZoneHandler) ListRegionZone() ([]*irs.RegionZoneInfo, error) {
-	var wg sync.WaitGroup
-	chanRegionZoneInfos := make(chan irs.RegionZoneInfo)
-
 	projectID := regionZoneHandler.Credential.ProjectID
 	//prefix := "https://www.googleapis.com/compute/v1/projects/" + projectID
 	//GET https://compute.googleapis.com/compute/v1/projects/{project}/regions
@@ -111,6 +108,9 @@ func (regionZoneHandler *GCPRegionZoneHandler) ListRegionZone() ([]*irs.RegionZo
 	if resp == nil {
 		return nil, errors.New("Not Found : Region Zone information not found")
 	}
+
+	chanRegionZoneInfos := make(chan irs.RegionZoneInfo, len(resp.Items))
+	var wg sync.WaitGroup
 
 	for _, item := range resp.Items {
 		wg.Add(1)
@@ -156,14 +156,13 @@ func (regionZoneHandler *GCPRegionZoneHandler) ListRegionZone() ([]*irs.RegionZo
 	}
 	// set keyvalue list
 
-	var regionZoneInfoList []*irs.RegionZoneInfo
-	go func() {
-		wg.Wait()
-		close(chanRegionZoneInfos)
-	}()
+	wg.Wait()
+	close(chanRegionZoneInfos)
 
-	for RegionZoneInfo := range chanRegionZoneInfos {
-		regionZoneInfoList = append(regionZoneInfoList, &RegionZoneInfo)
+	var regionZoneInfoList []*irs.RegionZoneInfo
+	for regionZoneInfo := range chanRegionZoneInfos {
+		insertRegionZoneInfo := regionZoneInfo
+		regionZoneInfoList = append(regionZoneInfoList, &insertRegionZoneInfo)
 	}
 
 	return regionZoneInfoList, nil
