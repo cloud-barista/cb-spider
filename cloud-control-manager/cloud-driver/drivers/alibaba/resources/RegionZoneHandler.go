@@ -19,8 +19,6 @@ type AlibabaRegionZoneHandler struct {
 
 // 모든 Region 및 Zone 정보 조회
 func (regionZoneHandler AlibabaRegionZoneHandler) ListRegionZone() ([]*irs.RegionZoneInfo, error) {
-	var wg sync.WaitGroup
-	chanRegionZoneInfos := make(chan irs.RegionZoneInfo)
 	// request := ecs.CreateDescribeRegionsRequest()
 	// request.AcceptLanguage = "en-US" // Only Chinese (zh-CN : default), English (en-US), and Japanese (ja) are allowed
 
@@ -48,6 +46,8 @@ func (regionZoneHandler AlibabaRegionZoneHandler) ListRegionZone() ([]*irs.Regio
 		return nil, err
 	}
 
+	chanRegionZoneInfos := make(chan irs.RegionZoneInfo, len(result.Regions.Region))
+	var wg sync.WaitGroup
 	for _, item := range result.Regions.Region {
 		wg.Add(1)
 		go func(item ecs.Region) {
@@ -115,15 +115,13 @@ func (regionZoneHandler AlibabaRegionZoneHandler) ListRegionZone() ([]*irs.Regio
 		}(item)
 
 	}
+	wg.Wait()
+	close(chanRegionZoneInfos)
 
 	var regionZoneInfoList []*irs.RegionZoneInfo
-	go func() {
-		wg.Wait()
-		close(chanRegionZoneInfos)
-	}()
-
-	for RegionZoneInfo := range chanRegionZoneInfos {
-		regionZoneInfoList = append(regionZoneInfoList, &RegionZoneInfo)
+	for regionZoneInfo := range chanRegionZoneInfos {
+		insertRegionZoneInfo := regionZoneInfo
+		regionZoneInfoList = append(regionZoneInfoList, &insertRegionZoneInfo)
 	}
 
 	return regionZoneInfoList, err
