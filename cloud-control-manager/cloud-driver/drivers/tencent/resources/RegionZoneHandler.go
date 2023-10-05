@@ -15,8 +15,6 @@ type TencentRegionZoneHandler struct {
 }
 
 func (regionZoneHandler *TencentRegionZoneHandler) ListRegionZone() ([]*irs.RegionZoneInfo, error) {
-	var wg sync.WaitGroup
-	chanRegionZoneInfos := make(chan irs.RegionZoneInfo)
 
 	responseRegions, err := DescribeRegions(regionZoneHandler.Client)
 	if err != nil {
@@ -24,6 +22,9 @@ func (regionZoneHandler *TencentRegionZoneHandler) ListRegionZone() ([]*irs.Regi
 		cblogger.Error(err)
 		return nil, err
 	}
+
+	chanRegionZoneInfos := make(chan irs.RegionZoneInfo, len(responseRegions.Response.RegionSet))
+	var wg sync.WaitGroup
 
 	clientProfile := profile.NewClientProfile()
 	clientProfile.Language = "en-US" // lang default set is zh-CN -> set as en-US.
@@ -73,14 +74,13 @@ func (regionZoneHandler *TencentRegionZoneHandler) ListRegionZone() ([]*irs.Regi
 
 	}
 
-	var regionZoneInfoList []*irs.RegionZoneInfo
-	go func() {
-		wg.Wait()
-		close(chanRegionZoneInfos)
-	}()
+	wg.Wait()
+	close(chanRegionZoneInfos)
 
-	for RegionZoneInfo := range chanRegionZoneInfos {
-		regionZoneInfoList = append(regionZoneInfoList, &RegionZoneInfo)
+	var regionZoneInfoList []*irs.RegionZoneInfo
+	for regionZoneInfo := range chanRegionZoneInfos {
+		insertRegionZoneInfo := regionZoneInfo
+		regionZoneInfoList = append(regionZoneInfoList, &insertRegionZoneInfo)
 	}
 
 	return regionZoneInfoList, nil
