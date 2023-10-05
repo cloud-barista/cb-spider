@@ -18,15 +18,14 @@ type AwsRegionZoneHandler struct {
 }
 
 func (regionZoneHandler *AwsRegionZoneHandler) ListRegionZone() ([]*irs.RegionZoneInfo, error) {
-	var wg sync.WaitGroup
-	chanRegionZoneInfos := make(chan irs.RegionZoneInfo)
-
 	responseRegions, err := DescribeRegions(regionZoneHandler.Client, true, "")
 	if err != nil {
 		cblogger.Error(err)
 		return nil, err
 	}
 
+	chanRegionZoneInfos := make(chan irs.RegionZoneInfo, len(responseRegions.Regions))
+	var wg sync.WaitGroup
 	for _, region := range responseRegions.Regions {
 		wg.Add(1)
 		go func(region *ec2.Region) {
@@ -74,19 +73,16 @@ func (regionZoneHandler *AwsRegionZoneHandler) ListRegionZone() ([]*irs.RegionZo
 				// }
 				// regionZoneInfoList = append(regionZoneInfoList, &regionInfo)
 			}
-
 		}(region)
 
 	}
+	wg.Wait()
+	close(chanRegionZoneInfos)
 
 	var regionZoneInfoList []*irs.RegionZoneInfo
-	go func() {
-		wg.Wait()
-		close(chanRegionZoneInfos)
-	}()
-
-	for RegionZoneInfo := range chanRegionZoneInfos {
-		regionZoneInfoList = append(regionZoneInfoList, &RegionZoneInfo)
+	for regionZoneInfo := range chanRegionZoneInfos {
+		insertRegionZoneInfo := regionZoneInfo
+		regionZoneInfoList = append(regionZoneInfoList, &insertRegionZoneInfo)
 	}
 
 	return regionZoneInfoList, nil
