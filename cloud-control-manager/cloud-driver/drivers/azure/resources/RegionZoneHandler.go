@@ -108,36 +108,12 @@ func (regionZoneHandler *AzureRegionZoneHandler) ListRegionZone() ([]*irs.Region
 					})
 				}
 
-				var keyValueList []irs.KeyValue
-
-				elements := reflect.ValueOf(loc.Metadata).Elem()
-				for index := 0; index < elements.NumField(); index++ {
-					var value any
-
-					if elements.Field(index).Kind() == reflect.Struct {
-						continue
-					} else if elements.Field(index).Kind() == reflect.Pointer && !elements.Field(index).IsNil() {
-						if elements.Field(index).Elem().Kind() == reflect.Struct || elements.Field(index).Elem().Kind() == reflect.Slice {
-							continue
-						}
-						value = elements.Field(index).Elem().Interface()
-					} else {
-						value = elements.Field(index)
-					}
-
-					typeField := elements.Type().Field(index)
-					keyValueList = append(keyValueList, irs.KeyValue{
-						Key:   typeField.Name,
-						Value: fmt.Sprintf("%+v", value),
-					})
-				}
-
 				mutex.Lock()
 				regionZoneInfo = append(regionZoneInfo, &irs.RegionZoneInfo{
 					Name:         *loc.Name,
 					DisplayName:  *loc.DisplayName,
 					ZoneList:     zoneList,
-					KeyValueList: keyValueList,
+					KeyValueList: []irs.KeyValue{},
 				})
 				mutex.Unlock()
 
@@ -390,31 +366,7 @@ Enter Region Name: koreacentral
    }
   }
  },
- KeyValueList: ([]resources.KeyValue) (len=6 cap=8) {
-  (resources.KeyValue) {
-   Key: (string) (len=10) "RegionType",
-   Value: (string) (len=8) "Physical"
-  },
-  (resources.KeyValue) {
-   Key: (string) (len=14) "RegionCategory",
-   Value: (string) (len=11) "Recommended"
-  },
-  (resources.KeyValue) {
-   Key: (string) (len=14) "GeographyGroup",
-   Value: (string) (len=12) "Asia Pacific"
-  },
-  (resources.KeyValue) {
-   Key: (string) (len=9) "Longitude",
-   Value: (string) (len=7) "126.978"
-  },
-  (resources.KeyValue) {
-   Key: (string) (len=8) "Latitude",
-   Value: (string) (len=7) "37.5665"
-  },
-  (resources.KeyValue) {
-   Key: (string) (len=16) "PhysicalLocation",
-   Value: (string) (len=5) "Seoul"
-  }
+ KeyValueList: ([]resources.KeyValue) {
  }
 }
 [CLOUD-BARISTA].[INFO]: 2023-09-22 17:44:29 Test_Resources.go:1284, main.testRegionZoneHandler() - Finish GetRegionZone()
