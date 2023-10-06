@@ -23,11 +23,11 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-
 //====================================== VM
 
 // number, VM Name/Control, VMStatus/Last Start Time, VMImage/VMSpec, VPC/Subnet/Security Group,
-//         Network Interface/IP, DNS, Root Disk/Data Disk, SSH AccessPoint/Access Key/Access User Name, Additional Info, checkbox
+//
+//	Network Interface/IP, DNS, Root Disk/Data Disk, SSH AccessPoint/Access Key/Access User Name, Additional Info, checkbox
 func makeVMTRList_html(connConfig string, bgcolor string, height string, fontSize string, infoList []*cres.VMInfo) string {
 	if bgcolor == "" {
 		bgcolor = "#FFFFFF"
@@ -103,8 +103,8 @@ func makeVMTRList_html(connConfig string, bgcolor string, height string, fontSiz
                         <input type="checkbox" name="check_box" value=$$VMNAME$$>
                     </td>
                 </tr>
-                `, bgcolor, height, fontSize, fontSize, fontSize, fontSize, fontSize, fontSize, fontSize, fontSize, fontSize, 
-		  fontSize, fontSize, fontSize, fontSize, fontSize, fontSize, fontSize, fontSize, fontSize, fontSize, fontSize)
+                `, bgcolor, height, fontSize, fontSize, fontSize, fontSize, fontSize, fontSize, fontSize, fontSize, fontSize,
+		fontSize, fontSize, fontSize, fontSize, fontSize, fontSize, fontSize, fontSize, fontSize, fontSize, fontSize)
 
 	strData := ""
 	// set data and make TR list
@@ -135,7 +135,7 @@ func makeVMTRList_html(connConfig string, bgcolor string, height string, fontSiz
 		// for security rules info
 		strSRList := ""
 		for _, one := range one.SecurityGroupIIds {
-/* mask for list performance
+			/* mask for list performance
 			// client logging
 			strSRList += genLoggingOneGETURL(connConfig, "securitygroup", one.NameId)
 
@@ -162,9 +162,9 @@ func makeVMTRList_html(connConfig string, bgcolor string, height string, fontSiz
 				}
 			}
 			strSRList += "]"
-*/
+			*/
 
-			strSRList += one.NameId + "," 
+			strSRList += one.NameId + ","
 		}
 		strSRList = strings.TrimSuffix(strSRList, ",")
 		str = strings.ReplaceAll(str, "$$SECURITYGROUP$$", strSRList)
@@ -179,13 +179,13 @@ func makeVMTRList_html(connConfig string, bgcolor string, height string, fontSiz
 		str = strings.ReplaceAll(str, "$$PRIVATEDNS$$", one.PrivateDNS)
 
 		// for Root Disk & Data Disk
-		str = strings.ReplaceAll(str, "$$ROOTDISK$$", "&nbsp;* " + one.RootDeviceName + 
-			" (" + one.RootDiskType + ":" + one.RootDiskSize + "GB)" )
+		str = strings.ReplaceAll(str, "$$ROOTDISK$$", "&nbsp;* "+one.RootDeviceName+
+			" ("+one.RootDiskType+":"+one.RootDiskSize+"GB)")
 
 		dataDiskList := ""
 		if len(one.DataDiskIIDs) > 0 {
 			dataDiskList = "<br>&nbsp;&nbsp;&nbsp;------ Data Disk ------<br>"
-		}else {
+		} else {
 			dataDiskList = "<br>&nbsp;&nbsp;&nbsp;------ No Data Disk ------<br><br>"
 		}
 
@@ -197,9 +197,9 @@ func makeVMTRList_html(connConfig string, bgcolor string, height string, fontSiz
 		str = strings.ReplaceAll(str, "$$DATADISK$$", dataDiskList)
 
 		// for SSH AccessPoint & Access Key & Access User
-		str = strings.ReplaceAll(str, "$$SSHACCESSPOINT$$", "<mark>" + one.SSHAccessPoint + "</mark>")
-		str = strings.ReplaceAll(str, "$$ACCESSKEY$$", "<mark>" + one.KeyPairIId.NameId + "</mark>")
-		str = strings.ReplaceAll(str, "$$ACCESSUSER$$", "<mark>" + one.VMUserId + "</mark>")
+		str = strings.ReplaceAll(str, "$$SSHACCESSPOINT$$", "<mark>"+one.SSHAccessPoint+"</mark>")
+		str = strings.ReplaceAll(str, "$$ACCESSKEY$$", "<mark>"+one.KeyPairIId.NameId+"</mark>")
+		str = strings.ReplaceAll(str, "$$ACCESSUSER$$", "<mark>"+one.VMUserId+"</mark>")
 
 		// for KeyValueList
 		strKeyList := ""
@@ -216,21 +216,21 @@ func makeVMTRList_html(connConfig string, bgcolor string, height string, fontSiz
 }
 
 func genLoggingOneGETURL(connConfig string, rsType string, name string) string {
-        /* return example
-        <script type="text/javascript">
-                parent.frames["log_frame"].Log("curl -sX GET http://localhost:1024/spider/vpc/vpc-01 -H 'Content-Type: application/json' -d '{ "ConnectionName": "aws-ohio-config"}'  ");
-        </script>
-        */
+	/* return example
+	   <script type="text/javascript">
+	           parent.frames["log_frame"].Log("curl -sX GET http://localhost:1024/spider/vpc/vpc-01 -H 'Content-Type: application/json' -d '{ "ConnectionName": "aws-ohio-config"}'  ");
+	   </script>
+	*/
 
-        url := "http://" + "localhost" + cr.ServerPort + "/spider/" + rsType + "/" + name + " -H 'Content-Type: application/json' -d '{\\\"ConnectionName\\\": \\\"" + connConfig  + "\\\"}'"
-        htmlStr := `
+	url := "http://" + "localhost" + cr.ServerPort + "/spider/" + rsType + "/" + name + " -H 'Content-Type: application/json' -d '{\\\"ConnectionName\\\": \\\"" + connConfig + "\\\"}'"
+	htmlStr := `
                 <script type="text/javascript">
                 `
-        htmlStr += `    parent.frames["log_frame"].Log("curl -sX GET ` +  url + `");`
-        htmlStr += `
+	htmlStr += `    parent.frames["log_frame"].Log("curl -sX GET ` + url + `");`
+	htmlStr += `
                 </script>
                 `
-        return htmlStr
+	return htmlStr
 }
 
 // make the string of javascript function
@@ -500,7 +500,7 @@ func VM(c echo.Context) error {
 	if err != nil {
 		cblog.Error(err)
 		// client logging
-                htmlStr += genLoggingResult(err.Error())
+		htmlStr += genLoggingResult(err.Error())
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
@@ -528,8 +528,8 @@ func VM(c echo.Context) error {
 	specName := ""
 	subnetName := "subnet-01"
 	sgName := `["sg-01"]`
-	vmUser := "Administrator"  // Administrator for Windows GuserOS
-	vmPasswd := "cloudbarista123^"  // default pw for Windows GuserOS
+	vmUser := "Administrator"      // Administrator for Windows GuserOS
+	vmPasswd := "cloudbarista123^" // default pw for Windows GuserOS
 	switch providerName {
 	case "AWS":
 		imageName = "ami-00978328f54e31526"
@@ -541,7 +541,7 @@ func VM(c echo.Context) error {
 		imageName = "https://www.googleapis.com/compute/v1/projects/ubuntu-os-cloud/global/images/ubuntu-minimal-1804-bionic-v20191024"
 		specName = "f1-micro"
 	case "ALIBABA":
-		imageName = "ubuntu_18_04_x64_20G_alibase_20220824.vhd"
+		imageName = "ubuntu_18_04_x64_20G_alibase_20230718.vhd"
 		specName = "ecs.t5-lc1m2.small"
 	case "TENCENT":
 		imageName = "img-pi0ii46r"
@@ -627,10 +627,10 @@ func VM(c echo.Context) error {
                             </td>
                             <td style="vertical-align:top">
                             `
-        // Select format of Data  name=text_box, id=10
-        htmlStr += makeDataDiskSelect_html("", diskNameList, "10")
+	// Select format of Data  name=text_box, id=10
+	htmlStr += makeDataDiskSelect_html("", diskNameList, "10")
 
-        htmlStr += `
+	htmlStr += `
                             </td>
                             <td style="vertical-align:top">
 			    `
@@ -676,67 +676,63 @@ func VM(c echo.Context) error {
 
 func makeKeyPairSelect_html(onchangeFunctionName string, strList []string, id string) string {
 
-        strSelect := `<select name="text_box" id="` + id + `" onchange="` + onchangeFunctionName + `(this)">`
-        for _, one := range strList {
+	strSelect := `<select name="text_box" id="` + id + `" onchange="` + onchangeFunctionName + `(this)">`
+	for _, one := range strList {
 		strSelect += `<option value="` + one + `">` + one + `</option>`
-        }
+	}
 	// add one more not to use Key but to use password
 	// strSelect += `<option value=""</option>`
 
-        strSelect += `
+	strSelect += `
                 </select>
         `
 
-
-        return strSelect
+	return strSelect
 }
-
 
 func makeDataDiskSelect_html(onchangeFunctionName string, strList []string, id string) string {
 
 	strResult := "* DataDisk"
 	if len(strList) == 0 {
 		noDiskStr := `<input style="font-size:12px;text-align:center;" type="text" name="text_box" id="` +
-				id +`" disabled value="N/A">`
+			id + `" disabled value="N/A">`
 		return strResult + noDiskStr
 	}
-        strSelect := `<select style="width:120px;" name="text_box" id="` + id + `" onchange="` + onchangeFunctionName + `(this)" multiple>`
-        for _, one := range strList {
+	strSelect := `<select style="width:120px;" name="text_box" id="` + id + `" onchange="` + onchangeFunctionName + `(this)" multiple>`
+	for _, one := range strList {
 		strSelect += `<option value="` + one + `">` + one + `</option>`
-        }
+	}
 
-        strSelect += `
+	strSelect += `
                 </select>
 		<br>
 		(Unselect: ctrl + click)
         `
 
-
-        return strResult + strSelect
+	return strResult + strSelect
 }
 
 func makeMyImageSelect_html(onchangeFunctionName string, strList []string, id string) string {
 
-	
 	if len(strList) == 0 {
 		publicImageStr := `<input style="font-size:12px;text-align:center;" type="text" name="text_box" id="` +
-				id +`" disabled value="None" hidden>`
+			id + `" disabled value="None" hidden>`
 		return publicImageStr
 	}
-        strSelect := `<select style="width:120px;" name="text_box" id="` + id + `" onchange="` + onchangeFunctionName + `(this)" hidden>`
-        for _, one := range strList {
+	strSelect := `<select style="width:120px;" name="text_box" id="` + id + `" onchange="` + onchangeFunctionName + `(this)" hidden>`
+	for _, one := range strList {
 		strSelect += `<option value="` + one + `">` + one + `</option>`
-        }
+	}
 
-        strSelect += `
+	strSelect += `
                 </select>
         `
-        return strSelect
+	return strSelect
 }
 
 // make the string of javascript function
 func makeOnchangeImageTypeFunc_js() string {
-        strFunc := `
+	strFunc := `
               function onchangeImageType(source) {
                 var imageType = source.value
                 if (imageType == 'MyImage') {
@@ -748,20 +744,19 @@ func makeOnchangeImageTypeFunc_js() string {
                 }
               }
         `
-        return strFunc
+	return strFunc
 }
-
 
 // make the string of javascript function
 func makePostSnapshotVMFunc_js() string {
 
-        //curl -sX POST http://localhost:1024/spider/myimage -H 'Content-Type: application/json'
-        //      -d '{ "ConnectionName": "'${CONN_CONFIG}'", "ReqInfo": {
-                                //      "Name": "spider-myimage-01",
-                                //      "SourceVM": "vm-01"
-                        //      } }'
+	//curl -sX POST http://localhost:1024/spider/myimage -H 'Content-Type: application/json'
+	//      -d '{ "ConnectionName": "'${CONN_CONFIG}'", "ReqInfo": {
+	//      "Name": "spider-myimage-01",
+	//      "SourceVM": "vm-01"
+	//      } }'
 
-        strFunc := `
+	strFunc := `
                 function postSnapshotVM(i, vmName) {
                         var connConfig = parent.frames["top_frame"].document.getElementById("connConfig").innerHTML;
 
@@ -791,6 +786,6 @@ func makePostSnapshotVMFunc_js() string {
             location.reload();
                 }
         `
-        strFunc = strings.ReplaceAll(strFunc, "$$SPIDER_SERVER$$", "http://"+cr.ServiceIPorName+cr.ServicePort) // cr.ServicePort = ":1024"
-        return strFunc
+	strFunc = strings.ReplaceAll(strFunc, "$$SPIDER_SERVER$$", "http://"+cr.ServiceIPorName+cr.ServicePort) // cr.ServicePort = ":1024"
+	return strFunc
 }
