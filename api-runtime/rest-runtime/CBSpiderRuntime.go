@@ -242,8 +242,9 @@ func RunServer() {
 
 		//----------VPC Handler
 		{"POST", "/regvpc", RegisterVPC},
-		{"POST", "/regsubnet", RegisterSubnet},
 		{"DELETE", "/regvpc/:Name", UnregisterVPC},
+		{"POST", "/regsubnet", RegisterSubnet},
+		{"DELETE", "/regsubnet/:Name", UnregisterSubnet},
 
 		{"POST", "/vpc", CreateVPC},
 		{"GET", "/vpc", ListVPC},

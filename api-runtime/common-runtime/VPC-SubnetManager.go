@@ -201,7 +201,7 @@ func RegisterSubnet(connectionName string, vpcName string, userIID cres.IID) (*c
 		cblog.Error(err)
 		return nil, err
 	}
-	rsType := rsVPC
+	rsType := rsSubnet
 	if bool_ret {
 		err := fmt.Errorf(rsType + "-" + userIID.NameId + " already exists!")
 		cblog.Error(err)
@@ -251,6 +251,53 @@ func RegisterSubnet(connectionName string, vpcName string, userIID cres.IID) (*c
 	getInfo.IId = makeUserIID(iidInfo.NameId, iidInfo.SystemId)
 
 	return &getInfo, nil
+}
+
+func UnregisterSubnet(connectionName string, vpcName string, nameId string) (bool, error) {
+	cblog.Info("call UnregisterSubnet()")
+
+	// check empty and trim user inputs
+	connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)
+	if err != nil {
+		cblog.Error(err)
+		return false, err
+	}
+
+	vpcName, err = EmptyCheckAndTrim("vpcName", vpcName)
+	if err != nil {
+		cblog.Error(err)
+		return false, err
+	}
+
+	nameId, err = EmptyCheckAndTrim("nameId", nameId)
+	if err != nil {
+		cblog.Error(err)
+		return false, err
+	}
+
+	vpcSPLock.Lock(connectionName, nameId)
+	defer vpcSPLock.Unlock(connectionName, nameId)
+
+	// (1) check existence with NameId
+	bool_ret, err := infostore.HasBy3Conditions(&SubnetIIDInfo{}, CONNECTION_NAME_COLUMN, connectionName, OWNER_VPC_NAME_COLUMN, vpcName, NAME_ID_COLUMN, nameId)
+	if err != nil {
+		cblog.Error(err)
+		return false, err
+	}
+	rsType := rsSubnet
+	if !bool_ret {
+		err := fmt.Errorf("The " + rsType + "-" + nameId + " in " + vpcName + " does not exist!")
+		cblog.Error(err)
+		return false, err
+	}
+
+	// (2) delete subnet's spiderIIDs from metadb
+	_, err = infostore.DeleteBy3Conditions(&SubnetIIDInfo{}, CONNECTION_NAME_COLUMN, connectionName, OWNER_VPC_NAME_COLUMN, vpcName, NAME_ID_COLUMN, nameId)
+	if err != nil {
+		cblog.Error(err)
+		return false, err
+	}
+	return true, nil
 }
 
 // (1) check exist(NameID)
@@ -574,6 +621,11 @@ func getVPCInfo(connectionName string, handler cres.VPCHandler, iid cres.IID, re
 		err := infostore.GetByConditionsAndContain(&subnetIIDInfo, CONNECTION_NAME_COLUMN, connectionName,
 			OWNER_VPC_NAME_COLUMN, iid.NameId, SYSTEM_ID_COLUMN, subnetInfo.IId.SystemId)
 		if err != nil {
+			// if not found, continue
+			if checkNotFoundError(err) {
+				cblog.Info(err)
+				continue
+			}
 			vpcSPLock.RUnlock(connectionName, iid.NameId)
 			cblog.Error(err)
 			retInfo <- ResultVPCInfo{cres.VPCInfo{}, err}

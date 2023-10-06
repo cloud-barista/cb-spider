@@ -157,7 +157,8 @@ func checkNotFoundError(err error) bool {
 	msg = strings.ReplaceAll(msg, " ", "")
 	msg = strings.ToLower(msg)
 
-	return strings.Contains(msg, "notfound") || strings.Contains(msg, "notexist") || strings.Contains(msg, "failedtofind") || strings.Contains(msg, "failedtogetthevm")
+	return strings.Contains(msg, "does not exist") || strings.Contains(msg, "notfound") ||
+		strings.Contains(msg, "notexist") || strings.Contains(msg, "failedtofind") || strings.Contains(msg, "failedtogetthevm")
 }
 
 func getUserIIDList(iidInfoList []*iidm.IIDInfo) []*cres.IID {
@@ -239,7 +240,7 @@ func UnregisterResource(connectionName string, rsType string, nameId string) (bo
 	}
 
 	switch rsType {
-	case rsVPC:
+	case rsVPC, rsSubnet:
 		vpcSPLock.Lock(connectionName, nameId)
 		defer vpcSPLock.Unlock(connectionName, nameId)
 	case rsSG:

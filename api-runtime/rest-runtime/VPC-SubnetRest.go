@@ -81,6 +81,31 @@ func RegisterSubnet(c echo.Context) error {
 	return c.JSON(http.StatusOK, result)
 }
 
+type subnetUnregisterReq struct {
+	ConnectionName string
+	ReqInfo        struct {
+		VPCName string
+	}
+}
+
+func UnregisterSubnet(c echo.Context) error {
+	cblog.Info("call UnregisterSubnet()")
+
+	req := subnetUnregisterReq{}
+
+	if err := c.Bind(&req); err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	// Call common-runtime API
+	result, err := cmrt.UnregisterSubnet(req.ConnectionName, req.ReqInfo.VPCName, c.Param("Name"))
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	return c.JSON(http.StatusOK, result)
+}
+
 // (1) get args from REST Call
 // (2) call common-runtime API
 // (3) return REST Json Format
