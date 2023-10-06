@@ -295,7 +295,7 @@ func ListDisk(connectionName string, rsType string) ([]*cres.DiskInfo, error) {
 		if info.Status == cres.DiskAttached {
 			// get Source VM's IID with VM's SystemId
 			var vmIIdInfo VMIIDInfo
-			err := infostore.GetByContain(&vmIIdInfo, CONNECTION_NAME_COLUMN, connectionName, SYSTEM_ID_COLUMN, info.OwnerVM.SystemId)
+			err := infostore.GetByContain(&vmIIdInfo, CONNECTION_NAME_COLUMN, connectionName, SYSTEM_ID_COLUMN, getMSShortID(info.OwnerVM.SystemId))
 			if err != nil {
 				cblog.Error(err)
 				return nil, err
@@ -365,7 +365,7 @@ func GetDisk(connectionName string, rsType string, nameID string) (*cres.DiskInf
 	if info.Status == cres.DiskAttached {
 		// get Source VM's IID with VM's SystemId
 		var vmIIdInfo VMIIDInfo
-		err := infostore.GetByContain(&vmIIdInfo, CONNECTION_NAME_COLUMN, connectionName, SYSTEM_ID_COLUMN, info.OwnerVM.SystemId)
+		err := infostore.GetByContain(&vmIIdInfo, CONNECTION_NAME_COLUMN, connectionName, SYSTEM_ID_COLUMN, getMSShortID(info.OwnerVM.SystemId))
 		if err != nil {
 			cblog.Error(err)
 			return nil, err

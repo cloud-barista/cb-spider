@@ -457,11 +457,12 @@ func CreateCluster(connectionName string, rsType string, reqInfo cres.ClusterInf
 		nodeGroupUUID := ""
 		if providerName == "NHNCLOUD" && idx == 0 {
 			nodeGroupUUID = "default-worker" // fixed name in NHN
-		}
-		nodeGroupUUID, err = iidm.New(connectionName, rsNodeGroup, info.IId.NameId)
-		if err != nil {
-			cblog.Error(err)
-			return nil, err
+		} else {
+			nodeGroupUUID, err = iidm.New(connectionName, rsNodeGroup, info.IId.NameId)
+			if err != nil {
+				cblog.Error(err)
+				return nil, err
+			}
 		}
 
 		// reqIID
@@ -564,7 +565,7 @@ func setResourcesNameId(connectionName string, info *cres.ClusterInfo) error {
 	// (1) VpcIID
 	// get spiderIID
 	var vpcIIDInfo VPCIIDInfo
-	err := infostore.GetByContain(&vpcIIDInfo, CONNECTION_NAME_COLUMN, connectionName, SYSTEM_ID_COLUMN, netInfo.VpcIID.SystemId)
+	err := infostore.GetByContain(&vpcIIDInfo, CONNECTION_NAME_COLUMN, connectionName, SYSTEM_ID_COLUMN, getMSShortID(netInfo.VpcIID.SystemId))
 	if err != nil {
 		cblog.Error(err)
 		return err
@@ -576,7 +577,7 @@ func setResourcesNameId(connectionName string, info *cres.ClusterInfo) error {
 	for idx, subnetIID := range netInfo.SubnetIIDs {
 		var subnetIIdInfo SubnetIIDInfo
 		err := infostore.GetByConditionsAndContain(&subnetIIdInfo, CONNECTION_NAME_COLUMN, connectionName,
-			OWNER_VPC_NAME_COLUMN, vpcIIDInfo.NameId, SYSTEM_ID_COLUMN, subnetIID.SystemId)
+			OWNER_VPC_NAME_COLUMN, vpcIIDInfo.NameId, SYSTEM_ID_COLUMN, getMSShortID(subnetIID.SystemId))
 		if err != nil {
 			cblog.Error(err)
 			return err
@@ -589,7 +590,7 @@ func setResourcesNameId(connectionName string, info *cres.ClusterInfo) error {
 	for idx, sgIID := range netInfo.SecurityGroupIIDs {
 		var sgIIdInfo SGIIDInfo
 		err := infostore.GetByConditionsAndContain(&sgIIdInfo, CONNECTION_NAME_COLUMN, connectionName,
-			OWNER_VPC_NAME_COLUMN, netInfo.VpcIID.NameId, SYSTEM_ID_COLUMN, sgIID.SystemId)
+			OWNER_VPC_NAME_COLUMN, netInfo.VpcIID.NameId, SYSTEM_ID_COLUMN, getMSShortID(sgIID.SystemId))
 		if err != nil {
 			// exception processing to Azure, Azure creates new SG for K8S.
 			if strings.Contains(sgIID.SystemId, "/Microsoft.") && strings.Contains(err.Error(), "not exist") {
@@ -613,7 +614,7 @@ func setResourcesNameId(connectionName string, info *cres.ClusterInfo) error {
 		// (1) NodeGroup IID
 		var ngIIDInfo NodeGroupIIDInfo
 		err := infostore.GetByConditionsAndContain(&ngIIDInfo, CONNECTION_NAME_COLUMN, connectionName,
-			OWNER_CLUSTER_NAME_COLUMN, info.IId.NameId, SYSTEM_ID_COLUMN, ngInfo.IId.SystemId)
+			OWNER_CLUSTER_NAME_COLUMN, info.IId.NameId, SYSTEM_ID_COLUMN, getMSShortID(ngInfo.IId.SystemId))
 		if err != nil {
 			cblog.Error(err)
 			return err
@@ -1175,7 +1176,7 @@ func ChangeNodeGroupScaling(connectionName string, clusterName string, nodeGroup
 	// ++++++++++++++++++
 	// (1) NodeGroup IID
 	var ngIIDInfo NodeGroupIIDInfo
-	err = infostore.GetByContain(&ngIIDInfo, CONNECTION_NAME_COLUMN, connectionName, SYSTEM_ID_COLUMN, ngInfo.IId.SystemId)
+	err = infostore.GetByContain(&ngIIDInfo, CONNECTION_NAME_COLUMN, connectionName, SYSTEM_ID_COLUMN, getMSShortID(ngInfo.IId.SystemId))
 	if err != nil {
 		cblog.Error(err)
 		return cres.NodeGroupInfo{}, err
@@ -1187,7 +1188,7 @@ func ChangeNodeGroupScaling(connectionName string, clusterName string, nodeGroup
 
 	// (3) Get KeyPair IIDInfo with SystemId
 	var keyIIDInfo KeyIIDInfo
-	err = infostore.GetByContain(&keyIIDInfo, CONNECTION_NAME_COLUMN, connectionName, SYSTEM_ID_COLUMN, ngInfo.KeyPairIID.SystemId)
+	err = infostore.GetByContain(&keyIIDInfo, CONNECTION_NAME_COLUMN, connectionName, SYSTEM_ID_COLUMN, getMSShortID(ngInfo.KeyPairIID.SystemId))
 	if err != nil {
 		cblog.Error(err)
 		return cres.NodeGroupInfo{}, err
