@@ -238,9 +238,9 @@ func Top(c echo.Context) error {
                     <font size=2>[mgmt]</font>
                 </a>
                 &nbsp;
-                <a href="clusterdashboard" target="main_frame" id="clusterdashboardHref">
+                <!-- <a href="clusterdashboard" target="main_frame" id="clusterdashboardHref">
                     <font size=2>[Dashboard]</font>
-                </a>
+                </a> -->
                 <!-- <a href="../adminweb/clusterdashboard" target="main_frame">                  
                   <img height="40" width="40" src="./images/pmks.png" border='0' hspace='0' vspace='1' align="middle">
                 </a> -->
