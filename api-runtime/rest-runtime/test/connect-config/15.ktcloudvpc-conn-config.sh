@@ -17,7 +17,7 @@ curl -X POST http://$RESTSERVER:1024/spider/credential -H 'Content-Type: applica
 ]}'
 
  # for Cloud Region Info
-curl -X POST http://$RESTSERVER:1024/spider/region -H 'Content-Type: application/json' -d '{"RegionName":"ktcloudvpc-DX-M1-zone","ProviderName":"KTCLOUDVPC","KeyValueInfoList": [{"Key":"Zone", "Value":"DX-M1"}]}'
+curl -X POST http://$RESTSERVER:1024/spider/region -H 'Content-Type: application/json' -d '{"RegionName":"ktcloudvpc-DX-M1-zone","ProviderName":"KTCLOUDVPC","KeyValueInfoList": [{"Key":"Region", "Value":"KR1"}, {"Key":"Zone", "Value":"DX-M1"}]}'
 
  # for Cloud Connection Config Info
-curl -X POST http://$RESTSERVER:1024/spider/connectionconfig -H 'Content-Type: application/json' -d '{"ConfigName":"ktcloudvpc-config01","ProviderName":"KTCLOUDVPC", "DriverName":"ktcloudvpc-driver01", "CredentialName":"ktcloudvpc-credential01", "RegionName":"ktcloudvpc-DX-M1-zone"}'
+curl -X POST http://$RESTSERVER:1024/spider/connectionconfig -H 'Content-Type: application/json' -d '{"ConfigName":"ktcloudvpc-mokdong1-config","ProviderName":"KTCLOUDVPC", "DriverName":"ktcloudvpc-driver01", "CredentialName":"ktcloudvpc-credential01", "RegionName":"ktcloudvpc-DX-M1-zone"}'
