@@ -19,9 +19,9 @@ import (
 
 	"github.com/chyeh/pubip"
 
+	cblogger "github.com/cloud-barista/cb-log"
 	cr "github.com/cloud-barista/cb-spider/api-runtime/common-runtime"
 	aw "github.com/cloud-barista/cb-spider/api-runtime/rest-runtime/admin-web"
-	"github.com/cloud-barista/cb-store/config"
 	"github.com/sirupsen/logrus"
 
 	// REST API (echo)
@@ -54,7 +54,7 @@ var cblog *logrus.Logger
 // @securityDefinitions.basic BasicAuth
 
 func init() {
-	cblog = config.Cblogger
+	cblog = cblogger.GetLogger("CLOUD-BARISTA")
 	currentTime := time.Now()
 	cr.StartTime = currentTime.Format("2006.01.02 15:04:05 Mon")
 	cr.MiddleStartTime = currentTime.Format("2006.01.02.15:04:05")

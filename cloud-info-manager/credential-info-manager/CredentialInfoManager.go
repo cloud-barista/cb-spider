@@ -13,10 +13,10 @@ import (
 	"fmt"
 	"strings"
 
+	cblogger "github.com/cloud-barista/cb-log"
 	icdrs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	cim "github.com/cloud-barista/cb-spider/cloud-info-manager"
 	infostore "github.com/cloud-barista/cb-spider/info-store"
-	"github.com/cloud-barista/cb-store/config"
 
 	"github.com/sirupsen/logrus"
 
@@ -41,7 +41,7 @@ type CredentialInfo struct {
 var cblog *logrus.Logger
 
 func init() {
-	cblog = config.Cblogger
+	cblog = cblogger.GetLogger("CLOUD-BARISTA")
 
 	db, err := infostore.Open()
 	if err != nil {
@@ -221,13 +221,13 @@ func checkParams(credentialName string, providerName string, keyValueInfoList []
 
 // #######################################################################
 // @todo get from Env file. by powerkim, 2020.06.01.
-var spider_key = []byte("cloud-barista-cb-spider-cloud-ba") // 32 bytes
+var SPIDER_KEY = []byte("cloud-barista-cb-spider-cloud-ba") // 32 bytes
 //#######################################################################
 
 func encryptKeyValueList(keyValueInfoList []icdrs.KeyValue) error {
 
 	for i, kv := range keyValueInfoList {
-		encString, err := encrypt(spider_key, []byte(kv.Value))
+		encString, err := Encrypt(SPIDER_KEY, []byte(kv.Value))
 		if err != nil {
 			return err
 		}
@@ -240,7 +240,7 @@ func encryptKeyValueList(keyValueInfoList []icdrs.KeyValue) error {
 func decryptKeyValueList(keyValueInfoList []icdrs.KeyValue) error {
 
 	for i, kv := range keyValueInfoList {
-		decString, err := decrypt(spider_key, []byte(kv.Value))
+		decString, err := Decrypt(SPIDER_KEY, []byte(kv.Value))
 		if err != nil {
 			return err
 		}
@@ -251,7 +251,7 @@ func decryptKeyValueList(keyValueInfoList []icdrs.KeyValue) error {
 }
 
 // encription with spider key
-func encrypt(spider_key, contents []byte) (string, error) {
+func Encrypt(spider_key, contents []byte) (string, error) {
 
 	block, err := aes.NewCipher(spider_key)
 	if err != nil {
@@ -271,7 +271,7 @@ func encrypt(spider_key, contents []byte) (string, error) {
 }
 
 // decryption with spider key
-func decrypt(spider_key, contents []byte) (string, error) {
+func Decrypt(spider_key, contents []byte) (string, error) {
 
 	ciphertext, err := base64.StdEncoding.DecodeString(string(contents))
 	if err != nil {

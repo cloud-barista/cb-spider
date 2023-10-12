@@ -16,17 +16,17 @@ import (
 
 	"github.com/rs/xid"
 
+	cblogger "github.com/cloud-barista/cb-log"
 	"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	cim "github.com/cloud-barista/cb-spider/cloud-info-manager"
 	ccim "github.com/cloud-barista/cb-spider/cloud-info-manager/connection-config-info-manager"
-	"github.com/cloud-barista/cb-store/config"
 	"github.com/sirupsen/logrus"
 )
 
 var cblog *logrus.Logger
 
 func init() {
-	cblog = config.Cblogger
+	cblog = cblogger.GetLogger("CLOUD-BARISTA")
 }
 
 //====================================================================

@@ -13,9 +13,9 @@ import (
 	"fmt"
 	"strings"
 
+	cblogger "github.com/cloud-barista/cb-log"
 	icdrs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	cim "github.com/cloud-barista/cb-spider/cloud-info-manager"
-	"github.com/cloud-barista/cb-store/config"
 
 	"github.com/sirupsen/logrus"
 
@@ -36,7 +36,7 @@ type RegionInfo struct {
 var cblog *logrus.Logger
 
 func init() {
-	cblog = config.Cblogger
+	cblog = cblogger.GetLogger("CLOUD-BARISTA")
 
 	db, err := infostore.Open()
 	if err != nil {

@@ -12,7 +12,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/cloud-barista/cb-store/config"
+	cblogger "github.com/cloud-barista/cb-log"
 	"github.com/sirupsen/logrus"
 
 	infostore "github.com/cloud-barista/cb-spider/info-store"
@@ -34,7 +34,7 @@ type ConnectionConfigInfo struct {
 var cblog *logrus.Logger
 
 func init() {
-	cblog = config.Cblogger
+	cblog = cblogger.GetLogger("CLOUD-BARISTA")
 
 	db, err := infostore.Open()
 	if err != nil {

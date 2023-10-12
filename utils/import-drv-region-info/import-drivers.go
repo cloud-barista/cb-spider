@@ -9,41 +9,41 @@
 package main
 
 import (
-        "github.com/sirupsen/logrus"
-        "github.com/cloud-barista/cb-store/config"
+	cblogger "github.com/cloud-barista/cb-log"
+	"github.com/sirupsen/logrus"
 
-	dim "github.com/cloud-barista/cb-spider/cloud-info-manager/driver-info-manager"
-	"strings"
 	"os"
 	"path/filepath"
-)
+	"strings"
 
+	dim "github.com/cloud-barista/cb-spider/cloud-info-manager/driver-info-manager"
+)
 
 var cblog *logrus.Logger
 
 func init() {
-        cblog = config.Cblogger
+	cblog = cblogger.GetLogger("CLOUD-BARISTA")
 }
-
-
 
 func main() {
 	InsertDriverInfos()
 }
 
 // (1) get driver-lib file list
-// (2) loop: 
-// 		load DriverInfo List from all driver-lib file list
+// (2) loop:
+//
+//	load DriverInfo List from all driver-lib file list
+//
 // (3) insert
 func InsertDriverInfos() {
 
 	var files []string
 
-        cbspiderRoot := os.Getenv("CBSPIDER_ROOT")
-        if cbspiderRoot == "" {
-                cblog.Error("$CBSPIDER_ROOT is not set!!")
-                os.Exit(1)
-        }
+	cbspiderRoot := os.Getenv("CBSPIDER_ROOT")
+	if cbspiderRoot == "" {
+		cblog.Error("$CBSPIDER_ROOT is not set!!")
+		os.Exit(1)
+	}
 	drvLibPath := cbspiderRoot + "/cloud-driver-libs/"
 	err := filepath.Walk(drvLibPath, func(path string, info os.FileInfo, err error) error {
 		files = append(files, info.Name())
@@ -62,11 +62,10 @@ func InsertDriverInfos() {
 			cloudDriverInfo := dim.CloudDriverInfo{driverName, cloudos, file}
 
 			_, err := dim.RegisterCloudDriverInfo(cloudDriverInfo)
-	                if err != nil {
+			if err != nil {
 				cblog.Error(err)
 			}
 		}
 	}
 
 }
-

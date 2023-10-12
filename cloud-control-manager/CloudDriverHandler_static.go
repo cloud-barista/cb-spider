@@ -1,3 +1,4 @@
+//go:build !dyna
 // +build !dyna
 
 // Cloud Driver Manager of CB-Spider.
@@ -19,15 +20,15 @@ import (
 	clouditdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/cloudit"
 	dockerdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/docker"
 	gcpdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/gcp"
+	ibmvpcdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/ibmcloud-vpc"
 	mockdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/mock"
 	openstackdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/openstack"
 	tencentdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/tencent"
-	ibmvpcdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/ibmcloud-vpc"
 
 	// ncpdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/ncp" // NCP
 	// ncpvpcdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/ncpvpc" // NCP-VPC
 
-	"github.com/cloud-barista/cb-store/config"
+	cblogger "github.com/cloud-barista/cb-log"
 	"github.com/sirupsen/logrus"
 
 	dim "github.com/cloud-barista/cb-spider/cloud-info-manager/driver-info-manager"
@@ -38,9 +39,8 @@ import (
 var cblog *logrus.Logger
 
 func init() {
-	cblog = config.Cblogger
+	cblog = cblogger.GetLogger("CLOUD-BARISTA")
 }
-
 
 func getCloudDriver(cldDrvInfo dim.CloudDriverInfo) (idrv.CloudDriver, error) {
 	cblog.Info("CloudDriverHandler: called getStaticCloudDriver() - " + cldDrvInfo.DriverName)

@@ -11,79 +11,82 @@ package main
 import (
 	"fmt"
 
-	"github.com/cloud-barista/cb-store/config"
 	dim "github.com/cloud-barista/cb-spider/cloud-info-manager/driver-info-manager"
+	"github.com/sirupsen/logrus"
 )
+
 func main() {
 
-fmt.Println("\n============== RegisterCredential()")
+	var Cblogger *logrus.Logger
+
+	fmt.Println("\n============== RegisterCredential()")
 	dName := "aws_driver01-V0.5"
 	pName := "AWS"
 	dLibFileName := "aws-test-driver-v0.5.so"
 	drvInfo, err := dim.RegisterCloudDriver(dName, pName, dLibFileName)
 	if err != nil {
-		config.Cblogger.Error(err)
+		Cblogger.Error(err)
 	}
 
 	fmt.Printf(" === %#v\n", drvInfo)
 
-fmt.Println("\n============== RegisterCredential()")
-        dName = "aws_driver02-V1.0"
-        pName = "AWS"
-        dLibFileName = "aws-test-driver-v1.0.so"
-        drvInfo, err = dim.RegisterCloudDriver(dName, pName, dLibFileName)
-        if err != nil {
-                config.Cblogger.Error(err)
-        }
+	fmt.Println("\n============== RegisterCredential()")
+	dName = "aws_driver02-V1.0"
+	pName = "AWS"
+	dLibFileName = "aws-test-driver-v1.0.so"
+	drvInfo, err = dim.RegisterCloudDriver(dName, pName, dLibFileName)
+	if err != nil {
+		Cblogger.Error(err)
+	}
 
 	fmt.Printf(" === %#v\n", drvInfo)
-	
-fmt.Println("\n============== ListCloudDriver()")
+
+	fmt.Println("\n============== ListCloudDriver()")
 	keyValueList, err2 := dim.ListCloudDriver()
 	if err2 != nil {
-		config.Cblogger.Error(err2)
+		Cblogger.Error(err2)
 	}
 
 	for _, keyValue := range keyValueList {
-                fmt.Printf(" === %#v\n", keyValue)
+		fmt.Printf(" === %#v\n", keyValue)
 		dim.GetCloudDriver(keyValue.DriverName)
-        }
+	}
 
-fmt.Println("\n============== UnRegisterCloudDriver()")
-        result, err3 := dim.UnRegisterCloudDriver(dName)
-        if err3 != nil {
-                config.Cblogger.Error(err3)
-        }
+	fmt.Println("\n============== UnRegisterCloudDriver()")
+	result, err3 := dim.UnRegisterCloudDriver(dName)
+	if err3 != nil {
+		Cblogger.Error(err3)
+	}
 
 	fmt.Printf(" === UnRegisterCloudDriver %s : %#v\n", dName, result)
 
-fmt.Println("\n============== ListCloudDriver()")
-        keyValueList, err2 = dim.ListCloudDriver()
-        if err2 != nil {
-                config.Cblogger.Error(err2)
-        }
+	fmt.Println("\n============== ListCloudDriver()")
+	keyValueList, err2 = dim.ListCloudDriver()
+	if err2 != nil {
+		Cblogger.Error(err2)
+	}
 
-        for _, keyValue := range keyValueList {
-                fmt.Printf(" === %#v\n", keyValue)
-        }
+	for _, keyValue := range keyValueList {
+		fmt.Printf(" === %#v\n", keyValue)
+	}
 
-fmt.Println("\n============== UnRegisterCloudDriver()")
+	fmt.Println("\n============== UnRegisterCloudDriver()")
 	dName = "aws_driver01-V0.5"
-        result, err3 = dim.UnRegisterCloudDriver(dName)
-        if err3 != nil {
-                config.Cblogger.Error(err3)
-        }
+	result, err3 = dim.UnRegisterCloudDriver(dName)
+	if err3 != nil {
+		Cblogger.Error(err3)
+	}
 
-        fmt.Printf(" === UnRegisterCloudDriver %s : %#v\n", dName, result)
+	fmt.Printf(" === UnRegisterCloudDriver %s : %#v\n", dName, result)
 
-fmt.Println("\n============== ListCloudDriver()")
-        keyValueList, err2 = dim.ListCloudDriver()
-        if err2 != nil {
-                config.Cblogger.Error(err2)
-        }
+	fmt.Println("\n============== ListCloudDriver()")
+	keyValueList, err2 = dim.ListCloudDriver()
+	if err2 != nil {
+		Cblogger.Error(err2)
+	}
 
-        for _, keyValue := range keyValueList {
-                fmt.Printf(" === %#v\n", keyValue)
-        }
+	for _, keyValue := range keyValueList {
+		fmt.Printf(" === %#v\n", keyValue)
+	}
 
 }

@@ -10,17 +10,18 @@ package validatetest
 import (
 	cim "github.com/cloud-barista/cb-spider/cloud-info-manager"
 
-	icbs "github.com/cloud-barista/cb-store/interfaces"
-	"testing"
 	"log"
+	"testing"
+
+	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 )
 
 func TestValid(t *testing.T) {
-	inKeyValueList := []icbs.KeyValue{
+	inKeyValueList := []idrv.KeyValue{
 		{"location", "kr"},
 		{"ResourceGroup", "barista"},
 	}
-	wantedKeyList := []string {
+	wantedKeyList := []string{
 		"location",
 		"ResourceGroup",
 	}
@@ -30,19 +31,17 @@ func TestValid(t *testing.T) {
 	}
 }
 
-
 func TestInvalid(t *testing.T) {
-        inKeyValueList := []icbs.KeyValue{
-                {"Location", "kr"},
-                {"ResourceGroup", "barista"},
-        }
-        wantedKeyList := []string {
-                "location",
-                "ResourceGroup",
-        }
-        err := cim.ValidateKeyValueList(inKeyValueList, wantedKeyList)
-        if err != nil {
-                log.Fatal(err)
-        }
+	inKeyValueList := []idrv.KeyValue{
+		{"Location", "kr"},
+		{"ResourceGroup", "barista"},
+	}
+	wantedKeyList := []string{
+		"location",
+		"ResourceGroup",
+	}
+	err := cim.ValidateKeyValueList(inKeyValueList, wantedKeyList)
+	if err != nil {
+		log.Fatal(err)
+	}
 }
-

@@ -9,60 +9,62 @@
 package sshrun
 
 import (
-	"github.com/cloud-barista/cb-store/config"
-        "github.com/sirupsen/logrus"
-
+	cblogger "github.com/cloud-barista/cb-log"
+	"github.com/sirupsen/logrus"
 
 	"io"
+	"os"
+	"strings"
 	"time"
+
 	"github.com/bramvdbogaerde/go-scp"
 	"github.com/bramvdbogaerde/go-scp/auth"
 	"golang.org/x/crypto/ssh"
-	"os"
-	"strings"
 )
 
 var cblog *logrus.Logger
 
 func init() {
-        cblog = config.Cblogger
+	cblog = cblogger.GetLogger("CLOUD-BARISTA")
 }
 
-//====================================================================
+// ====================================================================
 type SSHInfo struct {
-        UserName        string  // ex) "root"
-        PrivateKey      []byte  // ex)   []byte(`-----BEGIN RSA PRIVATE KEY-----
-                                //              MIIEoQIBAAKCAQEArVNOLwMIp5VmZ4VPZotcoCHdEzimKalAsz+ccLfvAA1Y2ELH
-                                //              ...`)
-        ServerPort      string  // ex) "node12:22"
-	Timeout		int	// ex) 3 (= 3sec)
+	UserName   string // ex) "root"
+	PrivateKey []byte // ex)   []byte(`-----BEGIN RSA PRIVATE KEY-----
+	//              MIIEoQIBAAKCAQEArVNOLwMIp5VmZ4VPZotcoCHdEzimKalAsz+ccLfvAA1Y2ELH
+	//              ...`)
+	ServerPort string // ex) "node12:22"
+	Timeout    int    // ex) 3 (= 3sec)
 }
+
 //====================================================================
 
 func Connect(sshInfo SSHInfo) (scp.Client, error) {
 	cblog.Info("call Connect()")
 
-        clientConfig, _ := getClientConfig(sshInfo.UserName, sshInfo.PrivateKey, ssh.InsecureIgnoreHostKey(), sshInfo.Timeout)
-        client := scp.NewClient(sshInfo.ServerPort, &clientConfig)
-        err := client.Connect()
-        return client, err
+	clientConfig, _ := getClientConfig(sshInfo.UserName, sshInfo.PrivateKey, ssh.InsecureIgnoreHostKey(), sshInfo.Timeout)
+	client := scp.NewClient(sshInfo.ServerPort, &clientConfig)
+	err := client.Connect()
+	return client, err
 }
 
-//====================================================================
+// ====================================================================
 type SSHKeyPathInfo struct {
-        UserName        string  // ex) "root"
-        KeyPath     	string 	// ex) "/root/.ssh/id_rsa // You should use the full path.
-        ServerPort      string  // ex) "node12:22"
+	UserName   string // ex) "root"
+	KeyPath    string // ex) "/root/.ssh/id_rsa // You should use the full path.
+	ServerPort string // ex) "node12:22"
 }
+
 //====================================================================
 
 func ConnectKeyPath(sshKeyPathInfo SSHKeyPathInfo) (scp.Client, error) {
-        cblog.Info("call ConnectKeyPath()")
+	cblog.Info("call ConnectKeyPath()")
 
 	clientConfig, _ := auth.PrivateKey(sshKeyPathInfo.UserName, sshKeyPathInfo.KeyPath, ssh.InsecureIgnoreHostKey())
-        client := scp.NewClient(sshKeyPathInfo.ServerPort, &clientConfig)
-        err := client.Connect()
-        return client, err
+	client := scp.NewClient(sshKeyPathInfo.ServerPort, &clientConfig)
+	err := client.Connect()
+	return client, err
 }
 
 func getClientConfig(username string, privateKey []byte, keyCallBack ssh.HostKeyCallback, timeout int) (ssh.ClientConfig, error) {
@@ -73,12 +75,12 @@ func getClientConfig(username string, privateKey []byte, keyCallBack ssh.HostKey
 	}
 
 	clientConfig := ssh.ClientConfig{
-                User: username,
-                Auth: []ssh.AuthMethod{
-                        ssh.PublicKeys(signer),
-                },
-                HostKeyCallback: keyCallBack,
-        }
+		User: username,
+		Auth: []ssh.AuthMethod{
+			ssh.PublicKeys(signer),
+		},
+		HostKeyCallback: keyCallBack,
+	}
 	if timeout > 0 {
 		clientConfig.Timeout = time.Second * time.Duration(timeout)
 	}
@@ -86,10 +88,10 @@ func getClientConfig(username string, privateKey []byte, keyCallBack ssh.HostKey
 	return clientConfig, nil
 }
 
-func Close(client scp.Client){
+func Close(client scp.Client) {
 	cblog.Info("call Close()")
 
-	client.Close()	
+	client.Close()
 }
 
 func RunCommand(client scp.Client, cmd string) (string, error) {
@@ -128,62 +130,57 @@ func stdoutToString(sshOut io.Reader) string {
 func Copy(client scp.Client, sourcePath string, remotePath string) error {
 	cblog.Info("call Copy()")
 
-        // Open a file
-        file, _ := os.Open(sourcePath)
-        defer file.Close()
-        return client.CopyFile(file, remotePath, "0755")
+	// Open a file
+	file, _ := os.Open(sourcePath)
+	defer file.Close()
+	return client.CopyFile(file, remotePath, "0755")
 }
 
-//=============== for One Call Service
+// =============== for One Call Service
 func SSHRun(sshInfo SSHInfo, cmd string) (string, error) {
-        cblog.Info("call SSHRun()")
+	cblog.Info("call SSHRun()")
 
-
-        sshCli, err := Connect(sshInfo)
-        if err != nil {
-                return "", err
-        }
+	sshCli, err := Connect(sshInfo)
+	if err != nil {
+		return "", err
+	}
 	defer Close(sshCli)
 
 	return RunCommand(sshCli, cmd)
 }
 
 func SSHRunByKeyPath(sshInfo SSHKeyPathInfo, cmd string) (string, error) {
-        cblog.Info("call SSHRunKeyPath()")
+	cblog.Info("call SSHRunKeyPath()")
 
-
-        sshCli, err := ConnectKeyPath(sshInfo)
-        if err != nil {
-                return "", err
-        }
+	sshCli, err := ConnectKeyPath(sshInfo)
+	if err != nil {
+		return "", err
+	}
 	defer Close(sshCli)
 
 	return RunCommand(sshCli, cmd)
 }
 
 func SSHCopy(sshInfo SSHInfo, sourcePath string, remotePath string) error {
-        cblog.Info("call SSHCopy()")
+	cblog.Info("call SSHCopy()")
 
-
-        sshCli, err := Connect(sshInfo)
-        if err != nil {
-                return err
-        }
+	sshCli, err := Connect(sshInfo)
+	if err != nil {
+		return err
+	}
 	defer Close(sshCli)
 
 	return Copy(sshCli, sourcePath, remotePath)
 }
 
 func SSHCopyByKeyPath(sshInfo SSHKeyPathInfo, sourcePath string, remotePath string) error {
-        cblog.Info("call SSHCopyByKeyPath()")
+	cblog.Info("call SSHCopyByKeyPath()")
 
-
-        sshCli, err := ConnectKeyPath(sshInfo)
-        if err != nil {
-                return err
-        }
+	sshCli, err := ConnectKeyPath(sshInfo)
+	if err != nil {
+		return err
+	}
 	defer Close(sshCli)
 
-        return Copy(sshCli, sourcePath, remotePath)
+	return Copy(sshCli, sourcePath, remotePath)
 }
-

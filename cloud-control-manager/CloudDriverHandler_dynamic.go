@@ -14,7 +14,7 @@ package clouddriverhandler
 import (
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 
-	"github.com/cloud-barista/cb-store/config"
+	cblogger "github.com/cloud-barista/cb-log"
 	"github.com/sirupsen/logrus"
 
 	dim "github.com/cloud-barista/cb-spider/cloud-info-manager/driver-info-manager"
@@ -30,7 +30,7 @@ import (
 var cblog *logrus.Logger
 
 func init() {
-	cblog = config.Cblogger
+	cblog = cblogger.GetLogger("CLOUD-BARISTA")
 }
 
 // definition of RWLock to avoid 'plugin already loaded' panic

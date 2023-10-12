@@ -11,20 +11,23 @@ package common
 
 import (
 	"bytes"
+	"crypto/md5"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
-	"sync"
 	"io"
-	"io/ioutil"
-	"crypto/md5"
 
-	"golang.org/x/crypto/ssh"
-	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"errors"
 	"regexp"
+
+	cblogger "github.com/cloud-barista/cb-log"
+	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
+	enc "github.com/cloud-barista/cb-spider/cloud-info-manager/credential-info-manager"
+	infostore "github.com/cloud-barista/cb-spider/info-store"
+	"github.com/sirupsen/logrus"
+	"golang.org/x/crypto/ssh"
 )
 
 // generate a KeyPair with 4KB length
@@ -65,11 +68,7 @@ func GenKeyPair() ([]byte, []byte, error) {
 	return privateKeyBytes, publicKeyBytes, nil
 }
 
-
-// Lock to store and read private key
-var rwMutex sync.RWMutex
-
-// ex) 
+// ex)
 //	privateKey, publicKey, err := GenKeyPair()
 //
 //	srcList[0] = credentialInfo.IdentityEndpoint
@@ -78,78 +77,120 @@ var rwMutex sync.RWMutex
 // 	strHash, err := GenHash(srcList)
 //
 //      AddKey("CLOUDIT", strHash, keyPairReqInfo.IId.NameId, privateKey)
+
+type LocalKeyInfo struct {
+	ProviderName string `gorm:"primaryKey"`
+	HashString   string `gorm:"primaryKey"`
+	NameId       string `gorm:"primaryKey"`
+	PrivateKey   string
+}
+
+func (LocalKeyInfo) TableName() string {
+	return "local_key_infos"
+}
+
+//====================================================================
+
+var cblog *logrus.Logger
+
+func init() {
+	cblog = cblogger.GetLogger("CLOUD-BARISTA")
+	db, err := infostore.Open()
+	if err != nil {
+		cblog.Error(err)
+		return
+	}
+	db.AutoMigrate(&LocalKeyInfo{})
+	infostore.Close(db)
+}
+
 func AddKey(providerName string, hashString string, keyPairNameId string, privateKey string) error {
 
-	rwMutex.Lock()
-	defer rwMutex.Unlock()
+	encPrivateKey, err := enc.Encrypt(enc.SPIDER_KEY, []byte(privateKey))
+	if err != nil {
+		return err
+	}
 
-	err := insertInfo(providerName, hashString, keyPairNameId, privateKey)
-        if err != nil {
-                 return err
-        }
-	return nil	
+	err = infostore.Insert(&LocalKeyInfo{ProviderName: providerName, HashString: hashString, NameId: keyPairNameId, PrivateKey: encPrivateKey})
+	if err != nil {
+		cblog.Error(err)
+		return err
+	}
+	return nil
 }
 
 // return: []KeyValue{Key:KeyPairNameId, Value:PrivateKey}
 func ListKey(providerName string, hashString string) ([]*irs.KeyValue, error) {
 
-	rwMutex.Lock()
-	defer rwMutex.Unlock()
+	var iidInfoList []*LocalKeyInfo
+	err := infostore.ListByConditions(&iidInfoList, "provider_name", providerName, "hash_string", hashString)
+	if err != nil {
+		cblog.Error(err)
+		return nil, err
+	}
 
-	keyValueList, err := listInfo(providerName, hashString)
-        if err != nil {
-                return nil, err
-        }
+	var keyValueList []*irs.KeyValue
+	for _, iidInfo := range iidInfoList {
 
-        return keyValueList, nil
+		decPrivateKey, err := enc.Decrypt(enc.SPIDER_KEY, []byte(iidInfo.PrivateKey))
+		if err != nil {
+			return nil, err
+		}
+
+		keyValue := &irs.KeyValue{
+			Key:   iidInfo.NameId,
+			Value: decPrivateKey,
+		}
+		keyValueList = append(keyValueList, keyValue)
+	}
+
+	return keyValueList, nil
 }
 
 // return: KeyValue{Key:KeyPairNameId, Value:PrivateKey}
 func GetKey(providerName string, hashString string, keyPairNameId string) (*irs.KeyValue, error) {
 
-	rwMutex.Lock()
-	defer rwMutex.Unlock()
+	var localKeyInfo LocalKeyInfo
+	err := infostore.GetBy3Conditions(&localKeyInfo, "provider_name", providerName, "hash_string", hashString, "name_id", keyPairNameId)
+	if err != nil {
+		cblog.Error(err)
+		return nil, err
+	}
 
-	keyValue, err := getInfo(providerName, hashString, keyPairNameId)
-        if err != nil {
-                return nil, err
-        }
-        return keyValue, nil
+	decPrivateKey, err := enc.Decrypt(enc.SPIDER_KEY, []byte(localKeyInfo.PrivateKey))
+	if err != nil {
+		return nil, err
+	}
+
+	keyValue := &irs.KeyValue{
+		Key:   localKeyInfo.NameId,
+		Value: decPrivateKey,
+	}
+
+	return keyValue, nil
 }
 
 func DelKey(providerName string, hashString string, keyPairNameId string) error {
 
-	rwMutex.Lock()
-	defer rwMutex.Unlock()
-
-	_, err := deleteInfo(providerName, hashString, keyPairNameId)
-        if err != nil {
-                return err
-        }
-        return nil
+	_, err := infostore.DeleteBy3Conditions(&LocalKeyInfo{}, "provider_name", providerName, "hash_string", hashString, "name_id", keyPairNameId)
+	if err != nil {
+		cblog.Error(err)
+		return err
+	}
+	return nil
 }
 
 func GenHash(sourceList []string) (string, error) {
-	var keyString  string
+	var keyString string
 	for _, str := range sourceList {
 		keyString += str
 	}
-        hasher := md5.New()
-        _, err := io.WriteString(hasher, keyString)
-        if err != nil {
-                return "", err
-        }
-        return fmt.Sprintf("%x", hasher.Sum(nil)), nil
-}
-
-// save a key to a file
-func SaveKey(keyBytes []byte, targetFile string) error {
-	err := ioutil.WriteFile(targetFile, keyBytes, 0600)
+	hasher := md5.New()
+	_, err := io.WriteString(hasher, keyString)
 	if err != nil {
-		return err
+		return "", err
 	}
-
-	return nil
+	return fmt.Sprintf("%x", hasher.Sum(nil)), nil
 }
 
 // ParseKey reads the given RSA private key and create a public one for it.
@@ -170,7 +211,6 @@ func MakePublicKeyFromPrivateKey(pem string) (string, error) {
 	return string(bytes.TrimRight(ssh.MarshalAuthorizedKey(pub), "\n")), nil
 }
 
-
 //-------------------
 
 func ValidateWindowsPassword(pw string) error {
@@ -181,31 +221,31 @@ func ValidateWindowsPassword(pw string) error {
 			1 number,
 			1 special character`
 
-        if len(pw) < 12 || len(pw) > 123 {
-                return errors.New(invalidMSG)
-        }
+	if len(pw) < 12 || len(pw) > 123 {
+		return errors.New(invalidMSG)
+	}
 
-        checkNum := 0
-        matchCase, err := regexp.MatchString(".*[a-z]+", pw)
-        if matchCase && err == nil {
-                checkNum++
-        }
-        matchCase, _ = regexp.MatchString(".*[A-Z]+", pw)
-        if matchCase && err == nil {
-                checkNum++
-        }
-        matchCase, _ = regexp.MatchString(".*[0-9]+", pw)
-        if matchCase && err == nil {
-                checkNum++
-        }
-        matchCase, _ = regexp.MatchString(`[\{\}\[\]\/?.,;:|\)*~!^\-_+<>@\#$%&\\\=\(\'\"\n\r]+`, pw)
-        if matchCase && err == nil {
-                checkNum++
-        }
-        if checkNum >= 3 {
-                return nil
-        } else {
-                return errors.New(invalidMSG)
+	checkNum := 0
+	matchCase, err := regexp.MatchString(".*[a-z]+", pw)
+	if matchCase && err == nil {
+		checkNum++
+	}
+	matchCase, _ = regexp.MatchString(".*[A-Z]+", pw)
+	if matchCase && err == nil {
+		checkNum++
+	}
+	matchCase, _ = regexp.MatchString(".*[0-9]+", pw)
+	if matchCase && err == nil {
+		checkNum++
+	}
+	matchCase, _ = regexp.MatchString(`[\{\}\[\]\/?.,;:|\)*~!^\-_+<>@\#$%&\\\=\(\'\"\n\r]+`, pw)
+	if matchCase && err == nil {
+		checkNum++
+	}
+	if checkNum >= 3 {
+		return nil
+	} else {
+		return errors.New(invalidMSG)
 
-        }
+	}
 }

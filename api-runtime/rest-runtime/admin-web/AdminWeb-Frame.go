@@ -9,8 +9,8 @@
 package adminweb
 
 import (
+	cblogger "github.com/cloud-barista/cb-log"
 	cr "github.com/cloud-barista/cb-spider/api-runtime/common-runtime"
-	"github.com/cloud-barista/cb-store/config"
 	"github.com/sirupsen/logrus"
 
 	"net/http"
@@ -22,7 +22,7 @@ import (
 var cblog *logrus.Logger
 
 func init() {
-	cblog = config.Cblogger
+	cblog = cblogger.GetLogger("CLOUD-BARISTA")
 }
 
 type NameWidth struct {

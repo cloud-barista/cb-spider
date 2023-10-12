@@ -1,21 +1,22 @@
 package cloudos
 
 import (
-        "github.com/sirupsen/logrus"
-        "github.com/cloud-barista/cb-store/config"
+	cblogger "github.com/cloud-barista/cb-log"
+	"github.com/sirupsen/logrus"
 
-	"gopkg.in/yaml.v3"
+	_ "fmt"
 	"io/ioutil"
 	"os"
-	_ "fmt"
-	"strings"
 	_ "sort"
+	"strings"
+
+	"gopkg.in/yaml.v3"
 )
 
 var cblog *logrus.Logger
 
 func init() {
-        cblog = config.Cblogger
+	cblog = cblogger.GetLogger("CLOUD-BARISTA")
 }
 
 type CloudOSList struct {
@@ -25,10 +26,10 @@ type CloudOSList struct {
 func readYaml() CloudOSList {
 	// Set Environment Value of Project Root Path
 	rootPath := os.Getenv("CBSPIDER_ROOT")
-        if rootPath == "" {
-                cblog.Error("$CBSPIDER_ROOT is not set!!")
-                os.Exit(1)
-        }
+	if rootPath == "" {
+		cblog.Error("$CBSPIDER_ROOT is not set!!")
+		os.Exit(1)
+	}
 	data, err := ioutil.ReadFile(rootPath + "/cloud-driver-libs/cloudos.yaml")
 	if err != nil {
 		cblog.Error(err)
@@ -51,7 +52,7 @@ func ListCloudOS() []string {
 	cloudosList := readYaml()
 
 	// to Upper
-	for n, cloudos := range cloudosList.Name{
+	for n, cloudos := range cloudosList.Name {
 		cloudosList.Name[n] = strings.ToUpper(cloudos)
 	}
 
@@ -60,4 +61,3 @@ func ListCloudOS() []string {
 
 	return cloudosList.Name
 }
-

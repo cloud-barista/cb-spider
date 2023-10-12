@@ -19,8 +19,8 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 
+	cblogger "github.com/cloud-barista/cb-log"
 	icdrs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
-	"github.com/cloud-barista/cb-store/config"
 	"github.com/sirupsen/logrus"
 )
 
@@ -29,7 +29,7 @@ var cblog *logrus.Logger
 var DB_FILE_PATH string
 
 func init() {
-	cblog = config.Cblogger
+	cblog = cblogger.GetLogger("CLOUD-BARISTA")
 
 	/*###############################################################*/
 	DB_PATH := os.Getenv("CBSPIDER_ROOT") + "/meta_db"
