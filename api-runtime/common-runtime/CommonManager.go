@@ -1025,48 +1025,80 @@ func GetCSPResourceName(connectionName string, rsType string, nameID string) (st
 		// (1) get IID(NameId)
 		var iid VPCIIDInfo
 		err = infostore.GetByConditions(&iid, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameID)
+		if err != nil {
+			cblog.Error(err)
+			return "", err
+		}
 		// (2) get DriverNameId and return it
 		return makeDriverIID(iid.NameId, iid.SystemId).NameId, nil
 	case rsSG:
 		// (1) get IID(NameId)
 		var iid SGIIDInfo
 		err = infostore.GetByConditions(&iid, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameID)
+		if err != nil {
+			cblog.Error(err)
+			return "", err
+		}
 		// (2) get DriverNameId and return it
 		return makeDriverIID(iid.NameId, iid.SystemId).NameId, nil
 	case rsKey:
 		// (1) get IID(NameId)
 		var iid KeyIIDInfo
 		err = infostore.GetByConditions(&iid, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameID)
+		if err != nil {
+			cblog.Error(err)
+			return "", err
+		}
 		// (2) get DriverNameId and return it
 		return makeDriverIID(iid.NameId, iid.SystemId).NameId, nil
 	case rsVM:
 		// (1) get IID(NameId)
 		var iid VMIIDInfo
 		err = infostore.GetByConditions(&iid, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameID)
+		if err != nil {
+			cblog.Error(err)
+			return "", err
+		}
 		// (2) get DriverNameId and return it
 		return makeDriverIID(iid.NameId, iid.SystemId).NameId, nil
 	case rsNLB:
 		// (1) get IID(NameId)
 		var iid NLBIIDInfo
 		err = infostore.GetByConditions(&iid, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameID)
+		if err != nil {
+			cblog.Error(err)
+			return "", err
+		}
 		// (2) get DriverNameId and return it
 		return makeDriverIID(iid.NameId, iid.SystemId).NameId, nil
 	case rsDisk:
 		// (1) get IID(NameId)
 		var iid DiskIIDInfo
 		err = infostore.GetByConditions(&iid, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameID)
+		if err != nil {
+			cblog.Error(err)
+			return "", err
+		}
 		// (2) get DriverNameId and return it
 		return makeDriverIID(iid.NameId, iid.SystemId).NameId, nil
 	case rsMyImage:
 		// (1) get IID(NameId)
 		var iid MyImageIIDInfo
 		err = infostore.GetByConditions(&iid, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameID)
+		if err != nil {
+			cblog.Error(err)
+			return "", err
+		}
 		// (2) get DriverNameId and return it
 		return makeDriverIID(iid.NameId, iid.SystemId).NameId, nil
 	case rsCluster:
 		// (1) get IID(NameId)
 		var iid ClusterIIDInfo
 		err = infostore.GetByConditions(&iid, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameID)
+		if err != nil {
+			cblog.Error(err)
+			return "", err
+		}
 		// (2) get DriverNameId and return it
 		return makeDriverIID(iid.NameId, iid.SystemId).NameId, nil
 	default:
