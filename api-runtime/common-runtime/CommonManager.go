@@ -14,12 +14,12 @@ import (
 
 	"encoding/json"
 
+	cblogger "github.com/cloud-barista/cb-log"
 	splock "github.com/cloud-barista/cb-spider/api-runtime/common-runtime/sp-lock"
 	ccm "github.com/cloud-barista/cb-spider/cloud-control-manager"
 	cres "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	iidm "github.com/cloud-barista/cb-spider/cloud-control-manager/iid-manager"
 	infostore "github.com/cloud-barista/cb-spider/info-store"
-	"github.com/cloud-barista/cb-store/config"
 
 	"github.com/sirupsen/logrus"
 
@@ -115,7 +115,7 @@ var cblog *logrus.Logger
 var callogger *logrus.Logger
 
 func init() {
-	cblog = config.Cblogger
+	cblog = cblogger.GetLogger("CLOUD-BARISTA")
 	// logger for HisCall
 	callogger = call.GetLogger("HISCALL")
 }
@@ -1020,14 +1020,56 @@ func GetCSPResourceName(connectionName string, rsType string, nameID string) (st
 		return "", err
 	}
 
-	// (1) get IID(NameId)
-	var iid VPCIIDInfo
-	err = infostore.GetByConditions(&iid, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameID)
-	if err != nil {
-		cblog.Error(err)
-		return "", err
+	switch rsType {
+	case rsVPC:
+		// (1) get IID(NameId)
+		var iid VPCIIDInfo
+		err = infostore.GetByConditions(&iid, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameID)
+		// (2) get DriverNameId and return it
+		return makeDriverIID(iid.NameId, iid.SystemId).NameId, nil
+	case rsSG:
+		// (1) get IID(NameId)
+		var iid SGIIDInfo
+		err = infostore.GetByConditions(&iid, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameID)
+		// (2) get DriverNameId and return it
+		return makeDriverIID(iid.NameId, iid.SystemId).NameId, nil
+	case rsKey:
+		// (1) get IID(NameId)
+		var iid KeyIIDInfo
+		err = infostore.GetByConditions(&iid, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameID)
+		// (2) get DriverNameId and return it
+		return makeDriverIID(iid.NameId, iid.SystemId).NameId, nil
+	case rsVM:
+		// (1) get IID(NameId)
+		var iid VMIIDInfo
+		err = infostore.GetByConditions(&iid, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameID)
+		// (2) get DriverNameId and return it
+		return makeDriverIID(iid.NameId, iid.SystemId).NameId, nil
+	case rsNLB:
+		// (1) get IID(NameId)
+		var iid NLBIIDInfo
+		err = infostore.GetByConditions(&iid, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameID)
+		// (2) get DriverNameId and return it
+		return makeDriverIID(iid.NameId, iid.SystemId).NameId, nil
+	case rsDisk:
+		// (1) get IID(NameId)
+		var iid DiskIIDInfo
+		err = infostore.GetByConditions(&iid, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameID)
+		// (2) get DriverNameId and return it
+		return makeDriverIID(iid.NameId, iid.SystemId).NameId, nil
+	case rsMyImage:
+		// (1) get IID(NameId)
+		var iid MyImageIIDInfo
+		err = infostore.GetByConditions(&iid, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameID)
+		// (2) get DriverNameId and return it
+		return makeDriverIID(iid.NameId, iid.SystemId).NameId, nil
+	case rsCluster:
+		// (1) get IID(NameId)
+		var iid ClusterIIDInfo
+		err = infostore.GetByConditions(&iid, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameID)
+		// (2) get DriverNameId and return it
+		return makeDriverIID(iid.NameId, iid.SystemId).NameId, nil
+	default:
+		return "", fmt.Errorf(rsType + " is not supported Resource!!")
 	}
-
-	// (2) get DriverNameId and return it
-	return makeDriverIID(iid.NameId, iid.SystemId).NameId, nil
 }
