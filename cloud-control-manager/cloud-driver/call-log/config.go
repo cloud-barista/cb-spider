@@ -72,7 +72,7 @@ func ReplaceEnvPath(str string) string {
                 return str
         }
 
-        // ex) input "$CBSTORE_ROOT/meta_db/dat"
+        // ex) input "$ENV1/meta_db/dat"
         strList := strings.Split(str, "/")
         for n, one := range strList {
                 if strings.Index(one, "$") != -1 {
