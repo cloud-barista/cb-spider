@@ -46,6 +46,13 @@ func ListRegionZone(connectionName string) ([]*cres.RegionZoneInfo, error) {
 		infoList = []*cres.RegionZoneInfo{}
 	}
 
+	// Set KeyValueList to an empty array if it is nil
+	for _, region := range infoList {
+		if region.KeyValueList == nil {
+			region.KeyValueList = []cres.KeyValue{}
+		}
+	}
+
 	return infoList, nil
 }
 
@@ -80,6 +87,11 @@ func GetRegionZone(connectionName string, nameID string) (*cres.RegionZoneInfo, 
 	if err != nil {
 		cblog.Error(err)
 		return nil, err
+	}
+
+	// Set KeyValueList to an empty array if it is nil
+	if info.KeyValueList == nil {
+		info.KeyValueList = []cres.KeyValue{}
 	}
 
 	return &info, nil
