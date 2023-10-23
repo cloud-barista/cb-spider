@@ -380,7 +380,7 @@ func makeTitleTRList_html(bgcolor string, fontSize string, nameWidthList []NameW
 	return strTR
 }
 
-// REST URL ing logging page
+// REST URL logging page
 func genLoggingGETURL(connConfig string, rsType string) string {
 	/* return example
 	<script type="text/javascript">
@@ -396,6 +396,16 @@ func genLoggingGETURL(connConfig string, rsType string) string {
 	htmlStr += `
                 </script>
                 `
+	return htmlStr
+}
+
+// REST URL logging page
+func genLoggingGETURL2(connConfig string, rsType string) string {
+	/* return example
+	parent.frames["log_frame"].Log("curl -sX GET http://localhost:1024/spider/vpc -H 'Content-Type: application/json' -d '{"ConnectionName": "aws-ohio-config"}'   ");
+	*/
+	url := "http://" + "localhost" + cr.ServerPort + "/spider/" + rsType + " -H 'Content-Type: application/json' -d '{\\\"ConnectionName\\\": \\\"" + connConfig + "\\\"}'"
+	htmlStr := `    parent.frames["log_frame"].Log("curl -sX GET ` + url + `");`
 	return htmlStr
 }
 
@@ -417,5 +427,21 @@ func genLoggingResult(response string) string {
 	htmlStr += `
                 </script>
                 `
+	return htmlStr
+}
+
+func genLoggingResult2(response string) string {
+
+	/*--------------------
+		    {
+	               "Key" : "Property",
+	               "Value" : "{\"NodeNameType\":\"lan-ip\",\"NetworkType\":\"GR\"}"
+	            },
+		----------------------*/
+	// to escape back-slash in the 'Property' Values
+	response = strings.ReplaceAll(response, `\"`, `"`)
+
+	htmlStr := `    parent.frames["log_frame"].Log("   ==> ` + strings.ReplaceAll(response, "\"", "\\\"") + `");`
+
 	return htmlStr
 }

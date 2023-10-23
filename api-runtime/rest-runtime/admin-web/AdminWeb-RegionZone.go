@@ -189,7 +189,9 @@ func RegionZone(c echo.Context) error {
 	}
 
 	type PageData struct {
-		RegionInfo []*RegionInfo
+		LoggingUrl    template.JS
+		RegionInfo    []*RegionInfo
+		LoggingResult template.JS
 	}
 
 	var regionInfos []*RegionInfo
@@ -214,7 +216,9 @@ func RegionZone(c echo.Context) error {
 		regionInfos = append(regionInfos, rInfo)
 	}
 	data := PageData{
-		RegionInfo: regionInfos,
+		LoggingUrl:    template.JS(genLoggingGETURL2(connConfig, "regionzone")),
+		RegionInfo:    regionInfos,
+		LoggingResult: template.JS(genLoggingResult2(string(resBody[:len(resBody)-1]))),
 	}
 
 	// Parse the HTML template
@@ -309,6 +313,10 @@ const htmlTemplate = `
             }
         });
     }
+</script>
+<script>
+    {{.LoggingUrl}}
+    {{.LoggingResult}}
 </script>
 </head>
 <body>
