@@ -10,85 +10,18 @@ package adminweb
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"html/template"
 
 	cres "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 
-	"encoding/json"
 	"net/http"
 
 	"github.com/labstack/echo/v4"
 )
 
 //====================================== RegionZone
-
-// func makeRegionZoneTRList_html(bgcolor string, height string, fontSize string, infoList []*cres.RegionZoneInfo) string {
-// 	if bgcolor == "" {
-// 		bgcolor = "#FFFFFF"
-// 	}
-// 	if height == "" {
-// 		height = "30"
-// 	}
-// 	if fontSize == "" {
-// 		fontSize = "2"
-// 	}
-
-// 	strTR := fmt.Sprintf(`
-//                 <tr bgcolor="%s" align="center" height="%s">
-//                     <td>
-//                             <font size=%s>$$NUM$$</font>
-//                     </td>
-//                     <td>
-//                             <font size=%s>$$REGIONZONENAME$$</font>
-//                     </td>
-//                     <td align="left">
-//                             <font size=%s>$$VCPUINFO$$</font>
-//                     </td>
-//                     <td>
-//                             <font size=%s>$$MEMINFO$$ MB</font>
-//                     </td>
-//                     <td align="left">
-//                             <font size=%s>$$GPUINFO$$</font>
-//                     </td>
-//                     <td align="left">
-//                             <font size=%s>$$ADDITIONALINFO$$</font>
-//                     </td>
-//                 </tr>
-//                 `, bgcolor, height, fontSize, fontSize, fontSize, fontSize, fontSize, fontSize)
-
-// 	strData := ""
-// 	for i, one := range infoList {
-// 		str := strings.ReplaceAll(strTR, "$$NUM$$", strconv.Itoa(i+1))
-// 		str = strings.ReplaceAll(str, "$$REGIONZONENAME$$", one.Name)
-
-// 		vcpuInfo := "&nbsp;* Count: " + one.VCpu.Count + "<br>"
-// 		vcpuInfo += "&nbsp;* Clock: " + one.VCpu.Clock + "GHz" + "<br>"
-// 		str = strings.ReplaceAll(str, "$$VCPUINFO$$", vcpuInfo)
-
-// 		str = strings.ReplaceAll(str, "$$MEMINFO$$", one.Mem)
-
-// 		gpuInfo := ""
-// 		for _, gpu := range one.Gpu {
-// 			gpuInfo += "&nbsp;* Mfr: " + gpu.Mfr + "<br>"
-// 			gpuInfo += "&nbsp;* Model: " + gpu.Model + "<br>"
-// 			gpuInfo += "&nbsp;* Memory: " + gpu.Mem + " MB" + "<br>"
-// 			gpuInfo += "&nbsp;* Count: " + gpu.Count + "<br><br>"
-// 		}
-// 		str = strings.ReplaceAll(str, "$$GPUINFO$$", gpuInfo)
-
-// 		strKeyList := ""
-// 		for _, kv := range one.KeyValueList {
-// 			strKeyList += kv.Key + ":" + kv.Value + ", "
-// 		}
-// 		strKeyList = strings.TrimRight(strKeyList, ", ")
-// 		str = strings.ReplaceAll(str, "$$ADDITIONALINFO$$", strKeyList)
-
-// 		strData += str
-// 	}
-
-// 	return strData
-// }
 
 func RegionZone(c echo.Context) error {
 	cblog.Info("call RegionZone()")
@@ -122,56 +55,16 @@ func RegionZone(c echo.Context) error {
 		return c.HTML(http.StatusOK, htmlStr)
 	}
 
-	htmlStr := `
-                <html>
-                <head>
-                    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
-			<style>
-			th {
-			  border: 1px solid lightgray;
-			}
-			td {
-			  border: 1px solid lightgray;
-			  border-radius: 4px;
-			}
-			</style>
-                </head>
-
-                <body>
-        <br>
-                    <table border="0" bordercolordark="#F8F8FF" cellpadding="0" cellspacing="1" bgcolor="#FFFFFF"  style="font-size:small;">
-                `
-
-	htmlStr += genLoggingGETURL(connConfig, "regionzone")
-
 	resBody, err := getResourceList_with_Connection_JsonByte(connConfig, "regionzone")
 	if err != nil {
 		cblog.Error(err)
-		htmlStr += genLoggingResult(err.Error())
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
-
-	htmlStr += genLoggingResult(string(resBody[:len(resBody)-1]))
 
 	var info struct {
 		ResultList []*cres.RegionZoneInfo `json:"regionzone"`
 	}
 	json.Unmarshal(resBody, &info)
-
-	// htmlStr += makeRegionZoneTRList_html("", "", "", info.ResultList)
-
-	// htmlStr += `
-	//                 </table>
-	//         <hr>
-	//             </body>
-	//             </html>
-	//     `
-
-	// return c.HTML(http.StatusOK, htmlStr)
-
-	// data := PageData{
-	// 	RegionInfo: info.ResultList,
-	// }
 
 	// struct for HTML template
 	type ZoneInfo struct {
@@ -196,7 +89,6 @@ func RegionZone(c echo.Context) error {
 
 	var regionInfos []*RegionInfo
 	regionZoneInfos := info.ResultList
-
 	for idx, rzInfo := range regionZoneInfos {
 		rInfo := &RegionInfo{
 			RegionName:   rzInfo.Name,
@@ -215,6 +107,7 @@ func RegionZone(c echo.Context) error {
 		}
 		regionInfos = append(regionInfos, rInfo)
 	}
+
 	data := PageData{
 		LoggingUrl:    template.JS(genLoggingGETURL2(connConfig, "regionzone")),
 		RegionInfo:    regionInfos,
@@ -237,6 +130,130 @@ func RegionZone(c echo.Context) error {
 	return c.HTML(http.StatusOK, result.String())
 }
 
+const htmlTemplate = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Sample Table</title>
+<style>
+    table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    th, td {
+        border: 1px solid black;
+        padding: 8px;
+        text-align: center;
+    }
+    th {
+        background-color: #f2f2f2;
+    }
+    .inner-th {
+        background-color: #d9edf7;
+    }
+</style>
+<script>
+    function showAlert(regionName, innerTableId) {
+        var table = document.getElementById(innerTableId);
+        var rows = table.rows;
+
+        for (var i = 1; i < rows.length; i++) {
+            var cells = rows[i].cells;
+            var input = cells[2].getElementsByTagName('input')[0];
+
+            if (input.checked) {
+                var zoneName = cells[0].innerText;
+                alert('Region Name: ' + regionName + '\nZone Name: ' + zoneName);
+                break;
+            }
+        }
+    }
+
+    function searchTable() {
+        var input, filter, table, tr, td;
+        input = document.getElementById("searchInput");
+        filter = input.value.toUpperCase();
+        table = document.getElementsByTagName("table")[0];
+        tr = table.getElementsByTagName("tr");
+
+        for (var i = 1; i < tr.length; i++) {
+            td = tr[i].getElementsByTagName("td")[0];
+            if (td) {
+                var txtValue = td.textContent || td.innerText;
+                if (txtValue.toUpperCase().indexOf(filter) > -1) {
+                    tr[i].style.display = "";
+                } else {
+                    tr[i].style.display = "none";
+                }
+            }
+        }
+    }
+
+    function filterStatus() {
+        var statusFilter = document.getElementById("statusFilter").value;
+        var tables = document.querySelectorAll("table table");
+        tables.forEach(function(table) {
+            var rows = table.rows;
+            for (var i = 1; i < rows.length; i++) {
+                var cells = rows[i].cells;
+                var status = cells[2].innerText;
+                if (statusFilter === "All" || status === statusFilter) {
+                    rows[i].style.display = "";
+                } else {
+                    rows[i].style.display = "none";
+                }
+            }
+        });
+    }
+</script>
+<script>
+    {{.LoggingUrl}}
+    {{.LoggingResult}}
+</script>
+</head>
+<body>
+<input type="text" id="searchInput" onkeyup="searchTable()" placeholder="Search for Region Names..">
+<select id="statusFilter" onchange="filterStatus()">
+    <option value="All">All</option>
+    <option value="Available">Available</option>
+    <option value="Unavailable">Unavailable</option>
+    <option value="NotSupported">NotSupported</option>
+</select>
+<table>
+    <tr>
+        <th>Region Name</th>
+        <th>Display Name</th>
+        <th>Zone List</th>
+    </tr>
+    {{range $region := .RegionInfo}}
+    <tr>
+        <td>{{$region.RegionName}}</td>
+        <td>{{$region.DisplayName}}</td>
+        <td>
+            <table id="{{.InnerTableID}}">
+                <tr>
+                    <th class="inner-th">Zone Name</th>
+                    <th class="inner-th">Display Name</th>
+                    <th class="inner-th">Zone Status</th>
+                </tr>
+                {{range .ZoneInfo}}
+                <tr>
+                    <td>{{.ZoneName}}</td>
+                    <td>{{.DisplayName}}</td>
+                    <td>{{.ZoneStatus}}</td>
+                </tr>
+                {{end}}
+            </table>
+        </td>
+    </tr>
+    {{end}}
+</table>
+</body>
+</html>
+`
+
+/* include Default Zone & Action fields
 const htmlTemplate = `
 <!DOCTYPE html>
 <html lang="en">
@@ -362,5 +379,5 @@ const htmlTemplate = `
 </table>
 </body>
 </html>
-
 `
+*/
