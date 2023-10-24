@@ -16,7 +16,7 @@ type ZoneStatus string
 const (
 	ZoneAvailable   ZoneStatus = "Available"
 	ZoneUnavailable ZoneStatus = "Unavailable"
-	NotSupported    ZoneStatus = "NotSupported"
+	NotSupported    ZoneStatus = "StatusNotSupported"
 )
 
 type RegionZoneInfo struct {

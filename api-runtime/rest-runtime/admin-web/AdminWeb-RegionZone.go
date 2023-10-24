@@ -218,7 +218,7 @@ const htmlTemplate = `
     <option value="All">All</option>
     <option value="Available">Available</option>
     <option value="Unavailable">Unavailable</option>
-    <option value="NotSupported">NotSupported</option>
+    <option value="StatusNotSupported">StatusNotSupported</option>
 </select>
 <table>
     <tr>
@@ -342,7 +342,7 @@ const htmlTemplate = `
     <option value="All">All</option>
     <option value="Available">Available</option>
     <option value="Unavailable">Unavailable</option>
-    <option value="NotSupported">NotSupported</option>
+    <option value="StatusNotSupported">StatusNotSupported</option>
 </select>
 <table>
     <tr>
