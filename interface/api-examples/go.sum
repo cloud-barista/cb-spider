@@ -66,8 +66,8 @@ github.com/chzyer/test v0.0.0-20180213035817-a1ea475d72b1/go.mod h1:Q3SI9o4m/ZMn
 github.com/client9/misspell v0.3.4/go.mod h1:qj6jICC3Q7zFZvVWo7KLAzC3yx5G7kyvSDkc90ppPyw=
 github.com/cloud-barista/cb-log v0.7.0 h1:5ACU99hdSPKLp/rGUu3abumEomS2dVPujfdCOEWQ9j4=
 github.com/cloud-barista/cb-log v0.7.0/go.mod h1:nGgfTFMPwl1MpCO3FBjexUkNdOYA0BNJoyM9Pd0lMms=
-github.com/cloud-barista/cb-spider v0.7.5 h1:eZvWJF3opEgY4eetGTfzsVfR5YsefjSqTtHbbHuBYAI=
-github.com/cloud-barista/cb-spider v0.7.5/go.mod h1:O21sIblTPM0ghpS+MiujBz2F3vrakqgNfuqhcPgHh4I=
+github.com/cloud-barista/cb-spider v0.7.7 h1:GqNBQVZtmR+1FXxjE3HZHjva2pg3jxNiMS56ocu01OU=
+github.com/cloud-barista/cb-spider v0.7.7/go.mod h1:koNDMQ/Ka9vjtzhwa9YuYYddkn5uC213eKt26ynDiUk=
 github.com/cncf/udpa/go v0.0.0-20191209042840-269d4d468f6f/go.mod h1:M8M6+tZqaGXZJjfX53e64911xZQV5JYwmTeXPW+k8Sc=
 github.com/cncf/udpa/go v0.0.0-20200629203442-efcf912fb354/go.mod h1:WmhPx2Nbnhtbo57+VJT5O0JRkEi1Wbu0z5j0R8u5Hbk=
 github.com/cncf/udpa/go v0.0.0-20201120205902-5459f2c99403/go.mod h1:WmhPx2Nbnhtbo57+VJT5O0JRkEi1Wbu0z5j0R8u5Hbk=
