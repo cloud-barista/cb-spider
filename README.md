@@ -65,7 +65,6 @@ If you have any difficulties in using Cloud-Barista, please let us know.
   | IBM VPC       | O          | O          | O          | O          | O          | O          | O          | O          |Coming Soon|
   | OpenStack     | O          | O          | O          | O          | O          | O          | O          | O          | - |
   | Cloudit       | -          | O          | O          | O(💬)      | O          | O          | O          | O          | - |
-  | Docker (PoC)  | -          | O          | -          | -          | -          | -          | O          | -          | - |
 
     💬 특이사항: 
         - VPC: 단일 VPC 생성 제공 (두개 이상 VPC 생성 불가)
