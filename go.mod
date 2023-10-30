@@ -22,7 +22,7 @@ require (
 	github.com/chyeh/pubip v0.0.0-20170203095919-b7e679cf541c
 	github.com/cloud-barista/cb-log v0.7.0
 	github.com/davecgh/go-spew v1.1.1
-	github.com/docker/docker v20.10.24+incompatible
+	github.com/docker/docker v24.0.7+incompatible
 	github.com/docker/go-connections v0.4.0
 	github.com/fsnotify/fsnotify v1.4.9
 	github.com/go-resty/resty/v2 v2.6.0
