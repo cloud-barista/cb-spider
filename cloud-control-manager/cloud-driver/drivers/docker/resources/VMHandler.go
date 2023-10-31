@@ -234,7 +234,7 @@ func (vmHandler *DockerVMHandler) ResumeVM(vmIID irs.IID) (irs.VMStatus, error) 
 func (vmHandler *DockerVMHandler) RebootVM(vmIID irs.IID) (irs.VMStatus, error) {
         cblogger.Info("Docker Cloud Driver: called RebootVM()!")
 
-        err := vmHandler.Client.ContainerRestart(vmHandler.Context, vmIID.SystemId, nil)
+        err := vmHandler.Client.ContainerRestart(vmHandler.Context, vmIID.SystemId, container.StopOptions{})
         if err != nil {
                 cblogger.Error(err)
                 return "", err
@@ -248,7 +248,7 @@ func (vmHandler *DockerVMHandler) RebootVM(vmIID irs.IID) (irs.VMStatus, error) 
 func (vmHandler *DockerVMHandler) TerminateVM(vmIID irs.IID) (irs.VMStatus, error) {
         cblogger.Info("Docker Cloud Driver: called TerminateVM()!")
 
-        err := vmHandler.Client.ContainerStop(vmHandler.Context, vmIID.SystemId, nil)
+        err := vmHandler.Client.ContainerStop(vmHandler.Context, vmIID.SystemId, container.StopOptions{})
         if err != nil {
                 cblogger.Error(err)
                 return "", err
