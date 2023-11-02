@@ -508,7 +508,10 @@ func ApiServer(routes []route) {
 
 	spiderBanner()
 
-	e.Logger.Fatal(e.Start(cr.ServerPort))
+	if err := e.Start(cr.ServerPort); err != nil {
+		cblog.Fatalf("Failed to start the server: %v", err)
+	}
+
 }
 
 // ================ API Info
