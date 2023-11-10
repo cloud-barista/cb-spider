@@ -86,7 +86,8 @@ func (keyPairHandler *OpenStackKeyPairHandler) ListKey() ([]*irs.KeyPairInfo, er
 	hiscallInfo := GetCallLogScheme(keyPairHandler.Client.IdentityEndpoint, call.VMKEYPAIR, KeyPair, "ListKey()")
 	start := call.Start()
 	// 0. Get List Resource
-	pager, err := keypairs.List(keyPairHandler.Client).AllPages()
+	var listOptsBuilder keypairs.ListOptsBuilder
+	pager, err := keypairs.List(keyPairHandler.Client, listOptsBuilder).AllPages()
 	if err != nil {
 		getErr := errors.New(fmt.Sprintf("Failed to List Key err = %s", err.Error()))
 		cblogger.Error(getErr.Error())
@@ -161,7 +162,8 @@ func (keyPairHandler *OpenStackKeyPairHandler) DeleteKey(keyIID irs.IID) (bool, 
 	}
 	start := call.Start()
 	// 2. Delete Resource
-	err = keypairs.Delete(keyPairHandler.Client, keyIID.NameId).ExtractErr()
+	var delOptsBuilder keypairs.DeleteOptsBuilder
+	err = keypairs.Delete(keyPairHandler.Client, keyIID.NameId, delOptsBuilder).ExtractErr()
 	if err != nil {
 		delErr := errors.New(fmt.Sprintf("Failed to Delete Key. err = %s", err.Error()))
 		cblogger.Error(delErr.Error())
@@ -176,23 +178,29 @@ func CheckExistKey(client *gophercloud.ServiceClient, keyIID irs.IID) (bool, err
 	if ok := CheckIIDValidation(keyIID); !ok {
 		return false, errors.New(fmt.Sprintf("invalid IID"))
 	}
+
 	keyName := keyIID.SystemId
 	if keyIID.SystemId == "" {
 		keyName = keyIID.NameId
 	}
-	pager, err := keypairs.List(client).AllPages()
+
+	var listOptsBuilder keypairs.ListOptsBuilder
+	pager, err := keypairs.List(client, listOptsBuilder).AllPages()
 	if err != nil {
 		return false, err
 	}
+
 	keypairList, err := keypairs.ExtractKeyPairs(pager)
 	if err != nil {
 		return false, err
 	}
+
 	for _, keypair := range keypairList {
 		if keypair.Name == keyName {
 			return true, nil
 		}
 	}
+
 	return false, nil
 }
 
@@ -208,7 +216,9 @@ func GetRawKey(client *gophercloud.ServiceClient, keyIID irs.IID) (keypairs.KeyP
 	if keyIID.SystemId == "" {
 		keyName = keyIID.NameId
 	}
-	keyPair, err := keypairs.Get(client, keyName).Extract()
+
+	var getOptsBuilder keypairs.GetOptsBuilder
+	keyPair, err := keypairs.Get(client, keyName, getOptsBuilder).Extract()
 	if err != nil {
 		return keypairs.KeyPair{}, err
 	}
