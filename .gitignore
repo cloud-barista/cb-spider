@@ -23,6 +23,13 @@ cloud-driver-libs/.ssh-gcp/*
 cloud-driver-libs/.ssh-aws/*
 cloud-driver-libs/.ssh-aliyun/*
 cloud-driver-libs/.ssh-tencent/*
+cloud-driver-libs/.ssh-ncp/*
+cloud-driver-libs/.ssh-nhn/*
+cloud-driver-libs/.ssh-ktcloud/*
+cloud-driver-libs/.vpc-ncp/*
+cloud-driver-libs/.vpc-nhn/*
+cloud-driver-libs/.vpc-kt/*
+cloud-driver-libs/.securitygroup-kt/*
 
 vendor/*
 cloud-driver-libs/*.so
@@ -43,18 +50,13 @@ interface/spctl
 .history/
 .vscode/
 
-cloud-control-manager/cloud-driver/drivers/ncp/*
-cloud-control-manager/cloud-driver/drivers/ncp-plugin/*
-
-cloud-control-manager/cloud-driver/drivers/tencent/main/conf/testConfigTencent.yaml
-
 utils/clone-mc-meta-info/vm-image/data/*
 utils/clone-mc-meta-info/vm-image/test/*
 utils/clone-mc-meta-info/vm-image/az-data/*
 
 cloud-control-manager/cloud-driver/drivers/azure/main/conf/config.yaml
-
 cloud-control-manager/cloud-driver/drivers/cloudit/main/conf/config.yaml
 cloud-control-manager/cloud-driver/drivers/ibmcloud-vpc/main/conf/config.yaml
 cloud-control-manager/cloud-driver/drivers/openstack/main/conf/config.yaml
-
+cloud-control-manager/cloud-driver/drivers/tencent/main/conf/testConfigTencent.yaml
+cloud-control-manager/cloud-driver/drivers/ncp/main/conf/config.yaml

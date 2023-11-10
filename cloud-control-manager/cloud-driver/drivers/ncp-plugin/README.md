@@ -1,0 +1,1 @@
+# ncp/ncp-plugin directory

@@ -29,7 +29,7 @@ require (
 	github.com/gogo/protobuf v1.3.2
 	github.com/golang-jwt/jwt/v4 v4.0.0
 	github.com/golang/protobuf v1.5.3
-	github.com/gophercloud/gophercloud v0.18.0
+	github.com/gophercloud/gophercloud v1.3.0
 	github.com/grpc-ecosystem/go-grpc-middleware v1.3.0
 	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0
 	github.com/natefinch/lumberjack v2.0.0+incompatible
@@ -57,7 +57,9 @@ require (
 
 require (
 	github.com/IBM/platform-services-go-sdk v0.30.0
+	github.com/NaverCloudPlatform/ncloud-sdk-go-v2 v1.6.6
 	github.com/go-openapi/strfmt v0.21.3
+	github.com/gophercloud/utils v0.0.0-20231010081019-80377eca5d56
 	github.com/hashicorp/go-version v1.6.0
 	github.com/jeremywohl/flatten v1.0.1
 	github.com/labstack/echo/v4 v4.9.0
@@ -69,6 +71,7 @@ require (
 )
 
 require (
+	github.com/hashicorp/go-uuid v1.0.3 // indirect
 	github.com/jinzhu/inflection v1.0.0 // indirect
 	github.com/jinzhu/now v1.1.5 // indirect
 	github.com/mattn/go-sqlite3 v1.14.17 // indirect
