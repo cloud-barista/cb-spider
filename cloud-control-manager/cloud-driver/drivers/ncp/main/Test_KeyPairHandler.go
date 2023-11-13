@@ -226,18 +226,16 @@ type Config struct {
 	} `yaml:"ncp"`
 }
 
-//환경 설정 파일 읽기
-//환경변수 CBSPIDER_PATH 설정 후 해당 폴더 하위에 /config/config.yaml 파일 생성해야 함.
 func readConfigFile() Config {
-	// Set Environment Value of Project Root Path
-	goPath := os.Getenv("GOPATH")
-	rootPath := goPath + "/src/github.com/cloud-barista/ncp/ncp/main"
-	//rootpath := "D:/Workspace/mcloud-barista-config"
-	// /mnt/d/Workspace/mcloud-barista-config/config/config.yaml
-	cblogger.Debugf("Test Data 설정파일 : [%]", rootPath+"/config/config.yaml")
+	// # Set Environment Value of Project Root Path
+	// goPath := os.Getenv("GOPATH")
+	// rootPath := goPath + "/src/github.com/cloud-barista/ncp/ncp/main"
+	// cblogger.Debugf("Test Config file : [%]", rootPath+"/config/config.yaml")
+	rootPath 	:= os.Getenv("CBSPIDER_ROOT")
+	configPath 	:= rootPath + "/cloud-control-manager/cloud-driver/drivers/ncp/main/config/config.yaml"
+	cblogger.Debugf("Test Config file : [%s]", configPath)
 
-	data, err := os.ReadFile(rootPath + "/config/config.yaml")
-	//data, err := ioutil.ReadFile("D:/Workspace/mcloud-bar-config/config/config.yaml")
+	data, err := os.ReadFile(configPath)
 	if err != nil {
 		panic(err)
 	}
@@ -249,14 +247,8 @@ func readConfigFile() Config {
 	}
 
 	cblogger.Info("Loaded ConfigFile...")
-	//spew.Dump(config)
-	//cblogger.Info(config)
 
-	// NOTE Just for test
-	//cblogger.Info(config.Ncp.NcpAccessKeyID)
-	//cblogger.Info(config.Ncp.NcpSecretKey)
-
-	// NOTE Just for test
+	// Just for test
 	cblogger.Debug(config.Ncp.NcpAccessKeyID, " ", config.Ncp.Region)
 
 	return config

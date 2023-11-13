@@ -210,22 +210,29 @@ type Config struct {
 }
 
 func readConfigFile() Config {
-	// Set Environment Value of Project Root Path
-	// rootPath := os.Getenv("CBSPIDER_ROOT")
-	goPath := os.Getenv("GOPATH")
-	rootPath := goPath + "/src/github.com/cloud-barista/ncp/ncp/main"
+	// # Set Environment Value of Project Root Path
+	// goPath := os.Getenv("GOPATH")
+	// rootPath := goPath + "/src/github.com/cloud-barista/ncp/ncp/main"
+	// cblogger.Debugf("Test Config file : [%]", rootPath+"/config/config.yaml")
+	rootPath 	:= os.Getenv("CBSPIDER_ROOT")
+	configPath 	:= rootPath + "/cloud-control-manager/cloud-driver/drivers/ncp/main/config/config.yaml"
+	cblogger.Debugf("Test Config file : [%s]", configPath)
 
-	cblogger.Info("Config file : " + rootPath + "/config/config.yaml")
-
-	data, err := os.ReadFile(rootPath + "/config/config.yaml")
+	data, err := os.ReadFile(configPath)
 	if err != nil {
-		cblogger.Error(err)
+		panic(err)
 	}
 
 	var config Config
 	err = yaml.Unmarshal(data, &config)
 	if err != nil {
-		cblogger.Error(err)
+		panic(err)
 	}
+
+	cblogger.Info("Loaded ConfigFile...")
+
+	// Just for test
+	cblogger.Debug(config.Ncp.NcpAccessKeyID, " ", config.Ncp.Region)
+
 	return config
 }
