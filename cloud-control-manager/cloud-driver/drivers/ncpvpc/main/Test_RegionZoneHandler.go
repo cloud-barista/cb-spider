@@ -6,13 +6,12 @@
 //
 // This is a Cloud Driver Tester Example.
 //
-// by ETRI, 2020.09.
+// by ETRI, 2023.09.
 
 package main
 
 import (
 	"os"
-	"errors"
 	"fmt"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/sirupsen/logrus"
@@ -22,52 +21,45 @@ import (
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	cblog "github.com/cloud-barista/cb-log"
 
-	// ncpdrv "github.com/cloud-barista/ncp/ncp"  // For local test
-	ncpdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/ncp"
+	// ncpvpcdrv "github.com/cloud-barista/ncpvpc/ncpvpc"  // For local test
+	ncpvpcdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/ncpvpc"
 )
 
 var cblogger *logrus.Logger
 
 func init() {
 	// cblog is a global variable.
-	cblogger = cblog.GetLogger("NCP Resource Test")
+	cblogger = cblog.GetLogger("NCPVPC Resource Test")
 	cblog.SetLevel("info")
 }
 
-func testErr() error {
-	//return awserr.Error("")
-	return errors.New("")
-	// return ncloud.New("504", "찾을 수 없음", nil)
-}
+// Test RegionZone
+func handleRegionZone() {
+	cblogger.Debug("Start RegionZoneHandler Resource Test")
 
-// Test KeyPair
-func handleKeyPair() {
-	cblogger.Debug("Start KeyPair Resource Test")
-
-	ResourceHandler, err := getResourceHandler("KeyPair")
+	ResourceHandler, err := getResourceHandler("RegionZone")
 	if err != nil {
 		panic(err)
 	}
-	//config := readConfigFile()
-	//VmID := config.Ncp.VmID
 
-	keyPairHandler := ResourceHandler.(irs.KeyPairHandler)
+	handler := ResourceHandler.(irs.RegionZoneHandler)
 
 	for {
 		fmt.Println("\n============================================================================================")
-		fmt.Println("[ KeyPair Management Test ]")
-		fmt.Println("1. List KeyPair")
-		fmt.Println("2. Create KeyPair")
-		fmt.Println("3. Get KeyPair")
-		fmt.Println("4. Delete KeyPair")
-		fmt.Println("0. Quit")
+		fmt.Println("[ RegionZone Resource Test ]")
+		fmt.Println("1. ListRegionZone()")
+		fmt.Println("2. GetRegionZone()")
+		fmt.Println("3. ListOrgRegion()")
+		fmt.Println("4. ListOrgZone()")
+		fmt.Println("0. Exit")
 		fmt.Println("\n   Select a number above!! : ")
 		fmt.Println("============================================================================================")
 
-		//keyPairName := config.Ncp.KeyName
-		keyPairName := "NCP-keypair-06"
-		var commandNum int
+		config := readConfigFile()
+		reqRegion := config.Ncp.Region // Region Code Ex) KR, HK, SGN, JPN, DEN, USWN
+		cblogger.Info("config.Ncp.Region : ", reqRegion)
 
+		var commandNum int
 		inputCnt, err := fmt.Scan(&commandNum)
 		if err != nil {
 			panic(err)
@@ -75,78 +67,78 @@ func handleKeyPair() {
 
 		if inputCnt == 1 {
 			switch commandNum {
-			case 0:
-				return
-
 			case 1:
-				result, err := keyPairHandler.ListKey()
+				fmt.Println("Start ListRegionZone() ...")
+				result, err := handler.ListRegionZone()
 				if err != nil {
-					cblogger.Infof("KeyPair list 조회 실패 : ", err)
+					cblogger.Error("RegionZone list 조회 실패 : ", err)
 				} else {
-					cblogger.Info("KeyPair list 조회 결과")
-					//cblogger.Info(result)
+					fmt.Println("\n==================================================================================================")
+					cblogger.Debug("RegionZone list 조회 성공!!")
 					spew.Dump(result)
-
-					cblogger.Infof("=========== KeyPair list 수 : [%d] ================", len(result))
+					cblogger.Debug(result)
+					cblogger.Infof("RegionZone list 개수 : [%d]", len(result))
 				}
-
-				cblogger.Info("\nListKey Test Finished")
+				fmt.Println("\n# ListRegionZone() Test Finished")
 
 			case 2:
-				cblogger.Infof("[%s] KeyPair 생성 테스트", keyPairName)
-				keyPairReqInfo := irs.KeyPairReqInfo{
-					IId: irs.IID{NameId: keyPairName},
-					//Name: keyPairName,
-				}
-				result, err := keyPairHandler.CreateKey(keyPairReqInfo)
+				fmt.Println("Start ListOrgRegion() ...")
+				result, err := handler.GetRegionZone(reqRegion)
 				if err != nil {
-					cblogger.Infof(keyPairName, " KeyPair 생성 실패 : ", err)
+					cblogger.Error("Region(Org) list 정보 조회 실패 : ", err)
 				} else {
-					cblogger.Infof("[%s] KeyPair 생성 결과 : \n[%s]", keyPairName, result)
-					//spew.Dump(result)
+					fmt.Println("\n==================================================================================================")	
+					cblogger.Debug("Region Info 조회 성공!!")
+					spew.Dump(result)
+					cblogger.Debug(result)
 				}
-
-				cblogger.Info("\nCreateKey Test Finished")
+				fmt.Println("\n# GetRegionZone() Test Finished")
 
 			case 3:
-				cblogger.Infof("[%s] KeyPair 조회 테스트", keyPairName)
-				result, err := keyPairHandler.GetKey(irs.IID{NameId: keyPairName})
+				fmt.Println("Start ListOrgRegion() ...")
+				result, err := handler.ListOrgRegion()
 				if err != nil {
-					cblogger.Infof(keyPairName, " KeyPair 조회 실패 : ", err)
+					cblogger.Error("Region(Org) list 정보 조회 실패 : ", err)
 				} else {
-					cblogger.Infof("[%s] KeyPair 조회 결과 : \n[%s]", keyPairName, result)
-					//spew.Dump(result)
+					fmt.Println("\n==================================================================================================")	
+					cblogger.Debug("Region(Org) list 조회 성공!!")
+					spew.Dump(result)
+					cblogger.Debug(result)
 				}
-
-				cblogger.Info("\nGetKey Test Finished")
+				fmt.Println("\n# ListOrgRegion() Test Finished")
 
 			case 4:
-				cblogger.Infof("[%s] KeyPair 삭제 테스트", keyPairName)
-				result, err := keyPairHandler.DeleteKey(irs.IID{NameId: keyPairName})
+				fmt.Println("Start ListOrgZone() ...")
+				result, err := handler.ListOrgZone()
 				if err != nil {
-					cblogger.Infof(keyPairName, " KeyPair 삭제 실패 : ", err)
+					cblogger.Error("Zone(Org) list 조회 실패 : ", err)
 				} else {
-					cblogger.Infof("[%s] KeyPair 삭제 결과 : [%s]", keyPairName, result)
+					fmt.Println("\n==================================================================================================")	
+					cblogger.Debug("Zone(Org) list 조회 성공")
 					spew.Dump(result)
+					cblogger.Debug(result)
 				}
+				fmt.Println("\n# ListOrgZone() Test Finished")
 
-				cblogger.Info("\nDeleteKey Test Finished")
+			case 0:
+				fmt.Println("Exit")
+				return
 			}
 		}
 	}
 }
 
 func main() {
-	cblogger.Info("NCP Resource Test")
+	cblogger.Info("NCPVPC Resource Test")
 
-	handleKeyPair()
+	handleRegionZone()
 }
 
 //handlerType : resources폴더의 xxxHandler.go에서 Handler이전까지의 문자열
 //(예) ImageHandler.go -> "Image"
 func getResourceHandler(handlerType string) (interface{}, error) {
 	var cloudDriver idrv.CloudDriver
-	cloudDriver = new(ncpdrv.NcpDriver)
+	cloudDriver = new(ncpvpcdrv.NcpVpcDriver)
 
 	config := readConfigFile()
 	connectionInfo := idrv.ConnectionInfo{
@@ -173,8 +165,6 @@ func getResourceHandler(handlerType string) (interface{}, error) {
 	var err error
 
 	switch handlerType {
-	case "KeyPair":
-		resourceHandler, err = cloudConnection.CreateKeyPairHandler()
 	case "Image":
 		resourceHandler, err = cloudConnection.CreateImageHandler()
 	case "Security":
@@ -183,8 +173,8 @@ func getResourceHandler(handlerType string) (interface{}, error) {
 		resourceHandler, err = cloudConnection.CreateVPCHandler()
 	case "VM":
 		resourceHandler, err = cloudConnection.CreateVMHandler()
-	case "VMSpec":
-		resourceHandler, err = cloudConnection.CreateVMSpecHandler()
+	case "RegionZone":
+		resourceHandler, err = cloudConnection.CreateRegionZoneHandler()
 	}
 
 	if err != nil {
@@ -223,7 +213,7 @@ type Config struct {
 		SecurityGroupID string `yaml:"security_group_id"`
 
 		PublicIP string `yaml:"public_ip"`
-	} `yaml:"ncp"`
+	} `yaml:"ncpvpc"`
 }
 
 func readConfigFile() Config {
@@ -232,7 +222,7 @@ func readConfigFile() Config {
 	// rootPath := goPath + "/src/github.com/cloud-barista/ncp/ncp/main"
 	// cblogger.Debugf("Test Config file : [%]", rootPath+"/config/config.yaml")
 	rootPath 	:= os.Getenv("CBSPIDER_ROOT")
-	configPath 	:= rootPath + "/cloud-control-manager/cloud-driver/drivers/ncp/main/config/config.yaml"
+	configPath 	:= rootPath + "/cloud-control-manager/cloud-driver/drivers/ncpvpc/main/config/config.yaml"
 	cblogger.Debugf("Test Config file : [%s]", configPath)
 
 	data, err := os.ReadFile(configPath)
@@ -245,8 +235,7 @@ func readConfigFile() Config {
 	if err != nil {
 		panic(err)
 	}
-
-	cblogger.Info("Loaded ConfigFile...")
+	cblogger.Info("ConfigFile Loaded ...")
 
 	// Just for test
 	cblogger.Debug(config.Ncp.NcpAccessKeyID, " ", config.Ncp.Region)

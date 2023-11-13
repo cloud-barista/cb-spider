@@ -12,7 +12,6 @@ package main
 
 import (
 	"os"
-	"errors"
 	"fmt"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/sirupsen/logrus"
@@ -22,50 +21,51 @@ import (
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	cblog "github.com/cloud-barista/cb-log"
 
-	// ncpdrv "github.com/cloud-barista/ncp/ncp"  // For local test
-	ncpdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/ncp"
+	// ncpvpcdrv "github.com/cloud-barista/ncpvpc/ncpvpc"  // For local test
+	ncpvpcdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/ncpvpc"
 )
 
 var cblogger *logrus.Logger
 
 func init() {
 	// cblog is a global variable.
-	cblogger = cblog.GetLogger("NCP Resource Test")
+	cblogger = cblog.GetLogger("NCP VPC Resource Test")
 	cblog.SetLevel("info")
 }
 
-func testErr() error {
-	//return awserr.Error("")
-	return errors.New("")
-	// return ncloud.New("504", "찾을 수 없음", nil)
-}
+// Test VMSpec
+func handleVMSpec() {
+	cblogger.Debug("Start VMSpecHandler Resource Test")
 
-// Test KeyPair
-func handleKeyPair() {
-	cblogger.Debug("Start KeyPair Resource Test")
-
-	ResourceHandler, err := getResourceHandler("KeyPair")
+	ResourceHandler, err := getResourceHandler("VMSpec")
 	if err != nil {
 		panic(err)
 	}
-	//config := readConfigFile()
-	//VmID := config.Ncp.VmID
 
-	keyPairHandler := ResourceHandler.(irs.KeyPairHandler)
+	handler := ResourceHandler.(irs.VMSpecHandler)
 
 	for {
 		fmt.Println("\n============================================================================================")
-		fmt.Println("[ KeyPair Management Test ]")
-		fmt.Println("1. List KeyPair")
-		fmt.Println("2. Create KeyPair")
-		fmt.Println("3. Get KeyPair")
-		fmt.Println("4. Delete KeyPair")
-		fmt.Println("0. Quit")
+		fmt.Println("[ VMSpec Resource Test ]")
+		fmt.Println("1. ListVMSpec()")
+		fmt.Println("2. GetVMSpec()")
+		fmt.Println("3. ListOrgVMSpec()")
+		fmt.Println("4. GetOrgVMSpec()")
+		fmt.Println("0. Exit")
 		fmt.Println("\n   Select a number above!! : ")
 		fmt.Println("============================================================================================")
 
-		//keyPairName := config.Ncp.KeyName
-		keyPairName := "NCP-keypair-06"
+		// reqVMSpec := config.Ncp.VMSpec
+		// reqVMSpec := "SPSVRSTAND000049" // Count: "2", Mem: "2048", Disk: 50G, 해당 Image ID : SPSW0LINUX000029, SPSW0LINUX000031,
+		reqVMSpec := "SVR.VSVR.HICPU.C016.M032.NET.SSD.B050.G002" //When Region is 'KR'. vCPU 16EA, Memory 32GB, [SSD]Disk 50GB", Image ID : SW.VSVR.OS.LNX64.UBNTU.SVR1804.B050
+
+		config := readConfigFile()
+
+		reqRegion := config.Ncp.Region
+
+		cblogger.Info("config.Ncp.Region : ", reqRegion)
+		cblogger.Info("reqVMSpec : ", reqVMSpec)
+
 		var commandNum int
 
 		inputCnt, err := fmt.Scan(&commandNum)
@@ -75,78 +75,82 @@ func handleKeyPair() {
 
 		if inputCnt == 1 {
 			switch commandNum {
-			case 0:
-				return
-
 			case 1:
-				result, err := keyPairHandler.ListKey()
-				if err != nil {
-					cblogger.Infof("KeyPair list 조회 실패 : ", err)
-				} else {
-					cblogger.Info("KeyPair list 조회 결과")
-					//cblogger.Info(result)
-					spew.Dump(result)
+				fmt.Println("Start ListVMSpec() ...")
 
-					cblogger.Infof("=========== KeyPair list 수 : [%d] ================", len(result))
+				result, err := handler.ListVMSpec()
+				if err != nil {
+					cblogger.Error("VMSpec list 조회 실패 : ", err)
+				} else {
+					fmt.Println("\n==================================================================================================================")
+					cblogger.Debug("VMSpec list 조회 성공!!")
+					spew.Dump(result)
+					cblogger.Debug(result)
+					cblogger.Infof("전체 VMSpec list count for [%s] : [%d]", reqRegion, len(result))
 				}
 
-				cblogger.Info("\nListKey Test Finished")
+				fmt.Println("\nListVMSpec() Test Finished")
 
 			case 2:
-				cblogger.Infof("[%s] KeyPair 생성 테스트", keyPairName)
-				keyPairReqInfo := irs.KeyPairReqInfo{
-					IId: irs.IID{NameId: keyPairName},
-					//Name: keyPairName,
-				}
-				result, err := keyPairHandler.CreateKey(keyPairReqInfo)
+				fmt.Println("Start GetVMSpec() ...")
+
+				result, err := handler.GetVMSpec(reqVMSpec)
 				if err != nil {
-					cblogger.Infof(keyPairName, " KeyPair 생성 실패 : ", err)
+					cblogger.Error(reqVMSpec, " VMSpec 정보 조회 실패 : ", err)
 				} else {
-					cblogger.Infof("[%s] KeyPair 생성 결과 : \n[%s]", keyPairName, result)
-					//spew.Dump(result)
+					fmt.Println("\n==================================================================================================================")
+					cblogger.Debugf("VMSpec[%s] 정보 조회 성공!!", reqVMSpec)
+					spew.Dump(result)
+					cblogger.Debug(result)
 				}
 
-				cblogger.Info("\nCreateKey Test Finished")
+				fmt.Println("\nGetVMSpec() Test Finished")
 
 			case 3:
-				cblogger.Infof("[%s] KeyPair 조회 테스트", keyPairName)
-				result, err := keyPairHandler.GetKey(irs.IID{NameId: keyPairName})
+				fmt.Println("Start ListOrgVMSpec() ...")
+				result, err := handler.ListOrgVMSpec()
 				if err != nil {
-					cblogger.Infof(keyPairName, " KeyPair 조회 실패 : ", err)
+					cblogger.Error("VMSpec Org list 조회 실패 : ", err)
 				} else {
-					cblogger.Infof("[%s] KeyPair 조회 결과 : \n[%s]", keyPairName, result)
-					//spew.Dump(result)
+					cblogger.Debug("VMSpec Org list 조회 성공")
+					spew.Dump(result)
+					cblogger.Debug(result)
 				}
 
-				cblogger.Info("\nGetKey Test Finished")
+				fmt.Println("\nListOrgVMSpec() Test Finished")
 
 			case 4:
-				cblogger.Infof("[%s] KeyPair 삭제 테스트", keyPairName)
-				result, err := keyPairHandler.DeleteKey(irs.IID{NameId: keyPairName})
+				fmt.Println("Start GetOrgVMSpec() ...")
+				result, err := handler.GetOrgVMSpec(reqVMSpec)
 				if err != nil {
-					cblogger.Infof(keyPairName, " KeyPair 삭제 실패 : ", err)
+					cblogger.Error(reqVMSpec, " VMSpec Org 정보 조회 실패 : ", err)
 				} else {
-					cblogger.Infof("[%s] KeyPair 삭제 결과 : [%s]", keyPairName, result)
+					cblogger.Debugf("VMSpec[%s] Org 정보 조회 성공", reqVMSpec)
 					spew.Dump(result)
+					cblogger.Debug(result)
 				}
 
-				cblogger.Info("\nDeleteKey Test Finished")
+				fmt.Println("\nGetOrgVMSpec() Test Finished")
+
+			case 0:
+				fmt.Println("Exit")
+				return
 			}
 		}
 	}
 }
 
 func main() {
-	cblogger.Info("NCP Resource Test")
+	cblogger.Info("NCP VPC Resource Test")
 
-	handleKeyPair()
+	handleVMSpec()
 }
 
 //handlerType : resources폴더의 xxxHandler.go에서 Handler이전까지의 문자열
 //(예) ImageHandler.go -> "Image"
 func getResourceHandler(handlerType string) (interface{}, error) {
 	var cloudDriver idrv.CloudDriver
-	cloudDriver = new(ncpdrv.NcpDriver)
+	cloudDriver = new(ncpvpcdrv.NcpVpcDriver)
 
 	config := readConfigFile()
 	connectionInfo := idrv.ConnectionInfo{
@@ -173,8 +177,6 @@ func getResourceHandler(handlerType string) (interface{}, error) {
 	var err error
 
 	switch handlerType {
-	case "KeyPair":
-		resourceHandler, err = cloudConnection.CreateKeyPairHandler()
 	case "Image":
 		resourceHandler, err = cloudConnection.CreateImageHandler()
 	case "Security":
@@ -223,7 +225,7 @@ type Config struct {
 		SecurityGroupID string `yaml:"security_group_id"`
 
 		PublicIP string `yaml:"public_ip"`
-	} `yaml:"ncp"`
+	} `yaml:"ncpvpc"`
 }
 
 func readConfigFile() Config {
@@ -232,7 +234,7 @@ func readConfigFile() Config {
 	// rootPath := goPath + "/src/github.com/cloud-barista/ncp/ncp/main"
 	// cblogger.Debugf("Test Config file : [%]", rootPath+"/config/config.yaml")
 	rootPath 	:= os.Getenv("CBSPIDER_ROOT")
-	configPath 	:= rootPath + "/cloud-control-manager/cloud-driver/drivers/ncp/main/config/config.yaml"
+	configPath 	:= rootPath + "/cloud-control-manager/cloud-driver/drivers/ncpvpc/main/config/config.yaml"
 	cblogger.Debugf("Test Config file : [%s]", configPath)
 
 	data, err := os.ReadFile(configPath)
@@ -245,8 +247,7 @@ func readConfigFile() Config {
 	if err != nil {
 		panic(err)
 	}
-
-	cblogger.Info("Loaded ConfigFile...")
+	cblogger.Info("ConfigFile Loaded ...")
 
 	// Just for test
 	cblogger.Debug(config.Ncp.NcpAccessKeyID, " ", config.Ncp.Region)

@@ -12,60 +12,88 @@ package main
 
 import (
 	"os"
-	"errors"
 	"fmt"
-	"github.com/davecgh/go-spew/spew"
 	"github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v3"
+	"github.com/davecgh/go-spew/spew"
 
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	cblog "github.com/cloud-barista/cb-log"
 
-	// ncpdrv "github.com/cloud-barista/ncp/ncp"  // For local test
-	ncpdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/ncp"
+	// ncpvpcdrv "github.com/cloud-barista/ncpvpc/ncpvpc"  // For local test
+	ncpvpcdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/ncpvpc"
 )
 
 var cblogger *logrus.Logger
 
 func init() {
 	// cblog is a global variable.
-	cblogger = cblog.GetLogger("NCP Resource Test")
+	cblogger = cblog.GetLogger("NCP VPC Resource Test")
 	cblog.SetLevel("info")
 }
 
-func testErr() error {
-	//return awserr.Error("")
-	return errors.New("")
-	// return ncloud.New("504", "찾을 수 없음", nil)
-}
+// Test VMSpec
+func handleVPC() {
+	cblogger.Debug("Start VMSpecHandler Resource Test")
 
-// Test KeyPair
-func handleKeyPair() {
-	cblogger.Debug("Start KeyPair Resource Test")
-
-	ResourceHandler, err := getResourceHandler("KeyPair")
+	ResourceHandler, err := getResourceHandler("VPC")
 	if err != nil {
 		panic(err)
 	}
-	//config := readConfigFile()
-	//VmID := config.Ncp.VmID
 
-	keyPairHandler := ResourceHandler.(irs.KeyPairHandler)
+	handler := ResourceHandler.(irs.VPCHandler)
 
 	for {
 		fmt.Println("\n============================================================================================")
-		fmt.Println("[ KeyPair Management Test ]")
-		fmt.Println("1. List KeyPair")
-		fmt.Println("2. Create KeyPair")
-		fmt.Println("3. Get KeyPair")
-		fmt.Println("4. Delete KeyPair")
-		fmt.Println("0. Quit")
+		fmt.Println("[ VPC Resource Test ]")
+		fmt.Println("1. CreateVPC()")
+		fmt.Println("2. ListVPC()")
+		fmt.Println("3. GetVPC()")
+		fmt.Println("4. AddSubnet()")
+		fmt.Println("5. RemoveSubnet()")
+		fmt.Println("6. DeleteVPC()")
+		fmt.Println("0. Exit")
 		fmt.Println("\n   Select a number above!! : ")
 		fmt.Println("============================================================================================")
+		
+		reqVPCName := "ncp-vpc-01"
+		vpcId := "647"
+		subnetId := "3176"
 
-		//keyPairName := config.Ncp.KeyName
-		keyPairName := "NCP-keypair-06"
+		vpcIId := irs.IID{NameId: reqVPCName, SystemId: vpcId}
+		subnetIId := irs.IID{SystemId: subnetId}
+
+		cblogger.Info("reqVPCName : ", reqVPCName)
+
+		vpcReqInfo := irs.VPCReqInfo {
+			IId: irs.IID {NameId: reqVPCName, SystemId: vpcId},
+			IPv4_CIDR: "10.0.0.0/16",
+			// IPv4_CIDR: "172.16.0.0/24",
+			SubnetInfoList: []irs.SubnetInfo {
+				{
+					IId: irs.IID{
+						NameId: "ncp-subnet-for-vm",
+					},
+					IPv4_CIDR: "10.0.0.0/28",
+					// IPv4_CIDR: "172.16.0.0/28",
+				},
+				// {
+				// 	IId: irs.IID{
+				// 		NameId: "ncp-subnet-04",
+				// 	},
+				// 	IPv4_CIDR: "172.16.1.0/28",
+				// },
+			},
+		}
+
+		subnetInfo := irs.SubnetInfo {
+				IId: irs.IID{
+					NameId: "ncp-subnet-05",
+				},
+				IPv4_CIDR: "172.16.2.0/24",
+			}
+
 		var commandNum int
 
 		inputCnt, err := fmt.Scan(&commandNum)
@@ -75,78 +103,100 @@ func handleKeyPair() {
 
 		if inputCnt == 1 {
 			switch commandNum {
-			case 0:
-				return
-
 			case 1:
-				result, err := keyPairHandler.ListKey()
-				if err != nil {
-					cblogger.Infof("KeyPair list 조회 실패 : ", err)
-				} else {
-					cblogger.Info("KeyPair list 조회 결과")
-					//cblogger.Info(result)
-					spew.Dump(result)
+				fmt.Println("Start CreateVPC() ...")
 
-					cblogger.Infof("=========== KeyPair list 수 : [%d] ================", len(result))
+				vpcInfo, err := handler.CreateVPC(vpcReqInfo)
+				if err != nil {
+					//panic(err)
+					cblogger.Error(err)
+					cblogger.Error("VPC 생성 실패 : ", err)
+				} else {
+					cblogger.Info("VPC 생성 완료!!", vpcInfo)
+					spew.Dump(vpcInfo)
+					cblogger.Debug(vpcInfo)
 				}
 
-				cblogger.Info("\nListKey Test Finished")
+				fmt.Println("\nCreateVPC() Test Finished")
 
 			case 2:
-				cblogger.Infof("[%s] KeyPair 생성 테스트", keyPairName)
-				keyPairReqInfo := irs.KeyPairReqInfo{
-					IId: irs.IID{NameId: keyPairName},
-					//Name: keyPairName,
-				}
-				result, err := keyPairHandler.CreateKey(keyPairReqInfo)
+				fmt.Println("Start ListVPC() ...")
+				result, err := handler.ListVPC()
 				if err != nil {
-					cblogger.Infof(keyPairName, " KeyPair 생성 실패 : ", err)
+					cblogger.Error("VPC list 조회 실패 : ", err)
 				} else {
-					cblogger.Infof("[%s] KeyPair 생성 결과 : \n[%s]", keyPairName, result)
-					//spew.Dump(result)
+					cblogger.Info("VPC list 조회 성공!!")
+					spew.Dump(result)
+					cblogger.Debug(result)
+					cblogger.Infof("전체 list 개수 : [%d]", len(result))
 				}
 
-				cblogger.Info("\nCreateKey Test Finished")
-
+				fmt.Println("\nListVMSpec() Test Finished")
+				
 			case 3:
-				cblogger.Infof("[%s] KeyPair 조회 테스트", keyPairName)
-				result, err := keyPairHandler.GetKey(irs.IID{NameId: keyPairName})
-				if err != nil {
-					cblogger.Infof(keyPairName, " KeyPair 조회 실패 : ", err)
+				fmt.Println("Start GetVPC() ...")
+				if vpcInfo, err := handler.GetVPC(vpcIId); err != nil {
+					cblogger.Error(err)
+					cblogger.Error("VPC 정보 조회 실패 : ", err)
 				} else {
-					cblogger.Infof("[%s] KeyPair 조회 결과 : \n[%s]", keyPairName, result)
-					//spew.Dump(result)
+					cblogger.Info("VPC 정보 조회 성공!!")
+					spew.Dump(vpcInfo)
 				}
+				fmt.Println("\nGetVPC() Test Finished")
 
-				cblogger.Info("\nGetKey Test Finished")
 
 			case 4:
-				cblogger.Infof("[%s] KeyPair 삭제 테스트", keyPairName)
-				result, err := keyPairHandler.DeleteKey(irs.IID{NameId: keyPairName})
-				if err != nil {
-					cblogger.Infof(keyPairName, " KeyPair 삭제 실패 : ", err)
+				fmt.Println("Start AddSubnet() ...")
+				if result, err := handler.AddSubnet(vpcIId, subnetInfo); err != nil {
+					cblogger.Error(err)
+					cblogger.Error("Subnet 추가 실패 : ", err)
 				} else {
-					cblogger.Infof("[%s] KeyPair 삭제 결과 : [%s]", keyPairName, result)
+					cblogger.Info("Subnet 추가 성공!!")
 					spew.Dump(result)
 				}
+				fmt.Println("\nAddSubnet() Test Finished")
 
-				cblogger.Info("\nDeleteKey Test Finished")
+			case 5:
+				fmt.Println("Start RemoveSubnet() ...")
+				if result, err := handler.RemoveSubnet(vpcIId, subnetIId); err != nil {
+					cblogger.Error(err)
+					cblogger.Error("Subnet 제거 실패 : ", err)
+				} else {
+					cblogger.Info("Subnet 제거 성공!!")
+					spew.Dump(result)
+				}
+				fmt.Println("\nRemoveSubnet() Test Finished")
+
+			case 6:
+				fmt.Println("Start DeleteVPC() ...")
+				if result, err := handler.DeleteVPC(vpcIId); err != nil {
+					cblogger.Error(err)
+					cblogger.Error("VPC 삭제 실패 : ", err)
+				} else {
+					cblogger.Info("VPC 삭제 성공!!")
+					spew.Dump(result)
+				}
+				fmt.Println("\nGetVPC() Test Finished")
+
+			case 0:
+				fmt.Println("Exit")
+				return
 			}
 		}
 	}
 }
 
 func main() {
-	cblogger.Info("NCP Resource Test")
+	cblogger.Info("NCP VPC Resource Test")
 
-	handleKeyPair()
+	handleVPC()
 }
 
 //handlerType : resources폴더의 xxxHandler.go에서 Handler이전까지의 문자열
 //(예) ImageHandler.go -> "Image"
 func getResourceHandler(handlerType string) (interface{}, error) {
 	var cloudDriver idrv.CloudDriver
-	cloudDriver = new(ncpdrv.NcpDriver)
+	cloudDriver = new(ncpvpcdrv.NcpVpcDriver)
 
 	config := readConfigFile()
 	connectionInfo := idrv.ConnectionInfo{
@@ -173,8 +223,6 @@ func getResourceHandler(handlerType string) (interface{}, error) {
 	var err error
 
 	switch handlerType {
-	case "KeyPair":
-		resourceHandler, err = cloudConnection.CreateKeyPairHandler()
 	case "Image":
 		resourceHandler, err = cloudConnection.CreateImageHandler()
 	case "Security":
@@ -185,6 +233,8 @@ func getResourceHandler(handlerType string) (interface{}, error) {
 		resourceHandler, err = cloudConnection.CreateVMHandler()
 	case "VMSpec":
 		resourceHandler, err = cloudConnection.CreateVMSpecHandler()
+	case "VPC":
+		resourceHandler, err = cloudConnection.CreateVPCHandler()
 	}
 
 	if err != nil {
@@ -223,7 +273,7 @@ type Config struct {
 		SecurityGroupID string `yaml:"security_group_id"`
 
 		PublicIP string `yaml:"public_ip"`
-	} `yaml:"ncp"`
+	} `yaml:"ncpvpc"`
 }
 
 func readConfigFile() Config {
@@ -232,7 +282,7 @@ func readConfigFile() Config {
 	// rootPath := goPath + "/src/github.com/cloud-barista/ncp/ncp/main"
 	// cblogger.Debugf("Test Config file : [%]", rootPath+"/config/config.yaml")
 	rootPath 	:= os.Getenv("CBSPIDER_ROOT")
-	configPath 	:= rootPath + "/cloud-control-manager/cloud-driver/drivers/ncp/main/config/config.yaml"
+	configPath 	:= rootPath + "/cloud-control-manager/cloud-driver/drivers/ncpvpc/main/config/config.yaml"
 	cblogger.Debugf("Test Config file : [%s]", configPath)
 
 	data, err := os.ReadFile(configPath)
@@ -245,8 +295,7 @@ func readConfigFile() Config {
 	if err != nil {
 		panic(err)
 	}
-
-	cblogger.Info("Loaded ConfigFile...")
+	cblogger.Info("ConfigFile Loaded ...")
 
 	// Just for test
 	cblogger.Debug(config.Ncp.NcpAccessKeyID, " ", config.Ncp.Region)

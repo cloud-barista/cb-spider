@@ -15,6 +15,9 @@
 
 *.swp
 *.pid
+*_bak
+*_old
+*-old
 
 .DS_Store
 
@@ -59,4 +62,5 @@ cloud-control-manager/cloud-driver/drivers/cloudit/main/conf/config.yaml
 cloud-control-manager/cloud-driver/drivers/ibmcloud-vpc/main/conf/config.yaml
 cloud-control-manager/cloud-driver/drivers/openstack/main/conf/config.yaml
 cloud-control-manager/cloud-driver/drivers/tencent/main/conf/testConfigTencent.yaml
-cloud-control-manager/cloud-driver/drivers/ncp/main/conf/config.yaml
+cloud-control-manager/cloud-driver/drivers/ncp/main/config/config.yaml
+cloud-control-manager/cloud-driver/drivers/ncpvpc/main/config/config.yaml
