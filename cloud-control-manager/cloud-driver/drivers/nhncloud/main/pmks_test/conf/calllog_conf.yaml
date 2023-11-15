@@ -1,0 +1,18 @@
+#### Config for Call-Log Lib. ####
+
+calllog:
+  ## true | false
+  loopcheck: false # This temp method for development is busy wait. cf) calllogger.go:levelSetupLoop().
+
+  ## info | error  // The error is like switching off the call-log.
+  loglevel: info # If loopcheck is true, You can set this online.
+
+  ## true | false  // Now false is reserved for the future.
+  logfile: true
+
+## Config for File Output ##
+logfileinfo:
+  filename: $CBSPIDER_ROOT/log/calllog/calllogs.log
+  maxsize: 20 # megabytes
+  maxbackups: 100
+  maxage: 365 # days

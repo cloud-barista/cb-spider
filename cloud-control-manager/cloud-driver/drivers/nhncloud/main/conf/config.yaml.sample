@@ -1,0 +1,24 @@
+## Config for NHN Cloud ##
+nhncloud:
+  identity_endpoint: https://api-identity.infrastructure.cloud.toast.com
+  nhn_username: ex) ~~~@~~~.com
+  api_password: 
+    # API 비밀번호 값 입력
+  domain_name: ex) default
+  tenant_id: 
+    # => NHN > Instance > 관리 > API 엔드포인트 설정 > TenantID를 입력해야함. (NHNCloudDriver.go의 각 client 참고)
+
+  region: KR1
+  zone: kr-pub-a
+  # zone: kr-pub-b
+
+  # region: KR2
+  # zone: kr2-pub-a
+  # zone: kr2-pub-b
+  
+  # region: JP1
+  # zone: jp-pub-a
+  # zone: jp-pub-b
+
+  ##### (Note) NHN Cloud only provides detailed Zone information with the API, but unlike other CSPs, the API Endpoint is different for each Region, so when calling with API, only the zone information of the Region comes out without the Region information.
+  
