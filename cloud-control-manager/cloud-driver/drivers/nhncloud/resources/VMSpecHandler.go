@@ -41,12 +41,12 @@ func (vmSpecHandler *NhnCloudVMSpecHandler) ListVMSpec() ([]*irs.VMSpecInfo, err
 	start := call.Start()
 	allPages, err := flavors.ListDetail(vmSpecHandler.VMClient, listOpts).AllPages()
 	if err != nil {
-		rtnErr := logAndReturnError(callLogInfo, "Failed to Get Flavor List : ", err)
+		rtnErr := logAndReturnError(callLogInfo, "Failed to Get NHN Flavor List Pages : ", err)
 		return nil, rtnErr
 	}
 	specList, err := flavors.ExtractFlavors(allPages)
 	if err != nil {
-		rtnErr := logAndReturnError(callLogInfo, "Failed to Get Extract Flavors : ", err)
+		rtnErr := logAndReturnError(callLogInfo, "Failed to Extract NHN Flavor List : ", err)
 		return nil, rtnErr
 	}
 	LoggingInfo(callLogInfo, start)
@@ -64,7 +64,7 @@ func (vmSpecHandler *NhnCloudVMSpecHandler) GetVMSpec(specName string) (irs.VMSp
 	callLogInfo := GetCallLogScheme(vmSpecHandler.RegionInfo.Region, call.VMSPEC, specName, "GetVMSpec()")
 
 	if strings.EqualFold(specName, "") {
-		rtnErr := logAndReturnError(callLogInfo, "Invalid vmSpec Name!!", nil)
+		rtnErr := logAndReturnError(callLogInfo, "Invalid vmSpec Name!!", "")
 		return irs.VMSpecInfo{}, rtnErr
 	}
 
@@ -93,12 +93,12 @@ func (vmSpecHandler *NhnCloudVMSpecHandler) ListOrgVMSpec() (string, error) {
 	start := call.Start()
 	allPages, err := flavors.ListDetail(vmSpecHandler.VMClient, flavors.ListOpts{}).AllPages()
 	if err != nil {
-		rtnErr := logAndReturnError(callLogInfo, "Failed to Get flavor List : ", err)
+		rtnErr := logAndReturnError(callLogInfo, "Failed to Get NHN Flavor List Pages : ", err)
 		return "", rtnErr
 	}
 	flavorList, err := flavors.ExtractFlavors(allPages)
 	if err != nil {
-		rtnErr := logAndReturnError(callLogInfo, "Failed to Get Extract Flavors : ", err)
+		rtnErr := logAndReturnError(callLogInfo, "Failed to Extract Flavor List : ", err)
 		return "", rtnErr
 	}
 	LoggingInfo(callLogInfo, start)
@@ -121,7 +121,7 @@ func (vmSpecHandler *NhnCloudVMSpecHandler) GetOrgVMSpec(specName string) (strin
 	callLogInfo := GetCallLogScheme(vmSpecHandler.RegionInfo.Region, call.VMSPEC, specName, "GetOrgVMSpec()")
 
 	if strings.EqualFold(specName, "") {
-		rtnErr := logAndReturnError(callLogInfo, "Invalid vmSpec Name!!", nil)
+		rtnErr := logAndReturnError(callLogInfo, "Invalid vmSpec Name!!", "")
 		return "", rtnErr
 	}
 
@@ -168,7 +168,7 @@ func (vmSpecHandler *NhnCloudVMSpecHandler) MappingVMSpecInfo(vmSpec flavors.Fla
 		},
 	}
 
-	if strconv.Itoa(vmSpec.Disk) == "0" {
+	if strings.EqualFold(strconv.Itoa(vmSpec.Disk), "0") {
 		keyValue := irs.KeyValue {
 			Key : "Notice!!",
 			Value : "Specify 'RootDiskType' and 'RootDiskSize' when VM Creation to Boot from the Attached Volume!!",
@@ -181,20 +181,20 @@ func (vmSpecHandler *NhnCloudVMSpecHandler) MappingVMSpecInfo(vmSpec flavors.Fla
 func (vmSpecHandler *NhnCloudVMSpecHandler) getIDFromName(specName string) (string, error) {
 	cblogger.Info("NHN Cloud Cloud Driver: called getIDFromName()!")
 
-	var flavorNameList []flavors.Flavor
-
 	allPages, err := flavors.ListDetail(vmSpecHandler.VMClient, flavors.ListOpts{}).AllPages()
 	if err != nil {
-		newErr := fmt.Errorf("Failed to Get flavors.List : [%v]", err)
+		newErr := fmt.Errorf("Failed to Get NHN Flavor List Pages : [%v]", err)
 		cblogger.Error(newErr.Error())
 		return "", newErr
 	}
 	flavorList, err := flavors.ExtractFlavors(allPages)
 	if err != nil {
-		newErr := fmt.Errorf("Failed to Extract Flavor List : [%v]", err)
+		newErr := fmt.Errorf("Failed to Extract NHN Flavor List : [%v]", err)
 		cblogger.Error(newErr.Error())
 		return "", newErr
 	}
+
+	var flavorNameList []flavors.Flavor
 	for _, flavor := range flavorList {
 		if strings.EqualFold(flavor.Name, specName) {
 			flavorNameList = append(flavorNameList, flavor)
