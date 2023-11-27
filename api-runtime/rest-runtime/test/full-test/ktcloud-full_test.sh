@@ -62,12 +62,9 @@ echo "####################################################################"
 
 sleep 1 
 echo "## 2. SecurityGroup: Create"
-curl -sX POST http://localhost:1024/spider/securitygroup -H 'Content-Type: application/json' -d '{ "ConnectionName": "'${CONN_CONFIG}'", "ReqInfo": { "Name": "ktcloud-sg-01", "VPCName": "ktcloud-vpc-01", "SecurityRules": [ {"FromPort": "22", "ToPort" : "22", "IPProtocol" : "tcp", "Direction" : "inbound", "CIDR": "0.0.0.0/0"} ] } }' |json_pp
+### Caution!!) Security Rule에서 겹치지 않도록 주의 필요!! (KT Cloud driver에서는...)
 
-# Or
-## 위와 Security Rule 겹치지 않도록 주의 필요!! (KT Cloud driver에서는...)
-
-curl -sX POST http://localhost:1024/spider/securitygroup -H 'Content-Type: application/json' -d '{ "ConnectionName": "'${CONN_CONFIG}'", "ReqInfo": { "Name": "ktcloud-sg-02", "VPCName": "ktcloud-vpc-01", "SecurityRules": [ {"FromPort": "1", "ToPort" : "65535", "IPProtocol" : "tcp", "Direction" : "inbound", "CIDR": "0.0.0.0/0"}, {"FromPort": "5555", "ToPort" : "5555", "IPProtocol" : "udp", "Direction" : "inbound", "CIDR": "0.0.0.0/0"}, {"FromPort": "-1", "ToPort" : "-1", "IPProtocol" : "icmp", "Direction" : "inbound", "CIDR": "0.0.0.0/0"} ] } }' |json_pp
+curl -sX POST http://localhost:1024/spider/securitygroup -H 'Content-Type: application/json' -d '{ "ConnectionName": "'${CONN_CONFIG}'", "ReqInfo": { "Name": "ktcloud-sg-01", "VPCName": "ktcloud-vpc-01", "SecurityRules": [ {"FromPort": "1", "ToPort" : "65535", "IPProtocol" : "tcp", "Direction" : "inbound", "CIDR": "0.0.0.0/0"}, {"FromPort": "5555", "ToPort" : "5555", "IPProtocol" : "udp", "Direction" : "inbound", "CIDR": "0.0.0.0/0"}, {"FromPort": "-1", "ToPort" : "-1", "IPProtocol" : "icmp", "Direction" : "inbound", "CIDR": "0.0.0.0/0"} ] } }' |json_pp
 
 sleep 5 
 echo "## 2. SecurityGroup: List"
@@ -103,7 +100,7 @@ echo "####################################################################"
 
 sleep 1
 echo "## 4. VM: StartVM"
-curl -sX POST http://localhost:1024/spider/vm -H 'Content-Type: application/json' -d '{ "ConnectionName": "'${CONN_CONFIG}'", "ReqInfo": { "Name": "ktcloud-vm-01", "ImageName": "'${IMAGE_NAME}'", "VPCName": "ktcloud-vpc-01", "SubnetName": "ktcloud-subnet-01", "SecurityGroupNames": [ "ktcloud-sg-02" ], "VMSpecName": "'${SPEC_NAME}'", "KeyPairName": "ktcloud-key-01"} }' |json_pp
+curl -sX POST http://localhost:1024/spider/vm -H 'Content-Type: application/json' -d '{ "ConnectionName": "'${CONN_CONFIG}'", "ReqInfo": { "Name": "ktcloud-vm-01", "ImageName": "'${IMAGE_NAME}'", "VPCName": "ktcloud-vpc-01", "SubnetName": "ktcloud-subnet-01", "SecurityGroupNames": [ "ktcloud-sg-01" ], "VMSpecName": "'${SPEC_NAME}'", "KeyPairName": "ktcloud-key-01"} }' |json_pp
 
 echo "============== sleep 50sec after start VM"
 sleep 50 
@@ -146,16 +143,12 @@ sleep 70
 echo "#-----------------------------"
 
 echo "####################################################################"
-echo "####################################################################"
-echo "####################################################################"
-
-echo "####################################################################"
 echo "## 4. VM: Terminate(Delete) "
 echo "####################################################################"
 curl -sX DELETE http://localhost:1024/spider/vm/ktcloud-vm-01 -H 'Content-Type: application/json' -d '{ "ConnectionName": "'${CONN_CONFIG}'"}' |json_pp
 
-echo "============== sleep 40sec after terminate VM"
-sleep 40
+echo "============== sleep 60sec after terminate VM"
+sleep 60
 
 echo "####################################################################"
 echo "## 3. KeyPair: Delete"
@@ -169,15 +162,11 @@ echo "## 2. SecurityGroup: Delete"
 echo "####################################################################"
 curl -sX DELETE http://localhost:1024/spider/securitygroup/ktcloud-sg-01 -H 'Content-Type: application/json' -d '{ "ConnectionName": "'${CONN_CONFIG}'"}' |json_pp
 
-echo "####################################################################"
-curl -sX DELETE http://localhost:1024/spider/securitygroup/ktcloud-sg-02 -H 'Content-Type: application/json' -d '{ "ConnectionName": "'${CONN_CONFIG}'"}' |json_pp
-
-
 sleep 5
 
 echo "####################################################################"
 echo "## 1. VPC: Delete"
 echo "####################################################################"
-curl -sX DELETE http://localhost:1024/spider/vpc/ktcloud-vpc-02 -H 'Content-Type: application/json' -d '{ "ConnectionName": "'${CONN_CONFIG}'"}' |json_pp
+curl -sX DELETE http://localhost:1024/spider/vpc/ktcloud-vpc-01 -H 'Content-Type: application/json' -d '{ "ConnectionName": "'${CONN_CONFIG}'"}' |json_pp
 
 echo "#### Full Test Process - Finished ###"
