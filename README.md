@@ -55,23 +55,34 @@ If you have any difficulties in using Cloud-Barista, please let us know.
 
 #### 3. 제공 자원
 
-  | Provider | Region/Zone<br>Info | Image<br>Info | VMSpec<br>Info| VPC<br>Subnet | Security<br>Group | VM KeyPair| VM   | NLB/Disk<br>MyImage | managed-K8S |
+  | Provider | Region/Zone<br>Info | Image<br>Info | VMSpec<br>Info| VPC<br>Subnet | Security<br>Group | VM KeyPair| VM   | NLB/Disk/<br>MyImage | managed-K8S |
   |:-------------:|:-------------:|:-------------:|:-------------:|:-------------:|:-------------:|:-------------:|:-------------:|:-------------:|:-------------:|
-  | AWS           | O          | O          | O          | O          | O          | O          | O          | O          |Coming Soon|
-  | Azure         | O          | O          | O          | O          | O          | O          | O          | O          | O          |
-  | GCP           | O          | O          | O          | O          | O          | O          | O          | O          |Coming Soon|
-  | Alibaba       | O          | O          | O          | O          | O          | O          | O          | O          | O          |
-  | Tencent       | O          | O          | O          | O          | O          | O          | O          | O          | O          |
-  | IBM VPC       | O          | O          | O          | O          | O          | O          | O          | O          |Coming Soon|
-  | OpenStack     | O          | O          | O          | O          | O          | O          | O          | O          | - |
-  | Cloudit       | -          | O          | O          | O(💬)      | O          | O          | O          | O          | - |
+  | AWS           | O             | O            | O               | O            | O             | O             | O               | O          |Coming Soon|
+  | Azure         | O             | O            | O               | O            | O             | O             | O               | O          | O          |
+  | GCP           | O             | O            | O               | O            | O             | O             | O               | O          |Coming Soon|
+  | Alibaba       | O             | O            | O               | O            | O             | O             | O               | O          | O          |
+  | Tencent       | O             | O            | O               | O            | O             | O             | O               | O          | O          |
+  | IBM VPC       | O             | O            | O               | O            | O             | O             | O               | O          |Coming Soon|
+  | OpenStack     | O             | O            | O               | O            | O             | O             | O               | O          | - |
+  | NCP Classic   | O             | O            | O               | O (Type-I)   | O             | O             | O               | O          | - |
+  | NCP VPC       | O             | O            | O               | O            | O             | O             | O               | O          | - |
+  | NHN           | O             | O            | O               | O (Type-II)  | O             | O             | O               | O          | - |
+  | KT Classic    | O             | O            | O               | O (Type-I)   | O             | O             | O               | Plan       | - |
+  | KT VPC        | O             | O            | O               | O (Type-III) | O             | O             | WIP             | Plan       | - |
+  
 
-    💬 특이사항: 
-        - VPC: 단일 VPC 생성 제공 (두개 이상 VPC 생성 불가)
-          - VPC CIDR: 제공하지 않음(설정 무의미)
-        - Subnet: 단일 VPC에 제한된 CIDR 대역의 Subnet 추가/삭제 가능
-          - Subnet CIDR 가능 대역: 10.0.8.0/22, 10.0.12.0/22, 10.0.16.0/22, ... 등
-            - 이미 사용 중인 CIDR 요청시 오류 메시지에 사용 가능한 CIDR 목록 반환
+    ※ VPC 특이사항(세부 내용: 각 드라이버 Readme 참고)
+        ◉ Type-I: VPC/Subnet Emulation
+          - CSP: VPC 개념 제공하지 않음
+          - CB-Spider: API 추상화를 위한 단일 VPC/Subnet 생성 제공 (두개 이상 VPC/Subnet 생성 불가)
+          - CIDR: 제공하지 않음(설정 무의미)
+        ◉ Type-II: default VPC/Subnet 활용
+          - CSP: 생성 제공 없이 고정된 default VPC 및 Subnet 1개만 제공
+          - CB-Spider: API 추상화를 위한 단일 VPC/Subnet 생성만 제공 (이름 등록 수준, 두개 이상 VPC 생성 불가)
+        ◉ Type-III: default VPC 활용(Subnet은 제공)
+          - CSP: 생성 제공 없이 고정된 default VPC 1개만 제공
+          - CB-Spider: API 추상화를 위한 단일 VPC 생성만 제공 (이름 등록 수준, 두개 이상 VPC 생성 불가)
+
 
 #### 4. VM 계정
 - Ubuntu, Debian VM User: cb-user
