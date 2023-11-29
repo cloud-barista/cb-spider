@@ -79,7 +79,7 @@ If you have any difficulties in using Cloud-Barista, please let us know.
         ◉ Type-II: default VPC/Subnet 활용
           - CSP: 생성 제공 없이 고정된 default VPC 및 Subnet 1개만 제공
           - CB-Spider: API 추상화를 위한 단일 VPC/Subnet 생성만 제공 (이름 등록 수준, 두개 이상 VPC 생성 불가)
-        ◉ Type-III: default VPC 활용(Subnet은 제공)
+        ◉ Type-III: default VPC 활용(Subnet은 정상 제공)
           - CSP: 생성 제공 없이 고정된 default VPC 1개만 제공
           - CB-Spider: API 추상화를 위한 단일 VPC 생성만 제공 (이름 등록 수준, 두개 이상 VPC 생성 불가)
 
