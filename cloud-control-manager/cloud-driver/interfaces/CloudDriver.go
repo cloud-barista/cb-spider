@@ -28,6 +28,7 @@ type DriverCapabilityInfo struct {
 	DiskHandler       bool // support: true, do not support: false
 	MyImageHandler    bool // support: true, do not support: false
 	RegionZoneHandler bool // support: true, do not support: false
+	PriceInfoHandler  bool // support: true, do not support: false
 
 	ClusterHandler    bool // support: true, do not support: false
 	FIXED_SUBNET_CIDR bool // support: true, do not support: false
