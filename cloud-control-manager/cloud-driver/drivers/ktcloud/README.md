@@ -71,19 +71,30 @@ $GOPATH/src/github.com/cloud-barista/ktcloud/ktcloud/main/
 <p><br>
 
 #### # 참고 사항
+​	O KT Cloud Classic 버전(G1/G2) CSP 인프라 서비스는 물리적 네트워크 기반으로 운영되므로, KT에서 VPC/Subnet 생성 등의 제어 기능 및 관련 API를 지원하지 않음.
+   - 따라서, 본 driver를 통해 VPC 및 Subnet 관련 제어가 실행될때, VPC 및 Subnet 정보는 driver 자체에서 임의적으로 local에서 JSON 파일 형태로 관리됨.(VPC 및 Subnet 생성시 어떤 Name이든 가능)
+<p><br>
+
+​	O  KT Cloud Classic 인프라 서비스는 VPC 및 Subnet 제어 기능을 제공하지 않으므로, 본 driver에서 지원하는 VPC와 Subnet 제어 기능은 CB-Spider common interface를 만족하기 위해 제공하는 임의의 VPC 및 Subnet을 위한 제어 기능임.
+   - KT Cloud Classic 서비스 기반으로 VM 생성시 적용되는 private IP의 IPv4_CIDR은 KT Cloud Zone마다 다른 대역을 지원함.
+<p><br>
 
 ​	O VM 생성을 위한 VMImage ID, VMSpec ID 결정 관련
    - 해당 zone에서 지원하는 VM Image(KT Cloud의 Template) 목록중 사용하고자 하는 운영체제(OS)에 대한 Image ID 값을 찾은 뒤, VM Spec 목록에서 추가 정보로 제공하는 'SupportingImage(Template)ID'에서 그 Image ID와 같은 VM Spec을 찾아 해당 Image ID를 지원하는 VMSpec ID를 사용해야함.
    - 위와 같이 해당 VMImage를 지원하는 VMSpec ID를 사용해야하는데, 그렇지 않은 경우 KT Cloud에서는 error message로 "general error"를 return함.
 <p><br>
 
-​	O Security Group 설정시, inbound rule만 지원
-   - 본 드라이버를 통해 KT Cloud에서 실제 적용시 public IP 단위로 firewall rule이 적용되는데, outbound rule은 지원하지 않으므로 outbound rule을 설정해도 적용되지 않음.
+​	O Security Group 설정시 주의해야할 사항으로, 본 드라이버는 inbound rule만 지원하고, protocol별 rule이 중복되지 않아야함.
+   - KT Cloud Classic(G1/G2) 인프라 서비스는 port forwarding rule, firewall rule 적용시 inbound rule만 지원함.
+   - Security Group을 생성하고 VM 생성시 본 드라이버 내에서 그 Security Group의 rule을 VM에 매핑된 public IP 기준으로 port forwarding rule, firewall rule이 적용됨.
+   - 이때 KT Cloud Classic(G1/G2)에서 inbound rule만 지원하므로, Security Group에 outbound rule을 설정해도 inbound rule만 적용됨.
+   - 추가로 주의해야할 사항으로, 본 드라이버로 Security Group 설정시 protocol별 rule이 중복되지 않아야함.
+     - 예를들어, 현재 버전의 드라이버를 기준으로, VM 생성 후 드라이버 내부적으로 Security Group 적용시에 TCP 22번 port를 open하는 rule을 적용하고, TCP 모든 port를 open하는 rule을 적용할 수 없음.
 <p><br>
 
 ​	O Disk 추가 볼륨 생성 방법
    - VM Spec 조회시, Spec 이름의 맨 뒤에 붙은 disk 크기가 기본(Root) disk volume과 추가 volume을 합한 크기임.
-      - 예) 97359d1d-a7b1-49d9-b435-14608543f00b#097b63d7-e725-4db7-b4dd-a893b0c76cb0_disk100GB
+      - 본 드라이버를 통해 조회되는 VM Spec 예) 97359d1d-a7b1-49d9-b435-14608543f00b#097b63d7-e725-4db7-b4dd-a893b0c76cb0_disk100GB
       - 위의 예의 경우, Linux 계열에서는 기본 volume 20GB에 80GB의 추가 볼륨이 생성되어 총 100GB가 됨.
    - VM 생성시 원하는 총 disk 크기에 따라 Spec을 결정해서 입력하면됨.
 <p><br>
