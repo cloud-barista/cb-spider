@@ -118,3 +118,7 @@ func (cloudConn *ClouditCloudConnection) CreateMyImageHandler() (irs.MyImageHand
 func (cloudConn *ClouditCloudConnection) CreateAnyCallHandler() (irs.AnyCallHandler, error) {
 	return nil, errors.New("Cloudit Driver: not implemented")
 }
+
+func (*ClouditCloudConnection) CreatePriceInfoHandler() (irs.PriceInfoHandler, error) {
+	return nil, errors.New("Alibaba Driver: not implemented")
+}

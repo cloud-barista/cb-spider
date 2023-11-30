@@ -157,3 +157,7 @@ func (AlibabaCloudConnection) Close() error {
 func (cloudConn *AlibabaCloudConnection) CreateAnyCallHandler() (irs.AnyCallHandler, error) {
 	return nil, errors.New("Alibaba Driver: not implemented")
 }
+
+func (*AlibabaCloudConnection) CreatePriceInfoHandler() (irs.PriceInfoHandler, error) {
+	return nil, errors.New("Alibaba Driver: not implemented")
+}

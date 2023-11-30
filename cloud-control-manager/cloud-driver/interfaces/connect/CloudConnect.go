@@ -34,6 +34,8 @@ type CloudConnection interface {
 
 	CreateRegionZoneHandler() (irs.RegionZoneHandler, error)
 
+	CreatePriceInfoHandler() (irs.PriceInfoHandler, error)
+
 	IsConnected() (bool, error)
 	Close() error
 }

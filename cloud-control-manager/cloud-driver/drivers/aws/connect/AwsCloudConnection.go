@@ -11,6 +11,8 @@
 package connect
 
 import (
+	"errors"
+
 	cblog "github.com/cloud-barista/cb-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 
@@ -167,4 +169,8 @@ func (cloudConn *AwsCloudConnection) CreateAnyCallHandler() (irs.AnyCallHandler,
 func (cloudConn *AwsCloudConnection) CreateRegionZoneHandler() (irs.RegionZoneHandler, error) {
 	handler := ars.AwsRegionZoneHandler{cloudConn.Region, cloudConn.RegionZoneClient}
 	return &handler, nil
+}
+
+func (*AwsCloudConnection) CreatePriceInfoHandler() (irs.PriceInfoHandler, error) {
+	return nil, errors.New("Alibaba Driver: not implemented")
 }

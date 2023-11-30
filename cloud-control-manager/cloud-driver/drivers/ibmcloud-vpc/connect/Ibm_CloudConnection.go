@@ -3,6 +3,7 @@ package connect
 import (
 	"context"
 	"errors"
+
 	"github.com/IBM/platform-services-go-sdk/globaltaggingv1"
 	vpcv0230 "github.com/IBM/vpc-go-sdk/0.23.0/vpcv1"
 	"github.com/IBM/vpc-go-sdk/vpcv1"
@@ -162,4 +163,8 @@ func (cloudConn *IbmCloudConnection) CreateRegionZoneHandler() (irs.RegionZoneHa
 		Ctx:        cloudConn.Ctx,
 	}
 	return &regionZoneHandler, nil
+}
+
+func (*IbmCloudConnection) CreatePriceInfoHandler() (irs.PriceInfoHandler, error) {
+	return nil, errors.New("Alibaba Driver: not implemented")
 }

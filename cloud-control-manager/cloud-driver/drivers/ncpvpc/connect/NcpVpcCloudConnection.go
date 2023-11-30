@@ -12,18 +12,20 @@
 package connect
 
 import (
+	"errors"
 	"fmt"
-	"github.com/sirupsen/logrus"
+
 	"github.com/davecgh/go-spew/spew"
+	"github.com/sirupsen/logrus"
 
 	cblog "github.com/cloud-barista/cb-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
-	
-	vserver "github.com/NaverCloudPlatform/ncloud-sdk-go-v2/services/vserver"
-	vpc "github.com/NaverCloudPlatform/ncloud-sdk-go-v2/services/vpc"
+
 	vlb "github.com/NaverCloudPlatform/ncloud-sdk-go-v2/services/vloadbalancer"
-	
+	vpc "github.com/NaverCloudPlatform/ncloud-sdk-go-v2/services/vpc"
+	vserver "github.com/NaverCloudPlatform/ncloud-sdk-go-v2/services/vserver"
+
 	// ncpvpcrs "github.com/cloud-barista/ncpvpc/ncpvpc/resources" // For local testing
 	ncpvpcrs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/ncpvpc/resources"
 )
@@ -117,25 +119,25 @@ func (cloudConn *NcpVpcCloudConnection) CreateDiskHandler() (irs.DiskHandler, er
 func (cloudConn *NcpVpcCloudConnection) CreateMyImageHandler() (irs.MyImageHandler, error) {
 	cblogger.Info("NCP VPC Cloud Driver: called CreateMyImageHandler()!")
 	myimageHandler := ncpvpcrs.NcpVpcMyImageHandler{RegionInfo: cloudConn.RegionInfo, VMClient: cloudConn.VmClient}
-	
+
 	return &myimageHandler, nil
 }
 
 func (cloudConn *NcpVpcCloudConnection) CreateClusterHandler() (irs.ClusterHandler, error) {
 	cblogger.Info("NCP VPC Cloud Driver: called CreateClusterHandler()!")
-	
+
 	return nil, fmt.Errorf("NCP VPC Cloud Driver does not support CreateClusterHandler yet.")
 }
 
 func (cloudConn *NcpVpcCloudConnection) CreateAnyCallHandler() (irs.AnyCallHandler, error) {
 	cblogger.Info("NCP VPC Cloud Driver: called CreateAnyCallHandler()!")
-	
+
 	return nil, fmt.Errorf("NCP VPC Cloud Driver does not support CreateAnyCallHandler yet.")
 }
 
 func (cloudConn *NcpVpcCloudConnection) CreateRegionZoneHandler() (irs.RegionZoneHandler, error) {
 	cblogger.Info("NCP Cloud Driver: called CreateRegionZoneHandler()!")
-	
+
 	regionZoneHandler := ncpvpcrs.NcpRegionZoneHandler{RegionInfo: cloudConn.RegionInfo, VMClient: cloudConn.VmClient}
 	return &regionZoneHandler, nil
 }
@@ -157,4 +159,8 @@ func (cloudConn *NcpVpcCloudConnection) Close() error {
 	cblogger.Info("NCP VPC Cloud Driver: called Close()!")
 
 	return nil
+}
+
+func (*NcpVpcCloudConnection) CreatePriceInfoHandler() (irs.PriceInfoHandler, error) {
+	return nil, errors.New("Alibaba Driver: not implemented")
 }

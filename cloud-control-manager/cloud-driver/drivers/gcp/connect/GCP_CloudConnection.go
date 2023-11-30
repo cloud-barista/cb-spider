@@ -142,3 +142,7 @@ func (cloudConn *GCPCloudConnection) CreateRegionZoneHandler() (irs.RegionZoneHa
 	regionZoneHandler := gcprs.GCPRegionZoneHandler{cloudConn.Region, cloudConn.Ctx, cloudConn.RegionZoneClient, cloudConn.Credential}
 	return &regionZoneHandler, nil
 }
+
+func (*GCPCloudConnection) CreatePriceInfoHandler() (irs.PriceInfoHandler, error) {
+	return nil, errors.New("Alibaba Driver: not implemented")
+}

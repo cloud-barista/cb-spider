@@ -12,9 +12,11 @@
 package connect
 
 import (
+	"errors"
 	"fmt"
-	"github.com/sirupsen/logrus"
+
 	"github.com/davecgh/go-spew/spew"
+	"github.com/sirupsen/logrus"
 
 	cblog "github.com/cloud-barista/cb-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
@@ -34,13 +36,13 @@ func init() {
 }
 
 type NhnCloudConnection struct {
-	CredentialInfo 	idrv.CredentialInfo
-	RegionInfo    	idrv.RegionInfo
-	VMClient      	*nhnsdk.ServiceClient
-	ImageClient   	*nhnsdk.ServiceClient
-	NetworkClient	*nhnsdk.ServiceClient
-	VolumeClient  	*nhnsdk.ServiceClient
-	ClusterClient 	*nhnsdk.ServiceClient
+	CredentialInfo idrv.CredentialInfo
+	RegionInfo     idrv.RegionInfo
+	VMClient       *nhnsdk.ServiceClient
+	ImageClient    *nhnsdk.ServiceClient
+	NetworkClient  *nhnsdk.ServiceClient
+	VolumeClient   *nhnsdk.ServiceClient
+	ClusterClient  *nhnsdk.ServiceClient
 }
 
 func (cloudConn *NhnCloudConnection) CreateVMHandler() (irs.VMHandler, error) {
@@ -97,7 +99,7 @@ func (cloudConn *NhnCloudConnection) CreateDiskHandler() (irs.DiskHandler, error
 	cblogger.Info("\n### cloudConn.RegionInfo : ")
 	spew.Dump(cloudConn.RegionInfo)
 	cblogger.Info("\n")
-	
+
 	diskHandler := nhnrs.NhnCloudDiskHandler{RegionInfo: cloudConn.RegionInfo, VMClient: cloudConn.VMClient, VolumeClient: cloudConn.VolumeClient}
 
 	return &diskHandler, nil
@@ -119,13 +121,13 @@ func (cloudConn *NhnCloudConnection) CreateMyImageHandler() (irs.MyImageHandler,
 
 func (cloudConn *NhnCloudConnection) CreateAnyCallHandler() (irs.AnyCallHandler, error) {
 	cblogger.Info("NhnCloud Cloud Driver: called CreateAnyCallHandler()!")
-	
+
 	return nil, fmt.Errorf("NHN Cloud Driver does not support CreateAnyCallHandler yet.")
 }
 
 func (cloudConn *NhnCloudConnection) CreateRegionZoneHandler() (irs.RegionZoneHandler, error) {
 	cblogger.Info("NhnCloud Cloud Driver: called CreateRegionZoneHandler()!")
-	
+
 	regionZoneHandler := nhnrs.NhnCloudRegionZoneHandler{CredentialInfo: cloudConn.CredentialInfo, RegionInfo: cloudConn.RegionInfo, VMClient: cloudConn.VMClient}
 	return &regionZoneHandler, nil
 }
@@ -141,4 +143,8 @@ func (cloudConn *NhnCloudConnection) IsConnected() (bool, error) {
 func (cloudConn *NhnCloudConnection) Close() error {
 
 	return nil
+}
+
+func (*NhnCloudConnection) CreatePriceInfoHandler() (irs.PriceInfoHandler, error) {
+	return nil, errors.New("Alibaba Driver: not implemented")
 }

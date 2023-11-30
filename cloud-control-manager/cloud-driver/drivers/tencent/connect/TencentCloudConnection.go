@@ -157,3 +157,7 @@ func (cloudConn *TencentCloudConnection) CreateRegionZoneHandler() (irs.RegionZo
 	handler := trs.TencentRegionZoneHandler{Region: cloudConn.Region, Client: cloudConn.RegionZoneClient}
 	return &handler, nil
 }
+
+func (*TencentCloudConnection) CreatePriceInfoHandler() (irs.PriceInfoHandler, error) {
+	return nil, errors.New("Alibaba Driver: not implemented")
+}

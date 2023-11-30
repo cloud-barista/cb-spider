@@ -12,18 +12,20 @@
 package connect
 
 import (
+	"errors"
 	"fmt"
+
 	"github.com/sirupsen/logrus"
 
-	cblog 	"github.com/cloud-barista/cb-log"
-	idrv 	"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
-	irs 	"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
-	
-	server 	"github.com/NaverCloudPlatform/ncloud-sdk-go-v2/services/server"
-	lb 		"github.com/NaverCloudPlatform/ncloud-sdk-go-v2/services/loadbalancer"
+	cblog "github.com/cloud-barista/cb-log"
+	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
+	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
+
+	lb "github.com/NaverCloudPlatform/ncloud-sdk-go-v2/services/loadbalancer"
+	server "github.com/NaverCloudPlatform/ncloud-sdk-go-v2/services/server"
 
 	// ncprs 	"github.com/cloud-barista/ncp/ncp/resources"
-	ncprs 	"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/ncp/resources" //To be built in the container
+	ncprs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/ncp/resources" //To be built in the container
 )
 
 type NcpCloudConnection struct {
@@ -43,7 +45,7 @@ func init() {
 func (cloudConn *NcpCloudConnection) CreateVMHandler() (irs.VMHandler, error) {
 	cblogger.Info("NCP Cloud Driver: called CreateVMHandler()!")
 
-	vmHandler := ncprs.NcpVMHandler{		
+	vmHandler := ncprs.NcpVMHandler{
 		CredentialInfo: cloudConn.CredentialInfo,
 		RegionInfo:     cloudConn.RegionInfo,
 		VMClient:       cloudConn.VmClient,
@@ -88,7 +90,7 @@ func (cloudConn *NcpCloudConnection) CreateVPCHandler() (irs.VPCHandler, error) 
 
 func (cloudConn *NcpCloudConnection) CreateNLBHandler() (irs.NLBHandler, error) {
 	cblogger.Info("NCP Cloud Driver: called CreateNLBHandler()!")
-	
+
 	nlbHandler := ncprs.NcpNLBHandler{CredentialInfo: cloudConn.CredentialInfo, RegionInfo: cloudConn.RegionInfo, VMClient: cloudConn.VmClient, LBClient: cloudConn.LbClient}
 	return &nlbHandler, nil
 }
@@ -103,25 +105,25 @@ func (cloudConn *NcpCloudConnection) CreateDiskHandler() (irs.DiskHandler, error
 func (cloudConn *NcpCloudConnection) CreateMyImageHandler() (irs.MyImageHandler, error) {
 	cblogger.Info("NCP Cloud Driver: called CreateMyImageHandler()!")
 
-	myimageHandler := ncprs.NcpMyImageHandler{RegionInfo: cloudConn.RegionInfo, VMClient: cloudConn.VmClient}	
+	myimageHandler := ncprs.NcpMyImageHandler{RegionInfo: cloudConn.RegionInfo, VMClient: cloudConn.VmClient}
 	return &myimageHandler, nil
 }
 
 func (cloudConn *NcpCloudConnection) CreateClusterHandler() (irs.ClusterHandler, error) {
 	cblogger.Info("NCP Cloud Driver: called CreateClusterHandler()!")
-	
+
 	return nil, fmt.Errorf("NCP Cloud Driver does not support CreateClusterHandler yet.")
 }
 
 func (cloudConn *NcpCloudConnection) CreateAnyCallHandler() (irs.AnyCallHandler, error) {
 	cblogger.Info("NCP Cloud Driver: called CreateAnyCallHandler()!")
-	
+
 	return nil, fmt.Errorf("NCP Cloud Driver does not support CreateAnyCallHandler yet.")
 }
 
 func (cloudConn *NcpCloudConnection) CreateRegionZoneHandler() (irs.RegionZoneHandler, error) {
 	cblogger.Info("NCP Cloud Driver: called CreateRegionZoneHandler()!")
-	
+
 	regionZoneHandler := ncprs.NcpRegionZoneHandler{RegionInfo: cloudConn.RegionInfo, VMClient: cloudConn.VmClient}
 	return &regionZoneHandler, nil
 }
@@ -143,4 +145,8 @@ func (cloudConn *NcpCloudConnection) Close() error {
 	cblogger.Info("NCP Cloud Driver: called Close()!")
 
 	return nil
+}
+
+func (*NcpCloudConnection) CreatePriceInfoHandler() (irs.PriceInfoHandler, error) {
+	return nil, errors.New("Alibaba Driver: not implemented")
 }

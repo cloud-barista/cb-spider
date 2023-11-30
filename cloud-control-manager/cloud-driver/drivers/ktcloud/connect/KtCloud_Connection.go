@@ -12,13 +12,15 @@
 package connect
 
 import (
+	"errors"
 	"fmt"
+
 	"github.com/sirupsen/logrus"
 
 	cblog "github.com/cloud-barista/cb-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
-	
+
 	ktsdk "github.com/cloud-barista/ktcloud-sdk-go"
 	//ktrs "github.com/cloud-barista/ktcloud/ktcloud/resources"
 	ktrs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/ktcloud/resources"
@@ -90,7 +92,7 @@ func (cloudConn *KtCloudConnection) CreateNLBHandler() (irs.NLBHandler, error) {
 }
 
 func (cloudConn *KtCloudConnection) CreateDiskHandler() (irs.DiskHandler, error) {
-	cblogger.Info("KT Cloud Driver: called CreateDiskHandler()!")	
+	cblogger.Info("KT Cloud Driver: called CreateDiskHandler()!")
 	return nil, fmt.Errorf("KT Cloud Driver does not support CreateDiskHandler yet.")
 }
 
@@ -105,12 +107,12 @@ func (cloudConn *KtCloudConnection) CreateMyImageHandler() (irs.MyImageHandler, 
 }
 
 func (cloudConn *KtCloudConnection) CreateAnyCallHandler() (irs.AnyCallHandler, error) {
-	cblogger.Info("KT Cloud Driver: called CreateAnyCallHandler()!")	
+	cblogger.Info("KT Cloud Driver: called CreateAnyCallHandler()!")
 	return nil, fmt.Errorf("KT Cloud Driver does not support CreateAnyCallHandler yet.")
 }
 
 func (cloudConn *KtCloudConnection) CreateRegionZoneHandler() (irs.RegionZoneHandler, error) {
-	cblogger.Info("KT Cloud Driver: called CreateRegionZoneHandler()!")	
+	cblogger.Info("KT Cloud Driver: called CreateRegionZoneHandler()!")
 	regionZoneHandler := ktrs.KtCloudRegionZoneHandler{CredentialInfo: cloudConn.CredentialInfo, RegionInfo: cloudConn.RegionInfo, Client: cloudConn.Client}
 	return &regionZoneHandler, nil
 }
@@ -126,4 +128,8 @@ func (cloudConn *KtCloudConnection) IsConnected() (bool, error) {
 func (cloudConn *KtCloudConnection) Close() error {
 	cblogger.Info("KT Cloud Driver: called Close()!")
 	return nil
+}
+
+func (*KtCloudConnection) CreatePriceInfoHandler() (irs.PriceInfoHandler, error) {
+	return nil, errors.New("Alibaba Driver: not implemented")
 }

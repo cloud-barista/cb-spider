@@ -114,3 +114,7 @@ func (cloudConn *DockerCloudConnection) CreateMyImageHandler() (irs.MyImageHandl
 func (cloudConn *DockerCloudConnection) CreateAnyCallHandler() (irs.AnyCallHandler, error) {
 	return nil, errors.New("Docker Driver: not implemented")
 }
+
+func (*DockerCloudConnection) CreatePriceInfoHandler() (irs.PriceInfoHandler, error) {
+	return nil, errors.New("Alibaba Driver: not implemented")
+}

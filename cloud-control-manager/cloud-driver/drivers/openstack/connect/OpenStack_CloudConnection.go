@@ -145,3 +145,7 @@ func (cloudConn *OpenStackCloudConnection) CreateAnyCallHandler() (irs.AnyCallHa
 	}
 	return &anyCallHandler, nil
 }
+
+func (*OpenStackCloudConnection) CreatePriceInfoHandler() (irs.PriceInfoHandler, error) {
+	return nil, errors.New("Alibaba Driver: not implemented")
+}
