@@ -80,5 +80,5 @@ type PricingPolicyInfo struct {
 
 type PriceInfoHandler interface {
 	ListProductFamily() ([]string, error)
-	GetPriceInfo(productFamily string, regionName string, filter KeyValue) (string, error) // return string: json format
+	GetPriceInfo(productFamily string, regionName string, filterList []KeyValue) (string, error) // return string: json format
 }
