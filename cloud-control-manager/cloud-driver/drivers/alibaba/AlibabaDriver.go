@@ -13,6 +13,7 @@ package alibaba
 import (
 	"fmt"
 
+	"github.com/aliyun/alibaba-cloud-sdk-go/services/bssopenapi"
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/slb"
 
 	"time"
@@ -77,6 +78,11 @@ func (driver *AlibabaDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (i
 		return nil, err
 	}
 
+	BssClient, err := getBssClient(connectionInfo)
+	if err != nil {
+		return nil, err
+	}
+
 	iConn := alicon.AlibabaCloudConnection{
 		CredentialInfo: connectionInfo.CredentialInfo,
 		Region:         connectionInfo.RegionInfo,
@@ -94,7 +100,7 @@ func (driver *AlibabaDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (i
 		DiskClient:       ECSClient,
 		MyImageClient:    ECSClient,
 		RegionZoneClient: ECSClient,
-		PriceInfoClient:  ECSClient,
+		BssClient:        BssClient,
 	}
 	return &iConn, nil
 }
@@ -224,4 +230,28 @@ func getNLBClient(connectionInfo idrv.ConnectionInfo) (*slb.Client, error) {
 	}
 
 	return nlbClient, nil
+}
+
+func getBssClient(connectionInfo idrv.ConnectionInfo) (*bssopenapi.Client, error) {
+	// Region Info
+	fmt.Println("AlibabaDriver : getBssClient() ")
+
+	credential := &credentials.AccessKeyCredential{
+		AccessKeyId:     connectionInfo.CredentialInfo.ClientId,
+		AccessKeySecret: connectionInfo.CredentialInfo.ClientSecret,
+	}
+
+	config := sdk.NewConfig()
+	config.Timeout = time.Duration(15) * time.Second //time.Millisecond
+	config.AutoRetry = true
+	config.MaxRetryTime = 2
+	//sdk.Timeout(1000)
+
+	bssClient, err := bssopenapi.NewClientWithOptions(connectionInfo.RegionInfo.Region, config, credential)
+	if err != nil {
+		fmt.Println("Could not create alibaba's server bss open api client", err)
+		return nil, err
+	}
+
+	return bssClient, nil
 }

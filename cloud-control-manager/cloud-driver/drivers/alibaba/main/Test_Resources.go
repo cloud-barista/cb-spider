@@ -1629,7 +1629,7 @@ func handlePriceInfo() {
 				productFamily := ""
 				regionName := ""
 
-				result, err := handler.GetPriceInfo(productFamily, regionName, irs.KeyValue{})
+				result, err := handler.GetPriceInfo(productFamily, regionName, []irs.KeyValue{})
 				if err != nil {
 					cblogger.Infof(" PriceInfo 조회 실패 : ", err)
 				} else {

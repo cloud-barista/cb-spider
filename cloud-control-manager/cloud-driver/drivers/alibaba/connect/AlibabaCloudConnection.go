@@ -11,6 +11,7 @@
 package connect
 
 import (
+	bssopenapi "github.com/aliyun/alibaba-cloud-sdk-go/services/bssopenapi"
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/ecs"
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/slb"
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/vpc"
@@ -49,7 +50,7 @@ type AlibabaCloudConnection struct {
 	MyImageClient    *ecs.Client
 	RegionZoneClient *ecs.Client
 
-	PriceInfoClient *ecs.Client
+	BssClient *bssopenapi.Client
 }
 
 func (cloudConn *AlibabaCloudConnection) CreateRegionZoneHandler() (irs.RegionZoneHandler, error) {
@@ -161,6 +162,6 @@ func (cloudConn *AlibabaCloudConnection) CreateAnyCallHandler() (irs.AnyCallHand
 }
 
 func (cloudConn *AlibabaCloudConnection) CreatePriceInfoHandler() (irs.PriceInfoHandler, error) {
-	priceInfoHandler := alirs.AlibabaPriceInfoHandler{Region: cloudConn.Region, Client: cloudConn.PriceInfoClient}
+	priceInfoHandler := alirs.AlibabaPriceInfoHandler{Region: cloudConn.Region, Client: cloudConn.VMClient, BssClient: cloudConn.BssClient}
 	return &priceInfoHandler, nil
 }
