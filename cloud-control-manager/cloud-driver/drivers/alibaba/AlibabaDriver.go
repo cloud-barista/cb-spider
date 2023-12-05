@@ -48,6 +48,7 @@ func (AlibabaDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	drvCapabilityInfo.DiskHandler = true
 	drvCapabilityInfo.ClusterHandler = true
 	drvCapabilityInfo.RegionZoneHandler = true
+	drvCapabilityInfo.PriceInfoHandler = true
 
 	return drvCapabilityInfo
 }
@@ -93,6 +94,7 @@ func (driver *AlibabaDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (i
 		DiskClient:       ECSClient,
 		MyImageClient:    ECSClient,
 		RegionZoneClient: ECSClient,
+		PriceInfoClient:  ECSClient,
 	}
 	return &iConn, nil
 }
