@@ -8,6 +8,7 @@ package resources
 import (
 	"log"
 
+	"github.com/aliyun/alibaba-cloud-sdk-go/sdk/requests"
 	bssopenapi "github.com/aliyun/alibaba-cloud-sdk-go/services/bssopenapi"
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/ecs"
 
@@ -39,6 +40,8 @@ func (priceInfoHandler *AlibabaPriceInfoHandler) ListProductFamily(regionName st
 
 	// //RegionId: tea.String("cn-hongkong"),
 	request.RegionId = regionName
+	request.PageNum = requests.NewInteger(1)
+	request.PageSize = requests.NewInteger(20)
 
 	//response, err := priceInfoHandler.Client.DescribeInstanceTypeFamilies(instanceFamilyRequest)
 	response, err := priceInfoHandler.BssClient.QueryProductList(request)
