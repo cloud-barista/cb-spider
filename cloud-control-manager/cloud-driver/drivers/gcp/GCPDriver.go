@@ -200,9 +200,12 @@ func getCloudBillingClient(credential idrv.CredentialInfo) (context.Context, *cl
 	fmt.Println("################## data ##################")
 	//fmt.Println("data to json : ", data)
 	fmt.Println("################## data ##################")
+	// https://www.googleapis.com/auth/cloud-platform
 
+	// https://www.googleapis.com/auth/cloud-billing
 	res, _ := json.Marshal(data)
-	authURL := "https://www.googleapis.com/auth/cloud-platform"
+	//authURL := "https://www.googleapis.com/auth/cloud-platform"
+	authURL := "https://www.googleapis.com/auth/cloud-billing"
 
 	conf, err := goo.JWTConfigFromJSON(res, authURL)
 
