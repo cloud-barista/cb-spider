@@ -210,13 +210,17 @@ func getCloudBillingClient(credential idrv.CredentialInfo) (context.Context, *cl
 	conf, err := goo.JWTConfigFromJSON(res, authURL)
 
 	if err != nil {
-
+		fmt.Println("JWTConfig ", conf)
 		return nil, nil, err
 	}
 
 	client := conf.Client(o2.NoContext)
 
 	cloudBillingClient, err := cloudbilling.New(client)
+	if err != nil {
+		fmt.Println("cloudBillingClient err ", err)
+		return nil, nil, err
+	}
 
 	ctx := context.Background()
 
