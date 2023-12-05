@@ -11,8 +11,6 @@
 package connect
 
 import (
-	"errors"
-
 	cblog "github.com/cloud-barista/cb-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 
@@ -25,6 +23,7 @@ import (
 	//ec2drv "github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/elbv2"
+	"github.com/aws/aws-sdk-go/service/pricing"
 
 	"github.com/aws/aws-sdk-go/service/autoscaling"
 	"github.com/aws/aws-sdk-go/service/eks"
@@ -50,6 +49,9 @@ type AwsCloudConnection struct {
 
 	//RegionZoneClient
 	RegionZoneClient *ec2.EC2
+
+	//PriceInfoClient
+	PriceInfoClient *pricing.Pricing
 
 	DiskClient    *ec2.EC2
 	MyImageClient *ec2.EC2
@@ -171,6 +173,7 @@ func (cloudConn *AwsCloudConnection) CreateRegionZoneHandler() (irs.RegionZoneHa
 	return &handler, nil
 }
 
-func (*AwsCloudConnection) CreatePriceInfoHandler() (irs.PriceInfoHandler, error) {
-	return nil, errors.New("Alibaba Driver: not implemented")
+func (cloudConn *AwsCloudConnection) CreatePriceInfoHandler() (irs.PriceInfoHandler, error) {
+	handler := ars.AwsPriceInfoHandler{cloudConn.Region, cloudConn.PriceInfoClient}
+	return &handler, nil
 }
