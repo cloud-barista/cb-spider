@@ -25,8 +25,10 @@ import (
 	openstackdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/openstack"
 	tencentdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/tencent"
 
-	// ncpdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/ncp" // NCP
-	// ncpvpcdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/ncpvpc" // NCP-VPC
+	ktdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/ktcloud"
+	ncpdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/ncp"
+	ncpvpcdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/ncpvpc"
+	nhndrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/nhncloud"
 
 	cblogger "github.com/cloud-barista/cb-log"
 	"github.com/sirupsen/logrus"
@@ -65,14 +67,18 @@ func getCloudDriver(cldDrvInfo dim.CloudDriverInfo) (idrv.CloudDriver, error) {
 		cloudDriver = new(dockerdrv.DockerDriver)
 	case "TENCENT":
 		cloudDriver = new(tencentdrv.TencentDriver)
-	// case "NCP": // NCP
-	//  cloudDriver = new(ncpdrv.NcpDriver) // NCP
-	// case "NCPVPC": // NCP-VPC
-	//  cloudDriver = new(ncpvpcdrv.NcpVpcDriver) // NCP-VPC
-	case "MOCK":
-		cloudDriver = new(mockdrv.MockDriver)
 	case "IBM":
 		cloudDriver = new(ibmvpcdrv.IbmCloudDriver)
+	case "NCP":
+		cloudDriver = new(ncpdrv.NcpDriver)
+	case "NCPVPC":
+		cloudDriver = new(ncpvpcdrv.NcpVpcDriver)
+	case "NHNCLOUD":
+		cloudDriver = new(nhndrv.NhnCloudDriver)
+	case "KTCLOUD":
+		cloudDriver = new(ktdrv.KtCloudDriver)
+	case "MOCK":
+		cloudDriver = new(mockdrv.MockDriver)
 
 	default:
 		errmsg := cldDrvInfo.ProviderName + " is not supported static Cloud Driver!!"
