@@ -102,6 +102,8 @@ func GetResourceHandler(handlerType string) (interface{}, error) {
 		resourceHandler, err = cloudConnection.CreateVPCHandler()
 	case "RegionZone":
 		resourceHandler, err = cloudConnection.CreateRegionZoneHandler()
+	case "PriceInfo":
+		resourceHandler, err = cloudConnection.CreatePriceInfoHandler()
 	}
 
 	if err != nil {

@@ -19,6 +19,7 @@ import (
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/sirupsen/logrus"
+	"google.golang.org/api/cloudbilling/v1"
 	compute "google.golang.org/api/compute/v1"
 	"google.golang.org/api/container/v1"
 )
@@ -45,6 +46,8 @@ type GCPCloudConnection struct {
 	VPCClient           *compute.Service
 	RegionZoneClient    *compute.Service
 	ContainerClient     *container.Service
+	CloudBillingClient  *cloudbilling.APIService
+	//CloudBillingClient *cloudbilling.Service
 }
 
 // func (cloudConn *GCPCloudConnection) CreateVNetworkHandler() (irs.VNetworkHandler, error) {
@@ -143,6 +146,11 @@ func (cloudConn *GCPCloudConnection) CreateRegionZoneHandler() (irs.RegionZoneHa
 	return &regionZoneHandler, nil
 }
 
-func (*GCPCloudConnection) CreatePriceInfoHandler() (irs.PriceInfoHandler, error) {
-	return nil, errors.New("Alibaba Driver: not implemented")
+func (cloudConn *GCPCloudConnection) CreatePriceInfoHandler() (irs.PriceInfoHandler, error) {
+	cblogger.Info("GCP Cloud Driver: called CreateRegionZoneHandler()!")
+	//
+	//priceInfoHandler := gcprs.GCPPriceInfoHandler{cloudConn.Region, cloudConn.Ctx, cloudConn.CloudBillingClient, cloudConn.Credential}
+	priceInfoHandler := gcprs.GCPPriceInfoHandler{cloudConn.Region, cloudConn.Ctx, cloudConn.VMClient, cloudConn.CloudBillingClient, cloudConn.Credential}
+
+	return &priceInfoHandler, nil
 }

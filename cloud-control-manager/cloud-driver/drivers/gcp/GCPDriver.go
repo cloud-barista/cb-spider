@@ -24,6 +24,7 @@ import (
 	o2 "golang.org/x/oauth2"
 	goo "golang.org/x/oauth2/google"
 
+	"google.golang.org/api/cloudbilling/v1"
 	compute "google.golang.org/api/compute/v1"
 	"google.golang.org/api/container/v1"
 )
@@ -51,6 +52,7 @@ func (GCPDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	drvCapabilityInfo.MyImageHandler = false
 	drvCapabilityInfo.RegionZoneHandler = true
 	drvCapabilityInfo.ClusterHandler = true
+	drvCapabilityInfo.PriceInfoHandler = true
 
 	return drvCapabilityInfo
 }
@@ -80,6 +82,14 @@ func (driver *GCPDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (icon.
 		return nil, err
 	}
 
+	_, cloudBillingClient, err := getCloudBillingClient(connectionInfo.CredentialInfo)
+	fmt.Println("################## getCloudBillingClient ##################")
+	fmt.Println("getCloudBillingClient")
+	fmt.Println("################## getCloudBillingClient ##################")
+	if err != nil {
+		return nil, err
+	}
+
 	iConn := gcpcon.GCPCloudConnection{
 		Region:      connectionInfo.RegionInfo,
 		Credential:  connectionInfo.CredentialInfo,
@@ -90,11 +100,12 @@ func (driver *GCPDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (icon.
 		SecurityGroupClient: VMClient,
 		// VNetClient:          VMClient,
 		// VNicClient:          VMClient,
-		SubnetClient:     VMClient,
-		VMSpecClient:     VMClient,
-		VPCClient:        VMClient,
-		RegionZoneClient: VMClient,
-		ContainerClient:  containerClient,
+		SubnetClient:       VMClient,
+		VMSpecClient:       VMClient,
+		VPCClient:          VMClient,
+		RegionZoneClient:   VMClient,
+		ContainerClient:    containerClient,
+		CloudBillingClient: cloudBillingClient,
 	}
 
 	//fmt.Println("################## resource ConnectionInfo ##################")
@@ -174,4 +185,37 @@ func getContainerClient(credential idrv.CredentialInfo) (context.Context, *conta
 	ctx := context.Background()
 
 	return ctx, containerClient, nil
+}
+
+func getCloudBillingClient(credential idrv.CredentialInfo) (context.Context, *cloudbilling.APIService, error) {
+
+	// GCP 는  ClientSecret에
+	gcpType := "service_account"
+	data := make(map[string]string)
+
+	data["type"] = gcpType
+	data["private_key"] = credential.PrivateKey
+	data["client_email"] = credential.ClientEmail
+
+	fmt.Println("################## data ##################")
+	//fmt.Println("data to json : ", data)
+	fmt.Println("################## data ##################")
+
+	res, _ := json.Marshal(data)
+	authURL := "https://www.googleapis.com/auth/cloud-platform"
+
+	conf, err := goo.JWTConfigFromJSON(res, authURL)
+
+	if err != nil {
+
+		return nil, nil, err
+	}
+
+	client := conf.Client(o2.NoContext)
+
+	cloudBillingClient, err := cloudbilling.New(client)
+
+	ctx := context.Background()
+
+	return ctx, cloudBillingClient, nil
 }
