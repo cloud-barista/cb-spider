@@ -3,7 +3,7 @@
 ##############################################################
 
 #FROM golang:alpine AS builder
-FROM golang:1.19 AS builder
+FROM golang:1.21 AS builder
 
 ENV GO111MODULE on
 
