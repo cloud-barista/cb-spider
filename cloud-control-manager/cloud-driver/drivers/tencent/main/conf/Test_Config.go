@@ -120,6 +120,8 @@ func GetResourceHandler(handlerType string) (interface{}, error) {
 		resourceHandler, err = cloudConnection.CreateMyImageHandler()
 	case "RegionZone":
 		resourceHandler, err = cloudConnection.CreateRegionZoneHandler()
+	case "PriceInfo":
+		resourceHandler, err = cloudConnection.CreatePriceInfoHandler()
 
 	}
 

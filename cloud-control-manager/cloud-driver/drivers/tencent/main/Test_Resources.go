@@ -1510,6 +1510,60 @@ func handleRegionZone() {
 	}
 }
 
+func handlePriceInfo() {
+	cblogger.Debug("Start PriceInfoHandler Resource Test")
+
+	ResourceHandler, err := testconf.GetResourceHandler("PriceInfo")
+	if err != nil {
+		panic(err)
+	}
+	handler := ResourceHandler.(irs.PriceInfoHandler)
+
+	for {
+		fmt.Println("PriceInfoHandler Management")
+		fmt.Println("0. Quit")
+		fmt.Println("1. List Product Family")
+		fmt.Println("2. Get Price Info")
+
+		var commandNum int
+		inputCnt, err := fmt.Scan(&commandNum)
+		if err != nil {
+			panic(err)
+		}
+
+		if inputCnt == 1 {
+			switch commandNum {
+			case 0:
+				return
+
+			case 1:
+				result, err := handler.ListProductFamily("")
+				if err != nil {
+					cblogger.Infof("ListProductFamily 목록 조회 실패 : %s", err)
+				} else {
+					cblogger.Info("ListProductFamily 목록 조회 결과")
+					// cblogger.Debugf("결과 %s", result[0])
+					spew.Dump(result)
+					cblogger.Infof("로그 레벨 : [%s]", cblog.GetLevel())
+					//spew.Dump(result)
+					cblogger.Info("출력 결과 수 : ", len(result))
+				}
+			case 2:
+				result, err := handler.GetPriceInfo("compute", "", make([]irs.KeyValue, 0))
+				if err != nil {
+					cblogger.Infof("GetPriceInfo 목록 조회 실패 : %s", err)
+				} else {
+					cblogger.Info("GetPriceInfo 목록 조회 결과")
+					// cblogger.Debugf("결과 %s", result[0])
+					spew.Dump(result)
+					cblogger.Infof("로그 레벨 : [%s]", cblog.GetLevel())
+					//spew.Dump(result)
+				}
+			}
+		}
+	}
+}
+
 func main() {
 	cblogger.Info("Tencent Cloud Resource Test")
 	//handleVPC() //VPC
@@ -1522,6 +1576,7 @@ func main() {
 	//handleDisk()
 	// handleMyImage()
 	//handlePublicIP() // PublicIP 생성 후 conf
-	handleRegionZone()
+	// handleRegionZone()
 	//handleVNic() //Lancard
+	handlePriceInfo()
 }
