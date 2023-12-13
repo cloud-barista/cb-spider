@@ -66,7 +66,7 @@ If you have any difficulties in using Cloud-Barista, please let us know.
   | OpenStack     | O             | O            | O               | O            | O             | O             | O               | O          | - |
   | NCP Classic   | O             | O            | O               | O (Type-I)   | O             | O             | O               | O          | - |
   | NCP VPC       | O             | O            | O               | O            | O             | O             | O               | O          | - |
-  | NHN           | O             | O            | O               | O (Type-II)  | O             | O             | O               | O          | - |
+  | NHN           | O             | O            | O               | O (Type-II)  | O             | O             | O               | O          |Coming Soon |
   | KT Classic    | O             | O            | O               | O (Type-I)   | O             | O             | O               | Plan       | - |
   | KT VPC        | O             | O            | O               | O (Type-III) | O             | O             | WIP             | Plan       | - |
   

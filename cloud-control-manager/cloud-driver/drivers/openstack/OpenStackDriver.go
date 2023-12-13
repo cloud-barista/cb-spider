@@ -11,6 +11,9 @@
 package openstack
 
 import (
+	"crypto/tls"
+	"net/http"
+
 	"github.com/gophercloud/gophercloud"
 	"github.com/gophercloud/gophercloud/openstack"
 	"github.com/gophercloud/gophercloud/openstack/identity/v3/services"
@@ -78,6 +81,13 @@ func getIdentityClient(connInfo idrv.ConnectionInfo) (*gophercloud.ServiceClient
 		return nil, err
 	}
 
+	config := &tls.Config{InsecureSkipVerify: true}
+	httpClient := &http.Client{
+		Transport: &http.Transport{TLSClientConfig: config},
+	}
+
+	provider.HTTPClient = *httpClient
+
 	client, err := openstack.NewIdentityV3(provider, gophercloud.EndpointOpts{
 		Region: connInfo.RegionInfo.Region,
 	})
@@ -113,6 +123,13 @@ func clientCreator(connInfo idrv.ConnectionInfo) (icon.CloudConnection, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	config := &tls.Config{InsecureSkipVerify: true}
+	httpClient := &http.Client{
+		Transport: &http.Transport{TLSClientConfig: config},
+	}
+
+	provider.HTTPClient = *httpClient
 
 	iConn := oscon.OpenStackCloudConnection{
 		CredentialInfo: connInfo.CredentialInfo,
