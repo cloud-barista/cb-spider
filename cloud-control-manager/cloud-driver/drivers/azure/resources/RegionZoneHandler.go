@@ -45,6 +45,7 @@ func (regionZoneHandler *AzureRegionZoneHandler) ListRegionZone() ([]*irs.Region
 	var mutex = &sync.Mutex{}
 	var lenLocations = len(*resultListLocations.Value)
 	var zoneErrorOccurred bool
+	k := 0
 
 	for i := 0; i < lenLocations; {
 		if lenLocations-i < routineMax {
@@ -100,7 +101,9 @@ func (regionZoneHandler *AzureRegionZoneHandler) ListRegionZone() ([]*irs.Region
 				mutex.Unlock()
 
 				wait.Done()
-			}(&wait, (*resultListLocations.Value)[j])
+			}(&wait, (*resultListLocations.Value)[k])
+
+			k++
 
 			i++
 			if i == lenLocations {
