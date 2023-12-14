@@ -30,6 +30,7 @@ import (
 var cblogger *logrus.Logger
 
 func init() {
+	fmt.Println("init start")
 	// cblog is a global variable.
 	cblogger = cblog.GetLogger("AWS Resource Test")
 	//cblog.SetLevel("info")
@@ -948,7 +949,8 @@ func handleVM() {
 
 	//config := readConfigFile()
 	//VmID := irs.IID{NameId: config.Aws.BaseName, SystemId: config.Aws.VmID}
-	VmID := irs.IID{SystemId: "i-0cea86282a9e2a569"}
+	// VmID := irs.IID{SystemId: "i-0cea86282a9e2a569"}
+	VmID := irs.IID{SystemId: "i-0c70f696e5f8e690c"}
 
 	for {
 		fmt.Println("VM Management")
@@ -1744,16 +1746,22 @@ func handlePriceInfo() {
 					cblogger.Info("출력 결과 수 : ", len(result))
 				}
 
-				// case 2:
-				// 	result, err := handler.GetPriceInfo()
-				// 	if err != nil {
-				// 		cblogger.Infof("GetPriceInfo 조회 실패 : ", err)
-				// 	} else {
-				// 		cblogger.Info("GetPriceInfo 조회 결과")
-				// 		cblogger.Debug(result)
-				// 		cblogger.Infof("로그 레벨 : [%s]", cblog.GetLevel())
-				// 		// spew.Dump(result)
-				// 	}
+			case 2:
+				var filterList []irs.KeyValue
+				// Type : [TERM_CONTAIN, ANY_OF, TERM_MATCH, NONE_OF, CONTAINS, EQUALS]
+				filterList = append(filterList, irs.KeyValue{Key: "filter", Value: "{\"Field\":\"instance\",\"Type\":\"EQUALS\",\"Value\":\"T2\"}"})
+				filterList = append(filterList, irs.KeyValue{Key: "filter", Value: "{\"Field\":\"instanceType\",\"Type\":\"EQUALS\",\"Value\":\"t2.micro\"}"})
+				filterList = append(filterList, irs.KeyValue{Key: "filter", Value: "{\"Field\":\"operatingSystem\",\"Type\":\"EQUALS\",\"Value\":\"Linux\"}"})
+
+				result, err := handler.GetPriceInfo("AmazonEC2", "ap-northeast-2", filterList)
+				if err != nil {
+					cblogger.Infof("GetPriceInfo 조회 실패 : ", err)
+				} else {
+					cblogger.Info("GetPriceInfo 조회 결과")
+					cblogger.Debug(result)
+					cblogger.Infof("로그 레벨 : [%s]", cblog.GetLevel())
+					// spew.Dump(result)
+				}
 			}
 		}
 	}
@@ -1761,20 +1769,18 @@ func handlePriceInfo() {
 
 func main() {
 	cblogger.Info("AWS Resource Test")
-	//handleVPC()
-	//handleKeyPair()
-	//handlePublicIP() // PublicIP 생성 후 conf
-	//handleSecurity()
-	//handleVM()
-
-	//handleImage() //AMI
-	//handleVNic() //Lancard
-	//handleVMSpec()
-	//handleNLB()
-	//handleCluster()
+	// handleVPC()
+	// handleKeyPair()
+	// handlePublicIP() // PublicIP 생성 후 conf
+	// handleSecurity()
+	// handleVM()
+	// handleImage() //AMI
+	// handleVNic() //Lancard
+	// handleVMSpec()
+	// handleNLB()
+	// handleCluster()
 	// handleRegionZone()
 	handlePriceInfo()
-
 }
 
 // handlerType : resources폴더의 xxxHandler.go에서 Handler이전까지의 문자열
@@ -1933,7 +1939,7 @@ func readConfigFile() Config {
 	// cblogger.Infof("Test Data 설정파일 : [%]", rootPath+"/config/config.yaml")
 
 	// data, err := ioutil.ReadFile(rootPath + "/config/config.yaml")
-	data, err := ioutil.ReadFile("/home/raccoon/workspace/go/src/spiderDriver/feature_priceInfo_ali_20231204_yhnoh/cloud-control-manager/cloud-driver/drivers/aws/main/Sample/config/config.yaml")
+	data, err := ioutil.ReadFile("/home/ubuntu/workspace/cb-spider/feature_priceInfo_aws_20231205_mhlee/cloud-control-manager/cloud-driver/drivers/aws/main/Sample/config/config.yaml")
 	// data, err := ioutil.ReadFile(rootPath + "/Sample/config/config.yaml")
 	//data, err := ioutil.ReadFile("D:/Workspace/mcloud-bar-config/config/config.yaml")
 	if err != nil {
