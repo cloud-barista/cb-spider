@@ -162,28 +162,49 @@ func (priceInfoHandler *AwsPriceInfoHandler) GetPriceInfo(productFamily string, 
 		if err != nil {
 			fmt.Println("Unmarshal Error:", err)
 		}
+
+		var jsonVal map[string]interface{}
+		jsonData, err := json.MarshalIndent(price["terms"], "", "    ")
+		if err != nil {
+			fmt.Println("JSON 변환 오류:", err)
+		}
+		err = json.Unmarshal([]byte(jsonData), &jsonVal)
+		if err != nil {
+			fmt.Println("JSON 파싱 오류:", err)
+		}
+
 		productInfo.ProductId = fmt.Sprintf("%s", price["product"].(map[string]interface{})["sku"])
 		productInfo.RegionName = fmt.Sprintf("%s", price["product"].(map[string]interface{})["attributes"].(map[string]interface{})["regionCode"])
 		productInfo.Description = fmt.Sprintf("productFamily %s, version %s", price["product"].(map[string]interface{})["productFamily"], price["version"])
 		productInfo.CSPProductInfo = price["product"]
+		awsJsonValtoMap(price)
 
-		// var priceInfo irs.PriceInfo
-		// for _,term := range price["product"] {}
-		if price["terms"].(map[string]interface{})["OnDemand"] != nil {
-			fmt.Print(price["terms"].(map[string]interface{})["OnDemand"])
-
-			for _, Key := range price["terms"].(map[string]irs.KeyValue{})["OnDemand"] {
-				fmt.Println("Key", Key)
+		for termskey, _ := range price["terms"].(map[string]interface{}) {
+			if termskey == "OnDemand" {
+				for OnDemandkey, OnDemandvalue := range price["terms"].(map[string]interface{})["OnDemand"].(map[string]interface{}) {
+					fmt.Println(OnDemandkey, OnDemandvalue)
+				}
 			}
 
-			// pricingPolicy := irs.PricingPolicies{}
-			// pricingPolicy.pricingPolicy = "OnDemand"
-			// pricingPolicy.PricingId =
-			// pricingPolicy.PricingId =
-			// pricingPolicy.PricingId =
-			// pricingPolicy.PricingId =
-			// pricingPolicy.PricingId =
 		}
+
+		// // var priceInfo irs.PriceInfo
+		// // for _,term := range price["product"] {}
+		// if price["terms"].(map[string]interface{})["OnDemand"] != nil {
+		// 	fmt.Print(price["terms"].(map[string]interface{})["OnDemand"])
+
+		// 	// for _, Key := range price["terms"].(map[string]irs.KeyValue{})["OnDemand"] {
+		// 	// 	fmt.Println("Key", Key)
+		// 	// }
+
+		// 	// pricingPolicy := irs.PricingPolicies{}
+		// 	// pricingPolicy.pricingPolicy = "OnDemand"
+		// 	// pricingPolicy.PricingId =
+		// 	// pricingPolicy.PricingId =
+		// 	// pricingPolicy.PricingId =
+		// 	// pricingPolicy.PricingId =
+		// 	// pricingPolicy.PricingId =
+		// }
 		// fmt.Println(price["terms"].(map[string]interface{})["OnDemand"])
 		// fmt.Println(price["terms"].(map[string]interface{})["Reserved"])
 
@@ -199,4 +220,17 @@ func (priceInfoHandler *AwsPriceInfoHandler) GetPriceInfo(productFamily string, 
 	// result.CloudPriceList = append(result.CloudPriceList, irs.CloudPrice{})
 
 	return string(resultString), nil
+}
+
+func awsJsonValtoMap(data aws.JSONValue) (map[string]interface{}, error) {
+	var jsonVal map[string]interface{}
+	jsonData, err := json.Marshal(data)
+	if err != nil {
+		return nil, err
+	}
+	err = json.Unmarshal([]byte(jsonData), &jsonVal)
+	if err != nil {
+		return nil, err
+	}
+	return jsonVal, err
 }

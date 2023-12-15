@@ -1939,7 +1939,7 @@ func readConfigFile() Config {
 	// cblogger.Infof("Test Data 설정파일 : [%]", rootPath+"/config/config.yaml")
 
 	// data, err := ioutil.ReadFile(rootPath + "/config/config.yaml")
-	data, err := ioutil.ReadFile("/home/ubuntu/workspace/cb-spider/feature_priceInfo_aws_20231205_mhlee/cloud-control-manager/cloud-driver/drivers/aws/main/Sample/config/config.yaml")
+	data, err := ioutil.ReadFile("/home/raccoon/workspace/cb-spider/feature_priceInfo_aws_20231205_mhlee/cloud-control-manager/cloud-driver/drivers/aws/main/Sample/config/config.yaml")
 	// data, err := ioutil.ReadFile(rootPath + "/Sample/config/config.yaml")
 	//data, err := ioutil.ReadFile("D:/Workspace/mcloud-bar-config/config/config.yaml")
 	if err != nil {
