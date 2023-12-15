@@ -67,8 +67,7 @@ If you have any difficulties in using Cloud-Barista, please let us know.
   | NCP Classic   | O             | O            | O               | O (Type-I)   | O             | O             | O               | O          | - |
   | NCP VPC       | O             | O            | O               | O            | O             | O             | O               | O          | - |
   | NHN           | O             | O            | O               | O (Type-II)  | O             | O             | O               | O          |Coming Soon |
-  | KT Classic    | O             | O            | O               | O (Type-I)   | O             | O             | O               | Plan       | - |
-  | KT VPC        | O             | O            | O               | O (Type-III) | O             | O             | WIP             | Plan       | - |
+  | KT Classic    | O             | O            | O               | O (Type-I)   | O             | O             | O               | Plan       | - |  
   
 
     ※ VPC 특이사항(세부 내용: 각 드라이버 Readme 참고)
@@ -78,11 +77,7 @@ If you have any difficulties in using Cloud-Barista, please let us know.
           - CIDR: 제공하지 않음(설정 무의미)
         ◉ Type-II: default VPC/Subnet 활용
           - CSP: 생성 제공 없이 고정된 default VPC 및 Subnet 1개만 제공
-          - CB-Spider: API 추상화를 위한 단일 VPC/Subnet 생성만 제공 (이름 등록 수준, 두개 이상 VPC 생성 불가)
-        ◉ Type-III: default VPC 활용(Subnet은 정상 제공)
-          - CSP: 생성 제공 없이 고정된 default VPC 1개만 제공
-          - CB-Spider: API 추상화를 위한 단일 VPC 생성만 제공 (이름 등록 수준, 두개 이상 VPC 생성 불가)
-
+          - CB-Spider: API 추상화를 위한 단일 VPC/Subnet 생성만 제공 (이름 등록 수준, 두개 이상 VPC 생성 불가)        
 
 #### 4. VM 계정
 - Ubuntu, Debian VM User: cb-user

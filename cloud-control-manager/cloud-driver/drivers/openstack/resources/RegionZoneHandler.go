@@ -86,6 +86,7 @@ func (regionZoneHandler *OpenStackRegionZoneHandler) ListRegionZone() ([]*irs.Re
 	var mutex = &sync.Mutex{}
 	var lenRegions = len(regionList)
 	var zoneErrorOccurred bool
+	k := 0
 
 	for i := 0; i < lenRegions; {
 		if lenRegions-i < routineMax {
@@ -120,7 +121,9 @@ func (regionZoneHandler *OpenStackRegionZoneHandler) ListRegionZone() ([]*irs.Re
 				mutex.Unlock()
 
 				wait.Done()
-			}(&wait, regionList[j])
+			}(&wait, regionList[k])
+
+			k++
 
 			i++
 			if i == lenRegions {
