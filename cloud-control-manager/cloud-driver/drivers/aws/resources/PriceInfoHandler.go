@@ -17,7 +17,8 @@ type AwsPriceInfoHandler struct {
 }
 
 // AWS에서는 Region이 Product list에 영향을 주지 않습니다.
-// 3개 Region Endpoint에서만 Product 정보를 리턴합니다. getPricingClient에 Client *pricing.Pricing 정의
+// 3개 Region Endpoint에서만 Product 정보를 리턴합니다.
+// getPricingClient에 Client *pricing.Pricing 정의
 func (priceInfoHandler *AwsPriceInfoHandler) ListProductFamily(targetRegion string) ([]string, error) {
 	var result []string
 	input := &pricing.DescribeServicesInput{}
@@ -28,8 +29,8 @@ func (priceInfoHandler *AwsPriceInfoHandler) ListProductFamily(targetRegion stri
 			return nil, err
 		}
 		for _, service := range services.Services {
-			servicesTOString := fmt.Sprintf("%v", service)
-			result = append(result, servicesTOString)
+			cblogger.Info(service)
+			result = append(result, *service.ServiceCode)
 		}
 		if services.NextToken != nil {
 			input = &pricing.DescribeServicesInput{
@@ -39,85 +40,32 @@ func (priceInfoHandler *AwsPriceInfoHandler) ListProductFamily(targetRegion stri
 			break
 		}
 	}
+	cblogger.Info()
 	return result, nil
 }
 
+// AWS에서는 ListProductFamily를 통해 ProductFamily와 AttributeName을 수집하고,
+// GetAttributeValues를 통해 AttributeValue를 수집하여 필터로 사용합니다.
+// GetPriceInfo는 DescribeServices를 통해 옳바른 productFamily 인자만 검사합니다. -> AttributeName에 오류가 있을경우 빈값을 리턴
 func (priceInfoHandler *AwsPriceInfoHandler) GetPriceInfo(productFamily string, regionName string, filterList []irs.KeyValue) (string, error) {
 
-	// describeServicesinput := &pricing.DescribeServicesInput{
-	// 	ServiceCode: aws.String(productFamily),
-	// 	MaxResults:  aws.Int64(1),
-	// }
-	// services, err := priceInfoHandler.Client.DescribeServices(describeServicesinput)
-	// if services == nil {
-	// 	cblogger.Error("No services in given productFamily. CHECK productFamily!")
-	// 	return "", err
-	// }
-	// if err != nil {
-	// 	cblogger.Error(err)
-	// 	return "", err
-	// }
-
-	// var errstr string
-
-	// getAttributeValuesinput := &pricing.GetAttributeValuesInput{}
-	// for _, filter := range filterList {
-	// 	if filter.Key == "AttributeName" {
-	// 		for _, AttributeName := range services.Services[0].AttributeNames {
-	// 			errstr = "No AttributeName in given productFamily. CHECK AttributeName!"
-	// 			if *AttributeName == filter.Value {
-	// 				errstr = ""
-	// 				break
-	// 			}
-	// 		}
-	// 		if errstr != "" {
-	// 			cblogger.Error(errstr)
-	// 			return "", nil
-	// 		}
-	// 		getAttributeValuesinput.AttributeName = aws.String(filter.Value)
-	// 		break
-	// 	}
-	// }
-	// getAttributeValuesinput.ServiceCode = aws.String(productFamily)
-
-	// attributeValues, err := priceInfoHandler.Client.GetAttributeValues(getAttributeValuesinput)
-	// if err != nil {
-	// 	cblogger.Error(err)
-	// 	return "", err
-	// }
-
-	// for _, filter := range filterList {
-	// 	if filter.Key == "AttributeValue" {
-	// 		for _, AttributeValue := range attributeValues.AttributeValues {
-	// 			errstr = "No AttributeValue in given AttributeValue. CHECK AttributeValue!"
-	// 			if *AttributeValue.Value == filter.Value {
-	// 				errstr = ""
-	// 				break
-	// 			}
-	// 		}
-	// 		if errstr != "" {
-	// 			cblogger.Error(errstr)
-	// 			return "", nil
-	// 		}
-	// 		getAttributeValuesinput.AttributeName = aws.String(filter.Value)
-	// 		break
-	// 	}
-	// }
-
-	// getProductsinputfilter := &pricing.Filter{}
-	// for _, filter := range filterList {
-	// 	if filter.Key == "AttributeName" {
-	// 		getProductsinputfilter.Field = aws.String(filter.Value)
-	// 	} else if filter.Key == "Type" {
-	// 		getProductsinputfilter.Type = aws.String(filter.Value)
-	// 	} else if filter.Key == "AttributeValue" {
-	// 		getProductsinputfilter.Value = aws.String(filter.Value)
-	// 	}
-	// }
+	describeServicesinput := &pricing.DescribeServicesInput{
+		ServiceCode: aws.String(productFamily),
+		MaxResults:  aws.Int64(1),
+	}
+	services, err := priceInfoHandler.Client.DescribeServices(describeServicesinput)
+	if services == nil {
+		cblogger.Error("No services in given productFamily. CHECK productFamily!")
+		return "", err
+	}
+	if err != nil {
+		cblogger.Error(err)
+		return "", err
+	}
 
 	getProductsinputfilters := []*pricing.Filter{}
-	var getProductsinputfilter pricing.Filter
 	for _, filter := range filterList {
+		var getProductsinputfilter pricing.Filter
 		err := json.Unmarshal([]byte(filter.Value), &getProductsinputfilter)
 		getProductsinputfilters = append(getProductsinputfilters, &getProductsinputfilter)
 		if err != nil {
@@ -146,69 +94,64 @@ func (priceInfoHandler *AwsPriceInfoHandler) GetPriceInfo(productFamily string, 
 	result := &irs.CloudPriceData{}
 	result.Meta.Version = "v0.1"
 	result.Meta.Description = "Multi-Cloud Price Info"
-	result.CloudPriceList = append(result.CloudPriceList, irs.CloudPrice{
-		CloudName: "AWS",
-	})
 
-	// fmt.Println(priceinfos.PriceList)
 	for _, price := range priceinfos.PriceList {
 		var productInfo irs.ProductInfo
+		var priceListone irs.PriceList
 
 		jsonString, err := json.MarshalIndent(price["product"].(map[string]interface{})["attributes"], "", "    ")
 		if err != nil {
-			fmt.Println("Error:", err)
+			cblogger.Error(err)
 		}
 		err = json.Unmarshal(jsonString, &productInfo)
 		if err != nil {
-			fmt.Println("Unmarshal Error:", err)
-		}
-
-		var jsonVal map[string]interface{}
-		jsonData, err := json.MarshalIndent(price["terms"], "", "    ")
-		if err != nil {
-			fmt.Println("JSON 변환 오류:", err)
-		}
-		err = json.Unmarshal([]byte(jsonData), &jsonVal)
-		if err != nil {
-			fmt.Println("JSON 파싱 오류:", err)
+			cblogger.Error(err)
 		}
 
 		productInfo.ProductId = fmt.Sprintf("%s", price["product"].(map[string]interface{})["sku"])
 		productInfo.RegionName = fmt.Sprintf("%s", price["product"].(map[string]interface{})["attributes"].(map[string]interface{})["regionCode"])
 		productInfo.Description = fmt.Sprintf("productFamily %s, version %s", price["product"].(map[string]interface{})["productFamily"], price["version"])
 		productInfo.CSPProductInfo = price["product"]
-		awsJsonValtoMap(price)
+		// product info
 
-		for termskey, _ := range price["terms"].(map[string]interface{}) {
-			if termskey == "OnDemand" {
-				for OnDemandkey, OnDemandvalue := range price["terms"].(map[string]interface{})["OnDemand"].(map[string]interface{}) {
-					fmt.Println(OnDemandkey, OnDemandvalue)
+		var priceInfo irs.PriceInfo
+		priceInfo.CSPPriceInfo = price["terms"]
+		for termsKey, termsValue := range price["terms"].(map[string]interface{}) {
+			for _, policyvalue := range termsValue.(map[string]interface{}) {
+				for innerpolicyKey, innerpolicyValue := range policyvalue.(map[string]interface{}) {
+					if innerpolicyKey == "priceDimensions" {
+						for priceDimensionsKey, priceDimensionsValue := range innerpolicyValue.(map[string]interface{}) {
+							var pricingPolicy irs.PricingPolicies
+							pricingPolicy.PricingId = priceDimensionsKey
+							pricingPolicy.PricingPolicy = termsKey
+							pricingPolicy.Description = fmt.Sprintf("%s", priceDimensionsValue.(map[string]interface{})["description"])
+							for key, val := range priceDimensionsValue.(map[string]interface{})["pricePerUnit"].(map[string]interface{}) {
+								pricingPolicy.Currency = key
+								pricingPolicy.Price = fmt.Sprintf("%s", val)
+								// USD is Default.
+								// if NO USD data, accept other currency.
+								if key == "USD" {
+									break
+								}
+							}
+							pricingPolicy.Unit = fmt.Sprintf("%s", priceDimensionsValue.(map[string]interface{})["unit"])
+							priceInfo.PricingPolicies = append(priceInfo.PricingPolicies, pricingPolicy)
+						}
+					}
 				}
 			}
-
 		}
+		// price info
 
-		// // var priceInfo irs.PriceInfo
-		// // for _,term := range price["product"] {}
-		// if price["terms"].(map[string]interface{})["OnDemand"] != nil {
-		// 	fmt.Print(price["terms"].(map[string]interface{})["OnDemand"])
+		priceListone.ProductInfo = productInfo
+		priceListone.PriceInfo = priceInfo
 
-		// 	// for _, Key := range price["terms"].(map[string]irs.KeyValue{})["OnDemand"] {
-		// 	// 	fmt.Println("Key", Key)
-		// 	// }
+		priceone := irs.CloudPrice{
+			CloudName: "AWS",
+		}
+		priceone.PriceList = append(priceone.PriceList, priceListone)
 
-		// 	// pricingPolicy := irs.PricingPolicies{}
-		// 	// pricingPolicy.pricingPolicy = "OnDemand"
-		// 	// pricingPolicy.PricingId =
-		// 	// pricingPolicy.PricingId =
-		// 	// pricingPolicy.PricingId =
-		// 	// pricingPolicy.PricingId =
-		// 	// pricingPolicy.PricingId =
-		// }
-		// fmt.Println(price["terms"].(map[string]interface{})["OnDemand"])
-		// fmt.Println(price["terms"].(map[string]interface{})["Reserved"])
-
-		break
+		result.CloudPriceList = append(result.CloudPriceList, priceone)
 	}
 
 	resultString, err := json.Marshal(result)
@@ -217,20 +160,5 @@ func (priceInfoHandler *AwsPriceInfoHandler) GetPriceInfo(productFamily string, 
 		return "", err
 	}
 
-	// result.CloudPriceList = append(result.CloudPriceList, irs.CloudPrice{})
-
 	return string(resultString), nil
-}
-
-func awsJsonValtoMap(data aws.JSONValue) (map[string]interface{}, error) {
-	var jsonVal map[string]interface{}
-	jsonData, err := json.Marshal(data)
-	if err != nil {
-		return nil, err
-	}
-	err = json.Unmarshal([]byte(jsonData), &jsonVal)
-	if err != nil {
-		return nil, err
-	}
-	return jsonVal, err
 }
