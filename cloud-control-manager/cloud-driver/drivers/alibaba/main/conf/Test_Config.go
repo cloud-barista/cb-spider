@@ -12,7 +12,6 @@ package AliTestConfig
 
 import (
 	"io/ioutil"
-	"os"
 
 	alidrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/alibaba"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
@@ -67,12 +66,13 @@ type Config struct {
 // 환경변수 CBSPIDER_PATH 설정 후 해당 폴더 하위에 /config/config.yaml 파일 생성해야 함.
 func ReadConfigFile() Config {
 	// Set Environment Value of Project Root Path
-	rootPath := os.Getenv("CBSPIDER_PATH")
+	///////// rootPath := os.Getenv("CBSPIDER_PATH")
 	//rootpath := "D:/Workspace/mcloud-barista-config"
 	// /mnt/d/Workspace/mcloud-barista-config/config/config.yaml
-	cblogger.Debugf("Test Data 설정파일 : [%]", rootPath+"/config/config.yaml")
+	///////// cblogger.Debugf("Test Data 설정파일 : [%]", rootPath+"/config/config.yaml")
 
-	data, err := ioutil.ReadFile(rootPath + "/config/config.yaml")
+	///////// data, err := ioutil.ReadFile(rootPath + "/config/config.yaml")
+	data, err := ioutil.ReadFile("/home/ubuntu/workspace/cb-spider/feature_priceInfo_ali_20231204_yhnoh/cloud-control-manager/cloud-driver/drivers/alibaba/main/Sample/config/config.yaml")
 	//data, err := ioutil.ReadFile("D:/Workspace/mcloud-bar-config/config/config.yaml")
 	if err != nil {
 		panic(err)
@@ -140,6 +140,8 @@ func GetResourceHandler(handlerType string) (interface{}, error) {
 		resourceHandler, err = cloudConnection.CreateNLBHandler()
 	case "RegionZone":
 		resourceHandler, err = cloudConnection.CreateRegionZoneHandler()
+	case "PriceInfo":
+		resourceHandler, err = cloudConnection.CreatePriceInfoHandler()
 	}
 
 	if err != nil {

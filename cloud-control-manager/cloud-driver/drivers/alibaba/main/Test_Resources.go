@@ -1657,7 +1657,6 @@ func main() {
 	//handleVNic() //Lancard
 	//handleRegionZone()
 	handlePriceInfo()
-
 	/*
 		//StartTime := "2020-05-07T01:35:00Z"
 		StartTime := "2020-05-07T01:35Z"

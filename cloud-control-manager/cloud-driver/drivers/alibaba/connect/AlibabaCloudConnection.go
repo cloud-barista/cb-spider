@@ -162,6 +162,7 @@ func (cloudConn *AlibabaCloudConnection) CreateAnyCallHandler() (irs.AnyCallHand
 }
 
 func (cloudConn *AlibabaCloudConnection) CreatePriceInfoHandler() (irs.PriceInfoHandler, error) {
-	priceInfoHandler := alirs.AlibabaPriceInfoHandler{Region: cloudConn.Region, Client: cloudConn.VMClient, BssClient: cloudConn.BssClient}
+	// priceInfoHandler := alirs.AlibabaPriceInfoHandler{Region: cloudConn.Region, Client: cloudConn.VMClient, BssClient: cloudConn.BssClient}
+	priceInfoHandler := alirs.AlibabaPriceInfoHandler{BssClient: cloudConn.BssClient}
 	return &priceInfoHandler, nil
 }
