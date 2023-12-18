@@ -161,6 +161,7 @@ func (cloudConn *AlibabaCloudConnection) CreateAnyCallHandler() (irs.AnyCallHand
 }
 
 func (cloudConn *AlibabaCloudConnection) CreatePriceInfoHandler() (irs.PriceInfoHandler, error) {
-	priceInfoHandler := alirs.AlibabaPriceInfoHandler{Region: cloudConn.Region, Client: cloudConn.PriceInfoClient}
-	return &priceInfoHandler, nil
+	// priceInfoHandler := alirs.AlibabaPriceInfoHandler{Region: cloudConn.Region, Client: cloudConn.PriceInfoClient}
+	// return &priceInfoHandler, nil
+	return nil, errors.New("Alibaba Driver: not implemented")
 }

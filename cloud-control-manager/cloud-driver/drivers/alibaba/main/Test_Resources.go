@@ -1583,62 +1583,62 @@ func handleRegionZone() {
 
 func handlePriceInfo() {
 	cblogger.Debug("Start handlePriceInfo Test")
-	ResourceHandler, err := testconf.GetResourceHandler("PriceInfo")
-	if err != nil {
-		//panic(err)
-		cblogger.Error(err)
-	}
-	handler := ResourceHandler.(irs.PriceInfoHandler)
-	cblogger.Info(handler)
+	// ResourceHandler, err := testconf.GetResourceHandler("PriceInfo")
+	// if err != nil {
+	// 	//panic(err)
+	// 	cblogger.Error(err)
+	// }
+	// handler := ResourceHandler.(irs.PriceInfoHandler)
+	// cblogger.Info(handler)
 
-	for {
-		fmt.Println("Handler Management")
-		fmt.Println("0. Quit")
-		fmt.Println("1. ListProductFamily List")
-		fmt.Println("2. GetPriceInfo ")
+	// for {
+	// 	fmt.Println("Handler Management")
+	// 	fmt.Println("0. Quit")
+	// 	fmt.Println("1. ListProductFamily List")
+	// 	fmt.Println("2. GetPriceInfo ")
 
-		var commandNum int
-		inputCnt, err := fmt.Scan(&commandNum)
-		if err != nil {
-			panic(err)
-		}
+	// 	var commandNum int
+	// 	inputCnt, err := fmt.Scan(&commandNum)
+	// 	if err != nil {
+	// 		panic(err)
+	// 	}
 
-		// func (priceInfoHandler *AlibabaPriceInfoHandler) ListProductFamily() ([]string, error) {
-		// 	return nil, nil
-		// }
+	// 	// func (priceInfoHandler *AlibabaPriceInfoHandler) ListProductFamily() ([]string, error) {
+	// 	// 	return nil, nil
+	// 	// }
 
-		// func (priceInfoHandler *AlibabaPriceInfoHandler) GetPriceInfo(productFamily string, regionName string, filter irs.KeyValue) (string, error) {
-		// 	return "", nil
-		// }
+	// 	// func (priceInfoHandler *AlibabaPriceInfoHandler) GetPriceInfo(productFamily string, regionName string, filter irs.KeyValue) (string, error) {
+	// 	// 	return "", nil
+	// 	// }
 
-		if inputCnt == 1 {
-			switch commandNum {
-			case 0:
-				return
-			case 1:
-				regionName := "cn-hongkong"
-				result, err := handler.ListProductFamily(regionName)
-				if err != nil {
-					cblogger.Infof(" ProductFamily 목록 조회 실패 : ", err)
-				} else {
-					cblogger.Info("ProductFamily 목록 조회 결과")
-					spew.Dump(result)
-				}
+	// 	if inputCnt == 1 {
+	// 		switch commandNum {
+	// 		case 0:
+	// 			return
+	// 		case 1:
+	// 			regionName := "cn-hongkong"
+	// 			result, err := handler.ListProductFamily(regionName)
+	// 			if err != nil {
+	// 				cblogger.Infof(" ProductFamily 목록 조회 실패 : ", err)
+	// 			} else {
+	// 				cblogger.Info("ProductFamily 목록 조회 결과")
+	// 				spew.Dump(result)
+	// 			}
 
-			case 2:
-				productFamily := ""
-				regionName := ""
+	// 		case 2:
+	// 			productFamily := ""
+	// 			regionName := ""
 
-				result, err := handler.GetPriceInfo(productFamily, regionName, irs.KeyValue{})
-				if err != nil {
-					cblogger.Infof(" PriceInfo 조회 실패 : ", err)
-				} else {
-					cblogger.Info("PriceInfo 조회 결과")
-					spew.Dump(result)
-				}
-			}
-		}
-	}
+	// 			result, err := handler.GetPriceInfo(productFamily, regionName, irs.KeyValue{})
+	// 			if err != nil {
+	// 				cblogger.Infof(" PriceInfo 조회 실패 : ", err)
+	// 			} else {
+	// 				cblogger.Info("PriceInfo 조회 결과")
+	// 				spew.Dump(result)
+	// 			}
+	// 		}
+	// 	}
+	// }
 }
 
 func main() {
