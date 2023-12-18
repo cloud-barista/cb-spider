@@ -1549,13 +1549,16 @@ func handlePriceInfo() {
 					cblogger.Info("출력 결과 수 : ", len(result))
 				}
 			case 2:
-				result, err := handler.GetPriceInfo("compute", "", make([]irs.KeyValue, 0))
+				filters := make([]irs.KeyValue, 0)
+				filters = append(filters, irs.KeyValue{Key: "instance-type", Value: "S5.SMALL2"})
+				result, err := handler.GetPriceInfo("compute", "", filters)
 				if err != nil {
 					cblogger.Infof("GetPriceInfo 목록 조회 실패 : %s", err)
 				} else {
 					cblogger.Info("GetPriceInfo 목록 조회 결과")
 					// cblogger.Debugf("결과 %s", result[0])
 					spew.Dump(result)
+					// fmt.Printf("[Length of Byte] %s\n", len(result))
 					cblogger.Infof("로그 레벨 : [%s]", cblog.GetLevel())
 					//spew.Dump(result)
 				}

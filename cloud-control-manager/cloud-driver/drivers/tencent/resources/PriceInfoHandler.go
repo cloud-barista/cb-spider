@@ -3,10 +3,11 @@ package resources
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
 
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
@@ -26,23 +27,56 @@ func (t *TencentPriceInfoHandler) ListProductFamily(regionName string) ([]string
 	return pl, nil
 }
 
-func (t *TencentPriceInfoHandler) GetPriceInfo(productFamily string, regionName string, filterList []irs.KeyValue) (string, error) {
+type instanceModel struct {
+	standardInfo *cvm.DescribeZoneInstanceConfigInfosResponse
+	reservedInfo *cvm.DescribeReservedInstancesConfigInfosResponse
+}
+
+func (t *TencentPriceInfoHandler) GetPriceInfo(productFamily string, regionName string, additionalFilters []irs.KeyValue) (string, error) {
 	switch {
 	case strings.EqualFold("compute", productFamily):
 
-		priceInfo, err := t.describeZoneInstanceConfigInfos(t.Region.Zone, filterList)
+		// TODO 기존 연결된 커넥션의 zone 정보에 의존하지 않도록 parameter 로 넘어오는 zone 정보로 데이터 매핑 필요
+		// TODO zone 정보에 대해서 connection 재 연결 등의 방식으로 변경 시 확인 필요
+		var filters []*cvm.Filter
+		filters = append(filters, &cvm.Filter{
+			Name:   common.StringPtr("zone"),
+			Values: []*string{common.StringPtr(t.Region.Zone)},
+		})
+
+		begin := time.Now()
+
+		// TODO 응답 시간이 3초 이상인 경우 추후 go routine 을 이용한 코드로 변경
+		// AZ 의 Instance 모델과 Spot 모델 조회
+		standardInfo, err := t.describeZoneInstanceConfigInfos(filters, additionalFilters)
 
 		if err != nil {
 			return "", err
 		}
 
-		res, err := mappingToStruct(priceInfo, regionName, filterList)
+		fmt.Printf("[Timer] After describe zone instance api call %s\n", time.Since(begin).Truncate(time.Millisecond))
+
+		// AZ 의 RI 모델 조회
+		reservedInfo, err := t.describeReservedInstancesConfigInfos(filters, additionalFilters)
 
 		if err != nil {
 			return "", err
 		}
+
+		fmt.Printf("[Timer] After describe reserved instance api call %s\n", time.Since(begin).Truncate(time.Millisecond))
+
+		// res, err := mappingToStruct(regionName, &instanceModel{standardInfo: standardInfo, reservedInfo: reservedInfo})
+		res, err := mappingToStruct(regionName, &instanceModel{standardInfo: standardInfo, reservedInfo: reservedInfo})
+
+		if err != nil {
+			return "", err
+		}
+
+		fmt.Printf("[Timer] After mapping struct %s\n", time.Since(begin).Truncate(time.Millisecond))
 
 		mar, err := json.MarshalIndent(&res, "", "  ")
+
+		fmt.Printf("[Timer] After marsharling %s\n", time.Since(begin).Truncate(time.Millisecond))
 
 		if err != nil {
 			return "", err
@@ -54,20 +88,27 @@ func (t *TencentPriceInfoHandler) GetPriceInfo(productFamily string, regionName 
 	return "", nil
 }
 
-func (t *TencentPriceInfoHandler) describeZoneInstanceConfigInfos(zone string, filterList []irs.KeyValue) (*cvm.DescribeZoneInstanceConfigInfosResponse, error) {
-	filters := []*cvm.Filter{
-		{
-			Name:   common.StringPtr("zone"),
-			Values: []*string{common.StringPtr(zone)},
-		},
-		{
-			Name:   common.StringPtr("instance-family"),
-			Values: []*string{common.StringPtr("SN3ne")},
-		},
-		{
-			Name:   common.StringPtr("instance-type"),
-			Values: []*string{common.StringPtr("SN3ne.SMALL2")},
-		},
+func (t *TencentPriceInfoHandler) describeZoneInstanceConfigInfos(filters []*cvm.Filter, filterList []irs.KeyValue) (*cvm.DescribeZoneInstanceConfigInfosResponse, error) {
+
+	filters = append(filters, &cvm.Filter{
+		Name:   common.StringPtr("dtatus"),
+		Values: []*string{common.StringPtr("SELL")},
+	})
+
+	for _, kv := range filterList {
+		switch kv.Key {
+		case "instance-family":
+			filters = append(filters, &cvm.Filter{
+				Name:   common.StringPtr("instance-family"),
+				Values: []*string{common.StringPtr(kv.Value)},
+			})
+		case "instance-type":
+			filters = append(filters, &cvm.Filter{
+				Name:   common.StringPtr("instance-type"),
+				Values: []*string{common.StringPtr(kv.Value)},
+			})
+		default:
+		}
 	}
 
 	req := cvm.NewDescribeZoneInstanceConfigInfosRequest()
@@ -75,28 +116,58 @@ func (t *TencentPriceInfoHandler) describeZoneInstanceConfigInfos(zone string, f
 
 	res, err := t.Client.DescribeZoneInstanceConfigInfos(req)
 	if err != nil {
+		// TODO Error mapping
 		return nil, err
 	}
 
 	return res, nil
 }
 
-func mappingToStruct(priceInfo *cvm.DescribeZoneInstanceConfigInfosResponse, regionName string, filterList []irs.KeyValue) (*irs.CloudPriceData, error) {
+func (t *TencentPriceInfoHandler) describeReservedInstancesConfigInfos(filters []*cvm.Filter, filterList []irs.KeyValue) (*cvm.DescribeReservedInstancesConfigInfosResponse, error) {
+
+	req := cvm.NewDescribeReservedInstancesConfigInfosRequest()
+	req.Filters = filters
+
+	res, err := t.Client.DescribeReservedInstancesConfigInfos(req)
+	if err != nil {
+		// TODO Error mapping
+		return nil, err
+	}
+
+	return res, nil
+}
+
+func mappingToStructTogether(regionName string, instanceModel *instanceModel) (*irs.CloudPriceData, error) {
+
+	// map 객체에 저장해보자.
+	reservedMap := make(map[string]*cvm.ReservedInstanceTypeItem)
+
+	if instanceModel.reservedInfo != nil {
+		for _, v := range instanceModel.reservedInfo.Response.ReservedInstanceConfigInfos {
+			for _, info := range v.InstanceFamilies {
+				for _, iType := range info.InstanceTypes {
+					reservedMap[*iType.InstanceType] = iType
+				}
+			}
+		}
+	}
 
 	var priceList []irs.PriceList
 
-	for _, v := range priceInfo.Response.InstanceTypeQuotaSet {
-		spew.Dump(v)
-		priceList = append(priceList, irs.PriceList{
-			ProductInfo: mappingProductInfo(v, regionName, filterList),
-			PriceInfo:   mappingPriceInfo(v, regionName, filterList),
-		})
+	if instanceModel.standardInfo != nil {
+		for _, v := range instanceModel.standardInfo.Response.InstanceTypeQuotaSet {
+
+			priceList = append(priceList, irs.PriceList{
+				ProductInfo: mappindgStandardProductInfo(regionName, v),
+				PriceInfo:   mappingStandardPriceInfoWithReserved(v, reservedMap[*v.InstanceType]),
+			})
+		}
 	}
 
 	return &irs.CloudPriceData{
 		Meta: irs.Meta{
-			Version:     "this is version",
-			Description: "Get price info",
+			Version:     "This is version info.",
+			Description: "This is description of this function.",
 		},
 		CloudPriceList: []irs.CloudPrice{
 			{
@@ -107,8 +178,72 @@ func mappingToStruct(priceInfo *cvm.DescribeZoneInstanceConfigInfosResponse, reg
 	}, nil
 }
 
-func mappingProductInfo(item *cvm.InstanceTypeQuotaItem, regionName string, filterList []irs.KeyValue) irs.ProductInfo {
-	mar, err := json.MarshalIndent(item, "", "  ")
+func mappingToStruct(regionName string, instanceModel *instanceModel) (*irs.CloudPriceData, error) {
+	var priceList []irs.PriceList
+
+	if instanceModel.standardInfo != nil {
+		for _, v := range instanceModel.standardInfo.Response.InstanceTypeQuotaSet {
+			priceList = append(priceList, irs.PriceList{
+				ProductInfo: mappindgStandardProductInfo(regionName, v),
+				PriceInfo:   mappingStandardPriceInfo(v),
+			})
+		}
+	}
+
+	// O(N^3) 보다 더 좋은 방법은??
+	// config info 와 families 는 요소가 많지 않고 보통 1~2개의 요소만을 포함하기 때문에
+	// 마지막 루프가 유의미한 반복인 확률이 가장 높음.
+	// O(N^3)의 시간복잡도를 가지지만 오랜 시간이 걸리지 않을 것으로 판단.
+	if instanceModel.reservedInfo != nil {
+		for _, v := range instanceModel.reservedInfo.Response.ReservedInstanceConfigInfos {
+			for _, info := range v.InstanceFamilies {
+				for _, iType := range info.InstanceTypes {
+					priceList = append(priceList, irs.PriceList{
+						ProductInfo: mappingReservedProductInfo(regionName, iType),
+						PriceInfo:   mappingReservedPriceInfo(iType),
+					})
+				}
+			}
+		}
+	}
+
+	return &irs.CloudPriceData{
+		Meta: irs.Meta{
+			Version:     "This is version info.",
+			Description: "This is description of this function.",
+		},
+		CloudPriceList: []irs.CloudPrice{
+			{
+				CloudName: "TENCENT",
+				PriceList: priceList,
+			},
+		},
+	}, nil
+}
+
+func mappindgStandardProductInfo(regionName string, standardItem *cvm.InstanceTypeQuotaItem) irs.ProductInfo {
+	mar, err := json.MarshalIndent(standardItem, "", "  ")
+
+	if err != nil {
+		return irs.ProductInfo{}
+	}
+
+	productInfo := irs.ProductInfo{
+		ProductId:  "I don't know what to fill",
+		RegionName: regionName,
+
+		InstanceType:   *standardItem.InstanceType,
+		Vcpu:           strconv.FormatInt(*standardItem.Cpu, 32),
+		Memory:         strconv.FormatInt(*standardItem.Memory, 32),
+		Gpu:            strconv.FormatInt(*standardItem.Gpu, 32),
+		Description:    *standardItem.CpuType,
+		CSPProductInfo: string(mar),
+	}
+	return productInfo
+}
+
+func mappingReservedProductInfo(regionName string, reservedItem *cvm.ReservedInstanceTypeItem) irs.ProductInfo {
+	mar, err := json.MarshalIndent(reservedItem, "", "  ")
 
 	if err != nil {
 		return irs.ProductInfo{}
@@ -118,16 +253,78 @@ func mappingProductInfo(item *cvm.InstanceTypeQuotaItem, regionName string, filt
 		ProductId:  "",
 		RegionName: regionName,
 
-		InstanceType:   *item.InstanceType,
-		Vcpu:           strconv.FormatInt(*item.Cpu, 32),
-		Memory:         strconv.FormatInt(*item.Memory, 32),
-		Gpu:            strconv.FormatInt(*item.Gpu, 32),
+		InstanceType:   *reservedItem.InstanceType,
+		Vcpu:           strconv.FormatUint(*reservedItem.Cpu, 32),
+		Memory:         strconv.FormatUint(*reservedItem.Memory, 32),
+		Gpu:            strconv.FormatUint(*reservedItem.Gpu, 32),
+		Description:    *reservedItem.CpuModelName,
 		CSPProductInfo: string(mar),
 	}
 	return productInfo
 }
 
-func mappingPriceInfo(item *cvm.InstanceTypeQuotaItem, regionName string, filterList []irs.KeyValue) irs.PriceInfo {
+func mappingStandardPriceInfoWithReserved(standard *cvm.InstanceTypeQuotaItem, reserved *cvm.ReservedInstanceTypeItem) irs.PriceInfo {
+	price := standard.Price
+	var prices []*cvm.ReservedInstancePriceItem
+	if reserved != nil {
+		prices = reserved.Prices
+	}
+
+	mar, err := json.MarshalIndent(map[string]any{"standard": price, "reserved": prices}, "", "  ")
+	if err != nil {
+		return irs.PriceInfo{}
+	}
+
+	var policies []irs.PricingPolicies
+
+	// standard pricing info mapping
+	policyInfo := irs.PricingPolicyInfo{
+		LeaseContractLength: "",
+		OfferingClass:       "",
+		PurchaseOption:      "",
+	}
+
+	policy := irs.PricingPolicies{
+		PricingPolicy:     *standard.InstanceChargeType,
+		Unit:              *price.ChargeUnit,
+		Currency:          "USD",
+		Price:             strconv.FormatFloat(*price.UnitPrice, 'f', -1, 64),
+		PricingPolicyInfo: &policyInfo,
+	}
+
+	policies = append(policies, policy)
+
+	if len(prices) > 0 {
+		for _, price := range prices {
+			policyInfo := irs.PricingPolicyInfo{
+				LeaseContractLength: strconv.FormatUint(*price.Duration/31536000, 32),
+				OfferingClass:       "",
+				PurchaseOption:      *price.OfferingType,
+			}
+
+			policy := irs.PricingPolicies{
+				PricingId:         *price.ReservedInstancesOfferingId,
+				PricingPolicy:     "Reserved",
+				Unit:              "yrs",
+				Currency:          "USD",
+				Price:             strconv.FormatFloat(*price.FixedPrice, 'f', -1, 64),
+				PricingPolicyInfo: &policyInfo,
+				Description:       *price.ProductDescription,
+			}
+
+			policies = append(policies, policy)
+		}
+	}
+
+	priceInfo := irs.PriceInfo{
+		PricingPolicies: policies,
+		CSPPriceInfo:    string(mar),
+	}
+
+	return priceInfo
+}
+
+func mappingStandardPriceInfo(item *cvm.InstanceTypeQuotaItem) irs.PriceInfo {
 	price := item.Price
 
 	mar, err := json.MarshalIndent(price, "", "  ")
@@ -152,6 +349,44 @@ func mappingPriceInfo(item *cvm.InstanceTypeQuotaItem, regionName string, filter
 
 	priceInfo := irs.PriceInfo{
 		PricingPolicies: []irs.PricingPolicies{policy},
+		CSPPriceInfo:    string(mar),
+	}
+
+	return priceInfo
+}
+
+func mappingReservedPriceInfo(item *cvm.ReservedInstanceTypeItem) irs.PriceInfo {
+	prices := item.Prices
+
+	mar, err := json.MarshalIndent(prices, "", "  ")
+	if err != nil {
+		return irs.PriceInfo{}
+	}
+
+	var policies []irs.PricingPolicies
+
+	for _, price := range prices {
+		policyInfo := irs.PricingPolicyInfo{
+			LeaseContractLength: strconv.FormatUint(*price.Duration/31536000, 32),
+			OfferingClass:       "",
+			PurchaseOption:      *price.OfferingType,
+		}
+
+		policy := irs.PricingPolicies{
+			PricingId:         *price.ReservedInstancesOfferingId,
+			PricingPolicy:     "Reserved",
+			Unit:              "yrs",
+			Currency:          "USD",
+			Price:             strconv.FormatFloat(*price.FixedPrice, 'f', -1, 64),
+			PricingPolicyInfo: &policyInfo,
+			Description:       *price.ProductDescription,
+		}
+
+		policies = append(policies, policy)
+	}
+
+	priceInfo := irs.PriceInfo{
+		PricingPolicies: policies,
 		CSPPriceInfo:    string(mar),
 	}
 
