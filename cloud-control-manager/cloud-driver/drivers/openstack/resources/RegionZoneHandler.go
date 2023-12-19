@@ -120,7 +120,7 @@ func (regionZoneHandler *OpenStackRegionZoneHandler) ListRegionZone() ([]*irs.Re
 				mutex.Unlock()
 
 				wait.Done()
-			}(&wait, regionList[j])
+			}(&wait, regionList[i])
 
 			i++
 			if i == lenRegions {

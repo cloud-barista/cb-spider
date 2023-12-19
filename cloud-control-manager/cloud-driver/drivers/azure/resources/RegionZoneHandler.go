@@ -118,7 +118,7 @@ func (regionZoneHandler *AzureRegionZoneHandler) ListRegionZone() ([]*irs.Region
 				mutex.Unlock()
 
 				wait.Done()
-			}(&wait, (*resultListLocations.Value)[j])
+			}(&wait, (*resultListLocations.Value)[i])
 
 			i++
 			if i == lenLocations {

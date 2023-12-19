@@ -83,7 +83,7 @@ func (regionZoneHandler *IbmRegionZoneHandler) ListRegionZone() ([]*irs.RegionZo
 				mutex.Unlock()
 
 				wait.Done()
-			}(&wait, regions.Regions[j])
+			}(&wait, regions.Regions[i])
 
 			i++
 			if i == lenRegions {
