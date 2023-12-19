@@ -21,11 +21,11 @@ type Meta struct {
 }
 
 type CloudPrice struct {
-	CloudName string      `json:"cloudName"`
-	PriceList []PriceList `json:"priceList"`
+	CloudName string  `json:"cloudName"`
+	PriceList []Price `json:"priceList"`
 }
 
-type PriceList struct {
+type Price struct {
 	ProductInfo ProductInfo `json:"productInfo"`
 	PriceInfo   PriceInfo   `json:"priceInfo"`
 }
@@ -33,6 +33,7 @@ type PriceList struct {
 type ProductInfo struct {
 	ProductId  string `json:"productId"`
 	RegionName string `json:"regionName"`
+	ZoneName   string `json:"zoneName"`
 
 	//--------- Compute Instance
 	InstanceType    string `json:"instanceType,omitempty"`
