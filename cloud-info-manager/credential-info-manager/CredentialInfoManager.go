@@ -42,13 +42,12 @@ var cblog *logrus.Logger
 
 func init() {
 	cblog = cblogger.GetLogger("CLOUD-BARISTA")
-
-	// db, err := infostore.Open()
-	// if err != nil {
-	// 	panic("failed to connect database")
-	// }
-	// db.AutoMigrate(&CredentialInfo{})
-	// infostore.Close(db)
+	db, err := infostore.Open()
+	if err != nil {
+		panic("failed to connect database")
+	}
+	db.AutoMigrate(&CredentialInfo{})
+	infostore.Close(db)
 }
 
 // 1. check params

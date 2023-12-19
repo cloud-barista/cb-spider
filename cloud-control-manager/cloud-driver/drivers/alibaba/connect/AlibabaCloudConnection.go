@@ -48,8 +48,6 @@ type AlibabaCloudConnection struct {
 	DiskClient       *ecs.Client
 	MyImageClient    *ecs.Client
 	RegionZoneClient *ecs.Client
-
-	PriceInfoClient *ecs.Client
 }
 
 func (cloudConn *AlibabaCloudConnection) CreateRegionZoneHandler() (irs.RegionZoneHandler, error) {
@@ -160,8 +158,6 @@ func (cloudConn *AlibabaCloudConnection) CreateAnyCallHandler() (irs.AnyCallHand
 	return nil, errors.New("Alibaba Driver: not implemented")
 }
 
-func (cloudConn *AlibabaCloudConnection) CreatePriceInfoHandler() (irs.PriceInfoHandler, error) {
-	// priceInfoHandler := alirs.AlibabaPriceInfoHandler{Region: cloudConn.Region, Client: cloudConn.PriceInfoClient}
-	// return &priceInfoHandler, nil
+func (*AlibabaCloudConnection) CreatePriceInfoHandler() (irs.PriceInfoHandler, error) {
 	return nil, errors.New("Alibaba Driver: not implemented")
 }

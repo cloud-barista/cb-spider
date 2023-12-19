@@ -1750,8 +1750,9 @@ func handlePriceInfo() {
 			case 2:
 				var filterList []irs.KeyValue
 				// Type : [TERM_CONTAIN, ANY_OF, TERM_MATCH, NONE_OF, CONTAINS, EQUALS]
-				filterList = append(filterList, irs.KeyValue{Key: "filter", Value: "{\"Field\":\"instanceType\",\"Type\":\"TERM_MATCH\",\"Value\":\"t2.nano\"}"})
-				filterList = append(filterList, irs.KeyValue{Key: "filter", Value: "{\"Field\":\"operatingSystem\",\"Type\":\"TERM_MATCH\",\"Value\":\"Linux\"}"})
+				// filterList = append(filterList, irs.KeyValue{Key: "filter", Value: "{\"Field\":\"instanceType\",\"Type\":\"TERM_MATCH\",\"Value\":\"t2.nano\"}"})
+				// filterList = append(filterList, irs.KeyValue{Key: "filter", Value: "{\"Field\":\"operatingSystem\",\"Type\":\"TERM_MATCH\",\"Value\":\"Linux\"}"})
+				filterList = append(filterList, irs.KeyValue{Key: "filter", Value: "{\"Field\":\"sku\",\"Type\":\"TERM_MATCH\",\"Value\":\"24MKFUYR8UGHCNGB\"}"})
 
 				// TEST seraach data
 				// instanceType = t2.nano
@@ -1946,6 +1947,7 @@ func readConfigFile() Config {
 	// cblogger.Infof("Test Data 설정파일 : [%]", rootPath+"/config/config.yaml")
 
 	data, err := ioutil.ReadFile(rootPath + "/config/config.yaml")
+	data, err = ioutil.ReadFile("/home/ubuntu/workspace/cb-spider/feature_priceInfo_aws_20231205_mhlee/cloud-control-manager/cloud-driver/drivers/aws/main/Sample/config/config.yaml")
 	// data, err := ioutil.ReadFile(rootPath + "/Sample/config/config.yaml")
 	//data, err := ioutil.ReadFile("D:/Workspace/mcloud-bar-config/config/config.yaml")
 	if err != nil {

@@ -19,7 +19,7 @@ type AwsPriceInfoHandler struct {
 // AWS에서는 Region이 Product list에 영향을 주지 않습니다.
 // 3개 Region Endpoint에서만 Product 정보를 리턴합니다.
 // getPricingClient에 Client *pricing.Pricing 정의
-func (priceInfoHandler *AwsPriceInfoHandler) ListProductFamily(targetRegion string) ([]string, error) {
+func (priceInfoHandler *AwsPriceInfoHandler) ListProductFamily(regionName string) ([]string, error) {
 	var result []string
 	input := &pricing.DescribeServicesInput{}
 	for {
@@ -64,13 +64,16 @@ func (priceInfoHandler *AwsPriceInfoHandler) GetPriceInfo(productFamily string, 
 	}
 
 	getProductsinputfilters := []*pricing.Filter{}
-	for _, filter := range filterList {
-		var getProductsinputfilter pricing.Filter
-		err := json.Unmarshal([]byte(filter.Value), &getProductsinputfilter)
-		getProductsinputfilters = append(getProductsinputfilters, &getProductsinputfilter)
-		if err != nil {
-			cblogger.Error(err)
-			return "", err
+
+	if filterList != nil {
+		for _, filter := range filterList {
+			var getProductsinputfilter pricing.Filter
+			err := json.Unmarshal([]byte(filter.Value), &getProductsinputfilter)
+			getProductsinputfilters = append(getProductsinputfilters, &getProductsinputfilter)
+			if err != nil {
+				cblogger.Error(err)
+				return "", err
+			}
 		}
 	}
 
