@@ -42,7 +42,6 @@ var cblog *logrus.Logger
 
 func init() {
 	cblog = cblogger.GetLogger("CLOUD-BARISTA")
-
 	db, err := infostore.Open()
 	if err != nil {
 		panic("failed to connect database")
