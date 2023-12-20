@@ -62,6 +62,7 @@ func (regionZoneHandler *AzureRegionZoneHandler) ListRegionZone() ([]*irs.Region
 				resultResourceSkusClient, err = regionZoneHandler.ResourceSkusClient.List(regionZoneHandler.Ctx, "location eq '"+*loc.Name+"'")
 				if err != nil {
 					zoneErrorOccurred = true
+					wait.Done()
 					return
 				}
 
