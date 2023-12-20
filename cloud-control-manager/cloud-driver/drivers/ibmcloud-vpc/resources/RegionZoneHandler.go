@@ -56,6 +56,7 @@ func (regionZoneHandler *IbmRegionZoneHandler) ListRegionZone() ([]*irs.RegionZo
 				zones, _, err := regionZoneHandler.VpcService.ListRegionZonesWithContext(regionZoneHandler.Ctx, options)
 				if err != nil {
 					zoneErrorOccurred = true
+					wait.Done()
 					return
 				}
 
