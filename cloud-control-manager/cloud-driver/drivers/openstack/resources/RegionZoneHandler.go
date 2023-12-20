@@ -101,12 +101,14 @@ func (regionZoneHandler *OpenStackRegionZoneHandler) ListRegionZone() ([]*irs.Re
 				})
 				if err != nil {
 					zoneErrorOccurred = true
+					wait.Done()
 					return
 				}
 
 				list, err := getZoneList(client, hiscallInfo)
 				if err != nil {
 					zoneErrorOccurred = true
+					wait.Done()
 					return
 				}
 
