@@ -242,12 +242,14 @@ func (priceInfoHandler *IbmPriceInfoHandler) ListProductFamily(regionName string
 				result, err = getIbmResourceInfo(limit*i, limit)
 				if err != nil {
 					errorOccurred = true
+					wait.Done()
 					return
 				}
 
 				err = json.Unmarshal(result, &rsInfoTemp)
 				if err != nil {
 					errorOccurred = true
+					wait.Done()
 					return
 				}
 
@@ -339,12 +341,14 @@ func (priceInfoHandler *IbmPriceInfoHandler) GetPriceInfo(productFamily string, 
 				result, err = getIbmPlanInfo(limit*i, limit, productFamily)
 				if err != nil {
 					errorOccurred = true
+					wait.Done()
 					return
 				}
 
 				err = json.Unmarshal(result, &rsInfoTemp)
 				if err != nil {
 					errorOccurred = true
+					wait.Done()
 					return
 				}
 
@@ -427,12 +431,14 @@ func (priceInfoHandler *IbmPriceInfoHandler) GetPriceInfo(productFamily string, 
 					result, err = getIbmPlanDetail(limit*i, limit, routineResource.ChildrenURL)
 					if err != nil {
 						errorOccurred = true
+						wait.Done()
 						return
 					}
 
 					err = json.Unmarshal(result, &planRsInfoTemp)
 					if err != nil {
 						errorOccurred = true
+						wait.Done()
 						return
 					}
 
