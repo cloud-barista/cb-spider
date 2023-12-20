@@ -45,6 +45,7 @@ func (OpenStackDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	drvCapabilityInfo.DiskHandler = true
 	drvCapabilityInfo.MyImageHandler = true
 	drvCapabilityInfo.RegionZoneHandler = true
+	drvCapabilityInfo.PriceInfoHandler = false
 
 	return drvCapabilityInfo
 }

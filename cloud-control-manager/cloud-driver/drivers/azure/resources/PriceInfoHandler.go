@@ -133,7 +133,7 @@ func (priceInfoHandler *AzurePriceInfoHandler) GetPriceInfo(productFamily string
 
 	result, err := getAzurePriceInfo(filterOption)
 	if err != nil {
-		getErr := errors.New(fmt.Sprintf("Failed to List ProductFamily. err = %s", err))
+		getErr := errors.New(fmt.Sprintf("Failed to get PriceInfo. err = %s", err))
 		cblogger.Error(getErr.Error())
 		LoggingError(hiscallInfo, getErr)
 		return "", getErr
@@ -144,7 +144,7 @@ func (priceInfoHandler *AzurePriceInfoHandler) GetPriceInfo(productFamily string
 	var priceInfo PriceInfo
 	err = json.Unmarshal(result, &priceInfo)
 	if err != nil {
-		getErr := errors.New(fmt.Sprintf("Failed to List ProductFamily. err = %s", err))
+		getErr := errors.New(fmt.Sprintf("Failed to get PriceInfo. err = %s", err))
 		cblogger.Error(getErr.Error())
 		LoggingError(hiscallInfo, getErr)
 		return "", getErr
@@ -155,7 +155,7 @@ func (priceInfoHandler *AzurePriceInfoHandler) GetPriceInfo(productFamily string
 	if strings.ToLower(productFamily) == "compute" {
 		resultResourceSkusClient, err = priceInfoHandler.ResourceSkusClient.List(priceInfoHandler.Ctx, "location eq '"+regionName+"'")
 		if err != nil {
-			getErr := errors.New(fmt.Sprintf("Failed to List ProductFamily. err = %s", err))
+			getErr := errors.New(fmt.Sprintf("Failed to get PriceInfo. err = %s", err))
 			cblogger.Error(getErr.Error())
 			LoggingError(hiscallInfo, getErr)
 			return "", getErr
@@ -258,7 +258,7 @@ func (priceInfoHandler *AzurePriceInfoHandler) GetPriceInfo(productFamily string
 
 	data, err := json.Marshal(cloudPriceData)
 	if err != nil {
-		getErr := errors.New(fmt.Sprintf("Failed to List ProductFamily. err = %s", err))
+		getErr := errors.New(fmt.Sprintf("Failed to get PriceInfo. err = %s", err))
 		cblogger.Error(getErr.Error())
 		LoggingError(hiscallInfo, getErr)
 		return "", getErr
