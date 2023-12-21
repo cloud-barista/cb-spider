@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
 	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/profile"
 
@@ -19,13 +20,6 @@ type TencentPriceInfoHandler struct {
 	Client *cvm.Client
 }
 
-// 제공되는 product family list 를 가져오는 api 를 찾을 수 없음...
-// 이런 경우 어떤 방식으로 인터페이스를 처리하는거지?
-func (t *TencentPriceInfoHandler) ListProductFamily(regionName string) ([]string, error) {
-	pl := make([]string, 0)
-	return pl, nil
-}
-
 type instanceModel struct {
 	standardInfo *cvm.DescribeZoneInstanceConfigInfosResponse
 	reservedInfo *cvm.DescribeReservedInstancesConfigInfosResponse
@@ -33,17 +27,24 @@ type instanceModel struct {
 
 type productAndPrice struct {
 	PriceList      *irs.PriceList
-	StandardPrices *[]standardPrice
-	ReservedPrices *[]reservedPrice
+	StandardPrices *[]standardVmPrice
+	ReservedPrices *[]reservedVmPrice
 }
 
-type standardPrice struct {
+type standardVmPrice struct {
 	InstanceChargeType *string
 	Price              *cvm.ItemPrice
 }
 
-type reservedPrice struct {
+type reservedVmPrice struct {
 	Price *cvm.ReservedInstancePriceItem
+}
+
+// 제공되는 product family list 를 가져오는 api 를 찾을 수 없음...
+// 이런 경우 어떤 방식으로 인터페이스를 처리하는거지?
+func (t *TencentPriceInfoHandler) ListProductFamily(regionName string) ([]string, error) {
+	pl := make([]string, 0)
+	return pl, nil
 }
 
 func (t *TencentPriceInfoHandler) GetPriceInfo(productFamily string, regionName string, additionalFilters []irs.KeyValue) (string, error) {
@@ -77,7 +78,7 @@ func (t *TencentPriceInfoHandler) GetPriceInfo(productFamily string, regionName 
 		// 	return "", err
 		// }
 
-		res, err := mappingToStruct(filterMap, client.GetRegion(), &instanceModel{standardInfo: standardInfo /* , reservedInfo: reservedInfo */ })
+		res, err := mappingToComputeStruct(filterMap, client.GetRegion(), &instanceModel{standardInfo: standardInfo /* , reservedInfo: reservedInfo */})
 
 		if err != nil {
 			return "", err
@@ -114,7 +115,7 @@ func createClientByRegionName(credentialIface common.CredentialIface, regionPram
 
 func describeZoneInstanceConfigInfos(client *cvm.Client, filterMap map[string]*cvm.Filter) (*cvm.DescribeZoneInstanceConfigInfosResponse, error) {
 
-	filters := parseToFilterSlice(filterMap, "zoneName", "instance-family", "instance-type")
+	filters := parseToFilterSlice(filterMap, "zoneName", "instanceFamily", "instanceType")
 
 	req := cvm.NewDescribeZoneInstanceConfigInfosRequest()
 	req.Filters = filters
@@ -143,28 +144,26 @@ func describeReservedInstancesConfigInfos(client *cvm.Client, filterMap map[stri
 	return res, nil
 }
 
-func mappingToStruct(filterMap map[string]*cvm.Filter, regionName string, instanceModel *instanceModel) (*irs.CloudPriceData, error) {
-	// zone 과 instance type 으로 hashing
-	// zone-instance-type 에 대해 하위 price policy -> pay-as-you-go, spot, reserved 가격 정보 필요
+func mappingToComputeStruct(filterMap map[string]*cvm.Filter, regionName string, instanceModel *instanceModel) (*irs.CloudPriceData, error) {
 	priceMap := make(map[string]*productAndPrice, 0)
 
 	if instanceModel.standardInfo != nil {
 		for _, v := range instanceModel.standardInfo.Response.InstanceTypeQuotaSet {
 
-			key := keyGeneration(v.Zone, v.InstanceType, v.CpuType, v.Cpu, v.Memory)
+			key := computeInstanceKeyGeneration(v.Zone, v.InstanceType, v.CpuType)
 
 			if pp, ok := priceMap[key]; !ok {
-				sp := make([]standardPrice, 0)
-				sp = append(sp, standardPrice{InstanceChargeType: v.InstanceChargeType, Price: v.Price})
+				sp := make([]standardVmPrice, 0)
+				sp = append(sp, standardVmPrice{InstanceChargeType: v.InstanceChargeType, Price: v.Price})
 
 				priceMap[key] = &productAndPrice{
 					PriceList: &irs.PriceList{
-						ProductInfo: mappingProductInfo(regionName, v),
+						ProductInfo: mappingProductInfo(regionName, *v),
 					},
 					StandardPrices: &sp,
 				}
 			} else {
-				newSlice := append(*pp.StandardPrices, standardPrice{InstanceChargeType: v.InstanceChargeType, Price: v.Price})
+				newSlice := append(*pp.StandardPrices, standardVmPrice{InstanceChargeType: v.InstanceChargeType, Price: v.Price})
 				pp.StandardPrices = &newSlice
 			}
 		}
@@ -180,20 +179,20 @@ func mappingToStruct(filterMap map[string]*cvm.Filter, regionName string, instan
 					for _, p := range iType.Prices {
 
 						// TODO iType.InstanceType 과 filterMap의 instance-type 과 비교 필요
-						key := keyGeneration(p.Zone, iType.InstanceType, iType.CpuModelName, convertUnsignedToSignedPointer64(iType.Cpu), convertUnsignedToSignedPointer64(iType.Memory))
+						key := computeInstanceKeyGeneration(p.Zone, iType.InstanceType, iType.CpuModelName)
 
 						if pp, ok := priceMap[key]; !ok {
-							rp := make([]reservedPrice, 0)
-							rp = append(rp, reservedPrice{Price: p})
+							rp := make([]reservedVmPrice, 0)
+							rp = append(rp, reservedVmPrice{Price: p})
 
 							priceMap[key] = &productAndPrice{
 								PriceList: &irs.PriceList{
-									ProductInfo: mappingReservedProductInfo(regionName, iType),
+									ProductInfo: mappingProductInfo(regionName, *iType),
 								},
 								ReservedPrices: &rp,
 							}
 						} else {
-							newSlice := append(*pp.ReservedPrices, reservedPrice{Price: p})
+							newSlice := append(*pp.ReservedPrices, reservedVmPrice{Price: p})
 							pp.ReservedPrices = &newSlice
 						}
 					}
@@ -228,141 +227,166 @@ func mappingToStruct(filterMap map[string]*cvm.Filter, regionName string, instan
 func generatePriceInfo(priceMap map[string]*productAndPrice) {
 	for _, v := range priceMap {
 		pl := v.PriceList
+		policies := make([]irs.PricingPolicies, 0)
+		prices := make([]any, 0)
 
 		if v.StandardPrices != nil && len(*v.StandardPrices) > 0 {
-			policies := make([]irs.PricingPolicies, 0)
-			prices := make([]*cvm.ItemPrice, 0)
 			for _, val := range *v.StandardPrices {
 				prices = append(prices, val.Price)
-				policies = append(policies, mappingPricePolicy(val.InstanceChargeType, val.Price))
-			}
-
-			mar, err := json.MarshalIndent(prices, "", "  ")
-
-			if err != nil {
-				continue
-			}
-
-			pl.PriceInfo = irs.PriceInfo{
-				PricingPolicies: policies,
-				CSPPriceInfo:    string(mar),
+				policies = append(policies, mappingPricingPolicy(val.InstanceChargeType, *val.Price))
 			}
 		}
 
 		if v.ReservedPrices != nil && len(*v.ReservedPrices) > 0 {
-			policies := make([]irs.PricingPolicies, 0)
-			prices := make([]*cvm.ReservedInstancePriceItem, 0)
-
 			for _, val := range *v.ReservedPrices {
 				prices = append(prices, val.Price)
-				policies = append(policies, mappingReservedPriceInfo(val.Price))
-			}
-
-			mar, err := json.MarshalIndent(prices, "", "  ")
-
-			if err != nil {
-				continue
-			}
-
-			pl.PriceInfo = irs.PriceInfo{
-				PricingPolicies: policies,
-				CSPPriceInfo:    string(mar),
+				policies = append(policies, mappingPricingPolicy(common.StringPtr("Reserved"), *val.Price))
 			}
 		}
 
+		mar, err := json.MarshalIndent(prices, "", "  ")
+
+		if err != nil {
+			continue
+		}
+
+		pl.PriceInfo = irs.PriceInfo{
+			PricingPolicies: policies,
+			CSPPriceInfo:    string(mar),
+		}
 	}
 }
 
-func mappingProductInfo(regionName string, item *cvm.InstanceTypeQuotaItem) irs.ProductInfo {
-	mar, err := json.MarshalIndent(item, "", "  ")
+func mappingProductInfo(regionName string, i interface{}) irs.ProductInfo {
+	mar, err := json.MarshalIndent(i, "", "  ")
 
 	if err != nil {
 		return irs.ProductInfo{}
 	}
 
 	productInfo := irs.ProductInfo{
-		ProductId:  "NA",
-		RegionName: regionName,
-
-		InstanceType:   *item.InstanceType,
-		Vcpu:           strconv.FormatInt(*item.Cpu, 32),
-		Memory:         strconv.FormatInt(*item.Memory, 32),
-		Gpu:            strconv.FormatInt(*item.Gpu, 32),
-		Description:    *item.CpuType,
+		ProductId:      "NA",
+		RegionName:     regionName,
 		CSPProductInfo: string(mar),
 	}
-	return productInfo
-}
 
-func mappingReservedProductInfo(regionName string, reservedItem *cvm.ReservedInstanceTypeItem) irs.ProductInfo {
-	mar, err := json.MarshalIndent(reservedItem, "", "  ")
+	switch v := i.(type) {
+	case cvm.InstanceTypeQuotaItem:
+		vm := i.(cvm.InstanceTypeQuotaItem)
 
-	if err != nil {
-		return irs.ProductInfo{}
+		productInfo.InstanceType = strPtrNilCheck(vm.InstanceChargeType)
+		productInfo.Vcpu = intPtrNilCheck(vm.Cpu)
+		productInfo.Memory = intPtrNilCheck(vm.Memory)
+		productInfo.Gpu = intPtrNilCheck(vm.Gpu)
+		productInfo.Description = strPtrNilCheck(vm.CpuType)
+
+		// not provied from tencent
+		productInfo.Storage = strPtrNilCheck(nil)
+		productInfo.GpuMemory = strPtrNilCheck(nil)
+		productInfo.OperatingSystem = strPtrNilCheck(nil)
+		productInfo.PreInstalledSw = strPtrNilCheck(nil)
+
+		// not suit for compute instance
+		productInfo.VolumeType = strPtrNilCheck(nil)
+		productInfo.StorageMedia = strPtrNilCheck(nil)
+		productInfo.MaxVolumeSize = strPtrNilCheck(nil)
+		productInfo.MaxIOPSVolume = strPtrNilCheck(nil)
+		productInfo.MaxThroughputVolume = strPtrNilCheck(nil)
+
+		return productInfo
+
+	case cvm.ReservedInstanceTypeItem:
+		reservedVm := i.(cvm.ReservedInstanceTypeItem)
+
+		productInfo.InstanceType = strPtrNilCheck(reservedVm.InstanceType)
+		productInfo.Vcpu = uintPtrNilCheck(reservedVm.Cpu)
+		productInfo.Memory = uintPtrNilCheck(reservedVm.Memory)
+		productInfo.Gpu = uintPtrNilCheck(reservedVm.Gpu)
+		productInfo.Description = strPtrNilCheck(reservedVm.CpuModelName)
+
+		// not provied from tencent
+		productInfo.Storage = strPtrNilCheck(nil)
+		productInfo.GpuMemory = strPtrNilCheck(nil)
+		productInfo.OperatingSystem = strPtrNilCheck(nil)
+		productInfo.PreInstalledSw = strPtrNilCheck(nil)
+
+		// not suit for compute instance
+		productInfo.VolumeType = strPtrNilCheck(nil)
+		productInfo.StorageMedia = strPtrNilCheck(nil)
+		productInfo.MaxVolumeSize = strPtrNilCheck(nil)
+		productInfo.MaxIOPSVolume = strPtrNilCheck(nil)
+		productInfo.MaxThroughputVolume = strPtrNilCheck(nil)
+
+		return productInfo
+	default:
+		spew.Dump(v)
 	}
 
-	productInfo := irs.ProductInfo{
-		ProductId:  "NA",
-		RegionName: regionName,
+	return irs.ProductInfo{}
 
-		InstanceType:   *reservedItem.InstanceType,
-		Vcpu:           strconv.FormatUint(*reservedItem.Cpu, 32),
-		Memory:         strconv.FormatUint(*reservedItem.Memory, 32),
-		Gpu:            strconv.FormatUint(*reservedItem.Gpu, 32),
-		Description:    *reservedItem.CpuModelName,
-		CSPProductInfo: string(mar),
-	}
-	return productInfo
 }
 
-func mappingPricePolicy(instanceChargeType *string, price *cvm.ItemPrice) irs.PricingPolicies {
+func mappingPricingPolicy(instanceChargeType *string, price any) irs.PricingPolicies {
+
 	// price info mapping
-	policyInfo := irs.PricingPolicyInfo{
-		LeaseContractLength: "",
-		OfferingClass:       "",
-		PurchaseOption:      "",
-	}
+	policyInfo := irs.PricingPolicyInfo{}
 
 	policy := irs.PricingPolicies{
 		PricingId:         "NA",
 		PricingPolicy:     *instanceChargeType,
-		Unit:              *price.ChargeUnit,
 		Currency:          "USD",
-		Price:             strconv.FormatFloat(*price.UnitPrice, 'f', -1, 64),
 		PricingPolicyInfo: &policyInfo,
+	}
+
+	switch v := price.(type) {
+	case cvm.ItemPrice:
+		p := price.(cvm.ItemPrice)
+		policy.Unit = strPtrNilCheck(p.ChargeUnit)
+		policy.Price = floatPtrNilCheck(p.UnitPrice)
+
+
+		// NA
+		policy.Description = strPtrNilCheck(nil)
+
+		policyInfo.LeaseContractLength = strPtrNilCheck(nil)
+		policyInfo.OfferingClass = strPtrNilCheck(nil)
+		policyInfo.PurchaseOption = strPtrNilCheck(nil)
+
+	case cvm.ReservedInstancePriceItem:
+		p := price.(cvm.ReservedInstancePriceItem)
+		policy.PricingId = strPtrNilCheck(p.ReservedInstancesOfferingId)
+		policy.Unit = strPtrNilCheck(common.StringPtr("Yrs"))
+		policy.Price = floatPtrNilCheck(p.FixedPrice)
+		policy.Description = strPtrNilCheck(p.ProductDescription)
+
+		// 31536000
+		var duration *uint64
+		if p.Duration != nil {
+			duration = p.Duration
+		} else {
+			duration = common.Uint64Ptr(0)
+		}
+		policyInfo.LeaseContractLength = strconv.FormatUint(*duration/31536000, 32)
+		policyInfo.PurchaseOption = strPtrNilCheck(p.OfferingType)
+
+		// NA
+		policyInfo.OfferingClass = strPtrNilCheck(nil)
+		
+	default:
+		spew.Dump(v)
 	}
 
 	return policy
 }
 
-func mappingReservedPriceInfo(reservedPrice *cvm.ReservedInstancePriceItem) irs.PricingPolicies {
-
-	policyInfo := irs.PricingPolicyInfo{
-		LeaseContractLength: strconv.FormatUint(*reservedPrice.Duration/31536000, 32),
-		OfferingClass:       "",
-		PurchaseOption:      *reservedPrice.OfferingType,
-	}
-
-	policy := irs.PricingPolicies{
-		PricingId:         *reservedPrice.ReservedInstancesOfferingId,
-		PricingPolicy:     "Reserved",
-		Unit:              "yrs",
-		Currency:          "USD",
-		Price:             strconv.FormatFloat(*reservedPrice.FixedPrice, 'f', -1, 64),
-		PricingPolicyInfo: &policyInfo,
-		Description:       *reservedPrice.ProductDescription,
-	}
-
-	return policy
-}
-
-func keyGeneration(zone, instanceType, cpuType *string, cpu, memory *int64) string {
+func computeInstanceKeyGeneration(hashingKeys ...*string) string {
 	h := fnv.New32a()
-	h.Write([]byte(*zone))
-	h.Write([]byte(*instanceType))
-	h.Write([]byte(*cpuType))
-	h.Write([]byte(strconv.FormatInt(*cpu, 10)))
-	h.Write([]byte(strconv.FormatInt(*memory, 10)))
+
+	for _, key := range hashingKeys {
+		if key != nil {
+			h.Write([]byte(*key))
+		}
+	}
 	return strconv.FormatUint(uint64(h.Sum32()), 10)
 }
 
@@ -376,7 +400,16 @@ func mapToFilter(additionalFilterList []irs.KeyValue) map[string]*cvm.Filter {
 				Name:   common.StringPtr("zone"),
 				Values: []*string{common.StringPtr(kv.Value)},
 			}
-
+		case "instanceType":
+			filterMap[kv.Key] = &cvm.Filter{
+				Name:   common.StringPtr("instance-type"),
+				Values: []*string{common.StringPtr(kv.Value)},
+			}
+		case "instanceFamily":
+			filterMap[kv.Key] = &cvm.Filter{
+				Name:   common.StringPtr("instance-family"),
+				Values: []*string{common.StringPtr(kv.Value)},
+			}
 		default:
 			filterMap[kv.Key] = &cvm.Filter{
 				Name:   common.StringPtr(kv.Key),
@@ -399,10 +432,30 @@ func parseToFilterSlice(filterMap map[string]*cvm.Filter, conditions ...string) 
 	return filters
 }
 
-func convertUnsignedToSignedPointer64(p *uint64) *int64 {
-	if p == nil {
-		return nil
+func strPtrNilCheck(t *string) string {
+	if t != nil {
+		return *t
 	}
-	x := int64(*p)
-	return &x
+	return "NA"
+}
+
+func intPtrNilCheck(t *int64) string {
+	if t != nil {
+		return strconv.FormatInt(*t, 32)
+	}
+	return "NA"
+}
+
+func uintPtrNilCheck(t *uint64) string {
+	if t != nil {
+		return strconv.FormatUint(*t, 32)
+	}
+	return "NA"
+}
+
+func floatPtrNilCheck(t *float64) string {
+	if t != nil {
+		return strconv.FormatFloat(*t, 'f', -1, 64)
+	}
+	return "NA"
 }

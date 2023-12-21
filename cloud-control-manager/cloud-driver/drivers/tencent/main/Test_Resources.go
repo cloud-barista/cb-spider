@@ -1551,9 +1551,10 @@ func handlePriceInfo() {
 			case 2:
 				filters := make([]irs.KeyValue, 0)
 				// filters = append(filters, irs.KeyValue{Key: "zoneName", Value: "ap-shanghai-2"})
-				// filters = append(filters, irs.KeyValue{Key: "instance-family", Value: "S5"})~
-				filters = append(filters, irs.KeyValue{Key: "instance-type", Value: "S5.SMALL1"})
-				result, err := handler.GetPriceInfo("compute", "", filters)
+				// filters = append(filters, irs.KeyValue{Key: "instanceFamily", Value: "S5"})~
+				filters = append(filters, irs.KeyValue{Key: "instanceType", Value: "S5.SMALL1"})  // o
+				filters = append(filters, irs.KeyValue{Key: "storage", Value: "128"})  // x
+				result, err := handler.GetPriceInfo("compute", "ap-seoul", filters)
 				if err != nil {
 					cblogger.Infof("GetPriceInfo 목록 조회 실패 : %s", err)
 				} else {
