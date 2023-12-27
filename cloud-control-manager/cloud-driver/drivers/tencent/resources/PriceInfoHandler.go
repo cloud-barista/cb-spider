@@ -40,8 +40,8 @@ type reservedVmPrice struct {
 	Price *cvm.ReservedInstancePriceItem
 }
 
-// 제공되는 product family list 를 가져오는 api 를 찾을 수 없음...
-// 이런 경우 어떤 방식으로 인터페이스를 처리하는거지?
+// ListProductFamily
+// tencent 에서 제공해주는 product family 관련한 api 가 존재하지 않아 코드 레벨에서 관리하도록 1차 논의 완료 -> 이 매니저님: 23/12/13
 func (t *TencentPriceInfoHandler) ListProductFamily(regionName string) ([]string, error) {
 	pl := make([]string, 0)
 	return pl, nil
@@ -54,8 +54,10 @@ func (t *TencentPriceInfoHandler) GetPriceInfo(productFamily string, regionName 
 	switch {
 	case strings.EqualFold("compute", productFamily):
 
-		// client 생성 with zone
+		// client 생성 with region name
 		client, err := createClientByRegionName(t.Client.GetCredential(), regionName, t.Region.Region)
+		// TODO 신 매니저님 : connection 의 region 논의 후 코드 수정
+		//client := t.Client.Client.Init(regionName)
 
 		if err != nil {
 			return "", err
@@ -69,22 +71,22 @@ func (t *TencentPriceInfoHandler) GetPriceInfo(productFamily string, regionName 
 			return "", err
 		}
 
-		// TODO RI 조회의 경우 tencent 는 몇가지 문제점으로 인해 추후 디벨롭하는 방향으로 제안해보면 어떨까
+		// TODO RI 조회의 경우 tencent 는 몇가지 문제점으로 인해 추후 디벨롭하는 방향으로 제안
 		// 문제점 1) client profile 의 응답 타입을 영어로 설정했지만 zone 정보가 한문으로 나온다 - 한문과 영어 zone 정보에 대한 매핑 정보 필요
 		// AZ 의 RI 모델 조회
-		// reservedInfo, err := describeReservedInstancesConfigInfos(client, filterMap)
+		//reservedInfo, err := describeReservedInstancesConfigInfos(client, filterMap)
+		//
+		//if err != nil {
+		//	return "", err
+		//}
 
-		// if err != nil {
-		// 	return "", err
-		// }
-
-		res, err := mappingToComputeStruct(filterMap, client.GetRegion(), &instanceModel{standardInfo: standardInfo /* , reservedInfo: reservedInfo */})
+		res, err := mappingToComputeStruct(filterMap, client.GetRegion(), &instanceModel{standardInfo: standardInfo /*, reservedInfo: reservedInfo*/})
 
 		if err != nil {
 			return "", err
 		}
 
-		mar, err := json.MarshalIndent(&res, "", "  ")
+		mar, err := json.Marshal(&res)
 		if err != nil {
 			return "", err
 		}
@@ -95,7 +97,7 @@ func (t *TencentPriceInfoHandler) GetPriceInfo(productFamily string, regionName 
 	return "", nil
 }
 
-func createClientByRegionName(credentialIface common.CredentialIface, regionPram, originalRegion string) (*cvm.Client, error) {
+func createClientByRegionName(credential common.CredentialIface, regionPram, originalRegion string) (*cvm.Client, error) {
 	cpf := profile.NewClientProfile()
 	cpf.HttpProfile.Endpoint = "cvm.tencentcloudapi.com"
 	cpf.Language = "en-US" //메시지를 영어로 설정
@@ -104,7 +106,7 @@ func createClientByRegionName(credentialIface common.CredentialIface, regionPram
 		region = originalRegion
 	}
 
-	client, err := cvm.NewClient(credentialIface, region, cpf)
+	client, err := cvm.NewClient(credential, region, cpf)
 
 	if err != nil {
 		return nil, err
@@ -150,6 +152,7 @@ func mappingToComputeStruct(filterMap map[string]*cvm.Filter, regionName string,
 	if instanceModel.standardInfo != nil {
 		for _, v := range instanceModel.standardInfo.Response.InstanceTypeQuotaSet {
 
+			// TODO filter 조건이 추가된다면 여기에: 공통으로 properties 를 필터링하는 방법 고민 필요
 			key := computeInstanceKeyGeneration(v.Zone, v.InstanceType, v.CpuType)
 
 			if pp, ok := priceMap[key]; !ok {
@@ -169,16 +172,17 @@ func mappingToComputeStruct(filterMap map[string]*cvm.Filter, regionName string,
 		}
 	}
 
-	// O(N^4) 보다 더 좋은 방법은?? -> 최하단 뎁스에 zone 정보가 있고 zone 별로 product 를 매핑시킨다.
-	// config info 와 families 는 요소가 많지 않고 보통 1~2개의 요소만을 포함하기 때문에
-	// 마지막 루프가 유의미한 반복인 확률이 가장 높음.
+	// O(N^4) 보다 더 좋은 방법은 없을까?
+	// 리프에 zone 정보가 있고 zone 별로 product 를 매핑시킨다.
+	// config info 와 families 는 요소가 많지 않고 일반적으로 1~2개의 요소만을 포함하기 때문에
+	// 마지막 루프가 유의미한 반복
 	if instanceModel.reservedInfo != nil {
 		for _, v := range instanceModel.reservedInfo.Response.ReservedInstanceConfigInfos {
 			for _, info := range v.InstanceFamilies {
 				for _, iType := range info.InstanceTypes {
 					for _, p := range iType.Prices {
 
-						// TODO iType.InstanceType 과 filterMap의 instance-type 과 비교 필요
+						// TODO filter 조건이 추가된다면 여기에: 공통으로 properties 를 필터링하는 방법 고민 필요
 						key := computeInstanceKeyGeneration(p.Zone, iType.InstanceType, iType.CpuModelName)
 
 						if pp, ok := priceMap[key]; !ok {
@@ -206,14 +210,16 @@ func mappingToComputeStruct(filterMap map[string]*cvm.Filter, regionName string,
 
 	var priceList []irs.PriceList
 
-	for _, v := range priceMap {
-		priceList = append(priceList, *v.PriceList)
+	if priceMap != nil && len(priceMap) > 0 {
+		for _, v := range priceMap {
+			priceList = append(priceList, *v.PriceList)
+		}
 	}
 
 	return &irs.CloudPriceData{
 		Meta: irs.Meta{
-			Version:     "This is version info.",
-			Description: "This is description of this function.",
+			Version:     "v0.1",
+			Description: "Multi-Cloud Price Info Api",
 		},
 		CloudPriceList: []irs.CloudPrice{
 			{
@@ -225,40 +231,42 @@ func mappingToComputeStruct(filterMap map[string]*cvm.Filter, regionName string,
 }
 
 func generatePriceInfo(priceMap map[string]*productAndPrice) {
-	for _, v := range priceMap {
-		pl := v.PriceList
-		policies := make([]irs.PricingPolicies, 0)
-		prices := make([]any, 0)
+	if priceMap != nil && len(priceMap) > 0 {
+		for _, v := range priceMap {
+			pl := v.PriceList
+			policies := make([]irs.PricingPolicies, 0)
+			prices := make([]any, 0)
 
-		if v.StandardPrices != nil && len(*v.StandardPrices) > 0 {
-			for _, val := range *v.StandardPrices {
-				prices = append(prices, val.Price)
-				policies = append(policies, mappingPricingPolicy(val.InstanceChargeType, *val.Price))
+			if v.StandardPrices != nil && len(*v.StandardPrices) > 0 {
+				for _, val := range *v.StandardPrices {
+					prices = append(prices, val.Price)
+					policies = append(policies, mappingPricingPolicy(val.InstanceChargeType, *val.Price))
+				}
 			}
-		}
 
-		if v.ReservedPrices != nil && len(*v.ReservedPrices) > 0 {
-			for _, val := range *v.ReservedPrices {
-				prices = append(prices, val.Price)
-				policies = append(policies, mappingPricingPolicy(common.StringPtr("Reserved"), *val.Price))
+			if v.ReservedPrices != nil && len(*v.ReservedPrices) > 0 {
+				for _, val := range *v.ReservedPrices {
+					prices = append(prices, val.Price)
+					policies = append(policies, mappingPricingPolicy(common.StringPtr("RESERVED"), *val.Price))
+				}
 			}
-		}
 
-		mar, err := json.MarshalIndent(prices, "", "  ")
+			mar, err := json.Marshal(prices)
 
-		if err != nil {
-			continue
-		}
+			if err != nil {
+				continue
+			}
 
-		pl.PriceInfo = irs.PriceInfo{
-			PricingPolicies: policies,
-			CSPPriceInfo:    string(mar),
+			pl.PriceInfo = irs.PriceInfo{
+				PricingPolicies: policies,
+				CSPPriceInfo:    string(mar),
+			}
 		}
 	}
 }
 
 func mappingProductInfo(regionName string, i interface{}) irs.ProductInfo {
-	mar, err := json.MarshalIndent(i, "", "  ")
+	mar, err := json.Marshal(i)
 
 	if err != nil {
 		return irs.ProductInfo{}
@@ -280,7 +288,7 @@ func mappingProductInfo(regionName string, i interface{}) irs.ProductInfo {
 		productInfo.Gpu = intPtrNilCheck(vm.Gpu)
 		productInfo.Description = strPtrNilCheck(vm.CpuType)
 
-		// not provied from tencent
+		// not provide from tencent
 		productInfo.Storage = strPtrNilCheck(nil)
 		productInfo.GpuMemory = strPtrNilCheck(nil)
 		productInfo.OperatingSystem = strPtrNilCheck(nil)
@@ -304,7 +312,7 @@ func mappingProductInfo(regionName string, i interface{}) irs.ProductInfo {
 		productInfo.Gpu = uintPtrNilCheck(reservedVm.Gpu)
 		productInfo.Description = strPtrNilCheck(reservedVm.CpuModelName)
 
-		// not provied from tencent
+		// not provide from tencent
 		productInfo.Storage = strPtrNilCheck(nil)
 		productInfo.GpuMemory = strPtrNilCheck(nil)
 		productInfo.OperatingSystem = strPtrNilCheck(nil)
@@ -344,7 +352,6 @@ func mappingPricingPolicy(instanceChargeType *string, price any) irs.PricingPoli
 		policy.Unit = strPtrNilCheck(p.ChargeUnit)
 		policy.Price = floatPtrNilCheck(p.UnitPrice)
 
-
 		// NA
 		policy.Description = strPtrNilCheck(nil)
 
@@ -359,19 +366,19 @@ func mappingPricingPolicy(instanceChargeType *string, price any) irs.PricingPoli
 		policy.Price = floatPtrNilCheck(p.FixedPrice)
 		policy.Description = strPtrNilCheck(p.ProductDescription)
 
-		// 31536000
+		// 31536000 -> 1년
 		var duration *uint64
 		if p.Duration != nil {
 			duration = p.Duration
 		} else {
 			duration = common.Uint64Ptr(0)
 		}
-		policyInfo.LeaseContractLength = strconv.FormatUint(*duration/31536000, 32)
+		policyInfo.LeaseContractLength = strconv.FormatUint(*duration/31536000, 32) + "Yrs"
 		policyInfo.PurchaseOption = strPtrNilCheck(p.OfferingType)
 
 		// NA
 		policyInfo.OfferingClass = strPtrNilCheck(nil)
-		
+
 	default:
 		spew.Dump(v)
 	}
@@ -384,7 +391,10 @@ func computeInstanceKeyGeneration(hashingKeys ...*string) string {
 
 	for _, key := range hashingKeys {
 		if key != nil {
-			h.Write([]byte(*key))
+			_, err := h.Write([]byte(*key))
+			if err != nil {
+				return ""
+			}
 		}
 	}
 	return strconv.FormatUint(uint64(h.Sum32()), 10)
