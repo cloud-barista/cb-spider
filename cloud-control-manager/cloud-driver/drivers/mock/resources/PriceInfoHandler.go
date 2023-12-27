@@ -119,12 +119,17 @@ func (handler *MockPriceInfoHandler) ListProductFamily() ([]string, error) {
 	return productFamily, nil
 }
 
-// 1. transform spider(global) filter to csp filter
-// 2. call csp api wtth filter
-//   - if not supported filter in CSP, CSP api call and filter processing in driver
+// 1. Get the Mock's price info from product price info files
+//   - by getMockPriceInfo()
 //
-// 3. transform csp price info to Spider price info(Global view)
-// 4. return Spider price info
+// 2. transform csp price info to Spider price info(Global view) with filter processing
+//   - by transformPriceInfo()
+//     -> transformToProductInfo() -> checkFilters()
+//     -> transformToPriceInfo()   -> checkFilters()
+//     -> make cloudPrice.PriceList info
+//     -> make global json for result string
+//
+// 3. return Spider price info
 func (handler *MockPriceInfoHandler) GetPriceInfo(productFamily string, regionName string, filterList []irs.KeyValue) (string, error) {
 	cblogger := cblog.GetLogger("CB-SPIDER")
 	cblogger.Info("Mock Driver: called GetPriceInfo()!")
