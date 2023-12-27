@@ -2,6 +2,7 @@ package mocktest
 
 import (
 	"encoding/json"
+	"flag"
 	"testing"
 
 	cblog "github.com/cloud-barista/cb-log"
@@ -10,13 +11,22 @@ import (
 	"github.com/itchyny/gojq"
 )
 
-func init() {
-	// make the log level lower to print clearly
-	cblog.GetLogger("CB-SPIDER")
-	cblog.SetLevel("error")
+var logLevel = flag.String("logLevel", "error", "Set the log level to 'info' or 'error'")
+var logInitOnce = false
+
+func initLog() {
+	if !logInitOnce {
+		flag.Parse()
+		// make the log level lower to print clearly
+		cblog.GetLogger("CB-SPIDER")
+		cblog.SetLevel("error")
+		cblog.SetLevel(*logLevel)
+		logInitOnce = true
+	}
 }
 
 func TestListProductFamily(t *testing.T) {
+	initLog()
 	handler := &mockres.MockPriceInfoHandler{}
 
 	results, err := handler.ListProductFamily()
@@ -33,6 +43,7 @@ func TestListProductFamily(t *testing.T) {
 }
 
 func TestGetComputeInstancePriceInfo(t *testing.T) {
+	initLog()
 	handler := &mockres.MockPriceInfoHandler{}
 
 	productFamily := mockres.COMPUTE_INSTANCE
@@ -61,6 +72,9 @@ func TestGetComputeInstancePriceInfo(t *testing.T) {
 			t.Error("GetPriceInfo returned empty jsonPriceInfo")
 		}
 
+		// print result when info level
+		cblog.GetLogger("CB-SPIDER").Info(jsonPriceInfo)
+
 		// validate result
 		pidNum := countProductInJson(jsonPriceInfo, t)
 		if pidNum != tc.expectedMatch {
@@ -70,6 +84,7 @@ func TestGetComputeInstancePriceInfo(t *testing.T) {
 }
 
 func TestGetStoragePriceInfo(t *testing.T) {
+	initLog()
 	handler := &mockres.MockPriceInfoHandler{}
 
 	productFamily := mockres.STORAGE
@@ -98,6 +113,9 @@ func TestGetStoragePriceInfo(t *testing.T) {
 			t.Error("GetPriceInfo returned empty jsonPriceInfo")
 		}
 
+		// print result when info level
+		cblog.GetLogger("CB-SPIDER").Info(jsonPriceInfo)
+
 		// validate result
 		pidNum := countProductInJson(jsonPriceInfo, t)
 		if pidNum != tc.expectedMatch {
@@ -107,6 +125,7 @@ func TestGetStoragePriceInfo(t *testing.T) {
 }
 
 func TestGetNLBPriceInfo(t *testing.T) {
+	initLog()
 	handler := &mockres.MockPriceInfoHandler{}
 
 	productFamily := mockres.NETWORK_LOAD_BALANCER
@@ -133,6 +152,9 @@ func TestGetNLBPriceInfo(t *testing.T) {
 		if jsonPriceInfo == "" {
 			t.Error("GetPriceInfo returned empty jsonPriceInfo")
 		}
+
+		// print result when info level
+		cblog.GetLogger("CB-SPIDER").Info(jsonPriceInfo)
 
 		// validate result
 		pidNum := countProductInJson(jsonPriceInfo, t)
