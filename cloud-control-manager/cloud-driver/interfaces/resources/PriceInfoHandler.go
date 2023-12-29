@@ -39,20 +39,20 @@ type ProductInfo struct {
 	InstanceType    string `json:"instanceType,omitempty"`
 	Vcpu            string `json:"vcpu,omitempty"`
 	Memory          string `json:"memory,omitempty"`
-	Storage         string `json:"storage,omitempty"`
+	Storage         string `json:"storage,omitempty"` // Root-Disk
 	Gpu             string `json:"gpu,omitempty"`
 	GpuMemory       string `json:"gpuMemory,omitempty"`
 	OperatingSystem string `json:"operatingSystem,omitempty"`
 	PreInstalledSw  string `json:"preInstalledSw,omitempty"`
 	//--------- Compute Instance
 
-	//--------- Storage
+	//--------- Storage  // Data-Disk(AWS:EBS)
 	VolumeType          string `json:"volumeType,omitempty"`
 	StorageMedia        string `json:"storageMedia,omitempty"`
 	MaxVolumeSize       string `json:"maxVolumeSize,omitempty"`
 	MaxIOPSVolume       string `json:"maxIopsvolume,omitempty"`
 	MaxThroughputVolume string `json:"maxThroughputvolume,omitempty"`
-	//--------- Storage
+	//--------- Storage  // Data-Disk(AWS:EBS)
 
 	Description    string      `json:"description"`
 	CSPProductInfo interface{} `json:"cspProductInfo"`
