@@ -106,7 +106,7 @@ type SavingPlan struct {
 //------- common struct for price info
 //====================================================
 
-func (handler *MockPriceInfoHandler) ListProductFamily() ([]string, error) {
+func (handler *MockPriceInfoHandler) ListProductFamily(regionName string) ([]string, error) {
 	cblogger := cblog.GetLogger("CB-SPIDER")
 	cblogger.Info("Mock Driver: called ListProductFamily()!")
 

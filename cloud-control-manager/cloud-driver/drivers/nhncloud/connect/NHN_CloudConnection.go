@@ -146,5 +146,5 @@ func (cloudConn *NhnCloudConnection) Close() error {
 }
 
 func (*NhnCloudConnection) CreatePriceInfoHandler() (irs.PriceInfoHandler, error) {
-	return nil, errors.New("Alibaba Driver: not implemented")
+	return nil, errors.New("NHN Cloud Driver: not implemented")
 }
