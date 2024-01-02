@@ -6,12 +6,10 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/davecgh/go-spew/spew"
-	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
-	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/profile"
-
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
+	"github.com/davecgh/go-spew/spew"
+	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
 	cvm "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/cvm/v20170312"
 )
 
@@ -55,32 +53,22 @@ func (t *TencentPriceInfoHandler) GetPriceInfo(productFamily string, regionName 
 	case strings.EqualFold("compute", productFamily):
 
 		// client 생성 with region name
-		client, err := createClientByRegionName(t.Client.GetCredential(), regionName, t.Region.Region)
-		// TODO 신 매니저님 : connection 의 region 논의 후 코드 수정
-		//client := t.Client.Client.Init(regionName)
+		t.Client.Init(regionName)
 
-		if err != nil {
-			return "", err
-		}
-
-		// TODO 응답 시간이 3초 이상인 경우 추후 go routine 을 이용한 코드로 변경
 		// // AZ 의 Instance standard 모델과 Spot 모델 조회
-		standardInfo, err := describeZoneInstanceConfigInfos(client, filterMap)
+		standardInfo, err := describeZoneInstanceConfigInfos(t.Client, filterMap)
 
 		if err != nil {
 			return "", err
 		}
 
-		// TODO RI 조회의 경우 tencent 는 몇가지 문제점으로 인해 추후 디벨롭하는 방향으로 제안
-		// 문제점 1) client profile 의 응답 타입을 영어로 설정했지만 zone 정보가 한문으로 나온다 - 한문과 영어 zone 정보에 대한 매핑 정보 필요
-		// AZ 의 RI 모델 조회
 		//reservedInfo, err := describeReservedInstancesConfigInfos(client, filterMap)
 		//
 		//if err != nil {
 		//	return "", err
 		//}
 
-		res, err := mappingToComputeStruct(filterMap, client.GetRegion(), &instanceModel{standardInfo: standardInfo /*, reservedInfo: reservedInfo*/})
+		res, err := mappingToComputeStruct(filterMap, t.Client.GetRegion(), &instanceModel{standardInfo: standardInfo /*, reservedInfo: reservedInfo*/})
 
 		if err != nil {
 			return "", err
@@ -95,24 +83,6 @@ func (t *TencentPriceInfoHandler) GetPriceInfo(productFamily string, regionName 
 	}
 
 	return "", nil
-}
-
-func createClientByRegionName(credential common.CredentialIface, regionPram, originalRegion string) (*cvm.Client, error) {
-	cpf := profile.NewClientProfile()
-	cpf.HttpProfile.Endpoint = "cvm.tencentcloudapi.com"
-	cpf.Language = "en-US" //메시지를 영어로 설정
-	region := regionPram
-	if region == "" {
-		region = originalRegion
-	}
-
-	client, err := cvm.NewClient(credential, region, cpf)
-
-	if err != nil {
-		return nil, err
-	}
-
-	return client, nil
 }
 
 func describeZoneInstanceConfigInfos(client *cvm.Client, filterMap map[string]*cvm.Filter) (*cvm.DescribeZoneInstanceConfigInfosResponse, error) {
@@ -152,7 +122,6 @@ func mappingToComputeStruct(filterMap map[string]*cvm.Filter, regionName string,
 	if instanceModel.standardInfo != nil {
 		for _, v := range instanceModel.standardInfo.Response.InstanceTypeQuotaSet {
 
-			// TODO filter 조건이 추가된다면 여기에: 공통으로 properties 를 필터링하는 방법 고민 필요
 			key := computeInstanceKeyGeneration(v.Zone, v.InstanceType, v.CpuType)
 
 			if pp, ok := priceMap[key]; !ok {
@@ -172,39 +141,35 @@ func mappingToComputeStruct(filterMap map[string]*cvm.Filter, regionName string,
 		}
 	}
 
-	// O(N^4) 보다 더 좋은 방법은 없을까?
-	// 리프에 zone 정보가 있고 zone 별로 product 를 매핑시킨다.
-	// config info 와 families 는 요소가 많지 않고 일반적으로 1~2개의 요소만을 포함하기 때문에
-	// 마지막 루프가 유의미한 반복
-	if instanceModel.reservedInfo != nil {
-		for _, v := range instanceModel.reservedInfo.Response.ReservedInstanceConfigInfos {
-			for _, info := range v.InstanceFamilies {
-				for _, iType := range info.InstanceTypes {
-					for _, p := range iType.Prices {
-
-						// TODO filter 조건이 추가된다면 여기에: 공통으로 properties 를 필터링하는 방법 고민 필요
-						key := computeInstanceKeyGeneration(p.Zone, iType.InstanceType, iType.CpuModelName)
-
-						if pp, ok := priceMap[key]; !ok {
-							rp := make([]reservedVmPrice, 0)
-							rp = append(rp, reservedVmPrice{Price: p})
-
-							priceMap[key] = &productAndPrice{
-								PriceList: &irs.PriceList{
-									ProductInfo: mappingProductInfo(regionName, *iType),
-								},
-								ReservedPrices: &rp,
-							}
-						} else {
-							newSlice := append(*pp.ReservedPrices, reservedVmPrice{Price: p})
-							pp.ReservedPrices = &newSlice
-						}
-					}
-
-				}
-			}
-		}
-	}
+	//TODO reserved Instance Info Mapping
+	//if instanceModel.reservedInfo != nil {
+	//	for _, v := range instanceModel.reservedInfo.Response.ReservedInstanceConfigInfos {
+	//		for _, info := range v.InstanceFamilies {
+	//			for _, iType := range info.InstanceTypes {
+	//				for _, p := range iType.Prices {
+	//
+	//					key := computeInstanceKeyGeneration(p.Zone, iType.InstanceType, iType.CpuModelName)
+	//
+	//					if pp, ok := priceMap[key]; !ok {
+	//						rp := make([]reservedVmPrice, 0)
+	//						rp = append(rp, reservedVmPrice{Price: p})
+	//
+	//						priceMap[key] = &productAndPrice{
+	//							PriceList: &irs.PriceList{
+	//								ProductInfo: mappingProductInfo(regionName, *iType),
+	//							},
+	//							ReservedPrices: &rp,
+	//						}
+	//					} else {
+	//						newSlice := append(*pp.ReservedPrices, reservedVmPrice{Price: p})
+	//						pp.ReservedPrices = &newSlice
+	//					}
+	//				}
+	//
+	//			}
+	//		}
+	//	}
+	//}
 
 	generatePriceInfo(priceMap)
 
