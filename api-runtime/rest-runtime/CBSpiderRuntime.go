@@ -230,6 +230,10 @@ func RunServer() {
 		{"GET", "/orgregion", ListOrgRegion},
 		{"GET", "/orgzone", ListOrgZone},
 
+		//----------PriceInfo Handler
+		{"GET", "/productfamily/:RegionName", ListProductFamily},
+		{"GET", "/priceinfo/:ProductFamily/:RegionName", GetPriceInfo},
+
 		//----------Image Handler
 		{"GET", "/vmimage", ListImage},
 		{"GET", "/vmimage/:Name", GetImage},
