@@ -47,21 +47,19 @@ func (t *TencentPriceInfoHandler) ListProductFamily(regionName string) ([]string
 
 func (t *TencentPriceInfoHandler) GetPriceInfo(productFamily string, regionName string, additionalFilters []irs.KeyValue) (string, error) {
 
-	filterMap := mapToFilter(additionalFilters)
+	filterMap := mapToTencentFilter(additionalFilters)
 
 	switch {
 	case strings.EqualFold("compute", productFamily):
-
 		// client 생성 with region name
 		t.Client.Init(regionName)
 
-		// // AZ 의 Instance standard 모델과 Spot 모델 조회
 		standardInfo, err := describeZoneInstanceConfigInfos(t.Client, filterMap)
 
 		if err != nil {
 			return "", err
 		}
-
+		//Reserved Instance Price calculator
 		//reservedInfo, err := describeReservedInstancesConfigInfos(client, filterMap)
 		//
 		//if err != nil {
@@ -73,25 +71,36 @@ func (t *TencentPriceInfoHandler) GetPriceInfo(productFamily string, regionName 
 		if err != nil {
 			return "", err
 		}
-
+		cblogger.Info(*res)
 		mar, err := json.Marshal(&res)
 		if err != nil {
 			return "", err
 		}
 
-		return string(mar), nil
+		returnValue := strings.ReplaceAll(string(mar), "\\", "")
+
+		if err != nil {
+			return "", err
+		}
+
+		return returnValue, nil
 	}
 
 	return "", nil
 }
 
+/*
+AZ 의 Instance standard 모델과 Spot 모델 조회
+*/
 func describeZoneInstanceConfigInfos(client *cvm.Client, filterMap map[string]*cvm.Filter) (*cvm.DescribeZoneInstanceConfigInfosResponse, error) {
-
+	//Filter 정적 추가
 	filters := parseToFilterSlice(filterMap, "zoneName", "instanceFamily", "instanceType")
 
+	//신규 Instance 데이터 Request 생성
 	req := cvm.NewDescribeZoneInstanceConfigInfosRequest()
 	req.Filters = filters
 
+	//인스턴스 정보 조회
 	res, err := client.DescribeZoneInstanceConfigInfos(req)
 	if err != nil {
 		// TODO Error mapping
@@ -101,6 +110,12 @@ func describeZoneInstanceConfigInfos(client *cvm.Client, filterMap map[string]*c
 	return res, nil
 }
 
+// TODO 기존, 신규 인스턴스 가격과 예약 인스턴스 가격 조회 후, 통합기능 개발
+// Issue
+// 1. 신규 인스턴스와 예약 인스턴스 간의 require param & recommand param 이 달라, 별개의 필터 구현이 필요
+// 2. return value가 서로 달라, 1개의 통일된 struct array로 변환과정이 복잡함
+
+// Reserved Instance Price calculator
 func describeReservedInstancesConfigInfos(client *cvm.Client, filterMap map[string]*cvm.Filter) (*cvm.DescribeReservedInstancesConfigInfosResponse, error) {
 	filters := parseToFilterSlice(filterMap, "zoneName")
 
@@ -116,6 +131,7 @@ func describeReservedInstancesConfigInfos(client *cvm.Client, filterMap map[stri
 	return res, nil
 }
 
+// Mapper Start Function
 func mappingToComputeStruct(filterMap map[string]*cvm.Filter, regionName string, instanceModel *instanceModel) (*irs.CloudPriceData, error) {
 	priceMap := make(map[string]*productAndPrice, 0)
 
@@ -195,6 +211,7 @@ func mappingToComputeStruct(filterMap map[string]*cvm.Filter, regionName string,
 	}, nil
 }
 
+// TencentSDK VM Product & Pricing struct to irs Struct
 func generatePriceInfo(priceMap map[string]*productAndPrice) {
 	if priceMap != nil && len(priceMap) > 0 {
 		for _, v := range priceMap {
@@ -215,8 +232,8 @@ func generatePriceInfo(priceMap map[string]*productAndPrice) {
 					policies = append(policies, mappingPricingPolicy(common.StringPtr("RESERVED"), *val.Price))
 				}
 			}
-
-			mar, err := json.Marshal(prices)
+			//mar, err := json.Marshal(prices)
+			mar, err := ConvertJsonStringNoEscape(prices)
 
 			if err != nil {
 				continue
@@ -224,37 +241,38 @@ func generatePriceInfo(priceMap map[string]*productAndPrice) {
 
 			pl.PriceInfo = irs.PriceInfo{
 				PricingPolicies: policies,
-				CSPPriceInfo:    string(mar),
+				CSPPriceInfo:    mar,
 			}
 		}
 	}
 }
 
+// TencentSDK VM Product & Pricing struct to irs ProductPolicies
 func mappingProductInfo(regionName string, i interface{}) irs.ProductInfo {
-	mar, err := json.Marshal(i)
-
+	//mar, err := json.Marshal(i)
+	cspProductInfoString, err := ConvertJsonStringNoEscape(i)
 	if err != nil {
 		return irs.ProductInfo{}
 	}
 
 	productInfo := irs.ProductInfo{
-		ProductId:      "NA",
+		//ProductId:      "NA",
 		RegionName:     regionName,
-		CSPProductInfo: string(mar),
+		CSPProductInfo: cspProductInfoString,
 	}
 
 	switch v := i.(type) {
 	case cvm.InstanceTypeQuotaItem:
 		vm := i.(cvm.InstanceTypeQuotaItem)
-
-		productInfo.InstanceType = strPtrNilCheck(vm.InstanceChargeType)
+		productInfo.ProductId = regionName + "-" + *vm.InstanceType
+		productInfo.InstanceType = strPtrNilCheck(vm.InstanceType)
 		productInfo.Vcpu = intPtrNilCheck(vm.Cpu)
 		productInfo.Memory = intPtrNilCheck(vm.Memory)
 		productInfo.Gpu = intPtrNilCheck(vm.Gpu)
 		productInfo.Description = strPtrNilCheck(vm.CpuType)
 
 		// not provide from tencent
-		productInfo.Storage = strPtrNilCheck(nil)
+		productInfo.Storage = intPtrNilCheck(vm.StorageBlockAmount)
 		productInfo.GpuMemory = strPtrNilCheck(nil)
 		productInfo.OperatingSystem = strPtrNilCheck(nil)
 		productInfo.PreInstalledSw = strPtrNilCheck(nil)
@@ -270,7 +288,7 @@ func mappingProductInfo(regionName string, i interface{}) irs.ProductInfo {
 
 	case cvm.ReservedInstanceTypeItem:
 		reservedVm := i.(cvm.ReservedInstanceTypeItem)
-
+		productInfo.ProductId = regionName + "-" + *reservedVm.InstanceType
 		productInfo.InstanceType = strPtrNilCheck(reservedVm.InstanceType)
 		productInfo.Vcpu = uintPtrNilCheck(reservedVm.Cpu)
 		productInfo.Memory = uintPtrNilCheck(reservedVm.Memory)
@@ -299,6 +317,7 @@ func mappingProductInfo(regionName string, i interface{}) irs.ProductInfo {
 
 }
 
+// TencentSDK VM Product & Pricing struct to irs PricingPolicies
 func mappingPricingPolicy(instanceChargeType *string, price any) irs.PricingPolicies {
 
 	// price info mapping
@@ -351,6 +370,7 @@ func mappingPricingPolicy(instanceChargeType *string, price any) irs.PricingPoli
 	return policy
 }
 
+// Instance Type 별 고유 key 생성
 func computeInstanceKeyGeneration(hashingKeys ...*string) string {
 	h := fnv.New32a()
 
@@ -365,7 +385,7 @@ func computeInstanceKeyGeneration(hashingKeys ...*string) string {
 	return strconv.FormatUint(uint64(h.Sum32()), 10)
 }
 
-func mapToFilter(additionalFilterList []irs.KeyValue) map[string]*cvm.Filter {
+func mapToTencentFilter(additionalFilterList []irs.KeyValue) map[string]*cvm.Filter {
 	filterMap := make(map[string]*cvm.Filter, 0)
 
 	for _, kv := range additionalFilterList {
@@ -405,32 +425,4 @@ func parseToFilterSlice(filterMap map[string]*cvm.Filter, conditions ...string) 
 	}
 
 	return filters
-}
-
-func strPtrNilCheck(t *string) string {
-	if t != nil {
-		return *t
-	}
-	return "NA"
-}
-
-func intPtrNilCheck(t *int64) string {
-	if t != nil {
-		return strconv.FormatInt(*t, 32)
-	}
-	return "NA"
-}
-
-func uintPtrNilCheck(t *uint64) string {
-	if t != nil {
-		return strconv.FormatUint(*t, 32)
-	}
-	return "NA"
-}
-
-func floatPtrNilCheck(t *float64) string {
-	if t != nil {
-		return strconv.FormatFloat(*t, 'f', -1, 64)
-	}
-	return "NA"
 }
