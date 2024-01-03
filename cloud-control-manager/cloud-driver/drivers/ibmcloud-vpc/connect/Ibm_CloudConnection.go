@@ -165,6 +165,11 @@ func (cloudConn *IbmCloudConnection) CreateRegionZoneHandler() (irs.RegionZoneHa
 	return &regionZoneHandler, nil
 }
 
-func (*IbmCloudConnection) CreatePriceInfoHandler() (irs.PriceInfoHandler, error) {
-	return nil, errors.New("Alibaba Driver: not implemented")
+func (cloudConn *IbmCloudConnection) CreatePriceInfoHandler() (irs.PriceInfoHandler, error) {
+	cblogger.Info("Ibm Cloud Driver: called CreatePriceInfoHandler()!")
+	priceInfoHandler := ibmrs.IbmPriceInfoHandler{
+		Region: cloudConn.Region,
+		Ctx:    cloudConn.Ctx,
+	}
+	return &priceInfoHandler, nil
 }

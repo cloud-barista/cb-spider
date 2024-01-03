@@ -37,6 +37,7 @@ func (IbmCloudDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	drvCapabilityInfo.VMSpecHandler = true
 	drvCapabilityInfo.NLBHandler = true
 	drvCapabilityInfo.RegionZoneHandler = true
+	drvCapabilityInfo.PriceInfoHandler = true
 
 	return drvCapabilityInfo
 }

@@ -32,25 +32,26 @@ type RES_TYPE string
 
 const (
 	//=========== CloudOS (ref: cb-spider/cloud-driver-libs/cloudos.yaml)
-	AWS       	CLOUD_OS = "AWS"
-	AZURE     	CLOUD_OS = "AZURE"
-	GCP       	CLOUD_OS = "GCP"
-	ALIBABA   	CLOUD_OS = "ALIBABA"
-	TENCENT   	CLOUD_OS = "TENCENT"
-	IBM       	CLOUD_OS = "IBM"
-	OPENSTACK 	CLOUD_OS = "OPENSTACK"
-	CLOUDIT   	CLOUD_OS = "CLOUDIT"
-	NCP       	CLOUD_OS = "NCP"
-	NCPVPC    	CLOUD_OS = "NCPVPC"
-	NHNCLOUD  	CLOUD_OS = "NHNCLOUD"
-	KTCLOUD   	CLOUD_OS = "KTCLOUD"
-	KTCLOUDVPC 	CLOUD_OS = "KTCLOUDVPC"	
-	DOCKER    	CLOUD_OS = "DOCKER"
-	MOCK      	CLOUD_OS = "MOCK"
-	CLOUDTWIN 	CLOUD_OS = "CLOUDTWIN"
+	AWS        CLOUD_OS = "AWS"
+	AZURE      CLOUD_OS = "AZURE"
+	GCP        CLOUD_OS = "GCP"
+	ALIBABA    CLOUD_OS = "ALIBABA"
+	TENCENT    CLOUD_OS = "TENCENT"
+	IBM        CLOUD_OS = "IBM"
+	OPENSTACK  CLOUD_OS = "OPENSTACK"
+	CLOUDIT    CLOUD_OS = "CLOUDIT"
+	NCP        CLOUD_OS = "NCP"
+	NCPVPC     CLOUD_OS = "NCPVPC"
+	NHNCLOUD   CLOUD_OS = "NHNCLOUD"
+	KTCLOUD    CLOUD_OS = "KTCLOUD"
+	KTCLOUDVPC CLOUD_OS = "KTCLOUDVPC"
+	DOCKER     CLOUD_OS = "DOCKER"
+	MOCK       CLOUD_OS = "MOCK"
+	CLOUDTWIN  CLOUD_OS = "CLOUDTWIN"
 
 	//=========== ResourceType
 	REGIONZONE    RES_TYPE = "REGIONZONE"
+	PRICEINFO     RES_TYPE = "PRICEINFO"
 	VMIMAGE       RES_TYPE = "VMIMAGE"
 	VMSPEC        RES_TYPE = "VMSPEC"
 	VPCSUBNET     RES_TYPE = "VPC/SUBNET"
@@ -62,7 +63,7 @@ const (
 	NLB           RES_TYPE = "NETWORKLOADBALANCER"
 
 	//=========== PMKS: Provider-Managed K8S
-	CLUSTER       RES_TYPE = "CLUSTER"
+	CLUSTER RES_TYPE = "CLUSTER"
 )
 
 type CALLLogger struct {
@@ -194,7 +195,7 @@ func getFormatter(loggerName string) *calllogformatter.Formatter {
 	return callFormatter
 }
 
-//=========================
+// =========================
 type CLOUDLOGSCHEMA struct {
 	CloudOS      CLOUD_OS // ex) AWS | AZURE | ALIBABA | GCP | OPENSTACK | CLOUDTWIN | CLOUDIT | DOCKER | NCP | MOCK | IBM
 	RegionZone   string   // ex) us-east1/us-east1-c

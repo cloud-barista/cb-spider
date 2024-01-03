@@ -6,6 +6,7 @@ import (
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"math/rand"
 	"net"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -300,4 +301,21 @@ func overlapCheckCidr(cidr1 string, cidr2 string) (bool, error) {
 	check1 := cidr1IPnet.Contains(cidr2IP)
 	check2 := cidr2IPnet.Contains(cidr1IP)
 	return !check1 && !check2, nil
+}
+
+func removeDuplicateStr(array []string) []string {
+	if len(array) < 1 {
+		return array
+	}
+
+	sort.Strings(array)
+	prev := 1
+	for curr := 1; curr < len(array); curr++ {
+		if array[curr-1] != array[curr] {
+			array[prev] = array[curr]
+			prev++
+		}
+	}
+
+	return array[:prev]
 }

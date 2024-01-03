@@ -188,6 +188,17 @@ func (cloudConn *AzureCloudConnection) CreateRegionZoneHandler() (irs.RegionZone
 	return &regionZoneHandler, nil
 }
 
+func (cloudConn *AzureCloudConnection) CreatePriceInfoHandler() (irs.PriceInfoHandler, error) {
+	cblogger.Info("Azure Cloud Driver: called CreatePriceInfoHandler()!")
+	priceInfoHandler := azrs.AzurePriceInfoHandler{
+		CredentialInfo:     cloudConn.CredentialInfo,
+		Region:             cloudConn.Region,
+		Ctx:                cloudConn.Ctx,
+		ResourceSkusClient: cloudConn.ResourceSkusClient,
+	}
+	return &priceInfoHandler, nil
+}
+
 func (cloudConn *AzureCloudConnection) IsConnected() (bool, error) {
 	return true, nil
 }
@@ -218,8 +229,4 @@ func (cloudConn *AzureCloudConnection) CreateClusterHandler() (irs.ClusterHandle
 
 func (cloudConn *AzureCloudConnection) CreateAnyCallHandler() (irs.AnyCallHandler, error) {
 	return nil, errors.New("Azure Driver: not implemented")
-}
-
-func (*AzureCloudConnection) CreatePriceInfoHandler() (irs.PriceInfoHandler, error) {
-	return nil, errors.New("Alibaba Driver: not implemented")
 }
