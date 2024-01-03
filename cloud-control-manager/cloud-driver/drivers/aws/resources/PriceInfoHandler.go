@@ -29,7 +29,7 @@ func (priceInfoHandler *AwsPriceInfoHandler) ListProductFamily(regionName string
 			return nil, err
 		}
 		for _, service := range services.Services {
-			cblogger.Info(service)
+			cblogger.Debug(service)
 			result = append(result, *service.ServiceCode)
 		}
 		if services.NextToken != nil {
@@ -40,7 +40,6 @@ func (priceInfoHandler *AwsPriceInfoHandler) ListProductFamily(regionName string
 			break
 		}
 	}
-	cblogger.Info()
 	return result, nil
 }
 
@@ -76,12 +75,13 @@ func (priceInfoHandler *AwsPriceInfoHandler) GetPriceInfo(productFamily string, 
 			}
 		}
 	}
-
-	getProductsinputfilters = append(getProductsinputfilters, &pricing.Filter{
-		Field: aws.String("regionCode"),
-		Type:  aws.String("EQUALS"),
-		Value: aws.String(regionName),
-	})
+	if regionName != "" {
+		getProductsinputfilters = append(getProductsinputfilters, &pricing.Filter{
+			Field: aws.String("regionCode"),
+			Type:  aws.String("EQUALS"),
+			Value: aws.String(regionName),
+		})
+	}
 
 	getProductsinput := &pricing.GetProductsInput{
 		Filters:     getProductsinputfilters,
@@ -99,13 +99,12 @@ func (priceInfoHandler *AwsPriceInfoHandler) GetPriceInfo(productFamily string, 
 	result.Meta.Description = "Multi-Cloud Price Info"
 
 	for _, price := range priceinfos.PriceList {
-		var productInfo irs.ProductInfo
-		var priceListone irs.PriceList
-
 		jsonString, err := json.MarshalIndent(price["product"].(map[string]interface{})["attributes"], "", "    ")
 		if err != nil {
 			cblogger.Error(err)
 		}
+
+		var productInfo irs.ProductInfo
 		err = json.Unmarshal(jsonString, &productInfo)
 		if err != nil {
 			cblogger.Error(err)
@@ -113,7 +112,7 @@ func (priceInfoHandler *AwsPriceInfoHandler) GetPriceInfo(productFamily string, 
 
 		productInfo.ProductId = fmt.Sprintf("%s", price["product"].(map[string]interface{})["sku"])
 		productInfo.RegionName = fmt.Sprintf("%s", price["product"].(map[string]interface{})["attributes"].(map[string]interface{})["regionCode"])
-		productInfo.Description = fmt.Sprintf("productFamily %s, version %s", price["product"].(map[string]interface{})["productFamily"], price["version"])
+		productInfo.Description = fmt.Sprintf("productFamily= %s, version= %s", price["product"].(map[string]interface{})["productFamily"], price["version"])
 		productInfo.CSPProductInfo = price["product"]
 		// product info
 
@@ -145,8 +144,11 @@ func (priceInfoHandler *AwsPriceInfoHandler) GetPriceInfo(productFamily string, 
 			}
 		}
 		// price info
+		var priceListone irs.PriceList
 
+		ReplaceEmptyWithNA(&productInfo)
 		priceListone.ProductInfo = productInfo
+		ReplaceEmptyWithNA(&priceInfo)
 		priceListone.PriceInfo = priceInfo
 
 		priceone := irs.CloudPrice{

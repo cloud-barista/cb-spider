@@ -1766,29 +1766,12 @@ func handlePriceInfo() {
 					cblogger.Infof("GetPriceInfo 조회 실패 : ", err)
 				} else {
 					cblogger.Info("GetPriceInfo 조회 결과")
-					cblogger.Debug(result)
+					cblogger.Info(result)
 					cblogger.Infof("로그 레벨 : [%s]", cblog.GetLevel())
-					// spew.Dump(result)
 				}
 			}
 		}
 	}
-}
-
-func main() {
-	cblogger.Info("AWS Resource Test")
-	// handleVPC()
-	// handleKeyPair()
-	// handlePublicIP() // PublicIP 생성 후 conf
-	// handleSecurity()
-	// handleVM()
-	// handleImage() //AMI
-	// handleVNic() //Lancard
-	// handleVMSpec()
-	// handleNLB()
-	// handleCluster()
-	// handleRegionZone()
-	handlePriceInfo()
 }
 
 // handlerType : resources폴더의 xxxHandler.go에서 Handler이전까지의 문자열
@@ -1942,14 +1925,8 @@ type Config struct {
 func readConfigFile() Config {
 	// Set Environment Value of Project Root Path
 	rootPath := os.Getenv("CBSPIDER_PATH")
-	//rootpath := "D:/Workspace/mcloud-barista-config"
-	// /mnt/d/Workspace/mcloud-barista-config/config/config.yaml
-	// cblogger.Infof("Test Data 설정파일 : [%]", rootPath+"/config/config.yaml")
-
+	cblogger.Infof("Test Data 설정파일 : [%s]", rootPath+"/config/config.yaml")
 	data, err := ioutil.ReadFile(rootPath + "/config/config.yaml")
-	data, err = ioutil.ReadFile("/home/ubuntu/workspace/cb-spider/feature_priceInfo_aws_20231205_mhlee/cloud-control-manager/cloud-driver/drivers/aws/main/Sample/config/config.yaml")
-	// data, err := ioutil.ReadFile(rootPath + "/Sample/config/config.yaml")
-	//data, err := ioutil.ReadFile("D:/Workspace/mcloud-bar-config/config/config.yaml")
 	if err != nil {
 		panic(err)
 	}
@@ -1961,9 +1938,22 @@ func readConfigFile() Config {
 	}
 
 	cblogger.Info("Loaded ConfigFile...")
-	//spew.Dump(config)
-	//cblogger.Info(config)
 	cblogger.Debug(config.Aws.AawsAccessKeyID, " ", config.Aws.Region)
-	//cblogger.Debug(config.Aws.Region)
 	return config
+}
+
+func main() {
+	cblogger.Info("AWS Resource Test")
+	// handleVPC()
+	// handleKeyPair()
+	// handlePublicIP() // PublicIP 생성 후 conf
+	// handleSecurity()
+	// handleVM()
+	// handleImage() //AMI
+	// handleVNic() //Lancard
+	// handleVMSpec()
+	// handleNLB()
+	// handleCluster()
+	// handleRegionZone()
+	handlePriceInfo()
 }
