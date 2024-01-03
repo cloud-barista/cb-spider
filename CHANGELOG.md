@@ -1,3 +1,22 @@
+# v0.8.0 (Chamomile, 2023.12.15.)
+
+### API Change
+
+- Add Region/Zone Info API ([v0.8.0](https://github.com/cloud-barista/cb-spider/wiki/CB-Spider-User-Interface))
+
+
+### Feature
+- [+NCP Classic Conn. Driver] Add NCP Classic driver entire codes and Test codes of it (https://github.com/cloud-barista/cb-spider/pull/962)
+- [+NCP VPC conn. Driver] Add NCP VPC driver entire codes and Test codes of it (https://github.com/cloud-barista/cb-spider/pull/963)
+- [+NHN Cloud Conn. Driver] Add NHN Cloud driver entire codes and Test codes of them (https://github.com/cloud-barista/cb-spider/pull/964)
+- [+KT Cloud Classic Conn. Driver] Add KT Cloud Classic driver entire codes and Test codes of them (https://github.com/cloud-barista/cb-spider/pull/965)
+- Add [Region/Zone Info Mangement](https://github.com/cloud-barista/cb-spider/wiki/Region-Zone-Driver-API)
+- Add GCP PMKS (https://github.com/cloud-barista/cb-spider/pull/875)
+- Add AWS PMKS (https://github.com/cloud-barista/cb-spider/pull/879)
+
+
+***
+
 # v0.7.0 (Cortado, 2022.11.25.)
 
 ### API Change

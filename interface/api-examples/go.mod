@@ -1,18 +1,20 @@
 module spider/examples
 
-go 1.19
+go 1.21
+
+toolchain go1.21.5
 
 replace (
 	github.com/dgrijalva/jwt-go => github.com/golang-jwt/jwt v3.2.1+incompatible
 	gopkg.in/yaml.v3 => gopkg.in/yaml.v3 v3.0.0
 )
 
-require github.com/cloud-barista/cb-spider v0.7.7
+require github.com/cloud-barista/cb-spider v0.8.0
 
 require (
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
-	github.com/cloud-barista/cb-log v0.7.0 // indirect
+	github.com/cloud-barista/cb-log v0.8.0 // indirect
 	github.com/fsnotify/fsnotify v1.4.9 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang-jwt/jwt/v4 v4.0.0 // indirect

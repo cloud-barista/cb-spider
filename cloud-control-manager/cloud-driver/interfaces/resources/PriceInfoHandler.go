@@ -21,11 +21,11 @@ type Meta struct {
 }
 
 type CloudPrice struct {
-	CloudName string      `json:"cloudName"`
-	PriceList []PriceList `json:"priceList"`
+	CloudName string  `json:"cloudName"`
+	PriceList []Price `json:"priceList"`
 }
 
-type PriceList struct {
+type Price struct {
 	ProductInfo ProductInfo `json:"productInfo"`
 	PriceInfo   PriceInfo   `json:"priceInfo"`
 }
@@ -33,33 +33,34 @@ type PriceList struct {
 type ProductInfo struct {
 	ProductId  string `json:"productId"`
 	RegionName string `json:"regionName"`
+	ZoneName   string `json:"zoneName"`
 
 	//--------- Compute Instance
-	InstanceType    string `json:"instanceType"`
-	Vcpu            string `json:"vcpu"`
-	Memory          string `json:"memory"`
-	Storage         string `json:"storage"`
-	Gpu             string `json:"gpu"`
-	GpuMemory       string `json:"gpuMemory"`
-	OperatingSystem string `json:"operatingSystem"`
-	PreInstalledSw  string `json:"preInstalledSw"`
+	InstanceType    string `json:"instanceType,omitempty"`
+	Vcpu            string `json:"vcpu,omitempty"`
+	Memory          string `json:"memory,omitempty"`
+	Storage         string `json:"storage,omitempty"` // Root-Disk
+	Gpu             string `json:"gpu,omitempty"`
+	GpuMemory       string `json:"gpuMemory,omitempty"`
+	OperatingSystem string `json:"operatingSystem,omitempty"`
+	PreInstalledSw  string `json:"preInstalledSw,omitempty"`
 	//--------- Compute Instance
 
-	//--------- Storage
-	VolumeType          string `json:"volumeType"`
-	StorageMedia        string `json:"storageMedia"`
-	MaxVolumeSize       string `json:"maxVolumeSize"`
-	MaxIOPSVolume       string `json:"maxIopsvolume"`
-	MaxThroughputVolume string `json:"maxThroughputvolume"`
-	//--------- Storage
+	//--------- Storage  // Data-Disk(AWS:EBS)
+	VolumeType          string `json:"volumeType,omitempty"`
+	StorageMedia        string `json:"storageMedia,omitempty"`
+	MaxVolumeSize       string `json:"maxVolumeSize,omitempty"`
+	MaxIOPSVolume       string `json:"maxIopsvolume,omitempty"`
+	MaxThroughputVolume string `json:"maxThroughputvolume,omitempty"`
+	//--------- Storage  // Data-Disk(AWS:EBS)
 
-	Description    string `json:"description"`
-	CSPProductInfo string `json:"cspProductInfo"`
+	Description    string      `json:"description"`
+	CSPProductInfo interface{} `json:"cspProductInfo"`
 }
 
 type PriceInfo struct {
 	PricingPolicies []PricingPolicies `json:"pricingPolicies"`
-	CSPPriceInfo    string            `json:"cspPriceInfo"`
+	CSPPriceInfo    interface{}       `json:"cspPriceInfo"`
 }
 
 type PricingPolicies struct {

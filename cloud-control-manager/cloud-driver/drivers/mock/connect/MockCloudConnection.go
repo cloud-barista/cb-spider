@@ -117,6 +117,8 @@ func (cloudConn *MockConnection) CreateRegionZoneHandler() (irs.RegionZoneHandle
 	return &handler, nil
 }
 
-func (*MockConnection) CreatePriceInfoHandler() (irs.PriceInfoHandler, error) {
-	return nil, errors.New("Alibaba Driver: not implemented")
+func (cloudConn *MockConnection) CreatePriceInfoHandler() (irs.PriceInfoHandler, error) {
+	cblogger.Info("Mock Driver: called CreatePriceInfoHandler()!")
+	handler := mkrs.MockPriceInfoHandler{Region: cloudConn.Region, MockName: cloudConn.MockName}
+	return &handler, nil
 }

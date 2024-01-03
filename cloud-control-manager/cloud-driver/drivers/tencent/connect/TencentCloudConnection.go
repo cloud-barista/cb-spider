@@ -160,5 +160,5 @@ func (cloudConn *TencentCloudConnection) CreateRegionZoneHandler() (irs.RegionZo
 
 func (cloudConn *TencentCloudConnection) CreatePriceInfoHandler() (irs.PriceInfoHandler, error) {
 	handler := trs.TencentPriceInfoHandler{Region: cloudConn.Region, Client: cloudConn.VMClient}
-	return &handler, nil
+	return &hand
 }

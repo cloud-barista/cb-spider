@@ -30,6 +30,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/eks"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/aws/aws-sdk-go/service/iam"
+	"github.com/aws/aws-sdk-go/service/pricing"
 )
 
 type AwsDriver struct {
@@ -52,6 +53,7 @@ func (AwsDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	drvCapabilityInfo.VMSpecHandler = true
 	drvCapabilityInfo.NLBHandler = true
 	drvCapabilityInfo.RegionZoneHandler = true
+	drvCapabilityInfo.PriceInfoHandler = true
 
 	return drvCapabilityInfo
 }
@@ -199,6 +201,7 @@ func getAutoScalingClient(connectionInfo idrv.ConnectionInfo) (*autoscaling.Auto
 
 	return svc, nil
 }
+
 func (driver *AwsDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (icon.CloudConnection, error) {
 	// 1. get info of credential and region for Test A Cloud from connectionInfo.
 	// 2. create a client object(or service  object) of Test A Cloud with credential info.
@@ -217,6 +220,7 @@ func (driver *AwsDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (icon.
 	nlbClient, err := getNLBClient(connectionInfo)
 	eksClient, err := getEKSClient(connectionInfo)
 	iamClient, err := getIamClient(connectionInfo)
+	pricingClient, err := getPricingClient(connectionInfo)
 	autoScalingClient, err := getAutoScalingClient(connectionInfo)
 	//vmClient, err := getVMClient(connectionInfo.RegionInfo)
 	if err != nil {
@@ -245,12 +249,49 @@ func (driver *AwsDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (icon.
 		AutoScalingClient: autoScalingClient,
 
 		RegionZoneClient: vmClient,
+		PriceInfoClient:  pricingClient,
 
 		// Connection for AnyCall
 		AnyCallClient: vmClient,
 	}
 
 	return &iConn, nil // return type: (icon.CloudConnection, error)
+}
+
+// Pricing data를 위한 Pricing 클라이언트 획득
+func getPricingClient(connectionInfo idrv.ConnectionInfo) (*pricing.Pricing, error) {
+
+	// "us-east-1", "eu-central-1", "ap-south-1" 3개 리전의 엔드포인트만 지원
+	// AWS 리전은 Price List Query API의 API 엔드포인트입니다.
+	// 엔드포인트는 제품 또는 서비스 속성과 관련이 없습니다.
+	// https://docs.aws.amazon.com/ko_kr/awsaccountbilling/latest/aboutv2/using-price-list-query-api.html#price-list-query-api-endpoints
+
+	pricingEndpointRegion := []string{"us-east-1", "eu-central-1", "ap-south-1"}
+	match := false
+	for _, str := range pricingEndpointRegion {
+		if str == connectionInfo.RegionInfo.Region {
+			match = true
+			break
+		}
+	}
+
+	var targetRegion string
+	if match {
+		targetRegion = connectionInfo.RegionInfo.Region
+	} else {
+		targetRegion = "us-east-1"
+	}
+
+	sess := session.Must(session.NewSession())
+	// Create a Pricing client with additional configuration
+	svc := pricing.New(sess, &aws.Config{
+		// Region: aws.String(connectionInfo.RegionInfo.Region),
+		Region: aws.String(targetRegion),
+		//Region:      aws.String("ap-northeast-2"),
+		Credentials: credentials.NewStaticCredentials(connectionInfo.CredentialInfo.ClientId, connectionInfo.CredentialInfo.ClientSecret, "")},
+	)
+
+	return svc, nil
 }
 
 /*

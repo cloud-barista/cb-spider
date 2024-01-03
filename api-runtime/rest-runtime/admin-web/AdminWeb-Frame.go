@@ -40,8 +40,7 @@ func Frame(c echo.Context) error {
     <title>CB-Spider Admin Web Tool ....__^..^__....</title>
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
   </head>
- <!--   <frameset rows="66,*" frameborder="Yes" border=1"> -->
-    <frameset rows="125,*" frameborder="Yes" border=1">
+    <frameset rows="150,*" frameborder="Yes" border=1">
         <frame src="adminweb/top" name="top_frame" scrolling="auto" noresize marginwidth="0" marginheight="0"/>
         <frameset rows="*,130" frameborder="Yes" border=2">
             <frame src="adminweb/driver" id="main_frame" name="main_frame" scrolling="auto" /> 
@@ -69,8 +68,7 @@ func Top(c echo.Context) error {
 <head>
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
 </head>
-<body>
-    <!-- <table border="0" bordercolordark="#FFFFFF" cellpadding="0" cellspacing="2" bgcolor="#FFFFFF" width="320" style="font-size:small;"> -->
+<body>    
     <table border="0" bordercolordark="#FFFFFF" cellpadding="0" cellspacing="1" bgcolor="#FFFFFF"  style="font-size:small;">      
         <tr bgcolor="#FFFFFF" align="left">
             <td rowspan="2" width="70" bgcolor="#FFFFFF" align="center">
@@ -100,7 +98,7 @@ func Top(c echo.Context) error {
                     <font size=2>1.Region</font>
                 </a>
             </td>
-            <td width="190">
+            <td width="300">
                 <!-- Connection Management -->
                 <a href="connectionconfig" target="main_frame">            
                     <font size=2>2.CONNECTION</font>
@@ -115,10 +113,10 @@ func Top(c echo.Context) error {
                     <font size=2>Region/Zone</font>
                 </a>
             </td>
-            <td width="240">
+            <td width="280">
                 <!-- Display Connection Config -->
 		<label id="connConfig" hidden></label>
-		<input style="font-size:11px;font-weight:bold;text-align:center;background-color:#EDF7F9;" type="text" id="connDisplay" name="connDisplay" size = 30 disabled value="CloudOS: Region / Zone">
+		<input style="font-size:12px;font-weight:bold;text-align:center;background-color:#EDF7F9;" type="text" id="connDisplay" name="connDisplay" size = 35 disabled value="CloudOS: Region / Zone">
 
             </td>
 	</tr>
@@ -177,7 +175,7 @@ func Top(c echo.Context) error {
                 <br>
 
             </td>
-            <td width="280">
+            <td width="300">
 
                 <br>
 
@@ -246,7 +244,7 @@ func Top(c echo.Context) error {
                 </a> -->
 
             </td>
-            <td width="240">
+            <td width="280">
                         
                 <br>
 
