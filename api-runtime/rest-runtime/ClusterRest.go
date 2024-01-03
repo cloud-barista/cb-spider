@@ -535,7 +535,11 @@ func RemoveNodeGroup(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
-	return c.JSON(http.StatusOK, result)
+	resultInfo := BooleanInfo{
+		Result: strconv.FormatBool(result),
+	}
+
+	return c.JSON(http.StatusOK, &resultInfo)
 }
 
 func SetNodeGroupAutoScaling(c echo.Context) error {

@@ -12,7 +12,6 @@ import (
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"reflect"
-	"sort"
 	"strings"
 	"sync"
 )
@@ -24,23 +23,6 @@ type AzureRegionZoneHandler struct {
 	Client             *subscriptions.Client
 	GroupsClient       *resources.GroupsClient
 	ResourceSkusClient *compute.ResourceSkusClient
-}
-
-func removeDuplicateStr(array []string) []string {
-	if len(array) < 1 {
-		return array
-	}
-
-	sort.Strings(array)
-	prev := 1
-	for curr := 1; curr < len(array); curr++ {
-		if array[curr-1] != array[curr] {
-			array[prev] = array[curr]
-			prev++
-		}
-	}
-
-	return array[:prev]
 }
 
 func (regionZoneHandler *AzureRegionZoneHandler) ListRegionZone() ([]*irs.RegionZoneInfo, error) {
@@ -63,7 +45,6 @@ func (regionZoneHandler *AzureRegionZoneHandler) ListRegionZone() ([]*irs.Region
 	var mutex = &sync.Mutex{}
 	var lenLocations = len(*resultListLocations.Value)
 	var zoneErrorOccurred bool
-	k := 0
 
 	for i := 0; i < lenLocations; {
 		if lenLocations-i < routineMax {
@@ -81,6 +62,7 @@ func (regionZoneHandler *AzureRegionZoneHandler) ListRegionZone() ([]*irs.Region
 				resultResourceSkusClient, err = regionZoneHandler.ResourceSkusClient.List(regionZoneHandler.Ctx, "location eq '"+*loc.Name+"'")
 				if err != nil {
 					zoneErrorOccurred = true
+					wait.Done()
 					return
 				}
 
@@ -119,9 +101,7 @@ func (regionZoneHandler *AzureRegionZoneHandler) ListRegionZone() ([]*irs.Region
 				mutex.Unlock()
 
 				wait.Done()
-			}(&wait, (*resultListLocations.Value)[k])
-
-			k++
+			}(&wait, (*resultListLocations.Value)[i])
 
 			i++
 			if i == lenLocations {

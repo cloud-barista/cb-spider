@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"errors"
 	"fmt"
 	cblog "github.com/cloud-barista/cb-log"
@@ -13,6 +14,7 @@ import (
 	"io/ioutil"
 	"os"
 	"strconv"
+	"strings"
 )
 
 type Config struct {
@@ -252,8 +254,9 @@ func showTestHandlerInfo() {
 	cblogger.Info("8. DiskHandler")
 	cblogger.Info("9. MyImageHandler")
 	cblogger.Info("10. RegionZoneHandler")
-	cblogger.Info("11. ClusterHandler")
-	cblogger.Info("12. Exit")
+	cblogger.Info("11. PriceInfoHandler")
+	cblogger.Info("12. ClusterHandler")
+	cblogger.Info("13. Exit")
 	cblogger.Info("==========================================================")
 }
 
@@ -300,6 +303,8 @@ func getResourceHandler(resourceType string, config Config) (interface{}, error)
 		resourceHandler, err = ibmCon.CreateMyImageHandler()
 	case "regionzone":
 		resourceHandler, err = ibmCon.CreateRegionZoneHandler()
+	case "price":
+		resourceHandler, err = ibmCon.CreatePriceInfoHandler()
 	case "cluster":
 		resourceHandler, err = ibmCon.CreateClusterHandler()
 	}
@@ -1437,6 +1442,111 @@ Loop:
 	}
 }
 
+func testPriceInfoHandlerListPrint() {
+	cblogger.Info("Test PriceInfoHandler")
+	cblogger.Info("0. Print Menu")
+	cblogger.Info("1. ListProductFamily()")
+	cblogger.Info("2. GetPriceInfo()")
+	cblogger.Info("3. Exit")
+}
+
+func testPriceInfoHandler(config Config) {
+	resourceHandler, err := getResourceHandler("price", config)
+	if err != nil {
+		cblogger.Error(err)
+		return
+	}
+	priceInfoHandler := resourceHandler.(irs.PriceInfoHandler)
+
+	testPriceInfoHandlerListPrint()
+Loop:
+	for {
+		var commandNum int
+		inputCnt, err := fmt.Scan(&commandNum)
+		if err != nil {
+			cblogger.Error(err)
+		}
+
+		if inputCnt == 1 {
+			switch commandNum {
+			case 0:
+				testPriceInfoHandlerListPrint()
+			case 1:
+				cblogger.Info("Start ListProductFamily() ...")
+				var region string
+				fmt.Print("Enter Region Name: ")
+				if _, err := fmt.Scanln(&region); err != nil {
+					cblogger.Error(err)
+				}
+				if listProductFamily, err := priceInfoHandler.ListProductFamily(region); err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(listProductFamily)
+				}
+				cblogger.Info("Finish ListProductFamily()")
+			case 2:
+				cblogger.Info("Start GetPriceInfo() ...")
+				fmt.Println("=== Enter Product Familiy ===")
+				in := bufio.NewReader(os.Stdin)
+				productFamiliy, err := in.ReadString('\n')
+				if err != nil {
+					cblogger.Error(err)
+				}
+
+				productFamiliy = strings.TrimSpace(productFamiliy)
+				var region string
+				fmt.Print("Enter Region Name: ")
+				if _, err := fmt.Scanln(&region); err != nil {
+					cblogger.Error(err)
+				}
+
+				// filter not supported in IBM Cloud
+
+				//var addFilterList string
+				//var filterList []irs.KeyValue
+				//for {
+				//	fmt.Print("Add filter list? (y/N): ")
+				//	_, err := fmt.Scanln(&addFilterList)
+				//	if err != nil || strings.ToLower(addFilterList) == "n" {
+				//		break
+				//	}
+				//
+				//	fmt.Println("=== Enter key to filter ===")
+				//	in = bufio.NewReader(os.Stdin)
+				//	key, err := in.ReadString('\n')
+				//	if err != nil {
+				//		cblogger.Error(err)
+				//	}
+				//	key = strings.TrimSpace(key)
+				//
+				//	fmt.Println("=== Enter value to filter ===")
+				//	in = bufio.NewReader(os.Stdin)
+				//	value, err := in.ReadString('\n')
+				//	if err != nil {
+				//		cblogger.Error(err)
+				//	}
+				//	value = strings.TrimSpace(value)
+				//
+				//	filterList = append(filterList, irs.KeyValue{
+				//		Key:   key,
+				//		Value: value,
+				//	})
+				//}
+
+				if priceInfo, err := priceInfoHandler.GetPriceInfo(productFamiliy, region, []irs.KeyValue{} /*filterList*/); err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(priceInfo)
+				}
+				cblogger.Info("Finish GetPriceInfo()")
+			case 3:
+				cblogger.Info("Exit")
+				break Loop
+			}
+		}
+	}
+}
+
 func testClusterHandlerListPrint() {
 	cblogger.Info("Test ClusterHandler")
 	cblogger.Info("0. Print Menu")
@@ -1654,9 +1764,12 @@ Loop:
 				testRegionZoneHandler(config)
 				showTestHandlerInfo()
 			case 11:
-				testClusterHandler(config)
+				testPriceInfoHandler(config)
 				showTestHandlerInfo()
 			case 12:
+				testClusterHandler(config)
+				showTestHandlerInfo()
+			case 13:
 				cblogger.Info("Exit Test ResourceHandler Program")
 				break Loop
 			}

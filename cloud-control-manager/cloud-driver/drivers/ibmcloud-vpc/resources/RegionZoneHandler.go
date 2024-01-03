@@ -38,7 +38,6 @@ func (regionZoneHandler *IbmRegionZoneHandler) ListRegionZone() ([]*irs.RegionZo
 	var mutex = &sync.Mutex{}
 	var lenRegions = len(regions.Regions)
 	var zoneErrorOccurred bool
-	k := 0
 
 	for i := 0; i < lenRegions; {
 		if lenRegions-i < routineMax {
@@ -57,6 +56,7 @@ func (regionZoneHandler *IbmRegionZoneHandler) ListRegionZone() ([]*irs.RegionZo
 				zones, _, err := regionZoneHandler.VpcService.ListRegionZonesWithContext(regionZoneHandler.Ctx, options)
 				if err != nil {
 					zoneErrorOccurred = true
+					wait.Done()
 					return
 				}
 
@@ -84,9 +84,7 @@ func (regionZoneHandler *IbmRegionZoneHandler) ListRegionZone() ([]*irs.RegionZo
 				mutex.Unlock()
 
 				wait.Done()
-			}(&wait, regions.Regions[k])
-
-			k++
+			}(&wait, regions.Regions[i])
 
 			i++
 			if i == lenRegions {

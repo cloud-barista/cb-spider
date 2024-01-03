@@ -1,0 +1,38 @@
+{
+    "category": "Network Load Balancer",
+    "nlbName": "mock.nlb.mercury",
+    "nlbInfo": {
+        "regionName": "mercury"
+    }, 
+    "pricingList": {
+        "payAsYouGo": {
+            "priceId": "mock.mercury.nlb.payg",
+            "unit": "GB",
+            "currency": "USD",
+            "price" : "0.1"
+        },
+        "savingPlan": [
+            {
+                "priceId": "mock.mercury.nlb.savingplan1",
+                "term": "1 Year",
+                "unit": "GB",
+                "currency": "USD",
+                "price" : "0.05"
+            },
+            {
+                "priceId": "mock.mercury.nlb.savingplan2",
+                "term": "2 Year",
+                "unit": "GB",
+                "currency": "USD",
+                "price" : "0.01"        
+            },
+            {
+                "priceId": "mock.mercury.nlb.savingplan3",
+                "term": "3 Year",
+                "unit": "GB",
+                "currency": "USD",
+                "price" : "0.005"
+            }
+        ]
+    }
+}

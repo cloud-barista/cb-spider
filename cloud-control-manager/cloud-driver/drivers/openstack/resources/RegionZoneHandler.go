@@ -86,7 +86,6 @@ func (regionZoneHandler *OpenStackRegionZoneHandler) ListRegionZone() ([]*irs.Re
 	var mutex = &sync.Mutex{}
 	var lenRegions = len(regionList)
 	var zoneErrorOccurred bool
-	k := 0
 
 	for i := 0; i < lenRegions; {
 		if lenRegions-i < routineMax {
@@ -102,12 +101,14 @@ func (regionZoneHandler *OpenStackRegionZoneHandler) ListRegionZone() ([]*irs.Re
 				})
 				if err != nil {
 					zoneErrorOccurred = true
+					wait.Done()
 					return
 				}
 
 				list, err := getZoneList(client, hiscallInfo)
 				if err != nil {
 					zoneErrorOccurred = true
+					wait.Done()
 					return
 				}
 
@@ -121,9 +122,7 @@ func (regionZoneHandler *OpenStackRegionZoneHandler) ListRegionZone() ([]*irs.Re
 				mutex.Unlock()
 
 				wait.Done()
-			}(&wait, regionList[k])
-
-			k++
+			}(&wait, regionList[i])
 
 			i++
 			if i == lenRegions {
