@@ -24,7 +24,7 @@ type instanceModel struct {
 }
 
 type productAndPrice struct {
-	PriceList      *irs.PriceList
+	PriceList      *irs.Price
 	StandardPrices *[]standardVmPrice
 	ReservedPrices *[]reservedVmPrice
 }
@@ -145,7 +145,7 @@ func mappingToComputeStruct(filterMap map[string]*cvm.Filter, regionName string,
 				sp = append(sp, standardVmPrice{InstanceChargeType: v.InstanceChargeType, Price: v.Price})
 
 				priceMap[key] = &productAndPrice{
-					PriceList: &irs.PriceList{
+					PriceList: &irs.Price{
 						ProductInfo: mappingProductInfo(regionName, *v),
 					},
 					StandardPrices: &sp,
@@ -189,7 +189,7 @@ func mappingToComputeStruct(filterMap map[string]*cvm.Filter, regionName string,
 
 	generatePriceInfo(priceMap)
 
-	var priceList []irs.PriceList
+	var priceList []irs.Price
 
 	if priceMap != nil && len(priceMap) > 0 {
 		for _, v := range priceMap {
