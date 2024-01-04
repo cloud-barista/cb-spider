@@ -25,8 +25,10 @@ import (
 	goo "golang.org/x/oauth2/google"
 
 	"google.golang.org/api/cloudbilling/v1"
+	cbb "google.golang.org/api/cloudbilling/v1beta"
 	compute "google.golang.org/api/compute/v1"
 	"google.golang.org/api/container/v1"
+	"google.golang.org/api/option"
 )
 
 type GCPDriver struct {
@@ -82,10 +84,18 @@ func (driver *GCPDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (icon.
 		return nil, err
 	}
 
-	_, cloudBillingClient, err := getCloudBillingClient(connectionInfo.CredentialInfo)
-	fmt.Println("################## getCloudBillingClient ##################")
-	fmt.Println("getCloudBillingClient")
-	fmt.Println("################## getCloudBillingClient ##################")
+	_, billingCatalogClient, err := getBillingCatalogClient(connectionInfo.CredentialInfo)
+	fmt.Println("################## getBillingCatalogClient ##################")
+	fmt.Println("getBillingCatalogClient")
+	fmt.Println("################## getBillingCatalogClient ##################")
+	if err != nil {
+		return nil, err
+	}
+
+	_, costEstimationClient, err := getCostEstimationClient(connectionInfo.CredentialInfo)
+	fmt.Println("################## getCostEstimationClient ##################")
+	fmt.Println("getCostEstimationClient")
+	fmt.Println("################## getCostEstimationClient ##################")
 	if err != nil {
 		return nil, err
 	}
@@ -100,12 +110,13 @@ func (driver *GCPDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (icon.
 		SecurityGroupClient: VMClient,
 		// VNetClient:          VMClient,
 		// VNicClient:          VMClient,
-		SubnetClient:       VMClient,
-		VMSpecClient:       VMClient,
-		VPCClient:          VMClient,
-		RegionZoneClient:   VMClient,
-		ContainerClient:    containerClient,
-		CloudBillingClient: cloudBillingClient,
+		SubnetClient:         VMClient,
+		VMSpecClient:         VMClient,
+		VPCClient:            VMClient,
+		RegionZoneClient:     VMClient,
+		ContainerClient:      containerClient,
+		BillingCatalogClient: billingCatalogClient,
+		CostEstimationClient: costEstimationClient,
 	}
 
 	//fmt.Println("################## resource ConnectionInfo ##################")
@@ -187,7 +198,7 @@ func getContainerClient(credential idrv.CredentialInfo) (context.Context, *conta
 	return ctx, containerClient, nil
 }
 
-func getCloudBillingClient(credential idrv.CredentialInfo) (context.Context, *cloudbilling.APIService, error) {
+func getBillingCatalogClient(credential idrv.CredentialInfo) (context.Context, *cloudbilling.APIService, error) {
 
 	// GCP 는  ClientSecret에
 	gcpType := "service_account"
@@ -216,13 +227,54 @@ func getCloudBillingClient(credential idrv.CredentialInfo) (context.Context, *cl
 
 	client := conf.Client(o2.NoContext)
 
-	cloudBillingClient, err := cloudbilling.New(client)
+	billingCatalogClient, err := cloudbilling.New(client)
 	if err != nil {
-		fmt.Println("cloudBillingClient err ", err)
+		fmt.Println("billingCatalogClient err ", err)
 		return nil, nil, err
 	}
 
 	ctx := context.Background()
 
-	return ctx, cloudBillingClient, nil
+	return ctx, billingCatalogClient, nil
+}
+
+func getCostEstimationClient(credential idrv.CredentialInfo) (context.Context, *cbb.Service, error) {
+
+	// GCP 는  ClientSecret에
+	gcpType := "service_account"
+	data := make(map[string]string)
+
+	data["type"] = gcpType
+	data["private_key"] = credential.PrivateKey
+	data["client_email"] = credential.ClientEmail
+
+	fmt.Println("################## data ##################")
+	//fmt.Println("data to json : ", data)
+	fmt.Println("################## data ##################")
+	// https://www.googleapis.com/auth/cloud-platform
+
+	// https://www.googleapis.com/auth/cloud-billing
+	res, _ := json.Marshal(data)
+	//authURL := "https://www.googleapis.com/auth/cloud-platform"
+	authURL := "https://www.googleapis.com/auth/cloud-billing"
+
+	conf, err := goo.JWTConfigFromJSON(res, authURL)
+
+	if err != nil {
+		fmt.Println("JWTConfig ", conf)
+		return nil, nil, err
+	}
+
+	client := conf.Client(o2.NoContext)
+
+	ctx := context.Background()
+
+	costEstimationClient, err := cbb.NewService(ctx, option.WithHTTPClient(client))
+
+	if err != nil {
+		fmt.Println("costEstimation Service create err ", err)
+		return nil, nil, err
+	}
+
+	return ctx, costEstimationClient, nil
 }

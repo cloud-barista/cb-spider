@@ -1,17 +1,22 @@
 package resources
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
 	"strconv"
+	"strings"
 
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 
 	"google.golang.org/api/cloudbilling/v1"
+	cbb "google.golang.org/api/cloudbilling/v1beta"
 	compute "google.golang.org/api/compute/v1"
+	"google.golang.org/api/googleapi"
 )
 
 // API를 호출하는 데 특정 IAM 권한이 필요하지 않습니다.
@@ -22,67 +27,197 @@ import (
 const DEFAULT_PAGE_SIZE = 5000
 
 type GCPPriceInfoHandler struct {
-	Region                idrv.RegionInfo
-	Ctx                   context.Context
-	Client                *compute.Service
-	CloudBillingApiClient *cloudbilling.APIService
-
-	//Client     *billing.CloudBillingClient
-	Credential idrv.CredentialInfo
+	Region               idrv.RegionInfo
+	Ctx                  context.Context
+	Client               *compute.Service
+	BillingCatalogClient *cloudbilling.APIService
+	CostEstimationClient *cbb.Service
+	Credential           idrv.CredentialInfo
 }
 
 // 해당 Region의 PriceFamily에 해당하는 제품들의 가격정보를 json형태로 return
 func (priceInfoHandler *GCPPriceInfoHandler) GetPriceInfo(productFamily string, regionName string, filter []irs.KeyValue) (string, error) {
-	returnJson := ""
+	// // Compute Engine SKU 및 가격 정보 가져오기
 
-	// Compute Engine SKU 및 가격 정보 가져오기
-
-	// VM의 경우 아래 항목에 대해 가격이 매겨짐.
-	// VM 인스턴스 가격 책정
-	// 네트워킹 가격 책정
-	// 단독 테넌트 노드 가격 책정
-	// GPU 가격 책정
-	// 디스크 및 이미지 가격 책정
-	serviceID := ""
-	switch productFamily {
-	case "ApplicationServices":
-		serviceID = ""
-	case "Compute": // Service Description : Compute Engine
-		serviceID = "6F81-5844-456A"
-	case "License":
-		serviceID = ""
-	case "Network": // Service Description : Networking
-		serviceID = "E505-1604-58F8"
-	case "Search": // Service Description : Elastic Cloud (Elasticsearch managed service)
-		serviceID = "6F81-5844-456A"
-	case "Storage": // Service Description : Cloud Storage
-		serviceID = "95FF-2EF5-5EA1"
-	case "Utility":
-		serviceID = ""
-	default:
-		serviceID = ""
-	}
-
-	if serviceID == "" {
-		return "", errors.New("Unsupported productFamily. " + productFamily)
-	}
-
-	parent := "services/" + serviceID
-	listSkus, err := CallServicesSkusList(priceInfoHandler, parent)
-	if err != nil {
-
-	}
-	log.Println(listSkus)
-
-	// projectID := priceInfoHandler.Credential.ProjectID
-	// resp, err := GetRegion(priceInfoHandler.Client, projectID, regionName)
-	// if err != nil {
-	// 	cblogger.Error(err)
-	// 	return returnJson, err
+	// // VM의 경우 아래 항목에 대해 가격이 매겨짐.
+	// // VM 인스턴스 가격 책정
+	// // 네트워킹 가격 책정
+	// // 단독 테넌트 노드 가격 책정
+	// // GPU 가격 책정
+	// // 디스크 및 이미지 가격 책정
+	// serviceID := ""
+	// switch productFamily {
+	// case "ApplicationServices":
+	// 	serviceID = ""
+	// case "Compute": // Service Description : Compute Engine
+	// 	serviceID = "6F81-5844-456A"
+	// case "License":
+	// 	serviceID = ""
+	// case "Network": // Service Description : Networking
+	// 	serviceID = "E505-1604-58F8"
+	// case "Search": // Service Description : Elastic Cloud (Elasticsearch managed service)
+	// 	serviceID = "6F81-5844-456A"
+	// case "Storage": // Service Description : Cloud Storage
+	// 	serviceID = "95FF-2EF5-5EA1"
+	// case "Utility":
+	// 	serviceID = ""
+	// default:
+	// 	serviceID = ""
 	// }
-	// cblogger.Debug(resp)
 
-	return returnJson, nil
+	// if serviceID == "" {
+	// 	return "", errors.New("Unsupported productFamily. " + productFamily)
+	// }
+
+	// parent := "services/" + serviceID
+	// listSkus, err := CallServicesSkusList(priceInfoHandler, parent)
+	// if err != nil {
+
+	// }
+	// log.Println(listSkus)
+
+	// // projectID := priceInfoHandler.Credential.ProjectID
+	// // resp, err := GetRegion(priceInfoHandler.Client, projectID, regionName)
+	// // if err != nil {
+	// // 	cblogger.Error(err)
+	// // 	return returnJson, err
+	// // }
+	// // cblogger.Debug(resp)
+
+	if regionName == "" {
+		return "", errors.New("region is empty")
+	}
+
+	projectID := priceInfoHandler.Credential.ProjectID
+
+	zoneList, err := GetZoneListByRegion(priceInfoHandler.Client, projectID, fmt.Sprintf("https://www.googleapis.com/compute/v1/projects/%s/regions/%s", projectID, regionName))
+
+	if err != nil {
+		return "", err
+	}
+
+	priceLists := make([]irs.PriceList, 0)
+	callCount := 0
+
+	// get machineType list
+	for _, zone := range zoneList.Items {
+
+		keepFetching := true
+		nextPageToken := ""
+
+		for keepFetching {
+
+			machineTypes, err := priceInfoHandler.Client.MachineTypes.List(projectID, zone.Name).Do(googleapi.QueryParameter("pageToken", nextPageToken))
+
+			keepFetching = machineTypes.NextPageToken != ""
+
+			if keepFetching {
+				nextPageToken = machineTypes.NextPageToken
+			}
+
+			if err != nil {
+				return "", err
+			}
+
+			for _, machineType := range machineTypes.Items {
+
+				if machineType != nil {
+					// product 매핑
+					productInfo, err := MappingToProductInfoForComputePrice(regionName, machineType)
+
+					if err != nil {
+						return "", err
+					}
+
+					// 가격 정보 호출
+					res, err := callEstimateCostScenario(machineType.Name, regionName, priceInfoHandler)
+
+					if err != nil {
+						return "", err
+					}
+
+					priceInfo, err := MappingToPriceInfoForComputePrice(res)
+
+					if err != nil {
+						return "", err
+					}
+
+					priceList := irs.PriceList{
+						ProductInfo: *productInfo,
+						PriceInfo:   *priceInfo,
+					}
+
+					priceLists = append(priceLists, priceList)
+					callCount++
+
+					fmt.Printf("[%d] machine type : %s, keep fetching : %v\n", callCount, machineType.Name, keepFetching)
+				}
+			}
+		}
+	}
+
+	cloudPriceData := irs.CloudPriceData{
+		Meta: irs.Meta{
+			Version:     "v0.1",
+			Description: "Multi-Cloud Price Info Api",
+		},
+		CloudPriceList: []irs.CloudPrice{
+			{
+				CloudName: "GCP",
+				PriceList: priceLists,
+			},
+		},
+	}
+
+	ret, err := ConvertJsonStringNoEscape(cloudPriceData)
+
+	if err != nil {
+		return "", err
+	}
+
+	return ret, nil
+}
+
+func callEstimateCostScenario(instanceType, region string, priceInfoHandler *GCPPriceInfoHandler) (*cbb.EstimateCostScenarioForBillingAccountResponse, error) {
+	res, err := priceInfoHandler.CostEstimationClient.BillingAccounts.EstimateCostScenario(
+		"billingAccounts/017429-67D123-9AC5F2",
+		&cbb.EstimateCostScenarioForBillingAccountRequest{
+			CostScenario: &cbb.CostScenario{
+				Workloads: []*cbb.Workload{
+					{
+						ComputeVmWorkload: &cbb.ComputeVmWorkload{
+							MachineType: &cbb.MachineType{
+								PredefinedMachineType: &cbb.PredefinedMachineType{
+									MachineType: instanceType,
+								},
+							},
+							Region: region,
+							InstancesRunning: &cbb.Usage{
+								UsageRateTimeline: &cbb.UsageRateTimeline{
+									UsageRateTimelineEntries: []*cbb.UsageRateTimelineEntry{
+										{
+											UsageRate: 1,
+										},
+									},
+								},
+							},
+						},
+						Name: "ondemand-instance-workload",
+					},
+				},
+				ScenarioConfig: &cbb.ScenarioConfig{
+					EstimateDuration: "3600s",
+				},
+				Commitments: []*cbb.Commitment{},
+			},
+		},
+	).Do()
+
+	if err != nil {
+		return nil, err
+	}
+
+	return res, nil
 }
 
 // product family의 이름들을 배열로 return
@@ -101,6 +236,108 @@ func (priceInfoHandler *GCPPriceInfoHandler) ListProductFamily(regionName string
 	return returnProductFamilyNames, nil
 }
 
+func MappingToProductInfoForComputePrice(region string, res *compute.MachineType) (*irs.ProductInfo, error) {
+	cspProductInfoString, err := json.Marshal(*res)
+
+	if err != nil {
+		return &irs.ProductInfo{}, nil
+	}
+
+	productInfo := &irs.ProductInfo{
+		ProductId:      fmt.Sprintf("%d", res.Id),
+		RegionName:     region,
+		CSPProductInfo: string(cspProductInfoString),
+	}
+
+	productInfo.InstanceType = res.Name
+	productInfo.Vcpu = fmt.Sprintf("%d", res.GuestCpus)
+	productInfo.Memory = fmt.Sprintf("%.2f GB", float64(res.MemoryMb)/float64(1<<10))
+	productInfo.Description = res.Description
+
+	productInfo.Gpu = ""
+	productInfo.Storage = ""
+	productInfo.GpuMemory = ""
+	productInfo.OperatingSystem = ""
+	productInfo.PreInstalledSw = ""
+
+	productInfo.VolumeType = ""
+	productInfo.StorageMedia = ""
+	productInfo.MaxVolumeSize = ""
+	productInfo.MaxIOPSVolume = ""
+	productInfo.MaxThroughputVolume = ""
+
+	return productInfo, nil
+}
+
+func MappingToPriceInfoForComputePrice(res *cbb.EstimateCostScenarioForBillingAccountResponse) (*irs.PriceInfo, error) {
+
+	result := res.CostEstimationResult
+	policies := make([]irs.PricingPolicies, 0)
+
+	cspInfo := []byte("")
+
+	if len(result.SegmentCostEstimates) > 0 {
+		segmentCostEstimate := result.SegmentCostEstimates[0]
+
+		if segmentCostEstimate.SegmentTotalCostEstimate != nil {
+
+			mar, err := json.Marshal(segmentCostEstimate.WorkloadCostEstimates)
+
+			if err != nil {
+				return &irs.PriceInfo{}, nil
+			}
+
+			cspInfo = mar
+
+			price := segmentCostEstimate.SegmentTotalCostEstimate.NetCostEstimate
+
+			description := *getDescription(result.Skus)
+
+			/*
+				@GCP 가격 정책
+				ListPrice => list price -> 정가 (cpu + ram)
+				ContractPrice => contract price -> 계약 가격 (cpu + ram + storage, disk 등)
+				CUD => committed use discount (CUD) -> 약정 각격 (cpu + ram + 약정 + a(storage, disk 등))
+			*/
+
+			policy := irs.PricingPolicies{
+				PricingId:     "NA",
+				PricingPolicy: "ListPrice",
+				Unit:          "Hrs",
+				Currency:      price.CurrencyCode,
+				Price:         fmt.Sprintf("%d.%09d", price.Units, price.Nanos),
+				Description:   description,
+			}
+
+			policies = append(policies, policy)
+		}
+	}
+
+	return &irs.PriceInfo{
+		PricingPolicies: policies,
+		CSPPriceInfo:    string(cspInfo),
+	}, nil
+}
+
+func getDescription(skus []*cbb.Sku) *string {
+	ret := ""
+
+	if len(skus) > 0 {
+		for _, sku := range skus {
+			if len(ret) == 0 {
+				ret = sku.DisplayName
+			} else {
+				ret = fmt.Sprintf("%s / %s", ret, sku.DisplayName)
+			}
+		}
+	}
+
+	return &ret
+}
+
+/*********************************************************************/
+/*************************** Code Archive ****************************/
+/*********************************************************************/
 // 실제 billing service를 호출하여 결과 확인
 func CallServicesList(priceInfoHandler *GCPPriceInfoHandler) ([]string, error) {
 	returnProductFamilyNames := []string{}
@@ -108,7 +345,7 @@ func CallServicesList(priceInfoHandler *GCPPriceInfoHandler) ([]string, error) {
 
 	//resp, err := priceInfoHandler.CloudBillingClient.Services.Skus.List("services/0017-8C5E-5B91").Do()
 	// priceInfoHandler.CloudBillingApiClient.Services.List().Fields("services") // 해당 결과에서 원하는 Field만 조회할 때 사용 ex) services.name : services > name 만 가져온다. 여러 건의 경우 콤마로 구분 services.name,services.displayName
-	respService, err := priceInfoHandler.CloudBillingApiClient.Services.List().Do() // default 5000건.
+	respService, err := priceInfoHandler.BillingCatalogClient.Services.List().Do() // default 5000건.
 	//respService, err := priceInfoHandler.CloudBillingApiClient.Services.List().PageSize(10).PageToken("").Do() // 만약 total count 가 5000 이상이면 pageSize와 pageToken을 이용해 조회 필요. 다음페이지가 없으면 nextPageToken은 "" 임
 	// ///////// 가져오는 결과 형태 /////////////
 	// (*cloudbilling.Service)(0xc0002ddc70)({
@@ -138,7 +375,7 @@ func CallServicesList(priceInfoHandler *GCPPriceInfoHandler) ([]string, error) {
 		totalCnt++
 		//resp, err := priceInfoHandler.CloudBillingApiClient.Services.Skus.List("services/6F81-5844-456A").Do()
 		serviceName := service.Name
-		resp, err := priceInfoHandler.CloudBillingApiClient.Services.Skus.List(serviceName).Do()
+		resp, err := priceInfoHandler.BillingCatalogClient.Services.Skus.List(serviceName).Do()
 
 		if err != nil {
 			cblogger.Error(err)
@@ -209,7 +446,7 @@ func CallServicesSkusList(priceInfoHandler *GCPPriceInfoHandler, parent string) 
 	skuArr := []*cloudbilling.Sku{}
 	for hasNextToken > 0 {
 
-		resp, err := priceInfoHandler.CloudBillingApiClient.Services.Skus.List(parent).PageToken(pageToken).Do()
+		resp, err := priceInfoHandler.BillingCatalogClient.Services.Skus.List(parent).PageToken("").Do()
 
 		if err != nil {
 
@@ -395,3 +632,22 @@ Commitment v1: A2 Cpu in APAC for 1 Year
     },
 
 */
+
+// Cloud Object를 JSON String 타입으로 변환
+func ConvertJsonStringNoEscape(v interface{}) (string, error) {
+	buffer := &bytes.Buffer{}
+	encoder := json.NewEncoder(buffer)
+	encoder.SetEscapeHTML(false)
+	errJson := encoder.Encode(v)
+
+	if errJson != nil {
+		cblogger.Error("JSON 변환 실패")
+		cblogger.Error(errJson)
+		return "", errJson
+	}
+
+	jsonString := buffer.String()
+	jsonString = strings.Replace(jsonString, "\\", "", -1)
+
+	return jsonString, nil
+}
