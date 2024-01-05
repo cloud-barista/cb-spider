@@ -42,7 +42,7 @@ type TencentReservedInstancePrice struct {
 // tencent 에서 제공해주는 product family 관련한 api 가 존재하지 않아 코드 레벨에서 관리하도록 1차 논의 완료
 // 2023.12.14.driver 내부에서 array 등으로 관리하는 방침으로 변경
 func (t *TencentPriceInfoHandler) ListProductFamily(regionName string) ([]string, error) {
-	pl := []string{"", "", ""}
+	pl := []string{"cvm", "k8s", "cbm", "gpu"}
 	//pl := make([]string, 0)
 	return pl, nil
 }
@@ -52,25 +52,27 @@ func (t *TencentPriceInfoHandler) GetPriceInfo(productFamily string, regionName 
 	filterMap := mapToTencentFilter(additionalFilters)
 
 	switch {
-	case strings.EqualFold("compute", productFamily):
+	case strings.EqualFold("cvm", productFamily):
 		// client 생성 with region name
 		if t.Client.GetRegion() != regionName {
 			t.Client.Init(regionName)
 		}
 
+		//Common Instance Price calculator
 		standardInfo, err := describeZoneInstanceConfigInfos(t.Client, filterMap)
 
 		if err != nil {
 			return "", err
 		}
-		//Reserved Instance Price calculator
-		//reservedInfo, err := describeReservedInstancesConfigInfos(client, filterMap)
-		//
-		//if err != nil {
-		//	return "", err
-		//}
 
-		res, err := mappingToComputeStruct(t.Client.GetRegion(), &TencentInstanceModel{standardInfo: standardInfo /*, reservedInfo: reservedInfo*/})
+		//Reserved Instance Price calculator
+		reservedInfo, err := describeReservedInstancesConfigInfos(t.Client, filterMap)
+
+		if err != nil {
+			return "", err
+		}
+
+		res, err := mappingToComputeStruct(t.Client.GetRegion(), &TencentInstanceModel{standardInfo: standardInfo, reservedInfo: reservedInfo})
 
 		if err != nil {
 			return "", err
