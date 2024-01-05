@@ -6,8 +6,8 @@
 //
 // This is a Cloud Driver Example for PoC Test.
 //
-// by ETRI, Innogrid, 2021.12.
-// by ETRI, 2022.03.
+// by ETRI, 2021.12.
+// Updated by ETRI, 2024.01.
 
 package resources
 
@@ -27,7 +27,9 @@ import (
 	"github.com/cloud-barista/nhncloud-sdk-go/openstack/compute/v2/extensions/startstop"
 	"github.com/cloud-barista/nhncloud-sdk-go/openstack/compute/v2/flavors"
 	"github.com/cloud-barista/nhncloud-sdk-go/openstack/compute/v2/servers"
-	"github.com/cloud-barista/nhncloud-sdk-go/openstack/compute/v2/images"
+
+	comimages "github.com/cloud-barista/nhncloud-sdk-go/openstack/compute/v2/images" // compute/v2/images
+   //	images "github.com/cloud-barista/nhncloud-sdk-go/openstack/imageservice/v2/images" // imageservice/v2/images : For Visibility parameter
 
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
@@ -35,9 +37,11 @@ import (
 )
 
 const (
-	DefaultVMUserName	string = "cb-user"
-	CloudInitFilePath	string = "/cloud-driver-libs/.cloud-init-nhncloud/cloud-init"
-	DefaultDiskSize		string = "20"
+	DefaultVMUserName		string = "cb-user"
+	DefaultWindowsUserName 	string = "Administrator"
+	CloudInitFilePath		string = "/cloud-driver-libs/.cloud-init-nhncloud/cloud-init"
+	DefaultDiskSize			string = "20"
+	DefaultWindowsDiskSize	string = "50"
 )
 
 type NhnCloudVMHandler struct {
@@ -201,28 +205,56 @@ func (vmHandler *NhnCloudVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo
 		return irs.VMInfo{}, newErr
 	}
 
+	var reqDiskSizeInt int
 	// Set VM RootDiskSize
 	// When Volume Size is not specified.
-	if strings.EqualFold(reqDiskSize, "") || strings.EqualFold(reqDiskSize, "default") {
-		reqDiskSize = DefaultDiskSize
+	imageOSPlatform, err := vmHandler.GetOSPlatformWithImageID(vmReqInfo.ImageIID.SystemId)
+	if err != nil {
+		newErr := fmt.Errorf("Failed to Get Image OSPlatform Info : [%v]", err)
+		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
+		return irs.VMInfo{}, newErr
+	}
+	if imageOSPlatform == irs.WINDOWS {
+		if strings.EqualFold(reqDiskSize, "") || strings.EqualFold(reqDiskSize, "default") {
+			reqDiskSize = DefaultWindowsDiskSize
+		}
+		reqDiskSizeInt, err = strconv.Atoi(reqDiskSize)
+		if err != nil {
+			newErr := fmt.Errorf("Failed to Convert diskSize to int type. [%v]", err)
+			cblogger.Error(newErr.Error())
+			LoggingError(callLogInfo, newErr)
+			return irs.VMInfo{}, newErr
+		}
+	
+		// Volume Size must be more than 50GB and less than 1000GB (for Windows OS)
+		if nhnVMSpecType != "u2" && (reqDiskSizeInt < 50 || reqDiskSizeInt > 1000) {
+			newErr := fmt.Errorf("Invalid RootDiskSize!! RootDiskSize range should be 50 to 1000(GB) for Windows OS!!")
+			cblogger.Error(newErr.Error())
+			LoggingError(callLogInfo, newErr)
+			return irs.VMInfo{}, newErr
+		}
+	} else {
+		if strings.EqualFold(reqDiskSize, "") || strings.EqualFold(reqDiskSize, "default") {
+			reqDiskSize = DefaultDiskSize
+		}
+		reqDiskSizeInt, err = strconv.Atoi(reqDiskSize)
+		if err != nil {
+			newErr := fmt.Errorf("Failed to Convert diskSize to int type. [%v]", err)
+			cblogger.Error(newErr.Error())
+			LoggingError(callLogInfo, newErr)
+			return irs.VMInfo{}, newErr
+		}
+	
+		// Volume Size must be more than 20GB and less than 1000GB (for Linux OS)
+		if nhnVMSpecType != "u2" && (reqDiskSizeInt < 20 || reqDiskSizeInt > 1000) {
+			newErr := fmt.Errorf("Invalid RootDiskSize!! RootDiskSize range should be 20 to 1000(GB) for Linux OS!!")
+			cblogger.Error(newErr.Error())
+			LoggingError(callLogInfo, newErr)
+			return irs.VMInfo{}, newErr
+		}
 	}
 	
-	reqDiskSizeInt, err := strconv.Atoi(reqDiskSize)
-	if err != nil {
-		newErr := fmt.Errorf("Failed to Convert diskSize to int type. [%v]", err)
-		cblogger.Error(newErr.Error())
-		LoggingError(callLogInfo, newErr)
-		return irs.VMInfo{}, newErr
-	}
-
-	// When req Volume Size must be more than 20GB and less than 1000GB
-	if nhnVMSpecType != "u2" && (reqDiskSizeInt < 20 || reqDiskSizeInt > 1000) {
-		newErr := fmt.Errorf("Specified Invalid RootDiskSize!! RootDiskSize range should be 20 to 1000(GB)!!")
-		cblogger.Error(newErr.Error())
-		LoggingError(callLogInfo, newErr)
-		return irs.VMInfo{}, newErr
-	}
-
 	start := call.Start()
 	createOpts.CreateOptsBuilder = serverCreateOpts
 
@@ -700,14 +732,17 @@ func (vmHandler *NhnCloudVMHandler) GetVM(vmIID irs.IID) (irs.VMInfo, error) {
 	}
 	LoggingInfo(callLogInfo, start)
 
-	vmInfo, mappingErr := vmHandler.MappingVMInfo(*nhnVM)
-	if mappingErr != nil {
-		newErr := fmt.Errorf("Failed to Map New VM Info. %s", mappingErr)
-		cblogger.Error(newErr.Error())
-		LoggingError(callLogInfo, newErr)
-		return irs.VMInfo{}, newErr
+	if nhnVM != nil {
+		vmInfo, mappingErr := vmHandler.MappingVMInfo(*nhnVM)
+		if mappingErr != nil {
+			newErr := fmt.Errorf("Failed to Map New VM Info. %s", mappingErr)
+			cblogger.Error(newErr.Error())
+			LoggingError(callLogInfo, newErr)
+			return irs.VMInfo{}, newErr
+		}
+		return vmInfo, nil
 	}
-	return vmInfo, nil
+	return irs.VMInfo{}, nil
 }
 
 func (vmHandler *NhnCloudVMHandler) AssociatePublicIP(serverID string) (bool, error) {
@@ -808,15 +843,14 @@ func (vmHandler *NhnCloudVMHandler) MappingVMInfo(server servers.Server) (irs.VM
 			NameId:   server.KeyName,
 			SystemId: server.KeyName,
 		},		
-		VMUserId:          DefaultVMUserName,
 		VMUserPasswd:      "N/A",
 		NetworkInterface:  server.HostID,
 	}
 	vmInfo.StartTime = server.Created
 
 	// Image Info
-	imageId := server.Image["id"].(string)
-	nhnImage, err := images.Get(vmHandler.VMClient, imageId).Extract()
+	imageId := server.Image["id"].(string)	
+	nhnImage, err := comimages.Get(vmHandler.VMClient, imageId).Extract() // Caution!!) Wtih VMClient (Not Like ImageHandler)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get the Image info form NHN Cloud!! : [%v] ", err)
 		cblogger.Error(newErr.Error())
@@ -948,8 +982,22 @@ func (vmHandler *NhnCloudVMHandler) MappingVMInfo(server servers.Server) (irs.VM
 		vmInfo.SecurityGroupIIds = sgIIds
 	}
 
-	vmInfo.SSHAccessPoint = vmInfo.PublicIP + ":22"
+	imageOSPlatform, err := vmHandler.GetOSPlatformWithImageID(vmInfo.ImageIId.SystemId)
+	if err != nil {
+		newErr := fmt.Errorf("Failed to Get Image OSPlatform Info : [%v]", err)
+		cblogger.Error(newErr.Error())
+		return irs.VMInfo{}, newErr
+	}
+	vmInfo.Platform = imageOSPlatform
 
+	if (vmInfo.PublicIP != "") && (vmInfo.Platform == irs.WINDOWS) {
+		vmInfo.VMUserId = DefaultWindowsUserName
+		vmInfo.SSHAccessPoint = vmInfo.PublicIP + ":3389"
+	} else if (vmInfo.PublicIP != "") && (vmInfo.Platform == irs.LINUX_UNIX) {
+		vmInfo.VMUserId = DefaultVMUserName
+		vmInfo.SSHAccessPoint = vmInfo.PublicIP + ":22"
+	}
+	
 	var keyValueList []irs.KeyValue
 	if vCPU != "" {
 		keyValue := irs.KeyValue{Key: "vCPU", Value: vCPU}
@@ -997,4 +1045,35 @@ func (vmHandler *NhnCloudVMHandler) WaitToGetVMInfo(vmIID irs.IID) (irs.VMStatus
 			//break
 		}
 	}
+}
+
+func (vmHandler *NhnCloudVMHandler) GetOSPlatformWithImageID(imageId string) (irs.Platform, error) {
+	cblogger.Info("NHN Cloud Driver: called GetOSPlatformWithImageID()")
+
+	if strings.EqualFold(imageId, "") {
+		newErr := fmt.Errorf("Invalid Image ID!!")
+		cblogger.Error(newErr.Error())
+		return "", newErr
+	}
+
+	nhnImage, err := comimages.Get(vmHandler.VMClient, imageId).Extract() // Caution!!) With VMClient (Not Like NHN Cloud ImageHandler)
+	if err != nil {
+		newErr := fmt.Errorf("Failed to Get NHN Cloud Image Info. [%v]", err.Error())
+		cblogger.Error(newErr.Error())
+		return "", newErr
+	}
+
+	osType, exist := nhnImage.Metadata["os_type"].(string)
+	if !exist {
+		newErr := fmt.Errorf("Failed to Find OSType Info from the Image Info!!")
+		cblogger.Error(newErr.Error())
+		return "", newErr
+	}
+	
+	if strings.EqualFold(osType, "windows") {
+		return irs.WINDOWS, nil
+	} else if strings.EqualFold(osType, "linux") {
+		return irs.LINUX_UNIX, nil
+	} 
+	return irs.LINUX_UNIX, nil
 }
