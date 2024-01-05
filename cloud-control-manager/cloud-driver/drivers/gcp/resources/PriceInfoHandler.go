@@ -7,10 +7,10 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"math"
 	"regexp"
 	"strconv"
 	"strings"
-	"time"
 
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
@@ -86,7 +86,11 @@ func (priceInfoHandler *GCPPriceInfoHandler) GetPriceInfo(productFamily string, 
 	// // }
 	// // cblogger.Debug(resp)
 
-	startTime := time.Now()
+	billindAccountId := ""
+
+	if billindAccountId == "" {
+		return "", errors.New("billing account is empty! 반드시 필요한 정보")
+	}
 
 	if regionName == "" {
 		regionName = priceInfoHandler.Region.Region
@@ -94,9 +98,12 @@ func (priceInfoHandler *GCPPriceInfoHandler) GetPriceInfo(productFamily string, 
 
 	projectID := priceInfoHandler.Credential.ProjectID
 
-	zoneList, err := GetZoneListByRegion(priceInfoHandler.Client, projectID, fmt.Sprintf("https://www.googleapis.com/compute/v1/projects/%s/regions/%s", projectID, regionName))
+	regionSelfLink := fmt.Sprintf("https://www.googleapis.com/compute/v1/projects/%s/regions/%s", projectID, regionName)
+
+	zoneList, err := GetZoneListByRegion(priceInfoHandler.Client, projectID, regionSelfLink)
 
 	if err != nil {
+		cblogger.Error("zone list 조회시 에러;", err)
 		return "", err
 	}
 
@@ -106,45 +113,47 @@ func (priceInfoHandler *GCPPriceInfoHandler) GetPriceInfo(productFamily string, 
 	// get machineType list
 	for _, zone := range zoneList.Items {
 
-		keepFetching := true
+		keepFetching := true // machine type 조회 반복 호출 flag
 		nextPageToken := ""
 
 		for keepFetching {
 
 			machineTypes, err := priceInfoHandler.Client.MachineTypes.List(projectID, zone.Name).Do(googleapi.QueryParameter("pageToken", nextPageToken))
 
-			keepFetching = machineTypes.NextPageToken != ""
-
-			if keepFetching {
-				nextPageToken = machineTypes.NextPageToken
-			}
-
 			if err != nil {
+				cblogger.Error("machine type 조회 시 에러;", err)
 				return "", err
 			}
 
+			if keepFetching = machineTypes.NextPageToken != ""; keepFetching {
+				nextPageToken = machineTypes.NextPageToken
+			}
+
 			for _, machineType := range machineTypes.Items {
-				if !filterMachineType(machineType.Name) {
+				if !validateAllowedMachineType(machineType.Name) {
 					continue
 				}
 
 				if machineType != nil {
 					// product 매핑
-					productInfo, err := MappingToProductInfoForComputePrice(regionName, machineType)
+					productInfo, err := mappingToProductInfoForComputePrice(regionName, machineType)
 
 					if err != nil {
+						cblogger.Error("product info struct 매핑 에러;", err)
 						return "", err
 					}
 
 					// 가격 정보 호출
-					res, err := callEstimateCostScenario(priceInfoHandler, regionName, machineType)
+					estimatedCostResponse, err := callEstimateCostScenario(priceInfoHandler, regionName, billindAccountId, machineType)
 					if err != nil {
+						cblogger.Error("estimate cost scenario 호출 에러;", err)
 						continue
 					}
 
-					priceInfo, err := MappingToPriceInfoForComputePrice(res)
+					priceInfo, err := MappingToPriceInfoForComputePrice(estimatedCostResponse)
 
 					if err != nil {
+						cblogger.Error("price info struct 매핑 에러;", err)
 						return "", err
 					}
 
@@ -155,8 +164,6 @@ func (priceInfoHandler *GCPPriceInfoHandler) GetPriceInfo(productFamily string, 
 
 					priceLists = append(priceLists, priceList)
 					callCount++
-
-					log.Printf("[%d] {%s} machine type : %s, keep fetching : %v\n", callCount, time.Since(startTime).Round(10*time.Millisecond), machineType.Name, keepFetching)
 				}
 			}
 		}
@@ -175,16 +182,17 @@ func (priceInfoHandler *GCPPriceInfoHandler) GetPriceInfo(productFamily string, 
 		},
 	}
 
-	ret, err := ConvertJsonStringNoEscape(cloudPriceData)
+	convertedPriceData, err := ConvertJsonStringNoEscape(cloudPriceData)
 
 	if err != nil {
+		cblogger.Error("escape 변환 에러;", err)
 		return "", err
 	}
 
-	return ret, nil
+	return convertedPriceData, nil
 }
 
-func callEstimateCostScenario(priceInfoHandler *GCPPriceInfoHandler, region string, machineType *compute.MachineType) (*cbb.EstimateCostScenarioForBillingAccountResponse, error) {
+func callEstimateCostScenario(priceInfoHandler *GCPPriceInfoHandler, region, billingAccountId string, machineType *compute.MachineType) (*cbb.EstimateCostScenarioForBillingAccountResponse, error) {
 	machineTypeName := getMachineTypeFromSelfLink(machineType.SelfLink)
 	if machineTypeName == "" {
 		return nil, errors.New("machine type is not defined")
@@ -196,10 +204,11 @@ func callEstimateCostScenario(priceInfoHandler *GCPPriceInfoHandler, region stri
 	}
 
 	vCpu := machineType.GuestCpus
-	memory := float64(machineType.MemoryMb) / float64(1<<10)
+	memory := math.Round(float64(machineType.MemoryMb)/float64(1<<10)*10) / 10
+	billingAccount := fmt.Sprintf("billingAccounts/%s", billingAccountId)
 
-	res, err := priceInfoHandler.CostEstimationClient.BillingAccounts.EstimateCostScenario(
-		"billingAccounts/017429-67D123-9AC5F2",
+	estimateCostScenarioResponse, err := priceInfoHandler.CostEstimationClient.BillingAccounts.EstimateCostScenario(
+		billingAccount,
 		&cbb.EstimateCostScenarioForBillingAccountRequest{
 			CostScenario: &cbb.CostScenario{
 				Workloads: []*cbb.Workload{
@@ -257,7 +266,7 @@ func callEstimateCostScenario(priceInfoHandler *GCPPriceInfoHandler, region stri
 		return nil, err
 	}
 
-	return res, nil
+	return estimateCostScenarioResponse, nil
 }
 
 // product family의 이름들을 배열로 return
@@ -276,15 +285,17 @@ func (priceInfoHandler *GCPPriceInfoHandler) ListProductFamily(regionName string
 	return returnProductFamilyNames, nil
 }
 
-func MappingToProductInfoForComputePrice(region string, res *compute.MachineType) (*irs.ProductInfo, error) {
+func mappingToProductInfoForComputePrice(region string, res *compute.MachineType) (*irs.ProductInfo, error) {
 	cspProductInfoString, err := json.Marshal(*res)
 
 	if err != nil {
-		return &irs.ProductInfo{}, nil
+		return &irs.ProductInfo{}, err
 	}
+	
+	productId := fmt.Sprintf("%d", res.Id)
 
 	productInfo := &irs.ProductInfo{
-		ProductId:      fmt.Sprintf("%d", res.Id),
+		ProductId:      productId,
 		RegionName:     region,
 		CSPProductInfo: string(cspProductInfoString),
 	}
@@ -331,13 +342,16 @@ func MappingToPriceInfoForComputePrice(res *cbb.EstimateCostScenarioForBillingAc
 		if segmentCostEstimate.SegmentTotalCostEstimate != nil {
 			price := segmentCostEstimate.SegmentTotalCostEstimate.NetCostEstimate
 
+			parsedPrice := fmt.Sprintf("%d.%09d", price.Units, price.Nanos)
+			description := *getDescription(result.Skus, "ListPrice")
+
 			policy := irs.PricingPolicies{
 				PricingId:     "NA",
 				PricingPolicy: "ListPrice",
 				Unit:          "Hrs",
 				Currency:      price.CurrencyCode,
-				Price:         fmt.Sprintf("%d.%09d", price.Units, price.Nanos),
-				Description:   *getDescription(result.Skus, "ListPrice"),
+				Price:         parsedPrice,
+				Description:   description,
 			}
 
 			policies = append(policies, policy)
@@ -364,13 +378,15 @@ func MappingToPriceInfoForComputePrice(res *cbb.EstimateCostScenarioForBillingAc
 						PurchaseOption:      "",
 					}
 
+					description := *getDescription(result.Skus, "Commitment")
+
 					policy := irs.PricingPolicies{
 						PricingId:         "NA",
 						PricingPolicy:     pricingPolicy,
 						Unit:              "Yrs",
 						Currency:          priceStruct.CurrencyCode,
 						Price:             fmt.Sprintf("%d.%09d", priceStruct.Units, priceStruct.Nanos),
-						Description:       *getDescription(result.Skus, "Commitment"),
+						Description:       description,
 						PricingPolicyInfo: pricingPolicyInfo,
 					}
 
@@ -381,44 +397,45 @@ func MappingToPriceInfoForComputePrice(res *cbb.EstimateCostScenarioForBillingAc
 		}
 	}
 
-	mar, err := json.Marshal(cspInfo)
+	marshalledCspInfo, err := json.Marshal(cspInfo)
 
 	if err != nil {
-		mar = []byte("")
+		cblogger.Error("cspinfo marshalling 에러;", err)
+		marshalledCspInfo = []byte("")
 	}
 
 	return &irs.PriceInfo{
 		PricingPolicies: policies,
-		CSPPriceInfo:    string(mar),
+		CSPPriceInfo:    string(marshalledCspInfo),
 	}, nil
 }
 
 func getDescription(skus []*cbb.Sku, condition string) *string {
-	ret := ""
+	description := ""
 
 	if len(skus) > 0 {
 		for _, sku := range skus {
 			if condition == "Commitment" {
 				if strings.HasPrefix(sku.DisplayName, "Commitment") {
-					if len(ret) == 0 {
-						ret = sku.DisplayName
+					if len(description) == 0 {
+						description = sku.DisplayName
 					} else {
-						ret = fmt.Sprintf("%s / %s", ret, sku.DisplayName)
+						description = fmt.Sprintf("%s / %s", description, sku.DisplayName)
 					}
 				}
 			} else if condition == "ListPrice" {
 				if !strings.HasPrefix(sku.DisplayName, "Commitment") {
-					if len(ret) == 0 {
-						ret = sku.DisplayName
+					if len(description) == 0 {
+						description = sku.DisplayName
 					} else {
-						ret = fmt.Sprintf("%s / %s", ret, sku.DisplayName)
+						description = fmt.Sprintf("%s / %s", description, sku.DisplayName)
 					}
 				}
 			}
 		}
 	}
 
-	return &ret
+	return &description
 }
 
 // Cloud Object를 JSON String 타입으로 변환
@@ -522,7 +539,7 @@ var allowedPatterns = []string{
 	"x3",
 }
 
-func filterMachineType(input string) bool {
+func validateAllowedMachineType(input string) bool {
 	for _, pattern := range allowedPatterns {
 		re := regexp.MustCompile(pattern)
 		if re.MatchString(input) {
