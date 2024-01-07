@@ -69,7 +69,7 @@ func handleVM() {
 		fmt.Println("============================================================================================")
 
 		//config := readConfigFile()
-		vmID := irs.IID{SystemId: "31cd5054-cf7f-4904-bc10-fdef5365baf3"}
+		vmID := irs.IID{SystemId: "b16c6fc6-e8f7-499e-b2c5-04c3414f5004"}
 
 		var commandNum int
 		inputCnt, err := fmt.Scan(&commandNum)
@@ -84,46 +84,52 @@ func handleVM() {
 
 			case 1:
 				vmReqInfo := irs.VMReqInfo{
-					IId: irs.IID{NameId: "nhn-vm-2"},
+					IId: irs.IID{NameId: "nhn-vm-03-WinSvr2022"},
 
-					//KR1
-					ImageIID: irs.IID{NameId: "Ubuntu Server 18.04.6 LTS (2021.12.21)", SystemId: "5396655e-166a-4875-80d2-ed8613aa054f"},
-					// Ubuntu Server 18.04.6 LTS (2021.12.21)
+					// $$$ Needs NHN Cloud VPC 'SystemId'
+					VpcIID: irs.IID{
+						NameId: "Default Network",
+						SystemId: "7e3af4cc-407b-47f6-beda-7c161ebe56f0", 
+					},
+					
+					SubnetIID: irs.IID{
+						NameId: "Default Network",
+						SystemId: "d73487de-8986-4d3d-9887-986057f7cd7b", 
+					},
+					
+					SecurityGroupIIDs: []irs.IID{{SystemId: "9f0a43a9-8c73-45ce-9aac-e9c226e99533"}},
+					// SecurityGroupIIDs: []irs.IID{{SystemId: "79965cd0-b9e9-42ef-9c66-201f824273cb"},{SystemId: "67167e2e-2390-48d6-8f27-78c9293b26f3"}},
+
+					KeyPairIID: irs.IID{NameId: "nhn-pub-a-keypair-01-cmbrbe9jcups9eecbdfg"},			
+					// KeyPairIID: irs.IID{NameId: "nhn-key-01-c9584r9jcupvtimg81l0"},					
+					// KeyPairIID: irs.IID{SystemId: "nhn-key-01"},
+
+					//KR1					
+					// ImageIID: irs.IID{NameId: "Ubuntu Server 22.04.3 LTS (2023.11.21)", SystemId: "68fb7e1a-191c-45bf-8328-b7864f9fbaf4"},
+
+					// ImageIID: irs.IID{NameId: "Debian 11.8 Bullseye (2023.11.21)", SystemId: "7753643d-f0ea-4260-a2c0-5ead4e041725"},
+
+					ImageIID: irs.IID{NameId: "Windows 2022 STD (2023.11.21) KO", SystemId: "4b2b5dfb-d325-4153-8a88-eb39cdb181c9"},
+					
+					// ImageIID: irs.IID{NameId: "Ubuntu Server 18.04.6 LTS (2021.12.21)", SystemId: "5396655e-166a-4875-80d2-ed8613aa054f"},
 
 					// ImageIID:  irs.IID{NameId: "CentOS 6.10 (2018.10.23)", SystemId: "1c868787-6207-4ff2-a1e7-ae1331d6829b"},
-					// CentOS 6.10 (2018.10.23)
 
 					// VMSpecName: "u2.c2m4", //vCPU: 2, Mem: 4GB
-					VMSpecName: "m2.c4m8", //vCPU: 4, Mem: 8GB
+					VMSpecName: "m2.c4m8", //vCPU: 4, Mem: 8GB, LocalDiskSize(GB): 0 
 
 					RootDiskType: "General_SSD",
 					// RootDiskType: "General_HDD",
 					// RootDiskType: "default",
 
-					RootDiskSize: "20", // Except for u2.~~~ type VMSpec
-					// RootDiskSize: "default", // When u2.~~~ type VMSpec
+					RootDiskSize: "100", // Except for u2.~ type of VMSpec
+					// RootDiskSize: "default", // When u2.~ type of VMSpec
 
-					DataDiskIIDs: []irs.IID{ // Disk volume list to Attach
-						{  
-						SystemId: "eface614-e6c0-40ee-8237-e1d28edb1bb4",
-						},
-					},
-
-					KeyPairIID: irs.IID{NameId: "nhn-key-01-c9584r9jcupvtimg81l0"},
-					//KeyPairIID: irs.IID{SystemId: "nhn-key-01"},
-
-					// $$$ Needs NHN Cloud VPC 'SystemId'
-					VpcIID: irs.IID{
-						NameId: "Default Network",
-						SystemId: "ae945890-0433-467e-9366-b9e3611e01f3", 
-					},
-					
-					SubnetIID: irs.IID{
-						NameId: "Default Network",
-						SystemId: "fa6ddcee-9761-433a-af9e-6334b3a33f25", 
-					},
-					
-					SecurityGroupIIDs: []irs.IID{{SystemId: "79965cd0-b9e9-42ef-9c66-201f824273cb"},{SystemId: "67167e2e-2390-48d6-8f27-78c9293b26f3"}},
+					// DataDiskIIDs: []irs.IID{ // Disk volume list to Attach
+					// 	{  
+					// 	SystemId: "eface614-e6c0-40ee-8237-e1d28edb1bb4",
+					// 	},
+					// },
 				}
 
 				vmInfo, err := vmHandler.StartVM(vmReqInfo)
