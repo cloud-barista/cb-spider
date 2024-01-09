@@ -264,3 +264,13 @@ func printToJson(class interface{}) {
 	}
 	cblogger.Info(string(e))
 }
+
+// irs.KeyValue 배열에서 특정 키를 가진 KeyValue 가 있는지 검사
+func HasKey(key string, keyValueList []irs.KeyValue) bool {
+	for _, kv := range keyValueList {
+		if kv.Key == key {
+			return true
+		}
+	}
+	return false
+}
