@@ -8,6 +8,7 @@ import (
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/pricing"
 )
 
@@ -21,25 +22,47 @@ type AwsPriceInfoHandler struct {
 // getPricingClient에 Client *pricing.Pricing 정의
 func (priceInfoHandler *AwsPriceInfoHandler) ListProductFamily(regionName string) ([]string, error) {
 	var result []string
-	input := &pricing.DescribeServicesInput{}
+	input := &pricing.GetAttributeValuesInput{
+		AttributeName: aws.String("productfamily"),
+		MaxResults:    aws.Int64(32), // 2024.01 기준 32개
+		ServiceCode:   aws.String("AmazonEC2"),
+	}
 	for {
-		services, err := priceInfoHandler.Client.DescribeServices(input)
+		attributeValues, err := priceInfoHandler.Client.GetAttributeValues(input)
 		if err != nil {
-			cblogger.Error(err)
-			return nil, err
+			if aerr, ok := err.(awserr.Error); ok {
+				switch aerr.Code() {
+				case pricing.ErrCodeInternalErrorException:
+					cblogger.Error(pricing.ErrCodeInternalErrorException, aerr.Error())
+				case pricing.ErrCodeInvalidParameterException:
+					cblogger.Error(pricing.ErrCodeInvalidParameterException, aerr.Error())
+				case pricing.ErrCodeNotFoundException:
+					cblogger.Error(pricing.ErrCodeNotFoundException, aerr.Error())
+				case pricing.ErrCodeInvalidNextTokenException:
+					cblogger.Error(pricing.ErrCodeInvalidNextTokenException, aerr.Error())
+				case pricing.ErrCodeExpiredNextTokenException:
+					cblogger.Error(pricing.ErrCodeExpiredNextTokenException, aerr.Error())
+				default:
+					cblogger.Error(aerr.Error())
+				}
+			} else {
+				// Prnit the error, cast err to awserr.Error to get the Code and
+				// Message from an error.
+				cblogger.Error(err.Error())
+			}
 		}
-		for _, service := range services.Services {
-			cblogger.Debug(service)
-			result = append(result, *service.ServiceCode)
+		for _, attributeValue := range attributeValues.AttributeValues {
+			result = append(result, *attributeValue.Value)
 		}
-		if services.NextToken != nil {
-			input = &pricing.DescribeServicesInput{
-				NextToken: services.NextToken,
+		if attributeValues.NextToken != nil {
+			input = &pricing.GetAttributeValuesInput{
+				NextToken: attributeValues.NextToken,
 			}
 		} else {
 			break
 		}
 	}
+
 	return result, nil
 }
 
