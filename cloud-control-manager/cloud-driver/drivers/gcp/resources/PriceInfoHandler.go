@@ -86,9 +86,10 @@ func (priceInfoHandler *GCPPriceInfoHandler) GetPriceInfo(productFamily string, 
 	// // }
 	// // cblogger.Debug(resp)
 
-	billindAccountId := ""
+	billindAccountId := priceInfoHandler.Credential.BillingAccountID
 
-	if billindAccountId == "" {
+	if billindAccountId == "" || billindAccountId == "billingAccounts/" {
+		cblogger.Error("billing accout id 가 존재하지 않음")
 		return "", errors.New("billing account is empty! 반드시 필요한 정보")
 	}
 
@@ -97,74 +98,92 @@ func (priceInfoHandler *GCPPriceInfoHandler) GetPriceInfo(productFamily string, 
 	}
 
 	projectID := priceInfoHandler.Credential.ProjectID
+	priceLists := make([]irs.Price, 0)
 
-	regionSelfLink := fmt.Sprintf("https://www.googleapis.com/compute/v1/projects/%s/regions/%s", projectID, regionName)
+	if strings.EqualFold(productFamily, "Compute") {
+		regionSelfLink := fmt.Sprintf("https://www.googleapis.com/compute/v1/projects/%s/regions/%s", projectID, regionName)
 
-	zoneList, err := GetZoneListByRegion(priceInfoHandler.Client, projectID, regionSelfLink)
+		zoneList, err := GetZoneListByRegion(priceInfoHandler.Client, projectID, regionSelfLink)
+		if err != nil {
+			cblogger.Error("zone list 조회시 에러;", err)
+			return "", err
+		}
 
-	if err != nil {
-		cblogger.Error("zone list 조회시 에러;", err)
-		return "", err
-	}
+		/*
+		 * compute.MachineType 에서 머신 타입이 동일하면 zone 정보를 제외하고 모두 동일 정보 제공
+		 * zone 정보만 다르게 해서 동일한 machine type 으로 호출에 대한 최적화 가능
+		 */
+		machineTypeSlice := make([]*compute.MachineType, 0)
 
-	priceLists := make([]irs.PriceList, 0)
-	callCount := 0
+		for _, zone := range zoneList.Items {
 
-	// get machineType list
-	for _, zone := range zoneList.Items {
+			keepFetching := true // machine type 조회 반복 호출 flag
+			nextPageToken := ""
 
-		keepFetching := true // machine type 조회 반복 호출 flag
-		nextPageToken := ""
+			for keepFetching {
 
-		for keepFetching {
+				machineTypes, err := priceInfoHandler.Client.MachineTypes.List(projectID, zone.Name).Do(googleapi.QueryParameter("pageToken", nextPageToken))
 
-			machineTypes, err := priceInfoHandler.Client.MachineTypes.List(projectID, zone.Name).Do(googleapi.QueryParameter("pageToken", nextPageToken))
-
-			if err != nil {
-				cblogger.Error("machine type 조회 시 에러;", err)
-				return "", err
-			}
-
-			if keepFetching = machineTypes.NextPageToken != ""; keepFetching {
-				nextPageToken = machineTypes.NextPageToken
-			}
-
-			for _, machineType := range machineTypes.Items {
-				if !validateAllowedMachineType(machineType.Name) {
-					continue
+				if err != nil {
+					cblogger.Error("machine type 조회 시 에러; zone:", zone.Name, ", message:", err)
+					return "", err
 				}
 
+				if keepFetching = machineTypes.NextPageToken != ""; keepFetching {
+					nextPageToken = machineTypes.NextPageToken
+				}
+
+				machineTypeSlice = append(machineTypeSlice, machineTypes.Items...)
+			}
+		}
+
+		if len(machineTypeSlice) > 0 {
+			cblogger.Infof("%d machine types fetched", len(machineTypeSlice))
+
+			for _, machineType := range machineTypeSlice {
+				/*
+				 * @Info EstimateCostScenario 를 호출할 때 허용되지 않는 machine type 이 넘어가는 경우
+				 * 400 bad request 에러와 함께 허용되는 machine type 목록이 raw string 으로 넘어옵니다.
+				 * EstimateCostScenario api 호출 쿼터 등의 이슈로 허용되는 machine type 만 호출하기 위한 의도였으나,
+				 * 하드코딩된 방식으로 관리되면 추후 추가 케이스 등 관리 포인트가 늘어날 수 있어 주석처리 합니다.
+				 */
+
+				// if !validateAllowedMachineType(machineType.Name) {
+				// 	continue
+				// }
+
 				if machineType != nil {
-					// product 매핑
+					// mapping to product info struct
 					productInfo, err := mappingToProductInfoForComputePrice(regionName, machineType)
 
 					if err != nil {
-						cblogger.Error("product info struct 매핑 에러;", err)
+						cblogger.Error("product info struct 매핑 에러; machine type:", machineType.Name, ", message:", err)
 						return "", err
 					}
 
-					// 가격 정보 호출
+					// call cost estimation api
 					estimatedCostResponse, err := callEstimateCostScenario(priceInfoHandler, regionName, billindAccountId, machineType)
 					if err != nil {
-						cblogger.Error("estimate cost scenario 호출 에러;", err)
+						cblogger.Error("estimate cost scenario 호출 에러; message:", err)
 						continue
 					}
 
-					priceInfo, err := MappingToPriceInfoForComputePrice(estimatedCostResponse)
+					// mapping to price info struct
+					priceInfo, err := mappingToPriceInfoForComputePrice(estimatedCostResponse)
 
 					if err != nil {
-						cblogger.Error("price info struct 매핑 에러;", err)
+						cblogger.Error("price info struct 매핑 에러; machine type:", machineType.Name, ", message:", err)
 						return "", err
 					}
 
-					priceList := irs.PriceList{
+					priceList := irs.Price{
 						ProductInfo: *productInfo,
 						PriceInfo:   *priceInfo,
 					}
 
 					priceLists = append(priceLists, priceList)
-					callCount++
 				}
+
 			}
 		}
 	}
@@ -185,13 +204,17 @@ func (priceInfoHandler *GCPPriceInfoHandler) GetPriceInfo(productFamily string, 
 	convertedPriceData, err := ConvertJsonStringNoEscape(cloudPriceData)
 
 	if err != nil {
-		cblogger.Error("escape 변환 에러;", err)
+		cblogger.Error("response struct escape convert error;", err)
 		return "", err
 	}
 
 	return convertedPriceData, nil
+
 }
 
+/* @Info
+ * billingAccountId format - billingAccounts/xxxx-xxxx-xxxx
+ */
 func callEstimateCostScenario(priceInfoHandler *GCPPriceInfoHandler, region, billingAccountId string, machineType *compute.MachineType) (*cbb.EstimateCostScenarioForBillingAccountResponse, error) {
 	machineTypeName := getMachineTypeFromSelfLink(machineType.SelfLink)
 	if machineTypeName == "" {
@@ -204,11 +227,10 @@ func callEstimateCostScenario(priceInfoHandler *GCPPriceInfoHandler, region, bil
 	}
 
 	vCpu := machineType.GuestCpus
-	memory := math.Round(float64(machineType.MemoryMb)/float64(1<<10)*10) / 10
-	billingAccount := fmt.Sprintf("billingAccounts/%s", billingAccountId)
+	memory := roundToNearestMultiple(parseMbToGb(machineType.MemoryMb))
 
 	estimateCostScenarioResponse, err := priceInfoHandler.CostEstimationClient.BillingAccounts.EstimateCostScenario(
-		billingAccount,
+		billingAccountId,
 		&cbb.EstimateCostScenarioForBillingAccountRequest{
 			CostScenario: &cbb.CostScenario{
 				Workloads: []*cbb.Workload{
@@ -263,53 +285,76 @@ func callEstimateCostScenario(priceInfoHandler *GCPPriceInfoHandler, region, bil
 	).Do()
 
 	if err != nil {
+		cblogger.Errorf("machine spec; machine type: %s, memory: %d, calculated memory: %f", machineType.Name, machineType.MemoryMb, memory)
 		return nil, err
 	}
 
 	return estimateCostScenarioResponse, nil
 }
 
-// product family의 이름들을 배열로 return
-// CallServicesList()을 호출하여 가져온 Category.ResourceFamily를 하드코딩
+/*
+ * parse mb to gb
+ * mb memory devide to 2^10 = 1024
+ */
+func parseMbToGb(memoryMb int64) float64 {
+	return float64(memoryMb) / float64(1<<10)
+}
+
+/*
+ * obtain the closest multiple of 0.25 to the origin value.
+ */
+func roundToNearestMultiple(originValue float64) float64 {
+	multiple := 0.25
+
+	// value를 multiple로 나눈 후 반올림하여 가장 가까운 정수로 변환
+	rounded := math.Round(originValue / multiple)
+
+	// rounded에 multiple을 곱해 원래 값의 가장 가까운 배수
+	return rounded * multiple
+}
+
+/*
+ * BillingCatalogClient.Services.Skus.List()을 호출하여 가져온 Category.ResourceFamily 를 중복 제거하여 리스트 생성
+ */
 func (priceInfoHandler *GCPPriceInfoHandler) ListProductFamily(regionName string) ([]string, error) {
 	returnProductFamilyNames := []string{}
 
-	returnProductFamilyNames = append(returnProductFamilyNames, "ApplicationServices")
 	returnProductFamilyNames = append(returnProductFamilyNames, "Compute")
-	returnProductFamilyNames = append(returnProductFamilyNames, "License")
-	returnProductFamilyNames = append(returnProductFamilyNames, "Network")
-	returnProductFamilyNames = append(returnProductFamilyNames, "Search")
-	returnProductFamilyNames = append(returnProductFamilyNames, "Storage")
-	returnProductFamilyNames = append(returnProductFamilyNames, "Utility")
+	// returnProductFamilyNames = append(returnProductFamilyNames, "License")
+	// returnProductFamilyNames = append(returnProductFamilyNames, "Network")
+	// returnProductFamilyNames = append(returnProductFamilyNames, "Search")
+	// returnProductFamilyNames = append(returnProductFamilyNames, "Storage")
+	// returnProductFamilyNames = append(returnProductFamilyNames, "Utility")
 
 	return returnProductFamilyNames, nil
 }
 
-func mappingToProductInfoForComputePrice(region string, res *compute.MachineType) (*irs.ProductInfo, error) {
-	cspProductInfoString, err := json.Marshal(*res)
+func mappingToProductInfoForComputePrice(region string, machineType *compute.MachineType) (*irs.ProductInfo, error) {
+	cspProductInfoString, err := json.Marshal(*machineType)
 
 	if err != nil {
 		return &irs.ProductInfo{}, err
 	}
-	
-	productId := fmt.Sprintf("%d", res.Id)
+
+	productId := fmt.Sprintf("%d", machineType.Id)
 
 	productInfo := &irs.ProductInfo{
 		ProductId:      productId,
 		RegionName:     region,
+		ZoneName:       machineType.Zone,
 		CSPProductInfo: string(cspProductInfoString),
 	}
 
-	productInfo.InstanceType = res.Name
-	productInfo.Vcpu = fmt.Sprintf("%d", res.GuestCpus)
-	productInfo.Memory = fmt.Sprintf("%.2f GB", float64(res.MemoryMb)/float64(1<<10))
-	productInfo.Description = res.Description
+	productInfo.InstanceType = machineType.Name
+	productInfo.Vcpu = fmt.Sprintf("%d", machineType.GuestCpus)
+	productInfo.Memory = fmt.Sprintf("%.2f GB", roundToNearestMultiple(parseMbToGb(machineType.MemoryMb)))
+	productInfo.Description = machineType.Description
 
-	productInfo.Gpu = ""
-	productInfo.Storage = ""
-	productInfo.GpuMemory = ""
-	productInfo.OperatingSystem = ""
-	productInfo.PreInstalledSw = ""
+	productInfo.Gpu = "NA"
+	productInfo.Storage = "NA"
+	productInfo.GpuMemory = "NA"
+	productInfo.OperatingSystem = "NA"
+	productInfo.PreInstalledSw = "NA"
 
 	productInfo.VolumeType = ""
 	productInfo.StorageMedia = ""
@@ -329,7 +374,7 @@ func mappingToProductInfoForComputePrice(region string, res *compute.MachineType
 		3YearCUD
 */
 
-func MappingToPriceInfoForComputePrice(res *cbb.EstimateCostScenarioForBillingAccountResponse) (*irs.PriceInfo, error) {
+func mappingToPriceInfoForComputePrice(res *cbb.EstimateCostScenarioForBillingAccountResponse) (*irs.PriceInfo, error) {
 
 	result := res.CostEstimationResult
 	policies := make([]irs.PricingPolicies, 0)
@@ -340,22 +385,26 @@ func MappingToPriceInfoForComputePrice(res *cbb.EstimateCostScenarioForBillingAc
 
 		// List Price 조회
 		if segmentCostEstimate.SegmentTotalCostEstimate != nil {
-			price := segmentCostEstimate.SegmentTotalCostEstimate.NetCostEstimate
+			firstWorkloadCostEstimate := segmentCostEstimate.WorkloadCostEstimates[0]
 
-			parsedPrice := fmt.Sprintf("%d.%09d", price.Units, price.Nanos)
-			description := *getDescription(result.Skus, "ListPrice")
+			if firstWorkloadCostEstimate != nil {
+				price := firstWorkloadCostEstimate.WorkloadTotalCostEstimate.PreCreditCostEstimate
+				parsedPrice := fmt.Sprintf("%d.%09d", price.Units, price.Nanos)
+				description := *getDescription(result.Skus, "OnDemand")
 
-			policy := irs.PricingPolicies{
-				PricingId:     "NA",
-				PricingPolicy: "ListPrice",
-				Unit:          "Hrs",
-				Currency:      price.CurrencyCode,
-				Price:         parsedPrice,
-				Description:   description,
+				policy := irs.PricingPolicies{
+					PricingId:     "NA",
+					PricingPolicy: "OnDemand",
+					Unit:          "Hrs",
+					Currency:      price.CurrencyCode,
+					Price:         parsedPrice,
+					Description:   description,
+				}
+
+				policies = append(policies, policy)
+				cspInfo = append(cspInfo, segmentCostEstimate.SegmentTotalCostEstimate)
 			}
 
-			policies = append(policies, policy)
-			cspInfo = append(cspInfo, segmentCostEstimate.SegmentTotalCostEstimate)
 		}
 
 		// commitment price 조회
@@ -364,18 +413,18 @@ func MappingToPriceInfoForComputePrice(res *cbb.EstimateCostScenarioForBillingAc
 				if commitment.CommitmentTotalCostEstimate != nil {
 					priceStruct := commitment.CommitmentTotalCostEstimate.NetCostEstimate
 
-					pricingPolicy := "1YearCUD"
+					pricingPolicy := "Commit1Yr"
 					contract := "1yr"
 
 					if commitment.Name == "3yrs-commitment-price" {
-						pricingPolicy = "3YearCUD"
+						pricingPolicy = "Commit3Yr"
 						contract = "3yr"
 					}
 
 					pricingPolicyInfo := &irs.PricingPolicyInfo{
 						LeaseContractLength: contract,
-						OfferingClass:       "",
-						PurchaseOption:      "",
+						OfferingClass:       "NA",
+						PurchaseOption:      "NA",
 					}
 
 					description := *getDescription(result.Skus, "Commitment")
@@ -423,7 +472,7 @@ func getDescription(skus []*cbb.Sku, condition string) *string {
 						description = fmt.Sprintf("%s / %s", description, sku.DisplayName)
 					}
 				}
-			} else if condition == "ListPrice" {
+			} else if condition == "OnDemand" {
 				if !strings.HasPrefix(sku.DisplayName, "Commitment") {
 					if len(description) == 0 {
 						description = sku.DisplayName
@@ -661,7 +710,7 @@ func CallServicesSkusList(priceInfoHandler *GCPPriceInfoHandler, parent string) 
 	skuArr := []*cloudbilling.Sku{}
 	for hasNextToken > 0 {
 
-		resp, err := priceInfoHandler.BillingCatalogClient.Services.Skus.List(parent).PageToken("").Do()
+		resp, err := priceInfoHandler.BillingCatalogClient.Services.Skus.List(parent).PageToken(nextPageToken).Do()
 
 		if err != nil {
 
@@ -680,9 +729,9 @@ func CallServicesSkusList(priceInfoHandler *GCPPriceInfoHandler, parent string) 
 	cloudPriceData := irs.CloudPriceData{} // 가장 큰 단위( meta 포함 )
 	cloudPriceList := []irs.CloudPrice{}   // meta를 제외한 가장 큰 단위
 	cloudPrice := irs.CloudPrice{}         // 해당 cloud의 모든 price 정보
-	priceList := []irs.PriceList{}
+	priceList := []irs.Price{}
 	for _, sku := range skuArr {
-		aPrice := irs.PriceList{}
+		aPrice := irs.Price{}
 		priceInfo := irs.PriceInfo{}
 
 		// priceInfo.PricingPolicies

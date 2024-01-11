@@ -1891,13 +1891,13 @@ func handlePriceInfo() {
 			panic(err)
 		}
 
+		regionName := "asia-northeast3"
 		if inputCnt == 1 {
 			switch commandNum {
 			case 0:
 				return
 
 			case 1:
-				regionName := "asia-northeast3"
 				result, err := handler.ListProductFamily(regionName)
 				if err != nil {
 					cblogger.Infof(" ProductFamily 목록 조회 실패 : ", err)
@@ -1909,7 +1909,7 @@ func handlePriceInfo() {
 				}
 
 			case 2:
-				result, err := handler.GetPriceInfo("Compute", "us-east1", []irs.KeyValue{})
+				result, err := handler.GetPriceInfo("Compute", regionName, []irs.KeyValue{})
 				if err != nil {
 					cblogger.Infof("[%s] GetPriceInfo 조회 실패 : ", err)
 				} else {
