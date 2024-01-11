@@ -24,8 +24,11 @@ import (
 	o2 "golang.org/x/oauth2"
 	goo "golang.org/x/oauth2/google"
 
+	"google.golang.org/api/cloudbilling/v1"
+	cbb "google.golang.org/api/cloudbilling/v1beta"
 	compute "google.golang.org/api/compute/v1"
 	"google.golang.org/api/container/v1"
+	"google.golang.org/api/option"
 )
 
 type GCPDriver struct {
@@ -51,6 +54,7 @@ func (GCPDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	drvCapabilityInfo.MyImageHandler = false
 	drvCapabilityInfo.RegionZoneHandler = true
 	drvCapabilityInfo.ClusterHandler = true
+	drvCapabilityInfo.PriceInfoHandler = true
 
 	return drvCapabilityInfo
 }
@@ -80,6 +84,22 @@ func (driver *GCPDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (icon.
 		return nil, err
 	}
 
+	_, billingCatalogClient, err := getBillingCatalogClient(connectionInfo.CredentialInfo)
+	fmt.Println("################## getBillingCatalogClient ##################")
+	fmt.Println("getBillingCatalogClient")
+	fmt.Println("################## getBillingCatalogClient ##################")
+	if err != nil {
+		return nil, err
+	}
+
+	_, costEstimationClient, err := getCostEstimationClient(connectionInfo.CredentialInfo)
+	fmt.Println("################## getCostEstimationClient ##################")
+	fmt.Println("getCostEstimationClient")
+	fmt.Println("################## getCostEstimationClient ##################")
+	if err != nil {
+		return nil, err
+	}
+
 	iConn := gcpcon.GCPCloudConnection{
 		Region:      connectionInfo.RegionInfo,
 		Credential:  connectionInfo.CredentialInfo,
@@ -90,11 +110,13 @@ func (driver *GCPDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (icon.
 		SecurityGroupClient: VMClient,
 		// VNetClient:          VMClient,
 		// VNicClient:          VMClient,
-		SubnetClient:     VMClient,
-		VMSpecClient:     VMClient,
-		VPCClient:        VMClient,
-		RegionZoneClient: VMClient,
-		ContainerClient:  containerClient,
+		SubnetClient:         VMClient,
+		VMSpecClient:         VMClient,
+		VPCClient:            VMClient,
+		RegionZoneClient:     VMClient,
+		ContainerClient:      containerClient,
+		BillingCatalogClient: billingCatalogClient,
+		CostEstimationClient: costEstimationClient,
 	}
 
 	//fmt.Println("################## resource ConnectionInfo ##################")
@@ -174,4 +196,85 @@ func getContainerClient(credential idrv.CredentialInfo) (context.Context, *conta
 	ctx := context.Background()
 
 	return ctx, containerClient, nil
+}
+
+func getBillingCatalogClient(credential idrv.CredentialInfo) (context.Context, *cloudbilling.APIService, error) {
+
+	// GCP 는  ClientSecret에
+	gcpType := "service_account"
+	data := make(map[string]string)
+
+	data["type"] = gcpType
+	data["private_key"] = credential.PrivateKey
+	data["client_email"] = credential.ClientEmail
+
+	fmt.Println("################## data ##################")
+	//fmt.Println("data to json : ", data)
+	fmt.Println("################## data ##################")
+	// https://www.googleapis.com/auth/cloud-platform
+
+	// https://www.googleapis.com/auth/cloud-billing
+	res, _ := json.Marshal(data)
+	//authURL := "https://www.googleapis.com/auth/cloud-platform"
+	authURL := "https://www.googleapis.com/auth/cloud-billing"
+
+	conf, err := goo.JWTConfigFromJSON(res, authURL)
+
+	if err != nil {
+		fmt.Println("JWTConfig ", conf)
+		return nil, nil, err
+	}
+
+	client := conf.Client(o2.NoContext)
+
+	billingCatalogClient, err := cloudbilling.New(client)
+	if err != nil {
+		fmt.Println("billingCatalogClient err ", err)
+		return nil, nil, err
+	}
+
+	ctx := context.Background()
+
+	return ctx, billingCatalogClient, nil
+}
+
+func getCostEstimationClient(credential idrv.CredentialInfo) (context.Context, *cbb.Service, error) {
+
+	// GCP 는  ClientSecret에
+	gcpType := "service_account"
+	data := make(map[string]string)
+
+	data["type"] = gcpType
+	data["private_key"] = credential.PrivateKey
+	data["client_email"] = credential.ClientEmail
+
+	fmt.Println("################## data ##################")
+	//fmt.Println("data to json : ", data)
+	fmt.Println("################## data ##################")
+	// https://www.googleapis.com/auth/cloud-platform
+
+	// https://www.googleapis.com/auth/cloud-billing
+	res, _ := json.Marshal(data)
+	//authURL := "https://www.googleapis.com/auth/cloud-platform"
+	authURL := "https://www.googleapis.com/auth/cloud-billing"
+
+	conf, err := goo.JWTConfigFromJSON(res, authURL)
+
+	if err != nil {
+		fmt.Println("JWTConfig ", conf)
+		return nil, nil, err
+	}
+
+	client := conf.Client(o2.NoContext)
+
+	ctx := context.Background()
+
+	costEstimationClient, err := cbb.NewService(ctx, option.WithHTTPClient(client))
+
+	if err != nil {
+		fmt.Println("costEstimation Service create err ", err)
+		return nil, nil, err
+	}
+
+	return ctx, costEstimationClient, nil
 }
