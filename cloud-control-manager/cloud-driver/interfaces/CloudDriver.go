@@ -51,6 +51,7 @@ type CredentialInfo struct {
 	AuthToken        string // Cloudit Credential
 	ClientEmail      string // GCP
 	PrivateKey       string // GCP
+	BillingAccountID string // GCP Billing Credential
 	Host             string // Docker
 	APIVersion       string // Docker
 	MockName         string // Mock

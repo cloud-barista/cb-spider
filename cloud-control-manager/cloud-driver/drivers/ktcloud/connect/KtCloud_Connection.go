@@ -131,5 +131,5 @@ func (cloudConn *KtCloudConnection) Close() error {
 }
 
 func (*KtCloudConnection) CreatePriceInfoHandler() (irs.PriceInfoHandler, error) {
-	return nil, errors.New("Alibaba Driver: not implemented")
+	return nil, errors.New("KT Cloud Driver: not implemented")
 }

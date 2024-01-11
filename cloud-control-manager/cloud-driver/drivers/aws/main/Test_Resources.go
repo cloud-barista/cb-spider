@@ -30,6 +30,7 @@ import (
 var cblogger *logrus.Logger
 
 func init() {
+	fmt.Println("init start")
 	// cblog is a global variable.
 	cblogger = cblog.GetLogger("AWS Resource Test")
 	//cblog.SetLevel("info")
@@ -948,7 +949,8 @@ func handleVM() {
 
 	//config := readConfigFile()
 	//VmID := irs.IID{NameId: config.Aws.BaseName, SystemId: config.Aws.VmID}
-	VmID := irs.IID{SystemId: "i-0cea86282a9e2a569"}
+	// VmID := irs.IID{SystemId: "i-0cea86282a9e2a569"}
+	VmID := irs.IID{SystemId: "i-0c70f696e5f8e690c"}
 
 	for {
 		fmt.Println("VM Management")
@@ -1704,7 +1706,6 @@ func handleRegionZone() {
 
 func handlePriceInfo() {
 	cblogger.Debug("Start Price Info Test")
-
 	ResourceHandler, err := getResourceHandler("PriceInfo")
 	if err != nil {
 		panic(err)
@@ -1744,37 +1745,31 @@ func handlePriceInfo() {
 					cblogger.Info("출력 결과 수 : ", len(result))
 				}
 
-				// case 2:
-				// 	result, err := handler.GetPriceInfo()
-				// 	if err != nil {
-				// 		cblogger.Infof("GetPriceInfo 조회 실패 : ", err)
-				// 	} else {
-				// 		cblogger.Info("GetPriceInfo 조회 결과")
-				// 		cblogger.Debug(result)
-				// 		cblogger.Infof("로그 레벨 : [%s]", cblog.GetLevel())
-				// 		// spew.Dump(result)
-				// 	}
+			case 2:
+				var filterList []irs.KeyValue
+				// Type : [TERM_CONTAIN, ANY_OF, TERM_MATCH, NONE_OF, CONTAINS, EQUALS]
+				// filterList = append(filterList, irs.KeyValue{Key: "filter", Value: "{\"Field\":\"instanceType\",\"Type\":\"TERM_MATCH\",\"Value\":\"t2.nano\"}"})
+				// filterList = append(filterList, irs.KeyValue{Key: "filter", Value: "{\"Field\":\"operatingSystem\",\"Type\":\"TERM_MATCH\",\"Value\":\"Linux\"}"})
+				filterList = append(filterList, irs.KeyValue{Key: "filter", Value: "{\"Field\":\"sku\",\"Type\":\"TERM_MATCH\",\"Value\":\"24MKFUYR8UGHCNGB\"}"})
+
+				// TEST seraach data
+				// instanceType = t2.nano
+				// operatingSystem = Linux
+
+				// cli 에서 아래 명령어를 통해 attribute를 검색할 수 있음.
+				// aws pricing get-attribute-values --service-code AmazonEC2 --attribute-name instanceType
+
+				result, err := handler.GetPriceInfo("AmazonEC2", "ap-northeast-2", filterList)
+				if err != nil {
+					cblogger.Infof("GetPriceInfo 조회 실패 : ", err)
+				} else {
+					cblogger.Info("GetPriceInfo 조회 결과")
+					cblogger.Info(result)
+					cblogger.Infof("로그 레벨 : [%s]", cblog.GetLevel())
+				}
 			}
 		}
 	}
-}
-
-func main() {
-	cblogger.Info("AWS Resource Test")
-	//handleVPC()
-	//handleKeyPair()
-	//handlePublicIP() // PublicIP 생성 후 conf
-	//handleSecurity()
-	//handleVM()
-
-	//handleImage() //AMI
-	//handleVNic() //Lancard
-	//handleVMSpec()
-	//handleNLB()
-	//handleCluster()
-	// handleRegionZone()
-	handlePriceInfo()
-
 }
 
 // handlerType : resources폴더의 xxxHandler.go에서 Handler이전까지의 문자열
@@ -1927,15 +1922,9 @@ type Config struct {
 // 환경변수 CBSPIDER_PATH 설정 후 해당 폴더 하위에 /config/config.yaml 파일 생성해야 함.
 func readConfigFile() Config {
 	// Set Environment Value of Project Root Path
-	// rootPath := os.Getenv("CBSPIDER_PATH")
-	//rootpath := "D:/Workspace/mcloud-barista-config"
-	// /mnt/d/Workspace/mcloud-barista-config/config/config.yaml
-	// cblogger.Infof("Test Data 설정파일 : [%]", rootPath+"/config/config.yaml")
-
-	// data, err := ioutil.ReadFile(rootPath + "/config/config.yaml")
-	data, err := ioutil.ReadFile("/home/raccoon/workspace/go/src/spiderDriver/feature_priceInfo_ali_20231204_yhnoh/cloud-control-manager/cloud-driver/drivers/aws/main/Sample/config/config.yaml")
-	// data, err := ioutil.ReadFile(rootPath + "/Sample/config/config.yaml")
-	//data, err := ioutil.ReadFile("D:/Workspace/mcloud-bar-config/config/config.yaml")
+	rootPath := os.Getenv("CBSPIDER_PATH")
+	cblogger.Infof("Test Data 설정파일 : [%s]", rootPath+"/config/config.yaml")
+	data, err := ioutil.ReadFile(rootPath + "/config/config.yaml")
 	if err != nil {
 		panic(err)
 	}
@@ -1947,9 +1936,22 @@ func readConfigFile() Config {
 	}
 
 	cblogger.Info("Loaded ConfigFile...")
-	//spew.Dump(config)
-	//cblogger.Info(config)
 	cblogger.Debug(config.Aws.AawsAccessKeyID, " ", config.Aws.Region)
-	//cblogger.Debug(config.Aws.Region)
 	return config
+}
+
+func main() {
+	cblogger.Info("AWS Resource Test")
+	// handleVPC()
+	// handleKeyPair()
+	// handlePublicIP() // PublicIP 생성 후 conf
+	// handleSecurity()
+	// handleVM()
+	// handleImage() //AMI
+	// handleVNic() //Lancard
+	// handleVMSpec()
+	// handleNLB()
+	// handleCluster()
+	// handleRegionZone()
+	handlePriceInfo()
 }

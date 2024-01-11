@@ -241,3 +241,33 @@ func GetZoneStatus(status string) irs.ZoneStatus {
 		return irs.ZoneUnavailable
 	}
 }
+
+//아래 function 주석추가
+
+func strPtrNilCheck(t *string) string {
+	if t != nil {
+		return *t
+	}
+	return "NA"
+}
+
+func intPtrNilCheck(t *int64) string {
+	if t != nil {
+		return strconv.FormatInt(*t, 32)
+	}
+	return "NA"
+}
+
+func uintPtrNilCheck(t *uint64) string {
+	if t != nil {
+		return strconv.FormatUint(*t, 32)
+	}
+	return "NA"
+}
+
+func floatPtrNilCheck(t *float64) string {
+	if t != nil {
+		return strconv.FormatFloat(*t, 'f', -1, 64)
+	}
+	return "NA"
+}
