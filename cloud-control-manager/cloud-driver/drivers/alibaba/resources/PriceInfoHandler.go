@@ -27,20 +27,26 @@ type ProductInfo struct {
 }
 
 func (priceInfoHandler *AlibabaPriceInfoHandler) ListProductFamily(regionName string) ([]string, error) {
-	productListresponse, err := QueryProductList(priceInfoHandler.BssClient)
-	if err != nil {
-		return nil, err
-	}
+	// productListresponse, err := QueryProductList(priceInfoHandler.BssClient)
+	// if err != nil {
+	// 	return nil, err
+	// }
 
-	var familyList []string
-	for _, Product := range productListresponse.Data.ProductList.Product {
-		familyList = append(familyList, Product.ProductCode)
+	// var familyList []string
+	// for _, Product := range productListresponse.Data.ProductList.Product {
+	// 	familyList = append(familyList, Product.ProductCode)
+	// }
+
+	// 컴퓨팅 인프라 서비스를 호출하기 위한 별도 API 존재하지 않음.
+	familyList := []string{
+		"ecs",
 	}
 
 	return familyList, nil
 }
 
 func (priceInfoHandler *AlibabaPriceInfoHandler) GetPriceInfo(productFamily string, regionName string, filter []irs.KeyValue) (string, error) {
+	// 사용자가 입력한 productFamily의 구독 타입을 얻기위해 전체 서비스 호출하여 확인
 	productListresponse, err := QueryProductList(priceInfoHandler.BssClient)
 	if err != nil {
 		return "", err
@@ -108,12 +114,14 @@ func (priceInfoHandler *AlibabaPriceInfoHandler) GetPriceInfo(productFamily stri
 			getPayAsYouGoPriceRequest.QueryParams["SubscriptionType"] = "PayAsYouGo"
 			getPayAsYouGoPriceRequest.QueryParams["ProductCode"] = product.ProductCode
 			getPayAsYouGoPriceRequest.QueryParams["ProductType"] = product.ProductType
-			getPayAsYouGoPriceRequest.QueryParams["Region"] = regionName
+			getPayAsYouGoPriceRequest.QueryParams["Region"] = regionName // 리전별 응답에 차이가 없는 것 같음.
 
 			for _, pricingModulesAttr := range pricingModulesPayAsYouGo.Data.AttributeList.Attribute {
 				if pricingModulesAttr.Code == "InstanceType" {
 					for _, attr := range pricingModulesAttr.Values.AttributeValue {
-						// 특정 InstanceType에 Attr 에 존재하지만, 쿼리에 InternalError 발생. 부득이 단건 호출.
+						// ModuleList.n.XXXXXX 에서 키 값의 인덱스를 1 부터 50까지 넣을 수 있지만
+						// 특정 InstanceType에 Attr 에 존재하지만, 쿼리에 InternalError 발생.
+						// 부득이 단건 호출하여 오류 처리함. -> 쿼타 테스트에 문제 발견되지 않음.(초당 10회 제한)
 						getPayAsYouGoPriceRequest.QueryParams["ModuleList.1.ModuleCode"] = "InstanceType"
 						getPayAsYouGoPriceRequest.QueryParams["ModuleList.1.PriceType"] = pricingModulePriceType
 						getPayAsYouGoPriceRequest.QueryParams["ModuleList.1.Config"] = "InstanceType:" + attr.Value
@@ -203,10 +211,16 @@ func (priceInfoHandler *AlibabaPriceInfoHandler) GetPriceInfo(productFamily stri
 		}
 	}
 
-	fmt.Println(CloudPriceData)
+	resultString, err := json.Marshal(CloudPriceData)
+	if err != nil {
+		cblogger.Error(err)
+		return "", err
+	}
 
-	return "priceInfo", nil
+	return string(resultString), nil
 }
+
+/////// 이전 드라이버 개발
 
 // func (priceInfoHandler *AlibabaPriceInfoHandler) GetPriceInfo(productFamily string, regionName string, filter []irs.KeyValue) (string, error) {
 

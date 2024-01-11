@@ -656,6 +656,7 @@ func DescribeZonesByRegion(client *ecs.Client, regionId string) (*ecs.DescribeZo
 	return result, nil
 }
 
+// Alibaba 가용한 모든 서비스 호출
 func QueryProductList(bssClient *bssopenapi.Client) (*bssopenapi.QueryProductListResponse, error) {
 	request := bssopenapi.CreateQueryProductListRequest()
 	request.Scheme = "https"
