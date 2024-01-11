@@ -127,82 +127,84 @@ func (priceInfoHandler *AlibabaPriceInfoHandler) GetPriceInfo(productFamily stri
 						getPayAsYouGoPriceRequest.QueryParams["ModuleList.1.Config"] = "InstanceType:" + attr.Value
 						priceResponse, err := priceInfoHandler.BssClient.ProcessCommonRequest(getPayAsYouGoPriceRequest)
 						if err != nil {
-							cblogger.Errorf(err.Error())
-						} else {
-							var priceResp map[string]interface{}
-							err := json.Unmarshal([]byte(priceResponse.GetHttpContentString()), &priceResp)
-							if err != nil {
-								cblogger.Errorf("Error parsing [%s] JSON:%s", attr.Value, err.Error())
-							} else if priceResp["Code"] != "Success" {
-								cblogger.Errorf("[%s] ErrCode : %s", attr.Value, priceResp["Code"])
-							} else {
-								DescribeInstanceRequest := requests.NewCommonRequest()
-								DescribeInstanceRequest.Method = "POST"
-								DescribeInstanceRequest.Scheme = "https" // https | http
-								DescribeInstanceRequest.Domain = "ecs.ap-southeast-1.aliyuncs.com"
-								DescribeInstanceRequest.Version = "2014-05-26"
-								DescribeInstanceRequest.ApiName = "DescribeInstanceTypes"
-								DescribeInstanceRequest.QueryParams["InstanceTypes.1"] = attr.Value
-								instanceResponse, err := priceInfoHandler.BssClient.ProcessCommonRequest(DescribeInstanceRequest)
-								if err != nil {
-									cblogger.Error(err.Error())
-								} else {
-									var instanceResp map[string]interface{}
-									err = json.Unmarshal([]byte(instanceResponse.GetHttpContentString()), &instanceResp)
-									if err != nil {
-										cblogger.Errorf("Error parsing JSON:%s", err.Error())
-									} else {
-										instanceTypeArray, valid := instanceResp["InstanceTypes"].(map[string]interface{})["InstanceType"].([]interface{})
-										if valid && len(instanceTypeArray) > 0 {
-											PriceList := irs.PriceList{}
-											PriceList.ProductInfo.CSPProductInfo = instanceResponse.GetHttpContentString()
-											PriceList.ProductInfo.ProductId = "NA"
-											PriceList.ProductInfo.RegionName = "NA"
-											PriceList.ProductInfo.InstanceType = fmt.Sprintf("%s", instanceTypeArray[0].(map[string]interface{})["InstanceTypeId"])
-											PriceList.ProductInfo.Vcpu = fmt.Sprintf("%s", instanceTypeArray[0].(map[string]interface{})["CpuCoreCount"])
-											PriceList.ProductInfo.Memory = fmt.Sprintf("%s", instanceTypeArray[0].(map[string]interface{})["MemorySize"])
-											PriceList.ProductInfo.Storage = fmt.Sprintf("%s", instanceTypeArray[0].(map[string]interface{})["LocalStorageCategory"])
-											PriceList.ProductInfo.Gpu = fmt.Sprintf("%s", instanceTypeArray[0].(map[string]interface{})["GPUSpec"])
-											PriceList.ProductInfo.GpuMemory = fmt.Sprintf("%s", instanceTypeArray[0].(map[string]interface{})["GPUAmount"])
-											PriceList.ProductInfo.OperatingSystem = "NA"
-											PriceList.ProductInfo.PreInstalledSw = "NA"
-											PriceList.ProductInfo.VolumeType = "NA"
-											PriceList.ProductInfo.StorageMedia = "NA"
-											PriceList.ProductInfo.MaxVolumeSize = "NA"
-											PriceList.ProductInfo.MaxIOPSVolume = "NA"
-											PriceList.ProductInfo.MaxThroughputVolume = "NA"
-
-											priceInfo := irs.PriceInfo{}
-											priceInfo.CSPPriceInfo = priceResponse.GetHttpContentString()
-											pricingPolicy := irs.PricingPolicies{}
-											pricingPolicy.PricingId = "NA"
-											pricingPolicy.PricingPolicy = product.SubscriptionType
-											pricingPolicy.Unit = pricingModulePriceType
-											pricingPolicy.Currency = fmt.Sprintf("%s", priceResp["Data"].(map[string]interface{})["Currency"])
-											pricingPolicy.Price = fmt.Sprintf("%f", priceResp["Data"].(map[string]interface{})["ModuleDetails"].(map[string]interface{})["ModuleDetail"].([]interface{})[0].(map[string]interface{})["OriginalCost"])
-											pricingPolicy.Description = "NA"
-											pricingPolicy.PricingPolicyInfo = &irs.PricingPolicyInfo{
-												LeaseContractLength: "NA",
-												OfferingClass:       "NA",
-												PurchaseOption:      "NA",
-											}
-											priceInfo.PricingPolicies = append(priceInfo.PricingPolicies, pricingPolicy)
-
-											PriceList.PriceInfo = priceInfo
-
-											CloudPrice.PriceList = append(CloudPrice.PriceList, PriceList)
-
-										} else {
-											cblogger.Errorf("[%s] instanceType is Empty", attr.Value)
-										}
-
-										CloudPriceData.CloudPriceList = append(CloudPriceData.CloudPriceList, CloudPrice)
-
-									}
-								}
-
-							}
+							cblogger.Errorf(err.Error()) // 호출 오류
+							continue
 						}
+
+						var priceResp map[string]interface{}
+						err = json.Unmarshal([]byte(priceResponse.GetHttpContentString()), &priceResp)
+						if err != nil {
+							cblogger.Errorf("Error parsing [%s] JSON:%s", attr.Value, err.Error()) // 파싱오류
+						} else if priceResp["Code"] != "Success" {
+							cblogger.Errorf("[%s] ErrCode : %s", attr.Value, priceResp["Code"]) // 데이터 오류
+						} else {
+							DescribeInstanceRequest := requests.NewCommonRequest()
+							DescribeInstanceRequest.Method = "POST"
+							DescribeInstanceRequest.Scheme = "https" // https | http
+							DescribeInstanceRequest.Domain = "ecs.ap-southeast-1.aliyuncs.com"
+							DescribeInstanceRequest.Version = "2014-05-26"
+							DescribeInstanceRequest.ApiName = "DescribeInstanceTypes"
+							DescribeInstanceRequest.QueryParams["InstanceTypes.1"] = attr.Value
+							instanceResponse, err := priceInfoHandler.BssClient.ProcessCommonRequest(DescribeInstanceRequest)
+							if err != nil {
+								cblogger.Error(err.Error())
+							} else {
+								var instanceResp map[string]interface{}
+								err = json.Unmarshal([]byte(instanceResponse.GetHttpContentString()), &instanceResp)
+								if err != nil {
+									cblogger.Errorf("Error parsing JSON:%s", err.Error())
+								} else {
+									instanceTypeArray, valid := instanceResp["InstanceTypes"].(map[string]interface{})["InstanceType"].([]interface{})
+									if valid && len(instanceTypeArray) > 0 {
+										PriceList := irs.PriceList{}
+										PriceList.ProductInfo.CSPProductInfo = instanceResponse.GetHttpContentString()
+										PriceList.ProductInfo.ProductId = "NA"
+										PriceList.ProductInfo.RegionName = "NA"
+										PriceList.ProductInfo.InstanceType = fmt.Sprintf("%s", instanceTypeArray[0].(map[string]interface{})["InstanceTypeId"])
+										PriceList.ProductInfo.Vcpu = fmt.Sprintf("%s", instanceTypeArray[0].(map[string]interface{})["CpuCoreCount"])
+										PriceList.ProductInfo.Memory = fmt.Sprintf("%s", instanceTypeArray[0].(map[string]interface{})["MemorySize"])
+										PriceList.ProductInfo.Storage = fmt.Sprintf("%s", instanceTypeArray[0].(map[string]interface{})["LocalStorageCategory"])
+										PriceList.ProductInfo.Gpu = fmt.Sprintf("%s", instanceTypeArray[0].(map[string]interface{})["GPUSpec"])
+										PriceList.ProductInfo.GpuMemory = fmt.Sprintf("%s", instanceTypeArray[0].(map[string]interface{})["GPUAmount"])
+										PriceList.ProductInfo.OperatingSystem = "NA"
+										PriceList.ProductInfo.PreInstalledSw = "NA"
+										PriceList.ProductInfo.VolumeType = "NA"
+										PriceList.ProductInfo.StorageMedia = "NA"
+										PriceList.ProductInfo.MaxVolumeSize = "NA"
+										PriceList.ProductInfo.MaxIOPSVolume = "NA"
+										PriceList.ProductInfo.MaxThroughputVolume = "NA"
+
+										priceInfo := irs.PriceInfo{}
+										priceInfo.CSPPriceInfo = priceResponse.GetHttpContentString()
+										pricingPolicy := irs.PricingPolicies{}
+										pricingPolicy.PricingId = "NA"
+										pricingPolicy.PricingPolicy = product.SubscriptionType
+										pricingPolicy.Unit = pricingModulePriceType
+										pricingPolicy.Currency = fmt.Sprintf("%s", priceResp["Data"].(map[string]interface{})["Currency"])
+										pricingPolicy.Price = fmt.Sprintf("%f", priceResp["Data"].(map[string]interface{})["ModuleDetails"].(map[string]interface{})["ModuleDetail"].([]interface{})[0].(map[string]interface{})["OriginalCost"])
+										pricingPolicy.Description = "NA"
+										pricingPolicy.PricingPolicyInfo = &irs.PricingPolicyInfo{
+											LeaseContractLength: "NA",
+											OfferingClass:       "NA",
+											PurchaseOption:      "NA",
+										}
+										priceInfo.PricingPolicies = append(priceInfo.PricingPolicies, pricingPolicy)
+
+										PriceList.PriceInfo = priceInfo
+
+										CloudPrice.PriceList = append(CloudPrice.PriceList, PriceList)
+
+									} else {
+										cblogger.Errorf("[%s] instanceType is Empty", attr.Value)
+									}
+
+									CloudPriceData.CloudPriceList = append(CloudPriceData.CloudPriceList, CloudPrice)
+
+								}
+							}
+
+						}
+
 					}
 				}
 			}
