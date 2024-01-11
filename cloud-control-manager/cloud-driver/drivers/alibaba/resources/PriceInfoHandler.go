@@ -156,7 +156,7 @@ func (priceInfoHandler *AlibabaPriceInfoHandler) GetPriceInfo(productFamily stri
 								} else {
 									instanceTypeArray, valid := instanceResp["InstanceTypes"].(map[string]interface{})["InstanceType"].([]interface{})
 									if valid && len(instanceTypeArray) > 0 {
-										PriceList := irs.PriceList{}
+										PriceList := irs.Price{}
 										PriceList.ProductInfo.CSPProductInfo = instanceResponse.GetHttpContentString()
 										PriceList.ProductInfo.ProductId = "NA"
 										PriceList.ProductInfo.RegionName = "NA"
