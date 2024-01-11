@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"log"
 	"math"
-	"regexp"
 	"strconv"
 	"strings"
 
@@ -37,60 +36,14 @@ type GCPPriceInfoHandler struct {
 	Credential           idrv.CredentialInfo
 }
 
-// 해당 Region의 PriceFamily에 해당하는 제품들의 가격정보를 json형태로 return
+// Return the price information of products belonging to the specified Region's PriceFamily in JSON format
 func (priceInfoHandler *GCPPriceInfoHandler) GetPriceInfo(productFamily string, regionName string, filter []irs.KeyValue) (string, error) {
-	// // Compute Engine SKU 및 가격 정보 가져오기
-
-	// // VM의 경우 아래 항목에 대해 가격이 매겨짐.
-	// // VM 인스턴스 가격 책정
-	// // 네트워킹 가격 책정
-	// // 단독 테넌트 노드 가격 책정
-	// // GPU 가격 책정
-	// // 디스크 및 이미지 가격 책정
-	// serviceID := ""
-	// switch productFamily {
-	// case "ApplicationServices":
-	// 	serviceID = ""
-	// case "Compute": // Service Description : Compute Engine
-	// 	serviceID = "6F81-5844-456A"
-	// case "License":
-	// 	serviceID = ""
-	// case "Network": // Service Description : Networking
-	// 	serviceID = "E505-1604-58F8"
-	// case "Search": // Service Description : Elastic Cloud (Elasticsearch managed service)
-	// 	serviceID = "6F81-5844-456A"
-	// case "Storage": // Service Description : Cloud Storage
-	// 	serviceID = "95FF-2EF5-5EA1"
-	// case "Utility":
-	// 	serviceID = ""
-	// default:
-	// 	serviceID = ""
-	// }
-
-	// if serviceID == "" {
-	// 	return "", errors.New("Unsupported productFamily. " + productFamily)
-	// }
-
-	// parent := "services/" + serviceID
-	// listSkus, err := CallServicesSkusList(priceInfoHandler, parent)
-	// if err != nil {
-
-	// }
-	// log.Println(listSkus)
-
-	// // projectID := priceInfoHandler.Credential.ProjectID
-	// // resp, err := GetRegion(priceInfoHandler.Client, projectID, regionName)
-	// // if err != nil {
-	// // 	cblogger.Error(err)
-	// // 	return returnJson, err
-	// // }
-	// // cblogger.Debug(resp)
 
 	billindAccountId := priceInfoHandler.Credential.BillingAccountID
 
 	if billindAccountId == "" || billindAccountId == "billingAccounts/" {
-		cblogger.Error("billing accout id 가 존재하지 않음")
-		return "", errors.New("billing account is empty! 반드시 필요한 정보")
+		cblogger.Error("billing accout id does not exist")
+		return "", errors.New("billing account is a mandatory field")
 	}
 
 	if regionName == "" {
@@ -105,7 +58,7 @@ func (priceInfoHandler *GCPPriceInfoHandler) GetPriceInfo(productFamily string, 
 
 		zoneList, err := GetZoneListByRegion(priceInfoHandler.Client, projectID, regionSelfLink)
 		if err != nil {
-			cblogger.Error("zone list 조회시 에러;", err)
+			cblogger.Error("error occurred while querying the zone list; ", err)
 			return "", err
 		}
 
@@ -125,7 +78,7 @@ func (priceInfoHandler *GCPPriceInfoHandler) GetPriceInfo(productFamily string, 
 				machineTypes, err := priceInfoHandler.Client.MachineTypes.List(projectID, zone.Name).Do(googleapi.QueryParameter("pageToken", nextPageToken))
 
 				if err != nil {
-					cblogger.Error("machine type 조회 시 에러; zone:", zone.Name, ", message:", err)
+					cblogger.Error("error occurred while querying the machine type list; zone:", zone.Name, ", message:", err)
 					return "", err
 				}
 
@@ -138,33 +91,23 @@ func (priceInfoHandler *GCPPriceInfoHandler) GetPriceInfo(productFamily string, 
 		}
 
 		if len(machineTypeSlice) > 0 {
-			cblogger.Infof("%d machine types fetched", len(machineTypeSlice))
+			cblogger.Infof("%d machine types have been retrieved", len(machineTypeSlice))
 
 			for _, machineType := range machineTypeSlice {
-				/*
-				 * @Info EstimateCostScenario 를 호출할 때 허용되지 않는 machine type 이 넘어가는 경우
-				 * 400 bad request 에러와 함께 허용되는 machine type 목록이 raw string 으로 넘어옵니다.
-				 * EstimateCostScenario api 호출 쿼터 등의 이슈로 허용되는 machine type 만 호출하기 위한 의도였으나,
-				 * 하드코딩된 방식으로 관리되면 추후 추가 케이스 등 관리 포인트가 늘어날 수 있어 주석처리 합니다.
-				 */
-
-				// if !validateAllowedMachineType(machineType.Name) {
-				// 	continue
-				// }
 
 				if machineType != nil {
 					// mapping to product info struct
 					productInfo, err := mappingToProductInfoForComputePrice(regionName, machineType)
 
 					if err != nil {
-						cblogger.Error("product info struct 매핑 에러; machine type:", machineType.Name, ", message:", err)
+						cblogger.Error("error occurred while mapping the product info struct; machine type:", machineType.Name, ", message:", err)
 						return "", err
 					}
 
 					// call cost estimation api
 					estimatedCostResponse, err := callEstimateCostScenario(priceInfoHandler, regionName, billindAccountId, machineType)
 					if err != nil {
-						cblogger.Error("estimate cost scenario 호출 에러; message:", err)
+						cblogger.Error("error occurred when calling the EstimateCostScenario; message:", err)
 						continue
 					}
 
@@ -172,7 +115,7 @@ func (priceInfoHandler *GCPPriceInfoHandler) GetPriceInfo(productFamily string, 
 					priceInfo, err := mappingToPriceInfoForComputePrice(estimatedCostResponse)
 
 					if err != nil {
-						cblogger.Error("price info struct 매핑 에러; machine type:", machineType.Name, ", message:", err)
+						cblogger.Error("error occurred while mapping the pricing info struct;; machine type:", machineType.Name, ", message:", err)
 						return "", err
 					}
 
@@ -204,7 +147,7 @@ func (priceInfoHandler *GCPPriceInfoHandler) GetPriceInfo(productFamily string, 
 	convertedPriceData, err := ConvertJsonStringNoEscape(cloudPriceData)
 
 	if err != nil {
-		cblogger.Error("response struct escape convert error;", err)
+		cblogger.Error("error occurred when removing escape characters from the response struct;", err)
 		return "", err
 	}
 
@@ -285,7 +228,7 @@ func callEstimateCostScenario(priceInfoHandler *GCPPriceInfoHandler, region, bil
 	).Do()
 
 	if err != nil {
-		cblogger.Errorf("machine spec; machine type: %s, memory: %d, calculated memory: %f", machineType.Name, machineType.MemoryMb, memory)
+		cblogger.Errorf("error occurred when calling EstimateCostScenario; machine spec; machine type: %s, memory: %d, calculated memory: %f", machineType.Name, machineType.MemoryMb, memory)
 		return nil, err
 	}
 
@@ -306,10 +249,10 @@ func parseMbToGb(memoryMb int64) float64 {
 func roundToNearestMultiple(originValue float64) float64 {
 	multiple := 0.25
 
-	// value를 multiple로 나눈 후 반올림하여 가장 가까운 정수로 변환
+	// Round the result of dividing "value" by "multiple" to the nearest integer
 	rounded := math.Round(originValue / multiple)
 
-	// rounded에 multiple을 곱해 원래 값의 가장 가까운 배수
+	// multiply "rounded" by "multiple," you will get the closest multiple of the original value.
 	return rounded * multiple
 }
 
@@ -383,7 +326,7 @@ func mappingToPriceInfoForComputePrice(res *cbb.EstimateCostScenarioForBillingAc
 	if len(result.SegmentCostEstimates) > 0 {
 		segmentCostEstimate := result.SegmentCostEstimates[0]
 
-		// List Price 조회
+		// mapping from GCP OnDemand price struct to PricingPolicies struct
 		if segmentCostEstimate.SegmentTotalCostEstimate != nil {
 			firstWorkloadCostEstimate := segmentCostEstimate.WorkloadCostEstimates[0]
 
@@ -407,7 +350,7 @@ func mappingToPriceInfoForComputePrice(res *cbb.EstimateCostScenarioForBillingAc
 
 		}
 
-		// commitment price 조회
+		// mapping from GCP Commitment price struct to PricingPolicies struct
 		if len(segmentCostEstimate.CommitmentCostEstimates) > 0 {
 			for _, commitment := range segmentCostEstimate.CommitmentCostEstimates {
 				if commitment.CommitmentTotalCostEstimate != nil {
@@ -449,7 +392,7 @@ func mappingToPriceInfoForComputePrice(res *cbb.EstimateCostScenarioForBillingAc
 	marshalledCspInfo, err := json.Marshal(cspInfo)
 
 	if err != nil {
-		cblogger.Error("cspinfo marshalling 에러;", err)
+		cblogger.Error("error occurred during the marshaling process of cspinfo; ", err)
 		marshalledCspInfo = []byte("")
 	}
 
@@ -487,7 +430,7 @@ func getDescription(skus []*cbb.Sku, condition string) *string {
 	return &description
 }
 
-// Cloud Object를 JSON String 타입으로 변환
+// Convert from Cloud Object to JSON String type
 func ConvertJsonStringNoEscape(v interface{}) (string, error) {
 	buffer := &bytes.Buffer{}
 	encoder := json.NewEncoder(buffer)
@@ -495,8 +438,7 @@ func ConvertJsonStringNoEscape(v interface{}) (string, error) {
 	errJson := encoder.Encode(v)
 
 	if errJson != nil {
-		cblogger.Error("JSON 변환 실패")
-		cblogger.Error(errJson)
+		cblogger.Error("fail to convert json string", errJson)
 		return "", errJson
 	}
 
@@ -506,17 +448,16 @@ func ConvertJsonStringNoEscape(v interface{}) (string, error) {
 	return jsonString, nil
 }
 
-// self link 를 통해 machine type 추출
+// Extracting machine type through the self-link
 func getMachineTypeFromSelfLink(selfLink string) string {
-
-	// 마지막 / 의 인덱스 찾기
+	// Finding the index of the last '/' character
 	lastSlashIndex := strings.LastIndex(selfLink, "/")
 
 	if lastSlashIndex == -1 {
 		return ""
 	}
 
-	// 마지막 / 뒤의 부분 문자열 추출
+	// Extracting the substring after the last '/'
 	return selfLink[lastSlashIndex+1:]
 }
 
@@ -531,72 +472,6 @@ func getMachineSeriesFromMachineType(machineType string) string {
 
 	// 마지막 / 뒤의 부분 문자열 추출
 	return machineType[:firstDashIndex]
-}
-
-// cost estimation sdk 에서 허용되는 컴퓨터 인스턴스 타입
-var allowedPatterns = []string{
-	"n1-standard",
-	"n1-highmem",
-	"n1-highcpu",
-	"t2a-standard",
-	"m1-megamem",
-	"n1-megamem",
-	"m1-ultramem",
-	"n1-ultramem",
-	"m2-megamem",
-	"m2-hypermem",
-	"m2-ultramem",
-	"m3-megamem",
-	"m3-ultramem",
-	"n2-standard",
-	"n2-highmem",
-	"n2-highcpu",
-	"n2d-standard",
-	"n2d-highmem",
-	"n2d-highcpu",
-	"c2",
-	"c2d",
-	"c2d-standard",
-	"c2d-highcpu",
-	"c2d-highmem",
-	"c3-standard",
-	"c3-highmem",
-	"c3-highcpu",
-	"c3a-highcpu",
-	"c3a-highmem",
-	"c3a-standard",
-	"c3d-highcpu",
-	"c3d-highmem",
-	"c3d-standard",
-	"e2",
-	"a2",
-	"a3",
-	"n1-custom",
-	"custom",
-	"n2-custom",
-	"n2d-custom",
-	"n1",
-	"n2",
-	"n2d",
-	"m1",
-	"t2d-standard",
-	"t2d",
-	"g2-standard",
-	"g2-custom",
-	"h3-standard",
-	"x2",
-	"x3",
-}
-
-func validateAllowedMachineType(input string) bool {
-	for _, pattern := range allowedPatterns {
-		re := regexp.MustCompile(pattern)
-		if re.MatchString(input) {
-			return true
-		}
-	}
-
-	return false
 }
 
 /*********************************************************************/
