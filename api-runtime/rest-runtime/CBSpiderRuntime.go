@@ -505,7 +505,7 @@ func ApiServer(routes []route) {
 
 	// for spider logo
 	e.File("/spider/adminweb/images/logo.png", cbspiderRoot+"/api-runtime/rest-runtime/admin-web/images/cb-spider-circle-logo.png")
-	e.File("/spider/adminweb/images/pmks.png", cbspiderRoot+"/api-runtime/rest-runtime/admin-web/images/cb-spider-pmks-logo.png")
+	e.File("/spider/adminweb/html/priceinfo-filter-gen.html", cbspiderRoot+"/api-runtime/rest-runtime/admin-web/html/priceinfo-filter-gen.html")
 
 	e.HideBanner = true
 	e.HidePort = true
