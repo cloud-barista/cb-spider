@@ -1870,6 +1870,57 @@ func handleRegionZone() {
 	}
 }
 
+func handlePriceInfo() {
+	cblogger.Debug("Start handlePriceInfo Test")
+
+	ResourceHandler, err := testconf.GetResourceHandler("PriceInfo")
+	if err != nil {
+		panic(err)
+	}
+	handler := ResourceHandler.(irs.PriceInfoHandler)
+
+	for {
+		fmt.Println("PriceInfoHandler Management")
+		fmt.Println("0. Quit")
+		fmt.Println("1. ListProductFamily List")
+		fmt.Println("2. GetPriceInfo")
+
+		var commandNum int
+		inputCnt, err := fmt.Scan(&commandNum)
+		if err != nil {
+			panic(err)
+		}
+
+		regionName := "asia-northeast3"
+		if inputCnt == 1 {
+			switch commandNum {
+			case 0:
+				return
+
+			case 1:
+				result, err := handler.ListProductFamily(regionName)
+				if err != nil {
+					cblogger.Infof(" ProductFamily 목록 조회 실패 : ", err)
+				} else {
+					cblogger.Info("ProductFamily 목록 조회 결과")
+					cblogger.Info(result)
+					cblogger.Info("출력 결과 수 : ", len(result))
+					spew.Dump(result)
+				}
+
+			case 2:
+				result, err := handler.GetPriceInfo("Compute", regionName, []irs.KeyValue{})
+				if err != nil {
+					cblogger.Infof("[%s] GetPriceInfo 조회 실패 : ", err)
+				} else {
+					cblogger.Infof("[%s] GetPriceInfo 조회 성공 : ", result)
+					spew.Dump(result)
+				}
+
+			}
+		}
+	}
+}
 func main() {
 	cblogger.Info("GCP Resource Test")
 	//handleVPC()
@@ -1881,7 +1932,8 @@ func main() {
 	//handleLoadBalancer()
 	//handleDisk()
 	//handleMyImage()
-	handleRegionZone()
+	//handleRegionZone()
+	handlePriceInfo()
 	//cblogger.Info(filepath.Join("a/b", "\\cloud-driver-libs\\.ssh-gcp\\"))
 	//cblogger.Info(filepath.Join("\\cloud-driver-libs\\.ssh-gcp\\", "/b/c/d"))
 }

@@ -34,110 +34,110 @@ func init() {
 /*
 // Test PublicIp
 func handlePublicIP() {
-	cblogger.Debug("Start Publicip Resource Test")
+   cblogger.Debug("Start Publicip Resource Test")
 
-	ResourceHandler, err := testconf.GetResourceHandler("Publicip")
-	if err != nil {
-		panic(err)
-	}
+   ResourceHandler, err := testconf.GetResourceHandler("Publicip")
+   if err != nil {
+      panic(err)
+   }
 
-	handler := ResourceHandler.(irs.PublicIPHandler)
+   handler := ResourceHandler.(irs.PublicIPHandler)
 
-	config := testconf.ReadConfigFile()
-	//reqGetPublicIP := "13.124.140.207"
-	reqPublicIP := config.Ali.PublicIP
-	//reqPublicIP = "eipalloc-0231a3e16ec42e869"
-	cblogger.Info("reqPublicIP : ", reqPublicIP)
-	//handler.CreatePublicIP(publicIPReqInfo)
-	//handler.ListPublicIP()
-	//handler.GetPublicIP("13.124.140.207")
+   config := testconf.ReadConfigFile()
+   //reqGetPublicIP := "13.124.140.207"
+   reqPublicIP := config.Ali.PublicIP
+   //reqPublicIP = "eipalloc-0231a3e16ec42e869"
+   cblogger.Info("reqPublicIP : ", reqPublicIP)
+   //handler.CreatePublicIP(publicIPReqInfo)
+   //handler.ListPublicIP()
+   //handler.GetPublicIP("13.124.140.207")
 
-	for {
-		fmt.Println("")
-		fmt.Println("Publicip Resource Test")
-		fmt.Println("1. ListPublicIP()")
-		fmt.Println("2. GetPublicIP()")
-		fmt.Println("3. CreatePublicIP()")
-		fmt.Println("4. DeletePublicIP()")
-		fmt.Println("5. Exit")
+   for {
+      fmt.Println("")
+      fmt.Println("Publicip Resource Test")
+      fmt.Println("1. ListPublicIP()")
+      fmt.Println("2. GetPublicIP()")
+      fmt.Println("3. CreatePublicIP()")
+      fmt.Println("4. DeletePublicIP()")
+      fmt.Println("5. Exit")
 
-		var commandNum int
-		var reqDelIP string
+      var commandNum int
+      var reqDelIP string
 
-		inputCnt, err := fmt.Scan(&commandNum)
-		if err != nil {
-			panic(err)
-		}
+      inputCnt, err := fmt.Scan(&commandNum)
+      if err != nil {
+         panic(err)
+      }
 
-		if inputCnt == 1 {
-			switch commandNum {
-			case 1:
-				fmt.Println("Start ListPublicIP() ...")
-				result, err := handler.ListPublicIP()
-				if err != nil {
-					cblogger.Error("PublicIP 목록 조회 실패 : ", err)
-				} else {
-					cblogger.Info("PublicIP 목록 조회 결과")
-					spew.Dump(result)
-				}
+      if inputCnt == 1 {
+         switch commandNum {
+         case 1:
+            fmt.Println("Start ListPublicIP() ...")
+            result, err := handler.ListPublicIP()
+            if err != nil {
+               cblogger.Error("PublicIP 목록 조회 실패 : ", err)
+            } else {
+               cblogger.Info("PublicIP 목록 조회 결과")
+               spew.Dump(result)
+            }
 
-				fmt.Println("Finish ListPublicIP()")
+            fmt.Println("Finish ListPublicIP()")
 
-			case 2:
-				fmt.Println("Start GetPublicIP() ...")
-				result, err := handler.GetPublicIP(reqPublicIP)
-				if err != nil {
-					cblogger.Error(reqPublicIP, " PublicIP 정보 조회 실패 : ", err)
-				} else {
-					cblogger.Infof("PublicIP[%s]  정보 조회 결과", reqPublicIP)
-					spew.Dump(result)
-				}
-				fmt.Println("Finish GetPublicIP()")
+         case 2:
+            fmt.Println("Start GetPublicIP() ...")
+            result, err := handler.GetPublicIP(reqPublicIP)
+            if err != nil {
+               cblogger.Error(reqPublicIP, " PublicIP 정보 조회 실패 : ", err)
+            } else {
+               cblogger.Infof("PublicIP[%s]  정보 조회 결과", reqPublicIP)
+               spew.Dump(result)
+            }
+            fmt.Println("Finish GetPublicIP()")
 
-			case 3:
-				fmt.Println("Start CreatePublicIP() ...")
-				reqInfo := irs.PublicIPReqInfo{Name: "mcloud-barista-eip-test"}
-				result, err := handler.CreatePublicIP(reqInfo)
-				if err != nil {
-					cblogger.Error("PublicIP 생성 실패 : ", err)
-				} else {
-					cblogger.Info("PublicIP 생성 성공 ", result)
-					spew.Dump(result)
-				}
-				fmt.Println("Finish CreatePublicIP()")
+         case 3:
+            fmt.Println("Start CreatePublicIP() ...")
+            reqInfo := irs.PublicIPReqInfo{Name: "mcloud-barista-eip-test"}
+            result, err := handler.CreatePublicIP(reqInfo)
+            if err != nil {
+               cblogger.Error("PublicIP 생성 실패 : ", err)
+            } else {
+               cblogger.Info("PublicIP 생성 성공 ", result)
+               spew.Dump(result)
+            }
+            fmt.Println("Finish CreatePublicIP()")
 
-			case 4:
-				fmt.Println("Start DeletePublicIP() ...")
-				fmt.Print("삭제할 PublicIP를 입력하세요 : ")
-				inputCnt, err := fmt.Scan(&reqDelIP)
-				if err != nil {
-					panic(err)
-				}
+         case 4:
+            fmt.Println("Start DeletePublicIP() ...")
+            fmt.Print("삭제할 PublicIP를 입력하세요 : ")
+            inputCnt, err := fmt.Scan(&reqDelIP)
+            if err != nil {
+               panic(err)
+            }
 
-				if inputCnt == 1 {
-					cblogger.Info("삭제할 PublicIP : ", reqDelIP)
-				} else {
-					fmt.Println("삭제할 Public IP만 입력하세요.")
-				}
+            if inputCnt == 1 {
+               cblogger.Info("삭제할 PublicIP : ", reqDelIP)
+            } else {
+               fmt.Println("삭제할 Public IP만 입력하세요.")
+            }
 
-				result, err := handler.DeletePublicIP(reqDelIP)
-				if err != nil {
-					cblogger.Error(reqDelIP, " PublicIP 삭제 실패 : ", err)
-				} else {
-					if result {
-						cblogger.Infof("PublicIP[%s] 삭제 완료", reqDelIP)
-					} else {
-						cblogger.Errorf("PublicIP[%s] 삭제 실패", reqDelIP)
-					}
-				}
-				fmt.Println("Finish DeletePublicIP()")
+            result, err := handler.DeletePublicIP(reqDelIP)
+            if err != nil {
+               cblogger.Error(reqDelIP, " PublicIP 삭제 실패 : ", err)
+            } else {
+               if result {
+                  cblogger.Infof("PublicIP[%s] 삭제 완료", reqDelIP)
+               } else {
+                  cblogger.Errorf("PublicIP[%s] 삭제 실패", reqDelIP)
+               }
+            }
+            fmt.Println("Finish DeletePublicIP()")
 
-			case 5:
-				fmt.Println("Exit")
-				return
-			}
-		}
-	}
+         case 5:
+            fmt.Println("Exit")
+            return
+         }
+      }
+   }
 }
 */
 
@@ -240,89 +240,89 @@ func handleVMSpec() {
 /*
 // Test AMI
 func handleImage() {
-	cblogger.Debug("Start ImageHandler Resource Test")
+   cblogger.Debug("Start ImageHandler Resource Test")
 
-	ResourceHandler, err := testconf.GetResourceHandler("Image")
-	if err != nil {
-		panic(err)
-	}
-	//handler := ResourceHandler.(irs2.ImageHandler)
-	handler := ResourceHandler.(irs.ImageHandler)
+   ResourceHandler, err := testconf.GetResourceHandler("Image")
+   if err != nil {
+      panic(err)
+   }
+   //handler := ResourceHandler.(irs2.ImageHandler)
+   handler := ResourceHandler.(irs.ImageHandler)
 
-	//imageReqInfo := irs2.ImageReqInfo{
-	imageReqInfo := irs.ImageReqInfo{
-		Id:   "ami-047f7b46bd6dd5d84",
-		Name: "Test OS Image",
-	}
+   //imageReqInfo := irs2.ImageReqInfo{
+   imageReqInfo := irs.ImageReqInfo{
+      Id:   "ami-047f7b46bd6dd5d84",
+      Name: "Test OS Image",
+   }
 
-	for {
-		fmt.Println("ImageHandler Management")
-		fmt.Println("0. Quit")
-		fmt.Println("1. Image List")
-		fmt.Println("2. Image Create")
-		fmt.Println("3. Image Get")
-		fmt.Println("4. Image Delete")
+   for {
+      fmt.Println("ImageHandler Management")
+      fmt.Println("0. Quit")
+      fmt.Println("1. Image List")
+      fmt.Println("2. Image Create")
+      fmt.Println("3. Image Get")
+      fmt.Println("4. Image Delete")
 
-		var commandNum int
-		inputCnt, err := fmt.Scan(&commandNum)
-		if err != nil {
-			panic(err)
-		}
+      var commandNum int
+      inputCnt, err := fmt.Scan(&commandNum)
+      if err != nil {
+         panic(err)
+      }
 
-		if inputCnt == 1 {
-			switch commandNum {
-			case 0:
-				return
+      if inputCnt == 1 {
+         switch commandNum {
+         case 0:
+            return
 
-			case 1:
-				result, err := handler.ListImage()
-				if err != nil {
-					cblogger.Infof(" Image 목록 조회 실패 : ", err)
-				} else {
-					cblogger.Info("Image 목록 조회 결과")
-					cblogger.Info(result)
-					//spew.Dump(result)
-					cblogger.Info("출력 결과 수 : ", len(result))
+         case 1:
+            result, err := handler.ListImage()
+            if err != nil {
+               cblogger.Infof(" Image 목록 조회 실패 : ", err)
+            } else {
+               cblogger.Info("Image 목록 조회 결과")
+               cblogger.Info(result)
+               //spew.Dump(result)
+               cblogger.Info("출력 결과 수 : ", len(result))
 
-					//조회및 삭제 테스트를 위해 리스트의 첫번째 정보의 ID를 요청ID로 자동 갱신함.
-					if result != nil {
-						imageReqInfo.Id = result[0].Id // 조회 및 삭제를 위해 생성된 ID로 변경
-					}
-				}
+               //조회및 삭제 테스트를 위해 리스트의 첫번째 정보의 ID를 요청ID로 자동 갱신함.
+               if result != nil {
+                  imageReqInfo.Id = result[0].Id // 조회 및 삭제를 위해 생성된 ID로 변경
+               }
+            }
 
-			case 2:
-				cblogger.Infof("[%s] Image 생성 테스트", imageReqInfo.Name)
-				//vNetworkReqInfo := irs.VNetworkReqInfo{}
-				result, err := handler.CreateImage(imageReqInfo)
-				if err != nil {
-					cblogger.Infof(imageReqInfo.Id, " Image 생성 실패 : ", err)
-				} else {
-					cblogger.Infof("Image 생성 결과 : ", result)
-					imageReqInfo.Id = result.Id // 조회 및 삭제를 위해 생성된 ID로 변경
-					spew.Dump(result)
-				}
+         case 2:
+            cblogger.Infof("[%s] Image 생성 테스트", imageReqInfo.Name)
+            //vNetworkReqInfo := irs.VNetworkReqInfo{}
+            result, err := handler.CreateImage(imageReqInfo)
+            if err != nil {
+               cblogger.Infof(imageReqInfo.Id, " Image 생성 실패 : ", err)
+            } else {
+               cblogger.Infof("Image 생성 결과 : ", result)
+               imageReqInfo.Id = result.Id // 조회 및 삭제를 위해 생성된 ID로 변경
+               spew.Dump(result)
+            }
 
-			case 3:
-				cblogger.Infof("[%s] Image 조회 테스트", imageReqInfo.Id)
-				result, err := handler.GetImage(imageReqInfo.Id)
-				if err != nil {
-					cblogger.Infof("[%s] Image 조회 실패 : ", imageReqInfo.Id, err)
-				} else {
-					cblogger.Infof("[%s] Image 조회 결과 : [%s]", imageReqInfo.Id, result)
-					spew.Dump(result)
-				}
+         case 3:
+            cblogger.Infof("[%s] Image 조회 테스트", imageReqInfo.Id)
+            result, err := handler.GetImage(imageReqInfo.Id)
+            if err != nil {
+               cblogger.Infof("[%s] Image 조회 실패 : ", imageReqInfo.Id, err)
+            } else {
+               cblogger.Infof("[%s] Image 조회 결과 : [%s]", imageReqInfo.Id, result)
+               spew.Dump(result)
+            }
 
-			case 4:
-				cblogger.Infof("[%s] Image 삭제 테스트", imageReqInfo.Id)
-				result, err := handler.DeleteImage(imageReqInfo.Id)
-				if err != nil {
-					cblogger.Infof("[%s] Image 삭제 실패 : ", imageReqInfo.Id, err)
-				} else {
-					cblogger.Infof("[%s] Image 삭제 결과 : [%s]", imageReqInfo.Id, result)
-				}
-			}
-		}
-	}
+         case 4:
+            cblogger.Infof("[%s] Image 삭제 테스트", imageReqInfo.Id)
+            result, err := handler.DeleteImage(imageReqInfo.Id)
+            if err != nil {
+               cblogger.Infof("[%s] Image 삭제 실패 : ", imageReqInfo.Id, err)
+            } else {
+               cblogger.Infof("[%s] Image 삭제 결과 : [%s]", imageReqInfo.Id, result)
+            }
+         }
+      }
+   }
 }
 
 */
@@ -386,66 +386,66 @@ func handleSecurity() {
 					SecurityRules: &[]irs.SecurityRuleInfo{ //보안 정책 설정
 						//CIDR 테스트
 						/*{
-							FromPort:   "20",
-							ToPort:     "22",
-							IPProtocol: "tcp",
-							Direction:  "inbound",
-							CIDR:       "0.0.0.0/0",
-						},
-						{
-							FromPort:   "40",
-							ToPort:     "40",
-							IPProtocol: "tcp",
-							Direction:  "outbound",
-							CIDR:       "10.13.1.10/32",
-						},*/
+						     FromPort:   "20",
+						     ToPort:     "22",
+						     IPProtocol: "tcp",
+						     Direction:  "inbound",
+						     CIDR:       "0.0.0.0/0",
+						  },
+						  {
+						     FromPort:   "40",
+						     ToPort:     "40",
+						     IPProtocol: "tcp",
+						     Direction:  "outbound",
+						     CIDR:       "10.13.1.10/32",
+						  },*/
 						/*
-							{
-								FromPort:   "20",
-								ToPort:     "22",
-								IPProtocol: "tcp",
-								Direction:  "inbound",
-							},
+						   {
+						      FromPort:   "20",
+						      ToPort:     "22",
+						      IPProtocol: "tcp",
+						      Direction:  "inbound",
+						   },
 
-							{
-								FromPort:   "80",
-								ToPort:     "80",
-								IPProtocol: "tcp",
-								Direction:  "inbound",
-							},
-							{
-								FromPort:   "8080",
-								ToPort:     "8080",
-								IPProtocol: "tcp",
-								Direction:  "inbound",
-							},
-							{
-								FromPort:   "-1",
-								ToPort:     "-1",
-								IPProtocol: "icmp",
-								Direction:  "inbound",
-							},
+						   {
+						      FromPort:   "80",
+						      ToPort:     "80",
+						      IPProtocol: "tcp",
+						      Direction:  "inbound",
+						   },
+						   {
+						      FromPort:   "8080",
+						      ToPort:     "8080",
+						      IPProtocol: "tcp",
+						      Direction:  "inbound",
+						   },
+						   {
+						      FromPort:   "-1",
+						      ToPort:     "-1",
+						      IPProtocol: "icmp",
+						      Direction:  "inbound",
+						   },
 
-							{
-								FromPort:   "443",
-								ToPort:     "443",
-								IPProtocol: "tcp",
-								Direction:  "outbound",
-							},
-							{
-								FromPort:   "8443",
-								ToPort:     "9999",
-								IPProtocol: "tcp",
-								Direction:  "outbound",
-							},
+						   {
+						      FromPort:   "443",
+						      ToPort:     "443",
+						      IPProtocol: "tcp",
+						      Direction:  "outbound",
+						   },
+						   {
+						      FromPort:   "8443",
+						      ToPort:     "9999",
+						      IPProtocol: "tcp",
+						      Direction:  "outbound",
+						   },
 						*/
 						/*
-							{
-								//FromPort:   "8443",
-								//ToPort:     "9999",
-								IPProtocol: "-1", // 모두 허용 (포트 정보 없음)
-								Direction:  "inbound",
-							},*/
+						   {
+						      //FromPort:   "8443",
+						      //ToPort:     "9999",
+						      IPProtocol: "-1", // 모두 허용 (포트 정보 없음)
+						      Direction:  "inbound",
+						   },*/
 						{
 							FromPort:   "-1",
 							ToPort:     "-1",
@@ -488,174 +488,174 @@ func handleSecurity() {
 				securityRules := &[]irs.SecurityRuleInfo{
 
 					/*{
-						//20-22 Prot로 등록
-						FromPort:   "20",
-						ToPort:     "21",
-						IPProtocol: "tcp",
-						Direction:  "inbound",
-						CIDR:       "0.0.0.0/0",
+					   //20-22 Prot로 등록
+					   FromPort:   "20",
+					   ToPort:     "21",
+					   IPProtocol: "tcp",
+					   Direction:  "inbound",
+					   CIDR:       "0.0.0.0/0",
 					},*/
 					/*{
-						//20-22 Prot로 등록
-						FromPort:   "20",
-						ToPort:     "21",
-						IPProtocol: "tcp",
-						Direction:  "outbound",
-						CIDR:       "0.0.0.0/0",
+					   //20-22 Prot로 등록
+					   FromPort:   "20",
+					   ToPort:     "21",
+					   IPProtocol: "tcp",
+					   Direction:  "outbound",
+					   CIDR:       "0.0.0.0/0",
 					},*/
 					/*{
-						// 8080 Port로 등록
-						FromPort:   "8080",
-						ToPort:     "8080", //FromPort나 ToPort중 하나에 -1이 입력될 경우 -1이 입력된 경우 -1을 공백으로 처리
-						IPProtocol: "tcp",
-						Direction:  "inbound",
-						CIDR:       "0.0.0.0/0",
+					   // 8080 Port로 등록
+					   FromPort:   "8080",
+					   ToPort:     "8080", //FromPort나 ToPort중 하나에 -1이 입력될 경우 -1이 입력된 경우 -1을 공백으로 처리
+					   IPProtocol: "tcp",
+					   Direction:  "inbound",
+					   CIDR:       "0.0.0.0/0",
 					},*/
 					/*{ // 1323 Prot로 등록
-						FromPort:   "1323", //FromPort나 ToPort중 하나에 -1이 입력될 경우 -1이 입력된 경우 -1을 공백으로 처리
-						ToPort:     "1323",
-						IPProtocol: "tcp",
-						Direction:  "inbound",
-						CIDR:       "0.0.0.0/0",
+					   FromPort:   "1323", //FromPort나 ToPort중 하나에 -1이 입력될 경우 -1이 입력된 경우 -1을 공백으로 처리
+					   ToPort:     "1323",
+					   IPProtocol: "tcp",
+					   Direction:  "inbound",
+					   CIDR:       "0.0.0.0/0",
 					},*/
 					/*{
-						// All Port로 등록
-						FromPort:   "",
-						ToPort:     "",
-						IPProtocol: "icmp", //icmp는 포트 정보가 없음
-						Direction:  "inbound",
+					   // All Port로 등록
+					   FromPort:   "",
+					   ToPort:     "",
+					   IPProtocol: "icmp", //icmp는 포트 정보가 없음
+					   Direction:  "inbound",
 					},*/
 					/*{
-						//20-22 Prot로 등록
-						FromPort:   "20",
-						ToPort:     "22",
-						IPProtocol: "tcp",
-						Direction:  "inbound",
+					   //20-22 Prot로 등록
+					   FromPort:   "20",
+					   ToPort:     "22",
+					   IPProtocol: "tcp",
+					   Direction:  "inbound",
 					},*/
 					/*{
-						// 80 Port로 등록
-						FromPort:   "80",
-						ToPort:     "80",
-						IPProtocol: "tcp",
-						Direction:  "inbound",
-						CIDR:       "0.0.0.0/0",
+					   // 80 Port로 등록
+					   FromPort:   "80",
+					   ToPort:     "80",
+					   IPProtocol: "tcp",
+					   Direction:  "inbound",
+					   CIDR:       "0.0.0.0/0",
 					},*/
 					/*{ // 모든 프로토콜 모든 포트로 등록
-						//FromPort:   "",
-						//ToPort:     "",
-						IPProtocol: "all", // 모두 허용 (포트 정보 없음)
-						Direction:  "inbound",
-						CIDR:       "0.0.0.0/0",
+					   //FromPort:   "",
+					   //ToPort:     "",
+					   IPProtocol: "all", // 모두 허용 (포트 정보 없음)
+					   Direction:  "inbound",
+					   CIDR:       "0.0.0.0/0",
 					},*/
 					/*{
-						FromPort:   "443",
-						ToPort:     "443",
-						IPProtocol: "tcp",
-						Direction:  "outbound",
-						CIDR:       "0.0.0.0/0",
+					   FromPort:   "443",
+					   ToPort:     "443",
+					   IPProtocol: "tcp",
+					   Direction:  "outbound",
+					   CIDR:       "0.0.0.0/0",
 					},*/
 					/*{
-						FromPort:   "8443",
-						ToPort:     "9999",
-						IPProtocol: "tcp",
-						Direction:  "outbound",
+					   FromPort:   "8443",
+					   ToPort:     "9999",
+					   IPProtocol: "tcp",
+					   Direction:  "outbound",
 					},*/
 					/*{
-						//20-22 Prot로 등록
-						FromPort:   "22",
-						ToPort:     "22",
-						IPProtocol: "tcp",
-						Direction:  "outbound",
-						CIDR:       "0.0.0.0/0",
+					   //20-22 Prot로 등록
+					   FromPort:   "22",
+					   ToPort:     "22",
+					   IPProtocol: "tcp",
+					   Direction:  "outbound",
+					   CIDR:       "0.0.0.0/0",
 					},*/
 					/*{
-						//20-22 Prot로 등록
-						FromPort:   "1000",
-						ToPort:     "1000",
-						IPProtocol: "tcp",
-						Direction:  "outbound",
-						CIDR:       "0.0.0.0/0",
+					   //20-22 Prot로 등록
+					   FromPort:   "1000",
+					   ToPort:     "1000",
+					   IPProtocol: "tcp",
+					   Direction:  "outbound",
+					   CIDR:       "0.0.0.0/0",
 					},*/
 					/*{
-						//20-22 Prot로 등록
-						FromPort:   "1",
-						ToPort:     "65535",
-						IPProtocol: "udp",
-						Direction:  "outbound",
-						CIDR:       "0.0.0.0/0",
+					   //20-22 Prot로 등록
+					   FromPort:   "1",
+					   ToPort:     "65535",
+					   IPProtocol: "udp",
+					   Direction:  "outbound",
+					   CIDR:       "0.0.0.0/0",
 					},*/
 					/*{
-						//20-22 Prot로 등록
-						FromPort:   "-1",
-						ToPort:     "-1",
-						IPProtocol: "icmp",
-						Direction:  "outbound",
-						CIDR:       "0.0.0.0/0",
+					   //20-22 Prot로 등록
+					   FromPort:   "-1",
+					   ToPort:     "-1",
+					   IPProtocol: "icmp",
+					   Direction:  "outbound",
+					   CIDR:       "0.0.0.0/0",
 					},*/
 					/*{
-						//20-22 Prot로 등록
-						FromPort:   "-1",
-						ToPort:     "-1",
-						IPProtocol: "all",
-						Direction:  "outbound",
-						CIDR:       "0.0.0.0/0",
+					   //20-22 Prot로 등록
+					   FromPort:   "-1",
+					   ToPort:     "-1",
+					   IPProtocol: "all",
+					   Direction:  "outbound",
+					   CIDR:       "0.0.0.0/0",
 					},*/
 					/*{
-						//20-22 Prot로 등록
-						FromPort:   "22",
-						ToPort:     "22",
-						IPProtocol: "tcp",
-						Direction:  "outbound",
-						CIDR:       "0.0.0.0/0",
+					   //20-22 Prot로 등록
+					   FromPort:   "22",
+					   ToPort:     "22",
+					   IPProtocol: "tcp",
+					   Direction:  "outbound",
+					   CIDR:       "0.0.0.0/0",
 					},*/
 					/*{
-						//20-22 Prot로 등록
-						FromPort:   "1000",
-						ToPort:     "1000",
-						IPProtocol: "tcp",
-						Direction:  "outbound",
-						CIDR:       "0.0.0.0/0",
+					   //20-22 Prot로 등록
+					   FromPort:   "1000",
+					   ToPort:     "1000",
+					   IPProtocol: "tcp",
+					   Direction:  "outbound",
+					   CIDR:       "0.0.0.0/0",
 					},*/
 					/*{
-						//20-22 Prot로 등록
-						FromPort:   "1",
-						ToPort:     "65535",
-						IPProtocol: "udp",
-						Direction:  "outbound",
-						CIDR:       "0.0.0.0/0",
+					   //20-22 Prot로 등록
+					   FromPort:   "1",
+					   ToPort:     "65535",
+					   IPProtocol: "udp",
+					   Direction:  "outbound",
+					   CIDR:       "0.0.0.0/0",
 					},*/
 					/*{
-						//20-22 Prot로 등록
-						FromPort:   "22",
-						ToPort:     "22",
-						IPProtocol: "tcp",
-						Direction:  "inbound",
-						CIDR:       "0.0.0.0/0",
+					   //20-22 Prot로 등록
+					   FromPort:   "22",
+					   ToPort:     "22",
+					   IPProtocol: "tcp",
+					   Direction:  "inbound",
+					   CIDR:       "0.0.0.0/0",
 					},*/
 					/*{
-						//20-22 Prot로 등록
-						FromPort:   "1000",
-						ToPort:     "1000",
-						IPProtocol: "tcp",
-						Direction:  "inbound",
-						CIDR:       "4.5.6.7/32",
+					   //20-22 Prot로 등록
+					   FromPort:   "1000",
+					   ToPort:     "1000",
+					   IPProtocol: "tcp",
+					   Direction:  "inbound",
+					   CIDR:       "4.5.6.7/32",
 					},*/
 					/*{
-						//20-22 Prot로 등록
-						FromPort:   "1",
-						ToPort:     "65535",
-						IPProtocol: "udp",
-						Direction:  "inbound",
-						CIDR:       "0.0.0.0/0",
-					},
-					{
-						//20-22 Prot로 등록
-						FromPort:   "-1",
-						ToPort:     "-1",
-						IPProtocol: "icmp",
-						Direction:  "inbound",
-						CIDR:       "0.0.0.0/0",
-					},*/
+					     //20-22 Prot로 등록
+					     FromPort:   "1",
+					     ToPort:     "65535",
+					     IPProtocol: "udp",
+					     Direction:  "inbound",
+					     CIDR:       "0.0.0.0/0",
+					  },
+					  {
+					     //20-22 Prot로 등록
+					     FromPort:   "-1",
+					     ToPort:     "-1",
+					     IPProtocol: "icmp",
+					     Direction:  "inbound",
+					     CIDR:       "0.0.0.0/0",
+					  },*/
 					{
 						//20-22 Prot로 등록
 						FromPort:   "22",
@@ -701,73 +701,73 @@ func handleSecurity() {
 				cblogger.Infof("[%s] Rule 삭제 테스트", securityId)
 				securityRules := &[]irs.SecurityRuleInfo{
 					/*{
-							//20-22 Prot로 등록
-							FromPort:   "20",
-							ToPort:     "21",
-							IPProtocol: "tcp",
-							Direction:  "inbound",
-							CIDR:       "0.0.0.0/0",
+					      //20-22 Prot로 등록
+					      FromPort:   "20",
+					      ToPort:     "21",
+					      IPProtocol: "tcp",
+					      Direction:  "inbound",
+					      CIDR:       "0.0.0.0/0",
 					},*/
 					/*{
-							//20-22 Prot로 등록
-							FromPort:   "20",
-							ToPort:     "21",
-							IPProtocol: "tcp",
-							Direction:  "outbound",
-							CIDR:       "0.0.0.0/0",
+					      //20-22 Prot로 등록
+					      FromPort:   "20",
+					      ToPort:     "21",
+					      IPProtocol: "tcp",
+					      Direction:  "outbound",
+					      CIDR:       "0.0.0.0/0",
 					},*/
 					/*{
-						FromPort:   "40",
-						ToPort:     "40",
-						IPProtocol: "tcp",
-						Direction:  "outbound",
-						CIDR:       "10.13.1.10/32",
+					   FromPort:   "40",
+					   ToPort:     "40",
+					   IPProtocol: "tcp",
+					   Direction:  "outbound",
+					   CIDR:       "10.13.1.10/32",
 					},*/
 					/*{
-						//20-22 Prot로 등록
-						FromPort:   "20",
-						ToPort:     "22",
-						IPProtocol: "tcp",
-						Direction:  "inbound",
-						CIDR:       "0.0.0.0/0",
+					   //20-22 Prot로 등록
+					   FromPort:   "20",
+					   ToPort:     "22",
+					   IPProtocol: "tcp",
+					   Direction:  "inbound",
+					   CIDR:       "0.0.0.0/0",
 					},*/
 					/*{
-						//20-22 Prot로 등록
-						FromPort:   "20",
-						ToPort:     "21",
-						IPProtocol: "udp",
-						Direction:  "inbound",
-						CIDR:       "0.0.0.0/0",
+					   //20-22 Prot로 등록
+					   FromPort:   "20",
+					   ToPort:     "21",
+					   IPProtocol: "udp",
+					   Direction:  "inbound",
+					   CIDR:       "0.0.0.0/0",
 					},*/
 					/*{
-						// 8080 Port로 등록
-						FromPort:   "8080",
-						ToPort:     "8080", //FromPort나 ToPort중 하나에 -1이 입력될 경우 -1이 입력된 경우 -1을 공백으로 처리
-						IPProtocol: "tcp",
-						Direction:  "inbound",
-						CIDR:       "0.0.0.0/0",
+					   // 8080 Port로 등록
+					   FromPort:   "8080",
+					   ToPort:     "8080", //FromPort나 ToPort중 하나에 -1이 입력될 경우 -1이 입력된 경우 -1을 공백으로 처리
+					   IPProtocol: "tcp",
+					   Direction:  "inbound",
+					   CIDR:       "0.0.0.0/0",
 					},*/
 					/*{ // 1323 Prot로 등록
-						FromPort:   "1323", //FromPort나 ToPort중 하나에 -1이 입력될 경우 -1이 입력된 경우 -1을 공백으로 처리
-						ToPort:     "1323",
-						IPProtocol: "tcp",
-						Direction:  "inbound",
-						CIDR:       "0.0.0.0/0",
+					   FromPort:   "1323", //FromPort나 ToPort중 하나에 -1이 입력될 경우 -1이 입력된 경우 -1을 공백으로 처리
+					   ToPort:     "1323",
+					   IPProtocol: "tcp",
+					   Direction:  "inbound",
+					   CIDR:       "0.0.0.0/0",
 					},*/
 					/*{
-						// All Port로 등록
-						FromPort:   "",
-						ToPort:     "",
-						IPProtocol: "icmp", //icmp는 포트 정보가 없음
-						Direction:  "inbound",
-						CIDR:       "0.0.0.0/0",
+					   // All Port로 등록
+					   FromPort:   "",
+					   ToPort:     "",
+					   IPProtocol: "icmp", //icmp는 포트 정보가 없음
+					   Direction:  "inbound",
+					   CIDR:       "0.0.0.0/0",
 					},*/
 					/*{ // 모든 프로토콜 모든 포트로 등록
-						//FromPort:   "",
-						//ToPort:     "",
-						IPProtocol: "all", // 모두 허용 (포트 정보 없음)
-						Direction:  "inbound",
-						CIDR:       "0.0.0.0/0",
+					   //FromPort:   "",
+					   //ToPort:     "",
+					   IPProtocol: "all", // 모두 허용 (포트 정보 없음)
+					   Direction:  "inbound",
+					   CIDR:       "0.0.0.0/0",
 					},*/
 					{
 						//20-22 Prot로 등록
@@ -802,12 +802,12 @@ func handleSecurity() {
 						CIDR:       "0.0.0.0/0",
 					},
 					/*{
-						//20-22 Prot로 등록
-						FromPort:   "-1",
-						ToPort:     "-1",
-						IPProtocol: "all",
-						Direction:  "outbound",
-						CIDR:       "0.0.0.0/0",
+					   //20-22 Prot로 등록
+					   FromPort:   "-1",
+					   ToPort:     "-1",
+					   IPProtocol: "all",
+					   Direction:  "outbound",
+					   CIDR:       "0.0.0.0/0",
 					},*/
 				}
 
@@ -906,23 +906,23 @@ func handleKeyPair() {
 
 /*
 func TestMain() {
-	cblogger.Debug("Start ImageHandler Resource Test")
+   cblogger.Debug("Start ImageHandler Resource Test")
 
-	ResourceHandler, err := testconf.GetResourceHandler("Image")
-	if err != nil {
-		panic(err)
-	}
-	handler := ResourceHandler.(irs.ImageHandler)
+   ResourceHandler, err := testconf.GetResourceHandler("Image")
+   if err != nil {
+      panic(err)
+   }
+   handler := ResourceHandler.(irs.ImageHandler)
 
-	result, err := handler.ListImage()
-	if err != nil {
-		cblogger.Infof(" Image 목록 조회 실패 : ", err)
-	} else {
-		cblogger.Info("Image 목록 조회 결과")
-		cblogger.Info(result)
-		cblogger.Info("출력 결과 수 : ", len(result))
-		spew.Dump(result)
-	}
+   result, err := handler.ListImage()
+   if err != nil {
+      cblogger.Infof(" Image 목록 조회 실패 : ", err)
+   } else {
+      cblogger.Info("Image 목록 조회 결과")
+      cblogger.Info(result)
+      cblogger.Info("출력 결과 수 : ", len(result))
+      spew.Dump(result)
+   }
 }
 */
 
@@ -1581,6 +1581,58 @@ func handleRegionZone() {
 	}
 }
 
+func handlePriceInfo() {
+	cblogger.Debug("Start handlePriceInfo Test")
+	ResourceHandler, err := testconf.GetResourceHandler("PriceInfo")
+	if err != nil {
+		//panic(err)
+		cblogger.Error(err)
+	}
+	handler := ResourceHandler.(irs.PriceInfoHandler)
+	cblogger.Info(handler)
+
+	for {
+		fmt.Println("Handler Management")
+		fmt.Println("0. Quit")
+		fmt.Println("1. ListProductFamily List")
+		fmt.Println("2. GetPriceInfo ")
+
+		var commandNum int
+		inputCnt, err := fmt.Scan(&commandNum)
+		if err != nil {
+			panic(err)
+		}
+
+		if inputCnt == 1 {
+			switch commandNum {
+			case 0:
+				return
+			case 1:
+				regionName := "cn-hongkong"
+				result, err := handler.ListProductFamily(regionName)
+				if err != nil {
+					cblogger.Infof(" ProductFamily 목록 조회 실패 : ", err)
+				} else {
+					cblogger.Info("ProductFamily 목록 조회 결과")
+					spew.Dump(result)
+				}
+
+			case 2:
+				productFamily := "ecs"
+				regionName := ""
+
+				result, err := handler.GetPriceInfo(productFamily, regionName, []irs.KeyValue{})
+				if err != nil {
+					cblogger.Info(" PriceInfo 조회 실패 : ", err)
+				} else {
+					cblogger.Info("PriceInfo 조회 결과")
+					spew.Dump(result)
+				}
+			}
+		}
+	}
+}
+
 func main() {
 	cblogger.Info("Alibaba Cloud Resource Test")
 	cblogger.Debug("Debug mode")
@@ -1595,31 +1647,31 @@ func main() {
 	//handlePublicIP() // PublicIP 생성 후 conf
 
 	//handleVNic() //Lancard
-	handleRegionZone()
-
+	//handleRegionZone()
+	handlePriceInfo()
 	/*
-		//StartTime := "2020-05-07T01:35:00Z"
-		StartTime := "2020-05-07T01:35Z"
-		timeLen := len(StartTime)
-		cblogger.Infof("======> 생성시간 길이 [%s]", timeLen)
-		if timeLen > 7 {
-			cblogger.Infof("======> 생성시간 마지막 문자열 [%s]", StartTime[timeLen-1:])
-			if StartTime[timeLen-1:] == "Z" {
-				cblogger.Infof("======> 문자열 변환 : [%s]", StartTime[:timeLen-1])
-				NewStartTime := StartTime[:timeLen-1] + ":00Z"
-				cblogger.Infof("======> 최종 문자열 변환 : [%s]", NewStartTime)
-			}
-		}
+	   //StartTime := "2020-05-07T01:35:00Z"
+	   StartTime := "2020-05-07T01:35Z"
+	   timeLen := len(StartTime)
+	   cblogger.Infof("======> 생성시간 길이 [%s]", timeLen)
+	   if timeLen > 7 {
+	      cblogger.Infof("======> 생성시간 마지막 문자열 [%s]", StartTime[timeLen-1:])
+	      if StartTime[timeLen-1:] == "Z" {
+	         cblogger.Infof("======> 문자열 변환 : [%s]", StartTime[:timeLen-1])
+	         NewStartTime := StartTime[:timeLen-1] + ":00Z"
+	         cblogger.Infof("======> 최종 문자열 변환 : [%s]", NewStartTime)
+	      }
+	   }
 
-		//:41+00:00
-		cblogger.Infof("Convert StartTime string [%s] to time.time", StartTime)
+	   //:41+00:00
+	   cblogger.Infof("Convert StartTime string [%s] to time.time", StartTime)
 
-		//layout := "2020-05-07T01:36Z"
-		t, err := time.Parse(time.RFC3339, StartTime)
-		if err != nil {
-			cblogger.Error(err)
-		} else {
-			cblogger.Infof("======> [%v]", t)
-		}
+	   //layout := "2020-05-07T01:36Z"
+	   t, err := time.Parse(time.RFC3339, StartTime)
+	   if err != nil {
+	      cblogger.Error(err)
+	   } else {
+	      cblogger.Infof("======> [%v]", t)
+	   }
 	*/
 }

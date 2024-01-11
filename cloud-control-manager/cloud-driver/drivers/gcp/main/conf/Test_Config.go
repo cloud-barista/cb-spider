@@ -58,12 +58,16 @@ func GetResourceHandler(handlerType string) (interface{}, error) {
 	//region := "europe-west1"
 	region := "asia-northeast3"
 	zone := "asia-northeast3-a"
+	// 필요 시 BillingAccountID 셋팅 필요 "billingAccounts/xxxxxx-xxxxxx-xxxxxx"
+	billingAccountID := "billingAccounts/"
 
 	connectionInfo := idrv.ConnectionInfo{
 		CredentialInfo: idrv.CredentialInfo{
 			PrivateKey:  config.PrivateKey,
 			ProjectID:   config.ProjectID,
 			ClientEmail: config.ClientEmail,
+			
+			BillingAccountID: billingAccountID,
 		},
 		RegionInfo: idrv.RegionInfo{
 			Region: region,
@@ -102,6 +106,8 @@ func GetResourceHandler(handlerType string) (interface{}, error) {
 		resourceHandler, err = cloudConnection.CreateVPCHandler()
 	case "RegionZone":
 		resourceHandler, err = cloudConnection.CreateRegionZoneHandler()
+	case "PriceInfo":
+		resourceHandler, err = cloudConnection.CreatePriceInfoHandler()
 	}
 
 	if err != nil {

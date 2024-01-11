@@ -19,6 +19,8 @@ import (
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/sirupsen/logrus"
+	"google.golang.org/api/cloudbilling/v1"
+	cbb "google.golang.org/api/cloudbilling/v1beta"
 	compute "google.golang.org/api/compute/v1"
 	"google.golang.org/api/container/v1"
 )
@@ -30,21 +32,28 @@ func init() {
 	cblogger = cblog.GetLogger("CB-SPIDER")
 }
 
+// @Infomation
+// BillingCatalogClient 와 CostEstimationClient 분리
+// 현재(2024-01-02) 제공되는 BillingCatalogClient sdk 와 CostEstimationClient sdk 의 버전 차이로 인해 두 클라이언트 분리
+// 추후 api 통합 시 코드 통합 작업 필요
+
 type GCPCloudConnection struct {
-	Region              idrv.RegionInfo
-	Credential          idrv.CredentialInfo
-	Ctx                 context.Context
-	VMClient            *compute.Service
-	ImageClient         *compute.Service
-	PublicIPClient      *compute.Service
-	SecurityGroupClient *compute.Service
-	VNetClient          *compute.Service
-	VNicClient          *compute.Service
-	SubnetClient        *compute.Service
-	VMSpecClient        *compute.Service
-	VPCClient           *compute.Service
-	RegionZoneClient    *compute.Service
-	ContainerClient     *container.Service
+	Region               idrv.RegionInfo
+	Credential           idrv.CredentialInfo
+	Ctx                  context.Context
+	VMClient             *compute.Service
+	ImageClient          *compute.Service
+	PublicIPClient       *compute.Service
+	SecurityGroupClient  *compute.Service
+	VNetClient           *compute.Service
+	VNicClient           *compute.Service
+	SubnetClient         *compute.Service
+	VMSpecClient         *compute.Service
+	VPCClient            *compute.Service
+	RegionZoneClient     *compute.Service
+	ContainerClient      *container.Service
+	BillingCatalogClient *cloudbilling.APIService
+	CostEstimationClient *cbb.Service
 }
 
 // func (cloudConn *GCPCloudConnection) CreateVNetworkHandler() (irs.VNetworkHandler, error) {
@@ -143,6 +152,18 @@ func (cloudConn *GCPCloudConnection) CreateRegionZoneHandler() (irs.RegionZoneHa
 	return &regionZoneHandler, nil
 }
 
-func (*GCPCloudConnection) CreatePriceInfoHandler() (irs.PriceInfoHandler, error) {
-	return nil, errors.New("GCP Cloud Driver: not implemented")
+func (cloudConn *GCPCloudConnection) CreatePriceInfoHandler() (irs.PriceInfoHandler, error) {
+	cblogger.Info("GCP Cloud Driver: called CreateRegionZoneHandler()!")
+
+	//priceInfoHandler := gcprs.GCPPriceInfoHandler{cloudConn.Region, cloudConn.Ctx, cloudConn.CloudBillingClient, cloudConn.Credential}
+	priceInfoHandler := gcprs.GCPPriceInfoHandler{
+		Region:               cloudConn.Region,
+		Ctx:                  cloudConn.Ctx,
+		Client:               cloudConn.VMClient,
+		BillingCatalogClient: cloudConn.BillingCatalogClient,
+		CostEstimationClient: cloudConn.CostEstimationClient,
+		Credential:           cloudConn.Credential,
+	}
+
+	return &priceInfoHandler, nil
 }
