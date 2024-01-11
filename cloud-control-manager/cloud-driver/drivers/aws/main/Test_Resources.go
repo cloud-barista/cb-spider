@@ -31,6 +31,7 @@ import (
 var cblogger *logrus.Logger
 
 func init() {
+	fmt.Println("init start")
 	// cblog is a global variable.
 	cblogger = cblog.GetLogger("AWS Resource Test")
 	//cblog.SetLevel("info")
@@ -949,7 +950,8 @@ func handleVM() {
 
 	//config := readConfigFile()
 	//VmID := irs.IID{NameId: config.Aws.BaseName, SystemId: config.Aws.VmID}
-	VmID := irs.IID{SystemId: "i-0cea86282a9e2a569"}
+	// VmID := irs.IID{SystemId: "i-0cea86282a9e2a569"}
+	VmID := irs.IID{SystemId: "i-0c70f696e5f8e690c"}
 
 	for {
 		fmt.Println("VM Management")
@@ -1701,24 +1703,75 @@ func handleRegionZone() {
 			}
 		}
 	}
-
 }
 
-func main() {
-	cblogger.Info("AWS Resource Test")
-	//handleVPC()
-	//handleKeyPair()
-	//handlePublicIP() // PublicIP 생성 후 conf
-	//handleSecurity()
-	//handleVM()
+func handlePriceInfo() {
+	cblogger.Debug("Start Price Info Test")
 
-	//handleImage() //AMI
-	//handleVNic() //Lancard
-	//handleVMSpec()
-	//handleNLB()
-	//handleCluster()
-	handleRegionZone()
+	ResourceHandler, err := getResourceHandler("PriceInfo")
+	if err != nil {
+		panic(err)
+	}
+	handler := ResourceHandler.(irs.PriceInfoHandler)
+	if handler == nil {
+		fmt.Println("handler nil")
+		panic(err)
+	}
 
+	for {
+		fmt.Println("PriceInfoHandler Management")
+		fmt.Println("0. Quit")
+		fmt.Println("1. ListProductFamily")
+		fmt.Println("2. GetPriceInfo")
+		var commandNum int
+		inputCnt, err := fmt.Scan(&commandNum)
+		if err != nil {
+			panic(err)
+		}
+
+		if inputCnt == 1 {
+			switch commandNum {
+			case 0:
+				return
+
+			case 1:
+				result, err := handler.ListProductFamily("us-west-1")
+				if err != nil {
+					cblogger.Infof("ListProductFamily 목록 조회 실패 : %s", err)
+				} else {
+					cblogger.Info("ListProductFamily 목록 조회 결과")
+					// cblogger.Debugf("결과 %s", result[0])
+					spew.Dump(result)
+					cblogger.Infof("로그 레벨 : [%s]", cblog.GetLevel())
+					//spew.Dump(result)
+					cblogger.Info("출력 결과 수 : ", len(result))
+				}
+
+			case 2:
+				var filterList []irs.KeyValue
+				// Type : [TERM_CONTAIN, ANY_OF, TERM_MATCH, NONE_OF, CONTAINS, EQUALS]
+				// filterList = append(filterList, irs.KeyValue{Key: "filter", Value: "{\"Field\":\"instanceType\",\"Type\":\"TERM_MATCH\",\"Value\":\"t2.nano\"}"})
+				// filterList = append(filterList, irs.KeyValue{Key: "filter", Value: "{\"Field\":\"operatingSystem\",\"Type\":\"TERM_MATCH\",\"Value\":\"Linux\"}"})
+				filterList = append(filterList, irs.KeyValue{Key: "filter", Value: "{\"Field\":\"sku\",\"Type\":\"TERM_MATCH\",\"Value\":\"24MKFUYR8UGHCNGB\"}"})
+
+				// TEST seraach data
+				// instanceType = t2.nano
+				// operatingSystem = Linux
+
+				// cli 에서 아래 명령어를 통해 attribute를 검색할 수 있음.
+				// aws pricing get-attribute-values --service-code AmazonEC2 --attribute-name instanceType
+
+				result, err := handler.GetPriceInfo("AmazonEC2", "ap-northeast-2", filterList)
+				if err != nil {
+					cblogger.Infof("GetPriceInfo 조회 실패 : ", err)
+				} else {
+					cblogger.Info("GetPriceInfo 조회 결과")
+					cblogger.Info(result)
+					cblogger.Infof("로그 레벨 : [%s]", cblog.GetLevel())
+				}
+			}
+		}
+	}
 }
 
 // handlerType : resources폴더의 xxxHandler.go에서 Handler이전까지의 문자열
@@ -1768,6 +1821,8 @@ func getResourceHandler(handlerType string) (interface{}, error) {
 		resourceHandler, err = cloudConnection.CreateClusterHandler()
 	case "RegionZone":
 		resourceHandler, err = cloudConnection.CreateRegionZoneHandler()
+	case "PriceInfo":
+		resourceHandler, err = cloudConnection.CreatePriceInfoHandler()
 	}
 
 	if err != nil {
@@ -1870,14 +1925,8 @@ type Config struct {
 func readConfigFile() Config {
 	// Set Environment Value of Project Root Path
 	rootPath := os.Getenv("CBSPIDER_PATH")
-	//rootpath := "D:/Workspace/mcloud-barista-config"
-	// /mnt/d/Workspace/mcloud-barista-config/config/config.yaml
-	// cblogger.Infof("Test Data 설정파일 : [%]", rootPath+"/config/config.yaml")
-
-	// data, err := ioutil.ReadFile(rootPath + "/config/config.yaml")
-	// data, err := ioutil.ReadFile("/Sample/config/config.yaml")
-	data, err := ioutil.ReadFile(rootPath + "/Sample/config/config.yaml")
-	//data, err := ioutil.ReadFile("D:/Workspace/mcloud-bar-config/config/config.yaml")
+	cblogger.Infof("Test Data 설정파일 : [%s]", rootPath+"/config/config.yaml")
+	data, err := ioutil.ReadFile(rootPath + "/config/config.yaml")
 	if err != nil {
 		panic(err)
 	}
@@ -1889,9 +1938,22 @@ func readConfigFile() Config {
 	}
 
 	cblogger.Info("Loaded ConfigFile...")
-	//spew.Dump(config)
-	//cblogger.Info(config)
 	cblogger.Debug(config.Aws.AawsAccessKeyID, " ", config.Aws.Region)
-	//cblogger.Debug(config.Aws.Region)
 	return config
+}
+
+func main() {
+	cblogger.Info("AWS Resource Test")
+	// handleVPC()
+	// handleKeyPair()
+	// handlePublicIP() // PublicIP 생성 후 conf
+	// handleSecurity()
+	// handleVM()
+	// handleImage() //AMI
+	// handleVNic() //Lancard
+	// handleVMSpec()
+	// handleNLB()
+	// handleCluster()
+	// handleRegionZone()
+	handlePriceInfo()
 }

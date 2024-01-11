@@ -148,5 +148,5 @@ func (cloudConn *NcpCloudConnection) Close() error {
 }
 
 func (*NcpCloudConnection) CreatePriceInfoHandler() (irs.PriceInfoHandler, error) {
-	return nil, errors.New("Alibaba Driver: not implemented")
+	return nil, errors.New("NCP Cloud Driver: not implemented")
 }

@@ -143,7 +143,7 @@ func (cloudConn *GCPCloudConnection) CreateClusterHandler() (irs.ClusterHandler,
 }
 
 func (cloudConn *GCPCloudConnection) CreateAnyCallHandler() (irs.AnyCallHandler, error) {
-	return nil, errors.New("GCP Driver: not implemented")
+	return nil, errors.New("GCP Cloud Driver: not implemented")
 }
 
 func (cloudConn *GCPCloudConnection) CreateRegionZoneHandler() (irs.RegionZoneHandler, error) {
