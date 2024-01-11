@@ -1707,7 +1707,6 @@ func handleRegionZone() {
 
 func handlePriceInfo() {
 	cblogger.Debug("Start Price Info Test")
-
 	ResourceHandler, err := getResourceHandler("PriceInfo")
 	if err != nil {
 		panic(err)

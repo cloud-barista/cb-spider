@@ -13,6 +13,7 @@ package alibaba
 import (
 	"fmt"
 
+	"github.com/aliyun/alibaba-cloud-sdk-go/services/bssopenapi"
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/slb"
 
 	"time"
@@ -48,6 +49,7 @@ func (AlibabaDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	drvCapabilityInfo.DiskHandler = true
 	drvCapabilityInfo.ClusterHandler = true
 	drvCapabilityInfo.RegionZoneHandler = true
+	drvCapabilityInfo.PriceInfoHandler = true
 
 	return drvCapabilityInfo
 }
@@ -76,6 +78,11 @@ func (driver *AlibabaDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (i
 		return nil, err
 	}
 
+	BssClient, err := getBssClient(connectionInfo)
+	if err != nil {
+		return nil, err
+	}
+
 	iConn := alicon.AlibabaCloudConnection{
 		CredentialInfo: connectionInfo.CredentialInfo,
 		Region:         connectionInfo.RegionInfo,
@@ -93,6 +100,7 @@ func (driver *AlibabaDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (i
 		DiskClient:       ECSClient,
 		MyImageClient:    ECSClient,
 		RegionZoneClient: ECSClient,
+		BssClient:        BssClient,
 	}
 	return &iConn, nil
 }
@@ -222,4 +230,53 @@ func getNLBClient(connectionInfo idrv.ConnectionInfo) (*slb.Client, error) {
 	}
 
 	return nlbClient, nil
+}
+
+func getBssClient(connectionInfo idrv.ConnectionInfo) (*bssopenapi.Client, error) {
+	// Region Info
+	fmt.Println("AlibabaDriver : getNLBClient() - Region : [" + connectionInfo.RegionInfo.Region + "]")
+
+	credential := &credentials.AccessKeyCredential{
+		AccessKeyId:     connectionInfo.CredentialInfo.ClientId,
+		AccessKeySecret: connectionInfo.CredentialInfo.ClientSecret,
+	}
+
+	config := sdk.NewConfig()
+	config.Timeout = time.Duration(15) * time.Second //time.Millisecond
+	config.AutoRetry = true
+	config.MaxRetryTime = 2
+
+	//sdk.Timeout(1000)
+
+	// https://api.alibabacloud.com/document/BssOpenApi/2017-12-14/DescribeResourcePackageProduct?spm=api-workbench-intl.api_explorer.0.0.777f813524Q25K
+	// API docs 상 가능 Region 명시되지 않음, 티켓에서도 별도 안내 없음.
+	// 모든 Region 테스트 결과 아래 6개 리전에서 bss API 권한을 가진 상태로 정상 결과 응답
+	// ++ QueryProductList 는 클라이언트에서 Region 정보를 가져오는 것이 아닌, 별도 Input 으로 리전 받음, 따라서 별도 Client 에 리전 셋팅 필요 없음.
+	// ++ 제공되는 Product 는 23.12.18 현재 123개로 모든 리전에서 동일한 응답을 확인
+	// Tested request Region
+	// us-east-1, us-west-1, eu-west-1, eu-central-1, ap-south-1, me-east-1,
+
+	pricingRegion := []string{"us-east-1", "us-west-1", "eu-west-1", "eu-central-1", "ap-south-1", "me-east-1"} // updated : 23.12.18
+	match := false
+	for _, str := range pricingRegion {
+		if str == connectionInfo.RegionInfo.Region {
+			match = true
+			break
+		}
+	}
+
+	var targetRegion string
+	if match {
+		targetRegion = connectionInfo.RegionInfo.Region
+	} else {
+		targetRegion = "us-east-1"
+	}
+
+	bssClient, err := bssopenapi.NewClientWithOptions(targetRegion, config, credential)
+	if err != nil {
+		fmt.Println("Could not create alibaba's server bss open api client", err)
+		return nil, err
+	}
+
+	return bssClient, nil
 }

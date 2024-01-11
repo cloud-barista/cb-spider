@@ -11,6 +11,7 @@
 package connect
 
 import (
+	bssopenapi "github.com/aliyun/alibaba-cloud-sdk-go/services/bssopenapi"
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/ecs"
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/slb"
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/vpc"
@@ -48,6 +49,8 @@ type AlibabaCloudConnection struct {
 	DiskClient       *ecs.Client
 	MyImageClient    *ecs.Client
 	RegionZoneClient *ecs.Client
+
+	BssClient *bssopenapi.Client
 }
 
 func (cloudConn *AlibabaCloudConnection) CreateRegionZoneHandler() (irs.RegionZoneHandler, error) {
@@ -158,6 +161,8 @@ func (cloudConn *AlibabaCloudConnection) CreateAnyCallHandler() (irs.AnyCallHand
 	return nil, errors.New("Alibaba Driver: not implemented")
 }
 
-func (*AlibabaCloudConnection) CreatePriceInfoHandler() (irs.PriceInfoHandler, error) {
-	return nil, errors.New("Alibaba Driver: not implemented")
+func (cloudConn *AlibabaCloudConnection) CreatePriceInfoHandler() (irs.PriceInfoHandler, error) {
+	// priceInfoHandler := alirs.AlibabaPriceInfoHandler{Region: cloudConn.Region, Client: cloudConn.VMClient, BssClient: cloudConn.BssClient}
+	priceInfoHandler := alirs.AlibabaPriceInfoHandler{BssClient: cloudConn.BssClient}
+	return &priceInfoHandler, nil
 }

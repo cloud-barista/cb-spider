@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/aliyun/alibaba-cloud-sdk-go/sdk/requests"
+	bssopenapi "github.com/aliyun/alibaba-cloud-sdk-go/services/bssopenapi"
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/ecs"
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
@@ -653,4 +654,31 @@ func DescribeZonesByRegion(client *ecs.Client, regionId string) (*ecs.DescribeZo
 	}
 	callogger.Info(call.String(callLogInfo))
 	return result, nil
+}
+
+// Alibaba 가용한 모든 서비스 호출
+func QueryProductList(bssClient *bssopenapi.Client) (*bssopenapi.QueryProductListResponse, error) {
+	request := bssopenapi.CreateQueryProductListRequest()
+	request.Scheme = "https"
+	// request.Language = "en" //
+	// request.Lang = "en"
+	request.QueryTotalCount = requests.Boolean("true") // 전체 서비스 카운트 리턴 옵션
+	request.PageNum = requests.NewInteger(1)
+	request.PageSize = requests.NewInteger(1) // 전체 서비스 카운트를 얻어오기 위해 PageNum과 PageSize를 1로 설정하여 QueryTotalCount 획득
+
+	responseTotalcount, err := bssClient.QueryProductList(request)
+	if err != nil {
+		cblogger.Error(err)
+		return nil, err
+	}
+
+	// QueryTotalCount 설정. 23.12.18 : 123개
+	request.PageSize = requests.NewInteger(responseTotalcount.Data.TotalCount)
+	productListresponse, err := bssClient.QueryProductList(request)
+	if err != nil {
+		cblogger.Error(err)
+		return nil, err
+	}
+
+	return productListresponse, nil
 }
