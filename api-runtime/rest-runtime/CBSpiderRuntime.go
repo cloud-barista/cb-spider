@@ -440,6 +440,7 @@ func RunServer() {
 		{"GET", "/adminweb/vmimage/:ConnectConfig", aw.VMImage},
 		{"GET", "/adminweb/vmspec/:ConnectConfig", aw.VMSpec},
 		{"GET", "/adminweb/regionzone/:ConnectConfig", aw.RegionZone},
+		{"GET", "/adminweb/priceinforequest/:ConnectConfig", aw.RiceInfoRequest},
 
 		{"GET", "/adminweb/cluster/:ConnectConfig", aw.Cluster},
 		{"GET", "/adminweb/clustermgmt/:ConnectConfig", aw.ClusterMgmt},
@@ -505,7 +506,11 @@ func ApiServer(routes []route) {
 
 	// for spider logo
 	e.File("/spider/adminweb/images/logo.png", cbspiderRoot+"/api-runtime/rest-runtime/admin-web/images/cb-spider-circle-logo.png")
+
+	// for admin-web
 	e.File("/spider/adminweb/html/priceinfo-filter-gen.html", cbspiderRoot+"/api-runtime/rest-runtime/admin-web/html/priceinfo-filter-gen.html")
+
+	e.File("/spider/adminweb/html/priceInfo-request.html", cbspiderRoot+"/api-runtime/rest-runtime/admin-web/html/priceInfo-request.html")
 
 	e.HideBanner = true
 	e.HidePort = true

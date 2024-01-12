@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Multi-Cloud Price Info</title>
+    <style>
+        .container {
+            width: 80%;
+            margin: auto;
+            padding: 20px;
+        }
+        .form-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 15px;
+        }
+        .form-group {
+            flex: 1;
+            margin-right: 25px;
+        }
+        .form-group:last-child {
+            margin-right: 0;
+        }
+        .form-group label, .form-group div {
+            display: inline-block;
+            margin-right: 10px;
+            margin-bottom: 5px;
+        }
+        .form-group select, .form-group textarea {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 16px;
+        }
+        textarea {
+            height: 100px; /* Adjust height as needed */
+        }
+
+        #filter {
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 14px;
+            background-color: #f8f8f8; 
+            color: #333; 
+            white-space: pre; 
+            overflow: auto; 
+        }
+
+        .fetch-btn {
+            padding: 10px 20px;
+            background-color: #f0f0f0;
+            color: #333;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+        .fetch-btn:hover {
+            background-color: #e0e0e0;
+        }
+
+        .gen-tool-btn {
+            padding: 5px 10px;
+            background-color: #f0f0f0;
+            color: #333;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .gen-tool-btn:hover {
+            background-color: #e0e0e0;
+        }
+
+        .button-textarea-group {
+            margin-bottom: 6px;
+        }
+
+        .overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            z-index: 1000;
+            display: none;
+        }
+        
+        .overlay-content {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 70%;
+            height: 70%;
+            transform: translate(-50%, -50%);
+            background-color: white;
+            border: none;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>Multi-Cloud Price Info</h2>
+        <form id="filterForm">
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="productFamily">Product Family</label>
+                    <select id="productFamily" name="productFamily"></select>
+                </div>
+                <div class="form-group">
+                    <label for="region">Region</label>
+                    <select id="region" name="region"></select>
+                </div>
+            </div>
+            <div class="form-group">
+                <div class="button-textarea-group">
+                    <label for="filter">Filter</label>
+                    <button type="button" class="gen-tool-btn" onclick="openOverlay()">Gen...</button>
+                </div>
+                <textarea id="filter" name="filter" spellcheck="false"></textarea>
+            </div>
+            <button type="button" class="fetch-btn">Fetch</button>
+        </form>
+    </div>
+
+    <div class="overlay" id="overlay">
+        <iframe class="overlay-content" id="overlayContent"></iframe>
+    </div>
+
+    <script>
+        // Example data - Replace with actual function calls
+        const productFamilies = productFamilyList();
+        const regions = regionList();
+
+        function populateSelect(selectId, options) {
+            const select = document.getElementById(selectId);
+            options.forEach(option => {
+                let opt = document.createElement('option');
+                opt.value = option;
+                opt.innerHTML = option;
+                select.appendChild(opt);
+            });
+        }
+
+        // Populate the select boxes
+        populateSelect('productFamily', productFamilies);
+        populateSelect('region', regions);
+
+        // Replace the above example data with actual function calls
+        // populateSelect('productFamily', productFamilyList());
+        // populateSelect('region', regionList());
+
+        function openOverlay() {
+            document.getElementById('overlay').style.display = 'block';
+            document.getElementById('overlayContent').src = '/spider/adminweb/html/priceinfo-filter-gen.html';
+        }
+
+        function closeOverlay() {
+            document.getElementById('overlay').style.display = 'none';
+            document.getElementById('overlayContent').src = '';
+        }
+
+        function setFilter(filterContent) {
+            document.getElementById('filter').value = filterContent;
+            document.getElementById('overlay').style.display = 'none';
+            document.getElementById('overlayContent').src = '';
+        }
+    </script>
+</body>
+</html>

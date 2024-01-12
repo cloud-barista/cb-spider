@@ -45,6 +45,19 @@
             background-color: #e0e0e0; /* Slightly darker gray on hover */
         }
 
+        .confirm-btn {
+            padding: 10px 20px;
+            background-color: #f0f0f0; /* Light gray background */
+            color: rgb(59, 59, 206); /* Dark text for contrast */
+            border: 1px solid #ccc; /* Slight border */
+            border-radius: 4px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+        .confirm-btn:hover {
+            background-color: #e0e0e0; /* Slightly darker gray on hover */
+        }
+
         .close-btn {
             padding: 10px 20px;
             background-color: #f0f0f0; /* Light gray background */
@@ -205,7 +218,8 @@
 
             <div class="button-group">
                 <button type="button" class="clear-btn" onclick="clearForm()">Clear</button>
-                <button type="button" class="close-btn" onclick="closeWindow()">Close</button>
+                <button type="button" class="confirm-btn" onclick="confirmFilter()">Confirm</button>
+                <button type="button" class="close-btn" onclick="window.parent.closeOverlay()">Close</button>
             </div>
         </form>        
 
@@ -258,8 +272,9 @@
             document.getElementById('filterList').textContent = '';
         }
 
-        function closeWindow() {
-            window.close();
+        function confirmFilter() {            
+            var filterContent = document.getElementById('filterList').textContent;
+            window.parent.setFilter(filterContent)            
         }
     </script>
 </body>
