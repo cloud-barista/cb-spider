@@ -135,7 +135,7 @@ const htmlTemplate = `
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Sample Table</title>
+<title>Multi-Cloud Region/Zone Info</title>
 <style>
     table {
         width: 100%;
