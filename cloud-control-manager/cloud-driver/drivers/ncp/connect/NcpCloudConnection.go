@@ -12,7 +12,6 @@
 package connect
 
 import (
-	"errors"
 	"fmt"
 
 	"github.com/sirupsen/logrus"
@@ -128,6 +127,13 @@ func (cloudConn *NcpCloudConnection) CreateRegionZoneHandler() (irs.RegionZoneHa
 	return &regionZoneHandler, nil
 }
 
+func (cloudConn *NcpCloudConnection) CreatePriceInfoHandler() (irs.PriceInfoHandler, error) {
+	cblogger.Info("NCP Cloud Driver: called CreatePriceInfoHandler()!")
+
+	priceInfoHandler := ncprs.NcpPriceInfoHandler{CredentialInfo: cloudConn.CredentialInfo, RegionInfo: cloudConn.RegionInfo, VMClient: cloudConn.VmClient}
+	return &priceInfoHandler, nil
+}
+
 func (cloudConn *NcpCloudConnection) IsConnected() (bool, error) {
 	cblogger.Info("NCP Cloud Driver: called IsConnected()!")
 	if cloudConn == nil {
@@ -145,8 +151,4 @@ func (cloudConn *NcpCloudConnection) Close() error {
 	cblogger.Info("NCP Cloud Driver: called Close()!")
 
 	return nil
-}
-
-func (*NcpCloudConnection) CreatePriceInfoHandler() (irs.PriceInfoHandler, error) {
-	return nil, errors.New("NCP Cloud Driver: not implemented")
 }
