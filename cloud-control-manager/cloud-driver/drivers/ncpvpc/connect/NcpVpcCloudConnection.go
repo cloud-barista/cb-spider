@@ -12,10 +12,8 @@
 package connect
 
 import (
-	"errors"
 	"fmt"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/sirupsen/logrus"
 
 	cblog "github.com/cloud-barista/cb-log"
@@ -107,9 +105,9 @@ func (cloudConn *NcpVpcCloudConnection) CreateNLBHandler() (irs.NLBHandler, erro
 
 func (cloudConn *NcpVpcCloudConnection) CreateDiskHandler() (irs.DiskHandler, error) {
 	cblogger.Info("NCP VPC Cloud Driver: called CreateDiskHandler()!")
-	cblogger.Info("\n### cloudConn.RegionInfo : ")
-	spew.Dump(cloudConn.RegionInfo)
-	cblogger.Info("\n")
+	// cblogger.Info("\n### cloudConn.RegionInfo : ")
+	// spew.Dump(cloudConn.RegionInfo)
+	// cblogger.Info("\n")
 
 	diskHandler := ncpvpcrs.NcpVpcDiskHandler{RegionInfo: cloudConn.RegionInfo, VMClient: cloudConn.VmClient}
 
@@ -136,10 +134,17 @@ func (cloudConn *NcpVpcCloudConnection) CreateAnyCallHandler() (irs.AnyCallHandl
 }
 
 func (cloudConn *NcpVpcCloudConnection) CreateRegionZoneHandler() (irs.RegionZoneHandler, error) {
-	cblogger.Info("NCP Cloud Driver: called CreateRegionZoneHandler()!")
+	cblogger.Info("NCP VPC Cloud Driver: called CreateRegionZoneHandler()!")
 
 	regionZoneHandler := ncpvpcrs.NcpRegionZoneHandler{RegionInfo: cloudConn.RegionInfo, VMClient: cloudConn.VmClient}
 	return &regionZoneHandler, nil
+}
+
+func (cloudConn *NcpVpcCloudConnection) CreatePriceInfoHandler() (irs.PriceInfoHandler, error) {
+	cblogger.Info("NCP VPC Cloud Driver: called CreatePriceInfoHandler()!")
+
+	priceInfoHandler := ncpvpcrs.NcpVpcPriceInfoHandler{CredentialInfo: cloudConn.CredentialInfo, RegionInfo: cloudConn.RegionInfo, VMClient: cloudConn.VmClient}
+	return &priceInfoHandler, nil
 }
 
 func (cloudConn *NcpVpcCloudConnection) IsConnected() (bool, error) {
@@ -159,8 +164,4 @@ func (cloudConn *NcpVpcCloudConnection) Close() error {
 	cblogger.Info("NCP VPC Cloud Driver: called Close()!")
 
 	return nil
-}
-
-func (*NcpVpcCloudConnection) CreatePriceInfoHandler() (irs.PriceInfoHandler, error) {
-	return nil, errors.New("NCP VPC Cloud Driver: not implemented")
 }
