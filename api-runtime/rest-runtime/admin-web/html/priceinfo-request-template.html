@@ -90,8 +90,8 @@
             position: absolute;
             top: 50%;
             left: 50%;
-            width: 70%;
-            height: 70%;
+            width: 90%;
+            height: 90%;
             transform: translate(-50%, -50%);
             background-color: white;
             border: none;
@@ -100,6 +100,7 @@
     </style>
 </head>
 <body>
+    <input type="hidden" id="connectionName" value="{{.ConnectionName}}">
     <div class="container">
         <h2>Multi-Cloud Price Info</h2>
         <form id="filterForm">
@@ -138,12 +139,13 @@
     </div>
 
     <script>
-        // Example data - Replace with actual function calls
-        const productFamilies = productFamilyList();
-        const regions = regionList();
 
         function populateSelect(selectId, options) {
             const select = document.getElementById(selectId);
+            // Remove all existing options
+            while (select.options.length > 0) {
+                select.remove(0);
+            }            
             options.forEach(option => {
                 let opt = document.createElement('option');
                 opt.value = option;
@@ -152,13 +154,33 @@
             });
         }
 
-        // Populate the select boxes
-        populateSelect('productFamily', productFamilies);
-        populateSelect('region', regions);
+        document.getElementById('region').addEventListener('change', function() {
+            const selectedRegion = this.value;
+            const connectionName = document.getElementById('connectionName').value;
+            updateProductFamilyList(selectedRegion, connectionName);
+        });
 
-        // Replace the above example data with actual function calls
-        // populateSelect('productFamily', productFamilyList());
-        // populateSelect('region', regionList());
+        function updateProductFamilyList(region, connectionName) {
+            // Clear the product family select box and show a fetching message
+            const productFamilySelect = document.getElementById('productFamily');
+            productFamilySelect.innerHTML = '<option>fetching</option>';
+            let fetchText = 'fetching';
+            let intervalId = setInterval(() => {
+                fetchText += '.';
+                productFamilySelect.innerHTML = `<option>${fetchText}</option>`;
+            }, 100);
+
+            fetch(`/spider/productfamily/${region}?ConnectionName=${connectionName}`)
+                .then(response => response.json())
+                .then(productFamilies => {
+                    clearInterval(intervalId); // stop the interval
+                    populateSelect('productFamily', productFamilies);
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    clearInterval(intervalId); // stop the interval
+                });
+        }
 
         function openOverlay() {
             document.getElementById('overlay').style.display = 'block';
@@ -172,8 +194,7 @@
 
         function setFilter(filterContent) {
             document.getElementById('filter').value = filterContent;
-            document.getElementById('overlay').style.display = 'none';
-            document.getElementById('overlayContent').src = '';
+            closeOverlay();
         }
     </script>
 </body>

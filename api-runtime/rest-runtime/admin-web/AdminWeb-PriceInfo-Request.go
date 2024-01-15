@@ -21,16 +21,16 @@ import (
 )
 
 func productFamilyList() []string {
-	return []string{"Compute", "Storage", "Database"}
+	return []string{"Select a Region first"}
 }
 
 func regionList() []string {
-	return []string{"us-east-1", "us-west-1", "eu-central-1"}
+	return []string{"No regions available"}
 }
 
 //====================================== PriceInfo Request
 
-func RiceInfoRequest(c echo.Context) error {
+func PRiceInfoRequest(c echo.Context) error {
 	cblog.Info("call RequestRiceInfo()")
 
 	connConfig := c.Param("ConnectConfig")
@@ -82,12 +82,14 @@ func RiceInfoRequest(c echo.Context) error {
 
 	type PageData struct {
 		LoggingUrl        template.JS
+		ConnectionName    string
 		RegionList        []string
 		ProductFamilyList []string
 		LoggingResult     template.JS
 	}
 
 	data := PageData{
+		ConnectionName:    connConfig,
 		RegionList:        regionNameList,
 		ProductFamilyList: productFamilyList(),
 	}

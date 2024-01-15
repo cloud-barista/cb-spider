@@ -440,7 +440,7 @@ func RunServer() {
 		{"GET", "/adminweb/vmimage/:ConnectConfig", aw.VMImage},
 		{"GET", "/adminweb/vmspec/:ConnectConfig", aw.VMSpec},
 		{"GET", "/adminweb/regionzone/:ConnectConfig", aw.RegionZone},
-		{"GET", "/adminweb/priceinforequest/:ConnectConfig", aw.RiceInfoRequest},
+		{"GET", "/adminweb/priceinforequest/:ConnectConfig", aw.PRiceInfoRequest},
 
 		{"GET", "/adminweb/cluster/:ConnectConfig", aw.Cluster},
 		{"GET", "/adminweb/clustermgmt/:ConnectConfig", aw.ClusterMgmt},
