@@ -186,7 +186,7 @@ func (priceInfoHandler *AlibabaPriceInfoHandler) GetPriceInfo(productFamily stri
 							continue
 						}
 
-						pricingPolicy, priceResponseStr, err := BindpricingPolicy(priceResponse.GetHttpContentString(), product.SubscriptionType, pricingModulePriceType)
+						pricingPolicy, priceResponseStr, err := BindpricingPolicy(priceResponse.GetHttpContentString(), product.SubscriptionType, pricingModulePriceType, regionName, attr.Value)
 						if err != nil {
 							cblogger.Error(err.Error())
 							continue
@@ -215,6 +215,10 @@ func (priceInfoHandler *AlibabaPriceInfoHandler) GetPriceInfo(productFamily stri
 							newPrice.ProductInfo = newProductInfo
 							newPriceInfo := irs.PriceInfo{}
 							newPriceInfo.PricingPolicies = append(newPriceInfo.PricingPolicies, pricingPolicy)
+
+							newCSPPriceInfo := []string{}
+							newCSPPriceInfo = append(newCSPPriceInfo, priceResponseStr)
+							newPriceInfo.CSPPriceInfo = newCSPPriceInfo
 							newPrice.PriceInfo = newPriceInfo // priceList 를 돌면서 priceInfo 안의  productID가 같은 것 추출
 							cloudPrice.PriceList = append(cloudPrice.PriceList, newPrice)
 
@@ -281,23 +285,41 @@ func (priceInfoHandler *AlibabaPriceInfoHandler) GetPriceInfo(productFamily stri
 								continue
 							}
 
-							pricingPolicy, priceResponseStr, err := BindpricingPolicy(priceResponse.GetHttpContentString(), product.SubscriptionType, pricingModulePriceType)
+							pricingPolicy, priceResponseStr, err := BindpricingPolicy(priceResponse.GetHttpContentString(), product.SubscriptionType, pricingModulePriceType, regionName, attr.Value)
 							if err != nil {
 								cblogger.Error(err.Error())
 								continue
 							}
-
 							productId := regionName + "_" + attr.Value
 							existProduct := false
 							for idx, aPriceList := range cloudPrice.PriceList {
 								productInfo := &aPriceList.ProductInfo
 								if productInfo.ProductId == productId { // 동일한  product가 있으면 policy만 추가한다.
-									aPriceList.PriceInfo.PricingPolicies = append(aPriceList.PriceInfo.PricingPolicies, pricingPolicy)
-									aPriceList.PriceInfo.CSPPriceInfo = append(aPriceList.PriceInfo.CSPPriceInfo.([]string), priceResponseStr)
+									if aPriceList.PriceInfo.PricingPolicies != nil {
+										aPriceList.PriceInfo.PricingPolicies = append(aPriceList.PriceInfo.PricingPolicies, pricingPolicy)
+
+									} else {
+										newPricingPolicies := []irs.PricingPolicies{}
+										newPricingPolicies = append(newPricingPolicies, pricingPolicy)
+
+										aPriceList.PriceInfo.PricingPolicies = newPricingPolicies
+									}
+									if aPriceList.PriceInfo.CSPPriceInfo != nil {
+										aPriceList.PriceInfo.CSPPriceInfo = append(aPriceList.PriceInfo.CSPPriceInfo.([]string), priceResponseStr)
+
+									} else {
+										newCSPPriceInfo := []string{}
+										newCSPPriceInfo = append(newCSPPriceInfo, priceResponseStr)
+										aPriceList.PriceInfo.CSPPriceInfo = newCSPPriceInfo
+
+									}
+
 									cloudPrice.PriceList[idx] = aPriceList
 									existProduct = true
+									break
 								}
 							}
+
 							if !existProduct { // product가 없으면 조회해서 추가
 								newProductInfo, err := GetDescribeInstanceTypesForPricing(priceInfoHandler.BssClient, regionName, attr.Value)
 								if err != nil {
@@ -307,9 +329,17 @@ func (priceInfoHandler *AlibabaPriceInfoHandler) GetPriceInfo(productFamily stri
 								newPrice := irs.Price{}
 								newPrice.ProductInfo = newProductInfo
 								newPriceInfo := irs.PriceInfo{}
-								newPriceInfo.PricingPolicies = append(newPriceInfo.PricingPolicies, pricingPolicy)
-								newPriceInfo.CSPPriceInfo = append(newPriceInfo.CSPPriceInfo.([]string), priceResponseStr)
+								newPricingPolicies := []irs.PricingPolicies{}
+								newPricingPolicies = append(newPricingPolicies, pricingPolicy)
+
+								newCSPPriceInfo := []string{}
+								newCSPPriceInfo = append(newCSPPriceInfo, priceResponseStr)
+
+								newPriceInfo.PricingPolicies = newPricingPolicies
+								newPriceInfo.CSPPriceInfo = newCSPPriceInfo
+
 								newPrice.PriceInfo = newPriceInfo // priceList 를 돌면서 priceInfo 안의  productID가 같은 것 추출
+
 								cloudPrice.PriceList = append(cloudPrice.PriceList, newPrice)
 							}
 						}
@@ -317,6 +347,7 @@ func (priceInfoHandler *AlibabaPriceInfoHandler) GetPriceInfo(productFamily stri
 				}
 			}
 		}
+
 	}
 
 	cloudPriceData.CloudPriceList = append(cloudPriceData.CloudPriceList, cloudPrice)
@@ -379,7 +410,7 @@ func GetDescribeInstanceTypesForPricing(bssClient *bssopenapi.Client, regionName
 	return productInfo, nil
 }
 
-func BindpricingPolicy(priceResponse string, subscriptionType string, pricingModulePriceType string) (irs.PricingPolicies, string, error) {
+func BindpricingPolicy(priceResponse string, subscriptionType string, pricingModulePriceType string, regionName string, instanceType string) (irs.PricingPolicies, string, error) {
 	priceResp := PriceInfoAli{}
 
 	err := json.Unmarshal([]byte(priceResponse), &priceResp)
@@ -388,7 +419,7 @@ func BindpricingPolicy(priceResponse string, subscriptionType string, pricingMod
 	}
 
 	pricingPolicy := irs.PricingPolicies{}
-	pricingPolicy.PricingId = "NA"
+	pricingPolicy.PricingId = regionName + "_" + instanceType + "_" + subscriptionType + "_" + pricingModulePriceType //"NA"
 	pricingPolicy.PricingPolicy = subscriptionType
 	pricingPolicy.Unit = pricingModulePriceType
 	pricingPolicy.Currency = priceResp.Data.Currency
