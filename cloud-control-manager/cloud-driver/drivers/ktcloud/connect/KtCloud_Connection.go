@@ -93,7 +93,8 @@ func (cloudConn *KtCloudConnection) CreateNLBHandler() (irs.NLBHandler, error) {
 
 func (cloudConn *KtCloudConnection) CreateDiskHandler() (irs.DiskHandler, error) {
 	cblogger.Info("KT Cloud Driver: called CreateDiskHandler()!")
-	return nil, fmt.Errorf("KT Cloud Driver does not support CreateDiskHandler yet.")
+	diskHandler := ktrs.KtCloudDiskHandler{RegionInfo: cloudConn.RegionInfo, Client: cloudConn.Client}
+	return &diskHandler, nil
 }
 
 func (cloudConn *KtCloudConnection) CreateClusterHandler() (irs.ClusterHandler, error) {
