@@ -30,7 +30,7 @@ func regionList() []string {
 
 //====================================== PriceInfo Request
 
-func PRiceInfoRequest(c echo.Context) error {
+func PriceInfoRequest(c echo.Context) error {
 	cblog.Info("call RequestRiceInfo()")
 
 	connConfig := c.Param("ConnectConfig")
