@@ -31,7 +31,7 @@ func regionList() []string {
 //====================================== PriceInfo Request
 
 func PriceInfoRequest(c echo.Context) error {
-	cblog.Info("call RequestRiceInfo()")
+	cblog.Info("call PriceInfoRequest()")
 
 	connConfig := c.Param("ConnectConfig")
 	if connConfig == "region not set" {
