@@ -315,6 +315,38 @@ func getResource_with_Connection_JsonByte(connConfig string, resourceName string
 	return resBody, err
 }
 
+func getPriceInfoJsonString(connConfig string, resourceName string, productFamily string, regionName string, filter []cres.KeyValue, target interface{}) error {
+	url := fmt.Sprintf("http://localhost:1024/spider/%s/%s/%s", resourceName, productFamily, regionName)
+
+	reqBody := struct {
+		ConnectionName string          `json:"ConnectionName"`
+		FilterList     []cres.KeyValue `json:"FilterList"`
+	}{
+		ConnectionName: connConfig,
+		FilterList:     filter,
+	}
+
+	jsonValue, err := json.Marshal(reqBody)
+	if err != nil {
+		return fmt.Errorf("failed to marshal request body: %w", err)
+	}
+
+	request, err := http.NewRequest("GET", url, bytes.NewBuffer(jsonValue))
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+	request.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{}
+	resp, err := client.Do(request)
+	if err != nil {
+		return fmt.Errorf("failed to send request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	return json.NewDecoder(resp.Body).Decode(target)
+}
+
 // F5, X ("5", "driver", "deleteDriver()", "2")
 func makeActionTR_html(colspan string, f5_href string, delete_href string, fontSize string) string {
 	if fontSize == "" {

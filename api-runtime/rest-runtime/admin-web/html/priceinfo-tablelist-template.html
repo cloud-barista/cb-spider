@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Multi-Cloud Price Info Table List</title>
+    <style>
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th, td {
+            border: 1px solid black;
+            padding: 5px;
+            text-align: left;
+        }
+        th {
+            text-align: center;
+            background-color: #f2f2f2;
+        }
+        td {
+            font-size: 14px;
+        }
+        .pricing-policies-header {
+            background-color: #dde4ee;
+        }
+        .inner-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .inner-table th, .inner-table td {
+            border: 1px solid black;            
+            padding: 1px;
+            text-align: left;
+        }
+        .inner-table th {
+            text-align: center;
+            background-color: #f9f9f9;
+        }        
+
+        ul, li {
+            padding: 1;
+            margin: 0;
+            font-size: 14px;
+        }
+
+        .top-align {
+            vertical-align: top;
+        }
+        
+        .center-text {
+            text-align: center;
+        }
+ 
+        .jsonView {
+            display: none;
+            white-space: pre-wrap;
+            font-size: small;
+            background-color: #f2f2f2;
+            border: 1px solid black;
+            padding: 8px;
+        }
+        .cloudHeader {
+            display: flex;
+            justify-content: flex-start;
+            align-items: center;
+        }
+        .cloudHeader button {
+            margin-left: 14px;
+        }
+
+        .copy-btn {            
+            background-color: transparent;
+            color: white;            
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 25px;
+            display: none; /* Hide by default */
+        }
+
+        .hidden {
+            display: none;
+        }
+        
+    </style>
+    <script>
+        function toggleView(cloudName) {
+            var table = document.getElementById("table-" + cloudName);
+            var jsonView = document.getElementById("json-all");
+            var btn = document.getElementById("toggleButton-" + cloudName);
+            var copyBtn = document.getElementById("copyButton-" + cloudName);
+
+            if (table.classList.contains("hidden")) {  // show table
+                jsonView.classList.add("hidden");
+                jsonView.style.display = "none";
+                table.classList.remove("hidden");
+                btn.textContent = "JSON View";
+                copyBtn.style.display = "none";                
+            } else {                                    // show json
+                jsonView.classList.remove("hidden");
+                jsonView.style.display = "block";
+                table.classList.add("hidden");
+                btn.textContent = "Table View";
+                copyBtn.style.display = "inline-block";
+            }
+        }
+
+        function copyToClipboard(cloudName) {
+            var content = document.getElementById("json-all").textContent;
+            var textArea = document.createElement("textarea");
+
+            textArea.value = content;
+            document.body.appendChild(textArea);
+            textArea.select();
+            textArea.setSelectionRange(0, 99999); // for mobile devices
+
+            try {
+                var successful = document.execCommand('copy');                
+            } catch (err) {
+                alert('Oops, unable to copy');
+            }
+
+            document.body.removeChild(textArea);
+        }
+
+        function toggleJsonView(elementId) {
+            var element = document.getElementById(elementId);
+            if (element.style.display === "none" || element.style.display === "") {
+                element.style.display = "block";
+            } else {
+                element.style.display = "none";
+            }
+        }
+
+        function formatPrice(price) {
+            return parseFloat(price).toString();
+        }
+        
+        window.onload = function() {
+            var prices = document.querySelectorAll('.price');
+            prices.forEach(function(price) {
+                price.textContent = formatPrice(price.textContent);
+            });
+        };
+
+    </script>
+</head>
+
+<body>
+    <h2>{{.Meta.Version}} - {{.Meta.Description}}</h2>
+    {{range .CloudPriceList}}
+    <div class="cloudHeader">
+        <h3>{{.CloudName}}</h3>
+        <button id="toggleButton-{{.CloudName}}" onclick="toggleView('{{.CloudName}}')">JSON View</button>
+        <button id="copyButton-{{.CloudName}}" class="copy-btn" onclick="copyToClipboard('json-all')">📋</button>
+    </div>
+
+    <table id="table-{{.CloudName}}">
+        <tr>
+            <th>Product ID</th>
+            <th>Region/Zone</th>
+            <th>Instance Type</th>
+            <th>{{.CloudName}} Product Info</th>
+            <th class="pricing-policies-header">Pricing Policies</th>
+            <th class="pricing-policies-header">{{.CloudName}} Price Info</th>
+        </tr>
+        {{range .PriceList}}
+        <tr>
+            <td class="center-text">[{{.ProductInfo.ProductId}}]<br><br>※ {{.ProductInfo.Description}}</td>
+            <td class="center-text">{{.ProductInfo.RegionName}}/{{.ProductInfo.ZoneName}}</td>
+            <td>
+                <ul>
+                    {{if .ProductInfo.InstanceType}}
+                        <li><strong>Type: {{.ProductInfo.InstanceType}}</strong></li> 
+                        <li>VCPU: {{.ProductInfo.Vcpu}}</li>
+                        <li>Memory: {{.ProductInfo.Memory}}</li>
+                        <li>Storage: {{.ProductInfo.Storage}}</li>
+                        <li>GPU: {{.ProductInfo.Gpu}}</li>
+                        <li>GPU Memory: {{.ProductInfo.GpuMemory}}</li>
+                        <li>OS: {{.ProductInfo.OperatingSystem}}</li>
+                        <li>PreInstalledSW: {{.ProductInfo.PreInstalledSw}}</li>
+                    {{end}}
+
+                    <!-- Storage Info -->
+                    {{if .ProductInfo.VolumeType}}
+                        <li><strong>VolumeType: {{.ProductInfo.VolumeType}}</strong></li>
+                        <li>StorageMedia: {{.ProductInfo.StorageMedia}}</li>
+                        <li>MaxVolumeSize: {{.ProductInfo.MaxVolumeSize}}</li>
+                        <li>MaxIOPSVolume: {{.ProductInfo.MaxIOPSVolume}}</li>
+                        <li>MaxThroughputVolume: {{.ProductInfo.MaxThroughputVolume}}</li>
+                    {{end}}
+            </td>
+            <td class="top-align">
+                <!-- CSP Product Info -->
+                <span onclick="toggleJsonView('cspProductInfo-{{.ProductInfo.ProductId}}')">{...}</span>
+                <pre id="cspProductInfo-{{.ProductInfo.ProductId}}" style="display: none;">{{.ProductInfo.CSPProductInfo | json}}</pre>    
+            </td>
+            <td>
+                <table class="inner-table">
+                    {{range .PriceInfo.PricingPolicies}}
+                    <tr>
+                        <th>{{.PricingPolicy}}: <span class="price">{{.Price}}</span> {{.Currency}} / {{.Unit}}</th>
+                    </tr>
+                    <tr>
+                        <td>
+                            <ul>
+                                <li>Pricing ID: {{.PricingId}}</li>
+                                <li>Description: {{.Description}}</li>                                
+                                <!-- Pricing Policy Info -->
+                                {{if .PricingPolicyInfo}}
+                                [Pricing PolicyInfo]
+                                <ul>
+                                    <li>Lease Contract Length: {{.PricingPolicyInfo.LeaseContractLength}}</li>
+                                    <li>Offering Class: {{.PricingPolicyInfo.OfferingClass}}</li>
+                                    <li>Purchase Option: {{.PricingPolicyInfo.PurchaseOption}}</li>
+                                </ul>
+                            </ul>
+                            {{end}}
+                        </td>
+                    </tr>
+                    {{end}}
+                </table>
+            </td>
+            <td class="top-align">
+                <!-- CSP Price Info -->
+                <span onclick="toggleJsonView('cspPriceInfo-{{.ProductInfo.ProductId}}')">{...}</span>
+                <pre id="cspPriceInfo-{{.ProductInfo.ProductId}}" style="display: none;">{{.PriceInfo.CSPPriceInfo | json}}</pre>    
+            </td>
+        </tr>
+        {{end}}
+    </table>
+    {{end}}
+
+    <pre class="jsonView" id="json-all">{{. | json}}</pre>
+</body>
+</html>
