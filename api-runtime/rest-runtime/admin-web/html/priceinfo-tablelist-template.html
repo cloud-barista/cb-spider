@@ -4,6 +4,16 @@
     <meta charset="UTF-8">
     <title>Multi-Cloud Price Info Table List</title>
     <style>
+        .close-btn {
+            background-color: #f0f0f0;
+            color: #d9534f;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            cursor: pointer;
+            position: absolute;
+            top: 20px;
+            right: 20px;
+        }
         table {
             width: 100%;
             border-collapse: collapse;
@@ -147,7 +157,9 @@
 </head>
 
 <body>
-    <h2>{{.Meta.Version}} - {{.Meta.Description}}</h2>
+    <h3>{{.Meta.Description}} - {{.Meta.Version}}</h3>
+    <button type="button" class="close-btn" onclick="window.parent.closeFetchOverlay()">X</button>
+    
     {{range .CloudPriceList}}
     <div class="cloudHeader">
         <h3>{{.CloudName}}</h3>

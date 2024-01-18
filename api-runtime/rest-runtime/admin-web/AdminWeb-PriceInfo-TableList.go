@@ -58,14 +58,21 @@ func PriceInfoTableList(c echo.Context) error {
 	}
 
 	var req struct {
-		FilterList []cres.KeyValue
+		// FilterList []cres.KeyValue
 	}
 	if err := c.Bind(&req); err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
+	var info struct {
+		FilterList []cres.KeyValue `json:"FilterList"`
+	}
+
+	json.Unmarshal([]byte(c.QueryParam("filterlist")), &info)
+
 	var data cres.CloudPriceData
-	err := getPriceInfoJsonString(connConfig, "priceinfo", c.Param("ProductFamily"), c.Param("RegionName"), req.FilterList, &data)
+	// err := getPriceInfoJsonString(connConfig, "priceinfo", c.Param("ProductFamily"), c.Param("RegionName"), req.FilterList, &data)
+	err := getPriceInfoJsonString(connConfig, "priceinfo", c.Param("ProductFamily"), c.Param("RegionName"), info.FilterList, &data)
 	if err != nil {
 		cblog.Error(err)
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())

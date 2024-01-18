@@ -4,17 +4,21 @@
     <title>Multi-Cloud Price Info Request</title>
     <style>
         .container {
-            width: 80%;
+            width: 90%;
             margin: auto;
-            padding: 20px;
+            padding: 0 10px;
+            font-size: 14px;
         }
         .form-row {
             display: flex;
             justify-content: space-between;
-            margin-bottom: 15px;
-        }
+            margin-top: 0;
+            padding-top: 0;
+            margin-bottom: 20px;
+        }        
         .form-group {
             flex: 1;
+            align-items: center;
             margin-right: 25px;
         }
         .form-group:last-child {
@@ -22,6 +26,7 @@
         }
         .form-group label, .form-group div {
             display: inline-block;
+            font-size: 14px;
             margin-right: 10px;
             margin-bottom: 5px;
         }
@@ -30,10 +35,13 @@
             padding: 8px;
             border: 1px solid #ccc;
             border-radius: 4px;
-            font-size: 16px;
+            font-size: 14px;
+        }
+        .form-group select option {
+            font-size: 14pt;
         }
         textarea {
-            height: 100px; /* Adjust height as needed */
+            height: 200px; /* Adjust height as needed */
         }
 
         #filter {
@@ -48,7 +56,7 @@
         .fetch-btn {
             padding: 10px 20px;
             background-color: #f0f0f0;
-            color: #333;
+            color: rgb(59, 59, 206);
             border: 1px solid #ccc;
             border-radius: 4px;
             cursor: pointer;
@@ -75,7 +83,7 @@
             margin-bottom: 6px;
         }
 
-        .overlay {
+        .gen-overlay {
             position: fixed;
             top: 0;
             left: 0;
@@ -86,12 +94,35 @@
             display: none;
         }
         
-        .overlay-content {
+        .gen-overlay-content {
             position: absolute;
             top: 50%;
             left: 50%;
             width: 90%;
             height: 90%;
+            transform: translate(-50%, -50%);
+            background-color: white;
+            border: none;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5);
+        }
+
+        .fetch-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            z-index: 1000;
+            display: none;
+        }
+        
+        .fetch-overlay-content {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 98%;
+            height: 98%;
             transform: translate(-50%, -50%);
             background-color: white;
             border: none;
@@ -104,16 +135,16 @@
     <div class="container">
         <h2>Multi-Cloud Price Info</h2>
         <form id="filterForm">
-            <div class="form-row">
+            <div class="form-row">                
                 <div class="form-group">
                     <label for="region">Region</label>
                     <select id="region" name="region">
                         {{range .RegionList}}
                         <option value="{{.}}">{{.}}</option>
                         {{end}}
-                    </select>
+                    </select>                    
                 </div>
-
+                
                 <div class="form-group">
                     <label for="productFamily">Product Family</label>
                     <select id="productFamily" name="productFamily">
@@ -126,39 +157,75 @@
             <div class="form-group">
                 <div class="button-textarea-group">
                     <label for="filter">Filter</label>
-                    <button type="button" class="gen-tool-btn" onclick="openOverlay()">Gen...</button>
+                    <button type="button" class="gen-tool-btn" onclick="openGenOverlay()">Gen...</button>
                 </div>
                 <textarea id="filter" name="filter" spellcheck="false"></textarea>
             </div>
-            <button type="button" class="fetch-btn">Fetch</button>
+            <button type="button" class="fetch-btn" onclick="OpenFetchOverlay()">Fetch</button>
         </form>
     </div>
 
-    <div class="overlay" id="overlay">
-        <iframe class="overlay-content" id="overlayContent"></iframe>
+    <!-- Gen Overlay -->
+    <div class="gen-overlay" id="genOverlay">
+        <iframe class="gen-overlay-content" id="genOverlayContent"></iframe>
+    </div>
+
+    <!-- Fetch Overlay -->
+    <div class="fetch-overlay" id="fetchOverlay">
+        <iframe class="fetch-overlay-content" id="fetchOverlayContent"></iframe>
     </div>
 
     <script>
-
-        function populateSelect(selectId, options) {
-            const select = document.getElementById(selectId);
-            // Remove all existing options
-            while (select.options.length > 0) {
-                select.remove(0);
-            }            
-            options.forEach(option => {
-                let opt = document.createElement('option');
-                opt.value = option;
-                opt.innerHTML = option;
-                select.appendChild(opt);
-            });
-        }
+        document.addEventListener('DOMContentLoaded', function() {
+            const connectionName = document.getElementById('connectionName').value;
+            updateRegionList(connectionName);
+        });
 
         document.getElementById('region').addEventListener('change', function() {
             const selectedRegion = this.value;
             const connectionName = document.getElementById('connectionName').value;
             updateProductFamilyList(selectedRegion, connectionName);
         });
+    
+        function updateRegionList(connectionName) {
+            const regionSelect = document.getElementById('region');
+            regionSelect.innerHTML = '<option>fetching</option>'; // Initial option message
+            let fetchText = 'fetching';
+            let intervalId = setInterval(() => {
+                fetchText += '.';
+                regionSelect.innerHTML = `<option>${fetchText}</option>`; // Update option message
+            }, 100);
+
+            fetch(`/spider/regionzone?ConnectionName=${connectionName}`)
+                .then(response => response.json())
+                .then(data => {
+                    clearInterval(intervalId); // Stop the interval
+                    populateRegionSelect('region', data.regionzone); // Update the select box
+
+                    // Call Product Family update function for the first Region
+                    if (data.regionzone.length > 0) {
+                        updateProductFamilyList(data.regionzone[0].Name, connectionName);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert(error);
+                    clearInterval(intervalId); // Stop the interval on error
+                });
+        }
+
+        function populateRegionSelect(selectId, options) {
+            const select = document.getElementById(selectId);
+            while (select.options.length > 0) {
+                select.remove(0);
+            }
+            options.forEach(option => {
+                let opt = document.createElement('option');
+                opt.value = option.Name; // RegionZoneInfo.Name
+                opt.innerHTML = option.Name; // RegionZoneInfo.Name
+                select.appendChild(opt);
+            });
+        }
 
         function updateProductFamilyList(region, connectionName) {
             // Clear the product family select box and show a fetching message
@@ -174,27 +241,96 @@
                 .then(response => response.json())
                 .then(productFamilies => {
                     clearInterval(intervalId); // stop the interval
-                    populateSelect('productFamily', productFamilies);
+                    populateProductFamilySelect('productFamily', productFamilies);
                 })
                 .catch(error => {
                     console.error('Error:', error);
+                    alert(error);
                     clearInterval(intervalId); // stop the interval
                 });
         }
 
-        function openOverlay() {
-            document.getElementById('overlay').style.display = 'block';
-            document.getElementById('overlayContent').src = '/spider/adminweb/html/priceinfo-filter-gen.html';
+        function populateProductFamilySelect(selectId, options) {
+            const select = document.getElementById(selectId);
+            // Remove all existing options
+            while (select.options.length > 0) {
+                select.remove(0);
+            }
+            options.forEach(option => {
+                let opt = document.createElement('option');
+                opt.value = option;
+                opt.innerHTML = option;
+                select.appendChild(opt);
+            });
         }
 
-        function closeOverlay() {
-            document.getElementById('overlay').style.display = 'none';
-            document.getElementById('overlayContent').src = '';
-        }
+        document.getElementById('region').addEventListener('keydown', function() {
+            const selectedRegion = this.value;
+            const connectionName = document.getElementById('connectionName').value;
+            const currentProductFamily = document.getElementById('productFamily').value;
+            
+            if (currentProductFamily === 'Select a Region first' || this.dataset.lastRegion !== selectedRegion) {
+                updateProductFamilyList(selectedRegion, connectionName);
+                this.dataset.lastRegion = selectedRegion;
+            }
+        });
 
         function setFilter(filterContent) {
             document.getElementById('filter').value = filterContent;
-            closeOverlay();
+            closeGenOverlay();
+        }
+
+        function openGenOverlay() {
+            document.getElementById('genOverlay').style.display = 'block';
+            document.getElementById('genOverlayContent').src = '/spider/adminweb/html/priceinfo-filter-gen.html';
+        }
+
+        function closeGenOverlay() {
+            document.getElementById('genOverlay').style.display = 'none';
+            document.getElementById('genOverlayContent').src = '';
+        }
+
+        function OpenFetchOverlay() {
+            var region = document.getElementById('region').value;
+            var productFamily = document.getElementById('productFamily').value;
+            var connectionName = document.getElementById('connectionName').value;
+            var filterList = document.getElementById('filter').value;
+
+            var fetchOverlayContent = document.getElementById('fetchOverlayContent');
+            document.getElementById('fetchOverlay').style.display = 'block';
+            fetchOverlayContent.src = 'about:blank'; // iframe 초기화
+
+            let fetchText = 'fetching';
+            let intervalId = setInterval(() => {
+                fetchText += '.';
+                if (fetchOverlayContent.contentWindow && fetchOverlayContent.contentWindow.document) {
+                    fetchOverlayContent.contentWindow.document.body.innerHTML = `<p>${fetchText}</p>`; // update option message
+                }
+            }, 100);
+
+            fetch(`/spider/adminweb/priceinfotablelist/${productFamily}/${region}/${connectionName}?filterlist=${filterList}`)
+                .then(response => {
+                    if (!response.ok) {
+                        clearInterval(intervalId); // stop the interval
+                        throw new Error('Network response was not ok');
+                    }
+                    return response.text(); // text() for html
+                })
+                .then(data => {
+                    clearInterval(intervalId); // stop the interval
+                    fetchOverlayContent.srcdoc = data; // set the HTML content in the iframe
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert(error);
+                    clearInterval(intervalId); // when error occurs, stop the interval
+                });
+        }
+
+
+        function closeFetchOverlay() {
+            document.getElementById('fetchOverlay').style.display = 'none';
+            document.getElementById('fetchOverlayContent').src = '';
         }
     </script>
 </body>

@@ -1114,11 +1114,11 @@ func getRegionZone(regionName string) (string, string, error) {
 func makeSetupConnectionConfigFunc_js() string {
 
 	strFunc := `
-                function setupConnectionConfig(configName, providerName, region, zone) {
-                        var connConfigLabel = parent.frames["top_frame"].document.getElementById("connConfig");
+        function setupConnectionConfig(configName, providerName, region, zone) {
+            var connConfigLabel = parent.frames["top_frame"].document.getElementById("connConfig");
 			connConfigLabel.innerHTML = configName
 
-                        var cspText = parent.frames["top_frame"].document.getElementById("connDisplay");
+            var cspText = parent.frames["top_frame"].document.getElementById("connDisplay");
 			if (zone) {
 				cspText.value = providerName + ": " + region + " / " + zone
 			} else {
@@ -1143,48 +1143,52 @@ func makeSetupConnectionConfigFunc_js() string {
 			a = parent.frames["top_frame"].document.getElementById("keypairmgmtHref");
 			a.href = "keypairmgmt/" + configName
 
-                        // for vm
-                        a = parent.frames["top_frame"].document.getElementById("vmHref");
-                        a.href = "vm/" + configName
-                        a = parent.frames["top_frame"].document.getElementById("vmmgmtHref");
-                        a.href = "vmmgmt/" + configName
+			// for vm
+			a = parent.frames["top_frame"].document.getElementById("vmHref");
+			a.href = "vm/" + configName
+			a = parent.frames["top_frame"].document.getElementById("vmmgmtHref");
+			a.href = "vmmgmt/" + configName
 
-                        // for nlb 
-                        a = parent.frames["top_frame"].document.getElementById("nlbHref");
-                        a.href = "nlb/" + configName
-                        a = parent.frames["top_frame"].document.getElementById("nlbmgmtHref");
-                        a.href = "nlbmgmt/" + configName
+			// for nlb 
+			a = parent.frames["top_frame"].document.getElementById("nlbHref");
+			a.href = "nlb/" + configName
+			a = parent.frames["top_frame"].document.getElementById("nlbmgmtHref");
+			a.href = "nlbmgmt/" + configName
 
-                        // for disk 
-                        a = parent.frames["top_frame"].document.getElementById("diskHref");
-                        a.href = "disk/" + configName
-                        a = parent.frames["top_frame"].document.getElementById("diskmgmtHref");
-                        a.href = "diskmgmt/" + configName
+			// for disk 
+			a = parent.frames["top_frame"].document.getElementById("diskHref");
+			a.href = "disk/" + configName
+			a = parent.frames["top_frame"].document.getElementById("diskmgmtHref");
+			a.href = "diskmgmt/" + configName
 
-                        // for myimage 
-                        a = parent.frames["top_frame"].document.getElementById("myimageHref");
-                        a.href = "myimage/" + configName
-                        a = parent.frames["top_frame"].document.getElementById("myimagemgmtHref");
-                        a.href = "myimagemgmt/" + configName
+			// for myimage 
+			a = parent.frames["top_frame"].document.getElementById("myimageHref");
+			a.href = "myimage/" + configName
+			a = parent.frames["top_frame"].document.getElementById("myimagemgmtHref");
+			a.href = "myimagemgmt/" + configName
 
-		    // for VMImage
-		    a = parent.frames["top_frame"].document.getElementById("vmimageHref");
-		    a.href = "vmimage/" + configName
+			// for VMImage
+			a = parent.frames["top_frame"].document.getElementById("vmimageHref");
+			a.href = "vmimage/" + configName
 
-		    // for VMSpec
-		    a = parent.frames["top_frame"].document.getElementById("vmspecHref");
-		    a.href = "vmspec/" + configName
+			// for VMSpec
+			a = parent.frames["top_frame"].document.getElementById("vmspecHref");
+			a.href = "vmspec/" + configName
 
-                    // for RegionZone
-		    a = parent.frames["top_frame"].document.getElementById("regionzoneHref");
-		    a.href = "regionzone/" + configName
+			// for RegionZone
+			a = parent.frames["top_frame"].document.getElementById("regionzoneHref");
+			a.href = "regionzone/" + configName
 
-		        // for Cluster(PMKS)
-                        a = parent.frames["top_frame"].document.getElementById("clusterHref");
-                        a.href = "cluster/" + configName
-                        a = parent.frames["top_frame"].document.getElementById("clustermgmtHref");
-                        a.href = "clustermgmt/" + configName
-                }
+			// for Price
+			a = parent.frames["top_frame"].document.getElementById("priceinfoHref");
+			a.href = "priceinfo/" + configName
+
+			// for Cluster(PMKS)
+			a = parent.frames["top_frame"].document.getElementById("clusterHref");
+			a.href = "cluster/" + configName
+			a = parent.frames["top_frame"].document.getElementById("clustermgmtHref");
+			a.href = "clustermgmt/" + configName
+		}
         `
 	return strFunc
 }

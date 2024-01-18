@@ -240,6 +240,7 @@ func transformToProductInfo(productFamily string, jsonData *interface{}, filterL
 		productInfo.RegionName = json.InstanceInfo.RegionName
 		productInfo.RegionName = json.InstanceInfo.RegionName
 		productInfo.ZoneName = "NA"
+		productInfo.InstanceType = json.InstanceInfo.InstanceType
 		productInfo.Vcpu = json.InstanceInfo.Vcpu
 		productInfo.Memory = json.InstanceInfo.Memory
 		productInfo.Storage = json.InstanceInfo.Storage

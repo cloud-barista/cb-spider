@@ -10,13 +10,11 @@ package adminweb
 
 import (
 	"bytes"
-	"encoding/json"
 	"html/template"
 	"net/http"
 	"os"
 	"path/filepath"
 
-	cres "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/labstack/echo/v4"
 )
 
@@ -62,24 +60,6 @@ func PriceInfoRequest(c echo.Context) error {
 		return c.HTML(http.StatusOK, htmlStr)
 	}
 
-	resBody, err := getResourceList_with_Connection_JsonByte(connConfig, "regionzone")
-	if err != nil {
-		cblog.Error(err)
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-	}
-
-	var regionzone struct {
-		RegionZoneInfoList []*cres.RegionZoneInfo `json:"regionzone"`
-	}
-	json.Unmarshal(resBody, &regionzone)
-
-	var regionNameList []string
-	for _, regionZoneInfo := range regionzone.RegionZoneInfoList {
-		if regionZoneInfo != nil {
-			regionNameList = append(regionNameList, regionZoneInfo.Name)
-		}
-	}
-
 	type PageData struct {
 		LoggingUrl        template.JS
 		ConnectionName    string
@@ -89,8 +69,8 @@ func PriceInfoRequest(c echo.Context) error {
 	}
 
 	data := PageData{
-		ConnectionName:    connConfig,
-		RegionList:        regionNameList,
+		ConnectionName: connConfig,
+		// RegionList:        regionNameList,
 		ProductFamilyList: productFamilyList(),
 	}
 
