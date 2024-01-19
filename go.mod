@@ -58,7 +58,7 @@ require (
 require (
 	github.com/IBM/platform-services-go-sdk v0.30.0
 	github.com/NaverCloudPlatform/ncloud-sdk-go-v2 v1.6.6
-	github.com/cloud-barista/ktcloud-sdk-go v0.2.1-0.20240116154332-e1c0c726d5b5
+	github.com/cloud-barista/ktcloud-sdk-go v0.2.1-0.20240119134447-46f90aa8d02f
 	github.com/cloud-barista/nhncloud-sdk-go v0.0.0-20231114133737-f29e6fddb736
 	github.com/go-openapi/strfmt v0.21.3
 	github.com/hashicorp/go-version v1.6.0
