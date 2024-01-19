@@ -239,9 +239,9 @@
 
             fetch(`/spider/productfamily/${region}?ConnectionName=${connectionName}`)
                 .then(response => response.json())
-                .then(productFamilies => {
+                .then(data => {
                     clearInterval(intervalId); // stop the interval
-                    populateProductFamilySelect('productFamily', productFamilies);
+                    populateProductFamilySelect('productFamily', data.productfamily);
                 })
                 .catch(error => {
                     console.error('Error:', error);
