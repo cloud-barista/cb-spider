@@ -1,0 +1,38 @@
+{
+    "category": "Network Load Balancer",
+    "nlbName": "mock.nlb.neptune",
+    "nlbInfo": {
+        "regionName": "neptune"
+    }, 
+    "pricingList": {
+        "payAsYouGo": {
+            "priceId": "mock.neptune.nlb.payg",
+            "unit": "GB",
+            "currency": "USD",
+            "price" : "0.1"
+        },
+        "savingPlan": [
+            {
+                "priceId": "mock.neptune.nlb.savingplan1",
+                "term": "1 Year",
+                "unit": "GB",
+                "currency": "USD",
+                "price" : "0.05"
+            },
+            {
+                "priceId": "mock.neptune.nlb.savingplan2",
+                "term": "2 Year",
+                "unit": "GB",
+                "currency": "USD",
+                "price" : "0.01"        
+            },
+            {
+                "priceId": "mock.neptune.nlb.savingplan3",
+                "term": "3 Year",
+                "unit": "GB",
+                "currency": "USD",
+                "price" : "0.005"
+            }
+        ]
+    }
+}

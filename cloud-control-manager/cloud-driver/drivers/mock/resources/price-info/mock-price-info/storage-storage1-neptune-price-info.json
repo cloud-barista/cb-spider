@@ -1,0 +1,41 @@
+{
+    "category": "Storage",
+    "storageName": "mock.storage1.neptune",
+    "storageInfo": {
+        "regionName": "neptune",
+        "storageType": "SSD",
+        "maxVolume": "1 TB",
+        "maxIOPS": "300"
+    }, 
+    "pricingList": {
+        "payAsYouGo": {
+            "priceId": "mock.neptune.storage1.payg",
+            "unit": "GB",
+            "currency": "USD",
+            "price" : "0.1"
+        },
+        "savingPlan": [
+            {
+                "priceId": "mock.neptune.storage1.savingplan1",
+                "term": "1 Year",
+                "unit": "GB",
+                "currency": "USD",
+                "price" : "0.05"
+            },
+            {
+                "priceId": "mock.neptune.storage1.savingplan2",
+                "term": "2 Year",
+                "unit": "GB",
+                "currency": "USD",
+                "price" : "0.01"        
+            },
+            {
+                "priceId": "mock.neptune.storage1.savingplan3",
+                "term": "3 Year",
+                "unit": "GB",
+                "currency": "USD",
+                "price" : "0.005"
+            }
+        ]
+    }
+}

@@ -1,0 +1,46 @@
+{
+    "category": "Compute Instance",
+    "instanceName": "mock.standard1.neptune",
+    "instanceInfo": {
+        "regionName": "neptune",
+        "instanceType": "mock.standard1",
+        "vcpu": "2",
+        "clock": "3.4 GHz",
+        "memory": "32 GB",
+        "storage": "100 GB",
+        "processorArchitecture": "x86_64",
+        "os": "Linux",
+        "processorFeatures": "Intel AVX; Intel AVX2; Intel Turbo"
+    }, 
+    "pricingList": {
+        "payAsYouGo": {
+            "priceId": "mock.neptune.standard1.payg",
+            "unit": "Hours",
+            "currency": "USD",
+            "price" : "0.3"
+        },
+        "savingPlan": [
+            {
+                "priceId": "mock.neptune.standard1.savingplan1",
+                "term": "1 Year",
+                "unit": "Hours",
+                "currency": "USD",
+                "price" : "0.2"        
+            },
+            {
+                "priceId": "mock.neptune.standard1.savingplan2",
+                "term": "2 Year",
+                "unit": "Hours",
+                "currency": "USD",
+                "price" : "0.2"        
+            },
+            {
+                "priceId": "mock.neptune.standard1.savingplan3",
+                "term": "3 Year",
+                "unit": "Hours",
+                "currency": "USD",
+                "price" : "0.1"
+            }
+        ]
+    }
+}

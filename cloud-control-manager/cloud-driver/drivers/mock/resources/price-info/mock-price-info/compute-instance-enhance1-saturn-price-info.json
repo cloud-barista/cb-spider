@@ -1,0 +1,46 @@
+{
+    "category": "Compute Instance",
+    "instanceName": "mock.enhnace1.saturn",
+    "instanceInfo": {
+        "regionName": "saturn",
+        "instanceType": "mock.enhnace1",
+        "vcpu": "8",
+        "clock": "2.4 GHz",
+        "memory": "16 GB",
+        "storage": "40 GB",
+        "processorArchitecture": "x86_64",
+        "os": "Linux",
+        "processorFeatures": "Intel AVX; Intel AVX2; Intel Turbo"
+    }, 
+    "pricingList": {
+        "payAsYouGo": {
+            "priceId": "mock.saturn.enhnace1.payg",
+            "unit": "Hours",
+            "currency": "USD",
+            "price" : "0.2"
+        },
+        "savingPlan": [
+            {
+                "priceId": "mock.saturn.enhnace1.savingplan1",
+                "term": "1 Year",
+                "unit": "Hours",
+                "currency": "USD",
+                "price" : "0.15"        
+            },
+            {
+                "priceId": "mock.saturn.enhnace1.savingplan2",
+                "term": "2 Year",
+                "unit": "Hours",
+                "currency": "USD",
+                "price" : "0.1"        
+            },
+            {
+                "priceId": "mock.saturn.enhnace1.savingplan3",
+                "term": "3 Year",
+                "unit": "Hours",
+                "currency": "USD",
+                "price" : "0.05"
+            }
+        ]
+    }
+}

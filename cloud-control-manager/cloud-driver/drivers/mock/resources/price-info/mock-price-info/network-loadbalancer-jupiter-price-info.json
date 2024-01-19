@@ -1,0 +1,38 @@
+{
+    "category": "Network Load Balancer",
+    "nlbName": "mock.nlb.jupiter",
+    "nlbInfo": {
+        "regionName": "jupiter"
+    }, 
+    "pricingList": {
+        "payAsYouGo": {
+            "priceId": "mock.jupiter.nlb.payg",
+            "unit": "GB",
+            "currency": "USD",
+            "price" : "0.1"
+        },
+        "savingPlan": [
+            {
+                "priceId": "mock.jupiter.nlb.savingplan1",
+                "term": "1 Year",
+                "unit": "GB",
+                "currency": "USD",
+                "price" : "0.05"
+            },
+            {
+                "priceId": "mock.jupiter.nlb.savingplan2",
+                "term": "2 Year",
+                "unit": "GB",
+                "currency": "USD",
+                "price" : "0.01"        
+            },
+            {
+                "priceId": "mock.jupiter.nlb.savingplan3",
+                "term": "3 Year",
+                "unit": "GB",
+                "currency": "USD",
+                "price" : "0.005"
+            }
+        ]
+    }
+}
