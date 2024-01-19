@@ -13,7 +13,10 @@ package ktcloud
 
 import (
 	"os"
+	"strings"
+
 	"github.com/sirupsen/logrus"
+
 	// "github.com/davecgh/go-spew/spew"
 
 	cblog "github.com/cloud-barista/cb-log"
@@ -55,32 +58,35 @@ func (KtCloudDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	return drvCapabilityInfo
 }
 
+const (
+	KOR_Seoul_M2_ZoneID string = "d7d0177e-6cda-404a-a46f-a5b356d2874e"
+)
 
 func getVMClient(connectionInfo idrv.ConnectionInfo) (*ktsdk.KtCloudClient, error) {
 	// cblogger.Info("### connectionInfo.RegionInfo.Zone : " + connectionInfo.RegionInfo.Zone)
 	
 	// $$$ Caution!!
-	var apiurl string 	// When Zone is "KOR-Seoul M2"
-	if connectionInfo.RegionInfo.Zone == "d7d0177e-6cda-404a-a46f-a5b356d2874e" {
+	var apiurl string
+	if strings.EqualFold(connectionInfo.RegionInfo.Zone, KOR_Seoul_M2_ZoneID) { // When Zone is "KOR-Seoul M2"
 	apiurl = "https://api.ucloudbiz.olleh.com/server/v2/client/api"
 	} else {
 	apiurl = "https://api.ucloudbiz.olleh.com/server/v1/client/api"
 	}
 
 	if len(apiurl) == 0 {
-		cblogger.Error("KT Cloud API URL not found!!")
+		cblogger.Error("KT Cloud API URL Not Found!!")
 		os.Exit(1)
 	}
 
 	apikey := connectionInfo.CredentialInfo.ClientId
 	if len(apikey) == 0 {
-		cblogger.Error("KT Cloud API KEY not found!!")
+		cblogger.Error("KT Cloud API Key Not Found!!")
 		os.Exit(1)
 	}
 
 	secretkey := connectionInfo.CredentialInfo.ClientSecret
 	if len(secretkey) == 0 {
-		cblogger.Error("KT Cloud SECRET KEY not found!!")
+		cblogger.Error("KT Cloud Secret Key Not Found!!")
 		os.Exit(1)
 	}
 
@@ -89,7 +95,45 @@ func getVMClient(connectionInfo idrv.ConnectionInfo) (*ktsdk.KtCloudClient, erro
 	// cblogger.Info(apikey)
 	// cblogger.Info(secretkey)
 
-	// Create KT Cloud service client
+	// Always validate any SSL certificates in the chain
+	insecureskipverify := false
+	client := ktsdk.KtCloudClient{}.New(apiurl, apikey, secretkey, insecureskipverify)
+
+	return client, nil
+}
+
+func getNLBClient(connectionInfo idrv.ConnectionInfo) (*ktsdk.KtCloudClient, error) {
+	// cblogger.Info("### connectionInfo.RegionInfo.Zone : " + connectionInfo.RegionInfo.Zone)
+	
+	// $$$ Caution!!
+	var apiurl string
+	if strings.EqualFold(connectionInfo.RegionInfo.Zone, KOR_Seoul_M2_ZoneID) { // When Zone is "KOR-Seoul M2"
+	apiurl = "https://api.ucloudbiz.olleh.com/loadbalancer/v2/client/api"
+	} else {
+	apiurl = "https://api.ucloudbiz.olleh.com/loadbalancer/v1/client/api"
+	}
+
+	if len(apiurl) == 0 {
+		cblogger.Error("KT Cloud API URL Not Found!!")
+		os.Exit(1)
+	}
+
+	apikey := connectionInfo.CredentialInfo.ClientId
+	if len(apikey) == 0 {
+		cblogger.Error("KT Cloud API Key Not Found!!")
+		os.Exit(1)
+	}
+
+	secretkey := connectionInfo.CredentialInfo.ClientSecret
+	if len(secretkey) == 0 {
+		cblogger.Error("KT Cloud Secret Key Not Found!!")
+		os.Exit(1)
+	}
+
+	// NOTE for just test
+	// cblogger.Info(apiurl)
+	// cblogger.Info(apikey)
+	// cblogger.Info(secretkey)
 
 	// Always validate any SSL certificates in the chain
 	insecureskipverify := false
@@ -114,10 +158,16 @@ func (driver *KtCloudDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (i
 	}
 	// spew.Dump(vmClient)       
 
+	nlbClient, err := getNLBClient(connectionInfo)
+	if err != nil {
+		return nil, err
+	}
+
 	iConn := ktcloudcon.KtCloudConnection{
 		CredentialInfo: connectionInfo.CredentialInfo,
 		RegionInfo:     connectionInfo.RegionInfo,		
 		Client:         vmClient,
+		NLBClient:      nlbClient,
 	}
 	return &iConn, nil
 }
