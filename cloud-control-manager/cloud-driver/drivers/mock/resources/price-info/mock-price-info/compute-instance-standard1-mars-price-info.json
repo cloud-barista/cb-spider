@@ -4,10 +4,10 @@
     "instanceInfo": {
         "regionName": "mars",
         "instanceType": "mock.standard1",
-        "vcpu": "8",
-        "clock": "2.4 GHz",
-        "memory": "16 GB",
-        "storage": "40 GB",
+        "vcpu": "2",
+        "clock": "3.4 GHz",
+        "memory": "32 GB",
+        "storage": "100 GB",
         "processorArchitecture": "x86_64",
         "os": "Linux",
         "processorFeatures": "Intel AVX; Intel AVX2; Intel Turbo"
