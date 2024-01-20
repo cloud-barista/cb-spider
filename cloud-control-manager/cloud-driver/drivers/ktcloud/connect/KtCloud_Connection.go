@@ -30,6 +30,7 @@ type KtCloudConnection struct {
 	CredentialInfo idrv.CredentialInfo
 	RegionInfo     idrv.RegionInfo
 	Client         *ktsdk.KtCloudClient
+	NLBClient      *ktsdk.KtCloudClient
 }
 
 var cblogger *logrus.Logger
@@ -88,7 +89,8 @@ func (cloudConn *KtCloudConnection) CreateVPCHandler() (irs.VPCHandler, error) {
 
 func (cloudConn *KtCloudConnection) CreateNLBHandler() (irs.NLBHandler, error) {
 	cblogger.Info("KT Cloud Driver: called CreateNLBHandler()!")
-	return nil, fmt.Errorf("KT Cloud Driver does not support CreateNLBHandler yet.")
+	nlbHandler := ktrs.KtCloudNLBHandler{RegionInfo: cloudConn.RegionInfo, Client: cloudConn.Client, NLBClient: cloudConn.NLBClient}
+	return &nlbHandler, nil
 }
 
 func (cloudConn *KtCloudConnection) CreateDiskHandler() (irs.DiskHandler, error) {

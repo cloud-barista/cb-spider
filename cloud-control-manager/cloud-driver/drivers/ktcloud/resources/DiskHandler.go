@@ -31,6 +31,7 @@ const (
 	DefaultUsagePlanType	string = "hourly"
 	DefaultDiskIOPS        	string = "10000"
 	DefaultWindowsDiskSize 	string = "50"
+	KOR_Seoul_M_ZoneID  	string = "95e2f517-d64a-4866-8585-5177c256f7c7"
 )
 
 type KtCloudDiskHandler struct {
@@ -167,7 +168,7 @@ func (diskHandler *KtCloudDiskHandler) ListDisk() ([]*irs.DiskInfo, error) {
 
 	if len(result.Listvolumesresponse.Volume) < 1 {
 		cblogger.Info("# KT Cloud Volume does Not Exist!!")
-		return []*irs.DiskInfo{}, nil
+		return []*irs.DiskInfo{}, nil // Not Return Error
 	}
 	// spew.Dump(result.Listvolumesresponse.Volume)
 
@@ -598,9 +599,17 @@ func (diskHandler *KtCloudDiskHandler) MappingDiskInfo(volume *ktsdk.Volume) (ir
 		diskInfo.IId.NameId = volume.Name
 	}
 
-	if !strings.EqualFold(volume.VolumeType, "") {
+	// Caution!!) In 'KOR Seoul M' zone, in case the created disk is 'SSD', it appears as "volumetype": "general". 
+	// 			  (Shoud be "volumetype": "ssd")
+	if strings.EqualFold(diskHandler.RegionInfo.Zone, KOR_Seoul_M_ZoneID){
+		if strings.Contains(volume.DiskOfferingName, "SSD") {
+			diskInfo.DiskType = "SSD"
+		} else {
+			diskInfo.DiskType = "HDD"
+		}
+	} else if !strings.EqualFold(volume.VolumeType, "") {
 		if strings.EqualFold(volume.VolumeType, "general") {
-		diskInfo.DiskType = "HDD"
+			diskInfo.DiskType = "HDD"
 		} else if strings.EqualFold(volume.VolumeType, "ssd") {
 			diskInfo.DiskType = "SSD"
 		}
