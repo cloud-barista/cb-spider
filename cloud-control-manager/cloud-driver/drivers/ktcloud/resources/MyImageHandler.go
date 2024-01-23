@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"time"
 	// "google.golang.org/grpc/metadata"
-	"github.com/davecgh/go-spew/spew"
+	// "github.com/davecgh/go-spew/spew"
 
 	ktsdk "github.com/cloud-barista/ktcloud-sdk-go"
 
@@ -237,9 +237,9 @@ func (myImageHandler *KtCloudMyImageHandler) DeleteMyImage(myImageIID irs.IID) (
 
 func (myImageHandler *KtCloudMyImageHandler) MappingMyImageInfo(myImage *ktsdk.Template) (*irs.MyImageInfo, error) {
 	cblogger.Info("KT Cloud Driver: called MappingMyImageInfo()!")
-	cblogger.Info("\n\n### myImage : ")
-	spew.Dump(myImage)
-	cblogger.Info("\n")
+	// cblogger.Info("\n\n### myImage : ")
+	// spew.Dump(myImage)
+	// cblogger.Info("\n")
 
 	var convertedTime time.Time
 	var convertErr error
