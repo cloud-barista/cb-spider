@@ -120,7 +120,7 @@ func (nlbHandler *KtCloudNLBHandler) ListNLB() ([]*irs.NLBInfo, error) {
 	LoggingInfo(callLogInfo, start)
 	// spew.Dump(result)
 
-	time.Sleep(time.Second * 1) // Before the next if ...
+	time.Sleep(time.Second * 1) // Before 'return'
 	// To Prevent the Error : "Unable to execute API command listTags due to ratelimit timeout"
 
 	if len(nlbResp.Listnlbsresponse.NLB) < 1 {
@@ -387,7 +387,7 @@ func (nlbHandler *KtCloudNLBHandler) RemoveVMs(nlbIID irs.IID, vmIIDs *[]irs.IID
 		// spew.Dump(removeResp)
 		// cblogger.Info("\n")		
 
-		time.Sleep(time.Second * 1) // Before the next if ...
+		time.Sleep(time.Second * 1) // Before 'return'
 		// To Prevent the Error : "Unable to execute API command listTags due to ratelimit timeout"
 
 		if !removeResp.Removenlbvmresponse.Success {
@@ -423,7 +423,7 @@ func (nlbHandler *KtCloudNLBHandler) GetVMGroupHealthInfo(nlbIID irs.IID) (irs.H
 		return irs.HealthInfo{}, newErr
 	}
 	
-	time.Sleep(time.Second * 1) // Before the next if ...
+	time.Sleep(time.Second * 1) // Before 'return'
 	// To Prevent the Error : "Unable to execute API command listTags due to ratelimit timeout"
 
 	if len(nlbResp.Listnlbvmsresponse.NLBVM) < 1 {
@@ -558,7 +558,7 @@ func (nlbHandler *KtCloudNLBHandler) GetVMGroupInfo(nlbId string) (irs.VMGroupIn
 	LoggingInfo(callLogInfo, start)
 	// spew.Dump(nlbResp)
 
-	time.Sleep(time.Second * 1) // Before the next if ...
+	time.Sleep(time.Second * 1) // Before 'return'
 	// To Prevent the Error : "Unable to execute API command listTags due to ratelimit timeout"
 
 	if len(nlbResp.Listnlbvmsresponse.NLBVM) < 1 {
@@ -630,7 +630,7 @@ func (nlbHandler *KtCloudNLBHandler) GetServiceIdWithVMId(nlbId string, vmId str
 		return 0, newErr
 	}
 
-	time.Sleep(time.Second * 1) // Before the next if ...
+	time.Sleep(time.Second * 1) // Before 'return'
 	// To Prevent the Error : "Unable to execute API command listTags due to ratelimit timeout"
 
 	if len(nlbResp.Listnlbvmsresponse.NLBVM) < 1 {
@@ -740,7 +740,7 @@ func (nlbHandler *KtCloudNLBHandler) GetKTCloudNLB(nlbId string) (*ktsdk.NLB, er
 	// cblogger.Info("\n# nlbResp : ")
 	// spew.Dump(nlbResp)
 
-	time.Sleep(time.Second * 1) // Before the next if ... 
+	time.Sleep(time.Second * 1) // Before 'return' 
 	// To Prevent the Error : "Unable to execute API command listTags due to ratelimit timeout"
 
 	if len(nlbResp.Listnlbsresponse.NLB) < 1 {

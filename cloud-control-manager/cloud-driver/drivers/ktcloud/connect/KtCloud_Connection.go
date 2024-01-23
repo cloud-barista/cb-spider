@@ -106,7 +106,8 @@ func (cloudConn *KtCloudConnection) CreateClusterHandler() (irs.ClusterHandler, 
 
 func (cloudConn *KtCloudConnection) CreateMyImageHandler() (irs.MyImageHandler, error) {
 	cblogger.Info("KT Cloud Driver: called CreateMyImageHandler()!")
-	return nil, fmt.Errorf("KT Cloud Driver does not support CreateMyImageHandler yet.")
+	myimageHandler := ktrs.KtCloudMyImageHandler{RegionInfo: cloudConn.RegionInfo, Client: cloudConn.Client}
+	return &myimageHandler, nil
 }
 
 func (cloudConn *KtCloudConnection) CreateAnyCallHandler() (irs.AnyCallHandler, error) {
