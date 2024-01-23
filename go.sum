@@ -139,8 +139,6 @@ github.com/chzyer/test v0.0.0-20180213035817-a1ea475d72b1/go.mod h1:Q3SI9o4m/ZMn
 github.com/client9/misspell v0.3.4/go.mod h1:qj6jICC3Q7zFZvVWo7KLAzC3yx5G7kyvSDkc90ppPyw=
 github.com/cloud-barista/cb-log v0.8.0 h1:ArWCs1EgpoD3ZnBgcC4cAw5ufI/JHmFKfJswlv4whgk=
 github.com/cloud-barista/cb-log v0.8.0/go.mod h1:nGgfTFMPwl1MpCO3FBjexUkNdOYA0BNJoyM9Pd0lMms=
-github.com/cloud-barista/ktcloud-sdk-go v0.2.1-0.20240116154332-e1c0c726d5b5 h1:y+qC1tawDnSSVuTcgCyFGnOcyVCsaqPWWeSkjyITlW4=
-github.com/cloud-barista/ktcloud-sdk-go v0.2.1-0.20240116154332-e1c0c726d5b5/go.mod h1:ZIrUxItUvMIGZyX6Re7tUdcS3cwBIzBPcL+Pk/6lt/8=
 github.com/cloud-barista/ktcloud-sdk-go v0.2.1-0.20240119134447-46f90aa8d02f h1:DvXmUu+d5QiuZ/oIURDaacpiyWnE91ZR3TQRu7bsjP0=
 github.com/cloud-barista/ktcloud-sdk-go v0.2.1-0.20240119134447-46f90aa8d02f/go.mod h1:ZIrUxItUvMIGZyX6Re7tUdcS3cwBIzBPcL+Pk/6lt/8=
 github.com/cloud-barista/nhncloud-sdk-go v0.0.0-20231114133737-f29e6fddb736 h1:6cc5BVWPZAo1gW7Mjfd74XAK4Wv/J6vLc3CSSMuRXd0=

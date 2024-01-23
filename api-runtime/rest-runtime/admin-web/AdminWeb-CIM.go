@@ -1063,7 +1063,8 @@ func makeOnchangeConnectionConfigProviderFunc_js() string {
                 document.getElementById('4').options.add(new Option(regionNameList[i].innerHTML, regionNameList[i].innerHTML));
         }
 
-	document.getElementById('5').value= providerName.toLowerCase() + "-" +  document.getElementById('4').value + "-connection-config-01";
+	//document.getElementById('5').value= providerName.toLowerCase() + "-" +  document.getElementById('4').value + "-connection-config-01";
+	document.getElementById('5').value= providerName.toLowerCase() + "-config-01";
 
               }
         `
