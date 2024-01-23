@@ -496,11 +496,11 @@ func (diskHandler *KtCloudDiskHandler) GetDiskStatus(diskIID irs.IID) (irs.DiskS
 		return irs.DiskError, newErr
 	}
 
-	if !strings.EqualFold(volume.VMId, "") {
+	// Note) Because the 'state' value of volume info (from KT Cloud) does not indicate whether it is Attachment.
+	if !strings.EqualFold(volume.VMId, "") { 
 		return ConvertDiskStatus("attached"), nil
 	}
-	return ConvertDiskStatus("allocated"), nil
-	// return ConvertDiskStatus(volume.State), nil
+	return ConvertDiskStatus("allocated"), nil	
 }
 
 // $$$ Caution!!) KT Volume State : chanaged to 'Ready' after Attachment. Stil 'Ready' after Detachment.
@@ -669,4 +669,48 @@ func (diskHandler *KtCloudDiskHandler) GetKtVolumeInfo(diskIID irs.IID) (ktsdk.V
 		return ktsdk.Volume{}, newErr
 	}
 	return result.Listvolumesresponse.Volume[0], nil
+}
+
+func (diskHandler *KtCloudDiskHandler) GetVolumeIdWithVMid(vmId string) (string, error) {
+	cblogger.Info("KT Cloud Driver: called GetVolumeIdWithVMid()")
+	InitLog()
+	callLogInfo := GetCallLogScheme(diskHandler.RegionInfo.Zone, call.DISK, vmId, "GetVolumeIdWithVMid()")
+
+	if strings.EqualFold(vmId, "") {
+		newErr := fmt.Errorf("Invalid VM ID!!")
+		cblogger.Error(newErr.Error())
+		return "", newErr
+	}
+
+	volumeReq := ktsdk.ListVolumeReqInfo{
+		ZoneId: diskHandler.RegionInfo.Zone,
+	}
+	start := call.Start()
+	result, err := diskHandler.Client.ListVolumes(volumeReq)
+	if err != nil {
+		cblogger.Error("Failed to Get KT Cloud Volume list : [%v]", err)
+		return "", err
+	}
+	LoggingInfo(callLogInfo, start)
+	// spew.Dump(result)
+
+	if len(result.Listvolumesresponse.Volume) < 1 {
+		newErr := fmt.Errorf("Failed to Get Volume List on the Zone!!")
+		cblogger.Error(newErr.Error())
+		return "", newErr
+	}
+
+	var volumeId string
+	for _, volume := range result.Listvolumesresponse.Volume {
+		if strings.EqualFold(volume.VMId, vmId){
+			volumeId = volume.ID
+			break
+		}
+	}
+	if strings.EqualFold(volumeId, ""){
+		newErr := fmt.Errorf("Failed to Get Volume ID with the VM ID!!")
+		cblogger.Error(newErr.Error())
+		return "", newErr
+	}
+	return volumeId, nil	
 }
