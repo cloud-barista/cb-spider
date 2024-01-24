@@ -88,15 +88,16 @@ type InstanceTypesResponse struct {
 }
 
 func (priceInfoHandler *AlibabaPriceInfoHandler) ListProductFamily(regionName string) ([]string, error) {
-	productListresponse, err := QueryProductList(priceInfoHandler.BssClient)
-	if err != nil {
-		return nil, err
-	}
-
 	var familyList []string
-	for _, Product := range productListresponse.Data.ProductList.Product {
-		familyList = append(familyList, Product.ProductCode)
-	}
+	familyList = append(familyList, "ecs") //spider에서 지원하는 가격 서비스
+
+	// productListresponse, err := QueryProductList(priceInfoHandler.BssClient)
+	// if err != nil {
+	// 	return nil, err
+	// }
+	// for _, Product := range productListresponse.Data.ProductList.Product {
+	// 	familyList = append(familyList, Product.ProductCode)
+	// }
 
 	return familyList, nil
 }
@@ -139,10 +140,12 @@ func (priceInfoHandler *AlibabaPriceInfoHandler) GetPriceInfo(productFamily stri
 				cblogger.Error(err)
 				continue
 			}
-
+			// cblogger.Info("pricingModuleRequest ", pricingModuleRequest)
+			// cblogger.Info("pricingModulesPayAsYouGo ", pricingModulesPayAsYouGo)
 			isExist := bool(false)
 			var pricingModulePriceType string
 			for _, pricingModule := range pricingModulesPayAsYouGo.Data.ModuleList.Module {
+				// cblogger.Info("pricingModule ", pricingModule)
 				if pricingModule.ModuleCode == "InstanceType" {
 					for _, config := range pricingModule.ConfigList.ConfigList {
 						if config == "InstanceType" {
@@ -157,7 +160,8 @@ func (priceInfoHandler *AlibabaPriceInfoHandler) GetPriceInfo(productFamily stri
 
 			if !isExist {
 				cblogger.Errorf("There is no InstanceType Module Config - [%s]", productFamily)
-				break
+				continue
+				//break
 			}
 
 			getPayAsYouGoPriceRequest := requests.NewCommonRequest()
