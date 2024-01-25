@@ -6,9 +6,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"math"
-	"strconv"
+	"reflect"
 	"strings"
 
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
@@ -37,16 +36,30 @@ type GCPPriceInfoHandler struct {
 }
 
 // Return the price information of products belonging to the specified Region's PriceFamily in JSON format
-func (priceInfoHandler *GCPPriceInfoHandler) GetPriceInfo(productFamily string, regionName string, filter []irs.KeyValue) (string, error) {
+func (priceInfoHandler *GCPPriceInfoHandler) GetPriceInfo(productFamily string, regionName string, additionalFilterList []irs.KeyValue) (string, error) {
 
-	billindAccountId := priceInfoHandler.Credential.BillingAccountID
+	formattedProjectId := fmt.Sprintf("projects/%s", priceInfoHandler.Credential.ProjectID)
+	billingInfo, err := priceInfoHandler.BillingCatalogClient.Projects.GetBillingInfo(formattedProjectId).Do()
 
-	if billindAccountId == "" || billindAccountId == "billingAccounts/" {
-		cblogger.Error("billing accout id does not exist")
-		return "", errors.New("billing account is a mandatory field")
+	if err != nil {
+		cblogger.Error("error while getting billing info for billing account id")
+		return "", errors.New("error while getting billing info for billing account id")
 	}
 
-	if regionName == "" {
+	cblogger.Infof("filter value : %+v", additionalFilterList)
+
+	billingAccountId := billingInfo.BillingAccountName
+
+	if billingAccountId == "" || billingAccountId == "billingAccounts/" || !strings.HasPrefix(billingAccountId, "billingAccounts/") {
+		cblogger.Error("billing account does not exist on project. connect billing account to current project")
+		return "", errors.New("billing account does not exist on project. connect billing account to current project")
+	}
+
+	filter := filterListToMap(additionalFilterList)
+
+	if filteredRegionName, ok := filter["regionName"]; ok {
+		regionName = *filteredRegionName
+	} else if regionName == "" {
 		regionName = priceInfoHandler.Region.Region
 	}
 
@@ -62,13 +75,12 @@ func (priceInfoHandler *GCPPriceInfoHandler) GetPriceInfo(productFamily string, 
 			return "", err
 		}
 
-		/*
-		 * compute.MachineType 에서 머신 타입이 동일하면 zone 정보를 제외하고 모두 동일 정보 제공
-		 * zone 정보만 다르게 해서 동일한 machine type 으로 호출에 대한 최적화 가능
-		 */
 		machineTypeSlice := make([]*compute.MachineType, 0)
 
 		for _, zone := range zoneList.Items {
+			if zoneName, ok := filter["zoneName"]; ok && zone.Name != *zoneName {
+				continue
+			}
 
 			keepFetching := true // machine type 조회 반복 호출 flag
 			nextPageToken := ""
@@ -95,6 +107,10 @@ func (priceInfoHandler *GCPPriceInfoHandler) GetPriceInfo(productFamily string, 
 
 			for _, machineType := range machineTypeSlice {
 
+				if machineTypeFilter, ok := filter["instanceType"]; ok && machineType.Name != *machineTypeFilter {
+					continue
+				}
+
 				if machineType != nil {
 					// mapping to product info struct
 					productInfo, err := mappingToProductInfoForComputePrice(regionName, machineType)
@@ -104,20 +120,26 @@ func (priceInfoHandler *GCPPriceInfoHandler) GetPriceInfo(productFamily string, 
 						return "", err
 					}
 
+					if productInfoFilter(productInfo, filter) {
+						continue
+					}
+
 					// call cost estimation api
-					estimatedCostResponse, err := callEstimateCostScenario(priceInfoHandler, regionName, billindAccountId, machineType)
+					estimatedCostResponse, err := callEstimateCostScenario(priceInfoHandler, regionName, billingAccountId, machineType)
 					if err != nil {
 						cblogger.Error("error occurred when calling the EstimateCostScenario; message:", err)
 						continue
 					}
 
 					// mapping to price info struct
-					priceInfo, err := mappingToPriceInfoForComputePrice(estimatedCostResponse)
+					priceInfo, err := mappingToPriceInfoForComputePrice(estimatedCostResponse, filter)
 
 					if err != nil {
 						cblogger.Error("error occurred while mapping the pricing info struct;; machine type:", machineType.Name, ", message:", err)
 						return "", err
 					}
+
+					cblogger.Infof("fetch :: %s machine type", productInfo.InstanceType)
 
 					priceList := irs.Price{
 						ProductInfo: *productInfo,
@@ -126,7 +148,6 @@ func (priceInfoHandler *GCPPriceInfoHandler) GetPriceInfo(productFamily string, 
 
 					priceLists = append(priceLists, priceList)
 				}
-
 			}
 		}
 	}
@@ -153,6 +174,140 @@ func (priceInfoHandler *GCPPriceInfoHandler) GetPriceInfo(productFamily string, 
 
 	return convertedPriceData, nil
 
+}
+
+func toCamelCase(val string) string {
+	if val == "" {
+		return ""
+	}
+
+	return fmt.Sprintf("%s%s", strings.ToLower(val[:1]), val[1:])
+}
+
+func pricePolicyInfoFilter(policy interface{}, filter map[string]*string) bool {
+	if len(filter) == 0 {
+		return false
+	}
+
+	refelectValue := reflect.ValueOf(policy)
+
+	for i := 0; i < refelectValue.NumField(); i++ {
+
+		fieldName := refelectValue.Type().Field(i).Name
+		camelCaseFieldName := toCamelCase(fieldName)
+		fieldValue := refelectValue.Field(i)
+
+		if invalidRefelctCheck(fieldValue) ||
+			fieldValue.Kind() == reflect.Ptr ||
+			fieldValue.Kind() == reflect.Struct {
+			continue
+		}
+
+		fieldStringValue := fmt.Sprintf("%v", fieldValue)
+
+		if value, ok := filter[camelCaseFieldName]; ok {
+			skipFlag := value != nil && *value != fieldStringValue
+			if skipFlag {
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
+func priceInfoFilter(policy irs.PricingPolicies, filter map[string]*string) bool {
+	if len(filter) == 0 {
+		return false
+	}
+
+	refelectValue := reflect.ValueOf(policy)
+
+	for i := 0; i < refelectValue.NumField(); i++ {
+		fieldName := refelectValue.Type().Field(i).Name
+		camelCaseFieldName := toCamelCase(fieldName)
+		fieldValue := refelectValue.Field(i)
+
+		if invalidRefelctCheck(fieldValue) ||
+			fieldValue.Kind() == reflect.Struct {
+			continue
+		} else if fieldValue.Kind() == reflect.Ptr {
+
+			derefernceValue := fieldValue.Elem()
+
+			if derefernceValue.Kind() == reflect.Invalid {
+				skipFlag := pricePolicyInfoFilter(irs.PricingPolicyInfo{}, filter)
+				if skipFlag {
+					return true
+				}
+			} else if derefernceValue.Kind() == reflect.Struct {
+				if derefernceValue.Type().Name() == "PricingPolicyInfo" {
+					skipFlag := pricePolicyInfoFilter(*policy.PricingPolicyInfo, filter)
+					if skipFlag {
+						return true
+					}
+				}
+			}
+		}
+
+		fieldStringValue := fmt.Sprintf("%v", fieldValue)
+
+		if value, ok := filter[camelCaseFieldName]; ok {
+			skipFlag := value != nil && *value != fieldStringValue
+			if skipFlag {
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
+func invalidRefelctCheck(value reflect.Value) bool {
+	return value.Kind() == reflect.Array ||
+		value.Kind() == reflect.Slice ||
+		value.Kind() == reflect.Map ||
+		value.Kind() == reflect.Func ||
+		value.Kind() == reflect.Interface ||
+		value.Kind() == reflect.UnsafePointer ||
+		value.Kind() == reflect.Chan
+}
+
+func productInfoFilter(productInfo *irs.ProductInfo, filter map[string]*string) bool {
+	if len(filter) == 0 {
+		return false
+	}
+
+	refelectValue := reflect.ValueOf(*productInfo)
+
+	for i := 0; i < refelectValue.NumField(); i++ {
+		fieldName := refelectValue.Type().Field(i).Name
+
+		if fieldName == "CSPProductInfo" || fieldName == "Description" {
+			continue
+		}
+
+		camelCaseFieldName := toCamelCase(fieldName)
+		fieldValue := refelectValue.Field(i)
+
+		if invalidRefelctCheck(fieldValue) ||
+			fieldValue.Kind() == reflect.Ptr ||
+			fieldValue.Kind() == reflect.Struct {
+			continue
+		}
+
+		fieldStringValue := fmt.Sprintf("%v", fieldValue)
+
+		if value, ok := filter[camelCaseFieldName]; ok {
+			skipFlag := value != nil && *value != fieldStringValue
+
+			if skipFlag {
+				return true
+			}
+		}
+	}
+
+	return false
 }
 
 /* @Info
@@ -273,19 +428,13 @@ func (priceInfoHandler *GCPPriceInfoHandler) ListProductFamily(regionName string
 }
 
 func mappingToProductInfoForComputePrice(region string, machineType *compute.MachineType) (*irs.ProductInfo, error) {
-	cspProductInfoString, err := json.Marshal(*machineType)
-
-	if err != nil {
-		return &irs.ProductInfo{}, err
-	}
-
 	productId := fmt.Sprintf("%d", machineType.Id)
 
 	productInfo := &irs.ProductInfo{
 		ProductId:      productId,
 		RegionName:     region,
 		ZoneName:       machineType.Zone,
-		CSPProductInfo: string(cspProductInfoString),
+		CSPProductInfo: machineType,
 	}
 
 	productInfo.InstanceType = machineType.Name
@@ -317,7 +466,7 @@ func mappingToProductInfoForComputePrice(region string, machineType *compute.Mac
 		3YearCUD
 */
 
-func mappingToPriceInfoForComputePrice(res *cbb.EstimateCostScenarioForBillingAccountResponse) (*irs.PriceInfo, error) {
+func mappingToPriceInfoForComputePrice(res *cbb.EstimateCostScenarioForBillingAccountResponse, filter map[string]*string) (*irs.PriceInfo, error) {
 
 	result := res.CostEstimationResult
 	policies := make([]irs.PricingPolicies, 0)
@@ -344,13 +493,13 @@ func mappingToPriceInfoForComputePrice(res *cbb.EstimateCostScenarioForBillingAc
 					Description:   description,
 				}
 
-				policies = append(policies, policy)
-				cspInfo = append(cspInfo, segmentCostEstimate.SegmentTotalCostEstimate)
+				if !priceInfoFilter(policy, filter) {
+					policies = append(policies, policy)
+					cspInfo = append(cspInfo, firstWorkloadCostEstimate)
+				}
 			}
-
 		}
 
-		// mapping from GCP Commitment price struct to PricingPolicies struct
 		if len(segmentCostEstimate.CommitmentCostEstimates) > 0 {
 			for _, commitment := range segmentCostEstimate.CommitmentCostEstimates {
 				if commitment.CommitmentTotalCostEstimate != nil {
@@ -382,23 +531,18 @@ func mappingToPriceInfoForComputePrice(res *cbb.EstimateCostScenarioForBillingAc
 						PricingPolicyInfo: pricingPolicyInfo,
 					}
 
-					policies = append(policies, policy)
-					cspInfo = append(cspInfo, commitment.CommitmentTotalCostEstimate)
+					if !priceInfoFilter(policy, filter) {
+						policies = append(policies, policy)
+						cspInfo = append(cspInfo, commitment)
+					}
 				}
 			}
 		}
 	}
 
-	marshalledCspInfo, err := json.Marshal(cspInfo)
-
-	if err != nil {
-		cblogger.Error("error occurred during the marshaling process of cspinfo; ", err)
-		marshalledCspInfo = []byte("")
-	}
-
 	return &irs.PriceInfo{
 		PricingPolicies: policies,
-		CSPPriceInfo:    string(marshalledCspInfo),
+		CSPPriceInfo:    cspInfo,
 	}, nil
 }
 
@@ -474,300 +618,21 @@ func getMachineSeriesFromMachineType(machineType string) string {
 	return machineType[:firstDashIndex]
 }
 
-/*********************************************************************/
-/*************************** Code Archive ****************************/
-/*********************************************************************/
-// 실제 billing service를 호출하여 결과 확인
-func CallServicesList(priceInfoHandler *GCPPriceInfoHandler) ([]string, error) {
-	returnProductFamilyNames := []string{}
-	// ***STEP1 : Services.List를 호출하여 모든 Servic를 조회 : 상세조건에 해당하는 api가 현재 없음.*** ///
+func filterListToMap(additionalFilterList []irs.KeyValue) map[string]*string {
+	filterMap := make(map[string]*string, 0)
 
-	//resp, err := priceInfoHandler.CloudBillingClient.Services.Skus.List("services/0017-8C5E-5B91").Do()
-	// priceInfoHandler.CloudBillingApiClient.Services.List().Fields("services") // 해당 결과에서 원하는 Field만 조회할 때 사용 ex) services.name : services > name 만 가져온다. 여러 건의 경우 콤마로 구분 services.name,services.displayName
-	respService, err := priceInfoHandler.BillingCatalogClient.Services.List().Do() // default 5000건.
-	//respService, err := priceInfoHandler.CloudBillingApiClient.Services.List().PageSize(10).PageToken("").Do() // 만약 total count 가 5000 이상이면 pageSize와 pageToken을 이용해 조회 필요. 다음페이지가 없으면 nextPageToken은 "" 임
-	// ///////// 가져오는 결과 형태 /////////////
-	// (*cloudbilling.Service)(0xc0002ddc70)({
-	// 	BusinessEntityName: (string) (len=20) "businessEntities/GCP",
-	// 	DisplayName: (string) (len=24) "ADFS Windows Server 2016",
-	// 	Name: (string) (len=23) "services/EEF5-99AE-6778",
-	// 	ServiceId: (string) (len=14) "EEF5-99AE-6778",
-	// 	ForceSendFields: ([]string) <nil>,
-	// 	NullFields: ([]string) <nil>
-	//    }),
-	if err != nil {
-		cblogger.Error(err)
-		return nil, err
+	if additionalFilterList == nil {
+		return filterMap
 	}
-	// // spew.Dump(respService)
-	// for _, service := range respService.Services {
-	// 	category := service.
-	// }
 
-	categoryResourceFamily := map[string]string{}
-	categoryResourceGroup := map[string]string{}
-	categoryServiceDisplayName := map[string]string{}
-	totalCnt := 0
-
-	// ***STEP2 : Services.List에서 service의 name으로 Sku 목록 조회 *** ///
-	for _, service := range respService.Services {
-		totalCnt++
-		//resp, err := priceInfoHandler.CloudBillingApiClient.Services.Skus.List("services/6F81-5844-456A").Do()
-		serviceName := service.Name
-		resp, err := priceInfoHandler.BillingCatalogClient.Services.Skus.List(serviceName).Do()
-
-		if err != nil {
-			cblogger.Error(err)
-			return nil, err
+	for _, kv := range additionalFilterList {
+		value := strings.TrimSpace(kv.Value)
+		if value == "" {
+			continue
 		}
-		//spew.Dump(resp)
-		i := 0
 
-		// ***STEP3 : Sku에서 Category 안에 있는 ResourceFamily를 map에 담아 중복제거 *** ///
-		for _, sku := range resp.Skus {
-
-			if sku.Category.ResourceFamily != "Compute" {
-				fmt.Println("ski resourceFamily = ", sku.Category.ResourceFamily)
-				continue
-			}
-
-			//spew.Dump(sku)
-			i++
-
-			categoryResourceFamily[sku.Category.ResourceFamily] = sku.Category.ResourceFamily
-			categoryResourceGroup[sku.Category.ResourceGroup] = sku.Category.ResourceGroup
-			categoryServiceDisplayName[sku.Category.ServiceDisplayName] = sku.Category.ServiceDisplayName
-
-			// log.Println("sku name ", sku.Name)
-			// log.Println("sku id ", sku.SkuId)
-			// log.Println("category ", sku.Category)
-			// log.Println("serviceRegions ", sku.ServiceRegions)
-
-			// Category: (*cloudbilling.Category)(0xc0004d00e0)({
-			// 	ResourceFamily: (string) (len=7) "Compute",
-			// 	ResourceGroup: (string) (len=3) "GPU",
-			// 	ServiceDisplayName: (string) (len=14) "Compute Engine",
-			// 	UsageType: (string) (len=11) "Preemptible",
-			// 	ForceSendFields: ([]string) <nil>,
-			// 	NullFields: ([]string) <nil>
-			//    }),
-
-		} // end of skus
-		// log.Println(serviceName, ", i= ", i)
-		fmt.Println(serviceName, ", i= ", i)
-	} // end of service
-	// log.Println(" categoryResourceFamily= ", categoryResourceFamily)
-	// log.Println(" categoryResourceGroup= ", categoryResourceGroup)
-	// log.Println(" categoryServiceDisplayName= ", categoryServiceDisplayName)
-	fmt.Println(" categoryResourceFamily= ", categoryResourceFamily)
-	fmt.Println(" categoryResourceGroup= ", categoryResourceGroup)
-	fmt.Println(" categoryServiceDisplayName= ", categoryServiceDisplayName)
-	fmt.Println(" totalCnt = ", totalCnt)
-
-	// ***STEP4 : ResourceFamily Map을 string array로 변경하여 return *** ///
-	for key := range categoryResourceFamily {
-		fmt.Printf("Key: %s\n", key)
-		returnProductFamilyNames = append(returnProductFamilyNames, key)
+		filterMap[kv.Key] = &value
 	}
 
-	return returnProductFamilyNames, nil
+	return filterMap
 }
-
-// 실제 billing services > skus 를 호출하여 결과 확인
-// parent = services/{serviceId}
-func CallServicesSkusList(priceInfoHandler *GCPPriceInfoHandler, parent string) (*cloudbilling.ListSkusResponse, error) {
-	log.Println(" parent ", parent)
-
-	// nextToken이 없어질 때까지 반복.
-	hasNextToken := 1
-	nextPageToken := ""
-	//skuArr := []*cloudbilling.ListSkusResponse{}
-	skuArr := []*cloudbilling.Sku{}
-	for hasNextToken > 0 {
-
-		resp, err := priceInfoHandler.BillingCatalogClient.Services.Skus.List(parent).PageToken(nextPageToken).Do()
-
-		if err != nil {
-
-		}
-		skuArr = append(skuArr, resp.Skus...)
-
-		nextPageToken = resp.NextPageToken
-		if nextPageToken == "" {
-			hasNextToken = 0
-			break
-		}
-		log.Println(resp)
-	}
-
-	// 가져온 respArr을 mapping 한다.
-	cloudPriceData := irs.CloudPriceData{} // 가장 큰 단위( meta 포함 )
-	cloudPriceList := []irs.CloudPrice{}   // meta를 제외한 가장 큰 단위
-	cloudPrice := irs.CloudPrice{}         // 해당 cloud의 모든 price 정보
-	priceList := []irs.Price{}
-	for _, sku := range skuArr {
-		aPrice := irs.Price{}
-		priceInfo := irs.PriceInfo{}
-
-		// priceInfo.PricingPolicies
-
-		skuPriceInforArr := sku.PricingInfo
-		pricePolicies := []irs.PricingPolicies{}
-		for _, pricing := range skuPriceInforArr {
-			pricePolicy := irs.PricingPolicies{}
-			pricePolicy.PricingId = sku.SkuId
-
-			//"usageType": "OnDemand", "Preemptible", "Commit1Yr" ...
-			pricePolicy.PricingPolicy = sku.Category.UsageType
-
-			// price는 계산해야 함.
-			// baseUnitConversionFactor * (tieredRates.units + tieredRates.nanos)
-			mappingPrice(pricePolicy, pricing.PricingExpression)
-
-			// Price             string             `json:"price"`
-			// Description       string             `json:"description"`
-			// PricingPolicyInfo *PricingPolicyInfo `json:"pricingPolicyInfo,omitempty"`
-
-			pricePolicies = append(pricePolicies, pricePolicy)
-		}
-		priceInfo.PricingPolicies = pricePolicies
-
-		priceList = append(priceList, aPrice)
-	}
-	// type PriceList struct {
-	// 	ProductInfo ProductInfo `json:"productInfo"`
-	// 	PriceInfo   PriceInfo   `json:"priceInfo"`
-	// }
-	cloudPriceList = append(cloudPriceList, cloudPrice)
-	cloudPriceData.CloudPriceList = cloudPriceList
-
-	return nil, nil
-	//return resp, err
-}
-
-// 가격 계산
-// 가격 계산 식:
-// 가격=(전체 단위+나노초109)×단위 가격가격=(전체 단위+109나노초​)×단위 가격
-//
-//	전체 단위전체 단위: units 필드의 값
-//	나노초나노초: nanos 필드의 값
-//	단위 가격단위 가격: unitPrice의 units와 nanos를 이용하여 구한 1초당 가격
-//	가격가격: 최종적으로 계산된 가격
-func mappingPrice(pricePolicy irs.PricingPolicies, pricingExpression *cloudbilling.PricingExpression) {
-
-	//func calculatePrice(unitPrice float64, usageSeconds float64, conversionFactor float64) float64 {
-	baseUnit := pricingExpression.BaseUnit                                 // 전체단위
-	baseUnitConversionFactor := pricingExpression.BaseUnitConversionFactor // 환산에 필요한 값
-	usageUnit := pricingExpression.UsageUnit                               // 표시단위 ( h = 3600s )
-	tieredRates := pricingExpression.TieredRates
-
-	calPrice := float64(0)
-
-	// TiredRates가 배열이므로 USD 등을 찾아야 함.
-	for _, tier := range tieredRates {
-		currencyCode := tier.UnitPrice.CurrencyCode
-		// if currencyCode != "USD" {
-		// 	continue
-		// } // USD 만 계산.
-
-		nanos := float64(tier.UnitPrice.Nanos)
-		units := float64(tier.UnitPrice.Units)
-		if baseUnit != usageUnit {
-			calPrice = (units + nanos/1e9) * baseUnitConversionFactor
-		} else {
-			calPrice = (units + nanos/1e9)
-		}
-		pricePolicy.Currency = currencyCode
-		pricePolicy.Unit = usageUnit
-		pricePolicy.Price = strconv.FormatFloat(calPrice, 'f', -1, 64)
-		pricePolicy.Description = fmt.Sprintf("units = %s , nanos = %.2f", units, nanos)
-	}
-
-	//unitPrice * (usageSeconds / conversionFactor)
-
-	// "usageUnit": "h",
-	//         "displayQuantity": 1,
-	//         "tieredRates": [
-	//           {
-	//             "startUsageAmount": 0,
-	//             "unitPrice": {
-	//               "currencyCode": "USD",
-	//               "units": "0",
-	//               "nanos": 20550000 ->0.02055
-	//             }
-	//           }
-	//         ],
-	//         "usageUnitDescription": "hour",
-	//         "baseUnit": "s",
-	//         "baseUnitDescription": "second",
-	//         "baseUnitConversionFactor": 3600
-	//       },
-	//       "currencyConversionRate": 1,
-
-	// SKU 비용은 units + nanos입니다. 예를 들어 $1.75 비용은 units=1 및 nanos=750,000,000으로 나타냅니다.
-	// 단위 설명
-	// 사용량 가격 등급 시작액
-
-}
-
-// unit은 더하고
-func calculatePrice(units int64, nanos int, unitPrice float64, baseUnitConversionFactor float64) float64 {
-	// baseUnit을 시간으로 변환
-	hours := float64(units*int64(baseUnitConversionFactor)) / 3600
-
-	// 가격 계산
-	return (hours + float64(nanos)/1e9) * unitPrice
-}
-
-/*
-Commitment v1: A2 Cpu in APAC for 1 Year
-38FA-6071-3D88	0.0230593 USD per 1 hour
-
-{
-      "name": "services/6F81-5844-456A/skus/38FA-6071-3D88",
-      "skuId": "38FA-6071-3D88",
-      "description": "Commitment v1: A2 Cpu in APAC for 1 Year",
-      "category": {
-        "serviceDisplayName": "Compute Engine",
-        "resourceFamily": "Compute",
-        "resourceGroup": "CPU",
-        "usageType": "Commit1Yr"
-      },
-      "serviceRegions": [
-        "asia-east1"
-      ],
-      "pricingInfo": [
-        {
-          "summary": "",
-          "pricingExpression": {
-            "usageUnit": "h",
-            "displayQuantity": 1,
-            "tieredRates": [
-              {
-                "startUsageAmount": 0,
-                "unitPrice": {
-                  "currencyCode": "USD",
-                  "units": "0",
-                  "nanos": 23059300
-                }
-              }
-            ],
-            "usageUnitDescription": "hour",
-            "baseUnit": "s",
-            "baseUnitDescription": "second",
-            "baseUnitConversionFactor": 3600
-          },
-          "currencyConversionRate": 1,
-          "effectiveTime": "2023-12-20T22:56:00.158911Z"
-        }
-      ],
-      "serviceProviderName": "Google",
-      "geoTaxonomy": {
-        "type": "REGIONAL",
-        "regions": [
-          "asia-east1"
-        ]
-      }
-    },
-
-*/
