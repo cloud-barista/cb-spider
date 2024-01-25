@@ -11,11 +11,13 @@
 package resources
 
 import (
+	"fmt"
 	"errors"
+	"strings"
 	//"github.com/davecgh/go-spew/spew"
-	
+
 	ktsdk "github.com/cloud-barista/ktcloud-sdk-go"
-		
+
 	cblog "github.com/cloud-barista/cb-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
@@ -36,6 +38,12 @@ func init() {
 
 func (imageHandler *KtCloudImageHandler) GetImage(imageIID irs.IID) (irs.ImageInfo, error) {
 	cblogger.Info("KT Cloud cloud driver: called GetImage()!!")
+
+	if strings.EqualFold(imageIID.SystemId, "") {
+		newErr := fmt.Errorf("Invalid Image SystemId!!")
+		cblogger.Error(newErr.Error())
+		return irs.ImageInfo{}, newErr
+	}
 
 	var resultImageInfo irs.ImageInfo
 	zoneId := imageHandler.RegionInfo.Zone
@@ -158,5 +166,22 @@ func (imageHandler *KtCloudImageHandler) DeleteImage(imageIID irs.IID) (bool, er
 func (imageHandler *KtCloudImageHandler) CheckWindowsImage(imageIID irs.IID) (bool, error) {
 	cblogger.Info("KT Cloud Driver: called CheckWindowsImage()")
 
-	return false, errors.New("Does not support CheckWindowsImage() yet!!")
+	if strings.EqualFold(imageIID.SystemId, "") {
+		newErr := fmt.Errorf("Invalid Image SystemId!!")
+		cblogger.Error(newErr.Error())
+		return false, newErr
+	}
+
+	imageInfo, err := imageHandler.GetImage(imageIID)
+	if err != nil {
+		newErr := fmt.Errorf("Failed to Get the Image Info : [%v]", err)
+		cblogger.Error(newErr.Error())
+		return false, newErr
+	}
+	
+	isWindowsImage := false
+	if strings.Contains(imageInfo.GuestOS, "WIN") {
+		isWindowsImage = true
+	}
+	return isWindowsImage, nil	
 }
