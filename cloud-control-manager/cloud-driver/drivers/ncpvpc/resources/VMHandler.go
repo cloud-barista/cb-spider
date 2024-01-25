@@ -1348,21 +1348,20 @@ func (vmHandler *NcpVpcVMHandler) CreateWinInitScript(passWord string) (*string,
 func (vmHandler *NcpVpcVMHandler) DeleteInitScript(initScriptNum *string) (*string, error) {
 	cblogger.Info("NCPVPC Cloud driver: called DeleteInitScript()!!")
 
+	// Delete Cloud-Init Script with the No.
 	InitScriptNums := []*string{initScriptNum,}
-
-	// Delete Cloud-Init Script
 	deleteInitReq := vserver.DeleteInitScriptsRequest {
 		RegionCode: 		ncloud.String(vmHandler.RegionInfo.Region),
 		InitScriptNoList: 	InitScriptNums,
 	}
-
 	result, err := vmHandler.VMClient.V2Api.DeleteInitScripts(&deleteInitReq)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Delete the Cloud-Init Script : [%v]", err)
 		cblogger.Error(newErr.Error())
 		return nil, newErr
-	}	
-	if *result.TotalRows < 1 {
+	}
+
+	if !strings.EqualFold(*result.ReturnMessage, "success") {
 		newErr := fmt.Errorf("Failed to Delete any Cloud-Init Script!!")
 		cblogger.Error(newErr.Error())
 		return nil, newErr
