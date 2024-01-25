@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log"
 	"math"
+	"reflect"
 	"strconv"
 	"strings"
 
@@ -37,16 +38,30 @@ type GCPPriceInfoHandler struct {
 }
 
 // Return the price information of products belonging to the specified Region's PriceFamily in JSON format
-func (priceInfoHandler *GCPPriceInfoHandler) GetPriceInfo(productFamily string, regionName string, filter []irs.KeyValue) (string, error) {
+func (priceInfoHandler *GCPPriceInfoHandler) GetPriceInfo(productFamily string, regionName string, additionalFilterList []irs.KeyValue) (string, error) {
 
-	billindAccountId := priceInfoHandler.Credential.BillingAccountID
+	formattedProjectId := fmt.Sprintf("projects/%s", priceInfoHandler.Credential.ProjectID)
+	billingInfo, err := priceInfoHandler.BillingCatalogClient.Projects.GetBillingInfo(formattedProjectId).Do()
 
-	if billindAccountId == "" || billindAccountId == "billingAccounts/" {
-		cblogger.Error("billing accout id does not exist")
-		return "", errors.New("billing account is a mandatory field")
+	if err != nil {
+		cblogger.Error("error while getting billing info for billing account id")
+		return "", errors.New("error while getting billing info for billing account id")
 	}
 
-	if regionName == "" {
+	cblogger.Infof("filter value : %+v", additionalFilterList)
+
+	billingAccountId := billingInfo.BillingAccountName
+
+	if billingAccountId == "" || billingAccountId == "billingAccounts/" || !strings.HasPrefix(billingAccountId, "billingAccounts/") {
+		cblogger.Error("billing account does not exist on project. connect billing account to current project")
+		return "", errors.New("billing account does not exist on project. connect billing account to current project")
+	}
+
+	filter := filterListToMap(additionalFilterList)
+
+	if filteredRegionName, ok := filter["regionName"]; ok {
+		regionName = *filteredRegionName
+	} else if regionName == "" {
 		regionName = priceInfoHandler.Region.Region
 	}
 
@@ -62,13 +77,12 @@ func (priceInfoHandler *GCPPriceInfoHandler) GetPriceInfo(productFamily string, 
 			return "", err
 		}
 
-		/*
-		 * compute.MachineType 에서 머신 타입이 동일하면 zone 정보를 제외하고 모두 동일 정보 제공
-		 * zone 정보만 다르게 해서 동일한 machine type 으로 호출에 대한 최적화 가능
-		 */
 		machineTypeSlice := make([]*compute.MachineType, 0)
 
 		for _, zone := range zoneList.Items {
+			if zoneName, ok := filter["zoneName"]; ok && zone.Name != *zoneName {
+				continue
+			}
 
 			keepFetching := true // machine type 조회 반복 호출 flag
 			nextPageToken := ""
@@ -95,6 +109,10 @@ func (priceInfoHandler *GCPPriceInfoHandler) GetPriceInfo(productFamily string, 
 
 			for _, machineType := range machineTypeSlice {
 
+				if machineTypeFilter, ok := filter["instanceType"]; ok && machineType.Name != *machineTypeFilter {
+					continue
+				}
+
 				if machineType != nil {
 					// mapping to product info struct
 					productInfo, err := mappingToProductInfoForComputePrice(regionName, machineType)
@@ -104,20 +122,26 @@ func (priceInfoHandler *GCPPriceInfoHandler) GetPriceInfo(productFamily string, 
 						return "", err
 					}
 
+					if productInfoFilter(productInfo, filter) {
+						continue
+					}
+
 					// call cost estimation api
-					estimatedCostResponse, err := callEstimateCostScenario(priceInfoHandler, regionName, billindAccountId, machineType)
+					estimatedCostResponse, err := callEstimateCostScenario(priceInfoHandler, regionName, billingAccountId, machineType)
 					if err != nil {
 						cblogger.Error("error occurred when calling the EstimateCostScenario; message:", err)
 						continue
 					}
 
 					// mapping to price info struct
-					priceInfo, err := mappingToPriceInfoForComputePrice(estimatedCostResponse)
+					priceInfo, err := mappingToPriceInfoForComputePrice(estimatedCostResponse, filter)
 
 					if err != nil {
 						cblogger.Error("error occurred while mapping the pricing info struct;; machine type:", machineType.Name, ", message:", err)
 						return "", err
 					}
+
+					cblogger.Infof("fetch :: %s machine type", productInfo.InstanceType)
 
 					priceList := irs.Price{
 						ProductInfo: *productInfo,
@@ -126,7 +150,6 @@ func (priceInfoHandler *GCPPriceInfoHandler) GetPriceInfo(productFamily string, 
 
 					priceLists = append(priceLists, priceList)
 				}
-
 			}
 		}
 	}
@@ -153,6 +176,140 @@ func (priceInfoHandler *GCPPriceInfoHandler) GetPriceInfo(productFamily string, 
 
 	return convertedPriceData, nil
 
+}
+
+func toCamelCase(val string) string {
+	if val == "" {
+		return ""
+	}
+
+	return fmt.Sprintf("%s%s", strings.ToLower(val[:1]), val[1:])
+}
+
+func pricePolicyInfoFilter(policy interface{}, filter map[string]*string) bool {
+	if len(filter) == 0 {
+		return false
+	}
+
+	refelectValue := reflect.ValueOf(policy)
+
+	for i := 0; i < refelectValue.NumField(); i++ {
+
+		fieldName := refelectValue.Type().Field(i).Name
+		camelCaseFieldName := toCamelCase(fieldName)
+		fieldValue := refelectValue.Field(i)
+
+		if invalidRefelctCheck(fieldValue) ||
+			fieldValue.Kind() == reflect.Ptr ||
+			fieldValue.Kind() == reflect.Struct {
+			continue
+		}
+
+		fieldStringValue := fmt.Sprintf("%v", fieldValue)
+
+		if value, ok := filter[camelCaseFieldName]; ok {
+			skipFlag := value != nil && *value != fieldStringValue
+			if skipFlag {
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
+func priceInfoFilter(policy irs.PricingPolicies, filter map[string]*string) bool {
+	if len(filter) == 0 {
+		return false
+	}
+
+	refelectValue := reflect.ValueOf(policy)
+
+	for i := 0; i < refelectValue.NumField(); i++ {
+		fieldName := refelectValue.Type().Field(i).Name
+		camelCaseFieldName := toCamelCase(fieldName)
+		fieldValue := refelectValue.Field(i)
+
+		if invalidRefelctCheck(fieldValue) ||
+			fieldValue.Kind() == reflect.Struct {
+			continue
+		} else if fieldValue.Kind() == reflect.Ptr {
+
+			derefernceValue := fieldValue.Elem()
+
+			if derefernceValue.Kind() == reflect.Invalid {
+				skipFlag := pricePolicyInfoFilter(irs.PricingPolicyInfo{}, filter)
+				if skipFlag {
+					return true
+				}
+			} else if derefernceValue.Kind() == reflect.Struct {
+				if derefernceValue.Type().Name() == "PricingPolicyInfo" {
+					skipFlag := pricePolicyInfoFilter(*policy.PricingPolicyInfo, filter)
+					if skipFlag {
+						return true
+					}
+				}
+			}
+		}
+
+		fieldStringValue := fmt.Sprintf("%v", fieldValue)
+
+		if value, ok := filter[camelCaseFieldName]; ok {
+			skipFlag := value != nil && *value != fieldStringValue
+			if skipFlag {
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
+func invalidRefelctCheck(value reflect.Value) bool {
+	return value.Kind() == reflect.Array ||
+		value.Kind() == reflect.Slice ||
+		value.Kind() == reflect.Map ||
+		value.Kind() == reflect.Func ||
+		value.Kind() == reflect.Interface ||
+		value.Kind() == reflect.UnsafePointer ||
+		value.Kind() == reflect.Chan
+}
+
+func productInfoFilter(productInfo *irs.ProductInfo, filter map[string]*string) bool {
+	if len(filter) == 0 {
+		return false
+	}
+
+	refelectValue := reflect.ValueOf(*productInfo)
+
+	for i := 0; i < refelectValue.NumField(); i++ {
+		fieldName := refelectValue.Type().Field(i).Name
+
+		if fieldName == "CSPProductInfo" || fieldName == "Description" {
+			continue
+		}
+
+		camelCaseFieldName := toCamelCase(fieldName)
+		fieldValue := refelectValue.Field(i)
+
+		if invalidRefelctCheck(fieldValue) ||
+			fieldValue.Kind() == reflect.Ptr ||
+			fieldValue.Kind() == reflect.Struct {
+			continue
+		}
+
+		fieldStringValue := fmt.Sprintf("%v", fieldValue)
+
+		if value, ok := filter[camelCaseFieldName]; ok {
+			skipFlag := value != nil && *value != fieldStringValue
+
+			if skipFlag {
+				return true
+			}
+		}
+	}
+
+	return false
 }
 
 /* @Info
@@ -273,19 +430,13 @@ func (priceInfoHandler *GCPPriceInfoHandler) ListProductFamily(regionName string
 }
 
 func mappingToProductInfoForComputePrice(region string, machineType *compute.MachineType) (*irs.ProductInfo, error) {
-	cspProductInfoString, err := json.Marshal(*machineType)
-
-	if err != nil {
-		return &irs.ProductInfo{}, err
-	}
-
 	productId := fmt.Sprintf("%d", machineType.Id)
 
 	productInfo := &irs.ProductInfo{
 		ProductId:      productId,
 		RegionName:     region,
 		ZoneName:       machineType.Zone,
-		CSPProductInfo: string(cspProductInfoString),
+		CSPProductInfo: machineType,
 	}
 
 	productInfo.InstanceType = machineType.Name
@@ -317,7 +468,7 @@ func mappingToProductInfoForComputePrice(region string, machineType *compute.Mac
 		3YearCUD
 */
 
-func mappingToPriceInfoForComputePrice(res *cbb.EstimateCostScenarioForBillingAccountResponse) (*irs.PriceInfo, error) {
+func mappingToPriceInfoForComputePrice(res *cbb.EstimateCostScenarioForBillingAccountResponse, filter map[string]*string) (*irs.PriceInfo, error) {
 
 	result := res.CostEstimationResult
 	policies := make([]irs.PricingPolicies, 0)
@@ -344,13 +495,13 @@ func mappingToPriceInfoForComputePrice(res *cbb.EstimateCostScenarioForBillingAc
 					Description:   description,
 				}
 
-				policies = append(policies, policy)
-				cspInfo = append(cspInfo, segmentCostEstimate.SegmentTotalCostEstimate)
+				if !priceInfoFilter(policy, filter) {
+					policies = append(policies, policy)
+					cspInfo = append(cspInfo, firstWorkloadCostEstimate)
+				}
 			}
-
 		}
 
-		// mapping from GCP Commitment price struct to PricingPolicies struct
 		if len(segmentCostEstimate.CommitmentCostEstimates) > 0 {
 			for _, commitment := range segmentCostEstimate.CommitmentCostEstimates {
 				if commitment.CommitmentTotalCostEstimate != nil {
@@ -382,23 +533,18 @@ func mappingToPriceInfoForComputePrice(res *cbb.EstimateCostScenarioForBillingAc
 						PricingPolicyInfo: pricingPolicyInfo,
 					}
 
-					policies = append(policies, policy)
-					cspInfo = append(cspInfo, commitment.CommitmentTotalCostEstimate)
+					if !priceInfoFilter(policy, filter) {
+						policies = append(policies, policy)
+						cspInfo = append(cspInfo, commitment)
+					}
 				}
 			}
 		}
 	}
 
-	marshalledCspInfo, err := json.Marshal(cspInfo)
-
-	if err != nil {
-		cblogger.Error("error occurred during the marshaling process of cspinfo; ", err)
-		marshalledCspInfo = []byte("")
-	}
-
 	return &irs.PriceInfo{
 		PricingPolicies: policies,
-		CSPPriceInfo:    string(marshalledCspInfo),
+		CSPPriceInfo:    cspInfo,
 	}, nil
 }
 
@@ -472,6 +618,25 @@ func getMachineSeriesFromMachineType(machineType string) string {
 
 	// 마지막 / 뒤의 부분 문자열 추출
 	return machineType[:firstDashIndex]
+}
+
+func filterListToMap(additionalFilterList []irs.KeyValue) map[string]*string {
+	filterMap := make(map[string]*string, 0)
+
+	if additionalFilterList == nil {
+		return filterMap
+	}
+
+	for _, kv := range additionalFilterList {
+		value := strings.TrimSpace(kv.Value)
+		if value == "" {
+			continue
+		}
+
+		filterMap[kv.Key] = &value
+	}
+
+	return filterMap
 }
 
 /*********************************************************************/
@@ -675,7 +840,7 @@ func mappingPrice(pricePolicy irs.PricingPolicies, pricingExpression *cloudbilli
 		if baseUnit != usageUnit {
 			calPrice = (units + nanos/1e9) * baseUnitConversionFactor
 		} else {
-			calPrice = (units + nanos/1e9)
+			calPrice = units + nanos/1e9
 		}
 		pricePolicy.Currency = currencyCode
 		pricePolicy.Unit = usageUnit
