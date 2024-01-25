@@ -1882,8 +1882,11 @@ func handlePriceInfo() {
 	for {
 		fmt.Println("PriceInfoHandler Management")
 		fmt.Println("0. Quit")
-		fmt.Println("1. ListProductFamily List")
+		fmt.Println("1. ListProductFamily List empty list")
 		fmt.Println("2. GetPriceInfo")
+		fmt.Println("3. case nil")
+		fmt.Println("4. case no field")
+		fmt.Println("5. with full filter")
 
 		var commandNum int
 		inputCnt, err := fmt.Scan(&commandNum)
@@ -1910,6 +1913,61 @@ func handlePriceInfo() {
 
 			case 2:
 				result, err := handler.GetPriceInfo("Compute", regionName, []irs.KeyValue{})
+				if err != nil {
+					cblogger.Infof("[%s] GetPriceInfo 조회 실패 : ", err)
+				} else {
+					cblogger.Infof("[%s] GetPriceInfo 조회 성공 : ", result)
+					spew.Dump(result)
+				}
+
+			case 3:
+				result, err := handler.GetPriceInfo("Compute", regionName, nil)
+				if err != nil {
+					cblogger.Infof("[%s] GetPriceInfo 조회 실패 : ", err)
+				} else {
+					cblogger.Infof("[%s] GetPriceInfo 조회 성공 : ", result)
+					spew.Dump(result)
+				}
+			case 4:
+				result, err := handler.GetPriceInfo("Compute", regionName, []irs.KeyValue{
+					{
+						Key:   "asdfasdf",
+						Value: "asdfasdfasdf",
+					},
+				})
+				if err != nil {
+					cblogger.Infof("[%s] GetPriceInfo 조회 실패 : ", err)
+				} else {
+					cblogger.Infof("[%s] GetPriceInfo 조회 성공 : ", result)
+					spew.Dump(result)
+				}
+			case 5:
+				result, err := handler.GetPriceInfo("Compute", regionName, []irs.KeyValue{
+					{
+						Key:   "regionName",
+						Value: "us-west1",
+					},
+					{
+						Key:   "zoneName",
+						Value: "us-west1-a",
+					},
+					{
+						Key:   "vcpu",
+						Value: "2",
+					},
+					{
+						Key:   "memory",
+						Value: "4.00 GB",
+					},
+					{
+						Key:   "pricingPolicy",
+						Value: "Commit1Yr",
+					},
+					{
+						Key:   "leaseContractLength",
+						Value: "1yr",
+					},
+				})
 				if err != nil {
 					cblogger.Infof("[%s] GetPriceInfo 조회 실패 : ", err)
 				} else {

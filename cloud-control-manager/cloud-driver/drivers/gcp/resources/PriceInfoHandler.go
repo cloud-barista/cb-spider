@@ -24,7 +24,47 @@ import (
 
 // sku
 // https://cloud.google.com/skus/?currency=USD&filter=38FA-6071-3D88&hl=ko
-const ()
+var validFilterKey map[string]bool
+
+func init() {
+	validFilterKey = make(map[string]bool, 0)
+
+	refelectValue := reflect.ValueOf(irs.ProductInfo{})
+
+	for i := 0; i < refelectValue.NumField(); i++ {
+
+		fieldName := refelectValue.Type().Field(i).Name
+		camelCaseFieldName := toCamelCase(fieldName)
+		if _, ok := validFilterKey[camelCaseFieldName]; !ok {
+			validFilterKey[camelCaseFieldName] = true
+		}
+	}
+
+	refelectValue = reflect.ValueOf(irs.PricingPolicies{})
+
+	for i := 0; i < refelectValue.NumField(); i++ {
+
+		fieldName := refelectValue.Type().Field(i).Name
+		camelCaseFieldName := toCamelCase(fieldName)
+		if _, ok := validFilterKey[camelCaseFieldName]; !ok {
+			validFilterKey[camelCaseFieldName] = true
+		}
+	}
+
+	refelectValue = reflect.ValueOf(irs.PricingPolicyInfo{})
+
+	for i := 0; i < refelectValue.NumField(); i++ {
+
+		fieldName := refelectValue.Type().Field(i).Name
+		camelCaseFieldName := toCamelCase(fieldName)
+		if _, ok := validFilterKey[camelCaseFieldName]; !ok {
+			validFilterKey[camelCaseFieldName] = true
+		}
+	}
+
+	fmt.Printf("valid key is this %+v\n", validFilterKey)
+
+}
 
 type GCPPriceInfoHandler struct {
 	Region               idrv.RegionInfo
@@ -37,116 +77,118 @@ type GCPPriceInfoHandler struct {
 
 // Return the price information of products belonging to the specified Region's PriceFamily in JSON format
 func (priceInfoHandler *GCPPriceInfoHandler) GetPriceInfo(productFamily string, regionName string, additionalFilterList []irs.KeyValue) (string, error) {
-
-	formattedProjectId := fmt.Sprintf("projects/%s", priceInfoHandler.Credential.ProjectID)
-	billingInfo, err := priceInfoHandler.BillingCatalogClient.Projects.GetBillingInfo(formattedProjectId).Do()
-
-	if err != nil {
-		cblogger.Error("error while getting billing info for billing account id")
-		return "", errors.New("error while getting billing info for billing account id")
-	}
-
-	cblogger.Infof("filter value : %+v", additionalFilterList)
-
-	billingAccountId := billingInfo.BillingAccountName
-
-	if billingAccountId == "" || billingAccountId == "billingAccounts/" || !strings.HasPrefix(billingAccountId, "billingAccounts/") {
-		cblogger.Error("billing account does not exist on project. connect billing account to current project")
-		return "", errors.New("billing account does not exist on project. connect billing account to current project")
-	}
-
-	filter := filterListToMap(additionalFilterList)
-
-	if filteredRegionName, ok := filter["regionName"]; ok {
-		regionName = *filteredRegionName
-	} else if regionName == "" {
-		regionName = priceInfoHandler.Region.Region
-	}
-
-	projectID := priceInfoHandler.Credential.ProjectID
 	priceLists := make([]irs.Price, 0)
 
-	if strings.EqualFold(productFamily, "Compute") {
-		regionSelfLink := fmt.Sprintf("https://www.googleapis.com/compute/v1/projects/%s/regions/%s", projectID, regionName)
+	filter, isValid := filterListToMap(additionalFilterList)
 
-		zoneList, err := GetZoneListByRegion(priceInfoHandler.Client, projectID, regionSelfLink)
+	cblogger.Infof(">>> filter key is %v\n", isValid)
+	if isValid {
+		formattedProjectId := fmt.Sprintf("projects/%s", priceInfoHandler.Credential.ProjectID)
+		billingInfo, err := priceInfoHandler.BillingCatalogClient.Projects.GetBillingInfo(formattedProjectId).Do()
+
 		if err != nil {
-			cblogger.Error("error occurred while querying the zone list; ", err)
-			return "", err
+			cblogger.Error("error while getting billing info for billing account id")
+			return "", errors.New("error while getting billing info for billing account id")
 		}
 
-		machineTypeSlice := make([]*compute.MachineType, 0)
+		cblogger.Infof("filter value : %+v", additionalFilterList)
 
-		for _, zone := range zoneList.Items {
-			if zoneName, ok := filter["zoneName"]; ok && zone.Name != *zoneName {
-				continue
-			}
+		billingAccountId := billingInfo.BillingAccountName
 
-			keepFetching := true // machine type 조회 반복 호출 flag
-			nextPageToken := ""
+		if billingAccountId == "" || billingAccountId == "billingAccounts/" || !strings.HasPrefix(billingAccountId, "billingAccounts/") {
+			cblogger.Error("billing account does not exist on project. connect billing account to current project")
+			return "", errors.New("billing account does not exist on project. connect billing account to current project")
+		}
+		projectID := priceInfoHandler.Credential.ProjectID
 
-			for keepFetching {
-
-				machineTypes, err := priceInfoHandler.Client.MachineTypes.List(projectID, zone.Name).Do(googleapi.QueryParameter("pageToken", nextPageToken))
-
-				if err != nil {
-					cblogger.Error("error occurred while querying the machine type list; zone:", zone.Name, ", message:", err)
-					return "", err
-				}
-
-				if keepFetching = machineTypes.NextPageToken != ""; keepFetching {
-					nextPageToken = machineTypes.NextPageToken
-				}
-
-				machineTypeSlice = append(machineTypeSlice, machineTypes.Items...)
-			}
+		if filteredRegionName, ok := filter["regionName"]; ok {
+			regionName = *filteredRegionName
+		} else if regionName == "" {
+			regionName = priceInfoHandler.Region.Region
 		}
 
-		if len(machineTypeSlice) > 0 {
-			cblogger.Infof("%d machine types have been retrieved", len(machineTypeSlice))
+		if strings.EqualFold(productFamily, "Compute") {
+			regionSelfLink := fmt.Sprintf("https://www.googleapis.com/compute/v1/projects/%s/regions/%s", projectID, regionName)
 
-			for _, machineType := range machineTypeSlice {
+			zoneList, err := GetZoneListByRegion(priceInfoHandler.Client, projectID, regionSelfLink)
+			if err != nil {
+				cblogger.Error("error occurred while querying the zone list; ", err)
+				return "", err
+			}
 
-				if machineTypeFilter, ok := filter["instanceType"]; ok && machineType.Name != *machineTypeFilter {
+			machineTypeSlice := make([]*compute.MachineType, 0)
+
+			for _, zone := range zoneList.Items {
+				if zoneName, ok := filter["zoneName"]; ok && zone.Name != *zoneName {
 					continue
 				}
 
-				if machineType != nil {
-					// mapping to product info struct
-					productInfo, err := mappingToProductInfoForComputePrice(regionName, machineType)
+				keepFetching := true // machine type 조회 반복 호출 flag
+				nextPageToken := ""
+
+				for keepFetching {
+
+					machineTypes, err := priceInfoHandler.Client.MachineTypes.List(projectID, zone.Name).Do(googleapi.QueryParameter("pageToken", nextPageToken))
 
 					if err != nil {
-						cblogger.Error("error occurred while mapping the product info struct; machine type:", machineType.Name, ", message:", err)
+						cblogger.Error("error occurred while querying the machine type list; zone:", zone.Name, ", message:", err)
 						return "", err
 					}
 
-					if productInfoFilter(productInfo, filter) {
+					if keepFetching = machineTypes.NextPageToken != ""; keepFetching {
+						nextPageToken = machineTypes.NextPageToken
+					}
+
+					machineTypeSlice = append(machineTypeSlice, machineTypes.Items...)
+				}
+			}
+
+			if len(machineTypeSlice) > 0 {
+				cblogger.Infof("%d machine types have been retrieved", len(machineTypeSlice))
+
+				for _, machineType := range machineTypeSlice {
+
+					if machineTypeFilter, ok := filter["instanceType"]; ok && machineType.Name != *machineTypeFilter {
 						continue
 					}
 
-					// call cost estimation api
-					estimatedCostResponse, err := callEstimateCostScenario(priceInfoHandler, regionName, billingAccountId, machineType)
-					if err != nil {
-						cblogger.Error("error occurred when calling the EstimateCostScenario; message:", err)
-						continue
+					if machineType != nil {
+						// mapping to product info struct
+						productInfo, err := mappingToProductInfoForComputePrice(regionName, machineType)
+
+						if err != nil {
+							cblogger.Error("error occurred while mapping the product info struct; machine type:", machineType.Name, ", message:", err)
+							return "", err
+						}
+
+						if productInfoFilter(productInfo, filter) {
+							continue
+						}
+
+						// call cost estimation api
+						estimatedCostResponse, err := callEstimateCostScenario(priceInfoHandler, regionName, billingAccountId, machineType)
+						if err != nil {
+							cblogger.Error("error occurred when calling the EstimateCostScenario; message:", err)
+							continue
+						}
+
+						// mapping to price info struct
+						priceInfo, err := mappingToPriceInfoForComputePrice(estimatedCostResponse, filter)
+
+						if err != nil {
+							cblogger.Error("error occurred while mapping the pricing info struct;; machine type:", machineType.Name, ", message:", err)
+							return "", err
+						}
+
+						cblogger.Infof("fetch :: %s machine type", productInfo.InstanceType)
+
+						priceList := irs.Price{
+							ProductInfo: *productInfo,
+							PriceInfo:   *priceInfo,
+						}
+
+						priceLists = append(priceLists, priceList)
 					}
-
-					// mapping to price info struct
-					priceInfo, err := mappingToPriceInfoForComputePrice(estimatedCostResponse, filter)
-
-					if err != nil {
-						cblogger.Error("error occurred while mapping the pricing info struct;; machine type:", machineType.Name, ", message:", err)
-						return "", err
-					}
-
-					cblogger.Infof("fetch :: %s machine type", productInfo.InstanceType)
-
-					priceList := irs.Price{
-						ProductInfo: *productInfo,
-						PriceInfo:   *priceInfo,
-					}
-
-					priceLists = append(priceLists, priceList)
 				}
 			}
 		}
@@ -618,14 +660,18 @@ func getMachineSeriesFromMachineType(machineType string) string {
 	return machineType[:firstDashIndex]
 }
 
-func filterListToMap(additionalFilterList []irs.KeyValue) map[string]*string {
+func filterListToMap(additionalFilterList []irs.KeyValue) (map[string]*string, bool) {
 	filterMap := make(map[string]*string, 0)
 
 	if additionalFilterList == nil {
-		return filterMap
+		return filterMap, true
 	}
 
 	for _, kv := range additionalFilterList {
+		if _, ok := validFilterKey[kv.Key]; !ok {
+			return map[string]*string{}, false
+		}
+
 		value := strings.TrimSpace(kv.Value)
 		if value == "" {
 			continue
@@ -634,5 +680,5 @@ func filterListToMap(additionalFilterList []irs.KeyValue) map[string]*string {
 		filterMap[kv.Key] = &value
 	}
 
-	return filterMap
+	return filterMap, true
 }
