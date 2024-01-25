@@ -56,7 +56,6 @@ func init() {
 
 func (vmHandler *NcpVpcVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, error) {
 	cblogger.Info("NCPVPC Cloud driver: called StartVM()!!")
-
 	InitLog() // Caution!!
 	callLogInfo := GetCallLogScheme(vmHandler.CredentialInfo.ClientId, call.VM, vmReqInfo.IId.NameId, "StartVM()")
 
@@ -293,18 +292,15 @@ func (vmHandler *NcpVpcVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, 
 		cblogger.Error(newErr.Error())
 		LoggingError(callLogInfo, newErr)
 		return irs.VMInfo{}, newErr
-	}
-	
+	}	
 	if vmInfo.Platform == irs.WINDOWS {
 		vmInfo.VMUserPasswd = vmReqInfo.VMUserPasswd
 	}
-
 	return vmInfo, nil
 }
 
 func (vmHandler *NcpVpcVMHandler) GetVM(vmIID irs.IID) (irs.VMInfo, error) {
 	cblogger.Info("NCPVPC Cloud driver: called GetVM()!!")
-
 	InitLog() // Caution!!
 	callLogInfo := GetCallLogScheme(vmHandler.RegionInfo.Zone, call.VM, vmIID.NameId, "GetVM()")
 
@@ -315,9 +311,6 @@ func (vmHandler *NcpVpcVMHandler) GetVM(vmIID irs.IID) (irs.VMInfo, error) {
 		return irs.VMInfo{}, newErr
 	}
 
-	cblogger.Infof("vmID : [%s]", vmIID.SystemId)
-	instanceNumList := []*string{ncloud.String(vmIID.SystemId),}
-
 	curStatus, statusErr := vmHandler.GetVMStatus(vmIID)
 	if statusErr != nil {
 		newErr := fmt.Errorf("Failed to Get the VM Status with the VM ID : [%s], [%v]", vmIID.SystemId, statusErr)
@@ -325,7 +318,6 @@ func (vmHandler *NcpVpcVMHandler) GetVM(vmIID irs.IID) (irs.VMInfo, error) {
 		LoggingError(callLogInfo, newErr)
 		return irs.VMInfo{}, newErr
 	}
-
 	cblogger.Infof("===> VM Status : [%s]", curStatus)
 
 	// Since it's impossible to get VM info. during Creation, ...
@@ -333,7 +325,6 @@ func (vmHandler *NcpVpcVMHandler) GetVM(vmIID irs.IID) (irs.VMInfo, error) {
 	case "Creating", "Booting":
 		cblogger.Infof("The VM status is '%s', so wait for the VM creation before inquiring the info.", string(curStatus))
 		return irs.VMInfo{}, errors.New("The VM status is 'Creating' or 'Booting', so wait for the VM creation before inquiring the info. : " + vmIID.SystemId)
-
 	default:
 		cblogger.Infof("===> The VM status is not 'Creating' or 'Booting', you can get the VM info.")
 	}
@@ -347,12 +338,11 @@ func (vmHandler *NcpVpcVMHandler) GetVM(vmIID irs.IID) (irs.VMInfo, error) {
 			return irs.VMInfo{}, nil
 		}
 	*/
-
+	instanceNumList := []*string{ncloud.String(vmIID.SystemId),}
 	instanceReq := vserver.GetServerInstanceListRequest{
 		RegionCode: 			ncloud.String(vmHandler.RegionInfo.Region),   // $$$ Caution!!
 		ServerInstanceNoList: 	instanceNumList,
 	}
-
 	start := call.Start()
 	result, err := vmHandler.VMClient.V2Api.GetServerInstanceList(&instanceReq)
 	if err != nil {
@@ -364,7 +354,10 @@ func (vmHandler *NcpVpcVMHandler) GetVM(vmIID irs.IID) (irs.VMInfo, error) {
 	LoggingInfo(callLogInfo, start)
 
 	if *result.TotalRows < 1 {
-		cblogger.Info("### VM instance does Not Exist!!")
+		newErr := fmt.Errorf("Failed to Find the VM Info. The VM does Not Exist!!")
+		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
+		return irs.VMInfo{}, newErr
 	}
 
 	vmInfo, err := vmHandler.MappingServerInfo(result.ServerInstanceList[0])
@@ -379,7 +372,6 @@ func (vmHandler *NcpVpcVMHandler) GetVM(vmIID irs.IID) (irs.VMInfo, error) {
 
 func (vmHandler *NcpVpcVMHandler) SuspendVM(vmIID irs.IID) (irs.VMStatus, error) {
 	cblogger.Info("NCPVPC Cloud driver: called SuspendVM()!!")
-
 	InitLog() // Caution!!
 	callLogInfo := GetCallLogScheme(vmHandler.RegionInfo.Zone, call.VM, vmIID.NameId, "SuspendVM()")
 
@@ -390,12 +382,6 @@ func (vmHandler *NcpVpcVMHandler) SuspendVM(vmIID irs.IID) (irs.VMStatus, error)
 		return irs.VMStatus("Failed"), newErr
 	}
 
-	cblogger.Infof("vmID : [%s]", vmIID.SystemId)
-	serverInstanceNo := []*string{ncloud.String(vmIID.SystemId)}
-
-	var resultStatus string
-
-	cblogger.Info("Start to Get VM Status...")
 	vmStatus, err := vmHandler.GetVMStatus(vmIID)
 	if err != nil {
 		cblogger.Errorf("Failed to Get the VM Status of [%s]", vmIID.SystemId)
@@ -404,44 +390,38 @@ func (vmHandler *NcpVpcVMHandler) SuspendVM(vmIID irs.IID) (irs.VMStatus, error)
 		cblogger.Infof("Succeed in Getting the VM Status of [%s] : [%s]", vmIID.SystemId, vmStatus)
 	}
 
+	serverInstanceNo := []*string{ncloud.String(vmIID.SystemId)}
+	var resultStatus string
 	if strings.EqualFold(string(vmStatus), "Suspending") {
 		resultStatus = "The VM is already in the process of Suspending."
-
 		cblogger.Error(resultStatus)
 		return irs.VMStatus("Failed. " + resultStatus), err
 
 	} else if strings.EqualFold(string(vmStatus), "Suspended") {
 		resultStatus = "The VM is already Suspended."
-
 		cblogger.Error(resultStatus)
 		return irs.VMStatus("Failed. " + resultStatus), err
 
 	} else if strings.EqualFold(string(vmStatus), "Rebooting") {
 		resultStatus = "The VM is in the process of Rebooting."
-
 		cblogger.Error(resultStatus)
 		return irs.VMStatus("Failed. " + resultStatus), err
 
 	} else if strings.EqualFold(string(vmStatus), "Terminating") {
 		resultStatus = "The VM is in the process of Terminating."
-
 		cblogger.Error(resultStatus)
 		return irs.VMStatus("Failed. " + resultStatus), err
 
 	} else if strings.EqualFold(string(vmStatus), "Booting") {
 		resultStatus = "The VM is in the process of Booting."
-
 		cblogger.Error(resultStatus)
 		return irs.VMStatus("Failed. " + resultStatus), err
 
 	} else {
-		cblogger.Infof("vmID : [%s]", *serverInstanceNo[0])
-
 		req := vserver.StopServerInstancesRequest{
 			RegionCode: 			ncloud.String(vmHandler.RegionInfo.Region),   // $$$ Caution!!
 			ServerInstanceNoList: 	serverInstanceNo,
 		}
-
 		callLogStart := call.Start()
 		runResult, err := vmHandler.VMClient.V2Api.StopServerInstances(&req)
 		if err != nil {
@@ -457,7 +437,6 @@ func (vmHandler *NcpVpcVMHandler) SuspendVM(vmIID irs.IID) (irs.VMStatus, error)
 
 func (vmHandler *NcpVpcVMHandler) ResumeVM(vmIID irs.IID) (irs.VMStatus, error) {
 	cblogger.Info("NCPVPC Cloud driver: called ResumeVM()!")
-
 	InitLog() // Caution!!
 	callLogInfo := GetCallLogScheme(vmHandler.RegionInfo.Zone, call.VM, vmIID.NameId, "ResumeVM()")
 
@@ -468,12 +447,6 @@ func (vmHandler *NcpVpcVMHandler) ResumeVM(vmIID irs.IID) (irs.VMStatus, error) 
 		return irs.VMStatus("Failed"), newErr
 	}
 
-	cblogger.Infof("vmID : [%s]", vmIID.SystemId)
-	serverInstanceNo := []*string{ncloud.String(vmIID.SystemId)}
-
-	var resultStatus string
-
-	cblogger.Info("Start to Get the VM Status...")
 	vmStatus, err := vmHandler.GetVMStatus(vmIID)
 	if err != nil {
 		cblogger.Errorf("Failed to Get the VM Status of [%s]", vmIID.SystemId)
@@ -482,50 +455,44 @@ func (vmHandler *NcpVpcVMHandler) ResumeVM(vmIID irs.IID) (irs.VMStatus, error) 
 		cblogger.Infof("Succeed in Getting the VM Status of [%s] : [%s]", vmIID.SystemId, vmStatus)
 	}
 
+	serverInstanceNo := []*string{ncloud.String(vmIID.SystemId)}
+	var resultStatus string
 	if strings.EqualFold(string(vmStatus), "Running") {
 		resultStatus = "The VM is Running. Cannot be Resumed!!"
-
 		cblogger.Error(resultStatus)
 		return irs.VMStatus("Failed. " + resultStatus), err
 
 	} else if strings.EqualFold(string(vmStatus), "Suspending") {
 		resultStatus = "The VM is in the process of Suspending. Cannot be Resumed"
-
 		cblogger.Error(resultStatus)
 		return irs.VMStatus("Failed. " + resultStatus), err
 
 	} else if strings.EqualFold(string(vmStatus), "Rebooting") {
 		resultStatus = "The VM is in the process of Rebooting. Cannot be Resumed"
-
 		cblogger.Error(resultStatus)
 		return irs.VMStatus("Failed. " + resultStatus), err
 
 	} else if strings.EqualFold(string(vmStatus), "Terminating") {
 		resultStatus = "The VM is already in the process of Terminating. Cannot be Resumed"
-
 		cblogger.Error(resultStatus)
 		return irs.VMStatus("Failed. " + resultStatus), err
 
 	} else if strings.EqualFold(string(vmStatus), "Booting") {
 		resultStatus = "The VM is in the process of Booting. Cannot be Resumed"
-
 		cblogger.Error(resultStatus)
 		return irs.VMStatus("Failed. " + resultStatus), err
 
 	} else if strings.EqualFold(string(vmStatus), "Creating") {
 		resultStatus = "The VM is in the process of Creating. Cannot be Resumed"
-
 		cblogger.Error(resultStatus)
 		return irs.VMStatus("Failed. " + resultStatus), err
 
 	} else {
 		cblogger.Infof("vmID : [%s]", *serverInstanceNo[0])
-
 		req := vserver.StartServerInstancesRequest{
 			RegionCode: 			ncloud.String(vmHandler.RegionInfo.Region),   // $$$ Caution!!
 			ServerInstanceNoList: 	serverInstanceNo,
 		}
-
 		callLogStart := call.Start()
 		runResult, err := vmHandler.VMClient.V2Api.StartServerInstances(&req)
 		if err != nil {
@@ -542,7 +509,6 @@ func (vmHandler *NcpVpcVMHandler) ResumeVM(vmIID irs.IID) (irs.VMStatus, error) 
 
 func (vmHandler *NcpVpcVMHandler) RebootVM(vmIID irs.IID) (irs.VMStatus, error) {
 	cblogger.Info("NCPVPC Cloud driver: called RebootVM()!")
-
 	InitLog() // Caution!!
 	callLogInfo := GetCallLogScheme(vmHandler.RegionInfo.Zone, call.VM, vmIID.NameId, "RebootVM()")
 
@@ -553,12 +519,6 @@ func (vmHandler *NcpVpcVMHandler) RebootVM(vmIID irs.IID) (irs.VMStatus, error) 
 		return irs.VMStatus("Failed"), newErr
 	}
 
-	cblogger.Infof("vmID : [%s]", vmIID.SystemId)
-	serverInstanceNo := []*string{ncloud.String(vmIID.SystemId)}
-
-	var resultStatus string
-
-	cblogger.Info("Start to Get the VM Status...")
 	vmStatus, err := vmHandler.GetVMStatus(vmIID)
 	if err != nil {
 		cblogger.Errorf("Failed to Get the VM Status of [%s]", vmIID.SystemId)
@@ -567,50 +527,44 @@ func (vmHandler *NcpVpcVMHandler) RebootVM(vmIID irs.IID) (irs.VMStatus, error) 
 		cblogger.Infof("Succeed in Getting the VM Status of [%s] : [%s]", vmIID.SystemId, vmStatus)
 	}
 
+	serverInstanceNo := []*string{ncloud.String(vmIID.SystemId)}
+	var resultStatus string
 	if strings.EqualFold(string(vmStatus), "Suspending") {
 		resultStatus = "The VM is in the process of Suspending."
-
 		cblogger.Error(resultStatus)
 		return irs.VMStatus("Failed. " + resultStatus), err
 
 	} else if strings.EqualFold(string(vmStatus), "Suspended") {
 		resultStatus = "The VM is Suspended."
-
 		cblogger.Error(resultStatus)
 		return irs.VMStatus("Failed. " + resultStatus), err
 
 	} else if strings.EqualFold(string(vmStatus), "Rebooting") {
 		resultStatus = "The VM is already in the process of Rebooting."
-
 		cblogger.Error(resultStatus)
 		return irs.VMStatus("Failed. " + resultStatus), err
 
 	} else if strings.EqualFold(string(vmStatus), "Terminating") {
 		resultStatus = "The VM is in the process of Terminating."
-
 		cblogger.Error(resultStatus)
 		return irs.VMStatus("Failed. " + resultStatus), err
 
 	} else if strings.EqualFold(string(vmStatus), "Booting") {
 		resultStatus = "The VM is in the process of Booting."
-
 		cblogger.Error(resultStatus)
 		return irs.VMStatus("Failed. " + resultStatus), err
 
 	} else if strings.EqualFold(string(vmStatus), "Creating") {
 		resultStatus = "The VM is in the process of Creating."
-
 		cblogger.Error(resultStatus)
 		return irs.VMStatus("Failed. " + resultStatus), err
 
 	} else {
 		cblogger.Infof("vmID : [%s]", *serverInstanceNo[0])
-
 		req := vserver.RebootServerInstancesRequest{
 			RegionCode: 			ncloud.String(vmHandler.RegionInfo.Region),   // $$$ Caution!!
 			ServerInstanceNoList: 	serverInstanceNo,
 		}
-
 		callLogStart := call.Start()
 		runResult, err := vmHandler.VMClient.V2Api.RebootServerInstances(&req)
 		if err != nil {
@@ -628,7 +582,6 @@ func (vmHandler *NcpVpcVMHandler) RebootVM(vmIID irs.IID) (irs.VMStatus, error) 
 
 func (vmHandler *NcpVpcVMHandler) TerminateVM(vmIID irs.IID) (irs.VMStatus, error) {
 	cblogger.Info("NCPVPC Cloud driver: called TerminateVM()!")
-
 	InitLog() // Caution!!
 	callLogInfo := GetCallLogScheme(vmHandler.RegionInfo.Zone, call.VM, vmIID.NameId, "TerminateVM()")
 
@@ -639,10 +592,6 @@ func (vmHandler *NcpVpcVMHandler) TerminateVM(vmIID irs.IID) (irs.VMStatus, erro
 		return irs.VMStatus("Failed"), newErr
 	}
 
-	cblogger.Infof("vmID : [%s]", vmIID.SystemId)
-	serverInstanceNos := []*string{ncloud.String(vmIID.SystemId),}
-
-	cblogger.Info("Start to Get the VM Status...")
 	vmStatus, err := vmHandler.GetVMStatus(vmIID)
 	if err != nil {
 		LoggingError(callLogInfo, err)
@@ -656,10 +605,10 @@ func (vmHandler *NcpVpcVMHandler) TerminateVM(vmIID irs.IID) (irs.VMStatus, erro
 	if error != nil {
 		LoggingError(callLogInfo, error)
 		cblogger.Error(error.Error())
-
 		return irs.VMStatus("Failed to get the VM info"), err
 	}
-
+	
+	serverInstanceNos := []*string{ncloud.String(vmIID.SystemId),}
 	switch string(vmStatus) {
 	case "Suspended":
 		cblogger.Infof("VM Status : 'Suspended'. so it Can be Terminated!!")
@@ -668,7 +617,6 @@ func (vmHandler *NcpVpcVMHandler) TerminateVM(vmIID irs.IID) (irs.VMStatus, erro
 			RegionCode: 			ncloud.String(vmHandler.RegionInfo.Region),   // $$$ Caution!!
 			ServerInstanceNoList: 	serverInstanceNos,
 		}
-
 		start := call.Start()
 		runResult, err := vmHandler.VMClient.V2Api.TerminateServerInstances(&req)
 		if err != nil {
@@ -729,14 +677,12 @@ func (vmHandler *NcpVpcVMHandler) TerminateVM(vmIID irs.IID) (irs.VMStatus, erro
 				break
 			}
 		}
-
 		cblogger.Info("# SuspendVM() Finished")
 
 		req := vserver.TerminateServerInstancesRequest{
 			RegionCode: 			ncloud.String(vmHandler.RegionInfo.Region),   // $$$ Caution!!
 			ServerInstanceNoList: 	serverInstanceNos,
 		}
-
 		callLogStart := call.Start()
 		runResult, err := vmHandler.VMClient.V2Api.TerminateServerInstances(&req)
 		if err != nil {
@@ -763,7 +709,6 @@ func (vmHandler *NcpVpcVMHandler) TerminateVM(vmIID irs.IID) (irs.VMStatus, erro
 
 	default:
 		resultStatus := "The VM status is not 'Running' or 'Suspended' yet. so it Can NOT be Terminated!! Run or Suspend the VM before terminating."
-
 		cblogger.Error(resultStatus)
 		return irs.VMStatus("Failed. " + resultStatus), err
 	}
@@ -789,10 +734,9 @@ repairing
 */
 
 func ConvertVMStatusString(vmStatus string) (irs.VMStatus, error) {
-	var resultStatus string
-
 	cblogger.Infof("NCP VPC vmStatus to Convert : [%s]", vmStatus)
 
+	var resultStatus string
 	if strings.EqualFold(vmStatus, "creating") {
 		resultStatus = "Creating"
 	} else if strings.EqualFold(vmStatus, "init") {
@@ -823,7 +767,6 @@ func ConvertVMStatusString(vmStatus string) (irs.VMStatus, error) {
 		cblogger.Errorf("No mapping information found matching with the vmStatus [%s].", string(vmStatus))
 		return irs.VMStatus("Failed. "), errors.New(vmStatus + "No mapping information found matching with the vmStatus.")
 	}
-
 	cblogger.Infof("VM Status Conversion Completed : [%s] ==> [%s]", vmStatus, resultStatus)
 
 	return irs.VMStatus(resultStatus), nil
@@ -831,7 +774,6 @@ func ConvertVMStatusString(vmStatus string) (irs.VMStatus, error) {
 
 func (vmHandler *NcpVpcVMHandler) GetVMStatus(vmIID irs.IID) (irs.VMStatus, error) {
 	cblogger.Info("NCPVPC Cloud driver: called GetVMStatus()!")
-
 	InitLog() // Caution!!
 	callLogInfo := GetCallLogScheme(vmHandler.RegionInfo.Zone, call.VM, vmIID.NameId, "GetVMStatus()")
 
@@ -842,19 +784,15 @@ func (vmHandler *NcpVpcVMHandler) GetVMStatus(vmIID irs.IID) (irs.VMStatus, erro
 		return irs.VMStatus("Failed"), newErr
 	}
 
-	cblogger.Infof("VM SystemId : [%s]", vmIID.SystemId)
-	systemId := vmIID.SystemId
-
 	// instanceReq := vserver.GetServerInstanceListRequest{
 	// 	ServerInstanceNoList: []*string{nil},
 	// }
 	instanceReq := vserver.GetServerInstanceListRequest{
 		RegionCode: 			ncloud.String(vmHandler.RegionInfo.Region),   // $$$ Caution!!
 		ServerInstanceNoList: 	[]*string{
-			ncloud.String(systemId),
+			ncloud.String(vmIID.SystemId),
 		},
 	}
-
 	callLogStart := call.Start()
 	result, err := vmHandler.VMClient.V2Api.GetServerInstanceList(&instanceReq)
 	if err != nil {
@@ -875,7 +813,7 @@ func (vmHandler *NcpVpcVMHandler) GetVMStatus(vmIID irs.IID) (irs.VMStatus, erro
 	for _, vm := range result.ServerInstanceList {
 		//*vm.ServerInstanceStatusName
 		vmStatus, errStatus := ConvertVMStatusString(*vm.ServerInstanceStatusName)
-		cblogger.Infof("VM Status of [%s] : [%s]", systemId, vmStatus)
+		cblogger.Infof("VM Status of [%s] : [%s]", vmIID.SystemId, vmStatus)
 		return vmStatus, errStatus
 	}
 
@@ -884,17 +822,13 @@ func (vmHandler *NcpVpcVMHandler) GetVMStatus(vmIID irs.IID) (irs.VMStatus, erro
 
 func (vmHandler *NcpVpcVMHandler) ListVMStatus() ([]*irs.VMStatusInfo, error) {
 	cblogger.Info("NCPVPC Cloud driver: called ListVMStatus()!")
-
 	InitLog() // Caution!!
 	callLogInfo := GetCallLogScheme(vmHandler.RegionInfo.Zone, call.VM, "ListVMStatus()", "ListVMStatus()")
-
-	var vmStatusList []*irs.VMStatusInfo
 
 	instanceReq := vserver.GetServerInstanceListRequest{
 		RegionCode: 		  ncloud.String(vmHandler.RegionInfo.Region),   // $$$ Caution!!
 		ServerInstanceNoList: []*string{},
 	}
-
 	callLogStart := call.Start()
 	result, err := vmHandler.VMClient.V2Api.GetServerInstanceList(&instanceReq)
 	if err != nil {
@@ -905,14 +839,11 @@ func (vmHandler *NcpVpcVMHandler) ListVMStatus() ([]*irs.VMStatusInfo, error) {
 		return nil, newErr
 	}
 	LoggingInfo(callLogInfo, callLogStart)
-
 	cblogger.Info("Succeeded in Getting ServerInstanceList from NCP VPC!!")
 
+	var vmStatusList []*irs.VMStatusInfo
 	for _, vm := range result.ServerInstanceList {
-		//*vm.ServerInstanceStatusName
-		//*vm.ServerName
 		vmStatus, _ := ConvertVMStatusString(*vm.ServerInstanceStatusName)
-
 		vmStatusInfo := irs.VMStatusInfo{
 			IId:      irs.IID{
 				NameId:	 	*vm.ServerName,
@@ -923,17 +854,13 @@ func (vmHandler *NcpVpcVMHandler) ListVMStatus() ([]*irs.VMStatusInfo, error) {
 		cblogger.Infof("VM Status of [%s] : [%s]", vmStatusInfo.IId.SystemId, vmStatusInfo.VmStatus)
 		vmStatusList = append(vmStatusList, &vmStatusInfo)
 	}
-
 	return vmStatusList, nil
 }
 
 func (vmHandler *NcpVpcVMHandler) ListVM() ([]*irs.VMInfo, error) {
 	cblogger.Info("NCPVPC Cloud driver: called ListVM()!")
-
 	InitLog() // Caution!!
 	callLogInfo := GetCallLogScheme(vmHandler.RegionInfo.Zone, call.VM, "ListVMS()", "ListVM()")
-
-	var vmInfoList []*irs.VMInfo
 
 	instanceReq := vserver.GetServerInstanceListRequest{
 		RegionCode: 			ncloud.String(vmHandler.RegionInfo.Region),   // $$$ Caution!!
@@ -942,7 +869,6 @@ func (vmHandler *NcpVpcVMHandler) ListVM() ([]*irs.VMInfo, error) {
 		//			nil,
 		//		},
 	}
-
 	callLogStart := call.Start()
 	result, err := vmHandler.VMClient.V2Api.GetServerInstanceList(&instanceReq)
 	if err != nil {
@@ -953,9 +879,9 @@ func (vmHandler *NcpVpcVMHandler) ListVM() ([]*irs.VMInfo, error) {
 		return nil, newErr
 	}
 	LoggingInfo(callLogInfo, callLogStart)
-
 	cblogger.Info("Succeeded in Getting ServerInstanceList from NCP VPC!!")
 
+	var vmInfoList []*irs.VMInfo
 	for _, vm := range result.ServerInstanceList {
 		cblogger.Infof("Inquiry of NCP VM Instance info : [%s]", *vm.ServerInstanceNo)
 
@@ -966,7 +892,6 @@ func (vmHandler *NcpVpcVMHandler) ListVM() ([]*irs.VMInfo, error) {
 		} else {
 			cblogger.Infof("Succeed in Getting the VM Status of [%s] : [%s]", *vm.ServerInstanceNo, curStatus)
 		}
-
 		cblogger.Infof("===> VM Status : [%s]", curStatus)
 
 		switch string(curStatus) {
@@ -980,7 +905,6 @@ func (vmHandler *NcpVpcVMHandler) ListVM() ([]*irs.VMInfo, error) {
 				cblogger.Error(error.Error())
 				return []*irs.VMInfo{}, error
 			}
-
 			vmInfoList = append(vmInfoList, &vmInfo)
 		}
 	}
@@ -1039,7 +963,6 @@ func (vmHandler *NcpVpcVMHandler) MappingServerInfo(NcpInstance *vserver.ServerI
 			RegionCode: ncloud.String(vmHandler.RegionInfo.Region), // $$$ Caution!!
 			PublicIp: 	publicIp,
 		}
-
 		// Search the Public IP list info. to get the PublicIp InstanceNo
 		result, err := vmHandler.VMClient.V2Api.GetPublicIpInstanceList(&instanceReq)
 		if err != nil {
@@ -1052,7 +975,6 @@ func (vmHandler *NcpVpcVMHandler) MappingServerInfo(NcpInstance *vserver.ServerI
 			cblogger.Error(newErr.Error())
 			return irs.VMInfo{}, newErr
 		}
-
 		publicIpInstanceNo = result.PublicIpInstanceList[0].PublicIpInstanceNo
 		privateIp = result.PublicIpInstanceList[0].PrivateIp
 
@@ -1328,7 +1250,6 @@ func (vmHandler *NcpVpcVMHandler) CreateWinInitScript(passWord string) (*string,
 		InitScriptContent:	ncloud.String(cmdString),
 		OsTypeCode: 		ncloud.String(WinTypeOS),
 	}
-
 	result, err := vmHandler.VMClient.V2Api.CreateInitScript(&createInitReq)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Create Windows Cloud-Init Script : [%v]", err)
@@ -1386,12 +1307,10 @@ func (vmHandler *NcpVpcVMHandler) WaitToGetInfo(vmIID irs.IID) (irs.VMStatus, er
 		} else {
 			cblogger.Infof("Succeeded in Getting the Status of VM [%s] : [%s]", vmIID.SystemId, curStatus)
 		}
-
 		cblogger.Infof("===> VM Status : [%s]", curStatus)
 
 		switch string(curStatus) {
 		case "Creating", "Booting":
-
 			curRetryCnt++
 			cblogger.Infof("The VM is 'Creating', so wait for a second more before inquiring the VM info.")
 			time.Sleep(time.Second * 3)
@@ -1423,7 +1342,6 @@ func (vmHandler *NcpVpcVMHandler) WaitToDelPublicIp(vmIID irs.IID) (irs.VMStatus
 		} else {
 			cblogger.Infof("Succeeded in Getting the VM Status of [%s]", vmIID.SystemId)
 		}
-
 		cblogger.Infof("===> VM Status [%s] : ", curStatus)
 
 		switch string(curStatus) {
@@ -1435,7 +1353,6 @@ func (vmHandler *NcpVpcVMHandler) WaitToDelPublicIp(vmIID irs.IID) (irs.VMStatus
 				cblogger.Errorf("Despite waiting for a long time(%d sec), the VM status is '%s', so it is forcibly finishied.", maxRetryCnt, curStatus)
 				return irs.VMStatus("Failed"), errors.New("Despite waiting for a long time, the VM status is 'Creating', so it is forcibly finishied.")
 			}
-
 		default:
 			cblogger.Infof("===>### The VM Termination is finished, so stopping the waiting.")
 			return irs.VMStatus(curStatus), nil
@@ -1473,9 +1390,6 @@ func (vmHandler *NcpVpcVMHandler) DeletePublicIP(vmInfo irs.VMInfo) (irs.VMStatu
 		RegionCode: 		ncloud.String(vmHandler.RegionInfo.Region),   // $$$ Caution!!
 		PublicIpInstanceNo: ncloud.String(publicIPId),
 	}
-
-	cblogger.Infof("DeletePublicIPReq Ready!!")
-
 	result, err := vmHandler.VMClient.V2Api.DeletePublicIpInstance(&deleteReq)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Delete the Public IP of the VM instance. : [%v]", err)
@@ -1508,7 +1422,6 @@ func (vmHandler *NcpVpcVMHandler) GetVmRootDiskInfo(vmId *string) (*string, *str
 		RegionCode: 		ncloud.String(vmHandler.RegionInfo.Region),
 		ServerInstanceNo:   vmId,
 	}
-
 	storageResult, err := vmHandler.VMClient.V2Api.GetBlockStorageInstanceList(&storageReq)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get Block Storage List!! : [%v]", err)
@@ -1607,7 +1520,6 @@ func (vmHandler *NcpVpcVMHandler) GetNetworkInterfaceName(netInterfaceNo *string
 
 func (vmHandler *NcpVpcVMHandler) GetVmIdByName(vmNameId string) (string, error) {
 	cblogger.Info("NCP VPC Cloud Driver: called GetVmIdByName()")
-
 	InitLog() // Caution!!
 	callLogInfo := GetCallLogScheme(vmHandler.RegionInfo.Region, call.VM, vmNameId, "GetVmIdByName()")
 
@@ -1620,7 +1532,6 @@ func (vmHandler *NcpVpcVMHandler) GetVmIdByName(vmNameId string) (string, error)
 	instanceListReq := vserver.GetServerInstanceListRequest{
 		RegionCode:       &vmHandler.RegionInfo.Region,
 	}
-
 	callLogStart := call.Start()
 	instanceResult, err := vmHandler.VMClient.V2Api.GetServerInstanceList(&instanceListReq)
 	if err != nil {
@@ -1653,7 +1564,6 @@ func (vmHandler *NcpVpcVMHandler) GetVmIdByName(vmNameId string) (string, error)
 
 func (vmHandler *NcpVpcVMHandler) GetNcpVMInfo(instanceId string) (*vserver.ServerInstance, error) {
 	cblogger.Info("NCP VPC Cloud Driver: called GetNcpVMInfo()")
-
 	InitLog() // Caution!!
 	callLogInfo := GetCallLogScheme(vmHandler.RegionInfo.Region, call.VM, instanceId, "GetNcpVMInfo()")
 
@@ -1667,7 +1577,6 @@ func (vmHandler *NcpVpcVMHandler) GetNcpVMInfo(instanceId string) (*vserver.Serv
 		RegionCode:       &vmHandler.RegionInfo.Region,
 		ServerInstanceNo: &instanceId, // *** Required (Not Optional)
 	}
-
 	callLogStart := call.Start()
 	instanceResult, err := vmHandler.VMClient.V2Api.GetServerInstanceDetail(&instanceReq)
 	if err != nil {
