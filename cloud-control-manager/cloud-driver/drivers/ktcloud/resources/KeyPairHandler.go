@@ -57,7 +57,7 @@ func (keyPairHandler *KtCloudKeyPairHandler) ListKey() ([]*irs.KeyPairInfo, erro
 	//cblogger.Debugf("Key Pairs:")
 	var keyPairList []*irs.KeyPairInfo
 	for _, keyPair := range result.Listsshkeypairsresponse.KeyPair {
-		keyPairInfo := MappingKeyPairInfo(keyPair)
+		keyPairInfo := mappingKeyPairInfo(keyPair)
 		keyPairList = append(keyPairList, &keyPairInfo)
 	}
 
@@ -156,7 +156,7 @@ func (keyPairHandler *KtCloudKeyPairHandler) GetKey(keyIID irs.IID) (irs.KeyPair
 
 	} else 
 	{
-		resultKeyPairInfo = MappingKeyPairInfo(result.Listsshkeypairsresponse.KeyPair[0])
+		resultKeyPairInfo = mappingKeyPairInfo(result.Listsshkeypairsresponse.KeyPair[0])
 		// spew.Dump(result.Listsshkeypairsresponse.Keypair[0])
 	}
 	return resultKeyPairInfo, nil
@@ -218,11 +218,8 @@ func (keyPairHandler *KtCloudKeyPairHandler) DeleteKey(keyIID irs.IID) (bool, er
 	return true, nil
 }
 
-
-// KeyPair 정보를 추출함
-func MappingKeyPairInfo(KtCloudKeyPair ktsdk.KeyPair) irs.KeyPairInfo {
-	cblogger.Infof("\n*** Mapping KeyPair Info!! ")
-
+func mappingKeyPairInfo(KtCloudKeyPair ktsdk.KeyPair) irs.KeyPairInfo {
+	cblogger.Info("KT Cloud Driver: called mappingKeyPairInfo()")
 	// Since KT Cloud does not have a SystemID, the unique nameID value is also input to the SystemID
 	keyPairInfo := irs.KeyPairInfo{
 		IId:         irs.IID{

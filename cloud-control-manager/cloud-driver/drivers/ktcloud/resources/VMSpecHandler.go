@@ -111,7 +111,7 @@ func (vmSpecHandler *KtCloudVMSpecHandler) GetVMSpec(VMSpecName string) (irs.VMS
 		// if serverProductType.ServiceOfferingId == ktVMSpecId {
 		if productType.ServiceOfferingId == ktVMSpecId {
 			if productType.DiskOfferingId == ktDiskOfferingId {
-				resultVMSpecInfo = MappingVMSpecInfo(zoneId, "", productType) //Spec 상세 정보 조회시 Image 정보는 불필요
+				resultVMSpecInfo = mappingVMSpecInfo(zoneId, "", productType) //Spec 상세 정보 조회시 Image 정보는 불필요
 				break
 			}
 		}
@@ -153,7 +153,6 @@ func (vmSpecHandler *KtCloudVMSpecHandler) ListVMSpec() ([]*irs.VMSpecInfo, erro
 	} else {
 		cblogger.Info("Succeeded in Getting Product Type list!!")
 	}
-
 	cblogger.Info("Spec list Count : ", len(specListResult.Listavailableproducttypesresponse.ProductTypes))
 	// spew.Dump(specListResult)
 	// spew.Dump(result)
@@ -172,7 +171,7 @@ func (vmSpecHandler *KtCloudVMSpecHandler) ListVMSpec() ([]*irs.VMSpecInfo, erro
 
 			if image.IId.SystemId == productType.TemplateId {
 
-			vmSpecInfo := MappingVMSpecInfo(zoneId, image.IId.SystemId, serverProductType)
+			vmSpecInfo := mappingVMSpecInfo(zoneId, image.IId.SystemId, serverProductType)
 			vmSpecInfoList = append(vmSpecInfoList, &vmSpecInfo)
 			}
 		}
@@ -182,7 +181,7 @@ func (vmSpecHandler *KtCloudVMSpecHandler) ListVMSpec() ([]*irs.VMSpecInfo, erro
 }
 
 //Extract instance Specification information
-func MappingVMSpecInfo(ZoneId string, ImageId string, ktServerProductType ktsdk.ProductTypes) irs.VMSpecInfo {
+func mappingVMSpecInfo(ZoneId string, ImageId string, ktServerProductType ktsdk.ProductTypes) irs.VMSpecInfo {
 	cblogger.Infof("\n*** Mapping VMSpecInfo : SpecName: [%s]", ktServerProductType.ServiceOfferingId)
 	// spew.Dump(vmSpec)
 

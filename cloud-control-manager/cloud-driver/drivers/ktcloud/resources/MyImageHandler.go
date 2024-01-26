@@ -45,7 +45,7 @@ func (myImageHandler *KtCloudMyImageHandler) SnapshotVM(snapshotReqInfo irs.MyIm
 		RegionInfo: myImageHandler.RegionInfo,
 		Client:   	myImageHandler.Client,
 	}
-	ktVM, err := vmHandler.GetKTCloudVM(snapshotReqInfo.SourceVM.SystemId)
+	ktVM, err := vmHandler.getKTCloudVM(snapshotReqInfo.SourceVM.SystemId)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get the VM Info from KT Cloud : [%v]", err)
 		cblogger.Error(newErr.Error())
@@ -58,7 +58,7 @@ func (myImageHandler *KtCloudMyImageHandler) SnapshotVM(snapshotReqInfo irs.MyIm
 		RegionInfo: myImageHandler.RegionInfo,
 		Client:   	myImageHandler.Client,
 	}
-	volumeId, err := diskHandler.GetRootVolumeIdWithVMId(snapshotReqInfo.SourceVM.SystemId)
+	volumeId, err := diskHandler.getRootVolumeIdWithVMId(snapshotReqInfo.SourceVM.SystemId)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get Volume Info from KT Cloud : [%v]", err)
 		cblogger.Error(newErr.Error())
@@ -104,7 +104,7 @@ func (myImageHandler *KtCloudMyImageHandler) SnapshotVM(snapshotReqInfo irs.MyIm
 func (myImageHandler *KtCloudMyImageHandler) ListMyImage() ([]*irs.MyImageInfo, error) {
 	cblogger.Info("KT Cloud Driver: called ListMyImage()")
 	
-	ktImages, err := myImageHandler.ListKTImages()
+	ktImages, err := myImageHandler.listKTImages()
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get KT Cloud Image List!! [%v]", err)
 		cblogger.Error(newErr.Error())
@@ -113,7 +113,7 @@ func (myImageHandler *KtCloudMyImageHandler) ListMyImage() ([]*irs.MyImageInfo, 
 
 	var imageInfoList []*irs.MyImageInfo
     for _, ktImage := range *ktImages {
-		imgInfo, err := myImageHandler.MappingMyImageInfo(&ktImage)
+		imgInfo, err := myImageHandler.mappingMyImageInfo(&ktImage)
 		if err != nil {
 			newErr := fmt.Errorf("Failed to Map the Image Info. [%v]", err)
 			cblogger.Error(newErr.Error())
@@ -134,14 +134,14 @@ func (myImageHandler *KtCloudMyImageHandler) GetMyImage(myImageIID irs.IID) (irs
 		return irs.MyImageInfo{}, newErr
 	}
 
-	ktImage, err := myImageHandler.GetKTImage(myImageIID)
+	ktImage, err := myImageHandler.getKTImage(myImageIID)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get KT Cloud Image Info!! [%v]", err)
 		cblogger.Error(newErr.Error())
 		return irs.MyImageInfo{}, newErr
 	}
 
-	imgInfo, mapErr := myImageHandler.MappingMyImageInfo(ktImage)
+	imgInfo, mapErr := myImageHandler.mappingMyImageInfo(ktImage)
 	if mapErr != nil {
 		newErr := fmt.Errorf("Failed to Map the Image Info. [%v]", mapErr)
 		cblogger.Error(newErr.Error())
@@ -160,7 +160,7 @@ func (myImageHandler *KtCloudMyImageHandler) CheckWindowsImage(myImageIID irs.II
 		return false, newErr
 	}
 
-	ktImages, err := myImageHandler.ListKTImages()
+	ktImages, err := myImageHandler.listKTImages()
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get KT Cloud Image List!! [%v]", err)
 		cblogger.Error(newErr.Error())
@@ -222,8 +222,8 @@ func (myImageHandler *KtCloudMyImageHandler) DeleteMyImage(myImageIID irs.IID) (
 	return true, nil
 }
 
-func (myImageHandler *KtCloudMyImageHandler) MappingMyImageInfo(myImage *ktsdk.Template) (*irs.MyImageInfo, error) {
-	cblogger.Info("KT Cloud Driver: called MappingMyImageInfo()!")
+func (myImageHandler *KtCloudMyImageHandler) mappingMyImageInfo(myImage *ktsdk.Template) (*irs.MyImageInfo, error) {
+	cblogger.Info("KT Cloud Driver: called mappingMyImageInfo()!")
 	// cblogger.Info("\n\n### myImage : ")
 	// spew.Dump(myImage)
 	// cblogger.Info("\n")
@@ -248,7 +248,7 @@ func (myImageHandler *KtCloudMyImageHandler) MappingMyImageInfo(myImage *ktsdk.T
 			NameId:   "N/A",
 			SystemId: "N/A",
 		},
-		Status: 	  ConvertImageStatus(myImage.IsReady),
+		Status: 	  convertImageStatus(myImage.IsReady),
 		CreatedTime:  convertedTime,
 	}
 	
@@ -261,8 +261,8 @@ func (myImageHandler *KtCloudMyImageHandler) MappingMyImageInfo(myImage *ktsdk.T
 	return myImageInfo, nil
 }
 
-func ConvertImageStatus(isReady bool) irs.MyImageStatus {
-	cblogger.Info("KT Cloud Driver: called ConvertImageStatus()")
+func convertImageStatus(isReady bool) irs.MyImageStatus {
+	cblogger.Info("KT Cloud Driver: called convertImageStatus()")
 
 	var resultStatus irs.MyImageStatus
 	switch isReady {
@@ -276,10 +276,11 @@ func ConvertImageStatus(isReady bool) irs.MyImageStatus {
 	return resultStatus
 }
 
-func (myImageHandler *KtCloudMyImageHandler) ListKTImages() (*[]ktsdk.Template, error) {
-	cblogger.Info("KT Cloud Driver: called GetKTCloudNLB()")
+// # Get 'MyImage' Info List from KT Cloud
+func (myImageHandler *KtCloudMyImageHandler) listKTImages() (*[]ktsdk.Template, error) {
+	cblogger.Info("KT Cloud Driver: called listKTImages()")
 	InitLog()
-	callLogInfo := GetCallLogScheme(myImageHandler.RegionInfo.Region, call.MYIMAGE, "ListKTImages()", "ListKTImages()")
+	callLogInfo := GetCallLogScheme(myImageHandler.RegionInfo.Region, call.MYIMAGE, "listKTImages()", "listKTImages()")
 	
 	// TemplateFilter => 'self' : image created by the user. 'selfexecutable' : created by the user and currently available.
 	imgReq := ktsdk.ListTemplateReqInfo{
@@ -303,8 +304,9 @@ func (myImageHandler *KtCloudMyImageHandler) ListKTImages() (*[]ktsdk.Template, 
 	return &imgResp.Listtemplatesresponse.Template, nil
 }
 
-func (myImageHandler *KtCloudMyImageHandler) GetKTImage(myImageIID irs.IID) (*ktsdk.Template, error) {
-	cblogger.Info("KT Cloud Driver: called GetMyImage()")
+// # Get 'MyImage' Info from KT Cloud
+func (myImageHandler *KtCloudMyImageHandler) getKTImage(myImageIID irs.IID) (*ktsdk.Template, error) {
+	cblogger.Info("KT Cloud Driver: called getKTImage()")
 
 	if strings.EqualFold(myImageIID.SystemId, "") {
 		newErr := fmt.Errorf("Invalid SystemId!!")
@@ -312,7 +314,7 @@ func (myImageHandler *KtCloudMyImageHandler) GetKTImage(myImageIID irs.IID) (*kt
 		return nil, newErr
 	}
 
-	ktImages, err := myImageHandler.ListKTImages()
+	ktImages, err := myImageHandler.listKTImages()
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get KT Cloud Image Template List!! [%v]", err)
 		cblogger.Error(newErr.Error())
@@ -320,15 +322,15 @@ func (myImageHandler *KtCloudMyImageHandler) GetKTImage(myImageIID irs.IID) (*kt
 	}
 
 	var imgInfo ktsdk.Template
-    for _, ktImage := range *ktImages {
+	for _, ktImage := range *ktImages {
 		// cblogger.Infof("\n# ktImage.ID : %s", ktImage.ID)		
 		if strings.EqualFold(ktImage.ID, myImageIID.SystemId) {
 			imgInfo = ktImage
 			return &imgInfo, nil
 		}
-    }
+	}
 	if imgInfo.ID == "" {
-		newErr := fmt.Errorf("Failed to Find any My Image(Image Templage) info with the Image ID!!")
+		newErr := fmt.Errorf("Failed to Find any My Image(Image Template) with the Image ID!!")
 		cblogger.Error(newErr.Error())
 		return nil, newErr
 	}
@@ -348,23 +350,23 @@ func (myImageHandler *KtCloudMyImageHandler) isPublicImage(imageIID irs.IID) (bo
 	}	
 
 	isPublicImage := false
-	ktMyImage, err := myImageHandler.GetKTImage(imageIID) // In case of MyImage
+	ktMyImage, err := myImageHandler.getKTImage(imageIID) // In case of 'MyImage'
 	if err != nil {
-		cblogger.Infof("KT Cloud Image Tempalte does Not Exist with the ID!! [%v]", err)
+		cblogger.Infof("MyImage(Image Template) having the ID does Not Exist!! [%v]", err)
 		// return irs.MyImageInfo{}, newErr // Caution!!
 
 		imageHandler := KtCloudImageHandler{
 			RegionInfo: myImageHandler.RegionInfo,
 			Client:    	myImageHandler.Client,
 		}	
-		imageInfo, err := imageHandler.GetImage(imageIID) // In case of Public Image
+		productType, err := imageHandler.getKTProductType(imageIID) // In case of 'Public Image'
 		if err != nil {
-			newErr := fmt.Errorf("Failed to Get the Image Info : [%v]", err)
+			newErr := fmt.Errorf("Failed to Get the ProductType Info : [%v]", err)
 			cblogger.Error(newErr.Error())
 			LoggingError(callLogInfo, newErr)
 			return false, newErr
 		} else {
-			if strings.EqualFold(imageInfo.IId.SystemId, imageIID.SystemId) {
+			if strings.EqualFold(productType.TemplateId, imageIID.SystemId) { // Not productType.ProductId 
 				isPublicImage = true
 			}
 			return isPublicImage, nil

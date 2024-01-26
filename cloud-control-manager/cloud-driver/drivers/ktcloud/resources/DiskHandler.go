@@ -179,7 +179,7 @@ func (diskHandler *KtCloudDiskHandler) ListDisk() ([]*irs.DiskInfo, error) {
 	var volumeInfoList []*irs.DiskInfo
 	for _, volume := range result.Listvolumesresponse.Volume {
 		// if !strings.Contains(volume.Name, "ROOT-") && !strings.Contains(volume.Name, "DATA-"){ // When need filtering
-			volumeInfo, err := diskHandler.MappingDiskInfo(&volume)
+			volumeInfo, err := diskHandler.mappingDiskInfo(&volume)
 			if err != nil {
 				newErr := fmt.Errorf("Failed to Get Disk Info list!! : [%v] ", err)
 				cblogger.Error(newErr.Error())
@@ -204,14 +204,14 @@ func (diskHandler *KtCloudDiskHandler) GetDisk(diskIID irs.IID) (irs.DiskInfo, e
 		return irs.DiskInfo{}, newErr
 	}
 
-	volume, err := diskHandler.GetKtVolumeInfo(diskIID)
+	volume, err := diskHandler.getKtVolumeInfo(diskIID)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get KT Cloud Volume Info : [%v]", err)
 		cblogger.Error(newErr.Error())
 		return irs.DiskInfo{}, newErr
 	}
 
-	volumeInfo, err := diskHandler.MappingDiskInfo(&volume)
+	volumeInfo, err := diskHandler.mappingDiskInfo(&volume)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get Disk Info!! : [%v] ", err)
 		cblogger.Error(newErr.Error())
@@ -317,7 +317,7 @@ func (diskHandler *KtCloudDiskHandler) DeleteDisk(diskIID irs.IID) (bool, error)
 		return false, newErr
 	}
 
-	curStatus, err := diskHandler.GetDiskStatus(diskIID)
+	curStatus, err := diskHandler.getDiskStatus(diskIID)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get the Disk Status : [%v] ", err)
 		cblogger.Error(newErr.Error())
@@ -368,7 +368,7 @@ func (diskHandler *KtCloudDiskHandler) AttachDisk(diskIID irs.IID, vmIID irs.IID
 		return irs.DiskInfo{}, newErr
 	}
 
-	curStatus, err := diskHandler.GetDiskStatus(diskIID)
+	curStatus, err := diskHandler.getDiskStatus(diskIID)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get the Disk Status : [%v] ", err)
 		cblogger.Error(newErr.Error())
@@ -429,7 +429,7 @@ func (diskHandler *KtCloudDiskHandler) DetachDisk(diskIID irs.IID, vmIID irs.IID
 		return false, newErr
 	}
 
-	curStatus, err := diskHandler.GetDiskStatus(diskIID)
+	curStatus, err := diskHandler.getDiskStatus(diskIID)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get the Disk Status : [%v] ", err)
 		cblogger.Error(newErr.Error())
@@ -441,7 +441,7 @@ func (diskHandler *KtCloudDiskHandler) DetachDisk(diskIID irs.IID, vmIID irs.IID
 		return false, newErr
 	}
 
-	isBootable, err := diskHandler.IsBootableDisk(diskIID)
+	isBootable, err := diskHandler.isBootableDisk(diskIID)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get the Bootable Disk Info. : [%v] ", err)
 		cblogger.Error(newErr.Error())
@@ -478,8 +478,8 @@ func (diskHandler *KtCloudDiskHandler) DetachDisk(diskIID irs.IID, vmIID irs.IID
 	return true, nil
 }
 
-func (diskHandler *KtCloudDiskHandler) GetDiskStatus(diskIID irs.IID) (irs.DiskStatus, error) {
-	cblogger.Info("KT Cloud Driver: called GetDiskStatus()")
+func (diskHandler *KtCloudDiskHandler) getDiskStatus(diskIID irs.IID) (irs.DiskStatus, error) {
+	cblogger.Info("KT Cloud Driver: called getDiskStatus()")
 
 	if strings.EqualFold(diskIID.SystemId, "") {
 		newErr := fmt.Errorf("Invalid Disk SystemId!!")
@@ -487,7 +487,7 @@ func (diskHandler *KtCloudDiskHandler) GetDiskStatus(diskIID irs.IID) (irs.DiskS
 		return irs.DiskError, newErr
 	}
 
-	volume, err := diskHandler.GetKtVolumeInfo(diskIID)
+	volume, err := diskHandler.getKtVolumeInfo(diskIID)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get KT Cloud Volume Info : [%v]", err)
 		cblogger.Error(newErr.Error())
@@ -502,15 +502,15 @@ func (diskHandler *KtCloudDiskHandler) GetDiskStatus(diskIID irs.IID) (irs.DiskS
 
 	// Note) Because the 'state' value of volume info (from KT Cloud) does not indicate whether it is Attachment.
 	if !strings.EqualFold(volume.VMId, "") { 
-		return ConvertDiskStatus("attached"), nil
+		return convertDiskStatus("attached"), nil
 	}
-	return ConvertDiskStatus("allocated"), nil	
+	return convertDiskStatus("allocated"), nil	
 }
 
 // $$$ Caution!!) KT Volume State : chanaged to 'Ready' after Attachment. Stil 'Ready' after Detachment.
 // Caution!!) And, The DataDisk with the OS installed is "state : ready" even when it is in the detached state.
-func ConvertDiskStatus(diskStatus string) irs.DiskStatus {
-	cblogger.Info("KT Cloud Driver: called ConvertDiskStatus()")
+func convertDiskStatus(diskStatus string) irs.DiskStatus {
+	cblogger.Info("KT Cloud Driver: called convertDiskStatus()")
 
 	var resultStatus irs.DiskStatus
 	switch strings.ToLower(diskStatus) { // Caution!! : ToLower()
@@ -540,8 +540,8 @@ func ConvertDiskStatus(diskStatus string) irs.DiskStatus {
 	return resultStatus
 }
 
-func (diskHandler *KtCloudDiskHandler) IsBootableDisk(diskIID irs.IID) (bool, error) {
-	cblogger.Info("KT Cloud Driver: called IsBootableDisk()")
+func (diskHandler *KtCloudDiskHandler) isBootableDisk(diskIID irs.IID) (bool, error) {
+	cblogger.Info("KT Cloud Driver: called isBootableDisk()")
 
 	if strings.EqualFold(diskIID.SystemId, "") {
 		newErr := fmt.Errorf("Invalid Disk SystemId!!")
@@ -549,7 +549,7 @@ func (diskHandler *KtCloudDiskHandler) IsBootableDisk(diskIID irs.IID) (bool, er
 		return false, newErr
 	}
 
-	volume, err := diskHandler.GetKtVolumeInfo(diskIID)
+	volume, err := diskHandler.getKtVolumeInfo(diskIID)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get KT Cloud Volume Info : [%v]", err)
 		cblogger.Error(newErr.Error())
@@ -563,15 +563,15 @@ func (diskHandler *KtCloudDiskHandler) IsBootableDisk(diskIID irs.IID) (bool, er
 	return isBootable, nil
 }
 
-func (diskHandler *KtCloudDiskHandler) MappingDiskInfo(volume *ktsdk.Volume) (irs.DiskInfo, error) {
-	cblogger.Info("KT Cloud Driver: called MappingDiskInfo()")
+func (diskHandler *KtCloudDiskHandler) mappingDiskInfo(volume *ktsdk.Volume) (irs.DiskInfo, error) {
+	cblogger.Info("KT Cloud Driver: called mappingDiskInfo()")
 	// cblogger.Info("\n\n### volume : ")
 	// spew.Dump(volume)
 	// cblogger.Info("\n")
 	cblogger.Infof("# Given Volume State on KT Cloud : %s", volume.State) // Not Correct!!
 
 	volumeIID := irs.IID{SystemId: volume.ID}
-	curStatus, err := diskHandler.GetDiskStatus(volumeIID)
+	curStatus, err := diskHandler.getDiskStatus(volumeIID)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get the Disk Status : [%v] ", err)
 		cblogger.Error(newErr.Error())
@@ -595,7 +595,7 @@ func (diskHandler *KtCloudDiskHandler) MappingDiskInfo(volume *ktsdk.Volume) (ir
 		},
 		DiskSize:    strconv.FormatInt(volume.Size/(1024*1024*1024), 10),
 		Status:      curStatus,
-		// Status:      ConvertDiskStatus(volume.State),
+		// Status:      convertDiskStatus(volume.State),
 		CreatedTime: convertedTime,
 	}
 
@@ -642,10 +642,10 @@ func (diskHandler *KtCloudDiskHandler) MappingDiskInfo(volume *ktsdk.Volume) (ir
 	return diskInfo, nil
 }
 
-func (diskHandler *KtCloudDiskHandler) GetKtVolumeInfo(diskIID irs.IID) (ktsdk.Volume, error) {
-	cblogger.Info("KT Cloud Driver: called GetKtVolumeInfo()")
+func (diskHandler *KtCloudDiskHandler) getKtVolumeInfo(diskIID irs.IID) (ktsdk.Volume, error) {
+	cblogger.Info("KT Cloud Driver: called getKtVolumeInfo()")
 	InitLog()
-	callLogInfo := GetCallLogScheme(diskHandler.RegionInfo.Zone, call.DISK, diskIID.SystemId, "GetKtVolumeInfo()")
+	callLogInfo := GetCallLogScheme(diskHandler.RegionInfo.Zone, call.DISK, diskIID.SystemId, "getKtVolumeInfo()")
 
 	if strings.EqualFold(diskIID.SystemId, "") {
 		newErr := fmt.Errorf("Invalid Disk SystemId!!")
@@ -674,10 +674,10 @@ func (diskHandler *KtCloudDiskHandler) GetKtVolumeInfo(diskIID irs.IID) (ktsdk.V
 	return result.Listvolumesresponse.Volume[0], nil
 }
 
-func (diskHandler *KtCloudDiskHandler) GetVolumeIdsWithVMId(vmId string) ([]string, error) {
-	cblogger.Info("KT Cloud Driver: called GetVolumeIdsWithVMId()")
+func (diskHandler *KtCloudDiskHandler) getVolumeIdsWithVMId(vmId string) ([]string, error) {
+	cblogger.Info("KT Cloud Driver: called getVolumeIdsWithVMId()")
 	InitLog()
-	callLogInfo := GetCallLogScheme(diskHandler.RegionInfo.Zone, call.DISK, vmId, "GetVolumeIdsWithVMId()")
+	callLogInfo := GetCallLogScheme(diskHandler.RegionInfo.Zone, call.DISK, vmId, "getVolumeIdsWithVMId()")
 
 	if strings.EqualFold(vmId, "") {
 		newErr := fmt.Errorf("Invalid VM ID!!")
@@ -717,10 +717,10 @@ func (diskHandler *KtCloudDiskHandler) GetVolumeIdsWithVMId(vmId string) ([]stri
 	return volumeIds, nil	
 }
 
-func (diskHandler *KtCloudDiskHandler) GetRootVolumeIdWithVMId(vmId string) (string, error) {
-	cblogger.Info("KT Cloud Driver: called GetRootVolumeIdWithVMId()")
+func (diskHandler *KtCloudDiskHandler) getRootVolumeIdWithVMId(vmId string) (string, error) {
+	cblogger.Info("KT Cloud Driver: called getRootVolumeIdWithVMId()")
 	InitLog()
-	callLogInfo := GetCallLogScheme(diskHandler.RegionInfo.Zone, call.DISK, vmId, "GetRootVolumeIdWithVMId()")
+	callLogInfo := GetCallLogScheme(diskHandler.RegionInfo.Zone, call.DISK, vmId, "getRootVolumeIdWithVMId()")
 
 	if strings.EqualFold(vmId, "") {
 		newErr := fmt.Errorf("Invalid VM ID!!")
@@ -750,7 +750,7 @@ func (diskHandler *KtCloudDiskHandler) GetRootVolumeIdWithVMId(vmId string) (str
 	for _, volume := range result.Listvolumesresponse.Volume {
 		if strings.EqualFold(volume.VMId, vmId){
 			volumeIID := irs.IID{SystemId: volume.ID}
-			isBootable, err := diskHandler.IsBootableDisk(volumeIID)
+			isBootable, err := diskHandler.isBootableDisk(volumeIID)
 			if err != nil {
 				newErr := fmt.Errorf("Failed to Get the Bootable Disk Info. : [%v] ", err)
 				cblogger.Error(newErr.Error())
