@@ -181,8 +181,8 @@ func (securityHandler *KtCloudSecurityHandler) GetSecurity(securityIID irs.IID) 
     json.Unmarshal(byteValue, &sg)
 	// spew.Dump(sg)
 
-	// Caution : ~~~ := MappingSecurityInfo( ) =>  ~~~ := securityHandler.MappingSecurityInfo( )
-	securityGroupInfo, securityInfoError := securityHandler.MappingSecurityInfo(sg)
+	// Caution : ~~~ := mappingSecurityInfo( ) =>  ~~~ := securityHandler.mappingSecurityInfo( )
+	securityGroupInfo, securityInfoError := securityHandler.mappingSecurityInfo(sg)
 	if securityInfoError != nil {
 		cblogger.Error(securityInfoError)
 		return irs.SecurityInfo{}, securityInfoError
@@ -301,8 +301,8 @@ func (securityHandler *KtCloudSecurityHandler) DeleteSecurity(securityIID irs.II
 	return true, nil
 }
 
-func (securityHandler *KtCloudSecurityHandler) MappingSecurityInfo(secuGroup SecurityGroup) (irs.SecurityInfo, error) {
-	cblogger.Info("KT Cloud cloud driver: called MappingSecurityInfo()!")
+func (securityHandler *KtCloudSecurityHandler) mappingSecurityInfo(secuGroup SecurityGroup) (irs.SecurityInfo, error) {
+	cblogger.Info("KT Cloud cloud driver: called mappingSecurityInfo()!")
 	var securityRuleList []irs.SecurityRuleInfo
 	var securityRuleInfo irs.SecurityRuleInfo
 

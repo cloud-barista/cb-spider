@@ -132,7 +132,7 @@ func (nlbHandler *KtCloudNLBHandler) ListNLB() ([]*irs.NLBInfo, error) {
 
 	var nlbInfoList []*irs.NLBInfo
     for _, nlb := range nlbResp.Listnlbsresponse.NLB {
-		nlbInfo, err := nlbHandler.MappingNlbInfo(&nlb)
+		nlbInfo, err := nlbHandler.mappingNlbInfo(&nlb)
 		if err != nil {
 			newErr := fmt.Errorf("Failed to Get NLB Info. : [%v]", err)
 			cblogger.Error(newErr.Error())
@@ -155,7 +155,7 @@ func (nlbHandler *KtCloudNLBHandler) GetNLB(nlbIID irs.IID) (irs.NLBInfo, error)
 		return irs.NLBInfo{}, newErr
 	}
 	
-	ktNLB, err := nlbHandler.GetKTCloudNLB(nlbIID.SystemId)
+	ktNLB, err := nlbHandler.getKTCloudNLB(nlbIID.SystemId)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get KT Cloud NLB info!! [%v]", err)
 		cblogger.Error(newErr.Error())
@@ -164,7 +164,7 @@ func (nlbHandler *KtCloudNLBHandler) GetNLB(nlbIID irs.IID) (irs.NLBInfo, error)
 	}
 
 	var nlbInfo irs.NLBInfo
-	nlbInfo, err = nlbHandler.MappingNlbInfo(ktNLB)
+	nlbInfo, err = nlbHandler.mappingNlbInfo(ktNLB)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Map NLB Info with the NLB : [%v]", err)
 		cblogger.Error(newErr.Error())
@@ -257,7 +257,7 @@ func (nlbHandler *KtCloudNLBHandler) AddVMs(nlbIID irs.IID, vmIIDs *[]irs.IID) (
 	var vmIdList []string
 	if len(*vmIIDs) > 0 {
 		for _, vmIID := range *vmIIDs {
-			vmId, err := vmHandler.GetVmIdWithName(vmIID.NameId)
+			vmId, err := vmHandler.getVmIdWithName(vmIID.NameId)
 			if err != nil {
 				newErr := fmt.Errorf("Failed to Get the VM ID with the VM Name : [%v]", err)
 				cblogger.Error(newErr.Error())
@@ -276,7 +276,7 @@ func (nlbHandler *KtCloudNLBHandler) AddVMs(nlbIID irs.IID, vmIIDs *[]irs.IID) (
 	}
 
 	for _, vmId := range vmIdList {
-		publicIP, err := vmHandler.GetIPFromPortForwardingRules(vmId)
+		publicIP, err := vmHandler.getIPFromPortForwardingRules(vmId)
 		if err != nil {
 			newErr := fmt.Errorf("Failed to Get Public IP Info : [%v]", err)
 			cblogger.Error(newErr.Error())
@@ -346,7 +346,7 @@ func (nlbHandler *KtCloudNLBHandler) RemoveVMs(nlbIID irs.IID, vmIIDs *[]irs.IID
 	var vmIdList []string
 	if len(*vmIIDs) > 0 {
 		for _, vmIID := range *vmIIDs {
-			vmId, err := vmHandler.GetVmIdWithName(vmIID.NameId)
+			vmId, err := vmHandler.getVmIdWithName(vmIID.NameId)
 			if err != nil {
 				newErr := fmt.Errorf("Failed to Get the VM ID with the VM Name : [%v]", err)
 				cblogger.Error(newErr.Error())
@@ -365,7 +365,7 @@ func (nlbHandler *KtCloudNLBHandler) RemoveVMs(nlbIID irs.IID, vmIIDs *[]irs.IID
 	}
 
 	for _, vmId := range vmIdList {
-		serviceId, err := nlbHandler.GetServiceIdWithVMId(nlbIID.SystemId, vmId)
+		serviceId, err := nlbHandler.getServiceIdWithVMId(nlbIID.SystemId, vmId)
 		if err != nil {
 			newErr := fmt.Errorf("Failed to Get Service ID of the NLB VM!! [%v]", err)
 			cblogger.Error(newErr.Error())
@@ -444,7 +444,7 @@ func (nlbHandler *KtCloudNLBHandler) GetVMGroupHealthInfo(nlbIID irs.IID) (irs.H
 	var unHealthVMs []irs.IID
 
 	for _, vm := range nlbResp.Listnlbvmsresponse.NLBVM {
-		vmName, err := vmHandler.GetVmNameWithId(vm.VMId)
+		vmName, err := vmHandler.getVmNameWithId(vm.VMId)
 		if err != nil {
 			newErr := fmt.Errorf("Failed to Get the VM Name with the VM ID : [%v]", err)
 			cblogger.Error(newErr.Error())
@@ -479,11 +479,11 @@ func (nlbHandler *KtCloudNLBHandler) ChangeHealthCheckerInfo(nlbIID irs.IID, hea
 	return irs.HealthCheckerInfo{}, fmt.Errorf("KT Cloud does not support ChangeHealthCheckerInfo() yet!!")
 }
 
-func (nlbHandler *KtCloudNLBHandler) GetListenerInfo(nlb *ktsdk.NLB) (irs.ListenerInfo, error) {
-	cblogger.Info("KT Cloud Driver: called GetListenerInfo()")
+func (nlbHandler *KtCloudNLBHandler) getListenerInfo(nlb *ktsdk.NLB) (irs.ListenerInfo, error) {
+	cblogger.Info("KT Cloud Driver: called getListenerInfo()")
 	nlbId := strconv.Itoa(nlb.NLBId)
 	InitLog()
-	callLogInfo := GetCallLogScheme(nlbHandler.RegionInfo.Region, "NETWORKLOADBALANCE", nlbId, "GetListenerInfo()")
+	callLogInfo := GetCallLogScheme(nlbHandler.RegionInfo.Region, "NETWORKLOADBALANCE", nlbId, "getListenerInfo()")
 
 	if strings.EqualFold(nlbId, "") {
 		newErr := fmt.Errorf("Invalid Load-Balancer ID. The LB does Not Exit!!")
@@ -506,11 +506,11 @@ func (nlbHandler *KtCloudNLBHandler) GetListenerInfo(nlb *ktsdk.NLB) (irs.Listen
 	return listenerInfo, nil
 }
 
-func (nlbHandler *KtCloudNLBHandler) GetHealthCheckerInfo(nlb *ktsdk.NLB) (irs.HealthCheckerInfo, error) {
-	cblogger.Info("KT Cloud Driver: called GetHealthCheckerInfo()")
+func (nlbHandler *KtCloudNLBHandler) getHealthCheckerInfo(nlb *ktsdk.NLB) (irs.HealthCheckerInfo, error) {
+	cblogger.Info("KT Cloud Driver: called getHealthCheckerInfo()")
 	nlbId := strconv.Itoa(nlb.NLBId)
 	InitLog()
-	callLogInfo := GetCallLogScheme(nlbHandler.RegionInfo.Region, "NETWORKLOADBALANCE", nlbId, "GetHealthCheckerInfo()")
+	callLogInfo := GetCallLogScheme(nlbHandler.RegionInfo.Region, "NETWORKLOADBALANCE", nlbId, "getHealthCheckerInfo()")
 
 	if strings.EqualFold(nlbId, "") {
 		newErr := fmt.Errorf("Invalid Load-Balancer ID. The LB does Not Exit!!")
@@ -527,10 +527,10 @@ func (nlbHandler *KtCloudNLBHandler) GetHealthCheckerInfo(nlb *ktsdk.NLB) (irs.H
 	return healthCheckerInfo, nil
 }
 
-func (nlbHandler *KtCloudNLBHandler) GetVMGroupInfo(nlbId string) (irs.VMGroupInfo, error) {
-	cblogger.Info("KT Cloud Driver: called GetVMGroupInfo()")
+func (nlbHandler *KtCloudNLBHandler) getVMGroupInfo(nlbId string) (irs.VMGroupInfo, error) {
+	cblogger.Info("KT Cloud Driver: called getVMGroupInfo()")
 	InitLog()
-	callLogInfo := GetCallLogScheme(nlbHandler.RegionInfo.Region, "NETWORKLOADBALANCE", nlbId, "GetVMGroupInfo()")
+	callLogInfo := GetCallLogScheme(nlbHandler.RegionInfo.Region, "NETWORKLOADBALANCE", nlbId, "getVMGroupInfo()")
 
 	if strings.EqualFold(nlbId, "") {
 		newErr := fmt.Errorf("Invalid NLB ID")
@@ -538,7 +538,7 @@ func (nlbHandler *KtCloudNLBHandler) GetVMGroupInfo(nlbId string) (irs.VMGroupIn
 		return irs.VMGroupInfo{}, newErr
 	}
 	
-	ktNLB, err := nlbHandler.GetKTCloudNLB(nlbId)
+	ktNLB, err := nlbHandler.getKTCloudNLB(nlbId)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get KT Cloud NLB info!! [%v]", err)
 		cblogger.Error(newErr.Error())
@@ -582,7 +582,7 @@ func (nlbHandler *KtCloudNLBHandler) GetVMGroupInfo(nlbId string) (irs.VMGroupIn
 	vmIIds := []irs.IID{}
 	keyValueList := []irs.KeyValue{}
 	for _, vm := range nlbResp.Listnlbvmsresponse.NLBVM {
-		vmName, err := vmHandler.GetVmNameWithId(vm.VMId)
+		vmName, err := vmHandler.getVmNameWithId(vm.VMId)
 		if err != nil {
 			newErr := fmt.Errorf("Failed to Get the VM Name with the VM ID : [%v]", err)
 			cblogger.Error(newErr.Error())
@@ -607,8 +607,8 @@ func (nlbHandler *KtCloudNLBHandler) GetVMGroupInfo(nlbId string) (irs.VMGroupIn
 	return vmGroupInfo, nil
 }
 
-func (nlbHandler *KtCloudNLBHandler) GetServiceIdWithVMId(nlbId string, vmId string) (int, error) {
-	cblogger.Info("KT Cloud cloud driver: called GetServiceIdWithVMId()!")
+func (nlbHandler *KtCloudNLBHandler) getServiceIdWithVMId(nlbId string, vmId string) (int, error) {
+	cblogger.Info("KT Cloud cloud driver: called getServiceIdWithVMId()!")
 
 	if strings.EqualFold(nlbId, "") {
 		newErr := fmt.Errorf("Invalid NLB ID")
@@ -658,8 +658,8 @@ func (nlbHandler *KtCloudNLBHandler) GetServiceIdWithVMId(nlbId string, vmId str
 	}
 }
 
-func (nlbHandler *KtCloudNLBHandler) MappingNlbInfo(nlb *ktsdk.NLB) (irs.NLBInfo, error) {
-	cblogger.Info("KT Cloud Driver: called MappingNlbInfo()")
+func (nlbHandler *KtCloudNLBHandler) mappingNlbInfo(nlb *ktsdk.NLB) (irs.NLBInfo, error) {
+	cblogger.Info("KT Cloud Driver: called mappingNlbInfo()")
 	// cblogger.Info("\n\n### nlb : ")
 	// spew.Dump(nlb)	
 
@@ -686,7 +686,7 @@ func (nlbHandler *KtCloudNLBHandler) MappingNlbInfo(nlb *ktsdk.NLB) (irs.NLBInfo
 	nlbInfo.KeyValueList = keyValueList
 
 	if !strings.EqualFold(nlb.ServiceIP, "") {
-		listenerInfo, err := nlbHandler.GetListenerInfo(nlb)
+		listenerInfo, err := nlbHandler.getListenerInfo(nlb)
 		if err != nil {
 			newErr := fmt.Errorf("Failed to Get the Listener Info : [%v]", err.Error())
 			cblogger.Error(newErr.Error())
@@ -696,7 +696,7 @@ func (nlbHandler *KtCloudNLBHandler) MappingNlbInfo(nlb *ktsdk.NLB) (irs.NLBInfo
 	}
 
 	if !strings.EqualFold(nlb.HealthCheckType, "") {
-		healthCheckerInfo, err := nlbHandler.GetHealthCheckerInfo(nlb)
+		healthCheckerInfo, err := nlbHandler.getHealthCheckerInfo(nlb)
 		if err != nil {
 			newErr := fmt.Errorf("Failed to Get HealthChecker Info. frome the NLB. [%v]", err.Error())
 			cblogger.Error(newErr.Error())
@@ -705,7 +705,7 @@ func (nlbHandler *KtCloudNLBHandler) MappingNlbInfo(nlb *ktsdk.NLB) (irs.NLBInfo
 		nlbInfo.HealthChecker = healthCheckerInfo
 	}
 
-	vmGroupInfo, err := nlbHandler.GetVMGroupInfo(strconv.Itoa(nlb.NLBId))
+	vmGroupInfo, err := nlbHandler.getVMGroupInfo(strconv.Itoa(nlb.NLBId))
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get VM Group Info with the NLB ID : [%v]", err)
 		cblogger.Error(newErr.Error())
@@ -715,10 +715,10 @@ func (nlbHandler *KtCloudNLBHandler) MappingNlbInfo(nlb *ktsdk.NLB) (irs.NLBInfo
 	return nlbInfo, nil
 }
 
-func (nlbHandler *KtCloudNLBHandler) GetKTCloudNLB(nlbId string) (*ktsdk.NLB, error) {
-	cblogger.Info("KT Cloud Driver: called GetKTCloudNLB()")
+func (nlbHandler *KtCloudNLBHandler) getKTCloudNLB(nlbId string) (*ktsdk.NLB, error) {
+	cblogger.Info("KT Cloud Driver: called getKTCloudNLB()")
 	InitLog()
-	callLogInfo := GetCallLogScheme(nlbHandler.RegionInfo.Region, "NETWORKLOADBALANCE", nlbId, "GetKTCloudNLB()")
+	callLogInfo := GetCallLogScheme(nlbHandler.RegionInfo.Region, "NETWORKLOADBALANCE", nlbId, "getKTCloudNLB()")
 
 	if strings.EqualFold(nlbId, "") {
 		newErr := fmt.Errorf("Invalid NLB ID!!")
