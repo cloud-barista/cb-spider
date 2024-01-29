@@ -108,6 +108,8 @@ func (priceInfoHandler *AlibabaPriceInfoHandler) GetPriceInfo(productFamily stri
 		return "", err
 	}
 
+	priceMap := make(map[string]irs.Price)
+
 	targetProducts := []bssopenapi.Product{}
 	for _, product := range productListresponse.Data.ProductList.Product {
 		if product.ProductCode == productFamily {
@@ -197,36 +199,66 @@ func (priceInfoHandler *AlibabaPriceInfoHandler) GetPriceInfo(productFamily stri
 						}
 
 						productId := regionName + "_" + attr.Value
-						existProduct := false
-						for idx, aPriceList := range cloudPrice.PriceList {
-							productInfo := &aPriceList.ProductInfo
-							if productInfo.ProductId == productId { // 동일한  product가 있으면 policy만 추가한다.
-								aPriceList.PriceInfo.PricingPolicies = append(aPriceList.PriceInfo.PricingPolicies, pricingPolicy)
-								aPriceList.PriceInfo.CSPPriceInfo = append(aPriceList.PriceInfo.CSPPriceInfo.([]string), priceResponseStr)
-								cloudPrice.PriceList[idx] = aPriceList
-								existProduct = true
-								break
-							}
-						}
-
-						if !existProduct { // product가 없으면 조회해서 추가
+						// product : price = 1 : 1
+						// price : price policy = 1 : n
+						aPrice, ok := priceMap[productId]
+						if ok { // product가 존재하면 policy 추가
+							aPrice.PriceInfo.PricingPolicies = append(aPrice.PriceInfo.PricingPolicies, pricingPolicy)
+							aPrice.PriceInfo.CSPPriceInfo = append(aPrice.PriceInfo.CSPPriceInfo.([]string), priceResponseStr)
+							priceMap[productId] = aPrice
+						} else { // product가 없으면 price 추가
 							newProductInfo, err := GetDescribeInstanceTypesForPricing(priceInfoHandler.BssClient, regionName, attr.Value)
 							if err != nil {
 								cblogger.Errorf("[%s] instanceType is Empty", attr.Value)
 								continue
 							}
-							newPrice := irs.Price{}
-							newPrice.ProductInfo = newProductInfo
-							newPriceInfo := irs.PriceInfo{}
-							newPriceInfo.PricingPolicies = append(newPriceInfo.PricingPolicies, pricingPolicy)
 
+							newPriceInfo := irs.PriceInfo{}
+							newPolicies := []irs.PricingPolicies{}
+							newPolicies = append(newPolicies, pricingPolicy)
+
+							newPriceInfo.PricingPolicies = newPolicies
 							newCSPPriceInfo := []string{}
 							newCSPPriceInfo = append(newCSPPriceInfo, priceResponseStr)
 							newPriceInfo.CSPPriceInfo = newCSPPriceInfo
-							newPrice.PriceInfo = newPriceInfo // priceList 를 돌면서 priceInfo 안의  productID가 같은 것 추출
-							cloudPrice.PriceList = append(cloudPrice.PriceList, newPrice)
 
+							newPrice := irs.Price{}
+							newPrice.PriceInfo = newPriceInfo
+							newPrice.ProductInfo = newProductInfo
+
+							priceMap[productId] = newPrice
 						}
+
+						// existProduct := false
+						// for idx, aPriceList := range cloudPrice.PriceList {
+						// 	productInfo := &aPriceList.ProductInfo
+						// 	if productInfo.ProductId == productId { // 동일한  product가 있으면 policy만 추가한다.
+						// 		aPriceList.PriceInfo.PricingPolicies = append(aPriceList.PriceInfo.PricingPolicies, pricingPolicy)
+						// 		aPriceList.PriceInfo.CSPPriceInfo = append(aPriceList.PriceInfo.CSPPriceInfo.([]string), priceResponseStr)
+						// 		cloudPrice.PriceList[idx] = aPriceList
+						// 		existProduct = true
+						// 		break
+						// 	}
+						// }
+
+						// if !existProduct { // product가 없으면 조회해서 추가
+						// 	newProductInfo, err := GetDescribeInstanceTypesForPricing(priceInfoHandler.BssClient, regionName, attr.Value)
+						// 	if err != nil {
+						// 		cblogger.Errorf("[%s] instanceType is Empty", attr.Value)
+						// 		continue
+						// 	}
+						// 	newPrice := irs.Price{}
+						// 	newPrice.ProductInfo = newProductInfo
+						// 	newPriceInfo := irs.PriceInfo{}
+						// 	newPriceInfo.PricingPolicies = append(newPriceInfo.PricingPolicies, pricingPolicy)
+
+						// 	newCSPPriceInfo := []string{}
+						// 	newCSPPriceInfo = append(newCSPPriceInfo, priceResponseStr)
+						// 	newPriceInfo.CSPPriceInfo = newCSPPriceInfo
+						// 	newPrice.PriceInfo = newPriceInfo // priceList 를 돌면서 priceInfo 안의  productID가 같은 것 추출
+						// 	cloudPrice.PriceList = append(cloudPrice.PriceList, newPrice)
+
+						// }
 					}
 				}
 			}
@@ -295,57 +327,86 @@ func (priceInfoHandler *AlibabaPriceInfoHandler) GetPriceInfo(productFamily stri
 								continue
 							}
 							productId := regionName + "_" + attr.Value
-							existProduct := false
-							for idx, aPriceList := range cloudPrice.PriceList {
-								productInfo := &aPriceList.ProductInfo
-								if productInfo.ProductId == productId { // 동일한  product가 있으면 policy만 추가한다.
-									if aPriceList.PriceInfo.PricingPolicies != nil {
-										aPriceList.PriceInfo.PricingPolicies = append(aPriceList.PriceInfo.PricingPolicies, pricingPolicy)
 
-									} else {
-										newPricingPolicies := []irs.PricingPolicies{}
-										newPricingPolicies = append(newPricingPolicies, pricingPolicy)
-
-										aPriceList.PriceInfo.PricingPolicies = newPricingPolicies
-									}
-									if aPriceList.PriceInfo.CSPPriceInfo != nil {
-										aPriceList.PriceInfo.CSPPriceInfo = append(aPriceList.PriceInfo.CSPPriceInfo.([]string), priceResponseStr)
-
-									} else {
-										newCSPPriceInfo := []string{}
-										newCSPPriceInfo = append(newCSPPriceInfo, priceResponseStr)
-										aPriceList.PriceInfo.CSPPriceInfo = newCSPPriceInfo
-
-									}
-
-									cloudPrice.PriceList[idx] = aPriceList
-									existProduct = true
-									break
-								}
-							}
-
-							if !existProduct { // product가 없으면 조회해서 추가
+							aPrice, ok := priceMap[productId]
+							if ok { // product가 존재하면 policy 추가
+								aPrice.PriceInfo.PricingPolicies = append(aPrice.PriceInfo.PricingPolicies, pricingPolicy)
+								aPrice.PriceInfo.CSPPriceInfo = append(aPrice.PriceInfo.CSPPriceInfo.([]string), priceResponseStr)
+								priceMap[productId] = aPrice
+							} else { // product가 없으면 price 추가
 								newProductInfo, err := GetDescribeInstanceTypesForPricing(priceInfoHandler.BssClient, regionName, attr.Value)
 								if err != nil {
 									cblogger.Errorf("[%s] instanceType is Empty", attr.Value)
 									continue
 								}
-								newPrice := irs.Price{}
-								newPrice.ProductInfo = newProductInfo
-								newPriceInfo := irs.PriceInfo{}
-								newPricingPolicies := []irs.PricingPolicies{}
-								newPricingPolicies = append(newPricingPolicies, pricingPolicy)
 
+								newPriceInfo := irs.PriceInfo{}
+								newPolicies := []irs.PricingPolicies{}
+								newPolicies = append(newPolicies, pricingPolicy)
+
+								newPriceInfo.PricingPolicies = newPolicies
 								newCSPPriceInfo := []string{}
 								newCSPPriceInfo = append(newCSPPriceInfo, priceResponseStr)
-
-								newPriceInfo.PricingPolicies = newPricingPolicies
 								newPriceInfo.CSPPriceInfo = newCSPPriceInfo
 
-								newPrice.PriceInfo = newPriceInfo // priceList 를 돌면서 priceInfo 안의  productID가 같은 것 추출
+								newPrice := irs.Price{}
+								newPrice.PriceInfo = newPriceInfo
+								newPrice.ProductInfo = newProductInfo
 
-								cloudPrice.PriceList = append(cloudPrice.PriceList, newPrice)
+								priceMap[productId] = newPrice
 							}
+
+							// existProduct := false
+							// for idx, aPriceList := range cloudPrice.PriceList {
+							// 	productInfo := &aPriceList.ProductInfo
+							// 	if productInfo.ProductId == productId { // 동일한  product가 있으면 policy만 추가한다.
+							// 		if aPriceList.PriceInfo.PricingPolicies != nil {
+							// 			aPriceList.PriceInfo.PricingPolicies = append(aPriceList.PriceInfo.PricingPolicies, pricingPolicy)
+
+							// 		} else {
+							// 			newPricingPolicies := []irs.PricingPolicies{}
+							// 			newPricingPolicies = append(newPricingPolicies, pricingPolicy)
+
+							// 			aPriceList.PriceInfo.PricingPolicies = newPricingPolicies
+							// 		}
+							// 		if aPriceList.PriceInfo.CSPPriceInfo != nil {
+							// 			aPriceList.PriceInfo.CSPPriceInfo = append(aPriceList.PriceInfo.CSPPriceInfo.([]string), priceResponseStr)
+
+							// 		} else {
+							// 			newCSPPriceInfo := []string{}
+							// 			newCSPPriceInfo = append(newCSPPriceInfo, priceResponseStr)
+							// 			aPriceList.PriceInfo.CSPPriceInfo = newCSPPriceInfo
+
+							// 		}
+
+							// 		cloudPrice.PriceList[idx] = aPriceList
+							// 		existProduct = true
+							// 		break
+							// 	}
+							// }
+
+							// if !existProduct { // product가 없으면 조회해서 추가
+							// 	newProductInfo, err := GetDescribeInstanceTypesForPricing(priceInfoHandler.BssClient, regionName, attr.Value)
+							// 	if err != nil {
+							// 		cblogger.Errorf("[%s] instanceType is Empty", attr.Value)
+							// 		continue
+							// 	}
+							// 	newPrice := irs.Price{}
+							// 	newPrice.ProductInfo = newProductInfo
+							// 	newPriceInfo := irs.PriceInfo{}
+							// 	newPricingPolicies := []irs.PricingPolicies{}
+							// 	newPricingPolicies = append(newPricingPolicies, pricingPolicy)
+
+							// 	newCSPPriceInfo := []string{}
+							// 	newCSPPriceInfo = append(newCSPPriceInfo, priceResponseStr)
+
+							// 	newPriceInfo.PricingPolicies = newPricingPolicies
+							// 	newPriceInfo.CSPPriceInfo = newCSPPriceInfo
+
+							// 	newPrice.PriceInfo = newPriceInfo // priceList 를 돌면서 priceInfo 안의  productID가 같은 것 추출
+
+							// 	cloudPrice.PriceList = append(cloudPrice.PriceList, newPrice)
+							// }
 						}
 					}
 				}
@@ -354,7 +415,15 @@ func (priceInfoHandler *AlibabaPriceInfoHandler) GetPriceInfo(productFamily stri
 
 	}
 
+	// priceMap 을 List 로 반환
+	priceList := []irs.Price{}
+	for _, value := range priceMap {
+		priceList = append(priceList, value)
+	}
+
+	cloudPrice.PriceList = priceList
 	cloudPriceData.CloudPriceList = append(cloudPriceData.CloudPriceList, cloudPrice)
+
 	resultString, err := json.Marshal(cloudPriceData)
 	if err != nil {
 		cblogger.Error(err)
