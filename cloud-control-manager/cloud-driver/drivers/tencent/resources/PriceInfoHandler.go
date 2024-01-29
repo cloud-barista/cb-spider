@@ -2,6 +2,7 @@ package resources
 
 import (
 	"encoding/json"
+	"errors"
 	"hash/fnv"
 	"strconv"
 	"strings"
@@ -50,7 +51,7 @@ func (t *TencentPriceInfoHandler) ListProductFamily(regionName string) ([]string
 
 func (t *TencentPriceInfoHandler) GetPriceInfo(productFamily string, regionName string, additionalFilters []irs.KeyValue) (string, error) {
 
-	filterMap := mapToTencentFilter(additionalFilters)
+	filterKeyValueMap := mapToTencentFilter(additionalFilters)
 
 	switch {
 	case strings.EqualFold("cvm", productFamily):
@@ -58,22 +59,48 @@ func (t *TencentPriceInfoHandler) GetPriceInfo(productFamily string, regionName 
 		if t.Client.GetRegion() != regionName {
 			t.Client.Init(regionName)
 		}
-
-		//Common Instance Price calculator
-		standardInfo, err := describeZoneInstanceConfigInfos(t.Client, filterMap)
-
-		if err != nil {
-			return "", err
+		keyValueMap := make(map[string]string)
+		for _, kv := range additionalFilters {
+			keyValueMap[kv.Key] = kv.Value
 		}
 
-		//Reserved Instance Price calculator
-		reservedInfo, err := describeReservedInstancesConfigInfos(t.Client, filterMap)
+		standardInfo := &cvm.DescribeZoneInstanceConfigInfosResponse{}
+		reservedInfo := &cvm.DescribeReservedInstancesConfigInfosResponse{}
+		err := errors.New("")
 
-		if err != nil {
-			return "", err
+		// reserved, standard
+		if keyValueMap["pricingPolicy"] != "" && keyValueMap["PricingPolicy"] == "standard" {
+			//Common Instance Price calculator
+			standardInfo, err = describeZoneInstanceConfigInfos(t.Client, filterKeyValueMap)
+
+			if err != nil {
+				return "", err
+			}
+
+		} else if keyValueMap["PricingPolicy"] != "" && keyValueMap["PricingPolicy"] == "reserved" {
+			//Reserved Instance Price calculator
+			reservedInfo, err = describeReservedInstancesConfigInfos(t.Client, filterKeyValueMap)
+
+			if err != nil {
+				return "", err
+			}
+		} else {
+			//Common Instance Price calculator
+			standardInfo, err = describeZoneInstanceConfigInfos(t.Client, filterKeyValueMap)
+
+			if err != nil {
+				return "", err
+			}
+
+			//Reserved Instance Price calculator
+			reservedInfo, err = describeReservedInstancesConfigInfos(t.Client, filterKeyValueMap)
+
+			if err != nil {
+				return "", err
+			}
 		}
 
-		res, err := mappingToComputeStruct(t.Client.GetRegion(), &TencentInstanceModel{standardInfo: standardInfo, reservedInfo: reservedInfo})
+		res, err := mappingToComputeStruct(t.Client.GetRegion(), &TencentInstanceModel{standardInfo: standardInfo, reservedInfo: reservedInfo}, keyValueMap)
 
 		if err != nil {
 			return "", err
@@ -101,7 +128,12 @@ AZ 의 Instance standard 모델과 Spot 모델 조회
 */
 func describeZoneInstanceConfigInfos(client *cvm.Client, filterMap map[string]*cvm.Filter) (*cvm.DescribeZoneInstanceConfigInfosResponse, error) {
 	//Filter 정적 추가
-	filters := parseToFilterSlice(filterMap, "zoneName", "instanceFamily", "instanceType")
+	filters := parseToFilterSlice(filterMap, "zoneName", "instanceFamily", "instanceType") //필수
+
+	optionFilters := parseToFilterSlice(filterMap, "instance-charge-type") // option
+	if len(optionFilters) > 0 {
+		filters = append(filters, optionFilters...)
+	}
 
 	//신규 Instance 데이터 Request 생성
 	req := cvm.NewDescribeZoneInstanceConfigInfosRequest()
@@ -139,12 +171,53 @@ func describeReservedInstancesConfigInfos(client *cvm.Client, filterMap map[stri
 }
 
 // Mapper Start Function
-func mappingToComputeStruct(regionName string, instanceModel *TencentInstanceModel) (*irs.CloudPriceData, error) {
+func mappingToComputeStruct(regionName string, instanceModel *TencentInstanceModel, keyValueMap map[string]string) (*irs.CloudPriceData, error) {
 	priceMap := make(map[string]*TencentInstanceInformation, 0)
 
 	if instanceModel.standardInfo != nil {
 		for _, v := range instanceModel.standardInfo.Response.InstanceTypeQuotaSet {
-
+			// filter list info
+			// zone name
+			if keyValueMap["zoneName"] != "" && keyValueMap["zoneName"] != *v.Zone {
+				continue
+			}
+			// InstanceType
+			if keyValueMap["InstanceType"] != "" && keyValueMap["InstanceType"] != *v.InstanceType {
+				continue
+			}
+			// vcpu
+			if keyValueMap["CPU"] != "" {
+				// 문자열을 정수로 변환
+				cpuValue, err := strconv.Atoi(keyValueMap["CPU"])
+				if err != nil {
+					continue
+				}
+				if cpuValue != int(*v.Cpu) {
+					continue
+				}
+			}
+			// memory
+			if keyValueMap["memory"] != "" {
+				// 문자열을 정수로 변환
+				memoryVlaue, err := strconv.Atoi(keyValueMap["memoery"])
+				if err != nil {
+					return nil, err
+				}
+				if memoryVlaue != int(*v.Memory) {
+					continue
+				}
+			}
+			// gpu
+			if keyValueMap["GPU"] != "" {
+				// 문자열을 정수로 변환
+				gpuValue, err := strconv.Atoi(keyValueMap["GPU"])
+				if err != nil {
+					continue
+				}
+				if gpuValue != int(*v.Gpu) {
+					continue
+				}
+			}
 			//변수값이 충분한지 고려할 필요가 있음, reservedInstance ReturnValue와 비교하여, 최대한 고유하게 가져갈 수 있는 것들은
 			//가져가도록 수정
 			key := computeInstanceKeyGeneration(*v.Zone, *v.InstanceType, *v.CpuType, strconv.FormatInt(*v.Memory, 10))
