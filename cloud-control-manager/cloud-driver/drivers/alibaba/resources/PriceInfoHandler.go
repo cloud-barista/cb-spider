@@ -148,7 +148,7 @@ func (priceInfoHandler *AlibabaPriceInfoHandler) ListProductFamily(regionName st
 
 func (priceInfoHandler *AlibabaPriceInfoHandler) GetPriceInfo(productFamily string, regionName string, additionalFilterList []irs.KeyValue) (string, error) {
 	priceMap := make(map[string]irs.Price)
-
+	cblogger.Info(additionalFilterList)
 	filter, _ := filterListToMap(additionalFilterList)
 
 	cblogger.Infof("filter value : %+v", additionalFilterList)
@@ -183,336 +183,259 @@ func (priceInfoHandler *AlibabaPriceInfoHandler) GetPriceInfo(productFamily stri
 	cloudPrice.CloudName = "Alibaba"
 
 	for _, product := range targetProducts {
-		// product 별 pricing종류 [PayAsYouGo, Subscription]
-		if product.SubscriptionType == "PayAsYouGo" {
-			pricingModuleRequest := bssopenapi.CreateDescribePricingModuleRequest()
-			pricingModuleRequest.Scheme = "https"
-			pricingModuleRequest.SubscriptionType = product.SubscriptionType
-			pricingModuleRequest.ProductCode = product.ProductCode
-			pricingModuleRequest.ProductType = product.ProductType
+		if filteredPricingPolicy, ok := filter["pricingPolicy"]; ok { //filter key = leaseContractLength, 결과 : unit
+			switch *filteredPricingPolicy {
+			case "PayAsYouGo":
+				if product.SubscriptionType == "PayAsYouGo" {
+					pricingModuleRequest := bssopenapi.CreateDescribePricingModuleRequest()
+					pricingModuleRequest.Scheme = "https"
+					pricingModuleRequest.SubscriptionType = product.SubscriptionType
+					pricingModuleRequest.ProductCode = product.ProductCode
+					pricingModuleRequest.ProductType = product.ProductType
 
-			pricingModulesPayAsYouGo, err := priceInfoHandler.BssClient.DescribePricingModule(pricingModuleRequest)
-			if err != nil {
-				cblogger.Error(err)
-				continue
-			}
-			// cblogger.Info("pricingModuleRequest ", pricingModuleRequest)
-			// cblogger.Info("pricingModulesPayAsYouGo ", pricingModulesPayAsYouGo)
-			isExist := bool(false)
-			var pricingModulePriceType string
-			for _, pricingModule := range pricingModulesPayAsYouGo.Data.ModuleList.Module {
-				// cblogger.Info("pricingModule ", pricingModule)
-				if pricingModule.ModuleCode == "InstanceType" {
-					for _, config := range pricingModule.ConfigList.ConfigList {
-						if config == "InstanceType" {
-							pricingModulePriceType = pricingModule.PriceType
-							isExist = true
+					pricingModulesPayAsYouGo, err := priceInfoHandler.BssClient.DescribePricingModule(pricingModuleRequest)
+					if err != nil {
+						cblogger.Error(err)
+						continue
+					}
+					// cblogger.Info("pricingModuleRequest ", pricingModuleRequest)
+					// cblogger.Info("pricingModulesPayAsYouGo ", pricingModulesPayAsYouGo)
+					isExist := bool(false)
+					var pricingModulePriceType string
+					for _, pricingModule := range pricingModulesPayAsYouGo.Data.ModuleList.Module {
+						// cblogger.Info("pricingModule ", pricingModule)
+						if pricingModule.ModuleCode == "InstanceType" {
+							for _, config := range pricingModule.ConfigList.ConfigList {
+								if config == "InstanceType" {
+									pricingModulePriceType = pricingModule.PriceType
+									isExist = true
+									break
+								}
+							}
 							break
 						}
 					}
-					break
-				}
-			}
 
-			if !isExist {
-				cblogger.Errorf("There is no InstanceType Module Config - [%s]", productFamily)
-				continue
-				//break
-			}
-
-			getPayAsYouGoPriceRequest := requests.NewCommonRequest()
-			getPayAsYouGoPriceRequest.Method = "POST"
-			getPayAsYouGoPriceRequest.Scheme = "https"
-			getPayAsYouGoPriceRequest.Domain = "business.ap-southeast-1.aliyuncs.com" // endPoint 고정
-			getPayAsYouGoPriceRequest.Version = "2017-12-14"
-			getPayAsYouGoPriceRequest.ApiName = "GetPayAsYouGoPrice"
-			getPayAsYouGoPriceRequest.QueryParams["SubscriptionType"] = "PayAsYouGo"
-			getPayAsYouGoPriceRequest.QueryParams["ProductCode"] = product.ProductCode
-			getPayAsYouGoPriceRequest.QueryParams["ProductType"] = product.ProductType
-			getPayAsYouGoPriceRequest.QueryParams["Region"] = regionName
-
-			for _, pricingModulesAttr := range pricingModulesPayAsYouGo.Data.AttributeList.Attribute {
-				if pricingModulesAttr.Code == "InstanceType" {
-					for _, attr := range pricingModulesAttr.Values.AttributeValue {
-						// 특정 InstanceType에 Attr 에 존재하지만, 쿼리에 InternalError 발생. 부득이 단건 호출.
-						cblogger.Infof("Now query is : [%s] %s ", product.SubscriptionType, attr.Value)
-
-						if filter["instanceType"] != nil && attr.Value != *filter["instanceType"] {
-							continue
-						}
-
-						getPayAsYouGoPriceRequest.QueryParams["ModuleList.1.ModuleCode"] = "InstanceType"
-						getPayAsYouGoPriceRequest.QueryParams["ModuleList.1.PriceType"] = pricingModulePriceType // Hour
-						getPayAsYouGoPriceRequest.QueryParams["ModuleList.1.Config"] = "InstanceType:" + attr.Value
-
-						if filter["leaseContractLength"] != nil {
-							getPayAsYouGoPriceRequest.QueryParams["ModuleList.1.PriceType"] = *filter["leaseContractLength"]
-						}
-
-						priceResponse, err := priceInfoHandler.BssClient.ProcessCommonRequest(getPayAsYouGoPriceRequest)
-						if err != nil {
-							cblogger.Error(err.Error())
-							continue
-						}
-
-						priceResp := AliPriceInfo{}
-						priceResponseStr := priceResponse.GetHttpContentString()
-						err = json.Unmarshal([]byte(priceResponseStr), &priceResp)
-						if err != nil {
-							cblogger.Error(err.Error())
-							continue
-						}
-
-						if filteredCurrency, ok := filter["currency"]; ok {
-							if priceResp.Data.Currency != *filteredCurrency {
-								cblogger.Info(priceResp.Data.Currency + ":" + *filteredCurrency)
-								continue
-							}
-						}
-
-						if filteredPrice, ok := filter["price"]; ok {
-							priceNum, _ := strconv.ParseFloat(*filteredPrice, 0)
-							if priceResp.Data.ModuleDetails.ModuleDetail[0].Price != priceNum {
-								//cblogger.Info(priceResp.Data.ModuleDetail[0].Price , *filteredCurrency)
-								continue
-							}
-						}
-
-						pricingPolicy, err := BindpricingPolicy(priceResp, product.SubscriptionType, pricingModulePriceType, regionName, attr.Value)
-						if err != nil {
-							cblogger.Error(err.Error())
-							continue
-						}
-
-						productId := regionName + "_" + attr.Value
-						// product : price = 1 : 1
-						// price : price policy = 1 : n
-						aPrice, ok := priceMap[productId]
-						if ok { // product가 존재하면 policy 추가
-							aPrice.PriceInfo.PricingPolicies = append(aPrice.PriceInfo.PricingPolicies, pricingPolicy)
-							aPrice.PriceInfo.CSPPriceInfo = append(aPrice.PriceInfo.CSPPriceInfo.([]string), priceResponseStr)
-							priceMap[productId] = aPrice
-						} else { // product가 없으면 price 추가
-							newProductInfo, err := GetDescribeInstanceTypesForPricing(priceInfoHandler.BssClient, regionName, attr.Value, filter)
-							if err != nil {
-								cblogger.Errorf("[%s] instanceType is Empty", attr.Value)
-								continue
-							}
-
-							newPriceInfo := irs.PriceInfo{}
-							newPolicies := []irs.PricingPolicies{}
-							newPolicies = append(newPolicies, pricingPolicy)
-
-							newPriceInfo.PricingPolicies = newPolicies
-							newCSPPriceInfo := []string{}
-							newCSPPriceInfo = append(newCSPPriceInfo, priceResponseStr)
-							newPriceInfo.CSPPriceInfo = newCSPPriceInfo
-
-							newPrice := irs.Price{}
-							newPrice.PriceInfo = newPriceInfo
-							newPrice.ProductInfo = newProductInfo
-
-							priceMap[productId] = newPrice
-						}
-
-						// existProduct := false
-						// for idx, aPriceList := range cloudPrice.PriceList {
-						// 	productInfo := &aPriceList.ProductInfo
-						// 	if productInfo.ProductId == productId { // 동일한  product가 있으면 policy만 추가한다.
-						// 		aPriceList.PriceInfo.PricingPolicies = append(aPriceList.PriceInfo.PricingPolicies, pricingPolicy)
-						// 		aPriceList.PriceInfo.CSPPriceInfo = append(aPriceList.PriceInfo.CSPPriceInfo.([]string), priceResponseStr)
-						// 		cloudPrice.PriceList[idx] = aPriceList
-						// 		existProduct = true
-						// 		break
-						// 	}
-						// }
-
-						// if !existProduct { // product가 없으면 조회해서 추가
-						// 	newProductInfo, err := GetDescribeInstanceTypesForPricing(priceInfoHandler.BssClient, regionName, attr.Value)
-						// 	if err != nil {
-						// 		cblogger.Errorf("[%s] instanceType is Empty", attr.Value)
-						// 		continue
-						// 	}
-						// 	newPrice := irs.Price{}
-						// 	newPrice.ProductInfo = newProductInfo
-						// 	newPriceInfo := irs.PriceInfo{}
-						// 	newPriceInfo.PricingPolicies = append(newPriceInfo.PricingPolicies, pricingPolicy)
-
-						// 	newCSPPriceInfo := []string{}
-						// 	newCSPPriceInfo = append(newCSPPriceInfo, priceResponseStr)
-						// 	newPriceInfo.CSPPriceInfo = newCSPPriceInfo
-						// 	newPrice.PriceInfo = newPriceInfo // priceList 를 돌면서 priceInfo 안의  productID가 같은 것 추출
-						// 	cloudPrice.PriceList = append(cloudPrice.PriceList, newPrice)
-
-						// }
+					if !isExist {
+						cblogger.Errorf("There is no InstanceType Module Config - [%s]", productFamily)
+						continue
+						//break
 					}
-				}
-			}
-		} else if product.SubscriptionType == "Subscription" {
 
-			pricingModuleRequest := bssopenapi.CreateDescribePricingModuleRequest()
-			pricingModuleRequest.Scheme = "https"
-			pricingModuleRequest.SubscriptionType = product.SubscriptionType
-			pricingModuleRequest.ProductCode = product.ProductCode
-			pricingModuleRequest.ProductType = product.ProductType
+					getPayAsYouGoPriceRequest := requests.NewCommonRequest()
+					getPayAsYouGoPriceRequest.Method = "POST"
+					getPayAsYouGoPriceRequest.Scheme = "https"
+					getPayAsYouGoPriceRequest.Domain = "business.ap-southeast-1.aliyuncs.com" // endPoint 고정
+					getPayAsYouGoPriceRequest.Version = "2017-12-14"
+					getPayAsYouGoPriceRequest.ApiName = "GetPayAsYouGoPrice"
+					getPayAsYouGoPriceRequest.QueryParams["SubscriptionType"] = "PayAsYouGo"
+					getPayAsYouGoPriceRequest.QueryParams["ProductCode"] = product.ProductCode
+					getPayAsYouGoPriceRequest.QueryParams["ProductType"] = product.ProductType
+					getPayAsYouGoPriceRequest.QueryParams["Region"] = regionName
 
-			pricingModulesSubscription, err := priceInfoHandler.BssClient.DescribePricingModule(pricingModuleRequest)
-			if err != nil {
-				cblogger.Error(err)
-				return "", err
-			}
+					for _, pricingModulesAttr := range pricingModulesPayAsYouGo.Data.AttributeList.Attribute {
+						if pricingModulesAttr.Code == "InstanceType" {
+							for _, attr := range pricingModulesAttr.Values.AttributeValue {
+								// 특정 InstanceType에 Attr 에 존재하지만, 쿼리에 InternalError 발생. 부득이 단건 호출.
+								//cblogger.Infof("Now query is : [%s] %s ", product.SubscriptionType, attr.Value)
 
-			isExist := bool(false)
-			for _, pricingModule := range pricingModulesSubscription.Data.ModuleList.Module {
-				if pricingModule.ModuleCode == "InstanceType" {
-					for _, config := range pricingModule.ConfigList.ConfigList {
-						if config == "InstanceType" {
-							isExist = true
-						}
-					}
-				}
-			}
-			if !isExist {
-				cblogger.Errorf("There is no InstanceType Module Config - [%s]", productFamily)
-				continue
-			}
-			pricingModulePriceTypes := []string{"Month", "Year"}
-			if filteredpricingModulePriceTypes, ok := filter["unit"]; ok {
-				pricingModulePriceTypes = []string{*filteredpricingModulePriceTypes}
-			}
-			for _, pricingModulePriceType := range pricingModulePriceTypes {
-				getSubscriptionPrice := requests.NewCommonRequest()
-				getSubscriptionPrice.Method = "POST"
-				getSubscriptionPrice.Scheme = "https" // https | http
-				getSubscriptionPrice.Domain = "business.ap-southeast-1.aliyuncs.com"
-				getSubscriptionPrice.Version = "2017-12-14"
-				getSubscriptionPrice.ApiName = "GetSubscriptionPrice"
-
-				getSubscriptionPrice.QueryParams["SubscriptionType"] = product.SubscriptionType //"Subscription"
-				getSubscriptionPrice.QueryParams["ProductCode"] = product.ProductCode           //"ecs"
-				getSubscriptionPrice.QueryParams["OrderType"] = "NewOrder"                      // NewOrder, Upgrade, Renewal
-				getSubscriptionPrice.QueryParams["ServicePeriodUnit"] = pricingModulePriceType
-				getSubscriptionPrice.QueryParams["ServicePeriodQuantity"] = "1" // 1 초과시 PromotionDetails 응답 없음
-
-				for _, pricingModulesAttr := range pricingModulesSubscription.Data.AttributeList.Attribute {
-
-					if pricingModulesAttr.Code == "InstanceType" {
-						for _, attr := range pricingModulesAttr.Values.AttributeValue {
-							//cblogger.Infof("Now query is : [%s] %s ", product.SubscriptionType, attr.Value)
-
-							// 특정 InstanceType에 Attr 에 존재하지만, 쿼리에 InternalError 발생. 부득이 단건 호출.
-							getSubscriptionPrice.QueryParams["ModuleList.1.ModuleCode"] = "InstanceType"
-							getSubscriptionPrice.QueryParams["ModuleList.1.Config"] = "InstanceType:" + attr.Value
-
-							if filter["instanceType"] != nil && attr.Value != *filter["instanceType"] {
-								continue
-							}
-
-							priceResponse, err := priceInfoHandler.BssClient.ProcessCommonRequest(getSubscriptionPrice)
-							if err != nil {
-								cblogger.Error(err.Error())
-								continue
-							}
-							priceResp := AliPriceInfo{}
-							priceResponseStr := priceResponse.GetHttpContentString()
-							err = json.Unmarshal([]byte(priceResponseStr), &priceResp)
-							if err != nil {
-								cblogger.Error(err.Error())
-								continue
-							}
-
-							pricingPolicy, err := BindpricingPolicy(priceResp, product.SubscriptionType, pricingModulePriceType, regionName, attr.Value)
-							if err != nil {
-								cblogger.Error(err.Error())
-								continue
-							}
-							productId := regionName + "_" + attr.Value
-
-							aPrice, ok := priceMap[productId]
-							if ok { // product가 존재하면 policy 추가
-								aPrice.PriceInfo.PricingPolicies = append(aPrice.PriceInfo.PricingPolicies, pricingPolicy)
-								aPrice.PriceInfo.CSPPriceInfo = append(aPrice.PriceInfo.CSPPriceInfo.([]string), priceResponseStr)
-								priceMap[productId] = aPrice
-							} else { // product가 없으면 price 추가
-								newProductInfo, err := GetDescribeInstanceTypesForPricing(priceInfoHandler.BssClient, regionName, attr.Value, filter)
-								if err != nil {
-									cblogger.Errorf("[%s] instanceType is Empty", attr.Value)
+								if filter["instanceType"] != nil && attr.Value != *filter["instanceType"] {
 									continue
 								}
 
-								newPriceInfo := irs.PriceInfo{}
-								newPolicies := []irs.PricingPolicies{}
-								newPolicies = append(newPolicies, pricingPolicy)
+								getPayAsYouGoPriceRequest.QueryParams["ModuleList.1.ModuleCode"] = "InstanceType"
+								getPayAsYouGoPriceRequest.QueryParams["ModuleList.1.PriceType"] = pricingModulePriceType // Hour
+								getPayAsYouGoPriceRequest.QueryParams["ModuleList.1.Config"] = "InstanceType:" + attr.Value
 
-								newPriceInfo.PricingPolicies = newPolicies
-								newCSPPriceInfo := []string{}
-								newCSPPriceInfo = append(newCSPPriceInfo, priceResponseStr)
-								newPriceInfo.CSPPriceInfo = newCSPPriceInfo
+								if filter["leaseContractLength"] != nil {
+									getPayAsYouGoPriceRequest.QueryParams["ModuleList.1.PriceType"] = *filter["leaseContractLength"]
+								}
 
-								newPrice := irs.Price{}
-								newPrice.PriceInfo = newPriceInfo
-								newPrice.ProductInfo = newProductInfo
+								priceResponse, err := priceInfoHandler.BssClient.ProcessCommonRequest(getPayAsYouGoPriceRequest)
+								if err != nil {
+									cblogger.Error(err.Error())
+									continue
+								}
 
-								priceMap[productId] = newPrice
+								priceResp := AliPriceInfo{}
+								priceResponseStr := priceResponse.GetHttpContentString()
+								err = json.Unmarshal([]byte(priceResponseStr), &priceResp)
+								if err != nil {
+									cblogger.Error(err.Error())
+									continue
+								}
+
+								if filteredCurrency, ok := filter["currency"]; ok {
+									if priceResp.Data.Currency != *filteredCurrency {
+										cblogger.Info(priceResp.Data.Currency + ":" + *filteredCurrency)
+										continue
+									}
+								}
+
+								if filteredPrice, ok := filter["price"]; ok {
+									priceNum, _ := strconv.ParseFloat(*filteredPrice, 0)
+									if priceResp.Data.ModuleDetails.ModuleDetail[0].Price != priceNum {
+										//cblogger.Info(priceResp.Data.ModuleDetail[0].Price , *filteredCurrency)
+										continue
+									}
+								}
+
+								pricingPolicy, err := BindpricingPolicy(priceResp, product.SubscriptionType, pricingModulePriceType, regionName, attr.Value)
+								if err != nil {
+									cblogger.Error(err.Error())
+									continue
+								}
+
+								productId := regionName + "_" + attr.Value
+								// product : price = 1 : 1
+								// price : price policy = 1 : n
+								aPrice, ok := priceMap[productId]
+								if ok { // product가 존재하면 policy 추가
+									aPrice.PriceInfo.PricingPolicies = append(aPrice.PriceInfo.PricingPolicies, pricingPolicy)
+									aPrice.PriceInfo.CSPPriceInfo = append(aPrice.PriceInfo.CSPPriceInfo.([]string), priceResponseStr)
+									priceMap[productId] = aPrice
+								} else { // product가 없으면 price 추가
+									newProductInfo, err := GetDescribeInstanceTypesForPricing(priceInfoHandler.BssClient, regionName, attr.Value, filter)
+									if err != nil {
+										cblogger.Errorf("[%s] instanceType is Empty", attr.Value)
+										continue
+									}
+
+									newPriceInfo := irs.PriceInfo{}
+									newPolicies := []irs.PricingPolicies{}
+									newPolicies = append(newPolicies, pricingPolicy)
+
+									newPriceInfo.PricingPolicies = newPolicies
+									newCSPPriceInfo := []string{}
+									newCSPPriceInfo = append(newCSPPriceInfo, priceResponseStr)
+									newPriceInfo.CSPPriceInfo = newCSPPriceInfo
+
+									newPrice := irs.Price{}
+									newPrice.PriceInfo = newPriceInfo
+									newPrice.ProductInfo = newProductInfo
+
+									priceMap[productId] = newPrice
+								}
 							}
+						}
+					}
+				}
+			case "Subscription":
+				if product.SubscriptionType == "Subscription" {
 
-							// existProduct := false
-							// for idx, aPriceList := range cloudPrice.PriceList {
-							// 	productInfo := &aPriceList.ProductInfo
-							// 	if productInfo.ProductId == productId { // 동일한  product가 있으면 policy만 추가한다.
-							// 		if aPriceList.PriceInfo.PricingPolicies != nil {
-							// 			aPriceList.PriceInfo.PricingPolicies = append(aPriceList.PriceInfo.PricingPolicies, pricingPolicy)
+					pricingModuleRequest := bssopenapi.CreateDescribePricingModuleRequest()
+					pricingModuleRequest.Scheme = "https"
+					pricingModuleRequest.SubscriptionType = product.SubscriptionType
+					pricingModuleRequest.ProductCode = product.ProductCode
+					pricingModuleRequest.ProductType = product.ProductType
 
-							// 		} else {
-							// 			newPricingPolicies := []irs.PricingPolicies{}
-							// 			newPricingPolicies = append(newPricingPolicies, pricingPolicy)
+					pricingModulesSubscription, err := priceInfoHandler.BssClient.DescribePricingModule(pricingModuleRequest)
+					if err != nil {
+						cblogger.Error(err)
+						return "", err
+					}
 
-							// 			aPriceList.PriceInfo.PricingPolicies = newPricingPolicies
-							// 		}
-							// 		if aPriceList.PriceInfo.CSPPriceInfo != nil {
-							// 			aPriceList.PriceInfo.CSPPriceInfo = append(aPriceList.PriceInfo.CSPPriceInfo.([]string), priceResponseStr)
+					isExist := bool(false)
+					for _, pricingModule := range pricingModulesSubscription.Data.ModuleList.Module {
+						if pricingModule.ModuleCode == "InstanceType" {
+							for _, config := range pricingModule.ConfigList.ConfigList {
+								if config == "InstanceType" {
+									isExist = true
+								}
+							}
+						}
+					}
+					if !isExist {
+						cblogger.Errorf("There is no InstanceType Module Config - [%s]", productFamily)
+						continue
+					}
+					pricingModulePriceTypes := []string{"Month", "Year"}
+					if filteredpricingModulePriceTypes, ok := filter["leaseContractLength"]; ok { //filter key = leaseContractLength, 결과 : unit
+						pricingModulePriceTypes = []string{*filteredpricingModulePriceTypes}
+					}
+					for _, pricingModulePriceType := range pricingModulePriceTypes {
+						getSubscriptionPrice := requests.NewCommonRequest()
+						getSubscriptionPrice.Method = "POST"
+						getSubscriptionPrice.Scheme = "https" // https | http
+						getSubscriptionPrice.Domain = "business.ap-southeast-1.aliyuncs.com"
+						getSubscriptionPrice.Version = "2017-12-14"
+						getSubscriptionPrice.ApiName = "GetSubscriptionPrice"
 
-							// 		} else {
-							// 			newCSPPriceInfo := []string{}
-							// 			newCSPPriceInfo = append(newCSPPriceInfo, priceResponseStr)
-							// 			aPriceList.PriceInfo.CSPPriceInfo = newCSPPriceInfo
+						getSubscriptionPrice.QueryParams["SubscriptionType"] = product.SubscriptionType //"Subscription"
+						getSubscriptionPrice.QueryParams["ProductCode"] = product.ProductCode           //"ecs"
+						getSubscriptionPrice.QueryParams["OrderType"] = "NewOrder"                      // NewOrder, Upgrade, Renewal
+						getSubscriptionPrice.QueryParams["ServicePeriodUnit"] = pricingModulePriceType
+						getSubscriptionPrice.QueryParams["ServicePeriodQuantity"] = "1" // 1 초과시 PromotionDetails 응답 없음
 
-							// 		}
+						for _, pricingModulesAttr := range pricingModulesSubscription.Data.AttributeList.Attribute {
 
-							// 		cloudPrice.PriceList[idx] = aPriceList
-							// 		existProduct = true
-							// 		break
-							// 	}
-							// }
+							if pricingModulesAttr.Code == "InstanceType" {
+								for _, attr := range pricingModulesAttr.Values.AttributeValue {
+									//cblogger.Infof("Now query is : [%s] %s ", product.SubscriptionType, attr.Value)
 
-							// if !existProduct { // product가 없으면 조회해서 추가
-							// 	newProductInfo, err := GetDescribeInstanceTypesForPricing(priceInfoHandler.BssClient, regionName, attr.Value)
-							// 	if err != nil {
-							// 		cblogger.Errorf("[%s] instanceType is Empty", attr.Value)
-							// 		continue
-							// 	}
-							// 	newPrice := irs.Price{}
-							// 	newPrice.ProductInfo = newProductInfo
-							// 	newPriceInfo := irs.PriceInfo{}
-							// 	newPricingPolicies := []irs.PricingPolicies{}
-							// 	newPricingPolicies = append(newPricingPolicies, pricingPolicy)
+									// 특정 InstanceType에 Attr 에 존재하지만, 쿼리에 InternalError 발생. 부득이 단건 호출.
+									getSubscriptionPrice.QueryParams["ModuleList.1.ModuleCode"] = "InstanceType"
+									getSubscriptionPrice.QueryParams["ModuleList.1.Config"] = "InstanceType:" + attr.Value
 
-							// 	newCSPPriceInfo := []string{}
-							// 	newCSPPriceInfo = append(newCSPPriceInfo, priceResponseStr)
+									if filter["instanceType"] != nil && attr.Value != *filter["instanceType"] {
+										continue
+									}
 
-							// 	newPriceInfo.PricingPolicies = newPricingPolicies
-							// 	newPriceInfo.CSPPriceInfo = newCSPPriceInfo
+									priceResponse, err := priceInfoHandler.BssClient.ProcessCommonRequest(getSubscriptionPrice)
+									if err != nil {
+										cblogger.Error(err.Error())
+										continue
+									}
+									priceResp := AliPriceInfo{}
+									priceResponseStr := priceResponse.GetHttpContentString()
+									err = json.Unmarshal([]byte(priceResponseStr), &priceResp)
+									if err != nil {
+										cblogger.Error(err.Error())
+										continue
+									}
 
-							// 	newPrice.PriceInfo = newPriceInfo // priceList 를 돌면서 priceInfo 안의  productID가 같은 것 추출
+									pricingPolicy, err := BindpricingPolicy(priceResp, product.SubscriptionType, pricingModulePriceType, regionName, attr.Value)
+									if err != nil {
+										cblogger.Error(err.Error())
+										continue
+									}
+									productId := regionName + "_" + attr.Value
 
-							// 	cloudPrice.PriceList = append(cloudPrice.PriceList, newPrice)
-							// }
+									aPrice, ok := priceMap[productId]
+									if ok { // product가 존재하면 policy 추가
+										aPrice.PriceInfo.PricingPolicies = append(aPrice.PriceInfo.PricingPolicies, pricingPolicy)
+										aPrice.PriceInfo.CSPPriceInfo = append(aPrice.PriceInfo.CSPPriceInfo.([]string), priceResponseStr)
+										priceMap[productId] = aPrice
+									} else { // product가 없으면 price 추가
+										newProductInfo, err := GetDescribeInstanceTypesForPricing(priceInfoHandler.BssClient, regionName, attr.Value, filter)
+										if err != nil {
+											cblogger.Errorf("[%s] instanceType is Empty", attr.Value)
+											continue
+										}
+
+										newPriceInfo := irs.PriceInfo{}
+										newPolicies := []irs.PricingPolicies{}
+										newPolicies = append(newPolicies, pricingPolicy)
+
+										newPriceInfo.PricingPolicies = newPolicies
+										newCSPPriceInfo := []string{}
+										newCSPPriceInfo = append(newCSPPriceInfo, priceResponseStr)
+										newPriceInfo.CSPPriceInfo = newCSPPriceInfo
+
+										newPrice := irs.Price{}
+										newPrice.PriceInfo = newPriceInfo
+										newPrice.ProductInfo = newProductInfo
+
+										priceMap[productId] = newPrice
+									}
+
+								}
+							}
 						}
 					}
 				}
 			}
 		}
-
 	}
 
 	// priceMap 을 List 로 반환
@@ -617,7 +540,7 @@ func BindpricingPolicy(priceResp AliPriceInfo, subscriptionType string, pricingM
 	pricingPolicy := irs.PricingPolicies{}
 	pricingPolicy.PricingId = regionName + "_" + instanceType + "_" + subscriptionType + "_" + pricingModulePriceType //"NA"
 	pricingPolicy.PricingPolicy = subscriptionType
-	pricingPolicy.Unit = pricingModulePriceType
+	pricingPolicy.Unit = "NA"
 	pricingPolicy.Currency = priceResp.Data.Currency
 	if len(priceResp.Data.ModuleDetails.ModuleDetail) > 0 {
 		resultModuleDetailPrice := priceResp.Data.ModuleDetails.ModuleDetail[0]

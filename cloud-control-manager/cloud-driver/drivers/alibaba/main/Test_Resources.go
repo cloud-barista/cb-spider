@@ -1626,7 +1626,8 @@ func handlePriceInfo() {
 					cblogger.Info(" PriceInfo 조회 실패 : ", err)
 				} else {
 					cblogger.Info("PriceInfo 조회 결과")
-					spew.Dump(result)
+					//spew.Dump(result)
+					cblogger.Info(result)
 				}
 			}
 		}
