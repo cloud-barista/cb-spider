@@ -253,14 +253,14 @@ func strPtrNilCheck(t *string) string {
 
 func intPtrNilCheck(t *int64) string {
 	if t != nil {
-		return strconv.FormatInt(*t, 32)
+		return strconv.FormatInt(*t, 10)
 	}
 	return "NA"
 }
 
 func uintPtrNilCheck(t *uint64) string {
 	if t != nil {
-		return strconv.FormatUint(*t, 32)
+		return strconv.FormatUint(*t, 10)
 	}
 	return "NA"
 }
