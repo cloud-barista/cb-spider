@@ -253,10 +253,8 @@ func mappingToComputeStruct(regionName string, instanceModel *TencentInstanceMod
 							policy := mappingPricingPolicy(common.StringPtr("RESERVED"), *p)
 
 							if priceValidateFilter(&policy, filterMap) {
-								fmt.Println("priceValidateFilter................................................................")
 								continue
 							}
-							fmt.Println("appen................................................................")
 							aPrice := irs.Price{}
 							priceInfo := irs.PriceInfo{}
 
@@ -494,6 +492,9 @@ func priceValidateFilter(policy *irs.PricingPolicies, filterMap map[string]strin
 		return true
 	}
 	if value, ok := filterMap["purchaseOption"]; ok && value != "" && value != (*policy.PricingPolicyInfo).PurchaseOption {
+		return true
+	}
+	if value, ok := filterMap["leaseContractLength"]; ok && value != "" && value != (*policy.PricingPolicyInfo).LeaseContractLength {
 		return true
 	}
 	return false
