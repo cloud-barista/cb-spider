@@ -292,3 +292,14 @@ func ConvertJsonString(v interface{}) (string, error) {
 	jsonString := string(jsonBytes)
 	return jsonString, nil
 }
+
+// Convert time to KTC
+func ConvertTimeToKTC(givenTime time.Time) (time.Time, error) {
+	loc, err := time.LoadLocation("Asia/Seoul")
+	if err != nil {
+		newErr := fmt.Errorf("Failed to Convert the Time to KTC. [%v]", err)
+		cblogger.Error(newErr.Error())
+		return givenTime, newErr
+	}
+	return givenTime.In(loc), nil
+}
