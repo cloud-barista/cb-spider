@@ -3,6 +3,7 @@ package resources
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"hash/fnv"
 	"strconv"
 	"strings"
@@ -163,84 +164,128 @@ func describeReservedInstancesConfigInfos(client *cvm.Client, filterMap map[stri
 	return res, nil
 }
 
-// Mapper Start Function
 func mappingToComputeStruct(regionName string, instanceModel *TencentInstanceModel, filterMap map[string]string) (*irs.CloudPriceData, error) {
-	priceMap := make(map[string]*TencentInstanceInformation, 0)
+	priceMap := make(map[string]irs.Price) // productinfo , priceinfo
 
+	// standardInfo
 	if instanceModel.standardInfo != nil {
 		for _, v := range instanceModel.standardInfo.Response.InstanceTypeQuotaSet {
+			productId := computeInstanceKeyGeneration(*v.Zone, *v.InstanceType, *v.CpuType, strconv.FormatInt(*v.Memory, 10))
 
-			//변수값이 충분한지 고려할 필요가 있음, reservedInstance ReturnValue와 비교하여, 최대한 고유하게 가져갈 수 있는 것들은
-			//가져가도록 수정
-			key := computeInstanceKeyGeneration(*v.Zone, *v.InstanceType, *v.CpuType, strconv.FormatInt(*v.Memory, 10))
+			price, ok := priceMap[productId]
+			if ok { // 있으면
+				// policies 추출
+				policy := mappingPricingPolicy(v.InstanceChargeType, v.Price)
 
-			if pp, ok := priceMap[key]; !ok {
+				if priceValidateFilter(&policy, filterMap) {
+					continue
+				}
+
+				// append policy
+				pricePicies := price.PriceInfo.PricingPolicies
+				pricePicies = append(pricePicies, policy)
+
+				priceMap[productId] = price // price 재할당
+			} else { // 없으면
+				// product 추출
 				productInfo := mappingProductInfo(regionName, *v)
-
 				if validateFilter(filterMap, &productInfo) {
 					continue
 				}
-				sp := make([]TencentCommonInstancePrice, 0)
-				sp = append(sp, TencentCommonInstancePrice{InstanceChargeType: v.InstanceChargeType, Price: v.Price})
 
-				priceMap[key] = &TencentInstanceInformation{
-					PriceList: &irs.Price{
-						ProductInfo: productInfo,
-					},
-					StandardPrices: &sp,
+				// pricePicies 추출
+				policy := mappingPricingPolicy(v.InstanceChargeType, *v.Price)
+
+				if priceValidateFilter(&policy, filterMap) {
+					continue
 				}
-			} else {
-				newSlice := append(*pp.StandardPrices, TencentCommonInstancePrice{InstanceChargeType: v.InstanceChargeType, Price: v.Price})
-				pp.StandardPrices = &newSlice
+
+				aPrice := irs.Price{}
+				priceInfo := irs.PriceInfo{}
+
+				pricePicies := []irs.PricingPolicies{}
+				pricePicies = append(pricePicies, policy)
+
+				priceInfo.PricingPolicies = pricePicies
+
+				aPrice.ProductInfo = productInfo
+				aPrice.PriceInfo = priceInfo
+
+				priceMap[productId] = aPrice
 			}
+
 		}
 	}
-
-	//TODO reserved Instance Info Mapping
+	// reservedInfo
 	if instanceModel.reservedInfo != nil {
 		for _, v := range instanceModel.reservedInfo.Response.ReservedInstanceConfigInfos {
 			for _, info := range v.InstanceFamilies {
 				for _, iType := range info.InstanceTypes {
 					for _, p := range iType.Prices {
-						key := computeInstanceKeyGeneration(*p.Zone, *iType.InstanceType, *iType.CpuModelName, strconv.FormatUint(*iType.Memory, 10))
-						if pp, ok := priceMap[key]; !ok {
-							productInfo := mappingProductInfo(regionName, *iType)
+						productId := computeInstanceKeyGeneration(*p.Zone, *iType.InstanceType, *iType.CpuModelName, strconv.FormatUint(*iType.Memory, 10))
 
+						price, ok := priceMap[productId]
+						if ok { // 있으면
+							fmt.Println("reservedInfo ok True")
+							// policies 추출
+							policy := mappingPricingPolicy(common.StringPtr("RESERVED"), iType.Prices)
+
+							if priceValidateFilter(&policy, filterMap) {
+								continue
+							}
+
+							// append policy
+							pricePicies := price.PriceInfo.PricingPolicies
+							pricePicies = append(pricePicies, policy)
+
+							priceMap[productId] = price // price 재할당
+						} else { // 없으면
+							fmt.Println("reservedInfo ok flase")
+							// product 추출
+							productInfo := mappingProductInfo(regionName, *iType)
 							if validateFilter(filterMap, &productInfo) {
 								continue
 							}
 
-							rp := make([]TencentReservedInstancePrice, 0)
-							rp = append(rp, TencentReservedInstancePrice{Price: p})
+							//	for _, val := range *v.price.Res {
 
-							priceMap[key] = &TencentInstanceInformation{
-								PriceList: &irs.Price{
-									ProductInfo: productInfo,
-								},
+							// pricePicies 추출
+							policy := mappingPricingPolicy(common.StringPtr("RESERVED"), *p)
 
-								ReservedPrices: &rp,
+							if priceValidateFilter(&policy, filterMap) {
+								fmt.Println("priceValidateFilter................................................................")
+								continue
 							}
-						} else {
-							newSlice := append(*pp.ReservedPrices, TencentReservedInstancePrice{Price: p})
-							pp.ReservedPrices = &newSlice
-						}
-					}
+							fmt.Println("appen................................................................")
+							aPrice := irs.Price{}
+							priceInfo := irs.PriceInfo{}
 
-				}
-			}
-		}
+							pricePicies := []irs.PricingPolicies{}
+							pricePicies = append(pricePicies, policy)
+
+							priceInfo.PricingPolicies = pricePicies
+
+							aPrice.ProductInfo = productInfo
+							aPrice.PriceInfo = priceInfo
+
+							priceMap[productId] = aPrice
+							//	}
+						}
+
+					} // end of itype.Prices for
+				} // end of itype for
+			} // end of instanceFamilies for
+		} // end of reservedInstanceConfigInfos for
 	}
-	generatePriceInfo(priceMap, filterMap)
 
 	priceList := make([]irs.Price, 0)
-
 	if priceMap != nil && len(priceMap) > 0 {
-		for _, v := range priceMap {
-			priceList = append(priceList, *v.PriceList)
+		for _, priceValue := range priceMap {
+			priceList = append(priceList, priceValue)
 		}
 	}
 
-	x := &irs.CloudPriceData{
+	cloudPriceData := &irs.CloudPriceData{
 		Meta: irs.Meta{
 			Version:     "v0.1",
 			Description: "Multi-Cloud Price Info Api",
@@ -252,8 +297,101 @@ func mappingToComputeStruct(regionName string, instanceModel *TencentInstanceMod
 			},
 		},
 	}
-	return x, nil
+	return cloudPriceData, nil
+
 }
+
+// Mapper Start Function -- X
+// func mappingToComputeStruct(regionName string, instanceModel *TencentInstanceModel, filterMap map[string]string) (*irs.CloudPriceData, error) {
+// 	priceMap := make(map[string]*TencentInstanceInformation, 0)
+
+// 	if instanceModel.standardInfo != nil {
+// 		for _, v := range instanceModel.standardInfo.Response.InstanceTypeQuotaSet {
+
+// 			//변수값이 충분한지 고려할 필요가 있음, reservedInstance ReturnValue와 비교하여, 최대한 고유하게 가져갈 수 있는 것들은
+// 			//가져가도록 수정
+// 			key := computeInstanceKeyGeneration(*v.Zone, *v.InstanceType, *v.CpuType, strconv.FormatInt(*v.Memory, 10))
+
+// 			if pp, ok := priceMap[key]; !ok {
+// 				productInfo := mappingProductInfo(regionName, *v)
+
+// 				if validateFilter(filterMap, &productInfo) {
+// 					continue
+// 				}
+// 				sp := make([]TencentCommonInstancePrice, 0)
+// 				sp = append(sp, TencentCommonInstancePrice{InstanceChargeType: v.InstanceChargeType, Price: v.Price})
+
+// 				priceMap[key] = &TencentInstanceInformation{
+// 					PriceList: &irs.Price{
+// 						ProductInfo: productInfo,
+// 					},
+// 					StandardPrices: &sp,
+// 				}
+// 			} else {
+// 				newSlice := append(*pp.StandardPrices, TencentCommonInstancePrice{InstanceChargeType: v.InstanceChargeType, Price: v.Price})
+// 				pp.StandardPrices = &newSlice
+// 			}
+// 		}
+// 	}
+
+// 	//TODO reserved Instance Info Mapping
+// 	if instanceModel.reservedInfo != nil {
+// 		for _, v := range instanceModel.reservedInfo.Response.ReservedInstanceConfigInfos {
+// 			for _, info := range v.InstanceFamilies {
+// 				for _, iType := range info.InstanceTypes {
+// 					for _, p := range iType.Prices {
+// 						key := computeInstanceKeyGeneration(*p.Zone, *iType.InstanceType, *iType.CpuModelName, strconv.FormatUint(*iType.Memory, 10))
+// 						if pp, ok := priceMap[key]; !ok {
+// 							productInfo := mappingProductInfo(regionName, *iType)
+
+// 							if validateFilter(filterMap, &productInfo) {
+// 								continue
+// 							}
+
+// 							rp := make([]TencentReservedInstancePrice, 0)
+// 							rp = append(rp, TencentReservedInstancePrice{Price: p})
+
+// 							priceMap[key] = &TencentInstanceInformation{
+// 								PriceList: &irs.Price{
+// 									ProductInfo: productInfo,
+// 								},
+
+// 								ReservedPrices: &rp,
+// 							}
+// 						} else {
+// 							newSlice := append(*pp.ReservedPrices, TencentReservedInstancePrice{Price: p})
+// 							pp.ReservedPrices = &newSlice
+// 						}
+// 					}
+
+// 				}
+// 			}
+// 		}
+// 	}
+// 	generatePriceInfo(priceMap, filterMap)
+
+// 	priceList := make([]irs.Price, 0)
+
+// 	if priceMap != nil && len(priceMap) > 0 {
+// 		for _, v := range priceMap {
+// 			priceList = append(priceList, *v.PriceList)
+// 		}
+// 	}
+
+// 	x := &irs.CloudPriceData{
+// 		Meta: irs.Meta{
+// 			Version:     "v0.1",
+// 			Description: "Multi-Cloud Price Info Api",
+// 		},
+// 		CloudPriceList: []irs.CloudPrice{
+// 			{
+// 				CloudName: "TENCENT",
+// 				PriceList: priceList,
+// 			},
+// 		},
+// 	}
+// 	return x, nil
+// }
 
 // TencentSDK VM Product & Pricing struct to irs Struct
 func generatePriceInfo(priceMap map[string]*TencentInstanceInformation, filterMap map[string]string) {
@@ -352,9 +490,6 @@ func priceValidateFilter(policy *irs.PricingPolicies, filterMap map[string]strin
 	if value, ok := filterMap["description"]; ok && value != "" && value != (*policy).Description {
 		return true
 	}
-	if value, ok := filterMap["unit"]; ok && value != "" && value != (*policy).Unit {
-		return true
-	}
 	if value, ok := filterMap["purchaseOption"]; ok && value != "" && value != (*policy.PricingPolicyInfo).PurchaseOption {
 		return true
 	}
@@ -364,32 +499,32 @@ func priceValidateFilter(policy *irs.PricingPolicies, filterMap map[string]strin
 	return false
 }
 
-func resPriceValidateFilter(policy *irs.PricingPolicies, filterMap map[string]string) bool {
-	if len(filterMap) <= 0 {
-		return false
-	}
+// func resPriceValidateFilter(policy *irs.PricingPolicies, filterMap map[string]string) bool {
+// 	if len(filterMap) <= 0 {
+// 		return false
+// 	}
 
-	if value, ok := filterMap["price"]; ok && value != "" && value != (*policy).Price {
-		return true
-	}
-	if value, ok := filterMap["currency"]; ok && value != "" && value != (*policy).Currency {
-		return true
-	}
-	if value, ok := filterMap["description"]; ok && value != "" && value != (*policy).Description {
-		return true
-	}
-	if value, ok := filterMap["unit"]; ok && value != "" && value != (*policy).Unit {
-		return true
-	}
-	if value, ok := filterMap["purchaseOption"]; ok && value != "" && value != (*policy.PricingPolicyInfo).PurchaseOption {
-		return true
-	}
-	if value, ok := filterMap["purchaseOption"]; ok && value != "" && value != (*policy.PricingPolicyInfo).PurchaseOption {
-		return true
-	}
+// 	if value, ok := filterMap["price"]; ok && value != "" && value != (*policy).Price {
+// 		return true
+// 	}
+// 	if value, ok := filterMap["currency"]; ok && value != "" && value != (*policy).Currency {
+// 		return true
+// 	}
+// 	if value, ok := filterMap["description"]; ok && value != "" && value != (*policy).Description {
+// 		return true
+// 	}
+// 	if value, ok := filterMap["unit"]; ok && value != "" && value != (*policy).Unit {
+// 		return true
+// 	}
+// 	if value, ok := filterMap["purchaseOption"]; ok && value != "" && value != (*policy.PricingPolicyInfo).PurchaseOption {
+// 		return true
+// 	}
+// 	if value, ok := filterMap["purchaseOption"]; ok && value != "" && value != (*policy.PricingPolicyInfo).PurchaseOption {
+// 		return true
+// 	}
 
-	return false
-}
+// 	return false
+// }
 
 // 	if len(filter) <= 0 {
 // 		return false
