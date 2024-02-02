@@ -61,9 +61,6 @@ func init() {
 			validFilterKey[camelCaseFieldName] = true
 		}
 	}
-
-	fmt.Printf("valid key is this %+v\n", validFilterKey)
-
 }
 
 type GCPPriceInfoHandler struct {
