@@ -93,6 +93,17 @@ func (nlbHandler *KtCloudNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (irs.NLBI
 	time.Sleep(time.Second * 7)
 
 	newNlbIID := irs.IID{SystemId: nlbResp.Createnlbresponse.NLBId}
+
+	if len(*nlbReqInfo.VMGroup.VMs) > 0 {
+		_, err := nlbHandler.AddVMs(newNlbIID, nlbReqInfo.VMGroup.VMs)
+		if err != nil {
+			newErr := fmt.Errorf("Failed to Add the VMs to the New NLB. [%v]", err)
+			cblogger.Error(newErr.Error())
+			LoggingError(callLogInfo, newErr)	
+			return irs.NLBInfo{}, newErr
+		}
+	}
+
 	nlbInfo, err := nlbHandler.GetNLB(newNlbIID)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get the New NLB Info. [%v]", err)
@@ -186,9 +197,25 @@ func (nlbHandler *KtCloudNLBHandler) DeleteNLB(nlbIID irs.IID) (bool, error) {
 		return false, newErr
 	}
 
-	// Note!!) Should check 'EstablishedConn'(Client Connections) value before deletion?
+	// Get KT Cloud NLB VM list
+	listResp, err := nlbHandler.NLBClient.ListNLBVMs(nlbIID.SystemId) // Not 'VMClient' or 'NetworkClient' but 'NLBClient'
+	if err != nil {
+		newErr := fmt.Errorf("Failed to Get NLB VM list : [%v]", err)
+		cblogger.Error(newErr.Error())
+		return false, newErr
+	}
+	time.Sleep(time.Second * 1) // Before 'return'
+	// To Prevent the Error : "Unable to execute API command listTags due to ratelimit timeout"
+
+	if len(listResp.Listnlbvmsresponse.NLBVM) > 0 {
+		newErr := fmt.Errorf("Failed to Delete the NLB. First Remove the connected VMs of the NLB!!")
+		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
+		return false, newErr
+	}
+
 	start := call.Start()
-	nlbResp, err := nlbHandler.NLBClient.DeleteNLB(nlbIID.SystemId) // Not 'Client'
+	delResp, err := nlbHandler.NLBClient.DeleteNLB(nlbIID.SystemId) // Not 'Client'
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Delete the NLB!! : [%v] ", err)
 		cblogger.Error(newErr.Error())
@@ -199,13 +226,13 @@ func (nlbHandler *KtCloudNLBHandler) DeleteNLB(nlbIID irs.IID) (bool, error) {
 	// cblogger.Info("\n\n### delResult : ")
 	// spew.Dump(nlbResp)
 
-	if !nlbResp.Deletenlbresponse.Success {
-		newErr := fmt.Errorf("Failed to Delete the NLB!! : [%s] ", nlbResp.Deletenlbresponse.Displaytext)
+	if !delResp.Deletenlbresponse.Success {
+		newErr := fmt.Errorf("Failed to Delete the NLB!! : [%s] ", delResp.Deletenlbresponse.Displaytext)
 		cblogger.Error(newErr.Error())
 		LoggingError(callLogInfo, newErr)
 		return false, newErr
 	} else {
-		cblogger.Infof("# Result : %s", nlbResp.Deletenlbresponse.Displaytext)		
+		cblogger.Infof("# Result : %s", delResp.Deletenlbresponse.Displaytext)		
 	}
 
 	return true, nil
@@ -296,7 +323,7 @@ func (nlbHandler *KtCloudNLBHandler) AddVMs(nlbIID irs.IID, vmIIDs *[]irs.IID) (
 		start := call.Start()
 		addVMResp, err := nlbHandler.NLBClient.AddNLBVM(addVmReq)
 		if err != nil {
-			newErr := fmt.Errorf("Failed to Attach the Disk Volume. [%v]", err.Error())
+			newErr := fmt.Errorf("Failed to Add the VM to NLB. [%v]", err.Error())
 			cblogger.Error(newErr.Error())
 			LoggingError(callLogInfo, newErr)
 			return irs.VMGroupInfo{}, newErr
@@ -377,7 +404,7 @@ func (nlbHandler *KtCloudNLBHandler) RemoveVMs(nlbIID irs.IID, vmIIDs *[]irs.IID
 		start := call.Start()
 		removeResp, err := nlbHandler.NLBClient.RemoveNLBVM(strconv.Itoa(serviceId))
 		if err != nil {
-			newErr := fmt.Errorf("Failed to Attach the Disk Volume. [%v]", err.Error())
+			newErr := fmt.Errorf("Failed to Remove the VM from the NLB. [%v]", err.Error())
 			cblogger.Error(newErr.Error())
 			LoggingError(callLogInfo, newErr)
 			return false, newErr
