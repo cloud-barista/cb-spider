@@ -78,7 +78,12 @@ func (vmHandler *KtCloudVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 
 	// Preparing for UserData String
 	var initUserData *string
-	keyPairId := vmReqInfo.KeyPairIID.SystemId
+	var keyPairId string
+	if !strings.EqualFold(vmReqInfo.KeyPairIID.SystemId, "") {
+		keyPairId = vmReqInfo.KeyPairIID.SystemId
+	} else {
+		keyPairId = vmReqInfo.KeyPairIID.NameId
+	}	
 	if vmReqInfo.ImageType == irs.PublicImage || vmReqInfo.ImageType == "" || vmReqInfo.ImageType == "default" {
 		// isPublicImage() in 'MyImage'Handler
 		myImageHandler := KtCloudMyImageHandler{
