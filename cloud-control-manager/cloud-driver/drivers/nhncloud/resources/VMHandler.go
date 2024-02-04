@@ -39,7 +39,8 @@ import (
 const (
 	DefaultVMUserName		string = "cb-user"
 	DefaultWindowsUserName 	string = "Administrator"
-	CloudInitFilePath		string = "/cloud-driver-libs/.cloud-init-nhncloud/cloud-init"
+	UbuntuCloudInitFilePath		string = "/cloud-driver-libs/.cloud-init-nhncloud/cloud-init-ubuntu"
+	WinCloudInitFilePath		string = "/cloud-driver-libs/.cloud-init-nhncloud/cloud-init-windows"
 	DefaultDiskSize			string = "20"
 	DefaultWindowsDiskSize	string = "50"
 )
@@ -114,7 +115,7 @@ func (vmHandler *NhnCloudVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo
 
 	// Set cloud-init script
 	rootPath := os.Getenv("CBSPIDER_ROOT")
-	fileData, err := os.ReadFile(rootPath + CloudInitFilePath)
+	fileData, err := os.ReadFile(rootPath + UbuntuCloudInitFilePath)
 	if err != nil {
 		cblogger.Error(err.Error())
 		LoggingError(callLogInfo, err)
@@ -122,7 +123,11 @@ func (vmHandler *NhnCloudVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo
 	}
 	fileStr := string(fileData)
 	fileStr = strings.ReplaceAll(fileStr, "{{username}}", DefaultVMUserName)
-	fileStr = strings.ReplaceAll(fileStr, "{{public_key}}", keyPair.PublicKey)	
+	fileStr = strings.ReplaceAll(fileStr, "{{public_key}}", keyPair.PublicKey)
+	fileStr = strings.ReplaceAll(fileStr, "{{PASSWORD}}", vmReqInfo.VMUserPasswd) // For Windows VM
+
+	// cblogger.Info("\n# fileStr : ")
+	// spew.Dump(fileStr)
 	
 	// Preparing VM Creation Options
 	serverCreateOpts := servers.CreateOpts{
@@ -271,7 +276,8 @@ func (vmHandler *NhnCloudVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo
 		blockDeviceSet := []bootfromvolume.BlockDevice{
 			{
 				UUID:                vmReqInfo.ImageIID.SystemId,
-				SourceType:          bootfromvolume.SourceImage,
+				SourceType:          bootfromvolume.SourceImage, 
+				// Note) In case of 'MyImage', SourceType is 'SourceImage', too.  Not 'bootfromvolume.SourceSnapshot'
 				VolumeType:			 reqDiskType,
 				VolumeSize:          reqDiskSizeInt,
 				DestinationType:     bootfromvolume.DestinationVolume,  // Destination_type must be 'Volume'. Not 'bootfromvolume.DestinationLocal'
@@ -825,10 +831,15 @@ func getVmStatus(vmStatus string) irs.VMStatus {
 
 func (vmHandler *NhnCloudVMHandler) MappingVMInfo(server servers.Server) (irs.VMInfo, error) {
 	cblogger.Info("NHN Cloud Driver: called MappingVMInfo()")
-
 	// cblogger.Infof("\n\n### Server from NHN :")
 	// spew.Dump(server)
 	// cblogger.Infof("\n\n")
+
+	convertedTime, err := ConvertTimeToKTC(server.Created)
+	if err != nil {
+		newErr := fmt.Errorf("Failed to Get Converted Time. [%v]", err)
+		return irs.VMInfo{}, newErr
+	}
 
 	vmInfo := irs.VMInfo{
 		IId: irs.IID{
@@ -846,7 +857,7 @@ func (vmHandler *NhnCloudVMHandler) MappingVMInfo(server servers.Server) (irs.VM
 		VMUserPasswd:      "N/A",
 		NetworkInterface:  server.HostID,
 	}
-	vmInfo.StartTime = server.Created
+	vmInfo.StartTime = convertedTime
 
 	// Image Info
 	imageId := server.Image["id"].(string)	

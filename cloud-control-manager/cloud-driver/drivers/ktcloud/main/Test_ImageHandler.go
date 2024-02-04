@@ -62,9 +62,12 @@ func handleImage() {
 		}
 
 		imageReqInfo := irs.ImageReqInfo{
-			IId: irs.IID{NameId: "Ubuntu 20.04 64bit", SystemId: "23bc4025-8a16-4ebf-aa49-3160ee2ac24b"},
-			// # KT Cloud : Ubuntu 20.04 64bit
+			// Zone : KOR-Central A
+			IId: irs.IID{NameId: "WIN 2019 STD [Korean] MSSQL 2019 ENT", SystemId: "297b2872-7ba9-4e6f-a8b7-e7f81fffc5f3"},
+			
 			// Zone : KOR-Seoul M2
+			// IId: irs.IID{NameId: "Ubuntu 20.04 64bit", SystemId: "23bc4025-8a16-4ebf-aa49-3160ee2ac24b"},
+			// # KT Cloud : Ubuntu 20.04 64bit
 
 			// IId: irs.IID{NameId: "Test OS Image", SystemId: "528fdf79-c57f-4f9a-b8ea-c887b9fed003"},
 			// # KT Cloud : ubuntu-18.04, Ubuntu Server 64-bit
