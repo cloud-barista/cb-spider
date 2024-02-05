@@ -146,12 +146,12 @@ func (priceInfoHandler *AlibabaPriceInfoHandler) ListProductFamily(regionName st
 	return familyList, nil
 }
 
-func (priceInfoHandler *AlibabaPriceInfoHandler) GetPriceInfo(productFamily string, regionName string, additionalFilterList []irs.KeyValue) (string, error) {
+func (priceInfoHandler *AlibabaPriceInfoHandler) GetPriceInfo(productFamily string, regionName string, filterList []irs.KeyValue) (string, error) {
 	priceMap := make(map[string]irs.Price)
-	cblogger.Info(additionalFilterList)
-	filter, _ := filterListToMap(additionalFilterList)
+	cblogger.Info(filterList)
+	filter, _ := filterListToMap(filterList)
 
-	cblogger.Infof("filter value : %+v", additionalFilterList)
+	cblogger.Infof("filter value : %+v", filterList)
 
 	if filteredRegionName, ok := filter["regionName"]; ok {
 		regionName = *filteredRegionName
@@ -185,6 +185,9 @@ func (priceInfoHandler *AlibabaPriceInfoHandler) GetPriceInfo(productFamily stri
 	for _, product := range targetProducts {
 
 		if product.SubscriptionType == "PayAsYouGo" {
+			if _, ok := filter["purchaseOption"]; ok && "PayAsYouGo" != *filter["purchaseOption"] {
+				continue
+			}
 			pricingModuleRequest := bssopenapi.CreateDescribePricingModuleRequest()
 			pricingModuleRequest.Scheme = "https"
 			pricingModuleRequest.SubscriptionType = product.SubscriptionType
@@ -318,6 +321,9 @@ func (priceInfoHandler *AlibabaPriceInfoHandler) GetPriceInfo(productFamily stri
 				}
 			}
 		} else if product.SubscriptionType == "Subscription" {
+			if _, ok := filter["purchaseOption"]; ok && "Subscription" != *filter["purchaseOption"] {
+				continue
+			}
 			pricingModuleRequest := bssopenapi.CreateDescribePricingModuleRequest()
 			pricingModuleRequest.Scheme = "https"
 			pricingModuleRequest.SubscriptionType = product.SubscriptionType
@@ -691,14 +697,14 @@ func productInfoFilter(productInfo *irs.ProductInfo, filter map[string]*string) 
 	return false
 }
 
-func filterListToMap(additionalFilterList []irs.KeyValue) (map[string]*string, bool) { // 키-값 목록을 받아서 필터링 된 맵과 유효성 검사 결과 반환
+func filterListToMap(filterList []irs.KeyValue) (map[string]*string, bool) { // 키-값 목록을 받아서 필터링 된 맵과 유효성 검사 결과 반환
 	filterMap := make(map[string]*string, 0) // 빈 맵 생성
 
-	if additionalFilterList == nil { // 입력값이 nil이면 빈 맵과 true를 반환합니다.
+	if filterList == nil { // 입력값이 nil이면 빈 맵과 true를 반환합니다.
 		return filterMap, true
 	}
 
-	for _, kv := range additionalFilterList { // 각 키-값 쌍에 대해 다음 작업 수행
+	for _, kv := range filterList { // 각 키-값 쌍에 대해 다음 작업 수행
 		if _, ok := validFilterKey[kv.Key]; !ok { // 키가 유효한 필터 키 목록에 존재하지 않으면 빈 맵과 false를 반환합니다.
 			return map[string]*string{}, false
 		}
