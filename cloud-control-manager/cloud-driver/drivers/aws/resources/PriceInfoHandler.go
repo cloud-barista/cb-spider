@@ -207,13 +207,12 @@ func (priceInfoHandler *AwsPriceInfoHandler) GetPriceInfo(productFamily string, 
 		cblogger.Error(err)
 		return "", err
 	}
-	cblogger.Info("@@@@@@@@@@@@", priceinfos)
 
 	result := &irs.CloudPriceData{}
 	result.Meta.Version = "v0.1"
 	result.Meta.Description = "Multi-Cloud Price Info"
 	// for the test
-	// cblogger.Info("productInfo", priceinfos)
+	//  "productInfo", priceinfos)
 	for _, price := range priceinfos.PriceList {
 		jsonString, err := json.MarshalIndent(price["product"].(map[string]interface{})["attributes"], "", "    ")
 		if err != nil {
@@ -236,8 +235,6 @@ func (priceInfoHandler *AwsPriceInfoHandler) GetPriceInfo(productFamily string, 
 
 		var priceInfo irs.PriceInfo
 		priceInfo.CSPPriceInfo = price["terms"]
-		cblogger.Info("priceInfo.CSPPriceInfo******************** = ", priceInfo.CSPPriceInfo)
-		cblogger.Info("priceInfo.CSPPriceInfo^^^^^^^^^^^^^^^^^^^^ = ", priceInfo)
 		for termsKey, termsValue := range price["terms"].(map[string]interface{}) {
 
 			hasTerm := false
@@ -313,27 +310,24 @@ func (priceInfoHandler *AwsPriceInfoHandler) GetPriceInfo(productFamily string, 
 							}
 							pricingPolicy.Unit = fmt.Sprintf("%s", priceDimensionsValue.(map[string]interface{})["unit"])
 
-							// var cspPriceInfo []string
+							var cspPriceInfo []string
 
-							// // Convert the []interface{} to []string before appending
-							// for _, item := range price["terms"].([]interface{}) {
-							// 	jsonString, err := json.Marshal(item)
-							// 	if err != nil {
-							// 		cblogger.Error(err)
-							// 		continue
-							// 	}
-							// 	cspPriceInfo = append(cspPriceInfo, string(jsonString))
-							// }
+							// Convert the []interface{} to []string before appending
+							for _, item := range price["terms"].(map[string]interface{}) {
+								jsonString, err := json.Marshal(item)
+								if err != nil {
+									cblogger.Error(err)
+									continue
+								}
+								cspPriceInfo = append(cspPriceInfo, string(jsonString))
+							}
+
 							priceInfo.PricingPolicies = append(priceInfo.PricingPolicies, pricingPolicy)
 							aPrice, ok := priceMap[productId]
 
-							// for the test
-							cblogger.Info("productId111111111111 = ", productId)
-							cblogger.Info("pricingPolicy66666666666 = ", pricingPolicy)
-
 							if ok { // product가 존재하면 policy 추가
 								aPrice.PriceInfo.PricingPolicies = append(aPrice.PriceInfo.PricingPolicies, pricingPolicy)
-								// aPrice.PriceInfo.CSPPriceInfo = append(aPrice.PriceInfo.CSPPriceInfo.([]string), cspPriceInfo...)
+								aPrice.PriceInfo.CSPPriceInfo = append(aPrice.PriceInfo.CSPPriceInfo.([][]string), cspPriceInfo)
 								// var priceInfo irs.PriceInfo
 								// priceInfo.CSPPriceInfo = price["terms"]
 								priceMap[productId] = aPrice
@@ -345,12 +339,14 @@ func (priceInfoHandler *AwsPriceInfoHandler) GetPriceInfo(productFamily string, 
 								newPolicies = append(newPolicies, pricingPolicy)
 
 								newPriceInfo.PricingPolicies = newPolicies
-								// newCSPPriceInfo := []string{}
-								// newCSPPriceInfo = append(newCSPPriceInfo, priceResponseStr)
-								// newPriceInfo.CSPPriceInfo = newCSPPriceIn
+
+								newCSPPriceInfo := [][]string{}
+								newCSPPriceInfo = append(newCSPPriceInfo, cspPriceInfo)
+
 								newPrice := irs.Price{}
 								newPrice.PriceInfo = newPriceInfo
 								newPrice.ProductInfo = productInfo
+								newPrice.PriceInfo.CSPPriceInfo = newCSPPriceInfo
 
 								priceMap[productId] = newPrice
 							}
