@@ -185,7 +185,7 @@ func (priceInfoHandler *AlibabaPriceInfoHandler) GetPriceInfo(productFamily stri
 	for _, product := range targetProducts {
 
 		if product.SubscriptionType == "PayAsYouGo" {
-			if _, ok := filter["purchaseOption"]; ok && "PayAsYouGo" != *filter["purchaseOption"] {
+			if _, ok := filter["pricingPolicy"]; ok && "PayAsYouGo" != *filter["pricingPolicy"] {
 				continue
 			}
 			pricingModuleRequest := bssopenapi.CreateDescribePricingModuleRequest()
@@ -321,7 +321,7 @@ func (priceInfoHandler *AlibabaPriceInfoHandler) GetPriceInfo(productFamily stri
 				}
 			}
 		} else if product.SubscriptionType == "Subscription" {
-			if _, ok := filter["purchaseOption"]; ok && "Subscription" != *filter["purchaseOption"] {
+			if _, ok := filter["pricingPolicy"]; ok && "Subscription" != *filter["pricingPolicy"] {
 				continue
 			}
 			pricingModuleRequest := bssopenapi.CreateDescribePricingModuleRequest()
