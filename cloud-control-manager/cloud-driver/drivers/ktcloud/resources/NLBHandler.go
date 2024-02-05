@@ -12,15 +12,15 @@ package resources
 
 import (
 	"fmt"
-	"strings"
 	"strconv"
+	"strings"
 	"time"
 	// "github.com/davecgh/go-spew/spew"
 
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
-	
+
 	ktsdk "github.com/cloud-barista/ktcloud-sdk-go"
 )
 
@@ -197,7 +197,7 @@ func (nlbHandler *KtCloudNLBHandler) DeleteNLB(nlbIID irs.IID) (bool, error) {
 		return false, newErr
 	}
 
-	// Get KT Cloud NLB VM list
+	// Get KT Cloud NLB VM list to Remove from the NLB
 	listResp, err := nlbHandler.NLBClient.ListNLBVMs(nlbIID.SystemId) // Not 'VMClient' or 'NetworkClient' but 'NLBClient'
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get NLB VM list : [%v]", err)
@@ -207,13 +207,34 @@ func (nlbHandler *KtCloudNLBHandler) DeleteNLB(nlbIID irs.IID) (bool, error) {
 	time.Sleep(time.Second * 1) // Before 'return'
 	// To Prevent the Error : "Unable to execute API command listTags due to ratelimit timeout"
 
+	cblogger.Info("# Start to Remove the NLB VMs!!")
+	vmHandler := KtCloudVMHandler{
+		RegionInfo: nlbHandler.RegionInfo,
+		Client:   	nlbHandler.Client,
+	}
+	var nlbVMs []irs.IID
 	if len(listResp.Listnlbvmsresponse.NLBVM) > 0 {
-		newErr := fmt.Errorf("Failed to Delete the NLB. First Remove the connected VMs of the NLB!!")
-		cblogger.Error(newErr.Error())
-		LoggingError(callLogInfo, newErr)
-		return false, newErr
+		for _, nlbVM := range listResp.Listnlbvmsresponse.NLBVM {
+			vmName, err := vmHandler.getVmNameWithId(nlbVM.VMId)
+			if err != nil {
+				newErr := fmt.Errorf("Failed to Get the VM Name with the VM ID : [%v]", err)
+				cblogger.Error(newErr.Error())
+				return false, newErr
+			}
+			nlbVMs = append(nlbVMs, irs.IID{NameId: vmName, SystemId: nlbVM.VMId})
+		}
+
+		_, removeErr := nlbHandler.RemoveVMs(nlbIID, &nlbVMs) // 'NameId' requied!!
+		if removeErr != nil {
+			newErr := fmt.Errorf("Failed to Remove the VMs from the New NLB. [%v]", removeErr)
+			cblogger.Error(newErr.Error())
+			LoggingError(callLogInfo, newErr)	
+			return false, newErr
+		}
+		time.Sleep(time.Second * 3) 
 	}
 
+	cblogger.Info("# Start to Delete the NLB!!")
 	start := call.Start()
 	delResp, err := nlbHandler.NLBClient.DeleteNLB(nlbIID.SystemId) // Not 'Client'
 	if err != nil {
