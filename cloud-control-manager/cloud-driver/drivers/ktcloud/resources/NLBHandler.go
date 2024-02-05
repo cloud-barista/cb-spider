@@ -716,10 +716,10 @@ func (nlbHandler *KtCloudNLBHandler) mappingNlbInfo(nlb *ktsdk.NLB) (irs.NLBInfo
 			NameId:   nlb.Name,
 			SystemId: strconv.Itoa(nlb.NLBId),
 		},
-		VpcIID: irs.IID{
-			NameId:   "N/A",
-			SystemId: "N/A",
-		},
+		// VpcIID: irs.IID{
+		// 	NameId:   "N/A", // Cauton!!) 'NameId: "N/A"' makes an Error on CB-Spider
+		// 	SystemId: "N/A",
+		// },
 		Type:         "PUBLIC",
 		Scope:        "REGION",
 	}
