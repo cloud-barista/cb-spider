@@ -232,7 +232,8 @@ func RunServer() {
 
 		//----------PriceInfo Handler
 		{"GET", "/productfamily/:RegionName", ListProductFamily},
-		{"GET", "/priceinfo/:ProductFamily/:RegionName", GetPriceInfo},
+		{"GET", "/priceinfo/:ProductFamily/:RegionName", GetPriceInfo},  // GET with a body for backward compatibility
+		{"POST", "/priceinfo/:ProductFamily/:RegionName", GetPriceInfo}, // POST with a body for standard
 
 		//----------Image Handler
 		{"GET", "/vmimage", ListImage},
