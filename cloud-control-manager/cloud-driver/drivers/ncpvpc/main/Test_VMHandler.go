@@ -69,7 +69,7 @@ func handleVM() {
 		fmt.Println("============================================================================================")
 
 		//config := readConfigFile()
-		VmID := irs.IID{SystemId: "18308242"}
+		VmID := irs.IID{SystemId: "22356052"}
 
 		var commandNum int
 		inputCnt, err := fmt.Scan(&commandNum)
@@ -86,19 +86,20 @@ func handleVM() {
 			case 1:
 				vmReqInfo := irs.VMReqInfo{
 					// # NCP에서는 VM instance 이름에 대문자 허용 안되므로, VMHandler 내부에서 소문자로 변환되어 반영됨.
-					IId: irs.IID{NameId: "MyImage-VM-1"},
+					IId: irs.IID{NameId: "My-VM-01"},
 					
-					// ImageType: "PublicImage", // "", "default", "PublicImage" or "MyImage"
-					ImageType: "MyImage", // "", "default", "PublicImage" or "MyImage"
+					ImageType: "PublicImage", // "", "default", "PublicImage" or "MyImage"
+					// ImageType: "MyImage", // "", "default", "PublicImage" or "MyImage"
 
-					// # NCP VPC infra service와 Classic 2세대 service는 ImageID, VMSpecName 체계가 다름.
-					// ImageIID:   irs.IID{NameId: "ubuntu-18.04", SystemId: "SW.VSVR.OS.LNX64.UBNTU.SVR1804.B050"},
+					// # For Public Image Test
+					// # (Note) NCP VPC infra service와 Classic 2세대 service는 ImageID, VMSpecName 체계가 다름.
+					ImageIID:   irs.IID{NameId: "ubuntu-18.04", SystemId: "SW.VSVR.OS.LNX64.UBNTU.SVR1804.B050"},
 					// ImageIID:   irs.IID{NameId: "Windows-Server-2016(64bit)", SystemId: "SW.VSVR.OS.WND64.WND.SVR2016EN.B100"},
 					// ImageIID:   irs.IID{NameId: "CentOS 7.8 (64-bit)", SystemId: "SW.VSVR.OS.LNX64.CNTOS.0708.B050"}, 
 					// ImageIID:   irs.IID{NameId: "Rocky Linux 8.6", SystemId: "SW.VSVR.OS.LNX64.ROCKY.0806.B050"}, 
 
 					// # For MyImage Test
-					ImageIID:   irs.IID{NameId: "ubuntu-18.04", SystemId: "18306970"}, 
+					// ImageIID:   irs.IID{NameId: "ubuntu-18.04", SystemId: "18306970"}, 
 					// ImageIID:   irs.IID{NameId: "ubuntu-18.04", SystemId: "13233382"},  // In case of "MyImage"
 					// ImageIID:   irs.IID{NameId: "ncpvpc-winimage-02", SystemId: "14917995"}, // In case of "MyImage"
 
@@ -113,7 +114,8 @@ func handleVM() {
 					// VMSpecName: "SVR.VSVR.HICPU.C004.M008.NET.SSD.B050.G002", // For Image : "SW.VSVR.OS.LNX64.CNTOS.0708.B050"
 					VMSpecName: "SVR.VSVR.HICPU.C004.M008.NET.SSD.B050.G002", // For Image : "SW.VSVR.OS.LNX64.ROCKY.0806.B050"					
 
-					KeyPairIID: irs.IID{SystemId: "ns01-ncpv-cij7lb1jcupork04fnr0"}, // Caution : Not NameId!!
+					KeyPairIID: irs.IID{SystemId: "NCP-keypair-05"}, // Caution : Not NameId!!
+					// KeyPairIID: irs.IID{SystemId: "ns01-ncpv-cij7lb1jcupork04fnr0"}, // Caution : Not NameId!!
 
 					// ### Caution!! ### : AccessControlGroup은 NCP console상의 VPC 메뉴의 'Network ACL'이 아닌 Server 메뉴의 'ACG'에 해당됨.
 					// SecurityGroupIIDs: []irs.IID{{SystemId: "44518"}}, // ncp-sg-02

@@ -1006,12 +1006,12 @@ func (vmHandler *NcpVpcVMHandler) MappingServerInfo(NcpInstance *vserver.ServerI
 
 		VMSpecName: ncloud.StringValue(NcpInstance.ServerProductCode), //Server Spec code
 
-		VpcIID:    irs.IID{NameId: "N/A", SystemId: *NcpInstance.VpcNo},
-		SubnetIID: irs.IID{NameId: "N/A", SystemId: *NcpInstance.SubnetNo},
+		VpcIID:    irs.IID{SystemId: *NcpInstance.VpcNo},    // Cauton!!) 'NameId: "N/A"' makes an Error on CB-Spider
+		SubnetIID: irs.IID{SystemId: *NcpInstance.SubnetNo}, // Cauton!!) 'NameId: "N/A"' makes an Error on CB-Spider
 
-		SecurityGroupIIds: []irs.IID{
-			{NameId: "N/A", SystemId: "N/A"},
-		},
+		// SecurityGroupIIds: []irs.IID{
+		// 	{NameId: "N/A", SystemId: "N/A"},
+		// },
 
 		KeyPairIId: 	irs.IID{NameId: *NcpInstance.LoginKeyName, SystemId: *NcpInstance.LoginKeyName},
 		NetworkInterface: *netInterfaceName, 
