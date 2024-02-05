@@ -38,7 +38,7 @@ func init() {
 
 	db, err := infostore.Open()
 	if err != nil {
-		panic("failed to connect database")
+		panic("Failed to Connect to Database")
 	}
 	db.AutoMigrate(&ConnectionConfigInfo{})
 	infostore.Close(db)

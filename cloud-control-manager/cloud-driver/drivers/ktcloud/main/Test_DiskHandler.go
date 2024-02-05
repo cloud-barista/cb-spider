@@ -42,7 +42,6 @@ func handleDisk() {
 		return
 	}
 	diskHandler := resourceHandler.(irs.DiskHandler)
-	//config := readConfigFile()
 
 	for {
 		fmt.Println("\n============================================================================================")
@@ -59,10 +58,11 @@ func handleDisk() {
 		fmt.Println("============================================================================================")
 
 		var commandNum int
+		config := readConfigFile()
 
 		diskIId := irs.IID{
 			NameId:   "...",
-			SystemId: "5fb57e6c-a8ed-4e66-8549-f9d804e72f95",
+			SystemId: config.KtCloud.DiskID,
 		}
 
 		createReqInfo := irs.DiskInfo{
@@ -70,8 +70,8 @@ func handleDisk() {
 				NameId: "kt-disk-1",
 			},
 			// DiskType: "default",
-			// DiskType: "HDD",
-			DiskType: "SSD",
+			DiskType: "HDD",
+			// DiskType: "SSD",
 			// DiskSize: "default",
 			DiskSize: "100",
 		}
@@ -234,8 +234,8 @@ type Config struct {
 
 		SubnetID        string `yaml:"subnet_id"`
 		SecurityGroupID string `yaml:"security_group_id"`
-
-		PublicIP string `yaml:"public_ip"`
+		PublicIP 	string `yaml:"public_ip"`
+		DiskID 		string `yaml:"disk_id"`
 	} `yaml:"ktcloud"`
 }
 

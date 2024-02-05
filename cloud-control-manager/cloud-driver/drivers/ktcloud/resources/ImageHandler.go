@@ -11,11 +11,13 @@
 package resources
 
 import (
+	"fmt"
 	"errors"
+	"strings"
 	//"github.com/davecgh/go-spew/spew"
-	
+
 	ktsdk "github.com/cloud-barista/ktcloud-sdk-go"
-		
+
 	cblog "github.com/cloud-barista/cb-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
@@ -37,6 +39,12 @@ func init() {
 func (imageHandler *KtCloudImageHandler) GetImage(imageIID irs.IID) (irs.ImageInfo, error) {
 	cblogger.Info("KT Cloud cloud driver: called GetImage()!!")
 
+	if strings.EqualFold(imageIID.SystemId, "") {
+		newErr := fmt.Errorf("Invalid Image SystemId!!")
+		cblogger.Error(newErr.Error())
+		return irs.ImageInfo{}, newErr
+	}
+
 	var resultImageInfo irs.ImageInfo
 	zoneId := imageHandler.RegionInfo.Zone
 
@@ -57,7 +65,7 @@ func (imageHandler *KtCloudImageHandler) GetImage(imageIID irs.IID) (irs.ImageIn
 	for _, productType := range result.Listavailableproducttypesresponse.ProductTypes {
 		cblogger.Info("# Search criteria of Image Template ID : ", imageIID.SystemId)
 		if productType.TemplateId == imageIID.SystemId {
-			resultImageInfo = MappingImageInfo(productType)
+			resultImageInfo = mappingImageInfo(productType)
 			break
 		}
 	}
@@ -106,7 +114,7 @@ func (imageHandler *KtCloudImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 	// 	var serverProductType ktsdk.Producttypes
 	// 	serverProductType = productType
 
-	// 	imageInfo := MappingImageInfo(serverProductType)
+	// 	imageInfo := mappingImageInfo(serverProductType)
 	// 	vmImageList = append(vmImageList, &imageInfo)
 	// }	
 
@@ -115,7 +123,7 @@ func (imageHandler *KtCloudImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 	for _, productType := range result.Listavailableproducttypesresponse.ProductTypes {
 	//	if (tempID == "") || (productType.Templateid != tempID) { 
 		if productType.TemplateId != tempID { 
-			imageInfo := MappingImageInfo(productType)
+			imageInfo := mappingImageInfo(productType)
 			vmImageList = append(vmImageList, &imageInfo)
 
 			tempID = productType.TemplateId
@@ -126,8 +134,8 @@ func (imageHandler *KtCloudImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 	return vmImageList, nil
 }
 
-func MappingImageInfo(ktServerProductType ktsdk.ProductTypes) irs.ImageInfo {
-	cblogger.Info("KT Cloud Cloud Driver: called MappingImageInfo()!")
+func mappingImageInfo(ktServerProductType ktsdk.ProductTypes) irs.ImageInfo {
+	cblogger.Info("KT Cloud Cloud Driver: called mappingImageInfo()!")
 	imageInfo := irs.ImageInfo{
 		// NOTE!! : TemplateId -> Image Name (TemplateId as Image Name)
 		IId: 		irs.IID{ktServerProductType.TemplateId, ktServerProductType.TemplateId},
@@ -158,5 +166,59 @@ func (imageHandler *KtCloudImageHandler) DeleteImage(imageIID irs.IID) (bool, er
 func (imageHandler *KtCloudImageHandler) CheckWindowsImage(imageIID irs.IID) (bool, error) {
 	cblogger.Info("KT Cloud Driver: called CheckWindowsImage()")
 
-	return false, errors.New("Does not support CheckWindowsImage() yet!!")
+	if strings.EqualFold(imageIID.SystemId, "") {
+		newErr := fmt.Errorf("Invalid Image SystemId!!")
+		cblogger.Error(newErr.Error())
+		return false, newErr
+	}
+
+	isWindowsImage := false
+	productType, err := imageHandler.getKTProductType(imageIID) // In case of 'Public Image'
+	if err != nil {
+		newErr := fmt.Errorf("Failed to Get the ProductType Info : [%v]", err)
+		cblogger.Error(newErr.Error())
+		return false, newErr
+	} else {
+		if strings.Contains(productType.TemplateDesc, "WIN") {
+			isWindowsImage = true
+		}
+		return isWindowsImage, nil	
+	}
+}
+
+// # Get KT Cloud ProductType : 'Public' Image and VMSpec Info
+func (imageHandler *KtCloudImageHandler) getKTProductType(imageIID irs.IID) (*ktsdk.ProductTypes, error) {
+	cblogger.Info("KT Cloud cloud driver: called getKTProductType()!!")
+
+	if strings.EqualFold(imageIID.SystemId, "") {
+		newErr := fmt.Errorf("Invalid Image SystemId!!")
+		cblogger.Error(newErr.Error())
+		return nil, newErr
+	}
+
+	// Caution!! : KT Cloud searches by 'zoneId' when searching Image info/VMSpc info.
+	result, err := imageHandler.Client.ListAvailableProductTypes(imageHandler.RegionInfo.Zone)
+	if err != nil {
+		cblogger.Error("Failed to Get List of Available Product Types: %s", err)
+		return nil, err
+	}
+
+	if len(result.Listavailableproducttypesresponse.ProductTypes) < 1 {
+		return nil, errors.New("Failed to Find Any Product Type on the zone!!")
+	}
+
+	var productType ktsdk.ProductTypes
+	for _, productType := range result.Listavailableproducttypesresponse.ProductTypes {
+		if productType.TemplateId == imageIID.SystemId { // Not productType.ProductId
+			productType = productType
+			return &productType, nil
+		}
+	}
+
+	if productType.ProductId == "" {
+		newErr := fmt.Errorf("Failed to Find any ProductType with the Image ID!!")
+		cblogger.Error(newErr.Error())
+		return nil, newErr
+	}
+	return nil, nil
 }

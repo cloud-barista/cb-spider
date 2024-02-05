@@ -603,16 +603,17 @@ func (diskHandler *NhnCloudDiskHandler) MappingDiskInfo(volume volumes.Volume) (
 	}
 
 	if volume.Attachments != nil && len(volume.Attachments) > 0 {
-		vmId := volume.Attachments[0].ServerID
-		nhnVm, err := servers.Get(diskHandler.VMClient, vmId).Extract()
-		if err != nil {
-			newErr := fmt.Errorf("Failed to Get Volume Info list!! : [%v] ", err)
-			cblogger.Error(newErr.Error())
-			return irs.DiskInfo{}, newErr
-		} else {
-			diskInfo.OwnerVM = irs.IID{
-				NameId:   nhnVm.Name,
-				SystemId: nhnVm.ID,
+		for _, attachment := range volume.Attachments {
+			nhnVm, err := servers.Get(diskHandler.VMClient, attachment.ServerID).Extract()
+			if err != nil {
+				newErr := fmt.Errorf("Failed to Get Volume Info list!! : [%v] ", err)
+				cblogger.Error(newErr.Error())
+				return irs.DiskInfo{}, newErr
+			} else {
+				diskInfo.OwnerVM = irs.IID{
+					NameId:   nhnVm.Name,
+					SystemId: nhnVm.ID,
+				}
 			}
 		}
 	}

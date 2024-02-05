@@ -25,6 +25,7 @@ import (
 
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	cblog "github.com/cloud-barista/cb-log"
+	keycommon "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/common"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	
@@ -38,8 +39,15 @@ type KtCloudVMHandler struct {
 }
 
 const (
-	vmUserName string = "cb-user"
-	cloudInitFilePath string = "/cloud-driver-libs/.cloud-init-ktcloud/cloud-init"
+	LinuxUserName 			string = "cb-user"
+	WinUserName 			string = "Administrator"
+
+	UbuntuCloudInitFilePath string 	= "/cloud-driver-libs/.cloud-init-ktcloud/cloud-init-ubuntu"
+	CentosCloudInitFilePath string 	= "/cloud-driver-libs/.cloud-init-ktcloud/cloud-init-centos"
+	WinCloudInitFilePath 	string 	= "/cloud-driver-libs/.cloud-init-ktcloud/cloud-init-windows"
+	
+	DefaultVMUsagePlanType	string = "hourly"	// KT Cloud Rate Type (default : hourly)
+	DefaultRootDiskType		string = "HDD"		// KT Cloud default Root Volume Type
 )
 
 // Already declared in CommonNcpFunc.go
@@ -54,22 +62,126 @@ func (vmHandler *KtCloudVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 	InitLog()
 	callLogInfo := GetCallLogScheme(vmHandler.RegionInfo.Zone, call.VM, vmReqInfo.IId.NameId, "StartVM()")
 
-	securityHandler := KtCloudSecurityHandler{
-		CredentialInfo: vmHandler.CredentialInfo,
-		RegionInfo:		vmHandler.RegionInfo,
-		Client:         vmHandler.Client,
+	if strings.EqualFold(vmReqInfo.IId.NameId, "") {
+		newErr := fmt.Errorf("Invalid VM Name!!")
+		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
+		return irs.VMInfo{}, newErr
 	}
 
-	zoneId := vmHandler.RegionInfo.Zone
-	cblogger.Info("RegionInfo.Zone : ", zoneId)
+	// Check whether the VM name exists
+	vmId, nameCheckErr := vmHandler.getVmIdWithName(vmReqInfo.IId.NameId)
+	if vmId != "" {
+		cblogger.Errorf("Failed to Create the VM. The VM Name already Exists!! : [%s]", vmReqInfo.IId.NameId)
+		return irs.VMInfo{}, nameCheckErr
+	}
 
-	instanceName := vmReqInfo.IId.NameId
-	instanceHostName := vmReqInfo.IId.NameId
-	instanceSpecId := vmReqInfo.VMSpecName
-	instanceImageId := vmReqInfo.ImageIID.SystemId
-	keyPairId := vmReqInfo.KeyPairIID.SystemId	
-	usagePlanType := "hourly" // KT Cloud Rate Type (default : hourly)
+	// Preparing for UserData String
+	var initUserData *string
+	var keyPairId string
+	if !strings.EqualFold(vmReqInfo.KeyPairIID.SystemId, "") {
+		keyPairId = vmReqInfo.KeyPairIID.SystemId
+	} else {
+		keyPairId = vmReqInfo.KeyPairIID.NameId
+	}	
+	if vmReqInfo.ImageType == irs.PublicImage || vmReqInfo.ImageType == "" || vmReqInfo.ImageType == "default" {
+		// isPublicImage() in 'MyImage'Handler
+		myImageHandler := KtCloudMyImageHandler{
+			RegionInfo:  	vmHandler.RegionInfo,
+			Client:    		vmHandler.Client,
+		}
+		isPublicImage, err := myImageHandler.isPublicImage(vmReqInfo.ImageIID)
+		if err != nil {
+			newErr := fmt.Errorf("Failed to Check Whether the Image is Public Image : [%v]", err)
+			cblogger.Error(newErr.Error())
+			return irs.VMInfo{}, newErr
+		}	
+		if !isPublicImage {
+			newErr := fmt.Errorf("'PublicImage' type is selected, but Specified image is Not a PublicImage in the region!!")
+			cblogger.Error(newErr.Error())
+			return irs.VMInfo{}, newErr
+		}
 
+		// CheckWindowsImage() in 'Image'Handler
+		imageHandler := KtCloudImageHandler{
+			RegionInfo:  vmHandler.RegionInfo,
+			Client:    	 vmHandler.Client,
+		}
+		isPublicWindowsImage, err := imageHandler.CheckWindowsImage(vmReqInfo.ImageIID)
+		if err != nil {
+			newErr := fmt.Errorf("Failed to Check Whether the Image is MS Windows Image : [%v]", err)
+			cblogger.Error(newErr.Error())
+			LoggingError(callLogInfo, newErr)
+			return irs.VMInfo{}, newErr
+		}
+		if isPublicWindowsImage {
+			var createErr error
+			initUserData, createErr = vmHandler.createWinInitUserData(vmReqInfo.VMUserPasswd)
+			if createErr != nil {
+				newErr := fmt.Errorf("Failed to Create Cloud-Init Script with the Password : [%v]", createErr)
+				cblogger.Error(newErr.Error())
+				LoggingError(callLogInfo, newErr)
+				return irs.VMInfo{}, newErr
+			}
+		} else {
+			var createErr error
+			initUserData, createErr = vmHandler.createLinuxInitUserData(vmReqInfo.ImageIID, keyPairId)
+			if createErr != nil {
+				newErr := fmt.Errorf("Failed to Create Cloud-Init Script with the KeyPairId : [%v]", createErr)
+				cblogger.Error(newErr.Error())
+				LoggingError(callLogInfo, newErr)
+				return irs.VMInfo{}, newErr
+			}
+		}
+	} else {
+		// isPublicImage() in 'MyImage'Handler
+		myImageHandler := KtCloudMyImageHandler{
+			RegionInfo:  	vmHandler.RegionInfo,
+			Client:    		vmHandler.Client,
+		}
+		isPublicImage, err := myImageHandler.isPublicImage(vmReqInfo.ImageIID)
+		if err != nil {
+			newErr := fmt.Errorf("Failed to Check Whether the Image is Public Image : [%v]", err)
+			cblogger.Error(newErr.Error())
+			return irs.VMInfo{}, newErr
+		}	
+		if isPublicImage {
+			newErr := fmt.Errorf("'MyImage' type is selected, but Specified image is Not a MyImage!!")
+			cblogger.Error(newErr.Error())
+			return irs.VMInfo{}, newErr
+		}
+
+		// CheckWindowsImage() in 'MyImage'Handler
+		isMyWindowsImage, err := myImageHandler.CheckWindowsImage(vmReqInfo.ImageIID)
+		if err != nil {
+			newErr := fmt.Errorf("Failed to Check Whether My Image is MS Windows Image : [%v]", err)
+			cblogger.Error(newErr.Error())
+			LoggingError(callLogInfo, newErr)
+			return irs.VMInfo{}, newErr
+		}
+		if isMyWindowsImage {
+			var createErr error
+			initUserData, createErr = vmHandler.createWinInitUserData(vmReqInfo.VMUserPasswd)
+			if createErr != nil {
+				newErr := fmt.Errorf("Failed to Create Cloud-Init Script with the Password : [%v]", createErr)
+				cblogger.Error(newErr.Error())
+				LoggingError(callLogInfo, newErr)
+				return irs.VMInfo{}, newErr
+			}
+		} else {
+			var createErr error
+			initUserData, createErr = vmHandler.createLinuxInitUserData(vmReqInfo.ImageIID, keyPairId)
+			if createErr != nil {
+				newErr := fmt.Errorf("Failed to Create Cloud-Init Script with the KeyPairId : [%v]", createErr)
+				cblogger.Error(newErr.Error())
+				LoggingError(callLogInfo, newErr)
+				return irs.VMInfo{}, newErr
+			}
+		}
+	}
+	cblogger.Infof("init UserData : [%s]", *initUserData)
+
+	// # To Check if the Requested S/G exits	
 	var sgSystemIDs []string
 	for _, sgIID := range vmReqInfo.SecurityGroupIIDs {
 		cblogger.Infof("S/G ID : [%s]", sgIID)
@@ -77,7 +189,11 @@ func (vmHandler *KtCloudVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 	}
 	cblogger.Infof("The SystemIds of the Security Group IIDs : [%s]", sgSystemIDs)
 
-	// # To Check if the Requested S/G exits	
+	securityHandler := KtCloudSecurityHandler{
+		CredentialInfo: vmHandler.CredentialInfo,
+		RegionInfo:		vmHandler.RegionInfo,
+		Client:         vmHandler.Client,
+	}
 	for _, sgSystemID := range sgSystemIDs {
 		cblogger.Infof("S/G System ID : [%s]", sgSystemID)
 		sgInfo, err := securityHandler.GetSecurity(irs.IID{SystemId: sgSystemID})
@@ -94,54 +210,41 @@ func (vmHandler *KtCloudVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 		}
 	}
 
-	// Preparing for UserData String
-	filePath := os.Getenv("CBSPIDER_ROOT") + cloudInitFilePath
-	openFile, err := os.Open(filePath)
-    if err != nil {
-		cblogger.Errorf("Failed to Find and Open the file : [%v]", err)
-		return irs.VMInfo{}, err
-    }
-	cblogger.Info("Succeeded in Finding and Opening the S/G file!!")
-    defer openFile.Close()
-
-	cmdStringByte, readErr := io.ReadAll(openFile)
-	if readErr != nil {
-		cblogger.Errorf("Failed to Read the file : [%v]", readErr)
-    }
-	cmdString := string(cmdStringByte)
-	// Set cloud-init script
-	cmdString = strings.ReplaceAll(cmdString, "{{username}}", vmUserName)
-
-	cblogger.Infof("cmdString : [%s]", cmdString)
-	// (Caution!!) Upon deployVirtualMachine() request, Base64 encoding of UserData is not required because Base64 encoding is applied in KT Cloud SDK GO.
-
-	// Check whether the VM name exists
-	vmId, nameCheckErr := vmHandler.GetVmIdWithName(instanceName)
-	if vmId != "" {
-		cblogger.Errorf("Failed to Create the VM. The VM Name already Exists!! : [%s]", instanceName)
-		return irs.VMInfo{}, nameCheckErr
-	}
-
-	cblogger.Infof("instanceImageId : [%s]", instanceImageId)
-
-	ktVMSpecId, ktDiskOfferingId, DiskSize := GetKTVMSpecIdAndDiskSize(instanceSpecId)
+	ktVMSpecId, ktDiskOfferingId, DiskSize := getKTVMSpecIdAndDiskSize(vmReqInfo.VMSpecName)
 	cblogger.Infof("vmSpecID : [%s]", ktVMSpecId)
 	cblogger.Infof("ktDiskOfferingId : [%s]", ktDiskOfferingId)
-	cblogger.Infof("DiskSize : [%s]", DiskSize)
+	cblogger.Infof("Root disk + Data disk size : [%s]", DiskSize) // # Note) This DiskSize is the sum of 'Root disk' and 'Data disk'.
 
+	// # To find DiskOfferingId
+	// reqSizeGb := vmReqInfo.RootDiskSize + "G"
+	// offerings := findAllDiskOfferingIds()
+	// offeringId, err := findDiskOfferingId(vmReqInfo.RootDiskType, reqSizeGb, offerings)
+	// if err != nil {
+	// 	newErr := fmt.Errorf("KT Cloud does Not support the combination of the presented disk type and size. [%s and %s]. : [%v]\n", vmReqInfo.RootDiskType, vmReqInfo.RootDiskSize, err)
+	// 	cblogger.Error(newErr.Error())
+	// 	return irs.VMInfo{}, newErr
+	// } else {
+	// 	fmt.Printf("DiskOfferingID for %s %s : %s\n", vmReqInfo.RootDiskType, reqSizeGb, offeringId)
+	// }
+
+	// ### Caution!!) Root disk is basically supported by Linux 20G, Windows 50G, and it is impossible to change.
 	cblogger.Info("\n\n### Starting VM Creation process!!")
 	newVMReqInfo := ktsdk.DeployVMReqInfo {
-		ZoneId: 			zoneId,
-		ServiceOfferingId:  ktVMSpecId,
-		TemplateId: 		instanceImageId,
-		DiskOfferingId: 	ktDiskOfferingId, // ***Data disk로 Linux 계열은 80GB 추가***
+		ZoneId: 			vmHandler.RegionInfo.Zone,
+		// ServiceOfferingId:  vmReqInfo.VMSpecName,
+		ServiceOfferingId:  ktVMSpecId, // Caution!!) Not 'vmReqInfo.VMSpecName'
+		TemplateId: 		vmReqInfo.ImageIID.SystemId,
+
+		// DiskOfferingId: 	offeringId, // ***Data disk로 Linux 계열은 80GB 추가***
+		DiskOfferingId: 	ktDiskOfferingId, // $$$ 존재시, 추가 Data disk로 Linux 계열은 80GB 추가
 		//ProductCode: 		"",
-		VMHostName: 		instanceHostName,
-		DisplayName: 		instanceName,
-		UsagePlanType: 		usagePlanType,
+		VMHostName: 		vmReqInfo.IId.NameId,
+		DisplayName: 		vmReqInfo.IId.NameId,
+		UsagePlanType: 		DefaultVMUsagePlanType,
 		RunSysPrep: 		false,
-		KeyPair: 			keyPairId,
-		UserData:			cmdString,
+		KeyPair: 			vmReqInfo.KeyPairIID.SystemId,
+		// UserData:			cmdString,
+		UserData:			*initUserData,
 	}
 	callLogStart := call.Start()
 	newVM, err := vmHandler.Client.DeployVirtualMachine(newVMReqInfo)
@@ -161,8 +264,8 @@ func (vmHandler *KtCloudVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 	}
 	cblogger.Info("\n### QueryAsyncJobResultResponse : ")
 	// spew.Dump(jobResult.Queryasyncjobresultresponse.JobResult.Virtualmachine[0])
-	// spew.Dump(jobResult.Queryasyncjobresultresponse.JobResult)
-	spew.Dump(jobResult)
+	spew.Dump(jobResult.Queryasyncjobresultresponse.JobResult)
+	// spew.Dump(jobResult)
 
 	if strings.EqualFold(newVM.Deployvirtualmachineresponse.ID, "") {
 		cblogger.Error("Failed to Find the VM Instance ID!!")
@@ -179,7 +282,7 @@ func (vmHandler *KtCloudVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 		cblogger.Infof("Created New VM Instance ID : [%s]", newVMIID)
 
 		// Wait for VM information to be inquired (until when VM status is Running)
-		curStatus, errStatus := vmHandler.WaitToGetInfo(newVMIID)
+		curStatus, errStatus := vmHandler.waitToGetInfo(newVMIID)
 		if errStatus != nil {
 			cblogger.Error(errStatus.Error())
 			return irs.VMInfo{}, errStatus
@@ -214,7 +317,7 @@ func (vmHandler *KtCloudVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 		// cblogger.Infof("==> \n### result : [%s]", result.Listvirtualmachinesresponse.Virtualmachine[0])
 		// spew.Dump(result)
 
-		publicIp, err := vmHandler.AssociateIpAddress()
+		publicIp, err := vmHandler.associateIpAddress()
 		if err != nil {
 			cblogger.Errorf("Failed to Create New Public IP : [%v]", err)	
 			return irs.VMInfo{}, err
@@ -245,7 +348,7 @@ func (vmHandler *KtCloudVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 		// Caution!!) If execute DeleteFirewall(), PortFording rule also deleted via KT Cloud API           
 		// Delete Firewall Rule(Open : tcp/22) created when setting PORT Forwarding.
 		// The port No. 22 is opened already when the PortFording rule is created.
-		// _, error := vmHandler.DeleteFirewall(publicIpId)
+		// _, error := vmHandler.deleteFirewall(publicIpId)
 		// if error != nil {
 		// 	cblogger.Error(error.Error())
 	
@@ -254,7 +357,7 @@ func (vmHandler *KtCloudVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 		// 	cblogger.Info("Succeeded in Deleting the Firewall rules!!")
 		// }
 
-		_, ruleErr := vmHandler.CreatePortForwardingFirewallRules(sgSystemIDs, publicIpId, newVM.Deployvirtualmachineresponse.ID) 
+		_, ruleErr := vmHandler.createPortForwardingFirewallRules(sgSystemIDs, publicIpId, newVM.Deployvirtualmachineresponse.ID) 
 		if ruleErr != nil {
 			newErr := fmt.Errorf("Failed to Create PortForwarding Rules and Firewall Rules : [%v]", ruleErr)
 			cblogger.Error(newErr.Error())
@@ -283,7 +386,7 @@ func (vmHandler *KtCloudVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 			},
 			{
 				Key: "vmSpecId", 
-				Value: instanceSpecId,
+				Value: vmReqInfo.VMSpecName,
 			},
 		}
 
@@ -326,10 +429,10 @@ func (vmHandler *KtCloudVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 	return irs.VMInfo{}, err
 }
 
-func (vmHandler *KtCloudVMHandler) MappingServerInfo(KtCloudInstance ktsdk.Virtualmachine) (irs.VMInfo, error) {
-	cblogger.Info("KT Cloud cloud driver: called MappingServerInfo()!!")
+func (vmHandler *KtCloudVMHandler) mappingVMInfo(KtCloudInstance *ktsdk.Virtualmachine) (irs.VMInfo, error) {
+	cblogger.Info("KT Cloud cloud driver: called mappingVMInfo()!!")
 	InitLog()
-	callLogInfo := GetCallLogScheme(vmHandler.RegionInfo.Zone, call.VM, KtCloudInstance.Name, "MappingServerInfo()")
+	callLogInfo := GetCallLogScheme(vmHandler.RegionInfo.Zone, call.VM, KtCloudInstance.Name, "mappingVMInfo()")
 	// cblogger.Info("# KtCloudInstance : ")
 	// spew.Dump(KtCloudInstance)
 
@@ -346,16 +449,18 @@ func (vmHandler *KtCloudVMHandler) MappingServerInfo(KtCloudInstance ktsdk.Virtu
 	LoggingInfo(callLogInfo, callLogStart)
 	// spew.Dump(pfResponse.Listportforwardingrulesresponse.PortForwardingRule)
 
-	// To get the public IP info according to the VM_ID from the PortForwarding Rule list
 	var publicIp string
-	for _, pfRule := range pfResponse.Listportforwardingrulesresponse.PortForwardingRule {
-		if pfRule.VirtualmachineId == KtCloudInstance.ID {
-		publicIp = pfRule.IpAddress
-		break
+	if len(pfResponse.Listportforwardingrulesresponse.PortForwardingRule) > 0 {
+		// To get the public IP info according to the VM_ID from the PortForwarding Rule list
+		for _, pfRule := range pfResponse.Listportforwardingrulesresponse.PortForwardingRule {
+			if pfRule.VirtualmachineId == KtCloudInstance.ID {
+			publicIp = pfRule.IpAddress
+			break
+			}
 		}
 	}
 
-	vpcId, err := vmHandler.GetVPCFromTags(KtCloudInstance.ID)
+	vpcId, err := vmHandler.getVPCFromTags(KtCloudInstance.ID)
 	if err != nil {
 		cblogger.Errorf("Failed to Get VPC ID from tags : [%v]", err)
 		return irs.VMInfo{}, err
@@ -363,27 +468,27 @@ func (vmHandler *KtCloudVMHandler) MappingServerInfo(KtCloudInstance ktsdk.Virtu
 	time.Sleep(time.Second * 1) 
 	// To Prevent the Error : "Unable to execute API command listTags due to ratelimit timeout"
 
-	subnetId, err := vmHandler.GetSubnetFromTags(KtCloudInstance.ID)
+	subnetId, err := vmHandler.getSubnetFromTags(KtCloudInstance.ID)
 	if err != nil {
 		cblogger.Errorf("Failed to Get Subnet ID from tags : [%v]", err)
 		return irs.VMInfo{}, err
 	}
 	time.Sleep(time.Second * 1)
 
-	vmSpecId, err := vmHandler.GetVMSpecFromTags(KtCloudInstance.ID)
+	vmSpecId, err := vmHandler.getVMSpecFromTags(KtCloudInstance.ID)
 	if err != nil {
 		cblogger.Errorf("Failed to Get vmSpec ID from tags : [%v]", err)
 		return irs.VMInfo{}, err
 	}
 	time.Sleep(time.Second * 1)
 
-	sgList, err := vmHandler.GetSGListFromTags(KtCloudInstance.ID)
+	sgList, err := vmHandler.getSGListFromTags(KtCloudInstance.ID)
 	if err != nil {
 		cblogger.Errorf("Failed to Get the List of S/G from tags : [%v]", err)
 		return irs.VMInfo{}, err
 	}
 
-	vmStatus, errStatus := ConvertVMStatusToString(KtCloudInstance.State)
+	vmStatus, errStatus := convertVMStatusToString(KtCloudInstance.State)
 	if errStatus != nil {
 		cblogger.Errorf("Failed to Convert the VM Status : [%v]", errStatus)
 		return irs.VMInfo{}, errStatus
@@ -397,11 +502,13 @@ func (vmHandler *KtCloudVMHandler) MappingServerInfo(KtCloudInstance ktsdk.Virtu
 	}
 	
 	var diskSize string
-	if !strings.EqualFold(vmSpecId, "") {
-		_, _, diskSize = GetKTVMSpecIdAndDiskSize(vmSpecId)
+	if !strings.EqualFold(vmSpecId, "") && strings.Contains(vmSpecId, "!") {
+		_, _, diskSize = getKTVMSpecIdAndDiskSize(vmSpecId)
+	} else {
+		diskSize = "N/A"
 	}
 
-	// To Get the VM resources Info.
+	// To Set the VM resources Info.
 	// PublicIpID : To use it when delete the PublicIP
 	vmInfo := irs.VMInfo{
 		IId: irs.IID{
@@ -414,11 +521,6 @@ func (vmHandler *KtCloudVMHandler) MappingServerInfo(KtCloudInstance ktsdk.Virtu
 		Region: irs.RegionInfo{
 			Region: vmHandler.RegionInfo.Region,
 			// Zone info is bellow.
-		},
-
-		ImageIId: irs.IID{
-			NameId: KtCloudInstance.TemplateName, 
-			SystemId: KtCloudInstance.TemplateId,
 		},
 
 		VMSpecName: vmSpecId, //Server Spec code
@@ -441,21 +543,11 @@ func (vmHandler *KtCloudVMHandler) MappingServerInfo(KtCloudInstance ktsdk.Virtu
 			SystemId: KtCloudInstance.KeyPair,
 		},
 
+		RootDiskType: DefaultRootDiskType,
 		RootDiskSize: diskSize,
-
-		VMUserId : vmUserName,
-		//vmInfo.VMUserId = "root" //KT Cloud default user account
-		VMUserPasswd: "N/A",
-		//VMUserPasswd: KtCloudInstance.Password,
 
 		PublicIP:   publicIp,
 		PrivateIP:  KtCloudInstance.Nic[0].IpAddress,
-
-		SSHAccessPoint: publicIp + ":22",
-		VMBootDisk: "/dev/xvda",
-		VMBlockDisk: "/dev/xvda",
-		// VMBootDisk: ncloud.StringValue(blockStorageResult.BlockStorageInstanceList[0].DeviceName),
-		// VMBlockDisk: ncloud.StringValue(blockStorageResult.BlockStorageInstanceList[0].DeviceName),
 
 		KeyValueList: []irs.KeyValue{
 			{Key: "CpuCount", Value: strconv.FormatFloat(float64(KtCloudInstance.CpuNumber), 'f', 0, 64)},
@@ -470,6 +562,70 @@ func (vmHandler *KtCloudVMHandler) MappingServerInfo(KtCloudInstance ktsdk.Virtu
 			// {Key: "PublicIpID", Value: publicIpId},
 		},
 	}
+
+	// Set the VM Image Info
+	myImageHandler := KtCloudMyImageHandler{
+		RegionInfo:	vmHandler.RegionInfo,
+		Client:    	vmHandler.Client,
+	}	
+	if !strings.EqualFold(KtCloudInstance.TemplateId, "") {
+		vmInfo.ImageIId.NameId 	 = KtCloudInstance.TemplateName
+		vmInfo.ImageIId.SystemId = KtCloudInstance.TemplateId		
+
+		isPublicImage, err := myImageHandler.isPublicImage(irs.IID{SystemId: KtCloudInstance.TemplateId})
+		if err != nil {
+			newErr := fmt.Errorf("Failed to Check Whether the Image is Public Image : [%v]", err)
+			cblogger.Error(newErr.Error())
+			// return irs.VMInfo{}, newErr // Caution!!
+		}
+		if isPublicImage {
+			vmInfo.ImageType = irs.PublicImage
+		} else {
+			vmInfo.ImageType = irs.MyImage
+		}
+	}
+	
+	if strings.Contains(KtCloudInstance.TemplateName, "win") {
+		vmInfo.Platform 		= irs.WINDOWS
+		vmInfo.VMUserId 		= "Administrator"
+		vmInfo.VMUserPasswd		= "User Specified Passwd"
+		vmInfo.SSHAccessPoint	= publicIp + ":3389"
+	} else {
+		vmInfo.Platform 		= irs.LINUX_UNIX
+		vmInfo.VMUserId 		= LinuxUserName // Note) KT Cloud original default user account : 'root'
+		vmInfo.RootDeviceName 	= "/dev/xvda"
+		vmInfo.VMUserPasswd		= "N/A"
+		vmInfo.SSHAccessPoint	= publicIp + ":22"		
+	}
+
+	// Get VolumeIds of the VM
+	diskHandler := KtCloudDiskHandler{
+		RegionInfo: vmHandler.RegionInfo,
+		Client:   	vmHandler.Client,
+	}
+	volumeIds, err := diskHandler.getVolumeIdsWithVMId(KtCloudInstance.ID)
+	if err != nil {
+		newErr := fmt.Errorf("Failed to Get Volume Info from KT Cloud : [%v]", err)
+		cblogger.Error(newErr.Error())
+		return irs.VMInfo{}, newErr
+	}
+
+	var diskIIDs []irs.IID
+	if len(volumeIds) != 0 {
+		for _, volumeId := range volumeIds {
+			volumeIID := irs.IID{SystemId: volumeId}
+			volume, err := diskHandler.getKtVolumeInfo(volumeIID)
+			if err != nil {
+				newErr := fmt.Errorf("Failed to Get KT Cloud Volume Info : [%v]", err)
+				cblogger.Error(newErr.Error())
+				return irs.VMInfo{}, newErr
+			}
+			if !strings.Contains(volume.Name, "ROOT") { // Only Data disk
+				diskIIDs = append(diskIIDs, irs.IID{NameId: volume.Name, SystemId: volume.ID})
+			}			
+		}
+	}
+	vmInfo.DataDiskIIDs = diskIIDs
 
 	// Set VM Zone Info
 	if KtCloudInstance.ZoneName != "" {
@@ -487,7 +643,6 @@ func (vmHandler *KtCloudVMHandler) MappingServerInfo(KtCloudInstance ktsdk.Virtu
 		vmInfo.Region.Zone = KtCloudInstance.ZoneName 
 		}
 	}
-	cblogger.Infof("KT Cloud Instance Uptime : [%s]", KtCloudInstance.Created)
 	return vmInfo, nil
 }
 
@@ -514,11 +669,11 @@ func (vmHandler *KtCloudVMHandler) GetVM(vmIID irs.IID) (irs.VMInfo, error) {
 	LoggingInfo(callLogInfo, start)
 
 	if len(result.Listvirtualmachinesresponse.Virtualmachine) < 1 {
-		return irs.VMInfo{}, errors.New("Failed to Find the VM with the SystemId : " + vmIID.SystemId)
+		return irs.VMInfo{}, errors.New("Failed to Find the VM info on KT Cloud.")
 	}
 	// spew.Dump(result)
 	
-	vmInfo, err := vmHandler.MappingServerInfo(result.Listvirtualmachinesresponse.Virtualmachine[0])
+	vmInfo, err := vmHandler.mappingVMInfo(&result.Listvirtualmachinesresponse.Virtualmachine[0])
 	if err != nil {
 		cblogger.Errorf("Failed to Map the VM info: [%v]", err)
 		return irs.VMInfo{}, err
@@ -575,7 +730,7 @@ func (vmHandler *KtCloudVMHandler) SuspendVM(vmIID irs.IID) (irs.VMStatus, error
 			cblogger.Errorf("Failed to Get Job Result: [%v]", err)	
 			return "", err
 		}		
-		spew.Dump(jobResult)
+		spew.Dump(jobResult.Queryasyncjobresultresponse.JobResult)
 
 		//===================================
 		// 15-second wait for Suspending
@@ -660,7 +815,7 @@ func (vmHandler *KtCloudVMHandler) ResumeVM(vmIID irs.IID) (irs.VMStatus, error)
 			cblogger.Errorf("Failed to Get the Job Result : [%v]", err)	
 			return "", err
 		}		
-		spew.Dump(jobResult)
+		spew.Dump(jobResult.Queryasyncjobresultresponse.JobResult)
 
 		//===================================
 		// 60-second wait for Suspending
@@ -685,7 +840,6 @@ func (vmHandler *KtCloudVMHandler) ResumeVM(vmIID irs.IID) (irs.VMStatus, error)
 				break
 			}
 		}
-
 	}
 	return irs.VMStatus("Resumed"), nil
 }
@@ -739,7 +893,7 @@ func (vmHandler *KtCloudVMHandler) RebootVM(vmIID irs.IID) (irs.VMStatus, error)
 			cblogger.Errorf("Failed to Get the Job Result : [%v]", err)	
 			return "", err
 		}		
-		spew.Dump(jobResult)
+		spew.Dump(jobResult.Queryasyncjobresultresponse.JobResult)
 
 		// ===================================
 		// 15-second wait for Rebooting
@@ -803,7 +957,7 @@ func (vmHandler *KtCloudVMHandler) TerminateVM(vmIID irs.IID) (irs.VMStatus, err
 		}
 		publicIpId := ipListResponse.Listpublicipaddressesresponse.PublicIpAddress[0].ID
 
-		vmStatus, error := vmHandler.DeleteFirewall(publicIpId)
+		vmStatus, error := vmHandler.deleteFirewall(publicIpId)
 		if error != nil {
 			cblogger.Error(error.Error())
 			return irs.VMStatus("Failed to Delete the Firewall rules"), err
@@ -812,7 +966,7 @@ func (vmHandler *KtCloudVMHandler) TerminateVM(vmIID irs.IID) (irs.VMStatus, err
 		}
 		cblogger.Infof("VM Status : " + string(vmStatus))
 
-		vStatus, error := vmHandler.DeletePortForwarding(publicIpId)
+		vStatus, error := vmHandler.deletePortForwarding(publicIpId)
 		if error != nil {
 			cblogger.Error(error.Error())
 			return irs.VMStatus("Failed to Delete the PortForwarding rule"), err
@@ -821,7 +975,7 @@ func (vmHandler *KtCloudVMHandler) TerminateVM(vmIID irs.IID) (irs.VMStatus, err
 		}
 		cblogger.Infof("VM Status : " + string(vStatus))
 
-		status, error := vmHandler.DisassociatePublicIp(publicIpId)
+		status, error := vmHandler.disassociatePublicIp(publicIpId)
 		if error != nil {
 			cblogger.Error(error.Error())	
 			return irs.VMStatus("Failed to Disassociate the Public IP"), err
@@ -835,7 +989,7 @@ func (vmHandler *KtCloudVMHandler) TerminateVM(vmIID irs.IID) (irs.VMStatus, err
 			cblogger.Errorf("Failed to terminate the VM : [%v]", err)
 			return "Error", err
 		}
-		spew.Dump(destroyVMResponse)
+		cblogger.Infof("# Job ID : %s", destroyVMResponse.Destroyvirtualmachineresponse.JobId)
 		
 		return irs.VMStatus("Terminating"), nil
 
@@ -876,7 +1030,7 @@ func (vmHandler *KtCloudVMHandler) TerminateVM(vmIID irs.IID) (irs.VMStatus, err
 
 		cblogger.Info("# SuspendVM() Finished")
 
-		// vmStatus, error := vmHandler.DeleteFirewall(vmInfo)
+		// vmStatus, error := vmHandler.deleteFirewall(vmInfo)
 		// if error != nil {
 		// 	cblogger.Error(error.Error())
 	
@@ -886,7 +1040,7 @@ func (vmHandler *KtCloudVMHandler) TerminateVM(vmIID irs.IID) (irs.VMStatus, err
 		// cblogger.Infof("VM Status : " + string(vmStatus))
 
 		cblogger.Info("Start Terminating the VM !!")
-		vmStatus, err := vmHandler.TerminateVM(vmIID)
+		vmStatus, err := vmHandler.TerminateVM(vmIID) // After SuspendVM() 
 		if err != nil {
 			cblogger.Errorf("[%s] Failed to Terminate the VM.", vmIID)
 			cblogger.Error(err)
@@ -938,7 +1092,7 @@ func (vmHandler *KtCloudVMHandler) GetVMStatus(vmIID irs.IID) (irs.VMStatus, err
 	ktVMStatus := result.Listvirtualmachinesresponse.Virtualmachine[0].State
 	cblogger.Info("Succeeded in Getting the VM Status info!!")
 
-	vmStatus, statusErr := ConvertVMStatus(ktVMStatus)
+	vmStatus, statusErr := convertVMStatus(ktVMStatus)
 	if statusErr != nil {
 		cblogger.Errorf("Failed to Convert the VM Status : [%v]", statusErr)
 		return irs.VMStatus("Failed. "), statusErr
@@ -947,7 +1101,7 @@ func (vmHandler *KtCloudVMHandler) GetVMStatus(vmIID irs.IID) (irs.VMStatus, err
 	return vmStatus, statusErr
 }
 
-func ConvertVMStatus(vmStatus string) (irs.VMStatus, error) {
+func convertVMStatus(vmStatus string) (irs.VMStatus, error) {
 	var resultStatus string
 	cblogger.Infof("vmStatus : [%s]", vmStatus)
 	if strings.EqualFold(vmStatus, "creating") {
@@ -977,7 +1131,7 @@ func ConvertVMStatus(vmStatus string) (irs.VMStatus, error) {
 	return irs.VMStatus(resultStatus), nil
 }
 
-func ConvertVMStatusToString(vmStatus string) (string, error) {
+func convertVMStatusToString(vmStatus string) (string, error) {
 	var resultStatus string
 	cblogger.Infof("vmStatus : [%s]", vmStatus)
 	if strings.EqualFold(vmStatus, "creating") {
@@ -1010,7 +1164,7 @@ func ConvertVMStatusToString(vmStatus string) (string, error) {
 func (vmHandler *KtCloudVMHandler) ListVMStatus() ([]*irs.VMStatusInfo, error) {
 	cblogger.Info("KT Cloud cloud driver: called ListVMStatus()!")
 
-	ktVMList, err := vmHandler.ListKTCloudVM()
+	ktVMList, err := vmHandler.listKTCloudVM()
 	if err != nil {
 		cblogger.Errorf("Failed to Get the List of VMs : [%v]", err)
 		return []*irs.VMStatusInfo{}, err
@@ -1023,7 +1177,7 @@ func (vmHandler *KtCloudVMHandler) ListVMStatus() ([]*irs.VMStatusInfo, error) {
 
 	var vmStatusList []*irs.VMStatusInfo
 	for _, vm := range ktVMList {
-		vmStatus, err := ConvertVMStatus(vm.State)
+		vmStatus, err := convertVMStatus(vm.State)
 		if err != nil {
 			cblogger.Errorf("Failed to Convert the VM Status : [%v]", err)
 			return []*irs.VMStatusInfo{}, nil
@@ -1045,7 +1199,7 @@ func (vmHandler *KtCloudVMHandler) ListVMStatus() ([]*irs.VMStatusInfo, error) {
 func (vmHandler *KtCloudVMHandler) ListVM() ([]*irs.VMInfo, error) {
 	cblogger.Info("KT Cloud cloud driver: called ListVM()!")
 
-	ktVMList, err := vmHandler.ListKTCloudVM()
+	ktVMList, err := vmHandler.listKTCloudVM()
 	if err != nil {
 		cblogger.Errorf("Failed to Get the List of VMs : [%v]", err)
 		return []*irs.VMInfo{}, err
@@ -1058,7 +1212,8 @@ func (vmHandler *KtCloudVMHandler) ListVM() ([]*irs.VMInfo, error) {
 
 	var vmInfoList []*irs.VMInfo	
 	for _, ktVM := range ktVMList {
-		vmInfo, err:= vmHandler.MappingServerInfo(ktVM)
+		cblogger.Infof("# VM Name : %s", ktVM.Name)
+		vmInfo, err:= vmHandler.mappingVMInfo(&ktVM)
 		if err != nil {
 			cblogger.Errorf("Failed to Map the VM info : [%v]", err)
 			return []*irs.VMInfo{}, err
@@ -1068,8 +1223,8 @@ func (vmHandler *KtCloudVMHandler) ListVM() ([]*irs.VMInfo, error) {
 	return vmInfoList, nil
 }
 
-func (vmHandler *KtCloudVMHandler) ListKTCloudVM() ([]ktsdk.Virtualmachine, error) {
-	cblogger.Info("KT Cloud cloud driver: called ListKTCloudVM()!")
+func (vmHandler *KtCloudVMHandler) listKTCloudVM() ([]ktsdk.Virtualmachine, error) {
+	cblogger.Info("KT Cloud cloud driver: called listKTCloudVM()!")
 	cblogger.Infof("vmHandler.RegionInfo.Zone : [%s]", vmHandler.RegionInfo.Region)
 
 	vmListReqInfo := ktsdk.ListVMReqInfo{
@@ -1090,8 +1245,8 @@ func (vmHandler *KtCloudVMHandler) ListKTCloudVM() ([]ktsdk.Virtualmachine, erro
 }
 
 
-func (vmHandler *KtCloudVMHandler) GetKTCloudVM(vmId string) (ktsdk.Virtualmachine, error) {
-	cblogger.Info("KT Cloud cloud driver: called GetKTCloudVM()!")
+func (vmHandler *KtCloudVMHandler) getKTCloudVM(vmId string) (ktsdk.Virtualmachine, error) {
+	cblogger.Info("KT Cloud cloud driver: called getKTCloudVM()!")
 
 	if strings.EqualFold(vmHandler.RegionInfo.Zone, "") {
 		newErr := fmt.Errorf("Invalid Zone Info!!")
@@ -1124,8 +1279,8 @@ func (vmHandler *KtCloudVMHandler) GetKTCloudVM(vmId string) (ktsdk.Virtualmachi
 }
 
 
-func (vmHandler *KtCloudVMHandler) GetVmIdWithName(vmNameId string) (string, error) {
-	cblogger.Info("KT Cloud cloud driver: called GetVmIdWithName()!")
+func (vmHandler *KtCloudVMHandler) getVmIdWithName(vmNameId string) (string, error) {
+	cblogger.Info("KT Cloud cloud driver: called getVmIdWithName()!")
 
 	if strings.EqualFold(vmNameId, "") {
 		newErr := fmt.Errorf("Invalid VM NameId!!")
@@ -1134,7 +1289,7 @@ func (vmHandler *KtCloudVMHandler) GetVmIdWithName(vmNameId string) (string, err
 	}
 
 	// Get KT Cloud VM list
-	ktVMList, err := vmHandler.ListKTCloudVM()
+	ktVMList, err := vmHandler.listKTCloudVM()
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get KT Cloud VM List : [%v]", err)
 		cblogger.Error(newErr.Error())
@@ -1162,8 +1317,8 @@ func (vmHandler *KtCloudVMHandler) GetVmIdWithName(vmNameId string) (string, err
 	}
 }
 
-func (vmHandler *KtCloudVMHandler) GetVmNameWithId(vmId string) (string, error) {
-	cblogger.Info("KT Cloud cloud driver: called GetVmNameWithId()!")
+func (vmHandler *KtCloudVMHandler) getVmNameWithId(vmId string) (string, error) {
+	cblogger.Info("KT Cloud cloud driver: called getVmNameWithId()!")
 
 	if strings.EqualFold(vmId, "") {
 		newErr := fmt.Errorf("Invalid VM ID!!")
@@ -1171,7 +1326,7 @@ func (vmHandler *KtCloudVMHandler) GetVmNameWithId(vmId string) (string, error) 
 		return "", newErr
 	}
 
-	ktVM, err := vmHandler.GetKTCloudVM(vmId)
+	ktVM, err := vmHandler.getKTCloudVM(vmId)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get the VM Info from KT Cloud : [%v]", err)
 		cblogger.Error(newErr.Error())
@@ -1187,7 +1342,7 @@ func (vmHandler *KtCloudVMHandler) GetVmNameWithId(vmId string) (string, error) 
 }
 
 // Waiting for up to 300 seconds until VM info. can be get
-func (vmHandler *KtCloudVMHandler) WaitToGetInfo(vmIID irs.IID) (irs.VMStatus, error) {
+func (vmHandler *KtCloudVMHandler) waitToGetInfo(vmIID irs.IID) (irs.VMStatus, error) {
 	cblogger.Info("======> As VM info. cannot be retrieved immediately after VM creation, it waits until Running.")
 
 	curRetryCnt := 0
@@ -1228,8 +1383,8 @@ func (vmHandler *KtCloudVMHandler) WaitToGetInfo(vmIID irs.IID) (irs.VMStatus, e
 }
 
 // Whenever a VM is terminated, Delete the Firewall rules that the PublicIP has first.
-func (vmHandler *KtCloudVMHandler) DeleteFirewall(publicIpId string) (irs.VMStatus, error) {
-	cblogger.Info("KT Cloud cloud driver: called DeleteFirewall()!")
+func (vmHandler *KtCloudVMHandler) deleteFirewall(publicIpId string) (irs.VMStatus, error) {
+	cblogger.Info("KT Cloud cloud driver: called deleteFirewall()!")
 	firewallListReqInfo := ktsdk.ListFirewallRulesReqInfo {
 		IpAddressId:	publicIpId,
 	}
@@ -1254,9 +1409,8 @@ func (vmHandler *KtCloudVMHandler) DeleteFirewall(publicIpId string) (irs.VMStat
 			if waitJobErr != nil {
 				cblogger.Errorf("Failed to Wait the Job : [%v]", waitJobErr)	
 				return irs.VMStatus("Terminating"), waitJobErr
-			}
-			
-			cblogger.Info("# Succeeded in Deleting the firewall Rule : " + firewallRule.IpAddress + ", " + firewallRule.Protocol, firewallRule.StartPort, firewallRule.EndPort)
+			}			
+			cblogger.Infof("# Succeeded in Deleting the firewall Rule : %s, %s, %s, %s", firewallRule.IpAddress,  firewallRule.Protocol, firewallRule.StartPort, firewallRule.EndPort)
 		}
 		// spew.Dump(deleteRulesResult)
 	}	
@@ -1265,8 +1419,8 @@ func (vmHandler *KtCloudVMHandler) DeleteFirewall(publicIpId string) (irs.VMStat
 }
 
 // Whenever a VM is terminated, Delete the PortForwarding rule that the PublicIP has.
-func (vmHandler *KtCloudVMHandler) DeletePortForwarding(publicIpId string) (irs.VMStatus, error) {
-	cblogger.Info("KT Cloud cloud driver: called DeletePortForwarding()!")
+func (vmHandler *KtCloudVMHandler) deletePortForwarding(publicIpId string) (irs.VMStatus, error) {
+	cblogger.Info("KT Cloud cloud driver: called deletePortForwarding()!")
 	// To Get the PortForwarding Rule info
 	pfRulesListReqInfo := ktsdk.ListPortForwardingRulesReqInfo {
 		IpAddressId:	publicIpId,
@@ -1300,7 +1454,7 @@ func (vmHandler *KtCloudVMHandler) DeletePortForwarding(publicIpId string) (irs.
 				cblogger.Errorf("Failed to Wait the Job : [%v]", waitJobErr)	
 				return irs.VMStatus("Terminating"), waitJobErr
 			}
-			cblogger.Info("# Succeeded in Deleting the PortForwarding Rule : " + pfRuleIpAddress + ", " + pfRuleProtocol + ", " + pfRulePublicPort + ", " + pfRulePublicEndPort)
+			cblogger.Infof("# Succeeded in Deleting the PortForwarding Rule : %s, %s, %s, %s", pfRuleIpAddress, pfRuleProtocol, pfRulePublicPort, pfRulePublicEndPort)
 		}
 		// spew.Dump(deleteRuleResult)
 
@@ -1313,8 +1467,8 @@ func (vmHandler *KtCloudVMHandler) DeletePortForwarding(publicIpId string) (irs.
 }
 
 // Whenever a VM is terminated, Delete the PortForwarding rule that the PublicIP has.
-func (vmHandler *KtCloudVMHandler) DisassociatePublicIp(publicIpId string) (irs.VMStatus, error) {
-	cblogger.Info("KT Cloud cloud driver: called DisassociatePublicIp()!")
+func (vmHandler *KtCloudVMHandler) disassociatePublicIp(publicIpId string) (irs.VMStatus, error) {
+	cblogger.Info("KT Cloud cloud driver: called disassociatePublicIp()!")
 	disassociateIpResult, err := vmHandler.Client.DisassociateIpAddress(publicIpId)
 	if err != nil {
 		cblogger.Errorf("Failed to Disassociate the IP Address : [%v]", err)
@@ -1332,7 +1486,7 @@ func (vmHandler *KtCloudVMHandler) DisassociatePublicIp(publicIpId string) (irs.
 	return irs.VMStatus("Terminating"), nil
 }
 
-func (vmHandler *KtCloudVMHandler) GetVPCFromTags(instanceId string) (string, error) {
+func (vmHandler *KtCloudVMHandler) getVPCFromTags(instanceId string) (string, error) {
 	listTagsReq := ktsdk.ListTags {
 		Key: "vpcId",
 		ResourceType: "userVm",
@@ -1353,7 +1507,7 @@ func (vmHandler *KtCloudVMHandler) GetVPCFromTags(instanceId string) (string, er
 	return vpcId, nil
 }
 
-func (vmHandler *KtCloudVMHandler) GetSubnetFromTags(instanceId string) (string, error) {
+func (vmHandler *KtCloudVMHandler) getSubnetFromTags(instanceId string) (string, error) {
 	listTagsReq := ktsdk.ListTags {
 		Key: "subnetId",
 		ResourceType: "userVm",
@@ -1374,7 +1528,7 @@ func (vmHandler *KtCloudVMHandler) GetSubnetFromTags(instanceId string) (string,
 	return subnetId, nil
 }
 
-func (vmHandler *KtCloudVMHandler) GetVMSpecFromTags(instanceId string) (string, error) {
+func (vmHandler *KtCloudVMHandler) getVMSpecFromTags(instanceId string) (string, error) {
 	listTagsReq := ktsdk.ListTags {
 		Key: "vmSpecId",
 		ResourceType: "userVm",
@@ -1394,7 +1548,7 @@ func (vmHandler *KtCloudVMHandler) GetVMSpecFromTags(instanceId string) (string,
 	return vmSpecId, nil
 }
 
-func (vmHandler *KtCloudVMHandler) GetSGListFromTags(instanceId string) ([]irs.IID, error) {
+func (vmHandler *KtCloudVMHandler) getSGListFromTags(instanceId string) ([]irs.IID, error) {
 	listTagsReq := ktsdk.ListTags {
 		Key: "SecurityGroups",
 		ResourceType: "userVm",
@@ -1427,7 +1581,7 @@ func (vmHandler *KtCloudVMHandler) GetSGListFromTags(instanceId string) ([]irs.I
 	return sgList, nil
 }
 
-func (vmHandler *KtCloudVMHandler) GetIPFromPortForwardingRules(instanceId string) (string, error) {
+func (vmHandler *KtCloudVMHandler) getIPFromPortForwardingRules(instanceId string) (string, error) {
 	// To get list of the PortForwarding Rule info
 	pfRulesListReqInfo := ktsdk.ListPortForwardingRulesReqInfo {}
 	pfResponse, err := vmHandler.Client.ListPortForwardingRules(pfRulesListReqInfo)
@@ -1450,7 +1604,7 @@ func (vmHandler *KtCloudVMHandler) GetIPFromPortForwardingRules(instanceId strin
 	return publicIp, nil
 }
 
-func GetKTVMSpecIdAndDiskSize(instanceSpecId string) (string, string, string) {
+func getKTVMSpecIdAndDiskSize(instanceSpecId string) (string, string, string) {
 	// # instanceSpecId Ex) d3530ad2-462b-43ad-97d5-e1087b952b7d!87c0a6f6-c684-4fbe-a393-d8412bcf788d_disk100GB
 	// # !와 _로 구분했음.
 	// Caution : 아래의 string split 기호 중 ! 대신 #을 사용하면 CB-Spider API를 통해 call할 시 전체의 string이 전달되지 않고 # 전까지만 전달됨. 
@@ -1462,8 +1616,8 @@ func GetKTVMSpecIdAndDiskSize(instanceSpecId string) (string, string, string) {
 
 	ktVMSpecId := instanceSpecString[0]
 
-    // instanceSpecString[1] : Ex) 87c0a6f6-c684-4fbe-a393-d8412bcf788d_disk100GB
 	diskOfferingString := strings.Split(instanceSpecString[1], "_")
+    // instanceSpecString[1] : Ex) 87c0a6f6-c684-4fbe-a393-d8412bcf788d_disk100GB
 
 	ktDiskOfferingId := diskOfferingString[0]
 	// ktDiskOfferingId : Ex) 87c0a6f6-c684-4fbe-a393-d8412bcf788d
@@ -1477,8 +1631,8 @@ func GetKTVMSpecIdAndDiskSize(instanceSpecId string) (string, string, string) {
 	return ktVMSpecId, ktDiskOfferingId, DiskSize
 }
 
-func (vmHandler *KtCloudVMHandler) AssociateIpAddress() (string, error) {	
-	cblogger.Info("KT Cloud cloud driver: called AssociateIpAddress()!")
+func (vmHandler *KtCloudVMHandler) associateIpAddress() (string, error) {	
+	cblogger.Info("KT Cloud cloud driver: called associateIpAddress()!")
 	IPReqInfo := ktsdk.AssociatePublicIpReqInfo {
 		ZoneId: 		vmHandler.RegionInfo.Zone,
 		UsagePlanType: 	"hourly", 
@@ -1523,8 +1677,8 @@ func (vmHandler *KtCloudVMHandler) AssociateIpAddress() (string, error) {
 }
 	
 // ### To Apply 'PortForwarding Rules' and 'Firewall Rules' to the Public IP ID.
-func (vmHandler *KtCloudVMHandler) CreatePortForwardingFirewallRules(sgSystemIDs []string, publicIpId string, vmID string) (bool, error) {
-	cblogger.Info("KT Cloud cloud driver: called CreatePortForwardingFirewallRules()!")
+func (vmHandler *KtCloudVMHandler) createPortForwardingFirewallRules(sgSystemIDs []string, publicIpId string, vmID string) (bool, error) {
+	cblogger.Info("KT Cloud cloud driver: called createPortForwardingFirewallRules()!")
 	securityHandler := KtCloudSecurityHandler{
 		CredentialInfo: vmHandler.CredentialInfo,
 		RegionInfo:		vmHandler.RegionInfo,
@@ -1662,4 +1816,109 @@ func (vmHandler *KtCloudVMHandler) CreatePortForwardingFirewallRules(sgSystemIDs
 		}
 	}
 	return true, nil
+}
+
+func (vmHandler *KtCloudVMHandler) createLinuxInitUserData(imageIID irs.IID, keyPairId string) (*string, error) {
+	cblogger.Info("KT Cloud driver: called createLinuxInitUserData()!!")
+
+	// myImageHandler := KtCloudMyImageHandler{
+	// 	RegionInfo:  	vmHandler.RegionInfo,
+	// 	Client:    		vmHandler.Client,
+	// }
+	// var getErr error
+	// originImagePlatform, getErr := myImageHandler.GetOriginImageOSPlatform(imageIID)
+	// if getErr != nil {
+	// 	newErr := fmt.Errorf("Failed to Get OriginImageOSPlatform of the Image : [%v]", getErr)
+	// 	cblogger.Error(newErr.Error())
+	// 	return nil, newErr	
+	// }	
+
+	// var initFilePath string
+	// switch originImagePlatform {
+	// case "UBUNTU" :
+	// 	initFilePath = os.Getenv("CBSPIDER_ROOT") + UbuntuCloudInitFilePath
+	// case "CENTOS" :
+	// 	initFilePath = os.Getenv("CBSPIDER_ROOT") + centosCloudInitFilePath
+	// default:
+	// 	initFilePath = os.Getenv("CBSPIDER_ROOT") + centosCloudInitFilePath
+	// }
+	// cblogger.Infof("\n# initFilePath : [%s]", initFilePath)
+
+	var initFilePath string
+	initFilePath = os.Getenv("CBSPIDER_ROOT") + UbuntuCloudInitFilePath
+	cblogger.Infof("\n# initFilePath : [%s]", initFilePath)
+
+	openFile, err := os.Open(initFilePath)
+	if err != nil {
+		newErr := fmt.Errorf("Failed to Find and Open the Cloud-Init File : [%v]", err)
+		cblogger.Error(newErr.Error())
+		return nil, newErr
+	} else {
+		cblogger.Infof("Succeeded in Finding and Opening the Cloud-Init File : ")
+	}
+	defer openFile.Close()
+
+	cmdStringByte, readErr := io.ReadAll(openFile)
+	if readErr != nil {
+		newErr := fmt.Errorf("Failed to Read the open file : [%v]", readErr)
+		cblogger.Error(newErr.Error())
+		return nil, newErr
+	}
+	cmdString := string(cmdStringByte)
+
+	// For GetKey()
+	strList:= []string{
+		vmHandler.CredentialInfo.ClientId,
+		vmHandler.CredentialInfo.ClientSecret,
+	}
+
+	hashString, err := keycommon.GenHash(strList)
+	if err != nil {
+		newErr := fmt.Errorf("Failed to Generate Hash String : [%v]", err)
+		cblogger.Error(newErr.Error())
+		return nil, newErr
+	}
+
+	// Get the publicKey from DB // Caution!! ~.KeyPairIID."SystemId"
+	keyValue, getKeyErr := keycommon.GetKey("KTCLOUD", hashString, keyPairId)
+	if getKeyErr != nil {
+		newErr := fmt.Errorf("Failed to Get the Public Key from DB : [%v]", getKeyErr)
+		cblogger.Error(newErr.Error())
+		return nil, newErr
+	}
+
+	// Set Linux cloud-init script
+	cmdString = strings.ReplaceAll(cmdString, "{{username}}", LinuxUserName)
+	cmdString = strings.ReplaceAll(cmdString, "{{public_key}}", keyValue.Value)
+	// cblogger.Info("cmdString : ", cmdString)
+	return &cmdString, nil
+}
+
+func (vmHandler *KtCloudVMHandler) createWinInitUserData(passWord string) (*string, error) {
+	cblogger.Info("KT Cloud driver: called createWinInitUserData()!!")
+
+	// Preparing for UserData String
+	initFilePath := os.Getenv("CBSPIDER_ROOT") + WinCloudInitFilePath
+	openFile, err := os.Open(initFilePath)
+	if err != nil {
+		newErr := fmt.Errorf("Failed to Find and Open the Cloud-Init File : [%v]", err)
+		cblogger.Error(newErr.Error())
+		return nil, newErr
+	} else {
+		cblogger.Infof("Succeeded in Finding and Opening the S/G file: ")
+	}
+	defer openFile.Close()
+
+	cmdStringByte, readErr := io.ReadAll(openFile)
+	if readErr != nil {
+		newErr := fmt.Errorf("Failed to Read the open file : [%v]", readErr)
+		cblogger.Error(newErr.Error())
+		return nil, newErr
+	}
+	cmdString := string(cmdStringByte)
+
+	// Set Windows cloud-init script
+	cmdString = strings.ReplaceAll(cmdString, "{{PASSWORD}}", passWord)
+	// cblogger.Info("cmdString : ", cmdString)
+	return &cmdString, nil
 }

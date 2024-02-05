@@ -94,7 +94,6 @@ func GetCloudConnection(cloudConnectName string) (icon.CloudConnection, error) {
 			MockName:         getValue(crdInfo.KeyValueInfoList, "MockName"),
 			ApiKey:           getValue(crdInfo.KeyValueInfoList, "ApiKey"),
 			ClusterId:        getValue(crdInfo.KeyValueInfoList, "ClusterId"),
-			BillingAccountID: getValue(crdInfo.KeyValueInfoList, "BillingAccountID"),
 			ConnectionName:   cloudConnectName,
 		},
 		RegionInfo: idrv.RegionInfo{ // @todo powerkim

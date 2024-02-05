@@ -67,7 +67,7 @@ func handleVM() {
 		fmt.Println("============================================================================================")
 
 		//config := readConfigFile()
-		VmID := irs.IID{SystemId: "8dbd0359-6895-4f63-9f57-b50ed9503c2e"}
+		VmID := irs.IID{SystemId: "db02bc57-d481-42e8-bf43-738becb14d03"}
 
 		var commandNum int
 		inputCnt, err := fmt.Scan(&commandNum)
@@ -83,38 +83,48 @@ func handleVM() {
 
 			case 1:
 				vmReqInfo := irs.VMReqInfo{
-					IId: irs.IID{NameId: "cb-vm-centos-16"},
+					// ImageType:	irs.MyImage,
+					ImageType:	irs.PublicImage,
 
-					//######################################################################
-					//Zone: KOR-Central A
+					VMUserPasswd: "cb-user-cb-user",
+
+					IId: irs.IID{NameId: "kt-win-vm-10"},
+					// IId: irs.IID{NameId: "kt-win-vm-02"},
+
+					// # Zone: KOR-Central A
+					ImageIID: irs.IID{NameId: "WIN 2019 STD 64bit [Korean]", SystemId: "f22c7425-81b5-4cd8-b8e8-6e525070cf19"},
+					VMSpecName: "d3530ad2-462b-43ad-97d5-e1087b952b7d!097b63d7-e725-4db7-b4dd-a893b0c76cb0_disk100GB",				
+					// WIN 2019 STD 64bit [Korean] image와 호환
+
+					// # Zone: KOR-Central A
 					// ImageIID: irs.IID{NameId: "Ubuntu 20.04 64bit", SystemId: "87838094-af4f-449f-a2f4-f5b4b581eb29"},
-
-					//Zone: KOR-Central A
 					// VMSpecName: "d3530ad2-462b-43ad-97d5-e1087b952b7d!_disk20GB",
-					// Ubuntu 20.04 이미지와 호환
-					
-					//Zone: KOR-Seoul M2
+					// Ubuntu 20.04 64bit image와 호환
+
+					// VMSpecName: "543b1f26-eddf-4521-9cbd-f3744aa2cc52!cc85e4dd-bfd9-4cec-aa22-cf226c1da92f_disk100GB",
+							
+					// # Zone: KOR-Seoul M2
 					// ImageIID: irs.IID{NameId: "Ubuntu 20.04 64bit", SystemId: "23bc4025-8a16-4ebf-aa49-3160ee2ac24b"},
 
-					//Zone: KOR-Seoul M2
+					// # Zone: KOR-Seoul M2
 					// VMSpecName: "df5e0f9d-b19e-456a-ab1f-7c19c3b737f3!_disk20GB",
 					// Ubuntu 20.04 이미지와 호환
 
-					//Zone: KOR-HA
-					ImageIID: irs.IID{NameId: "Centos 7.6 64bit", SystemId: "cfb1834b-14d9-42fc-84e6-3018dbcece71"},
+					// # Zone: KOR-HA
+					// ImageIID: irs.IID{NameId: "Centos 7.6 64bit", SystemId: "cfb1834b-14d9-42fc-84e6-3018dbcece71"},
 
-					//Zone: KOR-HA
-					VMSpecName: "91884f5a-8d72-4bdc-a76d-8526d95b6f40!_disk20GB",
+					// # Zone: KOR-HA
+					// VMSpecName: "91884f5a-8d72-4bdc-a76d-8526d95b6f40!_disk20GB",
 					// Centos 7.6 64bit 이미지와 호환
 
-					//M2 (Seoul-2)
+					// # Zone: M2 (Seoul-2)
 					//ImageIID:   irs.IID{NameId: "Ubuntu-18.04-64bit", SystemId: "63de6d04-7f1b-4924-8e95-1acd6581ca0c"},
 					
-					//M2 (Seoul-2)
+					// # Zone: M2 (Seoul-2)
 					//VMSpecName: "c308f760-068a-4cdd-abc9-edb581d18e58", //4 vCore, 8 GB
 					//######################################################################
 
-					KeyPairIID: irs.IID{SystemId: "kt-key-01"},
+					KeyPairIID: irs.IID{SystemId: "kt-key-15"},
 
 					VpcIID: irs.IID{
 						NameId: "myTest-vpc-01",
@@ -122,13 +132,17 @@ func handleVM() {
 					SubnetIID: irs.IID{
 						NameId: "myTest-subnet-01",
 					},
-									
-					// ### Caution!! ### : AccessControlGroup은 NCP console상의 VPC 메뉴의 'Network ACL'이 아닌 Server 메뉴의 'ACG'에 해당됨.
+
 					SecurityGroupIIDs: []irs.IID{{SystemId: "KT-SG-1"},},
 					// SecurityGroupIIDs: []irs.IID{{SystemId: "CB-Security4"},{SystemId: "CB-Security5"}},
 					// SecurityGroupIIDs: []irs.IID{{SystemId: "CB-Security5"},{SystemId: "CB-Security6"}},
 
 					// KT Cloud Disk(diskofferingid 지정하지 않을때) : Default : 20 GB
+					RootDiskType: "SSD-Provisioned",
+					// RootDiskType: "default",
+
+					RootDiskSize: "200",
+					// RootDiskSize: "default",
 				}
 
 				vmInfo, err := vmHandler.StartVM(vmReqInfo)
