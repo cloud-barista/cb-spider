@@ -397,7 +397,8 @@ func RunServer() {
 		{"DELETE", "/cspcluster/:Id", DeleteCSPCluster},
 
 		//-- only for WebTool
-		{"GET", "/nscluster", AllClusterList},
+		{"GET", "/nscluster", AllClusterList},  // GET with a body for backward compatibility
+		{"POST", "/nscluster", AllClusterList}, // POST with a body for standard
 
 		//-------------------------------------------------------------------//
 		//----------Additional Info
