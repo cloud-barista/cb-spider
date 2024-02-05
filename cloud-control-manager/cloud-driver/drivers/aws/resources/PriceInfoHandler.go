@@ -105,8 +105,8 @@ func (priceInfoHandler *AwsPriceInfoHandler) GetPriceInfo(productFamily string, 
 		ServiceCode: aws.String(productFamily),
 		MaxResults:  aws.Int64(1),
 	}
-
-	cblogger.Info("describeServicesinput", describeServicesinput)
+	// for the test
+	// cblogger.Info("describeServicesinput", describeServicesinput)
 
 	services, err := priceInfoHandler.Client.DescribeServices(describeServicesinput)
 	if services == nil {
@@ -186,80 +186,8 @@ func (priceInfoHandler *AwsPriceInfoHandler) GetPriceInfo(productFamily string, 
 					Value: aws.String(filter.Value),
 				})
 			}
-			//price
 
-			// if filter.Key == "pricingId" {
-			// 	getProductsinputfilters = append(getProductsinputfilters, &pricing.Filter{
-			// 		Field: aws.String("priceDimensionsKey"),
-			// 		Type:  aws.String("TERM_MATCH"),
-			// 		Value: aws.String(filter.Value),
-			// 	})
-			// }
-
-			// if filter.Key == "unit" {
-			// 	getProductsinputfilters = append(getProductsinputfilters, &pricing.Filter{
-			// 		Field: aws.String("unit"),
-			// 		Type:  aws.String("TERM_MATCH"),
-			// 		Value: aws.String(filter.Value),
-			// 	})
-			// }
-			// if filter.Key == "currency" {
-			// 	getProductsinputfilters = append(getProductsinputfilters, &pricing.Filter{
-			// 		Field: aws.String("currency"),
-			// 		Type:  aws.String("TERM_MATCH"),
-			// 		Value: aws.String(filter.Value),
-			// 	})
-			// }
-			// if filter.Key == "price" {
-			// 	getProductsinputfilters = append(getProductsinputfilters, &pricing.Filter{
-			// 		Field: aws.String("price"),
-			// 		Type:  aws.String("TERM_MATCH"),
-			// 		Value: aws.String(filter.Value),
-			// 	})
-			// }
-			// if filter.Key == "description" {
-			// 	getProductsinputfilters = append(getProductsinputfilters, &pricing.Filter{
-			// 		Field: aws.String("description"),
-			// 		Type:  aws.String("TERM_MATCH"),
-			// 		Value: aws.String(filter.Value),
-			// 	})
-			// }
-			// if filter.Key == "leaseContractLength" {
-			// 	getProductsinputfilters = append(getProductsinputfilters, &pricing.Filter{
-			// 		Field: aws.String("LeaseContractLength"),
-			// 		Type:  aws.String("TERM_MATCH"),
-			// 		Value: aws.String(filter.Value),
-			// 	})
-			// }
-			// if filter.Key == "offeringClass" {
-			// 	getProductsinputfilters = append(getProductsinputfilters, &pricing.Filter{
-			// 		Field: aws.String("OfferingClass"),
-			// 		Type:  aws.String("TERM_MATCH"),
-			// 		Value: aws.String(filter.Value),
-			// 	})
-			// }
-			// if filter.Key == "purchaseOption" {
-			// 	getProductsinputfilters = append(getProductsinputfilters, &pricing.Filter{
-			// 		Field: aws.String("preInstalledSw"),
-			// 		Type:  aws.String("TERM_MATCH"),
-			// 		Value: aws.String(filter.Value),
-			// 	})
-			// }
-
-			//: "filter", Value: "{\"Field\":\"instanceType\",\"Type\":\"TERM_MATCH\",\"Value\":\"t2.nano\"}"})
-			// err := json.Unmarshal([]byte(filter.Value), &getProductsinputfilter)
-			// getProductsinputfilters = append(getProductsinputfilters, &getProductsinputfilter)
-
-			// if err != nil {
-			// 	cblogger.Error(err)
-			// 	return "", err
-			// }
-			// // for the test
-			// cblogger.Info("getProductsinputfilter", getProductsinputfilter)
 		}
-
-		// for the test
-		cblogger.Info("[]*pricing.Filter{}", []*pricing.Filter{})
 	}
 	if regionName != "" {
 		getProductsinputfilters = append(getProductsinputfilters, &pricing.Filter{
@@ -273,18 +201,19 @@ func (priceInfoHandler *AwsPriceInfoHandler) GetPriceInfo(productFamily string, 
 		Filters:     getProductsinputfilters,
 		ServiceCode: aws.String(productFamily),
 	}
-	// for the test
-	cblogger.Info("getProductsinput", getProductsinput)
+
 	priceinfos, err := priceInfoHandler.Client.GetProducts(getProductsinput)
 	if err != nil {
 		cblogger.Error(err)
 		return "", err
 	}
+	cblogger.Info("@@@@@@@@@@@@", priceinfos)
 
 	result := &irs.CloudPriceData{}
 	result.Meta.Version = "v0.1"
 	result.Meta.Description = "Multi-Cloud Price Info"
-	cblogger.Info("productInfo", priceinfos)
+	// for the test
+	// cblogger.Info("productInfo", priceinfos)
 	for _, price := range priceinfos.PriceList {
 		jsonString, err := json.MarshalIndent(price["product"].(map[string]interface{})["attributes"], "", "    ")
 		if err != nil {
@@ -307,8 +236,10 @@ func (priceInfoHandler *AwsPriceInfoHandler) GetPriceInfo(productFamily string, 
 
 		var priceInfo irs.PriceInfo
 		priceInfo.CSPPriceInfo = price["terms"]
+		cblogger.Info("priceInfo.CSPPriceInfo******************** = ", priceInfo.CSPPriceInfo)
+		cblogger.Info("priceInfo.CSPPriceInfo^^^^^^^^^^^^^^^^^^^^ = ", priceInfo)
 		for termsKey, termsValue := range price["terms"].(map[string]interface{}) {
-			cblogger.Info("termsKey1111111111111111111", termsKey)
+
 			hasTerm := false
 			termVal := ""
 			hasPriceDimension := false
@@ -319,7 +250,6 @@ func (priceInfoHandler *AwsPriceInfoHandler) GetPriceInfo(productFamily string, 
 
 				for _, filter := range filterList {
 					// find filter conditions
-
 					if filter.Key == "pricingPolicy" {
 						hasTerm = true
 						termVal = filter.Value
@@ -344,29 +274,17 @@ func (priceInfoHandler *AwsPriceInfoHandler) GetPriceInfo(productFamily string, 
 			}
 
 			for _, policyvalue := range termsValue.(map[string]interface{}) {
-				cblogger.Info("policyvalue333333333333", policyvalue)
 				var pricingPolicy irs.PricingPolicies
 				for innerpolicyKey, innerpolicyValue := range policyvalue.(map[string]interface{}) {
 					if innerpolicyKey == "priceDimensions" {
-						cblogger.Info("innerpolicyKey$$$$$$$$$$$$$$$", innerpolicyKey)
-						cblogger.Info("innerpolicyValue~~~~~~~~~~~~~~~~~~~", innerpolicyValue)
 						for priceDimensionsKey, priceDimensionsValue := range innerpolicyValue.(map[string]interface{}) {
-
-							cblogger.Info("priceDimensionsValue@@@@@@@@@@@@@@@@@@@@@@@", priceDimensionsValue)
-
-							cblogger.Info("filterList==============", filterList)
-
 							if filterList != nil {
-								cblogger.Info("hasPriceDimension**************", hasPriceDimension)
-								cblogger.Info("priceDemensionVal%^&%^&%^&%^&%^&", priceDemensionVal)
-								cblogger.Info("priceDimensionsKey||||||||||||||||", priceDimensionsKey)
 								// check filters
 								if hasPriceDimension && priceDemensionVal != priceDimensionsKey {
 
 									continue
 
 								}
-								cblogger.Info("priceDimensionsKey+++++++++++++++++++", priceDimensionsKey)
 								//pricingId의 unit값이 필터 값으로 들어오면 unit 값을 받은 값으로 설정
 								foundSku := false
 								for _, skukey := range priceDimensionsValue.(map[string]interface{}) {
@@ -376,7 +294,6 @@ func (priceInfoHandler *AwsPriceInfoHandler) GetPriceInfo(productFamily string, 
 										break
 									}
 								}
-								cblogger.Info("foundSku_+_+_+_+_+_+_+_+_+_+_+_+_+_+", foundSku)
 								if hasunit && !foundSku { // sku를 못 찾았으면 skip.
 									continue
 								}
@@ -396,16 +313,33 @@ func (priceInfoHandler *AwsPriceInfoHandler) GetPriceInfo(productFamily string, 
 							}
 							pricingPolicy.Unit = fmt.Sprintf("%s", priceDimensionsValue.(map[string]interface{})["unit"])
 
-							// priceInfo.PricingPolicies = append(priceInfo.PricingPolicies, pricingPolicy)
+							// var cspPriceInfo []string
+
+							// // Convert the []interface{} to []string before appending
+							// for _, item := range price["terms"].([]interface{}) {
+							// 	jsonString, err := json.Marshal(item)
+							// 	if err != nil {
+							// 		cblogger.Error(err)
+							// 		continue
+							// 	}
+							// 	cspPriceInfo = append(cspPriceInfo, string(jsonString))
+							// }
+							priceInfo.PricingPolicies = append(priceInfo.PricingPolicies, pricingPolicy)
 							aPrice, ok := priceMap[productId]
-							cblogger.Info("productId12121212121212121212121212 = ", productId)
+
+							// for the test
+							cblogger.Info("productId111111111111 = ", productId)
+							cblogger.Info("pricingPolicy66666666666 = ", pricingPolicy)
+
 							if ok { // product가 존재하면 policy 추가
 								aPrice.PriceInfo.PricingPolicies = append(aPrice.PriceInfo.PricingPolicies, pricingPolicy)
-
+								// aPrice.PriceInfo.CSPPriceInfo = append(aPrice.PriceInfo.CSPPriceInfo.([]string), cspPriceInfo...)
+								// var priceInfo irs.PriceInfo
+								// priceInfo.CSPPriceInfo = price["terms"]
 								priceMap[productId] = aPrice
-								cblogger.Info("productId12121212121212121212121212 = ", productId)
+
 							} else { // product가 없으면 price 추가
-								cblogger.Info("productId12121212121212121212121212 = ", productId)
+
 								newPriceInfo := irs.PriceInfo{}
 								newPolicies := []irs.PricingPolicies{}
 								newPolicies = append(newPolicies, pricingPolicy)
@@ -413,8 +347,7 @@ func (priceInfoHandler *AwsPriceInfoHandler) GetPriceInfo(productFamily string, 
 								newPriceInfo.PricingPolicies = newPolicies
 								// newCSPPriceInfo := []string{}
 								// newCSPPriceInfo = append(newCSPPriceInfo, priceResponseStr)
-								// newPriceInfo.CSPPriceInfo = newCSPPriceInfo
-
+								// newPriceInfo.CSPPriceInfo = newCSPPriceIn
 								newPrice := irs.Price{}
 								newPrice.PriceInfo = newPriceInfo
 								newPrice.ProductInfo = productInfo
