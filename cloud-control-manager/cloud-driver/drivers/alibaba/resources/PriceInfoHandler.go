@@ -128,7 +128,7 @@ func init() {
 		}
 	}
 
-	fmt.Printf("valid key is this %+v\n", validFilterKey)
+	//fmt.Printf("valid key is this %+v\n", validFilterKey)
 
 }
 func (priceInfoHandler *AlibabaPriceInfoHandler) ListProductFamily(regionName string) ([]string, error) {
