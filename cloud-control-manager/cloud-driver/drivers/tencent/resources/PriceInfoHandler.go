@@ -3,7 +3,6 @@ package resources
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"hash/fnv"
 	"strconv"
 	"strings"
@@ -84,9 +83,7 @@ func (t *TencentPriceInfoHandler) GetPriceInfo(productFamily string, regionName 
 		if err != nil {
 			return "", err
 		}
-		//cblogger.Info(*res)
 		parsedResponse, err := convertJsonStringNoEscape(&res)
-		// mar, err := json.Marshal(&res)
 		if err != nil {
 			return "", err
 		}
@@ -226,7 +223,6 @@ func mappingToComputeStruct(regionName string, instanceModel *TencentInstanceMod
 
 						price, ok := priceMap[productId]
 						if ok { // 있으면
-							fmt.Println("reservedInfo ok True")
 							// policies 추출
 							policy := mappingPricingPolicy(common.StringPtr("RESERVED"), iType.Prices)
 
@@ -240,7 +236,6 @@ func mappingToComputeStruct(regionName string, instanceModel *TencentInstanceMod
 
 							priceMap[productId] = price // price 재할당
 						} else { // 없으면
-							fmt.Println("reservedInfo ok flase")
 							// product 추출
 							productInfo := mappingProductInfo(regionName, *iType)
 							if validateFilter(filterMap, &productInfo) {
@@ -499,48 +494,6 @@ func priceValidateFilter(policy *irs.PricingPolicies, filterMap map[string]strin
 	}
 	return false
 }
-
-// func resPriceValidateFilter(policy *irs.PricingPolicies, filterMap map[string]string) bool {
-// 	if len(filterMap) <= 0 {
-// 		return false
-// 	}
-
-// 	if value, ok := filterMap["price"]; ok && value != "" && value != (*policy).Price {
-// 		return true
-// 	}
-// 	if value, ok := filterMap["currency"]; ok && value != "" && value != (*policy).Currency {
-// 		return true
-// 	}
-// 	if value, ok := filterMap["description"]; ok && value != "" && value != (*policy).Description {
-// 		return true
-// 	}
-// 	if value, ok := filterMap["unit"]; ok && value != "" && value != (*policy).Unit {
-// 		return true
-// 	}
-// 	if value, ok := filterMap["purchaseOption"]; ok && value != "" && value != (*policy.PricingPolicyInfo).PurchaseOption {
-// 		return true
-// 	}
-// 	if value, ok := filterMap["purchaseOption"]; ok && value != "" && value != (*policy.PricingPolicyInfo).PurchaseOption {
-// 		return true
-// 	}
-
-// 	return false
-// }
-
-// 	if len(filter) <= 0 {
-// 		return false
-// 	}
-// 	if value, ok := filter["price"]; ok && value != "" && value != police.Price {
-// 		return true
-// 	}
-// 	if value, ok := filter["currency"]; ok && value != "" && value != police.Currency {
-// 		return true
-// 	}
-// 	if value, ok := filter["unit"]; ok && value != "" && value != police.Unit {
-// 		return true
-// 	}
-// 	return false
-// }
 
 // TencentSDK VM Product & Pricing struct to irs ProductPolicies
 func mappingProductInfo(regionName string, i interface{}) irs.ProductInfo {
