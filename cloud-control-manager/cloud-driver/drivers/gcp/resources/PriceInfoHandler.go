@@ -61,6 +61,7 @@ func init() {
 			validFilterKey[camelCaseFieldName] = true
 		}
 	}
+
 }
 
 type GCPPriceInfoHandler struct {
@@ -140,10 +141,12 @@ func (priceInfoHandler *GCPPriceInfoHandler) GetPriceInfo(productFamily string, 
 				}
 			}
 
+
 			if len(machineTypeSlice) > 0 {
 				cblogger.Infof("%d machine types have been retrieved", len(machineTypeSlice))
 
 				for _, machineType := range machineTypeSlice {
+
 
 					if machineTypeFilter, ok := filter["instanceType"]; ok && machineType.Name != *machineTypeFilter {
 						continue
@@ -169,6 +172,7 @@ func (priceInfoHandler *GCPPriceInfoHandler) GetPriceInfo(productFamily string, 
 							continue
 						}
 
+
 						// mapping to price info struct
 						priceInfo, err := mappingToPriceInfoForComputePrice(estimatedCostResponse, filter)
 
@@ -183,6 +187,7 @@ func (priceInfoHandler *GCPPriceInfoHandler) GetPriceInfo(productFamily string, 
 							ProductInfo: *productInfo,
 							PriceInfo:   *priceInfo,
 						}
+
 
 						priceLists = append(priceLists, priceList)
 					}

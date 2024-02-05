@@ -1,6 +1,7 @@
 package resources
 
 import (
+	"bytes"
 	"encoding/json"
 	"hash/fnv"
 	"strconv"
@@ -42,55 +43,72 @@ type TencentReservedInstancePrice struct {
 // tencent 에서 제공해주는 product family 관련한 api 가 존재하지 않아 코드 레벨에서 관리하도록 1차 논의 완료
 // 2023.12.14.driver 내부에서 array 등으로 관리하는 방침으로 변경
 func (t *TencentPriceInfoHandler) ListProductFamily(regionName string) ([]string, error) {
-	pl := []string{"", "", ""}
+	//pl := []string{"cvm", "k8s", "cbm", "gpu"}
+	pl := []string{"cvm"}
 	//pl := make([]string, 0)
 	return pl, nil
 }
 
 func (t *TencentPriceInfoHandler) GetPriceInfo(productFamily string, regionName string, additionalFilters []irs.KeyValue) (string, error) {
 
-	filterMap := mapToTencentFilter(additionalFilters)
+	filterKeyValueMap := mapToTencentFilter(additionalFilters)
 
 	switch {
-	case strings.EqualFold("compute", productFamily):
+	case strings.EqualFold("cvm", productFamily):
 		// client 생성 with region name
 		if t.Client.GetRegion() != regionName {
 			t.Client.Init(regionName)
 		}
+		keyValueMap := make(map[string]string)
+		for _, kv := range additionalFilters {
+			keyValueMap[kv.Key] = kv.Value
+		}
 
-		standardInfo, err := describeZoneInstanceConfigInfos(t.Client, filterMap)
+		//Common Instance Price calculator
+		standardInfo, err := describeZoneInstanceConfigInfos(t.Client, filterKeyValueMap)
 
 		if err != nil {
 			return "", err
 		}
+
 		//Reserved Instance Price calculator
-		//reservedInfo, err := describeReservedInstancesConfigInfos(client, filterMap)
-		//
-		//if err != nil {
-		//	return "", err
-		//}
-
-		res, err := mappingToComputeStruct(t.Client.GetRegion(), &TencentInstanceModel{standardInfo: standardInfo /*, reservedInfo: reservedInfo*/})
-
-		if err != nil {
-			return "", err
-		}
-		cblogger.Info(*res)
-		mar, err := json.Marshal(&res)
-		if err != nil {
-			return "", err
-		}
-
-		returnValue := strings.ReplaceAll(string(mar), "\\", "")
+		reservedInfo, err := describeReservedInstancesConfigInfos(t.Client, filterKeyValueMap)
 
 		if err != nil {
 			return "", err
 		}
 
-		return returnValue, nil
+		res, err := mappingToComputeStruct(t.Client.GetRegion(), &TencentInstanceModel{standardInfo: standardInfo, reservedInfo: reservedInfo}, keyValueMap)
+
+		if err != nil {
+			return "", err
+		}
+		parsedResponse, err := convertJsonStringNoEscape(&res)
+		if err != nil {
+			return "", err
+		}
+
+		return parsedResponse, nil
 	}
 
 	return "", nil
+}
+
+func convertJsonStringNoEscape(v interface{}) (string, error) {
+	buffer := &bytes.Buffer{}
+	encoder := json.NewEncoder(buffer)
+	encoder.SetEscapeHTML(false)
+	errJson := encoder.Encode(v)
+
+	if errJson != nil {
+		cblogger.Error("fail to convert json string", errJson)
+		return "", errJson
+	}
+
+	jsonString := buffer.String()
+	jsonString = strings.Replace(jsonString, "\\", "", -1)
+
+	return jsonString, nil
 }
 
 /*
@@ -98,7 +116,12 @@ AZ 의 Instance standard 모델과 Spot 모델 조회
 */
 func describeZoneInstanceConfigInfos(client *cvm.Client, filterMap map[string]*cvm.Filter) (*cvm.DescribeZoneInstanceConfigInfosResponse, error) {
 	//Filter 정적 추가
-	filters := parseToFilterSlice(filterMap, "zoneName", "instanceFamily", "instanceType")
+	filters := parseToFilterSlice(filterMap, "zoneName", "instanceFamily", "instanceType") //필수
+
+	optionFilters := parseToFilterSlice(filterMap, "instance-charge-type") // option
+	if len(optionFilters) > 0 {
+		filters = append(filters, optionFilters...)
+	}
 
 	//신규 Instance 데이터 Request 생성
 	req := cvm.NewDescribeZoneInstanceConfigInfosRequest()
@@ -122,10 +145,13 @@ func describeZoneInstanceConfigInfos(client *cvm.Client, filterMap map[string]*c
 // Reserved Instance Price calculator
 func describeReservedInstancesConfigInfos(client *cvm.Client, filterMap map[string]*cvm.Filter) (*cvm.DescribeReservedInstancesConfigInfosResponse, error) {
 	filters := parseToFilterSlice(filterMap, "zoneName")
-
+	optionFilters := parseToFilterSlice(filterMap, "instance-charge-type") // option
 	req := cvm.NewDescribeReservedInstancesConfigInfosRequest()
 	req.Filters = filters
 
+	if len(optionFilters) > 0 {
+		filters = append(filters, optionFilters...)
+	}
 	res, err := client.DescribeReservedInstancesConfigInfos(req)
 	if err != nil {
 		// TODO Error mapping
@@ -135,75 +161,124 @@ func describeReservedInstancesConfigInfos(client *cvm.Client, filterMap map[stri
 	return res, nil
 }
 
-// Mapper Start Function
-func mappingToComputeStruct(regionName string, instanceModel *TencentInstanceModel) (*irs.CloudPriceData, error) {
-	priceMap := make(map[string]*TencentInstanceInformation, 0)
+func mappingToComputeStruct(regionName string, instanceModel *TencentInstanceModel, filterMap map[string]string) (*irs.CloudPriceData, error) {
+	priceMap := make(map[string]irs.Price) // productinfo , priceinfo
 
+	// standardInfo
 	if instanceModel.standardInfo != nil {
 		for _, v := range instanceModel.standardInfo.Response.InstanceTypeQuotaSet {
+			productId := computeInstanceKeyGeneration(*v.Zone, *v.InstanceType, *v.CpuType, strconv.FormatInt(*v.Memory, 10))
 
-			//변수값이 충분한지 고려할 필요가 있음, reservedInstance ReturnValue와 비교하여, 최대한 고유하게 가져갈 수 있는 것들은
-			//가져가도록 수정
-			key := computeInstanceKeyGeneration(*v.Zone, *v.InstanceType, *v.CpuType, strconv.FormatInt(*v.Memory, 10))
+			price, ok := priceMap[productId]
+			if ok { // 있으면
+				// policies 추출
+				policy := mappingPricingPolicy(v.InstanceChargeType, v.Price)
 
-			if pp, ok := priceMap[key]; !ok {
-				sp := make([]TencentCommonInstancePrice, 0)
-				sp = append(sp, TencentCommonInstancePrice{InstanceChargeType: v.InstanceChargeType, Price: v.Price})
-
-				priceMap[key] = &TencentInstanceInformation{
-					PriceList: &irs.Price{
-						ProductInfo: mappingProductInfo(regionName, *v),
-					},
-					StandardPrices: &sp,
+				if priceValidateFilter(&policy, filterMap) {
+					continue
 				}
-			} else {
-				newSlice := append(*pp.StandardPrices, TencentCommonInstancePrice{InstanceChargeType: v.InstanceChargeType, Price: v.Price})
-				pp.StandardPrices = &newSlice
+
+				// append policy
+				pricePicies := price.PriceInfo.PricingPolicies
+				pricePicies = append(pricePicies, policy)
+
+				priceMap[productId] = price // price 재할당
+			} else { // 없으면
+				// product 추출
+				productInfo := mappingProductInfo(regionName, *v)
+				if validateFilter(filterMap, &productInfo) {
+					continue
+				}
+
+				// pricePicies 추출
+				policy := mappingPricingPolicy(v.InstanceChargeType, *v.Price)
+
+				if priceValidateFilter(&policy, filterMap) {
+					continue
+				}
+
+				aPrice := irs.Price{}
+				priceInfo := irs.PriceInfo{}
+
+				pricePicies := []irs.PricingPolicies{}
+				pricePicies = append(pricePicies, policy)
+
+				priceInfo.PricingPolicies = pricePicies
+
+				aPrice.ProductInfo = productInfo
+				aPrice.PriceInfo = priceInfo
+
+				priceMap[productId] = aPrice
 			}
+
 		}
 	}
-
-	//TODO reserved Instance Info Mapping
+	// reservedInfo
 	if instanceModel.reservedInfo != nil {
 		for _, v := range instanceModel.reservedInfo.Response.ReservedInstanceConfigInfos {
 			for _, info := range v.InstanceFamilies {
 				for _, iType := range info.InstanceTypes {
 					for _, p := range iType.Prices {
+						productId := computeInstanceKeyGeneration(*p.Zone, *iType.InstanceType, *iType.CpuModelName, strconv.FormatUint(*iType.Memory, 10))
 
-						key := computeInstanceKeyGeneration(*p.Zone, *iType.InstanceType, *iType.CpuModelName, strconv.FormatUint(*iType.Memory, 10))
+						price, ok := priceMap[productId]
+						if ok { // 있으면
+							// policies 추출
+							policy := mappingPricingPolicy(common.StringPtr("RESERVED"), iType.Prices)
 
-						if pp, ok := priceMap[key]; !ok {
-							rp := make([]TencentReservedInstancePrice, 0)
-							rp = append(rp, TencentReservedInstancePrice{Price: p})
-
-							priceMap[key] = &TencentInstanceInformation{
-								PriceList: &irs.Price{
-									ProductInfo: mappingProductInfo(regionName, *iType),
-								},
-								ReservedPrices: &rp,
+							if priceValidateFilter(&policy, filterMap) {
+								continue
 							}
-						} else {
-							newSlice := append(*pp.ReservedPrices, TencentReservedInstancePrice{Price: p})
-							pp.ReservedPrices = &newSlice
+
+							// append policy
+							pricePicies := price.PriceInfo.PricingPolicies
+							pricePicies = append(pricePicies, policy)
+
+							priceMap[productId] = price // price 재할당
+						} else { // 없으면
+							// product 추출
+							productInfo := mappingProductInfo(regionName, *iType)
+							if validateFilter(filterMap, &productInfo) {
+								continue
+							}
+
+							//	for _, val := range *v.price.Res {
+
+							// pricePicies 추출
+							policy := mappingPricingPolicy(common.StringPtr("RESERVED"), *p)
+
+							if priceValidateFilter(&policy, filterMap) {
+								continue
+							}
+							aPrice := irs.Price{}
+							priceInfo := irs.PriceInfo{}
+
+							pricePicies := []irs.PricingPolicies{}
+							pricePicies = append(pricePicies, policy)
+
+							priceInfo.PricingPolicies = pricePicies
+
+							aPrice.ProductInfo = productInfo
+							aPrice.PriceInfo = priceInfo
+
+							priceMap[productId] = aPrice
+							//	}
 						}
-					}
 
-				}
-			}
-		}
+					} // end of itype.Prices for
+				} // end of itype for
+			} // end of instanceFamilies for
+		} // end of reservedInstanceConfigInfos for
 	}
 
-	generatePriceInfo(priceMap)
-
-	var priceList []irs.Price
-
+	priceList := make([]irs.Price, 0)
 	if priceMap != nil && len(priceMap) > 0 {
-		for _, v := range priceMap {
-			priceList = append(priceList, *v.PriceList)
+		for _, priceValue := range priceMap {
+			priceList = append(priceList, priceValue)
 		}
 	}
 
-	return &irs.CloudPriceData{
+	cloudPriceData := &irs.CloudPriceData{
 		Meta: irs.Meta{
 			Version:     "v0.1",
 			Description: "Multi-Cloud Price Info Api",
@@ -214,11 +289,105 @@ func mappingToComputeStruct(regionName string, instanceModel *TencentInstanceMod
 				PriceList: priceList,
 			},
 		},
-	}, nil
+	}
+	return cloudPriceData, nil
+
 }
 
+// Mapper Start Function -- X
+// func mappingToComputeStruct(regionName string, instanceModel *TencentInstanceModel, filterMap map[string]string) (*irs.CloudPriceData, error) {
+// 	priceMap := make(map[string]*TencentInstanceInformation, 0)
+
+// 	if instanceModel.standardInfo != nil {
+// 		for _, v := range instanceModel.standardInfo.Response.InstanceTypeQuotaSet {
+
+// 			//변수값이 충분한지 고려할 필요가 있음, reservedInstance ReturnValue와 비교하여, 최대한 고유하게 가져갈 수 있는 것들은
+// 			//가져가도록 수정
+// 			key := computeInstanceKeyGeneration(*v.Zone, *v.InstanceType, *v.CpuType, strconv.FormatInt(*v.Memory, 10))
+
+// 			if pp, ok := priceMap[key]; !ok {
+// 				productInfo := mappingProductInfo(regionName, *v)
+
+// 				if validateFilter(filterMap, &productInfo) {
+// 					continue
+// 				}
+// 				sp := make([]TencentCommonInstancePrice, 0)
+// 				sp = append(sp, TencentCommonInstancePrice{InstanceChargeType: v.InstanceChargeType, Price: v.Price})
+
+// 				priceMap[key] = &TencentInstanceInformation{
+// 					PriceList: &irs.Price{
+// 						ProductInfo: productInfo,
+// 					},
+// 					StandardPrices: &sp,
+// 				}
+// 			} else {
+// 				newSlice := append(*pp.StandardPrices, TencentCommonInstancePrice{InstanceChargeType: v.InstanceChargeType, Price: v.Price})
+// 				pp.StandardPrices = &newSlice
+// 			}
+// 		}
+// 	}
+
+// 	//TODO reserved Instance Info Mapping
+// 	if instanceModel.reservedInfo != nil {
+// 		for _, v := range instanceModel.reservedInfo.Response.ReservedInstanceConfigInfos {
+// 			for _, info := range v.InstanceFamilies {
+// 				for _, iType := range info.InstanceTypes {
+// 					for _, p := range iType.Prices {
+// 						key := computeInstanceKeyGeneration(*p.Zone, *iType.InstanceType, *iType.CpuModelName, strconv.FormatUint(*iType.Memory, 10))
+// 						if pp, ok := priceMap[key]; !ok {
+// 							productInfo := mappingProductInfo(regionName, *iType)
+
+// 							if validateFilter(filterMap, &productInfo) {
+// 								continue
+// 							}
+
+// 							rp := make([]TencentReservedInstancePrice, 0)
+// 							rp = append(rp, TencentReservedInstancePrice{Price: p})
+
+// 							priceMap[key] = &TencentInstanceInformation{
+// 								PriceList: &irs.Price{
+// 									ProductInfo: productInfo,
+// 								},
+
+// 								ReservedPrices: &rp,
+// 							}
+// 						} else {
+// 							newSlice := append(*pp.ReservedPrices, TencentReservedInstancePrice{Price: p})
+// 							pp.ReservedPrices = &newSlice
+// 						}
+// 					}
+
+// 				}
+// 			}
+// 		}
+// 	}
+// 	generatePriceInfo(priceMap, filterMap)
+
+// 	priceList := make([]irs.Price, 0)
+
+// 	if priceMap != nil && len(priceMap) > 0 {
+// 		for _, v := range priceMap {
+// 			priceList = append(priceList, *v.PriceList)
+// 		}
+// 	}
+
+// 	x := &irs.CloudPriceData{
+// 		Meta: irs.Meta{
+// 			Version:     "v0.1",
+// 			Description: "Multi-Cloud Price Info Api",
+// 		},
+// 		CloudPriceList: []irs.CloudPrice{
+// 			{
+// 				CloudName: "TENCENT",
+// 				PriceList: priceList,
+// 			},
+// 		},
+// 	}
+// 	return x, nil
+// }
+
 // TencentSDK VM Product & Pricing struct to irs Struct
-func generatePriceInfo(priceMap map[string]*TencentInstanceInformation) {
+func generatePriceInfo(priceMap map[string]*TencentInstanceInformation, filterMap map[string]string) {
 	if priceMap != nil && len(priceMap) > 0 {
 		for _, v := range priceMap {
 			pl := v.PriceList
@@ -227,44 +396,111 @@ func generatePriceInfo(priceMap map[string]*TencentInstanceInformation) {
 
 			if v.StandardPrices != nil && len(*v.StandardPrices) > 0 {
 				for _, val := range *v.StandardPrices {
+
+					policy := mappingPricingPolicy(val.InstanceChargeType, *val.Price)
+
+					if priceValidateFilter(&policy, filterMap) {
+						continue
+					}
 					prices = append(prices, val.Price)
-					policies = append(policies, mappingPricingPolicy(val.InstanceChargeType, *val.Price))
+					policies = append(policies, policy)
 				}
 			}
 
 			if v.ReservedPrices != nil && len(*v.ReservedPrices) > 0 {
 				for _, val := range *v.ReservedPrices {
+					policy := mappingPricingPolicy(common.StringPtr("RESERVED"), *val.Price)
+
+					if priceValidateFilter(&policy, filterMap) {
+						continue
+					}
 					prices = append(prices, val.Price)
-					policies = append(policies, mappingPricingPolicy(common.StringPtr("RESERVED"), *val.Price))
+					policies = append(policies, policy)
 				}
 			}
-			//mar, err := json.Marshal(prices)
-			mar, err := ConvertJsonStringNoEscape(prices)
+			// //mar, err := json.Marshal(prices)
+			// mar, err := ConvertJsonStringNoEscape(prices)
 
-			if err != nil {
-				continue
-			}
+			// if err != nil {
+			// 	continue
+			// }
 
 			pl.PriceInfo = irs.PriceInfo{
 				PricingPolicies: policies,
-				CSPPriceInfo:    mar,
+				CSPPriceInfo:    prices,
 			}
 		}
 	}
 }
+func validateFilter(filterMap map[string]string, productInfo *irs.ProductInfo) bool {
+	if len(filterMap) <= 0 {
+		return false
+	}
+
+	if value, ok := filterMap["zoneName"]; ok && value != "" && value != (*productInfo).ZoneName {
+		return true
+	}
+
+	if value, ok := filterMap["instanceType"]; ok && value != "" && value != (*productInfo).InstanceType {
+		return true
+	}
+
+	if value, ok := filterMap["vcpu"]; ok && value != "" && value != (*productInfo).Vcpu {
+		return true
+	}
+
+	if value, ok := filterMap["memory"]; ok && value != "" && value != (*productInfo).Memory {
+		return true
+	}
+
+	if value, ok := filterMap["gpu"]; ok && value != "" && value != (*productInfo).Gpu {
+		return true
+	}
+	if value, ok := filterMap["storage"]; ok && value != "" && value != (*productInfo).Storage {
+		return true
+	}
+	return false
+}
+
+func priceValidateFilter(policy *irs.PricingPolicies, filterMap map[string]string) bool {
+	if len(filterMap) <= 0 {
+		return false
+	}
+	if value, ok := filterMap["pricingId"]; ok && value != (*policy).PricingId {
+		return true
+	}
+	// filter[unit] = ChargeUnit key값 존재확인 HOUR 값 넣어줌 빈값아님 같은값일경우 false 같은값일때 ㅇ
+	if value, ok := filterMap["unit"]; ok && value != "" && value != (*policy).Unit {
+		return true
+	}
+	// filter[price] = UnitPrice
+	if value, ok := filterMap["price"]; ok && value != "" && value != (*policy).Price {
+		return true
+	}
+	if value, ok := filterMap["currency"]; ok && value != "" && value != (*policy).Currency {
+		return true
+	}
+	if value, ok := filterMap["description"]; ok && value != "" && value != (*policy).Description {
+		return true
+	}
+	if value, ok := filterMap["purchaseOption"]; ok && value != "" && value != (*policy.PricingPolicyInfo).PurchaseOption {
+		return true
+	}
+	if value, ok := filterMap["purchaseOption"]; ok && value != "" && value != (*policy.PricingPolicyInfo).PurchaseOption {
+		return true
+	}
+	if value, ok := filterMap["leaseContractLength"]; ok && value != "" && value != (*policy.PricingPolicyInfo).LeaseContractLength {
+		return true
+	}
+	return false
+}
 
 // TencentSDK VM Product & Pricing struct to irs ProductPolicies
 func mappingProductInfo(regionName string, i interface{}) irs.ProductInfo {
-	//mar, err := json.Marshal(i)
-	cspProductInfoString, err := ConvertJsonStringNoEscape(i)
-	if err != nil {
-		return irs.ProductInfo{}
-	}
-
 	productInfo := irs.ProductInfo{
 		//ProductId:      "NA",
 		RegionName:     regionName,
-		CSPProductInfo: cspProductInfoString,
+		CSPProductInfo: i,
 	}
 
 	switch v := i.(type) {
@@ -272,6 +508,7 @@ func mappingProductInfo(regionName string, i interface{}) irs.ProductInfo {
 		vm := i.(cvm.InstanceTypeQuotaItem)
 		productInfo.ProductId = regionName + "-" + *vm.InstanceType
 		productInfo.InstanceType = strPtrNilCheck(vm.InstanceType)
+		productInfo.ZoneName = *vm.Zone
 		productInfo.Vcpu = intPtrNilCheck(vm.Cpu)
 		productInfo.Memory = intPtrNilCheck(vm.Memory)
 		productInfo.Gpu = intPtrNilCheck(vm.Gpu)
@@ -296,6 +533,7 @@ func mappingProductInfo(regionName string, i interface{}) irs.ProductInfo {
 		reservedVm := i.(cvm.ReservedInstanceTypeItem)
 		productInfo.ProductId = regionName + "-" + *reservedVm.InstanceType
 		productInfo.InstanceType = strPtrNilCheck(reservedVm.InstanceType)
+		productInfo.ZoneName = *reservedVm.Prices[0].Zone
 		productInfo.Vcpu = uintPtrNilCheck(reservedVm.Cpu)
 		productInfo.Memory = uintPtrNilCheck(reservedVm.Memory)
 		productInfo.Gpu = uintPtrNilCheck(reservedVm.Gpu)
@@ -363,7 +601,7 @@ func mappingPricingPolicy(instanceChargeType *string, price any) irs.PricingPoli
 		} else {
 			duration = common.Uint64Ptr(0)
 		}
-		policyInfo.LeaseContractLength = strconv.FormatUint(*duration/31536000, 32) + "Yrs"
+		policyInfo.LeaseContractLength = strconv.FormatUint(*duration/31536000, 32) + "Yrs" // duration 초로 넘어옴 이거를 연도로 환산
 		policyInfo.PurchaseOption = strPtrNilCheck(p.OfferingType)
 
 		// NA
