@@ -379,18 +379,36 @@ func (priceInfoHandler *IbmPriceInfoHandler) GetPriceInfo(productFamily string, 
 	var priceList []irs.Price
 
 	for _, resource := range resources {
-		vCPUs := "NA"
-		memoryGB := "NA"
+		productInfo := irs.ProductInfo{
+			ProductId:      resource.Id,
+			RegionName:     regionName,
+			Description:    resource.OverviewUI.EN.Description,
+			CSPProductInfo: resource,
+		}
 
 		if strings.ToLower(productFamily) == "is.instance" {
+			productInfo.InstanceType = resource.Name
+			productInfo.Vcpu = "NA"
+			productInfo.Memory = "NA"
+			productInfo.Gpu = "NA"
+			productInfo.GpuMemory = "NA"
+			productInfo.OperatingSystem = "NA"
+			productInfo.PreInstalledSw = "NA"
+
 			splitedSpec := strings.Split(resource.Name, "-")
 			if len(splitedSpec) == 2 {
 				splitedCPUMemory := strings.Split(splitedSpec[1], "x")
 				if len(splitedCPUMemory) == 2 {
-					vCPUs = splitedCPUMemory[0]
-					memoryGB = splitedCPUMemory[1] + " GiB"
+					productInfo.Vcpu = splitedCPUMemory[0]
+					productInfo.Memory = splitedCPUMemory[1] + " GiB"
 				}
 			}
+		} else if strings.ToLower(productFamily) == "is.volume" {
+			productInfo.VolumeType = resource.Name
+			productInfo.StorageMedia = "NA"
+			productInfo.MaxVolumeSize = "NA"
+			productInfo.MaxIOPSVolume = "NA"
+			productInfo.MaxThroughputVolume = "NA"
 		}
 
 		var planResourceInfoTemp ResourceInfo
@@ -509,25 +527,7 @@ func (priceInfoHandler *IbmPriceInfoHandler) GetPriceInfo(productFamily string, 
 		}
 
 		priceList = append(priceList, irs.Price{
-			ProductInfo: irs.ProductInfo{
-				ProductId:           resource.Id,
-				RegionName:          regionName,
-				InstanceType:        resource.Name,
-				Vcpu:                vCPUs,
-				Memory:              memoryGB,
-				Storage:             "NA",
-				Gpu:                 "NA",
-				GpuMemory:           "NA",
-				OperatingSystem:     "NA",
-				PreInstalledSw:      "",
-				VolumeType:          "NA",
-				StorageMedia:        "NA",
-				MaxVolumeSize:       "",
-				MaxIOPSVolume:       "",
-				MaxThroughputVolume: "",
-				Description:         resource.OverviewUI.EN.DisplayName,
-				CSPProductInfo:      resource,
-			},
+			ProductInfo: productInfo,
 			PriceInfo: irs.PriceInfo{
 				PricingPolicies: pricingPolicies,
 				CSPPriceInfo:    priceInfo.Metrics,
