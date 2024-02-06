@@ -12,6 +12,7 @@ import (
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"reflect"
+	"sort"
 	"strings"
 	"sync"
 )
@@ -121,6 +122,10 @@ func (regionZoneHandler *AzureRegionZoneHandler) ListRegionZone() ([]*irs.Region
 	}
 
 	LoggingInfo(hiscallInfo, start)
+
+	sort.Slice(regionZoneInfo, func(i, j int) bool {
+		return strings.Compare(regionZoneInfo[i].Name, regionZoneInfo[j].Name) < 0
+	})
 
 	return regionZoneInfo, nil
 }
