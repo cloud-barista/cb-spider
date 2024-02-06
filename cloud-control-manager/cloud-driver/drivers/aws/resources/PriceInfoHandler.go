@@ -186,18 +186,25 @@ func (priceInfoHandler *AwsPriceInfoHandler) GetPriceInfo(productFamily string, 
 					Value: aws.String(filter.Value),
 				})
 			}
+			// if filter.Key == "leaseContractLength" {
+			// 	getProductsinputfilters = append(getProductsinputfilters, &pricing.Filter{
+			// 		Field: aws.String("leaseContractLength"),
+			// 		Type:  aws.String("TERM_MATCH"),
+			// 		Value: aws.String(filter.Value),
+			// 	})
+			// }
 
 		}
 	}
 
-	// filter조건에 region 지정. 
+	// filter조건에 region 지정.
 	if regionName != "" {
 		getProductsinputfilters = append(getProductsinputfilters, &pricing.Filter{
 			Field: aws.String("regionCode"),
 			Type:  aws.String("EQUALS"),
 			Value: aws.String(regionName),
 		})
-	}else{
+	} else {
 		getProductsinputfilters = append(getProductsinputfilters, &pricing.Filter{
 			Field: aws.String("regionCode"),
 			Type:  aws.String("EQUALS"),
@@ -223,6 +230,7 @@ func (priceInfoHandler *AwsPriceInfoHandler) GetPriceInfo(productFamily string, 
 	// for the test
 	// cblogger.Info("productInfo", priceinfos)
 	for _, price := range priceinfos.PriceList {
+		cblogger.Info("=-=-=-=-=-=-=-=-", price)
 		jsonString, err := json.MarshalIndent(price["product"].(map[string]interface{})["attributes"], "", "    ")
 		if err != nil {
 			cblogger.Error(err)
@@ -250,10 +258,22 @@ func (priceInfoHandler *AwsPriceInfoHandler) GetPriceInfo(productFamily string, 
 
 			hasTerm := false
 			termVal := ""
+
 			hasPriceDimension := false
 			priceDemensionVal := ""
+
 			hasunit := false
 			unitVal := ""
+
+			// hasLeaseContractLength := false
+			// LeaseContractLengthVal := ""
+
+			// hasOfferingClass := false
+			// OfferingClassVal := ""
+
+			// hasPurchaseOption := false
+			// PurchaseOptionVal := ""
+
 			if filterList != nil {
 
 				for _, filter := range filterList {
@@ -274,23 +294,44 @@ func (priceInfoHandler *AwsPriceInfoHandler) GetPriceInfo(productFamily string, 
 						unitVal = filter.Value
 						continue
 					}
+					// if filter.Key == "LeaseContractLength" {
+					// 	hasLeaseContractLength = true
+					// 	LeaseContractLengthVal = filter.Value
+					// 	continue
+					// }
+					// if filter.Key == "OfferingClass" {
+					// 	hasOfferingClass = true
+					// 	OfferingClassVal = filter.Value
+					// 	continue
+					// }
+					// if filter.Key == "PurchaseOption" {
+					// 	hasPurchaseOption = true
+					// 	PurchaseOptionVal = filter.Value
+					// 	continue
+					// }
 				}
 				// check filters
 				if hasTerm && termVal != termsKey {
-					cblogger.Info("filtered by pricingPolicy ", termVal,  termsKey)						
+					cblogger.Info("filtered by pricingPolicy ", termVal, termsKey)
 					continue
 				}
 			}
 
 			for _, policyvalue := range termsValue.(map[string]interface{}) {
+				cblogger.Info("termsValue(((((((", termsValue) // OnDemand 밑 map
 				var pricingPolicy irs.PricingPolicies
 				for innerpolicyKey, innerpolicyValue := range policyvalue.(map[string]interface{}) {
+					cblogger.Info("policyvalue %%%%%%%%%%%%", policyvalue.(map[string]interface{})) // here
+					cblogger.Info("innerpolicyKey ??????????", innerpolicyKey)                      // termAttribute
+					cblogger.Info("innerpolicyValue !!!!!!!!!!", innerpolicyValue)                  // map
+
 					if innerpolicyKey == "priceDimensions" {
 						for priceDimensionsKey, priceDimensionsValue := range innerpolicyValue.(map[string]interface{}) {
+							cblogger.Info("priceDimensionsValue))))))))))))", priceDimensionsValue)
 							if filterList != nil {
 								// check filters
 								if hasPriceDimension && priceDemensionVal != priceDimensionsKey {
-									cblogger.Info("filtered by priceDimensions ", priceDemensionVal,  priceDimensionsKey)
+									cblogger.Info("filtered by priceDimensions ", priceDemensionVal, priceDimensionsKey)
 									continue
 								}
 								//pricingId의 unit값이 필터 값으로 들어오면 unit 값을 받은 값으로 설정
@@ -303,7 +344,7 @@ func (priceInfoHandler *AwsPriceInfoHandler) GetPriceInfo(productFamily string, 
 									}
 								}
 								if hasunit && !foundSku { // sku를 못 찾았으면 skip.
-									cblogger.Info("filtered by Sku ", hasunit,  foundSku)
+									cblogger.Info("filtered by Sku ", hasunit, foundSku)
 									continue
 								}
 							}
@@ -319,6 +360,11 @@ func (priceInfoHandler *AwsPriceInfoHandler) GetPriceInfo(productFamily string, 
 								if key == "USD" {
 									break
 								}
+								// check filters
+								// if hasTerm && termVal != termsKey {
+								// 	cblogger.Info("filtered by pricingPolicy ", termVal,  termsKey)
+								// 	continue
+								// }
 							}
 							pricingPolicy.Unit = fmt.Sprintf("%s", priceDimensionsValue.(map[string]interface{})["unit"])
 
@@ -334,8 +380,9 @@ func (priceInfoHandler *AwsPriceInfoHandler) GetPriceInfo(productFamily string, 
 							// 	cspPriceInfo = append(cspPriceInfo, string(jsonString))
 							// }
 							//priceInfo.PricingPolicies = append(priceInfo.PricingPolicies, pricingPolicy)
-							
+
 							aPrice, ok := priceMap[productId]
+
 							if ok { // product가 존재하면 policy 추가
 								cblogger.Info("product exist ", productId)
 								aPrice.PriceInfo.PricingPolicies = append(aPrice.PriceInfo.PricingPolicies, pricingPolicy)
@@ -346,14 +393,14 @@ func (priceInfoHandler *AwsPriceInfoHandler) GetPriceInfo(productFamily string, 
 
 							} else { // product가 없으면 price 추가
 								cblogger.Info("product not exist ", productId)
-								
+
 								newPriceInfo := irs.PriceInfo{}
 								newPolicies := []irs.PricingPolicies{}
 								newPolicies = append(newPolicies, pricingPolicy)
 
 								newPriceInfo.PricingPolicies = newPolicies
-								newPriceInfo.CSPPriceInfo = price["terms"]// 새로운 가격이면 terms아래값을 넣는다.
-								
+								newPriceInfo.CSPPriceInfo = price["terms"] // 새로운 가격이면 terms아래값을 넣는다.
+
 								// newCSPPriceInfo := []string{}
 								// newCSPPriceInfo = append(newCSPPriceInfo, priceResponseStr)
 								// newPriceInfo.CSPPriceInfo = newCSPPriceIn
@@ -365,6 +412,49 @@ func (priceInfoHandler *AwsPriceInfoHandler) GetPriceInfo(productFamily string, 
 							}
 						}
 					}
+					// if innerpolicyKey == "termAttributes" {
+					// 	for termAttributeskey, termAttributesValue := range innerpolicyValue.(map[string]interface{}) {
+					// 		cblogger.Info("termAttributeskey********", termAttributeskey)
+					// 		cblogger.Info("termAttributesValue////////", termAttributesValue)
+					// 		if filterList != nil {
+
+					// 			foundSku := false
+					// 			for _, skukey := range termAttributesValue.(map[string]interface{}) {
+					// 				// check filters
+					// 				if hasLeaseContractLength && LeaseContractLengthVal == skukey {
+					// 					foundSku = true
+					// 					break
+					// 				}
+					// 				if hasOfferingClass && OfferingClassVal == skukey {
+					// 					foundSku = true
+					// 					break
+					// 				}
+					// 				if hasPurchaseOption && PurchaseOptionVal == skukey {
+					// 					foundSku = true
+					// 					break
+					// 				}
+					// 			}
+					// 			if hasLeaseContractLength && !foundSku { // sku를 못 찾았으면 skip.
+					// 				cblogger.Info("filtered by Sku ", hasLeaseContractLength, foundSku)
+					// 				continue
+					// 			}
+					// 			if hasOfferingClass && !foundSku { // sku를 못 찾았으면 skip.
+					// 				cblogger.Info("filtered by Sku ", hasOfferingClass, foundSku)
+					// 				continue
+					// 			}
+					// 			if hasPurchaseOption && !foundSku { // sku를 못 찾았으면 skip.
+					// 				cblogger.Info("filtered by Sku ", hasPurchaseOption, foundSku)
+					// 				continue
+					// 			}
+					// 		}
+					// 		spew.Dump("termAttributesValue.(map[string]interface{})[LeaseContractLength]5555555555", termAttributesValue.(map[string]interface{})["LeaseContractLength"])
+					// 		spew.Dump("termAttributesValue6666666666", termAttributesValue)
+					// 		// pricingPolicy.PricingPolicyInfo.LeaseContractLength = fmt.Sprintf("%s", termAttributesValue.(map[string]interface{})["LeaseContractLength"])
+					// 		// pricingPolicy.PricingPolicyInfo.OfferingClass = fmt.Sprint("%s", innerpolicyValue.(map[string]interface{})["OfferingClass"])
+					// 		// pricingPolicy.PricingPolicyInfo.PurchaseOption = fmt.Sprint("%s", innerpolicyValue.(map[string]interface{})["PurchaseOption"])
+					// 	}
+					// 	cblogger.Info("LeaseContractLength !@!@!@!@!@", pricingPolicy.PricingPolicyInfo.LeaseContractLength)
+					// }
 				}
 			}
 		}
@@ -386,7 +476,6 @@ func (priceInfoHandler *AwsPriceInfoHandler) GetPriceInfo(productFamily string, 
 	// priceone.PriceList = append(priceone.PriceList, priceList...)
 	priceone.PriceList = priceList
 	result.CloudPriceList = append(result.CloudPriceList, priceone)
-
 
 	resultString, err := json.Marshal(result)
 	if err != nil {
