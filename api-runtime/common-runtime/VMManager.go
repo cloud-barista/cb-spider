@@ -425,6 +425,22 @@ func StartVM(connectionName string, rsType string, reqInfo cres.VMReqInfo) (*cre
 		return nil, err
 	}
 
+	// check Winddows GuestOS
+	isWindowsOS := false
+	isWindowsOS, err = checkImageWindowsOS(cldConn, reqInfo.ImageType, reqInfo.ImageIID)
+	if err != nil {
+		if strings.Contains(err.Error(), "yet!") {
+			cblog.Info(err)
+		} else {
+			cblog.Error(err)
+			return nil, err
+		}
+	}
+
+	if isWindowsOS {
+		rsType = "windowsvm" // be used for NCP and NCPVPC in IIDManager.New()
+	}
+
 	// (2) generate SP-XID and create reqIID, driverIID
 	//     ex) SP-XID {"vm-01-9m4e2mr0ui3e8a215n4g"}
 	//
@@ -453,18 +469,6 @@ func StartVM(connectionName string, rsType string, reqInfo cres.VMReqInfo) (*cre
 	} else {
 		reqInfoForDriver, err = cloneReqInfoWithDriverIID(connectionName, reqInfo)
 		if err != nil {
-			cblog.Error(err)
-			return nil, err
-		}
-	}
-
-	// check Winddows GuestOS
-	isWindowsOS := false
-	isWindowsOS, err = checkImageWindowsOS(cldConn, reqInfoForDriver.ImageType, reqInfoForDriver.ImageIID)
-	if err != nil {
-		if strings.Contains(err.Error(), "yet!") {
-			cblog.Info(err)
-		} else {
 			cblog.Error(err)
 			return nil, err
 		}

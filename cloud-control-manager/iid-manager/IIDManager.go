@@ -54,7 +54,7 @@ func New(cloudConnectName string, rsType string, uid string) (string, error) {
 		return uid, nil
 	}
 
-	// MaxLength = 12, lower, number, Cannot use '-'
+	// AZURE-nogegroup: MaxLength = 12, lower, number, Cannot use '-'
 	if cccInfo.ProviderName == "AZURE" && rsType == "nodegroup" {
 		retUID := strings.ToLower(strings.ReplaceAll(uid, "-", ""))
 
@@ -65,13 +65,24 @@ func New(cloudConnectName string, rsType string, uid string) (string, error) {
 		return retUID, nil
 	}
 
-	// MaxLenth = 20, lower, number, '-'
+	// NHNCLOUD-cluster,nogegroup: MaxLenth = 20, lower, number, '-'
 	if cccInfo.ProviderName == "NHNCLOUD" && (rsType == "cluster" || rsType == "nodegroup") {
 		retUID := strings.ToLower(uid)
 
 		if len(retUID) > 20 {
 			// #10 + #10 => #20
 			retUID = uid[:10] + xid.New().String()[0:10]
+		}
+		return retUID, nil
+	}
+
+	// NCP or NCPVPC-windowvm: MaxLenth = 15, lower, number, '-'
+	if (cccInfo.ProviderName == "NCP" || cccInfo.ProviderName == "NCPVPC") && (rsType == "windowsvm") {
+		retUID := strings.ToLower(uid)
+
+		if len(retUID) > 15 {
+			// #8 + #7 => #15
+			retUID = uid[:8] + xid.New().String()[0:7]
 		}
 		return retUID, nil
 	}
