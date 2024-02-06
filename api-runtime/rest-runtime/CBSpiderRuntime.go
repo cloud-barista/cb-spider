@@ -544,8 +544,8 @@ func EndpointInfo(c echo.Context) error {
 	endpointInfo += fmt.Sprintf("     - REST API: %s\n", restEndPoint)
 	// swaggerURL := "http://" + cr.ServiceIPorName + cr.ServicePort + "/spider/swagger/index.html"
 	// endpointInfo += fmt.Sprintf("     - Swagger : %s\n", swaggerURL)
-	gRPCServer := "grpc://" + cr.ServiceIPorName + cr.GoServicePort
-	endpointInfo += fmt.Sprintf("     - Go   API: %s\n", gRPCServer)
+	// gRPCServer := "grpc://" + cr.ServiceIPorName + cr.GoServicePort
+	// endpointInfo += fmt.Sprintf("     - Go   API: %s\n", gRPCServer)
 
 	return c.String(http.StatusOK, endpointInfo)
 }

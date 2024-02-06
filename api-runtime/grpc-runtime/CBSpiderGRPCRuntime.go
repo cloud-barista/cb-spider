@@ -73,17 +73,17 @@ func RunServer() {
 
 	//fmt.Printf("\n\n => grpc server started on %s\n\n", spidersrv.Addr)
 	cr.GoServicePort = spidersrv.Addr
-	spiderBanner(cr.ServiceIPorName + spidersrv.Addr)
+	// spiderBanner(cr.ServiceIPorName + spidersrv.Addr)
 
 	if err := gs.Serve(conn); err != nil {
 		logger.Error("failed to serve: ", err)
 	}
 }
 
-func spiderBanner(server string) {
-	gRPCServer := "Go   API: grpc://" + server
-	fmt.Printf("     - %s\n", gRPCServer)
-}
+// func spiderBanner(server string) {
+// 	gRPCServer := "Go   API: grpc://" + server
+// 	fmt.Printf("     - %s\n", gRPCServer)
+// }
 
 func configLoad(cf string) (config.GrpcConfig, error) {
 	logger := logger.NewLogger()
