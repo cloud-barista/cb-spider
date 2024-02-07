@@ -17,7 +17,7 @@ type TencentVmSpecHandler struct {
 	Client *cvm.Client
 }
 
-//@TODO : Region : zone id(Region이 아닌 zone id로 조회해야 함.)
+// @TODO : Region : zone id(Region이 아닌 zone id로 조회해야 함.)
 func (vmSpecHandler *TencentVmSpecHandler) ListVMSpec() ([]*irs.VMSpecInfo, error) {
 	//cblogger.Infof("ListVMSpec(ZoneId:[%s])", Region)
 
@@ -25,8 +25,8 @@ func (vmSpecHandler *TencentVmSpecHandler) ListVMSpec() ([]*irs.VMSpecInfo, erro
 	//zoneId := Region
 	cblogger.Infof("Session Zone : [%s]", zoneId)
 	if zoneId == "" {
-		cblogger.Error("Connection 정보에 Zone 정보가 없습니다.")
-		return nil, errors.New("Connection 정보에 Zone 정보가 없습니다.")
+		cblogger.Error("Connection information does not contain Zone information.")
+		return nil, errors.New("Connection information does not contain Zone information.")
 	}
 
 	callogger := call.GetLogger("HISCALL")
@@ -83,8 +83,8 @@ func (vmSpecHandler *TencentVmSpecHandler) GetVMSpec(Name string) (irs.VMSpecInf
 	//zoneId := Region
 	cblogger.Infof("Session Zone : [%s]", zoneId)
 	if zoneId == "" {
-		cblogger.Error("Connection 정보에 Zone 정보가 없습니다.")
-		return irs.VMSpecInfo{}, errors.New("Connection 정보에 Zone 정보가 없습니다.")
+		cblogger.Error("Connection information does not contain Zone information.")
+		return irs.VMSpecInfo{}, errors.New("Connection information does not contain Zone information.")
 	}
 
 	callogger := call.GetLogger("HISCALL")
@@ -141,8 +141,8 @@ func (vmSpecHandler *TencentVmSpecHandler) ListOrgVMSpec() (string, error) {
 	//zoneId := Region
 	cblogger.Infof("Session Zone : [%s]", zoneId)
 	if zoneId == "" {
-		cblogger.Error("Connection 정보에 Zone 정보가 없습니다.")
-		return "", errors.New("Connection 정보에 Zone 정보가 없습니다.")
+		cblogger.Error("Connection information does not contain Zone information.")
+		return "", errors.New("Connection information does not contain Zone information.")
 	}
 
 	callogger := call.GetLogger("HISCALL")
@@ -196,8 +196,8 @@ func (vmSpecHandler *TencentVmSpecHandler) GetOrgVMSpec(Name string) (string, er
 	//zoneId := Region
 	cblogger.Infof("Session Zone : [%s]", zoneId)
 	if zoneId == "" {
-		cblogger.Error("Connection 정보에 Zone 정보가 없습니다.")
-		return "", errors.New("Connection 정보에 Zone 정보가 없습니다.")
+		cblogger.Error("Connection information does not contain Zone information.")
+		return "", errors.New("Connection information does not contain Zone information.")
 	}
 
 	callogger := call.GetLogger("HISCALL")
@@ -251,7 +251,7 @@ func (vmSpecHandler *TencentVmSpecHandler) GetOrgVMSpec(Name string) (string, er
 	}
 }
 
-//인스턴스 스펙 정보를 추출함
+// 인스턴스 스펙 정보를 추출함
 func ExtractVMSpecInfo(instanceTypeInfo *cvm.InstanceTypeConfig) irs.VMSpecInfo {
 	cblogger.Debugf("ExtractVMSpecInfo : SpecName:[%s]", *instanceTypeInfo.InstanceType)
 	//spew.Dump(instanceTypeInfo)
