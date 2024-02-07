@@ -11,6 +11,8 @@ import (
 	"github.com/gophercloud/gophercloud/openstack"
 	"github.com/gophercloud/gophercloud/openstack/compute/v2/extensions/availabilityzones"
 	"github.com/gophercloud/gophercloud/openstack/identity/v3/regions"
+	"sort"
+	"strings"
 	"sync"
 )
 
@@ -142,6 +144,10 @@ func (regionZoneHandler *OpenStackRegionZoneHandler) ListRegionZone() ([]*irs.Re
 	}
 
 	LoggingInfo(hiscallInfo, start)
+
+	sort.Slice(regionZoneInfo, func(i, j int) bool {
+		return strings.Compare(regionZoneInfo[i].Name, regionZoneInfo[j].Name) < 0
+	})
 
 	return regionZoneInfo, nil
 }

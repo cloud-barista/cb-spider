@@ -9,6 +9,8 @@ import (
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
+	"sort"
+	"strings"
 	"sync"
 )
 
@@ -104,6 +106,10 @@ func (regionZoneHandler *IbmRegionZoneHandler) ListRegionZone() ([]*irs.RegionZo
 	}
 
 	LoggingInfo(hiscallInfo, start)
+
+	sort.Slice(regionZoneInfo, func(i, j int) bool {
+		return strings.Compare(regionZoneInfo[i].Name, regionZoneInfo[j].Name) < 0
+	})
 
 	return regionZoneInfo, nil
 }
