@@ -254,10 +254,11 @@ func (priceInfoHandler *AwsPriceInfoHandler) GetPriceInfo(productFamily string, 
 		// priceInfo.CSPPriceInfo = price["terms"]
 		// cblogger.Info("priceInfo.CSPPriceInfo******************** = ", priceInfo.CSPPriceInfo)
 		// cblogger.Info("priceInfo.CSPPriceInfo^^^^^^^^^^^^^^^^^^^^ = ", priceInfo)
+		// termsKey : OnDemand, Reserved
 		for termsKey, termsValue := range price["terms"].(map[string]interface{}) {
-
-			hasTerm := false
-			termVal := ""
+			cblogger.Info("now termsKey = ", termsKey)
+			hasPricingPolicyVal := false
+			pricingPolicyVal := ""
 
 			hasPriceDimension := false
 			priceDemensionVal := ""
@@ -279,8 +280,8 @@ func (priceInfoHandler *AwsPriceInfoHandler) GetPriceInfo(productFamily string, 
 				for _, filter := range filterList {
 					// find filter conditions
 					if filter.Key == "pricingPolicy" {
-						hasTerm = true
-						termVal = filter.Value
+						hasPricingPolicyVal = true
+						pricingPolicyVal = filter.Value
 						continue
 					}
 
@@ -311,24 +312,24 @@ func (priceInfoHandler *AwsPriceInfoHandler) GetPriceInfo(productFamily string, 
 					}
 				}
 				// check filters
-				if hasTerm && termVal != termsKey {
-					cblogger.Info("filtered by pricingPolicy ", termVal, termsKey)
+				if hasPricingPolicyVal && pricingPolicyVal != termsKey {
+					cblogger.Info("filtered by pricingPolicy ", pricingPolicyVal, termsKey)
 					continue
 				}
 			}
 
-			for _, policyvalue := range termsValue.(map[string]interface{}) {
-				cblogger.Info("termsValue(((((((", termsValue) // OnDemand 밑 map
+			for _, policyValue := range termsValue.(map[string]interface{}) {
+				//cblogger.Info("termsValue(((((((", termsValue) // OnDemand 밑 map
 				var pricingPolicy irs.PricingPolicies
-				for innerpolicyKey, innerpolicyValue := range policyvalue.(map[string]interface{}) {
-					cblogger.Info("policyvalue %%%%%%%%%%%%", policyvalue.(map[string]interface{})) // here
-					cblogger.Info("innerpolicyKey ??????????", innerpolicyKey)                      // termAttribute
-					cblogger.Info("innerpolicyValue !!!!!!!!!!", innerpolicyValue)                  // map
+				for innerpolicyKey, innerpolicyValue := range policyValue.(map[string]interface{}) {
+					//cblogger.Info("policyvalue %%%%%%%%%%%%", policyvalue.(map[string]interface{})) // here
+					//cblogger.Info("innerpolicyKey ??????????", innerpolicyKey)                      // termAttribute
+					//cblogger.Info("innerpolicyValue !!!!!!!!!!", innerpolicyValue)                  // map
 
-					filterResult := false// true면 전부 filter 된 것임.
 					if innerpolicyKey == "priceDimensions" {
+						filterResult := false // true면 filter 통과 된 것임.
 						for priceDimensionsKey, priceDimensionsValue := range innerpolicyValue.(map[string]interface{}) {
-							cblogger.Info("priceDimensionsValue))))))))))))", priceDimensionsValue)
+							//cblogger.Info("priceDimensionsValue))))))))))))", priceDimensionsValue)
 							if filterList != nil {
 								// check filters
 								if hasPriceDimension && priceDemensionVal != priceDimensionsKey {
@@ -373,24 +374,28 @@ func (priceInfoHandler *AwsPriceInfoHandler) GetPriceInfo(productFamily string, 
 							// 여기까지 왔으면 filterResult를 완료(true)로 바꿈
 							filterResult = true
 
+						} // end of for
+						if !filterResult {
+							continue // filter걸린게 있으면 filterResult가 false로 유지되었을 것임
 						}
 					}
 
-					if !filterResult {
-						continue // filter걸린게 있으면 filterResult가 false로 유지되었을 것임
-					}
-
-					filterResult = false // 다시 조건시작 
-
 					// leaseContractLength, offeringClass,purchaseOption 필터 추가
-					if innerpolicyKey == "termAttributes" {
-						for termAttributeskey, termAttributesValue := range innerpolicyValue.(map[string]interface{}) {
-							cblogger.Info("termAttributeskey********", termAttributeskey)
-							cblogger.Info("termAttributesValue////////", termAttributesValue)
-							if filterList != nil {
+					// onDemand는 termAttributes 가 비어있을 수 있음.
+					//aPrice, ok := priceMap[productId]
 
+					if innerpolicyKey == "termAttributes" {
+						filterResult := false // true면 filter 통과 된 것임.
+						cblogger.Info("terms ::: ", termsKey)
+						cblogger.Info("termAttribute ::: ", innerpolicyValue)
+						for termAttributeskey, termAttributesValue := range innerpolicyValue.(map[string]interface{}) {
+							cblogger.Info("termAttributeskey!********", termAttributeskey)
+							cblogger.Info("termAttributesValue2////////", termAttributesValue) // TODO : map이 아니라 string값임.
+							if filterList != nil {
 								foundSku := false
+								cblogger.Info("go sku ", termAttributesValue)
 								for _, skukey := range termAttributesValue.(map[string]interface{}) {
+									cblogger.Info("skukey ", skukey)
 									// check filters
 									if hasLeaseContractLength && LeaseContractLengthVal == skukey {
 										foundSku = true
@@ -404,6 +409,8 @@ func (priceInfoHandler *AwsPriceInfoHandler) GetPriceInfo(productFamily string, 
 										foundSku = true
 										break
 									}
+									cblogger.Info("end skukey ", skukey)
+
 								}
 								if hasLeaseContractLength && !foundSku { // sku를 못 찾았으면 skip.
 									cblogger.Info("filtered by Sku ", hasLeaseContractLength, foundSku)
@@ -418,19 +425,20 @@ func (priceInfoHandler *AwsPriceInfoHandler) GetPriceInfo(productFamily string, 
 									continue
 								}
 							}
-					// 		spew.Dump("termAttributesValue.(map[string]interface{})[LeaseContractLength]5555555555", termAttributesValue.(map[string]interface{})["LeaseContractLength"])
-					// 		spew.Dump("termAttributesValue6666666666", termAttributesValue)
+							cblogger.Info("set leaseContractLength ", termAttributesValue.(map[string]interface{})["LeaseContractLength"])
+							// 		spew.Dump("termAttributesValue.(map[string]interface{})[LeaseContractLength]5555555555", termAttributesValue.(map[string]interface{})["LeaseContractLength"])
+							// 		spew.Dump("termAttributesValue6666666666", termAttributesValue)
 							pricingPolicy.PricingPolicyInfo.LeaseContractLength = fmt.Sprintf("%s", termAttributesValue.(map[string]interface{})["LeaseContractLength"])
 							pricingPolicy.PricingPolicyInfo.OfferingClass = fmt.Sprint("%s", innerpolicyValue.(map[string]interface{})["OfferingClass"])
 							pricingPolicy.PricingPolicyInfo.PurchaseOption = fmt.Sprint("%s", innerpolicyValue.(map[string]interface{})["PurchaseOption"])
 
 							filterResult = true // 여기까지 왔으면 filterResult를 완료(true)로 바꿈
 						}
+						cblogger.Info("filterResult2 ", filterResult)
+						if !filterResult {
+							continue // filter걸린게 있으면 filterResult가 false로 유지되었을 것임
+						}
 						cblogger.Info("LeaseContractLength !@!@!@!@!@", pricingPolicy.PricingPolicyInfo.LeaseContractLength)
-					}
-
-					if !filterResult {
-						continue // filter걸린게 있으면 filterResult가 false로 유지되었을 것임
 					}
 
 					aPrice, ok := priceMap[productId]
