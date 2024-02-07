@@ -1926,7 +1926,6 @@ func readConfigFile() Config {
 	rootPath := os.Getenv("CBSPIDER_PATH")
 	cblogger.Infof("Test Data 설정파일 : [%s]", rootPath+"/config/config.yaml")
 	data, err := ioutil.ReadFile(rootPath + "/config/config.yaml")
-	data, err = ioutil.ReadFile("/home/ubuntu/workspace/cb-spider/test_priceinfo_mhlee_240124/cloud-control-manager/cloud-driver/drivers/aws/main/Sample/config/config.yaml")
 	if err != nil {
 		panic(err)
 	}
