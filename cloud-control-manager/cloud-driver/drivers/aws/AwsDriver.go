@@ -68,7 +68,8 @@ func getVMClient(connectionInfo idrv.ConnectionInfo) (*ec2.EC2, error) {
 	//spew.Dump(connectionInfo)
 
 	sess, err := session.NewSession(&aws.Config{
-		Region: aws.String(connectionInfo.RegionInfo.Region),
+		CredentialsChainVerboseErrors: aws.Bool(true),
+		Region:                        aws.String(connectionInfo.RegionInfo.Region),
 		//Region:      aws.String("ap-northeast-2"),
 		Credentials: credentials.NewStaticCredentials(connectionInfo.CredentialInfo.ClientId, connectionInfo.CredentialInfo.ClientSecret, "")},
 	)

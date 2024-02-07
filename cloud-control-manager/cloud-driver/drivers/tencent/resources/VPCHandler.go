@@ -46,8 +46,8 @@ func (VPCHandler *TencentVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.V
 	zoneId := VPCHandler.Region.Zone
 	cblogger.Infof("Zone : %s", zoneId)
 	if zoneId == "" {
-		cblogger.Error("Connection 정보에 Zone 정보가 없습니다.")
-		return irs.VPCInfo{}, errors.New("Connection 정보에 Zone 정보가 없습니다.")
+		cblogger.Error("Connection information does not contain Zone information.")
+		return irs.VPCInfo{}, errors.New("Connection information does not contain Zone information.")
 	}
 
 	// logger for HisCall
@@ -124,7 +124,7 @@ func (VPCHandler *TencentVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.V
 	return retVpcInfo, nil
 }
 
-//VPC 정보를 추출함
+// VPC 정보를 추출함
 func ExtractVpcDescribeInfo(vpcInfo *vpc.Vpc) irs.VPCInfo {
 	// cblogger.Debug("전달 받은 내용")
 	// spew.Dump(vpcInfo)
@@ -394,8 +394,8 @@ func (VPCHandler *TencentVPCHandler) AddSubnet(vpcIID irs.IID, subnetInfo irs.Su
 	zoneId := VPCHandler.Region.Zone
 	cblogger.Infof("Zone : %s", zoneId)
 	if zoneId == "" {
-		cblogger.Error("Connection 정보에 Zone 정보가 없습니다.")
-		return irs.VPCInfo{}, errors.New("Connection 정보에 Zone 정보가 없습니다.")
+		cblogger.Error("Connection information does not contain Zone information.")
+		return irs.VPCInfo{}, errors.New("Connection information does not contain Zone information.")
 	}
 
 	if subnetInfo.IId.NameId == "" {

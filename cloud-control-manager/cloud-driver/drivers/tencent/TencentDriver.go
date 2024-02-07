@@ -68,8 +68,8 @@ func getVmClient(connectionInfo idrv.ConnectionInfo) (*cvm.Client, error) {
 
 	zoneId := connectionInfo.RegionInfo.Zone
 	if len(zoneId) < 1 {
-		cblogger.Error("Connection 정보에 Zone 정보가 없습니다.")
-		return nil, errors.New("Connection 정보에 Zone 정보가 없습니다")
+		cblogger.Error("Connection information does not contain Zone information.")
+		return nil, errors.New("Connection information does not contain Zone information.")
 	}
 
 	credential := common.NewCredential(
@@ -99,8 +99,8 @@ func getVpcClient(connectionInfo idrv.ConnectionInfo) (*vpc.Client, error) {
 
 	zoneId := connectionInfo.RegionInfo.Zone
 	if len(zoneId) < 1 {
-		cblogger.Error("Connection 정보에 Zone 정보가 없습니다.")
-		return nil, errors.New("Connection 정보에 Zone 정보가 없습니다")
+		cblogger.Error("Connection information does not contain Zone information.")
+		return nil, errors.New("Connection Connection information does not contain Zone information.")
 	}
 
 	credential := common.NewCredential(
@@ -130,8 +130,8 @@ func getClbClient(connectionInfo idrv.ConnectionInfo) (*clb.Client, error) {
 
 	zoneId := connectionInfo.RegionInfo.Zone
 	if len(zoneId) < 1 {
-		cblogger.Error("Connection 정보에 Zone 정보가 없습니다.")
-		return nil, errors.New("Connection 정보에 Zone 정보가 없습니다")
+		cblogger.Error("Connection information does not contain Zone information.")
+		return nil, errors.New("Connection Connection information does not contain Zone information.")
 	}
 
 	credential := common.NewCredential(
@@ -161,8 +161,8 @@ func getCbsClient(connectionInfo idrv.ConnectionInfo) (*cbs.Client, error) {
 
 	zoneId := connectionInfo.RegionInfo.Zone
 	if len(zoneId) < 1 {
-		cblogger.Error("Connection 정보에 Zone 정보가 없습니다.")
-		return nil, errors.New("Connection 정보에 Zone 정보가 없습니다")
+		cblogger.Error("Connection information does not contain Zone information.")
+		return nil, errors.New("Connection Connection information does not contain Zone information.")
 	}
 
 	credential := common.NewCredential(

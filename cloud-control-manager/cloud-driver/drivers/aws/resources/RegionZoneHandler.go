@@ -18,7 +18,8 @@ type AwsRegionZoneHandler struct {
 }
 
 func (regionZoneHandler *AwsRegionZoneHandler) ListRegionZone() ([]*irs.RegionZoneInfo, error) {
-	responseRegions, err := DescribeRegions(regionZoneHandler.Client, true, "")
+
+	responseRegions, err := DescribeRegions(regionZoneHandler.Client, false, "")
 	if err != nil {
 		cblogger.Error(err)
 		return nil, err
@@ -41,8 +42,10 @@ func (regionZoneHandler *AwsRegionZoneHandler) ListRegionZone() ([]*irs.RegionZo
 
 			responseZones, err := DescribeAvailabilityZones(tempclient, true)
 			if err != nil {
-				cblogger.Errorf("AuthFailure on [%s]", *region.RegionName)
-				cblogger.Error(err)
+				cblogger.Infof("AuthFailure on [%s]", *region.RegionName)
+				cblogger.Infof(err.Error())
+				// cblogger.Errorf("AuthFailure on [%s]", *region.RegionName)
+				// cblogger.Error(err)
 			} else {
 				var zoneInfoList []irs.ZoneInfo
 				for _, zone := range responseZones.AvailabilityZones {

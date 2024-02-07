@@ -72,8 +72,8 @@ func (vmHandler *TencentVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 	zoneId := vmHandler.Region.Zone
 	cblogger.Debugf("Zone : %s", zoneId)
 	if zoneId == "" {
-		cblogger.Error("Connection 정보에 Zone 정보가 없습니다.")
-		return irs.VMInfo{}, errors.New("Connection 정보에 Zone 정보가 없습니다")
+		cblogger.Error("Connection information does not contain Zone information.")
+		return irs.VMInfo{}, errors.New("Connection Connection information does not contain Zone information.")
 	}
 
 	//=================================================
