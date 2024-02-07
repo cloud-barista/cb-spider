@@ -63,7 +63,7 @@ type PriceInfo struct {
 func getAzurePriceInfo(filterOption string) ([]byte, error) {
 	URL := AzurePriceApiEndpoint + "?$filter=" + url.QueryEscape(filterOption)
 
-	fmt.Println(URL)
+	fmt.Println(url.Parse(URL))
 
 	ctx := context.Background()
 	client := &http.Client{}
@@ -164,7 +164,7 @@ func (priceInfoHandler *AzurePriceInfoHandler) GetPriceInfo(productFamily string
 
 	organized := make(map[string][]Item)
 	for _, item := range priceInfo.Items {
-		organized[item.ProductID] = append(organized[item.ProductID], item)
+		organized[item.SkuID] = append(organized[item.SkuID], item)
 	}
 
 	var priceList []irs.Price
@@ -173,10 +173,12 @@ func (priceInfoHandler *AzurePriceInfoHandler) GetPriceInfo(productFamily string
 			continue
 		}
 
-		vCPUs := "NA"
-		memoryGB := "NA"
-		storageGB := "NA"
-		operatingSystem := "NA"
+		productInfo := irs.ProductInfo{
+			ProductId:      value[0].ProductID,
+			RegionName:     value[0].ArmRegionName,
+			Description:    value[0].ProductName,
+			CSPProductInfo: value[0],
+		}
 
 		if strings.ToLower(productFamily) == "compute" {
 			for _, val := range resultResourceSkusClient.Values() {
@@ -185,22 +187,39 @@ func (priceInfoHandler *AzurePriceInfoHandler) GetPriceInfo(productFamily string
 						if *capability.Name == "OSVhdSizeMB" {
 							sizeMB, _ := strconv.Atoi(*capability.Value)
 							sizeGB := float64(sizeMB) / 1024
-							storageGB = strconv.FormatFloat(sizeGB, 'f', -1, 64) + " GiB"
+							productInfo.Storage = strconv.FormatFloat(sizeGB, 'f', -1, 64) + " GiB"
 						} else if *capability.Name == "vCPUs" {
-							vCPUs = *capability.Value
+							productInfo.Vcpu = *capability.Value
 						} else if *capability.Name == "MemoryGB" {
-							memoryGB = *capability.Value + " GiB"
+							productInfo.Memory = *capability.Value + " GiB"
 						}
 					}
 				}
 			}
-		}
 
-		productNameToLower := strings.ToLower(value[0].ProductName)
-		if strings.Contains(productNameToLower, "windows") {
-			operatingSystem = "Windows"
-		} else if strings.Contains(productNameToLower, "linux") {
-			operatingSystem = "Linux"
+			productInfo.InstanceType = value[0].ArmSkuName
+
+			productNameToLower := strings.ToLower(value[0].ProductName)
+			armSkuNameToLower := strings.ToLower(value[0].ArmSkuName)
+			if strings.Contains(productNameToLower, "windows") ||
+				strings.Contains(armSkuNameToLower, "windows") {
+				productInfo.OperatingSystem = "Windows"
+			} else if strings.Contains(productNameToLower, "linux") ||
+				strings.Contains(armSkuNameToLower, "linux") {
+				productInfo.OperatingSystem = "Linux"
+			} else {
+				productInfo.OperatingSystem = "NA"
+			}
+
+			productInfo.Gpu = "NA"
+			productInfo.GpuMemory = "NA"
+			productInfo.PreInstalledSw = "NA"
+		} else if strings.ToLower(productFamily) == "storage" {
+			productInfo.VolumeType = value[0].SkuName
+			productInfo.StorageMedia = "NA"
+			productInfo.MaxVolumeSize = "NA"
+			productInfo.MaxIOPSVolume = "NA"
+			productInfo.MaxThroughputVolume = "NA"
 		}
 
 		var pricingPolicies []irs.PricingPolicies
@@ -217,25 +236,7 @@ func (priceInfoHandler *AzurePriceInfoHandler) GetPriceInfo(productFamily string
 		}
 
 		priceList = append(priceList, irs.Price{
-			ProductInfo: irs.ProductInfo{
-				ProductId:           value[0].ProductID,
-				RegionName:          value[0].ArmRegionName,
-				InstanceType:        value[0].ArmSkuName,
-				Vcpu:                vCPUs,
-				Memory:              memoryGB,
-				Storage:             storageGB,
-				Gpu:                 "NA",
-				GpuMemory:           "NA",
-				OperatingSystem:     operatingSystem,
-				PreInstalledSw:      "",
-				VolumeType:          "NA",
-				StorageMedia:        "NA",
-				MaxVolumeSize:       "",
-				MaxIOPSVolume:       "",
-				MaxThroughputVolume: "",
-				Description:         value[0].ProductName,
-				CSPProductInfo:      value[0],
-			},
+			ProductInfo: productInfo,
 			PriceInfo: irs.PriceInfo{
 				PricingPolicies: pricingPolicies,
 				CSPPriceInfo:    value,
