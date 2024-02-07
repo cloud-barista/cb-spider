@@ -12,6 +12,7 @@ import (
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	icon "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/connect"
 	icdrs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
+	im "github.com/cloud-barista/cb-spider/cloud-info-manager"
 	ccim "github.com/cloud-barista/cb-spider/cloud-info-manager/connection-config-info-manager"
 	cim "github.com/cloud-barista/cb-spider/cloud-info-manager/credential-info-manager"
 	dim "github.com/cloud-barista/cb-spider/cloud-info-manager/driver-info-manager"
@@ -44,6 +45,26 @@ func GetCloudDriver(cloudConnectName string) (idrv.CloudDriver, error) {
 	}
 
 	return getCloudDriver(*cldDrvInfo)
+}
+
+// 1. get the driver info
+// 2. get CloudDriver
+func getCloudDriverByDriverName(driverName string) (idrv.CloudDriver, error) {
+	cldDrvInfo, err := dim.GetCloudDriver(driverName)
+	if err != nil {
+		return nil, err
+	}
+
+	return getCloudDriver(*cldDrvInfo)
+}
+
+func getProviderNameByDriverName(driverName string) (string, error) {
+	cldDrvInfo, err := dim.GetCloudDriver(driverName)
+	if err != nil {
+		return "", err
+	}
+
+	return cldDrvInfo.ProviderName, nil
 }
 
 // 1. get credential info
@@ -101,6 +122,70 @@ func GetCloudConnection(cloudConnectName string) (icon.CloudConnection, error) {
 			Zone:          zoneName,
 			ResourceGroup: getValue(rgnInfo.KeyValueInfoList, "ResourceGroup"),
 		},
+	}
+
+	cldConnection, err := cldDriver.ConnectCloud(connectionInfo)
+	if err != nil {
+		return nil, err
+	}
+
+	return cldConnection, nil
+}
+
+// 1. get credential info
+// 2. get region info
+// 3. get CloudConneciton
+func GetCloudConnectionByDriverNameAndCredentialName(driverName string, credentialName string) (icon.CloudConnection, error) {
+	cldDriver, err := getCloudDriverByDriverName(driverName)
+	if err != nil {
+		return nil, err
+	}
+
+	crdInfo, err := cim.GetCredentialDecrypt(credentialName)
+	if err != nil {
+		return nil, err
+	}
+
+	providerName, err := getProviderNameByDriverName(driverName)
+	if err != nil {
+		return nil, err
+	}
+
+	connectionInfo := idrv.ConnectionInfo{ // @todo powerkim
+		CredentialInfo: idrv.CredentialInfo{
+			ClientId:         getValue(crdInfo.KeyValueInfoList, "ClientId"),
+			ClientSecret:     getValue(crdInfo.KeyValueInfoList, "ClientSecret"),
+			TenantId:         getValue(crdInfo.KeyValueInfoList, "TenantId"),
+			SubscriptionId:   getValue(crdInfo.KeyValueInfoList, "SubscriptionId"),
+			IdentityEndpoint: getValue(crdInfo.KeyValueInfoList, "IdentityEndpoint"),
+			Username:         getValue(crdInfo.KeyValueInfoList, "Username"),
+			Password:         getValue(crdInfo.KeyValueInfoList, "Password"),
+			DomainName:       getValue(crdInfo.KeyValueInfoList, "DomainName"),
+			ProjectID:        getValue(crdInfo.KeyValueInfoList, "ProjectID"),
+			AuthToken:        getValue(crdInfo.KeyValueInfoList, "AuthToken"),
+			ClientEmail:      getValue(crdInfo.KeyValueInfoList, "ClientEmail"),
+			PrivateKey:       getValue(crdInfo.KeyValueInfoList, "PrivateKey"),
+			Host:             getValue(crdInfo.KeyValueInfoList, "Host"),
+			APIVersion:       getValue(crdInfo.KeyValueInfoList, "APIVersion"),
+			MockName:         getValue(crdInfo.KeyValueInfoList, "MockName"),
+			ApiKey:           getValue(crdInfo.KeyValueInfoList, "ApiKey"),
+			ClusterId:        getValue(crdInfo.KeyValueInfoList, "ClusterId"),
+		},
+	}
+
+	// get Provider's Meta Info for default region
+	cloudOSMetaInfo, err := im.GetCloudOSMetaInfo(providerName)
+	if err != nil {
+		cblog.Error(err)
+		return nil, err
+	}
+	if cloudOSMetaInfo.DefaultRegionToQuery != nil {
+		if Length := len(cloudOSMetaInfo.DefaultRegionToQuery); Length == 1 {
+			connectionInfo.RegionInfo.Region = cloudOSMetaInfo.DefaultRegionToQuery[0]
+		} else if Length == 2 {
+			connectionInfo.RegionInfo.Region = cloudOSMetaInfo.DefaultRegionToQuery[0]
+			connectionInfo.RegionInfo.Zone = cloudOSMetaInfo.DefaultRegionToQuery[1]
+		}
 	}
 
 	cldConnection, err := cldDriver.ConnectCloud(connectionInfo)

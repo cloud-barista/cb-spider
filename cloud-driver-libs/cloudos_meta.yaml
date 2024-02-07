@@ -16,6 +16,7 @@ AWS:
   disksize: standard|1|1024|GB / gp2|1|16384|GB / gp3|1|16384|GB / io1|4|16384|GB / io2|4|16384|GB / st1|125|16384|GB / sc1|125|16384|GB
   # idmaxlength: VPC / Subnet / SecurityGroup / KeyPair / VM / Disk / NLB / MyImage / Cluster
   idmaxlength: 255 / 256 / 255 / 255 / 255 / 256 / 32 / 127 / 100
+  defaultregiontoquery: ap-northeast-2 / ap-northeast-2a
 
 AZURE:
   region: location / ResourceGroup
@@ -47,6 +48,7 @@ ALIBABA:
   disksize: cloud|5|2000|GB / cloud_efficiency|20|32768|GB / cloud_ssd|20|32768|GB / cloud_essd_PL0|40|32768|GB / cloud_essd_PL1|20|32768|GB / cloud_essd_PL2|461|32768|GB / cloud_essd_PL3|1261|32768|GB
   # idmaxlength: VPC / Subnet / SecurityGroup / KeyPair / VM / Disk / NLB / MyImage / Cluster
   idmaxlength: 128 / 128 / 128 / 128 / 128 / 128 / 80 / 128 / 63
+  defaultregiontoquery: ap-northeast-2 / ap-northeast-2a
 
 TENCENT:
   region: Region / Zone
@@ -58,6 +60,7 @@ TENCENT:
   disksize: CLOUD_PREMIUM|10|32000|GB / CLOUD_SSD|20|32000|GB / CLOUD_HSSD|20|32000|GB / CLOUD_BASIC|10|32000|GB / CLOUD_TSSD|10|32000|GB
   # idmaxlength: VPC / Subnet / SecurityGroup / KeyPair / VM / Disk / NLB / MyImage / Cluster
   idmaxlength: 60 / 60 / 60 / 25 / 88 / 60 / 60 / 60 /50
+  defaultregiontoquery: ap-seoul / ap-seoul-1
 
 IBM:
   region: Region / Zone

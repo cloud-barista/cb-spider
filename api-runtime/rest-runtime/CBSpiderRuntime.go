@@ -229,6 +229,10 @@ func RunServer() {
 		{"GET", "/regionzone/:Name", GetRegionZone},
 		{"GET", "/orgregion", ListOrgRegion},
 		{"GET", "/orgzone", ListOrgZone},
+		// by driverName & credentialName
+		{"GET", "/preconfig/regionzone", ListRegionZonePreConfig},
+		{"GET", "/preconfig/regionzone/:Name", GetRegionZonePreConfig},
+		{"GET", "/preconfig/orgregion", ListOrgRegionPreConfig},
 
 		//----------PriceInfo Handler
 		{"GET", "/productfamily/:RegionName", ListProductFamily},

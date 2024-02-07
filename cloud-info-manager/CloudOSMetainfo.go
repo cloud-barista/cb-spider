@@ -2,33 +2,36 @@ package cloudos
 
 import (
 	"fmt"
-	"github.com/fsnotify/fsnotify"
-	"gopkg.in/yaml.v3"
 	"io/ioutil"
 	"os"
 	"strings"
 	"sync"
+
+	"github.com/fsnotify/fsnotify"
+	"gopkg.in/yaml.v3"
 )
 
 type CloudOSMetaInfo struct {
-	Region       []string
-	Credential   []string
-	RootDiskType []string
-	RootDiskSize []string
-	DiskType     []string
-	DiskSize     []string
-	IdMaxLength  []string
+	Region               []string
+	Credential           []string
+	RootDiskType         []string
+	RootDiskSize         []string
+	DiskType             []string
+	DiskSize             []string
+	IdMaxLength          []string
+	DefaultRegionToQuery []string
 }
 
 // struct for unmarshal
 type YamlMetaInfo struct {
-	Region       string
-	Credential   string
-	RootDiskType string
-	RootDiskSize string
-	DiskType     string
-	DiskSize     string
-	IdMaxLength  string
+	Region               string
+	Credential           string
+	RootDiskType         string
+	RootDiskSize         string
+	DiskType             string
+	DiskSize             string
+	IdMaxLength          string
+	DefaultRegionToQuery string
 }
 
 // global variable to prevent file opereations
@@ -61,13 +64,14 @@ func GetCloudOSMetaInfo(cloudOS string) (CloudOSMetaInfo, error) {
 	rwMutex.Lock()
 	mInfo := metaInfo[cloudOS]
 	ret := CloudOSMetaInfo{
-		Region:       cloneSlice(mInfo.Region),
-		Credential:   cloneSlice(mInfo.Credential),
-		RootDiskType: cloneSlice(mInfo.RootDiskType),
-		RootDiskSize: cloneSlice(mInfo.RootDiskSize),
-		DiskType:     cloneSlice(mInfo.DiskType),
-		DiskSize:     cloneSlice(mInfo.DiskSize),
-		IdMaxLength:  cloneSlice(mInfo.IdMaxLength),
+		Region:               cloneSlice(mInfo.Region),
+		Credential:           cloneSlice(mInfo.Credential),
+		RootDiskType:         cloneSlice(mInfo.RootDiskType),
+		RootDiskSize:         cloneSlice(mInfo.RootDiskSize),
+		DiskType:             cloneSlice(mInfo.DiskType),
+		DiskSize:             cloneSlice(mInfo.DiskSize),
+		IdMaxLength:          cloneSlice(mInfo.IdMaxLength),
+		DefaultRegionToQuery: cloneSlice(mInfo.DefaultRegionToQuery),
 	}
 	rwMutex.Unlock()
 	return ret, nil
@@ -120,13 +124,14 @@ func convertAndSetMetaInfo(yamlMetaInfo map[string]YamlMetaInfo) {
 
 	for k, v := range yamlMetaInfo {
 		cloudOSMetaInfo := CloudOSMetaInfo{
-			Region:       splitAndTrim(v.Region),
-			Credential:   splitAndTrim(v.Credential),
-			RootDiskType: splitAndTrim(v.RootDiskType),
-			RootDiskSize: splitAndTrim(v.RootDiskSize),
-			DiskType:     splitAndTrim(v.DiskType),
-			DiskSize:     splitAndTrim(v.DiskSize),
-			IdMaxLength:  splitAndTrim(v.IdMaxLength),
+			Region:               splitAndTrim(v.Region),
+			Credential:           splitAndTrim(v.Credential),
+			RootDiskType:         splitAndTrim(v.RootDiskType),
+			RootDiskSize:         splitAndTrim(v.RootDiskSize),
+			DiskType:             splitAndTrim(v.DiskType),
+			DiskSize:             splitAndTrim(v.DiskSize),
+			IdMaxLength:          splitAndTrim(v.IdMaxLength),
+			DefaultRegionToQuery: splitAndTrim(v.DefaultRegionToQuery),
 		}
 		metaInfo[k] = cloudOSMetaInfo
 	}

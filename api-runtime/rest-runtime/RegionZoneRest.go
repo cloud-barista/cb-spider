@@ -120,3 +120,95 @@ func ListOrgZone(c echo.Context) error {
 
 	return c.String(http.StatusOK, result)
 }
+
+// ================ RegionZone Handler (Pre-Config Version)
+func ListRegionZonePreConfig(c echo.Context) error {
+	cblog.Info("call ListRegionZonePreConfig()")
+
+	var req struct {
+		DriverName     string
+		CredentialName string
+	}
+
+	if err := c.Bind(&req); err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	// To support for Get-Query Param Type API
+	if req.DriverName == "" {
+		req.DriverName = c.QueryParam("DriverName")
+	}
+	if req.CredentialName == "" {
+		req.CredentialName = c.QueryParam("CredentialName")
+	}
+
+	// Call common-runtime API
+	result, err := cmrt.ListRegionZonePreConfig(req.DriverName, req.CredentialName)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	var jsonResult struct {
+		Result []*cres.RegionZoneInfo `json:"regionzone"`
+	}
+	jsonResult.Result = result
+	return c.JSON(http.StatusOK, &jsonResult)
+}
+
+func GetRegionZonePreConfig(c echo.Context) error {
+	cblog.Info("call GetRegionZonePreConfig()")
+
+	var req struct {
+		DriverName     string
+		CredentialName string
+	}
+
+	if err := c.Bind(&req); err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	// To support for Get-Query Param Type API
+	if req.DriverName == "" {
+		req.DriverName = c.QueryParam("DriverName")
+	}
+	if req.CredentialName == "" {
+		req.CredentialName = c.QueryParam("CredentialName")
+	}
+
+	// Call common-runtime API
+	result, err := cmrt.GetRegionZonePreConfig(req.DriverName, req.CredentialName, c.Param("Name"))
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	return c.JSON(http.StatusOK, result)
+}
+
+func ListOrgRegionPreConfig(c echo.Context) error {
+	cblog.Info("call ListOrgRegionPreConfig()")
+
+	var req struct {
+		DriverName     string
+		CredentialName string
+	}
+
+	if err := c.Bind(&req); err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	// To support for Get-Query Param Type API
+	if req.DriverName == "" {
+		req.DriverName = c.QueryParam("DriverName")
+	}
+	if req.CredentialName == "" {
+		req.CredentialName = c.QueryParam("CredentialName")
+	}
+
+	// Call common-runtime API
+	result, err := cmrt.ListOrgRegionPreConfig(req.DriverName, req.CredentialName)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	return c.String(http.StatusOK, result)
+}
