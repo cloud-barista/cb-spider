@@ -12,6 +12,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"reflect"
 	"strconv"
 	"strings"
 	"time"
@@ -90,6 +91,76 @@ func getAzurePriceInfo(filterOption string) ([]byte, error) {
 	return responseBody, nil
 }
 
+func isFieldToFilterExist(structVal any, filterList []irs.KeyValue) (exist bool, fields []string) {
+	var val reflect.Value
+
+	if len(filterList) == 0 {
+		return false, fields
+	}
+
+	if _, ok := structVal.(irs.ProductInfo); ok {
+		data := structVal.(irs.ProductInfo)
+		val = reflect.ValueOf(&data).Elem()
+	} else if _, ok := structVal.(irs.PricingPolicies); ok {
+		data := structVal.(irs.PricingPolicies)
+		val = reflect.ValueOf(&data).Elem()
+	} else {
+		return false, fields
+	}
+
+	for i := 0; i < val.NumField(); i++ {
+		field := val.Type().Field(i).Name
+		fields = append(fields, field)
+	}
+
+	for _, filter := range filterList {
+		for _, field := range fields {
+			fieldToLower := strings.ToLower(field)
+			keyToLower := strings.ToLower(filter.Key)
+			if keyToLower == fieldToLower {
+				return true, fields
+			}
+		}
+	}
+
+	return false, fields
+}
+
+func isPicked(structVal any, fields []string, filterList []irs.KeyValue) bool {
+	var val reflect.Value
+
+	if _, ok := structVal.(irs.ProductInfo); ok {
+		data := structVal.(irs.ProductInfo)
+		val = reflect.ValueOf(&data).Elem()
+	} else if _, ok := structVal.(irs.PricingPolicies); ok {
+		data := structVal.(irs.PricingPolicies)
+		val = reflect.ValueOf(&data).Elem()
+	} else {
+		return false
+	}
+
+	if len(filterList) == 0 {
+		return true
+	}
+
+	for _, filter := range filterList {
+		for _, field := range fields {
+			fieldToLower := strings.ToLower(field)
+			keyToLower := strings.ToLower(filter.Key)
+			if keyToLower == fieldToLower {
+				fieldValue := reflect.Indirect(val).FieldByName(field).String()
+				fieldValueToLower := strings.ToLower(fieldValue)
+				valueToLower := strings.ToLower(filter.Value)
+				if strings.Contains(fieldValueToLower, valueToLower) {
+					return true
+				}
+			}
+		}
+	}
+
+	return false
+}
+
 func (priceInfoHandler *AzurePriceInfoHandler) ListProductFamily(regionName string) ([]string, error) {
 	hiscallInfo := GetCallLogScheme(priceInfoHandler.Region, call.PRICEINFO, "PriceInfo", "ListProductFamily()")
 	start := call.Start()
@@ -127,9 +198,6 @@ func (priceInfoHandler *AzurePriceInfoHandler) GetPriceInfo(productFamily string
 	start := call.Start()
 
 	filterOption := "serviceFamily eq '" + productFamily + "' and armRegionName eq '" + regionName + "'"
-	for _, filter := range filterList {
-		filterOption += " and " + filter.Key + " eq '" + filter.Value + "'"
-	}
 
 	result, err := getAzurePriceInfo(filterOption)
 	if err != nil {
@@ -223,25 +291,53 @@ func (priceInfoHandler *AzurePriceInfoHandler) GetPriceInfo(productFamily string
 		}
 
 		var pricingPolicies []irs.PricingPolicies
+		var isPickedByPricingPolicies bool
+		isPricingPoliciesFilterExist, fields := isFieldToFilterExist(irs.PricingPolicies{}, filterList)
+
 		for _, item := range value {
-			pricingPolicies = append(pricingPolicies, irs.PricingPolicies{
-				PricingId:         item.SkuID,
-				PricingPolicy:     item.Type,
-				Unit:              item.UnitOfMeasure,
-				Currency:          item.CurrencyCode,
-				Price:             strconv.FormatFloat(item.RetailPrice, 'f', -1, 64),
-				Description:       "NA",
-				PricingPolicyInfo: nil,
-			})
+			pricingPolicy := irs.PricingPolicies{
+				PricingId:     item.SkuID,
+				PricingPolicy: item.Type,
+				Unit:          item.UnitOfMeasure,
+				Currency:      item.CurrencyCode,
+				Price:         strconv.FormatFloat(item.RetailPrice, 'f', -1, 64),
+				Description:   "NA",
+				PricingPolicyInfo: &irs.PricingPolicyInfo{
+					LeaseContractLength: "NA",
+					OfferingClass:       "NA",
+					PurchaseOption:      "NA",
+				},
+			}
+
+			picked := true
+			if isPricingPoliciesFilterExist {
+				picked = isPicked(pricingPolicy, fields, filterList)
+				if picked {
+					isPickedByPricingPolicies = true
+				}
+			}
+			if picked {
+				pricingPolicies = append(pricingPolicies, pricingPolicy)
+			}
 		}
 
-		priceList = append(priceList, irs.Price{
-			ProductInfo: productInfo,
-			PriceInfo: irs.PriceInfo{
-				PricingPolicies: pricingPolicies,
-				CSPPriceInfo:    value,
-			},
-		})
+		picked := true
+		isProductInfoFilterExist, fields := isFieldToFilterExist(irs.ProductInfo{}, filterList)
+		if isProductInfoFilterExist {
+			picked = isPicked(productInfo, fields, filterList)
+		}
+		if picked {
+			if isPricingPoliciesFilterExist && !isPickedByPricingPolicies {
+				continue
+			}
+			priceList = append(priceList, irs.Price{
+				ProductInfo: productInfo,
+				PriceInfo: irs.PriceInfo{
+					PricingPolicies: pricingPolicies,
+					CSPPriceInfo:    value,
+				},
+			})
+		}
 	}
 
 	cloudPriceData := irs.CloudPriceData{
