@@ -587,13 +587,17 @@ func (priceInfoHandler *IbmPriceInfoHandler) GetPriceInfo(productFamily string, 
 
 					for _, price := range amount.Prices {
 						pricingPolicy := irs.PricingPolicies{
-							PricingId:         metric.MetricID,
-							PricingPolicy:     "quantity_tier=" + strconv.Itoa(price.QuantityTier),
-							Unit:              metric.ChargeUnit,
-							Currency:          currency,
-							Price:             strconv.FormatFloat(price.Price, 'f', -1, 64),
-							Description:       metric.ChargeUnitDisplayName,
-							PricingPolicyInfo: nil,
+							PricingId:     metric.MetricID,
+							PricingPolicy: "quantity_tier=" + strconv.Itoa(price.QuantityTier),
+							Unit:          metric.ChargeUnit,
+							Currency:      currency,
+							Price:         strconv.FormatFloat(price.Price, 'f', -1, 64),
+							Description:   metric.ChargeUnitDisplayName,
+							PricingPolicyInfo: &irs.PricingPolicyInfo{
+								LeaseContractLength: "NA",
+								OfferingClass:       "NA",
+								PurchaseOption:      "NA",
+							},
 						}
 
 						picked := true
