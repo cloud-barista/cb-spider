@@ -1751,7 +1751,7 @@ func handlePriceInfo() {
 				// Type : [TERM_CONTAIN, ANY_OF, TERM_MATCH, NONE_OF, CONTAINS, EQUALS]
 				// filterList = append(filterList, irs.KeyValue{Key: "filter", Value: "{\"Field\":\"instanceType\",\"Type\":\"TERM_MATCH\",\"Value\":\"t2.nano\"}"})
 				// filterList = append(filterList, irs.KeyValue{Key: "filter", Value: "{\"Field\":\"operatingSystem\",\"Type\":\"TERM_MATCH\",\"Value\":\"Linux\"}"})
-				filterList = append(filterList, irs.KeyValue{Key: "filter", Value: "{\"Field\":\"sku\",\"Type\":\"TERM_MATCH\",\"Value\":\"24MKFUYR8UGHCNGB\"}"})
+				//filterList = append(filterList, irs.KeyValue{Key: "filter", Value: "{\"Field\":\"sku\",\"Type\":\"TERM_MATCH\",\"Value\":\"24MKFUYR8UGHCNGB\"}"})
 
 				// TEST seraach data
 				// instanceType = t2.nano
@@ -1760,7 +1760,9 @@ func handlePriceInfo() {
 				// cli 에서 아래 명령어를 통해 attribute를 검색할 수 있음.
 				// aws pricing get-attribute-values --service-code AmazonEC2 --attribute-name instanceType
 
-				result, err := handler.GetPriceInfo("AmazonEC2", "ap-northeast-2", filterList)
+				//result, err := handler.GetPriceInfo("AmazonEC2", "ap-northeast-2", filterList)
+				result, err := handler.GetPriceInfo("AmazonEC2", "us-west-1", filterList)
+
 				if err != nil {
 					cblogger.Infof("GetPriceInfo 조회 실패 : ", err)
 				} else {
@@ -1926,6 +1928,8 @@ func readConfigFile() Config {
 	rootPath := os.Getenv("CBSPIDER_PATH")
 	cblogger.Infof("Test Data 설정파일 : [%s]", rootPath+"/config/config.yaml")
 	data, err := ioutil.ReadFile(rootPath + "/config/config.yaml")
+	data, err = ioutil.ReadFile("/Users/mzc01-swy/projects/feature_aws_filter_swy_240130/cloud-control-manager/cloud-driver/drivers/aws/main/Sample/config/config.yaml")
+
 	if err != nil {
 		panic(err)
 	}
@@ -1953,6 +1957,6 @@ func main() {
 	// handleVMSpec()
 	// handleNLB()
 	// handleCluster()
-	// handleRegionZone()
+	//handleRegionZone()
 	handlePriceInfo()
 }

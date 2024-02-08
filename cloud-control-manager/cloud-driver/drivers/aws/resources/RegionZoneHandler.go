@@ -5,6 +5,7 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/davecgh/go-spew/spew"
 
 	"github.com/aws/aws-sdk-go/service/ec2"
 
@@ -40,7 +41,7 @@ func (regionZoneHandler *AwsRegionZoneHandler) ListRegionZone() ([]*irs.RegionZo
 			}
 			tempclient := ec2.New(sess)
 
-			responseZones, err := DescribeAvailabilityZones(tempclient, true)
+			responseZones, err := DescribeAvailabilityZones(tempclient, false)
 			if err != nil {
 				cblogger.Infof("AuthFailure on [%s]", *region.RegionName)
 				cblogger.Infof(err.Error())
@@ -92,7 +93,7 @@ func (regionZoneHandler *AwsRegionZoneHandler) ListRegionZone() ([]*irs.RegionZo
 }
 
 func (regionZoneHandler *AwsRegionZoneHandler) GetRegionZone(Name string) (irs.RegionZoneInfo, error) {
-	responseRegions, err := DescribeRegions(regionZoneHandler.Client, true, Name)
+	responseRegions, err := DescribeRegions(regionZoneHandler.Client, false, Name)
 	if err != nil {
 		cblogger.Error(err)
 		return irs.RegionZoneInfo{}, err
@@ -100,15 +101,18 @@ func (regionZoneHandler *AwsRegionZoneHandler) GetRegionZone(Name string) (irs.R
 
 	var regionZoneInfo irs.RegionZoneInfo
 	for _, region := range responseRegions.Regions {
+		spew.Dump("####################", region.RegionName)
 		sess, err := session.NewSession(&aws.Config{
 			Region: region.RegionName,
+			//Region: aws.String("us-west-1"),
+
 		})
 		if err != nil {
 			cblogger.Error(err)
 		}
 		tempclient := ec2.New(sess)
 
-		responseZones, err := DescribeAvailabilityZones(tempclient, true)
+		responseZones, err := DescribeAvailabilityZones(tempclient, false)
 		if err != nil {
 			cblogger.Errorf("AuthFailure on [%s]", *region.RegionName)
 			cblogger.Error(err)
@@ -185,7 +189,7 @@ func (regionZoneHandler *AwsRegionZoneHandler) ListOrgZone() (string, error) {
 		} else {
 			tempclient := ec2.New(sess)
 
-			responseZones, err := DescribeAvailabilityZones(tempclient, true)
+			responseZones, err := DescribeAvailabilityZones(tempclient, false)
 			if err != nil {
 				cblogger.Errorf("DescribeAvailabilityZones err %s", *region.RegionName)
 				cblogger.Error(err)
