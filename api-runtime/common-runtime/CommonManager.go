@@ -720,18 +720,16 @@ func ListAllResource(connectionName string, rsType string) (AllResourceList, err
 	// (3) filtering CSP-list by IID-list
 	MappedList := []*cres.IID{}
 	OnlySpiderList := []*cres.IID{}
-	for _, iidInfo := range iidList {
+	for _, userIId := range iidList { // iidList has already userIId
 		exist := false
 		for _, iid := range iidCSPList {
-			userIId := makeUserIID(iidInfo.NameId, iidInfo.SystemId)
 			if userIId.SystemId == iid.SystemId {
-				MappedList = append(MappedList, &userIId)
+				MappedList = append(MappedList, userIId)
 				exist = true
 			}
 		}
 		if !exist {
-			userIId := makeUserIID(iidInfo.NameId, iidInfo.SystemId)
-			OnlySpiderList = append(OnlySpiderList, &userIId)
+			OnlySpiderList = append(OnlySpiderList, userIId)
 		}
 	}
 
