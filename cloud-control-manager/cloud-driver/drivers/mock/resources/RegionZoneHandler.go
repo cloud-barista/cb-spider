@@ -44,6 +44,31 @@ func PrepareRegionZone(mockName string) {
 
 	prepareRegionZoneInfoList = []*irs.RegionZoneInfo{
 		{
+			Name:        "default",
+			DisplayName: "Default Region",
+			ZoneList: []irs.ZoneInfo{
+				{
+					Name:         "default-z1",
+					DisplayName:  "Default Zone 1",
+					Status:       irs.ZoneAvailable,
+					KeyValueList: nil,
+				},
+				{
+					Name:         "default-z2",
+					DisplayName:  "Default Zone 2",
+					Status:       irs.ZoneUnavailable,
+					KeyValueList: nil,
+				},
+				{
+					Name:         "default-z3",
+					DisplayName:  "Default Zone 3",
+					Status:       irs.ZoneAvailable,
+					KeyValueList: nil,
+				},
+			},
+			KeyValueList: nil,
+		},
+		{
 			Name:        "mercury",
 			DisplayName: "Mercury Region",
 			ZoneList: []irs.ZoneInfo{
