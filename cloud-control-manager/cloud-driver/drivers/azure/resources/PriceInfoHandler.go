@@ -296,13 +296,17 @@ func (priceInfoHandler *AzurePriceInfoHandler) GetPriceInfo(productFamily string
 
 		for _, item := range value {
 			pricingPolicy := irs.PricingPolicies{
-				PricingId:         item.SkuID,
-				PricingPolicy:     item.Type,
-				Unit:              item.UnitOfMeasure,
-				Currency:          item.CurrencyCode,
-				Price:             strconv.FormatFloat(item.RetailPrice, 'f', -1, 64),
-				Description:       "NA",
-				PricingPolicyInfo: nil,
+				PricingId:     item.SkuID,
+				PricingPolicy: item.Type,
+				Unit:          item.UnitOfMeasure,
+				Currency:      item.CurrencyCode,
+				Price:         strconv.FormatFloat(item.RetailPrice, 'f', -1, 64),
+				Description:   "NA",
+				PricingPolicyInfo: &irs.PricingPolicyInfo{
+					LeaseContractLength: "NA",
+					OfferingClass:       "NA",
+					PurchaseOption:      "NA",
+				},
 			}
 
 			picked := true
