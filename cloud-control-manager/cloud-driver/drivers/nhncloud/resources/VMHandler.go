@@ -920,9 +920,9 @@ func (vmHandler *NhnCloudVMHandler) mappingVMInfo(server servers.Server) (irs.VM
 
 				vmInfo.RootDiskSize = strconv.Itoa(nhnVolume.Size)
 				vmInfo.RootDeviceName = nhnVolume.Attachments[0].Device
+			} else {
+				diskIIDs = append(diskIIDs, irs.IID{NameId: nhnVolume.Name, SystemId: nhnVolume.ID})
 			}
-
-			diskIIDs = append(diskIIDs, irs.IID{NameId: nhnVolume.Name, SystemId: nhnVolume.ID})
 		}
 	}
 	vmInfo.DataDiskIIDs = diskIIDs
