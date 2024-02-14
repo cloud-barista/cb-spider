@@ -47,10 +47,11 @@ func handleImage() {
 	for {
 		fmt.Println("\n============================================================================================")
 		fmt.Println("[ Image Management Test ]")
-		fmt.Println("1. Image List")
-		fmt.Println("2. Image Get")
-		fmt.Println("3. Image Create (TBD)")
-		fmt.Println("4. Image Delete (TBD)")
+		fmt.Println("1. ListImage()")
+		fmt.Println("2. GetImage()")
+		fmt.Println("3. CheckWindowsImage()")
+		fmt.Println("4. CreateImage (TBD)")
+		fmt.Println("5. DeleteImage (TBD)")
 		fmt.Println("0. Quit")
 		fmt.Println("\n   Select a number above!! : ")
 		fmt.Println("============================================================================================")
@@ -62,8 +63,8 @@ func handleImage() {
 		}
 
 		imageReqInfo := irs.ImageReqInfo{
-			IId: irs.IID{NameId: "Ubuntu Server 18.04.6 LTS (2021.12.21)", SystemId: "5396655e-166a-4875-80d2-ed8613aa054f"},
-			 //NHN Cloud : Ubuntu Server 18.04.6 LTS (2021.12.21)
+			// IId: irs.IID{NameId: "Ubuntu Server 18.04.6 LTS (2021.12.21)", SystemId: "5396655e-166a-4875-80d2-ed8613aa054f"},
+			IId: irs.IID{NameId: "Windows 2022 STD (2023.11.21) EN", SystemId: "2ffacb1d-8442-4ba1-b08e-d820a9d2ec9f"},
 
 			//IId: irs.IID{NameId: "CentOS 6.10 (2018.10.23)", SystemId: "1c868787-6207-4ff2-a1e7-ae1331d6829b"},
 		}
@@ -116,7 +117,25 @@ func handleImage() {
 
 				cblogger.Info("\nGetImage Test Finished")
 
-				// case 3:
+
+			case 3:
+				cblogger.Infof("[%s] CheckWindowsImage() 테스트", imageReqInfo.IId)
+
+				result, err := handler.CheckWindowsImage(imageReqInfo.IId)
+				if err != nil {
+					cblogger.Error(err)
+					cblogger.Error("[%s] CheckWindowsImage() 실패 : ", imageReqInfo.IId.SystemId, err)
+				} else {
+					fmt.Println("\n==================================================================================================================")
+					cblogger.Infof("[%s] CheckWindowsImage() 결과 : [%v]", imageReqInfo.IId.SystemId, result)
+
+					fmt.Println("\n")
+					spew.Dump(result)
+				}
+
+				cblogger.Info("\nCheckWindowsImage() Test Finished")	
+
+				// case 4:
 				// 	cblogger.Infof("[%s] Image 생성 테스트", imageReqInfo.IId.NameId)
 				// 	result, err := handler.CreateImage(imageReqInfo)
 				// 	if err != nil {
@@ -127,7 +146,7 @@ func handleImage() {
 				// 		spew.Dump(result)
 				// 	}
 
-				// case 4:
+				// case 5:
 				// 	cblogger.Infof("[%s] Image 삭제 테스트", imageReqInfo.IId.NameId)
 				// 	result, err := handler.DeleteImage(imageReqInfo.IId)
 				// 	if err != nil {
