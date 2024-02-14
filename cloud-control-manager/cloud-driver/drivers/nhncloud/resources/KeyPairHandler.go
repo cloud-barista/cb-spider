@@ -28,7 +28,7 @@ type NhnCloudKeyPairHandler struct {
 
 func (keyPairHandler *NhnCloudKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPairReqInfo) (irs.KeyPairInfo, error) {
 	cblogger.Info("NHN Cloud Driver: called CreateKey()")
-	callLogInfo := GetCallLogScheme(keyPairHandler.RegionInfo.Region, call.VMKEYPAIR, keyPairReqInfo.IId.NameId, "CreateKey()")
+	callLogInfo := getCallLogScheme(keyPairHandler.RegionInfo.Region, call.VMKEYPAIR, keyPairReqInfo.IId.NameId, "CreateKey()")
 
 	if keyPairReqInfo.IId.NameId == "" {
 		newErr := fmt.Errorf("Invalid KeyPair NameId.")
@@ -37,7 +37,7 @@ func (keyPairHandler *NhnCloudKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPa
 		return irs.KeyPairInfo{}, newErr
 	}
 
-	exist, err := CheckExistKey(keyPairHandler.VMClient, keyPairReqInfo.IId)
+	exist, err := checkExistKey(keyPairHandler.VMClient, keyPairReqInfo.IId)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Create Key. err = %s", err)
 		cblogger.Error(newErr.Error())
@@ -69,13 +69,13 @@ func (keyPairHandler *NhnCloudKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPa
 	}
 	LoggingInfo(callLogInfo, start)
 
-	keyPairInfo := MappingKeypairInfo(*keyPair)
+	keyPairInfo := mappingKeypairInfo(*keyPair)
 	return *keyPairInfo, nil
 }
 
 func (keyPairHandler *NhnCloudKeyPairHandler) ListKey() ([]*irs.KeyPairInfo, error) {
 	cblogger.Info("NHN Cloud Driver: called ListKey()")
-	callLogInfo := GetCallLogScheme(keyPairHandler.RegionInfo.Region, call.VMKEYPAIR, "ListKey()", "ListKey()")
+	callLogInfo := getCallLogScheme(keyPairHandler.RegionInfo.Region, call.VMKEYPAIR, "ListKey()", "ListKey()")
 
 	start := call.Start()
 	var listOptsBuilder keypairs.ListOptsBuilder
@@ -98,16 +98,16 @@ func (keyPairHandler *NhnCloudKeyPairHandler) ListKey() ([]*irs.KeyPairInfo, err
 
 	keyPairList := make([]*irs.KeyPairInfo, len(keypair))
 	for i, k := range keypair {
-		keyPairList[i] = MappingKeypairInfo(k)
+		keyPairList[i] = mappingKeypairInfo(k)
 	}
 	return keyPairList, nil
 }
 
 func (keyPairHandler *NhnCloudKeyPairHandler) GetKey(keyIID irs.IID) (irs.KeyPairInfo, error) {
 	cblogger.Info("NHN Cloud Driver: called GetKey()")
-	callLogInfo := GetCallLogScheme(keyPairHandler.RegionInfo.Region, call.VMKEYPAIR, keyIID.NameId, "GetKey()")
+	callLogInfo := getCallLogScheme(keyPairHandler.RegionInfo.Region, call.VMKEYPAIR, keyIID.NameId, "GetKey()")
 
-	if iidCheck := CheckIIDValidation(keyIID); !iidCheck {
+	if iidCheck := checkIIDValidation(keyIID); !iidCheck {
 		newErr := fmt.Errorf("Failed to Get Key. InValid IID")
 		cblogger.Error(newErr.Error())
 		LoggingError(callLogInfo, newErr)
@@ -115,7 +115,7 @@ func (keyPairHandler *NhnCloudKeyPairHandler) GetKey(keyIID irs.IID) (irs.KeyPai
 	}
 
 	start := call.Start()
-	keyPair, err := GetRawKey(keyPairHandler.VMClient, keyIID)
+	keyPair, err := getRawKey(keyPairHandler.VMClient, keyIID)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get Key. %s", err.Error())
 		cblogger.Error(newErr.Error())
@@ -124,15 +124,15 @@ func (keyPairHandler *NhnCloudKeyPairHandler) GetKey(keyIID irs.IID) (irs.KeyPai
 	}
 	LoggingInfo(callLogInfo, start)
 
-	keyPairInfo := MappingKeypairInfo(keyPair)
+	keyPairInfo := mappingKeypairInfo(keyPair)
 	return *keyPairInfo, nil
 }
 
 func (keyPairHandler *NhnCloudKeyPairHandler) DeleteKey(keyIID irs.IID) (bool, error) {
 	cblogger.Info("NHN Cloud Driver: called DeleteKey()")
-	callLogInfo := GetCallLogScheme(keyPairHandler.RegionInfo.Region, call.VMKEYPAIR, keyIID.NameId, "DeleteKey()")
+	callLogInfo := getCallLogScheme(keyPairHandler.RegionInfo.Region, call.VMKEYPAIR, keyIID.NameId, "DeleteKey()")
 	
-	exist, err := CheckExistKey(keyPairHandler.VMClient, keyIID)
+	exist, err := checkExistKey(keyPairHandler.VMClient, keyIID)
 	if err != nil {
 		delErr := fmt.Errorf("Failed to Delete Key. %s", err)
 		cblogger.Error(delErr.Error())
@@ -166,8 +166,8 @@ func (keyPairHandler *NhnCloudKeyPairHandler) DeleteKey(keyIID irs.IID) (bool, e
 	return true, nil
 }
 
-func CheckExistKey(client *nhnsdk.ServiceClient, keyIID irs.IID) (bool, error) {
-	if ok := CheckIIDValidation(keyIID); !ok {
+func checkExistKey(client *nhnsdk.ServiceClient, keyIID irs.IID) (bool, error) {
+	if ok := checkIIDValidation(keyIID); !ok {
 		return false, fmt.Errorf("Invalid KeyPair IID!!")
 	}
 
@@ -197,7 +197,7 @@ func CheckExistKey(client *nhnsdk.ServiceClient, keyIID irs.IID) (bool, error) {
 	return false, nil
 }
 
-func GetRawKey(client *nhnsdk.ServiceClient, keyIID irs.IID) (keypairs.KeyPair, error) {
+func getRawKey(client *nhnsdk.ServiceClient, keyIID irs.IID) (keypairs.KeyPair, error) {
 	keyName := keyIID.SystemId
 
 	if keyIID.SystemId == "" {
@@ -213,7 +213,9 @@ func GetRawKey(client *nhnsdk.ServiceClient, keyIID irs.IID) (keypairs.KeyPair, 
 	return *keyPair, nil
 }
 
-func MappingKeypairInfo(keypair keypairs.KeyPair) *irs.KeyPairInfo {
+func mappingKeypairInfo(keypair keypairs.KeyPair) *irs.KeyPairInfo {
+	cblogger.Info("NHN Cloud Driver: called mappingKeypairInfo()")
+
 	keypairInfo := &irs.KeyPairInfo{
 		IId: irs.IID{
 			NameId:   keypair.Name,

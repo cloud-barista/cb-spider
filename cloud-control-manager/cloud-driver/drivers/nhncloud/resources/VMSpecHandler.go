@@ -33,7 +33,7 @@ type NhnCloudVMSpecHandler struct {
 
 func (vmSpecHandler *NhnCloudVMSpecHandler) ListVMSpec() ([]*irs.VMSpecInfo, error) {
 	cblogger.Info("NHN Cloud Cloud Driver: called ListVMSpec()!")
-	callLogInfo := GetCallLogScheme(vmSpecHandler.RegionInfo.Region, call.VMSPEC, "ListVMSpec()", "ListVMSpec()")
+	callLogInfo := getCallLogScheme(vmSpecHandler.RegionInfo.Region, call.VMSPEC, "ListVMSpec()", "ListVMSpec()")
 
 	listOpts :=	flavors.ListOpts{
 		Limit: 100,  // Note) default : 20
@@ -53,7 +53,7 @@ func (vmSpecHandler *NhnCloudVMSpecHandler) ListVMSpec() ([]*irs.VMSpecInfo, err
 
 	var vmSpecInfoList []*irs.VMSpecInfo
     for _, vmSpec := range specList {
-		vmSpecInfo := vmSpecHandler.MappingVMSpecInfo(vmSpec)
+		vmSpecInfo := vmSpecHandler.mappingVMSpecInfo(vmSpec)
 		vmSpecInfoList = append(vmSpecInfoList, vmSpecInfo)
     }
 	return vmSpecInfoList, nil
@@ -61,7 +61,7 @@ func (vmSpecHandler *NhnCloudVMSpecHandler) ListVMSpec() ([]*irs.VMSpecInfo, err
 
 func (vmSpecHandler *NhnCloudVMSpecHandler) GetVMSpec(specName string) (irs.VMSpecInfo, error) {
 	cblogger.Info("NHN Cloud Cloud Driver: called GetVMSpec()!")
-	callLogInfo := GetCallLogScheme(vmSpecHandler.RegionInfo.Region, call.VMSPEC, specName, "GetVMSpec()")
+	callLogInfo := getCallLogScheme(vmSpecHandler.RegionInfo.Region, call.VMSPEC, specName, "GetVMSpec()")
 
 	if strings.EqualFold(specName, "") {
 		rtnErr := logAndReturnError(callLogInfo, "Invalid vmSpec Name!!", "")
@@ -82,13 +82,13 @@ func (vmSpecHandler *NhnCloudVMSpecHandler) GetVMSpec(specName string) (irs.VMSp
 	LoggingInfo(callLogInfo, start)
 	// spew.Dump(flavor)
 
-	vmSpecInfo := vmSpecHandler.MappingVMSpecInfo(*flavor)
+	vmSpecInfo := vmSpecHandler.mappingVMSpecInfo(*flavor)
 	return *vmSpecInfo, nil
 }
 
 func (vmSpecHandler *NhnCloudVMSpecHandler) ListOrgVMSpec() (string, error) {
 	cblogger.Info("NHN Cloud Cloud Driver: called ListOrgVMSpec()!")
-	callLogInfo := GetCallLogScheme(vmSpecHandler.RegionInfo.Region, call.VMSPEC, "ListOrgVMSpec()", "ListOrgVMSpec()")
+	callLogInfo := getCallLogScheme(vmSpecHandler.RegionInfo.Region, call.VMSPEC, "ListOrgVMSpec()", "ListOrgVMSpec()")
 
 	start := call.Start()
 	allPages, err := flavors.ListDetail(vmSpecHandler.VMClient, flavors.ListOpts{}).AllPages()
@@ -108,7 +108,7 @@ func (vmSpecHandler *NhnCloudVMSpecHandler) ListOrgVMSpec() (string, error) {
 	}
 	flvList.Result = flavorList
 
-	jsonString, err := ConvertJsonString(flvList)
+	jsonString, err := convertJsonString(flvList)
 	if err != nil {
 		rtnErr := logAndReturnError(callLogInfo, "Failed to Convert to Json String : ", err)
 		return "", rtnErr
@@ -118,7 +118,7 @@ func (vmSpecHandler *NhnCloudVMSpecHandler) ListOrgVMSpec() (string, error) {
 
 func (vmSpecHandler *NhnCloudVMSpecHandler) GetOrgVMSpec(specName string) (string, error) {
 	cblogger.Info("NHN Cloud Cloud Driver: called GetOrgVMSpec()!")
-	callLogInfo := GetCallLogScheme(vmSpecHandler.RegionInfo.Region, call.VMSPEC, specName, "GetOrgVMSpec()")
+	callLogInfo := getCallLogScheme(vmSpecHandler.RegionInfo.Region, call.VMSPEC, specName, "GetOrgVMSpec()")
 
 	if strings.EqualFold(specName, "") {
 		rtnErr := logAndReturnError(callLogInfo, "Invalid vmSpec Name!!", "")
@@ -144,7 +144,7 @@ func (vmSpecHandler *NhnCloudVMSpecHandler) GetOrgVMSpec(specName string) (strin
 	}
 	nhnFlavor.Result = *flavor
 
-	jsonString, err := ConvertJsonString(nhnFlavor)
+	jsonString, err := convertJsonString(nhnFlavor)
 	if err != nil {
 		rtnErr := logAndReturnError(callLogInfo, "Failed to Convert to Json String : ", err)
 		return "", rtnErr
@@ -152,15 +152,15 @@ func (vmSpecHandler *NhnCloudVMSpecHandler) GetOrgVMSpec(specName string) (strin
 	return jsonString, nil
 }
 
-func (vmSpecHandler *NhnCloudVMSpecHandler) MappingVMSpecInfo(vmSpec flavors.Flavor) *irs.VMSpecInfo {
-	cblogger.Info("NHN Cloud Cloud Driver: called MappingVMSpecInfo()!")
+func (vmSpecHandler *NhnCloudVMSpecHandler) mappingVMSpecInfo(vmSpec flavors.Flavor) *irs.VMSpecInfo {
+	cblogger.Info("NHN Cloud Cloud Driver: called mappingVMSpecInfo()!")
 
 	vmSpecInfo := &irs.VMSpecInfo {
 		Region:       vmSpecHandler.RegionInfo.Region,
 		Name:         vmSpec.Name,
-		VCpu:         irs.VCpuInfo{Count: strconv.Itoa(vmSpec.VCPUs), Clock: "N/A"},
+		VCpu:         irs.VCpuInfo{Count: strconv.Itoa(vmSpec.VCPUs),},
 		Mem:          strconv.Itoa(vmSpec.RAM),
-		Gpu:          []irs.GpuInfo{{Count: "N/A", Mfr: "N/A", Model: "N/A", Mem: "N/A"}},
+		// Gpu:          []irs.GpuInfo{{Count: "N/A", Mfr: "N/A", Model: "N/A", Mem: "N/A"}},
 
 		KeyValueList: []irs.KeyValue{
 			{Key: "Region", Value: vmSpecHandler.RegionInfo.Region},

@@ -17,7 +17,7 @@ import (
 	"strings"
 	"fmt"
 	"sync"
-	"github.com/davecgh/go-spew/spew"
+	// "github.com/davecgh/go-spew/spew"
 
 	nhnsdk "github.com/cloud-barista/nhncloud-sdk-go"
 	"github.com/cloud-barista/nhncloud-sdk-go/openstack/networking/v2/extensions/external"
@@ -41,7 +41,7 @@ type NetworkWithExt struct {
 
 func (vpcHandler *NhnCloudVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.VPCInfo, error) {
 	cblogger.Info("NHN Cloud Cloud Driver: called CreateVPC()!")
-	callLogInfo := GetCallLogScheme(vpcHandler.RegionInfo.Region, call.VPCSUBNET, vpcReqInfo.IId.NameId, "CreateVPC()")
+	callLogInfo := getCallLogScheme(vpcHandler.RegionInfo.Region, call.VPCSUBNET, vpcReqInfo.IId.NameId, "CreateVPC()")
 
 	if strings.EqualFold(vpcReqInfo.IId.NameId, "") {
 		newErr := fmt.Errorf("Invalid VPC NameId!!")
@@ -85,10 +85,9 @@ func (vpcHandler *NhnCloudVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.
 
 	// Create Subnet
 	var subnetList []irs.SubnetInfo
-
 	for _, subnet := range vpcReqInfo.SubnetInfoList {
 		cblogger.Infof("# Subnet NameId to Create : [%s]", subnet.IId.NameId)
-		newSubnet, err := vpcHandler.CreateSubnet(subnet) // Caution!! For IID2 NameID validation check for Subnet
+		newSubnet, err := vpcHandler.createSubnet(subnet) // Caution!! For IID2 NameID validation check for Subnet
 		if err != nil {
 			cblogger.Errorf("Failed to Create NHN Cloud Sunbnet : [%v]", err)
 			LoggingError(callLogInfo, err)
@@ -98,16 +97,13 @@ func (vpcHandler *NhnCloudVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.
 	}
 
 	vpcInfo.SubnetInfoList = subnetList
-	// vpcInfo.IPv4_CIDR = vpcReqInfo.IPv4_CIDR  // Caution!! NHN Cloud doesn't return CIDR info so, ~~~.    
-
 	return vpcInfo, err
 }
 
 func (vpcHandler *NhnCloudVPCHandler) GetVPC(vpcIID irs.IID) (irs.VPCInfo, error) {
 	cblogger.Info("NHN Cloud Cloud Driver: called GetVPC()!")
-	callLogInfo := GetCallLogScheme(vpcHandler.RegionInfo.Region, call.VPCSUBNET, vpcIID.SystemId, "GetVPC()")
+	callLogInfo := getCallLogScheme(vpcHandler.RegionInfo.Region, call.VPCSUBNET, vpcIID.SystemId, "GetVPC()")
 
-	cblogger.Infof("\n\n### vpcIID.SystemId : %s", vpcIID.SystemId)
 	if strings.EqualFold(vpcIID.SystemId, "") {
 		newErr := fmt.Errorf("Invalid VPC SystemId!!")
 		cblogger.Error(newErr.Error())
@@ -125,17 +121,13 @@ func (vpcHandler *NhnCloudVPCHandler) GetVPC(vpcIID irs.IID) (irs.VPCInfo, error
 	}
 	LoggingInfo(callLogInfo, start)
 
-	vpcInfo := vpcHandler.MappingVpcInfo(vpc)
-
-	cblogger.Info("\n\n### vpcInfo :")
-	spew.Dump(vpcInfo)
-
+	vpcInfo := vpcHandler.mappingVpcInfo(vpc)
 	return *vpcInfo, nil
 }
 
 func (vpcHandler *NhnCloudVPCHandler) ListVPC() ([]*irs.VPCInfo, error) {
 	cblogger.Info("NHN Cloud Cloud Driver: called ListVPC()!")
-	callLogInfo := GetCallLogScheme(vpcHandler.RegionInfo.Region, call.VPCSUBNET, "ListVPC()", "ListVPC()")
+	callLogInfo := getCallLogScheme(vpcHandler.RegionInfo.Region, call.VPCSUBNET, "ListVPC()", "ListVPC()")
 
 	start := call.Start()
 	listOpts := external.ListOptsExt{
@@ -149,9 +141,6 @@ func (vpcHandler *NhnCloudVPCHandler) ListVPC() ([]*irs.VPCInfo, error) {
 	}
 	LoggingInfo(callLogInfo, start)
 
-	// cblogger.Info("\n\n### allPages :")
-	// spew.Dump(allPages)
-
 	// To Get VPC info list
 	var vpcList []NetworkWithExt
 	err = networks.ExtractNetworksInto(allPages, &vpcList)
@@ -163,7 +152,7 @@ func (vpcHandler *NhnCloudVPCHandler) ListVPC() ([]*irs.VPCInfo, error) {
 
 	var vpcInfoList []*irs.VPCInfo
 	for _, vpc := range vpcList {
-		vpcInfo := vpcHandler.MappingVpcInfo(vpc)
+		vpcInfo := vpcHandler.mappingVpcInfo(vpc)
 		vpcInfoList = append(vpcInfoList, vpcInfo)
 	}
 	return vpcInfoList, nil
@@ -171,7 +160,7 @@ func (vpcHandler *NhnCloudVPCHandler) ListVPC() ([]*irs.VPCInfo, error) {
 
 func (vpcHandler *NhnCloudVPCHandler) DeleteVPC(vpcIID irs.IID) (bool, error) {
 	cblogger.Info("NHN Cloud Cloud Driver: called DeleteVPC()!")
-	callLogInfo := GetCallLogScheme(vpcHandler.RegionInfo.Region, call.VPCSUBNET, vpcIID.SystemId, "DeleteVPC()")
+	callLogInfo := getCallLogScheme(vpcHandler.RegionInfo.Region, call.VPCSUBNET, vpcIID.SystemId, "DeleteVPC()")
 
 	//To check whether the VPC exists.
 	cblogger.Infof("vpcIID.SystemId to Delete : [%s]", vpcIID.SystemId)
@@ -188,12 +177,12 @@ func (vpcHandler *NhnCloudVPCHandler) DeleteVPC(vpcIID irs.IID) (bool, error) {
 	return true, nil
 }
 
-func (vpcHandler *NhnCloudVPCHandler) CreateSubnet(subnetReqInfo irs.SubnetInfo) (irs.SubnetInfo, error) {
-	cblogger.Info("NHN Cloud cloud driver: called CreateSubnet()!!")
-	callLogInfo := GetCallLogScheme(vpcHandler.RegionInfo.Region, call.VPCSUBNET, subnetReqInfo.IId.NameId, "CreateSubnet()")
+func (vpcHandler *NhnCloudVPCHandler) createSubnet(subnetReqInfo irs.SubnetInfo) (irs.SubnetInfo, error) {
+	cblogger.Info("NHN Cloud cloud driver: called createSubnet()!!")
+	callLogInfo := getCallLogScheme(vpcHandler.RegionInfo.Region, call.VPCSUBNET, subnetReqInfo.IId.NameId, "createSubnet()")
 
 	if subnetReqInfo.IId.NameId == "" {
-		newErr := fmt.Errorf("Invalid Sunbet NameId!!")
+		newErr := fmt.Errorf("Invalid Subnet NameId!!")
 		cblogger.Error(newErr.Error())
 		LoggingError(callLogInfo, newErr)
 		return irs.SubnetInfo{}, newErr
@@ -209,9 +198,6 @@ func (vpcHandler *NhnCloudVPCHandler) CreateSubnet(subnetReqInfo irs.SubnetInfo)
 		return irs.SubnetInfo{}, err
 	}
 
-	// cblogger.Info("\n\n### allPages :")
-	// spew.Dump(allPages)
-
 	// To Get VPC info list
 	var vpcList []NetworkWithExt
 	err = networks.ExtractNetworksInto(allPages, &vpcList)
@@ -226,7 +212,7 @@ func (vpcHandler *NhnCloudVPCHandler) CreateSubnet(subnetReqInfo irs.SubnetInfo)
 	// To Get Subnet info with the originalNameId
 	for _, vpc := range vpcList {
 		for _, subnetId := range vpc.Subnets {
-			subnetInfo, err := vpcHandler.GetSubnet(irs.IID{SystemId: subnetId})
+			subnetInfo, err := vpcHandler.getSubnet(irs.IID{SystemId: subnetId})
 			if err != nil {
 				cblogger.Errorf("Failed to Get Subnet with Id [%s] : %s", subnetId, err)
 				continue
@@ -249,10 +235,9 @@ func (vpcHandler *NhnCloudVPCHandler) CreateSubnet(subnetReqInfo irs.SubnetInfo)
 	return newSubnetInfo, err
 }
 
-func (vpcHandler *NhnCloudVPCHandler) GetSubnet(subnetIId irs.IID) (irs.SubnetInfo, error) {
-	cblogger.Info("NHN Cloud cloud driver: called GetSubnet()!!")
-	// HisCall logging
-	callLogInfo := GetCallLogScheme(vpcHandler.RegionInfo.Region, call.VPCSUBNET, subnetIId.SystemId, "GetSubnet()")
+func (vpcHandler *NhnCloudVPCHandler) getSubnet(subnetIId irs.IID) (irs.SubnetInfo, error) {
+	cblogger.Info("NHN Cloud cloud driver: called getSubnet()!!")
+	callLogInfo := getCallLogScheme(vpcHandler.RegionInfo.Region, call.VPCSUBNET, subnetIId.SystemId, "getSubnet()")
 
 	if strings.EqualFold(subnetIId.SystemId, "") {
 		newErr := fmt.Errorf("Invalid Subnet SystemId!!")
@@ -267,7 +252,7 @@ func (vpcHandler *NhnCloudVPCHandler) GetSubnet(subnetIId irs.IID) (irs.SubnetIn
 		LoggingError(callLogInfo, err)
 		return irs.SubnetInfo{}, nil
 	}
-	subnetInfo := vpcHandler.MappingSubnetInfo(*subnet)
+	subnetInfo := vpcHandler.mappingSubnetInfo(*subnet)
 	return *subnetInfo, nil
 }
 
@@ -283,14 +268,12 @@ func (vpcHandler *NhnCloudVPCHandler) RemoveSubnet(vpcIID irs.IID, subnetIID irs
 
 func (vpcHandler *NhnCloudVPCHandler) DeleteSubnet(subnetIId irs.IID) (bool, error) {
 	cblogger.Info("NHN Cloud cloud driver: called DeleteSubnet()!!")
-
-	// HisCall logging
-	callLogInfo := GetCallLogScheme(vpcHandler.RegionInfo.Region, call.VPCSUBNET, subnetIId.SystemId, "DeleteSubnet()")
+	callLogInfo := getCallLogScheme(vpcHandler.RegionInfo.Region, call.VPCSUBNET, subnetIId.SystemId, "DeleteSubnet()")
 
 	//To check whether the Subnet exists.
 	cblogger.Infof("subnetIId.SystemId to Delete : [%s]", subnetIId.SystemId)
 
-	subnetInfo, err := vpcHandler.GetSubnet(subnetIId)
+	subnetInfo, err := vpcHandler.getSubnet(subnetIId)
 	if err != nil {
 		cblogger.Errorf("Failed to Find the Subnet with the SystemID. : [%s] : %v", subnetIId.SystemId, err)
 		LoggingError(callLogInfo, err)
@@ -301,7 +284,7 @@ func (vpcHandler *NhnCloudVPCHandler) DeleteSubnet(subnetIId irs.IID) (bool, err
 	return true, nil
 }
 
-func (vpcHandler *NhnCloudVPCHandler) MappingVpcInfo(nvpc NetworkWithExt) *irs.VPCInfo {
+func (vpcHandler *NhnCloudVPCHandler) mappingVpcInfo(nvpc NetworkWithExt) *irs.VPCInfo {
 	// Mapping VPC info.
 	vpcInfo := irs.VPCInfo {
 		IId: irs.IID{
@@ -309,7 +292,7 @@ func (vpcHandler *NhnCloudVPCHandler) MappingVpcInfo(nvpc NetworkWithExt) *irs.V
 			SystemId: nvpc.ID,
 		},
 	}
-	vpcInfo.IPv4_CIDR = "N/A"
+	// vpcInfo.IPv4_CIDR = "N/A"
 
 	var External string
 	if nvpc.External {
@@ -324,9 +307,6 @@ func (vpcHandler *NhnCloudVPCHandler) MappingVpcInfo(nvpc NetworkWithExt) *irs.V
 	}
 	vpcInfo.KeyValueList = keyValueList
 
-	// cblogger.Info("# nvpc.Subnets : ")
-	// spew.Dump(nvpc.Subnets)
-
 	// Get Subnet info list.
 	var subnetInfoList []irs.SubnetInfo
 	var wait sync.WaitGroup
@@ -334,7 +314,7 @@ func (vpcHandler *NhnCloudVPCHandler) MappingVpcInfo(nvpc NetworkWithExt) *irs.V
 		wait.Add(1)
 		go func(subnetId string) {
 			defer wait.Done()
-			subnetInfo, err := vpcHandler.GetSubnet(irs.IID{SystemId: subnetId})
+			subnetInfo, err := vpcHandler.getSubnet(irs.IID{SystemId: subnetId})
 			if err != nil {
 				cblogger.Errorf("Failed to Get Subnet info with the subnetId [%s]. [%v]", subnetId, err)
 				// continue
@@ -345,12 +325,10 @@ func (vpcHandler *NhnCloudVPCHandler) MappingVpcInfo(nvpc NetworkWithExt) *irs.V
 	wait.Wait()
 
 	vpcInfo.SubnetInfoList = subnetInfoList
-	// cblogger.Info("# vpcInfo.SubnetInfoList : ")
-	// spew.Dump(vpcInfo.SubnetInfoList)
 	return &vpcInfo
 }
 
-func (vpcHandler *NhnCloudVPCHandler) MappingSubnetInfo(subnet subnets.Subnet) *irs.SubnetInfo {
+func (vpcHandler *NhnCloudVPCHandler) mappingSubnetInfo(subnet subnets.Subnet) *irs.SubnetInfo {
 	// spew.Dump(subnet)
 	subnetInfo := irs.SubnetInfo{
 		IId: irs.IID{

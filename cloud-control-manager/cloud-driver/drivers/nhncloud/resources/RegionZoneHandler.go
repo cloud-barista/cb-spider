@@ -56,7 +56,7 @@ type NhnCloudRegionZoneHandler struct {
 
 func (regionZoneHandler *NhnCloudRegionZoneHandler) ListRegionZone() ([]*irs.RegionZoneInfo, error) {
 	cblogger.Info("NHN Cloud Driver: called ListRegionZone()!!")
-	callLogInfo := GetCallLogScheme(regionZoneHandler.RegionInfo.Zone, call.REGIONZONE, "ListRegionZone()", "ListRegionZone()")
+	callLogInfo := getCallLogScheme(regionZoneHandler.RegionInfo.Zone, call.REGIONZONE, "ListRegionZone()", "ListRegionZone()")
 
 	nhnRegionList := getSupportedRegions()
 	// cblogger.Infof("# nhnRegionlist : [%d]", len(nhnRegionList))
@@ -101,7 +101,7 @@ func (regionZoneHandler *NhnCloudRegionZoneHandler) ListRegionZone() ([]*irs.Reg
 
 func (regionZoneHandler NhnCloudRegionZoneHandler) GetRegionZone(regionCode string) (irs.RegionZoneInfo, error) {
 	cblogger.Info("NHN Cloud Driver: called GetRegionZone()!!")
-	callLogInfo := GetCallLogScheme(regionZoneHandler.RegionInfo.Zone, call.REGIONZONE, regionCode, "GetRegionZone()")
+	callLogInfo := getCallLogScheme(regionZoneHandler.RegionInfo.Zone, call.REGIONZONE, regionCode, "GetRegionZone()")
 
 	nhnRegionList := getSupportedRegions()
 	var regionZoneInfo irs.RegionZoneInfo
@@ -141,7 +141,7 @@ func (regionZoneHandler NhnCloudRegionZoneHandler) GetRegionZone(regionCode stri
 
 func (regionZoneHandler *NhnCloudRegionZoneHandler) ListOrgRegion() (string, error) {
 	cblogger.Info("NHN Cloud Driver: called ListOrgRegion()!!")
-	callLogInfo := GetCallLogScheme(regionZoneHandler.RegionInfo.Zone, call.REGIONZONE, "ListOrgRegion()", "ListOrgRegion()")
+	callLogInfo := getCallLogScheme(regionZoneHandler.RegionInfo.Zone, call.REGIONZONE, "ListOrgRegion()", "ListOrgRegion()")
 
 	// To return the results with a style similar to other CSPs.
 	type Regions struct {
@@ -152,7 +152,7 @@ func (regionZoneHandler *NhnCloudRegionZoneHandler) ListOrgRegion() (string, err
 	regionList := Regions{
 		RegionList: nhnRegionList,
 	}
-	jsonString, err := ConvertJsonString(regionList)
+	jsonString, err := convertJsonString(regionList)
 	if err != nil {
 		rtnErr := logAndReturnError(callLogInfo, "Failed to Convert to Json String : ", err)
 		return "", rtnErr
@@ -163,7 +163,7 @@ func (regionZoneHandler *NhnCloudRegionZoneHandler) ListOrgRegion() (string, err
 func (regionZoneHandler *NhnCloudRegionZoneHandler) ListOrgZone() (string, error) {
 	cblogger.Info("NHN Cloud Driver: called ListOrgZone()!!")	
 
-	callLogInfo := GetCallLogScheme(regionZoneHandler.RegionInfo.Zone, call.REGIONZONE, regionZoneHandler.RegionInfo.Region, "ListOrgZone()")
+	callLogInfo := getCallLogScheme(regionZoneHandler.RegionInfo.Zone, call.REGIONZONE, regionZoneHandler.RegionInfo.Region, "ListOrgZone()")
 
 	// To return the results with a style similar to other CSPs.
 	type Zones struct {
@@ -178,7 +178,7 @@ func (regionZoneHandler *NhnCloudRegionZoneHandler) ListOrgZone() (string, error
 	zoneList := Zones{
 		ZoneList: nhnZoneList,
 	}
-	jsonString, err := ConvertJsonString(zoneList)
+	jsonString, err := convertJsonString(zoneList)
 	if err != nil {
 		rtnErr := logAndReturnError(callLogInfo, "Failed to Convert to Json String : ", err)
 		return "", rtnErr
@@ -188,7 +188,7 @@ func (regionZoneHandler *NhnCloudRegionZoneHandler) ListOrgZone() (string, error
 
 func (regionZoneHandler NhnCloudRegionZoneHandler) getZoneInfoList(regionCode string) ([]irs.ZoneInfo, error) {
 	cblogger.Info("NHN Cloud Driver: called getZoneInfoList()!!")
-	callLogInfo := GetCallLogScheme(regionZoneHandler.RegionInfo.Zone, call.REGIONZONE, regionCode, "getZoneInfoList()")
+	callLogInfo := getCallLogScheme(regionZoneHandler.RegionInfo.Zone, call.REGIONZONE, regionCode, "getZoneInfoList()")
 
 	if strings.EqualFold(regionCode, "") {
 		rtnErr := logAndReturnError(callLogInfo, "Invalid RegionCode!!", "")
@@ -212,7 +212,7 @@ func (regionZoneHandler NhnCloudRegionZoneHandler) getZoneInfoList(regionCode st
 
 		zoneInfo := irs.ZoneInfo{
 			Name: 			zone.ZoneName,
-			DisplayName: 	"N/A",
+			// DisplayName: 	"N/A",
 			Status: 		zoneStatus,
 			// KeyValueList: []irs.KeyValue{
 			// 	{Key: "ZoneCode", 	Value: zone.ZoneName},
@@ -225,7 +225,7 @@ func (regionZoneHandler NhnCloudRegionZoneHandler) getZoneInfoList(regionCode st
 
 func (regionZoneHandler NhnCloudRegionZoneHandler) getNhnZoneList(regionCode string) ([]az.AvailabilityZone, error) {
 	cblogger.Info("NHN Cloud Driver: called getNhnZoneList()!!")
-	callLogInfo := GetCallLogScheme(regionZoneHandler.RegionInfo.Zone, call.REGIONZONE, regionCode, "getNhnZoneList()")
+	callLogInfo := getCallLogScheme(regionZoneHandler.RegionInfo.Zone, call.REGIONZONE, regionCode, "getNhnZoneList()")
 
 	if strings.EqualFold(regionCode, "") {
 		rtnErr := logAndReturnError(callLogInfo, "Invalid RegionCode!!", "")
@@ -263,7 +263,7 @@ func (regionZoneHandler NhnCloudRegionZoneHandler) getNhnZoneList(regionCode str
 
 func (regionZoneHandler NhnCloudRegionZoneHandler) getNhnVMClient(connInfo idrv.ConnectionInfo) (*nhnsdk.ServiceClient, error) {
 	cblogger.Info("NHN Cloud Driver: called getNhnVMClient()!!")
-	callLogInfo := GetCallLogScheme(regionZoneHandler.RegionInfo.Zone, call.REGIONZONE, "getNhnVMClient()", "getNhnVMClient()")
+	callLogInfo := getCallLogScheme(regionZoneHandler.RegionInfo.Zone, call.REGIONZONE, "getNhnVMClient()", "getNhnVMClient()")
 
 	authOpts := nhnsdk.AuthOptions{
 		IdentityEndpoint: connInfo.CredentialInfo.IdentityEndpoint,
