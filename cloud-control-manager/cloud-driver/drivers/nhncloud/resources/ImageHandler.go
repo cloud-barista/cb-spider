@@ -34,7 +34,7 @@ type NhnCloudImageHandler struct {
 
 func (imageHandler *NhnCloudImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 	cblogger.Info("NHN Cloud Driver: called ListImage()")
-	callLogInfo := GetCallLogScheme(imageHandler.RegionInfo.Region, call.VMIMAGE, "ListImage()", "ListImage()")
+	callLogInfo := getCallLogScheme(imageHandler.RegionInfo.Region, call.VMIMAGE, "ListImage()", "ListImage()")
 
 	start := call.Start()
 	listOpts :=	images.ListOpts{
@@ -62,7 +62,7 @@ func (imageHandler *NhnCloudImageHandler) ListImage() ([]*irs.ImageInfo, error) 
 
 	var imageInfoList []*irs.ImageInfo
     for _, nhnImage := range nhnImageList {
-		imageInfo := imageHandler.MappingImageInfo(nhnImage)
+		imageInfo := imageHandler.mappingImageInfo(nhnImage)
 		imageInfoList = append(imageInfoList, imageInfo)
     }
 	return imageInfoList, nil
@@ -70,7 +70,7 @@ func (imageHandler *NhnCloudImageHandler) ListImage() ([]*irs.ImageInfo, error) 
 
 func (imageHandler *NhnCloudImageHandler) GetImage(imageIID irs.IID) (irs.ImageInfo, error) {
 	cblogger.Info("NHN Cloud Driver: called GetImage()")
-	callLogInfo := GetCallLogScheme(imageHandler.RegionInfo.Region, call.VMIMAGE, imageIID.SystemId, "GetImage()")
+	callLogInfo := getCallLogScheme(imageHandler.RegionInfo.Region, call.VMIMAGE, imageIID.SystemId, "GetImage()")
 
 	if strings.EqualFold(imageIID.SystemId, "") {
 		newErr := fmt.Errorf("Invalid SystemId!!")
@@ -90,7 +90,7 @@ func (imageHandler *NhnCloudImageHandler) GetImage(imageIID irs.IID) (irs.ImageI
 	}
 	LoggingInfo(callLogInfo, start)
 
-	imageInfo := imageHandler.MappingImageInfo(*nhnImage)
+	imageInfo := imageHandler.mappingImageInfo(*nhnImage)
 	return *imageInfo, nil
 }
 
@@ -102,8 +102,31 @@ func (imageHandler *NhnCloudImageHandler) CreateImage(imageReqInfo irs.ImageReqI
 
 func (imageHandler *NhnCloudImageHandler) CheckWindowsImage(imageIID irs.IID) (bool, error) {
 	cblogger.Info("NHN Cloud Driver: called CheckWindowsImage()")
+	callLogInfo := getCallLogScheme(imageHandler.RegionInfo.Region, call.VMIMAGE, imageIID.SystemId, "CheckWindowsImage()")
 
-	return false, fmt.Errorf("Does not support CheckWindowsImage() yet!!")
+	if strings.EqualFold(imageIID.SystemId, "") {
+		newErr := fmt.Errorf("Invalid SystemId!!")
+		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
+		return false, newErr
+	}
+
+	start := call.Start()
+	// nhnImage, err := comimages.Get(imageHandler.VMClient, imageIID.SystemId).Extract() // VM Client
+	nhnImage, err := images.Get(imageHandler.ImageClient, imageIID.SystemId).Extract() // Image Client
+	if err != nil {
+		newErr := fmt.Errorf("Failed to Get NHN Cloud Image Info. [%v]", err.Error())
+		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
+		return false, newErr
+	}
+	LoggingInfo(callLogInfo, start)
+	
+	isWindowsImage := false
+	if strings.Contains(nhnImage.Name, "Windows") {
+		isWindowsImage = true
+	}
+	return isWindowsImage, nil
 }
 
 func (imageHandler *NhnCloudImageHandler) DeleteImage(imageIID irs.IID) (bool, error) {
@@ -112,8 +135,8 @@ func (imageHandler *NhnCloudImageHandler) DeleteImage(imageIID irs.IID) (bool, e
 	return true, fmt.Errorf("Does not support DeleteImage() yet!!")
 }
 
-func (imageHandler *NhnCloudImageHandler) MappingImageInfo(image images.Image) *irs.ImageInfo {
-	cblogger.Info("NHN Cloud Driver: called MappingImagInfo()!")
+func (imageHandler *NhnCloudImageHandler) mappingImageInfo(image images.Image) *irs.ImageInfo {
+	cblogger.Info("NHN Cloud Driver: called mappingImagInfo()!")
 
 	var imgAvailability string
 	if strings.EqualFold(string(image.Status), "active") {

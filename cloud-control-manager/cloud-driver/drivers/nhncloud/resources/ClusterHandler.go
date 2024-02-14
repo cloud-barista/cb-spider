@@ -34,7 +34,7 @@ type NhnCloudClusterHandler struct {
 
 func (clusterHandler *NhnCloudClusterHandler) CreateCluster(clusterReqInfo irs.ClusterInfo) (irs.ClusterInfo, error) {
 	cblogger.Info("NHN Cloud Driver: called CreateCluster()")
-	callLogInfo := GetCallLogScheme(clusterHandler.RegionInfo.Region, call.CLUSTER, clusterReqInfo.IId.NameId, "CreateCluster()")
+	callLogInfo := getCallLogScheme(clusterHandler.RegionInfo.Region, call.CLUSTER, clusterReqInfo.IId.NameId, "CreateCluster()")
 
 	start := call.Start()
 	// 클러스터 생성 요청을 JSON 요청으로 변환
@@ -111,7 +111,7 @@ func (clusterHandler *NhnCloudClusterHandler) CreateCluster(clusterReqInfo irs.C
 func (clusterHandler *NhnCloudClusterHandler) ListCluster() ([]*irs.ClusterInfo, error) {
 
 	cblogger.Info("NHN Cloud Driver: called ListCluster()")
-	callLogInfo := GetCallLogScheme(clusterHandler.RegionInfo.Region, call.CLUSTER, "ListCluster()", "ListCluster()") // HisCall logging
+	callLogInfo := getCallLogScheme(clusterHandler.RegionInfo.Region, call.CLUSTER, "ListCluster()", "ListCluster()") // HisCall logging
 
 	start := call.Start()
 	clusters_json_str, err := GetClusters(clusterHandler.ClusterClient.Endpoint, clusterHandler.ClusterClient.TokenID)
@@ -143,7 +143,7 @@ func (clusterHandler *NhnCloudClusterHandler) ListCluster() ([]*irs.ClusterInfo,
 
 func (clusterHandler *NhnCloudClusterHandler) GetCluster(clusterIID irs.IID) (irs.ClusterInfo, error) {
 	cblogger.Info("NHN Cloud Driver: called GetCluster()")
-	callLogInfo := GetCallLogScheme(clusterHandler.RegionInfo.Region, call.CLUSTER, clusterIID.NameId, "GetCluster()")
+	callLogInfo := getCallLogScheme(clusterHandler.RegionInfo.Region, call.CLUSTER, clusterIID.NameId, "GetCluster()")
 
 	start := call.Start()
 	cluster_info, err := getClusterInfo(clusterHandler.ClusterClient.Endpoint, clusterHandler.ClusterClient.TokenID, clusterIID.SystemId)
@@ -161,7 +161,7 @@ func (clusterHandler *NhnCloudClusterHandler) GetCluster(clusterIID irs.IID) (ir
 
 func (clusterHandler *NhnCloudClusterHandler) DeleteCluster(clusterIID irs.IID) (bool, error) {
 	cblogger.Info("NHN Cloud Driver: called DeleteCluster()")
-	callLogInfo := GetCallLogScheme(clusterHandler.RegionInfo.Region, call.CLUSTER, clusterIID.NameId, "DeleteCluster()")
+	callLogInfo := getCallLogScheme(clusterHandler.RegionInfo.Region, call.CLUSTER, clusterIID.NameId, "DeleteCluster()")
 
 	start := call.Start()
 	res, err := DeleteCluster(clusterHandler.ClusterClient.Endpoint, clusterHandler.ClusterClient.TokenID, clusterIID.SystemId)
@@ -187,7 +187,7 @@ func (clusterHandler *NhnCloudClusterHandler) DeleteCluster(clusterIID irs.IID) 
 
 func (clusterHandler *NhnCloudClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGroupReqInfo irs.NodeGroupInfo) (irs.NodeGroupInfo, error) {
 	cblogger.Info("NHN Cloud Driver: called AddNodeGroup()")
-	callLogInfo := GetCallLogScheme(clusterHandler.RegionInfo.Region, call.CLUSTER, clusterIID.NameId, "AddNodeGroup()")
+	callLogInfo := getCallLogScheme(clusterHandler.RegionInfo.Region, call.CLUSTER, clusterIID.NameId, "AddNodeGroup()")
 
 	start := call.Start()
 	// 노드 그룹 생성 요청을 JSON 요청으로 변환
@@ -227,7 +227,7 @@ func (clusterHandler *NhnCloudClusterHandler) AddNodeGroup(clusterIID irs.IID, n
 
 func (clusterHandler *NhnCloudClusterHandler) ListNodeGroup(clusterIID irs.IID) ([]*irs.NodeGroupInfo, error) {
 	cblogger.Info("NHN Cloud Driver: called ListNodeGroup()")
-	callLogInfo := GetCallLogScheme(clusterHandler.RegionInfo.Region, call.CLUSTER, clusterIID.NameId, "ListNodeGroup()")
+	callLogInfo := getCallLogScheme(clusterHandler.RegionInfo.Region, call.CLUSTER, clusterIID.NameId, "ListNodeGroup()")
 
 	start := call.Start()
 	node_group_info_list := []*irs.NodeGroupInfo{}
@@ -259,7 +259,7 @@ func (clusterHandler *NhnCloudClusterHandler) ListNodeGroup(clusterIID irs.IID) 
 
 func (clusterHandler *NhnCloudClusterHandler) GetNodeGroup(clusterIID irs.IID, nodeGroupIID irs.IID) (irs.NodeGroupInfo, error) {
 	cblogger.Info("NHN Cloud Driver: called GetNodeGroup()")
-	callLogInfo := GetCallLogScheme(clusterHandler.RegionInfo.Region, call.CLUSTER, clusterIID.NameId, "GetNodeGroup()")
+	callLogInfo := getCallLogScheme(clusterHandler.RegionInfo.Region, call.CLUSTER, clusterIID.NameId, "GetNodeGroup()")
 
 	start := call.Start()
 	temp, err := getNodeGroupInfo(clusterHandler.ClusterClient.Endpoint, clusterHandler.ClusterClient.TokenID, clusterIID.SystemId, nodeGroupIID.SystemId)
@@ -277,7 +277,7 @@ func (clusterHandler *NhnCloudClusterHandler) GetNodeGroup(clusterIID irs.IID, n
 
 func (clusterHandler *NhnCloudClusterHandler) SetNodeGroupAutoScaling(clusterIID irs.IID, nodeGroupIID irs.IID, on bool) (bool, error) {
 	cblogger.Info("NHN Cloud Driver: called SetNodeGroupAutoScaling()")
-	callLogInfo := GetCallLogScheme(clusterHandler.RegionInfo.Region, call.CLUSTER, clusterIID.NameId, "GetNodeGroup()")
+	callLogInfo := getCallLogScheme(clusterHandler.RegionInfo.Region, call.CLUSTER, clusterIID.NameId, "GetNodeGroup()")
 
 	start := call.Start()
 	temp := `{"ca_enable": %t}`
@@ -297,7 +297,7 @@ func (clusterHandler *NhnCloudClusterHandler) SetNodeGroupAutoScaling(clusterIID
 
 func (clusterHandler *NhnCloudClusterHandler) ChangeNodeGroupScaling(clusterIID irs.IID, nodeGroupIID irs.IID, desiredNodeSize int, minNodeSize int, maxNodeSize int) (irs.NodeGroupInfo, error) {
 	cblogger.Info("NHN Cloud Driver: called ChangeNodeGroupScaling()")
-	callLogInfo := GetCallLogScheme(clusterHandler.RegionInfo.Region, call.CLUSTER, clusterIID.NameId, "GetNodeGroup()")
+	callLogInfo := getCallLogScheme(clusterHandler.RegionInfo.Region, call.CLUSTER, clusterIID.NameId, "GetNodeGroup()")
 
 	start := call.Start()
 	temp := `{
@@ -329,7 +329,7 @@ func (clusterHandler *NhnCloudClusterHandler) ChangeNodeGroupScaling(clusterIID 
 
 func (clusterHandler *NhnCloudClusterHandler) RemoveNodeGroup(clusterIID irs.IID, nodeGroupIID irs.IID) (bool, error) {
 	cblogger.Info("NHN Cloud Driver: called RemoveNodeGroup()")
-	callLogInfo := GetCallLogScheme(clusterHandler.RegionInfo.Region, call.CLUSTER, clusterIID.NameId, "RemoveNodeGroup()")
+	callLogInfo := getCallLogScheme(clusterHandler.RegionInfo.Region, call.CLUSTER, clusterIID.NameId, "RemoveNodeGroup()")
 
 	start := call.Start()
 	res, err := DeleteNodeGroup(clusterHandler.ClusterClient.Endpoint, clusterHandler.ClusterClient.TokenID, clusterIID.SystemId, nodeGroupIID.SystemId)
@@ -360,7 +360,7 @@ func (clusterHandler *NhnCloudClusterHandler) RemoveNodeGroup(clusterIID irs.IID
 // default-master 업그레이드가 완료된 후에 (10분? 정도 소요됨) worker 노드를 업그레이드해야 한다.
 func (clusterHandler *NhnCloudClusterHandler) UpgradeCluster(clusterIID irs.IID, newVersion string) (irs.ClusterInfo, error) {
 	cblogger.Info("NHN Cloud Driver: called UpgradeCluster()")
-	callLogInfo := GetCallLogScheme(clusterHandler.RegionInfo.Region, call.CLUSTER, clusterIID.NameId, "UpgradeCluster()")
+	callLogInfo := getCallLogScheme(clusterHandler.RegionInfo.Region, call.CLUSTER, clusterIID.NameId, "UpgradeCluster()")
 
 	start := call.Start()
 	temp := `{"version": "%s"}`

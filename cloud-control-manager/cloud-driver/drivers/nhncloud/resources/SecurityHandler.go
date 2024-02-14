@@ -38,7 +38,7 @@ type NhnCloudSecurityHandler struct {
 
 func (securityHandler *NhnCloudSecurityHandler) CreateSecurity(securityReqInfo irs.SecurityReqInfo) (irs.SecurityInfo, error) {
 	cblogger.Info("NHN Cloud Cloud Driver: called CreateSecurity()!")
-	callLogInfo := GetCallLogScheme(securityHandler.RegionInfo.Region, call.SECURITYGROUP, securityReqInfo.IId.NameId, "CreateSecurity()")
+	callLogInfo := getCallLogScheme(securityHandler.RegionInfo.Region, call.SECURITYGROUP, securityReqInfo.IId.NameId, "CreateSecurity()")
 
 	// Check if the SecurityGroup Exists
 	sgInfoList, err := securityHandler.ListSecurity()
@@ -90,7 +90,7 @@ func (securityHandler *NhnCloudSecurityHandler) CreateSecurity(securityReqInfo i
 	}
 
 	// Basically, Open 'Outbound' All Protocol for Any S/G (<= CB-Spider Rule)
-	openErr := securityHandler.OpenOutboundAllProtocol(newSGIID)
+	openErr := securityHandler.openOutboundAllProtocol(newSGIID)
 	if openErr != nil {
 		cblogger.Error(openErr)
 		LoggingError(callLogInfo, openErr)
@@ -111,7 +111,7 @@ func (securityHandler *NhnCloudSecurityHandler) CreateSecurity(securityReqInfo i
 
 func (securityHandler *NhnCloudSecurityHandler) ListSecurity() ([]*irs.SecurityInfo, error) {
 	cblogger.Info("NHN Cloud Cloud Driver: called ListSecurity()!")
-	callLogInfo := GetCallLogScheme(securityHandler.RegionInfo.Region, call.SECURITYGROUP, "ListSecurity()", "ListSecurity()")
+	callLogInfo := getCallLogScheme(securityHandler.RegionInfo.Region, call.SECURITYGROUP, "ListSecurity()", "ListSecurity()")
 
 	// Get Security Group list
 	start := call.Start()
@@ -134,7 +134,7 @@ func (securityHandler *NhnCloudSecurityHandler) ListSecurity() ([]*irs.SecurityI
 
 
 	// Get the Default VPC SystemID
-	vpcSystemId, err := securityHandler.GetDefaultVPCSystemID()
+	vpcSystemId, err := securityHandler.getDefaultVPCSystemID()
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get Get the Default VPC SystemID : [%v]", err)
 		cblogger.Error(newErr.Error())
@@ -144,7 +144,7 @@ func (securityHandler *NhnCloudSecurityHandler) ListSecurity() ([]*irs.SecurityI
 	// Mapping S/G list info.
 	var sgInfoList []*irs.SecurityInfo
 	for _, nhnSG := range nhnSGList {
-		sgInfo, err := securityHandler.MappingSecurityInfo(nhnSG, vpcSystemId)
+		sgInfo, err := securityHandler.mappingSecurityInfo(nhnSG, vpcSystemId)
 		if err != nil {
 			cblogger.Error(err.Error())
 			LoggingError(callLogInfo, err)
@@ -157,7 +157,7 @@ func (securityHandler *NhnCloudSecurityHandler) ListSecurity() ([]*irs.SecurityI
 
 func (securityHandler *NhnCloudSecurityHandler) GetSecurity(securityIID irs.IID) (irs.SecurityInfo, error) {
 	cblogger.Info("NHN Cloud Cloud Driver: called GetSecurity()!")
-	callLogInfo := GetCallLogScheme(securityHandler.RegionInfo.Region, call.SECURITYGROUP, securityIID.SystemId, "GetSecurity()")
+	callLogInfo := getCallLogScheme(securityHandler.RegionInfo.Region, call.SECURITYGROUP, securityIID.SystemId, "GetSecurity()")
 
 	start := call.Start()
 	nhnSG, err := secgroups.Get(securityHandler.VMClient, securityIID.SystemId).Extract()
@@ -171,14 +171,14 @@ func (securityHandler *NhnCloudSecurityHandler) GetSecurity(securityIID irs.IID)
 	// spew.Dump(nhnSG)	
 
 	// Get the Default VPC SystemID
-	vpcSystemId, err := securityHandler.GetDefaultVPCSystemID()
+	vpcSystemId, err := securityHandler.getDefaultVPCSystemID()
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get Get the Default VPC SystemID : [%v]", err)
 		cblogger.Error(newErr.Error())
 		return irs.SecurityInfo{}, newErr
 	}
 
-	securityInfo, err := securityHandler.MappingSecurityInfo(*nhnSG, vpcSystemId)
+	securityInfo, err := securityHandler.mappingSecurityInfo(*nhnSG, vpcSystemId)
 	if err != nil {
 		cblogger.Error(err.Error())
 		LoggingError(callLogInfo, err)
@@ -189,7 +189,7 @@ func (securityHandler *NhnCloudSecurityHandler) GetSecurity(securityIID irs.IID)
 
 func (securityHandler *NhnCloudSecurityHandler) DeleteSecurity(securityIID irs.IID) (bool, error) {
 	cblogger.Info("NHN Cloud Cloud Driver: called DeleteSecurity()!")
-	callLogInfo := GetCallLogScheme(securityHandler.RegionInfo.Region, call.SECURITYGROUP, securityIID.SystemId, "DeleteSecurity()")
+	callLogInfo := getCallLogScheme(securityHandler.RegionInfo.Region, call.SECURITYGROUP, securityIID.SystemId, "DeleteSecurity()")
 
 	start := call.Start()
 	result := secgroups.Delete(securityHandler.VMClient, securityIID.SystemId)
@@ -206,7 +206,7 @@ func (securityHandler *NhnCloudSecurityHandler) DeleteSecurity(securityIID irs.I
 
 func (securityHandler *NhnCloudSecurityHandler) AddRules(sgIID irs.IID, securityRules *[]irs.SecurityRuleInfo) (irs.SecurityInfo, error) {
 	cblogger.Info("NHN Cloud Driver: called AddRules()!")
-	callLogInfo := GetCallLogScheme(securityHandler.RegionInfo.Region, call.SECURITYGROUP, sgIID.SystemId, "AddRules()")
+	callLogInfo := getCallLogScheme(securityHandler.RegionInfo.Region, call.SECURITYGROUP, sgIID.SystemId, "AddRules()")
 
 	if sgIID.SystemId == "" {
 		newErr := fmt.Errorf("Invalid S/G SystemId!!")
@@ -377,7 +377,7 @@ func (securityHandler *NhnCloudSecurityHandler) AddRules(sgIID irs.IID, security
 
 func (securityHandler *NhnCloudSecurityHandler) RemoveRules(sgIID irs.IID, securityRules *[]irs.SecurityRuleInfo) (bool, error) {
 	cblogger.Info("NHN Cloud Driver: called RemoveRules()!")	
-	callLogInfo := GetCallLogScheme(securityHandler.RegionInfo.Region, call.SECURITYGROUP, sgIID.SystemId, "RemoveRules()")
+	callLogInfo := getCallLogScheme(securityHandler.RegionInfo.Region, call.SECURITYGROUP, sgIID.SystemId, "RemoveRules()")
 
 	if sgIID.SystemId == "" {
 		newErr := fmt.Errorf("Invalid S/G SystemId!!")
@@ -448,7 +448,7 @@ func (securityHandler *NhnCloudSecurityHandler) RemoveRules(sgIID irs.IID, secur
 					}
 		
 					// Get the Rule ID from the S/G
-					ruleId, err := securityHandler.GetRuleIdFromRuleInfo(sgIID, ruleInfo)
+					ruleId, err := securityHandler.getRuleIdFromRuleInfo(sgIID, ruleInfo)
 					if err != nil {
 						newErr := fmt.Errorf("Failed to Find any S/G info. with the SystemId : [%s] : [%v]", sgIID.SystemId, err)
 						cblogger.Error(newErr.Error())
@@ -478,7 +478,7 @@ func (securityHandler *NhnCloudSecurityHandler) RemoveRules(sgIID irs.IID, secur
 			}
 		} else {
 			// Get the Rule ID from the S/G
-			ruleId, err := securityHandler.GetRuleIdFromRuleInfo(sgIID, curRule)
+			ruleId, err := securityHandler.getRuleIdFromRuleInfo(sgIID, curRule)
 			if err != nil {
 				newErr := fmt.Errorf("Failed to Find any S/G info. with the SystemId : [%s], [%v]", sgIID.SystemId, err)
 				cblogger.Error(newErr.Error())
@@ -513,9 +513,9 @@ func (securityHandler *NhnCloudSecurityHandler) RemoveRules(sgIID irs.IID, secur
 	return true, nil
 }
 
-func (securityHandler *NhnCloudSecurityHandler) OpenOutboundAllProtocol(sgIID irs.IID) (error) {
-	cblogger.Info("NHN Cloud driver: called OpenOutboundAllProtocol()!")	
-    callLogInfo := GetCallLogScheme(securityHandler.RegionInfo.Region, call.SECURITYGROUP, sgIID.SystemId, "OpenOutboundAllProtocol()")
+func (securityHandler *NhnCloudSecurityHandler) openOutboundAllProtocol(sgIID irs.IID) (error) {
+	cblogger.Info("NHN Cloud driver: called openOutboundAllProtocol()!")	
+    callLogInfo := getCallLogScheme(securityHandler.RegionInfo.Region, call.SECURITYGROUP, sgIID.SystemId, "openOutboundAllProtocol()")
 
 	reqRules := []irs.SecurityRuleInfo {
 			{
@@ -538,8 +538,8 @@ func (securityHandler *NhnCloudSecurityHandler) OpenOutboundAllProtocol(sgIID ir
 	return nil
 }
 
-func (securityHandler *NhnCloudSecurityHandler) MappingSecurityInfo(nhnSG secgroups.SecurityGroup, defaultVPCSystemId string) (*irs.SecurityInfo, error) {
-	cblogger.Info("NHN Cloud Driver: called MappingSecurityInfo()!")
+func (securityHandler *NhnCloudSecurityHandler) mappingSecurityInfo(nhnSG secgroups.SecurityGroup, defaultVPCSystemId string) (*irs.SecurityInfo, error) {
+	cblogger.Info("NHN Cloud Driver: called mappingSecurityInfo()!")
 	// spew.Dump(nhnSG)
 
 	secInfo := &irs.SecurityInfo{
@@ -614,9 +614,9 @@ func (securityHandler *NhnCloudSecurityHandler) MappingSecurityInfo(nhnSG secgro
 	return secInfo, nil
 }
 
-func (securityHandler *NhnCloudSecurityHandler) GetRuleIdFromRuleInfo(sgIID irs.IID, givenRule irs.SecurityRuleInfo) (string, error) {
-	cblogger.Info("NHN Cloud Driver: called GetRuleIdFromRuleInfo()!")
-	callLogInfo := GetCallLogScheme(securityHandler.RegionInfo.Region, call.SECURITYGROUP, sgIID.SystemId, "GetRuleIdFromRuleInfo()")
+func (securityHandler *NhnCloudSecurityHandler) getRuleIdFromRuleInfo(sgIID irs.IID, givenRule irs.SecurityRuleInfo) (string, error) {
+	cblogger.Info("NHN Cloud Driver: called getRuleIdFromRuleInfo()!")
+	callLogInfo := getCallLogScheme(securityHandler.RegionInfo.Region, call.SECURITYGROUP, sgIID.SystemId, "getRuleIdFromRuleInfo()")
 
 	// Get NHN Cloud S/G Raw Info
 	nhnSG, err := secgroups.Get(securityHandler.VMClient, sgIID.SystemId).Extract()
@@ -685,9 +685,9 @@ func (securityHandler *NhnCloudSecurityHandler) GetRuleIdFromRuleInfo(sgIID irs.
 	return ruleId, nil
 }
 
-func (securityHandler *NhnCloudSecurityHandler) GetDefaultVPCSystemID() (string, error) {
-	cblogger.Info("NHN Cloud Cloud Driver: called GetDefaultVPCSystemID()!")
-	callLogInfo := GetCallLogScheme(securityHandler.RegionInfo.Region, call.VPCSUBNET, "GetDefaultVPCSystemID()", "GetDefaultVPCSystemID()")
+func (securityHandler *NhnCloudSecurityHandler) getDefaultVPCSystemID() (string, error) {
+	cblogger.Info("NHN Cloud Cloud Driver: called getDefaultVPCSystemID()!")
+	callLogInfo := getCallLogScheme(securityHandler.RegionInfo.Region, call.VPCSUBNET, "getDefaultVPCSystemID()", "getDefaultVPCSystemID()")
 
 	var vpcSystemId string
 

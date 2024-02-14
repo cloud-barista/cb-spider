@@ -47,10 +47,11 @@ func handleImage() {
 	for {
 		fmt.Println("\n============================================================================================")
 		fmt.Println("[ Image Management Test ]")
-		fmt.Println("1. Image List")
-		fmt.Println("2. Image Get")
-		fmt.Println("3. Image Create (TBD)")
-		fmt.Println("4. Image Delete (TBD)")
+		fmt.Println("1. ListImage()")
+		fmt.Println("2. GetImage()")
+		fmt.Println("3. CheckWindowsImage()")
+		fmt.Println("4. CreateImage (TBD)")
+		fmt.Println("5. DeleteImage (TBD)")
 		fmt.Println("0. Quit")
 		fmt.Println("\n   Select a number above!! : ")
 		fmt.Println("============================================================================================")
@@ -62,8 +63,8 @@ func handleImage() {
 		}
 
 		imageReqInfo := irs.ImageReqInfo{
-			IId: irs.IID{NameId: "Ubuntu Server 18.04.6 LTS (2021.12.21)", SystemId: "5396655e-166a-4875-80d2-ed8613aa054f"},
-			 //NHN Cloud : Ubuntu Server 18.04.6 LTS (2021.12.21)
+			// IId: irs.IID{NameId: "Ubuntu Server 18.04.6 LTS (2021.12.21)", SystemId: "5396655e-166a-4875-80d2-ed8613aa054f"},
+			IId: irs.IID{NameId: "Windows 2022 STD (2023.11.21) EN", SystemId: "2ffacb1d-8442-4ba1-b08e-d820a9d2ec9f"},
 
 			//IId: irs.IID{NameId: "CentOS 6.10 (2018.10.23)", SystemId: "1c868787-6207-4ff2-a1e7-ae1331d6829b"},
 		}
@@ -74,41 +75,37 @@ func handleImage() {
 				return
 
 			case 1:
-				cblogger.Infof("Image list 조회 테스트")
+				cblogger.Infof("ListImage() Test")
 
 				result, err := handler.ListImage()
 				if err != nil {
 					cblogger.Error(err)
-					cblogger.Error("Image list 조회 실패 : ", err)
+					cblogger.Error("Failed to List Image : ", err)
 				} else {
 					fmt.Println("\n==================================================================================================================")
-					cblogger.Info("Image list 조회 결과")
+					cblogger.Info("Result of ListImage()")
 					//cblogger.Info(result)
-					cblogger.Info("출력 결과 수 : ", len(result))
-
+					cblogger.Info("ListImage() count : ", len(result))
 					fmt.Println("\n")
 					spew.Dump(result)
 
-					cblogger.Info("출력 결과 수 : ", len(result))
-
-					//조회및 삭제 테스트를 위해 리스트의 첫번째 정보의 ID를 요청ID로 자동 갱신함.
 					if result != nil {
-						imageReqInfo.IId = result[0].IId // 조회 및 삭제를 위해 생성된 ID로 변경
+						imageReqInfo.IId = result[0].IId
 					}
 				}
 
 				cblogger.Info("\nListImage Test Finished")
 
 			case 2:
-				cblogger.Infof("[%s] Image 조회 테스트", imageReqInfo.IId)
+				cblogger.Infof("[%s]GetImage() Test", imageReqInfo.IId)
 
 				result, err := handler.GetImage(imageReqInfo.IId)
 				if err != nil {
 					cblogger.Error(err)
-					cblogger.Error("[%s] Image 조회 실패 : ", imageReqInfo.IId.SystemId, err)
+					cblogger.Error("Failed to Get the Image Info of [%s] : ", imageReqInfo.IId.SystemId, err)
 				} else {
 					fmt.Println("\n==================================================================================================================")
-					cblogger.Infof("[%s] Image 조회 결과 : \n[%s]", imageReqInfo.IId.SystemId, result)
+					cblogger.Infof("Result of GetImage() of [%s] : \n[%s]", imageReqInfo.IId.SystemId, result)
 
 					fmt.Println("\n")
 					spew.Dump(result)
@@ -116,25 +113,23 @@ func handleImage() {
 
 				cblogger.Info("\nGetImage Test Finished")
 
-				// case 3:
-				// 	cblogger.Infof("[%s] Image 생성 테스트", imageReqInfo.IId.NameId)
-				// 	result, err := handler.CreateImage(imageReqInfo)
-				// 	if err != nil {
-				// 		cblogger.Infof(imageReqInfo.IId.NameId, " Image 생성 실패 : ", err)
-				// 	} else {
-				// 		cblogger.Infof("Image 생성 결과 : ", result)
-				// 		imageReqInfo.IId = result.IId // 조회 및 삭제를 위해 생성된 ID로 변경
-				// 		spew.Dump(result)
-				// 	}
 
-				// case 4:
-				// 	cblogger.Infof("[%s] Image 삭제 테스트", imageReqInfo.IId.NameId)
-				// 	result, err := handler.DeleteImage(imageReqInfo.IId)
-				// 	if err != nil {
-				// 		cblogger.Infof("[%s] Image 삭제 실패 : ", imageReqInfo.IId.NameId, err)
-				// 	} else {
-				// 		cblogger.Infof("[%s] Image 삭제 결과 : [%s]", imageReqInfo.IId.NameId, result)
-				// 	}
+			case 3:
+				cblogger.Infof("[%s] CheckWindowsImage() Test", imageReqInfo.IId)
+
+				result, err := handler.CheckWindowsImage(imageReqInfo.IId)
+				if err != nil {
+					cblogger.Error(err)
+					cblogger.Error("Failed to CheckWindowsImage() of [%s] : ", imageReqInfo.IId.SystemId, err)
+				} else {
+					fmt.Println("\n==================================================================================================================")
+					cblogger.Infof("Result of CheckWindowsImage() of [%s] : [%v]", imageReqInfo.IId.SystemId, result)
+
+					fmt.Println("\n")
+					spew.Dump(result)
+				}
+
+				cblogger.Info("\nCheckWindowsImage() Test Finished")
 			}
 		}
 	}
@@ -151,8 +146,7 @@ func main() {
 	handleImage()
 }
 
-//handlerType : resources폴더의 xxxHandler.go에서 Handler이전까지의 문자열
-//(예) ImageHandler.go -> "Image"
+//(Ex) ImageHandler.go -> "Image"
 func getResourceHandler(handlerType string) (interface{}, error) {
 	var cloudDriver idrv.CloudDriver
 	cloudDriver = new(nhndrv.NhnCloudDriver)
@@ -203,16 +197,6 @@ func getResourceHandler(handlerType string) (interface{}, error) {
 	return resourceHandler, nil
 }
 
-// Region : 사용할 리전명 (ex) ap-northeast-2
-// ImageID : VM 생성에 사용할 AMI ID (ex) ami-047f7b46bd6dd5d84
-// BaseName : 다중 VM 생성 시 사용할 Prefix이름 ("BaseName" + "_" + "숫자" 형식으로 VM을 생성 함.) (ex) mcloud-barista
-// VmID : 라이프 사이트클을 테스트할 EC2 인스턴스ID
-// InstanceType : VM 생성시 사용할 인스턴스 타입 (ex) t2.micro
-// KeyName : VM 생성시 사용할 키페어 이름 (ex) mcloud-barista-keypair
-// MinCount :
-// MaxCount :
-// SubnetId : VM이 생성될 VPC의 SubnetId (ex) subnet-cf9ccf83
-// SecurityGroupID : 생성할 VM에 적용할 보안그룹 ID (ex) sg-0df1c209ea1915e4b
 type Config struct {
 	NhnCloud struct {
 		IdentityEndpoint string `yaml:"identity_endpoint"`
