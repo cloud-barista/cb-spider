@@ -1,0 +1,125 @@
+name: Korean checker
+on: 
+  pull_request:
+    branches:
+      - 'master'
+    paths:
+      - '**.go'
+
+jobs:
+  check-if-Korean-is-included:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Fetch all history for all branches and tags
+
+      - name: Check for Korean characters in quotes
+        id: check-korean
+        run: |
+          set -x
+          ##### DEBUG section, this will be removed later ###########
+          ls -al
+          git status
+          git branch
+          
+          # Default environment variables 
+          BASE_BRANCH="origin/${{github.base_ref}}"  # origin/master
+          PR_BRANCH=${GITHUB_REF#refs/}              # pull/xx/merge
+          echo "Base branch: ${BASE_BRANCH}"
+          echo "Extract branch: ${GITHUB_REF#refs/}"
+                    
+          # `github` context information
+          echo "(DEBUG) github.ref: ${{github.ref}}"
+          echo "(DEBUG) github.head_ref: ${{github.head_ref}}"
+          echo "(DEBUG) github.base_ref: ${{github.base_ref}}"
+          #####################################################
+
+          temp_output="temp.md"
+          output="korean_check_results.md"
+          
+          # Get changed files in the PR
+          files=$(git diff --name-only ${BASE_BRANCH}...${PR_BRANCH} | grep '\.go$')
+          
+          # Create a temp file
+          echo "" > $temp_output
+          
+          # Process each changed file
+          for file in $files; do              
+            found_korean=false
+        
+            # Extract changed lines
+            changed_lines=$(git diff ${BASE_BRANCH}...${PR_BRANCH} -- $file | grep "^+")
+            echo "(DEBUG) Changed lines in $file:"
+            echo "$changed_lines"
+            
+            # Check Korean characters wrapped in quote (" ")
+            korean_lines=$(echo "$changed_lines" | grep -n -P "\"([^\"]*[\x{AC00}-\x{D7A3}]+[^\"]*)\"" || true)
+            # Check all Korean characters, such as Korean wrapped in quote, included in comments, and so on.
+            # korean_lines=$(echo "$changed_lines" | grep -n -P "[\x{AC00}-\x{D7A3}]" || true)
+            echo "(DEBUG) Korean lines in $file:"
+            echo "$korean_lines"
+
+            if [ -n "$korean_lines" ]; then
+              echo "**$file**" >> $temp_output
+              echo "\`\`\`diff" >> $temp_output
+              echo "$korean_lines" | sed -e 's/^[+]\s*//' >> $temp_output
+              echo "\`\`\`" >> $temp_output
+              echo "" >> $temp_output
+            fi          
+          done
+
+          # Check if the file exists
+          if [ -s "$temp_output" ]; then
+            # Trim
+            trimmed_temp_outputs=$(cat "$temp_output" | xargs)
+            echo "(DEBUG) Trimmed temp_output:"
+            echo "$trimmed_temp_outputs"
+              
+            if [ -n "$trimmed_temp_outputs" ]; then
+              echo "(DEBUG) Korean content detected."
+              echo "## Result to check if Korean is included" > $output
+              echo "All output of print and log must be written in English :wink:" >> $output
+              echo "Please check and correct the following" >> $output 
+              cat "$temp_output" >> "$output"
+              echo "KOREAN_EXISTS=true" >> $GITHUB_OUTPUT
+            else
+              echo "(DEBUG) No Korean content detected."
+              echo "KOREAN_EXISTS=false" >> $GITHUB_OUTPUT
+            fi
+          fi
+          
+          # # Check if the file exists
+          # if [ -s "$output" ]; then
+          #   # Display output path
+          #   echo "[(Debug) Results saved in $output]"
+          #   cat "$output"
+          # fi
+
+      - name: Comment PR with results
+        if: steps.check-korean.outputs.KOREAN_EXISTS == 'true'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{secrets.GITHUB_TOKEN}}
+          script: |
+            const fs = require('fs');
+            const path = require('path');
+            const resultsPath = path.join(process.env.GITHUB_WORKSPACE, 'korean_check_results.md');            
+            if (fs.existsSync(resultsPath)) {
+                const results = fs.readFileSync(resultsPath, 'utf8');
+                if (results.trim().length > 0) {
+                    github.rest.issues.createComment({
+                      issue_number: context.issue.number,
+                      owner: context.repo.owner,
+                      repo: context.repo.repo,
+                      body: results
+                    });
+                }
+            }
+
+      - name: Fail on Korean Content
+        if: steps.check-korean.outputs.KOREAN_EXISTS == 'true'
+        run: |
+          echo "Korean content detected. Failing the workflow on purpose."
+          exit 1
