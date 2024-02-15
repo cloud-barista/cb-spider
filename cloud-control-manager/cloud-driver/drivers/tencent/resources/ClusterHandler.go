@@ -40,6 +40,10 @@ import (
 // 	})
 // }
 
+const (
+	defaultContainerRuntime = "containerd"
+)
+
 type TencentClusterHandler struct {
 	RegionInfo     idrv.RegionInfo
 	CredentialInfo idrv.CredentialInfo
@@ -756,6 +760,9 @@ func getCreateClusterRequest(clusterHandler *TencentClusterHandler, clusterInfo 
 		ClusterDescription: common.StringPtr(desc_str),            // option, #CB-SPIDER:PMKS:SECURITYGROUP:sg-c00t00ih
 	}
 	request.ClusterType = common.StringPtr("MANAGED_CLUSTER") //default value
+	request.ClusterAdvancedSettings = &tke.ClusterAdvancedSettings{
+		ContainerRuntime: common.StringPtr(defaultContainerRuntime),
+	}
 
 	return request, err
 }
