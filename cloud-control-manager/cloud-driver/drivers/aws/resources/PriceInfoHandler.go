@@ -24,6 +24,7 @@ func (priceInfoHandler *AwsPriceInfoHandler) ListProductFamily(regionName string
 	var result []string
 
 	result = append(result, "AmazonEC2")
+	//result = append(result, "AmazonS3")
 	return result, nil
 }
 
@@ -75,10 +76,22 @@ func (priceInfoHandler *AwsPriceInfoHandler) GetPriceInfo(productFamily string, 
 		})
 	}
 
+	// requestProductsInputFilters = append(requestProductsInputFilters, &pricing.Filter{
+	// 	Field: aws.String("productFamily"),
+	// 	Type:  aws.String("EQUALS"),
+	// 	Value: aws.String("Compute Instance"),
+	// })
+	// requestProductsInputFilters = append(requestProductsInputFilters, &pricing.Filter{
+	// 	Field: aws.String("productFamily"),
+	// 	Type:  aws.String("EQUALS"),
+	// 	Value: aws.String("CPU Credits"),
+	// })
+
 	getProductsRequest := &pricing.GetProductsInput{
 		Filters:     requestProductsInputFilters,
 		ServiceCode: aws.String(productFamily),
 	}
+	//productFamily:Compute Instance sku:222GSPCHPYSDBWKM
 	cblogger.Info("get Products request", getProductsRequest)
 	priceinfos, err := priceInfoHandler.Client.GetProducts(getProductsRequest)
 	if err != nil {
