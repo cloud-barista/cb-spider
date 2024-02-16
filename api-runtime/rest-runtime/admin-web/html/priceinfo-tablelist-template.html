@@ -169,6 +169,7 @@
 
     <table id="table-{{.CloudName}}">
         <tr>
+            <th>#</th>
             <th>Product ID</th>
             <th>Region/Zone</th>
             <th>Product Info</th>
@@ -176,8 +177,9 @@
             <th class="pricing-policies-header">Pricing Policies</th>
             <th class="pricing-policies-header">{{.CloudName}} Price Info</th>
         </tr>
-        {{range .PriceList}}
+        {{range $index, $_ := .PriceList}}
         <tr>
+            <td class="center-text">{{inc $index}}</td>
             <td class="center-text">[{{.ProductInfo.ProductId}}]<br><br>※ {{.ProductInfo.Description}}</td>
             <td class="center-text">{{.ProductInfo.RegionName}}/{{.ProductInfo.ZoneName}}</td>
             <td>

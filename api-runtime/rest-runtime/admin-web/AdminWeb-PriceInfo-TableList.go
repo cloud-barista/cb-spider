@@ -121,5 +121,9 @@ func addTemplateFuncs(t *template.Template) *template.Template {
 			a, _ := json.MarshalIndent(v, "", "    ")
 			return string(a)
 		},
+
+		"inc": func(i int) int {
+			return i + 1
+		},
 	})
 }
