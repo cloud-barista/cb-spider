@@ -639,26 +639,28 @@ func getNodeGroupInfo(access_key, access_secret, region_id, cluster_id, node_gro
 		auto_scale_enalbed = true
 	}
 
-	nodeGroupInfo = &irs.NodeGroupInfo{
-		IId: irs.IID{
-			NameId:   *res.Response.NodePool.Name,
-			SystemId: *res.Response.NodePool.NodePoolId,
-		},
-		ImageIID: irs.IID{
-			NameId:   "",
-			SystemId: *launch_config.Response.LaunchConfigurationSet[0].ImageId,
-		},
-		VMSpecName:      *launch_config.Response.LaunchConfigurationSet[0].InstanceType,
-		RootDiskType:    *launch_config.Response.LaunchConfigurationSet[0].SystemDisk.DiskType,
-		RootDiskSize:    fmt.Sprintf("%d", *launch_config.Response.LaunchConfigurationSet[0].SystemDisk.DiskSize),
-		KeyPairIID:      irs.IID{NameId: "", SystemId: *launch_config.Response.LaunchConfigurationSet[0].LoginSettings.KeyIds[0]},
-		Status:          status,
-		OnAutoScaling:   auto_scale_enalbed,
-		MinNodeSize:     int(*auto_scaling_group.Response.AutoScalingGroupSet[0].MinSize),
-		MaxNodeSize:     int(*auto_scaling_group.Response.AutoScalingGroupSet[0].MaxSize),
-		DesiredNodeSize: int(*auto_scaling_group.Response.AutoScalingGroupSet[0].DesiredCapacity),
-		Nodes:           []irs.IID{}, // to be implemented
-		KeyValueList:    []irs.KeyValue{},
+	if len(launch_config.Response.LaunchConfigurationSet) > 0 || len(auto_scaling_group.Response.AutoScalingGroupSet) > 0 {
+		nodeGroupInfo = &irs.NodeGroupInfo{
+			IId: irs.IID{
+				NameId:   *res.Response.NodePool.Name,
+				SystemId: *res.Response.NodePool.NodePoolId,
+			},
+			ImageIID: irs.IID{
+				NameId:   "",
+				SystemId: *launch_config.Response.LaunchConfigurationSet[0].ImageId,
+			},
+			VMSpecName:      *launch_config.Response.LaunchConfigurationSet[0].InstanceType,
+			RootDiskType:    *launch_config.Response.LaunchConfigurationSet[0].SystemDisk.DiskType,
+			RootDiskSize:    fmt.Sprintf("%d", *launch_config.Response.LaunchConfigurationSet[0].SystemDisk.DiskSize),
+			KeyPairIID:      irs.IID{NameId: "", SystemId: *launch_config.Response.LaunchConfigurationSet[0].LoginSettings.KeyIds[0]},
+			Status:          status,
+			OnAutoScaling:   auto_scale_enalbed,
+			MinNodeSize:     int(*auto_scaling_group.Response.AutoScalingGroupSet[0].MinSize),
+			MaxNodeSize:     int(*auto_scaling_group.Response.AutoScalingGroupSet[0].MaxSize),
+			DesiredNodeSize: int(*auto_scaling_group.Response.AutoScalingGroupSet[0].DesiredCapacity),
+			Nodes:           []irs.IID{}, // to be implemented
+			KeyValueList:    []irs.KeyValue{},
+		}
 	}
 
 	nodes, err := tencent.DescribeClusterInstances(access_key, access_secret, region_id, cluster_id)
