@@ -160,6 +160,26 @@ const htmlTemplate = `
     .inner-th {
         background-color: #d9edf7;
     }
+
+    #searchInputWrapper {
+        position: relative;
+        display: inline-block;
+    }
+
+    #searchInput {
+        width: 190px
+    }
+
+    #clearSearch {
+        position: absolute;
+        right: 3px;
+        top: 50%;
+        transform: translateY(-50%);
+        border: none;
+        background-color: transparent;
+        cursor: pointer;
+    }
+
 </style>
 <script>
     function showAlert(regionName, innerTableId) {
@@ -198,6 +218,11 @@ const htmlTemplate = `
         }
     }
 
+    function clearSearchInput() {
+        document.getElementById("searchInput").value = "";
+        searchTable(); // 검색 입력이 지워진 후 검색 결과를 업데이트합니다.
+    }
+
     function filterStatus() {
         var statusFilter = document.getElementById("statusFilter").value;
         var tables = document.querySelectorAll("table table");
@@ -221,7 +246,10 @@ const htmlTemplate = `
 </script>
 </head>
 <body>
-<input type="text" id="searchInput" onkeyup="searchTable()" placeholder="Search for Region Names..">
+<div id="searchInputWrapper">
+    <input type="text" id="searchInput" onkeyup="searchTable()" placeholder="Search for Region Names..">
+    <button id="clearSearch" onclick="clearSearchInput()">X</button>
+</div>
 <select id="statusFilter" onchange="filterStatus()">
     <option value="All">All</option>
     <option value="Available">Available</option>
