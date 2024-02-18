@@ -158,7 +158,6 @@
                 <div class="button-textarea-group">
                     <label for="filter">Filter</label>
                     <button type="button" class="gen-tool-btn" onclick="openGenOverlay()">Gen...</button>
-                    <!-- 'Clear' 버튼 추가 -->
                     <button type="button" class="gen-tool-btn" onclick="clearFilter()">Clear</button>
                 </div>
                 <textarea id="filter" name="filter" spellcheck="false"></textarea>
@@ -300,7 +299,20 @@
 
             var fetchOverlayContent = document.getElementById('fetchOverlayContent');
             document.getElementById('fetchOverlay').style.display = 'block';
-            fetchOverlayContent.src = 'about:blank'; // iframe 초기화
+            fetchOverlayContent.src = 'about:blank'; // clear the iframe content
+
+            var url = `/spider/adminweb/priceinfotablelist/${productFamily}/${region}/${connectionName}?filterlist=${filterList}`;
+
+            // logging the fetch URL
+            var hostname = window.location.hostname;
+            var port = window.location.port;
+
+            // make apiURL just to log curl command
+            var apiURL = `/spider/priceinfo/${encodeURIComponent(productFamily)}/${encodeURIComponent(region)}?ConnectionName=${connectionName}`;
+            if (filterList) {
+                apiURL += ` -H 'Content-Type: application/json' -d '${filterList}'`
+            }
+            parent.frames["log_frame"].Log("curl -sX GET http://" + `${hostname}` + ":" + `${port}`  + apiURL);
 
             let fetchText = 'fetching';
             let intervalId = setInterval(() => {
@@ -310,22 +322,28 @@
                 }
             }, 100);
 
-            fetch(`/spider/adminweb/priceinfotablelist/${productFamily}/${region}/${connectionName}?filterlist=${filterList}`)
+            fetch(url)
                 .then(response => {
                     if (!response.ok) {
                         clearInterval(intervalId); // stop the interval
-                        throw new Error('Network response was not ok');
+                        throw new Error('Network response was not ok: ' + response.status + ', ' + response.statusText);
                     }
                     return response.text(); // text() for html
                 })
                 .then(data => {
                     clearInterval(intervalId); // stop the interval
                     fetchOverlayContent.srcdoc = data; // set the HTML content in the iframe
+
+                    // logging the fetch success
+                    parent.frames["log_frame"].Log("   ==> Fetch Success");
                 })
                 .catch(error => {
                     console.error('Error:', error);
                     alert(error);
                     clearInterval(intervalId); // when error occurs, stop the interval
+
+                    // logging the fetch error
+                    parent.frames["log_frame"].Log("   ==> Fetch Error: " + error.message);
                 });
         }
 
