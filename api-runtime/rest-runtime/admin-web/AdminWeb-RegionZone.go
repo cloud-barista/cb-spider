@@ -115,7 +115,7 @@ func RegionZone(c echo.Context) error {
 	}
 
 	// Parse the HTML template
-	tmpl, err := template.New("index").Parse(htmlTemplate)
+	tmpl, err := addFuncsToTemplate(template.New("index")).Parse(htmlTemplate)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
@@ -128,6 +128,14 @@ func RegionZone(c echo.Context) error {
 	}
 
 	return c.HTML(http.StatusOK, result.String())
+}
+
+func addFuncsToTemplate(t *template.Template) *template.Template {
+	return t.Funcs(template.FuncMap{
+		"inc": func(i int) int {
+			return i + 1
+		},
+	})
 }
 
 const htmlTemplate = `
@@ -222,12 +230,14 @@ const htmlTemplate = `
 </select>
 <table>
     <tr>
+        <th>#</th>
         <th>Region Name</th>
         <th>Display Name</th>
         <th>Zone List</th>
     </tr>
-    {{range $region := .RegionInfo}}
+    {{range $index, $region := .RegionInfo}}
     <tr>
+        <td>{{inc $index}}</td>
         <td>{{$region.RegionName}}</td>
         <td>{{$region.DisplayName}}</td>
         <td>
