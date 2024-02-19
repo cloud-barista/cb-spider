@@ -19,7 +19,7 @@ type AlibabaVmSpecHandler struct {
 	Client *ecs.Client
 }
 
-//인스턴스 스펙 정보를 추출함
+// 인스턴스 스펙 정보를 추출함
 func ExtractVMSpecInfo(Region string, instanceTypeInfo ecs.InstanceType) irs.VMSpecInfo {
 	//@TODO : 2020-03-26 Ali클라우드 API 구조가 바뀐 것 같아서 임시로 변경해 놓음.
 	//윈도우즈에서는 ecs.InstanceType를 인식하지만 Mac과 신규 API에서는 ecs.InstanceType를 못찾고 ecs.InstanceTypeInDescribeInstanceTypes를 이용함.
@@ -42,7 +42,7 @@ func ExtractVMSpecInfo(Region string, instanceTypeInfo ecs.InstanceType) irs.VMS
 
 	if !reflect.ValueOf(&instanceTypeInfo.GPUSpec).IsNil() {
 		gpu := strings.Split(instanceTypeInfo.GPUSpec, " ") //"Nvidia Tesla P4"
-		cblogger.Infof("제조사 정보 추출 : 원문[%s] / 추출[%s]", instanceTypeInfo.GPUSpec, gpu[0])
+		cblogger.Infof("Manufacturer Information Extraction: Original[%s] / Extracted[%s]", instanceTypeInfo.GPUSpec, gpu[0])
 		gpuInfoList[0].Mfr = gpu[0]
 	}
 
@@ -71,7 +71,6 @@ func ExtractVMSpecInfo(Region string, instanceTypeInfo ecs.InstanceType) irs.VMS
 
 	//KeyValue 목록 처리
 	keyValueList, errKeyValue := ConvertKeyValueList(instanceTypeInfo)
-	cblogger.Errorf("[%]의 KeyValue 추출 실패", instanceTypeInfo.InstanceTypeId)
 	cblogger.Error(errKeyValue)
 	vmSpecInfo.KeyValueList = keyValueList
 
@@ -114,9 +113,9 @@ func (vmSpecHandler *AlibabaVmSpecHandler) ListVMSpec() ([]*irs.VMSpecInfo, erro
 	callogger.Info(call.String(callLogInfo))
 
 	//spew.Dump(resp)
-	cblogger.Info("조회된 인스턴스 타입 수 : ", len(resp.InstanceTypes.InstanceType))
+	cblogger.Info("Number of Retrieved Instance Types : ", len(resp.InstanceTypes.InstanceType))
 	for _, curInstance := range resp.InstanceTypes.InstanceType {
-		cblogger.Infof("[%s] VM 스펙 정보 조회", curInstance.InstanceTypeFamily)
+		cblogger.Infof("[%s] VM Retrieve Specification Information", curInstance.InstanceTypeFamily)
 		vMSpecInfo := ExtractVMSpecInfo(Region, curInstance)
 		vMSpecInfoList = append(vMSpecInfoList, &vMSpecInfo)
 	}
@@ -159,11 +158,11 @@ func (vmSpecHandler *AlibabaVmSpecHandler) GetVMSpec(Name string) (irs.VMSpecInf
 	}
 	callogger.Info(call.String(callLogInfo))
 
-	cblogger.Info("조회된 인스턴스 타입 수 : ", len(resp.InstanceTypes.InstanceType))
+	cblogger.Info("Number of Retrieved Instance Types : ", len(resp.InstanceTypes.InstanceType))
 	//	spew.Dump(resp)
 
 	if len(resp.InstanceTypes.InstanceType) < 1 {
-		return irs.VMSpecInfo{}, errors.New("Notfound: '" + Name + "'에 해당하는 Spec 정보를 찾을 수 없습니다.")
+		return irs.VMSpecInfo{}, errors.New("Notfound: '" + Name + "'Cannot find Spec information for the specified item.")
 	}
 
 	var vMSpecInfo irs.VMSpecInfo
@@ -173,7 +172,7 @@ func (vmSpecHandler *AlibabaVmSpecHandler) GetVMSpec(Name string) (irs.VMSpecInf
 		cblogger.Debugf("[%s]", curInstance.InstanceTypeId)
 		if Name == curInstance.InstanceTypeId {
 			cblogger.Debugf("===> [%s]", curInstance.InstanceTypeId)
-			cblogger.Infof("[%s] VM 스펙 정보 조회", curInstance.InstanceTypeId)
+			cblogger.Infof("[%s] VM Retrieve Specification Information", curInstance.InstanceTypeId)
 			vMSpecInfo = ExtractVMSpecInfo(Region, curInstance)
 			break
 		}
@@ -258,11 +257,11 @@ func (vmSpecHandler *AlibabaVmSpecHandler) GetOrgVMSpec(Name string) (string, er
 	}
 	callogger.Info(call.String(callLogInfo))
 
-	cblogger.Info("조회된 인스턴스 타입 수 : ", len(resp.InstanceTypes.InstanceType))
+	cblogger.Info("Number of Retrieved Instance Types : ", len(resp.InstanceTypes.InstanceType))
 	//	spew.Dump(resp)
 
 	if len(resp.InstanceTypes.InstanceType) < 1 {
-		return "", errors.New(Name + "에 해당하는 Spec 정보를 찾을 수 없습니다.")
+		return "", errors.New(Name + "Cannot find Spec information for the specified item."")
 	}
 
 	var jsonString string
@@ -273,7 +272,7 @@ func (vmSpecHandler *AlibabaVmSpecHandler) GetOrgVMSpec(Name string) (string, er
 		cblogger.Debugf("[%s]", curInstance.InstanceTypeId)
 		if Name == curInstance.InstanceTypeId {
 			cblogger.Debugf("===> [%s]", curInstance.InstanceTypeId)
-			cblogger.Infof("[%s] VM 스펙 정보 조회", curInstance.InstanceTypeId)
+			cblogger.Infof("[%s] VM Retrieve Specification Information", curInstance.InstanceTypeId)
 
 			jsonString, errJson = ConvertJsonString(curInstance)
 			if errJson != nil {
