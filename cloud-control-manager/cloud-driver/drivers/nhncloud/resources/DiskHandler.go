@@ -628,3 +628,35 @@ func (diskHandler *NhnCloudDiskHandler) mappingDiskInfo(volume volumes.Volume) (
 
 	return diskInfo, nil
 }
+
+func (diskHandler *NhnCloudDiskHandler) getNhnVolumeList() ([]volumes.Volume, error) {
+	cblogger.Info("NHN Cloud Driver: called getNhnVolumeList()")
+	callLogInfo := getCallLogScheme(diskHandler.RegionInfo.Region, call.DISK, "getNhnVolumeList()", "getNhnVolumeList()")
+
+	start := call.Start()
+	listOpts :=	volumes.ListOpts{}
+	allPages, err := volumes.List(diskHandler.VolumeClient, listOpts).AllPages()
+	if err != nil {
+		newErr := fmt.Errorf("Failed to Get NHN Cloud Volume Pages!! : [%v] ", err)
+		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
+		return nil, newErr
+	}
+	nhnVolumeList, err := volumes.ExtractVolumes(allPages)
+	if err != nil {
+		newErr := fmt.Errorf("Failed to Extract NHN Cloud Volume list!! : [%v] ", err)
+		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
+		return nil, newErr
+	}
+	LoggingInfo(callLogInfo, start)
+	// spew.Dump(nhnVolumeList)
+
+	if len(nhnVolumeList) < 1 {
+		newErr := fmt.Errorf("NHN Cloud Volume does Not Exist!!")
+		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
+		return nil, newErr
+	}
+	return nhnVolumeList, nil
+}
