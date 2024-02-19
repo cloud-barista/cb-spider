@@ -65,7 +65,7 @@ func (vmSpecHandler *TencentVmSpecHandler) ListVMSpec() ([]*irs.VMSpecInfo, erro
 
 	var vmSpecInfoList []*irs.VMSpecInfo
 	for _, curSpec := range response.Response.InstanceTypeConfigSet {
-		cblogger.Debugf("[%s] VM Spec 정보 처리", *curSpec.InstanceType)
+		cblogger.Debugf("[%s] VM Spec Information Processing", *curSpec.InstanceType)
 		vmSpecInfo := ExtractVMSpecInfo(curSpec)
 		vmSpecInfoList = append(vmSpecInfoList, &vmSpecInfo)
 	}
@@ -130,7 +130,7 @@ func (vmSpecHandler *TencentVmSpecHandler) GetVMSpec(Name string) (irs.VMSpecInf
 		cblogger.Debug(vmSpecInfo)
 		return vmSpecInfo, nil
 	} else {
-		return irs.VMSpecInfo{}, errors.New("정보를 찾을 수 없습니다")
+		return irs.VMSpecInfo{}, errors.New("Cannot find information")
 	}
 }
 
@@ -285,7 +285,7 @@ func ExtractVMSpecInfo(instanceTypeInfo *cvm.InstanceTypeConfig) irs.VMSpecInfo 
 	//KeyValue 목록 처리
 	keyValueList, errKeyValue := ConvertKeyValueList(instanceTypeInfo)
 	if errKeyValue != nil {
-		cblogger.Errorf("[%]의 KeyValue 추출 실패", *instanceTypeInfo.InstanceType)
+		cblogger.Errorf("Failed to extract KeyValue of [%s]", *instanceTypeInfo.InstanceType)
 		cblogger.Error(errKeyValue)
 	}
 	vmSpecInfo.KeyValueList = keyValueList
