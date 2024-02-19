@@ -62,7 +62,7 @@ func ExtractVMSpecInfo(Region string, instanceTypeInfo *ec2.InstanceTypeInfo) ir
 	//GPU 정보가 있는 인스터스는 GPU 처리
 	if !reflect.ValueOf(instanceTypeInfo.GpuInfo).IsNil() {
 		for _, curGpu := range instanceTypeInfo.GpuInfo.Gpus {
-			cblogger.Debugf("[%s] Gpu 스펙 정보 조회", *curGpu.Name)
+			cblogger.Debugf("[%s] Gpu Retrieve Specification Information", *curGpu.Name)
 			gpuInfo := ExtractGpuInfo(curGpu)
 			gpuInfoList = append(gpuInfoList, gpuInfo)
 		}
@@ -81,7 +81,7 @@ func ExtractVMSpecInfo(Region string, instanceTypeInfo *ec2.InstanceTypeInfo) ir
 	//KeyValue 목록 처리
 	keyValueList, errKeyValue := ConvertKeyValueList(instanceTypeInfo)
 	if errKeyValue != nil {
-		cblogger.Errorf("[%]의 KeyValue 추출 실패", *instanceTypeInfo.InstanceType)
+		//	cblogger.Errorf("[%]의 KeyValue 추출 실패", *instanceTypeInfo.InstanceType)
 		cblogger.Error(errKeyValue)
 	}
 	/*
@@ -241,7 +241,7 @@ func (vmSpecHandler *AwsVmSpecHandler) ListVMSpec() ([]*irs.VMSpecInfo, error) {
 
 				_, exists := mapVmSpecIds[*curInstance.InstanceType]
 				if !exists {
-					cblogger.Debugf("[%s] 스펙은 [%s] Zone에서 지원되지 않습니다.", *curInstance.InstanceType, zoneId)
+					cblogger.Debugf("The [%s] spec is not supported in the [%s] Zone.", *curInstance.InstanceType, zoneId)
 					continue
 				}
 
@@ -264,7 +264,7 @@ func (vmSpecHandler *AwsVmSpecHandler) ListVMSpec() ([]*irs.VMSpecInfo, error) {
 	//spew.Dump(vMSpecInfoList)
 
 	//cblogger.Infof("===> Total Check Spec Count : [%d]", totCnt)
-	cblogger.Infof("==>[%s] AZ에서는 [%s]리전의 [%d] 스펙 중 [%d]개의 스펙을 사용할 수 있음.", zoneId, vmSpecHandler.Region.Region, totCnt, len(vMSpecInfoList))
+	cblogger.Infof("==>In the [%s] AZ, [%d] specs are available from the [%s] region, and [%d] of them can be utilized.", zoneId, vmSpecHandler.Region.Region, totCnt, len(vMSpecInfoList))
 
 	return vMSpecInfoList, nil
 }
@@ -399,7 +399,7 @@ func (vmSpecHandler *AwsVmSpecHandler) ListOrgVMSpec() (string, error) {
 
 				_, exists := mapVmSpecIds[*curInstance.InstanceType]
 				if !exists {
-					cblogger.Debugf("[%s] 스펙은 [%s] Zone에서 지원되지 않습니다.", *curInstance.InstanceType, zoneId)
+					cblogger.Debugf("The [%s] spec is not supported in the [%s] Zone.", *curInstance.InstanceType, zoneId)
 					continue
 				}
 
@@ -421,7 +421,7 @@ func (vmSpecHandler *AwsVmSpecHandler) ListOrgVMSpec() (string, error) {
 	callogger.Info(call.String(callLogInfo))
 	//spew.Dump(vMSpecInfoList)
 
-	cblogger.Infof("==>[%s] AZ에서는 [%s]리전의 [%d] 스펙 중 [%d]개의 스펙을 사용할 수 있음.", zoneId, vmSpecHandler.Region.Region, totCnt, len(resp.InstanceTypes))
+	cblogger.Infof("==>In the [%s] AZ, [%d] specs are available from the [%s] region, and [%d] of them can be utilized.", zoneId, vmSpecHandler.Region.Region, totCnt, len(resp.InstanceTypes))
 
 	//jsonString, errJson := ConvertJsonString(resp.InstanceTypes[0])
 	jsonString, errJson := ConvertJsonString(resp)
