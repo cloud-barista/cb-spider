@@ -53,10 +53,9 @@ func (myImageHandler *NhnCloudMyImageHandler) SnapshotVM(snapshotReqInfo irs.MyI
 		LoggingError(callLogInfo, newErr)
 		return irs.MyImageInfo{}, newErr
 	}
-
-	cblogger.Info("\n\n### nhnVMSpecType : ")
-	spew.Dump(nhnVMSpecType)
-	cblogger.Info("\n")
+	// cblogger.Info("\n\n### nhnVMSpecType : ")
+	// spew.Dump(nhnVMSpecType)
+	// cblogger.Info("\n")
 
 	// snapShotMap := make(map[string]string)
     // snapShotMap["vmID"] = snapshotReqInfo.SourceVM.SystemId
@@ -158,10 +157,6 @@ func (myImageHandler *NhnCloudMyImageHandler) ListMyImage() ([]*irs.MyImageInfo,
 		return nil, newErr
 	}
 	LoggingInfo(callLogInfo, start)
-	
-	// cblogger.Info("\n\n### nhnImageList : ")
-	// spew.Dump(nhnImageList)
-	// cblogger.Info("# 출력 결과 수 : ", len(nhnImageList))
 
 	var imageInfoList []*irs.MyImageInfo
     for _, nhnImage := range nhnImageList {
@@ -387,39 +382,38 @@ func (myImageHandler *NhnCloudMyImageHandler) getVMSpecType(vmIID irs.IID) (stri
 func (myImageHandler *NhnCloudMyImageHandler) getBootableVolumeID(vmIID irs.IID) (string, error) {
 	cblogger.Info("NHN Cloud Driver: called getBootableVolumeID()")
 
-	vmHandler := NhnCloudVMHandler{
-		RegionInfo:     myImageHandler.RegionInfo,
-		VMClient:       myImageHandler.VMClient,
-		ImageClient:   	myImageHandler.ImageClient,
-		NetworkClient:  myImageHandler.NetworkClient,
-		VolumeClient:  	myImageHandler.VolumeClient,
-	}
-
 	diskHandler := NhnCloudDiskHandler{
 		RegionInfo:     myImageHandler.RegionInfo,
 		VMClient:       myImageHandler.VMClient,
 		VolumeClient:   myImageHandler.VolumeClient,
 	}
 
-	vmInfo, err := vmHandler.GetVM(vmIID)
+	nhnVolumeList, err := diskHandler.getNhnVolumeList()
 	if err != nil {
-		newErr := fmt.Errorf("Failed to Get the VM Info. : [%v] ", err)
+		newErr := fmt.Errorf("Failed to Get NHN Cloud Volume Pages!! : [%v] ", err)
 		cblogger.Error(newErr.Error())
 		return "", newErr
 	}
 
-	var bootableVolumeId string
-	for _, diskIID := range vmInfo.DataDiskIIDs {
-		isBootable, err := diskHandler.isBootableDisk(diskIID)
+	var bootableVolumeId string	
+	for _, nhnVolume := range nhnVolumeList {		
+		isBootable, err := strconv.ParseBool(nhnVolume.Bootable)
 		if err != nil {
-			newErr := fmt.Errorf("Failed to Get the Bootable Disk Info. : [%v] ", err)
+			newErr := fmt.Errorf("Failed to Parse the String value!! : [%v]", err)
 			cblogger.Error(newErr.Error())
 			return "", newErr
-		} else if isBootable {
-			bootableVolumeId = diskIID.SystemId
+		}
+
+		if isBootable && nhnVolume.Attachments != nil && len(nhnVolume.Attachments) > 0 {
+			for _, attachment := range nhnVolume.Attachments {			
+				if strings.EqualFold(attachment.ServerID, vmIID.SystemId) {
+					bootableVolumeId = attachment.VolumeID
+					break
+				}
+			}
 		}
 	}
-	
+
 	if strings.EqualFold(bootableVolumeId, "") {
 		newErr := fmt.Errorf("Failed to Find any Bootable Volume : [%v] ", err)
 		cblogger.Error(newErr.Error())
