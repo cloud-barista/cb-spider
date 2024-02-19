@@ -261,7 +261,7 @@ func (vmSpecHandler *AlibabaVmSpecHandler) GetOrgVMSpec(Name string) (string, er
 	//	spew.Dump(resp)
 
 	if len(resp.InstanceTypes.InstanceType) < 1 {
-		return "", errors.New(Name + "Cannot find Spec information for the specified item."")
+		return "", errors.New(Name + "Cannot find Spec information for the specified item.")
 	}
 
 	var jsonString string
