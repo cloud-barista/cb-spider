@@ -81,7 +81,6 @@ func ExtractVMSpecInfo(Region string, instanceTypeInfo *ec2.InstanceTypeInfo) ir
 	//KeyValue 목록 처리
 	keyValueList, errKeyValue := ConvertKeyValueList(instanceTypeInfo)
 	if errKeyValue != nil {
-		//	cblogger.Errorf("[%]의 KeyValue 추출 실패", *instanceTypeInfo.InstanceType)
 		cblogger.Error(errKeyValue)
 	}
 	/*
@@ -237,8 +236,6 @@ func (vmSpecHandler *AwsVmSpecHandler) ListVMSpec() ([]*irs.VMSpecInfo, error) {
 
 			for _, curInstance := range page.InstanceTypes {
 				totCnt++
-				//cblogger.Infof("[%d]번째 [%s] VM 스펙 정보 조회", totCnt, *curInstance.InstanceType)
-
 				_, exists := mapVmSpecIds[*curInstance.InstanceType]
 				if !exists {
 					cblogger.Debugf("The [%s] spec is not supported in the [%s] Zone.", *curInstance.InstanceType, zoneId)
@@ -395,7 +392,6 @@ func (vmSpecHandler *AwsVmSpecHandler) ListOrgVMSpec() (string, error) {
 
 			for _, curInstance := range page.InstanceTypes {
 				totCnt++
-				//cblogger.Infof("[%d]번째 [%s] VM 스펙 정보 조회", totCnt, *curInstance.InstanceType)
 
 				_, exists := mapVmSpecIds[*curInstance.InstanceType]
 				if !exists {
