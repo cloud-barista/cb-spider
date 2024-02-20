@@ -76,14 +76,14 @@ func (myImageHandler *KtCloudMyImageHandler) SnapshotVM(snapshotReqInfo irs.MyIm
 	start := call.Start()
 	imgResp, err := myImageHandler.Client.CreateTemplate(&imgReq)
 	if err != nil {
-		newErr := fmt.Errorf("Failed to Create New Disk Volume. [%v]", err.Error())
+		newErr := fmt.Errorf("Failed to Create New Image. [%v]", err.Error())
 		cblogger.Error(newErr.Error())
 		LoggingError(callLogInfo, newErr)
 		return irs.MyImageInfo{}, newErr
 	}
 	LoggingInfo(callLogInfo, start)
 
-	cblogger.Info("### Waiting for the Disk to be Created(600sec)!!\n")
+	cblogger.Info("### Waiting for the Image to be Created(600sec)!!\n")
 	waitErr := myImageHandler.Client.WaitForAsyncJob(imgResp.Createtemplateresponse.JobId, 600000000000)
 	if waitErr != nil {
 		cblogger.Errorf("Failed to Wait the Job : [%v]", waitErr)
