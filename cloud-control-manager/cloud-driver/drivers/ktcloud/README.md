@@ -70,7 +70,7 @@ $GOPATH/src/github.com/cloud-barista/ktcloud/ktcloud/main/
 ```
 <p><br>
 
-#### # 참고 사항
+#### # KT Cloud Classic (G1/G2) 드라이버 이용시 참고 사항
 ​	O KT Cloud Classic 버전(G1/G2) CSP 인프라 서비스는 물리적 네트워크 기반으로 운영되므로, KT에서 VPC/Subnet 생성 등의 제어 기능 및 관련 API를 지원하지 않음.
    - 따라서, 본 driver를 통해 VPC 및 Subnet 관련 제어가 실행될때, VPC 및 Subnet 정보는 driver 자체에서 임의적으로 local에서 JSON 파일 형태로 관리됨.(VPC 및 Subnet 생성시 어떤 Name이든 가능)
 <p><br>
@@ -92,9 +92,31 @@ $GOPATH/src/github.com/cloud-barista/ktcloud/ktcloud/main/
      - 예를들어, 현재 버전의 드라이버를 기준으로, VM 생성 후 드라이버 내부적으로 Security Group 적용시에 TCP 22번 port를 open하는 rule을 적용하고, TCP 모든 port를 open하는 rule을 적용할 수 없음.
 <p><br>
 
-​	O Disk 추가 볼륨 생성 방법
+  O 생성되는 VM의 root disk(volume) type 및 size (KT Cloud Classic(G1/G2) 기준)
+   - VM 생성시, root disk type으로 'Seoul-M2' zone은 SSD type만 지원하고, 나머지 zone은 HDD type만 지원함.​
+   - Root disk(volume) size는 default로 Linux 20G, Windows 50G로 지원됨.(향후 변경될 수 있음)
+<p><br>
+
+  O 'VM 생성시', Data disk (추가 volume) 생성 방법
    - VM Spec 조회시, Spec 이름의 맨 뒤에 붙은 disk 크기가 기본(Root) disk volume과 추가 volume을 합한 크기임.
       - 본 드라이버를 통해 조회되는 VM Spec 예) 97359d1d-a7b1-49d9-b435-14608543f00b#097b63d7-e725-4db7-b4dd-a893b0c76cb0_disk100GB
       - 위의 예의 경우, Linux 계열에서는 기본 volume 20GB에 80GB의 추가 볼륨이 생성되어 총 100GB가 됨.
    - VM 생성시 원하는 총 disk 크기에 따라 Spec을 결정해서 입력하면됨.
+<p><br>
+
+  O 일반적인 Data disk (추가 volume) 생성 방법
+   - 본 드라이버에서 data disk 생성시, disk type은 'HDD'와 'SSD-Provisioned'를 지원함.
+     - 참고) Zone별로 가용한 disk type이 다르므로, 본 드라이버에서는 현재 모든 zone에서 가용한 위의 두가지만 지원함.(향후 변경 가능)
+   - Disk size 지정시, type별로 아래의 기준으로 지정해야함.
+     - HHD : 10 ~ 300G(10G 단위 지정) (단, Seoul-M2 존은 400G 및 500G 지정 가능)
+     - SSD-Provisioned : 100 ~ 800G(100G 단위 지정)
+     - 아래의 link에서 'Volume : 생성' 부분 > 'diskofferingid' 표 참고
+       - https://cloud.kt.com/docs/open-api-guide/g/computing/disk-volume
+<p><br>
+
+#### # KT Cloud Classic (G1/G2) 드라이버 개발시 참고 사항
+​	O 생성되는 VM의 root disk(volume) type 정보
+   - KT Cloud Volume 정보에서 root disk의 type 정보는 제공하지 않음.
+     - 아래의 기준을 드라이버에 반영함.
+       - Seoul M2 zone은 SSD type으로 root volume이 생성되고, 나머지 zone은 HDD type으로 생성됨.​
 <p><br>
