@@ -449,6 +449,8 @@ func RunServer() {
 
 		{"GET", "/adminweb/priceinfo/:ConnectConfig", aw.PriceInfoRequest},
 		{"GET", "/adminweb/priceinfotablelist/:ProductFamily/:RegionName/:ConnectConfig", aw.PriceInfoTableList},
+		// download price info with JSON file
+		{"GET", "/adminweb/priceinfo/download/:FileName", aw.DownloadPriceInfo},
 
 		{"GET", "/adminweb/cluster/:ConnectConfig", aw.Cluster},
 		{"GET", "/adminweb/clustermgmt/:ConnectConfig", aw.ClusterMgmt},

@@ -139,6 +139,14 @@
             URL.revokeObjectURL(url);
         }
 
+        function conditionalDownload(cloudName, totalItems, cachedFileName) {
+            if (totalItems > 200) { // download from the cached file in the server
+                window.location.href = "/spider/adminweb/priceinfo/download/" + cachedFileName;
+            } else { // download from the current page
+                downloadJson(cloudName);
+            }
+        }
+
         function copyToClipboard(cloudName) {
             var content = document.getElementById("json-all").textContent;
             var textArea = document.createElement("textarea");
@@ -177,27 +185,49 @@
             });
         };
 
+        function numberWithCommas(x) {
+            return x.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+        }
+        
+        function formatNumbers() {
+            var totalItems = document.getElementById('totalItems');
+            if (totalItems) {
+                totalItems.textContent = numberWithCommas(totalItems.textContent);
+            }
+        }
+
     </script>
 </head>
 
-<body>
-    <h3>{{.Meta.Description}} - {{.Meta.Version}}</h3>
+<body onload="formatNumbers();">
+    <h3>{{.Data.Meta.Description}} - {{.Data.Meta.Version}}</h3>
+    <h4 id="totalItems">Total Products: #{{.TotalItems}}</h4>    
     <button type="button" class="close-btn" onclick="window.parent.closeFetchOverlay()">X</button>
     
-    {{range .CloudPriceList}}
+    {{ $totalNum := .TotalItems }}
+    {{ $fileName := .CachedFileName }}
+
+    {{range .Data.CloudPriceList}}
     <div class="cloudHeader">
         <h3>{{.CloudName}}</h3>
         <button id="toggleButton-{{.CloudName}}" onclick="toggleView('{{.CloudName}}')">JSON View</button>
-        <button onclick="downloadJson('{{.CloudName}}')">JSON Download</button>        
+
+        <button onclick="conditionalDownload('{{.CloudName}}', '{{$totalNum}}', '{{$fileName}}')">JSON Download</button>
+
         <button id="copyButton-{{.CloudName}}" class="copy-btn" onclick="copyToClipboard('json-all')">📋</button>
-        {{if gt (len .PriceList) 150}}
-        <span style="margin-left: 10px; color: blue;">※ Display limit: 150. Full info via 'JSON Download'.</span>
+
+        {{if gt ($totalNum) 200}}
+        <span style="margin-left: 10px; color: blue;">※ Display limit: 200. Full info via 'JSON Download'.</span>
         {{end}}
+
     </div>
+    {{end}}
+
+    {{range .Data.CloudPriceList}}
 
     <table id="table-{{.CloudName}}">
         <tr>
-            <th>#{{len .PriceList}}</th>
+            <th>#</th>
             <th>Product ID</th>
             <th>Region/Zone</th>
             <th>Product Info</th>
@@ -206,7 +236,6 @@
             <th class="pricing-policies-header">{{.CloudName}} Price Info</th>
         </tr>
         {{range $index, $_ := .PriceList}}
-        {{if lt $index 150}}
         <tr>
             <td class="center-text">{{inc $index}}</td>
             <td class="center-text">[{{.ProductInfo.ProductId}}]<br><br>※ {{.ProductInfo.Description}}</td>
@@ -271,10 +300,9 @@
             </td>
         </tr>
         {{end}}
-        {{end}}
     </table>
     {{end}}
 
-    <pre class="jsonView" id="json-all">{{. | json}}</pre>
+    <pre class="jsonView" id="json-all">{{.Data | json}}</pre>
 </body>
 </html>
