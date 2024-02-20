@@ -17,6 +17,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	_ "time/tzdata" // To prevent 'unknown time zone Asia/Seoul' error
 	// "github.com/davecgh/go-spew/spew"
 
 	nhnsdk "github.com/cloud-barista/nhncloud-sdk-go"
