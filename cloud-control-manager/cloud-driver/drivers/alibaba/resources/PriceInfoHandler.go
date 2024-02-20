@@ -77,9 +77,9 @@ type AliInstanceType struct {
 	InstanceType string  `json:"InstanceTypeId,omitempty"`
 	Vcpu         int64   `json:"CpuCoreCount,omitempty"`
 	Memory       float64 `json:"MemorySize,omitempty"`
-	Storage      string  `json:"LocalStorageCategory,omitempty"`
-	Gpu          string  `json:"GPUSpec,omitempty"`
-	GpuMemory    int64   `json:"GPUAmount,omitempty"`
+	//Storage      string  `json:"LocalStorageCategory,omitempty"`
+	Gpu       string `json:"GPUSpec,omitempty"`
+	GpuMemory int64  `json:"GPUAmount,omitempty"`
 }
 
 type AliInstanceTypesResponse struct {
@@ -515,7 +515,9 @@ func GetDescribeInstanceTypesForPricing(bssClient *bssopenapi.Client, regionName
 			productInfo.InstanceType = resultProduct.InstanceType
 			productInfo.Vcpu = strconv.FormatInt(resultProduct.Vcpu, 10)
 			productInfo.Memory = strconv.FormatFloat(resultProduct.Memory, 'f', -1, 64)
-			productInfo.Storage = resultProduct.Storage
+			//resultProduct.Storage 데이터가 없는데 왜 데이터를 이렇게 맵핑을 해놓았는지 확인필요
+			//productInfo.Storage = resultProduct.Storage
+			productInfo.Storage = "NA"
 			productInfo.Gpu = resultProduct.Gpu
 			productInfo.GpuMemory = strconv.FormatInt(resultProduct.GpuMemory, 10)
 			productInfo.OperatingSystem = "NA"
