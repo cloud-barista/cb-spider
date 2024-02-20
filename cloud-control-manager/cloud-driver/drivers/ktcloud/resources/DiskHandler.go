@@ -32,6 +32,7 @@ const (
 	DefaultDiskIOPS        		string = "10000"
 	DefaultWindowsDiskSize 		string = "50"
 	KOR_Seoul_M_ZoneID  		string = "95e2f517-d64a-4866-8585-5177c256f7c7"
+	KOR_Seoul_M2_ZoneID  		string = "d7d0177e-6cda-404a-a46f-a5b356d2874e"
 )
 
 type KtCloudDiskHandler struct {
@@ -75,17 +76,19 @@ func (diskHandler *KtCloudDiskHandler) CreateDisk(diskReqInfo irs.DiskInfo) (irs
 		return irs.DiskInfo{}, newErr
 	}
 
+	var convertedDiskType string
 	var reqIOPS string
 	if strings.EqualFold(reqDiskType, "") || strings.EqualFold(reqDiskType, "default") {
-		reqDiskType = STG_Type // In case, Volume Type is not specified.
+		convertedDiskType = STG_Type // In case, Volume Type is not specified or specified as "default"
 	} else if strings.EqualFold(reqDiskType, "HDD") {
-		reqDiskType = STG_Type
-	} else if strings.EqualFold(reqDiskType, "SSD") {
-		reqDiskType = SSD_Type
+		convertedDiskType = STG_Type
+	} else if strings.EqualFold(reqDiskType, "SSD-Provisioned") {
+		convertedDiskType = SSD_Type
 		reqIOPS 	= DefaultDiskIOPS
 	} else {
-		newErr := fmt.Errorf("Invalid Disk Type!!")
+		newErr := fmt.Errorf("Invalid Disk Type!! You can specify 'HDD' and 'SSD-Provisioned' type.")
 		cblogger.Error(newErr.Error())
+		return irs.DiskInfo{}, newErr
 	}
 
 	if strings.EqualFold(reqDiskSize, "") || strings.EqualFold(reqDiskSize, "default") {
@@ -100,21 +103,21 @@ func (diskHandler *KtCloudDiskHandler) CreateDisk(diskReqInfo irs.DiskInfo) (irs
 		return irs.DiskInfo{}, newErr
 	}
 
-	// # HDD type : 10~300(GB)
-	if strings.EqualFold(reqDiskType, "STG") && (reqDiskSizeInt < 10 || reqDiskSizeInt > 300) {
-		newErr := fmt.Errorf("Invalid Disk Size. 'HDD' Disk Size Must be between 10 and 300.")
+	// # HDD type : 10 ~ 300g (10GB unit specification) (Seoul-M2 zone is available for 400GB and 500GB)
+	if strings.EqualFold(convertedDiskType, STG_Type) && (reqDiskSizeInt < 10 || reqDiskSizeInt > 500) {
+		newErr := fmt.Errorf("Invalid Disk Size. 'HDD' disk size Must be between 10GB and 500GB.")
 		cblogger.Error(newErr.Error())
 		return irs.DiskInfo{}, newErr
 	}
 	// # SSD-provisioned type : 100~800(GB). It can be designated in 100GB units.
-	if strings.EqualFold(reqDiskType, "SSD") && (reqDiskSizeInt < 100 || reqDiskSizeInt > 800) {
-		newErr := fmt.Errorf("Invalid Disk Size. 'HDD' Disk Size Must be between 100 and 800.")
+	if strings.EqualFold(convertedDiskType, SSD_Type) && (reqDiskSizeInt < 100 || reqDiskSizeInt > 800) {
+		newErr := fmt.Errorf("Invalid Disk Size. 'SSD-Provisioned' disk size Must be between 100GB and 800GB.")
 		cblogger.Error(newErr.Error())
 		return irs.DiskInfo{}, newErr
 	}
 
 	// ### ProductCode : Create volume using product abbreviations (ex. STG 100G, SSD 300G, etc.)
-	volumeProductCode := reqDiskType + " " + reqDiskSize + "G"
+	volumeProductCode := convertedDiskType + " " + reqDiskSize + "G"
 	cblogger.Infof("# ProductCode : %s", volumeProductCode)
 	// ### If the 'ProductCode' field is used, the 'DiskOfferingId' field value is ignored.
 	volumeReq := ktsdk.CreateVolumeReqInfo{
@@ -606,7 +609,7 @@ func (diskHandler *KtCloudDiskHandler) mappingDiskInfo(volume *ktsdk.Volume) (ir
 	// Caution!!) In 'KOR Seoul M' zone, in case the created disk is 'SSD', it appears as "volumetype": "general". (Shoud be "volumetype": "ssd")
 	if strings.EqualFold(diskHandler.RegionInfo.Zone, KOR_Seoul_M_ZoneID){
 		if strings.Contains(volume.DiskOfferingName, "SSD") {
-			diskInfo.DiskType = "SSD"
+			diskInfo.DiskType = "SSD-Provisioned"
 		} else {
 			diskInfo.DiskType = "HDD"
 		}
@@ -614,7 +617,7 @@ func (diskHandler *KtCloudDiskHandler) mappingDiskInfo(volume *ktsdk.Volume) (ir
 		if strings.EqualFold(volume.VolumeType, "general") {
 			diskInfo.DiskType = "HDD"
 		} else if strings.EqualFold(volume.VolumeType, "ssd") {
-			diskInfo.DiskType = "SSD"
+			diskInfo.DiskType = "SSD-Provisioned"
 		}
 	}
 

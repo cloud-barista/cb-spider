@@ -39,15 +39,16 @@ type KtCloudVMHandler struct {
 }
 
 const (
-	LinuxUserName 			string = "cb-user"
-	WinUserName 			string = "Administrator"
+	LinuxUserName 				string = "cb-user"
+	WinUserName 				string = "Administrator"
 
-	UbuntuCloudInitFilePath string 	= "/cloud-driver-libs/.cloud-init-ktcloud/cloud-init-ubuntu"
-	CentosCloudInitFilePath string 	= "/cloud-driver-libs/.cloud-init-ktcloud/cloud-init-centos"
-	WinCloudInitFilePath 	string 	= "/cloud-driver-libs/.cloud-init-ktcloud/cloud-init-windows"
+	UbuntuCloudInitFilePath 	string 	= "/cloud-driver-libs/.cloud-init-ktcloud/cloud-init-ubuntu"
+	CentosCloudInitFilePath 	string 	= "/cloud-driver-libs/.cloud-init-ktcloud/cloud-init-centos"
+	WinCloudInitFilePath 		string 	= "/cloud-driver-libs/.cloud-init-ktcloud/cloud-init-windows"
 	
-	DefaultVMUsagePlanType	string = "hourly"	// KT Cloud Rate Type (default : hourly)
-	DefaultRootDiskType		string = "HDD"		// KT Cloud default Root Volume Type
+	DefaultVMUsagePlanType		string = "hourly"	// KT Cloud Rate Type (default : hourly)
+	LinuxDefaultRootDiskSize	string = "20"
+	WinDefaultRootDiskSize		string = "50"
 )
 
 // Already declared in CommonNcpFunc.go
@@ -74,6 +75,23 @@ func (vmHandler *KtCloudVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 	if vmId != "" {
 		cblogger.Errorf("Failed to Create the VM. The VM Name already Exists!! : [%s]", vmReqInfo.IId.NameId)
 		return irs.VMInfo{}, nameCheckErr
+	}
+
+	// Caution!!) When creating VM, 'Seoul M2' zone only supports 'SSD' type with root disk type, and the rest of the zone only supports 'HDD' Type.
+	if strings.EqualFold(vmHandler.RegionInfo.Zone, KOR_Seoul_M2_ZoneID) {
+		if !strings.EqualFold(vmReqInfo.RootDiskType, "default") && !strings.EqualFold(vmReqInfo.RootDiskType, "SSD") {
+			newErr := fmt.Errorf("Invalid RootDiskType!! KT Cloud supports only 'SSD' type on the 'Seoul M2' zone.")
+			cblogger.Error(newErr.Error())
+			LoggingError(callLogInfo, newErr)
+			return irs.VMInfo{}, newErr
+		}
+	} else {
+		if !strings.EqualFold(vmReqInfo.RootDiskType, "default") && !strings.EqualFold(vmReqInfo.RootDiskType, "HDD") {
+			newErr := fmt.Errorf("Invalid RootDiskType!! Only 'HDD' type is supported on this zone.(Except for 'Seoul M2' zone.)")
+			cblogger.Error(newErr.Error())
+			LoggingError(callLogInfo, newErr)
+			return irs.VMInfo{}, newErr
+		}
 	}
 
 	// Preparing for UserData String
@@ -115,6 +133,14 @@ func (vmHandler *KtCloudVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 			return irs.VMInfo{}, newErr
 		}
 		if isPublicWindowsImage {
+			// Root Disk Size is supported at only 20GB for Linux and 50GB for Windows OS.
+			if !strings.EqualFold(vmReqInfo.RootDiskSize, "default") && !strings.EqualFold(vmReqInfo.RootDiskSize, WinDefaultRootDiskSize) {
+				newErr := fmt.Errorf("Invalid RootDiskSize!! Root Disk Size is supported at only 20GB for Linux and 50GB for Windows OS.")
+				cblogger.Error(newErr.Error())
+				LoggingError(callLogInfo, newErr)
+				return irs.VMInfo{}, newErr
+			}
+
 			var createErr error
 			initUserData, createErr = vmHandler.createWinInitUserData(vmReqInfo.VMUserPasswd)
 			if createErr != nil {
@@ -124,6 +150,14 @@ func (vmHandler *KtCloudVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 				return irs.VMInfo{}, newErr
 			}
 		} else {
+			// Root Disk Size is supported at only 20GB for Linux and 50GB for Windows OS.
+			if !strings.EqualFold(vmReqInfo.RootDiskSize, "default") && !strings.EqualFold(vmReqInfo.RootDiskSize, LinuxDefaultRootDiskSize) {
+				newErr := fmt.Errorf("Invalid RootDiskSize!! Root Disk Size is supported at only 20GB for Linux and 50GB for Windows OS.")
+				cblogger.Error(newErr.Error())
+				LoggingError(callLogInfo, newErr)
+				return irs.VMInfo{}, newErr
+			}
+
 			var createErr error
 			initUserData, createErr = vmHandler.createLinuxInitUserData(vmReqInfo.ImageIID, keyPairId)
 			if createErr != nil {
@@ -160,6 +194,14 @@ func (vmHandler *KtCloudVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 			return irs.VMInfo{}, newErr
 		}
 		if isMyWindowsImage {
+			// Root Disk Size is supported at only 20GB for Linux and 50GB for Windows OS.
+			if !strings.EqualFold(vmReqInfo.RootDiskSize, "default") && !strings.EqualFold(vmReqInfo.RootDiskSize, WinDefaultRootDiskSize) {
+				newErr := fmt.Errorf("Invalid RootDiskSize!! Root Disk Size is supported at only 20GB for Linux and 50GB for Windows OS.")
+				cblogger.Error(newErr.Error())
+				LoggingError(callLogInfo, newErr)
+				return irs.VMInfo{}, newErr
+			}
+
 			var createErr error
 			initUserData, createErr = vmHandler.createWinInitUserData(vmReqInfo.VMUserPasswd)
 			if createErr != nil {
@@ -169,6 +211,14 @@ func (vmHandler *KtCloudVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 				return irs.VMInfo{}, newErr
 			}
 		} else {
+			// Root Disk Size is supported at only 20GB for Linux and 50GB for Windows OS.
+			if !strings.EqualFold(vmReqInfo.RootDiskSize, "default") && !strings.EqualFold(vmReqInfo.RootDiskSize, LinuxDefaultRootDiskSize) {
+				newErr := fmt.Errorf("Invalid RootDiskSize!! Root Disk Size is supported at only 20GB for Linux and 50GB for Windows OS.")
+				cblogger.Error(newErr.Error())
+				LoggingError(callLogInfo, newErr)
+				return irs.VMInfo{}, newErr
+			}
+			
 			var createErr error
 			initUserData, createErr = vmHandler.createLinuxInitUserData(vmReqInfo.ImageIID, keyPairId)
 			if createErr != nil {
@@ -268,7 +318,10 @@ func (vmHandler *KtCloudVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 	// spew.Dump(jobResult)
 
 	if strings.EqualFold(newVM.Deployvirtualmachineresponse.ID, "") {
-		cblogger.Error("Failed to Find the VM Instance ID!!")
+		newErr := fmt.Errorf("Failed to Find the VM Instance ID!!")
+		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
+		return irs.VMInfo{}, newErr
 	} else {
 		// cblogger.Info("Start Get VM Status...")
 		// vmStatus, err := vmHandler.GetVMStatus(newVM.Deployvirtualmachineresponse.ID)
@@ -317,37 +370,17 @@ func (vmHandler *KtCloudVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 		// cblogger.Infof("==> \n### result : [%s]", result.Listvirtualmachinesresponse.Virtualmachine[0])
 		// spew.Dump(result)
 
-		publicIp, err := vmHandler.associateIpAddress()
+		publicIp, publicIpId, err := vmHandler.associateIpAddress()
 		if err != nil {
 			cblogger.Errorf("Failed to Create New Public IP : [%v]", err)	
 			return irs.VMInfo{}, err
-		}
-
-		// To get list of the PulbicIP info
-		callLogStart2 := call.Start()
-		ipListReqInfo := ktsdk.ListPublicIpReqInfo {}
-		ipListResponse, err := vmHandler.Client.ListPublicIpAddresses(ipListReqInfo)
-		if err != nil {
-			newErr := fmt.Errorf("Failed to Get PublicIP List : [%v]", err)
-			cblogger.Error(newErr.Error())
-			LoggingError(callLogInfo, newErr)
-			return irs.VMInfo{}, newErr
-		}
-		LoggingInfo(callLogInfo, callLogStart2)
-		
-		// To get the publicIP 'ID' according to the publicIP Address from the PublicIP list
-		var publicIpId string
-		for _, ipAddress := range ipListResponse.Listpublicipaddressesresponse.PublicIpAddress {
-			if ipAddress.IpAddress == publicIp {
-				publicIpId = ipAddress.ID
-				break
-			}
-		}
-		cblogger.Infof("==> The PublicIP ID : [%s]", publicIpId)
+		}		
+		cblogger.Infof("==> The Public IP and Public ID : [%s], [%s]", publicIp, publicIpId)
 
 		// Caution!!) If execute DeleteFirewall(), PortFording rule also deleted via KT Cloud API           
 		// Delete Firewall Rule(Open : tcp/22) created when setting PORT Forwarding.
 		// The port No. 22 is opened already when the PortFording rule is created.
+
 		// _, error := vmHandler.deleteFirewall(publicIpId)
 		// if error != nil {
 		// 	cblogger.Error(error.Error())
@@ -501,11 +534,19 @@ func (vmHandler *KtCloudVMHandler) mappingVMInfo(KtCloudInstance *ktsdk.Virtualm
 		return irs.VMInfo{}, newErr
 	}
 	
-	var diskSize string
-	if !strings.EqualFold(vmSpecId, "") && strings.Contains(vmSpecId, "!") {
-		_, _, diskSize = getKTVMSpecIdAndDiskSize(vmSpecId)
+	// var diskSize string
+	// if !strings.EqualFold(vmSpecId, "") && strings.Contains(vmSpecId, "!") {
+	// 	_, _, diskSize = getKTVMSpecIdAndDiskSize(vmSpecId)
+	// } else {
+	// 	diskSize = "N/A"
+	// }
+
+	var rootDiskType string
+	// Caution!!) When creating VM, 'Seoul M2' zone only supports 'SSD' type with root disk type, and the rest of the zone only supports 'HDD' Type.
+	if strings.EqualFold(vmHandler.RegionInfo.Zone, KOR_Seoul_M2_ZoneID){
+		rootDiskType = "SSD"
 	} else {
-		diskSize = "N/A"
+		rootDiskType = "HDD"
 	}
 
 	// To Set the VM resources Info.
@@ -543,8 +584,7 @@ func (vmHandler *KtCloudVMHandler) mappingVMInfo(KtCloudInstance *ktsdk.Virtualm
 			SystemId: KtCloudInstance.KeyPair,
 		},
 
-		RootDiskType: DefaultRootDiskType,
-		RootDiskSize: diskSize,
+		RootDiskType: rootDiskType,
 
 		PublicIP:   publicIp,
 		PrivateIP:  KtCloudInstance.Nic[0].IpAddress,
@@ -584,18 +624,20 @@ func (vmHandler *KtCloudVMHandler) mappingVMInfo(KtCloudInstance *ktsdk.Virtualm
 			vmInfo.ImageType = irs.MyImage
 		}
 	}
-	
+
 	if strings.Contains(KtCloudInstance.TemplateName, "win") {
 		vmInfo.Platform 		= irs.WINDOWS
 		vmInfo.VMUserId 		= "Administrator"
 		vmInfo.VMUserPasswd		= "User Specified Passwd"
 		vmInfo.SSHAccessPoint	= publicIp + ":3389"
+		vmInfo.RootDiskSize		= WinDefaultRootDiskSize
 	} else {
 		vmInfo.Platform 		= irs.LINUX_UNIX
 		vmInfo.VMUserId 		= LinuxUserName // Note) KT Cloud original default user account : 'root'
 		vmInfo.RootDeviceName 	= "/dev/xvda"
 		vmInfo.VMUserPasswd		= "N/A"
-		vmInfo.SSHAccessPoint	= publicIp + ":22"		
+		vmInfo.SSHAccessPoint	= publicIp + ":22"
+		vmInfo.RootDiskSize		= LinuxDefaultRootDiskSize
 	}
 
 	// Get VolumeIds of the VM
@@ -1631,54 +1673,75 @@ func getKTVMSpecIdAndDiskSize(instanceSpecId string) (string, string, string) {
 	return ktVMSpecId, ktDiskOfferingId, DiskSize
 }
 
-func (vmHandler *KtCloudVMHandler) associateIpAddress() (string, error) {	
+// Create a Public IP, and Get the Public IP Address and Public IP ID
+func (vmHandler *KtCloudVMHandler) associateIpAddress() (string, string, error) {
 	cblogger.Info("KT Cloud cloud driver: called associateIpAddress()!")
+
 	IPReqInfo := ktsdk.AssociatePublicIpReqInfo {
 		ZoneId: 		vmHandler.RegionInfo.Zone,
 		UsagePlanType: 	"hourly", 
 	}
-	createIpResponse, err := vmHandler.Client.AssociateIpAddress(IPReqInfo)
+	createIpResp, err := vmHandler.Client.AssociateIpAddress(IPReqInfo)
 	if err != nil {
-		cblogger.Errorf("Failed to Create new Public IP : [%v]", err)
-		return "", err
+		newErr := fmt.Errorf("Failed to Create new Public IP : [%v]", err)
+		cblogger.Error(newErr.Error())
+		return "", "", newErr
 	}
 
 	cblogger.Info("### Waiting for IP Address to be Associated(300sec)!!\n")
-	waitErr := vmHandler.Client.WaitForAsyncJob(createIpResponse.Associateipaddressresponse.JobId, 300000000000)
+	waitErr := vmHandler.Client.WaitForAsyncJob(createIpResp.Associateipaddressresponse.JobId, 300000000000)
 	if waitErr != nil {
-		cblogger.Errorf("Failed to Wait the Job : [%v]", waitErr)
-		return "", waitErr
+		newErr := fmt.Errorf("Failed to Wait the Job : [%v]", waitErr)
+		cblogger.Error(newErr.Error())
+		return "", "", newErr
 	}
+	time.Sleep(3* time.Second)  // Wait more!!
 
 	var publicIp string
-	publicIpId := createIpResponse.Associateipaddressresponse.ID // PublicIP ID
+	publicIpId := createIpResp.Associateipaddressresponse.ID // PublicIP ID
 	if publicIpId == "" {
-			cblogger.Error("Failed to Find Public IP info.\n")
+		newErr := fmt.Errorf("Failed to Find the Public IP ID.\n")
+		cblogger.Error(newErr.Error())
+		return "", "", newErr
 	} else {
 		// To Get the Public IP info which is created.
 		IPListReqInfo := ktsdk.ListPublicIpReqInfo {
 			ID: publicIpId, 
 		}
-		response, err := vmHandler.Client.ListPublicIpAddresses(IPListReqInfo)
+		resp, err := vmHandler.Client.ListPublicIpAddresses(IPListReqInfo)
 		if err != nil {
-			cblogger.Errorf("Failed to Get the List of Public IP : [%v]", err)
-			return "", err
+			newErr := fmt.Errorf("Failed to Get the List of Public IP : [%v]", err)
+			cblogger.Error(newErr.Error())
+			return "", "", newErr
 		}
 
-		if len(response.Listpublicipaddressesresponse.PublicIpAddress) > 0 {
-			publicIp = response.Listpublicipaddressesresponse.PublicIpAddress[0].IpAddress
-			ipState := response.Listpublicipaddressesresponse.PublicIpAddress[0].State
+		if len(resp.Listpublicipaddressesresponse.PublicIpAddress) > 0 {
+			publicIp = resp.Listpublicipaddressesresponse.PublicIpAddress[0].IpAddress
+			ipState := resp.Listpublicipaddressesresponse.PublicIpAddress[0].State
 			fmt.Printf("New Public IP : %s, IP State : %s\n", publicIp, ipState)
 		} else {
-			return "", errors.New("Failed to Find Public IP!!\n")
+			return "", "", errors.New("Failed to Find the Public IP!!\n")
 		}
 	}
-	return publicIp, nil
+	return publicIp, publicIpId, nil
 }
 	
 // ### To Apply 'PortForwarding Rules' and 'Firewall Rules' to the Public IP ID.
 func (vmHandler *KtCloudVMHandler) createPortForwardingFirewallRules(sgSystemIDs []string, publicIpId string, vmID string) (bool, error) {
 	cblogger.Info("KT Cloud cloud driver: called createPortForwardingFirewallRules()!")
+
+	if strings.EqualFold(publicIpId, "") {
+		newErr := fmt.Errorf("Invalid Public_IP ID!!")
+		cblogger.Error(newErr.Error())
+		return false, newErr
+	}
+
+	if strings.EqualFold(vmID, "") {
+		newErr := fmt.Errorf("Invalid VM ID!!")
+		cblogger.Error(newErr.Error())
+		return false, newErr
+	}
+
 	securityHandler := KtCloudSecurityHandler{
 		CredentialInfo: vmHandler.CredentialInfo,
 		RegionInfo:		vmHandler.RegionInfo,
