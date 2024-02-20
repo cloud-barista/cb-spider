@@ -1,10 +1,17 @@
 name: Korean checker
+
+# Controls/triggers when the action will run.
 on: 
   pull_request:
     branches:
       - 'master'
     paths:
       - '**.go'
+
+# Environment variables
+env:
+  OUTPUT_DIR: "./output"
+  OUTPUT_FILE: "korean-check-results.md"
 
 jobs:
   check-if-Korean-is-included:
@@ -14,8 +21,18 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0 # Fetch all history for all branches and tags
+    
+      - name: Setup to check Korean and upload the results
+        run: |
+          # Make an output directory
+          if [[ ! -e $OUTPUT_DIR ]]; then
+              mkdir -p $OUTPUT_DIR
+          elif [[ ! -d $OUTPUT_DIR ]]; then
+              echo "$OUTPUT_DIR already exists but is not a directory" 1>&2
+          fi
+          echo ${{ github.event.number }} > ${OUTPUT_DIR}/pr-number.txt
 
-      - name: Check for Korean characters in quotes
+      - name: Check Korean in quotes
         id: check-korean
         run: |
           set -x
@@ -29,15 +46,15 @@ jobs:
           PR_BRANCH=${GITHUB_REF#refs/}              # pull/xx/merge
           echo "Base branch: ${BASE_BRANCH}"
           echo "Extract branch: ${GITHUB_REF#refs/}"
-                    
+          
           # `github` context information
           echo "(DEBUG) github.ref: ${{github.ref}}"
           echo "(DEBUG) github.head_ref: ${{github.head_ref}}"
           echo "(DEBUG) github.base_ref: ${{github.base_ref}}"
           #####################################################
-
+          
           temp_output="temp.md"
-          output="korean_check_results.md"
+          OUTPUT="${OUTPUT_DIR}/${OUTPUT_FILE}"
           
           # Get changed files in the PR
           files=$(git diff --name-only ${BASE_BRANCH}...${PR_BRANCH} | grep '\.go$')
@@ -48,7 +65,7 @@ jobs:
           # Process each changed file
           for file in $files; do              
             found_korean=false
-        
+
             # Extract changed lines
             changed_lines=$(git diff ${BASE_BRANCH}...${PR_BRANCH} -- $file | grep "^+")
             echo "(DEBUG) Changed lines in $file:"
@@ -69,57 +86,39 @@ jobs:
               echo "" >> $temp_output
             fi          
           done
-
-          # Check if the file exists
+          
+          # Output the results to check if Korean exists
+          # Check if the temp_output exists and has content
           if [ -s "$temp_output" ]; then
-            # Trim
+            
+            # Trim before checking if the file has content
             trimmed_temp_outputs=$(cat "$temp_output" | xargs)
             echo "(DEBUG) Trimmed temp_output:"
             echo "$trimmed_temp_outputs"
               
             if [ -n "$trimmed_temp_outputs" ]; then
               echo "(DEBUG) Korean content detected."
-              echo "## Result to check if Korean is included" > $output
-              echo "All output of print and log must be written in English :wink:" >> $output
-              echo "Please check and correct the following" >> $output 
-              cat "$temp_output" >> "$output"
-              echo "KOREAN_EXISTS=true" >> $GITHUB_OUTPUT
+              cat "$temp_output" > "$OUTPUT"
+              # echo "KOREAN_EXISTS=true" >> $GITHUB_OUTPUT
             else
               echo "(DEBUG) No Korean content detected."
-              echo "KOREAN_EXISTS=false" >> $GITHUB_OUTPUT
+              # echo "KOREAN_EXISTS=false" >> $GITHUB_OUTPUT
             fi
-          fi
+          fi          
           
-          # # Check if the file exists
-          # if [ -s "$output" ]; then
-          #   # Display output path
-          #   echo "[(Debug) Results saved in $output]"
-          #   cat "$output"
-          # fi
-
-      - name: Comment PR with results
-        if: steps.check-korean.outputs.KOREAN_EXISTS == 'true'
-        uses: actions/github-script@v7
+      - name: Upload Korean check results
+        # if: steps.check-korean.outputs.KOREAN_EXISTS == 'true'
+        uses: actions/upload-artifact@v4
         with:
-          github-token: ${{secrets.CB_GITHUB_ROBOT_PAT}}
-          script: |
-            const fs = require('fs');
-            const path = require('path');
-            const resultsPath = path.join(process.env.GITHUB_WORKSPACE, 'korean_check_results.md');            
-            if (fs.existsSync(resultsPath)) {
-                const results = fs.readFileSync(resultsPath, 'utf8');
-                if (results.trim().length > 0) {
-                    github.rest.issues.createComment({
-                      issue_number: context.issue.number,
-                      owner: context.repo.owner,
-                      repo: context.repo.repo,
-                      body: results
-                    });
-                }
-            }
+          name: results-to-check-korean
+          path: ${{ env.OUTPUT_DIR }}
 
-      - name: Fail on Korean Content
-        if: steps.check-korean.outputs.KOREAN_EXISTS == 'true'
-        run: |
-          echo "Korean content detected. Failing the workflow on purpose."
-          exit 1
+      # - name: Fail on Korean Content
+      #   if: steps.check-korean.outputs.KOREAN_EXISTS == 'true'
+      #   run: |
+      #     echo "Korean content detected. Failing the workflow on purpose."
+      #     exit 1
+
+# https://securitylab.github.com/research/github-actions-preventing-pwn-requests/
+# https://github.com/actions/upload-artifact
+# https://github.com/actions/download-artifact
