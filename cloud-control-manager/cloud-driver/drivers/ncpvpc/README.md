@@ -99,7 +99,7 @@ ssh -i /private_key_경로/private_key_파일명(~~.pem) cb-user@VM의_public_ip
 
 <p><br>
 
-#### # NHN Cloud driver 사용시 참고 및 주의 사항
+#### # NCP VPC Cloud driver 사용시 참고 및 주의 사항
   O NCP VPC 버전 driver이 지원하는 region 및 zone은 아래의 파일을 참고
 ```
   ./ncpvpc/ncpvpc/main/config/config.yaml.sample
@@ -107,7 +107,10 @@ ssh -i /private_key_경로/private_key_파일명(~~.pem) cb-user@VM의_public_ip
 ```
 
   ​O NCP VPC driver를 이용해 VM 생성시 VPC, Subnet, Network Interface에 대해 다음 사항을 참고
-   - VPC의 private IP address 범위는, 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16 대역 내에서 /16~/28 범위여야함.
+   - VPC의 private IP address 범위는, 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16 대역 내에서, 실제 생성시 /16~/28 범위여야함.
+      - 참고 : NCP의 VPC/Subnet 가용 범위
+         - https://guide.ncloud-docs.com/docs/vpc-spec-vpc
+         - https://guide.ncloud-docs.com/docs/vpc-glossary-vpc
    - Subnet의 private IP address 범위는, VPC의 private address 범위 이하로만 지정이 가능하며, 생성 이후에는 Network ACL만 변경이 가능함.
    - 본 driver에서 VM의 Network Interface는 VPC 생성시 자동으로 생성되는 Default Network Interface를 사용하도록 개발되어있음.
 
