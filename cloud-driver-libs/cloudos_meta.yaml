@@ -113,9 +113,15 @@ NHNCLOUD:
 KTCLOUD:
   region: Region / Zone
   credential: ClientId / ClientSecret
+  rootdisktype: HDD / SSD
+  rootdisksize: HDD|20|50|GB / SSD|20|50|GB
+  disktype: HDD / SSD-Provisioned
+  disksize: HDD|10|500|GB / SSD-Provisioned|100|800|GB
+    # idmaxlength: VPC / Subnet / SecurityGroup / KeyPair / VM / Disk / NLB / MyImage
+  idmaxlength: 0 / 0 / 0 / 100 / 100 / 50 / 30 / 32
 
 KTCLOUDVPC:
-  region: Zone
+  region: Region / Zone
   credential: IdentityEndpoint / Username / Password / DomainName / ProjectID
   rootdisktype: HDD / SSD
   rootdisksize: HDD|50|100|GB / SSD|50|100|GB
