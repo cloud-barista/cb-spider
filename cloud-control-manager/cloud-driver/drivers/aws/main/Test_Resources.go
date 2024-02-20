@@ -1751,7 +1751,7 @@ func handlePriceInfo() {
 				// Type : [TERM_CONTAIN, ANY_OF, TERM_MATCH, NONE_OF, CONTAINS, EQUALS]
 				// filterList = append(filterList, irs.KeyValue{Key: "filter", Value: "{\"Field\":\"instanceType\",\"Type\":\"TERM_MATCH\",\"Value\":\"t2.nano\"}"})
 				// filterList = append(filterList, irs.KeyValue{Key: "filter", Value: "{\"Field\":\"operatingSystem\",\"Type\":\"TERM_MATCH\",\"Value\":\"Linux\"}"})
-				//filterList = append(filterList, irs.KeyValue{Key: "filter", Value: "{\"Field\":\"sku\",\"Type\":\"TERM_MATCH\",\"Value\":\"24MKFUYR8UGHCNGB\"}"})
+				//filterList = append(filterList, irs.KeyValue{Key: "productId", Value: "22JRCBWS3QQEPYKE.MZU6U2429S.2TG2D8R56U"})
 
 				// TEST seraach data
 				// instanceType = t2.nano
@@ -1761,7 +1761,9 @@ func handlePriceInfo() {
 				// aws pricing get-attribute-values --service-code AmazonEC2 --attribute-name instanceType
 
 				//result, err := handler.GetPriceInfo("AmazonEC2", "ap-northeast-2", filterList)
-				result, err := handler.GetPriceInfo("AmazonEC2", "us-west-1", filterList)
+
+				// AmazonEC2는 ServiceCode고정 -> ProductFamily : Compute Instance로 두고 테스트
+				result, err := handler.GetPriceInfo("Compute Instance", "us-west-1", filterList)
 
 				if err != nil {
 					cblogger.Infof("GetPriceInfo 조회 실패 : ", err)
