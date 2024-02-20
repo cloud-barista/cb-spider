@@ -1761,6 +1761,8 @@ func handlePriceInfo() {
 				// aws pricing get-attribute-values --service-code AmazonEC2 --attribute-name instanceType
 
 				//result, err := handler.GetPriceInfo("AmazonEC2", "ap-northeast-2", filterList)
+
+				// AmazonEC2는 ServiceCode고정 -> ProductFamily : Compute Instance로 두고 테스트
 				result, err := handler.GetPriceInfo("Compute Instance", "us-west-1", filterList)
 
 				if err != nil {

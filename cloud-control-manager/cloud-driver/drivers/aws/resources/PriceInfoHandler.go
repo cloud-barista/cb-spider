@@ -78,7 +78,7 @@ func (priceInfoHandler *AwsPriceInfoHandler) GetPriceInfo(productFamily string, 
 
 	priceMap := make(map[string]irs.Price) // 전체 price를 id로 구분한 map
 
-	cblogger.Info("productFamily", productFamily)
+	cblogger.Info("productFamily : ", productFamily)
 	cblogger.Info("filter value : ", filterList)
 	requestProductsInputFilters, err := setProductsInputRequestFilter(filterList)
 
@@ -113,7 +113,7 @@ func (priceInfoHandler *AwsPriceInfoHandler) GetPriceInfo(productFamily string, 
 
 		getProductsRequest := &pricing.GetProductsInput{
 			Filters:     requestProductsInputFilters,
-			ServiceCode: aws.String("AmazonEC2"),
+			ServiceCode: aws.String("AmazonEC2"), // ServiceCode : AmazonEC2 고정
 			NextToken:   nextToken,
 		}
 		cblogger.Info("get Products request", getProductsRequest)
@@ -231,6 +231,7 @@ func (priceInfoHandler *AwsPriceInfoHandler) GetPriceInfo(productFamily string, 
 		if priceInfos.NextToken == nil {
 			break
 		}
+		// NextToken값이 있다면 설정
 		nextToken = priceInfos.NextToken
 	} // end of nextToken for
 
