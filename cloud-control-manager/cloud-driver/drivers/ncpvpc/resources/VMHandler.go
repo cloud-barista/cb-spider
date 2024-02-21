@@ -631,7 +631,6 @@ func (vmHandler *NcpVpcVMHandler) TerminateVM(vmIID irs.IID) (irs.VMStatus, erro
 
 		// If the NCP instance has a 'Public IP', delete it after termination of the instance.
 		if !strings.EqualFold(vmInfo.PublicIP, "") {
-			// PublicIP 삭제
 			vmStatus, err := vmHandler.DeletePublicIP(vmInfo)
 			if err != nil {
 				cblogger.Error(err)
@@ -697,7 +696,6 @@ func (vmHandler *NcpVpcVMHandler) TerminateVM(vmIID irs.IID) (irs.VMStatus, erro
 
 		// If the NCP instance has a 'Public IP', delete it after termination of the instance.
 		if !strings.EqualFold(vmInfo.PublicIP, "") {
-			// PublicIP 삭제
 			vmStatus, err := vmHandler.DeletePublicIP(vmInfo)
 			if err != nil {
 				cblogger.Error(err)
@@ -1354,8 +1352,8 @@ func (vmHandler *NcpVpcVMHandler) WaitToDelPublicIp(vmIID irs.IID) (irs.VMStatus
 				return irs.VMStatus("Failed"), errors.New("Despite waiting for a long time, the VM status is 'Creating', so it is forcibly finishied.")
 			}
 
-		case "Not Exist!!": // Caution!!
-			break
+		case "Not Exist!!":
+			return irs.VMStatus(curStatus), nil
 
 		default:
 			cblogger.Infof("===>### The VM Termination is finished, so stopping the waiting.")
