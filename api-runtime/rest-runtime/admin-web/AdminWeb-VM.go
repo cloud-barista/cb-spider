@@ -558,6 +558,9 @@ func VM(c echo.Context) error {
 	case "NCP":
 		imageName = "SPSW0LINUX000130"
 		specName = "SPSVRHICPUSSD002"
+	case "NCPVPC":
+		imageName = "SW.VSVR.OS.LNX64.UBNTU.SVR1804.B050"
+		specName = "SVR.VSVR.HICPU.C004.M008.NET.SSD.B050.G002"
 	case "KTCLOUD":
 		imageName = "97ef0091-fdf7-44e9-be79-c99dc9b1a0ad"
 		specName = "d3530ad2-462b-43ad-97d5-e1087b952b7d!87c0a6f6-c684-4fbe-a393-d8412bcf788d_disk100GB"
