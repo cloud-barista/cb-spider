@@ -384,8 +384,9 @@ func (vmHandler *NcpVpcVMHandler) SuspendVM(vmIID irs.IID) (irs.VMStatus, error)
 
 	vmStatus, err := vmHandler.GetVMStatus(vmIID)
 	if err != nil {
-		cblogger.Errorf("Failed to Get the VM Status of [%s]", vmIID.SystemId)
-		cblogger.Error(err)
+		newErr := fmt.Errorf("Failed to Get the VM Status with the VM ID : [%s], [%v]", vmIID.SystemId, err)
+		cblogger.Debug(newErr.Error())
+		return irs.VMStatus("Failed"), newErr
 	} else {
 		cblogger.Infof("Succeed in Getting the VM Status of [%s] : [%s]", vmIID.SystemId, vmStatus)
 	}
@@ -449,8 +450,9 @@ func (vmHandler *NcpVpcVMHandler) ResumeVM(vmIID irs.IID) (irs.VMStatus, error) 
 
 	vmStatus, err := vmHandler.GetVMStatus(vmIID)
 	if err != nil {
-		cblogger.Errorf("Failed to Get the VM Status of [%s]", vmIID.SystemId)
-		cblogger.Error(err)
+		newErr := fmt.Errorf("Failed to Get the VM Status with the VM ID : [%s], [%v]", vmIID.SystemId, err)
+		cblogger.Debug(newErr.Error())
+		return irs.VMStatus("Failed"), newErr
 	} else {
 		cblogger.Infof("Succeed in Getting the VM Status of [%s] : [%s]", vmIID.SystemId, vmStatus)
 	}
@@ -521,8 +523,9 @@ func (vmHandler *NcpVpcVMHandler) RebootVM(vmIID irs.IID) (irs.VMStatus, error) 
 
 	vmStatus, err := vmHandler.GetVMStatus(vmIID)
 	if err != nil {
-		cblogger.Errorf("Failed to Get the VM Status of [%s]", vmIID.SystemId)
-		cblogger.Error(err)
+		newErr := fmt.Errorf("Failed to Get the VM Status with the VM ID : [%s], [%v]", vmIID.SystemId, err)
+		cblogger.Debug(newErr.Error())
+		return irs.VMStatus("Failed"), newErr
 	} else {
 		cblogger.Infof("Succeed in Getting the VM Status of [%s] : [%s]", vmIID.SystemId, vmStatus)
 	}
@@ -594,9 +597,9 @@ func (vmHandler *NcpVpcVMHandler) TerminateVM(vmIID irs.IID) (irs.VMStatus, erro
 
 	vmStatus, err := vmHandler.GetVMStatus(vmIID)
 	if err != nil {
-		LoggingError(callLogInfo, err)
-		cblogger.Errorf("Failed to Get the VM Status of [%s]", vmIID.SystemId)
-		cblogger.Error(err)
+		newErr := fmt.Errorf("Failed to Get the VM Status with the VM ID : [%s], [%v]", vmIID.SystemId, err)
+		cblogger.Error(newErr.Error())
+		return irs.VMStatus("Failed"), newErr
 	} else {
 		cblogger.Infof("Succeed in Getting the VM Status of [%s] : [%s]", vmIID.SystemId, vmStatus)
 	}
@@ -705,10 +708,15 @@ func (vmHandler *NcpVpcVMHandler) TerminateVM(vmIID irs.IID) (irs.VMStatus, erro
 
 		return irs.VMStatus("Terminating"), nil
 
+	case "Not Exist!!":
+		newErr := fmt.Errorf("The VM instance does Not Exist!!")
+		cblogger.Error(newErr.Error())
+		return irs.VMStatus("Failed to Terminate!!"), newErr
+
 	default:
-		resultStatus := "The VM status is not 'Running' or 'Suspended' yet. so it Can NOT be Terminated!! Run or Suspend the VM before terminating."
-		cblogger.Error(resultStatus)
-		return irs.VMStatus("Failed. " + resultStatus), err
+		newErr := fmt.Errorf("The VM status is not 'Running' or 'Suspended' yet. so it Can NOT be Terminated!! Run or Suspend the VM before terminating.")
+		cblogger.Error(newErr.Error())
+		return irs.VMStatus("Failed to Terminate!!"), newErr
 	}
 }
 
@@ -802,8 +810,9 @@ func (vmHandler *NcpVpcVMHandler) GetVMStatus(vmIID irs.IID) (irs.VMStatus, erro
 	LoggingInfo(callLogInfo, callLogStart)
 
 	if len(result.ServerInstanceList) < 1 {
-		cblogger.Info("The VM instance does Not Exist!!")
-		return irs.VMStatus("Not Exist!!"), nil //Caution!!
+		newErr := fmt.Errorf("The VM instance does Not Exist!!")
+		cblogger.Debug(newErr.Error())
+		return irs.VMStatus("Not Exist!!"), newErr
 	} else {
 		cblogger.Info("Succeeded in Getting ServerInstanceList from NCP VPC!!")
 	}
@@ -1334,9 +1343,9 @@ func (vmHandler *NcpVpcVMHandler) WaitToDelPublicIp(vmIID irs.IID) (irs.VMStatus
 	for {
 		curStatus, statusErr := vmHandler.GetVMStatus(vmIID)
 		if statusErr != nil {
-			cblogger.Errorf("Failed to Get the VM Status of : [%s]", vmIID.SystemId)
-			cblogger.Error(statusErr.Error())
-			// return irs.VMStatus("Failed. "), errors.New("Failed to Get the VM Status.")   // Caution!!
+			newErr := fmt.Errorf("Failed to Get the VM Status with the VM ID : [%s], [%v]", vmIID.SystemId, statusErr)
+			cblogger.Debug(newErr.Error())
+			return irs.VMStatus("Not Exist!!"), newErr
 		} else {
 			cblogger.Infof("Succeeded in Getting the VM Status of [%s]", vmIID.SystemId)
 		}
@@ -1381,8 +1390,8 @@ func (vmHandler *NcpVpcVMHandler) DeletePublicIP(vmInfo irs.VMInfo) (irs.VMStatu
 	//=========================================
 	curStatus, statusErr := vmHandler.WaitToDelPublicIp(vmInfo.IId)
 	if statusErr != nil {
-		cblogger.Error(statusErr.Error())
-		// return irs.VMStatus("Failed. "), statusErr   // Caution!!
+		cblogger.Debug(statusErr.Error())
+		// return irs.VMStatus("Failed. "), statusErr   // Caution!! For in case 'VM instance does Not Exist' after VM Termination finished
 	}
 	cblogger.Infof("==> VM status of [%s] : [%s]", vmInfo.IId.NameId, curStatus)
 
