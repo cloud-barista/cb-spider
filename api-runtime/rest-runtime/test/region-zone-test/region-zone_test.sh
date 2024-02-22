@@ -13,7 +13,7 @@ echo '# diff(sec):' $diff
 
 sleep 2 
 echo -e "\n### Region/Zone : Get"
-curl -sX GET http://localhost:1024/spider/regionzone/${REGION_NAME} -H 'Content-Type: application/json' -d '{"ConnectionName": "'${CONN_CONFIG}'"}'
+curl -sX GET http://localhost:1024/spider/regionzone/${REGION_NAME} -H 'Content-Type: application/json' -d '{"ConnectionName": "'${CONN_CONFIG}'"}' | json_pp
 
 sleep 2 
 echo -e "\n### ORG Region : List"
