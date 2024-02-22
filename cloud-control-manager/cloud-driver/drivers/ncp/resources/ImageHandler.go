@@ -144,7 +144,33 @@ func (imageHandler *NcpImageHandler) CreateImage(imageReqInfo irs.ImageReqInfo) 
 func (imageHandler *NcpImageHandler) CheckWindowsImage(imageIID irs.IID) (bool, error) {
 	cblogger.Info("NCP Classic Cloud Driver: called CheckWindowsImage()")
 
-	return false, fmt.Errorf("Does not support CheckWindowsImage() yet!!")
+	InitLog()
+	callLogInfo := GetCallLogScheme(imageHandler.RegionInfo.Region, call.MYIMAGE, imageIID.SystemId, "CheckWindowsImage()")
+
+	if strings.EqualFold(imageIID.SystemId, "") {
+		newErr := fmt.Errorf("Invalid myImage SystemId!!")
+		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
+		return false, newErr
+	}
+
+	myImageHandler := NcpMyImageHandler{
+		RegionInfo: 	imageHandler.RegionInfo,
+		VMClient:   	imageHandler.VMClient,
+	}
+	myImagePlatform, err := myImageHandler.GetOriginImageOSPlatform(imageIID)
+	if err != nil {
+		newErr := fmt.Errorf("Failed to Get MyImage Info. [%v]", err.Error())
+		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
+		return false, newErr
+	}
+	
+	isWindowsImage := false
+	if strings.Contains(myImagePlatform, "WINDOWS") {
+		isWindowsImage = true
+	}
+	return isWindowsImage, nil
 }
 
 func (imageHandler *NcpImageHandler) DeleteImage(imageIID irs.IID) (bool, error) {
