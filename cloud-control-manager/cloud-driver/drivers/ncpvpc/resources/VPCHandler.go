@@ -84,7 +84,7 @@ func (vpcHandler *NcpVpcVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.VP
 	}
 	LoggingInfo(callLogInfo, callLogStart)
 
-	if *vpcResult.TotalRows < 1 {
+	if len(vpcResult.VpcList) < 1 {
 		newErr := fmt.Errorf("Failed to Create any VPC. Neww VPC does Not Exist!!")
 		cblogger.Error(newErr.Error())
 		LoggingError(callLogInfo, newErr)
@@ -189,7 +189,7 @@ func (vpcHandler *NcpVpcVPCHandler) ListVPC() ([]*irs.VPCInfo, error) {
 	LoggingInfo(callLogInfo, callLogStart)
 
 	var vpcInfoList []*irs.VPCInfo
-	if *result.TotalRows < 1 {
+	if len(result.VpcList) < 1 {
 		cblogger.Info("### VPC does Not Exist!!")
 	} else {
 		for _, vpc := range result.VpcList {
@@ -265,7 +265,7 @@ func (vpcHandler *NcpVpcVPCHandler) GetNcpVpcInfo(vpcId *string) (*vpc.Vpc, erro
 	}
 	LoggingInfo(callLogInfo, callLogStart)
 
-	if *result.TotalRows < 1 {
+	if len(result.VpcList) < 1 {
 		newErr := fmt.Errorf("Failed to Find Any VPC Info with the ID!!")
 		cblogger.Error(newErr.Error())
 		LoggingError(callLogInfo, newErr)
@@ -571,7 +571,7 @@ func (vpcHandler *NcpVpcVPCHandler) CreateSubnet(vpcIID irs.IID, netAclNo *strin
 	}
 	LoggingInfo(callLogInfo, callLogStart)
 
-	if *subnet.TotalRows < 1 {
+	if len(subnet.SubnetList) < 1 {
 		newErr := fmt.Errorf("Failed to Create the Subnet. New Subnet does Not Exist!!")
 		cblogger.Error(newErr.Error())
 		LoggingError(callLogInfo, newErr)
@@ -609,7 +609,7 @@ func (vpcHandler *NcpVpcVPCHandler) GetNcpSubnetInfo(sunbnetId *string) (*vpc.Su
 	}
 	LoggingInfo(callLogInfo, callLogStart)
 
-	if *result.TotalRows < 1 {
+	if len(result.SubnetList) < 1 {
 		newErr := fmt.Errorf("Failed to Get any Subnet Info with the ID!!")
 		cblogger.Error(newErr.Error())
 		LoggingError(callLogInfo, newErr)
@@ -643,7 +643,7 @@ func (vpcHandler *NcpVpcVPCHandler) ListSubnet(vpcNo *string) ([]*irs.SubnetInfo
 	}
 
 	var subnetInfoList []*irs.SubnetInfo
-	if *result.TotalRows < 1 {
+	if len(result.SubnetList) < 1 {
 		cblogger.Infof("### The VPC has No Subnet!!")
 	} else {
 		cblogger.Infof("Succeeded in Getting SubnetList!! : ")		
@@ -688,7 +688,7 @@ func (vpcHandler *NcpVpcVPCHandler) GetDefaultNetworkAclNo(vpcIID irs.IID) (*str
 	LoggingInfo(callLogInfo, callLogStart)
 
 	var netACLNo *string
-	if *netAclResult.TotalRows < 1 {
+	if len(netAclResult.NetworkAclList) < 1 {
 		cblogger.Info("# NetworkACL does Not Exist!!")
 	} else {
 		for _, netACL := range netAclResult.NetworkAclList {
