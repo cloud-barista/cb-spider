@@ -234,7 +234,7 @@ func getNLBClient(connectionInfo idrv.ConnectionInfo) (*slb.Client, error) {
 
 func getBssClient(connectionInfo idrv.ConnectionInfo) (*bssopenapi.Client, error) {
 	// Region Info
-	fmt.Println("AlibabaDriver : getNLBClient() - Region : [" + connectionInfo.RegionInfo.Region + "]")
+	fmt.Println("AlibabaDriver : getBssClient() - Region : [" + connectionInfo.RegionInfo.Region + "]")
 
 	credential := &credentials.AccessKeyCredential{
 		AccessKeyId:     connectionInfo.CredentialInfo.ClientId,
