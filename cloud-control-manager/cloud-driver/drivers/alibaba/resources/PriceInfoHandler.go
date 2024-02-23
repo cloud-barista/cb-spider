@@ -515,11 +515,15 @@ func GetDescribeInstanceTypesForPricing(bssClient *bssopenapi.Client, regionName
 			productInfo.InstanceType = resultProduct.InstanceType
 			productInfo.Vcpu = strconv.FormatInt(resultProduct.Vcpu, 10)
 			productInfo.Memory = strconv.FormatFloat(resultProduct.Memory, 'f', -1, 64)
-			//resultProduct.Storage 데이터가 없는데 왜 데이터를 이렇게 맵핑을 해놓았는지 확인필요
+			//resultProduct.Storage ==  LocalStorageCategory 관계가없는 데이터 맵핑 NA 처리
 			//productInfo.Storage = resultProduct.Storage
 			productInfo.Storage = "NA"
 			productInfo.Gpu = resultProduct.Gpu
 			productInfo.GpuMemory = strconv.FormatInt(resultProduct.GpuMemory, 10)
+			if productInfo.GpuMemory == "" {
+				productInfo.GpuMemory = ""
+			}
+			productInfo.GpuMemory = resultProduct.Gpu
 			productInfo.OperatingSystem = "NA"
 			productInfo.PreInstalledSw = "NA"
 			productInfo.VolumeType = "NA"
