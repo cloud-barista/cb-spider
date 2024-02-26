@@ -442,6 +442,28 @@ func GetZoneStatus(status string) irs.ZoneStatus {
 }
 
 // ReplaceEmptyWithNA 함수는 구조체의 빈 값이나 nil 값을 "NA"로 바꿉니다.
+func ReplaceEmptyWithNA(obj interface{}) {
+	val := reflect.ValueOf(obj).Elem()
+
+	for i := 0; i < val.NumField(); i++ {
+		field := val.Field(i)
+
+		switch field.Kind() {
+		case reflect.String:
+			if field.String() == "" {
+				field.SetString("NA")
+			}
+		case reflect.Ptr:
+			if field.IsNil() {
+				// If the field is a pointer and is nil, set it to "NA"
+				field.Set(reflect.New(field.Type().Elem()))
+				field.Elem().SetString("NA")
+			}
+		}
+	}
+}
+
+// ProductInfo 구조체의 Compute Instance 해당 값만 출력
 func ReplaceEmptyWithNAforComputeInstance(obj interface{}) {
 	val := reflect.ValueOf(obj).Elem()
 	for _, fieldName := range []string{"InstanceType", "Vcpu", "Memory", "Storage", "Gpu", "GpuMemory", "OperatingSystem", "PreInstalledSw"} {
@@ -461,6 +483,7 @@ func ReplaceEmptyWithNAforComputeInstance(obj interface{}) {
 	}
 }
 
+// ProductInfo 구조체의 Storage 해당 값만 출력
 func ReplaceEmptyWithNAforStorage(obj interface{}) {
 	val := reflect.ValueOf(obj).Elem()
 	for _, fieldName := range []string{"VolumeType", "StorageMedia", "MaxVolumeSize", "MaxIOPSVolume", "MaxThroughputVolume"} {
@@ -480,6 +503,7 @@ func ReplaceEmptyWithNAforStorage(obj interface{}) {
 	}
 }
 
+// ProductInfo 구조체의 Load Balancer-Network 해당 값만 출력
 func ReplaceEmptyWithNAforLoadBalancerNetwork(obj interface{}) {
 	val := reflect.ValueOf(obj).Elem()
 	for i := 0; i < val.NumField(); i++ {
