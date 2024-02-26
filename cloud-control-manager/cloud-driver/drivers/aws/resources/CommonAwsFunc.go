@@ -444,7 +444,13 @@ func GetZoneStatus(status string) irs.ZoneStatus {
 // ReplaceEmptyWithNA 함수는 구조체의 빈 값이나 nil 값을 "NA"로 바꿉니다.
 func ReplaceEmptyWithNA(obj interface{}) {
 	val := reflect.ValueOf(obj).Elem()
+	// for i := 0; i < val.NumField(); i++ {
+	// 	field := val.Field(i)
 
+	// 	if field.Kind() == reflect.String {
+	// 		// 빈 문자열 필드 무시
+	// 	}
+	// }
 	for i := 0; i < val.NumField(); i++ {
 		field := val.Field(i)
 
@@ -459,6 +465,55 @@ func ReplaceEmptyWithNA(obj interface{}) {
 				field.Set(reflect.New(field.Type().Elem()))
 				field.Elem().SetString("NA")
 			}
+		}
+	}
+}
+
+func ReplaceEmptyWithNAforComputeInstance(obj interface{}) {
+	val := reflect.ValueOf(obj).Elem()
+	for _, fieldName := range []string{"InstanceType", "Vcpu", "Memory", "Storage", "Gpu", "GpuMemory", "OperatingSystem", "PreInstalledSw"} {
+		field := val.FieldByName(fieldName)
+		switch field.Kind() {
+		case reflect.String:
+			if field.String() == "" {
+				field.SetString("NA")
+			}
+		case reflect.Ptr:
+			if field.IsNil() {
+				// If the field is a pointer and is nil, set it to "NA"
+				field.Set(reflect.New(field.Type().Elem()))
+				field.Elem().SetString("NA")
+			}
+		}
+	}
+}
+
+func ReplaceEmptyWithNAforStorage(obj interface{}) {
+	val := reflect.ValueOf(obj).Elem()
+	for _, fieldName := range []string{"VolumeType", "StorageMedia", "MaxVolumeSize", "MaxIOPSVolume", "MaxThroughputVolume"} {
+		field := val.FieldByName(fieldName)
+		switch field.Kind() {
+		case reflect.String:
+			if field.String() == "" {
+				field.SetString("NA")
+			}
+		case reflect.Ptr:
+			if field.IsNil() {
+				// If the field is a pointer and is nil, set it to "NA"
+				field.Set(reflect.New(field.Type().Elem()))
+				field.Elem().SetString("NA")
+			}
+		}
+	}
+}
+
+func ReplaceEmptyWithNAforLoadBalancerNetwork(obj interface{}) {
+	val := reflect.ValueOf(obj).Elem()
+	for i := 0; i < val.NumField(); i++ {
+		field := val.Field(i)
+
+		if field.Kind() == reflect.String {
+			// 빈 문자열 필드 무시
 		}
 	}
 }
