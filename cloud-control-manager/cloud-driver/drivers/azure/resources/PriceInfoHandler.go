@@ -151,7 +151,7 @@ func isPicked(structVal any, fields []string, filterList []irs.KeyValue) bool {
 				fieldValue := reflect.Indirect(val).FieldByName(field).String()
 				fieldValueToLower := strings.ToLower(fieldValue)
 				valueToLower := strings.ToLower(filter.Value)
-				if strings.Contains(fieldValueToLower, valueToLower) {
+				if fieldValueToLower == valueToLower {
 					return true
 				}
 			}

@@ -56,6 +56,13 @@ func (regionZoneHandler *AzureRegionZoneHandler) ListRegionZone() ([]*irs.Region
 
 		for j := 0; j < routineMax; j++ {
 			go func(wait *sync.WaitGroup, loc subscriptions.Location) {
+				// Get only physical regions (Fix resources not showing in some regions.) - ish
+				// Got the hint from : https://stackoverflow.com/questions/69508883/azure-regions-what-does-stage-mean
+				if loc.Metadata.PhysicalLocation == nil {
+					wait.Done()
+					return
+				}
+
 				var zones []string
 				var zoneList []irs.ZoneInfo
 				var resultResourceSkusClient compute.ResourceSkusResultPage
@@ -231,6 +238,10 @@ func (regionZoneHandler *AzureRegionZoneHandler) ListOrgRegion() (string, error)
 	}
 	LoggingInfo(hiscallInfo, start)
 
+	type locationMetadata struct {
+		PhysicalLocation string `json:"physicalLocation,omitempty"`
+	}
+
 	type location struct {
 		// ID - READ-ONLY; The fully qualified ID of the location. For example, /subscriptions/00000000-0000-0000-0000-000000000000/locations/westus.
 		ID string `json:"id,omitempty"`
@@ -242,6 +253,8 @@ func (regionZoneHandler *AzureRegionZoneHandler) ListOrgRegion() (string, error)
 		DisplayName string `json:"displayName,omitempty"`
 		// RegionalDisplayName - READ-ONLY; The display name of the location and its region.
 		RegionalDisplayName string `json:"regionalDisplayName,omitempty"`
+		// Metadata - Metadata of the location, such as lat/long, paired region, and others.
+		Metadata *locationMetadata `json:"metadata,omitempty"`
 	}
 
 	var locationList struct {
@@ -249,11 +262,20 @@ func (regionZoneHandler *AzureRegionZoneHandler) ListOrgRegion() (string, error)
 	}
 
 	for _, loc := range *result.Value {
+		// Get only physical regions (Fix resources not showing in some regions.) - ish
+		// Got the hint from : https://stackoverflow.com/questions/69508883/azure-regions-what-does-stage-mean
+		if loc.Metadata.PhysicalLocation == nil {
+			continue
+		}
+
 		locationList.List = append(locationList.List, location{
 			ID:                  *loc.ID,
 			Name:                *loc.Name,
 			DisplayName:         *loc.DisplayName,
 			RegionalDisplayName: *loc.RegionalDisplayName,
+			Metadata: &locationMetadata{
+				PhysicalLocation: *loc.Metadata.PhysicalLocation,
+			},
 		})
 	}
 
