@@ -126,7 +126,7 @@ func (priceInfoHandler *AwsPriceInfoHandler) GetPriceInfo(productFamily string, 
 		cblogger.Info("get Products response", priceInfos)
 
 		for _, awsPrice := range priceInfos.PriceList {
-			productInfo, err := ExtractProductInfo(awsPrice)
+			productInfo, err := ExtractProductInfo(awsPrice, productFamily)
 
 			if err != nil {
 				cblogger.Error(err)
@@ -254,7 +254,7 @@ func (priceInfoHandler *AwsPriceInfoHandler) GetPriceInfo(productFamily string, 
 }
 
 // 가져온 결과에서 product 추출
-func ExtractProductInfo(jsonValue aws.JSONValue) (irs.ProductInfo, error) {
+func ExtractProductInfo(jsonValue aws.JSONValue, productFamily string) (irs.ProductInfo, error) {
 	var productInfo irs.ProductInfo
 
 	jsonString, err := json.MarshalIndent(jsonValue["product"].(map[string]interface{})["attributes"], "", "    ")
@@ -262,8 +262,17 @@ func ExtractProductInfo(jsonValue aws.JSONValue) (irs.ProductInfo, error) {
 		cblogger.Error(err)
 		return productInfo, err
 	}
+	switch productFamily {
+	case "Compute Instance":
+		ReplaceEmptyWithNAforComputeInstance(&productInfo)
+	case "Storage":
+		ReplaceEmptyWithNAforStorage(&productInfo)
+	case "Load Balancer-Network":
+		ReplaceEmptyWithNAforLoadBalancerNetwork(&productInfo)
+	default:
+		ReplaceEmptyWithNA(&productInfo)
+	}
 
-	ReplaceEmptyWithNA(&productInfo)
 	err = json.Unmarshal(jsonString, &productInfo)
 	if err != nil {
 		cblogger.Error(err)
