@@ -11,6 +11,9 @@
 package connect
 
 import (
+	cs2015 "github.com/alibabacloud-go/cs-20151215/v4/client"
+	ecs2014 "github.com/alibabacloud-go/ecs-20140526/v4/client"
+	vpc2016 "github.com/alibabacloud-go/vpc-20160428/v6/client"
 	bssopenapi "github.com/aliyun/alibaba-cloud-sdk-go/services/bssopenapi"
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/ecs"
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/slb"
@@ -50,7 +53,10 @@ type AlibabaCloudConnection struct {
 	MyImageClient    *ecs.Client
 	RegionZoneClient *ecs.Client
 
-	BssClient *bssopenapi.Client
+	Vpc2016Client *vpc2016.Client
+	Cs2015Client  *cs2015.Client
+	Ecs2014Client *ecs2014.Client
+	BssClient     *bssopenapi.Client
 }
 
 func (cloudConn *AlibabaCloudConnection) CreateRegionZoneHandler() (irs.RegionZoneHandler, error) {
@@ -143,7 +149,7 @@ func (cloudConn *AlibabaCloudConnection) CreateClusterHandler() (irs.ClusterHand
 
 	// temp
 	// getEnv & Setting
-	clusterHandler := alirs.AlibabaClusterHandler{RegionInfo: cloudConn.Region, CredentialInfo: cloudConn.CredentialInfo}
+	clusterHandler := alirs.AlibabaClusterHandler{RegionInfo: cloudConn.Region, CredentialInfo: cloudConn.CredentialInfo, VpcClient: cloudConn.Vpc2016Client, CsClient: cloudConn.Cs2015Client, EcsClient: cloudConn.Ecs2014Client}
 
 	return &clusterHandler, nil
 

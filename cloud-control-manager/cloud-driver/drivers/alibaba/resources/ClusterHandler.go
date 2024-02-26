@@ -13,16 +13,21 @@ package resources
 import (
 	"encoding/json"
 	"fmt"
-	"runtime/debug"
 	"strconv"
 	"strings"
 	"time"
 
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
-	"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/alibaba/utils/alibaba"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/jeremywohl/flatten"
+
+	cs2015 "github.com/alibabacloud-go/cs-20151215/v4/client"
+	ecs2014 "github.com/alibabacloud-go/ecs-20140526/v4/client"
+	"github.com/alibabacloud-go/tea/tea"
+	vpc2016 "github.com/alibabacloud-go/vpc-20160428/v6/client"
+
+	"github.com/Masterminds/semver/v3"
 )
 
 // calllogger
@@ -36,705 +41,1972 @@ import (
 // 	})
 // }
 
+const (
+	defaultClusterType        = "ManagedKubernetes"
+	defaultClusterSpec        = "ack.pro.small"
+	defaultClusterRuntimeName = "containerd"
+
+	tagKeyAckAliyunCom        = "ack.aliyun.com"
+	tagKeyCbSpiderPmksCluster = "CB-SPIDER:PMKS:CLUSTER"
+	tagValueOwned             = "owned"
+
+	clusterStateInitial        = "initial"
+	clusterStateFailed         = "failed"
+	clusterStateRunning        = "running"
+	clusterStateUpdating       = "updating"
+	clusterStateUpdatingFailed = "updating_failed"
+	clusterStateScaling        = "scaling"
+	clusterStateWaiting        = "waiting"
+	clusterStateDisconnected   = "disconnected"
+	clusterStateStopped        = "stopped"
+	clusterStateDeleting       = "deleting"
+	clusterStateDeleted        = "deleted"
+	clusterStateDeletedFailed  = "deleted_failed"
+
+	nodepoolStatusActive   = "active"
+	nodepoolStatusScaling  = "scaling"
+	nodepoolStatusRemoving = "removing"
+	nodepoolStatusDeleting = "deleting"
+	nodepoolStatusUpdating = "updating"
+)
+
 type AlibabaClusterHandler struct {
 	RegionInfo     idrv.RegionInfo
 	CredentialInfo idrv.CredentialInfo
+	VpcClient      *vpc2016.Client
+	CsClient       *cs2015.Client
+	EcsClient      *ecs2014.Client
 }
 
-func (clusterHandler *AlibabaClusterHandler) CreateCluster(clusterReqInfo irs.ClusterInfo) (irs.ClusterInfo, error) {
-	cblogger.Info("Alibaba Cloud Driver: called CreateCluster()")
-	callLogInfo := GetCallLogScheme(clusterHandler.RegionInfo, call.CLUSTER, "CreateCluster()", "CreateCluster()")
-
+func (ach *AlibabaClusterHandler) CreateCluster(clusterReqInfo irs.ClusterInfo) (irs.ClusterInfo, error) {
+	cblogger.Debug("Alibaba Cloud Driver: called CreateCluster()")
+	emptyClusterInfo := irs.ClusterInfo{}
+	hiscallInfo := GetCallLogScheme(ach.RegionInfo, call.CLUSTER, "CreateCluster()", "CreateCluster()")
 	start := call.Start()
-	// 클러스터 생성 요청을 JSON 요청으로 변환
-	payload, err := getClusterInfoJSON(clusterHandler, clusterReqInfo)
-	if err != nil {
-		err := fmt.Errorf("Failed to Get ClusterInfo JSON :  %v", err)
-		cblogger.Error(err)
-		return irs.ClusterInfo{}, err
-	}
-	response_json_str, err := alibaba.CreateCluster(clusterHandler.CredentialInfo.ClientId, clusterHandler.CredentialInfo.ClientSecret, clusterHandler.RegionInfo.Region, payload)
-	callLogInfo.ElapsedTime = call.Elapsed(start)
-	if err != nil {
-		err := fmt.Errorf("Failed to Create Cluster :  %v", err)
-		cblogger.Error(err)
-		callLogInfo.ErrorMSG = err.Error()
-		calllogger.Error(call.String(callLogInfo))
-		return irs.ClusterInfo{}, err
-	}
-	calllogger.Info(call.String(callLogInfo))
 
-	// NodeGroup 생성 정보가 있는경우 생성을 시도한다.
-	// 현재는 생성 시도를 안한다. 생성하기로 결정되면 아래 주석을 풀어서 사용한다.
-	// 이유:
-	// - Cluster 생성이 완료되어야 NodeGroup 생성이 가능하다.
-	// - Cluster 생성이 완료되려면 최소 10분 이상 걸린다.
-	// - 성공할때까지 대기한 후에 생성을 시도해야 한다.
-	// for _, node_group := range clusterReqInfo.NodeGroupList {
-	// 	node_group_info, err := clusterHandler.AddNodeGroup(clusterReqInfo.IId, node_group)
-	// 	if err != nil {
-	// 		cblogger.Error(err)
-	// 		return irs.ClusterInfo{}, err
-	// 	}
-	// }
-	var response_json_obj map[string]interface{}
-	json.Unmarshal([]byte(response_json_str), &response_json_obj)
-	cluster_id := response_json_obj["cluster_id"].(string)
-	cluster_info, err := getClusterInfo(clusterHandler.CredentialInfo.ClientId, clusterHandler.CredentialInfo.ClientSecret, clusterHandler.RegionInfo.Region, cluster_id)
+	cblogger.Info(fmt.Sprintf("Create Cluster"))
+
+	//
+	// Validation
+	//
+	err := validateAtCreateCluster(clusterReqInfo)
 	if err != nil {
-		err := fmt.Errorf("Failed to Get Cluster Info :  %v", err)
+		err = fmt.Errorf("Failed to Create Cluster: %v", err)
 		cblogger.Error(err)
-		return irs.ClusterInfo{}, err
+		LoggingError(hiscallInfo, err)
+		return emptyClusterInfo, err
 	}
 
-	return *cluster_info, nil
-}
+	regionId := ach.RegionInfo.Region
+	vpcId := clusterReqInfo.Network.VpcIID.SystemId
 
-func (clusterHandler *AlibabaClusterHandler) ListCluster() ([]*irs.ClusterInfo, error) {
-	cblogger.Info("Alibaba Cloud Driver: called ListCluster()")
-	callLogInfo := GetCallLogScheme(clusterHandler.RegionInfo, call.CLUSTER, "ListCluster()", "ListCluster()")
-
-	start := call.Start()
-	clusters_json_str, err := alibaba.GetClusters(clusterHandler.CredentialInfo.ClientId, clusterHandler.CredentialInfo.ClientSecret, clusterHandler.RegionInfo.Region)
-	callLogInfo.ElapsedTime = call.Elapsed(start)
+	//
+	// Get all VSwitches in VPC
+	//
+	vswitches, err := aliDescribeVSwitches(ach.VpcClient, regionId, vpcId)
 	if err != nil {
-		err := fmt.Errorf("Failed to Get Clusters :  %v", err)
+		err = fmt.Errorf("Failed to Create Cluster: %v", err)
 		cblogger.Error(err)
-		callLogInfo.ErrorMSG = err.Error()
-		calllogger.Error(call.String(callLogInfo))
-		return nil, err
+		LoggingError(hiscallInfo, err)
+		return emptyClusterInfo, err
 	}
-	calllogger.Info(call.String(callLogInfo))
 
-	var clusters_json_obj map[string]interface{}
-	json.Unmarshal([]byte(clusters_json_str), &clusters_json_obj)
-	clusters := clusters_json_obj["clusters"].([]interface{})
-	cluster_info_list := make([]*irs.ClusterInfo, len(clusters))
-	for i, cluster := range clusters {
-		println(i, cluster)
-		cluster_id := cluster.(map[string]interface{})["cluster_id"].(string)
-		cluster_info_list[i], err = getClusterInfo(clusterHandler.CredentialInfo.ClientId, clusterHandler.CredentialInfo.ClientSecret, clusterHandler.RegionInfo.Region, cluster_id)
-		if err != nil {
-			err := fmt.Errorf("Failed to Get ClusterInfo :  %v", err)
-			cblogger.Error(err)
-			return nil, err
+	if len(vswitches) == 0 {
+		err = fmt.Errorf("No VSwitch in VPC(ID=%s)", vpcId)
+		err = fmt.Errorf("Failed to Create Cluster: %v", err)
+		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
+		return emptyClusterInfo, err
+	}
+
+	var vswitchIds []string
+	for _, vs := range vswitches {
+		vswitchIds = append(vswitchIds, tea.StringValue(vs.VSwitchId))
+	}
+	cblogger.Debug(fmt.Sprintf("VSwiches in VPC(%s): %v", vpcId, vswitchIds))
+
+	cidrList, err := ach.getAvailableCidrList()
+	if err != nil {
+		err = fmt.Errorf("Failed to Create Cluster: %v", err)
+		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
+		return emptyClusterInfo, err
+	}
+
+	if len(cidrList) < 2 {
+		err = fmt.Errorf("insufficient CIDRs")
+		err = fmt.Errorf("Failed to Create Cluster: %v", err)
+		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
+		return emptyClusterInfo, err
+
+	}
+	cblogger.Debug(fmt.Sprintf("Available CIDR: ContainerCidr(%s), ServiceCidr(%s)", cidrList[0], cidrList[1]))
+
+	//
+	// Create a Cluster
+	//
+	clusterName := clusterReqInfo.IId.NameId
+	k8sVersion := clusterReqInfo.Version
+	clusterType := defaultClusterType
+	clusterSpec := defaultClusterSpec
+	containerCidr := cidrList[0]
+	serviceCidr := cidrList[1]
+	secGroupId := clusterReqInfo.Network.SecurityGroupIIDs[0].SystemId
+	snatEntry := true
+	epPublicAccess := true
+
+	runtimeName, runtimeVersion, err := getLatestRuntime(ach.CsClient, regionId, clusterType, k8sVersion)
+	if err != nil {
+		err := fmt.Errorf("Failed to Create Cluster: %v", err)
+		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
+		return emptyClusterInfo, err
+	}
+	cblogger.Debug(fmt.Sprintf("Selected Runtime (Name=%s, Version=%s)", runtimeName, runtimeVersion))
+
+	nodepools := getNodepoolsFromNodeGroupList(clusterReqInfo.NodeGroupList, runtimeName, runtimeVersion, vswitchIds)
+
+	clusterId, err := aliCreateCluster(ach.CsClient, clusterName, regionId, clusterType, clusterSpec, k8sVersion, runtimeName, runtimeVersion, vpcId, containerCidr, serviceCidr, secGroupId, snatEntry, epPublicAccess, vswitchIds, tagKeyCbSpiderPmksCluster, tagValueOwned, nodepools)
+	if err != nil {
+		err := fmt.Errorf("Failed to Create Cluster: %v", err)
+		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
+		return emptyClusterInfo, err
+	}
+	cblogger.Debug(fmt.Sprintf("Request to Create Cluster is In Progress."))
+
+	var createErr error = nil
+	defer func() {
+		if createErr != nil {
+			cleanCluster(ach.CsClient, tea.StringValue(clusterId))
+			cblogger.Info(fmt.Sprintf("Cluster(%s) will be Deleted.", clusterName))
 		}
-	}
+	}()
 
-	return cluster_info_list, nil
-}
-
-func (clusterHandler *AlibabaClusterHandler) GetCluster(clusterIID irs.IID) (irs.ClusterInfo, error) {
-	cblogger.Info("Alibaba Cloud Driver: called GetCluster()")
-	callLogInfo := GetCallLogScheme(clusterHandler.RegionInfo, call.CLUSTER, clusterIID.NameId, "GetCluster()")
-
-	start := call.Start()
-	cluster_info, err := getClusterInfo(clusterHandler.CredentialInfo.ClientId, clusterHandler.CredentialInfo.ClientSecret, clusterHandler.RegionInfo.Region, clusterIID.SystemId)
-	callLogInfo.ElapsedTime = call.Elapsed(start)
+	//
+	// Get ClusterInfo
+	//
+	clusterInfo, err := ach.getClusterInfo(regionId, tea.StringValue(clusterId))
 	if err != nil {
-		err := fmt.Errorf("Failed to Get ClusterInfo :  %v", err)
-		cblogger.Error(err)
-		callLogInfo.ErrorMSG = err.Error()
-		calllogger.Error(call.String(callLogInfo))
-		return irs.ClusterInfo{}, err
-	}
-	calllogger.Info(call.String(callLogInfo))
-
-	return *cluster_info, nil
-}
-
-func (clusterHandler *AlibabaClusterHandler) DeleteCluster(clusterIID irs.IID) (bool, error) {
-	cblogger.Info("Alibaba Cloud Driver: called DeleteCluster()")
-	callLogInfo := GetCallLogScheme(clusterHandler.RegionInfo, call.CLUSTER, clusterIID.NameId, "DeleteCluster()")
-
-	start := call.Start()
-	res, err := alibaba.DeleteCluster(clusterHandler.CredentialInfo.ClientId, clusterHandler.CredentialInfo.ClientSecret, clusterHandler.RegionInfo.Region, clusterIID.SystemId)
-	callLogInfo.ElapsedTime = call.Elapsed(start)
-	if err != nil {
-		err := fmt.Errorf("Failed to Delete Cluster :  %v", err)
-		cblogger.Error(err)
-		callLogInfo.ErrorMSG = err.Error()
-		calllogger.Error(call.String(callLogInfo))
-		return false, err
-	}
-	cblogger.Info(res)
-	calllogger.Info(call.String(callLogInfo))
-
-	return true, nil
-}
-
-func (clusterHandler *AlibabaClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGroupReqInfo irs.NodeGroupInfo) (irs.NodeGroupInfo, error) {
-	cblogger.Info("Alibaba Cloud Driver: called AddNodeGroup()")
-	callLogInfo := GetCallLogScheme(clusterHandler.RegionInfo, call.CLUSTER, clusterIID.NameId, "AddNodeGroup()")
-
-	start := call.Start()
-	// 노드 그룹 생성 요청을 JSON 요청으로 변환
-	payload, err := getNodeGroupJSONString(clusterHandler, clusterIID, nodeGroupReqInfo)
-	if err != nil {
-		err := fmt.Errorf("Failed to Get NodeGroup JSON String :  %v", err)
-		cblogger.Error(err)
-		return irs.NodeGroupInfo{}, err
+		createErr = fmt.Errorf("Failed to Create Cluster: %v", err)
+		cblogger.Error(createErr)
+		LoggingError(hiscallInfo, createErr)
+		return emptyClusterInfo, createErr
 	}
 
-	result_json_str, err := alibaba.CreateNodeGroup(clusterHandler.CredentialInfo.ClientId, clusterHandler.CredentialInfo.ClientSecret, clusterHandler.RegionInfo.Region, clusterIID.SystemId, payload)
-	callLogInfo.ElapsedTime = call.Elapsed(start)
-	if err != nil {
-		err := fmt.Errorf("Failed to Create NodeGroup :  %v", err)
-		cblogger.Error(err)
-		callLogInfo.ErrorMSG = err.Error()
-		calllogger.Error(call.String(callLogInfo))
-		return irs.NodeGroupInfo{}, err
-	}
-	calllogger.Info(call.String(callLogInfo))
+	LoggingInfo(hiscallInfo, start)
 
-	var result_json_obj map[string]interface{}
-	json.Unmarshal([]byte(result_json_str), &result_json_obj)
-	nodepool_id := result_json_obj["nodepool_id"].(string)
-	node_group_info, err := getNodeGroupInfo(clusterHandler.CredentialInfo.ClientId, clusterHandler.CredentialInfo.ClientSecret, clusterHandler.RegionInfo.Region, clusterIID.SystemId, nodepool_id)
-	if err != nil {
-		err := fmt.Errorf("Failed to Get NodeGroupInfo :  %v", err)
-		cblogger.Error(err)
-		return irs.NodeGroupInfo{}, err
-	}
-
-	return *node_group_info, nil
-}
-
-// func (clusterHandler *AlibabaClusterHandler) ListNodeGroup(clusterIID irs.IID) ([]*irs.NodeGroupInfo, error) {
-// 	cblogger.Info("Alibaba Cloud Driver: called ListNodeGroup()")
-// 	callLogInfo := getCallLogScheme(clusterHandler.RegionInfo.Region, call.CLUSTER, clusterIID.NameId, "ListNodeGroup()")
-
-// 	start := call.Start()
-// 	node_group_info_list := []*irs.NodeGroupInfo{}
-// 	node_groups_json_str, err := alibaba.ListNodeGroup(clusterHandler.CredentialInfo.ClientId, clusterHandler.CredentialInfo.ClientSecret, clusterHandler.RegionInfo.Region, clusterIID.SystemId)
-// 	callLogInfo.ElapsedTime = call.Elapsed(start)
-// 	if err != nil {
-// 		err := fmt.Errorf("Failed to List NodeGroup :  %v", err)
-// 		cblogger.Error(err)
-// 		callLogInfo.ErrorMSG = err.Error()
-// 		calllogger.Error(call.String(callLogInfo))
-// 		return node_group_info_list, err
-// 	}
-// 	calllogger.Info(call.String(callLogInfo))
-
-// 	var node_groups_json_obj map[string]interface{}
-// 	json.Unmarshal([]byte(node_groups_json_str), &node_groups_json_obj)
-// 	node_groups := node_groups_json_obj["nodepools"].([]interface{})
-// 	for _, node_group := range node_groups {
-// 		node_group_id := node_group.(map[string]interface{})["nodepool_info"].(map[string]interface{})["nodepool_id"].(string)
-// 		node_group_info, err := getNodeGroupInfo(clusterHandler.CredentialInfo.ClientId, clusterHandler.CredentialInfo.ClientSecret, clusterHandler.RegionInfo.Region, clusterIID.SystemId, node_group_id)
-// 		if err != nil {
-// 			err := fmt.Errorf("Failed to Get NodeGroupInfo :  %v", err)
-// 			cblogger.Error(err)
-// 			return nil, err
-// 		}
-// 		node_group_info_list = append(node_group_info_list, node_group_info)
-// 	}
-
-// 	return node_group_info_list, nil
-// }
-
-// func (clusterHandler *AlibabaClusterHandler) GetNodeGroup(clusterIID irs.IID, nodeGroupIID irs.IID) (irs.NodeGroupInfo, error) {
-// 	cblogger.Info("Alibaba Cloud Driver: called GetNodeGroup()")
-// 	callLogInfo := getCallLogScheme(clusterHandler.RegionInfo.Region, call.CLUSTER, clusterIID.NameId, "GetNodeGroup()")
-
-// 	start := call.Start()
-// 	temp, err := getNodeGroupInfo(clusterHandler.CredentialInfo.ClientId, clusterHandler.CredentialInfo.ClientSecret, clusterHandler.RegionInfo.Region, clusterIID.SystemId, nodeGroupIID.SystemId)
-// 	callLogInfo.ElapsedTime = call.Elapsed(start)
-// 	if err != nil {
-// 		err := fmt.Errorf("Failed to Get NodeGroupInfo :  %v", err)
-// 		cblogger.Error(err)
-// 		callLogInfo.ErrorMSG = err.Error()
-// 		calllogger.Error(call.String(callLogInfo))
-// 		return irs.NodeGroupInfo{}, err
-// 	}
-// 	calllogger.Info(call.String(callLogInfo))
-
-// 	return *temp, nil
-// }
-
-func (clusterHandler *AlibabaClusterHandler) SetNodeGroupAutoScaling(clusterIID irs.IID, nodeGroupIID irs.IID, on bool) (bool, error) {
-	cblogger.Info("Alibaba Cloud Driver: called SetNodeGroupAutoScaling()")
-	callLogInfo := GetCallLogScheme(clusterHandler.RegionInfo, call.CLUSTER, clusterIID.NameId, "SetNodeGroupAutoScaling()")
-
-	start := call.Start()
-	temp := `{"auto_scaling":{"enable":%t}}`
-	body := fmt.Sprintf(temp, on)
-	res, err := alibaba.ModifyNodeGroup(clusterHandler.CredentialInfo.ClientId, clusterHandler.CredentialInfo.ClientSecret, clusterHandler.RegionInfo.Region, clusterIID.SystemId, nodeGroupIID.SystemId, body)
-	callLogInfo.ElapsedTime = call.Elapsed(start)
-	if err != nil {
-		err := fmt.Errorf("Failed to Modify NodeGroup :  %v", err)
-		cblogger.Error(err)
-		callLogInfo.ErrorMSG = err.Error()
-		calllogger.Error(call.String(callLogInfo))
-		return false, err
-	}
-	cblogger.Info(res)
-	calllogger.Info(call.String(callLogInfo))
-
-	return true, nil
-}
-
-func (clusterHandler *AlibabaClusterHandler) ChangeNodeGroupScaling(clusterIID irs.IID, nodeGroupIID irs.IID, desiredNodeSize int, minNodeSize int, maxNodeSize int) (irs.NodeGroupInfo, error) {
-	cblogger.Info("Alibaba Cloud Driver: called ChangeNodeGroupScaling()")
-	callLogInfo := GetCallLogScheme(clusterHandler.RegionInfo, call.CLUSTER, clusterIID.NameId, "ChangeNodeGroupScaling()")
-
-	start := call.Start()
-	// desired_size is not supported in alibaba with auto scaling mode
-	temp := `{"auto_scaling":{"max_instances":%d,"min_instances":%d}}`
-	body := fmt.Sprintf(temp, maxNodeSize, minNodeSize)
-	res, err := alibaba.ModifyNodeGroup(clusterHandler.CredentialInfo.ClientId, clusterHandler.CredentialInfo.ClientSecret, clusterHandler.RegionInfo.Region, clusterIID.SystemId, nodeGroupIID.SystemId, body)
-	callLogInfo.ElapsedTime = call.Elapsed(start)
-	if err != nil {
-		err := fmt.Errorf("Failed to Modify NodeGroup :  %v", err)
-		cblogger.Error(err)
-		callLogInfo.ErrorMSG = err.Error()
-		calllogger.Error(call.String(callLogInfo))
-		return irs.NodeGroupInfo{}, err
-	}
-	cblogger.Info(res)
-	calllogger.Info(call.String(callLogInfo))
-
-	node_group_info, err := getNodeGroupInfo(clusterHandler.CredentialInfo.ClientId, clusterHandler.CredentialInfo.ClientSecret, clusterHandler.RegionInfo.Region, clusterIID.SystemId, nodeGroupIID.SystemId)
-	if err != nil {
-		err := fmt.Errorf("Failed to Get NodeGroupInfo :  %v", err)
-		cblogger.Error(err)
-		return irs.NodeGroupInfo{}, err
-	}
-
-	return *node_group_info, nil
-}
-
-func (clusterHandler *AlibabaClusterHandler) RemoveNodeGroup(clusterIID irs.IID, nodeGroupIID irs.IID) (bool, error) {
-	cblogger.Info("Alibaba Cloud Driver: called RemoveNodeGroup()")
-	callLogInfo := GetCallLogScheme(clusterHandler.RegionInfo, call.CLUSTER, clusterIID.NameId, "RemoveNodeGroup()")
-
-	start := call.Start()
-	res, err := alibaba.DeleteNodeGroup(clusterHandler.CredentialInfo.ClientId, clusterHandler.CredentialInfo.ClientSecret, clusterHandler.RegionInfo.Region, clusterIID.SystemId, nodeGroupIID.SystemId)
-	callLogInfo.ElapsedTime = call.Elapsed(start)
-	if err != nil {
-		err := fmt.Errorf("Failed to Delete NodeGroup :  %v", err)
-		cblogger.Error(err)
-		callLogInfo.ErrorMSG = err.Error()
-		calllogger.Error(call.String(callLogInfo))
-		return false, err
-	}
-	cblogger.Info(res)
-	calllogger.Info(call.String(callLogInfo))
-
-	return true, nil
-}
-
-func (clusterHandler *AlibabaClusterHandler) UpgradeCluster(clusterIID irs.IID, newVersion string) (irs.ClusterInfo, error) {
-	cblogger.Info("Alibaba Cloud Driver: called UpgradeCluster()")
-	callLogInfo := GetCallLogScheme(clusterHandler.RegionInfo, call.CLUSTER, clusterIID.NameId, "UpgradeCluster()")
-
-	start := call.Start()
-	temp := `{"next_version" : "%s"}`
-	body := fmt.Sprintf(temp, newVersion)
-	res, err := alibaba.UpgradeCluster(clusterHandler.CredentialInfo.ClientId, clusterHandler.CredentialInfo.ClientSecret, clusterHandler.RegionInfo.Region, clusterIID.SystemId, body)
-	callLogInfo.ElapsedTime = call.Elapsed(start)
-	if err != nil {
-		err := fmt.Errorf("Failed to Upgrade Cluster :  %v", err)
-		cblogger.Error(err)
-		callLogInfo.ErrorMSG = err.Error()
-		calllogger.Error(call.String(callLogInfo))
-		return irs.ClusterInfo{}, err
-	}
-	cblogger.Info(res)
-	calllogger.Info(call.String(callLogInfo))
-
-	clusterInfo, err := getClusterInfo(clusterHandler.CredentialInfo.ClientId, clusterHandler.CredentialInfo.ClientSecret, clusterHandler.RegionInfo.Region, clusterIID.SystemId)
-	if err != nil {
-		err := fmt.Errorf("Failed to Get ClusterInfo :  %v", err)
-		cblogger.Error(err)
-		return irs.ClusterInfo{}, err
-	}
+	cblogger.Info(fmt.Sprintf("Creating Cluster(Name=%s, ID=%s).", clusterInfo.IId.NameId, clusterInfo.IId.SystemId))
 
 	return *clusterInfo, nil
 }
 
-func getClusterInfo(access_key string, access_secret string, region_id string, cluster_id string) (clusterInfo *irs.ClusterInfo, err error) {
+func (ach *AlibabaClusterHandler) ListCluster() ([]*irs.ClusterInfo, error) {
+	cblogger.Debug("Alibaba Cloud Driver: called ListCluster()")
+	hiscallInfo := GetCallLogScheme(ach.RegionInfo, call.CLUSTER, "ListCluster()", "ListCluster()")
+	start := call.Start()
 
-	defer func() {
-		if r := recover(); r != nil {
-			err = fmt.Errorf("Failed to Process getClusterInfo() : %v\n\n%v", r, string(debug.Stack()))
-			cblogger.Error(err)
-		}
-	}()
+	cblogger.Info(fmt.Sprintf("Get Cluster List"))
 
-	cluster_json_str, err := alibaba.GetCluster(access_key, access_secret, region_id, cluster_id)
+	//
+	// Get Cluster List
+	//
+	regionId := ach.RegionInfo.Region
+	clusters, err := aliDescribeClustersV1(ach.CsClient, regionId)
 	if err != nil {
+		err := fmt.Errorf("Failed to List Cluster: %v", err)
+		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
 		return nil, err
 	}
 
-	var cluster_json_obj map[string]interface{}
-	json.Unmarshal([]byte(cluster_json_str), &cluster_json_obj)
+	//
+	// Get ClusterInfo List
+	//
+	var clusterInfoList []*irs.ClusterInfo
+	for _, cluster := range clusters {
+		clusterInfo, err := ach.getClusterInfo(regionId, tea.StringValue(cluster.ClusterId))
+		if err != nil {
+			err := fmt.Errorf("Failed to List Cluster: %v", err)
+			cblogger.Error(err)
+			LoggingError(hiscallInfo, err)
+			return nil, err
+		}
 
-	// https://www.alibabacloud.com/help/doc-detail/86987.html
-	// Initializing	Creating the cloud resources that are used by the cluster.
-	// Creation Failed	Failed to create the cloud resources that are used by the cluster.
-	// Running	The cloud resources used by the cluster are created.
-	// Updating	Updating the metadata of the cluster.
-	// Scaling	Adding nodes to the cluster.
-	// Removing	Removing nodes from the cluster.
-	// Upgrading	Upgrading the cluster.
-	// Draining	Evicting pods from a node to other nodes. After all pods are evicted from the node, the node becomes unschudulable.
-	// Deleting	Deleting the cluster.
-	// Deletion Failed	Failed to delete the cluster.
-	// Deleted (invisible to users)	The cluster is deleted."
-	health_status := cluster_json_obj["state"].(string)
-	cluster_status := irs.ClusterInactive
-	if strings.EqualFold(health_status, "Initializing") || strings.EqualFold(health_status, "initial") {
-		cluster_status = irs.ClusterCreating
-	} else if strings.EqualFold(health_status, "Updating") {
-		cluster_status = irs.ClusterUpdating
-	} else if strings.EqualFold(health_status, "Creation Failed") {
-		cluster_status = irs.ClusterInactive
-	} else if strings.EqualFold(health_status, "Deleting") {
-		cluster_status = irs.ClusterDeleting
-	} else if strings.EqualFold(health_status, "Running") {
-		cluster_status = irs.ClusterActive
+		clusterInfoList = append(clusterInfoList, clusterInfo)
 	}
 
-	created_at := cluster_json_obj["created"].(string) // 2022-09-08T09:02:16+08:00,
-	datetime, err := time.Parse(time.RFC3339, created_at)
+	LoggingInfo(hiscallInfo, start)
+
+	return clusterInfoList, nil
+}
+
+func (ach *AlibabaClusterHandler) GetCluster(clusterIID irs.IID) (irs.ClusterInfo, error) {
+	cblogger.Debug("Alibaba Cloud Driver: called GetCluster()")
+	emptyClusterInfo := irs.ClusterInfo{}
+	hiscallInfo := GetCallLogScheme(ach.RegionInfo, call.CLUSTER, clusterIID.NameId, "GetCluster()")
+	start := call.Start()
+
+	//
+	// Get ClusterInfo
+	//
+	regionId := ach.RegionInfo.Region
+	clusterInfo, err := ach.getClusterInfo(regionId, clusterIID.SystemId)
 	if err != nil {
-		err := fmt.Errorf("Failed to Parse Created Time :  %v", err)
+		err := fmt.Errorf("Failed to Get Cluster: %v", err)
 		cblogger.Error(err)
-		panic(err)
+		LoggingError(hiscallInfo, err)
+		return emptyClusterInfo, err
 	}
 
-	//"{\"api_server_endpoint\":\"https://47.74.22.109:6443\",\"dashboard_endpoint\":\"\",\"intranet_api_server_endpoint\":\"https://10.0.11.77:6443\"}"
+	LoggingInfo(hiscallInfo, start)
+
+	cblogger.Info(fmt.Sprintf("Get Cluster(Name=%s, ID=%s)", clusterInfo.IId.NameId, clusterInfo.IId.SystemId))
+
+	return *clusterInfo, nil
+}
+
+func (ach *AlibabaClusterHandler) DeleteCluster(clusterIID irs.IID) (bool, error) {
+	cblogger.Debug("Alibaba Cloud Driver: called DeleteCluster()")
+	hiscallInfo := GetCallLogScheme(ach.RegionInfo, call.CLUSTER, clusterIID.NameId, "DeleteCluster()")
+	start := call.Start()
+
+	//
+	// Get Cluster Detailed Information
+	//
+	cluster, err := aliDescribeClusterDetail(ach.CsClient, clusterIID.SystemId)
+	if err != nil {
+		err := fmt.Errorf("Failed to Delete Cluster:  %v", err)
+		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
+		return false, err
+	}
+
+	//
+	// Check if there is a nat gateway automatically created with the cluster
+	//
+	cblogger.Debug(fmt.Sprintf("Check if NAT Gatway Automatically Created with Cluster(%s)", clusterIID.NameId))
+
+	regionId := ach.RegionInfo.Region
+	vpcId := tea.StringValue(cluster.VpcId)
+	tagKey := tagKeyAckAliyunCom
+	tagValue := clusterIID.SystemId
+	ngwsRetaining, err := getInternetNatGatewaysWithTagInVpc(ach.VpcClient, regionId, vpcId, tagKey, tagValue)
+	if err != nil {
+		err = fmt.Errorf("Failed to Delete Cluster: %v", err)
+		cblogger.Error(err)
+		hiscallInfo.ErrorMSG = err.Error()
+		calllogger.Error(call.String(hiscallInfo))
+		return false, err
+	}
+
+	var retainResources []string
+	if len(ngwsRetaining) > 0 {
+		retainResources = append(retainResources, tea.StringValue(ngwsRetaining[0].NatGatewayId))
+	}
+	if len(retainResources) > 0 {
+		cblogger.Debug(fmt.Sprintf("The NAT Gateway(%v) is retained.", retainResources))
+	}
+
+	//
+	// Delete a Cluster without NAT Gateway
+	//
+	_, err = aliDeleteCluster(ach.CsClient, tea.StringValue(cluster.ClusterId), retainResources)
+	if err != nil {
+		err := fmt.Errorf("Failed to Delete Cluster: %v", err)
+		cblogger.Error(err)
+		hiscallInfo.ErrorMSG = err.Error()
+		calllogger.Error(call.String(hiscallInfo))
+		return false, err
+	}
+	cblogger.Debug(fmt.Sprintf("Request to Delete Cluster is In Progress."))
+
+	//
+	// Cleanup NAT Gateway if there is no more cluster created by CB-SPIDER
+	//
+	cblogger.Debug(fmt.Sprintf("Check if Cluster Created By CB-SPIDER Exists."))
+
+	exist, err := existNotDeletedClusterWithTagInVpc(ach.CsClient, tea.StringValue(cluster.RegionId), tea.StringValue(cluster.VpcId), tagKeyCbSpiderPmksCluster, tagValueOwned)
+	if err != nil {
+		err := fmt.Errorf("Failed to Delete Cluster: %v", err)
+		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
+		return false, err
+	}
+	if exist == false {
+		cblogger.Debug(fmt.Sprintf("No More Cluster Created By CB-SPIDER."))
+
+		tagKey = tagKeyCbSpiderPmksCluster
+		tagValue = tagValueOwned
+		ngwsRetained, err := getInternetNatGatewaysWithTagInVpc(ach.VpcClient, regionId, vpcId, tagKey, tagValue)
+		if err != nil {
+			err = fmt.Errorf("Failed to Delete Cluster: %v", err)
+			cblogger.Error(err)
+			LoggingError(hiscallInfo, err)
+			return false, err
+		}
+
+		for _, ngw := range ngwsRetained {
+			aliDeleteNatGateway(ach.VpcClient, tea.StringValue(cluster.RegionId), tea.StringValue(ngw.NatGatewayId))
+			cblogger.Info(fmt.Sprintf("Internet NAT Gateway(%s) will be deleted", tea.StringValue(ngw.NatGatewayId)))
+		}
+	} else {
+		cblogger.Debug(fmt.Sprintf("Cluster Created By CB-SPIDER Exists."))
+	}
+
+	LoggingInfo(hiscallInfo, start)
+
+	cblogger.Info(fmt.Sprintf("Deleting Cluster(Name=%s, ID=%s).", clusterIID.NameId, clusterIID.SystemId))
+
+	return true, nil
+}
+
+func (ach *AlibabaClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGroupReqInfo irs.NodeGroupInfo) (irs.NodeGroupInfo, error) {
+	cblogger.Debug("Alibaba Cloud Driver: called AddNodeGroup()")
+	emptyNodeGroupInfo := irs.NodeGroupInfo{}
+	hiscallInfo := GetCallLogScheme(ach.RegionInfo, call.CLUSTER, clusterIID.NameId, "AddNodeGroup()")
+	start := call.Start()
+
+	cblogger.Info(fmt.Sprintf("Add NodeGroup"))
+
+	//
+	// Validation
+	//
+	err := validateAtAddNodeGroup(clusterIID, nodeGroupReqInfo)
+	if err != nil {
+		err = fmt.Errorf("Failed to Add Node GRoup: %v", err)
+		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
+		return emptyNodeGroupInfo, err
+	}
+
+	//
+	// Get Cluster Detailed Information
+	//
+	regionId := ach.RegionInfo.Region
+	clusterId := clusterIID.SystemId
+
+	cluster, err := aliDescribeClusterDetail(ach.CsClient, clusterId)
+	if err != nil {
+		err = fmt.Errorf("Failed to Add NodeGroup: %v", err)
+		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
+		return emptyNodeGroupInfo, err
+	}
+
+	//
+	// Get all VSwitches in VPC
+	//
+	vswitches, err := aliDescribeVSwitches(ach.VpcClient, regionId, tea.StringValue(cluster.VpcId))
+	if err != nil {
+		err = fmt.Errorf("Failed to Add NodeGroup: %v", err)
+		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
+		return emptyNodeGroupInfo, err
+	}
+
+	if len(vswitches) == 0 {
+		err = fmt.Errorf("No VSwitch in VPC(ID=%s)", tea.StringValue(cluster.VpcId))
+		err = fmt.Errorf("Failed to Add NodeGroup: %v", err)
+		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
+		return emptyNodeGroupInfo, err
+	}
+
+	var vswitchIds []string
+	for _, vs := range vswitches {
+		vswitchIds = append(vswitchIds, tea.StringValue(vs.VSwitchId))
+	}
+	cblogger.Debug(fmt.Sprintf("VSwiches in VPC(%s): %v", tea.StringValue(cluster.VpcId), vswitchIds))
+
+	//
+	// Create Node Groups
+	//
+	name := nodeGroupReqInfo.IId.NameId
+	autoScalingEnable := nodeGroupReqInfo.OnAutoScaling
+	maxInstances := int64(nodeGroupReqInfo.MaxNodeSize)
+	minInstances := int64(nodeGroupReqInfo.MinNodeSize)
+	instanceTypes := []string{nodeGroupReqInfo.VMSpecName}
+	systemDiskCategory := nodeGroupReqInfo.RootDiskType
+	systemDiskSize, _ := strconv.ParseInt(nodeGroupReqInfo.RootDiskSize, 10, 64)
+	keyPair := nodeGroupReqInfo.KeyPairIID.NameId
+	desiredSize := int64(nodeGroupReqInfo.DesiredNodeSize)
+
+	nodepoolId, err := aliCreateClusterNodePool(ach.CsClient, clusterId, name,
+		autoScalingEnable, maxInstances, minInstances, vswitchIds, instanceTypes, systemDiskCategory, systemDiskSize, keyPair, desiredSize)
+	if err != nil {
+		err = fmt.Errorf("Failed to Add NodeGroup: %v", err)
+		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
+		return emptyNodeGroupInfo, err
+	}
+	cblogger.Debug(fmt.Sprintf("Request to Create NodePool is In Progress."))
+
+	//
+	// Get NodeGroupInfo
+	//
+	nodeGroupInfo, err := ach.getNodeGroupInfo(clusterId, tea.StringValue(nodepoolId))
+	if err != nil {
+		err = fmt.Errorf("Failed to Add NodeGroup: %v", err)
+		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
+		return emptyNodeGroupInfo, err
+	}
+
+	LoggingInfo(hiscallInfo, start)
+
+	cblogger.Info(fmt.Sprintf("Adding NodeGroup(Name=%s, ID=%s) to Cluster(%s).", nodeGroupInfo.IId.NameId, nodeGroupInfo.IId.SystemId, clusterId))
+
+	return *nodeGroupInfo, nil
+}
+
+func (ach *AlibabaClusterHandler) SetNodeGroupAutoScaling(clusterIID irs.IID, nodeGroupIID irs.IID, on bool) (bool, error) {
+	cblogger.Debug("Alibaba Cloud Driver: called SetNodeGroupAutoScaling()")
+	hiscallInfo := GetCallLogScheme(ach.RegionInfo, call.CLUSTER, clusterIID.NameId, "SetNodeGroupAutoScaling()")
+	start := call.Start()
+
+	cblogger.Info(fmt.Sprintf("Set NodeGroup AutoScaling"))
+
+	//
+	// Set NodeGroup AutoScaling
+	//
+	clusterId := clusterIID.SystemId
+	ngId := nodeGroupIID.SystemId
+	_, err := aliModifyClusterNodePoolAutoScalingEnable(ach.CsClient, clusterId, ngId, on)
+	if err != nil {
+		err := fmt.Errorf("Failed to Set NodeGroup AutoScaling: %v", err)
+		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
+		return false, err
+	}
+
+	LoggingInfo(hiscallInfo, start)
+
+	cblogger.Info(fmt.Sprintf("Modifying AutoScaling of NodeGroup(Name=%s, ID=%s) in Cluster(%s).", nodeGroupIID.NameId, nodeGroupIID.SystemId, clusterIID.NameId))
+
+	return true, nil
+}
+
+func (ach *AlibabaClusterHandler) ChangeNodeGroupScaling(clusterIID irs.IID, nodeGroupIID irs.IID, desiredNodeSize int, minNodeSize int, maxNodeSize int) (irs.NodeGroupInfo, error) {
+	cblogger.Debug("Alibaba Cloud Driver: called ChangeNodeGroupScaling()")
+	emptyNodeGroupInfo := irs.NodeGroupInfo{}
+	hiscallInfo := GetCallLogScheme(ach.RegionInfo, call.CLUSTER, clusterIID.NameId, "ChangeNodeGroupScaling()")
+	start := call.Start()
+
+	cblogger.Info(fmt.Sprintf("Change NodeGroup Scaling"))
+
+	//
+	// Validation
+	//
+	err := validateAtChangeNodeGroupScaling(clusterIID, nodeGroupIID, minNodeSize, maxNodeSize)
+	if err != nil {
+		err = fmt.Errorf("Failed to Change Node Group Scaling: %v", err)
+		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
+		return emptyNodeGroupInfo, err
+	}
+
+	//
+	// Change NodeGroup's Scaling Size
+	//
+	clusterId := clusterIID.SystemId
+	ngId := nodeGroupIID.SystemId
+	autoScalingEnable := true
+
+	// CAUTION: desiredNodeSize cannot be applied in alibaba with auto scaling mode
+	_, err = aliModifyClusterNodePoolScalingSize(ach.CsClient, clusterId, ngId, autoScalingEnable, int64(maxNodeSize), int64(minNodeSize), int64(desiredNodeSize))
+	if err != nil {
+		err = fmt.Errorf("Failed to Change NodeGroup Scaling: %v", err)
+		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
+		return emptyNodeGroupInfo, err
+	}
+
+	//
+	// Get NodeGroupInfo
+	//
+	nodeGroupInfo, err := ach.getNodeGroupInfo(clusterId, ngId)
+	if err != nil {
+		err = fmt.Errorf("Failed to Change NodeGroup Scaling: %v", err)
+		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
+		return emptyNodeGroupInfo, err
+	}
+
+	LoggingInfo(hiscallInfo, start)
+
+	cblogger.Info(fmt.Sprintf("Modifying Scaling of NodeGroup(Name=%s, ID=%s) in Cluster(%s).", nodeGroupInfo.IId.NameId, nodeGroupInfo.IId.SystemId, clusterIID.NameId))
+
+	return *nodeGroupInfo, nil
+}
+
+func (ach *AlibabaClusterHandler) RemoveNodeGroup(clusterIID irs.IID, nodeGroupIID irs.IID) (bool, error) {
+	cblogger.Debug("Alibaba Cloud Driver: called RemoveNodeGroup()")
+	hiscallInfo := GetCallLogScheme(ach.RegionInfo, call.CLUSTER, clusterIID.NameId, "RemoveNodeGroup()")
+	start := call.Start()
+
+	cblogger.Info(fmt.Sprintf("Remove NodeGroup"))
+
+	//
+	// Remove NodeGroup
+	//
+	clusterId := clusterIID.SystemId
+	ngId := nodeGroupIID.SystemId
+
+	_, err := aliDeleteClusterNodepool(ach.CsClient, clusterId, ngId, true)
+	hiscallInfo.ElapsedTime = call.Elapsed(start)
+	if err != nil {
+		err := fmt.Errorf("Failed to Remove NodeGroup: %v", err)
+		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
+		return false, err
+	}
+
+	LoggingInfo(hiscallInfo, start)
+
+	cblogger.Info(fmt.Sprintf("Removing NodeGroup(Name=%s, ID=%s) to Cluster(%s).", nodeGroupIID.NameId, nodeGroupIID.SystemId, clusterIID.NameId))
+
+	return true, nil
+}
+
+func (ach *AlibabaClusterHandler) UpgradeCluster(clusterIID irs.IID, newVersion string) (irs.ClusterInfo, error) {
+	cblogger.Debug("Alibaba Cloud Driver: called UpgradeCluster()")
+	emptyClusterInfo := irs.ClusterInfo{}
+	hiscallInfo := GetCallLogScheme(ach.RegionInfo, call.CLUSTER, clusterIID.NameId, "UpgradeCluster()")
+	start := call.Start()
+
+	cblogger.Info(fmt.Sprintf("Upgrade Cluster"))
+
+	//
+	// Upgrade Cluster
+	//
+	regionId := ach.RegionInfo.Region
+	clusterId := clusterIID.SystemId
+
+	_, err := aliUpgradeCluster(ach.CsClient, clusterId, newVersion)
+	if err != nil {
+		err := fmt.Errorf("Failed to Upgrade Cluster: %v", err)
+		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
+		return emptyClusterInfo, err
+	}
+
+	//
+	// Get ClusterInfo
+	//
+	clusterInfo, err := ach.getClusterInfo(regionId, clusterId)
+	if err != nil {
+		err = fmt.Errorf("Failed to Upgrade Cluster: %v", err)
+		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
+		return emptyClusterInfo, err
+	}
+
+	LoggingInfo(hiscallInfo, start)
+
+	cblogger.Info(fmt.Sprintf("Upgrading Cluster(Name=%s, ID=%s)", clusterInfo.IId.NameId, clusterInfo.IId.SystemId))
+
+	return *clusterInfo, nil
+}
+
+func (ach *AlibabaClusterHandler) getClusterInfoListWithoutNodeGroupList(regionId string) ([]*irs.ClusterInfo, error) {
+	clusters, err := aliDescribeClustersV1(ach.CsClient, regionId)
+	if err != nil {
+		err = fmt.Errorf("failed to get ClusterInfoList: %v", err)
+		return nil, err
+	}
+
+	var clusterInfoList []*irs.ClusterInfo
+	for _, cluster := range clusters {
+		clusterInfo, err := ach.getClusterInfoWithoutNodeGroupList(regionId, tea.StringValue(cluster.ClusterId))
+		if err != nil {
+			err = fmt.Errorf("failed to get ClusterInfoList: %v", err)
+			return nil, err
+		}
+
+		clusterInfoList = append(clusterInfoList, clusterInfo)
+	}
+
+	return clusterInfoList, nil
+}
+
+func (ach *AlibabaClusterHandler) getClusterInfoWithoutNodeGroupList(regionId, clusterId string) (*irs.ClusterInfo, error) {
+	//
+	// Fill clusterInfo
+	//
+	cluster, err := aliDescribeClusterDetail(ach.CsClient, clusterId)
+	if err != nil {
+		err = fmt.Errorf("failed to get ClusterInfo: %v", err)
+		return nil, err
+	}
+
+	clusterStatus := irs.ClusterInactive
+	if strings.EqualFold(tea.StringValue(cluster.State), clusterStateInitial) {
+		clusterStatus = irs.ClusterCreating
+	} else if strings.EqualFold(tea.StringValue(cluster.State), clusterStateUpdating) {
+		clusterStatus = irs.ClusterUpdating
+	} else if strings.EqualFold(tea.StringValue(cluster.State), clusterStateFailed) {
+		clusterStatus = irs.ClusterInactive
+	} else if strings.EqualFold(tea.StringValue(cluster.State), clusterStateDeleting) {
+		clusterStatus = irs.ClusterDeleting
+	} else if strings.EqualFold(tea.StringValue(cluster.State), clusterStateRunning) {
+		clusterStatus = irs.ClusterActive
+	}
+
+	createdTime, err := time.Parse(time.RFC3339, tea.StringValue(cluster.Created)) // 2022-09-08T09:02:16+08:00,
+
+	// "{\"api_server_endpoint\":\"https://111.222.333.444:6443\",\"intranet_api_server_endpoint\":\"https://10.2.1.1:6443\"}"
 	// if api_server_endpoint is not exist, it'll throw error
-	master_url_json_obj := make(map[string]interface{})
-	json.Unmarshal([]byte(cluster_json_obj["master_url"].(string)), &master_url_json_obj)
-	end_point := "Endpoint is not ready yet!"
-	if master_url_json_obj["api_server_endpoint"] != nil {
-		end_point = master_url_json_obj["api_server_endpoint"].(string)
+	endpoint := "Endpoint is not ready yet!"
+	if cluster.MasterUrl != nil && !strings.EqualFold(tea.StringValue(cluster.MasterUrl), "") {
+		jsonMasterUrl := make(map[string]interface{})
+		err = json.Unmarshal([]byte(tea.StringValue(cluster.MasterUrl)), &jsonMasterUrl)
+		if err != nil {
+			err = fmt.Errorf("failed to get ClusterInfo: %v", err)
+			return nil, err
+		}
+
+		if jsonMasterUrl["api_server_endpoint"] != nil {
+			endpoint = jsonMasterUrl["api_server_endpoint"].(string)
+		}
 	}
 
-	// get kubeconfig
-	kube_config := "Kubeconfig is not ready yet!"
-	cluster_kube_config_json_str, err := alibaba.GetClusterKubeConfig(access_key, access_secret, region_id, cluster_id)
+	kubeconfig := "Kubeconfig is not ready yet!"
+	userKubeconfig, err := aliDescribeClusterUserKubeconfig(ach.CsClient, clusterId)
 	if err != nil {
 		cblogger.Info("Kubeconfig is not ready yet!")
-		//return nil, err
 	} else {
-		cluster_kube_config_json_obj := make(map[string]interface{})
-		json.Unmarshal([]byte(cluster_kube_config_json_str), &cluster_kube_config_json_obj)
-		// println(cluster_kube_config_json_obj["config"].(string))
-		kube_config = strings.TrimSpace(cluster_kube_config_json_obj["config"].(string))
+		kubeconfig = strings.TrimSpace(tea.StringValue(userKubeconfig.Config))
 	}
 
-	clusterInfo = &irs.ClusterInfo{
+	vpcAttr, err := aliDescribeVpcAttribute(ach.VpcClient, regionId, tea.StringValue(cluster.VpcId))
+	if err != nil {
+		err = fmt.Errorf("failed to get ClusterInfo: %v", err)
+		return nil, err
+	}
+
+	vswitchAttr, err := aliDescribeVSwitchAttributes(ach.VpcClient, regionId, tea.StringValue(cluster.VswitchId))
+	if err != nil {
+		err = fmt.Errorf("failed to get ClusterInfo: %v", err)
+		return nil, err
+	}
+
+	secGroupAttr, err := aliDescribeSecurityGroupAttribute(ach.EcsClient, regionId, tea.StringValue(cluster.SecurityGroupId))
+	if err != nil {
+		err = fmt.Errorf("failed to get ClusterInfo: %v", err)
+		return nil, err
+	}
+
+	clusterInfo := &irs.ClusterInfo{
 		IId: irs.IID{
-			NameId:   cluster_json_obj["name"].(string),
-			SystemId: cluster_json_obj["cluster_id"].(string),
+			NameId:   tea.StringValue(cluster.Name),
+			SystemId: tea.StringValue(cluster.ClusterId),
 		},
-		Version: cluster_json_obj["current_version"].(string),
+		Version: tea.StringValue(cluster.CurrentVersion),
 		Network: irs.NetworkInfo{
 			VpcIID: irs.IID{
-				NameId:   "",
-				SystemId: cluster_json_obj["vpc_id"].(string),
+				NameId:   tea.StringValue(vpcAttr.VpcName),
+				SystemId: tea.StringValue(cluster.VpcId),
 			},
 			SubnetIIDs: []irs.IID{
 				{
-					NameId:   "",
-					SystemId: cluster_json_obj["vswitch_id"].(string),
+					NameId:   tea.StringValue(vswitchAttr.VSwitchName),
+					SystemId: tea.StringValue(cluster.VswitchId),
 				},
 			},
 			SecurityGroupIIDs: []irs.IID{
 				{
-					NameId:   "",
-					SystemId: cluster_json_obj["security_group_id"].(string),
+					NameId:   tea.StringValue(secGroupAttr.SecurityGroupName),
+					SystemId: tea.StringValue(cluster.SecurityGroupId),
 				},
 			},
 		},
-		Status:      cluster_status,
-		CreatedTime: datetime,
+		Status:      clusterStatus,
+		CreatedTime: createdTime,
 		AccessInfo: irs.AccessInfo{
-			Endpoint:   end_point,
-			Kubeconfig: kube_config,
+			Endpoint:   endpoint,
+			Kubeconfig: kubeconfig,
 		},
-		// KeyValueList: []irs.KeyValue{}, // flatten data 입력하기
+		//KeyValueList: []irs.KeyValue{},
 	}
 
-	// k,v 추출 & 추가
-	flat, err := flatten.Flatten(cluster_json_obj, "", flatten.DotStyle)
+	//
+	// Fill clusterInfo.KeyValueList
+	//
+	jsonCluster, err := json.Marshal(cluster)
 	if err != nil {
-		err := fmt.Errorf("Failed to Flatten ClusterInfo :  %v", err)
-		cblogger.Error(err)
+		err = fmt.Errorf("failed to marshal cluster: %v", err)
+		err = fmt.Errorf("failed to get ClusterInfo: %v", err)
+		return nil, err
+	}
+
+	var mapCluster map[string]interface{}
+	err = json.Unmarshal(jsonCluster, &mapCluster)
+	if err != nil {
+		err = fmt.Errorf("failed to unmarshal cluster: %v", err)
+		err = fmt.Errorf("failed to get ClusterInfo: %v", err)
+		return nil, err
+	}
+
+	flat, err := flatten.Flatten(mapCluster, "", flatten.DotStyle)
+	if err != nil {
+		err = fmt.Errorf("failed to flatten cluster: %v", err)
+		err = fmt.Errorf("failed to get ClusterInfo: %v", err)
 		return nil, err
 	}
 	delete(flat, "meta_data")
 	for k, v := range flat {
-		temp := fmt.Sprintf("%v", v)
-		clusterInfo.KeyValueList = append(clusterInfo.KeyValueList, irs.KeyValue{Key: k, Value: temp})
+		clusterInfo.KeyValueList = append(clusterInfo.KeyValueList, irs.KeyValue{Key: k, Value: fmt.Sprintf("%v", v)})
 	}
 
-	// NodeGroups
-	node_groups_json_str, err := alibaba.ListNodeGroup(access_key, access_secret, region_id, cluster_id)
-	if err != nil {
-		err := fmt.Errorf("Failed to List NodeGroup :  %v", err)
-		cblogger.Error(err)
-		return nil, err
-	}
-
-	var node_groups_json_obj map[string]interface{}
-	json.Unmarshal([]byte(node_groups_json_str), &node_groups_json_obj)
-	node_groups := node_groups_json_obj["nodepools"].([]interface{})
-	for _, node_group := range node_groups {
-		node_group_id := node_group.(map[string]interface{})["nodepool_info"].(map[string]interface{})["nodepool_id"].(string)
-		node_group_info, err := getNodeGroupInfo(access_key, access_secret, region_id, cluster_id, node_group_id)
-		if err != nil {
-			err := fmt.Errorf("Failed to Get NodeGroupInfo :  %v", err)
-			cblogger.Error(err)
-			return nil, err
-		}
-		clusterInfo.NodeGroupList = append(clusterInfo.NodeGroupList, *node_group_info)
-	}
-
-	return clusterInfo, err
+	return clusterInfo, nil
 }
 
-func getNodeGroupInfo(access_key, access_secret, region_id, cluster_id, node_group_id string) (nodeGroupInfo *irs.NodeGroupInfo, err error) {
-
-	defer func() {
-		if r := recover(); r != nil {
-			err = fmt.Errorf("Failed to Process getNodeGroupInfo() : %v\n\n%v", r, string(debug.Stack()))
-			cblogger.Error(err)
-		}
-	}()
-
-	node_group_json_str, err := alibaba.GetNodeGroup(access_key, access_secret, region_id, cluster_id, node_group_id)
+func (ach *AlibabaClusterHandler) getClusterInfo(regionId, clusterId string) (*irs.ClusterInfo, error) {
+	//
+	// Fill clusterInfo
+	//
+	clusterInfo, err := ach.getClusterInfoWithoutNodeGroupList(regionId, clusterId)
 	if err != nil {
-		err := fmt.Errorf("Failed to Get NodeGroup :  %v", err)
-		cblogger.Error(err)
+		err = fmt.Errorf("failed to get ClusterInfo: %v", err)
 		return nil, err
 	}
 
-	var node_group_json_obj map[string]interface{}
-	json.Unmarshal([]byte(node_group_json_str), &node_group_json_obj)
-
-	// nodegroup.state
-	// https://www.alibabacloud.com/help/en/container-service-for-kubernetes/latest/query-the-details-of-a-node-pool
-	// active: The node pool is active.
-	// scaling: The node pool is being scaled.
-	// removing: Nodes are being removed from the node pool.
-	// deleting: The node pool is being deleted.
-	// updating: The node pool is being updated.
-	health_status := node_group_json_obj["status"].(map[string]interface{})["state"].(string)
-	status := irs.NodeGroupActive
-	if strings.EqualFold(health_status, "active") {
-		status = irs.NodeGroupActive
-	} else if strings.EqualFold(health_status, "scaling") {
-		status = irs.NodeGroupUpdating
-	} else if strings.EqualFold(health_status, "removing") {
-		status = irs.NodeGroupUpdating // removing is a kind of updating?
-	} else if strings.EqualFold(health_status, "deleting") {
-		status = irs.NodeGroupDeleting
-	} else if strings.EqualFold(health_status, "updating") {
-		status = irs.NodeGroupUpdating
+	//
+	// Fill clusterInfo.NodeGroupList
+	//
+	nodepools, err := aliDescribeClusterNodePools(ach.CsClient, clusterId)
+	if err != nil {
+		err = fmt.Errorf("failed to get ClusterInfo: %v", err)
+		return nil, err
 	}
 
-	nodeGroupInfo = &irs.NodeGroupInfo{
+	for _, np := range nodepools {
+		ngId := tea.StringValue(np.NodepoolInfo.NodepoolId)
+		nodeGroupInfo, err := ach.getNodeGroupInfo(clusterId, ngId)
+		if err != nil {
+			err = fmt.Errorf("failed to get ClusterInfo: %v", err)
+			return nil, err
+		}
+
+		clusterInfo.NodeGroupList = append(clusterInfo.NodeGroupList, *nodeGroupInfo)
+	}
+
+	return clusterInfo, nil
+}
+
+func (ach *AlibabaClusterHandler) getNodeGroupInfo(clusterId, nodeGroupId string) (*irs.NodeGroupInfo, error) {
+	//
+	// Fill nodeGroupInfo
+	//
+	nodepool, err := aliDescribeClusterNodePoolDetail(ach.CsClient, clusterId, nodeGroupId)
+	if err != nil {
+		err = fmt.Errorf("failed to get NodeGroupInfo: %v", err)
+		return nil, err
+	}
+	if nodepool.Status == nil ||
+		nodepool.ScalingGroup == nil ||
+		nodepool.AutoScaling == nil ||
+		nodepool.NodepoolInfo == nil {
+		err = fmt.Errorf("invalid nodepool's information")
+		err = fmt.Errorf("failed to get NodeGroupInfo: %v", err)
+		return nil, err
+	}
+
+	ngiStatus := irs.NodeGroupInactive
+	if strings.EqualFold(tea.StringValue(nodepool.Status.State), nodepoolStatusActive) {
+		ngiStatus = irs.NodeGroupActive
+	} else if strings.EqualFold(tea.StringValue(nodepool.Status.State), nodepoolStatusScaling) {
+		ngiStatus = irs.NodeGroupUpdating
+	} else if strings.EqualFold(tea.StringValue(nodepool.Status.State), nodepoolStatusRemoving) {
+		ngiStatus = irs.NodeGroupUpdating // removing is a kind of updating?
+	} else if strings.EqualFold(tea.StringValue(nodepool.Status.State), nodepoolStatusDeleting) {
+		ngiStatus = irs.NodeGroupDeleting
+	} else if strings.EqualFold(tea.StringValue(nodepool.Status.State), nodepoolStatusUpdating) {
+		ngiStatus = irs.NodeGroupUpdating
+	}
+
+	if len(nodepool.ScalingGroup.InstanceTypes) == 0 {
+		err = fmt.Errorf("failed to get NodeGroupInfo: invalid InstanceTypes")
+		return nil, err
+	}
+
+	nodeGroupInfo := &irs.NodeGroupInfo{
 		IId: irs.IID{
-			NameId:   node_group_json_obj["nodepool_info"].(map[string]interface{})["name"].(string),
-			SystemId: node_group_json_obj["nodepool_info"].(map[string]interface{})["nodepool_id"].(string),
+			NameId:   tea.StringValue(nodepool.NodepoolInfo.Name),
+			SystemId: tea.StringValue(nodepool.NodepoolInfo.NodepoolId),
 		},
 		ImageIID: irs.IID{
-			NameId:   node_group_json_obj["scaling_group"].(map[string]interface{})["image_type"].(string),
-			SystemId: node_group_json_obj["scaling_group"].(map[string]interface{})["image_id"].(string),
+			NameId:   tea.StringValue(nodepool.ScalingGroup.ImageType),
+			SystemId: tea.StringValue(nodepool.ScalingGroup.ImageId),
 		},
-		VMSpecName:   node_group_json_obj["scaling_group"].(map[string]interface{})["instance_types"].([]interface{})[0].(string),
-		RootDiskType: node_group_json_obj["scaling_group"].(map[string]interface{})["system_disk_category"].(string),
-		RootDiskSize: strconv.Itoa(int(node_group_json_obj["scaling_group"].(map[string]interface{})["system_disk_size"].(float64))),
+		VMSpecName:   tea.StringValue(nodepool.ScalingGroup.InstanceTypes[0]),
+		RootDiskType: tea.StringValue(nodepool.ScalingGroup.SystemDiskCategory),
+		RootDiskSize: strconv.FormatInt(tea.Int64Value(nodepool.ScalingGroup.SystemDiskSize), 10),
 		KeyPairIID: irs.IID{
-			NameId:   node_group_json_obj["scaling_group"].(map[string]interface{})["key_pair"].(string),
-			SystemId: node_group_json_obj["scaling_group"].(map[string]interface{})["key_pair"].(string), // key-pair id is not exist. so use name.
+			NameId:   tea.StringValue(nodepool.ScalingGroup.KeyPair),
+			SystemId: tea.StringValue(nodepool.ScalingGroup.KeyPair),
 		},
-		Status:          status,
-		OnAutoScaling:   node_group_json_obj["auto_scaling"].(map[string]interface{})["enable"].(bool),
-		MinNodeSize:     int(node_group_json_obj["auto_scaling"].(map[string]interface{})["min_instances"].(float64)),
-		MaxNodeSize:     int(node_group_json_obj["auto_scaling"].(map[string]interface{})["max_instances"].(float64)),
-		DesiredNodeSize: -1, // Parameter desired_size/count setting or modification is not supported for autoscaling-enabled nodepool
-
-		Nodes:        []irs.IID{},
-		KeyValueList: []irs.KeyValue{},
+		Status:          ngiStatus,
+		OnAutoScaling:   tea.BoolValue(nodepool.AutoScaling.Enable),
+		MinNodeSize:     int(tea.Int64Value(nodepool.AutoScaling.MinInstances)),
+		MaxNodeSize:     int(tea.Int64Value(nodepool.AutoScaling.MaxInstances)),
+		DesiredNodeSize: int(tea.Int64Value(nodepool.ScalingGroup.DesiredSize)),
 	}
 
-	// k,v 추출 & 추가
-	flat, err := flatten.Flatten(node_group_json_obj, "", flatten.DotStyle)
+	//
+	// Fill nodeGroupInfo.Nodes
+	//
+	nodes, err := aliDescribeClusterNodes(ach.CsClient, clusterId, tea.StringValue(nodepool.NodepoolInfo.NodepoolId))
 	if err != nil {
-		err := fmt.Errorf("Failed to Flatten NodeGroup :  %v", err)
-		cblogger.Error(err)
+		err = fmt.Errorf("failed to get NodeGroupInfo: %v", err)
+		return nil, err
+	}
+
+	for _, n := range nodes {
+		nId := tea.StringValue(n.InstanceId)
+		if nId != "" {
+			node := irs.IID{
+				NameId:   tea.StringValue(n.InstanceName),
+				SystemId: tea.StringValue(n.InstanceId),
+			}
+			nodeGroupInfo.Nodes = append(nodeGroupInfo.Nodes, node)
+		}
+	}
+
+	//
+	// Fill nodeGroupInfo.KeyValueList
+	//
+	jsonNodepool, err := json.Marshal(nodepool)
+	if err != nil {
+		err = fmt.Errorf("failed to marshal nodepool: %v", err)
+		err = fmt.Errorf("failed to get NodeGroupInfo: %v", err)
+		return nil, err
+	}
+
+	var mapNodepool map[string]interface{}
+	err = json.Unmarshal(jsonNodepool, &mapNodepool)
+	if err != nil {
+		err = fmt.Errorf("failed to unmarshal nodepool: %v", err)
+		err = fmt.Errorf("failed to get NodeGroupInfo: %v", err)
+		return nil, err
+	}
+
+	flat, err := flatten.Flatten(mapNodepool, "", flatten.DotStyle)
+	if err != nil {
+		err = fmt.Errorf("failed to flatten nodepool: %v", err)
+		err = fmt.Errorf("failed to get NodeGroupInfo: %v", err)
 		return nil, err
 	}
 	delete(flat, "meta_data")
 	for k, v := range flat {
-		temp := fmt.Sprintf("%v", v)
-		nodeGroupInfo.KeyValueList = append(nodeGroupInfo.KeyValueList, irs.KeyValue{Key: k, Value: temp})
-	}
-
-	nodes_json_str, err := alibaba.DescribeClusterNodes(access_key, access_secret, region_id, cluster_id, node_group_id)
-	if err != nil {
-		err := fmt.Errorf("Failed to Get Nodes :  %v", err)
-		cblogger.Error(err)
-		return nil, err
-	}
-	var nodes_json_obj map[string]interface{}
-	json.Unmarshal([]byte(nodes_json_str), &nodes_json_obj)
-	nodes := nodes_json_obj["nodes"].([]interface{})
-	for _, node := range nodes {
-		node_id := node.(map[string]interface{})["instance_id"].(string)
-		if node_id != "" {
-			nodeGroupInfo.Nodes = append(nodeGroupInfo.Nodes, irs.IID{NameId: "", SystemId: node_id})
-		}
+		nodeGroupInfo.KeyValueList = append(nodeGroupInfo.KeyValueList, irs.KeyValue{Key: k, Value: fmt.Sprintf("%v", v)})
 	}
 
 	return nodeGroupInfo, err
 }
 
-func getClusterInfoJSON(clusterHandler *AlibabaClusterHandler, clusterInfo irs.ClusterInfo) (clusterInfoJSON string, err error) {
+func aliDescribeNatGatewaysWithTagInVpc(vpcClient *vpc2016.Client, regionId, vpcId, networkType, tagKey, tagValue string) ([]*vpc2016.DescribeNatGatewaysResponseBodyNatGatewaysNatGateway, error) {
+	tags := []*vpc2016.DescribeNatGatewaysRequestTag{
+		&vpc2016.DescribeNatGatewaysRequestTag{
+			Key:   tea.String(tagKey),
+			Value: tea.String(tagValue),
+		},
+	}
 
-	defer func() {
-		if r := recover(); r != nil {
-			err = fmt.Errorf("Failed to Process getClusterInfoJSON() : %v\n\n%v", r, string(debug.Stack()))
-			cblogger.Error(err)
+	describeNatGatewaysRequest := &vpc2016.DescribeNatGatewaysRequest{
+		RegionId:    tea.String(regionId),
+		VpcId:       tea.String(vpcId),
+		NetworkType: tea.String(networkType),
+		Tag:         tags,
+	}
+	describeNatGatewaysResponse, err := vpcClient.DescribeNatGateways(describeNatGatewaysRequest)
+	if err != nil {
+		return make([]*vpc2016.DescribeNatGatewaysResponseBodyNatGatewaysNatGateway, 0), err
+	}
+
+	return describeNatGatewaysResponse.Body.NatGateways.NatGateway, nil
+}
+
+func getInternetNatGatewaysWithTagInVpc(vpcClient *vpc2016.Client, regionId, vpcId, tagKey, tagValue string) ([]*vpc2016.DescribeNatGatewaysResponseBodyNatGatewaysNatGateway, error) {
+	natGatewayList, err := aliDescribeNatGatewaysWithTagInVpc(vpcClient, regionId, vpcId, "internet", tagKey, tagValue)
+	if err != nil {
+		return nil, err
+	}
+
+	return natGatewayList, nil
+}
+
+func aliTagNatGateway(vpcClient *vpc2016.Client, regionId, natGatewayId, tagKey, tagValue string) error {
+	tags := []*vpc2016.TagResourcesRequestTag{
+		&vpc2016.TagResourcesRequestTag{
+			Key:   tea.String(tagKey),
+			Value: tea.String(tagValue),
+		},
+	}
+
+	tagResourcesRequest := &vpc2016.TagResourcesRequest{
+		RegionId:     tea.String(regionId),
+		ResourceId:   tea.StringSlice([]string{natGatewayId}),
+		ResourceType: tea.String("NATGATEWAY"),
+		Tag:          tags,
+	}
+	//spew.Dump(tagResourcesRequest)
+	_, err := vpcClient.TagResources(tagResourcesRequest)
+	if err != nil {
+		return err
+	}
+	//spew.Dump(tagResourcesResponse.Body)
+
+	return nil
+}
+
+func aliDeleteNatGateway(vpcClient *vpc2016.Client, regionId, natGatewayId string) error {
+	deleteNatGatewayRequest := &vpc2016.DeleteNatGatewayRequest{
+		RegionId:     tea.String(regionId),
+		Force:        tea.Bool(true), // When deleting the NAT Gateway, the Snat Entry will be deleted
+		NatGatewayId: tea.String(natGatewayId),
+	}
+	//spew.Dump(deleteNatGatewayRequest)
+	_, err := vpcClient.DeleteNatGateway(deleteNatGatewayRequest)
+	if err != nil {
+		return err
+	}
+	//spew.Dump(deleteNatGatewayResponse)
+
+	return nil
+}
+
+func aliDescribeClustersV1(csClient *cs2015.Client, regionId string) ([]*cs2015.DescribeClustersV1ResponseBodyClusters, error) {
+	describeClustersV1Request := &cs2015.DescribeClustersV1Request{
+		ClusterType: tea.String("ManagedKubernetes"),
+		RegionId:    tea.String(regionId),
+	}
+	//spew.Dump(describeClustersV1Request)
+	describeClustersV1Response, err := csClient.DescribeClustersV1(describeClustersV1Request)
+	if err != nil {
+		return make([]*cs2015.DescribeClustersV1ResponseBodyClusters, 0), err
+	}
+	//spew.Dump(describeClustersV1Response.Body)
+
+	return describeClustersV1Response.Body.Clusters, nil
+}
+
+func aliDescribeClusterDetail(csClient *cs2015.Client, clusterId string) (*cs2015.DescribeClusterDetailResponseBody, error) {
+	describeClusterDetailResponse, err := csClient.DescribeClusterDetail(tea.String(clusterId))
+	if err != nil {
+		return nil, err
+	}
+	//spew.Dump(describeClusterDetailResponse.Body)
+
+	return describeClusterDetailResponse.Body, nil
+}
+
+func existNotDeletedClusterWithTagInVpc(csClient *cs2015.Client, regionId, vpcId, tagKey, tagValue string) (bool, error) {
+	clusterList, err := aliDescribeClustersV1(csClient, regionId)
+	if err != nil {
+		return false, err
+	}
+
+	var clusterListWithTagInVpc []*cs2015.DescribeClustersV1ResponseBodyClusters
+	for _, cluster := range clusterList {
+		if strings.EqualFold(*cluster.State, "deleting") ||
+			strings.EqualFold(*cluster.State, "deleted") {
+			continue
 		}
-	}()
-
-	// get vswitch_id
-	master_vswitch_id := ""
-	res, err := alibaba.DescribeVSwitches(clusterHandler.CredentialInfo.ClientId, clusterHandler.CredentialInfo.ClientSecret, clusterHandler.RegionInfo.Region, clusterInfo.Network.VpcIID.SystemId)
-	if err != nil {
-		err := fmt.Errorf("Failed to Describe VSwitches :  %v", err)
-		cblogger.Error(err)
-		return "", err
-	}
-	for _, v := range res.VSwitches.VSwitch {
-		master_vswitch_id = v.VSwitchId
-		break
-	}
-
-	// get cidr list
-	//cidr: Valid values: 10.0.0.0/16-24, 172.16-31.0.0/16-24, and 192.168.0.0/16-24.
-	m_cidr := make(map[string]bool)
-	for i := 16; i < 32; i++ {
-		m_cidr[fmt.Sprintf("172.%v.0.0/16", i)] = true
-	}
-	clusters, err := clusterHandler.ListCluster()
-	if err != nil {
-		err := fmt.Errorf("Failed to List Cluster :  %v", err)
-		cblogger.Error(err)
-		return "", err
-	}
-	for _, cluster := range clusters {
-		for _, v := range cluster.KeyValueList {
-			if v.Key == "parameters.ServiceCIDR" || v.Key == "subnet_cidr" {
-				delete(m_cidr, v.Value)
+		if strings.EqualFold(*cluster.VpcId, vpcId) {
+			for _, tag := range cluster.Tags {
+				if strings.EqualFold(*tag.Key, tagKey) &&
+					strings.EqualFold(*tag.Value, tagValue) {
+					clusterListWithTagInVpc = append(clusterListWithTagInVpc, cluster)
+					break
+				}
 			}
 		}
 	}
-	cidr_list := []string{}
-	for k := range m_cidr {
-		cidr_list = append(cidr_list, k)
+
+	if len(clusterListWithTagInVpc) > 0 {
+		return true, nil
+	} else {
+		return false, nil
 	}
-
-	// create request json
-	temp := `{
-		"name": "%s",
-		"region_id": "%s",
-		"cluster_type": "ManagedKubernetes",
-		"cluster_spec": "ack.pro.small",
-		"kubernetes_version": "%s",
-		"vpcid": "%s",
-		"container_cidr": "%s",
-		"service_cidr": "%s",
-		"num_of_nodes": 0,
-		"master_vswitch_ids": ["%s"],
-		"security_group_id": "%s",
-		"endpoint_public_access": true
-	}`
-
-	clusterInfoJSON = fmt.Sprintf(temp, clusterInfo.IId.NameId, clusterHandler.RegionInfo.Region, clusterInfo.Version, clusterInfo.Network.VpcIID.SystemId, cidr_list[0], cidr_list[1], master_vswitch_id, clusterInfo.Network.SecurityGroupIIDs[0].SystemId)
-
-	return clusterInfoJSON, err
 }
 
-func getNodeGroupJSONString(clusterHandler *AlibabaClusterHandler, clusterIID irs.IID, nodeGroupReqInfo irs.NodeGroupInfo) (payload string, err error) {
-
-	defer func() {
-		if r := recover(); r != nil {
-			err = fmt.Errorf("Failed to Process getNodeGroupJSONString() : %v\n\n%v", r, string(debug.Stack()))
-			cblogger.Error(err)
-		}
-	}()
-
-	name := nodeGroupReqInfo.IId.NameId
-	// image_id := nodeGroupReqInfo.ImageIID.SystemId // 옵션은 있으나, 설정해도 반영 안됨
-	enable := nodeGroupReqInfo.OnAutoScaling
-	max_instances := nodeGroupReqInfo.MaxNodeSize
-	min_instances := nodeGroupReqInfo.MinNodeSize
-	//desired_instances := nodeGroupReqInfo.DesiredNodeSize
-	instance_type := nodeGroupReqInfo.VMSpecName
-	key_pair := nodeGroupReqInfo.KeyPairIID.NameId
-	system_disk_category := nodeGroupReqInfo.RootDiskType
-	system_disk_size, _ := strconv.ParseInt(nodeGroupReqInfo.RootDiskSize, 10, 32)
-
-	// get vswitch_id
-	clusterInfo, err := clusterHandler.GetCluster(clusterIID)
+func aliDescribeVSwitches(vpcClient *vpc2016.Client, regionId, vpcId string) ([]*vpc2016.DescribeVSwitchesResponseBodyVSwitchesVSwitch, error) {
+	describeVSwitchesRequest := &vpc2016.DescribeVSwitchesRequest{
+		RegionId: tea.String(regionId),
+		VpcId:    tea.String(vpcId),
+	}
+	//spew.Dump(describeVSwitchesRequest)
+	describeVSwitchesResponse, err := vpcClient.DescribeVSwitches(describeVSwitchesRequest)
 	if err != nil {
-		err := fmt.Errorf("Failed to Get Cluster :  %v", err)
-		cblogger.Error(err)
-		return "", err
+		return make([]*vpc2016.DescribeVSwitchesResponseBodyVSwitchesVSwitch, 0), err
 	}
-	vswitch_id := "" // get vswitch_id, get from cluster info
-	res, err := alibaba.DescribeVSwitches(clusterHandler.CredentialInfo.ClientId, clusterHandler.CredentialInfo.ClientSecret, clusterHandler.RegionInfo.Region, clusterInfo.Network.VpcIID.SystemId)
-	if err != nil {
-		err := fmt.Errorf("Failed to Describe VSwitches :  %v", err)
-		cblogger.Error(err)
-		return "", err
-	}
-	for _, v := range res.VSwitches.VSwitch {
-		vswitch_id = v.VSwitchId
-		break
-	}
+	//spew.Dump(describeVSwitchesResponse.Body.VSwitches.VSwitch)
 
-	temp := `{
-		"nodepool_info": {
-			"name": "%s"
-		},
-		"auto_scaling": {
-			"enable": %t,
-			"max_instances": %d,
-			"min_instances": %d
-		},		
-		"scaling_group": {
-			"instance_types": ["%s"],
-			"key_pair": "%s",
-			"system_disk_category": "%s",
-			"system_disk_size": %d,
-			"vswitch_ids": ["%s"]
-		},
-		"management": {
-			"enable":true
-		}
-	}`
-
-	payload = fmt.Sprintf(temp, name, enable, max_instances, min_instances, instance_type, key_pair, system_disk_category, system_disk_size, vswitch_id)
-
-	return payload, err
+	return describeVSwitchesResponse.Body.VSwitches.VSwitch, nil
 }
 
-// func getCallLogScheme(region string, resourceType call.RES_TYPE, resourceName string, apiName string) call.CLOUDLOGSCHEMA {
-// 	cblogger.Info(fmt.Sprintf("Call %s %s", call.ALIBABA, apiName))
-// 	return call.CLOUDLOGSCHEMA{
-// 		CloudOS:      call.ALIBABA,
-// 		RegionZone:   region,
-// 		ResourceType: resourceType,
-// 		ResourceName: resourceName,
-// 		CloudOSAPI:   apiName,
-// 	}
-// }
+func getLatestRuntime(csClient *cs2015.Client, regionId, clusterType, k8sVersion string) (string, string, error) {
+	metadata, err := aliDescribeKubernetesVersionMetadata(csClient, regionId, clusterType, k8sVersion)
+	if err != nil {
+		err = fmt.Errorf("failed to get latest runtime name and version: %v", err)
+		return "", "", err
+	}
+	if len(metadata) == 0 {
+		err = fmt.Errorf("failed to get kubernetes version metadata")
+		return "", "", err
+	}
+
+	runtimeName := defaultClusterRuntimeName
+	invalidVersion, _ := semver.NewVersion("0.0.0")
+	latestVersion := invalidVersion
+	for _, rt := range metadata[0].Runtimes {
+		if strings.EqualFold(tea.StringValue(rt.Name), runtimeName) {
+			rtVersion, err := semver.NewVersion(tea.StringValue(rt.Version))
+			if err != nil {
+				continue
+			}
+			if latestVersion.LessThan(rtVersion) {
+				latestVersion = rtVersion
+			}
+		}
+	}
+
+	if latestVersion.Equal(invalidVersion) {
+		err = fmt.Errorf("failed to get valid runtime version")
+		return "", "", err
+	}
+	runtimeVersion := latestVersion.String()
+
+	return runtimeName, runtimeVersion, nil
+}
+
+func getNodepoolsFromNodeGroupList(nodeGroupInfoList []irs.NodeGroupInfo, runtimeName, runtimeVersion string, vswitchIds []string) []*cs2015.Nodepool {
+	var nodepools []*cs2015.Nodepool
+	for _, ngInfo := range nodeGroupInfoList {
+		name := ngInfo.IId.NameId
+		autoScalingEnable := ngInfo.OnAutoScaling
+		maxInstances := ngInfo.MaxNodeSize
+		minInstances := ngInfo.MinNodeSize
+		instanceTypes := []string{ngInfo.VMSpecName}
+		systemDiskCategory := ngInfo.RootDiskType
+		systemDiskSize, _ := strconv.ParseInt(ngInfo.RootDiskSize, 10, 64)
+		keyPair := ngInfo.KeyPairIID.NameId
+
+		nodepool := cs2015.Nodepool{
+			NodepoolInfo: &cs2015.NodepoolNodepoolInfo{
+				Name: tea.String(name),
+			},
+			AutoScaling: &cs2015.NodepoolAutoScaling{
+				Enable:       tea.Bool(autoScalingEnable),
+				MaxInstances: tea.Int64(int64(maxInstances)),
+				MinInstances: tea.Int64(int64(minInstances)),
+			},
+			KubernetesConfig: &cs2015.NodepoolKubernetesConfig{
+				Runtime:        tea.String(runtimeName),
+				RuntimeVersion: tea.String(runtimeVersion),
+			},
+			ScalingGroup: &cs2015.NodepoolScalingGroup{
+				VswitchIds:         tea.StringSlice(vswitchIds),
+				InstanceTypes:      tea.StringSlice(instanceTypes),
+				SystemDiskCategory: tea.String(systemDiskCategory),
+				SystemDiskSize:     tea.Int64(systemDiskSize),
+				KeyPair:            tea.String(keyPair),
+				//DesiredSize:        tea.Int64(desiredSize),
+			},
+			Management: &cs2015.NodepoolManagement{
+				Enable: tea.Bool(true),
+			},
+		}
+
+		// CAUTION: if DesiredSize is set when AutoScaling is enabled, Alibaba reject the request
+		if autoScalingEnable == false {
+			nodepool.ScalingGroup.DesiredSize = tea.Int64(int64(ngInfo.DesiredNodeSize))
+		}
+
+		nodepools = append(nodepools, &nodepool)
+	}
+
+	return nodepools
+}
+
+func aliCreateCluster(csClient *cs2015.Client, name, regionId, clusterType, clusterSpec, k8sVersion, runtimeName, runtimeVersion, vpcId, containerCidr, serviceCidr, secGroupId string, snatEntry, endpointPublicAccess bool, masterVswitchIds []string, tagKey, tagValue string, nodepools []*cs2015.Nodepool) (*string, error) {
+	tags := []*cs2015.Tag{
+		&cs2015.Tag{
+			Key:   tea.String(tagKey),
+			Value: tea.String(tagValue),
+		},
+	}
+
+	createClusterRequest := &cs2015.CreateClusterRequest{
+		Name:              tea.String(name),
+		RegionId:          tea.String(regionId),
+		ClusterType:       tea.String(clusterType),
+		ClusterSpec:       tea.String(clusterSpec),
+		KubernetesVersion: tea.String(k8sVersion),
+		Runtime: &cs2015.Runtime{
+			Name:    tea.String(runtimeName),
+			Version: tea.String(runtimeVersion),
+		},
+		Vpcid:                tea.String(vpcId),
+		ContainerCidr:        tea.String(containerCidr),
+		ServiceCidr:          tea.String(serviceCidr),
+		MasterVswitchIds:     tea.StringSlice(masterVswitchIds),
+		SecurityGroupId:      tea.String(secGroupId),
+		SnatEntry:            tea.Bool(snatEntry),
+		EndpointPublicAccess: tea.Bool(endpointPublicAccess),
+		Tags:                 tags,
+		//Nodepools:        nodepools,
+	}
+	if len(nodepools) > 0 {
+		createClusterRequest.Nodepools = nodepools
+	}
+	//spew.Dump(createClusterRequest)
+	createClusterResponse, err := csClient.CreateCluster(createClusterRequest)
+	if err != nil {
+		return nil, err
+	}
+	//spew.Dump(createClusterResponse.Body)
+
+	return createClusterResponse.Body.ClusterId, nil
+}
+
+func waitUntilClusterIsState(csClient *cs2015.Client, clusterId, state string) error {
+	apiCallCount := 0
+	maxAPICallCount := 20
+
+	var waitingErr error
+	for {
+		cluster, err := aliDescribeClusterDetail(csClient, clusterId)
+		if err != nil {
+			maxAPICallCount = maxAPICallCount / 2
+		}
+		if strings.EqualFold(tea.StringValue(cluster.State), state) {
+			return nil
+		}
+		apiCallCount++
+		if apiCallCount >= maxAPICallCount {
+			waitingErr = fmt.Errorf("failed to get cluster: The maximum number of verification requests has been exceeded while waiting for availability of that resource")
+			break
+		}
+		time.Sleep(5 * time.Second)
+		cblogger.Info("Wait until cluster's state is ", state)
+	}
+
+	return waitingErr
+}
+
+func aliDescribeVpcAttribute(vpcClient *vpc2016.Client, regionId, vpcId string) (*vpc2016.DescribeVpcAttributeResponseBody, error) {
+	describeVpcAttributeRequest := &vpc2016.DescribeVpcAttributeRequest{
+		RegionId: tea.String(regionId),
+		VpcId:    tea.String(vpcId),
+	}
+	//spew.Dump(describeVpcAttributeRequest)
+	describeVpcAttributeResponse, err := vpcClient.DescribeVpcAttribute(describeVpcAttributeRequest)
+	if err != nil {
+		return nil, err
+	}
+	//spew.Dump(describeVpcAttributeResponse.Body)
+
+	return describeVpcAttributeResponse.Body, nil
+}
+
+func aliDescribeVSwitchAttributes(vpcClient *vpc2016.Client, regionId, vswitchId string) (*vpc2016.DescribeVSwitchAttributesResponseBody, error) {
+	describeVSwitchAttributesRequest := &vpc2016.DescribeVSwitchAttributesRequest{
+		RegionId:  tea.String(regionId),
+		VSwitchId: tea.String(vswitchId),
+	}
+	//spew.Dump(describeVSwitchAttributesRequest)
+	describeVSwitchAttributesResponse, err := vpcClient.DescribeVSwitchAttributes(describeVSwitchAttributesRequest)
+	if err != nil {
+		return nil, err
+	}
+	//spew.Dump(describeVSwitchAttributesResponse.Body)
+
+	return describeVSwitchAttributesResponse.Body, nil
+}
+
+func aliDescribeSecurityGroupAttribute(ecsClient *ecs2014.Client, regionId, securityGroupId string) (*ecs2014.DescribeSecurityGroupAttributeResponseBody, error) {
+	describeSecurityGroupAttributeRequest := &ecs2014.DescribeSecurityGroupAttributeRequest{
+		RegionId:        tea.String(regionId),
+		SecurityGroupId: tea.String(securityGroupId),
+	}
+	//spew.Dump(describeSecurityGroupAttributeRequest)
+	describeSecurityGroupAttributeResponse, err := ecsClient.DescribeSecurityGroupAttribute(describeSecurityGroupAttributeRequest)
+	if err != nil {
+		return nil, err
+	}
+	//spew.Dump(describeSecurityGroupAttributeResponse.Body)
+
+	return describeSecurityGroupAttributeResponse.Body, nil
+}
+
+func aliDeleteCluster(csClient *cs2015.Client, clusterId string, retainResources []string) (*cs2015.DeleteClusterResponseBody, error) {
+	deleteClusterRequest := &cs2015.DeleteClusterRequest{
+		RetainResources: tea.StringSlice(retainResources),
+	}
+	//spew.Dump(deleteClusterRequest)
+	deleteClusterResponse, err := csClient.DeleteCluster(tea.String(clusterId), deleteClusterRequest)
+	if err != nil {
+		return nil, err
+	}
+	//spew.Dump(deleteClusterResponse.Body)
+
+	return deleteClusterResponse.Body, nil
+}
+
+func aliDescribeKubernetesVersionMetadata(csClient *cs2015.Client, regionId, clusterType, k8sVersion string) ([]*cs2015.DescribeKubernetesVersionMetadataResponseBody, error) {
+	describeKubernetesVersionMetadataRequest := &cs2015.DescribeKubernetesVersionMetadataRequest{
+		Region:            tea.String(regionId),
+		ClusterType:       tea.String(clusterType),
+		KubernetesVersion: tea.String(k8sVersion),
+	}
+	//spew.Dump(describeKubernetesVersionMetadataRequest)
+	describeKubernetesVersionMetadataResponse, err := csClient.DescribeKubernetesVersionMetadata(describeKubernetesVersionMetadataRequest)
+	if err != nil {
+		return nil, err
+	}
+	//spew.Dump(describeKubernetesVersionMetadataResponse.Body)
+
+	return describeKubernetesVersionMetadataResponse.Body, nil
+}
+
+func aliCreateClusterNodePool(csClient *cs2015.Client, clusterId, name string, autoScalingEnable bool, maxInstances, minInstances int64, vswitchIds, instanceTypes []string, systemDiskCategory string, systemDiskSize int64, keyPair string, desiredSize int64) (*string, error) {
+	createClusterNodePoolRequest := &cs2015.CreateClusterNodePoolRequest{
+		NodepoolInfo: &cs2015.CreateClusterNodePoolRequestNodepoolInfo{
+			Name: tea.String(name),
+		},
+		AutoScaling: &cs2015.CreateClusterNodePoolRequestAutoScaling{
+			Enable:       tea.Bool(autoScalingEnable),
+			MaxInstances: tea.Int64(maxInstances),
+			MinInstances: tea.Int64(minInstances),
+		},
+		ScalingGroup: &cs2015.CreateClusterNodePoolRequestScalingGroup{
+			VswitchIds:         tea.StringSlice(vswitchIds),
+			InstanceTypes:      tea.StringSlice(instanceTypes),
+			SystemDiskCategory: tea.String(systemDiskCategory),
+			SystemDiskSize:     tea.Int64(systemDiskSize),
+			KeyPair:            tea.String(keyPair),
+			//DesiredSize:        tea.Int64(desiredSize),
+		},
+		Management: &cs2015.CreateClusterNodePoolRequestManagement{
+			Enable: tea.Bool(true),
+		},
+	}
+
+	// CAUTION: if DesiredSize is set when AutoScaling is enabled, Alibaba reject the request
+	if autoScalingEnable == false {
+		createClusterNodePoolRequest.ScalingGroup.DesiredSize = tea.Int64(desiredSize)
+	}
+
+	//spew.Dump(createClusterNodePoolRequest)
+	createClusterNodePoolResponse, err := csClient.CreateClusterNodePool(tea.String(clusterId), createClusterNodePoolRequest)
+	if err != nil {
+		return nil, err
+	}
+	//spew.Dump(createClusterNodePoolResponse.Body)
+
+	return createClusterNodePoolResponse.Body.NodepoolId, nil
+}
+
+func aliDeleteClusterNodepool(csClient *cs2015.Client, clusterId, nodepoolId string, force bool) (*cs2015.DeleteClusterNodepoolResponseBody, error) {
+	deleteClusterNodepoolRequest := &cs2015.DeleteClusterNodepoolRequest{
+		Force: tea.Bool(force),
+	}
+	//spew.Dump(deleteClusterNodepoolRequest)
+	deleteClusterNodepoolResponse, err := csClient.DeleteClusterNodepool(tea.String(clusterId), tea.String(nodepoolId), deleteClusterNodepoolRequest)
+	if err != nil {
+		return nil, err
+	}
+	//spew.Dump(deleteClusterNodepoolResponse.Body)
+
+	return deleteClusterNodepoolResponse.Body, nil
+}
+
+func aliDescribeClusterUserKubeconfig(csClient *cs2015.Client, clusterId string) (*cs2015.DescribeClusterUserKubeconfigResponseBody, error) {
+	describeClusterUserKubeconfigRequest := &cs2015.DescribeClusterUserKubeconfigRequest{}
+	describeClusterUserKubeconfigResponse, err := csClient.DescribeClusterUserKubeconfig(tea.String(clusterId), describeClusterUserKubeconfigRequest)
+	if err != nil {
+		return nil, err
+	}
+
+	return describeClusterUserKubeconfigResponse.Body, nil
+}
+
+func aliDescribeClusterNodePools(csClient *cs2015.Client, clusterId string) ([]*cs2015.DescribeClusterNodePoolsResponseBodyNodepools, error) {
+	describeClusterNodePoolsResponse, err := csClient.DescribeClusterNodePools(tea.String(clusterId))
+	if err != nil {
+		return make([]*cs2015.DescribeClusterNodePoolsResponseBodyNodepools, 0), err
+	}
+	//spew.Dump(describeClusterNodePoolsResponse.Body)
+
+	return describeClusterNodePoolsResponse.Body.Nodepools, nil
+}
+
+func aliDescribeClusterNodePoolDetail(csClient *cs2015.Client, clusterId, nodepoolId string) (*cs2015.DescribeClusterNodePoolDetailResponseBody, error) {
+	describeClusterNodePoolDetailResponse, err := csClient.DescribeClusterNodePoolDetail(tea.String(clusterId), tea.String(nodepoolId))
+	if err != nil {
+		return nil, err
+	}
+	//spew.Dump(describeClusterNodePoolDetailResponse.Body)
+
+	return describeClusterNodePoolDetailResponse.Body, nil
+}
+
+func aliDescribeClusterNodes(csClient *cs2015.Client, clusterId, nodepoolId string) ([]*cs2015.DescribeClusterNodesResponseBodyNodes, error) {
+	describeClusterNodesRequest := &cs2015.DescribeClusterNodesRequest{
+		NodepoolId: tea.String(nodepoolId),
+	}
+	//spew.Dump(describeClusterNodesRequest)
+	describeClusterNodesResponse, err := csClient.DescribeClusterNodes(tea.String(clusterId), describeClusterNodesRequest)
+	if err != nil {
+		return nil, err
+	}
+	//spew.Dump(describeClusterNodesResponse.Body)
+
+	return describeClusterNodesResponse.Body.Nodes, nil
+}
+
+func aliModifyClusterNodePoolAutoScalingEnable(csClient *cs2015.Client, clusterId, nodepoolId string, enable bool) (*cs2015.ModifyClusterNodePoolResponseBody, error) {
+	modifyClusterNodePoolRequest := &cs2015.ModifyClusterNodePoolRequest{
+		AutoScaling: &cs2015.ModifyClusterNodePoolRequestAutoScaling{
+			Enable: tea.Bool(enable),
+		},
+	}
+	modifyClusterNodePoolResponse, err := csClient.ModifyClusterNodePool(tea.String(clusterId), tea.String(nodepoolId), modifyClusterNodePoolRequest)
+	if err != nil {
+		return nil, err
+	}
+	//spew.Dump(modifyClusterNodePoolResponse.Body)
+
+	return modifyClusterNodePoolResponse.Body, nil
+}
+
+func aliModifyClusterNodePoolScalingSize(csClient *cs2015.Client, clusterId, nodepoolId string, autoScalingEnable bool, maxInstances, minInstances, desiredSize int64) (*cs2015.ModifyClusterNodePoolResponseBody, error) {
+	modifyClusterNodePoolRequest := &cs2015.ModifyClusterNodePoolRequest{
+		AutoScaling: &cs2015.ModifyClusterNodePoolRequestAutoScaling{
+			Enable:       tea.Bool(autoScalingEnable),
+			MaxInstances: tea.Int64(maxInstances),
+			MinInstances: tea.Int64(minInstances),
+		},
+	}
+
+	// CAUTION: if DesiredSize is set when AutoScaling is enabled, Alibaba reject the request
+	if autoScalingEnable == false {
+		modifyClusterNodePoolRequest.ScalingGroup.DesiredSize = tea.Int64(desiredSize)
+	}
+	//spew.Dump(modifyClusterNodePoolRequest)
+
+	modifyClusterNodePoolResponse, err := csClient.ModifyClusterNodePool(tea.String(clusterId), tea.String(nodepoolId), modifyClusterNodePoolRequest)
+	//spew.Dump("aliModifyClusterNodePoolScalingSize")
+	if err != nil {
+		return nil, err
+	}
+	//spew.Dump(modifyClusterNodePoolResponse.Body)
+
+	return modifyClusterNodePoolResponse.Body, nil
+}
+
+func aliUpgradeCluster(csClient *cs2015.Client, clusterId, nextVersion string) (*cs2015.UpgradeClusterResponseBody, error) {
+	upgradeClusterRequest := &cs2015.UpgradeClusterRequest{
+		NextVersion: tea.String(nextVersion),
+	}
+	//spew.Dump(upgradeClusterRequest)
+	upgradeClusterResponse, err := csClient.UpgradeCluster(tea.String(clusterId), upgradeClusterRequest)
+	if err != nil {
+		return nil, err
+	}
+	//spew.Dump(upgradeClusterResponse.Body)
+
+	return upgradeClusterResponse.Body, nil
+}
+
+func cleanCluster(csClient *cs2015.Client, clusterId string) error {
+	_, err := aliDeleteCluster(csClient, clusterId, []string{})
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func validateAtCreateCluster(clusterInfo irs.ClusterInfo) error {
+	if clusterInfo.IId.NameId == "" {
+		return fmt.Errorf("Cluster name is required")
+	}
+	if clusterInfo.Network.VpcIID.SystemId == "" && clusterInfo.Network.VpcIID.NameId == "" {
+		return fmt.Errorf("Cannot identify VPC(IID=%s)", clusterInfo.Network.VpcIID)
+	}
+	if len(clusterInfo.Network.SubnetIIDs) < 1 {
+		return fmt.Errorf("At least one Subnet must be specified")
+	}
+	// CAUTION: Currently CB-Spider's Alibaba PMKS Drivers does not support to create a cluster with nodegroups
+	if len(clusterInfo.NodeGroupList) > 0 {
+		return fmt.Errorf("Node Group cannot be specified")
+	}
+	/*
+		if clusterInfo.Version == "" || clusterInfo.Version == "default" {
+			clusterInfo.Version = "1.24.8"
+		}
+	*/
+	return nil
+}
+
+func validateAtAddNodeGroup(clusterIID irs.IID, nodeGroupInfo irs.NodeGroupInfo) error {
+	if clusterIID.SystemId == "" && clusterIID.NameId == "" {
+		return fmt.Errorf("Invalid Cluster IID")
+	}
+	if nodeGroupInfo.IId.NameId == "" {
+		return fmt.Errorf("Node Group name is required")
+	}
+	if nodeGroupInfo.MaxNodeSize < 1 {
+		return fmt.Errorf("MaxNodeSize cannot be smaller than 1")
+	}
+	if nodeGroupInfo.MinNodeSize < 1 {
+		return fmt.Errorf("MaxNodeSize cannot be smaller than 1")
+	}
+	if nodeGroupInfo.DesiredNodeSize < 1 {
+		return fmt.Errorf("DesiredNodeSize cannot be smaller than 1")
+	}
+	if nodeGroupInfo.VMSpecName == "" {
+		return fmt.Errorf("VM Spec Name is required")
+	}
+
+	return nil
+}
+
+func validateAtChangeNodeGroupScaling(clusterIID irs.IID, nodeGroupIID irs.IID, minNodeSize int, maxNodeSize int) error {
+	if clusterIID.SystemId == "" && clusterIID.NameId == "" {
+		return fmt.Errorf("Invalid Cluster IID")
+	}
+	if nodeGroupIID.SystemId == "" && nodeGroupIID.NameId == "" {
+		return fmt.Errorf("Invalid Node Group IID")
+	}
+	if minNodeSize < 1 {
+		return fmt.Errorf("MaxNodeSize cannot be smaller than 1")
+	}
+	if maxNodeSize < 1 {
+		return fmt.Errorf("MaxNodeSize cannot be smaller than 1")
+	}
+
+	return nil
+}
+
+func (ach *AlibabaClusterHandler) getAvailableCidrList() ([]string, error) {
+	//
+	// Valid CIDR: 10.0.0.0/16-24, 172.16-31.0.0/16-24, and 192.168.0.0/16-24.
+	//
+	mapCidr := make(map[string]bool)
+	for i := 16; i < 32; i++ {
+		mapCidr[fmt.Sprintf("172.%v.0.0/16", i)] = true
+	}
+
+	clusterInfoList, err := ach.getClusterInfoListWithoutNodeGroupList(ach.RegionInfo.Region)
+	if err != nil {
+		err = fmt.Errorf("failed to get available CIDR list: %v", err)
+		return []string{}, err
+	}
+
+	for _, clusterInfo := range clusterInfoList {
+		for _, v := range clusterInfo.KeyValueList {
+			if v.Key == "parameters.ServiceCIDR" || v.Key == "subnet_cidr" {
+				delete(mapCidr, v.Value)
+			}
+		}
+	}
+
+	cidrList := []string{}
+	for k := range mapCidr {
+		cidrList = append(cidrList, k)
+	}
+
+	return cidrList, nil
+}
+
+/*
+func waitUntilNodepoolIsState(csClient *cs2015.Client, clusterId, nodepoolId, state string) error {
+	apiCallCount := 0
+	maxAPICallCount := 20
+
+	var waitingErr error
+	for {
+		nodepool, err := aliDescribeClusterNodePoolDetail(csClient, clusterId, nodepoolId)
+		if err != nil {
+			maxAPICallCount = maxAPICallCount / 2
+		}
+		if nodepool.Status != nil && strings.EqualFold(tea.StringValue(nodepool.Status.State), state) {
+			return nil
+		}
+		apiCallCount++
+		if apiCallCount >= maxAPICallCount {
+			waitingErr = fmt.Errorf("failed to get nodepool: The maximum number of verification requests has been exceeded while waiting for availability of that resource")
+			break
+		}
+		time.Sleep(5 * time.Second)
+	}
+
+	return waitingErr
+}
+
+// Check whether Internet NAT Gateway is avaiable or not
+func isExistInternetNatGatewayInVpc(vpcClient *vpc2016.Client, regionId, vpcId, vSwitchId string) (bool, error) {
+	natGatewayList, err := aliDescribeNatGateways(vpcClient, regionId, vpcId, vSwitchId, "internet")
+	if err != nil {
+		return false, err
+	}
+
+	if len(natGatewayList) > 0 {
+		return true, nil
+	}
+
+	return false, nil
+}
+
+func aliAllocateEipAddress(vpcClient *vpc2016.Client, regionId, vpcId string) (*string, *string, error) {
+	description := delimiterVpcId + vpcId
+
+	allocateEipAddressRequest := &vpc2016.AllocateEipAddressRequest{
+		RegionId:    tea.String(regionId),
+		Description: tea.String(description),
+	}
+	allocateEipAddressResponse, err := vpcClient.AllocateEipAddress(allocateEipAddressRequest)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return allocateEipAddressResponse.Body.EipAddress, allocateEipAddressResponse.Body.AllocationId, nil
+}
+
+func aliDescribeEipAddressWithIdAndNat(vpcClient *vpc2016.Client, regionId, eipId, natGatewayId string) (eipAddress *vpc2016.DescribeEipAddressesResponseBodyEipAddressesEipAddress, err error) {
+	describeEipAddressesRequest := &vpc2016.DescribeEipAddressesRequest{
+		RegionId:               tea.String(regionId),
+		AllocationId:           tea.String(eipId),
+		AssociatedInstanceType: tea.String("Nat"),
+		AssociatedInstanceId:   tea.String(natGatewayId),
+	}
+	//spew.Dump(describeEipAddressesRequest)
+	describeEipAddressesResponse, err := vpcClient.DescribeEipAddresses(describeEipAddressesRequest)
+	if err != nil {
+		return nil, err
+	}
+	//spew.Dump(describeEipAddressesResponse.Body)
+
+	eipCount := len(describeEipAddressesResponse.Body.EipAddresses.EipAddress)
+	if eipCount == 1 {
+		eipAddress = describeEipAddressesResponse.Body.EipAddresses.EipAddress[0]
+		err = nil
+	} else if eipCount == 0 {
+		eipAddress = nil
+		err = fmt.Errorf("no eip address(ID=%s)", eipId)
+	} else {
+		eipAddress = nil
+		err = fmt.Errorf("more than one eip address(ID=%s)", eipId)
+	}
+
+	return eipAddress, err
+}
+
+func aliDescribeEipAddressesWithNat(vpcClient *vpc2016.Client, regionId, natGatewayId string) ([]*vpc2016.DescribeEipAddressesResponseBodyEipAddressesEipAddress, error) {
+	describeEipAddressesRequest := &vpc2016.DescribeEipAddressesRequest{
+		RegionId:               tea.String(regionId),
+		AssociatedInstanceType: tea.String("Nat"),
+		AssociatedInstanceId:   tea.String(natGatewayId),
+	}
+	//spew.Dump(describeEipAddressesRequest)
+	describeEipAddressesResponse, err := vpcClient.DescribeEipAddresses(describeEipAddressesRequest)
+	if err != nil {
+		return make([]*vpc2016.DescribeEipAddressesResponseBodyEipAddressesEipAddress, 0), err
+	}
+	//spew.Dump(describeEipAddressesResponse.Body)
+
+	return describeEipAddressesResponse.Body.EipAddresses.EipAddress, nil
+}
+
+func aliReleaseEipAddress(vpcClient *vpc2016.Client, regionId, eipId string) error {
+	releaseEipAddressRequest := &vpc2016.ReleaseEipAddressRequest{
+		RegionId:     tea.String(regionId),
+		AllocationId: tea.String(eipId),
+	}
+	//spew.Dump(releaseEipAddressRequest)
+	_, err := vpcClient.ReleaseEipAddress(releaseEipAddressRequest)
+	if err != nil {
+		return err
+	}
+	//spew.Dump(releaseEipAddressResponse.Body)
+
+	return nil
+}
+
+func aliCreateNatGateway(vpcClient *vpc2016.Client, regionId, vpcId, vSwitchId string) (*string, []*string, error) {
+	description := delimiterVpcId + vpcId
+
+	createNatGatewayRequest := &vpc2016.CreateNatGatewayRequest{
+		RegionId:    tea.String(regionId),
+		VpcId:       tea.String(vpcId),
+		VSwitchId:   tea.String(vSwitchId),
+		NatType:     tea.String("Enhanced"),
+		NetworkType: tea.String("internet"),
+		Description: tea.String(description),
+		EipBindMode: tea.String("NAT"),
+	}
+	//spew.Dump(createNatGatewayRequest)
+	createNatGatewayResponse, err := vpcClient.CreateNatGateway(createNatGatewayRequest)
+	if err != nil {
+		return nil, make([]*string, 0), err
+	}
+	//spew.Dump(createNatGatewayResponse.Body)
+
+	return createNatGatewayResponse.Body.NatGatewayId, createNatGatewayResponse.Body.SnatTableIds.SnatTableId, nil
+}
+
+func aliGetNatGatewayAttribute(vpcClient *vpc2016.Client, regionId, natGatewayId string) (*vpc2016.GetNatGatewayAttributeResponseBody, error) {
+	getNatGatewayAttributeRequest := &vpc2016.GetNatGatewayAttributeRequest{
+		RegionId:     tea.String(regionId),
+		NatGatewayId: tea.String(natGatewayId),
+	}
+	//spew.Dump(getNatGatewayAttributeRequest)
+	getNatGatewayAttributeResponse, err := vpcClient.GetNatGatewayAttribute(getNatGatewayAttributeRequest)
+	if err != nil {
+		return nil, err
+	}
+	//spew.Dump(getNatGatewayAttributeResponse.Body)
+
+	return getNatGatewayAttributeResponse.Body, nil
+}
+
+func waitUntilNatGatewayIsAvailable(vpcClient *vpc2016.Client, regionId, natGatewayId string) error {
+	apiCallCount := 0
+	maxAPICallCount := 20
+
+	var waitingErr error
+	for {
+		ngw, err := aliGetNatGatewayAttribute(vpcClient, regionId, natGatewayId)
+		if err != nil {
+			maxAPICallCount = maxAPICallCount / 2
+		}
+		if ngw != nil && strings.EqualFold(*ngw.Status, "Available") {
+			return nil
+		}
+		apiCallCount++
+		if apiCallCount >= maxAPICallCount {
+			waitingErr = fmt.Errorf("failed to get NAT Gateway: The maximum number of verification requests has been exceeded while waiting for the creation of that resource")
+			break
+		}
+		time.Sleep(10 * time.Second)
+	}
+
+	return waitingErr
+}
+
+func aliCreateSnatEntryForVpc(vpcClient *vpc2016.Client, regionId, snatTableId, snatIp, srcCidr string) error {
+	createSnatEntryRequest := &vpc2016.CreateSnatEntryRequest{
+		RegionId:    tea.String(regionId),
+		SnatIp:      tea.String(snatIp),
+		SnatTableId: tea.String(snatTableId),
+		SourceCIDR:  tea.String(srcCidr),
+	}
+	//spew.Dump(createSnatEntryRequest)
+	_, err := vpcClient.CreateSnatEntry(createSnatEntryRequest)
+	if err != nil {
+		return err
+	}
+	//spew.Dump(createSnatEntryResponse.Body)
+
+	return nil
+}
+
+func waitUntilEipIsStatus(vpcClient *vpc2016.Client, regionId, eipId, natGatewayId, status string) error {
+	apiCallCount := 0
+	maxAPICallCount := 20
+
+	var waitingErr error
+	for {
+		eipAddress, err := aliDescribeEipAddressWithIdAndNat(vpcClient, regionId, eipId, natGatewayId)
+		if err != nil {
+			maxAPICallCount = maxAPICallCount / 2
+		}
+		if eipAddress != nil && strings.EqualFold(*eipAddress.Status, status) {
+			return nil
+		}
+		apiCallCount++
+		if apiCallCount >= maxAPICallCount {
+			waitingErr = fmt.Errorf("failed to get eip address: The maximum number of verification requests has been exceeded while waiting for availability of that resource")
+			break
+		}
+		time.Sleep(5 * time.Second)
+	}
+
+	return waitingErr
+}
+
+func aliAssociateEipAddressToNatGateway(vpcClient *vpc2016.Client, regionId, eipId, natGatewayId, vpcId string) error {
+	associateEipAddressRequest := &vpc2016.AssociateEipAddressRequest{
+		RegionId:     tea.String(regionId),
+		AllocationId: tea.String(eipId),
+		InstanceId:   tea.String(natGatewayId),
+		InstanceType: tea.String("Nat"),
+		VpcId:        tea.String(vpcId),
+	}
+	//spew.Dump(associateEipAddressRequest)
+	_, err := vpcClient.AssociateEipAddress(associateEipAddressRequest)
+	if err != nil {
+		return err
+	}
+	//spew.Dump(associateEipAddressResponse.Body)
+
+	return nil
+}
+
+func aliUnassociateEipAddressFromNatGateway(vpcClient *vpc2016.Client, regionId, eipId, natGatewayId string) error {
+	unassociateEipAddressRequest := &vpc2016.UnassociateEipAddressRequest{
+		RegionId:     tea.String(regionId),
+		AllocationId: tea.String(eipId),
+		InstanceId:   tea.String(natGatewayId),
+		InstanceType: tea.String("Nat"),
+	}
+	//spew.Dump(unassociateEipAddressRequest)
+	_, err := vpcClient.UnassociateEipAddress(unassociateEipAddressRequest)
+	if err != nil {
+		return err
+	}
+	//spew.Dump(unassociateEipAddressResponse.Body)
+
+	return nil
+}
+
+func createNatGatewayWithEip(vpcClient *vpc2016.Client, regionId, vpcId, vSwitchId string) (waitErr error) {
+	var err error
+
+	vpcAttribute, vpcErr := aliDescribeVpcAttribute(vpcClient, regionId, vpcId)
+	if vpcErr != nil {
+		vpcErr = fmt.Errorf("failed to get VPC Attribute: %v", vpcErr)
+		return vpcErr
+	}
+
+	cblogger.Debug("Request to allocate EIP")
+	eipAddress, eipId, allocateErr := aliAllocateEipAddress(vpcClient, regionId, vpcId)
+	if allocateErr != nil {
+		cblogger.Debug("Failed to allocate EIP: ", allocateErr)
+		allocateErr = fmt.Errorf("failed to allocate an EIP: %v", allocateErr)
+		return allocateErr
+	}
+	cblogger.Debug("Successfully allocated EIP: IP=", *eipAddress)
+
+	cblogger.Debug("Request to create NAT Gateway")
+	natGatewayId, snatTableIds, createNatGatewayErr := aliCreateNatGateway(vpcClient, regionId, vpcId, vSwitchId)
+	if createNatGatewayErr != nil || len(snatTableIds) == 0 {
+		cblogger.Debug("Failed to create NAT Gateway: ", createNatGatewayErr)
+		err = aliReleaseEipAddress(vpcClient, regionId, *eipId)
+		if err != nil {
+			createNatGatewayErr = fmt.Errorf("failed to release EIP(ID=%s), it should be manually released: %v: %v", eipId, err, createNatGatewayErr)
+		}
+
+		createNatGatewayErr = fmt.Errorf("failed to create NAT Gateway: %v", createNatGatewayErr)
+		return createNatGatewayErr
+	}
+	cblogger.Debug("Successfully created NAT Gateway: ID=", *natGatewayId)
+
+	cblogger.Debug("Wait until NAT Gateway is Available: ID=", *natGatewayId)
+	waitErr = waitUntilNatGatewayIsAvailable(vpcClient, regionId, *natGatewayId)
+	if waitErr != nil {
+		cblogger.Debug("Failed to wait until NAT Gateway is Available: ID=", *natGatewayId, ": ", waitErr)
+
+		err = aliDeleteNatGateway(vpcClient, regionId, *natGatewayId)
+		if err != nil {
+			waitErr = fmt.Errorf("failed to delete NAT Gateway(ID=%s), it should be manually deleted: %v: %v", natGatewayId, err, waitErr)
+		}
+
+		err = aliReleaseEipAddress(vpcClient, regionId, *eipId)
+		if err != nil {
+			waitErr = fmt.Errorf("failed to release EIP(ID=%s), it should be manually released: %v: %v", eipId, err, waitErr)
+		}
+
+		waitErr = fmt.Errorf("failed to wait until NAT Gateway is available: %v", waitErr)
+		return waitErr
+	}
+
+	cblogger.Debug("Request to associate EIP to NAT Gateway: IP=", *eipAddress, " NAT Gateway ID=", *natGatewayId)
+	associateErr := aliAssociateEipAddressToNatGateway(vpcClient, regionId, *eipId, *natGatewayId, vpcId)
+	if associateErr != nil {
+		cblogger.Debug("Failed to associate EIP to NAT Gateway: IP=", *eipAddress, " NAT Gateway ID=", *natGatewayId, ": ", associateErr)
+
+		err = aliDeleteNatGateway(vpcClient, regionId, *natGatewayId)
+		if err != nil {
+			associateErr = fmt.Errorf("failed to delete NAT Gateway(ID=%s), it should be manually deleted: %v: %v", natGatewayId, err, associateErr)
+		}
+
+		err = aliReleaseEipAddress(vpcClient, regionId, *eipId)
+		if err != nil {
+			associateErr = fmt.Errorf("failed to release EIP(ID=%s), it should be manually released: %v: %v", eipId, err, associateErr)
+		}
+
+		associateErr = fmt.Errorf("failed to associate EIP(ID=%s): %v", natGatewayId, associateErr)
+		return associateErr
+	}
+	cblogger.Debug("Successfully associated EIP to NAT Gateway: IP=", *eipAddress, " NAT Gateway ID=", *natGatewayId)
+
+	cblogger.Debug("Wait until EIP is InUse: IP=", *eipAddress)
+	waitErr = waitUntilEipIsStatus(vpcClient, regionId, *eipId, *natGatewayId, "InUse")
+	if waitErr != nil {
+		cblogger.Debug("Failed to wait until EIP is InUse: IP=", *eipAddress, ": ", waitErr)
+
+		err = aliDeleteNatGateway(vpcClient, regionId, *natGatewayId)
+		if err != nil {
+			waitErr = fmt.Errorf("failed to delete NAT Gateway(ID=%s), it should be manually deleted: %v: %v", natGatewayId, err, waitErr)
+		}
+
+		err = aliReleaseEipAddress(vpcClient, regionId, *eipId)
+		if err != nil {
+			waitErr = fmt.Errorf("failed to release EIP(ID=%s), it should be manually released: %v: %v", eipId, err, waitErr)
+		}
+
+		waitErr = fmt.Errorf("failed to wait until NAT Gateway is available: %v", waitErr)
+		return waitErr
+	}
+
+	cblogger.Debug("Request to create SNAT Entry in NAT Gateway for VPC: NAT Gateway ID=", *natGatewayId, ", VPC ID=", vpcId)
+	createSnatEntryErr := aliCreateSnatEntryForVpc(vpcClient, regionId, *snatTableIds[0], *eipAddress, *vpcAttribute.CidrBlock)
+	if createSnatEntryErr != nil {
+		cblogger.Debug("Failed to create SNAT Entry in NAT Gateway for VPC: NAT Gateway ID=", *natGatewayId, ", VPC ID=", vpcId, ": ", createSnatEntryErr)
+
+		err = aliDeleteNatGateway(vpcClient, regionId, *natGatewayId)
+		if err != nil {
+			createSnatEntryErr = fmt.Errorf("failed to delete NAT Gateway(ID=%s), it should be manually deleted: %v: %v", natGatewayId, err, createSnatEntryErr)
+		}
+
+		err = aliReleaseEipAddress(vpcClient, regionId, *eipId)
+		if err != nil {
+			createSnatEntryErr = fmt.Errorf("failed to release EIP(ID=%s), it should be manually released: %v: %v", eipId, err, createSnatEntryErr)
+		}
+
+		createSnatEntryErr = fmt.Errorf("failed to create a SNAT etnry: %v", createSnatEntryErr)
+		return createSnatEntryErr
+	}
+	cblogger.Debug("Successfully created SNAT Entry in NAT Gateway: ID=", *natGatewayId)
+
+	return nil
+}
+
+func deleteNatGatewayWithEip(vpcClient *vpc2016.Client, regionId, vpcId, vSwitchId string) (resultErr error) {
+	natGatewayList, err := aliDescribeNatGateways(vpcClient, regionId, vpcId, vSwitchId, "internet")
+	if err != nil {
+		resultErr = fmt.Errorf("failed to get NAT Gateways: %v", err)
+		return resultErr
+	}
+
+	var ngwForCluster *vpc2016.DescribeNatGatewaysResponseBodyNatGatewaysNatGateway = nil
+	for _, ngw := range natGatewayList {
+		ngwVpcId := ""
+		re := regexp.MustCompile(`\S*` + delimiterVpcId + `\S*`)
+		found := re.FindString(*ngw.Description)
+		if found != "" {
+			split := strings.Split(found, delimiterVpcId)
+			ngwVpcId = split[1]
+			if strings.EqualFold(ngwVpcId, vpcId) {
+				ngwForCluster = ngw
+				break
+			}
+		}
+	}
+
+	if ngwForCluster == nil {
+		resultErr = fmt.Errorf("no NAT Gateway in %s%s", delimiterVpcId, vpcId)
+		return resultErr
+	}
+
+	cblogger.Debug("Request to delete NAT Gateway: ID=", *ngwForCluster.NatGatewayId)
+	err = aliDeleteNatGateway(vpcClient, regionId, *ngwForCluster.NatGatewayId)
+	if err != nil {
+		cblogger.Debug("Failed to delete NAT Gateway: ID=", *ngwForCluster.NatGatewayId, ": ", err)
+		resultErr = fmt.Errorf("failed to delete NAT Gateway(ID=%s): %v", *ngwForCluster.NatGatewayId, err)
+	}
+	cblogger.Debug("Successfully deleted NAT Gateway: ID=", *ngwForCluster.NatGatewayId)
+
+	resultErr = nil
+	eipAddressList, err := aliDescribeEipAddressesWithNat(vpcClient, regionId, *ngwForCluster.NatGatewayId)
+	if err != nil {
+		if resultErr != nil {
+			resultErr = fmt.Errorf("%v - no EIP with NAT Gateway(ID=%s): %v", resultErr, *ngwForCluster.NatGatewayId, err)
+		} else {
+			resultErr = fmt.Errorf("no EIP with NAT Gateway(ID=%s): %v", *ngwForCluster.NatGatewayId, err)
+		}
+	} else {
+		for _, eipAddr := range eipAddressList {
+			eipVpcId := ""
+			re := regexp.MustCompile(`\S*` + delimiterVpcId + `\S*`)
+			found := re.FindString(*eipAddr.Description)
+			if found != "" {
+				split := strings.Split(found, delimiterVpcId)
+				eipVpcId = split[1]
+				if strings.EqualFold(eipVpcId, vpcId) {
+					cblogger.Debug("Wait until EIP is Available: IP=", eipAddr.IpAddress)
+					waitUntilEipIsStatus(vpcClient, regionId, *eipAddr.AllocationId, "", "Available")
+
+					cblogger.Debug("Request to release EIP: IP=", eipAddr.IpAddress)
+					err = aliReleaseEipAddress(vpcClient, regionId, *eipAddr.AllocationId)
+					if err != nil {
+						cblogger.Debug("Failed to release EIP: IP=", eipAddr.IpAddress, ": ", err)
+					}
+				}
+			}
+		}
+	}
+
+	return resultErr
+}
+
+func waitUntilClusterSecurityGroupIdIsExist(csClient *cs2015.Client, clusterId string) error {
+	apiCallCount := 0
+	maxAPICallCount := 20
+
+	var waitingErr error
+	for {
+		cluster, err := aliDescribeClusterDetail(csClient, clusterId)
+		if err != nil {
+			maxAPICallCount = maxAPICallCount / 2
+		}
+		if !strings.EqualFold(tea.StringValue(cluster.SecurityGroupId), "") {
+			return nil
+		}
+		apiCallCount++
+		if apiCallCount >= maxAPICallCount {
+			waitingErr = fmt.Errorf("failed to get cluster's security group id: The maximum number of verification requests has been exceeded while waiting for availability of that resource")
+			break
+		}
+		time.Sleep(5 * time.Second)
+		cblogger.Info("Wait until cluster's security group id is exist")
+	}
+
+	return waitingErr
+}
+*/
+/*
+	//
+	// Check whether if a nat gateway is created with the cluster or not
+	//
+	cblogger.Debug(fmt.Sprintf("Check if NAT Gateway is Automatically Created."))
+
+	tagKey := tagKeyAckAliyunCom
+	tagValue := tea.StringValue(clusterId)
+	ngwsWithTag, err := getInternetNatGatewaysWithTagInVpc(ach.VpcClient, regionId, vpcId, tagKey, tagValue)
+	if err != nil {
+		createErr = fmt.Errorf("Failed to Create Cluster: %v", err)
+		cblogger.Error(createErr)
+		LoggingError(hiscallInfo, err)
+		return emptyClusterInfo, createErr
+	}
+	if len(ngwsWithTag) > 0 {
+		cblogger.Debug(fmt.Sprintf("NAT Gateway(%s) is Automatically Created.", tea.StringValue(ngwsWithTag[0].NatGatewayId)))
+		err = aliTagNatGateway(ach.VpcClient, regionId, tea.StringValue(ngwsWithTag[0].NatGatewayId), tagKeyCbSpiderPmksNatGateway, tagValueOwned)
+		if err != nil {
+			createErr = fmt.Errorf("Failed to Create Cluster: %v", err)
+			cblogger.Error(createErr)
+			LoggingError(hiscallInfo, createErr)
+			return emptyClusterInfo, createErr
+		}
+	} else {
+		cblogger.Debug(fmt.Sprintf("No Created NAT Gateway."))
+	}
+*/
