@@ -262,7 +262,6 @@ func ExtractProductInfo(jsonValue aws.JSONValue, productFamily string) (irs.Prod
 		cblogger.Error(err)
 		return productInfo, err
 	}
-	//ReplaceEmptyWithNA(&productInfo)
 	switch productFamily {
 	case "Compute Instance":
 		ReplaceEmptyWithNAforComputeInstance(&productInfo)
