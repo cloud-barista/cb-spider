@@ -77,7 +77,7 @@ type AliInstanceType struct {
 	InstanceType string  `json:"InstanceTypeId,omitempty"`
 	Vcpu         int64   `json:"CpuCoreCount,omitempty"`
 	Memory       float64 `json:"MemorySize,omitempty"`
-	//Storage      string  `json:"LocalStorageCategory,omitempty"`
+	// Storage      string  `json:"LocalStorageCategory,omitempty"` 잘못된 데이터 맵핑
 	Gpu       string `json:"GPUSpec,omitempty"`
 	GpuMemory int64  `json:"GPUAmount,omitempty"`
 }
@@ -296,7 +296,7 @@ func (priceInfoHandler *AlibabaPriceInfoHandler) GetPriceInfo(productFamily stri
 							aPrice.PriceInfo.CSPPriceInfo = append(aPrice.PriceInfo.CSPPriceInfo.([]string), priceResponseStr)
 							priceMap[productId] = aPrice
 						} else { // product가 없으면 price 추가
-							newProductInfo, err := GetDescribeInstanceTypesForPricing(priceInfoHandler.BssClient, regionName, attr.Value, filter)
+							newProductInfo, err := GetDescribeInstanceTypesForPricing(priceInfoHandler.BssClient, regionName, attr.Value, filter, productFamily)
 							if err != nil {
 								cblogger.Errorf("[%s] instanceType is Empty", attr.Value)
 								continue
@@ -408,7 +408,7 @@ func (priceInfoHandler *AlibabaPriceInfoHandler) GetPriceInfo(productFamily stri
 								aPrice.PriceInfo.CSPPriceInfo = append(aPrice.PriceInfo.CSPPriceInfo.([]string), priceResponseStr)
 								priceMap[productId] = aPrice
 							} else { // product가 없으면 price 추가
-								newProductInfo, err := GetDescribeInstanceTypesForPricing(priceInfoHandler.BssClient, regionName, attr.Value, filter)
+								newProductInfo, err := GetDescribeInstanceTypesForPricing(priceInfoHandler.BssClient, regionName, attr.Value, filter, productFamily)
 								if err != nil {
 									cblogger.Errorf("[%s] instanceType is Empty", attr.Value)
 									continue
@@ -459,7 +459,7 @@ func (priceInfoHandler *AlibabaPriceInfoHandler) GetPriceInfo(productFamily stri
 
 // region의 특정 instanceType의 내용조회
 // func GetDescribeInstanceTypesForPricing(bssClient *bssopenapi.Client, instanceType string) (map[string]interface{}, error) {
-func GetDescribeInstanceTypesForPricing(bssClient *bssopenapi.Client, regionName string, instanceType string, filter map[string]*string) (irs.ProductInfo, error) {
+func GetDescribeInstanceTypesForPricing(bssClient *bssopenapi.Client, regionName string, instanceType string, filter map[string]*string, productFamily string) (irs.ProductInfo, error) {
 	DescribeInstanceRequest := requests.NewCommonRequest()
 	DescribeInstanceRequest.Method = "POST"
 	DescribeInstanceRequest.Scheme = "https" // https | http
@@ -519,18 +519,23 @@ func GetDescribeInstanceTypesForPricing(bssClient *bssopenapi.Client, regionName
 			//productInfo.Storage = resultProduct.Storage
 			productInfo.Storage = "NA"
 			productInfo.Gpu = resultProduct.Gpu
+			if productInfo.Gpu == "" {
+				productInfo.Gpu = "NA"
+			}
 			productInfo.GpuMemory = strconv.FormatInt(resultProduct.GpuMemory, 10)
 			if productInfo.GpuMemory == "" {
-				productInfo.GpuMemory = ""
+				productInfo.GpuMemory = "NA"
 			}
 			productInfo.GpuMemory = resultProduct.Gpu
 			productInfo.OperatingSystem = "NA"
 			productInfo.PreInstalledSw = "NA"
-			productInfo.VolumeType = "NA"
-			productInfo.StorageMedia = "NA"
-			productInfo.MaxVolumeSize = "NA"
-			productInfo.MaxIOPSVolume = "NA"
-			productInfo.MaxThroughputVolume = "NA"
+			if productFamily != "ecs" {
+				productInfo.VolumeType = "NA"
+				productInfo.StorageMedia = "NA"
+				productInfo.MaxVolumeSize = "NA"
+				productInfo.MaxIOPSVolume = "NA"
+				productInfo.MaxThroughputVolume = "NA"
+			}
 			productInfo.Description = "NA"
 		} else {
 			return productInfo, errors.New("there is no instanceType")
