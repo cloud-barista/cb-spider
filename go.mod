@@ -72,7 +72,6 @@ require (
 )
 
 require (
-	github.com/cloud-barista/ktcloudvpc-sdk-for-drv v0.0.0-20240221132730-ace4f5b1d18a // indirect
 	github.com/itchyny/timefmt-go v0.1.5 // indirect
 	github.com/jinzhu/inflection v1.0.0 // indirect
 	github.com/jinzhu/now v1.1.5 // indirect
