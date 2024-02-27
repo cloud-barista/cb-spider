@@ -59,7 +59,7 @@ require (
 	github.com/IBM/platform-services-go-sdk v0.30.0
 	github.com/NaverCloudPlatform/ncloud-sdk-go-v2 v1.6.6
 	github.com/cloud-barista/ktcloud-sdk-go v0.2.1-0.20240123114820-8684cfc5deeb
-	github.com/cloud-barista/nhncloud-sdk-go v0.0.0-20240227142817-f1ef12031f31
+	github.com/cloud-barista/nhncloud-sdk-go v0.0.0-20240227161653-393c599a4b76
 	github.com/go-openapi/strfmt v0.21.3
 	github.com/hashicorp/go-version v1.6.0
 	github.com/jeremywohl/flatten v1.0.1
@@ -72,6 +72,7 @@ require (
 )
 
 require (
+	github.com/cloud-barista/ktcloudvpc-sdk-for-drv v0.0.0-20240221132730-ace4f5b1d18a // indirect
 	github.com/itchyny/timefmt-go v0.1.5 // indirect
 	github.com/jinzhu/inflection v1.0.0 // indirect
 	github.com/jinzhu/now v1.1.5 // indirect
