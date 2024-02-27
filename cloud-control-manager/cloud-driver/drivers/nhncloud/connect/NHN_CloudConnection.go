@@ -82,7 +82,7 @@ func (cloudConn NhnCloudConnection) CreateSecurityHandler() (irs.SecurityHandler
 
 func (cloudConn *NhnCloudConnection) CreateVPCHandler() (irs.VPCHandler, error) {
 	cblogger.Info("NhnCloud Cloud Driver: called CreateVPCHandler()!")
-	vpcHandler := nhnrs.NhnCloudVPCHandler{RegionInfo: cloudConn.RegionInfo, NetworkClient: cloudConn.NetworkClient}
+	vpcHandler := nhnrs.NhnCloudVPCHandler{CredentialInfo: cloudConn.CredentialInfo, RegionInfo: cloudConn.RegionInfo, NetworkClient: cloudConn.NetworkClient}
 
 	return &vpcHandler, nil
 }
