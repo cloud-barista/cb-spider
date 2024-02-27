@@ -51,6 +51,12 @@ func (vpcHandler *NhnCloudVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.
 		cblogger.Error(newErr.Error())
 		return irs.VPCInfo{}, newErr
 	}
+
+	if strings.EqualFold(vpcReqInfo.IPv4_CIDR, "") {
+		newErr := fmt.Errorf("Invalid IPv4_CIDR!!")
+		cblogger.Error(newErr.Error())
+		return irs.VPCInfo{}, newErr
+	}
 	
 	if strings.EqualFold(vpcHandler.CredentialInfo.TenantId, "") {
 		newErr := fmt.Errorf("Invalid Tenant ID!!")
@@ -59,16 +65,10 @@ func (vpcHandler *NhnCloudVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.
 	}
 
 	createOpts := vpcs.CreateOpts{
-		VPC: vpcs.NewVPC {
-			Name:       vpcReqInfo.IId.NameId,
-			CIDRv4:		vpcReqInfo.IPv4_CIDR,
-			TenantID: 	vpcHandler.CredentialInfo.TenantId, // Caution!!
-		},
+		Name:       vpcReqInfo.IId.NameId,
+		CIDRv4:		vpcReqInfo.IPv4_CIDR,
+		TenantID: 	vpcHandler.CredentialInfo.TenantId, // Caution!!
 	}
-	cblogger.Info("\n\n### createOpts : ")
-	spew.Dump(createOpts)
-	cblogger.Info("\n")
-
 	start := call.Start()
 	vpcResult, err := vpcs.Create(vpcHandler.NetworkClient, createOpts).Extract()
 	if err != nil {
@@ -82,7 +82,7 @@ func (vpcHandler *NhnCloudVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.
 	// Because there are functions that use 'NameId', Input NameId too
 	newVpcIID := irs.IID{NameId: vpcResult.Name, SystemId: vpcResult.ID}
 
-	// Wait for created Disk info to be inquired
+	// Wait for New VPC info to be inquired
 	curStatus, err := vpcHandler.waitForVpcCreation(newVpcIID)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Wait to Get VPC Info. [%v]", err.Error())
@@ -90,34 +90,7 @@ func (vpcHandler *NhnCloudVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.
 		LoggingError(callLogInfo, newErr)
 		return irs.VPCInfo{}, newErr
 	}
-	cblogger.Infof("==> Disk Status of [%s] : [%s]", newVpcIID.NameId, curStatus)
-
-	/*
-
-	// Get VPC list
-	vpcList, err := vpcHandler.ListVPC()
-	if err != nil {
-		cblogger.Errorf("Failed to Get VPC list : %v", err)
-		LoggingError(callLogInfo, err)
-		return irs.VPCInfo{}, err
-	}
-
-	// Search VPC SystemId by NameID in the VPC list
-	var vpcSystemId string
-	for _, curVPC := range vpcList {
-		if strings.EqualFold(curVPC.IId.NameId, "Default Network") {
-			vpcSystemId = curVPC.IId.SystemId
-			cblogger.Infof("# SystemId of the VPC : [%s]", vpcSystemId)
-			break
-		}
-	}
-
-	// When the "Default Network" VPC is not found
-	if strings.EqualFold(vpcSystemId, "") {
-		cblogger.Error("Failed to Find the 'Default Network' VPC on your NHN Cloud project!!")
-		return irs.VPCInfo{}, nil
-	}
-	*/
+	cblogger.Infof("==> # Status of VPC [%s] : [%s]", newVpcIID.NameId, curStatus)
 
 	vpcInfo, err := vpcHandler.GetVPC(irs.IID{SystemId: vpcResult.ID})
 	if err != nil {
@@ -132,7 +105,7 @@ func (vpcHandler *NhnCloudVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.
 	var subnetList []irs.SubnetInfo
 	for _, subnet := range vpcReqInfo.SubnetInfoList {
 		cblogger.Infof("# Subnet NameId to Create : [%s]", subnet.IId.NameId)
-		newSubnet, err := vpcHandler.createSubnet(subnet) // Caution!! For IID2 NameID validation check for Subnet
+		newSubnet, err := vpcHandler.createSubnet(vpcResult.ID, subnet) // Caution!! For IID2 NameID validation check for Subnet
 		if err != nil {
 			cblogger.Errorf("Failed to Create NHN Cloud Sunbnet : [%v]", err)
 			LoggingError(callLogInfo, err)
@@ -158,21 +131,13 @@ func (vpcHandler *NhnCloudVPCHandler) GetVPC(vpcIID irs.IID) (irs.VPCInfo, error
 
 	start := call.Start()
 	var vpc vpcs.VPC
-	// var vpc NetworkWithExt
 	err := vpcs.Get(vpcHandler.NetworkClient, vpcIID.SystemId).ExtractInto(&vpc)
-	// err := vpcs.Get(vpcHandler.NetworkClient, vpcIID.SystemId).ExtractInto(&vpc) 
 	if err != nil {
 		cblogger.Errorf("Failed to Get VPC with the SystemId : [%s]. %v", vpcIID.SystemId, err)
 		LoggingError(callLogInfo, err)
 		return irs.VPCInfo{}, err
 	}
 	LoggingInfo(callLogInfo, start)
-
-
-	// cblogger.Info("\n\n### vpc : ")
-	// spew.Dump(vpc)
-	// cblogger.Info("\n")
-
 
 	vpcInfo, err := vpcHandler.mappingVpcInfo(vpc)
 	if err != nil {
@@ -257,9 +222,16 @@ func (vpcHandler *NhnCloudVPCHandler) DeleteVPC(vpcIID irs.IID) (bool, error) {
 	return true, nil
 }
 
-func (vpcHandler *NhnCloudVPCHandler) createSubnet(subnetReqInfo irs.SubnetInfo) (irs.SubnetInfo, error) {
+func (vpcHandler *NhnCloudVPCHandler) createSubnet(vpcId string, subnetReqInfo irs.SubnetInfo) (irs.SubnetInfo, error) {
 	cblogger.Info("NHN Cloud cloud driver: called createSubnet()!!")
 	callLogInfo := getCallLogScheme(vpcHandler.RegionInfo.Region, call.VPCSUBNET, subnetReqInfo.IId.NameId, "createSubnet()")
+
+	if vpcId == "" {
+		newErr := fmt.Errorf("Invalid VPC ID!!")
+		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
+		return irs.SubnetInfo{}, newErr
+	}
 
 	if subnetReqInfo.IId.NameId == "" {
 		newErr := fmt.Errorf("Invalid Subnet NameId!!")
@@ -268,52 +240,22 @@ func (vpcHandler *NhnCloudVPCHandler) createSubnet(subnetReqInfo irs.SubnetInfo)
 		return irs.SubnetInfo{}, newErr
 	}
 
-	listOpts := vpcs.ListOpts{}
-	// listOpts := external.ListOptsExt{
-	// 	ListOptsBuilder: vpcs.ListOpts{},
-	// }
-	allPages, err := vpcs.List(vpcHandler.NetworkClient, listOpts).AllPages()
+	createOpts := subnets.CreateOpts{
+		VpcID: vpcId,
+		CIDR: subnetReqInfo.IPv4_CIDR,
+		Name: subnetReqInfo.IId.NameId,
+	}
+	start := call.Start()
+	subnet, err := subnets.Create(vpcHandler.NetworkClient, createOpts).Extract()
 	if err != nil {
-		cblogger.Errorf("Failed to Get Network list. %v", err)
-		LoggingError(callLogInfo, err)
-		return irs.SubnetInfo{}, err
-	}
-
-	// To Get VPC info list
-	var vpcList []NetworkWithExt
-	err = vpcs.ExtractVPCsInto(allPages, &vpcList)
-	if err != nil {
-		cblogger.Errorf("Failed to Get VPC list. %v", err)
-		LoggingError(callLogInfo, err)
-		return irs.SubnetInfo{}, err
-	}
-
-	var newSubnetInfo irs.SubnetInfo
-
-	// To Get Subnet info with the Subent ID
-	for _, vpc := range vpcList {
-		for _, subnet := range vpc.Subnets {
-			subnetInfo, err := vpcHandler.getSubnet(irs.IID{SystemId: subnet.ID})
-			if err != nil {
-				cblogger.Errorf("Failed to Get Subnet with Id [%s] : %s", subnet.ID, err)
-				continue
-			}
-			if strings.EqualFold(subnetInfo.IId.NameId, "Default Network") {
-				cblogger.Infof("# Found Default Subnet on NHN Cloud : [%s]", subnetInfo.IId.NameId)
-				newSubnetInfo = subnetInfo
-				newSubnetInfo.IId.NameId = subnetReqInfo.IId.NameId //Caution!! For IID2 NameID validation check
-				break
-			}
-		}
-	}
-
-	// When the Subnet is not found
-	if newSubnetInfo.IId.SystemId == "" {
-		newErr := fmt.Errorf("Failed to Find the 'Default Network' Subnet on your NHN Cloud project!!")
-		LoggingError(callLogInfo, newErr)
+		newErr := fmt.Errorf("Failed to Createt New Subnet!! : [%v]", err)
+		cblogger.Error(newErr.Error())
 		return irs.SubnetInfo{}, newErr
 	}
-	return newSubnetInfo, err
+	LoggingInfo(callLogInfo, start)
+
+	subnetInfo := vpcHandler.mappingSubnetInfo(*subnet)
+	return *subnetInfo, nil
 }
 
 func (vpcHandler *NhnCloudVPCHandler) getSubnet(subnetIId irs.IID) (irs.SubnetInfo, error) {
