@@ -19,7 +19,6 @@ import (
 	"fmt"
 	// "sync"
 	"time"
-	"github.com/davecgh/go-spew/spew"
 
 	nhnsdk "github.com/cloud-barista/nhncloud-sdk-go"
 	"github.com/cloud-barista/nhncloud-sdk-go/openstack/networking/v2/extensions/external"
