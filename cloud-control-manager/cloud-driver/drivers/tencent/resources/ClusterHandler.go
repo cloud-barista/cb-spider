@@ -639,7 +639,7 @@ func getNodeGroupInfo(access_key, access_secret, region_id, cluster_id, node_gro
 		auto_scale_enalbed = true
 	}
 
-	if len(launch_config.Response.LaunchConfigurationSet) > 0 || len(auto_scaling_group.Response.AutoScalingGroupSet) > 0 {
+	if len(launch_config.Response.LaunchConfigurationSet) > 0 && len(auto_scaling_group.Response.AutoScalingGroupSet) > 0 {
 		nodeGroupInfo = &irs.NodeGroupInfo{
 			IId: irs.IID{
 				NameId:   *res.Response.NodePool.Name,
