@@ -23,10 +23,11 @@ import (
 	
 	nhnsdk "github.com/cloud-barista/nhncloud-sdk-go"
 	"github.com/cloud-barista/nhncloud-sdk-go/openstack/loadbalancer/v2/loadbalancers"
-	"github.com/cloud-barista/nhncloud-sdk-go/openstack/networking/v2/networks"
+	"github.com/cloud-barista/nhncloud-sdk-go/openstack/networking/v2/vpcs"
+	// "github.com/cloud-barista/nhncloud-sdk-go/openstack/networking/v2/vpcs"
 	"github.com/cloud-barista/nhncloud-sdk-go/openstack/networking/v2/subnets"
 	"github.com/cloud-barista/nhncloud-sdk-go/openstack/loadbalancer/v2/listeners"
-	"github.com/cloud-barista/nhncloud-sdk-go/openstack/networking/v2/extensions/external"
+	// "github.com/cloud-barista/nhncloud-sdk-go/openstack/networking/v2/extensions/external"
 
 	"github.com/cloud-barista/nhncloud-sdk-go/openstack/compute/v2/servers"
 	"github.com/cloud-barista/nhncloud-sdk-go/openstack/loadbalancer/v2/monitors"
@@ -972,12 +973,15 @@ func (nlbHandler *NhnCloudNLBHandler) getFirstSubnetIdWithVPCName(vpcName string
 	}
 
 	callLogStart := call.Start()
-	listOpts := external.ListOptsExt {
-		ListOptsBuilder: networks.ListOpts{
-			Name: vpcName,
-		},
+	listOpts := vpcs.ListOpts {
+		Name: vpcName,
 	}
-	allPages, err := networks.List(nlbHandler.NetworkClient, listOpts).AllPages()
+	// listOpts := external.ListOptsExt {
+	// 	ListOptsBuilder: vpcs.ListOpts{
+	// 		Name: vpcName,
+	// 	},
+	// }
+	allPages, err := vpcs.List(nlbHandler.NetworkClient, listOpts).AllPages()
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get NHN VPC List with the Name : [%s]", vpcName)
 		cblogger.Error(newErr.Error())
@@ -986,7 +990,7 @@ func (nlbHandler *NhnCloudNLBHandler) getFirstSubnetIdWithVPCName(vpcName string
 	}
 
 	var nhnVpcList []NetworkWithExt
-	err = networks.ExtractNetworksInto(allPages, &nhnVpcList)
+	err = vpcs.ExtractVPCsInto(allPages, &nhnVpcList)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Extract NHN VPC List.")
 		cblogger.Error(newErr.Error())
@@ -1004,7 +1008,7 @@ func (nlbHandler *NhnCloudNLBHandler) getFirstSubnetIdWithVPCName(vpcName string
 	}
 
 	if len(nhnVpc.Subnets) > 0 {
-		return nhnVpc.Subnets[0], nil
+		return nhnVpc.Subnets[0].ID, nil
 	} else {
 		return "", fmt.Errorf("Failed to Get the First Subnet ID.")
 	}
@@ -1953,7 +1957,7 @@ func (nlbHandler *NhnCloudNLBHandler) getVPCIdWithSubnetId(subnetId string) (str
 		return "", nil
 	}
 	
-	VPCId := subnet.NetworkID
+	VPCId := subnet.VPCID
 
 	return VPCId, nil
 }
