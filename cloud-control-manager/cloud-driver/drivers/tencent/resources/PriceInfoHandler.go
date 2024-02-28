@@ -222,7 +222,7 @@ func mappingToComputeStruct(regionName string, instanceModel *TencentInstanceMod
 						price, ok := priceMap[productId]
 						if ok { // 있으면
 							// policies 추출
-							policy := mappingPricingPolicy(common.StringPtr("RESERVED"), iType.Prices)
+							policy := mappingPricingPolicy(common.StringPtr("RESERVED"), p)
 
 							if priceFilter(&policy, filterMap) {
 								continue
@@ -231,7 +231,7 @@ func mappingToComputeStruct(regionName string, instanceModel *TencentInstanceMod
 							// append policy
 							pricePolicies := price.PriceInfo.PricingPolicies
 							pricePolicies = append(pricePolicies, policy)
-
+							price.PriceInfo.PricingPolicies = pricePolicies
 							priceMap[productId] = price // price 재할당
 						} else { // 없으면
 							// product 추출
@@ -452,7 +452,11 @@ func mappingPricingPolicy(instanceChargeType *string, price any) irs.PricingPoli
 		policyInfo.PurchaseOption = strPtrNilCheck(nil)
 
 	case reflect.TypeOf(cvm.ReservedInstancePriceItem{}):
+		if isPointer {
+			price = reflect.ValueOf(price).Elem().Interface()
+		}
 		p := price.(cvm.ReservedInstancePriceItem)
+
 		policy.PricingId = strPtrNilCheck(p.ReservedInstancesOfferingId)
 		policy.Unit = strPtrNilCheck(common.StringPtr("Yrs"))
 		policy.Price = floatPtrNilCheck(p.FixedPrice)
@@ -472,7 +476,8 @@ func mappingPricingPolicy(instanceChargeType *string, price any) irs.PricingPoli
 		policyInfo.OfferingClass = strPtrNilCheck(nil)
 
 	default:
-		spew.Dump(objType)
+		//spew.Dump(objType)
+		cblogger.Info("Type doesn't match", reflect.TypeOf(price))
 	}
 
 	return policy
