@@ -322,7 +322,7 @@ func (myImageHandler *TencentMyImageHandler) myImageExist(chkName string) (bool,
 		return false, nil
 	}
 
-	cblogger.Infof("MyImage 정보 찾음 - MyImageId:[%s] / MyImageName:[%s]", *response.Response.ImageSet[0].ImageId, *response.Response.ImageSet[0].ImageName)
+	cblogger.Infof("Found MyImage information - MyImageId:[%s] / MyImageName:[%s]", *response.Response.ImageSet[0].ImageId, *response.Response.ImageSet[0].ImageName)
 	return true, nil
 }
 
