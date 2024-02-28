@@ -56,18 +56,18 @@ func handleVPC() {
 		fmt.Println("============================================================================================")
 
 		vpcReqName := "nhn-vpc-1"
-		vpcIId := irs.IID{NameId: vpcReqName, SystemId: "ae945890-0433-467e-9366-b9e3611e01f3"}
+		vpcIId := irs.IID{NameId: vpcReqName, SystemId: "7e3af4cc-407b-47f6-beda-7c161ebe56f0"}
 		cblogger.Info("reqVPCName : ", vpcReqName)
 
-		subnetReqName := "subnet-1"
+		subnetReqName := "nhn-subnet-1"
 
 		var subnetInfoList []irs.SubnetInfo
 			info := irs.SubnetInfo{
 				IId: irs.IID{
 					NameId: subnetReqName,
 				},
+				// IPv4_CIDR: "10.0.0.0/28",
 				IPv4_CIDR: "172.16.0.0/24",
-				//IPv4_CIDR: "172.16.0.0/24",
 			}
 			subnetInfoList = append(subnetInfoList, info)
 
@@ -78,11 +78,11 @@ func handleVPC() {
 		
 		vpcReqInfo := irs.VPCReqInfo{
 			IId:            vpcIId,
+			// IPv4_CIDR:      "10.0.0.0/24",
 			IPv4_CIDR:      "172.16.0.0/12",
-			// IPv4_CIDR:      "172.16.0.0/22",
 			// IPv4_CIDR:      "172.16.0.0/16",
 			SubnetInfoList: subnetInfoList,
-			}
+		}
 			
 		//NHN Cloud VPC CIDR은 아래의 사설 주소 범위로 입력되어야 함.
 			// 10.0.0.0/8

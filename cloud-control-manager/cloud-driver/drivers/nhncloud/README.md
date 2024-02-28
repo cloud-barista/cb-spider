@@ -99,6 +99,9 @@ ssh -i /private_key_파일_경로/private_key_파일명(~~.pem) cb-user@해당_V
    - (주의) 위와 같은 제약에 대한 사용상의 문제를 최소화하기 위해, 하나의 project 내의 동일한 region에서는 위의 VPC를 이용해 <u>하나의 VPC만 생성하도록 제한</u>하고있음.
    - (참고) 추후 NHN Cloud에서 VPC/Subnet 생성/삭제 API를 제공하면, driver에서 사용자가 원하는 CIDR 대역의 VPC와 Subnet이 생성 가능한 완전한 기능을 지원하도록 보완할 예정임.
 
+   - VPC/Subnet을 API를 이용해서(본 드라이버를 이용해서) 생성할때, NHN Cloud region별로 다른 API endpoint를 사용하기 때문에 config에 설정된 region에 VPC/Subnet이 생성됨.(Region 단위로 구분되어 생성됨.)
+   - 그 특정 region에 생성된 VPC/Subnet은 그 region에 속하는 zone에 공유해서 사용함.(그 region 내 모든 zone에서 조회되고 사용 가능함.)
+
 ​	O NHN Cloud driver를 통해 VM instance 생성시, VMSpec type별로 지원하는 root disk type와 volume 크기가 다름.(아래는 CB-Spider 기준으로 지정 가능한 option임.)
    - u2.~~~ type의 VMSpec은 RootDiskType으로 default인 'General_HDD'만을 지원하고, RootDiskSize는 VMSpec별로 지정된 size를 지원함.
       - 가용 RootDiskType : ""(Blank, Not specified), 'default', 'General_HDD', 'TYPE1'
@@ -121,9 +124,6 @@ ssh -i /private_key_파일_경로/private_key_파일명(~~.pem) cb-user@해당_V
 ​	O NHN Cloud driver를 통해 Security Group을 생성하거나 Security Rule을 추가시 inbound/outbound에 대해 IPProtocol : "ALL", FromPort: "-1", ToPort: "-1"을 입력하면, 모든 Protocol에 대해 모든 영역 port가 open됨.
    - Security Rule을 제거시에 동일하게 설정하면, 모든 Protocol에 대해 모든 영역 port가 open된 Rule이 제거됨.
 
-​	O NHN Cloud driver를 통해 VPC/Subnet을 제어할 경우, 응답 시간이 소요되므로 참고해야함.
-   - NHN Cloud API를 통해 VPC/Subnet 정보 조회 등의 제어시 타 CSP에 비해 소요시간이 큼.
-
   ​O NHN Cloud driver를 통해 MyImage 생성시, 다음 사항을 참고
    - Snapshot 대상의 VM에 RootDisk 외에 attach된 disk가 있을 경우, attach된 disk는 제외하고 RootDisk만으로 MyImage가 생성됨.
 
@@ -131,5 +131,12 @@ ssh -i /private_key_파일_경로/private_key_파일명(~~.pem) cb-user@해당_V
    - u2.~~~ type의 VMSpec으로 생성되었던 VM을 기준으로 생성된 MyImage는 그 VM의 local disk가 MyImage로 생성됨.
       - (주의) 이와 같이, u2 type의 VMSpec으로 생성된 VM의 MyImage를 이용해 신규 VM을 생성할 경우, 그 신규 VM도 u2 type의 VMSpec을 이용해야함.
 
-​	O 미국 region infra는 사용 불가 (한국 2개 region, 일본 1개 region만 사용 가능)
+  ​O NHN Cloud에서 Windows VM instance 생성을 위한 제약 조건으로 아래의 사항을 공지함.
+   - VM 생성시, Linux 계열 VM과 같이 KyePair를 지정해야하며, Windows VM 생성 완료 후 콘솔에서 그 KeyPair를 이용해서 default 미밀번호를 확인할 수 있음.
+   - RAM이 최소 2GB 이상인 VMSpec 사용해야함.
+   - 50GB 이상의 루트 블록 스토리지 필요
+   - U2 type의 VMSpec은 Windows image를 사용할 수 없음.
+
+​	O 본 드라이버를 통해 미국 region infra는 사용 불가
+   - 현재 한국 : 2개 region X 2개 zone, 일본 : 1개 region X 2개 zone 지원
    - NHN Cloud에서 미국 region은 API endpoint를 제공하지 않으므로 미국 region은 console을 통해서만 사용 가능
