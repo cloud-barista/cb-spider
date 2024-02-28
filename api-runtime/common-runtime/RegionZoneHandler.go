@@ -157,3 +157,131 @@ func ListOrgZone(connectionName string) (string, error) {
 
 	return info, nil
 }
+
+// ================ RegionZone Handler (Pre-Config Version)
+
+func ListRegionZonePreConfig(driverName string, credentialName string) ([]*cres.RegionZoneInfo, error) {
+	cblog.Info("call ListRegionZonePreConfig()")
+
+	// check empty and trim user inputs
+	driverName, err := EmptyCheckAndTrim("driverName", driverName)
+	if err != nil {
+		cblog.Error(err)
+		return nil, err
+	}
+	credentialName, err = EmptyCheckAndTrim("credentialName", credentialName)
+	if err != nil {
+		cblog.Error(err)
+		return nil, err
+	}
+
+	cldConn, err := ccm.GetCloudConnectionByDriverNameAndCredentialName(driverName, credentialName)
+	if err != nil {
+		cblog.Error(err)
+		return nil, err
+	}
+
+	handler, err := cldConn.CreateRegionZoneHandler()
+	if err != nil {
+		cblog.Error(err)
+		return nil, err
+	}
+
+	infoList, err := handler.ListRegionZone()
+	if err != nil {
+		cblog.Error(err)
+		return nil, err
+	}
+
+	if infoList == nil || len(infoList) <= 0 {
+		infoList = []*cres.RegionZoneInfo{}
+	}
+
+	// Set KeyValueList to an empty array if it is nil
+	for _, region := range infoList {
+		if region.KeyValueList == nil {
+			region.KeyValueList = []cres.KeyValue{}
+		}
+	}
+
+	return infoList, nil
+}
+
+func GetRegionZonePreConfig(driverName string, credentialName string, nameID string) (*cres.RegionZoneInfo, error) {
+	cblog.Info("call GetRegionZonePreConfig()")
+
+	driverName, err := EmptyCheckAndTrim("driverName", driverName)
+	if err != nil {
+		cblog.Error(err)
+		return nil, err
+	}
+	credentialName, err = EmptyCheckAndTrim("credentialName", credentialName)
+	if err != nil {
+		cblog.Error(err)
+		return nil, err
+	}
+	nameID, err = EmptyCheckAndTrim("nameID", nameID)
+	if err != nil {
+		cblog.Error(err)
+		return nil, err
+	}
+
+	cldConn, err := ccm.GetCloudConnectionByDriverNameAndCredentialName(driverName, credentialName)
+	if err != nil {
+		cblog.Error(err)
+		return nil, err
+	}
+
+	handler, err := cldConn.CreateRegionZoneHandler()
+	if err != nil {
+		cblog.Error(err)
+		return nil, err
+	}
+	info, err := handler.GetRegionZone(nameID)
+	if err != nil {
+		cblog.Error(err)
+		return nil, err
+	}
+
+	// Set KeyValueList to an empty array if it is nil
+	if info.KeyValueList == nil {
+		info.KeyValueList = []cres.KeyValue{}
+	}
+
+	return &info, nil
+}
+
+func ListOrgRegionPreConfig(driverName string, credentialName string) (string, error) {
+	cblog.Info("call ListOrgRegionPreConfig()")
+
+	driverName, err := EmptyCheckAndTrim("driverName", driverName)
+	if err != nil {
+		cblog.Error(err)
+		return "", err
+	}
+	credentialName, err = EmptyCheckAndTrim("credentialName", credentialName)
+	if err != nil {
+		cblog.Error(err)
+		return "", err
+	}
+
+	cldConn, err := ccm.GetCloudConnectionByDriverNameAndCredentialName(driverName, credentialName)
+	if err != nil {
+		cblog.Error(err)
+		return "", err
+	}
+
+	handler, err := cldConn.CreateRegionZoneHandler()
+	if err != nil {
+		cblog.Error(err)
+		return "", err
+	}
+
+	infoList, err := handler.ListOrgRegion()
+	if err != nil {
+		cblog.Error(err)
+		return "", err
+	}
+
+	return infoList, nil
+}

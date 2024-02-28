@@ -1500,38 +1500,36 @@ Loop:
 					cblogger.Error(err)
 				}
 
-				// filter not supported in IBM Cloud
+				var addFilterList string
+				var filterList []irs.KeyValue
+				for {
+					fmt.Print("Add filter list? (y/N): ")
+					_, err := fmt.Scanln(&addFilterList)
+					if err != nil || strings.ToLower(addFilterList) == "n" {
+						break
+					}
 
-				//var addFilterList string
-				//var filterList []irs.KeyValue
-				//for {
-				//	fmt.Print("Add filter list? (y/N): ")
-				//	_, err := fmt.Scanln(&addFilterList)
-				//	if err != nil || strings.ToLower(addFilterList) == "n" {
-				//		break
-				//	}
-				//
-				//	fmt.Println("=== Enter key to filter ===")
-				//	in = bufio.NewReader(os.Stdin)
-				//	key, err := in.ReadString('\n')
-				//	if err != nil {
-				//		cblogger.Error(err)
-				//	}
-				//	key = strings.TrimSpace(key)
-				//
-				//	fmt.Println("=== Enter value to filter ===")
-				//	in = bufio.NewReader(os.Stdin)
-				//	value, err := in.ReadString('\n')
-				//	if err != nil {
-				//		cblogger.Error(err)
-				//	}
-				//	value = strings.TrimSpace(value)
-				//
-				//	filterList = append(filterList, irs.KeyValue{
-				//		Key:   key,
-				//		Value: value,
-				//	})
-				//}
+					fmt.Println("=== Enter key to filter ===")
+					in = bufio.NewReader(os.Stdin)
+					key, err := in.ReadString('\n')
+					if err != nil {
+						cblogger.Error(err)
+					}
+					key = strings.TrimSpace(key)
+
+					fmt.Println("=== Enter value to filter ===")
+					in = bufio.NewReader(os.Stdin)
+					value, err := in.ReadString('\n')
+					if err != nil {
+						cblogger.Error(err)
+					}
+					value = strings.TrimSpace(value)
+
+					filterList = append(filterList, irs.KeyValue{
+						Key:   key,
+						Value: value,
+					})
+				}
 
 				if priceInfo, err := priceInfoHandler.GetPriceInfo(productFamiliy, region, []irs.KeyValue{} /*filterList*/); err != nil {
 					cblogger.Error(err)

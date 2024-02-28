@@ -67,7 +67,7 @@ func handleVM() {
 		fmt.Println("============================================================================================")
 
 		//config := readConfigFile()
-		VmID := irs.IID{SystemId: "db02bc57-d481-42e8-bf43-738becb14d03"}
+		VmID := irs.IID{SystemId: "8e217114-d5dc-4c18-b285-7960852aa892"}
 
 		var commandNum int
 		inputCnt, err := fmt.Scan(&commandNum)
@@ -86,20 +86,20 @@ func handleVM() {
 					// ImageType:	irs.MyImage,
 					ImageType:	irs.PublicImage,
 
-					VMUserPasswd: "cb-user-cb-user",
+					VMUserPasswd: "cbuser357505**", // No Simple PW!!
 
-					IId: irs.IID{NameId: "kt-win-vm-10"},
+					IId: irs.IID{NameId: "kt-vm-18"},
 					// IId: irs.IID{NameId: "kt-win-vm-02"},
 
 					// # Zone: KOR-Central A
-					ImageIID: irs.IID{NameId: "WIN 2019 STD 64bit [Korean]", SystemId: "f22c7425-81b5-4cd8-b8e8-6e525070cf19"},
-					VMSpecName: "d3530ad2-462b-43ad-97d5-e1087b952b7d!097b63d7-e725-4db7-b4dd-a893b0c76cb0_disk100GB",				
+					// ImageIID: irs.IID{NameId: "WIN 2019 STD 64bit [Korean]", SystemId: "f22c7425-81b5-4cd8-b8e8-6e525070cf19"},
+					// VMSpecName: "d3530ad2-462b-43ad-97d5-e1087b952b7d!097b63d7-e725-4db7-b4dd-a893b0c76cb0_disk100GB",				
 					// WIN 2019 STD 64bit [Korean] image와 호환
 
 					// # Zone: KOR-Central A
-					// ImageIID: irs.IID{NameId: "Ubuntu 20.04 64bit", SystemId: "87838094-af4f-449f-a2f4-f5b4b581eb29"},
-					// VMSpecName: "d3530ad2-462b-43ad-97d5-e1087b952b7d!_disk20GB",
-					// Ubuntu 20.04 64bit image와 호환
+					ImageIID: irs.IID{NameId: "Ubuntu 20.04 64bit", SystemId: "87838094-af4f-449f-a2f4-f5b4b581eb29"},
+					VMSpecName: "d3530ad2-462b-43ad-97d5-e1087b952b7d!_disk20GB",
+					// 상기 Ubuntu 20.04 64bit image와 호환
 
 					// VMSpecName: "543b1f26-eddf-4521-9cbd-f3744aa2cc52!cc85e4dd-bfd9-4cec-aa22-cf226c1da92f_disk100GB",
 							
@@ -138,8 +138,8 @@ func handleVM() {
 					// SecurityGroupIIDs: []irs.IID{{SystemId: "CB-Security5"},{SystemId: "CB-Security6"}},
 
 					// KT Cloud Disk(diskofferingid 지정하지 않을때) : Default : 20 GB
-					RootDiskType: "SSD-Provisioned",
-					// RootDiskType: "default",
+					// RootDiskType: "SSD",
+					RootDiskType: "default",
 
 					RootDiskSize: "200",
 					// RootDiskSize: "default",

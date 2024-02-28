@@ -152,7 +152,7 @@ func StartVM(c echo.Context) error {
 	reqInfo := cres.VMReqInfo{
 		IId:               cres.IID{req.ReqInfo.Name, ""},
 		ImageType:         cres.ImageType(req.ReqInfo.ImageType),
-		ImageIID:          cres.IID{req.ReqInfo.ImageName, ""},
+		ImageIID:          cres.IID{req.ReqInfo.ImageName, req.ReqInfo.ImageName},
 		VpcIID:            cres.IID{req.ReqInfo.VPCName, ""},
 		SubnetIID:         cres.IID{req.ReqInfo.SubnetName, ""},
 		SecurityGroupIIDs: sgIIDList,

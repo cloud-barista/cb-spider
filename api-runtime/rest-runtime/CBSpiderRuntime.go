@@ -229,6 +229,10 @@ func RunServer() {
 		{"GET", "/regionzone/:Name", GetRegionZone},
 		{"GET", "/orgregion", ListOrgRegion},
 		{"GET", "/orgzone", ListOrgZone},
+		// by driverName & credentialName
+		{"GET", "/preconfig/regionzone", ListRegionZonePreConfig},
+		{"GET", "/preconfig/regionzone/:Name", GetRegionZonePreConfig},
+		{"GET", "/preconfig/orgregion", ListOrgRegionPreConfig},
 
 		//----------PriceInfo Handler
 		{"GET", "/productfamily/:RegionName", ListProductFamily},
@@ -445,6 +449,8 @@ func RunServer() {
 
 		{"GET", "/adminweb/priceinfo/:ConnectConfig", aw.PriceInfoRequest},
 		{"GET", "/adminweb/priceinfotablelist/:ProductFamily/:RegionName/:ConnectConfig", aw.PriceInfoTableList},
+		// download price info with JSON file
+		{"GET", "/adminweb/priceinfo/download/:FileName", aw.DownloadPriceInfo},
 
 		{"GET", "/adminweb/cluster/:ConnectConfig", aw.Cluster},
 		{"GET", "/adminweb/clustermgmt/:ConnectConfig", aw.ClusterMgmt},

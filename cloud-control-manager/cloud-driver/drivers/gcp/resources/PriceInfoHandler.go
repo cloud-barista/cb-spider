@@ -169,6 +169,13 @@ func (priceInfoHandler *GCPPriceInfoHandler) GetPriceInfo(productFamily string, 
 						estimatedCostResponse, err := callEstimateCostScenario(priceInfoHandler, regionName, billingAccountId, machineType)
 						if err != nil {
 							cblogger.Error("error occurred when calling the EstimateCostScenario; message:", err)
+							
+							if googleApiError, ok := err.(*googleapi.Error); ok {
+								if googleApiError.Code == 403  {
+									return "", errors.New("you don't have any permission to access billing account")
+								}
+							}
+
 							continue
 						}
 

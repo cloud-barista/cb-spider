@@ -47,10 +47,11 @@ func handleImage() {
 	for {
 		fmt.Println("\n============================================================================================")
 		fmt.Println("[ Image Management Test ]")
-		fmt.Println("1. Image List")
-		fmt.Println("2. Image Get")
-		fmt.Println("3. Image Create (TBD)")
-		fmt.Println("4. Image Delete (TBD)")
+		fmt.Println("1. ListImage()")
+		fmt.Println("2. GetImage()")
+		fmt.Println("3. CheckWindowsImage()")
+		fmt.Println("4. CreateImage (TBD)")
+		fmt.Println("5. DeleteImage (TBD)")
 		fmt.Println("0. Quit")
 		fmt.Println("\n   Select a number above!! : ")
 		fmt.Println("============================================================================================")
@@ -63,7 +64,8 @@ func handleImage() {
 
 		imageReqInfo := irs.ImageReqInfo{
 			//IId: irs.IID{NameId: "Test OS Image", SystemId: "SPSW0LINUX000029"}, //NCP : Ubuntu Server 16.04 (64-bit)
-			IId: irs.IID{NameId: "Test OS Image", SystemId: "SPSW0LINUX000130"}, //NCP : Ubuntu Server 18.04 (64-bit)
+			// IId: irs.IID{NameId: "Test OS Image", SystemId: "SPSW0LINUX000130"}, //NCP : Ubuntu Server 18.04 (64-bit)
+			IId: irs.IID{NameId: "Test OS Image", SystemId: "SPSW0WINNTEN0016A"}, //NCP : Windows Server 2016 (64-bit) English Edition		
 			// IId: irs.IID{NameId: "Test OS Image", SystemId: "SPSW0LINUX000031"}, //NCP : CentOS 6.3(64bit)
 		}
 
@@ -73,34 +75,37 @@ func handleImage() {
 				return
 
 			case 1:
-				cblogger.Infof("Image list 조회 테스트")
+				cblogger.Infof("ListImage() Test")
 
 				result, err := handler.ListImage()
 				if err != nil {
-					cblogger.Infof(" Image list 조회 실패 : ", err)
+					cblogger.Error(err)
+					cblogger.Error("Failed to List Image : ", err)
 				} else {
 					fmt.Println("\n==================================================================================================================")
-					cblogger.Info("Image list 조회 결과")
+					cblogger.Info("Result of ListImage()")
+					//cblogger.Info(result)
+					cblogger.Info("ListImage() count : ", len(result))
 					fmt.Println("\n")
 					spew.Dump(result)
-					cblogger.Info("출력 결과 수 : ", len(result))
-					//조회및 삭제 테스트를 위해 리스트의 첫번째 정보의 ID를 요청ID로 자동 갱신함.
+
 					if result != nil {
-						imageReqInfo.IId = result[0].IId // 조회 및 삭제를 위해 생성된 ID로 변경
+						imageReqInfo.IId = result[0].IId
 					}
 				}
 
 				cblogger.Info("\nListImage Test Finished")
 
 			case 2:
-				cblogger.Infof("[%s] Image 조회 테스트", imageReqInfo.IId)
+				cblogger.Infof("[%s]GetImage() Test", imageReqInfo.IId)
 
 				result, err := handler.GetImage(imageReqInfo.IId)
 				if err != nil {
-					cblogger.Infof("[%s] Image 조회 실패 : ", imageReqInfo.IId.SystemId, err)
+					cblogger.Error(err)
+					cblogger.Error("Failed to Get the Image Info of [%s] : ", imageReqInfo.IId.SystemId, err)
 				} else {
 					fmt.Println("\n==================================================================================================================")
-					cblogger.Infof("[%s] Image 조회 결과 : \n[%s]", imageReqInfo.IId.SystemId, result)
+					cblogger.Infof("Result of GetImage() of [%s] : \n[%s]", imageReqInfo.IId.SystemId, result)
 
 					fmt.Println("\n")
 					spew.Dump(result)
@@ -108,25 +113,23 @@ func handleImage() {
 
 				cblogger.Info("\nGetImage Test Finished")
 
-				// case 3:
-				// 	cblogger.Infof("[%s] Image 생성 테스트", imageReqInfo.IId.NameId)
-				// 	result, err := handler.CreateImage(imageReqInfo)
-				// 	if err != nil {
-				// 		cblogger.Infof(imageReqInfo.IId.NameId, " Image 생성 실패 : ", err)
-				// 	} else {
-				// 		cblogger.Infof("Image 생성 결과 : ", result)
-				// 		imageReqInfo.IId = result.IId // 조회 및 삭제를 위해 생성된 ID로 변경
-				// 		spew.Dump(result)
-				// 	}
 
-				// case 4:
-				// 	cblogger.Infof("[%s] Image 삭제 테스트", imageReqInfo.IId.NameId)
-				// 	result, err := handler.DeleteImage(imageReqInfo.IId)
-				// 	if err != nil {
-				// 		cblogger.Infof("[%s] Image 삭제 실패 : ", imageReqInfo.IId.NameId, err)
-				// 	} else {
-				// 		cblogger.Infof("[%s] Image 삭제 결과 : [%s]", imageReqInfo.IId.NameId, result)
-				// 	}
+			case 3:
+				cblogger.Infof("[%s] CheckWindowsImage() Test", imageReqInfo.IId)
+
+				result, err := handler.CheckWindowsImage(imageReqInfo.IId)
+				if err != nil {
+					cblogger.Error(err)
+					cblogger.Error("Failed to CheckWindowsImage() of [%s] : ", imageReqInfo.IId.SystemId, err)
+				} else {
+					fmt.Println("\n==================================================================================================================")
+					cblogger.Infof("Result of CheckWindowsImage() of [%s] : [%v]", imageReqInfo.IId.SystemId, result)
+
+					fmt.Println("\n")
+					spew.Dump(result)
+				}
+
+				cblogger.Info("\nCheckWindowsImage() Test Finished")
 			}
 		}
 	}

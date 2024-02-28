@@ -8,6 +8,7 @@ import (
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/awserr"
 
 	"github.com/aws/aws-sdk-go/service/pricing"
 )
@@ -22,8 +23,47 @@ type AwsPriceInfoHandler struct {
 // getPricingClient에 Client *pricing.Pricing 정의
 func (priceInfoHandler *AwsPriceInfoHandler) ListProductFamily(regionName string) ([]string, error) {
 	var result []string
+	input := &pricing.GetAttributeValuesInput{
+		AttributeName: aws.String("productfamily"),
+		MaxResults:    aws.Int64(32), // 2024.01 기준 32개
+		ServiceCode:   aws.String("AmazonEC2"),
+	}
+	for {
+		attributeValues, err := priceInfoHandler.Client.GetAttributeValues(input)
+		if err != nil {
+			if aerr, ok := err.(awserr.Error); ok {
+				switch aerr.Code() {
+				case pricing.ErrCodeInternalErrorException:
+					cblogger.Error(pricing.ErrCodeInternalErrorException, aerr.Error())
+				case pricing.ErrCodeInvalidParameterException:
+					cblogger.Error(pricing.ErrCodeInvalidParameterException, aerr.Error())
+				case pricing.ErrCodeNotFoundException:
+					cblogger.Error(pricing.ErrCodeNotFoundException, aerr.Error())
+				case pricing.ErrCodeInvalidNextTokenException:
+					cblogger.Error(pricing.ErrCodeInvalidNextTokenException, aerr.Error())
+				case pricing.ErrCodeExpiredNextTokenException:
+					cblogger.Error(pricing.ErrCodeExpiredNextTokenException, aerr.Error())
+				default:
+					cblogger.Error(aerr.Error())
+				}
+			} else {
+				// Prnit the error, cast err to awserr.Error to get the Code and
+				// Message from an error.
+				cblogger.Error(err.Error())
+			}
+		}
+		for _, attributeValue := range attributeValues.AttributeValues {
+			result = append(result, *attributeValue.Value)
+		}
+		if attributeValues.NextToken != nil {
+			input = &pricing.GetAttributeValuesInput{
+				NextToken: attributeValues.NextToken,
+			}
+		} else {
+			break
+		}
+	}
 
-	result = append(result, "AmazonEC2")
 	return result, nil
 }
 
@@ -38,26 +78,8 @@ func (priceInfoHandler *AwsPriceInfoHandler) GetPriceInfo(productFamily string, 
 
 	priceMap := make(map[string]irs.Price) // 전체 price를 id로 구분한 map
 
-	cblogger.Info("productFamily======", productFamily)
-
+	cblogger.Info("productFamily : ", productFamily)
 	cblogger.Info("filter value : ", filterList)
-	describeServicesinput := &pricing.DescribeServicesInput{
-		ServiceCode: aws.String(productFamily),
-		MaxResults:  aws.Int64(1),
-	}
-
-	services, err := priceInfoHandler.Client.DescribeServices(describeServicesinput)
-
-	if services == nil {
-		cblogger.Error("No services in given productFamily. CHECK productFamily!")
-		return "", err
-	}
-
-	if err != nil {
-		cblogger.Error(err)
-		return "", err
-	}
-
 	requestProductsInputFilters, err := setProductsInputRequestFilter(filterList)
 
 	// filter조건에 region 지정.
@@ -75,131 +97,154 @@ func (priceInfoHandler *AwsPriceInfoHandler) GetPriceInfo(productFamily string, 
 		})
 	}
 
-	getProductsRequest := &pricing.GetProductsInput{
-		Filters:     requestProductsInputFilters,
-		ServiceCode: aws.String(productFamily),
-	}
-	cblogger.Info("get Products request", getProductsRequest)
-	priceinfos, err := priceInfoHandler.Client.GetProducts(getProductsRequest)
-	if err != nil {
-		cblogger.Error(err)
-		return "", err
-	}
-	cblogger.Info("get Products response", priceinfos)
+	requestProductsInputFilters = append(requestProductsInputFilters, &pricing.Filter{
+		Field: aws.String("productFamily"),
+		Type:  aws.String("EQUALS"),
+		Value: aws.String(productFamily),
+	})
+	cblogger.Info("requestProductsInputFilters", requestProductsInputFilters)
 
-	for _, awsPrice := range priceinfos.PriceList {
-		productInfo, err := ExtractProductInfo(awsPrice)
+	// NextToken 설정 x -> 1 ~ 100개 까지 출력
+	// NextToken값이 있으면 request에 NextToken값을 추가
+	// NextToken값이 없어질 때 까지 반복
+	// Region : us-west-1 / ProductFamily : Compute Instance 조회 결과 39200개 확인
+	var nextToken *string
+	for {
+
+		getProductsRequest := &pricing.GetProductsInput{
+			Filters:     requestProductsInputFilters,
+			ServiceCode: aws.String("AmazonEC2"), // ServiceCode : AmazonEC2 고정
+			NextToken:   nextToken,
+		}
+		cblogger.Info("get Products request", getProductsRequest)
+
+		priceInfos, err := priceInfoHandler.Client.GetProducts(getProductsRequest)
 		if err != nil {
 			cblogger.Error(err)
-			continue
+			return "", err
 		}
+		cblogger.Info("get Products response", priceInfos)
 
-		// termsKey : OnDemand, Reserved
-		for termsKey, termsValue := range awsPrice["terms"].(map[string]interface{}) {
-			for _, policyValue := range termsValue.(map[string]interface{}) {
-				// OnDemand, Reserved 일 때, 항목이 다름.
-				priceDemensions := make(map[string]interface{})
-				termAttributes := make(map[string]interface{})
-				sku := ""
-				if priceDemensionsVal, ok := policyValue.(map[string]interface{})["priceDimensions"]; ok {
-					priceDemensions = priceDemensionsVal.(map[string]interface{})
-				}
-				if termAttributesVal, ok := policyValue.(map[string]interface{})["termAttributes"]; ok {
-					termAttributes = termAttributesVal.(map[string]interface{})
-				}
-				if skuVal, ok := policyValue.(map[string]interface{})["sku"]; ok {
-					skuValString, ok := skuVal.(string)
-					if ok {
-						sku = skuValString
+		for _, awsPrice := range priceInfos.PriceList {
+			productInfo, err := ExtractProductInfo(awsPrice, productFamily)
+
+			if err != nil {
+				cblogger.Error(err)
+				continue
+			}
+
+			// termsKey : OnDemand, Reserved
+			for termsKey, termsValue := range awsPrice["terms"].(map[string]interface{}) {
+				for _, policyValue := range termsValue.(map[string]interface{}) {
+					// OnDemand, Reserved 일 때, 항목이 다름.
+					priceDemensions := make(map[string]interface{})
+					termAttributes := make(map[string]interface{})
+					sku := ""
+					if priceDemensionsVal, ok := policyValue.(map[string]interface{})["priceDimensions"]; ok {
+						priceDemensions = priceDemensionsVal.(map[string]interface{})
 					}
-				}
-
-				if termsKey == "OnDemand" {
-					for priceDimensionsKey, priceDimensionsValue := range priceDemensions {
-						isFiltered := OnDemandPolicyFilter(priceDimensionsKey, priceDimensionsValue.(map[string]interface{}), termAttributes, sku, filterList)
-						if isFiltered {
-							continue
-						}
-
-						var pricingPolicy irs.PricingPolicies
-						pricingPolicy.PricingId = priceDimensionsKey
-						pricingPolicy.PricingPolicy = termsKey
-						pricingPolicy.Description = fmt.Sprintf("%s", priceDimensionsValue.(map[string]interface{})["description"])
-						for key, val := range priceDimensionsValue.(map[string]interface{})["pricePerUnit"].(map[string]interface{}) {
-							pricingPolicy.Currency = key
-							pricingPolicy.Price = fmt.Sprintf("%s", val)
-							// USD is Default.
-							// if NO USD data, accept other currency.
-							if key == "USD" {
-								break
-							}
-						}
-						pricingPolicy.Unit = fmt.Sprintf("%s", priceDimensionsValue.(map[string]interface{})["unit"])
-
-						// policy 추출하여 추가
-						aPrice, ok := AppendPolicyToPrice(priceMap, productInfo, pricingPolicy, awsPrice)
-						if !ok {
-							priceMap[productInfo.ProductId] = aPrice
+					if termAttributesVal, ok := policyValue.(map[string]interface{})["termAttributes"]; ok {
+						termAttributes = termAttributesVal.(map[string]interface{})
+					}
+					if skuVal, ok := policyValue.(map[string]interface{})["sku"]; ok {
+						skuValString, ok := skuVal.(string)
+						if ok {
+							sku = skuValString
 						}
 					}
 
-				} else if termsKey == "Reserved" {
+					if termsKey == "OnDemand" {
+						for priceDimensionsKey, priceDimensionsValue := range priceDemensions {
+							isFiltered := OnDemandPolicyFilter(priceDimensionsKey, priceDimensionsValue.(map[string]interface{}), termAttributes, sku, filterList)
+							if isFiltered {
+								continue
+							}
 
-					for priceDimensionsKey, priceDimensionsValue := range priceDemensions {
-						isFiltered := ReservedPolicyFilter(priceDimensionsKey, priceDimensionsValue.(map[string]interface{}), termAttributes, sku, filterList)
-						if isFiltered {
-							continue
-						}
+							var pricingPolicy irs.PricingPolicies
+							pricingPolicy.PricingId = priceDimensionsKey
+							pricingPolicy.PricingPolicy = termsKey
+							pricingPolicy.Description = fmt.Sprintf("%s", priceDimensionsValue.(map[string]interface{})["description"])
+							for key, val := range priceDimensionsValue.(map[string]interface{})["pricePerUnit"].(map[string]interface{}) {
+								pricingPolicy.Currency = key
+								pricingPolicy.Price = fmt.Sprintf("%s", val)
+								// USD is Default.
+								// if NO USD data, accept other currency.
+								if key == "USD" {
+									break
+								}
+							}
+							pricingPolicy.Unit = fmt.Sprintf("%s", priceDimensionsValue.(map[string]interface{})["unit"])
 
-						var pricingPolicy irs.PricingPolicies
-						pricingPolicy.PricingId = priceDimensionsKey
-						pricingPolicy.PricingPolicy = termsKey
-						pricingPolicy.Description = fmt.Sprintf("%s", priceDimensionsValue.(map[string]interface{})["description"])
-						for key, val := range priceDimensionsValue.(map[string]interface{})["pricePerUnit"].(map[string]interface{}) {
-							pricingPolicy.Currency = key
-							pricingPolicy.Price = fmt.Sprintf("%s", val)
-							// USD is Default.
-							// if NO USD data, accept other currency.
-							if key == "USD" {
-								break
+							// policy 추출하여 추가
+							aPrice, ok := AppendPolicyToPrice(priceMap, productInfo, pricingPolicy, awsPrice)
+							if !ok {
+								priceMap[productInfo.ProductId] = aPrice
 							}
 						}
-						pricingPolicy.Unit = fmt.Sprintf("%s", priceDimensionsValue.(map[string]interface{})["unit"])
 
-						pricingPolicyInfo := irs.PricingPolicyInfo{}
-						if leaseContractLength, ok := termAttributes["LeaseContractLength"]; ok {
-							pricingPolicyInfo.LeaseContractLength = leaseContractLength.(string)
-						}
-						if offeringClass, ok := termAttributes["OfferingClass"]; ok {
-							pricingPolicyInfo.OfferingClass = offeringClass.(string)
-						}
-						if purchaseOption, ok := termAttributes["PurchaseOption"]; ok {
-							pricingPolicyInfo.PurchaseOption = purchaseOption.(string)
-						}
+					} else if termsKey == "Reserved" {
 
-						// policy 추출하여 추가
-						aPrice, ok := AppendPolicyToPrice(priceMap, productInfo, pricingPolicy, awsPrice)
-						if !ok {
-							priceMap[productInfo.ProductId] = aPrice
+						for priceDimensionsKey, priceDimensionsValue := range priceDemensions {
+							isFiltered := ReservedPolicyFilter(priceDimensionsKey, priceDimensionsValue.(map[string]interface{}), termAttributes, sku, filterList)
+							if isFiltered {
+								continue
+							}
+
+							var pricingPolicy irs.PricingPolicies
+							pricingPolicy.PricingId = priceDimensionsKey
+							pricingPolicy.PricingPolicy = termsKey
+							pricingPolicy.Description = fmt.Sprintf("%s", priceDimensionsValue.(map[string]interface{})["description"])
+							for key, val := range priceDimensionsValue.(map[string]interface{})["pricePerUnit"].(map[string]interface{}) {
+								pricingPolicy.Currency = key
+								pricingPolicy.Price = fmt.Sprintf("%s", val)
+								// USD is Default.
+								// if NO USD data, accept other currency.
+								if key == "USD" {
+									break
+								}
+							}
+							pricingPolicy.Unit = fmt.Sprintf("%s", priceDimensionsValue.(map[string]interface{})["unit"])
+
+							pricingPolicyInfo := irs.PricingPolicyInfo{}
+							if leaseContractLength, ok := termAttributes["LeaseContractLength"]; ok {
+								pricingPolicyInfo.LeaseContractLength = leaseContractLength.(string)
+							}
+							if offeringClass, ok := termAttributes["OfferingClass"]; ok {
+								pricingPolicyInfo.OfferingClass = offeringClass.(string)
+							}
+							if purchaseOption, ok := termAttributes["PurchaseOption"]; ok {
+								pricingPolicyInfo.PurchaseOption = purchaseOption.(string)
+							}
+
+							// policy 추출하여 추가
+							aPrice, ok := AppendPolicyToPrice(priceMap, productInfo, pricingPolicy, awsPrice)
+							if !ok {
+								priceMap[productInfo.ProductId] = aPrice
+							}
 						}
 					}
 				}
 			}
 		}
-	}
+
+		// nextToken이 없으면 for Loop 중단.
+		if priceInfos.NextToken == nil {
+			break
+		}
+		// NextToken값이 있다면 설정
+		nextToken = priceInfos.NextToken
+	} // end of nextToken for
 
 	priceList := []irs.Price{}
 	for _, value := range priceMap {
 		priceList = append(priceList, value)
 	}
-
 	priceone := irs.CloudPrice{
 		CloudName: "AWS",
 	}
 
 	priceone.PriceList = priceList
 	result.CloudPriceList = append(result.CloudPriceList, priceone)
-
 	resultString, err := json.Marshal(result)
 	if err != nil {
 		cblogger.Error(err)
@@ -209,7 +254,7 @@ func (priceInfoHandler *AwsPriceInfoHandler) GetPriceInfo(productFamily string, 
 }
 
 // 가져온 결과에서 product 추출
-func ExtractProductInfo(jsonValue aws.JSONValue) (irs.ProductInfo, error) {
+func ExtractProductInfo(jsonValue aws.JSONValue, productFamily string) (irs.ProductInfo, error) {
 	var productInfo irs.ProductInfo
 
 	jsonString, err := json.MarshalIndent(jsonValue["product"].(map[string]interface{})["attributes"], "", "    ")
@@ -217,8 +262,17 @@ func ExtractProductInfo(jsonValue aws.JSONValue) (irs.ProductInfo, error) {
 		cblogger.Error(err)
 		return productInfo, err
 	}
+	switch productFamily {
+	case "Compute Instance":
+		ReplaceEmptyWithNAforComputeInstance(&productInfo)
+	case "Storage":
+		ReplaceEmptyWithNAforStorage(&productInfo)
+	case "Load Balancer-Network":
+		ReplaceEmptyWithNAforLoadBalancerNetwork(&productInfo)
+	default:
+		ReplaceEmptyWithNA(&productInfo)
+	}
 
-	ReplaceEmptyWithNA(&productInfo)
 	err = json.Unmarshal(jsonString, &productInfo)
 	if err != nil {
 		cblogger.Error(err)

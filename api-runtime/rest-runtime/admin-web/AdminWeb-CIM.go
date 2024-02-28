@@ -356,7 +356,12 @@ func makeOnchangeCredentialProviderFunc_js() string {
 		  case "NHNCLOUD":
 			credentialInfo = '[{"Key":"IdentityEndpoint", "Value":"https://api-identity.infrastructure.cloud.toast.com"}, {"Key":"Username", "Value":"XXXXX@XXXXXXXXXXXXXXXX"}, {"Key":"Password", "Value":"XXXXXXXXXXXXXXXXXX"}, {"Key":"DomainName", "Value":"default"}, {"Key":"TenantId", "Value":"XXXXXXXXXXXXXXXXX"}]'
 		    break;
-
+		case "KTCLOUD":
+			credentialInfo = '[{"Key":"ClientId", "Value":"XXXXXXXXXXXXXXXXXXX"}, {"Key":"ClientSecret", "Value":"XXXXXXXXXXXXXXXXXXXXXXXXXXX"}]'
+		    break;
+		case "KTCLOUDVPC":
+			credentialInfo = ' [{"Key":"IdentityEndpoint", "Value":"https://api.ucloudbiz.olleh.com/d1/identity/v3/"}, {"Key":"Username", "Value":"~~~@~~~.com"}, {"Key":"Password", "Value":"XXXXXXXXXX"}, {"Key":"DomainName", "Value":"default"}, {"Key":"ProjectID", "Value":"XXXXXXXXXX"}]'
+		    break;
 
 		  case "MOCK":
 			credentialInfo = '[{"Key":"MockName", "Value":"mock_name00"}]'
@@ -617,85 +622,78 @@ func makeOnchangeRegionProviderFunc_js() string {
         switch(providerName) {
           case "AWS":
             regionInfo = '[{"Key":"Region", "Value":"us-east-2"}, {"Key":"Zone", "Value":"us-east-2a"}]'
-            region = '(ohio)us-east-2'
-            zone = ''
+            region = '(ohio)us-east-2a'
             break;
           case "AZURE":
             regionInfo = '[{"Key":"location", "Value":"northeurope"}, {"Key":"ResourceGroup", "Value":"CB-GROUP-POWERKIM"}]'
             region = 'northeurope'
-            zone = ''            
             break;
           case "GCP":
             regionInfo = '[{"Key":"Region", "Value":"us-central1"},{"Key":"Zone", "Value":"us-central1-a"}]'
-            region = 'us-central1'
-            zone = 'us-central1-a'             
+            region = 'us-central1-a'
             break;
           case "ALIBABA":
             regionInfo = '[{"Key":"Region", "Value":"ap-northeast-1"}, {"Key":"Zone", "Value":"ap-northeast-1a"}]'
-            region = 'ap-northeast-1'
-            zone = 'ap-northeast-1a'             
+            region = 'ap-northeast-1a'
             break;
           case "TENCENT":
             regionInfo = '[{"Key":"Region", "Value":"ap-beijing"}, {"Key":"Zone", "Value":"ap-beijing-3"}]'
-            region = 'ap-beijing'
-            zone = 'ap-beijing-3'             
+            region = 'ap-beijing-3'
             break;
           case "IBM":
             regionInfo = '[{"Key":"Region", "Value":"us-south"}, {"Key":"Zone", "Value":"us-south-1"}]'
-            region = 'us-south'
-            zone = 'us-south-1'             
+            region = 'us-south-1'
             break;
           case "OPENSTACK":
             regionInfo = '[{"Key":"Region", "Value":"RegionOne"}]'
             region = 'RegionOne'
-            zone = 'RegionOne'            
             break;
           case "CLOUDIT":
             regionInfo = '[{"Key":"Region", "Value":"default"}]'
             region = 'default'
-            zone = ''            
             break;
           case "DOCKER":
             regionInfo = '[{"Key":"Region", "Value":"default"}]'
             region = 'default'
-            zone = ''             
             break;
 
           case "NCPVPC":
             regionInfo = '[{"Key":"Region", "Value":"KR"}, {"Key":"Zone", "Value":"KR-1"}]'
-            region = 'KR'
-            zone = 'KR-1'             
+            region = 'KR-1'
             break;
           case "NCP":
             regionInfo = '[{"Key":"region", "Value":"KR"}]'
             region = 'KR'
-            zone = ''             
             break;
           case "NHNCLOUD":
             regionInfo = '[{"Key":"Region", "Value":"KR1"}]'
             region = 'KR1'
-            zone = ''             
+            break;
+		case "KTCLOUD":
+            regionInfo = '[{"Key":"Region", "Value":"KOR-Seoul"}, {"Key":"Zone", "Value":"95e2f517-d64a-4866-8585-5177c256f7c7"}]'
+            region = 'KOR-Seoul-M'
+            break;
+		case "KTCLOUDVPC":
+            regionInfo = '[{"Key":"Region", "Value":"KR1"}, {"Key":"Zone", "Value":"DX-M1"}]'
+            region = 'KR1-DX-M1'
             break;
 
           case "MOCK":
             regionInfo = '[{"Key":"Region", "Value":"default"}]'
             region = 'default'
-            zone = ''             
             break;
           case "CLOUDTWIN":
             regionInfo = '[{"Key":"Region", "Value":"default"}]'
             region = 'default'
-            zone = '' 
             break;
           default:
-            regionInfo = '[{"Key":"Region", "Value":"us-east-2"}, {"Key":"Zone", "Value":"us-east-2a"}]'
-            region = '(ohio)us-east-2'
-            zone = ''
+            regionInfo = '[{"Key":"Region", "Value":"default"}]'
+            region = 'default'
         }
                 document.getElementById('2').value= regionInfo
 
         // for region-zone name
-                document.getElementById('3').value= providerName.toLowerCase() + "-" + region + "-" + zone;
+                document.getElementById('3').value= providerName.toLowerCase() + "-" + region;
               }
         `
 	return strFunc
@@ -1016,6 +1014,16 @@ func makeOnchangeConnectionConfigProviderFunc_js() string {
 	    credentialNameList = document.getElementsByName('credentialName-NHNCLOUD');
 	    regionNameList = document.getElementsByName('regionName-NHNCLOUD');
             break;
+		case "KTCLOUD":
+			driverNameList = document.getElementsByName('driverName-KTCLOUD');
+			credentialNameList = document.getElementsByName('credentialName-KTCLOUD');
+			regionNameList = document.getElementsByName('regionName-KTCLOUD');
+				break;
+		case "KTCLOUDVPC":
+			driverNameList = document.getElementsByName('driverName-KTCLOUDVPC');
+			credentialNameList = document.getElementsByName('credentialName-KTCLOUDVPC');
+			regionNameList = document.getElementsByName('regionName-KTCLOUDVPC');
+				break;
 
           case "MOCK":
 	    driverNameList = document.getElementsByName('driverName-MOCK');

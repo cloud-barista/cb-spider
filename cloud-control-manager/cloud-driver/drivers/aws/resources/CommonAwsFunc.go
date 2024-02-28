@@ -462,3 +462,55 @@ func ReplaceEmptyWithNA(obj interface{}) {
 		}
 	}
 }
+
+// ProductInfo 구조체의 Compute Instance 해당 값만 출력
+func ReplaceEmptyWithNAforComputeInstance(obj interface{}) {
+	val := reflect.ValueOf(obj).Elem()
+	for _, fieldName := range []string{"InstanceType", "Vcpu", "Memory", "Storage", "Gpu", "GpuMemory", "OperatingSystem", "PreInstalledSw"} {
+		field := val.FieldByName(fieldName)
+		switch field.Kind() {
+		case reflect.String:
+			if field.String() == "" {
+				field.SetString("NA")
+			}
+		case reflect.Ptr:
+			if field.IsNil() {
+				// If the field is a pointer and is nil, set it to "NA"
+				field.Set(reflect.New(field.Type().Elem()))
+				field.Elem().SetString("NA")
+			}
+		}
+	}
+}
+
+// ProductInfo 구조체의 Storage 해당 값만 출력
+func ReplaceEmptyWithNAforStorage(obj interface{}) {
+	val := reflect.ValueOf(obj).Elem()
+	for _, fieldName := range []string{"VolumeType", "StorageMedia", "MaxVolumeSize", "MaxIOPSVolume", "MaxThroughputVolume"} {
+		field := val.FieldByName(fieldName)
+		switch field.Kind() {
+		case reflect.String:
+			if field.String() == "" {
+				field.SetString("NA")
+			}
+		case reflect.Ptr:
+			if field.IsNil() {
+				// If the field is a pointer and is nil, set it to "NA"
+				field.Set(reflect.New(field.Type().Elem()))
+				field.Elem().SetString("NA")
+			}
+		}
+	}
+}
+
+// ProductInfo 구조체의 Load Balancer-Network 해당 값만 출력
+func ReplaceEmptyWithNAforLoadBalancerNetwork(obj interface{}) {
+	val := reflect.ValueOf(obj).Elem()
+	for i := 0; i < val.NumField(); i++ {
+		field := val.Field(i)
+
+		if field.Kind() == reflect.String {
+			// 빈 문자열 필드 무시
+		}
+	}
+}

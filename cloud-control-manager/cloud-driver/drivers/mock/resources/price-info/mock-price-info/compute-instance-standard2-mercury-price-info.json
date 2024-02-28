@@ -1,0 +1,46 @@
+{
+    "category": "Compute Instance",
+    "instanceName": "mock.standard2.mercury",
+    "instanceInfo": {
+        "regionName": "mercury",
+        "instanceType": "mock.standard2",
+        "vcpu": "20",
+        "clock": "3.4 GHz",
+        "memory": "532 GB",
+        "storage": "100 GB",
+        "processorArchitecture": "x86_64",
+        "os": "Linux",
+        "processorFeatures": "Intel AVX; Intel AVX2; Intel Turbo"
+    }, 
+    "pricingList": {
+        "payAsYouGo": {
+            "priceId": "mock.mercury.standard2.payg",
+            "unit": "Hours",
+            "currency": "USD",
+            "price" : "0.3"
+        },
+        "savingPlan": [
+            {
+                "priceId": "mock.mercury.standard2.savingplan1",
+                "term": "1 Year",
+                "unit": "Hours",
+                "currency": "USD",
+                "price" : "0.2"        
+            },
+            {
+                "priceId": "mock.mercury.standard2.savingplan2",
+                "term": "2 Year",
+                "unit": "Hours",
+                "currency": "USD",
+                "price" : "0.2"        
+            },
+            {
+                "priceId": "mock.mercury.standard2.savingplan3",
+                "term": "3 Year",
+                "unit": "Hours",
+                "currency": "USD",
+                "price" : "0.1"
+            }
+        ]
+    }
+}

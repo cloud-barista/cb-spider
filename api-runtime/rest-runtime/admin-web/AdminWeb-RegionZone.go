@@ -115,7 +115,7 @@ func RegionZone(c echo.Context) error {
 	}
 
 	// Parse the HTML template
-	tmpl, err := template.New("index").Parse(htmlTemplate)
+	tmpl, err := addFuncsToTemplate(template.New("index")).Parse(htmlTemplate)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
@@ -128,6 +128,14 @@ func RegionZone(c echo.Context) error {
 	}
 
 	return c.HTML(http.StatusOK, result.String())
+}
+
+func addFuncsToTemplate(t *template.Template) *template.Template {
+	return t.Funcs(template.FuncMap{
+		"inc": func(i int) int {
+			return i + 1
+		},
+	})
 }
 
 const htmlTemplate = `
@@ -152,6 +160,26 @@ const htmlTemplate = `
     .inner-th {
         background-color: #d9edf7;
     }
+
+    #searchInputWrapper {
+        position: relative;
+        display: inline-block;
+    }
+
+    #searchInput {
+        width: 190px
+    }
+
+    #clearSearch {
+        position: absolute;
+        right: 3px;
+        top: 50%;
+        transform: translateY(-50%);
+        border: none;
+        background-color: transparent;
+        cursor: pointer;
+    }
+
 </style>
 <script>
     function showAlert(regionName, innerTableId) {
@@ -178,7 +206,7 @@ const htmlTemplate = `
         tr = table.getElementsByTagName("tr");
 
         for (var i = 1; i < tr.length; i++) {
-            td = tr[i].getElementsByTagName("td")[0];
+            td = tr[i].getElementsByTagName("td")[1];
             if (td) {
                 var txtValue = td.textContent || td.innerText;
                 if (txtValue.toUpperCase().indexOf(filter) > -1) {
@@ -188,6 +216,11 @@ const htmlTemplate = `
                 }
             }
         }
+    }
+
+    function clearSearchInput() {
+        document.getElementById("searchInput").value = "";
+        searchTable(); // 검색 입력이 지워진 후 검색 결과를 업데이트합니다.
     }
 
     function filterStatus() {
@@ -213,7 +246,10 @@ const htmlTemplate = `
 </script>
 </head>
 <body>
-<input type="text" id="searchInput" onkeyup="searchTable()" placeholder="Search for Region Names..">
+<div id="searchInputWrapper">
+    <input type="text" id="searchInput" onkeyup="searchTable()" placeholder="Search for Region Names..">
+    <button id="clearSearch" onclick="clearSearchInput()">X</button>
+</div>
 <select id="statusFilter" onchange="filterStatus()">
     <option value="All">All</option>
     <option value="Available">Available</option>
@@ -222,12 +258,14 @@ const htmlTemplate = `
 </select>
 <table>
     <tr>
+        <th>#</th>
         <th>Region Name</th>
         <th>Display Name</th>
         <th>Zone List</th>
     </tr>
-    {{range $region := .RegionInfo}}
+    {{range $index, $region := .RegionInfo}}
     <tr>
+        <td>{{inc $index}}</td>
         <td>{{$region.RegionName}}</td>
         <td>{{$region.DisplayName}}</td>
         <td>

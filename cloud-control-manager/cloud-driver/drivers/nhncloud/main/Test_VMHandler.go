@@ -68,8 +68,10 @@ func handleVM() {
 		fmt.Println("\n   Select a number above!! : ")
 		fmt.Println("============================================================================================")
 
-		//config := readConfigFile()
-		vmID := irs.IID{SystemId: "b16c6fc6-e8f7-499e-b2c5-04c3414f5004"}
+		config := readConfigFile()
+		cblogger.Info("# config.NhnCloud.Zone : ", config.NhnCloud.Zone)
+
+		vmID := irs.IID{SystemId: config.NhnCloud.VMId}
 
 		var commandNum int
 		inputCnt, err := fmt.Scan(&commandNum)
@@ -84,7 +86,12 @@ func handleVM() {
 
 			case 1:
 				vmReqInfo := irs.VMReqInfo{
-					IId: irs.IID{NameId: "nhn-vm-03-WinSvr2022"},
+					// ImageType:	irs.MyImage,
+					ImageType:	irs.PublicImage,
+
+					VMUserPasswd: "cbuser357505**", // No Simple PW!!
+
+					IId: irs.IID{NameId: "nhn-vm-07"},
 
 					// $$$ Needs NHN Cloud VPC 'SystemId'
 					VpcIID: irs.IID{
@@ -100,16 +107,17 @@ func handleVM() {
 					SecurityGroupIIDs: []irs.IID{{SystemId: "9f0a43a9-8c73-45ce-9aac-e9c226e99533"}},
 					// SecurityGroupIIDs: []irs.IID{{SystemId: "79965cd0-b9e9-42ef-9c66-201f824273cb"},{SystemId: "67167e2e-2390-48d6-8f27-78c9293b26f3"}},
 
-					KeyPairIID: irs.IID{NameId: "nhn-pub-a-keypair-01-cmbrbe9jcups9eecbdfg"},			
+					// KeyPairIID: irs.IID{NameId: "nhn-key-05"},
+					KeyPairIID: irs.IID{NameId: "test-key-1-cn661b4i1q9k87qkue0g"},
 					// KeyPairIID: irs.IID{NameId: "nhn-key-01-c9584r9jcupvtimg81l0"},					
 					// KeyPairIID: irs.IID{SystemId: "nhn-key-01"},
 
 					//KR1					
-					// ImageIID: irs.IID{NameId: "Ubuntu Server 22.04.3 LTS (2023.11.21)", SystemId: "68fb7e1a-191c-45bf-8328-b7864f9fbaf4"},
+					ImageIID: irs.IID{NameId: "Ubuntu Server 22.04.3 LTS (2023.11.21)", SystemId: "68fb7e1a-191c-45bf-8328-b7864f9fbaf4"},
 
 					// ImageIID: irs.IID{NameId: "Debian 11.8 Bullseye (2023.11.21)", SystemId: "7753643d-f0ea-4260-a2c0-5ead4e041725"},
 
-					ImageIID: irs.IID{NameId: "Windows 2022 STD (2023.11.21) KO", SystemId: "4b2b5dfb-d325-4153-8a88-eb39cdb181c9"},
+					// ImageIID: irs.IID{NameId: "Windows 2022 STD (2023.11.21) KO", SystemId: "4b2b5dfb-d325-4153-8a88-eb39cdb181c9"},
 					
 					// ImageIID: irs.IID{NameId: "Ubuntu Server 18.04.6 LTS (2021.12.21)", SystemId: "5396655e-166a-4875-80d2-ed8613aa054f"},
 

@@ -37,6 +37,7 @@ cloud-driver-libs/.securitygroup-kt/*
 vendor/*
 cloud-driver-libs/*.so
 meta_db/*
+cache/*
 api-runtime/rest-runtime/~/go/src/github.com/cloud-barista/cb-spider/meta_db/dat/*
 conf/store_conf.yaml
 cloud-control-manager/cloud-driver/drivers/aws/main/log/cblogs.log

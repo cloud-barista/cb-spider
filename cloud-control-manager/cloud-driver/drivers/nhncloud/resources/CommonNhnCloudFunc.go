@@ -59,7 +59,7 @@ func LoggingInfo(hiscallInfo call.CLOUDLOGSCHEMA, start time.Time) {
 	calllogger.Info(call.String(hiscallInfo))
 }
 
-func GetCallLogScheme(zone string, resourceType call.RES_TYPE, resourceName string, apiName string) call.CLOUDLOGSCHEMA {
+func getCallLogScheme(zone string, resourceType call.RES_TYPE, resourceName string, apiName string) call.CLOUDLOGSCHEMA {
 	cblogger.Info(fmt.Sprintf("Call %s %s", call.NHNCLOUD, apiName))
 
 	return call.CLOUDLOGSCHEMA{
@@ -78,8 +78,8 @@ func logAndReturnError(callLogInfo call.CLOUDLOGSCHEMA, givenErrString string, v
 	return newErr
 }
 
-func GetPublicVPCInfo(client *nhnsdk.ServiceClient, typeName string) (string, error) {
-	cblogger.Info("NHN Cloud Driver: called GetPublicVPCInfo()")
+func getPublicVPCInfo(client *nhnsdk.ServiceClient, typeName string) (string, error) {
+	cblogger.Info("NHN Cloud Driver: called getPublicVPCInfo()")
 
 	exTrue := true
 	listOpts := external.ListOptsExt{
@@ -118,7 +118,7 @@ func GetPublicVPCInfo(client *nhnsdk.ServiceClient, typeName string) (string, er
 	return "", nil
 }
 
-func GetVMSpecIdWithName(client *nhnsdk.ServiceClient, flavorName string) (string, error) {
+func getVMSpecIdWithName(client *nhnsdk.ServiceClient, flavorName string) (string, error) {
 	cblogger.Info("NHN Cloud Driver: called GetVMSpecIdWithName()")
 
 	allPages, err := flavors.ListDetail(client, nil).AllPages()
@@ -139,7 +139,7 @@ func GetVMSpecIdWithName(client *nhnsdk.ServiceClient, flavorName string) (strin
 	return "", fmt.Errorf("Failed to Find Flavor with the name [%s]", flavorName)
 }
 
-func GetSGWithName(networkClient *nhnsdk.ServiceClient, securityGroupName string) (*secgroups.SecurityGroup, error) {
+func getSGWithName(networkClient *nhnsdk.ServiceClient, securityGroupName string) (*secgroups.SecurityGroup, error) {
 	cblogger.Info("NHN Cloud Driver: called GetSGWithName()")
 
 	allPages, err := secgroups.List(networkClient).AllPages()
@@ -160,7 +160,7 @@ func GetSGWithName(networkClient *nhnsdk.ServiceClient, securityGroupName string
 	return nil, fmt.Errorf("Failed to Find SecurityGroups with the name [%s]", securityGroupName)
 }
 
-func GetNetworkWithName(networkClient *nhnsdk.ServiceClient, networkName string) (*networks.Network, error) {
+func getNetworkWithName(networkClient *nhnsdk.ServiceClient, networkName string) (*networks.Network, error) {
 	cblogger.Info("NHN Cloud Driver: called GetNetworkWithName()")
 
 	allPages, err := networks.List(networkClient, networks.ListOpts{Name: networkName}).AllPages()
@@ -181,7 +181,7 @@ func GetNetworkWithName(networkClient *nhnsdk.ServiceClient, networkName string)
 	return nil, fmt.Errorf("Failed to Find SecurityGroups Info with name [%s]", networkName)
 }
 
-func GetSubnetWithId(networkClient *nhnsdk.ServiceClient, subnetId string) (*subnets.Subnet, error) {
+func getSubnetWithId(networkClient *nhnsdk.ServiceClient, subnetId string) (*subnets.Subnet, error) {
 	cblogger.Info("NHN Cloud Driver: called GetSubnetWithId()")
 
 	nhnSubnet, err := subnets.Get(networkClient, subnetId).Extract()
@@ -192,7 +192,7 @@ func GetSubnetWithId(networkClient *nhnsdk.ServiceClient, subnetId string) (*sub
 	return nhnSubnet, nil
 }
 
-func GetPortWithDeviceId(networkClient *nhnsdk.ServiceClient, deviceID string) (*ports.Port, error) {
+func getPortWithDeviceId(networkClient *nhnsdk.ServiceClient, deviceID string) (*ports.Port, error) {
 	cblogger.Info("NHN Cloud Driver: called GetPortWithDeviceId()")
 
 	allPages, err := ports.List(networkClient, ports.ListOpts{}).AllPages()
@@ -213,7 +213,7 @@ func GetPortWithDeviceId(networkClient *nhnsdk.ServiceClient, deviceID string) (
 	return nil, fmt.Errorf("Failed to Get Port Info. with the DeviceID [%s]", deviceID)
 }
 
-func CheckIIDValidation(IId irs.IID) bool {
+func checkIIDValidation(IId irs.IID) bool {
 	if strings.EqualFold(IId.NameId, "") && strings.EqualFold(IId.SystemId, "") {
 		newErr := fmt.Errorf("Invalid NameId and SystemId!!")
 		cblogger.Error(newErr.Error())
@@ -222,7 +222,7 @@ func CheckIIDValidation(IId irs.IID) bool {
 	return true
 }
 
-func CheckFolderAndCreate(folderPath string) error {
+func checkFolderAndCreate(folderPath string) error {
 	// Check if the Folder Exists and Create it
 	if _, err := os.Stat(folderPath); os.IsNotExist(err) {
 		if err := os.Mkdir(folderPath, 0700); err != nil {
@@ -232,28 +232,28 @@ func CheckFolderAndCreate(folderPath string) error {
 	return nil
 }
 
-func GetOriginalNameId(IID2NameId string) string {
+func getOriginalNameId(IID2NameId string) string {
 	var originalNameId string
 	
 	if len(IID2NameId) <= 9 {  	// For local test
 		originalNameId = IID2NameId
 	} else { 					// For CB-Spider IID2 NameId
-		reversedNameId := Reverse(IID2NameId)
+		reversedNameId := reverse(IID2NameId)
 		originalNameId = reversedNameId[:21]
-		originalNameId = strings.TrimSuffix(IID2NameId, Reverse(originalNameId))	
+		originalNameId = strings.TrimSuffix(IID2NameId, reverse(originalNameId))	
 	}
 	cblogger.Infof("# originalNameId : %s", originalNameId)
 	return originalNameId
 }
 
-func Reverse(s string) (result string) {
+func reverse(s string) (result string) {
 	for _,v := range s {
 		result = string(v) + result
 	}
 	return 
 }
 
-func RunCommand(cmdName string, cmdArgs []string) (string, error) {
+func runCommand(cmdName string, cmdArgs []string) (string, error) {
 
 	/*
 	Ref)
@@ -282,7 +282,7 @@ func RunCommand(cmdName string, cmdArgs []string) (string, error) {
 }
 
 // Convert Cloud Object to JSON String type
-func ConvertJsonString(v interface{}) (string, error) {
+func convertJsonString(v interface{}) (string, error) {
 	jsonBytes, err := json.Marshal(v)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Convert Json to String. [%v]", err.Error())
@@ -294,7 +294,7 @@ func ConvertJsonString(v interface{}) (string, error) {
 }
 
 // Convert time to KTC
-func ConvertTimeToKTC(givenTime time.Time) (time.Time, error) {
+func convertTimeToKTC(givenTime time.Time) (time.Time, error) {
 	loc, err := time.LoadLocation("Asia/Seoul")
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Convert the Time to KTC. [%v]", err)

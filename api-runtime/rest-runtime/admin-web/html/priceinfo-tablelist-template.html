@@ -10,7 +10,7 @@
             border: 1px solid #ccc;
             border-radius: 4px;
             cursor: pointer;
-            position: absolute;
+            position: fixed;
             top: 20px;
             right: 20px;
         }
@@ -115,6 +115,38 @@
             }
         }
 
+        function getFormattedDateTime() {
+            var now = new Date();
+            var year = now.getFullYear();
+            var month = ('0' + (now.getMonth() + 1)).slice(-2);
+            var day = ('0' + now.getDate()).slice(-2);
+            var hours = ('0' + now.getHours()).slice(-2);
+            var minutes = ('0' + now.getMinutes()).slice(-2);
+            var seconds = ('0' + now.getSeconds()).slice(-2);
+            return year + "-" + month + "-" + day + "_" + hours + "-" + minutes + "-" + seconds;
+        }
+
+        function downloadJson(cloudName) {
+            var data = document.getElementById("json-all").textContent;
+            var blob = new Blob([data], {type: "application/json"});
+            var url = URL.createObjectURL(blob);
+            var a = document.createElement("a");
+            a.href = url;
+            a.download = cloudName + "_price_info_" + getFormattedDateTime() + ".json";
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        function conditionalDownload(cloudName, totalItems, cachedFileName) {
+            if (totalItems > 200) { // download from the cached file in the server
+                window.location.href = "/spider/adminweb/priceinfo/download/" + cachedFileName;
+            } else { // download from the current page
+                downloadJson(cloudName);
+            }
+        }
+
         function copyToClipboard(cloudName) {
             var content = document.getElementById("json-all").textContent;
             var textArea = document.createElement("textarea");
@@ -153,22 +185,49 @@
             });
         };
 
+        function numberWithCommas(x) {
+            return x.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+        }
+        
+        function formatNumbers() {
+            var totalItems = document.getElementById('totalItems');
+            if (totalItems) {
+                totalItems.textContent = numberWithCommas(totalItems.textContent);
+            }
+        }
+
     </script>
 </head>
 
-<body>
-    <h3>{{.Meta.Description}} - {{.Meta.Version}}</h3>
+<body onload="formatNumbers();">
+    <h3>{{.Data.Meta.Description}} - {{.Data.Meta.Version}}</h3>
+    <h4 id="totalItems">Total Products: #{{.TotalItems}}</h4>    
     <button type="button" class="close-btn" onclick="window.parent.closeFetchOverlay()">X</button>
     
-    {{range .CloudPriceList}}
+    {{ $totalNum := .TotalItems }}
+    {{ $fileName := .CachedFileName }}
+
+    {{range .Data.CloudPriceList}}
     <div class="cloudHeader">
         <h3>{{.CloudName}}</h3>
         <button id="toggleButton-{{.CloudName}}" onclick="toggleView('{{.CloudName}}')">JSON View</button>
+
+        <button onclick="conditionalDownload('{{.CloudName}}', '{{$totalNum}}', '{{$fileName}}')">JSON Download</button>
+
         <button id="copyButton-{{.CloudName}}" class="copy-btn" onclick="copyToClipboard('json-all')">📋</button>
+
+        {{if gt ($totalNum) 200}}
+        <span style="margin-left: 10px; color: blue;">※ Display limit: 200. Full info via 'JSON Download'.</span>
+        {{end}}
+
     </div>
+    {{end}}
+
+    {{range .Data.CloudPriceList}}
 
     <table id="table-{{.CloudName}}">
         <tr>
+            <th>#</th>
             <th>Product ID</th>
             <th>Region/Zone</th>
             <th>Product Info</th>
@@ -176,8 +235,9 @@
             <th class="pricing-policies-header">Pricing Policies</th>
             <th class="pricing-policies-header">{{.CloudName}} Price Info</th>
         </tr>
-        {{range .PriceList}}
+        {{range $index, $_ := .PriceList}}
         <tr>
+            <td class="center-text">{{inc $index}}</td>
             <td class="center-text">[{{.ProductInfo.ProductId}}]<br><br>※ {{.ProductInfo.Description}}</td>
             <td class="center-text">{{.ProductInfo.RegionName}}/{{.ProductInfo.ZoneName}}</td>
             <td>
@@ -243,6 +303,6 @@
     </table>
     {{end}}
 
-    <pre class="jsonView" id="json-all">{{. | json}}</pre>
+    <pre class="jsonView" id="json-all">{{.Data | json}}</pre>
 </body>
 </html>

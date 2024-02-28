@@ -67,6 +67,29 @@ func Top(c echo.Context) error {
 <html>
 <head>
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <style>
+        .selectedMenu {
+            background-color: #f0f0f0;
+            color: #000;
+            font-weight: bold;
+        }
+    </style>
+    <script>
+        function selectMenu(selectedId) {
+            document.querySelectorAll('td a').forEach(function(menu) {
+                menu.classList.remove('selectedMenu');
+            });
+            var selectedElement = document.getElementById(selectedId);
+            if (selectedElement) {
+                selectedElement.classList.add('selectedMenu');
+            } else {
+                console.error('Element not found:', selectedId);
+            }
+        }
+        window.onload = function() {
+            selectMenu('menuDriver');
+        };
+    </script>
 </head>
 <body>    
     <table border="0" bordercolordark="#FFFFFF" cellpadding="0" cellspacing="1" bgcolor="#FFFFFF"  style="font-size:small;">      
@@ -79,28 +102,28 @@ func Top(c echo.Context) error {
                 </a>
 		<font size=1>$$TIME$$</font>	
             </td>
-
+            
             <td width="150"> 
                 <!-- Drivers Management --> 
-                <a href="driver" target="main_frame">            
+                <a href="driver" target="main_frame" id="menuDriver" onclick="selectMenu('menuDriver')">
                     <font size=2>1.Driver</font>
                 </a>
             </td>
             <td width="190">       
                 <!-- Credential Management -->
-                <a href="credential" target="main_frame">            
+                <a href="credential" target="main_frame" id="menuCredential" onclick="selectMenu('menuCredential')">
                     <font size=2>1.Credential</font>
                 </a>
             </td>
             <td width="130">
                 <!-- Regions Management -->
-                <a href="region" target="main_frame">            
+                <a href="region" target="main_frame" id="menuRegion" onclick="selectMenu('menuRegion')"> 
                     <font size=2>1.Region</font>
                 </a>
             </td>
             <td width="300">
                 <!-- Connection Management -->
-                <a href="connectionconfig" target="main_frame">            
+                <a href="connectionconfig" target="main_frame" id="menuConnection" onclick="selectMenu('menuConnection')">
                     <font size=2>2.CONNECTION</font>
                 </a>
             </td>
@@ -109,14 +132,14 @@ func Top(c echo.Context) error {
 
                 ¦&nbsp;&nbsp;
                 <!-- RegionZone Info -->
-                <a href="regionzone/region not set" target="main_frame" id="regionzoneHref">
+                <a href="regionzone/region not set" target="main_frame" id="regionzoneHref" onclick="selectMenu('regionzoneHref')">
                     <font size=2>Region/Zone</font>
                 </a>
 
                 &nbsp;
                 &nbsp;
 
-                <a href="priceinfo/region not set" target="main_frame" id="priceinfoHref">
+                <a href="priceinfo/region not set" target="main_frame" id="priceinfoHref" onclick="selectMenu('priceinfoHref')">
                     <font size=2>Price</font>
                 </a>
             </td>
@@ -134,11 +157,11 @@ func Top(c echo.Context) error {
                 <br>
 
                 <!-- VPC/Subnet Management -->
-                <a href="vpc/region not set" target="main_frame" id="vpcHref">
+                <a href="vpc/region not set" target="main_frame" id="vpcHref" onclick="selectMenu('vpcHref')">
                     <font size=2>1.VPC/Subnet</font>
                 </a>
 		&nbsp;
-                <a href="vpcmgmt/region not set" target="main_frame" id="vpcmgmtHref">
+                <a href="vpcmgmt/region not set" target="main_frame" id="vpcmgmtHref" onclick="selectMenu('vpcmgmtHref')">
                     <font size=2>[mgmt]</font>
                 </a>                
 
@@ -151,11 +174,11 @@ func Top(c echo.Context) error {
                 <br>
 
                 <!-- SecurityGroup Management -->
-                <a href="securitygroup/region not set" target="main_frame" id="securitygroupHref">
+                <a href="securitygroup/region not set" target="main_frame" id="securitygroupHref" onclick="selectMenu('securitygroupHref')">
                     <font size=2>1.1.SecurityGroup</font>
                 </a>
 		&nbsp;
-                <a href="securitygroupmgmt/region not set" target="main_frame" id="securitygroupmgmtHref">
+                <a href="securitygroupmgmt/region not set" target="main_frame" id="securitygroupmgmtHref" onclick="selectMenu('securitygroupmgmtHref')">
                     <font size=2>[mgmt]</font>
                 </a>
 
@@ -169,11 +192,11 @@ func Top(c echo.Context) error {
                 <br>
 
                 <!-- KeyPair Management -->
-                <a href="keypair/region not set" target="main_frame" id="keypairHref">
+                <a href="keypair/region not set" target="main_frame" id="keypairHref" onclick="selectMenu('keypairHref')">
                     <font size=2>1.KeyPair</font>
                 </a>
 		&nbsp;
-                <a href="keypairmgmt/region not set" target="main_frame" id="keypairmgmtHref">
+                <a href="keypairmgmt/region not set" target="main_frame" id="keypairmgmtHref" onclick="selectMenu('keypairmgmtHref')">
                     <font size=2>[mgmt]</font>
                 </a>
 
@@ -187,22 +210,22 @@ func Top(c echo.Context) error {
                 <br>
 
                 <!-- NLB Management -->
-                <a href="nlb/region not set" target="main_frame" id="nlbHref">
+                <a href="nlb/region not set" target="main_frame" id="nlbHref" onclick="selectMenu('nlbHref')">
                     <font size=2>3.NLB</font>
                 </a>
                 &nbsp;
-                <a href="nlbmgmt/region not set" target="main_frame" id="nlbmgmtHref">
+                <a href="nlbmgmt/region not set" target="main_frame" id="nlbmgmtHref" onclick="selectMenu('nlbmgmtHref')">
                     <font size=2>[mgmt]</font>
                 </a>
 
                 <br>
 
                 <!-- VM Management -->
-                <a href="vm/region not set" target="main_frame" id="vmHref">
+                <a href="vm/region not set" target="main_frame" id="vmHref" onclick="selectMenu('vmHref')">
                     <font size=2>2.VM</font>
                 </a>
                 &nbsp;
-                <a href="vmmgmt/region not set" target="main_frame" id="vmmgmtHref">
+                <a href="vmmgmt/region not set" target="main_frame" id="vmmgmtHref" onclick="selectMenu('vmmgmtHref')">
                     <font size=2>[mgmt]</font>
                 </a>
                 &nbsp;
@@ -212,22 +235,22 @@ func Top(c echo.Context) error {
                 &nbsp;
                 &nbsp;
                 <!-- MyImage Management -->
-                <a href="myimage/region not set" target="main_frame" id="myimageHref">
+                <a href="myimage/region not set" target="main_frame" id="myimageHref" onclick="selectMenu('myimageHref')">
                     <font size=2>3.MyImage</font>
                 </a>
                 &nbsp;
-                <a href="nlbmgmt/region not set" target="main_frame" id="myimagemgmtHref">
+                <a href="myimagemgmt/region not set" target="main_frame" id="myimagemgmtHref" onclick="selectMenu('myimagemgmtHref')">
                     <font size=2>[mgmt]</font>
                 </a>            
 
                 <br>
 
                 <!-- Disk Management -->
-                <a href="disk/region not set" target="main_frame" id="diskHref">
+                <a href="disk/region not set" target="main_frame" id="diskHref" onclick="selectMenu('diskHref')">
                     <font size=2>2.Disk</font>
                 </a>
                 &nbsp;
-                <a href="diskmgmt/region not set" target="main_frame" id="diskmgmtHref">
+                <a href="diskmgmt/region not set" target="main_frame" id="diskmgmtHref" onclick="selectMenu('diskmgmtHref')">
                     <font size=2>[mgmt]</font>
                 </a>
 
@@ -235,15 +258,15 @@ func Top(c echo.Context) error {
                 <br>
 
                 <!-- PMKS(K8S) Management -->
-                <a href="cluster/region not set" target="main_frame" id="clusterHref">
+                <a href="cluster/region not set" target="main_frame" id="clusterHref" onclick="selectMenu('clusterHref')">
                     <font size=2>2.PMKS</font>
                 </a>
                 &nbsp;
-                <a href="clustermgmt/region not set" target="main_frame" id="clustermgmtHref">
+                <a href="clustermgmt/region not set" target="main_frame" id="clustermgmtHref" onclick="selectMenu('clustermgmtHref')">
                     <font size=2>[mgmt]</font>
                 </a>
                 &nbsp;
-                <!-- <a href="clusterdashboard" target="main_frame" id="clusterdashboardHref">
+                <!-- <a href="clusterdashboard" target="main_frame" id="clusterdashboardHref" onclick="selectMenu('clusterdashboardHref')">
                     <font size=2>[Dashboard]</font>
                 </a> -->
                 <!-- <a href="../adminweb/clusterdashboard" target="main_frame">                  
@@ -258,7 +281,7 @@ func Top(c echo.Context) error {
                 ¦&nbsp;&nbsp;
 
                 <!-- PublicImage Management -->
-                <a href="vmimage/region not set" target="main_frame" id="vmimageHref">
+                <a href="vmimage/region not set" target="main_frame" id="vmimageHref" onclick="selectMenu('vmimageHref')">
                     <font size=2>VM Image</font>
                 </a>
 
@@ -266,7 +289,7 @@ func Top(c echo.Context) error {
                 &nbsp;
 
                 <!-- Spec Management -->
-                <a href="vmspec/region not set" target="main_frame" id="vmspecHref">
+                <a href="vmspec/region not set" target="main_frame" id="vmspecHref" onclick="selectMenu('vmspecHref')">
                     <font size=2>VM Spec</font>
                 </a>
 
@@ -274,7 +297,7 @@ func Top(c echo.Context) error {
                 &nbsp;
 
                 <!-- This CB-Spider Info -->
-                <a href="spiderinfo" target="main_frame">            
+                <a href="spiderinfo" target="main_frame" id="spiderinfoHref" onclick="selectMenu('spiderinfoHref')">
                     <font size=2>Spider Info</font>
                 </a>
 

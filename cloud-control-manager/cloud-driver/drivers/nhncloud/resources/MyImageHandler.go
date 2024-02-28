@@ -32,7 +32,7 @@ type NhnCloudMyImageHandler struct {
 // To Take a Snapshot with VM ID (To Create My Image) 
 func (myImageHandler *NhnCloudMyImageHandler) SnapshotVM(snapshotReqInfo irs.MyImageInfo) (irs.MyImageInfo, error) {
 	cblogger.Info("NHN Cloud Driver: called SnapshotVM()")
-	callLogInfo := GetCallLogScheme(myImageHandler.RegionInfo.Region, call.MYIMAGE, snapshotReqInfo.SourceVM.SystemId, "SnapshotVM()")
+	callLogInfo := getCallLogScheme(myImageHandler.RegionInfo.Region, call.MYIMAGE, snapshotReqInfo.SourceVM.SystemId, "SnapshotVM()")
 
 	if strings.EqualFold(snapshotReqInfo.SourceVM.SystemId, "") {
 		newErr := fmt.Errorf("Invalid VM SystemId!!")
@@ -46,17 +46,16 @@ func (myImageHandler *NhnCloudMyImageHandler) SnapshotVM(snapshotReqInfo irs.MyI
 		snapshotName = snapshotReqInfo.IId.NameId
 	}
 
-	nhnVMSpecType, err := myImageHandler.GetVMSpecType(irs.IID{SystemId: snapshotReqInfo.SourceVM.SystemId})
+	nhnVMSpecType, err := myImageHandler.getVMSpecType(irs.IID{SystemId: snapshotReqInfo.SourceVM.SystemId})
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get the VM Spec Type. [%v]", err.Error())
 		cblogger.Error(newErr.Error())
 		LoggingError(callLogInfo, newErr)
 		return irs.MyImageInfo{}, newErr
 	}
-
-	cblogger.Info("\n\n### nhnVMSpecType : ")
-	spew.Dump(nhnVMSpecType)
-	cblogger.Info("\n")
+	// cblogger.Info("\n\n### nhnVMSpecType : ")
+	// spew.Dump(nhnVMSpecType)
+	// cblogger.Info("\n")
 
 	// snapShotMap := make(map[string]string)
     // snapShotMap["vmID"] = snapshotReqInfo.SourceVM.SystemId
@@ -84,7 +83,7 @@ func (myImageHandler *NhnCloudMyImageHandler) SnapshotVM(snapshotReqInfo irs.MyI
 
 		newImageIID = irs.IID{SystemId: snapShotImageId}
 	} else {
-		bootableVolumeId, err := myImageHandler.GetBootableVolumeID(snapshotReqInfo.SourceVM)
+		bootableVolumeId, err := myImageHandler.getBootableVolumeID(snapshotReqInfo.SourceVM)
 		if err != nil {
 			newErr := fmt.Errorf("Failed to Get Bootable VolumeID of the VM. [%v]", err.Error())
 			cblogger.Error(newErr.Error())
@@ -115,7 +114,7 @@ func (myImageHandler *NhnCloudMyImageHandler) SnapshotVM(snapshotReqInfo irs.MyI
 	}
 
 	// To Wait for Creating a Snapshot Image
-	curStatus, err := myImageHandler.WaitForImageSnapshot(newImageIID)
+	curStatus, err := myImageHandler.waitForImageSnapshot(newImageIID)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Wait to Get Image Info. [%v]", err.Error())
 		cblogger.Error(newErr.Error())
@@ -137,7 +136,7 @@ func (myImageHandler *NhnCloudMyImageHandler) SnapshotVM(snapshotReqInfo irs.MyI
 // To Manage My Images
 func (myImageHandler *NhnCloudMyImageHandler) ListMyImage() ([]*irs.MyImageInfo, error) {
 	cblogger.Info("NHN Cloud Driver: called ListMyImage()")
-	callLogInfo := GetCallLogScheme(myImageHandler.RegionInfo.Region, call.MYIMAGE, "ListMyImage()", "ListMyImage()")
+	callLogInfo := getCallLogScheme(myImageHandler.RegionInfo.Region, call.MYIMAGE, "ListMyImage()", "ListMyImage()")
 
 	start := call.Start()
 	listOpts :=	images.ListOpts{
@@ -158,14 +157,10 @@ func (myImageHandler *NhnCloudMyImageHandler) ListMyImage() ([]*irs.MyImageInfo,
 		return nil, newErr
 	}
 	LoggingInfo(callLogInfo, start)
-	
-	// cblogger.Info("\n\n### nhnImageList : ")
-	// spew.Dump(nhnImageList)
-	// cblogger.Info("# 출력 결과 수 : ", len(nhnImageList))
 
 	var imageInfoList []*irs.MyImageInfo
     for _, nhnImage := range nhnImageList {
-		imageInfo := myImageHandler.MappingMyImageInfo(nhnImage)
+		imageInfo := myImageHandler.mappingMyImageInfo(nhnImage)
 		imageInfoList = append(imageInfoList, imageInfo)
     }
 	return imageInfoList, nil
@@ -173,7 +168,7 @@ func (myImageHandler *NhnCloudMyImageHandler) ListMyImage() ([]*irs.MyImageInfo,
 
 func (myImageHandler *NhnCloudMyImageHandler) GetMyImage(myImageIID irs.IID) (irs.MyImageInfo, error) {
 	cblogger.Info("NHN Cloud Driver: called GetMyImage()")
-	callLogInfo := GetCallLogScheme(myImageHandler.RegionInfo.Region, call.MYIMAGE, myImageIID.SystemId, "GetMyImage()")
+	callLogInfo := getCallLogScheme(myImageHandler.RegionInfo.Region, call.MYIMAGE, myImageIID.SystemId, "GetMyImage()")
 
 	if strings.EqualFold(myImageIID.SystemId, "") {
 		newErr := fmt.Errorf("Invalid SystemId!!")
@@ -193,7 +188,7 @@ func (myImageHandler *NhnCloudMyImageHandler) GetMyImage(myImageIID irs.IID) (ir
 	}
 	LoggingInfo(callLogInfo, start)
 
-	imageInfo := myImageHandler.MappingMyImageInfo(*nhnImage)
+	imageInfo := myImageHandler.mappingMyImageInfo(*nhnImage)
 	return *imageInfo, nil
 }
 
@@ -205,7 +200,7 @@ func (myImageHandler *NhnCloudMyImageHandler) CheckWindowsImage(myImageIID irs.I
 
 func (myImageHandler *NhnCloudMyImageHandler) DeleteMyImage(myImageIID irs.IID) (bool, error) {
 	cblogger.Info("NHN Cloud Driver: called DeleteMyImage()")
-	callLogInfo := GetCallLogScheme(myImageHandler.RegionInfo.Region, call.MYIMAGE, myImageIID.SystemId, "DeleteMyImage()")
+	callLogInfo := getCallLogScheme(myImageHandler.RegionInfo.Region, call.MYIMAGE, myImageIID.SystemId, "DeleteMyImage()")
 
 	if strings.EqualFold(myImageIID.SystemId, "") {
 		newErr := fmt.Errorf("Invalid SystemId!!")
@@ -225,9 +220,9 @@ func (myImageHandler *NhnCloudMyImageHandler) DeleteMyImage(myImageIID irs.IID) 
 	return true, nil
 }
 
-func (myImageHandler *NhnCloudMyImageHandler) GetImageStatus(myImageIID irs.IID) (irs.MyImageStatus, error) {
-	cblogger.Info("NHN Cloud Driver: called GetImageStatus()")
-	callLogInfo := GetCallLogScheme(myImageHandler.RegionInfo.Region, call.MYIMAGE, myImageIID.SystemId, "GetImageStatus()")
+func (myImageHandler *NhnCloudMyImageHandler) getImageStatus(myImageIID irs.IID) (irs.MyImageStatus, error) {
+	cblogger.Info("NHN Cloud Driver: called getImageStatus()")
+	callLogInfo := getCallLogScheme(myImageHandler.RegionInfo.Region, call.MYIMAGE, myImageIID.SystemId, "getImageStatus()")
 
 	if strings.EqualFold(myImageIID.SystemId, "") {
 		newErr := fmt.Errorf("Invalid SystemId!!")
@@ -252,7 +247,7 @@ func (myImageHandler *NhnCloudMyImageHandler) GetImageStatus(myImageIID irs.IID)
 }
 
 // Waiting for up to 500 seconds during Taking a Snapshot from a VM
-func (myImageHandler *NhnCloudMyImageHandler) WaitForImageSnapshot(myImageIID irs.IID) (irs.MyImageStatus, error) {
+func (myImageHandler *NhnCloudMyImageHandler) waitForImageSnapshot(myImageIID irs.IID) (irs.MyImageStatus, error) {
 	cblogger.Info("===> Since Snapshot info. cannot be retrieved immediately after taking a snapshot, waits ....")
 
 	if strings.EqualFold(myImageIID.SystemId, "") {
@@ -264,7 +259,7 @@ func (myImageHandler *NhnCloudMyImageHandler) WaitForImageSnapshot(myImageIID ir
 	curRetryCnt := 0
 	maxRetryCnt := 500
 	for {
-		curStatus, err := myImageHandler.GetImageStatus(myImageIID)
+		curStatus, err := myImageHandler.getImageStatus(myImageIID)
 		if err != nil {
 			newErr := fmt.Errorf("Failed to Get the Image Status of [%s] : [%v] ", myImageIID.NameId, err)
 			cblogger.Error(newErr.Error())
@@ -292,12 +287,8 @@ func (myImageHandler *NhnCloudMyImageHandler) WaitForImageSnapshot(myImageIID ir
 	}
 }
 
-func (myImageHandler *NhnCloudMyImageHandler) MappingMyImageInfo(myImage images.Image) *irs.MyImageInfo {
-	cblogger.Info("NHN Cloud Driver: called MappingMyImageInfo()!")
-
-	// cblogger.Info("\n\n### myImage in MappingMyImageInfo() : ")
-	// spew.Dump(myImage)
-	// cblogger.Info("\n")
+func (myImageHandler *NhnCloudMyImageHandler) mappingMyImageInfo(myImage images.Image) *irs.MyImageInfo {
+	cblogger.Info("NHN Cloud Driver: called mappingMyImageInfo()!")
 
 	myImageInfo := &irs.MyImageInfo {
 		IId: irs.IID{
@@ -358,8 +349,8 @@ func ConvertImageStatus(myImageStatus images.ImageStatus) irs.MyImageStatus {
 	return resultStatus
 }
 
-func (myImageHandler *NhnCloudMyImageHandler) GetVMSpecType(vmIID irs.IID) (string, error) {
-	cblogger.Info("NHN Cloud Driver: called GetVMSpecType()")
+func (myImageHandler *NhnCloudMyImageHandler) getVMSpecType(vmIID irs.IID) (string, error) {
+	cblogger.Info("NHN Cloud Driver: called getVMSpecType()")
 
 	if strings.EqualFold(vmIID.SystemId, "") {
 		newErr := fmt.Errorf("Invalid VM SystemId!!")
@@ -388,16 +379,8 @@ func (myImageHandler *NhnCloudMyImageHandler) GetVMSpecType(vmIID irs.IID) (stri
 	return vmSpecType, nil
 }
 
-func (myImageHandler *NhnCloudMyImageHandler) GetBootableVolumeID(vmIID irs.IID) (string, error) {
-	cblogger.Info("NHN Cloud Driver: called GetBootableVolumeID()")
-
-	vmHandler := NhnCloudVMHandler{
-		RegionInfo:     myImageHandler.RegionInfo,
-		VMClient:       myImageHandler.VMClient,
-		ImageClient:   	myImageHandler.ImageClient,
-		NetworkClient:  myImageHandler.NetworkClient,
-		VolumeClient:  	myImageHandler.VolumeClient,
-	}
+func (myImageHandler *NhnCloudMyImageHandler) getBootableVolumeID(vmIID irs.IID) (string, error) {
+	cblogger.Info("NHN Cloud Driver: called getBootableVolumeID()")
 
 	diskHandler := NhnCloudDiskHandler{
 		RegionInfo:     myImageHandler.RegionInfo,
@@ -405,25 +388,32 @@ func (myImageHandler *NhnCloudMyImageHandler) GetBootableVolumeID(vmIID irs.IID)
 		VolumeClient:   myImageHandler.VolumeClient,
 	}
 
-	vmInfo, err := vmHandler.GetVM(vmIID)
+	nhnVolumeList, err := diskHandler.getNhnVolumeList()
 	if err != nil {
-		newErr := fmt.Errorf("Failed to Get the VM Info. : [%v] ", err)
+		newErr := fmt.Errorf("Failed to Get NHN Cloud Volume Pages!! : [%v] ", err)
 		cblogger.Error(newErr.Error())
 		return "", newErr
 	}
 
-	var bootableVolumeId string
-	for _, diskIID := range vmInfo.DataDiskIIDs {
-		isBootable, err := diskHandler.IsBootableDisk(diskIID)
+	var bootableVolumeId string	
+	for _, nhnVolume := range nhnVolumeList {		
+		isBootable, err := strconv.ParseBool(nhnVolume.Bootable)
 		if err != nil {
-			newErr := fmt.Errorf("Failed to Get the Bootable Disk Info. : [%v] ", err)
+			newErr := fmt.Errorf("Failed to Parse the String value!! : [%v]", err)
 			cblogger.Error(newErr.Error())
 			return "", newErr
-		} else if isBootable {
-			bootableVolumeId = diskIID.SystemId
+		}
+
+		if isBootable && nhnVolume.Attachments != nil && len(nhnVolume.Attachments) > 0 {
+			for _, attachment := range nhnVolume.Attachments {			
+				if strings.EqualFold(attachment.ServerID, vmIID.SystemId) {
+					bootableVolumeId = attachment.VolumeID
+					break
+				}
+			}
 		}
 	}
-	
+
 	if strings.EqualFold(bootableVolumeId, "") {
 		newErr := fmt.Errorf("Failed to Find any Bootable Volume : [%v] ", err)
 		cblogger.Error(newErr.Error())
