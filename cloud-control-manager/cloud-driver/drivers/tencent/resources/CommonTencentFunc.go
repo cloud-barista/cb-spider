@@ -115,7 +115,7 @@ func ConvertJsonStringNoEscape(v interface{}) (string, error) {
 	encoder.SetEscapeHTML(false)
 	errJson := encoder.Encode(v)
 	if errJson != nil {
-		cblogger.Error("JSON 변환 실패")
+		cblogger.Error("JSON conversion failed")
 		cblogger.Error(errJson)
 		return "", errJson
 	}
@@ -136,7 +136,7 @@ func ConvertJsonString(v interface{}) (string, error) {
 	jsonBytes, errJson := json.Marshal(v)
 
 	if errJson != nil {
-		cblogger.Error("JSON 변환 실패")
+		cblogger.Error("JSON conversion failed")
 		cblogger.Error(errJson)
 		return "", errJson
 	}
@@ -180,7 +180,7 @@ func ConvertKeyValueList(v interface{}) ([]irs.KeyValue, error) {
 
 	jsonBytes, errJson := json.Marshal(v)
 	if errJson != nil {
-		cblogger.Error("KeyValue 변환 실패")
+		cblogger.Error("KeyValue conversion failed")
 		cblogger.Error(errJson)
 		return nil, errJson
 	}
@@ -201,7 +201,7 @@ func ConvertKeyValueList(v interface{}) ([]irs.KeyValue, error) {
 		value, errString := ConvertToString(v)
 		if errString != nil {
 			//cblogger.Errorf("Key[%s]의 값은 변환 불가 - [%s]", k, errString)
-			cblogger.Debugf("Key[%s]의 값은 변환 불가 - [%s]", k, errString) //요구에 의해서 Error에서 Warn으로 낮춤
+			cblogger.Debugf("Key[%s] values are not convertible - [%s]", k, errString) //요구에 의해서 Error에서 Warn으로 낮춤
 			continue
 		}
 		keyValueList = append(keyValueList, irs.KeyValue{k, value})

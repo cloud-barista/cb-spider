@@ -11,17 +11,17 @@
 package resources
 
 import (
+	"encoding/json"
 	"errors"
 	"strings"
-	"encoding/json"
 
+	cblog "github.com/cloud-barista/cb-log"
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
 	vpc "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/vpc/v20170312"
-	cblog "github.com/cloud-barista/cb-log"
 )
 
 type TencentSecurityHandler struct {
@@ -32,7 +32,7 @@ type TencentSecurityHandler struct {
 type RuleAction string
 
 const (
-	Add RuleAction = "Add"
+	Add    RuleAction = "Add"
 	Remove RuleAction = "Remove"
 )
 
@@ -102,12 +102,12 @@ func (securityHandler *TencentSecurityHandler) CreateSecurity(securityReqInfo ir
 		spew.Dump(defaultEgressRequest)
 		return irs.SecurityInfo{}, err
 	}
-	
+
 	//spew.Dump(defaultEgressResponse)
 	cblogger.Debug(defaultEgressResponse.ToJsonString())
 	callogger.Info(call.String(callLogInfo))
 
-	cblogger.Debug("보안 정책 처리")
+	cblogger.Debug("Security Policy Processing")
 	securityGroupPolicySet := &vpc.SecurityGroupPolicySet{}
 	request := vpc.NewCreateSecurityGroupPoliciesRequest()
 	request.SecurityGroupId = common.StringPtr(*defaultEgressResponse.Response.SecurityGroup.SecurityGroupId)
@@ -134,9 +134,6 @@ func (securityHandler *TencentSecurityHandler) CreateSecurity(securityReqInfo ir
 			securityGroupPolicySet.Egress = append(securityGroupPolicySet.Egress, securityGroupPolicy)
 		}
 	}
-
-
-
 
 	request.SecurityGroupPolicySet = securityGroupPolicySet
 
@@ -235,7 +232,7 @@ func (securityHandler *TencentSecurityHandler) isExist(chkName string) (bool, er
 		return false, nil
 	}
 
-	cblogger.Infof("보안그룹 정보 찾음 - VpcId:[%s] / VpcName:[%s]", *response.Response.SecurityGroupSet[0].SecurityGroupId, *response.Response.SecurityGroupSet[0].SecurityGroupName)
+	cblogger.Infof("Security group information found - VpcId:[%s] / VpcName:[%s]", *response.Response.SecurityGroupSet[0].SecurityGroupId, *response.Response.SecurityGroupSet[0].SecurityGroupName)
 	return true, nil
 }
 
@@ -321,14 +318,14 @@ func (securityHandler *TencentSecurityHandler) GetSecurityRuleInfo(securityIID i
 	return &securityRuleInfos, nil
 }
 
-//@TODO Port에 콤머가 사용된 정책 처리해야 함.
-//direction : inbound / outbound
+// @TODO Port에 콤머가 사용된 정책 처리해야 함.
+// direction : inbound / outbound
 func (securityHandler *TencentSecurityHandler) ExtractPolicyGroups(policyGroups []*vpc.SecurityGroupPolicy, direction string) ([]irs.SecurityRuleInfo, error) {
 	var results []irs.SecurityRuleInfo
 
 	var fromPort string
 	var toPort string
-	
+
 	/*
 		var newDirection string
 		//ingress -> inbound
@@ -448,7 +445,7 @@ func (securityHandler *TencentSecurityHandler) AddRules(securityIID irs.IID, req
 			}
 			errorMsg += string(jsonRule)
 		}
-		return irs.SecurityInfo{}, errors.New("invalid value - "+ errorMsg +" already exists!")
+		return irs.SecurityInfo{}, errors.New("invalid value - " + errorMsg + " already exists!")
 	}
 
 	securityGroupPolicyIngressSet := &vpc.SecurityGroupPolicySet{}
@@ -456,11 +453,10 @@ func (securityHandler *TencentSecurityHandler) AddRules(securityIID irs.IID, req
 
 	// rule 생성 시에는 ingress와 egress가 동시에 생성되지 않기 때문에 ingress, egress 따로 호촐함
 	for _, curPolicy := range *reqSecurityRules {
-	
+
 		// if !strings.EqualFold(curPolicy.Direction, commonDirection) {
 		// 	return irs.SecurityInfo{}, errors.New("invalid - The parameter `Egress and Ingress` cannot be imported at the same time in the request.")
 		// }
-		
 
 		securityGroupPolicy := new(vpc.SecurityGroupPolicy)
 		securityGroupPolicy.Protocol = common.StringPtr(curPolicy.IPProtocol)
@@ -483,7 +479,6 @@ func (securityHandler *TencentSecurityHandler) AddRules(securityIID irs.IID, req
 			securityGroupPolicyEgressSet.Egress = append(securityGroupPolicyEgressSet.Egress, securityGroupPolicy)
 		}
 	}
-
 
 	// Ingress request
 	if len(securityGroupPolicyIngressSet.Ingress) > 0 {
@@ -537,7 +532,6 @@ func (securityHandler *TencentSecurityHandler) AddRules(securityIID irs.IID, req
 	return securityInfo, errSecurity
 }
 
-
 // DeleteSecurityGroupPolicies inbound, outbound 동시 호출 불가 > 각각 호출
 func (securityHandler *TencentSecurityHandler) RemoveRules(securityIID irs.IID, reqSecurityRules *[]irs.SecurityRuleInfo) (bool, error) {
 	////////
@@ -569,7 +563,7 @@ func (securityHandler *TencentSecurityHandler) RemoveRules(securityIID irs.IID, 
 			}
 			errorMsg += string(jsonRule)
 		}
-		return false, errors.New("invalid value - "+ errorMsg +" does not exist!")
+		return false, errors.New("invalid value - " + errorMsg + " does not exist!")
 	}
 
 	securityGroupPolicyIngressSet := &vpc.SecurityGroupPolicySet{}
@@ -651,7 +645,7 @@ func (securityHandler *TencentSecurityHandler) RemoveRules(securityIID irs.IID, 
 
 // 동일한 rule이 있는지 체크
 // RuleAction이 Add면 중복인 rule 리턴, Remove면 없는 rule 리턴
-func sameRulesCheck(presentSecurityRules *[]irs.SecurityRuleInfo, reqSecurityRules *[]irs.SecurityRuleInfo, action RuleAction) (*[]irs.SecurityRuleInfo) {
+func sameRulesCheck(presentSecurityRules *[]irs.SecurityRuleInfo, reqSecurityRules *[]irs.SecurityRuleInfo, action RuleAction) *[]irs.SecurityRuleInfo {
 	var checkResult []irs.SecurityRuleInfo
 	for _, reqRule := range *reqSecurityRules {
 		hasFound := false
@@ -711,5 +705,3 @@ func sameRulesCheck(presentSecurityRules *[]irs.SecurityRuleInfo, reqSecurityRul
 
 	return nil
 }
-
-

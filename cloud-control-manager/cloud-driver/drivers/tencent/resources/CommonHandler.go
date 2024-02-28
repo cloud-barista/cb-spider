@@ -58,15 +58,15 @@ func WaitForDelete(client *cvm.Client, imageIID irs.IID) (bool, error) {
 		}
 
 		if len(imageList) == 0 {
-			cblogger.Info("Image의 삭제가 완료되어 대기를 중단합니다.")
+			cblogger.Info("Image deletion is complete and stops waiting.")
 			break
 		}
 
 		curRetryCnt++
-		cblogger.Info("Image의 삭제가 완료되지 않아 1초 대기후 조회합니다.")
+		cblogger.Info("Image deletion has not been completed, so we will look up the climate for 1 second.")
 		time.Sleep(time.Second * 1)
 		if curRetryCnt > maxRetryCnt {
-			cblogger.Errorf("장시간(%d 초) 대기해도 Image의 삭제가 완료되지 않아서 강제로 중단합니다.", maxRetryCnt)
+			cblogger.Errorf("If you wait for a long time (%d seconds), the deletion of the image does not complete, so forcefully stop.", maxRetryCnt)
 			return false, errors.New("Failed to delete image")
 		}
 	}
@@ -95,16 +95,16 @@ func WaitForDone(client *cbs.Client, diskIID irs.IID, status string) (string, er
 		cblogger.Info("===>Disk Status : ", curStatus)
 
 		if curStatus == waitStatus {
-			cblogger.Infof("===>Disk 상태가 [%s]라서 대기를 중단합니다.", curStatus)
+			cblogger.Infof("===>Suspends standby because disk state is [%s].", curStatus)
 			break
 		}
 
 		curRetryCnt++
-		cblogger.Infof("Disk 상태가 [%s]이 아니라서 1초 대기후 조회합니다.", waitStatus)
+		cblogger.Infof("Disk status is not [%s] and climate lookup is performed in 1 second.", waitStatus)
 		time.Sleep(time.Second * 1)
 		if curRetryCnt > maxRetryCnt {
-			cblogger.Errorf("장시간(%d 초) 대기해도 Disk Status 값이 [%s]으로 변경되지 않아서 강제로 중단합니다.", maxRetryCnt, waitStatus)
-			return "Failed", errors.New("장시간 기다렸으나 생성된 Disk의 상태가 [" + waitStatus + "]으로 바뀌지 않아서 중단 합니다.")
+			cblogger.Errorf("Waiting for a long time (%d seconds) does not change the disk status value to [%s] and forces it to stop.", maxRetryCnt, waitStatus)
+			return "Failed", errors.New("After waiting a long time, the status of the created disk does not change to [" + waitStatus + "] and it is interrupted.")
 		}
 	}
 

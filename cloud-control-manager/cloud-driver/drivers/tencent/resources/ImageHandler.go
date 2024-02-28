@@ -144,7 +144,7 @@ func ExtractImageDescribeInfo(image *cvm.Image) irs.ImageInfo {
 	//KeyValue 목록 처리
 	keyValueList, errKeyValue := ConvertKeyValueList(image)
 	if errKeyValue != nil {
-		cblogger.Errorf("[%]의 KeyValue 추출 실패", *image.ImageId)
+		cblogger.Errorf("KeyValue extraction failed for [%]", *image.ImageId)
 		cblogger.Error(errKeyValue)
 	}
 
