@@ -182,7 +182,6 @@ func mappingToComputeStruct(regionName string, instanceModel *TencentInstanceMod
 				price.PriceInfo.PricingPolicies = pricePolicies
 				priceMap[productId] = price // price 재할당
 
-				cblogger.Info("add policy ", price)
 			} else { // 없으면
 				// product 추출
 				productInfo := mappingProductInfo(regionName, *v)
@@ -211,6 +210,63 @@ func mappingToComputeStruct(regionName string, instanceModel *TencentInstanceMod
 				priceMap[productId] = aPrice
 			}
 		} // end of for
+	}
+	// reservedInfo
+	if instanceModel.reservedInfo != nil {
+		for _, v := range instanceModel.reservedInfo.Response.ReservedInstanceConfigInfos {
+			for _, info := range v.InstanceFamilies {
+				for _, iType := range info.InstanceTypes {
+					for _, p := range iType.Prices {
+						productId := computeInstanceKeyGeneration(*p.Zone, *iType.InstanceType, *iType.CpuModelName, strconv.FormatUint(*iType.Memory, 10))
+
+						price, ok := priceMap[productId]
+						if ok { // 있으면
+							// policies 추출
+							policy := mappingPricingPolicy(common.StringPtr("RESERVED"), iType.Prices)
+
+							if priceFilter(&policy, filterMap) {
+								continue
+							}
+
+							// append policy
+							pricePolicies := price.PriceInfo.PricingPolicies
+							pricePolicies = append(pricePolicies, policy)
+
+							priceMap[productId] = price // price 재할당
+						} else { // 없으면
+							// product 추출
+							productInfo := mappingProductInfo(regionName, *iType)
+							if productFilter(filterMap, &productInfo) {
+								continue
+							}
+
+							//	for _, val := range *v.price.Res {
+
+							// pricePolicies 추출
+							policy := mappingPricingPolicy(common.StringPtr("RESERVED"), *p)
+
+							if priceFilter(&policy, filterMap) {
+								continue
+							}
+							aPrice := irs.Price{}
+							priceInfo := irs.PriceInfo{}
+
+							pricePolicies := []irs.PricingPolicies{}
+							pricePolicies = append(pricePolicies, policy)
+
+							priceInfo.PricingPolicies = pricePolicies
+
+							aPrice.ProductInfo = productInfo
+							aPrice.PriceInfo = priceInfo
+
+							priceMap[productId] = aPrice
+							//	}
+						}
+
+					} // end of itype.Prices for
+				} // end of itype for
+			} // end of instanceFamilies for
+		} // end of reservedInstanceConfigInfos for
 	}
 
 	priceList := make([]irs.Price, 0)
@@ -359,7 +415,6 @@ func mappingProductInfo(regionName string, i interface{}) irs.ProductInfo {
 
 // TencentSDK VM Product & Pricing struct to irs PricingPolicies
 func mappingPricingPolicy(instanceChargeType *string, price any) irs.PricingPolicies {
-
 	// price info mapping
 	policyInfo := irs.PricingPolicyInfo{}
 
@@ -398,7 +453,6 @@ func mappingPricingPolicy(instanceChargeType *string, price any) irs.PricingPoli
 
 	case reflect.TypeOf(cvm.ReservedInstancePriceItem{}):
 		p := price.(cvm.ReservedInstancePriceItem)
-
 		policy.PricingId = strPtrNilCheck(p.ReservedInstancesOfferingId)
 		policy.Unit = strPtrNilCheck(common.StringPtr("Yrs"))
 		policy.Price = floatPtrNilCheck(p.FixedPrice)
