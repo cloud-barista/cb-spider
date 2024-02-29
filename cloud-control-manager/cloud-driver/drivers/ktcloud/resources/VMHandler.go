@@ -79,14 +79,14 @@ func (vmHandler *KtCloudVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 
 	// Caution!!) When creating VM, 'Seoul M2' zone only supports 'SSD' type with root disk type, and the rest of the zone only supports 'HDD' Type.
 	if strings.EqualFold(vmHandler.RegionInfo.Zone, KOR_Seoul_M2_ZoneID) {
-		if !strings.EqualFold(vmReqInfo.RootDiskType, "default") && !strings.EqualFold(vmReqInfo.RootDiskType, "SSD") {
-			newErr := fmt.Errorf("Invalid RootDiskType!! KT Cloud supports only 'SSD' type on the 'Seoul M2' zone.")
+		if !strings.EqualFold(vmReqInfo.RootDiskType, "") && !strings.EqualFold(vmReqInfo.RootDiskType, "default") && !strings.EqualFold(vmReqInfo.RootDiskType, "SSD") {
+			newErr := fmt.Errorf("Invalid RootDiskType!! KT Cloud supports only 'SSD' type on the 'KOR-Seoul M2' zone.")
 			cblogger.Error(newErr.Error())
 			LoggingError(callLogInfo, newErr)
 			return irs.VMInfo{}, newErr
 		}
 	} else {
-		if !strings.EqualFold(vmReqInfo.RootDiskType, "default") && !strings.EqualFold(vmReqInfo.RootDiskType, "HDD") {
+		if !strings.EqualFold(vmReqInfo.RootDiskType, "") && !strings.EqualFold(vmReqInfo.RootDiskType, "default") && !strings.EqualFold(vmReqInfo.RootDiskType, "HDD") {
 			newErr := fmt.Errorf("Invalid RootDiskType!! Only 'HDD' type is supported on this zone.(Except for 'Seoul M2' zone.)")
 			cblogger.Error(newErr.Error())
 			LoggingError(callLogInfo, newErr)
@@ -134,7 +134,7 @@ func (vmHandler *KtCloudVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 		}
 		if isPublicWindowsImage {
 			// Root Disk Size is supported at only 20GB for Linux and 50GB for Windows OS.
-			if !strings.EqualFold(vmReqInfo.RootDiskSize, "default") && !strings.EqualFold(vmReqInfo.RootDiskSize, WinDefaultRootDiskSize) {
+			if !strings.EqualFold(vmReqInfo.RootDiskSize, "") && !strings.EqualFold(vmReqInfo.RootDiskSize, "default") && !strings.EqualFold(vmReqInfo.RootDiskSize, WinDefaultRootDiskSize) {
 				newErr := fmt.Errorf("Invalid RootDiskSize!! Root Disk Size is supported at only 20GB for Linux and 50GB for Windows OS.")
 				cblogger.Error(newErr.Error())
 				LoggingError(callLogInfo, newErr)
@@ -151,7 +151,7 @@ func (vmHandler *KtCloudVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 			}
 		} else {
 			// Root Disk Size is supported at only 20GB for Linux and 50GB for Windows OS.
-			if !strings.EqualFold(vmReqInfo.RootDiskSize, "default") && !strings.EqualFold(vmReqInfo.RootDiskSize, LinuxDefaultRootDiskSize) {
+			if !strings.EqualFold(vmReqInfo.RootDiskSize, "") && !strings.EqualFold(vmReqInfo.RootDiskSize, "default") && !strings.EqualFold(vmReqInfo.RootDiskSize, LinuxDefaultRootDiskSize) {
 				newErr := fmt.Errorf("Invalid RootDiskSize!! Root Disk Size is supported at only 20GB for Linux and 50GB for Windows OS.")
 				cblogger.Error(newErr.Error())
 				LoggingError(callLogInfo, newErr)
@@ -340,7 +340,7 @@ func (vmHandler *KtCloudVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 			cblogger.Error(errStatus.Error())
 			return irs.VMInfo{}, errStatus
 		}
-		cblogger.Infof("==> The VM Status of : [%s] , : [%s]", newVMIID, curStatus)
+		cblogger.Infof("==> The Status of VM  : [%s] : [%s]", newVMIID, curStatus)
 
 		//Check Job Status of Deploy virtualmachine to Confirm the termination of new VM deployment process (Wait 700sec)
 		waitErr := vmHandler.Client.WaitForAsyncJob(newVM.Deployvirtualmachineresponse.JobId, 700000000000)
@@ -693,8 +693,11 @@ func (vmHandler *KtCloudVMHandler) GetVM(vmIID irs.IID) (irs.VMInfo, error) {
 	InitLog()
 	callLogInfo := GetCallLogScheme(vmHandler.RegionInfo.Zone, call.VM, "GetVM()", "GetVM()")
 
-	cblogger.Infof("vmID : [%s]", vmIID.SystemId)
-	cblogger.Infof("vmHandler.RegionInfo.Zone : [%s]", vmHandler.RegionInfo.Zone)
+	if strings.EqualFold(vmIID.SystemId, "") {
+		newErr := fmt.Errorf("Invalid VM ID!!")
+		cblogger.Error(newErr.Error())
+		return irs.VMInfo{}, newErr
+	}	
 
 	vmListReqInfo := ktsdk.ListVMReqInfo{
 		ZoneId: 	vmHandler.RegionInfo.Zone,
@@ -725,13 +728,14 @@ func (vmHandler *KtCloudVMHandler) GetVM(vmIID irs.IID) (irs.VMInfo, error) {
 
 func (vmHandler *KtCloudVMHandler) SuspendVM(vmIID irs.IID) (irs.VMStatus, error) {
 	cblogger.Info("KT Cloud cloud driver: called SuspendVM()!!")
-	cblogger.Info("Start Get VM Status...")
+
+	cblogger.Info("Start Suspending the VM!!")
 	vmStatus, err := vmHandler.GetVMStatus(vmIID)
 	if err != nil {
 		cblogger.Errorf("[%s] Failed to Get the VM Status of VM : ", vmIID)
 		cblogger.Error(err)
 	} else {
-		cblogger.Infof("[%s] Succeeded in Getting the VM Status : [%s]", vmIID, vmStatus)
+		cblogger.Infof("Succeeded in Getting the VM Status : [%s]", vmStatus)
 	}
 
 	var resultStatus string
@@ -778,7 +782,7 @@ func (vmHandler *KtCloudVMHandler) SuspendVM(vmIID irs.IID) (irs.VMStatus, error
 		// 15-second wait for Suspending
 		//===================================
 		curRetryCnt := 0
-		maxRetryCnt := 16
+		maxRetryCnt := 20
 		for {
 			curStatus, errStatus := vmHandler.GetVMStatus(vmIID)
 			if errStatus != nil {
@@ -789,7 +793,7 @@ func (vmHandler *KtCloudVMHandler) SuspendVM(vmIID irs.IID) (irs.VMStatus, error
 			if curStatus != irs.VMStatus("Suspended") {
 				curRetryCnt++
 				cblogger.Infof("The VM status is not 'Suspended' yet, so wait more!!")
-				time.Sleep(time.Second * 2)
+				time.Sleep(time.Second * 3)
 				if curRetryCnt > maxRetryCnt {
 					cblogger.Error("Despite waiting for a long time(%d sec), the VM is not 'Suspended' yet, so it is forcibly terminated.", maxRetryCnt)
 				}
@@ -805,7 +809,8 @@ func (vmHandler *KtCloudVMHandler) SuspendVM(vmIID irs.IID) (irs.VMStatus, error
 
 func (vmHandler *KtCloudVMHandler) ResumeVM(vmIID irs.IID) (irs.VMStatus, error) {
 	cblogger.Info("KT Cloud cloud driver: called ResumeVM()!")
-	cblogger.Info("Start Get VM Status...")
+
+	cblogger.Info("Start Resuming the VM!!")
 	vmStatus, err := vmHandler.GetVMStatus(vmIID)
 	if err != nil {
 		cblogger.Errorf("[%s] Failed to Get the VM Status", vmIID)
@@ -888,7 +893,8 @@ func (vmHandler *KtCloudVMHandler) ResumeVM(vmIID irs.IID) (irs.VMStatus, error)
 
 func (vmHandler *KtCloudVMHandler) RebootVM(vmIID irs.IID) (irs.VMStatus, error) {
 	cblogger.Info("KT Cloud cloud driver: called RebootVM()!")
-	cblogger.Info("Start Get VM Status...")
+
+	cblogger.Info("Start Rebooting the VM!!")
 	vmStatus, err := vmHandler.GetVMStatus(vmIID)
 	if err != nil {
 		cblogger.Errorf("[%s] Failed to Get the VM Status of VM : ", vmIID)
@@ -966,7 +972,8 @@ func (vmHandler *KtCloudVMHandler) RebootVM(vmIID irs.IID) (irs.VMStatus, error)
 
 func (vmHandler *KtCloudVMHandler) TerminateVM(vmIID irs.IID) (irs.VMStatus, error) {
 	cblogger.Info("KT Cloud cloud driver: called TerminateVM()!")
-	cblogger.Info("Start Getting the VM Status")
+
+	cblogger.Info("Start Terminating the VM!!")
 	vmStatus, err := vmHandler.GetVMStatus(vmIID)
 	if err != nil {
 		cblogger.Errorf("Failed to Get the VM Status : [%s]", vmIID)
@@ -978,64 +985,43 @@ func (vmHandler *KtCloudVMHandler) TerminateVM(vmIID irs.IID) (irs.VMStatus, err
 	vmInfo, error := vmHandler.GetVM(vmIID)
 	if error != nil {
 		cblogger.Error(error.Error())
-		return irs.VMStatus("Failed to get the VM info"), err
+		return irs.VMStatus("Failed to Get the VM info"), err
 	}
 
 	switch string(vmStatus) {
 	case "Suspended":
 		cblogger.Infof("VM Status : 'Suspended'. so it Can be Terminated!!")
-		cblogger.Info("==> The PublicIP of the VM : " + vmInfo.PublicIP)
-	
-		// To Get the PulbicIP info
-		ipListReqInfo := ktsdk.ListPublicIpReqInfo {
-			IpAddress: vmInfo.PublicIP,
-		}
-		ipListResponse, err := vmHandler.Client.ListPublicIpAddresses(ipListReqInfo)
-		if err != nil {
-			cblogger.Error(error.Error())
-			return irs.VMStatus("Failed to Get the Public IP List"), err
-		} else {
-			cblogger.Info("Succeeded in Getting the Public IP List!!")
-		}
-		publicIpId := ipListResponse.Listpublicipaddressesresponse.PublicIpAddress[0].ID
 
-		vmStatus, error := vmHandler.deleteFirewall(publicIpId)
-		if error != nil {
-			cblogger.Error(error.Error())
-			return irs.VMStatus("Failed to Delete the Firewall rules"), err
-		} else {
-			cblogger.Info("Succeeded in Deleting the Firewall rules!!")
+		// # DeleteFirewall And PortForwarding Rules and PublicIP
+		if !strings.EqualFold(vmInfo.PublicIP, "") {
+			_, delErr := vmHandler.deleteFirewallAndPortForwarding(vmInfo.PublicIP) 
+			if delErr != nil {
+				newErr := fmt.Errorf("Failed to Delete Firewall Rules and PortForwarding Rules : [%v]", delErr)
+				cblogger.Error(newErr.Error())
+				return irs.VMStatus("Failed to Suspend the VM!!"), newErr
+			}			
 		}
-		cblogger.Infof("VM Status : " + string(vmStatus))
-
-		vStatus, error := vmHandler.deletePortForwarding(publicIpId)
-		if error != nil {
-			cblogger.Error(error.Error())
-			return irs.VMStatus("Failed to Delete the PortForwarding rule"), err
-		} else {
-			cblogger.Info("Succeeded in Deleting the PortForwarding rule!!")
-		}
-		cblogger.Infof("VM Status : " + string(vStatus))
-
-		status, error := vmHandler.disassociatePublicIp(publicIpId)
-		if error != nil {
-			cblogger.Error(error.Error())	
-			return irs.VMStatus("Failed to Disassociate the Public IP"), err
-		} else {
-			cblogger.Info("Succeeded in Disassociating the Public IP!!")
-		}
-		cblogger.Infof("VM Status : " + string(status))
 
 		destroyVMResponse, err := vmHandler.Client.DestroyVirtualMachine(vmIID.SystemId)
 		if err != nil {
 			cblogger.Errorf("Failed to terminate the VM : [%v]", err)
-			return "Error", err
+			return irs.VMStatus("Failed to Terminate the VM!!"), err
 		}
 		cblogger.Infof("# Job ID : %s", destroyVMResponse.Destroyvirtualmachineresponse.JobId)
 		
 		return irs.VMStatus("Terminating"), nil
 
 	case "Running":
+		// # DeleteFirewall And PortForwarding Rules and PublicIP
+		if !strings.EqualFold(vmInfo.PublicIP, "") {
+			_, delErr := vmHandler.deleteFirewallAndPortForwarding(vmInfo.PublicIP) 
+			if delErr != nil {
+				newErr := fmt.Errorf("Failed to Delete Firewall Rules and PortForwarding Rules : [%v]", delErr)
+				cblogger.Error(newErr.Error())
+				return irs.VMStatus("Failed to Terminate the VM!!"), newErr
+			}			
+		}
+
 		cblogger.Infof("VM Status : 'Running'. so it Can be Terminated AFTER SUSPENSION !!")
 		cblogger.Info("Start Suspending the VM !!")
 		result, err := vmHandler.SuspendVM(vmIID)
@@ -1047,10 +1033,10 @@ func (vmHandler *KtCloudVMHandler) TerminateVM(vmIID irs.IID) (irs.VMStatus, err
 		}
 
 		//===================================
-		// 15-second wait for Suspending
+		// Wait for Suspending
 		//===================================
 		curRetryCnt := 0
-		maxRetryCnt := 15
+		maxRetryCnt := 20
 		for {
 			curStatus, errStatus := vmHandler.GetVMStatus(vmIID)
 			if errStatus != nil {
@@ -1061,7 +1047,7 @@ func (vmHandler *KtCloudVMHandler) TerminateVM(vmIID irs.IID) (irs.VMStatus, err
 			if curStatus != irs.VMStatus("Suspended") {
 				curRetryCnt++
 				cblogger.Infof("The VM is not 'Suspended' yet, so wait more before inquiring Termination.")
-				time.Sleep(time.Second * 1)
+				time.Sleep(time.Second * 3)
 				if curRetryCnt > maxRetryCnt {
 					cblogger.Error("Despite waiting for a long time(%d sec), the VM is not 'Suspended' yet, so it is forcibly terminated.", maxRetryCnt)
 				}
@@ -1069,28 +1055,16 @@ func (vmHandler *KtCloudVMHandler) TerminateVM(vmIID irs.IID) (irs.VMStatus, err
 				break
 			}
 		}
-
 		cblogger.Info("# SuspendVM() Finished")
 
-		// vmStatus, error := vmHandler.deleteFirewall(vmInfo)
-		// if error != nil {
-		// 	cblogger.Error(error.Error())
-	
-		// 	return irs.VMStatus("Failed to Delete the Firewall rules"), err
-		// }
-
-		// cblogger.Infof("VM Status : " + string(vmStatus))
-
-		cblogger.Info("Start Terminating the VM !!")
-		vmStatus, err := vmHandler.TerminateVM(vmIID) // After SuspendVM() 
+		destroyVMResponse, err := vmHandler.Client.DestroyVirtualMachine(vmIID.SystemId)
 		if err != nil {
-			cblogger.Errorf("[%s] Failed to Terminate the VM.", vmIID)
-			cblogger.Error(err)
-		} else {
-			cblogger.Infof("[%s] Succeed in Terminating the VM : [%s]", vmIID, vmStatus)
+			cblogger.Errorf("Failed to terminate the VM : [%v]", err)
+			return irs.VMStatus("Failed to Terminate the VM!!"), err
 		}
-
-		return irs.VMStatus("Terminateding"), nil
+		cblogger.Infof("# Job ID : %s", destroyVMResponse.Destroyvirtualmachineresponse.JobId)
+		
+		return irs.VMStatus("Terminating"), nil
 
 	default:
 		resultStatus := "The VM status is not 'Running' or 'Suspended'. so it Can NOT be Terminated!! Run or Suspend the VM before terminating."
@@ -1267,7 +1241,6 @@ func (vmHandler *KtCloudVMHandler) ListVM() ([]*irs.VMInfo, error) {
 
 func (vmHandler *KtCloudVMHandler) listKTCloudVM() ([]ktsdk.Virtualmachine, error) {
 	cblogger.Info("KT Cloud cloud driver: called listKTCloudVM()!")
-	cblogger.Infof("vmHandler.RegionInfo.Zone : [%s]", vmHandler.RegionInfo.Region)
 
 	vmListReqInfo := ktsdk.ListVMReqInfo{
 		ZoneId: 	vmHandler.RegionInfo.Zone,
@@ -1337,26 +1310,29 @@ func (vmHandler *KtCloudVMHandler) getVmIdWithName(vmNameId string) (string, err
 		cblogger.Error(newErr.Error())
 		return "", newErr
 	}
-	if len(ktVMList) < 1 {
-		newErr := fmt.Errorf("Failed to Find Any VM form KT Cloud : [%v]", err)
-		cblogger.Error(newErr.Error())
-		return "", newErr
-	}
 
 	var vmId string
-	for _, vm := range ktVMList {
-		if strings.EqualFold(vm.Name, vmNameId) {
-			vmId = vm.ID
-			break
+	if len(ktVMList) < 1 {
+		newErr := fmt.Errorf("Failed to Find Any VM form KT Cloud : [%v]", err)
+		cblogger.Debug(newErr.Error())
+		// return "", newErr  // For the case that No VM created before!!
+	} else {
+		for _, vm := range ktVMList {
+			if strings.EqualFold(vm.Name, vmNameId) {
+				vmId = vm.ID
+				break
+			}
+		}
+	
+		if vmId == "" {
+			err := errors.New(fmt.Sprintf("Failed to Find the VM ID with the VM Name %s", vmNameId))
+			return "", err
+		} else {
+		return vmId, nil
 		}
 	}
 
-	if vmId == "" {
-		err := errors.New(fmt.Sprintf("Failed to Find the VM ID with the VM Name %s", vmNameId))
-		return "", err
-	} else {
-	return vmId, nil
-	}
+	return "", nil
 }
 
 func (vmHandler *KtCloudVMHandler) getVmNameWithId(vmId string) (string, error) {
@@ -1452,7 +1428,7 @@ func (vmHandler *KtCloudVMHandler) deleteFirewall(publicIpId string) (irs.VMStat
 				cblogger.Errorf("Failed to Wait the Job : [%v]", waitJobErr)	
 				return irs.VMStatus("Terminating"), waitJobErr
 			}			
-			cblogger.Infof("# Succeeded in Deleting the firewall Rule : %s, %s, %s, %s", firewallRule.IpAddress,  firewallRule.Protocol, firewallRule.StartPort, firewallRule.EndPort)
+			cblogger.Infof("# Succeeded in Deleting the firewall Rule : %s, %s, %d, %d", firewallRule.IpAddress,  firewallRule.Protocol, firewallRule.StartPort, firewallRule.EndPort)
 		}
 		// spew.Dump(deleteRulesResult)
 	}	
@@ -1795,7 +1771,6 @@ func (vmHandler *KtCloudVMHandler) createPortForwardingFirewallRules(sgSystemIDs
 			// Caution!!) KT Cloud 'PortForwarding Rules' and 'Firewall Rules' Support Only "inbound".
 			if strings.EqualFold(sgRule.Direction, "inbound") {
 				if !(strings.EqualFold(resultProtocol, "ICMP")) {
-				// if !(strings.EqualFold(resultProtocol, "TCP") || strings.EqualFold(sgRule.FromPort, "22")) {
 					cblogger.Info("##### FromPort : " + sgRule.FromPort)
 					pfRuleReqInfo := ktsdk.CreatePortForwardingRuleReqInfo {
 						IpAddressId: 		publicIpId,
@@ -1836,7 +1811,6 @@ func (vmHandler *KtCloudVMHandler) createPortForwardingFirewallRules(sgSystemIDs
 					}
 					cblogger.Info("### PortForwarding Rule List : ")
 					spew.Dump(pfRulesResult.Listportforwardingrulesresponse.PortForwardingRule)
-				// }
 				}
 
 				// ### KT Cloud 'Firewall Rules' Setting for 'ICMP' protocol
@@ -1878,6 +1852,69 @@ func (vmHandler *KtCloudVMHandler) createPortForwardingFirewallRules(sgSystemIDs
 			}
 		}
 	}
+	return true, nil
+}
+
+func (vmHandler *KtCloudVMHandler) deleteFirewallAndPortForwarding(publicIP string) (bool, error) {
+	cblogger.Info("KT Cloud cloud driver: called deleteFirewallAndPortForwarding()!")
+
+	if strings.EqualFold(publicIP, "") {
+		newErr := fmt.Errorf("Invalid Public IP!!")
+		cblogger.Error(newErr.Error())
+		return false, newErr
+	}
+	cblogger.Info("==> The PublicIP of the VM : " + publicIP)
+
+	// To Get the PulbicIP ID
+	ipListReqInfo := ktsdk.ListPublicIpReqInfo {
+		IpAddress: publicIP,
+	}
+	ipListResponse, err := vmHandler.Client.ListPublicIpAddresses(ipListReqInfo)
+	if err != nil {
+		newErr := fmt.Errorf("Failed to Get PubicIP List : [%v]", err)
+		cblogger.Error(newErr.Error())
+		return false, newErr
+	} else {
+		cblogger.Info("Succeeded in Getting the Public IP List!!")
+	}
+	publicIpId := ipListResponse.Listpublicipaddressesresponse.PublicIpAddress[0].ID
+
+	if strings.EqualFold(publicIpId, "") { 
+		newErr := fmt.Errorf("Failed to Get ID of the Public IP [%s]", publicIP)
+		cblogger.Error(newErr.Error())
+		return false, newErr
+	}
+
+	vmStatus, error := vmHandler.deleteFirewall(publicIpId)
+	if error != nil {
+		newErr := fmt.Errorf("Failed to Delete the Firewall rules : [%v]", error)
+		cblogger.Error(newErr.Error())
+		return false, newErr
+	} else {
+		cblogger.Info("Succeeded in Deleting the Firewall rules!!")
+	}
+	cblogger.Infof("VM Status : " + string(vmStatus))
+
+	vStatus, error := vmHandler.deletePortForwarding(publicIpId)
+	if error != nil {
+		newErr := fmt.Errorf("Failed to Delete the PortForwarding rules : [%v]", error)
+		cblogger.Error(newErr.Error())
+		return false, newErr
+	} else {
+		cblogger.Info("Succeeded in Deleting the PortForwarding rules!!")
+	}
+	cblogger.Infof("VM Status : " + string(vStatus))
+
+	status, error := vmHandler.disassociatePublicIp(publicIpId)
+	if error != nil {
+		newErr := fmt.Errorf("Failed to Disassociate the Public IP : [%v]", error)
+		cblogger.Error(newErr.Error())
+		return false, newErr
+	} else {
+		cblogger.Info("Succeeded in Disassociating the Public IP!!")
+	}
+	cblogger.Infof("VM Status : " + string(status))
+
 	return true, nil
 }
 

@@ -66,8 +66,9 @@ func handleVM() {
 		fmt.Println("\n   Select a number above!! : ")
 		fmt.Println("============================================================================================")
 
-		//config := readConfigFile()
-		VmID := irs.IID{SystemId: "8e217114-d5dc-4c18-b285-7960852aa892"}
+		config := readConfigFile()
+		cblogger.Info("# config.KTCloudVPC.Zone : ", config.KtCloud.Zone)
+		VmID := irs.IID{SystemId: config.KtCloud.VMID}
 
 		var commandNum int
 		inputCnt, err := fmt.Scan(&commandNum)
@@ -88,7 +89,7 @@ func handleVM() {
 
 					VMUserPasswd: "cbuser357505**", // No Simple PW!!
 
-					IId: irs.IID{NameId: "kt-vm-18"},
+					IId: irs.IID{NameId: config.KtCloud.ReqVMName},
 					// IId: irs.IID{NameId: "kt-win-vm-02"},
 
 					// # Zone: KOR-Central A
@@ -97,18 +98,16 @@ func handleVM() {
 					// WIN 2019 STD 64bit [Korean] image와 호환
 
 					// # Zone: KOR-Central A
-					ImageIID: irs.IID{NameId: "Ubuntu 20.04 64bit", SystemId: "87838094-af4f-449f-a2f4-f5b4b581eb29"},
-					VMSpecName: "d3530ad2-462b-43ad-97d5-e1087b952b7d!_disk20GB",
+					// ImageIID: irs.IID{NameId: "Ubuntu 20.04 64bit", SystemId: "87838094-af4f-449f-a2f4-f5b4b581eb29"},
+					// VMSpecName: "d3530ad2-462b-43ad-97d5-e1087b952b7d!_disk20GB",
 					// 상기 Ubuntu 20.04 64bit image와 호환
 
 					// VMSpecName: "543b1f26-eddf-4521-9cbd-f3744aa2cc52!cc85e4dd-bfd9-4cec-aa22-cf226c1da92f_disk100GB",
 							
 					// # Zone: KOR-Seoul M2
-					// ImageIID: irs.IID{NameId: "Ubuntu 20.04 64bit", SystemId: "23bc4025-8a16-4ebf-aa49-3160ee2ac24b"},
-
-					// # Zone: KOR-Seoul M2
-					// VMSpecName: "df5e0f9d-b19e-456a-ab1f-7c19c3b737f3!_disk20GB",
-					// Ubuntu 20.04 이미지와 호환
+					ImageIID: irs.IID{NameId: "Ubuntu 20.04 64bit", SystemId: "23bc4025-8a16-4ebf-aa49-3160ee2ac24b"},
+					VMSpecName: "c219de89-e664-49f0-aa64-d533b93dd2cf!_disk20GB",
+					// Ubuntu 20.04 이미지와 호환, * Count: 8, 16384 MB					
 
 					// # Zone: KOR-HA
 					// ImageIID: irs.IID{NameId: "Centos 7.6 64bit", SystemId: "cfb1834b-14d9-42fc-84e6-3018dbcece71"},
@@ -124,25 +123,28 @@ func handleVM() {
 					//VMSpecName: "c308f760-068a-4cdd-abc9-edb581d18e58", //4 vCore, 8 GB
 					//######################################################################
 
-					KeyPairIID: irs.IID{SystemId: "kt-key-15"},
+					KeyPairIID: irs.IID{SystemId: "oh-m2-keypair-01-cng5qvsvtts6e4l7p1o0"},
+					// KeyPairIID: irs.IID{SystemId: "kt-key-15"},
 
 					VpcIID: irs.IID{
-						NameId: "myTest-vpc-01",
+						NameId: "oh-vpc-01-cng5q1cvtts6e4l7p1mg",
+						// NameId: "myTest-vpc-01",
 					},					
 					SubnetIID: irs.IID{
-						NameId: "myTest-subnet-01",
+						NameId: "subnet-01-cng5q1cvtts6e4l7p1n0",
+						// NameId: "myTest-subnet-01",
 					},
 
-					SecurityGroupIIDs: []irs.IID{{SystemId: "KT-SG-1"},},
-					// SecurityGroupIIDs: []irs.IID{{SystemId: "CB-Security4"},{SystemId: "CB-Security5"}},
+					// SecurityGroupIIDs: []irs.IID{{SystemId: "KT-SG-1"},},
+					SecurityGroupIIDs: []irs.IID{{SystemId: "oh-sg01-cng5q4kvtts6e4l7p1ng"}},
 					// SecurityGroupIIDs: []irs.IID{{SystemId: "CB-Security5"},{SystemId: "CB-Security6"}},
 
 					// KT Cloud Disk(diskofferingid 지정하지 않을때) : Default : 20 GB
 					// RootDiskType: "SSD",
-					RootDiskType: "default",
+					RootDiskType: "", // CB-Spider default
 
-					RootDiskSize: "200",
-					// RootDiskSize: "default",
+					// RootDiskSize: "200", // For Testing
+					RootDiskSize: "", // CB-Spider default
 				}
 
 				vmInfo, err := vmHandler.StartVM(vmReqInfo)
@@ -328,16 +330,13 @@ type Config struct {
 		Region         string `yaml:"region"`
 		Zone           string `yaml:"zone"`
 
-		ImageID string `yaml:"image_id"`
+		VMID         string `yaml:"vm_id"`
+		ReqVMName 		 string `yaml:"req_vm_name"`
 
-		VmID         string `yaml:"ktcloud_instance_id"`
-		BaseName     string `yaml:"base_name"`
-		InstanceType string `yaml:"instance_type"`
+		ImageID          string `yaml:"image_id"`
+		VMSpecID         string `yaml:"vmspec_id"`
 		KeyName      string `yaml:"key_name"`
-		MinCount     int64  `yaml:"min_count"`
-		MaxCount     int64  `yaml:"max_count"`
 
-		SubnetID        string `yaml:"subnet_id"`
 		SecurityGroupID string `yaml:"security_group_id"`
 
 		PublicIP string `yaml:"public_ip"`
