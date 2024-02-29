@@ -130,7 +130,6 @@ func (myImageHandler *KtCloudMyImageHandler) GetMyImage(myImageIID irs.IID) (irs
 	if strings.EqualFold(myImageIID.SystemId, "") {
 		newErr := fmt.Errorf("Invalid SystemId!!")
 		cblogger.Error(newErr.Error())
-		// LoggingError(callLogInfo, newErr)
 		return irs.MyImageInfo{}, newErr
 	}
 
@@ -297,9 +296,10 @@ func (myImageHandler *KtCloudMyImageHandler) listKTImages() (*[]ktsdk.Template, 
 	LoggingInfo(callLogInfo, start)
 
 	if len(imgResp.Listtemplatesresponse.Template) < 1 {
-		cblogger.Info("# KT Cloud Image Template does Not Exist!!")
-		return nil, nil // Not Return Error
-	}
+		newErr := fmt.Errorf("# KT Cloud My Image Template does Not Exist!!")
+		cblogger.Debug(newErr.Error())
+		return nil, newErr
+	}	
 	// spew.Dump(imgResp.Listtemplatesresponse.Template)
 	return &imgResp.Listtemplatesresponse.Template, nil
 }
@@ -317,23 +317,29 @@ func (myImageHandler *KtCloudMyImageHandler) getKTImage(myImageIID irs.IID) (*kt
 	ktImages, err := myImageHandler.listKTImages()
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get KT Cloud Image Template List!! [%v]", err)
-		cblogger.Error(newErr.Error())
+		cblogger.Debug(newErr.Error())
 		return nil, newErr
 	}
 
 	var imgInfo ktsdk.Template
-	for _, ktImage := range *ktImages {
-		// cblogger.Infof("\n# ktImage.ID : %s", ktImage.ID)		
-		if strings.EqualFold(ktImage.ID, myImageIID.SystemId) {
-			imgInfo = ktImage
-			return &imgInfo, nil
+	if len(*ktImages) < 1 {
+		newErr := fmt.Errorf("# KT Cloud My Image Template does Not Exist!!")
+		cblogger.Debug(newErr.Error())
+		return nil, nil // Not Return Error
+	} else {
+		for _, ktImage := range *ktImages {
+			// cblogger.Infof("\n# ktImage.ID : %s", ktImage.ID)		
+			if strings.EqualFold(ktImage.ID, myImageIID.SystemId) {
+				imgInfo = ktImage
+				return &imgInfo, nil
+			}
 		}
-	}
-	if imgInfo.ID == "" {
-		newErr := fmt.Errorf("Failed to Find any My Image(Image Template) with the Image ID!!")
-		cblogger.Error(newErr.Error())
-		return nil, newErr
-	}
+		if imgInfo.ID == "" {
+			newErr := fmt.Errorf("Failed to Find any My Image(Image Template) with the Image ID!!")
+			cblogger.Error(newErr.Error())
+			return nil, newErr
+		}
+	}	
 	return nil, nil
 }
 
@@ -353,7 +359,6 @@ func (myImageHandler *KtCloudMyImageHandler) isPublicImage(imageIID irs.IID) (bo
 	ktMyImage, err := myImageHandler.getKTImage(imageIID) // In case of 'MyImage'
 	if err != nil {
 		cblogger.Infof("MyImage(Image Template) having the ID does Not Exist!! [%v]", err)
-		// return irs.MyImageInfo{}, newErr // Caution!!
 
 		imageHandler := KtCloudImageHandler{
 			RegionInfo: myImageHandler.RegionInfo,
