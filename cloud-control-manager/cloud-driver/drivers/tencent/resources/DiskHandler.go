@@ -427,6 +427,6 @@ func (DiskHandler *TencentDiskHandler) diskExist(chkName string) (bool, error) {
 		return false, nil
 	}
 
-	cblogger.Infof("Disk 정보 찾음 - DiskId:[%s] / DiskName:[%s]", *response.Response.DiskSet[0].DiskId, *response.Response.DiskSet[0].DiskName)
+	cblogger.Infof("Found disk information - DiskId:[%s] / DiskName:[%s]", *response.Response.DiskSet[0].DiskId, *response.Response.DiskSet[0].DiskName)
 	return true, nil
 }

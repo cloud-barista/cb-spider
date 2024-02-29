@@ -50,8 +50,8 @@ const (
 )
 
 /*
-	NLB 생성
-	vpc required
+NLB 생성
+vpc required
 */
 func (NLBHandler *TencentNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (irs.NLBInfo, error) {
 	////// validation check area //////
@@ -244,7 +244,7 @@ func (NLBHandler *TencentNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (irs.NLBI
 }
 
 /*
-	NLB 모든 목록 조회 : TCP/UDP
+NLB 모든 목록 조회 : TCP/UDP
 */
 func (NLBHandler *TencentNLBHandler) ListNLB() ([]*irs.NLBInfo, error) {
 	cblogger.Info("Start")
@@ -298,7 +298,7 @@ func (NLBHandler *TencentNLBHandler) ListNLB() ([]*irs.NLBInfo, error) {
 }
 
 /*
-	NLB 조회
+NLB 조회
 */
 func (NLBHandler *TencentNLBHandler) GetNLB(nlbIID irs.IID) (irs.NLBInfo, error) {
 	cblogger.Info("NLB IID : ", nlbIID.SystemId)
@@ -762,7 +762,7 @@ func (NLBHandler *TencentNLBHandler) ChangeHealthCheckerInfo(nlbIID irs.IID, hea
 
 }
 
-//CLB instance status (creating, running)
+// CLB instance status (creating, running)
 func (NLBHandler *TencentNLBHandler) WaitForRun(nlbIID irs.IID) (string, error) {
 
 	waitStatus := "Running"
@@ -783,23 +783,23 @@ func (NLBHandler *TencentNLBHandler) WaitForRun(nlbIID irs.IID) (string, error) 
 		cblogger.Info("===>NLB Status : ", curStatus)
 
 		if curStatus == LoadBalancerSet_Status_Running {
-			cblogger.Infof("===>NLB 상태가 [%d]라서 대기를 중단합니다.", curStatus)
+			cblogger.Infof("===>The NLB state is [%d] so it stops waiting.", curStatus)
 			break
 		}
 
 		curRetryCnt++
-		cblogger.Infof("NLB 상태가 [%s]이 아니라서 1초 대기후 조회합니다.", waitStatus)
+		cblogger.Infof("NLB status is not [%s] so I'm checking the climate for a second.", waitStatus)
 		time.Sleep(time.Second * 1)
 		if curRetryCnt > maxRetryCnt {
-			cblogger.Errorf("장시간(%d 초) 대기해도 NLB Status 값이 [%s]으로 변경되지 않아서 강제로 중단합니다.", maxRetryCnt, waitStatus)
-			return "Failed", errors.New("장시간 기다렸으나 생성된 NLB의 상태가 [" + waitStatus + "]으로 바뀌지 않아서 중단 합니다.")
+			cblogger.Errorf("The NLB Status value does not change to [%s] even after waiting for a long time (%d seconds), so it is forced to stop.", maxRetryCnt, waitStatus)
+			return "Failed", errors.New("I waited for a long time, but the generated NLB status did not change to [" + waitStatus + "] so I will stop.")
 		}
 	}
 
 	return waitStatus, nil
 }
 
-//Current status of a task (succeeded==Done, failed, in progress)
+// Current status of a task (succeeded==Done, failed, in progress)
 func (NLBHandler *TencentNLBHandler) WaitForDone(requestId string) (string, error) {
 
 	waitStatus := "Done"
@@ -821,16 +821,16 @@ func (NLBHandler *TencentNLBHandler) WaitForDone(requestId string) (string, erro
 		cblogger.Info("===>request status : ", requestStatus)
 
 		if requestStatus == Request_Status_Succeeded {
-			cblogger.Infof("===>request 상태가 [%s]라서 대기를 중단합니다.", waitStatus)
+			cblogger.Infof("===>The request state is [%s] and will stop waiting.", waitStatus)
 			break
 		}
 
 		curRetryCnt++
-		cblogger.Infof("request 상태가 [%s]이 아니라서 1초 대기후 조회합니다.", waitStatus)
+		cblogger.Infof("The request status is not [%s], so I'm checking the climate for a second.", waitStatus)
 		time.Sleep(time.Second * 1)
 		if curRetryCnt > maxRetryCnt {
-			cblogger.Errorf("장시간(%d 초) 대기해도 request Status 값이 [%s]으로 변경되지 않아서 강제로 중단합니다.", maxRetryCnt, waitStatus)
-			return "Failed", errors.New("장시간 기다렸으나 생성된 request 상태가 [" + waitStatus + "]으로 바뀌지 않아서 중단 합니다.")
+			cblogger.Errorf("Waiting for a long time (%d seconds) does not change the request status value to [%s] and forces it to stop.", maxRetryCnt, waitStatus)
+			return "Failed", errors.New("I waited for a long time, but the generated request status did not change to [" + waitStatus + "] so I will stop.")
 		}
 	}
 
@@ -838,8 +838,8 @@ func (NLBHandler *TencentNLBHandler) WaitForDone(requestId string) (string, erro
 }
 
 /*
-	nlb가 존재하는지 check
-	동일이름이 없으면 false, 있으면 true
+nlb가 존재하는지 check
+동일이름이 없으면 false, 있으면 true
 */
 func (NLBHandler *TencentNLBHandler) nlbExist(chkName string) (bool, error) {
 	cblogger.Debugf("chkName : %s", chkName)
@@ -862,7 +862,7 @@ func (NLBHandler *TencentNLBHandler) nlbExist(chkName string) (bool, error) {
 }
 
 /*
-	조회한 결과에서 Spider의 NLBInfo 값으로 변환
+조회한 결과에서 Spider의 NLBInfo 값으로 변환
 */
 func (NLBHandler *TencentNLBHandler) ExtractNLBDescribeInfo(nlbInfo *clb.LoadBalancer) (irs.NLBInfo, error) {
 
@@ -908,10 +908,9 @@ func (NLBHandler *TencentNLBHandler) ExtractNLBDescribeInfo(nlbInfo *clb.LoadBal
 	return resNLBInfo, nil
 }
 
-
 /*
-	NLB Name으로 Listener를 조회하여 NLBInfo.Listener 값으로 변환
-	NLB 를 조회하여 Listener에 사용할 IP인 VIP 추출
+NLB Name으로 Listener를 조회하여 NLBInfo.Listener 값으로 변환
+NLB 를 조회하여 Listener에 사용할 IP인 VIP 추출
 */
 func (NLBHandler *TencentNLBHandler) ExtractListenerInfo(nlbIID irs.IID) (irs.ListenerInfo, error) {
 	cblogger.Info("NLB IID : ", nlbIID.SystemId)
@@ -945,7 +944,7 @@ func (NLBHandler *TencentNLBHandler) ExtractListenerInfo(nlbIID irs.IID) (irs.Li
 }
 
 /*
-	VM Group 정보 조회
+VM Group 정보 조회
 */
 func (NLBHandler *TencentNLBHandler) ExtractVMGroupInfo(nlbIID irs.IID) (irs.VMGroupInfo, error) {
 	cblogger.Info("NLB IID : ", nlbIID.SystemId)
@@ -986,7 +985,7 @@ func (NLBHandler *TencentNLBHandler) ExtractVMGroupInfo(nlbIID irs.IID) (irs.VMG
 }
 
 /*
-	Health Checker 정보 조회
+Health Checker 정보 조회
 */
 func (NLBHandler *TencentNLBHandler) ExtractHealthCheckerInfo(nlbIID irs.IID) (irs.HealthCheckerInfo, error) {
 	cblogger.Info("NLB IID : ", nlbIID.SystemId)

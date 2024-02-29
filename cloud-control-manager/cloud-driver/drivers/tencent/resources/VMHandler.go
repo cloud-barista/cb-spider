@@ -90,7 +90,7 @@ func (vmHandler *TencentVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 	//	return irs.VMInfo{}, errors.New("A VM with the name " + vmReqInfo.IId.NameId + " already exists.")
 	//}
 
-	cblogger.Error("imageInfo begin")
+	cblogger.Debug("imageInfo begin")
 	// Image의 크기 -> rootdisk size, datadisk attach 확인 및 설정
 	imageTypes := []string{"PUBLIC_IMAGE", "SHARED_IMAGE", "PRIVATE_IMAGE"}
 	imageInfo, err := DescribeImagesByID(vmHandler.Client, vmReqInfo.ImageIID, imageTypes)
@@ -113,7 +113,7 @@ func (vmHandler *TencentVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 		isWindow = true
 		vmReqInfo.KeyPairIID = irs.IID{}
 		vmReqInfo.VMUserId = "administrator" // window은 administrator로 set
-		cblogger.Error("Window 이므로 keyPair는 사용하지 않고 admin, pass만 사용", vmReqInfo.VMUserId, vmReqInfo.VMUserPasswd, vmReqInfo.KeyPairIID)
+		cblogger.Debug("Because it's Windows, use only admin, pass, not keyPair", vmReqInfo.VMUserId, vmReqInfo.VMUserPasswd, vmReqInfo.KeyPairIID)
 	}
 
 	/* 2021-10-26 이슈 #480에 의해 제거
@@ -343,7 +343,7 @@ func (vmHandler *TencentVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 	cblogger.Debugf("cloud-init data : [%s]", userDataBase64)
 	request.UserData = common.StringPtr(userDataBase64)
 
-	cblogger.Debug("===== 요청 객체====")
+	cblogger.Debug("===== Request object====")
 	spew.Config.Dump(request)
 	callLogStart := call.Start()
 	response, err := vmHandler.Client.RunInstances(request)
@@ -373,7 +373,7 @@ func (vmHandler *TencentVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 		cblogger.Error(errStatus.Error())
 		return irs.VMInfo{}, nil
 	}
-	cblogger.Info("==>생성된 VM[%s]의 현재 상태[%s]", newVmIID, curStatus)
+	cblogger.Info("==>Current status of created VM [%s]", newVmIID, curStatus)
 
 	DiskHandler := TencentDiskHandler{
 		Region: vmHandler.Region,
@@ -481,7 +481,7 @@ func (vmHandler *TencentVMHandler) ResumeVM(vmIID irs.IID) (irs.VMStatus, error)
 	}
 	cblogger.Debug(curStatus)
 	if curStatus != "Suspended" {
-		return irs.VMStatus("Failed"), errors.New(string("vm 상태가 Suspended 가 아닙니다." + curStatus))
+		return irs.VMStatus("Failed"), errors.New(string("vm state is not Suspended." + curStatus))
 	}
 
 	request := cvm.NewStartInstancesRequest()
@@ -552,7 +552,7 @@ func (vmHandler *TencentVMHandler) RebootVM(vmIID irs.IID) (irs.VMStatus, error)
 			return irs.VMStatus("Failed"), err
 		}
 	} else {
-		return irs.VMStatus("Failed"), errors.New(string(curStatus + "상태인 경우에는 Reboot할 수 없습니다."))
+		return irs.VMStatus("Failed"), errors.New(string(curStatus + "Reboot is not possible if it is in the state."))
 	}
 
 	return irs.VMStatus("Rebooting"), nil
@@ -627,7 +627,7 @@ func (vmHandler *TencentVMHandler) GetVM(vmIID irs.IID) (irs.VMInfo, error) {
 	cblogger.Debug(response.ToJsonString())
 
 	if *response.Response.TotalCount < 1 {
-		return irs.VMInfo{}, errors.New("VM 정보를 찾을 수 없습니다")
+		return irs.VMInfo{}, errors.New("VM information not found")
 	}
 
 	vmInfo, errVmInfo := vmHandler.ExtractDescribeInstances(response.Response.InstanceSet[0])
@@ -667,15 +667,15 @@ func (vmHandler *TencentVMHandler) ExtractDescribeInstances(curVm *cvm.Instance)
 	// vmInfo.StartTime = *curVm.CreatedTime
 	vmStartTime := *curVm.CreatedTime
 	timeLen := len(vmStartTime)
-	cblogger.Debug("서버 구동 시간 포멧 변환 처리")
-	cblogger.Debugf("======> 생성시간 길이 [%s]", timeLen)
+	cblogger.Debug("Server Running Time Format Conversion Processing")
+	cblogger.Debugf("======> Generation time length [%s]", timeLen)
 	if timeLen > 7 {
-		cblogger.Debugf("======> 생성시간 마지막 문자열 [%s]", vmStartTime[timeLen-1:])
+		cblogger.Debugf("======> Generation Time Last String [%s]", vmStartTime[timeLen-1:])
 		var NewStartTime string
 		if vmStartTime[timeLen-1:] == "Z" && timeLen == 17 {
 			//cblogger.Infof("======> 문자열 변환 : [%s]", StartTime[:timeLen-1])
 			NewStartTime = vmStartTime[:timeLen-1] + ":00Z"
-			cblogger.Debugf("======> 최종 문자열 변환 : [%s]", NewStartTime)
+			cblogger.Debugf("======> Final string conversion : [%s]", NewStartTime)
 		} else {
 			NewStartTime = vmStartTime
 		}
@@ -868,7 +868,7 @@ func (vmHandler *TencentVMHandler) GetVMStatus(vmIID irs.IID) (irs.VMStatus, err
 	cblogger.Debug(response.ToJsonString())
 
 	if *response.Response.TotalCount < 1 {
-		return irs.VMStatus("Failed"), errors.New("상태 정보를 찾을 수 없습니다")
+		return irs.VMStatus("Failed"), errors.New("Status information not found")
 	}
 
 	vmStatus, errStatus := ConvertVMStatusString(*response.Response.InstanceStatusSet[0].InstanceState)
@@ -954,7 +954,7 @@ func ConvertVMStatusString(vmStatus string) (irs.VMStatus, error) {
 		resultStatus = "Terminated"
 	} else {
 		//resultStatus = "Failed"
-		cblogger.Errorf("vmStatus [%s]와 일치하는 맵핑 정보를 찾지 못 함.", vmStatus)
+		cblogger.Debugf("Mapping information matching vmStatus [%s] not found.", vmStatus)
 		return irs.VMStatus("Failed"), errors.New(vmStatus + "와 일치하는 CB VM 상태정보를 찾을 수 없습니다.")
 	}
 	cblogger.Infof("VM 상태 치환 : [%s] ==> [%s]", vmStatus, resultStatus)
@@ -983,17 +983,17 @@ func (vmHandler *TencentVMHandler) WaitForRun(vmIID irs.IID) (irs.VMStatus, erro
 		cblogger.Info("===>VM Status : ", curStatus)
 
 		if curStatus == irs.VMStatus(waitStatus) { //|| curStatus == irs.VMStatus("Running") {
-			cblogger.Infof("===>VM 상태가 [%s]라서 대기를 중단합니다.", curStatus)
+			cblogger.Infof("===>VM state is [%s] and quiesce.", curStatus)
 			break
 		}
 
 		//if curStatus != irs.VMStatus(waitStatus) {
 		curRetryCnt++
-		cblogger.Infof("VM 상태가 [%s]이 아니라서 1초 대기후 조회합니다.", waitStatus)
+		cblogger.Infof("VM status is not [%s] so we're looking at climate in 1 second.", waitStatus)
 		time.Sleep(time.Second * 1)
 		if curRetryCnt > maxRetryCnt {
-			cblogger.Errorf("장시간(%d 초) 대기해도 VM의 Status 값이 [%s]으로 변경되지 않아서 강제로 중단합니다.", maxRetryCnt, waitStatus)
-			return irs.VMStatus("Failed"), errors.New("장시간 기다렸으나 생성된 VM의 상태가 [" + waitStatus + "]으로 바뀌지 않아서 중단 합니다.")
+			cblogger.Errorf("Waiting for a long time (%d seconds) does not change the VM's status value to [%s] and forces it to stop.", maxRetryCnt, waitStatus)
+			return irs.VMStatus("Failed"), errors.New("You waited a long time, but the status of the created VM did not change to [" + waitStatus + "] and it is interrupted.")
 		}
 	}
 
@@ -1002,7 +1002,7 @@ func (vmHandler *TencentVMHandler) WaitForRun(vmIID irs.IID) (irs.VMStatus, erro
 
 // VM 이름으로 중복 생성을 막아야 해서 VM존재 여부를 체크함.
 func (vmHandler *TencentVMHandler) vmExist(vmName string) (bool, error) {
-	cblogger.Infof("VM조회(Name기반) : %s", vmName)
+	cblogger.Infof("VM Inquiry (Name-based)) : %s", vmName)
 	request := cvm.NewDescribeInstancesRequest()
 	request.Filters = []*cvm.Filter{
 		&cvm.Filter{
@@ -1021,7 +1021,7 @@ func (vmHandler *TencentVMHandler) vmExist(vmName string) (bool, error) {
 		return false, nil
 	}
 
-	cblogger.Infof("VM 정보 찾음 - VmId:[%s] / VmName:[%s]", *response.Response.InstanceSet[0].InstanceId, *response.Response.InstanceSet[0].InstanceName)
+	cblogger.Infof("Found VM Information - VmId:[%s] / VmName:[%s]", *response.Response.InstanceSet[0].InstanceId, *response.Response.InstanceSet[0].InstanceName)
 	return true, nil
 }
 

@@ -184,7 +184,7 @@ func (VPCHandler *TencentVPCHandler) ListVPC() ([]*irs.VPCInfo, error) {
 		}
 	}
 
-	cblogger.Debugf("리턴 결과 목록 수 : [%d]", len(vpcInfoList))
+	cblogger.Debugf("Number of Return Results List : [%d]", len(vpcInfoList))
 	// spew.Dump(vpcInfoList)
 	return vpcInfoList, nil
 }
@@ -211,7 +211,7 @@ func (VPCHandler *TencentVPCHandler) isExist(chkName string) (bool, error) {
 		return false, nil
 	}
 
-	cblogger.Infof("VPC 정보 찾음 - VpcId:[%s] / VpcName:[%s]", *response.Response.VpcSet[0].VpcId, *response.Response.VpcSet[0].VpcName)
+	cblogger.Infof("VPC information found - VpcId:[%s] / VpcName:[%s]", *response.Response.VpcSet[0].VpcId, *response.Response.VpcSet[0].VpcName)
 	return true, nil
 }
 
@@ -245,7 +245,7 @@ func (VPCHandler *TencentVPCHandler) GetVPC(vpcIID irs.IID) (irs.VPCInfo, error)
 	}
 	callogger.Info(call.String(callLogInfo))
 
-	cblogger.Debug("VPC 개수 : ", *response.Response.TotalCount)
+	cblogger.Debug("Number of VPCs : ", *response.Response.TotalCount)
 	if *response.Response.TotalCount < 1 {
 		return irs.VPCInfo{}, errors.New("Notfound: '" + vpcIID.SystemId + "' VPC Not found")
 	}
@@ -340,7 +340,7 @@ func (VPCHandler *TencentVPCHandler) ListSubnet(reqVpcId string) ([]irs.SubnetIn
 	// callogger.Info(call.String(callLogInfo))
 
 	for _, curSubnet := range response.Response.SubnetSet {
-		cblogger.Infof("[%s] Subnet 정보 조회", *curSubnet.SubnetId)
+		cblogger.Infof("[%s] Check Subnet Information", *curSubnet.SubnetId)
 		resSubnetInfo := irs.SubnetInfo{
 			IId:       irs.IID{SystemId: *curSubnet.SubnetId, NameId: *curSubnet.SubnetName},
 			IPv4_CIDR: *curSubnet.CidrBlock,
@@ -389,7 +389,7 @@ func (VPCHandler *TencentVPCHandler) isExistSubnet(reqSubnetNameId string) (bool
 }
 
 func (VPCHandler *TencentVPCHandler) AddSubnet(vpcIID irs.IID, subnetInfo irs.SubnetInfo) (irs.VPCInfo, error) {
-	cblogger.Infof("[%s] Subnet 추가 - CIDR : %s", subnetInfo.IId.NameId, subnetInfo.IPv4_CIDR)
+	cblogger.Infof("[%s] Add Subnet - CIDR : %s", subnetInfo.IId.NameId, subnetInfo.IPv4_CIDR)
 
 	zoneId := VPCHandler.Region.Zone
 	cblogger.Infof("Zone : %s", zoneId)
@@ -399,7 +399,7 @@ func (VPCHandler *TencentVPCHandler) AddSubnet(vpcIID irs.IID, subnetInfo irs.Su
 	}
 
 	if subnetInfo.IId.NameId == "" {
-		return irs.VPCInfo{}, errors.New("생성할 SubnetId 정보가 없습니다.")
+		return irs.VPCInfo{}, errors.New("No SubnetId information to create.")
 	}
 
 	isExit, errSubnetInfo := VPCHandler.isExistSubnet(subnetInfo.IId.NameId)
@@ -408,11 +408,11 @@ func (VPCHandler *TencentVPCHandler) AddSubnet(vpcIID irs.IID, subnetInfo irs.Su
 		return irs.VPCInfo{}, errSubnetInfo
 	}
 
-	cblogger.Info("Subnet 존재여부 : ")
+	cblogger.Info("Subnet presence or absence : ")
 	cblogger.Info(isExit)
 
 	if isExit {
-		cblogger.Errorf("이미 [%S] Subnet이 존재하기 때문에 생성하지 않고 기존 정보와 함께 에러를 리턴함.", subnetInfo.IId.NameId)
+		cblogger.Errorf("[%S] returns an error with existing information without creating it because Subnet already exists.", subnetInfo.IId.NameId)
 		return irs.VPCInfo{}, errors.New("InvalidVNetwork.Duplicate: The Subnet '" + subnetInfo.IId.NameId + "' already exists.")
 	}
 
@@ -461,7 +461,7 @@ func (VPCHandler *TencentVPCHandler) AddSubnet(vpcIID irs.IID, subnetInfo irs.Su
 }
 
 func (VPCHandler *TencentVPCHandler) RemoveSubnet(vpcIID irs.IID, subnetIID irs.IID) (bool, error) {
-	cblogger.Infof("[%s] VPC의 [%s] Subnet 삭제", vpcIID.SystemId, subnetIID.SystemId)
+	cblogger.Infof("[%s] Delete [%s] Subnet on VPC", vpcIID.SystemId, subnetIID.SystemId)
 
 	// logger for HisCall
 	callogger := call.GetLogger("HISCALL")
