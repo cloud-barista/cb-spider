@@ -398,8 +398,8 @@ func CreateVPC(connectionName string, rsType string, reqInfo cres.VPCReqInfo) (*
 
 	providerName, err := ccm.GetProviderNameByConnectionName(connectionName)
 	if err != nil {
-			cblog.Error(err)
-			return nil, err
+		cblog.Error(err)
+		return nil, err
 	}
 
 	// for subnet list
@@ -417,7 +417,7 @@ func CreateVPC(connectionName string, rsType string, reqInfo cres.VPCReqInfo) (*
 		//   [KT Cloud VPC] To use NLB, needs to support the subnet management features with a fixed name.
 		if providerName == "KTCLOUDVPC" {
 			if info.IId.NameId == "NLB-SUBNET" {
-				subnetUUID = reqInfo.IId.NameId
+				subnetUUID = "NLB-SUBNET"
 			}
 		}
 
@@ -787,6 +787,20 @@ func AddSubnet(connectionName string, rsType string, vpcName string, reqInfo cre
 	if err != nil {
 		cblog.Error(err)
 		return nil, err
+	}
+
+	// special code for KT CLOUD VPC
+	// related Issue: 
+	//   #1105 [KT Cloud VPC] To use NLB, needs to support the subnet management features with a fixed name.
+	providerName, err := ccm.GetProviderNameByConnectionName(connectionName)
+	if err != nil {
+		cblog.Error(err)
+		return nil, err
+	}
+	if providerName == "KTCLOUDVPC" {
+		if reqInfo.IId.NameId == "NLB-SUBNET" {
+			subnetUUID = "NLB-SUBNET"
+		}
 	}
 
 	// driverIID for driver
