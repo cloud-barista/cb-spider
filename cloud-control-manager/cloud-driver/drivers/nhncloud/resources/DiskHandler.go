@@ -12,8 +12,6 @@ package resources
 
 import (
 	"fmt"
-	// "io/ioutil"
-	// "os"
 	"strconv"
 	"strings"
 	"time"
@@ -97,10 +95,6 @@ func (diskHandler *NhnCloudDiskHandler) CreateDisk(diskReqInfo irs.DiskInfo) (ir
 		Name:				diskReqInfo.IId.NameId,
 		VolumeType: 		reqDiskType,
 	}
-	// cblogger.Info("\n### Disk create 0pts : ")
-	// spew.Dump(create0pts)
-	// cblogger.Info("\n")
-
 	diskResult, err := volumes.Create(diskHandler.VolumeClient, create0pts).Extract()
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Create New Disk Volume. [%v]", err.Error())
@@ -113,7 +107,7 @@ func (diskHandler *NhnCloudDiskHandler) CreateDisk(diskReqInfo irs.DiskInfo) (ir
 	// Because there are functions that use 'NameId', Input NameId too
 	newDiskIID := irs.IID{NameId: diskResult.Name, SystemId: diskResult.ID}
 
-	// Wait for created VM info to be inquired
+	// Wait for created Disk info to be inquired
 	curStatus, err := diskHandler.waitForDiskCreation(newDiskIID)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Wait to Get Disk Info. [%v]", err.Error())

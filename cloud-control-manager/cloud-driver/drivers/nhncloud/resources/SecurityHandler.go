@@ -22,8 +22,6 @@ import (
 	nhnsdk "github.com/cloud-barista/nhncloud-sdk-go"
 	"github.com/cloud-barista/nhncloud-sdk-go/openstack/compute/v2/extensions/secgroups"
 	"github.com/cloud-barista/nhncloud-sdk-go/openstack/networking/v2/extensions/security/rules"
-	"github.com/cloud-barista/nhncloud-sdk-go/openstack/networking/v2/extensions/external"
-	"github.com/cloud-barista/nhncloud-sdk-go/openstack/networking/v2/networks"
 
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
@@ -105,7 +103,6 @@ func (securityHandler *NhnCloudSecurityHandler) CreateSecurity(securityReqInfo i
 		LoggingError(callLogInfo, newErr)
 		return irs.SecurityInfo{}, newErr
 	}
-
 	return newSGInfo, nil
 }
 
@@ -132,19 +129,10 @@ func (securityHandler *NhnCloudSecurityHandler) ListSecurity() ([]*irs.SecurityI
 	}
 	LoggingInfo(callLogInfo, start)
 
-
-	// Get the Default VPC SystemID
-	vpcSystemId, err := securityHandler.getDefaultVPCSystemID()
-	if err != nil {
-		newErr := fmt.Errorf("Failed to Get Get the Default VPC SystemID : [%v]", err)
-		cblogger.Error(newErr.Error())
-		return nil, newErr
-	}
-
 	// Mapping S/G list info.
 	var sgInfoList []*irs.SecurityInfo
 	for _, nhnSG := range nhnSGList {
-		sgInfo, err := securityHandler.mappingSecurityInfo(nhnSG, vpcSystemId)
+		sgInfo, err := securityHandler.mappingSecurityInfo(nhnSG)
 		if err != nil {
 			cblogger.Error(err.Error())
 			LoggingError(callLogInfo, err)
@@ -168,17 +156,9 @@ func (securityHandler *NhnCloudSecurityHandler) GetSecurity(securityIID irs.IID)
 		return irs.SecurityInfo{}, newErr
 	}
 	LoggingInfo(callLogInfo, start)
-	// spew.Dump(nhnSG)	
+	// spew.Dump(nhnSG)
 
-	// Get the Default VPC SystemID
-	vpcSystemId, err := securityHandler.getDefaultVPCSystemID()
-	if err != nil {
-		newErr := fmt.Errorf("Failed to Get Get the Default VPC SystemID : [%v]", err)
-		cblogger.Error(newErr.Error())
-		return irs.SecurityInfo{}, newErr
-	}
-
-	securityInfo, err := securityHandler.mappingSecurityInfo(*nhnSG, vpcSystemId)
+	securityInfo, err := securityHandler.mappingSecurityInfo(*nhnSG)
 	if err != nil {
 		cblogger.Error(err.Error())
 		LoggingError(callLogInfo, err)
@@ -538,9 +518,8 @@ func (securityHandler *NhnCloudSecurityHandler) openOutboundAllProtocol(sgIID ir
 	return nil
 }
 
-func (securityHandler *NhnCloudSecurityHandler) mappingSecurityInfo(nhnSG secgroups.SecurityGroup, defaultVPCSystemId string) (*irs.SecurityInfo, error) {
+func (securityHandler *NhnCloudSecurityHandler) mappingSecurityInfo(nhnSG secgroups.SecurityGroup) (*irs.SecurityInfo, error) {
 	cblogger.Info("NHN Cloud Driver: called mappingSecurityInfo()!")
-	// spew.Dump(nhnSG)
 
 	secInfo := &irs.SecurityInfo{
 		IId: irs.IID{
@@ -549,8 +528,8 @@ func (securityHandler *NhnCloudSecurityHandler) mappingSecurityInfo(nhnSG secgro
 		},
 
 		VpcIID: irs.IID {
-			NameId:   "",
-			SystemId: defaultVPCSystemId,
+			// NameId:   "",
+			// SystemId: "",
 		},
 
 		KeyValueList: []irs.KeyValue{
@@ -683,50 +662,4 @@ func (securityHandler *NhnCloudSecurityHandler) getRuleIdFromRuleInfo(sgIID irs.
 		return "", errors.New("Failed to Find RuleID with the Given S/G Rule!!")
 	}
 	return ruleId, nil
-}
-
-func (securityHandler *NhnCloudSecurityHandler) getDefaultVPCSystemID() (string, error) {
-	cblogger.Info("NHN Cloud Cloud Driver: called getDefaultVPCSystemID()!")
-	callLogInfo := getCallLogScheme(securityHandler.RegionInfo.Region, call.VPCSUBNET, "getDefaultVPCSystemID()", "getDefaultVPCSystemID()")
-
-	var vpcSystemId string
-
-	listOpts := external.ListOptsExt{
-		ListOptsBuilder: networks.ListOpts{},
-	}
-
-	start := call.Start()
-	allPages, err := networks.List(securityHandler.NetworkClient, listOpts).AllPages()
-	if err != nil {
-		cblogger.Errorf("Failed to Get Network list from NHN Cloud. : [%v]", err)
-		LoggingError(callLogInfo, err)
-		return "", err
-	}
-	LoggingInfo(callLogInfo, start)
-
-	// To Get VPC info list
-	var vpcList []NetworkWithExt
-	err = networks.ExtractNetworksInto(allPages, &vpcList)
-	if err != nil {
-		cblogger.Errorf("Failed to Get VPC list from NHN Cloud. : [%v]", err)
-		LoggingError(callLogInfo, err)
-		return "", err
-	}
-
-	for _, vpc := range vpcList {
-		if strings.EqualFold(vpc.Name, "Default Network") {
-			vpcSystemId = vpc.ID
-			cblogger.Infof("# SystemId of the Default VPC : [%s]", vpcSystemId)
-			break
-		}
-	}
-
-	// When the "Default Network" VPC is not found
-	if strings.EqualFold(vpcSystemId, "") {
-		newErr := fmt.Errorf("Failed to Find the 'Default Network' VPC on your NHN Cloud project!!")
-		cblogger.Error(newErr.Error())
-		LoggingError(callLogInfo, newErr)
-		return "", newErr		
-	}
-	return vpcSystemId, nil
 }

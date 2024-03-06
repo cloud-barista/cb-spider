@@ -74,23 +74,23 @@ func handleNLB() {
 				NameId: "new_nlb-1",
 			},
 			VpcIID: irs.IID{
-				NameId: "vpc-000001",
+				NameId: "nhn-vpc-1",
 			},
 			Listener: irs.ListenerInfo{
 				Protocol: "TCP",
-				Port:     "8080",
+				Port:     "80",
 			},
 			VMGroup: irs.VMGroupInfo{
 				Protocol: "TCP",
-				Port:     "8080",
+				Port:     "80",
 				VMs: &[]irs.IID{
-					{NameId: "nhn-vm-1"},
-					{NameId: "nhn-vm-2"},
+					// {NameId: "nhn-vm-1"},
+					{NameId: "nhn-vm-02"},
 				},
 			},
 			HealthChecker: irs.HealthCheckerInfo{
 				Protocol:  "TCP",
-				Port:      "8080",
+				Port:      "80",
 				Interval:  -1,
 				Timeout:   -1,
 				Threshold: -1,
@@ -116,7 +116,7 @@ func handleNLB() {
 
 		addVMs := []irs.IID{
 			{NameId: "nhn-vm-3"},
-			{NameId: "nhn-vm-4"},
+			{NameId: "nhn-vm-02"},
 		}
 
 		removeVMs := []irs.IID{

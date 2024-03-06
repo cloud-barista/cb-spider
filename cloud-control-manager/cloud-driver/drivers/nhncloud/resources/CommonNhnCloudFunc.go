@@ -13,7 +13,6 @@ package resources
 import (
 	"os"
 	"os/exec"
-	// "errors"
 	"fmt"
 	"encoding/json"
 
@@ -24,11 +23,10 @@ import (
 	nhnsdk "github.com/cloud-barista/nhncloud-sdk-go"
 	"github.com/cloud-barista/nhncloud-sdk-go/openstack/compute/v2/extensions/secgroups"
 	"github.com/cloud-barista/nhncloud-sdk-go/openstack/compute/v2/flavors"
-	"github.com/cloud-barista/nhncloud-sdk-go/openstack/networking/v2/extensions/external"
-	"github.com/cloud-barista/nhncloud-sdk-go/openstack/networking/v2/networks"
-	"github.com/cloud-barista/nhncloud-sdk-go/openstack/networking/v2/ports"
+	"github.com/cloud-barista/nhncloud-sdk-go/openstack/networking/v2/vpcs"
 	"github.com/cloud-barista/nhncloud-sdk-go/openstack/networking/v2/subnets"
-	
+	"github.com/cloud-barista/nhncloud-sdk-go/openstack/networking/v2/ports"
+
 	"github.com/sirupsen/logrus"
 
 	cblog "github.com/cloud-barista/cb-log"
@@ -78,15 +76,13 @@ func logAndReturnError(callLogInfo call.CLOUDLOGSCHEMA, givenErrString string, v
 	return newErr
 }
 
-func getPublicVPCInfo(client *nhnsdk.ServiceClient, typeName string) (string, error) {
+func getPublicVPCInfo(networkClient *nhnsdk.ServiceClient, typeName string) (string, error) {
 	cblogger.Info("NHN Cloud Driver: called getPublicVPCInfo()")
 
-	exTrue := true
-	listOpts := external.ListOptsExt{
-		ListOptsBuilder: networks.ListOpts{},
-		External:        &exTrue,
+	listOpts := vpcs.ListOpts {
+		RouterExternal: true,
 	}
-	allPages, err := networks.List(client, listOpts).AllPages()
+	allPages, err := vpcs.List(networkClient, listOpts).AllPages()
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get VPC Pages. %s", err.Error())
 		cblogger.Error(newErr)
@@ -95,7 +91,7 @@ func getPublicVPCInfo(client *nhnsdk.ServiceClient, typeName string) (string, er
 
 	// external VPC 필터링
 	var extVpcList []NetworkWithExt
-	err = networks.ExtractNetworksInto(allPages, &extVpcList)
+	err = vpcs.ExtractVPCsInto(allPages, &extVpcList)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get VPC list. %s", err.Error())
 		cblogger.Error(newErr)
@@ -160,14 +156,14 @@ func getSGWithName(networkClient *nhnsdk.ServiceClient, securityGroupName string
 	return nil, fmt.Errorf("Failed to Find SecurityGroups with the name [%s]", securityGroupName)
 }
 
-func getNetworkWithName(networkClient *nhnsdk.ServiceClient, networkName string) (*networks.Network, error) {
+func getNetworkWithName(networkClient *nhnsdk.ServiceClient, networkName string) (*vpcs.VPC, error) {
 	cblogger.Info("NHN Cloud Driver: called GetNetworkWithName()")
 
-	allPages, err := networks.List(networkClient, networks.ListOpts{Name: networkName}).AllPages()
+	allPages, err := vpcs.List(networkClient, vpcs.ListOpts{Name: networkName}).AllPages()
 	if err != nil {
 		return nil, err
 	}
-	nhnNetList, err := networks.ExtractNetworks(allPages)
+	nhnNetList, err := vpcs.ExtractVPCs(allPages)
 	if err != nil {
 		return nil, err
 	}

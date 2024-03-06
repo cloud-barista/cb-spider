@@ -91,24 +91,24 @@ func handleVM() {
 
 					VMUserPasswd: "cbuser357505**", // No Simple PW!!
 
-					IId: irs.IID{NameId: "nhn-vm-07"},
+					IId: irs.IID{NameId: "nhn-vm-02"},
 
 					// $$$ Needs NHN Cloud VPC 'SystemId'
 					VpcIID: irs.IID{
-						NameId: "Default Network",
-						SystemId: "7e3af4cc-407b-47f6-beda-7c161ebe56f0", 
+						NameId: "nhn-vpc-1",
+						SystemId: "328d03c7-4656-4e14-88cb-fc4c222a97d4", 
 					},
 					
 					SubnetIID: irs.IID{
-						NameId: "Default Network",
-						SystemId: "d73487de-8986-4d3d-9887-986057f7cd7b", 
+						NameId: "nhn-subnet-1",
+						SystemId: "566a2f4d-6171-4b7f-8d42-fe1f47f91d86",
 					},
 					
-					SecurityGroupIIDs: []irs.IID{{SystemId: "9f0a43a9-8c73-45ce-9aac-e9c226e99533"}},
+					SecurityGroupIIDs: []irs.IID{{NameId: "sg01-cls3so1jcupul75mcjkg", SystemId: "9f0a43a9-8c73-45ce-9aac-e9c226e99533"}},
 					// SecurityGroupIIDs: []irs.IID{{SystemId: "79965cd0-b9e9-42ef-9c66-201f824273cb"},{SystemId: "67167e2e-2390-48d6-8f27-78c9293b26f3"}},
 
-					// KeyPairIID: irs.IID{NameId: "nhn-key-05"},
-					KeyPairIID: irs.IID{NameId: "test-key-1-cn661b4i1q9k87qkue0g"},
+					KeyPairIID: irs.IID{NameId: "nhn-key-05"},
+					// KeyPairIID: irs.IID{NameId: "test-key-1-cn661b4i1q9k87qkue0g"},
 					// KeyPairIID: irs.IID{NameId: "nhn-key-01-c9584r9jcupvtimg81l0"},					
 					// KeyPairIID: irs.IID{SystemId: "nhn-key-01"},
 
@@ -124,7 +124,10 @@ func handleVM() {
 					// ImageIID:  irs.IID{NameId: "CentOS 6.10 (2018.10.23)", SystemId: "1c868787-6207-4ff2-a1e7-ae1331d6829b"},
 
 					// VMSpecName: "u2.c2m4", //vCPU: 2, Mem: 4GB
-					VMSpecName: "m2.c4m8", //vCPU: 4, Mem: 8GB, LocalDiskSize(GB): 0 
+					// # U2 type does Not support Windows Image!!
+					// VMSpecName: "m2.c4m8", //vCPU: 4, Mem: 8GB, LocalDiskSize(GB): 0
+					// VMSpecName: "m2.c8m16", //vCPU: 8, Mem: 16GB, LocalDiskSize(GB): 0		
+					VMSpecName: "c2.c16m16",
 
 					RootDiskType: "General_SSD",
 					// RootDiskType: "General_HDD",
@@ -203,7 +206,7 @@ func handleVM() {
 				cblogger.Info("\nRebootVM Test Finished")
 
 			case 6:
-				cblogger.Info("Start Terminate  VM ...")
+				cblogger.Info("Start Terminate VM ...")
 				result, err := vmHandler.TerminateVM(vmID)
 				if err != nil {
 					cblogger.Error(err)

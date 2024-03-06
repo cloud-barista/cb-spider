@@ -50,15 +50,17 @@ func handleVPC() {
 		fmt.Println("1. CreateVPC()")
 		fmt.Println("2. ListVPC()")
 		fmt.Println("3. GetVPC()")
-		fmt.Println("4. DeleteVPC()")
+		fmt.Println("4. AddSubnet()")
+		fmt.Println("5. RemoveSubnet()")
+		fmt.Println("6. DeleteVPC()")
 		fmt.Println("0. Exit")
 		fmt.Println("\n   Select a number above!! : ")
 		fmt.Println("============================================================================================")
 
-		vpcReqName := "nhn-vpc-1"
-		vpcIId := irs.IID{NameId: vpcReqName, SystemId: "7e3af4cc-407b-47f6-beda-7c161ebe56f0"}
-		cblogger.Info("reqVPCName : ", vpcReqName)
+		vpcIId := irs.IID{SystemId: "328d03c7-4656-4e14-88cb-fc4c222a97d4"}
+		subnetIId := irs.IID{SystemId: "b7bf20e6-eca7-444a-a6b9-3b57aa8b8da7"}
 
+		vpcReqName := "nhn-vpc-1"
 		subnetReqName := "nhn-subnet-1"
 
 		var subnetInfoList []irs.SubnetInfo
@@ -70,20 +72,24 @@ func handleVPC() {
 				IPv4_CIDR: "172.16.0.0/24",
 			}
 			subnetInfoList = append(subnetInfoList, info)
-
-
-		// vpcReqInfo := irs.VPCReqInfo{
-		// 	IId: irs.IID{NameId: reqVPCName, SystemId: vpcId},
-		// }
 		
 		vpcReqInfo := irs.VPCReqInfo{
-			IId:            vpcIId,
+			IId: irs.IID{
+					NameId: vpcReqName,
+				},
 			// IPv4_CIDR:      "10.0.0.0/24",
 			IPv4_CIDR:      "172.16.0.0/12",
 			// IPv4_CIDR:      "172.16.0.0/16",
 			SubnetInfoList: subnetInfoList,
 		}
-			
+		
+		addSubnetReqInfo := irs.SubnetInfo {
+			IId: irs.IID{
+				NameId: "nhn-subnet-3",
+			},
+			IPv4_CIDR: "172.16.1.0/24",
+		}
+
 		//NHN Cloud VPC CIDR은 아래의 사설 주소 범위로 입력되어야 함.
 			// 10.0.0.0/8
 			// 172.16.0.0/12
@@ -145,6 +151,28 @@ func handleVPC() {
 				fmt.Println("\nGetVPC() Test Finished")
 
 			case 4:
+				fmt.Println("Start AddSubnet() ...")
+				if result, err := handler.AddSubnet(vpcIId, addSubnetReqInfo); err != nil {
+					cblogger.Error(err)
+					cblogger.Error("Subnet 추가 실패 : ", err)
+				} else {
+					cblogger.Info("Subnet 추가 성공!!")
+					spew.Dump(result)
+				}
+				fmt.Println("\nAddSubnet() Test Finished")
+
+			case 5:
+				fmt.Println("Start RemoveSubnet() ...")
+				if result, err := handler.RemoveSubnet(vpcIId, subnetIId); err != nil {
+					cblogger.Error(err)
+					cblogger.Error("Subnet 제거 실패 : ", err)
+				} else {
+					cblogger.Info("Subnet 제거 성공!!")
+					spew.Dump(result)
+				}
+				fmt.Println("\nRemoveSubnet() Test Finished")	
+
+			case 6:
 				fmt.Println("Start DeleteVPC() ...")
 				if result, err := handler.DeleteVPC(vpcIId); err != nil {
 					cblogger.Error(err)
