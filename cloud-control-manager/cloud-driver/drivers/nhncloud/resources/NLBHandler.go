@@ -24,10 +24,8 @@ import (
 	nhnsdk "github.com/cloud-barista/nhncloud-sdk-go"
 	"github.com/cloud-barista/nhncloud-sdk-go/openstack/loadbalancer/v2/loadbalancers"
 	"github.com/cloud-barista/nhncloud-sdk-go/openstack/networking/v2/vpcs"
-	// "github.com/cloud-barista/nhncloud-sdk-go/openstack/networking/v2/vpcs"
 	"github.com/cloud-barista/nhncloud-sdk-go/openstack/networking/v2/subnets"
 	"github.com/cloud-barista/nhncloud-sdk-go/openstack/loadbalancer/v2/listeners"
-	// "github.com/cloud-barista/nhncloud-sdk-go/openstack/networking/v2/extensions/external"
 
 	"github.com/cloud-barista/nhncloud-sdk-go/openstack/compute/v2/servers"
 	"github.com/cloud-barista/nhncloud-sdk-go/openstack/loadbalancer/v2/monitors"
@@ -43,7 +41,6 @@ type NhnCloudNLBHandler struct {
 }
 
 const (
-	DefaultVpcName 				  string  = "Default Network"
 	PublicType 					  string  = "shared"
 	InternalType 				  string  = "dedicated"
 	DefaultWeight 				  int 	  = 1
@@ -69,7 +66,7 @@ func (nlbHandler *NhnCloudNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (irs.NLB
 		return irs.NLBInfo{}, newErr
 	}
 
-	subnetId, err := nlbHandler.getFirstSubnetIdWithVPCName(DefaultVpcName)  // Caution!!
+	subnetId, err := nlbHandler.getFirstSubnetIdWithVPCName(nlbReqInfo.VpcIID.NameId)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get FirstSubnetId with VPC Name. : [%s]", err)
 		cblogger.Error(newErr.Error())
@@ -976,11 +973,6 @@ func (nlbHandler *NhnCloudNLBHandler) getFirstSubnetIdWithVPCName(vpcName string
 	listOpts := vpcs.ListOpts {
 		Name: vpcName,
 	}
-	// listOpts := external.ListOptsExt {
-	// 	ListOptsBuilder: vpcs.ListOpts{
-	// 		Name: vpcName,
-	// 	},
-	// }
 	allPages, err := vpcs.List(nlbHandler.NetworkClient, listOpts).AllPages()
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get NHN VPC List with the Name : [%s]", vpcName)
@@ -999,19 +991,32 @@ func (nlbHandler *NhnCloudNLBHandler) getFirstSubnetIdWithVPCName(vpcName string
 	}
 	LoggingInfo(callLogInfo, callLogStart)
 
-	var nhnVpc NetworkWithExt
-
 	for _, vpc := range nhnVpcList {
-		if strings.EqualFold(vpc.Name, vpcName)  {
-			nhnVpc = vpc
+		// ### Since New NHN Cloud VPC API 'GET ~/v2.0/vpcs' VPC List does Not return Subnet List
+		listOpts := subnets.ListOpts{
+			VPCID: vpc.ID,
+		}
+		allPages, err := subnets.List(nlbHandler.NetworkClient, listOpts).AllPages()
+		if err != nil {
+			newErr := fmt.Errorf("Failed to Get the Subnet Pages from NHN Cloud!! : [%v]", err)
+			cblogger.Error(newErr.Error())
+			return "", newErr
+		}
+		subnetList, err := subnets.ExtractSubnets(allPages)
+		if err != nil {
+			newErr := fmt.Errorf("Failed to Get Subnet List from NHN Cloud!! : [%v]", err)
+			cblogger.Error(newErr.Error())
+			return "", newErr
+		}
+
+		if len(subnetList) > 0 {
+			return subnetList[0].ID, nil
+		} else {
+			return "", fmt.Errorf("Failed to Get the First Subnet ID.")
 		}
 	}
 
-	if len(nhnVpc.Subnets) > 0 {
-		return nhnVpc.Subnets[0].ID, nil
-	} else {
-		return "", fmt.Errorf("Failed to Get the First Subnet ID.")
-	}
+	return "", nil
 }
 
 // Waiting for Provisioning to Complete. 
@@ -1858,9 +1863,8 @@ func (nlbHandler *NhnCloudNLBHandler) getNlbPublicIP(nlbIID irs.IID) (string, er
 	} else {
 		floatingIp = ipList[0].FloatingIP
 	}
-
 	cblogger.Info("\n# NLB Floating IP : " + floatingIp)
-
+	
 	return floatingIp, nil
 }
 
@@ -1955,8 +1959,7 @@ func (nlbHandler *NhnCloudNLBHandler) getVPCIdWithSubnetId(subnetId string) (str
 		newErr := fmt.Errorf("Failed to Get NHN Cloud Subnet Info with the Subnet ID [%s] : %v", subnetId, err.Error())
 		cblogger.Error(newErr.Error())
 		return "", nil
-	}
-	
+	}	
 	VPCId := subnet.VPCID
 
 	return VPCId, nil
