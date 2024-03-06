@@ -59,7 +59,7 @@ require (
 	github.com/IBM/platform-services-go-sdk v0.30.0
 	github.com/NaverCloudPlatform/ncloud-sdk-go-v2 v1.6.6
 	github.com/cloud-barista/ktcloud-sdk-go v0.2.1-0.20240123114820-8684cfc5deeb
-	github.com/cloud-barista/nhncloud-sdk-go v0.0.0-20240227161653-393c599a4b76
+	github.com/cloud-barista/nhncloud-sdk-go v0.0.0-20240306113442-b0c008fddaf5
 	github.com/go-openapi/strfmt v0.21.3
 	github.com/hashicorp/go-version v1.6.0
 	github.com/jeremywohl/flatten v1.0.1
