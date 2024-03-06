@@ -39,8 +39,9 @@ jobs:
     - name: Display structure of downloaded files for debugging
       shell: bash
       run: ls -R
-
-    - name: Make a report
+    
+    - name: Check and make a report
+      id: check-and-make-report
       shell: bash
       run: |
         REPORT="${FILE_REPORT}"
@@ -51,13 +52,18 @@ jobs:
           echo "Note - All output of print and log statements should be in English. :wink:" >> $REPORT
           echo "" >> $REPORT
           cat "${FILE_KOREAN_CHECKING_RESULT}" >> "$REPORT"
-        else
-          echo "(DEBUG) No Korean texts are detected."
-          
-          echo "Good news! All print and log statements are in English, as per our guidelines. :blush:" > $REPORT
+
+          echo "KOREAN_EXISTS=true" >> $GITHUB_OUTPUT
         fi
+        # else
+        #   echo "(DEBUG) No Korean texts are detected."
+        #   
+        #   echo "Good news! All print and log statements are in English, as per our guidelines. :blush:" > $REPORT
+        #   echo "KOREAN_EXISTS=false" >> $GITHUB_OUTPUT
+        # fi
       
     - name: Comment PR with results
+      if: steps.check-and-make-report.outputs.KOREAN_EXISTS == 'true'
       uses: actions/github-script@v7
       with:
         github-token: ${{secrets.GITHUB_TOKEN}}
