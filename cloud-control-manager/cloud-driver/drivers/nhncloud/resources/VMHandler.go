@@ -126,10 +126,9 @@ func (vmHandler *NhnCloudVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo
 	fileStr = strings.ReplaceAll(fileStr, "{{username}}", DefaultVMUserName)
 	fileStr = strings.ReplaceAll(fileStr, "{{public_key}}", keyPair.PublicKey)
 	fileStr = strings.ReplaceAll(fileStr, "{{PASSWORD}}", vmReqInfo.VMUserPasswd) // For Windows VM
-
 	// cblogger.Info("\n# fileStr : ")
 	// spew.Dump(fileStr)
-	
+
 	// Preparing VM Creation Options
 	serverCreateOpts := servers.CreateOpts{
 		Name:      		vmReqInfo.IId.NameId,
@@ -864,7 +863,7 @@ func (vmHandler *NhnCloudVMHandler) mappingVMInfo(server servers.Server) (irs.VM
 	imageId := server.Image["id"].(string)	
 	nhnImage, err := comimages.Get(vmHandler.VMClient, imageId).Extract() // Caution!!) Wtih VMClient (Not Like ImageHandler)
 	if err != nil {
-		newErr := fmt.Errorf("Failed to Get the Image info form NHN Cloud!! : [%v] ", err)
+		newErr := fmt.Errorf("Failed to Get the Image info from NHN Cloud!! : [%v] ", err)
 		cblogger.Error(newErr.Error())
 		return irs.VMInfo{}, newErr
 	} else if nhnImage != nil {		
@@ -878,7 +877,7 @@ func (vmHandler *NhnCloudVMHandler) mappingVMInfo(server servers.Server) (irs.VM
 	flavorId := server.Flavor["id"].(string)
 	nhnFlavor, err := flavors.Get(vmHandler.VMClient, flavorId).Extract()
 	if err != nil {
-		newErr := fmt.Errorf("Failed to Get the Flavor info form NHN Cloud!! : [%v] ", err)
+		newErr := fmt.Errorf("Failed to Get the Flavor info from NHN Cloud!! : [%v] ", err)
 		cblogger.Error(newErr.Error())
 		return irs.VMInfo{}, newErr
 	} else if nhnFlavor != nil {		
@@ -901,9 +900,11 @@ func (vmHandler *NhnCloudVMHandler) mappingVMInfo(server servers.Server) (irs.VM
 	var diskIIDs []irs.IID
 	if len(server.AttachedVolumes) != 0 {
 		for _, volume := range server.AttachedVolumes {
+			cblogger.Infof("\n\n# Volume ID : %s", volume.ID)
+
 			nhnVolume, err := volumes.Get(vmHandler.VolumeClient, volume.ID).Extract()
 			if err != nil {
-				newErr := fmt.Errorf("Failed to Get the Volume Info form NHN Cloud!! : [%v] ", err)
+				newErr := fmt.Errorf("Failed to Get the Volume Info from NHN Cloud!! : [%v] ", err)
 				cblogger.Error(newErr.Error())
 				return irs.VMInfo{}, newErr
 			}
