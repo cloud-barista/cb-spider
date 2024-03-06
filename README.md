@@ -64,10 +64,10 @@ If you have any difficulties in using Cloud-Barista, please let us know.
   | Tencent       | O             | O            | O               | O            | O             | O             | O               | O          | O          |
   | IBM VPC       | O             | O            | O               | O            | O             | O             | O               | O          |Coming Soon|
   | OpenStack     | O             | O            | O               | O            | O             | O             | O               | O          | - |
-  | NCP Classic   | O             | O            | O               | O (Type-I)   | O             | O             | O               | O          | - |
+  | NCP Classic   | O             | O            | O               | O (Type-I)   | O (Note-1)    | O             | O               | O          | - |
   | NCP VPC       | O             | O            | O               | O            | O             | O             | O               | O          | - |
-  | NHN           | O             | O            | O               | O (Type-II)  | O             | O             | O               | O          |Coming Soon |
-  | KT Classic    | O             | O            | O               | O (Type-I)   | O             | O             | O               | Plan       | - |  
+  | NHN           | O             | O            | O               | O            | O             | O             | O               | O          |Coming Soon |
+  | KT Classic    | O             | O            | O               | O (Type-I)   | O             | O             | O               | O          | - |  
   
 
     ※ VPC 특이사항(세부 내용: 각 드라이버 Readme 참고)
@@ -78,6 +78,10 @@ If you have any difficulties in using Cloud-Barista, please let us know.
         ◉ Type-II: default VPC/Subnet 활용
           - CSP: 생성 제공 없이 고정된 default VPC 및 Subnet 1개만 제공
           - CB-Spider: API 추상화를 위한 단일 VPC/Subnet 생성만 제공 (이름 등록 수준, 두개 이상 VPC 생성 불가)        
+
+    ※ Security Group 특이사항(세부 내용: 각 드라이버 Readme 참고)
+        ◉ Note-I: Console에서 생성 후 동일 이름으로 생성(CSP: Create API 부재)
+
 
 #### 4. VM 계정
 - Ubuntu, Debian VM User: cb-user
