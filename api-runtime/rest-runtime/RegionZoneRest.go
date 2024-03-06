@@ -9,6 +9,7 @@
 package restruntime
 
 import (
+	"encoding/json"
 	"net/http"
 
 	cmrt "github.com/cloud-barista/cb-spider/api-runtime/common-runtime"
@@ -93,7 +94,12 @@ func ListOrgRegion(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
-	return c.String(http.StatusOK, result)
+	var resultInterface interface{}
+	if err := json.Unmarshal([]byte(result), &resultInterface); err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to parse result")
+	}
+
+	return c.JSON(http.StatusOK, map[string]interface{}{"RegionInfo": resultInterface})
 }
 
 func ListOrgZone(c echo.Context) error {
@@ -118,7 +124,12 @@ func ListOrgZone(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
-	return c.String(http.StatusOK, result)
+	var resultInterface interface{}
+	if err := json.Unmarshal([]byte(result), &resultInterface); err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to parse result")
+	}
+
+	return c.JSON(http.StatusOK, map[string]interface{}{"ZoneInfo": resultInterface})
 }
 
 // ================ RegionZone Handler (Pre-Config Version)
@@ -210,5 +221,10 @@ func ListOrgRegionPreConfig(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
-	return c.String(http.StatusOK, result)
+	var resultInterface interface{}
+	if err := json.Unmarshal([]byte(result), &resultInterface); err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to parse result")
+	}
+
+	return c.JSON(http.StatusOK, map[string]interface{}{"RegionInfo": resultInterface})
 }

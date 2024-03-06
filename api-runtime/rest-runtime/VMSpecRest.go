@@ -9,17 +9,18 @@
 package restruntime
 
 import (
+	"encoding/json"
 
-        cmrt "github.com/cloud-barista/cb-spider/api-runtime/common-runtime"
-        cres "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
+	cmrt "github.com/cloud-barista/cb-spider/api-runtime/common-runtime"
+	cres "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 
-        // REST API (echo)
-        "net/http"
+	// REST API (echo)
+	"net/http"
 
-        "github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v4"
 )
 
-//================ VMSpec Handler
+// ================ VMSpec Handler
 func ListVMSpec(c echo.Context) error {
 	cblog.Info("call ListVMSpec()")
 
@@ -32,9 +33,9 @@ func ListVMSpec(c echo.Context) error {
 	}
 
 	// To support for Get-Query Param Type API
-        if req.ConnectionName == "" {
-                req.ConnectionName = c.QueryParam("ConnectionName")
-        }
+	if req.ConnectionName == "" {
+		req.ConnectionName = c.QueryParam("ConnectionName")
+	}
 
 	// Call common-runtime API
 	result, err := cmrt.ListVMSpec(req.ConnectionName)
@@ -61,9 +62,9 @@ func GetVMSpec(c echo.Context) error {
 	}
 
 	// To support for Get-Query Param Type API
-        if req.ConnectionName == "" {
-                req.ConnectionName = c.QueryParam("ConnectionName")
-        }
+	if req.ConnectionName == "" {
+		req.ConnectionName = c.QueryParam("ConnectionName")
+	}
 
 	// Call common-runtime API
 	result, err := cmrt.GetVMSpec(req.ConnectionName, c.Param("Name"))
@@ -86,9 +87,9 @@ func ListOrgVMSpec(c echo.Context) error {
 	}
 
 	// To support for Get-Query Param Type API
-        if req.ConnectionName == "" {
-                req.ConnectionName = c.QueryParam("ConnectionName")
-        }
+	if req.ConnectionName == "" {
+		req.ConnectionName = c.QueryParam("ConnectionName")
+	}
 
 	// Call common-runtime API
 	result, err := cmrt.ListOrgVMSpec(req.ConnectionName)
@@ -96,7 +97,12 @@ func ListOrgVMSpec(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
-	return c.String(http.StatusOK, result)
+	var resultInterface interface{}
+	if err := json.Unmarshal([]byte(result), &resultInterface); err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to parse result")
+	}
+
+	return c.JSON(http.StatusOK, map[string]interface{}{"VMSpecInfo": resultInterface})
 }
 
 func GetOrgVMSpec(c echo.Context) error {
@@ -111,9 +117,9 @@ func GetOrgVMSpec(c echo.Context) error {
 	}
 
 	// To support for Get-Query Param Type API
-        if req.ConnectionName == "" {
-                req.ConnectionName = c.QueryParam("ConnectionName")
-        }
+	if req.ConnectionName == "" {
+		req.ConnectionName = c.QueryParam("ConnectionName")
+	}
 
 	// Call common-runtime API
 	result, err := cmrt.GetOrgVMSpec(req.ConnectionName, c.Param("Name"))
@@ -121,5 +127,10 @@ func GetOrgVMSpec(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
-	return c.String(http.StatusOK, result)
+	var resultInterface interface{}
+	if err := json.Unmarshal([]byte(result), &resultInterface); err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to parse result")
+	}
+
+	return c.JSON(http.StatusOK, map[string]interface{}{"VMSpecInfo": resultInterface})
 }
