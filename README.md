@@ -64,10 +64,10 @@ If you have any difficulties in using Cloud-Barista, please let us know.
   | Tencent       | O             | O            | O               | O            | O             | O             | O               | O          | O          |
   | IBM VPC       | O             | O            | O               | O            | O             | O             | O               | O          |Coming Soon|
   | OpenStack     | O             | O            | O               | O            | O             | O             | O               | O          | - |
-  | NCP Classic   | O             | O            | O               | O (Type-1)   | O (Note-1)    | O             | O               | O          | - |
+  | NCP Classic   | O             | O            | O               | O<br>(Type-1)| O<br>(Note-1) | O             | O               | O          | - |
   | NCP VPC       | O             | O            | O               | O            | O             | O             | O               | O          | - |
-  | NHN           | O             | O            | O               | O (Type-2)   | O             | O             | O (Note-2)      | O          |Coming Soon |
-  | KT Classic    | O             | O            | O               | O (Type-1)   | O             | O             | O               | O          | - |  
+  | NHN           | O             | O            | O               | O<br>(Type-2)| O             | O             | O<br>(Note-2)   | O          |Coming Soon |
+  | KT Classic    | O             | O            | O               | O<br>(Type-1)| O             | O             | O               | O          | - |  
   
 
     ※ VPC 특이사항(세부 내용: 각 드라이버 Readme 참고)
