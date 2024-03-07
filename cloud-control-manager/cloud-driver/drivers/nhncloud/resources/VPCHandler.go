@@ -43,7 +43,7 @@ type NetworkWithExt struct {
 
 func (vpcHandler *NhnCloudVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.VPCInfo, error) {
 	cblogger.Info("NHN Cloud Cloud Driver: called CreateVPC()!")
-	callLogInfo := getCallLogScheme(vpcHandler.RegionInfo.Region, call.VPCSUBNET, vpcReqInfo.IId.NameId, "CreateVPC()")
+	callLogInfo := getCallLogScheme(vpcHandler.RegionInfo.Zone, call.VPCSUBNET, vpcReqInfo.IId.NameId, "CreateVPC()")
 
 	if strings.EqualFold(vpcReqInfo.IId.NameId, "") {
 		newErr := fmt.Errorf("Invalid VPC NameId!!")
@@ -119,7 +119,7 @@ func (vpcHandler *NhnCloudVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.
 
 func (vpcHandler *NhnCloudVPCHandler) GetVPC(vpcIID irs.IID) (irs.VPCInfo, error) {
 	cblogger.Info("NHN Cloud Cloud Driver: called GetVPC()!")
-	callLogInfo := getCallLogScheme(vpcHandler.RegionInfo.Region, call.VPCSUBNET, vpcIID.SystemId, "GetVPC()")
+	callLogInfo := getCallLogScheme(vpcHandler.RegionInfo.Zone, call.VPCSUBNET, vpcIID.SystemId, "GetVPC()")
 
 	if strings.EqualFold(vpcIID.SystemId, "") {
 		newErr := fmt.Errorf("Invalid VPC SystemId!!")
@@ -132,9 +132,10 @@ func (vpcHandler *NhnCloudVPCHandler) GetVPC(vpcIID irs.IID) (irs.VPCInfo, error
 	var vpc vpcs.VPC
 	err := vpcs.Get(vpcHandler.NetworkClient, vpcIID.SystemId).ExtractInto(&vpc)
 	if err != nil {
-		cblogger.Errorf("Failed to Get VPC with the SystemId : [%s]. %v", vpcIID.SystemId, err)
-		LoggingError(callLogInfo, err)
-		return irs.VPCInfo{}, err
+		newErr := fmt.Errorf("Failed to Get the VPC with the SystemId : [%v]", err)
+		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
+		return irs.VPCInfo{}, newErr
 	}
 	LoggingInfo(callLogInfo, start)
 
@@ -149,7 +150,7 @@ func (vpcHandler *NhnCloudVPCHandler) GetVPC(vpcIID irs.IID) (irs.VPCInfo, error
 
 func (vpcHandler *NhnCloudVPCHandler) ListVPC() ([]*irs.VPCInfo, error) {
 	cblogger.Info("NHN Cloud Cloud Driver: called ListVPC()!")
-	callLogInfo := getCallLogScheme(vpcHandler.RegionInfo.Region, call.VPCSUBNET, "ListVPC()", "ListVPC()")
+	callLogInfo := getCallLogScheme(vpcHandler.RegionInfo.Zone, call.VPCSUBNET, "ListVPC()", "ListVPC()")
 
 	if strings.EqualFold(vpcHandler.CredentialInfo.TenantId, "") {
 		newErr := fmt.Errorf("Invalid Tenant ID!!")
@@ -194,7 +195,7 @@ func (vpcHandler *NhnCloudVPCHandler) ListVPC() ([]*irs.VPCInfo, error) {
 
 func (vpcHandler *NhnCloudVPCHandler) DeleteVPC(vpcIID irs.IID) (bool, error) {
 	cblogger.Info("NHN Cloud Cloud Driver: called DeleteVPC()!")
-	callLogInfo := getCallLogScheme(vpcHandler.RegionInfo.Region, call.VPCSUBNET, vpcIID.SystemId, "DeleteVPC()")
+	callLogInfo := getCallLogScheme(vpcHandler.RegionInfo.Zone, call.VPCSUBNET, vpcIID.SystemId, "DeleteVPC()")
 
 	if strings.EqualFold(vpcIID.SystemId, "") {
 		newErr := fmt.Errorf("Invalid VPC SystemId!!")
@@ -218,7 +219,7 @@ func (vpcHandler *NhnCloudVPCHandler) DeleteVPC(vpcIID irs.IID) (bool, error) {
 
 func (vpcHandler *NhnCloudVPCHandler) createSubnet(vpcId string, subnetReqInfo irs.SubnetInfo) (irs.SubnetInfo, error) {
 	cblogger.Info("NHN Cloud cloud driver: called createSubnet()!!")
-	callLogInfo := getCallLogScheme(vpcHandler.RegionInfo.Region, call.VPCSUBNET, subnetReqInfo.IId.NameId, "createSubnet()")
+	callLogInfo := getCallLogScheme(vpcHandler.RegionInfo.Zone, call.VPCSUBNET, subnetReqInfo.IId.NameId, "createSubnet()")
 
 	if strings.EqualFold(vpcId, "") {
 		newErr := fmt.Errorf("Invalid VPC ID!!")
@@ -254,7 +255,7 @@ func (vpcHandler *NhnCloudVPCHandler) createSubnet(vpcId string, subnetReqInfo i
 
 func (vpcHandler *NhnCloudVPCHandler) getSubnet(subnetIId irs.IID) (irs.SubnetInfo, error) {
 	cblogger.Info("NHN Cloud cloud driver: called getSubnet()!!")
-	callLogInfo := getCallLogScheme(vpcHandler.RegionInfo.Region, call.VPCSUBNET, subnetIId.SystemId, "getSubnet()")
+	callLogInfo := getCallLogScheme(vpcHandler.RegionInfo.Zone, call.VPCSUBNET, subnetIId.SystemId, "getSubnet()")
 
 	if strings.EqualFold(subnetIId.SystemId, "") {
 		newErr := fmt.Errorf("Invalid Subnet SystemId!!")
@@ -275,7 +276,7 @@ func (vpcHandler *NhnCloudVPCHandler) getSubnet(subnetIId irs.IID) (irs.SubnetIn
 
 func (vpcHandler *NhnCloudVPCHandler) AddSubnet(vpcIID irs.IID, subnetInfo irs.SubnetInfo) (irs.VPCInfo, error) {
 	cblogger.Info("NHN Cloud cloud driver: called AddSubnet()!!")
-	callLogInfo := getCallLogScheme(vpcHandler.RegionInfo.Region, call.VPCSUBNET, vpcIID.SystemId, "AddSubnet()")
+	callLogInfo := getCallLogScheme(vpcHandler.RegionInfo.Zone, call.VPCSUBNET, vpcIID.SystemId, "AddSubnet()")
 
 	if strings.EqualFold(vpcIID.SystemId, "") {
 		newErr := fmt.Errorf("Invalid VPC System ID!!")
@@ -317,7 +318,7 @@ func (vpcHandler *NhnCloudVPCHandler) AddSubnet(vpcIID irs.IID, subnetInfo irs.S
 
 func (vpcHandler *NhnCloudVPCHandler) RemoveSubnet(vpcIID irs.IID, subnetIID irs.IID) (bool, error) {
 	cblogger.Info("NHN Cloud cloud driver: called RemoveSubnet()!!")
-	callLogInfo := getCallLogScheme(vpcHandler.RegionInfo.Region, call.VPCSUBNET, subnetIID.SystemId, "RemoveSubnet()")
+	callLogInfo := getCallLogScheme(vpcHandler.RegionInfo.Zone, call.VPCSUBNET, subnetIID.SystemId, "RemoveSubnet()")
 
 	if strings.EqualFold(subnetIID.SystemId, "") {
 		newErr := fmt.Errorf("Invalid Subnet SystemId!!")
@@ -525,4 +526,56 @@ func (vpcHandler *NhnCloudVPCHandler) getVpcStatus(vpcIID irs.IID) (string, erro
 
 	cblogger.Infof("# VPC Creation Status of NHN Cloud : [%s]", vpcResult.State)
 	return vpcResult.State, nil
+}
+
+func (vpcHandler *NhnCloudVPCHandler) getNnnVPC(vpcId string) (vpcs.VPC, error) {
+	cblogger.Info("NHN Cloud Cloud Driver: called getNnnVPC()!")
+	callLogInfo := getCallLogScheme(vpcHandler.RegionInfo.Zone, call.VPCSUBNET, vpcId, "getNnnVPC()")
+
+	if strings.EqualFold(vpcId, "") {
+		newErr := fmt.Errorf("Invalid VPC ID!!")
+		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
+		return vpcs.VPC{}, newErr
+	}
+
+	start := call.Start()
+	var vpc vpcs.VPC
+	err := vpcs.Get(vpcHandler.NetworkClient, vpcId).ExtractInto(&vpc)
+	if err != nil {
+		newErr := fmt.Errorf("Failed to Get the VPC Info from NHN Cloud : [%v]", err)
+		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
+		return vpcs.VPC{}, newErr
+	}
+	LoggingInfo(callLogInfo, start)
+
+	return vpc, nil
+}
+
+// # Check whether the Routing Table (of the VPC) is connected to an Internet Gateway
+func (vpcHandler *NhnCloudVPCHandler) isConnectedToGateway(vpcId string) (bool, error) {
+	cblogger.Info("NHN Cloud Cloud Driver: called isConnectedToGateway()!")
+	callLogInfo := getCallLogScheme(vpcHandler.RegionInfo.Zone, call.VPCSUBNET, vpcId, "isConnectedToGateway()")
+
+	if strings.EqualFold(vpcId, "") {
+		newErr := fmt.Errorf("Invalid VPC ID!!")
+		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
+		return false, newErr
+	}
+
+	vpcInfo, err := vpcHandler.getNnnVPC(vpcId)
+	if err != nil {
+		newErr := fmt.Errorf("Failed to Get the VPC Info : [%v]", err)
+		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
+		return false, newErr
+	}
+
+	hasInternetGateway := false
+	if !strings.EqualFold(vpcInfo.RoutingTables[0].GatewayID, "") {
+		hasInternetGateway = true
+	}
+	return hasInternetGateway, nil
 }

@@ -28,9 +28,8 @@ import (
 	"github.com/cloud-barista/nhncloud-sdk-go/openstack/compute/v2/extensions/startstop"
 	"github.com/cloud-barista/nhncloud-sdk-go/openstack/compute/v2/flavors"
 	"github.com/cloud-barista/nhncloud-sdk-go/openstack/compute/v2/servers"
-
 	comimages "github.com/cloud-barista/nhncloud-sdk-go/openstack/compute/v2/images" // compute/v2/images
-   //	images "github.com/cloud-barista/nhncloud-sdk-go/openstack/imageservice/v2/images" // imageservice/v2/images : For Visibility parameter
+	//	images "github.com/cloud-barista/nhncloud-sdk-go/openstack/imageservice/v2/images" // imageservice/v2/images : For Visibility parameter
 
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
@@ -60,6 +59,33 @@ func (vmHandler *NhnCloudVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo
 
 	if strings.EqualFold(vmReqInfo.IId.NameId, "") {
 		newErr := fmt.Errorf("Invalid VM NameId!!")
+		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
+		return irs.VMInfo{}, newErr
+	}
+
+	if strings.EqualFold(vmReqInfo.VpcIID.SystemId, "") {
+		newErr := fmt.Errorf("Invalid VPC SystemId!!")
+		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
+		return irs.VMInfo{}, newErr
+	}
+
+	// # Check whether the Routing Table (of the VPC) is connected to an Internet Gateway
+	vpcHandler := NhnCloudVPCHandler{
+		RegionInfo: 	vmHandler.RegionInfo,
+		NetworkClient:  vmHandler.NetworkClient,
+	}
+	isConnectedToGateway, err := vpcHandler.isConnectedToGateway(vmReqInfo.VpcIID.SystemId)
+	if err != nil {
+		newErr := fmt.Errorf("Failed to Check whether the VPC connected to an Internet Gateway : [%v]", err)
+		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
+		return irs.VMInfo{}, newErr
+	}
+
+	if !isConnectedToGateway {
+		newErr := fmt.Errorf("Routing Table of the VPC need to be connected to an Internet Gateway to use Pulbic IP!!")
 		cblogger.Error(newErr.Error())
 		LoggingError(callLogInfo, newErr)
 		return irs.VMInfo{}, newErr
@@ -900,7 +926,7 @@ func (vmHandler *NhnCloudVMHandler) mappingVMInfo(server servers.Server) (irs.VM
 	var diskIIDs []irs.IID
 	if len(server.AttachedVolumes) != 0 {
 		for _, volume := range server.AttachedVolumes {
-			cblogger.Infof("\n\n# Volume ID : %s", volume.ID)
+			cblogger.Infof("\n# Volume ID : %s", volume.ID)
 
 			nhnVolume, err := volumes.Get(vmHandler.VolumeClient, volume.ID).Extract()
 			if err != nil {
