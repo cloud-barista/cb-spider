@@ -64,23 +64,30 @@ If you have any difficulties in using Cloud-Barista, please let us know.
   | Tencent       | O             | O            | O               | O            | O             | O             | O               | O          | O          |
   | IBM VPC       | O             | O            | O               | O            | O             | O             | O               | O          |Coming Soon|
   | OpenStack     | O             | O            | O               | O            | O             | O             | O               | O          | - |
-  | NCP Classic   | O             | O            | O               | O (Type-I)   | O (Note-1)    | O             | O               | O          | - |
+  | NCP Classic   | O             | O            | O               | O (Type-1)   | O (Note-1)    | O             | O               | O          | - |
   | NCP VPC       | O             | O            | O               | O            | O             | O             | O               | O          | - |
-  | NHN           | O             | O            | O               | O            | O             | O             | O               | O          |Coming Soon |
-  | KT Classic    | O             | O            | O               | O (Type-I)   | O             | O             | O               | O          | - |  
+  | NHN           | O             | O            | O               | O (Type-2)   | O             | O             | O (Note-2)      | O          |Coming Soon |
+  | KT Classic    | O             | O            | O               | O (Type-1)   | O             | O             | O               | O          | - |  
   
 
     ※ VPC 특이사항(세부 내용: 각 드라이버 Readme 참고)
-        ◉ Type-I: VPC/Subnet Emulation
+        ◉ Type-1: VPC/Subnet Emulation
           - CSP: VPC 개념 제공하지 않음
           - CB-Spider: API 추상화를 위한 단일 VPC/Subnet 생성 제공 (두개 이상 VPC/Subnet 생성 불가)
           - CIDR: 제공하지 않음(설정 무의미)
-        ◉ Type-II: default VPC/Subnet 활용
-          - CSP: 생성 제공 없이 고정된 default VPC 및 Subnet 1개만 제공
-          - CB-Spider: API 추상화를 위한 단일 VPC/Subnet 생성만 제공 (이름 등록 수준, 두개 이상 VPC 생성 불가)        
+        ◉ Type-2: Internet 개방 조치 필요 (세부내용: #1109 참고)
+          - CSP(NHN) IG(Internet Gateway) 제어 API 부재(추후 제공 예정)
+          - Console에서 IG 생성 후 VPC의 default Routing Table 연결 필요
+        ◉ Type-3: default VPC 활용 (KT VPC)
+          - CSP: 생성 제공 없이 고정된 default VPC 1개만 제공
+          - CB-Spider: API 추상화를 위한 단일 VPC 생성만 제공 (이름 등록 수준
+            - 두개 이상 VPC 생성 불가, Subnet은 추가/삭제 가능
 
     ※ Security Group 특이사항(세부 내용: 각 드라이버 Readme 참고)
-        ◉ Note-I: Console에서 생성 후 동일 이름으로 생성(CSP: Create API 부재)
+        ◉ Note-1: Console에서 사전 생성 후 동일 이름으로 생성(CSP: Create API 부재)
+
+    ※ VM 특이사항(세부 내용: 각 드라이버 Readme 참고)
+        ◉ Note-2: Wdindows VM일 경우 SSH Key 사용한 VM 생성 후 Console에서 Key를 이용하여 PW 확인 필요
 
 
 #### 4. VM 계정
