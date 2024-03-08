@@ -80,12 +80,19 @@ If you have any difficulties in using Cloud-Barista, please let us know.
           - Console에서 IG 생성 후 VPC의 default Routing Table 연결 필요
         ◉ Type-3: default VPC 활용 (KT VPC)
           - CSP: 생성 제공 없이 고정된 default VPC 1개만 제공
-          - CB-Spider: API 추상화를 위한 단일 VPC 생성만 제공 (이름 등록 수준
+          - CB-Spider: API 추상화를 위한 단일 VPC 생성만 제공 (이름 등록 수준)
             - 두개 이상 VPC 생성 불가, Subnet은 추가/삭제 가능
 
     ※ Security Group 특이사항(세부 내용: 각 드라이버 Readme 참고)
-        ◉ Note-1: Console에서 사전 생성 후 동일 이름으로 생성(CSP: Create API 부재)
-
+        ◉ Note-1: Console에서 사전 생성 후 동일 이름으로 생성 요청(CSP: Create API 부재)
+          - 또는 등록 기능 활용
+          - 등록 예시
+              curl -sX POST http://localhost:1024/spider/regsecuritygroup -H 'Content-Type: application/json' -d \
+               	'{
+               		"ConnectionName": "'${CONN_CONFIG}'", 
+               		"ReqInfo": { "VPCName": "'${VPC_NAME}'", "Name": "'${SG_NAME}'", "CSPId": "'${SG_CSPID}'"} 
+               	}'
+          
     ※ VM 특이사항(세부 내용: 각 드라이버 Readme 참고)
         ◉ Note-2: Wdindows VM일 경우 SSH Key 사용한 VM 생성 후 Console에서 Key를 이용하여 PW 확인 필요
 
