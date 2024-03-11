@@ -977,31 +977,34 @@ func (vmHandler *NhnCloudVMHandler) mappingVMInfo(server servers.Server) (irs.VM
 		}
 	}
 
-	// Subnet, Network Interface Info
-	nhnPort, err := getPortWithDeviceId(vmHandler.NetworkClient, vmInfo.IId.SystemId)
-	if err != nil {
-		newErr := fmt.Errorf("Failed to Get the NHN Cloud Port Info!! : [%v] ", err)
-		cblogger.Error(newErr.Error())
-		return irs.VMInfo{}, newErr
-	} else if nhnPort != nil {
-		// Subnet Info
-		if len(nhnPort.FixedIPs) > 0 {
-			vmInfo.SubnetIID.SystemId = nhnPort.FixedIPs[0].SubnetID
-		}
-
-		nhnSubnet, err := getSubnetWithId(vmHandler.NetworkClient, vmInfo.SubnetIID.SystemId)
+	// # Get Subnet and NetworkInterface Info
+	if !strings.EqualFold(vmInfo.PublicIP, "") {
+		// Subnet, Network Interface Info
+		nhnPort, err := getPortWithDeviceId(vmHandler.NetworkClient, vmInfo.IId.SystemId)
 		if err != nil {
-			newErr := fmt.Errorf("Failed to Get the Subnet Info!! : [%v] ", err)
+			newErr := fmt.Errorf("Failed to Get the NHN Cloud Port Info!! : [%v] ", err)
 			cblogger.Error(newErr.Error())
 			return irs.VMInfo{}, newErr
-		} else if nhnSubnet != nil {
-			vmInfo.SubnetIID.NameId = nhnSubnet.Name
+		} else if nhnPort != nil {
+			// Subnet Info
+			if len(nhnPort.FixedIPs) > 0 {
+				vmInfo.SubnetIID.SystemId = nhnPort.FixedIPs[0].SubnetID
+			}
+
+			nhnSubnet, err := getSubnetWithId(vmHandler.NetworkClient, vmInfo.SubnetIID.SystemId)
+			if err != nil {
+				newErr := fmt.Errorf("Failed to Get the Subnet Info!! : [%v] ", err)
+				cblogger.Error(newErr.Error())
+				return irs.VMInfo{}, newErr
+			} else if nhnSubnet != nil {
+				vmInfo.SubnetIID.NameId = nhnSubnet.Name
+			}
+			// Network Interface Info
+			vmInfo.NetworkInterface = nhnPort.ID
 		}
-		// Network Interface Info
-		vmInfo.NetworkInterface = nhnPort.ID
 	}
 
-	// SecurityGroup Info
+	// # Get SecurityGroup Info
 	if len(server.SecurityGroups) != 0 {
 		sgIIds := make([]irs.IID, len(server.SecurityGroups))
 		for i, secGroupMap := range server.SecurityGroups {
