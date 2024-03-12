@@ -5,17 +5,17 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2021-03-01/compute"
-	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
-	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
-	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"io"
 	"net/http"
 	"net/url"
 	"reflect"
 	"strconv"
 	"strings"
-	"time"
+
+	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2021-03-01/compute"
+	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
+	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
+	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 )
 
 type AzurePriceInfoHandler struct {
@@ -28,28 +28,28 @@ type AzurePriceInfoHandler struct {
 const AzurePriceApiEndpoint = "https://prices.azure.com/api/retail/prices"
 
 type Item struct {
-	CurrencyCode         string    `json:"currencyCode"`
-	TierMinimumUnits     float64   `json:"tierMinimumUnits"`
-	RetailPrice          float64   `json:"retailPrice"`
-	UnitPrice            float64   `json:"unitPrice"`
-	ArmRegionName        string    `json:"armRegionName"`
-	Location             string    `json:"location"`
-	EffectiveStartDate   time.Time `json:"effectiveStartDate"`
-	MeterID              string    `json:"meterId"`
-	MeterName            string    `json:"meterName"`
-	ProductID            string    `json:"productId"`
-	SkuID                string    `json:"skuId"`
-	ProductName          string    `json:"productName"`
-	SkuName              string    `json:"skuName"`
-	ServiceName          string    `json:"serviceName"`
-	ServiceID            string    `json:"serviceId"`
-	ServiceFamily        string    `json:"serviceFamily"`
-	UnitOfMeasure        string    `json:"unitOfMeasure"`
-	Type                 string    `json:"type"`
-	IsPrimaryMeterRegion bool      `json:"isPrimaryMeterRegion"`
-	ArmSkuName           string    `json:"armSkuName"`
-	ReservationTerm      string    `json:"reservationTerm,omitempty"`
-	EffectiveEndDate     time.Time `json:"effectiveEndDate,omitempty"`
+	CurrencyCode         string  `json:"currencyCode"`
+	TierMinimumUnits     float64 `json:"tierMinimumUnits"`
+	RetailPrice          float64 `json:"retailPrice"`
+	UnitPrice            float64 `json:"unitPrice"`
+	ArmRegionName        string  `json:"armRegionName"`
+	Location             string  `json:"location"`
+	EffectiveStartDate   string  `json:"effectiveStartDate"`
+	MeterID              string  `json:"meterId"`
+	MeterName            string  `json:"meterName"`
+	ProductID            string  `json:"productId"`
+	SkuID                string  `json:"skuId"`
+	ProductName          string  `json:"productName"`
+	SkuName              string  `json:"skuName"`
+	ServiceName          string  `json:"serviceName"`
+	ServiceID            string  `json:"serviceId"`
+	ServiceFamily        string  `json:"serviceFamily"`
+	UnitOfMeasure        string  `json:"unitOfMeasure"`
+	Type                 string  `json:"type"`
+	IsPrimaryMeterRegion bool    `json:"isPrimaryMeterRegion"`
+	ArmSkuName           string  `json:"armSkuName"`
+	ReservationTerm      string  `json:"reservationTerm,omitempty"`
+	EffectiveEndDate     string  `json:"effectiveEndDate,omitempty"`
 }
 
 type PriceInfo struct {
