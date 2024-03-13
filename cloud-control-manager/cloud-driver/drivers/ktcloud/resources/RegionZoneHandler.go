@@ -118,7 +118,7 @@ func (regionZoneHandler KtCloudRegionZoneHandler) GetRegionZone(regionCode strin
 		return irs.RegionZoneInfo{}, rtnErr
 	}
 
-	validRegionCode, validErr := regionZoneHandler.checkRegionCode(regionZoneHandler.RegionInfo.Region)
+	validRegionCode, validErr := regionZoneHandler.checkRegionCode(regionCode)
 	if validErr != nil {
 		rtnErr := logAndReturnError(callLogInfo, "Failed to Get Valid RegionCode :", validErr)
 		return irs.RegionZoneInfo{}, rtnErr
