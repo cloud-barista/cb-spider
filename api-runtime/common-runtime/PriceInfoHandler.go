@@ -88,11 +88,46 @@ func GetPriceInfo(connectionName string, productFamily string, regionName string
 		cblog.Error(err)
 		return "", err
 	}
-	priceInfo, err := handler.GetPriceInfo(productFamily, regionName, filterList)
+	providerName, err := ccm.GetProviderNameByConnectionName(connectionName)
+	if err != nil {
+		cblog.Error(err)
+		return "", err
+	}
+
+	cspProductFamily := getProviderSpecificPFName(providerName, productFamily)
+	priceInfo, err := handler.GetPriceInfo(cspProductFamily, regionName, filterList)
 	if err != nil {
 		cblog.Error(err)
 		return "", err
 	}
 
 	return priceInfo, nil
+}
+
+func getProviderSpecificPFName(providerName, pfName string) string {
+
+	if pfName != "ComputeInstance" {
+		return pfName
+	}
+
+	switch providerName {
+	case "AWS":
+		return "Compute Instance"
+	case "AZURE":
+		return "Compute"
+	case "GCP":
+		return "Compute"
+	case "ALIBABA":
+		return "ecs"
+	case "TENCENT":
+		return "cvm"
+	case "IBM":
+		return "is.instance"
+	case "NCP":
+		return "SVR"
+	case "NCPVPC":
+		return "SVR"
+	default:
+		return pfName
+	}
 }
