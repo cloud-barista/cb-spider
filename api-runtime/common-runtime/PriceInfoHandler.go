@@ -111,7 +111,7 @@ func getProviderSpecificPFName(providerName, pfName string) string {
 	}
 
 	switch providerName {
-	case "AWS":
+	case "AWS", "MOCK":
 		return "Compute Instance"
 	case "AZURE":
 		return "Compute"
