@@ -17,10 +17,11 @@ const (
 )
 
 type AzureVPCHandler struct {
-	Region       idrv.RegionInfo
-	Ctx          context.Context
-	Client       *network.VirtualNetworksClient
-	SubnetClient *network.SubnetsClient
+	CredentialInfo idrv.CredentialInfo
+	Region         idrv.RegionInfo
+	Ctx            context.Context
+	Client         *network.VirtualNetworksClient
+	SubnetClient   *network.SubnetsClient
 }
 
 func (vpcHandler *AzureVPCHandler) setterVPC(network network.VirtualNetwork) *irs.VPCInfo {
@@ -186,6 +187,23 @@ func (vpcHandler *AzureVPCHandler) DeleteVPC(vpcIID irs.IID) (bool, error) {
 		return false, delErr
 	}
 	LoggingInfo(hiscallInfo, start)
+
+	list, err := vpcHandler.ListVPC()
+	if err != nil {
+		delErr := errors.New(fmt.Sprintf("Failed to get list of VPCs in Delete VPC process err = %s", err.Error()))
+		cblogger.Error(delErr.Error())
+		LoggingError(hiscallInfo, delErr)
+		return false, delErr
+	}
+	if len(list) == 0 {
+		err := removeResourceGroup(vpcHandler.CredentialInfo, vpcHandler.Region)
+		if err != nil {
+			delErr := errors.New(fmt.Sprintf("Failed to delete resource group in Delete VPC process err = %s", err.Error()))
+			cblogger.Error(delErr.Error())
+			LoggingError(hiscallInfo, delErr)
+			return false, delErr
+		}
+	}
 
 	return true, nil
 }

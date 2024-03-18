@@ -193,6 +193,24 @@ func (keyPairHandler *AzureKeyPairHandler) DeleteKey(keyIID irs.IID) (bool, erro
 		return false, delErr
 	}
 	LoggingInfo(hiscallInfo, start)
+
+	list, err := keyPairHandler.ListKey()
+	if err != nil {
+		delErr := errors.New(fmt.Sprintf("Failed to get list of Keys in Delete Key process err = %s", err.Error()))
+		cblogger.Error(delErr.Error())
+		LoggingError(hiscallInfo, delErr)
+		return false, delErr
+	}
+	if len(list) == 0 {
+		err := removeResourceGroup(keyPairHandler.CredentialInfo, keyPairHandler.Region)
+		if err != nil {
+			delErr := errors.New(fmt.Sprintf("Failed to delete resource group in Delete Key process err = %s", err.Error()))
+			cblogger.Error(delErr.Error())
+			LoggingError(hiscallInfo, delErr)
+			return false, delErr
+		}
+	}
+
 	return true, nil
 }
 func CheckExistKey(keypairIId irs.IID, resourceGroup string, client *compute.SSHPublicKeysClient, ctx context.Context) (bool, error) {

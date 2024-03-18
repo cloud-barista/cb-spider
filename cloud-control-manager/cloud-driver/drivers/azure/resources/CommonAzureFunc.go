@@ -1,8 +1,11 @@
 package resources
 
 import (
+	"context"
 	"errors"
 	"fmt"
+	"github.com/Azure/azure-sdk-for-go/services/resources/mgmt/2020-10-01/resources"
+	"github.com/Azure/go-autorest/autorest/azure/auth"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"math/rand"
 	"net"
@@ -220,6 +223,33 @@ func getResourceGroupById(vmId string) (string, error) {
 		}
 	}
 	return "", errors.New(fmt.Sprintf("Invalid ResourceName"))
+}
+
+func removeResourceGroup(credential idrv.CredentialInfo, region idrv.RegionInfo) error {
+	config := auth.NewClientCredentialsConfig(credential.ClientId, credential.ClientSecret, credential.TenantId)
+	authorizer, err := config.Authorizer()
+	if err != nil {
+		return nil
+	}
+
+	resourceClient := resources.NewGroupsClient(credential.SubscriptionId)
+	resourceClient.Authorizer = authorizer
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer func() {
+		cancel()
+	}()
+
+	_, err = resourceClient.Get(ctx, region.ResourceGroup)
+	if err != nil {
+		return err
+	}
+
+	_, err = resourceClient.Delete(ctx, region.ResourceGroup)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func CheckIIDValidation(IId irs.IID) bool {

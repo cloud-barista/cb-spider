@@ -218,7 +218,10 @@ func checkResourceGroup(credential idrv.CredentialInfo, region idrv.RegionInfo) 
 
 	resourceClient := resources.NewGroupsClient(credential.SubscriptionId)
 	resourceClient.Authorizer = authorizer
-	ctx, _ := context.WithTimeout(context.Background(), cspTimeout*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), cspTimeout*time.Second)
+	defer func() {
+		cancel()
+	}()
 
 	_, err = resourceClient.Get(ctx, region.ResourceGroup)
 	if err != nil {

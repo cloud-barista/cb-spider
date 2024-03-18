@@ -247,6 +247,24 @@ func (diskHandler *AzureDiskHandler) DeleteDisk(diskIID irs.IID) (bool, error) {
 		return false, deleteDiskSizeErr
 	}
 	LoggingInfo(hiscallInfo, start)
+
+	list, err := diskHandler.ListDisk()
+	if err != nil {
+		delErr := errors.New(fmt.Sprintf("Failed to get list of Disks in Delete Disk process err = %s", err.Error()))
+		cblogger.Error(delErr.Error())
+		LoggingError(hiscallInfo, delErr)
+		return false, delErr
+	}
+	if len(list) == 0 {
+		err := removeResourceGroup(diskHandler.CredentialInfo, diskHandler.Region)
+		if err != nil {
+			delErr := errors.New(fmt.Sprintf("Failed to delete resource group in Delete Disk process err = %s", err.Error()))
+			cblogger.Error(delErr.Error())
+			LoggingError(hiscallInfo, delErr)
+			return false, delErr
+		}
+	}
+
 	return true, nil
 }
 
