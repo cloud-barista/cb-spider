@@ -85,7 +85,7 @@ func (vmHandler *NhnCloudVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo
 	}
 
 	if !isConnectedToGateway {
-		newErr := fmt.Errorf("Routing Table of the VPC need to be connected to an Internet Gateway to use Pulbic IP!!")
+		newErr := fmt.Errorf("Routing Table of the VPC need to be connected to an Internet Gateway to use Public IP!!")
 		cblogger.Error(newErr.Error())
 		LoggingError(callLogInfo, newErr)
 		return irs.VMInfo{}, newErr
