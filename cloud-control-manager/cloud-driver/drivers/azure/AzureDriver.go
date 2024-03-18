@@ -14,6 +14,9 @@ import (
 	"context"
 	"github.com/Azure/azure-sdk-for-go/services/containerservice/mgmt/2022-03-01/containerservice"
 	"github.com/Azure/azure-sdk-for-go/services/resources/mgmt/2019-11-01/subscriptions"
+	"github.com/Azure/go-autorest/autorest"
+	"github.com/Azure/go-autorest/autorest/azure"
+	"github.com/Azure/go-autorest/autorest/to"
 	"time"
 
 	"github.com/Azure/azure-sdk-for-go/profiles/2020-09-01/monitor/mgmt/insights"
@@ -21,8 +24,6 @@ import (
 	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2021-02-01/network"
 	"github.com/Azure/azure-sdk-for-go/services/resources/mgmt/2020-10-01/resources"
 	"github.com/Azure/go-autorest/autorest/azure/auth"
-	"github.com/Azure/go-autorest/autorest/to"
-
 	azcon "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/azure/connect"
 	azrs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/azure/resources"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
@@ -219,22 +220,27 @@ func checkResourceGroup(credential idrv.CredentialInfo, region idrv.RegionInfo) 
 	resourceClient.Authorizer = authorizer
 	ctx, _ := context.WithTimeout(context.Background(), cspTimeout*time.Second)
 
-	rg, err := resourceClient.Get(ctx, region.ResourceGroup)
+	_, err = resourceClient.Get(ctx, region.ResourceGroup)
 	if err != nil {
-		return nil
-	}
+		de, ok := err.(autorest.DetailedError)
+		if ok && de.Original != nil {
+			re, ok := de.Original.(*azure.RequestError)
+			if ok && re.ServiceError != nil && re.ServiceError.Code == "ResourceGroupNotFound" {
+				// 해당 리소스 그룹이 없을 경우 생성
+				_, err = resourceClient.CreateOrUpdate(ctx, region.ResourceGroup,
+					resources.Group{
+						Name:     to.StringPtr(region.ResourceGroup),
+						Location: to.StringPtr(region.Region),
+					})
+				if err != nil {
+					return err
+				}
 
-	// 해당 리소스 그룹이 없을 경우 생성
-	if rg.ID == nil {
-		rg, err = resourceClient.CreateOrUpdate(ctx, region.ResourceGroup,
-			resources.Group{
-				Name:     to.StringPtr(region.ResourceGroup),
-				Location: to.StringPtr(region.Region),
-			})
-		if err != nil {
-			return err
+				return nil
+			}
 		}
 	}
+
 	return nil
 }
 
