@@ -1442,15 +1442,14 @@ func validateAtCreateCluster(clusterInfo irs.ClusterInfo) error {
 	if len(clusterInfo.Network.SubnetIIDs) < 1 {
 		return fmt.Errorf("At least one Subnet must be specified")
 	}
+	if len(clusterInfo.Network.SecurityGroupIIDs) < 1 {
+		return fmt.Errorf("At least one Subnet must be specified")
+	}
 	// CAUTION: Currently CB-Spider's Alibaba PMKS Drivers does not support to create a cluster with nodegroups
 	if len(clusterInfo.NodeGroupList) > 0 {
 		return fmt.Errorf("Node Group cannot be specified")
 	}
-	/*
-		if clusterInfo.Version == "" || clusterInfo.Version == "default" {
-			clusterInfo.Version = "1.24.8"
-		}
-	*/
+
 	return nil
 }
 
@@ -1460,6 +1459,9 @@ func validateAtAddNodeGroup(clusterIID irs.IID, nodeGroupInfo irs.NodeGroupInfo)
 	}
 	if nodeGroupInfo.IId.NameId == "" {
 		return fmt.Errorf("Node Group name is required")
+	}
+	if nodeGroupInfo.ImageIID.SystemId != "" {
+		cblogger.Info(fmt.Sprintf("User defined node image cannot be used, it will use a predefined node image"))
 	}
 	if nodeGroupInfo.MaxNodeSize < 1 {
 		return fmt.Errorf("MaxNodeSize cannot be smaller than 1")

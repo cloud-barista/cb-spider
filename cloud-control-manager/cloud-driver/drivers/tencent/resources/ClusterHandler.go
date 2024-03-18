@@ -54,6 +54,19 @@ func (clusterHandler *TencentClusterHandler) CreateCluster(clusterReqInfo irs.Cl
 	callLogInfo := GetCallLogScheme(clusterHandler.RegionInfo, call.CLUSTER, "CreateCluster()", "CreateCluster()")
 
 	start := call.Start()
+
+	//
+	// Validation
+	//
+	err := validateAtCreateCluster(clusterReqInfo)
+	if err != nil {
+		err = fmt.Errorf("Failed to Create Cluster :  %v", err)
+		cblogger.Error(err)
+		callLogInfo.ErrorMSG = err.Error()
+		calllogger.Error(call.String(callLogInfo))
+		return irs.ClusterInfo{}, err
+	}
+
 	// 클러스터 생성 요청 변환
 	request, err := getCreateClusterRequest(clusterHandler, clusterReqInfo)
 	if err != nil {
@@ -169,6 +182,19 @@ func (clusterHandler *TencentClusterHandler) AddNodeGroup(clusterIID irs.IID, no
 	callLogInfo := GetCallLogScheme(clusterHandler.RegionInfo, call.CLUSTER, clusterIID.NameId, "AddNodeGroup()")
 
 	start := call.Start()
+
+	//
+	// Validation
+	//
+	err := validateAtAddNodeGroup(clusterIID, nodeGroupReqInfo)
+	if err != nil {
+		err := fmt.Errorf("Failed to Add Node Group :  %v", err)
+		cblogger.Error(err)
+		callLogInfo.ErrorMSG = err.Error()
+		calllogger.Error(call.String(callLogInfo))
+		return irs.NodeGroupInfo{}, err
+	}
+
 	// 노드 그룹 생성 요청 변환
 	// get cluster info. to get security_group_id
 	request, err := getNodeGroupRequest(clusterHandler, clusterIID.SystemId, nodeGroupReqInfo)
@@ -180,7 +206,7 @@ func (clusterHandler *TencentClusterHandler) AddNodeGroup(clusterIID irs.IID, no
 	response, err := tencent.CreateNodeGroup(clusterHandler.CredentialInfo.ClientId, clusterHandler.CredentialInfo.ClientSecret, clusterHandler.RegionInfo.Region, request)
 	callLogInfo.ElapsedTime = call.Elapsed(start)
 	if err != nil {
-		err := fmt.Errorf("Failed to Create Node Group :  %v", err)
+		err := fmt.Errorf("Failed to Add Node Group :  %v", err)
 		cblogger.Error(err)
 		callLogInfo.ErrorMSG = err.Error()
 		calllogger.Error(call.String(callLogInfo))
@@ -272,6 +298,19 @@ func (clusterHandler *TencentClusterHandler) ChangeNodeGroupScaling(clusterIID i
 	callLogInfo := GetCallLogScheme(clusterHandler.RegionInfo, call.CLUSTER, clusterIID.NameId, "ChangeNodeGroupScaling()")
 
 	start := call.Start()
+
+	//
+	// Validation
+	//
+	err := validateAtChangeNodeGroupScaling(clusterIID, nodeGroupIID, minNodeSize, maxNodeSize)
+	if err != nil {
+		err := fmt.Errorf("Failed to Change Node Group Scaling:  %v", err)
+		cblogger.Error(err)
+		callLogInfo.ErrorMSG = err.Error()
+		calllogger.Error(call.String(callLogInfo))
+		return irs.NodeGroupInfo{}, err
+	}
+
 	nodegroup, err := tencent.GetNodeGroup(clusterHandler.CredentialInfo.ClientId, clusterHandler.CredentialInfo.ClientSecret, clusterHandler.RegionInfo.Region, clusterIID.SystemId, nodeGroupIID.SystemId)
 	if err != nil {
 		err := fmt.Errorf("Failed to Get Node Group:  %v", err)
@@ -285,7 +324,6 @@ func (clusterHandler *TencentClusterHandler) ChangeNodeGroupScaling(clusterIID i
 		cblogger.Error(err)
 		callLogInfo.ErrorMSG = err.Error()
 		calllogger.Error(call.String(callLogInfo))
-		cblogger.Error(err)
 		return irs.NodeGroupInfo{}, err
 	}
 	cblogger.Info(temp.ToJsonString())
@@ -866,3 +904,64 @@ func getNodeGroupRequest(clusterHandler *TencentClusterHandler, cluster_id strin
 // 		CloudOSAPI:   apiName,
 // 	}
 // }
+
+func validateAtCreateCluster(clusterInfo irs.ClusterInfo) error {
+	if clusterInfo.IId.NameId == "" {
+		return fmt.Errorf("Cluster name is required")
+	}
+	if clusterInfo.Network.VpcIID.SystemId == "" && clusterInfo.Network.VpcIID.NameId == "" {
+		return fmt.Errorf("Cannot identify VPC(IID=%s)", clusterInfo.Network.VpcIID)
+	}
+	if len(clusterInfo.Network.SubnetIIDs) < 1 {
+		return fmt.Errorf("At least one Subnet must be specified")
+	}
+	if len(clusterInfo.Network.SecurityGroupIIDs) < 1 {
+		return fmt.Errorf("At least one Subnet must be specified")
+	}
+	// CAUTION: Currently CB-Spider's Tencent PMKS Drivers does not support to create a cluster with nodegroups
+	if len(clusterInfo.NodeGroupList) > 0 {
+		return fmt.Errorf("Node Group cannot be specified")
+	}
+
+	return nil
+}
+
+func validateAtAddNodeGroup(clusterIID irs.IID, nodeGroupInfo irs.NodeGroupInfo) error {
+	if clusterIID.SystemId == "" && clusterIID.NameId == "" {
+		return fmt.Errorf("Invalid Cluster IID")
+	}
+	if nodeGroupInfo.IId.NameId == "" {
+		return fmt.Errorf("Node Group name is required")
+	}
+	if nodeGroupInfo.MaxNodeSize < 1 {
+		return fmt.Errorf("MaxNodeSize cannot be smaller than 1")
+	}
+	if nodeGroupInfo.MinNodeSize < 1 {
+		return fmt.Errorf("MaxNodeSize cannot be smaller than 1")
+	}
+	if nodeGroupInfo.DesiredNodeSize < 1 {
+		return fmt.Errorf("DesiredNodeSize cannot be smaller than 1")
+	}
+	if nodeGroupInfo.VMSpecName == "" {
+		return fmt.Errorf("VM Spec Name is required")
+	}
+
+	return nil
+}
+
+func validateAtChangeNodeGroupScaling(clusterIID irs.IID, nodeGroupIID irs.IID, minNodeSize int, maxNodeSize int) error {
+	if clusterIID.SystemId == "" && clusterIID.NameId == "" {
+		return fmt.Errorf("Invalid Cluster IID")
+	}
+	if nodeGroupIID.SystemId == "" && nodeGroupIID.NameId == "" {
+		return fmt.Errorf("Invalid Node Group IID")
+	}
+	if minNodeSize < 1 {
+		return fmt.Errorf("MaxNodeSize cannot be smaller than 1")
+	}
+	if maxNodeSize < 1 {
+		return fmt.Errorf("MaxNodeSize cannot be smaller than 1")
+	}
+
+	return nil
+}
