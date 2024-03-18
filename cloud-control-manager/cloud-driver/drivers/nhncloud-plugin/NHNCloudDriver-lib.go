@@ -55,7 +55,7 @@ func (NhnCloudDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	return drvCapabilityInfo
 }
 
-func (driver *NhnCloudDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (icon.CloudConnection, error) {
+func (driver *NhnCloudDriver) ConnectCloud(connInfo idrv.ConnectionInfo) (icon.CloudConnection, error) {
 	// 1. get info of credential and region for Test A Cloud from connectionInfo.
 	// 2. create a client object(or service  object) of Test A Cloud with credential info.
 	// 3. create CloudConnection Instance of "connect/TDA_CloudConnection".
@@ -64,44 +64,6 @@ func (driver *NhnCloudDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (
 	// Initialize Logger
 	nhnrs.InitLog()
 
-	VMClient, err := getVMClient(connectionInfo)
-	if err != nil {
-		return nil, err
-	}
-
-	ImageClient, err := getImageClient(connectionInfo)
-	if err != nil {
-		return nil, err
-	}
-
-	NetworkClient, err := getNetworkClient(connectionInfo)
-	if err != nil {
-		return nil, err
-	}
-
-	VolumeClient, err := getVolumeClient(connectionInfo)
-	if err != nil {
-		return nil, err
-	}
-
-	ClusterClient, err := getClusterClient(connectionInfo)
-	if err != nil {
-		return nil, err
-	}
-
-	iConn := nhncon.NhnCloudConnection{
-		CredentialInfo: connectionInfo.CredentialInfo, // Note) Need in RegionZoneHandler
-		RegionInfo: 	connectionInfo.RegionInfo,
-		VMClient: 		VMClient,
-		ImageClient: 	ImageClient,
-		NetworkClient: 	NetworkClient,
-		VolumeClient: 	VolumeClient,
-		ClusterClient: 	ClusterClient,
-	}
-	return &iConn, nil
-}
-
-func getVMClient(connInfo idrv.ConnectionInfo) (*nhnsdk.ServiceClient, error) {
 	authOpts := nhnsdk.AuthOptions{
 		IdentityEndpoint: connInfo.CredentialInfo.IdentityEndpoint,
 		Username:         connInfo.CredentialInfo.Username,
@@ -109,12 +71,49 @@ func getVMClient(connInfo idrv.ConnectionInfo) (*nhnsdk.ServiceClient, error) {
 		DomainName:       connInfo.CredentialInfo.DomainName,
 		TenantID:         connInfo.CredentialInfo.TenantId, // Caution : TenantID spelling for SDK
 	}
-
 	providerClient, err := ostack.AuthenticatedClient(authOpts)
 	if err != nil {
 		return nil, err
 	}
 
+	VMClient, err := getVMClient(providerClient, connInfo)
+	if err != nil {
+		return nil, err
+	}
+
+	ImageClient, err := getImageClient(providerClient, connInfo)
+	if err != nil {
+		return nil, err
+	}
+
+	NetworkClient, err := getNetworkClient(providerClient, connInfo)
+	if err != nil {
+		return nil, err
+	}
+
+	VolumeClient, err := getVolumeClient(providerClient, connInfo)
+	if err != nil {
+		return nil, err
+	}
+
+	ClusterClient, err := getClusterClient(providerClient, connInfo)
+	if err != nil {
+		return nil, err
+	}
+
+	iConn := nhncon.NhnCloudConnection{
+		CredentialInfo: connInfo.CredentialInfo, // Note) Need in RegionZoneHandler
+		RegionInfo: 	connInfo.RegionInfo,
+		VMClient: 		VMClient,
+		ImageClient: 	ImageClient,
+		NetworkClient: 	NetworkClient,
+		VolumeClient: 	VolumeClient,
+		ClusterClient: 	ClusterClient,
+	}	
+	return &iConn, nil
+}
+
+func getVMClient(providerClient *nhnsdk.ProviderClient, connInfo idrv.ConnectionInfo) (*nhnsdk.ServiceClient, error) {
 	client, err := ostack.NewComputeV2(providerClient, nhnsdk.EndpointOpts{
 		Region: connInfo.RegionInfo.Region,
 	})
@@ -125,20 +124,7 @@ func getVMClient(connInfo idrv.ConnectionInfo) (*nhnsdk.ServiceClient, error) {
 	return client, err
 }
 
-func getImageClient(connInfo idrv.ConnectionInfo) (*nhnsdk.ServiceClient, error) {
-	authOpts := nhnsdk.AuthOptions{
-		IdentityEndpoint: connInfo.CredentialInfo.IdentityEndpoint,
-		Username:         connInfo.CredentialInfo.Username,
-		Password:         connInfo.CredentialInfo.Password,
-		DomainName:       connInfo.CredentialInfo.DomainName,
-		TenantID:         connInfo.CredentialInfo.TenantId, // Caution : TenantID spelling for SDK
-	}
-
-	providerClient, err := ostack.AuthenticatedClient(authOpts)
-	if err != nil {
-		return nil, err
-	}
-
+func getImageClient(providerClient *nhnsdk.ProviderClient, connInfo idrv.ConnectionInfo) (*nhnsdk.ServiceClient, error) {
 	client, err := ostack.NewImageServiceV2(providerClient, nhnsdk.EndpointOpts{
 		Region: connInfo.RegionInfo.Region,
 	})
@@ -149,20 +135,7 @@ func getImageClient(connInfo idrv.ConnectionInfo) (*nhnsdk.ServiceClient, error)
 	return client, err
 }
 
-func getNetworkClient(connInfo idrv.ConnectionInfo) (*nhnsdk.ServiceClient, error) {
-	authOpts := nhnsdk.AuthOptions{
-		IdentityEndpoint: connInfo.CredentialInfo.IdentityEndpoint,
-		Username:         connInfo.CredentialInfo.Username,
-		Password:         connInfo.CredentialInfo.Password,
-		DomainName:       connInfo.CredentialInfo.DomainName,
-		TenantID:         connInfo.CredentialInfo.TenantId, // Caution : TenantID spelling for SDK
-	}
-
-	providerClient, err := ostack.AuthenticatedClient(authOpts)
-	if err != nil {
-		return nil, err
-	}
-
+func getNetworkClient(providerClient *nhnsdk.ProviderClient, connInfo idrv.ConnectionInfo) (*nhnsdk.ServiceClient, error) {
 	client, err := ostack.NewNetworkV2(providerClient, nhnsdk.EndpointOpts{
 		Name:   "neutron",
 		Region: connInfo.RegionInfo.Region,
@@ -174,49 +147,25 @@ func getNetworkClient(connInfo idrv.ConnectionInfo) (*nhnsdk.ServiceClient, erro
 	return client, err
 }
 
-func getVolumeClient(connInfo idrv.ConnectionInfo) (*nhnsdk.ServiceClient, error) {
-	authOpts := nhnsdk.AuthOptions{
-		IdentityEndpoint: connInfo.CredentialInfo.IdentityEndpoint,
-		Username:         connInfo.CredentialInfo.Username,
-		Password:         connInfo.CredentialInfo.Password,
-		DomainName:       connInfo.CredentialInfo.DomainName,
-		TenantID:         connInfo.CredentialInfo.TenantId, // Caution : TenantID spelling for SDK
-	}
-
-	providerClient, err := ostack.AuthenticatedClient(authOpts)
-	if err != nil {
-		return nil, err
-	}
-
+func getVolumeClient(providerClient *nhnsdk.ProviderClient, connInfo idrv.ConnectionInfo) (*nhnsdk.ServiceClient, error) {
 	client, err := ostack.NewBlockStorageV2(providerClient, nhnsdk.EndpointOpts{
 		Region: connInfo.RegionInfo.Region,
 	})
 	if err != nil {
 		return nil, err
 	}
+
 	return client, err
 }
 
-func getClusterClient(connInfo idrv.ConnectionInfo) (*nhnsdk.ServiceClient, error) {
-	authOpts := nhnsdk.AuthOptions{
-		IdentityEndpoint: connInfo.CredentialInfo.IdentityEndpoint,
-		Username:         connInfo.CredentialInfo.Username,
-		Password:         connInfo.CredentialInfo.Password,
-		DomainName:       connInfo.CredentialInfo.DomainName,
-		TenantID:         connInfo.CredentialInfo.TenantId, // Caution : TenantID spelling for SDK
-	}
-
-	providerClient, err := ostack.AuthenticatedClient(authOpts)
-	if err != nil {
-		return nil, err
-	}
-
+func getClusterClient(providerClient *nhnsdk.ProviderClient, connInfo idrv.ConnectionInfo) (*nhnsdk.ServiceClient, error) {
 	client, err := ostack.NewContainerInfraV1(providerClient, nhnsdk.EndpointOpts{
 		Region: connInfo.RegionInfo.Region,
 	})
 	if err != nil {
 		return nil, err
 	}
+	
 	return client, err
 }
 
