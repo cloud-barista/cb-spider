@@ -9,6 +9,7 @@ import (
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
+	"github.com/sirupsen/logrus"
 	"strconv"
 	"strings"
 )
@@ -232,11 +233,15 @@ func (diskHandler *AzureDiskHandler) DeleteDisk(diskIID irs.IID) (bool, error) {
 		LoggingError(hiscallInfo, deleteDiskSizeErr)
 		return false, deleteDiskSizeErr
 	}
+
+	addResourceDeleteQueue("disk", diskIID.NameId+"+"+diskIID.SystemId)
+
 	result, err := diskHandler.DiskClient.Delete(diskHandler.Ctx, diskHandler.Region.ResourceGroup, convertedDiskIId.NameId)
 	if err != nil {
 		deleteDiskSizeErr := errors.New(fmt.Sprintf("Failed to DeleteDisk. err = %s", err.Error()))
 		cblogger.Error(deleteDiskSizeErr.Error())
 		LoggingError(hiscallInfo, deleteDiskSizeErr)
+		DeleteResourceDeleteQueue("disk", diskIID.NameId+"+"+diskIID.SystemId)
 		return false, deleteDiskSizeErr
 	}
 	err = result.WaitForCompletionRef(diskHandler.Ctx, diskHandler.DiskClient.Client)
@@ -244,26 +249,20 @@ func (diskHandler *AzureDiskHandler) DeleteDisk(diskIID irs.IID) (bool, error) {
 		deleteDiskSizeErr := errors.New(fmt.Sprintf("Failed to DeleteDisk. err = %s", err.Error()))
 		cblogger.Error(deleteDiskSizeErr.Error())
 		LoggingError(hiscallInfo, deleteDiskSizeErr)
+		DeleteResourceDeleteQueue("disk", diskIID.NameId+"+"+diskIID.SystemId)
 		return false, deleteDiskSizeErr
 	}
 	LoggingInfo(hiscallInfo, start)
 
-	list, err := diskHandler.ListDisk()
-	if err != nil {
-		delErr := errors.New(fmt.Sprintf("Failed to get list of Disks in Delete Disk process err = %s", err.Error()))
-		cblogger.Error(delErr.Error())
-		LoggingError(hiscallInfo, delErr)
-		return false, delErr
-	}
-	if len(list) == 0 {
-		err := removeResourceGroup(diskHandler.CredentialInfo, diskHandler.Region)
+	DeleteResourceDeleteQueue("disk", diskIID.NameId+"+"+diskIID.SystemId)
+
+	go func(logger *logrus.Logger, c idrv.CredentialInfo, r idrv.RegionInfo) {
+		err := removeResourceGroup(logger, c, r)
 		if err != nil {
-			delErr := errors.New(fmt.Sprintf("Failed to delete resource group in Delete Disk process err = %s", err.Error()))
-			cblogger.Error(delErr.Error())
-			LoggingError(hiscallInfo, delErr)
-			return false, delErr
+			logger.Error("Error occurred while removing the resource group. " +
+				"(Resource Group: " + r.ResourceGroup + ", Error: " + err.Error() + ")")
 		}
-	}
+	}(cblogger, diskHandler.CredentialInfo, diskHandler.Region)
 
 	return true, nil
 }

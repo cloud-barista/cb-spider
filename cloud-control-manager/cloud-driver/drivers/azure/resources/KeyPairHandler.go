@@ -4,13 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/Azure/go-autorest/autorest/to"
-
 	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2021-03-01/compute"
+	"github.com/Azure/go-autorest/autorest/to"
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	keypair "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/common"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
+	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -183,6 +183,8 @@ func (keyPairHandler *AzureKeyPairHandler) DeleteKey(keyIID irs.IID) (bool, erro
 	}
 
 	start := call.Start()
+
+	addResourceDeleteQueue("keypair", keyIID.NameId+"+"+keyIID.SystemId)
 	// 2. Delete Resource
 	_, err = keyPairHandler.Client.Delete(keyPairHandler.Ctx, keyPairHandler.Region.ResourceGroup, keyIID.NameId)
 
@@ -190,26 +192,20 @@ func (keyPairHandler *AzureKeyPairHandler) DeleteKey(keyIID irs.IID) (bool, erro
 		delErr := errors.New(fmt.Sprintf("Failed to Delete Key. err = %s", err.Error()))
 		cblogger.Error(delErr.Error())
 		LoggingError(hiscallInfo, delErr)
+		DeleteResourceDeleteQueue("keypair", keyIID.NameId+"+"+keyIID.SystemId)
 		return false, delErr
 	}
 	LoggingInfo(hiscallInfo, start)
 
-	list, err := keyPairHandler.ListKey()
-	if err != nil {
-		delErr := errors.New(fmt.Sprintf("Failed to get list of Keys in Delete Key process err = %s", err.Error()))
-		cblogger.Error(delErr.Error())
-		LoggingError(hiscallInfo, delErr)
-		return false, delErr
-	}
-	if len(list) == 0 {
-		err := removeResourceGroup(keyPairHandler.CredentialInfo, keyPairHandler.Region)
+	DeleteResourceDeleteQueue("keypair", keyIID.NameId+"+"+keyIID.SystemId)
+
+	go func(logger *logrus.Logger, c idrv.CredentialInfo, r idrv.RegionInfo) {
+		err := removeResourceGroup(logger, c, r)
 		if err != nil {
-			delErr := errors.New(fmt.Sprintf("Failed to delete resource group in Delete Key process err = %s", err.Error()))
-			cblogger.Error(delErr.Error())
-			LoggingError(hiscallInfo, delErr)
-			return false, delErr
+			logger.Error("Error occurred while removing the resource group. " +
+				"(Resource Group: " + r.ResourceGroup + ", Error: " + err.Error() + ")")
 		}
-	}
+	}(cblogger, keyPairHandler.CredentialInfo, keyPairHandler.Region)
 
 	return true, nil
 }

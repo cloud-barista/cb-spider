@@ -26,10 +26,11 @@ const (
 )
 
 type AzureSecurityHandler struct {
-	Region     idrv.RegionInfo
-	Ctx        context.Context
-	Client     *network.SecurityGroupsClient
-	RuleClient *network.SecurityRulesClient
+	CredentialInfo idrv.CredentialInfo
+	Region         idrv.RegionInfo
+	Ctx            context.Context
+	Client         *network.SecurityGroupsClient
+	RuleClient     *network.SecurityRulesClient
 }
 
 func (securityHandler *AzureSecurityHandler) setterSec(securityGroup network.SecurityGroup) *irs.SecurityInfo {
@@ -203,6 +204,11 @@ func (securityHandler *AzureSecurityHandler) DeleteSecurity(securityIID irs.IID)
 	hiscallInfo := GetCallLogScheme(securityHandler.Region, call.SECURITYGROUP, securityIID.NameId, "DeleteSecurity()")
 
 	start := call.Start()
+
+	addResourceDeleteQueue("security", securityIID.NameId+"+"+securityIID.SystemId)
+	defer func() {
+		DeleteResourceDeleteQueue("security", securityIID.NameId+"+"+securityIID.SystemId)
+	}()
 	future, err := securityHandler.Client.Delete(securityHandler.Ctx, securityHandler.Region.ResourceGroup, securityIID.NameId)
 	if err != nil {
 		delErr := errors.New(fmt.Sprintf("Failed to Delete Security. err = %s", err.Error()))

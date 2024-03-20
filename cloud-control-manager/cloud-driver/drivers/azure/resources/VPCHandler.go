@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2021-02-01/network"
 	"github.com/Azure/go-autorest/autorest/to"
-
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
+	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -172,11 +172,14 @@ func (vpcHandler *AzureVPCHandler) DeleteVPC(vpcIID irs.IID) (bool, error) {
 	hiscallInfo := GetCallLogScheme(vpcHandler.Region, call.VPCSUBNET, vpcIID.NameId, "DeleteVPC()")
 
 	start := call.Start()
+
+	addResourceDeleteQueue("vpc", vpcIID.NameId+"+"+vpcIID.SystemId)
 	future, err := vpcHandler.Client.Delete(vpcHandler.Ctx, vpcHandler.Region.ResourceGroup, vpcIID.NameId)
 	if err != nil {
 		delErr := errors.New(fmt.Sprintf("Failed to Delete VPC err = %s", err.Error()))
 		cblogger.Error(delErr.Error())
 		LoggingError(hiscallInfo, delErr)
+		DeleteResourceDeleteQueue("vpc", vpcIID.NameId+"+"+vpcIID.SystemId)
 		return false, delErr
 	}
 	err = future.WaitForCompletionRef(vpcHandler.Ctx, vpcHandler.Client.Client)
@@ -184,26 +187,20 @@ func (vpcHandler *AzureVPCHandler) DeleteVPC(vpcIID irs.IID) (bool, error) {
 		delErr := errors.New(fmt.Sprintf("Failed to Delete VPC err = %s", err.Error()))
 		cblogger.Error(delErr.Error())
 		LoggingError(hiscallInfo, delErr)
+		DeleteResourceDeleteQueue("vpc", vpcIID.NameId+"+"+vpcIID.SystemId)
 		return false, delErr
 	}
 	LoggingInfo(hiscallInfo, start)
 
-	list, err := vpcHandler.ListVPC()
-	if err != nil {
-		delErr := errors.New(fmt.Sprintf("Failed to get list of VPCs in Delete VPC process err = %s", err.Error()))
-		cblogger.Error(delErr.Error())
-		LoggingError(hiscallInfo, delErr)
-		return false, delErr
-	}
-	if len(list) == 0 {
-		err := removeResourceGroup(vpcHandler.CredentialInfo, vpcHandler.Region)
+	DeleteResourceDeleteQueue("vpc", vpcIID.NameId+"+"+vpcIID.SystemId)
+
+	go func(logger *logrus.Logger, c idrv.CredentialInfo, r idrv.RegionInfo) {
+		err := removeResourceGroup(logger, c, r)
 		if err != nil {
-			delErr := errors.New(fmt.Sprintf("Failed to delete resource group in Delete VPC process err = %s", err.Error()))
-			cblogger.Error(delErr.Error())
-			LoggingError(hiscallInfo, delErr)
-			return false, delErr
+			logger.Error("Error occurred while removing the resource group. " +
+				"(Resource Group: " + r.ResourceGroup + ", Error: " + err.Error() + ")")
 		}
-	}
+	}(cblogger, vpcHandler.CredentialInfo, vpcHandler.Region)
 
 	return true, nil
 }

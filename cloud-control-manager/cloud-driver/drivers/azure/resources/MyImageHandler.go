@@ -114,6 +114,11 @@ func (myImageHandler *AzureMyImageHandler) SnapshotVM(snapshotReqInfo irs.MyImag
 	}
 	defer func() {
 		if snapshotErr != nil {
+			addResourceDeleteQueue("myimage", convertedVMIId.NameId+"+"+convertedVMIId.SystemId)
+			defer func() {
+				DeleteResourceDeleteQueue("myimage", convertedVMIId.NameId+"+"+convertedVMIId.SystemId)
+			}()
+
 			result, err := myImageHandler.ImageClient.Delete(myImageHandler.Ctx, myImageHandler.Region.ResourceGroup, convertedMyImageIId.NameId)
 			if err == nil {
 				result.WaitForCompletionRef(myImageHandler.Ctx, myImageHandler.ImageClient.Client)
@@ -213,6 +218,11 @@ func (myImageHandler *AzureMyImageHandler) DeleteMyImage(myImageIID irs.IID) (bo
 		LoggingError(hiscallInfo, getErr)
 		return false, getErr
 	}
+
+	addResourceDeleteQueue("myimage", myImageIID.NameId+"+"+myImageIID.SystemId)
+	defer func() {
+		DeleteResourceDeleteQueue("myimage", myImageIID.NameId+"+"+myImageIID.SystemId)
+	}()
 	result, err := myImageHandler.ImageClient.Delete(myImageHandler.Ctx, myImageHandler.Region.ResourceGroup, convertedMyImageIID.NameId)
 	if err != nil {
 		getErr := errors.New(fmt.Sprintf("Failed to Delete MyImage. err = %s", err))
