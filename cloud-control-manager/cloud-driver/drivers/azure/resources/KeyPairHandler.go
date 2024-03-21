@@ -10,7 +10,6 @@ import (
 	keypair "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/common"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
-	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -198,14 +197,6 @@ func (keyPairHandler *AzureKeyPairHandler) DeleteKey(keyIID irs.IID) (bool, erro
 	LoggingInfo(hiscallInfo, start)
 
 	DeleteResourceDeleteQueue("keypair", keyIID.NameId+"+"+keyIID.SystemId)
-
-	go func(logger *logrus.Logger, c idrv.CredentialInfo, r idrv.RegionInfo) {
-		err := removeResourceGroup(logger, c, r)
-		if err != nil {
-			logger.Error("Error occurred while removing the resource group. " +
-				"(Resource Group: " + r.ResourceGroup + ", Error: " + err.Error() + ")")
-		}
-	}(cblogger, keyPairHandler.CredentialInfo, keyPairHandler.Region)
 
 	return true, nil
 }

@@ -9,7 +9,6 @@ import (
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
-	"github.com/sirupsen/logrus"
 	"strconv"
 	"strings"
 )
@@ -255,14 +254,6 @@ func (diskHandler *AzureDiskHandler) DeleteDisk(diskIID irs.IID) (bool, error) {
 	LoggingInfo(hiscallInfo, start)
 
 	DeleteResourceDeleteQueue("disk", diskIID.NameId+"+"+diskIID.SystemId)
-
-	go func(logger *logrus.Logger, c idrv.CredentialInfo, r idrv.RegionInfo) {
-		err := removeResourceGroup(logger, c, r)
-		if err != nil {
-			logger.Error("Error occurred while removing the resource group. " +
-				"(Resource Group: " + r.ResourceGroup + ", Error: " + err.Error() + ")")
-		}
-	}(cblogger, diskHandler.CredentialInfo, diskHandler.Region)
 
 	return true, nil
 }

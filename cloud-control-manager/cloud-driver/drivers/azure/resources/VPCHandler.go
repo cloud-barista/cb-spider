@@ -9,7 +9,6 @@ import (
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
-	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -193,14 +192,6 @@ func (vpcHandler *AzureVPCHandler) DeleteVPC(vpcIID irs.IID) (bool, error) {
 	LoggingInfo(hiscallInfo, start)
 
 	DeleteResourceDeleteQueue("vpc", vpcIID.NameId+"+"+vpcIID.SystemId)
-
-	go func(logger *logrus.Logger, c idrv.CredentialInfo, r idrv.RegionInfo) {
-		err := removeResourceGroup(logger, c, r)
-		if err != nil {
-			logger.Error("Error occurred while removing the resource group. " +
-				"(Resource Group: " + r.ResourceGroup + ", Error: " + err.Error() + ")")
-		}
-	}(cblogger, vpcHandler.CredentialInfo, vpcHandler.Region)
 
 	return true, nil
 }

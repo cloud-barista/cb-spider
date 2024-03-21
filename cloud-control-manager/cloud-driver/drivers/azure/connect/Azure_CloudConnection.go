@@ -64,44 +64,9 @@ type AzureCloudConnection struct {
 	ResourceSkusClient              *compute.ResourceSkusClient
 }
 
-var createAllHandlerFinished bool
-var createAllHandlerRunning bool
-
-func (cloudConn *AzureCloudConnection) createAllHandlers() {
-	azrs.CreateAllHandlerLock.Lock()
-	defer func() {
-		createAllHandlerRunning = false
-		azrs.CreateAllHandlerLock.Unlock()
-	}()
-
-	createAllHandlerRunning = true
-
-	if createAllHandlerFinished {
-		return
-	}
-
-	azrs.Handlers.ImageHandler, _ = cloudConn.CreateImageHandler()
-	azrs.Handlers.VPCHandler, _ = cloudConn.CreateVPCHandler()
-	azrs.Handlers.SecurityHandler, _ = cloudConn.CreateSecurityHandler()
-	azrs.Handlers.KeyPairHandler, _ = cloudConn.CreateKeyPairHandler()
-	azrs.Handlers.VMHandler, _ = cloudConn.CreateVMHandler()
-	azrs.Handlers.VmSpecHandler, _ = cloudConn.CreateVMSpecHandler()
-	azrs.Handlers.NLBHandler, _ = cloudConn.CreateNLBHandler()
-	azrs.Handlers.DiskHandler, _ = cloudConn.CreateDiskHandler()
-	azrs.Handlers.MyImageHandler, _ = cloudConn.CreateMyImageHandler()
-	azrs.Handlers.RegionZoneHandler, _ = cloudConn.CreateRegionZoneHandler()
-	azrs.Handlers.PriceInfoHandler, _ = cloudConn.CreatePriceInfoHandler()
-	azrs.Handlers.ClusterHandler, _ = cloudConn.CreateClusterHandler()
-
-	createAllHandlerFinished = true
-}
-
 func (cloudConn *AzureCloudConnection) CreateImageHandler() (irs.ImageHandler, error) {
 	cblogger.Info("Azure Cloud Driver: called CreateImageHandler()!")
 	imageHandler := azrs.AzureImageHandler{cloudConn.CredentialInfo, cloudConn.Region, cloudConn.Ctx, cloudConn.ImageClient, cloudConn.VMImageClient}
-	if !createAllHandlerRunning {
-		cloudConn.createAllHandlers()
-	}
 	return &imageHandler, nil
 }
 
@@ -114,27 +79,18 @@ func (cloudConn *AzureCloudConnection) CreateImageHandler() (irs.ImageHandler, e
 func (cloudConn *AzureCloudConnection) CreateVPCHandler() (irs.VPCHandler, error) {
 	cblogger.Info("Azure Cloud Driver: called CreateVPCHandler()!")
 	vpcHandler := azrs.AzureVPCHandler{cloudConn.CredentialInfo, cloudConn.Region, cloudConn.Ctx, cloudConn.VNetClient, cloudConn.SubnetClient}
-	if !createAllHandlerRunning {
-		cloudConn.createAllHandlers()
-	}
 	return &vpcHandler, nil
 }
 
 func (cloudConn *AzureCloudConnection) CreateSecurityHandler() (irs.SecurityHandler, error) {
 	cblogger.Info("Azure Cloud Driver: called CreateSecurityHandler()!")
 	sgHandler := azrs.AzureSecurityHandler{cloudConn.CredentialInfo, cloudConn.Region, cloudConn.Ctx, cloudConn.SecurityGroupClient, cloudConn.SecurityGroupRuleClient}
-	if !createAllHandlerRunning {
-		cloudConn.createAllHandlers()
-	}
 	return &sgHandler, nil
 }
 
 func (cloudConn *AzureCloudConnection) CreateKeyPairHandler() (irs.KeyPairHandler, error) {
 	cblogger.Info("Azure Cloud Driver: called CreateKeyPairHandler()!")
 	keypairHandler := azrs.AzureKeyPairHandler{cloudConn.CredentialInfo, cloudConn.Region, cloudConn.Ctx, cloudConn.SshKeyClient}
-	if !createAllHandlerRunning {
-		cloudConn.createAllHandlers()
-	}
 	return &keypairHandler, nil
 }
 
@@ -165,18 +121,12 @@ func (cloudConn *AzureCloudConnection) CreateVMHandler() (irs.VMHandler, error) 
 		ImageClient:                     cloudConn.ImageClient,
 		VirtualMachineRunCommandsClient: cloudConn.VirtualMachineRunCommandsClient,
 	}
-	if !createAllHandlerRunning {
-		cloudConn.createAllHandlers()
-	}
 	return &vmHandler, nil
 }
 
 func (cloudConn *AzureCloudConnection) CreateVMSpecHandler() (irs.VMSpecHandler, error) {
 	cblogger.Info("Azure Cloud Driver: called CreateVMSpecHandler()!")
 	vmSpecHandler := azrs.AzureVmSpecHandler{cloudConn.Region, cloudConn.Ctx, cloudConn.VmSpecClient}
-	if !createAllHandlerRunning {
-		cloudConn.createAllHandlers()
-	}
 	return &vmSpecHandler, nil
 }
 
@@ -196,9 +146,6 @@ func (cloudConn *AzureCloudConnection) CreateNLBHandler() (irs.NLBHandler, error
 		NLBLoadBalancingRulesClient:  cloudConn.NLBLoadBalancingRulesClient,
 		MetricClient:                 cloudConn.MetricClient,
 	}
-	if !createAllHandlerRunning {
-		cloudConn.createAllHandlers()
-	}
 	return &nlbHandler, nil
 }
 
@@ -210,9 +157,6 @@ func (cloudConn *AzureCloudConnection) CreateDiskHandler() (irs.DiskHandler, err
 		Ctx:            cloudConn.Ctx,
 		DiskClient:     cloudConn.DiskClient,
 		VMClient:       cloudConn.VMClient,
-	}
-	if !createAllHandlerRunning {
-		cloudConn.createAllHandlers()
 	}
 	return &diskHandler, nil
 }
@@ -227,9 +171,6 @@ func (cloudConn *AzureCloudConnection) CreateMyImageHandler() (irs.MyImageHandle
 		VMClient:                        cloudConn.VMClient,
 		VirtualMachineRunCommandsClient: cloudConn.VirtualMachineRunCommandsClient,
 	}
-	if !createAllHandlerRunning {
-		cloudConn.createAllHandlers()
-	}
 	return &myImageHandler, nil
 }
 
@@ -243,9 +184,6 @@ func (cloudConn *AzureCloudConnection) CreateRegionZoneHandler() (irs.RegionZone
 		GroupsClient:       cloudConn.GroupsClient,
 		ResourceSkusClient: cloudConn.ResourceSkusClient,
 	}
-	if !createAllHandlerRunning {
-		cloudConn.createAllHandlers()
-	}
 	return &regionZoneHandler, nil
 }
 
@@ -256,9 +194,6 @@ func (cloudConn *AzureCloudConnection) CreatePriceInfoHandler() (irs.PriceInfoHa
 		Region:             cloudConn.Region,
 		Ctx:                cloudConn.Ctx,
 		ResourceSkusClient: cloudConn.ResourceSkusClient,
-	}
-	if !createAllHandlerRunning {
-		cloudConn.createAllHandlers()
 	}
 	return &priceInfoHandler, nil
 }
@@ -287,9 +222,6 @@ func (cloudConn *AzureCloudConnection) CreateClusterHandler() (irs.ClusterHandle
 		SecurityRulesClient:             cloudConn.SecurityGroupRuleClient,
 		VirtualMachineSizesClient:       cloudConn.VmSpecClient,
 		SSHPublicKeysClient:             cloudConn.SshKeyClient,
-	}
-	if !createAllHandlerRunning {
-		cloudConn.createAllHandlers()
 	}
 	return &clusterHandler, nil
 }

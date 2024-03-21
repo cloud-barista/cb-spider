@@ -68,9 +68,15 @@ func (driver *AzureDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (ico
 	azrs.InitLog()
 
 	// Credentail에 등록된 ResourceGroup 존재 여부 체크 및 생성
-	err := azrs.CheckResourceGroup(connectionInfo)
+	exist, err := azrs.HasResourceGroup(connectionInfo)
 	if err != nil {
 		return nil, err
+	}
+	if !exist {
+		err = azrs.CreateResourceGroup(connectionInfo)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	Ctx, client, err := getClient(connectionInfo.CredentialInfo)
