@@ -292,6 +292,14 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 		Tags: &compute.Tags{
 			Items: securityTags,
 		},
+
+		// Instances with guest accelerators, like GPUs, do not support live migration.
+		// This block of code is a temporary measure for testing GPU functionality.
+		// Setting 'OnHostMaintenance' to 'TERMINATE' prevents live migration
+		// by powerkim, 2024.03.22.
+		Scheduling: &compute.Scheduling{
+			OnHostMaintenance: "TERMINATE",
+		},
 	}
 
 	//Windows OS인 경우 administrator 계정 비번 설정 및 계정 활성화
