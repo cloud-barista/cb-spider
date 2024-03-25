@@ -20,6 +20,9 @@ import (
 	"github.com/NaverCloudPlatform/ncloud-sdk-go-v2/hmac" // Caution!! : Not "crypto/hmac"
 	// Ref) https://github.com/NaverCloudPlatform/ncloud-sdk-go-v2/blob/master/services/vserver/api_client.go
 
+	// "log"
+	// "github.com/davecgh/go-spew/spew"
+
 	"io"
 	"net/http"
 	"net/url"
@@ -77,7 +80,6 @@ type ProductListAPIResponse struct {
 
 	Error *ErrorResponse `json:"error,omitempty"`
 }
-
 // =========================== For ProductList ============================
 
 // =========================== For PriceList ============================
@@ -140,7 +142,6 @@ type PriceListAPIResponse struct {
 
 	Error *ErrorResponse `json:"error,omitempty"`
 }
-
 // =========================== For PriceList ============================
 
 // =========================== Common ============================
@@ -149,7 +150,6 @@ type ErrorResponse struct {
 	Message string `json:"message,omitempty"`
 	Details string `json:"details,omitempty"`
 }
-
 // =========================== Common ============================
 
 const (
@@ -158,6 +158,7 @@ const (
 	ProductPriceListURL string = "/product/getProductPriceList"
 )
 
+// # Get Product 'Name' of all Products instead of Product 'Code'
 func (priceInfoHandler *NcpVpcPriceInfoHandler) ListProductFamily(regionName string) ([]string, error) {
 	cblogger.Info("NCP VPC Cloud driver: called ListProductFamily()!!")
 	// API Guide : https://api.ncloud-docs.com/docs/platform-listprice-getproductlist
@@ -168,53 +169,34 @@ func (priceInfoHandler *NcpVpcPriceInfoHandler) ListProductFamily(regionName str
 		return nil, newErr
 	}
 
-	bodyInUint8, err := priceInfoHandler.GetRequestBody(regionName, ProductListURL)
+	productItemKindList, err := priceInfoHandler.getProductItemKindList(regionName)
 	if err != nil {
-		newErr := fmt.Errorf("Failed to Get the Body to Request : [%v]", err)
+		newErr := fmt.Errorf("Failed to Get ProductItemKind List : [%v]", err)
 		cblogger.Error(newErr.Error())
 		return nil, newErr
 	}
+	// log.Printf("### productItemKindList")
+	// spew.Dump(productItemKindList)	
 
-	var productListResp ProductListAPIResponse
-	err = json.Unmarshal(bodyInUint8, &productListResp)
-	if err != nil {
-		newErr := fmt.Errorf("Failed to Unmarshal JSON : [%v]", err)
-		cblogger.Error(newErr.Error())
-		return nil, newErr
-	}
-	if productListResp.Error != nil {
-		newErr := fmt.Errorf("API Error Code: [%s], Message: [%s]", productListResp.Error.Code, productListResp.Error.Message)
-		cblogger.Error(newErr.Error())
-		return nil, nil
-	}
-	// log.Printf("### productListResp")
-	// spew.Dump(productListResp)
-
-	// # Remove Duplicated Product Code
-	uniqueCodes := make(map[string]bool)
-	uniqueProducts := []Product{}
-	if len(productListResp.GetProductListResponse.ProductList) > 0 {
-		for _, product := range productListResp.GetProductListResponse.ProductList {
-			if _, exists := uniqueCodes[product.ItemKind.Code]; !exists {
-				uniqueProducts = append(uniqueProducts, product)
-				uniqueCodes[product.ItemKind.Code] = true
-			}
+	var productCodeNameList []string
+	if len(productItemKindList) > 0 {
+		for _, productItemKind := range productItemKindList {
+			productCodeNameList = append(productCodeNameList, productItemKind.CodeName)
 		}
 	}
 
-	var productCodeList []string
-	if len(uniqueProducts) > 0 {
-		for _, uniqueProduct := range uniqueProducts {
-			// fmt.Println("Code:", uniqueProduct.ItemKind.Code)
-			productCodeList = append(productCodeList, uniqueProduct.ItemKind.Code)
-		}
-	}
-	return productCodeList, nil
+	return productCodeNameList, nil
 }
 
 func (priceInfoHandler *NcpVpcPriceInfoHandler) GetPriceInfo(productFamily string, regionName string, filterList []irs.KeyValue) (string, error) {
 	cblogger.Info("NCP VPC Cloud driver: called GetPriceInfo()!!")
 	// API Guide : https://api.ncloud-docs.com/docs/platform-listprice-getproductlist
+
+	if strings.EqualFold(productFamily, "") {
+		newErr := fmt.Errorf("Invalid productFamily Name!!")
+		cblogger.Error(newErr.Error())
+		return "", newErr
+	}
 
 	if strings.EqualFold(regionName, "") {
 		newErr := fmt.Errorf("Invalid regionName!!")
@@ -223,15 +205,16 @@ func (priceInfoHandler *NcpVpcPriceInfoHandler) GetPriceInfo(productFamily strin
 	}
 
 	// Check whether the presented ProductFamily exists.
-	productList, err := priceInfoHandler.ListProductFamily(regionName)
+	productItemKindList, err := priceInfoHandler.getProductItemKindList(regionName)
 	if err != nil {
-		newErr := fmt.Errorf("Failed to Get ProductFamily : [%v]", err)
+		newErr := fmt.Errorf("Failed to Get ProductItemKind List : [%v]", err)
 		cblogger.Error(newErr.Error())
 		return "", newErr
 	}
+	
 	found := false
-	for _, product := range productList {
-		if strings.EqualFold(product, productFamily) {
+	for _, productItemKind := range productItemKindList {
+		if strings.EqualFold(productItemKind.CodeName, productFamily) {
 			found = true
 			break
 		}
@@ -244,41 +227,29 @@ func (priceInfoHandler *NcpVpcPriceInfoHandler) GetPriceInfo(productFamily strin
 		return "", newErr
 	}
 
-	bodyInUint8, err := priceInfoHandler.GetRequestBodyWithProductCode(regionName, ProductPriceListURL, productFamily, filterList)
+	productCode, err := priceInfoHandler.getProductCodeWithProductName(productFamily, regionName)
 	if err != nil {
-		newErr := fmt.Errorf("Failed to Get the Body to Request : [%v]", err)
+		newErr := fmt.Errorf("Failed to Get Product Code with the Product Family Name : [%v]", err)
 		cblogger.Error(newErr.Error())
 		return "", newErr
 	}
 
-	var priceListResp PriceListAPIResponse
-	err = json.Unmarshal(bodyInUint8, &priceListResp)
+	productPriceList, err := priceInfoHandler.getProductPriceListWithProductCode(regionName, ProductPriceListURL, productCode, filterList)
 	if err != nil {
-		newErr := fmt.Errorf("Failed to unmarshal JSON : [%v]", err)
+		newErr := fmt.Errorf("Failed to Get ProductPrice List : [%v]", err)
 		cblogger.Error(newErr.Error())
 		return "", newErr
 	}
-	// log.Printf("### response")
-	// spew.Dump(response)
+	// log.Printf("### productPriceList")
+	// spew.Dump(productPriceList)
 
 	var priceList []irs.Price
-	switch productFamily {
+	switch productCode { // Not productFamily
 	case "SVR": // Server(VM)
-		for _, product := range priceListResp.GetProductPriceListResponse.ProductPriceList {
-			// fmt.Printf("ProductCode: %s\n", product.ProductCode)
-			// fmt.Printf("ProductItemKindDetail Code: %s\n", product.ProductItemKindDetail.Code)
-			// fmt.Printf("ProductItemKindDetail CodeName: %s\n", product.ProductItemKindDetail.CodeName)
-			// fmt.Printf("ProductType CodeName: %s\n", product.ProductType.CodeName)
-			// fmt.Printf("CpuCount: %d\n", product.CpuCount)
-			// fmt.Printf("MemorySize: %d\n", product.MemorySize)
-			// fmt.Printf("BaseBlockStorageSize: %d\n", product.BaseBlockStorageSize)
-			// fmt.Printf("GpuCount: %d\n", product.GpuCount)
-			// fmt.Printf("DiskType Code: %s\n", product.DiskType.Code)
-			// fmt.Printf("DiskType CodeName: %s\n", product.DiskType.CodeName)
-			// fmt.Println("------------------------------")
+		for _, productPrice := range productPriceList {
 
 			var regionCode string
-			for _, price := range product.PriceList {
+			for _, price := range productPrice.PriceList {
 				if strings.EqualFold(price.Region.RegionCode, regionName) {
 					regionCode = price.Region.RegionCode
 					break
@@ -287,7 +258,7 @@ func (priceInfoHandler *NcpVpcPriceInfoHandler) GetPriceInfo(productFamily strin
 			}
 
 			var pricingPolicies []irs.PricingPolicies
-			for _, price := range product.PriceList {
+			for _, price := range productPrice.PriceList {
 				priceString := fmt.Sprintf("%f", price.PriceValue)
 				pricingPolicies = append(pricingPolicies, irs.PricingPolicies{
 					PricingId:         price.PriceNo,
@@ -300,16 +271,16 @@ func (priceInfoHandler *NcpVpcPriceInfoHandler) GetPriceInfo(productFamily strin
 				})
 			}
 
-			vCPUs := strconv.Itoa(product.CpuCount)
-			vMemGb := strconv.FormatInt(product.MemorySize/(1024*1024*1024), 10)
-			storageGB := strconv.FormatInt(product.BaseBlockStorageSize/(1024*1024*1024), 10)
-			vGPUs := strconv.Itoa(product.GpuCount)
+			vCPUs := strconv.Itoa(productPrice.CpuCount)
+			vMemGb := strconv.FormatInt(productPrice.MemorySize/(1024*1024*1024), 10)
+			storageGB := strconv.FormatInt(productPrice.BaseBlockStorageSize/(1024*1024*1024), 10)
+			vGPUs := strconv.Itoa(productPrice.GpuCount)
 
 			priceList = append(priceList, irs.Price{
 				ProductInfo: irs.ProductInfo{
-					ProductId:       product.ProductCode,
+					ProductId:       productPrice.ProductCode,
 					RegionName:      regionCode,
-					InstanceType:    product.ProductType.CodeName,
+					InstanceType:    productPrice.ProductType.CodeName,
 					Vcpu:            vCPUs,
 					Memory:          vMemGb,
 					Storage:         storageGB,
@@ -317,28 +288,24 @@ func (priceInfoHandler *NcpVpcPriceInfoHandler) GetPriceInfo(productFamily strin
 					GpuMemory:       "N/A",
 					OperatingSystem: "N/A",
 					PreInstalledSw:  "N/A",
-					VolumeType:      product.DiskType.CodeName,
-					StorageMedia:    product.DiskDetailType.CodeName,
-					Description:     product.ProductName, // Some items do not give 'ProductDescription' info
-					CSPProductInfo:  product,
+					VolumeType:      productPrice.DiskType.CodeName,
+					StorageMedia:    productPrice.DiskDetailType.CodeName,
+					Description:     productPrice.ProductName, // Some items do not give 'ProductDescription' info
+					CSPProductInfo:  productPrice,
 				},
 				PriceInfo: irs.PriceInfo{
 					PricingPolicies: pricingPolicies,
-					CSPPriceInfo:    product.PriceList,
+					CSPPriceInfo:    productPrice.PriceList,
 				},
 			})
 
 		}
 
-	case "BST": // Block Storage
-		for _, product := range priceListResp.GetProductPriceListResponse.ProductPriceList {
-			// fmt.Printf("ProductCode: %s\n", product.ProductCode)
-			// fmt.Printf("ProductType Code: %s\n", product.ProductType.Code)
-			// fmt.Printf("DiskDetailType CodeName: %s\n", product.DiskDetailType.CodeName)
-			// fmt.Println("------------------------------")
+	case "BST": // Block storage
+		for _, productPrice := range productPriceList {
 
 			var regionCode string
-			for _, price := range product.PriceList {
+			for _, price := range productPrice.PriceList {
 				if strings.EqualFold(price.Region.RegionCode, regionName) {
 					regionCode = price.Region.RegionCode
 					break
@@ -347,7 +314,7 @@ func (priceInfoHandler *NcpVpcPriceInfoHandler) GetPriceInfo(productFamily strin
 			}
 
 			var pricingPolicies []irs.PricingPolicies
-			for _, price := range product.PriceList {
+			for _, price := range productPrice.PriceList {
 				priceString := fmt.Sprintf("%f", price.PriceValue)
 				pricingPolicies = append(pricingPolicies, irs.PricingPolicies{
 					PricingId:         price.PriceNo,
@@ -362,19 +329,19 @@ func (priceInfoHandler *NcpVpcPriceInfoHandler) GetPriceInfo(productFamily strin
 
 			priceList = append(priceList, irs.Price{
 				ProductInfo: irs.ProductInfo{
-					ProductId:           product.ProductCode,
+					ProductId:           productPrice.ProductCode,
 					RegionName:          regionCode,
-					VolumeType:          product.ProductType.CodeName,
-					StorageMedia:        product.DiskDetailType.CodeName,
+					VolumeType:          productPrice.ProductType.CodeName,
+					StorageMedia:        productPrice.DiskDetailType.CodeName,
 					MaxVolumeSize:       "N/A",
 					MaxIOPSVolume:       "N/A",
 					MaxThroughputVolume: "N/A",
-					Description:         product.ProductDescription,
-					CSPProductInfo:      product,
+					Description:         productPrice.ProductDescription,
+					CSPProductInfo:      productPrice,
 				},
 				PriceInfo: irs.PriceInfo{
 					PricingPolicies: pricingPolicies,
-					CSPPriceInfo:    product.PriceList,
+					CSPPriceInfo:    productPrice.PriceList,
 				},
 			})
 
@@ -410,8 +377,8 @@ func (priceInfoHandler *NcpVpcPriceInfoHandler) GetPriceInfo(productFamily strin
 }
 
 // This is necessary because NCP GoSDK does not support these PriceInfo APIs.
-func (priceInfoHandler *NcpVpcPriceInfoHandler) GetRequestBody(regionCode string, callURL string) ([]uint8, error) {
-	cblogger.Info("NCP VPC Cloud driver: called GetRequestBody()!!")
+func (priceInfoHandler *NcpVpcPriceInfoHandler) getProductCodeList(regionCode string, callURL string) ([]string, error) {
+	cblogger.Info("NCP VPC Cloud driver: called getProductCodeList()!!")
 
 	// ### Ref for Auth.) https://api.ncloud-docs.com/docs/common-ncpapi
 	// Set Query Parameters
@@ -462,14 +429,104 @@ func (priceInfoHandler *NcpVpcPriceInfoHandler) GetRequestBody(regionCode string
 	// spew.Dump(body)
 
 	// ### Convert []byte format of date to []unit8 format
-	var dataInUint8 []uint8 = body // Caution!!
+	var bodyInUint8 []uint8 = body // Caution!!
 
-	return dataInUint8, nil
+	var productListResp ProductListAPIResponse
+	err = json.Unmarshal(bodyInUint8, &productListResp)
+	if err != nil {
+		newErr := fmt.Errorf("Failed to Unmarshal JSON : [%v]", err)
+		cblogger.Error(newErr.Error())
+		return nil, newErr
+	}
+	if productListResp.Error != nil {
+		newErr := fmt.Errorf("API Error Code: [%s], Message: [%s]", productListResp.Error.Code, productListResp.Error.Message)
+		cblogger.Error(newErr.Error())
+		return nil, nil
+	}
+	// log.Printf("### productListResp")
+	// spew.Dump(productListResp)
+
+	// # Remove Duplicated Product Code
+	uniqueCodes := make(map[string]bool)
+	uniqueProducts := []Product{}
+	if len(productListResp.GetProductListResponse.ProductList) > 0 {
+		for _, product := range productListResp.GetProductListResponse.ProductList {
+			if _, exists := uniqueCodes[product.ItemKind.Code]; !exists {
+				uniqueProducts = append(uniqueProducts, product)
+				uniqueCodes[product.ItemKind.Code] = true
+			}
+		}
+	}
+
+	var productCodeList []string
+	if len(uniqueProducts) > 0 {
+		for _, uniqueProduct := range uniqueProducts {
+			// fmt.Println("Code:", uniqueProduct.ItemKind.Code)
+			productCodeList = append(productCodeList, uniqueProduct.ItemKind.Code)
+		}
+	} else {
+		return nil, nil	
+	}
+	return productCodeList, nil
 }
 
+func (priceInfoHandler *NcpVpcPriceInfoHandler) getProductItemKindList(regionName string) ([]ProductItemKind, error) {
+	cblogger.Info("NCP VPC Cloud driver: called getProductItemKindList()!!")
+	// API Guide : https://api.ncloud-docs.com/docs/platform-listprice-getproductlist
+
+	if strings.EqualFold(regionName, "") {
+		newErr := fmt.Errorf("Invalid regionName!!")
+		cblogger.Error(newErr.Error())
+		return nil, newErr
+	}
+
+	productCodeList, err := priceInfoHandler.getProductCodeList(regionName, ProductListURL)
+	if err != nil {
+		newErr := fmt.Errorf("Failed to Get ProductCode List : [%v]", err)
+		cblogger.Error(newErr.Error())
+		return nil, newErr
+	}
+	// log.Printf("### productCodeList")
+	// spew.Dump(productCodeList)		
+
+	uniqueCodeNames := make(map[string]bool)
+	var productItemKindList []ProductItemKind
+
+	// # Since some productItemKind.codeName is empty in getProductList (API) supporting from NCP
+	if len(productCodeList) > 0 {
+		for _, productCode := range productCodeList {
+			productPriceList, err := priceInfoHandler.getProductPriceListWithProductCode(regionName, ProductPriceListURL, productCode, nil)
+			if err != nil {
+				newErr := fmt.Errorf("Failed to Get ProductPrice List : [%v]", err)
+				cblogger.Error(newErr.Error())
+				return nil, newErr
+			}
+			// log.Printf("### productPriceList")
+			// spew.Dump(productPriceList)		
+
+			// # Remove Duplicated CodeName
+			for _, productPrice := range productPriceList {
+				if _, exists := uniqueCodeNames[productPrice.ProductItemKind.CodeName]; !exists {
+					newProductItemKind := ProductItemKind { 
+						Code: productPrice.ProductItemKind.Code,
+						CodeName: productPrice.ProductItemKind.CodeName,
+					}
+					productItemKindList = append(productItemKindList, newProductItemKind)
+					uniqueCodeNames[productPrice.ProductItemKind.CodeName] = true
+				}
+			}			
+		}
+	}
+	// log.Printf("### productItemKindList")
+	// spew.Dump(productItemKindList)		
+
+	return productItemKindList, nil
+}
+
+
 // This is necessary because NCP GoSDK does not support these PriceInfo APIs.
-func (priceInfoHandler *NcpVpcPriceInfoHandler) GetRequestBodyWithProductCode(regionCode string, callURL string, productCode string, filterList []irs.KeyValue) ([]uint8, error) {
-	cblogger.Info("NCP VPC Cloud driver: called GetRequestBodyWithProductCode()!!")
+func (priceInfoHandler *NcpVpcPriceInfoHandler) getProductPriceListWithProductCode(regionCode string, callURL string, productCode string, filterList []irs.KeyValue) ([]ProductPrice, error) {
+	cblogger.Info("NCP VPC Cloud driver: called getProductPriceListWithProductCode()!!")
 
 	// ### Ref for Auth.) https://api.ncloud-docs.com/docs/common-ncpapi
 	// Set Query Parameters
@@ -526,11 +583,53 @@ func (priceInfoHandler *NcpVpcPriceInfoHandler) GetRequestBodyWithProductCode(re
 		cblogger.Error(newErr.Error())
 		return nil, newErr
 	}
-	// log.Printf("### body")
-	// spew.Dump(body)
 
 	// ### Convert []byte format of date to []unit8 format
-	var dataInUint8 []uint8 = body // Caution!!
+	var bodyInUint8 []uint8 = body // Caution!!
 
-	return dataInUint8, nil
+	var priceListResp PriceListAPIResponse
+	err = json.Unmarshal(bodyInUint8, &priceListResp)
+	if err != nil {
+		newErr := fmt.Errorf("Failed to unmarshal JSON : [%v]", err)
+		cblogger.Error(newErr.Error())
+		return nil, newErr
+	}
+
+	return priceListResp.GetProductPriceListResponse.ProductPriceList, nil
+}
+
+
+func (priceInfoHandler *NcpVpcPriceInfoHandler) getProductCodeWithProductName(productName string, regionName string) (string, error) {
+	cblogger.Info("NCP VPC Cloud driver: called getProductCodeWithProductName()!!")
+	// API Guide : https://api.ncloud-docs.com/docs/platform-listprice-getproductlist
+
+	if strings.EqualFold(productName, "") {
+		newErr := fmt.Errorf("Invalid productName!!")
+		cblogger.Error(newErr.Error())
+		return "", newErr
+	}
+
+	if strings.EqualFold(regionName, "") {
+		newErr := fmt.Errorf("Invalid regionName!!")
+		cblogger.Error(newErr.Error())
+		return "", newErr
+	}
+
+	productItemKindList, err := priceInfoHandler.getProductItemKindList(regionName)
+	if err != nil {
+		newErr := fmt.Errorf("Failed to Get ProductItemKind List : [%v]", err)
+		cblogger.Error(newErr.Error())
+		return "", newErr
+	}
+
+	var productCode string
+	if len(productItemKindList) > 0 {
+		for _, productItemKind := range productItemKindList {
+			if strings.EqualFold(productItemKind.CodeName, productName) {
+				productCode = productItemKind.Code
+				break				
+			}		
+		}
+	}
+	return productCode, nil
 }
