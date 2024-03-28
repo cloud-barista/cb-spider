@@ -12,25 +12,26 @@
 
 package resources
 
-type VPCReqInfo struct { 
-	IId   IID       // {NameId, SystemId}
-	IPv4_CIDR string 
-	SubnetInfoList []SubnetInfo 
+type VPCReqInfo struct {
+	IId            IID // {NameId, SystemId}
+	IPv4_CIDR      string
+	SubnetInfoList []SubnetInfo
 }
 
 type VPCInfo struct {
-	IId   IID       // {NameId, SystemId}
-	IPv4_CIDR string 
-	SubnetInfoList []SubnetInfo 
+	IId            IID // {NameId, SystemId}
+	IPv4_CIDR      string
+	SubnetInfoList []SubnetInfo
 
-	KeyValueList []KeyValue 
+	KeyValueList []KeyValue
 }
 
 type SubnetInfo struct {
-	IId   IID       // {NameId, SystemId}
-	IPv4_CIDR string 
+	Zone      string // Target Zone Name
+	IId       IID    // {NameId, SystemId}
+	IPv4_CIDR string
 
-	KeyValueList []KeyValue 
+	KeyValueList []KeyValue
 }
 
 type VPCHandler interface {
