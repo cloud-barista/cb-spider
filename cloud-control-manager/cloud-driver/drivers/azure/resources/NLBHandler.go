@@ -304,6 +304,11 @@ func (nlbHandler *AzureNLBHandler) GetNLB(nlbIID irs.IID) (irs.NLBInfo, error) {
 func (nlbHandler *AzureNLBHandler) DeleteNLB(nlbIID irs.IID) (bool, error) {
 	hiscallInfo := GetCallLogScheme(nlbHandler.Region, "NETWORKLOADBALANCE", nlbIID.NameId, "DeleteNLB()")
 	start := call.Start()
+
+	addResourceDeleteQueue("nlb", nlbIID.NameId+"+"+nlbIID.SystemId)
+	defer func() {
+		DeleteResourceDeleteQueue("nlb", nlbIID.NameId+"+"+nlbIID.SystemId)
+	}()
 	deleteResult, err := nlbHandler.NLBCleaner(nlbIID)
 	if err != nil {
 		cblogger.Error(err.Error())

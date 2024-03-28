@@ -21,12 +21,14 @@ import (
 	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2021-02-01/network"
 	"github.com/Azure/azure-sdk-for-go/services/resources/mgmt/2020-10-01/resources"
 	"github.com/Azure/go-autorest/autorest/azure/auth"
-	"github.com/Azure/go-autorest/autorest/to"
-
 	azcon "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/azure/connect"
 	azrs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/azure/resources"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	icon "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/connect"
+)
+
+const (
+	cspTimeout time.Duration = 6000
 )
 
 type AzureDriver struct{}
@@ -34,10 +36,6 @@ type AzureDriver struct{}
 func (AzureDriver) GetDriverVersion() string {
 	return "AZURE DRIVER Version 1.0"
 }
-
-const (
-	cspTimeout time.Duration = 6000
-)
 
 func (AzureDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	var drvCapabilityInfo idrv.DriverCapabilityInfo
@@ -70,9 +68,15 @@ func (driver *AzureDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (ico
 	azrs.InitLog()
 
 	// Credentail에 등록된 ResourceGroup 존재 여부 체크 및 생성
-	err := checkResourceGroup(connectionInfo.CredentialInfo, connectionInfo.RegionInfo)
+	exist, err := azrs.HasResourceGroup(connectionInfo)
 	if err != nil {
 		return nil, err
+	}
+	if !exist {
+		err = azrs.CreateResourceGroup(connectionInfo)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	Ctx, client, err := getClient(connectionInfo.CredentialInfo)
@@ -205,37 +209,8 @@ func (driver *AzureDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (ico
 		GroupsClient:                    groupsClient,
 		ResourceSkusClient:              resourceSkusClient,
 	}
+
 	return &iConn, nil
-}
-
-func checkResourceGroup(credential idrv.CredentialInfo, region idrv.RegionInfo) error {
-	config := auth.NewClientCredentialsConfig(credential.ClientId, credential.ClientSecret, credential.TenantId)
-	authorizer, err := config.Authorizer()
-	if err != nil {
-		return nil
-	}
-
-	resourceClient := resources.NewGroupsClient(credential.SubscriptionId)
-	resourceClient.Authorizer = authorizer
-	ctx, _ := context.WithTimeout(context.Background(), cspTimeout*time.Second)
-
-	rg, err := resourceClient.Get(ctx, region.ResourceGroup)
-	if err != nil {
-		return nil
-	}
-
-	// 해당 리소스 그룹이 없을 경우 생성
-	if rg.ID == nil {
-		rg, err = resourceClient.CreateOrUpdate(ctx, region.ResourceGroup,
-			resources.Group{
-				Name:     to.StringPtr(region.ResourceGroup),
-				Location: to.StringPtr(region.Region),
-			})
-		if err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 func getClient(credential idrv.CredentialInfo) (context.Context, *subscriptions.Client, error) {

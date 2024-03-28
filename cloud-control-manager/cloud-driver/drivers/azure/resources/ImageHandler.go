@@ -20,10 +20,11 @@ const (
 )
 
 type AzureImageHandler struct {
-	Region        idrv.RegionInfo
-	Ctx           context.Context
-	Client        *compute.ImagesClient
-	VMImageClient *compute.VirtualMachineImagesClient
+	CredentialInfo idrv.CredentialInfo
+	Region         idrv.RegionInfo
+	Ctx            context.Context
+	Client         *compute.ImagesClient
+	VMImageClient  *compute.VirtualMachineImagesClient
 }
 
 func (imageHandler *AzureImageHandler) setterImage(image compute.Image) *irs.ImageInfo {
@@ -248,6 +249,11 @@ func (imageHandler *AzureImageHandler) GetImage(imageIID irs.IID) (irs.ImageInfo
 func (imageHandler *AzureImageHandler) DeleteImage(imageIID irs.IID) (bool, error) {
 	// log HisCall
 	hiscallInfo := GetCallLogScheme(imageHandler.Region, call.VMIMAGE, imageIID.NameId, "DeleteImage()")
+
+	addResourceDeleteQueue("image", imageIID.NameId+"+"+imageIID.SystemId)
+	defer func() {
+		DeleteResourceDeleteQueue("image", imageIID.NameId+"+"+imageIID.SystemId)
+	}()
 
 	start := call.Start()
 	future, err := imageHandler.Client.Delete(imageHandler.Ctx, imageHandler.Region.ResourceGroup, imageIID.NameId)

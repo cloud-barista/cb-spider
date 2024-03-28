@@ -13,7 +13,6 @@ package connect
 import (
 	"context"
 	"errors"
-
 	"github.com/Azure/azure-sdk-for-go/profiles/2020-09-01/monitor/mgmt/insights"
 	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2021-03-01/compute"
 	"github.com/Azure/azure-sdk-for-go/services/containerservice/mgmt/2022-03-01/containerservice"
@@ -67,7 +66,7 @@ type AzureCloudConnection struct {
 
 func (cloudConn *AzureCloudConnection) CreateImageHandler() (irs.ImageHandler, error) {
 	cblogger.Info("Azure Cloud Driver: called CreateImageHandler()!")
-	imageHandler := azrs.AzureImageHandler{cloudConn.Region, cloudConn.Ctx, cloudConn.ImageClient, cloudConn.VMImageClient}
+	imageHandler := azrs.AzureImageHandler{cloudConn.CredentialInfo, cloudConn.Region, cloudConn.Ctx, cloudConn.ImageClient, cloudConn.VMImageClient}
 	return &imageHandler, nil
 }
 
@@ -79,13 +78,13 @@ func (cloudConn *AzureCloudConnection) CreateImageHandler() (irs.ImageHandler, e
 
 func (cloudConn *AzureCloudConnection) CreateVPCHandler() (irs.VPCHandler, error) {
 	cblogger.Info("Azure Cloud Driver: called CreateVPCHandler()!")
-	vpcHandler := azrs.AzureVPCHandler{cloudConn.Region, cloudConn.Ctx, cloudConn.VNetClient, cloudConn.SubnetClient}
+	vpcHandler := azrs.AzureVPCHandler{cloudConn.CredentialInfo, cloudConn.Region, cloudConn.Ctx, cloudConn.VNetClient, cloudConn.SubnetClient}
 	return &vpcHandler, nil
 }
 
 func (cloudConn *AzureCloudConnection) CreateSecurityHandler() (irs.SecurityHandler, error) {
 	cblogger.Info("Azure Cloud Driver: called CreateSecurityHandler()!")
-	sgHandler := azrs.AzureSecurityHandler{cloudConn.Region, cloudConn.Ctx, cloudConn.SecurityGroupClient, cloudConn.SecurityGroupRuleClient}
+	sgHandler := azrs.AzureSecurityHandler{cloudConn.CredentialInfo, cloudConn.Region, cloudConn.Ctx, cloudConn.SecurityGroupClient, cloudConn.SecurityGroupRuleClient}
 	return &sgHandler, nil
 }
 

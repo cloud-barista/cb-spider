@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2021-02-01/network"
 	"github.com/Azure/go-autorest/autorest/to"
-
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
@@ -17,10 +16,11 @@ const (
 )
 
 type AzureVPCHandler struct {
-	Region       idrv.RegionInfo
-	Ctx          context.Context
-	Client       *network.VirtualNetworksClient
-	SubnetClient *network.SubnetsClient
+	CredentialInfo idrv.CredentialInfo
+	Region         idrv.RegionInfo
+	Ctx            context.Context
+	Client         *network.VirtualNetworksClient
+	SubnetClient   *network.SubnetsClient
 }
 
 func (vpcHandler *AzureVPCHandler) setterVPC(network network.VirtualNetwork) *irs.VPCInfo {
@@ -171,11 +171,14 @@ func (vpcHandler *AzureVPCHandler) DeleteVPC(vpcIID irs.IID) (bool, error) {
 	hiscallInfo := GetCallLogScheme(vpcHandler.Region, call.VPCSUBNET, vpcIID.NameId, "DeleteVPC()")
 
 	start := call.Start()
+
+	addResourceDeleteQueue("vpc", vpcIID.NameId+"+"+vpcIID.SystemId)
 	future, err := vpcHandler.Client.Delete(vpcHandler.Ctx, vpcHandler.Region.ResourceGroup, vpcIID.NameId)
 	if err != nil {
 		delErr := errors.New(fmt.Sprintf("Failed to Delete VPC err = %s", err.Error()))
 		cblogger.Error(delErr.Error())
 		LoggingError(hiscallInfo, delErr)
+		DeleteResourceDeleteQueue("vpc", vpcIID.NameId+"+"+vpcIID.SystemId)
 		return false, delErr
 	}
 	err = future.WaitForCompletionRef(vpcHandler.Ctx, vpcHandler.Client.Client)
@@ -183,9 +186,12 @@ func (vpcHandler *AzureVPCHandler) DeleteVPC(vpcIID irs.IID) (bool, error) {
 		delErr := errors.New(fmt.Sprintf("Failed to Delete VPC err = %s", err.Error()))
 		cblogger.Error(delErr.Error())
 		LoggingError(hiscallInfo, delErr)
+		DeleteResourceDeleteQueue("vpc", vpcIID.NameId+"+"+vpcIID.SystemId)
 		return false, delErr
 	}
 	LoggingInfo(hiscallInfo, start)
+
+	DeleteResourceDeleteQueue("vpc", vpcIID.NameId+"+"+vpcIID.SystemId)
 
 	return true, nil
 }

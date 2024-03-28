@@ -57,7 +57,7 @@ func (ac *AzureClusterHandler) CreateCluster(clusterReqInfo irs.ClusterInfo) (in
 	}
 	defer func() {
 		if createErr != nil {
-			cleanCluster(clusterReqInfo.IId.NameId, ac.ManagedClustersClient, ac.Region.ResourceGroup, ac.Ctx)
+			cleanCluster(clusterReqInfo.IId.NameId, ac.ManagedClustersClient, ac.CredentialInfo, ac.Region, ac.Ctx)
 		}
 	}()
 	baseSecurityGroup, err := waitingClusterBaseSecurityGroup(irs.IID{NameId: clusterReqInfo.IId.NameId}, ac.ManagedClustersClient, ac.SecurityGroupsClient, ac.Ctx, ac.CredentialInfo, ac.Region)
@@ -140,7 +140,7 @@ func (ac *AzureClusterHandler) DeleteCluster(clusterIID irs.IID) (deleteResult b
 	hiscallInfo := GetCallLogScheme(ac.Region, call.CLUSTER, clusterIID.NameId, "DeleteCluster()")
 	start := call.Start()
 
-	err := cleanCluster(clusterIID.NameId, ac.ManagedClustersClient, ac.Region.ResourceGroup, ac.Ctx)
+	err := cleanCluster(clusterIID.NameId, ac.ManagedClustersClient, ac.CredentialInfo, ac.Region, ac.Ctx)
 	if err != nil {
 		delErr = errors.New(fmt.Sprintf("Failed to Delete Cluster. err = %s", err))
 		cblogger.Error(delErr.Error())
@@ -912,10 +912,15 @@ func createCluster(clusterReqInfo irs.ClusterInfo, virtualNetworksClient *networ
 	return nil
 }
 
-func cleanCluster(clusterName string, managedClustersClient *containerservice.ManagedClustersClient, resourceGroup string, ctx context.Context) error {
+func cleanCluster(clusterName string, managedClustersClient *containerservice.ManagedClustersClient, credential idrv.CredentialInfo, region idrv.RegionInfo, ctx context.Context) error {
+	addResourceDeleteQueue("cluster", clusterName)
+	defer func() {
+		DeleteResourceDeleteQueue("cluster", clusterName)
+	}()
+
 	// cluster subresource Clean 현재 없음
 	// delete Cluster
-	_, err := managedClustersClient.Delete(ctx, resourceGroup, clusterName)
+	_, err := managedClustersClient.Delete(ctx, region.ResourceGroup, clusterName)
 	if err != nil {
 		return err
 	}
@@ -923,6 +928,7 @@ func cleanCluster(clusterName string, managedClustersClient *containerservice.Ma
 	//if err != nil {
 	//	return err
 	//}
+
 	return nil
 }
 

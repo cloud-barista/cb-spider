@@ -232,11 +232,15 @@ func (diskHandler *AzureDiskHandler) DeleteDisk(diskIID irs.IID) (bool, error) {
 		LoggingError(hiscallInfo, deleteDiskSizeErr)
 		return false, deleteDiskSizeErr
 	}
+
+	addResourceDeleteQueue("disk", diskIID.NameId+"+"+diskIID.SystemId)
+
 	result, err := diskHandler.DiskClient.Delete(diskHandler.Ctx, diskHandler.Region.ResourceGroup, convertedDiskIId.NameId)
 	if err != nil {
 		deleteDiskSizeErr := errors.New(fmt.Sprintf("Failed to DeleteDisk. err = %s", err.Error()))
 		cblogger.Error(deleteDiskSizeErr.Error())
 		LoggingError(hiscallInfo, deleteDiskSizeErr)
+		DeleteResourceDeleteQueue("disk", diskIID.NameId+"+"+diskIID.SystemId)
 		return false, deleteDiskSizeErr
 	}
 	err = result.WaitForCompletionRef(diskHandler.Ctx, diskHandler.DiskClient.Client)
@@ -244,9 +248,13 @@ func (diskHandler *AzureDiskHandler) DeleteDisk(diskIID irs.IID) (bool, error) {
 		deleteDiskSizeErr := errors.New(fmt.Sprintf("Failed to DeleteDisk. err = %s", err.Error()))
 		cblogger.Error(deleteDiskSizeErr.Error())
 		LoggingError(hiscallInfo, deleteDiskSizeErr)
+		DeleteResourceDeleteQueue("disk", diskIID.NameId+"+"+diskIID.SystemId)
 		return false, deleteDiskSizeErr
 	}
 	LoggingInfo(hiscallInfo, start)
+
+	DeleteResourceDeleteQueue("disk", diskIID.NameId+"+"+diskIID.SystemId)
+
 	return true, nil
 }
 

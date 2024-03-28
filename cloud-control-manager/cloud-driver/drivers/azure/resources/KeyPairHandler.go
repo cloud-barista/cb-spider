@@ -4,9 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/Azure/go-autorest/autorest/to"
-
 	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2021-03-01/compute"
+	"github.com/Azure/go-autorest/autorest/to"
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	keypair "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/common"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
@@ -183,6 +182,8 @@ func (keyPairHandler *AzureKeyPairHandler) DeleteKey(keyIID irs.IID) (bool, erro
 	}
 
 	start := call.Start()
+
+	addResourceDeleteQueue("keypair", keyIID.NameId+"+"+keyIID.SystemId)
 	// 2. Delete Resource
 	_, err = keyPairHandler.Client.Delete(keyPairHandler.Ctx, keyPairHandler.Region.ResourceGroup, keyIID.NameId)
 
@@ -190,9 +191,13 @@ func (keyPairHandler *AzureKeyPairHandler) DeleteKey(keyIID irs.IID) (bool, erro
 		delErr := errors.New(fmt.Sprintf("Failed to Delete Key. err = %s", err.Error()))
 		cblogger.Error(delErr.Error())
 		LoggingError(hiscallInfo, delErr)
+		DeleteResourceDeleteQueue("keypair", keyIID.NameId+"+"+keyIID.SystemId)
 		return false, delErr
 	}
 	LoggingInfo(hiscallInfo, start)
+
+	DeleteResourceDeleteQueue("keypair", keyIID.NameId+"+"+keyIID.SystemId)
+
 	return true, nil
 }
 func CheckExistKey(keypairIId irs.IID, resourceGroup string, client *compute.SSHPublicKeysClient, ctx context.Context) (bool, error) {

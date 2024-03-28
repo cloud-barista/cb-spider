@@ -376,7 +376,7 @@ func (vmHandler *AzureVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 		createErr := errors.New(fmt.Sprintf("Failed to Start VM. err = %s, and Finished to rollback deleting", err.Error()))
 		exist, err := CheckExistVM(vmReqInfo.IId, vmHandler.Region.ResourceGroup, vmHandler.Client, vmHandler.Ctx)
 		if exist {
-			cleanErr := vmHandler.cleanDeleteVm(vmReqInfo.IId)
+			cleanErr := vmHandler.cleanDeleteVm(vmHandler.CredentialInfo, vmHandler.Region, vmReqInfo.IId)
 			if cleanErr != nil {
 				createErr = errors.New(fmt.Sprintf("Failed to Start VM. err = %s, and Failed to rollback err = %s", err.Error(), cleanErr.Error()))
 				cblogger.Error(createErr.Error())
@@ -405,7 +405,7 @@ func (vmHandler *AzureVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 	_, err = resizeVMOsDisk(vmReqInfo.RootDiskSize, vmReqInfo.IId, vmHandler.Region.ResourceGroup, vmHandler.Client, vmHandler.DiskClient, vmHandler.Ctx)
 	if err != nil {
 		createErr := errors.New(fmt.Sprintf("Failed to Start VM. err = %s, and Finished to rollback deleting", err.Error()))
-		cleanErr := vmHandler.cleanDeleteVm(vmReqInfo.IId)
+		cleanErr := vmHandler.cleanDeleteVm(vmHandler.CredentialInfo, vmHandler.Region, vmReqInfo.IId)
 		if cleanErr != nil {
 			createErr = errors.New(fmt.Sprintf("Failed to Start VM. err = %s, and Failed to rollback err = %s", err.Error(), cleanErr.Error()))
 		}
@@ -427,7 +427,7 @@ func (vmHandler *AzureVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 		time.Sleep(1 * time.Second)
 		if curRetryCnt > maxRetryCnt {
 			createErr := errors.New(fmt.Sprintf("Failed to Start VM. exceeded maximum retry count %d and Finished to rollback deleting", maxRetryCnt))
-			cleanErr := vmHandler.cleanDeleteVm(vmReqInfo.IId)
+			cleanErr := vmHandler.cleanDeleteVm(vmHandler.CredentialInfo, vmHandler.Region, vmReqInfo.IId)
 			if cleanErr != nil {
 				createErr = errors.New(fmt.Sprintf("Failed to Start VM. exceeded maximum retry count %d and Failed to rollback err = %s", maxRetryCnt, cleanErr.Error()))
 			}
@@ -442,7 +442,7 @@ func (vmHandler *AzureVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 			err = createAdministratorUser(vmReqInfo.IId, WindowBaseUser, vmReqInfo.VMUserPasswd, vmHandler.Client, vmHandler.VirtualMachineRunCommandsClient, vmHandler.Ctx, vmHandler.Region)
 			if err != nil {
 				createErr := errors.New(fmt.Sprintf("Failed to Start VM. err = %s, and Finished to rollback deleting", err.Error()))
-				cleanErr := vmHandler.cleanDeleteVm(vmReqInfo.IId)
+				cleanErr := vmHandler.cleanDeleteVm(vmHandler.CredentialInfo, vmHandler.Region, vmReqInfo.IId)
 				if cleanErr != nil {
 					createErr = errors.New(fmt.Sprintf("Failed to Start VM. err = %s, and Failed to rollback err = %s", err.Error(), cleanErr.Error()))
 				}
@@ -454,7 +454,7 @@ func (vmHandler *AzureVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 			err = changeUserPassword(vmReqInfo.IId, WindowBaseUser, vmReqInfo.VMUserPasswd, vmHandler.Client, vmHandler.VirtualMachineRunCommandsClient, vmHandler.Ctx, vmHandler.Region)
 			if err != nil {
 				createErr := errors.New(fmt.Sprintf("Failed to Start VM. err = %s, and Finished to rollback deleting", err.Error()))
-				cleanErr := vmHandler.cleanDeleteVm(vmReqInfo.IId)
+				cleanErr := vmHandler.cleanDeleteVm(vmHandler.CredentialInfo, vmHandler.Region, vmReqInfo.IId)
 				if cleanErr != nil {
 					createErr = errors.New(fmt.Sprintf("Failed to Start VM. err = %s, and Failed to rollback err = %s", err.Error(), cleanErr.Error()))
 				}
@@ -470,7 +470,7 @@ func (vmHandler *AzureVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 		vm, err := AttachList(vmReqInfo.DataDiskIIDs, vmReqInfo.IId, vmHandler.CredentialInfo, vmHandler.Region, vmHandler.Ctx, vmHandler.Client, vmHandler.DiskClient)
 		if err != nil {
 			createErr := errors.New(fmt.Sprintf("Failed to Start VM. err = %s, and Finished to rollback deleting", err.Error()))
-			cleanErr := vmHandler.cleanDeleteVm(vmReqInfo.IId)
+			cleanErr := vmHandler.cleanDeleteVm(vmHandler.CredentialInfo, vmHandler.Region, vmReqInfo.IId)
 			if cleanErr != nil {
 				createErr = errors.New(fmt.Sprintf("Failed to Start VM. err = %s, and Failed to rollback err = %s", err.Error(), cleanErr.Error()))
 			}
@@ -485,7 +485,7 @@ func (vmHandler *AzureVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 		vm, err := vmHandler.Client.Get(vmHandler.Ctx, vmHandler.Region.ResourceGroup, vmReqInfo.IId.NameId, compute.InstanceViewTypesInstanceView)
 		if err != nil {
 			createErr := errors.New(fmt.Sprintf("Failed to Start VM. err = %s, and Failed to rollback deleting", err.Error()))
-			cleanErr := vmHandler.cleanDeleteVm(vmReqInfo.IId)
+			cleanErr := vmHandler.cleanDeleteVm(vmHandler.CredentialInfo, vmHandler.Region, vmReqInfo.IId)
 			if cleanErr != nil {
 				createErr = errors.New(fmt.Sprintf("Failed to Start VM. err = %s, and Failed to rollback err = %s", err.Error(), cleanErr.Error()))
 			}
@@ -712,7 +712,7 @@ func (vmHandler *AzureVMHandler) TerminateVM(vmIID irs.IID) (irs.VMStatus, error
 	// log HisCall
 	hiscallInfo := GetCallLogScheme(vmHandler.Region, call.VM, vmIID.NameId, "TerminateVM()")
 	start := call.Start()
-	err := vmHandler.cleanDeleteVm(vmIID)
+	err := vmHandler.cleanDeleteVm(vmHandler.CredentialInfo, vmHandler.Region, vmIID)
 	if err != nil {
 		getErr := errors.New(fmt.Sprintf("Failed to Terminate VM. err = %s", err))
 		cblogger.Error(getErr.Error())
@@ -888,15 +888,19 @@ func getVmStatus(instanceView compute.VirtualMachineInstanceView) irs.VMStatus {
 	return resultStatus
 }
 
-func (vmHandler *AzureVMHandler) cleanDeleteVm(vmIId irs.IID) error {
+func (vmHandler *AzureVMHandler) cleanDeleteVm(credential idrv.CredentialInfo, region idrv.RegionInfo, vmIId irs.IID) error {
+	addResourceDeleteQueue("vm", vmIId.NameId+"+"+vmIId.SystemId)
+
 	convertedIID, err := ConvertVMIID(vmIId, vmHandler.CredentialInfo, vmHandler.Region)
 	exist, err := CheckExistVM(convertedIID, vmHandler.Region.ResourceGroup, vmHandler.Client, vmHandler.Ctx)
 	if err != nil {
+		DeleteResourceDeleteQueue("vm", vmIId.NameId+"+"+vmIId.SystemId)
 		return err
 	}
 	if exist {
 		vm, err := GetRawVM(convertedIID, vmHandler.Region.ResourceGroup, vmHandler.Client, vmHandler.Ctx)
 		if err != nil {
+			DeleteResourceDeleteQueue("vm", vmIId.NameId+"+"+vmIId.SystemId)
 			return err
 		}
 		vmInfo := vmHandler.mappingServerInfo(vm)
@@ -912,6 +916,7 @@ func (vmHandler *AzureVMHandler) cleanDeleteVm(vmIId irs.IID) error {
 		}
 		vNic, vNicErr := vmHandler.NicClient.Get(vmHandler.Ctx, vmHandler.Region.ResourceGroup, vmInfo.NetworkInterface, "")
 		if vNicErr != nil {
+			DeleteResourceDeleteQueue("vm", vmIId.NameId+"+"+vmIId.SystemId)
 			return vNicErr
 		}
 		for _, ip := range *vNic.IPConfigurations {
@@ -924,10 +929,12 @@ func (vmHandler *AzureVMHandler) cleanDeleteVm(vmIId irs.IID) error {
 		}
 		vmDelete, vmDeleteErr := vmHandler.Client.Delete(vmHandler.Ctx, vmHandler.Region.ResourceGroup, *vm.Name, to.BoolPtr(true))
 		if vmDeleteErr != nil {
+			DeleteResourceDeleteQueue("vm", vmIId.NameId+"+"+vmIId.SystemId)
 			return vmDeleteErr
 		}
 		vmDeleteWaitErr := vmDelete.WaitForCompletionRef(vmHandler.Ctx, vmHandler.Client.Client)
 		if vmDeleteWaitErr != nil {
+			DeleteResourceDeleteQueue("vm", vmIId.NameId+"+"+vmIId.SystemId)
 			return vmDeleteWaitErr
 		}
 		_, deperr := vmHandler.cleanVMRelatedResource(VMCleanRelatedResource{
@@ -935,9 +942,13 @@ func (vmHandler *AzureVMHandler) cleanDeleteVm(vmIId irs.IID) error {
 			CleanTargetResource: cleanResources,
 		})
 		if deperr != nil {
+			DeleteResourceDeleteQueue("vm", vmIId.NameId+"+"+vmIId.SystemId)
 			return vmDeleteErr
 		}
 	}
+
+	DeleteResourceDeleteQueue("vm", vmIId.NameId+"+"+vmIId.SystemId)
+
 	return nil
 }
 
