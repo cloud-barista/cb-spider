@@ -61,7 +61,11 @@ func (DiskHandler *AwsDiskHandler) CreateDisk(diskReqInfo irs.DiskInfo) (irs.Dis
 	start := call.Start()
 
 	zone := DiskHandler.Region.Zone
-	spew.Dump(DiskHandler.Region)
+
+	if diskReqInfo.Zone != ""{
+		zone = diskReqInfo.Zone
+	}
+	//spew.Dump(DiskHandler.Region)
 	err := validateCreateDisk(&diskReqInfo)
 	if err != nil {
 		return irs.DiskInfo{}, err
@@ -104,7 +108,7 @@ func (DiskHandler *AwsDiskHandler) CreateDisk(diskReqInfo irs.DiskInfo) (irs.Dis
 	// case3 : 암호화된 disk 생성
 	//input.Encrypted = true
 	//input.KmsKeyId = ""
-	spew.Dump(input)
+	//spew.Dump(input)
 	result, err := DiskHandler.Client.CreateVolume(input)
 	hiscallInfo.ElapsedTime = call.Elapsed(start)
 	if err != nil {
@@ -331,7 +335,7 @@ func (DiskHandler *AwsDiskHandler) AttachDisk(diskIID irs.IID, ownerVM irs.IID) 
 		return irs.DiskInfo{}, err
 	}
 
-	spew.Dump(diskDeviceList)
+	//spew.Dump(diskDeviceList)
 	if diskDeviceList != nil {
 		isAvailable := true
 		for _, avn := range availableVolumeNames {
@@ -890,7 +894,7 @@ func (DiskHandler *AwsDiskHandler) convertVolumeInfoToDiskInfo(volumeInfo *ec2.V
 	}
 
 	diskInfo.CreatedTime = *volumeInfo.CreateTime
-	spew.Dump(volumeInfo)
+	//spew.Dump(volumeInfo)
 	//KeyValueList []KeyValue
 	var inKeyValueList []irs.KeyValue
 	//if !reflect.ValueOf(volumeInfo.Encrypted).IsNil() {

@@ -43,7 +43,7 @@ func (VPCHandler *AwsVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.VPCIn
 		CidrBlock: aws.String(vpcReqInfo.IPv4_CIDR),
 	}
 
-	spew.Dump(input)
+	//spew.Dump(input)
 	// logger for HisCall
 	callogger := call.GetLogger("HISCALL")
 	callLogInfo := call.CLOUDLOGSCHEMA{
@@ -78,15 +78,15 @@ func (VPCHandler *AwsVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.VPCIn
 	callogger.Info(call.String(callLogInfo))
 
 	cblogger.Info(result)
-	spew.Dump(result)
+	//spew.Dump(result)
 	retVpcInfo := ExtractVpcDescribeInfo(result.Vpc)
 	retVpcInfo.IId.NameId = vpcReqInfo.IId.NameId // NameId는 요청 받은 값으로 리턴해야 함.
 
 	//IGW Name Tag 설정
 	if SetNameTag(VPCHandler.Client, *result.Vpc.VpcId, vpcReqInfo.IId.NameId) {
-		cblogger.Infof("VPC에 %s Name 설정 성공", vpcReqInfo.IId.NameId)
+		cblogger.Infof("set name %s to VPC", vpcReqInfo.IId.NameId)
 	} else {
-		cblogger.Errorf("VPC에 %s Name 설정 실패", vpcReqInfo.IId.NameId)
+		cblogger.Errorf("set name  %s to VPC failed", vpcReqInfo.IId.NameId)
 	}
 
 	//====================================
@@ -112,9 +112,9 @@ func (VPCHandler *AwsVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.VPCIn
 
 	//IGW Name Tag 설정
 	if SetNameTag(VPCHandler.Client, *resultIGW.InternetGateway.InternetGatewayId, vpcReqInfo.IId.NameId) {
-		cblogger.Infof("IGW에 %s Name 설정 성공", vpcReqInfo.IId.NameId)
+		cblogger.Infof("set Name %s to IGW", vpcReqInfo.IId.NameId)
 	} else {
-		cblogger.Errorf("IGW에 %s Name 설정 실패", vpcReqInfo.IId.NameId)
+		cblogger.Errorf("set Name %s to IGW failed", vpcReqInfo.IId.NameId)
 	}
 
 	// VPC에 IGW연결
@@ -152,8 +152,8 @@ func (VPCHandler *AwsVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.VPCIn
 	//VPCHandler.CreateSubnet(retVpcInfo.IId.SystemId, vpcReqInfo.SubnetInfoList[0])
 	var resSubnetList []irs.SubnetInfo
 	for _, curSubnet := range vpcReqInfo.SubnetInfoList {
-		cblogger.Infof("[%s] Subnet 생성", curSubnet.IId.NameId)
-		cblogger.Infof("Reqt Subnet Info [%v]", curSubnet)
+		cblogger.Infof("[%s] Subnet Create", curSubnet.IId.NameId)
+		cblogger.Infof("Req Subnet Info [%v]", curSubnet)
 		resSubnet, errSubnet := VPCHandler.CreateSubnet(retVpcInfo.IId.SystemId, curSubnet)
 
 		if errSubnet != nil {
@@ -253,7 +253,7 @@ func (VPCHandler *AwsVPCHandler) GetDefaultRouteTable(vpcId string) (string, err
 	}
 
 	cblogger.Info(result)
-	spew.Dump(result)
+	//spew.Dump(result)
 
 	if len(result.RouteTables) > 0 {
 		routeTableId := *result.RouteTables[0].RouteTableId
@@ -268,6 +268,11 @@ func (VPCHandler *AwsVPCHandler) CreateSubnet(vpcId string, reqSubnetInfo irs.Su
 	cblogger.Info(reqSubnetInfo)
 
 	zoneId := VPCHandler.Region.Zone
+
+	// subnet에 zone 정보가 있으면 해당 zone 사용. default는 connection의 zone
+	if reqSubnetInfo.Zone != ""{
+		zoneId = reqSubnetInfo.Zone
+	}
 	cblogger.Infof("Zone : %s", zoneId)
 	if zoneId == "" {
 		cblogger.Error("Connection information does not contain Zone information.")
@@ -277,7 +282,7 @@ func (VPCHandler *AwsVPCHandler) CreateSubnet(vpcId string, reqSubnetInfo irs.Su
 	if reqSubnetInfo.IId.SystemId != "" {
 		vpcInfo, errVpcInfo := VPCHandler.GetSubnet(reqSubnetInfo.IId.SystemId)
 		if errVpcInfo == nil {
-			cblogger.Errorf("이미 [%S] Subnet이 존재하기 때문에 생성하지 않고 기존 정보와 함께 에러를 리턴함.", reqSubnetInfo.IId.SystemId)
+			cblogger.Errorf("[%S] subnet already exists. returns an error without creating it.", reqSubnetInfo.IId.SystemId)
 			cblogger.Info(vpcInfo)
 			return vpcInfo, errors.New("InvalidVNetwork.Duplicate: The Subnet '" + reqSubnetInfo.IId.SystemId + "' already exists.")
 		}
@@ -296,7 +301,7 @@ func (VPCHandler *AwsVPCHandler) CreateSubnet(vpcId string, reqSubnetInfo irs.Su
 
 	callLogInfo := call.CLOUDLOGSCHEMA{
 		CloudOS:      call.AWS,
-		RegionZone:   VPCHandler.Region.Zone,
+		RegionZone:   zoneId,
 		ResourceType: call.VPCSUBNET,
 		ResourceName: reqSubnetInfo.IId.NameId,
 		CloudOSAPI:   "CreateSubnet()",
@@ -333,9 +338,9 @@ func (VPCHandler *AwsVPCHandler) CreateSubnet(vpcId string, reqSubnetInfo irs.Su
 
 	//Subnet Name 태깅
 	if SetNameTag(VPCHandler.Client, *result.Subnet.SubnetId, reqSubnetInfo.IId.NameId) {
-		cblogger.Infof("Subnet에 %s Name 설정 성공", reqSubnetInfo.IId.NameId)
+		cblogger.Infof("set %s Name to subnet", reqSubnetInfo.IId.NameId)
 	} else {
-		cblogger.Errorf("Subnet에 %s Name 설정 실패", reqSubnetInfo.IId.NameId)
+		cblogger.Errorf("set %s Name to subnet failed", reqSubnetInfo.IId.NameId)
 	}
 
 	vNetworkInfo.IId.NameId = reqSubnetInfo.IId.NameId
@@ -437,7 +442,7 @@ func (VPCHandler *AwsVPCHandler) ListVPC() ([]*irs.VPCInfo, error) {
 
 	var vNetworkInfoList []*irs.VPCInfo
 	for _, curVpc := range result.Vpcs {
-		cblogger.Infof("[%s] VPC 정보 조회", *curVpc.VpcId)
+		cblogger.Infof("Retrieve VPC Info [%s] ", *curVpc.VpcId)
 		vNetworkInfo, vpcErr := VPCHandler.GetVPC(irs.IID{SystemId: *curVpc.VpcId})
 		if vpcErr != nil {
 			return nil, vpcErr
@@ -529,7 +534,7 @@ func ExtractVpcDescribeInfo(vpcInfo *ec2.Vpc) irs.VPCInfo {
 	//Name은 Tag의 "Name" 속성에만 저장됨
 	//NameId는 전달할 필요가 없음.
 
-	cblogger.Debug("Name Tag 찾기")
+	cblogger.Debug("retrieve Name Tag")
 	for _, t := range vpcInfo.Tags {
 		if *t.Key == "Name" {
 			awsVpcInfo.IId.NameId = *t.Value
@@ -596,30 +601,30 @@ func (VPCHandler *AwsVPCHandler) DeleteVPC(vpcIID irs.IID) (bool, error) {
 	// Subnet삭제
 	//=================
 	for _, curSubnet := range vpcInfo.SubnetInfoList {
-		cblogger.Infof("[%s] Subnet 삭제", curSubnet.IId.SystemId)
+		cblogger.Infof("delete [%s] Subnet", curSubnet.IId.SystemId)
 		delSubnet, errSubnet := VPCHandler.DeleteSubnet(curSubnet.IId)
 		if errSubnet != nil {
 			return false, errSubnet
 		}
 
 		if delSubnet {
-			cblogger.Infof("  ==> [%s] Subnet 삭제완료", curSubnet.IId.SystemId)
+			cblogger.Infof("  ==> [%s] Subnet deleted", curSubnet.IId.SystemId)
 		} else {
-			cblogger.Errorf("  ==> [%s] Subnet 삭제실패", curSubnet.IId.SystemId)
+			cblogger.Errorf("  ==> failed to delete [%s] Subnet", curSubnet.IId.SystemId)
 			return false, errors.New("Failed to delete VPC due to Subnet deletion failure.") //삭제 실패 이유를 모르는 경우
 		}
 	}
 
-	cblogger.Infof("[%s] VPC를 삭제 함.", vpcInfo.IId.SystemId)
-	cblogger.Info("VPC 제거를 위해 생성된 IGW / Route들 제거 시작")
+	cblogger.Infof("[%s] VPC deleted.", vpcInfo.IId.SystemId)
+	cblogger.Info("Starting the removal of IGWs / Routes created for VPC deletion")
 
 	// 라우팅 테이블에 추가한 IGW 라우터를 먼저 삭제함.
 	errRoute := VPCHandler.DeleteRouteIGW(vpcInfo.IId.SystemId)
 	if errRoute != nil {
-		cblogger.Error("라우팅 테이블에 추가한 0.0.0.0/0 IGW 라우터 삭제 실패")
+		cblogger.Error("Failed to delete the 0.0.0.0/0 IGW router added to the routing table")
 		cblogger.Error(errRoute)
 		if "InvalidRoute.NotFound" == errRoute.Error() {
-			cblogger.Infof("[%s]예외는 #255예외에 의해 정상으로 간주하고 다음 단계를 진행함.", errRoute)
+			cblogger.Infof("[%s] is considered normal due to Exception #255 and proceeds to the next step.", errRoute)
 		} else {
 			return false, errRoute
 		}
@@ -630,9 +635,9 @@ func (VPCHandler *AwsVPCHandler) DeleteVPC(vpcIID irs.IID) (bool, error) {
 	//VPC에 연결된 모든 IGW를 삭제함. (VPC에 할당된 모든 IGW조회후 삭제)
 	errIgw := VPCHandler.DeleteAllIGW(vpcInfo.IId.SystemId)
 	if errIgw != nil {
-		cblogger.Error("모든 IGW 삭제 실패 : ", errIgw)
+		cblogger.Error("Failed to delete all IGWs : ", errIgw)
 	} else {
-		cblogger.Info("모든 IGW 삭제 완료")
+		cblogger.Info("All IGWs deleted")
 	}
 
 	input := &ec2.DeleteVpcInput{
@@ -644,6 +649,7 @@ func (VPCHandler *AwsVPCHandler) DeleteVPC(vpcIID irs.IID) (bool, error) {
 	callLogInfo := call.CLOUDLOGSCHEMA{
 		CloudOS:      call.AWS,
 		RegionZone:   VPCHandler.Region.Zone,
+		//RegionZone:   curSubnet.Zone,
 		ResourceType: call.VPCSUBNET,
 		ResourceName: vpcInfo.IId.SystemId,
 		CloudOSAPI:   "DeleteVpc()",
@@ -673,7 +679,7 @@ func (VPCHandler *AwsVPCHandler) DeleteVPC(vpcIID irs.IID) (bool, error) {
 	callogger.Info(call.String(callLogInfo))
 
 	cblogger.Info(result)
-	spew.Dump(result)
+	//spew.Dump(result)
 	return true, nil
 }
 
@@ -745,16 +751,16 @@ func (VPCHandler *AwsVPCHandler) DeleteRouteIGW(vpcId string) error {
 	}
 
 	cblogger.Info(result)
-	spew.Dump(result)
+	//spew.Dump(result)
 
 	if len(result.RouteTables) < 1 {
 		return errors.New("The routing table information assigned to the VPC could not be found.")
 	}
 
 	routeTableId = *result.RouteTables[0].RouteTableId
-	cblogger.Infof("라우팅 테이블 ID 찾음 : [%s]", routeTableId)
+	cblogger.Infof("Found the routing table ID : [%s]", routeTableId)
 
-	cblogger.Infof("RouteTable[%s]에 할당된 라우팅(0.0.0.0/0) 정보를 조회합니다.", routeTableId)
+	cblogger.Infof("Querying routing information (0.0.0.0/0) assigned to RouteTable[%s", routeTableId)
 
 	//ec2.Route
 	findIgw := false
@@ -762,18 +768,18 @@ func (VPCHandler *AwsVPCHandler) DeleteRouteIGW(vpcId string) error {
 		cblogger.Infof("DestinationCidrBlock[%s] Check", *curRoute.DestinationCidrBlock)
 
 		if "0.0.0.0/0" == *curRoute.DestinationCidrBlock {
-			cblogger.Infof("===>RouteTable[%s]에 할당된 라우팅(0.0.0.0/0) 정보를 찾았습니다!!", routeTableId)
+			cblogger.Infof("===>Found the routing information (0.0.0.0/0) assigned to RouteTable[%s", routeTableId)
 			findIgw = true
 			break
 		}
 	}
 
 	if !findIgw {
-		cblogger.Infof("RouteTable[%s]에 할당된 IGW의 라우팅(0.0.0.0/0) 정보가 없으므로 라우트 삭제처리는 중단합니다. ", routeTableId)
+		cblogger.Infof("there is no routing information (0.0.0.0/0) for the IGW assigned to RouteTable[%s], the route deletion process is stopped", routeTableId)
 		return nil
 	}
 
-	cblogger.Infof("RouteTable[%s]에 할당된 라우팅(0.0.0.0/0) 정보를 삭제합니다.", routeTableId)
+	cblogger.Infof("Deleting the routing information (0.0.0.0/0) assigned to RouteTable[%s]", routeTableId)
 	inputDel := &ec2.DeleteRouteInput{
 		DestinationCidrBlock: aws.String("0.0.0.0/0"),
 		RouteTableId:         aws.String(routeTableId),
@@ -783,7 +789,7 @@ func (VPCHandler *AwsVPCHandler) DeleteRouteIGW(vpcId string) error {
 	//https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DeleteRoute.html
 	resultDel, err := VPCHandler.Client.DeleteRoute(inputDel)
 	if err != nil {
-		cblogger.Errorf("RouteTable[%s]에 대한 라우팅(0.0.0.0/0) 정보 삭제 실패", routeTableId)
+		cblogger.Errorf("Failed to delete routing information (0.0.0.0/0) for RouteTable[%s", routeTableId)
 		if aerr, ok := err.(awserr.Error); ok {
 			//InvalidRoute.NotFound
 			cblogger.Errorf("Error Code : [%s] - Error:[%s] - Message:[%s]", aerr.Code(), aerr.Error(), aerr.Message())
@@ -800,11 +806,11 @@ func (VPCHandler *AwsVPCHandler) DeleteRouteIGW(vpcId string) error {
 		}
 		return err
 	}
-	cblogger.Infof("RouteTable[%s]에 대한 라우팅(0.0.0.0/0) 정보 삭제 완료", routeTableId)
+	cblogger.Infof("Completed deleting routing information (0.0.0.0/0) for RouteTable[%s]", routeTableId)
 
 	cblogger.Info(resultDel)
-	spew.Dump(resultDel)
-	cblogger.Info("라우팅 테이블에 추가한 0.0.0.0/0 IGW 라우터 삭제 완료")
+	//spew.Dump(resultDel)
+	cblogger.Info("Completed deleting the 0.0.0.0/0 IGW router added to the routing table")
 	return nil
 }
 
@@ -853,7 +859,7 @@ func (VPCHandler *AwsVPCHandler) DeleteAllIGW(vpcId string) error {
 
 // VPC에 연결된 IGW의 연결을 해제함.
 func (VPCHandler *AwsVPCHandler) DetachInternetGateway(vpcId string, igwId string) error {
-	cblogger.Infof("VPC[%s]에 연결된 IGW[%s]의 연결을 해제함.", vpcId, igwId)
+	cblogger.Infof("Disconnected the IGW[%s] connected to VPC[%s]", vpcId, igwId)
 
 	input := &ec2.DetachInternetGatewayInput{
 		InternetGatewayId: aws.String(igwId),
@@ -876,7 +882,7 @@ func (VPCHandler *AwsVPCHandler) DetachInternetGateway(vpcId string, igwId strin
 	}
 
 	cblogger.Info(result)
-	spew.Dump(result)
+	//spew.Dump(result)
 	return nil
 }
 
@@ -902,7 +908,7 @@ func (VPCHandler *AwsVPCHandler) DeleteIGW(igwId string) error {
 	}
 
 	cblogger.Info(result)
-	spew.Dump(result)
+	//spew.Dump(result)
 	return nil
 }
 
@@ -958,9 +964,9 @@ func (VPCHandler *AwsVPCHandler) ListSubnet(vpcId string) ([]irs.SubnetInfo, err
 	}
 	callogger.Info(call.String(callLogInfo))
 
-	spew.Dump(result)
+	//spew.Dump(result)
 	for _, curSubnet := range result.Subnets {
-		cblogger.Infof("[%s] Subnet 정보 조회", *curSubnet.SubnetId)
+		cblogger.Infof("Retrieve [%s] Subnet info", *curSubnet.SubnetId)
 		arrSubnetInfo := ExtractSubnetDescribeInfo(curSubnet)
 		//arrSubnetInfo, errSubnet := VPCHandler.GetSubnet(*curSubnet.SubnetId)
 		/*
@@ -972,7 +978,7 @@ func (VPCHandler *AwsVPCHandler) ListSubnet(vpcId string) ([]irs.SubnetInfo, err
 		arrSubnetInfoList = append(arrSubnetInfoList, arrSubnetInfo)
 	}
 
-	spew.Dump(arrSubnetInfoList)
+	//spew.Dump(arrSubnetInfoList)
 	return arrSubnetInfoList, nil
 }
 
@@ -985,7 +991,7 @@ func (VPCHandler *AwsVPCHandler) GetSubnet(reqSubnetId string) (irs.SubnetInfo, 
 		},
 	}
 
-	spew.Dump(input)
+	//spew.Dump(input)
 	// logger for HisCall
 	callogger := call.GetLogger("HISCALL")
 
@@ -1041,6 +1047,7 @@ func ExtractSubnetDescribeInfo(subnetInfo *ec2.Subnet) irs.SubnetInfo {
 		IId:       irs.IID{SystemId: *subnetInfo.SubnetId},
 		IPv4_CIDR: *subnetInfo.CidrBlock,
 		//Status:    *subnetInfo.State,
+		Zone: *subnetInfo.AvailabilityZone,
 	}
 
 	/*
@@ -1067,7 +1074,7 @@ func ExtractSubnetDescribeInfo(subnetInfo *ec2.Subnet) irs.SubnetInfo {
 }
 
 func (VPCHandler *AwsVPCHandler) AddSubnet(vpcIID irs.IID, subnetInfo irs.SubnetInfo) (irs.VPCInfo, error) {
-	cblogger.Infof("[%s] Subnet 추가 - CIDR : %s", subnetInfo.IId.NameId, subnetInfo.IPv4_CIDR)
+	cblogger.Infof("add [%s] Subnet - CIDR : %s", subnetInfo.IId.NameId, subnetInfo.IPv4_CIDR)
 	resSubnet, errSubnet := VPCHandler.CreateSubnet(vpcIID.SystemId, subnetInfo)
 	if errSubnet != nil {
 		cblogger.Error(errSubnet)
@@ -1082,13 +1089,13 @@ func (VPCHandler *AwsVPCHandler) AddSubnet(vpcIID irs.IID, subnetInfo irs.Subnet
 	}
 
 	findSubnet := false
-	cblogger.Debug("============== 체크할 값 =========")
+	cblogger.Debug("============== check values =========")
 	for posSubnet, curSubnetInfo := range vpcInfo.SubnetInfoList {
-		cblogger.Debugf("%d - [%s] Subnet 처리 시작", posSubnet, curSubnetInfo.IId.SystemId)
+		cblogger.Debugf("%d - [%s] Subnet", posSubnet, curSubnetInfo.IId.SystemId)
 		if resSubnet.IId.SystemId == curSubnetInfo.IId.SystemId {
-			cblogger.Infof("추가 요청 받은 [%s] Subnet을 발견 했습니다. - SystemID:[%s]", subnetInfo.IId.NameId, curSubnetInfo.IId.SystemId)
+			cblogger.Infof("found the requested [%s] Subnet. - SystemID:[%s]", subnetInfo.IId.NameId, curSubnetInfo.IId.SystemId)
 			//for ~ range는 포인터가 아니라서 값 수정이 안됨. for loop으로 직접 서브넷을 체크하거나 vpcInfo의 배열의 값을 수정해야 함.
-			cblogger.Infof("인덱스 위치 : %d", posSubnet)
+			cblogger.Infof("index : %d", posSubnet)
 			//vpcInfo.SubnetInfoList[posSubnet].IId.NameId = "테스트~"
 			vpcInfo.SubnetInfoList[posSubnet].IId.NameId = subnetInfo.IId.NameId
 			findSubnet = true
@@ -1097,7 +1104,7 @@ func (VPCHandler *AwsVPCHandler) AddSubnet(vpcIID irs.IID, subnetInfo irs.Subnet
 	}
 
 	if !findSubnet {
-		cblogger.Errorf("서브넷 생성은 성공했으나 VPC의 서브넷 목록에서 추가 요청한 [%s]서브넷의 정보[%s]를 찾지 못했습니다.", subnetInfo.IId.NameId, resSubnet.IId.SystemId)
+		cblogger.Errorf("The subnet creation was successful, but the information [%s] for the requested [%s] subnet was not found in the VPC's subnet list.", subnetInfo.IId.NameId, resSubnet.IId.SystemId)
 		return irs.VPCInfo{}, errors.New("MismatchSubnet.NotFound: No SysmteId[" + resSubnet.IId.SystemId + "] found for newly created Subnet[" + subnetInfo.IId.NameId + "].")
 	}
 	//spew.Dump(vpcInfo)
@@ -1106,7 +1113,7 @@ func (VPCHandler *AwsVPCHandler) AddSubnet(vpcIID irs.IID, subnetInfo irs.Subnet
 }
 
 func (VPCHandler *AwsVPCHandler) RemoveSubnet(vpcIID irs.IID, subnetIID irs.IID) (bool, error) {
-	cblogger.Infof("[%s] VPC의 [%s] Subnet 삭제", vpcIID.SystemId, subnetIID.SystemId)
+	cblogger.Infof("remove [%s] Subnet from [%s] VPC", vpcIID.SystemId, subnetIID.SystemId)
 
 	return VPCHandler.DeleteSubnet(subnetIID)
 	//return false, nil
