@@ -2,6 +2,7 @@ package resources
 
 import (
 	"errors"
+	"fmt"
 	"reflect"
 	"strconv"
 	"strings"
@@ -181,7 +182,7 @@ func (ClusterHandler *AwsClusterHandler) CreateCluster(clusterReqInfo irs.Cluste
 	return clusterInfo, nil
 }
 
-//Nodegroup이 Activty 상태일때까지 대기함.
+// Nodegroup이 Activty 상태일때까지 대기함.
 func (ClusterHandler *AwsClusterHandler) WaitUntilNodegroupActive(clusterName string, nodegroupName string) error {
 	cblogger.Debugf("Cluster Name : [%s] / NodegroupName : [%s]", clusterName, nodegroupName)
 	input := &eks.DescribeNodegroupInput{
@@ -198,7 +199,7 @@ func (ClusterHandler *AwsClusterHandler) WaitUntilNodegroupActive(clusterName st
 	return nil
 }
 
-//Cluster가 Activty 상태일때까지 대기함.
+// Cluster가 Activty 상태일때까지 대기함.
 func (ClusterHandler *AwsClusterHandler) WaitUntilClusterActive(clusterName string) error {
 	cblogger.Debugf("Cluster Name : [%s]", clusterName)
 	input := &eks.DescribeClusterInput{
@@ -357,6 +358,9 @@ func (ClusterHandler *AwsClusterHandler) GetCluster(clusterIID irs.IID) (irs.Clu
 	if !reflect.ValueOf(result.Cluster.Endpoint).IsNil() {
 		clusterInfo.AccessInfo.Endpoint = *result.Cluster.Endpoint
 	}
+	if !reflect.ValueOf(result.Cluster.CertificateAuthority.Data).IsNil() {
+		clusterInfo.AccessInfo.Kubeconfig = getKubeConfig(result)
+	}
 
 	if !reflect.ValueOf(result.Cluster.ResourcesVpcConfig).IsNil() {
 		clusterInfo.Network.VpcIID = irs.IID{SystemId: *result.Cluster.ResourcesVpcConfig.VpcId}
@@ -417,6 +421,40 @@ func (ClusterHandler *AwsClusterHandler) GetCluster(clusterIID irs.IID) (irs.Clu
 	}
 
 	return clusterInfo, nil
+}
+
+func getKubeConfig(clusterDesc *eks.DescribeClusterOutput) string {
+
+	cluster := clusterDesc.Cluster
+
+	kubeconfigContent := fmt.Sprintf(`apiVersion: v1
+clusters:
+- cluster:
+    server: %s
+    certificate-authority-data: %s
+  name: kubernetes
+contexts:
+- context:
+    cluster: kubernetes
+    user: aws
+  name: aws
+current-context: aws
+kind: Config
+preferences: {}
+users:
+- name: aws
+  user:
+    exec:
+      apiVersion: client.authentication.k8s.io/v1beta1
+      command: aws
+      args:
+        - "eks"
+        - "get-token"
+        - "--cluster-name"
+        - "%s"
+`, *cluster.Endpoint, *cluster.CertificateAuthority.Data, *cluster.Name)
+
+	return kubeconfigContent
 }
 
 func (ClusterHandler *AwsClusterHandler) DeleteCluster(clusterIID irs.IID) (bool, error) {
