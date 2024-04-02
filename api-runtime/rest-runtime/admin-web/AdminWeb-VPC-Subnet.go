@@ -26,7 +26,7 @@ import (
 //====================================== VPC
 
 // number, VPC Name, VPC CIDR, SUBNET Info, Additional Info, checkbox
-func makeVPCTRList_html(bgcolor string, height string, fontSize string, infoList []*cres.VPCInfo) string {
+func makeVPCTRList_html(bgcolor string, height string, fontSize string, infoList []*cres.VPCInfo, zoneId string) string {
 	if bgcolor == "" {
 		bgcolor = "#FFFFFF"
 	}
@@ -68,11 +68,11 @@ func makeVPCTRList_html(bgcolor string, height string, fontSize string, infoList
                 `, fontSize)
 
 	strAddSubnet := fmt.Sprintf(`
-                <textarea style="font-size:12px;text-align:center;" name="subnet_text_box_$$ADDVPC$$" id="subnet_text_box_$$ADDVPC$$" cols=40>{ "Name": "subnet-02-add", "IPv4_CIDR": "10.0.12.0/22"}</textarea>
+                <textarea style="font-size:12px;text-align:center;" name="subnet_text_box_$$ADDVPC$$" id="subnet_text_box_$$ADDVPC$$" cols=40>{ "Name": "subnet-02-add", "Zone": "%s", "IPv4_CIDR": "10.0.12.0/22"}</textarea>
                 <a href="javascript:$$ADDSUBNET$$;">
                         <font size=%s><mark><b>+</b></mark></font>
                 </a>
-								`, fontSize)
+								`, zoneId, fontSize)
 
 	strData := ""
 	// set data and make TR list
@@ -87,6 +87,7 @@ func makeVPCTRList_html(bgcolor string, height string, fontSize string, infoList
 		strSubnetList := ""
 		for _, one := range one.SubnetInfoList {
 			strSubnetList += one.IId.NameId + ", "
+			strSubnetList += "Zone:" + one.Zone + ", "
 			strSubnetList += "CIDR:" + one.IPv4_CIDR + ", {"
 			for _, kv := range one.KeyValueList {
 				strSubnetList += kv.Key + ":" + kv.Value + ", "
@@ -356,8 +357,24 @@ func VPC(c echo.Context) error {
 	}
 	json.Unmarshal(resBody, &info)
 
+	// Get zoneId
+	regionName, err := getRegionName(connConfig)
+	if err != nil {
+		cblog.Error(err)
+		// client logging
+		htmlStr += genLoggingResult(err.Error())
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+	_, zoneId, err := getRegionZone(regionName)
+	if err != nil {
+		cblog.Error(err)
+		// client logging
+		htmlStr += genLoggingResult(err.Error())
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
 	// (4-2) make TR list with info list
-	htmlStr += makeVPCTRList_html("", "", "", info.ResultList)
+	htmlStr += makeVPCTRList_html("", "", "", info.ResultList, zoneId)
 
 	// (5) make input field and add
 	// attach text box for add
@@ -373,7 +390,7 @@ func VPC(c echo.Context) error {
                                 <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="2" value="10.0.0.0/16">
                             </td>
                             <td>
-                                <textarea style="font-size:12px;text-align:center;" name="text_box" id="3" cols=50>[ { "Name": "subnet-01", "IPv4_CIDR": "10.0.8.0/22"} ]</textarea>
+                                <textarea style="font-size:12px;text-align:center;" name="text_box" id="3" cols=50>[ { "Name": "subnet-01", "Zone": "` + zoneId + `", "IPv4_CIDR": "10.0.8.0/22"} ]</textarea>
                             </td>
                             <td>
                                 <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="4" disabled value="N/A">
@@ -396,5 +413,3 @@ func VPC(c echo.Context) error {
 	//fmt.Println(htmlStr)
 	return c.HTML(http.StatusOK, htmlStr)
 }
-
-

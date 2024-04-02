@@ -18,8 +18,8 @@ import (
 
 	"encoding/json"
 	"net/http"
-	"strings"
 	"regexp"
+	"strings"
 
 	"github.com/labstack/echo/v4"
 )
@@ -28,24 +28,27 @@ import (
 
 // number, Disk Name, Disk Type, Disk Size, Disk Status, Attach/Detach, Created Time, Additional Info, checkbox
 func makeDiskTRList_html(bgcolor string, height string, fontSize string, infoList []*cres.DiskInfo, vmList []string) string {
-        if bgcolor == "" {
-                bgcolor = "#FFFFFF"
-        }
-        if height == "" {
-                height = "30"
-        }
-        if fontSize == "" {
-                fontSize = "2"
-        }
+	if bgcolor == "" {
+		bgcolor = "#FFFFFF"
+	}
+	if height == "" {
+		height = "30"
+	}
+	if fontSize == "" {
+		fontSize = "2"
+	}
 
-        // make base TR frame for info list
-        strTR := fmt.Sprintf(`
+	// make base TR frame for info list
+	strTR := fmt.Sprintf(`
                 <tr bgcolor="%s" align="center" height="%s">
                     <td>
                             <font size=%s>$$NUM$$</font>
                     </td>
                     <td>
                             <font size=%s>$$DISKNAME$$</font>
+                    </td>
+                    <td>
+                            <font size=%s>$$ZONEID$$</font>
                     </td>
                     <td>
                             <font size=%s>$$DISKTYPE$$</font>
@@ -69,76 +72,77 @@ func makeDiskTRList_html(bgcolor string, height string, fontSize string, infoLis
                         <input type="checkbox" name="check_box" value=$$DISKNAME$$>
                     </td>
                 </tr>
-                `, bgcolor, height, fontSize, fontSize, fontSize, fontSize, fontSize, fontSize, fontSize, fontSize)
+                `, bgcolor, height, fontSize, fontSize, fontSize, fontSize, fontSize, fontSize, fontSize, fontSize, fontSize)
 
-        strData := ""
-        // set data and make TR list
-        for i, one := range infoList {
+	strData := ""
+	// set data and make TR list
+	for i, one := range infoList {
 		// to select a VM in VMList
-		selectHtml := makeSelect_html("", vmList, "select_box_" + one.IId.NameId) // <select name="text_box" id=select_box_{diskName} onchangeVM(this)>
+		selectHtml := makeSelect_html("", vmList, "select_box_"+one.IId.NameId) // <select name="text_box" id=select_box_{diskName} onchangeVM(this)>
 
-                str := strings.ReplaceAll(strTR, "$$NUM$$", strconv.Itoa(i+1))
-                str = strings.ReplaceAll(str, "$$DISKNAME$$", one.IId.NameId)
+		str := strings.ReplaceAll(strTR, "$$NUM$$", strconv.Itoa(i+1))
+		str = strings.ReplaceAll(str, "$$DISKNAME$$", one.IId.NameId)
+		str = strings.ReplaceAll(str, "$$ZONEID$$", one.Zone)
 
-                // Disk Type
-                str = strings.ReplaceAll(str, "$$DISKTYPE$$", one.DiskType)
+		// Disk Type
+		str = strings.ReplaceAll(str, "$$DISKTYPE$$", one.DiskType)
 
 		// Size
-		sizeInputText := `<input style="font-size:12px;text-align:center;" type="text" name="size_box" size=6 id="size_input_text_` + 
-			one.IId.NameId + `" value="`+ one.DiskSize + `">&nbsp;GB &nbsp;`
+		sizeInputText := `<input style="font-size:12px;text-align:center;" type="text" name="size_box" size=6 id="size_input_text_` +
+			one.IId.NameId + `" value="` + one.DiskSize + `">&nbsp;GB &nbsp;`
 
-			sizeUpButton := `<button style="font-size:10px;" type="button" onclick="diskSizeUp('` + one.IId.NameId + `')">Upsize</button>`
-                str = strings.ReplaceAll(str, "$$DISKSIZE$$", sizeInputText + sizeUpButton)
+		sizeUpButton := `<button style="font-size:10px;" type="button" onclick="diskSizeUp('` + one.IId.NameId + `')">Upsize</button>`
+		str = strings.ReplaceAll(str, "$$DISKSIZE$$", sizeInputText+sizeUpButton)
 
 		// Status
-                str = strings.ReplaceAll(str, "$$DISKSTATUS$$", string(one.Status))
+		str = strings.ReplaceAll(str, "$$DISKSTATUS$$", string(one.Status))
 
 		// Attach/Detach
 		if one.Status == cres.DiskAvailable {
-			attachButton := `<button style="font-size:10px;" type="button" onclick="diskAttach('` + 
-				one.IId.NameId+ `')">Attach</button>`
-			str = strings.ReplaceAll(str, "$$ATTACHDETACH$$", selectHtml + "&nbsp;&nbsp;" + attachButton)
+			attachButton := `<button style="font-size:10px;" type="button" onclick="diskAttach('` +
+				one.IId.NameId + `')">Attach</button>`
+			str = strings.ReplaceAll(str, "$$ATTACHDETACH$$", selectHtml+"&nbsp;&nbsp;"+attachButton)
 		} else if one.Status == cres.DiskAttached {
-			detachButton := `<button style="font-size:10px;" type="button" onclick="diskDetach('` + 
-				one.IId.NameId+ `', '` + one.OwnerVM.NameId+ `')">Detach</button>`
-			str = strings.ReplaceAll(str, "$$ATTACHDETACH$$", one.OwnerVM.NameId + "&nbsp;&nbsp;" + detachButton)
+			detachButton := `<button style="font-size:10px;" type="button" onclick="diskDetach('` +
+				one.IId.NameId + `', '` + one.OwnerVM.NameId + `')">Detach</button>`
+			str = strings.ReplaceAll(str, "$$ATTACHDETACH$$", one.OwnerVM.NameId+"&nbsp;&nbsp;"+detachButton)
 		} else {
 			str = strings.ReplaceAll(str, "$$ATTACHDETACH$$", "N/A")
 		}
 
 		// Created Time
-                str = strings.ReplaceAll(str, "$$CREATEDTIME$$", one.CreatedTime.Format("2006.01.02 15:04:05 Mon"))
+		str = strings.ReplaceAll(str, "$$CREATEDTIME$$", one.CreatedTime.Format("2006.01.02 15:04:05 Mon"))
 
-                // for KeyValueList
-                strKeyList := ""
-                for _, kv := range one.KeyValueList {
-                        strKeyList += kv.Key + ":" + kv.Value + ", "
-                }
-                strKeyList = strings.TrimRight(strKeyList, ", ")
-                str = strings.ReplaceAll(str, "$$ADDITIONALINFO$$", strKeyList)
+		// for KeyValueList
+		strKeyList := ""
+		for _, kv := range one.KeyValueList {
+			strKeyList += kv.Key + ":" + kv.Value + ", "
+		}
+		strKeyList = strings.TrimRight(strKeyList, ", ")
+		str = strings.ReplaceAll(str, "$$ADDITIONALINFO$$", strKeyList)
 
-                strData += str
-        }
+		strData += str
+	}
 
-        return strData
+	return strData
 }
 
 // make the string of javascript function
 func makePostDiskFunc_js() string {
 
-        //curl -sX POST http://localhost:1024/spider/disk -H 'Content-Type: application/json'
-        //      -d '{ "ConnectionName": "'${CONN_CONFIG}'", "ReqInfo": {
-                                //      "Name": "spider-disk-01",
-                                //      "DiskType": "",
-                                //      "DiskSize": ""
-                        //      } }'
+	//curl -sX POST http://localhost:1024/spider/disk -H 'Content-Type: application/json'
+	//      -d '{ "ConnectionName": "'${CONN_CONFIG}'", "ReqInfo": {
+	//      "Name": "spider-disk-01",
+	//      "DiskType": "",
+	//      "DiskSize": ""
+	//      } }'
 
-        strFunc := `
+	strFunc := `
                 function postDisk() {
                         var connConfig = parent.frames["top_frame"].document.getElementById("connConfig").innerHTML;
 
                         var textboxes = document.getElementsByName('text_box');
-            sendJson = '{ "ConnectionName" : "' + connConfig + '", "ReqInfo" : { "Name" : "$$DISKNAME$$", "DiskType" : "$$DISKTYPE$$", "DiskSize" : "$$DISKSIZE$$"}}'
+            sendJson = '{ "ConnectionName" : "' + connConfig + '", "ReqInfo" : { "Name" : "$$DISKNAME$$", "Zone" : "$$ZONEID$$", "DiskType" : "$$DISKTYPE$$", "DiskSize" : "$$DISKSIZE$$"}}'
 
                         for (var i = 0; i < textboxes.length; i++) { // @todo make parallel executions
                                 switch (textboxes[i].id) {
@@ -146,9 +150,12 @@ func makePostDiskFunc_js() string {
                                                 sendJson = sendJson.replace("$$DISKNAME$$", textboxes[i].value);
                                                 break;
                                         case "2":
-                                                sendJson = sendJson.replace("$$DISKTYPE$$", textboxes[i].value);
+                                                sendJson = sendJson.replace("$$ZONEID$$", textboxes[i].value);
                                                 break;
                                         case "3":
+                                                sendJson = sendJson.replace("$$DISKTYPE$$", textboxes[i].value);
+                                                break;
+                                        case "4":
                                                 sendJson = sendJson.replace("$$DISKSIZE$$", textboxes[i].value);
                                                 break;
                                         default:
@@ -172,23 +179,23 @@ func makePostDiskFunc_js() string {
             location.reload();
                 }
         `
-        strFunc = strings.ReplaceAll(strFunc, "$$SPIDER_SERVER$$", "http://"+cr.ServiceIPorName+cr.ServicePort) // cr.ServicePort = ":1024"
-        return strFunc
+	strFunc = strings.ReplaceAll(strFunc, "$$SPIDER_SERVER$$", "http://"+cr.ServiceIPorName+cr.ServicePort) // cr.ServicePort = ":1024"
+	return strFunc
 }
 
 // make the string of javascript function
 func makeDiskSizeUpFunc_js() string {
 	/*
-	curl -sX PUT http://localhost:1024/spider/disk/spider-disk-01/size -H 'Content-Type: application/json' -d \
-        '{
-                "ConnectionName": "mock-config01",
-                "ReqInfo": {
-                        "Size" : "128"
-                }
-        }'
+			curl -sX PUT http://localhost:1024/spider/disk/spider-disk-01/size -H 'Content-Type: application/json' -d \
+		        '{
+		                "ConnectionName": "mock-config01",
+		                "ReqInfo": {
+		                        "Size" : "128"
+		                }
+		        }'
 	*/
 
-        strFunc := `
+	strFunc := `
                 function diskSizeUp(diskName, sizeInputTextId) {
                         var connConfig = parent.frames["top_frame"].document.getElementById("connConfig").innerHTML;
 
@@ -211,23 +218,22 @@ func makeDiskSizeUpFunc_js() string {
                         location.reload();
                 }
         `
-        strFunc = strings.ReplaceAll(strFunc, "$$SPIDER_SERVER$$", "http://"+cr.ServiceIPorName+cr.ServicePort) // cr.ServicePort = ":1024"
-        return strFunc
+	strFunc = strings.ReplaceAll(strFunc, "$$SPIDER_SERVER$$", "http://"+cr.ServiceIPorName+cr.ServicePort) // cr.ServicePort = ":1024"
+	return strFunc
 }
-
 
 // make the string of javascript function
 func makeAttachDiskFunc_js() string {
-        /*curl -sX PUT http://localhost:1024/spider/disk/spider-disk-01/attach -H 'Content-Type: application/json' -d \
-        '{
-                "ConnectionName": "mock-config01",
-                "ReqInfo": {
-                        "VMName" : "vm-01"
-                }
-        }'
-        */
+	/*curl -sX PUT http://localhost:1024/spider/disk/spider-disk-01/attach -H 'Content-Type: application/json' -d \
+	  '{
+	          "ConnectionName": "mock-config01",
+	          "ReqInfo": {
+	                  "VMName" : "vm-01"
+	          }
+	  }'
+	*/
 
-        strFunc := `
+	strFunc := `
                 function diskAttach(diskName) {
                         var connConfig = parent.frames["top_frame"].document.getElementById("connConfig").innerHTML;
 
@@ -250,22 +256,22 @@ func makeAttachDiskFunc_js() string {
                         location.reload();
                 }
         `
-        strFunc = strings.ReplaceAll(strFunc, "$$SPIDER_SERVER$$", "http://"+cr.ServiceIPorName+cr.ServicePort) // cr.ServicePort = ":1024"
-        return strFunc
+	strFunc = strings.ReplaceAll(strFunc, "$$SPIDER_SERVER$$", "http://"+cr.ServiceIPorName+cr.ServicePort) // cr.ServicePort = ":1024"
+	return strFunc
 }
 
 // make the string of javascript function
 func makeDetachDiskFunc_js() string {
-        /*curl -sX PUT http://localhost:1024/spider/disk/spider-disk-01/detach -H 'Content-Type: application/json' -d \
-        '{
-                "ConnectionName": "mock-config01",
-                "ReqInfo": {
-                        "VMName" : "vm-01"
-                }
-        }'
-        */
+	/*curl -sX PUT http://localhost:1024/spider/disk/spider-disk-01/detach -H 'Content-Type: application/json' -d \
+	  '{
+	          "ConnectionName": "mock-config01",
+	          "ReqInfo": {
+	                  "VMName" : "vm-01"
+	          }
+	  }'
+	*/
 
-        strFunc := `
+	strFunc := `
                 function diskDetach(diskName, vmName) {
                         var connConfig = parent.frames["top_frame"].document.getElementById("connConfig").innerHTML;
 
@@ -285,16 +291,16 @@ func makeDetachDiskFunc_js() string {
                         location.reload();
                 }
         `
-        strFunc = strings.ReplaceAll(strFunc, "$$SPIDER_SERVER$$", "http://"+cr.ServiceIPorName+cr.ServicePort) // cr.ServicePort = ":1024"
-        return strFunc
+	strFunc = strings.ReplaceAll(strFunc, "$$SPIDER_SERVER$$", "http://"+cr.ServiceIPorName+cr.ServicePort) // cr.ServicePort = ":1024"
+	return strFunc
 }
 
 // make the string of javascript function
 func makeDeleteDiskFunc_js() string {
-        // curl -sX DELETE http://localhost:1024/spider/disk/spider-disk-01 -H 'Content-Type: application/json'
-        //           -d '{ "ConnectionName": "'${CONN_CONFIG}'"}'
+	// curl -sX DELETE http://localhost:1024/spider/disk/spider-disk-01 -H 'Content-Type: application/json'
+	//           -d '{ "ConnectionName": "'${CONN_CONFIG}'"}'
 
-        strFunc := `
+	strFunc := `
                 function deleteDisk() {
                         var connConfig = parent.frames["top_frame"].document.getElementById("connConfig").innerHTML;
                         var checkboxes = document.getElementsByName('check_box');
@@ -317,16 +323,16 @@ func makeDeleteDiskFunc_js() string {
             location.reload();
                 }
         `
-        strFunc = strings.ReplaceAll(strFunc, "$$SPIDER_SERVER$$", "http://"+cr.ServiceIPorName+cr.ServicePort) // cr.ServicePort = ":1024"
-        return strFunc
+	strFunc = strings.ReplaceAll(strFunc, "$$SPIDER_SERVER$$", "http://"+cr.ServiceIPorName+cr.ServicePort) // cr.ServicePort = ":1024"
+	return strFunc
 }
 
 func Disk(c echo.Context) error {
-        cblog.Info("call Disk()")
+	cblog.Info("call Disk()")
 
-        connConfig := c.Param("ConnectConfig")
-        if connConfig == "region not set" {
-                htmlStr := `
+	connConfig := c.Param("ConnectConfig")
+	if connConfig == "region not set" {
+		htmlStr := `
             <html>
             <head>
                 <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
@@ -350,11 +356,11 @@ func Disk(c echo.Context) error {
             </body>
         `
 
-                return c.HTML(http.StatusOK, htmlStr)
-        }
+		return c.HTML(http.StatusOK, htmlStr)
+	}
 
-        // make page header
-        htmlStr := `
+	// make page header
+	htmlStr := `
                 <html>
                 <head>
                     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
@@ -369,15 +375,15 @@ func Disk(c echo.Context) error {
                         </style>
                     <script type="text/javascript">
                 `
-        // (1) make Javascript Function
-        htmlStr += makeCheckBoxToggleFunc_js()
-        htmlStr += makePostDiskFunc_js()
-        htmlStr += makeDiskSizeUpFunc_js()
-        htmlStr += makeAttachDiskFunc_js()
-        htmlStr += makeDetachDiskFunc_js()
-        htmlStr += makeDeleteDiskFunc_js()
+	// (1) make Javascript Function
+	htmlStr += makeCheckBoxToggleFunc_js()
+	htmlStr += makePostDiskFunc_js()
+	htmlStr += makeDiskSizeUpFunc_js()
+	htmlStr += makeAttachDiskFunc_js()
+	htmlStr += makeDetachDiskFunc_js()
+	htmlStr += makeDeleteDiskFunc_js()
 
-        htmlStr += `
+	htmlStr += `
                     </script>
                 </head>
 
@@ -385,59 +391,59 @@ func Disk(c echo.Context) error {
                     <table border="0" bordercolordark="#F8F8FF" cellpadding="0" cellspacing="1" bgcolor="#FFFFFF"  style="font-size:small;">
                 `
 
-        // (2) make Table Action TR
-        // colspan, f5_href, delete_href, fontSize
-        htmlStr += makeActionTR_html("8", "", "deleteDisk()", "2")
+	// (2) make Table Action TR
+	// colspan, f5_href, delete_href, fontSize
+	htmlStr += makeActionTR_html("10", "", "deleteDisk()", "2")
 
-        // (3) make Table Header TR
-        nameWidthList := []NameWidth{
-                {"Disk Name", "100"},
-                {"Disk Type", "100"},
-                {"Disk Size(GB)", "100"},
-                {"Disk Status", "100"},
-                {"Disk Attach|Detach", "200"},
-                {"Created Time", "100"},
-                {"Additional Info", "300"},
-        }
-        htmlStr += makeTitleTRList_html("#DDDDDD", "2", nameWidthList, true)
+	// (3) make Table Header TR
+	nameWidthList := []NameWidth{
+		{"Disk Name", "100"},
+		{"Zone", "100"},
+		{"Disk Type", "100"},
+		{"Disk Size(GB)", "100"},
+		{"Disk Status", "100"},
+		{"Disk Attach|Detach", "200"},
+		{"Created Time", "100"},
+		{"Additional Info", "300"},
+	}
+	htmlStr += makeTitleTRList_html("#DDDDDD", "2", nameWidthList, true)
 
-        // (4) make TR list with info list
-        // (4-1) get info list
+	// (4) make TR list with info list
+	// (4-1) get info list
 
-        // client logging
-        htmlStr += genLoggingGETURL(connConfig, "disk")
+	// client logging
+	htmlStr += genLoggingGETURL(connConfig, "disk")
 
-        resBody, err := getResourceList_with_Connection_JsonByte(connConfig, "disk")
-        if err != nil {
-                cblog.Error(err)
-                // client logging
-                htmlStr += genLoggingResult(err.Error())
-                return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-        }
+	resBody, err := getResourceList_with_Connection_JsonByte(connConfig, "disk")
+	if err != nil {
+		cblog.Error(err)
+		// client logging
+		htmlStr += genLoggingResult(err.Error())
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
 
-        // client logging
-        htmlStr += genLoggingResult(string(resBody[:len(resBody)-1]))
+	// client logging
+	htmlStr += genLoggingResult(string(resBody[:len(resBody)-1]))
 
-        var info struct {
-                ResultList []*cres.DiskInfo `json:"disk"`
-        }
-        json.Unmarshal(resBody, &info)
+	var info struct {
+		ResultList []*cres.DiskInfo `json:"disk"`
+	}
+	json.Unmarshal(resBody, &info)
 
 	// get VM List
 	vmList := vmList(connConfig)
 
-        // (4-2) make TR list with info list
-        htmlStr += makeDiskTRList_html("", "", "", info.ResultList, vmList)
+	// (4-2) make TR list with info list
+	htmlStr += makeDiskTRList_html("", "", "", info.ResultList, vmList)
 
 	providerName, _ := getProviderName(connConfig)
 	diskTypeList := diskTypeList(providerName)
 	diskTypeSizeList := diskTypeSizeList(providerName)
 
+	// (5) make input field and add
+	// attach text box for add
 
-        // (5) make input field and add
-        // attach text box for add
-	
-        htmlStr += `
+	htmlStr += `
                         <tr bgcolor="#FFFFFF" align="center" height="30">
                             <td bgcolor="#FFEFBA">
                                     <font size=2>&nbsp;create:&nbsp;</font>
@@ -445,26 +451,44 @@ func Disk(c echo.Context) error {
                             <td>
                                 <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="1" value="spider-disk-01">
                             </td>
+                   `
+
+	// Get zoneId
+	regionName, err := getRegionName(connConfig)
+	if err != nil {
+		cblog.Error(err)
+		// client logging
+		htmlStr += genLoggingResult(err.Error())
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+	_, zoneId, err := getRegionZone(regionName)
+	if err != nil {
+		cblog.Error(err)
+		// client logging
+		htmlStr += genLoggingResult(err.Error())
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	htmlStr += `
+                        <td>
+                        <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="2" value="` + zoneId + `">
+                        </td>
+                        <td>
+                `
+
+	// Select format of Disk Type  name=text_box, id=2
+	htmlStr += makeDataDiskTypeSelect_html("", diskTypeList, "3")
+
+	htmlStr += `
+                            </td>
                             <td>
 
-                            `
-        // Select format of Disk Type  name=text_box, id=2
-        htmlStr += makeDataDiskTypeSelect_html("", diskTypeList, "2")
+                                <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="4" value="default">
+			    `
+	htmlStr += makeDataDiskTypeSize_html(diskTypeSizeList)
 
 	htmlStr += `
 
-                            </td>
-                            <td>
-
-                                <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="3" value="default">
-			    `
-				htmlStr += makeDataDiskTypeSize_html(diskTypeSizeList)
-
-				htmlStr += `
-
-                            </td>
-                            <td>
-                                <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="4" disabled value="N/A">
                             </td>
                             <td>
                                 <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="5" disabled value="N/A">
@@ -476,74 +500,76 @@ func Disk(c echo.Context) error {
                                 <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="7" disabled value="N/A">
                             </td>
                             <td>
+                                <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="8" disabled value="N/A">
+                            </td>
+                            <td>
                                 <a href="javascript:postDisk()">
                                     <font size=4><mark><b>+</b></mark></font>
                                 </a>
                             </td>
                         </tr>
                 `
-        // make page tail
-        htmlStr += `
+	// make page tail
+	htmlStr += `
                     </table>
             <hr>
                 </body>
                 </html>
         `
 
-        //fmt.Println(htmlStr)
-        return c.HTML(http.StatusOK, htmlStr)
+	//fmt.Println(htmlStr)
+	return c.HTML(http.StatusOK, htmlStr)
 }
-
 
 func makeDataDiskTypeSelect_html(onchangeFunctionName string, strList []string, id string) string {
 
-        strResult := ""
-        if len(strList) == 0 {
-                noDiskStr := `<input style="font-size:12px;text-align:center;" type="text" name="text_box" id="` +
-                                id +`" value="default">`
-                return strResult + noDiskStr
-        }
-        strSelect := `<select style="width:120px;" name="text_box" id="` + id + `" onchange="` + onchangeFunctionName + `(this)">`
-                strSelect += `<option value="default">default</option>`
-        for _, one := range strList {
-                strSelect += `<option value="` + one + `">` + one + `</option>`
-        }
+	strResult := ""
+	if len(strList) == 0 {
+		noDiskStr := `<input style="font-size:12px;text-align:center;" type="text" name="text_box" id="` +
+			id + `" value="default">`
+		return strResult + noDiskStr
+	}
+	strSelect := `<select style="width:120px;" name="text_box" id="` + id + `" onchange="` + onchangeFunctionName + `(this)">`
+	strSelect += `<option value="default">default</option>`
+	for _, one := range strList {
+		strSelect += `<option value="` + one + `">` + one + `</option>`
+	}
 
-        strSelect += `
+	strSelect += `
                 </select>
         `
 
-        return strResult + strSelect
+	return strResult + strSelect
 }
 
 func makeDataDiskTypeSize_html(strList []string) string {
 
 	strResult := ""
-        for _, one := range strList {
+	for _, one := range strList {
 		// one = "cloud|5|2000|GB"
 		splits := strings.Split(one, "|")
 		rangeStr := ""
 		if len(splits) == 4 {
 			rangeStr = fmt.Sprintf("&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;[%s]&nbsp;&nbsp; %s~%s %s<br>",
-					strings.TrimSpace(splits[0]), insertComma(strings.TrimSpace(splits[1])),
-				 	insertComma(strings.TrimSpace(splits[2])), strings.TrimSpace(splits[3]))
+				strings.TrimSpace(splits[0]), insertComma(strings.TrimSpace(splits[1])),
+				insertComma(strings.TrimSpace(splits[2])), strings.TrimSpace(splits[3]))
 		} else {
 			rangeStr = one // keep origin string
 		}
 		strResult += rangeStr
-        }
+	}
 
-        strInput := `<p style="font-size:12px;color:gray;text-align:left;">` + strResult + `</p>`
+	strInput := `<p style="font-size:12px;color:gray;text-align:left;">` + strResult + `</p>`
 
-        return strInput
+	return strInput
 }
 
 // ref) https://stackoverflow.com/a/39185719/17474800
 func insertComma(str string) string {
-    re := regexp.MustCompile("(\\d+)(\\d{3})")
-    for n := ""; n != str; {
-        n = str
-        str = re.ReplaceAllString(str, "$1,$2")
-    }
-    return str
+	re := regexp.MustCompile("(\\d+)(\\d{3})")
+	for n := ""; n != str; {
+		n = str
+		str = re.ReplaceAllString(str, "$1,$2")
+	}
+	return str
 }

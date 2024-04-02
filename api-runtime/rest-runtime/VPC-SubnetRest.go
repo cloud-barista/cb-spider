@@ -140,6 +140,7 @@ type vpcCreateReq struct {
 		IPv4_CIDR      string
 		SubnetInfoList []struct {
 			Name      string
+			Zone      string
 			IPv4_CIDR string
 		}
 	}
@@ -169,7 +170,7 @@ func CreateVPC(c echo.Context) error {
 	// (1) create SubnetInfo List
 	subnetInfoList := []cres.SubnetInfo{}
 	for _, info := range req.ReqInfo.SubnetInfoList {
-		subnetInfo := cres.SubnetInfo{IId: cres.IID{info.Name, ""}, IPv4_CIDR: info.IPv4_CIDR}
+		subnetInfo := cres.SubnetInfo{IId: cres.IID{info.Name, ""}, IPv4_CIDR: info.IPv4_CIDR, Zone: info.Zone}
 		subnetInfoList = append(subnetInfoList, subnetInfo)
 	}
 	// (2) create VPCReqInfo with SubnetInfo List
@@ -336,6 +337,7 @@ func AddSubnet(c echo.Context) error {
 		ConnectionName string
 		ReqInfo        struct {
 			Name      string
+			Zone      string
 			IPv4_CIDR string
 		}
 	}
@@ -345,7 +347,7 @@ func AddSubnet(c echo.Context) error {
 	}
 
 	// Rest RegInfo => Driver ReqInfo
-	reqSubnetInfo := cres.SubnetInfo{IId: cres.IID{req.ReqInfo.Name, ""}, IPv4_CIDR: req.ReqInfo.IPv4_CIDR}
+	reqSubnetInfo := cres.SubnetInfo{IId: cres.IID{req.ReqInfo.Name, ""}, IPv4_CIDR: req.ReqInfo.IPv4_CIDR, Zone: req.ReqInfo.Zone}
 
 	// Call common-runtime API
 	result, err := cmrt.AddSubnet(req.ConnectionName, rsSubnet, c.Param("VPCName"), reqSubnetInfo)

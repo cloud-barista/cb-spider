@@ -319,6 +319,7 @@ func CreateVPC(connectionName string, rsType string, reqInfo cres.VPCReqInfo) (*
 	emptyPermissionList := []string{
 		"resources.IID:SystemId",
 		"resources.VPCReqInfo:IPv4_CIDR", // because can be unused in some VPC
+		"resources.SubnetInfo:Zone",      // because can be unused in some Zone
 		"resources.KeyValue:Key",         // because unusing key-value list
 		"resources.KeyValue:Value",       // because unusing key-value list
 	}
@@ -413,14 +414,13 @@ func CreateVPC(connectionName string, rsType string, reqInfo cres.VPCReqInfo) (*
 		}
 
 		// special code for KT CLOUD VPC
-		// related Issue: #1105 
+		// related Issue: #1105
 		//   [KT Cloud VPC] To use NLB, needs to support the subnet management features with a fixed name.
 		if providerName == "KTCLOUDVPC" {
 			if info.IId.NameId == "NLB-SUBNET" {
 				subnetUUID = "NLB-SUBNET"
 			}
 		}
-
 
 		// reqIID
 		subnetReqIId := cres.IID{NameId: info.IId.NameId, SystemId: subnetUUID}
@@ -790,7 +790,7 @@ func AddSubnet(connectionName string, rsType string, vpcName string, reqInfo cre
 	}
 
 	// special code for KT CLOUD VPC
-	// related Issue: 
+	// related Issue:
 	//   #1105 [KT Cloud VPC] To use NLB, needs to support the subnet management features with a fixed name.
 	providerName, err := ccm.GetProviderNameByConnectionName(connectionName)
 	if err != nil {

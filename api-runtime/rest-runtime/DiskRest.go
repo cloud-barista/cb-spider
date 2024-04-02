@@ -26,6 +26,7 @@ type DiskRegisterReq struct {
 	ConnectionName string
 	ReqInfo        struct {
 		Name  string
+		Zone  string
 		CSPId string
 	}
 }
@@ -82,6 +83,7 @@ type DiskReq struct {
 	ConnectionName string
 	ReqInfo        struct {
 		Name string
+		Zone string
 
 		DiskType string
 		DiskSize string
@@ -100,6 +102,7 @@ func CreateDisk(c echo.Context) error {
 	// Rest RegInfo => Driver ReqInfo
 	reqInfo := cres.DiskInfo{
 		IId:      cres.IID{req.ReqInfo.Name, req.ReqInfo.Name},
+		Zone:     req.ReqInfo.Zone,
 		DiskType: req.ReqInfo.DiskType,
 		DiskSize: req.ReqInfo.DiskSize,
 	}
