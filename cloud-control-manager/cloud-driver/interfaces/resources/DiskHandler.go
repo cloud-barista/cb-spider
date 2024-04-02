@@ -25,8 +25,8 @@ const (
 
 // -------- Info Structure
 type DiskInfo struct {
-	Zone string // Target Zone Name
 	IId  IID    // {NameId, SystemId}
+	Zone string // Target Zone Name
 
 	DiskType string // "", "SSD(gp2)", "Premium SSD", ...
 	DiskSize string // "", "default", "50", "1000"  # (GB)

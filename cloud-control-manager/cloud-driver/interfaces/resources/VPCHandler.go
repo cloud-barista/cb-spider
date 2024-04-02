@@ -27,10 +27,10 @@ type VPCInfo struct {
 }
 
 type SubnetInfo struct {
-	Zone      string // Target Zone Name
 	IId       IID    // {NameId, SystemId}
-	IPv4_CIDR string
+	Zone      string // Target Zone Name
 
+	IPv4_CIDR string
 	KeyValueList []KeyValue
 }
 
