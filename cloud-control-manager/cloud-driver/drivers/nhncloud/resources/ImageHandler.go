@@ -172,3 +172,31 @@ func (imageHandler *NhnCloudImageHandler) mappingImageInfo(image images.Image) *
 	imageInfo.KeyValueList = keyValueList
 	return imageInfo
 }
+
+func (imageHandler *NhnCloudImageHandler) isPublicImage(imageIID irs.IID) (bool, error) {
+	cblogger.Info("NHN Cloud Driver: called isPublicImage()")
+	callLogInfo := getCallLogScheme(imageHandler.RegionInfo.Region, call.VMIMAGE, imageIID.SystemId, "isPublicImage()")
+
+	if strings.EqualFold(imageIID.SystemId, "") {
+		newErr := fmt.Errorf("Invalid SystemId!!")
+		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
+		return false, newErr
+	}
+
+	start := call.Start()
+	nhnImage, err := images.Get(imageHandler.ImageClient, imageIID.SystemId).Extract() // Image Client
+	if err != nil {
+		newErr := fmt.Errorf("Failed to Get NHN Cloud Image Info. [%v]", err.Error())
+		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
+		return false, newErr
+	}
+	LoggingInfo(callLogInfo, start)
+
+	isPublicImage := false
+	if strings.EqualFold(string(nhnImage.Visibility), "public") {
+		isPublicImage = true
+	}
+	return isPublicImage, nil
+}

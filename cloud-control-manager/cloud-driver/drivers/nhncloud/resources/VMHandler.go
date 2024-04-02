@@ -8,6 +8,7 @@
 //
 // by ETRI, 2021.12.
 // Updated by ETRI, 2024.01.
+// Updated by ETRI, 2024.04.
 
 package resources
 
@@ -37,12 +38,12 @@ import (
 )
 
 const (
-	DefaultVMUserName		string = "cb-user"
-	DefaultWindowsUserName 	string = "Administrator"
+	DefaultVMUserName			string = "cb-user"
+	DefaultWindowsUserName 		string = "cb-user"
 	UbuntuCloudInitFilePath		string = "/cloud-driver-libs/.cloud-init-nhncloud/cloud-init-ubuntu"
 	WinCloudInitFilePath		string = "/cloud-driver-libs/.cloud-init-nhncloud/cloud-init-windows"
-	DefaultDiskSize			string = "20"
-	DefaultWindowsDiskSize	string = "50"
+	DefaultDiskSize				string = "20"
+	DefaultWinRootDiskSize		string = "50"
 )
 
 type NhnCloudVMHandler struct {
@@ -130,30 +131,108 @@ func (vmHandler *NhnCloudVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo
 		sgIdList = append(sgIdList, sgIID.SystemId)
 	}
 	
-	// Get KeyPair Info (to Get PublicKey info for cloud-init)
-	var getOptsBuilder keypairs.GetOptsBuilder
-	keyPair, err := keypairs.Get(vmHandler.VMClient, vmReqInfo.KeyPairIID.NameId, getOptsBuilder).Extract()
-	if err != nil {
-		newErr := fmt.Errorf("Failed to Get KeyPair Info. with the name : %v", err)
-		cblogger.Error(newErr.Error())
-		LoggingError(callLogInfo, newErr)
-		return irs.VMInfo{}, newErr
+	// # Preparing for UserData String for Linux and Windows Platform
+	var initUserData *string
+	var keyPairId string
+	if !strings.EqualFold(vmReqInfo.KeyPairIID.SystemId, "") {
+		keyPairId = vmReqInfo.KeyPairIID.SystemId
+	} else {
+		keyPairId = vmReqInfo.KeyPairIID.NameId
 	}
+	if vmReqInfo.ImageType == irs.PublicImage || vmReqInfo.ImageType == "" || vmReqInfo.ImageType == "default" {
+		// isPublicImage() in ImageHandler
+		imageHandler := NhnCloudImageHandler{
+			RegionInfo:  	vmHandler.RegionInfo,
+			VMClient:    	vmHandler.VMClient,
+			ImageClient:	vmHandler.ImageClient,
+		}
+		isPublicImage, err := imageHandler.isPublicImage(vmReqInfo.ImageIID)
+		if err != nil {
+			newErr := fmt.Errorf("Failed to Check Whether the Image is Public Image : [%v]", err)
+			cblogger.Error(newErr.Error())
+			return irs.VMInfo{}, newErr
+		}	
+		if !isPublicImage {
+			newErr := fmt.Errorf("'PublicImage' type is selected, but Specified image is Not a PublicImage in the region!!")
+			cblogger.Error(newErr.Error())
+			return irs.VMInfo{}, newErr
+		}
 
-	// Set cloud-init script
-	rootPath := os.Getenv("CBSPIDER_ROOT")
-	fileData, err := os.ReadFile(rootPath + UbuntuCloudInitFilePath)
-	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(callLogInfo, err)
-		return irs.VMInfo{}, err
+		// CheckWindowsImage() in ImageHandler
+		isPublicWindowsImage, err := imageHandler.CheckWindowsImage(vmReqInfo.ImageIID)
+		if err != nil {
+			newErr := fmt.Errorf("Failed to Check Whether the Image is MS Windows Image : [%v]", err)
+			cblogger.Error(newErr.Error())
+			LoggingError(callLogInfo, newErr)
+			return irs.VMInfo{}, newErr
+		}
+		if isPublicWindowsImage {
+			var createErr error
+			initUserData, createErr = vmHandler.createWinInitUserData(vmReqInfo.VMUserPasswd)
+			if createErr != nil {
+				newErr := fmt.Errorf("Failed to Create Cloud-Init Script with the Password : [%v]", createErr)
+				cblogger.Error(newErr.Error())
+				LoggingError(callLogInfo, newErr)
+				return irs.VMInfo{}, newErr
+			}
+		} else {
+			var createErr error
+			initUserData, createErr = vmHandler.createLinuxInitUserData(vmReqInfo.ImageIID, keyPairId)
+			if createErr != nil {
+				newErr := fmt.Errorf("Failed to Create Cloud-Init Script with the KeyPairId : [%v]", createErr)
+				cblogger.Error(newErr.Error())
+				LoggingError(callLogInfo, newErr)
+				return irs.VMInfo{}, newErr
+			}
+		}
+	} else { // In case of MyImage
+		// isPublicImage() in 'MyImage'Handler
+		myImageHandler := NhnCloudMyImageHandler{
+			RegionInfo:  	vmHandler.RegionInfo,
+			VMClient:    	vmHandler.VMClient,
+			ImageClient:	vmHandler.ImageClient,
+		}
+		isPublicImage, err := myImageHandler.isPublicImage(vmReqInfo.ImageIID)
+		if err != nil {
+			newErr := fmt.Errorf("Failed to Check Whether the Image is Public Image : [%v]", err)
+			cblogger.Error(newErr.Error())
+			return irs.VMInfo{}, newErr
+		}	
+		if isPublicImage {
+			newErr := fmt.Errorf("'MyImage' type is selected, but Specified image is Not a MyImage!!")
+			cblogger.Error(newErr.Error())
+			return irs.VMInfo{}, newErr
+		}
+
+		// CheckWindowsImage() in 'MyImage'Handler
+		isMyWindowsImage, err := myImageHandler.CheckWindowsImage(vmReqInfo.ImageIID)
+		if err != nil {
+			newErr := fmt.Errorf("Failed to Check Whether My Image is MS Windows Image : [%v]", err)
+			cblogger.Error(newErr.Error())
+			LoggingError(callLogInfo, newErr)
+			return irs.VMInfo{}, newErr
+		}
+		if isMyWindowsImage {
+			var createErr error
+			initUserData, createErr = vmHandler.createWinInitUserData(vmReqInfo.VMUserPasswd)
+			if createErr != nil {
+				newErr := fmt.Errorf("Failed to Create Cloud-Init Script with the Password : [%v]", createErr)
+				cblogger.Error(newErr.Error())
+				LoggingError(callLogInfo, newErr)
+				return irs.VMInfo{}, newErr
+			}
+		} else {
+			var createErr error
+			initUserData, createErr = vmHandler.createLinuxInitUserData(vmReqInfo.ImageIID, keyPairId)
+			if createErr != nil {
+				newErr := fmt.Errorf("Failed to Create Cloud-Init Script with the KeyPairId : [%v]", createErr)
+				cblogger.Error(newErr.Error())
+				LoggingError(callLogInfo, newErr)
+				return irs.VMInfo{}, newErr
+			}
+		}
 	}
-	fileStr := string(fileData)
-	fileStr = strings.ReplaceAll(fileStr, "{{username}}", DefaultVMUserName)
-	fileStr = strings.ReplaceAll(fileStr, "{{public_key}}", keyPair.PublicKey)
-	fileStr = strings.ReplaceAll(fileStr, "{{PASSWORD}}", vmReqInfo.VMUserPasswd) // For Windows VM
-	// cblogger.Info("\n# fileStr : ")
-	// spew.Dump(fileStr)
+	cblogger.Infof("init UserData : [%s]", *initUserData)
 
 	// Preparing VM Creation Options
 	serverCreateOpts := servers.CreateOpts{
@@ -165,7 +244,7 @@ func (vmHandler *NhnCloudVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo
 						{UUID: vmReqInfo.VpcIID.SystemId},
 						},
 		AvailabilityZone: vmHandler.RegionInfo.Zone,
-		UserData: []byte(fileStr), // Apply cloud-init script
+		UserData: []byte(*initUserData), // Apply cloud-init script
 	}
 
 	// Add KeyPair Name
@@ -248,7 +327,7 @@ func (vmHandler *NhnCloudVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo
 	}
 	if imageOSPlatform == irs.WINDOWS {
 		if strings.EqualFold(reqDiskSize, "") || strings.EqualFold(reqDiskSize, "default") {
-			reqDiskSize = DefaultWindowsDiskSize
+			reqDiskSize = DefaultWinRootDiskSize
 		}
 		reqDiskSizeInt, err = strconv.Atoi(reqDiskSize)
 		if err != nil {
@@ -1118,4 +1197,57 @@ func (vmHandler *NhnCloudVMHandler) getOSPlatformWithImageID(imageId string) (ir
 		return irs.LINUX_UNIX, nil
 	} 
 	return irs.LINUX_UNIX, nil
+}
+
+
+func (vmHandler *NhnCloudVMHandler) createLinuxInitUserData(imageIID irs.IID, keyPairId string) (*string, error) {
+	cblogger.Info("NHN Cloud driver: called createLinuxInitUserData()!!")
+
+	// Get KeyPair Info from NHN Cloud (to Get PublicKey info for cloud-init)
+	var getOptsBuilder keypairs.GetOptsBuilder
+	keyPair, err := keypairs.Get(vmHandler.VMClient, keyPairId, getOptsBuilder).Extract()
+	if err != nil {
+		newErr := fmt.Errorf("Failed to Get KeyPair Info. with the name : %v", err)
+		cblogger.Error(newErr.Error())
+		return nil, newErr
+	}
+
+	// Set cloud-init script
+	rootPath := os.Getenv("CBSPIDER_ROOT")
+	fileData, err := os.ReadFile(rootPath + UbuntuCloudInitFilePath)
+	if err != nil {
+		newErr := fmt.Errorf("Failed to Find and Open the Cloud-Init File : [%v]", err)
+		cblogger.Error(newErr.Error())
+		return nil, newErr
+	} else {
+		cblogger.Infof("Succeeded in Finding and Opening the S/G file: ")
+	}	
+	fileStr := string(fileData)
+	fileStr = strings.ReplaceAll(fileStr, "{{username}}", DefaultVMUserName)
+	fileStr = strings.ReplaceAll(fileStr, "{{public_key}}", keyPair.PublicKey)
+	// cblogger.Info("\n# fileStr : ")
+	// spew.Dump(fileStr)
+
+	return &fileStr, nil
+}
+
+func (vmHandler *NhnCloudVMHandler) createWinInitUserData(passWord string) (*string, error) {
+	cblogger.Info("NHN Cloud driver: called createWinInitUserData()!!")
+
+	// Set cloud-init script
+	rootPath := os.Getenv("CBSPIDER_ROOT")
+	fileData, err := os.ReadFile(rootPath + WinCloudInitFilePath)
+	if err != nil {
+		newErr := fmt.Errorf("Failed to Find and Open the Cloud-Init File : [%v]", err)
+		cblogger.Error(newErr.Error())
+		return nil, newErr
+	} else {
+		cblogger.Infof("Succeeded in Finding and Opening the S/G file: ")
+	}
+	fileStr := string(fileData)
+	fileStr = strings.ReplaceAll(fileStr, "{{username}}", DefaultWindowsUserName)
+	fileStr = strings.ReplaceAll(fileStr, "{{PASSWORD}}", passWord) // For Windows VM
+	// cblogger.Info("\n# fileStr : ")
+	// spew.Dump(fileStr)
+	return &fileStr, nil
 }

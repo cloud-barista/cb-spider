@@ -62,8 +62,8 @@ func handleMyImage() {
 		var commandNum int
 
 		myImageIId := irs.IID{
-			NameId: "nhn-disk-01",
-			SystemId: "8fed0323-34a5-418a-99d3-999a6c322649",
+			NameId: "nhn-myImage-01",
+			SystemId: "adb48ac1-9355-45e5-a18a-84e0e647f98f",
 			// SystemId: "c44fe242-b51a-4d7b-be28-7b8028de3847",
 		}
 

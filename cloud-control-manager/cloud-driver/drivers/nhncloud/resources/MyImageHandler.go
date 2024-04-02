@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"time"
 	// "google.golang.org/grpc/metadata"
-	"github.com/davecgh/go-spew/spew"
+	// "github.com/davecgh/go-spew/spew"
 
 	nhnsdk "github.com/cloud-barista/nhncloud-sdk-go"
 	"github.com/cloud-barista/nhncloud-sdk-go/openstack/compute/v2/servers"
@@ -108,9 +108,9 @@ func (myImageHandler *NhnCloudMyImageHandler) SnapshotVM(snapshotReqInfo irs.MyI
 	
 		newImageIID = irs.IID{SystemId: volumeImage.ImageID}
 	
-		cblogger.Info("\n\n### volumeImage : ")
-		spew.Dump(volumeImage)
-		cblogger.Info("\n")
+		// cblogger.Info("\n\n### volumeImage : ")
+		// spew.Dump(volumeImage)
+		// cblogger.Info("\n")
 	}
 
 	// To Wait for Creating a Snapshot Image
@@ -194,8 +194,39 @@ func (myImageHandler *NhnCloudMyImageHandler) GetMyImage(myImageIID irs.IID) (ir
 
 func (myImageHandler *NhnCloudMyImageHandler) CheckWindowsImage(myImageIID irs.IID) (bool, error) {
 	cblogger.Info("NHN Cloud Driver: called CheckWindowsImage()")
+	callLogInfo := getCallLogScheme(myImageHandler.RegionInfo.Region, call.MYIMAGE, myImageIID.SystemId, "GetMyImage()")
 
-	return false, fmt.Errorf("NHN Cloud Driver Does not support CheckWindowsImage() yet!!")
+	if strings.EqualFold(myImageIID.SystemId, "") {
+		newErr := fmt.Errorf("Invalid SystemId!!")
+		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
+		return false, newErr
+	}
+
+	start := call.Start()
+	nhnImage, err := images.Get(myImageHandler.ImageClient, myImageIID.SystemId).Extract() // Image Client
+	if err != nil {
+		newErr := fmt.Errorf("Failed to Get NHN Cloud My Image Info. [%v]", err.Error())
+		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
+		return false, newErr
+	}
+	LoggingInfo(callLogInfo, start)
+
+	var osDistro string
+	if !strings.EqualFold(nhnImage.Properties["os_distro"].(string), "") {
+		osDistro = nhnImage.Properties["os_distro"].(string)
+	} else {
+		newErr := fmt.Errorf("Failed to Find OS Distro Info from MyImage. [%v]", err.Error())
+		cblogger.Error(newErr.Error())
+		return false, newErr
+	}
+
+	isWindowsImage := false
+	if strings.Contains(osDistro, "windows") {
+		isWindowsImage = true
+	}
+	return isWindowsImage, nil
 }
 
 func (myImageHandler *NhnCloudMyImageHandler) DeleteMyImage(myImageIID irs.IID) (bool, error) {
@@ -421,4 +452,32 @@ func (myImageHandler *NhnCloudMyImageHandler) getBootableVolumeID(vmIID irs.IID)
 	}
 
 	return bootableVolumeId, nil
+}
+
+func (myImageHandler *NhnCloudMyImageHandler) isPublicImage(myImageIID irs.IID) (bool, error) {
+	cblogger.Info("NHN Cloud Driver: called isPublicImage()")
+	callLogInfo := getCallLogScheme(myImageHandler.RegionInfo.Region, call.MYIMAGE, myImageIID.SystemId, "isPublicImage()")
+
+	if strings.EqualFold(myImageIID.SystemId, "") {
+		newErr := fmt.Errorf("Invalid SystemId!!")
+		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
+		return false, newErr
+	}
+
+	start := call.Start()
+	nhnImage, err := images.Get(myImageHandler.ImageClient, myImageIID.SystemId).Extract() // Image Client
+	if err != nil {
+		newErr := fmt.Errorf("Failed to Get NHN Cloud My Image Info. [%v]", err.Error())
+		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
+		return false, newErr
+	}
+	LoggingInfo(callLogInfo, start)
+
+	isPublicImage := false
+	if strings.EqualFold(string(nhnImage.Visibility), "public") {
+		isPublicImage = true
+	}
+	return isPublicImage, nil
 }
