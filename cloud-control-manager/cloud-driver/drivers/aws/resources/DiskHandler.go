@@ -62,7 +62,7 @@ func (DiskHandler *AwsDiskHandler) CreateDisk(diskReqInfo irs.DiskInfo) (irs.Dis
 
 	zone := DiskHandler.Region.Zone
 
-	if diskReqInfo.Zone != ""{
+	if diskReqInfo.Zone != "" {
 		zone = diskReqInfo.Zone
 	}
 	//spew.Dump(DiskHandler.Region)
@@ -857,6 +857,7 @@ func (DiskHandler *AwsDiskHandler) convertVolumeInfoToDiskInfo(volumeInfo *ec2.V
 	}
 
 	diskInfo.IId = irs.IID{NameId: diskName, SystemId: *volumeInfo.VolumeId}
+	diskInfo.Zone = *volumeInfo.AvailabilityZone
 	// tag에서 빼야하나?
 	diskInfo.DiskSize = strconv.Itoa(int(*volumeInfo.Size))
 	diskInfo.DiskType = *volumeInfo.VolumeType
