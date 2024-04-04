@@ -16,14 +16,15 @@ package resources
 import (
 	"fmt"
 	"strings"
+
 	// "sync"
 	"time"
 	// "github.com/davecgh/go-spew/spew"
 
 	nhnsdk "github.com/cloud-barista/nhncloud-sdk-go"
 	"github.com/cloud-barista/nhncloud-sdk-go/openstack/networking/v2/extensions/external"
-	"github.com/cloud-barista/nhncloud-sdk-go/openstack/networking/v2/subnets"
 	"github.com/cloud-barista/nhncloud-sdk-go/openstack/networking/v2/vpcs"
+	"github.com/cloud-barista/nhncloud-sdk-go/openstack/networking/v2/vpcsubnets"
 
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
@@ -235,13 +236,13 @@ func (vpcHandler *NhnCloudVPCHandler) createSubnet(vpcId string, subnetReqInfo i
 		return irs.SubnetInfo{}, newErr
 	}
 
-	createOpts := subnets.CreateOpts{
+	createOpts := vpcsubnets.CreateOpts{
 		VpcID: vpcId,
 		CIDR:  subnetReqInfo.IPv4_CIDR,
 		Name:  subnetReqInfo.IId.NameId,
 	}
 	start := call.Start()
-	subnet, err := subnets.Create(vpcHandler.NetworkClient, createOpts).Extract()
+	vpcsubnet, err := vpcsubnets.Create(vpcHandler.NetworkClient, createOpts).Extract()
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Createt New Subnet!! : [%v]", err)
 		cblogger.Error(newErr.Error())
@@ -249,7 +250,7 @@ func (vpcHandler *NhnCloudVPCHandler) createSubnet(vpcId string, subnetReqInfo i
 	}
 	LoggingInfo(callLogInfo, start)
 
-	subnetInfo := vpcHandler.mappingSubnetInfo(*subnet)
+	subnetInfo := vpcHandler.mappingSubnetInfo(*vpcsubnet)
 	return *subnetInfo, nil
 }
 
@@ -264,13 +265,13 @@ func (vpcHandler *NhnCloudVPCHandler) getSubnet(subnetIId irs.IID) (irs.SubnetIn
 		return irs.SubnetInfo{}, newErr
 	}
 
-	subnet, err := subnets.Get(vpcHandler.NetworkClient, subnetIId.SystemId).Extract()
+	vpcsubnet, err := vpcsubnets.Get(vpcHandler.NetworkClient, subnetIId.SystemId).Extract()
 	if err != nil {
 		cblogger.Errorf("Failed to Get Subnet with SystemId [%s] : %v", subnetIId.SystemId, err)
 		LoggingError(callLogInfo, err)
 		return irs.SubnetInfo{}, nil
 	}
-	subnetInfo := vpcHandler.mappingSubnetInfo(*subnet)
+	subnetInfo := vpcHandler.mappingSubnetInfo(*vpcsubnet)
 	return *subnetInfo, nil
 }
 
@@ -292,13 +293,13 @@ func (vpcHandler *NhnCloudVPCHandler) AddSubnet(vpcIID irs.IID, subnetInfo irs.S
 		return irs.VPCInfo{}, newErr
 	}
 
-	createOpts := subnets.CreateOpts{
+	createOpts := vpcsubnets.CreateOpts{
 		VpcID: vpcIID.SystemId,
 		CIDR:  subnetInfo.IPv4_CIDR,
 		Name:  subnetInfo.IId.NameId,
 	}
 	start := call.Start()
-	_, err := subnets.Create(vpcHandler.NetworkClient, createOpts).Extract()
+	_, err := vpcsubnets.Create(vpcHandler.NetworkClient, createOpts).Extract()
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Createt New Subnet!! : [%v]", err)
 		cblogger.Error(newErr.Error())
@@ -326,7 +327,7 @@ func (vpcHandler *NhnCloudVPCHandler) RemoveSubnet(vpcIID irs.IID, subnetIID irs
 		return false, newErr
 	}
 
-	err := subnets.Delete(vpcHandler.NetworkClient, subnetIID.SystemId).ExtractErr()
+	err := vpcsubnets.Delete(vpcHandler.NetworkClient, subnetIID.SystemId).ExtractErr()
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Delete the Subnet with the SystemID. : [%s] : [%v]", subnetIID.SystemId, err)
 		cblogger.Error(newErr.Error())
@@ -397,16 +398,16 @@ func (vpcHandler *NhnCloudVPCHandler) mappingVpcSubnetInfo(vpc vpcs.VPC) (*irs.V
 	vpcInfo.IPv4_CIDR = vpc.CIDRv4
 
 	// ### Since New NHN Cloud VPC API 'GET ~/v2.0/vpcs' for Getting VPC List does Not return Subnet List
-	listOpts := subnets.ListOpts{
+	listOpts := vpcsubnets.ListOpts{
 		VPCID: vpc.ID,
 	}
-	allPages, err := subnets.List(vpcHandler.NetworkClient, listOpts).AllPages()
+	allPages, err := vpcsubnets.List(vpcHandler.NetworkClient, listOpts).AllPages()
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get the Subnet Pages from NHN Cloud!! : [%v]", err)
 		cblogger.Error(newErr.Error())
 		return nil, newErr
 	}
-	subnetList, err := subnets.ExtractSubnets(allPages)
+	vpcsubnetList, err := vpcsubnets.ExtractVpcsubnets(allPages)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get Subnet List from NHN Cloud!! : [%v]", err)
 		cblogger.Error(newErr.Error())
@@ -415,9 +416,9 @@ func (vpcHandler *NhnCloudVPCHandler) mappingVpcSubnetInfo(vpc vpcs.VPC) (*irs.V
 
 	// Get Subnet info list.
 	var subnetInfoList []irs.SubnetInfo
-	if len(subnetList) > 0 {
-		for _, subnet := range subnetList {
-			subnetInfo := vpcHandler.mappingSubnetInfo(subnet)
+	if len(vpcsubnetList) > 0 {
+		for _, vpcsubnet := range vpcsubnetList {
+			subnetInfo := vpcHandler.mappingSubnetInfo(vpcsubnet)
 			subnetInfoList = append(subnetInfoList, *subnetInfo)
 		}
 	}
@@ -440,7 +441,7 @@ func (vpcHandler *NhnCloudVPCHandler) mappingVpcSubnetInfo(vpc vpcs.VPC) (*irs.V
 	return &vpcInfo, nil
 }
 
-func (vpcHandler *NhnCloudVPCHandler) mappingSubnetInfo(subnet subnets.Subnet) *irs.SubnetInfo { // subnets.Subnets
+func (vpcHandler *NhnCloudVPCHandler) mappingSubnetInfo(subnet vpcsubnets.Vpcsubnet) *irs.SubnetInfo { // subnets.Subnets
 	cblogger.Info("NHN Cloud cloud driver: called mappingSubnetInfo()!!")
 	// spew.Dump(subnet)
 

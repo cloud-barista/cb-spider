@@ -66,7 +66,7 @@ require (
 	github.com/alibabacloud-go/tea v1.2.2
 	github.com/alibabacloud-go/vpc-20160428/v6 v6.4.0
 	github.com/cloud-barista/ktcloud-sdk-go v0.2.1-0.20240123114820-8684cfc5deeb
-	github.com/cloud-barista/nhncloud-sdk-go v0.0.0-20240306113442-b0c008fddaf5
+	github.com/cloud-barista/nhncloud-sdk-go v0.0.0-20240403130402-131df63a24b4
 	github.com/go-openapi/strfmt v0.21.3
 	github.com/hashicorp/go-version v1.6.0
 	github.com/jeremywohl/flatten v1.0.1

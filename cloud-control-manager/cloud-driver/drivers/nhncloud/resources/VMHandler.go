@@ -1037,13 +1037,13 @@ func (vmHandler *NhnCloudVMHandler) mappingVMInfo(server servers.Server) (irs.VM
 	for key, subnet := range server.Addresses {
 		// VPC Info
 		vmInfo.VpcIID.NameId = key
-		nhnNetwork, err := getNetworkWithName(vmHandler.NetworkClient, vmInfo.VpcIID.NameId)
+		nhnVPC, err := getVPCWithName(vmHandler.NetworkClient, vmInfo.VpcIID.NameId)
 		if err != nil {
-			newErr := fmt.Errorf("Failed to Get the NHN Cloud Network Info!! : [%v] ", err)
+			newErr := fmt.Errorf("Failed to Get the NHN Cloud VPC Info!! : [%v] ", err)
 			cblogger.Error(newErr.Error())
 			return irs.VMInfo{}, newErr
-		} else if nhnNetwork != nil {
-			vmInfo.VpcIID.SystemId = nhnNetwork.ID
+		} else if nhnVPC != nil {
+			vmInfo.VpcIID.SystemId = nhnVPC.ID
 		}
 		// PrivateIP, PublicIp Info
 		for _, addr := range subnet.([]interface{}) {
@@ -1070,13 +1070,13 @@ func (vmHandler *NhnCloudVMHandler) mappingVMInfo(server servers.Server) (irs.VM
 				vmInfo.SubnetIID.SystemId = nhnPort.FixedIPs[0].SubnetID
 			}
 
-			nhnSubnet, err := getSubnetWithId(vmHandler.NetworkClient, vmInfo.SubnetIID.SystemId)
+			nhnVpcsubnet, err := getVpcsubnetWithId(vmHandler.NetworkClient, vmInfo.SubnetIID.SystemId)
 			if err != nil {
 				newErr := fmt.Errorf("Failed to Get the Subnet Info!! : [%v] ", err)
 				cblogger.Error(newErr.Error())
 				return irs.VMInfo{}, newErr
-			} else if nhnSubnet != nil {
-				vmInfo.SubnetIID.NameId = nhnSubnet.Name
+			} else if nhnVpcsubnet != nil {
+				vmInfo.SubnetIID.NameId = nhnVpcsubnet.Name
 			}
 			// Network Interface Info
 			vmInfo.NetworkInterface = nhnPort.ID

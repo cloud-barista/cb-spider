@@ -24,8 +24,8 @@ import (
 	"github.com/cloud-barista/nhncloud-sdk-go/openstack/compute/v2/extensions/secgroups"
 	"github.com/cloud-barista/nhncloud-sdk-go/openstack/compute/v2/flavors"
 	"github.com/cloud-barista/nhncloud-sdk-go/openstack/networking/v2/ports"
-	"github.com/cloud-barista/nhncloud-sdk-go/openstack/networking/v2/subnets"
 	"github.com/cloud-barista/nhncloud-sdk-go/openstack/networking/v2/vpcs"
+	"github.com/cloud-barista/nhncloud-sdk-go/openstack/networking/v2/vpcsubnets"
 
 	"github.com/sirupsen/logrus"
 
@@ -156,31 +156,52 @@ func getSGWithName(networkClient *nhnsdk.ServiceClient, securityGroupName string
 	return nil, fmt.Errorf("Failed to Find SecurityGroups with the name [%s]", securityGroupName)
 }
 
-func getNetworkWithName(networkClient *nhnsdk.ServiceClient, networkName string) (*vpcs.VPC, error) {
-	cblogger.Info("NHN Cloud Driver: called GetNetworkWithName()")
+func getVPCWithName(networkClient *nhnsdk.ServiceClient, vpcName string) (*vpcs.VPC, error) {
+	cblogger.Info("NHN Cloud Driver: called GetVPCWithName()")
 
-	allPages, err := vpcs.List(networkClient, vpcs.ListOpts{Name: networkName}).AllPages()
+	allPages, err := vpcs.List(networkClient, vpcs.ListOpts{Name: vpcName}).AllPages()
 	if err != nil {
 		return nil, err
 	}
-	nhnNetList, err := vpcs.ExtractVPCs(allPages)
+	nhnVPCList, err := vpcs.ExtractVPCs(allPages)
 	if err != nil {
 		return nil, err
 	}
 
-	for _, nhnNetwork := range nhnNetList {
-		if strings.EqualFold(nhnNetwork.Name, networkName) {
-			return &nhnNetwork, nil
+	for _, nhnVPC := range nhnVPCList {
+		if strings.EqualFold(nhnVPC.Name, vpcName) {
+			return &nhnVPC, nil
 		}
 	}
 
-	return nil, fmt.Errorf("Failed to Find SecurityGroups Info with name [%s]", networkName)
+	return nil, fmt.Errorf("Failed to Find VPC Info with name [%s]", vpcName)
 }
 
-func getSubnetWithId(networkClient *nhnsdk.ServiceClient, subnetId string) (*subnets.Subnet, error) {
-	cblogger.Info("NHN Cloud Driver: called GetSubnetWithId()")
+func getVPCWithId(networkClient *nhnsdk.ServiceClient, vpcId string) (*vpcs.VPC, error) {
+	cblogger.Info("NHN Cloud Driver: called getVPCWithId()")
 
-	nhnSubnet, err := subnets.Get(networkClient, subnetId).Extract()
+	allPages, err := vpcs.List(networkClient, vpcs.ListOpts{ID: vpcId}).AllPages()
+	if err != nil {
+		return nil, err
+	}
+	nhnVPCList, err := vpcs.ExtractVPCs(allPages)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, nhnVPC := range nhnVPCList {
+		if strings.EqualFold(nhnVPC.ID, vpcId) {
+			return &nhnVPC, nil
+		}
+	}
+
+	return nil, fmt.Errorf("Failed to Find VPC Info with id [%s]", vpcId)
+}
+
+func getVpcsubnetWithId(networkClient *nhnsdk.ServiceClient, vpcsubnetId string) (*vpcsubnets.Vpcsubnet, error) {
+	cblogger.Info("NHN Cloud Driver: called GetVpcsubnetWithId()")
+
+	nhnSubnet, err := vpcsubnets.Get(networkClient, vpcsubnetId).Extract()
 	if err != nil {
 		return nil, err
 	}
