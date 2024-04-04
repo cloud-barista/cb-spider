@@ -11,16 +11,16 @@
 package main
 
 import (
-	"os"
 	"errors"
 	"fmt"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v3"
+	"os"
 
+	cblog "github.com/cloud-barista/cb-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
-	cblog "github.com/cloud-barista/cb-log"
 
 	// nhndrv "github.com/cloud-barista/nhncloud/nhncloud"
 	nhndrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/nhncloud"
@@ -41,7 +41,7 @@ func handleSecurity() {
 	if err != nil {
 		panic(err)
 	}
-	
+
 	handler := ResourceHandler.(irs.SecurityHandler)
 
 	//config := readConfigFile()
@@ -130,14 +130,14 @@ func handleSecurity() {
 							IPProtocol: "tcp",
 							FromPort:   "80",
 							ToPort:     "80",
-							CIDR: 		"192.168.0.0/16",						
+							CIDR:       "192.168.0.0/16",
 						},
 						// {
 						// 	Direction:  "inbound",
 						// 	IPProtocol: "tcp",
 						// 	FromPort:   "-1",
 						// 	ToPort:     "-1",
-						// 	CIDR: 		"192.168.0.0/16",							
+						// 	CIDR: 		"192.168.0.0/16",
 						// },
 
 						{
@@ -145,7 +145,7 @@ func handleSecurity() {
 							IPProtocol: "udp",
 							FromPort:   "8080",
 							ToPort:     "8080",
-							CIDR: 		"0.0.0.0/0",
+							CIDR:       "0.0.0.0/0",
 						},
 						// {
 						// 	Direction:  "inbound",
@@ -167,9 +167,8 @@ func handleSecurity() {
 						// 	IPProtocol: "tcp",
 						// 	FromPort:   "8443",
 						// 	ToPort:     "9999",
-						// 	CIDR: 		"192.168.0.0/16",	
+						// 	CIDR: 		"192.168.0.0/16",
 						// },
-
 
 						// // All traffic 허용 rule
 						{
@@ -177,7 +176,7 @@ func handleSecurity() {
 							IPProtocol: "ALL",
 							FromPort:   "-1",
 							ToPort:     "-1",
-							CIDR: 		"0.0.0.0/0",
+							CIDR:       "0.0.0.0/0",
 						},
 
 						{
@@ -185,9 +184,8 @@ func handleSecurity() {
 							IPProtocol: "ALL",
 							FromPort:   "-1",
 							ToPort:     "-1",
-							CIDR: 		"0.0.0.0/0",
+							CIDR:       "0.0.0.0/0",
 						},
-
 					},
 				}
 
@@ -216,14 +214,14 @@ func handleSecurity() {
 					// 	IPProtocol: "tcp",
 					// 	FromPort:   "80",
 					// 	ToPort:     "80",
-					// 	CIDR: 		"192.168.0.0/16",						
+					// 	CIDR: 		"192.168.0.0/16",
 					// },
 					// {
 					// 	Direction:  "inbound",
 					// 	IPProtocol: "tcp",
 					// 	FromPort:   "-1",
 					// 	ToPort:     "-1",
-					// 	CIDR: 		"192.168.0.0/16",							
+					// 	CIDR: 		"192.168.0.0/16",
 					// },
 
 					// {
@@ -253,9 +251,8 @@ func handleSecurity() {
 					// 	IPProtocol: "tcp",
 					// 	FromPort:   "8443",
 					// 	ToPort:     "9999",
-					// 	CIDR: 		"192.168.0.0/16",	
+					// 	CIDR: 		"192.168.0.0/16",
 					// },
-
 
 					// // All traffic 허용 rule
 					{
@@ -263,14 +260,14 @@ func handleSecurity() {
 						IPProtocol: "ALL",
 						FromPort:   "-1",
 						ToPort:     "-1",
-						CIDR: 		"0.0.0.0/0",
+						CIDR:       "0.0.0.0/0",
 					},
 					{
 						Direction:  "outbound",
 						IPProtocol: "ALL",
 						FromPort:   "-1",
 						ToPort:     "-1",
-						CIDR: 		"0.0.0.0/0",
+						CIDR:       "0.0.0.0/0",
 					},
 				}
 
@@ -288,7 +285,7 @@ func handleSecurity() {
 
 				securityRuleReqInfo := &[]irs.SecurityRuleInfo{
 					// {
-						
+
 					// 	Direction:  "inbound",
 					// 	IPProtocol: "tcp",
 					// 	FromPort:   "20",
@@ -300,14 +297,14 @@ func handleSecurity() {
 					// 	IPProtocol: "tcp",
 					// 	FromPort:   "80",
 					// 	ToPort:     "80",
-					// 	CIDR: 		"192.168.0.0/16",							
+					// 	CIDR: 		"192.168.0.0/16",
 					// },
 					// {
 					// 	Direction:  "inbound",
 					// 	IPProtocol: "tcp",
 					// 	FromPort:   "-1",
 					// 	ToPort:     "-1",
-					// 	CIDR: 		"192.168.0.0/16",							
+					// 	CIDR: 		"192.168.0.0/16",
 					// },
 					// {
 					// 	Direction:  "inbound",
@@ -335,9 +332,8 @@ func handleSecurity() {
 					// 	IPProtocol: "tcp",
 					// 	FromPort:   "8443",
 					// 	ToPort:     "9999",
-					// 	CIDR: 		"192.168.0.0/16",	
+					// 	CIDR: 		"192.168.0.0/16",
 					// },
-
 
 					// // All traffic 허용 rule
 					{
@@ -345,14 +341,14 @@ func handleSecurity() {
 						IPProtocol: "ALL",
 						FromPort:   "-1",
 						ToPort:     "-1",
-						CIDR: 		"0.0.0.0/0",
+						CIDR:       "0.0.0.0/0",
 					},
 					{
 						Direction:  "outbound",
 						IPProtocol: "ALL",
 						FromPort:   "-1",
 						ToPort:     "-1",
-						CIDR: 		"0.0.0.0/0",
+						CIDR:       "0.0.0.0/0",
 					},
 				}
 
@@ -362,7 +358,7 @@ func handleSecurity() {
 				} else {
 					cblogger.Infof("[%s] Security Rule 제거 결과 : [%v]", securityName, result)
 					spew.Dump(result)
-				}	
+				}
 				cblogger.Info("\nRemoveRules Test Finished")
 
 			case 6:
@@ -406,8 +402,8 @@ func main() {
 	handleSecurity()
 }
 
-//handlerType : resources폴더의 xxxHandler.go에서 Handler이전까지의 문자열
-//(예) ImageHandler.go -> "Image"
+// handlerType : resources폴더의 xxxHandler.go에서 Handler이전까지의 문자열
+// (예) ImageHandler.go -> "Image"
 func getResourceHandler(handlerType string) (interface{}, error) {
 	var cloudDriver idrv.CloudDriver
 	cloudDriver = new(nhndrv.NhnCloudDriver)
@@ -418,14 +414,14 @@ func getResourceHandler(handlerType string) (interface{}, error) {
 	connectionInfo := idrv.ConnectionInfo{
 		CredentialInfo: idrv.CredentialInfo{
 			IdentityEndpoint: config.NhnCloud.IdentityEndpoint,
-			Username:         	  config.NhnCloud.Nhn_Username,
-			Password:         	  config.NhnCloud.Api_Password,
-			DomainName:      	  config.NhnCloud.DomainName,
-			TenantId:        	  config.NhnCloud.TenantId,
+			Username:         config.NhnCloud.Nhn_Username,
+			Password:         config.NhnCloud.Api_Password,
+			DomainName:       config.NhnCloud.DomainName,
+			TenantId:         config.NhnCloud.TenantId,
 		},
 		RegionInfo: idrv.RegionInfo{
 			Region: config.NhnCloud.Region,
-			Zone: 	config.NhnCloud.Zone,
+			Zone:   config.NhnCloud.Zone,
 		},
 	}
 
@@ -476,14 +472,14 @@ type Config struct {
 		DomainName       string `yaml:"domain_name"`
 		TenantId         string `yaml:"tenant_id"`
 		Region           string `yaml:"region"`
-		Zone           	 string `yaml:"zone"`
+		Zone             string `yaml:"zone"`
 
-		VMName           string `yaml:"vm_name"`
-		ImageId          string `yaml:"image_id"`
-		VMSpecId         string `yaml:"vmspec_id"`
-		NetworkId        string `yaml:"network_id"`
-		SecurityGroups   string `yaml:"security_groups"`
-		KeypairName      string `yaml:"keypair_name"`
+		VMName         string `yaml:"vm_name"`
+		ImageId        string `yaml:"image_id"`
+		VMSpecId       string `yaml:"vmspec_id"`
+		NetworkId      string `yaml:"network_id"`
+		SecurityGroups string `yaml:"security_groups"`
+		KeypairName    string `yaml:"keypair_name"`
 
 		VMId string `yaml:"vm_id"`
 

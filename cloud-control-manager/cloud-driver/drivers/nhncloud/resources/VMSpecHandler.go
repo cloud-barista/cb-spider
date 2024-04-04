@@ -27,16 +27,16 @@ import (
 )
 
 type NhnCloudVMSpecHandler struct {
-	RegionInfo  idrv.RegionInfo
-	VMClient 	*nhnsdk.ServiceClient
+	RegionInfo idrv.RegionInfo
+	VMClient   *nhnsdk.ServiceClient
 }
 
 func (vmSpecHandler *NhnCloudVMSpecHandler) ListVMSpec() ([]*irs.VMSpecInfo, error) {
 	cblogger.Info("NHN Cloud Cloud Driver: called ListVMSpec()!")
 	callLogInfo := getCallLogScheme(vmSpecHandler.RegionInfo.Region, call.VMSPEC, "ListVMSpec()", "ListVMSpec()")
 
-	listOpts :=	flavors.ListOpts{
-		Limit: 100,  // Note) default : 20
+	listOpts := flavors.ListOpts{
+		Limit: 100, // Note) default : 20
 	}
 	start := call.Start()
 	allPages, err := flavors.ListDetail(vmSpecHandler.VMClient, listOpts).AllPages()
@@ -52,10 +52,10 @@ func (vmSpecHandler *NhnCloudVMSpecHandler) ListVMSpec() ([]*irs.VMSpecInfo, err
 	LoggingInfo(callLogInfo, start)
 
 	var vmSpecInfoList []*irs.VMSpecInfo
-    for _, vmSpec := range specList {
+	for _, vmSpec := range specList {
 		vmSpecInfo := vmSpecHandler.mappingVMSpecInfo(vmSpec)
 		vmSpecInfoList = append(vmSpecInfoList, vmSpecInfo)
-    }
+	}
 	return vmSpecInfoList, nil
 }
 
@@ -155,11 +155,11 @@ func (vmSpecHandler *NhnCloudVMSpecHandler) GetOrgVMSpec(specName string) (strin
 func (vmSpecHandler *NhnCloudVMSpecHandler) mappingVMSpecInfo(vmSpec flavors.Flavor) *irs.VMSpecInfo {
 	cblogger.Info("NHN Cloud Cloud Driver: called mappingVMSpecInfo()!")
 
-	vmSpecInfo := &irs.VMSpecInfo {
-		Region:       vmSpecHandler.RegionInfo.Region,
-		Name:         vmSpec.Name,
-		VCpu:         irs.VCpuInfo{Count: strconv.Itoa(vmSpec.VCPUs),},
-		Mem:          strconv.Itoa(vmSpec.RAM),
+	vmSpecInfo := &irs.VMSpecInfo{
+		Region: vmSpecHandler.RegionInfo.Region,
+		Name:   vmSpec.Name,
+		VCpu:   irs.VCpuInfo{Count: strconv.Itoa(vmSpec.VCPUs)},
+		Mem:    strconv.Itoa(vmSpec.RAM),
 		// Gpu:          []irs.GpuInfo{{Count: "N/A", Mfr: "N/A", Model: "N/A", Mem: "N/A"}},
 
 		KeyValueList: []irs.KeyValue{
@@ -169,9 +169,9 @@ func (vmSpecHandler *NhnCloudVMSpecHandler) mappingVMSpecInfo(vmSpec flavors.Fla
 	}
 
 	if strings.EqualFold(strconv.Itoa(vmSpec.Disk), "0") {
-		keyValue := irs.KeyValue {
-			Key : "Notice!!",
-			Value : "Specify 'RootDiskType' and 'RootDiskSize' when VM Creation to Boot from the Attached Volume!!",
+		keyValue := irs.KeyValue{
+			Key:   "Notice!!",
+			Value: "Specify 'RootDiskType' and 'RootDiskSize' when VM Creation to Boot from the Attached Volume!!",
 		}
 		vmSpecInfo.KeyValueList = append(vmSpecInfo.KeyValueList, keyValue)
 	}

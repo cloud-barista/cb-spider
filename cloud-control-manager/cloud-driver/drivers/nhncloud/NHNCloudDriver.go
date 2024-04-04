@@ -103,13 +103,13 @@ func (driver *NhnCloudDriver) ConnectCloud(connInfo idrv.ConnectionInfo) (icon.C
 
 	iConn := nhncon.NhnCloudConnection{
 		CredentialInfo: connInfo.CredentialInfo, // Note) Need in RegionZoneHandler
-		RegionInfo: 	connInfo.RegionInfo,
-		VMClient: 		VMClient,
-		ImageClient: 	ImageClient,
-		NetworkClient: 	NetworkClient,
-		VolumeClient: 	VolumeClient,
-		ClusterClient: 	ClusterClient,
-	}	
+		RegionInfo:     connInfo.RegionInfo,
+		VMClient:       VMClient,
+		ImageClient:    ImageClient,
+		NetworkClient:  NetworkClient,
+		VolumeClient:   VolumeClient,
+		ClusterClient:  ClusterClient,
+	}
 	return &iConn, nil
 }
 
@@ -165,6 +165,6 @@ func getClusterClient(providerClient *nhnsdk.ProviderClient, connInfo idrv.Conne
 	if err != nil {
 		return nil, err
 	}
-	
+
 	return client, err
 }

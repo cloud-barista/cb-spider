@@ -11,16 +11,16 @@
 package main
 
 import (
-	"os"
 	"errors"
 	"fmt"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v3"
+	"os"
 
+	cblog "github.com/cloud-barista/cb-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
-	cblog "github.com/cloud-barista/cb-log"
 
 	// nhndrv "github.com/cloud-barista/nhncloud/nhncloud"
 	nhndrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/nhncloud"
@@ -113,7 +113,6 @@ func handleImage() {
 
 				cblogger.Info("\nGetImage Test Finished")
 
-
 			case 3:
 				cblogger.Infof("[%s] CheckWindowsImage() Test", imageReqInfo.IId)
 
@@ -146,7 +145,7 @@ func main() {
 	handleImage()
 }
 
-//(Ex) ImageHandler.go -> "Image"
+// (Ex) ImageHandler.go -> "Image"
 func getResourceHandler(handlerType string) (interface{}, error) {
 	var cloudDriver idrv.CloudDriver
 	cloudDriver = new(nhndrv.NhnCloudDriver)
@@ -157,14 +156,14 @@ func getResourceHandler(handlerType string) (interface{}, error) {
 	connectionInfo := idrv.ConnectionInfo{
 		CredentialInfo: idrv.CredentialInfo{
 			IdentityEndpoint: config.NhnCloud.IdentityEndpoint,
-			Username:         	  config.NhnCloud.Nhn_Username,
-			Password:         	  config.NhnCloud.Api_Password,
-			DomainName:      	  config.NhnCloud.DomainName,
-			TenantId:        	  config.NhnCloud.TenantId,
+			Username:         config.NhnCloud.Nhn_Username,
+			Password:         config.NhnCloud.Api_Password,
+			DomainName:       config.NhnCloud.DomainName,
+			TenantId:         config.NhnCloud.TenantId,
 		},
 		RegionInfo: idrv.RegionInfo{
 			Region: config.NhnCloud.Region,
-			Zone: 	config.NhnCloud.Zone,
+			Zone:   config.NhnCloud.Zone,
 		},
 	}
 
@@ -205,14 +204,14 @@ type Config struct {
 		DomainName       string `yaml:"domain_name"`
 		TenantId         string `yaml:"tenant_id"`
 		Region           string `yaml:"region"`
-		Zone           	 string `yaml:"zone"`
+		Zone             string `yaml:"zone"`
 
-		VMName           string `yaml:"vm_name"`
-		ImageId          string `yaml:"image_id"`
-		VMSpecId         string `yaml:"vmspec_id"`
-		NetworkId        string `yaml:"network_id"`
-		SecurityGroups   string `yaml:"security_groups"`
-		KeypairName      string `yaml:"keypair_name"`
+		VMName         string `yaml:"vm_name"`
+		ImageId        string `yaml:"image_id"`
+		VMSpecId       string `yaml:"vmspec_id"`
+		NetworkId      string `yaml:"network_id"`
+		SecurityGroups string `yaml:"security_groups"`
+		KeypairName    string `yaml:"keypair_name"`
 
 		VMId string `yaml:"vm_id"`
 

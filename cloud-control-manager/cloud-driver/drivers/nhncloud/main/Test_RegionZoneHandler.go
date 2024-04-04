@@ -11,15 +11,15 @@
 package main
 
 import (
-	"os"
 	"fmt"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v3"
+	"os"
 
+	cblog "github.com/cloud-barista/cb-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
-	cblog "github.com/cloud-barista/cb-log"
 
 	// nhndrv "github.com/cloud-barista/nhncloud/nhncloud"
 	nhndrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/nhncloud"
@@ -86,7 +86,7 @@ func handleRegionZone() {
 				if err != nil {
 					cblogger.Error("Region(Org) list 정보 조회 실패 : ", err)
 				} else {
-					fmt.Println("\n==================================================================================================")	
+					fmt.Println("\n==================================================================================================")
 					cblogger.Debug("Region Info 조회 성공!!")
 					spew.Dump(result)
 					cblogger.Debug(result)
@@ -99,7 +99,7 @@ func handleRegionZone() {
 				if err != nil {
 					cblogger.Error("Region(Org) list 정보 조회 실패 : ", err)
 				} else {
-					fmt.Println("\n==================================================================================================")	
+					fmt.Println("\n==================================================================================================")
 					cblogger.Debug("Region(Org) list 조회 성공!!")
 					spew.Dump(result)
 					cblogger.Debug(result)
@@ -112,7 +112,7 @@ func handleRegionZone() {
 				if err != nil {
 					cblogger.Error("Zone(Org) list 조회 실패 : ", err)
 				} else {
-					fmt.Println("\n==================================================================================================")	
+					fmt.Println("\n==================================================================================================")
 					cblogger.Debug("Zone(Org) list 조회 성공")
 					spew.Dump(result)
 					cblogger.Debug(result)
@@ -133,8 +133,8 @@ func main() {
 	handleRegionZone()
 }
 
-//handlerType : resources폴더의 xxxHandler.go에서 Handler이전까지의 문자열
-//(예) ImageHandler.go -> "Image"
+// handlerType : resources폴더의 xxxHandler.go에서 Handler이전까지의 문자열
+// (예) ImageHandler.go -> "Image"
 func getResourceHandler(handlerType string) (interface{}, error) {
 	var cloudDriver idrv.CloudDriver
 	cloudDriver = new(nhndrv.NhnCloudDriver)
@@ -144,15 +144,15 @@ func getResourceHandler(handlerType string) (interface{}, error) {
 
 	connectionInfo := idrv.ConnectionInfo{
 		CredentialInfo: idrv.CredentialInfo{
-			IdentityEndpoint: 		config.NhnCloud.IdentityEndpoint,
-			Username:         	  	config.NhnCloud.Nhn_Username,
-			Password:         	  	config.NhnCloud.Api_Password,
-			DomainName:      	  	config.NhnCloud.DomainName,
-			TenantId:        	  	config.NhnCloud.TenantId,
+			IdentityEndpoint: config.NhnCloud.IdentityEndpoint,
+			Username:         config.NhnCloud.Nhn_Username,
+			Password:         config.NhnCloud.Api_Password,
+			DomainName:       config.NhnCloud.DomainName,
+			TenantId:         config.NhnCloud.TenantId,
 		},
 		RegionInfo: idrv.RegionInfo{
 			Region: config.NhnCloud.Region,
-			Zone: 	config.NhnCloud.Zone,
+			Zone:   config.NhnCloud.Zone,
 		},
 	}
 	cloudConnection, errCon := cloudDriver.ConnectCloud(connectionInfo)
@@ -206,14 +206,14 @@ type Config struct {
 		DomainName       string `yaml:"domain_name"`
 		TenantId         string `yaml:"tenant_id"`
 		Region           string `yaml:"region"`
-		Zone           	 string `yaml:"zone"`
+		Zone             string `yaml:"zone"`
 
-		VMName           string `yaml:"vm_name"`
-		ImageId          string `yaml:"image_id"`
-		VMSpecId         string `yaml:"vmspec_id"`
-		NetworkId        string `yaml:"network_id"`
-		SecurityGroups   string `yaml:"security_groups"`
-		KeypairName      string `yaml:"keypair_name"`
+		VMName         string `yaml:"vm_name"`
+		ImageId        string `yaml:"image_id"`
+		VMSpecId       string `yaml:"vmspec_id"`
+		NetworkId      string `yaml:"network_id"`
+		SecurityGroups string `yaml:"security_groups"`
+		KeypairName    string `yaml:"keypair_name"`
 
 		VMId string `yaml:"vm_id"`
 

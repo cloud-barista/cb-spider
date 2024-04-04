@@ -11,10 +11,10 @@
 package resources
 
 import (
+	"encoding/json"
+	"fmt"
 	"os"
 	"os/exec"
-	"fmt"
-	"encoding/json"
 
 	"strings"
 	"sync"
@@ -23,9 +23,9 @@ import (
 	nhnsdk "github.com/cloud-barista/nhncloud-sdk-go"
 	"github.com/cloud-barista/nhncloud-sdk-go/openstack/compute/v2/extensions/secgroups"
 	"github.com/cloud-barista/nhncloud-sdk-go/openstack/compute/v2/flavors"
-	"github.com/cloud-barista/nhncloud-sdk-go/openstack/networking/v2/vpcs"
-	"github.com/cloud-barista/nhncloud-sdk-go/openstack/networking/v2/subnets"
 	"github.com/cloud-barista/nhncloud-sdk-go/openstack/networking/v2/ports"
+	"github.com/cloud-barista/nhncloud-sdk-go/openstack/networking/v2/subnets"
+	"github.com/cloud-barista/nhncloud-sdk-go/openstack/networking/v2/vpcs"
 
 	"github.com/sirupsen/logrus"
 
@@ -69,8 +69,8 @@ func getCallLogScheme(zone string, resourceType call.RES_TYPE, resourceName stri
 	}
 }
 
-func logAndReturnError(callLogInfo call.CLOUDLOGSCHEMA, givenErrString string, v interface{}) (error) {
-	newErr := fmt.Errorf(givenErrString + " %v", v)
+func logAndReturnError(callLogInfo call.CLOUDLOGSCHEMA, givenErrString string, v interface{}) error {
+	newErr := fmt.Errorf(givenErrString+" %v", v)
 	cblogger.Error(newErr.Error())
 	LoggingError(callLogInfo, newErr)
 	return newErr
@@ -79,7 +79,7 @@ func logAndReturnError(callLogInfo call.CLOUDLOGSCHEMA, givenErrString string, v
 func getPublicVPCInfo(networkClient *nhnsdk.ServiceClient, typeName string) (string, error) {
 	cblogger.Info("NHN Cloud Driver: called getPublicVPCInfo()")
 
-	listOpts := vpcs.ListOpts {
+	listOpts := vpcs.ListOpts{
 		RouterExternal: true,
 	}
 	allPages, err := vpcs.List(networkClient, listOpts).AllPages()
@@ -230,33 +230,33 @@ func checkFolderAndCreate(folderPath string) error {
 
 func getOriginalNameId(IID2NameId string) string {
 	var originalNameId string
-	
-	if len(IID2NameId) <= 9 {  	// For local test
+
+	if len(IID2NameId) <= 9 { // For local test
 		originalNameId = IID2NameId
-	} else { 					// For CB-Spider IID2 NameId
+	} else { // For CB-Spider IID2 NameId
 		reversedNameId := reverse(IID2NameId)
 		originalNameId = reversedNameId[:21]
-		originalNameId = strings.TrimSuffix(IID2NameId, reverse(originalNameId))	
+		originalNameId = strings.TrimSuffix(IID2NameId, reverse(originalNameId))
 	}
 	cblogger.Infof("# originalNameId : %s", originalNameId)
 	return originalNameId
 }
 
 func reverse(s string) (result string) {
-	for _,v := range s {
+	for _, v := range s {
 		result = string(v) + result
 	}
-	return 
+	return
 }
 
 func runCommand(cmdName string, cmdArgs []string) (string, error) {
 
 	/*
-	Ref)
-	var (
-		cmdOut []byte
-		cmdErr   error		
-	)
+		Ref)
+		var (
+			cmdOut []byte
+			cmdErr   error
+		)
 	*/
 
 	cblogger.Infof("cmdName : %s", cmdName)
@@ -271,9 +271,9 @@ func runCommand(cmdName string, cmdArgs []string) (string, error) {
 
 		return string(cmdOut), cmdErr
 	} else {
-	fmt.Println("cmdOut : ", string(cmdOut))
+		fmt.Println("cmdOut : ", string(cmdOut))
 
-	return string(cmdOut), nil
+		return string(cmdOut), nil
 	}
 }
 

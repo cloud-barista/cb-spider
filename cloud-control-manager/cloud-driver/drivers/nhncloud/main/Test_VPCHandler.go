@@ -11,15 +11,15 @@
 package main
 
 import (
-	"os"
 	"fmt"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v3"
+	"os"
 
+	cblog "github.com/cloud-barista/cb-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
-	cblog "github.com/cloud-barista/cb-log"
 
 	// nhndrv "github.com/cloud-barista/nhncloud/nhncloud"
 	nhndrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/nhncloud"
@@ -64,26 +64,26 @@ func handleVPC() {
 		subnetReqName := "nhn-subnet-1"
 
 		var subnetInfoList []irs.SubnetInfo
-			info := irs.SubnetInfo{
-				IId: irs.IID{
-					NameId: subnetReqName,
-				},
-				// IPv4_CIDR: "10.0.0.0/28",
-				IPv4_CIDR: "172.16.0.0/24",
-			}
-			subnetInfoList = append(subnetInfoList, info)
-		
+		info := irs.SubnetInfo{
+			IId: irs.IID{
+				NameId: subnetReqName,
+			},
+			// IPv4_CIDR: "10.0.0.0/28",
+			IPv4_CIDR: "172.16.0.0/24",
+		}
+		subnetInfoList = append(subnetInfoList, info)
+
 		vpcReqInfo := irs.VPCReqInfo{
 			IId: irs.IID{
-					NameId: vpcReqName,
-				},
+				NameId: vpcReqName,
+			},
 			// IPv4_CIDR:      "10.0.0.0/24",
-			IPv4_CIDR:      "172.16.0.0/12",
+			IPv4_CIDR: "172.16.0.0/12",
 			// IPv4_CIDR:      "172.16.0.0/16",
 			SubnetInfoList: subnetInfoList,
 		}
-		
-		addSubnetReqInfo := irs.SubnetInfo {
+
+		addSubnetReqInfo := irs.SubnetInfo{
 			IId: irs.IID{
 				NameId: "nhn-subnet-3",
 			},
@@ -91,13 +91,13 @@ func handleVPC() {
 		}
 
 		//NHN Cloud VPC CIDR은 아래의 사설 주소 범위로 입력되어야 함.
-			// 10.0.0.0/8
-			// 172.16.0.0/12
-			// 192.168.0.0/16
-			
-			// CIDR은 링크 로컬 주소 범위(169.254.0.0/16)로 입력할 수 없음.
-			//	/24보다 큰 CIDR 블록은 입력할 수 없음.
-			// VPC은 최대 3개까지 생성 가능
+		// 10.0.0.0/8
+		// 172.16.0.0/12
+		// 192.168.0.0/16
+
+		// CIDR은 링크 로컬 주소 범위(169.254.0.0/16)로 입력할 수 없음.
+		//	/24보다 큰 CIDR 블록은 입력할 수 없음.
+		// VPC은 최대 3개까지 생성 가능
 
 		var commandNum int
 
@@ -138,7 +138,7 @@ func handleVPC() {
 				}
 
 				fmt.Println("\nListVMSpec() Test Finished")
-				
+
 			case 3:
 				fmt.Println("Start GetVPC() ...")
 				if vpcInfo, err := handler.GetVPC(vpcIId); err != nil {
@@ -170,7 +170,7 @@ func handleVPC() {
 					cblogger.Info("Subnet 제거 성공!!")
 					spew.Dump(result)
 				}
-				fmt.Println("\nRemoveSubnet() Test Finished")	
+				fmt.Println("\nRemoveSubnet() Test Finished")
 
 			case 6:
 				fmt.Println("Start DeleteVPC() ...")
@@ -182,7 +182,6 @@ func handleVPC() {
 					spew.Dump(result)
 				}
 				fmt.Println("\nGetVPC() Test Finished")
-
 
 			case 0:
 				fmt.Println("Exit")
@@ -198,8 +197,8 @@ func main() {
 	handleVPC()
 }
 
-//handlerType : resources폴더의 xxxHandler.go에서 Handler이전까지의 문자열
-//(예) ImageHandler.go -> "Image"
+// handlerType : resources폴더의 xxxHandler.go에서 Handler이전까지의 문자열
+// (예) ImageHandler.go -> "Image"
 func getResourceHandler(handlerType string) (interface{}, error) {
 	var cloudDriver idrv.CloudDriver
 	cloudDriver = new(nhndrv.NhnCloudDriver)
@@ -212,14 +211,14 @@ func getResourceHandler(handlerType string) (interface{}, error) {
 	connectionInfo := idrv.ConnectionInfo{
 		CredentialInfo: idrv.CredentialInfo{
 			IdentityEndpoint: config.NhnCloud.IdentityEndpoint,
-			Username:         	  config.NhnCloud.Nhn_Username,
-			Password:         	  config.NhnCloud.Api_Password,
-			DomainName:      	  config.NhnCloud.DomainName,
-			TenantId:        	  config.NhnCloud.TenantId,
+			Username:         config.NhnCloud.Nhn_Username,
+			Password:         config.NhnCloud.Api_Password,
+			DomainName:       config.NhnCloud.DomainName,
+			TenantId:         config.NhnCloud.TenantId,
 		},
 		RegionInfo: idrv.RegionInfo{
 			Region: config.NhnCloud.Region,
-			Zone: 	config.NhnCloud.Zone,
+			Zone:   config.NhnCloud.Zone,
 		},
 	}
 
@@ -270,14 +269,14 @@ type Config struct {
 		DomainName       string `yaml:"domain_name"`
 		TenantId         string `yaml:"tenant_id"`
 		Region           string `yaml:"region"`
-		Zone           	 string `yaml:"zone"`
+		Zone             string `yaml:"zone"`
 
-		VMName           string `yaml:"vm_name"`
-		ImageId          string `yaml:"image_id"`
-		VMSpecId         string `yaml:"vmspec_id"`
-		NetworkId        string `yaml:"network_id"`
-		SecurityGroups   string `yaml:"security_groups"`
-		KeypairName      string `yaml:"keypair_name"`
+		VMName         string `yaml:"vm_name"`
+		ImageId        string `yaml:"image_id"`
+		VMSpecId       string `yaml:"vmspec_id"`
+		NetworkId      string `yaml:"network_id"`
+		SecurityGroups string `yaml:"security_groups"`
+		KeypairName    string `yaml:"keypair_name"`
 
 		VMId string `yaml:"vm_id"`
 

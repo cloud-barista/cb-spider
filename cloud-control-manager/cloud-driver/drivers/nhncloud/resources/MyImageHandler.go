@@ -2,15 +2,15 @@ package resources
 
 import (
 	"fmt"
-	"strings"
 	"strconv"
+	"strings"
 	"time"
 	// "google.golang.org/grpc/metadata"
 	// "github.com/davecgh/go-spew/spew"
 
 	nhnsdk "github.com/cloud-barista/nhncloud-sdk-go"
-	"github.com/cloud-barista/nhncloud-sdk-go/openstack/compute/v2/servers"
 	"github.com/cloud-barista/nhncloud-sdk-go/openstack/compute/v2/flavors"
+	"github.com/cloud-barista/nhncloud-sdk-go/openstack/compute/v2/servers"
 	images "github.com/cloud-barista/nhncloud-sdk-go/openstack/imageservice/v2/images" // imageservice/v2/images : For Visibility parameter
 	// comimages "github.com/cloud-barista/nhncloud-sdk-go/openstack/compute/v2/images" // compute/v2/images
 	"github.com/cloud-barista/nhncloud-sdk-go/openstack/blockstorage/extensions/volumeactions"
@@ -29,7 +29,7 @@ type NhnCloudMyImageHandler struct {
 	VolumeClient  *nhnsdk.ServiceClient
 }
 
-// To Take a Snapshot with VM ID (To Create My Image) 
+// To Take a Snapshot with VM ID (To Create My Image)
 func (myImageHandler *NhnCloudMyImageHandler) SnapshotVM(snapshotReqInfo irs.MyImageInfo) (irs.MyImageInfo, error) {
 	cblogger.Info("NHN Cloud Driver: called SnapshotVM()")
 	callLogInfo := getCallLogScheme(myImageHandler.RegionInfo.Region, call.MYIMAGE, snapshotReqInfo.SourceVM.SystemId, "SnapshotVM()")
@@ -58,7 +58,7 @@ func (myImageHandler *NhnCloudMyImageHandler) SnapshotVM(snapshotReqInfo irs.MyI
 	// cblogger.Info("\n")
 
 	// snapShotMap := make(map[string]string)
-    // snapShotMap["vmID"] = snapshotReqInfo.SourceVM.SystemId
+	// snapShotMap["vmID"] = snapshotReqInfo.SourceVM.SystemId
 
 	vmSpecType := nhnVMSpecType[:2] // Ex) vmSpecType : 'u2', 'm2' or 'c2' ...
 	cblogger.Infof("# vmSpecType : [%s]", vmSpecType)
@@ -68,7 +68,7 @@ func (myImageHandler *NhnCloudMyImageHandler) SnapshotVM(snapshotReqInfo irs.MyI
 	if strings.EqualFold(vmSpecType, "u2") {
 		start := call.Start()
 		snapshotOpts := servers.CreateImageOpts{
-			Name:		snapshotName,
+			Name: snapshotName,
 			// Metadata: 	snapShotMap,
 		}
 		snapShotImageId, err := servers.CreateImage(myImageHandler.VMClient, snapshotReqInfo.SourceVM.SystemId, snapshotOpts).ExtractImageID() // Not images.CreateImage()
@@ -77,8 +77,8 @@ func (myImageHandler *NhnCloudMyImageHandler) SnapshotVM(snapshotReqInfo irs.MyI
 			cblogger.Error(newErr.Error())
 			LoggingError(callLogInfo, newErr)
 			return irs.MyImageInfo{}, newErr
-		}	
-		LoggingInfo(callLogInfo, start)	
+		}
+		LoggingInfo(callLogInfo, start)
 		cblogger.Infof("\n\n# snapShotImageId : [%s]\n", snapShotImageId)
 
 		newImageIID = irs.IID{SystemId: snapShotImageId}
@@ -92,7 +92,7 @@ func (myImageHandler *NhnCloudMyImageHandler) SnapshotVM(snapshotReqInfo irs.MyI
 		}
 
 		start := call.Start()
-		uploadImageOpts := volumeactions.UploadImageOpts {
+		uploadImageOpts := volumeactions.UploadImageOpts{
 			ImageName: snapshotName,
 			Force:     true,
 		}
@@ -105,9 +105,9 @@ func (myImageHandler *NhnCloudMyImageHandler) SnapshotVM(snapshotReqInfo irs.MyI
 		}
 		LoggingInfo(callLogInfo, start)
 		cblogger.Infof("\n\n# snapShotImageId : [%s]\n", volumeImage.ImageID)
-	
+
 		newImageIID = irs.IID{SystemId: volumeImage.ImageID}
-	
+
 		// cblogger.Info("\n\n### volumeImage : ")
 		// spew.Dump(volumeImage)
 		// cblogger.Info("\n")
@@ -139,7 +139,7 @@ func (myImageHandler *NhnCloudMyImageHandler) ListMyImage() ([]*irs.MyImageInfo,
 	callLogInfo := getCallLogScheme(myImageHandler.RegionInfo.Region, call.MYIMAGE, "ListMyImage()", "ListMyImage()")
 
 	start := call.Start()
-	listOpts :=	images.ListOpts{
+	listOpts := images.ListOpts{
 		Visibility: images.ImageVisibilityPrivate, // Note : Private image only
 	}
 	allPages, err := images.List(myImageHandler.ImageClient, listOpts).AllPages()
@@ -159,10 +159,10 @@ func (myImageHandler *NhnCloudMyImageHandler) ListMyImage() ([]*irs.MyImageInfo,
 	LoggingInfo(callLogInfo, start)
 
 	var imageInfoList []*irs.MyImageInfo
-    for _, nhnImage := range nhnImageList {
+	for _, nhnImage := range nhnImageList {
 		imageInfo := myImageHandler.mappingMyImageInfo(nhnImage)
 		imageInfoList = append(imageInfoList, imageInfo)
-    }
+	}
 	return imageInfoList, nil
 }
 
@@ -321,13 +321,13 @@ func (myImageHandler *NhnCloudMyImageHandler) waitForImageSnapshot(myImageIID ir
 func (myImageHandler *NhnCloudMyImageHandler) mappingMyImageInfo(myImage images.Image) *irs.MyImageInfo {
 	cblogger.Info("NHN Cloud Driver: called mappingMyImageInfo()!")
 
-	myImageInfo := &irs.MyImageInfo {
+	myImageInfo := &irs.MyImageInfo{
 		IId: irs.IID{
 			NameId:   myImage.Name,
 			SystemId: myImage.ID,
 		},
-		Status: 	  ConvertImageStatus(myImage.Status),
-		CreatedTime:  myImage.CreatedAt,
+		Status:      ConvertImageStatus(myImage.Status),
+		CreatedTime: myImage.CreatedAt,
 	}
 
 	keyValueList := []irs.KeyValue{
@@ -342,14 +342,14 @@ func (myImageHandler *NhnCloudMyImageHandler) mappingMyImageInfo(myImage images.
 	}
 
 	for key, val := range myImage.Properties {
-		if (key == "os_type" || key == "description" || key == "os_architecture" || key == "hypervisor_type" || key == "image_type" || key == "os_distro" || key == "os_version") {
+		if key == "os_type" || key == "description" || key == "os_architecture" || key == "hypervisor_type" || key == "image_type" || key == "os_distro" || key == "os_version" {
 			metadata := irs.KeyValue{
 				Key:   strings.ToUpper(key),
 				Value: fmt.Sprintf("%v", val),
 			}
-		keyValueList = append(keyValueList, metadata)
+			keyValueList = append(keyValueList, metadata)
 		}
-	}	
+	}
 
 	myImageInfo.KeyValueList = keyValueList
 	return myImageInfo
@@ -357,7 +357,7 @@ func (myImageHandler *NhnCloudMyImageHandler) mappingMyImageInfo(myImage images.
 
 func ConvertImageStatus(myImageStatus images.ImageStatus) irs.MyImageStatus {
 	cblogger.Info("NHN Cloud Driver: called ConvertImageStatus()")
-	
+
 	// Ref) https://github.com/cloud-barista/nhncloud-sdk-go/blob/main/openstack/imageservice/v2/images/types.go
 	var resultStatus irs.MyImageStatus
 	switch myImageStatus {
@@ -403,7 +403,7 @@ func (myImageHandler *NhnCloudMyImageHandler) getVMSpecType(vmIID irs.IID) (stri
 		newErr := fmt.Errorf("Failed to Get the Flavor info form NHN Cloud!! : [%v] ", err)
 		cblogger.Error(newErr.Error())
 		return "", newErr
-	} else if nhnFlavor != nil {		
+	} else if nhnFlavor != nil {
 		vmSpecType = nhnFlavor.Name
 	}
 
@@ -414,9 +414,9 @@ func (myImageHandler *NhnCloudMyImageHandler) getBootableVolumeID(vmIID irs.IID)
 	cblogger.Info("NHN Cloud Driver: called getBootableVolumeID()")
 
 	diskHandler := NhnCloudDiskHandler{
-		RegionInfo:     myImageHandler.RegionInfo,
-		VMClient:       myImageHandler.VMClient,
-		VolumeClient:   myImageHandler.VolumeClient,
+		RegionInfo:   myImageHandler.RegionInfo,
+		VMClient:     myImageHandler.VMClient,
+		VolumeClient: myImageHandler.VolumeClient,
 	}
 
 	nhnVolumeList, err := diskHandler.getNhnVolumeList()
@@ -426,8 +426,8 @@ func (myImageHandler *NhnCloudMyImageHandler) getBootableVolumeID(vmIID irs.IID)
 		return "", newErr
 	}
 
-	var bootableVolumeId string	
-	for _, nhnVolume := range nhnVolumeList {		
+	var bootableVolumeId string
+	for _, nhnVolume := range nhnVolumeList {
 		isBootable, err := strconv.ParseBool(nhnVolume.Bootable)
 		if err != nil {
 			newErr := fmt.Errorf("Failed to Parse the String value!! : [%v]", err)
@@ -436,7 +436,7 @@ func (myImageHandler *NhnCloudMyImageHandler) getBootableVolumeID(vmIID irs.IID)
 		}
 
 		if isBootable && nhnVolume.Attachments != nil && len(nhnVolume.Attachments) > 0 {
-			for _, attachment := range nhnVolume.Attachments {			
+			for _, attachment := range nhnVolume.Attachments {
 				if strings.EqualFold(attachment.ServerID, vmIID.SystemId) {
 					bootableVolumeId = attachment.VolumeID
 					break

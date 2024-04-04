@@ -14,16 +14,16 @@
 package resources
 
 import (
-	"strings"
 	"fmt"
+	"strings"
 	// "sync"
 	"time"
 	// "github.com/davecgh/go-spew/spew"
 
 	nhnsdk "github.com/cloud-barista/nhncloud-sdk-go"
 	"github.com/cloud-barista/nhncloud-sdk-go/openstack/networking/v2/extensions/external"
-	"github.com/cloud-barista/nhncloud-sdk-go/openstack/networking/v2/vpcs"
 	"github.com/cloud-barista/nhncloud-sdk-go/openstack/networking/v2/subnets"
+	"github.com/cloud-barista/nhncloud-sdk-go/openstack/networking/v2/vpcs"
 
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
@@ -31,9 +31,9 @@ import (
 )
 
 type NhnCloudVPCHandler struct {
-	CredentialInfo  idrv.CredentialInfo
-	RegionInfo 		idrv.RegionInfo
-	NetworkClient   *nhnsdk.ServiceClient
+	CredentialInfo idrv.CredentialInfo
+	RegionInfo     idrv.RegionInfo
+	NetworkClient  *nhnsdk.ServiceClient
 }
 
 type NetworkWithExt struct {
@@ -56,7 +56,7 @@ func (vpcHandler *NhnCloudVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.
 		cblogger.Error(newErr.Error())
 		return irs.VPCInfo{}, newErr
 	}
-	
+
 	if strings.EqualFold(vpcHandler.CredentialInfo.TenantId, "") {
 		newErr := fmt.Errorf("Invalid Tenant ID!!")
 		cblogger.Error(newErr.Error())
@@ -64,9 +64,9 @@ func (vpcHandler *NhnCloudVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.
 	}
 
 	createOpts := vpcs.CreateOpts{
-		Name:       vpcReqInfo.IId.NameId,
-		CIDRv4:		vpcReqInfo.IPv4_CIDR,
-		TenantID: 	vpcHandler.CredentialInfo.TenantId, // Need to Specify!!
+		Name:     vpcReqInfo.IId.NameId,
+		CIDRv4:   vpcReqInfo.IPv4_CIDR,
+		TenantID: vpcHandler.CredentialInfo.TenantId, // Need to Specify!!
 	}
 	start := call.Start()
 	vpcResult, err := vpcs.Create(vpcHandler.NetworkClient, createOpts).Extract()
@@ -97,7 +97,7 @@ func (vpcHandler *NhnCloudVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.
 		LoggingError(callLogInfo, err)
 		return irs.VPCInfo{}, err
 	} else {
-		vpcInfo.IId.NameId = vpcReqInfo.IId.NameId  // Caution!! For IID2 NameID validation check for VPC
+		vpcInfo.IId.NameId = vpcReqInfo.IId.NameId // Caution!! For IID2 NameID validation check for VPC
 	}
 
 	// Create Subnet
@@ -160,7 +160,7 @@ func (vpcHandler *NhnCloudVPCHandler) ListVPC() ([]*irs.VPCInfo, error) {
 
 	start := call.Start()
 	listOpts := vpcs.ListOpts{
-		TenantID: vpcHandler.CredentialInfo.TenantId,
+		TenantID:       vpcHandler.CredentialInfo.TenantId,
 		RouterExternal: false,
 	}
 	allPages, err := vpcs.List(vpcHandler.NetworkClient, listOpts).AllPages()
@@ -236,9 +236,9 @@ func (vpcHandler *NhnCloudVPCHandler) createSubnet(vpcId string, subnetReqInfo i
 	}
 
 	createOpts := subnets.CreateOpts{
-		VpcID: 	vpcId,
-		CIDR: 	subnetReqInfo.IPv4_CIDR,
-		Name: 	subnetReqInfo.IId.NameId,
+		VpcID: vpcId,
+		CIDR:  subnetReqInfo.IPv4_CIDR,
+		Name:  subnetReqInfo.IId.NameId,
 	}
 	start := call.Start()
 	subnet, err := subnets.Create(vpcHandler.NetworkClient, createOpts).Extract()
@@ -293,9 +293,9 @@ func (vpcHandler *NhnCloudVPCHandler) AddSubnet(vpcIID irs.IID, subnetInfo irs.S
 	}
 
 	createOpts := subnets.CreateOpts{
-		VpcID: 	vpcIID.SystemId,
-		CIDR: 	subnetInfo.IPv4_CIDR,
-		Name: 	subnetInfo.IId.NameId,
+		VpcID: vpcIID.SystemId,
+		CIDR:  subnetInfo.IPv4_CIDR,
+		Name:  subnetInfo.IId.NameId,
 	}
 	start := call.Start()
 	_, err := subnets.Create(vpcHandler.NetworkClient, createOpts).Extract()
@@ -305,7 +305,6 @@ func (vpcHandler *NhnCloudVPCHandler) AddSubnet(vpcIID irs.IID, subnetInfo irs.S
 		return irs.VPCInfo{}, newErr
 	}
 	LoggingInfo(callLogInfo, start)
-
 
 	vpcInfo, err := vpcHandler.GetVPC(irs.IID{SystemId: vpcIID.SystemId})
 	if err != nil {
@@ -346,18 +345,18 @@ func (vpcHandler *NhnCloudVPCHandler) mappingVpcInfo(vpc vpcs.VPC) (*irs.VPCInfo
 	// spew.Dump(vpc)
 	// cblogger.Info("\n")
 
-	vpcInfo := irs.VPCInfo {
+	vpcInfo := irs.VPCInfo{
 		IId: irs.IID{
 			NameId:   vpc.Name,
 			SystemId: vpc.ID,
 		},
 	}
 	vpcInfo.IPv4_CIDR = vpc.CIDRv4
-	
+
 	// Get Subnet info list.
 	var subnetInfoList []irs.SubnetInfo
 	if len(vpc.Subnets) > 0 {
-		for _, subnet := range vpc.Subnets {  // Because of vpcs.Subnet type (Not subnets.Subnet type), need to getSubnet()
+		for _, subnet := range vpc.Subnets { // Because of vpcs.Subnet type (Not subnets.Subnet type), need to getSubnet()
 			subnetInfo, err := vpcHandler.getSubnet(irs.IID{SystemId: subnet.ID})
 			if err != nil {
 				newErr := fmt.Errorf("Failed to Get Subnet info with the subnetId [%s]. [%v]", subnet.ID, err)
@@ -366,7 +365,7 @@ func (vpcHandler *NhnCloudVPCHandler) mappingVpcInfo(vpc vpcs.VPC) (*irs.VPCInfo
 			}
 			subnetInfoList = append(subnetInfoList, subnetInfo)
 		}
-	}	
+	}
 	vpcInfo.SubnetInfoList = subnetInfoList
 
 	var RouterExternal string
@@ -389,7 +388,7 @@ func (vpcHandler *NhnCloudVPCHandler) mappingVpcInfo(vpc vpcs.VPC) (*irs.VPCInfo
 func (vpcHandler *NhnCloudVPCHandler) mappingVpcSubnetInfo(vpc vpcs.VPC) (*irs.VPCInfo, error) {
 	cblogger.Info("NHN Cloud cloud driver: called mappingVpcSubnetInfo()!!")
 
-	vpcInfo := irs.VPCInfo {
+	vpcInfo := irs.VPCInfo{
 		IId: irs.IID{
 			NameId:   vpc.Name,
 			SystemId: vpc.ID,
@@ -421,7 +420,7 @@ func (vpcHandler *NhnCloudVPCHandler) mappingVpcSubnetInfo(vpc vpcs.VPC) (*irs.V
 			subnetInfo := vpcHandler.mappingSubnetInfo(subnet)
 			subnetInfoList = append(subnetInfoList, *subnetInfo)
 		}
-	}	
+	}
 	vpcInfo.SubnetInfoList = subnetInfoList
 
 	var RouterExternal string
@@ -444,7 +443,7 @@ func (vpcHandler *NhnCloudVPCHandler) mappingVpcSubnetInfo(vpc vpcs.VPC) (*irs.V
 func (vpcHandler *NhnCloudVPCHandler) mappingSubnetInfo(subnet subnets.Subnet) *irs.SubnetInfo { // subnets.Subnets
 	cblogger.Info("NHN Cloud cloud driver: called mappingSubnetInfo()!!")
 	// spew.Dump(subnet)
-	
+
 	subnetInfo := irs.SubnetInfo{
 		IId: irs.IID{
 			NameId:   subnet.Name,
@@ -463,7 +462,7 @@ func (vpcHandler *NhnCloudVPCHandler) mappingSubnetInfo(subnet subnets.Subnet) *
 	keyValueList := []irs.KeyValue{
 		{Key: "VPCId", Value: subnet.VPCID},
 		{Key: "RouterExternal", Value: RouterExternal},
-		{Key: "CreatedTime", Value: subnet.CreateTime},		
+		{Key: "CreatedTime", Value: subnet.CreateTime},
 	}
 	subnetInfo.KeyValueList = keyValueList
 	return &subnetInfo
