@@ -1,0 +1,37 @@
+## Config for KT Cloud VPC connection Driver ##
+ktcloudvpc:
+  identity_endpoint: https://api.ucloudbiz.olleh.com/d1/identity/v3/
+  # $$$ Need to append '/v3/' to identity_endpoint URL 
+
+  username: ~~~@~~~.com
+  # KT Cloud Portal User ID
+
+  password: XXXXXXXXXX
+  # KT Cloud Portal Password
+
+  domain_name: default
+
+  project_id: XXXXXXXXXX
+  # $$$ For 'V3' verson auth., identity_endpoint, username, password and domain_name are required basically.
+  # $$$ But, need 'project_id' for the token role
+  # You can get the prject id on 'Token' > 'Token' menu on KT Cloud Portal
+
+  region: KR1
+  zone: DX-M1
+  
+  ###########################################################
+  # Resource Info for Testing
+  vm_id: XXXXXXXXXX
+
+  disk_id: XXXXXXXXXX
+  nlb_id: 38288
+  keypair_name: kt-keypair-02
+
+  req_vm_name: ktvpc-vm-01
+  req_vm_spec: 16x32.itl
+  # 4x16.itl
+  # 2x8.itl # vCPU: 2, Mem: 8GB
+
+  req_keypair_name: ktvpc-keypair-01
+  req_disk_name: ktvpc-disk-01
+ 
