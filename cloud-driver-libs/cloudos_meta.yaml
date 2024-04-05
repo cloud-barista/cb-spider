@@ -107,8 +107,8 @@ NHNCLOUD:
   rootdisksize: General_HDD|20|1000|GB / General_SSD|20|1000|GB
   disktype: General_HDD / General_SSD
   disksize: General_HDD|10|2000|GB / General_SSD|10|2000|GB
-  # idmaxlength: VPC / Subnet / SecurityGroup / KeyPair / VM / Disk / NLB / MyImage
-  idmaxlength: 32 / 32 / 255 / 32 / 90 / 255 / 80 / 255
+  # idmaxlength: VPC / Subnet / SecurityGroup / KeyPair / VM / Disk / NLB / MyImage / Cluster
+  idmaxlength: 32 / 32 / 255 / 32 / 90 / 255 / 80 / 255 / 32
 
 KTCLOUD:
   region: Region / Zone
