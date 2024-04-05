@@ -1,6 +1,6 @@
 module github.com/cloud-barista/cb-spider
 
-go 1.21
+go 1.21.6
 
 replace (
 	github.com/IBM/vpc-go-sdk/0.23.0 => github.com/IBM/vpc-go-sdk v0.23.0
@@ -48,7 +48,7 @@ require (
 	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/cvm v1.0.493
 	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/vpc v1.0.206
 	github.com/uber/jaeger-client-go v2.30.0+incompatible
-	golang.org/x/crypto v0.20.0
+	golang.org/x/crypto v0.21.0
 	golang.org/x/oauth2 v0.7.0
 	google.golang.org/api v0.114.0
 	google.golang.org/grpc v1.56.3
@@ -88,6 +88,7 @@ require (
 	github.com/alibabacloud-go/tea-xml v1.1.3 // indirect
 	github.com/aliyun/credentials-go v1.3.2 // indirect
 	github.com/clbanning/mxj/v2 v2.7.0 // indirect
+	github.com/cloud-barista/ktcloudvpc-sdk-go v0.0.0-20240403081203-a0af52c7c7cd // indirect
 	github.com/itchyny/timefmt-go v0.1.5 // indirect
 	github.com/jinzhu/inflection v1.0.0 // indirect
 	github.com/jinzhu/now v1.1.5 // indirect
@@ -177,8 +178,8 @@ require (
 	go.opencensus.io v0.24.0 // indirect
 	go.uber.org/atomic v1.10.0 // indirect
 	golang.org/x/net v0.21.0 // indirect
-	golang.org/x/sys v0.17.0 // indirect
-	golang.org/x/term v0.17.0 // indirect
+	golang.org/x/sys v0.18.0 // indirect
+	golang.org/x/term v0.18.0 // indirect
 	golang.org/x/text v0.14.0 // indirect
 	golang.org/x/time v0.0.0-20211116232009-f0f3c7e86c11 // indirect
 	golang.org/x/tools v0.6.0 // indirect
