@@ -26,6 +26,7 @@ import (
 	tencentdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/tencent"
 
 	ktdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/ktcloud"
+	ktvpcdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/ktcloudvpc"
 	ncpdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/ncp"
 	ncpvpcdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/ncpvpc"
 	nhndrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/nhncloud"
@@ -77,6 +78,8 @@ func getCloudDriver(cldDrvInfo dim.CloudDriverInfo) (idrv.CloudDriver, error) {
 		cloudDriver = new(nhndrv.NhnCloudDriver)
 	case "KTCLOUD":
 		cloudDriver = new(ktdrv.KtCloudDriver)
+	case "KTCLOUDVPC":
+		cloudDriver = new(ktvpcdrv.KTCloudVpcDriver)
 	case "MOCK":
 		cloudDriver = new(mockdrv.MockDriver)
 
