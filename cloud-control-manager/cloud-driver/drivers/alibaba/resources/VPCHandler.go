@@ -62,7 +62,7 @@ func (VPCHandler *AlibabaVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.V
 	response, err := VPCHandler.Client.CreateVpc(request)
 	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 	cblogger.Info(response)
-	spew.Dump(response)
+	//spew.Dump(response)
 	if err != nil {
 		callLogInfo.ErrorMSG = err.Error()
 		callogger.Info(call.String(callLogInfo))
@@ -116,20 +116,24 @@ func (VPCHandler *AlibabaVPCHandler) CreateSubnet(vpcId string, reqSubnetInfo ir
 		}
 	*/
 
+	zoneId := VPCHandler.Region.Zone
+	if reqSubnetInfo.Zone != ""{
+		zoneId = reqSubnetInfo.Zone
+	}
 	//서브넷 생성
 	request := vpc.CreateCreateVSwitchRequest()
 	request.Scheme = "https"
 	request.VpcId = vpcId
 	request.CidrBlock = reqSubnetInfo.IPv4_CIDR
 	request.VSwitchName = reqSubnetInfo.IId.NameId
-	request.ZoneId = VPCHandler.Region.Zone                   //"ap-northeast-1a" // @TOTO : ZoneId 전달 받아야 함.
+	request.ZoneId = zoneId
 	cblogger.Info(request)
 
 	// logger for HisCall
 	callogger := call.GetLogger("HISCALL")
 	callLogInfo := call.CLOUDLOGSCHEMA{
 		CloudOS:      call.ALIBABA,
-		RegionZone:   VPCHandler.Region.Zone,
+		RegionZone:   zoneId,
 		ResourceType: call.VPCSUBNET,
 		ResourceName: reqSubnetInfo.IId.NameId,
 		CloudOSAPI:   "CreateVSwitch()",
@@ -148,7 +152,7 @@ func (VPCHandler *AlibabaVPCHandler) CreateSubnet(vpcId string, reqSubnetInfo ir
 		return irs.SubnetInfo{}, err
 	}
 	callogger.Info(call.String(callLogInfo))
-	spew.Dump(response)
+	//spew.Dump(response)
 
 	subnetInfo, errSunetInfo := VPCHandler.GetSubnet(response.VSwitchId)
 	if errSunetInfo != nil {
@@ -302,7 +306,7 @@ func (VPCHandler *AlibabaVPCHandler) GetVPC(vpcIID irs.IID) (irs.VPCInfo, error)
 	}
 
 	vpcInfo := ExtractVpcDescribeInfo(&result.Vpcs.Vpc[0])
-	spew.Dump(vpcInfo)
+	//spew.Dump(vpcInfo)
 
 	//==========================
 	// VPC의 서브넷들 처리
@@ -454,7 +458,7 @@ func (VPCHandler *AlibabaVPCHandler) GetSubnet(reqSubnetId string) (irs.SubnetIn
 
 	result, err := VPCHandler.Client.DescribeVSwitches(request)
 	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
-	spew.Dump(result)
+	//spew.Dump(result)
 	//cblogger.Info(result)
 	if err != nil {
 		callLogInfo.ErrorMSG = err.Error()
@@ -481,6 +485,7 @@ func ExtractSubnetDescribeInfo(subnetInfo vpc.VSwitch) irs.SubnetInfo {
 	vNetworkInfo := irs.SubnetInfo{
 		IId:       irs.IID{NameId: subnetInfo.VSwitchName, SystemId: subnetInfo.VSwitchId},
 		IPv4_CIDR: subnetInfo.CidrBlock,
+		Zone: subnetInfo.ZoneId,
 	}
 
 	keyValueList := []irs.KeyValue{
