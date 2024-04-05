@@ -52,10 +52,16 @@ func (diskHandler *AlibabaDiskHandler) CreateDisk(diskReqInfo irs.DiskInfo) (irs
 		return irs.DiskInfo{}, err
 	}
 
+	// #issue 1067 : 입력받은 zone에 생성
+	zoneId := diskHandler.Region.Zone
+	if diskReqInfo.Zone != "" {
+		zoneId = diskReqInfo.Zone
+	}
+
 	destinationResource := "DataDisk"
 	resourceType := "disk" // instance, disk, reservedinstance, ddh
 	//client *ecs.Client, regionId string, zoneId string, resourceType string, destinationResource string, categoryValue string
-	_, err = DescribeAvailableResource(diskHandler.Client, diskHandler.Region.Region, diskHandler.Region.Zone, resourceType, destinationResource, diskReqInfo.DiskType)
+	_, err = DescribeAvailableResource(diskHandler.Client, diskHandler.Region.Region, zoneId, resourceType, destinationResource, diskReqInfo.DiskType)
 	if err != nil {
 		return irs.DiskInfo{}, err
 	}
@@ -63,7 +69,7 @@ func (diskHandler *AlibabaDiskHandler) CreateDisk(diskReqInfo irs.DiskInfo) (irs
 	request := ecs.CreateCreateDiskRequest()
 	request.Scheme = "https"
 	// 필수 Req Name
-	request.ZoneId = diskHandler.Region.Zone
+	request.ZoneId = zoneId
 	request.DiskName = diskReqInfo.IId.NameId
 	request.DiskCategory = diskReqInfo.DiskType
 	request.Size = requests.Integer(diskReqInfo.DiskSize)
@@ -75,7 +81,7 @@ func (diskHandler *AlibabaDiskHandler) CreateDisk(diskReqInfo irs.DiskInfo) (irs
 		},
 	}
 
-	spew.Dump(request)
+	//spew.Dump(request)
 	// Creates a new custom Image with the given name
 	result, err := diskHandler.Client.CreateDisk(request)
 	hiscallInfo.ElapsedTime = call.Elapsed(start)
@@ -88,7 +94,7 @@ func (diskHandler *AlibabaDiskHandler) CreateDisk(diskReqInfo irs.DiskInfo) (irs
 	calllogger.Info(call.String(hiscallInfo))
 
 	cblogger.Infof("Created Disk %q %s\n %s\n", result.DiskId, diskReqInfo.IId.NameId, result.RequestId)
-	spew.Dump(result)
+	//spew.Dump(result)
 
 	// 생성된 Disk 정보 획득 후, Image 정보 리턴
 	diskInfo, err := diskHandler.GetDisk(irs.IID{SystemId: result.DiskId})
@@ -624,6 +630,7 @@ func ExtractDiskDescribeInfo(aliDisk *ecs.Disk) (irs.DiskInfo, error) {
 
 	diskInfo.DiskSize = strconv.Itoa(aliDisk.Size)
 	diskInfo.DiskType = aliDisk.Category
+	diskInfo.Zone = aliDisk.ZoneId
 	diskInfo.CreatedTime, _ = time.Parse(
 		time.RFC3339,
 		aliDisk.CreationTime)
