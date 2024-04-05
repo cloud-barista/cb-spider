@@ -66,6 +66,7 @@ require (
 	github.com/alibabacloud-go/tea v1.2.2
 	github.com/alibabacloud-go/vpc-20160428/v6 v6.4.0
 	github.com/cloud-barista/ktcloud-sdk-go v0.2.1-0.20240123114820-8684cfc5deeb
+	github.com/cloud-barista/ktcloudvpc-sdk-go v0.0.0-20240403081203-a0af52c7c7cd
 	github.com/cloud-barista/nhncloud-sdk-go v0.0.0-20240403130402-131df63a24b4
 	github.com/go-openapi/strfmt v0.21.3
 	github.com/hashicorp/go-version v1.6.0
@@ -88,7 +89,6 @@ require (
 	github.com/alibabacloud-go/tea-xml v1.1.3 // indirect
 	github.com/aliyun/credentials-go v1.3.2 // indirect
 	github.com/clbanning/mxj/v2 v2.7.0 // indirect
-	github.com/cloud-barista/ktcloudvpc-sdk-go v0.0.0-20240403081203-a0af52c7c7cd // indirect
 	github.com/itchyny/timefmt-go v0.1.5 // indirect
 	github.com/jinzhu/inflection v1.0.0 // indirect
 	github.com/jinzhu/now v1.1.5 // indirect
