@@ -44,7 +44,7 @@ func RegisterDisk(c echo.Context) error {
 	userIId := cres.IID{req.ReqInfo.Name, req.ReqInfo.CSPId}
 
 	// Call common-runtime API
-	result, err := cmrt.RegisterDisk(req.ConnectionName, userIId)
+	result, err := cmrt.RegisterDisk(req.ConnectionName, req.ReqInfo.Zone, userIId)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}

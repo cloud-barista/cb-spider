@@ -67,10 +67,28 @@ func getProviderNameByDriverName(driverName string) (string, error) {
 	return cldDrvInfo.ProviderName, nil
 }
 
+// CloudConnection for Region-Level Control (Except. DiskHandler)
+func GetCloudConnection(cloudConnectName string) (icon.CloudConnection, error) {
+	conn, err := commonGetCloudConnection(cloudConnectName, "")
+	if err != nil {
+		return nil, err
+	}
+	return conn, nil
+}
+
+// CloudConnection for Zone-Level Control (Ex. DiskHandler)
+func GetZoneLevelCloudConnection(cloudConnectName string, targetZoneName string) (icon.CloudConnection, error) {
+	conn, err := commonGetCloudConnection(cloudConnectName, targetZoneName)
+	if err != nil {
+		return nil, err
+	}
+	return conn, nil
+}
+
 // 1. get credential info
 // 2. get region info
 // 3. get CloudConneciton
-func GetCloudConnection(cloudConnectName string) (icon.CloudConnection, error) {
+func commonGetCloudConnection(cloudConnectName string, targetZoneName string) (icon.CloudConnection, error) {
 	cccInfo, err := ccim.GetConnectionConfig(cloudConnectName)
 	if err != nil {
 		return nil, err
@@ -119,7 +137,8 @@ func GetCloudConnection(cloudConnectName string) (icon.CloudConnection, error) {
 		},
 		RegionInfo: idrv.RegionInfo{ // @todo powerkim
 			Region:        regionName,
-			Zone:          zoneName,
+			Zone:          zoneName,       // default Zone
+			TargetZone:    targetZoneName, // Target Zone for Zone-Level Control(Ex. DiskHandler)
 			ResourceGroup: getValue(rgnInfo.KeyValueInfoList, "ResourceGroup"),
 		},
 	}

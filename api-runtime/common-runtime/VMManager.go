@@ -938,7 +938,7 @@ func setNameId(ConnectionName string, vmInfo *cres.VMInfo, reqInfo *cres.VMReqIn
 	if reqInfo.ImageType == cres.MyImage {
 		for i, diskIID := range vmInfo.DataDiskIIDs {
 			diskIID.NameId = reqInfo.IId.NameId + "-disk-" + strconv.Itoa(i)
-			diskInfo, err := RegisterDisk(ConnectionName, diskIID)
+			diskInfo, err := RegisterDisk(ConnectionName, vmInfo.Region.Zone, diskIID)
 			if err != nil {
 				cblog.Error(err)
 				return err

@@ -243,6 +243,29 @@ func GetByConditions(info interface{}, columnName1 string, columnValue1 string, 
 	return nil
 }
 
+// GetByConditionAndContain finds an entry that matches the given conditions:
+// - columnName1 must equal columnValue1
+// - columnName2 must contain columnContainValue2
+func GetByConditionAndContain(info interface{}, columnName1 string, columnValue1 string, columnName2 string, columnContainValue2 string) error {
+	db, err := Open()
+	if err != nil {
+		return err
+	}
+	defer Close(db)
+
+	// Use LIKE operator for columnName2 to check if it contains columnContainValue2
+	query := fmt.Sprintf("%s = ? AND %s LIKE ?", columnName1, columnName2)
+	if err := db.Where(query, columnValue1, "%"+columnContainValue2+"%").First(&info).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return fmt.Errorf("%s, %s: does not exist!", columnValue1, columnContainValue2)
+		} else {
+			return fmt.Errorf("%s, %s: %v", columnValue1, columnContainValue2, err)
+		}
+	}
+
+	return nil
+}
+
 // Get a Info with three conditions(Conneciton Name, Resource NameId, Owner VPC Name)
 func GetBy3Conditions(info interface{}, columnName1 string, columnValue1 string, columnName2 string, columnValue2 string,
 	columnName3 string, columnValue3 string) error {

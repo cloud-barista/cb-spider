@@ -17,6 +17,7 @@ import (
 	cblogger "github.com/cloud-barista/cb-log"
 	splock "github.com/cloud-barista/cb-spider/api-runtime/common-runtime/sp-lock"
 	ccm "github.com/cloud-barista/cb-spider/cloud-control-manager"
+	icon "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/connect"
 	cres "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	iidm "github.com/cloud-barista/cb-spider/cloud-control-manager/iid-manager"
 	infostore "github.com/cloud-barista/cb-spider/info-store"
@@ -91,6 +92,13 @@ const OWNER_CLUSTER_NAME_COLUMN = "owner_cluster_name"
 
 type FirstIIDInfo struct {
 	ConnectionName string `gorm:"primaryKey"` // ex) "aws-seoul-config"
+	NameId         string `gorm:"primaryKey"` // ex) "my_resource"
+	SystemId       string // ID in CSP, ex) "i7baab81a4ez"
+}
+
+type ZoneLevelIIDInfo struct {
+	ConnectionName string `gorm:"primaryKey"` // ex) "aws-seoul-config"
+	ZoneId         string // ex) "ap-northeast-2a"
 	NameId         string `gorm:"primaryKey"` // ex) "my_resource"
 	SystemId       string // ID in CSP, ex) "i7baab81a4ez"
 }
@@ -776,7 +784,35 @@ func DeleteCSPResource(connectionName string, rsType string, systemID string) (b
 		return false, "", err
 	}
 
-	cldConn, err := ccm.GetCloudConnection(connectionName)
+	var cldConn icon.CloudConnection
+	zoneId := ""
+	switch rsType {
+	case rsDisk: // Zone-Level Control Resource(ex. Disk)
+		// (1) get IID(SystemId)
+		var iidInfo DiskIIDInfo
+		err = infostore.GetByConditionAndContain(&iidInfo, CONNECTION_NAME_COLUMN, connectionName, SYSTEM_ID_COLUMN, systemID)
+		if err != nil {
+			if strings.Contains(err.Error(), "not exist") {
+				// if not exist, find Owner ZoneId
+				zoneId, err = findDiskOwnerZoneId(connectionName, systemID)
+				if err != nil {
+					cblog.Error(err)
+					return false, "", err
+				}
+
+			} else {
+				cblog.Error(err)
+				return false, "", err
+			}
+		} else {
+			zoneId = iidInfo.ZoneId
+		}
+
+		cldConn, err = ccm.GetZoneLevelCloudConnection(connectionName, zoneId)
+
+	default:
+		cldConn, err = ccm.GetCloudConnection(connectionName)
+	}
 	if err != nil {
 		cblog.Error(err)
 		return false, "", err
@@ -869,7 +905,7 @@ func DeleteCSPResource(connectionName string, rsType string, systemID string) (b
 	}
 
 	if rsType != rsVM {
-		if result == false {
+		if !result {
 			return result, "", nil
 		}
 	}
@@ -879,6 +915,45 @@ func DeleteCSPResource(connectionName string, rsType string, systemID string) (b
 	} else {
 		return result, "", nil
 	}
+}
+
+func findDiskOwnerZoneId(connectionName string, systemID string) (string, error) {
+	regionName, _, err := ccm.GetRegionNameByConnectionName(connectionName)
+	if err != nil {
+		cblog.Error(err)
+		return "", err
+	}
+
+	// Get current Region Info with ZoneList
+	regionZoneInfo, err := GetRegionZone(connectionName, regionName)
+	if err != nil {
+		cblog.Error(err)
+		return "", err
+	}
+
+	// find Owner ZoneId in all Zones
+	for _, zoneInfo := range regionZoneInfo.ZoneList {
+		cldConn, err := ccm.GetZoneLevelCloudConnection(connectionName, zoneInfo.Name)
+		if err != nil {
+			cblog.Error(err)
+			return "", err
+		}
+
+		handler, err := cldConn.CreateDiskHandler()
+		if err != nil {
+			cblog.Error(err)
+			return "", err
+		}
+
+		// (2) get resource(SystemId)
+		_, err = handler.GetDisk(getDriverIID(cres.IID{NameId: systemID, SystemId: systemID}))
+		if err != nil {
+			cblog.Info(err)
+			continue // for loop
+		}
+		return zoneInfo.Name, nil
+	}
+	return "", fmt.Errorf("The '%s' does not exist in %s(%s)", systemID, connectionName, regionName)
 }
 
 // Get Json string of CSP's Resource(SystemId) Info
@@ -898,7 +973,35 @@ func GetCSPResourceInfo(connectionName string, rsType string, systemID string) (
 		return nil, err
 	}
 
-	cldConn, err := ccm.GetCloudConnection(connectionName)
+	var cldConn icon.CloudConnection
+	zoneId := ""
+	switch rsType {
+	case rsDisk: // Zone-Level Control Resource(ex. Disk)
+		// (1) get IID(SystemId)
+		var iidInfo DiskIIDInfo
+		err = infostore.GetByConditionAndContain(&iidInfo, CONNECTION_NAME_COLUMN, connectionName, SYSTEM_ID_COLUMN, systemID)
+		if err != nil {
+			if strings.Contains(err.Error(), "not exist") {
+				// if not exist, find Owner ZoneId
+				zoneId, err = findDiskOwnerZoneId(connectionName, systemID)
+				if err != nil {
+					cblog.Error(err)
+					return nil, err
+				}
+
+			} else {
+				cblog.Error(err)
+				return nil, err
+			}
+		} else {
+			zoneId = iidInfo.ZoneId
+		}
+
+		cldConn, err = ccm.GetZoneLevelCloudConnection(connectionName, zoneId)
+
+	default:
+		cldConn, err = ccm.GetCloudConnection(connectionName)
+	}
 	if err != nil {
 		cblog.Error(err)
 		return nil, err

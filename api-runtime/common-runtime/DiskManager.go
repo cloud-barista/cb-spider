@@ -21,7 +21,7 @@ import (
 // ====================================================================
 // type for GORM
 
-type DiskIIDInfo FirstIIDInfo
+type DiskIIDInfo ZoneLevelIIDInfo
 
 func (DiskIIDInfo) TableName() string {
 	return "disk_iid_infos"
@@ -46,7 +46,7 @@ func init() {
 // (2) get resource info(CSP-ID)
 // (3) create spiderIID: {UserID, SP-XID:CSP-ID}
 // (4) insert spiderIID
-func RegisterDisk(connectionName string, userIID cres.IID) (*cres.DiskInfo, error) {
+func RegisterDisk(connectionName string, zoneId string, userIID cres.IID) (*cres.DiskInfo, error) {
 	cblog.Info("call RegisterDisk()")
 
 	// check empty and trim user inputs
@@ -66,18 +66,6 @@ func RegisterDisk(connectionName string, userIID cres.IID) (*cres.DiskInfo, erro
 
 	rsType := rsDisk
 
-	cldConn, err := ccm.GetCloudConnection(connectionName)
-	if err != nil {
-		cblog.Error(err)
-		return nil, err
-	}
-
-	handler, err := cldConn.CreateDiskHandler()
-	if err != nil {
-		cblog.Error(err)
-		return nil, err
-	}
-
 	diskSPLock.Lock(connectionName, userIID.NameId)
 	defer diskSPLock.Unlock(connectionName, userIID.NameId)
 
@@ -89,6 +77,18 @@ func RegisterDisk(connectionName string, userIID cres.IID) (*cres.DiskInfo, erro
 	}
 	if bool_ret {
 		err := fmt.Errorf(rsType + "-" + userIID.NameId + " already exists!")
+		cblog.Error(err)
+		return nil, err
+	}
+
+	cldConn, err := ccm.GetZoneLevelCloudConnection(connectionName, zoneId)
+	if err != nil {
+		cblog.Error(err)
+		return nil, err
+	}
+
+	handler, err := cldConn.CreateDiskHandler()
+	if err != nil {
 		cblog.Error(err)
 		return nil, err
 	}
@@ -110,7 +110,7 @@ func RegisterDisk(connectionName string, userIID cres.IID) (*cres.DiskInfo, erro
 
 	// (4) insert spiderIID
 	// insert Disk SpiderIID to metadb
-	err = infostore.Insert(&DiskIIDInfo{ConnectionName: connectionName, NameId: spiderIId.NameId, SystemId: spiderIId.SystemId})
+	err = infostore.Insert(&DiskIIDInfo{ConnectionName: connectionName, ZoneId: zoneId, NameId: spiderIId.NameId, SystemId: spiderIId.SystemId})
 	if err != nil {
 		cblog.Error(err)
 		return nil, err
@@ -212,7 +212,7 @@ func CreateDisk(connectionName string, rsType string, reqInfo cres.DiskInfo) (*c
 	spiderIId := cres.IID{NameId: reqIId.NameId, SystemId: info.IId.NameId + ":" + info.IId.SystemId}
 
 	// (5) insert spiderIID
-	err = infostore.Insert(&DiskIIDInfo{ConnectionName: connectionName, NameId: spiderIId.NameId, SystemId: spiderIId.SystemId})
+	err = infostore.Insert(&DiskIIDInfo{ConnectionName: connectionName, ZoneId: reqInfo.Zone, NameId: spiderIId.NameId, SystemId: spiderIId.SystemId})
 	if err != nil {
 		cblog.Error(err)
 		// rollback
@@ -245,18 +245,6 @@ func ListDisk(connectionName string, rsType string) ([]*cres.DiskInfo, error) {
 		return nil, err
 	}
 
-	cldConn, err := ccm.GetCloudConnection(connectionName)
-	if err != nil {
-		cblog.Error(err)
-		return nil, err
-	}
-
-	handler, err := cldConn.CreateDiskHandler()
-	if err != nil {
-		cblog.Error(err)
-		return nil, err
-	}
-
 	// (1) get IID:list
 	var iidInfoList []*DiskIIDInfo
 	err = infostore.ListByCondition(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName)
@@ -276,6 +264,20 @@ func ListDisk(connectionName string, rsType string) ([]*cres.DiskInfo, error) {
 	for _, iidInfo := range iidInfoList {
 
 		diskSPLock.RLock(connectionName, iidInfo.NameId)
+
+		cldConn, err := ccm.GetZoneLevelCloudConnection(connectionName, iidInfo.ZoneId)
+		if err != nil {
+			diskSPLock.RUnlock(connectionName, iidInfo.NameId)
+			cblog.Error(err)
+			return nil, err
+		}
+
+		handler, err := cldConn.CreateDiskHandler()
+		if err != nil {
+			diskSPLock.RUnlock(connectionName, iidInfo.NameId)
+			cblog.Error(err)
+			return nil, err
+		}
 
 		// get resource(SystemId)
 		info, err := handler.GetDisk(getDriverIID(cres.IID{NameId: iidInfo.NameId, SystemId: iidInfo.SystemId}))
@@ -328,24 +330,24 @@ func GetDisk(connectionName string, rsType string, nameID string) (*cres.DiskInf
 		return nil, err
 	}
 
-	cldConn, err := ccm.GetCloudConnection(connectionName)
-	if err != nil {
-		cblog.Error(err)
-		return nil, err
-	}
-
-	handler, err := cldConn.CreateDiskHandler()
-	if err != nil {
-		cblog.Error(err)
-		return nil, err
-	}
-
 	diskSPLock.RLock(connectionName, nameID)
 	defer diskSPLock.RUnlock(connectionName, nameID)
 
 	// (1) get IID(NameId)
 	var iidInfo DiskIIDInfo
 	err = infostore.GetByConditions(&iidInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameID)
+	if err != nil {
+		cblog.Error(err)
+		return nil, err
+	}
+
+	cldConn, err := ccm.GetZoneLevelCloudConnection(connectionName, iidInfo.ZoneId)
+	if err != nil {
+		cblog.Error(err)
+		return nil, err
+	}
+
+	handler, err := cldConn.CreateDiskHandler()
 	if err != nil {
 		cblog.Error(err)
 		return nil, err
@@ -397,7 +399,18 @@ func ChangeDiskSize(connectionName string, diskName string, size string) (bool, 
 		return false, err
 	}
 
-	cldConn, err := ccm.GetCloudConnection(connectionName)
+	diskSPLock.RLock(connectionName, diskName)
+	defer diskSPLock.RUnlock(connectionName, diskName)
+
+	// (1) get IID(NameId)
+	var iidInfo DiskIIDInfo
+	err = infostore.GetByConditions(&iidInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, diskName)
+	if err != nil {
+		cblog.Error(err)
+		return false, err
+	}
+
+	cldConn, err := ccm.GetZoneLevelCloudConnection(connectionName, iidInfo.ZoneId)
 	if err != nil {
 		cblog.Error(err)
 		return false, err
@@ -455,7 +468,18 @@ func AttachDisk(connectionName string, diskName string, ownerVMName string) (*cr
 		return nil, err
 	}
 
-	cldConn, err := ccm.GetCloudConnection(connectionName)
+	diskSPLock.RLock(connectionName, diskName)
+	defer diskSPLock.RUnlock(connectionName, diskName)
+
+	// (1) get IID(NameId)
+	var iidInfo DiskIIDInfo
+	err = infostore.GetByConditions(&iidInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, diskName)
+	if err != nil {
+		cblog.Error(err)
+		return nil, err
+	}
+
+	cldConn, err := ccm.GetZoneLevelCloudConnection(connectionName, iidInfo.ZoneId)
 	if err != nil {
 		cblog.Error(err)
 		return nil, err
@@ -521,7 +545,18 @@ func DetachDisk(connectionName string, diskName string, ownerVMName string) (boo
 		return false, err
 	}
 
-	cldConn, err := ccm.GetCloudConnection(connectionName)
+	diskSPLock.RLock(connectionName, diskName)
+	defer diskSPLock.RUnlock(connectionName, diskName)
+
+	// (1) get IID(NameId)
+	var iidInfo DiskIIDInfo
+	err = infostore.GetByConditions(&iidInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, diskName)
+	if err != nil {
+		cblog.Error(err)
+		return false, err
+	}
+
+	cldConn, err := ccm.GetZoneLevelCloudConnection(connectionName, iidInfo.ZoneId)
 	if err != nil {
 		cblog.Error(err)
 		return false, err
@@ -579,18 +614,6 @@ func DeleteDisk(connectionName string, rsType string, nameID string, force strin
 		return false, err
 	}
 
-	cldConn, err := ccm.GetCloudConnection(connectionName)
-	if err != nil {
-		cblog.Error(err)
-		return false, err
-	}
-
-	handler, err := cldConn.CreateDiskHandler()
-	if err != nil {
-		cblog.Error(err)
-		return false, err
-	}
-
 	diskSPLock.Lock(connectionName, nameID)
 	defer diskSPLock.Unlock(connectionName, nameID)
 
@@ -604,6 +627,19 @@ func DeleteDisk(connectionName string, rsType string, nameID string, force strin
 
 	// (2) delete Resource(SystemId)
 	driverIId := getDriverIID(cres.IID{NameId: iidInfo.NameId, SystemId: iidInfo.SystemId})
+
+	cldConn, err := ccm.GetZoneLevelCloudConnection(connectionName, iidInfo.ZoneId)
+	if err != nil {
+		cblog.Error(err)
+		return false, err
+	}
+
+	handler, err := cldConn.CreateDiskHandler()
+	if err != nil {
+		cblog.Error(err)
+		return false, err
+	}
+
 	result := false
 	result, err = handler.(cres.DiskHandler).DeleteDisk(driverIId)
 	if err != nil {
